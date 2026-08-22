@@ -32,6 +32,7 @@
  */
 import type { Menu, MenuItem } from './menu_types.js';
 import type { ToolEntry } from './toolbar_types.js';
+import { TOOLBAR_ACTIONS } from './toolbar_actions.js';
 import { DEFAULT_LANGUAGE } from './language_menu.js';
 import { browserSafeKey } from './browser_reserved.js';
 import { hotkeyListName } from './key_names.js';
@@ -199,12 +200,39 @@ function walkToolbar(entries: readonly ToolEntry[]): { title: string; id: string
   for (const e of entries) {
     if (e === 'sep') continue;
     if ('group' in e) {
-      for (const a of e.actions) out.push({ title: a.title, id: a.id });
-    } else if ('title' in e && 'icon' in e) {
-      out.push({ title: e.title, id: e.id });
+      for (const a of e.actions) out.push({ title: a.title ?? '', id: a.id });
+    } else if ('icon' in e && 'id' in e) {
+      out.push({ title: e.title ?? '', id: e.id });
     }
   }
   return out;
+}
+
+/**
+ * A toolbar button's three columns, preferring the shared TOOL_ACTION
+ * transcription over the button's joined `title`.
+ *
+ * `splitToolTitle` below exists only because a `ToolButton` used to carry one
+ * pre-joined string that had to be pulled apart again with a regex. Where
+ * `toolbar_actions.ts` has the id, the three fields are already separate and
+ * are exactly upstream's: `GetFriendlyName()` for the Command column,
+ * `KeyNameFromKeyCode( GetHotKey() )` for the Hotkey column, and the action's
+ * own `.Tooltip()` for the Description column — which is what
+ * `GetDescription()` returns when no explicit description is set
+ * (tool_action.cpp:173-180). The regex path stays for editors whose toolbars
+ * have not been transcribed yet.
+ */
+function toolButtonColumns(
+  app: string,
+  b: { id: string; title: string },
+): { name: string; keys: string; description: string } {
+  // Keyed by app because a toolbar id is not globally unique — `placeText` is a
+  // different TOOL_ACTION in eeschema and pcbnew, with a different name and a
+  // different key.
+  const a = TOOLBAR_ACTIONS[app]?.[b.id];
+  if (a) return { name: a.name, keys: a.hotkey ?? '', description: a.tip ?? '' };
+  const { name, keys } = splitToolTitle(b.title);
+  return { name, keys, description: '' };
 }
 
 /** A no-op stands in for every handler: the builders are being read, not run. */
@@ -388,10 +416,14 @@ function section(
   // which differ, so the title is only kept as a description where it is not
   // simply the command again.
   for (const b of toolbars) {
-    const { name: title, keys } = splitToolTitle(b.title);
+    const { name: title, keys, description } = toolButtonColumns(app, b);
     const key = keyOf(b.id, title);
     const existing = byKey.get(key);
-    add(key, title, extraKeys[b.id] ?? keys, existing ? title : '', false);
+    // Upstream's Description column is `GetDescription()`, which falls back to
+    // the action's `.Tooltip()`. Where we have that, use it; otherwise keep the
+    // old behaviour of reusing the title, but only when it is not simply the
+    // command again.
+    add(key, title, extraKeys[b.id] ?? keys, description || (existing ? title : ''), false);
   }
 
   return [...byKey.values()];

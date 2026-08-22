@@ -13,7 +13,19 @@
 export interface ToolButton {
   id: string;
   icon: string;
-  title: string;
+  /**
+   * A pre-joined tooltip string, for an id `ui/toolbar_actions.ts` does not
+   * carry yet.
+   *
+   * Optional because it is a **fallback**, not the source. `ACTION_TOOLBAR`
+   * builds a button's tooltip from the TOOL_ACTION's three separate fields
+   * (`GetButtonTooltip()`, common/tool/action_toolbar.cpp:149), so a single
+   * joined string here can never produce the second line. Where an id is in
+   * `TOOLBAR_ACTIONS` this must be omitted rather than restated: a local copy
+   * that disagreed with the shared table is exactly the drift the central-value
+   * rule is about, and specificity would hide which one was winning.
+   */
+  title?: string;
   toggle?: boolean;
   /** Feature not implemented yet, shown greyed in its upstream position. */
   disabled?: boolean;
