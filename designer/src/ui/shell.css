@@ -370,7 +370,12 @@
   /* [css] check, radio { min-height: 14px; min-width: 14px; border: 1px }
      [px] the Negative box and the Symbol dot both measure 16 across. */
   --check-size: 16px;
-  --check-face: #393939; /* [css] check, radio { background-image: image(#393939) } [px] agrees */
+  /* [css] check, radio { background-image: image(#393939) } [px] agrees, and so
+     does qa/probes/checkbox_probe.cpp, which renders the control through
+     wxRendererNative::DrawCheckBox - the same GTK draw LAYER_WIDGET's wxCheckBox
+     gets - and reads the unchecked face back as rgb(57,57,57). Three sources,
+     one value. */
+  --check-face: #393939;
   /* [px] the ring around an unchecked radio on a live pcb_calculator measures
      rgb(25,25,25) - a shade off --ctl-border's #181818. */
   --check-border: #191919;
@@ -868,10 +873,37 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
    confirms it from a second app: its visibility checkboxes fill with exactly
    rgb(233, 84, 32), and they measure 16 across, not the 13 a bare
    <input type=checkbox> takes from the user agent. */
+/* Drawn rather than accented. `accent-color` gets the FILL right - a live
+   GerbView's boxes are rgb(233,84,32) and so are ours - but the tick is not
+   ours to ask for: the browser picks its own contrast colour for the mark and
+   for this accent Chrome chooses BLACK, where GTK strokes it white. That is
+   what Akshay saw beside a real GerbView, and no amount of accent-color can
+   move it, so the box is drawn here instead.
+
+   Every value below is measured off the real widget rather than chosen -
+   `wxRendererNative::DrawCheckBox` renders through GTK, so it IS the widget
+   LAYER_WIDGET puts in its visibility column (`layer_widget.cpp:347`). See
+   qa/probes/checkbox_probe.cpp. */
 .ze-app input[type="checkbox"] {
-  accent-color: var(--chrome-active);
+  appearance: none;
   width: var(--check-size);
   height: var(--check-size);
+  border: 1px solid var(--check-border);
+  border-radius: var(--check-radius);
+  background: var(--check-face);
+}
+.ze-app input[type="checkbox"]:checked {
+  border-color: var(--chrome-active);
+  background-color: var(--chrome-active);
+  /* The check stroke. --check-mark already holds this: Yaru's
+     $selected_fg_color, the ink GTK recolours check-symbolic.svg to. CSS cannot
+     interpolate a custom property into a url(), so the colour is spelled out
+     here and `checkbox_and_swatch.test.ts` asserts it still equals the token.
+     [px] the probe reads the stroke at rgb(255,252,252), white within
+     antialiasing, and so does Akshay's capture of a real GerbView. */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M12 5 L6.5 11.5 L4 9' fill='none' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
 }
 
 /* A wxSlider, drawn rather than accented: GTK's thumb is a WHITE disc, not a
@@ -2842,10 +2874,20 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
    no outline and no rounding anywhere in that function. The 1 px #444 border
    and the 2 px radius here were ours, and they ate two of the swatch's
    fourteen rows. */
+/* `COLOR_SWATCH::RenderToDC` opens with `aDC->SetPen( *wxTRANSPARENT_PEN )`
+   (`common/widgets/color_swatch.cpp:72`) and paints nothing but the colour: no
+   outline, and the white margin rectangles at :136-148 only appear when a
+   caller passes aMargins, which LAYER_WIDGET does not. Ours is a <button>, and
+   a bare button takes the user agent's 2px OUTSET border - which rendered as
+   the white-and-grey bevel Akshay saw around every swatch, where KiCad has a
+   flat rectangle of colour. Same class of defect as the notebook tabs coming
+   out in Arial: an element inherits chrome from the UA unless told not to. */
 .ze-layer-swatch {
   width: var(--swatch-small-w);
   height: var(--swatch-small-h);
   flex: 0 0 auto;
+  border: none;
+  padding: 0;
 }
 /* BITMAP_TOGGLE visibility eye: an inline-SVG button that always renders,
    drawn in a light grey that stays visible on the grey list background. */
