@@ -7482,7 +7482,7 @@ export function PcbEditor({
              class rather than restating a size, a 2px radius and a #444 border
              that color_swatch.cpp's RenderToDC does not draw. */
           [PCB_CONTROL.layerSelector]: (
-            <span className="ze-auxbar-layer">
+            <span className="ze-tb-layerbox">
               <span className="ze-layer-swatch" style={{ background: layerColor(activeLayer) }} />
               <select
                 value={activeLayer}
@@ -7551,7 +7551,7 @@ export function PcbEditor({
           /* A wxCheckBox labelled "Override locks" (eda_draw_frame.cpp:240),
              not a button. Its command is not ported, so it is disabled. */
           [PCB_CONTROL.overrideLocks]: (
-            <label className="ze-auxbar-check">
+            <label>
               <input type="checkbox" disabled />
               Override locks
             </label>

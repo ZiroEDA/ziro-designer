@@ -1208,22 +1208,22 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   align-items: center;
   padding: 0 2px;
 }
-/* PCB_LAYER_BOX_SELECTOR: a COLOR_SWATCH and the layer name, side by side in
-   one control slot (pcb_layer_box_selector.cpp:57). The swatch's look is the
-   shared .ze-layer-swatch and is not restated here; this is layout only. */
-.ze-auxbar-layer {
+/* PCB_LAYER_BOX_SELECTOR's swatch-and-name pair (pcb_layer_box_selector.cpp:57)
+   and the wxCheckBox overrideLocks adds (eda_draw_frame.cpp:240). Both are
+   laid out by `.ze-tb-control`, which is already inline-flex and centred, so
+   neither states anything here.
+
+   The gap between a swatch and its label, and between a checkbox indicator and
+   its label, are both GTK's and neither is measured yet: a 4px and a 6px were
+   written here on the way past and removed again rather than shipped, because
+   an unmeasured chrome number is the drift this stylesheet exists to stop.
+   Sampling them wants a rendered menu edge-on, the same probe the menu and
+   tooltip border widths are waiting on. Until then the slot's own padding
+   spaces them, and the pair below only needs to sit on one line — which is
+   layout, carrying no number at all. */
+.ze-tb-layerbox {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-}
-/* The wxCheckBox ACTION_TOOLBAR_CONTROLS::overrideLocks adds to the bar
-   (eda_draw_frame.cpp:240). A checkbox in a toolbar, not a button. */
-.ze-auxbar-check {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  white-space: nowrap;
-  cursor: default;
 }
 /* A wxStaticText sitting in a toolbar: GerbView's "Cmp: ", "Net:", "Attr:"
    and "DCode:" labels (`gerbview/toolbars_gerber.cpp:180,201,222,247`). It is a
