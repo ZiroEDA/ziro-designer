@@ -2659,13 +2659,45 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   border-left: 1px solid var(--chrome-border);
   min-width: min-content;
 }
+/* The centre pane and whatever wxAUI puts in LAYER 0 around it.
+
+   A `.Bottom()` pane with no `.Layer()` call takes the default layer 0, and
+   wxAUI nests docks outward by layer, so it is the innermost ring: it spans
+   only the width of the canvas, and the left/right docks (layer 3) and the
+   toolbars (layer 2) run their full height alongside it. That is why this is a
+   column of its own rather than a rule on `.ze-canvas-wrap` — the wrap is the
+   centre pane, and the layer-0 docks are its siblings, not its children.
+
+   `.ze-canvas-wrap` keeps its `flex: 1` here and grows down the column instead
+   of across the row; `min-height: 0` is what lets it shrink when the dock
+   below it is dragged taller. */
+.ze-canvas-col {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+/* A pane docked at the bottom of that column — eeschema's and pcbnew's Search
+   panes (`sch_edit_frame.cpp:290-300`). Height comes from the pane's own
+   `BestSize`/`MinSize` and is set on the element, the way the left dock's width
+   is; only the edge facing the canvas is stated here, because that is the one
+   wxAUI draws. */
+.ze-bottomdock {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-top: 1px solid var(--chrome-border);
+}
 /* Schematic Editor's left dock only: real eeschema's own chrome colors
    (sampled off a live 9.0.8 window, GTK/Yaru dark theme - neutral greys,
    not our app's blue-tinted chrome, and its orange row/checkbox highlight
    instead of our blue --chrome-active), scoped via custom-property
    shadowing so every descendant rule (.ze-panel, .ze-panel-header,
    .ze-tree-item.active/:hover, twisty, checkboxes...) picks it up for free. */
-.sch-leftdock {
+.sch-leftdock,
+.sch-bottomdock {
   --panel-bg: #272727;
   --panel-header: #2e2e2e;
   --panel-list-bg: #373737;
@@ -2681,7 +2713,8 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 }
 /* KiCad's pane caption is barely taller than a tree row; our default
    .ze-panel-header padding (5px) reads noticeably taller by comparison. */
-.sch-leftdock .ze-panel-header {
+.sch-leftdock .ze-panel-header,
+.sch-bottomdock .ze-panel-header {
   padding: 3px 9px;
 }
 /* HIERARCHY_PANE's row icon: a plain filled circle, not a document glyph. */
@@ -3080,10 +3113,19 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   background: var(--chrome-bg);
   color: var(--chrome-fg);
 }
-.ze-leftdock .ze-panel {
+/* A docked pane is sized by its dock, not by .ze-panel's own 220px default. */
+.ze-leftdock .ze-panel,
+.ze-bottomdock .ze-panel {
   width: auto;
   border-right: none;
+}
+/* Stacked panes are divided from each other; the bottom dock holds one. */
+.ze-leftdock .ze-panel {
   border-bottom: 1px solid var(--chrome-border);
+}
+.ze-bottomdock .ze-panel {
+  flex: 1;
+  min-height: 0;
 }
 .ze-leftdock .ze-panel.grow {
   flex: 1;

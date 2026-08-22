@@ -12,9 +12,11 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import {
+  SCH_BOTTOM_DOCK,
   SCH_LEFT_GROW_PANES,
   SCH_LEFT_PANE_ORDER,
   SCH_LEFT_PANE_POSITION,
+  schSelectionFilterShown,
 } from '@ziroeda/designer/src/editors/schematic/panes.js';
 
 describe('the Position() each pane is docked at', () => {
@@ -92,5 +94,127 @@ describe('the editor renders the dock through that order', () => {
     ]) {
       expect([...s.matchAll(new RegExp(header.replace(/[/]/g, '\\/'), 'g'))].length).toBe(1);
     }
+  });
+});
+
+/**
+ * `SCH_EDIT_FRAME::updateSelectionFilterVisbility` (sch_edit_frame.cpp:2817-2831).
+ * Ours keyed on Properties alone, so closing Properties with the hierarchy open
+ * took the Selection Filter away with it.
+ */
+describe('when the Selection Filter is shown', () => {
+  const none = { hierarchy: false, netNavigator: false, properties: false };
+
+  it('is hidden when nothing else in the column is shown', () => {
+    expect(schSelectionFilterShown(none)).toBe(false);
+  });
+
+  /** Each of the three disjuncts on its own — the bug was that two did nothing. */
+  it('is shown for the hierarchy alone', () => {
+    expect(schSelectionFilterShown({ ...none, hierarchy: true })).toBe(true);
+  });
+
+  it('is shown for the net navigator alone', () => {
+    expect(schSelectionFilterShown({ ...none, netNavigator: true })).toBe(true);
+  });
+
+  it('is shown for Properties alone', () => {
+    expect(schSelectionFilterShown({ ...none, properties: true })).toBe(true);
+  });
+
+  /** The exact case that was broken: Properties closed, hierarchy still open. */
+  it('survives closing Properties while the hierarchy is open', () => {
+    expect(schSelectionFilterShown({ ...none, hierarchy: true, properties: true })).toBe(true);
+    expect(schSelectionFilterShown({ ...none, hierarchy: true, properties: false })).toBe(true);
+  });
+});
+
+/**
+ * The Search pane's dock. `sch_edit_frame.cpp:290-300` — `.Bottom()` with no
+ * `.Layer()`, `MinSize( 180, 60 )`, `BestSize( 180, 100 )`.
+ */
+describe('the Search pane', () => {
+  it('opens at its BestSize height and floors at its MinSize height', () => {
+    expect(SCH_BOTTOM_DOCK.bestHeight).toBe(100);
+    expect(SCH_BOTTOM_DOCK.minHeight).toBe(60);
+  });
+
+  it('is not one of the left dock panes', () => {
+    expect(SCH_LEFT_PANE_ORDER).not.toContain('search');
+    expect(SCH_LEFT_GROW_PANES).not.toContain('search');
+  });
+});
+
+/**
+ * Placement, read off the source. A pane can only be in one place, so the test
+ * that matters is *which container* the Search header is inside — a check that
+ * it merely exists somewhere passes just as well when it is in the left column,
+ * which is exactly the bug.
+ */
+describe('the editor docks Search at the bottom of the canvas column', () => {
+  const SRC = fileURLToPath(
+    new URL('../../../designer/src/editors/schematic/SchematicEditor.tsx', import.meta.url),
+  );
+  const text = (): string => readFileSync(SRC, 'utf8');
+
+  /** The canvas and the layer-0 dock below it share a column. */
+  it('wraps the canvas in .ze-canvas-col', () => {
+    expect(text()).toContain('className="ze-canvas-col"');
+  });
+
+  it('renders the Search pane in that column, after the canvas', () => {
+    const s = text();
+    const col = s.indexOf('className="ze-canvas-col"');
+    const canvas = s.indexOf('className="ze-canvas-wrap"', col);
+    const dock = s.indexOf('ze-bottomdock', col);
+    const search = s.indexOf('Search</div>', col);
+    expect(col).toBeGreaterThan(-1);
+    expect(canvas).toBeGreaterThan(col);
+    expect(dock).toBeGreaterThan(canvas);
+    expect(search).toBeGreaterThan(dock);
+  });
+
+  /**
+   * The one that pins the fix: the Search header must not be anywhere inside
+   * the left dock. Ours rendered it as that dock's first pane.
+   */
+  it('does not render Search inside the left dock', () => {
+    const s = text();
+    const leftdock = s.indexOf('className="ze-leftdock sch-leftdock"');
+    const col = s.indexOf('className="ze-canvas-col"');
+    expect(leftdock).toBeGreaterThan(-1);
+    expect(s.indexOf('Search</div>')).toBeGreaterThan(col);
+    expect(col).toBeGreaterThan(leftdock);
+  });
+
+  /** Exactly one Search pane, so it was moved and not copied. */
+  it('emits the Search header exactly once', () => {
+    expect([...text().matchAll(/Search<\/div>/g)].length).toBe(1);
+  });
+
+  /** The dock height comes from the pane info, not from a literal in the JSX. */
+  it('takes the dock height from SCH_BOTTOM_DOCK', () => {
+    expect(text()).toContain('SCH_BOTTOM_DOCK.bestHeight');
+    expect(text()).toContain('SCH_BOTTOM_DOCK.minHeight');
+  });
+
+  /** And the filter's visibility from the predicate, not from a toggle. */
+  it('takes the Selection Filter from schSelectionFilterShown', () => {
+    expect(text()).toContain('schSelectionFilterShown(growShown)');
+  });
+
+  /**
+   * Both classes have to exist in the shared stylesheet, or the JSX names a
+   * dock that nothing lays out and the pane falls back to `.ze-panel`'s 220px.
+   * They are shared rules, not schematic-local ones: pcbnew docks its own
+   * Search pane the same way.
+   */
+  it('has both dock classes in the shared stylesheet', () => {
+    const css = readFileSync(
+      fileURLToPath(new URL('../../../designer/src/ui/shell.css', import.meta.url)),
+      'utf8',
+    );
+    expect(css).toMatch(/^\.ze-canvas-col \{/m);
+    expect(css).toMatch(/^\.ze-bottomdock \{/m);
   });
 });

@@ -444,7 +444,13 @@ import {
 } from '../../ui/status_format.js';
 import { formatTitle, useDocumentTitle } from '../../ui/useDocumentTitle.js';
 import { fileBaseName, pathHumanReadable, SCH_FRAME_NAME, schFrameTitle } from './frame_title.js';
-import { SCH_LEFT_GROW_PANES, SCH_LEFT_PANE_ORDER, type SchLeftPane } from './panes.js';
+import {
+  SCH_BOTTOM_DOCK,
+  SCH_LEFT_GROW_PANES,
+  SCH_LEFT_PANE_ORDER,
+  schSelectionFilterShown,
+  type SchLeftPane,
+} from './panes.js';
 import { useStatusReadout } from '../../ui/useStatusReadout.js';
 import { useUnsavedGuard } from '../../ui/useUnsavedGuard.js';
 import '../../ui/shell.css';
@@ -1110,6 +1116,38 @@ export function SchematicEditor({
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
     document.body.style.cursor = 'row-resize';
+  };
+
+  /**
+   * The sash above the BOTTOM dock. `startPanelResize` grows the pane before
+   * the sash; this one is the mirror image — the pane is *after* the sash, so
+   * dragging down shrinks it. The floor is the pane's own
+   * `.MinSize( 180, 60 )`, not a number chosen here.
+   */
+  const startBottomDockResize = (e: React.MouseEvent): void => {
+    e.preventDefault();
+    const paneEl = (e.currentTarget as HTMLElement).nextElementSibling as HTMLElement | null;
+    const startY = e.clientY;
+    const startH =
+      panelHeights.search ?? paneEl?.getBoundingClientRect().height ?? SCH_BOTTOM_DOCK.bestHeight;
+    const onMove = (ev: MouseEvent): void =>
+      setPanelHeights((p) => ({
+        ...p,
+        search: Math.max(SCH_BOTTOM_DOCK.minHeight, startH - (ev.clientY - startY)),
+      }));
+    const onUp = (): void => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      document.body.style.cursor = '';
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+    document.body.style.cursor = 'row-resize';
+  };
+
+  /** The dock opens at the pane's `.BestSize( 180, 100 )` height. */
+  const bottomDockStyle: React.CSSProperties = {
+    height: panelHeights.search ?? SCH_BOTTOM_DOCK.bestHeight,
   };
   const [prefsOpen, setPrefsOpen] = useState(false);
   const common = useCommonSettings();
@@ -7485,23 +7523,23 @@ export function SchematicEditor({
           // into — `SCH_LEFT_PANE_ORDER`, the upstream `Position()` numbers.
           // Ours used to hardcode the order here, and had Properties above the
           // hierarchy where upstream has it below.
-          const paneShown: Record<SchLeftPane, boolean> = {
+          const growShown = {
             netNavigator: toggles.has('showNetNavigator') && !!doc,
             hierarchy: toggles.has('showHierarchy'),
             properties: toggles.has('showProperties'),
-            selectionFilter: toggles.has('showProperties'),
+          };
+          const paneShown: Record<SchLeftPane, boolean> = {
+            ...growShown,
+            // Not a toggle of its own: `updateSelectionFilterVisbility` ORs the
+            // other three panes. See `schSelectionFilterShown`.
+            selectionFilter: schSelectionFilterShown(growShown),
           };
           // Adjacent visible grow panes get a drag sash between them, top pane
           // resizes (KiCad's wxAUI sash chain); Selection Filter (prop=0 in
           // KiCad's perspective) never grows, so it's never in this list.
-          const visibleGrowKeys: string[] = [
-            // Search still renders at the top of this column. Upstream docks it
-            // at the BOTTOM instead (`.Bottom()`, sch_edit_frame.cpp:290-292);
-            // moving it needs a dock class in `ui/ui/shell.css` and lands with
-            // that change, not this one.
-            ...(toggles.has('showSearch') && doc ? ['search'] : []),
-            ...SCH_LEFT_GROW_PANES.filter((k) => paneShown[k]),
-          ];
+          // Search is not here either — it is the BOTTOM dock, below the
+          // canvas, and its sash is its own (`SCH_BOTTOM_DOCK`).
+          const visibleGrowKeys: string[] = SCH_LEFT_GROW_PANES.filter((k) => paneShown[k]);
           const sashAfter = (key: string): JSX.Element | null =>
             visibleGrowKeys.indexOf(key) < visibleGrowKeys.length - 1 ? (
               <div
@@ -7513,45 +7551,10 @@ export function SchematicEditor({
           const heightStyle = (key: string): React.CSSProperties | undefined =>
             panelHeights[key] != null ? { flex: `0 0 ${panelHeights[key]}px` } : undefined;
           return (
-            (toggles.has('showProperties') ||
-              toggles.has('showHierarchy') ||
-              toggles.has('showSearch') ||
-              toggles.has('showNetNavigator')) && (
+            // Search is no longer a term: it does not live in this column.
+            (paneShown.properties || paneShown.hierarchy || paneShown.netNavigator) && (
               <>
                 <div className="ze-leftdock sch-leftdock" style={{ width: leftDockWidth }}>
-                  {toggles.has('showSearch') && doc && (
-                    <>
-                      <div className="ze-panel grow" style={heightStyle('search')}>
-                        <div className="ze-panel-header">Search</div>
-                        <div className="ze-panel-body">
-                          <SearchPanel
-                            doc={doc}
-                            libById={libById}
-                            fmt={fmt}
-                            selectionZoom={settings.common.search_pane.selection_zoom}
-                            onSelectionZoomChange={(mode) =>
-                              settings.updateCommon((c) => {
-                                c.search_pane.selection_zoom = mode;
-                              })
-                            }
-                            selection={selection}
-                            onClearSelection={() => setSelection(new Set())}
-                            onSelect={(id) => setSelection(new Set([id]))}
-                            onCenter={(_id, at) => controller.current?.centerOn(at)}
-                            onZoomFit={(id) => {
-                              // ACTIONS::zoomFitSelection, the same extent walk the View
-                              // menu's Zoom to Selected Objects uses.
-                              const box = doc
-                                ? selectionBBox(doc, new Set([id]), libById)
-                                : emptyBBox();
-                              if (!isEmpty(box)) controller.current?.zoomToBox(box);
-                            }}
-                          />
-                        </div>
-                      </div>
-                      {sashAfter('search')}
-                    </>
-                  )}
                   {/* The four docked panes, rendered in the order wxAUI sorts
                       them into from their `Position()` — see `panes.ts`. Only
                       the ORDER is data; each pane's contents stay inline. */}
@@ -7711,799 +7714,848 @@ export function SchematicEditor({
           onActivate={onLeftToggle}
         />
 
-        <div className="ze-canvas-wrap">
-          {readOnlyNotice}
-          {/* WX_INFOBAR: the strip a tool posts an error into, dismissed with
+        {/* The centre pane and the docks of LAYER 0 around it. Only the Search
+            pane is in that layer here, `.Bottom()` with no `.Layer()` call
+            (sch_edit_frame.cpp:290-292), and wxAUI nests docks outward by
+            layer — so it is as wide as the canvas, with the left dock (layer 3)
+            and both toolbars (layer 2) running full height past it and the
+            message panel (layer 6) below the lot. See `SCH_BOTTOM_DOCK`. */}
+        <div className="ze-canvas-col">
+          <div className="ze-canvas-wrap">
+            {readOnlyNotice}
+            {/* WX_INFOBAR: the strip a tool posts an error into, dismissed with
               its ✕ or by the next successful action. */}
-          {infoBar && (
-            <div className="ze-infobar">
-              {infoBar}
-              <span
-                className="x"
-                title="Close"
-                onClick={() => setInfoBar(null)}
-                style={{ marginLeft: 'auto', cursor: 'default' }}
-              >
-                ✕
-              </span>
-            </div>
-          )}
-          <SchematicCanvas
-            ref={controller}
-            onInfoBar={setInfoBar}
-            schematic={doc}
-            libById={libById}
-            selection={selection}
-            activeTool={activeTool}
-            lineMode={lineMode}
-            wireStartRequest={wireStartRequest}
-            arcEditMode={es.drawing.arc_edit_mode as ArcEditMode}
-            placeLib={placeLib}
-            placeUnit={placeUnit}
-            placeInstance={placeInstance}
-            onSymbolPlaced={onSymbolPlaced}
-            pendingLabel={pendingLabel}
-            // The canvas has always read this to decide whether a click drops
-            // the flag or re-opens the dialog, and it was never passed: it saw
-            // `undefined` every time, took the "ask again" branch on every
-            // click, and a directive label could not be placed at all.
-            pendingDirective={pendingDirective}
-            onLabelPlaced={onLabelPlaced}
-            onLabelPrompt={onLabelPrompt}
-            onFollowLink={onFollowLink}
-            highlight={highlightWires}
-            theme={theme}
-            renderOpts={renderOpts}
-            inputPrefs={inputPrefs}
-            onSheetDrawn={onSheetDrawn}
-            onTextBoxDrawn={onTextBoxDrawn}
-            onTableDrawn={onTableDrawn}
-            // The table preview needs the default text size: a column is
-            // fifteen characters wide and a row two high.
-            tableFontSizeIU={setup.formatting.defaultTextSizeMils * IU_PER_MILS}
-            onSheetPinClick={onSheetPinClick}
-            pendingImage={pendingImage}
-            onImagePlaced={onImagePlaced}
-            grabRequest={grabRequest}
-            onContextMenuRequest={onContextMenuRequest}
-            isHoverSelection={isHoverSelection({ selection, hover: hoverSelection })}
-            onClarify={(x, y, items, additive) => setClarify({ x, y, items, additive })}
-            onZoomArea={(box) => {
-              // The tool stays armed after a zoom. `ZOOM_TOOL::Main` loops on
-              // `selectRegion()`, and that returns *cancelled* — false for a
-              // zoom that actually happened — so the `break` is only ever taken
-              // when the user escapes or picks another tool:
-              //
-              //     else if( evt->IsDrag( BUT_LEFT ) || evt->IsDrag( BUT_RIGHT ) )
-              //     {
-              //         if( selectRegion() )
-              //             break;
-              //     }
-              //
-              // Dropping back to the selection tool here made it a one-shot, so
-              // zooming in twice meant picking the tool twice.
-              controller.current?.zoomToBox(box);
-            }}
-            onSelect={onSelect}
-            onHighlight={onHighlight}
-            onRequestTool={onToolSelect}
-            onEditItem={onEditItem}
-            onSelectBox={onSelectBox}
-            pastePending={pastePending}
-            onPasteDone={onPasteDone}
-            ercMarkers={ercResult
-              ?.filter((v) => (v.file ?? currentFile) === currentFile)
-              .map((v) => ({
-                ...v,
-                excluded: setup.ercExclusions.includes(ercExclusionKey(v)),
-                brightened: ercFocusedMarker === ercExclusionKey(v),
-              }))
-              .filter((v) =>
-                v.excluded
-                  ? es.appearance.show_erc_exclusions
-                  : v.severity === 'error'
-                    ? es.appearance.show_erc_errors
-                    : es.appearance.show_erc_warnings,
-              )}
-            onMarkerPick={(v, dbl) => {
-              // `SCH_MARKER_T` is always selectable, and selecting one runs
-              // `SCH_INSPECTION_TOOL::CrossProbe`: brighten the marker, drop any
-              // item selection, and walk the open ERC dialog to its row.
-              setSelection(new Set());
-              setErcFocusedMarker(ercExclusionKey(v));
-              // A double-click comes through SCH_EDIT_TOOL::Properties, which
-              // opens the dialog first if it is not already up:
-              //
-              //     if( !dlg->IsShownOnScreen() ) { dlg->Show( true ); dlg->Raise(); }
-              if (dbl) setErcOpen(true);
-              // The dialog may not be mounted yet on that first double-click,
-              // so the row is remembered and applied once its nav appears.
-              if (!ercNav.current?.selectByKey(ercExclusionKey(v)))
-                pendingErcSelect.current = ercExclusionKey(v);
-            }}
-            onCommand={runCommand}
-            onAnnotatePlacement={annotatePlacement}
-            onEditDrawingSheet={() => setPageSettingsOpen(true)}
-            onCursorMove={onCursorMove}
-            onScaleChange={onScaleChange}
-          />
-          {ctxMenu && (
-            <ContextMenu
-              x={ctxMenu.x}
-              y={ctxMenu.y}
-              items={buildContextMenu()}
-              onClose={() => setCtxMenu(null)}
-            />
-          )}
-          {clarify && doc && (
-            <ContextMenu
-              x={clarify.x}
-              y={clarify.y}
-              items={clarify.items.map((ref) => ({
-                label: describeItem(doc, libById, ref),
-                action: () => {
-                  onSelect(ref.id, clarify.additive);
-                  setClarify(null);
-                },
-              }))}
-              onClose={() => setClarify(null)}
-            />
-          )}
-          {backAnnotateFps && doc && (
-            <DialogUpdateFromPcb
-              doc={doc}
-              footprints={backAnnotateFps}
-              onApply={runCommand}
-              onClose={() => setBackAnnotateFps(null)}
-            />
-          )}
-          {/* Hidden, not closed, while a placement queue is running: upstream
-              calls Hide() and Show(true) around the placement tool. */}
-          {syncPinsOpen && !syncPlacement && syncParent && (
-            <DialogSyncSheetPins
-              parent={syncParent}
-              parentFile={syncParentFile.current}
-              initialPage={syncPage.current}
-              sheets={syncPinsOpen}
-              // Each direction writes a different file, which is why they go
-              // through the per-sheet applier rather than plain runCommand.
-              onUsePinTemplate={(entry, pin, label) => {
-                const cmd = syncPinFromLabel(
-                  doc,
-                  { sheet: entry.sheetIndex, pin: pin.index },
-                  label,
-                );
-                if (!cmd) return;
-                const changed: PickedFile[] = [];
-                applySheetCommand(syncParentFile.current, cmd, changed);
-                if (changed.length) onProjectChange?.(changed);
+            {infoBar && (
+              <div className="ze-infobar">
+                {infoBar}
+                <span
+                  className="x"
+                  title="Close"
+                  onClick={() => setInfoBar(null)}
+                  style={{ marginLeft: 'auto', cursor: 'default' }}
+                >
+                  ✕
+                </span>
+              </div>
+            )}
+            <SchematicCanvas
+              ref={controller}
+              onInfoBar={setInfoBar}
+              schematic={doc}
+              libById={libById}
+              selection={selection}
+              activeTool={activeTool}
+              lineMode={lineMode}
+              wireStartRequest={wireStartRequest}
+              arcEditMode={es.drawing.arc_edit_mode as ArcEditMode}
+              placeLib={placeLib}
+              placeUnit={placeUnit}
+              placeInstance={placeInstance}
+              onSymbolPlaced={onSymbolPlaced}
+              pendingLabel={pendingLabel}
+              // The canvas has always read this to decide whether a click drops
+              // the flag or re-opens the dialog, and it was never passed: it saw
+              // `undefined` every time, took the "ask again" branch on every
+              // click, and a directive label could not be placed at all.
+              pendingDirective={pendingDirective}
+              onLabelPlaced={onLabelPlaced}
+              onLabelPrompt={onLabelPrompt}
+              onFollowLink={onFollowLink}
+              highlight={highlightWires}
+              theme={theme}
+              renderOpts={renderOpts}
+              inputPrefs={inputPrefs}
+              onSheetDrawn={onSheetDrawn}
+              onTextBoxDrawn={onTextBoxDrawn}
+              onTableDrawn={onTableDrawn}
+              // The table preview needs the default text size: a column is
+              // fifteen characters wide and a row two high.
+              tableFontSizeIU={setup.formatting.defaultTextSizeMils * IU_PER_MILS}
+              onSheetPinClick={onSheetPinClick}
+              pendingImage={pendingImage}
+              onImagePlaced={onImagePlaced}
+              grabRequest={grabRequest}
+              onContextMenuRequest={onContextMenuRequest}
+              isHoverSelection={isHoverSelection({ selection, hover: hoverSelection })}
+              onClarify={(x, y, items, additive) => setClarify({ x, y, items, additive })}
+              onZoomArea={(box) => {
+                // The tool stays armed after a zoom. `ZOOM_TOOL::Main` loops on
+                // `selectRegion()`, and that returns *cancelled* — false for a
+                // zoom that actually happened — so the `break` is only ever taken
+                // when the user escapes or picks another tool:
+                //
+                //     else if( evt->IsDrag( BUT_LEFT ) || evt->IsDrag( BUT_RIGHT ) )
+                //     {
+                //         if( selectRegion() )
+                //             break;
+                //     }
+                //
+                // Dropping back to the selection tool here made it a one-shot, so
+                // zooming in twice meant picking the tool twice.
+                controller.current?.zoomToBox(box);
               }}
-              onUseLabelTemplate={(entry, label, pin) => {
-                const changed: PickedFile[] = [];
-                applySheetCommand(entry.file, syncLabelsFromPin(label, pin), changed);
-                if (changed.length) onProjectChange?.(changed);
-                // The dialog reads the sub-sheet it was handed, so refresh it.
-                setSyncPinsOpen((prev) =>
-                  prev
-                    ? prev.map((e) =>
-                        e.file === entry.file
-                          ? { ...e, sub: project.current.docs.get(e.file) ?? e.sub }
-                          : e,
-                      )
-                    : prev,
-                );
-              }}
-              // `OnBtnAddSheetPinsClicked` → `PlaceSheetPin`: the panel goes
-              // away, the sheet symbol is selected and the pin tool runs with
-              // the chosen labels queued. One click places one pin.
-              onAddSheetPins={(entry, tmpl) => {
-                const p = syncPlacementFor(
-                  'sheetPin',
-                  entry.sheetIndex,
-                  syncParentFile.current,
-                  tmpl,
-                );
-                if (!p) return;
-                setSyncPlacement(p);
-                // `SyncSelection( {}, nullptr, { sheet } )` — so the tool acts
-                // on the sheet the page belongs to.
-                const sh = doc.sheets[entry.sheetIndex];
-                if (sh) setSelection(new Set([refId('sheet', sh.uuid, entry.sheetIndex)]));
-                setActiveTool('sheetPin');
-                setInfoBar(
-                  `Click the sheet border to place '${tmpl[0]!.text}'` +
-                    (tmpl.length > 1 ? ` (${tmpl.length} to place).` : '.'),
-                );
-              }}
-              // `OnBtnAddLabelsClicked` → `PlaceHieraLable`: the label belongs
-              // to the sub-sheet's own document, so this changes sheet first
-              // (`RunAction( SCH_ACTIONS::changeSheet, &aPath )`) and comes back
-              // when the queue runs out.
-              onAddHierLabels={(entry, tmpl) => {
-                const p = syncPlacementFor('hierLabel', entry.sheetIndex, entry.file, tmpl);
-                if (!p) return;
-                const target = flatSheets.find((f) => f.file === entry.file);
-                if (!target) {
-                  setInfoBar(`Sheet file not in project: ${entry.file}`);
-                  return;
-                }
-                syncReturn.current = { path: currentPath, file: currentFile };
-                switchSheet(target.path, target.file);
-                setSyncPlacement(p);
-                setActiveTool('placeHierLabel');
-                setPendingLabel({
-                  kind: 'hierarchical_label',
-                  text: tmpl[0]!.text,
-                  shape: tmpl[0]!.shape,
-                  fontSize: setup.formatting.defaultTextSizeMils * IU_PER_MILS,
-                  angle: SPIN_ANGLE[lastLabel.current.spin],
-                  autoRotate: lastLabel.current.autoRotate,
-                  fields: [],
-                });
-                setInfoBar(
-                  `Click to place '${tmpl[0]!.text}' in ${entry.file}` +
-                    (tmpl.length > 1 ? ` (${tmpl.length} to place).` : '.'),
-                );
-              }}
-              // The two delete buttons (`OnBtnRmPinsClicked` /
-              // `OnBtnRmLabelsClicked`), each writing its own half's file.
-              onDeletePins={(entry, indices) => {
-                const changed: PickedFile[] = [];
-                applySheetCommand(
-                  syncParentFile.current,
-                  deleteSyncPins(entry.sheetIndex, indices),
-                  changed,
-                );
-                if (changed.length) onProjectChange?.(changed);
-              }}
-              onDeleteLabels={(entry, texts) => {
-                const changed: PickedFile[] = [];
-                applySheetCommand(entry.file, deleteSyncLabels(texts), changed);
-                if (changed.length) onProjectChange?.(changed);
-                setSyncPinsOpen((prev) =>
-                  prev
-                    ? prev.map((e) =>
-                        e.file === entry.file
-                          ? { ...e, sub: project.current.docs.get(e.file) ?? e.sub }
-                          : e,
-                      )
-                    : prev,
-                );
-              }}
-              onClose={() => setSyncPinsOpen(null)}
-            />
-          )}
-          {symLibTableOpen && (
-            <DialogSymLibTable
-              projectFiles={rawFiles}
-              globalLibraries={hostedSymbolLibs}
-              globalBase={symbolsBase()}
-              onSave={(rows) => {
-                saveProjectSymLibTable(rows);
-                setSymLibTableOpen(false);
-              }}
-              onClose={() => setSymLibTableOpen(false)}
-            />
-          )}
-          {ercOpen && (
-            <ErcDialog
-              navRef={ercNav}
-              sourceName={currentFile}
-              violations={ercResult}
-              running={ercRunning}
-              ignoredTests={ERC_ITEMS.filter(
-                (it) => setup.erc.severities[it.code] === 'ignore',
-              ).map((it) => it.title)}
-              filters={{
-                errors: es.appearance.show_erc_errors,
-                warnings: es.appearance.show_erc_warnings,
-                exclusions: es.appearance.show_erc_exclusions,
-              }}
-              onFilterChange={(f) =>
-                settings.updateEeschema((s) => {
-                  s.appearance.show_erc_errors = f.errors;
-                  s.appearance.show_erc_warnings = f.warnings;
-                  s.appearance.show_erc_exclusions = f.exclusions;
-                })
-              }
-              unannotated={doc?.symbols.some((s) =>
-                (s.fields.find((f) => f.key === 'Reference')?.value ?? '').endsWith('?'),
-              )}
-              options={{
-                crossprobe: es.erc_dialog.crossprobe,
-                scrollOnCrossprobe: es.erc_dialog.scroll_on_crossprobe,
-                showAllErrors: es.erc_dialog.show_all_errors,
-              }}
-              onOptionsChange={(o) =>
-                settings.updateEeschema((s) => {
-                  s.erc_dialog.crossprobe = o.crossprobe;
-                  s.erc_dialog.scroll_on_crossprobe = o.scrollOnCrossprobe;
-                  s.erc_dialog.show_all_errors = o.showAllErrors;
-                })
-              }
-              onShowAnnotate={() => setAnnotateOpen(true)}
-              onRun={() => void runErcNow()}
-              onLocate={locateViolation}
-              describeItem={describeErcItem}
-              onSetSeverity={(code, level) => {
-                // OnERCItemRClick's severity commands: change the rule for
-                // every violation of its type, then re-run so the list matches.
-                const next = {
-                  ...setup,
-                  erc: {
-                    ...setup.erc,
-                    severities: { ...setup.erc.severities, [code]: level },
-                  },
-                };
-                commitSetup(next);
-                setErcResult(runErcWith(next));
-              }}
-              onEditPinMap={() => setSetupOpen(true)}
-              onEditConnectionGrid={() => setSetupOpen(true)}
-              onDelete={(i) => setErcResult((r) => (r ? r.filter((_, idx) => idx !== i) : r))}
-              onDeleteAll={() => {
-                setErcResult([]);
-                setErcFocusedMarker(null);
-              }}
-              excluded={new Set(setup.ercExclusions)}
-              exclusionComments={new Map(Object.entries(setup.ercExclusionComments))}
-              onCancelRun={() => {
-                ercCancelled.current = true;
-              }}
-              onToggleExclude={(v, comment) => {
-                const key = ercExclusionKey(v);
-                setSetup((cur) => {
-                  const has = cur.ercExclusions.includes(key);
-                  // A comment edit keeps the exclusion and only rewrites the note
-                  // (MARKER_BASE::SetComment); otherwise this toggles it.
-                  const keepExcluded = comment !== undefined ? true : !has;
-                  const comments = { ...cur.ercExclusionComments };
-                  if (!keepExcluded) delete comments[key];
-                  else if (comment !== undefined) comments[key] = comment;
-                  return {
-                    ...cur,
-                    ercExclusions: keepExcluded
-                      ? has
-                        ? cur.ercExclusions
-                        : [...cur.ercExclusions, key]
-                      : cur.ercExclusions.filter((k) => k !== key),
-                    ercExclusionComments: comments,
-                  };
-                });
-              }}
-              onEditSeverities={() => setSetupOpen(true)}
-              onClose={() => {
-                setErcFocusedMarker(null);
-                setErcOpen(false);
-              }}
-            />
-          )}
-          {findOpen && (
-            <DialogSchematicFind
-              data={searchData}
-              onChange={setSearchData}
-              onFindNext={() => doFind(1)}
-              onFindPrevious={() => doFind(-1)}
-              onClose={() => setFindOpen(false)}
-              status={findStatus}
-              replace={findOpen === 'replace'}
-              onReplace={doReplaceNext}
-              onReplaceAll={doReplaceAll}
-              // onShowSearchPanel runs ACTIONS::showSearch, which is a *toggle*
-              // upstream — so clicking a link labelled "Show search panel" with
-              // the panel already open closes it. We show it instead; the panel
-              // is the point of the link, and the divergence is one keystroke
-              // away from being undone either way.
-              onShowSearchPanel={() => {
-                setLocalToggles((prev) => new Set(prev).add('showSearch'));
-              }}
-            />
-          )}
-          {annotateOpen && (
-            <DialogAnnotate
-              hasSelection={selection.size > 0}
-              // Sort order, numbering method and start number are project
-              // settings (SCHEMATIC_SETTINGS), seed from Schematic Setup >
-              // Annotation like DIALOG_ANNOTATE::TransferDataToWindow.
-              initial={{
-                order: setup.annotation.sortOrder,
-                algo:
-                  setup.annotation.numbering === 'sheetX100'
-                    ? 'sheet_100'
-                    : setup.annotation.numbering === 'sheetX1000'
-                      ? 'sheet_1000'
-                      : 'incremental',
-                startNumber: setup.annotation.firstFreeAfter,
-              }}
-              messages={annotateMessages}
-              onAnnotate={runAnnotate}
-              onClear={runClearAnnotation}
-              onClose={(s) => {
-                // ~DIALOG_ANNOTATE: write changed settings back to the project.
-                const numbering =
-                  s.algo === 'sheet_100'
-                    ? 'sheetX100'
-                    : s.algo === 'sheet_1000'
-                      ? 'sheetX1000'
-                      : 'firstFree';
-                if (
-                  s.order !== setup.annotation.sortOrder ||
-                  numbering !== setup.annotation.numbering ||
-                  s.startNumber !== setup.annotation.firstFreeAfter
-                ) {
-                  commitSetup({
-                    ...setup,
-                    annotation: {
-                      ...setup.annotation,
-                      sortOrder: s.order,
-                      numbering,
-                      firstFreeAfter: s.startNumber,
-                    },
-                  });
-                }
-                // OnClose destroys the dialog, so its messages go with it.
-                setAnnotateMessages([]);
-                setAnnotateOpen(false);
-              }}
-            />
-          )}
-          {caseConflicts && (
-            <DialogResolveFieldCaseConflicts
-              conflicts={caseConflicts.list}
-              onApply={applyCaseConflicts}
-              // Cancel abandons opening the table (m_aborted upstream).
-              onCancel={() => setCaseConflicts(null)}
-            />
-          )}
-          {libIdsOpen && doc && (
-            <DialogEditSymbolsLibId
-              rows={symbolLibIdRows(doc, libById)}
-              candidatesFor={(id) => orphanCandidates(id, libById)}
-              errors={libIdErrors}
-              onApply={runLibIdChanges}
-              onClose={() => setLibIdsOpen(false)}
-            />
-          )}
-          {changeSymbolsMode !== null && (
-            <DialogChangeSymbols
-              mode={changeSymbolsMode}
-              fieldNames={changeSymbolsFieldNames}
-              hasSelection={selection.size > 0}
-              messages={changeSymbolsMessages}
-              onApply={runChangeSymbols}
-              onClose={() => setChangeSymbolsMode(null)}
-            />
-          )}
-          {globalEditOpen && (
-            <DialogGlobalEditTextAndGraphics
-              hasSelection={selection.size > 0}
-              onOk={(r) => {
-                setGlobalEditOpen(false);
-                runGlobalEdit(r);
-              }}
-              onCancel={() => setGlobalEditOpen(false)}
-            />
-          )}
-          {incrementAnnotationsOpen && (
-            <DialogIncrementAnnotations
-              onOk={(r) => {
-                setIncrementAnnotationsOpen(false);
-                runIncrementAnnotations(r);
-              }}
-              onCancel={() => setIncrementAnnotationsOpen(false)}
-            />
-          )}
-          {pageSettingsOpen && doc && (
-            <DialogPageSettings
-              value={getPageSettings(doc)}
-              sheetCount={flatSheets.length}
-              sheetNumber={Number(pageNumberOf(currentPath)) || 1}
-              sheetChoices={sheetChoices}
-              drawingSheetName={sheetRefName}
-              onOk={applyPageSettings}
-              onCancel={() => setPageSettingsOpen(false)}
-            />
-          )}
-          {printOpen && (
-            <DialogPrint
-              onPrint={doPrint}
-              onPreview={doPreview}
-              themeId={es.appearance.color_theme}
-              onClose={() => setPrintOpen(false)}
-            />
-          )}
-          {pasteSpecialOpen && (
-            <DialogPasteSpecial
-              annotateAutomatic={es.annotation.automatic}
-              onOk={(mode: PasteMode) => {
-                setPasteSpecialOpen(false);
-                void navigator.clipboard?.readText().then((text) => {
-                  setDoc((d) => {
-                    const payload = d ? parsePastedText(text, d, pasteOptions(mode)) : null;
-                    if (payload) {
-                      setActiveTool('select');
-                      setPastePending(payload);
-                    }
-                    return d;
-                  });
-                });
-              }}
-              onCancel={() => setPasteSpecialOpen(false)}
-            />
-          )}
-          {plotOpen && (
-            <DialogPlot
-              themeId={es.appearance.color_theme}
-              projectFolders={projectFolders}
-              onPlot={doPlot}
-              onClose={() => setPlotOpen(false)}
-            />
-          )}
-          {createChainOpen && doc && (
-            <DialogCreateNetChain
-              potentials={potentialChains}
-              committed={committedChains}
-              hint={(() => {
-                // ShowCreateNetChain's FOCUS_HINT from the current selection:
-                // symbol references, or a single wire's net name.
-                const hint: CreateChainFocusHint = {};
-                if (doc) {
-                  const selSymbols = doc.symbols
-                    .map((s, i) => ({ s, id: refId('symbol', s.uuid, i) }))
-                    .filter((e) => selection.has(e.id));
-                  const ref = (sym: (typeof selSymbols)[number]['s']): string =>
-                    sym.fields.find((f) => f.key === 'Reference')?.value ?? '';
-                  if (selSymbols[0]) hint.fromRef = ref(selSymbols[0].s);
-                  if (selSymbols[1]) hint.toRef = ref(selSymbols[1].s);
-                  if (selSymbols.length === 0 && selection.size === 1 && netlist) {
-                    const code = netlist.netByItem.get([...selection][0]!);
-                    const net =
-                      code !== undefined ? netlist.nets.find((n) => n.code === code) : undefined;
-                    if (net) hint.netName = net.name;
-                  }
-                }
-                return hint;
-              })()}
-              onCreate={(chain) => {
-                // CreateNetChainFromPotential + highlight the new chain.
-                runCommand(netChainsCommand(writeNetChains(doc, [...committedChains, chain])));
+              onSelect={onSelect}
+              onHighlight={onHighlight}
+              onRequestTool={onToolSelect}
+              onEditItem={onEditItem}
+              onSelectBox={onSelectBox}
+              pastePending={pastePending}
+              onPasteDone={onPasteDone}
+              ercMarkers={ercResult
+                ?.filter((v) => (v.file ?? currentFile) === currentFile)
+                .map((v) => ({
+                  ...v,
+                  excluded: setup.ercExclusions.includes(ercExclusionKey(v)),
+                  brightened: ercFocusedMarker === ercExclusionKey(v),
+                }))
+                .filter((v) =>
+                  v.excluded
+                    ? es.appearance.show_erc_exclusions
+                    : v.severity === 'error'
+                      ? es.appearance.show_erc_errors
+                      : es.appearance.show_erc_warnings,
+                )}
+              onMarkerPick={(v, dbl) => {
+                // `SCH_MARKER_T` is always selectable, and selecting one runs
+                // `SCH_INSPECTION_TOOL::CrossProbe`: brighten the marker, drop any
+                // item selection, and walk the open ERC dialog to its row.
                 setSelection(new Set());
-                setHighlightItem(null);
-                setHighlightBusMembers(false);
-                setHighlightedChain(chain.name);
+                setErcFocusedMarker(ercExclusionKey(v));
+                // A double-click comes through SCH_EDIT_TOOL::Properties, which
+                // opens the dialog first if it is not already up:
+                //
+                //     if( !dlg->IsShownOnScreen() ) { dlg->Show( true ); dlg->Raise(); }
+                if (dbl) setErcOpen(true);
+                // The dialog may not be mounted yet on that first double-click,
+                // so the row is remembered and applied once its nav appears.
+                if (!ercNav.current?.selectByKey(ercExclusionKey(v)))
+                  pendingErcSelect.current = ercExclusionKey(v);
               }}
-              onClose={() => setCreateChainOpen(false)}
+              onCommand={runCommand}
+              onAnnotatePlacement={annotatePlacement}
+              onEditDrawingSheet={() => setPageSettingsOpen(true)}
+              onCursorMove={onCursorMove}
+              onScaleChange={onScaleChange}
             />
-          )}
-          {chainRename && doc && (
-            <div className="ze-modal-backdrop" onMouseDown={() => setChainRename(null)}>
-              <div
-                className="ze-modal"
-                style={{ width: 360 }}
-                onMouseDown={(e) => e.stopPropagation()}
-              >
-                <div className="ze-modal-header">
-                  Name Net Chain
-                  <span className="x" title="Cancel" onClick={() => setChainRename(null)}>
-                    ✕
-                  </span>
-                </div>
-                <div className="ze-modal-body" style={{ display: 'block', padding: 14 }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    Net chain name:
-                    <input
-                      style={{ flex: 1 }}
-                      value={chainRename.name}
-                      autoFocus
-                      onChange={(e) =>
-                        setChainRename((p) => (p ? { ...p, name: e.target.value } : p))
+            {ctxMenu && (
+              <ContextMenu
+                x={ctxMenu.x}
+                y={ctxMenu.y}
+                items={buildContextMenu()}
+                onClose={() => setCtxMenu(null)}
+              />
+            )}
+            {clarify && doc && (
+              <ContextMenu
+                x={clarify.x}
+                y={clarify.y}
+                items={clarify.items.map((ref) => ({
+                  label: describeItem(doc, libById, ref),
+                  action: () => {
+                    onSelect(ref.id, clarify.additive);
+                    setClarify(null);
+                  },
+                }))}
+                onClose={() => setClarify(null)}
+              />
+            )}
+            {backAnnotateFps && doc && (
+              <DialogUpdateFromPcb
+                doc={doc}
+                footprints={backAnnotateFps}
+                onApply={runCommand}
+                onClose={() => setBackAnnotateFps(null)}
+              />
+            )}
+            {/* Hidden, not closed, while a placement queue is running: upstream
+              calls Hide() and Show(true) around the placement tool. */}
+            {syncPinsOpen && !syncPlacement && syncParent && (
+              <DialogSyncSheetPins
+                parent={syncParent}
+                parentFile={syncParentFile.current}
+                initialPage={syncPage.current}
+                sheets={syncPinsOpen}
+                // Each direction writes a different file, which is why they go
+                // through the per-sheet applier rather than plain runCommand.
+                onUsePinTemplate={(entry, pin, label) => {
+                  const cmd = syncPinFromLabel(
+                    doc,
+                    { sheet: entry.sheetIndex, pin: pin.index },
+                    label,
+                  );
+                  if (!cmd) return;
+                  const changed: PickedFile[] = [];
+                  applySheetCommand(syncParentFile.current, cmd, changed);
+                  if (changed.length) onProjectChange?.(changed);
+                }}
+                onUseLabelTemplate={(entry, label, pin) => {
+                  const changed: PickedFile[] = [];
+                  applySheetCommand(entry.file, syncLabelsFromPin(label, pin), changed);
+                  if (changed.length) onProjectChange?.(changed);
+                  // The dialog reads the sub-sheet it was handed, so refresh it.
+                  setSyncPinsOpen((prev) =>
+                    prev
+                      ? prev.map((e) =>
+                          e.file === entry.file
+                            ? { ...e, sub: project.current.docs.get(e.file) ?? e.sub }
+                            : e,
+                        )
+                      : prev,
+                  );
+                }}
+                // `OnBtnAddSheetPinsClicked` → `PlaceSheetPin`: the panel goes
+                // away, the sheet symbol is selected and the pin tool runs with
+                // the chosen labels queued. One click places one pin.
+                onAddSheetPins={(entry, tmpl) => {
+                  const p = syncPlacementFor(
+                    'sheetPin',
+                    entry.sheetIndex,
+                    syncParentFile.current,
+                    tmpl,
+                  );
+                  if (!p) return;
+                  setSyncPlacement(p);
+                  // `SyncSelection( {}, nullptr, { sheet } )` — so the tool acts
+                  // on the sheet the page belongs to.
+                  const sh = doc.sheets[entry.sheetIndex];
+                  if (sh) setSelection(new Set([refId('sheet', sh.uuid, entry.sheetIndex)]));
+                  setActiveTool('sheetPin');
+                  setInfoBar(
+                    `Click the sheet border to place '${tmpl[0]!.text}'` +
+                      (tmpl.length > 1 ? ` (${tmpl.length} to place).` : '.'),
+                  );
+                }}
+                // `OnBtnAddLabelsClicked` → `PlaceHieraLable`: the label belongs
+                // to the sub-sheet's own document, so this changes sheet first
+                // (`RunAction( SCH_ACTIONS::changeSheet, &aPath )`) and comes back
+                // when the queue runs out.
+                onAddHierLabels={(entry, tmpl) => {
+                  const p = syncPlacementFor('hierLabel', entry.sheetIndex, entry.file, tmpl);
+                  if (!p) return;
+                  const target = flatSheets.find((f) => f.file === entry.file);
+                  if (!target) {
+                    setInfoBar(`Sheet file not in project: ${entry.file}`);
+                    return;
+                  }
+                  syncReturn.current = { path: currentPath, file: currentFile };
+                  switchSheet(target.path, target.file);
+                  setSyncPlacement(p);
+                  setActiveTool('placeHierLabel');
+                  setPendingLabel({
+                    kind: 'hierarchical_label',
+                    text: tmpl[0]!.text,
+                    shape: tmpl[0]!.shape,
+                    fontSize: setup.formatting.defaultTextSizeMils * IU_PER_MILS,
+                    angle: SPIN_ANGLE[lastLabel.current.spin],
+                    autoRotate: lastLabel.current.autoRotate,
+                    fields: [],
+                  });
+                  setInfoBar(
+                    `Click to place '${tmpl[0]!.text}' in ${entry.file}` +
+                      (tmpl.length > 1 ? ` (${tmpl.length} to place).` : '.'),
+                  );
+                }}
+                // The two delete buttons (`OnBtnRmPinsClicked` /
+                // `OnBtnRmLabelsClicked`), each writing its own half's file.
+                onDeletePins={(entry, indices) => {
+                  const changed: PickedFile[] = [];
+                  applySheetCommand(
+                    syncParentFile.current,
+                    deleteSyncPins(entry.sheetIndex, indices),
+                    changed,
+                  );
+                  if (changed.length) onProjectChange?.(changed);
+                }}
+                onDeleteLabels={(entry, texts) => {
+                  const changed: PickedFile[] = [];
+                  applySheetCommand(entry.file, deleteSyncLabels(texts), changed);
+                  if (changed.length) onProjectChange?.(changed);
+                  setSyncPinsOpen((prev) =>
+                    prev
+                      ? prev.map((e) =>
+                          e.file === entry.file
+                            ? { ...e, sub: project.current.docs.get(e.file) ?? e.sub }
+                            : e,
+                        )
+                      : prev,
+                  );
+                }}
+                onClose={() => setSyncPinsOpen(null)}
+              />
+            )}
+            {symLibTableOpen && (
+              <DialogSymLibTable
+                projectFiles={rawFiles}
+                globalLibraries={hostedSymbolLibs}
+                globalBase={symbolsBase()}
+                onSave={(rows) => {
+                  saveProjectSymLibTable(rows);
+                  setSymLibTableOpen(false);
+                }}
+                onClose={() => setSymLibTableOpen(false)}
+              />
+            )}
+            {ercOpen && (
+              <ErcDialog
+                navRef={ercNav}
+                sourceName={currentFile}
+                violations={ercResult}
+                running={ercRunning}
+                ignoredTests={ERC_ITEMS.filter(
+                  (it) => setup.erc.severities[it.code] === 'ignore',
+                ).map((it) => it.title)}
+                filters={{
+                  errors: es.appearance.show_erc_errors,
+                  warnings: es.appearance.show_erc_warnings,
+                  exclusions: es.appearance.show_erc_exclusions,
+                }}
+                onFilterChange={(f) =>
+                  settings.updateEeschema((s) => {
+                    s.appearance.show_erc_errors = f.errors;
+                    s.appearance.show_erc_warnings = f.warnings;
+                    s.appearance.show_erc_exclusions = f.exclusions;
+                  })
+                }
+                unannotated={doc?.symbols.some((s) =>
+                  (s.fields.find((f) => f.key === 'Reference')?.value ?? '').endsWith('?'),
+                )}
+                options={{
+                  crossprobe: es.erc_dialog.crossprobe,
+                  scrollOnCrossprobe: es.erc_dialog.scroll_on_crossprobe,
+                  showAllErrors: es.erc_dialog.show_all_errors,
+                }}
+                onOptionsChange={(o) =>
+                  settings.updateEeschema((s) => {
+                    s.erc_dialog.crossprobe = o.crossprobe;
+                    s.erc_dialog.scroll_on_crossprobe = o.scrollOnCrossprobe;
+                    s.erc_dialog.show_all_errors = o.showAllErrors;
+                  })
+                }
+                onShowAnnotate={() => setAnnotateOpen(true)}
+                onRun={() => void runErcNow()}
+                onLocate={locateViolation}
+                describeItem={describeErcItem}
+                onSetSeverity={(code, level) => {
+                  // OnERCItemRClick's severity commands: change the rule for
+                  // every violation of its type, then re-run so the list matches.
+                  const next = {
+                    ...setup,
+                    erc: {
+                      ...setup.erc,
+                      severities: { ...setup.erc.severities, [code]: level },
+                    },
+                  };
+                  commitSetup(next);
+                  setErcResult(runErcWith(next));
+                }}
+                onEditPinMap={() => setSetupOpen(true)}
+                onEditConnectionGrid={() => setSetupOpen(true)}
+                onDelete={(i) => setErcResult((r) => (r ? r.filter((_, idx) => idx !== i) : r))}
+                onDeleteAll={() => {
+                  setErcResult([]);
+                  setErcFocusedMarker(null);
+                }}
+                excluded={new Set(setup.ercExclusions)}
+                exclusionComments={new Map(Object.entries(setup.ercExclusionComments))}
+                onCancelRun={() => {
+                  ercCancelled.current = true;
+                }}
+                onToggleExclude={(v, comment) => {
+                  const key = ercExclusionKey(v);
+                  setSetup((cur) => {
+                    const has = cur.ercExclusions.includes(key);
+                    // A comment edit keeps the exclusion and only rewrites the note
+                    // (MARKER_BASE::SetComment); otherwise this toggles it.
+                    const keepExcluded = comment !== undefined ? true : !has;
+                    const comments = { ...cur.ercExclusionComments };
+                    if (!keepExcluded) delete comments[key];
+                    else if (comment !== undefined) comments[key] = comment;
+                    return {
+                      ...cur,
+                      ercExclusions: keepExcluded
+                        ? has
+                          ? cur.ercExclusions
+                          : [...cur.ercExclusions, key]
+                        : cur.ercExclusions.filter((k) => k !== key),
+                      ercExclusionComments: comments,
+                    };
+                  });
+                }}
+                onEditSeverities={() => setSetupOpen(true)}
+                onClose={() => {
+                  setErcFocusedMarker(null);
+                  setErcOpen(false);
+                }}
+              />
+            )}
+            {findOpen && (
+              <DialogSchematicFind
+                data={searchData}
+                onChange={setSearchData}
+                onFindNext={() => doFind(1)}
+                onFindPrevious={() => doFind(-1)}
+                onClose={() => setFindOpen(false)}
+                status={findStatus}
+                replace={findOpen === 'replace'}
+                onReplace={doReplaceNext}
+                onReplaceAll={doReplaceAll}
+                // onShowSearchPanel runs ACTIONS::showSearch, which is a *toggle*
+                // upstream — so clicking a link labelled "Show search panel" with
+                // the panel already open closes it. We show it instead; the panel
+                // is the point of the link, and the divergence is one keystroke
+                // away from being undone either way.
+                onShowSearchPanel={() => {
+                  setLocalToggles((prev) => new Set(prev).add('showSearch'));
+                }}
+              />
+            )}
+            {annotateOpen && (
+              <DialogAnnotate
+                hasSelection={selection.size > 0}
+                // Sort order, numbering method and start number are project
+                // settings (SCHEMATIC_SETTINGS), seed from Schematic Setup >
+                // Annotation like DIALOG_ANNOTATE::TransferDataToWindow.
+                initial={{
+                  order: setup.annotation.sortOrder,
+                  algo:
+                    setup.annotation.numbering === 'sheetX100'
+                      ? 'sheet_100'
+                      : setup.annotation.numbering === 'sheetX1000'
+                        ? 'sheet_1000'
+                        : 'incremental',
+                  startNumber: setup.annotation.firstFreeAfter,
+                }}
+                messages={annotateMessages}
+                onAnnotate={runAnnotate}
+                onClear={runClearAnnotation}
+                onClose={(s) => {
+                  // ~DIALOG_ANNOTATE: write changed settings back to the project.
+                  const numbering =
+                    s.algo === 'sheet_100'
+                      ? 'sheetX100'
+                      : s.algo === 'sheet_1000'
+                        ? 'sheetX1000'
+                        : 'firstFree';
+                  if (
+                    s.order !== setup.annotation.sortOrder ||
+                    numbering !== setup.annotation.numbering ||
+                    s.startNumber !== setup.annotation.firstFreeAfter
+                  ) {
+                    commitSetup({
+                      ...setup,
+                      annotation: {
+                        ...setup.annotation,
+                        sortOrder: s.order,
+                        numbering,
+                        firstFreeAfter: s.startNumber,
+                      },
+                    });
+                  }
+                  // OnClose destroys the dialog, so its messages go with it.
+                  setAnnotateMessages([]);
+                  setAnnotateOpen(false);
+                }}
+              />
+            )}
+            {caseConflicts && (
+              <DialogResolveFieldCaseConflicts
+                conflicts={caseConflicts.list}
+                onApply={applyCaseConflicts}
+                // Cancel abandons opening the table (m_aborted upstream).
+                onCancel={() => setCaseConflicts(null)}
+              />
+            )}
+            {libIdsOpen && doc && (
+              <DialogEditSymbolsLibId
+                rows={symbolLibIdRows(doc, libById)}
+                candidatesFor={(id) => orphanCandidates(id, libById)}
+                errors={libIdErrors}
+                onApply={runLibIdChanges}
+                onClose={() => setLibIdsOpen(false)}
+              />
+            )}
+            {changeSymbolsMode !== null && (
+              <DialogChangeSymbols
+                mode={changeSymbolsMode}
+                fieldNames={changeSymbolsFieldNames}
+                hasSelection={selection.size > 0}
+                messages={changeSymbolsMessages}
+                onApply={runChangeSymbols}
+                onClose={() => setChangeSymbolsMode(null)}
+              />
+            )}
+            {globalEditOpen && (
+              <DialogGlobalEditTextAndGraphics
+                hasSelection={selection.size > 0}
+                onOk={(r) => {
+                  setGlobalEditOpen(false);
+                  runGlobalEdit(r);
+                }}
+                onCancel={() => setGlobalEditOpen(false)}
+              />
+            )}
+            {incrementAnnotationsOpen && (
+              <DialogIncrementAnnotations
+                onOk={(r) => {
+                  setIncrementAnnotationsOpen(false);
+                  runIncrementAnnotations(r);
+                }}
+                onCancel={() => setIncrementAnnotationsOpen(false)}
+              />
+            )}
+            {pageSettingsOpen && doc && (
+              <DialogPageSettings
+                value={getPageSettings(doc)}
+                sheetCount={flatSheets.length}
+                sheetNumber={Number(pageNumberOf(currentPath)) || 1}
+                sheetChoices={sheetChoices}
+                drawingSheetName={sheetRefName}
+                onOk={applyPageSettings}
+                onCancel={() => setPageSettingsOpen(false)}
+              />
+            )}
+            {printOpen && (
+              <DialogPrint
+                onPrint={doPrint}
+                onPreview={doPreview}
+                themeId={es.appearance.color_theme}
+                onClose={() => setPrintOpen(false)}
+              />
+            )}
+            {pasteSpecialOpen && (
+              <DialogPasteSpecial
+                annotateAutomatic={es.annotation.automatic}
+                onOk={(mode: PasteMode) => {
+                  setPasteSpecialOpen(false);
+                  void navigator.clipboard?.readText().then((text) => {
+                    setDoc((d) => {
+                      const payload = d ? parsePastedText(text, d, pasteOptions(mode)) : null;
+                      if (payload) {
+                        setActiveTool('select');
+                        setPastePending(payload);
                       }
-                    />
-                  </label>
-                </div>
-                <div className="ze-modal-footer">
-                  <button className="ze-btn" onClick={() => setChainRename(null)}>
-                    Cancel
-                  </button>
-                  <button
-                    className="ze-btn primary"
-                    onClick={() => {
-                      // NameNetChain: rename the committed chain (collisions
-                      // rejected like RenameCommittedNetChain), rekey the
-                      // chain->class map, and keep the chain highlighted.
-                      const { orig, name } = chainRename;
-                      if (
-                        name === orig ||
-                        !isValidNetChainName(name) ||
-                        committedChains.some((c) => c.name === name)
-                      ) {
-                        setChainRename(null);
-                        return;
-                      }
-                      runCommand(
-                        netChainsCommand(
-                          writeNetChains(
-                            doc,
-                            committedChains.map((c) => (c.name === orig ? { ...c, name } : c)),
+                      return d;
+                    });
+                  });
+                }}
+                onCancel={() => setPasteSpecialOpen(false)}
+              />
+            )}
+            {plotOpen && (
+              <DialogPlot
+                themeId={es.appearance.color_theme}
+                projectFolders={projectFolders}
+                onPlot={doPlot}
+                onClose={() => setPlotOpen(false)}
+              />
+            )}
+            {createChainOpen && doc && (
+              <DialogCreateNetChain
+                potentials={potentialChains}
+                committed={committedChains}
+                hint={(() => {
+                  // ShowCreateNetChain's FOCUS_HINT from the current selection:
+                  // symbol references, or a single wire's net name.
+                  const hint: CreateChainFocusHint = {};
+                  if (doc) {
+                    const selSymbols = doc.symbols
+                      .map((s, i) => ({ s, id: refId('symbol', s.uuid, i) }))
+                      .filter((e) => selection.has(e.id));
+                    const ref = (sym: (typeof selSymbols)[number]['s']): string =>
+                      sym.fields.find((f) => f.key === 'Reference')?.value ?? '';
+                    if (selSymbols[0]) hint.fromRef = ref(selSymbols[0].s);
+                    if (selSymbols[1]) hint.toRef = ref(selSymbols[1].s);
+                    if (selSymbols.length === 0 && selection.size === 1 && netlist) {
+                      const code = netlist.netByItem.get([...selection][0]!);
+                      const net =
+                        code !== undefined ? netlist.nets.find((n) => n.code === code) : undefined;
+                      if (net) hint.netName = net.name;
+                    }
+                  }
+                  return hint;
+                })()}
+                onCreate={(chain) => {
+                  // CreateNetChainFromPotential + highlight the new chain.
+                  runCommand(netChainsCommand(writeNetChains(doc, [...committedChains, chain])));
+                  setSelection(new Set());
+                  setHighlightItem(null);
+                  setHighlightBusMembers(false);
+                  setHighlightedChain(chain.name);
+                }}
+                onClose={() => setCreateChainOpen(false)}
+              />
+            )}
+            {chainRename && doc && (
+              <div className="ze-modal-backdrop" onMouseDown={() => setChainRename(null)}>
+                <div
+                  className="ze-modal"
+                  style={{ width: 360 }}
+                  onMouseDown={(e) => e.stopPropagation()}
+                >
+                  <div className="ze-modal-header">
+                    Name Net Chain
+                    <span className="x" title="Cancel" onClick={() => setChainRename(null)}>
+                      ✕
+                    </span>
+                  </div>
+                  <div className="ze-modal-body" style={{ display: 'block', padding: 14 }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      Net chain name:
+                      <input
+                        style={{ flex: 1 }}
+                        value={chainRename.name}
+                        autoFocus
+                        onChange={(e) =>
+                          setChainRename((p) => (p ? { ...p, name: e.target.value } : p))
+                        }
+                      />
+                    </label>
+                  </div>
+                  <div className="ze-modal-footer">
+                    <button className="ze-btn" onClick={() => setChainRename(null)}>
+                      Cancel
+                    </button>
+                    <button
+                      className="ze-btn primary"
+                      onClick={() => {
+                        // NameNetChain: rename the committed chain (collisions
+                        // rejected like RenameCommittedNetChain), rekey the
+                        // chain->class map, and keep the chain highlighted.
+                        const { orig, name } = chainRename;
+                        if (
+                          name === orig ||
+                          !isValidNetChainName(name) ||
+                          committedChains.some((c) => c.name === name)
+                        ) {
+                          setChainRename(null);
+                          return;
+                        }
+                        runCommand(
+                          netChainsCommand(
+                            writeNetChains(
+                              doc,
+                              committedChains.map((c) => (c.name === orig ? { ...c, name } : c)),
+                            ),
                           ),
-                        ),
-                      );
-                      const classByChain = { ...setup.netChains.classByChain };
-                      if (classByChain[orig] !== undefined) {
-                        classByChain[name] = classByChain[orig];
-                        delete classByChain[orig];
-                        commitSetup({
-                          ...setup,
-                          netChains: { ...setup.netChains, classByChain },
-                        });
-                      }
-                      if (highlightedChain === orig) setHighlightedChain(name);
-                      setChainRename(null);
-                    }}
-                  >
-                    OK
-                  </button>
+                        );
+                        const classByChain = { ...setup.netChains.classByChain };
+                        if (classByChain[orig] !== undefined) {
+                          classByChain[name] = classByChain[orig];
+                          delete classByChain[orig];
+                          commitSetup({
+                            ...setup,
+                            netChains: { ...setup.netChains, classByChain },
+                          });
+                        }
+                        if (highlightedChain === orig) setHighlightedChain(name);
+                        setChainRename(null);
+                      }}
+                    >
+                      OK
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
-          {setupOpen && (
-            <DialogSchematicSetup
-              value={setup}
-              onOk={(nextIn) => {
-                // PANEL_SETUP_NET_CHAINS::ApplyEdits: rekey the chain->class
-                // map for renamed rows and drop deleted chains before the
-                // project file persists it.
-                let next = nextIn;
-                if (doc) {
-                  const committedAtOpen = readNetChains(doc).map((c) => c.name);
-                  const rows = next.netChains.chains;
-                  const rowByOrig = new Map(
-                    rows.filter((r) => r.origName).map((r) => [r.origName, r]),
-                  );
-                  const classByChain = { ...next.netChains.classByChain };
-                  for (const name of committedAtOpen) {
-                    const row = rowByOrig.get(name);
-                    if (!row || row.name !== name) delete classByChain[name];
+            )}
+            {setupOpen && (
+              <DialogSchematicSetup
+                value={setup}
+                onOk={(nextIn) => {
+                  // PANEL_SETUP_NET_CHAINS::ApplyEdits: rekey the chain->class
+                  // map for renamed rows and drop deleted chains before the
+                  // project file persists it.
+                  let next = nextIn;
+                  if (doc) {
+                    const committedAtOpen = readNetChains(doc).map((c) => c.name);
+                    const rows = next.netChains.chains;
+                    const rowByOrig = new Map(
+                      rows.filter((r) => r.origName).map((r) => [r.origName, r]),
+                    );
+                    const classByChain = { ...next.netChains.classByChain };
+                    for (const name of committedAtOpen) {
+                      const row = rowByOrig.get(name);
+                      if (!row || row.name !== name) delete classByChain[name];
+                    }
+                    for (const row of rows) {
+                      if (row.chainClass) classByChain[row.name] = row.chainClass;
+                      else delete classByChain[row.name];
+                    }
+                    next = { ...next, netChains: { ...next.netChains, classByChain } };
                   }
-                  for (const row of rows) {
-                    if (row.chainClass) classByChain[row.name] = row.chainClass;
-                    else delete classByChain[row.name];
+                  commitSetup(next);
+                  // Net-chain renames/edits/deletes write back to the document's
+                  // (net_chain …) nodes (they live in .kicad_sch, root sheet).
+                  if (doc) {
+                    const before = readNetChains(doc);
+                    const rowByOrig = new Map(
+                      next.netChains.chains.filter((r) => r.origName).map((r) => [r.origName, r]),
+                    );
+                    const after = before.flatMap((c) => {
+                      const row = rowByOrig.get(c.name);
+                      if (!row) return []; // deleted
+                      return [{ ...c, name: row.name, netClass: row.netClass, color: row.color }];
+                    });
+                    if (JSON.stringify(after) !== JSON.stringify(before))
+                      runCommand(netChainsCommand(writeNetChains(doc, after)));
                   }
-                  next = { ...next, netChains: { ...next.netChains, classByChain } };
-                }
-                commitSetup(next);
-                // Net-chain renames/edits/deletes write back to the document's
-                // (net_chain …) nodes (they live in .kicad_sch, root sheet).
-                if (doc) {
-                  const before = readNetChains(doc);
-                  const rowByOrig = new Map(
-                    next.netChains.chains.filter((r) => r.origName).map((r) => [r.origName, r]),
-                  );
-                  const after = before.flatMap((c) => {
-                    const row = rowByOrig.get(c.name);
-                    if (!row) return []; // deleted
-                    return [{ ...c, name: row.name, netClass: row.netClass, color: row.color }];
-                  });
-                  if (JSON.stringify(after) !== JSON.stringify(before))
-                    runCommand(netChainsCommand(writeNetChains(doc, after)));
-                }
-                // The Embedded Files page edits the document itself
-                // (EMBEDDED_FILES lives in .kicad_sch, not the project file):
-                // compress added files, drop removed ones, set the fonts flag.
-                if (doc) {
-                  const cur = listEmbeddedFiles(doc);
-                  const keep = new Set(next.embeddedFiles.files.map((f) => f.name));
-                  const removed = cur.files.filter((f) => !keep.has(f.name)).map((f) => f.name);
-                  const added = next.embeddedFiles.files.filter((f) => f.pendingBytes);
-                  const fontsChanged = next.embeddedFiles.embedFonts !== cur.embedFonts;
-                  if (removed.length || added.length || fontsChanged) {
-                    const base = doc;
-                    void (async () => {
-                      let after = base;
-                      for (const name of removed) after = removeEmbeddedFile(after, name);
-                      for (const f of added)
-                        after = await addEmbeddedFile(after, f.name, f.pendingBytes!);
-                      if (fontsChanged) after = setEmbedFonts(after, next.embeddedFiles.embedFonts);
-                      runCommand(embeddedFilesCommand(after));
-                    })();
+                  // The Embedded Files page edits the document itself
+                  // (EMBEDDED_FILES lives in .kicad_sch, not the project file):
+                  // compress added files, drop removed ones, set the fonts flag.
+                  if (doc) {
+                    const cur = listEmbeddedFiles(doc);
+                    const keep = new Set(next.embeddedFiles.files.map((f) => f.name));
+                    const removed = cur.files.filter((f) => !keep.has(f.name)).map((f) => f.name);
+                    const added = next.embeddedFiles.files.filter((f) => f.pendingBytes);
+                    const fontsChanged = next.embeddedFiles.embedFonts !== cur.embedFonts;
+                    if (removed.length || added.length || fontsChanged) {
+                      const base = doc;
+                      void (async () => {
+                        let after = base;
+                        for (const name of removed) after = removeEmbeddedFile(after, name);
+                        for (const f of added)
+                          after = await addEmbeddedFile(after, f.name, f.pendingBytes!);
+                        if (fontsChanged)
+                          after = setEmbedFonts(after, next.embeddedFiles.embedFonts);
+                        runCommand(embeddedFilesCommand(after));
+                      })();
+                    }
                   }
-                }
-                setSetupOpen(false);
-              }}
-              onCancel={() => setSetupOpen(false)}
-              onExportEmbedded={(files) => {
-                // onExportFiles: write every embedded file out, here as
-                // downloads; pending rows export their picked bytes directly.
-                const base = doc;
-                if (!base) return;
-                void (async () => {
-                  for (const f of files) {
-                    const bytes =
-                      f.pendingBytes ?? (await getEmbeddedFileData(base, f.name))?.bytes;
-                    if (bytes) downloadBlob(new Blob([bytes.slice().buffer]), f.name);
-                  }
-                })();
-              }}
-            />
-          )}
-          {netlistOpen && doc && (
-            <DialogExportNetlist
-              doc={doc}
-              libById={libById}
-              baseName={outputBaseName()}
-              projectFolders={projectFolders}
-              onOutputFile={onOutputFile}
-              onClose={() => setNetlistOpen(false)}
-            />
-          )}
-          {/* One dialog, two views (DIALOG_SYMBOL_FIELDS_TABLE): Edit Symbol
+                  setSetupOpen(false);
+                }}
+                onCancel={() => setSetupOpen(false)}
+                onExportEmbedded={(files) => {
+                  // onExportFiles: write every embedded file out, here as
+                  // downloads; pending rows export their picked bytes directly.
+                  const base = doc;
+                  if (!base) return;
+                  void (async () => {
+                    for (const f of files) {
+                      const bytes =
+                        f.pendingBytes ?? (await getEmbeddedFileData(base, f.name))?.bytes;
+                      if (bytes) downloadBlob(new Blob([bytes.slice().buffer]), f.name);
+                    }
+                  })();
+                }}
+              />
+            )}
+            {netlistOpen && doc && (
+              <DialogExportNetlist
+                doc={doc}
+                libById={libById}
+                baseName={outputBaseName()}
+                projectFolders={projectFolders}
+                onOutputFile={onOutputFile}
+                onClose={() => setNetlistOpen(false)}
+              />
+            )}
+            {/* One dialog, two views (DIALOG_SYMBOL_FIELDS_TABLE): Edit Symbol
               Fields opens its Edit page, Generate BOM its Export page. */}
-          {(fieldsTableOpen || bomOpen) && (
-            <DialogSymbolFieldsTable
-              docs={liveDocs()}
-              rootFile={project.current.root}
-              currentPath={currentPath}
-              fieldTemplates={setup.fieldTemplates}
-              presets={setup.bomPresets}
-              // Saved presets persist into schematic.bom_presets and list in
-              // Schematic Setup > BOM Presets, like upstream.
-              onSavePresets={(bomPresets) => commitSetup({ ...setup, bomPresets })}
-              defaultBomFileName={`${outputBaseName()}.csv`}
-              initialTab={bomOpen ? 'export' : 'edit'}
-              onApply={(edits, opts) =>
-                applyFieldsEdits(edits.fields, { ...opts, attrs: edits.attrs })
-              }
-              // The BOM lands in the project's file manager (the cloud "disk"),
-              // like every other generated output.
-              onExportFile={(name, text) => {
-                if (onOutputFile) onOutputFile(name, new TextEncoder().encode(text), 'text/csv');
-                else downloadBlob(new Blob([text], { type: 'text/csv' }), name);
-              }}
-              // Cross-probe: pick the row's symbols on the canvas (highlight
-              // also centres on the first one), as OnTableRangeSelected does.
-              onCrossProbe={(refs, mode) => {
-                const ids = refs.filter((r) => r.file === currentFile).map((r) => r.id);
-                if (ids.length === 0) return;
-                setSelection(new Set(ids));
-                if (mode === 'highlight') setHighlightItem(ids[0] ?? null);
-              }}
-              onClose={() => {
-                setFieldsTableOpen(false);
-                setBomOpen(false);
-              }}
-            />
-          )}
-          {/* Assign Footprints (cvpcb): assignments apply as Footprint field
+            {(fieldsTableOpen || bomOpen) && (
+              <DialogSymbolFieldsTable
+                docs={liveDocs()}
+                rootFile={project.current.root}
+                currentPath={currentPath}
+                fieldTemplates={setup.fieldTemplates}
+                presets={setup.bomPresets}
+                // Saved presets persist into schematic.bom_presets and list in
+                // Schematic Setup > BOM Presets, like upstream.
+                onSavePresets={(bomPresets) => commitSetup({ ...setup, bomPresets })}
+                defaultBomFileName={`${outputBaseName()}.csv`}
+                initialTab={bomOpen ? 'export' : 'edit'}
+                onApply={(edits, opts) =>
+                  applyFieldsEdits(edits.fields, { ...opts, attrs: edits.attrs })
+                }
+                // The BOM lands in the project's file manager (the cloud "disk"),
+                // like every other generated output.
+                onExportFile={(name, text) => {
+                  if (onOutputFile) onOutputFile(name, new TextEncoder().encode(text), 'text/csv');
+                  else downloadBlob(new Blob([text], { type: 'text/csv' }), name);
+                }}
+                // Cross-probe: pick the row's symbols on the canvas (highlight
+                // also centres on the first one), as OnTableRangeSelected does.
+                onCrossProbe={(refs, mode) => {
+                  const ids = refs.filter((r) => r.file === currentFile).map((r) => r.id);
+                  if (ids.length === 0) return;
+                  setSelection(new Set(ids));
+                  if (mode === 'highlight') setHighlightItem(ids[0] ?? null);
+                }}
+                onClose={() => {
+                  setFieldsTableOpen(false);
+                  setBomOpen(false);
+                }}
+              />
+            )}
+            {/* Assign Footprints (cvpcb): assignments apply as Footprint field
               edits through the same per-sheet pathway as the fields table. */}
-          {assignFpOpen && (
-            <DialogAssignFootprints
-              docs={liveDocs()}
-              // The netlist CVPCB works on is this design's sheets, in
-              // hierarchy order, not every .kicad_sch in the project folder.
-              files={assignFpFiles}
-              projectFootprints={projectFootprintFiles}
-              onApply={(edits, { save, close }) => {
-                applyFieldsEdits(edits, { persist: save });
-                if (close) setAssignFpOpen(false);
-              }}
-              onSaveLibTable={saveProjectFpLibTable}
-              onClose={() => setAssignFpOpen(false)}
-            />
-          )}
-          {/* Symbol Library Browser: "Add Symbol to Schematic" attaches the pick
+            {assignFpOpen && (
+              <DialogAssignFootprints
+                docs={liveDocs()}
+                // The netlist CVPCB works on is this design's sheets, in
+                // hierarchy order, not every .kicad_sch in the project folder.
+                files={assignFpFiles}
+                projectFootprints={projectFootprintFiles}
+                onApply={(edits, { save, close }) => {
+                  applyFieldsEdits(edits, { persist: save });
+                  if (close) setAssignFpOpen(false);
+                }}
+                onSaveLibTable={saveProjectFpLibTable}
+                onClose={() => setAssignFpOpen(false)}
+              />
+            )}
+            {/* Symbol Library Browser: "Add Symbol to Schematic" attaches the pick
               to the cursor exactly like the Place Symbol chooser. */}
-          {browserOpen && (
-            <SymbolLibraryBrowser
-              onPick={(lib) => {
-                setBrowserOpen(false);
-                placeFlags.current = { keepSymbol: true, placeAllUnits: false, unitCount: 1 };
-                setPlaceUnit(1);
-                setPlaceLib(lib);
-                setActiveTool('placeSymbol');
-              }}
-              onClose={() => setBrowserOpen(false)}
-            />
+            {browserOpen && (
+              <SymbolLibraryBrowser
+                onPick={(lib) => {
+                  setBrowserOpen(false);
+                  placeFlags.current = { keepSymbol: true, placeAllUnits: false, unitCount: 1 };
+                  setPlaceUnit(1);
+                  setPlaceLib(lib);
+                  setActiveTool('placeSymbol');
+                }}
+                onClose={() => setBrowserOpen(false)}
+              />
+            )}
+          </div>
+          {toggles.has('showSearch') && doc && (
+            <>
+              {/* The sash sits ABOVE the pane here, so dragging it down has to
+                  SHRINK the pane below rather than grow the one above —
+                  `startPanelResize`'s inverse. */}
+              <div
+                className="ze-splitter horizontal"
+                onMouseDown={startBottomDockResize}
+                title="Drag to resize"
+              />
+              <div className="ze-bottomdock sch-bottomdock" style={bottomDockStyle}>
+                <div className="ze-panel">
+                  <div className="ze-panel-header">Search</div>
+                  <div className="ze-panel-body">
+                    <SearchPanel
+                      doc={doc}
+                      libById={libById}
+                      fmt={fmt}
+                      selectionZoom={settings.common.search_pane.selection_zoom}
+                      onSelectionZoomChange={(mode) =>
+                        settings.updateCommon((c) => {
+                          c.search_pane.selection_zoom = mode;
+                        })
+                      }
+                      selection={selection}
+                      onClearSelection={() => setSelection(new Set())}
+                      onSelect={(id) => setSelection(new Set([id]))}
+                      onCenter={(_id, at) => controller.current?.centerOn(at)}
+                      onZoomFit={(id) => {
+                        // ACTIONS::zoomFitSelection, the same extent walk the View
+                        // menu's Zoom to Selected Objects uses.
+                        const box = doc ? selectionBBox(doc, new Set([id]), libById) : emptyBBox();
+                        if (!isEmpty(box)) controller.current?.zoomToBox(box);
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </>
           )}
         </div>
 

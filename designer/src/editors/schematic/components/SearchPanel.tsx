@@ -94,10 +94,10 @@ export function SearchPanel({
   const columns = SEARCH_COLUMNS[tab];
 
   return (
-    // `minWidth: 0` throughout: this pane lives in a 240px dock, and a flex
-    // item's default `min-width: auto` refuses to shrink below its content, so
-    // without it the search box alone is wider than the dock and the whole
-    // panel gets a horizontal scrollbar.
+    // `minWidth: 0` throughout: a flex item's default `min-width: auto` refuses
+    // to shrink below its content, so without it the search box sets the pane's
+    // floor and the whole panel gets a horizontal scrollbar the moment the dock
+    // is narrower than that.
     <div
       style={{
         display: 'flex',
