@@ -50,7 +50,7 @@ import {
 import { unescapeString } from '@ziroeda/common/src/string_utils.js';
 import { SYM_FRAME_NAME, symFrameTitle } from './frame_title.js';
 import { loadIndex } from '../schematic/symbols/index.js';
-import { useSchematicTheme } from '../../prefs/useSettings.js';
+import { useCommonSettings, useSchematicTheme } from '../../prefs/useSettings.js';
 import { pcm } from '../../pcm/pcmStore.js';
 import {
   addGraphicToSymbol,
@@ -84,6 +84,7 @@ import {
 } from './components/dialogs.js';
 import '../../ui/shell.css';
 import { AboutDialog } from '../../home/dialogs/dialog_about.js';
+import { PreferencesDialog } from '../../dialogs/PreferencesDialog.js';
 import { symbolEditorMenus } from './menubar.js';
 import { showHotkeyList } from '../../ui/hotkey_list_action.js';
 import { ABOUT_TITLES } from '../../ui/about_titles.js';
@@ -238,6 +239,7 @@ export function SymbolEditor({
 }): JSX.Element {
   const manager = useRef(new SymbolLibraryManager());
   const theme = useSchematicTheme();
+  const common = useCommonSettings();
   const [revision, setRevision] = useState(0);
   const bump = useCallback(() => setRevision(manager.current.revision + Math.random()), []);
 
@@ -291,6 +293,7 @@ export function SymbolEditor({
   const [shapeDialog, setShapeDialog] = useState<{ editId: string } | null>(null);
   const [newSymbolOpen, setNewSymbolOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
+  const [prefsOpen, setPrefsOpen] = useState(false);
   const [symbolPropsOpen, setSymbolPropsOpen] = useState(false);
   const [pinTableOpen, setPinTableOpen] = useState(false);
   const [checkOpen, setCheckOpen] = useState(false);
@@ -1507,6 +1510,12 @@ export function SymbolEditor({
         case 'checkSymbol':
           if (workSymbol) setCheckOpen(true);
           break;
+        // ACTIONS::openPreferences. The dialog is `dialogs/PreferencesDialog`,
+        // the one every other launcher opens - there is not a symbol-editor
+        // copy of it, the way there is not one upstream.
+        case 'openPreferences':
+          setPrefsOpen(true);
+          break;
       }
     },
     [
@@ -1532,13 +1541,20 @@ export function SymbolEditor({
           action: onMenuAction,
           tool: onToolSelect,
           toggle: onLeftToggle,
+          // Preferences > Set Language. The setting is COMMON_SETTINGS', shared
+          // by every frame, so it is read and written through the common store
+          // exactly as the other launchers do.
+          language: common.system.language,
+          onSelectLanguage: (label: string) =>
+            settings.updateCommon((c) => {
+              c.system.language = label;
+            }),
           showHotkeys: showHotkeyList,
           showAbout: () => setAboutOpen(true),
         },
         {
           showHiddenPins: toggles.has('showHiddenPins'),
           showHiddenFields: toggles.has('showHiddenFields'),
-          showElectricalTypes: toggles.has('showElectricalTypes'),
           showLibraryTree: toggles.has('showLibraryTree'),
           showProperties: toggles.has('showProperties'),
         },
@@ -1546,9 +1562,23 @@ export function SymbolEditor({
           haveSymbol: !!workSymbol,
           revert: !!curName,
           targetSymbol: !!(curName || treeSel?.name),
+          // `IsSymbolFromSchematic()`. Nothing can open this frame on a
+          // schematic's own symbol yet, so it is false and stays false until
+          // something can - at which point File > Save All disappears and Edit
+          // Library Symbol lights up, both on their own.
+          symbolFromSchematic: false,
         },
       ),
-    [onMenuAction, onToolSelect, onLeftToggle, toggles, workSymbol, curName, treeSel],
+    [
+      onMenuAction,
+      onToolSelect,
+      onLeftToggle,
+      toggles,
+      workSymbol,
+      curName,
+      treeSel,
+      common.system.language,
+    ],
   );
 
   // The chain above reads the tree through this ref; see `menusRef`.
@@ -2007,6 +2037,7 @@ export function SymbolEditor({
           );
         })()}
       {aboutOpen && <AboutDialog title={ABOUT_TITLES.symbol} onClose={() => setAboutOpen(false)} />}
+      {prefsOpen && <PreferencesDialog onClose={() => setPrefsOpen(false)} />}
       {newSymbolOpen && (
         <NewSymbolDialog
           symbolNames={targetLib ? manager.current.symbolNames(targetLib) : []}

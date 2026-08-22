@@ -60,6 +60,9 @@ import { layerColor, PCB_PAINT_ORDER } from '../pcb/pcbTheme.js';
 import { DEFAULT_DRAW_OPTIONS, type PcbDrawOptions } from '../pcb/renderBoard.js';
 import '../../ui/shell.css';
 import { AboutDialog } from '../../home/dialogs/dialog_about.js';
+import { PreferencesDialog } from '../../dialogs/PreferencesDialog.js';
+import { useCommonSettings } from '../../prefs/useSettings.js';
+import { settings } from '../../prefs/settings.js';
 import { footprintEditorMenus } from './menubar.js';
 import { showHotkeyList } from '../../ui/hotkey_list_action.js';
 import { ABOUT_TITLES } from '../../ui/about_titles.js';
@@ -229,6 +232,8 @@ export function FootprintEditor({
   const [newFpName, setNewFpName] = useState<string | null>(null);
   const [propsOpen, setPropsOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
+  const [prefsOpen, setPrefsOpen] = useState(false);
+  const common = useCommonSettings();
   const [padDialogId, setPadDialogId] = useState<string | null>(null);
 
   const controller = useRef<FootprintCanvasController>(null);
@@ -924,6 +929,10 @@ export function FootprintEditor({
         case 'showDatasheet':
           showDatasheet();
           break;
+        // ACTIONS::openPreferences. The shared dialog every launcher opens.
+        case 'openPreferences':
+          setPrefsOpen(true);
+          break;
       }
     },
     [
@@ -948,6 +957,13 @@ export function FootprintEditor({
           action: onMenuAction,
           tool: selectTool,
           toggle: onLeftToggle,
+          // Preferences > Set Language. COMMON_SETTINGS is shared by every
+          // frame, so it is read and written through the common store.
+          language: common.system.language,
+          onSelectLanguage: (label: string) =>
+            settings.updateCommon((c) => {
+              c.system.language = label;
+            }),
           showHotkeys: showHotkeyList,
           showAbout: () => setAboutOpen(true),
         },
@@ -956,6 +972,9 @@ export function FootprintEditor({
           showLayersManager: toggles.has('showLayersManager'),
           showProperties: toggles.has('showProperties'),
           padDisplayMode: toggles.has('padDisplayMode'),
+          graphicsOutlines: toggles.has('graphicsOutlines'),
+          textOutlines: toggles.has('textOutlines'),
+          highContrast: toggles.has('highContrast'),
         },
         {
           haveFootprint: !!workFp,
@@ -975,6 +994,7 @@ export function FootprintEditor({
       curName,
       treeSel,
       selection,
+      common.system.language,
     ],
   );
 
@@ -1389,6 +1409,7 @@ export function FootprintEditor({
       {aboutOpen && (
         <AboutDialog title={ABOUT_TITLES.footprint} onClose={() => setAboutOpen(false)} />
       )}
+      {prefsOpen && <PreferencesDialog onClose={() => setPrefsOpen(false)} />}
       {propsOpen && workFp && (
         <FootprintPropertiesDialog
           footprint={workFp}
