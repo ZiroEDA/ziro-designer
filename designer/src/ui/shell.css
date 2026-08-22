@@ -7837,7 +7837,12 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 }
 .ze-pgs-body {
   display: flex;
-  align-items: flex-start;
+  /* Both columns go in with wxEXPAND (dialog_page_settings_base.cpp:141-143),
+     so each stretches to the row's full height — that is what gives the preview
+     box, added at proportion 1, a height to fill. `flex-start` left the left
+     column as tall as its content, so the box collapsed onto the thumbnail and
+     the sheet sat straight under the "Preview" heading with no box at all. */
+  align-items: stretch;
   /* bMainSizer->Add( bUpperSizerH, 1, wxEXPAND|wxRIGHT|wxLEFT, 5 ) */
   padding: 0 var(--wx-border);
 }
@@ -7977,8 +7982,11 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   /* proportion 2 in bSizerDate, but never below what the date itself needs:
      "08/22/2026" was being clipped to "08/22/202" because the flex basis let
      the entry shrink under the button. */
-  flex: 2 1 auto;
-  min-width: 128px;
+  /* proportion 2 in bSizerDate. Basis 0 so the proportion governs: an `auto`
+     basis takes the native date input's intrinsic width, which is far wider
+     than the 130px [px] the entry-plus-button measures on a live pl_editor. */
+  flex: 2 1 0;
+  min-width: 104px;
   display: flex;
   align-items: stretch;
 }
