@@ -6997,9 +6997,15 @@ export function PcbEditor({
     {
       label: 'View',
       items: [
-        { label: 'Zoom In', action: () => zoomStep(1.3), shortcut: 'Ctrl++' },
-        { label: 'Zoom Out', action: () => zoomStep(1 / 1.3), shortcut: 'Ctrl+-' },
-        { label: 'Zoom to Fit', action: zoomToFit, shortcut: 'Ctrl+0' },
+        // `menubar_pcb_editor.cpp:234-236` adds zoomInCenter, zoomOutCenter and
+        // zoomFitScreen. The first two carry NO DefaultHotkey on any platform
+        // (`actions.cpp:769-779`), so these rows show no accelerator; the third
+        // is WXK_HOME off macOS, and Home is the key this frame already handles.
+        // The Ctrl++ / Ctrl+- / Ctrl+0 these printed were the macOS branch, and
+        // none of the three was bound here at all.
+        { label: 'Zoom In', action: () => zoomStep(1.3) },
+        { label: 'Zoom Out', action: () => zoomStep(1 / 1.3) },
+        { label: 'Zoom to Fit', action: zoomToFit, shortcut: 'Home' },
         {
           label: 'Redraw',
           action: () => {

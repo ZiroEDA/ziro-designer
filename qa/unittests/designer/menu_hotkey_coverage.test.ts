@@ -902,9 +902,12 @@ const DECLARED: Readonly<Record<string, readonly string[]>> = {
     'Ctrl+F',
     'E',
     'F',
-    'Ctrl++',
-    'Ctrl+-',
-    'Ctrl+0',
+    // View > Zoom In / Zoom Out declare NO accelerator: those rows are
+    // `ACTIONS::zoomInCenter` / `zoomOutCenter` (`menubar_pcb_editor.cpp:234`),
+    // which carry no DefaultHotkey on any platform. Zoom to Fit is Home, the
+    // `#else` branch of zoomFitScreen — the Ctrl++ / Ctrl+- / Ctrl+0 that used
+    // to sit here were the macOS branch, and none of them was ever bound.
+    'Home',
     'F5',
     'F8',
     'Ctrl+,',

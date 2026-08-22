@@ -193,48 +193,47 @@ export const HOTKEYS: readonly Hotkey[] = [
     upstream: 'ACTIONS::zoomFitScreen',
     note: "Upstream's macOS binding, kept on every platform so a Mac user's muscle memory works.",
   },
-  { id: 'zoomIn', label: 'Zoom In', keys: 'Ctrl++', section: 'View', upstream: 'ACTIONS::zoomIn' },
+  {
+    id: 'zoomIn',
+    label: 'Zoom In at Cursor',
+    keys: 'F1',
+    section: 'View',
+    upstream: 'ACTIONS::zoomIn',
+  },
   {
     id: 'zoomOut',
-    label: 'Zoom Out',
-    keys: 'Ctrl+-',
+    label: 'Zoom Out at Cursor',
+    keys: 'F2',
     section: 'View',
     upstream: 'ACTIONS::zoomOut',
   },
   {
     id: 'zoomInCenter',
-    label: 'Zoom In at Cursor',
-    keys: 'F1',
+    label: 'Zoom In',
+    keys: '',
     section: 'View',
     /*
-     * KNOWN WRONG, and deliberately left: this row cites `ACTIONS::zoomInCenter`
-     * while its label and key are `ACTIONS::zoomIn`'s.
+     * No hotkey, and that is upstream's: `ACTIONS::zoomInCenter`
+     * (`actions.cpp:769-773`) declares a Name, a Scope, a FriendlyName and an
+     * Icon, and no `DefaultHotkey` on any platform.
      *
-     *   ACTIONS::zoomIn        FriendlyName "Zoom In at Cursor"  F1 off macOS
-     *   ACTIONS::zoomInCenter  FriendlyName "Zoom In"            no hotkey
-     *
-     * So "Zoom In at Cursor" on F1 is `zoomIn`, and the row two below it —
-     * `id: 'zoomIn'`, label "Zoom In", keys Ctrl++ — has the macOS key AND the
-     * other action's name. Two actions are spread across two rows with the
-     * halves crossed over.
-     *
-     * Re-citing this one alone is not the fix: `hotkeys_inventory` merges rows
-     * by `upstream`, so it silently folds the pair into one row whose PRIMARY
-     * key becomes the macOS Ctrl++. Straightening it out means deciding which
-     * action F1 actually dispatches here — at the cursor or at the view centre,
-     * which are different behaviours — and that is a change to the key handler,
-     * not to a citation. Left whole for that change rather than half-done here.
+     * This row and `zoomIn` above used to be crossed: the halves of two actions
+     * were split across them, so "Zoom In at Cursor" on F1 was filed under
+     * `zoomInCenter` while `zoomIn` carried the label "Zoom In" and the macOS
+     * key Ctrl++. They differ in behaviour, not only in name -- `zoomIn` zooms
+     * about the cursor, `zoomInCenter` about the viewport centre -- and the key
+     * handler was already dispatching F1 to the cursor one. Only the table was
+     * wrong.
      */
     upstream: 'ACTIONS::zoomInCenter',
   },
   {
     id: 'zoomOutCenter',
-    label: 'Zoom Out at Cursor',
-    keys: 'F2',
+    label: 'Zoom Out',
+    keys: '',
     section: 'View',
-    // The same crossed pair as Zoom In above, and left for the same change:
-    // "Zoom Out at Cursor" on F2 is `ACTIONS::zoomOut`, while `zoomOutCenter`
-    // is FriendlyName "Zoom Out" and carries no hotkey at all.
+    // The other half of the same pair, and unbound for the same reason:
+    // `ACTIONS::zoomOutCenter` (`actions.cpp:775-779`) carries no DefaultHotkey.
     upstream: 'ACTIONS::zoomOutCenter',
   },
   {

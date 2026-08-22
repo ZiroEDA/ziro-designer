@@ -6913,14 +6913,11 @@ export function SchematicEditor({
         // platform as an alias.
         e.preventDefault();
         controller.current?.zoomToFit();
-      } else if ((e.ctrlKey || e.metaKey) && (e.key === '+' || e.key === '=')) {
-        // ACTIONS::zoomIn (Ctrl++).
-        e.preventDefault();
-        controller.current?.zoomIn();
-      } else if ((e.ctrlKey || e.metaKey) && e.key === '-') {
-        // ACTIONS::zoomOut (Ctrl+-).
-        e.preventDefault();
-        controller.current?.zoomOut();
+      // Ctrl++ / Ctrl+- are deliberately NOT bound. They are `ACTIONS::zoomIn`
+      // and `ACTIONS::zoomOut`'s `#if defined( __WXMAC__ )` defaults
+      // (`actions.cpp:749-763`); this platform takes the `#else` branch, F1 and
+      // F2, which are bound below. Binding both spellings gave us a key real
+      // KiCad does not have here.
       } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'u' && !e.shiftKey) {
         // ACTIONS::toggleUnits (Ctrl+U): imperial <-> metric, remembering the
         // last imperial unit (COMMON_TOOLS m_imperialUnit, initially inches).
