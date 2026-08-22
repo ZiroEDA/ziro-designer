@@ -609,13 +609,29 @@ const noop = (): void => {};
 const MENU_BUILDER: Readonly<Record<string, () => Menu[]>> = {
   'editors/symbol/SymbolEditor.tsx': () =>
     symbolEditorMenus(
-      { action: noop, tool: noop, toggle: noop, showHotkeys: noop, showAbout: noop },
+      {
+        action: noop,
+        tool: noop,
+        toggle: noop,
+        language: 'Default',
+        onSelectLanguage: noop,
+        showHotkeys: noop,
+        showAbout: noop,
+      },
       {},
-      { haveSymbol: true, revert: true, targetSymbol: true },
+      { haveSymbol: true, revert: true, targetSymbol: true, symbolFromSchematic: false },
     ),
   'editors/footprint/FootprintEditor.tsx': () =>
     footprintEditorMenus(
-      { action: noop, tool: noop, toggle: noop, showHotkeys: noop, showAbout: noop },
+      {
+        action: noop,
+        tool: noop,
+        toggle: noop,
+        language: 'Default',
+        onSelectLanguage: noop,
+        showHotkeys: noop,
+        showAbout: noop,
+      },
       {},
       {
         haveFootprint: true,
@@ -860,26 +876,62 @@ const DECLARED: Readonly<Record<string, readonly string[]>> = {
     'Shift+Ctrl+S',
   ],
   'editors/footprint/FootprintEditor.tsx': [
-    // The two rows the SHARED builders add, which no scrape has ever seen:
+    // Every combo below is a `DefaultHotkey` in `common/tool/actions.cpp` or
+    // `pcbnew/tools/pcb_actions.cpp`, read off the action its row is built
+    // from - plus the two the shared builders add. Nothing here was baselined
+    // to whatever the code printed.
+    //
     // `addClose` writes File > Close and `standardHelpMenu` writes Help > List
-    // Hotkeys, so neither spells a `shortcut:` anywhere in a frame's source.
-    // They show up here only because this frame's tree is now BUILT rather than
-    // read, and every other entry in this table is still missing them for
-    // exactly that reason.
+    // Hotkeys. No frame spells a `shortcut:` for either, which is why the
+    // source scrape never saw them and every other entry in this table still
+    // does not carry them.
     'Ctrl+Alt+W',
     'Ctrl+F1',
+    // File. Ctrl+N is BROWSER_RESERVED and carries browserSafeKey's
+    // substitution. Ctrl+Shift+S saveAs, Ctrl+Shift+E editLibFpInFpEditor,
+    // Ctrl+Shift+F placeImportedGraphics, Ctrl+P print.
     'Ctrl+Alt+N',
     'Ctrl+S',
-    'Ctrl+Y',
+    'Ctrl+Shift+S',
+    'Ctrl+Shift+E',
+    'Ctrl+Shift+F',
+    'Ctrl+P',
+    // Edit. redo is Ctrl+Y and doDelete is Delete off macOS.
     'Ctrl+Z',
-    // The menu accelerator, which GTK spells in full. The Hotkey List calls the
-    // same key `Del` - see `ui/key_names.ts`.
+    'Ctrl+Y',
+    'Ctrl+X',
+    'Ctrl+C',
+    'Ctrl+V',
     'Delete',
-    // View > Zoom to Fit. `ACTIONS::zoomFitScreen` is Home off macOS and F is
-    // `PCB_ACTIONS::flip`, so this row's key is wrong upstream - but it is the
-    // key the frame has always answered, and correcting the row is #547's job,
-    // not this one's. Recorded so the divergence is not silent.
-    'F',
+    'Ctrl+D',
+    'Ctrl+A',
+    'Ctrl+Shift+A',
+    // View. zoomFitScreen is WXK_HOME - the F this row used to print is
+    // PCB_ACTIONS::flip's key, not this action's. zoomTool Ctrl+F5, zoomRedraw
+    // F5, show3DViewer MD_ALT+'3', layerAlphaDec/Inc the brace keys.
+    'Home',
+    'Ctrl+F5',
+    'F5',
+    'Alt+3',
+    '{',
+    '}',
+    // Place - the nine accelerators this bar carried none of: drawRuleArea K,
+    // drawLine L, drawArc A, drawCircle C, drawPolygon P, drawBezier B,
+    // placeText T, drawOrthogonalDimension H, setAnchor N. A, C and P are the
+    // same combos Edit already lists.
+    'Ctrl+Shift+K',
+    'Ctrl+Shift+L',
+    'Ctrl+Shift+C',
+    'Ctrl+Shift+P',
+    'Ctrl+Shift+B',
+    'Ctrl+Shift+T',
+    'Ctrl+Shift+H',
+    'Ctrl+Shift+N',
+    // Inspect: measureTool Ctrl+Shift+M, showDatasheet 'D'.
+    'Ctrl+Shift+M',
+    'D',
+    // Preferences: openPreferences Ctrl+,.
+    'Ctrl+,',
   ],
   'editors/pcb/PcbEditor.tsx': [
     // Two of these are rows with no `action` yet - Route > Single Track (X) and
@@ -910,23 +962,42 @@ const DECLARED: Readonly<Record<string, readonly string[]>> = {
     'Ctrl+,',
   ],
   'editors/symbol/SymbolEditor.tsx': [
-    // The two rows the SHARED builders add, which no scrape has ever seen:
-    // `addClose` writes File > Close and `standardHelpMenu` writes Help > List
-    // Hotkeys, so neither spells a `shortcut:` anywhere in a frame's source.
-    // They show up here only because this frame's tree is now BUILT rather than
-    // read, and every other entry in this table is still missing them for
-    // exactly that reason.
+    // As above: every combo is a `DefaultHotkey` out of `common/tool/actions
+    // .cpp` or `eeschema/tools/sch_actions.cpp`, plus the two shared builders'.
     'Ctrl+Alt+W',
     'Ctrl+F1',
+    // File. saveLibraryAs Ctrl+Shift+S, newSymbol Ctrl+N (substituted),
+    // editLibSymbolWithLibEdit Ctrl+Shift+E, importGraphics Ctrl+Shift+F.
+    'Ctrl+Shift+S',
     'Ctrl+Alt+N',
+    'Ctrl+Shift+E',
     'Ctrl+S',
-    'Ctrl+Y',
+    'Ctrl+Shift+F',
+    // Edit.
     'Ctrl+Z',
+    'Ctrl+Y',
+    'Ctrl+X',
+    'Ctrl+C',
+    'Ctrl+Shift+C',
+    'Ctrl+V',
     'Delete',
-    // Place > Pin / Text. SCH_ACTIONS::placeSymbolPin is P and placeSymbolText
-    // is T, both AS_GLOBAL with a row - so both belong on the row.
+    'Ctrl+D',
+    'Ctrl+A',
+    'Ctrl+Shift+A',
+    'Ctrl+F',
+    'Ctrl+Alt+F',
+    // View: zoomFitScreen Home, zoomTool Ctrl+F5, zoomRedraw F5.
+    'Home',
+    'Ctrl+F5',
+    'F5',
+    // Place. SCH_ACTIONS::placeSymbolPin is 'P' (sch_actions.cpp:379) and is
+    // the ONLY Place action in this frame with a key - `placeSymbolText`
+    // declares none, so the T this bar used to print was invented.
     'P',
-    'T',
+    // Inspect: showDatasheet 'D'.
+    'D',
+    // Preferences: openPreferences Ctrl+,.
+    'Ctrl+,',
   ],
 };
 
