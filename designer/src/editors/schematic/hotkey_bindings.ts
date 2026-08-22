@@ -53,11 +53,44 @@ export interface KeyLike {
   target: EventTarget | null;
 }
 
-/** Named keys as the registry spells them, keyed by `KeyboardEvent.key`. */
+/**
+ * Named keys as the registry spells them, keyed by `KeyboardEvent.key`.
+ *
+ * The right-hand side is KiCad's own spelling — `hotkeyNameList`
+ * (common/hotkeys_basic.cpp:65-141) — so a row here exists for exactly one
+ * reason: the DOM and KiCad disagree about the name of that key. Checked row by
+ * row against that list, which is how `Ins` and `Return` were found missing.
+ *
+ *   hotkeys_basic.cpp   KeyboardEvent.key   row needed?
+ *   Esc      :92        Escape              yes
+ *   Del      :93        Delete              yes
+ *   Back     :95        Backspace           yes
+ *   Ins      :96        Insert              yes
+ *   PgUp     :100       PageUp              yes
+ *   PgDn     :101       PageDown            yes
+ *   Up/Down/Left/Right  Arrow*              yes  (:103-106)
+ *   Return   :108       Enter               yes
+ *   Space    :110       ' '                 yes
+ *   Tab      :94        Tab                 NO — identical
+ *   Home     :98        Home                NO — identical
+ *   End      :99        End                 NO — identical
+ *
+ * The three marked NO are deliberately absent: `comboFromEvent` passes any
+ * multi-character key through unchanged, so an identity row would be dead
+ * weight. Do not "complete" the table by adding them.
+ *
+ * The `Num Pad *` family (:112-131) has no row because nothing binds one yet;
+ * `ui/key_names.ts` is where those spellings are written down.
+ */
 const KEY_NAMES: Readonly<Record<string, string>> = {
   ' ': 'Space',
   Escape: 'Esc',
   Delete: 'Del',
+  // `{ wxT( "Ins" ), WXK_INSERT }` — hotkeys_basic.cpp:96. Missing until Repeat
+  // Last Item was moved onto its platform default, at which point the registry
+  // held a combo the parser could not rebuild: `eventFromCombo('Ins')` came
+  // back as `Insert`, so the row could never be rebound to or cleared.
+  Insert: 'Ins',
   Backspace: 'Back',
   ArrowUp: 'Up',
   ArrowDown: 'Down',
@@ -65,6 +98,17 @@ const KEY_NAMES: Readonly<Record<string, string>> = {
   ArrowRight: 'Right',
   PageUp: 'PgUp',
   PageDown: 'PgDn',
+  /**
+   * `{ wxT( "Return" ), WXK_RETURN }` — hotkeys_basic.cpp:108.
+   *
+   * Found by checking the whole table rather than only the row that broke.
+   * Nothing in the schematic registry binds Return today, so unlike `Ins` this
+   * one is not yet visibly wrong — but `comboFromEvent` is also what the
+   * rebind capture reads (`dialogs/prefs/panels/PanelHotkeysEditor.tsx`), so a
+   * user pressing Enter to rebind a command was already being recorded as
+   * `Enter`, a spelling no registry row can ever equal.
+   */
+  Enter: 'Return',
 };
 /** The inverse, for turning a registry combo back into an event key. */
 const EVENT_KEYS: Readonly<Record<string, string>> = Object.fromEntries(

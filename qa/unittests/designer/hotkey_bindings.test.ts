@@ -76,6 +76,48 @@ describe('spelling an event', () => {
       expect(comboFromEvent(eventFromCombo(h.keys, ev('x'))), h.id).toBe(h.keys);
   });
 
+  /**
+   * `KEY_NAMES` is transcribed from `hotkeyNameList` (hotkeys_basic.cpp:65-141),
+   * and a table transcribed once tends to be missing more than the row that
+   * broke: `Ins` was found by a failing round-trip, `Return` only by reading the
+   * upstream list against ours afterwards.
+   *
+   * Each key is asserted on its own rather than as one map comparison, because
+   * the rule is per key — a single `toEqual` on the whole table would be
+   * rewritten wholesale by whoever next changed one row.
+   */
+  describe('the named keys KiCad spells differently from the DOM', () => {
+    const cases: [domKey: string, kicad: string, cite: string][] = [
+      ['Escape', 'Esc', ':92'],
+      ['Delete', 'Del', ':93'],
+      ['Backspace', 'Back', ':95'],
+      ['Insert', 'Ins', ':96'],
+      ['PageUp', 'PgUp', ':100'],
+      ['PageDown', 'PgDn', ':101'],
+      ['ArrowUp', 'Up', ':103'],
+      ['ArrowDown', 'Down', ':104'],
+      ['ArrowLeft', 'Left', ':105'],
+      ['ArrowRight', 'Right', ':106'],
+      ['Enter', 'Return', ':108'],
+      [' ', 'Space', ':110'],
+    ];
+
+    it.each(cases)('%s is spelled %s (hotkeys_basic.cpp%s)', (domKey, kicad) => {
+      expect(comboFromEvent(ev(domKey))).toBe(kicad);
+      expect(eventFromCombo(kicad, ev('x')).key).toBe(domKey);
+    });
+
+    /**
+     * Tab, Home and End are spelled the same by both, so they need no row and
+     * must keep working without one. Asserted so that "the table is incomplete"
+     * is not the conclusion someone draws from their absence.
+     */
+    it.each([['Tab'], ['Home'], ['End']])('%s needs no row and round-trips anyway', (key) => {
+      expect(comboFromEvent(ev(key))).toBe(key);
+      expect(eventFromCombo(key, ev('x')).key).toBe(key);
+    });
+  });
+
   it("keeps '+' as a key rather than a separator", () => {
     // Zoom In is Ctrl++; splitting on '+' loses it entirely.
     const back = eventFromCombo('Ctrl++', ev('x'));

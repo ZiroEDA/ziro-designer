@@ -297,6 +297,8 @@ describe('the two File menus that are plain data, built for real', () => {
       tool: (id) => ran.push(`tool:${id}`),
       action: (id) => ran.push(`action:${id}`),
       toggle: (id) => ran.push(`toggle:${id}`),
+      language: 'Default',
+      onSelectLanguage: () => undefined,
     });
     const close = fileMenu(menus).at(-1)!;
     expect(close.label).toBe('Close');

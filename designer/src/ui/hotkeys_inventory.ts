@@ -416,7 +416,11 @@ const GESTURES: HotkeyEntry[] = [
     command: 'Accept Autocomplete',
     keys: 'Return',
     defaultKeys: 'Return',
-    alt: 'Numpad Enter',
+    // `{ wxT( "Num Pad Enter" ), WXK_NUMPAD_ENTER }` — hotkeys_basic.cpp:127.
+    // Two words. This read 'Numpad Enter', which is not KiCad's spelling of any
+    // key, and it is printed in the Hotkey List's Alternate column.
+    // `ui/key_names.ts:86` already had it right, so the two disagreed.
+    alt: 'Num Pad Enter',
     description: '',
   },
   {

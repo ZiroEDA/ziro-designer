@@ -22,12 +22,17 @@
 import type { Menu, MenuItem } from '../../ui/menu_types.js';
 import { addQuitOrClose } from '../../ui/action_menu.js';
 import { standardHelpMenu } from '../../ui/help_menu.js';
+import { setLanguageMenuItem } from '../../ui/language_menu.js';
 import { showHotkeyList } from '../../ui/hotkey_list_action.js';
 
 export interface MenuHandlers {
   tool: (id: string) => void;
   action: (id: string) => void;
   toggle: (id: string) => void;
+  /** `COMMON_SETTINGS.system.language`, the row Set Language ticks. */
+  language: string;
+  /** `EDA_BASE_FRAME::OnLanguageSelectionEvent` — pick a language. */
+  onSelectLanguage: (label: string) => void;
 }
 
 /** Check state for ACTION_MENU::CHECK items, keyed by toggle id. */
@@ -149,7 +154,11 @@ export function buildMenus(h: MenuHandlers, checks: MenuChecks = {}): Menu[] {
       label: 'Edit',
       items: [
         act('Undo', 'undo', 'undo', 'Ctrl+Z'),
-        act('Redo', 'redo', 'redo', 'Ctrl+Shift+Z'),
+        // ACTIONS::redo (common/tool/actions.cpp:292-302) is Ctrl+Shift+Z only
+        // inside `#if defined( __WXMAC__ )`; the `#else` branch — ours — is
+        // Ctrl+Y. Both keys are bound here and always were; it was the printed
+        // one that came from the wrong branch.
+        act('Redo', 'redo', 'redo', 'Ctrl+Y'),
         SEP,
         act('Cut', 'cut', 'cut', 'Ctrl+X'),
         act('Copy', 'copy', 'copy', 'Ctrl+C'),
@@ -206,7 +215,9 @@ export function buildMenus(h: MenuHandlers, checks: MenuChecks = {}): Menu[] {
         act('Zoom to All Objects', 'zoomFitObjects', 'zoomFitObjects', 'Ctrl+Home'),
         act('Zoom to Selected Objects', 'zoomFitSelection', 'zoomFitSelection'),
         actChecked('Zoom to Selection Area', 'zoomTool', 'zoomTool', 'Ctrl+F5'),
-        act('Refresh', 'zoomRedraw', 'zoomRedraw', 'Ctrl+R'),
+        // ACTIONS::zoomRedraw (actions.cpp:705-716), same split: Ctrl+R is the
+        // macOS branch, WXK_F5 is ours. F5 has been the working key all along.
+        act('Refresh', 'zoomRedraw', 'zoomRedraw', 'F5'),
         SEP,
         act('Navigate Back', 'navBack', 'navBack', 'Alt+Left'),
         act('Navigate Up', 'navUp', 'navUp', 'Alt+Up'),
@@ -287,7 +298,9 @@ export function buildMenus(h: MenuHandlers, checks: MenuChecks = {}): Menu[] {
         // Single-window delta: KiCad *raises* the manager and leaves the editor
         // open behind it. There is one page here, so this goes back to it the
         // same way File > Close does, guard and all.
-        actNoIcon('Project Manager', 'showProjectManager'),
+        // `ACTIONS::showProjectManager`'s FriendlyName is the whole label
+        // (actions.cpp:1258): "Switch to Project Manager", not "Project Manager".
+        actNoIcon('Switch to Project Manager', 'showProjectManager'),
         act('Calculator Tools', 'calculator', 'showCalculator'),
         SEP,
         act('Symbol Editor', 'symbolEditor', 'symbolEditor'),
@@ -330,6 +343,14 @@ export function buildMenus(h: MenuHandlers, checks: MenuChecks = {}): Menu[] {
         actNoIcon('Manage Symbol Libraries...', 'manageSymbolLibraries'),
         stub('Manage Design Block Libraries...'),
         act('Preferences...', 'preferences', 'openPreferences', 'Ctrl+,'),
+        // menubar.cpp:347-348 — `prefsMenu->AppendSeparator()` then
+        // `AddMenuLanguageList( prefsMenu, selTool )`. The submenu is titled
+        // "Set Language" and every row is a wxITEM_CHECK
+        // (eda_base_frame.cpp:2062-2087). Five other launchers here already
+        // call the shared `setLanguageMenuItem`; the schematic was the one
+        // that did not, so its Preferences menu simply ended early.
+        SEP,
+        setLanguageMenuItem({ current: h.language, onSelect: h.onSelectLanguage }),
       ],
     },
     // EDA_BASE_FRAME::AddStandardHelpMenu, the same seven entries every KiCad

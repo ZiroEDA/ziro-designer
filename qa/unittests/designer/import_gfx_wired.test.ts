@@ -58,6 +58,8 @@ describe('the way in', () => {
       tool: (id: string) => calls.push(`tool:${id}`),
       action: (id: string) => calls.push(id),
       toggle: (id: string) => calls.push(`toggle:${id}`),
+      language: 'Default',
+      onSelectLanguage: () => undefined,
     });
     const press = (combo: string): string[] => {
       calls.length = 0;
