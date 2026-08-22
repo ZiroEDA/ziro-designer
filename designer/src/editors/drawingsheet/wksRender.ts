@@ -199,7 +199,7 @@ export const DS_EDIT_POINT_ON_DARK = {
   border: 'rgba(77, 77, 77, 0.8)', // [data] WHITE.Darkened( 0.7 ).WithAlpha( 0.8 )
 } as const;
 
-interface RenderOpts {
+export interface RenderOpts {
   color?: string;
   /** IU pen floor so hairlines stay visible; caller passes 1 world-unit ≈ n px. */
   minWidth?: number;

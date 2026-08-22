@@ -48,6 +48,7 @@ import {
   DS_SELECTED_COLOR,
 } from './wksRender.js';
 import { setBitmapInvalidate } from './wksBitmap.js';
+import { DrawingSheetGl } from '../../render/gl/drawingsheet_gl.js';
 import { commonInputPrefs, wheelAction, zoomFitView } from '../../ui/view_controls.js';
 import { clampViewScale } from '../../ui/zoom_settings.js';
 import { drawCrosshair, drawGrid } from '../../ui/grid_cursor.js';
@@ -158,6 +159,17 @@ export interface DrawingSheetCanvasProps {
   onMoveDrop?: (deltaIU: Vec2) => void;
 }
 
+/**
+ * `?renderer=canvas` forces the 2D path, as it does in the other three canvases.
+ *
+ * The GL layer is an addition, never a requirement: `DrawingSheetGl.create`
+ * returns null when WebGL is unavailable, and every frame then falls through to
+ * the raster path below, which still draws the whole sheet.
+ */
+const GL_RENDERER =
+  typeof location !== 'undefined' &&
+  new URLSearchParams(location.search).get('renderer') !== 'canvas';
+
 const TWO_CLICK = new Set(['dsAddLine', 'dsAddRect']);
 const ONE_CLICK = new Set(['dsAddText', 'dsAddBitmap']);
 
@@ -196,6 +208,9 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
     } = props;
 
     const canvasRef = useRef<HTMLCanvasElement>(null);
+    const glCanvasRef = useRef<HTMLCanvasElement>(null);
+    const overCanvasRef = useRef<HTMLCanvasElement>(null);
+    const glRef = useRef<DrawingSheetGl | null>(null);
     const wrapRef = useRef<HTMLDivElement>(null);
     const viewRef = useRef({ scale: 0.02, tx: 0, ty: 0 });
     const rafRef = useRef(0);
@@ -306,14 +321,49 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
         ctx.stroke();
       }
 
+      // ---- the sheet itself ----
+      //
+      // On the GL layer when there is one, and NOT during an in-flight move: a
+      // move rebuilds the item list every pointer event, so the buffer would be
+      // re-recorded and re-uploaded on each one. That is the same exception
+      // `SchematicCanvas` makes for a ghost, and it is why `moveDelta` falls
+      // through to the raster path below.
+      const md = moveDeltaRef.current;
+      const glc = glRef.current;
+      const glCanvas = glCanvasRef.current;
+      let sheetOnGl = false;
+      if (GL_RENDERER && glc && glCanvas && !glc.isLost && !(md && selRef.current.size > 0)) {
+        const brightened = brightenedRef.current;
+        glc.render(
+          {
+            draws: drawsRef.current,
+            selection: selRef.current,
+            ...(brightened === null ? {} : { brightened }),
+          },
+          { scale: v.scale, tx: v.tx, ty: v.ty },
+        );
+        sheetOnGl = true;
+      } else {
+        // The GL layer must not keep showing a buffer the raster path is about
+        // to draw over — during a move that would leave a stale copy of the
+        // sheet sitting under the one being dragged. The overlay canvas goes
+        // with it: the raster path draws its overlays into `ctx`, so anything
+        // left on the layer above would sit there frozen while the sheet moved.
+        glc?.clear();
+        const over = overCanvasRef.current;
+        if (over) over.getContext('2d')?.clearRect(0, 0, over.width, over.height);
+      }
+
       // Clip page content to the page rectangle.
       ctx.save();
       ctx.beginPath();
       ctx.rect(0, 0, pageW, pageH);
       ctx.clip();
       // An in-flight move-mode / drag offset shifts the selected items live.
-      const md = moveDeltaRef.current;
-      if (md && selRef.current.size > 0) {
+      if (sheetOnGl) {
+        // Already on the GL layer above; the clip is still opened and closed so
+        // the two paths leave the context in the same state.
+      } else if (md && selRef.current.size > 0) {
         const still = drawsRef.current.filter((d) => !selRef.current.has(d.src));
         drawDrawingSheetItems(ctx, still, new Set(), {
           minWidth: worldPen,
@@ -333,7 +383,17 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
       ctx.restore();
 
       // ---- overlays (device space) ----
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      //
+      // On their own canvas when the sheet is on the GL layer, because that
+      // layer sits ABOVE the raster one: a crosshair or a selection box drawn
+      // into `ctx` would be painted over by the sheet wherever the two cross.
+      // GerbView splits them the same way, for the same reason.
+      const octx = (sheetOnGl && overCanvasRef.current?.getContext('2d')) || ctx;
+      if (octx !== ctx) {
+        octx.setTransform(1, 0, 0, 1, 0, 0);
+        octx.clearRect(0, 0, canvas.width, canvas.height);
+      }
+      octx.setTransform(1, 0, 0, 1, 0, 0);
       const toPx = (p: Vec2): Vec2 => ({ x: p.x * v.scale + v.tx, y: p.y * v.scale + v.ty });
 
       // Selection outlines (dashed), offset by an in-flight move delta.
@@ -344,9 +404,9 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
         // canvas UI needs and a wxWidgets one does not, so it has no upstream
         // metric. It at least borrows the one selection colour rather than
         // inventing a second.
-        ctx.strokeStyle = DS_SELECTED_COLOR;
-        ctx.lineWidth = Math.max(1, dpr);
-        ctx.setLineDash([5 * dpr, 3 * dpr]);
+        octx.strokeStyle = DS_SELECTED_COLOR;
+        octx.lineWidth = Math.max(1, dpr);
+        octx.setLineDash([5 * dpr, 3 * dpr]);
         const ox = md ? md.x : 0,
           oy = md ? md.y : 0;
         for (const src of selRef.current) {
@@ -355,14 +415,14 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
           const p0 = toPx({ x: b.minX + ox, y: b.minY + oy });
           const p1 = toPx({ x: b.maxX + ox, y: b.maxY + oy });
           const pad = 2 * dpr;
-          ctx.strokeRect(
+          octx.strokeRect(
             Math.min(p0.x, p1.x) - pad,
             Math.min(p0.y, p1.y) - pad,
             Math.abs(p1.x - p0.x) + 2 * pad,
             Math.abs(p1.y - p0.y) + 2 * pad,
           );
         }
-        ctx.setLineDash([]);
+        octx.setLineDash([]);
       }
 
       // Point-editor handles (filled squares, EDIT_POINTS style).
@@ -374,11 +434,11 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
         const handle = darkBg ? DS_EDIT_POINT_ON_DARK : DS_EDIT_POINT_ON_LIGHT;
         for (const p of pts) {
           const c = toPx(p);
-          ctx.fillStyle = handle.fill;
-          ctx.strokeStyle = handle.border;
-          ctx.lineWidth = Math.max(1, dpr);
-          ctx.fillRect(c.x - r, c.y - r, r * 2, r * 2);
-          ctx.strokeRect(c.x - r, c.y - r, r * 2, r * 2);
+          octx.fillStyle = handle.fill;
+          octx.strokeStyle = handle.border;
+          octx.lineWidth = Math.max(1, dpr);
+          octx.fillRect(c.x - r, c.y - r, r * 2, r * 2);
+          octx.strokeRect(c.x - r, c.y - r, r * 2, r * 2);
         }
       }
 
@@ -389,13 +449,13 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
           p1 = toPx(box.b);
         const rightward = box.b.x >= box.a.x;
         const scheme = darkBg ? DS_MARQUEE.onDark : DS_MARQUEE.onLight;
-        ctx.strokeStyle = rightward ? scheme.outlineL2R : scheme.outlineR2L;
-        ctx.fillStyle = scheme.fill;
-        ctx.lineWidth = dpr;
+        octx.strokeStyle = rightward ? scheme.outlineL2R : scheme.outlineR2L;
+        octx.fillStyle = scheme.fill;
+        octx.lineWidth = dpr;
         const x = Math.min(p0.x, p1.x),
           y = Math.min(p0.y, p1.y);
-        ctx.fillRect(x, y, Math.abs(p1.x - p0.x), Math.abs(p1.y - p0.y));
-        ctx.strokeRect(x, y, Math.abs(p1.x - p0.x), Math.abs(p1.y - p0.y));
+        octx.fillRect(x, y, Math.abs(p1.x - p0.x), Math.abs(p1.y - p0.y));
+        octx.strokeRect(x, y, Math.abs(p1.x - p0.x), Math.abs(p1.y - p0.y));
       }
 
       // GAL::blitCursor, in DS_RENDER_SETTINGS::GetCursorColor
@@ -597,10 +657,13 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
       if (!wrap || !canvas) return;
       const ro = new ResizeObserver(() => {
         const r = wrap.getBoundingClientRect();
-        canvas.width = Math.max(1, Math.round(r.width * dpr));
-        canvas.height = Math.max(1, Math.round(r.height * dpr));
-        canvas.style.width = `${r.width}px`;
-        canvas.style.height = `${r.height}px`;
+        for (const el of [canvas, glCanvasRef.current, overCanvasRef.current]) {
+          if (!el) continue;
+          el.width = Math.max(1, Math.round(r.width * dpr));
+          el.height = Math.max(1, Math.round(r.height * dpr));
+          el.style.width = `${r.width}px`;
+          el.style.height = `${r.height}px`;
+        }
         if (!fittedRef.current) {
           fittedRef.current = true;
           zoomToFit();
@@ -609,6 +672,39 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
       ro.observe(wrap);
       return () => ro.disconnect();
     }, [dpr, requestDraw, zoomToFit]);
+
+    /**
+     * The GL device, and its two context events.
+     *
+     * A lost context is not an error path to log and forget: the buffers are
+     * gone, so the adapter is dropped and every frame until `restored` takes the
+     * raster path, which still draws the whole sheet. That is why
+     * `DrawingSheetGl.create` returning null has to stay survivable.
+     */
+    useEffect(() => {
+      if (!GL_RENDERER) return;
+      const el = glCanvasRef.current;
+      if (!el) return;
+      glRef.current = DrawingSheetGl.create(el);
+      const onLost = (e: Event): void => {
+        e.preventDefault();
+        glRef.current?.dispose();
+        glRef.current = null;
+        requestDraw();
+      };
+      const onRestored = (): void => {
+        glRef.current = DrawingSheetGl.create(el);
+        requestDraw();
+      };
+      el.addEventListener('webglcontextlost', onLost);
+      el.addEventListener('webglcontextrestored', onRestored);
+      return () => {
+        el.removeEventListener('webglcontextlost', onLost);
+        el.removeEventListener('webglcontextrestored', onRestored);
+        glRef.current?.dispose();
+        glRef.current = null;
+      };
+    }, [requestDraw]);
 
     // WX_VIEW_CONTROLS::onWheel.
     useEffect(() => {
@@ -956,6 +1052,23 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
           // held by VIEW_CONTROLS, not the mouse pointer, so there is nothing
           // to clear when the pointer goes away.
         />
+        {/* The sheet. Takes no pointer events, so every capture still lands on
+            the canvas underneath — the hit testing, the drag handling and the
+            context menu are all unchanged by this layer existing. */}
+        {GL_RENDERER && (
+          <canvas
+            ref={glCanvasRef}
+            style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}
+          />
+        )}
+        {/* Above the sheet: the selection boxes, the point-editor handles and
+            the crosshair — pl_editor's overlay target. */}
+        {GL_RENDERER && (
+          <canvas
+            ref={overCanvasRef}
+            style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}
+          />
+        )}
       </div>
     );
   },
