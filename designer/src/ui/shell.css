@@ -389,6 +389,19 @@
      scale slider { min-height: 18px; border: 1px } — and on its colours, but
      declares #222222 for the trough, which is not what the live window draws. */
   --slider-track-height: 4px;
+  /* [px] A GTK menu separator, asked of the `separator` node inside a realized
+     Gtk.Menu on this theme: background #4b4b4b. It coincides with
+     --slider-track-bg and has nothing to do with it, which is why it is its own
+     token — a scan for literals restating a token flagged the two together and
+     substituting would have tied the menus to the slider.
+
+     Note what the same probe says about the popup itself: a `menu` node reports
+     background #1d1d1d (= wxSYS_COLOUR_MENU), radius 6 and a border width of
+     ZERO. The 1 px #4b4b4b edges on .ze-dropdown, .ze-tooltip and
+     .ze-combo-popup were measured off a capture, so they may be reproducing
+     Yaru's box-shadow as a border. Left alone rather than changed on a hunch;
+     it wants a rendered menu sampled edge-on. */
+  --menu-separator: #4b4b4b;
   --slider-track-bg: #4b4b4b;
   /* [css] scale { padding: 12px } insets the trough from the widget's own box.
      [px] the real trough runs 1671..1893 inside a slider box of 1659..1903,
@@ -3313,7 +3326,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-msep {
   grid-column: 1 / -1;
   height: 1px;
-  background: #4b4b4b;
+  background: var(--menu-separator);
   margin: 2px 0;
 }
 
