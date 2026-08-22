@@ -40,6 +40,33 @@ describe('status bar field 0', () => {
     img.layerName = 'TopCopper';
     expect(gerbviewStatusField0(img)).toBe("Image name: 'MyImage'  Layer name: 'TopCopper'");
   });
+
+  // GERBER_LAYER::ResetDefaultValues (gerber_file_image.cpp:73-80) is the ONLY
+  // assignment to m_LayerName in 10.0.5 — `grep -rn m_LayerName` over the tree
+  // finds the default, the declaration and the one read in gerbview_frame.cpp.
+  // So the layer half of this line is a constant, and a real GerbView shows
+  // `Layer name: 'no name'` on every file. Ours defaulted it to the empty
+  // string and then filled it from %LN, so the line read `Layer name: ''`.
+  it("says 'no name' for a file with no %LN, which is every file", () => {
+    expect(image().layerName).toBe('no name');
+    expect(gerbviewStatusField0(image())).toBe("Image name: ''  Layer name: 'no name'");
+  });
+
+  it('ignores %LN, which upstream skips as a comment', () => {
+    // case LOAD_NAME: "%LN is a (deprecated) equivalentto G04: a comment",
+    // rs274x.cpp:676-681 — it advances past the text and stores nothing.
+    expect(image('%LNTopCopper*%').layerName).toBe('no name');
+    expect(gerbviewStatusField0(image('%LNTopCopper*%'))).toBe(
+      "Image name: ''  Layer name: 'no name'",
+    );
+  });
+
+  it('still reads %IN, which is a different command and does store', () => {
+    // case IMAGE_NAME: m_ImageName.Empty(); then append to '*'  rs274x.cpp:668
+    // This is the control for the test above: if %LN stopped working because
+    // the parameter parser broke, this would fail too.
+    expect(image('%INMyBoard*%').imageName).toBe('MyBoard');
+  });
 });
 
 describe('GetDisplayName', () => {

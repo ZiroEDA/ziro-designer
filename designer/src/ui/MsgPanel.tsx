@@ -14,8 +14,10 @@
  *     *whatever the items contain* (`DoGetBestSize`) — an item with an empty
  *     row still occupies both rows, so an empty value must be a non-breaking
  *     space here or HTML collapses the row and the panel loses height;
- *   - the first cell is inset by one 'W' width and cells are separated by one
- *     'W' width plus the item's padding.
+ *   - the first cell is inset by one 'W' width (`m_last_x = m_fontSize.x`),
+ *     and cells are separated by the item's padding IN SPACES plus one 'W' —
+ *     the padding spaces are appended to the text before it is measured
+ *     (`:140`), so they are part of the advance and not a separate gap.
  */
 
 import type { JSX } from 'react';
@@ -26,7 +28,20 @@ export interface MsgPanelItem {
   upper: string;
   /** `m_LowerText`, the value row. */
   lower: string;
+  /**
+   * `m_Padding`, in spaces, appended to the measured text and so part of what
+   * separates this cell from the next (`msgpanel.cpp:140`). Defaults to
+   * `MSG_PANEL_DEFAULT_PAD`; the symbol editor is the one frame that overrides
+   * it, passing 8 (`eeschema/symbol_editor/symbol_editor.cpp:1749-1767`).
+   */
+  padding?: number;
 }
+
+/**
+ * `MSG_PANEL_DEFAULT_PAD` (include/widgets/msgpanel.h:41), "the default number
+ * of spaces between each text string". [data] KiCad's own constant.
+ */
+export const MSG_PANEL_DEFAULT_PAD = 6;
 
 /**
  * What an empty upper/lower text renders as. `EDA_MSG_PANEL::showItem` simply
@@ -48,7 +63,21 @@ export function MsgPanel({
         // Upstream keys nothing: items are positional and duplicates are legal
         // (two pads can report the same net). Index is the identity.
         // biome-ignore lint/suspicious/noArrayIndexKey: MSG_PANEL_ITEMs are positional
-        <div className="ze-msgpanel-item" key={`${i}:${item.upper}`}>
+        <div
+          className="ze-msgpanel-item"
+          key={`${i}:${item.upper}`}
+          // The cell advances by its own width, then its padding spaces, then
+          // one 'W' (msgpanel.cpp:140,151-154). The stylesheet already writes
+          // the default 6; only an item that asks for another number needs to
+          // say so, and it says it in the same measured units.
+          style={
+            item.padding === undefined || item.padding === MSG_PANEL_DEFAULT_PAD
+              ? undefined
+              : {
+                  paddingRight: `calc(${item.padding} * var(--msgpanel-space) + var(--msgpanel-gutter))`,
+                }
+          }
+        >
           <div className="ze-msgpanel-upper">{item.upper || MSG_PANEL_EMPTY}</div>
           <div className="ze-msgpanel-lower">{item.lower || MSG_PANEL_EMPTY}</div>
         </div>
