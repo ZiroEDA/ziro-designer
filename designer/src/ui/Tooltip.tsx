@@ -22,26 +22,12 @@ import { useEffect, useLayoutEffect, useRef, useState, type JSX } from 'react';
 const DELAY_MS = 500;
 
 /**
- * `TOOL_ACTION::GetTooltip()` (common/tool/tool_action.cpp:179): the action's
- * tooltip with its hotkey appended in parentheses after *two* spaces. This is
- * what PANEL_KICAD_LAUNCHER::CreateLaunchers passes to SetToolTip - note it is
- * the action's `.Tooltip(...)`, not the help line printed under the launcher's
- * title, which is what we had been showing.
+ * `tooltipFor` and `buttonTooltipFor` now live in `tooltip_text.ts` so a `.ts`
+ * data module can build a tooltip without importing from a `.tsx`, which `qa`'s
+ * tsconfig cannot compile. Re-exported here so every existing importer keeps
+ * working, the same way `Toolbar.tsx` re-exports `toolbar_types.ts`.
  */
-export const tooltipFor = (tip: string, hotkey?: string): string =>
-  hotkey ? `${tip}  (${hotkey})` : tip;
-
-/**
- * `TOOL_ACTION::GetButtonTooltip()` (tool_action.cpp:190), which is what
- * ACTION_TOOLBAR gives its buttons: the friendly name, then a tab and the
- * hotkey, then the tooltip proper on a second line.
- */
-export const buttonTooltipFor = (name: string, hotkey?: string, tip?: string): string => {
-  let out = name;
-  if (hotkey) out += `\t(${hotkey})`;
-  if (tip) out += `\n${tip}`;
-  return out;
-};
+export { buttonTooltipFor, tooltipFor } from './tooltip_text.js';
 
 export function TooltipLayer(): JSX.Element | null {
   /** `cx` is the *centre* the box wants to sit under, not its left edge. */

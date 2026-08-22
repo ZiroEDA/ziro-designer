@@ -7464,6 +7464,7 @@ export function SchematicEditor({
 
       <Toolbar
         entries={TOP_TOOLBAR}
+        app="eeschema"
         orientation="horizontal"
         disabledIds={dirty ? navDisabled : new Set([...(navDisabled ?? []), 'save'])}
         // Almost everything up here is a plain action, but the zoom tool is not:
@@ -7703,6 +7704,7 @@ export function SchematicEditor({
 
         <Toolbar
           entries={LEFT_TOOLBAR}
+          app="eeschema"
           orientation="vertical"
           side="left"
           toggled={toggles}
@@ -8507,6 +8509,7 @@ export function SchematicEditor({
 
         <Toolbar
           entries={RIGHT_TOOLBAR}
+          app="eeschema"
           orientation="vertical"
           side="right"
           activeTool={activeTool}

@@ -19,6 +19,10 @@ import {
 } from '@ziroeda/designer/src/editors/schematic/toolbars_sch_editor.js';
 import { TOOL_HOTKEYS } from '@ziroeda/designer/src/editors/schematic/menubar.js';
 import { nextInGroup } from '@ziroeda/designer/src/ui/toolbar_types.js';
+import {
+  EESCHEMA_TOOLBAR_ACTIONS,
+  toolbarButtonTooltip,
+} from '@ziroeda/designer/src/ui/toolbar_actions.js';
 import type { ToolButton, ToolEntry, ToolGroup } from '@ziroeda/designer/src/ui/toolbar_types.js';
 
 /** Every button, groups flattened; controls and separators contribute none. */
@@ -113,16 +117,35 @@ describe('no button is silently inert', () => {
     }
   });
 
-  it('every button has an icon and a title', () => {
-    // A button with no title has no tooltip, which upstream always provides.
+  /**
+   * Every button must resolve to a tooltip. The `title` field is gone from this
+   * editor's data — `ui/toolbar_actions.ts` carries the three parts upstream
+   * keeps separate — so the rule is no longer "has a title" but "the shared
+   * table knows this id".
+   *
+   * This is the guard that makes removing the titles safe: an id missing from
+   * the table falls back to `title`, which is now `undefined`, and the button
+   * would get a silently EMPTY tooltip rather than a wrong one. Checked per
+   * button, so one missing id fails on its own name.
+   */
+  it('every button has an icon, and a tooltip the shared table can build', () => {
     for (const tb of [TOP_TOOLBAR, LEFT_TOOLBAR, RIGHT_TOOLBAR]) {
       for (const b of buttons(tb)) {
-        expect({ id: b.id, icon: !!b.icon, title: !!b.title }).toEqual({
-          id: b.id,
-          icon: true,
-          title: true,
-        });
+        expect({ id: b.id, icon: !!b.icon }).toEqual({ id: b.id, icon: true });
+        expect(toolbarButtonTooltip('eeschema', b.id, b.title), b.id).not.toBe('');
+        expect(EESCHEMA_TOOLBAR_ACTIONS[b.id], `${b.id} is not in TOOLBAR_ACTIONS`).toBeDefined();
       }
+    }
+  });
+
+  /**
+   * And nothing states a tooltip locally any more. A `title` beside an id the
+   * shared table also carries is the central-value rule's exact failure mode:
+   * two copies, one of them stale, and no way to see which is winning.
+   */
+  it('states no tooltip locally', () => {
+    for (const tb of [TOP_TOOLBAR, LEFT_TOOLBAR, RIGHT_TOOLBAR]) {
+      for (const b of buttons(tb)) expect(b.title, b.id).toBeUndefined();
     }
   });
 
@@ -299,20 +322,24 @@ describe('the right toolbar’s one non-tool button', () => {
  * because the rule is per button.
  */
 describe('the two accelerators that came from the macOS branch', () => {
-  const title = (id: string): string => buttons(TOP_TOOLBAR).find((b) => b.id === id)?.title ?? '';
-
   /** actions.cpp:292-302 — `#else` is `MD_CTRL + 'Y'`. */
   it('Redo advertises Ctrl+Y, not the macOS Ctrl+Shift+Z', () => {
-    expect(title('redo')).toBe('Redo (Ctrl+Y)');
+    expect(EESCHEMA_TOOLBAR_ACTIONS.redo?.hotkey).toBe('Ctrl+Y');
+    // `GetButtonTooltip()`: a TAB before the hotkey, and no second line at all,
+    // because ACTIONS::redo declares no `.Tooltip()`.
+    expect(toolbarButtonTooltip('eeschema', 'redo')).toBe('Redo\t(Ctrl+Y)');
   });
 
   /** actions.cpp:705-716 — `#else` is `WXK_F5`. */
   it('Refresh advertises F5, not the macOS Ctrl+R', () => {
-    expect(title('zoomRedraw')).toBe('Refresh (F5)');
+    expect(EESCHEMA_TOOLBAR_ACTIONS.zoomRedraw?.hotkey).toBe('F5');
+    expect(toolbarButtonTooltip('eeschema', 'zoomRedraw')).toBe('Refresh\t(F5)');
   });
 
   it('and no button anywhere still advertises a macOS-only default', () => {
-    const all = [TOP_TOOLBAR, LEFT_TOOLBAR, RIGHT_TOOLBAR].flatMap(buttons).map((b) => b.title);
+    const all = [TOP_TOOLBAR, LEFT_TOOLBAR, RIGHT_TOOLBAR]
+      .flatMap(buttons)
+      .map((b) => toolbarButtonTooltip('eeschema', b.id, b.title));
     for (const mac of ['Ctrl+Shift+Z', '(Ctrl+R)']) {
       expect(all.filter((t) => t.includes(mac))).toEqual([]);
     }

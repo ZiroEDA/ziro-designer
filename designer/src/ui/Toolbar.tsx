@@ -4,6 +4,7 @@
 import { useEffect, useRef, useState, type CSSProperties, type JSX, type ReactNode } from 'react';
 import { Icon } from './icons.js';
 import { toolbarIconUrl } from './toolbarIcons.js';
+import { toolbarButtonLabel, toolbarButtonTooltip } from './toolbar_actions.js';
 
 // The data types live in toolbar_types.ts so toolbar inventory modules stay
 // reachable from qa's tsconfig, which compiles .ts only. Re-exported here so
@@ -14,6 +15,16 @@ export type { ToolButton, ToolGroup, ToolControl, ToolSpacer, ToolEntry };
 
 interface Props {
   entries: ToolEntry[];
+  /**
+   * Which app's TOOL_ACTIONs these ids name, for `toolbar_actions.ts`.
+   *
+   * A toolbar id is not globally unique: `placeText` is
+   * `SCH_ACTIONS::placeSchematicText` ("Draw Text", T) in eeschema and
+   * `PCB_ACTIONS::placeText` ("Add Text", Ctrl+Shift+T) in pcbnew. Omitting it
+   * falls back to each button's own `title`, which is what every editor that
+   * has not been transcribed yet does.
+   */
+  app?: string;
   orientation: 'horizontal' | 'vertical';
   side?: 'left' | 'right';
   /** id of the currently active (radio-selected) tool, for the right toolbar. */
@@ -45,6 +56,7 @@ interface PaletteState {
 
 export function Toolbar({
   entries,
+  app,
   orientation,
   side,
   activeTool,
@@ -133,8 +145,21 @@ export function Toolbar({
       <button
         key={b.id}
         className={`ze-tbtn${isActive ? ' active' : ''}${disabled ? ' disabled' : ''}${g ? ' ze-tbtn-group' : ''}`}
-        title={b.title}
-        aria-label={b.title}
+        /*
+         * `ACTION_TOOLBAR` sets this to `aAction.GetButtonTooltip()`
+         * (common/tool/action_toolbar.cpp:149) — FriendlyName, a tab and the
+         * hotkey, then the action's own `.Tooltip()` on a SECOND LINE. Every
+         * toolbar here used to pass one pre-joined string and so had no second
+         * line at all, on every button of every editor.
+         *
+         * The parts come from `toolbar_actions.ts`, the shared transcription of
+         * the TOOL_ACTIONs, for the same reason the icon does: KiCad writes
+         * `ACTIONS::save` once in `common/` and every editor points at it.
+         */
+        title={toolbarButtonTooltip(app, b.id, b.title)}
+        /* Not the tooltip: a tab and a newline are read aloud as punctuation,
+           so the accessible name is `GetFriendlyName()` on its own. */
+        aria-label={toolbarButtonLabel(app, b.id, b.title)}
         aria-pressed={isActive}
         disabled={disabled}
         onPointerDown={(e) => {
@@ -214,7 +239,11 @@ export function Toolbar({
         if ('group' in e) {
           const shown = displayedAction(e);
           return (
-            <span key={e.group} className="ze-tb-groupwrap" title={shown.title}>
+            <span
+              key={e.group}
+              className="ze-tb-groupwrap"
+              title={toolbarButtonTooltip(app, shown.id, shown.title)}
+            >
               {renderButton(shown, { group: e })}
               <span className={`ze-tb-arrow${isDisabled(shown) ? ' disabled' : ''}`} />
             </span>
