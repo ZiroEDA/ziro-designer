@@ -151,13 +151,27 @@
   /* EDA_MSG_PANEL lays itself out in units of one 'W':
        m_fontSize = GetTextExtent( "W" )                     msgpanel.cpp:72
        if( m_last_x == 0 ) m_last_x = m_fontSize.x;          :143  (first item)
+       text.Append( ' ', item.GetPadding() );                :140  (the PAD)
        m_last_x += GetTextExtent( text ).x;                  :151
        m_last_x += m_fontSize.x;                             :154  (gap)
-     so the left inset and the gap between items are the SAME number, and it is
-     a font metric rather than a spacing choice. [px] wx measures "W" in
-     Ubuntu Sans 11 as 14 x 18 (qa/probes/aui_sash_probe.cpp); the 18 is already
-     --ui-line-height. */
+     The left inset really is one 'W'. The GAP is not: the padding spaces are
+     appended to the text BEFORE it is measured, so what separates two cells is
+     `item.GetPadding()` spaces plus one 'W', not one 'W' alone. We had read
+     :151 as measuring the bare text and dropped :140 entirely, which drew every
+     message panel in the app about 18px per cell tighter than KiCad's.
+     [px] wx measures, in Ubuntu Sans 11 on this desktop
+     (qa/probes/msgpanel_probe.cpp): "W" 14 x 18, a space 3, six spaces 18. The
+     18 of the height is already --ui-line-height. Corroborated against a real
+     GerbView capture: the probe puts the seven GERBER_FILE_IMAGE::
+     DisplayImageInfo cells at x = 14, 96, 216, 304, 389, 477, 564 and the
+     capture has them at 80, 163, 283, 371, 455, 543, 630 - a constant 66/67px
+     client origin across all seven. */
   --msgpanel-gutter: 14px;
+  /* GetTextExtent( " " ).x, the unit MSG_PANEL_ITEM::m_Padding counts in
+     (msgpanel.cpp:140). Separate from the gutter because the padding is
+     PER-ITEM - MSG_PANEL_DEFAULT_PAD is 6 (msgpanel.h:41) but the symbol
+     editor passes 8 (symbol_editor.cpp:1749-1767) - so it multiplies. */
+  --msgpanel-space: 3px;
   /* The frame background a docked canvas or notebook sits on. *Lighter* than
      the panes - which is the relationship KiCad has, and which we had
      inverted: our tree pane was lighter than the launcher beside it. */
@@ -1938,13 +1952,23 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
      the note below it already records. */
   color: var(--chrome-fg);
   font-size: var(--ui-font-size);
+  /* `if( m_last_x == 0 ) m_last_x = m_fontSize.x` (msgpanel.cpp:143): the first
+     cell is inset by one 'W' and nothing else. The gap between cells is not the
+     same number - it is written per item, below, because the padding varies. */
   padding-left: var(--msgpanel-gutter);
-  gap: var(--msgpanel-gutter);
 }
 .ze-msgpanel-item {
   display: grid;
   grid-template-rows: 1fr 1fr;
   align-content: center;
+  /* `m_last_x += GetTextExtent( text ).x; m_last_x += m_fontSize.x`
+     (msgpanel.cpp:151-154) where `text` already carries the item's padding
+     spaces (:140). So a cell advances by its own width plus padding spaces plus
+     one 'W', which is a trailing space on the cell rather than a gap between
+     cells - and it applies to the last cell too, exactly as upstream keeps
+     advancing m_last_x past it. MsgPanel.tsx overrides the 6 when an item asks
+     for a different padding. */
+  padding-right: calc(6 * var(--msgpanel-space) + var(--msgpanel-gutter));
 }
 .ze-msgpanel-upper,
 .ze-msgpanel-lower {
