@@ -192,10 +192,23 @@ describe('the editor docks Search at the bottom of the canvas column', () => {
     expect([...text().matchAll(/Search<\/div>/g)].length).toBe(1);
   });
 
-  /** The dock height comes from the pane info, not from a literal in the JSX. */
-  it('takes the dock height from SCH_BOTTOM_DOCK', () => {
-    expect(text()).toContain('SCH_BOTTOM_DOCK.bestHeight');
-    expect(text()).toContain('SCH_BOTTOM_DOCK.minHeight');
+  /**
+   * The dock height comes from the pane info, not from a literal in the JSX —
+   * at BOTH sites that need it.
+   *
+   * Checking the name merely appears in the file does not do this: `bestHeight`
+   * is read twice, so hardcoding either one leaves the other's mention behind
+   * and the check still passes. That mutant survived until this became one
+   * expectation per use site.
+   */
+  it('takes the dock height from SCH_BOTTOM_DOCK at both use sites', () => {
+    const s = text();
+    // The height the dock opens at.
+    expect(s).toContain('height: panelHeights.search ?? SCH_BOTTOM_DOCK.bestHeight,');
+    // The height a drag starts from when the pane has not been measured yet.
+    expect(s).toContain('.height ?? SCH_BOTTOM_DOCK.bestHeight;');
+    // The floor the sash clamps to.
+    expect(s).toContain('Math.max(SCH_BOTTOM_DOCK.minHeight,');
   });
 
   /** And the filter's visibility from the predicate, not from a toggle. */
