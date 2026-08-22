@@ -102,11 +102,17 @@ export function DesignInspector({
     width: DS_INSPECTOR_BITMAP_SIZE * 2,
     padding: 0,
   };
-  /** wxGrid's row-label gutter: SetRowLabelSize( 40 ), centred. [data] */
+  /**
+   * wxGrid's row-label gutter: `SetRowLabelSize( 40 )`, centred.
+   *
+   * The colour comes from `.ze-grid-rowlabel`, because a row label is painted
+   * by SetLabelBackgroundColour (BTNFACE) like the column headers rather than
+   * by the cell background. It used to carry `opacity: 0.7` as well, which is
+   * a dimming wxGrid does not do — [px] the digits in a live pl_editor are the
+   * same ink as everything else.
+   */
   const gutter: React.CSSProperties = {
     width: 40,
-    textAlign: 'center',
-    opacity: 0.7,
     userSelect: 'none',
   };
 
@@ -114,7 +120,12 @@ export function DesignInspector({
     <div className="ze-modal-backdrop" onMouseDown={onClose}>
       <div
         className="ze-modal"
-        style={{ width: 720, maxWidth: '92vw' }}
+        /* `bSizerMain->Fit( this )` with `wxSize( -1, -1 )` — the dialog is
+           sized by its content, and the columns are AutoSizeColumn'd to theirs
+           (`design_inspector.cpp:295-313`). A fixed 720 made ours 180 px wider
+           than pl_editor's, which measures 543 on the same sheet. The viewport
+           cap stands in for the screen, which bounds wx's Fit() too. */
+        style={{ width: 'max-content', maxWidth: '92vw' }}
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="ze-modal-header">
@@ -123,7 +134,10 @@ export function DesignInspector({
             ✕
           </span>
         </div>
-        <div style={{ maxHeight: '60vh', overflow: 'auto' }} data-testid="ds-inspector">
+        {/* Fit() again: every row, no inner scroller. 60vh capped ours at 27 of
+            the 31 rows and scrolled the rest, where pl_editor shows all of them
+            and grows the dialog to suit. */}
+        <div style={{ maxHeight: '80vh', overflow: 'auto' }} data-testid="ds-inspector">
           <table className="ze-grid">
             <thead>
               {/* Sticky is the only thing this header adds to .ze-grid th: the
@@ -131,7 +145,7 @@ export function DesignInspector({
                   station the way a wxGrid's do. */}
               <tr style={{ position: 'sticky', top: 0 }}>
                 {/* The gutter carries no column label of its own. */}
-                <th style={gutter} />
+                <th className="ze-grid-rowlabel" style={gutter} />
                 {DS_INSPECTOR_COLUMNS.map((h) => (
                   <th key={h}>{h}</th>
                 ))}
@@ -157,7 +171,7 @@ export function DesignInspector({
                     if (row.itemIndex !== null) onSelect(row.itemIndex);
                   }}
                 >
-                  <td className="ze-grid-text" style={gutter}>
+                  <td className="ze-grid-text ze-grid-rowlabel" style={gutter}>
                     {row.number}
                   </td>
                   {/* COL_BITMAP. `BitmapGridCellRenderer::Draw`

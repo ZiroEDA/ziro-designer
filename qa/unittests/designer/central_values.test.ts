@@ -194,7 +194,12 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // `font-size: 12px`, `color: #f0f2f4` (twice), `padding-left: 9px`,
   // `gap: 22px` or `line-height: 15px`. Two colours and three metrics out; the
   // 14px 'W' width became a named token rather than a literal.
-  ui: { colours: 290, metrics: 813 },
+  // 813 -> 814. wxDatePickerCtrl's drop-down button is [px] 24px wide on a live
+  // pl_editor, and wxBU_EXACTFIT leaves the `<<<` button [px] 2px of padding
+  // either side; both are measurements of a wx control, which is what a [px]
+  // literal is FOR. The alternative was a token used once, which relocates the
+  // number without centralising anything.
+  ui: { colours: 290, metrics: 815 },
   widgets: { colours: 6, metrics: 46 },
 };
 
@@ -408,7 +413,7 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // from this tree rather than subtracted from the diff, which is the rule
     // that has had to be re-learned on every one of these merges.
     expect(SITES.filter((s) => s.kind === 'colours').length).toBe(689);
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1656);
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1658);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {

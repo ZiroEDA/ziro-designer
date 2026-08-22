@@ -477,6 +477,11 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
       pageH,
       showGrid,
       gridIU,
+      // The origin corner. Without it the marker is painted once and then never
+      // again: `draw` is a useCallback, so an origin the closure never re-reads
+      // is an origin the dropdown cannot move. The value is memoised upstream on
+      // [sheet.setup, pageMM, originChoice], so this does not re-arm per frame.
+      originIU,
       dpr,
       activeTool,
       fullCrosshair,

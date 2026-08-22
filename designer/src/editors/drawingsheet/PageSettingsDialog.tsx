@@ -34,6 +34,7 @@ import {
   layoutDrawingSheet,
   type WksResolveContext,
   type WksSheet,
+  mmToIU,
 } from '@ziroeda/common';
 import {
   CUSTOM_PAGE_RANGE_MM,
@@ -123,6 +124,7 @@ export function PageSettingsDialog({
    * value into the text field, so it has to hold state the field does not.
    */
   const [pick, setPick] = useState<string>(() => formatIsoDate(new Date()));
+  const pickRef = useRef<HTMLInputElement>(null);
 
   /** `DisplayErrorMessage` from the two custom-size `Validate` calls. */
   const [error, setError] = useState<string | null>(null);
@@ -178,7 +180,13 @@ export function PageSettingsDialog({
     };
     const draws = layoutDrawingSheet(sheet, { widthMM: pageW, heightMM: pageH }, ctxData);
     // memDC.SetUserScale( scale, scale ) with scale = min(w/pageW, h/pageH).
-    const scale = Math.min(thumb.width / pageW, thumb.height / pageH);
+    //
+    // Against the page in **IU**, not millimetres. `layoutDrawingSheet` resolves
+    // every item into internal units, so dividing the thumbnail by the page's
+    // MILLIMETRES gave a scale 10 000x too large (mmToIU is 1e4 per mm) and the
+    // sheet was drawn far outside the 200px bitmap — which is why the preview
+    // was a blank white page with none of the title block in it.
+    const scale = Math.min(thumb.width / mmToIU(pageW), thumb.height / mmToIU(pageH));
     ctx.save();
     ctx.scale(scale, scale);
     // renderSettings.SetDefaultPenWidth( 1 ) — one device pixel at this scale.
@@ -306,15 +314,18 @@ export function PageSettingsDialog({
               {/* EnableWksFileNamePicker( false ) (dialog_page_settings.h:56-60)
                   disables the entry AND the browse button; neither is hidden. */}
               <input className="ze-search" size={1} value={wksFileName} disabled readOnly />
-              <button className="ze-btn" disabled title="Browse">
-                {/* STD_BITMAP_BUTTON with BITMAPS::small_folder
-                    (dialog_page_settings.cpp:69). */}
+              <button className="ze-btn ze-btn-bitmap" disabled title="Browse">
+                {/* STD_BITMAP_BUTTON, wxBU_AUTODRAW, BITMAPS::small_folder
+                    (dialog_page_settings_base.cpp:171, dialog_page_settings.cpp:69).
+                    A bitmap button is sized by its bitmap, not by the standard
+                    button width: [px] 25 x 24 on a live pl_editor against our 85
+                    x 34. The path is KiCad's own small_folder.svg, vendored to
+                    assets/toolbar/ — a FILLED folder, where ours was an outline
+                    of our own drawing. */}
                 <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
                   <path
-                    d="M1.5 3.5h4l1.2 1.6h7.8v7.4H1.5z"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.2"
+                    d="M 2.9511719,2 A 2,2 0 0 0 1,4 2,2 0 0 0 1,4.048828 V 12 a 2,2 0 0 0 2,2 2,2 0 0 0 0.048828,0 H 13 a 2,2 0 0 0 2,-2 2,2 0 0 0 0,-0.04883 V 6 A 2,2 0 0 0 13,4 H 12.951172 8.5 L 6.5,2 H 3 a 2,2 0 0 0 -0.048828,0 z"
+                    fill="currentColor"
                   />
                 </svg>
               </button>
@@ -335,17 +346,40 @@ export function PageSettingsDialog({
                   value={s.date}
                   onChange={(e) => set({ date: e.target.value })}
                 />
-                <button className="ze-btn" onClick={() => set({ date: pick })}>
-                  {/* The label really is three less-than signs (:227). */}
+                <button className="ze-btn ze-btn-exactfit" onClick={() => set({ date: pick })}>
+                  {/* The label really is three less-than signs (:227), and the
+                      button carries wxBU_EXACTFIT (:228) — it is as wide as
+                      that label and no wider. */}
                   &lt;&lt;&lt;
                 </button>
-                <input
-                  className="ze-search"
-                  type="date"
-                  style={{ flex: 2, minWidth: 0 }}
-                  value={pick}
-                  onChange={(e) => setPick(e.target.value)}
-                />
+                {/* m_PickDate, a wxDatePickerCtrl at proportion 2 (:231-232).
+                    On GTK that is an entry with its own drop-down button beside
+                    it, so the native in-field calendar glyph is hidden and this
+                    button takes its place — it still opens the browser's picker,
+                    which is the only calendar a page can offer. */}
+                <div className="ze-pgs-datepick">
+                  <input
+                    ref={pickRef}
+                    className="ze-search"
+                    type="date"
+                    value={pick}
+                    onChange={(e) => setPick(e.target.value)}
+                  />
+                  <button
+                    className="ze-btn"
+                    aria-label="Pick a date"
+                    onClick={() => pickRef.current?.showPicker?.()}
+                  >
+                    <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
+                      <path
+                        d="M1 3.5 L5 7 L9 3.5"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                      />
+                    </svg>
+                  </button>
+                </div>
               </div>
               {titleRow('Revision:', 'rev', true)}
               {titleRow('Title:', 'title')}

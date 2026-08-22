@@ -35,6 +35,12 @@
      three foregrounds that happen to coincide here, and naming which one a rule
      means is the difference between a value and a source. */
   --selection-fg: #ffffff;
+  /* Its counterpart, split for the same reason --selection-fg is: a SELECTION
+     block and an ACTIVE control accent are two roles that happen to share
+     wxSYS_COLOUR_HIGHLIGHT's value here. [px] a selected row in a live
+     pl_editor Design Inspector measures rgb(233,84,32) = #e95420, which is what
+     the syscolour probe reports for HIGHLIGHT. */
+  --selection-bg: #e95420;
   /* [px] wxSYS_COLOUR_WINDOWTEXT / _LISTBOXTEXT, the text INSIDE a view rather
      than on a widget: an entry, a listbox, a grid cell. GTK agrees — its
      `entry` and `treeview` report rgb(255,255,255) where every button, label,
@@ -126,6 +132,22 @@
   /* EDA_MSG_PANEL's background, wxSYS_COLOUR_BTNFACE, measured by
      qa/probes/aui_sash_probe.cpp. See .ze-msgpanel. */
   --msgpanel-bg: #373737;
+  /* wxGrid paints three surfaces from three different system colours, and the
+     difference between them is the whole reason a grid reads as a grid:
+
+       SetLabelBackgroundColour -> wxSYS_COLOUR_BTNFACE    the row and column
+                                                           labels, LIGHTER
+       cell default background  -> wxSYS_COLOUR_WINDOW     the data cells
+       SetGridLineColour        -> wxSYS_COLOUR_BTNSHADOW  the rules between
+
+     [px] measured off a live pl_editor Design Inspector beside ours: labels
+     rgb(55,55,55), cells rgb(39,39,39), lines rgb(24,24,24) — which are exactly
+     the BTNFACE / WINDOW / BTNSHADOW our syscolour probe reports. Ours had the
+     header DARKER than its cells (39 against 44) and both wrong, which is what
+     Akshay saw as "the boxes are more whiter" in KiCad. */
+  --grid-label-bg: #373737;
+  --grid-cell-bg: #272727;
+  --grid-line: #181818;
   /* EDA_MSG_PANEL lays itself out in units of one 'W':
        m_fontSize = GetTextExtent( "W" )                     msgpanel.cpp:72
        if( m_last_x == 0 ) m_last_x = m_fontSize.x;          :143  (first item)
@@ -4950,19 +4972,39 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-grid {
   width: 100%;
   border-collapse: collapse;
-  font-size: 12.5px;
-  border: 1px solid var(--chrome-border);
+  /* `WX_GRID::WX_GRID` sets BOTH fonts to KIUI::GetControlFont
+     (`common/widgets/wx_grid.cpp:217-218`), which off macOS is
+     getGUIFont( win, 0 ) — the plain UI font at the same size as the menu bar.
+     A raw wxGrid, which the design inspector uses, simply inherits that font
+     from its panel. Ours said 12.5px, which is what made the inspector's rows
+     read smaller than pl_editor's and, because a row is sized by its text,
+     made every row shorter as well. */
+  font-size: var(--ui-font-size);
+  border: 1px solid var(--grid-line);
 }
+/* Column labels — SetLabelBackgroundColour, i.e. BTNFACE, not the cell colour. */
 .ze-grid th {
-  background: var(--chrome-bg2);
-  border: 1px solid var(--chrome-border);
+  background: var(--grid-label-bg);
+  border: 1px solid var(--grid-line);
   padding: 3px 6px;
+  /* `SetColLabelSize( 30 )` — the header is a fixed 30 px whatever the font
+     (`dialog_design_inspector_base.cpp:41`), unlike the data rows, which wx
+     sizes from their content. */
+  height: 30px;
   font-weight: 600;
   text-align: center;
 }
 .ze-grid td {
-  border: 1px solid var(--chrome-border);
+  background: var(--grid-cell-bg);
+  border: 1px solid var(--grid-line);
   padding: 0;
+}
+/* The row-label gutter is a LABEL, so it takes the label colour rather than the
+   cell colour — the same call that paints the column headers. */
+.ze-grid td.ze-grid-rowlabel,
+.ze-grid th.ze-grid-rowlabel {
+  background: var(--grid-label-bg);
+  text-align: center;
 }
 /* A READ-ONLY WX_GRID cell holds text instead of an entry, so the padding the
    entry would have carried sits on the cell. Same two numbers as
@@ -4971,9 +5013,21 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-grid td.ze-grid-text {
   padding: 3px 6px;
 }
+/* A selected row is FILLED, not outlined.
+   wxGrid draws a selection block in wxSYS_COLOUR_HIGHLIGHT and the text in
+   HIGHLIGHTTEXT; [px] the fill measures rgb(233,84,32) on a live pl_editor,
+   which is #e95420 exactly — the HIGHLIGHT our syscolour probe reports. Ours
+   drew a 2px outline and left the row its normal background, which is a
+   different affordance, not a lighter version of the same one.
+   The row LABEL keeps its own colour: [px] the label cell of the selected row
+   still measures rgb(55,55,55), so the fill stops at the data cells. */
 .ze-grid tr.selected td {
-  outline: 2px solid var(--chrome-active);
-  outline-offset: -2px;
+  background: var(--selection-bg);
+  color: var(--selection-fg);
+}
+.ze-grid tr.selected td.ze-grid-rowlabel {
+  background: var(--grid-label-bg);
+  color: var(--chrome-fg);
 }
 .ze-grid td input[type="text"],
 .ze-grid td .ze-grid-input {
@@ -7834,10 +7888,26 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   padding: 0 var(--wx-border);
 }
 /* m_PageLayoutExampleBitmap: wxBORDER_SIMPLE, on wxSYS_COLOUR_WINDOW. */
+/* m_PageLayoutExampleBitmap — the preview BOX, not the sheet.
+   It is a wxStaticBitmap added `wxALL|wxEXPAND` with **proportion 1**
+   (`dialog_page_settings_base.cpp:133-137`), so it expands to fill what is left
+   of the left column and the 200px bitmap sits centred inside it. Ours was
+   `align-self: center` with no growth, so there was no box at all — the sheet
+   floated on the dialog background, which is what Akshay saw.
+   Its colour is set explicitly: `SetBackgroundColour( wxSYS_COLOUR_WINDOW )`
+   (:134-135), and [px] the box measures rgb(39,39,39) = #272727 on a live
+   pl_editor against the dialog's rgb(44,44,44). We had --chrome-face, the
+   button colour.
+   wxBORDER_SIMPLE gives it a 1px border, but [px] GTK paints that the same as
+   the fill here — the edge steps straight from 44,44,44 to 39,39,39 with no
+   line between — so the border contributes geometry and no colour. */
 .ze-pgs-preview {
-  align-self: center;
-  border: 1px solid var(--chrome-border);
-  background: var(--chrome-face);
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--chrome-bg2);
+  background: var(--chrome-bg2);
   margin: var(--wx-border);
 }
 .ze-pgs-filerow {
@@ -7872,6 +7942,65 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-pgs-tb > .ze-search.short,
 .ze-pgs-daterow > .ze-search:first-child {
   min-width: 100px;
+}
+/* `wxBU_EXACTFIT` — "size the button to exactly fit its label", which drops the
+   standard button minimum rather than shrinking it. The `<<<` beside the date
+   is the only button in this dialog that carries it
+   (`dialog_page_settings_base.cpp:228`), so it is a modifier rather than a
+   change to `.ze-btn`, whose 85px IS the standard width everywhere else.
+   [px] the button measures 22px wide on a live pl_editor against our 85. */
+.ze-btn.ze-btn-exactfit {
+  min-width: 0;
+  padding: 0 2px;
+  /* EXACTFIT collapses BOTH axes, not just the width: [px] the `<<<` button is
+     26px tall beside 34px entries on a live pl_editor, and centred on them. */
+  height: 26px;
+}
+/* STD_BITMAP_BUTTON with wxBU_AUTODRAW — a bitmap-only button, sized by its
+   bitmap rather than by the standard button metrics. [px] 25 x 24 for a 16px
+   bitmap on a live pl_editor. */
+.ze-btn.ze-btn-bitmap {
+  min-width: 0;
+  width: 25px;
+  height: 24px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+/* wxDatePickerCtrl on GTK is an entry with its own drop-down button on the
+   right, [px] 24px wide. `<input type="date">` puts a native calendar glyph
+   INSIDE the field instead, which both looks wrong and steals the width that
+   made the date read as "08/22/202". The native indicator is hidden and the
+   button below stands in for it, still opening the browser's own picker. */
+.ze-pgs-datepick {
+  /* proportion 2 in bSizerDate, but never below what the date itself needs:
+     "08/22/2026" was being clipped to "08/22/202" because the flex basis let
+     the entry shrink under the button. */
+  flex: 2 1 auto;
+  min-width: 128px;
+  display: flex;
+  align-items: stretch;
+}
+.ze-pgs-datepick > input {
+  flex: 1;
+  min-width: 0;
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+  border-right: 0;
+}
+.ze-pgs-datepick > input::-webkit-calendar-picker-indicator {
+  display: none;
+}
+.ze-pgs-datepick > button {
+  flex: 0 0 24px;
+  min-width: 0;
+  padding: 0;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .ze-pgs-tblabel {
   font-size: var(--ui-font-size);

@@ -113,8 +113,13 @@ describe('the pile of hand-picked dialog sizes does not grow', () => {
   // 32 until GerbView's bespoke DCode table went: "List DCodes" is a stock
   // wxSingleChoiceDialog upstream (`gerbview/tools/gerbview_inspection_tool.cpp:145`),
   // and the shared dialog that replaced it names no size of its own.
-  it('31 call sites still name their own size', () => {
-    expect(inlineSized()).toHaveLength(31);
+  // 31 until the Design Inspector pass. DIALOG_INSPECTOR is wxSize( -1, -1 )
+  // with `bSizerMain->Fit( this )` and AutoSizeColumn'd columns
+  // (dialog_design_inspector_base.cpp:12, design_inspector.cpp:295-313), so its
+  // `width: 720` was a number upstream does not have — it measured 180px wider
+  // than a live pl_editor's. One call site fewer.
+  it('30 call sites still name their own size', () => {
+    expect(inlineSized()).toHaveLength(30);
   });
 
   it('14 shell.css variants still name their own size', () => {

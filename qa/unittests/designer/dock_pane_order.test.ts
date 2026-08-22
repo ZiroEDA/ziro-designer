@@ -160,7 +160,12 @@ describe('a docked pane is sized by the numbers upstream states, not at the call
     // The 200 at pl_editor_frame.cpp:97 is the ctor's seed and LoadSettings
     // overwrites it from the setting at :538.
     expect(DS).toMatch(/const PROPERTIES_FRAME_WIDTH = 150;/);
-    expect(DS).toContain('style={{ width: PROPERTIES_FRAME_WIDTH }}');
+    // The pane is now draggable — wxAUI gives every `.Palette()` one a sash —
+    // so the constant is the STARTING width rather than the only width. It
+    // still has to be where the pane starts, which is what this asserts; the
+    // sash itself is pinned in `ds_origin_and_sash.test.ts`.
+    expect(DS).toContain('useState(PROPERTIES_FRAME_WIDTH)');
+    expect(DS).toContain('style={{ width: propsWidth, minWidth: propsWidth }}');
     // The number it replaced. 272 is nowhere in pl_editor.
     expect(DS).not.toContain('width: 272');
   });

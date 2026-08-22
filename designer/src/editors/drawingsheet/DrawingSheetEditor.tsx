@@ -68,6 +68,7 @@ import { buildDsContextMenu } from './ds_context_menu.js';
 import { DEFAULT_GRID_INDEX, GRID_SIZE_LIST, gridSizeToMM } from '../../ui/grid_settings.js';
 import { DrawingSheetCanvas, type DrawingSheetCanvasController } from './DrawingSheetCanvas.js';
 import { PropertiesFrame, SyntaxHelpDialog } from './PropertiesFrame.js';
+import { DockSash } from '../../ui/DockSash.js';
 import { DesignInspector } from './DesignInspector.js';
 import { MessageDialogError } from '../../ui/dialog_message.js';
 import { dsInspectorTitle } from './design_inspector.js';
@@ -118,7 +119,23 @@ export interface DrawingSheetEditorFile {
  * The CSS counterpart of the MinSize floor is `min-width: min-content` on
  * `.ze-leftdock.on-right`; this is the BestSize half.
  */
+/**
+ * `PL_EDITOR_SETTINGS::m_PropertiesFrameWidth` — the pane's BestSize.
+ *
+ *     m_PropertiesFrameWidth = 150;
+ *     new PARAM<int>( "properties_frame_width", &m_PropertiesFrameWidth, 150 )
+ *                                       pagelayout_editor/pl_editor_settings.cpp:38,46
+ *
+ * 150 and NOT the 200 in `PL_EDITOR_FRAME`'s constructor initialiser list
+ * (`pl_editor_frame.cpp:97`): `LoadSettings` overwrites it with the setting
+ * before the pane is ever built (`:538`), so 200 is only what the member holds
+ * for the few lines before the config is read. Exactly the shape of the units
+ * default, which was nearly "fixed" the same wrong way.
+ */
 const PROPERTIES_FRAME_WIDTH = 150;
+
+/** The centre pane's floor — how much canvas the sash has to leave behind. */
+const CANVAS_MIN_WIDTH = 200;
 
 const UNIT_GROUP = ['unitsMm', 'unitsInches', 'unitsMils'];
 /*
@@ -261,12 +278,43 @@ export function DrawingSheetEditor({
   }, []);
   const [activeTool, setActiveTool] = useState('select');
   const [toggles, setToggles] = useState<Set<string>>(new Set(DEFAULT_TOGGLES));
-  const [preview, setPreview] = useState<PreviewSettings>(() => ({
-    ...defaultPreviewSettings(),
-    title: projectName ?? '',
-  }));
+  /**
+   * The preview title block starts EMPTY, including the title.
+   *
+   * `DIALOG_PAGES_SETTINGS` fills its fields from `m_parent->GetTitleBlock()`
+   * (`dialog_page_settings.cpp:72, 155-163`), and pl_editor's is
+   * `m_pageLayout.GetTitleBlock()` — a default-constructed TITLE_BLOCK that
+   * nothing ever seeds (`pl_editor_frame.cpp:625-634`). A fresh pl_editor
+   * therefore opens Preview Settings with every field blank; ours put the
+   * project name in Title, which is not a value upstream has anywhere.
+   */
+  const [preview, setPreview] = useState<PreviewSettings>(() => defaultPreviewSettings());
   const [pageNumber, setPageNumber] = useState(1); // 1 = "Page 1", 2 = "Other pages"
   const [originChoice, setOriginChoice] = useState(0);
+  /**
+   * The Properties pane's width, and the two bounds the sash respects.
+   *
+   * wxAUI gives a `.Palette()` pane a sash for free, which is why no frame
+   * upstream writes one and why ours had none: the pane was a fixed 150 px
+   * strip. `MinSize( m_propertiesPagelayout->GetMinSize() )`
+   * (`pl_editor_frame.cpp:203`) is the panel's own content minimum, so it is
+   * measured off the live panel rather than picked — the same way GerbView's
+   * layers pane does it.
+   */
+  const [propsWidth, setPropsWidth] = useState(PROPERTIES_FRAME_WIDTH);
+  const [propsMin, setPropsMin] = useState(PROPERTIES_FRAME_WIDTH);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const propsRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = propsRef.current?.firstElementChild;
+    if (!(el instanceof HTMLElement)) return;
+    // `scrollWidth` is what the content needs when the box is narrower than it,
+    // which is the browser's answer to the question wx answers with a sizer's
+    // GetMinSize(). Floored at the BestSize so a panel that happens to lay out
+    // narrow cannot drag the minimum below what the frame opens at.
+    const min = Math.ceil(el.scrollWidth);
+    if (min > 0) setPropsMin(Math.max(PROPERTIES_FRAME_WIDTH, min));
+  }, []);
   const [localOrigin, setLocalOrigin] = useState<Vec2>({ x: 0, y: 0 });
   const [cursor, setCursor] = useState<Vec2 | null>(null);
   const [scale, setScale] = useState(0);
@@ -1626,7 +1674,7 @@ export function DrawingSheetEditor({
         }}
       />
 
-      <div className="ze-body">
+      <div className="ze-body" ref={bodyRef}>
         <Toolbar
           entries={DS_LEFT_TOOLBAR}
           orientation="vertical"
@@ -1683,9 +1731,24 @@ export function DrawingSheetEditor({
           onActivate={onRightTool}
         />
 
+        {/* wxAUI's sash. It sits on the pane's LEFT edge, which puts it between
+            the right toolbar and the palette — the toolbar is Layer 2 and the
+            palette Layer 3, so the palette is the outer of the two
+            (`pl_editor_frame.cpp:196-204`). */}
+        <DockSash
+          edge="left"
+          width={propsWidth}
+          min={propsMin}
+          max={Math.max(propsMin, (bodyRef.current?.clientWidth ?? 0) - CANVAS_MIN_WIDTH)}
+          onResize={setPropsWidth}
+        />
         {/* Docked properties panel (properties_frame.cpp). It is itself the
             `.ze-panel`, caption included — see PropertiesFrame. */}
-        <div className="ze-leftdock on-right" style={{ width: PROPERTIES_FRAME_WIDTH }}>
+        <div
+          ref={propsRef}
+          className="ze-leftdock on-right"
+          style={{ width: propsWidth, minWidth: propsWidth }}
+        >
           <PropertiesFrame
             sheet={sheet}
             selectedIndex={selectedIndex}

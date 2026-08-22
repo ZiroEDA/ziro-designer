@@ -245,7 +245,12 @@ const BASELINE: Record<string, number> = {
   // UI font at the SAME size as the menu bar (msgpanel.cpp:121,
   // ui_common.cpp). `.ze-msgpanel` wrote `font-size: 12px`, which is why
   // Akshay read our Page Width row as smaller than pl_editor's. One site.
-  ui: 147,
+  // 147 until the wxGrid pass. WX_GRID sets its cell AND label fonts to
+  // KIUI::GetControlFont (wx_grid.cpp:217-218) — the plain UI font — and a raw
+  // wxGrid inherits it; `.ze-grid` wrote `font-size: 12.5px`, which made the
+  // Design Inspector's rows read smaller than pl_editor's and, because a wxGrid
+  // row is sized by its text, shorter as well. One site.
+  ui: 146,
   widgets: 6,
 };
 
@@ -378,7 +383,9 @@ describe('hardcoded font sizes do not grow', () => {
     // 369 until the message-panel pass took `.ze-msgpanel { font-size: 12px }`,
     // which should have been --ui-font-size all along. Rescanned from the tree;
     // the diff agrees at 369 - 1.
-    expect(sites.length).toBe(368);
+    // 368 until the wxGrid pass took `.ze-grid`'s font size; see the ui row.
+    // Rescanned from the tree, and the diff agrees at 368 - 1.
+    expect(sites.length).toBe(367);
   });
 });
 
