@@ -15,6 +15,8 @@
  * button anywhere had the second line.
  */
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { buttonTooltipFor, tooltipFor } from '@ziroeda/designer/src/ui/tooltip_text.js';
 import {
   EESCHEMA_TOOLBAR_ACTIONS,
@@ -147,5 +149,45 @@ describe('toolbarButtonLabel', () => {
 
   it('falls back to the button title where the id is unknown', () => {
     expect(toolbarButtonLabel('eeschema', 'nosuchid', 'Fallback')).toBe('Fallback');
+  });
+});
+
+/**
+ * The component has to actually render through the two helpers. Everything
+ * above tests data and pure functions, and a mutation sweep proved that is not
+ * enough: putting `title={b.title}` back on the button, and giving `aria-label`
+ * the full multi-line tooltip, BOTH survived every case in this file. Neither
+ * test could see the JSX.
+ *
+ * `qa`'s tsconfig cannot compile a `.tsx`, so the render sites are read as
+ * text — the same way `sch_panes.test.ts` pins the dock order.
+ */
+describe('Toolbar renders through the shared rule', () => {
+  const SRC = fileURLToPath(new URL('../../../designer/src/ui/Toolbar.tsx', import.meta.url));
+  const text = (): string => readFileSync(SRC, 'utf8');
+
+  it('builds the button title with toolbarButtonTooltip, passing the app', () => {
+    expect(text()).toContain('title={toolbarButtonTooltip(app, b.id, b.title)}');
+  });
+
+  /** A group's wrapper carries the displayed action's tooltip, not its own. */
+  it('builds the group wrapper title the same way', () => {
+    expect(text()).toContain('title={toolbarButtonTooltip(app, shown.id, shown.title)}');
+  });
+
+  /**
+   * `aria-label` must be the friendly name alone. Given the tooltip instead, a
+   * screen reader reads the tab and the newline aloud as punctuation.
+   */
+  it('gives aria-label the single-line label, never the tooltip', () => {
+    const s = text();
+    expect(s).toContain('aria-label={toolbarButtonLabel(app, b.id, b.title)}');
+    expect(s).not.toContain('aria-label={toolbarButtonTooltip(');
+  });
+
+  /** No render site may reach for the raw local string any more. */
+  it('never renders a bare b.title', () => {
+    expect(text()).not.toMatch(/title=\{b\.title\}/);
+    expect(text()).not.toMatch(/aria-label=\{b\.title\}/);
   });
 });
