@@ -108,7 +108,7 @@ describe('DSP-24 — the dialog is "Preview Settings" in this frame', () => {
 
   it('leaves the other frames on the else branch’s wording', () => {
     // :90-92 — "Page Settings" / "Paper" / "Title Block".
-    const SCH = read('../../../designer/src/editors/schematic/dialogs/dialog_page_settings.tsx');
+    const SCH = read('../../../designer/src/dialogs/dialog_page_settings.tsx');
     expect(SCH).toContain('Page Settings');
     expect(SCH).toContain('>Paper</div>');
     expect(SCH).toContain('>Title Block</div>');

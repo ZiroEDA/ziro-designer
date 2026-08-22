@@ -78,8 +78,8 @@ import {
   paperDescription,
   type PreviewSettings,
 } from './PageSettingsDialog.js';
-import { imageFileToPng, decodeImageMeta } from './wksBitmap.js';
-import { drawDrawingSheetItems, DS_PRINT_PAPER_COLOR } from './wksRender.js';
+import { imageFileToPng, decodeImageMeta } from '@ziroeda/common';
+import { drawDrawingSheetItems, DS_PRINT_PAPER_COLOR } from '@ziroeda/common';
 import '../../ui/shell.css';
 import { standardHelpMenu } from '../../ui/help_menu.js';
 import { showHotkeyList } from '../../ui/hotkey_list_action.js';

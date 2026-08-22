@@ -23,7 +23,7 @@
  */
 
 import { PCB_IU_PER_MM } from '@ziroeda/common/src/eda_units.js';
-import { drawDrawingSheetItems } from '../drawingsheet/wksRender.js';
+import { drawDrawingSheetItems } from '@ziroeda/common';
 import {
   defaultDrawingSheet,
   layoutDrawingSheet,

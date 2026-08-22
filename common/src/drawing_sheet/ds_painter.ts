@@ -2,6 +2,16 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
+ * `KIGFX::DS_PAINTER` — `common/drawing_sheet/ds_painter.cpp`.
+ *
+ * In `common/` because upstream's is: every editor draws the drawing sheet
+ * through this one painter, pl_editor by installing it directly
+ * (`PL_DRAW_PANEL_GAL`'s constructor) and the other three through
+ * `DS_PROXY_VIEW_ITEM`. It lived in `editors/drawingsheet/` here and was
+ * imported by the schematic renderer, `renderBoard`, `gerberRender` and the GL
+ * adapter — four peers reaching into one editor's folder for a shared painter,
+ * which is the circular ownership the project brief names.
+ *
  * Drawing-sheet canvas painter. Draws the resolved IU primitives from
  * `layoutDrawingSheet` the way KiCad's DS_PAINTER paints them in `pl_editor`
  * (common/drawing_sheet/ds_painter.cpp):
@@ -18,15 +28,18 @@
  * before calling; everything here is in schematic internal units.
  */
 
-import { bitmapSizeIu, schIUScale } from '@ziroeda/common';
-import { mmToIU } from '@ziroeda/common';
-import type { DsDrawItem, DsTextItem, DsBitmapItem } from '@ziroeda/common';
-import { KICAD_FONT_NAME, layoutText } from '@ziroeda/common/src/font/stroke_font.js';
-
-// KiCad's italic shear (common/font/font.h ITALIC_TILT = 1/8).
-const ITALIC_TILT = 1 / 8;
-import { getBitmapImage } from './wksBitmap.js';
-import { brightness, parseColor4d } from '../../render/color4d.js';
+import { bitmapSizeIu, schIUScale } from '../index.js';
+import { mmToIU } from '../index.js';
+import type { DsDrawItem, DsTextItem, DsBitmapItem } from '../index.js';
+import { KICAD_FONT_NAME, layoutText } from '../font/stroke_font.js';
+// `ITALIC_TILT`, from its one home. This file used to declare its own `1 / 8`
+// and was the KNOWN EXCEPTION in `italic_tilt_single_home.test.ts`, left there
+// because the drawing-sheet tree was being rewritten at the time; the rewrite
+// is what moved this file into common/, which is also what made the second
+// declaration sit two directories from the first.
+import { ITALIC_TILT } from '../font/font_metrics.js';
+import { getBitmapImage } from './ds_bitmap.js';
+import { brightness, parseColor4d } from '../index.js';
 
 /*
  * The three colours the drawing sheet is painted from are COLOR_SETTINGS

@@ -19,7 +19,7 @@ import {
   writeSheetRefText,
   listProjectSheetFiles,
   parseProjectSheet,
-} from '../drawingsheet/projectSheet.js';
+} from '@ziroeda/common';
 import { Fragment, useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { parse } from '@ziroeda/sexpr';
 import {
@@ -335,7 +335,7 @@ import { DialogEditSymbolsLibId } from './dialogs/dialog_edit_symbols_libid.js';
 import { DialogResolveFieldCaseConflicts } from './dialogs/dialog_resolve_field_case_conflicts.js';
 import { DialogAnnotate, type AnnotateRun } from './dialogs/dialog_annotate.js';
 import { DialogLineProperties, type ItemColor } from './dialogs/dialog_line_properties.js';
-import { DialogPageSettings, type PageExportFlags } from './dialogs/dialog_page_settings.js';
+import { DialogPageSettings, type PageExportFlags } from '../../dialogs/dialog_page_settings.js';
 import { DialogPasteSpecial } from './dialogs/dialog_paste_special.js';
 import { DialogSheetProperties, type SheetPropsResult } from './dialogs/dialog_sheet_properties.js';
 import { DialogShapeProperties, type ShapePropsResult } from './dialogs/dialog_shape_properties.js';

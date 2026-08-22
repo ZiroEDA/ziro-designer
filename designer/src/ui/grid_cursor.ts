@@ -34,7 +34,7 @@
  * (`ds_painter.h:71`) — so a per-editor colour is parity, not drift. The caller
  * passes the colour its own theme resolved.
  */
-import { parseColor4d, toCss, withAlpha } from '../render/color4d.js';
+import { parseColor4d, toCss, withAlpha } from '@ziroeda/common';
 
 /** `KIGFX::GRID_STYLE` (include/gal/gal_display_options.h:46-51). */
 export type GridStyle = 'dots' | 'lines' | 'crosses';

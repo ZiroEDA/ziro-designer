@@ -74,8 +74,8 @@ import {
   isTransparent,
   parseColor4d,
   toCss,
-} from '../../../render/color4d.js';
-import { drawDrawingSheetItems } from '../../drawingsheet/wksRender.js';
+} from '@ziroeda/common';
+import { drawDrawingSheetItems } from '@ziroeda/common';
 import {
   interline,
   layoutText,

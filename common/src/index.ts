@@ -70,6 +70,22 @@ export {
   type WksBBox,
 } from './drawing_sheet/index.js';
 
+/**
+ * `KIGFX::DS_PAINTER` and its bitmap cache, flat rather than under `wks`.
+ *
+ * The four canvases that draw a sheet call these directly, exactly as every
+ * frame upstream reaches `common/drawing_sheet/ds_painter.h` rather than an
+ * editor's header.
+ */
+export * from './drawing_sheet/ds_painter.js';
+export * from './drawing_sheet/ds_bitmap.js';
+export * from './drawing_sheet/project_sheet.js';
+
+/**
+ * `NET_SETTINGS` — part of PROJECT_FILE, so both editors ask common/ for it.
+ */
+export * from './project/net_settings.js';
+
 export * from './page_info.js';
 export * from './color4d.js';
 export * from './settings/builtin_color_themes.js';

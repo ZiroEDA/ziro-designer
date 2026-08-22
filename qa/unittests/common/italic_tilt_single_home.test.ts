@@ -42,15 +42,11 @@ const declarations = (): string[] =>
 describe('ITALIC_TILT has one home', () => {
   it('is declared in common/src/font/font_metrics.ts and nowhere else', () => {
     const files = declarations().map((l) => l.split(':')[0]);
-    expect(files).toEqual([
-      'common/src/font/font_metrics.ts',
-      // KNOWN EXCEPTION, tracked separately: designer/src/editors/drawingsheet/
-      // wksRender.ts keeps its own copy. That tree is being rewritten by a
-      // concurrent drawing-sheet change and was left alone deliberately; the
-      // fix is to delete the const and import this one. Remove this entry with
-      // that line.
-      'designer/src/editors/drawingsheet/wksRender.ts',
-    ]);
+    // The exception is gone. `wksRender.ts` kept a second `1 / 8` and was
+    // excused here while its tree was being rewritten; that rewrite moved it to
+    // `common/src/drawing_sheet/ds_painter.ts`, where a duplicate of a common/
+    // constant two directories away was indefensible, so it imports this one.
+    expect(files).toEqual(['common/src/font/font_metrics.ts']);
   });
 
   it('is 1/8, and every re-export is the same value', () => {

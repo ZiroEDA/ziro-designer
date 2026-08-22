@@ -26,12 +26,9 @@
  * clamping happens on read only.
  */
 
-import type { RawFile } from '../drawingsheet/projectSheet.js';
-import {
-  LINE_STYLES,
-  type NetClass,
-  type NetClassAssignment,
-} from '../schematic/schematic_settings.js';
+import type { RawFile } from '@ziroeda/common';
+// NET_SETTINGS, from common/ — pcbnew has no eeschema dependency upstream.
+import { LINE_STYLES, type NetClass, type NetClassAssignment } from '@ziroeda/common';
 import {
   DRC_CATEGORIES,
   defaultBoardSetup,

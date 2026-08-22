@@ -120,7 +120,12 @@ const SRC = fileURLToPath(new URL('../../../designer/src', import.meta.url));
  */
 const BASELINE: Record<string, { colours: number; metrics: number }> = {
   auth: { colours: 4, metrics: 0 },
-  dialogs: { colours: 5, metrics: 35 },
+  // DIALOG_PAGES_SETTINGS moved from editors/schematic to dialogs — it is
+  // `common/dialogs/dialog_page_settings.cpp` upstream, opened by pl_editor,
+  // pcbnew and eeschema alike, and PcbEditor was importing it across. Nothing
+  // in it changed, so the two areas move by the same amount and the TOTALS
+  // below are untouched, which is what says this was a move and not a pass.
+  dialogs: { colours: 7, metrics: 50 },
   'editors/calculator': { colours: 2, metrics: 18 },
   'editors/drawingsheet': { colours: 0, metrics: 0 },
   'editors/footprint': { colours: 9, metrics: 20 },
@@ -135,7 +140,7 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // layer swatch's invented #444 border with it (3 colours), along with that
   // div's and the swatch's inline sizes (6 metrics).
   'editors/pcb': { colours: 69, metrics: 387 },
-  'editors/schematic': { colours: 70, metrics: 230 },
+  'editors/schematic': { colours: 68, metrics: 215 },
   'editors/symbol': { colours: 12, metrics: 19 },
   home: { colours: 7, metrics: 7 },
   mobile: { colours: 15, metrics: 23 },

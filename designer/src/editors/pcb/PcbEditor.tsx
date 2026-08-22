@@ -206,7 +206,7 @@ import {
   zoomMsg,
 } from '../../ui/status_format.js';
 import { DialogPcbFind, DEFAULT_PCB_FIND, type PcbFindOptions } from './dialogs/dialog_find.js';
-import { DialogPageSettings } from '../schematic/dialogs/dialog_page_settings.js';
+import { DialogPageSettings } from '../../dialogs/dialog_page_settings.js';
 import { DialogPcbPrint } from './dialogs/dialog_print_pcb.js';
 import { DialogPcbPlot } from './dialogs/dialog_plot_pcb.js';
 import {

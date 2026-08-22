@@ -2,6 +2,18 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
+ * `DIALOG_PAGES_SETTINGS` — `common/dialogs/dialog_page_settings.cpp`.
+ *
+ * In a shared folder because upstream's is in `common/dialogs/`: pl_editor,
+ * pcbnew and eeschema all open the same dialog
+ * (`pl_editor_control.cpp`, `board_editor_control.cpp`, and eeschema's own
+ * call site). It lived under `editors/schematic/dialogs/` here and PcbEditor
+ * imported it across — pcbnew has no eeschema dependency upstream, so that
+ * import was the tell.
+ *
+ * A `.tsx` rather than part of `common/`, which is framework-free the way
+ * KiCad's `common` library is free of any one frame's headers.
+ *
  * Page Settings dialog. Counterpart: `common/dialogs/dialog_page_settings.cpp`
  * (DIALOG_PAGES_SETTINGS) as opened by SCH_EDIT_FRAME. Left column: Paper
  * (size, orientation, custom size, export checkbox) over a page preview.
@@ -18,8 +30,8 @@ import { defaultDrawingSheet, layoutDrawingSheet, type WksSheet } from '@ziroeda
 // the drawing sheet editor's dialog component, which is the cross-peer import
 // the project brief names. See common/src/page_info.ts.
 import { PAPER_CHOICES, PAPER_MM } from '@ziroeda/common';
-import { drawDrawingSheetItems, DS_ITEM_COLOR } from '../../drawingsheet/wksRender.js';
-import { useModalEscape } from '../../../ui/useModalEscape.js';
+import { drawDrawingSheetItems, DS_ITEM_COLOR } from '@ziroeda/common';
+import { useModalEscape } from '../ui/useModalEscape.js';
 
 /** No preview item is ever selected. */
 const NO_PREVIEW_SELECTION: ReadonlySet<number> = new Set();

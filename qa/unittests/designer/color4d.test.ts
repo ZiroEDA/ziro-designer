@@ -24,7 +24,7 @@ import {
   isTransparent,
   parseColor4d,
   toCss,
-} from '@ziroeda/designer/src/render/color4d.js';
+} from '@ziroeda/common';
 import { KICAD_CLASSIC, KICAD_DEFAULT } from '@ziroeda/designer/src/editors/schematic/theme.js';
 
 describe('parsing the forms the themes are written in', () => {

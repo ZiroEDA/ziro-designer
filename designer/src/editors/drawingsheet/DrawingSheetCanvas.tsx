@@ -46,8 +46,8 @@ import {
   DS_EDIT_POINT_ON_LIGHT,
   DS_MARQUEE,
   DS_SELECTED_COLOR,
-} from './wksRender.js';
-import { setBitmapInvalidate } from './wksBitmap.js';
+} from '@ziroeda/common';
+import { setBitmapInvalidate } from '@ziroeda/common';
 import { DrawingSheetGl } from '../../render/gl/drawingsheet_gl.js';
 import { commonInputPrefs, wheelAction, zoomFitView } from '../../ui/view_controls.js';
 import { clampViewScale } from '../../ui/zoom_settings.js';

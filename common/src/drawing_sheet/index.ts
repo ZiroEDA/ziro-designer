@@ -42,3 +42,14 @@ export {
   bitmapScaleForPPI,
   type WksBBox,
 } from './edit.js';
+
+/**
+ * `KIGFX::DS_PAINTER` and the bitmap cache it draws through.
+ *
+ * Exported from here rather than reached at its path, so the four canvases that
+ * draw a sheet ask `common` for the painter the way every editor upstream asks
+ * `common/drawing_sheet/` for `DS_PAINTER`.
+ */
+export * from './ds_painter.js';
+export * from './ds_bitmap.js';
+export * from './project_sheet.js';

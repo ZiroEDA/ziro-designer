@@ -32,7 +32,7 @@ import {
   SCH_IU_PER_MM,
   type DsDrawItem,
 } from '@ziroeda/common';
-import { drawDrawingSheetItems } from '../drawingsheet/wksRender.js';
+import { drawDrawingSheetItems } from '@ziroeda/common';
 
 /**
  * `PAGE_INFO pageInfo( PAGE_SIZE_TYPE::GERBER )` — the page GerbView sets at

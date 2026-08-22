@@ -17,7 +17,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import type { DsDrawItem } from '@ziroeda/common';
-import { drawDrawingSheetItems } from '@ziroeda/designer/src/editors/drawingsheet/wksRender.js';
+import { drawDrawingSheetItems } from '@ziroeda/common';
 
 interface StrokeCall {
   op: 'line' | 'rect';

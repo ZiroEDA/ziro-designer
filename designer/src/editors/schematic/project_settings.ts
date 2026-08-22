@@ -28,7 +28,7 @@
 
 import type { ErcCode, ErcSeverityLevel, PinError } from '@ziroeda/eeschema';
 import { ERC_ITEMS, PIN_TYPES } from '@ziroeda/eeschema';
-import type { RawFile } from '../drawingsheet/projectSheet.js';
+import type { RawFile } from '@ziroeda/common';
 import {
   LINE_STYLES,
   UNIT_NOTATION_IDS,

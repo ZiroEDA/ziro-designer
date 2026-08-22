@@ -225,7 +225,7 @@ describe('the row labels are the ones properties_frame_base.cpp declares', () =>
 });
 
 describe('"KiCad Font" is the stroke font, not an outline family', () => {
-  const RENDER = read('../../../designer/src/editors/drawingsheet/wksRender.ts');
+  const RENDER = read('../../../common/src/drawing_sheet/ds_painter.ts');
 
   it('names it once, in the font module that owns it', () => {
     // include/font/kicad_font_name.h, which stroke_font.cpp:189 assigns to the

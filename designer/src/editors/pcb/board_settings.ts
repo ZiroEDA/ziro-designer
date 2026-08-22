@@ -17,11 +17,12 @@
  * that KiCad shows as percentages are held as percent numbers.
  */
 
+// The netclass half is NET_SETTINGS and comes from common/; embedded files and
+// text variables are still eeschema's PROJECT_FILE sections here.
+import { defaultNetClasses, type NetClassesData } from '@ziroeda/common';
 import {
   defaultEmbeddedFiles,
-  defaultNetClasses,
   type EmbeddedFilesData,
-  type NetClassesData,
   type TextVar,
 } from '../schematic/schematic_settings.js';
 

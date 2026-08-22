@@ -12,7 +12,7 @@ import {
   listProjectSheetFiles,
   parseProjectSheet,
   resolveActiveSheet,
-} from '@ziroeda/designer/src/editors/drawingsheet/projectSheet.js';
+} from '@ziroeda/common';
 
 const PRO = JSON.stringify({ meta: { version: 3 }, schematic: { meta: { version: 1 } } }, null, 2);
 const WKS = `(kicad_wks (version 20231118) (generator "pl_editor")

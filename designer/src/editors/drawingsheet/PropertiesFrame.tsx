@@ -44,7 +44,7 @@ import { useModalEscape } from '../../ui/useModalEscape.js';
 import { UnitField } from '../../ui/UnitField.js';
 import type { EdaUnits, UnitRange } from '../../ui/unit_binder.js';
 import { MessageDialogError } from '../../ui/dialog_message.js';
-import { DS_ITEM_COLOR, DS_ITEM_COLOR_HEX } from './wksRender.js';
+import { DS_ITEM_COLOR, DS_ITEM_COLOR_HEX } from '@ziroeda/common';
 import { fmtInt, fmtRotation } from './properties_format.js';
 
 /**

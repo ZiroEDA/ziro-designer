@@ -43,7 +43,7 @@
  * `schematic_gl` and `pcb_gl` make, and for the same reason.
  */
 
-import { drawDrawingSheetItems, type RenderOpts } from '../../editors/drawingsheet/wksRender.js';
+import { drawDrawingSheetItems, type RenderOpts } from '@ziroeda/common';
 import type { DsDrawItem } from '@ziroeda/common';
 import { createGlDevice, type GlDevice, type GlView } from './device.js';
 import { GlRecorder } from './recorder.js';

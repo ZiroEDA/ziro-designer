@@ -52,7 +52,7 @@ import { UnitField } from '../../ui/UnitField.js';
 import type { EdaUnits } from '../../ui/unit_binder.js';
 import { useModalEscape } from '../../ui/useModalEscape.js';
 import { MessageDialogError } from '../../ui/dialog_message.js';
-import { drawDrawingSheetItems, DS_BG_COLOR_LIGHT, DS_ITEM_COLOR } from './wksRender.js';
+import { drawDrawingSheetItems, DS_BG_COLOR_LIGHT, DS_ITEM_COLOR } from '@ziroeda/common';
 
 /** `m_orientationComboBoxChoices` (dialog_page_settings_base.cpp:54). */
 const ORIENTATION_CHOICES: readonly ComboOption[] = [

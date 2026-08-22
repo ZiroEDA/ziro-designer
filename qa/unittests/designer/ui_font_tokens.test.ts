@@ -205,7 +205,12 @@ describe('the menu bar reads the token, and its drop-down inherits it', () => {
 
 /** Every hardcoded font size in the tree today, by owning area. */
 const BASELINE: Record<string, number> = {
-  dialogs: 5,
+  // DIALOG_PAGES_SETTINGS moved from editors/schematic to dialogs — it is
+  // `common/dialogs/dialog_page_settings.cpp` upstream, opened by pl_editor,
+  // pcbnew and eeschema alike, and PcbEditor was importing it across. Nothing
+  // in it changed, so the two areas move by the same amount and the TOTALS
+  // below are untouched, which is what says this was a move and not a pass.
+  dialogs: 13,
   // `editors/calculator` is absent because it is at ZERO: the calculator's
   // parity pass consumed the tokens and its own test pins the zero directly.
   // 14 before the unit-binder pass. MmField's literal "mm" span carried one
@@ -226,7 +231,7 @@ const BASELINE: Record<string, number> = {
   // 123 until the toolbars pass: the hand-rolled TOP_AUX div's `fontSize: 12`
   // went with the div, and a real Toolbar's controls take the shared skin.
   'editors/pcb': 122,
-  'editors/schematic': 63,
+  'editors/schematic': 55,
   'editors/symbol': 2,
   home: 5,
   mobile: 6,

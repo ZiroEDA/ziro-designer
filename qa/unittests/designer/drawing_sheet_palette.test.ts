@@ -34,7 +34,7 @@ import {
   DS_PAGE_BORDER_COLOR,
   DS_PRINT_PAPER_COLOR,
   DS_SELECTED_COLOR,
-} from '@ziroeda/designer/src/editors/drawingsheet/wksRender.js';
+} from '@ziroeda/common';
 import { KICAD_DEFAULT } from '@ziroeda/designer/src/editors/schematic/theme.js';
 import {
   FRAME_TITLE_SEPARATOR,

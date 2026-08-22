@@ -14,7 +14,7 @@
  * choice survives a reload / cloud sync like any other project file.
  */
 
-import { parseDrawingSheet, type WksSheet } from '@ziroeda/common';
+import { parseDrawingSheet, type WksSheet } from '../index.js';
 
 /** A raw project file (name + text), matching the schematic editor's PickedFile. */
 export interface RawFile {

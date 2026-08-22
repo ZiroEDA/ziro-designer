@@ -222,7 +222,7 @@ const GL_RENDERER =
  * drawn by the preview and has nothing to hide from the background.
  */
 import { KICAD_DEFAULT, type Theme } from '../theme.js';
-import { editPointColors } from '../../../render/color4d.js';
+import { editPointColors } from '@ziroeda/common';
 import { kiCursor, toolCursor as kiToolCursor } from '../cursors.js';
 import { remapEvent } from '../hotkey_bindings.js';
 import { settings } from '../../../prefs/settings.js';
