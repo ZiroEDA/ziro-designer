@@ -143,8 +143,8 @@ export const FP_RIGHT_TOOLBAR: ToolEntry[] = [
   {
     group: 'Selection modes',
     actions: [
-      { id: 'select', icon: 'select', title: 'Select items' },
-      { id: 'selectLasso', icon: 'selectLasso', title: 'Select with lasso' },
+      { id: 'selectSetRect', icon: 'selectSetRect', title: 'Select items' },
+      { id: 'selectSetLasso', icon: 'selectSetLasso', title: 'Select with lasso' },
     ],
   },
   sep,
@@ -167,11 +167,15 @@ export const FP_RIGHT_TOOLBAR: ToolEntry[] = [
   {
     group: 'Dimension objects',
     actions: [
-      { id: 'dimOrthogonal', icon: 'dimOrthogonal', title: 'Add orthogonal dimensions' },
-      { id: 'dimAligned', icon: 'dimAligned', title: 'Add aligned dimensions' },
-      { id: 'dimCenter', icon: 'dimCenter', title: 'Add center dimensions' },
-      { id: 'dimRadial', icon: 'dimRadial', title: 'Add radial dimensions' },
-      { id: 'dimLeader', icon: 'dimLeader', title: 'Add leaders' },
+      {
+        id: 'drawOrthogonalDimension',
+        icon: 'drawOrthogonalDimension',
+        title: 'Add orthogonal dimensions',
+      },
+      { id: 'drawAlignedDimension', icon: 'drawAlignedDimension', title: 'Add aligned dimensions' },
+      { id: 'drawCenterDimension', icon: 'drawCenterDimension', title: 'Add center dimensions' },
+      { id: 'drawRadialDimension', icon: 'drawRadialDimension', title: 'Add radial dimensions' },
+      { id: 'drawLeader', icon: 'drawLeader', title: 'Add leaders' },
     ],
   },
   { id: 'deleteTool', icon: 'deleteTool', title: 'Interactive delete tool' },

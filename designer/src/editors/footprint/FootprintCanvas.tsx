@@ -52,7 +52,13 @@ export interface FootprintCanvasProps {
   drawOpts?: PcbDrawOptions;
   /** Currently selected item ids (PCB_SELECTION_TOOL). */
   selection?: ReadonlySet<string>;
-  /** Active right-toolbar tool ('select' enables picking/box/move). */
+  /** Active right-toolbar tool (`selectSetRect` enables picking/box/move).
+   *
+   *  The id is `ACTIONS::selectSetRect`'s upstream action name, the one the PCB
+   *  editor already uses for the same button. Note upstream splits what we
+   *  conflate: `ACTIONS::selectionTool` does the picking and is always running,
+   *  while selectSetRect/selectSetLasso only choose the drag SHAPE. Ours gates
+   *  picking on the mode, which is a separate gap from the naming. */
   activeTool?: string;
   /** ACTIONS::toggleGrid. */
   showGrid?: boolean;
@@ -83,7 +89,7 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
       visible,
       drawOpts = DEFAULT_DRAW_OPTIONS,
       selection = EMPTY_SEL,
-      activeTool = 'select',
+      activeTool = 'selectSetRect',
       showGrid = true,
       gridIU = PCB_DEFAULT_GRID_IU,
       onCursorMove,
@@ -317,7 +323,7 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
           // FOOTPRINT_EDIT_FRAME's drawing tools call ShowCursor(true) through
           // PCB_TOOL_BASE; the selection tool does not, so there the crosshair
           // is the dimmed forced one.
-          toolWantsCursor: activeToolRef.current !== 'select',
+          toolWantsCursor: activeToolRef.current !== 'selectSetRect',
           alwaysShow: true,
           devicePixelRatio: dpr,
         });
@@ -487,7 +493,7 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
       }
       if (e.button !== 0) return;
       // A placement tool is active: a click drops the item (drag is ignored).
-      if (activeTool !== 'select') {
+      if (activeTool !== 'selectSetRect') {
         gestureRef.current = { mode: 'place', start: { x: e.clientX, y: e.clientY }, moved: false };
         return;
       }
@@ -578,7 +584,7 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
           style={{
             position: 'absolute',
             inset: 0,
-            cursor: activeTool === 'select' ? 'default' : 'crosshair',
+            cursor: activeTool === 'selectSetRect' ? 'default' : 'crosshair',
           }}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}

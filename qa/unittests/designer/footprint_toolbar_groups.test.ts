@@ -48,11 +48,17 @@ describe('the five groups upstream declares', () => {
     ['Units', FP_LEFT_TOOLBAR, ['unitsMm', 'unitsInches', 'unitsMils']],
     ['Crosshair modes', FP_LEFT_TOOLBAR, ['crosshairSmall', 'crosshairFull', 'crosshair45']],
     ['Line modes', FP_LEFT_TOOLBAR, ['lineModeFree', 'lineMode90', 'lineMode45']],
-    ['Selection modes', FP_RIGHT_TOOLBAR, ['select', 'selectLasso']],
+    ['Selection modes', FP_RIGHT_TOOLBAR, ['selectSetRect', 'selectSetLasso']],
     [
       'Dimension objects',
       FP_RIGHT_TOOLBAR,
-      ['dimOrthogonal', 'dimAligned', 'dimCenter', 'dimRadial', 'dimLeader'],
+      [
+        'drawOrthogonalDimension',
+        'drawAlignedDimension',
+        'drawCenterDimension',
+        'drawRadialDimension',
+        'drawLeader',
+      ],
     ],
   ];
 

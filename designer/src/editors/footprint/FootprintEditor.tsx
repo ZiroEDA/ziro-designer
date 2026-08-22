@@ -212,7 +212,7 @@ export function FootprintEditor({
   const [visible, setVisible] = useState<ReadonlySet<string>>(new Set(ALL_FP_LAYERS));
   const [activeLayer, setActiveLayer] = useState('F.Cu');
   const [toggles, setToggles] = useState<Set<string>>(new Set(DEFAULT_TOGGLES));
-  const [activeTool, setActiveTool] = useState('select');
+  const [activeTool, setActiveTool] = useState('selectSetRect');
   /** WINDOW_SETTINGS grid.last_size, as an IU size. */
   const [gridIU, setGridIU] = useState(FP_DEFAULT_GRID);
   // First anchor of a 2-click graphic (line/rect/circle) being drawn.
@@ -844,7 +844,7 @@ export function FootprintEditor({
         // ACTIONS::cancelInteractive, scoped to whatever is running: back out
         // of the drawing, then the tool, then the selection.
         if (drawStart) setDrawStart(null);
-        else if (activeTool !== 'select') selectTool('select');
+        else if (activeTool !== 'selectSetRect') selectTool('selectSetRect');
         else setSelection(new Set());
         return;
       }
