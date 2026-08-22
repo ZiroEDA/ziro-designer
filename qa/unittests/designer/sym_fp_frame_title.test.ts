@@ -131,6 +131,30 @@ describe('SYMBOL_EDIT_FRAME::UpdateTitle', () => {
   });
 
   /**
+   * The SECOND half of `if( GetCurSymbol() && IsSymbolFromSchematic() )`, and
+   * the one the first mutation sweep found unpinned.
+   *
+   * `IsSymbolFromSchematic()` is the only thing that selects branch 1. Carrying
+   * a reference does not, and this is not hypothetical: the call site feeds
+   * `reference` from `symbol->GetReferenceField().GetText()` on EVERY loaded
+   * symbol, because that is the expression upstream evaluates. So a branch
+   * keyed on "is there a reference" would put every library symbol in the
+   * world under `[from schematic]`, and the suite passed with that mutant in
+   * place.
+   */
+  it('keys the from-schematic branch on the flag alone, never on having a reference', () => {
+    const title = sym({
+      hasSymbol: true,
+      fromSchematic: false,
+      reference: 'R1',
+      libId: 'Device:R',
+    });
+    expect(title).toBe('Device:R — Symbol Editor');
+    expect(title).not.toContain(FROM_SCHEMATIC_SUFFIX);
+    expect(title).not.toContain('R1 ');
+  });
+
+  /**
    * `if( GetCurSymbol() && IsSymbolFromSchematic() )` — the FIRST half is the
    * guard on both non-empty branches. `IsSymbolFromSchematic()` alone must not
    * select branch 1.
