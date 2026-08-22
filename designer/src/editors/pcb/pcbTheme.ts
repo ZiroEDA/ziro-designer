@@ -245,12 +245,14 @@ export const PCB_BW_PRINT_THEME: PcbColorTheme = {
 };
 
 /**
- * Objects-tab swatch colours, keyed by the Objects row key. Rows without an
- * entry have no theme colour and show a blank spacer, like upstream.
+ * Objects-tab swatch colours, keyed by the Objects row key.
  *
- * `constrainedShadow` has no KiCad counterpart: appearance_controls.cpp's
- * s_objectSettings has no such row, and layer_ids.h has no matching layer, so
- * that swatch is ours and is spelled out rather than looked up.
+ * A row missing from this map has no colour of its own in the theme — Tracks
+ * through Footprint Text are the eleven — and upstream still draws a swatch
+ * for it, in COLOR_SWATCH's checkerboard "unset" rendering rather than as a
+ * gap (`appearance_controls.cpp:2317`, and `GetDefaultColor` cannot return
+ * UNSPECIFIED: unregistered layers fall through to `s_userColors[id % 4]`).
+ * The `.unset` swatch class carries that rendering.
  */
 export const PCB_OBJECT_COLORS: Record<string, string> = {
   ratsnest: PCB_SPECIAL.ratsnest,
@@ -261,7 +263,6 @@ export const PCB_OBJECT_COLORS: Record<string, string> = {
   points: at(BUILTIN_DEFAULT_THEME, 'LAYER_POINTS'),
   lockedShadow: at(BUILTIN_DEFAULT_THEME, 'LAYER_LOCKED_ITEM_SHADOW'),
   collidingCourtyards: at(BUILTIN_DEFAULT_THEME, 'LAYER_CONFLICTS_SHADOW'),
-  constrainedShadow: 'rgba(80,160,240,0.5)',
   boardAreaShadow: at(BUILTIN_DEFAULT_THEME, 'LAYER_BOARD_OUTLINE_AREA'),
   drawingSheet: PCB_SPECIAL.drawingSheet,
   pageLimits: PCB_SPECIAL.pageLimits,

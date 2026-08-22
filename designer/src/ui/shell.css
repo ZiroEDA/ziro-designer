@@ -2716,12 +2716,18 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 }
 
 /* APPEARANCE_CONTROLS layer row: [indicator][swatch][eye][name] */
+/* KIUI::GetInfoFont — getGUIFont( win, -1 ), the GUI font less one point, so
+   10 pt (ui_common.cpp:155). APPEARANCE_CONTROLS sets it on the layers panel,
+   the objects panel, both Nets labels and the presets/viewports labels
+   (appearance_controls.cpp:444-453), and PANEL_SELECTION_FILTER sets it on
+   every checkbox (panel_selection_filter.cpp:36-49). One font upstream, so one
+   token here — these rules used to write 12px and 13px between them. */
 .ze-layer-row {
   display: flex;
   align-items: center;
   gap: 5px;
   padding: 1px 5px 1px 2px;
-  font-size: 13px;
+  font-size: var(--ui-font-size-info);
   line-height: 1.35;
   cursor: default;
   white-space: nowrap;
@@ -2773,9 +2779,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   height: var(--swatch-small-h);
   flex: 0 0 auto;
 }
-.ze-layer-swatch.blank {
-  background: transparent;
-}
 /* BITMAP_TOGGLE visibility eye: an inline-SVG button that always renders,
    drawn in a light grey that stays visible on the grey list background. */
 .ze-eye-btn {
@@ -2801,12 +2804,20 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 /* Objects tab row: [swatch|spacer][eye|spacer][label][opacity slider] */
 /* Objects tab row, spaced like KiCad's appendObject:
    [swatch] 5px [eye] 5px [label] [slider], 2px between rows. */
+/* The gap `RR()` leaves between Objects groups: m_pointSize / 2, where
+   m_pointSize is wxSYS_DEFAULT_GUI_FONT's point size — 11 pt, so 5 px
+   (appearance_controls.cpp:2461). Ours was a round 8. */
+.ze-object-sep {
+  /* [data] m_objectsOuterSizer->AddSpacer( m_pointSize / 2 ), where m_pointSize
+     is wxSYS_DEFAULT_GUI_FONT's point size — 11, so 5 (appearance_controls.cpp:2461). */
+  height: 5px;
+}
 .ze-object-row {
   display: flex;
   align-items: center;
   gap: 5px;
   padding: 1px 5px 1px 2px;
-  font-size: 13px;
+  font-size: var(--ui-font-size-info);
   line-height: 1.35;
   white-space: nowrap;
 }
@@ -2873,8 +2884,29 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 }
 /* A net/netclass with no custom color: a plain empty swatch (dark with a
    border), like KiCad's uncolored COLOR_SWATCH, click it to assign a color. */
+/* COLOR_SWATCH holding COLOR4D::UNSPECIFIED — an Objects row with no theme
+   colour, a net or a netclass with no override. It is not a flat grey; it is a
+   checkerboard, and on a dark parent COLOR_SWATCH::RenderToDC takes the branch
+   `black = COLOR4D::BLACK; white = black.Brightened( 0.15 )`
+   (`common/widgets/color_swatch.cpp:79-93`).
+
+   [data] KiCad's own constants, not the theme's: 0.15 * 255 = 38 = #262626,
+   and that is exactly what a live pcbnew paints — sampled off the Objects tab
+   of KiCad 10.0.5 on this machine, whose Tracks swatch reads #262626/#000000
+   in 6x7 px cells across the 16x14 swatch, top-left cell #262626 (the loop
+   opens with `colCycle = rowCycle`, which is false on a dark ground).
+   CHECKERBOARD_SIZE_DU is (3,3) and converts asymmetrically, which is why the
+   cell is 6 wide and 7 tall rather than square. */
 .ze-layer-swatch.unset {
-  background: #2b2d31;
+  /* [data] COLOR4D::BLACK.Brightened( 0.15 ): 0.15 * 255 = 38 = #262626
+     (color_swatch.cpp:79-93). [px] a live pcbnew's Tracks swatch reads #262626. */
+  background-color: #262626;
+  /* [data] the same pair, black first so the top-left cell is the brightened
+     one — the loop opens with `colCycle = rowCycle`, false on a dark ground. */
+  background-image: conic-gradient(#000000 0 25%, #262626 0 50%, #000000 0 75%, #262626 0);
+  /* [px] twice the cell. CHECKERBOARD_SIZE_DU is (3,3) and converts
+     asymmetrically; the sampled cell is 6 px wide and 7 px tall. */
+  background-size: 12px 14px;
 }
 
 /* Nets tab: the Nets grid and the Net Classes list each sit in their own
@@ -2896,19 +2928,36 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   overflow-y: auto;
 }
 
-/* Nets tab headers ("Nets" / "Net Classes") with the filter box. */
+/* Nets tab headers ("Nets" / "Net Classes"): a label that takes the row and a
+   BITMAP_BUTTON at its right. Both labels take KIUI::GetInfoFont like the rest
+   of the panel (appearance_controls.cpp:445-446), and neither is bold — they
+   are plain wxStaticText. */
 .ze-nets-header {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-weight: 600;
-  font-size: 12px;
+  font-size: var(--ui-font-size-info);
   margin: 2px 0 4px;
 }
-.ze-nets-header input {
+.ze-nets-header span {
   flex: 1;
   min-width: 0;
-  font-size: 12px;
+}
+/* BITMAP_BUTTON with SetPadding( 2 ) (appearance_controls.cpp:472, :475). */
+.ze-bitmap-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* [data] BITMAP_BUTTON::SetPadding( 2 ) (appearance_controls.cpp:472, :475). */
+  padding: 2px;
+  flex: 0 0 auto;
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: default;
+}
+.ze-bitmap-btn:disabled {
+  opacity: 0.4;
 }
 
 /* WX_COLLAPSIBLE_PANE ("Layer Display Options" / "Net Display Options") */
@@ -2924,7 +2973,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   background: transparent;
   border: none;
   color: inherit;
-  font-size: 12px;
+  font-size: var(--ui-font-size-info);
   cursor: default;
   padding: 2px 0;
 }
@@ -2940,7 +2989,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 }
 .ze-collapse-body {
   padding: 2px 2px 4px 14px;
-  font-size: 13px;
+  font-size: var(--ui-font-size-info);
 }
 .ze-collapse-body label {
   display: inline-flex;
@@ -2949,7 +2998,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   cursor: default;
 }
 .ze-info {
-  font-size: 12px;
+  font-size: var(--ui-font-size-info);
   opacity: 0.85;
   margin-bottom: 2px;
 }
@@ -2967,7 +3016,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-appearance-bottom {
   border-top: 1px solid var(--chrome-border);
   padding: 6px;
-  font-size: 12px;
+  font-size: var(--ui-font-size-info);
 }
 .ze-appearance-bottom select {
   width: 100%;
@@ -3028,7 +3077,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   align-items: center;
   gap: 6px;
   padding: 2px 0;
-  font-size: 13px;
+  font-size: var(--ui-font-size-info);
   cursor: default;
 }
 .ze-muted {

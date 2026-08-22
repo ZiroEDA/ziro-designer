@@ -148,6 +148,8 @@ import {
   CROSS_PROBE_FLASH_INTERVAL_MS,
   CROSS_PROBE_FLASH_LAST_PHASE,
 } from '@ziroeda/pcbnew';
+import { GetLayerName } from '@ziroeda/pcbnew/src/layer_ids.js';
+import { Icon } from '../../ui/icons.js';
 import { posturePath, routedPath as routeDecision } from './route_tool.js';
 import { ReferenceImageCache } from './image_cache.js';
 import { dimensionDefaultsFrom, dimensionToolKind } from './dimension_tools.js';
@@ -241,7 +243,13 @@ import {
 import { DialogInspectConstraints } from './dialogs/dialog_inspect_constraints.js';
 import { inspectSelection, describeSelected } from './inspect_selection.js';
 import { netClassFor, netclassesForNet } from './netclass_resolve.js';
-import { toggleObject, type ObjectState } from './pcb_objects.js';
+import { OBJECT_ROWS, toggleObject, type ObjectState } from './pcb_objects.js';
+import {
+  BUILTIN_PRESETS,
+  matchPresetName,
+  presetComboItems,
+  PRESET_SEPARATOR,
+} from './pcb_presets.js';
 import { align, type PcbGridState } from '@ziroeda/pcbnew/src/pcb_grid_helper.js';
 import { bestSnapAnchor, snapToBoardCopper } from '@ziroeda/pcbnew/src/pcb_cursor_snap.js';
 import { parseDrcRules } from '@ziroeda/pcbnew/src/drc/drc_rule.js';
@@ -606,114 +614,6 @@ const DEFAULT_TOGGLES = new Set([
   'showProperties',
 ]);
 
-// Objects tab rows, exactly appearance_controls.cpp s_objectSettings
-// (label / tooltip / opacity slider / visibility checkbox). Rows whose
-// rendering isn't ported yet are greyed in their upstream position.
-type ObjectRow =
-  | 'sep'
-  | {
-      key: keyof ObjectState;
-      label: string;
-      tooltip: string;
-      slider?: boolean;
-      noVisibility?: boolean;
-      disabled?: boolean;
-    };
-const OBJECT_ROWS: ObjectRow[] = [
-  { key: 'tracks', label: 'Tracks', tooltip: 'Show tracks', slider: true },
-  { key: 'vias', label: 'Vias', tooltip: 'Show all vias', slider: true },
-  { key: 'pads', label: 'Pads', tooltip: 'Show all pads', slider: true },
-  { key: 'zones', label: 'Zones', tooltip: 'Show copper zones', slider: true },
-  {
-    key: 'filledShapes',
-    label: 'Filled Shapes',
-    tooltip: 'Opacity of filled shapes',
-    slider: true,
-    noVisibility: true,
-  },
-  { key: 'images', label: 'Images', tooltip: 'Show user images', slider: true, disabled: true },
-  'sep',
-  {
-    key: 'footprintsFront',
-    label: 'Footprints Front',
-    tooltip: "Show footprints that are on board's front",
-  },
-  {
-    key: 'footprintsBack',
-    label: 'Footprints Back',
-    tooltip: "Show footprints that are on board's back",
-  },
-  { key: 'fpValues', label: 'Values', tooltip: 'Show footprint values' },
-  { key: 'fpReferences', label: 'References', tooltip: 'Show footprint references' },
-  { key: 'fpText', label: 'Footprint Text', tooltip: 'Show all footprint text' },
-  'sep',
-  'sep',
-  {
-    key: 'ratsnest',
-    label: 'Ratsnest',
-    tooltip: 'Show unconnected nets as a ratsnest',
-  },
-  {
-    key: 'drcWarnings',
-    label: 'DRC Warnings',
-    tooltip: 'DRC violations with a Warning severity',
-    disabled: true,
-  },
-  {
-    key: 'drcErrors',
-    label: 'DRC Errors',
-    tooltip: 'DRC violations with an Error severity',
-    disabled: true,
-  },
-  {
-    key: 'drcExclusions',
-    label: 'DRC Exclusions',
-    tooltip: 'DRC violations which have been individually excluded',
-    disabled: true,
-  },
-  {
-    key: 'anchors',
-    label: 'Anchors',
-    tooltip: 'Show footprint and text origins as a cross',
-  },
-  {
-    key: 'points',
-    label: 'Points',
-    tooltip: 'Show explicit snap points as crosses',
-    disabled: true,
-  },
-  {
-    key: 'lockedShadow',
-    label: 'Locked Item Shadow',
-    tooltip: 'Show a shadow on locked items',
-    disabled: true,
-  },
-  {
-    key: 'collidingCourtyards',
-    label: 'Colliding Courtyards',
-    tooltip: 'Show colliding footprint courtyards',
-    disabled: true,
-  },
-  {
-    key: 'constrainedShadow',
-    label: 'Constrained Item Shadow',
-    tooltip: 'Show a shadow on constrained items',
-    disabled: true,
-  },
-  {
-    key: 'boardAreaShadow',
-    label: 'Board Area Shadow',
-    tooltip: 'Show board area shadow',
-    disabled: true,
-  },
-  {
-    key: 'drawingSheet',
-    label: 'Drawing Sheet',
-    tooltip: 'Show drawing sheet borders and title block',
-  },
-  { key: 'grid', label: 'Grid', tooltip: 'Show the (x,y) grid dots' },
-];
-
 const DEFAULT_OBJECTS: ObjectState = {
   tracks: true,
   vias: true,
@@ -734,7 +634,6 @@ const DEFAULT_OBJECTS: ObjectState = {
   points: true,
   lockedShadow: true,
   collidingCourtyards: true,
-  constrainedShadow: true,
   boardAreaShadow: true,
   drawingSheet: true,
   grid: true,
@@ -782,20 +681,11 @@ const layerTooltip = (name: string): string => {
   return '';
 };
 
-// User-facing layer names, as the Appearance panel shows them (LayerName() in
-// layer_id.cpp: F.Adhesive, User.Drawings…, not the file's canonical tokens).
-const LAYER_DISPLAY_NAMES: Record<string, string> = {
-  'F.Adhes': 'F.Adhesive',
-  'B.Adhes': 'B.Adhesive',
-  'F.SilkS': 'F.Silkscreen',
-  'B.SilkS': 'B.Silkscreen',
-  'Dwgs.User': 'User.Drawings',
-  'Cmts.User': 'User.Comments',
-  'Eco1.User': 'User.Eco1',
-  'Eco2.User': 'User.Eco2',
-  'F.CrtYd': 'F.Courtyard',
-  'B.CrtYd': 'B.Courtyard',
-};
+// The user-facing name of a layer is BOARD::GetLayerName's, which every
+// upstream caller goes through: the board's own name for it when the file
+// carries one, and LayerName()'s standard English name otherwise. Both halves
+// live in @ziroeda/pcbnew/src/layer_ids.ts — the table used to be restated
+// here, and this copy had no way to reach the board's names at all.
 
 // Routing dimensions of a net class (NETCLASS factory defaults, in IU), the
 // last-resort fallback when even the Default class carries no value.
@@ -809,29 +699,6 @@ const DEFAULT_CLASS_DIMS: ClassDims = {
   viaDiameter: 0.8 * MM,
   viaDrill: 0.4 * MM,
 };
-
-// Builtin layer presets (appearance_controls.cpp preset* + common/lset.cpp masks).
-const FRONT_TECH = ['F.SilkS', 'F.Mask', 'F.Adhes', 'F.Paste', 'F.CrtYd', 'F.Fab'];
-const BACK_TECH = ['B.SilkS', 'B.Mask', 'B.Adhes', 'B.Paste', 'B.CrtYd', 'B.Fab'];
-const PRESETS: { name: string; layers: (all: string[], copper: string[]) => string[] }[] = [
-  { name: 'All Layers', layers: (all) => all },
-  { name: 'No Layers', layers: () => [] },
-  { name: 'All Copper Layers', layers: (_a, cu) => [...cu, 'Edge.Cuts'] },
-  {
-    name: 'Inner Copper Layers',
-    layers: (_a, cu) => [...cu.filter((c) => /^In/.test(c)), 'Edge.Cuts'],
-  },
-  { name: 'Front Layers', layers: () => ['F.Cu', ...FRONT_TECH, 'Edge.Cuts'] },
-  {
-    name: 'Front Assembly View',
-    layers: () => ['F.SilkS', 'F.Mask', 'F.Fab', 'F.CrtYd', 'Edge.Cuts'],
-  },
-  { name: 'Back Layers', layers: () => ['B.Cu', ...BACK_TECH, 'Edge.Cuts'] },
-  {
-    name: 'Back Assembly View',
-    layers: () => ['B.SilkS', 'B.Mask', 'B.Fab', 'B.CrtYd', 'Edge.Cuts'],
-  },
-];
 
 /**
  * The selection an EDIT_TOOL command actually operates on: groups expanded to
@@ -951,7 +818,6 @@ export function PcbEditor({
   activeLayerRef.current = activeLayer;
   // Selected layer preset; '---' is the separator row, the default selection
   // like rebuildLayerPresetsWidget.
-  const [preset, setPreset] = useState('---');
   const [tab, setTab] = useState<'Layers' | 'Objects' | 'Nets'>('Layers');
   const [toggles, setToggles] = useState<Set<string>>(new Set(DEFAULT_TOGGLES));
   // Properties pane width. KiCad's PCB_PROPERTIES_PANEL docks at BestSize 300,
@@ -1006,7 +872,6 @@ export function PcbEditor({
     key: string;
     label: string;
   } | null>(null);
-  const [netQuery, setNetQuery] = useState('');
   // Net highlight (BOARD_INSPECTION_TOOL): the set of net codes currently
   // highlighted. When non-empty the whole board dims and these nets' copper
   // pops (pcb_painter.cpp getColor: highlighted → Brightened, else Darkened).
@@ -1313,6 +1178,9 @@ export function PcbEditor({
   // + the board file's setup sections + the .kicad_dru; committed back to all
   // three on OK (see commitBoardSetup below).
   const [boardSetupOpen, setBoardSetupOpen] = useState(false);
+  // ShowBoardSetupDialog( _( "Net Classes" ) ) — the Appearance panel's wrench
+  // opens Board Setup already on that page, not on its first one.
+  const [boardSetupPage, setBoardSetupPage] = useState<'netclasses' | undefined>(undefined);
   // DRC dialog (DIALOG_DRC), the engine runs in-browser over the live board.
   // The dialog is modeless like upstream; the violations become PCB_MARKERs
   // that stay on the board until the next run / Delete All Markers, and the
@@ -6246,6 +6114,17 @@ export function PcbEditor({
 
   // ----- appearance data ------------------------------------------------------
 
+  /**
+   * BOARD::GetLayerName for this board — the one place the frame turns a layer
+   * into text for the user. The Appearance list, the aux-bar layer selector
+   * and the readout all go through it, the way every upstream caller goes
+   * through BOARD::GetLayerName rather than spelling the name itself.
+   */
+  const layerName = useCallback(
+    (name: string): string => GetLayerName(board?.layers ?? [], name),
+    [board],
+  );
+
   const copperLayers = useMemo(
     () => (board ? board.layers.filter((l) => /\.Cu$/.test(l.name)).map((l) => l.name) : []),
     [board],
@@ -6261,8 +6140,29 @@ export function PcbEditor({
     return [...copperLayers, ...seq, ...rest];
   }, [board, copperLayers]);
 
+  /**
+   * Which entry the presets combo shows. Derived every render, never stored:
+   * syncLayerPresetSelection searches the presets for one matching the view
+   * and selects the separator when none does, so there is no state to keep in
+   * step and no "(unsaved)" sentinel — that entry is in the wxFormBuilder stub
+   * and Clear() removes it before the combo is ever seen.
+   */
+  const preset = useMemo(
+    () =>
+      matchPresetName({
+        visibleLayers: visible,
+        objectsAtDefault: OBJECT_ROWS.every(
+          (r) => r === 'sep' || objects[r.key] === DEFAULT_OBJECTS[r.key],
+        ),
+        flipBoard: flipView,
+        allLayers: board?.layers.map((l) => l.name) ?? [],
+        copperLayers,
+        userPresets,
+      }),
+    [visible, objects, flipView, board, copperLayers, userPresets],
+  );
+
   const toggleLayer = (name: string): void => {
-    setPreset('(unsaved)');
     setVisible((prev) => {
       const next = new Set(prev);
       if (next.has(name)) next.delete(name);
@@ -6274,15 +6174,16 @@ export function PcbEditor({
   const applyPreset = (name: string): void => {
     const user = userPresets.find((x) => x.name === name);
     if (user) {
-      setPreset(name);
       setVisible(new Set(user.layers));
       return;
     }
-    setPreset(name);
-    const p = PRESETS.find((x) => x.name === name);
+    const p = BUILTIN_PRESETS.find((x) => x.name === name);
     if (!p || !board) return;
     const all = board.layers.map((l) => l.name);
     setVisible(new Set(p.layers(all, copperLayers).filter((l) => all.includes(l))));
+    // doApplyLayerPreset also carries the preset's flipBoard and activeLayer.
+    setFlipView(p.flipBoard);
+    if (p.activeLayer && all.includes(p.activeLayer)) setActiveLayer(p.activeLayer);
   };
 
   // Layer right-click context menu ops (APPEARANCE_CONTROLS::onLayerContextMenu).
@@ -6291,7 +6192,6 @@ export function PcbEditor({
     [board],
   );
   const setVisibleUnsaved = (names: Iterable<string>): void => {
-    setPreset('(unsaved)');
     setVisible(new Set(names));
   };
   const layerMenuItems = (): { label: string; run: () => void }[][] => {
@@ -6299,7 +6199,7 @@ export function PcbEditor({
     const all = board.layers.map((l) => l.name);
     const has = (n: string): boolean => all.includes(n);
     const applyNamed = (name: string, active?: string): void => {
-      const p = PRESETS.find((x) => x.name === name);
+      const p = BUILTIN_PRESETS.find((x) => x.name === name);
       if (!p) return;
       setVisibleUnsaved(p.layers(all, copperLayers).filter(has));
       if (active && has(active)) setActiveLayer(active);
@@ -6354,15 +6254,14 @@ export function PcbEditor({
     return groups;
   };
 
-  // Presets combo (rebuildLayerPresetsWidget): builtins, user presets,
-  // "(unsaved)", then --- / Save preset... / Delete preset...
+  // Presets combo (rebuildLayerPresetsWidget): the built-ins alphabetically,
+  // then the user's, then --- / Save preset... / Delete preset...
   const onPresetChoice = (value: string): void => {
-    if (value === '---') return;
+    if (value === PRESET_SEPARATOR) return;
     if (value === 'Save preset...') {
       const name = window.prompt('Layer preset name:')?.trim();
       if (!name) return;
       setUserPresets((p) => [...p.filter((x) => x.name !== name), { name, layers: [...visible] }]);
-      setPreset(name);
       return;
     }
     if (value === 'Delete preset...') {
@@ -6399,11 +6298,12 @@ export function PcbEditor({
 
   const nets = useMemo(() => {
     if (!board) return [];
-    const q = netQuery.toLowerCase();
+    // NET_GRID_TABLE::Rebuild skips the unconnected net (code 0) and sorts by
+    // name; m_txtNetFilter is hidden, so there is nothing to filter by.
     return [...board.nets.entries()]
-      .filter(([code, name]) => code !== 0 && name.toLowerCase().includes(q))
+      .filter(([code]) => code !== 0)
       .sort((a, b) => a[1].localeCompare(b[1]));
-  }, [board, netQuery]);
+  }, [board]);
 
   // ----- ratsnest + net classes ----------------------------------------------
 
@@ -6776,6 +6676,7 @@ export function PcbEditor({
         setDrcOpen(true);
         break;
       case 'boardSetup':
+        setBoardSetupPage(undefined);
         setBoardSetupOpen(true);
         break;
       case 'print':
@@ -7561,7 +7462,7 @@ export function PcbEditor({
           >
             {(board?.layers ?? []).map((l) => (
               <option key={l.name} value={l.name}>
-                {l.name}
+                {layerName(l.name)}
               </option>
             ))}
           </select>
@@ -7777,22 +7678,19 @@ export function PcbEditor({
             <DockSash edge="left" width={appWidth} min={200} max={500} onResize={setAppWidth} />
             <div className="ze-panel grow">
               <div className="ze-panel-header">Appearance</div>
-              {/* tabs, like APPEARANCE_CONTROLS' notebook */}
-              <div style={{ display: 'flex', borderBottom: '1px solid #333' }}>
+              {/* APPEARANCE_CONTROLS' wxNotebook (appearance_controls_base.cpp:22).
+                  The same widget pl_editor and GerbView draw, so it takes the
+                  shared .ze-nb-tabs rule and states nothing of its own: the
+                  inline styles here painted a selected-tab background GTK does
+                  not paint and a 2px #4d7fc4 underline where the marker is the
+                  desktop accent. */}
+              <div className="ze-nb-tabs">
                 {(['Layers', 'Objects', 'Nets'] as const).map((t) => (
                   <button
                     key={t}
+                    type="button"
+                    className={tab === t ? 'active' : undefined}
                     onClick={() => setTab(t)}
-                    style={{
-                      flex: 1,
-                      padding: '4px 0',
-                      fontSize: 12,
-                      cursor: 'default',
-                      background: tab === t ? '#2a2a2e' : 'transparent',
-                      color: 'inherit',
-                      border: 'none',
-                      borderBottom: tab === t ? '2px solid #4d7fc4' : '2px solid transparent',
-                    }}
                   >
                     {t}
                   </button>
@@ -7833,27 +7731,28 @@ export function PcbEditor({
                         >
                           <EyeIcon on={on} />
                         </button>
-                        <span className="ze-ellipsis">{LAYER_DISPLAY_NAMES[name] ?? name}</span>
+                        <span className="ze-ellipsis">{layerName(name)}</span>
                       </div>
                     );
                   })}
 
                 {tab === 'Objects' &&
                   OBJECT_ROWS.map((row, i) => {
-                    if (row === 'sep') return <div key={`sep${i}`} style={{ height: 8 }} />;
-                    const { key, label, tooltip, slider, noVisibility, disabled } = row;
+                    // m_objectsOuterSizer->AddSpacer( m_pointSize / 2 ): half the
+                    // GUI font's point size, 11/2 = 5 (appearance_controls.cpp:2461).
+                    if (row === 'sep') return <div key={`sep${i}`} className="ze-object-sep" />;
+                    const { key, label, tooltip, slider, noVisibility } = row;
                     const on = objects[key];
                     const swatchColor = PCB_OBJECT_COLORS[key];
                     return (
-                      // appendObject row: [swatch|spacer][eye|spacer][label][slider]
-                      <div
-                        key={key}
-                        className="ze-object-row"
-                        title={tooltip}
-                        style={disabled ? { opacity: 0.4 } : undefined}
-                      >
+                      // appendObject row: [swatch][eye|spacer][label][slider]
+                      <div key={key} className="ze-object-row" title={tooltip}>
+                        {/* Every row carries a swatch. A row with no theme
+                            colour gets COLOR_SWATCH's checkerboard rather than
+                            a gap, because GetDefaultColor never answers
+                            UNSPECIFIED (color_settings.cpp:411). */}
                         <span
-                          className={`ze-layer-swatch${swatchColor ? '' : ' blank'}`}
+                          className={`ze-layer-swatch${swatchColor ? '' : ' unset'}`}
                           style={swatchColor ? { background: swatchColor } : undefined}
                         />
                         {noVisibility ? (
@@ -7862,9 +7761,7 @@ export function PcbEditor({
                           <button
                             type="button"
                             className="ze-eye-btn"
-                            onClick={() => {
-                              if (!disabled) setObjects((p) => toggleObject(p, key));
-                            }}
+                            onClick={() => setObjects((p) => toggleObject(p, key))}
                             title={`Show or hide ${label.toLowerCase()}`}
                           >
                             <EyeIcon on={on} />
@@ -7891,7 +7788,6 @@ export function PcbEditor({
                                   background: `linear-gradient(to right, var(--slider-fill) 0 ${pct}%, #55585d ${pct}% 100%)`,
                                 }}
                                 title={`Set opacity of ${label.toLowerCase()}`}
-                                disabled={disabled}
                                 onChange={(e) =>
                                   setOpacity((p) => ({
                                     ...p,
@@ -7910,14 +7806,23 @@ export function PcbEditor({
                     {/* Nets box: header + filter + the scrollable net list, its
                         own panel like KiCad's nets/netclasses splitter. */}
                     <div className="ze-nets-box">
+                      {/* m_txtNetFilter is constructed and then Hide()n
+                          (appearance_controls_base.cpp:67); what sits at the
+                          right of this header is the Net Inspector button. */}
                       <div className="ze-nets-header">
                         <span>Nets</span>
-                        <input
-                          type="search"
-                          placeholder="Filter nets"
-                          value={netQuery}
-                          onChange={(e) => setNetQuery(e.target.value)}
-                        />
+                        {/* PCB_ACTIONS::showNetInspector. The panel it opens
+                            is not ported, so the button is genuinely
+                            unavailable and says so — unlike the Objects rows,
+                            which were greyed while KiCad had them working. */}
+                        <button
+                          type="button"
+                          className="ze-bitmap-btn"
+                          title="Show the Net Inspector"
+                          disabled
+                        >
+                          <Icon name="listNets" />
+                        </button>
                       </div>
                       <div className="ze-nets-list">
                         {/* Net rows: [color swatch][visibility][name]; the swatch
@@ -7969,25 +7874,45 @@ export function PcbEditor({
                     <div className="ze-nets-box">
                       <div className="ze-nets-header">
                         <span>Net Classes</span>
+                        <button
+                          type="button"
+                          className="ze-bitmap-btn"
+                          title="Configure net classes"
+                          onClick={() => {
+                            setBoardSetupPage('netclasses');
+                            setBoardSetupOpen(true);
+                          }}
+                        >
+                          <Icon name="optionsGeneric" />
+                        </button>
                       </div>
                       {netclassInfo.classes.map((cls) => {
                         const color = classColorOf(cls);
                         const on = !hiddenClasses.has(cls);
+                        // "Default netclass can't have an override color", so
+                        // its swatch is Hide()n — but added with
+                        // wxRESERVE_SPACE_EVEN_IF_HIDDEN, so the row still
+                        // indents by a swatch (appearance_controls.cpp:2607).
+                        const isDefault = cls === 'Default';
                         return (
                           <div key={cls} className="ze-object-row">
-                            <label
-                              className={`ze-layer-swatch picker${color ? '' : ' unset'}`}
-                              style={color ? { background: color } : undefined}
-                              title="Set netclass color"
-                            >
-                              <input
-                                type="color"
-                                value={color?.startsWith('#') ? color : '#000000'}
-                                onChange={(e) =>
-                                  setClassColors((p) => new Map(p).set(cls, e.target.value))
-                                }
-                              />
-                            </label>
+                            {isDefault ? (
+                              <span className="ze-layer-swatch" aria-hidden="true" />
+                            ) : (
+                              <label
+                                className={`ze-layer-swatch picker${color ? '' : ' unset'}`}
+                                style={color ? { background: color } : undefined}
+                                title="Set netclass color"
+                              >
+                                <input
+                                  type="color"
+                                  value={color?.startsWith('#') ? color : '#000000'}
+                                  onChange={(e) =>
+                                    setClassColors((p) => new Map(p).set(cls, e.target.value))
+                                  }
+                                />
+                              </label>
+                            )}
                             <button
                               type="button"
                               className="ze-eye-btn"
@@ -8147,20 +8072,15 @@ export function PcbEditor({
               <div className="ze-appearance-bottom">
                 <div className="ze-info">Presets (Ctrl+Tab):</div>
                 <select value={preset} onChange={(e) => onPresetChoice(e.target.value)}>
-                  {preset === '(unsaved)' && <option value="(unsaved)">(unsaved)</option>}
-                  {PRESETS.map((p) => (
-                    <option key={p.name} value={p.name}>
-                      {p.name}
+                  {presetComboItems(userPresets.map((u) => u.name)).map((name, i) => (
+                    <option
+                      key={`${name}:${i}`}
+                      value={name}
+                      disabled={name === 'Delete preset...' && userPresets.length === 0}
+                    >
+                      {name}
                     </option>
                   ))}
-                  {userPresets.map((p) => (
-                    <option key={p.name} value={p.name}>
-                      {p.name}
-                    </option>
-                  ))}
-                  <option value="---">---</option>
-                  <option>Save preset...</option>
-                  <option disabled={userPresets.length === 0}>Delete preset...</option>
                 </select>
                 <div className="ze-info" style={{ marginTop: 4 }}>
                   Viewports (Shift+Tab):
@@ -8471,7 +8391,6 @@ export function PcbEditor({
                 onClick={() => {
                   if (deleteChooser === 'presets') {
                     setUserPresets((u) => u.filter((x) => x.name !== p.name));
-                    if (preset === p.name) setPreset('(unsaved)');
                   } else {
                     setViewports((v) => v.filter((x) => x.name !== p.name));
                     if (viewportSel === p.name) setViewportSel('---');
@@ -8533,7 +8452,7 @@ export function PcbEditor({
               }}
             />
             <div style={{ marginTop: 4 }} className="ze-muted">
-              Layer: {LAYER_DISPLAY_NAMES[activeLayer] ?? activeLayer}
+              Layer: {layerName(activeLayer)}
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 10 }}>
               <button
@@ -8982,6 +8901,7 @@ export function PcbEditor({
           }}
           onEditDefaults={() => {
             setTeardropsOpen(false);
+            setBoardSetupPage(undefined);
             setBoardSetupOpen(true);
           }}
           onApply={applyTeardropEdit}
@@ -9043,6 +8963,7 @@ export function PcbEditor({
       {boardSetupOpen && (
         <DialogBoardSetup
           value={boardSetup}
+          initialPage={boardSetupPage}
           onOk={(next) => {
             commitBoardSetup(next);
             setBoardSetupOpen(false);
