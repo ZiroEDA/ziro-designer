@@ -160,7 +160,7 @@ function toUserUnit(iuScale: EdaIuScale, units: EdaUnits, value: number): number
     case 'um':
       return (value / iuScale.IU_PER_MM) * 1e3;
     case 'cm':
-      return (value / iuScale.IU_PER_MM) / 10;
+      return value / iuScale.IU_PER_MM / 10;
     case 'mils':
       return value / iuScale.IU_PER_MILS;
     case 'in':
