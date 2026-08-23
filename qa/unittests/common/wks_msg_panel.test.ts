@@ -26,6 +26,9 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import {
   wksItemMsgPanelInfo,
+  ellipsizeStatusText,
+  statusTextOneLine,
+  statusTextWidth,
   WKS_ITEM_TYPE_LABEL,
   WKS_PAGE1_OPTION_LABEL,
   defaultDrawingSheet,
@@ -150,5 +153,62 @@ describe('PL_EDITOR_FRAME message panel', () => {
   it('appends the unit label MessageTextFromValue adds by default', () => {
     // include/units_provider.h:127 — aAddUnitLabel = true.
     expect(MSG_PANEL_BODY).toContain('unitText(u)');
+  });
+});
+
+// ---------------------------------------------------------------------------
+
+/**
+ * `KIUI::EllipsizeStatusText` (`common/widgets/ui_common.cpp:203-217`), which
+ * the Text row goes through at `ds_draw_item.cpp:132`. Ours ran the row out
+ * whole, so a long `${...}` kept going past the end of the panel.
+ */
+describe('EllipsizeStatusText', () => {
+  /** One "pixel" per character, so the budget can be reasoned about exactly. */
+  const perChar = (s: string): number => s.length;
+
+  it('takes 30% of the first 800 px and 60% of the rest', () => {
+    // The percentages are KiCad's own, in the comment above the line.
+    expect(statusTextWidth(0)).toBe(0);
+    expect(statusTextWidth(800)).toBe(240);
+    // 800 * 0.3 + 400 * 0.6
+    expect(statusTextWidth(1200)).toBe(480);
+    expect(statusTextWidth(1920)).toBe(912);
+  });
+
+  it('leaves a string that fits alone', () => {
+    expect(ellipsizeStatusText('${TITLE}', 40, perChar)).toBe('${TITLE}');
+  });
+
+  it('cuts a long one and ends it with an ellipsis', () => {
+    // The ellipsis is INSIDE the budget: wx replaces trailing characters with
+    // it rather than appending past the width it was given.
+    const out = ellipsizeStatusText('ABCDEFGHIJKLMNOP', 10, perChar);
+    expect(out).toBe('ABCDEFG...');
+    expect(perChar(out)).toBeLessThanOrEqual(10);
+  });
+
+  it('flattens a newline, a return and a tab to spaces first', () => {
+    // ui_common.cpp:206-208, three Replace calls on the unescaped string.
+    expect(statusTextOneLine('a\nb\rc\td')).toBe('a b c d');
+    // A text with a newline would otherwise make the row two lines tall.
+    expect(ellipsizeStatusText('a\nb', 40, perChar)).toBe('a b');
+  });
+
+  it('unescapes the string the way UnescapeString does', () => {
+    // `wxString msg = UnescapeString( aString )` is the first line of it.
+    expect(statusTextOneLine('a{slash}b')).toBe('a/b');
+  });
+
+  it('is what the Text row is run through, and only the Text row', () => {
+    const long = 'X'.repeat(200);
+    const rows = wksItemMsgPanelInfo(
+      text({ text: long, comment: long }),
+      () => '',
+      (t) => ellipsizeStatusText(t, 10, perChar),
+    );
+    expect(rows[0]?.lower).toBe('XXXXXXX...');
+    // Comment is added raw upstream (ds_draw_item.cpp:166), with no ellipsize.
+    expect(rows[5]?.lower).toBe(long);
   });
 });

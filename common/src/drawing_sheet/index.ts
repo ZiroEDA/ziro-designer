@@ -27,6 +27,9 @@ export {
 } from './layout.js';
 export {
   wksItemMsgPanelInfo,
+  ellipsizeStatusText,
+  statusTextOneLine,
+  statusTextWidth,
   WKS_ITEM_TYPE_LABEL,
   WKS_PAGE1_OPTION_LABEL,
   type WksMsgPanelItem,

@@ -24,6 +24,8 @@ import {
   layoutDrawingSheet,
   translateItem,
   wksItemMsgPanelInfo,
+  ellipsizeStatusText,
+  statusTextWidth,
   mmToIU,
   iuToMM,
   SCH_IU_PER_MM,
@@ -55,6 +57,7 @@ import {
 import { useUnsavedGuard } from '../../ui/useUnsavedGuard.js';
 import { KiStatusBar } from '../../ui/KiStatusBar.js';
 import { MsgPanel, type MsgPanelItem } from '../../ui/MsgPanel.js';
+import { measureTextWidth } from '../../ui/text_ctrl_width.js';
 import {
   formatG,
   gridMsg,
@@ -307,6 +310,8 @@ export function DrawingSheetEditor({
   const [propsWidth, setPropsWidth] = useState(PROPERTIES_FRAME_WIDTH);
   const [propsMin, setPropsMin] = useState(PROPERTIES_FRAME_WIDTH);
   const bodyRef = useRef<HTMLDivElement>(null);
+  /** The message panel, which is what a status row is measured against. */
+  const msgPanelRef = useRef<HTMLDivElement>(null);
   const propsRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const el = propsRef.current?.firstElementChild;
@@ -1586,7 +1591,18 @@ export function DrawingSheetEditor({
 
     if (selection.size === 1) {
       const item = sheet.items[[...selection][0] as number];
-      if (item) return wksItemMsgPanelInfo(item, fmt);
+      // `KIUI::EllipsizeStatusText( aFrame, textItem->GetText() )`
+      // (ds_draw_item.cpp:132). The window it measures against is the frame,
+      // and the budget is a fraction of that frame's width - so both come from
+      // the live panel here rather than from a character count.
+      if (item)
+        return wksItemMsgPanelInfo(item, fmt, (text) => {
+          const el = msgPanelRef.current;
+          if (!el) return text;
+          return ellipsizeStatusText(text, statusTextWidth(el.clientWidth), (s) =>
+            measureTextWidth(s, el),
+          );
+        });
     }
     // Page size, but only once a selection change has happened.
     //
@@ -1828,7 +1844,7 @@ export function DrawingSheetEditor({
         />
       )}
 
-      <MsgPanel items={dsMsgPanelItems} testId="ds-message-panel" />
+      <MsgPanel items={dsMsgPanelItems} testId="ds-message-panel" panelRef={msgPanelRef} />
 
       {/* PL_EDITOR_FRAME::UpdateStatusBar (pl_editor_frame.cpp:730) keeps
           EDA_DRAW_FRAME's eight panes and their widths but writes two of them

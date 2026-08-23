@@ -18,7 +18,7 @@
  *     'W' width plus the item's padding.
  */
 
-import type { JSX } from 'react';
+import type { JSX, Ref } from 'react';
 
 /** `MSG_PANEL_ITEM` (include/widgets/msgpanel.h). */
 export interface MsgPanelItem {
@@ -38,12 +38,20 @@ export const MSG_PANEL_EMPTY = ' ';
 export function MsgPanel({
   items,
   testId,
+  panelRef,
 }: {
   items: readonly MsgPanelItem[];
   testId?: string;
+  /**
+   * The panel element, for the callers that have to MEASURE against it.
+   * `KIUI::EllipsizeStatusText` takes a window and asks it for a
+   * `wxClientDC` (`ui_common.cpp:211-213`), so a caller shortening a row to fit
+   * needs the same window - the panel itself, in the panel's own font.
+   */
+  panelRef?: Ref<HTMLDivElement>;
 }): JSX.Element {
   return (
-    <div className="ze-msgpanel" data-testid={testId}>
+    <div className="ze-msgpanel" data-testid={testId} ref={panelRef}>
       {items.map((item, i) => (
         // Upstream keys nothing: items are positional and duplicates are legal
         // (two pads can report the same net). Index is the identity.
