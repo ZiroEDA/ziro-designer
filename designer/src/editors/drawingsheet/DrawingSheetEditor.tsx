@@ -78,6 +78,8 @@ import { OpenFileDialog } from '../../fs/OpenFileDialog.js';
 import { drawingSheetWildcard } from '../../fs/wildcards.js';
 import { DesignInspector } from './DesignInspector.js';
 import { MessageDialogError } from '../../ui/dialog_message.js';
+import { UnsavedChangesDialog } from '../../ui/dialog_unsaved_changes.js';
+import { handleUnsavedChanges, type UnsavedChangesResult } from '../../ui/confirm.js';
 import { dsInspectorTitle } from './design_inspector.js';
 import {
   PageSettingsDialog,
@@ -613,20 +615,109 @@ export function DrawingSheetEditor({
 
   const [saveAsOpen, setSaveAsOpen] = useState(false);
   const saveAs = useCallback(() => setSaveAsOpen(true), []);
+
+  /**
+   * `Files_io`'s guard on the two commands that throw the sheet away:
+   *
+   *     if( ( id == wxID_NEW || id == wxID_OPEN ) && IsContentModified() )
+   *         if( !HandleUnsavedChanges( this, _( "The current drawing sheet has
+   *                                     been modified. Save changes?" ),
+   *                                    [&]() { return saveCurrentPageLayout(); } ) )
+   *             return;
+   *
+   * (pagelayout_editor/files.cpp:106-118.) New and Open only - `Append
+   * Existing Drawing Sheet` is not in that condition, because it ADDS to the
+   * sheet and destroys nothing.
+   *
+   * We had New and Open discarding a modified sheet silently, which is the
+   * shape `ui/confirm.ts` warns about: a two-answer prompt, or none at all,
+   * offers no way to KEEP the work. The three-answer dialog is already shared -
+   * cvpcb raises the same one - so this is a wiring, not a new widget.
+   */
+  const [unsavedFor, setUnsavedFor] = useState<null | 'new' | 'open'>(null);
+
+  /**
+   * The command `HandleUnsavedChanges` is holding while a Save As runs.
+   *
+   * Upstream `saveCurrentPageLayout` shows Save As MODALLY and can therefore
+   * answer "did it save?" on the spot. Ours cannot block, so the answer arrives
+   * later, in `onSaveAsDone` - which is where this is read.
+   */
+  const pendingAfterSave = useRef<null | 'new' | 'open'>(null);
+  const runAfterSaveRef = useRef<(() => void) | null>(null);
   const onSaveAsDone = useCallback(
     (path: string | null) => {
       setSaveAsOpen(false);
-      if (path === null) return; // wxID_CANCEL
+      if (path === null) {
+        // wxID_CANCEL. The sheet is still modified, so `saveCurrentPageLayout`
+        // is false and anything waiting on it is dropped rather than run.
+        pendingAfterSave.current = null;
+        return;
+      }
       // The chooser hands back a full path; the editor's own name is the leaf,
       // as `wxFileName( dlg.GetPath() ).GetFullName()` is upstream.
       const leaf = path.split('/').filter(Boolean).pop() ?? '';
       const finalName = /\.kicad_wks$/i.test(leaf) ? leaf : `${leaf}.kicad_wks`;
       setFileName(finalName);
       writeSheet(finalName);
+      // `saveCurrentPageLayout` returns `!IsContentModified()`, and this is the
+      // moment that becomes true. Whatever New-or-Open was waiting on the save
+      // now goes ahead; a cancel above left it un-run, which is
+      // `HandleUnsavedChanges` returning false and `Files_io` returning.
+      runAfterSaveRef.current?.();
     },
     [writeSheet],
   );
   saveAsRef.current = saveAs;
+
+  /** The `switch( id )` body, once the guard above has let it through. */
+  const runFileCommand = useCallback(
+    (what: 'new' | 'open') => {
+      if (what === 'new') newSheet();
+      else setOpenDlg('open');
+    },
+    [newSheet],
+  );
+
+  /** `Files_io` itself: ask first when the sheet is modified, then dispatch. */
+  const requestFileCommand = useCallback(
+    (what: 'new' | 'open') => {
+      if (dirty) setUnsavedFor(what);
+      else runFileCommand(what);
+    },
+    [dirty, runFileCommand],
+  );
+
+  /** The answer, through the shared `HandleUnsavedChanges` rule. */
+  const answerUnsavedChanges = useCallback(
+    (result: UnsavedChangesResult) => {
+      const what = unsavedFor;
+      setUnsavedFor(null);
+      if (!what) return;
+
+      const proceed = handleUnsavedChanges(result, () => {
+        // `saveCurrentPageLayout` runs Save, and Save becomes Save As when the
+        // sheet has never had a name (files.cpp:103-104). Only that second path
+        // is deferred; a sheet that has a name is written here and now.
+        if (!fileName) {
+          pendingAfterSave.current = what;
+          saveAsRef.current?.();
+          return false;
+        }
+        writeSheet(fileName);
+        return true;
+      });
+
+      if (proceed) runFileCommand(what);
+    },
+    [unsavedFor, fileName, writeSheet, runFileCommand],
+  );
+
+  runAfterSaveRef.current = () => {
+    const what = pendingAfterSave.current;
+    pendingAfterSave.current = null;
+    if (what) runFileCommand(what);
+  };
 
   /** Print the sheet: render the page alone to a bitmap and print that. */
   const printSheet = useCallback(() => {
@@ -1119,10 +1210,10 @@ export function DrawingSheetEditor({
     (id: string) => {
       switch (id) {
         case 'new':
-          newSheet();
+          requestFileCommand('new');
           break;
         case 'open':
-          setOpenDlg('open');
+          requestFileCommand('open');
           break;
         case 'save':
           save();
@@ -1170,7 +1261,7 @@ export function DrawingSheetEditor({
           break;
       }
     },
-    [newSheet, save, printSheet, undo, redo, setTitleBlockMode],
+    [requestFileCommand, save, printSheet, undo, redo, setTitleBlockMode],
   );
 
   const onRightTool = useCallback((id: string) => {
@@ -1320,11 +1411,16 @@ export function DrawingSheetEditor({
       {
         label: 'File',
         items: [
-          { label: 'New...', icon: 'new', action: newSheet, shortcut: browserSafeKey('Ctrl+N') },
+          {
+            label: 'New...',
+            icon: 'new',
+            action: () => requestFileCommand('new'),
+            shortcut: browserSafeKey('Ctrl+N'),
+          },
           {
             label: 'Open...',
             icon: 'open',
-            action: () => setOpenDlg('open'),
+            action: () => requestFileCommand('open'),
             shortcut: 'Ctrl+O',
           },
           openRecentItem,
@@ -1474,7 +1570,7 @@ export function DrawingSheetEditor({
       }),
     ],
     [
-      newSheet,
+      requestFileCommand,
       save,
       saveAs,
       printSheet,
@@ -1838,6 +1934,15 @@ export function DrawingSheetEditor({
           initialName={fileName || 'drawing_sheet.kicad_wks'}
           filters={[drawingSheetWildcard()]}
           onDone={onSaveAsDone}
+        />
+      )}
+
+      {/* `HandleUnsavedChanges`, with `Files_io`'s own sentence
+          (pagelayout_editor/files.cpp:107-108). */}
+      {unsavedFor && (
+        <UnsavedChangesDialog
+          message="The current drawing sheet has been modified. Save changes?"
+          onResult={answerUnsavedChanges}
         />
       )}
 

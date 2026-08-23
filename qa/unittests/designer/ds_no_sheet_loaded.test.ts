@@ -138,3 +138,87 @@ describe('File > New clears the sheet rather than reloading the default', () => 
     expect(newSheetBody).toContain('setDirty(false)');
   });
 });
+
+describe('...but not before asking, when the sheet has been modified', () => {
+  /**
+   * `Files_io`'s first act (pagelayout_editor/files.cpp:106-118):
+   *
+   *     if( ( id == wxID_NEW || id == wxID_OPEN ) && IsContentModified() )
+   *         if( !HandleUnsavedChanges( this, "The current drawing sheet has been
+   *                                     modified. Save changes?",
+   *                                    [&]() { return saveCurrentPageLayout(); } ) )
+   *             return;
+   *
+   * New emptying the sheet is only right once this has let it through. Ours
+   * discarded silently, which `ui/confirm.ts` names as the shape to avoid: a
+   * two-answer prompt, or none at all, gives the user no way to keep the work.
+   */
+  const guardBody = ((): string => {
+    const at = EDITOR.indexOf('const requestFileCommand = useCallback');
+    expect(at, 'requestFileCommand must exist').toBeGreaterThan(-1);
+    return EDITOR.slice(at, EDITOR.indexOf('  );', at));
+  })();
+
+  const answerBody = ((): string => {
+    const at = EDITOR.indexOf('const answerUnsavedChanges = useCallback');
+    expect(at, 'answerUnsavedChanges must exist').toBeGreaterThan(-1);
+    return EDITOR.slice(at, EDITOR.indexOf('\n  );', at));
+  })();
+
+  it('asks only when the sheet is modified', () => {
+    // `IsContentModified()`. A prompt on every New would be upstream's dialog
+    // in the wrong place.
+    expect(guardBody).toContain('if (dirty) setUnsavedFor(what);');
+    expect(guardBody).toContain('else runFileCommand(what);');
+  });
+
+  it('routes New AND Open through it, and Append through neither', () => {
+    // The condition names wxID_NEW and wxID_OPEN. ID_APPEND_DESCR_FILE is not
+    // in it: Append adds to the sheet and destroys nothing, so a prompt there
+    // would be ours, not KiCad's.
+    expect(EDITOR).toContain("requestFileCommand('new')");
+    expect(EDITOR).toContain("requestFileCommand('open')");
+    expect(EDITOR).not.toContain("requestFileCommand('append')");
+    // Append still opens its chooser directly.
+    expect(EDITOR).toContain("setOpenDlg('append')");
+  });
+
+  it('leaves no unguarded path to New or Open', () => {
+    // The menu, the toolbar and the shortcut are three call sites and the
+    // guard has to be on all three: a bare `newSheet()` outside
+    // runFileCommand, or a bare setOpenDlg('open'), is a way round it.
+    const bare = [...EDITOR.matchAll(/(?<![\w.])newSheet\(\)/g)];
+    expect(bare, 'newSheet() is called outside runFileCommand').toHaveLength(1);
+    const opens = [...EDITOR.matchAll(/setOpenDlg\('open'\)/g)];
+    expect(opens, "setOpenDlg('open') is called outside runFileCommand").toHaveLength(1);
+  });
+
+  it('hands the answer to the SHARED HandleUnsavedChanges rule', () => {
+    // "cancel aborts, discard does not" is one rule in ui/confirm.ts, not one
+    // per dialog - reading `result` here directly is how it becomes two.
+    expect(answerBody).toContain('handleUnsavedChanges(result,');
+    expect(answerBody).not.toMatch(/result === '(cancel|discard)'/);
+    expect(answerBody).toContain('if (proceed) runFileCommand(what)');
+  });
+
+  it('raises the three-answer dialog with Files_io’s own sentence', () => {
+    expect(EDITOR).toContain('<UnsavedChangesDialog');
+    expect(EDITOR).toContain(
+      'message="The current drawing sheet has been modified. Save changes?"',
+    );
+  });
+
+  it('waits for Save As when the sheet has never had a name', () => {
+    // `saveCurrentPageLayout` runs Save, and Save becomes Save As with no
+    // filename (files.cpp:103-104). Upstream that modal answers on the spot;
+    // ours cannot, so the command is held until the chooser comes back - and
+    // dropped if it is cancelled, which is the save having failed.
+    expect(answerBody).toContain('pendingAfterSave.current = what;');
+    expect(answerBody).toContain('saveAsRef.current?.();');
+    expect(answerBody).toMatch(/if \(!fileName\) \{[\s\S]*?return false;/);
+    const cancel = EDITOR.slice(EDITOR.indexOf('const onSaveAsDone'));
+    expect(cancel.slice(0, cancel.indexOf('[writeSheet]'))).toContain(
+      'pendingAfterSave.current = null;',
+    );
+  });
+});

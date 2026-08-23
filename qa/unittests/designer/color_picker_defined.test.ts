@@ -143,7 +143,20 @@ describe('the dialog draws that grid', () => {
   it('fills the page from the default palette rather than leaving it empty', () => {
     // The bug: `if( aPredefinedColors ) {...} else {...build the defaults...}`
     // read as "no list, no swatches".
-    expect(DIALOG).toContain('definedColorGrid()');
+    //
+    // `toContain('definedColorGrid()')` was the first shape of this and it is
+    // one of the four that cannot fail: `definedColorGrid().slice(0, 0).map(...)`
+    // type-checks, renders the blank page again and passes it. qa has no DOM
+    // environment, so the JSX can only be read as source - then read it
+    // exactly, with nothing allowed between the grid and the map.
+    expect(DIALOG).toContain('{definedColorGrid().map((ref) => (');
+    // And one row per colour: no `slice`, no `filter`, no `take` anywhere in
+    // the page's own block.
+    const page = DIALOG.slice(DIALOG.indexOf('definedColorGrid()'));
+    const block = page.slice(0, page.indexOf('))}'));
+    for (const limiter of ['.slice(', '.filter(', '.splice(']) {
+      expect(block, `the grid is narrowed by ${limiter}`).not.toContain(limiter);
+    }
   });
 
   it('builds each swatch at SWATCH_SIZE_LARGE_DU, on the checkerboard', () => {
@@ -223,8 +236,14 @@ describe('the vertical wxSlider, as the probe measured it', () => {
     // the value label following the thumb has to be inset by that too - without
     // it the label ran past the ends of the track it was meant to be beside.
     const val = shellRule('.ze-slider.vertical .ze-slider-val');
-    expect(val.top).toContain('var(--slider-track-inset)');
-    expect(val.top).toContain('(1 - var(--slider-frac))');
+    // `toContain('var(--slider-track-inset)')` cannot fail: the token appears
+    // again inside the travel term, so deleting the LEADING one - the whole
+    // point of this assertion - left it passing. Read the expression whole.
+    expect(val.top).toBe(
+      'calc( var(--slider-track-inset) + var(--slider-thumb-size) / 2 + ' +
+        '(1 - var(--slider-frac)) * ' +
+        '(100% - 2 * var(--slider-track-inset) - var(--slider-thumb-size)) )',
+    );
     expect(val.transform).toBe('translateY(-50%)');
   });
 
