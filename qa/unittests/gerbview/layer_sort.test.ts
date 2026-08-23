@@ -238,3 +238,99 @@ describe('sort by X2 attributes', () => {
     expect(compareByZOrder(null, null)).toBe(0);
   });
 });
+
+describe('the whole of a modern KiCad plot ties, which is what decides the order', () => {
+  /**
+   * Everything about GerbView's layer order rests on one fact, and it was
+   * pinned by five filenames. This is the fact:
+   *
+   * `GetGerberLayerFromFilename` takes the LAST n characters of the name, n
+   * being the mask's own length, and returns on the FIRST match
+   * (`gerber_file_image_list.cpp:307-325`). `.GBR` is the third mask in the
+   * table, so a name that ends `.gbr` never reaches `EDGE.CUTS`, `F.SILKS`,
+   * `.FAB` or any of the other forty. Every layer KiCad plots with its default
+   * (non-Protel) naming ends `.gbr`.
+   *
+   * And `sortFileExtension` ends `return (int) ref_layer < (int) test_layer;`
+   * with NO filename tiebreak (`:379`), over `std::sort` rather than
+   * `stable_sort` (`:441`). So upstream's order for its own default plot output
+   * is whatever permutation libstdc++'s introsort leaves on an all-ties range —
+   * arbitrary, and not reproducible without reimplementing that introsort.
+   *
+   * Ours is `Array.prototype.sort`, which the spec requires to be stable, so
+   * ties keep load order. That is the one deterministic answer inside the range
+   * the C++ leaves open, and it is a deliberate choice rather than an accident
+   * — see `sortLayers` in `GerberViewer.tsx`.
+   *
+   * If a future KiCad adds a mask that catches these, this test is where it
+   * shows up, and the choice above has to be revisited.
+   */
+  const PLOT_LAYERS = [
+    'F_Cu',
+    'In1_Cu',
+    'In2_Cu',
+    'B_Cu',
+    'F_Paste',
+    'B_Paste',
+    'F_Silkscreen',
+    'B_Silkscreen',
+    'F_Mask',
+    'B_Mask',
+    'Edge_Cuts',
+    'User_Drawings',
+    'User_Comments',
+    'F_Courtyard',
+    'B_Courtyard',
+    'F_Fab',
+    'B_Fab',
+  ];
+
+  it('classifies every one of them as BOARD_OUTLINE, .gbr having matched first', () => {
+    for (const layer of PLOT_LAYERS) {
+      const name = `myboard-${layer}.gbr`;
+      const { order, matchedExtension } = gerberLayerFromFilename(name);
+      expect(order, `${name} did not tie with the rest`).toBe(GERBER_ORDER.GERBER_BOARD_OUTLINE);
+      expect(matchedExtension, `${name} matched something other than .GBR`).toBe('.GBR');
+    }
+  });
+
+  it('therefore leaves them in load order, every one of them', () => {
+    // Not a sample: the whole set, in an order no sort would produce by
+    // accident, so a comparator that ordered them at all would show here.
+    const names = [...PLOT_LAYERS].reverse().map((l) => `myboard-${l}.gbr`);
+    expect(sortNames(names)).toStrictEqual(names);
+  });
+
+  it('still sorts the drill file away from the pack', () => {
+    // The one file in a default plot that does NOT end .gbr, and the reason a
+    // live GerbView shows the drill first and the rest apparently unsorted.
+    const withDrill = ['myboard-F_Cu.gbr', 'myboard-PTH.drl', 'myboard-B_Cu.gbr'];
+    expect(sortNames(withDrill)).toStrictEqual([
+      'myboard-PTH.drl',
+      'myboard-F_Cu.gbr',
+      'myboard-B_Cu.gbr',
+    ]);
+  });
+
+  it('and orders the SAME board properly under Protel extensions', () => {
+    // The other half, and what stops the tests above reading as "the sort does
+    // nothing": with Protel naming every layer classifies distinctly and our
+    // order is KiCad's exactly, tie-free.
+    const protel = [
+      'myboard.GBO',
+      'myboard.GTL',
+      'myboard.TXT',
+      'myboard.GTO',
+      'myboard.GBL',
+      'myboard.GTS',
+    ];
+    expect(sortNames(protel)).toStrictEqual([
+      'myboard.TXT', // drill
+      'myboard.GTO', // top silk
+      'myboard.GTS', // top mask
+      'myboard.GTL', // top copper
+      'myboard.GBL', // bottom copper
+      'myboard.GBO', // bottom silk
+    ]);
+  });
+});
