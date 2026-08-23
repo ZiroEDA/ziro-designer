@@ -146,6 +146,79 @@ function paintHSV(ctx: CanvasRenderingContext2D, size: number, background: strin
   ctx.putImageData(img, 0, 0);
 }
 
+/**
+ * `drawRGBPalette` (dialog_color_picker.cpp:407-477): over the cube it paints
+ * three WHITE square cursors, one per channel on its own 3d axis, and the three
+ * axes themselves — all with a 2 px pen and a transparent brush, so each cursor
+ * is an outline rather than a filled block.
+ */
+function overlayRGB(ctx: CanvasRenderingContext2D, size: number, c: Color4d): void {
+  ctx.clearRect(0, 0, size, size);
+
+  let half = Math.floor(size / 2) - CURSOR_SIZE / 2;
+  const slope = slopeAxis(size) / half;
+  const halfC = CURSOR_SIZE / 2;
+  // `SetAxisOrientation( true, true )` with the origin at the centre: y counts
+  // upward, so a positive y is drawn above the middle.
+  const X = (x: number): number => size / 2 + x;
+  const Y = (y: number): number => size / 2 - y;
+
+  ctx.save();
+  // [data] `wxPen pen( wxColor( 255, 255, 255 ), 2 )` with the comment "using
+  // white color to make them always visible" (dialog_color_picker.cpp:437-438).
+  ctx.strokeStyle = 'rgb(255, 255, 255)';
+  ctx.lineWidth = 2;
+
+  const cursor = (x: number, y: number): void =>
+    ctx.strokeRect(X(x - halfC), Y(y + halfC), CURSOR_SIZE, CURSOR_SIZE);
+
+  // Red on the Z axis, blue on X, green on Y (mirrored onto -x).
+  cursor(0, c.r * half);
+  const bx = c.b * half;
+  cursor(bx, -slope * bx);
+  const gx = c.g * half;
+  cursor(-gx, -slope * gx);
+
+  // "Draw the 3 RGB axis" — and the axes run a fifth PAST the palette's own
+  // half-size, which is `half_size += half_size/5` immediately before them.
+  half += half / 5;
+  const axis = (x: number, y: number): void => {
+    ctx.beginPath();
+    ctx.moveTo(X(0), Y(0));
+    ctx.lineTo(X(x), Y(y));
+    ctx.stroke();
+  };
+  axis(0, half);
+  axis(half, -half * slope);
+  axis(-half, -half * slope);
+  ctx.restore();
+}
+
+/**
+ * `drawHSVPalette` (dialog_color_picker.cpp:479-522): ONE cursor, and it is
+ * BLACK — a white one would vanish against the pale centre of the wheel.
+ */
+function overlayHSV(ctx: CanvasRenderingContext2D, size: number, hue: number, sat: number): void {
+  ctx.clearRect(0, 0, size, size);
+
+  const half = Math.floor(size / 2) - CURSOR_SIZE / 2;
+  const x = Math.cos((hue * Math.PI) / 180.0) * half * sat;
+  const y = Math.sin((hue * Math.PI) / 180.0) * half * sat;
+
+  ctx.save();
+  // [data] `wxPen pen( wxColor( 0, 0, 0 ), 2 )` — the HSV cursor is BLACK, and
+  // deliberately not the white the RGB cursors use (dialog_color_picker.cpp:511).
+  ctx.strokeStyle = 'rgb(0, 0, 0)';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(
+    size / 2 + x - CURSOR_SIZE / 2,
+    size / 2 - y - CURSOR_SIZE / 2,
+    CURSOR_SIZE,
+    CURSOR_SIZE,
+  );
+  ctx.restore();
+}
+
 export interface DialogColorPickerProps {
   /** `m_previousColor4D` — what the swatch showed when the dialog opened. */
   value: Color4d;
@@ -174,8 +247,13 @@ export function DialogColorPicker({
   const [hsv, setHsv] = useState(initialHsv);
   const [hexText, setHexText] = useState(() => toHexString(value));
 
+  /** `m_notebook`: "Color Picker" and "Defined Colors", the first selected. */
+  const [tab, setTab] = useState<'free' | 'defined'>('free');
+
   const rgbRef = useRef<HTMLCanvasElement>(null);
   const hsvRef = useRef<HTMLCanvasElement>(null);
+  const rgbOverRef = useRef<HTMLCanvasElement>(null);
+  const hsvOverRef = useRef<HTMLCanvasElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
 
   useModalEscape(() => onDone(null));
@@ -192,6 +270,17 @@ export function DialogColorPicker({
     const hsvCtx = hsvRef.current?.getContext('2d');
     if (hsvCtx) paintHSV(hsvCtx, PALETTE_SIZE, bg);
   }, []);
+
+  /**
+   * `drawAll` (dialog_color_picker.cpp:579-595) — the cursors are repainted on
+   * every change, over a palette bitmap that is built once.
+   */
+  useEffect(() => {
+    const rgb = rgbOverRef.current?.getContext('2d');
+    if (rgb) overlayRGB(rgb, PALETTE_SIZE, color);
+    const h = hsvOverRef.current?.getContext('2d');
+    if (h) overlayHSV(h, PALETTE_SIZE, hsv.hue, hsv.sat);
+  }, [color, hsv.hue, hsv.sat]);
 
   /** Every edit path ends here: keep rgb, hsv and the hex field in step. */
   const applyRgb = useCallback((c: Color4d) => {
@@ -251,34 +340,49 @@ export function DialogColorPicker({
     [applyRgb, color.a],
   );
 
-  /** The 8 px square cursor each palette draws over its own pixel. */
-  const hsvCursor = {
-    left:
-      PALETTE_SIZE / 2 +
-      Math.cos((hsv.hue * Math.PI) / 180) * hsv.sat * (PALETTE_SIZE / 2 - CURSOR_SIZE / 2),
-    top:
-      PALETTE_SIZE / 2 -
-      Math.sin((hsv.hue * Math.PI) / 180) * hsv.sat * (PALETTE_SIZE / 2 - CURSOR_SIZE / 2),
-  };
-
+  /**
+   * A `wxSpinCtrl`, which GTK draws as an entry with a `-` and a `+` beside it
+   * (dialog_color_picker_base.cpp:59-70). A bare number entry has no buttons at
+   * all on this theme, so the control read as a plain text field.
+   *
+   * `wrap` is `wxSP_WRAP`, which only Hue carries: 359 steps up to 0.
+   */
   const spin = (
     label: string,
     v: number,
     max: number,
     onChange: (n: number) => void,
-  ): JSX.Element => (
-    <label className="ze-cp-spin">
-      <span>{label}</span>
-      <input
-        className="ze-search"
-        type="number"
-        min={0}
-        max={max}
-        value={Math.round(v)}
-        onChange={(e) => onChange(Number(e.target.value))}
-      />
-    </label>
-  );
+    wrap = false,
+  ): JSX.Element => {
+    const step = (d: number): void => {
+      const next = Math.round(v) + d;
+      if (wrap) onChange(((next % (max + 1)) + max + 1) % (max + 1));
+      else onChange(Math.min(max, Math.max(0, next)));
+    };
+    return (
+      <label className="ze-cp-spin">
+        <span>{label}</span>
+        <span className="ze-cp-spinbox">
+          <input
+            className="ze-search"
+            type="text"
+            inputMode="numeric"
+            value={Math.round(v)}
+            onChange={(e) => {
+              const n = Number(e.target.value);
+              if (Number.isFinite(n)) onChange(n);
+            }}
+          />
+          <button type="button" className="ze-cp-spinbtn" onClick={() => step(-1)} tabIndex={-1}>
+            −
+          </button>
+          <button type="button" className="ze-cp-spinbtn" onClick={() => step(1)} tabIndex={-1}>
+            +
+          </button>
+        </span>
+      </label>
+    );
+  };
 
   return (
     <div className="ze-modal-backdrop" onMouseDown={() => onDone(null)}>
@@ -291,15 +395,37 @@ export function DialogColorPicker({
       >
         <div className="ze-modal-header">Color Picker</div>
 
+        {/* m_notebook (dialog_color_picker_base.cpp:21, :140-160). The same
+            wxNotebook tab strip the drawing sheet's properties pane draws, so
+            the same rule paints it. */}
+        <div className="ze-nb-tabs">
+          <button
+            type="button"
+            className={tab === 'free' ? 'active' : ''}
+            onClick={() => setTab('free')}
+          >
+            Color Picker
+          </button>
+          <button
+            type="button"
+            className={tab === 'defined' ? 'active' : ''}
+            onClick={() => setTab('defined')}
+          >
+            Defined Colors
+          </button>
+        </div>
+
         <div className="ze-cp-upper">
-          <div className="ze-cp-panels">
+          <div className="ze-cp-panels" hidden={tab !== 'free'}>
             {/* sbSizerViewRGB */}
             <fieldset className="ze-ds-group">
               <legend>RGB</legend>
               <div className="ze-cp-palette">
                 {/* biome-ignore lint/a11y/noStaticElementInteractions: wxStaticBitmap with a wxEVT_LEFT_DOWN handler */}
+                <canvas ref={rgbRef} width={PALETTE_SIZE} height={PALETTE_SIZE} />
                 <canvas
-                  ref={rgbRef}
+                  ref={rgbOverRef}
+                  className="ze-cp-overlay"
                   width={PALETTE_SIZE}
                   height={PALETTE_SIZE}
                   onMouseDown={onRgbPoint}
@@ -328,8 +454,10 @@ export function DialogColorPicker({
                 <div className="ze-cp-hsvcol">
                   <div className="ze-cp-palette">
                     {/* biome-ignore lint/a11y/noStaticElementInteractions: wxStaticBitmap with a wxEVT_LEFT_DOWN handler */}
+                    <canvas ref={hsvRef} width={PALETTE_SIZE} height={PALETTE_SIZE} />
                     <canvas
-                      ref={hsvRef}
+                      ref={hsvOverRef}
+                      className="ze-cp-overlay"
                       width={PALETTE_SIZE}
                       height={PALETTE_SIZE}
                       onMouseDown={onHsvPoint}
@@ -337,15 +465,15 @@ export function DialogColorPicker({
                         if (e.buttons & 1) onHsvPoint(e);
                       }}
                     />
-                    <span
-                      className="ze-cp-cursor"
-                      style={{ left: hsvCursor.left, top: hsvCursor.top }}
-                    />
                   </div>
                   <div className="ze-cp-spins two">
                     {/* wxSP_WRAP, 0..359 (dialog_color_picker_base.cpp:104). */}
-                    {spin('Hue:', hsv.hue, 359, (n) =>
-                      applyHsv(((n % 360) + 360) % 360, hsv.sat, hsv.val, color.a),
+                    {spin(
+                      'Hue:',
+                      hsv.hue,
+                      359,
+                      (n) => applyHsv(((n % 360) + 360) % 360, hsv.sat, hsv.val, color.a),
+                      true,
                     )}
                     {/* 0..255, though m_sat is 0..1 — SetEditVals scales it. */}
                     {spin('Saturation:', hsv.sat * 255, 255, (n) =>
@@ -356,6 +484,10 @@ export function DialogColorPicker({
                 {/* bSizerBright: a vertical wxSL_INVERSE slider, 0..255. */}
                 <div className="ze-cp-slidercol">
                   <span>Value:</span>
+                  {/* wxSL_LABELS, so wx prints the CURRENT value at the thumb
+                      and the two ends beside the track. Ours showed no number
+                      at all, which is half of what the control is for. */}
+                  <span className="ze-cp-sliderval">{Math.round(hsv.val * 255)}</span>
                   <input
                     type="range"
                     className="ze-cp-vslider"
@@ -366,15 +498,24 @@ export function DialogColorPicker({
                       applyHsv(hsv.hue, hsv.sat, Number(e.target.value) / 255, color.a)
                     }
                   />
+                  <span className="ze-cp-sliderval">0</span>
                 </div>
               </div>
             </fieldset>
           </div>
 
+          {/* m_panelDefinedColors: `m_fgridColor`, ten columns of swatches
+              filled by `initDefinedColors` from the CUSTOM_COLORS_LIST the
+              caller passed (dialog_color_picker.cpp:167-246). A caller that
+              passes none - which pl_editor's swatch does - leaves the page
+              empty, so an empty grid IS the page here. */}
+          {tab === 'defined' && <div className="ze-cp-defined" />}
+
           {/* m_SizerTransparency, 0..100 and wxSL_INVERSE. */}
           {allowOpacity && (
             <div className="ze-cp-slidercol">
               <span>Opacity:</span>
+              <span className="ze-cp-sliderval">{Math.round(color.a * 100)}</span>
               <input
                 type="range"
                 className="ze-cp-vslider"
@@ -387,6 +528,7 @@ export function DialogColorPicker({
                   setHexText(toHexString(c));
                 }}
               />
+              <span className="ze-cp-sliderval">0</span>
             </div>
           )}
         </div>
@@ -413,12 +555,17 @@ export function DialogColorPicker({
           {defaultColor && (
             <button
               type="button"
-              className="ze-btn"
+              className="ze-btn ze-cp-reset"
               onClick={() => {
                 applyRgb(defaultColor);
               }}
             >
-              Reset to Default
+              {/* "Theme colors have a default value, and the Reset to Default
+                  button reverts to it. Local override colors have a default of
+                  UNSPECIFIED, which means 'use the theme color'. […] we change
+                  the label here because the action from the point of view of
+                  the user is slightly different." (dialog_color_picker.cpp:95-102) */}
+              {defaultColor.a === 0 ? 'Clear Color' : 'Reset to Default'}
             </button>
           )}
           {/* m_sdbSizer: a wxStdDialogButtonSizer, so GTK's own order - Cancel

@@ -41,7 +41,7 @@ import {
 import { KICAD_FONT_NAME } from '@ziroeda/common/src/font/stroke_font.js';
 import { bitmapUrl } from '../../ui/toolbarIcons.js';
 import { DialogColorPicker } from '../../ui/DialogColorPicker.js';
-import { type Color4d, setFromHexString } from '@ziroeda/common/src/color4d.js';
+import { COLOR4D_UNSPECIFIED, type Color4d } from '@ziroeda/common/src/color4d.js';
 import { Combo, type ComboOption } from '../../ui/Combo.js';
 import { useModalEscape } from '../../ui/useModalEscape.js';
 import { UnitField } from '../../ui/UnitField.js';
@@ -353,14 +353,15 @@ const colorCss = (c: WksColor | undefined): string =>
  * A `WksColor` as a `COLOR4D` — the picker's currency, and KiCad's.
  *
  * `WksColor` holds 0..255 channels because that is what the `.kicad_wks` file
- * carries; COLOR4D is 0..1. An item with no colour of its own resolves to the
- * layer colour, which is what the swatch shows and so what the picker must
- * open on.
+ * carries; COLOR4D is 0..1. An item with no colour of its own is
+ * COLOR4D::UNSPECIFIED and is handed over AS that, not as the layer colour it
+ * resolves to on the canvas: the picker checkerboards UNSPECIFIED in its
+ * preview, prints it as `#00000000`, and relabels Reset to Default as Clear
+ * Color for it (dialog_color_picker.cpp:101-102). Resolving it first would
+ * have shown a real, chosen red instead — and offered to "reset" to it.
  */
 const color4dOf = (c: WksColor | undefined): Color4d =>
-  c
-    ? { r: c.r / 255, g: c.g / 255, b: c.b / 255, a: c.a ?? 1 }
-    : (setFromHexString(DS_ITEM_COLOR_HEX) ?? { r: 0, g: 0, b: 0, a: 1 });
+  c ? { r: c.r / 255, g: c.g / 255, b: c.b / 255, a: c.a ?? 1 } : COLOR4D_UNSPECIFIED;
 
 const hexOf = (c: WksColor | undefined): string => {
   if (!c) return DS_ITEM_COLOR_HEX;
@@ -615,12 +616,20 @@ function ItemProperties({
                   setPickerOpen(false);
                   if (!picked) return; // wxID_CANCEL
                   patch({
-                    color: {
-                      r: Math.round(picked.r * 255),
-                      g: Math.round(picked.g * 255),
-                      b: Math.round(picked.b * 255),
-                      a: picked.a,
-                    },
+                    // Clear Color hands UNSPECIFIED back, and an item with
+                    // UNSPECIFIED is one with no colour of its own - which for
+                    // a WksItem is the absent field, not a stored transparent
+                    // black. Storing (0,0,0,0) would write `(color 0 0 0 0)`
+                    // into the .kicad_wks, where upstream writes nothing.
+                    color:
+                      picked.a === 0 && picked.r === 0 && picked.g === 0 && picked.b === 0
+                        ? undefined
+                        : {
+                            r: Math.round(picked.r * 255),
+                            g: Math.round(picked.g * 255),
+                            b: Math.round(picked.b * 255),
+                            a: picked.a,
+                          },
                   });
                 }}
               />

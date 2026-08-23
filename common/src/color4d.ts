@@ -19,6 +19,14 @@ export interface Color4d {
 
 export const COLOR4D_BLACK: Color4d = { r: 0, g: 0, b: 0, a: 1 };
 export const COLOR4D_WHITE: Color4d = { r: 1, g: 1, b: 1, a: 1 };
+/**
+ * `COLOR4D::UNSPECIFIED` — `COLOR4D( 0, 0, 0, 0 )` (`include/gal/color4d.h`).
+ *
+ * "Local override colors have a default of UNSPECIFIED, which means 'use the
+ * theme color'" (dialog_color_picker.cpp:97-99). It is a transparent black and
+ * is compared by value, so nothing else may reach that quadruple by accident.
+ */
+export const COLOR4D_UNSPECIFIED: Color4d = { r: 0, g: 0, b: 0, a: 0 };
 
 /**
  * The legacy `EDA_COLOR_T` palette, `colorRefs()` in KiCad's

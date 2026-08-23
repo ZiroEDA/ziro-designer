@@ -8273,6 +8273,54 @@ textarea.ze-ds-textedit {
   display: block;
   line-height: 0;
 }
+/* The cursors and axes are repainted on every change over a palette bitmap
+   that is built once (`drawAll`, dialog_color_picker.cpp:579-595), so they are
+   a second canvas on top rather than a rebuild of the first. It carries the
+   pointer handlers, because it is the one on top. */
+.ze-cp-overlay {
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+/* wxSL_LABELS: the value at the thumb and the range end beside the track. */
+.ze-cp-sliderval {
+  font-size: var(--ui-font-size);
+  opacity: 0.85;
+}
+/* A wxSpinCtrl is an entry with GTK's own -/+ beside it. */
+.ze-cp-spinbox {
+  display: flex;
+  align-items: stretch;
+}
+.ze-cp-spinbox > input {
+  min-width: 0;
+  flex: 1 1 auto;
+  font-size: var(--ui-font-size);
+}
+.ze-cp-spinbtn {
+  flex: 0 0 auto;
+  /* [px] a GTK spin button is square at the entry's height, which
+     --ctl-height already holds for every entry in this shell. */
+  width: var(--ctl-height);
+  font-size: var(--ui-font-size);
+  color: var(--chrome-fg);
+  background: var(--chrome-bg2);
+  border: 1px solid var(--ctl-border);
+  border-left: none;
+}
+/* m_panelDefinedColors' grid. Empty unless the caller passed a
+   CUSTOM_COLORS_LIST, which is the common case. */
+.ze-cp-defined {
+  flex: 1;
+  /* [data] `m_SizerDefinedColors->Add( m_fgridColor, 1, wxALL|wxEXPAND, 10 )`
+     (dialog_color_picker_base.cpp:154). */
+  padding: 10px;
+}
+/* "Reset to Default" is one line in a wxButton, which sizes to its label. */
+.ze-cp-reset {
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
 /* The 8 px square cursor each palette draws over the picked pixel
    (m_cursorsSize, dialog_color_picker.cpp:573-576). */
 .ze-cp-cursor {
