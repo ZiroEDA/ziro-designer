@@ -79,6 +79,7 @@ import { drawingSheetWildcard } from '../../fs/wildcards.js';
 import { DesignInspector } from './DesignInspector.js';
 import { MessageDialogError } from '../../ui/dialog_message.js';
 import { UnsavedChangesDialog } from '../../ui/dialog_unsaved_changes.js';
+import { writeUserTemplateFile } from '../../home/user_template_files.js';
 import { handleUnsavedChanges, type UnsavedChangesResult } from '../../ui/confirm.js';
 import { dsInspectorTitle } from './design_inspector.js';
 import {
@@ -578,6 +579,30 @@ export function DrawingSheetEditor({
     [sheet, addRecent, onSaveToProject],
   );
 
+  /**
+   * ...and into the user templates root, which is where upstream puts one.
+   *
+   * `PL_EDITOR_FRAME::Files_io` saves a drawing sheet into
+   * `PATHS::GetUserTemplatesPath()` (pagelayout_editor/files.cpp:199-202) —
+   * a directory outside any project, which is what makes a sheet reusable by
+   * every project. DIALOG_PAGES_SETTINGS then names one by PATH, its browse
+   * button defaulting to that same directory
+   * (dialog_page_settings.cpp:686-716).
+   *
+   * A sheet saved into a project is reachable from that project alone, which is
+   * the whole reason upstream does not put it there.
+   */
+  const writeSheetToTemplates = useCallback(
+    (name: string) => {
+      const text = serializeDrawingSheet(sheet);
+      void writeUserTemplateFile(name, text);
+      addRecent(name, text);
+      setDirty(false);
+      setStatus(`Saved ${name} to templates`);
+    },
+    [sheet, addRecent],
+  );
+
   // `if( filename.IsEmpty() && id == wxID_SAVE ) id = wxID_SAVEAS;`
   // (`pagelayout_editor/files.cpp:105`). Declared below `saveAs` in the source
   // order upstream uses, but the dependency runs the other way, so it is read
@@ -646,7 +671,7 @@ export function DrawingSheetEditor({
   const pendingAfterSave = useRef<null | 'new' | 'open'>(null);
   const runAfterSaveRef = useRef<(() => void) | null>(null);
   const onSaveAsDone = useCallback(
-    (path: string | null) => {
+    (path: string | null, placeId?: string) => {
       setSaveAsOpen(false);
       if (path === null) {
         // wxID_CANCEL. The sheet is still modified, so `saveCurrentPageLayout`
@@ -659,7 +684,9 @@ export function DrawingSheetEditor({
       const leaf = path.split('/').filter(Boolean).pop() ?? '';
       const finalName = /\.kicad_wks$/i.test(leaf) ? leaf : `${leaf}.kicad_wks`;
       setFileName(finalName);
-      writeSheet(finalName);
+
+      if (placeId === 'templates') writeSheetToTemplates(finalName);
+      else writeSheet(finalName);
       // `saveCurrentPageLayout` returns `!IsContentModified()`, and this is the
       // moment that becomes true. Whatever New-or-Open was waiting on the save
       // now goes ahead; a cancel above left it un-run, which is
@@ -1939,6 +1966,11 @@ export function DrawingSheetEditor({
           // invented `drawing_sheet.kicad_wks`, a name no KiCad ever offers,
           // and pre-filled the old one for a saved sheet.
           initialName=""
+          // `wxString dir = PATHS::GetUserTemplatesPath();` — the defaultDir
+          // (pagelayout_editor/files.cpp:199). Never the project: `files.cpp`
+          // does not mention one. Ours opened on Recent, which is not even a
+          // place a file can be saved into.
+          initialPlace="templates"
           filters={[drawingSheetWildcard()]}
           onDone={onSaveAsDone}
         />

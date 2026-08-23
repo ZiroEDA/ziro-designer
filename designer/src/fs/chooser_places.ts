@@ -25,6 +25,13 @@ import { loadDemos } from '../home/demos.js';
 import { listProjects } from '../home/projectStore.js';
 import { loadTemplates } from '../home/templates.js';
 import { listUserTemplates } from '../home/user_templates.js';
+import {
+  deleteUserTemplateFile,
+  listUserTemplateFiles,
+  readUserTemplateFile,
+  renameUserTemplateFile,
+  writeUserTemplateFile,
+} from '../home/user_template_files.js';
 import type { ChooserPlace } from './chooser_types.js';
 import { listFileSystem } from './list_fs.js';
 import type { FileSystem } from './filesystem.js';
@@ -84,19 +91,55 @@ export function demosFileSystem(): FileSystem {
 }
 
 /**
- * `Templates` — both roots, the way `BuildTemplateList` scans both.
+ * `Templates` — both roots, the way `BuildTemplateList` scans both, PLUS the
+ * loose files the user templates root holds.
  *
  * A template's manifest carries no file list, so a template is a LEAF: there
  * is nothing to show inside one, and the place says so rather than offering a
  * folder that opens empty.
+ *
+ * The loose files are the other half of the same directory. `PATHS::GetUserTemplatesPath()`
+ * is a real folder — `~/.local/share/kicad/<ver>/template/` on Linux, asked of
+ * a real wxFileDialog in qa/probes/savedlg_probe.cpp — and `Files_io` saves
+ * drawing sheets straight into it (pagelayout_editor/files.cpp:199-202). So
+ * this place is not a read-only catalogue: it lists template folders you cannot
+ * change and files you can.
  */
 export function templatesFileSystem(): FileSystem {
-  return listFileSystem(async () => {
-    const [bundled, mine] = await Promise.all([loadTemplates(), listUserTemplates()]);
-    return {
-      files: [...bundled, ...mine].map((t) => ({ name: t.id, size: null, modified: null })),
-    };
-  });
+  return listFileSystem(
+    async () => {
+      const [bundled, mine, loose] = await Promise.all([
+        loadTemplates(),
+        listUserTemplates(),
+        listUserTemplateFiles(),
+      ]);
+      return {
+        files: [
+          // The template folders carry no size or date — those bytes are on the
+          // CDN until the template is used — so both columns say nothing rather
+          // than `0 bytes` and `Jan 1, 1970`.
+          ...[...bundled, ...mine].map((t) => ({ name: t.id, size: null, modified: null })),
+          // A loose file has both, because we wrote it.
+          ...loose.map((f) => ({
+            name: f.path,
+            size: f.text.length,
+            modified: f.updatedAt,
+          })),
+        ],
+        // A template is a leaf; a loose file is a file. `leafKind` says one
+        // thing for the whole listing, so the files are marked here instead.
+        fileLeaves: new Set(loose.map((f) => `/${f.path}`)),
+      };
+    },
+    {
+      files: {
+        read: readUserTemplateFile,
+        write: writeUserTemplateFile,
+        rename: renameUserTemplateFile,
+        remove: deleteUserTemplateFile,
+      },
+    },
+  );
 }
 
 /**
@@ -125,6 +168,11 @@ export function standardChooserPlaces(accountFs: FileSystem): readonly ChooserPl
       // A template has no listable contents, so a double-click takes it rather
       // than walking into an empty folder.
       activateOpens: true,
+      // ...but it IS a directory, and a drawing sheet saved from pl_editor goes
+      // into it (pagelayout_editor/files.cpp:199-202). The default rule —
+      // "only the row with no fs of its own" — reads this row as a catalogue,
+      // which it was until it grew loose files.
+      writable: true,
     },
   ];
 }

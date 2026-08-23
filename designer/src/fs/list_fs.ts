@@ -37,6 +37,23 @@ import {
 import { ROOT, fromSegments, segments } from './path.js';
 
 /** What one call to a place's source returns. */
+/**
+ * The loose files a listing place may also hold.
+ *
+ * A `GtkPlacesSidebar` row is either a query (`recent:///`, which owns nothing)
+ * or a real directory, and KiCad's user templates root is the second kind: it
+ * holds the `default` template as a folder AND whatever loose files are saved
+ * into it, which is where `PL_EDITOR_FRAME::Files_io` puts a drawing sheet
+ * (pagelayout_editor/files.cpp:199-202). `below` delegates the FOLDERS; this
+ * delegates the files.
+ */
+export interface LooseFiles {
+  read: (path: string) => Promise<string | null>;
+  write: (path: string, text: string) => Promise<void>;
+  rename: (path: string, to: string) => Promise<void>;
+  remove: (path: string) => Promise<void>;
+}
+
 export interface Listing {
   /** Every leaf, named by its path relative to the place's own root. */
   readonly files: readonly FlatFile[];
@@ -49,6 +66,16 @@ export interface Listing {
    * so, which is why the source says so instead.
    */
   readonly projects?: ReadonlySet<string>;
+  /**
+   * Which leaves are ordinary FILES rather than whatever `leafKind` says, by
+   * absolute path.
+   *
+   * `leafKind` is one answer for the whole listing, and Templates needs two: a
+   * template is a leaf you cannot walk into, and a loose drawing sheet beside
+   * it is a file you can open. Both live in the one directory upstream, so both
+   * come out of the one listing here.
+   */
+  readonly fileLeaves?: ReadonlySet<string>;
 }
 
 /**
@@ -68,12 +95,13 @@ export interface Listing {
  */
 export function listFileSystem(
   read: () => Promise<Listing>,
-  opts: { leafKind?: EntryKind; below?: FileSystem } = {},
+  opts: { leafKind?: EntryKind; below?: FileSystem; files?: LooseFiles } = {},
 ): FileSystem {
   const leafKind: EntryKind = opts.leafKind ?? 'project';
   const readOnly = async (path: string): Promise<never> => {
     throw new FsError(FsErrorCode.READ_ONLY, path, 'This location cannot be changed.');
   };
+  const files = opts.files;
 
   /**
    * One directory of the listing, with the source's project folders re-marked.
@@ -83,9 +111,12 @@ export function listFileSystem(
    * projects, and only the source knows which.
    */
   const level = (listing: Listing, dir: string): Entry[] =>
-    dirLevel(listing.files, segments(dir).join('/'), dir, leafKind).map((e) =>
-      e.kind === 'folder' && listing.projects?.has(e.path) ? { ...e, kind: 'project' } : e,
-    );
+    dirLevel(listing.files, segments(dir).join('/'), dir, leafKind).map((e) => {
+      if (listing.fileLeaves?.has(e.path)) return { ...e, kind: 'file' as const };
+      return e.kind === 'folder' && listing.projects?.has(e.path)
+        ? { ...e, kind: 'project' as const }
+        : e;
+    });
 
   return {
     async list(dir: string): Promise<Entry[]> {
@@ -100,13 +131,24 @@ export function listFileSystem(
       return level(await read(), parent).find((e) => e.path === path) ?? null;
     },
     async read(path: string): Promise<Uint8Array> {
+      if (files) {
+        const text = await files.read(path);
+        if (text !== null) return new TextEncoder().encode(text);
+      }
       if (opts.below) return opts.below.read(path);
       throw new FsError(FsErrorCode.NOT_FOUND, path);
     },
-    write: readOnly,
+    // A place with loose files is a real DIRECTORY, so the four writes reach
+    // them. Everything else still refuses: a demo cannot be renamed, and a
+    // template FOLDER is a manifest rather than a directory of this store.
+    write: files
+      ? async (path, data) => files.write(path, new TextDecoder().decode(data))
+      : readOnly,
+    rename: files ? (path, to) => files.rename(path, to) : readOnly,
+    remove: files ? (path) => files.remove(path) : readOnly,
+    // Still refused even with loose files: this store is flat, so there is no
+    // subdirectory for a New Folder to make.
     mkdir: readOnly,
     mkproject: readOnly,
-    rename: readOnly,
-    remove: readOnly,
   };
 }

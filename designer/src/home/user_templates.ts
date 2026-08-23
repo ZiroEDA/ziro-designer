@@ -34,7 +34,17 @@ import { renameRel, type TemplateMeta } from './templates.js';
 
 const DB_NAME = 'ziroeda-templates';
 const STORE = 'templates';
-const VERSION = 1;
+/**
+ * 1 -> 2 when `user_template_files.ts` joined this database.
+ *
+ * Both modules open the SAME database, so both must name the same version and
+ * both `onupgradeneeded` handlers must create BOTH stores: whichever opens
+ * first runs the upgrade, and an open at a LOWER version than the one on disk
+ * fails outright with a VersionError. Leaving this at 1 would have made the
+ * templates list break for anyone who saved a drawing sheet first.
+ */
+const VERSION = 2;
+const FILES_STORE = 'template-files';
 
 export interface UserTemplateRecord {
   /** The directory name upstream, and the identity here. */
@@ -77,6 +87,10 @@ function openDB(): Promise<IDBDatabase> {
     req.onupgradeneeded = () => {
       const db = req.result;
       if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE, { keyPath: 'id' });
+      // The other half of the same folder — see user_template_files.ts. Created
+      // here too, because either module may be the one that opens first.
+      if (!db.objectStoreNames.contains(FILES_STORE))
+        db.createObjectStore(FILES_STORE, { keyPath: 'path' });
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);

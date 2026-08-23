@@ -35,10 +35,19 @@ export interface SaveAsDialogProps {
   /** Where to open. Defaults to the account root. */
   initialPath?: string;
   /**
+   * Which places row to start on — upstream's `wxFileDialog` `defaultDir`.
+   *
+   * Every Save As names one: pl_editor's is `PATHS::GetUserTemplatesPath()`
+   * (pagelayout_editor/files.cpp:199). Without it the chooser opens on the
+   * first row, which is Recent, and a Save As that opens on a list of things
+   * you have opened is a row you cannot save into.
+   */
+  initialPlace?: string;
+  /**
    * The chosen path, project folder included. `null` when cancelled, which is
    * `wxID_CANCEL` — the caller must not save.
    */
-  onDone: (path: string | null) => void;
+  onDone: (path: string | null, placeId?: string) => void;
   /** The affirmative button. `Save` unless the caller is exporting. */
   accept?: string;
   title?: string;
@@ -48,6 +57,7 @@ export function SaveAsDialog({
   initialName,
   filters,
   initialPath,
+  initialPlace,
   onDone,
   accept = 'Save',
   title = 'Save As',
@@ -59,7 +69,17 @@ export function SaveAsDialog({
   // GTK gives every wxFileDialog in the process the same
   // GtkPlacesSidebar; ours had one only in the project manager, so an
   // editor's dialog opened with no sidebar at all.
-  const places = useMemo(() => standardChooserPlaces(fs), [fs]);
+  const places = useMemo(
+    () =>
+      // A place with its own tree hands back a path that means nothing to the
+      // account's — `/mysheet.kicad_wks` in Templates is not a project file —
+      // so which place the path came from has to travel with it. That is what
+      // `ChooserPlace.onAccept` is for; here it is used to tell the caller.
+      standardChooserPlaces(fs).map((p) =>
+        p.fs ? { ...p, onAccept: (path: string) => onDone(path, p.id) } : p,
+      ),
+    [fs, onDone],
+  );
   return (
     <FileChooser
       fs={fs}
@@ -69,6 +89,7 @@ export function SaveAsDialog({
       places={places}
       initialName={initialName}
       {...(initialPath === undefined ? {} : { initialPath })}
+      {...(initialPlace === undefined ? {} : { initialPlace })}
       {...(filters === undefined ? {} : { filters })}
       onAccept={(path) => onDone(path)}
       onCancel={() => onDone(null)}

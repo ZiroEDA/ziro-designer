@@ -50,15 +50,34 @@ describe('the shared places sidebar', () => {
 
   it('makes a template a leaf rather than a folder that opens empty', () => {
     // A template's manifest carries no file list, so there is nothing inside
-    // one to show. `activateOpens` is how the widget is told.
+    // one to show. `activateOpens` is how the widget is told. A loose file in
+    // the same root is a different kind of leaf and is marked per-entry - see
+    // `Listing.fileLeaves`.
     expect(byId('templates')?.activateOpens).toBe(true);
     expect(byId('demos')?.activateOpens).toBeFalsy();
+  });
+
+  it('still gates SOMETHING - the whole list is not writable now', () => {
+    // The other half of the change. A gate that let Templates through by
+    // opening the gate for everyone would pass every assertion above.
+    const writable = places.filter((p) => p.writable ?? p.fs === undefined).map((p) => p.id);
+    expect(writable.sort()).toEqual(['projects', 'templates']);
   });
 });
 
 describe('the save gate', () => {
-  it('refuses a write to Recent, Demos and Templates', async () => {
-    for (const id of ['recent', 'demos', 'templates']) {
+  it('refuses a write to Recent and Demos', async () => {
+    // Templates USED to be in this list, and was removed on purpose rather than
+    // re-baselined: `PATHS::GetUserTemplatesPath()` is a real directory and
+    // `PL_EDITOR_FRAME::Files_io` saves drawing sheets straight into it
+    // (pagelayout_editor/files.cpp:199-202), so a read-only Templates is a
+    // folder KiCad writes to and we do not. See
+    // templates_are_the_sheet_home.test.ts.
+    //
+    // These two stay refused because they are genuinely not folders: Recent is
+    // a list of things you opened - GTK's `recent:///` - and Demos is a
+    // read-only catalogue on the CDN.
+    for (const id of ['recent', 'demos']) {
       const fs = byId(id)?.fs;
       expect(fs, `${id} has a filesystem`).toBeDefined();
       await expect(

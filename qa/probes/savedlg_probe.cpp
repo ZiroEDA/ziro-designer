@@ -24,6 +24,7 @@
 #include <wx/filedlg.h>
 #include <wx/filename.h>
 #include <wx/stdpaths.h>
+#include <glib.h>
 #include <gtk/gtk.h>
 #include <cstdio>
 
@@ -35,9 +36,18 @@ static wxString userTemplatesPath(const wxString& majorMinor)
     wxString   envPath;
 
     if (wxGetEnv(wxT("KICAD_DOCUMENTS_HOME"), &envPath))
+    {
         tmp.AssignDir(envPath);
+    }
     else
-        tmp.AssignDir(wxStandardPaths::Get().GetDocumentsDir());
+    {
+        // KIPLATFORM::ENV::GetDocumentsPath() on Linux is g_get_user_data_dir()
+        // — ~/.local/share — NOT wxStandardPaths' documents dir
+        // (libs/kiplatform/os/unix/environment.cpp:93-105). Getting that wrong
+        // sent this probe to ~/Documents/kicad/... and reported a path that does
+        // not exist, when the real dialog opens somewhere that does.
+        tmp.AssignDir(wxString::FromUTF8(g_get_user_data_dir()));
+    }
 
     tmp.AppendDir(wxT("kicad"));
     tmp.AppendDir(majorMinor);
@@ -56,7 +66,8 @@ public:
         const wxString dir = userTemplatesPath("10.0");
         printf("PATHS::GetUserTemplatesPath() = %s\n", (const char*) dir.utf8_str());
         printf("  exists on this machine: %s\n", wxDirExists(dir) ? "yes" : "NO");
-        printf("  documents dir          : %s\n",
+        printf("  g_get_user_data_dir()  : %s\n", g_get_user_data_dir());
+        printf("  wx documents dir       : %s   <- NOT what KiCad uses on Linux\n",
                (const char*) wxStandardPaths::Get().GetDocumentsDir().utf8_str());
 
         // The dialog Files_io builds for wxID_SAVEAS, argument for argument.

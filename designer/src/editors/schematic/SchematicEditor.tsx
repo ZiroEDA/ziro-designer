@@ -459,6 +459,8 @@ import { useUnsavedGuard } from '../../ui/useUnsavedGuard.js';
 import '../../ui/shell.css';
 import { schSymbolLibraryName } from '@ziroeda/eeschema';
 import { useModalEscape } from '../../ui/useModalEscape.js';
+import { listUserTemplateFiles } from '../../home/user_template_files.js';
+import { parseDrawingSheet } from '@ziroeda/common/src/drawing_sheet/read.js';
 
 // What KiCad writes for File > New Schematic: an empty sheet on A4 paper.
 // Launching the editor without a project starts here (no bundled demo).
@@ -1988,14 +1990,52 @@ export function SchematicEditor({
     [allFiles, sheetOverride],
   );
   const sheetRefName = sheetOverride ? sheetOverride.name : readSheetRef(rawFiles);
-  const sheetChoices = useMemo(
-    () =>
-      listProjectSheetFiles(allFiles).map((name) => ({
-        name,
-        sheet: parseProjectSheet(allFiles, name),
-      })),
-    [allFiles],
+  /**
+   * The drawing sheets the user templates root holds.
+   *
+   * Upstream a drawing sheet lives OUTSIDE any project - pl_editor saves it
+   * into `PATHS::GetUserTemplatesPath()` (pagelayout_editor/files.cpp:199-202)
+   * - and DIALOG_PAGES_SETTINGS names one by path, its browse button defaulting
+   * to that same directory (dialog_page_settings.cpp:686-716). So a sheet is
+   * reusable by every project, which is the point of putting it there.
+   *
+   * Ours offered the open project's sheets and nothing else, which made the
+   * templates root a folder you could save into and never read back.
+   */
+  const [templateSheets, setTemplateSheets] = useState<{ name: string; sheet: WksSheet | null }[]>(
+    [],
   );
+  useEffect(() => {
+    void (async () => {
+      const files = await listUserTemplateFiles();
+      setTemplateSheets(
+        files
+          .filter((f) => /\.kicad_wks$/i.test(f.path))
+          .map((f) => {
+            try {
+              return { name: f.path, sheet: parseDrawingSheet(f.text) };
+            } catch {
+              // A sheet that will not parse is still a file in that folder; it
+              // is listed and resolves to the built-in stationery, which is
+              // what an unreadable one does upstream too.
+              return { name: f.path, sheet: null };
+            }
+          }),
+      );
+    })();
+  }, []);
+
+  const sheetChoices = useMemo(() => {
+    const project = listProjectSheetFiles(allFiles).map((name) => ({
+      name,
+      sheet: parseProjectSheet(allFiles, name),
+    }));
+    // The project's own win a name clash: a sheet stored beside the schematic
+    // is the more specific of the two, as a file in the project directory is
+    // upstream.
+    const taken = new Set(project.map((c) => c.name));
+    return [...project, ...templateSheets.filter((c) => !taken.has(c.name))];
+  }, [allFiles, templateSheets]);
   // WX_INFOBAR message posted by a tool (null = hidden).
   const [infoBar, setInfoBar] = useState<string | null>(null);
   /**
