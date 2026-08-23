@@ -34,6 +34,7 @@ import {
 } from '../home/user_template_files.js';
 import type { ChooserPlace } from './chooser_types.js';
 import { listFileSystem } from './list_fs.js';
+import { FsError, FsErrorCode } from './filesystem.js';
 import type { FileSystem } from './filesystem.js';
 
 /**
@@ -105,7 +106,54 @@ export function demosFileSystem(): FileSystem {
  * this place is not a read-only catalogue: it lists template folders you cannot
  * change and files you can.
  */
+/**
+ * Refuse a change to a STOCK template, the way the real directory refuses it.
+ *
+ * `BuildTemplateList` scans the two roots and marks them apart:
+ *
+ *     scanDirectory( m_userTemplatesPath, true );    // m_isUserTemplate
+ *     scanDirectory( m_systemTemplatesPath, false );
+ *
+ * (dialog_template_selector.cpp:753-754.) The stock root is
+ * `PATHS::GetStockTemplatesPath()` — `/usr/share/kicad/template`, root-owned —
+ * and the way to change one of those is `onDuplicateTemplate`, which COPIES it
+ * into the user root under a new name (:385). So the message says that rather
+ * than only refusing.
+ *
+ * The test is "is this an EXISTING STOCK entry", not "is this a known user
+ * one". The first version of this asked the second question and refused a brand
+ * new name — which is every save into this folder, and the whole reason it is
+ * writable at all. A name in neither root is the user creating something, and
+ * the user root is where that goes.
+ */
+export function refuseStockChange(stock: ReadonlySet<string>, path: string): void {
+  if (stock.has(path.replace(/^\/+/, ''))) {
+    throw new FsError(
+      FsErrorCode.READ_ONLY,
+      path,
+      'Templates that ship with KiCad cannot be changed. Duplicate one first.',
+    );
+  }
+}
+
 export function templatesFileSystem(): FileSystem {
+  /**
+   * Which entries are the USER's. Everything else in this listing is stock and
+   * refuses every write, exactly as it does on disk.
+   *
+   * `BuildTemplateList` scans the two roots and marks them apart:
+   *
+   *     scanDirectory( m_userTemplatesPath, true );    // m_isUserTemplate
+   *     scanDirectory( m_systemTemplatesPath, false );
+   *
+   * (dialog_template_selector.cpp:753-754.) The stock root is
+   * `/usr/share/kicad/template` and is root-owned; the way to change a stock
+   * template is `onDuplicateTemplate`, which COPIES it into the user root under
+   * a new name (:385). Merging the two into one writable list said a bundled
+   * template could be renamed and deleted, which KiCad never allows.
+   */
+  const stockRef = { current: new Set<string>() };
+
   return listFileSystem(
     async () => {
       const [bundled, mine, loose] = await Promise.all([
@@ -113,6 +161,11 @@ export function templatesFileSystem(): FileSystem {
         listUserTemplates(),
         listUserTemplateFiles(),
       ]);
+
+      // Read on every listing, not captured: a template duplicated while the
+      // dialog is open becomes writable without it being rebuilt.
+      stockRef.current = new Set(bundled.map((t) => t.id));
+
       return {
         files: [
           // The template folders carry no size or date — those bytes are on the
@@ -134,9 +187,21 @@ export function templatesFileSystem(): FileSystem {
     {
       files: {
         read: readUserTemplateFile,
-        write: writeUserTemplateFile,
-        rename: renameUserTemplateFile,
-        remove: deleteUserTemplateFile,
+        // A NEW name is the user's by definition — that is a save into the user
+        // root, which is what pl_editor does (files.cpp:199-202). Only an
+        // existing STOCK entry refuses.
+        write: async (path, text) => {
+          refuseStockChange(stockRef.current, path);
+          await writeUserTemplateFile(path, text);
+        },
+        rename: async (path, to) => {
+          refuseStockChange(stockRef.current, path);
+          await renameUserTemplateFile(path, to);
+        },
+        remove: async (path) => {
+          refuseStockChange(stockRef.current, path);
+          await deleteUserTemplateFile(path);
+        },
       },
     },
   );

@@ -11,8 +11,9 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import {
-  FILE_MANAGER_FILTERS,
   NEW_PROJECT_FOLDER_FILTERS,
   OPEN_PROJECT_FILTERS,
   allFilesWildcard,
@@ -68,25 +69,34 @@ describe('OPEN_PROJECT_FILTERS is openProject, unchanged', () => {
   });
 });
 
-describe('FILE_MANAGER_FILTERS, the one deliberate departure', () => {
-  it("is openProject's three, then KiCad's own All files row", () => {
-    expect(FILE_MANAGER_FILTERS.map((f) => f.label)).toStrictEqual([
-      'All KiCad project files (*.kicad_pro; *.pro)',
-      'KiCad project files (*.kicad_pro)',
-      'KiCad legacy project files (*.pro)',
-      'All files (*)',
-    ]);
+const HOME = readFileSync(
+  fileURLToPath(new URL('../../../designer/src/home/HomePage.tsx', import.meta.url)),
+  'utf8',
+);
+
+describe("the combo is openProject's three, and only those", () => {
+  /**
+   * There used to be a fourth row here, KiCad's own `AllFilesWildcard()`, on
+   * the reasoning that this window is the account's only file manager and so
+   * has a job upstream's does not.
+   *
+   * Akshay put the two combos side by side. KiCad's has three entries. Ours had
+   * four, and the extra one is visible the moment you open it — which is the
+   * whole test of whether a departure is defensible. It is gone.
+   *
+   * `openProject` builds the wildcard from exactly three
+   * (kicad/tools/kicad_manager_control.cpp:486-488) and this window uses that
+   * list directly now, so there is no second list to keep in step.
+   */
+  it('is the list Open Existing Project actually opens with', () => {
+    expect(HOME).toContain('filters={OPEN_PROJECT_FILTERS}');
+    expect(HOME, 'the file-manager list is back').not.toContain('FILE_MANAGER_FILTERS');
   });
 
-  it('opens on the same first entry, so the default is still projects only', () => {
-    // wx selects the first wildcard, so adding a row at the end changes what
-    // can be reached and not what the window shows when it opens.
-    expect(FILE_MANAGER_FILTERS[0]).toStrictEqual(OPEN_PROJECT_FILTERS[0]);
-  });
-
-  it('adds exactly one row, and it is the all-files one', () => {
-    expect(FILE_MANAGER_FILTERS).toHaveLength(OPEN_PROJECT_FILTERS.length + 1);
-    expect(FILE_MANAGER_FILTERS.filter((f) => f.extensions.length === 0)).toHaveLength(1);
+  it('offers no all-files row anywhere in that combo', () => {
+    // An empty extension list is what "match everything" looks like here, so
+    // this catches a row added under any label.
+    expect(OPEN_PROJECT_FILTERS.some((f) => f.extensions.length === 0)).toBe(false);
   });
 });
 

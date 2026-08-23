@@ -33,7 +33,10 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { standardChooserPlaces } from '@ziroeda/designer/src/fs/chooser_places.js';
+import {
+  refuseStockChange,
+  standardChooserPlaces,
+} from '@ziroeda/designer/src/fs/chooser_places.js';
 import { listFileSystem } from '@ziroeda/designer/src/fs/list_fs.js';
 import { FsErrorCode } from '@ziroeda/designer/src/fs/filesystem.js';
 import type { Entry, FileSystem } from '@ziroeda/designer/src/fs/filesystem.js';
@@ -236,61 +239,122 @@ describe('the two halves of the templates folder share one database', () => {
   });
 });
 
-describe('a loose file in Templates opens, rather than doing nothing', () => {
+describe('Open reads through the tree the path came from', () => {
   /**
-   * The other end of the same folder. Saving a drawing sheet into Templates put
-   * it in the list, and clicking it in Open Existing Project did NOTHING AT
-   * ALL — no editor, no message.
+   * The reason a drawing sheet saved into Templates could not be opened again.
    *
-   * The chooser's own accept looks a path up with `projectAt`, and a path in
-   * this place belongs to no project, so it returned null and the handler
-   * returned. The Templates place had an `onAccept` of its own already, but it
-   * only matched template FOLDERS (`path === '/' + t.id`); a loose file fell
-   * past it into the same silent return.
+   * `OpenFileDialog` read every accepted path through `projectStoreFileSystem()`
+   * — the account's own tree — whatever place the path came from. A path in
+   * Templates or Demos is not in that tree, so the read threw and the handler
+   * answered `onDone(null)`, which is indistinguishable from Cancel. No editor,
+   * no error, nothing.
    *
-   * Upstream a file is opened by its EXTENSION: `PROJECT_TREE_ITEM::Activate`
-   * dispatches on the type and hands a `.kicad_wks` to `editDrawingSheet`
-   * (kicad/project_tree_item.cpp:342-344). That table is already ported and
-   * already runs for the project tree, so the fix reuses it rather than growing
-   * a second answer for one extension.
+   * Upstream this cannot happen: pl_editor's Open is a `wxFileDialog` over ONE
+   * tree (pagelayout_editor/files.cpp:159-167). Splitting that tree into places
+   * is ours, so re-joining them at the read is ours too — which is exactly what
+   * `ChooserPlace.onAccept` is for, and what SaveAsDialog already does.
    */
-  const HOME = read('../../../designer/src/home/HomePage.tsx');
+  const OPEN = read('../../../designer/src/fs/OpenFileDialog.tsx');
 
-  it('still takes a template folder as a copy, which came first', () => {
-    // The half that already worked, kept: a template is not a file to open.
-    expect(HOME).toContain('const t = templatesRef.current.find((x) => path === `/${x.id}`);');
-    expect(HOME).toContain('openTemplateRef.current(t);');
+  it('gives every place with its own tree an accept that reads through it', () => {
+    expect(OPEN).toContain(
+      'p.fs ? { ...p, onAccept: (path: string) => readAndDone(p.fs as FileSystem, path) } : p,',
+    );
   });
 
-  it('takes anything else in that root as a FILE', () => {
-    expect(HOME).toContain('void openLooseTemplateFileRef.current(path);');
-    expect(HOME).toContain('const text = await readUserTemplateFile(name);');
+  it('takes the filesystem as an argument rather than closing over one', () => {
+    // The bug in one word: `fs`. The reader has to be told which tree.
+    expect(OPEN).toContain('const readAndDone = (from: FileSystem, path: string): void => {');
+    expect(OPEN).toContain('const bytes = await from.read(path);');
+    expect(OPEN, 'the account tree is still hardcoded in the read').not.toContain(
+      'await fs.read(path)',
+    );
   });
 
-  it('runs the SAME activation the project tree runs', () => {
-    // Not a `.kicad_wks` special case: whatever `activationForFile` says, which
-    // is `GetFileExt`'s table. A `.kicad_sym` dropped in that folder lands in
-    // the symbol editor for free.
-    expect(HOME).toContain('activateFile(file, [file], name);');
-    // `toContain` alone could not fail: a sweep that wrapped the call in
-    // `if (name.endsWith('.kicad_wks'))` left the string in place and passed,
-    // turning the table back into the one special case it exists to replace.
-    // So read the function's whole body and let no extension test into it.
-    const at = HOME.indexOf('const openLooseTemplateFile = async');
-    expect(at, 'openLooseTemplateFile is gone').toBeGreaterThan(0);
-    const body = HOME.slice(at, HOME.indexOf('\n  };', at));
-    expect(body, 'the opener tests the extension itself').not.toMatch(/\.kicad_\w+/);
-    expect(body).not.toMatch(/endsWith\(|\.ext\b|extensionOf/);
+  it('still uses the account tree for the account tree', () => {
+    // The other half: a place with no fs of its own IS the account's tree, and
+    // routing it elsewhere would break every ordinary Open.
+    expect(OPEN).toContain('onAccept={(path) => readAndDone(fs, path)}');
   });
 
-  it('says so when the file cannot be read, instead of returning silently', () => {
-    // Silence is what this whole test exists about.
-    expect(HOME).toContain('setInfoMessage(`Could not read ${name}.`);');
+  it('reports a failed read as a cancel, not as a half-open document', () => {
+    expect(OPEN).toContain('onDone(null);');
+  });
+});
+
+describe('the stock templates are not the user\u2019s, and are not writable', () => {
+  /**
+   * Akshay caught this by opening the two folders side by side. KiCad has TWO
+   * template roots and they are not the same thing:
+   *
+   *   PATHS::GetStockTemplatesPath()  /usr/share/kicad/template  (58 items, root-owned)
+   *   PATHS::GetUserTemplatesPath()   ~/.local/share/kicad/10.0/template
+   *
+   * `BuildTemplateList` scans both and marks them apart —
+   * `scanDirectory( m_userTemplatesPath, true )` then
+   * `scanDirectory( m_systemTemplatesPath, false )`
+   * (dialog_template_selector.cpp:753-754) — and the only way to change a stock
+   * one is `onDuplicateTemplate`, which COPIES it into the user root under a new
+   * name (:385). Demos are the same shape: `/usr/share/kicad/demos`, read-only.
+   *
+   * Our Templates place merges both roots into one list, which is what
+   * `BuildTemplateList` does too. What was wrong is that when it grew loose
+   * files it was made writable WHOLESALE — so a bundled template looked
+   * renameable and deletable, which KiCad never allows.
+   *
+   * The guard is tested directly rather than through `templatesFileSystem()`:
+   * that reaches for the CDN and for IndexedDB, neither of which exists here, so
+   * a test built on it would assert against an empty stock set and prove
+   * nothing.
+   */
+  const STOCK = new Set(['Arduino_Uno', 'RaspberryPi-HAT']);
+
+  it('refuses a change to a stock template', () => {
+    for (const path of ['/Arduino_Uno', 'Arduino_Uno', '//RaspberryPi-HAT']) {
+      expect(() => refuseStockChange(STOCK, path), path).toThrow(/cannot be changed/);
+      try {
+        refuseStockChange(STOCK, path);
+      } catch (e) {
+        expect((e as { code: string }).code).toBe(FsErrorCode.READ_ONLY);
+      }
+    }
   });
 
-  it('closes the dialog first, as the other two places do', () => {
-    const at = HOME.indexOf('openLooseTemplateFileRef.current = async (path)');
-    expect(at, 'the ref is never assigned').toBeGreaterThan(0);
-    expect(HOME.slice(at, at + 200)).toContain('setOpenPrjOpen(false);');
+  it('says how to get an editable one, as onDuplicateTemplate is the answer', () => {
+    expect(() => refuseStockChange(STOCK, '/Arduino_Uno')).toThrow(/Duplicate one first/);
+  });
+
+  it('lets a BRAND NEW name through - that is every save into this folder', () => {
+    // The first version of this guard asked "is it a known USER entry" and so
+    // refused a name that was in neither root, which is exactly what pl_editor
+    // saving a sheet produces. The test caught it.
+    expect(() => refuseStockChange(STOCK, '/brand_new.kicad_wks')).not.toThrow();
+  });
+
+  it('lets the user\u2019s own entries through', () => {
+    expect(() => refuseStockChange(STOCK, '/MyOwnTemplate')).not.toThrow();
+    expect(() => refuseStockChange(STOCK, '/sheet.kicad_wks')).not.toThrow();
+  });
+
+  it('refuses nothing at all when the stock root is empty', () => {
+    // The other half: a guard that threw for everything would satisfy the two
+    // refusal tests above.
+    expect(() => refuseStockChange(new Set(), '/Arduino_Uno')).not.toThrow();
+  });
+
+  it('is what the templates filesystem actually calls, on all three writes', () => {
+    const src = readFileSync(
+      fileURLToPath(new URL('../../../designer/src/fs/chooser_places.ts', import.meta.url)),
+      'utf8',
+    );
+    expect([...src.matchAll(/refuseStockChange\(stockRef\.current, path\)/g)]).toHaveLength(3);
+    // Re-read on every listing, not captured: a template duplicated while the
+    // dialog is open becomes writable without the filesystem being rebuilt.
+    expect(src).toContain('stockRef.current = new Set(bundled.map((t) => t.id));');
+  });
+
+  it('is one listing holding both, as BuildTemplateList makes one list', () => {
+    const places = standardChooserPlaces(accountFs);
+    expect(places.filter((p) => p.id.startsWith('template'))).toHaveLength(1);
   });
 });

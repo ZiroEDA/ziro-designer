@@ -85,7 +85,6 @@ import { NEW_PROJECT_FOLDER_FILTERS, OPEN_PROJECT_FILTERS } from '../fs/wildcard
 import { projectNameFrom } from './dialogs/template_selector.js';
 import { basename as pathBasename } from '../fs/path.js';
 import { normalize as normalizePath, segments } from '../fs/path.js';
-import { FILE_MANAGER_FILTERS } from '../fs/wildcards.js';
 import { EllipsizedField } from '../ui/EllipsizedField.js';
 import { managerTitle, projectStatusText } from './manager_frame.js';
 import { type LauncherId, showPlayerRefusal } from './show_player.js';
@@ -121,7 +120,6 @@ import {
   type DropEntry,
   type IngestFile,
 } from './project_picker.js';
-import { readUserTemplateFile } from './user_template_files.js';
 
 const dec = new TextDecoder();
 const enc = new TextEncoder();
@@ -471,8 +469,6 @@ export function HomePage({
   // its filesystem does: the places are built once and must not be rebuilt.
   const openDemoRef = useRef<(id: string) => void>(() => {});
   const openTemplateRef = useRef<(t: TemplateMeta) => void>(() => {});
-  /** Taking a loose FILE out of the templates root — see the place's onAccept. */
-  const openLooseTemplateFileRef = useRef<(path: string) => Promise<void>>(async () => {});
   /**
    * The four shared rows, with the two the project manager accepts DIFFERENTLY.
    *
@@ -511,19 +507,12 @@ export function HomePage({
                 openTemplateRef.current(t);
                 return;
               }
-              // ...but this root holds loose FILES beside the template folders,
-              // which is where pl_editor saves a drawing sheet
-              // (pagelayout_editor/files.cpp:199-202). Taking one of those means
-              // what taking a file in the project tree means:
-              // `PROJECT_TREE_ITEM::Activate` dispatches on the extension and
-              // lands in whichever editor owns it — a .kicad_wks in
-              // `editDrawingSheet` (kicad/project_tree_item.cpp:342-344).
-              //
-              // Without this the accept fell through to the chooser's own, which
-              // looks the path up with `projectAt` — and a path in this place
-              // belongs to no project, so it returned null and the click did
-              // nothing at all.
-              void openLooseTemplateFileRef.current(path);
+              // A loose FILE in this root - a drawing sheet pl_editor saved
+              // there - is not something Open Existing Project opens, and with
+              // the combo back to upstream's three it is not listed here to be
+              // clicked either. The way to that file is the editor that owns
+              // it: the Drawing Sheet Editor's own Open, which reaches this
+              // same place and now reads through it (fs/OpenFileDialog.tsx).
             },
           };
         }
@@ -981,10 +970,6 @@ export function HomePage({
       setOpenPrjOpen(false);
       void createFromTpl(t, t.base || t.id, true);
     };
-    openLooseTemplateFileRef.current = async (path) => {
-      setOpenPrjOpen(false);
-      await openLooseTemplateFile(path);
-    };
   });
 
   // File > Save As: copy the whole project under a new name and persist it.
@@ -1397,31 +1382,6 @@ export function HomePage({
   };
 
   /**
-   * A loose file taken out of the templates root.
-   *
-   * `PROJECT_TREE_ITEM::Activate` dispatches on the extension and hands the
-   * file to whichever editor owns it (kicad/project_tree_item.cpp:311-360), and
-   * that is the same table `activateFile` already runs for the project tree. So
-   * this reads the bytes out of the templates store and runs THAT, rather than
-   * growing a second answer for one extension.
-   *
-   * `treePath` is the file's own name: a file here belongs to no project, so
-   * there is no project-relative path and no sibling list to hand along.
-   */
-  const openLooseTemplateFile = async (path: string): Promise<void> => {
-    const name = path.split('/').filter(Boolean).pop() ?? path;
-    const text = await readUserTemplateFile(name);
-
-    if (text === null) {
-      setInfoMessage(`Could not read ${name}.`);
-      return;
-    }
-
-    const file: PickedHomeFile = { name, text };
-    activateFile(file, [file], name);
-  };
-
-  /**
    * The four branches of `Activate` that end in the operating system:
    * `openTextEditor` (which runs `Pgm().GetTextEditor()`), `OpenPDF` (gestfich,
    * the system PDF viewer), `wxLaunchDefaultBrowser` and
@@ -1825,7 +1785,14 @@ export function HomePage({
           // Recent is listed first but Open Project opens on the account's own
           // tree, the way upstream opens on defaultDir with Home lit.
           initialPlace="projects"
-          filters={FILE_MANAGER_FILTERS}
+          // `AllProjectFilesWildcard | ProjectFileWildcard |
+          // LegacyProjectFileWildcard` and NOTHING else
+          // (kicad/tools/kicad_manager_control.cpp:486-488). We had KiCad's own
+          // All-files row appended, on the reasoning that this window is the
+          // account's only file manager - but the window is Open Existing
+          // Project, upstream's combo has three entries, and a fourth is
+          // visible the moment the two are put side by side.
+          filters={OPEN_PROJECT_FILTERS}
           extra={
             <>
               {/* Where wxFileDialogCustomizeHook's controls sit upstream. Ours

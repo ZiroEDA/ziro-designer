@@ -28,6 +28,7 @@ import { FileChooser } from './FileChooser.js';
 import { projectStoreFileSystem } from './project_store_fs.js';
 import { standardChooserPlaces } from './chooser_places.js';
 import type { ChooserFilter } from './chooser_types.js';
+import type { FileSystem } from './filesystem.js';
 
 export interface OpenFileDialogProps {
   /** The document's wildcard, e.g. `drawingSheetWildcard()`. */
@@ -55,10 +56,46 @@ export function OpenFileDialog({
 }: OpenFileDialogProps): JSX.Element {
   // One filesystem per mount — see SaveAsDialog.
   const fs = useMemo(() => projectStoreFileSystem(), []);
+
+  /**
+   * Read the chosen file and hand it back, through the tree it came from.
+   *
+   * This used to read through the account's own filesystem whatever place the
+   * path came from, so a file taken out of Templates or Demos threw NOT_FOUND
+   * and came back as `onDone(null)` — indistinguishable from Cancel. That is
+   * the whole of why a drawing sheet saved into the templates root could not
+   * then be opened from the Drawing Sheet Editor: pl_editor's Open is a
+   * `wxFileDialog` over one tree upstream (pagelayout_editor/files.cpp:159-167),
+   * and splitting that one tree into places is ours — so re-joining them at the
+   * read is ours to do too.
+   */
+  const readAndDone = (from: FileSystem, path: string): void => {
+    void (async () => {
+      try {
+        const bytes = await from.read(path);
+        onDone({ path, text: new TextDecoder().decode(bytes) });
+      } catch {
+        // A read that fails is not an open: upstream's wxFileDialog hands
+        // back a path and the frame's loader reports its own error, so the
+        // caller sees a cancel rather than a half-open document.
+        onDone(null);
+      }
+    })();
+  };
+
   // GTK gives every wxFileDialog in the process the same
   // GtkPlacesSidebar; ours had one only in the project manager, so an
   // editor's dialog opened with no sidebar at all.
-  const places = useMemo(() => standardChooserPlaces(fs), [fs]);
+  const places = useMemo(
+    () =>
+      standardChooserPlaces(fs).map((p) =>
+        // A place that brings its own tree brings paths only that tree can
+        // read. `ChooserPlace.onAccept` is where that travels with it.
+        p.fs ? { ...p, onAccept: (path: string) => readAndDone(p.fs as FileSystem, path) } : p,
+      ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [fs],
+  );
   return (
     <FileChooser
       fs={fs}
@@ -68,19 +105,7 @@ export function OpenFileDialog({
       places={places}
       {...(initialPath === undefined ? {} : { initialPath })}
       {...(filters === undefined ? {} : { filters })}
-      onAccept={(path) => {
-        void (async () => {
-          try {
-            const bytes = await fs.read(path);
-            onDone({ path, text: new TextDecoder().decode(bytes) });
-          } catch {
-            // A read that fails is not an open: upstream's wxFileDialog hands
-            // back a path and the frame's loader reports its own error, so the
-            // caller sees a cancel rather than a half-open document.
-            onDone(null);
-          }
-        })();
-      }}
+      onAccept={(path) => readAndDone(fs, path)}
       onCancel={() => onDone(null)}
     />
   );
