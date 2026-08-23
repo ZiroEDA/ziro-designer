@@ -29,18 +29,10 @@ import {
 } from '@ziroeda/eeschema/src/tools/sch_table_properties.js';
 import { LINE_STYLE_NAMES } from '@ziroeda/common/src/stroke_params.js';
 import { useModalEscape } from '../../../ui/useModalEscape.js';
-
-const hex = (c: TableColor | undefined): string =>
-  c
-    ? `#${[c[0], c[1], c[2]].map((n) => Math.round(n).toString(16).padStart(2, '0')).join('')}`
-    : '#ffffff';
-
-const fromHex = (s: string): TableColor => [
-  Number.parseInt(s.slice(1, 3), 16),
-  Number.parseInt(s.slice(3, 5), 16),
-  Number.parseInt(s.slice(5, 7), 16),
-  1,
-];
+import { ColorSwatch } from '../../../ui/ColorSwatch.js';
+// A TableColor is the same [r, g, b, a] tuple an ItemColor is, so it takes
+// the same conversion rather than a second copy of it.
+import { color4dToItemColor, itemColorToColor4d } from './item_color.js';
 
 interface Props {
   initial: SchTableValues;
@@ -155,11 +147,15 @@ export function DialogTableProperties({
   const colorField = (key: 'borderColor' | 'separatorColor', enabled: boolean): JSX.Element => (
     <label className="row" style={{ flex: '0 0 auto' }}>
       <span style={{ width: 44 }}>Color:</span>
-      <input
-        type="color"
+      {/* COLOR_SWATCH: it draws the colour and opens DIALOG_COLOR_PICKER
+          (color_swatch.cpp:301-328). It was an <input type="color">,
+          i.e. the desktop's picker as a popup anchored to the control -
+          off-screen near the window edge, and unable to carry alpha. */}
+      <ColorSwatch
+        label="Color"
         disabled={!enabled}
-        value={hex(v[key])}
-        onChange={(e) => set({ [key]: fromHex(e.target.value) } as Partial<SchTableValues>)}
+        color={itemColorToColor4d(v[key])}
+        onChange={(c) => set({ [key]: color4dToItemColor(c) } as Partial<SchTableValues>)}
       />
       {/* An unset colour is KiCad's COLOR4D::UNSPECIFIED: draw it in the
           layer's own colour. The swatch has no way to express that, so the

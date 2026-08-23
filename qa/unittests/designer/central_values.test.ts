@@ -125,7 +125,11 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // pcbnew and eeschema alike, and PcbEditor was importing it across. Nothing
   // in it changed, so the two areas move by the same amount and the TOTALS
   // below are untouched, which is what says this was a move and not a pass.
-  dialogs: { colours: 7, metrics: 50 },
+  // metrics 50 -> 47: the COLOR_SWATCH sweep. `panel_setup_netclasses` and
+  // `prefs/widgets` sized their `<input type="color">` with inline width and
+  // height because a native colour input has no useful default size; the
+  // shared swatch takes --swatch-*-w/h instead.
+  dialogs: { colours: 7, metrics: 47 },
   'editors/calculator': { colours: 2, metrics: 18 },
   'editors/drawingsheet': { colours: 0, metrics: 0 },
   'editors/footprint': { colours: 9, metrics: 20 },
@@ -144,8 +148,15 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // Toolbar, taking its inline #333 rule, its separator's #333 fill and the
   // layer swatch's invented #444 border with it (3 colours), along with that
   // div's and the swatch's inline sizes (6 metrics).
-  'editors/pcb': { colours: 69, metrics: 387 },
-  'editors/schematic': { colours: 68, metrics: 215 },
+  // colours 69 -> 67: the two Appearance net/netclass swatches stopped
+  // writing '#000000' as the value a native colour input falls back to.
+  'editors/pcb': { colours: 67, metrics: 387 },
+  // 68/215 -> 60/210: the COLOR_SWATCH sweep. Eight `<input type="color">`s
+  // across the item dialogs, the net-chain table and the colour-settings
+  // panel each carried a '#000000' or '#ffffff' fallback the native control
+  // needs and COLOR4D::UNSPECIFIED does not, and five of them were sized
+  // inline for the same reason.
+  'editors/schematic': { colours: 60, metrics: 210 },
   'editors/symbol': { colours: 12, metrics: 19 },
   home: { colours: 7, metrics: 7 },
   mobile: { colours: 15, metrics: 23 },
@@ -436,8 +447,14 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // 689 -> 686: the drawing sheet's format bar stopped writing its own blue
     // for a checked BITMAP_BUTTON and the static box stopped writing its own
     // frame colour. Rescanned from this tree, not subtracted from the diff.
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(685);
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1657);
+    // 685 -> 675: the COLOR_SWATCH sweep, which took sixteen
+    // `<input type="color">`s and the hex fallback each one needs. Rescanned
+    // from this tree, not subtracted from the diff.
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(675);
+    // 1657 -> 1649: the same sweep. A native colour input has no useful
+    // default size, so eight of the sixteen sites gave theirs an inline
+    // width and height; the shared swatch takes --swatch-*-w/h. Rescanned.
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1649);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {

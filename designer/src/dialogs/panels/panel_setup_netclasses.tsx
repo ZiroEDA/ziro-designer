@@ -29,6 +29,8 @@ export {
   type NetClassAssignment,
   type NetClassesData,
 } from '../../editors/schematic/schematic_settings.js';
+import { ColorSwatch } from '../../ui/ColorSwatch.js';
+import { parseColor4d, toCssColor } from '@ziroeda/common/src/color4d.js';
 
 interface Props {
   value: NetClassesData;
@@ -121,19 +123,23 @@ export function PanelSetupNetclasses({ value, onChange }: Props): JSX.Element {
                   </td>
                 ))}
                 <td style={{ textAlign: 'center' }}>
-                  <input
-                    type="color"
-                    value={c.pcbColor || '#000000'}
-                    style={{ width: 28, height: 18, border: 'none', background: 'none' }}
-                    onChange={(e) => setAt(i, { pcbColor: e.target.value })}
+                  {/* COLOR_SWATCH (color_swatch.cpp:301-328), where an
+                      <input type="color"> handed the job to the desktop's own
+                      popup - anchored to the control, so off-screen near the
+                      window edge, and unable to carry alpha. */}
+                  <ColorSwatch
+                    size="small"
+                    label="PCB color"
+                    color={parseColor4d(c.pcbColor || '#000000')}
+                    onChange={(picked) => setAt(i, { pcbColor: toCssColor(picked, ', ') })}
                   />
                 </td>
                 <td style={{ textAlign: 'center' }}>
-                  <input
-                    type="color"
-                    value={c.color || '#000000'}
-                    style={{ width: 28, height: 18, border: 'none', background: 'none' }}
-                    onChange={(e) => setAt(i, { color: e.target.value })}
+                  <ColorSwatch
+                    size="small"
+                    label="Schematic color"
+                    color={parseColor4d(c.color || '#000000')}
+                    onChange={(picked) => setAt(i, { color: toCssColor(picked, ', ') })}
                   />
                 </td>
                 <td>

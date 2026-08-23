@@ -7056,6 +7056,13 @@ textarea.ze-ds-textedit {
   border: none;
   padding: 0;
 }
+/* SWATCH_SIZE_SMALL — `SWATCH_SMALL` at color_swatch.cpp:167. The layer rows
+   already take these two tokens through `.ze-layer-swatch`; this is the same
+   pair reached through COLOR_SWATCH's own size argument. */
+.ze-swatch.small {
+  width: var(--swatch-small-w);
+  height: var(--swatch-small-h);
+}
 .ze-swatch > input[type="color"] {
   /* The picker still opens on a click; only its own rendering is suppressed,
      so what shows through is the swatch drawn above. */

@@ -35,6 +35,8 @@
 import { useRef, useState, type JSX } from 'react';
 import { ContextMenu } from '../../ui/MenuBar.js';
 import { layerContextMenu, type LayerInfo, type RenderRow } from './layer_widget.js';
+import { ColorSwatch } from '../../ui/ColorSwatch.js';
+import { parseColor4d, toCssColor } from '@ziroeda/common/src/color4d.js';
 
 export type { LayerInfo, RenderRow } from './layer_widget.js';
 export { renderRows, layerContextMenu } from './layer_widget.js';
@@ -147,14 +149,13 @@ export function LayerManager({
                   colorInputs.current[layer.index]?.click();
                 }}
               >
-                <input
-                  ref={(el) => {
-                    colorInputs.current[layer.index] = el;
-                  }}
-                  type="color"
-                  value={layer.color}
-                  onChange={(e) => onSetColor(layer.index, e.target.value)}
-                  onClick={(e) => e.stopPropagation()}
+                {/* COLOR_SWATCH (color_swatch.cpp:301-328), which is what
+                    GERBER_LAYER_WIDGET's colour column actually is. */}
+                <ColorSwatch
+                  size="small"
+                  label={`Set color for ${layer.name}`}
+                  color={parseColor4d(layer.color)}
+                  onChange={(picked) => onSetColor(layer.index, toCssColor(picked, ', '))}
                 />
               </button>
               {/* col 2, COLUMN_COLOR_LYR_CB — an unlabelled checkbox. */}

@@ -39,7 +39,8 @@ import {
   type LabelSpin,
 } from '@ziroeda/eeschema';
 import { toolbarIconUrl } from '../../../ui/toolbarIcons.js';
-import type { ItemColor } from './dialog_line_properties.js';
+import { ColorSwatch } from '../../../ui/ColorSwatch.js';
+import { color4dToItemColor, type ItemColor, itemColorToColor4d } from './item_color.js';
 import { useModalEscape } from '../../../ui/useModalEscape.js';
 
 /** A flag shape: a label's electrical one, or a directive label's outline. */
@@ -177,15 +178,6 @@ const withJustify = (f: EditedLabelField, axis: 'h' | 'v', value: string): Edite
   const justify = token === 'center' ? keep : [...keep, token];
   return { ...f, effects: { hidden: false, ...f.effects, justify } };
 };
-
-const toHex = (c: ItemColor): string =>
-  `#${[c[0], c[1], c[2]].map((v) => Math.round(v).toString(16).padStart(2, '0')).join('')}`;
-const fromHex = (h: string): ItemColor => [
-  Number.parseInt(h.slice(1, 3), 16),
-  Number.parseInt(h.slice(3, 5), 16),
-  Number.parseInt(h.slice(5, 7), 16),
-  1,
-];
 
 /** Text size shown in mm, trimmed the way KiCad's unit binder prints it. */
 const mmText = (iu: number): string =>
@@ -650,13 +642,16 @@ export function DialogLabelProperties({
                   />
                   <span className="ze-lp-units">mm</span>
                   <span className="ze-lp-colorlabel">Color:</span>
+                  {/* COLOR_SWATCH: it draws the colour and opens DIALOG_COLOR_PICKER
+            (color_swatch.cpp:301-328), where an <input type="color"> handed
+            the job to the desktop's own popup - anchored to the control, so
+            off-screen near the window edge, and unable to carry alpha. */}
                   <span className="ze-lp-swatch-frame">
-                    <input
-                      type="color"
+                    <ColorSwatch
                       className="ze-lp-swatch"
-                      title="Text color"
-                      value={color ? toHex(color) : '#ffffff'}
-                      onChange={(e) => setColor(fromHex(e.target.value))}
+                      label="Text color"
+                      color={itemColorToColor4d(color)}
+                      onChange={(c) => setColor(color4dToItemColor(c))}
                     />
                   </span>
                   <button

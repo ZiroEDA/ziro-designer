@@ -24,6 +24,8 @@ export {
   type NetChainClass,
   type NetChainsData,
 } from '../../schematic_settings.js';
+import { ColorSwatch } from '../../../../ui/ColorSwatch.js';
+import { parseColor4d, toCssColor } from '@ziroeda/common/src/color4d.js';
 
 interface Props {
   value: NetChainsData;
@@ -112,11 +114,13 @@ export function PanelSetupNetChains({ value, onChange }: Props): JSX.Element {
                       />
                     </td>
                     <td style={{ textAlign: 'center' }}>
-                      <input
-                        type="color"
-                        value={c.color || '#000000'}
-                        style={{ width: 28, height: 18, border: 'none', background: 'none' }}
-                        onChange={(e) => setChainAt(i, { color: e.target.value })}
+                      {/* COLOR_SWATCH (color_swatch.cpp:301-328) - see the
+                          netclass table, which builds the same control. */}
+                      <ColorSwatch
+                        size="small"
+                        label="Color"
+                        color={parseColor4d(c.color || '#000000')}
+                        onChange={(picked) => setChainAt(i, { color: toCssColor(picked, ', ') })}
                       />
                     </td>
                   </tr>

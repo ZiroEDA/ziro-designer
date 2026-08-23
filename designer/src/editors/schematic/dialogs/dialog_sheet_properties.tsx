@@ -21,7 +21,8 @@
 import { useState, type JSX } from 'react';
 import { iuToMM, mmToIU } from '@ziroeda/common';
 import type { SchField, TextEffects } from '@ziroeda/eeschema';
-import type { ItemColor } from './dialog_line_properties.js';
+import { ColorSwatch } from '../../../ui/ColorSwatch.js';
+import { color4dToItemColor, type ItemColor, itemColorToColor4d } from './item_color.js';
 import { useModalEscape } from '../../../ui/useModalEscape.js';
 
 /** The two rows that always exist and cannot be renamed, deleted or reordered
@@ -57,15 +58,6 @@ interface Props {
   onOk: (r: SheetPropsResult) => void;
   onCancel: () => void;
 }
-
-const toHex = (c: ItemColor): string =>
-  `#${[c[0], c[1], c[2]].map((v) => Math.round(v).toString(16).padStart(2, '0')).join('')}`;
-const fromHex = (h: string): ItemColor => [
-  Number.parseInt(h.slice(1, 3), 16),
-  Number.parseInt(h.slice(3, 5), 16),
-  Number.parseInt(h.slice(5, 7), 16),
-  1,
-];
 
 const H_ALIGN = ['left', 'center', 'right'] as const;
 const V_ALIGN = ['top', 'center', 'bottom'] as const;
@@ -184,11 +176,14 @@ export function DialogSheetProperties({
   ): JSX.Element => (
     <label className="row">
       <span>{label}</span>
-      <input
-        type="color"
-        value={value ? toHex(value) : '#000000'}
-        onChange={(e) => set(fromHex(e.target.value))}
-        style={{ width: 44, height: 24, padding: 0, border: 'none', background: 'none' }}
+      {/* COLOR_SWATCH: it draws the colour and opens DIALOG_COLOR_PICKER
+          (color_swatch.cpp:301-328). It was an <input type="color">,
+          i.e. the desktop's picker as a popup anchored to the control -
+          off-screen near the window edge, and unable to carry alpha. */}
+      <ColorSwatch
+        label={label}
+        color={itemColorToColor4d(value)}
+        onChange={(c) => set(color4dToItemColor(c))}
       />
       <button
         className="ze-btn"

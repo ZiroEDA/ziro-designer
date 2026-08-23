@@ -12,6 +12,8 @@
  * Moved verbatim out of `prefs/PreferencesDialog.tsx`; no behaviour change.
  */
 import type { JSX, ReactNode } from 'react';
+import { ColorSwatch } from '../../ui/ColorSwatch.js';
+import { parseColor4d, toCssColor } from '@ziroeda/common/src/color4d.js';
 
 export function Check({
   label,
@@ -134,11 +136,13 @@ export function ColorRow({
   return (
     <label className="ze-pref-row">
       <span className="lbl">{label}</span>
-      <input
-        type="color"
-        value={hex}
-        style={{ width: 44, height: 20, padding: 0, border: 'none', background: 'none' }}
-        onChange={(e) => onChange(joinCss(e.target.value, 1))}
+      {/* COLOR_SWATCH (color_swatch.cpp:301-328), which every colour in
+          KiCad is picked through - not the browser's popup, which opens
+          off-screen on a control near the window edge. */}
+      <ColorSwatch
+        label={label}
+        color={parseColor4d(value || fallback)}
+        onChange={(picked) => onChange(toCssColor(picked, ', '))}
       />
     </label>
   );

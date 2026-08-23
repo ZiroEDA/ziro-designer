@@ -17,18 +17,13 @@ import { useState, type JSX } from 'react';
 import { iuToMM, mmToIU } from '@ziroeda/common';
 import { WIRE_STYLE_NAMES } from '@ziroeda/common/src/stroke_params.js';
 import { useModalEscape } from '../../../ui/useModalEscape.js';
+import { ColorSwatch } from '../../../ui/ColorSwatch.js';
+import { color4dToItemColor, type ItemColor, itemColorToColor4d } from './item_color.js';
 
-/** Item colour as stored: [r, g, b] 0-255 plus alpha 0-1; unset = layer colour. */
-export type ItemColor = readonly [number, number, number, number];
-
-const toHex = (c: ItemColor): string =>
-  `#${[c[0], c[1], c[2]].map((v) => Math.round(v).toString(16).padStart(2, '0')).join('')}`;
-const fromHex = (h: string): ItemColor => [
-  Number.parseInt(h.slice(1, 3), 16),
-  Number.parseInt(h.slice(3, 5), 16),
-  Number.parseInt(h.slice(5, 7), 16),
-  1,
-];
+// `ItemColor` and its COLOR4D conversion moved to `item_color.ts` when the six
+// dialogs stopped each carrying their own copy of the hex round trip. Re-exported
+// so nothing that imported the type from here had to change.
+export type { ItemColor } from './item_color.js';
 
 interface WireProps {
   kind: 'wire';
@@ -70,11 +65,14 @@ export function DialogLineProperties(props: WireProps | JunctionProps): JSX.Elem
   const colorRow = (
     <label className="row">
       <span>Color:</span>
-      <input
-        type="color"
-        value={color ? toHex(color) : '#000000'}
-        onChange={(e) => setColor(fromHex(e.target.value))}
-        style={{ width: 44, height: 24, padding: 0, border: 'none', background: 'none' }}
+      {/* COLOR_SWATCH: it draws the colour and opens DIALOG_COLOR_PICKER
+          (color_swatch.cpp:301-328). It was an <input type="color">,
+          i.e. the desktop's picker as a popup anchored to the control -
+          off-screen near the window edge, and unable to carry alpha. */}
+      <ColorSwatch
+        label="Color"
+        color={itemColorToColor4d(color)}
+        onChange={(c) => setColor(color4dToItemColor(c))}
       />
       <button
         className="ze-btn"

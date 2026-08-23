@@ -18,6 +18,8 @@ import { Group, Sel, joinCss, splitCss } from '../../../dialogs/prefs/widgets.js
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
 import { pcm, usePcmVersion } from '../../../pcm/pcmStore.js';
 import { BUILTIN_THEMES, KICAD_DEFAULT, type Theme } from '../theme.js';
+import { ColorSwatch } from '../../../ui/ColorSwatch.js';
+import { parseColor4d, toCssColor } from '@ziroeda/common/src/color4d.js';
 
 /** The Colors page rows: KiCad layer display names (common/layer_id.cpp) -> Theme keys. */
 const COLOR_LAYERS: [keyof Theme, string][] = [
@@ -105,12 +107,16 @@ export function PanelEeschemaColorSettings({ ctx }: { ctx: PrefsContext }): JSX.
             const { hex, alpha } = splitCss(css);
             return (
               <label key={key} className="ze-pref-colorrow">
-                <input
-                  type="color"
-                  value={hex}
+                {/* COLOR_SWATCH (color_swatch.cpp:301-328). The split into
+                    hex-plus-alpha existed only because <input type="color">
+                    could not carry the alpha; the picker can, so the whole
+                    colour goes in and comes back. */}
+                <ColorSwatch
+                  label={label}
                   disabled={themeId !== 'user'}
-                  onChange={(e) =>
-                    setUserColors((c) => ({ ...c, [key]: joinCss(e.target.value, alpha) }))
+                  color={parseColor4d(css)}
+                  onChange={(picked) =>
+                    setUserColors((c) => ({ ...c, [key]: toCssColor(picked, ', ') }))
                   }
                 />
                 <span>{label}</span>

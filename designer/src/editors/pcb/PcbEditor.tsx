@@ -371,6 +371,8 @@ import { addQuitOrClose } from '../../ui/action_menu.js';
 import { dispatchMenuHotkey, focusBlocksHotkey } from '../../ui/menu_hotkeys.js';
 import { wasBrowserSuppressed, type FocusLike } from '../../ui/browser_hotkeys.js';
 import { settings } from '../../prefs/settings.js';
+import { ColorSwatch } from '../../ui/ColorSwatch.js';
+import { COLOR4D_UNSPECIFIED, parseColor4d, toCssColor } from '@ziroeda/common/src/color4d.js';
 
 const MM = PCB_IU_PER_MM; // pcbnew IU is 1 nm (base_units.h)
 
@@ -7691,19 +7693,22 @@ export function PcbEditor({
                           const on = !hiddenNets.has(code);
                           return (
                             <div key={code} className="ze-object-row" title={`Net ${code}`}>
-                              <label
-                                className={`ze-layer-swatch picker${color ? '' : ' unset'}`}
-                                style={color ? { background: color } : undefined}
-                                title="Set net color"
-                              >
-                                <input
-                                  type="color"
-                                  value={color ?? '#000000'}
-                                  onChange={(e) =>
-                                    setNetColors((p) => new Map(p).set(code, e.target.value))
-                                  }
-                                />
-                              </label>
+                              {/* COLOR_SWATCH (color_swatch.cpp:301-328) -
+                                  the same control APPEARANCE_CONTROLS builds
+                                  for a net row. It was an <input type="color">,
+                                  i.e. the desktop's popup anchored to a control
+                                  in the far-right pane, where it opened
+                                  off-screen. */}
+                              <ColorSwatch
+                                size="small"
+                                label={`Set color for net ${name}`}
+                                color={color ? parseColor4d(color) : COLOR4D_UNSPECIFIED}
+                                onChange={(picked) =>
+                                  setNetColors((p) =>
+                                    new Map(p).set(code, toCssColor(picked, ', ')),
+                                  )
+                                }
+                              />
                               <button
                                 type="button"
                                 className="ze-eye-btn"
@@ -7758,19 +7763,17 @@ export function PcbEditor({
                             {isDefault ? (
                               <span className="ze-layer-swatch" aria-hidden="true" />
                             ) : (
-                              <label
-                                className={`ze-layer-swatch picker${color ? '' : ' unset'}`}
-                                style={color ? { background: color } : undefined}
-                                title="Set netclass color"
-                              >
-                                <input
-                                  type="color"
-                                  value={color?.startsWith('#') ? color : '#000000'}
-                                  onChange={(e) =>
-                                    setClassColors((p) => new Map(p).set(cls, e.target.value))
-                                  }
-                                />
-                              </label>
+                              // The same COLOR_SWATCH as the net row above.
+                              <ColorSwatch
+                                size="small"
+                                label={`Set color for the ${cls} netclass`}
+                                color={color ? parseColor4d(color) : COLOR4D_UNSPECIFIED}
+                                onChange={(picked) =>
+                                  setClassColors((p) =>
+                                    new Map(p).set(cls, toCssColor(picked, ', ')),
+                                  )
+                                }
+                              />
                             )}
                             <button
                               type="button"

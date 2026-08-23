@@ -30,7 +30,8 @@
 import { useEffect, useRef, useState, type JSX } from 'react';
 import { iuToMM, mmToIU } from '@ziroeda/common';
 import { toolbarIconUrl } from '../../../ui/toolbarIcons.js';
-import type { ItemColor } from './dialog_line_properties.js';
+import { ColorSwatch } from '../../../ui/ColorSwatch.js';
+import { color4dToItemColor, type ItemColor, itemColorToColor4d } from './item_color.js';
 import {
   LINE_STYLE_NAMES,
   lineStyleComboValue,
@@ -90,15 +91,6 @@ interface Props {
   onCancel: () => void;
 }
 
-const toHex = (c: ItemColor): string =>
-  `#${[c[0], c[1], c[2]].map((v) => Math.round(v).toString(16).padStart(2, '0')).join('')}`;
-const fromHex = (h: string): ItemColor => [
-  Number.parseInt(h.slice(1, 3), 16),
-  Number.parseInt(h.slice(3, 5), 16),
-  Number.parseInt(h.slice(5, 7), 16),
-  1,
-];
-
 const mmText = (iu: number): string =>
   String(Number(iuToMM(iu).toFixed(4)))
     .replace(/(\.\d*?)0+$/, '$1')
@@ -140,13 +132,16 @@ function Swatch({
 }): JSX.Element {
   return (
     <>
+      {/* COLOR_SWATCH: it draws the colour and opens DIALOG_COLOR_PICKER
+            (color_swatch.cpp:301-328), where an <input type="color"> handed
+            the job to the desktop's own popup - anchored to the control, so
+            off-screen near the window edge, and unable to carry alpha. */}
       <span className="ze-lp-swatch-frame">
-        <input
-          type="color"
+        <ColorSwatch
           className="ze-lp-swatch"
-          title={title}
-          value={color ? toHex(color) : '#ffffff'}
-          onChange={(e) => onChange(fromHex(e.target.value))}
+          label={title}
+          color={itemColorToColor4d(color)}
+          onChange={(c) => onChange(color4dToItemColor(c))}
         />
       </span>
       <button

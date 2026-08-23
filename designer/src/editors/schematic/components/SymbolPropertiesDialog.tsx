@@ -39,6 +39,8 @@ import {
 import { PIN_SHAPE_NAMES, PIN_TYPE_NAMES } from '../../symbol/render/symbolRenderer.js';
 import { measureText } from '@ziroeda/common/src/font/stroke_font.js';
 import { useModalEscape } from '../../../ui/useModalEscape.js';
+import { ColorSwatch } from '../../../ui/ColorSwatch.js';
+import { color4dToItemColor, itemColorToColor4d } from '../dialogs/item_color.js';
 
 /**
  * Symbol Properties dialog, ported from KiCad's DIALOG_SYMBOL_PROPERTIES
@@ -532,11 +534,17 @@ export function SymbolPropertiesDialog({
                             "unspecified", so the × beside it is the way back to
                             the default text colour rather than a colour of black. */}
                         <td className="ze-cell-color">
-                          <input
-                            type="color"
-                            value={colorHex(row.effects.color) || '#000000'}
-                            onChange={(e) =>
-                              patchEffects(i, { color: colorFromHex(e.target.value) })
+                          {/* COLOR_SWATCH (color_swatch.cpp:301-328). It
+                              CAN express unspecified - MakeBitmap paints a
+                              checkerboard for it - which the native input
+                              could not, so the x beside it is the only way
+                              back today. */}
+                          <ColorSwatch
+                            size="small"
+                            label="Field color"
+                            color={itemColorToColor4d(row.effects.color)}
+                            onChange={(picked) =>
+                              patchEffects(i, { color: color4dToItemColor(picked) })
                             }
                           />
                           <button

@@ -56,7 +56,7 @@ function token(name: string): string {
   const body = SHELL.slice(at, SHELL.indexOf('\n}', at)).replace(/\/\*[\s\S]*?\*\//g, '');
   const m = body.match(new RegExp(`${name}\\s*:\\s*([^;]+);`));
   expect(m, `shell.css has no ${name}`).not.toBeNull();
-  return (m as RegExpMatchArray)[1].trim();
+  return (m?.[1] ?? '').trim();
 }
 
 const rgb255 = (c: { r: number; g: number; b: number }): [number, number, number] => [
@@ -216,7 +216,7 @@ describe('the vertical wxSlider, as the probe measured it', () => {
     const v = shellRule('.ze-slider.vertical');
     expect(v['flex-direction']).toBe('row');
     // 12 + 4 + 12 + label + label = the 76 px the probe read off a real one.
-    expect(v.width.replace(/\s+/g, ' ')).toBe(
+    expect((v.width ?? '').replace(/\s+/g, ' ')).toBe(
       'calc( 2 * var(--slider-track-inset) + var(--slider-track-height) + 2 * var(--slider-label-w) )',
     );
   });
