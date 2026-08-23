@@ -272,6 +272,15 @@ describe('a loose file in Templates opens, rather than doing nothing', () => {
     // is `GetFileExt`'s table. A `.kicad_sym` dropped in that folder lands in
     // the symbol editor for free.
     expect(HOME).toContain('activateFile(file, [file], name);');
+    // `toContain` alone could not fail: a sweep that wrapped the call in
+    // `if (name.endsWith('.kicad_wks'))` left the string in place and passed,
+    // turning the table back into the one special case it exists to replace.
+    // So read the function's whole body and let no extension test into it.
+    const at = HOME.indexOf('const openLooseTemplateFile = async');
+    expect(at, 'openLooseTemplateFile is gone').toBeGreaterThan(0);
+    const body = HOME.slice(at, HOME.indexOf('\n  };', at));
+    expect(body, 'the opener tests the extension itself').not.toMatch(/\.kicad_\w+/);
+    expect(body).not.toMatch(/endsWith\(|\.ext\b|extensionOf/);
   });
 
   it('says so when the file cannot be read, instead of returning silently', () => {
