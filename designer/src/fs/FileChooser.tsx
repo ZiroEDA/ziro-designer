@@ -34,63 +34,15 @@ import { treeIconFor } from '../home/project_tree.js';
 import { useModalEscape } from '../ui/useModalEscape.js';
 import '../ui/file_chooser.css';
 import { fileExtension, fileTypeLabel } from './file_types.js';
-import type { ChooserFilter } from './chooser_types.js';
+import type { ChooserFilter, ChooserPlace } from './chooser_types.js';
 import type { Entry, FileSystem } from './filesystem.js';
 import { formatModified, formatSize } from './format.js';
 import { ROOT, ancestors, basename, isValidName, join } from './path.js';
 
-/**
- * One row of the places sidebar.
- *
- * Upstream this is a `GtkPlacesSidebar` row, and upstream's rows are Home,
- * Desktop, Documents, Downloads and Other Locations — places on a computer.
- * This tree has one root and no computer, so the caller says what its places
- * are and the widget only draws them. A place may bring its own
- * {@link FileSystem}: "Recent" and "Demos" are listings rather than folders of
- * the account's tree, so they are not reachable by a path into it.
- */
-export interface ChooserPlace {
-  /** Stable id, used as the selected-place key. */
-  readonly id: string;
-  /** The row's text. */
-  readonly label: string;
-  /** A `TreeIcon` name — one of KiCad's own manager bitmaps. */
-  readonly icon: string;
-  /** The tree this place browses. Defaults to the chooser's own. */
-  readonly fs?: FileSystem;
-  /** Where in that tree to land. Defaults to its root. */
-  readonly path?: string;
-  /**
-   * Activating a project here opens it instead of walking into it.
-   *
-   * A project folder is a document as well as a folder, and which of the two a
-   * double-click means depends on the place. In the account's tree it is a
-   * folder — you walk in and find the files. In Templates it is neither: a
-   * template's manifest carries no file list, so walking in could only ever
-   * show an empty folder, which is what a person reads as "it is broken".
-   */
-  readonly activateOpens?: boolean;
-  /**
-   * What accepting a path in this place means. Defaults to the chooser's own
-   * {@link FileChooserProps.onAccept}.
-   *
-   * A place that brings its own {@link FileSystem} brings paths that mean
-   * nothing to the caller's tree — `/simulation/amplifier_ac` names a demo, not
-   * a project of the account — so what to do with one has to travel with the
-   * tree it came from. Upstream needs none of this because there is only ever
-   * one tree: `KICAD_MANAGER_CONTROL::OpenDemoProject` is literally
-   * `openProject( PATHS::GetStockDemosPath() )` — the same dialog and the same
-   * `LoadProject` as Open Project, pointed at a different starting directory
-   * (kicad/tools/kicad_manager_control.cpp:519). Splitting the one tree into
-   * places is ours, so re-joining them at the accept is ours to do too.
-   */
-  readonly onAccept?: (path: string) => void;
-}
-
-// ChooserFilter lives in chooser_types.ts so the wildcard data modules stay
-// reachable from qa's tsconfig, which compiles .ts only. Re-exported here so
-// every existing importer keeps working.
-export type { ChooserFilter };
+// ChooserFilter and ChooserPlace live in chooser_types.ts so the data modules
+// that name them stay reachable from qa's tsconfig, which compiles .ts only.
+// Re-exported here so every existing importer keeps working.
+export type { ChooserFilter, ChooserPlace };
 
 /** Which column the list is ordered by. */
 type SortKey = 'name' | 'size' | 'type' | 'modified';
@@ -431,7 +383,13 @@ export function FileChooser({
     </span>
   );
 
-  const canAccept = mode === 'save' ? isValidName(name) : selected !== null;
+  /**
+   * A place with its own tree cannot be written to unless it says otherwise —
+   * the caller's own tree is the writable one, and that is the place with no
+   * `fs` of its own.
+   */
+  const placeWritable = place ? (place.writable ?? place.fs === undefined) : true;
+  const canAccept = mode === 'save' ? placeWritable && isValidName(name) : selected !== null;
 
   return (
     <div className="ze-modal-backdrop" onMouseDown={onCancel}>
@@ -460,7 +418,15 @@ export function FileChooser({
           {mode === 'save' ? (
             <div className="ze-chooser-name">
               <span>Name</span>
-              <input value={name} onChange={(e) => setName(e.target.value)} />
+              {/* The entry goes insensitive with the button: a name typed into
+                  a place nothing can be saved to is a name with nowhere to go,
+                  and GTK does not offer to take one. */}
+              <input
+                value={name}
+                disabled={!placeWritable}
+                title={placeWritable ? undefined : 'This location cannot be saved to.'}
+                onChange={(e) => setName(e.target.value)}
+              />
             </div>
           ) : (
             <div className="ze-chooser-title">{title}</div>

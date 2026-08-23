@@ -459,40 +459,6 @@ export function HomePage({
   // fs/chooser_places.ts when the editors stopped opening a sidebar-less
   // chooser, and one copy of it is the point.
   const recentFs = useMemo(() => recentFileSystem(accountFs), [accountFs]);
-  // A demo's id is a path — `simulation/amplifier_ac` — and it carries the list
-  // of files it is made of, so Demos is a real tree: the `simulation` folder
-  // the demos directory has and the Open Demo Project menu groups by
-  // (menubar.ts's buildDemoSubmenu splits on the very same prefix), the demo
-  // project inside it, and that project's own files inside that. `projects`
-  // says which of the derived folders are the demos themselves, since nothing
-  // about `simulation/amplifier_ac` distinguishes it from `simulation`.
-  const demosFs = useMemo(
-    () =>
-      listFileSystem(
-        async () => ({
-          // The manifest names the files a demo is made of, not their sizes or
-          // when they were written - those bytes are on the CDN until the demo
-          // is opened. So both columns say nothing rather than `0 bytes` and
-          // `Jan 1, 1970`, which read as data the listing does not have.
-          files: demosRef.current.flatMap((d) =>
-            d.files.map((rel) => ({ name: `${d.id}/${rel}`, size: null, modified: null })),
-          ),
-          projects: new Set(demosRef.current.map((d) => `/${d.id}`)),
-        }),
-        { leafKind: 'file' },
-      ),
-    [],
-  );
-  // A template's manifest carries no file list, so a template is a leaf: there
-  // is nothing to show inside one, and the place says so rather than offering
-  // a folder that opens empty.
-  const templatesFs = useMemo(
-    () =>
-      listFileSystem(async () => ({
-        files: templatesRef.current.map((t) => ({ name: t.id, size: null, modified: null })),
-      })),
-    [],
-  );
   // Accepting in a place that browses its own tree cannot go to the account's
   // handler: `/simulation/amplifier_ac/amplifier_ac.kicad_pro` names a demo, and
   // `projectAt` reads the first segment as a project of the store, finds no
@@ -504,42 +470,47 @@ export function HomePage({
   // its filesystem does: the places are built once and must not be rebuilt.
   const openDemoRef = useRef<(id: string) => void>(() => {});
   const openTemplateRef = useRef<(t: TemplateMeta) => void>(() => {});
+  /**
+   * The four shared rows, with the two the project manager accepts DIFFERENTLY.
+   *
+   * The rows themselves are the same everywhere — the same sidebar in every
+   * dialog is the point. What changes here is what accepting one MEANS: in the
+   * project manager a demo or a template is opened as a project, where in an
+   * editor's Open the path is just a path to a file. That is the split
+   * `ChooserPlace.onAccept` exists for, so the rows are taken as they come and
+   * only the handler is attached.
+   */
   const chooserPlaces = useMemo<readonly ChooserPlace[]>(
-    () => [
-      // Recent and Projects are the shared pair; Demos and Templates are the
-      // project manager's own, because activating one opens a PROJECT rather
-      // than handing back a path.
-      ...standardChooserPlaces(accountFs),
-      {
-        id: 'demos',
-        label: 'Demos',
-        icon: 'open_project_demo',
-        fs: demosFs,
-        // Any path inside a demo opens that demo, the way any path inside a
-        // project of the account opens that project — a demo's id is the folder
-        // it lives in, so the demo is the one whose id the path starts with.
-        onAccept: (path) => {
-          const d = demoAt(path, demosRef.current);
-          if (d) openDemoRef.current(d.id);
-        },
-      },
-      {
-        id: 'templates',
-        label: 'Templates',
-        icon: 'new_project_from_template',
-        fs: templatesFs,
-        // A template has no listable contents, so a double-click takes it
-        // rather than walking into an empty folder.
-        activateOpens: true,
-        // And taking one means what the template selector's "open" means: a
-        // copy under the template's own name, so the original stays read-only.
-        onAccept: (path) => {
-          const t = templatesRef.current.find((x) => path === `/${x.id}`);
-          if (t) openTemplateRef.current(t);
-        },
-      },
-    ],
-    [accountFs, demosFs, templatesFs],
+    () =>
+      standardChooserPlaces(accountFs).map((p) => {
+        if (p.id === 'demos') {
+          return {
+            ...p,
+            // Any path inside a demo opens that demo, the way any path inside a
+            // project of the account opens that project — a demo's id is the
+            // folder it lives in, so the demo is the one whose id the path
+            // starts with.
+            onAccept: (path: string) => {
+              const d = demoAt(path, demosRef.current);
+              if (d) openDemoRef.current(d.id);
+            },
+          };
+        }
+        if (p.id === 'templates') {
+          return {
+            ...p,
+            // Taking one means what the template selector's "open" means: a
+            // copy under the template's own name, so the original stays
+            // read-only.
+            onAccept: (path: string) => {
+              const t = templatesRef.current.find((x) => path === `/${x.id}`);
+              if (t) openTemplateRef.current(t);
+            },
+          };
+        }
+        return p;
+      }),
+    [accountFs],
   );
   // New Project / New from Template (upstream v10: one template selector).
   const [templates, setTemplates] = useState<TemplateMeta[]>([]);
