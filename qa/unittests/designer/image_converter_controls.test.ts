@@ -76,7 +76,11 @@ const NOTEBOOK_TABS = 'role="tab"';
 const SIZE_X = 'value={outX}';
 const SIZE_Y = 'value={outY}';
 const UNIT_CHOICE = 'value={unit}';
-const THRESHOLD_SLIDER = 'type="range"';
+// The threshold slider is now the shared `Slider` (ui/Slider.tsx) rather than a
+// native <input type="range">, so its marker moved with it - the same way the
+// Layer choice's did below. What this pins - live from the first frame, never
+// greyed off the image - did not change.
+const THRESHOLD_SLIDER = 'value={threshold}';
 // The Layer choice is now the shared `Combo` (ui/Combo.tsx) rather than a
 // native <select>, so its value is stringified. The marker moved with it; the
 // behaviour this pins - disabled off the FORMAT, never off the image - did not.

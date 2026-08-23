@@ -936,6 +936,127 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   background: var(--slider-thumb-bg);
 }
 
+/* ---- wxSlider with wxSL_LABELS / wxSL_VERTICAL (see ui/Slider.tsx) ----
+
+   GTK draws the current value beside the thumb and the two range ends at the
+   ends of the track, each on its own label line. These rules were scoped to
+   `.imgc-frame` in imageConverter.css and so were reachable from one launcher;
+   the colour picker asked for the same control and got a bare range input.
+
+   `--slider-frac` is where the thumb really stands, 0..1. A range input's thumb
+   centre travels only between half a thumb in from each end, which is what the
+   second term of each calc() corrects for — so the accent fill and the value
+   label follow the thumb rather than the value. */
+.ze-slider {
+  position: relative;
+  /* [data] the wxFormBuilder border around a slider at its call sites:
+     `wxBOTTOM|wxLEFT|wxRIGHT, 5` in bitmap2cmp_panel_base.cpp:150. */
+  padding: 0 var(--wx-border);
+}
+/* wxSL_LABELS makes room for a label line above the track and one below. */
+.ze-slider.labelled {
+  padding-block: var(--ui-line-height);
+}
+/* GTK insets the trough 12 px from each end of the scale's own box and lets the
+   thumb hang half over it. A range input confines its thumb inside the track
+   instead, so the two cannot both be exact: this matches the TROUGH, which is
+   on screen at every value. */
+.ze-app .ze-slider > input[type="range"] {
+  display: block;
+  width: calc(100% - 2 * var(--slider-track-inset));
+  margin: 0 var(--slider-track-inset);
+  /* NOT PROVEN. The +7 is a fudge that makes the label lines above and below
+     the track clear the thumb; no GTK metric and no measurement says 7. It is
+     the one number in this rule that is neither a token nor a citation. */
+  height: calc(var(--slider-thumb-size) + 7px);
+  padding: 0;
+  appearance: none;
+  background: transparent;
+}
+/* scale highlight is the accent, scale trough the flat grey behind it. */
+.ze-app .ze-slider > input[type="range"]::-webkit-slider-runnable-track {
+  --slider-thumb-x: calc(
+    var(--slider-thumb-size) /
+    2 +
+    var(--slider-frac) *
+    (100% - var(--slider-thumb-size))
+  );
+  height: var(--slider-track-height);
+  border-radius: calc(var(--slider-track-height) / 2);
+  background: linear-gradient(
+    to right,
+    var(--chrome-active) 0 var(--slider-thumb-x),
+    var(--slider-track-bg) var(--slider-thumb-x) 100%
+  );
+}
+.ze-app .ze-slider > input[type="range"]::-webkit-slider-thumb {
+  appearance: none;
+  width: var(--slider-thumb-size);
+  height: var(--slider-thumb-size);
+  border-radius: 50%;
+  background: var(--slider-thumb-bg);
+  border: 1px solid var(--slider-thumb-border);
+  box-sizing: border-box;
+  margin-top: calc((var(--slider-track-height) - var(--slider-thumb-size)) / 2);
+}
+/* Centred on the thumb, wherever the thumb actually is. */
+.ze-slider-val {
+  position: absolute;
+  top: 0;
+  left: calc(
+    var(--wx-border) +
+    var(--slider-track-inset) +
+    var(--slider-thumb-size) /
+    2 +
+    var(--slider-frac) *
+    (100% - 2 * var(--wx-border) - 2 * var(--slider-track-inset) - var(--slider-thumb-size))
+  );
+  transform: translateX(-50%);
+  font-variant-numeric: tabular-nums;
+}
+.ze-slider-ends {
+  position: absolute;
+  bottom: 0;
+  left: var(--wx-border);
+  right: var(--wx-border);
+  display: flex;
+  justify-content: space-between;
+  font-variant-numeric: tabular-nums;
+}
+/* wxSL_VERTICAL. The control is the same one turned a quarter; `direction: rtl`
+   with the writing mode is what carries wxSL_INVERSE - the MAXIMUM at the top,
+   where a person expects "more" to be. Both of the colour picker's sliders
+   have that bit (dialog_color_picker_base.cpp:122, 171). */
+.ze-slider.vertical {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0;
+}
+.ze-app .ze-slider.vertical > input[type="range"] {
+  writing-mode: vertical-lr;
+  direction: rtl;
+  width: auto;
+  height: auto;
+  flex: 1;
+  margin: var(--slider-track-inset) 0;
+}
+/* Turned vertical the labels are no longer a line above and a line below the
+   track; they are the value at the top and the low end at the bottom, which is
+   the same pair read down the scale. */
+.ze-slider.vertical .ze-slider-val,
+.ze-slider.vertical .ze-slider-ends {
+  position: static;
+  transform: none;
+  display: block;
+}
+.ze-slider.vertical .ze-slider-ends > :last-child {
+  display: none;
+}
+.ze-slider.vertical.labelled {
+  padding-block: 0;
+}
+
 /* A wxRadioButton is DRAWN here rather than left to the engine. GTK paints a
    filled disc with a white centre; Chrome's accent-color paints an outline
    ring with a coloured dot inside it, so the two read differently at a glance
@@ -8264,9 +8385,16 @@ textarea.ze-ds-textedit {
   align-items: stretch;
 }
 .ze-cp-panels {
-  /* bSizerPanels, horizontal: the RGB box beside the HSV box. */
+  /* bSizerPanels, horizontal: the RGB box beside the HSV box. Each goes in
+     with proportion 1, so the two share the notebook evenly - and the
+     notebook's own width comes from the 264 px palettes, not from the fields
+     under them. */
   display: flex;
   align-items: stretch;
+}
+.ze-cp-panels > fieldset {
+  flex: 1 1 0;
+  min-width: 0;
 }
 .ze-cp-palette {
   position: relative;
@@ -8282,17 +8410,18 @@ textarea.ze-ds-textedit {
   left: 0;
   top: 0;
 }
-/* wxSL_LABELS: the value at the thumb and the range end beside the track. */
-.ze-cp-sliderval {
-  font-size: var(--ui-font-size);
-  opacity: 0.85;
-}
 /* A wxSpinCtrl is an entry with GTK's own -/+ beside it. */
 .ze-cp-spinbox {
   display: flex;
   align-items: stretch;
 }
 .ze-cp-spinbox > input {
+  /* A wxSpinCtrl built with wxDefaultSize is as wide as its RANGE needs, and
+     these hold three digits at most (0..255, 0..359). An `<input>` defaults to
+     `size=20` and contributes that to its track's max-content, which is what
+     stretched each static box to three twenty-character fields and made the
+     dialog half again as wide as a real one. */
+  width: 0;
   min-width: 0;
   flex: 1 1 auto;
   font-size: var(--ui-font-size);
@@ -8376,9 +8505,8 @@ textarea.ze-ds-textedit {
   padding: 5px;
   gap: 5px; /* [data] the label's own wxALL border */
 }
-.ze-cp-vslider {
-  writing-mode: vertical-lr;
-  direction: rtl;
+/* The slider itself is `.ze-slider.vertical` - see ui/Slider.tsx. */
+.ze-cp-slidercol > .ze-slider {
   flex: 1;
 }
 .ze-cp-buttons {

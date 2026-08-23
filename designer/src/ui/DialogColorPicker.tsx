@@ -31,6 +31,7 @@ import {
   toHSV,
   toHexString,
 } from '@ziroeda/common/src/color4d.js';
+import { Slider } from './Slider.js';
 import { useModalEscape } from './useModalEscape.js';
 
 /**
@@ -484,21 +485,19 @@ export function DialogColorPicker({
                 {/* bSizerBright: a vertical wxSL_INVERSE slider, 0..255. */}
                 <div className="ze-cp-slidercol">
                   <span>Value:</span>
-                  {/* wxSL_LABELS, so wx prints the CURRENT value at the thumb
-                      and the two ends beside the track. Ours showed no number
-                      at all, which is half of what the control is for. */}
-                  <span className="ze-cp-sliderval">{Math.round(hsv.val * 255)}</span>
-                  <input
-                    type="range"
-                    className="ze-cp-vslider"
+                  {/* `wxSL_INVERSE|wxSL_LABELS|wxSL_LEFT|wxSL_VERTICAL`, 0..255
+                      (dialog_color_picker_base.cpp:122). The shared wxSlider —
+                      a bare range input has none of the labels or the accent
+                      fill, which is what stood here. */}
+                  <Slider
+                    vertical
+                    labels
+                    ariaLabel="Value"
                     min={0}
                     max={255}
                     value={Math.round(hsv.val * 255)}
-                    onChange={(e) =>
-                      applyHsv(hsv.hue, hsv.sat, Number(e.target.value) / 255, color.a)
-                    }
+                    onChange={(n) => applyHsv(hsv.hue, hsv.sat, n / 255, color.a)}
                   />
-                  <span className="ze-cp-sliderval">0</span>
                 </div>
               </div>
             </fieldset>
@@ -515,20 +514,20 @@ export function DialogColorPicker({
           {allowOpacity && (
             <div className="ze-cp-slidercol">
               <span>Opacity:</span>
-              <span className="ze-cp-sliderval">{Math.round(color.a * 100)}</span>
-              <input
-                type="range"
-                className="ze-cp-vslider"
+              {/* The same control, 0..100 (dialog_color_picker_base.cpp:171). */}
+              <Slider
+                vertical
+                labels
+                ariaLabel="Opacity"
                 min={0}
                 max={100}
                 value={Math.round(color.a * 100)}
-                onChange={(e) => {
-                  const c = { ...color, a: Number(e.target.value) / 100 };
+                onChange={(n) => {
+                  const c = { ...color, a: n / 100 };
                   setColor(c);
                   setHexText(toHexString(c));
                 }}
               />
-              <span className="ze-cp-sliderval">0</span>
             </div>
           )}
         </div>

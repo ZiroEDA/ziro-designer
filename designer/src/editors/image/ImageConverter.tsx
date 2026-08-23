@@ -21,6 +21,7 @@ import {
   type JSX,
 } from 'react';
 import { Combo } from '../../ui/Combo.js';
+import { Slider } from '../../ui/Slider.js';
 import { MenuBar, type Menu, type MenuItem } from '../../ui/MenuBar.js';
 import { MessageDialogYesNo } from '../../ui/dialog_message.js';
 import type { YesNoResult } from '../../ui/message_dialog.js';
@@ -654,25 +655,18 @@ export function ImageConverter({ onExitToHome }: { onExitToHome: () => void }): 
             <legend>Options</legend>
             <span className="imgc-thresh-label">Black / white threshold:</span>
             {/* wxSL_LABELS: the value rides above the thumb and the two range
-                ends sit under the ends of the track. */}
-            <div
+                ends sit under the ends of the track. The rules for that used to
+                live in imageConverter.css scoped to `.imgc-frame`, which made
+                them this launcher's - see ui/Slider.tsx. */}
+            <Slider
               className="imgc-slider"
-              style={{ '--imgc-thumb-frac': threshold / 100 } as CSSProperties}
-            >
-              <span className="imgc-slider-val">{threshold}</span>
-              <input
-                type="range"
-                min={0}
-                max={100}
-                value={threshold}
-                title="Adjust the level to convert the greyscale picture to a black and white picture."
-                onChange={(e) => setThreshold(Number(e.target.value))}
-              />
-              <span className="imgc-slider-ends">
-                <span>0</span>
-                <span>100</span>
-              </span>
-            </div>
+              min={0}
+              max={100}
+              labels
+              value={threshold}
+              title="Adjust the level to convert the greyscale picture to a black and white picture."
+              onChange={setThreshold}
+            />
             <label className="imgc-check">
               <input
                 type="checkbox"

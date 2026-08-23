@@ -130,7 +130,12 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   'editors/drawingsheet': { colours: 0, metrics: 0 },
   'editors/footprint': { colours: 9, metrics: 20 },
   'editors/gerbview': { colours: 3, metrics: 4 },
-  'editors/image': { colours: 0, metrics: 1 },
+  // 1 -> 0. Its last metric was the slider's `height: 7px` NOT-PROVEN fudge,
+  // and the slider itself moved to ui/Slider.tsx + shell.css when it stopped
+  // being this launcher's private copy of a control wx has one of. The number
+  // did not go away - it moved to `ui` below, which is why the tree totals are
+  // unchanged.
+  'editors/image': { colours: 0, metrics: 0 },
   // 76/397 until the Appearance panel pass. Colours: the invented Objects row
   // took rgba(80,160,240,0.5) with it, and the notebook tab strip's inline
   // #2a2a2e, #4d7fc4 and #333 went when it adopted the shared .ze-nb-tabs.
@@ -213,7 +218,9 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // - a color-mix, not a written-down pair - and the format bar's separator
   // took --ctl-fg-disabled (wxSYS_COLOUR_GRAYTEXT) and its full 26 px height,
   // replacing a 16 px rule of ours.
-  ui: { colours: 286, metrics: 814 },
+  // 814 -> 815, and the one that arrived is editors/image's departing
+  // `height: 7px`. A move, not a gain: the tree-wide totals below are the same.
+  ui: { colours: 286, metrics: 815 },
   widgets: { colours: 6, metrics: 46 },
 };
 
@@ -521,11 +528,20 @@ describe('the three launchers this pass took are actually on the tokens', () => 
     ).toStrictEqual([]);
   });
 
-  it("editors/image's one metric is the slider box, and it is admitted to", () => {
-    const left = SITES.filter((s) => s.area === 'editors/image' && s.kind === 'metrics');
-    expect(left.map((s) => s.what)).toStrictEqual(['height: 7px']);
+  it('editors/image has no metric literal left, and its slider box moved out', () => {
+    // The `height: 7px` that used to be admitted to here belongs to the SHARED
+    // wxSlider now, so the admission has to be where the number is - a
+    // NOT PROVEN note left behind in a file that no longer holds the literal
+    // would excuse nothing and hide the real one.
+    expect(SITES.filter((s) => s.area === 'editors/image' && s.kind === 'metrics')).toStrictEqual(
+      [],
+    );
     const css = readFileSync(join(SRC, 'editors/image/imageConverter.css'), 'utf8');
-    expect(css).toContain('NOT PROVEN');
+    expect(css).not.toContain('NOT PROVEN');
+    const shell = readFileSync(join(SRC, 'ui/shell.css'), 'utf8');
+    const at = shell.indexOf('NOT PROVEN');
+    expect(at, 'the shared slider still admits its fudge').toBeGreaterThan(-1);
+    expect(shell.slice(at, at + 400)).toContain('height: calc(var(--slider-thumb-size) + 7px)');
   });
 
   it('editors/drawingsheet has no metric literal left either', () => {

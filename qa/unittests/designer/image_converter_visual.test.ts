@@ -144,8 +144,11 @@ describe('D6: the preview pages are flat', () => {
     const view = rule('.imgc-view');
     expect(view['background-image']).toBeUndefined();
     expect(view.background).toBe('var(--panel-bg)');
-    // The only gradient in the file is the slider's own accent fill.
-    expect(CSS_CODE.match(/linear-gradient/g)?.length ?? 0).toBe(1);
+    // NO gradient at all in this file now. The one that used to be here was the
+    // slider's accent fill, and the slider moved to shell.css when it stopped
+    // being this launcher's private copy - so a gradient reappearing here means
+    // a checkerboard or a fade, which is what the assertion is watching for.
+    expect(CSS_CODE.match(/linear-gradient/g)?.length ?? 0).toBe(0);
     expect(rule('.imgc-pages')['background-image']).toBeUndefined();
   });
 });
@@ -169,15 +172,43 @@ describe('D1: the column packs to the bottom', () => {
 });
 
 describe('B2: the threshold slider carries wxSL_LABELS', () => {
+  // The control itself is the SHARED wxSlider (designer/src/ui/Slider.tsx, and
+  // the `.ze-slider` rules in shell.css). It used to be a block scoped to
+  // `.imgc-frame` in this panel's own stylesheet, which is a per-launcher copy
+  // of a control wx has exactly one of - and the colour picker proved the cost
+  // by asking for the same slider and getting a bare range input. So these
+  // assertions follow it to the shared files; what stays here is that this
+  // panel asks for the label bit at all, and the range it asks for.
+  it('asks the shared slider for wxSL_LABELS, 0 to 100', () => {
+    expect(TSX).toContain('<Slider');
+    const s = TSX.slice(at('<Slider'), TSX.indexOf('/>', at('<Slider')));
+    expect(s).toContain('labels');
+    expect(s).toContain('min={0}');
+    expect(s).toContain('max={100}');
+  });
+
   it('puts the value above the track and the two ends below it', () => {
-    expect(at('className="imgc-slider-val"')).toBeLessThan(at('type="range"'));
-    expect(at('type="range"')).toBeLessThan(at('className="imgc-slider-ends"'));
-    expect(TSX).toContain('<span>0</span>');
-    expect(TSX).toContain('<span>100</span>');
+    // Comments blanked, or the doc comment's own mention of a bare
+    // `<input type="range">` is found before the element and the order reads
+    // backwards.
+    const SLIDER = read('../../../designer/src/ui/Slider.tsx')
+      .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/\/\/[^\n]*/g, '');
+    const sAt = (needle: string): number => {
+      const i = SLIDER.indexOf(needle);
+      expect(i, `not in Slider.tsx: ${needle}`).toBeGreaterThanOrEqual(0);
+      return i;
+    };
+    expect(sAt('className="ze-slider-val"')).toBeLessThan(sAt('type="range"'));
+    expect(sAt('type="range"')).toBeLessThan(sAt('className="ze-slider-ends"'));
+    // Both ends are printed, and from the range rather than written down.
+    expect(SLIDER).toContain('<span>{min}</span>');
+    expect(SLIDER).toContain('<span>{max}</span>');
   });
 
   it('centres the value on the thumb rather than parking it beside the track', () => {
-    const val = rule('.imgc-slider-val');
+    const val = shellRule('.ze-slider-val');
     expect(val.position).toBe('absolute');
     expect(val.transform).toBe('translateX(-50%)');
     // The thumb centre travels only over the trough, which is itself inset from
@@ -186,15 +217,19 @@ describe('B2: the threshold slider carries wxSL_LABELS', () => {
       'var(--wx-border)',
       'var(--slider-track-inset)',
       'var(--slider-thumb-size)',
-      'var(--imgc-thumb-frac)',
+      'var(--slider-frac)',
     ]) {
       expect(val.left).toContain(term);
     }
-    expect(TSX).toContain("'--imgc-thumb-frac': threshold / 100");
+    // The fraction is computed from the value and the RANGE, not from a 100
+    // this one caller happens to use.
+    expect(read('../../../designer/src/ui/Slider.tsx')).toContain(
+      'const frac = max > min ? (value - min) / (max - min) : 0;',
+    );
   });
 
   it('spreads 0 and 100 across the ends of the track', () => {
-    const ends = rule('.imgc-slider-ends');
+    const ends = shellRule('.ze-slider-ends');
     expect(ends['justify-content']).toBe('space-between');
     expect(ends.bottom).toBe('0');
   });
@@ -437,17 +472,17 @@ describe('the Image Converter reads its metrics from the tokens', () => {
   });
 
   it('builds the slider out of the token track and thumb', () => {
-    const thumb = rule('.imgc-frame .imgc-slider input[type="range"]::-webkit-slider-thumb');
+    const thumb = shellRule('.ze-app .ze-slider > input[type="range"]::-webkit-slider-thumb');
     expect(thumb.width).toBe('var(--slider-thumb-size)');
     expect(thumb.background).toBe('var(--slider-thumb-bg)');
-    const track = rule(
-      '.imgc-frame .imgc-slider input[type="range"]::-webkit-slider-runnable-track',
+    const track = shellRule(
+      '.ze-app .ze-slider > input[type="range"]::-webkit-slider-runnable-track',
     );
     expect(track.height).toBe('var(--slider-track-height)');
     expect(track.background).toContain('var(--slider-track-bg)');
     expect(track.background).toContain('var(--chrome-active)');
     // scale { padding: 12px }: the trough stops short of the widget's ends.
-    const range = rule('.imgc-frame .imgc-slider input[type="range"]');
+    const range = shellRule('.ze-app .ze-slider > input[type="range"]');
     expect(range.width).toBe('calc(100% - 2 * var(--slider-track-inset))');
     expect(range.margin).toBe('0 var(--slider-track-inset)');
   });
