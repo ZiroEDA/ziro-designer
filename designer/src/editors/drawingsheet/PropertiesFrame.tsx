@@ -40,6 +40,8 @@ import {
 } from '@ziroeda/common';
 import { KICAD_FONT_NAME } from '@ziroeda/common/src/font/stroke_font.js';
 import { bitmapUrl } from '../../ui/toolbarIcons.js';
+import { DialogColorPicker } from '../../ui/DialogColorPicker.js';
+import { type Color4d, setFromHexString } from '@ziroeda/common/src/color4d.js';
 import { Combo, type ComboOption } from '../../ui/Combo.js';
 import { useModalEscape } from '../../ui/useModalEscape.js';
 import { UnitField } from '../../ui/UnitField.js';
@@ -347,6 +349,19 @@ function FormatButton({
 const colorCss = (c: WksColor | undefined): string =>
   c ? `rgba(${c.r},${c.g},${c.b},${c.a})` : DS_ITEM_COLOR;
 
+/**
+ * A `WksColor` as a `COLOR4D` — the picker's currency, and KiCad's.
+ *
+ * `WksColor` holds 0..255 channels because that is what the `.kicad_wks` file
+ * carries; COLOR4D is 0..1. An item with no colour of its own resolves to the
+ * layer colour, which is what the swatch shows and so what the picker must
+ * open on.
+ */
+const color4dOf = (c: WksColor | undefined): Color4d =>
+  c
+    ? { r: c.r / 255, g: c.g / 255, b: c.b / 255, a: c.a ?? 1 }
+    : (setFromHexString(DS_ITEM_COLOR_HEX) ?? { r: 0, g: 0, b: 0, a: 1 });
+
 const hexOf = (c: WksColor | undefined): string => {
   if (!c) return DS_ITEM_COLOR_HEX;
   const h = (n: number): string => Math.round(n).toString(16).padStart(2, '0');
@@ -462,6 +477,8 @@ function ItemProperties({
   /** DS_DATA_ITEM::m_LineWidth — every type but a bitmap has one. */
   const pen: WksText | WksLine | WksRect | WksPoly | null = t ?? shape ?? poly;
   const patch = onChange as (p: Record<string, unknown>) => void;
+  /** COLOR_SWATCH's picker, open while the user is choosing. */
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   return (
     <div className="ze-ds-itempage">
@@ -573,29 +590,41 @@ function ItemProperties({
                 `RenderToDC` takes the checkerboard branch for it and paints
                 6 x 7 px squares (color_swatch.cpp:78-133). Ours painted the
                 resolved layer colour there - a red the user cannot tell from a
-                real, chosen red. The native `<input type="color">` still does
-                the picking; it is only made invisible so the swatch beside it
-                can be drawn the way KiCad draws it. */}
-            <label
+                real, chosen red.
+
+                Clicking it opens DIALOG_COLOR_PICKER, which is what
+                `COLOR_SWATCH::GetNewSwatchColor` does (color_swatch.cpp:301-311).
+                It was an `<input type="color">`, i.e. the desktop's own picker
+                as a popup anchored to the control - so on a swatch this close
+                to the right edge of the window it opened off-screen. */}
+            <button
+              type="button"
               className={`ze-swatch${t.color ? '' : ' unspecified'}`}
+              aria-label="Text color"
               style={t.color ? { background: colorCss(t.color) } : undefined}
-            >
-              <input
-                type="color"
-                value={hexOf(t.color)}
-                onChange={(e) => {
-                  const hex = e.target.value;
+              onClick={() => setPickerOpen(true)}
+            />
+            {pickerOpen && (
+              <DialogColorPicker
+                // COLOR4D::UNSPECIFIED opens on the colour the item will
+                // actually be drawn in, which is what the swatch shows.
+                value={color4dOf(t.color)}
+                // `m_textColorSwatch->SetDefaultColor` at properties_frame.cpp:124.
+                defaultColor={color4dOf(undefined)}
+                onDone={(picked) => {
+                  setPickerOpen(false);
+                  if (!picked) return; // wxID_CANCEL
                   patch({
                     color: {
-                      r: parseInt(hex.slice(1, 3), 16),
-                      g: parseInt(hex.slice(3, 5), 16),
-                      b: parseInt(hex.slice(5, 7), 16),
-                      a: t.color?.a ?? 1,
+                      r: Math.round(picked.r * 255),
+                      g: Math.round(picked.g * 255),
+                      b: Math.round(picked.b * 255),
+                      a: picked.a,
                     },
                   });
                 }}
               />
-            </label>
+            )}
             {/* No clear button. The format bar upstream ends at the swatch
                 (properties_frame_base.cpp:88-148: bold, italic, separator, the
                 three h-align buttons, separator, the three v-align buttons,

@@ -8256,3 +8256,114 @@ textarea.ze-ds-textedit {
   background: var(--aui-sash);
   cursor: col-resize;
 }
+
+/* ---- DIALOG_COLOR_PICKER (common/dialogs/dialog_color_picker.cpp) ---- */
+.ze-cp-upper {
+  /* bSizerUpperMain, horizontal: the notebook then the transparency column. */
+  display: flex;
+  align-items: stretch;
+}
+.ze-cp-panels {
+  /* bSizerPanels, horizontal: the RGB box beside the HSV box. */
+  display: flex;
+  align-items: stretch;
+}
+.ze-cp-palette {
+  position: relative;
+  display: block;
+  line-height: 0;
+}
+/* The 8 px square cursor each palette draws over the picked pixel
+   (m_cursorsSize, dialog_color_picker.cpp:573-576). */
+.ze-cp-cursor {
+  position: absolute;
+  /* [data] m_cursorsSize, `FromDIP( 8 )` (dialog_color_picker.cpp:575); the
+     negative margin is half of it, which is what centres the square on the
+     picked pixel the way `DrawRectangle( pos - size/2, size )` does. */
+  width: 8px; /* [data] m_cursorsSize, FromDIP( 8 ) */
+  height: 8px; /* [data] the same 8 */
+  margin: -4px 0 0 -4px; /* [data] half of it, to centre on the picked pixel */
+  border: 1px solid var(--chrome-fg);
+  pointer-events: none;
+}
+.ze-cp-spins {
+  /* fgSizerRGB: three growable columns, the labels on one row and the spins on
+     the next (dialog_color_picker_base.cpp:41-46). fgSizerHSV is the same with
+     two. */
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+}
+.ze-cp-spins.two {
+  grid-template-columns: repeat(2, 1fr);
+}
+.ze-cp-spin {
+  display: flex;
+  flex-direction: column;
+  font-size: var(--ui-font-size);
+  /* [data] the border wxFormBuilder gives every cell in these two sizers:
+     `wxTOP|wxRIGHT|wxLEFT, 5` on the labels and
+     `wxEXPAND|wxBOTTOM|wxRIGHT|wxLEFT, 5` on the spins
+     (dialog_color_picker_base.cpp:48-64). The label sits directly on its spin,
+     so the gap between them is the sizer's own vgap, which is 0. */
+  padding: 5px;
+  gap: 0; /* [data] the sizer's vgap, 0 - the label sits on its spin */
+}
+.ze-cp-hsvrow {
+  display: flex;
+  align-items: stretch;
+}
+.ze-cp-hsvcol {
+  display: flex;
+  flex-direction: column;
+}
+/* bSizerBright and m_SizerTransparency: a label over a VERTICAL wxSlider. */
+.ze-cp-slidercol {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-size: var(--ui-font-size);
+  /* [data] `wxALL|wxALIGN_CENTER_HORIZONTAL, 5` on the label and 10 on the
+     slider (dialog_color_picker_base.cpp:120-124, :169-173); the gap between
+     them is the label's own bottom border. */
+  padding: 5px;
+  gap: 5px; /* [data] the label's own wxALL border */
+}
+.ze-cp-vslider {
+  writing-mode: vertical-lr;
+  direction: rtl;
+  flex: 1;
+}
+.ze-cp-buttons {
+  /* bButtonsSizer, horizontal, with the standard button sizer at the end. */
+  display: flex;
+  align-items: center;
+  font-size: var(--ui-font-size);
+  /* [data] `bSizerMain->Add( bButtonsSizer, 0, wxEXPAND|wxLEFT, 10 )` for the
+     inset, and the 5 px border every child of that sizer carries. */
+  padding-left: 10px;
+  gap: 5px; /* [data] the 5 px border every child of bButtonsSizer carries */
+}
+/* m_OldColorRect / m_NewColorRect: SetMinSize( 24, 24 ) in the base file, which
+   the dialog then overrides with FromDIP( 20, 20 ) at
+   dialog_color_picker.cpp:65-66 - the later call is the one that stands. */
+.ze-cp-preview {
+  /* [data] `FromDIP( wxSize( 20, 20 ) )`, dialog_color_picker.cpp:65-66. */
+  width: 20px;
+  height: 20px; /* [data] the same FromDIP( 20 ) */
+  flex: 0 0 auto;
+  border: 1px solid var(--ctl-border);
+}
+.ze-cp-hex {
+  /* [data] `m_colorValue->SetMinSize( wxSize( 176, -1 ) )`. */
+  min-width: 176px;
+  font-size: var(--ui-font-size);
+}
+.ze-cp-gap {
+  /* [data] `bButtonsSizer->Add( 20, 0, 0, wxEXPAND, 5 )` - a fixed 20 px
+     spacer between the hex entry and Reset to Default. */
+  width: 20px;
+  flex: 0 0 auto;
+}
+.ze-cp-buttons .ze-modal-footer {
+  flex: 1;
+}

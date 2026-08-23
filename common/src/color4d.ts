@@ -326,3 +326,121 @@ export function backgroundLayerAlphaOverride(
   if (brightenedItem) return 0.2;
   return selected ? 0.5 : null;
 }
+
+/**
+ * `COLOR4D::ToHSV` (`common/gal/color4d.cpp:387-438`).
+ *
+ * Hue in degrees, saturation and value in 0..1. `alwaysDefineHue` is upstream's
+ * second parameter: with it false a greyscale colour reports `NaN` for hue, so
+ * a caller can tell "no hue" from "red"; DIALOG_COLOR_PICKER passes true when
+ * it reads a typed hex back, because a spin control has to show a number.
+ */
+export function toHSV(
+  c: Color4d,
+  alwaysDefineHue = false,
+): { hue: number; sat: number; val: number } {
+  const min = Math.min(c.r, c.g, c.b);
+  const max = Math.max(c.r, c.g, c.b);
+  const delta = max - min;
+  const noHue = alwaysDefineHue ? 0 : Number.NaN;
+
+  // "for black color (r = g = b = 0) saturation is set to 0."
+  if (max <= 0) return { hue: noHue, sat: 0, val: max };
+
+  const sat = delta / max;
+
+  if (delta === 0) return { hue: noHue, sat, val: max };
+
+  let hue: number;
+
+  if (c.r >= max) hue = (c.g - c.b) / delta;
+  else if (c.g >= max) hue = 2.0 + (c.b - c.r) / delta;
+  else hue = 4.0 + (c.r - c.g) / delta;
+
+  hue *= 60.0;
+  if (hue < 0.0) hue += 360.0;
+
+  return { hue, sat, val: max };
+}
+
+/** `COLOR4D::FromHSV` (`color4d.cpp:441-511`). Alpha is untouched, as upstream. */
+export function fromHSV(hue: number, sat: number, val: number, a = 1): Color4d {
+  if (sat <= 0.0) return { r: val, g: val, b: val, a };
+
+  let hh = hue;
+  while (hh >= 360.0) hh -= 360.0;
+  hh /= 60.0;
+
+  const i = Math.trunc(hh);
+  const ff = hh - i;
+
+  const p = val * (1.0 - sat);
+  const q = val * (1.0 - sat * ff);
+  const t = val * (1.0 - sat * (1.0 - ff));
+
+  switch (i) {
+    case 0:
+      return { r: val, g: t, b: p, a };
+    case 1:
+      return { r: q, g: val, b: p, a };
+    case 2:
+      return { r: p, g: val, b: t, a };
+    case 3:
+      return { r: p, g: q, b: val, a };
+    case 4:
+      return { r: t, g: p, b: val, a };
+    default:
+      return { r: val, g: p, b: q, a };
+  }
+}
+
+/**
+ * `COLOR4D::ToHexString` (`color4d.cpp:215-223`) — `#RRGGBBAA`, upper case, and
+ * the alpha byte is ALWAYS written, even when it is `FF`.
+ */
+export function toHexString(c: Color4d): string {
+  const b = (v: number): string =>
+    Math.round(v * 255.0)
+      .toString(16)
+      .toUpperCase()
+      .padStart(2, '0');
+  return `#${b(c.r)}${b(c.g)}${b(c.b)}${b(c.a)}`;
+}
+
+/**
+ * `COLOR4D::SetFromHexString` (`color4d.cpp:180-212`), which returns false for
+ * anything it will not parse rather than throwing — the picker keeps the old
+ * colour while a half-typed string is in the field.
+ *
+ * The length rules are upstream's and are not the same on both sides: under 7
+ * characters is refused outright, 9 or more reads an alpha byte, and anything
+ * between takes alpha 1. So `#ABC` is NOT a colour here, though CSS says it is.
+ */
+export function setFromHexString(text: string): Color4d | null {
+  const str = text.trim();
+
+  if (str.length < 7 || !str.startsWith('#')) return null;
+
+  // `wxSscanf( … "%lx" … )`: hexadecimal, and anything after the digits is
+  // ignored rather than refused.
+  const m = /^[0-9a-f]+/i.exec(str.slice(1));
+  if (!m) return null;
+
+  const tmp = Number.parseInt(m[0], 16);
+
+  if (str.length >= 9) {
+    return {
+      r: ((tmp >>> 24) & 0xff) / 255,
+      g: ((tmp >>> 16) & 0xff) / 255,
+      b: ((tmp >>> 8) & 0xff) / 255,
+      a: (tmp & 0xff) / 255,
+    };
+  }
+
+  return {
+    r: ((tmp >>> 16) & 0xff) / 255,
+    g: ((tmp >>> 8) & 0xff) / 255,
+    b: (tmp & 0xff) / 255,
+    a: 1.0,
+  };
+}

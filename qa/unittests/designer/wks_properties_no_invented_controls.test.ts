@@ -193,9 +193,13 @@ describe('tooltips', () => {
   });
 
   it('gives the colour swatch none', () => {
-    const at = CODE.indexOf('type="color"');
-    expect(at).toBeGreaterThan(-1);
-    const start = CODE.lastIndexOf('<input', at);
+    // The swatch is no longer an `<input type="color">` - that is the desktop's
+    // own picker, and COLOR_SWATCH opens DIALOG_COLOR_PICKER
+    // (color_swatch.cpp:301-311). Anchored on the class the swatch carries, so
+    // the check follows the control rather than the element it happened to be.
+    const at = CODE.indexOf('ze-swatch');
+    expect(at, 'the colour swatch must exist').toBeGreaterThan(-1);
+    const start = CODE.lastIndexOf('<', at);
     expect(CODE.slice(start, CODE.indexOf('/>', at))).not.toContain('title=');
   });
 
