@@ -58,12 +58,23 @@ export function Slider({
   // alone.
   const frac = max > min ? (value - min) / (max - min) : 0;
 
+  // How wide GTK makes each of the two label columns on a vertical scale: the
+  // widest string either can ever hold, which is the longer of the two range
+  // ends. The probe measured them at 24 px for a 0..255 range against a
+  // GetCharWidth() of 8 — three digits — so a `ch` is the unit that says it.
+  const labelChars = Math.max(String(min).length, String(max).length);
+
   return (
     <div
       className={`ze-slider${vertical ? ' vertical' : ''}${labels ? ' labelled' : ''}${
         className ? ` ${className}` : ''
       }`}
-      style={{ '--slider-frac': frac } as CSSProperties}
+      style={
+        {
+          '--slider-frac': frac,
+          '--slider-label-w': `${labelChars}ch`,
+        } as CSSProperties
+      }
     >
       {labels && <span className="ze-slider-val">{Math.round(value)}</span>}
       <input

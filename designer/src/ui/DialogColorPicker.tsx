@@ -23,7 +23,7 @@
  */
 
 import type { CSSProperties, JSX } from 'react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   type Color4d,
   fromHSV,
@@ -31,6 +31,7 @@ import {
   toHSV,
   toHexString,
 } from '@ziroeda/common/src/color4d.js';
+import { definedColorGrid } from './defined_colors.js';
 import { Slider } from './Slider.js';
 import { useModalEscape } from './useModalEscape.js';
 
@@ -504,15 +505,34 @@ export function DialogColorPicker({
           </div>
 
           {/* m_panelDefinedColors: `m_fgridColor`, ten columns of swatches
-              filled by `initDefinedColors` from the CUSTOM_COLORS_LIST the
-              caller passed (dialog_color_picker.cpp:167-246). A caller that
-              passes none - which pl_editor's swatch does - leaves the page
-              empty, so an empty grid IS the page here. */}
+              filled by `initDefinedColors` (dialog_color_picker.cpp:167-246).
+              A caller that passes no CUSTOM_COLORS_LIST - which pl_editor's
+              swatch does - takes the ELSE branch and gets the default palette,
+              all 35 rows of colorRefs(). We had that `if` the wrong way round
+              and drew nothing, so the page was blank in every launcher. */}
           {tab === 'defined' && (
             <div className="ze-cp-defined">
-              {/* `initDefinedColors` fills m_fgridColor from the
-                  CUSTOM_COLORS_LIST the caller passed; with none there are no
-                  swatches to draw, and the page is the empty grid. */}
+              {definedColorGrid().map((ref) => (
+                <Fragment key={ref.name}>
+                  {/* `addSwatch` builds a wxStaticBitmap from the same
+                      COLOR_SWATCH::MakeBitmap the previews use, at
+                      SWATCH_SIZE_LARGE_DU and with no border - it is a bare
+                      bitmap, not the bordered COLOR_SWATCH widget. */}
+                  <button
+                    type="button"
+                    className="ze-swatch unspecified large"
+                    style={{ '--swatch-color': css(ref.color) } as CSSProperties}
+                    aria-label={ref.label}
+                    // buttColorClick: takes the swatch's r, g, b AND its a,
+                    // then recomputes hue/sat/val from it
+                    // (dialog_color_picker.cpp:603-618).
+                    onClick={() => applyRgb(ref.color)}
+                    // colorDClick posts wxID_OK (dialog_color_picker.cpp:621).
+                    onDoubleClick={() => onDone(ref.color)}
+                  />
+                  <span>{ref.label}</span>
+                </Fragment>
+              ))}
             </div>
           )}
 

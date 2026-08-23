@@ -45,7 +45,15 @@ const legacyPalette = (r: number, g: number, b: number): Color4d => ({
   a: 1,
 });
 
-/** `colorRefs()`, keyed by `EDA_COLOR_T` name, in the enum's own order. */
+/**
+ * `colorRefs()`, keyed by `EDA_COLOR_T` name, **in the table's own row order**.
+ *
+ * That is not the enum's order — the enum runs `LIGHTYELLOW, DARKBLUE, …` while
+ * the table runs `LIGHTYELLOW, LIGHTERORANGE, DARKBLUE, …` — and the difference
+ * is load-bearing: the Defined Colors page walks this table by INDEX to lay its
+ * swatches out in a 7 × 5 matrix (`initDefinedColors`,
+ * dialog_color_picker.cpp:167-246), so reordering it reshuffles that page.
+ */
 export const LEGACY_COLORS = {
   BLACK: legacyPalette(0, 0, 0),
   DARKDARKGRAY: legacyPalette(72, 72, 72),
@@ -86,6 +94,78 @@ export const LEGACY_COLORS = {
 
 /** A legacy `EDA_COLOR_T` enumerator name. */
 export type EdaColorName = keyof typeof LEGACY_COLORS;
+
+/**
+ * `StructColors::m_ColorName` — the label beside each swatch on the colour
+ * picker's Defined Colors page, and the only place these strings are used.
+ *
+ * They are not the enumerator names: the table calls `DARKDARKGRAY` "Gray 1"
+ * and `PUREBLUE` "Blue 4", because the page reads as four shades of each hue
+ * rather than as an enum. [data] — copied from the `TS(...)` literals in
+ * `colorRefs()`, `common/gal/color4d.cpp:44-78`, and the `Record` keeps them in
+ * step with the palette above by construction.
+ */
+export const LEGACY_COLOR_NAMES: Record<EdaColorName, string> = {
+  BLACK: 'Black',
+  DARKDARKGRAY: 'Gray 1',
+  DARKGRAY: 'Gray 2',
+  LIGHTGRAY: 'Gray 3',
+  WHITE: 'White',
+  LIGHTYELLOW: 'L.Yellow',
+  LIGHTERORANGE: 'L.Orange',
+  DARKBLUE: 'Blue 1',
+  DARKGREEN: 'Green 1',
+  DARKCYAN: 'Cyan 1',
+  DARKRED: 'Red 1',
+  DARKMAGENTA: 'Magenta 1',
+  DARKBROWN: 'Brown 1',
+  DARKORANGE: 'Orange 1',
+  BLUE: 'Blue 2',
+  GREEN: 'Green 2',
+  CYAN: 'Cyan 2',
+  RED: 'Red 2',
+  MAGENTA: 'Magenta 2',
+  BROWN: 'Brown 2',
+  ORANGE: 'Orange 2',
+  LIGHTBLUE: 'Blue 3',
+  LIGHTGREEN: 'Green 3',
+  LIGHTCYAN: 'Cyan 3',
+  LIGHTRED: 'Red 3',
+  LIGHTMAGENTA: 'Magenta 3',
+  YELLOW: 'Yellow 3',
+  LIGHTORANGE: 'Orange 3',
+  PUREBLUE: 'Blue 4',
+  PUREGREEN: 'Green 4',
+  PURECYAN: 'Cyan 4',
+  PURERED: 'Red 4',
+  PUREMAGENTA: 'Magenta 4',
+  PUREYELLOW: 'Yellow 4',
+  PUREORANGE: 'Orange 4',
+};
+
+/** One row of `colorRefs()`. */
+export interface ColorRef {
+  name: EdaColorName;
+  /** `m_ColorName`. */
+  label: string;
+  color: Color4d;
+}
+
+/**
+ * `colorRefs()` as the C++ hands it out: an array, in table order, that a
+ * caller may index.
+ *
+ * `LEGACY_COLORS` is a record because almost everything that reads the palette
+ * wants a colour by name; `initDefinedColors` is the exception, and it wants
+ * row `grid_row + grid_col * 7`.
+ */
+export function colorRefs(): readonly ColorRef[] {
+  return (Object.keys(LEGACY_COLORS) as EdaColorName[]).map((name) => ({
+    name,
+    label: LEGACY_COLOR_NAMES[name],
+    color: LEGACY_COLORS[name],
+  }));
+}
 
 /**
  * A channel as KiCad renders it, `COLOR4D::ToColour()`:

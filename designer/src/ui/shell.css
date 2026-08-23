@@ -478,6 +478,15 @@
   --swatch-small-h: 14px;
   --swatch-medium-w: 48px;
   --swatch-medium-h: 23px;
+  /* SWATCH_SIZE_LARGE_DU(24, 16) (color_swatch.h:48) through the same
+     conversion: 24*8/4 x (16*18+4)/8 = 48 x 36. The colour picker's Defined
+     Colors page is the only thing built at this size
+     (dialog_color_picker.cpp:181). [px] a capture of that page in the real
+     pl_editor reads a black swatch spanning exactly 48 x 36, with the parent's
+     rgb(39,39,39) touching it on every side - a bare wxStaticBitmap, no
+     wxBORDER_SIMPLE panel around it as a COLOR_SWATCH has. */
+  --swatch-large-w: 48px;
+  --swatch-large-h: 36px;
 
   /* --- The GTK file chooser, which is the window every wxFileDialog puts up.
      [px] throughout, and every one is a run boundary in a capture of the real
@@ -1026,21 +1035,64 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 /* wxSL_VERTICAL. The control is the same one turned a quarter; `direction: rtl`
    with the writing mode is what carries wxSL_INVERSE - the MAXIMUM at the top,
    where a person expects "more" to be. Both of the colour picker's sliders
-   have that bit (dialog_color_picker_base.cpp:122, 171). */
+   have that bit (dialog_color_picker_base.cpp:124, 173).
+
+   [px] the whole layout below was asked of a real wxSlider built with those
+   very bits - qa/probes/slider_probe.cpp, on this machine with this theme. It
+   reports a horizontal GtkBox holding
+
+     GtkScale  x=159 w=52     the trough, then the value text
+     GtkBox    x=211 w=24     the two range labels, one above the other
+
+   so 76 across for a 0..255 range. Inside the scale: `padding: 12px` on all
+   four sides, the 4 px trough painted at local x=12, and `value-pos=RIGHT`
+   putting the value text at local x=28 - i.e. one more scale-padding past the
+   trough. The range labels then start at local 52, max at the top because the
+   scale is inverted.
+
+   Every one of those numbers is a token or a sum of tokens here, and the whole
+   arrangement is on the RIGHT. wxSL_LEFT names the constant, but wx hands GTK
+   GTK_POS_RIGHT for it; reading the flag's name instead of measuring it is
+   what put the labels on the left and the value under the thumb. */
 .ze-slider.vertical {
   position: relative;
   display: flex;
-  flex-direction: column;
-  align-items: center;
+  flex-direction: row;
+  align-items: stretch;
   padding: 0;
+  /* The scale (two paddings and the trough, then one label column) beside the
+     range-label column: 12 + 4 + 12 + 24 + 24 = the measured 76. */
+  width: calc(
+    2 *
+    var(--slider-track-inset) +
+    var(--slider-track-height) +
+    2 *
+    var(--slider-label-w)
+  );
 }
 .ze-app .ze-slider.vertical > input[type="range"] {
   writing-mode: vertical-lr;
   direction: rtl;
-  width: auto;
+  /* The thumb is wider than the trough and straddles it, so the box the input
+     needs is one thumb across, centred on where the trough goes. */
+  width: var(--slider-thumb-size);
   height: auto;
-  flex: 1;
-  margin: var(--slider-track-inset) 0;
+  flex: 0 0 auto;
+  align-self: stretch;
+  /* The scale's padding along the track, which is also the travel a range
+     input's thumb centre is short of each end. */
+  margin-top: var(--slider-track-inset);
+  margin-bottom: var(--slider-track-inset);
+  margin-right: 0;
+  /* Puts the trough's centre at the scale's left padding edge plus half a
+     trough - local x=14, where the probe painted it. */
+  margin-left: calc(
+    var(--slider-track-inset) +
+    var(--slider-track-height) /
+    2 -
+    var(--slider-thumb-size) /
+    2
+  );
 }
 /* The fill runs from the BOTTOM of a vertical scale to the thumb, because
    wxSL_INVERSE puts the maximum at the top. A gradient is resolved in PHYSICAL
@@ -1057,47 +1109,68 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 }
 /* A vertical track is THIN across and long down, so its thickness is a width
    here where the horizontal rule sets a height. Left as a height it took the
-   input's whole 20 px and the scale read as a grey slab. */
+   input's whole 20 px and the scale read as a grey slab.
+
+   The two margins are PHYSICAL on purpose. `margin-inline: auto` centres along
+   the inline axis, and the inline axis of a control in `writing-mode:
+   vertical-lr` runs DOWN - so it centred the track along the track and left it
+   flush against the left edge of the input, ten pixels off from the thumb. */
 .ze-app .ze-slider.vertical > input[type="range"]::-webkit-slider-runnable-track {
   width: var(--slider-track-height);
   height: auto;
-  margin-inline: auto;
+  margin-left: auto;
+  margin-right: auto;
+}
+/* Same trap on the thumb: the horizontal rule centres it ACROSS its track with
+   a margin-top, and that margin slides it ALONG the track once the control is
+   turned a quarter. */
+.ze-app .ze-slider.vertical > input[type="range"]::-webkit-slider-thumb {
+  margin-top: 0;
+  margin-left: calc((var(--slider-track-height) - var(--slider-thumb-size)) / 2);
 }
 .ze-slider.vertical.labelled {
   padding-block: 0;
 }
-/* wxSL_LEFT (dialog_color_picker_base.cpp:122, :171): the labels sit to the
-   LEFT of a vertical scale. Centred over the track instead, the value label
-   ends up UNDER the thumb, which is why the numbers read as hidden.
-
-   The ends straddle the whole column - the maximum at the top, because
-   wxSL_INVERSE puts it there - and the value follows the thumb, which is the
-   same travel the horizontal rule computes, counted from the top because the
-   scale is inverted. */
-.ze-slider.vertical .ze-slider-ends {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column-reverse;
-  justify-content: space-between;
-  align-items: flex-end;
-  pointer-events: none;
-}
-.ze-slider.vertical .ze-slider-ends > span {
-  padding-right: calc(50% + var(--slider-track-height));
-}
+/* The value text: GTK draws it inside the scale, one scale-padding to the right
+   of the trough, and moves it with the thumb. The thumb's centre travels from
+   one padding-plus-half-a-thumb below the top to the same above the bottom,
+   counted from the TOP because wxSL_INVERSE puts the maximum there. */
 .ze-slider.vertical .ze-slider-val {
   position: absolute;
-  left: auto;
-  right: calc(50% + var(--slider-track-height));
-  text-align: right;
+  left: calc(2 * var(--slider-track-inset) + var(--slider-track-height));
+  width: var(--slider-label-w);
+  /* `gtk_scale_draw_value` places the layout at the right edge of the trough
+     area whatever the text is, so a one-digit value sits where a three-digit
+     one starts rather than being centred under it. */
+  text-align: left;
   top: calc(
+    var(--slider-track-inset) +
     var(--slider-thumb-size) /
     2 +
     (1 - var(--slider-frac)) *
-    (100% - var(--slider-thumb-size))
+    (100% - 2 * var(--slider-track-inset) - var(--slider-thumb-size))
   );
   transform: translateY(-50%);
+  pointer-events: none;
+}
+/* The two range labels: their own box, to the right of the scale, one at each
+   end of the SLIDER's height rather than of the trough's - the probe puts them
+   at local y=0 and y=height-18, above and below the trough's 12 px inset.
+   `column-reverse` is wxSL_INVERSE: the minimum is first in the DOM and lands
+   at the bottom. They are GtkLabels at their default xalign, so centred. */
+.ze-slider.vertical .ze-slider-ends {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(2 * var(--slider-track-inset) + var(--slider-track-height) + var(--slider-label-w));
+  /* The horizontal rule pins both edges; here the column is placed from the
+     left and sized, so the inherited `right` has to be let go of. */
+  right: auto;
+  width: var(--slider-label-w);
+  display: flex;
+  flex-direction: column-reverse;
+  justify-content: space-between;
+  align-items: center;
   pointer-events: none;
 }
 
@@ -6974,6 +7047,15 @@ textarea.ze-ds-textedit {
      wxSYS_COLOUR_BTNTEXT - the token that already holds it. */
   border: 1px solid var(--chrome-fg);
 }
+/* SWATCH_SIZE_LARGE_DU, and no border: `addSwatch` puts the bitmap straight
+   into a wxStaticBitmap (dialog_color_picker.cpp:185-210) rather than into the
+   bordered COLOR_SWATCH panel the rule above is written for. */
+.ze-swatch.large {
+  width: var(--swatch-large-w);
+  height: var(--swatch-large-h);
+  border: none;
+  padding: 0;
+}
 .ze-swatch > input[type="color"] {
   /* The picker still opens on a click; only its own rendering is suppressed,
      so what shows through is the swatch drawn above. */
@@ -8509,18 +8591,36 @@ textarea.ze-ds-textedit {
   border: 1px solid var(--ctl-border);
   border-left: none;
 }
-/* m_panelDefinedColors' grid. Empty unless the caller passed a
-   CUSTOM_COLORS_LIST, which is the common case. */
+/* m_panelDefinedColors' grid: the 35 colours of colorRefs() as a swatch and a
+   name apiece, in the 7 x 5 matrix `initDefinedColors` reorders them into. */
 .ze-cp-defined {
   flex: 1;
   /* [data] the palettes are 264 px (dialog_color_picker_base.cpp:32), and a
      wxNotebook does not shrink when a page with less in it is selected - the
-     book keeps the height of its largest page. An empty div collapsed the
-     dialog to its button row instead. */
+     book keeps the height of its largest page. */
   min-height: 264px;
   /* [data] `m_SizerDefinedColors->Add( m_fgridColor, 1, wxALL|wxEXPAND, 10 )`
      (dialog_color_picker_base.cpp:154). */
   padding: 10px;
+  /* [data] `m_fgridColor = new wxFlexGridSizer( 0, 10, 25, 5 )` with
+     `AddGrowableCol` on 1, 3, 5, 7 and 9 (dialog_color_picker_base.cpp:144-149):
+     ten columns, five swatch-and-name pairs, and only the name columns grow.
+     A wxFlexGridSizer fills row by row, which is why the caller hands the
+     colours over already transposed - see ui/defined_colors.ts. */
+  display: grid;
+  grid-template-columns: repeat(5, auto 1fr);
+  column-gap: 5px; /* [data] the sizer's hgap */
+  row-gap: 25px; /* [data] the sizer's vgap */
+  align-content: start;
+  align-items: center; /* [data] wxALIGN_CENTER_VERTICAL on both cells */
+  font-size: var(--ui-font-size);
+}
+/* The name beside each swatch - a wxStaticText, and the only cell in the grid
+   that carries a border of its own. */
+.ze-cp-defined > span {
+  /* [data] `m_fgridColor->Add( label, 1, wxALIGN_CENTER_VERTICAL|wxRIGHT, 15 )`
+     (dialog_color_picker_base.cpp:200). */
+  margin-right: 15px;
 }
 /* "Reset to Default" is one line in a wxButton, which sizes to its label. */
 .ze-cp-reset {
