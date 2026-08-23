@@ -40,11 +40,28 @@ const P = 'kit-dev-coldfire-xilinx_5213-';
 
 /** `/home/akshay/ki_demo`, all 22 of them. */
 const FOLDER = [
-  'B_Adhesive.gbr', 'B_Courtyard.gbr', 'B_Cu.gbr', 'B_Mask.gbr', 'B_Paste.gbr',
-  'B_Silkscreen.gbr', 'Edge_Cuts.gbr', 'F_Adhesive.gbr', 'F_Courtyard.gbr',
-  'F_Fab.gbr', 'F_Mask.gbr', 'F_Paste.gbr', 'F_Silkscreen.gbr', 'In1_Cu.gbr',
-  'In2_Cu.gbr', 'job.gbrjob', 'Margin.gbr', 'NPTH.drl', 'PTH.drl',
-  'Top_layer.gbr', 'User_Comments.gbr', 'User_Drawings.gbr',
+  'B_Adhesive.gbr',
+  'B_Courtyard.gbr',
+  'B_Cu.gbr',
+  'B_Mask.gbr',
+  'B_Paste.gbr',
+  'B_Silkscreen.gbr',
+  'Edge_Cuts.gbr',
+  'F_Adhesive.gbr',
+  'F_Courtyard.gbr',
+  'F_Fab.gbr',
+  'F_Mask.gbr',
+  'F_Paste.gbr',
+  'F_Silkscreen.gbr',
+  'In1_Cu.gbr',
+  'In2_Cu.gbr',
+  'job.gbrjob',
+  'Margin.gbr',
+  'NPTH.drl',
+  'PTH.drl',
+  'Top_layer.gbr',
+  'User_Comments.gbr',
+  'User_Drawings.gbr',
 ].map((n) => P + n);
 
 describe('a .gbrjob does not make a plot batch self-sorting', () => {

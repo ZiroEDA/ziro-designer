@@ -76,8 +76,32 @@ describe('text fields and comboboxes', () => {
     // catching it. GTK paints ONE accent for every app: a live GerbView's
     // layer-visibility checkboxes fill with rgb(233,84,32), which is
     // --chrome-active, and so do real eeschema's.
-    expect(CSS).toMatch(/accent-color:\s*var\(--chrome-active\)/);
-    expect(CSS).not.toMatch(/accent-color:\s*#/);
+    //
+    // The MECHANISM has since moved and this assertion moved with it rather
+    // than being relaxed. `accent-color` gets the fill right, but the tick is
+    // not ours to ask for: the browser picks its own contrast colour, and GTK's
+    // is a white check on the accent. So both controls are DRAWN —
+    // `appearance: none` and a `:checked` rule — and the accent arrives as a
+    // background. What has to stay true is that it arrives from the TOKEN.
+    const code = CSS.replace(/\/\*[\s\S]*?\*\//g, '');
+    const ruleFor = (selector: string): string => {
+      const at = code.indexOf(`\n${selector} {`);
+      expect(at, `shell.css has no rule for ${selector}`).toBeGreaterThanOrEqual(0);
+      return code.slice(at, code.indexOf('}', at));
+    };
+    for (const sel of [
+      '.ze-app input[type="checkbox"]:checked',
+      '.ze-app input[type="radio"]:checked',
+    ]) {
+      const rule = ruleFor(sel);
+      expect(rule, `${sel} does not take the accent from the token`).toContain(
+        'var(--chrome-active)',
+      );
+      // The half that caught the original drift: not a shade written down here.
+      expect(rule, `${sel} writes a literal colour`).not.toMatch(/:\s*#[0-9a-f]{3,8}\b/i);
+    }
+    // And no literal accent anywhere, for a control that still asks for one.
+    expect(code).not.toMatch(/accent-color:\s*#/);
   });
 
   it('theme the option rows for engines that need it', () => {

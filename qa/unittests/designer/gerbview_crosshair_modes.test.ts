@@ -21,6 +21,11 @@
  * wiring was two-valued, which is why this is a frame fix and not a GAL one.
  */
 import { describe, expect, it } from 'vitest';
+import {
+  applyToggle,
+  CROSSHAIR_GROUP,
+  DEFAULT_TOGGLES,
+} from '@ziroeda/designer/src/editors/gerbview/toggles.js';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { crosshairSegments } from '@ziroeda/designer/src/ui/grid_cursor.js';
@@ -45,15 +50,58 @@ describe('the frame carries a mode, not a boolean', () => {
   it('makes the three exclusive, as one cursor mode must be', () => {
     // A cycling group calls onActivate with the NEXT member's id
     // (ui/Toolbar.tsx, cycleOnClick), so without this they accumulate.
-    expect(VIEWER).toContain(
-      "const CROSSHAIR_GROUP = ['crosshairSmall', 'crosshairFull', 'crosshair45'];",
-    );
-    expect(VIEWER).toMatch(/CROSSHAIR_GROUP\.includes\(id\)/);
+    //
+    // This RAN the reducer only after it was lifted out of GerberViewer.tsx.
+    // While it was a useCallback in there the assertion could only read the
+    // source, and a sweep that disabled the exclusion outright — leaving both
+    // source strings intact — failed nothing at all. The exclusion is the thing
+    // this whole change exists for.
+    let on: ReadonlySet<string> = new Set(['crosshairSmall']);
+    on = applyToggle(on, 'crosshairFull');
+    expect([...on].sort()).toEqual(['crosshairFull']);
+    on = applyToggle(on, 'crosshair45');
+    expect([...on].sort()).toEqual(['crosshair45']);
+    // Every member of the group, so a rule that only handles two would show.
+    for (const id of CROSSHAIR_GROUP) {
+      const only = applyToggle(new Set(CROSSHAIR_GROUP), id);
+      expect([...only]).toEqual([id]);
+    }
+  });
+
+  it('leaves a mode ON when it is activated again', () => {
+    // A radio member is not a toggle: cycling back round to the one already in
+    // force must not turn the crosshair off entirely, which is what an
+    // `else if (has) delete` fallthrough would do.
+    expect([...applyToggle(new Set(['crosshair45']), 'crosshair45')]).toEqual(['crosshair45']);
+  });
+
+  it('does not touch the OTHER buttons, grouped or not', () => {
+    // A reducer that cleared everything would satisfy the assertions above.
+    const before = new Set(['crosshairSmall', 'toggleGrid', 'unitsMm', 'showLayerManager']);
+    const after = applyToggle(before, 'crosshair45');
+    expect([...after].sort()).toEqual(['crosshair45', 'showLayerManager', 'toggleGrid', 'unitsMm']);
+    // ...and a plain toggle still flips rather than replacing its neighbours.
+    expect([...applyToggle(after, 'toggleGrid')].sort()).toEqual([
+      'crosshair45',
+      'showLayerManager',
+      'unitsMm',
+    ]);
   });
 
   it('opens on SMALL_CROSS, the GAL constructor default', () => {
     // m_crossHairMode( CROSS_HAIR_MODE::SMALL_CROSS )  gal_display_options.cpp:53
-    expect(VIEWER).toMatch(/DEFAULT_TOGGLES = new Set\(\[[\s\S]*?'crosshairSmall',/);
+    expect(DEFAULT_TOGGLES.has('crosshairSmall')).toBe(true);
+    // Exactly one of the group, or the frame opens with two cursors asked for.
+    expect(CROSSHAIR_GROUP.filter((id) => DEFAULT_TOGGLES.has(id))).toEqual(['crosshairSmall']);
+  });
+
+  it('hands the mode the toolbar picked to the canvas', () => {
+    // Source-only, and said so: there is no DOM test environment here, so the
+    // prop cannot be observed arriving. A sweep hardcoding `mode: 'small'` in
+    // GerberCanvas.tsx failed nothing, because no test read that file at all.
+    expect(CANVAS).toContain('crosshairMode: CrosshairMode;');
+    expect(CANVAS).toContain('mode: crosshairRef.current,');
+    expect(CANVAS).not.toMatch(/mode:\s*'(small|full|45)'/);
   });
 });
 

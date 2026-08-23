@@ -33,13 +33,14 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { MSG_PANEL_DEFAULT_PAD } from '@ziroeda/designer/src/ui/MsgPanel.js';
+import { MSG_PANEL_DEFAULT_PAD } from '@ziroeda/designer/src/ui/msgpanel_types.js';
 
 const read = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(`../../../designer/src/${rel}`, import.meta.url)), 'utf8');
 
 const SHELL = read('ui/shell.css');
 const MSGPANEL_TSX = read('ui/MsgPanel.tsx');
+const MSGPANEL_TYPES = read('ui/msgpanel_types.ts');
 
 /** The stylesheet with its comments removed, so they cannot read as values. */
 const CSS_CODE = SHELL.replace(/\/\*[\s\S]*?\*\//g, '');
@@ -114,7 +115,13 @@ describe('the cell advance carries the padding spaces', () => {
 
 describe('an item that asks for a different padding gets it', () => {
   it('MsgPanelItem carries m_Padding', () => {
-    expect(MSGPANEL_TSX).toMatch(/padding\?:\s*number/);
+    // The interface moved to `msgpanel_types.ts` — a `.ts`, because qa's tsc
+    // compiles those only and this file importing a VALUE out of the `.tsx`
+    // took the whole workspace typecheck down with `--jsx is not set`. That is
+    // what kept this test's own PR red.
+    expect(MSGPANEL_TYPES).toMatch(/padding\?:\s*number/);
+    // ...and the component still re-exports it, so no caller had to change.
+    expect(MSGPANEL_TSX).toContain("export type { MsgPanelItem } from './msgpanel_types.js';");
   });
 
   it('writes the override in the same measured units', () => {

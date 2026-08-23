@@ -21,27 +21,12 @@
  */
 
 import type { JSX, Ref } from 'react';
+import { MSG_PANEL_DEFAULT_PAD, type MsgPanelItem } from './msgpanel_types.js';
 
-/** `MSG_PANEL_ITEM` (include/widgets/msgpanel.h). */
-export interface MsgPanelItem {
-  /** `m_UpperText`, the label row. */
-  upper: string;
-  /** `m_LowerText`, the value row. */
-  lower: string;
-  /**
-   * `m_Padding`, in spaces, appended to the measured text and so part of what
-   * separates this cell from the next (`msgpanel.cpp:140`). Defaults to
-   * `MSG_PANEL_DEFAULT_PAD`; the symbol editor is the one frame that overrides
-   * it, passing 8 (`eeschema/symbol_editor/symbol_editor.cpp:1749-1767`).
-   */
-  padding?: number;
-}
-
-/**
- * `MSG_PANEL_DEFAULT_PAD` (include/widgets/msgpanel.h:41), "the default number
- * of spaces between each text string". [data] KiCad's own constant.
- */
-export const MSG_PANEL_DEFAULT_PAD = 6;
+// The panel's data types live in a `.ts` so qa's tsc can reach them; see
+// msgpanel_types.ts. Re-exported so nothing that imported them here changed.
+export type { MsgPanelItem } from './msgpanel_types.js';
+export { MSG_PANEL_DEFAULT_PAD } from './msgpanel_types.js';
 
 /**
  * What an empty upper/lower text renders as. `EDA_MSG_PANEL::showItem` simply

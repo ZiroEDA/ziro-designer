@@ -129,6 +129,7 @@ import { settings } from '../../prefs/settings.js';
 import { useCommonSettings } from '../../prefs/useSettings.js';
 import './gerbview.css';
 import '../../ui/shell.css';
+import { applyToggle, CROSSHAIR_GROUP, DEFAULT_TOGGLES, UNIT_GROUP } from './toggles.js';
 
 /**
  * One loaded image and the row it occupies.
@@ -152,31 +153,9 @@ interface Layer {
 
 type HighlightMode = 'none' | 'net' | 'component' | 'attribute' | 'dcode';
 
-const UNIT_GROUP = ['unitsMm', 'unitsInches', 'unitsMils'];
-/**
- * `TOOLBAR_GROUP_CONFIG( _( "Crosshair modes" ) )`
- * (`gerbview/toolbars_gerber.cpp:62-65`) — three separate actions, not a
- * two-way toggle, each setting one value of
- * `KIGFX::CROSS_HAIR_MODE { SMALL_CROSS, FULLSCREEN_CROSS, FULLSCREEN_DIAGONAL }`
- * (`include/gal/gal_display_options.h:67-71`) through
- * `galOpts.SetCursorMode( ... )` (`common/tool/common_tools.cpp`, the three
- * COMMON_TOOLS::Cursor*Crosshairs handlers).
- *
- * Exclusive like the units, because a cycling group calls onActivate with the
- * NEXT member's id (`ui/Toolbar.tsx`, `cycleOnClick`) and only one mode can be
- * in force. Without this the three ids toggled independently and the canvas,
- * which was reading a single boolean, never saw the diagonal one at all.
- */
-const CROSSHAIR_GROUP = ['crosshairSmall', 'crosshairFull', 'crosshair45'];
-// `m_crossHairMode( CROSS_HAIR_MODE::SMALL_CROSS )` is the GAL_DISPLAY_OPTIONS
-// constructor's default (`common/gal/gal_display_options.cpp:53`), so the small
-// cross is what a fresh frame shows.
-const DEFAULT_TOGGLES = new Set([
-  'toggleGrid',
-  'unitsMm',
-  'showLayerManager',
-  'crosshairSmall',
-]);
+// The toolbar's toggle state, its two radio groups and its defaults live in
+// `toggles.ts` — a pure function there can be called by a test, where a
+// useCallback in here could only be reached by rendering the component.
 
 /**
  * The layers manager's starting width.
@@ -617,9 +596,10 @@ export function GerberViewer({
    * `s_defaultTheme[GERBVIEW_LAYER_ID_START + row]`.
    */
   const [layerColors, setLayerColors] = useState<Record<number, string>>({});
-  const colorAt = useCallback((row: number): string => layerColorAt(row, layerColors), [
-    layerColors,
-  ]);
+  const colorAt = useCallback(
+    (row: number): string => layerColorAt(row, layerColors),
+    [layerColors],
+  );
 
   const clearAll = useCallback(() => {
     setLayers([]);
@@ -765,9 +745,7 @@ export function GerberViewer({
       const l = layers[i] as Layer;
       const base = colorAt(i);
       const color =
-        highContrast && i !== activeLayer
-          ? toCss(hiContrastColor(parseColor4d(base), bg))
-          : base;
+        highContrast && i !== activeLayer ? toCss(hiContrastColor(parseColor4d(base), bg)) : base;
       return { image: l.image, color, visible: l.visible };
     });
   }, [layers, activeLayer, colorAt, highContrast]);
@@ -809,18 +787,7 @@ export function GerberViewer({
 
   // ---- toolbars ----------------------------------------------------------
   const onLeftToggle = useCallback((id: string) => {
-    setToggles((prev) => {
-      const next = new Set(prev);
-      if (UNIT_GROUP.includes(id)) {
-        for (const g of UNIT_GROUP) next.delete(g);
-        next.add(id);
-      } else if (CROSSHAIR_GROUP.includes(id)) {
-        for (const g of CROSSHAIR_GROUP) next.delete(g);
-        next.add(id);
-      } else if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+    setToggles((prev) => applyToggle(prev, id));
   }, []);
 
   const exportToPcb = useCallback(() => {
