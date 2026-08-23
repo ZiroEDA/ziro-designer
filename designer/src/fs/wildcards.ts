@@ -85,6 +85,13 @@ export const NEW_PROJECT_FOLDER_FILTERS: readonly ChooserFilter[] = [projectFile
 export const drillFileWildcard = (): ChooserFilter =>
   fileFilter('Drill files', ['drl', 'nc', 'xnc', 'txt']);
 
+/**
+ * `FILEEXT::DrawingSheetFileWildcard` (`wildcards_and_files_ext.cpp:390-394`):
+ * "Drawing sheet files" over the one `kicad_wks` extension.
+ */
+export const drawingSheetWildcard = (): ChooserFilter =>
+  fileFilter('Drawing sheet files', ['kicad_wks']);
+
 /** `FILEEXT::ZipFileWildcard` (`:521-524`). */
 export const zipFileWildcard = (): ChooserFilter => fileFilter('Zip file', ['zip']);
 
