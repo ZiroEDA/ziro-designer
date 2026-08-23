@@ -296,6 +296,9 @@ import {
   type FpLibRow,
 } from '../footprint/fp_lib_table.js';
 import { Toolbar } from '../../ui/Toolbar.js';
+import { OpenFileDialog } from '../../fs/OpenFileDialog.js';
+import { SaveAsDialog } from '../../fs/SaveAsDialog.js';
+import { kicadSchematicWildcard } from '../../fs/wildcards.js';
 import {
   TOP_TOOLBAR,
   LEFT_TOOLBAR,
@@ -1276,13 +1279,12 @@ export function SchematicEditor({
   const syncReturn = useRef<{ path: string; file: string } | null>(null);
   const [ercRunning, setErcRunning] = useState<readonly string[] | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   /**
    * `SCH_ACTIONS::importSheet`'s file picker.
    *
-   * Deliberately not `fileInputRef`: that one runs `openFile`, which *replaces*
-   * the open document. Importing brings another schematic's contents *into* this
-   * one, so the two must not share an input.
+   * Deliberately not the Open dialog: Open *replaces* the document, while
+   * importing brings another schematic's contents *into* this one, so the two
+   * must not share a picker.
    */
   const importSheetInputRef = useRef<HTMLInputElement>(null);
 
@@ -3696,7 +3698,16 @@ export function SchematicEditor({
     [loadText],
   );
 
-  const promptOpen = useCallback(() => fileInputRef.current?.click(), []);
+  /**
+   * `SCH_EDIT_FRAME::OnOpenSchematic` - a `wxFileDialog` on the project
+   * directory filtered by `FILEEXT::KiCadSchematicFileWildcard`, not the
+   * operating system's file manager. Ours clicked a hidden
+   * `<input type="file">`, which cannot see the account's projects at all, so
+   * a schematic saved to the cloud could not be re-opened from inside the
+   * editor.
+   */
+  const [openDlgOpen, setOpenDlgOpen] = useState(false);
+  const promptOpen = useCallback(() => setOpenDlgOpen(true), []);
 
   // Doc edits mark the title dirty; the flag clears after the app's coalesced
   // autosave window (1.2 s) has taken the change. Mount / file switches skip.
@@ -3794,54 +3805,61 @@ export function SchematicEditor({
    * odd; the moment we start fixing KiCad's oddities the two stop matching and
    * a user who knows KiCad is the one surprised.
    *
-   * The browser has no `wxFileDialog`, so the name prompt is ours. Nothing else
-   * about the command changes: the seed, the extension rule, what gets written,
-   * and what is left alone are all upstream's.
+   * The path comes from the same file manager every other Save As uses -
+   * upstream's is `wxFileDialog( … wxFD_SAVE | wxFD_OVERWRITE_PROMPT )` seeded
+   * with the current sheet's name. It was a `window.prompt`, which cannot show
+   * the project, cannot filter and cannot warn about an overwrite. Nothing
+   * else about the command changes: the seed, the extension rule, what gets
+   * written, and what is left alone are all upstream's.
    */
-  const saveCurrSheetCopyAs = useCallback(() => {
-    const d = docRef.current;
-    if (!d) return;
+  const [copyAsOpen, setCopyAsOpen] = useState(false);
+  // curr_fn.GetFullName() — the current sheet's own file name, which for us is
+  // the file the editor has open.
+  const copyAsSeed = currentFile !== DEFAULT_FILE ? currentFile : (fileName ?? DEFAULT_FILE);
+  const saveCurrSheetCopyAs = useCallback(() => setCopyAsOpen(true), []);
 
-    // curr_fn.GetFullName() — the current sheet's own file name, which for us
-    // is the file the editor has open.
-    const seed = currentFile !== DEFAULT_FILE ? currentFile : (fileName ?? DEFAULT_FILE);
-    const picked = window.prompt('Save Current Sheet Copy As:', seed);
-    if (picked === null) return; // wxID_CANCEL
+  const saveCurrSheetCopyTo = useCallback(
+    (picked: string) => {
+      const d = docRef.current;
+      if (!d) return;
 
-    const trimmed = picked.trim();
-    if (!trimmed) return;
+      const seed = copyAsSeed;
+      const trimmed = picked.split('/').filter(Boolean).pop()?.trim() ?? '';
+      if (!trimmed) return;
 
-    const newFilename = ensureFileExtension(trimmed, KICAD_SCHEMATIC_FILE_EXTENSION);
+      const newFilename = ensureFileExtension(trimmed, KICAD_SCHEMATIC_FILE_EXTENSION);
 
-    let text: string;
-    try {
-      text = serializeSchematic(d);
-    } catch (e) {
-      // saveSchematicFile's catch( IO_ERROR ) -> DisplayError, and success
-      // stays false, so neither the dirty flag nor the status text is touched.
-      setError(
-        `Error saving schematic file '${newFilename}'.\n${e instanceof Error ? e.message : String(e)}`,
-      );
-      return;
-    }
+      let text: string;
+      try {
+        text = serializeSchematic(d);
+      } catch (e) {
+        // saveSchematicFile's catch( IO_ERROR ) -> DisplayError, and success
+        // stays false, so neither the dirty flag nor the status text is touched.
+        setError(
+          `Error saving schematic file '${newFilename}'.\n${e instanceof Error ? e.message : String(e)}`,
+        );
+        return;
+      }
 
-    if (onPersistFiles && currentFile !== DEFAULT_FILE) {
-      onPersistFiles([{ name: newFilename, text }]);
-    } else {
-      const url = URL.createObjectURL(new Blob([text], { type: 'application/octet-stream' }));
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = newFilename;
-      a.click();
-      URL.revokeObjectURL(url);
-    }
+      if (onPersistFiles && currentFile !== DEFAULT_FILE) {
+        onPersistFiles([{ name: newFilename, text }]);
+      } else {
+        const url = URL.createObjectURL(new Blob([text], { type: 'application/octet-stream' }));
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = newFilename;
+        a.click();
+        URL.revokeObjectURL(url);
+      }
 
-    // screen->SetContentModified( false ), then the status text built from
-    // screen->GetFileName() — the original, not the copy. See above.
-    setDirty(false);
-    setUnsaved(false);
-    setStatusText(savedFileMessage(seed));
-  }, [currentFile, fileName, onPersistFiles]);
+      // screen->SetContentModified( false ), then the status text built from
+      // screen->GetFileName() — the original, not the copy. See above.
+      setDirty(false);
+      setUnsaved(false);
+      setStatusText(savedFileMessage(seed));
+    },
+    [copyAsSeed, currentFile, onPersistFiles],
+  );
 
   /**
    * `SCH_EDITOR_CONTROL::Revert` (eeschema/tools/sch_editor_control.cpp:445-492).
@@ -7421,17 +7439,30 @@ export function SchematicEditor({
 
   return (
     <div className="ze-app sch-theme" onDrop={onDrop} onDragOver={(e) => e.preventDefault()}>
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept=".kicad_sch"
-        style={{ display: 'none' }}
-        onChange={(e) => {
-          const f = e.target.files?.[0];
-          if (f) openFile(f);
-          e.target.value = '';
-        }}
-      />
+      {copyAsOpen && (
+        <SaveAsDialog
+          title="Save Current Sheet Copy As"
+          initialName={copyAsSeed}
+          filters={[kicadSchematicWildcard()]}
+          onDone={(path) => {
+            setCopyAsOpen(false);
+            if (path === null) return; // wxID_CANCEL
+            saveCurrSheetCopyTo(path);
+          }}
+        />
+      )}
+
+      {openDlgOpen && (
+        <OpenFileDialog
+          filters={[kicadSchematicWildcard()]}
+          onDone={(file) => {
+            setOpenDlgOpen(false);
+            if (!file) return; // wxID_CANCEL
+            const leaf = file.path.split('/').filter(Boolean).pop() ?? file.path;
+            void loadText(file.text, leaf);
+          }}
+        />
+      )}
       <input
         ref={importSheetInputRef}
         type="file"

@@ -74,6 +74,7 @@ import { PropertiesFrame, SyntaxHelpDialog } from './PropertiesFrame.js';
 import { DockSash } from '../../ui/DockSash.js';
 import { dockedPaneWidth } from '../../ui/dock_sash.js';
 import { SaveAsDialog } from '../../fs/SaveAsDialog.js';
+import { OpenFileDialog } from '../../fs/OpenFileDialog.js';
 import { drawingSheetWildcard } from '../../fs/wildcards.js';
 import { DesignInspector } from './DesignInspector.js';
 import { MessageDialogError } from '../../ui/dialog_message.js';
@@ -364,8 +365,6 @@ export function DrawingSheetEditor({
   const common = useCommonSettings();
 
   const controller = useRef<DrawingSheetCanvasController>(null);
-  const openInputRef = useRef<HTMLInputElement>(null);
-  const appendInputRef = useRef<HTMLInputElement>(null);
   const bitmapInputRef = useRef<HTMLInputElement>(null);
   const pendingBitmapPos = useRef<WksPoint | null>(null);
   // Index of the two-click item currently being drawn, or null.
@@ -509,11 +508,6 @@ export function DrawingSheetEditor({
     [openText],
   );
 
-  const openFile = useCallback(
-    async (file: File) => openText(file.name, await file.text()),
-    [openText],
-  );
-
   // Open the .kicad_wks the project manager double-clicked (a fresh nonce each
   // activation re-opens even while the editor stays resident).
   const openReqNonce = openRequest?.nonce;
@@ -524,16 +518,16 @@ export function DrawingSheetEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openReqNonce]);
 
-  const appendFile = useCallback(
-    async (file: File) => {
+  const appendText = useCallback(
+    async (name: string, text: string) => {
       try {
-        const parsed = await backfillBitmapMeta(parseDrawingSheet(await file.text()));
+        const parsed = await backfillBitmapMeta(parseDrawingSheet(text));
         commit(
           { ...sheet, items: [...sheet.items, ...parsed.items] },
-          `Appended ${parsed.items.length} items from ${file.name}`,
+          `Appended ${parsed.items.length} items from ${name}`,
         );
       } catch (err) {
-        setStatus(`Failed to append ${file.name}: ${(err as Error).message}`);
+        setStatus(`Failed to append ${name}: ${(err as Error).message}`);
       }
     },
     [sheet, commit],
@@ -575,6 +569,20 @@ export function DrawingSheetEditor({
    * overwrite, and hands back a bare name rather than a path — so nothing saved
    * from here could land anywhere but the root.
    */
+  /**
+   * Open, over the project store rather than the OS file manager.
+   *
+   * `PL_EDITOR_FRAME::Files_io` opens a `wxFileDialog` on the project
+   * directory filtered by DrawingSheetFileWildcard (files.cpp:159-167). Ours
+   * clicked a hidden `<input type="file">`, which can only see the local disk
+   * - so a sheet saved into the account's project could not be re-opened from
+   * inside the editor at all.
+   *
+   * `append` is the same dialog for `Append Existing Drawing Sheet...`, which
+   * upstream is a second wxFileDialog with the same wildcard.
+   */
+  const [openDlg, setOpenDlg] = useState<null | 'open' | 'append'>(null);
+
   const [saveAsOpen, setSaveAsOpen] = useState(false);
   const saveAs = useCallback(() => setSaveAsOpen(true), []);
   const onSaveAsDone = useCallback(
@@ -1086,7 +1094,7 @@ export function DrawingSheetEditor({
           newSheet();
           break;
         case 'open':
-          openInputRef.current?.click();
+          setOpenDlg('open');
           break;
         case 'save':
           save();
@@ -1139,7 +1147,7 @@ export function DrawingSheetEditor({
 
   const onRightTool = useCallback((id: string) => {
     if (id === 'appendSheet') {
-      appendInputRef.current?.click();
+      setOpenDlg('append');
       return;
     }
     setMoveMode(false);
@@ -1288,7 +1296,7 @@ export function DrawingSheetEditor({
           {
             label: 'Open...',
             icon: 'open',
-            action: () => openInputRef.current?.click(),
+            action: () => setOpenDlg('open'),
             shortcut: 'Ctrl+O',
           },
           openRecentItem,
@@ -1395,7 +1403,7 @@ export function DrawingSheetEditor({
           {
             label: 'Append Existing Drawing Sheet...',
             icon: 'appendSheet',
-            action: () => appendInputRef.current?.click(),
+            action: () => setOpenDlg('append'),
           },
           { sep: true },
           // PL_EDITOR_CONTROL::GridResetOrigin (pl_editor_control.cpp) is
@@ -1628,28 +1636,6 @@ export function DrawingSheetEditor({
     // `ze-wks` scopes the PL_EDITOR_FRAME chrome measurements in shell.css.
     <div className="ze-app ze-wks">
       <input
-        ref={openInputRef}
-        type="file"
-        accept=".kicad_wks"
-        style={{ display: 'none' }}
-        onChange={(e) => {
-          const f = e.target.files?.[0];
-          if (f) void openFile(f);
-          e.target.value = '';
-        }}
-      />
-      <input
-        ref={appendInputRef}
-        type="file"
-        accept=".kicad_wks"
-        style={{ display: 'none' }}
-        onChange={(e) => {
-          const f = e.target.files?.[0];
-          if (f) void appendFile(f);
-          e.target.value = '';
-        }}
-      />
-      <input
         ref={bitmapInputRef}
         type="file"
         accept="image/*"
@@ -1803,6 +1789,22 @@ export function DrawingSheetEditor({
 
       {/* wxFileDialog( … wxFD_SAVE | wxFD_OVERWRITE_PROMPT ), over the project
           store rather than a browser prompt. */}
+      {openDlg && (
+        <OpenFileDialog
+          title={openDlg === 'append' ? 'Append Existing Drawing Sheet' : 'Open'}
+          accept={openDlg === 'append' ? 'Append' : 'Open'}
+          filters={[drawingSheetWildcard()]}
+          onDone={(file) => {
+            const mode = openDlg;
+            setOpenDlg(null);
+            if (!file) return; // wxID_CANCEL
+            const leaf = file.path.split('/').filter(Boolean).pop() ?? file.path;
+            if (mode === 'append') void appendText(leaf, file.text);
+            else void openText(leaf, file.text);
+          }}
+        />
+      )}
+
       {saveAsOpen && (
         <SaveAsDialog
           initialName={fileName || 'drawing_sheet.kicad_wks'}

@@ -89,6 +89,24 @@ export const drillFileWildcard = (): ChooserFilter =>
  * `FILEEXT::DrawingSheetFileWildcard` (`wildcards_and_files_ext.cpp:390-394`):
  * "Drawing sheet files" over the one `kicad_wks` extension.
  */
+/**
+ * `FILEEXT::KiCadSchematicFileWildcard` (wildcards_and_files_ext.cpp:281-285).
+ */
+export const kicadSchematicWildcard = (): ChooserFilter =>
+  fileFilter('KiCad s-expression schematic files', ['kicad_sch']);
+
+/** `FILEEXT::PcbFileWildcard` (:356-360). */
+export const kicadPcbWildcard = (): ChooserFilter =>
+  fileFilter('KiCad printed circuit board files', ['kicad_pcb']);
+
+/** `FILEEXT::KiCadSymbolLibFileWildcard` (:240-244). */
+export const kicadSymbolLibWildcard = (): ChooserFilter =>
+  fileFilter('KiCad symbol library files', ['kicad_sym']);
+
+/** `FILEEXT::KiCadFootprintLibPathWildcard` (:369-373). */
+export const kicadFootprintLibWildcard = (): ChooserFilter =>
+  fileFilter('KiCad footprint library paths', ['pretty']);
+
 export const drawingSheetWildcard = (): ChooserFilter =>
   fileFilter('Drawing sheet files', ['kicad_wks']);
 
