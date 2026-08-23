@@ -34,3 +34,27 @@ export function resizeDock(
   // wins, because wxAUI will not shrink a pane past its MinSize to make room.
   return Math.max(min, Math.min(Math.max(min, max), startWidth + sign * dx));
 }
+
+/**
+ * The width a docked pane OPENS at, given the two sizes wxAUI is handed.
+ *
+ * `wxAuiPaneInfo` keeps `best_size` and `min_size` as separate fields and the
+ * dock layout clamps the best size up to the minimum, so a pane added with
+ * both shows whichever is larger. Every KiCad frame relies on that pairing:
+ *
+ *     m_auimgr.AddPane( m_propertiesPagelayout, EDA_PANE().Palette()
+ *                       .Right().Layer( 3 )
+ *                       .BestSize( m_propertiesFrameWidth, -1 )
+ *                       .MinSize( m_propertiesPagelayout->GetMinSize() ) );
+ *                                       pagelayout_editor/pl_editor_frame.cpp:200-204
+ *
+ * Reading only the settings default is how a pane ends up clipping its own
+ * controls: `properties_frame_width` is 150 (pl_editor_settings.cpp:38) while
+ * the panel's own content needs more, and it is the MinSize that rescues it.
+ *
+ * `contentMin` is the DOM's answer to `GetMinSize()` - the panel's
+ * `scrollWidth`, what the content needs when the box is narrower than it.
+ */
+export function dockedPaneWidth(bestSize: number, contentMin: number): number {
+  return Math.max(bestSize, contentMin);
+}

@@ -69,6 +69,9 @@ import { DEFAULT_GRID_INDEX, GRID_SIZE_LIST, gridSizeToMM } from '../../ui/grid_
 import { DrawingSheetCanvas, type DrawingSheetCanvasController } from './DrawingSheetCanvas.js';
 import { PropertiesFrame, SyntaxHelpDialog } from './PropertiesFrame.js';
 import { DockSash } from '../../ui/DockSash.js';
+import { dockedPaneWidth } from '../../ui/dock_sash.js';
+import { SaveAsDialog } from '../../fs/SaveAsDialog.js';
+import { drawingSheetWildcard } from '../../fs/wildcards.js';
 import { DesignInspector } from './DesignInspector.js';
 import { MessageDialogError } from '../../ui/dialog_message.js';
 import { dsInspectorTitle } from './design_inspector.js';
@@ -313,7 +316,14 @@ export function DrawingSheetEditor({
     // GetMinSize(). Floored at the BestSize so a panel that happens to lay out
     // narrow cannot drag the minimum below what the frame opens at.
     const min = Math.ceil(el.scrollWidth);
-    if (min > 0) setPropsMin(Math.max(PROPERTIES_FRAME_WIDTH, min));
+    if (min <= 0) return;
+    // wxAUI shows whichever of BestSize and MinSize is larger, so the pane
+    // OPENS at the wider of the two. We had only the BestSize half, so it
+    // opened at 150 and clipped its own value column, vertical-justify buttons
+    // and text-colour swatch until the sash was dragged out.
+    const floor = dockedPaneWidth(PROPERTIES_FRAME_WIDTH, min);
+    setPropsMin(floor);
+    setPropsWidth((w) => Math.max(w, floor));
   }, []);
   const [localOrigin, setLocalOrigin] = useState<Vec2>({ x: 0, y: 0 });
   const [cursor, setCursor] = useState<Vec2 | null>(null);
@@ -551,15 +561,30 @@ export function DrawingSheetEditor({
     writeSheet(fileName);
   }, [writeSheet, fileName]);
 
-  const saveAs = useCallback(() => {
-    // With no current name the prompt offers KiCad's own default rather than
-    // an empty box: `DS_DATA_MODEL` writes `drawing_sheet.kicad_wks`.
-    const suggested = fileName || 'drawing_sheet.kicad_wks';
-    const name = window.prompt('Save drawing sheet as:', suggested) || suggested;
-    const finalName = /\.kicad_wks$/i.test(name) ? name : `${name}.kicad_wks`;
-    setFileName(finalName);
-    writeSheet(finalName);
-  }, [fileName, writeSheet]);
+  /**
+   * Save As opens the file manager, not a browser prompt.
+   *
+   * Upstream this is a `wxFileDialog` with wxFD_SAVE | wxFD_OVERWRITE_PROMPT on
+   * the project directory, filtered by DrawingSheetFileWildcard. A
+   * `window.prompt` cannot show the tree, cannot filter, cannot warn about an
+   * overwrite, and hands back a bare name rather than a path — so nothing saved
+   * from here could land anywhere but the root.
+   */
+  const [saveAsOpen, setSaveAsOpen] = useState(false);
+  const saveAs = useCallback(() => setSaveAsOpen(true), []);
+  const onSaveAsDone = useCallback(
+    (path: string | null) => {
+      setSaveAsOpen(false);
+      if (path === null) return; // wxID_CANCEL
+      // The chooser hands back a full path; the editor's own name is the leaf,
+      // as `wxFileName( dlg.GetPath() ).GetFullName()` is upstream.
+      const leaf = path.split('/').filter(Boolean).pop() ?? '';
+      const finalName = /\.kicad_wks$/i.test(leaf) ? leaf : `${leaf}.kicad_wks`;
+      setFileName(finalName);
+      writeSheet(finalName);
+    },
+    [writeSheet],
+  );
   saveAsRef.current = saveAs;
 
   /** Print the sheet: render the page alone to a bitmap and print that. */
@@ -1759,6 +1784,16 @@ export function DrawingSheetEditor({
           />
         </div>
       </div>
+
+      {/* wxFileDialog( … wxFD_SAVE | wxFD_OVERWRITE_PROMPT ), over the project
+          store rather than a browser prompt. */}
+      {saveAsOpen && (
+        <SaveAsDialog
+          initialName={fileName || 'drawing_sheet.kicad_wks'}
+          filters={[drawingSheetWildcard()]}
+          onDone={onSaveAsDone}
+        />
+      )}
 
       {ctxMenu && (
         <ContextMenu

@@ -12,7 +12,7 @@
  * sign, the pane's own MinSize, and a window too narrow for both.
  */
 import { describe, expect, it } from 'vitest';
-import { resizeDock } from '@ziroeda/designer/src/ui/dock_sash.js';
+import { dockedPaneWidth, resizeDock } from '@ziroeda/designer/src/ui/dock_sash.js';
 
 describe('resizeDock', () => {
   it('grows a right-docked pane when the pointer moves left', () => {
@@ -47,5 +47,22 @@ describe('resizeDock', () => {
     // silently drops under its minimum on a narrow window.
     expect(resizeDock('left', 240, -10000, 200, 50)).toBe(200);
     expect(resizeDock('left', 240, +10000, 200, 50)).toBe(200);
+  });
+});
+
+describe('dockedPaneWidth', () => {
+  it('opens at the MinSize when the content is wider than the BestSize', () => {
+    // pl_editor's properties pane: `properties_frame_width` is 150
+    // (pl_editor_settings.cpp:38) but the panel's own GetMinSize() is wider,
+    // and pl_editor_frame.cpp:200-204 hands wxAUI both. Taking the settings
+    // default alone opened the pane at 150 and clipped the value column, the
+    // vertical-justify buttons and the text-colour swatch.
+    expect(dockedPaneWidth(150, 274)).toBe(274);
+  });
+
+  it('keeps the BestSize when the content fits inside it', () => {
+    // The other order has to hold too, or the pane would shrink to its
+    // content and ignore the width the frame asked for.
+    expect(dockedPaneWidth(300, 274)).toBe(300);
   });
 });
