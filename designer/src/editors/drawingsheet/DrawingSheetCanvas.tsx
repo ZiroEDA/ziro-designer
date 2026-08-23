@@ -45,7 +45,6 @@ import {
   DS_EDIT_POINT_ON_DARK,
   DS_EDIT_POINT_ON_LIGHT,
   DS_MARQUEE,
-  DS_SELECTED_COLOR,
 } from '@ziroeda/common';
 import { setBitmapInvalidate } from '@ziroeda/common';
 import { DrawingSheetGl } from '../../render/gl/drawingsheet_gl.js';
@@ -396,34 +395,13 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
       octx.setTransform(1, 0, 0, 1, 0, 0);
       const toPx = (p: Vec2): Vec2 => ({ x: p.x * v.scale + v.tx, y: p.y * v.scale + v.ty });
 
-      // Selection outlines (dashed), offset by an in-flight move delta.
-      if (selRef.current.size > 0) {
-        // [art] pl_editor draws NO outline around a selected item - it repaints
-        // the item itself in m_selectedColor, which drawDrawingSheetItems above
-        // already does. This dashed box is ours, an affordance a mouse-and-
-        // canvas UI needs and a wxWidgets one does not, so it has no upstream
-        // metric. It at least borrows the one selection colour rather than
-        // inventing a second.
-        octx.strokeStyle = DS_SELECTED_COLOR;
-        octx.lineWidth = Math.max(1, dpr);
-        octx.setLineDash([5 * dpr, 3 * dpr]);
-        const ox = md ? md.x : 0,
-          oy = md ? md.y : 0;
-        for (const src of selRef.current) {
-          const b = wksItemBBox(drawsRef.current, src);
-          if (!b) continue;
-          const p0 = toPx({ x: b.minX + ox, y: b.minY + oy });
-          const p1 = toPx({ x: b.maxX + ox, y: b.maxY + oy });
-          const pad = 2 * dpr;
-          octx.strokeRect(
-            Math.min(p0.x, p1.x) - pad,
-            Math.min(p0.y, p1.y) - pad,
-            Math.abs(p1.x - p0.x) + 2 * pad,
-            Math.abs(p1.y - p0.y) + 2 * pad,
-          );
-        }
-        octx.setLineDash([]);
-      }
+      // No selection outline. pl_editor draws none: `PL_PAINTER::draw` picks
+      // `m_selectedColor` for an item with SELECTED set and repaints the item
+      // ITSELF in it (pl_painter.cpp), which ds_painter.ts:455 already does
+      // here. The dashed box that stood here was ours - an invention with no
+      // upstream metric, and visibly a second outline beside the real one:
+      // where KiCad shows one recoloured rectangle plus its EDIT_POINTS
+      // handles, ours showed a dashed rectangle inset inside the solid one.
 
       // Point-editor handles (filled squares, EDIT_POINTS style).
       const pts = editPointsRef.current;
