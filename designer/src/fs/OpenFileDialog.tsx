@@ -26,6 +26,7 @@ import type { JSX } from 'react';
 import { useMemo } from 'react';
 import { FileChooser } from './FileChooser.js';
 import { projectStoreFileSystem } from './project_store_fs.js';
+import { standardChooserPlaces } from './chooser_places.js';
 import type { ChooserFilter } from './chooser_types.js';
 
 export interface OpenFileDialogProps {
@@ -54,12 +55,17 @@ export function OpenFileDialog({
 }: OpenFileDialogProps): JSX.Element {
   // One filesystem per mount — see SaveAsDialog.
   const fs = useMemo(() => projectStoreFileSystem(), []);
+  // GTK gives every wxFileDialog in the process the same
+  // GtkPlacesSidebar; ours had one only in the project manager, so an
+  // editor's dialog opened with no sidebar at all.
+  const places = useMemo(() => standardChooserPlaces(fs), [fs]);
   return (
     <FileChooser
       fs={fs}
       mode="open"
       title={title}
       accept={accept}
+      places={places}
       {...(initialPath === undefined ? {} : { initialPath })}
       {...(filters === undefined ? {} : { filters })}
       onAccept={(path) => {

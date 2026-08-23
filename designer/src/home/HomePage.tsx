@@ -13,6 +13,7 @@ import {
   touchOpened,
   type ProjectMeta,
 } from './projectStore.js';
+import { recentFileSystem, standardChooserPlaces } from '../fs/chooser_places.js';
 import { useAuth } from '../auth/AuthProvider.js';
 import { authEnabled } from '../auth/supabaseClient.js';
 import { SignInDialog } from '../auth/SignIn.js';
@@ -454,24 +455,10 @@ export function HomePage({
   // projects, at the same paths, so everything below the root is the account's
   // tree and is delegated to it. That is what makes walking into a recent
   // project show its files instead of an empty folder.
-  const recentFs = useMemo(
-    () =>
-      listFileSystem(
-        async () => ({
-          files: (await listProjects())
-            .filter((p) => p.lastOpenedAt !== undefined)
-            .map((p) => ({
-              name: p.name,
-              // A project is a folder and a folder shows no size; `bytes` is
-              // the compressed size on disk, which is not what its row shows.
-              size: 0,
-              modified: p.lastOpenedAt ?? p.updatedAt,
-            })),
-        }),
-        { below: accountFs },
-      ),
-    [accountFs],
-  );
+  // The same Recent tree every other file dialog gets — it moved to
+  // fs/chooser_places.ts when the editors stopped opening a sidebar-less
+  // chooser, and one copy of it is the point.
+  const recentFs = useMemo(() => recentFileSystem(accountFs), [accountFs]);
   // A demo's id is a path — `simulation/amplifier_ac` — and it carries the list
   // of files it is made of, so Demos is a real tree: the `simulation` folder
   // the demos directory has and the Open Demo Project menu groups by
@@ -519,10 +506,10 @@ export function HomePage({
   const openTemplateRef = useRef<(t: TemplateMeta) => void>(() => {});
   const chooserPlaces = useMemo<readonly ChooserPlace[]>(
     () => [
-      // Recent first, as GtkPlacesSidebar puts it: it is the row above Home in
-      // the capture, and it is the one a person reaches for most.
-      { id: 'recent', label: 'Recent', icon: 'recent', fs: recentFs },
-      { id: 'projects', label: 'Projects', icon: 'open_project' },
+      // Recent and Projects are the shared pair; Demos and Templates are the
+      // project manager's own, because activating one opens a PROJECT rather
+      // than handing back a path.
+      ...standardChooserPlaces(accountFs),
       {
         id: 'demos',
         label: 'Demos',
@@ -552,7 +539,7 @@ export function HomePage({
         },
       },
     ],
-    [recentFs, demosFs, templatesFs],
+    [accountFs, demosFs, templatesFs],
   );
   // New Project / New from Template (upstream v10: one template selector).
   const [templates, setTemplates] = useState<TemplateMeta[]>([]);

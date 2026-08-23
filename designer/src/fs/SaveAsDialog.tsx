@@ -24,6 +24,7 @@ import type { JSX } from 'react';
 import { useMemo } from 'react';
 import { FileChooser } from './FileChooser.js';
 import { projectStoreFileSystem } from './project_store_fs.js';
+import { standardChooserPlaces } from './chooser_places.js';
 import type { ChooserFilter } from './chooser_types.js';
 
 export interface SaveAsDialogProps {
@@ -55,12 +56,17 @@ export function SaveAsDialog({
   // call, so rebuilding it every render would re-list the account on every
   // keystroke in the Name entry.
   const fs = useMemo(() => projectStoreFileSystem(), []);
+  // GTK gives every wxFileDialog in the process the same
+  // GtkPlacesSidebar; ours had one only in the project manager, so an
+  // editor's dialog opened with no sidebar at all.
+  const places = useMemo(() => standardChooserPlaces(fs), [fs]);
   return (
     <FileChooser
       fs={fs}
       mode="save"
       title={title}
       accept={accept}
+      places={places}
       initialName={initialName}
       {...(initialPath === undefined ? {} : { initialPath })}
       {...(filters === undefined ? {} : { filters })}
