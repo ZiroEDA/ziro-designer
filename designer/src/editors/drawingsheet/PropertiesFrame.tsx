@@ -39,6 +39,7 @@ import {
   type WksColor,
 } from '@ziroeda/common';
 import { KICAD_FONT_NAME } from '@ziroeda/common/src/font/stroke_font.js';
+import { bitmapUrl } from '../../ui/toolbarIcons.js';
 import { Combo, type ComboOption } from '../../ui/Combo.js';
 import { useModalEscape } from '../../ui/useModalEscape.js';
 import { UnitField } from '../../ui/UnitField.js';
@@ -118,11 +119,33 @@ const PAGE_CHOICES: { value: WksOption; label: string }[] = [
 
 // ---- small layout helpers ----------------------------------------------------
 
-function Group({ title, children }: { title: string; children: React.ReactNode }): JSX.Element {
+function Group({
+  title,
+  children,
+  layout = 'grid',
+}: {
+  title: string;
+  children: React.ReactNode;
+  /**
+   * Which sizer the box holds. The two pages do NOT use the same one:
+   * `grid` is the Item Properties page's `wxFlexGridSizer( 0, 3, 3, 0 )` with
+   * `AddGrowableCol( 1 )`; `stack` is General Options' `wxFlexGridSizer( 0, 2,
+   * 0, 0 )` with `AddGrowableCol( 0 )`, which spends two grid rows per field -
+   * `[label][spacer]` then `[ctrl][units]` (:471-481, :545-555) - and so puts
+   * the label on a line of its OWN above a full-width field.
+   */
+  layout?: 'grid' | 'stack';
+}): JSX.Element {
   return (
     <fieldset className="ze-ds-group">
       <legend>{title}</legend>
-      {children}
+      {/* Every static box in this panel holds a `wxFlexGridSizer( 0, 3, 3, 0 )`
+          with `AddGrowableCol( 1 )` (properties_frame_base.cpp:241-244,
+          :293-296, :392-395): label, value, units, and only the value column
+          grows. The label column is therefore as wide as the widest label IN
+          THIS BOX and no wider - "From:" in Position, "Step text:" in Repeat
+          Parameters - which is what a CSS grid's `auto` track is. */}
+      <div className={layout === 'grid' ? 'ze-ds-grid' : 'ze-ds-stack'}>{children}</div>
     </fieldset>
   );
 }
@@ -141,6 +164,24 @@ function Row({
       <span className="ze-ds-label">{label}</span>
       {children}
     </div>
+  );
+}
+
+/**
+ * General Options' row: the label on its own line, the field under it.
+ *
+ * Same two controls as {@link Row}, different sizer - see `Group`'s `layout`.
+ * The label carries `.ze-ds-label` for the font and dimming and
+ * `.ze-ds-stacklabel` for the geometry, which is the pair the Comment label
+ * above the comment field already uses; restating either would be a second
+ * copy of a value that is already written down once.
+ */
+function StackRow({ label, children }: { label: string; children: React.ReactNode }): JSX.Element {
+  return (
+    <>
+      <span className="ze-ds-label ze-ds-stacklabel">{label}</span>
+      <div className="ze-ds-row">{children}</div>
+    </>
   );
 }
 
@@ -261,7 +302,7 @@ function FormatButton({
   active,
   title,
   onClick,
-  children,
+  bitmap,
 }: {
   active?: boolean;
   /**
@@ -273,7 +314,13 @@ function FormatButton({
    */
   title?: string;
   onClick: () => void;
-  children: React.ReactNode;
+  /**
+   * The `BITMAPS::` name properties_frame.cpp:100-120 sets on this button.
+   * Every one of the eight is already vendored under `assets/toolbar/`, so the
+   * glyphs that stood here - `⬅ ↔ ➡ ⬆ ↕ ⬇` and a bold `B` - were an invented
+   * icon set beside KiCad's own.
+   */
+  bitmap: string;
 }): JSX.Element {
   return (
     <button
@@ -281,7 +328,7 @@ function FormatButton({
       title={title}
       onClick={onClick}
     >
-      {children}
+      <img src={bitmapUrl(bitmap)} alt="" />
     </button>
   );
 }
@@ -417,15 +464,17 @@ function ItemProperties({
   const patch = onChange as (p: Record<string, unknown>) => void;
 
   return (
-    <div>
+    <div className="ze-ds-itempage">
       {/* bSizerButt (properties_frame_base.cpp:25-44): the item type, the
           Syntax Help link and the page-option choice share one row, and the
-          choice carries NO label - the three entries say what it is. It wraps
-          here rather than clipping, which a wxBoxSizer does not have to do. */}
-      <div
-        className="ze-ds-row"
-        style={{ justifyContent: 'space-between', flexWrap: 'wrap', rowGap: 'var(--wx-border)' }}
-      >
+          choice carries NO label - the three entries say what it is.
+
+          ONE row, not a wrapping one. The label goes in with proportion 1 and
+          the choice with proportion 0, so the label takes the slack and the
+          choice keeps its natural width beside it. A `flex-basis: 100%` on the
+          choice put it on a line of its own, which is not a shape a
+          wxBoxSizer can take. */}
+      <div className="ze-ds-row ze-ds-toprow">
         {/* `m_staticTextType->SetLabel( aItem->GetClassName() )`
             (properties_frame.cpp:241): the type NAME alone. Ours prefixed it
             with "Type: ", which upstream never shows — the control's designer
@@ -449,7 +498,9 @@ function ItemProperties({
           </a>
         )}
         <Combo
-          style={{ flex: '1 1 100%', minWidth: 0 }}
+          /* `bSizerButt->Add( m_choicePageOpt, 0, ... )` - proportion 0, so it
+             is its own width and does not stretch. */
+          style={{ flex: '0 0 auto', minWidth: 0 }}
           ariaLabel="First page option"
           value={item.option}
           options={PAGE_CHOICES}
@@ -467,81 +518,84 @@ function ItemProperties({
             onChange={(e) => patch({ text: e.target.value })}
           />
           <div className="ze-ds-fmtbar">
-            <FormatButton active={t.bold} title="Bold" onClick={() => patch({ bold: !t.bold })}>
-              <b>B</b>
-            </FormatButton>
+            <FormatButton
+              active={t.bold}
+              title="Bold"
+              bitmap="text_bold"
+              onClick={() => patch({ bold: !t.bold })}
+            />
             <FormatButton
               active={t.italic}
               title="Italic"
+              bitmap="text_italic"
               onClick={() => patch({ italic: !t.italic })}
-            >
-              <i>I</i>
-            </FormatButton>
+            />
             <span className="ze-ds-fmtsep" />
             <FormatButton
               active={t.hjustify === 'left'}
+              bitmap="text_align_left"
               onClick={() => patch({ hjustify: 'left' })}
-            >
-              ⬅
-            </FormatButton>
+            />
             <FormatButton
               active={t.hjustify === 'center'}
+              bitmap="text_align_center"
               onClick={() => patch({ hjustify: 'center' })}
-            >
-              ↔
-            </FormatButton>
+            />
             <FormatButton
               active={t.hjustify === 'right'}
+              bitmap="text_align_right"
               onClick={() => patch({ hjustify: 'right' })}
-            >
-              ➡
-            </FormatButton>
+            />
             <span className="ze-ds-fmtsep" />
-            <FormatButton active={t.vjustify === 'top'} onClick={() => patch({ vjustify: 'top' })}>
-              ⬆
-            </FormatButton>
+            <FormatButton
+              active={t.vjustify === 'top'}
+              bitmap="text_valign_top"
+              onClick={() => patch({ vjustify: 'top' })}
+            />
             <FormatButton
               active={t.vjustify === 'center'}
+              bitmap="text_valign_center"
               onClick={() => patch({ vjustify: 'center' })}
-            >
-              ↕
-            </FormatButton>
+            />
             <FormatButton
               active={t.vjustify === 'bottom'}
+              bitmap="text_valign_bottom"
               onClick={() => patch({ vjustify: 'bottom' })}
-            >
-              ⬇
-            </FormatButton>
-            <span className="ze-ds-fmtsep" />
-            <input
-              type="color"
-              value={hexOf(t.color)}
-              style={{
-                // COLOR_SWATCH built with wxDefaultSize takes
-                // SWATCH_SIZE_MEDIUM_DU (24, 10) dialog units
-                // (color_swatch.cpp:193-194). Measured now rather than
-                // guessed: 48 x 23, from qa/probes asking a real wxPanel. The
-                // 26 x 22 that stood here was chosen to sit in the format row
-                // and was nearly half the true width. The -2 border adjustment
-                // at :200-205 is inside #ifdef __WXMAC__ and does not apply.
-                width: 'var(--swatch-medium-w)',
-                height: 'var(--swatch-medium-h)',
-                padding: 0,
-                border: 'none',
-                background: colorCss(t.color),
-              }}
-              onChange={(e) => {
-                const hex = e.target.value;
-                patch({
-                  color: {
-                    r: parseInt(hex.slice(1, 3), 16),
-                    g: parseInt(hex.slice(3, 5), 16),
-                    b: parseInt(hex.slice(5, 7), 16),
-                    a: t.color?.a ?? 1,
-                  },
-                });
-              }}
             />
+            <span className="ze-ds-fmtsep" />
+            {/* `m_textColorSwatch` inside `m_panelBorderColor1`, a wxPanel built
+                wxBORDER_SIMPLE (properties_frame_base.cpp:139-148) - that panel
+                is where the swatch's 1 px frame comes from, not the swatch.
+
+                A COLOR_SWATCH does NOT show a flat colour for
+                COLOR4D::UNSPECIFIED, which is what a text with no colour of its
+                own has (`properties_frame.cpp:124` hands that as m_default):
+                `RenderToDC` takes the checkerboard branch for it and paints
+                6 x 7 px squares (color_swatch.cpp:78-133). Ours painted the
+                resolved layer colour there - a red the user cannot tell from a
+                real, chosen red. The native `<input type="color">` still does
+                the picking; it is only made invisible so the swatch beside it
+                can be drawn the way KiCad draws it. */}
+            <label
+              className={`ze-swatch${t.color ? '' : ' unspecified'}`}
+              style={t.color ? { background: colorCss(t.color) } : undefined}
+            >
+              <input
+                type="color"
+                value={hexOf(t.color)}
+                onChange={(e) => {
+                  const hex = e.target.value;
+                  patch({
+                    color: {
+                      r: parseInt(hex.slice(1, 3), 16),
+                      g: parseInt(hex.slice(3, 5), 16),
+                      b: parseInt(hex.slice(5, 7), 16),
+                      a: t.color?.a ?? 1,
+                    },
+                  });
+                }}
+              />
+            </label>
             {/* No clear button. The format bar upstream ends at the swatch
                 (properties_frame_base.cpp:88-148: bold, italic, separator, the
                 three h-align buttons, separator, the three v-align buttons,
@@ -658,32 +712,38 @@ function ItemProperties({
        * "Text thickness:" row for text - and "Text thickness:" is a real
        * label, but it belongs to General Options > Default Values, over the
        * sheet's m_DefaultTextThickness, which is a different value entirely.
+       *
+       * The three share ONE `wxGridBagSizer( 3, 0 )` with `AddGrowableCol( 1 )`
+       * (:352, :380), so they line their value column up with each other even
+       * though only two of them are ever shown at once - the same three-track
+       * shape as the static boxes, just without a box around it.
        */}
-      {!bitmap && pen && (
-        <Row label="Line width:">
-          <UnitField
-            label="Line width:"
-            units={units}
-            range={LINE_WIDTH_RANGE}
-            onError={onError}
-            value={pen.lineWidth}
-            onCommit={(lineWidth) => patch({ lineWidth })}
-          />
-        </Row>
-      )}
-      {/* Rotation carries no unit label: m_textCtrlRotation has no
+      <div className="ze-ds-grid bare">
+        {!bitmap && pen && (
+          <Row label="Line width:">
+            <UnitField
+              label="Line width:"
+              units={units}
+              range={LINE_WIDTH_RANGE}
+              onError={onError}
+              value={pen.lineWidth}
+              onCommit={(lineWidth) => patch({ lineWidth })}
+            />
+          </Row>
+        )}
+        {/* Rotation carries no unit label: m_textCtrlRotation has no
           m_*Units static text beside it, and its value goes through
           DoubleValueFromString with EDA_UNITS::UNSCALED. */}
-      {(t || poly) && (
-        <Row label="Rotation:">
-          <NumField
-            format={fmtRotation}
-            value={(t ?? poly)!.rotate}
-            onCommit={(rotate) => patch({ rotate })}
-          />
-        </Row>
-      )}
-      {/* A bitmap gets Bitmap DPI and nothing else - there is no Scale row
+        {(t || poly) && (
+          <Row label="Rotation:">
+            <NumField
+              format={fmtRotation}
+              value={(t ?? poly)!.rotate}
+              onCommit={(rotate) => patch({ rotate })}
+            />
+          </Row>
+        )}
+        {/* A bitmap gets Bitmap DPI and nothing else - there is no Scale row
           upstream, because the scale IS the DPI (DS_DATA_ITEM_BITMAP::SetPPI).
           Which means the field must READ and WRITE the scale, not a stored DPI:
           `GetPPI()` is `nativePPI / scale` (ds_data_item.cpp:772-778) and
@@ -692,21 +752,22 @@ function ItemProperties({
           which is right only while the scale is 1 and is thrown away on the next
           load, because the file carries `(scale ...)` and no DPI at all
           (ds_data_model_io.cpp:405-430). */}
-      {bitmap && (
-        <Row label="Bitmap DPI:">
-          <NumField
-            format={fmtInt}
-            value={bitmapDisplayPPI(bitmap)}
-            onCommit={(dpi) => {
-              // `msg.ToLong( &value )` gates the call upstream
-              // (properties_frame.cpp:634-637): a field that is not a whole
-              // number leaves the item alone rather than dividing by it.
-              const n = Math.round(dpi);
-              if (n > 0) patch({ scale: bitmapScaleForPPI(bitmap, n) });
-            }}
-          />
-        </Row>
-      )}
+        {bitmap && (
+          <Row label="Bitmap DPI:">
+            <NumField
+              format={fmtInt}
+              value={bitmapDisplayPPI(bitmap)}
+              onCommit={(dpi) => {
+                // `msg.ToLong( &value )` gates the call upstream
+                // (properties_frame.cpp:634-637): a field that is not a whole
+                // number leaves the item alone rather than dividing by it.
+                const n = Math.round(dpi);
+                if (n > 0) patch({ scale: bitmapScaleForPPI(bitmap, n) });
+              }}
+            />
+          </Row>
+        )}
+      </div>
 
       <Group title="Repeat Parameters">
         <Row label="Count:">
@@ -768,8 +829,8 @@ function GeneralOptions({
 }): JSX.Element {
   return (
     <div>
-      <Group title="Default Values">
-        <Row label="Text width:">
+      <Group title="Default Values" layout="stack">
+        <StackRow label="Text width:">
           <UnitField
             label="Text width:"
             units={units}
@@ -778,8 +839,8 @@ function GeneralOptions({
             value={setup.textW}
             onCommit={(textW) => onChange({ textW })}
           />
-        </Row>
-        <Row label="Text height:">
+        </StackRow>
+        <StackRow label="Text height:">
           <UnitField
             label="Text height:"
             units={units}
@@ -788,8 +849,8 @@ function GeneralOptions({
             value={setup.textH}
             onCommit={(textH) => onChange({ textH })}
           />
-        </Row>
-        <Row label="Line thickness:">
+        </StackRow>
+        <StackRow label="Line thickness:">
           <UnitField
             label="Line thickness:"
             units={units}
@@ -798,8 +859,8 @@ function GeneralOptions({
             value={setup.lineWidth}
             onCommit={(lineWidth) => onChange({ lineWidth })}
           />
-        </Row>
-        <Row label="Text thickness:">
+        </StackRow>
+        <StackRow label="Text thickness:">
           <UnitField
             label="Text thickness:"
             units={units}
@@ -808,7 +869,7 @@ function GeneralOptions({
             value={setup.textLineWidth}
             onCommit={(textLineWidth) => onChange({ textLineWidth })}
           />
-        </Row>
+        </StackRow>
         <div className="ze-ds-row">
           <button
             className="ze-btn"
@@ -827,39 +888,39 @@ function GeneralOptions({
       </Group>
       {/* Deliberately unvalidated on both sides: CopyPrmsFromPanelToGeneral
           assigns the four margins with no validateMM call at all. */}
-      <Group title="Page Margins">
-        <Row label="Left:">
+      <Group title="Page Margins" layout="stack">
+        <StackRow label="Left:">
           <UnitField
             label="Left:"
             units={units}
             value={setup.leftMargin}
             onCommit={(leftMargin) => onChange({ leftMargin })}
           />
-        </Row>
-        <Row label="Right:">
+        </StackRow>
+        <StackRow label="Right:">
           <UnitField
             label="Right:"
             units={units}
             value={setup.rightMargin}
             onCommit={(rightMargin) => onChange({ rightMargin })}
           />
-        </Row>
-        <Row label="Top:">
+        </StackRow>
+        <StackRow label="Top:">
           <UnitField
             label="Top:"
             units={units}
             value={setup.topMargin}
             onCommit={(topMargin) => onChange({ topMargin })}
           />
-        </Row>
-        <Row label="Bottom:">
+        </StackRow>
+        <StackRow label="Bottom:">
           <UnitField
             label="Bottom:"
             units={units}
             value={setup.bottomMargin}
             onCommit={(bottomMargin) => onChange({ bottomMargin })}
           />
-        </Row>
+        </StackRow>
       </Group>
     </div>
   );

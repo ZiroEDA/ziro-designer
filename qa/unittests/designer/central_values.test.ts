@@ -199,7 +199,21 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // either side; both are measurements of a wx control, which is what a [px]
   // literal is FOR. The alternative was a token used once, which relocates the
   // number without centralising anything.
-  ui: { colours: 290, metrics: 815 },
+  // 290 -> 287. The drawing sheet's format bar drew its checked state in
+  // `#4aa3ff` and `rgba(74, 163, 255, 0.18)` - a blue that is in no KiCad
+  // theme. BITMAP_BUTTON paints a checked button with a pen of
+  // wxSYS_COLOUR_HIGHLIGHT and a fill of `highlightColor.ChangeLightness( 40 )`
+  // (bitmap_button.cpp:304-310), and ChangeLightness below 100 is a blend
+  // toward black by that percentage - a `color-mix` with `#000`, so the fill is
+  // now derived from --selection-bg instead of written down. The static box's
+  // own frame went to --ctl-border (wxSYS_COLOUR_BTNSHADOW) at the same time.
+  // 287 -> 286 / 815 -> 814. The colour swatch stopped painting the resolved
+  // layer colour for COLOR4D::UNSPECIFIED and now draws COLOR_SWATCH's own
+  // checkerboard, whose two squares are `black` and `black.Brightened( 0.15 )`
+  // - a color-mix, not a written-down pair - and the format bar's separator
+  // took --ctl-fg-disabled (wxSYS_COLOUR_GRAYTEXT) and its full 26 px height,
+  // replacing a 16 px rule of ours.
+  ui: { colours: 286, metrics: 814 },
   widgets: { colours: 6, metrics: 46 },
 };
 
@@ -412,8 +426,11 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // 691/1659 until the message-panel pass; see the ui row above. Rescanned
     // from this tree rather than subtracted from the diff, which is the rule
     // that has had to be re-learned on every one of these merges.
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(689);
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1658);
+    // 689 -> 686: the drawing sheet's format bar stopped writing its own blue
+    // for a checked BITMAP_BUTTON and the static box stopped writing its own
+    // frame colour. Rescanned from this tree, not subtracted from the diff.
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(685);
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1657);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {

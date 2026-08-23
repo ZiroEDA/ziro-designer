@@ -57,13 +57,22 @@ function row(label: string): string {
   return CODE.slice(start, end);
 }
 
-/** The `<FormatButton …>` element whose body contains `glyph`. */
-function formatButton(glyph: string): string {
-  const at = CODE.indexOf(glyph);
-  expect(at, `the ${glyph} button must exist`).toBeGreaterThan(-1);
+/**
+ * The `<FormatButton …>` element carrying one `BITMAPS::` name.
+ *
+ * Keyed on the bitmap rather than on a glyph: `properties_frame.cpp:100-120`
+ * is what says which button is which, and the glyphs these used to be keyed on
+ * (`<b>B</b>`, `⬅`) were ours - an invented icon set standing in for the eight
+ * KiCad bitmaps already vendored under `assets/toolbar/`.
+ */
+function formatButton(bitmap: string): string {
+  const at = CODE.indexOf(`bitmap="${bitmap}"`);
+  expect(at, `the ${bitmap} button must exist`).toBeGreaterThan(-1);
   const start = CODE.lastIndexOf('<FormatButton', at);
-  expect(start, `${glyph} must belong to a FormatButton`).toBeGreaterThan(-1);
-  return CODE.slice(start, at);
+  expect(start, `${bitmap} must belong to a FormatButton`).toBeGreaterThan(-1);
+  const end = CODE.indexOf('/>', at);
+  expect(end, `the ${bitmap} button must be closed`).toBeGreaterThan(start);
+  return CODE.slice(start, end);
 }
 
 // ---------------------------------------------------------------- D4
@@ -164,13 +173,22 @@ describe('tooltips', () => {
   // m_textCtrlStepX (:423), m_textCtrlStepY (:436). properties_frame.cpp adds
   // none.
   it('keeps the two the format bar has', () => {
-    expect(formatButton('<b>B</b>')).toContain('title="Bold"');
-    expect(formatButton('<i>I</i>')).toContain('title="Italic"');
+    expect(formatButton('text_bold')).toContain('title="Bold"');
+    expect(formatButton('text_italic')).toContain('title="Italic"');
   });
 
   it('gives the six alignment buttons none, one button at a time', () => {
-    for (const glyph of ['⬅', '↔', '➡', '⬆', '↕', '⬇']) {
-      expect(formatButton(glyph), `the ${glyph} button carries no tooltip`).not.toContain('title=');
+    for (const bitmap of [
+      'text_align_left',
+      'text_align_center',
+      'text_align_right',
+      'text_valign_top',
+      'text_valign_center',
+      'text_valign_bottom',
+    ]) {
+      expect(formatButton(bitmap), `the ${bitmap} button carries no tooltip`).not.toContain(
+        'title=',
+      );
     }
   });
 
@@ -209,12 +227,18 @@ describe('the Comment field', () => {
     // m_staticTextComment then m_textCtrlComment, added to m_SizerItemProperties
     // as siblings, the field with wxEXPAND (properties_frame_base.cpp:233-238).
     expect(CODE).not.toContain('<Row label="Comment:"');
-    const at = CODE.indexOf('ze-ds-stacklabel');
+    // Anchored on the Comment control itself, not on the first
+    // `ze-ds-stacklabel` in the file: General Options' rows are stacked too
+    // (its sizer is `wxFlexGridSizer( 0, 2, 0, 0 )` with `AddGrowableCol( 0 )`,
+    // two grid rows per field), so the first match moved to `StackRow` and
+    // this read a stretch of source with nothing to do with the Comment field.
+    const at = CODE.indexOf('htmlFor="ze-ds-comment"');
     expect(at, 'the Comment label must be stacked').toBeGreaterThan(-1);
+    expect(CODE.slice(Math.max(0, at - 60), at)).toContain('ze-ds-stacklabel');
     // The label keeps `.ze-ds-label`'s font and dimming rather than restating
     // them, and the field is the same full-width box `.ze-ds-textedit` already
     // defines — no second copy of either.
-    expect(CODE.slice(Math.max(0, at - 40), at)).toContain('ze-ds-label');
+    expect(CODE.slice(Math.max(0, at - 60), at)).toContain('ze-ds-label');
     expect(CODE.slice(at, at + 400)).toContain('ze-ds-textedit');
   });
 });

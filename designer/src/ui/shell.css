@@ -6560,8 +6560,12 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
      unselected one. The 600 here was ours. */
 }
 .ze-ds-group {
-  border: 1px solid var(--chrome-border, rgba(128, 128, 128, 0.35));
-  border-radius: 3px;
+  /* A GTK frame's border is wxSYS_COLOUR_BTNSHADOW and square. Sampled off the
+     live pl_editor capture, the Position box's own frame is rgb(24,24,24) at
+     x=1604 and x=1914 - which is --ctl-border, the token that already holds
+     that system colour. It was --chrome-border (#1e1e1e) with a 3 px radius,
+     neither of which GTK draws here. */
+  border: 1px solid var(--ctl-border);
   margin: 6px 6px;
   padding: 2px 4px 4px;
 }
@@ -6580,13 +6584,64 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
      23 px control, i.e. 26 px. */
   margin: 4px 6px;
 }
+/* A `wxFlexGridSizer( 0, 3, 3, 0 )` with `AddGrowableCol( 1 )` - label, value,
+   units, and only the value column grows. Column 0 is therefore sized to the
+   widest label in THAT sizer, and each static box has a sizer of its own, so
+   Position's column is "From:" wide and Repeat Parameters' is "Step text:"
+   wide. Rows are `display: contents` so their three children land in the
+   grid's own tracks; a per-row flexbox cannot line columns up ACROSS rows,
+   which is why the label had a hardcoded 118 px standing in for the alignment
+   this gives - a width neither wx nor GTK ever computes, and half the pane. */
+.ze-ds-grid {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  /* [data] the sizer's own vgap, from wxFormBuilder's generated call:
+     `wxFlexGridSizer( 0, 3, 3, 0 )` is (rows, cols, vgap, hgap)
+     (properties_frame_base.cpp:241, :293, :392), so 3 down and 0 across - the
+     horizontal spacing is the per-cell borders below, not a gap. */
+  row-gap: 3px;
+}
+/* A row is a `subgrid` and not `display: contents`, because a row does not
+   always have three controls: `Count:` and `Step text:` are a label and a
+   field with nothing after them, and upstream pads each with an explicit empty
+   cell (`fgSizer8->Add( 0, 0, 1, wxEXPAND, 5 )`, properties_frame_base.cpp:405,
+   :415) so the next label still starts a fresh row. Flowed into the parent
+   grid instead, a two-control row leaves column 3 free and the following
+   label lands IN it - which is what put "Step X:" beside Count's field and
+   pushed its own field onto the line below. A subgrid row consumes all three
+   tracks whether or not it fills them, which is the empty cell's whole job. */
+.ze-ds-grid .ze-ds-row {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  align-items: center;
+  /* The cells carry their own borders (see `.ze-ds-label`); the row has none,
+     and the static box's padding is the inset. */
+  margin: 0;
+  gap: 0;
+}
+/* The same grid with no static box around it: `gbSizer1` (Line width,
+   Rotation, Bitmap DPI) is added straight to the page sizer, so it carries the
+   inset a static box would otherwise have given it. */
+.ze-ds-grid.bare {
+  /* [data] the two borders wxFormBuilder writes around it, added per edge:
+     `sizerMisc->Add( gbSizer1, 1, wxEXPAND|wxTOP|wxRIGHT, 3 )` and
+     `m_SizerItemProperties->Add( sizerMisc, 0, wxEXPAND|wxBOTTOM|wxRIGHT|wxLEFT, 2 )`
+     (properties_frame_base.cpp:385, :388) - top 3, right 3+2, bottom 2,
+     left 2. */
+  margin: 3px 5px 2px 2px;
+}
 .ze-ds-label {
-  /* 118 px, not 92: the same labels at 14.67 px need the room, and "Repeat
-     Position Increment"-class strings are what set it. */
-  width: 118px;
   font-size: var(--ui-font-size);
   flex: 0 0 auto;
   opacity: 0.85;
+  /* [data] `wxALIGN_CENTER_VERTICAL|wxRIGHT|wxLEFT, 3` on every label cell
+     (properties_frame_base.cpp:249, :257, :265, ...) - wxFormBuilder's own
+     border argument. The value cells beside them pass a border with NO
+     direction bit, so wx applies none, which is why the field sits flush
+     against the label column. */
+  margin-inline: 3px;
 }
 /* `m_staticTextType` — the item's class name. Explicitly wxFONTWEIGHT_NORMAL
    at wxNORMAL_FONT's own point size (properties_frame_base.cpp:31), so it is
@@ -6617,6 +6672,17 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   margin: 0 6px 4px;
   opacity: 0.75;
 }
+/* The Item Properties page is a `wxBoxSizer( wxVERTICAL )` in a
+   wxScrolledWindow, and ONE of its children takes the slack: `m_SizerTextOptions`
+   goes in with proportion 1 (properties_frame_base.cpp:230) and `m_stcText`
+   with proportion 1 inside that (:79). So the text box grows to whatever the
+   pane has left, which is why a live pl_editor shows a tall editing area and
+   ours showed a three-row textarea with dead space under the last group. */
+.ze-ds-itempage {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
 .ze-ds-textedit {
   display: block;
   width: calc(100% - 12px);
@@ -6624,6 +6690,13 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   resize: vertical;
   font-family: inherit;
   font-size: var(--ui-font-size);
+}
+textarea.ze-ds-textedit {
+  /* The proportion-1 child. `min-height` keeps it from collapsing when the
+     rest of the page is taller than the pane; `flex-basis: 0` is what makes
+     the leftover space its own rather than its content's. */
+  flex: 1 1 0;
+  min-height: 72px;
 }
 /* `m_staticTextComment` and `m_textCtrlComment` (properties_frame_base.cpp:233-238)
    are added to m_SizerItemProperties as two SIBLINGS, not as a labelled row:
@@ -6636,6 +6709,15 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
    come from `.ze-ds-label` above, which the element also carries; restating
    either here is what the central-value rule forbids. The field needs no rule
    at all — `.ze-ds-textedit` is already exactly this box. */
+/* General Options' `wxFlexGridSizer( 0, 2, 0, 0 )` with `AddGrowableCol( 0 )`:
+   two grid rows per field, `[label][spacer]` then `[ctrl][units]`, so the
+   label is on a line of its own above a field that takes the whole width. A
+   plain column of blocks is that, and the field row inside it is an ordinary
+   `.ze-ds-row`. */
+.ze-ds-stack {
+  display: flex;
+  flex-direction: column;
+}
 .ze-ds-stacklabel {
   display: block;
   width: auto;
@@ -6656,28 +6738,107 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-ds-row select {
   font-size: var(--ui-font-size);
 }
+/* `formattingSizer`, a `wxBoxSizer( wxHORIZONTAL )` (properties_frame_base.cpp:88).
+   A box sizer does not wrap - a pane too narrow for the bar CLIPS it, which is
+   what a live pl_editor at its 150 px default does. Wrapping instead broke the
+   bar into three ragged rows the moment the buttons took their real size. Each
+   button goes in with a border argument carrying no direction bit
+   (`wxALIGN_CENTER_VERTICAL, 5`), so wx applies none and there is no gap. */
 .ze-ds-fmtbar {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 0;
   margin: 2px 6px 6px;
-  flex-wrap: wrap;
 }
+/* BITMAP_BUTTON, built `wxBU_AUTODRAW|wxBORDER_NONE`
+   (properties_frame_base.cpp:92-148): it paints itself and has no button face
+   at rest, so there is no border, no fill and no padding to draw. */
 .ze-ds-fmt {
-  min-width: 24px;
-  padding: 2px 5px;
-  font-size: var(--ui-font-size);
-  line-height: 1.2;
+  border: none;
+  background: none;
+  padding: 0;
+  /* `.ze-btn` is a GTK push button and carries that button's minimum width.
+     A BITMAP_BUTTON is not one - it draws itself - so the floor has to go, or
+     it beats the size below and the bar wraps. */
+  min-width: 0;
+  /* [px] 26 x 26, measured off the live pl_editor capture: the checked
+     align-left button's fill runs x=1666..1691 and y=466..491. */
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
+.ze-ds-fmt > img {
+  /* KiCad's bitmaps are square and the button centres them; the size is the
+     button's minus BITMAP_BUTTON's own m_padding. */
+  width: 16px;
+  height: 16px;
+}
+/* `hasFlag( wxCONTROL_CHECKED )`: a 1 px pen of wxSYS_COLOUR_HIGHLIGHT around
+   a fill of `highlightColor.ChangeLightness( 40 )` on a dark theme
+   (bitmap_button.cpp:304-310). ChangeLightness below 100 blends toward black
+   by that percentage - `*c = alpha * *c` - which is exactly what a `color-mix`
+   with black is, so the fill is DERIVED from the one highlight token rather
+   than restated. It came out `#4aa3ff` at 18 % alpha, a blue nothing in KiCad
+   is; a live capture reads rgb(233,84,32) around rgb(93,33,12). */
 .ze-ds-fmt.active {
-  outline: 1px solid #4aa3ff;
-  background: rgba(74, 163, 255, 0.18);
+  border: 1px solid var(--selection-bg);
+  background: color-mix(in srgb, var(--selection-bg) 40%, black);
 }
+/* `hasFlag( wxCONTROL_SEPARATOR )` draws one line in wxSYS_COLOUR_GRAYTEXT
+   down the FULL height of the button (bitmap_button.cpp:277-282), not a short
+   rule: `DrawLine( x/2, 0 -> x/2, GetSize().y )`. */
 .ze-ds-fmtsep {
   width: 1px;
-  height: 16px;
-  background: var(--chrome-border, rgba(128, 128, 128, 0.35));
+  height: 26px;
+  background: var(--ctl-fg-disabled);
   margin: 0 3px;
+}
+
+/* ---- COLOR_SWATCH (common/widgets/color_swatch.cpp) ---- */
+.ze-swatch {
+  /* SWATCH_SIZE_MEDIUM_DU (24, 10) dialog units, measured through a real
+     wxPanel as 48 x 23 - the tokens hold that. */
+  width: var(--swatch-medium-w);
+  height: var(--swatch-medium-h);
+  flex: 0 0 auto;
+  display: block;
+  /* The wxBORDER_SIMPLE panel the swatch sits in. Sampled off the live
+     pl_editor capture the frame is rgb(247,247,247), which is
+     wxSYS_COLOUR_BTNTEXT - the token that already holds it. */
+  border: 1px solid var(--chrome-fg);
+}
+.ze-swatch > input[type="color"] {
+  /* The picker still opens on a click; only its own rendering is suppressed,
+     so what shows through is the swatch drawn above. */
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: none;
+  display: block;
+}
+/* COLOR4D::UNSPECIFIED: `RenderToDC` fills the rect with a checkerboard rather
+   than a colour (color_swatch.cpp:78-133). On a dark parent it takes the
+   `else` branch - `black = COLOR4D::BLACK` and `white = black.Brightened( 0.15 )`,
+   which is 15 % white over black - and UNSPECIFIED's own alpha is 0, so the
+   foreground blends to nothing and the two squares are all that is left. A
+   live capture reads rgb(0,0,0) against rgb(38,38,38), which is that pair. */
+.ze-swatch.unspecified {
+  /* [data] CHECKERBOARD_SIZE_DU is (3, 3) (color_swatch.h:49); through the same
+     dialog-unit conversion as the swatch above that is 6 x 7 px, and the live
+     capture's squares are 6 across and 7 down. */
+  --checker-x: 6px;
+  --checker-y: 7px;
+  background-color: black;
+  background-image: conic-gradient(
+    color-mix(in srgb, white 15%, black) 0deg 90deg,
+    black 90deg 180deg,
+    color-mix(in srgb, white 15%, black) 180deg 270deg,
+    black 270deg 360deg
+  );
+  background-size: calc(var(--checker-x) * 2) calc(var(--checker-y) * 2);
 }
 
 /* ---- UNIT_BINDER's unit static text (common/widgets/unit_binder.cpp) ---- */

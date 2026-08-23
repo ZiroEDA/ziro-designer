@@ -20,3 +20,15 @@ export function toolbarIconUrl(id: string): string | undefined {
   const name = BITMAP[id];
   return name ? URLS[`../assets/toolbar/${name}.svg`] : undefined;
 }
+
+/**
+ * A KiCad bitmap by NAME, for the call sites that are not toolbars.
+ *
+ * `BITMAPS::text_align_left` and friends are set directly on controls all over
+ * KiCad — `properties_frame.cpp:100-120` gives the drawing sheet's eight
+ * format buttons theirs this way — and those call sites have no tool id to go
+ * through `BITMAP`. Same vendored files, same glob, one lookup.
+ */
+export function bitmapUrl(name: string): string | undefined {
+  return URLS[`../assets/toolbar/${name}.svg`];
+}
