@@ -235,3 +235,53 @@ describe('the two halves of the templates folder share one database', () => {
     }
   });
 });
+
+describe('a loose file in Templates opens, rather than doing nothing', () => {
+  /**
+   * The other end of the same folder. Saving a drawing sheet into Templates put
+   * it in the list, and clicking it in Open Existing Project did NOTHING AT
+   * ALL — no editor, no message.
+   *
+   * The chooser's own accept looks a path up with `projectAt`, and a path in
+   * this place belongs to no project, so it returned null and the handler
+   * returned. The Templates place had an `onAccept` of its own already, but it
+   * only matched template FOLDERS (`path === '/' + t.id`); a loose file fell
+   * past it into the same silent return.
+   *
+   * Upstream a file is opened by its EXTENSION: `PROJECT_TREE_ITEM::Activate`
+   * dispatches on the type and hands a `.kicad_wks` to `editDrawingSheet`
+   * (kicad/project_tree_item.cpp:342-344). That table is already ported and
+   * already runs for the project tree, so the fix reuses it rather than growing
+   * a second answer for one extension.
+   */
+  const HOME = read('../../../designer/src/home/HomePage.tsx');
+
+  it('still takes a template folder as a copy, which came first', () => {
+    // The half that already worked, kept: a template is not a file to open.
+    expect(HOME).toContain('const t = templatesRef.current.find((x) => path === `/${x.id}`);');
+    expect(HOME).toContain('openTemplateRef.current(t);');
+  });
+
+  it('takes anything else in that root as a FILE', () => {
+    expect(HOME).toContain('void openLooseTemplateFileRef.current(path);');
+    expect(HOME).toContain('const text = await readUserTemplateFile(name);');
+  });
+
+  it('runs the SAME activation the project tree runs', () => {
+    // Not a `.kicad_wks` special case: whatever `activationForFile` says, which
+    // is `GetFileExt`'s table. A `.kicad_sym` dropped in that folder lands in
+    // the symbol editor for free.
+    expect(HOME).toContain('activateFile(file, [file], name);');
+  });
+
+  it('says so when the file cannot be read, instead of returning silently', () => {
+    // Silence is what this whole test exists about.
+    expect(HOME).toContain('setInfoMessage(`Could not read ${name}.`);');
+  });
+
+  it('closes the dialog first, as the other two places do', () => {
+    const at = HOME.indexOf('openLooseTemplateFileRef.current = async (path)');
+    expect(at, 'the ref is never assigned').toBeGreaterThan(0);
+    expect(HOME.slice(at, at + 200)).toContain('setOpenPrjOpen(false);');
+  });
+});
