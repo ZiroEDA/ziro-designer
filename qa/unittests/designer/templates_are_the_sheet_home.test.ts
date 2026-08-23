@@ -170,3 +170,68 @@ describe('Page Settings can read back what was saved there', () => {
     expect(SCH).toContain('return { name: f.path, sheet: null };');
   });
 });
+
+describe('the two halves of the templates folder share one database', () => {
+  /**
+   * `user_templates.ts` (the template folders) and `user_template_files.ts`
+   * (the loose files beside them) open the SAME IndexedDB database. That makes
+   * three things load-bearing, and a mutation sweep found none of them pinned:
+   * dropping `user_templates.ts` back to version 1 broke nothing here while
+   * breaking the templates list for anyone who had saved a sheet.
+   *
+   * IndexedDB refuses an open at a LOWER version than the one on disk with a
+   * VersionError. So whichever module opens first decides, and if they disagree
+   * the loser throws — at runtime, in the browser, where no test looks.
+   */
+  const FOLDERS = read('../../../designer/src/home/user_templates.ts');
+  const FILES = read('../../../designer/src/home/user_template_files.ts');
+
+  const versionOf = (src: string): string => {
+    const m = src.match(/const VERSION = (\d+);/);
+    expect(m, 'no VERSION in this module').not.toBeNull();
+    return (m as RegExpMatchArray)[1] as string;
+  };
+  const dbNameOf = (src: string): string => {
+    const m = src.match(/const DB_NAME = '([^']+)';/);
+    expect(m, 'no DB_NAME in this module').not.toBeNull();
+    return (m as RegExpMatchArray)[1] as string;
+  };
+
+  it('names the same database', () => {
+    expect(dbNameOf(FOLDERS)).toBe(dbNameOf(FILES));
+  });
+
+  it('names the same version', () => {
+    // The whole point. They differed by one and nothing noticed.
+    expect(versionOf(FOLDERS)).toBe(versionOf(FILES));
+  });
+
+  it('creates BOTH stores from either upgrade path', () => {
+    // Whichever module opens first runs `onupgradeneeded`, so an upgrade that
+    // creates only its own store leaves the other module opening a database at
+    // the right version with no store to read.
+    //
+    // Both modules name their stores through constants, so the constants are
+    // resolved before looking - grepping the block for the literals reported a
+    // failure that was only this test reading the wrong thing.
+    const storesCreated = (src: string): string[] => {
+      const consts = Object.fromEntries(
+        [...src.matchAll(/const (\w+) = '([^']+)';/g)].map((m) => [m[1] as string, m[2] as string]),
+      );
+      const upgrade = src.slice(src.indexOf('onupgradeneeded'), src.indexOf('req.onsuccess'));
+      return [...upgrade.matchAll(/createObjectStore\(\s*([^,]+),/g)]
+        .map((m) => (m[1] as string).trim())
+        .map((arg) => consts[arg] ?? arg.replace(/^'|'$/g, ''))
+        .sort();
+    };
+    for (const [name, src] of [
+      ['user_templates.ts', FOLDERS],
+      ['user_template_files.ts', FILES],
+    ] as const) {
+      expect(storesCreated(src), `${name} does not create both stores`).toEqual([
+        'template-files',
+        'templates',
+      ]);
+    }
+  });
+});
