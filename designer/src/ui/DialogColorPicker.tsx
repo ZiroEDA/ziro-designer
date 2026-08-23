@@ -22,7 +22,7 @@
  * loops below are upstream's, transcribed.
  */
 
-import type { JSX } from 'react';
+import type { CSSProperties, JSX } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   type Color4d,
@@ -508,7 +508,13 @@ export function DialogColorPicker({
               caller passed (dialog_color_picker.cpp:167-246). A caller that
               passes none - which pl_editor's swatch does - leaves the page
               empty, so an empty grid IS the page here. */}
-          {tab === 'defined' && <div className="ze-cp-defined" />}
+          {tab === 'defined' && (
+            <div className="ze-cp-defined">
+              {/* `initDefinedColors` fills m_fgridColor from the
+                  CUSTOM_COLORS_LIST the caller passed; with none there are no
+                  swatches to draw, and the page is the empty grid. */}
+            </div>
+          )}
 
           {/* m_SizerTransparency, 0..100 and wxSL_INVERSE. */}
           {allowOpacity && (
@@ -534,8 +540,19 @@ export function DialogColorPicker({
 
         <div className="ze-cp-buttons">
           <span>Preview (old/new):</span>
-          <span className="ze-cp-preview" style={{ background: css(value) }} />
-          <span className="ze-cp-preview" style={{ background: css(color) }} />
+          {/* `updatePreview` builds both of these with COLOR_SWATCH's own
+              MakeBitmap (dialog_color_picker.cpp:128-140), so UNSPECIFIED
+              checkerboards here exactly as it does in a swatch. A plain
+              `rgba(0,0,0,0)` background showed the dialog through the square,
+              which reads as "no preview" rather than as "no colour". */}
+          <span
+            className="ze-cp-preview ze-swatch unspecified"
+            style={{ '--swatch-color': css(value) } as CSSProperties}
+          />
+          <span
+            className="ze-cp-preview ze-swatch unspecified"
+            style={{ '--swatch-color': css(color) } as CSSProperties}
+          />
           <input
             className="ze-search ze-cp-hex"
             value={hexText}

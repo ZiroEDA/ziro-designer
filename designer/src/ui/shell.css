@@ -1028,6 +1028,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
    where a person expects "more" to be. Both of the colour picker's sliders
    have that bit (dialog_color_picker_base.cpp:122, 171). */
 .ze-slider.vertical {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1041,20 +1042,63 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   flex: 1;
   margin: var(--slider-track-inset) 0;
 }
-/* Turned vertical the labels are no longer a line above and a line below the
-   track; they are the value at the top and the low end at the bottom, which is
-   the same pair read down the scale. */
-.ze-slider.vertical .ze-slider-val,
-.ze-slider.vertical .ze-slider-ends {
-  position: static;
-  transform: none;
-  display: block;
+/* The fill runs from the BOTTOM of a vertical scale to the thumb, because
+   wxSL_INVERSE puts the maximum at the top. A gradient is resolved in PHYSICAL
+   directions whatever the writing mode, and the UA has already turned this
+   track's box on its side - so the horizontal rule's `to right` painted from
+   the top down, which is why a slider sitting at 0 showed a full orange track
+   and one at maximum showed none. */
+.ze-app .ze-slider.vertical > input[type="range"]::-webkit-slider-runnable-track {
+  background: linear-gradient(
+    to top,
+    var(--chrome-active) 0 var(--slider-thumb-x),
+    var(--slider-track-bg) var(--slider-thumb-x) 100%
+  );
 }
-.ze-slider.vertical .ze-slider-ends > :last-child {
-  display: none;
+/* A vertical track is THIN across and long down, so its thickness is a width
+   here where the horizontal rule sets a height. Left as a height it took the
+   input's whole 20 px and the scale read as a grey slab. */
+.ze-app .ze-slider.vertical > input[type="range"]::-webkit-slider-runnable-track {
+  width: var(--slider-track-height);
+  height: auto;
+  margin-inline: auto;
 }
 .ze-slider.vertical.labelled {
   padding-block: 0;
+}
+/* wxSL_LEFT (dialog_color_picker_base.cpp:122, :171): the labels sit to the
+   LEFT of a vertical scale. Centred over the track instead, the value label
+   ends up UNDER the thumb, which is why the numbers read as hidden.
+
+   The ends straddle the whole column - the maximum at the top, because
+   wxSL_INVERSE puts it there - and the value follows the thumb, which is the
+   same travel the horizontal rule computes, counted from the top because the
+   scale is inverted. */
+.ze-slider.vertical .ze-slider-ends {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column-reverse;
+  justify-content: space-between;
+  align-items: flex-end;
+  pointer-events: none;
+}
+.ze-slider.vertical .ze-slider-ends > span {
+  padding-right: calc(50% + var(--slider-track-height));
+}
+.ze-slider.vertical .ze-slider-val {
+  position: absolute;
+  left: auto;
+  right: calc(50% + var(--slider-track-height));
+  text-align: right;
+  top: calc(
+    var(--slider-thumb-size) /
+    2 +
+    (1 - var(--slider-frac)) *
+    (100% - var(--slider-thumb-size))
+  );
+  transform: translateY(-50%);
+  pointer-events: none;
 }
 
 /* A wxRadioButton is DRAWN here rather than left to the engine. GTK paints a
@@ -6946,20 +6990,36 @@ textarea.ze-ds-textedit {
    which is 15 % white over black - and UNSPECIFIED's own alpha is 0, so the
    foreground blends to nothing and the two squares are all that is left. A
    live capture reads rgb(0,0,0) against rgb(38,38,38), which is that pair. */
+/* `RenderToDC` blends the colour over the checkerboard squares at its own
+   alpha (`wxColor::AlphaBlend( fg, bg, alpha )`, color_swatch.cpp:118-124), so
+   a half-transparent colour is a TINTED checkerboard, not one or the other.
+   The checkerboard is therefore always underneath and the colour is painted on
+   top at whatever alpha it has - which reaches pure checkerboard at 0 and a
+   flat colour at 1 without either being a special case. */
 .ze-swatch.unspecified {
   /* [data] CHECKERBOARD_SIZE_DU is (3, 3) (color_swatch.h:49); through the same
      dialog-unit conversion as the swatch above that is 6 x 7 px, and the live
      capture's squares are 6 across and 7 down. */
   --checker-x: 6px;
   --checker-y: 7px;
+  /* `--swatch-color` is the foreground, painted OVER the squares at its own
+     alpha; unset it and the layer is transparent and the checkerboard shows
+     through whole, which is COLOR4D::UNSPECIFIED. */
   background-color: black;
-  background-image: conic-gradient(
-    color-mix(in srgb, white 15%, black) 0deg 90deg,
-    black 90deg 180deg,
-    color-mix(in srgb, white 15%, black) 180deg 270deg,
-    black 270deg 360deg
-  );
-  background-size: calc(var(--checker-x) * 2) calc(var(--checker-y) * 2);
+  background-image:
+    linear-gradient(
+      var(--swatch-color, transparent) 0 100%,
+      var(--swatch-color, transparent) 0 100%
+    ),
+    conic-gradient(
+      color-mix(in srgb, white 15%, black) 0deg 90deg,
+      black 90deg 180deg,
+      color-mix(in srgb, white 15%, black) 180deg 270deg,
+      black 270deg 360deg
+    );
+  background-size:
+    100% 100%,
+    calc(var(--checker-x) * 2) calc(var(--checker-y) * 2);
 }
 
 /* ---- UNIT_BINDER's unit static text (common/widgets/unit_binder.cpp) ---- */
@@ -8392,6 +8452,13 @@ textarea.ze-ds-textedit {
   display: flex;
   align-items: stretch;
 }
+/* `display` here beats the UA's `[hidden] { display: none }`, which is why
+   selecting Defined Colors underlined the tab and changed nothing on the page
+   beneath it. The page stays MOUNTED - unmounting it would throw away the two
+   palette bitmaps and repaint them on every tab click. */
+.ze-cp-panels[hidden] {
+  display: none;
+}
 .ze-cp-panels > fieldset {
   flex: 1 1 0;
   min-width: 0;
@@ -8421,7 +8488,12 @@ textarea.ze-ds-textedit {
      `size=20` and contributes that to its track's max-content, which is what
      stretched each static box to three twenty-character fields and made the
      dialog half again as wide as a real one. */
-  width: 0;
+  /* [px] as wide as the RANGE needs and no wider: three digits at most
+     (0..255, 0..359). `size` cannot express that - it counts average
+     characters - and `width: 0` clipped the value to a single glyph, which is
+     why the fields read "(" instead of "0". A real wxSpinCtrl's entry beside
+     these measures 3 digits plus the caret. */
+  width: 5ch;
   min-width: 0;
   flex: 1 1 auto;
   font-size: var(--ui-font-size);
@@ -8441,6 +8513,11 @@ textarea.ze-ds-textedit {
    CUSTOM_COLORS_LIST, which is the common case. */
 .ze-cp-defined {
   flex: 1;
+  /* [data] the palettes are 264 px (dialog_color_picker_base.cpp:32), and a
+     wxNotebook does not shrink when a page with less in it is selected - the
+     book keeps the height of its largest page. An empty div collapsed the
+     dialog to its button row instead. */
+  min-height: 264px;
   /* [data] `m_SizerDefinedColors->Add( m_fgridColor, 1, wxALL|wxEXPAND, 10 )`
      (dialog_color_picker_base.cpp:154). */
   padding: 10px;
@@ -8529,6 +8606,11 @@ textarea.ze-ds-textedit {
   flex: 0 0 auto;
   border: 1px solid var(--ctl-border);
 }
+/* `updatePreview` calls the same `COLOR_SWATCH::MakeBitmap`
+   (dialog_color_picker.cpp:128-140), so an UNSPECIFIED preview checkerboards
+   exactly as a swatch does rather than showing a transparent square that reads
+   as the dialog's own background. The rule is `.ze-swatch.unspecified`'s, taken
+   by the same class rather than copied. */
 .ze-cp-hex {
   /* [data] `m_colorValue->SetMinSize( wxSize( 176, -1 ) )`. */
   min-width: 176px;
