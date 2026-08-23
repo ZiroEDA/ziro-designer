@@ -76,3 +76,65 @@ describe('nothing is loaded until something is opened', () => {
     expect(EDITOR).toMatch(/if \(!fileName\) \{\s*saveAsRef\.current\?\.\(\);/);
   });
 });
+
+/**
+ * File > New makes the SAME "nothing is loaded" state, and it is the same four
+ * calls upstream (`pagelayout_editor/files.cpp:123-128`):
+ *
+ *     pglayout.AllowVoidList( true );
+ *     SetCurrentFileName( wxEmptyString );
+ *     pglayout.ClearList();
+ *     OnNewDrawingSheet();
+ *
+ * A live pl_editor after New shows a BLANK page — no border, no title block —
+ * and titles the frame `[no drawing sheet loaded]`. Ours loaded the default
+ * sheet and named the file `drawing_sheet.kicad_wks`, so New produced the
+ * document the editor opens with rather than an empty one.
+ */
+describe('File > New clears the sheet rather than reloading the default', () => {
+  /** The body of `newSheet`, so a stray match elsewhere cannot satisfy these. */
+  const newSheetBody = ((): string => {
+    const at = EDITOR.indexOf('const newSheet = useCallback');
+    expect(at, 'newSheet must exist').toBeGreaterThan(-1);
+    return EDITOR.slice(at, EDITOR.indexOf('}, []);', at));
+  })();
+
+  it('empties the item list', () => {
+    // `ClearList()` under `AllowVoidList( true )`: the list is void and STAYS
+    // void, where the flag's default of false would reload the default sheet
+    // (ds_data_model.h:188).
+    expect(newSheetBody).toContain('items: []');
+  });
+
+  it('does not load the default sheet', () => {
+    // The bug in one line: `defaultDrawingSheet()` is what the editor OPENS
+    // with, and New is not an open.
+    expect(newSheetBody).not.toContain('defaultDrawingSheet');
+  });
+
+  it('keeps the setup, because ClearList touches only the items', () => {
+    // `ClearList` deletes the DS_DATA_ITEMs and nothing else, so the margins
+    // and default text sizes survive. Replacing the whole sheet would reset
+    // them, which upstream does not do.
+    expect(newSheetBody).toMatch(/setSheet\(\(s\) => \(\{ \.\.\.s, items: \[\] \}\)\)/);
+  });
+
+  it('clears the current file name', () => {
+    // `SetCurrentFileName( wxEmptyString )` — this is what puts the placeholder
+    // back in the title bar.
+    expect(newSheetBody).toMatch(/setFileName\(''\)/);
+    expect(newSheetBody).not.toMatch(/setFileName\('[^']+'\)/);
+  });
+
+  it('still clears undo, the selection and the modified flag', () => {
+    // `ClearUndoRedoList()` and `SetContentModified( false )` in
+    // OnNewDrawingSheet (pl_editor_frame.cpp:908-909), and
+    // `CopyPrmsFromItemToPanel( nullptr )` at :912 — which an empty selection
+    // is here. Without these the assertions above could pass on a New that
+    // left the old document's history and dirty flag behind.
+    expect(newSheetBody).toContain('undoStack.current = []');
+    expect(newSheetBody).toContain('redoStack.current = []');
+    expect(newSheetBody).toContain('setSelection(new Set())');
+    expect(newSheetBody).toContain('setDirty(false)');
+  });
+});

@@ -458,13 +458,41 @@ export function DrawingSheetEditor({
     recentFiles.addFileToHistory({ name, text });
   }, []);
 
+  /**
+   * `PL_EDITOR_FRAME::Files_io( wxID_NEW )` (files.cpp:123-128), which is four
+   * calls:
+   *
+   *     pglayout.AllowVoidList( true );
+   *     SetCurrentFileName( wxEmptyString );
+   *     pglayout.ClearList();
+   *     OnNewDrawingSheet();
+   *
+   * The first two are the ones we had backwards. `ClearList` empties the item
+   * list and `AllowVoidList( true )` is what lets it STAY empty - the flag is
+   * false by default and means "if the list is void, load the default sheet"
+   * (`m_allowVoidList`, ds_data_model.h:188). So a new drawing sheet in a live
+   * pl_editor is a blank page: no border, no title block, nothing. Ours loaded
+   * `defaultDrawingSheet()` instead, which is the sheet the editor OPENS with,
+   * not the one New makes.
+   *
+   * `SetCurrentFileName( wxEmptyString )` is why the title bar then reads
+   * `[no drawing sheet loaded]`. We set `drawing_sheet.kicad_wks`, so the frame
+   * claimed a file New had not created.
+   *
+   * The SETUP survives: `ClearList` deletes the items and touches nothing else,
+   * so the margins and default text sizes are still whatever the model held.
+   *
+   * `OnNewDrawingSheet` (pl_editor_frame.cpp:906-928) is the rest - clear the
+   * undo list, drop the modified flag, blank the properties page (which an
+   * empty selection does here), update the title, and zoom to fit.
+   */
   const newSheet = useCallback(() => {
     undoStack.current = [];
     redoStack.current = [];
-    setSheet(defaultDrawingSheet());
+    setSheet((s) => ({ ...s, items: [] }));
     setSelection(new Set());
     setDirty(false);
-    setFileName('drawing_sheet.kicad_wks');
+    setFileName('');
     setStatus('New drawing sheet');
     requestAnimationFrame(() => controller.current?.zoomToFit());
   }, []);
