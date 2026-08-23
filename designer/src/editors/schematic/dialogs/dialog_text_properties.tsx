@@ -144,15 +144,6 @@ function Swatch({
           onChange={(c) => onChange(color4dToItemColor(c))}
         />
       </span>
-      <button
-        type="button"
-        className="ze-btn ze-lp-clearcolor"
-        title="Clear color to use Schematic Editor colors."
-        disabled={!color}
-        onClick={() => onChange(undefined)}
-      >
-        Clear
-      </button>
     </>
   );
 }

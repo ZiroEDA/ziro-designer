@@ -231,7 +231,7 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // replacing a 16 px rule of ours.
   // 814 -> 815, and the one that arrived is editors/image's departing
   // `height: 7px`. A move, not a gain: the tree-wide totals below are the same.
-  ui: { colours: 286, metrics: 815 },
+  ui: { colours: 286, metrics: 814 },
   widgets: { colours: 6, metrics: 46 },
 };
 
@@ -454,7 +454,11 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // 1657 -> 1649: the same sweep. A native colour input has no useful
     // default size, so eight of the sixteen sites gave theirs an inline
     // width and height; the shared swatch takes --swatch-*-w/h. Rescanned.
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1649);
+    // 1649 -> 1648: the seven Clear buttons and the symbol grid's x went with
+    // the sweep's second half, and `.ze-lp-swatch`'s 34 x 18 went when the
+    // swatch inside it became a COLOR_SWATCH sized from --swatch-*-w/h.
+    // Rescanned from this tree.
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1648);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {

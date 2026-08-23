@@ -74,20 +74,11 @@ export function DialogLineProperties(props: WireProps | JunctionProps): JSX.Elem
         color={itemColorToColor4d(color)}
         onChange={(c) => setColor(color4dToItemColor(c))}
       />
-      <button
-        className="ze-btn"
-        style={{ fontSize: 11 }}
-        title="Clear color to use Schematic Editor colors."
-        disabled={!color}
-        onClick={() => setColor(undefined)}
-      >
-        Clear
-      </button>
-      {!color && (
-        <span className="ze-muted" style={{ fontSize: 11 }}>
-          (using Schematic Editor colors)
-        </span>
-      )}
+      {/* m_helpLabel2 - a static wxStaticText, not a control
+          (dialog_line_properties_base.cpp:83,
+          dialog_junction_props_base.cpp:68). Clearing is the
+          picker's own Clear Color button. */}
+      <span className="ze-help-label">Clear color to use Schematic Editor colors.</span>
     </label>
   );
 

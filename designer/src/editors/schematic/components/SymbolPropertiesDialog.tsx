@@ -547,15 +547,6 @@ export function SymbolPropertiesDialog({
                               patchEffects(i, { color: color4dToItemColor(picked) })
                             }
                           />
-                          <button
-                            type="button"
-                            className="ze-btn sm"
-                            title="Default colour"
-                            disabled={!row.effects.color}
-                            onClick={() => patchEffects(i, { color: undefined })}
-                          >
-                            ×
-                          </button>
                         </td>
                         {/* FDC_ALLOW_AUTOPLACE — SCH_FIELD::CanAutoplace, which
                             the file stores inverted as (do_not_autoplace yes). */}

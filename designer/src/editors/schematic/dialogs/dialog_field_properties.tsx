@@ -209,15 +209,6 @@ export function DialogFieldProperties({ initial, mandatory, onOk, onCancel }: Pr
               color={itemColorToColor4d(color)}
               onChange={(c) => setColor(color4dToItemColor(c))}
             />
-            <button
-              className="ze-btn"
-              style={{ fontSize: 11 }}
-              title="Clear color to use Schematic Editor colors."
-              disabled={!color}
-              onClick={() => setColor(undefined)}
-            >
-              Clear
-            </button>
           </label>
 
           <label className="row">

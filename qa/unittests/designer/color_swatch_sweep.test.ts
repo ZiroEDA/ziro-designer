@@ -145,3 +145,69 @@ describe('the schematic’s ItemColor round trip', () => {
     expect(color4dToItemColor({ r: 0.5, g: 0, b: 0, a: 0 })).toEqual([128, 0, 0, 0]);
   });
 });
+
+describe('no dialog keeps a Clear button the picker replaced', () => {
+  /**
+   * Upstream a colour is cleared inside DIALOG_COLOR_PICKER - `m_default` is
+   * COLOR4D::UNSPECIFIED, so Reset to Default reads "Clear Color"
+   * (dialog_color_picker.cpp:101-102). There is no clear BUTTON beside a swatch
+   * anywhere in eeschema: dialog_shape_properties_base.cpp:104-172,
+   * dialog_line_properties_base.cpp:83, dialog_text_properties_base.cpp:205,
+   * dialog_label_properties_base.cpp:293, dialog_field_properties_base.cpp:254,
+   * dialog_sheet_properties_base.cpp:202 and dialog_table_properties_base.cpp:86
+   * are each a COLOR_SWATCH and nothing else.
+   *
+   * Four of them add a static wxStaticText - `m_helpLabel2`, "Clear color to
+   * use Schematic Editor colors." - which is a LABEL, not a control.
+   *
+   * Ours had eight buttons, which existed because the native input could not
+   * draw UNSPECIFIED and so had no way to express "no colour of its own".
+   */
+  const CLEAR = /Clear color|Clear colors|Default colour|Use the schematic's own colour/;
+
+  it('has no clear-a-colour control left', () => {
+    const offenders: string[] = [];
+    for (const file of walk(SRC)) {
+      const lines = codeLines(file);
+      lines.forEach(({ line, n }, i) => {
+        if (!CLEAR.test(line)) return;
+        // A `title=` or `>Clear<` inside a <button> is the control; the same
+        // words in a <span> are m_helpLabel2, which upstream does have.
+        const near = lines
+          .slice(Math.max(0, i - 8), i + 3)
+          .map((l) => l.line)
+          .join('\n');
+        if (/<button/.test(near)) offenders.push(`${file.slice(SRC.length + 1)}:${n}`);
+      });
+    }
+    expect(offenders, 'upstream clears inside the picker, not beside the swatch').toEqual([]);
+  });
+
+  it('keeps m_helpLabel2 where upstream has one, as a label', () => {
+    // The two pages in our tree that correspond to a dialog carrying it.
+    for (const rel of [
+      'editors/schematic/dialogs/dialog_shape_properties.tsx',
+      'editors/schematic/dialogs/dialog_line_properties.tsx',
+    ]) {
+      const src = readFileSync(join(SRC, rel), 'utf8');
+      expect(src, `${rel} lost m_helpLabel2`).toContain('className="ze-help-label"');
+      expect(src).toContain('to use Schematic Editor colors.');
+    }
+  });
+});
+
+describe('Save As suggests no filename, as pl_editor does not', () => {
+  const EDITOR = readFileSync(join(SRC, 'editors/drawingsheet/DrawingSheetEditor.tsx'), 'utf8');
+
+  it('passes an empty name, not one it made up', () => {
+    // `wxFileDialog( this, _( "Save Drawing Sheet As" ), dir, wxEmptyString, ...)`
+    // (pagelayout_editor/files.cpp:200-202), confirmed by building that very
+    // dialog: wx's GetFilename() and GTK's current-name are both empty
+    // (qa/probes/savedlg_probe.cpp).
+    expect(EDITOR).toContain('initialName=""');
+    // The two names we used to offer: an invented default, and the sheet's
+    // existing name. Upstream offers neither.
+    expect(EDITOR).not.toContain("initialName={fileName || 'drawing_sheet.kicad_wks'}");
+    expect(EDITOR).not.toContain('initialName={fileName}');
+  });
+});

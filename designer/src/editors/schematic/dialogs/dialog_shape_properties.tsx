@@ -102,15 +102,9 @@ export function DialogShapeProperties({ shapeName, initial, onOk, onCancel }: Pr
         color={itemColorToColor4d(value)}
         onChange={(c) => set(color4dToItemColor(c))}
       />
-      <button
-        className="ze-btn"
-        style={{ fontSize: 11 }}
-        title="Clear colors to use Schematic Editor colors."
-        disabled={!enabled || !value}
-        onClick={() => set(undefined)}
-      >
-        Clear
-      </button>
+      {/* m_helpLabel2 (dialog_shape_properties_base.cpp:172) is one static
+          label for the whole page, not a button per swatch - see the page
+          body below. Clearing is the picker's own Clear Color. */}
     </>
   );
 
@@ -183,6 +177,11 @@ export function DialogShapeProperties({ shapeName, initial, onOk, onCancel }: Pr
             <span>Fill color:</span>
             {swatch(fillColor, setFillColor, filled)}
           </label>
+
+          {/* m_helpLabel2 (dialog_shape_properties_base.cpp:172): one static
+              wxStaticText for the page, added `wxTOP|wxRIGHT, 8`. Plural
+              "colors" here because this page has two of them. */}
+          <span className="ze-help-label">Clear colors to use Schematic Editor colors.</span>
         </div>
         <div className="ze-modal-footer">
           <button className="ze-btn" onClick={onCancel}>

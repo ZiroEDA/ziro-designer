@@ -654,15 +654,6 @@ export function DialogLabelProperties({
                       onChange={(c) => setColor(color4dToItemColor(c))}
                     />
                   </span>
-                  <button
-                    type="button"
-                    className="ze-btn ze-lp-clearcolor"
-                    title="Clear color to use Schematic Editor colors."
-                    disabled={!color}
-                    onClick={() => setColor(undefined)}
-                  >
-                    Clear
-                  </button>
                 </div>
               </div>
             </fieldset>

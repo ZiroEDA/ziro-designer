@@ -5674,16 +5674,27 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   border: 1px solid var(--chrome-border);
   padding: 1px;
 }
+/* The swatch inside `.ze-lp-swatch-frame`. It is a COLOR_SWATCH now, so its
+   size comes from --swatch-*-w/h through `.ze-swatch`; what stays here is the
+   frame's own inset. */
 .ze-lp-swatch {
-  width: 34px;
-  height: 18px;
   padding: 0;
   border: none;
   background: none;
 }
-.ze-lp-clearcolor {
-  font-size: 11px;
-  margin-left: 6px;
+
+/* `m_helpLabel2` — the static wxStaticText under a page's colour swatches
+   (dialog_shape_properties_base.cpp:172, dialog_line_properties_base.cpp:83,
+   dialog_junction_props_base.cpp:68, dialog_wire_bus_properties_base.cpp:95).
+   A plain label at the dialog's own face: it explains that clearing a colour
+   falls back to the editor's, and it is not a control. We had a Clear BUTTON
+   here instead, in seven dialogs, which upstream does not have anywhere -
+   clearing is DIALOG_COLOR_PICKER's own Clear Color. */
+.ze-help-label {
+  /* [data] `wxTOP|wxRIGHT, 8` on the only sizer cell it occupies. */
+  margin-top: 8px;
+  margin-right: 8px;
+  font-size: var(--ui-font-size);
 }
 
 /* Text / Text Box Properties (dialog_text_properties_base.cpp): the entry grows

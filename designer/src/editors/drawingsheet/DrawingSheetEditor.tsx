@@ -1931,7 +1931,14 @@ export function DrawingSheetEditor({
 
       {saveAsOpen && (
         <SaveAsDialog
-          initialName={fileName || 'drawing_sheet.kicad_wks'}
+          // `wxFileDialog( this, _( "Save Drawing Sheet As" ), dir,
+          //                wxEmptyString, ... )` — pl_editor suggests NO name
+          // (pagelayout_editor/files.cpp:200-202), and a probe of that very
+          // dialog confirms it: GetFilename() and GTK's current-name are both
+          // empty. Not even the sheet's existing name is pre-filled. Ours
+          // invented `drawing_sheet.kicad_wks`, a name no KiCad ever offers,
+          // and pre-filled the old one for a saved sheet.
+          initialName=""
           filters={[drawingSheetWildcard()]}
           onDone={onSaveAsDone}
         />

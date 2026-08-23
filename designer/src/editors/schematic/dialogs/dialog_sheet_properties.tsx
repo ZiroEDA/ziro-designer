@@ -185,15 +185,6 @@ export function DialogSheetProperties({
         color={itemColorToColor4d(value)}
         onChange={(c) => set(color4dToItemColor(c))}
       />
-      <button
-        className="ze-btn"
-        style={{ fontSize: 11 }}
-        title="Clear color to use Schematic Editor colors."
-        disabled={!value}
-        onClick={() => set(undefined)}
-      >
-        Clear
-      </button>
     </label>
   );
 

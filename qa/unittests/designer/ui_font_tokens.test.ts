@@ -231,7 +231,11 @@ const BASELINE: Record<string, number> = {
   // 123 until the toolbars pass: the hand-rolled TOP_AUX div's `fontSize: 12`
   // went with the div, and a real Toolbar's controls take the shared skin.
   'editors/pcb': 122,
-  'editors/schematic': 55,
+  // 55 -> 50: the COLOR_SWATCH sweep's second half. Seven Clear buttons and
+  // one `(using Schematic Editor colors)` hint each carried an inline
+  // `fontSize: 11`, and none of them exists upstream - the swatch clears
+  // itself through the picker.
+  'editors/schematic': 50,
   'editors/symbol': 2,
   home: 5,
   mobile: 6,
@@ -250,7 +254,10 @@ const BASELINE: Record<string, number> = {
   // wxGrid inherits it; `.ze-grid` wrote `font-size: 12.5px`, which made the
   // Design Inspector's rows read smaller than pl_editor's and, because a wxGrid
   // row is sized by its text, shorter as well. One site.
-  ui: 146,
+  // 146 -> 145: `.ze-lp-clearcolor`'s own `font-size: 11px` went with the
+  // buttons it styled; `.ze-help-label` that replaces it takes
+  // var(--ui-font-size), which is what a wxStaticText gets.
+  ui: 145,
   widgets: 6,
 };
 
@@ -385,7 +392,8 @@ describe('hardcoded font sizes do not grow', () => {
     // the diff agrees at 369 - 1.
     // 368 until the wxGrid pass took `.ze-grid`'s font size; see the ui row.
     // Rescanned from the tree, and the diff agrees at 368 - 1.
-    expect(sites.length).toBe(367);
+    // 367 -> 361: the six above. Rescanned from this tree, not subtracted.
+    expect(sites.length).toBe(361);
   });
 });
 

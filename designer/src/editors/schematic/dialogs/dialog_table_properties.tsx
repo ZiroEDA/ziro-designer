@@ -157,18 +157,6 @@ export function DialogTableProperties({
         color={itemColorToColor4d(v[key])}
         onChange={(c) => set({ [key]: color4dToItemColor(c) } as Partial<SchTableValues>)}
       />
-      {/* An unset colour is KiCad's COLOR4D::UNSPECIFIED: draw it in the
-          layer's own colour. The swatch has no way to express that, so the
-          button is how you get back to it. */}
-      <button
-        type="button"
-        className="ze-btn"
-        disabled={!enabled || !v[key]}
-        onClick={() => set({ [key]: undefined } as Partial<SchTableValues>)}
-        title="Use the schematic's own colour for this line"
-      >
-        Default
-      </button>
     </label>
   );
 
