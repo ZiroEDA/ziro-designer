@@ -11,6 +11,8 @@
  * the first dialog could open.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import {
   fetchLibraryIndex,
   warmLibraryIndexes,
@@ -159,5 +161,41 @@ describe('warming the indexes at startup', () => {
     // And it did not fetch: with nowhere to put the answer there is no warm to
     // do, and a megabyte pulled into a bin nobody reads is worse than nothing.
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('the warm is wired into startup, not merely available', () => {
+  const APP = readFileSync(
+    fileURLToPath(new URL('../../../designer/src/App.tsx', import.meta.url)),
+    'utf8',
+  );
+
+  /** The `load` array inside `prefetchEditors`, entries in order. */
+  const queue = (): string[] => {
+    const at = APP.indexOf('function prefetchEditors()');
+    expect(at, 'prefetchEditors is gone').toBeGreaterThan(-1);
+    const open = APP.indexOf('[', APP.indexOf('const load', at));
+    const body = APP.slice(open + 1, APP.indexOf('];', open));
+    return body
+      .split('\n')
+      .map((l) => l.replace(/\/\/[^\n]*/, '').trim())
+      .filter((l) => l.startsWith('() =>'));
+  };
+
+  it('warms the indexes, and does it FIRST', () => {
+    // Source text, because this is a wiring fact inside a `.tsx` and there is
+    // no DOM test environment here to mount the app in. The behaviour it wires
+    // is covered above; what this pins is that something calls it at startup —
+    // a mutation that deleted the line failed nothing at all until this existed.
+    //
+    // Read as an ordered LIST, not with `toContain` over the file: the file
+    // mentions `warmLibraryIndexes` in its import and in a comment, so a
+    // whole-file check passed with the call itself removed.
+    const q = queue();
+    expect(q.length, 'the prefetch queue is empty').toBeGreaterThan(1);
+    expect(q[0]).toContain('warmLibraryIndexes()');
+    // Ahead of every editor chunk. Those arrive a beat later at no cost — the
+    // launcher is still on screen — where the index is what a person waits on.
+    for (const entry of q.slice(1)) expect(entry).toContain('import(');
   });
 });
