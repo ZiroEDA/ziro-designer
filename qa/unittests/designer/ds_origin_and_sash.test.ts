@@ -13,6 +13,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { PL_EDITOR_DEFAULTS } from '@ziroeda/designer/src/prefs/settings.js';
 
 const read = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
@@ -63,9 +64,17 @@ describe('the Properties palette has wxAUI’s sash', () => {
 
   it('drives the pane width from state, so a drag can change it', () => {
     // A sash wired to a constant would render and do nothing.
-    expect(EDITOR).toContain('onResize={setPropsWidth}');
+    expect(EDITOR).toContain('setPropsWidth(w);');
     expect(EDITOR).toContain('style={{ width: propsWidth, minWidth: propsWidth }}');
     expect(EDITOR).not.toContain('style={{ width: PROPERTIES_FRAME_WIDTH }}');
+  });
+
+  it('and the drag reaches properties_frame_width', () => {
+    // `m_propertiesFrameWidth = m_propertiesPagelayout->GetSize().x`, then
+    // `cfg->m_PropertiesFrameWidth = m_propertiesFrameWidth`
+    // (pl_editor_frame.cpp:558-560). Without this the sash worked and forgot.
+    const sash = EDITOR.slice(EDITOR.indexOf('<DockSash'));
+    expect(sash.slice(0, sash.indexOf('/>'))).toContain('s.properties_frame_width = w');
   });
 
   it('takes its floor from the panel’s own content, as MinSize does', () => {
@@ -82,7 +91,13 @@ describe('the pane opens at the width the settings declare', () => {
     // the member to 200 and LoadSettings overwrites it at :538 before the pane
     // is built. Same trap as the units default, which was nearly "fixed" the
     // wrong way from the constructor.
-    expect(EDITOR).toContain('const PROPERTIES_FRAME_WIDTH = 150;');
-    expect(EDITOR).toContain('useState(PROPERTIES_FRAME_WIDTH)');
+    expect(PL_EDITOR_DEFAULTS.properties_frame_width).toBe(150);
+  });
+
+  it('opens at the STORED width, not at the default', () => {
+    // `LoadSettings` reads it back at pl_editor_frame.cpp:538 and the pane is
+    // built with it as `BestSize` at :204. Seeding the state from the constant
+    // instead is exactly the bug this whole slice exists to remove.
+    expect(EDITOR).toContain('useState(settings.plEditor.properties_frame_width)');
   });
 });

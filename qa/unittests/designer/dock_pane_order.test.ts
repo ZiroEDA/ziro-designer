@@ -63,6 +63,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { PL_EDITOR_DEFAULTS } from '@ziroeda/designer/src/prefs/settings.js';
 
 const read = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
@@ -159,12 +160,17 @@ describe('a docked pane is sized by the numbers upstream states, not at the call
     // PL_EDITOR_SETTINGS `properties_frame_width` (pl_editor_settings.cpp:46).
     // The 200 at pl_editor_frame.cpp:97 is the ctor's seed and LoadSettings
     // overwrites it from the setting at :538.
-    expect(DS).toMatch(/const PROPERTIES_FRAME_WIDTH = 150;/);
+    //
+    // The 150 is no longer written in the editor at all: it is that
+    // parameter's default and it lives in the settings file's defaults, which
+    // is the "upstream number, not the call site" this whole block is about.
+    expect(PL_EDITOR_DEFAULTS.properties_frame_width).toBe(150);
+    expect(DS).toContain('PROPERTIES_FRAME_WIDTH = PL_EDITOR_DEFAULTS.properties_frame_width');
     // The pane is now draggable — wxAUI gives every `.Palette()` one a sash —
-    // so the constant is the STARTING width rather than the only width. It
-    // still has to be where the pane starts, which is what this asserts; the
-    // sash itself is pinned in `ds_origin_and_sash.test.ts`.
-    expect(DS).toContain('useState(PROPERTIES_FRAME_WIDTH)');
+    // and the width it opens at is the STORED one, the default only standing in
+    // for a profile that has never dragged it. The sash itself is pinned in
+    // `ds_origin_and_sash.test.ts`.
+    expect(DS).toContain('useState(settings.plEditor.properties_frame_width)');
     expect(DS).toContain('style={{ width: propsWidth, minWidth: propsWidth }}');
     // The number it replaced. 272 is nowhere in pl_editor.
     expect(DS).not.toContain('width: 272');

@@ -17,6 +17,8 @@ import {
   CROSS_PROBING_DEFAULTS,
   type CrossProbingSettings,
 } from '@ziroeda/common/src/cross_probing_settings.js';
+import type { EdaUnits } from '@ziroeda/common/src/eda_units.js';
+import { DEFAULT_GRID_INDEX } from '../ui/grid_settings.js';
 import {
   DEFAULT_ROUTING_SETTINGS,
   writeRoutingSettings,
@@ -551,6 +553,113 @@ export const PCBNEW_DEFAULTS: PcbnewSettings = {
   },
 };
 
+// ----- PL_EDITOR_SETTINGS ------------------------------------------------------
+
+/**
+ * `pl_editor.json` — `PL_EDITOR_SETTINGS`
+ * (pagelayout_editor/pl_editor_settings.cpp) over its `APP_SETTINGS_BASE`
+ * base (common/settings/app_settings.cpp).
+ *
+ * Upstream registers 96 parameters on this object. Most of them are base-class
+ * slices the Drawing Sheet Editor has no control for — `find_replace.*`,
+ * `design_block_chooser.*`, `lib_tree.*`, `printing.*`, `cross_probing.*`,
+ * `plugins.actions`, the window geometry, `window.zoom_factors` — and a
+ * setting we cannot honour is a setting we should not claim to store, so those
+ * are absent rather than invented. What is here is exactly the set the editor
+ * puts a control in front of.
+ *
+ * Two shapes deliberately follow the house spelling rather than KiCad's JSON:
+ * `window.grid.last_size_idx` (KiCad's key is `window.grid.last_size`, but the
+ * C++ member is `last_size_idx` and `EeschemaSettings` already reads that way)
+ * and `window.cursor.crosshair` for `window.cursor.cross_hair_mode`. The seven
+ * `PL_EDITOR_SETTINGS`-proper keys are top-level and unprefixed exactly as
+ * upstream writes them.
+ */
+export interface PlEditorSettings {
+  system: {
+    /**
+     * `system.units` (app_settings.cpp:231-232). **MILS**, not mm: the
+     * conditional at :228-238 names `pl_editor` alongside eeschema and the
+     * symbol editor on the imperial side.
+     */
+    units: EdaUnits;
+    /** `system.last_metric_units` (app_settings.cpp:240-241), EDA_UNITS::MM. */
+    last_metric_units: EdaUnits;
+    /**
+     * `system.last_imperial_units` (app_settings.cpp:243-244),
+     * EDA_UNITS::MILS. This is what Ctrl+U comes back to, and it is a
+     * *setting*, not `COMMON_TOOLS`' `m_imperialUnit( EDA_UNITS::INCH )`
+     * constructor seed — `setupUnits` (eda_draw_frame.cpp:1385) overwrites
+     * that seed with this value before the frame is usable.
+     */
+    last_imperial_units: EdaUnits;
+  };
+  window: {
+    grid: {
+      /**
+       * `window.grid.last_size` -> `GRID_SETTINGS::last_size_idx`
+       * (app_settings.cpp:480-481), default `defaultGridIdx` = 4 for
+       * pl_editor, i.e. `0.50 mm`. Kept as `ui/grid_settings.ts`'
+       * `DEFAULT_GRID_INDEX.pl_editor` rather than restated here.
+       */
+      last_size_idx: number;
+      /**
+       * `window.grid.show` (app_settings.cpp:555-556), default true. Not
+       * written by `SaveSettings`: `ACTIONS::toggleGrid` mutates the settings
+       * object in place through `EDA_DRAW_FRAME::SetGridVisibility`
+       * (eda_draw_frame.cpp:593-598), which is why the toggle survives a
+       * restart.
+       */
+      show: boolean;
+    };
+    cursor: {
+      /** `window.cursor.cross_hair_mode` (app_settings.cpp:567-568), SMALL_CROSS. */
+      crosshair: 'small' | 'full' | '45';
+      /** `window.cursor.always_show_cursor` (app_settings.cpp:564-565), true. */
+      always_show_cursor: boolean;
+    };
+  };
+  /** `properties_frame_width` (pl_editor_settings.cpp:45-46), 150. */
+  properties_frame_width: number;
+  /** `corner_origin` (pl_editor_settings.cpp:48), 0 — index into the 5 origins. */
+  corner_origin: number;
+  /** `black_background` (pl_editor_settings.cpp:50), false. */
+  black_background: boolean;
+  /** `last_paper_size` (pl_editor_settings.cpp:52), "A3". */
+  last_paper_size: string;
+  /** `last_custom_width` (pl_editor_settings.cpp:54), 17000 **mils**. */
+  last_custom_width: number;
+  /** `last_custom_height` (pl_editor_settings.cpp:56), 11000 **mils**. */
+  last_custom_height: number;
+  /** `last_was_portrait` (pl_editor_settings.cpp:58), false. */
+  last_was_portrait: boolean;
+}
+
+export const PL_EDITOR_DEFAULTS: PlEditorSettings = {
+  system: {
+    units: 'mils',
+    last_metric_units: 'mm',
+    last_imperial_units: 'mils',
+  },
+  window: {
+    grid: {
+      last_size_idx: DEFAULT_GRID_INDEX.pl_editor,
+      show: true,
+    },
+    cursor: {
+      crosshair: 'small',
+      always_show_cursor: true,
+    },
+  },
+  properties_frame_width: 150,
+  corner_origin: 0,
+  black_background: false,
+  last_paper_size: 'A3',
+  last_custom_width: 17000,
+  last_custom_height: 11000,
+  last_was_portrait: false,
+};
+
 /** Parse a grid size string ("50 mil", "1.27 mm") into IU (100 nm). */
 export function gridSizeToIU(size: string): number {
   const m = /^\s*([\d.]+)\s*(mil|mils|mm|in|inch)?\s*$/i.exec(size);
@@ -748,10 +857,12 @@ type Listener = () => void;
  * active color theme, persists on every change, and notifies subscribers (the
  * editors re-render through useSyncExternalStore).
  */
-class SettingsManager {
+export class SettingsManager {
   common: CommonSettings = load('ziroeda.common', COMMON_DEFAULTS);
   eeschema: EeschemaSettings = load('ziroeda.eeschema', EESCHEMA_DEFAULTS);
   pcbnew: PcbnewSettings = load('ziroeda.pcbnew', PCBNEW_DEFAULTS);
+  /** `pl_editor.json`, the Drawing Sheet Editor's own settings file. */
+  plEditor: PlEditorSettings = load('ziroeda.pl_editor', PL_EDITOR_DEFAULTS);
   privacy: PrivacySettings = load('ziroeda.privacy', PRIVACY_DEFAULTS);
   /** The editable "User" colour theme: layer-key -> CSS colour overrides. */
   userColors: Record<string, string> = load('ziroeda.colors.user', {});
@@ -792,6 +903,14 @@ class SettingsManager {
     mutate(next);
     this.pcbnew = next;
     store('ziroeda.pcbnew', next);
+    this.notify();
+  }
+
+  updatePlEditor(mutate: (s: PlEditorSettings) => void): void {
+    const next = structuredClone(this.plEditor);
+    mutate(next);
+    this.plEditor = next;
+    store('ziroeda.pl_editor', next);
     this.notify();
   }
 
