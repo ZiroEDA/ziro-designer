@@ -60,6 +60,7 @@ import {
   allPins,
   createImagePins,
   deleteSymbolItems,
+  symbolDeleteOutcome,
   ensureUnitEntry,
   hasAlternateBodyStyle,
   mirrorSymbolItems,
@@ -1467,7 +1468,12 @@ export function SymbolEditor({
           break;
         case 'doDelete':
           if (workSymbol && selection.size > 0 && !isAlias) {
-            commit(deleteSymbolItems(workSymbol, selection), 'Delete');
+            // DoDelete HIDES fields and deletes only pins/graphics, and the
+            // undo description says which (symbol_editor_edit_tool.cpp:847-860).
+            const r = deleteSymbolItems(workSymbol, selection);
+            const outcome = symbolDeleteOutcome(r);
+            if (outcome.kind === 'commit') commit(r.symbol, outcome.description);
+            else if (outcome.kind === 'infobar') setStatus(outcome.message);
             setSelection(new Set());
           }
           break;

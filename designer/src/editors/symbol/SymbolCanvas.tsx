@@ -30,6 +30,7 @@ import {
 import {
   boxSelectSymbol,
   deleteSymbolItems,
+  symbolDeleteOutcome,
   hitTestSymbol,
   moveSymbolItems,
   moveSymbolOrigin,
@@ -487,7 +488,11 @@ export const SymbolCanvas = forwardRef<SymbolCanvasController, Props>(function S
             opts.showHiddenPins,
             opts.showHiddenFields,
           );
-          if (hit) onCommit(deleteSymbolItems(symbol, new Set([hit.id])), 'Delete');
+          if (hit) {
+            const r = deleteSymbolItems(symbol, new Set([hit.id]));
+            const outcome = symbolDeleteOutcome(r);
+            if (outcome.kind === 'commit') onCommit(r.symbol, outcome.description);
+          }
         }
         return;
       }
