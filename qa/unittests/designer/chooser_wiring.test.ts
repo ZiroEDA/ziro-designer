@@ -40,12 +40,34 @@ describe('the document editors use the chooser, not the OS picker', () => {
     ['editors/footprint/FootprintEditor.tsx', 'footprints', 'GetDefaultUserFootprintsPath'],
   ];
 
+  /** Every `<OpenFileDialog …/>` and `<SaveAsDialog …/>` element in a file. */
+  const chooserElements = (file: string): string[] =>
+    [...src(file).matchAll(/<(?:OpenFileDialog|SaveAsDialog)\b[\s\S]*?\/>/g)].map((m) => m[0]);
+
   it('asks for the shared folder its document kind belongs in', () => {
-    // Raw source: a `kind="..."` prop inside a citation is not a thing, and
-    // blanking block comments across a whole file mis-pairs on a `/*` in a
-    // string and eats live code with it.
+    // Read the ELEMENT, not the file. `toContain('kind="symbols"')` over the
+    // whole source passed while the chooser asked for footprints, because
+    // `LibraryLoadingPanel` has an unrelated `kind` prop further down — the
+    // per-file check of a per-occurrence rule, exactly the shape CLAUDE.md
+    // names. A sweep found it.
     for (const [file, kind] of wired) {
-      expect(src(file), `${file} does not name its kind`).toContain(`kind="${kind}"`);
+      const elements = chooserElements(file);
+      expect(elements.length, `${file} opens no chooser at all`).toBeGreaterThan(0);
+      for (const el of elements) {
+        expect(el, `a chooser in ${file} asks for the wrong folder`).toContain(`kind="${kind}"`);
+      }
+    }
+  });
+
+  it('names no OTHER editor’s folder in any of them', () => {
+    // The other half: a file could carry the right kind AND a stray wrong one.
+    for (const [file, kind] of wired) {
+      for (const el of chooserElements(file)) {
+        for (const other of ['templates', 'symbols', 'footprints', 'models3d']) {
+          if (other === kind) continue;
+          expect(el, `a chooser in ${file} also names ${other}`).not.toContain(`kind="${other}"`);
+        }
+      }
     }
   });
 
