@@ -21,6 +21,7 @@ import {
   exportProject,
   importProject,
   listProjects,
+  listSyncMeta,
   saveProject,
   USER_DIR_IDS,
 } from '@ziroeda/designer/src/home/projectStore.js';
@@ -566,6 +567,35 @@ describe('a user-data folder is a row the cloud will accept', () => {
     await fs.write('/Templates/a.kicad_wks', enc.encode('a'));
     const first = await exportProject(USER_DIR_IDS.templates!);
     expect(first?.files.map((f) => f.name)).toEqual(['a.kicad_wks']);
+  });
+
+  it('moves the old rows before sync asks what to push, unprompted', async () => {
+    // THE BUG THIS FIXES. The move used to live inside `ensureUserDir`, which
+    // runs only when something lists the account tree — and the home screen
+    // shows the PROJECT tree, not the file manager. So signing in without
+    // opening a file dialog left four `userdir:*` rows in the store, and
+    // `listSyncMeta` returns every record that is not the health probe, so all
+    // four went up and all four came back `invalid input syntax for type uuid`.
+    //
+    // Nothing below touches a folder. The list itself has to do it.
+    await saveProject('Templates', [file('a.kicad_wks', 'a')], 'userdir:templates');
+    await saveProject('Footprints', [file('b.kicad_mod', 'b')], 'userdir:footprints');
+    const ids = (await listSyncMeta()).map((m) => m.id);
+    expect(ids.filter((id) => id.startsWith('userdir:'))).toEqual([]);
+    expect(ids).toContain(USER_DIR_IDS.templates);
+    expect(ids).toContain(USER_DIR_IDS.footprints);
+    // And the files came with them rather than being abandoned.
+    expect(await names('/Templates')).toEqual(['a.kicad_wks']);
+    expect(await names('/Footprints')).toEqual(['b.kicad_mod']);
+  });
+
+  it('never hands sync an id the cloud cannot parse', async () => {
+    // The invariant, stated once: `projects.id` is a `uuid` column, so every id
+    // in this list has to be one. A folder is the only thing that ever put a
+    // readable id in here, and this is what says it cannot come back.
+    await fs.write('/Symbols/x.kicad_sym', enc.encode('(kicad_symbol_lib)'));
+    await saveProject('Blinky', [file('b.kicad_pro', '{}')]);
+    for (const m of await listSyncMeta()) expect(m.id).toMatch(UUID);
   });
 
   it('moves a folder made under the old readable id, files and all', async () => {

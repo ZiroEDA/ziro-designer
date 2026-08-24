@@ -402,6 +402,51 @@ const userDirOf = (id: string, local?: { userDir?: string }): string | undefined
 const LEGACY_USER_DIR_ID = (key: string): string => `userdir:${key}`;
 
 /**
+ * Move any folder still under a readable id onto its UUID. Once per page load.
+ *
+ * This has to run whether or not anything asks for a folder, and that is the
+ * whole reason it exists as its own function. It lived inside `ensureUserDir`,
+ * which only runs when something LISTS the account tree — and the home screen
+ * shows the project tree, not the file manager. So a person could sign in,
+ * never open a file dialog, and the sync would still find four `userdir:*` rows
+ * in the store and fail on every one of them. Which is what happened.
+ *
+ * A left-behind row is not inert: `listSyncMeta` returns every record that is
+ * not the health probe, so anything the cloud cannot parse is a failed transfer
+ * on every sync until it is gone.
+ *
+ * Not tied to the database version. An `onupgradeneeded` fires once per browser
+ * and only when the version moves, so a migration there is unrepeatable and
+ * would need a version bump on the store holding the user's actual work.
+ */
+async function migrateUserDirIds(): Promise<void> {
+  // Deliberately NOT memoised. The two obvious caches are both wrong: caching
+  // the run makes it once per module, so a row that appears afterwards sits
+  // there until the next reload and no test can reach the second call; caching
+  // "it came back clean" has the same hole one pass later. What it costs
+  // instead is four keyed `get`s, against a `listProjects` that already reads
+  // every record in the store — noise next to the call it guards.
+  try {
+    for (const key of Object.keys(USER_DIR_IDS)) {
+      const legacyId = LEGACY_USER_DIR_ID(key);
+      const legacy = await tx<StoredRecord | undefined>('readonly', (s) => s.get(legacyId));
+      if (!legacy) continue;
+      // Moved rather than dropped: it holds whatever was saved into it while
+      // the readable ids were live, and the Templates seed cannot bring that
+      // back — it only knows the older `template-files` store.
+      const id = USER_DIR_IDS[key]!;
+      const already = await tx<StoredRecord | undefined>('readonly', (s) => s.get(id));
+      if (!already) await tx('readwrite', (s) => s.put({ ...legacy, id, userDir: key }));
+      await tx('readwrite', (s) => s.delete(legacyId));
+    }
+  } catch {
+    // A browser refusing IndexedDB. The rows stay where they are and the sync
+    // keeps reporting them, which is better than a home screen that will not
+    // load.
+  }
+}
+
+/**
  * A UUID for this account's copy, when another account already holds the fixed
  * one in THIS browser's database.
  *
@@ -456,21 +501,11 @@ export async function ensureUserDir(
    */
   seed?: () => Promise<StoredFile[]>,
 ): Promise<ProjectMeta> {
+  await migrateUserDirIds();
   const id = await userDirId(key);
   let r = await tx<StoredRecord | undefined>('readonly', (s) => s.get(id));
   if (!r) {
-    // A folder made by the first version of this, under the readable id. Moved
-    // rather than re-seeded: it holds whatever has been saved since, and the
-    // seed only ever knew about Templates.
-    const legacy = await tx<StoredRecord | undefined>('readonly', (s) =>
-      s.get(LEGACY_USER_DIR_ID(key)),
-    );
-    if (legacy && ownedByCurrent(legacy)) {
-      await tx('readwrite', (s) => s.put({ ...legacy, id, userDir: key }));
-      await tx('readwrite', (s) => s.delete(LEGACY_USER_DIR_ID(key)));
-    } else {
-      await saveProject(name, seed ? await seed().catch(() => []) : [], id, undefined, key);
-    }
+    await saveProject(name, seed ? await seed().catch(() => []) : [], id, undefined, key);
     r = await tx<StoredRecord | undefined>('readonly', (s) => s.get(id));
   }
   const now = Date.now();
@@ -485,6 +520,7 @@ export async function ensureUserDir(
 }
 
 export async function listProjects(): Promise<ProjectMeta[]> {
+  await migrateUserDirIds();
   const all = await tx<StoredRecord[]>('readonly', (s) => s.getAll());
   return (
     all
@@ -928,6 +964,9 @@ function b64ToBytes(b64: string): Uint8Array {
 
 /** id + updatedAt for every local project, for cheap sync diffing. */
 export async function listSyncMeta(): Promise<{ id: string; updatedAt: number }[]> {
+  // Before the list, not after: this is the call that decides what gets pushed,
+  // and a readable id reaching Postgres is the failure it has to prevent.
+  await migrateUserDirIds();
   const all = await tx<StoredRecord[]>('readonly', (s) => s.getAll());
   // The filter is the fix for cross-account leakage: sync compares this list
   // against the cloud, and row-level security means another account's rows are
