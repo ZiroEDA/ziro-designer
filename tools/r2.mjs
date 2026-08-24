@@ -38,7 +38,22 @@ const encPath = (p) =>
     )
     .join('/');
 
-export async function putObject(key, body, contentType) {
+/**
+ * PUT one object.
+ *
+ * `extra` carries response headers R2 stores with the object and replays on
+ * every GET — `cache-control` and `content-encoding`. They are deliberately NOT
+ * in `signedHeaders`: SigV4 requires only that every header it signs is sent,
+ * not that every header sent is signed, and S3/R2 store these two either way.
+ * Adding them to the canonical request would change nothing except give one
+ * more thing to get wrong.
+ *
+ * Without them the bucket serves `index.json` raw, with an ETag and no
+ * `Cache-Control` at all: 357 kB of symbol libraries and 649 kB of footprint
+ * libraries downloaded again on every page load, gzip-free, when they compress
+ * 4.4x and 7.8x.
+ */
+export async function putObject(key, body, contentType, extra = {}) {
   const amzDate = `${new Date().toISOString().replace(/[-:]/g, '').slice(0, 15)}Z`;
   const date = amzDate.slice(0, 8);
   const payloadHash = sha256(body);
@@ -68,6 +83,7 @@ export async function putObject(key, body, contentType) {
       authorization: auth,
       'content-type': contentType,
       'content-length': String(body.length),
+      ...extra,
     },
     body,
   });

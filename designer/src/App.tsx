@@ -33,6 +33,7 @@ import {
 import { SaveIndicator } from './ui/SaveIndicator.js';
 import { ReadOnlyNotice } from './ui/ReadOnlyNotice.js';
 import { projectStoreFileSystem } from './fs/project_store_fs.js';
+import { warmLibraryIndexes } from './libraryHosts.js';
 import './ui/shell.css';
 
 /**
@@ -99,6 +100,17 @@ const GerberViewer = lazy(() =>
  */
 function prefetchEditors(): () => void {
   const load: (() => Promise<unknown>)[] = [
+    // The two library indexes go FIRST, ahead of any editor chunk. They are what
+    // a chooser needs before it can draw a single row — 357 kB of symbol
+    // libraries and 649 kB of footprint libraries — and until now nothing asked
+    // for them until the moment a person opened the dialog and sat waiting for
+    // them. An editor chunk that arrives a beat later costs nothing by
+    // comparison, because the launcher is still on screen.
+    //
+    // `warmLibraryIndexes` only fills the cache; it does not touch
+    // `libraryBase`, so a blip in the first seconds after load cannot silently
+    // put the session on the bundled subset. See its own note.
+    () => warmLibraryIndexes(),
     () => import('./editors/schematic/SchematicEditor.js'),
     () => import('./editors/pcb/PcbEditor.js'),
     () => import('./editors/symbol/SymbolEditor.js'),

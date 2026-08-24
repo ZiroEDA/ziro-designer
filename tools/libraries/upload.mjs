@@ -18,11 +18,39 @@
 import { mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { gzipSync } from 'node:zlib';
 import { putObject, uploadAll } from '../r2.mjs';
 import { perSymbolFiles, stagedFileName, topLevelSymbols, unitCountOf, wrapLib } from './split.mjs';
 import { footprintIndexInfo } from './fp_index.mjs';
 
 const ROOT = fileURLToPath(new URL('../..', import.meta.url));
+
+/**
+ * Store one index gzipped, and say so.
+ *
+ * These two files are what every chooser needs before it can draw a row, and
+ * they are the only objects in the bucket that every session fetches. Raw they
+ * are 357 kB (symbols) and 649 kB (footprints); gzipped, 80 kB and 83 kB — 4.4x
+ * and 7.8x, because a list of library and part names is almost all repeated
+ * substrings. `content-encoding` makes the browser decompress transparently, so
+ * nothing on the app side changes.
+ *
+ * A day of `cache-control` with `stale-while-revalidate`: the set changes when
+ * upstream KiCad's libraries do, which is not daily, and the app revalidates
+ * against the ETag on its own anyway (`libraryHosts.ts`). `must-revalidate` is
+ * deliberately absent — a stale index for one load is a chooser missing a part
+ * that landed yesterday, and blocking on the network instead is the lag this
+ * whole change is about.
+ */
+async function putIndex(key, value) {
+  const raw = Buffer.from(`${JSON.stringify(value)}\n`);
+  const gz = gzipSync(raw, { level: 9 });
+  await putObject(key, gz, 'application/json', {
+    'content-encoding': 'gzip',
+    'cache-control': 'public, max-age=86400, stale-while-revalidate=604800',
+  });
+  console.log(`${key}: ${raw.length} -> ${gz.length} bytes gzipped`);
+}
 const SYM_SRC = join(ROOT, 'kicad-symbols-src');
 const FP_SRC = join(ROOT, 'kicad-footprints-src');
 
@@ -157,15 +185,7 @@ await uploadAll(all, {
     if (d % 500 === 0 || d === t) console.log(`${d}/${t}`);
   },
 });
-await putObject(
-  'symbols/index.json',
-  Buffer.from(`${JSON.stringify(symIndex)}\n`),
-  'application/json',
-);
-await putObject(
-  'footprints/index.json',
-  Buffer.from(`${JSON.stringify(fpIndex)}\n`),
-  'application/json',
-);
+await putIndex('symbols/index.json', symIndex);
+await putIndex('footprints/index.json', fpIndex);
 console.log('uploaded manifests');
 console.log('DONE');
