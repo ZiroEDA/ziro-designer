@@ -85,8 +85,28 @@ export interface FileChooserProps {
    * it — the capture that this window was measured from has KiCad's own
    * "Create a new folder for the project" checkbox sitting exactly here.
    */
+  /**
+   * `wxFD_MULTIPLE`: the user may take more than one file at once.
+   *
+   * GerbView's Open is the reason it exists — `wxFD_OPEN | wxFD_FILE_MUST_EXIST
+   * | wxFD_MULTIPLE | wxFD_CHANGE_DIR` (gerbview/files.cpp:151-152), and
+   * `dlg.GetPaths( filenamesList )` plural — a board's plot is a folder of
+   * layers and taking them one at a time is not the same command. Every other
+   * dialog is single, which is `wxFD_OPEN` alone.
+   *
+   * `save` mode ignores it: there is one name entry.
+   */
+  multiple?: boolean;
   extra?: JSX.Element;
-  onAccept: (path: string) => void;
+  /**
+   * The chosen path. With {@link FileChooserProps.multiple}, `rest` carries the
+   * others — `dlg.GetPaths( filenamesList )` (gerbview/files.cpp:166), which is
+   * plural only where wxFD_MULTIPLE is set.
+   *
+   * The first argument stays a single path so that no single-select caller had
+   * to change: `rest` is empty for all of them.
+   */
+  onAccept: (path: string, rest?: readonly string[]) => void;
   onCancel: () => void;
   /**
    * Delete, asked of the caller rather than done here.
@@ -217,6 +237,7 @@ export function FileChooser({
   places,
   initialPlace,
   filters,
+  multiple = false,
   extra,
   onAccept,
   onCancel,
@@ -240,7 +261,8 @@ export function FileChooser({
    * here; calling the prop directly would send a demo's path to the handler
    * that only knows the account's tree, and there it resolves to nothing.
    */
-  const acceptPath = (path: string): void => (place?.onAccept ?? onAccept)(path);
+  const acceptPath = (path: string, rest: readonly string[] = []): void =>
+    (place?.onAccept ?? onAccept)(path, rest);
   const [dir, setDir] = useState(initialPath ?? place?.path ?? ROOT);
   const [entries, setEntries] = useState<Entry[] | null>(null);
   /**
@@ -285,6 +307,13 @@ export function FileChooser({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const [selected, setSelected] = useState<string | null>(null);
+  /**
+   * The rest of a multiple selection. `selected` stays the LAST row clicked —
+   * it is the one F2 renames, the one Delete removes and the anchor a
+   * shift-click ranges from, and every one of those means one row even here.
+   */
+  const [alsoSelected, setAlsoSelected] = useState<ReadonlySet<string>>(new Set());
+  const isSelected = (path: string): boolean => selected === path || alsoSelected.has(path);
   const [name, setName] = useState(initialName ?? '');
   const [sort, setSort] = useState<{ key: SortKey; ascending: boolean }>({
     key: 'name',
@@ -348,6 +377,7 @@ export function FileChooser({
     if (to === dir || !withinPlace(to)) return;
     setHistory((h) => ({ past: [...h.past, dir], future: [] }));
     setSelected(null);
+    setAlsoSelected(new Set());
     setDir(to);
   };
 
@@ -357,6 +387,8 @@ export function FileChooser({
       if (prev === undefined || !withinPlace(prev)) return h;
       setDir(prev);
       setSelected(null);
+      setAlsoSelected(new Set());
+      setAlsoSelected(new Set());
       return { past: h.past.slice(0, -1), future: [dir, ...h.future] };
     });
   };
@@ -367,6 +399,8 @@ export function FileChooser({
       if (next === undefined) return h;
       setDir(next);
       setSelected(null);
+      setAlsoSelected(new Set());
+      setAlsoSelected(new Set());
       return { past: [...h.past, dir], future: h.future.slice(1) };
     });
   };
@@ -426,11 +460,25 @@ export function FileChooser({
     }
     const e = shown.find((x) => x.path === selected);
     if (!e) return;
+    // Everything else that is selected AND still visible. A row filtered out
+    // since it was picked is not something the user can see themselves handing
+    // over, so it is not handed over.
+    const rest = shown.filter((x) => x.path !== e.path && alsoSelected.has(x.path));
     // A project folder is a document as well as a folder — Open Project opens
     // the project, it does not walk into it. Double-clicking still descends,
     // the way a bundle behaves on a desktop that has them.
     if (e.kind === 'project') {
       acceptPath(e.path);
+      return;
+    }
+    // A multiple selection is taken as a batch. `activate` walks into a folder
+    // and opens a leaf, which is the single-file behaviour and the wrong answer
+    // when several rows are lit.
+    if (rest.length > 0) {
+      acceptPath(
+        e.path,
+        rest.map((x) => x.path),
+      );
       return;
     }
     activate(e);
@@ -551,6 +599,9 @@ export function FileChooser({
                     if (p.id === placeId) return;
                     setPlaceId(p.id);
                     setSelected(null);
+                    setAlsoSelected(new Set());
+                    setAlsoSelected(new Set());
+                    setAlsoSelected(new Set());
                     setHistory({ past: [], future: [] });
                     setDir(p.path ?? ROOT);
                   }}
@@ -661,8 +712,21 @@ export function FileChooser({
                   ) : (
                     <div
                       key={e.path}
-                      className={`ze-chooser-row${selected === e.path ? ' selected' : ''}`}
-                      onClick={() => {
+                      className={`ze-chooser-row${isSelected(e.path) ? ' selected' : ''}`}
+                      onClick={(ev) => {
+                        // Ctrl (or Cmd) extends, as it does in every file
+                        // manager; a plain click replaces the whole selection.
+                        if (multiple && (ev.ctrlKey || ev.metaKey) && selected !== null) {
+                          setAlsoSelected((prev) => {
+                            const next = new Set(prev);
+                            if (e.path === selected) return next;
+                            if (next.has(e.path)) next.delete(e.path);
+                            else next.add(selected);
+                            return next;
+                          });
+                        } else {
+                          setAlsoSelected(new Set());
+                        }
                         setSelected(e.path);
                         if (mode === 'save' && e.kind === 'file') setName(e.name);
                       }}

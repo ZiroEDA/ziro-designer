@@ -30,6 +30,15 @@ import { type AssetKind, chooserPlacesFor } from './chooser_places.js';
 import type { ChooserFilter } from './chooser_types.js';
 import type { FileSystem } from './filesystem.js';
 
+/** One file the dialog hands back, with the batch it came in. */
+export interface OpenedFile {
+  path: string;
+  text: string;
+  bytes: Uint8Array;
+  /** The rest of a multiple selection; empty for every single-select caller. */
+  rest: readonly { path: string; text: string; bytes: Uint8Array }[];
+}
+
 export interface OpenFileDialogProps {
   /** The document's wildcard, e.g. `drawingSheetWildcard()`. */
   filters?: readonly ChooserFilter[];
@@ -48,7 +57,17 @@ export interface OpenFileDialogProps {
    * so every caller does not repeat it; `path` is the full path the chooser
    * gave back, whose leaf is the document's name.
    */
-  onDone: (file: { path: string; text: string } | null) => void;
+  onDone: (file: OpenedFile | null) => void;
+  /**
+   * `wxFD_MULTIPLE` — the user may take several files at once, and `onDone`
+   * then reports the batch through {@link OpenedFile.rest}.
+   *
+   * GerbView's Open is the one that needs it: a board's plot is a folder of
+   * layers (gerbview/files.cpp:151-152).
+   */
+  multiple?: boolean;
+  /** Rendered beside the buttons — where "Open from Computer..." goes. */
+  extra?: JSX.Element;
   /** `wxFileDialog`'s title. */
   title?: string;
   /** The affirmative button. `Open` unless the caller is appending. */
@@ -59,6 +78,8 @@ export function OpenFileDialog({
   filters,
   initialPath,
   kind,
+  multiple = false,
+  extra,
   onDone,
   title = 'Open',
   accept = 'Open',
@@ -78,11 +99,22 @@ export function OpenFileDialog({
    * and splitting that one tree into places is ours — so re-joining them at the
    * read is ours to do too.
    */
-  const readAndDone = (from: FileSystem, path: string): void => {
+  const readAndDone = (from: FileSystem, path: string, rest: readonly string[] = []): void => {
     void (async () => {
       try {
         const bytes = await from.read(path);
-        onDone({ path, text: new TextDecoder().decode(bytes) });
+        // Bytes AND text. A gerber or a schematic is read as text; a `.zip` is
+        // not text at all and its reader wants the raw buffer (GerbView's Open
+        // Zip File is its own dialog upstream, gerbview/files.cpp:661). Decoding
+        // is cheap next to the read, and handing back only one of the two is
+        // what made this dialog unusable for the binary callers.
+        const others = await Promise.all(
+          rest.map(async (p) => {
+            const b = await from.read(p);
+            return { path: p, text: new TextDecoder().decode(b), bytes: b };
+          }),
+        );
+        onDone({ path, text: new TextDecoder().decode(bytes), bytes, rest: others });
       } catch {
         // A read that fails is not an open: upstream's wxFileDialog hands
         // back a path and the frame's loader reports its own error, so the
@@ -112,7 +144,9 @@ export function OpenFileDialog({
       places={places}
       {...(initialPath === undefined ? {} : { initialPath })}
       {...(filters === undefined ? {} : { filters })}
-      onAccept={(path) => readAndDone(fs, path)}
+      multiple={multiple}
+      {...(extra === undefined ? {} : { extra })}
+      onAccept={(path, rest) => readAndDone(fs, path, rest)}
       onCancel={() => onDone(null)}
     />
   );

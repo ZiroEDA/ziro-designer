@@ -100,36 +100,88 @@ describe('the document editors use the chooser, not the OS picker', () => {
   });
 });
 
-describe('what is deliberately NOT wired, and why', () => {
+describe('GerbView opens from the account and from the machine', () => {
   /**
-   * Said here rather than discovered later. Both need a capability the chooser
-   * does not have yet, and neither is a wiring job:
+   * This block used to say GerbView could not be wired, and pinned the two
+   * capabilities that blocked it. Both exist now.
    *
-   *   GerbView          opens MANY files at once - a whole plot folder - and one
-   *                     of them may be a .zip. `FileChooser` selects one file
-   *                     and `OpenFileDialog` hands back text, so this needs
-   *                     multi-select and bytes first.
-   *   Image converter   takes a bitmap. Same bytes problem.
+   * Upstream its Open is `wxFD_OPEN | wxFD_FILE_MUST_EXIST | wxFD_MULTIPLE |
+   * wxFD_CHANGE_DIR` (gerbview/files.cpp:151-152) with
+   * `dlg.GetPaths( filenamesList )` plural - a board's plot is a folder of
+   * layers and taking them one at a time is not the same command. Open Zip File
+   * is its own dialog and NOT multiple (:661).
    *
-   * The schematic's `Place > Image` and the hotkey importer are the same shape.
+   * The window upstream opens is a filesystem. Ours splits into the account and
+   * the machine, so both doors are offered - the same pair Open Existing
+   * Project has had all along.
    */
-  it('leaves GerbView and the image converter on the OS picker for now', () => {
-    for (const file of ['editors/gerbview/GerberViewer.tsx', 'editors/image/ImageConverter.tsx']) {
-      expect(code(src(file)), `${file} was wired without multi-select or bytes`).toContain(
-        'type="file"',
-      );
+  const GV = src('editors/gerbview/GerberViewer.tsx');
+
+  it('opens the chooser, multi-select, for gerbers and drill files', () => {
+    expect(GV).toContain('<OpenFileDialog');
+    expect(GV).toContain('multiple={gbrOpen.multiple}');
+    for (const title of [
+      "title: 'Open Gerber Plot File(s)'",
+      "title: 'Open NC (Excellon) Drill File(s)'",
+      "title: 'Open Autodetected File(s)'",
+    ]) {
+      expect(GV, `no entry point for ${title}`).toContain(title);
     }
   });
 
-  it('so the chooser still cannot do either, which is what blocks them', () => {
-    const chooser = code(src('fs/FileChooser.tsx'));
-    // One selection, not a set. When this becomes a set, GerbView can move.
-    expect(chooser).toContain('const [selected, setSelected] = useState<string | null>(null);');
-    // And the open dialog decodes to text rather than handing bytes over.
-    expect(code(src('fs/OpenFileDialog.tsx'))).toContain('new TextDecoder().decode(bytes)');
+  it('asks for ONE file for the zip, as its own dialog does', () => {
+    const zip = GV.slice(GV.indexOf("title: 'Open Zip File'"));
+    expect(zip.slice(0, zip.indexOf('});'))).toContain('multiple: false');
+  });
+
+  it('keeps the machine as the other door', () => {
+    // `openLocalFiles` is unchanged and is what the button runs.
+    expect(GV).toContain('Open from Computer...');
+    expect(GV).toContain('const from = gbrOpen.fromComputer;');
+  });
+
+  it('names no shared folder, because a gerber belongs to one board', () => {
+    // Plotted output goes to the project's own `gerbers/`
+    // (dialog_plot_pcb.tsx:93,121-133), so every project is listed and there is
+    // no Templates-style row for it.
+    const el = [...GV.matchAll(/<OpenFileDialog\b[\s\S]*?\/>/g)].map((m) => m[0]).join('\n');
+    expect(el).not.toMatch(/kind=/);
+  });
+
+  it('hands the batch to the loader that already knows these formats', () => {
+    // `loadFiles` is LoadListOfGerberAndDrillFiles and handles the zip, the job
+    // file and the drill reader between them. A second loader taking a
+    // different shape would be that function twice.
+    expect(GV).toContain(
+      'void loadFiles([asFile(file), ...file.rest.map(asFile)], opened.fileType);',
+    );
   });
 });
 
+describe('the capabilities that used to block it', () => {
+  it('the chooser selects more than one row', () => {
+    expect(src('fs/FileChooser.tsx')).toContain(
+      'const [alsoSelected, setAlsoSelected] = useState<ReadonlySet<string>>(new Set());',
+    );
+  });
+
+  it('and the open dialog hands back BYTES, not only text', () => {
+    // A `.zip` is not text. Handing back only one of the two is what made the
+    // dialog unusable for the binary callers.
+    expect(src('fs/OpenFileDialog.tsx')).toContain('bytes: Uint8Array;');
+    expect(src('fs/OpenFileDialog.tsx')).toContain(
+      'onDone({ path, text: new TextDecoder().decode(bytes), bytes, rest: others });',
+    );
+  });
+
+  it('leaves the bitmap pickers on the OS picker, which is correct', () => {
+    // A bitmap comes from your machine, not from the project - the same reason
+    // KiCad's bitmap2component opens a plain file dialog. Not a gap.
+    for (const file of ['editors/image/ImageConverter.tsx']) {
+      expect(code(src(file))).toContain('type="file"');
+    }
+  });
+});
 describe('a Save As opens where upstream opens it, which is not one answer', () => {
   /**
    * The two dialogs differ ON PURPOSE, and both were checked rather than

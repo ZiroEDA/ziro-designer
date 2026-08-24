@@ -130,6 +130,7 @@ import { useCommonSettings } from '../../prefs/useSettings.js';
 import './gerbview.css';
 import '../../ui/shell.css';
 import { applyToggle, CROSSHAIR_GROUP, DEFAULT_TOGGLES, UNIT_GROUP } from './toggles.js';
+import { OpenFileDialog } from '../../fs/OpenFileDialog.js';
 
 /**
  * One loaded image and the row it occupies.
@@ -257,6 +258,28 @@ export function GerberViewer({
   });
 
   const controller = useRef<GerberCanvasController>(null);
+  /**
+   * GerbView's Open, over the account's tree.
+   *
+   * Five separate `wxFileDialog`s upstream, each with its own wildcard list
+   * (gerbview/files.cpp), and all of them `wxFD_MULTIPLE` because a board's
+   * plot is a folder of layers. The window they open on is a filesystem; ours
+   * splits into the account and the machine, so the chooser is the default and
+   * `Open from Computer...` is the other door - the same pair the project
+   * manager offers.
+   *
+   * The gerbers you want are usually the ones you just plotted, and those are
+   * in the project (`dialog_plot_pcb.tsx` writes `gerbers/`). The ones somebody
+   * sent you are on your machine.
+   */
+  const [gbrOpen, setGbrOpen] = useState<null | {
+    title: string;
+    filters: readonly ChooserFilter[];
+    fileType: GbrFileType;
+    multiple: boolean;
+    fromComputer: () => void;
+  }>(null);
+
   const autodetectInputRef = useRef<HTMLInputElement>(null);
   const openInputRef = useRef<HTMLInputElement>(null);
   const drillInputRef = useRef<HTMLInputElement>(null);
@@ -986,17 +1009,41 @@ export function GerberViewer({
         // list (`gerbview/files.cpp`, `job_file_reader.cpp:190`). Autodetect
         // and Gerber used to be the same call here, on the Gerber list.
         openAutodetected: () => {
-          void openLocalFiles(
-            GERBVIEW_AUTODETECT_FILTERS,
-            autodetectInputRef,
-            GBR_FILE_TYPE.AUTODETECT,
-          );
+          setGbrOpen({
+            title: 'Open Autodetected File(s)',
+            filters: GERBVIEW_AUTODETECT_FILTERS,
+            fileType: GBR_FILE_TYPE.AUTODETECT,
+            multiple: true,
+            fromComputer: () => {
+              void openLocalFiles(
+                GERBVIEW_AUTODETECT_FILTERS,
+                autodetectInputRef,
+                GBR_FILE_TYPE.AUTODETECT,
+              );
+            },
+          });
         },
         openGerber: () => {
-          void openLocalFiles(GERBVIEW_GERBER_FILTERS, openInputRef, GBR_FILE_TYPE.GERBER);
+          setGbrOpen({
+            title: 'Open Gerber Plot File(s)',
+            filters: GERBVIEW_GERBER_FILTERS,
+            fileType: GBR_FILE_TYPE.GERBER,
+            multiple: true,
+            fromComputer: () => {
+              void openLocalFiles(GERBVIEW_GERBER_FILTERS, openInputRef, GBR_FILE_TYPE.GERBER);
+            },
+          });
         },
         openDrillFile: () => {
-          void openLocalFiles(GERBVIEW_DRILL_FILTERS, drillInputRef, GBR_FILE_TYPE.DRILL);
+          setGbrOpen({
+            title: 'Open NC (Excellon) Drill File(s)',
+            filters: GERBVIEW_DRILL_FILTERS,
+            fileType: GBR_FILE_TYPE.DRILL,
+            multiple: true,
+            fromComputer: () => {
+              void openLocalFiles(GERBVIEW_DRILL_FILTERS, drillInputRef, GBR_FILE_TYPE.DRILL);
+            },
+          });
         },
         // NOT through loadFiles: that is LoadListOfGerberAndDrillFiles, which
         // refuses a .gbrjob by name. Reading one is a different function
@@ -1007,7 +1054,22 @@ export function GerberViewer({
           void openJobFile();
         },
         openZipFile: () => {
-          void openLocalFiles(GERBVIEW_ZIP_FILTERS, zipInputRef, GBR_FILE_TYPE.AUTODETECT, false);
+          // `wxFileDialog dlg( this, _( "Open Zip File" ), ... )` — its own
+          // dialog upstream (gerbview/files.cpp:661) and single, not MULTIPLE.
+          setGbrOpen({
+            title: 'Open Zip File',
+            filters: GERBVIEW_ZIP_FILTERS,
+            fileType: GBR_FILE_TYPE.AUTODETECT,
+            multiple: false,
+            fromComputer: () => {
+              void openLocalFiles(
+                GERBVIEW_ZIP_FILTERS,
+                zipInputRef,
+                GBR_FILE_TYPE.AUTODETECT,
+                false,
+              );
+            },
+          });
         },
         clearAllLayers: clearAll,
         reloadAllLayers: reloadAll,
@@ -1365,6 +1427,42 @@ export function GerberViewer({
     [loadFiles],
   );
 
+  const gerbviewOpenDialog = gbrOpen ? (
+    <OpenFileDialog
+      title={gbrOpen.title}
+      filters={gbrOpen.filters}
+      multiple={gbrOpen.multiple}
+      // No `kind`: a gerber is DERIVED from one board and lives with it —
+      // `dialog_plot_pcb.tsx` writes the project's own `gerbers/` — so there is
+      // no shared folder for it and every project is listed.
+      extra={
+        <button
+          type="button"
+          className="ze-btn"
+          onClick={() => {
+            const from = gbrOpen.fromComputer;
+            setGbrOpen(null);
+            from();
+          }}
+        >
+          Open from Computer...
+        </button>
+      }
+      onDone={(file) => {
+        const opened = gbrOpen;
+        setGbrOpen(null);
+        if (!file || !opened) return; // wxID_CANCEL
+        // Back into `File`s so `loadFiles` is untouched: it is
+        // LoadListOfGerberAndDrillFiles and already knows the zip, the job file
+        // and the drill reader between them. A second loader taking a different
+        // shape would be the same function twice.
+        const asFile = (f: { path: string; bytes: Uint8Array }): File =>
+          new File([f.bytes as BlobPart], f.path.split('/').filter(Boolean).pop() ?? f.path);
+        void loadFiles([asFile(file), ...file.rest.map(asFile)], opened.fileType);
+      }}
+    />
+  ) : null;
+
   return (
     <div
       className="ze-app"
@@ -1374,6 +1472,7 @@ export function GerberViewer({
       }}
       onDrop={onDrop}
     >
+      {gerbviewOpenDialog}
       {/* The `<input>` fallbacks, for a browser with no showOpenFilePicker.
           Each `accept` is derived from the SAME wildcard list its menu entry
           opens with, never written out again: the Gerber one used to list

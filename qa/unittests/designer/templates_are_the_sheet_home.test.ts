@@ -84,11 +84,15 @@ describe('Open reads through the account tree, which is now the only tree', () =
   const OPEN = read('../../../designer/src/fs/OpenFileDialog.tsx');
 
   it('reads through the account tree for every place', () => {
-    expect(OPEN).toContain('onAccept={(path) => readAndDone(fs, path)}');
+    // `rest` joined the signature when GerbView needed wxFD_MULTIPLE
+    // (gerbview/files.cpp:151-152); the tree it reads from did not change.
+    expect(OPEN).toContain('onAccept={(path, rest) => readAndDone(fs, path, rest)}');
   });
 
   it('takes the filesystem as an argument rather than assuming one', () => {
-    expect(OPEN).toContain('const readAndDone = (from: FileSystem, path: string): void => {');
+    expect(OPEN).toContain(
+      'const readAndDone = (from: FileSystem, path: string, rest: readonly string[] = []): void => {',
+    );
     expect(OPEN).toContain('const bytes = await from.read(path);');
   });
 
