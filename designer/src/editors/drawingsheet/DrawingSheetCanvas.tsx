@@ -53,39 +53,15 @@ import { clampViewScale } from '../../ui/zoom_settings.js';
 import { drawCrosshair, drawGrid } from '../../ui/grid_cursor.js';
 import { scaleForZoomFactor, zoomFactorForScale } from '../../ui/status_format.js';
 import { ZOOM_LIST, nextZoomPreset } from '../../ui/zoom_settings.js';
+import { kiCursor } from '../../ui/kicursors.js';
 
 /*
- * The drawing tools' pencil (KICURSOR::PENCIL) and the interactive delete
- * picker's cross (KICURSOR::REMOVE).
- *
- * [art] KiCad ships both as 32x32 XPMs - `resources/bitmaps_png/cursors/
- * cursor-pencil.xpm` and `cursor-eraser.xpm`, mapped at `common/gal/cursors.cpp`
- * :137-141 and :185-190 - so there is no vector to copy, only a PALETTE. Both
- * XPMs declare exactly three colours: `None`, `#FFFFFF` and `#000000`. A KiCad
- * cursor is a white shape with a black outline and nothing else, on every
- * frame, so it stays legible over any canvas colour.
- *
- * Ours were a yellow-and-red pencil (`#ffd54a` / `#c8322d` / `#1b1b1b`) and a
- * red cross (`#e33`) - three invented hues where upstream has two absolutes.
- * The geometry below is still ours, because an XPM bitmap gives no path; the
- * ink is KiCad's.
- *
- * The hotspots are upstream's too: pencil { 4, 27 } and eraser { 4, 4 } in the
- * 32x32 art, i.e. { 3, 20 } and { 3, 3 } scaled to our 24x24.
+ * The canvas cursors are KiCad's own art now - see `ui/kicursors.ts` and
+ * `scripts/vendor-cursors.mjs`. What stood here was an SVG pencil and an SVG
+ * cross drawn by hand, on the reasoning that "an XPM bitmap gives no path".
+ * An XPM is a bitmap; a bitmap converts to a PNG exactly, so there was never a
+ * reason to redraw one.
  */
-const CURSOR_INK = '#ffffff'; // [art] XPM colour `.`
-const CURSOR_EDGE = '#000000'; // [art] XPM colour `+`
-const PENCIL_SVG =
-  "<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'>" +
-  `<path d='M3.5 20.5l3.2-1 11-11-2.2-2.2-11 11z' fill='${CURSOR_INK}' stroke='${CURSOR_EDGE}' stroke-width='1'/>` +
-  `<path d='M14.8 5.1l2.2 2.2 1.9-1.9a1.3 1.3 0 0 0 0-1.9l-.3-.3a1.3 1.3 0 0 0-1.9 0z' fill='${CURSOR_INK}' stroke='${CURSOR_EDGE}' stroke-width='1'/>` +
-  `<path d='M3.5 20.5l1.1-2.9 1.8 1.1z' fill='${CURSOR_EDGE}'/></svg>`;
-const PENCIL_CURSOR = `url("data:image/svg+xml,${encodeURIComponent(PENCIL_SVG)}") 3 20, crosshair`;
-const REMOVE_SVG =
-  "<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'>" +
-  `<path d='M5 5l14 14M19 5L5 19' stroke='${CURSOR_EDGE}' stroke-width='4' stroke-linecap='round'/>` +
-  `<path d='M5 5l14 14M19 5L5 19' stroke='${CURSOR_INK}' stroke-width='2' stroke-linecap='round'/></svg>`;
-const REMOVE_CURSOR = `url("data:image/svg+xml,${encodeURIComponent(REMOVE_SVG)}") 3 3, not-allowed`;
 
 export interface DrawingSheetCanvasController {
   zoomToFit: () => void;
@@ -331,7 +307,35 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
       const glc = glRef.current;
       const glCanvas = glCanvasRef.current;
       let sheetOnGl = false;
-      if (GL_RENDERER && glc && glCanvas && !glc.isLost && !(md && selRef.current.size > 0)) {
+      /*
+       * A sheet with an image on it goes down the raster path, whole.
+       *
+       * `GlRecorder.drawImage` is a no-op — "images are not recorded yet...
+       * which is why the backend is not yet the default" (recorder.ts). The
+       * backend then BECAME the default here, and the comment's condition went
+       * with it: placing an image put a real DS_DATA_ITEM_BITMAP in the sheet,
+       * saved it, and drew nothing at all. Reported as "the image inserting
+       * tool not working", and it was not the tool.
+       *
+       * The raster painter draws bitmaps properly (`drawBitmap`, ds_painter.ts),
+       * so falling back to it is not a degraded mode — it is the renderer that
+       * was the default until recently, and it is the same painter. It costs
+       * the GL crispness on sheets that carry a logo, which is the trade until
+       * the recorder can texture a quad.
+       *
+       * Only when the image has DATA: an item still decoding, or one whose PNG
+       * failed to load, is drawn as a dashed placeholder rectangle, and a
+       * rectangle is something the recorder handles.
+       */
+      const hasImage = drawsRef.current.some((d) => d.kind === 'bitmap' && !!d.pngB64);
+      if (
+        GL_RENDERER &&
+        glc &&
+        glCanvas &&
+        !glc.isLost &&
+        !hasImage &&
+        !(md && selRef.current.size > 0)
+      ) {
         const brightened = brightenedRef.current;
         glc.render(
           {
@@ -471,6 +475,25 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
       cancelAnimationFrame(rafRef.current);
       rafRef.current = requestAnimationFrame(draw);
     }, [draw]);
+
+    /**
+     * The live `requestDraw`, for effects that must NOT re-run when it changes.
+     *
+     * `requestDraw` is rebuilt whenever `draw` is, and `draw` closes over
+     * `activeTool` among other things — so it is a new function on every tool
+     * click. An effect that lists it in its deps therefore tears down and
+     * rebuilds on every tool click, and for the GL device below that means
+     * disposing the WebGL context, recompiling both programs and re-uploading
+     * every buffer. That is the whole-canvas flash, on every click of the right
+     * toolbar and again when a finished tool falls back to the selection tool.
+     *
+     * GerbView's canvas routes its two context handlers through a ref for
+     * exactly this reason and mounts the device once
+     * (`GerberCanvas.tsx:385,393-394`), as does the schematic's
+     * (`SchematicCanvas.tsx:2487`). This is that ref.
+     */
+    const requestDrawRef = useRef(requestDraw);
+    requestDrawRef.current = requestDraw;
 
     useEffect(() => {
       requestDraw();
@@ -634,6 +657,9 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
 
     // Size to container; fit on first layout.
     const fittedRef = useRef(false);
+    /** The live `zoomToFit`, for the same reason as {@link requestDrawRef}. */
+    const zoomToFitRef = useRef(zoomToFit);
+    zoomToFitRef.current = zoomToFit;
     useEffect(() => {
       const wrap = wrapRef.current,
         canvas = canvasRef.current;
@@ -642,19 +668,29 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
         const r = wrap.getBoundingClientRect();
         for (const el of [canvas, glCanvasRef.current, overCanvasRef.current]) {
           if (!el) continue;
-          el.width = Math.max(1, Math.round(r.width * dpr));
-          el.height = Math.max(1, Math.round(r.height * dpr));
+          const w = Math.max(1, Math.round(r.width * dpr));
+          const h = Math.max(1, Math.round(r.height * dpr));
+          // Only when it CHANGED. Assigning `canvas.width` resets the drawing
+          // buffer even when the value is identical, so an observer that fires
+          // on a layout the canvas did not actually change wipes all three
+          // layers and leaves them blank until the next animation frame. That
+          // is one frame of empty canvas — the flash.
+          if (el.width !== w) el.width = w;
+          if (el.height !== h) el.height = h;
           el.style.width = `${r.width}px`;
           el.style.height = `${r.height}px`;
         }
         if (!fittedRef.current) {
           fittedRef.current = true;
-          zoomToFit();
-        } else requestDraw();
+          zoomToFitRef.current();
+        } else requestDrawRef.current();
       });
       ro.observe(wrap);
       return () => ro.disconnect();
-    }, [dpr, requestDraw, zoomToFit]);
+      // Mounted once, like the GL device above: `observe()` fires the callback
+      // immediately, so re-arming this effect on every tool click ran a resize
+      // pass per click. Both callbacks are reached through refs.
+    }, [dpr]);
 
     /**
      * The GL device, and its two context events.
@@ -673,11 +709,11 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
         e.preventDefault();
         glRef.current?.dispose();
         glRef.current = null;
-        requestDraw();
+        requestDrawRef.current();
       };
       const onRestored = (): void => {
         glRef.current = DrawingSheetGl.create(el);
-        requestDraw();
+        requestDrawRef.current();
       };
       el.addEventListener('webglcontextlost', onLost);
       el.addEventListener('webglcontextrestored', onRestored);
@@ -687,7 +723,10 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
         glRef.current?.dispose();
         glRef.current = null;
       };
-    }, [requestDraw]);
+      // Mounted ONCE. The two handlers reach the current `requestDraw` through
+      // its ref; listing it here would rebuild the WebGL context on every tool
+      // click. See `requestDrawRef`.
+    }, []);
 
     // WX_VIEW_CONTROLS::onWheel.
     useEffect(() => {
@@ -989,17 +1028,22 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
      */
     const cursor =
       activeTool === 'zoomTool'
-        ? 'zoom-in'
+        ? kiCursor('ZOOM_IN')
         : activeTool === 'dsDelete'
-          ? REMOVE_CURSOR
+          ? // PL_EDIT_TOOL's delete picker: `picker->SetCursor( KICURSOR::REMOVE )`
+            // (pl_edit_tool.cpp:424).
+            kiCursor('REMOVE')
           : activeTool === 'dsAddText'
-            ? 'text'
+            ? // KICURSOR::TEXT (pl_drawing_tools.cpp:90) — KiCad's own I-beam
+              // art, not the browser's `text`, which is a different glyph.
+              kiCursor('TEXT')
             : activeTool === 'dsAddBitmap'
               ? 'default'
               : placing
-                ? PENCIL_CURSOR
+                ? kiCursor('PENCIL')
                 : moveMode
-                  ? 'move'
+                  ? // KICURSOR::MOVING (pl_edit_tool.cpp:158).
+                    kiCursor('MOVING')
                   : 'default';
     return (
       <div

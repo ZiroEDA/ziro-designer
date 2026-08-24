@@ -50,9 +50,13 @@ describe('the drawing sheet canvas shows KiCad’s pointer', () => {
     expect(CANVAS).toContain('drawCrosshair(');
   });
 
-  it('gives the text tool an I-beam', () => {
-    // `else if( isText ) -> KICURSOR::TEXT` (pl_drawing_tools.cpp:88-90).
-    expect(CHAIN).toMatch(/dsAddText'\s*\?\s*'text'/);
+  it('gives the text tool KiCad’s I-beam, not the browser’s', () => {
+    // `else if( isText ) -> KICURSOR::TEXT` (pl_drawing_tools.cpp:88-90), and
+    // KICURSOR::TEXT is `cursor-text.xpm` (cursors.cpp:192-197) — KiCad's own
+    // art. The CSS keyword `text` is a different glyph the platform draws, so
+    // naming it here was a near miss, not a match.
+    expect(CHAIN).toMatch(/dsAddText'[\s\S]*?kiCursor\('TEXT'\)/);
+    expect(CHAIN).not.toMatch(/dsAddText'\s*\n?\s*\?\s*'text'/);
   });
 
   it('gives place-image the arrow, not the pencil', () => {
@@ -62,18 +66,26 @@ describe('the drawing sheet canvas shows KiCad’s pointer', () => {
 
   it('keeps the pencil for the shape tools only', () => {
     // `else -> KICURSOR::PENCIL` (pl_drawing_tools.cpp:96-99).
-    expect(CHAIN).toMatch(/placing\s*\n?\s*\?\s*PENCIL_CURSOR/);
+    expect(CHAIN).toMatch(/placing[\s\S]*?\?[\s\S]*?kiCursor\('PENCIL'\)/);
   });
 
   it('keeps the remove and zoom pointers', () => {
     // picker->SetCursor( KICURSOR::REMOVE ) (pl_edit_tool.cpp:424).
-    expect(CHAIN).toContain('REMOVE_CURSOR');
-    expect(CHAIN).toContain("'zoom-in'");
+    expect(CHAIN).toContain("kiCursor('REMOVE')");
+    expect(CHAIN).toContain("kiCursor('ZOOM_IN')");
   });
 
   it('moves with the selection in move mode', () => {
     // KICURSOR::MOVING (pl_selection_tool.cpp:198, pl_edit_tool.cpp:158).
-    expect(CHAIN).toMatch(/moveMode\s*\n?\s*\?\s*'move'/);
+    expect(CHAIN).toMatch(/moveMode[\s\S]*?\?[\s\S]*?kiCursor\('MOVING'\)/);
+  });
+
+  it('names no cursor the chain cannot get from KiCad’s table', () => {
+    // Per-occurrence, not per-file: every `url(...)` or `data:` in the chain
+    // would be art invented here beside `ui/kicursors.ts`, which is exactly
+    // what the hand-drawn SVG pencil and cross were.
+    expect(CHAIN).not.toContain('data:image');
+    expect(CHAIN).not.toContain('url(');
   });
 });
 
