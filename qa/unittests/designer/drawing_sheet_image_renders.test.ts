@@ -146,10 +146,20 @@ describe('the recorder that made this necessary', () => {
   );
 
   it('still says out loud that drawImage draws nothing', () => {
-    // The stale version of this comment ("which is why the backend is not yet
-    // the default") is what let the bug ship: it read as a live precondition
-    // long after it had stopped being true.
     expect(REC).toMatch(/drawImage\(\): void \{\}/);
-    expect(REC).not.toContain('which is why the backend is not yet the');
+    // The stale version of this comment read as a live precondition long after
+    // it had stopped being true, which is what let the bug ship. So the thing
+    // to pin is not the absence of that sentence — it wrapped across two lines
+    // and no substring test could see it — but the presence of the warning
+    // that replaced it.
+    expect(REC).toContain('A caller that can be handed one must check');
+  });
+
+  it('names the two callers that still drop an image', () => {
+    // One `expect` per call site, not a single "mentions renderer" check: the
+    // point of the list is that BOTH are recorded, and a per-file test of a
+    // per-occurrence rule passes on either one alone.
+    expect(REC).toContain('editors/schematic/render/renderer.ts:1076');
+    expect(REC).toContain('editors/pcb/renderBoard.ts:2034');
   });
 });
