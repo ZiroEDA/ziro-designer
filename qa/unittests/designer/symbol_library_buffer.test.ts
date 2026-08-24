@@ -18,6 +18,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { SymbolLibraryManager } from '@ziroeda/designer/src/editors/symbol/libraryManager.js';
+import { deleteSymbolPrompts } from '@ziroeda/designer/src/editors/symbol/delete_symbol_prompt.js';
 
 /**
  * A library with a root `R` and two symbols derived from it, plus a chain
@@ -188,5 +189,56 @@ describe('SymbolNameInUse (symbol_library_manager.cpp:653-669)', () => {
     m.renameSymbol('Device', 'C', { ...c, libId: 'A/B' });
     expect(m.symbolExists('Device', 'A{slash}B')).toBe(true);
     expect(m.symbolExists('Device', 'A/B')).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// DeleteSymbolFromLibrary's prompts
+// ---------------------------------------------------------------------------
+
+describe('DeleteSymbolFromLibrary prompts (symbol_editor.cpp:1252-1301)', () => {
+  /**
+   * Upstream asks NOTHING before deleting an unmodified symbol with no
+   * children — it falls straight through both `if`s to `RemoveSymbol`. Ours
+   * always raised a confirm of its own invention.
+   */
+  it('asks nothing for an unmodified leaf symbol', () => {
+    expect(deleteSymbolPrompts({ symName: 'C', modified: false, derived: [] })).toEqual([]);
+  });
+
+  /** `:1261-1264`, verbatim including the embedded newline. */
+  it('asks before discarding a modified symbol', () => {
+    expect(deleteSymbolPrompts({ symName: 'C', modified: true, derived: [] })).toEqual([
+      {
+        message: "The symbol 'C' has been modified.\nDo you want to remove it from the library?",
+      },
+    ]);
+  });
+
+  /**
+   * `:1273-1282`. The body is a fixed sentence, a blank line, the base with
+   * " (base)", then one line per derived name — spelled out rather than
+   * rebuilt by the same concatenation the code under test uses.
+   */
+  it('lists the base and every derived symbol', () => {
+    expect(
+      deleteSymbolPrompts({ symName: 'R', modified: false, derived: ['R_small', 'R_US'] }),
+    ).toEqual([
+      {
+        title: 'Warning',
+        message:
+          'Deleting a base symbol will delete all symbols derived from it.\n\nR (base)\nR_small\nR_US\n',
+        confirmLabel: 'Delete All Listed Symbols',
+        cancelLabel: 'Cancel',
+      },
+    ]);
+  });
+
+  /** Both, in upstream's order: modified first, then the base warning. */
+  it('raises the modified prompt before the base warning', () => {
+    const prompts = deleteSymbolPrompts({ symName: 'R', modified: true, derived: ['R_small'] });
+    expect(prompts).toHaveLength(2);
+    expect(prompts[0]?.message).toContain('has been modified');
+    expect(prompts[1]?.title).toBe('Warning');
   });
 });

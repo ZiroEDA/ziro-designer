@@ -96,6 +96,7 @@ import { wasBrowserSuppressed, type FocusLike } from '../../ui/browser_hotkeys.j
 import { OpenFileDialog } from '../../fs/OpenFileDialog.js';
 import { kicadSymbolLibWildcard } from '../../fs/wildcards.js';
 import { applyToggle, DEFAULT_TOGGLES } from './toggles.js';
+import { deleteSymbolPrompts } from './delete_symbol_prompt.js';
 import { SelectionFilterPanel } from '../../ui/SelectionFilterPanel.js';
 import { symSelectionFilterShown } from '../../ui/selection_filter_panel.js';
 import {
@@ -666,7 +667,17 @@ export function SymbolEditor({
 
   const deleteSymbol = useCallback(
     (libName: string, symName: string) => {
-      if (!window.confirm(`Delete symbol '${symName}' from library '${libName}'?`)) return;
+      // `DeleteSymbolFromLibrary` (symbol_editor.cpp:1252-1301). An unmodified
+      // leaf symbol is deleted with NO prompt at all; the two that exist are
+      // built in `delete_symbol_prompt.ts`. What was here asked always, with a
+      // string of our own, and never warned that a base takes its children.
+      for (const prompt of deleteSymbolPrompts({
+        symName,
+        modified: manager.current.isSymbolModified(libName, symName),
+        derived: manager.current.derivedSymbolNames(libName, symName),
+      })) {
+        if (!window.confirm(prompt.message)) return;
+      }
       manager.current.removeSymbol(libName, symName);
       if (curLib === libName && curName === symName) {
         setWorkSymbol(null);
