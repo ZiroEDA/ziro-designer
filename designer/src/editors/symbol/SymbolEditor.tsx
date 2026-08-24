@@ -847,7 +847,7 @@ export function SymbolEditor({
           if (workSymbol) setCheckOpen(true);
           break;
         case 'toggleSyncedPinsMode':
-          setToggles((t) => flip(t, 'toggleSyncedPinsMode'));
+          setToggles((t) => applyToggle(t, 'toggleSyncedPinsMode'));
           break;
         case 'addSymbolToSchematic':
           if (workSymbol && curLib && onAddSymbolToSchematic) {
