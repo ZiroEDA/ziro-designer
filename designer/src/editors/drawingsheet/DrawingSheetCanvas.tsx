@@ -307,7 +307,35 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
       const glc = glRef.current;
       const glCanvas = glCanvasRef.current;
       let sheetOnGl = false;
-      if (GL_RENDERER && glc && glCanvas && !glc.isLost && !(md && selRef.current.size > 0)) {
+      /*
+       * A sheet with an image on it goes down the raster path, whole.
+       *
+       * `GlRecorder.drawImage` is a no-op — "images are not recorded yet...
+       * which is why the backend is not yet the default" (recorder.ts). The
+       * backend then BECAME the default here, and the comment's condition went
+       * with it: placing an image put a real DS_DATA_ITEM_BITMAP in the sheet,
+       * saved it, and drew nothing at all. Reported as "the image inserting
+       * tool not working", and it was not the tool.
+       *
+       * The raster painter draws bitmaps properly (`drawBitmap`, ds_painter.ts),
+       * so falling back to it is not a degraded mode — it is the renderer that
+       * was the default until recently, and it is the same painter. It costs
+       * the GL crispness on sheets that carry a logo, which is the trade until
+       * the recorder can texture a quad.
+       *
+       * Only when the image has DATA: an item still decoding, or one whose PNG
+       * failed to load, is drawn as a dashed placeholder rectangle, and a
+       * rectangle is something the recorder handles.
+       */
+      const hasImage = drawsRef.current.some((d) => d.kind === 'bitmap' && !!d.pngB64);
+      if (
+        GL_RENDERER &&
+        glc &&
+        glCanvas &&
+        !glc.isLost &&
+        !hasImage &&
+        !(md && selRef.current.size > 0)
+      ) {
         const brightened = brightenedRef.current;
         glc.render(
           {

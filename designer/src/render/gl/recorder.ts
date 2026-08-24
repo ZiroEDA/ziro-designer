@@ -677,12 +677,27 @@ export class GlRecorder {
   fillText(): void {}
 
   /**
-   * Images are not recorded yet.
+   * Images are not recorded yet. **A caller that can be handed one must check.**
    *
    * Reference images and logos need a textured quad and a texture cache, which
-   * is its own piece of work. Until then a document containing one renders
-   * without it under this backend, which is why the backend is not yet the
-   * default. Tracked in the follow-up on issue #449.
+   * is its own piece of work. This used to say "which is why the backend is not
+   * yet the default" — and then the backend became the default in all four
+   * canvases, while this stayed a silent no-op. An image therefore stopped
+   * being drawn at all: the item is in the document, it saves and reloads, and
+   * the canvas shows nothing. It was reported as the drawing sheet's image tool
+   * "not working", which it was not.
+   *
+   * `DrawingSheetCanvas` now sends a sheet carrying an image down the raster
+   * path instead, which draws it (`drawBitmap`, common/drawing_sheet/
+   * ds_painter.ts). The other two callers that can reach a `drawImage` have no
+   * such check yet and drop the image the same way this did:
+   *
+   *   - `editors/schematic/render/renderer.ts:1076` — SCH_BITMAP, recorded by
+   *     `schematic_gl.ts` through this class;
+   *   - `editors/pcb/renderBoard.ts:2034` — reference images.
+   *
+   * Tracked in the follow-up on issue #449. Until a texture path exists, do not
+   * make this method look harmless.
    */
   drawImage(): void {}
 }

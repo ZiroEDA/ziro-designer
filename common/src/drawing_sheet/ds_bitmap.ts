@@ -86,15 +86,30 @@ export function getBitmapImage(b64: string): { img: ImageBitmap; w: number; h: n
   const hit = cache.get(b64);
   if (hit) return hit.img ? { img: hit.img, w: hit.w, h: hit.h } : null;
   cache.set(b64, { img: null, w: 0, h: 0, failed: false });
-  const blob = new Blob([base64ToBytes(b64) as BlobPart], { type: 'image/png' });
-  createImageBitmap(blob)
-    .then((bmp) => {
-      cache.set(b64, { img: bmp, w: bmp.width, h: bmp.height, failed: false });
-      invalidate?.();
-    })
-    .catch(() => {
-      cache.set(b64, { img: null, w: 0, h: 0, failed: true });
-    });
+  /*
+   * Inside the try, all of it. `atob` throws InvalidCharacterError on a payload
+   * that is not base64, and this is called from inside the paint loop — so one
+   * corrupt `(data ...)` blob in a `.kicad_wks` took the whole canvas down
+   * instead of losing one logo. `createImageBitmap` being absent throws from
+   * the same place.
+   *
+   * A payload that cannot be decoded is the `failed` entry the cache already
+   * has a slot for, and `drawBitmap` already draws the dashed placeholder box
+   * for that — which is what KiCad shows for an image it cannot load too.
+   */
+  try {
+    const blob = new Blob([base64ToBytes(b64) as BlobPart], { type: 'image/png' });
+    createImageBitmap(blob)
+      .then((bmp) => {
+        cache.set(b64, { img: bmp, w: bmp.width, h: bmp.height, failed: false });
+        invalidate?.();
+      })
+      .catch(() => {
+        cache.set(b64, { img: null, w: 0, h: 0, failed: true });
+      });
+  } catch {
+    cache.set(b64, { img: null, w: 0, h: 0, failed: true });
+  }
   return null;
 }
 
