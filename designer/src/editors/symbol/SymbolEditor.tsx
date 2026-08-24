@@ -551,6 +551,9 @@ export function SymbolEditor({
     if (orig) {
       const lib = manager.current.library(curLib)!;
       setWorkSymbol(flattenAgainst(orig, lib));
+      // `return LIB_ID( aLibrary, original.GetName() )` — reverting a RENAMED
+      // symbol puts the name back, and the frame follows it.
+      setCurName(orig.libId);
       undoStack.current = [];
       redoStack.current = [];
       setSelection(new Set());
@@ -2156,6 +2159,15 @@ function TreeSelActions({
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd') {
         e.preventDefault();
         onDuplicate(treeSel.lib, treeSel.name);
+        return;
+      }
+      // `ACTIONS::doDelete`, DefaultHotkey WXK_DELETE on this build
+      // (`common/tool/actions.cpp:399`; WXK_BACK is the __WXMAC__ branch).
+      // `onDelete` was accepted, listed in the deps below and never called, so
+      // Delete on a tree symbol did nothing at all.
+      if (e.key === 'Delete') {
+        e.preventDefault();
+        onDelete(treeSel.lib, treeSel.name);
       }
     };
     window.addEventListener('keydown', onKey);
