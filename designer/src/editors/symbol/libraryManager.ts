@@ -189,6 +189,30 @@ export class SymbolLibraryManager {
     return names.some((n) => unescapeString(n).toLowerCase() === wanted);
   }
 
+  /**
+   * `SYMBOL_EDIT_FRAME::ensureUniqueName`
+   * (`eeschema/symbol_editor/symbol_editor.cpp:1400-1413`):
+   *
+   * ```cpp
+   * int      i = 1;
+   * wxString newName = aSymbol->GetName();
+   *
+   * while( m_libMgr->SymbolNameInUse( newName, aLibrary ) )
+   *     newName.Printf( "%s_%d", aSymbol->GetName(), i++ );
+   * ```
+   *
+   * The counter is appended to the ORIGINAL name every time, so a third copy of
+   * `R` is `R_2` — not `R_1_1`, which is what a loop that appends to its own
+   * previous answer produces, and which is what both of our call sites did
+   * ("R_1_1_1" on import, "R_copy_copy" on duplicate).
+   */
+  ensureUniqueName(libName: string, name: string): string {
+    let candidate = name;
+    let i = 1;
+    while (this.symbolExists(libName, candidate)) candidate = `${name}_${i++}`;
+    return candidate;
+  }
+
   /** Buffer an updated working copy (UpdateSymbol): marks it modified. */
   updateSymbol(libName: string, sym: LibSymbol): void {
     const lib = this.libs.get(libName);

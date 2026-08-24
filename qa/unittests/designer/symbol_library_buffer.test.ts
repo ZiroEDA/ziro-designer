@@ -135,6 +135,34 @@ describe('removeChildSymbols (symbol_library_manager.cpp:1276-1300)', () => {
   });
 });
 
+describe('ensureUniqueName (symbol_editor.cpp:1400-1413)', () => {
+  /**
+   * `newName.Printf( "%s_%d", aSymbol->GetName(), i++ )` — the counter is
+   * appended to the ORIGINAL name each time round, so successive copies of `R`
+   * are `R_1`, `R_2`, `R_3`. A loop that appends to its own previous answer
+   * gives `R_1_1_1`, which is what both call sites did.
+   */
+  it('counts up from the original name rather than compounding', () => {
+    const m = managerWithLib();
+    const c = m.getSymbol('Device', 'C')!;
+    expect(m.ensureUniqueName('Device', 'C')).toBe('C_1');
+    m.updateSymbol('Device', { ...c, libId: 'C_1' });
+    expect(m.ensureUniqueName('Device', 'C')).toBe('C_2');
+    m.updateSymbol('Device', { ...c, libId: 'C_2' });
+    expect(m.ensureUniqueName('Device', 'C')).toBe('C_3');
+  });
+
+  /** A free name is returned untouched — the loop body never runs. */
+  it('leaves a free name alone', () => {
+    expect(managerWithLib().ensureUniqueName('Device', 'L')).toBe('L');
+  });
+
+  /** It asks SymbolNameInUse, so it inherits the case-insensitive compare. */
+  it('treats a name differing only in case as taken', () => {
+    expect(managerWithLib().ensureUniqueName('Device', 'c')).toBe('c_1');
+  });
+});
+
 describe('SymbolNameInUse (symbol_library_manager.cpp:653-669)', () => {
   /**
    * `candidate.CmpNoCase( UnescapeString( aName ) ) == 0`. Ours was an exact

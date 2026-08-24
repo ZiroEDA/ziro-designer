@@ -683,8 +683,7 @@ export function SymbolEditor({
       const lib = await manager.current.ensureLoaded(libName);
       const src = lib?.symbols.get(symName);
       if (!lib || !src) return;
-      let newName = symName;
-      while (lib.symbols.has(newName)) newName = `${newName}_copy`;
+      const newName = manager.current.ensureUniqueName(libName, symName);
       const copy = renameSymbol({ ...src, source: src.source }, newName);
       manager.current.updateSymbol(libName, copy);
       bump();
@@ -722,7 +721,7 @@ export function SymbolEditor({
         await manager.current.ensureLoaded(libName);
         const lib = manager.current.library(libName)!;
         let name = first.libId;
-        while (lib.symbols.has(name)) name = `${name}_1`; // ensureUniqueName
+        name = manager.current.ensureUniqueName(libName, name);
         manager.current.updateSymbol(
           libName,
           name === first.libId ? first : renameSymbol(first, name),
