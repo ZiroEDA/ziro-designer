@@ -71,6 +71,7 @@ import { dispatchMenuHotkey, focusBlocksHotkey } from '../../ui/menu_hotkeys.js'
 import { wasBrowserSuppressed, type FocusLike } from '../../ui/browser_hotkeys.js';
 import { OpenFileDialog } from '../../fs/OpenFileDialog.js';
 import { kicadFootprintLibWildcard } from '../../fs/wildcards.js';
+import { CONFIRM_REVERT_EXTENDED, confirmRevertMessage } from '../../ui/confirm.js';
 
 /**
  * The Footprint Editor frame, the web mirror of KiCad's FOOTPRINT_EDIT_FRAME
@@ -211,6 +212,16 @@ export function FootprintEditor({
   // Whole-footprint snapshot undo/redo (SaveCopyInUndoList), reset per load.
   const undoStack = useRef<PcbFootprint[]>([]);
   const redoStack = useRef<PcbFootprint[]>([]);
+  /**
+   * `EDA_BASE_FRAME::GetUndoCommandCount()` / `GetRedoCommandCount()`, which
+   * `EDITOR_CONDITIONS::UndoAvailable` / `RedoAvailable`
+   * (`common/tool/editor_conditions.cpp:169-178`) compare against zero to grey
+   * the two Edit rows. The stacks themselves are refs, so a depth read at
+   * render time would be a value nothing re-reads; these mirror them into
+   * state so the menu tree is rebuilt when they move.
+   */
+  const [undoDepth, setUndoDepth] = useState(0);
+  const [redoDepth, setRedoDepth] = useState(0);
 
   const [visible, setVisible] = useState<ReadonlySet<string>>(new Set(ALL_FP_LAYERS));
   const [activeLayer, setActiveLayer] = useState('F.Cu');
@@ -375,6 +386,14 @@ export function FootprintEditor({
     });
     setSelection(new Set());
   }, [curLib, curName, bump]);
+
+  // Mirror the two stack depths into state after every commit / undo / redo /
+  // load. `workFp` and `revision` both move on all four, and an effect runs
+  // after the DOM commit, so the ref is already at its new depth here.
+  useEffect(() => {
+    setUndoDepth(undoStack.current.length);
+    setRedoDepth(redoStack.current.length);
+  }, [workFp, revision]);
 
   // The centre to rotate/mirror about: the selection's combined bounding box.
   const selectionCenter = useCallback((fp: PcbFootprint, sel: ReadonlySet<string>): Vec2 => {
@@ -868,6 +887,33 @@ export function FootprintEditor({
     return () => window.removeEventListener('keydown', onKey);
   }, [rotateSel, selectTool, activeTool, drawStart, newLibName, newFpName, propsOpen, padDialogId]);
 
+  /**
+   * `FOOTPRINT_EDIT_FRAME::IsContentModified()`
+   * (`footprint_edit_frame.cpp:368-372`): the screen's dirty bit **and** a
+   * footprint on the board. It gates Revert and the title's `*`.
+   */
+  const modified = curLib && curName ? manager.current.isFootprintModified(curLib, curName) : false;
+
+  /**
+   * `FOOTPRINT_EDIT_FRAME::RevertFootprint()`
+   * (`footprint_libraries_utils.cpp:1191-1218`): confirm, put the as-loaded
+   * copy back on the board, zoom-fit, and clear both the undo/redo lists and
+   * the modified flag.
+   */
+  const revert = useCallback(() => {
+    if (!curLib || !curName || !modified) return;
+    // `ConfirmRevertDialog` — the message and its grey sub-line both come from
+    // `ui/confirm.ts`, the one place `common/confirm.cpp` is transcribed.
+    if (!window.confirm(`${confirmRevertMessage(curName)}\n\n${CONFIRM_REVERT_EXTENDED}`)) return;
+    const orig = manager.current.revertFootprint(curLib, curName);
+    setWorkFp(orig ?? null);
+    setSelection(new Set());
+    undoStack.current = [];
+    redoStack.current = [];
+    bump();
+    requestAnimationFrame(() => controller.current?.zoomToFit());
+  }, [curLib, curName, modified, bump]);
+
   // ----- menus (menubar_footprint_editor.cpp) -----------------------------------
   //
   // The tree lives in `menubar.ts`. A menu built inside a `.tsx` cannot be
@@ -888,6 +934,9 @@ export function FootprintEditor({
           break;
         case 'save':
           save();
+          break;
+        case 'revert':
+          revert();
           break;
         case 'saveAll':
           saveAll();
@@ -940,6 +989,7 @@ export function FootprintEditor({
     [
       save,
       saveAll,
+      revert,
       undo,
       redo,
       deleteSel,
@@ -981,9 +1031,16 @@ export function FootprintEditor({
         {
           haveFootprint: !!workFp,
           targetLib: !!targetLib,
-          modified: manager.current.hasModifications(),
           targetFootprint: !!(curName || treeSel?.name),
-          haveSelection: selection.size > 0,
+          footprintSelectedInTree: !!treeSel?.name,
+          // `IsContentModified()` is the LOADED footprint's dirty bit
+          // (`footprint_edit_frame.cpp:368-372`), not the whole workspace's.
+          contentModified: modified,
+          // `board && !board->IsEmpty()` — our board is `footprintToBoard`, so
+          // it is non-empty exactly when a footprint is loaded.
+          hasItems: !!workFp,
+          undoAvailable: undoDepth > 0,
+          redoAvailable: redoDepth > 0,
         },
       ),
     [
@@ -995,7 +1052,9 @@ export function FootprintEditor({
       targetLib,
       curName,
       treeSel,
-      selection,
+      modified,
+      undoDepth,
+      redoDepth,
       common.system.language,
     ],
   );
@@ -1010,7 +1069,6 @@ export function FootprintEditor({
   // used to be here got the document right and everything around it wrong: no
   // `*`, an ASCII hyphen for the em dash, and "No footprint" where KiCad says
   // `[no footprint loaded]`.
-  const modified = curLib && curName ? manager.current.isFootprintModified(curLib, curName) : false;
   const fpTitle = useMemo(
     () =>
       fpFrameTitle({
@@ -1515,9 +1573,12 @@ function TreeSelActions({
       if (!treeSel?.name) return;
       // A context action, and the canvas holds the same key: Edit > Delete is
       // ACTIONS::doDelete on the selection. The two are kept disjoint rather
-      // than ordered, because two window listeners have no stable order - the
-      // menu row is `disabled` with an empty selection, and this one declines
-      // while there is one, so exactly one of them can ever act.
+      // than ordered, because two window listeners have no stable order - this
+      // one declines while the canvas has a selection, and `deleteSel` is a
+      // no-op without one, so exactly one of them can ever do anything.
+      // (Edit > Delete itself is `ENABLE( cond.HasItems() )` upstream, i.e.
+      // live whenever a footprint is loaded, so its greying is no longer what
+      // keeps the two apart.)
       // (`PCB_ACTIONS::deleteFootprint` declares no hotkey upstream at all;
       // pcb_actions.cpp:903-907. This key is ours.)
       if (canvasSelection) return;
