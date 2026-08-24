@@ -491,6 +491,11 @@ describe('the extension is fixed on accept, not locked in the entry', () => {
     // editor's download path still hands over.
     expect(savePathWithExtension('frame', DRAWING_SHEET_FILE_EXTENSION)).toBe('frame.kicad_wks');
     expect(leafOf('/Templates/frame.kicad_wks')).toBe('frame.kicad_wks');
+    // The comparison is against the NAME, not the path. `AfterLast('.')`
+    // returns the WHOLE string when there is no dot in it (common.cpp's
+    // wxString semantics, mirrored in `ensureFileExtension`), so handing it the
+    // path would compare `/kicad_wks` — never equal — and append a second copy.
+    expect(savePathWithExtension('/kicad_wks', DRAWING_SHEET_FILE_EXTENSION)).toBe('/kicad_wks');
   });
 
   it('is the ONE function, not a regex per editor', () => {
