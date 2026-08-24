@@ -31,7 +31,8 @@ import {
   type PcbTextItem,
 } from '@ziroeda/pcbnew';
 import { FootprintPropertiesDialog, PadPropertiesDialog } from './dialogs.js';
-import { MenuBar, type Menu } from '../../ui/MenuBar.js';
+import { MenuBar, ContextMenu, type Menu } from '../../ui/MenuBar.js';
+import { footprintTreeContextMenu } from './tree_context_menu.js';
 import { Toolbar } from '../../ui/Toolbar.js';
 import { LoadingOverlay } from '../../ui/LoadingOverlay.js';
 import { formatTitle, useDocumentTitle } from '../../ui/useDocumentTitle.js';
@@ -268,6 +269,17 @@ export function FootprintEditor({
    * or in `PATHS::GetDefaultUserFootprintsPath()` (paths.cpp:93).
    */
   const [fpOpenDlg, setFpOpenDlg] = useState<null | 'addLibrary' | 'importFootprint'>(null);
+  /**
+   * The tree's right-click menu: where it was opened and on what.
+   * `LIB_TREE::onItemContextMenu` selects the row under the pointer first, so
+   * the menu is always evaluated against the row it was opened on.
+   */
+  const [treeMenu, setTreeMenu] = useState<{
+    x: number;
+    y: number;
+    lib: string;
+    name: string;
+  } | null>(null);
   const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
 
   // ----- library bootstrap ------------------------------------------------------
@@ -1018,6 +1030,42 @@ export function FootprintEditor({
     ],
   );
 
+  /**
+   * The tree menu's dispatch. Most ids are the menu bar's own — upstream they
+   * are literally the same `TOOL_ACTION` objects appearing in two menus — so
+   * they route to `onMenuAction`; only the four the tree owns are handled here.
+   */
+  const onTreeMenuAction = useCallback(
+    (id: string) => {
+      const target = treeMenu;
+      setTreeMenu(null);
+      if (!target) return;
+      switch (id) {
+        // `LIBRARY_EDITOR_CONTROL::changeSelectedPinStatus`
+        // (`common/tool/library_editor_control.cpp:99-130`).
+        case 'pinLibrary':
+        case 'unpinLibrary':
+          manager.current.setPinned(target.lib, id === 'pinLibrary');
+          bump();
+          break;
+        // `PCB_ACTIONS::deleteFootprint` — the tree's row, which acts on the
+        // tree selection and not on the canvas.
+        case 'deleteFootprint':
+          if (target.name) deleteFootprint(target.lib, target.name);
+          break;
+        // `ACTIONS::hideLibraryTree` — the same toggle the View > Panels row
+        // and the left toolbar button flip.
+        case 'hideLibraryTree':
+          onLeftToggle('showLibraryTree');
+          break;
+        default:
+          onMenuAction(id);
+          break;
+      }
+    },
+    [treeMenu, bump, deleteFootprint, onLeftToggle, onMenuAction],
+  );
+
   const menus: Menu[] = useMemo(
     () =>
       footprintEditorMenus(
@@ -1291,6 +1339,14 @@ export function FootprintEditor({
                           setTreeSel({ lib: row.lib, name: null });
                           if (!q) toggleLib(row.lib);
                         }}
+                        // `LIB_TREE::onItemContextMenu` selects the row under
+                        // the pointer before popping the menu, so the menu is
+                        // always evaluated against what was right-clicked.
+                        onContextMenu={(e) => {
+                          e.preventDefault();
+                          setTreeSel({ lib: row.lib, name: null });
+                          setTreeMenu({ x: e.clientX, y: e.clientY, lib: row.lib, name: '' });
+                        }}
                         title={manager.current.library(row.lib)?.fileName}
                       >
                         <span
@@ -1317,6 +1373,11 @@ export function FootprintEditor({
                           fontWeight: curLib === row.lib && curName === row.fp ? 600 : 400,
                         }}
                         onClick={() => setTreeSel({ lib: row.lib, name: row.fp! })}
+                        onContextMenu={(e) => {
+                          e.preventDefault();
+                          setTreeSel({ lib: row.lib, name: row.fp! });
+                          setTreeMenu({ x: e.clientX, y: e.clientY, lib: row.lib, name: row.fp! });
+                        }}
                         onDoubleClick={() => void loadFootprint(row.lib, row.fp!)}
                         title={`${row.fp}, double-click to edit`}
                       >
@@ -1515,6 +1576,23 @@ export function FootprintEditor({
           pad={padForDialog}
           onOk={applyPadEdit}
           onCancel={() => setPadDialogId(null)}
+        />
+      )}
+
+      {treeMenu && (
+        <ContextMenu
+          x={treeMenu.x}
+          y={treeMenu.y}
+          items={footprintTreeContextMenu(
+            { action: onTreeMenuAction },
+            {
+              library: treeMenu.lib,
+              footprint: treeMenu.name,
+              pinned: manager.current.isPinned(treeMenu.lib),
+            },
+            { haveFootprint: !!workFp },
+          )}
+          onClose={() => setTreeMenu(null)}
         />
       )}
 
