@@ -33,6 +33,7 @@ TOGGLES = "designer/src/editors/drawingsheet/toggles.ts"
 PREVIEW = "designer/src/editors/drawingsheet/preview_settings.ts"
 EDITOR = "designer/src/editors/drawingsheet/DrawingSheetEditor.tsx"
 TESTFILE = "qa/unittests/designer/pl_editor_settings.test.ts"
+CANVAS = "designer/src/editors/drawingsheet/DrawingSheetCanvas.tsx"
 
 TESTS = [
     "unittests/designer/pl_editor_settings.test.ts",
@@ -169,6 +170,10 @@ MUTANTS = [
     ("E10 page not restored", EDITOR,
      "useState<PreviewSettings>(() =>\n    previewSettingsFromConfig(settings.plEditor),\n  );",
      "useState<PreviewSettings>(() => defaultPreviewSettings());"),
+    ("E12 crosshair always-show back to a literal", CANVAS,
+     "        alwaysShow: alwaysShowCursor,", "        alwaysShow: true,"),
+    ("E13 editor stops feeding always-show", EDITOR,
+     "          alwaysShowCursor={plCfg.window.cursor.always_show_cursor}\n", "          "),
     ("E11 Ctrl+U ignores the settings", EDITOR,
      "onLeftToggle(toggleUnitsId(settings.plEditor));", "onLeftToggle('unitsMm');"),
 ]

@@ -108,7 +108,7 @@ import { browserSafeKey } from '../../ui/browser_reserved.js';
 import { dispatchMenuHotkey, focusBlocksHotkey } from '../../ui/menu_hotkeys.js';
 import { wasBrowserSuppressed, type FocusLike } from '../../ui/browser_hotkeys.js';
 import { PL_EDITOR_DEFAULTS, settings } from '../../prefs/settings.js';
-import { useCommonSettings } from '../../prefs/useSettings.js';
+import { useCommonSettings, usePlEditorSettings } from '../../prefs/useSettings.js';
 import {
   applyToggle,
   persistToggle,
@@ -398,6 +398,8 @@ export function DrawingSheetEditor({
   const [showPrefs, setShowPrefs] = useState(false);
   const recent = useFileHistory(recentFiles);
   const common = useCommonSettings();
+  /** The live `pl_editor.json`, for the values the canvas reads every frame. */
+  const plCfg = usePlEditorSettings();
 
   const controller = useRef<DrawingSheetCanvasController>(null);
   const bitmapInputRef = useRef<HTMLInputElement>(null);
@@ -1908,6 +1910,7 @@ export function DrawingSheetEditor({
           gridIU={gridIU}
           originIU={originInfo.origin}
           fullCrosshair={toggles.has('crosshairFull')}
+          alwaysShowCursor={plCfg.window.cursor.always_show_cursor}
           blackBackground={blackBackground}
           editPoints={editPoints}
           moveMode={moveMode}

@@ -405,6 +405,13 @@ describe('the settings survive a reload', () => {
   });
 });
 
+const CANVAS = readFileSync(
+  fileURLToPath(
+    new URL('../../../designer/src/editors/drawingsheet/DrawingSheetCanvas.tsx', import.meta.url),
+  ),
+  'utf8',
+);
+
 const EDITOR = readFileSync(
   fileURLToPath(
     new URL('../../../designer/src/editors/drawingsheet/DrawingSheetEditor.tsx', import.meta.url),
@@ -436,6 +443,17 @@ describe('the editor reads and writes the store', () => {
     ]) {
       expect(EDITOR, `${seed} must seed a control`).toContain(seed);
     }
+  });
+
+  it('takes the always-show crosshair from the settings, not a literal', () => {
+    // The canvas drew the crosshair with `alwaysShow: true` hardcoded, under a
+    // comment naming `always_show_cursor` — the value KiCad reads out of its
+    // settings object (app_settings.cpp:564-565) written as a literal at the
+    // call site instead. Both halves have to exist: the canvas has to read a
+    // prop, and the editor has to feed it from the file.
+    expect(CANVAS).toContain('alwaysShow: alwaysShowCursor');
+    expect(CANVAS).not.toContain('alwaysShow: true');
+    expect(EDITOR).toContain('alwaysShowCursor={plCfg.window.cursor.always_show_cursor}');
   });
 
   it('writes each of them back', () => {
