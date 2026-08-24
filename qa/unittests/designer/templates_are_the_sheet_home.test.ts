@@ -31,15 +31,9 @@
  * nothing can be saved into at all.
  */
 import { describe, expect, it } from 'vitest';
+import { chooserPlacesFor } from '@ziroeda/designer/src/fs/chooser_places.js';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import {
-  refuseStockChange,
-  standardChooserPlaces,
-} from '@ziroeda/designer/src/fs/chooser_places.js';
-import { listFileSystem } from '@ziroeda/designer/src/fs/list_fs.js';
-import { FsErrorCode } from '@ziroeda/designer/src/fs/filesystem.js';
-import type { Entry, FileSystem } from '@ziroeda/designer/src/fs/filesystem.js';
 
 const read = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
@@ -48,313 +42,66 @@ const PL = read('../../../designer/src/editors/drawingsheet/DrawingSheetEditor.t
 const SAVEAS = read('../../../designer/src/fs/SaveAsDialog.tsx');
 const SCH = read('../../../designer/src/editors/schematic/SchematicEditor.tsx');
 
-const accountFs: FileSystem = {
-  list: async (): Promise<Entry[]> => [],
-  stat: async (): Promise<Entry | null> => null,
-  read: async (): Promise<Uint8Array> => new Uint8Array(),
-  write: async (): Promise<void> => {},
-  mkdir: async (): Promise<void> => {},
-  mkproject: async (): Promise<void> => {},
-  rename: async (): Promise<void> => {},
-  remove: async (): Promise<void> => {},
-};
-
-describe('Save As opens where pl_editor opens', () => {
-  it('starts on Templates, not on Recent', () => {
-    // `wxString dir = PATHS::GetUserTemplatesPath();` is the defaultDir. Recent
-    // is not merely the wrong folder - it is not a save target at all, so the
-    // Save button opened insensitive.
-    expect(PL).toContain('initialPlace="templates"');
+describe('the drawing sheet editor asks for the right folders', () => {
+  it('names Templates as its kind, in both Open and Save As', () => {
+    // `PATHS::GetUserTemplatesPath()` is pl_editor's defaultDir
+    // (pagelayout_editor/files.cpp:199); here that is the Templates folder of
+    // the one account tree.
+    expect([...PL.matchAll(/kind="templates"/g)]).toHaveLength(2);
   });
 
-  it('gives the chooser a way to say which place a path came from', () => {
-    // A path in Templates means nothing to the account's tree, so the accept
-    // has to carry its origin - `ChooserPlace.onAccept`, which exists for
-    // exactly this.
-    expect(SAVEAS).toContain('onAccept: (path: string) => onDone(path, p.id)');
-    expect(SAVEAS).toContain('onDone: (path: string | null, placeId?: string) => void;');
+  it('hands Save As the open project, so the offer is this board or Templates', () => {
+    expect(PL).toContain('{...(projectName ? { projectDir: `/${projectName}` } : {})}');
   });
 
-  it('writes a sheet accepted in Templates to the templates root', () => {
-    expect(PL).toContain("if (placeId === 'templates') writeSheetToTemplates(finalName);");
-    expect(PL).toContain('else writeSheet(finalName);');
-    expect(PL).toContain('void writeUserTemplateFile(name, text);');
+  it('does NOT hand it to Open, which is not gated', () => {
+    // A sheet opens from any project, with or without one open.
+    const open = PL.slice(PL.indexOf('<OpenFileDialog'));
+    expect(open.slice(0, open.indexOf('/>'))).not.toContain('projectDir');
+  });
+
+  it('suggests no filename, as pl_editor does not', () => {
+    // `wxFileDialog( ..., dir, wxEmptyString, ... )` — confirmed by building
+    // that dialog: wx's GetFilename() and GTK's current-name are both empty
+    // (qa/probes/savedlg_probe.cpp).
+    expect(PL).toContain('initialName=""');
   });
 });
 
-describe('the Templates place is a DIRECTORY, not a catalogue', () => {
-  const places = standardChooserPlaces(accountFs);
-  const templates = places.find((p) => p.id === 'templates');
-
-  it('takes a write, where Demos and Recent still refuse one', () => {
-    // The default rule is "only the row with no filesystem of its own", which
-    // read Templates as read-only until it grew loose files. Recent and Demos
-    // are genuinely queries and must stay refused - a test that only proved
-    // Templates writable would pass with every row writable.
-    expect(templates?.writable).toBe(true);
-    expect(places.find((p) => p.id === 'recent')?.writable).toBeFalsy();
-    expect(places.find((p) => p.id === 'demos')?.writable).toBeFalsy();
-    expect(places.find((p) => p.id === 'templates')?.fs).toBeDefined();
-  });
-});
-
-describe('listFileSystem grew loose files, and only where asked', () => {
-  const listing = {
-    files: [
-      { name: 'a_template', size: null, modified: null },
-      { name: 'sheet.kicad_wks', size: 12, modified: 5 },
-    ],
-    fileLeaves: new Set(['/sheet.kicad_wks']),
-  };
-
-  it('still refuses every write when no loose-file store is given', async () => {
-    const fs = listFileSystem(async () => ({ files: listing.files }));
-    for (const call of [
-      fs.write('/x', new Uint8Array()),
-      fs.rename('/x', 'y'),
-      fs.remove('/x'),
-      fs.mkdir('/x'),
-    ]) {
-      await expect(call).rejects.toMatchObject({ code: FsErrorCode.READ_ONLY });
-    }
-  });
-
-  it('routes read, write, rename and remove to the store when one is given', async () => {
-    const seen: string[] = [];
-    const fs = listFileSystem(async () => listing, {
-      files: {
-        read: async (p) => (p === '/sheet.kicad_wks' ? 'hello' : null),
-        write: async (p) => {
-          seen.push(`write ${p}`);
-        },
-        rename: async (p, to) => {
-          seen.push(`rename ${p} ${to}`);
-        },
-        remove: async (p) => {
-          seen.push(`remove ${p}`);
-        },
-      },
-    });
-    expect(new TextDecoder().decode(await fs.read('/sheet.kicad_wks'))).toBe('hello');
-    await fs.write('/new.kicad_wks', new TextEncoder().encode('x'));
-    await fs.rename('/a', 'b');
-    await fs.remove('/a');
-    expect(seen).toEqual(['write /new.kicad_wks', 'rename /a b', 'remove /a']);
-    // A flat store has no subdirectory, so New Folder is still refused.
-    await expect(fs.mkdir('/x')).rejects.toMatchObject({ code: FsErrorCode.READ_ONLY });
-  });
-
-  it('marks a loose file a FILE and a template a leaf, in one listing', async () => {
-    // `leafKind` is one answer for the whole place, and this place needs two.
-    const fs = listFileSystem(async () => listing);
-    const kinds = Object.fromEntries((await fs.list('/')).map((e) => [e.name, e.kind]));
-    expect(kinds['sheet.kicad_wks']).toBe('file');
-    expect(kinds.a_template).toBe('project');
-  });
-});
-
-describe('Page Settings can read back what was saved there', () => {
-  it('offers the templates root’s sheets beside the project’s', () => {
-    // Saving into a folder Page Settings cannot see would be worse than the
-    // divergence it fixes.
-    expect(SCH).toContain('listUserTemplateFiles()');
-    expect(SCH).toContain('...templateSheets.filter((c) => !taken.has(c.name))');
-  });
-
-  it('lets a project’s own sheet win a name clash', () => {
-    // A sheet beside the schematic is the more specific of the two, as a file
-    // in the project directory is upstream.
-    expect(SCH).toContain('const taken = new Set(project.map((c) => c.name));');
-  });
-
-  it('lists a sheet that will not parse rather than dropping it', () => {
-    // It is still a file in that folder. Dropping it would make a corrupt sheet
-    // look like one that was never saved.
-    expect(SCH).toContain('return { name: f.path, sheet: null };');
-  });
-});
-
-describe('the two halves of the templates folder share one database', () => {
+describe('Open reads through the account tree, which is now the only tree', () => {
   /**
-   * `user_templates.ts` (the template folders) and `user_template_files.ts`
-   * (the loose files beside them) open the SAME IndexedDB database. That makes
-   * three things load-bearing, and a mutation sweep found none of them pinned:
-   * dropping `user_templates.ts` back to version 1 broke nothing here while
-   * breaking the templates list for anyone who had saved a sheet.
-   *
-   * IndexedDB refuses an open at a LOWER version than the one on disk with a
-   * VersionError. So whichever module opens first decides, and if they disagree
-   * the loser throws — at runtime, in the browser, where no test looks.
-   */
-  const FOLDERS = read('../../../designer/src/home/user_templates.ts');
-  const FILES = read('../../../designer/src/home/user_template_files.ts');
-
-  const versionOf = (src: string): string => {
-    const m = src.match(/const VERSION = (\d+);/);
-    expect(m, 'no VERSION in this module').not.toBeNull();
-    return (m as RegExpMatchArray)[1] as string;
-  };
-  const dbNameOf = (src: string): string => {
-    const m = src.match(/const DB_NAME = '([^']+)';/);
-    expect(m, 'no DB_NAME in this module').not.toBeNull();
-    return (m as RegExpMatchArray)[1] as string;
-  };
-
-  it('names the same database', () => {
-    expect(dbNameOf(FOLDERS)).toBe(dbNameOf(FILES));
-  });
-
-  it('names the same version', () => {
-    // The whole point. They differed by one and nothing noticed.
-    expect(versionOf(FOLDERS)).toBe(versionOf(FILES));
-  });
-
-  it('creates BOTH stores from either upgrade path', () => {
-    // Whichever module opens first runs `onupgradeneeded`, so an upgrade that
-    // creates only its own store leaves the other module opening a database at
-    // the right version with no store to read.
-    //
-    // Both modules name their stores through constants, so the constants are
-    // resolved before looking - grepping the block for the literals reported a
-    // failure that was only this test reading the wrong thing.
-    const storesCreated = (src: string): string[] => {
-      const consts = Object.fromEntries(
-        [...src.matchAll(/const (\w+) = '([^']+)';/g)].map((m) => [m[1] as string, m[2] as string]),
-      );
-      const upgrade = src.slice(src.indexOf('onupgradeneeded'), src.indexOf('req.onsuccess'));
-      return [...upgrade.matchAll(/createObjectStore\(\s*([^,]+),/g)]
-        .map((m) => (m[1] as string).trim())
-        .map((arg) => consts[arg] ?? arg.replace(/^'|'$/g, ''))
-        .sort();
-    };
-    for (const [name, src] of [
-      ['user_templates.ts', FOLDERS],
-      ['user_template_files.ts', FILES],
-    ] as const) {
-      expect(storesCreated(src), `${name} does not create both stores`).toEqual([
-        'template-files',
-        'templates',
-      ]);
-    }
-  });
-});
-
-describe('Open reads through the tree the path came from', () => {
-  /**
-   * The reason a drawing sheet saved into Templates could not be opened again.
+   * This used to be a bug and is now impossible by construction.
    *
    * `OpenFileDialog` read every accepted path through `projectStoreFileSystem()`
-   * — the account's own tree — whatever place the path came from. A path in
-   * Templates or Demos is not in that tree, so the read threw and the handler
-   * answered `onDone(null)`, which is indistinguishable from Cancel. No editor,
-   * no error, nothing.
+   * whatever place it came from, and Templates and Demos each brought a tree of
+   * their own — so a path from one of those threw and came back as
+   * `onDone(null)`, indistinguishable from Cancel. No editor, no error, nothing.
    *
-   * Upstream this cannot happen: pl_editor's Open is a `wxFileDialog` over ONE
-   * tree (pagelayout_editor/files.cpp:159-167). Splitting that tree into places
-   * is ours, so re-joining them at the read is ours too — which is exactly what
-   * `ChooserPlace.onAccept` is for, and what SaveAsDialog already does.
+   * Every place is a FOLDER of the account tree now: Projects is the tree, and
+   * Templates/Symbols/Footprints are folders in it. One read serves all of
+   * them, and there is no second tree left to read from the wrong one.
    */
   const OPEN = read('../../../designer/src/fs/OpenFileDialog.tsx');
 
-  it('gives every place with its own tree an accept that reads through it', () => {
-    expect(OPEN).toContain(
-      'p.fs ? { ...p, onAccept: (path: string) => readAndDone(p.fs as FileSystem, path) } : p,',
-    );
-  });
-
-  it('takes the filesystem as an argument rather than closing over one', () => {
-    // The bug in one word: `fs`. The reader has to be told which tree.
-    expect(OPEN).toContain('const readAndDone = (from: FileSystem, path: string): void => {');
-    expect(OPEN).toContain('const bytes = await from.read(path);');
-    expect(OPEN, 'the account tree is still hardcoded in the read').not.toContain(
-      'await fs.read(path)',
-    );
-  });
-
-  it('still uses the account tree for the account tree', () => {
-    // The other half: a place with no fs of its own IS the account's tree, and
-    // routing it elsewhere would break every ordinary Open.
+  it('reads through the account tree for every place', () => {
     expect(OPEN).toContain('onAccept={(path) => readAndDone(fs, path)}');
   });
 
-  it('reports a failed read as a cancel, not as a half-open document', () => {
+  it('takes the filesystem as an argument rather than assuming one', () => {
+    expect(OPEN).toContain('const readAndDone = (from: FileSystem, path: string): void => {');
+    expect(OPEN).toContain('const bytes = await from.read(path);');
+  });
+
+  it('asks for no place with a tree of its own', () => {
+    // The shape that caused it. If a place ever brings its own `fs` again, the
+    // read has to travel with it - see ChooserPlace.onAccept.
+    const places = chooserPlacesFor({ mode: 'open', kind: 'templates' });
+    expect(places.filter((p) => p.fs)).toStrictEqual([]);
+  });
+
+  it('reports a failed read as a cancel, not a half-open document', () => {
+    // Upstream's wxFileDialog hands back a path and the frame's loader reports
+    // its own error.
     expect(OPEN).toContain('onDone(null);');
-  });
-});
-
-describe('the stock templates are not the user\u2019s, and are not writable', () => {
-  /**
-   * Akshay caught this by opening the two folders side by side. KiCad has TWO
-   * template roots and they are not the same thing:
-   *
-   *   PATHS::GetStockTemplatesPath()  /usr/share/kicad/template  (58 items, root-owned)
-   *   PATHS::GetUserTemplatesPath()   ~/.local/share/kicad/10.0/template
-   *
-   * `BuildTemplateList` scans both and marks them apart —
-   * `scanDirectory( m_userTemplatesPath, true )` then
-   * `scanDirectory( m_systemTemplatesPath, false )`
-   * (dialog_template_selector.cpp:753-754) — and the only way to change a stock
-   * one is `onDuplicateTemplate`, which COPIES it into the user root under a new
-   * name (:385). Demos are the same shape: `/usr/share/kicad/demos`, read-only.
-   *
-   * Our Templates place merges both roots into one list, which is what
-   * `BuildTemplateList` does too. What was wrong is that when it grew loose
-   * files it was made writable WHOLESALE — so a bundled template looked
-   * renameable and deletable, which KiCad never allows.
-   *
-   * The guard is tested directly rather than through `templatesFileSystem()`:
-   * that reaches for the CDN and for IndexedDB, neither of which exists here, so
-   * a test built on it would assert against an empty stock set and prove
-   * nothing.
-   */
-  const STOCK = new Set(['Arduino_Uno', 'RaspberryPi-HAT']);
-
-  it('refuses a change to a stock template', () => {
-    for (const path of ['/Arduino_Uno', 'Arduino_Uno', '//RaspberryPi-HAT']) {
-      expect(() => refuseStockChange(STOCK, path), path).toThrow(/cannot be changed/);
-      try {
-        refuseStockChange(STOCK, path);
-      } catch (e) {
-        expect((e as { code: string }).code).toBe(FsErrorCode.READ_ONLY);
-      }
-    }
-  });
-
-  it('says how to get an editable one, as onDuplicateTemplate is the answer', () => {
-    expect(() => refuseStockChange(STOCK, '/Arduino_Uno')).toThrow(/Duplicate one first/);
-  });
-
-  it('lets a BRAND NEW name through - that is every save into this folder', () => {
-    // The first version of this guard asked "is it a known USER entry" and so
-    // refused a name that was in neither root, which is exactly what pl_editor
-    // saving a sheet produces. The test caught it.
-    expect(() => refuseStockChange(STOCK, '/brand_new.kicad_wks')).not.toThrow();
-  });
-
-  it('lets the user\u2019s own entries through', () => {
-    expect(() => refuseStockChange(STOCK, '/MyOwnTemplate')).not.toThrow();
-    expect(() => refuseStockChange(STOCK, '/sheet.kicad_wks')).not.toThrow();
-  });
-
-  it('refuses nothing at all when the stock root is empty', () => {
-    // The other half: a guard that threw for everything would satisfy the two
-    // refusal tests above.
-    expect(() => refuseStockChange(new Set(), '/Arduino_Uno')).not.toThrow();
-  });
-
-  it('is what the templates filesystem actually calls, on all three writes', () => {
-    const src = readFileSync(
-      fileURLToPath(new URL('../../../designer/src/fs/chooser_places.ts', import.meta.url)),
-      'utf8',
-    );
-    expect([...src.matchAll(/refuseStockChange\(stockRef\.current, path\)/g)]).toHaveLength(3);
-    // Re-read on every listing, not captured: a template duplicated while the
-    // dialog is open becomes writable without the filesystem being rebuilt.
-    expect(src).toContain('stockRef.current = new Set(bundled.map((t) => t.id));');
-  });
-
-  it('is one listing holding both, as BuildTemplateList makes one list', () => {
-    const places = standardChooserPlaces(accountFs);
-    expect(places.filter((p) => p.id.startsWith('template'))).toHaveLength(1);
   });
 });

@@ -79,7 +79,6 @@ import { drawingSheetWildcard } from '../../fs/wildcards.js';
 import { DesignInspector } from './DesignInspector.js';
 import { MessageDialogError } from '../../ui/dialog_message.js';
 import { UnsavedChangesDialog } from '../../ui/dialog_unsaved_changes.js';
-import { writeUserTemplateFile } from '../../home/user_template_files.js';
 import { handleUnsavedChanges, type UnsavedChangesResult } from '../../ui/confirm.js';
 import { dsInspectorTitle } from './design_inspector.js';
 import {
@@ -579,30 +578,6 @@ export function DrawingSheetEditor({
     [sheet, addRecent, onSaveToProject],
   );
 
-  /**
-   * ...and into the user templates root, which is where upstream puts one.
-   *
-   * `PL_EDITOR_FRAME::Files_io` saves a drawing sheet into
-   * `PATHS::GetUserTemplatesPath()` (pagelayout_editor/files.cpp:199-202) —
-   * a directory outside any project, which is what makes a sheet reusable by
-   * every project. DIALOG_PAGES_SETTINGS then names one by PATH, its browse
-   * button defaulting to that same directory
-   * (dialog_page_settings.cpp:686-716).
-   *
-   * A sheet saved into a project is reachable from that project alone, which is
-   * the whole reason upstream does not put it there.
-   */
-  const writeSheetToTemplates = useCallback(
-    (name: string) => {
-      const text = serializeDrawingSheet(sheet);
-      void writeUserTemplateFile(name, text);
-      addRecent(name, text);
-      setDirty(false);
-      setStatus(`Saved ${name} to templates`);
-    },
-    [sheet, addRecent],
-  );
-
   // `if( filename.IsEmpty() && id == wxID_SAVE ) id = wxID_SAVEAS;`
   // (`pagelayout_editor/files.cpp:105`). Declared below `saveAs` in the source
   // order upstream uses, but the dependency runs the other way, so it is read
@@ -685,8 +660,13 @@ export function DrawingSheetEditor({
       const finalName = /\.kicad_wks$/i.test(leaf) ? leaf : `${leaf}.kicad_wks`;
       setFileName(finalName);
 
-      if (placeId === 'templates') writeSheetToTemplates(finalName);
-      else writeSheet(finalName);
+      // `SaveDrawingSheetFile( filename )` — one path, the one the dialog gave
+      // back (pagelayout_editor/files.cpp:215-232). A sheet belongs in the
+      // project: DIALOG_PAGES_SETTINGS records one by embedding it in the
+      // project or by a project-RELATIVE path, and only falls back to an
+      // env-var reference outside it (dialog_page_settings.cpp:738-756). It is
+      // a project tree file type too (kicad/tree_file_type.h:61).
+      writeSheet(finalName);
       // `saveCurrentPageLayout` returns `!IsContentModified()`, and this is the
       // moment that becomes true. Whatever New-or-Open was waiting on the save
       // now goes ahead; a cancel above left it un-run, which is
@@ -1942,6 +1922,9 @@ export function DrawingSheetEditor({
           store rather than a browser prompt. */}
       {openDlg && (
         <OpenFileDialog
+          // Reading is not gated: a sheet opens from any project, with or
+          // without one open, and from Templates.
+          kind="templates"
           title={openDlg === 'append' ? 'Append Existing Drawing Sheet' : 'Open'}
           accept={openDlg === 'append' ? 'Append' : 'Open'}
           filters={[drawingSheetWildcard()]}
@@ -1966,11 +1949,16 @@ export function DrawingSheetEditor({
           // invented `drawing_sheet.kicad_wks`, a name no KiCad ever offers,
           // and pre-filled the old one for a saved sheet.
           initialName=""
-          // `wxString dir = PATHS::GetUserTemplatesPath();` — the defaultDir
-          // (pagelayout_editor/files.cpp:199). Never the project: `files.cpp`
-          // does not mention one. Ours opened on Recent, which is not even a
-          // place a file can be saved into.
-          initialPlace="templates"
+          // Upstream's defaultDir is `PATHS::GetUserTemplatesPath()`
+          // (pagelayout_editor/files.cpp:199) — the user-data folder for
+          // drawing sheets, on a machine where the project directory, the user
+          // data directory and the rest of the disk are three separate places.
+          //
+          // This tree has one, so the two answers are two FOLDERS of it, and
+          // the dialog offers exactly those: this project, or Templates. No
+          // other project is reachable — see `chooserPlacesFor`.
+          kind="templates"
+          {...(projectName ? { projectDir: `/${projectName}` } : {})}
           filters={[drawingSheetWildcard()]}
           onDone={onSaveAsDone}
         />

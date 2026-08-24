@@ -1054,6 +1054,7 @@ export function App(): JSX.Element {
           <Suspense fallback={frameLoading('the symbol editor')}>
             <SymbolEditor
               onExitToHome={goHome}
+              projectName={projectName}
               initialProject={projectFiles}
               onAddSymbolToSchematic={addSymbolToSchematic}
               openRequest={symRequest}

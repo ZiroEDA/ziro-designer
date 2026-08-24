@@ -50,6 +50,18 @@ export interface ChooserPlace {
   /** Where in that tree to land. Defaults to its root. */
   readonly path?: string;
   /**
+   * The highest folder this place can be navigated to. Defaults to the tree's
+   * own root.
+   *
+   * A Save As from inside a board shows Projects holding THAT board and no
+   * other, so that the two answers on offer are "this project" and "the shared
+   * folder for this kind of file" — and neither the breadcrumb nor Back can
+   * climb out to a sibling board. Upstream has no counterpart because upstream
+   * has a filesystem and a user who typed the path; here every project in the
+   * account is one click away in the same tree.
+   */
+  readonly root?: string;
+  /**
    * Activating a project here opens it instead of walking into it.
    *
    * A project folder is a document as well as a folder, and which of the two a

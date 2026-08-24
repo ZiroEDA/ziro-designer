@@ -13,7 +13,7 @@ import {
   touchOpened,
   type ProjectMeta,
 } from './projectStore.js';
-import { recentFileSystem, standardChooserPlaces } from '../fs/chooser_places.js';
+import { chooserPlacesFor, recentFileSystem } from '../fs/chooser_places.js';
 import { useAuth } from '../auth/AuthProvider.js';
 import { authEnabled } from '../auth/supabaseClient.js';
 import { SignInDialog } from '../auth/SignIn.js';
@@ -479,46 +479,21 @@ export function HomePage({
    * `ChooserPlace.onAccept` exists for, so the rows are taken as they come and
    * only the handler is attached.
    */
+  /**
+   * Open Existing Project's rows: the account's projects, and nothing else.
+   *
+   * Demos and Templates used to be rows here and are not any more — they are
+   * served from the CDN, identical for every account and never writable, and
+   * upstream does not put them in this window either: demos are reached through
+   * `File > Open Demo Project` and templates through the template selector,
+   * both separate windows. GTK's own sidebar in this dialog is the COMPUTER's
+   * places plus the one shortcut `openProject` adds,
+   * `dlg.AddShortcut( PATHS::GetDefaultUserProjectsPath() )`
+   * (kicad/tools/kicad_manager_control.cpp:493).
+   */
   const chooserPlaces = useMemo<readonly ChooserPlace[]>(
-    () =>
-      standardChooserPlaces(accountFs).map((p) => {
-        if (p.id === 'demos') {
-          return {
-            ...p,
-            // Any path inside a demo opens that demo, the way any path inside a
-            // project of the account opens that project — a demo's id is the
-            // folder it lives in, so the demo is the one whose id the path
-            // starts with.
-            onAccept: (path: string) => {
-              const d = demoAt(path, demosRef.current);
-              if (d) openDemoRef.current(d.id);
-            },
-          };
-        }
-        if (p.id === 'templates') {
-          return {
-            ...p,
-            onAccept: (path: string) => {
-              // Taking a TEMPLATE means what the template selector's "open"
-              // means: a copy under the template's own name, so the original
-              // stays read-only.
-              const t = templatesRef.current.find((x) => path === `/${x.id}`);
-              if (t) {
-                openTemplateRef.current(t);
-                return;
-              }
-              // A loose FILE in this root - a drawing sheet pl_editor saved
-              // there - is not something Open Existing Project opens, and with
-              // the combo back to upstream's three it is not listed here to be
-              // clicked either. The way to that file is the editor that owns
-              // it: the Drawing Sheet Editor's own Open, which reaches this
-              // same place and now reads through it (fs/OpenFileDialog.tsx).
-            },
-          };
-        }
-        return p;
-      }),
-    [accountFs],
+    () => chooserPlacesFor({ mode: 'open' }),
+    [],
   );
   // New Project / New from Template (upstream v10: one template selector).
   const [templates, setTemplates] = useState<TemplateMeta[]>([]);

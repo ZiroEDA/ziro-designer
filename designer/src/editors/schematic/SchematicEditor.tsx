@@ -459,8 +459,6 @@ import { useUnsavedGuard } from '../../ui/useUnsavedGuard.js';
 import '../../ui/shell.css';
 import { schSymbolLibraryName } from '@ziroeda/eeschema';
 import { useModalEscape } from '../../ui/useModalEscape.js';
-import { listUserTemplateFiles } from '../../home/user_template_files.js';
-import { parseDrawingSheet } from '@ziroeda/common/src/drawing_sheet/read.js';
 
 // What KiCad writes for File > New Schematic: an empty sheet on A4 paper.
 // Launching the editor without a project starts here (no bundled demo).
@@ -1288,7 +1286,7 @@ export function SchematicEditor({
    * importing brings another schematic's contents *into* this one, so the two
    * must not share a picker.
    */
-  const importSheetInputRef = useRef<HTMLInputElement>(null);
+  const [importSheetOpen, setImportSheetOpen] = useState(false);
 
   const libById = useMemo<Map<string, LibSymbol>>(
     () => new Map((doc?.libSymbols ?? []).map((l) => [l.libId, l])),
@@ -1990,52 +1988,14 @@ export function SchematicEditor({
     [allFiles, sheetOverride],
   );
   const sheetRefName = sheetOverride ? sheetOverride.name : readSheetRef(rawFiles);
-  /**
-   * The drawing sheets the user templates root holds.
-   *
-   * Upstream a drawing sheet lives OUTSIDE any project - pl_editor saves it
-   * into `PATHS::GetUserTemplatesPath()` (pagelayout_editor/files.cpp:199-202)
-   * - and DIALOG_PAGES_SETTINGS names one by path, its browse button defaulting
-   * to that same directory (dialog_page_settings.cpp:686-716). So a sheet is
-   * reusable by every project, which is the point of putting it there.
-   *
-   * Ours offered the open project's sheets and nothing else, which made the
-   * templates root a folder you could save into and never read back.
-   */
-  const [templateSheets, setTemplateSheets] = useState<{ name: string; sheet: WksSheet | null }[]>(
-    [],
+  const sheetChoices = useMemo(
+    () =>
+      listProjectSheetFiles(allFiles).map((name) => ({
+        name,
+        sheet: parseProjectSheet(allFiles, name),
+      })),
+    [allFiles],
   );
-  useEffect(() => {
-    void (async () => {
-      const files = await listUserTemplateFiles();
-      setTemplateSheets(
-        files
-          .filter((f) => /\.kicad_wks$/i.test(f.path))
-          .map((f) => {
-            try {
-              return { name: f.path, sheet: parseDrawingSheet(f.text) };
-            } catch {
-              // A sheet that will not parse is still a file in that folder; it
-              // is listed and resolves to the built-in stationery, which is
-              // what an unreadable one does upstream too.
-              return { name: f.path, sheet: null };
-            }
-          }),
-      );
-    })();
-  }, []);
-
-  const sheetChoices = useMemo(() => {
-    const project = listProjectSheetFiles(allFiles).map((name) => ({
-      name,
-      sheet: parseProjectSheet(allFiles, name),
-    }));
-    // The project's own win a name clash: a sheet stored beside the schematic
-    // is the more specific of the two, as a file in the project directory is
-    // upstream.
-    const taken = new Set(project.map((c) => c.name));
-    return [...project, ...templateSheets.filter((c) => !taken.has(c.name))];
-  }, [allFiles, templateSheets]);
   // WX_INFOBAR message posted by a tool (null = hidden).
   const [infoBar, setInfoBar] = useState<string | null>(null);
   /**
@@ -5770,7 +5730,7 @@ export function SchematicEditor({
         // paste already does here, so this is paste sourced from a file rather
         // than from the clipboard. `parsePastedText` already accepts a whole
         // `(kicad_sch …)` document, so the reader needs nothing new.
-        importSheetInputRef.current?.click();
+        setImportSheetOpen(true);
       } else if (id === 'importGraphics') {
         // SCH_ACTIONS::importGraphics -> EE_GRAPHIC_TOOL::ImportGraphics: the
         // dialog parses, and only its OK produces anything to place.
@@ -7503,21 +7463,24 @@ export function SchematicEditor({
           }}
         />
       )}
-      <input
-        ref={importSheetInputRef}
-        type="file"
-        accept=".kicad_sch"
-        style={{ display: 'none' }}
-        onChange={(e) => {
-          const f = e.target.files?.[0];
-          e.target.value = '';
-          if (!f) return;
-          void f.text().then((text) => {
+      {/* `Import Schematic Sheet Content` over the account's tree. It was a
+          hidden `<input type="file">`, i.e. the operating system's picker,
+          which cannot see the account at all. A schematic is a project
+          document, so there is no shared folder for it - `kind` is omitted and
+          every project is listed. */}
+      {importSheetOpen && (
+        <OpenFileDialog
+          title="Import Schematic Sheet Content"
+          accept="Import"
+          filters={[kicadSchematicWildcard()]}
+          onDone={(file) => {
+            setImportSheetOpen(false);
+            if (!file) return; // wxID_CANCEL
             setDoc((d) => {
               // 'unique' is upstream's default: `keep_annotations` off, so the
               // imported symbols are re-annotated rather than arriving with the
               // source sheet's references and colliding with this one's.
-              const payload = d ? parsePastedText(text, d, pasteOptions('unique')) : null;
+              const payload = d ? parsePastedText(file.text, d, pasteOptions('unique')) : null;
               if (payload) {
                 setActiveTool('select');
                 setPastePending(payload);
@@ -7526,9 +7489,9 @@ export function SchematicEditor({
               }
               return d;
             });
-          });
-        }}
-      />
+          }}
+        />
+      )}
       <input
         ref={imageInputRef}
         type="file"

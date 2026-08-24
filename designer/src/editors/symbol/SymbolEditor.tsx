@@ -91,6 +91,8 @@ import { ABOUT_TITLES } from '../../ui/about_titles.js';
 import { useModalEscape } from '../../ui/useModalEscape.js';
 import { dispatchMenuHotkey, focusBlocksHotkey } from '../../ui/menu_hotkeys.js';
 import { wasBrowserSuppressed, type FocusLike } from '../../ui/browser_hotkeys.js';
+import { OpenFileDialog } from '../../fs/OpenFileDialog.js';
+import { kicadSymbolLibWildcard } from '../../fs/wildcards.js';
 
 /**
  * The Symbol Editor frame, the web mirror of KiCad's SYMBOL_EDIT_FRAME
@@ -212,6 +214,7 @@ const SCHEMATIC_LIB = 'Schematic';
 
 export function SymbolEditor({
   onExitToHome,
+  projectName,
   initialProject,
   onAddSymbolToSchematic,
   openRequest,
@@ -219,6 +222,8 @@ export function SymbolEditor({
   onSaveToSchematic,
 }: {
   onExitToHome: () => void;
+  /** The open project's folder name, for the chooser's Save/Open places. */
+  projectName?: string;
   initialProject?: SymbolEditorFile[] | null;
   /** eeschema wiring for "Add symbol to schematic" (SCH_ACTIONS::addSymbolToSchematic). */
   onAddSymbolToSchematic?: (sym: LibSymbol) => void;
@@ -291,6 +296,16 @@ export function SymbolEditor({
     italic: boolean;
   } | null>(null);
   const [shapeDialog, setShapeDialog] = useState<{ editId: string } | null>(null);
+  /**
+   * `Add Library` and `Import Symbol`, over the account's tree.
+   *
+   * Both were a hidden `<input type="file">` — the operating system's picker,
+   * which knows nothing about the account. Upstream both are `wxFileDialog`s
+   * over the filesystem, and a symbol library lives in the project or in
+   * `PATHS::GetDefaultUserSymbolsPath()` (paths.cpp:82) — which is what
+   * `kind: 'symbols'` names here.
+   */
+  const [symOpenDlg, setSymOpenDlg] = useState<null | 'addLibrary' | 'importSymbol'>(null);
   const [newSymbolOpen, setNewSymbolOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [prefsOpen, setPrefsOpen] = useState(false);
@@ -310,8 +325,6 @@ export function SymbolEditor({
 
   const lastPin = useRef<LastPinState>({ ...DEFAULT_LAST_PIN });
   const controller = useRef<SymbolCanvasController>(null);
-  const addLibInputRef = useRef<HTMLInputElement>(null);
-  const importSymInputRef = useRef<HTMLInputElement>(null);
   const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
 
   // ----- library bootstrap ------------------------------------------------------
@@ -722,18 +735,18 @@ export function SymbolEditor({
   }, [treeSel, curLib, curName]);
 
   /** ImportSymbol: append the file's first symbol to the target library. */
-  const importSymbolFile = useCallback(
-    async (file: File) => {
+  const importSymbolText = useCallback(
+    async (fileName: string, text: string) => {
       const libName = targetLib;
       if (!libName) {
         setStatus('Select a library first');
         return;
       }
       try {
-        const symbols = readSymbolLib(parse(await file.text()));
+        const symbols = readSymbolLib(parse(text));
         const first = symbols.find((s) => s.extends === undefined) ?? symbols[0];
         if (!first) {
-          setStatus(`No symbols in ${file.name}`);
+          setStatus(`No symbols in ${fileName}`);
           return;
         }
         await manager.current.ensureLoaded(libName);
@@ -753,10 +766,10 @@ export function SymbolEditor({
     [targetLib, bump, loadSymbol],
   );
 
-  const addLibraryFile = useCallback(
-    async (file: File) => {
-      const name = basename(file.name).replace(/\.kicad_sym$/i, '');
-      manager.current.addProjectLibrary(name, file.name, await file.text());
+  const addLibraryText = useCallback(
+    (fileName: string, text: string) => {
+      const name = basename(fileName).replace(/\.kicad_sym$/i, '');
+      manager.current.addProjectLibrary(name, fileName, text);
       setExpanded((p) => new Set([...p, name]));
       bump();
     },
@@ -1454,7 +1467,7 @@ export function SymbolEditor({
           setNewLibName('');
           break;
         case 'addLibrary':
-          addLibInputRef.current?.click();
+          setSymOpenDlg('addLibrary');
           break;
         case 'newSymbol':
           setNewSymbolOpen(true);
@@ -1469,7 +1482,7 @@ export function SymbolEditor({
           revert();
           break;
         case 'importSymbol':
-          importSymInputRef.current?.click();
+          setSymOpenDlg('importSymbol');
           break;
         case 'exportSymbol':
           void exportSymbol();
@@ -1697,28 +1710,27 @@ export function SymbolEditor({
 
   return (
     <div className="ze-app">
-      <input
-        ref={addLibInputRef}
-        type="file"
-        accept=".kicad_sym"
-        style={{ display: 'none' }}
-        onChange={(e) => {
-          const f = e.target.files?.[0];
-          if (f) void addLibraryFile(f);
-          e.target.value = '';
-        }}
-      />
-      <input
-        ref={importSymInputRef}
-        type="file"
-        accept=".kicad_sym"
-        style={{ display: 'none' }}
-        onChange={(e) => {
-          const f = e.target.files?.[0];
-          if (f) void importSymbolFile(f);
-          e.target.value = '';
-        }}
-      />
+      {/* `Add Library` and `Import Symbol` over the account's tree. Both were
+          a hidden `<input type="file">` — the operating system's picker, which
+          cannot see the account at all. */}
+      {symOpenDlg && (
+        <OpenFileDialog
+          title={symOpenDlg === 'addLibrary' ? 'Add Library' : 'Import Symbol'}
+          accept={symOpenDlg === 'addLibrary' ? 'Add' : 'Import'}
+          // A symbol library lives in the project or in
+          // `PATHS::GetDefaultUserSymbolsPath()` (paths.cpp:82).
+          kind="symbols"
+          filters={[kicadSymbolLibWildcard()]}
+          onDone={(file) => {
+            const which = symOpenDlg;
+            setSymOpenDlg(null);
+            if (!file) return; // wxID_CANCEL
+            const leaf = file.path.split('/').filter(Boolean).pop() ?? file.path;
+            if (which === 'addLibrary') addLibraryText(leaf, file.text);
+            else void importSymbolText(leaf, file.text);
+          }}
+        />
+      )}
 
       <MenuBar
         menus={menus}

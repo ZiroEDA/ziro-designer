@@ -69,6 +69,8 @@ import { ABOUT_TITLES } from '../../ui/about_titles.js';
 import { useModalEscape } from '../../ui/useModalEscape.js';
 import { dispatchMenuHotkey, focusBlocksHotkey } from '../../ui/menu_hotkeys.js';
 import { wasBrowserSuppressed, type FocusLike } from '../../ui/browser_hotkeys.js';
+import { OpenFileDialog } from '../../fs/OpenFileDialog.js';
+import { kicadFootprintLibWildcard } from '../../fs/wildcards.js';
 
 /**
  * The Footprint Editor frame, the web mirror of KiCad's FOOTPRINT_EDIT_FRAME
@@ -237,8 +239,13 @@ export function FootprintEditor({
   const [padDialogId, setPadDialogId] = useState<string | null>(null);
 
   const controller = useRef<FootprintCanvasController>(null);
-  const addLibInputRef = useRef<HTMLInputElement>(null);
-  const importInputRef = useRef<HTMLInputElement>(null);
+  /**
+   * `Add Library` and `Import Footprint`, over the account's tree.
+   *
+   * Upstream both are `wxFileDialog`s; a footprint library lives in the project
+   * or in `PATHS::GetDefaultUserFootprintsPath()` (paths.cpp:93).
+   */
+  const [fpOpenDlg, setFpOpenDlg] = useState<null | 'addLibrary' | 'importFootprint'>(null);
   const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
 
   // ----- library bootstrap ------------------------------------------------------
@@ -600,14 +607,9 @@ export function FootprintEditor({
     [targetLib, bump, loadFootprint],
   );
 
-  const addLibraryFiles = useCallback(
-    async (files: FileList) => {
-      // Selecting `.kicad_mod` files adds them as a library named for their folder.
-      const entries: { fileName: string; text: string }[] = [];
-      for (const f of files) {
-        if (!/\.kicad_mod$/i.test(f.name)) continue;
-        entries.push({ fileName: f.name, text: await f.text() });
-      }
+  const addLibraryEntries = useCallback(
+    (entries: { fileName: string; text: string }[]) => {
+      // `.kicad_mod` files are added as a library named for their folder.
       if (entries.length === 0) return;
       const name = 'Imported';
       manager.current.addProjectLibrary(name, `${name}.pretty`, entries);
@@ -617,19 +619,19 @@ export function FootprintEditor({
     [bump],
   );
 
-  const importFootprint = useCallback(
-    async (file: File) => {
+  const importFootprintText = useCallback(
+    (fileName: string, text: string) => {
       const libName = targetLib;
       if (!libName) {
         setStatus('Select a library first');
         return;
       }
-      const fp = readFootprintFile(parse(await file.text()));
+      const fp = readFootprintFile(parse(text));
       if (!fp) {
-        setStatus(`No footprint in ${file.name}`);
+        setStatus(`No footprint in ${fileName}`);
         return;
       }
-      let name = fp.lib || fpNameOf(file.name);
+      let name = fp.lib || fpNameOf(fileName);
       while (manager.current.footprintExists(libName, name)) name = `${name}_1`;
       manager.current.updateFootprint(libName, name, { ...fp, lib: name });
       bump();
@@ -879,7 +881,7 @@ export function FootprintEditor({
           setNewLibName('');
           break;
         case 'addLibrary':
-          addLibInputRef.current?.click();
+          setFpOpenDlg('addLibrary');
           break;
         case 'newFootprint':
           setNewFpName('');
@@ -891,7 +893,7 @@ export function FootprintEditor({
           saveAll();
           break;
         case 'importFootprint':
-          importInputRef.current?.click();
+          setFpOpenDlg('importFootprint');
           break;
         case 'exportFootprint': {
           const l = treeSel?.lib ?? curLib,
@@ -1082,28 +1084,27 @@ export function FootprintEditor({
 
   return (
     <div className="ze-app">
-      <input
-        ref={addLibInputRef}
-        type="file"
-        accept=".kicad_mod"
-        multiple
-        style={{ display: 'none' }}
-        onChange={(e) => {
-          if (e.target.files) void addLibraryFiles(e.target.files);
-          e.target.value = '';
-        }}
-      />
-      <input
-        ref={importInputRef}
-        type="file"
-        accept=".kicad_mod"
-        style={{ display: 'none' }}
-        onChange={(e) => {
-          const f = e.target.files?.[0];
-          if (f) void importFootprint(f);
-          e.target.value = '';
-        }}
-      />
+      {/* `Add Library` and `Import Footprint`, over the account's tree. Both
+          were a hidden `<input type="file">`, i.e. the operating system's
+          picker, which cannot see the account at all. */}
+      {fpOpenDlg && (
+        <OpenFileDialog
+          title={fpOpenDlg === 'addLibrary' ? 'Add Library' : 'Import Footprint'}
+          accept={fpOpenDlg === 'addLibrary' ? 'Add' : 'Import'}
+          // A footprint library lives in the project or in
+          // `PATHS::GetDefaultUserFootprintsPath()` (paths.cpp:93).
+          kind="footprints"
+          filters={[kicadFootprintLibWildcard()]}
+          onDone={(file) => {
+            const which = fpOpenDlg;
+            setFpOpenDlg(null);
+            if (!file) return; // wxID_CANCEL
+            const leaf = file.path.split('/').filter(Boolean).pop() ?? file.path;
+            if (which === 'addLibrary') addLibraryEntries([{ fileName: leaf, text: file.text }]);
+            else importFootprintText(leaf, file.text);
+          }}
+        />
+      )}
 
       <MenuBar
         menus={menus}

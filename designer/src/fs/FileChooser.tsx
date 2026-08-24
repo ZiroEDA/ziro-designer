@@ -290,8 +290,20 @@ export function FileChooser({
     if (editing !== null) editInput.current?.select();
   }, [editing]);
 
+  /**
+   * The highest folder this place can reach — {@link ChooserPlace.root}.
+   *
+   * A Save As from inside a board shows that board and no other, so neither the
+   * breadcrumb nor Back may climb out to a sibling. Without the clamp the row
+   * would only be where the dialog LANDS, and one click on the crumb above it
+   * puts you in the account root with every project writable again.
+   */
+  const placeRoot = place?.root ?? ROOT;
+  const withinPlace = (path: string): boolean =>
+    placeRoot === ROOT || path === placeRoot || path.startsWith(`${placeRoot}/`);
+
   const goTo = (to: string): void => {
-    if (to === dir) return;
+    if (to === dir || !withinPlace(to)) return;
     setHistory((h) => ({ past: [...h.past, dir], future: [] }));
     setSelected(null);
     setDir(to);
@@ -300,7 +312,7 @@ export function FileChooser({
   const back = (): void => {
     setHistory((h) => {
       const prev = h.past.at(-1);
-      if (prev === undefined) return h;
+      if (prev === undefined || !withinPlace(prev)) return h;
       setDir(prev);
       setSelected(null);
       return { past: h.past.slice(0, -1), future: [dir, ...h.future] };
@@ -500,16 +512,21 @@ export function FileChooser({
                 ‹
               </button>
               <div className="ze-chooser-crumbs">
-                {ancestors(dir).map((p) => (
-                  <button
-                    type="button"
-                    key={p}
-                    className={p === dir ? 'current' : undefined}
-                    onClick={() => goTo(p)}
-                  >
-                    {p === ROOT ? (place?.label ?? 'Home') : basename(p)}
-                  </button>
-                ))}
+                {/* Crumbs stop at the place's own root — one above it is a
+                    sibling project, which a Save As from inside a board must
+                    not offer. */}
+                {ancestors(dir)
+                  .filter(withinPlace)
+                  .map((p) => (
+                    <button
+                      type="button"
+                      key={p}
+                      className={p === dir ? 'current' : undefined}
+                      onClick={() => goTo(p)}
+                    >
+                      {p === placeRoot ? (place?.label ?? 'Home') : basename(p)}
+                    </button>
+                  ))}
               </div>
               <button
                 type="button"

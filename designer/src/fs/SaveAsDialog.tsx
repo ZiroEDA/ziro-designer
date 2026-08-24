@@ -24,7 +24,7 @@ import type { JSX } from 'react';
 import { useMemo } from 'react';
 import { FileChooser } from './FileChooser.js';
 import { projectStoreFileSystem } from './project_store_fs.js';
-import { standardChooserPlaces } from './chooser_places.js';
+import { type AssetKind, chooserPlacesFor } from './chooser_places.js';
 import type { ChooserFilter } from './chooser_types.js';
 
 export interface SaveAsDialogProps {
@@ -34,6 +34,14 @@ export interface SaveAsDialogProps {
   filters?: readonly ChooserFilter[];
   /** Where to open. Defaults to the account root. */
   initialPath?: string;
+  /**
+   * Which shared folder this document kind belongs in — Templates for a drawing
+   * sheet, Symbols for a symbol library. Omitted, the dialog offers projects
+   * only.
+   */
+  kind?: AssetKind;
+  /** The open project's folder, e.g. `/MyBoard`. */
+  projectDir?: string | null;
   /**
    * Which places row to start on — upstream's `wxFileDialog` `defaultDir`.
    *
@@ -57,7 +65,8 @@ export function SaveAsDialog({
   initialName,
   filters,
   initialPath,
-  initialPlace,
+  kind,
+  projectDir,
   onDone,
   accept = 'Save',
   title = 'Save As',
@@ -71,14 +80,15 @@ export function SaveAsDialog({
   // editor's dialog opened with no sidebar at all.
   const places = useMemo(
     () =>
-      // A place with its own tree hands back a path that means nothing to the
-      // account's — `/mysheet.kicad_wks` in Templates is not a project file —
-      // so which place the path came from has to travel with it. That is what
-      // `ChooserPlace.onAccept` is for; here it is used to tell the caller.
-      standardChooserPlaces(fs).map((p) =>
-        p.fs ? { ...p, onAccept: (path: string) => onDone(path, p.id) } : p,
-      ),
-    [fs, onDone],
+      // Every place here is a folder of the account's own tree, so a path from
+      // any of them reads the same way and the chooser's own accept is right
+      // for all of them.
+      chooserPlacesFor({
+        mode: 'save',
+        ...(kind === undefined ? {} : { kind }),
+        ...(projectDir === undefined ? {} : { projectDir }),
+      }),
+    [kind, projectDir],
   );
   return (
     <FileChooser
@@ -89,7 +99,6 @@ export function SaveAsDialog({
       places={places}
       initialName={initialName}
       {...(initialPath === undefined ? {} : { initialPath })}
-      {...(initialPlace === undefined ? {} : { initialPlace })}
       {...(filters === undefined ? {} : { filters })}
       onAccept={(path) => onDone(path)}
       onCancel={() => onDone(null)}

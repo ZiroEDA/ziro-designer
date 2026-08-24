@@ -26,7 +26,7 @@ import type { JSX } from 'react';
 import { useMemo } from 'react';
 import { FileChooser } from './FileChooser.js';
 import { projectStoreFileSystem } from './project_store_fs.js';
-import { standardChooserPlaces } from './chooser_places.js';
+import { type AssetKind, chooserPlacesFor } from './chooser_places.js';
 import type { ChooserFilter } from './chooser_types.js';
 import type { FileSystem } from './filesystem.js';
 
@@ -35,6 +35,14 @@ export interface OpenFileDialogProps {
   filters?: readonly ChooserFilter[];
   /** Where to open. Defaults to the account root. */
   initialPath?: string;
+  /**
+   * Which shared folder this document kind belongs in — Templates for a drawing
+   * sheet, Symbols for a symbol library. Omitted, the dialog offers projects
+   * only.
+   */
+  kind?: AssetKind;
+  /** The open project's folder, e.g. `/MyBoard`. */
+  projectDir?: string | null;
   /**
    * The chosen file's text, or `null` for `wxID_CANCEL`. The read happens here
    * so every caller does not repeat it; `path` is the full path the chooser
@@ -50,6 +58,7 @@ export interface OpenFileDialogProps {
 export function OpenFileDialog({
   filters,
   initialPath,
+  kind,
   onDone,
   title = 'Open',
   accept = 'Open',
@@ -88,13 +97,11 @@ export function OpenFileDialog({
   // editor's dialog opened with no sidebar at all.
   const places = useMemo(
     () =>
-      standardChooserPlaces(fs).map((p) =>
-        // A place that brings its own tree brings paths only that tree can
-        // read. `ChooserPlace.onAccept` is where that travels with it.
-        p.fs ? { ...p, onAccept: (path: string) => readAndDone(p.fs as FileSystem, path) } : p,
-      ),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [fs],
+      // Every place is a folder of the account's own tree now, so one read
+      // serves all of them. Opening is not gated: `mode: 'open'` lists every
+      // project, with or without one open.
+      chooserPlacesFor({ mode: 'open', ...(kind === undefined ? {} : { kind }) }),
+    [kind],
   );
   return (
     <FileChooser

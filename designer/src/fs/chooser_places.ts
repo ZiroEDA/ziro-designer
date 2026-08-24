@@ -21,20 +21,9 @@
  * saying so has gated nothing.
  */
 
-import { loadDemos } from '../home/demos.js';
 import { listProjects } from '../home/projectStore.js';
-import { loadTemplates } from '../home/templates.js';
-import { listUserTemplates } from '../home/user_templates.js';
-import {
-  deleteUserTemplateFile,
-  listUserTemplateFiles,
-  readUserTemplateFile,
-  renameUserTemplateFile,
-  writeUserTemplateFile,
-} from '../home/user_template_files.js';
 import type { ChooserPlace } from './chooser_types.js';
 import { listFileSystem } from './list_fs.js';
-import { FsError, FsErrorCode } from './filesystem.js';
 import type { FileSystem } from './filesystem.js';
 
 /**
@@ -60,184 +49,141 @@ export function recentFileSystem(below: FileSystem): FileSystem {
     { below },
   );
 }
-
-/**
- * `Demos`, as a real tree.
- *
- * A demo's id is a path — `simulation/amplifier_ac` — and its manifest carries
- * the files it is made of, so the listing has three levels: the directory the
- * demos are grouped under, the demo project inside it, and that project's own
- * files inside that. `projects` says which of the synthesised folders are the
- * demos themselves, since nothing about `simulation/amplifier_ac` tells them
- * apart from `simulation`.
- *
- * The manifest names the files but not their sizes or dates — those bytes are
- * on the CDN until the demo is opened — so both columns say nothing rather
- * than `0 bytes` and `Jan 1, 1970`, which read as data the listing does not
- * have.
- */
-export function demosFileSystem(): FileSystem {
-  return listFileSystem(
-    async () => {
-      const demos = await loadDemos();
-      return {
-        files: demos.flatMap((d) =>
-          d.files.map((rel) => ({ name: `${d.id}/${rel}`, size: null, modified: null })),
-        ),
-        projects: new Set(demos.map((d) => `/${d.id}`)),
-      };
-    },
-    { leafKind: 'file' },
-  );
-}
-
-/**
- * `Templates` — both roots, the way `BuildTemplateList` scans both, PLUS the
- * loose files the user templates root holds.
- *
- * A template's manifest carries no file list, so a template is a LEAF: there
- * is nothing to show inside one, and the place says so rather than offering a
- * folder that opens empty.
- *
- * The loose files are the other half of the same directory. `PATHS::GetUserTemplatesPath()`
- * is a real folder — `~/.local/share/kicad/<ver>/template/` on Linux, asked of
- * a real wxFileDialog in qa/probes/savedlg_probe.cpp — and `Files_io` saves
- * drawing sheets straight into it (pagelayout_editor/files.cpp:199-202). So
- * this place is not a read-only catalogue: it lists template folders you cannot
- * change and files you can.
- */
-/**
- * Refuse a change to a STOCK template, the way the real directory refuses it.
- *
- * `BuildTemplateList` scans the two roots and marks them apart:
- *
- *     scanDirectory( m_userTemplatesPath, true );    // m_isUserTemplate
- *     scanDirectory( m_systemTemplatesPath, false );
- *
- * (dialog_template_selector.cpp:753-754.) The stock root is
- * `PATHS::GetStockTemplatesPath()` — `/usr/share/kicad/template`, root-owned —
- * and the way to change one of those is `onDuplicateTemplate`, which COPIES it
- * into the user root under a new name (:385). So the message says that rather
- * than only refusing.
- *
- * The test is "is this an EXISTING STOCK entry", not "is this a known user
- * one". The first version of this asked the second question and refused a brand
- * new name — which is every save into this folder, and the whole reason it is
- * writable at all. A name in neither root is the user creating something, and
- * the user root is where that goes.
- */
-export function refuseStockChange(stock: ReadonlySet<string>, path: string): void {
-  if (stock.has(path.replace(/^\/+/, ''))) {
-    throw new FsError(
-      FsErrorCode.READ_ONLY,
-      path,
-      'Templates that ship with KiCad cannot be changed. Duplicate one first.',
-    );
-  }
-}
-
-export function templatesFileSystem(): FileSystem {
-  /**
-   * Which entries are the USER's. Everything else in this listing is stock and
-   * refuses every write, exactly as it does on disk.
-   *
-   * `BuildTemplateList` scans the two roots and marks them apart:
-   *
-   *     scanDirectory( m_userTemplatesPath, true );    // m_isUserTemplate
-   *     scanDirectory( m_systemTemplatesPath, false );
-   *
-   * (dialog_template_selector.cpp:753-754.) The stock root is
-   * `/usr/share/kicad/template` and is root-owned; the way to change a stock
-   * template is `onDuplicateTemplate`, which COPIES it into the user root under
-   * a new name (:385). Merging the two into one writable list said a bundled
-   * template could be renamed and deleted, which KiCad never allows.
-   */
-  const stockRef = { current: new Set<string>() };
-
-  return listFileSystem(
-    async () => {
-      const [bundled, mine, loose] = await Promise.all([
-        loadTemplates(),
-        listUserTemplates(),
-        listUserTemplateFiles(),
-      ]);
-
-      // Read on every listing, not captured: a template duplicated while the
-      // dialog is open becomes writable without it being rebuilt.
-      stockRef.current = new Set(bundled.map((t) => t.id));
-
-      return {
-        files: [
-          // The template folders carry no size or date — those bytes are on the
-          // CDN until the template is used — so both columns say nothing rather
-          // than `0 bytes` and `Jan 1, 1970`.
-          ...[...bundled, ...mine].map((t) => ({ name: t.id, size: null, modified: null })),
-          // A loose file has both, because we wrote it.
-          ...loose.map((f) => ({
-            name: f.path,
-            size: f.text.length,
-            modified: f.updatedAt,
-          })),
-        ],
-        // A template is a leaf; a loose file is a file. `leafKind` says one
-        // thing for the whole listing, so the files are marked here instead.
-        fileLeaves: new Set(loose.map((f) => `/${f.path}`)),
-      };
-    },
-    {
-      files: {
-        read: readUserTemplateFile,
-        // A NEW name is the user's by definition — that is a save into the user
-        // root, which is what pl_editor does (files.cpp:199-202). Only an
-        // existing STOCK entry refuses.
-        write: async (path, text) => {
-          refuseStockChange(stockRef.current, path);
-          await writeUserTemplateFile(path, text);
-        },
-        rename: async (path, to) => {
-          refuseStockChange(stockRef.current, path);
-          await renameUserTemplateFile(path, to);
-        },
-        remove: async (path) => {
-          refuseStockChange(stockRef.current, path);
-          await deleteUserTemplateFile(path);
-        },
-      },
-    },
-  );
-}
-
 /**
  * The rows a file dialog over the account's tree gets.
  *
- * Recent first, as `GtkPlacesSidebar` puts it — it is the row above Home, and
- * the one a person reaches for most. Neither row brings its own `onAccept`:
- * both hand back a path in the account's tree, so the dialog's own accept is
- * right for them.
+ * Two, and both are the account's own content.
+ *
+ * Upstream's sidebar is a `GtkPlacesSidebar`: Recent, Home, Desktop, Downloads,
+ * Trash, Other Locations - the COMPUTER's places - plus the one shortcut
+ * `openProject` adds, `dlg.AddShortcut( PATHS::GetDefaultUserProjectsPath() )`
+ * (kicad/tools/kicad_manager_control.cpp:493). It has no Demos row and no
+ * Templates row: demos are reached through `File > Open Demo Project` and
+ * templates through the template selector, both separate windows.
+ *
+ * Ours had both as rows, and they were the wrong shape twice over. They are
+ * served from the CDN, identical for every account and never writable, so a
+ * file manager showed folders nobody can change; and the stock half of
+ * Templates sat in the same list as the user's own, which said a bundled
+ * template could be renamed. On a desktop that distinction is buried deep
+ * enough that nobody meets it - here it was the second row of a two-row
+ * sidebar.
+ *
+ * The rule the tree follows now: what a person can change is what the file
+ * manager shows. Everything read-only reaches them through the window that
+ * owns it, which is where upstream puts it too.
  */
-export function standardChooserPlaces(accountFs: FileSystem): readonly ChooserPlace[] {
-  return [
-    // Recent first, as GtkPlacesSidebar puts it: it is the row above Home, and
-    // the one a person reaches for most. Not a save target — GTK's Recent is a
-    // list of things you opened, not a folder.
-    { id: 'recent', label: 'Recent', icon: 'recent', fs: recentFileSystem(accountFs) },
-    // The account's own tree, and the only row a file can be saved into. It
-    // brings no `fs` of its own, which is how the chooser knows.
-    { id: 'projects', label: 'Projects', icon: 'open_project' },
-    { id: 'demos', label: 'Demos', icon: 'open_project_demo', fs: demosFileSystem() },
-    {
-      id: 'templates',
-      label: 'Templates',
-      icon: 'new_project_from_template',
-      fs: templatesFileSystem(),
-      // A template has no listable contents, so a double-click takes it rather
-      // than walking into an empty folder.
-      activateOpens: true,
-      // ...but it IS a directory, and a drawing sheet saved from pl_editor goes
-      // into it (pagelayout_editor/files.cpp:199-202). The default rule —
-      // "only the row with no fs of its own" — reads this row as a catalogue,
-      // which it was until it grew loose files.
-      writable: true,
-    },
-  ];
+/**
+ * The account tree's shared folders — KiCad's own user-data layout.
+ *
+ * `~/.local/share/kicad/<ver>/` holds one folder per KIND of thing a user
+ * makes, and every one of these is a real `PATHS::` function:
+ *
+ *     projects     GetDefaultUserProjectsPath()     (paths.cpp:137)
+ *     template     GetUserTemplatesPath()           (:355 via getUserDocumentPath)
+ *     symbols      GetDefaultUserSymbolsPath()      (:82)
+ *     footprints   GetDefaultUserFootprintsPath()   (:93)
+ *     3dmodels     GetDefaultUser3DModelsPath()     (:115)
+ *
+ * They are FOLDERS of the one account tree, siblings of the project folders,
+ * not separate stores. That is the whole point: on a desktop a drawing sheet
+ * can live in the project directory, in the user templates directory, or
+ * anywhere on the disk — three storage AREAS. This tree has one, so "shared
+ * across projects" is a different folder rather than a different place, and the
+ * file manager can show every byte the account owns.
+ *
+ * What is NOT here is anything derived from a single project. Gerbers plot into
+ * the project's own `gerbers/` or they download, which is what we already do
+ * (`dialog_plot_pcb.tsx:93,121-133`) and what KiCad does, its plot directory
+ * being made relative to the project (dialog_plot.cpp:827-832) with no outputs
+ * root anywhere. A shared outputs folder would pool every board's gerbers into
+ * one bucket, which is the mess it was meant to prevent, moved.
+ */
+export const USER_DIRS = {
+  templates: '/Templates',
+  symbols: '/Symbols',
+  footprints: '/Footprints',
+  models3d: '/3D Models',
+} as const;
+
+/** Which shared folder a document kind belongs in. */
+export type AssetKind = keyof typeof USER_DIRS;
+
+/**
+ * The rows one dialog gets: the project, and the shared folder for this kind.
+ *
+ * Upstream's sidebar is a `GtkPlacesSidebar` — Recent, Home, Desktop, Trash,
+ * Other Locations, the COMPUTER's places — plus the one shortcut `openProject`
+ * adds, `dlg.AddShortcut( PATHS::GetDefaultUserProjectsPath() )`
+ * (kicad/tools/kicad_manager_control.cpp:493). It has no Demos row and no
+ * Templates row: demos are reached through `File > Open Demo Project` and
+ * templates through the template selector, both separate windows.
+ *
+ * Ours listed Demos and Templates as rows and they were the wrong shape twice
+ * over — served from the CDN, identical for every account, never writable, so
+ * the file manager showed folders nobody can change; and the stock half of
+ * Templates sat in the same list as the user's own, which said a bundled
+ * template could be renamed.
+ *
+ * Two rules, and between them the window answers "where may this go?" before
+ * the user has clicked anything:
+ *
+ *   SAVE   Projects holds the CURRENT project and nothing else, clamped so the
+ *          breadcrumb cannot climb to a sibling board. With the kind's own
+ *          folder beside it, the offer is exactly "this project" or "shared".
+ *   OPEN   Projects holds every project, because reading is not gated: a sheet
+ *          or a symbol opens from any project, with or without one open.
+ *
+ * In both, the OTHER kinds' folders are absent — a drawing sheet has no reason
+ * to see Footprints.
+ *
+ * There is no Recent row. GTK has one because its sidebar is the only ordering
+ * a file dialog offers; ours sorts the project list by any column, which is the
+ * same thing done in the place a person is already looking.
+ */
+export function chooserPlacesFor(opts: {
+  /** The shared folder this document kind belongs in, if it has one. */
+  kind?: AssetKind;
+  mode: 'open' | 'save';
+  /** The open project's folder, e.g. `/MyBoard`. Null when none is open. */
+  projectDir?: string | null;
+}): readonly ChooserPlace[] {
+  const { kind, mode, projectDir } = opts;
+  const places: ChooserPlace[] = [];
+
+  if (mode === 'save' && projectDir) {
+    places.push({
+      id: 'projects',
+      // The project's own name, because the row IS that project now rather than
+      // the list it came from.
+      label: projectDir.replace(/^\/+/, '') || 'Project',
+      icon: 'open_project',
+      path: projectDir,
+      root: projectDir,
+    });
+  } else if (mode === 'open' || !kind) {
+    // Saving with no project open has no project to save INTO, so the row is
+    // left out rather than offered and refused — unless there is no shared
+    // folder either, which is the project manager saving a project itself.
+    places.push({ id: 'projects', label: 'Projects', icon: 'open_project' });
+  }
+
+  if (kind) {
+    places.push({
+      id: kind,
+      label: KIND_LABELS[kind],
+      icon: kind === 'templates' ? 'new_project_from_template' : 'open_project',
+      path: USER_DIRS[kind],
+      root: USER_DIRS[kind],
+    });
+  }
+
+  return places;
 }
+
+const KIND_LABELS: Record<AssetKind, string> = {
+  templates: 'Templates',
+  symbols: 'Symbols',
+  footprints: 'Footprints',
+  models3d: '3D Models',
+};
