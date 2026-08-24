@@ -336,7 +336,11 @@ export function parseGerber(text: string, fileName: string): GERBER_FILE_IMAGE {
         img.imageName = rest.trim();
         break;
       case 'LN':
-        img.layerName = rest.trim();
+        // `case LOAD_NAME:` (`rs274x.cpp:676-681`) — "%LN is a (deprecated)
+        // equivalent to G04: a comment". Upstream skips to the '*' and stores
+        // nothing, leaving m_LayerName at its "no name" default; we used to
+        // assign it here, which put a name in the status bar where KiCad has
+        // none.
         break;
       case 'SR':
         parseSR(rest);

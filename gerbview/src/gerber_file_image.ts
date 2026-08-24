@@ -86,7 +86,18 @@ export class GERBER_FILE_IMAGE {
 
   /** Image / layer names and X2 file attributes (for the layer manager). */
   imageName = '';
-  layerName = '';
+  /**
+   * `GERBER_LAYER::m_LayerName` (`gerbview/gerber_file_image.h:90`), reached
+   * through `GetLayerParams()` and shown in status field 0.
+   *
+   * [data] `"no name"` is KiCad's own string, written by
+   * `GERBER_LAYER::ResetDefaultValues` (`gerber_file_image.cpp:75`) — and that
+   * is the ONLY assignment to `m_LayerName` in 10.0.5. The `%LN` command the
+   * comment there refers to no longer fills it: `rs274x.cpp:676-681` skips
+   * `%LN` as "a (deprecated) equivalent to G04: a comment". So this field reads
+   * `no name` for every file, which is what a real GerbView shows.
+   */
+  layerName = 'no name';
   fileFunction: string | null = null; // %TF.FileFunction,...
   filePolarity: string | null = null; // %TF.FilePolarity,Positive/Negative
   generatedBy: string | null = null; // %TF.GenerationSoftware / .CreationDate

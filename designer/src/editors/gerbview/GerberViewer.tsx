@@ -42,7 +42,9 @@ import {
   type GERBER_DRAW_ITEM,
 } from '@ziroeda/gerbview';
 import { compareByFileExtension, compareByZOrder } from '@ziroeda/gerbview';
-import { decideLoad, ERRORS_CAPTION } from './gerber_load_report.js';
+import { parseColor4d, toCss } from '@ziroeda/common/src/color4d.js';
+import { hiContrastColor } from '@ziroeda/common/src/render_settings.js';
+import { decideLoad, ERRORS_CAPTION, plotBatchSelfSorts } from './gerber_load_report.js';
 import { HtmlMessageBox } from '../../ui/dialog_html_message_box.js';
 import { PAPER_MM } from '@ziroeda/common';
 import { MenuBar, type Menu } from '../../ui/MenuBar.js';
@@ -108,7 +110,7 @@ import {
   zoomMsg,
 } from '../../ui/status_format.js';
 import {
-  defaultLayerColor,
+  layerColorAt,
   GERBER_BG_COLOR,
   GERBER_DCODE_COLOR,
   GERBER_DRAWINGSHEET_COLOR,
@@ -127,11 +129,23 @@ import { settings } from '../../prefs/settings.js';
 import { useCommonSettings } from '../../prefs/useSettings.js';
 import './gerbview.css';
 import '../../ui/shell.css';
+import { applyToggle, CROSSHAIR_GROUP, DEFAULT_TOGGLES, UNIT_GROUP } from './toggles.js';
 
+/**
+ * One loaded image and the row it occupies.
+ *
+ * There is deliberately no `color` here. Upstream a drawing layer's colour is
+ * a property of the ROW, not of the file in it: the layers manager reads
+ * `m_frame->GetLayerColor( GERBER_DRAW_LAYER( layer ) )` where `layer` is the
+ * row index (`gerbview/widgets/gerbview_layer_widget.cpp:307`), and an override
+ * is written back the same way, `SetLayerColor( GERBER_DRAW_LAYER( aLayer ),
+ * aColor )` (`:343`). So row 0 is always the first palette entry, whatever file
+ * is sitting in it, and sorting the layers repaints them rather than carrying
+ * the colours along.
+ */
 interface Layer {
   id: number;
   image: GERBER_FILE_IMAGE;
-  color: string;
   visible: boolean;
   name: string;
   function?: string;
@@ -139,8 +153,9 @@ interface Layer {
 
 type HighlightMode = 'none' | 'net' | 'component' | 'attribute' | 'dcode';
 
-const UNIT_GROUP = ['unitsMm', 'unitsInches', 'unitsMils'];
-const DEFAULT_TOGGLES = new Set(['toggleGrid', 'unitsMm', 'showLayerManager']);
+// The toolbar's toggle state, its two radio groups and its defaults live in
+// `toggles.ts` — a pure function there can be called by a test, where a
+// useCallback in here could only be reached by rendering the component.
 
 /**
  * The layers manager's starting width.
@@ -332,7 +347,6 @@ export function GerberViewer({
       const next: Layer = {
         id,
         image,
-        color: defaultLayerColor(at),
         visible: true,
         name: '',
         ...(image.fileFunction ? { function: image.fileFunction } : {}),
@@ -472,19 +486,31 @@ export function GerberViewer({
       // of this batch went into, not slot 0 — a second Open adds to the layers
       // already there and makes the first of the new ones active.
       let firstLoadedLayer: number | null = null;
-      // A zip and a job file each run their OWN upstream sort, on the paths
-      // that own them; this one must not then re-sort behind them.
-      let selfSorted = false;
-      // Sort so a .gbrjob is processed last (it only re-colours), gerbers first.
+      // A zip runs its OWN upstream sort, on the path that owns it; this one
+      // must not then re-sort behind it. A .gbrjob does NOT belong on that
+      // list: `LoadListOfGerberAndDrillFiles` refuses one outright —
+      //
+      //     if( filename.GetExt() == FILEEXT::GerberJobFileExtension )
+      //     {   //We cannot read a gerber job file as a gerber plot file: skip it
+      //         txt.Printf( _( "<b>A gerber job file cannot be loaded as a plot
+      //                         file</b> <i>%s</i>" ), ... );
+      //         success = false;
+      //         reporter.Report( txt, RPT_SEVERITY_ERROR );
+      //         continue;   }          (`gerbview/files.cpp:301-310`)
+      //
+      // so it takes no layer, applies no colours and has NO bearing on the
+      // sort. `decideLoad` already carries that refusal, with upstream's own
+      // message, and the file only had to reach it. Applying it here instead
+      // ALSO set selfSorted, and one .gbrjob anywhere in a batch then
+      // suppressed the sort for the whole load — which is why a folder opened
+      // whole came out in file-chooser order with the drill file last.
+      // "Open Gerber Job File" is a different entry point
+      // (`job_file_reader.cpp:176`) and still reads one properly.
+      const selfSorted = plotBatchSelfSorts(arr.map((f) => f.name));
       for (const f of arr) {
-        const lower = f.name.toLowerCase();
-        if (lower.endsWith('.zip')) {
+        if (f.name.toLowerCase().endsWith('.zip')) {
           const at = await loadZip(f);
           if (firstLoadedLayer === null) firstLoadedLayer = at;
-          selfSorted = true;
-        } else if (lower.endsWith('.gbrjob')) {
-          applyJobFile(await f.text());
-          selfSorted = true;
         } else {
           const at = loadTextFile(f.name, await f.text(), fileType);
           if (firstLoadedLayer === null) firstLoadedLayer = at;
@@ -509,7 +535,7 @@ export function GerberViewer({
       if (firstLoadedLayer !== null) setActiveLayer(firstLoadedLayer);
       flushReports();
     },
-    [loadTextFile, loadZip, applyJobFile, setActiveLayer, sortByFileExtension, flushReports],
+    [loadTextFile, loadZip, setActiveLayer, sortByFileExtension, flushReports],
   );
 
   /**
@@ -564,8 +590,20 @@ export function GerberViewer({
   }, [openRequest, loadTextFile, applyJobFile]);
 
   // ---- layer management --------------------------------------------------
+  /**
+   * `COLOR_SETTINGS`' gerbview rows, which are keyed by layer id and not by
+   * image. Empty means "no override": the row shows its palette default,
+   * `s_defaultTheme[GERBVIEW_LAYER_ID_START + row]`.
+   */
+  const [layerColors, setLayerColors] = useState<Record<number, string>>({});
+  const colorAt = useCallback(
+    (row: number): string => layerColorAt(row, layerColors),
+    [layerColors],
+  );
+
   const clearAll = useCallback(() => {
     setLayers([]);
+    setLayerColors({});
     setActiveLayer(0);
     setPicked(null);
     setHighlight({ mode: 'none', value: '' });
@@ -575,8 +613,11 @@ export function GerberViewer({
   const toggleVisible = useCallback((index: number) => {
     setLayers((prev) => prev.map((l, i) => (i === index ? { ...l, visible: !l.visible } : l)));
   }, []);
+  // `SetLayerColor( GERBER_DRAW_LAYER( aLayer ), aColor )`
+  // (`gerbview_layer_widget.cpp:343`) - by ROW, so it stays on the row when the
+  // layers are re-sorted, exactly as upstream's does.
   const setColor = useCallback((index: number, color: string) => {
-    setLayers((prev) => prev.map((l, i) => (i === index ? { ...l, color } : l)));
+    setLayerColors((prev) => ({ ...prev, [index]: color }));
   }, []);
   const showAll = useCallback(
     () => setLayers((prev) => prev.map((l) => ({ ...l, visible: true }))),
@@ -680,13 +721,34 @@ export function GerberViewer({
     [toggles, activeLayer, highlightTest, showDrawingSheet],
   );
 
+  /**
+   * `ACTIONS::highContrastMode`, "Inactive Layer View Mode" — "Toggle inactive
+   * layers between normal and dimmed" (`common/tool/actions.cpp`). In GerbView
+   * it is a plain boolean: both it and highContrastModeCycle run the same
+   * `cfg->m_Display.m_HighContrastMode = !...` (`gerbview_control.cpp:296-300`).
+   */
+  const highContrast = toggles.has('highContrast');
+
   // Draw order: active layer last (drawn on top), like GerbView.
   const renderLayers = useMemo<GerberLayerView[]>(() => {
-    const others = layers.filter((_, i) => i !== activeLayer);
-    const act = layers[activeLayer];
-    const ordered = act ? [...others, act] : others;
-    return ordered.map((l) => ({ image: l.image, color: l.color, visible: l.visible }));
-  }, [layers, activeLayer]);
+    const rows = layers.map((_, i) => i);
+    const others = rows.filter((i) => i !== activeLayer);
+    const ordered = layers[activeLayer] ? [...others, activeLayer] : others;
+    // `GERBVIEW_PAINTER::getLayerColor`: every layer NOT in
+    // m_highContrastLayers is drawn in its hi-contrast colour
+    // (`gerbview/gerbview_painter.cpp:163-168`), and GerbView puts exactly one
+    // layer in that set — the active one
+    // (`gerbview_draw_panel_gal.cpp:74-86`). So the dimming is a COLOUR, chosen
+    // per layer here, and every renderer that takes these colours gets it.
+    const bg = parseColor4d(GERBER_BG_COLOR);
+    return ordered.map((i) => {
+      const l = layers[i] as Layer;
+      const base = colorAt(i);
+      const color =
+        highContrast && i !== activeLayer ? toCss(hiContrastColor(parseColor4d(base), bg)) : base;
+      return { image: l.image, color, visible: l.visible };
+    });
+  }, [layers, activeLayer, colorAt, highContrast]);
 
   const bbox = useMemo(() => {
     let minX = Infinity,
@@ -725,15 +787,7 @@ export function GerberViewer({
 
   // ---- toolbars ----------------------------------------------------------
   const onLeftToggle = useCallback((id: string) => {
-    setToggles((prev) => {
-      const next = new Set(prev);
-      if (UNIT_GROUP.includes(id)) {
-        for (const g of UNIT_GROUP) next.delete(g);
-        next.add(id);
-      } else if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+    setToggles((prev) => applyToggle(prev, id));
   }, []);
 
   const exportToPcb = useCallback(() => {
@@ -1009,7 +1063,7 @@ export function GerberViewer({
     // (`gerbview_layer_widget.cpp:308`) - which is why a long file name widens
     // the pane without limit.
     name: gerbviewLayerDisplayName(l.image, l.image.fileName, i, { fullName: true }),
-    color: l.color,
+    color: colorAt(i),
     visible: l.visible,
     hasContent: l.image.items.length > 0,
     ...(l.function ? { function: l.function } : {}),
@@ -1185,7 +1239,7 @@ export function GerberViewer({
         options={layers.map((l, i) => ({
           value: String(i),
           label: gerbviewLayerDisplayName(l.image, l.image.fileName, i),
-          swatch: l.color,
+          swatch: colorAt(i),
         }))}
         onChange={(v) => setActiveLayer(Number(v))}
       />
@@ -1424,7 +1478,9 @@ export function GerberViewer({
             bbox={bbox}
             showGrid={toggles.has('toggleGrid')}
             gridIU={gridIU}
-            fullCrosshair={toggles.has('crosshairFull')}
+            crosshairMode={
+              toggles.has('crosshair45') ? '45' : toggles.has('crosshairFull') ? 'full' : 'small'
+            }
             activeTool={activeTool}
             onCursorMove={setCursor}
             onScaleChange={setScale}

@@ -36,7 +36,7 @@ import {
 } from './gerberColors.js';
 import { GerbviewGl, type GerberGlContent } from '../../render/gl/gerbview_gl.js';
 import { commonInputPrefs, wheelAction, zoomFitScale } from '../../ui/view_controls.js';
-import { drawCrosshair, drawGrid } from '../../ui/grid_cursor.js';
+import { type CrosshairMode, drawCrosshair, drawGrid } from '../../ui/grid_cursor.js';
 import { clampViewScale, nextZoomPreset, ZOOM_LIST } from '../../ui/zoom_settings.js';
 import { scaleForZoomFactor, zoomFactorForScale } from '../../ui/status_format.js';
 import {
@@ -112,7 +112,13 @@ export interface GerberCanvasProps {
   bbox: { minX: number; minY: number; maxX: number; maxY: number };
   showGrid: boolean;
   gridIU: number;
-  fullCrosshair: boolean;
+  /**
+   * `GAL_DISPLAY_OPTIONS::GetCursorMode()`, one of three
+   * (`include/gal/gal_display_options.h:67-71`). It was a boolean, so the
+   * FULLSCREEN_DIAGONAL mode had nothing to select and clicking through the
+   * group only ever gave small and full-window.
+   */
+  crosshairMode: CrosshairMode;
   activeTool: 'select' | 'measure' | 'zoom';
   /** Report the cursor world position (IU) for the status bar. */
   onCursorMove?: (p: Vec2 | null) => void;
@@ -137,7 +143,7 @@ export const GerberCanvas = forwardRef<GerberCanvasController, GerberCanvasProps
       bbox,
       showGrid,
       gridIU,
-      fullCrosshair,
+      crosshairMode,
       activeTool,
       onCursorMove,
       onZoomAreaDone,
@@ -171,8 +177,8 @@ export const GerberCanvas = forwardRef<GerberCanvasController, GerberCanvasProps
     optionsRef.current = options;
     const gridRef = useRef({ showGrid, gridIU });
     gridRef.current = { showGrid, gridIU };
-    const crosshairRef = useRef(fullCrosshair);
-    crosshairRef.current = fullCrosshair;
+    const crosshairRef = useRef(crosshairMode);
+    crosshairRef.current = crosshairMode;
 
     const cursorPxRef = useRef<{ x: number; y: number } | null>(null);
     const measureRef = useRef<{ a: Vec2; b: Vec2 } | null>(null);
@@ -337,7 +343,7 @@ export const GerberCanvas = forwardRef<GerberCanvasController, GerberCanvasProps
       // no drawing tools, so nothing calls ShowCursor(true): the crosshair is
       // there because always_show_cursor is on, and a forced cursor is dimmed.
       drawCrosshair(octx, cursorPxRef.current, canvas.width, canvas.height, {
-        mode: crosshairRef.current ? 'full' : 'small',
+        mode: crosshairRef.current,
         color: GERBER_CURSOR_COLOR,
         alwaysShow: true,
         devicePixelRatio: dpr,
@@ -407,7 +413,7 @@ export const GerberCanvas = forwardRef<GerberCanvasController, GerberCanvasProps
 
     useEffect(() => {
       requestDraw();
-    }, [layers, options, showGrid, gridIU, fullCrosshair, requestDraw]);
+    }, [layers, options, showGrid, gridIU, crosshairMode, requestDraw]);
 
     const zoomToFit = useCallback(() => {
       const canvas = canvasRef.current;

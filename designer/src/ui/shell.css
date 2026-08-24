@@ -151,13 +151,27 @@
   /* EDA_MSG_PANEL lays itself out in units of one 'W':
        m_fontSize = GetTextExtent( "W" )                     msgpanel.cpp:72
        if( m_last_x == 0 ) m_last_x = m_fontSize.x;          :143  (first item)
+       text.Append( ' ', item.GetPadding() );                :140  (the PAD)
        m_last_x += GetTextExtent( text ).x;                  :151
        m_last_x += m_fontSize.x;                             :154  (gap)
-     so the left inset and the gap between items are the SAME number, and it is
-     a font metric rather than a spacing choice. [px] wx measures "W" in
-     Ubuntu Sans 11 as 14 x 18 (qa/probes/aui_sash_probe.cpp); the 18 is already
-     --ui-line-height. */
+     The left inset really is one 'W'. The GAP is not: the padding spaces are
+     appended to the text BEFORE it is measured, so what separates two cells is
+     `item.GetPadding()` spaces plus one 'W', not one 'W' alone. We had read
+     :151 as measuring the bare text and dropped :140 entirely, which drew every
+     message panel in the app about 18px per cell tighter than KiCad's.
+     [px] wx measures, in Ubuntu Sans 11 on this desktop
+     (qa/probes/msgpanel_probe.cpp): "W" 14 x 18, a space 3, six spaces 18. The
+     18 of the height is already --ui-line-height. Corroborated against a real
+     GerbView capture: the probe puts the seven GERBER_FILE_IMAGE::
+     DisplayImageInfo cells at x = 14, 96, 216, 304, 389, 477, 564 and the
+     capture has them at 80, 163, 283, 371, 455, 543, 630 - a constant 66/67px
+     client origin across all seven. */
   --msgpanel-gutter: 14px;
+  /* GetTextExtent( " " ).x, the unit MSG_PANEL_ITEM::m_Padding counts in
+     (msgpanel.cpp:140). Separate from the gutter because the padding is
+     PER-ITEM - MSG_PANEL_DEFAULT_PAD is 6 (msgpanel.h:41) but the symbol
+     editor passes 8 (symbol_editor.cpp:1749-1767) - so it multiplies. */
+  --msgpanel-space: 3px;
   /* The frame background a docked canvas or notebook sits on. *Lighter* than
      the panes - which is the relationship KiCad has, and which we had
      inverted: our tree pane was lighter than the launcher beside it. */
@@ -392,7 +406,12 @@
   /* [css] check, radio { min-height: 14px; min-width: 14px; border: 1px }
      [px] the Negative box and the Symbol dot both measure 16 across. */
   --check-size: 16px;
-  --check-face: #393939; /* [css] check, radio { background-image: image(#393939) } [px] agrees */
+  /* [css] check, radio { background-image: image(#393939) } [px] agrees, and so
+     does qa/probes/checkbox_probe.cpp, which renders the control through
+     wxRendererNative::DrawCheckBox - the same GTK draw LAYER_WIDGET's wxCheckBox
+     gets - and reads the unchecked face back as rgb(57,57,57). Three sources,
+     one value. */
+  --check-face: #393939;
   /* [px] the ring around an unchecked radio on a live pcb_calculator measures
      rgb(25,25,25) - a shade off --ctl-border's #181818. */
   --check-border: #191919;
@@ -899,10 +918,37 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
    confirms it from a second app: its visibility checkboxes fill with exactly
    rgb(233, 84, 32), and they measure 16 across, not the 13 a bare
    <input type=checkbox> takes from the user agent. */
+/* Drawn rather than accented. `accent-color` gets the FILL right - a live
+   GerbView's boxes are rgb(233,84,32) and so are ours - but the tick is not
+   ours to ask for: the browser picks its own contrast colour for the mark and
+   for this accent Chrome chooses BLACK, where GTK strokes it white. That is
+   what Akshay saw beside a real GerbView, and no amount of accent-color can
+   move it, so the box is drawn here instead.
+
+   Every value below is measured off the real widget rather than chosen -
+   `wxRendererNative::DrawCheckBox` renders through GTK, so it IS the widget
+   LAYER_WIDGET puts in its visibility column (`layer_widget.cpp:347`). See
+   qa/probes/checkbox_probe.cpp. */
 .ze-app input[type="checkbox"] {
-  accent-color: var(--chrome-active);
+  appearance: none;
   width: var(--check-size);
   height: var(--check-size);
+  border: 1px solid var(--check-border);
+  border-radius: var(--check-radius);
+  background: var(--check-face);
+}
+.ze-app input[type="checkbox"]:checked {
+  border-color: var(--chrome-active);
+  background-color: var(--chrome-active);
+  /* The check stroke. --check-mark already holds this: Yaru's
+     $selected_fg_color, the ink GTK recolours check-symbolic.svg to. CSS cannot
+     interpolate a custom property into a url(), so the colour is spelled out
+     here and `checkbox_and_swatch.test.ts` asserts it still equals the token.
+     [px] the probe reads the stroke at rgb(255,252,252), white within
+     antialiasing, and so does Akshay's capture of a real GerbView. */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M12 5 L6.5 11.5 L4 9' fill='none' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
 }
 
 /* A wxSlider, drawn rather than accented: GTK's thumb is a WHITE disc, not a
@@ -1938,13 +1984,23 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
      the note below it already records. */
   color: var(--chrome-fg);
   font-size: var(--ui-font-size);
+  /* `if( m_last_x == 0 ) m_last_x = m_fontSize.x` (msgpanel.cpp:143): the first
+     cell is inset by one 'W' and nothing else. The gap between cells is not the
+     same number - it is written per item, below, because the padding varies. */
   padding-left: var(--msgpanel-gutter);
-  gap: var(--msgpanel-gutter);
 }
 .ze-msgpanel-item {
   display: grid;
   grid-template-rows: 1fr 1fr;
   align-content: center;
+  /* `m_last_x += GetTextExtent( text ).x; m_last_x += m_fontSize.x`
+     (msgpanel.cpp:151-154) where `text` already carries the item's padding
+     spaces (:140). So a cell advances by its own width plus padding spaces plus
+     one 'W', which is a trailing space on the cell rather than a gap between
+     cells - and it applies to the last cell too, exactly as upstream keeps
+     advancing m_last_x past it. MsgPanel.tsx overrides the 6 when an item asks
+     for a different padding. */
+  padding-right: calc(6 * var(--msgpanel-space) + var(--msgpanel-gutter));
 }
 .ze-msgpanel-upper,
 .ze-msgpanel-lower {
@@ -3102,10 +3158,20 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
    no outline and no rounding anywhere in that function. The 1 px #444 border
    and the 2 px radius here were ours, and they ate two of the swatch's
    fourteen rows. */
+/* `COLOR_SWATCH::RenderToDC` opens with `aDC->SetPen( *wxTRANSPARENT_PEN )`
+   (`common/widgets/color_swatch.cpp:72`) and paints nothing but the colour: no
+   outline, and the white margin rectangles at :136-148 only appear when a
+   caller passes aMargins, which LAYER_WIDGET does not. Ours is a <button>, and
+   a bare button takes the user agent's 2px OUTSET border - which rendered as
+   the white-and-grey bevel Akshay saw around every swatch, where KiCad has a
+   flat rectangle of colour. Same class of defect as the notebook tabs coming
+   out in Arial: an element inherits chrome from the UA unless told not to. */
 .ze-layer-swatch {
   width: var(--swatch-small-w);
   height: var(--swatch-small-h);
   flex: 0 0 auto;
+  border: none;
+  padding: 0;
 }
 /* BITMAP_TOGGLE visibility eye: an inline-SVG button that always renders,
    drawn in a light grey that stays visible on the grey list background. */

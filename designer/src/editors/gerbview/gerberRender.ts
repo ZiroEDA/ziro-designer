@@ -445,7 +445,14 @@ export function renderGerberLayers(
       // composite everything at a permanent 0.8, a number with no upstream
       // source, which made every layer translucent whether or not that mode
       // was on.
-      ctx.globalAlpha = opts.highContrast && i !== layers.length - 1 ? 0.3 : 1;
+      // NOT dimmed here. "Inactive Layer View Mode" mixes the layer's colour
+      // toward the background (`common/render_settings.cpp:92-93`), which the
+      // frame does per layer before handing the colours over, so both this and
+      // the GL renderer get it. Doing it as alpha instead — which is what this
+      // line used to do, at a 0.3 with no upstream source — composites against
+      // whatever is underneath, so two dimmed layers overlapping came out
+      // brighter than either.
+      ctx.globalAlpha = 1;
     }
     ctx.drawImage(buf, 0, 0);
   }
