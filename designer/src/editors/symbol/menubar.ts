@@ -272,7 +272,7 @@ export function symbolEditorMenus(
         tool('Draw Circles', 'drawCircle'),
         tool('Draw Arcs', 'drawArc'),
         stub('Draw Bezier Curve', 'bezier'),
-        tool('Draw Lines', 'drawLines'),
+        tool('Draw Lines', 'drawSymbolLines'),
         tool('Draw Polygons', 'drawPolygon'),
       ],
     },

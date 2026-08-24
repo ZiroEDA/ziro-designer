@@ -55,6 +55,54 @@ export const SYM_CONTROL = {
   unitSelector: 'unitSelector',
 } as const;
 
+/**
+ * The shape each drawing tool lays down — the `SCH_ACTIONS` name on the RIGHT
+ * toolbar mapped to the `LibGraphic` kind it produces.
+ *
+ * This is a lookup and not a chain of `activeTool === '…'` tests inside
+ * `SymbolCanvas.tsx` because the chain had drifted off the toolbar: the button
+ * dispatched `drawSymbolLines` (the id `SCH_ACTIONS::drawSymbolLines` gives it)
+ * while the canvas tested for `drawLines` (the SCHEMATIC's action, a different
+ * one — see the note on the right toolbar below). Nothing matched, so the
+ * toolbar's Draw Lines button armed a tool the canvas never recognised and the
+ * status bar's Current Tool field went blank. Keeping the ids in one table next
+ * to the toolbar that emits them is what makes that a test rather than a click.
+ */
+export const SYM_SHAPE_TOOLS = {
+  drawRectangle: 'rectangle',
+  drawCircle: 'circle',
+  drawArc: 'arc',
+  drawSymbolLines: 'lines',
+  drawPolygon: 'polygon',
+} as const;
+
+/** The `LibGraphic` kinds `SYM_SHAPE_TOOLS` can produce. */
+export type SymShapeKind = (typeof SYM_SHAPE_TOOLS)[keyof typeof SYM_SHAPE_TOOLS];
+
+/**
+ * Field 6 of the status bar, the "Current Tool" pane: `TOOLS_HOLDER::SetTool`
+ * hands `TOOL_ACTION::GetFriendlyName()` to `EDA_DRAW_FRAME::DisplayToolMsg`
+ * (`common/tool/tools_holder.cpp:72`). These are SCH_ACTIONS' names verbatim
+ * (`eeschema/tools/sch_actions.cpp:376-426`, `:685-704`; the selection and
+ * delete tools are ACTIONS' own, `common/tool/actions.cpp:416`, `:1230`).
+ *
+ * Keyed by the SAME id the toolbar dispatches, which is the property
+ * `symbol_tool_ids.test.ts` pins — a name here that no button emits is a status
+ * field that never fills in.
+ */
+export const SYM_TOOL_MSGS: Record<string, string> = {
+  select: 'Select item(s)',
+  placePin: 'Draw Pins',
+  placeText: 'Draw Text',
+  drawRectangle: 'Draw Rectangles',
+  drawCircle: 'Draw Circles',
+  drawArc: 'Draw Arcs',
+  drawSymbolLines: 'Draw Lines',
+  drawPolygon: 'Draw Polygons',
+  placeAnchor: 'Move Symbol Anchor',
+  deleteTool: 'Interactive Delete Tool',
+};
+
 /** Top horizontal toolbar (ReCreateHToolbar). */
 export const SYM_TOP_TOOLBAR: ToolEntry[] = [
   { id: 'newSymbol', icon: 'newSymbol', title: 'New symbol' },

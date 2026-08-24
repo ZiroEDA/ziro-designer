@@ -38,6 +38,7 @@ import {
 import {
   LISTBOX_WIDTH,
   SYM_CONTROL,
+  SYM_TOOL_MSGS,
   SYM_TOP_TOOLBAR,
   SYM_LEFT_TOOLBAR,
   SYM_RIGHT_TOOLBAR,
@@ -148,26 +149,6 @@ const DEFAULT_LAST_PIN: LastPinState = {
   commonUnit: false,
   commonBody: false,
   visible: true,
-};
-
-/**
- * Field 6, the "Current Tool" pane: TOOLS_HOLDER::SetTool hands
- * `TOOL_ACTION::GetFriendlyName()` to `EDA_DRAW_FRAME::DisplayToolMsg`
- * (common/tool/tools_holder.cpp:72). These are SCH_ACTIONS' names verbatim
- * (eeschema/tools/sch_actions.cpp:376-426, :685-704; the selection and delete
- * tools are ACTIONS' own, common/tool/actions.cpp:416/:1230).
- */
-const SYM_TOOL_MSGS: Record<string, string> = {
-  select: 'Select item(s)',
-  placePin: 'Draw Pins',
-  placeText: 'Draw Text',
-  drawRectangle: 'Draw Rectangles',
-  drawCircle: 'Draw Circles',
-  drawArc: 'Draw Arcs',
-  drawLines: 'Draw Lines',
-  drawPolygon: 'Draw Polygons',
-  placeAnchor: 'Move Symbol Anchor',
-  deleteTool: 'Interactive Delete Tool',
 };
 
 const basename = (p: string): string => p.split('/').pop()!.split('\\').pop()!;
