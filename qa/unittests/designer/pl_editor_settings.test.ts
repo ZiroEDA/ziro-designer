@@ -243,6 +243,24 @@ describe('the preview page half of Load/SaveSettings', () => {
     expect(p.customHeightMM).toBeCloseTo(279.4, 9);
   });
 
+  it('restores a page that is NOT the default', () => {
+    // The test above cannot fail on its own: `previewSettingsFromConfig`
+    // starts from `defaultPreviewSettings()`, whose paper is already A3
+    // landscape, so deleting the two lines that read the stored page leaves it
+    // green. The mutation sweep found exactly that. A stored page has to be a
+    // page the defaults do not already supply.
+    const s = cfg();
+    s.last_paper_size = 'A4';
+    s.last_was_portrait = true;
+    s.last_custom_width = 8000;
+    s.last_custom_height = 6000;
+    const p = previewSettingsFromConfig(s);
+    expect(p.paper).toBe('A4');
+    expect(p.portrait).toBe(true);
+    expect(p.customWidthMM).toBeCloseTo(203.2, 9); // 8000 mils
+    expect(p.customHeightMM).toBeCloseTo(152.4, 9); // 6000 mils
+  });
+
   it('leaves the title block blank — nothing persists it', () => {
     const s = cfg();
     const p = previewSettingsFromConfig(s);
