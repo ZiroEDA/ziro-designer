@@ -101,6 +101,18 @@ const USER_DIR_NAMES = [...USER_DIR_BY_NAME.keys()];
 const PLACEHOLDER = { id: '', name: '', createdAt: 0, updatedAt: 0, fileCount: 0, bytes: 0 };
 
 /**
+ * A user-data folder's record, made if this is the first thing to ask for it.
+ *
+ * The three callers below — resolving a path, listing the root, stat-ing the
+ * folder itself — can each be the first, and whichever one runs first is the
+ * one that creates the record. So the seed cannot live at a call site: passing
+ * it at two of the three would mean the sheets came across only when the person
+ * happened to open Templates before the file manager listed the root.
+ */
+const userDir = (kind: AssetKind, name: string): Promise<ProjectMeta> =>
+  ensureUserDir(kind, name, kind === 'templates' ? seedTemplates : undefined);
+
+/**
  * What the Templates folder starts with the first time it is opened.
  *
  * Drawing sheets saved while the templates root was a store of its own — see
@@ -151,9 +163,7 @@ export function projectStoreFileSystem(): FileSystem {
     // `updateProjectFiles` is a no-op on a missing record, so a save into a
     // folder that does not exist yet would report success and store nothing.
     const kind = USER_DIR_BY_NAME.get(projectName);
-    const meta = kind
-      ? await ensureUserDir(kind, projectName, kind === 'templates' ? seedTemplates : undefined)
-      : (await byDisplayName()).get(projectName);
+    const meta = kind ? await userDir(kind, projectName) : (await byDisplayName()).get(projectName);
     if (!meta) throw new FsError(FsErrorCode.NOT_FOUND, path);
     return { meta, rel: parts.slice(1).join('/'), base: join(ROOT, projectName) };
   };
@@ -199,12 +209,7 @@ export function projectStoreFileSystem(): FileSystem {
         // be able to accept `Templates` as a board, and a single click plus
         // Open has to walk into it the way any folder does.
         for (const name of USER_DIR_NAMES) {
-          const kind = USER_DIR_BY_NAME.get(name)!;
-          const meta = await ensureUserDir(
-            kind,
-            name,
-            kind === 'templates' ? seedTemplates : undefined,
-          );
+          const meta = await userDir(USER_DIR_BY_NAME.get(name)!, name);
           out.push({
             name,
             path: join(ROOT, name),
@@ -229,11 +234,7 @@ export function projectStoreFileSystem(): FileSystem {
       // folder has no sibling entry to be found among. It still exists.
       const asUserDir = parts.length === 1 ? USER_DIR_BY_NAME.get(parts[0]!) : undefined;
       if (asUserDir) {
-        const meta = await ensureUserDir(
-          asUserDir,
-          parts[0]!,
-          asUserDir === 'templates' ? seedTemplates : undefined,
-        );
+        const meta = await userDir(asUserDir, parts[0]!);
         return { name: parts[0]!, path: p, kind: 'folder', size: null, modified: meta.updatedAt };
       }
       const parent = dirname(p);

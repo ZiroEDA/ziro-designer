@@ -22,6 +22,7 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { extendSelection, selectionToAccept } from '@ziroeda/designer/src/fs/chooser_selection.js';
+import { leafOf, savePathWithExtension } from '@ziroeda/designer/src/fs/save_path.js';
 import {
   DRAWING_SHEET_FILE_EXTENSION,
   KICAD_SCHEMATIC_FILE_EXTENSION,
@@ -468,6 +469,30 @@ describe('the extension is fixed on accept, not locked in the entry', () => {
     expect(ensureFileExtension('foo.', KICAD_SCHEMATIC_FILE_EXTENSION)).toBe('foo.kicad_sch');
   });
 
+  it('keeps the directory the person picked, and only fixes the NAME', () => {
+    // The bug this replaced: the editor reduced the chooser's path to its leaf
+    // and saved that, so a sheet put in Templates went into the open project —
+    // or downloaded, with no project open. Upstream never reduces it:
+    // `filename = openFileDialog.GetPath()`, the extension is appended to THAT,
+    // and `SaveDrawingSheetFile( filename )` takes the whole thing
+    // (pagelayout_editor/files.cpp:213-222).
+    expect(savePathWithExtension('/Templates/frame', DRAWING_SHEET_FILE_EXTENSION)).toBe(
+      '/Templates/frame.kicad_wks',
+    );
+    expect(savePathWithExtension('/MyBoard/sheets/a4', DRAWING_SHEET_FILE_EXTENSION)).toBe(
+      '/MyBoard/sheets/a4.kicad_wks',
+    );
+    // A dot in a DIRECTORY is not an extension — this is why the leaf is taken
+    // before `ensureFileExtension` sees it, rather than the whole path.
+    expect(savePathWithExtension('/Footprints/lib.pretty/pad', 'kicad_mod')).toBe(
+      '/Footprints/lib.pretty/pad.kicad_mod',
+    );
+    // A bare name has no directory to keep, which is what the standalone
+    // editor's download path still hands over.
+    expect(savePathWithExtension('frame', DRAWING_SHEET_FILE_EXTENSION)).toBe('frame.kicad_wks');
+    expect(leafOf('/Templates/frame.kicad_wks')).toBe('frame.kicad_wks');
+  });
+
   it('is the ONE function, not a regex per editor', () => {
     // The drawing sheet had `/\.kicad_wks$/i.test(leaf) ? leaf : leaf + '.kicad_wks'`
     // — the shared function written out again, and not the same function: a
@@ -481,11 +506,15 @@ describe('the extension is fixed on accept, not locked in the entry', () => {
     // the user typed", and a pattern cannot tell them apart. What can be
     // asserted precisely is that the one call site that does that job calls the
     // shared function, and that the function behaves as upstream's does.
-    // Whitespace-insensitive: the call wraps across three lines once the
-    // directory is put back in front of it, and a test that a formatter can
-    // break was pinning the line breaks rather than the call.
-    expect(src('editors/drawingsheet/DrawingSheetEditor.tsx').replace(/\s+/g, ' ')).toContain(
-      'ensureFileExtension( leaf, DRAWING_SHEET_FILE_EXTENSION, )',
+    // The call site is RUN now, not read. It moved into `fs/save_path.ts` for
+    // exactly that reason: the rule is "apply the extension to the NAME and
+    // keep the directory", and a `toContain` on the .tsx passed with the
+    // directory deleted from it — a sweep proved that.
+    expect(savePathWithExtension('/Templates/frame', DRAWING_SHEET_FILE_EXTENSION)).toBe(
+      '/Templates/frame.kicad_wks',
+    );
+    expect(src('editors/drawingsheet/DrawingSheetEditor.tsx')).toContain(
+      'savePathWithExtension(path, DRAWING_SHEET_FILE_EXTENSION)',
     );
   });
 });

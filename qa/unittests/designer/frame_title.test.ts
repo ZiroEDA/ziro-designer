@@ -109,8 +109,32 @@ describe('frameTitleName, wxFileName::GetName', () => {
     expect(frameTitleName('board.kicad_pcb', '[none]')).toBe('board');
   });
 
+  it('drops the directory too, because the frames hold a full path', () => {
+    // `wxFileName( GetCurrentFileName() )` then `.GetName()` — and
+    // `GetCurrentFileName()` is whatever the Save As dialog returned, a full
+    // path (`SetCurrentFileName( filename )`,
+    // pagelayout_editor/files.cpp:232). This dropped only the extension, which
+    // was invisible while every editor held a bare leaf; a sheet saved into
+    // Templates would have titled the window `/Templates/frame`.
+    expect(frameTitleName('/Templates/frame.kicad_wks', '[none]')).toBe('frame');
+    expect(frameTitleName('/MyBoard/sheets/a4.kicad_wks', '[none]')).toBe('a4');
+    // A Windows path is `GetName()`'s job as much as a POSIX one.
+    expect(frameTitleName('C:\\Users\\me\\board.kicad_pcb', '[none]')).toBe('board');
+  });
+
+  it('leaves a dot in a DIRECTORY alone', () => {
+    // The extension is the leaf's, so a versioned folder is not one.
+    expect(frameTitleName('/Footprints/lib.pretty/pad.kicad_mod', '[none]')).toBe('pad');
+  });
+
+  it('keeps a leading dot, which is not an extension', () => {
+    expect(frameTitleName('.hidden', '[none]')).toBe('.hidden');
+  });
+
   it('falls back to the placeholder when there is no name', () => {
     expect(frameTitleName('', '[no schematic loaded]')).toBe('[no schematic loaded]');
+    // A path that is nothing but separators has no name half at all.
+    expect(frameTitleName('/', '[none]')).toBe('[none]');
   });
 });
 

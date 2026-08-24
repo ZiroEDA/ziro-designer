@@ -74,6 +74,7 @@ import { PropertiesFrame, SyntaxHelpDialog } from './PropertiesFrame.js';
 import { DockSash } from '../../ui/DockSash.js';
 import { dockedPaneWidth } from '../../ui/dock_sash.js';
 import { SaveAsDialog } from '../../fs/SaveAsDialog.js';
+import { leafOf, savePathWithExtension } from '../../fs/save_path.js';
 import { OpenFileDialog } from '../../fs/OpenFileDialog.js';
 import { drawingSheetWildcard } from '../../fs/wildcards.js';
 import { DesignInspector } from './DesignInspector.js';
@@ -108,7 +109,7 @@ import { dispatchMenuHotkey, focusBlocksHotkey } from '../../ui/menu_hotkeys.js'
 import { wasBrowserSuppressed, type FocusLike } from '../../ui/browser_hotkeys.js';
 import { settings } from '../../prefs/settings.js';
 import { useCommonSettings } from '../../prefs/useSettings.js';
-import { DRAWING_SHEET_FILE_EXTENSION, ensureFileExtension } from '@ziroeda/common/src/common.js';
+import { DRAWING_SHEET_FILE_EXTENSION } from '@ziroeda/common/src/common.js';
 
 export interface DrawingSheetEditorFile {
   name: string;
@@ -197,9 +198,6 @@ const recentFiles = new FileHistory<RecentFile>({
   storageKey: 'ziroeda.drawingsheet.recent',
   maxFiles: settings.common.system.file_history_size,
 });
-
-/** `wxFileName::GetFullName()` — the name with its extension, no directory. */
-const leafOf = (path: string): string => path.split('/').filter(Boolean).pop() ?? '';
 
 const download = (fileName: string, text: string): void => {
   const url = URL.createObjectURL(new Blob([text], { type: 'application/octet-stream' }));
@@ -673,7 +671,7 @@ export function DrawingSheetEditor({
       // `SetCurrentFileName( filename )` stores it
       // (pagelayout_editor/files.cpp:213-233). Only the title strips it down,
       // through `wxFileName::GetName()`.
-      const leaf = leafOf(path);
+
       // `EnsureFileExtension` (common/common.cpp:662-678), which pl_editor's
       // own Save As runs on the returned path (files.cpp:213-215). The field is
       // NOT locked and upstream does not nag - "Just fix it, but be careful not
@@ -685,10 +683,7 @@ export function DrawingSheetEditor({
       // written out again per editor - and not the same function: a name ending
       // in a bare dot came out `foo..kicad_wks`, where upstream gives
       // `foo.kicad_wks`.
-      const finalPath = `${path.slice(0, path.length - leaf.length)}${ensureFileExtension(
-        leaf,
-        DRAWING_SHEET_FILE_EXTENSION,
-      )}`;
+      const finalPath = savePathWithExtension(path, DRAWING_SHEET_FILE_EXTENSION);
       setFileName(finalPath);
 
       // `SaveDrawingSheetFile( filename )` — one path, the one the dialog gave
