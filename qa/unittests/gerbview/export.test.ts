@@ -803,3 +803,86 @@ describe('the copper stack is sized by the number of copper gerbers', () => {
     expect(ids).toEqual([0, 4, 6, 2]);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Two more the sweep found unpinned
+
+describe('the arc midpoint rule', () => {
+  it('walks counter-clockwise from start to end, wrapping b past a', () => {
+    // `if( a > b ) b += 2 * M_PI;` then
+    // `GetRotated( seg_start, arc_center, -EDA_ANGLE( (b-a)/2 ) )` puts the mid
+    // at the mean angle (a+b)/2. Start at 90 degrees and end at 0 makes a > b,
+    // so b becomes 360 and the mean is 225 — the LONG way round. Without the
+    // wrap the mean would be 45, the other side of the circle entirely.
+    //
+    // 2 mm radius at 225 degrees is (2·cos225, 2·sin225) = (-1.414214,
+    // -1.414214) in Gerber coordinates, and Y negates on the way out.
+    const g = [
+      '%FSLAX46Y46*%',
+      '%MOMM*%',
+      '%TF.FileFunction,Legend,Top*%',
+      '%ADD10C,0.2*%',
+      'D10*',
+      'G75*',
+      'G01*',
+      'X0Y2000000D02*',
+      'G02*',
+      'X2000000Y0I0J-2000000D01*',
+      'M02*',
+    ].join('\n');
+    const text = exportText([{ image: parseGerber(g, 'a.gbr'), name: 'a' }]);
+
+    expect(text).toContain('(mid -1.414214 1.414214)');
+    expect(text).not.toContain('(mid 1.414214 -1.414214)');
+  });
+
+  it('ignores the arc direction flag, as upstream does', () => {
+    // The same arc as G03. `export_non_copper_arc` reads only m_Start, m_End
+    // and m_ArcCentre, so both directions produce the same mid point.
+    const gerber = (dir: string) =>
+      [
+        '%FSLAX46Y46*%',
+        '%MOMM*%',
+        '%TF.FileFunction,Legend,Top*%',
+        '%ADD10C,0.2*%',
+        'D10*',
+        'G75*',
+        'G01*',
+        'X0Y2000000D02*',
+        dir,
+        'X2000000Y0I0J-2000000D01*',
+        'M02*',
+      ].join('\n');
+    const cw = exportText([{ image: parseGerber(gerber('G02*'), 'a.gbr'), name: 'a' }]);
+    const ccw = exportText([{ image: parseGerber(gerber('G03*'), 'a.gbr'), name: 'a' }]);
+
+    expect(cw).toContain('(mid -1.414214 1.414214)');
+    expect(ccw).toContain('(mid -1.414214 1.414214)');
+  });
+});
+
+describe('ConvertSegmentToPolygon mirrors when the run goes downwards', () => {
+  it('flips the hull top-to-bottom for a negative delta.y', () => {
+    // `bool change = delta.y < 0; … if( change ) Mirror( {0,0}, TOP_BOTTOM );`
+    // A 1 x 2 mm rectangular aperture swept (0,0) -> (4, -3) mm. Corners 1-6
+    // transcribed from gerber_draw_item.cpp:392-452 with the mirror applied,
+    // then Y negated for the board frame. Without the mirror every Y flips
+    // sign, so no corner below survives.
+    const g = [
+      '%FSLAX46Y46*%',
+      '%MOMM*%',
+      '%TF.FileFunction,Legend,Top*%',
+      '%ADD10R,1X2*%',
+      'D10*',
+      'G01*',
+      'X0Y0D02*',
+      'X4000000Y-3000000D01*',
+      'M02*',
+    ].join('\n');
+    const text = exportText([{ image: parseGerber(g, 'a.gbr'), name: 'a' }]);
+
+    expect(text).toContain(
+      ' (xy -0.5 -1) (xy -0.5 1) (xy 3.5 4)\n\t\t\t (xy 4.5 4) (xy 4.5 2) (xy 0.5 -1))',
+    );
+  });
+});
