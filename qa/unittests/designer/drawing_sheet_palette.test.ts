@@ -40,6 +40,9 @@ import {
   FRAME_TITLE_SEPARATOR,
   frameTitleName,
 } from '@ziroeda/designer/src/ui/useDocumentTitle.js';
+import { PL_EDITOR_DEFAULTS } from '@ziroeda/designer/src/prefs/settings.js';
+import { togglesFromSettings } from '@ziroeda/designer/src/editors/drawingsheet/toggles.js';
+import { DEFAULT_GRID_INDEX } from '@ziroeda/designer/src/ui/grid_settings.js';
 
 const read = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
@@ -242,12 +245,16 @@ describe('C9: the frame opens in mils, and the grid does not follow the unit', (
   it('defaults the unit toggle group to mils', () => {
     // app_settings.cpp:227-232 - pl_editor, eeschema and symbol_editor default
     // system.units to EDA_UNITS::MILS; every other app defaults to MM.
-    const at = EDITOR.indexOf('const DEFAULT_TOGGLES');
-    expect(at).toBeGreaterThanOrEqual(0);
-    const line = EDITOR.slice(at, EDITOR.indexOf('\n', at));
-    expect(line).toContain("'unitsMils'");
-    expect(line).not.toContain("'unitsMm'");
-    expect(line).not.toContain("'unitsInches'");
+    //
+    // The launch set used to be a literal in the editor and is now the settings
+    // file replayed onto the toolbar, so this asks the replay rather than
+    // reading a line of source.
+    const boot = togglesFromSettings(structuredClone(PL_EDITOR_DEFAULTS));
+    expect(boot.has('unitsMils')).toBe(true);
+    expect(boot.has('unitsMm')).toBe(false);
+    expect(boot.has('unitsInches')).toBe(false);
+    // And the frame has to actually seed itself that way.
+    expect(EDITOR).toContain('togglesFromSettings(settings.plEditor)');
   });
 
   it('opens in EDIT mode, so the title block shows its ${...} tokens', () => {
@@ -265,12 +272,14 @@ describe('C9: the frame opens in mils, and the grid does not follow the unit', (
      * Booting `layoutNormalMode` instead showed substituted PREVIEW text
      * (`Title:`, `Size: A4`, `Id: 1/1`), i.e. a drawing-sheet EDITOR rendering
      * the sheet rather than offering the tokens to edit.
+     *
+     * It is not a setting, either: no parameter binds `m_EditMode` and the
+     * constructor forces it true on every construction, so the replay puts it
+     * on regardless of what is stored.
      */
-    const at = EDITOR.indexOf('const DEFAULT_TOGGLES');
-    expect(at).toBeGreaterThanOrEqual(0);
-    const line = EDITOR.slice(at, EDITOR.indexOf('\n', at));
-    expect(line).toContain("'layoutEditMode'");
-    expect(line).not.toContain("'layoutNormalMode'");
+    const boot = togglesFromSettings(structuredClone(PL_EDITOR_DEFAULTS));
+    expect(boot.has('layoutEditMode')).toBe(true);
+    expect(boot.has('layoutNormalMode')).toBe(false);
   });
 
   it('feeds that mode straight to the renderer as rawText', () => {
@@ -290,7 +299,12 @@ describe('C9: the frame opens in mils, and the grid does not follow the unit', (
     // context menu its Grid submenu, which needs the grid to be settable. It is
     // now an index into the same shared table, starting at the same entry —
     // what this pins is that it is the TABLE's default and not the unit's.
-    expect(EDITOR).toContain('useState(DEFAULT_GRID_INDEX.pl_editor)');
+    //
+    // It is now a persisted setting as well, so the default moved into
+    // `PL_EDITOR_DEFAULTS` — where it is still the shared table's entry and not
+    // a second copy of the number.
+    expect(PL_EDITOR_DEFAULTS.window.grid.last_size_idx).toBe(DEFAULT_GRID_INDEX.pl_editor);
+    expect(EDITOR).toContain('useState(settings.plEditor.window.grid.last_size_idx)');
     expect(EDITOR).toContain('GRID_SIZE_LIST.pl_editor[gridIndex]');
     expect(EDITOR).not.toMatch(/gridIU\s*=\s*unit ===/);
   });

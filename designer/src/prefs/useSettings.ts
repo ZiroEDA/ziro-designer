@@ -24,6 +24,12 @@ export function useEeschemaSettings(): typeof settings.eeschema {
   return settings.eeschema;
 }
 
+/** `pl_editor.json`, so the Drawing Sheet Editor re-renders when it changes. */
+export function usePlEditorSettings(): typeof settings.plEditor {
+  useSettingsVersion();
+  return settings.plEditor;
+}
+
 /** The user's hotkey overrides, so menus relabel the moment one is rebound. */
 export function useHotkeyOverrides(): typeof settings.hotkeys {
   useSettingsVersion();

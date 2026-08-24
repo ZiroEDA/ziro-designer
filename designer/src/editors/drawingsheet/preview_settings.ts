@@ -15,6 +15,7 @@
  * all.
  */
 import { PAPER_MM } from '@ziroeda/common';
+import type { PlEditorSettings } from '../../prefs/settings.js';
 
 /** The preview page + title block data the resolver consumes. */
 export interface PreviewSettings {
@@ -64,6 +65,63 @@ export function defaultPreviewSettings(): PreviewSettings {
     company: '',
     comments: ['', '', '', '', '', '', '', '', ''],
   };
+}
+
+/** One mil in millimetres — the exact inch, not a rounded conversion. */
+const MM_PER_MIL = 0.0254;
+
+/**
+ * `clampWidth` / `clampHeight` (common/page_info.cpp:180-195): a custom page
+ * edge is floored at 10 mils on the way *in*, wherever it came from.
+ */
+function clampMils(mils: number): number {
+  return mils < 10 ? 10 : mils;
+}
+
+/**
+ * The page half of `PL_EDITOR_FRAME::LoadSettings` (pl_editor_frame.cpp:543-548).
+ *
+ *     PAGE_INFO::SetCustomWidthMils( cfg->m_LastCustomWidth );
+ *     PAGE_INFO::SetCustomHeightMils( cfg->m_LastCustomHeight );
+ *     PAGE_INFO pageInfo = GetPageSettings();
+ *     pageInfo.SetType( cfg->m_LastPaperSize, cfg->m_LastWasPortrait );
+ *     SetPageSettings( pageInfo );
+ *
+ * Only the page is restored; the title block, date, revision and the nine
+ * comments are not persisted by any parameter and open blank every time
+ * (`m_pageLayout.GetTitleBlock()` is default-constructed and nothing seeds it,
+ * pl_editor_frame.cpp:625-634).
+ */
+export function previewSettingsFromConfig(cfg: PlEditorSettings): PreviewSettings {
+  return {
+    ...defaultPreviewSettings(),
+    paper: cfg.last_paper_size,
+    portrait: cfg.last_was_portrait,
+    customWidthMM: clampMils(cfg.last_custom_width) * MM_PER_MIL,
+    customHeightMM: clampMils(cfg.last_custom_height) * MM_PER_MIL,
+  };
+}
+
+/**
+ * The page half of `PL_EDITOR_FRAME::SaveSettings` (pl_editor_frame.cpp:563-566).
+ *
+ *     cfg->m_LastPaperSize   = GetPageSettings().GetTypeAsString();
+ *     cfg->m_LastWasPortrait = GetPageSettings().IsPortrait();
+ *     cfg->m_LastCustomWidth  = PAGE_INFO::GetCustomWidthMils();
+ *     cfg->m_LastCustomHeight = PAGE_INFO::GetCustomHeightMils();
+ *
+ * The two custom edges are **doubles** on `PAGE_INFO` (page_info.cpp:70-71,
+ * include/page_info.h:197-202) and **ints** in the settings object
+ * (pl_editor_settings.h:45-46), so the assignment truncates toward zero. That
+ * loss is upstream's and is reproduced rather than corrected: a settings file
+ * holding more precision than KiCad's would come back as a page KiCad cannot
+ * produce. See the same rule for wx field text elsewhere in this tree.
+ */
+export function writePageToConfig(cfg: PlEditorSettings, s: PreviewSettings): void {
+  cfg.last_paper_size = s.paper;
+  cfg.last_was_portrait = s.portrait;
+  cfg.last_custom_width = Math.trunc(s.customWidthMM / MM_PER_MIL);
+  cfg.last_custom_height = Math.trunc(s.customHeightMM / MM_PER_MIL);
 }
 
 /** Resolved page size in mm for the current settings (orientation applied). */

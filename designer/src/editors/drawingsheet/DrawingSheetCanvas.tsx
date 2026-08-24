@@ -94,6 +94,16 @@ export interface DrawingSheetCanvasProps {
   originIU?: Vec2;
   /** Draw a full-window crosshair at the cursor. */
   fullCrosshair?: boolean;
+  /**
+   * `window.cursor.always_show_cursor` (app_settings.cpp:564-565).
+   *
+   * With the selection tool active the crosshair is there ONLY because this is
+   * on — a tool that wants a cursor asks for one itself. It was a `true`
+   * literal in the draw call with a comment naming this setting, which is the
+   * drift CLAUDE.md's central-value rule is about: the value KiCad reads out of
+   * its settings object has to come out of ours.
+   */
+  alwaysShowCursor?: boolean;
   /** Dark canvas background (display option `black_background`). */
   blackBackground?: boolean;
   /** Endpoint/corner handles of the point editor (page IU), or empty. */
@@ -158,6 +168,7 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
       gridIU,
       originIU,
       fullCrosshair,
+      alwaysShowCursor = true,
       blackBackground,
       editPoints,
       moveMode,
@@ -445,7 +456,7 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
         mode: fullCrosshair ? 'full' : 'small',
         color: darkBg ? DS_CURSOR_COLOR_ON_DARK : DS_CURSOR_COLOR_ON_LIGHT,
         toolWantsCursor: activeTool !== 'select',
-        alwaysShow: true,
+        alwaysShow: alwaysShowCursor,
         devicePixelRatio: dpr,
       });
 
@@ -464,6 +475,7 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
       dpr,
       activeTool,
       fullCrosshair,
+      alwaysShowCursor,
       blackBackground,
       onScaleChange,
     ]);

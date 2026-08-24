@@ -84,11 +84,11 @@ import { handleUnsavedChanges, type UnsavedChangesResult } from '../../ui/confir
 import { dsInspectorTitle } from './design_inspector.js';
 import {
   PageSettingsDialog,
-  defaultPreviewSettings,
   previewPageMM,
   paperDescription,
   type PreviewSettings,
 } from './PageSettingsDialog.js';
+import { previewSettingsFromConfig, writePageToConfig } from './preview_settings.js';
 import { imageFileToPng, decodeImageMeta } from '@ziroeda/common';
 import { drawDrawingSheetItems, DS_PRINT_PAPER_COLOR } from '@ziroeda/common';
 import '../../ui/shell.css';
@@ -107,8 +107,15 @@ import { addClose, addQuit } from '../../ui/action_menu.js';
 import { browserSafeKey } from '../../ui/browser_reserved.js';
 import { dispatchMenuHotkey, focusBlocksHotkey } from '../../ui/menu_hotkeys.js';
 import { wasBrowserSuppressed, type FocusLike } from '../../ui/browser_hotkeys.js';
-import { settings } from '../../prefs/settings.js';
-import { useCommonSettings } from '../../prefs/useSettings.js';
+import { PL_EDITOR_DEFAULTS, settings } from '../../prefs/settings.js';
+import { useCommonSettings, usePlEditorSettings } from '../../prefs/useSettings.js';
+import {
+  applyToggle,
+  persistToggle,
+  switchUnits,
+  toggleUnitsId,
+  togglesFromSettings,
+} from './toggles.js';
 import { DRAWING_SHEET_FILE_EXTENSION } from '@ziroeda/common/src/common.js';
 
 export interface DrawingSheetEditorFile {
@@ -142,37 +149,23 @@ export interface DrawingSheetEditorFile {
  * before the pane is ever built (`:538`), so 200 is only what the member holds
  * for the few lines before the config is read. Exactly the shape of the units
  * default, which was nearly "fixed" the same wrong way.
+ *
+ * The number itself is no longer written here: it is that parameter's default,
+ * and it lives with the rest of `pl_editor.json` in `prefs/settings.ts`. What
+ * this name still means is "the width a pane with no stored setting opens at",
+ * which is the floor `dockedPaneWidth` measures the panel's content against.
  */
-const PROPERTIES_FRAME_WIDTH = 150;
+const PROPERTIES_FRAME_WIDTH = PL_EDITOR_DEFAULTS.properties_frame_width;
 
 /** The centre pane's floor — how much canvas the sash has to leave behind. */
 const CANVAS_MIN_WIDTH = 200;
 
-const UNIT_GROUP = ['unitsMm', 'unitsInches', 'unitsMils'];
 /*
- * APP_SETTINGS_BASE (common/settings/app_settings.cpp:227-237) gives
- * "system.units" a per-app default, and pl_editor is one of the three apps on
- * the imperial side of that branch:
- *
- *   if( m_filename == "pl_editor" || m_filename == "eeschema"
- *       || m_filename == "symbol_editor" )  -> EDA_UNITS::MILS
- *   else                                    -> EDA_UNITS::MM
- *
- * So the Drawing Sheet Editor opens in mils, not mm.
+ * The unit group, the launch defaults and the reducer that used to sit here now
+ * live in `./toggles.ts`, alongside the mapping between a button and the
+ * `pl_editor.json` field behind it. They moved for the reason GerbView's did:
+ * `qa` has no DOM, so a rule inside a `.tsx` cannot be exercised at all.
  */
-/*
- * `layoutEditMode`, not `layoutNormalMode`. PL_EDITOR_FRAME's constructor sets
- *
- *     DS_DATA_MODEL::GetTheInstance().m_EditMode = true;   // pl_editor_frame.cpp:105
- *
- * so the SECOND of the display-mode pair is the checked button on launch, and
- * `ds_data_item.cpp:543-545` then does `m_FullText = m_TextBase` — no
- * substitution at all. That is why a real pl_editor opens showing `${TITLE}`,
- * `${COMPANY}` and `Id: ${#}/${##}`: the raw tokens are what you came here to
- * edit. Booting `layoutNormalMode` showed substituted preview text instead
- * (`Title:`, `Size: A4`, `Id: 1/1`), which reads as though no sheet had loaded.
- */
-const DEFAULT_TOGGLES = new Set(['toggleGrid', 'unitsMils', 'layoutEditMode']);
 
 /** The 5 status-bar coordinate origins (PL_EDITOR_FRAME::m_originChoiceList). */
 const ORIGIN_CHOICES = [
@@ -289,7 +282,12 @@ export function DrawingSheetEditor({
     setSelectionRaw(next);
   }, []);
   const [activeTool, setActiveTool] = useState('select');
-  const [toggles, setToggles] = useState<Set<string>>(new Set(DEFAULT_TOGGLES));
+  /**
+   * `setupUnits( config() )` (pl_editor_frame.cpp:216) and the grid/cursor half
+   * of `LoadSettings`: the buttons a frame opens with are read off
+   * `pl_editor.json`, not hardcoded.
+   */
+  const [toggles, setToggles] = useState<Set<string>>(() => togglesFromSettings(settings.plEditor));
   /**
    * The preview title block starts EMPTY, including the title.
    *
@@ -300,9 +298,17 @@ export function DrawingSheetEditor({
    * therefore opens Preview Settings with every field blank; ours put the
    * project name in Title, which is not a value upstream has anywhere.
    */
-  const [preview, setPreview] = useState<PreviewSettings>(() => defaultPreviewSettings());
+  const [preview, setPreview] = useState<PreviewSettings>(() =>
+    previewSettingsFromConfig(settings.plEditor),
+  );
+  /**
+   * `m_pageSelectBox` (pl_editor_frame.h:273). Session state: `OnSelectPage`
+   * (pl_editor_frame.cpp:461-467) writes it nowhere, and no parameter binds
+   * it, so a restart always comes back on Page 1.
+   */
   const [pageNumber, setPageNumber] = useState(1); // 1 = "Page 1", 2 = "Other pages"
-  const [originChoice, setOriginChoice] = useState(0);
+  /** `corner_origin` -> `m_originSelectChoice` (pl_editor_frame.cpp:539, :561). */
+  const [originChoice, setOriginChoice] = useState(settings.plEditor.corner_origin);
   /**
    * The Properties pane's width, and the two bounds the sash respects.
    *
@@ -312,8 +318,12 @@ export function DrawingSheetEditor({
    * (`pl_editor_frame.cpp:203`) is the panel's own content minimum, so it is
    * measured off the live panel rather than picked — the same way GerbView's
    * layers pane does it.
+   *
+   * The width itself is `properties_frame_width`, captured off the live pane in
+   * `SaveSettings` (pl_editor_frame.cpp:558-560) and fed back as the pane's
+   * `BestSize` in the constructor (:204).
    */
-  const [propsWidth, setPropsWidth] = useState(PROPERTIES_FRAME_WIDTH);
+  const [propsWidth, setPropsWidth] = useState(settings.plEditor.properties_frame_width);
   const [propsMin, setPropsMin] = useState(PROPERTIES_FRAME_WIDTH);
   const bodyRef = useRef<HTMLDivElement>(null);
   /** The message panel, which is what a status row is measured against. */
@@ -355,19 +365,41 @@ export function DrawingSheetEditor({
    * (app_settings.cpp:468-481, ui/grid_settings.ts). A WINDOW setting, not a
    * unit-derived one — see the gridLabel comment below — and now settable, from
    * the canvas context menu's Grid submenu.
+   *
+   * `SaveSettings` never writes it: `COMMON_TOOLS::GridPreset` takes an `int&`
+   * straight into the settings object (common_tools.cpp:536) and mutates it in
+   * place, which is what carries the choice across a restart.
    */
-  const [gridIndex, setGridIndex] = useState(DEFAULT_GRID_INDEX.pl_editor);
+  const [gridIndex, setGridIndexRaw] = useState(settings.plEditor.window.grid.last_size_idx);
+  const setGridIndex = useCallback((idx: number) => {
+    setGridIndexRaw(idx);
+    settings.updatePlEditor((s) => {
+      s.window.grid.last_size_idx = idx;
+    });
+  }, []);
   /** Where the canvas context menu was opened, or null when it is closed. */
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number } | null>(null);
   /** DisplayErrorMessage's text when Print cannot open its preview window. */
   const [printError, setPrintError] = useState<string | null>(null);
-  const [blackBackground, setBlackBackground] = useState(false);
+  /**
+   * `black_background` -> `SetDrawBgColor( cfg->m_BlackBackground ? BLACK : WHITE )`
+   * (pl_editor_frame.cpp:541), written back at :562.
+   */
+  const [blackBackground, setBlackBackgroundRaw] = useState(settings.plEditor.black_background);
+  const setBlackBackground = useCallback((on: boolean) => {
+    setBlackBackgroundRaw(on);
+    settings.updatePlEditor((s) => {
+      s.black_background = on;
+    });
+  }, []);
   const [showInspector, setShowInspector] = useState(false);
   const [showPageDialog, setShowPageDialog] = useState(false);
   const [showSyntaxHelp, setShowSyntaxHelp] = useState(false);
   const [showPrefs, setShowPrefs] = useState(false);
   const recent = useFileHistory(recentFiles);
   const common = useCommonSettings();
+  /** The live `pl_editor.json`, for the values the canvas reads every frame. */
+  const plCfg = usePlEditorSettings();
 
   const controller = useRef<DrawingSheetCanvasController>(null);
   const bitmapInputRef = useRef<HTMLInputElement>(null);
@@ -1206,28 +1238,21 @@ export function DrawingSheetEditor({
   }, []);
 
   // ---- toolbars ----
-  /**
-   * `COMMON_TOOLS::m_imperialUnit` — the imperial unit Ctrl+U comes back to,
-   * initially inches.
+  /*
+   * `COMMON_TOOLS::m_imperialUnit` / `m_metricUnit` — the member of each family
+   * Ctrl+U comes back to — are no longer a ref here. `setupUnits`
+   * (eda_draw_frame.cpp:1384-1387) seeds them from
+   * `system.last_imperial_units` / `system.last_metric_units` before the frame
+   * is usable, so the settings object IS the store; a ref seeded with "inches"
+   * was a second copy of state that upstream reads out of the config file.
    */
-  const lastImperialRef = useRef<'unitsInches' | 'unitsMils'>('unitsInches');
 
   const onLeftToggle = useCallback((id: string) => {
-    setToggles((prev) => {
-      const next = new Set(prev);
-      if (UNIT_GROUP.includes(id)) {
-        for (const g of UNIT_GROUP) next.delete(g);
-        next.add(id);
-      } else if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
+    settings.updatePlEditor((s) => {
+      persistToggle(s, id);
     });
+    setToggles((prev) => applyToggle(prev, id));
   }, []);
-
-  useEffect(() => {
-    if (toggles.has('unitsInches')) lastImperialRef.current = 'unitsInches';
-    else if (toggles.has('unitsMils')) lastImperialRef.current = 'unitsMils';
-  }, [toggles]);
 
   const setTitleBlockMode = useCallback((mode: 'layoutNormalMode' | 'layoutEditMode') => {
     setToggles((prev) => {
@@ -1363,13 +1388,14 @@ export function DrawingSheetEditor({
         // here: the audit pressed it with the frame focused and the status bar
         // stayed on inches.
         //
-        // COMMON_TOOLS::ToggleUnits switches imperial <-> metric and returns to
-        // the imperial unit you were last in (m_imperialUnit, initially
-        // inches), which is why this is not a three-way cycle. That is the
-        // units button's job, and it already cycles mm -> in -> mil.
+        // COMMON_TOOLS::ToggleUnits (common_tools.cpp:671-677) switches
+        // imperial <-> metric and returns to the member of the other family you
+        // were last in, which is why this is not a three-way cycle. That is the
+        // units button's job, and it already cycles mm -> in -> mil. Both
+        // "last" values are settings, so `toggleUnitsId` reads them from
+        // `pl_editor.json` rather than from anything this frame remembers.
         e.preventDefault();
-        const imperial = toggles.has('unitsInches') || toggles.has('unitsMils');
-        onLeftToggle(imperial ? 'unitsMm' : lastImperialRef.current);
+        onLeftToggle(toggleUnitsId(settings.plEditor));
         return;
       }
       if (plain && (e.key === 'm' || e.key === 'M')) {
@@ -1841,7 +1867,13 @@ export function DrawingSheetEditor({
             <Combo
               value={String(originChoice)}
               options={ORIGIN_CHOICES.map((c, i) => ({ value: String(i), label: c }))}
-              onChange={(v) => setOriginChoice(Number(v))}
+              onChange={(v) => {
+                const idx = Number(v);
+                setOriginChoice(idx);
+                settings.updatePlEditor((s) => {
+                  s.corner_origin = idx;
+                });
+              }}
               title="Origin of coordinates displayed to the status bar"
             />
           ),
@@ -1878,6 +1910,7 @@ export function DrawingSheetEditor({
           gridIU={gridIU}
           originIU={originInfo.origin}
           fullCrosshair={toggles.has('crosshairFull')}
+          alwaysShowCursor={plCfg.window.cursor.always_show_cursor}
           blackBackground={blackBackground}
           editPoints={editPoints}
           moveMode={moveMode}
@@ -1923,7 +1956,16 @@ export function DrawingSheetEditor({
           width={propsWidth}
           min={propsMin}
           max={Math.max(propsMin, (bodyRef.current?.clientWidth ?? 0) - CANVAS_MIN_WIDTH)}
-          onResize={setPropsWidth}
+          onResize={(w) => {
+            setPropsWidth(w);
+            // `m_propertiesFrameWidth = m_propertiesPagelayout->GetSize().x`
+            // (pl_editor_frame.cpp:558) — upstream re-reads the live pane at
+            // save time; the web equivalent of "at save time" is as it moves,
+            // the same as the Symbol Library Browser's two sashes.
+            settings.updatePlEditor((s) => {
+              s.properties_frame_width = w;
+            });
+          }}
         />
         {/* Docked properties panel (properties_frame.cpp). It is itself the
             `.ze-panel`, caption included — see PropertiesFrame. */}
@@ -2065,6 +2107,11 @@ export function DrawingSheetEditor({
           onCancel={() => setShowPageDialog(false)}
           onOk={(next) => {
             setPreview(next);
+            // The page — and only the page. `SaveSettings` writes the paper
+            // type, the orientation and the two custom edges
+            // (pl_editor_frame.cpp:563-566); the title block it edits alongside
+            // them has no parameter and opens blank every time.
+            settings.updatePlEditor((s) => writePageToConfig(s, next));
             setShowPageDialog(false);
             setStatus(`Page: ${paperDescription(next)}`);
             requestAnimationFrame(() => controller.current?.zoomToFit());
@@ -2106,14 +2153,11 @@ export function DrawingSheetEditor({
           blackBackground={blackBackground}
           fullCrosshair={toggles.has('crosshairFull')}
           onBlackBackground={setBlackBackground}
-          onFullCrosshair={(v) =>
-            setToggles((prev) => {
-              const next = new Set(prev);
-              if (v) next.add('crosshairFull');
-              else next.delete('crosshairFull');
-              return next;
-            })
-          }
+          // The checkbox is a checkbox, so it can only ever ask for the value
+          // it is not already on — which is exactly what `onLeftToggle` does,
+          // and routing it through there is what keeps
+          // `window.cursor.cross_hair_mode` written.
+          onFullCrosshair={() => onLeftToggle('crosshairFull')}
           onClose={() => setShowPrefs(false)}
         />
       )}
