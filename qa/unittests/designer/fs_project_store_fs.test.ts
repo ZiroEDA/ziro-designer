@@ -334,6 +334,12 @@ describe('two projects with the same name', () => {
     // saved first keeps `Blinky`, so an existing project's path does not move
     // when a namesake is saved.
     const first = await saveProject('Blinky', [file('a.txt', 'first')]);
+    // Let the clock tick. `createdAt` is `Date.now()`, so two saves inside one
+    // millisecond record the SAME creation time and nothing in the store says
+    // which came first — the order is then whatever `listProjects` happened to
+    // return. This test passed on luck until an unrelated test was added ahead
+    // of it and the two saves stopped straddling a millisecond.
+    for (const t = Date.now(); Date.now() === t; );
     const second = await saveProject('Blinky', [file('b.txt', 'second')]);
     expect(await projectNames('/')).toEqual(['Blinky', 'Blinky (2)']);
     expect(await names('/Blinky')).toEqual(['a.txt']);
@@ -586,12 +592,23 @@ describe('a user-data folder is a row the cloud will accept', () => {
     expect(await names('/Templates')).toEqual(['a.kicad_wks']);
   });
 
-  it('keeps it out of the project list after the move, not just before', async () => {
-    // `saveProject` rebuilds the whole record, so the marker has to be carried
-    // like the sync watermark and the owner are — dropped, the folder would
-    // reappear as a board to open on the next save into it.
+  it('keeps it out of the project list across writes into it', async () => {
     await fs.write('/Templates/a.kicad_wks', enc.encode('a'));
     await fs.write('/Templates/b.kicad_wks', enc.encode('b'));
     expect((await listProjects()).map((p) => p.name)).toEqual([]);
+  });
+
+  it('is not un-marked by a saveProject that does not know it is a folder', async () => {
+    // `saveProject` REBUILDS the record — "anything not carried across here is
+    // silently dropped on every save", as its own comment says — which is why
+    // `syncedAt`, `ownerId` and `emptyFolders` are each carried explicitly. The
+    // marker is the same kind of thing: a save that passes no `userDir` must
+    // not turn the folder back into a project. Called directly because that is
+    // the only way to reach the branch; `fs.write` goes through
+    // `updateProjectFiles`, which patches instead of rebuilding.
+    await fs.write('/Templates/a.kicad_wks', enc.encode('a'));
+    await saveProject('Templates', [file('b.kicad_wks', 'b')], USER_DIR_IDS.templates!);
+    expect((await listProjects()).map((p) => p.name)).toEqual([]);
+    expect(await names('/Templates')).toEqual(['b.kicad_wks']);
   });
 });
