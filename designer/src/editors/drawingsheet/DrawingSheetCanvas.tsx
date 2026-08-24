@@ -113,8 +113,6 @@ export interface DrawingSheetCanvasProps {
   onContextMenuRequest?: (x: number, y: number, hit: number | null) => void;
   onSelect?: (src: number | null, additive: boolean) => void;
   onSelectBox?: (srcs: number[], additive: boolean) => void;
-  /** The active tool finished and handed back to the arrow (PopTool). */
-  onToolDone?: () => void;
   onMoveItems?: (deltaIU: Vec2) => void;
   /** One-click placement (text / bitmap). */
   onPlacePoint?: (tool: string, atIU: Vec2) => void;
@@ -168,7 +166,6 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
       onContextMenuRequest,
       onSelect,
       onSelectBox,
-      onToolDone,
       onMoveItems,
       onPlacePoint,
       onDrawFirst,
@@ -979,9 +976,23 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
         const b = boxRef.current;
         boxRef.current = null;
         zoomToRegion(b, g.out);
-        // selectRegion() returns after ONE region and Main breaks out of its
-        // loop, so the tool hands back to the arrow rather than staying armed.
-        onToolDone?.();
+        // The tool STAYS ARMED. `selectRegion()` returns `cancelled`, and a
+        // zoom that completed sets it false:
+        //
+        //     bool cancelled = false;
+        //     ... if( evt->IsCancelInteractive() || evt->IsActivate() )
+        //             cancelled = true;
+        //     ... view->SetScale( scale ); view->SetCenter( ... ); break;
+        //     return cancelled;                    (zoom_tool.cpp:78-160)
+        //
+        // so `if( selectRegion() ) break;` in `Main` breaks only when the user
+        // ESCAPED or picked another tool. Otherwise the outer `while( Wait() )`
+        // goes round again and re-arms the ZOOM_IN cursor, and you can zoom
+        // repeatedly without re-picking the tool.
+        //
+        // This used to clear the tool here, and said in its own comment that
+        // upstream did. A zero-size box does not end it either: upstream
+        // `break`s before the zoom arithmetic, still with `cancelled` false.
         requestDraw();
       } else if (g.mode === 'box') {
         const b = boxRef.current;

@@ -415,9 +415,41 @@ describe('C5: zoomTool is an armed rubber-band tool', () => {
     expect(CANVAS_TSX).toContain('if (w === 0 || h === 0) return;');
   });
 
-  it('hands back to the arrow after one region (PopTool)', () => {
-    expect(CANVAS_TSX).toContain('onToolDone?.();');
-    expect(EDITOR).toContain("onToolDone={() => setActiveTool('select')}");
+  it('STAYS armed after a zoom — only a cancel ends it', () => {
+    // The condition read backwards. `selectRegion()` returns `cancelled`:
+    //
+    //     bool cancelled = false;
+    //     if( evt->IsCancelInteractive() || evt->IsActivate() ) cancelled = true;
+    //     ... view->SetScale( scale ); view->SetCenter( ... ); break;
+    //     return cancelled;                        (zoom_tool.cpp:78-160)
+    //
+    // so `if( selectRegion() ) break;` in `Main` (:41-42) breaks on a CANCEL,
+    // not on a zoom. A completed region falls through to `while( Wait() )`
+    // again with the ZOOM_IN cursor still set, which is why upstream lets you
+    // zoom in twice without re-picking the tool. Ours called `onToolDone()` on
+    // the successful path — and said in its own comment that upstream did too.
+    //
+    // Per-occurrence and read against the whole file: `onToolDone` was the ONLY
+    // way this canvas could clear the active tool, so its absence is the rule.
+    // Escape still ends it, through the editor's own cancel chain (C7).
+    expect(CANVAS_TSX).not.toContain('onToolDone');
+    expect(EDITOR).not.toContain('onToolDone');
+    // And the gesture still completes: the tool staying armed must not have
+    // been achieved by never finishing the zoom.
+    const up = CANVAS_TSX.slice(CANVAS_TSX.indexOf('const onPointerUp'));
+    const zoomArm = up.slice(up.indexOf("g.mode === 'zoom'"), up.indexOf("g.mode === 'box'"));
+    expect(zoomArm).toContain('zoomToRegion(b, g.out)');
+    expect(zoomArm).not.toContain('setActiveTool');
+  });
+
+  it('is ended by Escape, which is the cancel half of the same condition', () => {
+    // `evt->IsCancelInteractive()` — the other branch, the one that DOES set
+    // `cancelled` and break out of `Main`. PL_ACTIONS' cancel chain backs out
+    // of the tool before it drops the selection.
+    const esc = EDITOR.slice(EDITOR.indexOf("if (e.key === 'Escape')"));
+    expect(esc.slice(0, 500)).toContain(
+      "else if (activeTool !== 'select') setActiveTool('select')",
+    );
   });
 });
 

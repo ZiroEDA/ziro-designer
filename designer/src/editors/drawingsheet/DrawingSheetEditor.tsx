@@ -1894,7 +1894,6 @@ export function DrawingSheetEditor({
           onPointDrag={onPointDrag}
           onPointDragEnd={onPointDragEnd}
           onSetLocalOrigin={setLocalOrigin}
-          onToolDone={() => setActiveTool('select')}
           onMoveDrop={(d) => {
             moveSelection(d);
             setMoveMode(false);
