@@ -22,12 +22,20 @@ import {
   parseGerber,
   type GERBER_FILE_IMAGE,
 } from '@ziroeda/gerbview';
-import { exportLayersToPcb } from '@ziroeda/designer/src/editors/gerbview/exportToPcbnew.js';
+import {
+  exportLayersToPcb,
+  GbrToPcbExporter,
+} from '@ziroeda/designer/src/editors/gerbview/exportToPcbnew.js';
 import {
   findKnownGerberLayer,
   mapGerberLayersToPcb,
 } from '@ziroeda/designer/src/editors/gerbview/mapGerberLayersToPcb.js';
-import { LSET_Name, UNSELECTED_LAYER } from '@ziroeda/pcbnew/src/layer_ids.js';
+import {
+  F_Cu,
+  LSET_Name,
+  UNDEFINED_LAYER,
+  UNSELECTED_LAYER,
+} from '@ziroeda/pcbnew/src/layer_ids.js';
 
 // ---------------------------------------------------------------------------
 // helpers
@@ -742,5 +750,56 @@ describe('the exported board reads back', () => {
     expect(text).toContain('(layer F.SilkS)');
     expect(text).not.toContain('"F.SilkS"');
     expect(readBoard(parse(text)).shapes[0]!.layer).toBe('F.SilkS');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// What the automatic mapping cannot reach
+//
+// Both of these were found by a mutation sweep: the mutant survived, which
+// means the behaviour was never pinned. Neither is reachable through
+// `exportLayersToPcb`, because our own mapping never produces the lookup table
+// that would reach it — upstream's dialog can, so `ExportPcb` still has to be
+// right, and these drive the exporter with that table directly.
+
+describe('ExportPcb with a lookup table the automatic mapping would not produce', () => {
+  const drillImage = () => parseExcellon(DRILL_FILE, 'board-PTH.drl');
+
+  it('collects an Excellon image as holes even when it is mapped to a real layer', () => {
+    // `if( excellon ) { for( … ) collect_hole( … ); }` (`:84-88`) is tested
+    // BEFORE the layer is looked at: an EXCELLON_IMAGE always yields holes,
+    // whatever the dialog mapped it to. Our mapping always answers
+    // UNDEFINED_LAYER for one, so only an explicit table reaches this.
+    const exporter = new GbrToPcbExporter();
+    exporter.setCopperLayersCount(2);
+    const text = exporter.ExportPcb([drillImage()], [F_Cu]);
+
+    expect(text).toContain('(via (at 0.01 -0.01) (size 0.800001) (drill 0.8) (layers F.Cu B.Cu))');
+  });
+
+  it('still collects it through the Hole Data row when the layer is UNDEFINED', () => {
+    // The other arm, `else if( gerb && pcb_layer_number == UNDEFINED_LAYER )`.
+    const exporter = new GbrToPcbExporter();
+    exporter.setCopperLayersCount(2);
+    const text = exporter.ExportPcb([drillImage()], [UNDEFINED_LAYER]);
+
+    expect(text).toContain('(via (at 0.01 -0.01) (size 0.800001) (drill 0.8) (layers F.Cu B.Cu))');
+  });
+});
+
+describe('the copper stack is sized by the number of copper gerbers', () => {
+  it('counts copper FILES, not the deepest inner layer reached', () => {
+    // `if( IsCopperLayer( currLayer ) ) total_copper++;` counts one per mapped
+    // row, duplicates included, and `std::max( total_copper, 2 )` (`:246`) is
+    // the count. Three gerbers all pointing at F.Cu therefore ask for a
+    // 3-layer board, which normalizeBrdLayersCount rounds to 4 — even though
+    // no inner layer is mapped at all.
+    const text = exportText([
+      { image: image('a-F_Cu.gbr'), name: 'a' },
+      { image: image('b-F_Cu.gbr'), name: 'b' },
+      { image: image('c-F_Cu.gbr'), name: 'c' },
+    ]);
+    const ids = [...text.matchAll(/\t\t\((\d+) \S+ signal\)/g)].map((m) => Number(m[1]));
+    expect(ids).toEqual([0, 4, 6, 2]);
   });
 });

@@ -136,7 +136,16 @@ function apertureType(item: GERBER_DRAW_ITEM): APERTURE_T {
   return item.dcode?.shape ?? APERTURE_T.APT_CIRCLE;
 }
 
-class GbrToPcbExporter {
+/**
+ * Exported so a caller can drive it with an explicit lookup table, which is
+ * what `DIALOG_MAP_GERBER_LAYERS_TO_PCB` hands upstream's `ExportPcb`
+ * (`gerbview/tools/gerbview_control.cpp:146`). `exportLayersToPcb` below uses
+ * the automatic mapping instead, and that mapping cannot produce every table
+ * upstream's dialog can — there, a user may point a drill file at a real
+ * board layer, and `ExportPcb` still has to collect its holes. The class is
+ * the unit those cases are reachable through.
+ */
+export class GbrToPcbExporter {
   private out: string[] = [];
   private vias: ExportVia[] = [];
   private slots: ExportSlot[] = [];
