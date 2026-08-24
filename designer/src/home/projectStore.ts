@@ -28,6 +28,7 @@ import {
 import { withRecordLock } from './record_lock.js';
 import { sha256Hex } from '../cloud/blobStore.js';
 import { gunzip, gzip } from './gzip.js';
+import { idbHandle } from './idb_open.js';
 
 export interface StoredFile {
   name: string;
@@ -187,24 +188,23 @@ const DB_NAME = 'ziroeda';
 const STORE = 'projects';
 const VERSION = 1;
 
-let dbPromise: Promise<IDBDatabase> | null = null;
+/**
+ * The projects database.
+ *
+ * Through `idbHandle` so that a connection the browser drops - evicted, quota
+ * reclaimed, a private window discarding - is opened again on the next call
+ * instead of being handed out dead forever. That failure reads as
+ * "The database connection is closing" on every transaction from then on, and
+ * used to need a reload to clear.
+ */
+const db = idbHandle(DB_NAME, VERSION, (d) => {
+  if (!d.objectStoreNames.contains(STORE)) {
+    const store = d.createObjectStore(STORE, { keyPath: 'id' });
+    store.createIndex('updatedAt', 'updatedAt');
+  }
+});
 
-function openDB(): Promise<IDBDatabase> {
-  if (dbPromise) return dbPromise;
-  dbPromise = new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, VERSION);
-    req.onupgradeneeded = () => {
-      const db = req.result;
-      if (!db.objectStoreNames.contains(STORE)) {
-        const store = db.createObjectStore(STORE, { keyPath: 'id' });
-        store.createIndex('updatedAt', 'updatedAt');
-      }
-    };
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
-  return dbPromise;
-}
+const openDB = (): Promise<IDBDatabase> => db.get();
 
 /**
  * Run a transaction, reporting any failure to the storage-health layer so the

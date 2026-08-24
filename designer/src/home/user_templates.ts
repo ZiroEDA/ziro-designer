@@ -31,6 +31,7 @@
  */
 import type { PickedHomeFile } from './files.js';
 import { renameRel, type TemplateMeta } from './templates.js';
+import { idbHandle } from './idb_open.js';
 
 const DB_NAME = 'ziroeda-templates';
 const STORE = 'templates';
@@ -78,25 +79,21 @@ export interface UserTemplateRecord {
 /** `updatedAt`, defaulting to the creation time for a pre-sync record. */
 export const templateStamp = (r: UserTemplateRecord): number => r.updatedAt ?? r.createdAt;
 
-let dbPromise: Promise<IDBDatabase> | null = null;
+/**
+ * The templates database, through the shared opener - see `idb_open.ts` for the
+ * three events every one of these must handle.
+ *
+ * This one has the version that moved (1 -> 2), so it is the one that would
+ * have blocked another tab holding v1 open. Both stores are created here
+ * because either module may be the one that opens first.
+ */
+const db = idbHandle(DB_NAME, VERSION, (d) => {
+  if (!d.objectStoreNames.contains(STORE)) d.createObjectStore(STORE, { keyPath: 'id' });
+  if (!d.objectStoreNames.contains(FILES_STORE))
+    d.createObjectStore(FILES_STORE, { keyPath: 'path' });
+});
 
-function openDB(): Promise<IDBDatabase> {
-  if (dbPromise) return dbPromise;
-  dbPromise = new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, VERSION);
-    req.onupgradeneeded = () => {
-      const db = req.result;
-      if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE, { keyPath: 'id' });
-      // The other half of the same folder — see user_template_files.ts. Created
-      // here too, because either module may be the one that opens first.
-      if (!db.objectStoreNames.contains(FILES_STORE))
-        db.createObjectStore(FILES_STORE, { keyPath: 'path' });
-    };
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
-  return dbPromise;
-}
+const openDB = (): Promise<IDBDatabase> => db.get();
 
 function tx<T>(mode: IDBTransactionMode, fn: (s: IDBObjectStore) => IDBRequest<T>): Promise<T> {
   return openDB().then(

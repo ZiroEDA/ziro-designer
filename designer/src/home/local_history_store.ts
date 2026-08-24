@@ -39,6 +39,7 @@ import {
   type SnapshotKind,
 } from './local_history.js';
 import { loadProject, updateProjectFiles, type StoredFile } from './projectStore.js';
+import { idbHandle } from './idb_open.js';
 
 const DB_NAME = 'ziroeda-history';
 const VERSION = 1;
@@ -79,38 +80,22 @@ function announce(projectId: string): void {
   for (const fn of listeners) fn(projectId);
 }
 
-let dbPromise: Promise<IDBDatabase> | null = null;
+/**
+ * The local-history database, through the shared opener - see `idb_open.ts` for
+ * the three events every one of these must handle, and why a dropped
+ * connection used to be permanent.
+ */
+const db = idbHandle(DB_NAME, VERSION, (d) => {
+  if (!d.objectStoreNames.contains(SNAPSHOTS)) {
+    const store = d.createObjectStore(SNAPSHOTS, { keyPath: 'id' });
+    // Every read is "this project's history", so the index is the access path
+    // rather than an optimisation.
+    store.createIndex('projectId', 'projectId', { unique: false });
+  }
+  if (!d.objectStoreNames.contains(BLOBS)) d.createObjectStore(BLOBS, { keyPath: 'hash' });
+});
 
-function openDb(): Promise<IDBDatabase> {
-  if (dbPromise) return dbPromise;
-
-  dbPromise = new Promise<IDBDatabase>((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, VERSION);
-
-    req.onupgradeneeded = () => {
-      const db = req.result;
-      if (!db.objectStoreNames.contains(SNAPSHOTS)) {
-        const store = db.createObjectStore(SNAPSHOTS, { keyPath: 'id' });
-        // Every read is "this project's history", so the index is the access
-        // path rather than an optimisation.
-        store.createIndex('projectId', 'projectId', { unique: false });
-      }
-      if (!db.objectStoreNames.contains(BLOBS)) {
-        db.createObjectStore(BLOBS, { keyPath: 'hash' });
-      }
-    };
-
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error ?? new Error('history db failed to open'));
-  }).catch((err: unknown) => {
-    // A failed open must not be cached as a permanently broken database: a
-    // private-mode origin that gains storage later should work then.
-    dbPromise = null;
-    throw err;
-  });
-
-  return dbPromise;
-}
+const openDb = (): Promise<IDBDatabase> => db.get();
 
 /** History is a convenience. It must never be the reason a save fails. */
 async function quietly<T>(fn: () => Promise<T>, fallback: T): Promise<T> {
