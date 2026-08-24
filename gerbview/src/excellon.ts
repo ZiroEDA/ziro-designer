@@ -33,7 +33,18 @@ export function parseExcellon(text: string, fileName: string): GERBER_FILE_IMAGE
   img.fileName = fileName;
   img.rawText = text;
   img.format = GERBER_FORMAT.EXCELLON;
-  img.fileFunction = 'Drill';
+  // `static const char file_attribute[] = ".FileFunction,Other,Drill*";`
+  // (gerbview/excellon_read_drill_file.cpp:192) — KiCad synthesises a file
+  // function for a drill file, and it has TWO fields. `m_FileFunction` is then
+  // built from it (:558-559), so `GetFileType()` is "Other" and
+  // `GetBrdLayerId()` is "Drill", and the layers manager shows
+  // `(Other, Drill)`.
+  //
+  // We stored the single word `Drill`, which lands in field 0 and leaves field
+  // 1 empty — so the row read `(Drill, )`, with a trailing comma and a blank
+  // where KiCad has the word. The display-name builder was right; the value it
+  // was handed was not.
+  img.fileFunction = 'Other,Drill';
 
   const st: DrillState = {
     unit: 'in',

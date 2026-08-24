@@ -39,6 +39,7 @@ import type { Entry, FileSystem } from './filesystem.js';
 import { formatModified, formatSize } from './format.js';
 import { ROOT, ancestors, basename, isValidName, join } from './path.js';
 import { MessageDialogYesNo } from '../ui/dialog_message.js';
+import { extendSelection, selectionToAccept } from './chooser_selection.js';
 
 // ChooserFilter and ChooserPlace live in chooser_types.ts so the data modules
 // that name them stay reachable from qa's tsconfig, which compiles .ts only.
@@ -463,7 +464,8 @@ export function FileChooser({
     // Everything else that is selected AND still visible. A row filtered out
     // since it was picked is not something the user can see themselves handing
     // over, so it is not handed over.
-    const rest = shown.filter((x) => x.path !== e.path && alsoSelected.has(x.path));
+    const batch = selectionToAccept(shown, e.path, alsoSelected);
+    const rest = batch?.rest ?? [];
     // A project folder is a document as well as a folder — Open Project opens
     // the project, it does not walk into it. Double-clicking still descends,
     // the way a bundle behaves on a desktop that has them.
@@ -475,10 +477,7 @@ export function FileChooser({
     // and opens a leaf, which is the single-file behaviour and the wrong answer
     // when several rows are lit.
     if (rest.length > 0) {
-      acceptPath(
-        e.path,
-        rest.map((x) => x.path),
-      );
+      acceptPath(e.path, rest);
       return;
     }
     activate(e);
@@ -716,17 +715,17 @@ export function FileChooser({
                       onClick={(ev) => {
                         // Ctrl (or Cmd) extends, as it does in every file
                         // manager; a plain click replaces the whole selection.
-                        if (multiple && (ev.ctrlKey || ev.metaKey) && selected !== null) {
-                          setAlsoSelected((prev) => {
-                            const next = new Set(prev);
-                            if (e.path === selected) return next;
-                            if (next.has(e.path)) next.delete(e.path);
-                            else next.add(selected);
-                            return next;
-                          });
-                        } else {
-                          setAlsoSelected(new Set());
-                        }
+                        // Ctrl (or Cmd) extends, as it does in every file
+                        // manager; a plain click replaces. The rule itself is
+                        // in `chooser_selection.ts` so a test can call it.
+                        setAlsoSelected((prev) =>
+                          extendSelection(
+                            prev,
+                            selected,
+                            e.path,
+                            multiple && (ev.ctrlKey || ev.metaKey),
+                          ),
+                        );
                         setSelected(e.path);
                         if (mode === 'save' && e.kind === 'file') setName(e.name);
                       }}

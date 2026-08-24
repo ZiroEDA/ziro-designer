@@ -37,7 +37,11 @@ function boardLayerFor(image: GERBER_FILE_IMAGE, fallbackIdx: number): string {
     return fn.includes('bot') ? 'B.SilkS' : 'F.SilkS';
   if (fn.includes('paste')) return fn.includes('bot') ? 'B.Paste' : 'F.Paste';
   if (fn.includes('profile') || fn.includes('edge')) return 'Edge.Cuts';
-  if (image.fileFunction === 'Drill') return 'Edge.Cuts';
+  // A drill file's synthesised function is `Other,Drill`
+  // (excellon_read_drill_file.cpp:192), not the bare word — this compared
+  // against the truncated value we used to store and stopped matching the
+  // moment that was corrected.
+  if (fn.includes('drill')) return 'Edge.Cuts';
   return USER_LAYERS[fallbackIdx % USER_LAYERS.length]!;
 }
 

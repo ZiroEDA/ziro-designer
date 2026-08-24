@@ -17,6 +17,8 @@ import {
   gerberLayerFromFilename,
   zOrderOf,
 } from '@ziroeda/gerbview';
+import { parseExcellon } from '@ziroeda/gerbview/src/excellon.js';
+import { gerbviewLayerDisplayName } from '@ziroeda/designer/src/editors/gerbview/gerberAuxControls.js';
 
 const sortNames = (names: string[]): string[] => names.slice().sort(compareByFileExtension);
 
@@ -332,5 +334,49 @@ describe('the whole of a modern KiCad plot ties, which is what decides the order
       'myboard.GBL', // bottom copper
       'myboard.GBO', // bottom silk
     ]);
+  });
+});
+
+describe('a drill file carries the file function KiCad synthesises for it', () => {
+  /**
+   * Akshay put the two layers managers side by side: real KiCad's first row
+   * reads `kit-dev-coldfire-xilinx_5213-PTH.drl (Other, Drill)` and ours read
+   * `(Drill, )` — a trailing comma and a blank where the word should be.
+   *
+   * An Excellon file carries no `%TF.FileFunction`, so KiCad makes one:
+   *
+   *     static const char file_attribute[] = ".FileFunction,Other,Drill*";
+   *         (gerbview/excellon_read_drill_file.cpp:192, built into
+   *          m_FileFunction at :558-559)
+   *
+   * TWO fields. `GetFileType()` is "Other" and `GetBrdLayerId()` is "Drill",
+   * which is what the layers manager prints. We stored the single word `Drill`,
+   * which lands in field 0 and leaves field 1 empty. The display-name builder
+   * was correct all along; the value handed to it was not.
+   */
+  it('is the two-field attribute, not the bare word', () => {
+    const img = parseExcellon('M30\n', 'board-PTH.drl');
+    expect(img.fileFunction).toBe('Other,Drill');
+  });
+
+  it('so the layers manager reads (Other, Drill)', () => {
+    const img = parseExcellon('M30\n', 'board-PTH.drl');
+    expect(gerbviewLayerDisplayName(img, 'board-PTH.drl', 0)).toBe(
+      '1 board-PTH.drl (Other, Drill)',
+    );
+  });
+
+  it('and is NOT the four-field drill form, which wants Plated/NonPlated', () => {
+    // `IsDrillFile()` is "Plated" or "NonPlated" in field 0
+    // (X2_gerber_attributes.cpp:229-234). "Other" is neither, so the synthesised
+    // function takes the two-field branch — which is what upstream shows.
+    const img = parseExcellon('M30\n', 'board-PTH.drl');
+    expect(gerbviewLayerDisplayName(img, 'board-PTH.drl', 0)).not.toContain(',,');
+  });
+
+  it('still sorts above the board stack, as anything not in it does', () => {
+    // `set_Z_Order` leaves everything that is not copper/mask/legend/paste/glue
+    // at 100, so correcting the field did not move the drill file.
+    expect(zOrderOf('Other,Drill')).toStrictEqual({ z: 100, zSub: 0 });
   });
 });

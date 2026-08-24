@@ -21,6 +21,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { extendSelection, selectionToAccept } from '@ziroeda/designer/src/fs/chooser_selection.js';
 import {
   DRAWING_SHEET_FILE_EXTENSION,
   KICAD_SCHEMATIC_FILE_EXTENSION,
@@ -135,9 +136,13 @@ describe('GerbView opens from the account and from the machine', () => {
   });
 
   it('keeps the machine as the other door', () => {
-    // `openLocalFiles` is unchanged and is what the button runs.
-    expect(GV).toContain('Open from Computer...');
-    expect(GV).toContain('const from = gbrOpen.fromComputer;');
+    // Read the BUTTON, not the file: `toContain('Open from Computer...')` over
+    // the source matched the comment three lines above it, so a sweep that
+    // replaced the label passed. `openLocalFiles` is unchanged and is what the
+    // button runs.
+    const el = [...GV.matchAll(/<OpenFileDialog\b[\s\S]*?\/>/g)].map((m) => m[0]).join('\n');
+    expect(el, 'the from-computer button is gone').toContain('Open from Computer...');
+    expect(el).toContain('const from = gbrOpen.fromComputer;');
   });
 
   it('names no shared folder, because a gerber belongs to one board', () => {
@@ -163,6 +168,63 @@ describe('the capabilities that used to block it', () => {
     expect(src('fs/FileChooser.tsx')).toContain(
       'const [alsoSelected, setAlsoSelected] = useState<ReadonlySet<string>>(new Set());',
     );
+  });
+
+  describe('and the rules are RUN, not read', () => {
+    /**
+     * A sweep walked through all three of these while they were inline
+     * expressions in `FileChooser.tsx`: ctrl-click extending, a batch bypassing
+     * `activate`, and filtered rows being excluded. There is no DOM test
+     * environment here, so a rule in a `.tsx` can only be asserted as source
+     * text — which pins its spelling, not its behaviour. They are pure
+     * functions in `chooser_selection.ts` now.
+     */
+    const rows = (...paths: string[]) => paths.map((path) => ({ path }));
+
+    it('a plain click replaces the whole selection', () => {
+      expect([...extendSelection(new Set(['/a']), '/b', '/c', false)]).toEqual([]);
+    });
+
+    it('ctrl-click adds the old anchor, and the clicked row becomes it', () => {
+      // `/a` was current; ctrl-clicking `/b` keeps `/a` and makes `/b` current.
+      expect([...extendSelection(new Set(), '/a', '/b', true)]).toEqual(['/a']);
+    });
+
+    it('ctrl-clicking an extra takes it back out', () => {
+      expect([...extendSelection(new Set(['/a']), '/b', '/a', true)]).toEqual([]);
+    });
+
+    it('ctrl-clicking the anchor itself changes nothing', () => {
+      expect([...extendSelection(new Set(['/x']), '/a', '/a', true)]).toEqual(['/x']);
+    });
+
+    it('extends nothing when there is no anchor yet', () => {
+      expect([...extendSelection(new Set(), null, '/a', true)]).toEqual([]);
+    });
+
+    it('hands over the anchor first, then the extras', () => {
+      const got = selectionToAccept(rows('/a', '/b', '/c'), '/b', new Set(['/a', '/c']));
+      expect(got).toStrictEqual({ first: '/b', rest: ['/a', '/c'] });
+    });
+
+    it('leaves out an extra the filter has since hidden', () => {
+      // The row is still selected but no longer on screen. Handing it over is
+      // passing a file the person cannot see - the same defect as an overwrite
+      // check that reads the filtered list instead of the folder.
+      const got = selectionToAccept(rows('/a', '/b'), '/b', new Set(['/a', '/gone']));
+      expect(got?.rest).toStrictEqual(['/a']);
+    });
+
+    it('accepts nothing when the anchor itself is hidden', () => {
+      expect(selectionToAccept(rows('/a'), '/gone', new Set(['/a']))).toBeNull();
+      expect(selectionToAccept(rows('/a'), null, new Set())).toBeNull();
+    });
+
+    it('reports an empty batch for a single selection', () => {
+      // `rest.length > 0` is what decides batch-vs-activate, so a lone row must
+      // report zero extras or a double-click would stop walking into folders.
+      expect(selectionToAccept(rows('/a', '/b'), '/a', new Set())?.rest).toStrictEqual([]);
+    });
   });
 
   it('and the open dialog hands back BYTES, not only text', () => {
