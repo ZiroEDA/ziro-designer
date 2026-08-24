@@ -3816,6 +3816,23 @@ export function SchematicEditor({
   // curr_fn.GetFullName() — the current sheet's own file name, which for us is
   // the file the editor has open.
   const copyAsSeed = currentFile !== DEFAULT_FILE ? currentFile : (fileName ?? DEFAULT_FILE);
+
+  /** `curr_fn.GetFullName()` — the leaf, not the project-relative path. */
+  const basename = (file: string): string => file.split('/').filter(Boolean).pop() ?? file;
+
+  /**
+   * `curr_fn.GetPath()` — the folder the sheet's own file sits in.
+   *
+   * A sheet's stored name is project-relative, so a sub-sheet kept in a
+   * subfolder opens THERE rather than at the project root. With no directory
+   * part the answer is the project folder itself, which is where a flat
+   * project's sheets live.
+   */
+  const sheetDirOf = (project: string, file: string): string => {
+    const parts = file.split('/').filter(Boolean);
+    parts.pop();
+    return [`/${project}`, ...parts].join('/');
+  };
   const saveCurrSheetCopyAs = useCallback(() => setCopyAsOpen(true), []);
 
   const saveCurrSheetCopyTo = useCallback(
@@ -7442,7 +7459,19 @@ export function SchematicEditor({
       {copyAsOpen && (
         <SaveAsDialog
           title="Save Current Sheet Copy As"
-          initialName={copyAsSeed}
+          // `wxFileDialog( m_frame, _( "Schematic Files" ), curr_fn.GetPath(),
+          //                curr_fn.GetFullName(), ... )`
+          // (sch_editor_control.cpp, SaveCurrSheetCopyAs). Both arguments come
+          // off the sheet's OWN file: it opens in the folder that file already
+          // sits in, and suggests that file's own name UNCHANGED - upstream
+          // appends no "_copy", the word is in the command's FriendlyName
+          // (sch_actions.cpp:1623) and nowhere else.
+          //
+          // Ours passed a name and no directory, so it opened at the account
+          // root listing every project.
+          initialName={basename(copyAsSeed)}
+          {...(projectName ? { projectDir: `/${projectName}` } : {})}
+          {...(projectName ? { initialPath: sheetDirOf(projectName, copyAsSeed) } : {})}
           filters={[kicadSchematicWildcard()]}
           onDone={(path) => {
             setCopyAsOpen(false);

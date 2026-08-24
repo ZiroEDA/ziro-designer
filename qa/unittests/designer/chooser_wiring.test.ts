@@ -124,3 +124,64 @@ describe('what is deliberately NOT wired, and why', () => {
     expect(code(src('fs/OpenFileDialog.tsx'))).toContain('new TextDecoder().decode(bytes)');
   });
 });
+
+describe('a Save As opens where upstream opens it, which is not one answer', () => {
+  /**
+   * The two dialogs differ ON PURPOSE, and both were checked rather than
+   * assumed:
+   *
+   *   pl_editor, Save Drawing Sheet As
+   *       wxFileDialog( ..., PATHS::GetUserTemplatesPath(), wxEmptyString, ... )
+   *       (pagelayout_editor/files.cpp:199-202) — the shared templates folder,
+   *       and NO suggested name. Confirmed by building that very dialog and
+   *       asking it: wx's GetFilename() and GTK's current-name are both empty
+   *       (qa/probes/savedlg_probe.cpp).
+   *
+   *   eeschema, Save Current Sheet Copy As
+   *       wxFileDialog( ..., curr_fn.GetPath(), curr_fn.GetFullName(), ... )
+   *       (sch_editor_control.cpp, SaveCurrSheetCopyAs) — the folder the
+   *       sheet's own file sits in, and that file's own name UNCHANGED.
+   *
+   * Ours gave the second a name and no directory, so it opened at the account
+   * root listing every project. And the name it seeded was the whole
+   * project-relative path where upstream seeds the leaf — invisible until a
+   * sheet lives in a subfolder.
+   *
+   * Upstream appends nothing to that name. There is no "_copy": the word is in
+   * the command's FriendlyName (sch_actions.cpp:1623) and nowhere else.
+   */
+  const SCH = src('editors/schematic/SchematicEditor.tsx');
+  const PL = src('editors/drawingsheet/DrawingSheetEditor.tsx');
+
+  it('opens the sheet copy in the folder that sheet already lives in', () => {
+    expect(SCH).toContain('initialPath: sheetDirOf(projectName, copyAsSeed)');
+  });
+
+  it('walks a sub-sheet to ITS folder, not the project root', () => {
+    // `curr_fn.GetPath()` of `sub/amp.kicad_sch` is `sub`, not the project.
+    const body = SCH.slice(SCH.indexOf('const sheetDirOf ='));
+    expect(body.slice(0, body.indexOf('\n  };'))).toContain('parts.pop();');
+  });
+
+  it('suggests the file’s own LEAF, and appends nothing to it', () => {
+    expect(SCH).toContain('initialName={basename(copyAsSeed)}');
+    // The suffix upstream does not add. Matching /copy/ over the element does
+    // not work - the seed is literally called `copyAsSeed` - so read the prop's
+    // own expression and require it to be the bare call: no template literal,
+    // no concatenation, nothing appended.
+    const el = [...SCH.matchAll(/<SaveAsDialog\b[\s\S]*?\/>/g)].map((m) => m[0]).join('\n');
+    const prop = el.match(/initialName=\{([^}]*)\}/);
+    expect(prop, 'the copy-as dialog seeds no name at all').not.toBeNull();
+    expect(
+      (prop as RegExpMatchArray)[1]?.trim(),
+      'something is appended to the suggested name',
+    ).toBe('basename(copyAsSeed)');
+  });
+
+  it('leaves the drawing sheet opening on Templates with an empty name', () => {
+    // The other half. A change that "made Save As consistent" would break this,
+    // and consistency is not what upstream does.
+    expect(PL).toContain('kind="templates"');
+    expect(PL).toContain('initialName=""');
+  });
+});
