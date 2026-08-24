@@ -22,7 +22,7 @@ import {
   importProject,
   listProjects,
   saveProject,
-  USER_DIR_PREFIX,
+  USER_DIR_IDS,
 } from '@ziroeda/designer/src/home/projectStore.js';
 
 const enc = new TextEncoder();
@@ -65,8 +65,31 @@ async function wipe(): Promise<void> {
   // so they outlive it, and a folder left standing between tests would carry
   // one test's files into the next and stop the migration below from ever
   // being the first thing to create Templates.
-  for (const key of ['templates', 'symbols', 'footprints', 'models3d'])
-    await deleteProject(`${USER_DIR_PREFIX}${key}`);
+  for (const id of Object.values(USER_DIR_IDS)) await deleteProject(id);
+  // And the OLD database the Templates folder seeds itself from. It is not the
+  // projects store, so nothing above touches it, and a row left there is
+  // carried into the next test's Templates the moment it is created.
+  await new Promise<void>((resolve) => {
+    const req = indexedDB.open('ziroeda-templates', 2);
+    req.onupgradeneeded = () => {
+      const d = req.result;
+      if (!d.objectStoreNames.contains('templates'))
+        d.createObjectStore('templates', { keyPath: 'id' });
+      if (!d.objectStoreNames.contains('template-files'))
+        d.createObjectStore('template-files', { keyPath: 'path' });
+    };
+    req.onsuccess = () => {
+      const db = req.result;
+      const t = db.transaction('template-files', 'readwrite');
+      t.objectStore('template-files').clear();
+      t.oncomplete = () => {
+        db.close();
+        resolve();
+      };
+      t.onerror = () => resolve();
+    };
+    req.onerror = () => resolve();
+  });
 }
 
 beforeEach(wipe);
@@ -509,5 +532,66 @@ describe('the sheets saved while Templates was a store of its own', () => {
     expect(await names('/Templates')).toEqual(['old.kicad_wks']);
     await fs.remove('/Templates/old.kicad_wks');
     expect(await names('/Templates')).toEqual([]);
+  });
+});
+
+describe('a user-data folder is a row the cloud will accept', () => {
+  /**
+   * `projects.id` is a `uuid` column and the primary key is `(user_id, id)`
+   * (`supabaseBackend.putProject`). The first version of this used readable ids
+   * — `userdir:footprints` — which reach Postgres unchanged on the first push
+   * and come back `invalid input syntax for type uuid`. That aborts the run, so
+   * four unrelated projects stopped syncing because of a folder.
+   */
+  const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+  it('has a plain UUID for an id, with nothing readable encoded in it', async () => {
+    for (const name of USER_DIR_NAMES) {
+      const meta = await projectAt(`/${name}`).catch(() => null);
+      expect(meta).toBeNull(); // not a project — the id comes from the record
+    }
+    await fs.write('/Footprints/x.kicad_mod', enc.encode('(footprint)'));
+    for (const id of Object.values(USER_DIR_IDS)) expect(id).toMatch(UUID);
+  });
+
+  it('uses the SAME id every time, so two devices converge on one folder', async () => {
+    // A fresh id per creation would make a second Templates on every machine
+    // the account signs in from, and the sync has no way to merge them.
+    await fs.write('/Templates/a.kicad_wks', enc.encode('a'));
+    const first = await exportProject(USER_DIR_IDS.templates!);
+    expect(first?.files.map((f) => f.name)).toEqual(['a.kicad_wks']);
+  });
+
+  it('moves a folder made under the old readable id, files and all', async () => {
+    // Anyone running the build that shipped the readable ids has one of these.
+    // Moved, not re-seeded: it holds whatever was saved after it was created,
+    // and the seed only ever knew about Templates.
+    await saveProject('Symbols', [file('mine.kicad_sym', '(kicad_symbol_lib)')], 'userdir:symbols');
+    expect(await names('/Symbols')).toEqual(['mine.kicad_sym']);
+    // And the old row is gone rather than left to show up as a project.
+    expect((await listProjects()).map((p) => p.name)).toEqual([]);
+    expect(await exportProject('userdir:symbols')).toBeNull();
+  });
+
+  it('is still a folder after a pull, which carries no marker', async () => {
+    // The cloud row has no column for it and `SyncableProject` no field, so the
+    // marker is recovered from the id. Signing in on a second device would
+    // otherwise pull all four down as projects to open.
+    await fs.write('/Templates/a.kicad_wks', enc.encode('a'));
+    const row = await exportProject(USER_DIR_IDS.templates!);
+    expect(row).not.toBeNull();
+    for (const id of Object.values(USER_DIR_IDS)) await deleteProject(id);
+    await importProject(row!);
+    expect((await listProjects()).map((p) => p.name)).toEqual([]);
+    expect(await names('/Templates')).toEqual(['a.kicad_wks']);
+  });
+
+  it('keeps it out of the project list after the move, not just before', async () => {
+    // `saveProject` rebuilds the whole record, so the marker has to be carried
+    // like the sync watermark and the owner are — dropped, the folder would
+    // reappear as a board to open on the next save into it.
+    await fs.write('/Templates/a.kicad_wks', enc.encode('a'));
+    await fs.write('/Templates/b.kicad_wks', enc.encode('b'));
+    expect((await listProjects()).map((p) => p.name)).toEqual([]);
   });
 });

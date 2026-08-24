@@ -71,6 +71,13 @@ const EXCUSED: Record<string, Record<string, string>> = {
   },
   forkLocalCopy: {
     id: 'a fresh id — the copy is a new project',
+    userDir:
+      'deliberately not carried, and carrying it would LOSE the fork. A ' +
+      'user-data folder is reached by its fixed id and hidden from ' +
+      'listProjects; a fork has neither — a fresh random id, so no path ' +
+      'resolves to it — so marking it a folder would make the rescue copy ' +
+      'unreachable in both directions. It is a project named "Templates ' +
+      '(local copy …)", which is exactly what a person needs to salvage it',
     pushedHashes:
       'deliberately absent: those blobs are known present because the ' +
       'original’s cloud row references them, and this copy has no row. ' +

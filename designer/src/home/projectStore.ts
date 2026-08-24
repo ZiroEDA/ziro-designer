@@ -142,6 +142,18 @@ interface StoredRecord {
    * store. Absent on every ordinary project, which is nearly all of them.
    */
   templateId?: string;
+  /**
+   * Set on a user-data folder — `templates`, `symbols`, `footprints`,
+   * `models3d` — and absent on every project. See `ensureUserDir`.
+   *
+   * The MARKER is here rather than in the id, because the id has to be a plain
+   * UUID: the cloud's `projects.id` column is `uuid`, so a readable id like
+   * `userdir:footprints` was rejected by Postgres on the first push with
+   * `invalid input syntax for type uuid`, taking four projects' sync down with
+   * it. Encoding meaning in a key that another system parses is what broke;
+   * a field of its own cannot.
+   */
+  userDir?: string;
 }
 
 /**
@@ -260,6 +272,8 @@ export async function saveProject(
   files: StoredFile[],
   id?: string,
   templateId?: string,
+  /** Marks the record as a user-data folder rather than a project. */
+  userDir?: string,
 ): Promise<string> {
   const now = Date.now();
   const pid = id ?? crypto.randomUUID?.() ?? `p${now}-${Math.random().toString(36).slice(2)}`;
@@ -319,6 +333,10 @@ export async function saveProject(
     // an empty folder is not derivable from the files — dropping it here would
     // delete the folder the user made the moment anything else was saved.
     ...(existing?.emptyFolders ? { emptyFolders: existing.emptyFolders } : {}),
+    // Carried for the same reason as the rest: a save rebuilds the record, and
+    // a folder that forgot it was one would appear in the project list.
+    ...(existing?.userDir ? { userDir: existing.userDir } : {}),
+    ...(userDir ? { userDir } : {}),
   };
   await tx('readwrite', (s) => s.put(record));
   return pid;
@@ -349,24 +367,72 @@ export async function saveProject(
  * offer "Templates" as a board to open. `PROBE_ID` is excluded from that same
  * list for the same reason.
  */
-export const USER_DIR_PREFIX = 'userdir:';
+/**
+ * The ids of the four folders — fixed UUIDs, one per kind.
+ *
+ * Fixed, so the same folder is the same row on every device the account signs
+ * in from, and the sync converges instead of making a second Templates. Safe to
+ * share across accounts because the cloud's primary key is `(user_id, id)`, not
+ * `id` — see `putProject`'s `onConflict`.
+ *
+ * They are UUIDs and not `userdir:templates` because `projects.id` is a `uuid`
+ * column. The readable form reached Postgres on the first push and came back
+ * `invalid input syntax for type uuid`, which failed the whole sync run — four
+ * real projects stopped syncing because of a folder.
+ */
+export const USER_DIR_IDS: Record<string, string> = {
+  templates: '9a7c1e40-0000-4000-8000-000000000001',
+  symbols: '9a7c1e40-0000-4000-8000-000000000002',
+  footprints: '9a7c1e40-0000-4000-8000-000000000003',
+  models3d: '9a7c1e40-0000-4000-8000-000000000004',
+};
 
-/** Whether a record id names a user-data folder rather than a project. */
-export const isUserDirId = (id: string): boolean => id.startsWith(USER_DIR_PREFIX);
+/**
+ * Which folder a record is, from its id or from what this side already knows.
+ *
+ * The id half is what survives a pull: the cloud carries no marker, so the four
+ * fixed UUIDs are the only thing that says a row is a folder rather than a
+ * board. The local half covers a record whose id is the per-owner derived one,
+ * which no lookup can reverse.
+ */
+const userDirOf = (id: string, local?: { userDir?: string }): string | undefined =>
+  Object.entries(USER_DIR_IDS).find(([, v]) => v === id)?.[0] ?? local?.userDir;
+
+/** The ids the first version of this used, before the cloud rejected them. */
+const LEGACY_USER_DIR_ID = (key: string): string => `userdir:${key}`;
+
+/**
+ * A UUID for this account's copy, when another account already holds the fixed
+ * one in THIS browser's database.
+ *
+ * Derived from the owner so it is stable across reloads rather than a fresh
+ * random each time, and shaped as a v4 UUID so Postgres accepts it.
+ */
+async function derivedUserDirId(key: string, owner: string): Promise<string> {
+  const h = await sha256Hex(new TextEncoder().encode(`userdir:${key}:${owner}`));
+  const v = h.slice(0, 32);
+  return [
+    v.slice(0, 8),
+    v.slice(8, 12),
+    `4${v.slice(13, 16)}`,
+    `${'89ab'[Number.parseInt(v[16]!, 16) & 3]}${v.slice(17, 20)}`,
+    v.slice(20, 32),
+  ].join('-');
+}
 
 /**
  * The record id this account's `key` folder uses, creating nothing.
  *
- * Normally the bare `userdir:templates`. When a record is already there under
- * another account's ownership — two people signing in on one browser, which is
- * exactly what `ownedByCurrent` exists to handle — this account gets its own
- * id instead of being handed someone else's templates.
+ * Normally the fixed UUID. When a record is already there under another
+ * account's ownership — two people signing in on one browser, which is exactly
+ * what `ownedByCurrent` exists to handle — this account gets its own instead of
+ * being handed someone else's templates.
  */
 async function userDirId(key: string): Promise<string> {
-  const base = `${USER_DIR_PREFIX}${key}`;
+  const base = USER_DIR_IDS[key]!;
   const r = await tx<StoredRecord | undefined>('readonly', (s) => s.get(base));
   if (!r || ownedByCurrent(r)) return base;
-  return `${base}:${currentOwner}`;
+  return currentOwner ? await derivedUserDirId(key, currentOwner) : base;
 }
 
 /**
@@ -393,7 +459,18 @@ export async function ensureUserDir(
   const id = await userDirId(key);
   let r = await tx<StoredRecord | undefined>('readonly', (s) => s.get(id));
   if (!r) {
-    await saveProject(name, seed ? await seed().catch(() => []) : [], id);
+    // A folder made by the first version of this, under the readable id. Moved
+    // rather than re-seeded: it holds whatever has been saved since, and the
+    // seed only ever knew about Templates.
+    const legacy = await tx<StoredRecord | undefined>('readonly', (s) =>
+      s.get(LEGACY_USER_DIR_ID(key)),
+    );
+    if (legacy && ownedByCurrent(legacy)) {
+      await tx('readwrite', (s) => s.put({ ...legacy, id, userDir: key }));
+      await tx('readwrite', (s) => s.delete(LEGACY_USER_DIR_ID(key)));
+    } else {
+      await saveProject(name, seed ? await seed().catch(() => []) : [], id, undefined, key);
+    }
     r = await tx<StoredRecord | undefined>('readonly', (s) => s.get(id));
   }
   const now = Date.now();
@@ -412,7 +489,7 @@ export async function listProjects(): Promise<ProjectMeta[]> {
   return (
     all
       .filter((r) => r.id !== PROBE_ID) // health-probe canary, not a project
-      .filter((r) => !isUserDirId(r.id)) // Templates/Symbols/... are folders, not projects
+      .filter((r) => r.userDir === undefined) // Templates/Symbols/... are folders, not projects
       .filter(ownedByCurrent) // another account's work stays on disk but hidden
       .map((r) => ({
         id: r.id,
@@ -935,6 +1012,12 @@ export async function importProject(p: SyncableProject): Promise<void> {
     updatedAt: p.updatedAt,
     files,
     ...(local?.emptyFolders ? { emptyFolders: local.emptyFolders } : {}),
+    // A user-data folder stays one after a pull. `SyncableProject` has no field
+    // for the marker and the cloud row has no column for it, so it is recovered
+    // from the id — which is exactly why those ids are FIXED. Without this, the
+    // first sign-in on a second device would pull Templates, Symbols,
+    // Footprints and 3D Models down as four projects to open.
+    ...(userDirOf(p.id, local) ? { userDir: userDirOf(p.id, local)! } : {}),
     // We have just taken the cloud's copy wholesale, so this is the point the
     // two sides agree.
     syncedAt: p.updatedAt,

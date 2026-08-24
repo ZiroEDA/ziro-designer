@@ -25,7 +25,6 @@ import {
   type ProjectMeta,
   deleteProject,
   ensureUserDir,
-  isUserDirId,
   deleteProjectPath,
   listEmptyFolders,
   listProjectFiles,
@@ -310,7 +309,10 @@ export function projectStoreFileSystem(): FileSystem {
       if (r.rel === '') {
         // A user-data folder has a fixed name, the way `template/` does on
         // disk. Renaming it would leave the sidebar row pointing at nothing.
-        if (isUserDirId(r.meta.id)) throw new FsError(FsErrorCode.READ_ONLY, p);
+        // Asked of the PATH, not of the record's id. The id is an opaque UUID
+        // now — it has to be, the cloud parses it — so the name is the only
+        // thing that says which of the two this is.
+        if (USER_DIR_BY_NAME.has(segments(p)[0] ?? '')) throw new FsError(FsErrorCode.READ_ONLY, p);
         await renameProject(r.meta.id, name);
         return;
       }
@@ -323,7 +325,7 @@ export function projectStoreFileSystem(): FileSystem {
       const p = normalize(path);
       const r = await resolve(p);
       if (r.rel === '') {
-        if (isUserDirId(r.meta.id)) throw new FsError(FsErrorCode.READ_ONLY, p);
+        if (USER_DIR_BY_NAME.has(segments(p)[0] ?? '')) throw new FsError(FsErrorCode.READ_ONLY, p);
         await deleteProject(r.meta.id);
         return;
       }
