@@ -481,8 +481,11 @@ describe('the extension is fixed on accept, not locked in the entry', () => {
     // the user typed", and a pattern cannot tell them apart. What can be
     // asserted precisely is that the one call site that does that job calls the
     // shared function, and that the function behaves as upstream's does.
-    expect(src('editors/drawingsheet/DrawingSheetEditor.tsx')).toContain(
-      'ensureFileExtension(leaf, DRAWING_SHEET_FILE_EXTENSION)',
+    // Whitespace-insensitive: the call wraps across three lines once the
+    // directory is put back in front of it, and a test that a formatter can
+    // break was pinning the line breaks rather than the call.
+    expect(src('editors/drawingsheet/DrawingSheetEditor.tsx').replace(/\s+/g, ' ')).toContain(
+      'ensureFileExtension( leaf, DRAWING_SHEET_FILE_EXTENSION, )',
     );
   });
 });

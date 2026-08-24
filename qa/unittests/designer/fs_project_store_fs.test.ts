@@ -15,12 +15,14 @@ import 'fake-indexeddb/auto';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { FsErrorCode } from '@ziroeda/designer/src/fs/filesystem.js';
 import { projectAt, projectStoreFileSystem } from '@ziroeda/designer/src/fs/project_store_fs.js';
+import { USER_DIRS } from '@ziroeda/designer/src/fs/chooser_places.js';
 import {
   deleteProject,
   exportProject,
   importProject,
   listProjects,
   saveProject,
+  USER_DIR_PREFIX,
 } from '@ziroeda/designer/src/home/projectStore.js';
 
 const enc = new TextEncoder();
@@ -45,8 +47,26 @@ async function codeOf(p: Promise<unknown>): Promise<string> {
 const names = async (dir: string): Promise<string[]> =>
   (await fs.list(dir)).map((e) => e.name).sort();
 
+/**
+ * The four user-data folders, from the table the sidebar itself reads.
+ *
+ * Taken from `USER_DIRS` rather than written out, so renaming one moves this
+ * with it instead of leaving a test that quietly stops filtering anything.
+ */
+const USER_DIR_NAMES = Object.values(USER_DIRS).map((p) => p.replace(/^\/+/, ''));
+
+/** The root's projects — everything that is not one of those four folders. */
+const projectNames = async (dir: string): Promise<string[]> =>
+  (await names(dir)).filter((n) => !USER_DIR_NAMES.includes(n));
+
 async function wipe(): Promise<void> {
   for (const p of await listProjects()) await deleteProject(p.id);
+  // The user-data folders are not in that list — that is the point of them —
+  // so they outlive it, and a folder left standing between tests would carry
+  // one test's files into the next and stop the migration below from ever
+  // being the first thing to create Templates.
+  for (const key of ['templates', 'symbols', 'footprints', 'models3d'])
+    await deleteProject(`${USER_DIR_PREFIX}${key}`);
 }
 
 beforeEach(wipe);
@@ -55,7 +75,7 @@ afterEach(wipe);
 describe('the root holds projects', () => {
   it('shows one folder per project, and calls it a project', async () => {
     await saveProject('Blinky', [file('blinky.kicad_pro', '{}')]);
-    const [entry] = await fs.list('/');
+    const entry = (await fs.list('/')).find((e) => e.name === 'Blinky');
     expect(entry).toMatchObject({ name: 'Blinky', path: '/Blinky', kind: 'project' });
   });
 
@@ -65,7 +85,7 @@ describe('the root holds projects', () => {
   });
 
   it('is empty when there are no projects', async () => {
-    expect(await fs.list('/')).toEqual([]);
+    expect(await projectNames('/')).toEqual([]);
   });
 });
 
@@ -239,7 +259,7 @@ describe('renaming', () => {
 
   it('renames a project', async () => {
     await fs.rename('/Board', 'Other');
-    expect(await names('/')).toEqual(['Other']);
+    expect(await projectNames('/')).toEqual(['Other']);
     expect(await names('/Other')).toContain('board.kicad_pcb');
   });
 
@@ -281,7 +301,7 @@ describe('deleting', () => {
 
   it('deletes a project', async () => {
     await fs.remove('/Board');
-    expect(await names('/')).toEqual([]);
+    expect(await projectNames('/')).toEqual([]);
   });
 });
 
@@ -292,7 +312,7 @@ describe('two projects with the same name', () => {
     // when a namesake is saved.
     const first = await saveProject('Blinky', [file('a.txt', 'first')]);
     const second = await saveProject('Blinky', [file('b.txt', 'second')]);
-    expect(await names('/')).toEqual(['Blinky', 'Blinky (2)']);
+    expect(await projectNames('/')).toEqual(['Blinky', 'Blinky (2)']);
     expect(await names('/Blinky')).toEqual(['a.txt']);
     expect(await names('/Blinky (2)')).toEqual(['b.txt']);
     expect((await projectAt('/Blinky'))?.id).toBe(first);
@@ -308,7 +328,7 @@ describe('two projects with the same name', () => {
 describe('making a project', () => {
   it('creates an empty one at the root', async () => {
     await fs.mkproject('/Fresh');
-    expect(await names('/')).toEqual(['Fresh']);
+    expect(await projectNames('/')).toEqual(['Fresh']);
     expect(await names('/Fresh')).toEqual([]);
   });
 
@@ -359,5 +379,135 @@ describe('resolving a path back to a project', () => {
   it('answers null for the root and for a project that is gone', async () => {
     expect(await projectAt('/')).toBeNull();
     expect(await projectAt('/Nothing')).toBeNull();
+  });
+});
+
+/**
+ * The account's user-data folders.
+ *
+ * Upstream they are real directories beside the project folders, one per KIND
+ * of thing a user makes — `template/`, `symbols/`, `footprints/`, `3dmodels/` —
+ * and pl_editor's Save As opens straight into `template/`
+ * (pagelayout_editor/files.cpp:199-202). Here they are reserved records in the
+ * projects store, which is why every operation below is the ordinary one: a
+ * write, a mkdir, a rename. Nothing about them is special-cased in the chooser.
+ *
+ * They were a FAÇADE for a while — four sidebar rows whose paths resolved to
+ * nothing, because the first path segment was looked up as a project name. A
+ * drawing sheet saved into Templates went into the open project instead, or
+ * downloaded when there was none.
+ */
+describe('the user-data folders', () => {
+  it('shows all four at the root, as folders and not as projects', async () => {
+    const root = await fs.list('/');
+    for (const name of USER_DIR_NAMES) {
+      // `project` would let Open Project accept `Templates` as a board, and
+      // would make one click plus Open take it instead of walking into it.
+      expect(root.find((e) => e.name === name)).toMatchObject({ kind: 'folder', size: null });
+    }
+  });
+
+  it('takes a file, and hands the same bytes back', async () => {
+    await fs.write('/Templates/frame.kicad_wks', enc.encode('(drawing_sheet)'));
+    expect(await names('/Templates')).toEqual(['frame.kicad_wks']);
+    expect(dec.decode(await fs.read('/Templates/frame.kicad_wks'))).toBe('(drawing_sheet)');
+  });
+
+  it('holds folders, and files inside them', async () => {
+    await fs.mkdir('/Symbols/connectors');
+    await fs.write('/Symbols/connectors/usb.kicad_sym', enc.encode('(kicad_symbol_lib)'));
+    expect(await names('/Symbols')).toEqual(['connectors']);
+    expect(await names('/Symbols/connectors')).toEqual(['usb.kicad_sym']);
+  });
+
+  it('is not offered as a project to open', async () => {
+    // The home screen's list, its Recent row and Open Existing Project all read
+    // `listProjects`. A folder in there would be a board you could try to open.
+    await fs.write('/Templates/frame.kicad_wks', enc.encode('(drawing_sheet)'));
+    expect((await listProjects()).map((p) => p.name)).toEqual([]);
+    expect(await projectAt('/Templates')).toBeNull();
+  });
+
+  it('owns its name: a project called Templates is the one that gets suffixed', async () => {
+    await saveProject('Templates', [file('t.kicad_pro', '{}')]);
+    await fs.write('/Templates/frame.kicad_wks', enc.encode('(drawing_sheet)'));
+    // The folder keeps `/Templates`, so the sidebar row still reaches it, and
+    // the project is displayed through the machinery two same-named projects
+    // already use. Both are reachable; neither shadows the other.
+    expect(await names('/')).toContain('Templates (2)');
+    expect(await names('/Templates')).toEqual(['frame.kicad_wks']);
+    expect(await names('/Templates (2)')).toEqual(['t.kicad_pro']);
+  });
+
+  it('refuses to be made, renamed or deleted', async () => {
+    expect(await codeOf(fs.mkproject('/Templates'))).toBe(FsErrorCode.EXISTS);
+    // A fixed name, the way `template/` is on disk: renaming it would leave the
+    // sidebar row pointing at nothing.
+    expect(await codeOf(fs.rename('/Templates', 'Sheets'))).toBe(FsErrorCode.READ_ONLY);
+    expect(await codeOf(fs.remove('/Templates'))).toBe(FsErrorCode.READ_ONLY);
+  });
+
+  it('refuses a loose file written AT it, as the root does', async () => {
+    expect(await codeOf(fs.write('/Templates', enc.encode('x')))).toBe(FsErrorCode.NOT_A_DIRECTORY);
+  });
+
+  it('survives a wipe of every project, having none to be wiped with', async () => {
+    // `wipe` deletes everything `listProjects` returns, which is the shape a
+    // reserved record has to survive: it is not in that list, so it is still
+    // there afterwards and the sidebar row still resolves.
+    await fs.write('/Footprints/lib.pretty/x.kicad_mod', enc.encode('(footprint)'));
+    for (const p of await listProjects()) await deleteProject(p.id);
+    expect(await names('/Footprints/lib.pretty')).toEqual(['x.kicad_mod']);
+  });
+});
+
+describe('the sheets saved while Templates was a store of its own', () => {
+  /** The `template-files` object store, written the way the deleted module did. */
+  async function seedLegacy(rows: { path: string; text: string; deletedAt?: number }[]) {
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      const req = indexedDB.open('ziroeda-templates', 2);
+      req.onupgradeneeded = () => {
+        const d = req.result;
+        if (!d.objectStoreNames.contains('templates'))
+          d.createObjectStore('templates', { keyPath: 'id' });
+        if (!d.objectStoreNames.contains('template-files'))
+          d.createObjectStore('template-files', { keyPath: 'path' });
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+    await new Promise<void>((resolve, reject) => {
+      const t = db.transaction('template-files', 'readwrite');
+      // Cleared first: the old database outlives `wipe`, which only knows the
+      // projects store, so rows would pile up from one test into the next.
+      t.objectStore('template-files').clear();
+      for (const r of rows) t.objectStore('template-files').put({ updatedAt: 1, ...r });
+      t.oncomplete = () => resolve();
+      t.onerror = () => reject(t.error);
+    });
+    db.close();
+  }
+
+  it('are carried into the Templates folder the first time it is opened', async () => {
+    await seedLegacy([{ path: 'old.kicad_wks', text: '(drawing_sheet old)' }]);
+    expect(await names('/Templates')).toEqual(['old.kicad_wks']);
+    expect(dec.decode(await fs.read('/Templates/old.kicad_wks'))).toBe('(drawing_sheet old)');
+  });
+
+  it('leaves a tombstoned one behind, as the store meant it to be', async () => {
+    await seedLegacy([
+      { path: 'kept.kicad_wks', text: 'a' },
+      { path: 'gone.kicad_wks', text: 'b', deletedAt: 2 },
+    ]);
+    expect(await names('/Templates')).toEqual(['kept.kicad_wks']);
+  });
+
+  it('does not put a file back after it is deleted here', async () => {
+    // The seed runs on CREATION, not on every resolve. A mirror would resurrect
+    // anything the user removed, on the next listing.
+    await seedLegacy([{ path: 'old.kicad_wks', text: 'a' }]);
+    expect(await names('/Templates')).toEqual(['old.kicad_wks']);
+    await fs.remove('/Templates/old.kicad_wks');
+    expect(await names('/Templates')).toEqual([]);
   });
 });

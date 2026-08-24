@@ -198,6 +198,9 @@ const recentFiles = new FileHistory<RecentFile>({
   maxFiles: settings.common.system.file_history_size,
 });
 
+/** `wxFileName::GetFullName()` — the name with its extension, no directory. */
+const leafOf = (path: string): string => path.split('/').filter(Boolean).pop() ?? '';
+
 const download = (fileName: string, text: string): void => {
   const url = URL.createObjectURL(new Blob([text], { type: 'application/octet-stream' }));
   const a = document.createElement('a');
@@ -246,7 +249,8 @@ export function DrawingSheetEditor({
   projectName?: string;
   /** Save the current sheet into the open project as a `.kicad_wks`. Absent
    *  when no project is open (the menu item is then hidden). */
-  onSaveToProject?: (fileName: string, text: string) => void;
+  /** Write the sheet at this full account path — see `writeSheet`. */
+  onSaveToProject?: (path: string, text: string) => void;
   /** A `.kicad_wks` the project manager double-clicked to open here; re-sent with
    *  a fresh nonce so the resident editor re-opens on the newly-picked file. */
   openRequest?: { name: string; text: string; nonce: number } | null;
@@ -564,17 +568,25 @@ export function DrawingSheetEditor({
     [sheet, commit],
   );
 
-  // Save the sheet into the open project (IndexedDB/cloud) so the schematic's
-  // Page Settings can select it. Only when no project is open (the standalone
-  // editor) does it fall back to a local-file download.
+  /**
+   * `SaveDrawingSheetFile( filename )` — ONE path, the one the dialog returned
+   * (pagelayout_editor/files.cpp:215), and the status line names that whole
+   * path: `File '%s' saved.` (:230).
+   *
+   * `aPath` is a full account path — `/Templates/frame.kicad_wks`, or
+   * `/MyBoard/frame.kicad_wks`. It used to be a bare leaf, which is why a sheet
+   * saved into Templates landed in the open project instead, or downloaded when
+   * there was no project: the directory the person had just picked was thrown
+   * away one line after the chooser handed it over.
+   */
   const writeSheet = useCallback(
-    (name: string, note = 'Saved') => {
+    (aPath: string, note = 'Saved') => {
       const text = serializeDrawingSheet(sheet);
-      if (onSaveToProject) onSaveToProject(name, text);
-      else download(name, text);
-      addRecent(name, text);
+      if (onSaveToProject) onSaveToProject(aPath, text);
+      else download(leafOf(aPath), text);
+      addRecent(aPath, text);
       setDirty(false);
-      setStatus(`${note} ${name}${onSaveToProject ? ' to project' : ''}`);
+      setStatus(`${note} ${aPath}`);
     },
     [sheet, addRecent, onSaveToProject],
   );
@@ -655,9 +667,13 @@ export function DrawingSheetEditor({
         pendingAfterSave.current = null;
         return;
       }
-      // The chooser hands back a full path; the editor's own name is the leaf,
-      // as `wxFileName( dlg.GetPath() ).GetFullName()` is upstream.
-      const leaf = path.split('/').filter(Boolean).pop() ?? '';
+      // The chooser hands back a full path, and upstream keeps the full path:
+      // `filename = openFileDialog.GetPath()`, the extension is appended to
+      // THAT, `SaveDrawingSheetFile( filename )` takes it and
+      // `SetCurrentFileName( filename )` stores it
+      // (pagelayout_editor/files.cpp:213-233). Only the title strips it down,
+      // through `wxFileName::GetName()`.
+      const leaf = leafOf(path);
       // `EnsureFileExtension` (common/common.cpp:662-678), which pl_editor's
       // own Save As runs on the returned path (files.cpp:213-215). The field is
       // NOT locked and upstream does not nag - "Just fix it, but be careful not
@@ -669,8 +685,11 @@ export function DrawingSheetEditor({
       // written out again per editor - and not the same function: a name ending
       // in a bare dot came out `foo..kicad_wks`, where upstream gives
       // `foo.kicad_wks`.
-      const finalName = ensureFileExtension(leaf, DRAWING_SHEET_FILE_EXTENSION);
-      setFileName(finalName);
+      const finalPath = `${path.slice(0, path.length - leaf.length)}${ensureFileExtension(
+        leaf,
+        DRAWING_SHEET_FILE_EXTENSION,
+      )}`;
+      setFileName(finalPath);
 
       // `SaveDrawingSheetFile( filename )` — one path, the one the dialog gave
       // back (pagelayout_editor/files.cpp:215-232). A sheet belongs in the
@@ -678,7 +697,7 @@ export function DrawingSheetEditor({
       // project or by a project-RELATIVE path, and only falls back to an
       // env-var reference outside it (dialog_page_settings.cpp:738-756). It is
       // a project tree file type too (kicad/tree_file_type.h:61).
-      writeSheet(finalName);
+      writeSheet(finalPath);
       // `saveCurrentPageLayout` returns `!IsContentModified()`, and this is the
       // moment that becomes true. Whatever New-or-Open was waiting on the save
       // now goes ahead; a cancel above left it un-run, which is

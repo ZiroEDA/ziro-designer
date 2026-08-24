@@ -325,11 +325,94 @@ export async function saveProject(
 }
 
 /** All saved projects, newest first, without decompressing file bodies. */
+/**
+ * The account's user-data folders, as reserved records in this same store.
+ *
+ * Upstream these are real directories, siblings of the project folders, and
+ * every one is a `PATHS::` call — `GetUserTemplatesPath()`,
+ * `GetDefaultUserSymbolsPath()` and the rest (see `fs/chooser_places.ts`). A
+ * drawing sheet saved from pl_editor lands in `template/` as a loose file
+ * (pagelayout_editor/files.cpp:199-202), and a directory holds whatever you put
+ * in it: files, and folders inside those.
+ *
+ * They are records here rather than a second database, and that is the whole
+ * design decision. A record already knows how to hold a flat list of relative
+ * paths, its empty folders, its gzip blobs, its sync watermark and its owner —
+ * which means `project_store_fs` needs no special case for any operation, and
+ * `listSyncMeta` pushes a user's templates to the cloud with no code at all.
+ * The predecessor was a `template-files` object store in `ziroeda-templates`
+ * that only ever backed Templates, leaving Symbols, Footprints and 3D Models as
+ * sidebar rows with nothing behind them.
+ *
+ * They are NOT projects, so `listProjects` leaves them out — the home screen's
+ * project list, its Recent row and the Open Project dialog would otherwise
+ * offer "Templates" as a board to open. `PROBE_ID` is excluded from that same
+ * list for the same reason.
+ */
+export const USER_DIR_PREFIX = 'userdir:';
+
+/** Whether a record id names a user-data folder rather than a project. */
+export const isUserDirId = (id: string): boolean => id.startsWith(USER_DIR_PREFIX);
+
+/**
+ * The record id this account's `key` folder uses, creating nothing.
+ *
+ * Normally the bare `userdir:templates`. When a record is already there under
+ * another account's ownership — two people signing in on one browser, which is
+ * exactly what `ownedByCurrent` exists to handle — this account gets its own
+ * id instead of being handed someone else's templates.
+ */
+async function userDirId(key: string): Promise<string> {
+  const base = `${USER_DIR_PREFIX}${key}`;
+  const r = await tx<StoredRecord | undefined>('readonly', (s) => s.get(base));
+  if (!r || ownedByCurrent(r)) return base;
+  return `${base}:${currentOwner}`;
+}
+
+/**
+ * The folder's record, made the first time anything touches it.
+ *
+ * `updateProjectFiles` returns silently when the record is missing, so a save
+ * into a folder that was never created would report success and write nothing.
+ * Creating it on resolve is what makes the folder EXIST, which is the same
+ * thing `mkdir -p` means.
+ */
+export async function ensureUserDir(
+  key: string,
+  name: string,
+  /**
+   * Files to put in it at the moment it is created, and never afterwards.
+   *
+   * The one caller is Templates, carrying across the loose sheets the old
+   * `template-files` store holds — see `legacyTemplateFiles`. Seeding on
+   * creation rather than on every resolve is what makes it a migration instead
+   * of a mirror: a file the user deletes here does not come back.
+   */
+  seed?: () => Promise<StoredFile[]>,
+): Promise<ProjectMeta> {
+  const id = await userDirId(key);
+  let r = await tx<StoredRecord | undefined>('readonly', (s) => s.get(id));
+  if (!r) {
+    await saveProject(name, seed ? await seed().catch(() => []) : [], id);
+    r = await tx<StoredRecord | undefined>('readonly', (s) => s.get(id));
+  }
+  const now = Date.now();
+  return {
+    id,
+    name,
+    createdAt: r?.createdAt ?? now,
+    updatedAt: r?.updatedAt ?? now,
+    fileCount: r?.files.length ?? 0,
+    bytes: r?.files.reduce((n, f) => n + f.gz.byteLength, 0) ?? 0,
+  };
+}
+
 export async function listProjects(): Promise<ProjectMeta[]> {
   const all = await tx<StoredRecord[]>('readonly', (s) => s.getAll());
   return (
     all
       .filter((r) => r.id !== PROBE_ID) // health-probe canary, not a project
+      .filter((r) => !isUserDirId(r.id)) // Templates/Symbols/... are folders, not projects
       .filter(ownedByCurrent) // another account's work stays on disk but hidden
       .map((r) => ({
         id: r.id,

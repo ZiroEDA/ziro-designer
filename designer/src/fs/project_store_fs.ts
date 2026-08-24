@@ -24,6 +24,8 @@
 import {
   type ProjectMeta,
   deleteProject,
+  ensureUserDir,
+  isUserDirId,
   deleteProjectPath,
   listEmptyFolders,
   listProjectFiles,
@@ -44,6 +46,8 @@ import {
   dirLevel,
 } from './filesystem.js';
 import { ROOT, dirname, isValidName, isValidPath, join, normalize, segments } from './path.js';
+import { type AssetKind, USER_DIRS } from './chooser_places.js';
+import { legacyTemplateFiles } from '../home/user_templates.js';
 
 /** A project, and how far into it a path reaches. */
 interface Resolved {
@@ -64,13 +68,52 @@ interface Resolved {
 async function byDisplayName(): Promise<Map<string, ProjectMeta>> {
   const all = [...(await listProjects())].sort((a, b) => a.createdAt - b.createdAt);
   const out = new Map<string, ProjectMeta>();
+  // The user-data folders own their names before any project does, so a project
+  // called `Templates` displays as `Templates (2)` through the machinery that
+  // was already here for two projects of the same name. Without the seed the
+  // two would resolve to the same path and one of them would be unreachable.
+  for (const name of USER_DIR_NAMES) out.set(name, PLACEHOLDER);
   for (const p of all) {
     let name = p.name;
     for (let n = 2; out.has(name); n++) name = `${p.name} (${n})`;
     out.set(name, p);
   }
+  for (const name of USER_DIR_NAMES) if (out.get(name) === PLACEHOLDER) out.delete(name);
   return out;
 }
+
+/**
+ * The folder name each user-data kind shows as, from the one table that has it.
+ *
+ * `USER_DIRS` is the sidebar's own paths, so the tree and the rows cannot drift
+ * apart: a row pointing at `/Templates` reaches a folder called `Templates`
+ * because they are the same string.
+ */
+const USER_DIR_BY_NAME = new Map<string, AssetKind>(
+  (Object.entries(USER_DIRS) as [AssetKind, string][]).map(([kind, path]) => [
+    path.replace(/^\/+/, ''),
+    kind,
+  ]),
+);
+const USER_DIR_NAMES = [...USER_DIR_BY_NAME.keys()];
+
+/** Only ever compared by identity, to take the reservations back out. */
+const PLACEHOLDER = { id: '', name: '', createdAt: 0, updatedAt: 0, fileCount: 0, bytes: 0 };
+
+/**
+ * What the Templates folder starts with the first time it is opened.
+ *
+ * Drawing sheets saved while the templates root was a store of its own — see
+ * `legacyTemplateFiles`. Only Templates has any, because it was the only one of
+ * the four that was ever backed by anything.
+ */
+const seedTemplates = async (): Promise<{ name: string; bytes: Uint8Array }[]> => {
+  const enc = new TextEncoder();
+  return (await legacyTemplateFiles()).map((f) => ({
+    name: f.path.replace(/^\/+/, ''),
+    bytes: enc.encode(f.text),
+  }));
+};
 
 function entryForProject(name: string, p: ProjectMeta): Entry {
   return {
@@ -103,7 +146,14 @@ export function projectStoreFileSystem(): FileSystem {
     const parts = segments(path);
     const projectName = parts[0];
     if (projectName === undefined) throw new FsError(FsErrorCode.NOT_IN_PROJECT, path);
-    const meta = (await byDisplayName()).get(projectName);
+    // A user-data folder answers to its name before the project list is
+    // consulted, and the record is made here if it has never been written to:
+    // `updateProjectFiles` is a no-op on a missing record, so a save into a
+    // folder that does not exist yet would report success and store nothing.
+    const kind = USER_DIR_BY_NAME.get(projectName);
+    const meta = kind
+      ? await ensureUserDir(kind, projectName, kind === 'templates' ? seedTemplates : undefined)
+      : (await byDisplayName()).get(projectName);
     if (!meta) throw new FsError(FsErrorCode.NOT_FOUND, path);
     return { meta, rel: parts.slice(1).join('/'), base: join(ROOT, projectName) };
   };
@@ -144,6 +194,25 @@ export function projectStoreFileSystem(): FileSystem {
       const path = normalize(dir);
       if (path === ROOT) {
         const out: Entry[] = [];
+        // The user-data folders first, as a directory listing puts folders
+        // above files. They are `folder`, not `project`: Open Project must not
+        // be able to accept `Templates` as a board, and a single click plus
+        // Open has to walk into it the way any folder does.
+        for (const name of USER_DIR_NAMES) {
+          const kind = USER_DIR_BY_NAME.get(name)!;
+          const meta = await ensureUserDir(
+            kind,
+            name,
+            kind === 'templates' ? seedTemplates : undefined,
+          );
+          out.push({
+            name,
+            path: join(ROOT, name),
+            kind: 'folder',
+            size: null,
+            modified: meta.updatedAt,
+          });
+        }
         for (const [name, p] of await byDisplayName()) out.push(entryForProject(name, p));
         return out;
       }
@@ -155,6 +224,18 @@ export function projectStoreFileSystem(): FileSystem {
       const p = normalize(path);
       if (p === ROOT)
         return { name: '', path: ROOT, kind: 'folder', size: null, modified: Date.now() };
+      const parts = segments(p);
+      // `list(ROOT)` shows projects only — see the note there — so a user-data
+      // folder has no sibling entry to be found among. It still exists.
+      const asUserDir = parts.length === 1 ? USER_DIR_BY_NAME.get(parts[0]!) : undefined;
+      if (asUserDir) {
+        const meta = await ensureUserDir(
+          asUserDir,
+          parts[0]!,
+          asUserDir === 'templates' ? seedTemplates : undefined,
+        );
+        return { name: parts[0]!, path: p, kind: 'folder', size: null, modified: meta.updatedAt };
+      }
       const parent = dirname(p);
       const name = segments(p).at(-1);
       const siblings = await fs.list(parent).catch(() => [] as Entry[]);
@@ -178,7 +259,8 @@ export function projectStoreFileSystem(): FileSystem {
       // other place. Resolving first would report both as "no such project",
       // which is true of one of them and the reason for neither.
       if (segments(p).length <= 1) {
-        const known = (await byDisplayName()).has(segments(p)[0] ?? '');
+        const first = segments(p)[0] ?? '';
+        const known = USER_DIR_BY_NAME.has(first) || (await byDisplayName()).has(first);
         throw new FsError(known ? FsErrorCode.NOT_A_DIRECTORY : FsErrorCode.NOT_IN_PROJECT, p);
       }
       const r = await resolve(p);
@@ -198,7 +280,8 @@ export function projectStoreFileSystem(): FileSystem {
       // not one, and `mkproject` is how a folder gets made there. An existing
       // project's own path is a folder that already exists.
       if (segments(p).length <= 1) {
-        const known = (await byDisplayName()).has(segments(p)[0] ?? '');
+        const first = segments(p)[0] ?? '';
+        const known = USER_DIR_BY_NAME.has(first) || (await byDisplayName()).has(first);
         throw new FsError(known ? FsErrorCode.EXISTS : FsErrorCode.NOT_IN_PROJECT, p);
       }
       const r = await resolve(p);
@@ -212,7 +295,8 @@ export function projectStoreFileSystem(): FileSystem {
       const name = segments(p).at(-1);
       if (!name || !isValidName(name) || dirname(p) !== ROOT)
         throw new FsError(FsErrorCode.INVALID, p);
-      if ((await byDisplayName()).has(name)) throw new FsError(FsErrorCode.EXISTS, p);
+      if (USER_DIR_BY_NAME.has(name) || (await byDisplayName()).has(name))
+        throw new FsError(FsErrorCode.EXISTS, p);
       await saveProject(name, []);
     },
 
@@ -223,6 +307,9 @@ export function projectStoreFileSystem(): FileSystem {
       if (target !== p && (await fs.stat(target))) throw new FsError(FsErrorCode.EXISTS, target);
       const r = await resolve(p);
       if (r.rel === '') {
+        // A user-data folder has a fixed name, the way `template/` does on
+        // disk. Renaming it would leave the sidebar row pointing at nothing.
+        if (isUserDirId(r.meta.id)) throw new FsError(FsErrorCode.READ_ONLY, p);
         await renameProject(r.meta.id, name);
         return;
       }
@@ -235,6 +322,7 @@ export function projectStoreFileSystem(): FileSystem {
       const p = normalize(path);
       const r = await resolve(p);
       if (r.rel === '') {
+        if (isUserDirId(r.meta.id)) throw new FsError(FsErrorCode.READ_ONLY, p);
         await deleteProject(r.meta.id);
         return;
       }

@@ -32,6 +32,7 @@ import {
 } from './home/save_state.js';
 import { SaveIndicator } from './ui/SaveIndicator.js';
 import { ReadOnlyNotice } from './ui/ReadOnlyNotice.js';
+import { projectStoreFileSystem } from './fs/project_store_fs.js';
 import './ui/shell.css';
 
 /**
@@ -562,17 +563,48 @@ export function App(): JSX.Element {
     })();
   }, []);
 
-  // Drawing Sheet Editor → Save (Save As): write the .kicad_wks into the open
-  // project and offer it as a schematic drawing-sheet choice + in the file tree.
-  // Place it under the project's folder (the shared path prefix) so it sits
-  // alongside the .kicad_sch/.kicad_pcb rather than spawning a stray root entry.
+  /**
+   * Drawing Sheet Editor → Save / Save As: write the `.kicad_wks` where the
+   * dialog said, which is one of exactly two folders (`chooserPlacesFor`).
+   *
+   * INTO THE OPEN PROJECT, the path's first segment naming it: the sheet joins
+   * the session's file list so the schematic's Page Settings can select it, and
+   * is persisted under the project's own folder prefix so it sits beside the
+   * `.kicad_sch` rather than spawning a stray root entry.
+   *
+   * INTO A USER-DATA FOLDER — `/Templates/frame.kicad_wks`, which is where
+   * pl_editor's own Save As opens (`PATHS::GetUserTemplatesPath()`,
+   * pagelayout_editor/files.cpp:199) — through the account's filesystem, the
+   * same one the chooser listed the folder with. That folder is not a project
+   * and has no session file list; it is a sibling directory of them, and a
+   * sheet there is shared across every board rather than belonging to one.
+   *
+   * This used to take a bare LEAF and always prefix it with the open project's
+   * folder, so a sheet saved into Templates went into the board instead — and
+   * with no project open the editor downloaded it, because this handler was not
+   * even passed. Both are why the Templates row looked like it did nothing.
+   */
   const onSaveToProject = useCallback(
-    (fileName: string, text: string) => {
+    (path: string, text: string) => {
       const cur = projectFilesRef.current;
-      if (!cur) return;
-      const name = fileName.includes('/') ? fileName : projectDirPrefix(cur) + fileName;
-      setSessionSheets((prev) => [...prev.filter((f) => f.name !== name), { name, text }]);
-      persistFilesNow([{ name, text }]);
+      const first = path.replace(/^\/+/, '').split('/')[0] ?? '';
+      const mine = cur ? projectNameOf(cur) : null;
+      if (cur && mine && (first === mine || !path.startsWith('/'))) {
+        const name = path.includes('/') ? path.replace(/^\/+/, '') : projectDirPrefix(cur) + path;
+        // The session list is keyed by the project-relative name, which is what
+        // `projectDirPrefix` builds and what Page Settings reads.
+        const rel = name.startsWith(`${mine}/`) ? name.slice(mine.length + 1) : name;
+        const withPrefix = rel.includes('/') ? rel : projectDirPrefix(cur) + rel;
+        setSessionSheets((prev) => [
+          ...prev.filter((f) => f.name !== withPrefix),
+          { name: withPrefix, text },
+        ]);
+        persistFilesNow([{ name: withPrefix, text }]);
+        return;
+      }
+      void projectStoreFileSystem()
+        .write(path, enc.encode(text))
+        .catch((e) => console.warn('Save failed:', e));
     },
     [persistFilesNow],
   );
@@ -1088,7 +1120,9 @@ export function App(): JSX.Element {
             <DrawingSheetEditor
               onExitToHome={goHome}
               projectName={projectName}
-              onSaveToProject={projectFiles ? onSaveToProject : undefined}
+              // Always passed: a Save As into `/Templates` needs no open project,
+              // and the editor's only other answer was a browser download.
+              onSaveToProject={onSaveToProject}
               openRequest={dsRequest}
             />
           </Suspense>

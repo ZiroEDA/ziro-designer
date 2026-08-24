@@ -65,11 +65,19 @@ export function useDocumentTitle(view: string, title: string): void {
  * way the real title bar weights it.
  */
 export function frameTitleName(fileName: string | null | undefined, placeholder: string): string {
-  const name = fileName?.trim();
-  // wxFileName::GetName(): drop the last extension, and only a real one - a
-  // dot in a directory component is not an extension, and a leading dot is not
-  // one either ("*.kicad_wks" keeps its name, ".hidden" stays ".hidden").
-  return name ? name.replace(/(?!^)\.[^./\\]*$/, '') : placeholder;
+  const full = fileName?.trim();
+  if (!full) return placeholder;
+  // wxFileName::GetName() is the NAME half alone — no directory and no
+  // extension. Every frame here holds `GetCurrentFileName()`, which upstream is
+  // a full path (`SetCurrentFileName( filename )` takes what the Save As dialog
+  // returned, pagelayout_editor/files.cpp:232), so a title built from it has to
+  // drop the directory as well. This dropped only the extension, which was
+  // invisible while the editors held bare leaf names and became a title reading
+  // `/Templates/frame` the moment one of them held a real path.
+  const name = full.split(/[/\\]/).filter(Boolean).pop() ?? '';
+  // Only a real extension goes: a leading dot is not one, so ".hidden" stays
+  // ".hidden" and "*.kicad_wks" keeps its name.
+  return name.replace(/(?!^)\.[^.]*$/, '') || placeholder;
 }
 
 /** The em dash, with its spaces, that separates the two halves. */

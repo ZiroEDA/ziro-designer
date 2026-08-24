@@ -343,3 +343,49 @@ export async function duplicateTemplate(
   await putUserTemplate(rec);
   return rec;
 }
+
+/**
+ * The loose files the templates root used to hold, for the one-way move out.
+ *
+ * `user_template_files.ts` was a flat `path -> text` store in this database,
+ * added because nothing modelled the loose `.kicad_wks` files that
+ * `PL_EDITOR_FRAME::Files_io` writes into `template/`
+ * (pagelayout_editor/files.cpp:199-202). It backed Templates and only
+ * Templates, so Symbols, Footprints and 3D Models stayed sidebar rows with
+ * nothing behind them, and it was removed when all four became folders of the
+ * account tree instead.
+ *
+ * Anything a person saved in between is still sitting in `template-files`.
+ * `ensureUserDir` reads this once, when it creates the Templates folder, and
+ * the rows are left where they are rather than deleted: this runs during a
+ * READ of the folder, and a migration that destroys the only copy of the data
+ * it is moving has to be the one that also committed it.
+ *
+ * `FILES_STORE` is still created by the upgrade above, so this opens whether or
+ * not the deleted module ever ran.
+ */
+export async function legacyTemplateFiles(): Promise<{ path: string; text: string }[]> {
+  try {
+    const db = await openDB();
+    const all = await new Promise<{ path: string; text: string; deletedAt?: number }[]>(
+      (resolve, reject) => {
+        const t = db.transaction(FILES_STORE, 'readonly');
+        const req = t.objectStore(FILES_STORE).getAll();
+        let result: { path: string; text: string; deletedAt?: number }[] = [];
+        req.onsuccess = () => {
+          result = req.result;
+        };
+        t.oncomplete = () => resolve(result);
+        t.onabort = () => reject(t.error);
+        t.onerror = () => reject(t.error);
+      },
+    );
+    // The store kept tombstones so a sync could see a delete; a deleted file is
+    // not one to carry across.
+    return all.filter((f) => !f.deletedAt).map((f) => ({ path: f.path, text: f.text }));
+  } catch {
+    // No such database, or a browser refusing IndexedDB. Either way the
+    // Templates folder starts empty rather than failing to open.
+    return [];
+  }
+}
