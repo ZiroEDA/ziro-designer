@@ -133,10 +133,11 @@ export const filesFromFileList = (list: FileList): IngestFile[] =>
 export function stripCommonFolder(files: IngestFile[]): IngestFile[] {
   if (files.length === 0) return files;
 
-  const first = files[0]!.name.split('/');
-  if (first.length < 2) return files;
-
-  const prefix = first[0]!;
+  // No guard on the first path having a folder: `shared` below already refuses
+  // a flat selection, because no flat path has a second segment. A sweep proved
+  // it - deleting that guard changed no behaviour and failed no test, which is
+  // what redundant code looks like from the outside.
+  const prefix = files[0]!.name.split('/')[0]!;
   // Every one of them, and each with something after the prefix.
   const shared = files.every((f) => {
     const parts = f.name.split('/');
