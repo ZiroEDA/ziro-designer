@@ -37,11 +37,14 @@ function boardLayerFor(image: GERBER_FILE_IMAGE, fallbackIdx: number): string {
     return fn.includes('bot') ? 'B.SilkS' : 'F.SilkS';
   if (fn.includes('paste')) return fn.includes('bot') ? 'B.Paste' : 'F.Paste';
   if (fn.includes('profile') || fn.includes('edge')) return 'Edge.Cuts';
-  // A drill file's synthesised function is `Other,Drill`
-  // (excellon_read_drill_file.cpp:192), not the bare word — this compared
-  // against the truncated value we used to store and stopped matching the
-  // moment that was corrected.
-  if (fn.includes('drill')) return 'Edge.Cuts';
+  // NOT a drill branch. `findNumX2GerbersLoaded`
+  // (dialog_map_gerber_layers_to_pcb.cpp:466-517) is an exact-match table keyed
+  // on `GetBrdLayerId() + GetFileType()`, and it has no drill entry at all —
+  // "PProfile"/"NPProfile" are the only two that reach `Edge_Cuts`. Upstream
+  // hands a drill file to `collect_hole` instead (`export_to_pcbnew.cpp:78-88`)
+  // and its geometry becomes pads and vias, never board outline. We used to map
+  // `fileFunction === 'Drill'` here, which was already an invention and stopped
+  // matching anything the moment that value was corrected to `Other,Drill`.
   return USER_LAYERS[fallbackIdx % USER_LAYERS.length]!;
 }
 
