@@ -549,11 +549,7 @@ export function drawPin(
   const nameInfo = pinNameInfo(pin, sym);
   if (nameInfo) drawTextInfo(ctx, nameInfo, hidden ? hiddenColor : theme.pinName);
   if (sym.showElectricalTypes) {
-    drawTextInfo(
-      ctx,
-      pinElectricalTypeInfo(pin),
-      hidden ? hiddenColor : theme.privateNote,
-    );
+    drawTextInfo(ctx, pinElectricalTypeInfo(pin), hidden ? hiddenColor : theme.privateNote);
   }
 }
 
@@ -798,7 +794,7 @@ export function drawField(
 const SELECTION_THICKNESS_MILS = 3;
 
 /**
- * Render the symbol editor scene: grid, origin anchor, then the current
+ * Render the symbol editor scene: grid and axes, then the current
  * symbol's items for the shown unit/body style (selection shadows first, as
  * KiCad's LAYER_SELECTION_SHADOWS pass runs under the normal layers).
  */

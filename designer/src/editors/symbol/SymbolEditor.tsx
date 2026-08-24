@@ -94,7 +94,7 @@ import { dispatchMenuHotkey, focusBlocksHotkey } from '../../ui/menu_hotkeys.js'
 import { wasBrowserSuppressed, type FocusLike } from '../../ui/browser_hotkeys.js';
 import { OpenFileDialog } from '../../fs/OpenFileDialog.js';
 import { kicadSymbolLibWildcard } from '../../fs/wildcards.js';
-import { defaultUnitsToggle } from '../../ui/app_settings_units.js';
+import { applyToggle, DEFAULT_TOGGLES } from './toggles.js';
 import { SelectionFilterPanel } from '../../ui/SelectionFilterPanel.js';
 import { symSelectionFilterShown } from '../../ui/selection_filter_panel.js';
 import {
@@ -149,35 +149,6 @@ const DEFAULT_LAST_PIN: LastPinState = {
   commonBody: false,
   visible: true,
 };
-
-const DEFAULT_TOGGLES = new Set([
-  'toggleGrid',
-  // `system.units`. NOT a literal: `symbol_editor` is on the imperial side of
-  // `APP_SETTINGS_BASE`'s single branch (`app_settings.cpp:228-238`), so this
-  // frame opens in mils, reading `grid 50` where ours read `grid 1.27`. It said
-  // `unitsMm`, which is that branch's OTHER arm — the one pcbnew takes.
-  defaultUnitsToggle('symbol_editor'),
-  'toggleSyncedPinsMode',
-  'showLibraryTree',
-  'showProperties',
-  // `cursorSmallCrosshairs` is the group's first action, so it is the one the
-  // crosshair button shows on open.
-  'crosshairSmall',
-]);
-
-/**
- * The left toolbar's cycling groups — `AppendGroup( TOOLBAR_GROUP_CONFIG(...) )`
- * (`toolbars_symbol_editor.cpp:72-79`). One button each, showing the selected
- * action, so exactly one member is in `toggles` at a time.
- *
- * `showDeMorganStandard` / `showDeMorganAlternate` used to be a third pair here.
- * They were ours: neither name appears anywhere in KiCad 10.0.5, and the body
- * style is a CHOICE on the top bar upstream, not two toggle buttons.
- */
-const RADIO_GROUPS: string[][] = [
-  ['unitsMm', 'unitsInches', 'unitsMils'],
-  ['crosshairSmall', 'crosshairFull', 'crosshair45'],
-];
 
 /**
  * Field 6, the "Current Tool" pane: TOOLS_HOLDER::SetTool hands
@@ -900,24 +871,10 @@ export function SymbolEditor({
     ],
   );
 
-  const radio = (t: Set<string>, id: string): Set<string> => {
-    const group = RADIO_GROUPS.find((g) => g.includes(id));
-    const next = new Set(t);
-    if (group) for (const g of group) next.delete(g);
-    next.add(id);
-    return next;
-  };
-  const flip = (t: Set<string>, id: string): Set<string> => {
-    const next = new Set(t);
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
-    return next;
-  };
-
+  // `applyToggle` is `editors/symbol/toggles.ts`' — the radio/flip rule and the
+  // groups it reads are both there, where a test can call them.
   const onLeftToggle = useCallback((id: string) => {
-    setToggles((prev) =>
-      RADIO_GROUPS.some((g) => g.includes(id)) ? radio(prev, id) : flip(prev, id),
-    );
+    setToggles((prev) => applyToggle(prev, id));
   }, []);
 
   // ----- pin placement (SYMBOL_EDITOR_PIN_TOOL) ---------------------------------------
@@ -1846,86 +1803,86 @@ export function SymbolEditor({
           <>
             <div className="ze-leftdock" style={{ width: panelWidth, minWidth: panelWidth }}>
               {toggles.has('showLibraryTree') && (
-              <div className="ze-panel grow">
-                <div className="ze-panel-header">Libraries</div>
-                <div style={{ padding: 4 }}>
-                  <input
-                    className="ze-search"
-                    placeholder="Filter"
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    onKeyDown={(e) => e.stopPropagation()}
-                    style={{ width: '100%' }}
-                  />
-                </div>
-                <div className="ze-panel-body">
-                  {treeRows.length === 0 && (
-                    <LibraryLoadingPanel
-                      kind="symbols"
-                      fallback={<div className="ze-muted">No libraries</div>}
-                      label="Loading symbol libraries..."
+                <div className="ze-panel grow">
+                  <div className="ze-panel-header">Libraries</div>
+                  <div style={{ padding: 4 }}>
+                    <input
+                      className="ze-search"
+                      placeholder="Filter"
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                      onKeyDown={(e) => e.stopPropagation()}
+                      style={{ width: '100%' }}
                     />
-                  )}
-                  {treeRows.map((row) =>
-                    row.sym === undefined ? (
-                      <div
-                        key={row.lib}
-                        className={`ze-tree-item root${treeSel?.lib === row.lib && !treeSel.name ? ' active' : ''}`}
-                        onClick={() => {
-                          setTreeSel({ lib: row.lib, name: null });
-                          if (!q) toggleLib(row.lib);
-                        }}
-                        title={manager.current.library(row.lib)?.fileName}
-                      >
-                        <span
-                          className={`twisty expandable${expanded.has(row.lib) || q ? ' open' : ''}`}
-                        />
-                        {toolbarIconUrl('library') && (
-                          <img
-                            src={toolbarIconUrl('library')}
-                            alt=""
-                            style={{ width: 16, height: 16 }}
-                          />
-                        )}
-                        <span>
-                          {row.lib}
-                          {row.modified ? ' *' : ''}
-                        </span>
-                      </div>
-                    ) : (
-                      <div
-                        key={`${row.lib}:${row.sym}`}
-                        className={`ze-tree-item${curLib === row.lib && curName === row.sym ? ' active' : ''}`}
-                        style={{
-                          paddingLeft: 26,
-                          fontWeight: curLib === row.lib && curName === row.sym ? 600 : 400,
-                        }}
-                        onClick={() => setTreeSel({ lib: row.lib, name: row.sym! })}
-                        onDoubleClick={() => void loadSymbol(row.lib, row.sym!)}
-                        title={row.desc ? `${row.sym}, ${row.desc}` : row.sym}
-                      >
-                        <span>
-                          {row.sym}
-                          {row.modified ? ' *' : ''}
-                        </span>
-                        {row.desc && (
+                  </div>
+                  <div className="ze-panel-body">
+                    {treeRows.length === 0 && (
+                      <LibraryLoadingPanel
+                        kind="symbols"
+                        fallback={<div className="ze-muted">No libraries</div>}
+                        label="Loading symbol libraries..."
+                      />
+                    )}
+                    {treeRows.map((row) =>
+                      row.sym === undefined ? (
+                        <div
+                          key={row.lib}
+                          className={`ze-tree-item root${treeSel?.lib === row.lib && !treeSel.name ? ' active' : ''}`}
+                          onClick={() => {
+                            setTreeSel({ lib: row.lib, name: null });
+                            if (!q) toggleLib(row.lib);
+                          }}
+                          title={manager.current.library(row.lib)?.fileName}
+                        >
                           <span
-                            style={{
-                              opacity: 0.55,
-                              marginLeft: 8,
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap',
-                            }}
-                          >
-                            {row.desc}
+                            className={`twisty expandable${expanded.has(row.lib) || q ? ' open' : ''}`}
+                          />
+                          {toolbarIconUrl('library') && (
+                            <img
+                              src={toolbarIconUrl('library')}
+                              alt=""
+                              style={{ width: 16, height: 16 }}
+                            />
+                          )}
+                          <span>
+                            {row.lib}
+                            {row.modified ? ' *' : ''}
                           </span>
-                        )}
-                      </div>
-                    ),
-                  )}
+                        </div>
+                      ) : (
+                        <div
+                          key={`${row.lib}:${row.sym}`}
+                          className={`ze-tree-item${curLib === row.lib && curName === row.sym ? ' active' : ''}`}
+                          style={{
+                            paddingLeft: 26,
+                            fontWeight: curLib === row.lib && curName === row.sym ? 600 : 400,
+                          }}
+                          onClick={() => setTreeSel({ lib: row.lib, name: row.sym! })}
+                          onDoubleClick={() => void loadSymbol(row.lib, row.sym!)}
+                          title={row.desc ? `${row.sym}, ${row.desc}` : row.sym}
+                        >
+                          <span>
+                            {row.sym}
+                            {row.modified ? ' *' : ''}
+                          </span>
+                          {row.desc && (
+                            <span
+                              style={{
+                                opacity: 0.55,
+                                marginLeft: 8,
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              {row.desc}
+                            </span>
+                          )}
+                        </div>
+                      ),
+                    )}
+                  </div>
                 </div>
-              </div>
               )}
               {toggles.has('showProperties') && (
                 <div className="ze-panel">
