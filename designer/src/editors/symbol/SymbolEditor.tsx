@@ -36,6 +36,7 @@ import {
   zoomMsg,
 } from '../../ui/status_format.js';
 import {
+  LISTBOX_WIDTH,
   SYM_CONTROL,
   SYM_TOP_TOOLBAR,
   SYM_LEFT_TOOLBAR,
@@ -93,6 +94,13 @@ import { dispatchMenuHotkey, focusBlocksHotkey } from '../../ui/menu_hotkeys.js'
 import { wasBrowserSuppressed, type FocusLike } from '../../ui/browser_hotkeys.js';
 import { OpenFileDialog } from '../../fs/OpenFileDialog.js';
 import { kicadSymbolLibWildcard } from '../../fs/wildcards.js';
+import { defaultUnitsToggle } from '../../ui/app_settings_units.js';
+import { SelectionFilterPanel } from '../../ui/SelectionFilterPanel.js';
+import { symSelectionFilterShown } from '../../ui/selection_filter_panel.js';
+import {
+  defaultSelectionFilter,
+  type SelectionFilterOptions,
+} from '@ziroeda/eeschema/src/tools/sch_selection_filter.js';
 
 /**
  * The Symbol Editor frame, the web mirror of KiCad's SYMBOL_EDIT_FRAME
@@ -144,7 +152,11 @@ const DEFAULT_LAST_PIN: LastPinState = {
 
 const DEFAULT_TOGGLES = new Set([
   'toggleGrid',
-  'unitsMm',
+  // `system.units`. NOT a literal: `symbol_editor` is on the imperial side of
+  // `APP_SETTINGS_BASE`'s single branch (`app_settings.cpp:228-238`), so this
+  // frame opens in mils, reading `grid 50` where ours read `grid 1.27`. It said
+  // `unitsMm`, which is that branch's OTHER arm — the one pcbnew takes.
+  defaultUnitsToggle('symbol_editor'),
   'toggleSyncedPinsMode',
   'showLibraryTree',
   'showProperties',
@@ -275,6 +287,9 @@ export function SymbolEditor({
    *  While set, Save routes back to the placement rather than to a library. */
   const [fromSchematic, setFromSchematic] = useState<string | null>(null);
   const [panelWidth, setPanelWidth] = useState(LIBRARY_TREE_WIDTH);
+  /** `SCH_SELECTION_TOOL::GetFilter()`, seeded from
+   *  `SYMBOL_EDITOR_SETTINGS::m_SelectionFilter` (`symbol_edit_frame.cpp:254`). */
+  const [selFilter, setSelFilter] = useState<SelectionFilterOptions>(defaultSelectionFilter);
 
   // Dialogs / pending placements.
   const [pinDialog, setPinDialog] = useState<{
@@ -1776,6 +1791,7 @@ export function SymbolEditor({
             <select
               className="ze-select"
               title="Select body style"
+              style={{ width: LISTBOX_WIDTH }}
               disabled={!showDeMorgan}
               value={bodyStyle}
               onChange={(e) => {
@@ -1798,6 +1814,7 @@ export function SymbolEditor({
             <select
               className="ze-select"
               title="Select unit to edit"
+              style={{ width: LISTBOX_WIDTH }}
               disabled={units < 2}
               value={unit}
               onChange={(e) => {
@@ -1820,9 +1837,15 @@ export function SymbolEditor({
       />
 
       <div className="ze-body">
-        {toggles.has('showLibraryTree') && (
+        {/* Three independent AUI panes upstream — "LibraryTree"
+            (`symbol_edit_frame.cpp:219-225`), the properties pane
+            (`:227`) and "SelectionFilter" (`:228`) — so the dock is up
+            whenever EITHER of the two with a toggle is. It used to be gated on
+            the tree alone, which took Properties down with it. */}
+        {(toggles.has('showLibraryTree') || toggles.has('showProperties')) && (
           <>
             <div className="ze-leftdock" style={{ width: panelWidth, minWidth: panelWidth }}>
+              {toggles.has('showLibraryTree') && (
               <div className="ze-panel grow">
                 <div className="ze-panel-header">Libraries</div>
                 <div style={{ padding: 4 }}>
@@ -1903,6 +1926,7 @@ export function SymbolEditor({
                   )}
                 </div>
               </div>
+              )}
               {toggles.has('showProperties') && (
                 <div className="ze-panel">
                   <div className="ze-panel-header">Properties</div>
@@ -1914,6 +1938,21 @@ export function SymbolEditor({
                     </div>
                   </div>
                 </div>
+              )}
+              {/* `m_selectionFilterPanel = new PANEL_SCH_SELECTION_FILTER( this )`
+                  (`symbol_edit_frame.cpp:195`) — the SAME widget the schematic
+                  builds, which lays itself out differently for
+                  FRAME_SCH_SYMBOL_EDITOR. It has no toggle of its own; see
+                  `symSelectionFilterShown`. */}
+              {symSelectionFilterShown({
+                libraryTree: toggles.has('showLibraryTree'),
+                properties: toggles.has('showProperties'),
+              }) && (
+                <SelectionFilterPanel
+                  frame="FRAME_SCH_SYMBOL_EDITOR"
+                  filter={selFilter}
+                  onChange={setSelFilter}
+                />
               )}
             </div>
             <div className="ze-splitter" onMouseDown={startResize} title="Drag to resize" />
@@ -1950,22 +1989,16 @@ export function SymbolEditor({
             onCursorMove={setCursor}
             onScaleChange={setScale}
           />
-          {!workSymbol && (
-            <div
-              style={{
-                position: 'absolute',
-                inset: 0,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                pointerEvents: 'none',
-                color: '#888',
-                fontSize: 14,
-              }}
-            >
-              Double-click a symbol in the library tree to edit it, or File &gt; New Symbol...
-            </div>
-          )}
+          {/* Nothing goes here. An empty SYMBOL_EDIT_FRAME draws the axes and
+              the grid and no text at all: `LoadOneLibrarySymbolAux` simply
+              leaves the screen empty (`symbol_edit_frame.cpp:1546-1555`,
+              `emptyScreen`), and the only place upstream says anything is the
+              title bar's `[no symbol loaded]` (`symbol_editor.cpp:62`), which
+              `frame_title.ts` already prints.
+
+              What stood here was an invented hint centred on the canvas, in an
+              invented grey (`#888`) at an invented 14 px — two chrome literals
+              for a control KiCad does not have. */}
         </div>
 
         <Toolbar

@@ -23,6 +23,29 @@ import type { ToolEntry } from '../../ui/toolbar_types.js';
 const sep: ToolEntry = 'sep';
 
 /**
+ * `LISTBOX_WIDTH` (`toolbars_symbol_editor.cpp:43-47`), the width of both
+ * `AppendControl` combos:
+ *
+ * ```cpp
+ * #ifdef __UNIX__
+ * #define LISTBOX_WIDTH 140
+ * #else
+ * #define LISTBOX_WIDTH 120
+ * #endif
+ * ```
+ *
+ * and then `new wxComboBox( …, wxSize( LISTBOX_WIDTH, -1 ), … )` for the unit
+ * selector (`:170`) and the body-style selector (`:184`).
+ *
+ * [data] KiCad hardcodes it — it is not asked of GTK — so it stays a literal,
+ * but it has to be KiCad's literal. This is the Linux build, so 140. Ours had
+ * no width at all: two `<select>`s at their content width, which with a single
+ * empty `<option>` collapsed to about a third of upstream's and made the top
+ * bar visibly shorter than KiCad's.
+ */
+export const LISTBOX_WIDTH = 140;
+
+/**
  * `ACTION_TOOLBAR_CONTROLS::bodyStyleSelector` and `::unitSelector`, the two
  * `AppendControl` slots on the top bar (`toolbars_symbol_editor.cpp:148,151`).
  * The frame supplies the widgets; this table only says where they go.

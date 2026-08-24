@@ -11,7 +11,7 @@
  *     PIN_LAYOUT_CACHE::GetPinNameInfo / GetPinNumberInfo / GetPinElectricalTypeInfo,
  *   - every pin gets the open-circle "dangling" target (m_IsSymbolEditor forces
  *     isDangling in the painter),
- *   - drawAnchor paints the blue cross at the symbol origin,
+ *   - GAL's axes mark the world origin (SetAxesEnabled, symbol_edit_frame.cpp:265),
  *   - selected items get the blue LAYER_SELECTION_SHADOWS underglow.
  *
  * Geometry is the typed model's +Y-down space (the same space sch_painter draws in).
@@ -40,16 +40,15 @@ const DEFAULT_LINE_WIDTH = 6 * MIL; // DEFAULT_LINE_WIDTH_MILS
 const DEFAULT_TEXT = 1.27 * MM;
 /** TARGET_PIN_RADIUS (ee_painter): 15 mils. */
 export const TARGET_PIN_RADIUS = 15 * MIL;
-/** TEXT_ANCHOR_SIZE (default_values.h): 8 mils, for the origin anchor cross. */
-const TEXT_ANCHOR_SIZE = 8 * MIL;
 
-/** Extra colours the symbol editor needs beyond the schematic theme (KiCad Default). */
-export const SYMBOL_EDITOR_COLORS = {
-  anchor: 'rgb(0, 0, 255)', // schematic.anchor
-  hidden: 'rgb(194, 194, 194)', // schematic.hidden
-  privateNote: 'rgb(72, 72, 255)', // schematic.private_note (electrical-type text)
-  fields: 'rgb(132, 0, 132)', // schematic.fields (user fields)
-};
+// `SYMBOL_EDITOR_COLORS` used to live here: four RGB literals for
+// LAYER_SCHEMATIC_ANCHOR / LAYER_HIDDEN / LAYER_PRIVATE_NOTES / LAYER_FIELDS,
+// transcribed from the KiCad Default theme. All four are already named in
+// `editors/schematic/theme.ts` and resolved from the shared
+// `builtin_color_themes.ts`, so the copies bought nothing on Default and were
+// WRONG on Classic — where `LAYER_FIELDS` is `MAGENTA`, not (132, 0, 132).
+// They are `theme.anchor` / `theme.hidden` / `theme.privateNote` /
+// `theme.fields` now, which is what `SCH_RENDER_SETTINGS::LoadColors` reads.
 
 /** Options mirroring the symbol editor's view settings. */
 export interface SymbolViewOptions {
@@ -404,7 +403,7 @@ export function drawPin(
   theme: Theme,
   shadow?: { color: string; width: number },
 ): void {
-  const hiddenColor = SYMBOL_EDITOR_COLORS.hidden;
+  const hiddenColor = theme.hidden;
   const hidden = pin.hidden;
   if (hidden && !sym.showHiddenPins && !shadow) {
     return;
@@ -553,7 +552,7 @@ export function drawPin(
     drawTextInfo(
       ctx,
       pinElectricalTypeInfo(pin),
-      hidden ? hiddenColor : SYMBOL_EDITOR_COLORS.privateNote,
+      hidden ? hiddenColor : theme.privateNote,
     );
   }
 }
@@ -725,7 +724,7 @@ export function fieldColor(f: SchField, theme: Theme): string {
   if (f.effects?.color) return cssColor(f.effects.color);
   if (f.key === 'Reference') return theme.reference;
   if (f.key === 'Value') return theme.value;
-  return SYMBOL_EDITOR_COLORS.fields;
+  return theme.fields;
 }
 
 export function drawField(
@@ -760,7 +759,7 @@ export function drawField(
     line(ctx, { x: x0, y: f.at.y }, { x: x0 + w, y: f.at.y });
     return;
   }
-  const color = hidden ? SYMBOL_EDITOR_COLORS.hidden : fieldColor(f, theme);
+  const color = hidden ? theme.hidden : fieldColor(f, theme);
   const shown = f.nameShown ? `${f.key}: ${f.value}` : f.value;
   drawText(
     ctx,
@@ -777,14 +776,24 @@ export function drawField(
 
 // ----- scene --------------------------------------------------------------------
 
-/** drawAnchor: the blue cross at the symbol origin, zoom-aware. */
-function drawOrigin(ctx: CanvasRenderingContext2D, scale: number): void {
-  const radius = Math.round(Math.abs((1 / scale) * TEXT_ANCHOR_SIZE) / 25) + TEXT_ANCHOR_SIZE;
-  ctx.strokeStyle = SYMBOL_EDITOR_COLORS.anchor;
-  ctx.lineWidth = DEFAULT_LINE_WIDTH / 3;
-  line(ctx, { x: -radius, y: 0 }, { x: radius, y: 0 });
-  line(ctx, { x: 0, y: -radius }, { x: 0, y: radius });
-}
+/*
+ * The origin marker used to be a short blue cross drawn here, in
+ * `SCH_PAINTER::drawAnchor`'s shape (`sch_painter.cpp:1688-1710`). That was the
+ * wrong call: `drawAnchor` runs for a SELECTED field or a MOVING item, never as
+ * a standing mark at the world origin, so an empty Symbol Editor showed a blue
+ * cross KiCad does not draw.
+ *
+ * What KiCad actually draws through the origin is the GAL's AXES, which this
+ * frame — alone among the eeschema frames — switches on:
+ *
+ *     GetCanvas()->GetGAL()->SetAxesEnabled( true );   // symbol_edit_frame.cpp:265
+ *
+ * They are two full-viewport lines at x = 0 and y = 0, painted by `DrawGrid`
+ * before the grid and independently of grid visibility
+ * (`opengl_gal.cpp:1920-1928`), in `SetAxesColor( GetColor( LAYER_SCHEMATIC_GRID_AXES ) )`
+ * (`sch_base_frame.cpp:612`). `ui/grid_cursor.ts` already paints them for
+ * GerbView; the Symbol Editor simply had not asked.
+ */
 
 const SELECTION_THICKNESS_MILS = 3;
 
@@ -822,10 +831,15 @@ export function renderSymbolScene(
     color: theme.grid,
     style: opts.gridStyle,
     devicePixelRatio: opts.devicePixelRatio,
+    // `SetAxesEnabled( true )` (symbol_edit_frame.cpp:265) in the colour
+    // `SetAxesColor( GetColor( LAYER_SCHEMATIC_GRID_AXES ) )` gives it
+    // (sch_base_frame.cpp:612). This frame is the only eeschema frame that
+    // turns them on, which is why the flag is passed here and not by the
+    // schematic's renderer.
+    axes: { color: theme.gridAxes },
   });
   // drawGrid paints in device space; put the world transform back.
   ctx.setTransform(scale, 0, 0, scale, offsetX, offsetY);
-  drawOrigin(ctx, scale);
   if (!sym) return;
 
   const pinSettings: PinDisplaySettings = {
