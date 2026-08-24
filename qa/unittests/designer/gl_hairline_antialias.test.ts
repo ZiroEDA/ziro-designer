@@ -44,7 +44,9 @@ describe('the solid-hairline branch', () => {
   it('is gated on the segment being axis-aligned', () => {
     // The whole fix: `&& v_axisAligned > 0.5`. Without it a diagonal takes the
     // solid branch and staircases.
-    expect(SEGMENT_FRAG).toMatch(/if\s*\(\s*v_halfPx\s*<=\s*0\.51\s*&&\s*v_axisAligned\s*>\s*0\.5\s*\)/);
+    expect(SEGMENT_FRAG).toMatch(
+      /if\s*\(\s*v_halfPx\s*<=\s*0\.51\s*&&\s*v_axisAligned\s*>\s*0\.5\s*\)/,
+    );
   });
 
   it('is the only early return in the fragment stage', () => {
@@ -113,7 +115,8 @@ describe('varying declarations link', () => {
  * the ramp moves these numbers instead of leaving a stale copy passing.
  */
 describe('the ramp an off-axis hairline falls through to', () => {
-  const RAMP = /float\s+cover\s*=\s*clamp\(\s*v_halfPx\s*\+\s*0\.5\s*-\s*d\s*,\s*0\.0\s*,\s*1\.0\s*\)\s*;/;
+  const RAMP =
+    /float\s+cover\s*=\s*clamp\(\s*v_halfPx\s*\+\s*0\.5\s*-\s*d\s*,\s*0\.0\s*,\s*1\.0\s*\)\s*;/;
 
   it('is the expression this test models', () => {
     expect(SEGMENT_FRAG).toMatch(RAMP);
@@ -128,7 +131,10 @@ describe('the ramp an off-axis hairline falls through to', () => {
   const distToSeg = (px: number, py: number, a: number[], b: number[]): number => {
     const dx = b[0]! - a[0]!;
     const dy = b[1]! - a[1]!;
-    const t = Math.max(0, Math.min(1, ((px - a[0]!) * dx + (py - a[1]!) * dy) / (dx * dx + dy * dy)));
+    const t = Math.max(
+      0,
+      Math.min(1, ((px - a[0]!) * dx + (py - a[1]!) * dy) / (dx * dx + dy * dy)),
+    );
     return Math.hypot(px - (a[0]! + dx * t), py - (a[1]! + dy * t));
   };
 
