@@ -191,7 +191,11 @@ const SRC = (rel: string): string =>
 
 describe('the menu rows print the accelerator, character for character', () => {
   const DELETE_ROWS = [
-    'editors/symbol/SymbolEditor.tsx',
+    // The Symbol Editor's row lives in its menubar module, like the
+    // schematic's below: the frame used to carry a second `e.key === 'Delete'`
+    // binding beside the row, and `menu_hotkey_coverage.test.ts` rejects that
+    // restatement -- upstream a menu accelerator IS the binding.
+    'editors/symbol/menubar.ts',
     'editors/pcb/PcbEditor.tsx',
     'editors/footprint/FootprintEditor.tsx',
     'editors/schematic/dialogs/dialog_assign_footprints.tsx',
