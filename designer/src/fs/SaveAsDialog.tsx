@@ -16,8 +16,11 @@
  * rather than a path, so nothing an editor saved could land anywhere but the
  * root. This is the shared call site that fixes all of that at once.
  *
- * `wxFD_OVERWRITE_PROMPT` is `FileChooser`'s own: it asks before replacing a
- * file that exists, so there is nothing to add here.
+ * `wxFD_OVERWRITE_PROMPT` is `FileChooser`'s, and for a while this comment
+ * claimed it already worked. It did not — `acceptNow` accepted the path with no
+ * existence check at all, so a Save As over an existing file replaced it
+ * silently. The comment was the only thing standing where the feature should
+ * have been. It is implemented now; see `confirmOverwrite` there.
  */
 
 import type { JSX } from 'react';

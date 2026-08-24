@@ -185,3 +185,64 @@ describe('a Save As opens where upstream opens it, which is not one answer', () 
     expect(PL).toContain('initialName=""');
   });
 });
+
+describe('a Save As asks before it replaces a file', () => {
+  /**
+   * `wxFD_OVERWRITE_PROMPT` is in every Save As upstream passes —
+   * pagelayout_editor/files.cpp:201, sch_editor_control.cpp's
+   * SaveCurrSheetCopyAs, and the rest. On GTK the flag becomes
+   * `gtk_file_chooser_set_do_overwrite_confirmation`, and the chooser puts up
+   * its own confirmation before handing the path back.
+   *
+   * Ours had none. `acceptNow` accepted `join(dir, name)` with no existence
+   * check, so a Save As over an existing file replaced it silently — and
+   * SaveAsDialog carried a comment asserting the opposite, which is worse than
+   * no comment: it is the only thing that would have been read before someone
+   * concluded the feature was there.
+   *
+   * The two sentences are the strings in the libgtk-3 on this machine, read out
+   * of the binary rather than remembered — two spaces after each full stop
+   * included.
+   */
+  const CH = src('fs/FileChooser.tsx');
+
+  it('checks for a clash before accepting', () => {
+    expect(CH).toContain('if (clash) {');
+    expect(CH).toContain('setConfirmOverwrite(target);');
+  });
+
+  it('reads the WHOLE listing, not the filtered one', () => {
+    // `shown` is what survives the wildcard and the search box. A file hidden
+    // by the current filter still exists and would still be overwritten, so
+    // checking the visible list would clobber exactly the file a person cannot
+    // see.
+    expect(CH).toContain('const clash = (entries ?? []).some(');
+    expect(CH, 'the clash check reads the filtered list').not.toMatch(/const clash = \(shown/);
+  });
+
+  it('does not count a folder of that name as a file to replace', () => {
+    expect(CH).toContain("e.kind !== 'folder'");
+  });
+
+  it('uses GTK’s own two sentences', () => {
+    expect(CH).toContain('already exists.  Do you want to replace it?');
+    expect(CH).toContain('Replacing it will overwrite its contents.');
+  });
+
+  it('offers Replace and Cancel, with Cancel holding the focus', () => {
+    // Two answers, not three: there is no rename button. Cancel returns to the
+    // chooser with the name still typed, which is where a person changes it.
+    expect(CH).toContain("labels={{ yes: 'Replace', no: 'Cancel' }}");
+    expect(CH).toContain('defaultButton="no"');
+  });
+
+  it('replaces only on Replace', () => {
+    expect(CH).toContain("if (r === 'yes') acceptPath(target);");
+  });
+
+  it('no longer claims to do this in a comment while not doing it', () => {
+    expect(src('fs/SaveAsDialog.tsx')).not.toContain(
+      'it asks before replacing a\n * file that exists, so there is nothing to add here',
+    );
+  });
+});

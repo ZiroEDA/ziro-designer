@@ -38,6 +38,7 @@ import type { ChooserFilter, ChooserPlace } from './chooser_types.js';
 import type { Entry, FileSystem } from './filesystem.js';
 import { formatModified, formatSize } from './format.js';
 import { ROOT, ancestors, basename, isValidName, join } from './path.js';
+import { MessageDialogYesNo } from '../ui/dialog_message.js';
 
 // ChooserFilter and ChooserPlace live in chooser_types.ts so the data modules
 // that name them stay reachable from qa's tsconfig, which compiles .ts only.
@@ -242,6 +243,15 @@ export function FileChooser({
   const acceptPath = (path: string): void => (place?.onAccept ?? onAccept)(path);
   const [dir, setDir] = useState(initialPath ?? place?.path ?? ROOT);
   const [entries, setEntries] = useState<Entry[] | null>(null);
+  /**
+   * The path a save is about to replace, while GTK's confirmation is up.
+   *
+   * Null when there is nothing to confirm. Cancelling clears it and leaves the
+   * dialog exactly as it was, name still typed — which is how a person changes
+   * the name instead of replacing: GTK's confirmation has two answers, Replace
+   * and Cancel, and Cancel puts you back in the chooser.
+   */
+  const [confirmOverwrite, setConfirmOverwrite] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [name, setName] = useState(initialName ?? '');
   const [sort, setSort] = useState<{ key: SortKey; ascending: boolean }>({
@@ -360,7 +370,26 @@ export function FileChooser({
   const acceptNow = (): void => {
     if (mode === 'save') {
       if (!isValidName(name)) return;
-      acceptPath(join(dir, name));
+
+      const target = join(dir, name);
+      // `wxFD_OVERWRITE_PROMPT`, which every Save As upstream passes
+      // (pagelayout_editor/files.cpp:201, sch_editor_control.cpp's
+      // SaveCurrSheetCopyAs, and the rest). On GTK the flag turns into
+      // `gtk_file_chooser_set_do_overwrite_confirmation`, and the chooser puts
+      // its own confirmation up before returning the path.
+      //
+      // Read ENTRIES, not `shown`: `shown` is what survives the wildcard and
+      // the search box, and a file hidden by the current filter still exists
+      // and would still be overwritten. Checking the visible list would
+      // silently clobber exactly the file a person could not see.
+      const clash = (entries ?? []).some((e) => e.path === target && e.kind !== 'folder');
+
+      if (clash) {
+        setConfirmOverwrite(target);
+        return;
+      }
+
+      acceptPath(target);
       return;
     }
     const e = shown.find((x) => x.path === selected);
@@ -639,6 +668,42 @@ export function FileChooser({
           ) : null}
         </div>
       </div>
+
+      {/* GTK's own overwrite confirmation, which `wxFD_OVERWRITE_PROMPT` turns
+          on. Both sentences are the strings in the libgtk-3 on this machine,
+          two spaces after each full stop included:
+
+            A file named “%s” already exists.  Do you want to replace it?
+            The file already exists in “%s”.  Replacing it will overwrite its
+            contents.
+
+          Two answers, not three. There is no "rename" button: Cancel returns
+          you to the chooser with the name still typed, which is where you
+          change it. */}
+      {confirmOverwrite !== null && (
+        <MessageDialogYesNo
+          // GTK's confirmation carries no title of its own, so this one is
+          // OURS - the shell always draws a header, and the file dialog's own
+          // title is the least invented thing to put in it.
+          caption={title}
+          message={`A file named “${basename(confirmOverwrite)}” already exists.  Do you want to replace it?`}
+          extendedMessage={`The file already exists in “${
+            basename(dir) || (place?.label ?? 'this folder')
+          }”.  Replacing it will overwrite its contents.`}
+          icon="warning"
+          // NOT MEASURED: `_Replace` is not a distinct string in libgtk-3, so
+          // the label is the standard pair and the affirmative is last, as
+          // every other button row here is. Cancel holds the focus because the
+          // other answer destroys a file.
+          defaultButton="no"
+          labels={{ yes: 'Replace', no: 'Cancel' }}
+          onResult={(r) => {
+            const target = confirmOverwrite;
+            setConfirmOverwrite(null);
+            if (r === 'yes') acceptPath(target);
+          }}
+        />
+      )}
     </div>
   );
 }
