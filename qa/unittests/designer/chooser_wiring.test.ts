@@ -21,6 +21,11 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import {
+  DRAWING_SHEET_FILE_EXTENSION,
+  KICAD_SCHEMATIC_FILE_EXTENSION,
+  ensureFileExtension,
+} from '@ziroeda/common/src/common.js';
 
 const src = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(`../../../designer/src/${rel}`, import.meta.url)), 'utf8');
@@ -243,6 +248,127 @@ describe('a Save As asks before it replaces a file', () => {
   it('no longer claims to do this in a comment while not doing it', () => {
     expect(src('fs/SaveAsDialog.tsx')).not.toContain(
       'it asks before replacing a\n * file that exists, so there is nothing to add here',
+    );
+  });
+});
+
+describe('the overwrite confirmation dismisses itself, not the file manager', () => {
+  /**
+   * Akshay: cancelling the replace prompt closed the whole chooser, so the name
+   * he was about to change went with it.
+   *
+   * The confirmation renders as a sibling of `.ze-chooser`, INSIDE the backdrop
+   * whose `onMouseDown` is `onCancel` for the whole dialog — so a mousedown on
+   * its Cancel button bubbled up and closed everything. Esc was already right:
+   * `useModalEscape` is a stack and only the topmost dialog answers.
+   */
+  const CH = src('fs/FileChooser.tsx');
+
+  it('stops its mousedown reaching the backdrop above it', () => {
+    const at = CH.indexOf('{confirmOverwrite !== null && (');
+    expect(at, 'the confirmation is gone').toBeGreaterThan(0);
+    expect(CH.slice(at, at + 400)).toContain('onMouseDown={(e) => e.stopPropagation()}');
+  });
+
+  it('leaves the chooser standing, with the name still typed', () => {
+    // Only `setConfirmOverwrite(null)` on a cancel — nothing calls onCancel.
+    const at = CH.indexOf('onResult={(r) => {');
+    const body = CH.slice(at, CH.indexOf('}}', at));
+    expect(body).toContain('setConfirmOverwrite(null);');
+    expect(body, 'cancelling the prompt cancels the chooser').not.toContain('onCancel');
+  });
+});
+
+describe('a save dialog opens with the Name box ready to type in', () => {
+  /**
+   * [px] asked of a real one. `qa/probes/savedlg_probe.cpp` builds the
+   * wxFileDialog and asks GTK which widget has the focus and what is selected:
+   *
+   *     focused widget = GtkFileChooserEntry
+   *     entry text     = 'complex_hierarchy.kicad_sch'
+   *     selection      = yes [0..17]
+   *
+   * 17 is the length of `complex_hierarchy`: the extension is NOT selected, so
+   * typing replaces the stem and keeps `.kicad_sch`. Ours opened with the focus
+   * nowhere — no ring to say where the name goes, and nothing to type over.
+   */
+  const CH = src('fs/FileChooser.tsx');
+
+  it('focuses the Name entry when the dialog opens', () => {
+    expect(CH).toContain('el.focus();');
+    expect(CH).toContain('ref={nameRef}');
+  });
+
+  it('selects the stem and leaves the extension out of it', () => {
+    expect(CH).toContain("const dot = el.value.lastIndexOf('.');");
+    expect(CH).toContain('el.setSelectionRange(0, dot > 0 ? dot : el.value.length);');
+  });
+
+  it('uses the LAST dot, so a dotted name keeps only its real extension', () => {
+    // `board.v2.kicad_sch` must keep `.kicad_sch`, not `.v2.kicad_sch`.
+    expect(CH, 'the first dot would eat part of the name').not.toContain("el.value.indexOf('.')");
+  });
+
+  it('does not do it in the OPEN dialog, which has no Name entry', () => {
+    expect(CH).toContain("if (mode !== 'save') return;");
+  });
+});
+
+describe('the extension is fixed on accept, not locked in the entry', () => {
+  /**
+   * The Name entry is a plain text field upstream too - GTK does not lock the
+   * extension and KiCad does not nag about it. `EnsureFileExtension`
+   * (common/common.cpp:662-678) fixes it when the path comes back, and its own
+   * comment says why it APPENDS rather than replaces:
+   *
+   *     It's annoying to throw up nag dialogs when the extension isn't right.
+   *     Just fix it, but be careful not to destroy existing after-dot-text that
+   *     isn't actually a bad extension, such as "Schematic_1.1".
+   *
+   * It cannot tell a typo'd extension from a real part of the name, so it keeps
+   * both.
+   */
+  it('appends without destroying what is already after the dot', () => {
+    const sch = KICAD_SCHEMATIC_FILE_EXTENSION;
+    // The case Akshay asked about: a mangled extension is KEPT and the real one
+    // added after it.
+    expect(ensureFileExtension('.kicad-ygyv_sch', sch)).toBe('.kicad-ygyv_sch.kicad_sch');
+    expect(ensureFileExtension('foo.kicad-ygyv_sch', sch)).toBe('foo.kicad-ygyv_sch.kicad_sch');
+    // The case upstream's comment names by hand.
+    expect(ensureFileExtension('Schematic_1.1', sch)).toBe('Schematic_1.1.kicad_sch');
+  });
+
+  it('leaves a name that already ends in the extension alone, whatever its case', () => {
+    // `newFilename.Lower().AfterLast( '.' )` — the compare is lowered, the name
+    // is not, so the user's own capitalisation survives.
+    expect(ensureFileExtension('foo.kicad_sch', KICAD_SCHEMATIC_FILE_EXTENSION)).toBe(
+      'foo.kicad_sch',
+    );
+    expect(ensureFileExtension('foo.KICAD_SCH', KICAD_SCHEMATIC_FILE_EXTENSION)).toBe(
+      'foo.KICAD_SCH',
+    );
+  });
+
+  it('adds no second dot to a name that already ends in one', () => {
+    // `if( !newFilename.EndsWith( '.' ) ) newFilename.Append( '.' );`
+    expect(ensureFileExtension('foo.', KICAD_SCHEMATIC_FILE_EXTENSION)).toBe('foo.kicad_sch');
+  });
+
+  it('is the ONE function, not a regex per editor', () => {
+    // The drawing sheet had `/\.kicad_wks$/i.test(leaf) ? leaf : leaf + '.kicad_wks'`
+    // — the shared function written out again, and not the same function: a
+    // trailing dot gave `foo..kicad_wks` where upstream gives `foo.kicad_wks`.
+    expect(ensureFileExtension('foo.', DRAWING_SHEET_FILE_EXTENSION)).toBe('foo.kicad_wks');
+    // There is no source scan here, and that is deliberate. Two attempts at one
+    // both fired on innocent code: first every `/\.kicad_sch$/i.test(name)` that
+    // merely FILTERS a file list (there are eight), then every template literal
+    // building a name - one comparing against a `.kicad_pro`, one making a
+    // DEFAULT name for a new document. Neither is "fix the extension of a name
+    // the user typed", and a pattern cannot tell them apart. What can be
+    // asserted precisely is that the one call site that does that job calls the
+    // shared function, and that the function behaves as upstream's does.
+    expect(src('editors/drawingsheet/DrawingSheetEditor.tsx')).toContain(
+      'ensureFileExtension(leaf, DRAWING_SHEET_FILE_EXTENSION)',
     );
   });
 });

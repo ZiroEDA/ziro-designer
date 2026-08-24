@@ -71,7 +71,7 @@ public:
                (const char*) wxStandardPaths::Get().GetDocumentsDir().utf8_str());
 
         // The dialog Files_io builds for wxID_SAVEAS, argument for argument.
-        wxFileDialog dlg(f, wxT("Save Drawing Sheet As"), dir, wxEmptyString,
+        wxFileDialog dlg(f, wxT("Save Drawing Sheet As"), dir, wxT("complex_hierarchy.kicad_sch"),
                          wxT("KiCad drawing sheet files (*.kicad_wks)|*.kicad_wks"),
                          wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
 
@@ -96,6 +96,24 @@ public:
                     gtk_main_iteration();
 
                 g_usleep(5000);
+            }
+
+            // Which widget holds the keyboard focus when the dialog opens, and
+            // what is selected inside it. A save dialog that does not put the
+            // caret in the name entry makes the user hunt for it.
+            GtkWidget* focused = gtk_window_get_focus(GTK_WINDOW(w));
+            printf("\nfocus when the dialog opens:\n");
+            printf("  focused widget = %s\n",
+                   focused ? G_OBJECT_TYPE_NAME(focused) : "(none)");
+
+            if (focused && GTK_IS_ENTRY(focused))
+            {
+                gint a = 0, b = 0;
+                gboolean sel = gtk_editable_get_selection_bounds(GTK_EDITABLE(focused), &a, &b);
+                const gchar* txt = gtk_entry_get_text(GTK_ENTRY(focused));
+                printf("  entry text     = '%s'\n", txt ? txt : "");
+                printf("  selection      = %s [%d..%d]  <- what typing would replace\n",
+                       sel ? "yes" : "none", a, b);
             }
 
             gchar* folder = gtk_file_chooser_get_current_folder(GTK_FILE_CHOOSER(w));

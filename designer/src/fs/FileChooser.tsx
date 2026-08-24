@@ -252,6 +252,38 @@ export function FileChooser({
    * and Cancel, and Cancel puts you back in the chooser.
    */
   const [confirmOverwrite, setConfirmOverwrite] = useState<string | null>(null);
+
+  /**
+   * The Name entry, focused with its STEM selected when a save dialog opens.
+   *
+   * [px] asked of a real one. `qa/probes/savedlg_probe.cpp` builds the
+   * wxFileDialog `Files_io` builds, shows it, and asks GTK which widget holds
+   * the focus and what is selected inside it:
+   *
+   *     focused widget = GtkFileChooserEntry
+   *     entry text     = 'complex_hierarchy.kicad_sch'
+   *     selection      = yes [0..17]
+   *
+   * 17 is the length of `complex_hierarchy` — the extension is NOT selected, so
+   * typing replaces the stem and keeps `.kicad_sch`. Ours opened with the focus
+   * nowhere, so there was no ring to say where the name goes and no selection
+   * to type over.
+   */
+  const nameRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (mode !== 'save') return;
+    const el = nameRef.current;
+    if (!el) return;
+    el.focus();
+    // `lastIndexOf` rather than the first dot: `board.v2.kicad_sch` keeps only
+    // `.kicad_sch`. A leading dot is the file's whole name, not an extension,
+    // so a name with no stem selects all of it.
+    const dot = el.value.lastIndexOf('.');
+    el.setSelectionRange(0, dot > 0 ? dot : el.value.length);
+    // Once, when the dialog opens. Re-running it on every keystroke would fight
+    // the caret.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [selected, setSelected] = useState<string | null>(null);
   const [name, setName] = useState(initialName ?? '');
   const [sort, setSort] = useState<{ key: SortKey; ascending: boolean }>({
@@ -463,6 +495,7 @@ export function FileChooser({
                   a place nothing can be saved to is a name with nowhere to go,
                   and GTK does not offer to take one. */}
               <input
+                ref={nameRef}
                 value={name}
                 disabled={!placeWritable}
                 title={placeWritable ? undefined : 'This location cannot be saved to.'}
@@ -680,29 +713,37 @@ export function FileChooser({
           Two answers, not three. There is no "rename" button: Cancel returns
           you to the chooser with the name still typed, which is where you
           change it. */}
+      {/* Its own mousedown must not reach the backdrop above, whose handler is
+          `onCancel` for the WHOLE chooser: without this, dismissing the
+          confirmation dismissed the file manager with it, and the name you were
+          about to change went with it. Esc was already right - `useModalEscape`
+          is a stack and only the topmost dialog answers. */}
       {confirmOverwrite !== null && (
-        <MessageDialogYesNo
-          // GTK's confirmation carries no title of its own, so this one is
-          // OURS - the shell always draws a header, and the file dialog's own
-          // title is the least invented thing to put in it.
-          caption={title}
-          message={`A file named “${basename(confirmOverwrite)}” already exists.  Do you want to replace it?`}
-          extendedMessage={`The file already exists in “${
-            basename(dir) || (place?.label ?? 'this folder')
-          }”.  Replacing it will overwrite its contents.`}
-          icon="warning"
-          // NOT MEASURED: `_Replace` is not a distinct string in libgtk-3, so
-          // the label is the standard pair and the affirmative is last, as
-          // every other button row here is. Cancel holds the focus because the
-          // other answer destroys a file.
-          defaultButton="no"
-          labels={{ yes: 'Replace', no: 'Cancel' }}
-          onResult={(r) => {
-            const target = confirmOverwrite;
-            setConfirmOverwrite(null);
-            if (r === 'yes') acceptPath(target);
-          }}
-        />
+        // biome-ignore lint/a11y/noStaticElementInteractions: a backdrop guard, not a control
+        <div onMouseDown={(e) => e.stopPropagation()}>
+          <MessageDialogYesNo
+            // GTK's confirmation carries no title of its own, so this one is
+            // OURS - the shell always draws a header, and the file dialog's own
+            // title is the least invented thing to put in it.
+            caption={title}
+            message={`A file named “${basename(confirmOverwrite)}” already exists.  Do you want to replace it?`}
+            extendedMessage={`The file already exists in “${
+              basename(dir) || (place?.label ?? 'this folder')
+            }”.  Replacing it will overwrite its contents.`}
+            icon="warning"
+            // NOT MEASURED: `_Replace` is not a distinct string in libgtk-3, so
+            // the label is the standard pair and the affirmative is last, as
+            // every other button row here is. Cancel holds the focus because the
+            // other answer destroys a file.
+            defaultButton="no"
+            labels={{ yes: 'Replace', no: 'Cancel' }}
+            onResult={(r) => {
+              const target = confirmOverwrite;
+              setConfirmOverwrite(null);
+              if (r === 'yes') acceptPath(target);
+            }}
+          />
+        </div>
       )}
     </div>
   );

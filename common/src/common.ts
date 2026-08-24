@@ -40,3 +40,6 @@ export function ensureFileExtension(filename: string, extension: string): string
 
 /** `FILEEXT::KiCadSchematicFileExtension` (include/wildcards_and_files_ext.h). */
 export const KICAD_SCHEMATIC_FILE_EXTENSION = 'kicad_sch';
+
+/** `FILEEXT::DrawingSheetFileExtension` (wildcards_and_files_ext.h:158). */
+export const DRAWING_SHEET_FILE_EXTENSION = 'kicad_wks';

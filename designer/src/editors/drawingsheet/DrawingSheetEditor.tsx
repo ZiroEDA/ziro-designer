@@ -108,6 +108,7 @@ import { dispatchMenuHotkey, focusBlocksHotkey } from '../../ui/menu_hotkeys.js'
 import { wasBrowserSuppressed, type FocusLike } from '../../ui/browser_hotkeys.js';
 import { settings } from '../../prefs/settings.js';
 import { useCommonSettings } from '../../prefs/useSettings.js';
+import { DRAWING_SHEET_FILE_EXTENSION, ensureFileExtension } from '@ziroeda/common/src/common.js';
 
 export interface DrawingSheetEditorFile {
   name: string;
@@ -657,7 +658,18 @@ export function DrawingSheetEditor({
       // The chooser hands back a full path; the editor's own name is the leaf,
       // as `wxFileName( dlg.GetPath() ).GetFullName()` is upstream.
       const leaf = path.split('/').filter(Boolean).pop() ?? '';
-      const finalName = /\.kicad_wks$/i.test(leaf) ? leaf : `${leaf}.kicad_wks`;
+      // `EnsureFileExtension` (common/common.cpp:662-678), which pl_editor's
+      // own Save As runs on the returned path (files.cpp:213-215). The field is
+      // NOT locked and upstream does not nag - "Just fix it, but be careful not
+      // to destroy existing after-dot-text that isn't actually a bad extension,
+      // such as Schematic_1.1", says the comment there. So the extension is
+      // APPENDED when what follows the last dot is not it, never replaced.
+      //
+      // This was a local `/\.kicad_wks$/i` test, which is the shared function
+      // written out again per editor - and not the same function: a name ending
+      // in a bare dot came out `foo..kicad_wks`, where upstream gives
+      // `foo.kicad_wks`.
+      const finalName = ensureFileExtension(leaf, DRAWING_SHEET_FILE_EXTENSION);
       setFileName(finalName);
 
       // `SaveDrawingSheetFile( filename )` — one path, the one the dialog gave
