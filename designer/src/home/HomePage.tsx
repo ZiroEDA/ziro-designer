@@ -119,6 +119,7 @@ import {
   type DirHandle,
   type DropEntry,
   type IngestFile,
+  stripCommonFolder,
 } from './project_picker.js';
 
 const dec = new TextDecoder();
@@ -819,6 +820,11 @@ export function HomePage({
     setLoading({ message: 'Reading files...', value: 0 });
     await nextPaint(); // show the overlay before the main thread gets busy
     try {
+      // A picked or dropped FOLDER puts its own name on the front of every
+      // path, and the project is then named for that same folder - so the
+      // files land one level below the project root and Save As, which lists
+      // the root, shows a folder and no documents. See `stripCommonFolder`.
+      files = stripCommonFolder(files);
       let saved: string | null = null;
       setDemoOpen(false);
       setDemoSource(null);

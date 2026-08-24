@@ -109,3 +109,40 @@ export const filesFromFileList = (list: FileList): IngestFile[] =>
     name: (f as File & { webkitRelativePath?: string }).webkitRelativePath || f.name,
     bytesOf: async () => new Uint8Array(await f.arrayBuffer()),
   }));
+
+/**
+ * Drop the one folder every picked file sits in.
+ *
+ * A folder picked with `webkitdirectory`, or dropped, arrives with the folder's
+ * own name on the front of every path: choosing `ecc83-pp/` gives
+ * `ecc83-pp/ecc83-pp.kicad_sch`, `ecc83-pp/fp-lib-table`, and so on. Stored
+ * verbatim under a project that is itself NAMED for that folder, the result is
+ * a folder inside a folder - and the project's own documents end up one level
+ * down, where the Save As dialog does not list them because it is showing the
+ * project root.
+ *
+ * Upstream never meets this: you point KiCad at a `.kicad_pro` that is already
+ * on disk, and the directory containing it IS the project directory. The extra
+ * level is an artefact of having to carry a folder into the browser.
+ *
+ * Stripped only when EVERY path starts with the same segment and at least one
+ * file is genuinely below it - the same rule `tar --strip-components=1` uses.
+ * A flat selection of loose files has no common folder and is left alone, and
+ * so is a selection that spans two, because there is nothing to agree on.
+ */
+export function stripCommonFolder(files: IngestFile[]): IngestFile[] {
+  if (files.length === 0) return files;
+
+  const first = files[0]!.name.split('/');
+  if (first.length < 2) return files;
+
+  const prefix = first[0]!;
+  // Every one of them, and each with something after the prefix.
+  const shared = files.every((f) => {
+    const parts = f.name.split('/');
+    return parts.length > 1 && parts[0] === prefix;
+  });
+
+  if (!shared) return files;
+  return files.map((f) => ({ ...f, name: f.name.slice(prefix.length + 1) }));
+}

@@ -401,6 +401,13 @@ export async function touchOpened(id: string): Promise<void> {
 export async function loadProject(
   id: string,
 ): Promise<{ meta: ProjectMeta; files: StoredFile[] } | null> {
+  // Repair the extra folder level an old folder-import left, before anything
+  // reads the names. Lazily, on open: a sweep over every project at startup
+  // would be a write on read and would touch records the user never asked
+  // about. Declines by itself when there is nothing to repair, so this costs
+  // one record read per open. See `flattenImportedRoot`.
+  await flattenImportedRoot(id);
+
   const r = await tx<StoredRecord | undefined>('readonly', (s) => s.get(id));
   if (!r) return null;
   const files = await Promise.all(
@@ -560,6 +567,83 @@ export async function renameProjectPath(id: string, from: string, to: string): P
     await tx('readwrite', (s) => s.put(r));
   });
   return moved;
+}
+
+/**
+ * Undo the extra folder level a picked folder used to leave behind.
+ *
+ * Until `stripCommonFolder` ran at ingest, a project imported from a FOLDER
+ * stored every path with that folder's name on the front - and since the
+ * project is itself named for it, the documents sat one level below the
+ * project root. The root then listed a folder and nothing else, which is what
+ * a Save As filtered to `.kicad_sch` showed: no schematic, in the project
+ * whose schematic was open.
+ *
+ * This repairs the records that already carry it. It rewrites stored data, so
+ * the rule is deliberately STRICTER than the ingest one, which only has to be
+ * sensible about a fresh selection:
+ *
+ *   - every file shares one leading segment, and something is below it;
+ *   - the project root currently holds NO file at all;
+ *   - and stripping reveals a KiCad project document at the root.
+ *
+ * The third is what makes it a repair rather than a guess. A project that
+ * genuinely keeps everything in one subfolder is left alone, because flattening
+ * it would not put a `.kicad_pro`, `.kicad_sch` or `.kicad_pcb` at the root, and
+ * that is the shape the defect always produces.
+ *
+ * Idempotent by construction: once it has run, the root holds files, so the
+ * second condition fails and nothing happens.
+ *
+ * Returns the folder it removed, or null when it left the project alone.
+ *
+ * Not exported: `loadProject` is the only caller, and `wiring_guard` is right
+ * that an exported durability function nothing else calls is either dead or
+ * should not be exported. It is tested THROUGH `loadProject`, which is the
+ * better test anyway - it proves the repair happens when a project is opened,
+ * not merely that the function works when called.
+ */
+async function flattenImportedRoot(id: string): Promise<string | null> {
+  let removed: string | null = null;
+
+  await withRecordLock(id, async () => {
+    const r = await tx<StoredRecord | undefined>('readonly', (s) => s.get(id));
+    if (!r || r.files.length === 0) return;
+
+    const first = r.files[0]!.name.split('/');
+    if (first.length < 2) return;
+
+    const prefix = first[0]!;
+    const shared = r.files.every((f) => {
+      const parts = f.name.split('/');
+      return parts.length > 1 && parts[0] === prefix;
+    });
+    if (!shared) return;
+
+    // Stripping must reveal a project document at the root, or this is not the
+    // defect and the folder is the user's own.
+    const revealed = r.files.map((f) => f.name.slice(prefix.length + 1));
+    const isDoc = (n: string): boolean =>
+      !n.includes('/') && /\.(kicad_pro|kicad_sch|kicad_pcb)$/i.test(n);
+    if (!revealed.some(isDoc)) return;
+
+    r.files.forEach((f, i) => {
+      f.name = revealed[i]!;
+    });
+
+    if (r.emptyFolders) {
+      r.emptyFolders = r.emptyFolders
+        .filter((d) => d === prefix || d.startsWith(`${prefix}/`))
+        .map((d) => d.slice(prefix.length + 1))
+        .filter((d) => d.length > 0);
+    }
+
+    r.updatedAt = Date.now();
+    await tx('readwrite', (s) => s.put(r));
+    removed = prefix;
+  });
+
+  return removed;
 }
 
 /**
