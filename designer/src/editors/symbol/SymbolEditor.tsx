@@ -1467,6 +1467,13 @@ export function SymbolEditor({
           redo();
           break;
         case 'doDelete':
+          // `DeleteSymbolFromLibrary` reads `GetSelectedLibIds()`
+          // (`symbol_editor.cpp:1254`), so the SAME action deletes the symbol
+          // picked in the tree when the canvas has nothing selected.
+          if (selection.size === 0 && treeSel?.name) {
+            deleteSymbol(treeSel.lib, treeSel.name);
+            break;
+          }
           if (workSymbol && selection.size > 0 && !isAlias) {
             // DoDelete HIDES fields and deletes only pins/graphics, and the
             // undo description says which (symbol_editor_edit_tool.cpp:847-860).
@@ -2143,11 +2150,7 @@ export function SymbolEditor({
       )}
 
       {/* Tree context actions (delete/duplicate) via keyboard on the tree selection. */}
-      <TreeSelActions
-        treeSel={treeSel}
-        onDelete={deleteSymbol}
-        onDuplicate={(l, s) => void duplicateSymbol(l, s)}
-      />
+      <TreeSelActions treeSel={treeSel} onDuplicate={(l, s) => void duplicateSymbol(l, s)} />
 
       <LoadingOverlay label={loading} />
     </div>
@@ -2157,11 +2160,9 @@ export function SymbolEditor({
 /** Del / Ctrl+D on the library-tree selection (the context-menu subset). */
 function TreeSelActions({
   treeSel,
-  onDelete,
   onDuplicate,
 }: {
   treeSel: { lib: string; name: string | null } | null;
-  onDelete: (lib: string, name: string) => void;
   onDuplicate: (lib: string, name: string) => void;
 }): JSX.Element | null {
   useEffect(() => {
@@ -2175,19 +2176,17 @@ function TreeSelActions({
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd') {
         e.preventDefault();
         onDuplicate(treeSel.lib, treeSel.name);
-        return;
       }
-      // `ACTIONS::doDelete`, DefaultHotkey WXK_DELETE on this build
-      // (`common/tool/actions.cpp:399`; WXK_BACK is the __WXMAC__ branch).
-      // `onDelete` was accepted, listed in the deps below and never called, so
-      // Delete on a tree symbol did nothing at all.
-      if (e.key === 'Delete') {
-        e.preventDefault();
-        onDelete(treeSel.lib, treeSel.name);
-      }
+      // Delete is NOT handled here. `ACTIONS::doDelete` is declared by the
+      // Edit > Delete row (WXK_DELETE on this build, `actions.cpp:399`), and a
+      // frame must not restate a key its own menu row already declares —
+      // `menu_hotkey_coverage.test.ts` enforces that, and it caught the second
+      // listener that used to sit here. The row's `onMenuAction` case routes to
+      // the tree when the canvas has no selection, which is also how upstream
+      // routes it: `DeleteSymbolFromLibrary` reads `GetSelectedLibIds()`.
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [treeSel, onDelete, onDuplicate]);
+  }, [treeSel, onDuplicate]);
   return null;
 }

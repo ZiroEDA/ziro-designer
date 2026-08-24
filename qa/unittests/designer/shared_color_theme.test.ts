@@ -230,8 +230,35 @@ describe('eeschema resolves to the schematic layers', () => {
 
   it('names one distinct layer per field it exposes', () => {
     // Every field is populated, and the set is neither padded nor shrunk.
+    //
+    // 42 since `gridAxes` was added for LAYER_SCHEMATIC_GRID_AXES. That is a
+    // real layer of KiCad's own, not a field invented here: `SCH_BASE_FRAME`
+    // hands it straight to the GAL —
+    // `GetGAL()->SetAxesColor( colorSettings->GetColor( LAYER_SCHEMATIC_GRID_AXES ) )`
+    // (`eeschema/sch_base_frame.cpp:612`) — and the Symbol Editor is the frame
+    // that switches those axes on (`symbol_edit_frame.cpp:265`).
     const fields = Object.entries(KICAD_DEFAULT);
-    expect(fields).toHaveLength(41);
+    expect(fields).toHaveLength(42);
     for (const [name, value] of fields) expect(value, name).toMatch(/^rgba?\(/);
+  });
+
+  /**
+   * The new field, pinned by value rather than only counted — a count alone
+   * would pass with `gridAxes` reading any other layer's colour.
+   *
+   * Both themes land on (0, 0, 132), by two different routes: the default
+   * theme states it outright, and Classic says `legacy( 'BLUE' )`, which is the
+   * SAME colour. KiCad's legacy palette entry is
+   * `{ 132, 0, 0, BLUE, TS( "Blue 2" ), LIGHTBLUE }` (`common/gal/color4d.cpp:58`)
+   * and that struct is B, G, R — so `BLUE` is rgb(0, 0, 132), not pure blue.
+   * (Pure blue in that palette is LIGHTBLUE, the lighter variant named on the
+   * same row.)
+   */
+  it('reads the axes colour from LAYER_SCHEMATIC_GRID_AXES', () => {
+    expect(KICAD_DEFAULT.gridAxes).toBe('rgb(0, 0, 132)');
+    expect(KICAD_CLASSIC.gridAxes).toBe('rgb(0, 0, 132)');
+    // ...and it is not just the grid colour under another name, in either theme.
+    expect(KICAD_DEFAULT.gridAxes).not.toBe(KICAD_DEFAULT.grid);
+    expect(KICAD_CLASSIC.gridAxes).not.toBe(KICAD_CLASSIC.grid);
   });
 });
