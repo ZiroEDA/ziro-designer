@@ -14,6 +14,7 @@ import { PCB_IU_PER_MM } from '@ziroeda/common/src/eda_units.js';
 import { LINE_STYLE_CHOICES } from '@ziroeda/common/src/stroke_params.js';
 import { commonInputPrefs, wheelAction, zoomFitScale } from '../../ui/view_controls.js';
 import { DockSash } from '../../ui/DockSash.js';
+import { appearanceLayerRows, layerTooltip } from '../../widgets/appearance_layers.js';
 import {
   ZOOM_AUTO_LABEL,
   ZOOM_LIST,
@@ -656,37 +657,11 @@ const DEFAULT_OPACITY = {
   images: 0.6,
 };
 
-// Technical layers in the Layers tab, exactly rebuildLayers()'s non_cu_seq
-// order with its tooltips (appearance_controls.cpp).
-const NON_CU_SEQ: [string, string][] = [
-  ['F.Adhes', "Adhesive on board's front"],
-  ['B.Adhes', "Adhesive on board's back"],
-  ['F.Paste', "Solder paste on board's front"],
-  ['B.Paste', "Solder paste on board's back"],
-  ['F.SilkS', "Silkscreen on board's front"],
-  ['B.SilkS', "Silkscreen on board's back"],
-  ['F.Mask', "Solder mask on board's front"],
-  ['B.Mask', "Solder mask on board's back"],
-  ['Dwgs.User', 'Explanatory drawings'],
-  ['Cmts.User', 'Explanatory comments'],
-  ['Eco1.User', 'User defined meaning'],
-  ['Eco2.User', 'User defined meaning'],
-  ['Edge.Cuts', "Board's perimeter definition"],
-  ['Margin', "Board's edge setback outline"],
-  ['F.CrtYd', "Footprint courtyards on board's front"],
-  ['B.CrtYd', "Footprint courtyards on board's back"],
-  ['F.Fab', "Footprint assembly on board's front"],
-  ['B.Fab', "Footprint assembly on board's back"],
-];
-const layerTooltip = (name: string): string => {
-  const t = NON_CU_SEQ.find(([n]) => n === name);
-  if (t) return t[1];
-  if (name === 'F.Cu') return 'Front copper layer';
-  if (name === 'B.Cu') return 'Back copper layer';
-  if (/\.Cu$/.test(name)) return 'Inner copper layer';
-  if (/^User\.(\d+)$/.test(name)) return `User defined layer ${name.slice(5)}`;
-  return '';
-};
+// `rebuildLayers()`'s non_cu_seq order and its tooltips now live in
+// `widgets/appearance_layers.ts`, because APPEARANCE_CONTROLS is ONE widget
+// that both PCB_EDIT_FRAME and FOOTPRINT_EDIT_FRAME construct - the table was
+// restated here, and the footprint editor, unable to import it out of a `.tsx`,
+// had invented an order of its own.
 
 // The user-facing name of a layer is BOARD::GetLayerName's, which every
 // upstream caller goes through: the board's own name for it when the file
@@ -6138,15 +6113,18 @@ export function PcbEditor({
     [board],
   );
   // Copper layers first, then the technical layers in rebuildLayers()'s
-  // non_cu_seq order (appearance_controls.cpp), then any remaining (User.*).
-  const layerRows = useMemo(() => {
-    if (!board) return [];
-    const known = new Set(board.layers.map((l) => l.name));
-    const seq = NON_CU_SEQ.map(([n]) => n).filter((n) => known.has(n));
-    const seen = new Set([...copperLayers, ...seq]);
-    const rest = board.layers.map((l) => l.name).filter((n) => !seen.has(n));
-    return [...copperLayers, ...seq, ...rest];
-  }, [board, copperLayers]);
+  // non_cu_seq order, then any remaining - the shared rule, in
+  // `widgets/appearance_layers.ts`.
+  const layerRows = useMemo(
+    () =>
+      board
+        ? appearanceLayerRows(
+            copperLayers,
+            board.layers.map((l) => l.name),
+          )
+        : [],
+    [board, copperLayers],
+  );
 
   /**
    * Which entry the presets combo shows. Derived every render, never stored:

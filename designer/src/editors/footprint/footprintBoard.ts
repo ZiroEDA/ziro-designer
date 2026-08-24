@@ -22,13 +22,42 @@ import {
 } from '@ziroeda/pcbnew';
 
 /**
- * The footprint-editor layer table: every board layer a footprint may live on,
- * matching the canonical KiCad layer ids/names (pcbnew's default 2-layer stack
- * plus the full technical/user set). buildScene only reads copper names off this
- * for `*.Cu` pad expansion; the Appearance panel lists the rest.
+ * The footprint-editor layer table — `FOOTPRINT_EDIT_FRAME::updateEnabledLayers`
+ * (`pcbnew/footprint_edit_frame.cpp:538-619`), which is the one place this
+ * frame decides which layers exist:
+ *
+ *     LSET enabledLayers = LSET::AllTechMask() | LSET::UserMask();
+ *     …
+ *     case FOOTPRINT_STACKUP::EXPAND_INNER_LAYERS:
+ *         enabledLayers |= LSET{ F_Cu, In1_Cu, B_Cu };
+ *         board.SetLayerName( In1_Cu, _( "Inner layers" ) );
+ *     …
+ *     enabledLayers |= LSET::UserDefinedLayersMask( userLayerCount );
+ *
+ * Three groups, and ours was missing two of them:
+ *
+ *   - **`In1_Cu`, shown as "Inner layers"** (:558-561). The default stackup mode
+ *     with no footprint loaded is EXPAND_INNER_LAYERS (:582), so the row is
+ *     always there. It is one row standing for all inner copper — the name is
+ *     set on the board, which is why `GetLayerName` and not `LayerName` is what
+ *     puts it on screen.
+ *   - **`User.1` … `User.4`** — `LSET::UserDefinedLayersMask( GetUserDefined-
+ *     LayerCount() )`, and that count defaults to 4
+ *     (`board_design_settings.cpp:66`).
+ *
+ * `LSET::UserMask()` (`common/lset.cpp:690-694`) is
+ * `{ Dwgs_User, Cmts_User, Eco1_User, Eco2_User, Edge_Cuts, Margin }` — the six
+ * we already had — and `AllTechMask()` the twelve F/B adhesive, paste,
+ * silkscreen, mask, courtyard and fab layers.
+ *
+ * buildScene reads copper names off this for `*.Cu` pad expansion; the
+ * Appearance panel lists the rest, in `appearanceLayerRows`' order.
  */
 export const FOOTPRINT_LAYERS: PcbLayerDef[] = [
   { id: 0, name: 'F.Cu', kind: 'signal' },
+  // `board.SetLayerName( In1_Cu, _( "Inner layers" ) )` — a board-set name, so
+  // it arrives through `GetLayerName` like any other overridden layer name.
+  { id: 4, name: 'In1.Cu', kind: 'signal', userName: 'Inner layers' },
   { id: 2, name: 'B.Cu', kind: 'signal' },
   { id: 9, name: 'F.Adhes', kind: 'user', userName: 'F.Adhesive' },
   { id: 11, name: 'B.Adhes', kind: 'user', userName: 'B.Adhesive' },
@@ -48,6 +77,24 @@ export const FOOTPRINT_LAYERS: PcbLayerDef[] = [
   { id: 29, name: 'B.CrtYd', kind: 'user', userName: 'B.Courtyard' },
   { id: 35, name: 'F.Fab', kind: 'user' },
   { id: 33, name: 'B.Fab', kind: 'user' },
+  // LSET::UserDefinedLayersMask( 4 ) — User_1 and every second id after it
+  // (`common/lset.cpp:704-719`), against a default count of 4.
+  { id: 39, name: 'User.1', kind: 'user' },
+  { id: 41, name: 'User.2', kind: 'user' },
+  { id: 43, name: 'User.3', kind: 'user' },
+  { id: 45, name: 'User.4', kind: 'user' },
+];
+
+/**
+ * `enabled.CuStack()` for this frame (`appearance_controls.cpp:1859-1860`):
+ * "show all coppers first, with front on top, back on bottom". F.Cu, then the
+ * inner layers in number order, then B.Cu — the board's declaration order is
+ * NOT that, since ids run F_Cu=0, B_Cu=2, In1_Cu=4.
+ */
+export const FOOTPRINT_COPPER_STACK: readonly string[] = [
+  'F.Cu',
+  ...FOOTPRINT_LAYERS.map((l) => l.name).filter((n) => /^In\d+\.Cu$/.test(n)),
+  'B.Cu',
 ];
 
 /** Board holding just the given footprint (or empty), for the footprint canvas. */
@@ -80,3 +127,11 @@ export function parseFootprint(text: string): PcbFootprint | null {
     return null;
   }
 }
+
+/**
+ * `SetActiveLayer( F_SilkS )` (`pcbnew/footprint_edit_frame.cpp:191`) — the
+ * layer the frame opens on. Ours opened on F.Cu, so the layer selector, the
+ * status bar and any graphic drawn before the user touched the combo were all
+ * on the wrong layer.
+ */
+export const FP_DEFAULT_ACTIVE_LAYER = 'F.SilkS';

@@ -42,6 +42,8 @@ import { toolbarIconUrl } from '../../ui/toolbarIcons.js';
 import { KiStatusBar } from '../../ui/KiStatusBar.js';
 import { MsgPanel, type MsgPanelItem } from '../../ui/MsgPanel.js';
 import {
+  angleSnapModeOf,
+  constraintsMsg,
   coordsMsg,
   deltasMsg,
   gridMsg,
@@ -51,12 +53,24 @@ import {
   zoomFactorForScale,
   zoomMsg,
 } from '../../ui/status_format.js';
-import { FP_TOP_TOOLBAR, FP_LEFT_TOOLBAR, FP_RIGHT_TOOLBAR } from './footprintToolbars.js';
+import {
+  FP_TOP_TOOLBAR,
+  FP_LEFT_TOOLBAR,
+  FP_RIGHT_TOOLBAR,
+  FP_DEFAULT_TOGGLES,
+  footprintToolMsg,
+} from './footprintToolbars.js';
 import { FootprintCanvas, type FootprintCanvasController } from './FootprintCanvas.js';
 import { FootprintLibraryManager, fpNameOf, footprintsBase } from './libraryManager.js';
 import { projectFpLibTable, projectLibraryNickname } from './fp_lib_table.js';
-import { FOOTPRINT_LAYERS } from './footprintBoard.js';
-import { layerColor, PCB_PAINT_ORDER } from '../pcb/pcbTheme.js';
+import {
+  FOOTPRINT_COPPER_STACK,
+  FOOTPRINT_LAYERS,
+  FP_DEFAULT_ACTIVE_LAYER,
+} from './footprintBoard.js';
+import { layerColor } from '../pcb/pcbTheme.js';
+import { appearanceLayerRows, layerTooltip } from '../../widgets/appearance_layers.js';
+import { GetLayerName } from '@ziroeda/pcbnew/src/layer_ids.js';
 import { DEFAULT_DRAW_OPTIONS, type PcbDrawOptions } from '../pcb/renderBoard.js';
 import '../../ui/shell.css';
 import { AboutDialog } from '../../home/dialogs/dialog_about.js';
@@ -126,17 +140,11 @@ const RADIO_GROUPS: string[][] = [
   ['crosshairSmall', 'crosshairFull', 'crosshair45'],
   ['lineModeFree', 'lineMode90', 'lineMode45'],
 ];
-// KiCad footprint-editor defaults (grid on, mm, small crosshair, 90° line mode,
-// all three side panels shown).
-const DEFAULT_TOGGLES = new Set([
-  'toggleGrid',
-  'unitsMm',
-  'crosshairSmall',
-  'lineMode90',
-  'showLibraryTree',
-  'showLayersManager',
-  'showProperties',
-]);
+// The frame's opening toolbar state. In `footprintToolbars.ts` rather than
+// here, because `qa`'s tsconfig compiles `.ts` only: a default written in a
+// `.tsx` is one no test can read, and the line mode had been wrong since the
+// toolbar landed.
+const DEFAULT_TOGGLES = new Set(FP_DEFAULT_TOGGLES);
 
 /** An fp_text item (Reference/Value) for a freshly-created footprint. */
 function makeText(kind: PcbTextItem['kind'], text: string, at: Vec2, layer: string): PcbTextItem {
@@ -224,9 +232,12 @@ export function FootprintEditor({
   const [redoDepth, setRedoDepth] = useState(0);
 
   const [visible, setVisible] = useState<ReadonlySet<string>>(new Set(ALL_FP_LAYERS));
-  const [activeLayer, setActiveLayer] = useState('F.Cu');
+  // `SetActiveLayer( F_SilkS )` — see `FP_DEFAULT_ACTIVE_LAYER`.
+  const [activeLayer, setActiveLayer] = useState(FP_DEFAULT_ACTIVE_LAYER);
   const [toggles, setToggles] = useState<Set<string>>(new Set(DEFAULT_TOGGLES));
   const [activeTool, setActiveTool] = useState('selectSetRect');
+  /** Whether any tool has been pushed since the frame opened — see `selectTool`. */
+  const [toolArmed, setToolArmed] = useState(false);
   /** WINDOW_SETTINGS grid.last_size, as an IU size. */
   const [gridIU, setGridIU] = useState(FP_DEFAULT_GRID);
   // First anchor of a 2-click graphic (line/rect/circle) being drawn.
@@ -526,9 +537,14 @@ export function FootprintEditor({
   );
 
   // Switching tools (or Escape) abandons an in-progress graphic.
+  //
+  // `toolArmed` is `TOOLS_HOLDER`'s tool stack, reduced to the one bit status
+  // pane 6 needs: nothing is pushed at frame construction, so the pane stays
+  // blank until the user arms something. See `footprintToolMsg`.
   const selectTool = useCallback((id: string) => {
     setActiveTool(id);
     setDrawStart(null);
+    setToolArmed(true);
   }, []);
 
   // Double-click an item to edit it (pads open the pad-properties dialog).
@@ -1114,12 +1130,22 @@ export function FootprintEditor({
   // grid figure in the status bar read 100x too large.
   const fmt = (iu: number): string => messageTextFromValue(pcbIuToMM(iu), unitLabel, PCB_IU_PER_MM);
 
-  const layerRows = useMemo(() => {
-    const known = new Set(ALL_FP_LAYERS);
-    const cu = ALL_FP_LAYERS.filter((n) => /\.Cu$/.test(n));
-    const tech = PCB_PAINT_ORDER.filter((n) => known.has(n) && !/\.Cu$/.test(n)).reverse();
-    return [...cu, ...tech];
-  }, []);
+  /**
+   * The Appearance panel's rows, `APPEARANCE_CONTROLS::rebuildLayers`
+   * (`appearance_controls.cpp:1859-1893`): the copper stack front-to-back, then
+   * `non_cu_seq`. Shared with the PCB editor — see `widgets/appearance_layers.ts`
+   * for what this used to be instead.
+   */
+  const layerRows = useMemo(() => appearanceLayerRows(FOOTPRINT_COPPER_STACK, ALL_FP_LAYERS), []);
+
+  /**
+   * `board->GetLayerName( layer )` (:1876, and :1902's fp-editor branch, which
+   * falls back to `GetStandardLayerName`). Every place a layer is put in front
+   * of the user goes through it: the Appearance rows, the layer selector and
+   * the status bar all said `F.SilkS`, `Dwgs.User`, `F.CrtYd` where KiCad says
+   * `F.Silkscreen`, `User.Drawings`, `F.Courtyard`.
+   */
+  const layerName = useCallback((name: string): string => GetLayerName(FOOTPRINT_LAYERS, name), []);
 
   /**
    * FOOTPRINT::GetMsgPanelInfo's FRAME_FOOTPRINT_EDITOR branch
@@ -1225,7 +1251,7 @@ export function FootprintEditor({
           >
             {layerRows.map((l) => (
               <option key={l} value={l}>
-                {l}
+                {layerName(l)}
               </option>
             ))}
           </select>
@@ -1378,7 +1404,9 @@ export function FootprintEditor({
                       className={`ze-tree-item ${name === activeLayer ? 'active' : ''}`}
                       style={{ display: 'flex', alignItems: 'center', gap: 7, cursor: 'default' }}
                       onClick={() => setActiveLayer(name)}
-                      title="Click to make active; click the swatch to show/hide"
+                      // `setting->tooltip` (appearance_controls.cpp:1868, :1912)
+                      // — non_cu_seq's own text, shared with the PCB editor.
+                      title={layerTooltip(name)}
                     >
                       <span
                         onClick={(e) => {
@@ -1395,7 +1423,7 @@ export function FootprintEditor({
                           opacity: on ? 1 : 0.25,
                         }}
                       />
-                      <span style={{ opacity: on ? 1 : 0.5 }}>{name}</span>
+                      <span style={{ opacity: on ? 1 : 0.5 }}>{layerName(name)}</span>
                     </div>
                   );
                 })}
@@ -1427,7 +1455,13 @@ export function FootprintEditor({
             : deltasMsg(null),
           grid: gridMsg(fmt(gridIU)),
           units: unitsMsg(unitLabel),
-          tool: activeLayer,
+          // Pane 6 is `DisplayToolMsg` and pane 7 `DisplayConstraintsMsg`
+          // (`eda_draw_frame.cpp:729-744`). Ours put the active layer in pane 6
+          // — a string upstream never writes to the status bar at all — and
+          // left pane 7 empty, where real pcbnew opens on "Constrain to H, V,
+          // 45" because `DRAWING_TOOL::Reset` fills it.
+          tool: footprintToolMsg(activeTool, toolArmed),
+          constraint: constraintsMsg(angleSnapModeOf(toggles)),
         }}
       />
 

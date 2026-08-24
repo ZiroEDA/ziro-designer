@@ -117,12 +117,11 @@ describe('ACTIONS::save is ShowAlways in this frame', () => {
    * anywhere". Nothing in the condition set may move it, so flip each one in
    * turn rather than only the one that used to.
    */
-  it.each(Object.keys(ALL) as (keyof FootprintMenuConditions)[])(
-    'stays live with %s false',
-    (key) => {
-      expect(greyed(menus({ [key]: false }), 'Save')).toBe(false);
-    },
-  );
+  it.each(
+    Object.keys(ALL) as (keyof FootprintMenuConditions)[],
+  )('stays live with %s false', (key) => {
+    expect(greyed(menus({ [key]: false }), 'Save')).toBe(false);
+  });
 });
 
 describe('Edit > Undo / Redo follow the undo stacks', () => {
@@ -190,7 +189,11 @@ describe('haveFootprintCond rows', () => {
    * different question and is true for a tree row that was never opened.
    */
   it('Export > Footprint... follows the loaded footprint, not the tree target', () => {
-    const off = at(menus({ haveFootprint: false, targetFootprint: true }), 'Export', 'Footprint...');
+    const off = at(
+      menus({ haveFootprint: false, targetFootprint: true }),
+      'Export',
+      'Footprint...',
+    );
     const on = at(menus({ haveFootprint: true, targetFootprint: false }), 'Export', 'Footprint...');
     expect(off.disabled).toBe(true);
     expect(on.disabled).toBeFalsy();
@@ -217,13 +220,15 @@ describe('haveFootprintCond rows', () => {
    * to every Place tool. Only the four that are implemented here can be
    * checked; the rest are greyed stubs whatever the conditions say.
    */
-  it.each(['Add Pad', 'Draw Lines', 'Draw Rectangles', 'Draw Circles'])(
-    'Place > %s needs a footprint',
-    (label) => {
-      expect(greyed(menus({ haveFootprint: false }), label)).toBe(true);
-      expect(greyed(menus({ haveFootprint: true }), label)).toBe(false);
-    },
-  );
+  it.each([
+    'Add Pad',
+    'Draw Lines',
+    'Draw Rectangles',
+    'Draw Circles',
+  ])('Place > %s needs a footprint', (label) => {
+    expect(greyed(menus({ haveFootprint: false }), label)).toBe(true);
+    expect(greyed(menus({ haveFootprint: true }), label)).toBe(false);
+  });
 });
 
 describe('File > Footprint Properties... is an OR of two conditions', () => {
