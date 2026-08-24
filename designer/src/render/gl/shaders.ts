@@ -91,6 +91,14 @@ flat out vec2 v_s0;
 flat out vec2 v_s1;
 flat out float v_halfPx;
 flat out float v_widthFade;
+/**
+ * 1.0 when this segment runs along a device axis, 0.0 otherwise.
+ *
+ * Set in the same branch that decides whether to snap, so the two can never
+ * disagree about what "axis-aligned" means. The fragment stage uses it to pick
+ * between the solid hairline and the antialiasing ramp; see SEGMENT_FRAG.
+ */
+flat out float v_axisAligned;
 flat out vec4 v_color;
 
 void main() {
@@ -178,12 +186,15 @@ void main() {
   // would visibly kink diagonals, which is worse than a soft edge.
   vec2 snapped0 = s0;
   vec2 snapped1 = s1;
+  float axisAligned = 0.0;
   if (abs(along.y) < 0.001) {          // horizontal: snap y
     snapped0.y = floor(s0.y) + nudge;
     snapped1.y = floor(s1.y) + nudge;
+    axisAligned = 1.0;
   } else if (abs(along.x) < 0.001) {   // vertical: snap x
     snapped0.x = floor(s0.x) + nudge;
     snapped1.x = floor(s1.x) + nudge;
+    axisAligned = 1.0;
   }
   pos += (snapped0 - s0);
 
@@ -191,6 +202,7 @@ void main() {
   v_s0 = snapped0;
   v_s1 = snapped1;
   v_halfPx = halfPx;
+  v_axisAligned = axisAligned;
   // Pay for the widening in alpha.
   //
   // A stroke 0.2 px wide drawn 1 px wide puts five times the ink on screen that
@@ -258,6 +270,7 @@ flat in vec2 v_s0;
 flat in vec2 v_s1;
 flat in float v_halfPx;
 flat in float v_widthFade;
+flat in float v_axisAligned;
 flat in vec4 v_color;
 
 out vec4 fragColor;
@@ -273,25 +286,38 @@ float distToSegment(vec2 p, vec2 a, vec2 b) {
 void main() {
   float d = distToSegment(v_pixel, v_s0, v_s1);
 
-  // A hairline is drawn solid, not antialiased.
+  // An AXIS-ALIGNED hairline is drawn solid, not antialiased.
   //
   // The ramp below is right for anything with width to spare, but a stroke
   // already clamped to a single pixel has none: the ramp spreads it over two
-  // columns at partial alpha, so it comes out grey. Stroke-font text is
-  // thousands of such strokes, which is why our sheet read as washed out beside
-  // desktop KiCad's black at the same zoom, and why snapping alone did not fix
-  // it: glyphs are mostly diagonals and curves, so an axis-aligned snap never
-  // touched them.
+  // columns at partial alpha, so a border line that lands between two pixel
+  // centres comes out as two grey columns instead of one solid one.
   //
-  // KiCad splits the same way, with a separate path for lines at or below one
-  // pixel (SHADER_LINE_B in common/gal/shaders/kicad_vert.glsl) rather than
-  // thinning the antialiased one.
+  // KiCad's line fragment shader is solid too — drawLine() in
+  // common/gal/shaders/kicad_frag.glsl is isPixelInSegment ? gl_Color :
+  // discard, a coverage BIT with no ramp anywhere in it. What smooths KiCad's
+  // diagonals is not the line shader at all: it is the SMAA post-pass that
+  // graphics.antialiasing_mode turns on by default (AA_HIGHQUALITY,
+  // common_settings.cpp:328-329), which reshapes staircase edges after the
+  // whole frame is drawn.
+  //
+  // SMAA leaves a vertical or horizontal edge alone — there is no staircase to
+  // find — and blends an off-axis one across two or three pixels. So the
+  // KiCad-shaped rule is not "hairlines are solid", it is "axis-aligned
+  // hairlines are solid". Measured on a pl_editor and a ZiroEDA screenshot of
+  // the same selected diagonal: KiCad puts rgb(193,127,127) in one pixel with
+  // partial neighbours either side and varies per row, ours put exactly
+  // rgb(194,128,128) — DS_SELECTED_COLOR at full alpha — in one pixel per row
+  // and nothing beside it, which is the staircase the user sees. Dropping the
+  // off-axis case through to the ramp reproduces KiCad's gradient and moves no
+  // ink: the ramp's triangle over +/-1 px integrates to 1.0, exactly what the
+  // 1 px solid band does.
   //
   // Solid, but at the alpha the stroke's real width earns: v_widthFade is 1
   // for anything that genuinely reaches a pixel, so a legible glyph is as crisp
   // as it was, while one widened from a fifth of a pixel is drawn at a fifth
   // the strength instead of at full glare.
-  if (v_halfPx <= 0.51) {
+  if (v_halfPx <= 0.51 && v_axisAligned > 0.5) {
     if (d > 0.5) discard;
     fragColor = vec4(v_color.rgb, v_color.a * v_widthFade);
     return;
