@@ -18,6 +18,8 @@
  * `.ts` can be called directly, so it is one here.
  */
 
+import { defaultUnitsToggle } from '../../ui/app_settings_units.js';
+
 /** `EDA_DRAW_FRAME`'s unit choice — one of three, never none and never two. */
 export const UNIT_GROUP = ['unitsMm', 'unitsInches', 'unitsMils'];
 
@@ -35,11 +37,18 @@ export const CROSSHAIR_GROUP = ['crosshairSmall', 'crosshairFull', 'crosshair45'
  *
  * `m_crossHairMode( CROSS_HAIR_MODE::SMALL_CROSS )` is the
  * `GAL_DISPLAY_OPTIONS` constructor's default
- * (`common/gal/gal_display_options.cpp:53`), so the small cross is on.
+ * (`common/gal/gal_display_options.cpp:52`), so the small cross is on.
+ *
+ * The units entry is NOT written here. `system.units`' default is one branch in
+ * `APP_SETTINGS_BASE` (`common/settings/app_settings.cpp:228-238`), and
+ * `GERBVIEW_SETTINGS` passes the filename `"gerbview"`
+ * (`gerbview/gerbview_settings.cpp:40`), which is not on the imperial side — so
+ * this frame opens in millimetres. Right answer, but it was a local literal
+ * restating a branch that lives in one place upstream.
  */
 export const DEFAULT_TOGGLES: ReadonlySet<string> = new Set([
   'toggleGrid',
-  'unitsMm',
+  defaultUnitsToggle('gerbview'),
   'showLayerManager',
   'crosshairSmall',
 ]);

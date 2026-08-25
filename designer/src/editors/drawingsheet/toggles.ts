@@ -20,6 +20,7 @@
 
 import type { PlEditorSettings } from '../../prefs/settings.js';
 import type { EdaUnits } from '@ziroeda/common/src/eda_units.js';
+import { defaultUnitsToggle } from '../../ui/app_settings_units.js';
 
 /** `EDA_DRAW_FRAME`'s unit choice — one of three, never none and never two. */
 export const UNIT_GROUP = ['unitsMm', 'unitsInches', 'unitsMils'];
@@ -38,10 +39,16 @@ export const UNIT_GROUP = ['unitsMm', 'unitsInches', 'unitsMils'];
  * `m_FullText = m_TextBase`, which is why a real pl_editor opens showing
  * `${TITLE}`, `${COMPANY}` and `Id: ${#}/${##}`: the raw tokens are what you
  * came here to edit. Persisting this would be a divergence, not a fix.
+ *
+ * The units entry is NOT written here. `system.units`' default is one branch in
+ * `APP_SETTINGS_BASE` (`common/settings/app_settings.cpp:228-238`), and
+ * `PL_EDITOR_SETTINGS` passes the filename `"pl_editor"`
+ * (`pagelayout_editor/pl_editor_settings.cpp:34`) — the FIRST name on the
+ * imperial side of that branch — so this frame opens in mils.
  */
 export const DEFAULT_TOGGLES: ReadonlySet<string> = new Set([
   'toggleGrid',
-  'unitsMils',
+  defaultUnitsToggle('pl_editor'),
   'layoutEditMode',
 ]);
 

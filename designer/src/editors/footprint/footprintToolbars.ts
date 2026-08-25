@@ -12,6 +12,7 @@
  */
 
 import type { ToolEntry } from '../../ui/toolbar_types.js';
+import { defaultUnitsToggle } from '../../ui/app_settings_units.js';
 
 const sep: ToolEntry = 'sep';
 
@@ -261,10 +262,18 @@ export function footprintToolMsg(aActiveTool: string, aArmed: boolean): string {
  * The three panels are shown because the frame calls
  * `m_auimgr.GetPane( … ).Show( … )` off `m_AuiPanels`
  * (`footprint_edit_frame.cpp:262-264`), all of which default true.
+ *
+ * The units entry is NOT written here. `system.units`' default is one branch in
+ * `APP_SETTINGS_BASE` (`common/settings/app_settings.cpp:228-238`), and
+ * `FOOTPRINT_EDITOR_SETTINGS` passes the filename `"fpedit"`
+ * (`pcbnew/footprint_editor_settings.cpp:46`, through
+ * `PCB_VIEWERS_SETTINGS_BASE`'s forwarding constructor,
+ * `pcbnew/pcbnew_settings.h:123-124`), which is not on the imperial side — so
+ * this frame opens in millimetres.
  */
 export const FP_DEFAULT_TOGGLES: readonly string[] = [
   'toggleGrid',
-  'unitsMm',
+  defaultUnitsToggle('fpedit'),
   'crosshairSmall',
   'lineMode45',
   'showLibraryTree',
