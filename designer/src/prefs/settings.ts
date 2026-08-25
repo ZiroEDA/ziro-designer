@@ -1147,10 +1147,7 @@ export class SettingsManager {
   /** `pl_editor.json`, the Drawing Sheet Editor's own settings file. */
   plEditor: PlEditorSettings = load(sliceStorageKey('pl_editor'), PL_EDITOR_DEFAULTS);
   /** `bitmap2component.json`, the Image Converter's own settings file. */
-  bitmap2cmp: Bitmap2CmpSettings = load(
-    sliceStorageKey('bitmap2component'),
-    BITMAP2CMP_DEFAULTS,
-  );
+  bitmap2cmp: Bitmap2CmpSettings = load(sliceStorageKey('bitmap2component'), BITMAP2CMP_DEFAULTS);
   privacy: PrivacySettings = load(sliceStorageKey('privacy'), PRIVACY_DEFAULTS);
   /** The editable "User" colour theme: layer-key -> CSS colour overrides. */
   userColors: Record<string, string> = loadFreeForm(

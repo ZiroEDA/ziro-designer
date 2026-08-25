@@ -269,8 +269,7 @@ describe('the recent-images history stays on this device', () => {
     });
     await syncSettings(USER, { manager: a });
 
-    for (const row of be.rows.values())
-      expect(JSON.stringify(row.value)).not.toContain('a.png');
+    for (const row of be.rows.values()) expect(JSON.stringify(row.value)).not.toContain('a.png');
     expect(localStorage.getItem('ziroeda.bitmap2cmp.recent')).toContain('a.png');
   });
 });
@@ -357,9 +356,7 @@ describe('the editor’s own LoadSettings / SaveSettings', () => {
   // per-field bug behind a whole-object seam — exactly the shape this file is
   // written to catch.
   it.each(CHANGED)('save then load returns %s', async (field, value) => {
-    const mod = await import(
-      '@ziroeda/designer/src/editors/image/bitmap2cmpSettings.js'
-    );
+    const mod = await import('@ziroeda/designer/src/editors/image/bitmap2cmpSettings.js');
     const saved: Bitmap2CmpSettings = { ...BITMAP2CMP_DEFAULTS };
     (saved as unknown as Record<string, unknown>)[field] = value;
     mod.saveBitmap2CmpSettings(saved);
@@ -412,9 +409,7 @@ describe('the editor’s own LoadSettings / SaveSettings', () => {
   });
 
   it('saves through the shared manager, so the change reaches the slice', async () => {
-    const mod = await import(
-      '@ziroeda/designer/src/editors/image/bitmap2cmpSettings.js'
-    );
+    const mod = await import('@ziroeda/designer/src/editors/image/bitmap2cmpSettings.js');
     mod.saveBitmap2CmpSettings({ ...BITMAP2CMP_DEFAULTS, threshold: 73 });
     // A private localStorage key here would pass the line above and still never
     // follow the account. The slice's key is what has to have moved.
