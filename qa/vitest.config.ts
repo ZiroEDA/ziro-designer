@@ -16,4 +16,17 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   esbuild: { jsx: 'automatic' },
+  /**
+   * A rendered toolbar reaches KiCad's vendored icons through
+   * `import.meta.glob('../assets/toolbar/*.svg', { query: '?url' })`
+   * (`designer/src/ui/toolbarIcons.ts`), and an asset request is checked
+   * against Vite's fs allow-list rather than resolved through the module
+   * graph. `qa` is the root here, so `designer/src/assets/` is outside it and
+   * every such request came back `Denied ID ...svg?url` — the whole file
+   * failing to collect, not one icon going missing.
+   *
+   * The repo root is the workspace, so allowing it is the same reach the
+   * `@ziroeda/*` package links already have.
+   */
+  server: { fs: { allow: ['..'] } },
 });

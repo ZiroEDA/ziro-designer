@@ -221,6 +221,27 @@ export const EESCHEMA_TOOLBAR_ACTIONS: Readonly<Record<string, ToolbarAction>> =
 };
 
 /**
+ * The `common/tool/actions.cpp` TOOL_ACTIONs that a toolbar reaches through a
+ * MENU rather than through a button of its own.
+ *
+ * Every frame in the suite points at the one object — `ACTIONS::gridProperties`
+ * is a single static — so the strings cannot differ between editors and must
+ * not be written per editor. Looked up only when the app's own map has no entry
+ * for the id, so an editor that gives an id its own meaning still wins.
+ */
+export const COMMON_TOOLBAR_ACTIONS: Readonly<Record<string, ToolbarAction>> = {
+  // actions.cpp:1095-1100. The FriendlyName is "Edit Grids...", NOT "Grid
+  // Properties": the C++ identifier is `gridProperties` but the words the user
+  // reads are not. `EDA_DRAW_FRAME::UpdateGridSelectBox` writes the same two
+  // words as its own literal for the grid combo's last row
+  // (`common/eda_draw_frame.cpp:466`) — upstream really does say it twice, and
+  // ours transcribes the combo's copy separately in `ui/grid_settings.ts`.
+  gridProperties: { name: 'Edit Grids...', tip: 'Edit grid definitions' },
+  // actions.cpp:1102-1107.
+  gridOrigin: { name: 'Grid Origin...', tip: 'Set the grid origin point' },
+};
+
+/**
  * Keyed by app first, then by toolbar id.
  *
  * **A toolbar id is not globally unique, and the tooltip is where that bites.**
@@ -266,4 +287,38 @@ export function toolbarButtonTooltip(
  */
 export function toolbarButtonLabel(app: string | undefined, id: string, fallback?: string): string {
   return (app ? TOOLBAR_ACTIONS[app]?.[id]?.name : undefined) ?? fallback ?? '';
+}
+
+/**
+ * The TOOL_ACTION behind an id, for the call sites that are not buttons.
+ *
+ * A toolbar BUTTON deliberately falls back to its own `title` when the app has
+ * not been transcribed, so an untranscribed editor keeps working; a MENU row
+ * has no such fallback to offer, and its label has to come from the action or
+ * not exist. So this is the lookup with `COMMON_TOOLBAR_ACTIONS` behind it and
+ * no per-call-site string in the way.
+ */
+function actionFor(app: string | undefined, id: string): ToolbarAction | undefined {
+  return (app ? TOOLBAR_ACTIONS[app]?.[id] : undefined) ?? COMMON_TOOLBAR_ACTIONS[id];
+}
+
+/**
+ * A menu row's label — `TOOL_ACTION::GetMenuItem()`, which is what
+ * `ACTION_MENU::Add( const TOOL_ACTION& )` puts on the item
+ * (`common/tool/action_menu.cpp:186-189`).
+ *
+ * Falls back to the id itself rather than to an empty row, so a menu that names
+ * an untranscribed action is visibly wrong instead of silently blank.
+ */
+export function toolbarActionMenuLabel(app: string | undefined, id: string): string {
+  return actionFor(app, id)?.name ?? id;
+}
+
+/**
+ * A menu row's help string — `aAction.GetTooltip()`, the third argument to the
+ * `wxMenuItem` `ACTION_MENU::Add` builds (`action_menu.cpp:188`). Empty when
+ * the action declares no `.Tooltip()`, which is how upstream leaves it too.
+ */
+export function toolbarActionTooltip(app: string | undefined, id: string): string {
+  return actionFor(app, id)?.tip ?? '';
 }

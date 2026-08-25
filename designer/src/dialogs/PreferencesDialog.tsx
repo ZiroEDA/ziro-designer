@@ -38,12 +38,32 @@ import { useModalEscape } from '../ui/useModalEscape.js';
  * asking that page for its own reset — the shell never learns which settings a
  * page owns, and a page with no reset greys the button out.
  */
-export function PreferencesDialog({ onClose }: { onClose: () => void }): JSX.Element {
+export function PreferencesDialog({
+  onClose,
+  initialPage,
+}: {
+  onClose: () => void;
+  /**
+   * `EDA_BASE_FRAME::ShowPreferences( aStartPage, aStartParentPage )`
+   * (`common/eda_base_frame.cpp:1585`), the page the dialog opens on.
+   *
+   * It is not decoration: `COMMON_TOOLS::GridProperties` is nothing BUT this
+   * argument — it runs `ShowPreferences( _( "Grids" ), <frame name> )` and
+   * returns (`common/tool/common_tools.cpp:609-634`), so an "Edit Grids..."
+   * that opened the book at Common would not be the action at all.
+   *
+   * Upstream names the page by its LABEL and its parent's label, because the
+   * book is a wxTreebook of strings. Ours names it by id, which is the same
+   * thing said unambiguously — two editors can both have a page labelled
+   * "Grids".
+   */
+  initialPage?: PrefsPageId;
+}): JSX.Element {
   // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
   // ui/modal_escape.ts.
   useModalEscape(onClose);
 
-  const [page, setPage] = useState<PrefsPageId>(FIRST_PAGE);
+  const [page, setPage] = useState<PrefsPageId>(initialPage ?? FIRST_PAGE);
   const [common, setCommon] = useState<CommonSettings>(() => structuredClone(settings.common));
   const [eeschema, setEeschema] = useState<EeschemaSettings>(() =>
     structuredClone(settings.eeschema),

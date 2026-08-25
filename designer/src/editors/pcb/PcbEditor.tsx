@@ -6420,6 +6420,14 @@ export function PcbEditor({
   const leftDisabled = useMemo(() => {
     const s = new Set<string>();
     if (selectedNets.size === 0 && highlightNets.size === 0) s.add('toggleNetHighlight');
+    // The Show Grid button's right-click menu carries `ACTIONS::gridOrigin`
+    // under `ACTIONS::gridProperties` (`pcbnew/toolbars_pcb_editor.cpp:150-161`).
+    // `COMMON_TOOLS::GridOrigin` is a WX_PT_ENTRY_DIALOG that writes
+    // `SetGridOrigin` (`common/tool/common_tools.cpp:637-651`), and we do not
+    // have it: the Place menu's own Grid Origin row is greyed for the same
+    // reason. Shown in its upstream position rather than dropped, which is what
+    // the rest of this frame does with an entry it cannot run yet.
+    s.add('gridOrigin');
     return s;
   }, [selectedNets, highlightNets]);
 
@@ -6580,6 +6588,17 @@ export function PcbEditor({
   // ----- toolbar handlers -----------------------------------------------------
 
   const onLeftToggle = (id: string): void => {
+    // The Show Grid button's right-click menu, not a button
+    // (`pcbnew/toolbars_pcb_editor.cpp:149-161`): upstream runs its rows
+    // through the same TOOL_MANAGER the button goes through, so they arrive
+    // here. `COMMON_TOOLS::GridProperties` for FRAME_PCB_EDITOR is
+    // `ShowPreferences( _( "Grids" ), _( "PCB Editor" ) )`
+    // (`common/tool/common_tools.cpp:625`); that page is not in our book yet,
+    // so the dialog opens without naming one.
+    if (id === 'gridProperties') {
+      setPrefsOpen(true);
+      return;
+    }
     // The high-contrast button maps onto the Layer Display Options mode
     // (ACTIONS::highContrastMode toggles Normal <-> Dim).
     if (id === 'highContrast') {
@@ -7371,6 +7390,7 @@ export function PcbEditor({
 
         <Toolbar
           entries={PCB_LEFT_TOOLBAR}
+          app="pcbnew"
           orientation="vertical"
           side="left"
           toggled={leftToggles}

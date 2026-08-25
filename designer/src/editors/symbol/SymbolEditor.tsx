@@ -869,6 +869,21 @@ export function SymbolEditor({
   // `applyToggle` is `editors/symbol/toggles.ts`' — the radio/flip rule and the
   // groups it reads are both there, where a test can call them.
   const onLeftToggle = useCallback((id: string) => {
+    // The Show Grid button's right-click menu, whose one row is
+    // `ACTIONS::gridProperties`
+    // (`eeschema/symbol_editor/toolbars_symbol_editor.cpp:62-70`). Upstream
+    // runs it through the same TOOL_MANAGER the button goes through, so it
+    // arrives here rather than through a menu of its own.
+    // `COMMON_TOOLS::GridProperties` for FRAME_SCH_SYMBOL_EDITOR is
+    // `ShowPreferences( _( "Grids" ), _( "Symbol Editor" ) )`
+    // (`common/tool/common_tools.cpp:624`). That page does not exist in our
+    // book yet — upstream's Symbol Editor section is Display Options, Grids,
+    // Colors, Editing Options and Toolbars (`eeschema/eeschema.cpp:255-300`)
+    // and ours has none of them — so this opens the dialog without naming one.
+    if (id === 'gridProperties') {
+      setPrefsOpen(true);
+      return;
+    }
     setToggles((prev) => applyToggle(prev, id));
   }, []);
 
@@ -1925,6 +1940,7 @@ export function SymbolEditor({
 
         <Toolbar
           entries={SYM_LEFT_TOOLBAR}
+          app="symbol_editor"
           orientation="vertical"
           side="left"
           toggled={toggles}

@@ -5,6 +5,9 @@ import { useEffect, useRef, useState, type CSSProperties, type JSX, type ReactNo
 import { Icon } from './icons.js';
 import { toolbarIconUrl } from './toolbarIcons.js';
 import { toolbarButtonLabel, toolbarButtonTooltip } from './toolbar_actions.js';
+import { ContextMenu } from './MenuBar.js';
+import type { MenuItem } from './menu_types.js';
+import { toolbarContextMenu } from './toolbar_context_menu_registry.js';
 
 // The data types live in toolbar_types.ts so toolbar inventory modules stay
 // reachable from qa's tsconfig, which compiles .ts only. Re-exported here so
@@ -54,6 +57,13 @@ interface PaletteState {
   anchor: DOMRect;
 }
 
+/** An open per-button context menu (`ACTION_TOOLBAR::showContextMenu`). */
+interface ButtonMenuState {
+  items: MenuItem[];
+  x: number;
+  y: number;
+}
+
 export function Toolbar({
   entries,
   app,
@@ -70,6 +80,7 @@ export function Toolbar({
   // m_defaultAction: the palette pick the group button currently shows.
   const [groupSel, setGroupSel] = useState<Record<string, string>>({});
   const [palette, setPalette] = useState<PaletteState | null>(null);
+  const [buttonMenu, setButtonMenu] = useState<ButtonMenuState | null>(null);
   const pressTimer = useRef<number | null>(null);
   // Swallows the click that ends the press which opened the palette.
   const suppressClick = useRef(false);
@@ -110,6 +121,33 @@ export function Toolbar({
     if (toggledAction) return toggledAction;
     const sel = g.actions.find((a) => a.id === groupSel[g.group]);
     return sel ?? g.actions[0]!;
+  };
+
+  /**
+   * `ACTION_TOOLBAR::showContextMenu` (`common/tool/action_toolbar.cpp:851-880`).
+   *
+   * `shownId` is what upstream's first step produces: "Ensure that the ID maps
+   * to a proper tool ID. If right-clicked on a group item, this is needed to
+   * get the ID of the currently selected action, since the event's ID is that
+   * of the group." A group therefore has no menu of its own — it borrows the
+   * menu of whichever action its button is displaying — which is also why
+   * `AddToolContextMenu` files a *group's* registered menu under every action
+   * in it (`:374-381`).
+   *
+   * Nothing checks whether the button is enabled: upstream pops the menu for a
+   * greyed tool too.
+   */
+  const openButtonMenu = (shownId: string, e: { clientX: number; clientY: number }): boolean => {
+    const items = toolbarContextMenu(app, shownId, (id) => onActivate?.(id), {
+      // One ACTION_CONDITIONS answers for a button and for a menu row alike,
+      // so a row for an action this frame has greyed out is greyed here too.
+      disabled: (id) => !!disabledIds?.has(id),
+    });
+    if (!items) return false;
+    setPalette(null);
+    cancelTimer();
+    setButtonMenu({ items, x: e.clientX, y: e.clientY });
+    return true;
   };
 
   const openPalette = (g: ToolGroup, btn: HTMLElement): void => {
@@ -176,6 +214,21 @@ export function Toolbar({
           else cancelTimer();
         }}
         onPointerUp={cancelTimer}
+        /*
+         * `wxEVT_AUITOOLBAR_RIGHT_CLICK` (`ACTION_TOOLBAR::onRightClick`,
+         * `common/tool/action_toolbar.cpp:215, 821-830`), plus the hit-tested
+         * right-up a vertical bar needs (`:833-848`). A right-click is the
+         * ONLY gesture that opens this menu — there is no drop-down arrow, and
+         * the long press belongs to the group palette above.
+         *
+         * A palette row never carries one: upstream's palette is a separate
+         * popup window with its own buttons, not toolbar items, so no
+         * `wxAuiToolBarItem` id reaches `showContextMenu` from it.
+         */
+        onContextMenu={(e) => {
+          if (opts.inPalette) return;
+          if (openButtonMenu(b.id, e)) e.preventDefault();
+        }}
         onClick={(e) => {
           if (disabled) return;
           if (suppressClick.current) {
@@ -263,6 +316,14 @@ export function Toolbar({
             renderButton(a, { group: palette.group, inPalette: true }),
           )}
         </div>
+      )}
+      {buttonMenu && (
+        <ContextMenu
+          items={buttonMenu.items}
+          x={buttonMenu.x}
+          y={buttonMenu.y}
+          onClose={() => setButtonMenu(null)}
+        />
       )}
     </div>
   );

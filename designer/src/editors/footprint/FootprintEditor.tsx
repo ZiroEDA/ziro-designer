@@ -191,6 +191,16 @@ function fpTargetOf(path: string): { lib: string; name: string } {
   return { lib, name: fpNameOf(norm) };
 }
 
+/**
+ * `ACTIONS::gridOrigin` — the second row of the Show Grid button's right-click
+ * menu (`pcbnew/toolbars_footprint_editor.cpp:54-62`) — is
+ * `COMMON_TOOLS::GridOrigin`, a WX_PT_ENTRY_DIALOG that writes `SetGridOrigin`
+ * (`common/tool/common_tools.cpp:637-651`), and we do not have it. Shown in its
+ * upstream position and greyed, which is what this editor already does with
+ * every entry it cannot run yet.
+ */
+const FP_LEFT_DISABLED: ReadonlySet<string> = new Set(['gridOrigin']);
+
 export function FootprintEditor({
   onExitToHome,
   initialProject,
@@ -695,6 +705,17 @@ export function FootprintEditor({
 
   // ----- toolbar / toggles ------------------------------------------------------
   const onLeftToggle = useCallback((id: string) => {
+    // The Show Grid button's right-click menu, not a button
+    // (`pcbnew/toolbars_footprint_editor.cpp:53-62`): upstream runs its rows
+    // through the same TOOL_MANAGER the button goes through, so they arrive
+    // here. `COMMON_TOOLS::GridProperties` for FRAME_FOOTPRINT_EDITOR is
+    // `ShowPreferences( _( "Grids" ), _( "Footprint Editor" ) )`
+    // (`common/tool/common_tools.cpp:626`); that page is not in our book yet,
+    // so the dialog opens without naming one.
+    if (id === 'gridProperties') {
+      setPrefsOpen(true);
+      return;
+    }
     setToggles((prev) => applyToggle(prev, id));
   }, []);
 
@@ -1375,9 +1396,11 @@ export function FootprintEditor({
 
         <Toolbar
           entries={FP_LEFT_TOOLBAR}
+          app="footprint_editor"
           orientation="vertical"
           side="left"
           toggled={toggles}
+          disabledIds={FP_LEFT_DISABLED}
           onActivate={onLeftToggle}
         />
 
