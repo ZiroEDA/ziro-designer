@@ -35,7 +35,7 @@ import { DEFAULT_TOGGLES as SCH_TOGGLES } from '@ziroeda/designer/src/editors/sc
 import { DEFAULT_TOGGLES as SYM_TOGGLES } from '@ziroeda/designer/src/editors/symbol/toggles.js';
 import { DEFAULT_TOGGLES as GBR_TOGGLES } from '@ziroeda/designer/src/editors/gerbview/toggles.js';
 import { DEFAULT_TOGGLES as DS_TOGGLES } from '@ziroeda/designer/src/editors/drawingsheet/toggles.js';
-import { FP_DEFAULT_TOGGLES } from '@ziroeda/designer/src/editors/footprint/footprintToolbars.js';
+import { DEFAULT_TOGGLES as FP_TOGGLES } from '@ziroeda/designer/src/editors/footprint/toggles.js';
 
 /** The three unit buttons every `EDA_DRAW_FRAME` toolbar carries. */
 const UNIT_IDS = ['unitsMm', 'unitsInches', 'unitsMils'] as const;
@@ -124,7 +124,7 @@ describe('the unit each frame actually boots with', () => {
    * takes the `else` arm.
    */
   it('opens the footprint editor in mm', () => {
-    expect(bootUnit(FP_DEFAULT_TOGGLES)).toBe('unitsMm');
+    expect(bootUnit(FP_TOGGLES)).toBe('unitsMm');
   });
 
   /**

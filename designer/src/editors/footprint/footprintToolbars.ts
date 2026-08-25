@@ -12,7 +12,6 @@
  */
 
 import type { ToolEntry } from '../../ui/toolbar_types.js';
-import { defaultUnitsToggle } from '../../ui/app_settings_units.js';
 
 const sep: ToolEntry = 'sep';
 
@@ -243,40 +242,3 @@ export function footprintToolMsg(aActiveTool: string, aArmed: boolean): string {
   if (!aArmed) return '';
   return FP_TOOL_FRIENDLY_NAMES[aActiveTool] ?? '';
 }
-
-/**
- * The left toolbar's state when the frame opens — every one of these is a
- * setting `FOOTPRINT_EDITOR_SETTINGS` seeds, not a preference of ours.
- *
- * The line mode is the one that was wrong: `lineMode45`, because
- * `FOOTPRINT_EDITOR_SETTINGS::FOOTPRINT_EDITOR_SETTINGS()` seeds
- * `m_AngleSnapMode( LEADER_MODE::DEG45 )`
- * (`pcbnew/footprint_editor_settings.cpp:55`) and
- * `FOOTPRINT_EDITOR_CONTROL::OnAngleSnapModeChanged`
- * (`pcbnew/tools/footprint_editor_control.cpp:1031-1048`) maps DEG45 to
- * `PCB_ACTIONS::lineMode45`. pcbnew's own default is DIRECT
- * (`pcbnew/pcbnew_settings.cpp:59`) and the schematic's is different again, so
- * this is exactly the per-frame value that gets taken from the wrong
- * neighbour — ours was `lineMode90`, which is neither frame's.
- *
- * The three panels are shown because the frame calls
- * `m_auimgr.GetPane( … ).Show( … )` off `m_AuiPanels`
- * (`footprint_edit_frame.cpp:262-264`), all of which default true.
- *
- * The units entry is NOT written here. `system.units`' default is one branch in
- * `APP_SETTINGS_BASE` (`common/settings/app_settings.cpp:228-238`), and
- * `FOOTPRINT_EDITOR_SETTINGS` passes the filename `"fpedit"`
- * (`pcbnew/footprint_editor_settings.cpp:46`, through
- * `PCB_VIEWERS_SETTINGS_BASE`'s forwarding constructor,
- * `pcbnew/pcbnew_settings.h:123-124`), which is not on the imperial side — so
- * this frame opens in millimetres.
- */
-export const FP_DEFAULT_TOGGLES: readonly string[] = [
-  'toggleGrid',
-  defaultUnitsToggle('fpedit'),
-  'crosshairSmall',
-  'lineMode45',
-  'showLibraryTree',
-  'showLayersManager',
-  'showProperties',
-];

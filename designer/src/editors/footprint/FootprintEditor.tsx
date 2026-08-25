@@ -58,9 +58,9 @@ import {
   FP_TOP_TOOLBAR,
   FP_LEFT_TOOLBAR,
   FP_RIGHT_TOOLBAR,
-  FP_DEFAULT_TOGGLES,
   footprintToolMsg,
 } from './footprintToolbars.js';
+import { applyToggle, DEFAULT_TOGGLES } from './toggles.js';
 import { FootprintCanvas, type FootprintCanvasController } from './FootprintCanvas.js';
 import { FootprintLibraryManager, fpNameOf, footprintsBase } from './libraryManager.js';
 import { projectFpLibTable, projectLibraryNickname } from './fp_lib_table.js';
@@ -135,17 +135,10 @@ const basename = (p: string): string => p.split('/').pop()!.split('\\').pop()!;
 
 const ALL_FP_LAYERS = FOOTPRINT_LAYERS.map((l) => l.name);
 
-// Left-toolbar radio groups (same convention as the PCB editor).
-const RADIO_GROUPS: string[][] = [
-  ['unitsMm', 'unitsInches', 'unitsMils'],
-  ['crosshairSmall', 'crosshairFull', 'crosshair45'],
-  ['lineModeFree', 'lineMode90', 'lineMode45'],
-];
-// The frame's opening toolbar state. In `footprintToolbars.ts` rather than
-// here, because `qa`'s tsconfig compiles `.ts` only: a default written in a
-// `.tsx` is one no test can read, and the line mode had been wrong since the
-// toolbar landed.
-const DEFAULT_TOGGLES = new Set(FP_DEFAULT_TOGGLES);
+// The left toolbar's radio groups, its opening state and its reducer are in
+// `toggles.ts` rather than here, because `qa`'s tsconfig compiles `.ts` only:
+// a default written in a `.tsx` is one no test can read, and the line mode had
+// been wrong since the toolbar landed.
 
 /** An fp_text item (Reference/Value) for a freshly-created footprint. */
 function makeText(kind: PcbTextItem['kind'], text: string, at: Vec2, layer: string): PcbTextItem {
@@ -701,23 +694,8 @@ export function FootprintEditor({
   );
 
   // ----- toolbar / toggles ------------------------------------------------------
-  const radio = (t: Set<string>, id: string): Set<string> => {
-    const group = RADIO_GROUPS.find((g) => g.includes(id));
-    const next = new Set(t);
-    if (group) for (const g of group) next.delete(g);
-    next.add(id);
-    return next;
-  };
-  const flip = (t: Set<string>, id: string): Set<string> => {
-    const next = new Set(t);
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
-    return next;
-  };
   const onLeftToggle = useCallback((id: string) => {
-    setToggles((prev) =>
-      RADIO_GROUPS.some((g) => g.includes(id)) ? radio(prev, id) : flip(prev, id),
-    );
+    setToggles((prev) => applyToggle(prev, id));
   }, []);
 
   const showDatasheet = useCallback(() => {
