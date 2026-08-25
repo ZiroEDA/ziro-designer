@@ -80,7 +80,7 @@ const comboAfter = (label: string): HTMLElement => {
   throw new Error(`no combo after ${label}`);
 };
 
-const valueOf = (el: Element): string => (el as HTMLInputElement).value;
+const fieldText = (el: Element): string => (el as HTMLInputElement).value;
 
 const textbox = (name: RegExp): HTMLElement => screen.getByRole('textbox', { name });
 
@@ -101,13 +101,17 @@ describe('Track Width, end to end against pcb_calculator', () => {
 
     // pcb_calculator, Track Width page, typed exactly these three numbers with
     // both thicknesses at 35 µm. Case `track_width/current_5A_mm`.
-    expect(valueOf(within(ext).getByRole('textbox', { name: /^Track width \(W\)/ }))).toBe('2.76552');
+    expect(fieldText(within(ext).getByRole('textbox', { name: /^Track width \(W\)/ }))).toBe(
+      '2.76552',
+    );
     expect(resultOf(within(ext), 'Cross-section area:')).toBe('0.0967932');
     expect(resultOf(within(ext), 'Resistance:')).toBe('0.00355397');
     expect(resultOf(within(ext), 'Voltage drop:')).toBe('0.0177698');
     expect(resultOf(within(ext), 'Power loss:')).toBe('0.0888492');
 
-    expect(valueOf(within(int_).getByRole('textbox', { name: /^Track width \(W\)/ }))).toBe('7.19434');
+    expect(fieldText(within(int_).getByRole('textbox', { name: /^Track width \(W\)/ }))).toBe(
+      '7.19434',
+    );
     expect(resultOf(within(int_), 'Cross-section area:')).toBe('0.251802');
     expect(resultOf(within(int_), 'Resistance:')).toBe('0.00136615');
     expect(resultOf(within(int_), 'Voltage drop:')).toBe('0.00683077');
@@ -125,14 +129,54 @@ describe('Track Width, end to end against pcb_calculator', () => {
     // to the same recalculate handler as the text field, so 20 mm becomes
     // 20 INCH and the resistance moves by exactly 25.4.
     // Case `track_width/len_unit_inch`.
-    expect(valueOf(textbox(/^Conductor length/))).toBe('20');
+    expect(fieldText(textbox(/^Conductor length/))).toBe('20');
 
     const ext = screen.getByRole('group', { name: 'External Layer Tracks' });
-    expect(valueOf(within(ext).getByRole('textbox', { name: /^Track width \(W\)/ }))).toBe('2.76552');
+    expect(fieldText(within(ext).getByRole('textbox', { name: /^Track width \(W\)/ }))).toBe(
+      '2.76552',
+    );
     expect(resultOf(within(ext), 'Cross-section area:')).toBe('0.0967932');
     expect(resultOf(within(ext), 'Resistance:')).toBe('0.0902708');
     expect(resultOf(within(ext), 'Voltage drop:')).toBe('0.451354');
     expect(resultOf(within(ext), 'Power loss:')).toBe('2.25677');
+  });
+
+  it('the cross-section area follows the WIDTH selector, unit label and all', () => {
+    render(<PanelTrackWidth />);
+    setParameters('5', '10', '20');
+
+    const ext = screen.getByRole('group', { name: 'External Layer Tracks' });
+    const widthRow = within(ext)
+      .getByRole('textbox', { name: /^Track width \(W\)/ })
+      .closest('label');
+    pickUnit(within(widthRow as HTMLElement).getByRole('button'), 'mil');
+
+    // Case `track_width/ext_width_unit_mil`. The width here is DERIVED - the
+    // current is the controlling value - so the selector reformats it, and the
+    // area goes with it: 2.76552 mm is 108.879 mil, and the area is printed in
+    // mil², not left in mm². The resistance is a physical quantity and does not
+    // move at all. This is the case that pins the third of this week's bugs,
+    // where the area ignored this selector entirely.
+    expect(fieldText(within(ext).getByRole('textbox', { name: /^Track width \(W\)/ }))).toBe(
+      '108.879',
+    );
+    expect(resultOf(within(ext), 'Cross-section area:')).toBe('150.03');
+    expect(
+      within(ext).getByText('Cross-section area:').parentElement?.lastElementChild?.textContent,
+    ).toBe('mil²');
+    expect(resultOf(within(ext), 'Resistance:')).toBe('0.00355397');
+    expect(resultOf(within(ext), 'Voltage drop:')).toBe('0.0177698');
+    expect(resultOf(within(ext), 'Power loss:')).toBe('0.0888492');
+
+    pickUnit(within(widthRow as HTMLElement).getByRole('button'), 'inch');
+    // Case `track_width/ext_width_unit_inch`.
+    expect(fieldText(within(ext).getByRole('textbox', { name: /^Track width \(W\)/ }))).toBe(
+      '0.108879',
+    );
+    expect(resultOf(within(ext), 'Cross-section area:')).toBe('0.00015003');
+    expect(
+      within(ext).getByText('Cross-section area:').parentElement?.lastElementChild?.textContent,
+    ).toBe('inch²');
   });
 
   it('an external thickness of 1 oz/ft² widens the track the way KiCad does', () => {
@@ -147,7 +191,9 @@ describe('Track Width, end to end against pcb_calculator', () => {
     type(within(ext).getByRole('textbox', { name: /^Track thickness \(H\)/ }), '1');
 
     // Case `track_width/ext_thickness_1oz`.
-    expect(valueOf(within(ext).getByRole('textbox', { name: /^Track width \(W\)/ }))).toBe('2.81376');
+    expect(fieldText(within(ext).getByRole('textbox', { name: /^Track width \(W\)/ }))).toBe(
+      '2.81376',
+    );
     expect(resultOf(within(ext), 'Cross-section area:')).toBe('0.0967932');
     expect(resultOf(within(ext), 'Resistance:')).toBe('0.00355397');
   });
@@ -160,12 +206,14 @@ describe('Track Width, end to end against pcb_calculator', () => {
     type(within(ext).getByRole('textbox', { name: /^Track width \(W\)/ }), '1.0');
 
     // Case `track_width/ext_width_1mm_drives_current`.
-    expect(valueOf(textbox(/^Current \(I\)/))).toBe('2.39156');
+    expect(fieldText(textbox(/^Current \(I\)/))).toBe('2.39156');
     expect(resultOf(within(ext), 'Cross-section area:')).toBe('0.035');
     expect(resultOf(within(ext), 'Resistance:')).toBe('0.00982857');
 
     const int_ = screen.getByRole('group', { name: 'Internal Layer Tracks' });
-    expect(valueOf(within(int_).getByRole('textbox', { name: /^Track width \(W\)/ }))).toBe('2.60144');
+    expect(fieldText(within(int_).getByRole('textbox', { name: /^Track width \(W\)/ }))).toBe(
+      '2.60144',
+    );
   });
 });
 
@@ -211,7 +259,7 @@ describe('Via Size, end to end against pcb_calculator', () => {
     // Case `via_size/hole_unit_mil`. Capacitance and rise-time degradation do
     // NOT move: KiCad computes both from the CLEARANCE and PAD diameters, which
     // this selector does not touch.
-    expect(valueOf(textbox(/^Finished hole diameter \(D\)/))).toBe('0.4');
+    expect(fieldText(textbox(/^Finished hole diameter \(D\)/))).toBe('0.4');
     expect(resultOf(screen, 'Resistance:')).toBe('0.022233');
     expect(resultOf(screen, 'Thermal resistance:')).toBe('802.32');
     expect(resultOf(screen, 'Estimated ampacity:')).toBe('0.580513');
@@ -260,19 +308,19 @@ describe('Fusing Current, end to end against pcb_calculator', () => {
     // exactly as the harness did.
     solveFor(0);
     calculate();
-    expect(valueOf(afterLabel('Track width:'))).toBe('0.089133');
+    expect(fieldText(afterLabel('Track width:'))).toBe('0.089133');
 
     solveFor(1);
     calculate();
-    expect(valueOf(afterLabel('Track thickness:'))).toBe('0.035000');
+    expect(fieldText(afterLabel('Track thickness:'))).toBe('0.035000');
 
     solveFor(2);
     calculate();
-    expect(valueOf(afterLabel('Current:'))).toBe('10.000029');
+    expect(fieldText(afterLabel('Current:'))).toBe('10.000029');
 
     solveFor(3);
     calculate();
-    expect(valueOf(afterLabel('Time to fuse:'))).toBe('0.010000');
+    expect(fieldText(afterLabel('Time to fuse:'))).toBe('0.010000');
   });
 
   it('a thickness given in oz/ft² reaches the solver', () => {
@@ -289,7 +337,7 @@ describe('Fusing Current, end to end against pcb_calculator', () => {
 
     // Case `fusing_current/solve_current_1oz`. 1 oz/ft² is 34.79 µm, a hair
     // under the 35 µm above, so the fusing current drops just below 10 A.
-    expect(valueOf(afterLabel('Current:'))).toBe('9.828600');
+    expect(fieldText(afterLabel('Current:'))).toBe('9.828600');
   });
 });
 
@@ -304,13 +352,13 @@ describe('Cable Size, end to end against pcb_calculator', () => {
     type(afterLabel('Length:'), '100');
 
     // Case `cable_size/d1mm_20C_1A_100cm`.
-    expect(valueOf(afterLabel('Area:'))).toBe('0.785398');
-    expect(valueOf(afterLabel('Linear resistance:'))).toBe('0.0218997');
-    expect(valueOf(afterLabel('Frequency for 100% skin depth:'))).toBe('1.74272e-05');
-    expect(valueOf(afterLabel('Ampacity:'))).toBe('2.35619');
-    expect(valueOf(afterLabel('Resistance DC:'))).toBe('0.0218997');
-    expect(valueOf(afterLabel('Voltage drop:'))).toBe('21.8997');
-    expect(valueOf(afterLabel('Dissipated power:'))).toBe('21.8997');
+    expect(fieldText(afterLabel('Area:'))).toBe('0.785398');
+    expect(fieldText(afterLabel('Linear resistance:'))).toBe('0.0218997');
+    expect(fieldText(afterLabel('Frequency for 100% skin depth:'))).toBe('1.74272e-05');
+    expect(fieldText(afterLabel('Ampacity:'))).toBe('2.35619');
+    expect(fieldText(afterLabel('Resistance DC:'))).toBe('0.0218997');
+    expect(fieldText(afterLabel('Voltage drop:'))).toBe('21.8997');
+    expect(fieldText(afterLabel('Dissipated power:'))).toBe('21.8997');
   });
 
   it('its unit selectors CONVERT, unlike Track Width’s', () => {
@@ -329,11 +377,11 @@ describe('Cable Size, end to end against pcb_calculator', () => {
     // is a LINKED field holding one quantity, so the displayed number follows
     // the unit. That is the OPPOSITE of Via Size and Track Width above, and the
     // difference is upstream's, not ours. Case `cable_size/units_switched`.
-    expect(valueOf(afterLabel('Linear resistance:'))).toBe('21.8997');
-    expect(valueOf(afterLabel('Frequency for 100% skin depth:'))).toBe('17427.2');
-    expect(valueOf(afterLabel('Resistance DC:'))).toBe('0.0218997');
-    expect(valueOf(afterLabel('Voltage drop:'))).toBe('0.0218997');
-    expect(valueOf(afterLabel('Dissipated power:'))).toBe('0.0218997');
+    expect(fieldText(afterLabel('Linear resistance:'))).toBe('21.8997');
+    expect(fieldText(afterLabel('Frequency for 100% skin depth:'))).toBe('17427.2');
+    expect(fieldText(afterLabel('Resistance DC:'))).toBe('0.0218997');
+    expect(fieldText(afterLabel('Voltage drop:'))).toBe('0.0218997');
+    expect(fieldText(afterLabel('Dissipated power:'))).toBe('0.0218997');
   });
 
   it('picking AWG12 fills the diameter and everything downstream', () => {
@@ -345,14 +393,14 @@ describe('Cable Size, end to end against pcb_calculator', () => {
     pickUnit(comboAfter('Standard Size:'), 'AWG12');
 
     // Case `cable_size/AWG12`.
-    expect(valueOf(afterLabel('Diameter:'))).toBe('2.05232');
-    expect(valueOf(afterLabel('Area:'))).toBe('3.30811');
-    expect(valueOf(afterLabel('Linear resistance:'))).toBe('0.00519934');
-    expect(valueOf(afterLabel('Frequency for 100% skin depth:'))).toBe('4.13751e-06');
-    expect(valueOf(afterLabel('Ampacity:'))).toBe('9.92433');
-    expect(valueOf(afterLabel('Resistance DC:'))).toBe('0.00519934');
-    expect(valueOf(afterLabel('Voltage drop:'))).toBe('5.19934');
-    expect(valueOf(afterLabel('Dissipated power:'))).toBe('5.19934');
+    expect(fieldText(afterLabel('Diameter:'))).toBe('2.05232');
+    expect(fieldText(afterLabel('Area:'))).toBe('3.30811');
+    expect(fieldText(afterLabel('Linear resistance:'))).toBe('0.00519934');
+    expect(fieldText(afterLabel('Frequency for 100% skin depth:'))).toBe('4.13751e-06');
+    expect(fieldText(afterLabel('Ampacity:'))).toBe('9.92433');
+    expect(fieldText(afterLabel('Resistance DC:'))).toBe('0.00519934');
+    expect(fieldText(afterLabel('Voltage drop:'))).toBe('5.19934');
+    expect(fieldText(afterLabel('Dissipated power:'))).toBe('5.19934');
   });
 });
 
@@ -375,6 +423,39 @@ describe('Electrical Spacing, end to end against pcb_calculator', () => {
     expect(ipcRow('251 .. 300 V')).toEqual(['0.2', '1.25', '12.5', '0.4', '0.4', '0.8', '0.8']);
     expect(ipcRow('301 .. 500 V')).toEqual(['0.25', '2.5', '12.5', '0.8', '0.8', '1.5', '0.8']);
     expect(ipcRow('> 500 V')).toEqual(['0.25', '2.5', '12.5', '0.8', '0.8', '1.5', '0.8']);
+  });
+
+  it('names the seven classes exactly as the real panel does', () => {
+    const { container } = render(<PanelElectricalSpacing />);
+
+    // This block is what settles the number of columns and their identity, and
+    // it is the one thing a row-value check cannot: a table with an extra `B5`
+    // still matches on the four columns before it. Read verbatim off the real
+    // window's `wxStaticText` over AT-SPI - the ids run B1..B4 then A5..A7, and
+    // "over 3050 m" carries no "or a vacuum".
+    expect(container.querySelector('.es-ipc-help')?.textContent).toBe(
+      [
+        '*  B1 - Internal Conductors',
+        '*  B2 - External Conductors, uncoated, sea level to 3050 m',
+        '*  B3 - External Conductors, uncoated, over 3050 m',
+        '*  B4 - External Conductors, with permanent polymer coating (any elevation)',
+        '*  A5 - External Conductors, with conformal coating over assembly (any elevation)',
+        '*  A6 - External Component lead/termination, uncoated',
+        '*  A7 - External Component lead termination, with conformal coating (any elevation)',
+      ].join('\n'),
+    );
+    // And the header row itself, which is where an eighth class would show.
+    const head = container.querySelectorAll('table tr')[0];
+    expect(Array.from(head?.children ?? []).map((c) => c.textContent)).toEqual([
+      '',
+      'B1',
+      'B2',
+      'B3',
+      'B4',
+      'A5',
+      'A6',
+      'A7',
+    ]);
   });
 
   it('the same table in mil', () => {
@@ -419,7 +500,7 @@ describe('Electrical Spacing, end to end against pcb_calculator', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Update Values' }));
 
     // Measured on the real panel: the entry itself is rewritten to "500".
-    expect(valueOf(screen.getByRole('textbox'))).toBe('500');
+    expect(fieldText(screen.getByRole('textbox'))).toBe('500');
     expect(ipcRow('> 500 V')).toEqual(['0.25', '2.5', '12.5', '0.8', '0.8', '1.5', '0.8']);
   });
 });

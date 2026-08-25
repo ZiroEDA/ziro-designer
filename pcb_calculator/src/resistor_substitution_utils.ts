@@ -239,7 +239,8 @@ export function resEquivCalc(
   // solution cells for E3, E6 and E24 at 3.65 kΩ, where sorting by value alone
   // reproduced four.
   const tieKey = new Map<Resistance, string>();
-  for (const r of buffer2R) tieKey.set(r, `${uniqueCount(r)}\u0000${r.parts.length}\u0000${r.name}`);
+  for (const r of buffer2R)
+    tieKey.set(r, `${uniqueCount(r)}\u0000${r.parts.length}\u0000${r.name}`);
   buffer2R.sort((a, b) => {
     if (a.value !== b.value) return a.value - b.value;
     const ka = tieKey.get(a) ?? '';

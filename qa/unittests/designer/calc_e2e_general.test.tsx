@@ -26,7 +26,7 @@ afterEach(() => cleanup());
 const type = (el: Element | null, v: string): void => {
   fireEvent.change(el as HTMLElement, { target: { value: v } });
 };
-const valueOf = (el: Element | null | undefined): string => (el as HTMLInputElement).value;
+const fieldText = (el: Element | null | undefined): string => (el as HTMLInputElement).value;
 
 /** The first `<input>` at or after the label, for a nameless flat-grid row. */
 const afterLabel = (label: string): HTMLInputElement => {
@@ -51,7 +51,7 @@ describe('Regulators, end to end against pcb_calculator', () => {
     }
     return out;
   };
-  const minTypMax = (label: string): string[] => cells(label).map((c) => valueOf(c));
+  const minTypMax = (label: string): string[] => cells(label).map((c) => fieldText(c));
   const solveFor = (i: number): void => {
     fireEvent.click(screen.getAllByRole('radio')[i] as HTMLElement);
   };
@@ -88,11 +88,11 @@ describe('Regulators, end to end against pcb_calculator', () => {
     expect(minTypMax('R2:')).toEqual(['0.713', '0.72', '0.727']);
     expect(minTypMax('Vout:')).toEqual(['4.764', '5.036', '5.352']);
     // The overall tolerance row has min and max but no typ - a span sits there.
-    expect(valueOf(cells('Overall tolerance:')[0])).toBe('-5.39');
-    expect(valueOf(cells('Overall tolerance:')[2])).toBe('5.9');
+    expect(fieldText(cells('Overall tolerance:')[0])).toBe('-5.39');
+    expect(fieldText(cells('Overall tolerance:')[2])).toBe('5.9');
     // A single formatted sentence, not three numbers: %g at 0.01 precision with
     // a "V" glued to each.
-    expect(valueOf(screen.getByText('Power Comment:').nextElementSibling)).toBe(
+    expect(fieldText(screen.getByText('Power Comment:').nextElementSibling)).toBe(
       '5.04V [4.76V ... 5.35V]',
     );
   });
@@ -107,8 +107,8 @@ describe('Regulators, end to end against pcb_calculator', () => {
     expect(minTypMax('R1:')).toEqual(['0.238', '0.24', '0.242']);
     expect(minTypMax('R2:')).toEqual(['0.706', '0.713', '0.72']);
     expect(minTypMax('Vout:')).toEqual(['4.73', '5', '5.313']);
-    expect(valueOf(cells('Overall tolerance:')[0])).toBe('-5.39');
-    expect(valueOf(cells('Overall tolerance:')[2])).toBe('5.89');
+    expect(fieldText(cells('Overall tolerance:')[0])).toBe('-5.39');
+    expect(fieldText(cells('Overall tolerance:')[2])).toBe('5.89');
   });
 
   it('solves R1 for a target Vout', () => {
@@ -121,8 +121,8 @@ describe('Regulators, end to end against pcb_calculator', () => {
     expect(minTypMax('R1:')).toEqual(['0.24', '0.242', '0.245']);
     expect(minTypMax('R2:')).toEqual(['0.713', '0.72', '0.727']);
     expect(minTypMax('Vout:')).toEqual(['4.73', '5', '5.313']);
-    expect(valueOf(cells('Overall tolerance:')[0])).toBe('-5.39');
-    expect(valueOf(cells('Overall tolerance:')[2])).toBe('5.9');
+    expect(fieldText(cells('Overall tolerance:')[0])).toBe('-5.39');
+    expect(fieldText(cells('Overall tolerance:')[2])).toBe('5.9');
   });
 });
 
@@ -133,10 +133,10 @@ describe('Resistor Calculator, end to end against pcb_calculator', () => {
   /** The three solution rows and the three approximation cells beside them. */
   const solutions = (container: HTMLElement): string[][] => {
     const s = Array.from(container.querySelectorAll('input.rc-solution')).map((e) =>
-      valueOf(e as HTMLInputElement),
+      fieldText(e as HTMLInputElement),
     );
     const a = Array.from(container.querySelectorAll('input.rc-approx')).map((e) =>
-      valueOf(e as HTMLInputElement),
+      fieldText(e as HTMLInputElement),
     );
     return [s, a];
   };

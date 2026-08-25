@@ -53,7 +53,7 @@ const comboAfter = (label: string): HTMLElement => {
   throw new Error(`no combo after ${label}`);
 };
 
-const valueOf = (el: Element): string => (el as HTMLInputElement).value;
+const fieldText = (el: Element): string => (el as HTMLInputElement).value;
 const textbox = (name: RegExp): HTMLInputElement =>
   screen.getByRole('textbox', { name }) as HTMLInputElement;
 
@@ -69,10 +69,10 @@ describe('Wavelength, end to end against pcb_calculator', () => {
     setSource();
 
     // Case `wavelength/1GHz_er4.5`.
-    expect(valueOf(afterLabel('Period:'))).toBe('1');
-    expect(valueOf(afterLabel('Wavelength in vacuum:'))).toBe('29.9792');
-    expect(valueOf(afterLabel('Wavelength in medium:'))).toBe('14.1324');
-    expect(valueOf(afterLabel('Speed in medium:'))).toBe('1.41324e+08');
+    expect(fieldText(afterLabel('Period:'))).toBe('1');
+    expect(fieldText(afterLabel('Wavelength in vacuum:'))).toBe('29.9792');
+    expect(fieldText(afterLabel('Wavelength in medium:'))).toBe('14.1324');
+    expect(fieldText(afterLabel('Speed in medium:'))).toBe('1.41324e+08');
   });
 
   it('mi/h prints 87814.6, upstream’s mile-in-metres and all', () => {
@@ -86,7 +86,7 @@ describe('Wavelength, end to end against pcb_calculator', () => {
     // the bug on purpose - the goal is that a user cannot tell the two apart -
     // and this is the case that pins the mirroring rather than letting someone
     // "fix" it. Case `wavelength/speed_mi_per_h`.
-    expect(valueOf(afterLabel('Speed in medium:'))).toBe('87814.6');
+    expect(fieldText(afterLabel('Speed in medium:'))).toBe('87814.6');
   });
 
   it('its length selectors CONVERT the value they sit beside', () => {
@@ -98,8 +98,8 @@ describe('Wavelength, end to end against pcb_calculator', () => {
     // Case `wavelength/lambda_inch_feet`. Note this is the opposite of Track
     // Width and Via Size, where the number stands and the quantity changes.
     // Both behaviours are KiCad's, on different panels.
-    expect(valueOf(afterLabel('Wavelength in vacuum:'))).toBe('11.8029');
-    expect(valueOf(afterLabel('Wavelength in medium:'))).toBe('0.46366');
+    expect(fieldText(afterLabel('Wavelength in vacuum:'))).toBe('11.8029');
+    expect(fieldText(afterLabel('Wavelength in medium:'))).toBe('0.46366');
   });
 
   it('typing a period back-solves the frequency', () => {
@@ -109,10 +109,10 @@ describe('Wavelength, end to end against pcb_calculator', () => {
     type(afterLabel('Period:'), '500');
 
     // Case `wavelength/period_500ps_drives_freq`.
-    expect(valueOf(afterLabel('Frequency:'))).toBe('2');
-    expect(valueOf(afterLabel('Wavelength in vacuum:'))).toBe('14.9896');
-    expect(valueOf(afterLabel('Wavelength in medium:'))).toBe('7.06618');
-    expect(valueOf(afterLabel('Speed in medium:'))).toBe('1.41324e+08');
+    expect(fieldText(afterLabel('Frequency:'))).toBe('2');
+    expect(fieldText(afterLabel('Wavelength in vacuum:'))).toBe('14.9896');
+    expect(fieldText(afterLabel('Wavelength in medium:'))).toBe('7.06618');
+    expect(fieldText(afterLabel('Speed in medium:'))).toBe('1.41324e+08');
   });
 });
 
@@ -121,9 +121,9 @@ describe('RF Attenuators, end to end against pcb_calculator', () => {
     fireEvent.click(screen.getAllByRole('button', { name: 'Calculate' })[0] as HTMLElement);
   };
   const resistors = (): string[] => [
-    valueOf(textbox(/^R1/)),
-    valueOf(textbox(/^R2/)),
-    valueOf(textbox(/^R3/)),
+    fieldText(textbox(/^R1/)),
+    fieldText(textbox(/^R2/)),
+    fieldText(textbox(/^R3/)),
   ];
 
   function setup(topology: string, a: string, zin?: string, zout?: string): void {
@@ -156,7 +156,7 @@ describe('RF Attenuators, end to end against pcb_calculator', () => {
     // KiCad disables Attenuation and blanks Zin for this topology: a splitter's
     // 6 dB and its Zin are fixed by Zout, so there is nothing to type.
     expect(textbox(/^Attenuation \(a\)/).disabled).toBe(true);
-    expect(valueOf(textbox(/^Zin/))).toBe('');
+    expect(fieldText(textbox(/^Zin/))).toBe('');
 
     calculate();
     // Case `rf_attenuators/Resistive_splitter_a6_50_50`.
@@ -199,8 +199,8 @@ describe('Transmission Lines, end to end against pcb_calculator', () => {
     // Case `transline/MicroStrip/analyze_defaults`: εr 4.5, tan δ 0.02,
     // ρ 1.72e-08, H 0.2 mm, H(top) 1e+20, T 0.035, roughness 0, both μr 1,
     // 1 GHz, W 0.2 mm, L 50 mm.
-    expect(valueOf(textbox(/^Z0:/))).toBe('66.9548');
-    expect(valueOf(textbox(/^Ang_l:/))).toBe('1.79748');
+    expect(fieldText(textbox(/^Z0:/))).toBe('66.9548');
+    expect(fieldText(textbox(/^Ang_l:/))).toBe('1.79748');
     // KiCad appends " " + unit even when the unit is empty, so the effective
     // permittivity really does carry a trailing space.
     expect(tl('Effective εr:')).toBe('2.94219 ');
@@ -235,15 +235,15 @@ describe('Transmission Lines, end to end against pcb_calculator', () => {
     // still passes, because the engine was never the thing that was broken.
     // Cases `transline/StripLine/H1.6_W0.3_a{0.8,0.4,0.2}`.
     stripline('0.8');
-    expect(valueOf(textbox(/^Z0:/))).toBe('68.1537');
+    expect(fieldText(textbox(/^Z0:/))).toBe('68.1537');
     expect(tl('Conductor losses:')).toBe('0.130474 dB');
 
     stripline('0.4');
-    expect(valueOf(textbox(/^Z0:/))).toBe('61.4897');
+    expect(fieldText(textbox(/^Z0:/))).toBe('61.4897');
     expect(tl('Conductor losses:')).toBe('0.142615 dB');
 
     stripline('0.2');
-    expect(valueOf(textbox(/^Z0:/))).toBe('48.3171');
+    expect(fieldText(textbox(/^Z0:/))).toBe('48.3171');
     expect(tl('Conductor losses:')).toBe('0.193666 dB');
 
     // The three share everything `a` does not touch.
@@ -292,8 +292,8 @@ describe('Transmission Lines, end to end against pcb_calculator', () => {
     microstrip({ ...MM_3_H16, f: '1', funit: 'GHz' });
 
     // Case `transline/MicroStrip/W3_H1.6_1GHz`.
-    expect(valueOf(textbox(/^Z0:/))).toBe('49.2446');
-    expect(valueOf(textbox(/^Ang_l:/))).toBe('1.9435');
+    expect(fieldText(textbox(/^Z0:/))).toBe('49.2446');
+    expect(fieldText(textbox(/^Ang_l:/))).toBe('1.9435');
     expect(tl('Effective εr:')).toBe('3.43962 ');
     expect(tl('Unit propagation delay:')).toBe('62.0274 ps/cm');
     expect(tl('Conductor losses:')).toBe('0.015526 dB');
@@ -306,8 +306,8 @@ describe('Transmission Lines, end to end against pcb_calculator', () => {
 
     // Case `transline/MicroStrip/W3_H1.6_1000MHz` - identical to the above, so
     // the frequency selector's scale is what is under test, not the maths.
-    expect(valueOf(textbox(/^Z0:/))).toBe('49.2446');
-    expect(valueOf(textbox(/^Ang_l:/))).toBe('1.9435');
+    expect(fieldText(textbox(/^Z0:/))).toBe('49.2446');
+    expect(fieldText(textbox(/^Ang_l:/))).toBe('1.9435');
     expect(tl('Conductor losses:')).toBe('0.015526 dB');
   });
 
@@ -317,8 +317,8 @@ describe('Transmission Lines, end to end against pcb_calculator', () => {
 
     // Case `transline/MicroStrip/W3_H1.6mil`. Like Via Size and Track Width,
     // a transline UNIT_SELECTOR recalculates and does not convert.
-    expect(valueOf(textbox(/^H:/))).toBe('1.6');
-    expect(valueOf(textbox(/^Z0:/))).toBe('2.29688');
+    expect(fieldText(textbox(/^H:/))).toBe('1.6');
+    expect(fieldText(textbox(/^Z0:/))).toBe('2.29688');
     expect(tl('Effective εr:')).toBe('4.34751 ');
     expect(tl('Conductor losses:')).toBe('0.490892 dB');
   });
@@ -329,7 +329,7 @@ describe('Transmission Lines, end to end against pcb_calculator', () => {
 
     // Case `transline/MicroStrip/W118.11mil_H1.6`. 118.11 mil is 3 mm to five
     // digits, and KiCad's answer differs from the mm case in the sixth.
-    expect(valueOf(textbox(/^Z0:/))).toBe('49.2447');
+    expect(fieldText(textbox(/^Z0:/))).toBe('49.2447');
     expect(tl('Conductor losses:')).toBe('0.0155261 dB');
   });
 
@@ -343,8 +343,8 @@ describe('Transmission Lines, end to end against pcb_calculator', () => {
 
     // Case `transline/MicroStrip/synth_50ohm_90deg`: KiCad writes the physical
     // parameters back into W and L.
-    expect(valueOf(textbox(/^W:/))).toBe('2.92362');
-    expect(valueOf(textbox(/^L:/))).toBe('40.4616');
+    expect(fieldText(textbox(/^W:/))).toBe('2.92362');
+    expect(fieldText(textbox(/^L:/))).toBe('40.4616');
     expect(tl('Effective εr:')).toBe('3.43111 ');
     expect(tl('Unit propagation delay:')).toBe('61.9507 ps/cm');
   });
@@ -434,7 +434,9 @@ describe('Transmission Lines, end to end against pcb_calculator', () => {
       fireEvent.click(screen.getByLabelText(c.radio));
       analyze();
       for (const [name, want] of c.z) {
-        expect(`${c.radio} ${name}: ${valueOf(textbox(name))}`).toBe(`${c.radio} ${name}: ${want}`);
+        expect(`${c.radio} ${name}: ${fieldText(textbox(name))}`).toBe(
+          `${c.radio} ${name}: ${want}`,
+        );
       }
       for (const [label, want] of c.results) {
         expect(`${c.radio} ${label} ${tl(label)}`).toBe(`${c.radio} ${label} ${want}`);
@@ -465,8 +467,8 @@ describe('Transmission Lines, end to end against pcb_calculator', () => {
     // fictive-voltage impedance, which carries a √(μr/εr); the result line
     // shows Z0EH = Ey/Hx, which does not. In εr 4.5 they differ by √4.5, and we
     // used to print the same number in both.
-    expect(valueOf(textbox(/^Z0:/))).toBe('186.737');
-    expect(valueOf(textbox(/^Ang_l:/))).toBe('21.1411');
+    expect(fieldText(textbox(/^Z0:/))).toBe('186.737');
+    expect(fieldText(textbox(/^Ang_l:/))).toBe('21.1411');
     expect(tl('ZF(H10) = Ey / Hx:')).toBe('396.13 Ohm');
     expect(tl('Effective εr:')).toBe('0.904453 ');
     expect(tl('Conductor losses:')).toBe('0.0741937 dB');
@@ -484,6 +486,6 @@ describe('Transmission Lines, end to end against pcb_calculator', () => {
 
     // Measured: KiCad's PANEL_TRANSLINE keeps one TRANSLINE_IDENT per type and
     // does not reset it on a type change. Case `transline/type_switch_keeps_er`.
-    expect(valueOf(textbox(/^εr:/))).toBe('3.38');
+    expect(fieldText(textbox(/^εr:/))).toBe('3.38');
   });
 });
