@@ -95,14 +95,29 @@ describe('symbolPreloadWork', { timeout: 30_000 }, () => {
     expect(requested).toHaveLength(3);
   });
 
-  it('asks for a repeated symbol once', async () => {
-    // A design places twenty 100 nF capacitors; that is one fetch, not twenty.
+  it('asks for a repeated symbol once, and counts it once', async () => {
+    // A design places twenty 100 nF capacitors.
+    //
+    // Asserting only the FETCH here cannot fail: `loadSymbol` memoises on
+    // `symbolCache`, so the duplicate costs no request whether or not the work
+    // list dedupes -- a mutant that removed the dedupe survived this test until
+    // the second half was added.
+    //
+    // What dedupe actually buys is the DENOMINATOR. `m_loadTotal` is
+    // `rows.size()` and the gauge is `loaded / total`
+    // (common/libraries/library_manager.cpp:1798-1800, :1399-1408), so twenty
+    // copies of one capacitor must be one work item or the bar crawls through
+    // nineteen no-ops and then jumps.
     serve((url) => (url.endsWith('index.json') ? INDEX : oneSymbol(symbolOf(url))));
     const { symbolPreloadWork } = await freshSymbols();
 
-    await runAll(symbolPreloadWork(['Device:R', 'Device:R', 'Device:R']));
+    const work = symbolPreloadWork(['Device:R', 'Device:R', 'Device:R', 'Device:C']);
+    await runAll(work);
 
     expect(requested.filter((u) => u.endsWith('/Device/R.kicad_sym'))).toHaveLength(1);
+    // One work item, one request: index + R + C.
+    expect(work).toHaveLength(3);
+    expect(work.length).toBe(requested.length);
   });
 
   it('drops a LIB_ID with no library part rather than 404ing on it', async () => {
@@ -139,15 +154,22 @@ describe('footprintPreloadWork', { timeout: 30_000 }, () => {
     );
   });
 
-  it('asks for a repeated footprint once', async () => {
+  it('asks for a repeated footprint once, and counts it once', async () => {
+    // Same reasoning as the symbol side: `loadFootprint` memoises on `fpCache`,
+    // so the fetch count alone cannot see the dedupe. The work-list length is
+    // the gauge's denominator.
     serve((url) => (url.endsWith('index.json') ? FP_INDEX : ONE_FOOTPRINT));
     const { footprintPreloadWork } = await freshFootprints();
 
-    await runAll(
-      footprintPreloadWork(['Resistor_SMD:R_0805_2012Metric', 'Resistor_SMD:R_0805_2012Metric']),
-    );
+    const work = footprintPreloadWork([
+      'Resistor_SMD:R_0805_2012Metric',
+      'Resistor_SMD:R_0805_2012Metric',
+    ]);
+    await runAll(work);
 
     expect(requested).toHaveLength(2);
+    expect(work).toHaveLength(2);
+    expect(work.length).toBe(requested.length);
   });
 });
 
