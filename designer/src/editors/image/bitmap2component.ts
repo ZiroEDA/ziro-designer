@@ -21,10 +21,10 @@ import { fractureWithHoles, signedArea, pointInPolygon } from './geometry.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import { GENERATOR, GENERATOR_VERSION } from '@ziroeda/common/src/generator.js';
 import { RPT_SEVERITY_ERROR, type Reporter } from '@ziroeda/common/src/reporter.js';
+import { FOOTPRINT_FILE_VERSION } from '@ziroeda/pcbnew/src/write-footprint.js';
+import { SYMBOL_LIB_FILE_VERSION } from '@ziroeda/eeschema/src/sch_io/sexpr/write-symbol-lib.js';
+import { WKS_FILE_VERSION } from '@ziroeda/common/src/drawing_sheet/types.js';
 
-const SEXPR_SYMBOL_LIB_FILE_VERSION = 20241209;
-const SEXPR_FOOTPRINT_FILE_VERSION = 20241229;
-const SEXPR_WKS_FILE_VERSION = 20220228;
 /** KiCad's SCH_LINE_THICKNESS_MM used for symbol polyline strokes. */
 const SCH_LINE_THICKNESS_MM = 0.01;
 
@@ -377,6 +377,54 @@ function makeXForm(
 
 // ----- output writers ---------------------------------------------------------
 
+/*
+ * Why these writers do not reproduce KiCad's bytes, and must not.
+ *
+ * `BITMAPCONV_INFO::outputDataHeader` / `outputOnePolygon`
+ * (bitmap2component.cpp:152-236, :268-375) build their text with `fmt::format`
+ * into one compact, two-space-indented legacy layout. Ours is the house
+ * s-expression style: one node per line, tabs, `(hide yes)` rather than a bare
+ * `hide`, quoted uuids, a three-argument `(at x y angle)`. The content is
+ * semantically identical and parses the same — settled by PR #104 — so the
+ * only difference is bytes on disk, and issue #105 item 5 asked whether to
+ * close that gap. The answer is no, for three reasons, in increasing order of
+ * how much they cost:
+ *
+ * 1. **KiCad's own output is not KiCad's own format.** `outputDataHeader`
+ *    hardcodes `(version 20221018)` for the footprint (:163) and
+ *    `(version 20220914)` for the symbol library (:197); bitmap2component was
+ *    written against the 6.0 file format and has not followed the writers
+ *    since. KiCad 10.0.5 itself is at `SEXPR_BOARD_FILE_VERSION 20260206`
+ *    (pcb_io_kicad_sexpr.h:203) and `SEXPR_SYMBOL_LIB_FILE_VERSION 20251024`
+ *    (sch_file_versions.h:61). Matching the bytes therefore means emitting a
+ *    four-year-old dialect *on purpose*, which pcbnew and the symbol editor
+ *    both silently migrate on load. What the user sees after opening either
+ *    file is the same drawing either way.
+ *
+ * 2. **Matching the bytes would break our own round trip.** `read-board.ts:519`
+ *    reads `hide` only as a `(hide yes)` child. Feeding KiCad 10.0.5's real
+ *    `kicad_square24_300dpi.kicad_mod` (qa/data/bitmap2component/, written by
+ *    the installed binary) to `readFootprintFile` returns the Value text with
+ *    `hide: false` — KiCad hides it, we would show it. eeschema's reader does
+ *    handle the bare atom (read-schematic.ts:121, :202, :229), so the symbol
+ *    side survives and the footprint side does not. Porting the compact writer
+ *    would trade a whitespace match nobody looks at for a footprint whose
+ *    hidden Value text is visible in our own editor.
+ *
+ * 3. **Nothing downstream reads the bytes.** The three consumers are a browser
+ *    download, the SYMBOL_PASTE_FMT clipboard path, and the project file
+ *    manager. Every one of them is a parser, and s-expressions are
+ *    whitespace-insensitive.
+ *
+ * The consequence of choosing the modern dialect is that the `(version …)`
+ * token has to be the modern one, or the file misdescribes its own syntax.
+ * That number is not ours to restate: it belongs to the writer that defines the
+ * dialect, the same way KiCad's own writers take it from `sch_file_versions.h`
+ * rather than each spelling it out. Hence the three imports above — before
+ * them this file carried its own copies, and the drawing sheet's had already
+ * drifted (20220228 against the shared 20231118).
+ */
+
 let uuidSeq = 0;
 /** A deterministic-ish UUID (crypto when available, else a counter) for emitted items. */
 function uuid(): string {
@@ -418,7 +466,7 @@ function writeFootprint(regions: Region[], o: ConvertOptions, w: number, h: numb
   const layer = o.layer;
   let s = '';
   s += `(footprint "${o.name}"\n`;
-  s += `\t(version ${SEXPR_FOOTPRINT_FILE_VERSION})\n`;
+  s += `\t(version ${FOOTPRINT_FILE_VERSION})\n`;
   s += `\t(generator "${GENERATOR}")\n`;
   s += `\t(generator_version "${GENERATOR_VERSION}")\n`;
   s += `\t(layer "F.Cu")\n`;
@@ -462,7 +510,7 @@ function writeSymbol(regions: Region[], o: ConvertOptions, w: number, h: number)
   let s = '';
   if (!o.paste) {
     s += `(kicad_symbol_lib\n`;
-    s += `\t(version ${SEXPR_SYMBOL_LIB_FILE_VERSION})\n`;
+    s += `\t(version ${SYMBOL_LIB_FILE_VERSION})\n`;
     s += `\t(generator "${GENERATOR}")\n`;
     s += `\t(generator_version "${GENERATOR_VERSION}")\n`;
   }
@@ -494,7 +542,7 @@ function writeDrawingSheet(regions: Region[], o: ConvertOptions, w: number, h: n
   const xf = makeXForm('drawingsheet', w, h, o.dpiX, o.dpiY);
   let s = '';
   s += `(kicad_wks\n`;
-  s += `\t(version ${SEXPR_WKS_FILE_VERSION})\n`;
+  s += `\t(version ${WKS_FILE_VERSION})\n`;
   s += `\t(generator "${GENERATOR}")\n`;
   s += `\t(generator_version "${GENERATOR_VERSION}")\n`;
   s += `\t(setup\n\t\t(textsize 1.5 1.5)\n\t\t(linewidth 0.15)\n\t\t(textlinewidth 0.15)\n`;
