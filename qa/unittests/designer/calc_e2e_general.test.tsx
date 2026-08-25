@@ -131,15 +131,14 @@ describe('Resistor Calculator, end to end against pcb_calculator', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Calculate' }));
   };
   /** The three solution rows and the three approximation cells beside them. */
-  const solutions = (container: HTMLElement): string[][] => {
-    const s = Array.from(container.querySelectorAll('input.rc-solution')).map((e) =>
+  const solutions = (container: HTMLElement): { sol: string[]; approx: string[] } => ({
+    sol: Array.from(container.querySelectorAll('input.rc-solution')).map((e) =>
       fieldText(e as HTMLInputElement),
-    );
-    const a = Array.from(container.querySelectorAll('input.rc-approx')).map((e) =>
+    ),
+    approx: Array.from(container.querySelectorAll('input.rc-approx')).map((e) =>
       fieldText(e as HTMLInputElement),
-    );
-    return [s, a];
-  };
+    ),
+  });
 
   function ask(series: string, kohm: string): void {
     fireEvent.click(screen.getByLabelText(series));
@@ -156,7 +155,7 @@ describe('Resistor Calculator, end to end against pcb_calculator', () => {
     // Case `r_calculator/E6_3.65k`. The R-notation (330R, 3K3), the `|` for a
     // parallel pair, the bracketing, the signed two-decimal error and the word
     // "Exact" are all KiCad's own strings.
-    const [sol, approx] = solutions(container);
+    const { sol, approx } = solutions(container);
     expect(sol).toEqual(['330R + 3K3', '22R + 330R + 3K3', '(3K3 | 3K3) + 1K + 1K']);
     expect(approx).toEqual(['-0.55', '+0.05', 'Exact']);
   });
@@ -182,7 +181,7 @@ describe('Resistor Calculator, end to end against pcb_calculator', () => {
     // the buffer sort in resistor_substitution_utils.ts). That is what this
     // string is derived from - it is the lexicographic minimum among the exact
     // three-resistor two-value forms - not a baseline of whatever we printed.
-    const [sol, approx] = solutions(container);
+    const { sol, approx } = solutions(container);
     expect(sol[0]).toBe('51R + 3K6');
     expect(sol[1]).toBe('(100R | 100R) + 3K6');
     expect(sol[2]).toBe('Not worth using');
@@ -195,7 +194,7 @@ describe('Resistor Calculator, end to end against pcb_calculator', () => {
 
     // Case `r_calculator/E3_3.65k`. E3 has no value near 3.65 k, so the simple
     // solution is a parallel pair 6 % out and the search works down from there.
-    const [sol, approx] = solutions(container);
+    const { sol, approx } = solutions(container);
     expect(sol).toEqual(['4K7 | 22K', '(2K2 + 2K2) | 22K', '10K | (1K + 47R + 4K7)']);
     expect(approx).toEqual(['+6.10', '+0.46', '-0.01']);
   });
