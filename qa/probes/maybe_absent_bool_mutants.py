@@ -112,7 +112,10 @@ def apply(m: Mutant) -> bool:
 
 
 def restore(paths: list[str]) -> None:
-    sh(["git", "checkout", "--"] + paths)
+    # HEAD, not the index: `git checkout -- <path>` restores the *staged*
+    # content, so a stray `git add` mid-sweep would silently make every
+    # subsequent mutant run against the staged file instead of the baseline.
+    sh(["git", "checkout", "HEAD", "--"] + paths)
 
 
 def main() -> int:
