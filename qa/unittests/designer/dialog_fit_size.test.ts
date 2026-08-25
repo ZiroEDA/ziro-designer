@@ -118,8 +118,15 @@ describe('the pile of hand-picked dialog sizes does not grow', () => {
   // (dialog_design_inspector_base.cpp:12, design_inspector.cpp:295-313), so its
   // `width: 720` was a number upstream does not have — it measured 180px wider
   // than a live pl_editor's. One call site fewer.
-  it('30 call sites still name their own size', () => {
-    expect(inlineSized()).toHaveLength(30);
+  // 30 until the two copies of DIALOG_PAGES_SETTINGS became one. The head of
+  // this file already named that dialog as the proof the pile is wrong — the
+  // SAME upstream class was 760 px in the schematic's copy and 560 px in the
+  // drawing sheet's — and the 760 was the survivor of the two. It is gone: the
+  // merged component states no size, exactly as `bMainSizer->Fit( this )` and
+  // `GetSizer()->SetSizeHints( this )` leave it (dialog_page_settings_base.cpp:
+  // 403-405, dialog_page_settings.cpp:192).
+  it('29 call sites still name their own size', () => {
+    expect(inlineSized()).toHaveLength(29);
   });
 
   it('14 shell.css variants still name their own size', () => {

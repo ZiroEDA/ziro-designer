@@ -642,12 +642,7 @@ describe('D7: this editor adds no new hardcoded font size', () => {
    * PropertiesFrame.tsx is the unit-binder PR's file. This test is a ratchet
    * so the count cannot grow while that is settled - see the PR.
    */
-  const FILES = [
-    'DesignInspector.tsx',
-    'PageSettingsDialog.tsx',
-    'PropertiesFrame.tsx',
-    'DrawingSheetEditor.tsx',
-  ];
+  const FILES = ['DesignInspector.tsx', 'PropertiesFrame.tsx', 'DrawingSheetEditor.tsx'];
 
   it('holds at the 6 known sites', () => {
     let n = 0;
@@ -666,6 +661,14 @@ describe('D7: this editor adds no new hardcoded font size', () => {
     // 6 until Preview Settings was rebuilt as DIALOG_PAGES_SETTINGS: the five
     // inline sizes went with the hand-rolled layout it replaced. The one left
     // is the canvas, which sizes text in world units, not chrome units.
+    //
+    // PageSettingsDialog.tsx is off this list because the FILE is gone: this
+    // editor no longer keeps its own copy of DIALOG_PAGES_SETTINGS, it opens
+    // the shared `dialogs/dialog_page_settings.tsx` that pcbnew and eeschema
+    // open. Dropping a file from a ratchet is exactly how one goes vacuous, so
+    // note what still guards the merged component: `dialogs` has its own row in
+    // ui_font_tokens.test.ts's BASELINE (5, lowered from 13 by this merge), and
+    // that scanner walks the whole of designer/src.
     expect(n).toBe(1);
   });
 

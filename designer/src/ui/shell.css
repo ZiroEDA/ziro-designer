@@ -8437,15 +8437,53 @@ textarea.ze-ds-textedit {
   min-width: 0;
 }
 /* fgSizer2: wxFlexGridSizer( 0, 3, 0, 0 ) with AddGrowableCol( 1 ). The third
-   column is the sixteen "Export to other sheets" checkboxes, every one of them
-   Show(false) in this dialog (dialog_page_settings.cpp:171-186), so the grid
-   is two columns wide here. */
+   column is the thirteen "Export to other sheets" checkboxes, every one of them
+   Show(false) unless the frame is eeschema (dialog_page_settings.cpp:172-185
+   against dialog_eeschema_page_settings.cpp:89-102), so the grid is two columns
+   wide in pcbnew and pl_editor and three in the schematic.
+
+   It is ONE grid for all thirteen rows, Issue Date included — the date entry,
+   its `<<<` button and the picker are a single `bSizerDate` occupying one cell
+   (:220-235). Ours had let that row wrap its checkbox onto a line of its own,
+   which broke the aligned column at the very first row. */
 .ze-pgs-tb {
   display: grid;
   grid-template-columns: auto 1fr;
   align-items: center;
   gap: var(--wx-border);
   padding: 0 var(--wx-border);
+}
+.ze-pgs-tb.with-exports {
+  grid-template-columns: auto 1fr auto;
+}
+/* One `wxCheckBox( … , _("Export to other sheets") )` (:237 &c), added
+   wxALIGN_CENTER_VERTICAL. It inherits the dialog font like every other label
+   in this dialog and does not get a smaller one of its own — ours drew this
+   label at `fontSize: 11` against the 12 beside it.
+
+   Inline flow, NOT a flex with a gap: the space between a checkbox indicator
+   and its label is GTK's and is not measured yet, which is exactly why the note
+   by `.ze-tb-layerbox` above says no number goes here until it is. */
+.ze-pgs-export {
+  white-space: nowrap;
+}
+.ze-pgs-export > input {
+  vertical-align: middle;
+}
+/* SheetInfoSizer (:193-208): the two tallies at either end of a horizontal
+   sizer with a proportion-1 spacer between them. */
+.ze-pgs-tallies {
+  display: flex;
+  font-size: var(--ui-font-size);
+  padding: var(--wx-border);
+}
+.ze-pgs-tallygap {
+  flex: 1;
+}
+/* bUpperSizerH->Add( 15, 0, 0, wxEXPAND, 5 ) (:143) — the fixed gutter between
+   the two columns. [data] the 15 is the .fbp's own spacer, not a gap of ours. */
+.ze-pgs-gutter {
+  flex: 0 0 15px;
 }
 /* [data] The .fbp's own minimum widths, which are what set this dialog's
    overall width: SetMinSize( wxSize( 360, -1 ) ) on Title, Company and

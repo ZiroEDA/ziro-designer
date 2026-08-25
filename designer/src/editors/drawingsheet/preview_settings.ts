@@ -15,20 +15,19 @@
  * all.
  */
 import { PAPER_MM } from '@ziroeda/common';
+import type { PageSettingsValue } from '../../dialogs/page_settings_model.js';
 import type { PlEditorSettings } from '../../prefs/settings.js';
 
-/** The preview page + title block data the resolver consumes. */
-export interface PreviewSettings {
-  paper: string;
-  portrait: boolean;
-  customWidthMM: number;
-  customHeightMM: number;
-  date: string;
-  rev: string;
-  title: string;
-  company: string;
-  comments: string[]; // 9 entries
-}
+/**
+ * The preview page + title block data the resolver consumes.
+ *
+ * It is `DIALOG_PAGES_SETTINGS`' own state under a local name, not a second
+ * shape: upstream this frame edits a `PAGE_INFO` and a `TITLE_BLOCK` like every
+ * other caller, and the only thing pl_editor-specific about it is that nothing
+ * writes it to the `.kicad_wks`. An alias rather than a copy, so a field added
+ * to one is added to both.
+ */
+export type PreviewSettings = PageSettingsValue;
 
 /**
  * The Drawing Sheet Editor's own page defaults — `PL_EDITOR_SETTINGS`, not the
@@ -137,98 +136,4 @@ export function previewPageMM(s: PreviewSettings): [number, number] {
 export function paperDescription(s: PreviewSettings): string {
   const [w, h] = previewPageMM(s);
   return `${s.paper} ${w}x${h}mm ${s.paper === 'User' ? '' : s.portrait ? 'portrait' : 'landscape'}`.trim();
-}
-
-/*
- * ---------------------------------------------------------------------------
- * DIALOG_PAGES_SETTINGS' own rules.
- *
- * These live here rather than in the component because `qa`'s tsconfig has no
- * `--jsx` and cannot import a `.tsx` at all, so anything only the component
- * knows is untestable by construction.
- * ---------------------------------------------------------------------------
- */
-
-/**
- * `MIN_PAGE_SIZE_MILS` / `MAX_PAGE_SIZE_EESCHEMA_MILS` (include/page_info.h:34,
- * :36), which is what `pl_editor` hands the dialog as its `aMaxUserSizeMils`
- * (`pagelayout_editor/tools/pl_editor_control.cpp:94-96`).
- *
- * `TransferDataFromWindow` (dialog_page_settings.cpp:196-206) validates the two
- * custom fields against them, and ONLY when the paper is `User`. Expressed in
- * millimetres because that is the unit `UNIT_BINDER::Validate` takes, exactly
- * as `validateMM` does elsewhere in this editor.
- */
-export const CUSTOM_PAGE_RANGE_MM = {
-  min: 1000 * 0.0254, // MIN_PAGE_SIZE_MILS
-  max: 120000 * 0.0254, // MAX_PAGE_SIZE_EESCHEMA_MILS
-} as const;
-
-/**
- * `OnPaperSizeChoice` (dialog_page_settings.cpp:230-259).
- *
- * The custom width/height pair and the orientation choice are mutually
- * exclusive, and upstream ENABLES and DISABLES them — it never hides either.
- * Our dialog used to render the custom fields only when the paper was `User`,
- * so the left column changed height as you moved through the list.
- */
-export function customSizeEnabled(paper: string): boolean {
-  return paper === 'User';
-}
-
-/** The other half of the same branch: `m_staticTextOrient->Enable( … )`. */
-export function orientationEnabled(paper: string): boolean {
-  return !customSizeEnabled(paper);
-}
-
-/**
- * `GetPageLayoutInfoFromDialog` (dialog_page_settings.cpp:641-651).
- *
- * For a `User` page the orientation is not the user's to choose — the dialog
- * READS IT BACK off the custom size, portrait exactly when the width is less
- * than the height, and only when neither is zero.
- */
-export function orientationFromCustomSize(widthMM: number, heightMM: number): boolean | null {
-  if (!widthMM || !heightMM) return null;
-  return widthMM < heightMM;
-}
-
-/**
- * `OnDateApplyClick` (dialog_page_settings.cpp:439-451) — the `<<<` button.
- *
- * It copies the DATE PICKER's value into the text field as
- * `wxDateTime::FormatISODate()`, i.e. `YYYY-MM-DD`. It is not "today": the
- * picker is merely initialised to `wxDateTime::Now()` when the dialog is built
- * (:81), and the user can move it first. Ours applied `new Date()` outright and
- * had no picker at all, so the button could only ever produce today's date.
- */
-export function formatIsoDate(d: Date): string {
-  const p = (n: number): string => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
-}
-
-/** `MAX_PAGE_EXAMPLE_SIZE` (dialog_page_settings.cpp:53). */
-export const MAX_PAGE_EXAMPLE_SIZE = 200;
-
-/**
- * `UpdateDrawingSheetExample` (dialog_page_settings.cpp:528-551).
- *
- * The long edge is pinned to `MAX_PAGE_EXAMPLE_SIZE` and the short one follows
- * the page's aspect ratio, after the page has been clamped into the same
- * min/max the validator uses. Upstream computes the ratio as long/short and
- * then divides, which is the same number either way; it is written here the way
- * the C++ writes it so a reader can check it line for line.
- */
-export function previewThumbSize(
-  widthMM: number,
-  heightMM: number,
-): { width: number; height: number } {
-  const clamp = (v: number): number =>
-    Math.min(Math.max(v, CUSTOM_PAGE_RANGE_MM.min), CUSTOM_PAGE_RANGE_MM.max);
-  const x = clamp(widthMM);
-  const y = clamp(heightMM);
-  const ratio = x < y ? y / x : x / y;
-  return x < y
-    ? { width: Math.round(MAX_PAGE_EXAMPLE_SIZE / ratio), height: MAX_PAGE_EXAMPLE_SIZE }
-    : { width: MAX_PAGE_EXAMPLE_SIZE, height: Math.round(MAX_PAGE_EXAMPLE_SIZE / ratio) };
 }
