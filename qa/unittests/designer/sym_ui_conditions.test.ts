@@ -69,10 +69,13 @@ import type { Menu, MenuItem } from '@ziroeda/designer/src/ui/menu_types.js';
  * otherwise, because `symbolActionEnabled` returns ShowAlways for an id it does
  * not know and a silently-always-live row looks exactly like a correct one.
  *
- * Thirty-eight, matching the ENABLE half of the function: 8 File/Edit
- * registrations at :530-535, 15 at :537-559, 7 at :633-640 and the 12
- * `EDIT_TOOL( … )` lines at :645-656. The CHECK-only registrations (:541-542,
- * :561-562, :601-607) set no ENABLE and so are deliberately absent.
+ * Thirty-eight, and the arithmetic is checkable against the C++:
+ * `setupUIConditions` makes **53** `mgr->SetConditions` calls, of which **11**
+ * are CHECK-only (:541-542, :561-562, :601-607) and **4** are
+ * `ENABLE( SELECTION_CONDITIONS::ShowAlways )` (:528-529, :533-534). Both
+ * groups are deliberately absent: a CHECK-only action has no enable rule, and
+ * ShowAlways *is* the default, so writing it here would be restating it. That
+ * leaves 53 − 11 − 4 = 38.
  */
 const GATED_ACTIONS = [
   'bezier',
