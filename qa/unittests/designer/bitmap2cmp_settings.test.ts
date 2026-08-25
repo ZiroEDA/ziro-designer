@@ -350,6 +350,33 @@ describe('settings stored under the old key are not stranded', () => {
 // Wiring
 // ---------------------------------------------------------------------------
 
+describe('the editor’s own LoadSettings / SaveSettings', () => {
+  // The two functions ImageConverter.tsx actually calls
+  // (bitmap2cmp_panel.cpp:76-107 and :110-117). Checking the manager alone
+  // would leave these free to drop a field on the way through, which is a
+  // per-field bug behind a whole-object seam — exactly the shape this file is
+  // written to catch.
+  it.each(CHANGED)('save then load returns %s', async (field, value) => {
+    const mod = await import(
+      '@ziroeda/designer/src/editors/image/bitmap2cmpSettings.js'
+    );
+    const saved: Bitmap2CmpSettings = { ...BITMAP2CMP_DEFAULTS };
+    (saved as Record<string, unknown>)[field] = value;
+    mod.saveBitmap2CmpSettings(saved);
+    expect(mod.loadBitmap2CmpSettings()[field]).toBe(value);
+  });
+
+  it('saves through the shared manager, so the change reaches the slice', async () => {
+    const mod = await import(
+      '@ziroeda/designer/src/editors/image/bitmap2cmpSettings.js'
+    );
+    mod.saveBitmap2CmpSettings({ ...BITMAP2CMP_DEFAULTS, threshold: 73 });
+    // A private localStorage key here would pass the line above and still never
+    // follow the account. The slice's key is what has to have moved.
+    expect(JSON.parse(localStorage.getItem(KEY)!)).toMatchObject({ threshold: 73 });
+  });
+});
+
 describe('the editor reads and writes the slice, not a private key', () => {
   const SRC = readFileSync(
     fileURLToPath(
