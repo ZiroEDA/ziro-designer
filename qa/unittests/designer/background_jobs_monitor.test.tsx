@@ -90,12 +90,18 @@ describe('the status bar panes', () => {
     render(<KiStatusBar fields={{ message: 'Ready' }} />);
     act(() => {
       const job = backgroundJobsMonitor.create('Loading Symbol Libraries');
-      job.reporter.report('Loading Symbol Libraries');
+      // The status deliberately DIFFERS from the name. `jobUpdated` sends
+      // `SetBackgroundStatusText( aJob->m_status )` to the bar
+      // (background_jobs_monitor.cpp:344) and the name is shown only in the job
+      // list window. Reporting the name here — which is what the library
+      // preload happens to do — made the two indistinguishable, and a mutant
+      // that read `job.name` in the bar survived because of it.
+      job.reporter.report('Reading Connector_Generic');
       job.reporter.setCurrentProgress(0.25);
     });
 
     expect(screen.getByTestId('statusbar-bgjob-label').textContent).toBe(
-      'Loading Symbol Libraries',
+      'Reading Connector_Generic',
     );
     const gauge = screen.getByTestId('statusbar-bgjob-gauge').querySelector('progress');
     expect(gauge?.getAttribute('max')).toBe('1000');
