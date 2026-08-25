@@ -10,6 +10,7 @@ import { useMemo, useState, type JSX } from 'react';
 import { ATTENUATORS, AttenuatorType, calculateAttenuator, printfG } from '@ziroeda/pcb_calculator';
 import { Field, Group, parseNum } from '../fields.js';
 import { useCalcSaveSettings } from '../calc_settings.js';
+import { CALC_ART_SIZE } from '../art_sizes.js';
 import {
   CALC_ATTENUATOR_NAMES,
   settings,
@@ -38,15 +39,16 @@ const ATT_ART = import.meta.glob('../../../assets/calculator/*.svg', {
  * at the size the PNG has. Ours was a redrawing missing the Zin / Zout
  * terminals and their labels entirely.
  */
-const ATT_ART_NAME: Record<AttenuatorType, [string, number, number]> = {
-  [AttenuatorType.PI]: ['att_pi', 287, 159],
-  [AttenuatorType.TEE]: ['att_tee', 280, 147],
-  [AttenuatorType.BRIDGED_TEE]: ['att_bridge', 287, 257],
-  [AttenuatorType.SPLITTER]: ['att_splitter', 295, 121],
+const ATT_ART_NAME: Record<AttenuatorType, string> = {
+  [AttenuatorType.PI]: 'att_pi',
+  [AttenuatorType.TEE]: 'att_tee',
+  [AttenuatorType.BRIDGED_TEE]: 'att_bridge',
+  [AttenuatorType.SPLITTER]: 'att_splitter',
 };
 
 function AttenuatorDrawing({ type }: { type: AttenuatorType }): JSX.Element {
-  const [name, w, h] = ATT_ART_NAME[type];
+  const name = ATT_ART_NAME[type];
+  const [w, h] = CALC_ART_SIZE[name] ?? [0, 0];
   return (
     <img
       className="calc-art"

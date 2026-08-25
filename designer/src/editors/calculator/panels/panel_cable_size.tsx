@@ -32,45 +32,25 @@ import {
 } from '@ziroeda/pcb_calculator';
 import { Combo } from '../../../ui/Combo.js';
 import { SingleChoiceDialog } from '../../../ui/dialog_single_choice.js';
-import { type UnitOpt, parseNum } from '../fields.js';
+import {
+  CABLE_LEN_UNITS,
+  FREQ_UNITS,
+  LEN_UNITS,
+  LIN_RES_UNITS,
+  POWER_UNITS,
+  type UnitOpt,
+  VOLTAGE_UNITS,
+  parseNum,
+} from '../fields.js';
 import { useCalcSaveSettings } from '../calc_settings.js';
 import { settings } from '../../../prefs/settings.js';
 
-// Unit selectors, as in KiCad's UNIT_SELECTOR widgets (unit_selector.cpp).
-const DIA_UNITS: UnitOpt[] = [
-  { label: 'mm', mult: 1e-3 },
-  { label: 'µm', mult: 1e-6 },
-  { label: 'cm', mult: 1e-2 },
-  { label: 'mil', mult: 25.4e-6 },
-  { label: 'inch', mult: 25.4e-3 },
-];
-const LINR_UNITS: UnitOpt[] = [
-  { label: 'Ω/m', mult: 1 },
-  { label: 'Ω/km', mult: 1e-3 },
-  { label: 'Ω/ft', mult: 1 / 0.3048 },
-  { label: 'Ω/1000ft', mult: 1e-3 / 0.3048 },
-];
-const FREQ_UNITS: UnitOpt[] = [
-  { label: 'GHz', mult: 1e9 },
-  { label: 'MHz', mult: 1e6 },
-  { label: 'kHz', mult: 1e3 },
-  { label: 'Hz', mult: 1 },
-];
-const CABLE_LEN_UNITS: UnitOpt[] = [
-  { label: 'cm', mult: 1e-2 },
-  { label: 'm', mult: 1 },
-  { label: 'km', mult: 1e3 },
-  { label: 'inch', mult: 25.4e-3 },
-  { label: 'feet', mult: 0.3048 },
-];
-const VDROP_UNITS: UnitOpt[] = [
-  { label: 'mV', mult: 1e-3 },
-  { label: 'V', mult: 1 },
-];
-const POWER_UNITS: UnitOpt[] = [
-  { label: 'mW', mult: 1e-3 },
-  { label: 'W', mult: 1 },
-];
+// The six UNIT_SELECTORs this page carries all come from `fields.tsx` now.
+// They used to be six local copies, and one of them had drifted: `DIA_UNITS`
+// spelt the micron `µm` where UNIT_SELECTOR_LEN says `um` with an ASCII u
+// (unit_selector.cpp:35). Upstream has ONE UNIT_SELECTOR_LEN class that all
+// nineteen of its LEN sites share, which is exactly why upstream cannot have
+// that bug and we did.
 
 interface LinkedRowProps {
   label: string;
@@ -264,7 +244,7 @@ export function PanelCableSize(): JSX.Element {
               onChange={(v) => pickAwg(Number(v))}
             />
           </div>
-          {linked('Diameter:', 'dia', s?.diameterM ?? NaN, DIA_UNITS, diaUnit, setDiaUnit, (v) =>
+          {linked('Diameter:', 'dia', s?.diameterM ?? NaN, LEN_UNITS, diaUnit, setDiaUnit, (v) =>
             commitRadius(cableRadiusFromDiameter(v)),
           )}
           {linked(
@@ -328,7 +308,7 @@ export function PanelCableSize(): JSX.Element {
             'Linear resistance:',
             'linr',
             s?.linearResistance ?? NaN,
-            LINR_UNITS,
+            LIN_RES_UNITS,
             linRUnit,
             setLinRUnit,
             (v) => commitRadius(cableRadiusFromLinResistance(v, rhoHot)),
@@ -433,7 +413,7 @@ export function PanelCableSize(): JSX.Element {
             'Voltage drop:',
             'vdrop',
             s?.voltageDropV ?? NaN,
-            VDROP_UNITS,
+            VOLTAGE_UNITS,
             vdropUnit,
             setVdropUnit,
             (v) => commitRadius(cableRadiusFromVDrop(v, rhoHot, params.lengthM, params.currentA)),

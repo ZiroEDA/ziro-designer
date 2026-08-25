@@ -24,8 +24,9 @@ import {
   ratedImpulseWithstandVoltageV,
 } from '@ziroeda/pcb_calculator';
 import { Combo } from '../../../ui/Combo.js';
-import { Field, Group, fmt, parseNum } from '../fields.js';
+import { Field, Group, LEN_UNITS, fmt, parseNum } from '../fields.js';
 import { useCalcSaveSettings } from '../calc_settings.js';
+import { CALC_ART_SIZE } from '../art_sizes.js';
 import { settings } from '../../../prefs/settings.js';
 
 /** `DoubleFromString` on a field that will not parse yields 0, and that is what
@@ -35,18 +36,6 @@ const num = (t: string): number => (Number.isFinite(parseNum(t)) ? parseNum(t) :
 /** A stored wxChoice selection, clamped to a list this build actually has. */
 const pickIdx = <T,>(list: readonly { v: T }[], idx: number, fallback: T): T =>
   list[idx]?.v ?? fallback;
-
-// UNIT_SELECTOR_LEN (widgets/unit_selector.cpp:29-39): five entries, in this
-// order, and the label really is "um" — the `en` catalogue leaves it alone
-// (translation/pofiles/en.po), unlike UNIT_SELECTOR_THICKNESS which says "µm".
-// GetUnitScale returns metres per unit (lines 47-58).
-const SPACING_UNITS: readonly { label: string; scale: number }[] = [
-  { label: 'mm', scale: 1e-3 },
-  { label: 'um', scale: 1e-6 },
-  { label: 'cm', scale: 1e-2 },
-  { label: 'mil', scale: 25.4e-6 },
-  { label: 'inch', scale: 25.4e-3 },
-];
 
 function PanelIpc2221(): JSX.Element {
   // PANEL_ELECTRICAL_SPACING_IPC2221::LoadSettings / SaveSettings —
@@ -64,7 +53,7 @@ function PanelIpc2221(): JSX.Element {
     s.electrical.spacing_voltage = voltage;
   });
 
-  const scale = SPACING_UNITS[unitIdx]?.scale ?? 1e-3;
+  const scale = LEN_UNITS[unitIdx]?.mult ?? 1e-3;
 
   // ElectricalSpacingUpdateData (panel_electrical_spacing_ipc2221.cpp:161-196):
   // an empty field means 500, anything under 500 is clamped to 500, and the
@@ -98,7 +87,7 @@ function PanelIpc2221(): JSX.Element {
         <Combo
           ariaLabel="Unit"
           value={String(unitIdx)}
-          options={SPACING_UNITS.map((u, i) => ({ value: String(i), label: u.label }))}
+          options={LEN_UNITS.map((u, i) => ({ value: String(i), label: u.label }))}
           onChange={(v) => setUnitIdx(Number(v))}
         />
         <hr className="calc-hr" />
@@ -269,8 +258,8 @@ function CreepageDrawing(): JSX.Element {
         className="calc-art"
         src={ES_ART['../../../assets/calculator/creepage_clearance.svg']}
         alt=""
-        width={227}
-        height={166}
+        width={CALC_ART_SIZE.creepage_clearance?.[0]}
+        height={CALC_ART_SIZE.creepage_clearance?.[1]}
       />
       <div className="es-iec-legend">
         solid: clearance

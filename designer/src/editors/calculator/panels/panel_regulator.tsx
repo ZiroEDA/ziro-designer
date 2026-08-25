@@ -27,6 +27,7 @@ import {
 import { Combo } from '../../../ui/Combo.js';
 import { Field, Group, Modal, copyText, parseNum } from '../fields.js';
 import { useCalcSaveSettings } from '../calc_settings.js';
+import { CALC_ART_SIZE } from '../art_sizes.js';
 import { settings } from '../../../prefs/settings.js';
 
 // The tooltips wxFormBuilder attaches, character for character
@@ -83,8 +84,8 @@ function RegulatorDrawing({ type }: { type: RegulatorType }): JSX.Element {
       className="calc-art"
       src={artUrl(three ? 'regul_3pins' : 'regul')}
       alt=""
-      width={295}
-      height={three ? 265 : 220}
+      width={CALC_ART_SIZE[three ? 'regul_3pins' : 'regul']?.[0]}
+      height={CALC_ART_SIZE[three ? 'regul_3pins' : 'regul']?.[1]}
     />
   );
 }

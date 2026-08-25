@@ -24,35 +24,21 @@ import {
 } from '@ziroeda/pcb_calculator';
 import { Combo } from '../../../ui/Combo.js';
 import { SingleChoiceDialog } from '../../../ui/dialog_single_choice.js';
-import { parseNum } from '../fields.js';
+import {
+  CABLE_LEN_UNITS,
+  FREQ_UNITS,
+  parseNum,
+  SPEED_UNITS,
+  TIME_UNITS,
+  type UnitOpt,
+} from '../fields.js';
 import { useCalcSaveSettings } from '../calc_settings.js';
 import { settings } from '../../../prefs/settings.js';
 
-// The four UNIT_SELECTORs this page uses, in their declared order; each opens on
-// index 0 (widgets/unit_selector.cpp:95, 205, 283, 311).
-const FREQ = [
-  { label: 'GHz', scale: 1e9 },
-  { label: 'MHz', scale: 1e6 },
-  { label: 'kHz', scale: 1e3 },
-  { label: 'Hz', scale: 1 },
-];
-const TIME = [
-  { label: 'ns', scale: 1e-9 },
-  { label: 'ps', scale: 1e-12 },
-];
-const LEN = [
-  { label: 'cm', scale: 1e-2 },
-  { label: 'm', scale: 1 },
-  { label: 'km', scale: 1e3 },
-  { label: 'inch', scale: 25.4e-3 },
-  { label: 'feet', scale: 0.3048 },
-];
-const SPEED = [
-  { label: 'm/s', scale: 1 },
-  { label: 'ft/s', scale: 0.3048 },
-  { label: 'km/h', scale: 1 / 3.6 },
-  { label: 'mi/h', scale: 0.44704 },
-];
+// The five UNIT_SELECTORs this page uses come from `fields.tsx`; each opens on
+// index 0 (widgets/unit_selector.cpp:95, 205, 283, 311). They were four local
+// copies here, one of which — the speed list — had silently corrected an
+// upstream constant; see SPEED_UNITS.
 
 type Row = 'frequency' | 'period' | 'vacuum' | 'medium' | 'speed';
 
@@ -103,7 +89,7 @@ export function PanelWavelength(): JSX.Element {
     row: Row;
     label: string;
     si: number;
-    units: typeof FREQ;
+    units: UnitOpt[];
     unitIdx: number;
     setUnitIdx: (i: number) => void;
     onText: (v: string) => void;
@@ -112,11 +98,11 @@ export function PanelWavelength(): JSX.Element {
       row: 'frequency',
       label: 'Frequency:',
       si: state.frequencyHz,
-      units: FREQ,
+      units: FREQ_UNITS,
       unitIdx: freqUnit,
       setUnitIdx: setFreqUnit,
       onText: (v) => {
-        const f = parseNum(v) * (FREQ[freqUnit]?.scale ?? 1);
+        const f = parseNum(v) * (FREQ_UNITS[freqUnit]?.mult ?? 1);
         commit('frequency', v, f > 0 ? fromFrequency(f, erN, murN) : null);
       },
     },
@@ -124,11 +110,11 @@ export function PanelWavelength(): JSX.Element {
       row: 'period',
       label: 'Period:',
       si: state.periodS,
-      units: TIME,
+      units: TIME_UNITS,
       unitIdx: periodUnit,
       setUnitIdx: setPeriodUnit,
       onText: (v) => {
-        const p = parseNum(v) * (TIME[periodUnit]?.scale ?? 1);
+        const p = parseNum(v) * (TIME_UNITS[periodUnit]?.mult ?? 1);
         commit('period', v, p > 0 ? fromPeriod(p, erN, murN) : null);
       },
     },
@@ -136,11 +122,11 @@ export function PanelWavelength(): JSX.Element {
       row: 'vacuum',
       label: 'Wavelength in vacuum:',
       si: state.wavelengthVacuumM,
-      units: LEN,
+      units: CABLE_LEN_UNITS,
       unitIdx: vacUnit,
       setUnitIdx: setVacUnit,
       onText: (v) => {
-        const l = parseNum(v) * (LEN[vacUnit]?.scale ?? 1);
+        const l = parseNum(v) * (CABLE_LEN_UNITS[vacUnit]?.mult ?? 1);
         commit('vacuum', v, l > 0 ? fromWavelengthVacuum(l, erN, murN) : null);
       },
     },
@@ -148,11 +134,11 @@ export function PanelWavelength(): JSX.Element {
       row: 'medium',
       label: 'Wavelength in medium:',
       si: state.wavelengthMediumM,
-      units: LEN,
+      units: CABLE_LEN_UNITS,
       unitIdx: medUnit,
       setUnitIdx: setMedUnit,
       onText: (v) => {
-        const l = parseNum(v) * (LEN[medUnit]?.scale ?? 1);
+        const l = parseNum(v) * (CABLE_LEN_UNITS[medUnit]?.mult ?? 1);
         commit('medium', v, l > 0 ? fromWavelengthMedium(l, erN, murN) : null);
       },
     },
@@ -160,14 +146,14 @@ export function PanelWavelength(): JSX.Element {
       row: 'speed',
       label: 'Speed in medium:',
       si: state.speedM,
-      units: SPEED,
+      units: SPEED_UNITS,
       unitIdx: speedUnit,
       setUnitIdx: setSpeedUnit,
       // Editing the speed changes the MEDIUM, not the frequency: KiCad keeps
       // c/sqrt(er*mur) and the frequency fixed, so the wavelength in medium
       // follows. Ours does the same by holding the frequency and re-deriving.
       onText: (v) => {
-        const s = parseNum(v) * (SPEED[speedUnit]?.scale ?? 1);
+        const s = parseNum(v) * (SPEED_UNITS[speedUnit]?.mult ?? 1);
         commit('speed', v, s > 0 ? fromWavelengthMedium(s / state.frequencyHz, erN, murN) : null);
       },
     },
@@ -191,7 +177,7 @@ export function PanelWavelength(): JSX.Element {
           <span className="calc-field-label">{r.label}</span>
           <input
             className="calc-input"
-            value={shown(r.row, r.si, r.units[r.unitIdx]?.scale ?? 1)}
+            value={shown(r.row, r.si, r.units[r.unitIdx]?.mult ?? 1)}
             spellCheck={false}
             onChange={(e) => r.onText(e.target.value)}
           />

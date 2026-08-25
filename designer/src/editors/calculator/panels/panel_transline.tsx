@@ -77,6 +77,7 @@ import {
   type TranslinePrm,
 } from './transline_ident.js';
 import { useCalcSaveSettings } from '../calc_settings.js';
+import { CALC_ART_SIZE } from '../art_sizes.js';
 import {
   settings,
   type CalcTransLineName,
@@ -93,24 +94,11 @@ const TL_ART = import.meta.glob('../../../assets/calculator/*.svg', {
 /**
  * m_translineBitmap: `KiBitmapBundle( m_transline_list[type]->m_BitmapName )`
  * (transline_dlg_funct.cpp:108). Drawn 1:1 at the size the dark PNG has, which
- * is what the bundle picks at 100% scale.
+ * is what the bundle picks at 100% scale — see `calculator/art_sizes.ts`.
  */
-const ART_SIZE: Record<string, [number, number]> = {
-  microstrip: [227, 174],
-  c_microstrip: [227, 174],
-  stripline: [223, 167],
-  coupled_stripline: [322, 167],
-  cpw: [227, 167],
-  cpw_back: [220, 167],
-  rectwaveguide: [265, 163],
-  coax: [242, 227],
-  twistedpair: [246, 216],
-  microstrip_zodd_zeven: [394, 174],
-};
-
 function Art({ name }: { name: string }): JSX.Element | null {
   const src = TL_ART[`../../../assets/calculator/${name}.svg`];
-  const [w, h] = ART_SIZE[name] ?? [0, 0];
+  const [w, h] = CALC_ART_SIZE[name] ?? [0, 0];
   if (!src) return null;
   return <img className="calc-art tl-art" src={src} alt="" width={w} height={h} />;
 }

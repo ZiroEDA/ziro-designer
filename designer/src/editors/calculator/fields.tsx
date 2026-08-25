@@ -12,6 +12,7 @@ import { useEffect, useRef, useState, type CSSProperties, type JSX, type ReactNo
 import { Combo } from '../../ui/Combo.js';
 import { printfG } from '@ziroeda/pcb_calculator';
 import { useModalEscape } from '../../ui/useModalEscape.js';
+import { type UnitOpt, unitIndex } from './unit_selector.js';
 
 /** Parse a user-typed number; returns NaN for empty/invalid text. */
 export const parseNum = (s: string): number => {
@@ -30,82 +31,24 @@ export function fmt(v: number, digits = 4): string {
   return Number(v.toPrecision(digits)).toString();
 }
 
-/** Unit option: label + multiplier to the base SI unit. */
-export interface UnitOpt {
-  label: string;
-  mult: number;
-  /** A lone unit is a wxStaticText, and some of them carry their own tooltip
-   *  ("nanoseconds" on Via Size's ns, panel_via_size_base.cpp:191). */
-  title?: string;
-}
-
-/**
- * UNIT_SELECTOR_LEN — mm, um, cm, mil, inch (unit_selector.cpp:34-38).
- * Five entries, and the micron one is spelled with an ASCII `u`, where the
- * THICKNESS selector below spells the same unit `µm`. The inconsistency is
- * upstream's and it is visible: a wxChoice is as wide as its widest entry, and
- * on Track Width the two lists sit one above the other. We had a sixth entry,
- * `m`, that pcb_calculator has nowhere.
- */
-export const LEN_UNITS: UnitOpt[] = [
-  { label: 'mm', mult: 1e-3 },
-  { label: 'um', mult: 1e-6 },
-  { label: 'cm', mult: 1e-2 },
-  { label: 'mil', mult: 25.4e-6 },
-  { label: 'inch', mult: 25.4e-3 },
-];
-
-/**
- * UNIT_SELECTOR_THICKNESS — the LEN list plus oz/ft², with `µm` spelled with
- * the micro sign (unit_selector.cpp:66-71). Copper weight converts at
- * UNIT_OZSQFT = 34.40 µm (units_scales.h:39). Track Width's two thickness
- * rows and Fusing Current's thickness row use this one, not LEN.
- */
-export const THICK_UNITS: UnitOpt[] = [
-  { label: 'mm', mult: 1e-3 },
-  { label: 'µm', mult: 1e-6 },
-  { label: 'cm', mult: 1e-2 },
-  { label: 'mil', mult: 25.4e-6 },
-  { label: 'inch', mult: 25.4e-3 },
-  { label: 'oz/ft²', mult: 34.4e-6 },
-];
-
-export const FREQ_UNITS: UnitOpt[] = [
-  { label: 'GHz', mult: 1e9 },
-  { label: 'MHz', mult: 1e6 },
-  { label: 'kHz', mult: 1e3 },
-  { label: 'Hz', mult: 1 },
-];
-
-/** UNIT_SELECTOR_ANGLE — rad then deg (unit_selector.cpp:129-130), and
- *  UNIT_RADIAN / UNIT_DEGREE = M_PI/180 (units_scales.h:45-46). Held in
- *  radians, which is index 0 and therefore what Ang_l opens in. */
-export const ANGLE_UNITS: UnitOpt[] = [
-  { label: 'rad', mult: 1 },
-  { label: 'deg', mult: Math.PI / 180 },
-];
-
-/** UNIT_SELECTOR_RESISTOR — two entries, Ω and kΩ (unit_selector.cpp:154-155).
- *  We had invented a third, MΩ. */
-export const RES_UNITS: UnitOpt[] = [
-  { label: 'Ω', mult: 1 },
-  { label: 'kΩ', mult: 1e3 },
-];
-
-export const TIME_UNITS: UnitOpt[] = [
-  { label: 's', mult: 1 },
-  { label: 'ms', mult: 1e-3 },
-  { label: 'µs', mult: 1e-6 },
-  { label: 'ns', mult: 1e-9 },
-  { label: 'ps', mult: 1e-12 },
-];
-
-/** Index of a unit by label (build-time convenience for defaults). */
-export const unitIndex = (units: UnitOpt[], label: string): number =>
-  Math.max(
-    0,
-    units.findIndex((u) => u.label === label),
-  );
+// The unit tables live in `unit_selector.ts`, the counterpart of KiCad's
+// `widgets/unit_selector.cpp`. Re-exported here because every panel already
+// reaches for them through this module.
+export {
+  ANGLE_UNITS,
+  CABLE_LEN_UNITS,
+  FREQ_UNITS,
+  LEN_UNITS,
+  LIN_RES_UNITS,
+  POWER_UNITS,
+  RES_UNITS,
+  SPEED_UNITS,
+  THICK_UNITS,
+  TIME_UNITS,
+  type UnitOpt,
+  unitIndex,
+  VOLTAGE_UNITS,
+} from './unit_selector.js';
 
 /** One labelled row: label, input (or output), plain unit text. */
 export function Field({

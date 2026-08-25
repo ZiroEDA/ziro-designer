@@ -25,6 +25,7 @@ import {
   type UnitOpt,
 } from '../fields.js';
 import { useCalcSaveSettings } from '../calc_settings.js';
+import { CALC_ART_SIZE } from '../art_sizes.js';
 import { settings, type PcbCalculatorViaSize } from '../../../prefs/settings.js';
 
 /** Every result on this page is `wxString::Format( "%g", … )`. */
@@ -45,8 +46,8 @@ function ViaDrawing(): JSX.Element {
       className="calc-art"
       src={VIA_ART['../../../assets/calculator/viacalc.svg']}
       alt=""
-      width={204}
-      height={212}
+      width={CALC_ART_SIZE.viacalc?.[0]}
+      height={CALC_ART_SIZE.viacalc?.[1]}
     />
   );
 }
