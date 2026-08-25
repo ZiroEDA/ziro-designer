@@ -18,39 +18,11 @@
  * nothing can check. The same reason `editors/gerbview/toggles.ts` exists.
  */
 
-import type { PlEditorSettings } from '../../prefs/settings.js';
+import { PL_EDITOR_DEFAULTS, type PlEditorSettings } from '../../prefs/settings.js';
 import type { EdaUnits } from '@ziroeda/common/src/eda_units.js';
-import { defaultUnitsToggle } from '../../ui/app_settings_units.js';
 
 /** `EDA_DRAW_FRAME`'s unit choice — one of three, never none and never two. */
 export const UNIT_GROUP = ['unitsMm', 'unitsInches', 'unitsMils'];
-
-/**
- * What a fresh profile shows, i.e. `PL_EDITOR_DEFAULTS` rendered as buttons.
- *
- * `layoutEditMode`, not `layoutNormalMode`. PL_EDITOR_FRAME's constructor sets
- *
- *     DS_DATA_MODEL::GetTheInstance().m_EditMode = true;   // pl_editor_frame.cpp:105
- *
- * unconditionally, on every construction, and no parameter binds `m_EditMode`
- * anywhere in `PL_EDITOR_SETTINGS` — so the SECOND of the display-mode pair is
- * the checked button on launch **and stays that way across restarts no matter
- * what the user last picked**. `ds_data_item.cpp:543` then does
- * `m_FullText = m_TextBase`, which is why a real pl_editor opens showing
- * `${TITLE}`, `${COMPANY}` and `Id: ${#}/${##}`: the raw tokens are what you
- * came here to edit. Persisting this would be a divergence, not a fix.
- *
- * The units entry is NOT written here. `system.units`' default is one branch in
- * `APP_SETTINGS_BASE` (`common/settings/app_settings.cpp:228-238`), and
- * `PL_EDITOR_SETTINGS` passes the filename `"pl_editor"`
- * (`pagelayout_editor/pl_editor_settings.cpp:34`) — the FIRST name on the
- * imperial side of that branch — so this frame opens in mils.
- */
-export const DEFAULT_TOGGLES: ReadonlySet<string> = new Set([
-  'toggleGrid',
-  defaultUnitsToggle('pl_editor'),
-  'layoutEditMode',
-]);
 
 /**
  * Activating `id`, given what is currently on.
@@ -119,8 +91,28 @@ function isImperial(units: EdaUnits): boolean {
  * `setupUnits` (eda_draw_frame.cpp:1378-1397), `IsGridVisible`
  * (eda_draw_frame.cpp:585-590) and `GAL_DISPLAY_OPTIONS::ReadWindowSettings`
  * (gal_display_options_common.cpp:64-78) between them decide every one of
- * these; `layoutEditMode` is the constructor's unconditional `true` and comes
- * from {@link DEFAULT_TOGGLES}, not from the file.
+ * these — and `system.units`' own default is one branch in `APP_SETTINGS_BASE`
+ * (`app_settings.cpp:228-238`), which `PL_EDITOR_DEFAULTS` asks rather than
+ * restates.
+ *
+ * `layoutEditMode` is the exception, and it is unconditional here for the same
+ * reason it is unconditional upstream:
+ *
+ *     DS_DATA_MODEL::GetTheInstance().m_EditMode = true;   // pl_editor_frame.cpp:105
+ *
+ * runs on every construction and no parameter binds `m_EditMode` anywhere in
+ * `PL_EDITOR_SETTINGS` — so the SECOND of the display-mode pair is the checked
+ * button on launch **and stays that way across restarts no matter what the
+ * user last picked**. `ds_data_item.cpp:543` then does
+ * `m_FullText = m_TextBase`, which is why a real pl_editor opens showing
+ * `${TITLE}`, `${COMPANY}` and `Id: ${#}/${##}`: the raw tokens are what you
+ * came here to edit. Persisting this would be a divergence, not a fix.
+ *
+ * {@link DEFAULT_TOGGLES} is this function applied to `PL_EDITOR_DEFAULTS`
+ * and nothing else. It used to be a hand-written set beside it, which is one
+ * answer written twice: nothing in the app read it — the frame boots from
+ * `togglesFromSettings( settings.plEditor )` — so it could have drifted from
+ * what a fresh profile actually shows without anything noticing.
  */
 export function togglesFromSettings(cfg: PlEditorSettings): Set<string> {
   const out = new Set<string>([unitsToggleId(cfg.system.units), 'layoutEditMode']);
@@ -185,3 +177,10 @@ export function persistToggle(cfg: PlEditorSettings, id: string): boolean {
 
   return false;
 }
+
+/**
+ * What a fresh profile shows, i.e. `PL_EDITOR_DEFAULTS` rendered as buttons —
+ * derived, not restated. Read by the cross-editor boot-state sweeps in `qa`;
+ * the frame itself calls {@link togglesFromSettings} on the live settings.
+ */
+export const DEFAULT_TOGGLES: ReadonlySet<string> = togglesFromSettings(PL_EDITOR_DEFAULTS);

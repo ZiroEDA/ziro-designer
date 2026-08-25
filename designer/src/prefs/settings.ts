@@ -30,6 +30,7 @@ import {
 } from '@ziroeda/common/src/cross_probing_settings.js';
 import type { EdaUnits } from '@ziroeda/common/src/eda_units.js';
 import type { RegulatorData } from '@ziroeda/pcb_calculator';
+import { defaultUnits } from '../ui/app_settings_units.js';
 import { DEFAULT_GRID_INDEX } from '../ui/grid_settings.js';
 import {
   DEFAULT_ROUTING_SETTINGS,
@@ -649,7 +650,10 @@ export interface PlEditorSettings {
 
 export const PL_EDITOR_DEFAULTS: PlEditorSettings = {
   system: {
-    units: 'mils',
+    // The `app_settings.cpp:228-238` branch, asked rather than restated: five
+    // editors already read their starting unit from `defaultUnits`, and this
+    // was the last copy of the answer written out by hand.
+    units: defaultUnits('pl_editor'),
     last_metric_units: 'mm',
     last_imperial_units: 'mils',
   },
@@ -1169,16 +1173,23 @@ export function deepMerge<T>(defaults: T, stored: unknown): T {
  * used the app before, a default that was simply wrong has to be rewritten
  * once, here. KiCad's own SETTINGS_MANAGER migrates stored files the same way.
  */
-export const SETTINGS_VERSION = 3;
+export const SETTINGS_VERSION = 4;
 
 /**
  * Where the calculator's custom regulators used to live.
  *
  * `panel_regulator.tsx` wrote `{ regulators, selected }` here before
- * `pcb_calculator` was a settings file at all. Version 3 moves both into the
- * slice — `regulators.library` and `regulators.selected_regulator` — so they
- * follow the account like everything else. Exported so the migration can be
- * tested without guessing the string.
+ * `pcb_calculator` was a settings file at all. Version **4** moves both into
+ * the slice — `regulators.library` and `regulators.selected_regulator` — so
+ * they follow the account like everything else. Exported so the migration can
+ * be tested without guessing the string.
+ *
+ * Four, not three, even though this shipped alongside v3's
+ * `migrateBitmap2CmpKey`. A migration needs a version nobody has stamped yet:
+ * anyone who ran a build carrying v3 but not this one already has `3` in
+ * `ziroeda.settings_version`, so a `from < 3` gate would never fire for them
+ * and their custom regulators would be stranded — which is the one thing this
+ * migration exists to prevent.
  */
 export const LEGACY_REGULATOR_KEY = 'ziro.calculator.regulators';
 
@@ -1365,10 +1376,13 @@ function migrateStored(): void {
         localStorage.setItem(sliceStorageKey('eeschema'), JSON.stringify(s));
     }
 
-    if (from < 3) {
-      // v3: `ziroeda.bitmap2cmp` -> `ziroeda.bitmap2component`.
-      migrateBitmap2CmpKey();
+    // v3: `ziroeda.bitmap2cmp` -> `ziroeda.bitmap2component`.
+    if (from < 3) migrateBitmap2CmpKey();
 
+    // v4: the calculator's regulator library into `pcb_calculator.regulators`.
+    // Its own version, because a device that has already stamped 3 must still
+    // get this one.
+    if (from < 4) {
       const legacyRaw = localStorage.getItem(LEGACY_REGULATOR_KEY);
       if (legacyRaw) {
         const calcRaw = localStorage.getItem(sliceStorageKey('pcb_calculator'));

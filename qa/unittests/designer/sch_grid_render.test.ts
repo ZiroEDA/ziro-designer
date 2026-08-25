@@ -134,6 +134,23 @@ afterAll(() => {
 // GAL::updatedGalDisplayOptions: scaleFactor * setting + 0.25, floored at 1 px.
 const pen = (setting: number, dpr: number) => Math.max(1, dpr * setting + 0.25);
 
+/**
+ * The whole device pixels a mark of that width lights. MEASURED off a live
+ * KiCad 10.0.5 pl_editor on this machine: at the default `grid.line_width` of
+ * 1.0 a minor mark is 1x1 px, a mark on a tick column 3 wide, one on a tick
+ * row 3 tall, and a tick crossing 3x3 — with no anti-aliased pixel anywhere in
+ * the capture. Spelled out here rather than imported, so a mutant in the
+ * renderer's own helper cannot compute the answer it is checked against.
+ */
+const litPixels = (width: number) => (width === 1.25 ? 1 : width === 2.5 ? 3 : Number.NaN);
+
+/**
+ * The device pixel a mark is centred ON. Its geometric centre is that pixel's
+ * centre, i.e. a half-integer, so `Math.round` would tip every mark one pixel
+ * to the right; `Math.floor` names the pixel itself.
+ */
+const centrePixel = (r: { x: number; w: number }) => Math.floor(r.x + r.w / 2);
+
 describe('schematic grid painting', () => {
   it('draws the dot lattice with a single fill, whatever the node count', () => {
     for (const [w, h] of [
@@ -154,11 +171,16 @@ describe('schematic grid painting', () => {
     const rects = paths.flatMap((p) => p.rects);
     expect(rects.length).toBeGreaterThan(100);
 
-    // Only three node shapes exist, and they are exactly the pen products.
+    // Only three node shapes exist, and they are exactly the pen products —
+    // painted as whole device pixels, which is 1 and 3 for the default pen.
+    expect([minor, major]).toEqual([1.25, 2.5]);
+    const a = litPixels(minor);
+    const b = litPixels(major);
+    expect([a, b]).toEqual([1, 3]);
     const shapes = new Set(rects.map((r) => `${r.w}x${r.h}`));
     expect([...shapes].sort()).toEqual(
-      [`${minor}x${minor}`, `${minor}x${major}`, `${major}x${major}`, `${major}x${minor}`]
-        .filter((s, i, a) => a.indexOf(s) === i)
+      [`${a}x${a}`, `${a}x${b}`, `${b}x${b}`, `${b}x${a}`]
+        .filter((s, i, arr) => arr.indexOf(s) === i)
         .sort(),
     );
 
@@ -179,9 +201,9 @@ describe('schematic grid painting', () => {
 
     // Group by column: one column in ten is double width (SetCoarseGrid(10)).
     const widthByColumn = new Map<number, number>();
-    for (const r of rects) widthByColumn.set(Math.round(r.x + r.w / 2), r.w);
+    for (const r of rects) widthByColumn.set(centrePixel(r), r.w);
     const columns = [...widthByColumn.entries()].sort((a, b) => a[0] - b[0]);
-    const coarse = columns.filter(([, w]) => w > minor);
+    const coarse = columns.filter(([, w]) => w > litPixels(minor));
     expect(coarse.length).toBeGreaterThan(0);
     expect(coarse.length / columns.length).toBeCloseTo(1 / 10, 1);
 

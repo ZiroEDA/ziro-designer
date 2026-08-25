@@ -341,13 +341,7 @@ describe('settings stored under the old key are not stranded', () => {
       fileURLToPath(new URL('../../../designer/src/prefs/settings.ts', import.meta.url)),
       'utf8',
     );
-    // Matched on the call and its gate separately rather than on one exact
-    // line: `if (from < 3)` now guards two migrations, the Image Converter's
-    // key rename and the calculator's regulator library, so the call has moved
-    // into a block. What must hold is that the call is inside a `from < 3`
-    // gate — not that the two happen to be on the same line.
-    const gate = /if\s*\(\s*from\s*<\s*3\s*\)\s*\{?[\s\S]{0,600}?migrateBitmap2CmpKey\(\)/;
-    expect(SRC).toMatch(gate);
+    expect(SRC).toContain('if (from < 3) migrateBitmap2CmpKey();');
   });
 });
 

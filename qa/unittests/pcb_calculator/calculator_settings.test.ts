@@ -406,6 +406,25 @@ describe('the regulator library a user already had', () => {
     expect(cfg.regulators.library).toStrictEqual([]);
   });
 
+  it('reaches a device already stamped at v3', () => {
+    // The migration that shipped alongside this one -- the Image Converter's
+    // key rename -- is v3, so anyone who ran a build carrying that but not
+    // this one already has `3` in ziroeda.settings_version. A `from < 3` gate
+    // would never fire for them and their regulators would be stranded, which
+    // is the one thing this migration exists to prevent.
+    localStorage.setItem('ziroeda.settings_version', '3');
+    localStorage.setItem(
+      LEGACY_REGULATOR_KEY,
+      JSON.stringify({ regulators: [REG], selected: 'LT3080' }),
+    );
+    vi.resetModules();
+    return import('@ziroeda/designer/src/prefs/settings.js').then((mod) => {
+      expect(mod.SETTINGS_VERSION).toBeGreaterThan(3);
+      const m = new mod.SettingsManager();
+      expect(m.pcbCalculator.regulators.library).toStrictEqual([REG]);
+    });
+  });
+
   it('is applied on load by the stored-settings migration', () => {
     // The whole point: a user who added regulators before this shipped opens
     // the app and still has them, without doing anything.
@@ -547,7 +566,10 @@ describe('the slice goes through the settings machinery, not beside it', () => {
     expect(m.stamps.pcb_calculator?.syncedAt).toBe(m.stamps.pcb_calculator?.updatedAt);
   });
 
-  it('bumps the schema version, so the migration runs once', () => {
-    expect(SETTINGS_VERSION).toBeGreaterThanOrEqual(3);
+  it('carries its own schema version, not one another migration already used', () => {
+    // v3 belongs to the Image Converter's key rename (bitmap2cmp_settings.ts).
+    // Sharing it would silently skip this migration on every device that has
+    // already seen v3.
+    expect(SETTINGS_VERSION).toBeGreaterThanOrEqual(4);
   });
 });

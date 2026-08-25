@@ -132,8 +132,15 @@ describe('File > New clears the sheet rather than reloading the default', () => 
     // `CopyPrmsFromItemToPanel( nullptr )` at :912 — which an empty selection
     // is here. Without these the assertions above could pass on a New that
     // left the old document's history and dirty flag behind.
-    expect(newSheetBody).toContain('undoStack.current = []');
-    expect(newSheetBody).toContain('redoStack.current = []');
+    // Both lists, in one call: the two stacks used to be bare `useRef` arrays
+    // emptied by hand here, and are now `undo_stack.ts`'s state. The rule this
+    // pins is unchanged — New wipes the history — so it is the SPELLING that
+    // was re-derived, not the expectation.
+    expect(newSheetBody).toContain('clearUndoRedoList(history.current)');
+    expect(newSheetBody).not.toMatch(/undoStack|redoStack/);
+    // ...and the depths the Undo/Redo rows read must follow, or New would
+    // leave both enabled over an empty history.
+    expect(newSheetBody).toContain('syncHistoryDepth()');
     expect(newSheetBody).toContain('setSelection(new Set())');
     expect(newSheetBody).toContain('setDirty(false)');
   });

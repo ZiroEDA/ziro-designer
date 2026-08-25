@@ -31,11 +31,11 @@ import {
 } from '@ziroeda/designer/src/prefs/settings.js';
 import {
   applyToggle,
-  DEFAULT_TOGGLES,
   persistToggle,
   switchUnits,
   toggleIdUnits,
   toggleUnitsId,
+  DEFAULT_TOGGLES,
   togglesFromSettings,
   unitsToggleId,
 } from '@ziroeda/designer/src/editors/drawingsheet/toggles.js';
@@ -96,10 +96,12 @@ describe('replaying the file onto the toolbar', () => {
     ]);
   });
 
-  it('the launch set and the defaults agree', () => {
-    // DEFAULT_TOGGLES is what the toolbars module documents as "a fresh
-    // frame"; if the two ever disagree, one of them is lying.
-    expect([...DEFAULT_TOGGLES].sort()).toEqual([...togglesFromSettings(cfg())].sort());
+  /**
+   * The frame boots from `togglesFromSettings( settings.plEditor )`, so this
+   * is the value it actually shows and not a second copy of the answer.
+   */
+  it('DEFAULT_TOGGLES is that set, derived rather than restated', () => {
+    expect([...DEFAULT_TOGGLES].sort()).toEqual(['layoutEditMode', 'toggleGrid', 'unitsMils']);
   });
 
   it('brings back millimetres', () => {

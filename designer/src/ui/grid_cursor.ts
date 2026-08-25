@@ -179,11 +179,31 @@ export function gridIndexRange(
 }
 
 /**
- * `DrawGrid`'s `marker` / `doubleMarker` in device pixels
- * (`cairo_gal.cpp:1770-1771`), with the stored width GAL derives from the
- * setting: `m_gridLineWidth = m_scaleFactor * options.m_gridLineWidth + 0.25`
- * (`graphics_abstraction_layer.cpp:124`), floored at one pixel by
- * `std::fmax( 1.0f, m_gridLineWidth )`.
+ * `OPENGL_GAL::DrawGrid`'s `minorLineWidth` / `majorLineWidth` in device pixels
+ * (`opengl_gal.cpp:1911-1912`):
+ *
+ *     float minorLineWidth = std::fmax( 1.0f, m_gridLineWidth )
+ *                                * getWorldPixelSize() / GetScaleFactor();
+ *     float majorLineWidth = minorLineWidth * 2.0f;
+ *
+ * with the stored width GAL derives from the setting:
+ * `m_gridLineWidth = m_scaleFactor * options.m_gridLineWidth + 0.25`
+ * (`graphics_abstraction_layer.cpp:124`). The `+ 0.25` is real: a default
+ * `grid.line_width` of 1.0 (`app_settings.cpp:549-550`) gives 1.25, not 1.
+ *
+ * This is the LINES pen and the DOTS mark both. Upstream they are one number
+ * in OpenGL, because a DOTS grid there is not drawn as dots at all: the whole
+ * lattice of rows is stroked invisibly into the stencil buffer and the columns
+ * are then stroked through it, so every visible mark is the intersection of
+ * two lines of exactly these widths (`opengl_gal.cpp:1959-2040`).
+ *
+ * CAIRO_GAL_BASE::DrawGrid arrives at the same two numbers a different way and
+ * clamps in a different order — `drawGridPoint( pos, tickX ? m_gridLineWidth *
+ * 2.0f : m_gridLineWidth, ... )` with `std::max( 1.0, aWidth )` applied AFTER
+ * the doubling (`cairo_gal.cpp:1868-1871, 1115-1116`), so a 0.5 px setting
+ * gives Cairo a 1.5 px tick where OpenGL gives 2. OpenGL is KiCad's default
+ * backend and is what a live pl_editor on this machine is running, so it is
+ * the one we follow.
  */
 export function gridPenWidths(lineWidthPx: number, dpr = 1): { minor: number; major: number } {
   const stored = dpr * Math.max(0, lineWidthPx) + 0.25;
@@ -192,44 +212,46 @@ export function gridPenWidths(lineWidthPx: number, dpr = 1): { minor: number; ma
 }
 
 /**
- * The DOTS branch's mark size (`cairo_gal.cpp:1868-1871`):
+ * Where a dot's rectangle starts, and how many whole device pixels it lights —
+ * the two halves of one rule.
  *
- *     double doubleGridLineWidth = m_gridLineWidth * 2.0f;
- *     drawGridPoint( pos, tickX ? doubleGridLineWidth : m_gridLineWidth, ... );
+ * A grid mark is not painted as a fractional-width rectangle. Upstream it is a
+ * pair of stencilled line quads, and the rasteriser lights a pixel when the
+ * pixel's CENTRE falls inside the quad. Centres sit at half-integers, so a
+ * mark of width `w` centred on pixel `c` lights the pixels `c + k` for every
+ * integer `k` in `[-w/2, w/2)` — the half-open interval is the usual
+ * lower-edge-inclusive fill rule. That is
  *
- * where `m_gridLineWidth` already carries GAL's own `+ 0.25`
- * (`graphics_abstraction_layer.cpp:124`), and `drawGridPoint` clamps each of
- * width and height with `std::max( 1.0, aWidth )` AFTER the doubling. So a
- * default 1 px pen gives a 1.25 px dot and a 2.5 px tick — which is not a
- * mistake and not what made ours look wrong. See {@link gridDotEdge}.
- */
-export function gridDotWidths(lineWidthPx: number, dpr = 1): { minor: number; major: number } {
-  const stored = dpr * Math.max(0, lineWidthPx) + 0.25;
-  return { minor: Math.max(1, stored), major: Math.max(1, stored * 2) };
-}
-
-/**
- * Where a dot's rectangle starts, which is the half of `drawGridPoint` that was
- * missing (`cairo_gal.cpp:1857-1868`):
+ *     leftmost = c - floor( w / 2 )        (`gridDotEdge`)
+ *     count    = floor( w / 2 ) + ceil( w / 2 )   (`gridDotSize`)
  *
- *     VECTOR2D p = roundp( xform( aPoint ) );
- *     cairo_rectangle( ctx, p.x - std::floor( sw / 2 ) - 0.5, ..., sw, sh );
+ * and `c` itself is the snap `CAIRO_GAL_BASE::drawGridPoint` writes out —
+ * `roundp( x )` is `floor( x + 0.5 ) + 0.5` for an odd pen
+ * (`cairo_gal.cpp:186-188, 1113`), so the centre is `floor( x + 0.5 )`.
  *
- * with `roundp` being `floor( x + 0.5 ) + 0.5` for an odd pen
- * (`cairo_gal.cpp:186-188`). Every mark is snapped to the pixel grid and only
- * then offset, so its left edge is a whole pixel and a 1.25 px dot paints one
- * solid pixel.
+ * **Measured**, not derived, on this machine against the installed KiCad
+ * 10.0.5: a live pl_editor at its default `grid.line_width` of 1.0 was
+ * captured and the canvas held exactly two colours — background and
+ * `rgb(194,194,194)` — with no anti-aliased pixel anywhere, so every mark is a
+ * whole number of pixels. A minor mark is **1 px**; a mark on a tick column is
+ * **3 px wide** and one on a tick row **3 px tall**; a tick crossing is 3x3.
+ * The tick columns were 955 px apart against a 95.5 px node pitch, which is
+ * `m_gridTick` = 10 (`SetCoarseGrid( 10 )`, graphics_abstraction_layer.cpp:76).
  *
- * Ours placed the rectangle at `x - sw / 2` from the unsnapped position, so
- * each dot straddled a pixel boundary by a different fraction and the canvas
- * anti-aliased it away: a capture showed marks smeared across 2 px and ticks
- * across 4, where KiCad's read as 1 and 2.
- *
- * Returned as the integer edge — `roundp(x) - floor(w / 2) - 0.5` collapses to
- * `floor(x + 0.5) - floor(w / 2)`, which is what a canvas rect wants.
+ * The rule above reproduces both numbers from the widths the C++ computes:
+ * 1.25 lights one pixel (only `k = 0` is within 0.625) and 2.5 lights three
+ * (`k = -1, 0, 1` are all within 1.25). Ours filled a literal 1.25 x 1.25 and
+ * 2.5 x 2.5 rectangle instead, which the canvas anti-aliased into one solid
+ * pixel with a 25% bleed to the right and below, and two solid pixels with a
+ * 50% bleed — visibly softer than KiCad's hard marks.
  */
 export function gridDotEdge(device: number, width: number): number {
   return Math.floor(device + 0.5) - Math.floor(width / 2);
+}
+
+/** The other half of {@link gridDotEdge}: whole device pixels lit. */
+export function gridDotSize(width: number): number {
+  return Math.floor(width / 2) + Math.ceil(width / 2);
 }
 
 /** A line segment in device pixels. */
@@ -453,9 +475,8 @@ export function drawGrid(
   const rows = ny + GRID_TICK;
 
   const { minor: minorW, major: majorW } = gridPenWidths(lineWidthPx, dpr);
-  const dots = gridDotWidths(lineWidthPx, dpr);
 
-  const key = `${style}|${pitch}|${cols}x${rows}|${widthPx}x${heightPx}|${minorW}|${dots.minor}`;
+  const key = `${style}|${pitch}|${cols}x${rows}|${widthPx}x${heightPx}|${minorW}`;
   let geom = geomCache.get(ctx);
   if (!geom || geom.key !== key) {
     const minorPath = new Path2D();
@@ -502,20 +523,27 @@ export function drawGrid(
         }
       }
     } else {
-      // DOTS (cairo_gal.cpp:1863-1870 + drawGridPoint): the mark is a filled
-      // rectangle whose width comes from the column's tick-ness and whose
-      // height comes from the row's, so a coarse column is a wider mark, a
-      // coarse row a taller one and a coarse crossing a big square. All of them
-      // fill in one pass.
+      // DOTS (opengl_gal.cpp:1959-2040): the rows are stencilled and the
+      // columns drawn through them, so a mark's WIDTH comes from its column's
+      // tick-ness and its HEIGHT from its row's — a coarse column is a wider
+      // mark, a coarse row a taller one, a coarse crossing a big square. Ours
+      // fills them as rectangles in one pass, which is the same picture.
       for (let k = 0; k <= cols; k++) {
         const x = k * pitch;
-        const sw = k % GRID_TICK === 0 ? dots.major : dots.minor;
+        const sw = k % GRID_TICK === 0 ? majorW : minorW;
         for (let l = 0; l <= rows; l++) {
-          const sh = l % GRID_TICK === 0 ? dots.major : dots.minor;
+          const sh = l % GRID_TICK === 0 ? majorW : minorW;
           // Each point is snapped, as `drawGridPoint` snaps each one — not the
           // path as a whole. Rounding only the translate would leave every
-          // mark off by the same fraction and blur all of them together.
-          minorPath.rect(gridDotEdge(x, sw), gridDotEdge(l * pitch, sh), sw, sh);
+          // mark off by the same fraction and blur all of them together. The
+          // SIZE is snapped too: a mark covers whole device pixels, never a
+          // fraction of one. See `gridDotEdge`.
+          minorPath.rect(
+            gridDotEdge(x, sw),
+            gridDotEdge(l * pitch, sh),
+            gridDotSize(sw),
+            gridDotSize(sh),
+          );
         }
       }
     }
