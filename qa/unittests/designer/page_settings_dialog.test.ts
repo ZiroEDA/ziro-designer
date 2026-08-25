@@ -17,8 +17,6 @@
  * text is all there is; the rest calls the functions.
  */
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import { DS_BG_COLOR, DS_BG_COLOR_DARK, DS_BG_COLOR_LIGHT, DS_ITEM_COLOR } from '@ziroeda/common';
 import { PCB_BACKGROUND, PCB_DRAWINGSHEET } from '@ziroeda/designer/src/editors/pcb/pcbTheme.js';
 import { readFileSync } from 'node:fs';
