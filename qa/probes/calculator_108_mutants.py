@@ -80,6 +80,16 @@ MUTANTS = [
         [SETTINGS],
     ),
     (
+        # The gate this migration needs for itself: v3 belongs to the Image
+        # Converter's key rename, so sharing it skips every device already
+        # stamped 3.
+        "migration-shares-v3-gate",
+        f"{D}/prefs/settings.ts",
+        "    if (from < 4) {",
+        "    if (from < 3) {",
+        [SETTINGS],
+    ),
+    (
         "defaults-corrosion-symbols",
         f"{D}/prefs/settings.ts",
         "  corrosion_table: { threshold_voltage: '0', show_symbols: true },",
@@ -121,7 +131,7 @@ MUTANTS = [
     (
         "migration-not-called",
         f"{D}/prefs/settings.ts",
-        "    if (from < 3) {",
+        "    if (from < 4) {",
         "    if (from < 0) {",
         [SETTINGS],
     ),
