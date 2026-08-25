@@ -75,8 +75,13 @@ MUTANTS = {
     'T2': ('qa/unittests/designer/toolbar_context_menu.test.ts',
            "  pcbnew: { toggleGrid: ['gridProperties', 'gridOrigin'] },",
            "  pcbnew: { toggleGrid: ['gridProperties'] },", 1),
+    # Anchored on the comment above it: a second `expect(ran).toEqual(
+    # ['gridProperties'] )` was added later in the file, and a file-level hash
+    # cannot tell two identical calls apart.
     'T3': ('qa/unittests/designer/toolbar_context_menu_render.test.tsx',
+           "    // upstream dispatches it through the same TOOL_MANAGER the button uses.\n"
            "    expect(ran).toEqual(['gridProperties']);",
+           "    // upstream dispatches it through the same TOOL_MANAGER the button uses.\n"
            "    expect(ran).toEqual(['toggleGrid']);", 1),
     'T4': ('qa/unittests/designer/prefs_initial_page.test.tsx',
            "    expect(selectedRow()).toBe('Grids');",
