@@ -32,7 +32,6 @@ test, which passed while the variable was wrong.
 |---|---|---|
 | **PCB Calculator** | E1 + E2 + E3 + **E4** | #108, PRs #613 #617 |
 | **Image Converter** | E1 + E2 + E3 + E4 | #105, PR #612 |
-| **Drawing Sheet Editor** (pl_editor) | E1 + E2 + **E3 by measurement** | PRs #604 #607 #614 |
 
 **PCB Calculator.** ~180 displayed strings read off real `pcb_calculator` over
 the accessibility bus; 179 match character for character. The one that does not
@@ -51,16 +50,23 @@ deliberately **not** byte-identical — see
 that decision is due a revisit now that the bare-atom reader gap is closed
 (PR #616).
 
-**Drawing Sheet Editor.** The grid dot was measured off a live `pl_editor` by
-connected component, not derived. Known and reported, neither reachable from
-its defaults: the grid button has no right-click Grid Properties menu (our
-shared `Toolbar` has no counterpart), and with LINES + axes both on we do not
-skip the grid line under an axis.
+**A correction worth keeping.** The Drawing Sheet Editor was listed here as
+complete after two audits had closed its frame and its tools. A third pass over
+the six source files **neither audit had opened** found fifteen further gaps
+(#619) — invented status strings, failures shown in the status line where
+upstream raises a modal, one printed page where upstream prints two, and a
+Preferences dialog with two checkboxes against upstream's four pages.
+
+Nothing about the earlier work was wrong. The claim was: those audits had a
+scope, the scope was not the whole editor, and "complete" was read as though it
+were. **A completeness claim is only as wide as what was actually opened** —
+which is why the table above names the evidence and this one names the files.
 
 ### Not complete
 
 | editor | state |
 |---|---|
+| **Drawing Sheet Editor** (pl_editor) | frame and tools closed (PRs #604 #607 #614 #618, grid dot and axis skip both **measured** off a live pl_editor). **NOT complete**: issue #619 lists 15 gaps in the six source areas no audit had covered, headed by Preferences — upstream has four pages, we have one modal with two checkboxes |
 | **Symbol Editor** | audited, PR #606. Open: enable/disable conditions (~150 lines), LIB_TREE chrome, three missing dialogs |
 | **Footprint Editor** | audited, PR #608. Open: seven items, headed by the dialog wall — `dialog_pad_properties.cpp` alone is 2492 lines against our 297 total |
 | **GerbView** | exporter is a real port of `GBR_TO_PCB_EXPORTER` (PR #605). No mapping dialog; aperture-macro holes export solid |
