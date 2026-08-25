@@ -28,8 +28,10 @@ import {
 } from '@ziroeda/designer/src/prefs/settings.js';
 import {
   decideSlice,
+  installSettingsSync,
   isMissingSettingsTable,
   resetSettingsSyncWarning,
+  SETTINGS_PUSH_DEBOUNCE_MS,
   syncSettings,
 } from '@ziroeda/designer/src/cloud/settingsSync.js';
 import { setCloudBackend } from '@ziroeda/designer/src/cloud/cloudStore.js';
@@ -127,9 +129,14 @@ beforeEach(() => {
   be = fake();
   setCloudBackend(be);
   resetSettingsSyncWarning();
+  // `installSettingsSync` debounces on a timer, and a debounce verified by
+  // sleeping is a wall-clock assertion that flakes under load. `Date.now` is
+  // left alone: the stamps have to keep advancing.
+  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
 });
 
 afterEach(() => {
+  vi.useRealTimers();
   setCloudBackend(null);
   vi.restoreAllMocks();
 });
@@ -291,6 +298,29 @@ describe('the same workspace on another device', () => {
     const again = await syncSettings(USER, { manager: b });
     expect(again.pulled).toEqual([]);
     expect(again.pushed).toEqual([]);
+  });
+
+  it('a debounced push sends only the slice that was edited', async () => {
+    // `only` restricts the writes to what the debounce timer collected. Two
+    // slices have to be dirty for this to mean anything: with one dirty slice
+    // the filter is indistinguishable from no filter, and the mutation sweep
+    // found exactly that hole in the test below it.
+    const a = new SettingsManager();
+    a.updateCommon((s) => {
+      s.input.zoom_speed = 3;
+    });
+    a.updatePcbnew((s) => {
+      s.printing.mirror = true;
+    });
+
+    be.writes.length = 0;
+    const r = await syncSettings(USER, { manager: a, only: ['common'] });
+    expect(be.writes).toEqual(['common']);
+    expect(r.pushed).toEqual(['common']);
+
+    // And the one held back is still dirty, so the next pass carries it.
+    const next = await syncSettings(USER, { manager: a });
+    expect(next.pushed).toEqual(['pcbnew']);
   });
 });
 
@@ -573,6 +603,61 @@ describe('before the migration is applied', () => {
 // ---------------------------------------------------------------------------
 // Signed out
 // ---------------------------------------------------------------------------
+
+describe('installing and removing the sync', () => {
+  it('installs nothing while signed out', async () => {
+    const a = new SettingsManager();
+    a.onSliceChanged = () => {
+      throw new Error('a signed-out session must have no seam installed');
+    };
+    const dispose = installSettingsSync(null, a);
+    expect(a.onSliceChanged).toBeNull();
+
+    a.updatePlEditor((s) => {
+      s.system.units = 'mm';
+    });
+    // Nothing was sent and nothing threw.
+    await vi.advanceTimersByTimeAsync(SETTINGS_PUSH_DEBOUNCE_MS * 3);
+    expect(be.writes).toEqual([]);
+    dispose();
+  });
+
+  it('reconciles on sign-in, then pushes an edit after the debounce', async () => {
+    be.seed('pl_editor', { system: { units: 'mm' } }, 9_000);
+    const a = new SettingsManager();
+    const dispose = installSettingsSync(USER, a);
+
+    // The sign-in reconcile: the other device's units arrive.
+    await vi.advanceTimersByTimeAsync(0);
+    expect(a.plEditor.system.units).toBe('mm');
+
+    be.writes.length = 0;
+    a.updateCommon((s) => {
+      s.input.zoom_speed = 5;
+    });
+    // Nothing yet — a settings write is not a request per keystroke, the same
+    // call KiCad makes once when the Preferences dialog is accepted.
+    expect(be.writes).toEqual([]);
+
+    await vi.advanceTimersByTimeAsync(SETTINGS_PUSH_DEBOUNCE_MS + 1);
+    expect(be.writes).toEqual(['common']);
+    dispose();
+  });
+
+  it('sends nothing more once disposed', async () => {
+    const a = new SettingsManager();
+    const dispose = installSettingsSync(USER, a);
+    await vi.advanceTimersByTimeAsync(0);
+    dispose();
+
+    be.writes.length = 0;
+    a.updateCommon((s) => {
+      s.input.zoom_speed = 5;
+    });
+    await vi.advanceTimersByTimeAsync(SETTINGS_PUSH_DEBOUNCE_MS * 3);
+    expect(be.writes).toEqual([]);
+  });
+});
 
 describe('signed out is unchanged', () => {
   it('persists and reloads with no seam installed', () => {
