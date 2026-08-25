@@ -516,6 +516,19 @@ describe('what version wrote this', () => {
     // and nothing overwrote it.
     expect(a.plEditor.system.units).toBe('mm');
   });
+
+  it('says once that a setting has stopped following the account', async () => {
+    // `result.future` was a value nothing read — one of the four shapes of test
+    // that cannot fail. A preference that silently stops syncing until the
+    // device is updated is exactly the condition worth a line in the console.
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    be.seed('pl_editor', { system: { units: 'in' } }, 9_000, SETTINGS_VERSION + 1);
+    const a = new SettingsManager();
+    await syncSettings(USER, { manager: a });
+    await syncSettings(USER, { manager: a });
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0]?.[0])).toContain('pl_editor');
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -793,7 +806,26 @@ describe('the per-slice stamps', () => {
     a.resetUserColors();
     a.resetHotkeys();
     a.setHotkey('eeschema.save', null);
-    expect([...touched].sort()).toEqual([...SETTINGS_SLICES].sort());
+
+    // Written out rather than compared against `SETTINGS_SLICES`. Comparing the
+    // list to itself is an expectation computed by calling the code under test:
+    // drop a slice from the list AND from the manager and both sides shrink
+    // together, which is green. These are KiCad's settings-file basenames —
+    // common.json, eeschema.json, pcbnew.json, pl_editor.json, colors/user.json,
+    // user.hotkeys — plus `privacy`, which has no upstream counterpart.
+    const expected: SettingsSlice[] = [
+      'colors.user',
+      'common',
+      'eeschema',
+      'hotkeys',
+      'pcbnew',
+      'pl_editor',
+      'privacy',
+    ];
+    expect([...touched].sort()).toEqual(expected);
+    // And the list the sync iterates is the same set, so nothing the manager
+    // writes is left out of the reconcile.
+    expect([...SETTINGS_SLICES].sort()).toEqual(expected);
   });
 
   it('reads every named slice back and adopts it', () => {

@@ -191,10 +191,13 @@ export function isMissingSettingsTable(e: unknown): boolean {
 
 /** So a database without the migration says so once a session, not once a keystroke. */
 let warnedNoTable = false;
+/** The same, for an account written by a build newer than this one. */
+let warnedFutureFormat = false;
 
 /** Reset between tests; a module-level latch is otherwise sticky across them. */
 export function resetSettingsSyncWarning(): void {
   warnedNoTable = false;
+  warnedFutureFormat = false;
 }
 
 const ms = (iso: string): number => new Date(iso).getTime();
@@ -297,6 +300,19 @@ export async function syncSettings(
       result.error = e instanceof Error ? e.message : String(e);
       if (isMissingSettingsTable(e)) result.tableMissing = true;
     }
+  }
+
+  // A settings file this build cannot write is a real, lasting condition — it
+  // persists until the user updates this device — and it is invisible from the
+  // UI: the preference simply stops following the account. Said once, for the
+  // same reason `warnedNoTable` is said once.
+  if (result.future.length > 0 && !warnedFutureFormat) {
+    warnedFutureFormat = true;
+    console.warn(
+      `These settings were written by a newer version of Ziro Designer and are ` +
+        `read-only on this device: ${result.future.join(', ')}. ` +
+        `Changes made here will not reach your account until this device is updated.`,
+    );
   }
 
   return result;
