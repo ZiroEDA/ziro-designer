@@ -44,8 +44,19 @@ MUTANTS = [
      '  const r = AWG_RADIUS_M[n + 3];\n  return r === undefined ? NaN : r * 2;',
      '  return 0.000127 * 92 ** ((36 - n) / 39);',
      'pcb_calculator', ['unittests/designer/calc_e2e_power.test.tsx']),
-    ('unit switch converts', 'designer/src/editors/calculator/fields.tsx',
-     'export function NumField(', 'export function NumFieldRenamedByMutant(',
+    # KiCad's UNIT_SELECTOR recalculates and does not rewrite the entry. Make it
+    # convert the text instead - the behaviour we used to have.
+    ('unit switch converts the number', 'designer/src/editors/calculator/fields.tsx',
+     '''  const switchUnit = (nextIdx: number): void => {
+    if (onUnitIdx) onUnitIdx(nextIdx);
+    else setOwnIdx(nextIdx);
+  };''',
+     '''  const switchUnit = (nextIdx: number): void => {
+    const nextMult = units[nextIdx]?.mult ?? 1;
+    emit(printfG((parseNum(text) * mult) / nextMult, digits));
+    if (onUnitIdx) onUnitIdx(nextIdx);
+    else setOwnIdx(nextIdx);
+  };''',
      'designer', ['unittests/designer/calc_e2e_power.test.tsx']),
     ('transline result space', 'designer/src/editors/calculator/panels/panel_transline.tsx',
      "v == null ? '' : `${printfG(v)} ${unit}`;",
