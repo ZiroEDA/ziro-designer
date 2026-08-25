@@ -5,9 +5,18 @@
  * Settings following the account rather than the browser.
  *
  * `SETTINGS_MANAGER` writes each settings file to a path under
- * `SETTINGS_LOC::USER` (settings_manager.cpp:190-209) and stops there, because
- * upstream is one machine with one home directory. The reconciliation is ours;
- * the version discipline is upstream's and is pinned below in both directions —
+ * `SETTINGS_LOC::USER` (settings_manager.cpp:190-209), which is one file per
+ * user per installation, however KiCad is launched. localStorage cannot express
+ * that on its own — it is scoped per browser profile, so one person on one
+ * computer gets a different `eeschema.json` in Chrome than in Firefox — so the
+ * account is what `SETTINGS_LOC::USER` maps to in a hosted build, and this is
+ * the port of it rather than a departure from it. (A build with auth disabled
+ * has no account and lives in localStorage; that is that deployment's design,
+ * not a degraded hosted one.)
+ *
+ * The *reconciliation* is the part with no upstream counterpart: one machine
+ * with one home directory has no notion of two copies that disagree. The
+ * version discipline is upstream's and is pinned below in both directions —
  * a row older than this build is migrated on the way in
  * (`JSON_SETTINGS::Migrate`, json_settings.cpp:714-750), a row newer than this
  * build is read and never written over (`m_isFutureFormat`,
@@ -238,6 +247,10 @@ describe('the same workspace on another device', () => {
       // The complaint this whole feature answers: mm/mils resetting.
       s.system.units = 'mm';
     });
+    a.updateBitmap2Cmp((s) => {
+      s.threshold = 73;
+      s.negative = true;
+    });
     a.updatePrivacy((s) => {
       s.crash_reports = false;
     });
@@ -262,6 +275,8 @@ describe('the same workspace on another device', () => {
     expect(b.eeschema.appearance.show_hidden_pins).toBe(true);
     expect(b.pcbnew.printing.scale).toBe(2.5);
     expect(b.plEditor.system.units).toBe('mm');
+    expect(b.bitmap2cmp.threshold).toBe(73);
+    expect(b.bitmap2cmp.negative).toBe(true);
     expect(b.privacy.crash_reports).toBe(false);
     expect(b.userColors).toEqual({ wire: 'rgb(1, 2, 3)' });
     expect(b.hotkeys).toEqual({ 'eeschema.save': 'Ctrl+Alt+S' });
@@ -798,6 +813,7 @@ describe('the per-slice stamps', () => {
     a.updateEeschema(() => undefined);
     a.updatePcbnew(() => undefined);
     a.updatePlEditor(() => undefined);
+    a.updateBitmap2Cmp(() => undefined);
     a.updatePrivacy(() => undefined);
     a.setUserColors({});
     a.setHotkeys({});
@@ -811,9 +827,11 @@ describe('the per-slice stamps', () => {
     // list to itself is an expectation computed by calling the code under test:
     // drop a slice from the list AND from the manager and both sides shrink
     // together, which is green. These are KiCad's settings-file basenames —
-    // common.json, eeschema.json, pcbnew.json, pl_editor.json, colors/user.json,
-    // user.hotkeys — plus `privacy`, which has no upstream counterpart.
+    // common.json, eeschema.json, pcbnew.json, pl_editor.json,
+    // bitmap2component.json, colors/user.json, user.hotkeys — plus `privacy`,
+    // which has no upstream counterpart.
     const expected: SettingsSlice[] = [
+      'bitmap2component',
       'colors.user',
       'common',
       'eeschema',
