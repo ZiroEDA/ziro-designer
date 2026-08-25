@@ -147,7 +147,7 @@ describe('a row for an action the frame has greyed out', () => {
     renderPcb();
     fireEvent.contextMenu(screen.getByRole('button', { name: /show grid/i }));
     const row = (label: string): Element =>
-      [...document.querySelectorAll('.ze-mitem')].find((e) => e.textContent === label)!;
+      Array.from(document.querySelectorAll('.ze-mitem')).find((e) => e.textContent === label)!;
     expect(row('Grid Origin...').className).toContain('disabled');
     expect(row('Edit Grids...').className).not.toContain('disabled');
   });
