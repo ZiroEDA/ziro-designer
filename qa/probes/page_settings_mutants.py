@@ -50,6 +50,9 @@ class Mutant:
     typecheck: list[str] = field(default_factory=lambda: ["designer"])
 
 
+WRAPPER = "designer/src/dialogs/dialog_eeschema_page_settings.tsx"
+SCH = "designer/src/editors/schematic/SchematicEditor.tsx"
+
 MUTANTS: list[Mutant] = [
     Mutant(
         "max-page-size-per-frame",
@@ -236,6 +239,48 @@ MUTANTS: list[Mutant] = [
         [FONT_SUITE, CV_SUITE],
         why="proves the merged file is still inside the ratchets' scan after the "
         "drawing-sheet copy was deleted from one of their file lists",
+    ),
+    # ---- the export ticks' round-trip, and the base/subclass split --------
+    Mutant(
+        "paper-tick-guarded",
+        MODEL,
+        "  return {\n    paper: stored.paper,\n    date: ifSet(value.date, stored.date),",
+        "  return {\n    paper: ifSet(value.date, stored.paper),\n    date: ifSet(value.date, stored.date),",
+        [SUITE],
+        why="m_PaperExport is the one line with no IsEmpty() guard, "
+        "dialog_eeschema_page_settings.cpp:111",
+    ),
+    Mutant(
+        "seed-ignores-empty-guard",
+        MODEL,
+        "  const ifSet = (text: string, flag: boolean): boolean => (text ? flag : false);",
+        "  const ifSet = (_text: string, flag: boolean): boolean => flag;",
+        [SUITE],
+        why="`m_TextRevision->GetValue().IsEmpty() ? false : cfg->…`, :112-124",
+    ),
+    Mutant(
+        "write-back-unguarded",
+        MODEL,
+        "  const keep = (text: string, next: boolean, was: boolean): boolean => (text ? next : was);",
+        "  const keep = (_text: string, next: boolean, _was: boolean): boolean => next;",
+        [SUITE],
+        why="twelve are written back only if the field is non-empty, :44-81",
+    ),
+    Mutant(
+        "wrapper-drops-the-seed",
+        WRAPPER,
+        "      exports={pageExportsFromSettings(stored, value)}",
+        "      exports={stored}",
+        [SUITE],
+        why="onTransferDataToWindow applies the guard, :112-124",
+    ),
+    Mutant(
+        "wrapper-opens-the-base-class-raw",
+        SCH,
+        "              <DialogEeschemaPageSettings",
+        "              <DialogPageSettings\n                frame=\"eeschema\"",
+        [SUITE],
+        why="eeschema opens the SUBCLASS; the base has no settings round-trip",
     ),
 ]
 
