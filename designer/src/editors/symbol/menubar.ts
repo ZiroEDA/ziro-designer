@@ -171,9 +171,15 @@ export function symbolEditorMenus(
         // SCH_ACTIONS::saveLibraryAs (sch_actions.cpp:178), Ctrl+Shift+S.
         stub('Save Library As...', 'saveLibraryAs', { shortcut: 'Ctrl+Shift+S' }),
         act('New Symbol...', 'newSymbol', { shortcut: browserSafeKey('Ctrl+N') }),
-        // ENABLE( isSymbolFromSchematicCond ) (:535) — greyed unless this
-        // frame was opened on a symbol that lives in a schematic.
-        act('Edit Library Symbol...', 'editLibSymbolWithLibEdit', {
+        // ENABLE( isSymbolFromSchematicCond ) (:535) — live only when this
+        // frame was opened on a symbol that lives in a schematic, which now
+        // does happen (the schematic hands one over). The row stays a `stub`
+        // all the same: nothing here opens the LIBRARY copy of a borrowed
+        // symbol yet, and a row that lights up and does nothing is worse than
+        // one that stays greyed. `symbolFromSchematic` is not idle — it is
+        // what makes Save All below disappear, exactly as upstream does — so
+        // the condition is wired even though this row cannot use it.
+        stub('Edit Library Symbol...', 'editLibSymbolWithLibEdit', {
           shortcut: 'Ctrl+Shift+E',
         }),
         SEP,
@@ -265,8 +271,12 @@ export function symbolEditorMenus(
         // actions.cpp:717 — WXK_HOME. (Ctrl+0 is nowhere in this action.)
         act('Zoom to Fit', 'zoomFitScreen', { shortcut: 'Home' }),
         stub('Zoom to Selection Area', 'zoomTool', { shortcut: 'Ctrl+F5' }),
-        // actions.cpp:705 — WXK_F5, not Ctrl+R.
-        stub('Refresh', 'zoomRedraw', { shortcut: 'F5' }),
+        // actions.cpp:705 — WXK_F5, not Ctrl+R. `ACTIONS::zoomRedraw` gets no
+        // SetConditions, so the row is live; it was a `stub` here while the
+        // top toolbar's Redraw View button — the same action, the same id —
+        // was live and working, which is the drift a table keyed by action id
+        // exists to stop.
+        act('Refresh', 'zoomRedraw', { shortcut: 'F5' }),
         SEP,
         chk('Show Hidden Pins', 'showHiddenPins'),
         chk('Show Hidden Fields', 'showHiddenFields'),

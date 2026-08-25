@@ -670,7 +670,6 @@ describe('the menu bar reads the table', () => {
     ['Delete', 'isEditable'],
     ['Pin Table...', 'isEditable'],
     ['Show Datasheet', 'haveDatasheet'],
-    ['Edit Library Symbol...', 'symbolFromSchematic'],
     ['Draw Pins', 'isEditable'],
     ['Draw Text', 'isEditable'],
     ['Draw Rectangles', 'isEditable'],
@@ -698,6 +697,7 @@ describe('the menu bar reads the table', () => {
       'New Symbol...',
       'Save',
       'Symbol Checker',
+      'Refresh',
       'Revert',
       'Undo',
       'Delete',
@@ -717,6 +717,10 @@ describe('the menu bar reads the table', () => {
       // `checkSymbol` is never named by setupUIConditions (`runERC` is, and is
       // a different action), so it keeps the ShowAlways default.
       'Symbol Checker': true,
+      // `ACTIONS::zoomRedraw` — also never named, and the toolbar's Redraw
+      // View button beside it was already live and working while this row was
+      // a permanently greyed stub.
+      Refresh: true,
       // Everything else is gated and the frame is cold.
       Revert: false,
       Undo: false,

@@ -1514,6 +1514,11 @@ export function SymbolEditor({
         case 'zoomFitScreen':
           controller.current?.zoomToFit();
           break;
+        // ACTIONS::zoomRedraw, the same handler the toolbar's Redraw View
+        // button already had.
+        case 'zoomRedraw':
+          controller.current?.zoomToFit();
+          break;
         case 'showDatasheet':
           showDatasheet();
           break;
