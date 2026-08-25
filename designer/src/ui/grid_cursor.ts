@@ -254,6 +254,47 @@ export function gridDotSize(width: number): number {
   return Math.floor(width / 2) + Math.ceil(width / 2);
 }
 
+/**
+ * Which line of the retained lattice sits ON an axis, and so must not be drawn.
+ *
+ * `OPENGL_GAL::DrawGrid` tests it per line, on the world coordinate rather than
+ * on the index (`common/gal/opengl/opengl_gal.cpp:2000-2004` for the rows and
+ * `:2027-2031` for the columns):
+ *
+ *     const double y = j * gridScreenSize.y + m_gridOrigin.y;
+ *
+ *     // If axes are drawn, skip the lines that would cover them
+ *     if( m_axesEnabled && y == 0.0 )
+ *         continue;
+ *
+ * The axes are painted BEFORE the grid (`:1919-1928`), so without the skip the
+ * grid line would overpaint the axis it lies under. `CAIRO_GAL_BASE::DrawGrid`
+ * carries the identical two tests (`common/gal/cairo/cairo_gal.cpp:1825-1827`,
+ * `:1839-1841`), so for LINES the two backends agree and the rule does not
+ * depend on which one is running.
+ *
+ * Our lattice is retained anchor-relative and translated, so the *local* index
+ * of that line moves as the view pans; this converts. `anchor` is the global
+ * node index the path's origin sits on and `dir` is +1, or -1 on a mirrored
+ * axis, matching the walk in {@link drawGrid}. Returns null when no line can
+ * land on the axis at all — which is every case where `origin` is not a whole
+ * number of steps from zero, exactly as the `== 0.0` test decides upstream.
+ */
+export function axisLineIndex(
+  anchor: number,
+  dir: number,
+  step: number,
+  origin: number,
+): number | null {
+  if (!(step > 0)) return null;
+  const j = Math.round(-origin / step);
+  // Upstream's test, evaluated for the only index that can satisfy it. Written
+  // as the same product-and-sum so a grid origin that is a hair off a step
+  // fails here for the same floating-point reason it fails in the C++.
+  if (j * step + origin !== 0) return null;
+  return (j - anchor) * dir;
+}
+
 /** A line segment in device pixels. */
 export interface Segment {
   x1: number;
@@ -409,12 +450,8 @@ export function drawGrid(
 
   // "Draw axes if desired" runs before the grid-visibility test upstream
   // (cairo_gal.cpp:1773-1781, opengl_gal.cpp:1919-1928), so the axes survive
-  // Show Grid being off.
-  //
-  // Known deviation: with LINES and axes both on, upstream skips the grid line
-  // that would cover an axis (`if( m_axesEnabled && y == 0.0 ) continue`). Our
-  // lattice is a retained path that knows only its own anchor, so we do not;
-  // a coarse grid line at zero overdraws the axis.
+  // Show Grid being off. Because they go down FIRST, the lattice would cover
+  // them; `axisLineIndex` below is how upstream stops it.
   //
   // The settings flag `grid.axes_enabled` defaults FALSE in every app
   // (`common/settings/app_settings.cpp:459-460`), but GerbView does not go
@@ -476,7 +513,44 @@ export function drawGrid(
 
   const { minor: minorW, major: majorW } = gridPenWidths(lineWidthPx, dpr);
 
-  const key = `${style}|${pitch}|${cols}x${rows}|${widthPx}x${heightPx}|${minorW}`;
+  /**
+   * The lattice line that lies on each axis, as a local index into the
+   * retained path — see {@link axisLineIndex}.
+   *
+   * SMALL_CROSS is deliberately excluded. Upstream's skip lives only in the
+   * line branch; the cross branch (`opengl_gal.cpp:1973-1993`) has no such
+   * test, so the cross at the origin paints over the axes. **Measured** on
+   * this machine against the installed KiCad 10.0.5, with GerbView — the one
+   * frame that turns the axes on without a preference
+   * (`gerbview/gerbview_frame.cpp:188-191`) — captured at each of the three
+   * styles (`qa/probes/grid_axis_skip/measure.py`). The axes there are the
+   * GAL's own `SetAxesColor( COLOR4D( BLUE ) )` and painted as rgb(0,0,132)
+   * against a rgb(132,132,132) grid, so which one survives is readable pixel
+   * by pixel:
+   *
+   *   LINES   the axis column is unbroken blue for the full canvas height,
+   *           interrupted only where the OTHER axis' perpendicular grid lines
+   *           cross it, and the crossing pixel itself is blue;
+   *   DOTS    the row and the column of dots on the axes are absent entirely
+   *           — the dot columns ran ..., 817, 835, [853 skipped], 871, 889 at
+   *           a 17.8 px pitch — which is CAIRO's behaviour ruled out, since
+   *           its dots branch has no skip at all. OpenGL draws a dots grid as
+   *           the stencil intersection of these same two line loops, so the
+   *           skip removes the whole row and column;
+   *   CROSSES the crossing pixel is rgb(132,132,132): the cross at the origin
+   *           overpainted the axes.
+   *
+   * So the skip applies to LINES and DOTS and not to CROSSES, and the backend
+   * that is running is OpenGL.
+   */
+  const axisCol = opts.axes && style !== 'crosses' ? axisLineIndex(iA, dirX, step, ox) : null;
+  const axisRow = opts.axes && style !== 'crosses' ? axisLineIndex(jA, dirY, step, oy) : null;
+  // Only an on-screen axis changes the geometry, so an axis panned out of view
+  // leaves the cache key alone rather than churning the retained path.
+  const skipCol = axisCol !== null && axisCol >= 0 && axisCol <= cols ? axisCol : null;
+  const skipRow = axisRow !== null && axisRow >= 0 && axisRow <= rows ? axisRow : null;
+
+  const key = `${style}|${pitch}|${cols}x${rows}|${widthPx}x${heightPx}|${minorW}|${skipCol},${skipRow}`;
   let geom = geomCache.get(ctx);
   if (!geom || geom.key !== key) {
     const minorPath = new Path2D();
@@ -489,12 +563,14 @@ export function drawGrid(
       // (cairo_gal.cpp:1819-1846): a horizontal line is coarse on its own row
       // index and a vertical one on its own column index.
       for (let l = 0; l <= rows; l++) {
+        if (l === skipRow) continue;
         const y = l * pitch;
         const p = l % GRID_TICK === 0 ? majorPath : minorPath;
         p.moveTo(0, y);
         p.lineTo(w, y);
       }
       for (let k = 0; k <= cols; k++) {
+        if (k === skipCol) continue;
         const x = k * pitch;
         const p = k % GRID_TICK === 0 ? majorPath : minorPath;
         p.moveTo(x, 0);
@@ -529,9 +605,13 @@ export function drawGrid(
       // mark, a coarse row a taller one, a coarse crossing a big square. Ours
       // fills them as rectangles in one pass, which is the same picture.
       for (let k = 0; k <= cols; k++) {
+        // A dot exists only where a stencilled row and a drawn column cross,
+        // so a skipped line takes its whole row or column of marks with it.
+        if (k === skipCol) continue;
         const x = k * pitch;
         const sw = k % GRID_TICK === 0 ? majorW : minorW;
         for (let l = 0; l <= rows; l++) {
+          if (l === skipRow) continue;
           const sh = l % GRID_TICK === 0 ? majorW : minorW;
           // Each point is snapped, as `drawGridPoint` snaps each one — not the
           // path as a whole. Rounding only the translate would leave every
