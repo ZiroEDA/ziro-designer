@@ -223,7 +223,30 @@ export function resEquivCalc(
       buffer2R.push(parallelResistanceSimple(buffer1R[i1]!, buffer1R[i2]!));
     }
   }
-  buffer2R.sort((a, b) => a.value - b.value);
+  // KiCad sorts this buffer by VALUE only (`operator<( const RESISTANCE&,
+  // const RESISTANCE& )`), and `std::sort` is not stable, so which member of an
+  // exactly-tied cluster ends up first is unspecified. It matters, because
+  // `findIn2RBuffer` only ever inspects the two entries either side of
+  // `lower_bound`: every other member of the cluster is invisible to the
+  // search. For E6 at 3.65 k, 150R + 1K5 and 3K3 | 3K3 are both exactly 1650 Ω,
+  // and whichever libstdc++ happens to place first decides the answer.
+  //
+  // We cannot reproduce an unspecified order, so we resolve it with KiCad's own
+  // stated preference - `betterCandidate`: fewest distinct resistor values,
+  // then fewest resistors, then the lexicographically smaller formula. That
+  // makes the arbitrary half of the algorithm deterministic and lands on the
+  // candidate upstream itself ranks first. Measured: it reproduces all six
+  // solution cells for E3, E6 and E24 at 3.65 kΩ, where sorting by value alone
+  // reproduced four.
+  const tieKey = new Map<Resistance, string>();
+  for (const r of buffer2R)
+    tieKey.set(r, `${uniqueCount(r)}\u0000${r.parts.length}\u0000${r.name}`);
+  buffer2R.sort((a, b) => {
+    if (a.value !== b.value) return a.value - b.value;
+    const ka = tieKey.get(a) ?? '';
+    const kb = tieKey.get(b) ?? '';
+    return ka < kb ? -1 : ka > kb ? 1 : 0;
+  });
 
   const findIn2RBuffer = (target: number): [Resistance, Resistance] => {
     if (Number.isNaN(target)) return [buffer2R[0]!, buffer2R[0]!];

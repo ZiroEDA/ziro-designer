@@ -1,0 +1,74 @@
+{
+  "transline/MicroStrip/W3_H1.6_1GHz": {
+    "H": "1.6",
+    "W": "3.0",
+    "Z0": "49.2446",
+    "Ang_l": "1.9435",
+    "results": {
+      "11.0.0": "Effective εr:",
+      "11.0.1": "3.43962 ",
+      "11.0.2": "Unit propagation delay:",
+      "11.0.3": "62.0274 ps/cm",
+      "11.0.4": "Conductor losses:",
+      "11.0.5": "0.015526 dB",
+      "11.0.6": "Dielectric losses:",
+      "11.0.7": "0.152295 dB",
+      "11.0.8": "Skin depth:",
+      "11.0.9": "2.0873 µm"
+    }
+  },
+  "transline/MicroStrip/W3_H1.6_1000MHz": {
+    "H": "1.6",
+    "W": "3.0",
+    "Z0": "49.2446",
+    "Ang_l": "1.9435",
+    "results": {
+      "11.0.0": "Effective εr:",
+      "11.0.1": "3.43962 ",
+      "11.0.2": "Unit propagation delay:",
+      "11.0.3": "62.0274 ps/cm",
+      "11.0.4": "Conductor losses:",
+      "11.0.5": "0.015526 dB",
+      "11.0.6": "Dielectric losses:",
+      "11.0.7": "0.152295 dB",
+      "11.0.8": "Skin depth:",
+      "11.0.9": "2.0873 µm"
+    }
+  },
+  "transline/MicroStrip/W3_H1.6mil": {
+    "H": "1.6",
+    "W": "3.0",
+    "Z0": "2.29688",
+    "Ang_l": "2.18499",
+    "results": {
+      "11.0.0": "Effective εr:",
+      "11.0.1": "4.34751 ",
+      "11.0.2": "Unit propagation delay:",
+      "11.0.3": "69.7347 ps/cm",
+      "11.0.4": "Conductor losses:",
+      "11.0.5": "0.490892 dB",
+      "11.0.6": "Dielectric losses:",
+      "11.0.7": "0.186708 dB",
+      "11.0.8": "Skin depth:",
+      "11.0.9": "2.0873 µm"
+    }
+  },
+  "transline/MicroStrip/W118.11mil_H1.6": {
+    "H": "1.6",
+    "W": "118.11",
+    "Z0": "49.2447",
+    "Ang_l": "1.9435",
+    "results": {
+      "11.0.0": "Effective εr:",
+      "11.0.1": "3.43962 ",
+      "11.0.2": "Unit propagation delay:",
+      "11.0.3": "62.0274 ps/cm",
+      "11.0.4": "Conductor losses:",
+      "11.0.5": "0.0155261 dB",
+      "11.0.6": "Dielectric losses:",
+      "11.0.7": "0.152295 dB",
+      "11.0.8": "Skin depth:",
+      "11.0.9": "2.0873 µm"
+    }
+  }
+}

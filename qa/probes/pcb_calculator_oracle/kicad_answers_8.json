@@ -1,0 +1,17 @@
+{
+  "track_width/ext_width_unit_mil": {
+    "W": "108.879",
+    "W_unit": "mil",
+    "area": "150.03",
+    "area_unit": "mil²",
+    "R": "0.00355397",
+    "Vdrop": "0.0177698",
+    "P": "0.0888492"
+  },
+  "track_width/ext_width_unit_inch": {
+    "W": "0.108879",
+    "area": "0.00015003",
+    "area_unit": "inch²",
+    "R": "0.00355397"
+  }
+}

@@ -131,8 +131,13 @@ function centeredFiniteThickness(
   // Finite-thickness single strip impedance via the stripline solver
   // (KiCad calcZ0SymmetricStripline: centred strip, tan δ = 0).
   const single = striplineAnalyze(
-    // Centred: `calcZ0SymmetricStripline` is by definition the symmetric case.
-    { widthM: w, heightM: h, thicknessM: t, lengthM: 1, offsetM: (h - t) / 2.0 },
+    // `calcZ0SymmetricStripline` sets the helper's STRIPLINE_A to `H / 2.0`
+    // exactly (coupled_stripline.cpp:381) - the plate spacing halved, NOT the
+    // strip centred between the plates with its own thickness taken out. We
+    // passed `(h - t) / 2`, which for the shipped defaults is 0.0825 mm against
+    // KiCad's 0.1 mm, and both mode impedances came out ~0.8 Ohm high:
+    // Zeven 23.9622 against 23.1736, Zodd 23.3685 against 22.6178.
+    { widthM: w, heightM: h, thicknessM: t, lengthM: 1, offsetM: h / 2.0 },
     { ...el, tanD: 0.0 },
   );
   const z0WHtH = single.z0;

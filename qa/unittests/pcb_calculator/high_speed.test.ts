@@ -3,6 +3,7 @@
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 import { describe, expect, it } from 'vitest';
 import {
+  printfG,
   ATTENUATORS,
   AttenuatorType,
   calculateAttenuator,
@@ -218,12 +219,25 @@ describe('rectangular waveguide', () => {
     expect(r.teModes).toContain('H(1,0)');
   });
 
-  it('below cutoff reports NaN', () => {
+  it('below cutoff, Z0 is ZERO and only Z0EH goes non-finite', () => {
     const r = rectWaveguideAnalyze(
       { aM: 22.86e-3, bM: 10.16e-3, lengthM: 0.1 },
       { ...el, frequencyHz: 1e9, epsilonR: 1 },
     );
-    expect(Number.isNaN(r.z0)).toBe(true);
+    // This asserted `Number.isNaN(r.z0)`, which was our behaviour and not
+    // KiCad's. An evanescent guide zeroes Z0, the electrical angle, the
+    // effective permittivity and the dielectric loss, and reports only the
+    // cutoff conductor loss (rectwaveguide.cpp:268-274) - the real panel prints
+    // "0" in the Z0 box, not "nan". Measured in
+    // qa/probes/pcb_calculator_oracle, case
+    // `rectwaveguide/a10_b5_1GHz_er4.5`: Z0 "0", Ang_l "0", effective εr "0 ",
+    // dielectric losses "0 dB", ZF(H10) "-nan Ohm".
+    expect(r.z0).toBe(0);
+    expect(r.angleDeg).toBe(0);
+    expect(r.epsEff).toBe(0);
+    expect(r.dielectricLossDb).toBe(0);
+    expect(printfG(r.z0EH)).toBe('-nan');
+    expect(r.conductorLossDb).toBeGreaterThan(0);
   });
 });
 
@@ -290,7 +304,13 @@ describe('coupled microstrip', () => {
     expect(r.extra.z0Even).toBeGreaterThan(r.extra.z0Odd);
     expect(r.extra.coupling).toBeGreaterThan(0);
     expect(r.extra.coupling).toBeLessThan(1);
-    expect(r.extra.zDiff).toBeCloseTo(2 * r.extra.z0Odd, 9);
+    // NOT `2 * r.extra.z0Odd`, which was an expectation computed from the code
+    // under test and passed while zDiff was doubling the wrong variable.
+    // 96.2591 is what the installed pcb_calculator prints for this geometry -
+    // qa/probes/pcb_calculator_oracle, case
+    // `c_microstrip/er4.5_W0.3_S0.2_H0.2_T0.035_L50`, whose Zodd box reads
+    // 48.0825 at the same moment.
+    expect(printfG(r.extra.zDiff)).toBe('96.2591');
   });
 
   it('matches the ported KiCad model (regression pin)', () => {

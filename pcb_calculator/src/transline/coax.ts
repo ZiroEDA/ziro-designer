@@ -46,25 +46,44 @@ function modeCutoffs(
   freq: number,
 ): { te11: number; te: string; tm: string } {
   const sqrtMuEr = Math.sqrt(epsr * mur);
+  // The physical TE11 cutoff, which is what `extra.te11CutoffHz` reports and
+  // what the KiCad QA vector for this line checks. It is NOT what upstream uses
+  // to build the two mode LISTS below.
   const fcTE11 = (2.0 * C0) / (Math.PI * sqrtMuEr * (din + dout));
-  const fcStep = C0 / (sqrtMuEr * (dout - din));
 
-  let te = '';
+  // The lists are upstream's, verbatim (coax.cpp:221-271). Read the arithmetic
+  // twice: both cutoffs come from `PHYS_DIAM_OUT_PRM ± MUR_PRM` - the
+  // dimensionless RELATIVE PERMEABILITY added to, and subtracted from, a
+  // diameter in metres. `PHYS_DIAM_IN_PRM` is plainly what was meant; the two
+  // enum names sit next to each other. The consequence is on screen: for any
+  // real cable `Dout - mur` is about -1, so every higher-order cutoff comes out
+  // negative, compares <= f, and the panel lists `H(1,1) H(n,2) … H(n,9)` and
+  // `E(n,1) … E(n,9)` at ANY frequency - the shipped 1 mm / 8 mm coax at 1 GHz
+  // included. Note the labels are `H(n,m)` and `E(n,m)`, with a literal `n`.
+  //
+  // We mirror it, as we mirror the mile-in-metres behind Wavelength's mi/h and
+  // the transposed nibble in the E48 colours. Correcting upstream is exactly
+  // how a user starts being able to tell the two windows apart.
+  let te: string;
   let tm = '';
-  if (fcTE11 <= freq) {
+  if (C0 / ((Math.PI * (dout + mur)) / 1.0) > freq) {
+    te = 'none';
+  } else {
     te = 'H(1,1) ';
     for (let m = 2; m < 10; m++) {
-      const fc = fcTE11 + (m - 1) * fcStep;
-      if (fc > freq) break;
-      te += `H(1,${m}) `;
+      if (C0 / ((2.0 * (dout - mur)) / (m - 1)) > freq) break;
+      te += `H(n,${m}) `;
     }
   }
-  for (let m = 1; m < 10; m++) {
-    const fc = m * fcStep;
-    if (fc > freq) break;
-    tm += `E(0,${m}) `;
+  if (C0 / ((2.0 * (dout - mur)) / 1.0) > freq) {
+    tm = 'none';
+  } else {
+    for (let m = 1; m < 10; m++) {
+      if (C0 / ((2.0 * (dout - mur)) / m) > freq) break;
+      tm += `E(n,${m}) `;
+    }
   }
-  return { te11: fcTE11, te: te.trim() || 'none', tm: tm.trim() || 'none' };
+  return { te11: fcTE11, te, tm };
 }
 
 export function coaxAnalyze(phys: CoaxPhysical, el: TcElectrical): CoaxResult {
