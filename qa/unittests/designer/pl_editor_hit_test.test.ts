@@ -4,6 +4,7 @@
  * pl_editor's three hit-test thresholds and the one place-tool rule that goes
  * with them. Every number here is read off the C++, not off our own code.
  */
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
   DELETE_THRESHOLD_PX,
@@ -89,5 +90,38 @@ describe('arming a tool and the selection (pl_drawing_tools.cpp:77, :243)', () =
   it('leaves it alone for the select, zoom and delete tools', () => {
     for (const id of ['select', 'zoomTool', 'dsDelete', 'appendSheet'])
       expect(toolClearsSelection(id)).toBe(false);
+  });
+});
+
+/**
+ * The rule above is PER CALL SITE, and the constants alone cannot pin it: a
+ * call site that goes back to a bare `6` leaves every assertion above passing.
+ * These are source guards, so they pin spelling rather than behaviour — which
+ * is the most a rule living inside a `.tsx` can be given here, and better than
+ * the six literals that were there.
+ */
+describe('every hit test in the canvas asks for one of the three', () => {
+  const src = readFileSync(
+    new URL('../../../designer/src/editors/drawingsheet/DrawingSheetCanvas.tsx', import.meta.url),
+    'utf8',
+  );
+
+  it('has no bare pixel tolerance left', () => {
+    // The shape the six call sites used to have: `(6 * dpr) / \u2026scale`.
+    expect(src).not.toMatch(/\(\s*\d+(\.\d+)?\s*\*\s*dpr\s*\)\s*\/\s*view/);
+  });
+
+  it('names a threshold constant at every one of them', () => {
+    const calls = [...src.matchAll(/thresholdToWorld\(\s*([A-Za-z_][A-Za-z0-9_]*)/g)].map(
+      (m) => m[1] as string,
+    );
+    expect(calls).toHaveLength(6);
+    for (const name of calls)
+      expect(['SELECT_THRESHOLD_PX', 'DELETE_THRESHOLD_PX', 'EDIT_POINT_SIZE_PX']).toContain(name);
+    // Three picks, two delete-tool hovers, one point-editor grab — the split
+    // the C++ has.
+    expect(calls.filter((n) => n === 'SELECT_THRESHOLD_PX')).toHaveLength(3);
+    expect(calls.filter((n) => n === 'DELETE_THRESHOLD_PX')).toHaveLength(2);
+    expect(calls.filter((n) => n === 'EDIT_POINT_SIZE_PX')).toHaveLength(1);
   });
 });

@@ -7,6 +7,7 @@
  * Every expectation here is derived from the C++, never from calling the code
  * under test.
  */
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
   captureUndoItem,
@@ -288,5 +289,59 @@ describe('the sequence a user actually performs', () => {
     expect(r?.item.page).toBe(PAGE_A);
     // and Redo puts PAGE_B back.
     expect(getLayoutFromRedoList(s, L('a'), [], PAGE_A)?.item.page).toBe(PAGE_B);
+  });
+});
+
+/**
+ * The rules above are executable because they live in a `.ts`. What is NOT
+ * executable here is the wiring: that the frame's Undo row runs
+ * `getLayoutFromUndoList` and its Cancel runs `rollbackFromUndo` rather than
+ * something of its own. These are source guards over `DrawingSheetEditor.tsx`,
+ * which `qa` cannot import — they pin spelling, not behaviour, and they exist
+ * because every one of the three bugs above was a CALL SITE that quietly did
+ * the wrong thing while the module beside it was fine.
+ */
+describe('the frame runs these rules and not its own', () => {
+  const src = readFileSync(
+    new URL('../../../designer/src/editors/drawingsheet/DrawingSheetEditor.tsx', import.meta.url),
+    'utf8',
+  );
+
+  it('has no hand-rolled undo/redo arrays left', () => {
+    expect(src).not.toMatch(/undoStack|redoStack/);
+  });
+
+  /** All three pops go through the module; the rollback one is used four times. */
+  it('pops through the module at every call site', () => {
+    expect(src).toMatch(/getLayoutFromUndoList\(/);
+    expect(src).toMatch(/getLayoutFromRedoList\(/);
+    expect(src).toMatch(/rollbackFromUndo\(/);
+  });
+
+  /**
+   * `PL_EDITOR_CONTROL::PageSetup` pushes the copy BEFORE the dialog opens and
+   * Cancel rolls it back (pl_editor_control.cpp:92, :103). The dialog must not
+   * be openable without that push, so nothing may call `setShowPageDialog(true)`
+   * except `pageSetup`.
+   */
+  it('opens Page Preview Settings only through pageSetup', () => {
+    const opens = [...src.matchAll(/setShowPageDialog\(true\)/g)];
+    expect(opens).toHaveLength(1);
+    expect(src).toMatch(
+      /const pageSetup = useCallback\(\(\) => \{\s*saveCopy\(previewRef\.current\);\s*setShowPageDialog\(true\);/,
+    );
+  });
+
+  /** Escaping a placement is the rollback, never the plain undo. */
+  it('cancels an in-flight shape with rollback', () => {
+    expect(src).toMatch(/const cancelDrawing = useCallback\(\(\) => \{[\s\S]*?rollback\(\);/);
+    expect(src).not.toMatch(/const cancelDrawing = useCallback\(\(\) => \{[\s\S]*?\n {4}undo\(\);/);
+  });
+
+  /** Both rows carry an enable condition read from the depths. */
+  it('greys Undo and Redo from the history depths', () => {
+    expect(src).toMatch(/disabled: !undoEnabled\(historyDepth\)/);
+    expect(src).toMatch(/disabled: !redoEnabled\(historyDepth\)/);
+    expect(src).toMatch(/disabledIds=\{toolbarDisabledIds\(historyDepth\)\}/);
   });
 });
