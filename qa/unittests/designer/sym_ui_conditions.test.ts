@@ -57,6 +57,7 @@ import {
   type SymbolMenuHandlers,
 } from '@ziroeda/designer/src/editors/symbol/menubar.js';
 import type { Menu, MenuItem } from '@ziroeda/designer/src/ui/menu_types.js';
+import type { ToolEntry } from '@ziroeda/designer/src/ui/toolbar_types.js';
 
 // ---------------------------------------------------------------------------
 // 1. The table's membership
@@ -611,11 +612,19 @@ describe('the symbol-shape conditions', () => {
 });
 
 describe('the frame-state conditions', () => {
-  it('undo and redo follow their own stacks', () => {
-    expect(at({ undoCount: 0, redoCount: 3 }).undoAvailable).toBe(false);
-    expect(at({ undoCount: 0, redoCount: 3 }).redoAvailable).toBe(true);
-    expect(at({ undoCount: 2, redoCount: 0 }).undoAvailable).toBe(true);
-    expect(at({ undoCount: 2, redoCount: 0 }).redoAvailable).toBe(false);
+  /**
+   * `EDITOR_CONDITIONS::UndoAvailable` is `GetUndoCommandCount() > 0`
+   * (`common/tool/editor_conditions.cpp`), so ONE command is enough. The
+   * counts here are 0 and 1 and not 0 and 3, which is not a cosmetic choice: a
+   * `> 1` mutant survived a version of this test that used 3, because 3 > 1
+   * and 0 > 1 both give the right answer. The boundary is the only value that
+   * distinguishes the two.
+   */
+  it('undo and redo follow their own stacks, from the first command', () => {
+    expect(at({ undoCount: 0, redoCount: 1 }).undoAvailable).toBe(false);
+    expect(at({ undoCount: 0, redoCount: 1 }).redoAvailable).toBe(true);
+    expect(at({ undoCount: 1, redoCount: 0 }).undoAvailable).toBe(true);
+    expect(at({ undoCount: 1, redoCount: 0 }).redoAvailable).toBe(false);
   });
 
   /** `cond.NoActiveTool()` is `ToolStackIsEmpty()`; the selection tool is
@@ -770,6 +779,32 @@ describe('the toolbars read the same table', () => {
     'newSymbol',
   ])('%s stays live on a cold frame', (id) => {
     expect(symbolToolbarDisabledIds(SYM_TOP_TOOLBAR, NONE).has(id)).toBe(false);
+  });
+
+  /**
+   * `symbolToolbarDisabledIds` walks into an `AppendGroup` as well as over
+   * plain buttons. Nothing on any of this frame's three bars exercises that —
+   * the only two groups are the left bar's Units and Crosshair modes, whose
+   * actions are CHECK-only — so it takes a synthetic group to pin it, and
+   * without this a mutant that skipped groups entirely survived the sweep.
+   * The branch is not dead code waiting for a use: a group here is upstream's
+   * `TOOLBAR_GROUP_CONFIG`, and pcbnew puts gated actions inside them.
+   */
+  it('walks into a toolbar group, not just past it', () => {
+    const bar: ToolEntry[] = [
+      { id: 'save', icon: 'save' },
+      {
+        group: 'Edit',
+        actions: [
+          { id: 'mirrorH', icon: 'mirrorH' },
+          { id: 'rotateCW', icon: 'rotateCW' },
+        ],
+      },
+    ];
+    // isEditable false, isEditableInAlias true: the alias split, inside a group.
+    const alias: SymbolConditions = { ...ALL, isEditable: false };
+    expect([...symbolToolbarDisabledIds(bar, alias)]).toEqual(['mirrorH']);
+    expect([...symbolToolbarDisabledIds(bar, NONE)].sort()).toEqual(['mirrorH', 'rotateCW']);
   });
 
   /**
