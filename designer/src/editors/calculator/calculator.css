@@ -1147,9 +1147,13 @@ input.calc-input:disabled:not([type="checkbox"]):not([type="radio"]):not([type="
   margin: 0 0 var(--wx-border);
 }
 
-/* sbSizerTW_Help is a static box with NO title, added with proportion 1. */
+/* NOT a static box: m_htmlWinFormulas goes straight into bSizeLeft with
+   proportion 1 and wxEXPAND|wxALL 8 (panel_track_width_base.cpp:85-86). The
+   8 px is this item's own border and is wider than the 5 px the Parameters box
+   above it carries, which is why the help pane is inset further than the box. */
 .tw-help {
   flex: 1 1 auto;
+  margin: 8px; /* [data] wxEXPAND|wxALL, 8 (base:86) */
 }
 
 .fc-help {

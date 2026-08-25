@@ -19,9 +19,16 @@ import { BOARD_CLASS_COUNT, BOARD_CLASS_ROWS, printfG } from '@ziroeda/pcb_calcu
 import { type JSX, useState } from 'react';
 import { Combo } from '../../../ui/Combo.js';
 import { LEN_UNITS } from '../fields.js';
+import { useCalcSaveSettings } from '../calc_settings.js';
+import { settings } from '../../../prefs/settings.js';
 
 export function PanelBoardClass(): JSX.Element {
-  const [unitIdx, setUnitIdx] = useState(0);
+  // PANEL_BOARD_CLASS::LoadSettings / SaveSettings — `m_BoardClassUnits`, the
+  // one thing this page remembers (panel_board_class.cpp).
+  const [unitIdx, setUnitIdx] = useState(() => settings.pcbCalculator.board_class_units);
+  useCalcSaveSettings((s) => {
+    s.board_class_units = unitIdx;
+  });
   /** `m_BoardClassesUnitsSelector->GetUnitScale()`, a scale in METRES, and the
    *  table's own values are metres too (`0.8*UNIT_MM`). */
   const scale = LEN_UNITS[unitIdx]?.mult ?? 1e-3;

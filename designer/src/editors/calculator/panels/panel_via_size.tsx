@@ -8,14 +8,24 @@
 
 import { useMemo, useState, type CSSProperties, type JSX } from 'react';
 import {
-  COPPER_PLATING_RESISTIVITY_OHM_M,
   printfG,
   STANDARD_EPSILON_R_LIST,
   STANDARD_RESISTIVITY_LIST,
   viaSize,
 } from '@ziroeda/pcb_calculator';
 import { SingleChoiceDialog } from '../../../ui/dialog_single_choice.js';
-import { Field, Group, LEN_UNITS, NumField, RES_UNITS, ResultField } from '../fields.js';
+import {
+  Field,
+  Group,
+  LEN_UNITS,
+  NumField,
+  parseNum,
+  RES_UNITS,
+  ResultField,
+  type UnitOpt,
+} from '../fields.js';
+import { useCalcSaveSettings } from '../calc_settings.js';
+import { settings, type PcbCalculatorViaSize } from '../../../prefs/settings.js';
 
 /** Every result on this page is `wxString::Format( "%g", … )`. */
 const g = (v: number | undefined | false | null): string =>
@@ -41,38 +51,68 @@ function ViaDrawing(): JSX.Element {
   );
 }
 
+/**
+ * `OnViaResetButtonClick` (panel_via_size.cpp:126-149).
+ *
+ * Not the same strings as the settings defaults, and deliberately so: Reset
+ * writes each number through `wxString::Format( "%g", … )`, so the clearance
+ * diameter comes back as "1" where `via_size.clearance_diameter` opens as
+ * "1.0" (pcb_calculator_settings.cpp:265). Every selector goes back to index 0
+ * — `DEFAULT_UNIT_SEL_MM` / `DEFAULT_UNIT_SEL_OHM`.
+ */
+const VIA_SIZE_RESET: PcbCalculatorViaSize = {
+  hole_diameter: printfG(0.4),
+  hole_diameter_units: 0,
+  thickness: printfG(0.035),
+  thickness_units: 0,
+  length: printfG(1.6),
+  length_units: 0,
+  pad_diameter: printfG(0.6),
+  pad_diameter_units: 0,
+  clearance_diameter: printfG(1.0),
+  clearance_diameter_units: 0,
+  characteristic_impedance: printfG(50.0),
+  characteristic_impedance_units: 0,
+  applied_current: printfG(1.0),
+  plating_resistivity: printfG(1.72e-8),
+  permittivity: printfG(4.5),
+  temp_rise: printfG(10.0),
+  pulse_rise_time: printfG(1.0),
+};
+
+/** The field's number times its selector's scale — KiCad's `GetUnitScale()`. */
+const si = (text: string, units: UnitOpt[], idx: number): number =>
+  parseNum(text) * (units[idx]?.mult ?? 1);
+
+/** `m_staticTextRiseTimeUnits` is a static "ns" with a "nanoseconds" tooltip,
+ *  not a selector (panel_via_size_base.cpp:189-193). */
+const NS_UNIT: UnitOpt[] = [{ label: 'ns', mult: 1e-9, title: 'nanoseconds' }];
+
 export function PanelViaSize(): JSX.Element {
-  const [holeDiaM, setHoleDiaM] = useState(0.4e-3);
-  const [platingM, setPlatingM] = useState(0.035e-3);
-  const [lengthM, setLengthM] = useState(1.6e-3);
-  const [padDiaM, setPadDiaM] = useState(0.6e-3);
-  const [clearanceDiaM, setClearanceDiaM] = useState(1.0e-3);
-  const [z0Ohm, setZ0Ohm] = useState(50);
+  // PANEL_VIA_SIZE::LoadSettings / SaveSettings, all seventeen of them
+  // (panel_via_size.cpp:152-198). The panel's state IS the field text plus the
+  // selector index, which is what upstream stores.
+  const [vs, setVs] = useState<PcbCalculatorViaSize>(() => ({ ...settings.pcbCalculator.via_size }));
+  useCalcSaveSettings((s) => {
+    s.via_size = { ...vs };
+  });
+  const set = <K extends keyof PcbCalculatorViaSize>(k: K, v: PcbCalculatorViaSize[K]): void =>
+    setVs((p) => ({ ...p, [k]: v }));
+
   // The two `...` buttons (panel_via_size_base.cpp:136, 158). Each raises
   // wxGetSingleChoice and writes the chosen number into the field
   // (panel_via_size.cpp:87-110).
   const [picking, setPicking] = useState<'rho' | 'er' | null>(null);
-  const [current, setCurrent] = useState('1');
-  const [resistivity, setResistivity] = useState(String(COPPER_PLATING_RESISTIVITY_OHM_M));
-  const [er, setEr] = useState('4.5');
-  const [deltaT, setDeltaT] = useState('10');
-  const [riseTimeS, setRiseTimeS] = useState(1e-9);
 
-  // PANEL_VIA_SIZE::OnViaResetButtonClick (panel_via_size.cpp:130-149), which
-  // writes each default through `wxString::Format( "%g", … )`.
-  const resetDefaults = (): void => {
-    setHoleDiaM(0.4e-3);
-    setPlatingM(0.035e-3);
-    setLengthM(1.6e-3);
-    setPadDiaM(0.6e-3);
-    setClearanceDiaM(1.0e-3);
-    setZ0Ohm(50);
-    setCurrent(printfG(1));
-    setResistivity(printfG(1.72e-8));
-    setEr(printfG(4.5));
-    setDeltaT(printfG(10));
-    setRiseTimeS(1e-9);
-  };
+  const holeDiaM = si(vs.hole_diameter, LEN_UNITS, vs.hole_diameter_units);
+  const platingM = si(vs.thickness, LEN_UNITS, vs.thickness_units);
+  const lengthM = si(vs.length, LEN_UNITS, vs.length_units);
+  const padDiaM = si(vs.pad_diameter, LEN_UNITS, vs.pad_diameter_units);
+  const clearanceDiaM = si(vs.clearance_diameter, LEN_UNITS, vs.clearance_diameter_units);
+  const z0Ohm = si(vs.characteristic_impedance, RES_UNITS, vs.characteristic_impedance_units);
+  const riseTimeS = si(vs.pulse_rise_time, NS_UNIT, 0);
+
+  const resetDefaults = (): void => setVs({ ...VIA_SIZE_RESET });
 
   const r = useMemo(() => {
     const p = {
@@ -82,10 +122,10 @@ export function PanelViaSize(): JSX.Element {
       padDiaM,
       clearanceDiaM,
       z0Ohm,
-      epsilonR: Number(er) || 0,
-      currentA: Number(current) || 0,
-      resistivity: Number(resistivity) || 0,
-      deltaTC: Number(deltaT) || 0,
+      epsilonR: Number(vs.permittivity) || 0,
+      currentA: Number(vs.applied_current) || 0,
+      resistivity: Number(vs.plating_resistivity) || 0,
+      deltaTC: Number(vs.temp_rise) || 0,
       riseTimeS,
     };
     if (
@@ -105,10 +145,10 @@ export function PanelViaSize(): JSX.Element {
     padDiaM,
     clearanceDiaM,
     z0Ohm,
-    er,
-    current,
-    resistivity,
-    deltaT,
+    vs.permittivity,
+    vs.applied_current,
+    vs.plating_resistivity,
+    vs.temp_rise,
     riseTimeS,
   ]);
 
@@ -128,71 +168,88 @@ export function PanelViaSize(): JSX.Element {
           <NumField
             label="Finished hole diameter (D):"
             units={LEN_UNITS}
-            defaultUnit="mm"
             base={holeDiaM}
-            onBase={setHoleDiaM}
+            text={vs.hole_diameter}
+            onText={(t) => set('hole_diameter', t)}
+            unitIdx={vs.hole_diameter_units}
+            onUnitIdx={(i) => set('hole_diameter_units', i)}
           />
           <NumField
             label="Plating thickness (T):"
             units={LEN_UNITS}
-            defaultUnit="mm"
             base={platingM}
-            onBase={setPlatingM}
+            text={vs.thickness}
+            onText={(t) => set('thickness', t)}
+            unitIdx={vs.thickness_units}
+            onUnitIdx={(i) => set('thickness_units', i)}
           />
           <NumField
             label="Via length:"
             title="Via length is the board thickness for through hole vias"
             units={LEN_UNITS}
-            defaultUnit="mm"
             base={lengthM}
-            onBase={setLengthM}
+            text={vs.length}
+            onText={(t) => set('length', t)}
+            unitIdx={vs.length_units}
+            onUnitIdx={(i) => set('length_units', i)}
           />
           <NumField
             label="Via pad diameter:"
             title="Diameter of pad surrounding via (annular ring)"
             units={LEN_UNITS}
-            defaultUnit="mm"
             base={padDiaM}
-            onBase={setPadDiaM}
+            text={vs.pad_diameter}
+            onText={(t) => set('pad_diameter', t)}
+            unitIdx={vs.pad_diameter_units}
+            onUnitIdx={(i) => set('pad_diameter_units', i)}
           />
           <NumField
             label="Clearance hole diameter:"
             title="Diameter of clearance hole in ground plane(s)"
             units={LEN_UNITS}
-            defaultUnit="mm"
-            initialText="1.0"
             base={clearanceDiaM}
-            onBase={setClearanceDiaM}
+            text={vs.clearance_diameter}
+            onText={(t) => set('clearance_diameter', t)}
+            unitIdx={vs.clearance_diameter_units}
+            onUnitIdx={(i) => set('clearance_diameter_units', i)}
           />
           <NumField
             label="Z0:"
             title="Characteristic impedance of conductor"
             units={RES_UNITS}
             base={z0Ohm}
-            onBase={setZ0Ohm}
+            text={vs.characteristic_impedance}
+            onText={(t) => set('characteristic_impedance', t)}
+            unitIdx={vs.characteristic_impedance_units}
+            onUnitIdx={(i) => set('characteristic_impedance_units', i)}
           />
-          <Field label="Applied current:" value={current} onChange={setCurrent} unit="A" />
+          <Field
+            label="Applied current:"
+            value={vs.applied_current}
+            onChange={(t) => set('applied_current', t)}
+            unit="A"
+          />
           <Field
             label="Plating resistivity:"
             title="Specific resistance in ohms * meters"
-            value={resistivity}
-            onChange={setResistivity}
+            value={vs.plating_resistivity}
+            onChange={(t) => set('plating_resistivity', t)}
             pick={() => setPicking('rho')}
             unit="Ω·m"
           />
           <Field
             label="Substrate relative permittivity:"
             title="Relative dielectric constant (epsilon r)"
-            value={er}
-            onChange={setEr}
+            value={vs.permittivity}
+            onChange={(t) => set('permittivity', t)}
             pick={() => setPicking('er')}
             unit=""
           />
           <Field
             label="Temperature rise:"
             title="Maximum acceptable rise in temperature"
-            value={deltaT}
-            onChange={setDeltaT}
+            value={vs.temp_rise}
+            onChange={(t) => set('temp_rise', t)}
             unit="°C"
           />
           {/* m_staticTextRiseTimeUnits is a wxStaticText reading "ns", with
@@ -201,10 +258,11 @@ export function PanelViaSize(): JSX.Element {
               only on the six length and impedance rows. */}
           <NumField
             label="Pulse rise time:"
-            units={[{ label: 'ns', mult: 1e-9, title: 'nanoseconds' }]}
+            units={NS_UNIT}
             title="Pulse rise time to calculate reactance"
             base={riseTimeS}
-            onBase={setRiseTimeS}
+            text={vs.pulse_rise_time}
+            onText={(t) => set('pulse_rise_time', t)}
           />
         </Group>
         <div className="calc-col">
@@ -285,8 +343,8 @@ export function PanelViaSize(): JSX.Element {
               // wxGetSingleChoice returns the row's text; the handler splits at
               // the tab and writes the number verbatim (panel_via_size.cpp:95).
               const num = v.split('\t')[0] ?? v;
-              if (picking === 'rho') setResistivity(num);
-              else setEr(num);
+              if (picking === 'rho') set('plating_resistivity', num);
+              else set('permittivity', num);
             }
             setPicking(null);
           }}

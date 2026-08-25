@@ -27,6 +27,8 @@
 
 import { type JSX, useState } from 'react';
 import { Group } from '../fields.js';
+import { useCalcSaveSettings } from '../calc_settings.js';
+import { settings } from '../../../prefs/settings.js';
 
 /** KiCad's own dark-theme artwork (GPL), vendored under assets/. */
 const CC_ART = import.meta.glob('../../../assets/calculator/color_code_*.svg', {
@@ -65,8 +67,13 @@ function Band({ title, art, edge }: { title: string; art: string; edge: boolean 
 }
 
 export function PanelColorCode(): JSX.Element {
-  /* m_rbToleranceSelection: "10% / 5%" is index 0 and hides the 4th band. */
-  const [tol2, setTol2] = useState(false);
+  /* m_rbToleranceSelection: "10% / 5%" is index 0 and hides the 4th band.
+     PANEL_COLOR_CODE::LoadSettings / SaveSettings persist the radio's
+     SELECTION, an int, not a bool (panel_color_code.cpp). */
+  const [tol2, setTol2] = useState(() => settings.pcbCalculator.color_code_tolerance === 1);
+  useCalcSaveSettings((s) => {
+    s.color_code_tolerance = tol2 ? 1 : 0;
+  });
   return (
     /* bSizerPanelColorCode, wxHORIZONTAL (base:12). PANEL_COLOR_CODE is this
        radio box and these columns and NOTHING else: what used to follow the

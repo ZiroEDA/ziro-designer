@@ -59,7 +59,7 @@
  *
  *  1. A slice is only pushed if `updatedAt > syncedAt` — this device edited it.
  *     An idle device pushes nothing at all, and a device that changes the PCB
- *     grid pushes `pcbnew` and leaves the other six alone. So the loss needs
+ *     grid pushes `pcbnew` and leaves the other seven alone. So the loss needs
  *     *both* devices to have edited *the same file*.
  *  2. Every push re-reads the account rows first and re-decides. The stale
  *     window is therefore the few hundred milliseconds between that read and
@@ -295,7 +295,7 @@ export async function syncSettings(
       mgr.markSliceSynced(slice, syncedAt, ms(written.updated_at));
       result.pushed.push(slice);
     } catch (e) {
-      // One file that will not write is not a reason to abandon the other six,
+      // One file that will not write is not a reason to abandon the other seven,
       // and nothing local was risked by trying. Reported, not counted.
       result.error = e instanceof Error ? e.message : String(e);
       if (isMissingSettingsTable(e)) result.tableMissing = true;
