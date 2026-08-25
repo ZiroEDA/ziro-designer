@@ -45,12 +45,14 @@ FPLIST = "designer/src/widgets/footprint_list.ts"
 SCHPRE = "designer/src/editors/schematic/preload.ts"
 PCBPRE = "designer/src/editors/pcb/preload.ts"
 SCHED = "designer/src/editors/schematic/SchematicEditor.tsx"
+CHOOSER = "designer/src/editors/schematic/widgets/panel_symbol_chooser.tsx"
 
 T_PRELOAD = "unittests/designer/library_preload.test.ts"
 T_WORK = "unittests/designer/library_preload_work.test.ts"
 T_TRIGGER = "unittests/designer/library_preload_trigger.test.ts"
 T_MONITOR = "unittests/designer/background_jobs_monitor.test.tsx"
 T_CHOOSER = "unittests/designer/chooser_has_no_loading_row.test.tsx"
+T_COST = "unittests/designer/chooser_library_load_cost.test.tsx"
 
 
 @dataclass
@@ -354,6 +356,35 @@ MUTANTS: list[Mutant] = [
         "  for (const fp of board.footprints) if (fp.lib.includes(':')) ids.add(fp.lib);\n  return [...ids];",
         "  const out: string[] = [];\n  for (const fp of board.footprints) if (fp.lib.includes(':')) out.push(fp.lib);\n  void ids;\n  return out;",
         [T_WORK],
+    ),
+    # ---- what expanding a library costs -----------------------------------
+    Mutant(
+        "Expand All loads every library again",
+        TREE,
+        "    const all = new Set<string>();\n    for (const lib of adapter.tree.children) {\n      all.add(lib.name);",
+        "    const all = new Set<string>();\n    for (const lib of adapter.tree.children) {\n      all.add(lib.name);\n      onToggleLibrary?.(lib, true);",
+        [T_COST],
+    ),
+    Mutant(
+        "restored open_libs are never handed to the owner",
+        TREE,
+        "      if (node) onToggleLibrary?.(node, true);",
+        "      void node;",
+        [T_COST],
+    ),
+    Mutant(
+        "a restored name with no library row is passed on anyway",
+        TREE,
+        "      const node = adapter.tree.children.find((n) => !n.isGroup && n.name === lib);\n      if (node) onToggleLibrary?.(node, true);",
+        "      const node = adapter.tree.children.find((n) => !n.isGroup && n.name === lib);\n      onToggleLibrary?.(node ?? adapter.tree, true);",
+        [T_COST],
+    ),
+    Mutant(
+        "enriching a library goes back to one request per symbol",
+        CHOOSER,
+        "        const symbols = await loadLibrarySymbols(libNickname).catch(() => []);",
+        "        const symbols = await Promise.all(\n          libNode.children.map((item) => loadSymbol(libNickname, item.libItemName)),\n        ).then((r) => r.filter((x) => x !== undefined));",
+        [T_COST],
     ),
     # ---- the trigger sites ------------------------------------------------
     Mutant(
