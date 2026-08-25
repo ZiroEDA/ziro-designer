@@ -49,9 +49,22 @@ const handlers = (): SymbolMenuHandlers & FootprintMenuHandlers => ({
 /** Every ENABLE() condition true, so a greyed row is greyed on its own merits. */
 const SYM_ON: SymbolMenuConditions = {
   haveSymbol: true,
-  revert: true,
-  targetSymbol: true,
+  isEditable: true,
+  isEditableInAlias: true,
+  canUpdateFields: true,
+  symbolModified: true,
+  libSelected: true,
+  canEditProperties: true,
+  symbolSelectedInTree: true,
+  saveSymbolAs: true,
   symbolFromSchematic: false,
+  undoAvailable: true,
+  redoAvailable: true,
+  idle: true,
+  noActiveTool: true,
+  multiUnitMode: true,
+  multiBodyStyle: true,
+  haveDatasheet: true,
 };
 const FP_ON: FootprintMenuConditions = {
   haveFootprint: true,
@@ -164,12 +177,19 @@ describe('the Symbol Editor menu bar', () => {
     );
   });
 
-  /** Edit Library Symbol is ENABLEd only from a schematic symbol (:534). */
-  it('greys Edit Library Symbol unless the symbol came from a schematic', () => {
+  /**
+   * Edit Library Symbol is `ENABLE( isSymbolFromSchematicCond )` (:535), and
+   * ours is greyed either way — a deliberate deviation, recorded here rather
+   * than left implicit. Nothing in this port opens the LIBRARY copy of a
+   * symbol borrowed from the schematic, so lighting the row up when the
+   * condition turns true (which it now does, unlike when this test was
+   * written) would offer a click that does nothing. `sym_ui_conditions.test.ts`
+   * pins the condition itself, which is live and is what makes Save All above
+   * disappear; this pins the row.
+   */
+  it('greys Edit Library Symbol whichever way the condition goes, unlike upstream', () => {
     expect(find(sym(), 'Edit Library Symbol...')?.disabled).toBe(true);
-    expect(find(sym({ symbolFromSchematic: true }), 'Edit Library Symbol...')?.disabled).toBe(
-      false,
-    );
+    expect(find(sym({ symbolFromSchematic: true }), 'Edit Library Symbol...')?.disabled).toBe(true);
   });
 
   /** :95-116. Ours was six entries against upstream's eighteen. */

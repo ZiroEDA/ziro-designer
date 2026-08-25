@@ -60,6 +60,7 @@ import { addClose } from '../../ui/action_menu.js';
 import { browserSafeKey } from '../../ui/browser_reserved.js';
 import { standardHelpMenu } from '../../ui/help_menu.js';
 import { setLanguageMenuItem } from '../../ui/language_menu.js';
+import { type SymbolConditions, symbolActionEnabled } from './conditions.js';
 
 const SEP: MenuItem = { sep: true };
 
@@ -85,27 +86,20 @@ export type SymbolMenuChecks = Readonly<Record<string, boolean>>;
 
 /**
  * The `ENABLE( … )` conditions of `SYMBOL_EDIT_FRAME::setupUIConditions`
- * (`symbol_edit_frame.cpp:448-562`) that this menu bar reads. The names are
- * upstream's lambda names; the frame evaluates them.
+ * (`symbol_edit_frame.cpp:448-660`) that this menu bar reads.
+ *
+ * It used to be four booleans invented here — `haveSymbol`, `revert`,
+ * `targetSymbol`, `symbolFromSchematic` — and three of the four were the wrong
+ * question: `revert` was "a symbol is open" where upstream asks the library
+ * manager whether the target symbol is dirty, `targetSymbol` gated File >
+ * Export which upstream never gates at all, and `haveSymbol` stood in for
+ * `isEditableCond`, `haveDatasheetCond` and `symbolSelectedInTreeCondition`
+ * alike. It is now `SymbolConditions` — one field per upstream lambda,
+ * computed by `conditions.ts` from the frame's state — and the rows below read
+ * it through `symbolActionEnabled`, the same table the toolbars read, so a row
+ * and its toolbar button cannot disagree.
  */
-export interface SymbolMenuConditions {
-  /** `haveSymbolCond` — a symbol is loaded (`m_symbol`). */
-  haveSymbol: boolean;
-  /** `symbolModifiedCondition` — ENABLE for `ACTIONS::revert`. */
-  revert: boolean;
-  /** `saveSymbolAsCondition` / `symbolSelectedInTreeCondition`. */
-  targetSymbol: boolean;
-  /**
-   * `IsSymbolFromSchematic()`.
-   *
-   * Two rows turn on it and they turn opposite ways: File > Save All is only
-   * *added* when it is false (`menubar_symbol_editor.cpp:59-60` — the row is
-   * absent, not greyed), and Edit Library Symbol is ENABLEd only when it is
-   * true (`symbol_edit_frame.cpp:534`). Always false here so far: nothing can
-   * open this frame on a schematic's own symbol yet.
-   */
-  symbolFromSchematic: boolean;
-}
+export type SymbolMenuConditions = SymbolConditions;
 
 /**
  * The whole bar, in `menuBar->Append` order
@@ -117,10 +111,21 @@ export function symbolEditorMenus(
   checks: SymbolMenuChecks,
   conds: SymbolMenuConditions,
 ): Menu[] {
+  /**
+   * `ACTION_MANAGER`'s verdict for `id`, which is what greys a row.
+   *
+   * Every row goes through this rather than naming a condition of its own:
+   * `setupUIConditions` is a table keyed by action, so ours has to be too, or
+   * the row and the toolbar button for the same action drift apart — which is
+   * how File > Export came to be gated on a condition upstream never gave it.
+   */
+  const enabled = (id: string): boolean => symbolActionEnabled(id, conds);
+
   /** `menu->Add( ACTION )` — label, accelerator and id all from the action. */
   const act = (label: string, id: string, extra: Partial<MenuItem> = {}): MenuItem => ({
     label,
     icon: id,
+    disabled: !enabled(id),
     action: () => h.action(id),
     ...extra,
   });
@@ -128,14 +133,21 @@ export function symbolEditorMenus(
   const tool = (label: string, id: string, extra: Partial<MenuItem> = {}): MenuItem => ({
     label,
     icon: id,
+    disabled: !enabled(id),
     action: () => h.tool(id),
     ...extra,
   });
-  /** `menu->Add( ACTION, ACTION_MENU::CHECK )` — a `wxITEM_CHECK` row. */
+  /**
+   * `menu->Add( ACTION, ACTION_MENU::CHECK )` — a `wxITEM_CHECK` row. These
+   * are the CHECK-only registrations (:541-542, :601-607); none carries an
+   * ENABLE, so `enabled` is unconditionally true for them and is applied all
+   * the same, so that adding one to the table lights the row up here.
+   */
   const chk = (label: string, id: string, extra: Partial<MenuItem> = {}): MenuItem => ({
     label,
     icon: id,
     checked: !!checks[id],
+    disabled: !enabled(id),
     action: () => h.toggle(id),
     ...extra,
   });
@@ -159,11 +171,16 @@ export function symbolEditorMenus(
         // SCH_ACTIONS::saveLibraryAs (sch_actions.cpp:178), Ctrl+Shift+S.
         stub('Save Library As...', 'saveLibraryAs', { shortcut: 'Ctrl+Shift+S' }),
         act('New Symbol...', 'newSymbol', { shortcut: browserSafeKey('Ctrl+N') }),
-        // ENABLE( isSymbolFromSchematicCond ) — greyed unless this frame was
-        // opened on a symbol that lives in a schematic, which is never yet.
-        act('Edit Library Symbol...', 'editLibSymbolWithLibEdit', {
+        // ENABLE( isSymbolFromSchematicCond ) (:535) — live only when this
+        // frame was opened on a symbol that lives in a schematic, which now
+        // does happen (the schematic hands one over). The row stays a `stub`
+        // all the same: nothing here opens the LIBRARY copy of a borrowed
+        // symbol yet, and a row that lights up and does nothing is worse than
+        // one that stays greyed. `symbolFromSchematic` is not idle — it is
+        // what makes Save All below disappear, exactly as upstream does — so
+        // the condition is wired even though this row cannot use it.
+        stub('Edit Library Symbol...', 'editLibSymbolWithLibEdit', {
           shortcut: 'Ctrl+Shift+E',
-          disabled: !conds.symbolFromSchematic,
         }),
         SEP,
         act('Save', 'save', { shortcut: 'Ctrl+S' }),
@@ -172,7 +189,11 @@ export function symbolEditorMenus(
         // `if( !IsSymbolFromSchematic() ) fileMenu->Add( ACTIONS::saveAll );`
         // The row DISAPPEARS; it is not greyed.
         ...(conds.symbolFromSchematic ? [] : [act('Save All', 'saveAll')]),
-        act('Revert', 'revert', { disabled: !conds.revert }),
+        // ENABLE( symbolModifiedCondition ) (:539). Not "a symbol is open":
+        // upstream asks the library manager whether the TARGET symbol — the
+        // tree's row when the tree is shown, else the loaded one — is dirty,
+        // so a freshly opened symbol cannot be reverted.
+        act('Revert', 'revert'),
         SEP,
         // `submenuImport->Add( action, ACTION_MENU::NORMAL, _( "Symbol..." ) )`
         // — the third argument REPLACES the FriendlyName, so these rows read
@@ -187,13 +208,20 @@ export function symbolEditorMenus(
         {
           label: 'Export',
           submenu: [
-            act('Symbol...', 'exportSymbol', { disabled: !conds.targetSymbol }),
+            // `SCH_ACTIONS::exportSymbol` gets NO SetConditions anywhere in
+            // this frame, so upstream's row is live even on a cold frame and
+            // `SYMBOL_EDITOR_CONTROL::ExportSymbol` returns early when
+            // `getTargetSymbol()` is null. Ours used to grey it.
+            act('Symbol...', 'exportSymbol'),
             stub('View as PNG...', 'exportSymbolView'),
             stub('Symbol as SVG...', 'exportSymbolAsSVG'),
           ],
         },
         SEP,
-        act('Symbol Properties...', 'symbolProperties', { disabled: !conds.haveSymbol }),
+        // ENABLE( symbolSelectedInTreeCondition || ( canEditProperties &&
+        // haveSymbolCond ) ) (:634) — a tree selection alone is enough, which
+        // is the branch `editSymbolPropertiesFromLibrary` serves.
+        act('Symbol Properties...', 'symbolProperties'),
         SEP,
         addClose('Library Editor', () => h.action('close')),
       ],
@@ -220,7 +248,9 @@ export function symbolEditorMenus(
         stub('Find', 'find', { shortcut: 'Ctrl+F' }),
         stub('Find and Replace', 'findAndReplace', { shortcut: 'Ctrl+Alt+F' }),
         SEP,
-        act('Pin Table...', 'pinTable', { disabled: !conds.haveSymbol }),
+        // ENABLE( isEditableCond && haveSymbolCond ) (:636) — `isEditableCond`
+        // excludes an alias, so Pin Table is dead on a derived symbol.
+        act('Pin Table...', 'pinTable'),
         stub('Update Symbol Fields...', 'updateSymbolFields'),
       ],
     },
@@ -241,8 +271,12 @@ export function symbolEditorMenus(
         // actions.cpp:717 — WXK_HOME. (Ctrl+0 is nowhere in this action.)
         act('Zoom to Fit', 'zoomFitScreen', { shortcut: 'Home' }),
         stub('Zoom to Selection Area', 'zoomTool', { shortcut: 'Ctrl+F5' }),
-        // actions.cpp:705 — WXK_F5, not Ctrl+R.
-        stub('Refresh', 'zoomRedraw', { shortcut: 'F5' }),
+        // actions.cpp:705 — WXK_F5, not Ctrl+R. `ACTIONS::zoomRedraw` gets no
+        // SetConditions, so the row is live; it was a `stub` here while the
+        // top toolbar's Redraw View button — the same action, the same id —
+        // was live and working, which is the drift a table keyed by action id
+        // exists to stop.
+        act('Refresh', 'zoomRedraw', { shortcut: 'F5' }),
         SEP,
         chk('Show Hidden Pins', 'showHiddenPins'),
         chk('Show Hidden Fields', 'showHiddenFields'),
@@ -280,13 +314,21 @@ export function symbolEditorMenus(
       label: 'Inspect',
       items: [
         // actions.cpp:1325 — DefaultHotkey 'D'.
-        act('Show Datasheet', 'showDatasheet', {
-          shortcut: 'D',
-          disabled: !conds.haveSymbol,
-        }),
+        // ENABLE( haveDatasheetCond ) (:633) — the Datasheet FIELD is
+        // non-empty, not "a symbol is open". A symbol without a datasheet
+        // greys the row rather than offering a click that says "No datasheet
+        // defined".
+        act('Show Datasheet', 'showDatasheet', { shortcut: 'D' }),
         SEP,
         // sch_actions.cpp:54 — FriendlyName "Symbol Checker", no ellipsis.
-        act('Symbol Checker', 'checkSymbol', { disabled: !conds.haveSymbol }),
+        //
+        // And it takes NO condition. `setupUIConditions` registers one on
+        // `SCH_ACTIONS::runERC` (:635), which is the *schematic's* Electrical
+        // Rules Checker and reaches no row in this frame; `checkSymbol` is a
+        // separate action (`sch_actions.cpp:47-59`) that the function never
+        // names, so it keeps `ACTION_CONDITIONS()`'s default ShowAlways and is
+        // live on a cold frame. Ours greyed it on `haveSymbol`.
+        act('Symbol Checker', 'checkSymbol'),
       ],
     },
     {

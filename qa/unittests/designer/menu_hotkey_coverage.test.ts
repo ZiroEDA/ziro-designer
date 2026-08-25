@@ -631,7 +631,27 @@ const MENU_BUILDER: Readonly<Record<string, () => Menu[]>> = {
         showAbout: noop,
       },
       {},
-      { haveSymbol: true, revert: true, targetSymbol: true, symbolFromSchematic: false },
+      {
+        // Every ENABLE() condition true, so a greyed row here is greyed on its
+        // own merits (an unbuilt feature), not on a condition.
+        haveSymbol: true,
+        isEditable: true,
+        isEditableInAlias: true,
+        canUpdateFields: true,
+        symbolModified: true,
+        libSelected: true,
+        canEditProperties: true,
+        symbolSelectedInTree: true,
+        saveSymbolAs: true,
+        symbolFromSchematic: false,
+        undoAvailable: true,
+        redoAvailable: true,
+        idle: true,
+        noActiveTool: true,
+        multiUnitMode: true,
+        multiBodyStyle: true,
+        haveDatasheet: true,
+      },
     ),
   'editors/footprint/FootprintEditor.tsx': () =>
     footprintEditorMenus(
