@@ -26,6 +26,7 @@ import {
   DS_LEFT_TOOLBAR,
   DS_RIGHT_TOOLBAR,
 } from '@ziroeda/designer/src/editors/drawingsheet/drawingSheetToolbars.js';
+import { PCB_LEFT_TOOLBAR } from '@ziroeda/designer/src/editors/pcb/pcbToolbars.js';
 
 // `qa` has no testing-library setup file, so the auto-cleanup that ships with
 // one is not running: without this every render stays in the document and the
@@ -113,5 +114,52 @@ describe('a group button borrows the menu of the action it is showing', () => {
     fireEvent.contextMenu(units);
     expect(screen.queryByText('Edit Grids...')).toBeNull();
     expect(ran).toEqual([]);
+  });
+});
+
+describe('a row for an action the frame has greyed out', () => {
+  /**
+   * Upstream a toolbar button and a menu row for the same action read ONE
+   * ACTION_CONDITIONS, so `Toolbar` hands the menu factory its own
+   * `disabledIds` rather than letting the frame state it twice. The PCB frames
+   * are where that lands today: their menu's second row is
+   * `ACTIONS::gridOrigin` (`pcbnew/toolbars_pcb_editor.cpp:150-161`), which is
+   * `COMMON_TOOLS::GridOrigin`'s WX_PT_ENTRY_DIALOG
+   * (`common/tool/common_tools.cpp:637-651`) and is not implemented here.
+   *
+   * Rendered rather than asserted on the factory, because the factory taking a
+   * predicate and the widget PASSING one are two different things: a sweep
+   * found this exact wiring survived every test that only called the factory.
+   */
+  const renderPcb = (onActivate: (id: string) => void = () => {}) =>
+    render(
+      <Toolbar
+        entries={PCB_LEFT_TOOLBAR}
+        app="pcbnew"
+        orientation="vertical"
+        side="left"
+        disabledIds={new Set(['gridOrigin'])}
+        onActivate={onActivate}
+      />,
+    );
+
+  it('renders greyed, while its neighbour does not', () => {
+    renderPcb();
+    fireEvent.contextMenu(screen.getByRole('button', { name: /show grid/i }));
+    const row = (label: string): Element =>
+      [...document.querySelectorAll('.ze-mitem')].find((e) => e.textContent === label)!;
+    expect(row('Grid Origin...').className).toContain('disabled');
+    expect(row('Edit Grids...').className).not.toContain('disabled');
+  });
+
+  it('does not run when it is clicked', () => {
+    const ran: string[] = [];
+    renderPcb((id) => ran.push(id));
+    fireEvent.contextMenu(screen.getByRole('button', { name: /show grid/i }));
+    fireEvent.click(screen.getByText('Grid Origin...'));
+    expect(ran).toEqual([]);
+    // and the row that is NOT greyed still runs, so the menu is live
+    fireEvent.click(screen.getByText('Edit Grids...'));
+    expect(ran).toEqual(['gridProperties']);
   });
 });
