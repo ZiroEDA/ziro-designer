@@ -18,9 +18,33 @@ export const AWG_NAMES: readonly string[] = [
   ...Array.from({ length: 30 }, (_, i) => `AWG${i + 1}`),
 ];
 
-/** Diameter (m) of AWG gauge n, where n = -3 for 0000 … 36. */
+/**
+ * Wire RADIUS in metres per gauge, transcribed from KiCad's own
+ * `CABLE_SIZE_ENTRY` list (panel_cable_size.cpp:94-127). Index 0 is AWG0000.
+ *
+ * DATA, in CLAUDE.md's sense: KiCad hardcodes these 34 numbers, so they belong
+ * here verbatim. We used to compute them instead, from the geometric definition
+ * `0.000127 * 92^((36-n)/39)`. That is the right formula and the wrong answer:
+ * KiCad's table is the AWG standard's INCH figures converted and rounded, which
+ * the formula misses in the fifth digit. Picking AWG12 printed 2.05253 mm here
+ * against KiCad's 2.05232 mm, and every quantity downstream - area, linear
+ * resistance, ampacity, voltage drop - carried the error.
+ *
+ * Note KiCad stores the radius, not the diameter (`m_Radius`,
+ * panel_cable_size.h:37).
+ */
+const AWG_RADIUS_M: readonly number[] = [
+  0.005842, 0.00520192, 0.00463296, 0.00412623, 0.00367411, 0.00327152, 0.00291338, 0.00259461,
+  0.00231013, 0.0020574, 0.00183261, 0.00163195, 0.00145288, 0.00129413, 0.00115189, 0.00102616,
+  0.0009144, 0.00081407, 0.00072517, 0.00064516, 0.00057531, 0.00051181, 0.00045593, 0.0004046,
+  0.00036195, 0.00032258, 0.00028702, 0.00025527, 0.00022773, 0.00020193, 0.00018034, 0.00016002,
+  0.00014351, 0.000127,
+];
+
+/** Diameter (m) of AWG gauge n, where n = -3 for 0000 … 30. */
 export function awgDiameterM(n: number): number {
-  return 0.000127 * 92 ** ((36 - n) / 39);
+  const r = AWG_RADIUS_M[n + 3];
+  return r === undefined ? NaN : r * 2;
 }
 
 /** Gauge number for the AWG_NAMES index (0 → -3 = 0000). */

@@ -5,8 +5,22 @@
  * IPC-2221 minimum electrical spacing (creepage/clearance) table.
  * Counterpart: KiCad `pcb_calculator/calculator_panels/panel_electrical_spacing_ipc2221.cpp`.
  *
- * Values in millimetres, from IPC-2221C Dec 2023 (Table 6-1). The last row is
- * the extra spacing *per volt* above 500 V.
+ * DATA, in CLAUDE.md's sense: KiCad hardcodes this table, so ours stays local -
+ * but it must mirror KiCad's own numbers rather than our own reading of the
+ * standard, and it did not. This file used to carry IPC-2221C (Dec 2023)
+ * Table 6-1: EIGHT classes `B1 B2 B3 B4 B5 A6 A7 A8`, with B4 = 0.075 mm at
+ * 0..15 V and B2 = 0.64 mm at 31..50 V. KiCad 10.0.5 ships the older SEVEN
+ * classes `B1 B2 B3 B4 A5 A6 A7` (`clist[CLASS_COUNT][VALUE_COUNT]`,
+ * panel_electrical_spacing_ipc2221.cpp:66), so the panel drew a column the real
+ * one has not got and printed different numbers under four of the headings the
+ * two share. A user would have seen it at a glance.
+ *
+ * The numbers and the class descriptions below were read off the real
+ * `/usr/bin/pcb_calculator` window - see `qa/probes/pcb_calculator_oracle/`,
+ * captures `es_ipc_mm_500.png`, `es_ipc_mil_500.png`, `es_ipc_mm_1000.png`.
+ *
+ * Values in millimetres. The last row is the extra spacing *per volt* above
+ * 500 V.
  */
 
 export const IPC2221_VOLTAGE_RANGES: readonly string[] = [
@@ -25,34 +39,32 @@ export const IPC2221_VOLTAGE_RANGES: readonly string[] = [
 export const IPC2221_CASES: readonly { id: string; description: string }[] = [
   { id: 'B1', description: 'Internal Conductors' },
   { id: 'B2', description: 'External Conductors, uncoated, sea level to 3050 m' },
-  { id: 'B3', description: 'External Conductors, uncoated, over 3050 m or a vacuum' },
+  { id: 'B3', description: 'External Conductors, uncoated, over 3050 m' },
   { id: 'B4', description: 'External Conductors, with permanent polymer coating (any elevation)' },
-  { id: 'B5', description: 'External Conductors, with conformal (any elevation or in a vacuum)' },
   {
-    id: 'A6',
-    description:
-      'External Component lead termination, with conformal coating (any elevation or in a vacuum)',
+    id: 'A5',
+    description: 'External Conductors, with conformal coating over assembly (any elevation)',
   },
-  { id: 'A7', description: 'External Component lead/termination, uncoated, sea level to 3050 m' },
+  { id: 'A6', description: 'External Component lead/termination, uncoated' },
   {
-    id: 'A8',
-    description: 'External Component lead/termination, uncoated, over 3050m or in a vacuum',
+    id: 'A7',
+    description: 'External Component lead termination, with conformal coating (any elevation)',
   },
 ];
 
 /** [voltage range][case] → spacing in mm. */
 export const IPC2221_SPACING_MM: readonly (readonly number[])[] = [
-  //  B1     B2     B3      B4     B5     A6     A7     A8
-  [0.05, 0.1, 0.1, 0.075, 0.075, 0.13, 0.13, 0.13],
-  [0.05, 0.1, 0.1, 0.075, 0.075, 0.13, 0.25, 0.25],
-  [0.1, 0.64, 0.64, 0.3, 0.13, 0.13, 0.4, 0.8],
-  [0.1, 0.64, 1.5, 0.3, 0.13, 0.13, 0.5, 1],
-  [0.2, 0.64, 3.2, 0.8, 0.4, 0.4, 0.8, 1.6],
-  [0.2, 1.25, 3.2, 0.8, 0.4, 0.4, 0.8, 1.6],
-  [0.2, 1.25, 6.4, 0.8, 0.4, 0.4, 0.8, 1.6],
-  [0.2, 1.25, 12.5, 0.8, 0.4, 0.4, 0.8, 1.6],
-  [0.25, 2.5, 12.5, 1.6, 0.8, 0.8, 1.5, 3],
-  [0.0025, 0.005, 0.025, 0.00305, 0.00305, 0.00305, 0.00305, 0.0061],
+  //  B1     B2     B3      B4     A5     A6     A7
+  [0.05, 0.1, 0.1, 0.05, 0.13, 0.13, 0.13],
+  [0.05, 0.1, 0.1, 0.05, 0.13, 0.25, 0.13],
+  [0.1, 0.6, 0.6, 0.13, 0.13, 0.4, 0.13],
+  [0.1, 0.6, 1.5, 0.13, 0.13, 0.5, 0.13],
+  [0.2, 0.6, 3.2, 0.4, 0.4, 0.8, 0.4],
+  [0.2, 1.25, 3.2, 0.4, 0.4, 0.8, 0.4],
+  [0.2, 1.25, 6.4, 0.4, 0.4, 0.8, 0.4],
+  [0.2, 1.25, 12.5, 0.4, 0.4, 0.8, 0.8],
+  [0.25, 2.5, 12.5, 0.8, 0.8, 1.5, 0.8],
+  [0.0025, 0.005, 0.025, 0.00305, 0.00305, 0.00305, 0.00305],
 ];
 
 /** Row index of the table for a DC/AC-peak voltage, or -1 when > 500 V. */
