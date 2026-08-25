@@ -16,7 +16,8 @@ Restores are `git checkout --` against a COMMITTED baseline; the sweep aborts if
 the working tree is dirty, because a restore over an uncommitted feature is how
 one gets reverted.
 
-    python3 qa/probes/page_settings_mutants.py
+    python3 qa/probes/page_settings_mutants.py            # all of them
+    python3 qa/probes/page_settings_mutants.py min-page-size  # just these
 """
 
 from __future__ import annotations
@@ -315,8 +316,16 @@ def main() -> int:
         print(out)
         return 2
 
+    # `python3 … page_settings_mutants.py <name> [<name> …]` runs just those.
+    wanted = set(sys.argv[1:])
+    chosen = [m for m in MUTANTS if not wanted or m.name in wanted]
+    unknown = wanted - {m.name for m in MUTANTS}
+    if unknown:
+        print(f"REFUSING: no such mutant(s): {sorted(unknown)}")
+        return 2
+
     rows: list[tuple[str, str, str]] = []
-    for m in MUTANTS:
+    for m in chosen:
         path = ROOT / m.path
         before = path.read_text()
         found = before.count(m.old)
