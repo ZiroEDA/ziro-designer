@@ -54,6 +54,13 @@ import { drawCrosshair, drawGrid } from '../../ui/grid_cursor.js';
 import { scaleForZoomFactor, zoomFactorForScale } from '../../ui/status_format.js';
 import { ZOOM_LIST, nextZoomPreset } from '../../ui/zoom_settings.js';
 import { kiCursor } from '../../ui/kicursors.js';
+import {
+  DELETE_THRESHOLD_PX,
+  EDIT_POINT_SIZE_PX,
+  SELECT_THRESHOLD_PX,
+  thresholdToWorld,
+  withinPoint,
+} from './hit_test.js';
 
 /*
  * The canvas cursors are KiCad's own art now - see `ui/kicursors.ts` and
@@ -829,9 +836,11 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
     const hitEditPoint = (world: Vec2): number | null => {
       const pts = editPointsRef.current;
       if (!pts) return null;
-      const tol = (6 * dpr) / viewRef.current.scale;
+      // EDIT_POINTS::FindPoint over EDIT_POINT::POINT_SIZE — a square box,
+      // strict on its edges (edit_points.cpp:37-45, :58-78). See `hit_test.ts`.
+      const tol = thresholdToWorld(EDIT_POINT_SIZE_PX, viewRef.current.scale, dpr);
       for (let i = 0; i < pts.length; i++) {
-        if (Math.abs(pts[i]!.x - world.x) <= tol && Math.abs(pts[i]!.y - world.y) <= tol) return i;
+        if (withinPoint(pts[i]!, world, tol)) return i;
       }
       return null;
     };
@@ -840,8 +849,16 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
       (e.target as HTMLElement).setPointerCapture(e.pointerId);
       const world = worldAt(e.clientX, e.clientY);
 
-      // Middle button always pans.
+      // Middle button always pans — except that a middle DOUBLE-click is
+      // zoom-to-fit: `else if( evt->IsDblClick( BUT_MIDDLE ) )
+      // m_toolMgr->RunAction( ACTIONS::zoomFitScreen )`
+      // (pl_selection_tool.cpp:167-171). `PointerEvent.detail` is the click
+      // count, so 2 is the second press of the pair.
       if (e.button === 1) {
+        if (e.detail >= 2) {
+          zoomToFit();
+          return;
+        }
         gestureRef.current = { mode: 'pan', last: { x: e.clientX, y: e.clientY } };
         return;
       }
@@ -876,7 +893,8 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
 
       // Interactive delete: click deletes the hovered item.
       if (activeTool === 'dsDelete') {
-        const tol = (6 * dpr) / viewRef.current.scale;
+        // InteractiveDelete's click handler (pl_edit_tool.cpp:414).
+        const tol = thresholdToWorld(DELETE_THRESHOLD_PX, viewRef.current.scale, dpr);
         const hit = pickDrawItem(drawsRef.current, world, tol);
         if (hit !== null) onDeleteClick?.(hit);
         return;
@@ -907,7 +925,8 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
       }
 
       // Select tool: pick / move / box.
-      const tol = (6 * dpr) / viewRef.current.scale;
+      // SelectPoint (pl_selection_tool.cpp:44).
+      const tol = thresholdToWorld(SELECT_THRESHOLD_PX, viewRef.current.scale, dpr);
       const hit = pickDrawItem(drawsRef.current, world, tol);
       const additive = e.shiftKey;
       if (hit !== null) {
@@ -947,7 +966,8 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
 
       // Delete picker: brighten the hovered item.
       if (activeTool === 'dsDelete') {
-        const tol = (6 * dpr) / viewRef.current.scale;
+        // InteractiveDelete's motion handler (pl_edit_tool.cpp:414, :443).
+        const tol = thresholdToWorld(DELETE_THRESHOLD_PX, viewRef.current.scale, dpr);
         const hit = pickDrawItem(drawsRef.current, world, tol);
         if (brightenedRef.current !== hit) {
           brightenedRef.current = hit;
@@ -1022,7 +1042,8 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
         if (g.moved && d && (d.x !== 0 || d.y !== 0)) onMoveItems?.(d);
         else if (!g.moved) {
           const world = worldAt(e.clientX, e.clientY);
-          const tol = (6 * dpr) / viewRef.current.scale;
+          // SelectPoint (pl_selection_tool.cpp:44).
+          const tol = thresholdToWorld(SELECT_THRESHOLD_PX, viewRef.current.scale, dpr);
           const hit = pickDrawItem(drawsRef.current, world, tol);
           if (hit !== null && !e.shiftKey) onSelect?.(hit, false);
         }
@@ -1087,7 +1108,8 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
             // that button means and no menu opens.
             if (activeTool === 'zoomTool') return;
             const world = worldAt(e.clientX, e.clientY);
-            const tol = (6 * dpr) / viewRef.current.scale;
+            // SelectPoint for the hover selection a right-click makes (pl_selection_tool.cpp:125-128, :44).
+            const tol = thresholdToWorld(SELECT_THRESHOLD_PX, viewRef.current.scale, dpr);
             onContextMenuRequest?.(
               e.clientX,
               e.clientY,

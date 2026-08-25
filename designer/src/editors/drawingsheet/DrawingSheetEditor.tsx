@@ -100,6 +100,7 @@ import {
   rollbackFromUndo,
   saveCopyInUndoList,
 } from './undo_stack.js';
+import { toolClearsSelection } from './hit_test.js';
 import { pasteEnabled, redoEnabled, toolbarDisabledIds, undoEnabled } from './ui_conditions.js';
 import { imageFileToPng, decodeImageMeta } from '@ziroeda/common';
 import { drawDrawingSheetItems, DS_PRINT_PAPER_COLOR } from '@ziroeda/common';
@@ -558,30 +559,6 @@ export function DrawingSheetEditor({
     [syncHistoryDepth],
   );
 
-  const undo = useCallback(() => {
-    drawingIndex.current = null;
-    applyRestored(
-      getLayoutFromUndoList(
-        history.current,
-        sheetRef.current,
-        selectionRef.current,
-        previewRef.current,
-      ),
-      true,
-    );
-  }, [applyRestored]);
-  const redo = useCallback(() => {
-    applyRestored(
-      getLayoutFromRedoList(
-        history.current,
-        sheetRef.current,
-        selectionRef.current,
-        previewRef.current,
-      ),
-      true,
-    );
-  }, [applyRestored]);
-
   /**
    * `PL_EDITOR_FRAME::RollbackFromUndo` — the pop that leaves no redo behind.
    * Cancelling an in-flight draw (pl_drawing_tools.cpp:110, :278, :292), a
@@ -592,6 +569,36 @@ export function DrawingSheetEditor({
   const rollback = useCallback(() => {
     drawingIndex.current = null;
     applyRestored(rollbackFromUndo(history.current), false);
+  }, [applyRestored]);
+
+  const undo = useCallback(() => {
+    // `if( evt->IsCancelInteractive() || ( item && evt->IsAction( &ACTIONS::undo ) ) )`
+    // (pl_drawing_tools.cpp:124, :268): while a shape is in flight, Ctrl+Z is
+    // the cancel, which rolls back and leaves no redo behind.
+    if (drawingIndex.current !== null) {
+      rollback();
+      return;
+    }
+    applyRestored(
+      getLayoutFromUndoList(
+        history.current,
+        sheetRef.current,
+        selectionRef.current,
+        previewRef.current,
+      ),
+      true,
+    );
+  }, [applyRestored, rollback]);
+  const redo = useCallback(() => {
+    applyRestored(
+      getLayoutFromRedoList(
+        history.current,
+        sheetRef.current,
+        selectionRef.current,
+        previewRef.current,
+      ),
+      true,
+    );
   }, [applyRestored]);
 
   /**
@@ -1443,14 +1450,22 @@ export function DrawingSheetEditor({
     [requestFileCommand, save, printSheet, undo, redo, setTitleBlockMode],
   );
 
-  const onRightTool = useCallback((id: string) => {
-    if (id === 'appendSheet') {
-      setOpenDlg('append');
-      return;
-    }
-    setMoveMode(false);
-    setActiveTool(id);
-  }, []);
+  const onRightTool = useCallback(
+    (id: string) => {
+      if (id === 'appendSheet') {
+        setOpenDlg('append');
+        return;
+      }
+      setMoveMode(false);
+      // `PL_DRAWING_TOOLS::PlaceItem` and `::DrawShape` both open with
+      // `RunAction( ACTIONS::selectionClear )` (pl_drawing_tools.cpp:77, :243),
+      // so arming a placement tool empties the Properties pane. Nothing else
+      // does — see `hit_test.ts`.
+      if (toolClearsSelection(id)) setSelection(new Set());
+      setActiveTool(id);
+    },
+    [setSelection],
+  );
 
   /**
    * The menu tree, mirrored for the key chain below.
@@ -1711,18 +1726,18 @@ export function DrawingSheetEditor({
           {
             label: 'Draw Lines',
             icon: 'dsAddLine',
-            action: () => setActiveTool('dsAddLine'),
+            action: () => onRightTool('dsAddLine'),
           },
           {
             label: 'Draw Rectangles',
             icon: 'dsAddRect',
-            action: () => setActiveTool('dsAddRect'),
+            action: () => onRightTool('dsAddRect'),
           },
-          { label: 'Draw Text', icon: 'dsAddText', action: () => setActiveTool('dsAddText') },
+          { label: 'Draw Text', icon: 'dsAddText', action: () => onRightTool('dsAddText') },
           {
             label: 'Place Bitmaps',
             icon: 'dsAddBitmap',
-            action: () => setActiveTool('dsAddBitmap'),
+            action: () => onRightTool('dsAddBitmap'),
           },
           { sep: true },
           {
@@ -2211,10 +2226,10 @@ export function DrawingSheetEditor({
               copy: copySelection,
               paste: () => void pasteFromSystem(),
               doDelete: deleteSelection,
-              drawLine: () => setActiveTool('dsAddLine'),
-              drawRectangle: () => setActiveTool('dsAddRect'),
-              placeText: () => setActiveTool('dsAddText'),
-              placeImage: () => setActiveTool('dsAddBitmap'),
+              drawLine: () => onRightTool('dsAddLine'),
+              drawRectangle: () => onRightTool('dsAddRect'),
+              placeText: () => onRightTool('dsAddText'),
+              placeImage: () => onRightTool('dsAddBitmap'),
               // PL_EDITOR_CONTROL::GridResetOrigin, as the Place menu's row
               // already explains: our grid is anchored at (0, 0) and there is
               // no gridSetOrigin to move it, so only the refresh half shows.
