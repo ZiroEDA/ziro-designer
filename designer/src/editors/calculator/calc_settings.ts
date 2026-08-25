@@ -112,44 +112,29 @@ export function useCalcSaveSettings(save: CalcSaver): void {
 }
 
 /**
- * Which panel owns which top-level key of `pcb_calculator.json`.
+ * Which panel owns which top-level key of `pcb_calculator.json`, and the
+ * upstream `LoadSettings`/`SaveSettings` each one mirrors:
  *
- * Not decoration: a key nobody claims is a field that silently does not
- * persist, which is the exact failure this file exists to end, and it is
- * invisible from any single panel. The qa suite asserts this covers
- * {@link PcbCalculatorSettings} exactly — no key unowned, none invented.
+ *   board_class_units     panel_board_class        PANEL_BOARD_CLASS
+ *   color_code_tolerance  panel_color_code         PANEL_COLOR_CODE
+ *   last_page             CalculatorTools          PCB_CALCULATOR_FRAME (:413)
+ *   translines            panel_transline          PANEL_TRANSLINE (:70-97)
+ *   trans_line            panel_transline          "
+ *   attenuators           panel_rf_attenuators     PANEL_RF_ATTENUATORS
+ *   electrical            panel_electrical_spacing _IPC2221 and _IEC60664 both
+ *   regulators            panel_regulator          PANEL_REGULATOR (:551-611)
+ *   cable_size            panel_cable_size         PANEL_CABLE_SIZE
+ *   wavelength            panel_wavelength         PANEL_WAVELENGTH
+ *   track_width           panel_track_width        PANEL_TRACK_WIDTH
+ *   via_size              panel_via_size           PANEL_VIA_SIZE (:180-198)
+ *   corrosion_table       panel_galvanic_corrosion PANEL_GALVANIC_CORROSION
  *
- * The panel names are ours; upstream's `LoadSettings`/`SaveSettings` for each
- * is named in the comment beside it.
+ * Prose rather than a table, deliberately. It was a
+ * `Record<keyof PcbCalculatorSettings, string>` with a test asserting its keys
+ * matched the settings type — but that is precisely what the `Record` already
+ * makes the compiler enforce, so the test could not fail, and nothing read the
+ * value. Two of CLAUDE.md's four shapes at once.
  */
-export const CALC_SECTION_OWNERS: Record<keyof PcbCalculatorSettings, string> = {
-  // PANEL_BOARD_CLASS::SaveSettings (panel_board_class.cpp)
-  board_class_units: 'panel_board_class',
-  // PANEL_COLOR_CODE::SaveSettings (panel_color_code.cpp)
-  color_code_tolerance: 'panel_color_code',
-  // PCB_CALCULATOR_FRAME::SaveSettings itself (pcb_calculator_frame.cpp:413)
-  last_page: 'CalculatorTools',
-  // PANEL_TRANSLINE::SaveSettings (panel_transline.cpp:70-80)
-  translines: 'panel_transline',
-  trans_line: 'panel_transline',
-  // PANEL_RF_ATTENUATORS::SaveSettings (panel_rf_attenuators.cpp)
-  attenuators: 'panel_rf_attenuators',
-  // PANEL_ELECTRICAL_SPACING_IPC2221 + _IEC60664 (panel_electrical_spacing.cpp
-  // delegates to both notebook pages)
-  electrical: 'panel_electrical_spacing',
-  // PANEL_REGULATOR::SaveSettings (panel_regulator.cpp:578-611)
-  regulators: 'panel_regulator',
-  // PANEL_CABLE_SIZE::SaveSettings (panel_cable_size.cpp)
-  cable_size: 'panel_cable_size',
-  // PANEL_WAVELENGTH::SaveSettings (panel_wavelength.cpp)
-  wavelength: 'panel_wavelength',
-  // PANEL_TRACK_WIDTH::SaveSettings (panel_track_width.cpp)
-  track_width: 'panel_track_width',
-  // PANEL_VIA_SIZE::SaveSettings (panel_via_size.cpp:180-198)
-  via_size: 'panel_via_size',
-  // PANEL_GALVANIC_CORROSION::SaveSettings (panel_galvanic_corrosion.cpp)
-  corrosion_table: 'panel_galvanic_corrosion',
-};
 
 /**
  * The treebook page index of each calculator, and its inverse.

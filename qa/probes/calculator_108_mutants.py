@@ -148,13 +148,6 @@ MUTANTS = [
         [SETTINGS],
     ),
     (
-        "section-owner-missing",
-        f"{D}/editors/calculator/calc_settings.ts",
-        "  corrosion_table: 'panel_galvanic_corrosion',",
-        "",
-        [SETTINGS],
-    ),
-    (
         "flush-writes-with-no-panel",
         f"{D}/editors/calculator/calc_settings.ts",
         "  if (savers.size === 0) return;",

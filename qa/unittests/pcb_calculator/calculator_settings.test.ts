@@ -43,7 +43,6 @@ import {
 } from '@ziroeda/designer/src/prefs/settings.js';
 import {
   CALC_PAGE_INDEX,
-  CALC_SECTION_OWNERS,
   calcPageFromIndex,
   flushCalcSettings,
   registerCalcSaver,
@@ -457,16 +456,6 @@ describe('last_page is a wxTreebook index', () => {
     expect(calcPageFromIndex(0)).toBe('regulators');
     expect(calcPageFromIndex(9)).toBe('regulators');
     expect(calcPageFromIndex(99)).toBe('regulators');
-  });
-});
-
-describe('every key of the file is owned by a panel', () => {
-  it('claims each top-level key exactly once, and invents none', () => {
-    // A key nobody claims is a field that silently does not persist, and that
-    // is invisible from any one panel.
-    expect(Object.keys(CALC_SECTION_OWNERS).sort()).toStrictEqual(
-      Object.keys(PCB_CALCULATOR_DEFAULTS).sort(),
-    );
   });
 });
 
