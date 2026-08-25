@@ -13,11 +13,7 @@ import {
   BackgroundJobsMonitor,
   backgroundJobsMonitor,
 } from '@ziroeda/designer/src/ui/background_jobs_monitor.js';
-import {
-  BackgroundJobList,
-  BACKGROUND_JOB_LIST_SIZE,
-  BACKGROUND_JOB_PANEL_HEIGHT,
-} from '@ziroeda/designer/src/ui/BackgroundJobList.js';
+import { BackgroundJobList } from '@ziroeda/designer/src/ui/BackgroundJobList.js';
 import { KiStatusBar } from '@ziroeda/designer/src/ui/KiStatusBar.js';
 
 afterEach(() => {
@@ -161,8 +157,11 @@ describe('BACKGROUND_JOB_LIST', () => {
     const gauge = panels[0]?.querySelector('progress');
     expect(gauge?.getAttribute('value')).toBe('500');
     expect(gauge?.getAttribute('max')).toBe('1000');
-    // wxSize( -1, 75 ) — the row's height is KiCad's, not the content's.
-    expect((panels[0] as HTMLElement).style.height).toBe(`${BACKGROUND_JOB_PANEL_HEIGHT}px`);
+    // `wxPanel( …, wxSize( -1, 75 ) )`, background_jobs_monitor.cpp:44-45 — the
+    // row's height is KiCad's, not the content's. Written out rather than taken
+    // from BACKGROUND_JOB_PANEL_HEIGHT: an expectation computed by calling the
+    // code under test cannot fail when that code changes.
+    expect((panels[0] as HTMLElement).style.height).toBe('75px');
   });
 
   it("has no caption, because the frame's style replaces wxDEFAULT_FRAME_STYLE", () => {
@@ -185,10 +184,14 @@ describe('BACKGROUND_JOB_LIST', () => {
     monitor.create('x');
     render(<BackgroundJobList anchorX={800} anchorY={600} onClose={() => {}} monitor={monitor} />);
     const el = screen.getByTestId('background-job-list');
-    expect(el.style.left).toBe(`${800 - BACKGROUND_JOB_LIST_SIZE.width}px`);
-    expect(el.style.top).toBe(`${600 - BACKGROUND_JOB_LIST_SIZE.height}px`);
-    expect(el.style.width).toBe(`${BACKGROUND_JOB_LIST_SIZE.width}px`);
-    expect(el.style.height).toBe(`${BACKGROUND_JOB_LIST_SIZE.height}px`);
+    // 800 - 300 and 600 - 150, with the size written out from
+    // `wxSize( 300, 150 )` (background_jobs_monitor.cpp:96) rather than read
+    // back off BACKGROUND_JOB_LIST_SIZE — otherwise both sides move together
+    // and the expectation cannot fail.
+    expect(el.style.left).toBe('500px');
+    expect(el.style.top).toBe('450px');
+    expect(el.style.width).toBe('300px');
+    expect(el.style.height).toBe('150px');
   });
 
   it('grows a row when a job is added while it is open', () => {

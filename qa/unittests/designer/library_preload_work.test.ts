@@ -87,9 +87,7 @@ describe('symbolPreloadWork', { timeout: 30_000 }, () => {
     // The index is item 0, so the tree can be built even if every symbol fetch
     // fails — it is what the chooser lists from.
     expect(requested[0]).toMatch(/\/symbols\/index\.json$/);
-    expect(requested).toContain(
-      requested.find((u) => u.endsWith('/symbols/Device/R.kicad_sym')) ?? '',
-    );
+    expect(requested.some((u) => u.endsWith('/symbols/Device/R.kicad_sym'))).toBe(true);
     expect(requested.some((u) => u.endsWith('/symbols/Device/C.kicad_sym'))).toBe(true);
     // No whole-library fetch: `Device.kicad_sym` alone is 500 kB, and the
     // preload exists to avoid exactly that shape of download.
