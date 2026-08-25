@@ -10,7 +10,7 @@
  * whole half of the function was never looked at.
  *
  * **Where these numbers come from.** They are printed by
- * `qa/probes/stripline_oracle/stripline_oracle.cpp`, a standalone C++ program
+ * `qa/probes/stripline_oracle.cpp`, a standalone C++ program
  * whose two function bodies are KiCad's own source text copied verbatim from
  * `common/transline_calculations/stripline.cpp` (`Analyse`, `lineImpedance`)
  * and `transline_calculation_base.cpp:147-159` (`SkinDepth`,
