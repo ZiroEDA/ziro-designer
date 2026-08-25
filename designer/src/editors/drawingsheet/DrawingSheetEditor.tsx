@@ -1388,6 +1388,32 @@ export function DrawingSheetEditor({
     setToggles((prev) => applyToggle(prev, id));
   }, []);
 
+  /**
+   * The left toolbar's dispatcher, which is not only its buttons: the Show Grid
+   * button carries a right-click menu (`toolbars_pl_editor.cpp:48-57`) and
+   * upstream runs its row through the same TOOL_MANAGER the button goes
+   * through, so it arrives here.
+   *
+   * `ACTIONS::gridProperties` is `COMMON_TOOLS::GridProperties`
+   * (`common/tool/common_tools.cpp:609-634`), a switch on the frame type that
+   * for `FRAME_PL_EDITOR` calls `ShowPreferences( "Grids", "Drawing Sheet
+   * Editor" )` — Preferences, opened on that frame's Grids page. We have the
+   * dialog but not that page: pl_editor's preferences are still the two display
+   * options, where upstream's KIFACE offers Display Options, Grids, Colors and
+   * Toolbars (`pagelayout_editor/pl_editor.cpp:68-100`). Opening the dialog is
+   * the half of the action we can honour today; the page is tracked separately.
+   */
+  const onLeftAction = useCallback(
+    (id: string) => {
+      if (id === 'gridProperties') {
+        setShowPrefs(true);
+        return;
+      }
+      onLeftToggle(id);
+    },
+    [onLeftToggle],
+  );
+
   const setTitleBlockMode = useCallback((mode: 'layoutNormalMode' | 'layoutEditMode') => {
     setToggles((prev) => {
       const next = new Set(prev);
@@ -2090,10 +2116,11 @@ export function DrawingSheetEditor({
       <div className="ze-body" ref={bodyRef}>
         <Toolbar
           entries={DS_LEFT_TOOLBAR}
+          app="pl_editor"
           orientation="vertical"
           side="left"
           toggled={toggles}
-          onActivate={onLeftToggle}
+          onActivate={onLeftAction}
         />
 
         <DrawingSheetCanvas

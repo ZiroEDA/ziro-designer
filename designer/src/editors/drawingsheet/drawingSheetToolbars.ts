@@ -87,9 +87,14 @@ export const DS_TOP_TOOLBAR: ToolEntry[] = [
  *
  * so the three units are ONE ACTION_GROUP button showing the active unit with
  * a palette behind it - the same shape `pcbToolbars.ts` already uses for the
- * identical group - not three buttons in a row. The grid button's context menu
- * (right-click -> Grid Properties) has no counterpart in our shared Toolbar
- * yet; see the PR.
+ * identical group - not three buttons in a row.
+ *
+ * The grid button's `.WithContextMenu(...)` is deliberately NOT part of this
+ * inventory, exactly as it is not part of `TOOLBAR_CONFIGURATION` upstream: the
+ * factory is filed globally by action name so that a toolbar the user
+ * rearranged - reloaded from JSON, never running the C++ above - still gets the
+ * same menu. Ours lives in `ui/toolbar_context_menu_registry.ts`, and
+ * `ui/Toolbar.tsx` looks it up on right-click.
  */
 export const DS_LEFT_TOOLBAR: ToolEntry[] = [
   { id: 'toggleGrid', icon: 'toggleGrid', title: 'Show grid', toggle: true },

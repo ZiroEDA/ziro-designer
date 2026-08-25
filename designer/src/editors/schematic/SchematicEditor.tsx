@@ -414,6 +414,7 @@ import { BUILTIN_THEMES } from './theme.js';
 import { LoadingOverlay, nextPaint } from '../../ui/LoadingOverlay.js';
 import type { ProgressSnapshot } from '../../ui/progress_reporter.js';
 import { PreferencesDialog } from '../../dialogs/PreferencesDialog.js';
+import type { PrefsPageId } from '../../dialogs/prefs/types.js';
 import { settings, gridSizeToIU } from '../../prefs/settings.js';
 import {
   useCommonSettings,
@@ -1149,6 +1150,17 @@ export function SchematicEditor({
     height: panelHeights.search ?? SCH_BOTTOM_DOCK.bestHeight,
   };
   const [prefsOpen, setPrefsOpen] = useState(false);
+  /**
+   * `ShowPreferences( aStartPage, aStartParentPage )`'s first argument, for the
+   * callers that name a page — `COMMON_TOOLS::GridProperties` is the only one
+   * so far (`common/tool/common_tools.cpp:609-634`). Undefined means the book
+   * opens where it always did.
+   */
+  const [prefsPage, setPrefsPage] = useState<PrefsPageId | undefined>(undefined);
+  const openPrefs = useCallback((page?: PrefsPageId) => {
+    setPrefsPage(page);
+    setPrefsOpen(true);
+  }, []);
   const common = useCommonSettings();
   const es = useEeschemaSettings();
   const theme = useSchematicTheme();
@@ -6751,6 +6763,17 @@ export function SchematicEditor({
 
   const onLeftToggle = useCallback(
     (id: string) => {
+      // Not a toggle, and not a button either: the Show Grid button carries a
+      // right-click menu whose one row is `ACTIONS::gridProperties`
+      // (`eeschema/toolbars_sch_editor.cpp:71-79`), and upstream runs that row
+      // through the same TOOL_MANAGER the button goes through, so it arrives
+      // here. `COMMON_TOOLS::GridProperties` for FRAME_SCH is
+      // `ShowPreferences( _( "Grids" ), _( "Schematic Editor" ) )`
+      // (`common/tool/common_tools.cpp:623`).
+      if (id === 'gridProperties') {
+        openPrefs('sch-grids');
+        return;
+      }
       // The Attributes submenu is a set of item edits, not a view setting: it
       // acts on the selection (SCH_EDIT_TOOL::SetAttribute).
       const attr = ATTRIBUTE_IDS[id];
@@ -6783,7 +6806,7 @@ export function SchematicEditor({
       setLocalToggles((prev) => applyToggle(prev, id));
       // eslint-disable-next-line react-hooks/exhaustive-deps
     },
-    [doc, selection, runCommand],
+    [doc, selection, runCommand, openPrefs],
   );
 
   // Menus carry their shortcut as literal text, so a rebinding has to be
@@ -8649,7 +8672,9 @@ export function SchematicEditor({
         />
       )}
 
-      {prefsOpen && <PreferencesDialog onClose={() => setPrefsOpen(false)} />}
+      {prefsOpen && (
+        <PreferencesDialog initialPage={prefsPage} onClose={() => setPrefsOpen(false)} />
+      )}
 
       {/* Double-click / E on a symbol: KiCad's Symbol Properties dialog. */}
       {propsSymbol && propsTarget !== null && (
