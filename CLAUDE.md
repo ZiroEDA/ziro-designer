@@ -97,3 +97,15 @@ assertions and flake under load — re-run in isolation before believing either.
 Scratch space under `/tmp` is wiped without warning. Anything worth keeping —
 findings, captures, harnesses — belongs in `$HOME` or in the repo. Commit each
 coherent piece as you finish it rather than at the end.
+
+## Worktrees and `qa`'s dependencies
+
+`qa` gained a DOM in Aug 2026 — `happy-dom`, `@testing-library/react`, and
+`react` itself, because the JSX runtime has to resolve from `qa`. A git
+worktree keeps the `node_modules` it was created with and does **not** pick up
+a dependency added afterwards, so an older worktree fails with
+`Failed to resolve import "react/jsx-dev-runtime"` while `main` is green.
+
+**Run `pnpm install` in a new worktree before trusting its gate.** A worktree
+whose `node_modules` predates a dependency will report failures that are not
+yours — and, worse, can report a passing typecheck for the same reason.
