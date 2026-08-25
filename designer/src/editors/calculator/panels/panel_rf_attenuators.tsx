@@ -366,18 +366,32 @@ export function PanelRfAttenuators(): JSX.Element {
               />
             </button>
           </div>
+          {/* The Values box always has three rows. A bridged tee has only two
+              resistors, and KiCad does not drop the third row for it: it
+              `Enable( false )`s the label, the entry and the unit and leaves the
+              entry empty (panel_rf_attenuators.cpp:139-145). Ours rendered
+              `resistorLabels.map`, so the box lost a row - and its height - the
+              moment you picked that topology. */}
           <Group title="Values" className="calc-grid3 rf-box">
-            {info.resistorLabels.map((label, i) => (
-              <Field
-                key={label}
-                label={`${label}:`}
-                value={
-                  shown ? (shown.error ? '--' : printfG(shown.resistors[i] ?? Number.NaN)) : ''
-                }
-                readOnly
-                unit="Ω"
-              />
-            ))}
+            {['R1', 'R2', 'R3'].map((label, i) => {
+              const used = i < info.resistorLabels.length;
+              return (
+                <Field
+                  key={label}
+                  label={`${label}:`}
+                  value={
+                    used && shown
+                      ? shown.error
+                        ? '--'
+                        : printfG(shown.resistors[i] ?? Number.NaN)
+                      : ''
+                  }
+                  readOnly
+                  disabled={!used}
+                  unit="Ω"
+                />
+              );
+            })}
           </Group>
           {/* m_staticTextAttMsg is a plain label ABOVE the message area, not a
               static box (panel_rf_attenuators_base.cpp:164). */}

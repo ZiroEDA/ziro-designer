@@ -20,9 +20,28 @@
  * exponent carries a sign and at least two digits.
  */
 
+/**
+ * The sign bit of a NaN, which C's `%g` prints and JavaScript hides.
+ *
+ * `printf("%g", sqrt(-1.0))` writes `-nan`, not `nan`, because glibc reads the
+ * sign bit and x86's `sqrtsd` sets it on the default NaN. V8 inherits the same
+ * hardware result, so `Math.sqrt(-1)` here carries the sign bit too - the only
+ * way to see it is through the bytes. pcb_calculator really does show `-nan`
+ * on screen: an evanescent rectangular waveguide prints `-nan Ohm` for
+ * ZF(H10), and the shipped Stripline defaults print `-nan` for Z0.
+ *
+ * Note this is a sign-BIT test, not `value < 0`, which is false for every NaN.
+ */
+const NAN_BITS = new DataView(new ArrayBuffer(8));
+
+function nanIsNegative(value: number): boolean {
+  NAN_BITS.setFloat64(0, value);
+  return (NAN_BITS.getUint8(0) & 0x80) !== 0;
+}
+
 /** C's `printf("%g", value)` with the given precision (C's default is 6). */
 export function printfG(value: number, precision = 6): string {
-  if (Number.isNaN(value)) return 'nan';
+  if (Number.isNaN(value)) return nanIsNegative(value) ? '-nan' : 'nan';
   if (!Number.isFinite(value)) return value > 0 ? 'inf' : '-inf';
 
   const p = precision === 0 ? 1 : precision;
@@ -61,7 +80,7 @@ function trimZeros(s: string): string {
  * would read `0.1` and `10`.
  */
 export function printfF(value: number, precision = 6): string {
-  if (Number.isNaN(value)) return 'nan';
+  if (Number.isNaN(value)) return nanIsNegative(value) ? '-nan' : 'nan';
   if (!Number.isFinite(value)) return value > 0 ? 'inf' : '-inf';
   return value.toFixed(precision);
 }

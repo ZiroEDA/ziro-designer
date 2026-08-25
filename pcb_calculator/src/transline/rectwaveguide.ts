@@ -22,6 +22,16 @@ export interface RectWaveguidePhysical {
 }
 
 export interface RectWaveguideResult extends TranslineAnalysis {
+  /**
+   * `Z0EH = Ey / Hx`, the FIELD-quantity wave impedance
+   * `ZF0 * sqrt( k^2 / ( k^2 - kc10^2 ) )` (rectwaveguide.cpp:378-380). It is
+   * NOT `z0`: the fictive-voltage `Z0_PRM` above carries an extra
+   * `sqrt( mur / er )`, so in a filled guide the two differ by a factor of
+   * `sqrt( er / mur )` - 186.737 against 396.13 Ohm for WR-90 at 10 GHz in
+   * er 4.5. KiCad shows `Z0` in the Electrical box and `Z0EH` on the
+   * "ZF(H10) = Ey / Hx" result line; we showed `z0` in both.
+   */
+  z0EH: number;
   extra: {
     fcTE10Hz: number;
     fcTE20Hz: number;
@@ -107,7 +117,10 @@ function modeStrings(phys: RectWaveguidePhysical, el: TcElectrical): { te: strin
     for (let m = 1; m <= MAX_INDEX; m++)
       for (let n = 1; n <= MAX_INDEX; n++) if (f >= fc(a, b, el, m, n)) tm += `E(${m},${n}) `;
   }
-  return { te: te.trim() || 'none', tm: tm.trim() || 'none' };
+  // No trim: KiCad builds these with `strcat( text, "H(%d,%d) " )` and hands
+  // the string straight to setResult, so every non-empty list ends in a space
+  // (rectwaveguide.cpp:290-330). "none" has none.
+  return { te: te || 'none', tm: tm || 'none' };
 }
 
 export function rectWaveguideAnalyze(
@@ -133,6 +146,7 @@ export function rectWaveguideAnalyze(
     const lambdaG = (2.0 * Math.PI) / Math.sqrt(kSq - kc10Sq);
     return {
       z0,
+      z0EH: ZF0 * Math.sqrt(kSq / (kSq - kc10Sq)),
       epsEff: 1.0 - (fc10 / f) ** 2,
       angleDeg: ((2.0 * Math.PI * len) / lambdaG) * (180 / Math.PI),
       conductorLossDb: alphaC(phys, el) * len,
@@ -143,13 +157,19 @@ export function rectWaveguideAnalyze(
       tmModes: modes.tm,
     };
   }
-  // Evanescent (below cutoff).
+  // Evanescent (below cutoff). KiCad zeroes Z0, the electrical angle, the
+  // effective permittivity and the dielectric loss, and reports only the
+  // cutoff conductor loss (rectwaveguide.cpp:268-274). We returned NaN for all
+  // four, so the panel printed "nan" where KiCad prints "0". Z0EH is the one
+  // thing that stays non-finite: its sqrt argument goes negative, which is why
+  // the real window reads "-nan Ohm" there.
   return {
-    z0: NaN,
-    epsEff: NaN,
-    angleDeg: NaN,
+    z0: 0,
+    z0EH: ZF0 * Math.sqrt(kSq / (kSq - kc10Sq)),
+    epsEff: 0,
+    angleDeg: 0,
     conductorLossDb: alphaCCutoff(phys, el) * len,
-    dielectricLossDb: NaN,
+    dielectricLossDb: 0,
     skinDepthM: skinDepth(el),
     extra,
     teModes: modes.te,

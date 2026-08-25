@@ -11,6 +11,7 @@
 
 import { describe, expect, it } from 'vitest';
 import {
+  printfG,
   applySoldermaskCorrection,
   coaxAnalyze,
   coplanarAnalyze,
@@ -125,7 +126,7 @@ describe('twisted pair (test_twistedpair.cpp)', () => {
 });
 
 describe('coupled microstrip (test_coupled_microstrip.cpp)', () => {
-  it('Zdiff = 2·Z0_odd', () => {
+  it('Zdiff is twice the STATIC odd-mode impedance, not the displayed one', () => {
     const r = coupledMicrostripAnalyze(
       {
         widthM: 0.3 * mm,
@@ -136,7 +137,18 @@ describe('coupled microstrip (test_coupled_microstrip.cpp)', () => {
       },
       el({ epsilonR: 4.3, tanD: 0.02 }),
     );
-    expect(r.extra.zDiff).toBeCloseTo(2 * r.extra.z0Odd, 9);
+    // This used to read `expect(zDiff).toBeCloseTo(2 * z0Odd, 9)`, which is an
+    // expectation computed by calling the code under test: it confirmed only
+    // that our two lines read the same variable, and it did, so it passed while
+    // the variable was the wrong one. `Zdiff = 2 * Z0_o_0`
+    // (coupled_microstrip.cpp:631) is the STATIC odd-mode impedance, before
+    // Z0_dispersion(); `Z0_o`, which the Zodd field shows, is after it.
+    //
+    // 122.767 is what the installed pcb_calculator prints for this geometry -
+    // qa/probes/pcb_calculator_oracle, case
+    // `c_microstrip/er4.3_W0.3_S0.2_H1.6_T0.035_L100`. Note it is NOT twice the
+    // 61.28 Ohm that panel's Zodd box shows at the same moment.
+    expect(printfG(r.extra.zDiff)).toBe('122.767');
   });
 });
 

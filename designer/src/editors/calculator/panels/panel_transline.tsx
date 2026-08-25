@@ -313,8 +313,20 @@ export function PanelTransline(): JSX.Element {
     murC: prmByKey.has('mu Rel C') ? num('mu Rel C') : 1,
   });
 
+  /**
+   * `SetResultInDialog`: `fullmsg.Printf( wxT( "%g " ), aValue ); fullmsg += msg;`
+   * (params_read_write.cpp:113-120). The space is printed by the format string,
+   * NOT joined between two non-empty pieces, so a result with no unit - the
+   * effective permittivity - really does carry a trailing space. We used to
+   * emit it only when there was a unit to separate.
+   *
+   * A non-finite result is printed, not hidden: `%g` of a NaN is `nan` or
+   * `-nan`, and pcb_calculator shows exactly that - an evanescent rectangular
+   * waveguide reads `-nan Ohm` for ZF(H10). Blanking the row, which is what we
+   * did, loses the one signal that says the geometry has no solution.
+   */
   const g = (v: number | undefined, unit = ''): string =>
-    v == null || !Number.isFinite(v) ? '' : unit ? `${printfG(v)} ${unit}` : printfG(v);
+    v == null ? '' : `${printfG(v)} ${unit}`;
 
   /** The Ang_l field is in whatever its selector says; rad is index 0. */
   const angleToField = (deg: number): number =>
@@ -325,8 +337,27 @@ export function PanelTransline(): JSX.Element {
     setVals((s) => ({ ...s, Z0: printfG(z0 / scale), Ang_l: printfG(angleToField(angleDeg)) }));
   };
 
-  const analyze = (): void => {
+  /**
+   * `TRANSLINE::analyze()` - getProperties, checkProperties, calc, show.
+   *
+   * `aOverride` carries SI values that are not in `vals` yet, which is what
+   * `synthesize()` needs: KiCad's synthesize() ends with `showSynthesize();
+   * show_results();` (transline.cpp:217-224), so the Results box is filled from
+   * the geometry it has just solved. React's state has not landed by then, so
+   * the numbers have to be handed over directly.
+   *
+   * `aShowElectrical` is false for that call, because `show_results()` writes
+   * only the result LINES - the electrical box keeps the target the user typed.
+   */
+  const analyze = (aOverride?: Record<string, number>, aShowElectrical = true): void => {
     setError('');
+    const sio = (key: string): number => aOverride?.[key] ?? si(key);
+    const setZ = (z0: number, angleDeg: number): void => {
+      if (aShowElectrical) setElecFromZ(z0, angleDeg);
+    };
+    const putElec = (patch: Record<string, string>): void => {
+      if (aShowElectrical) setVals((s) => ({ ...s, ...patch }));
+    };
     try {
       const e = el();
       const out: string[] = [];
@@ -334,10 +365,10 @@ export function PanelTransline(): JSX.Element {
         case 'microstrip':
         case 'stripline': {
           const phys = {
-            widthM: si('W'),
-            heightM: si('H'),
-            thicknessM: si('T'),
-            lengthM: si('L'),
+            widthM: sio('W'),
+            heightM: sio('H'),
+            thicknessM: sio('T'),
+            lengthM: sio('L'),
           };
           // STRIPLINE_A_PRM, the `a` substrate row. Microstrip has no such
           // parameter; stripline's two half-lines are built from it
@@ -345,7 +376,7 @@ export function PanelTransline(): JSX.Element {
           const r =
             type === 'microstrip'
               ? microstripAnalyze(phys, e)
-              : striplineAnalyze({ ...phys, offsetM: si('a') }, e);
+              : striplineAnalyze({ ...phys, offsetM: sio('a') }, e);
           out.push(
             g(r.epsEff),
             g(unitPropagationDelay(r.epsEff), 'ps/cm'),
@@ -353,18 +384,18 @@ export function PanelTransline(): JSX.Element {
             g(r.dielectricLossDb, 'dB'),
             g(r.skinDepthM * 1e6, 'µm'),
           );
-          setElecFromZ(r.z0, r.angleDeg);
+          setZ(r.z0, r.angleDeg);
           break;
         }
         case 'cpw':
         case 'gcpw': {
           const r = coplanarAnalyze(
             {
-              widthM: si('W'),
-              gapM: si('S'),
-              heightM: si('H'),
-              thicknessM: si('T'),
-              lengthM: si('L'),
+              widthM: sio('W'),
+              gapM: sio('S'),
+              heightM: sio('H'),
+              thicknessM: sio('T'),
+              lengthM: sio('L'),
             },
             e,
             type === 'gcpw',
@@ -376,27 +407,28 @@ export function PanelTransline(): JSX.Element {
             g(r.dielectricLossDb, 'dB'),
             g(r.skinDepthM * 1e6, 'µm'),
           );
-          setElecFromZ(r.z0, r.angleDeg);
+          setZ(r.z0, r.angleDeg);
           break;
         }
         case 'rectwaveguide': {
-          const r = rectWaveguideAnalyze({ aM: si('a'), bM: si('b'), lengthM: si('L') }, e);
-          // setResult( 0, Z0EH, "Ohm" ) — spelled "Ohm" here, not "Ω"
-          // (rectwaveguide.cpp:380).
+          const r = rectWaveguideAnalyze({ aM: sio('a'), bM: sio('b'), lengthM: sio('L') }, e);
+          // setResult( 0, Z0EH, "Ohm" ) — spelled "Ohm" here, not "Ω", and it
+          // is Z0EH, the field-quantity impedance, NOT the Z0 that goes in the
+          // Electrical box (rectwaveguide.cpp:378-380).
           out.push(
-            g(r.z0, 'Ohm'),
+            g(r.z0EH, 'Ohm'),
             g(r.epsEff),
             g(r.conductorLossDb, 'dB'),
             g(r.dielectricLossDb, 'dB'),
             r.teModes,
             r.tmModes,
           );
-          setElecFromZ(r.z0, r.angleDeg);
+          setZ(r.z0, r.angleDeg);
           break;
         }
         case 'coax': {
           const r = coaxAnalyze(
-            { innerDiaM: si('Din'), outerDiaM: si('Dout'), lengthM: si('L') },
+            { innerDiaM: sio('Din'), outerDiaM: sio('Dout'), lengthM: sio('L') },
             e,
           );
           out.push(
@@ -406,17 +438,17 @@ export function PanelTransline(): JSX.Element {
             r.teModes,
             r.tmModes,
           );
-          setElecFromZ(r.z0, r.angleDeg);
+          setZ(r.z0, r.angleDeg);
           break;
         }
         case 'c_microstrip': {
           const r = coupledMicrostripAnalyze(
             {
-              widthM: si('W'),
-              gapM: si('S'),
-              heightM: si('H'),
-              thicknessM: si('T'),
-              lengthM: si('L'),
+              widthM: sio('W'),
+              gapM: sio('S'),
+              heightM: sio('H'),
+              thicknessM: sio('T'),
+              lengthM: sio('L'),
             },
             e,
           );
@@ -437,23 +469,22 @@ export function PanelTransline(): JSX.Element {
             g(r.skinDepthM * 1e6, 'µm'),
             g(x.zDiff, 'Ω'),
           );
-          setVals((s) => ({
-            ...s,
+          putElec({
             Zeven: printfG(x.z0Even),
             Zodd: printfG(x.z0Odd),
             Ang_l: printfG(angleToField(r.angleDeg)),
-          }));
+          });
           break;
         }
         case 'c_stripline': {
           const r = coupledStriplineAnalyze(
             {
-              widthM: si('W'),
-              gapM: si('S'),
-              heightM: si('H'),
+              widthM: sio('W'),
+              gapM: sio('S'),
+              heightM: sio('H'),
               offsetAM: 0,
-              thicknessM: si('T'),
-              lengthM: si('L'),
+              thicknessM: sio('T'),
+              lengthM: sio('L'),
             },
             e,
           );
@@ -465,21 +496,20 @@ export function PanelTransline(): JSX.Element {
             g(r.skinDepthM * 1e6, 'µm'),
             g(r.zDiff, 'Ω'),
           );
-          setVals((s) => ({
-            ...s,
+          putElec({
             Zeven: printfG(r.z0Even),
             Zodd: printfG(r.z0Odd),
             Ang_l: printfG(angleToField(r.angleDeg)),
-          }));
+          });
           break;
         }
         case 'twistedpair': {
           const r = twistedPairAnalyze(
             {
-              dinM: si('Din'),
-              doutM: si('Dout'),
+              dinM: sio('Din'),
+              doutM: sio('Dout'),
               twistsPerM: num('Twists'),
-              lengthM: si('L'),
+              lengthM: sio('L'),
             },
             { ...e, epsilonRenv: num('ErEnv') },
           );
@@ -489,7 +519,7 @@ export function PanelTransline(): JSX.Element {
             g(r.dielectricLossDb, 'dB'),
             g(r.skinDepthM * 1e6, 'µm'),
           );
-          setElecFromZ(r.z0, r.angleDeg);
+          setZ(r.z0, r.angleDeg);
           break;
         }
       }
@@ -511,8 +541,13 @@ export function PanelTransline(): JSX.Element {
     }
     const noSolution = (): void =>
       setError('No physical solution found for this target impedance.');
-    const setLen = (key: string, metres: number): void =>
+    // What synthesis solves for, in SI, so the analysis below can be run over
+    // it without waiting for React to apply the field text.
+    const solved: Record<string, number> = {};
+    const setLen = (key: string, metres: number): void => {
+      solved[key] = metres;
       put(key, printfG(metres / (LEN_UNITS[units[key] ?? 0]?.mult ?? 1e-3)));
+    };
 
     switch (type) {
       case 'microstrip':
@@ -645,7 +680,10 @@ export function PanelTransline(): JSX.Element {
         break;
       }
     }
-    setMsgs([]);
+    // `synthesize()` ends `showSynthesize(); show_results();` - the Results box
+    // is filled from the geometry just solved. Ours used to clear it instead,
+    // so pressing Synthesize left every result line blank.
+    analyze(solved, false);
   };
 
   /**
@@ -815,14 +853,14 @@ export function PanelTransline(): JSX.Element {
               inside either (base:303-329). Each button has a STD_BITMAP_BUTTON
               beside it carrying small_down / small_up. */}
           <div className="tl-buttons">
-            <button type="button" className="calc-btn" onClick={analyze}>
+            <button type="button" className="calc-btn" onClick={() => analyze()}>
               Analyze
             </button>
             <button
               type="button"
               className="calc-btn calc-bmp"
               aria-label="Analyze"
-              onClick={analyze}
+              onClick={() => analyze()}
             >
               <img
                 src={TL_ART['../../../assets/calculator/small_down.svg']}

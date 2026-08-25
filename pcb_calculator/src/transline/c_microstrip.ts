@@ -405,7 +405,12 @@ export function coupledMicrostripAnalyze(
   const angLo = (2.0 * Math.PI * len * el.frequencyHz * Math.sqrt(fr.erEffO)) / C0;
   const angDeg = (Math.sqrt(angLe * angLo) * 180) / Math.PI;
 
-  const zDiff = 2.0 * fr.z0O; // diff_impedance()
+  // diff_impedance(): `Zdiff = 2 * Z0_o_0` (coupled_microstrip.cpp:631) - the
+  // STATIC odd-mode impedance, before Z0_dispersion() runs, and not the
+  // dispersed `Z0_o` that the Zodd field displays. We doubled the dispersed
+  // one, which on the shipped defaults printed 116.136 Ω against KiCad's
+  // 116.255 Ω.
+  const zDiff = 2.0 * st.z0O0;
   const coupling = (fr.z0E - fr.z0O) / (fr.z0E + fr.z0O);
 
   return {
