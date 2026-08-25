@@ -275,13 +275,19 @@ MUTANTS: list[Mutant] = [
         [SUITE],
         why="onTransferDataToWindow applies the guard, :112-124",
     ),
+    # Swapping <DialogEeschemaPageSettings> for the base class outright does
+    # not COMPILE — `stored` and `onStoreExports` are not the base's props — so
+    # TypeScript already refuses that particular mistake and a mutant of it is a
+    # build failure rather than a test of anything. This is the compiling
+    # version of the same error: the wrapper stops declaring which frame it is.
     Mutant(
-        "wrapper-opens-the-base-class-raw",
-        SCH,
-        "              <DialogEeschemaPageSettings",
-        "              <DialogPageSettings\n                frame=\"eeschema\"",
+        "wrapper-forgets-its-frame",
+        WRAPPER,
+        '      frame="eeschema"',
+        '      frame="pcbnew"',
         [SUITE],
-        why="eeschema opens the SUBCLASS; the base has no settings round-trip",
+        why="DIALOG_EESCHEMA_PAGE_SETTINGS is eeschema's, and it is what shows "
+        "the export column (dialog_eeschema_page_settings.cpp:87-102)",
     ),
 ]
 
