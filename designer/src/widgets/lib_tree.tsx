@@ -206,8 +206,20 @@ export function LibTree({
     return expanded.has(keyOf(node));
   };
 
-  // ExpandAll/CollapseAll act on the whole tree control, so multi-unit symbols
-  // open too, not just the library rows.
+  /**
+   * ExpandAll/CollapseAll act on the whole tree control, so multi-unit symbols
+   * open too, not just the library rows.
+   *
+   * It notifies `onToggleLibrary` for NOTHING. `LIB_TREE::ExpandAll`
+   * (common/widgets/lib_tree.cpp:426-431) only walks the dataview and expands
+   * items; it cannot load anything, because `IFACE::PreloadLibraries` already
+   * made every library resident. Ours used to call `onToggleLibrary` for every
+   * library, which is the chooser's lazy-load hook — so one click on "Expand
+   * All" asked the bucket for all 223 hosted libraries, 219.7 MB. The rows
+   * still open; the ones whose library has not been fetched show their names
+   * without descriptions, which is the price of loading on demand and is much
+   * cheaper than the alternative.
+   */
   const expandCollapseAll = (expand: boolean) => {
     if (!expand) {
       setExpanded(new Set());
@@ -216,11 +228,33 @@ export function LibTree({
     const all = new Set<string>();
     for (const lib of adapter.tree.children) {
       all.add(lib.name);
-      onToggleLibrary?.(lib, true);
       for (const item of lib.children) if (item.children.length > 0) all.add(item.libId);
     }
     setExpanded(all);
   };
+
+  /**
+   * `PANEL_SYMBOL_CHOOSER::onOpenLibsTimer` -> `LIB_TREE_MODEL_ADAPTER::OpenLibs`
+   * (eeschema/widgets/panel_symbol_chooser.cpp:534-538,
+   * common/lib_tree_model_adapter.cpp:220-232): the libraries the user had open
+   * last time are expanded once the tree exists.
+   *
+   * `openLibs` already seeds `expanded`, so they LOOK open — but nothing ever
+   * told the owner, so the lazy-load hook never ran for them and a restored
+   * library sat there showing bare names until the user collapsed and
+   * re-expanded it. Upstream has no such gap: expanding is free there.
+   *
+   * Upstream defers this behind a 300 ms one-shot timer, and says why — "a
+   * gross hack to keep GTK from garbling the display" (panel_symbol_chooser.cpp:273-276).
+   * That is a GTK repaint problem, not a rule, so this runs on mount.
+   */
+  // biome-ignore lint/correctness/useExhaustiveDependencies: mount only, like the one-shot timer
+  useEffect(() => {
+    for (const lib of openLibs ?? []) {
+      const node = adapter.tree.children.find((n) => !n.isGroup && n.name === lib);
+      if (node) onToggleLibrary?.(node, true);
+    }
+  }, []);
 
   // Flatten the visible rows; zero-score nodes are filtered out while a
   // query is active (they aren't in the wxDataViewCtrl at all upstream).

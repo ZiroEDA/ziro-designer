@@ -33,7 +33,7 @@ import { FootprintSelectWidget } from '../../../widgets/footprint_select_widget.
 import { loadFootprintIndex, filterFootprints } from '../../../widgets/footprint_list.js';
 import { SymbolPreviewWidget } from './symbol_preview_widget.js';
 import { generateAliasInfo } from '../generate_alias_info.js';
-import { powerSymbolTest, loadIndex, loadSymbol } from '../symbols/index.js';
+import { powerSymbolTest, loadIndex, loadLibrarySymbols, loadSymbol } from '../symbols/index.js';
 import { settings } from '../../../prefs/settings.js';
 
 /** Upstream PICKED_SYMBOL (sch_screen.h): LIB_ID + unit + edited fields. */
@@ -328,19 +328,42 @@ export const PanelSymbolChooser = forwardRef<PanelSymbolChooserHandle, PanelSymb
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [adapter]);
 
-    /** Fetch a library and enrich its item nodes (the lazy-load pass). */
+    /**
+     * Fetch a library and enrich its item nodes — `SYMBOL_TREE_MODEL_ADAPTER::
+     * AddLibraries`' `m_adapter->GetSymbols( lib )`
+     * (eeschema/symbol_tree_model_adapter.cpp:148), which is a whole library at
+     * a time because upstream has it resident.
+     *
+     * ONE request, for the library file. It used to be one request per symbol,
+     * and the cost of that is not marginal: expanding `Device` is 536 symbols,
+     * and measured against the bucket that is
+     *
+     *     536 per-symbol files   2,486,139 B   94.2 s at 6 in flight
+     *                                          21.7 s at 24
+     *     1 Device.kicad_sym     2,414,640 B    1.9 s
+     *
+     * — the same bytes, 536x the round trips, and between 10x and 50x the wall
+     * clock. `loadSymbol` is still per-symbol for PLACING one part, which is
+     * where the split pays; enriching a whole library's rows is the case it
+     * loses, badly. The fetched library also lands in `loadLibrary`'s cache, so
+     * every later `loadSymbol` in it is free.
+     */
     const ensureLibraryLoaded = useCallback(
       async (libNickname: string): Promise<void> => {
         if (loadedLibs.current.has(libNickname)) return;
         loadedLibs.current.add(libNickname);
         const libNode = adapter.tree.children.find((n) => !n.isGroup && n.name === libNickname);
         if (!libNode) return;
-        await Promise.all(
-          libNode.children.map(async (item) => {
-            const sym = await loadSymbol(libNickname, item.libItemName).catch(() => undefined);
-            if (sym) populateItemNode(item, sym, adapter);
-          }),
+        const symbols = await loadLibrarySymbols(libNickname).catch(() => []);
+        // `loadLibrarySymbols` stamps each libId as "Library:Name"; the tree's
+        // item nodes carry the bare name.
+        const byName = new Map(
+          symbols.map((sym) => [sym.libId.slice(libNickname.length + 1), sym]),
         );
+        for (const item of libNode.children) {
+          const sym = byName.get(item.libItemName);
+          if (sym) populateItemNode(item, sym, adapter);
+        }
         setRegenerateNonce((n) => n + 1);
         onItemCountChanged?.(adapter.getItemCount());
       },
