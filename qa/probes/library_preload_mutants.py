@@ -29,6 +29,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 
+# Outside the repo on purpose: a .tsbuildinfo in the tree would show up in
+# `git status` and the harness refuses to run on a dirty tree.
+TSBUILDINFO = str(Path.home() / ".mutcache.tsbuildinfo")
+
 PRELOAD = "designer/src/libraryPreload.ts"
 MONITOR = "designer/src/ui/background_jobs_monitor.ts"
 LIST = "designer/src/ui/BackgroundJobList.tsx"
@@ -414,7 +418,23 @@ def main() -> int:
             verdict = "?"
             build_ok = True
             for pkg in m.packages:
-                rc, out = run(["pnpm", "-C", pkg, "typecheck"])
+                # `--incremental` with a build-info file kept OUTSIDE the repo:
+                # a full `tsc --noEmit` on designer is 100 s and a warm
+                # incremental one is 18 s, which is the difference between a
+                # sweep that fits in a foreground step and one that does not.
+                # It typechecks the same program; only the work it can skip
+                # changes.
+                rc, out = run(
+                    [
+                        "npx",
+                        "tsc",
+                        "--noEmit",
+                        "--incremental",
+                        "--tsBuildInfoFile",
+                        TSBUILDINFO,
+                    ],
+                    cwd=ROOT / pkg,
+                )
                 if rc != 0:
                     build_ok = False
                     verdict = f"BUILD-FAIL ({pkg})"
