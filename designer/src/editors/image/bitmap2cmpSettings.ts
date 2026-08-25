@@ -2,63 +2,62 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * BITMAP2CMP_SETTINGS, web edition (`bitmap2cmp_settings.cpp`). The stored JSON
- * uses KiCad's own key names from `bitmap2component.json` (schema v1) so the
- * blob reads like the desktop settings file: units / threshold / negative /
- * last_format / last_mod_layer plus the last input/output file names.
- * Persistence is localStorage, like the rest of the app's settings.
+ * The Image Converter's two stores: `BITMAP2CMP_SETTINGS` and its file history.
  *
- * The file-history side (KiCad's FILE_HISTORY, surfaced as File → Open Recent)
- * has no path-based equivalent in a browser, so recent images are kept as data
- * URLs. The store itself is the shared port in `ui/file_history.ts` — this file
- * used to carry a private twelfth-of-a-FILE_HISTORY that capped at 5 and had
- * drifted from the Drawing Sheet Editor's private copy of the same idea.
+ * `bitmap2component.json` is a `SETTINGS_LOC::USER` file like `eeschema.json`,
+ * so it is a slice of the shared `SettingsManager` — the shape, the key names
+ * and KiCad's defaults are in `prefs/settings.ts` beside the other six, and it
+ * follows the account through `cloud/settingsSync.ts` for the reason that
+ * module's header gives: `SETTINGS_LOC::USER` means one settings file per user
+ * per installation, and in a browser with sign-in the account is what that maps
+ * to. It used to be a private localStorage key here, which gave the same person
+ * a different threshold in Chrome than in Firefox.
+ *
+ * The file history is the exception, and deliberately still local — see
+ * `recentImages` below.
  */
 import { FileHistory } from '../../ui/file_history.js';
-import { settings } from '../../prefs/settings.js';
+import { BITMAP2CMP_DEFAULTS, settings, type Bitmap2CmpSettings } from '../../prefs/settings.js';
 
-export interface Bitmap2CmpSettings {
-  bitmap_file_name: string;
-  converted_file_name: string;
-  /** Output-size unit choice: 0 mm, 1 inch, 2 DPI. */
-  units: number;
-  /** Black/white threshold, 0..100. */
-  threshold: number;
-  negative: boolean;
-  /** OUTPUT_FMT_ID: 0 symbol, 1 symbol-paste, 2 footprint, 3 postscript, 4 drawing sheet. */
-  last_format: number;
-  /** Footprint outline layer index (F.Cu first, PCBNew ordering). */
-  last_mod_layer: number;
-}
+export { BITMAP2CMP_DEFAULTS, type Bitmap2CmpSettings };
 
-export const BITMAP2CMP_DEFAULTS: Bitmap2CmpSettings = {
-  bitmap_file_name: '',
-  converted_file_name: '',
-  units: 0,
-  threshold: 50,
-  negative: false,
-  last_format: 0,
-  last_mod_layer: 0,
-};
-
-const SETTINGS_KEY = 'ziroeda.bitmap2cmp';
-
+/**
+ * `BITMAP2CMP_PANEL::LoadSettings` (bitmap2cmp_panel.cpp:76-107): the panel
+ * reads the settings object once, when the frame builds it, and holds the
+ * values in its controls from then on. A snapshot is therefore the faithful
+ * shape, not a subscription.
+ */
 export function loadBitmap2CmpSettings(): Bitmap2CmpSettings {
-  try {
-    const raw = localStorage.getItem(SETTINGS_KEY);
-    if (!raw) return { ...BITMAP2CMP_DEFAULTS };
-    return { ...BITMAP2CMP_DEFAULTS, ...(JSON.parse(raw) as Partial<Bitmap2CmpSettings>) };
-  } catch {
-    return { ...BITMAP2CMP_DEFAULTS };
-  }
+  return { ...settings.bitmap2cmp };
 }
 
+/**
+ * `BITMAP2CMP_PANEL::SaveSettings` (bitmap2cmp_panel.cpp:110-117), which
+ * upstream runs once, from the frame destructor (bitmap2cmp_frame.cpp:209).
+ * Ours writes on each change instead, because a browser tab is not guaranteed a
+ * destructor; the debounce that stops that being a request per keystroke is in
+ * `settingsSync.ts`, and it is the same trade `SETTINGS_MANAGER` makes by
+ * writing on dialog-accept.
+ *
+ * **An unchanged save must not record an edit**, which is why this compares
+ * before it commits. `ImageConverter.tsx` saves from an effect, and an effect
+ * also fires on mount — with exactly the values `loadBitmap2CmpSettings` just
+ * returned. While this was a private localStorage key that merely rewrote the
+ * same bytes. As a slice it would stamp `updatedAt`, and `decideSlice`'s
+ * `updatedAt > syncedAt` would read *opening the Image Converter* as this
+ * device having edited the settings: it would push a row identical to the one
+ * it just pulled, and then win the next conflict against the device where
+ * somebody actually changed something. Upstream cannot have this bug — a frame
+ * opened and closed with nothing touched writes the same values back, and
+ * `SETTINGS_MANAGER` has no second copy to lose to.
+ */
 export function saveBitmap2CmpSettings(s: Bitmap2CmpSettings): void {
-  try {
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify(s));
-  } catch {
-    /* private mode, settings simply don't persist */
-  }
+  const cur = settings.bitmap2cmp;
+  const keys = Object.keys(BITMAP2CMP_DEFAULTS) as (keyof Bitmap2CmpSettings)[];
+  if (keys.every((k) => cur[k] === s[k])) return;
+  settings.updateBitmap2Cmp((next) => {
+    Object.assign(next, s);
+  });
 }
 
 // ----- recent images (FILE_HISTORY) -------------------------------------------
@@ -83,6 +82,22 @@ export const RECENT_MAX_DATA = 1_500_000;
  * BITMAP2CMP_FRAME's `m_fileHistory`, allocated once the way
  * `EDA_BASE_FRAME::LoadSettings` (eda_base_frame.cpp:1282-1286) allocates it,
  * from the user's `system.file_history_size`.
+ *
+ * **This one does not follow the account, and upstream is the reason.** The MRU
+ * list is stored inside the settings file (`system.file_history`,
+ * app_settings.cpp:225-226), so "which file is it in" would say sync it — but
+ * `SETTINGS_MANAGER::ResetToDefaults` (settings_manager.cpp:106-124) lifts the
+ * history out, resets everything else to its default, and puts the history
+ * back; and clearing it needs its own command (`ClearFileHistory`, :126-139).
+ * KiCad is drawing the line itself: the history is not one of the settings. It
+ * records what this installation has opened rather than what this person
+ * prefers, and its rows are paths, which mean nothing on another machine.
+ *
+ * Ours holds bytes rather than paths, which only sharpens it: at
+ * `RECENT_MAX_DATA` per row and a default of nine rows this is up to ~13 MB of
+ * base64. If recent images should ever follow the account, they belong in the
+ * content-addressed blob store in `cloud/` with hashes in the slice — not in a
+ * `jsonb` column on a 1.2 s debounce. See `cloud/settingsSync.ts`.
  */
 export const recentImages = new FileHistory<RecentImage>({
   storageKey: 'ziroeda.bitmap2cmp.recent',

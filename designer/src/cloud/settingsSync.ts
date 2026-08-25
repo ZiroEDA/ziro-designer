@@ -4,7 +4,7 @@
 /**
  * The user's settings, following their account instead of their browser.
  *
- * ### What upstream does, and where it stops
+ * ### Why this is the port, and localStorage alone is the divergence
  *
  * `SETTINGS_MANAGER` keeps one `JSON_SETTINGS` per settings *file* and writes
  * each to its own path under `SETTINGS_LOC::USER`
@@ -16,10 +16,32 @@
  * flushes it, which is the last callback a browser tab is guaranteed
  * (`home/flush_on_hide.ts`).
  *
- * Upstream stops there, because upstream is one machine with one home
- * directory. It has no notion of two copies of `eeschema.json` that disagree,
- * so the reconciliation below is ours to design rather than to port. What *is*
- * portable is the version discipline, and it is used in full:
+ * The question worth being careful about is not "is localStorage more like a
+ * home directory than a database is". It is *where do this user's settings live
+ * for this installation*, and upstream's answer is: in one place, whichever way
+ * they launch KiCad. `SETTINGS_LOC::USER` is per user, not per process, per
+ * window, or per launcher.
+ *
+ * localStorage on its own cannot give that answer. It is scoped to an origin
+ * *in one browser profile*, so the same person on the same computer with the
+ * same installation gets one settings file in Chrome, a different one in
+ * Firefox, and a third in a private window — three copies of `eeschema.json`
+ * that never meet. Nothing upstream behaves that way. In a hosted build the
+ * account *is* the installation, so syncing to it is what restores
+ * `SETTINGS_LOC::USER`'s actual meaning, and localStorage becomes the cache
+ * underneath rather than the store.
+ *
+ * The deployment where that is not true is a build with **auth disabled** — no
+ * Supabase env vars, `AuthGate` a passthrough, the app fully offline. There is
+ * no account there for settings to belong to, and localStorage is simply where
+ * they live. `installSettingsSync` handles it where it is implemented. It is not
+ * a signed-out mode of the hosted build: `AuthGate` is a sign-in wall, and the
+ * editor it renders behind the glass is inert.
+ *
+ * What upstream has no counterpart for is narrower than the whole design: it is
+ * the *reconciliation*. One machine with one home directory has no notion of two
+ * copies of `eeschema.json` that disagree, so the rule below is ours to choose.
+ * What *is* portable is the version discipline, and it is used in full:
  *
  *  - a row older than this build is migrated on the way in, through the same
  *    `migrateSlice` corrections a stored file gets (`JSON_SETTINGS::Migrate`,
@@ -59,7 +81,7 @@
  *
  *  1. A slice is only pushed if `updatedAt > syncedAt` — this device edited it.
  *     An idle device pushes nothing at all, and a device that changes the PCB
- *     grid pushes `pcbnew` and leaves the other seven alone. So the loss needs
+ *     grid pushes `pcbnew` and leaves the other eight alone. So the loss needs
  *     *both* devices to have edited *the same file*.
  *  2. Every push re-reads the account rows first and re-decides. The stale
  *     window is therefore the few hundred milliseconds between that read and
@@ -90,6 +112,34 @@
  * the same `SETTINGS_LOC::USER` directory (`user.hotkeys`, `colors/user.json`),
  * they describe the person, and a rebound key that did not follow the account
  * would be the most conspicuous thing missing.
+ *
+ * ### The one place "it is in a USER file" is not the answer
+ *
+ * `bitmap2component` syncs — it is `SETTINGS_LOC::USER`, it is seven scalars,
+ * and a threshold is exactly the kind of thing a person sets once. Its **file
+ * history does not**, and the reason is upstream's own, not a cost estimate.
+ *
+ * The MRU list is stored *inside* the same settings file
+ * (`system.file_history`, a `PARAM_LIST<wxString>` on `APP_SETTINGS_BASE`,
+ * app_settings.cpp:225-226), so "which file is it in" would say sync it. But
+ * `SETTINGS_MANAGER::ResetToDefaults` (settings_manager.cpp:106-124) lifts the
+ * history out, clears the object, reloads the defaults, and **puts the history
+ * back**; and clearing it at all takes a separate command,
+ * `SETTINGS_MANAGER::ClearFileHistory` (:126-139). Upstream is drawing the line
+ * itself: the history lives in the settings file for storage convenience and is
+ * not one of the settings, because it records what this installation has done
+ * rather than what this person prefers. Its rows are filesystem paths, which is
+ * the same statement in another form.
+ *
+ * Ours stores image bytes as data URLs, since a browser has no paths to store,
+ * and that turns the same decision into an obvious one: `RECENT_MAX_DATA` is
+ * 1.5 MB per image and `file_history_size` defaults to 9, so a synced history
+ * would be up to ~13 MB of base64 in a `jsonb` column, rewritten on a 1.2 s
+ * debounce and pulled in full at every sign-in. That is a file sync wearing a
+ * settings sync's clothes, and this codebase already has a real one —
+ * content-addressed blobs in `cloud/`. If recent images should ever follow the
+ * account, that is where they go, with the slice carrying hashes; it is not a
+ * matter of relaxing a cap here.
  */
 
 import type { SettingsRow } from './backend.js';
@@ -295,7 +345,7 @@ export async function syncSettings(
       mgr.markSliceSynced(slice, syncedAt, ms(written.updated_at));
       result.pushed.push(slice);
     } catch (e) {
-      // One file that will not write is not a reason to abandon the other seven,
+      // One file that will not write is not a reason to abandon the other eight,
       // and nothing local was risked by trying. Reported, not counted.
       result.error = e instanceof Error ? e.message : String(e);
       if (isMissingSettingsTable(e)) result.tableMissing = true;
@@ -333,10 +383,17 @@ export const SETTINGS_PUSH_DEBOUNCE_MS = 1200;
  * Make the signed-in user's settings follow their account, until the returned
  * disposer is called.
  *
- * Signed out (`userId` null) this installs nothing and clears the seam, so an
- * anonymous session behaves exactly as it did before any of this existed:
- * localStorage is written by the mutator and read by the next `SettingsManager`,
- * with nothing in between.
+ * With `userId` null this installs nothing and clears the seam: localStorage is
+ * written by the mutator and read by the next `SettingsManager`, with nothing in
+ * between.
+ *
+ * That is not a signed-out mode of the hosted build — `AuthGate` is a sign-in
+ * wall and the editor behind its glass is inert, so nobody edits a setting
+ * there. It is two other things. A build with **auth disabled** (no Supabase env
+ * vars, the gate a passthrough) has no account for the settings to belong to,
+ * and localStorage is where they live for that deployment; and there is a
+ * transient window at mount, before a session resolves, which this simply has to
+ * survive.
  */
 export function installSettingsSync(
   userId: string | null,

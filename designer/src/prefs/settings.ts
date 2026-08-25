@@ -8,9 +8,20 @@
  * JSON reads like a KiCad `common.json` / `eeschema.json`:
  *   - COMMON_SETTINGS   (common/settings/common_settings.cpp)
  *   - EESCHEMA_SETTINGS (eeschema/eeschema_settings.cpp)
- * Defaults are KiCad 9.0's defaults. Persistence is localStorage (the web
- * equivalent of the ~/.config/kicad settings directory), merged over the
- * defaults on load so new keys pick up their defaults automatically.
+ * Defaults are KiCad 9.0's defaults, merged over on load so a new key picks up
+ * its default automatically.
+ *
+ * **Where these live.** `SETTINGS_LOC::USER` is "this user's settings for this
+ * installation" — one file, however KiCad is launched. In a hosted build the
+ * account is what that maps to, so `cloud/settingsSync.ts` is the port of it and
+ * localStorage is the cache underneath. localStorage *alone* would be the
+ * divergence: it gives the same person a different settings file in Chrome than
+ * in Firefox, and different again in a private window, which is not something
+ * upstream can do.
+ *
+ * A build with auth disabled (no Supabase env vars, `AuthGate` a passthrough)
+ * has no account for settings to belong to, and localStorage is where they live
+ * there. That is that deployment's design, not a degraded hosted one.
  */
 
 import {
@@ -1046,6 +1057,55 @@ function numberMap(v: unknown): Record<string, number> {
   return out;
 }
 
+// ----- BITMAP2CMP_SETTINGS -----------------------------------------------------
+
+/**
+ * `bitmap2component.json` — `BITMAP2CMP_SETTINGS`
+ * (bitmap2component/bitmap2cmp_settings.cpp), a `SETTINGS_LOC::USER` file like
+ * every other one in this module. The key names below are the seven KiCad
+ * registers at :42-48, in that order, with KiCad's own defaults.
+ *
+ * `APP_SETTINGS_BASE`'s inherited slices are absent for the reason
+ * `PlEditorSettings` gives: the Image Converter puts a control in front of
+ * exactly these seven, and a setting we cannot honour is a setting we should
+ * not claim to store.
+ *
+ * KiCad's schema version for this file is 1 and its one migration
+ * (:51-68) renumbers `last_mod_layer` for the KiCad 6 layer-order change,
+ * reading a KiCad 5 `bitmap2component.json` we have never written. Ours starts
+ * at the post-migration numbering — `OUTLINE_LAYERS[0]` is `F.Cu`, matching
+ * the comment at :55-56 — so there is nothing for `migrateSlice` to do.
+ */
+export interface Bitmap2CmpSettings {
+  /** `bitmap_file_name` (:42), "". */
+  bitmap_file_name: string;
+  /** `converted_file_name` (:43), "". */
+  converted_file_name: string;
+  /** `units` (:44), 0. Output-size unit choice: 0 mm, 1 inch, 2 DPI. */
+  units: number;
+  /** `threshold` (:45), 50. Black/white threshold, 0..100. */
+  threshold: number;
+  /** `negative` (:46), false. */
+  negative: boolean;
+  /**
+   * `last_format` (:47), 0. `OUTPUT_FMT_ID` (bitmap2component.h:32-39):
+   * 0 symbol, 1 symbol-paste, 2 footprint, 3 postscript, 4 drawing sheet.
+   */
+  last_format: number;
+  /** `last_mod_layer` (:48), 0. Footprint outline layer, PCBNew ordering. */
+  last_mod_layer: number;
+}
+
+export const BITMAP2CMP_DEFAULTS: Bitmap2CmpSettings = {
+  bitmap_file_name: '',
+  converted_file_name: '',
+  units: 0,
+  threshold: 50,
+  negative: false,
+  last_format: 0,
+  last_mod_layer: 0,
+};
+
 // ----- PRIVACY (ZiroEDA-specific) -------------------------------------------------
 
 /**
@@ -1123,6 +1183,20 @@ export const SETTINGS_VERSION = 3;
 export const LEGACY_REGULATOR_KEY = 'ziro.calculator.regulators';
 
 /**
+ * The localStorage key the Image Converter's settings used before they became a
+ * slice, and the only reason `migrateStored` does anything but load.
+ *
+ * They were always this object under always these key names — `bitmap2cmp.ts`
+ * had ported `BITMAP2CMP_SETTINGS` faithfully — but under `ziroeda.bitmap2cmp`,
+ * which is the *class* name abbreviation rather than the settings *file*
+ * basename every other slice is named for (`APP_SETTINGS_BASE(
+ * "bitmap2component", … )`, bitmap2cmp_settings.cpp:33). Renaming it to match
+ * would strand anyone who has already set a threshold, so the value moves with
+ * the key.
+ */
+export const LEGACY_BITMAP2CMP_KEY = 'ziroeda.bitmap2cmp';
+
+/**
  * The settings *files*, in KiCad's sense: one independently stored,
  * independently versioned document each.
  *
@@ -1131,7 +1205,8 @@ export const LEGACY_REGULATOR_KEY = 'ziro.calculator.regulators';
  * to its own path; nothing upstream merges two of them or writes them as one
  * blob. Ours are localStorage keys rather than paths, and the names below are
  * the same basenames: `common.json`, `eeschema.json`, `pcbnew.json`,
- * `pl_editor.json`, `pcb_calculator.json`, `colors/user.json`, `user.hotkeys`.
+ * `pl_editor.json`, `pcb_calculator.json`, `bitmap2component.json`,
+ * `colors/user.json`, `user.hotkeys`.
  *
  * This list is also the unit the account sync works in — see
  * `cloud/settingsSync.ts` for why the granularity matters and what it costs.
@@ -1146,6 +1221,7 @@ export const SETTINGS_SLICES = [
   'pcbnew',
   'pl_editor',
   'pcb_calculator',
+  'bitmap2component',
   'privacy',
   'colors.user',
   'hotkeys',
@@ -1252,6 +1328,30 @@ export function migrateRegulatorLibrary(legacy: unknown, s: PcbCalculatorSetting
   return true;
 }
 
+/**
+ * Move the Image Converter's stored settings onto their slice's key.
+ *
+ * Exported for its own tests, and separate from `migrateSlice` because it is
+ * not a correction to a value: it is a *file rename*, the thing
+ * `SETTINGS_MANAGER` does by path and we do by key. `migrateSlice` operates on
+ * a value that has already been loaded, and this has to run before anything is
+ * loaded at all.
+ *
+ * Idempotent, and it never overwrites: a `bitmap2component` value already in
+ * place was written by this build or pulled from the account, and is therefore
+ * newer than anything under the old key. The old key is then removed, because
+ * leaving it would resurrect stale values the next time the version stamp was
+ * cleared.
+ */
+export function migrateBitmap2CmpKey(): boolean {
+  const legacy = localStorage.getItem(LEGACY_BITMAP2CMP_KEY);
+  if (legacy === null) return false;
+  const key = sliceStorageKey('bitmap2component');
+  if (localStorage.getItem(key) === null) localStorage.setItem(key, legacy);
+  localStorage.removeItem(LEGACY_BITMAP2CMP_KEY);
+  return true;
+}
+
 function migrateStored(): void {
   const versionKey = 'ziroeda.settings_version';
   try {
@@ -1266,6 +1366,9 @@ function migrateStored(): void {
     }
 
     if (from < 3) {
+      // v3: `ziroeda.bitmap2cmp` -> `ziroeda.bitmap2component`.
+      migrateBitmap2CmpKey();
+
       const legacyRaw = localStorage.getItem(LEGACY_REGULATOR_KEY);
       if (legacyRaw) {
         const calcRaw = localStorage.getItem(sliceStorageKey('pcb_calculator'));
@@ -1409,7 +1512,7 @@ function loadStamps(): Record<string, SliceStamp> {
   }
 }
 
-/** Reading and replacing one slice's value, in one table rather than eight. */
+/** Reading and replacing one slice's value, in one table rather than nine. */
 interface SliceIO {
   read(m: SettingsManager): unknown;
   /** Replace the in-memory value with one that came from storage or the account. */
@@ -1448,6 +1551,12 @@ const SLICE_IO: Record<SettingsSlice, SliceIO> = {
       m.pcbCalculator = normalizePcbCalculator(v);
     },
   },
+  bitmap2component: {
+    read: (m) => m.bitmap2cmp,
+    adopt: (m, v) => {
+      m.bitmap2cmp = deepMerge(structuredClone(BITMAP2CMP_DEFAULTS), v);
+    },
+  },
   privacy: {
     read: (m) => m.privacy,
     adopt: (m, v) => {
@@ -1484,6 +1593,8 @@ export class SettingsManager {
     sliceStorageKey('pcb_calculator'),
     normalizePcbCalculator,
   );
+  /** `bitmap2component.json`, the Image Converter's own settings file. */
+  bitmap2cmp: Bitmap2CmpSettings = load(sliceStorageKey('bitmap2component'), BITMAP2CMP_DEFAULTS);
   privacy: PrivacySettings = load(sliceStorageKey('privacy'), PRIVACY_DEFAULTS);
   /** The editable "User" colour theme: layer-key -> CSS colour overrides. */
   userColors: Record<string, string> = loadFreeForm(
@@ -1503,8 +1614,9 @@ export class SettingsManager {
    * The seam the account sync hangs off, installed the same way and for the
    * same reason as `setCloudBackend`: a module that reaches `import.meta.env`
    * cannot be imported from here, and a store that calls the network directly
-   * has no failure path anyone can test. Null while signed out, which is the
-   * whole of what "signed out behaves as before" costs.
+   * has no failure path anyone can test. Null when there is no account to sync
+   * to — a build with auth disabled, and the moment before a session resolves —
+   * which is the whole of what an account-less deployment costs.
    */
   onSliceChanged: ((slice: SettingsSlice) => void) | null = null;
   private listeners = new Set<Listener>();
@@ -1623,6 +1735,13 @@ export class SettingsManager {
     mutate(next);
     this.pcbCalculator = next;
     this.commit('pcb_calculator', next);
+  }
+
+  updateBitmap2Cmp(mutate: (s: Bitmap2CmpSettings) => void): void {
+    const next = structuredClone(this.bitmap2cmp);
+    mutate(next);
+    this.bitmap2cmp = next;
+    this.commit('bitmap2component', next);
   }
 
   updatePrivacy(mutate: (s: PrivacySettings) => void): void {
