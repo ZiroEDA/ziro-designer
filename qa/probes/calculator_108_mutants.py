@@ -101,10 +101,21 @@ MUTANTS = [
         [SETTINGS],
     ),
     (
-        "migration-noop",
+        # `return false` at the top is unreachable-code, which TS rejects before
+        # any test runs. Drop the library on the floor instead: it compiles, and
+        # it is the failure that actually matters -- a migration that runs and
+        # keeps nothing.
+        "migration-keeps-nothing",
         f"{D}/prefs/settings.ts",
-        "  if (s.regulators.library.length > 0) return false;",
-        "  return false;\n  if (s.regulators.library.length > 0) return false;",
+        "  s.regulators.library = kept;",
+        "  s.regulators.library = [];",
+        [SETTINGS],
+    ),
+    (
+        "migration-drops-selection",
+        f"{D}/prefs/settings.ts",
+        "  if (typeof l.selected === 'string' && s.regulators.selected_regulator === '')\n    s.regulators.selected_regulator = l.selected;",
+        "  void l.selected;",
         [SETTINGS],
     ),
     (
@@ -264,8 +275,20 @@ def run(cmd, cwd, timeout=600):
     )
 
 
+# A full `tsc --noEmit` on designer is 3m17s, which makes a 28-mutant sweep an
+# afternoon. `--incremental` against a build-info file kept OUTSIDE the tree
+# reuses everything the mutated file does not touch: 16s instead of 197s, and
+# it is the same check.
+BUILDINFO = Path.home() / "calc108-mut-{}.tsbuildinfo"
+
+
 def typecheck(project: str):
-    return run(f"{BIN}/tsc --noEmit -p tsconfig.json", WT / project, timeout=400)
+    info = str(BUILDINFO).format(project.replace("/", "-"))
+    return run(
+        f"{BIN}/tsc --noEmit --incremental --tsBuildInfoFile {info} -p tsconfig.json",
+        WT / project,
+        timeout=600,
+    )
 
 
 def dirty_targets() -> list[str]:
@@ -312,6 +335,7 @@ def main() -> int:
             continue
 
         try:
+            print(f"  .. {mid}: typechecking {project_for(rel)}", flush=True)
             tc = typecheck(project_for(rel))
             if tc.returncode != 0:
                 print(f"BUILD-FAILED   {mid}", flush=True)
@@ -320,6 +344,7 @@ def main() -> int:
 
             # vitest runs from `qa/`, so the specs must be relative to it.
             spec = " ".join(t[len("qa/"):] if t.startswith("qa/") else t for t in tests)
+            print(f"  .. {mid}: running {spec}", flush=True)
             r = run(f"{BIN}/vitest run {spec}", WT / "qa", timeout=600)
             out = r.stdout + r.stderr
             has_summary = "Test Files" in out

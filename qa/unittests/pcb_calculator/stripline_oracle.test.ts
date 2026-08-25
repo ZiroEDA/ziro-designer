@@ -176,6 +176,29 @@ const VECTORS: Vector[] = [
     unitPropDelay: 70.947168680924506,
   },
   {
+    // W / hmt is 0.32 on the lower half-line and 0.3346 on the upper, both
+    // inside [0.30, 0.35) — either side of `lineImpedance`'s
+    // `W / hmt >= 0.35` (stripline.cpp:136) and close enough to it that moving
+    // the threshold changes which formula runs. Without this vector the
+    // threshold was unpinned: a sweep moved it to 0.30 and nothing failed.
+    what: 'straddling the W/hmt = 0.35 branch, on both half-lines',
+    widthM: 0.000512,
+    heightM: 0.0016,
+    thicknessM: 3.5e-5,
+    offsetM: 0.0008,
+    epsilonR: 4.5,
+    tanD: 0.02,
+    frequencyHz: 1e9,
+    lengthM: 0.05,
+    z0: 54.956714432115184,
+    angLRad: 2.2229793410071541,
+    epsEff: 4.5,
+    conductorLossDb: 0.111023832040582,
+    dielectricLossDb: 0.19308553223686675,
+    skinDepthM: 2.0898067849687574e-6,
+    unitPropDelay: 70.947168680924506,
+  },
+  {
     what: 'the same line from the other plane, a = h − a − t',
     widthM: 0.0005,
     heightM: 0.0016,

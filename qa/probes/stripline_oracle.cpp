@@ -92,6 +92,12 @@ int main()
         // h - a - t swaps the two half-line heights, so Z0 must be identical.
         { 0.5e-3,  50e-3, 0.035e-3, 0.3e-3, 4.5, 0.02, 1e9,  5.8e7,  1.0 },
         { 0.5e-3,  50e-3, 0.035e-3, 1.265e-3, 4.5, 0.02, 1e9, 5.8e7, 1.0 },
+        // W chosen so BOTH half-lines land in [0.30, 0.35): W / hmt is 0.32
+        // below and 0.3346 above, either side of `lineImpedance`'s
+        // `W / hmt >= 0.35` branch (stripline.cpp:136) and inside it. Without
+        // this the threshold is unpinned -- moving it to 0.30 changed nothing
+        // any other vector could see.
+        { 0.512e-3, 50e-3, 0.035e-3, 0.8e-3, 4.5, 0.02, 1e9, 5.8e7, 1.0 },
     };
 
     printf( "  //  W(m)      H(m)      T(m)      A(m)      er     Z0            ang_l(rad)    "
