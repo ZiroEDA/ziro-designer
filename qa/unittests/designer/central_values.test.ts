@@ -129,7 +129,14 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // `prefs/widgets` sized their `<input type="color">` with inline width and
   // height because a native colour input has no useful default size; the
   // shared swatch takes --swatch-*-w/h instead.
-  dialogs: { colours: 7, metrics: 47 },
+  // 7/47 -> 5/32 when DIALOG_PAGES_SETTINGS became ONE dialog. The schematic's
+  // copy of it had never had a parity pass: it wrote its whole layout inline —
+  // `width: 90`, `width: 78`, `gap: 8`, `gap: 18`, `padding: '10px 14px'`,
+  // `margin: '4px 0'`, `padding: 8`, `paddingBottom: 3` and the rest — plus a
+  // `'#fff'` preview fill and a `'1px solid #888'` preview border, neither of
+  // which is a colour KiCad picks. All of it is `.ze-pgs-*` in shell.css now,
+  // where the drawing-sheet copy's two audits had already put it.
+  dialogs: { colours: 5, metrics: 32 },
   'editors/calculator': { colours: 2, metrics: 18 },
   'editors/drawingsheet': { colours: 0, metrics: 0 },
   'editors/footprint': { colours: 9, metrics: 20 },
@@ -459,7 +466,10 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // Rescanned from this tree, and derived a second time independently -- the
     // branch's diff removes exactly five colour literals from designer/src and
     // adds none outside comments, so 675 - 5 agrees.
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(670);
+    // 670 -> 668: the two the schematic's copy of DIALOG_PAGES_SETTINGS drew
+    // its preview with. RESCANNED from this tree, and derived a second time
+    // from the per-area table: `dialogs` is the only row that moved, 7 -> 5.
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(668);
     // 1657 -> 1649: the same sweep. A native colour input has no useful
     // default size, so eight of the sixteen sites gave theirs an inline
     // width and height; the shared swatch takes --swatch-*-w/h. Rescanned.
@@ -467,7 +477,10 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // the sweep's second half, and `.ze-lp-swatch`'s 34 x 18 went when the
     // swatch inside it became a COLOR_SWATCH sized from --swatch-*-w/h.
     // Rescanned from this tree.
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1648);
+    // 1648 -> 1633: the fifteen the same dialog wrote inline. RESCANNED from
+    // this tree; the per-area table agrees, `dialogs` 47 -> 32 and nothing
+    // else moving, which is the second independent derivation.
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1633);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {

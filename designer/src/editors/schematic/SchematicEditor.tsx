@@ -13,13 +13,7 @@ import {
   SCH_IU_PER_MM,
   type WksSheet,
 } from '@ziroeda/common';
-import {
-  resolveActiveSheet,
-  readSheetRef,
-  writeSheetRefText,
-  listProjectSheetFiles,
-  parseProjectSheet,
-} from '@ziroeda/common';
+import { resolveActiveSheet, readSheetRef, writeSheetRefText } from '@ziroeda/common';
 import { Fragment, useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { parse } from '@ziroeda/sexpr';
 import {
@@ -337,7 +331,12 @@ import { DialogEditSymbolsLibId } from './dialogs/dialog_edit_symbols_libid.js';
 import { DialogResolveFieldCaseConflicts } from './dialogs/dialog_resolve_field_case_conflicts.js';
 import { DialogAnnotate, type AnnotateRun } from './dialogs/dialog_annotate.js';
 import { DialogLineProperties, type ItemColor } from './dialogs/dialog_line_properties.js';
-import { DialogPageSettings, type PageExportFlags } from '../../dialogs/dialog_page_settings.js';
+import { DialogPageSettings } from '../../dialogs/dialog_page_settings.js';
+import {
+  pageSettingsValue,
+  toPaperToken,
+  type PageExportFlags,
+} from '../../dialogs/page_settings_model.js';
 import { DialogPasteSpecial } from './dialogs/dialog_paste_special.js';
 import { DialogSheetProperties, type SheetPropsResult } from './dialogs/dialog_sheet_properties.js';
 import { DialogShapeProperties, type ShapePropsResult } from './dialogs/dialog_shape_properties.js';
@@ -1965,21 +1964,13 @@ export function SchematicEditor({
     () => (extraSheetFiles?.length ? [...rawFiles, ...extraSheetFiles] : rawFiles),
     [rawFiles, extraSheetFiles],
   );
-  // The drawing sheet to draw (override else the project reference), its file
-  // name for the dialog, and the project's .kicad_wks choices.
+  // The drawing sheet to draw (override else the project reference) and its
+  // file name for `SetWksFileName` in the Page Settings dialog.
   const activeSheet = useMemo(
     () => (sheetOverride ? sheetOverride.sheet : resolveActiveSheet(allFiles)),
     [allFiles, sheetOverride],
   );
   const sheetRefName = sheetOverride ? sheetOverride.name : readSheetRef(rawFiles);
-  const sheetChoices = useMemo(
-    () =>
-      listProjectSheetFiles(allFiles).map((name) => ({
-        name,
-        sheet: parseProjectSheet(allFiles, name),
-      })),
-    [allFiles],
-  );
   // WX_INFOBAR message posted by a tool (null = hidden).
   const [infoBar, setInfoBar] = useState<string | null>(null);
   /**
@@ -8195,12 +8186,38 @@ export function SchematicEditor({
             )}
             {pageSettingsOpen && doc && (
               <DialogPageSettings
-                value={getPageSettings(doc)}
+                // DIALOG_EESCHEMA_PAGE_SETTINGS is the one subclass, and the
+                // only frame that shows the sheet tallies and the fourteen
+                // "Export to other sheets" checkboxes
+                // (dialog_eeschema_page_settings.cpp:85-102).
+                frame="eeschema"
+                // `m_customSizeX( aParent, … )` — a UNIT_BINDER over the FRAME
+                // (dialog_page_settings.cpp:65-66), so the two custom-size
+                // fields read in the schematic frame's own unit. A fresh
+                // eeschema is in MILS (app_settings.cpp:228-238), which is why
+                // KiCad's showed mils where ours said "mm".
+                units={units}
+                value={pageSettingsValue(getPageSettings(doc).paper, getPageSettings(doc))}
                 sheetCount={flatSheets.length}
                 sheetNumber={Number(pageNumberOf(currentPath)) || 1}
-                sheetChoices={sheetChoices}
-                drawingSheetName={sheetRefName}
-                onOk={applyPageSettings}
+                wksFileName={sheetRefName}
+                sheet={activeSheet}
+                projectDir={projectName ? `/${projectName}` : null}
+                onOk={(next, exports, drawingSheet, drawingSheetName) =>
+                  applyPageSettings(
+                    {
+                      paper: toPaperToken(next),
+                      title: next.title,
+                      date: next.date,
+                      rev: next.rev,
+                      company: next.company,
+                      comments: next.comments,
+                    },
+                    exports,
+                    drawingSheet,
+                    drawingSheetName,
+                  )
+                }
                 onCancel={() => setPageSettingsOpen(false)}
               />
             )}

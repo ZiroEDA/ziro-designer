@@ -210,7 +210,13 @@ const BASELINE: Record<string, number> = {
   // pcbnew and eeschema alike, and PcbEditor was importing it across. Nothing
   // in it changed, so the two areas move by the same amount and the TOTALS
   // below are untouched, which is what says this was a move and not a pass.
-  dialogs: 13,
+  // 13 -> 5 when DIALOG_PAGES_SETTINGS became one dialog. The schematic's copy
+  // of it carried eight inline sizes — `fontSize: 12` on the labels, the two
+  // headings, the "Custom paper size:" caption and the sheet tallies, and
+  // `fontSize: 11` on the two unit words, the export-checkbox label and the
+  // dimension line under the preview — where the drawing-sheet copy it merged
+  // with had already been through this and carries none.
+  dialogs: 5,
   // `editors/calculator` is absent because it is at ZERO: the calculator's
   // parity pass consumed the tokens and its own test pins the zero directly.
   // 14 before the unit-binder pass. MmField's literal "mm" span carried one
@@ -400,7 +406,11 @@ describe('hardcoded font sizes do not grow', () => {
     // hint (editors/symbol 2 -> 1). Derived twice and independently, as this
     // comment demands: rescanning the tree gives 360, and the branch's diff
     // removes exactly one `fontSize:` line and adds none, so 361 - 1 agrees.
-    expect(sites.length).toBe(360);
+    // 360 -> 352: the eight the schematic's DIALOG_PAGES_SETTINGS wrote inline
+    // before the two copies of that dialog were merged into one. RESCANNED
+    // from this tree, and derived a second time from the per-area table —
+    // `dialogs` 13 -> 5 is the only row that moved, and 360 - 8 agrees.
+    expect(sites.length).toBe(352);
   });
 });
 

@@ -208,6 +208,7 @@ import {
 } from '../../ui/status_format.js';
 import { DialogPcbFind, DEFAULT_PCB_FIND, type PcbFindOptions } from './dialogs/dialog_find.js';
 import { DialogPageSettings } from '../../dialogs/dialog_page_settings.js';
+import { pageSettingsValue, toPaperToken } from '../../dialogs/page_settings_model.js';
 import { DialogPcbPrint } from './dialogs/dialog_print_pcb.js';
 import { DialogPcbPlot } from './dialogs/dialog_plot_pcb.js';
 import {
@@ -8359,22 +8360,28 @@ export function PcbEditor({
 
       {pageDlgOpen && board && (
         <DialogPageSettings
-          value={{
-            paper: board.paper ?? 'A4',
+          // BOARD_EDITOR_CONTROL::PageSettings constructs the base class, not
+          // eeschema's subclass (board_editor_control.cpp:530-532), so the
+          // sheet tallies and every "Export to other sheets" checkbox stay
+          // Show(false) (dialog_page_settings.cpp:169-186). It is also the one
+          // caller passing MAX_PAGE_SIZE_PCBNEW_MILS rather than eeschema's.
+          frame="pcbnew"
+          // `m_customSizeX( aParent, … )` over the board frame — a fresh
+          // pcbnew is in MILLIMETRES (app_settings.cpp:228-238).
+          units={unitLabel}
+          value={pageSettingsValue(board.paper ?? 'A4', {
             title: board.titleBlock?.title ?? '',
             date: board.titleBlock?.date ?? '',
             rev: board.titleBlock?.rev ?? '',
             company: board.titleBlock?.company ?? '',
-            comments: Array.from({ length: 9 }, (_, i) => board.titleBlock?.comments?.[i] ?? ''),
-          }}
-          sheetCount={1}
-          sheetNumber={1}
+            comments: board.titleBlock?.comments ?? [],
+          })}
           onOk={(next) => {
             const brd = boardRef.current;
             if (brd)
               commitBoard(
                 setBoardPageSettings(brd, {
-                  paper: next.paper,
+                  paper: toPaperToken(next),
                   title: next.title,
                   date: next.date,
                   rev: next.rev,

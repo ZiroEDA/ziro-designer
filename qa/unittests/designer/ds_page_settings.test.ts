@@ -12,13 +12,12 @@
  * that table.
  */
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import { PAPER_CHOICES, PAPER_MILS, PAPER_MM } from '@ziroeda/common';
 import {
   previewPageMM,
   defaultPreviewSettings,
 } from '@ziroeda/designer/src/editors/drawingsheet/preview_settings.js';
+import { pageSettingsLabels } from '@ziroeda/designer/src/dialogs/page_settings_model.js';
 
 describe('the paper-size combo', () => {
   it('is PAGE_INFO::standardPageSizes, row for row', () => {
@@ -86,33 +85,42 @@ describe('the paper-size combo', () => {
   });
 });
 
-const read = (rel: string): string =>
-  readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
-
 describe('DSP-24 — the dialog is "Preview Settings" in this frame', () => {
-  const DIALOG = read('../../../designer/src/editors/drawingsheet/PageSettingsDialog.tsx');
-
+  /*
+   * This used to read the two component files as TEXT and grep them for
+   * `>Preview Paper<`, which is CLAUDE.md's "a rule scoped to the directory a
+   * bug was found in" twice over: it pinned the SPELLING of one copy of the
+   * dialog, and it could only ever check one copy at a time — which is how the
+   * schematic's copy went two audits without one.
+   *
+   * There is one dialog now and one table of labels, and the table is a `.ts`,
+   * so the branch itself is run.
+   */
   it('re-labels the three strings pl_editor re-labels', () => {
-    // dialog_page_settings.cpp:82-88, the PL_EDITOR_FRAME_NAME branch.
-    //
-    // `>Preview Paper<` used to be matched against the raw source, which pinned
-    // the LABEL and the FORMATTER together: biome puts a heading on its own
-    // line as soon as its opening tag grows, and the assertion then failed for
-    // a change that touched no string. Collapsing the tag boundaries first
-    // checks the element's text and not how it happens to be wrapped.
-    const flat = DIALOG.replace(/>\s+/g, '>').replace(/\s+</g, '<');
-    expect(flat).toContain('Preview Settings');
-    expect(flat).toContain('>Preview Paper<');
-    expect(flat).toContain('>Preview Title Block Data<');
+    // dialog_page_settings.cpp:83-88, the PL_EDITOR_FRAME_NAME branch.
+    expect(pageSettingsLabels('pl_editor')).toEqual({
+      title: 'Preview Settings',
+      paper: 'Preview Paper',
+      titleBlock: 'Preview Title Block Data',
+    });
   });
 
-  it('leaves the other frames on the else branch’s wording', () => {
-    // :90-92 — "Page Settings" / "Paper" / "Title Block".
-    const SCH = read('../../../designer/src/dialogs/dialog_page_settings.tsx');
-    expect(SCH).toContain('Page Settings');
-    expect(SCH).toContain('>Paper</div>');
-    expect(SCH).toContain('>Title Block</div>');
-    expect(SCH).not.toContain('Title Block Parameters');
+  it('leaves the other two frames on the else branch’s wording', () => {
+    // :90-93 — "Page Settings" / "Paper" / "Title Block", for BOTH of them.
+    for (const frame of ['eeschema', 'pcbnew'] as const) {
+      expect(pageSettingsLabels(frame), frame).toEqual({
+        title: 'Page Settings',
+        paper: 'Paper',
+        titleBlock: 'Title Block',
+      });
+    }
+  });
+
+  it('never shows the .fbp\u2019s own "Title Block Parameters"', () => {
+    // dialog_page_settings_base.cpp:183 sets it, and BOTH arms of the ctor
+    // branch overwrite it, so no frame ever renders that string.
+    for (const frame of ['eeschema', 'pcbnew', 'pl_editor'] as const)
+      expect(pageSettingsLabels(frame).titleBlock).not.toBe('Title Block Parameters');
   });
 });
 

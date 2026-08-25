@@ -82,13 +82,14 @@ import { MessageDialogError } from '../../ui/dialog_message.js';
 import { UnsavedChangesDialog } from '../../ui/dialog_unsaved_changes.js';
 import { handleUnsavedChanges, type UnsavedChangesResult } from '../../ui/confirm.js';
 import { dsInspectorTitle } from './design_inspector.js';
+import { DialogPageSettings } from '../../dialogs/dialog_page_settings.js';
 import {
-  PageSettingsDialog,
   previewPageMM,
   paperDescription,
+  previewSettingsFromConfig,
+  writePageToConfig,
   type PreviewSettings,
-} from './PageSettingsDialog.js';
-import { previewSettingsFromConfig, writePageToConfig } from './preview_settings.js';
+} from './preview_settings.js';
 import {
   captureUndoItem,
   clearUndoRedoList,
@@ -2290,8 +2291,12 @@ export function DrawingSheetEditor({
       />
 
       {showPageDialog && (
-        <PageSettingsDialog
+        <DialogPageSettings
           value={preview}
+          // `m_parent->GetName() == PL_EDITOR_FRAME_NAME` (:83) — the branch
+          // that re-labels the title, the Paper heading and the Title Block
+          // heading, and the one caller that disables the file picker.
+          frame="pl_editor"
           // The dialog's custom-size fields are UNIT_BINDERs over the FRAME
           // (dialog_page_settings.cpp:65-66), so they read in the frame's unit.
           units={unit === 'inches' ? 'in' : unit}

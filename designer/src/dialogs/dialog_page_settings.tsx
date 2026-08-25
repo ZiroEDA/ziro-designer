@@ -2,65 +2,134 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * `DIALOG_PAGES_SETTINGS` — `common/dialogs/dialog_page_settings.cpp`.
+ * `DIALOG_PAGES_SETTINGS` — `common/dialogs/dialog_page_settings.cpp` over the
+ * wxFormBuilder layout `common/dialogs/dialog_page_settings_base.cpp`.
  *
- * In a shared folder because upstream's is in `common/dialogs/`: pl_editor,
- * pcbnew and eeschema all open the same dialog
- * (`pl_editor_control.cpp`, `board_editor_control.cpp`, and eeschema's own
- * call site). It lived under `editors/schematic/dialogs/` here and PcbEditor
- * imported it across — pcbnew has no eeschema dependency upstream, so that
- * import was the tell.
+ * ONE component, because upstream is one class. `pl_editor`, `pcbnew` and
+ * eeschema all construct `DIALOG_PAGES_SETTINGS`:
  *
- * A `.tsx` rather than part of `common/`, which is framework-free the way
- * KiCad's `common` library is free of any one frame's headers.
+ *     pagelayout_editor/tools/pl_editor_control.cpp:94-98
+ *     pcbnew/tools/board_editor_control.cpp:530-532
+ *     eeschema/tools/sch_editor_control.cpp:511-513   (via its one subclass)
  *
- * Page Settings dialog. Counterpart: `common/dialogs/dialog_page_settings.cpp`
- * (DIALOG_PAGES_SETTINGS) as opened by SCH_EDIT_FRAME. Left column: Paper
- * (size, orientation, custom size, export checkbox) over a page preview.
- * Right column: Drawing Sheet file, the sheet tallies, and the Title Block
- * Parameters (issue date with "<<<" picker apply, revision, title, company,
- * nine comment lines), each with its own "Export to other sheets" checkbox
- * that copies the field to every other sheet on OK, like upstream.
+ * We had shipped two of them — this file for the schematic and the board, and
+ * `editors/drawingsheet/PageSettingsDialog.tsx` for the drawing sheet — so two
+ * parity audits of the second one left the first exactly where it was, which is
+ * the per-editor-copy habit CLAUDE.md names. The drawing-sheet copy is gone and
+ * its work is here.
+ *
+ * Everything that genuinely varies by caller is a prop, and every one of them
+ * is a line of C++:
+ *
+ *   frame              `m_parent->GetName() == PL_EDITOR_FRAME_NAME` (:83)
+ *                      picks the three "Preview" strings, and the three
+ *                      constructor call sites pick the max page size.
+ *   sheetCount/Number  `m_screen->GetPageCount()` / `GetPageNumber()` (:619);
+ *                      only eeschema shows them (:170-171 vs the subclass's
+ *                      :87-88).
+ *   units              `m_customSizeX( aParent, … )` (:65-66) — a UNIT_BINDER
+ *                      over the FRAME, so the two custom-size fields read in
+ *                      the frame's own unit. That is why real eeschema shows
+ *                      mils there and ours showed a hardcoded "mm".
+ *   wksFileName        `SetWksFileName( … )`, and `EnableWksFileNamePicker`
+ *                      (dialog_page_settings.h:56-60), which pl_editor calls
+ *                      with false.
+ *
+ * The rules themselves are in `page_settings_model.ts`, a `.ts` so the test
+ * suite can run them rather than grep the source of a `.tsx`.
  */
 
-import { useState, useRef, useEffect, type JSX } from 'react';
-import type { PageSettings } from '@ziroeda/eeschema';
-import { defaultDrawingSheet, layoutDrawingSheet, type WksSheet } from '@ziroeda/common';
-// PAGE_INFO's table, from `common/` — it used to be imported sideways out of
-// the drawing sheet editor's dialog component, which is the cross-peer import
-// the project brief names. See common/src/page_info.ts.
-import { PAPER_CHOICES, PAPER_MM } from '@ziroeda/common';
-import { drawDrawingSheetItems, DS_ITEM_COLOR } from '@ziroeda/common';
+import { Fragment, useEffect, useMemo, useRef, useState, type JSX } from 'react';
+import {
+  PAPER_CHOICES,
+  defaultDrawingSheet,
+  drawDrawingSheetItems,
+  layoutDrawingSheet,
+  mmToIU,
+  parseDrawingSheet,
+  DS_BG_COLOR_LIGHT,
+  DS_ITEM_COLOR,
+  type WksResolveContext,
+  type WksSheet,
+} from '@ziroeda/common';
+import {
+  COMMENT_COUNT,
+  customPageRangeMM,
+  customSizeEnabled,
+  formatIsoDate,
+  noPageExports,
+  orientationEnabled,
+  orientationFromCustomSize,
+  pageSettingsLabels,
+  pageSizeMM,
+  previewThumbSize,
+  showsExportCheckboxes,
+  showsSheetTallies,
+  TITLE_BLOCK_ROWS,
+  wksPickerEnabled,
+  type PageExportFlags,
+  type PageSettingsFrame,
+  type PageSettingsValue,
+} from './page_settings_model.js';
+import { Combo, type ComboOption } from '../ui/Combo.js';
+import { UnitField } from '../ui/UnitField.js';
+import type { EdaUnits } from '../ui/unit_binder.js';
 import { useModalEscape } from '../ui/useModalEscape.js';
+import { MessageDialogError } from '../ui/dialog_message.js';
+import { OpenFileDialog } from '../fs/OpenFileDialog.js';
+import { drawingSheetWildcard } from '../fs/wildcards.js';
+
+export type { PageExportFlags, PageSettingsValue } from './page_settings_model.js';
+
+/** `m_orientationComboBoxChoices` (dialog_page_settings_base.cpp:54). */
+const ORIENTATION_CHOICES: readonly ComboOption[] = [
+  { value: 'landscape', label: 'Landscape' },
+  { value: 'portrait', label: 'Portrait' },
+];
 
 /** No preview item is ever selected. */
 const NO_PREVIEW_SELECTION: ReadonlySet<number> = new Set();
-/** IU per millimetre (schematic internal units). */
-const IU_PER_MM = 10000;
-/** Largest side of the preview canvas, in CSS px (KiCad's MAX_PAGE_EXAMPLE_SIZE). */
-const PREVIEW_MAX_PX = 200;
 
-/** Which fields the "Export to other sheets" checkboxes propagate on OK. */
-export interface PageExportFlags {
-  paper: boolean;
-  date: boolean;
-  rev: boolean;
-  title: boolean;
-  company: boolean;
-  comments: boolean[];
+/**
+ * A centred section heading with a rule under it — the pattern repeated four
+ * times in this dialog (`dialog_page_settings_base.cpp:27-32`, `:123-128`,
+ * `:148-153`, `:183-188`): a `wxStaticText` added `wxALIGN_CENTER_HORIZONTAL`
+ * followed by a `wxStaticLine( wxLI_HORIZONTAL )` added `wxEXPAND|wxTOP, 1`.
+ */
+function SectionHeader({ children }: { children: string }): JSX.Element {
+  return (
+    <>
+      <div className="ze-pgs-head">{children}</div>
+      <div className="ze-pgs-rule" />
+    </>
+  );
 }
 
-interface Props {
-  value: PageSettings;
-  /** "Number of sheets: %d" / "Sheet number: %d" static texts. */
-  sheetCount: number;
-  sheetNumber: number;
-  /** The project's `.kicad_wks` files (Page Settings drop-down choices). */
-  sheetChoices?: { name: string; sheet: WksSheet | null }[];
-  /** Currently referenced sheet file name ('' = built-in default). */
-  drawingSheetName?: string;
+/** A wx spacer, in multiples of the `wxALL, 5` border every dialog is built on. */
+function Spacer({ px }: { px: number }): JSX.Element {
+  return <div style={{ height: px }} />;
+}
+
+export interface PageSettingsDialogProps {
+  value: PageSettingsValue;
+  /** Which frame opened it — see {@link PageSettingsFrame}. */
+  frame: PageSettingsFrame;
+  /**
+   * The frame's display unit. `m_customSizeX`/`Y` are `UNIT_BINDER`s over the
+   * parent frame (dialog_page_settings.cpp:65-66).
+   */
+  units: EdaUnits;
+  /** `m_screen->GetPageCount()` / `GetPageNumber()` (:619). */
+  sheetCount?: number;
+  sheetNumber?: number;
+  /** `BASE_SCREEN::m_DrawingSheetFileName`, as `SetWksFileName` receives it. */
+  wksFileName?: string;
+  /** The drawing sheet the preview paints; `null` = the built-in stationery. */
+  sheet?: WksSheet | null;
+  /** The project's folder, so Browse opens where `wxFileDialog` would. */
+  projectDir?: string | null;
   onOk: (
-    next: PageSettings,
+    next: PageSettingsValue,
     exports: PageExportFlags,
     drawingSheet: WksSheet | null,
     drawingSheetName: string,
@@ -68,419 +137,415 @@ interface Props {
   onCancel: () => void;
 }
 
-/** Split a stored paper token into the dialog's size/orientation/custom state. */
-function fromToken(paper: string): {
-  size: string;
-  portrait: boolean;
-  customW: number;
-  customH: number;
-} {
-  const parts = paper.split(/\s+/).filter(Boolean);
-  const name = parts[0] ?? 'A4';
-  if (name === 'User') {
-    return {
-      size: 'User',
-      portrait: false,
-      customW: Number(parts[1] ?? 431.8),
-      customH: Number(parts[2] ?? 279.4),
-    };
-  }
-  return { size: name, portrait: parts.includes('portrait'), customW: 431.8, customH: 279.4 };
-}
-
-/** Rebuild the stored paper token from the dialog state. */
-function toToken(size: string, portrait: boolean, customW: number, customH: number): string {
-  if (size === 'User') return `User ${customW} ${customH}`;
-  return portrait ? `${size} portrait` : size;
-}
-
 export function DialogPageSettings({
   value,
-  sheetCount,
-  sheetNumber,
-  sheetChoices = [],
-  drawingSheetName = '',
+  frame,
+  units,
+  sheetCount = 1,
+  sheetNumber = 1,
+  wksFileName = '',
+  sheet = null,
+  projectDir = null,
   onOk,
   onCancel,
-}: Props): JSX.Element {
+}: PageSettingsDialogProps): JSX.Element {
   // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
   // ui/modal_escape.ts.
   useModalEscape(onCancel);
 
-  const seed = fromToken(value.paper);
-  const [size, setSize] = useState(seed.size);
-  const [portrait, setPortrait] = useState(seed.portrait);
-  const [customW, setCustomW] = useState(seed.customW);
-  const [customH, setCustomH] = useState(seed.customH);
-  const [title, setTitle] = useState(value.title);
-  const [date, setDate] = useState(value.date);
-  const [pickDate, setPickDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [rev, setRev] = useState(value.rev);
-  const [company, setCompany] = useState(value.company);
-  const [comments, setComments] = useState<string[]>(() => {
-    const c = [...value.comments];
-    while (c.length < 9) c.push('');
-    return c.slice(0, 9);
-  });
-  const [exports, setExports] = useState<PageExportFlags>({
-    paper: false,
-    date: false,
-    rev: false,
-    title: false,
-    company: false,
-    comments: Array(9).fill(false) as boolean[],
-  });
-  // Drawing sheet: which project `.kicad_wks` to use ('' = built-in default),
-  // the project counterpart of KiCad's m_DrawingSheetFileName + the File combo.
-  const [sheetName, setSheetName] = useState(drawingSheetName);
-  const sheet = sheetChoices.find((c) => c.name === sheetName)?.sheet ?? null;
+  const labels = pageSettingsLabels(frame);
+  const pickerOn = wksPickerEnabled(frame);
+  const exportsOn = showsExportCheckboxes(frame);
+  const talliesOn = showsSheetTallies(frame);
+  const range = customPageRangeMM(frame);
 
-  const submit = (): void => {
-    onOk(
-      {
-        paper: toToken(size, portrait, customW, customH),
-        title,
-        date,
-        rev,
-        company,
-        comments,
-      },
-      exports,
-      sheet,
-      sheetName,
-    );
-  };
+  const [s, setS] = useState<PageSettingsValue>(() => ({
+    ...value,
+    comments: Array.from({ length: COMMENT_COUNT }, (_, i) => value.comments[i] ?? ''),
+  }));
+  const set = (patch: Partial<PageSettingsValue>): void => setS((cur) => ({ ...cur, ...patch }));
 
-  const pageMM = ((): [number, number] => {
-    if (size === 'User') return [customW, customH];
-    const dims = PAPER_MM[size] ?? [297, 210];
-    return portrait ? [dims[1], dims[0]] : [dims[0], dims[1]];
-  })();
-  const [wMM, hMM] = pageMM;
+  const [exports, setExports] = useState<PageExportFlags>(noPageExports);
 
-  // Live preview: render the real drawing sheet with the current title-block
-  // fields, the way KiCad's DIALOG_PAGES_SETTINGS::UpdateDrawingSheetExample
-  // paints m_PageLayoutExampleBitmap with PrintDrawingSheet, so every field,
-  // comments included, is shown in the actual stroke font instead of a static
-  // outline that dropped them.
-  const previewRef = useRef<HTMLCanvasElement>(null);
+  /**
+   * `m_PickDate->SetValue( wxDateTime::Now() )` (dialog_page_settings.cpp:81).
+   * The picker is a control in its own right — the `<<<` button copies ITS
+   * value into the text field, so it holds state the field does not.
+   */
+  const [pick, setPick] = useState<string>(() => formatIsoDate(new Date()));
+  const pickRef = useRef<HTMLInputElement>(null);
+
+  /** `DisplayErrorMessage`, from `Validate` and from `LoadDrawingSheet`. */
+  const [error, setError] = useState<string | null>(null);
+
+  /*
+   * `m_textCtrlFilePicker` + `m_browseButton` (dialog_page_settings_base.cpp:
+   * 164-172). The entry is the model — `GetWksFileName()` reads it back
+   * (dialog_page_settings.h:46-49) — and `OnWksFileSelection` (:686-777) is the
+   * button: open a file dialog, load the sheet, and put the shortened name back
+   * in the entry. The chosen sheet replaces `m_drawingSheet`, the alternate
+   * instance the preview is painted from.
+   */
+  const [wksName, setWksName] = useState(wksFileName);
+  const [wksSheet, setWksSheet] = useState<WksSheet | null>(sheet);
+  const [browsing, setBrowsing] = useState(false);
+
+  const customOn = customSizeEnabled(s.paper);
+  const orientOn = orientationEnabled(s.paper);
+
+  /*
+   * `GetPageLayoutInfoFromDialog` (:641-651): with a `User` page the
+   * orientation is derived from the custom size rather than chosen.
+   */
+  const derived = customOn ? orientationFromCustomSize(s.customWidthMM, s.customHeightMM) : null;
+  const portrait = derived ?? s.portrait;
+
+  const [pageW, pageH] = useMemo(() => pageSizeMM({ ...s, portrait }), [s, portrait]);
+  const thumb = useMemo(() => previewThumbSize(pageW, pageH, frame), [pageW, pageH, frame]);
+
+  /*
+   * `UpdateDrawingSheetExample` (:528-632). The example is redrawn on EVERY
+   * change — each `OnXxxTextUpdated` handler calls it — so the thumbnail
+   * follows the title block as it is typed. It is drawn with the dialog's
+   * working title block (`m_tb`) and with the sheet name, path and file name
+   * passed as EMPTY strings (:618-620).
+   */
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
-    const canvas = previewRef.current;
-    const ctx = canvas?.getContext('2d');
-    if (!canvas || !ctx) return;
-    const wIU = wMM * IU_PER_MM;
-    const hIU = hMM * IU_PER_MM;
-    const scale = PREVIEW_MAX_PX / Math.max(wIU, hIU); // CSS px per IU
+    const cv = canvasRef.current;
+    if (!cv) return;
     const dpr = window.devicePixelRatio || 1;
-    const cw = Math.max(1, Math.round(wIU * scale));
-    const ch = Math.max(1, Math.round(hIU * scale));
-    canvas.width = Math.round(cw * dpr);
-    canvas.height = Math.round(ch * dpr);
-    canvas.style.width = `${cw}px`;
-    canvas.style.height = `${ch}px`;
+    cv.width = Math.round(thumb.width * dpr);
+    cv.height = Math.round(thumb.height * dpr);
+    const ctx = cv.getContext('2d');
+    if (!ctx) return;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.fillStyle = '#fff';
-    ctx.fillRect(0, 0, cw, ch);
-    ctx.save();
-    ctx.transform(scale, 0, 0, scale, 0, 0); // IU → CSS px
+    // GRFilledRect( &memDC, (0,0), m_layout_size, 0, bgColor, bgColor ) with
+    // bgColor = m_parent->GetDrawBgColor() (dialog_page_settings.cpp:598, 616).
+    ctx.fillStyle = DS_BG_COLOR_LIGHT;
+    ctx.fillRect(0, 0, thumb.width, thumb.height);
+
+    const ctxData: WksResolveContext = {
+      pageNumber: sheetNumber,
+      sheetCount,
+      title: s.title,
+      rev: s.rev,
+      date: s.date,
+      company: s.company,
+      comments: s.comments,
+      paper: s.paper,
+      fileName: '',
+      sheetPath: '',
+      appVersion: 'ZiroEDA',
+      rawText: false,
+    };
     const draws = layoutDrawingSheet(
-      sheet ?? defaultDrawingSheet(),
-      { widthMM: wMM, heightMM: hMM },
-      {
-        pageNumber: sheetNumber,
-        sheetCount,
-        title,
-        rev,
-        date,
-        company,
-        comments: [...comments],
-        paper: toToken(size, portrait, customW, customH),
-        fileName: '',
-        sheetPath: '/',
-        appVersion: 'ZiroEDA',
-      },
+      wksSheet ?? defaultDrawingSheet(),
+      { widthMM: pageW, heightMM: pageH },
+      ctxData,
     );
+    // memDC.SetUserScale( scale, scale ) with scale = min(w/pageW, h/pageH),
+    // against the page in **IU**, not millimetres: `layoutDrawingSheet`
+    // resolves every item into internal units.
+    const scale = Math.min(thumb.width / mmToIU(pageW), thumb.height / mmToIU(pageH));
+    ctx.save();
+    ctx.scale(scale, scale);
+    // renderSettings.SetDefaultPenWidth( 1 ) — one device pixel at this scale.
     drawDrawingSheetItems(ctx, draws, NO_PREVIEW_SELECTION, {
       color: DS_ITEM_COLOR,
       minWidth: 1 / scale,
     });
     ctx.restore();
-  }, [
-    wMM,
-    hMM,
-    title,
-    rev,
-    date,
-    company,
-    comments,
-    size,
-    portrait,
-    customW,
-    customH,
-    sheetNumber,
-    sheetCount,
-    sheet,
-  ]);
+  }, [wksSheet, s, pageW, pageH, thumb, sheetCount, sheetNumber]);
 
-  const row: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-    margin: '4px 0',
+  /*
+   * `UNIT_BINDER::Enable( false )` / `m_staticTextOrient->Enable( false )` grey
+   * a label the way GTK does — `label:disabled { color: #929292 }` — never with
+   * an opacity fade, which would wash out a control's face and border too.
+   */
+  const dim = (on: boolean): string => (on ? 'ze-pgs-label' : 'ze-pgs-label disabled-label');
+
+  /** One of the thirteen `fgSizer2` rows' third cell (:237-382). */
+  const exportChk = (checked: boolean, onSet: (v: boolean) => void): JSX.Element | null =>
+    exportsOn ? (
+      <label className="ze-pgs-export">
+        <input type="checkbox" checked={checked} onChange={(e) => onSet(e.target.checked)} />
+        Export to other sheets
+      </label>
+    ) : null;
+
+  const rowValue = (row: (typeof TITLE_BLOCK_ROWS)[number]): string =>
+    row.comment === null
+      ? String(s[row.field as 'date' | 'rev' | 'title' | 'company'])
+      : (s.comments[row.comment] ?? '');
+
+  const setRowValue = (row: (typeof TITLE_BLOCK_ROWS)[number], text: string): void => {
+    if (row.comment === null) {
+      set({ [row.field]: text } as Partial<PageSettingsValue>);
+      return;
+    }
+    const comments = [...s.comments];
+    comments[row.comment] = text;
+    set({ comments });
   };
-  const lab: React.CSSProperties = { width: 78, fontSize: 12, flex: '0 0 auto' };
-  const customEnabled = size === 'User';
-  const disabledStyle: React.CSSProperties = { opacity: 0.45 };
-  const heading: React.CSSProperties = {
-    fontWeight: 600,
-    fontSize: 12,
-    margin: '6px 0',
-    textAlign: 'center',
-    borderBottom: '1px solid var(--chrome-border)',
-    paddingBottom: 3,
+
+  const rowExport = (row: (typeof TITLE_BLOCK_ROWS)[number]): JSX.Element | null => {
+    if (row.comment !== null) {
+      const i = row.comment;
+      return exportChk(exports.comments[i] ?? false, (v) => {
+        const comments = [...exports.comments];
+        comments[i] = v;
+        setExports({ ...exports, comments });
+      });
+    }
+    const key = row.field as 'date' | 'rev' | 'title' | 'company';
+    return exportChk(exports[key], (v) => setExports({ ...exports, [key]: v }));
   };
-  const exportChk = (checked: boolean, set: (v: boolean) => void): JSX.Element => (
-    <label
-      style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, flex: '0 0 auto' }}
-    >
-      <input type="checkbox" checked={checked} onChange={(e) => set(e.target.checked)} />
-      Export to other sheets
-    </label>
-  );
 
   return (
     <div className="ze-modal-backdrop" onMouseDown={onCancel}>
-      <div
-        className="ze-modal"
-        style={{ width: 760, maxWidth: '96vw' }}
-        onMouseDown={(e) => e.stopPropagation()}
-      >
+      <div className="ze-modal ze-pgs" onMouseDown={(e) => e.stopPropagation()}>
         <div className="ze-modal-header">
-          Page Settings
+          {labels.title}
           <span className="x" onClick={onCancel}>
             ✕
           </span>
         </div>
-        <div
-          style={{
-            display: 'flex',
-            gap: 18,
-            padding: '10px 14px',
-            maxHeight: '72vh',
-            overflow: 'auto',
-          }}
-        >
-          <div style={{ flex: '0 0 240px' }}>
-            <div style={heading}>Paper</div>
-            <div style={row}>
-              <span style={lab}>Size:</span>
-              <select
-                className="ze-select"
-                style={{ flex: 1 }}
-                value={size}
-                onChange={(e) => setSize(e.target.value)}
-                autoFocus
-              >
-                {PAPER_CHOICES.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div style={row}>
-              <span style={lab}>Orientation:</span>
-              <select
-                className="ze-select"
-                style={{ flex: 1 }}
-                value={portrait ? 'portrait' : 'landscape'}
-                disabled={size === 'User'}
-                onChange={(e) => setPortrait(e.target.value === 'portrait')}
-              >
-                <option value="landscape">Landscape</option>
-                <option value="portrait">Portrait</option>
-              </select>
-            </div>
-            {/* Custom size is editable only for "User"; greyed otherwise, exactly
-                like DIALOG_PAGES_SETTINGS::OnPaperSizeChoice enabling the controls. */}
-            <div style={{ fontSize: 12, marginTop: 6, opacity: customEnabled ? 1 : 0.45 }}>
-              Custom paper size:
-            </div>
-            <div style={row}>
-              <span style={{ ...lab, opacity: customEnabled ? 1 : 0.45 }}>Height:</span>
-              <input
-                className="ze-search"
-                type="number"
-                style={{ width: 90, ...(customEnabled ? {} : disabledStyle) }}
-                value={customH}
-                disabled={!customEnabled}
+
+        <div className="ze-pgs-body">
+          {/* ---- bleftSizer (dialog_page_settings_base.cpp:24-140) ---- */}
+          <div className="ze-pgs-left">
+            <SectionHeader>{labels.paper}</SectionHeader>
+            <Spacer px={10} />
+            {/* The label sits ABOVE its combo: both are added to a VERTICAL
+                bleftSizer (:37-58), not to a row. */}
+            <span className="ze-pgs-label">Size:</span>
+            <Combo
+              value={s.paper}
+              options={PAPER_CHOICES.map((p) => ({ value: p.id, label: p.label }))}
+              onChange={(v) => set({ paper: v })}
+              autoFocus
+            />
+            <Spacer px={3} />
+            <span className={dim(orientOn)}>Orientation:</span>
+            <Combo
+              value={portrait ? 'portrait' : 'landscape'}
+              options={ORIENTATION_CHOICES}
+              onChange={(v) => set({ portrait: v === 'portrait' })}
+              disabled={!orientOn}
+            />
+            {/* Always present, ENABLED or DISABLED by OnPaperSizeChoice
+                (:230-259) — never shown and hidden. Height comes before Width,
+                which is the order of fgSizer1 (:67-115). */}
+            <span className={dim(customOn)}>Custom paper size:</span>
+            <Spacer px={2} />
+            <div className="ze-pgs-custom">
+              <span className={dim(customOn)}>Height:</span>
+              <UnitField
+                label="Height:"
+                units={units}
+                range={range}
+                size={1}
+                value={s.customHeightMM}
+                onCommit={(mm) => set({ customHeightMM: mm })}
+                onError={setError}
                 title="Custom paper height."
-                onChange={(e) => setCustomH(Number(e.target.value) || 0)}
+                disabled={!customOn}
               />
-              <span
-                className="ze-muted"
-                style={{ fontSize: 11, opacity: customEnabled ? 1 : 0.45 }}
-              >
-                mm
-              </span>
-            </div>
-            <div style={row}>
-              <span style={{ ...lab, opacity: customEnabled ? 1 : 0.45 }}>Width:</span>
-              <input
-                className="ze-search"
-                type="number"
-                style={{ width: 90, ...(customEnabled ? {} : disabledStyle) }}
-                value={customW}
-                disabled={!customEnabled}
+              <span className={dim(customOn)}>Width:</span>
+              <UnitField
+                label="Width:"
+                units={units}
+                range={range}
+                size={1}
+                value={s.customWidthMM}
+                onCommit={(mm) => set({ customWidthMM: mm })}
+                onError={setError}
                 title="Custom paper width."
-                onChange={(e) => setCustomW(Number(e.target.value) || 0)}
+                disabled={!customOn}
               />
-              <span
-                className="ze-muted"
-                style={{ fontSize: 11, opacity: customEnabled ? 1 : 0.45 }}
-              >
-                mm
-              </span>
             </div>
+            {/* m_PaperExport (:117-118) — the fourteenth checkbox, and the only
+                one NOT in fgSizer2: it is added to bleftSizer under the custom
+                size. Show(false) for every frame but eeschema (:172). */}
             {exportChk(exports.paper, (v) => setExports({ ...exports, paper: v }))}
-            <div style={{ ...heading, marginTop: 16 }}>Preview</div>
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: 8,
-                minHeight: PREVIEW_MAX_PX + 16,
-              }}
-            >
-              {/* m_PageLayoutExampleBitmap: a live render of the drawing sheet. */}
-              <canvas ref={previewRef} style={{ border: '1px solid #888' }} />
-            </div>
-            <div className="ze-muted" style={{ fontSize: 11, textAlign: 'center' }}>
-              {wMM} × {hMM} mm
+            <Spacer px={20} />
+            <SectionHeader>Preview</SectionHeader>
+            <Spacer px={12} />
+            {/* m_PageLayoutExampleBitmap: wxBORDER_SIMPLE on wxSYS_COLOUR_WINDOW
+                (:133-137), added wxALL|wxEXPAND, 5 at proportion 1. */}
+            <div className="ze-pgs-preview">
+              <canvas
+                ref={canvasRef}
+                style={{ width: thumb.width, height: thumb.height, display: 'block' }}
+              />
             </div>
           </div>
-          <div style={{ flex: 1 }}>
-            <div style={heading}>Drawing Sheet</div>
-            <div style={row}>
-              <span style={{ ...lab, width: 34 }}>File:</span>
-              {/* Pick one of the project's .kicad_wks files (stored alongside the
-                  .kicad_sch); "Default" = the built-in stationery. New sheets are
-                  added from the Drawing Sheet Editor or the home file manager. */}
-              <select
-                className="ze-select"
-                style={{ flex: 1 }}
-                value={sheetName}
-                onChange={(e) => setSheetName(e.target.value)}
-                title={sheetName || 'Default drawing sheet'}
+
+          {/* bUpperSizerH->Add( 15, 0, … ) (:143) */}
+          <div className="ze-pgs-gutter" />
+
+          {/* ---- bSizerRight (dialog_page_settings_base.cpp:145-388) ---- */}
+          <div className="ze-pgs-right">
+            <SectionHeader>Drawing Sheet</SectionHeader>
+            <Spacer px={10} />
+            <div className="ze-pgs-filerow">
+              <span className={dim(pickerOn)}>File:</span>
+              {/* m_textCtrlFilePicker — a wxTextCtrl, not a drop-down. Ours was
+                  a <select> of the project's .kicad_wks files, which is neither
+                  the control nor the reach upstream has. */}
+              <input
+                className="ze-search"
+                size={1}
+                value={wksName}
+                disabled={!pickerOn}
+                title={wksName}
+                onChange={(e) => setWksName(e.target.value)}
+              />
+              {/* STD_BITMAP_BUTTON, wxBU_AUTODRAW, BITMAPS::small_folder
+                  (dialog_page_settings_base.cpp:171, dialog_page_settings.cpp:69).
+                  A bitmap button is sized by its bitmap, not by the standard
+                  button width: [px] 25 x 24 on a live pl_editor against our 85
+                  x 34. The path is KiCad's own small_folder.svg. */}
+              <button
+                className="ze-btn ze-btn-bitmap"
+                disabled={!pickerOn}
+                title="Drawing Sheet File"
+                onClick={() => setBrowsing(true)}
               >
-                <option value="">Default drawing sheet</option>
-                {sheetChoices.map((c) => (
-                  <option key={c.name} value={c.name}>
-                    {c.name}
-                  </option>
-                ))}
-                {/* Keep an unknown current reference visible so it isn't silently lost. */}
-                {sheetName && !sheetChoices.some((c) => c.name === sheetName) && (
-                  <option value={sheetName}>{sheetName} (missing)</option>
-                )}
-              </select>
+                <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+                  <path
+                    d="M 2.9511719,2 A 2,2 0 0 0 1,4 2,2 0 0 0 1,4.048828 V 12 a 2,2 0 0 0 2,2 2,2 0 0 0 0.048828,0 H 13 a 2,2 0 0 0 2,-2 2,2 0 0 0 0,-0.04883 V 6 A 2,2 0 0 0 13,4 H 12.951172 8.5 L 6.5,2 H 3 a 2,2 0 0 0 -0.048828,0 z"
+                    fill="currentColor"
+                  />
+                </svg>
+              </button>
             </div>
-            {/* dialog_page_settings.cpp:90-92 — the non-pl_editor branch's
-                m_staticTextTitleBlock label is "Title Block". */}
-            <div style={{ ...heading, marginTop: 10 }}>Title Block</div>
-            <div style={{ display: 'flex', fontSize: 12, margin: '2px 0 6px' }}>
-              <span>Number of sheets: {sheetCount}</span>
-              <span style={{ flex: 1 }} />
-              <span>Sheet number: {sheetNumber}</span>
-            </div>
-            <div style={{ ...row, flexWrap: 'wrap' }}>
-              <span style={lab}>Issue Date:</span>
-              {/* Date text + "<<<" apply + native picker kept together so the
-                  free-form date stays fully visible; the export checkbox wraps
-                  below when the row is tight. */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: '1 1 240px' }}>
-                <input
-                  className="ze-search"
-                  style={{ flex: 1, minWidth: 90 }}
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                />
-                <button
-                  className="ze-btn"
-                  title="Apply the picked date"
-                  onClick={() => setDate(pickDate)}
-                >
-                  &lt;&lt;&lt;
-                </button>
-                <input
-                  className="ze-search"
-                  type="date"
-                  style={{ width: 128, flex: '0 0 auto' }}
-                  value={pickDate}
-                  onChange={(e) => setPickDate(e.target.value)}
-                />
+            <Spacer px={10} />
+            <SectionHeader>{labels.titleBlock}</SectionHeader>
+            <Spacer px={10} />
+            {/* SheetInfoSizer (:193-208), Show(false) unless eeschema
+                (:170-171 against dialog_eeschema_page_settings.cpp:87-88). */}
+            {talliesOn && (
+              <div className="ze-pgs-tallies">
+                <span>Number of sheets: {sheetCount}</span>
+                <span className="ze-pgs-tallygap" />
+                <span>Sheet number: {sheetNumber}</span>
               </div>
-              {exportChk(exports.date, (v) => setExports({ ...exports, date: v }))}
+            )}
+            {/* fgSizer2 — ONE wxFlexGridSizer( 0, 3, 0, 0 ) for all thirteen
+                rows (:210-382), which is what puts the thirteen checkboxes in a
+                single aligned column. */}
+            <div className={exportsOn ? 'ze-pgs-tb with-exports' : 'ze-pgs-tb'}>
+              {TITLE_BLOCK_ROWS.map((row) => (
+                <Fragment key={row.field}>
+                  <span className="ze-pgs-tblabel">{row.label}</span>
+                  {row.field === 'date' ? (
+                    /* bSizerDate (:220-235): the entry at proportion 3, the
+                       "<<<" button wxBU_EXACTFIT, then the wxDatePickerCtrl at
+                       2. All three are ONE cell of fgSizer2, so the export
+                       checkbox stays in the third column with the others. */
+                    <div className="ze-pgs-daterow">
+                      <input
+                        className="ze-search"
+                        style={{ flex: 3 }}
+                        size={1}
+                        value={s.date}
+                        onChange={(e) => set({ date: e.target.value })}
+                      />
+                      <button
+                        className="ze-btn ze-btn-exactfit"
+                        onClick={() => set({ date: pick })}
+                      >
+                        {/* The label really is three less-than signs (:228),
+                            and the button carries wxBU_EXACTFIT — it is as wide
+                            as that label and no wider. */}
+                        &lt;&lt;&lt;
+                      </button>
+                      {/* m_PickDate, a wxDatePickerCtrl at proportion 2
+                          (:231-232). On GTK that is an entry with its own
+                          drop-down button beside it, so the native in-field
+                          calendar glyph is hidden and this button takes its
+                          place. */}
+                      <div className="ze-pgs-datepick">
+                        <input
+                          ref={pickRef}
+                          className="ze-search"
+                          type="date"
+                          value={pick}
+                          onChange={(e) => setPick(e.target.value)}
+                        />
+                        <button
+                          className="ze-btn"
+                          aria-label="Pick a date"
+                          onClick={() => pickRef.current?.showPicker?.()}
+                        >
+                          <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
+                            <path
+                              d="M1 3.5 L5 7 L9 3.5"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="1.5"
+                            />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <input
+                      className={row.minWidth === 100 ? 'ze-search short' : 'ze-search'}
+                      size={1}
+                      value={rowValue(row)}
+                      onChange={(e) => setRowValue(row, e.target.value)}
+                    />
+                  )}
+                  {rowExport(row)}
+                </Fragment>
+              ))}
             </div>
-            <div style={row}>
-              <span style={lab}>Revision:</span>
-              <input
-                className="ze-search"
-                style={{ flex: 1 }}
-                value={rev}
-                onChange={(e) => setRev(e.target.value)}
-              />
-              {exportChk(exports.rev, (v) => setExports({ ...exports, rev: v }))}
-            </div>
-            <div style={row}>
-              <span style={lab}>Title:</span>
-              <input
-                className="ze-search"
-                style={{ flex: 1 }}
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-              />
-              {exportChk(exports.title, (v) => setExports({ ...exports, title: v }))}
-            </div>
-            <div style={row}>
-              <span style={lab}>Company:</span>
-              <input
-                className="ze-search"
-                style={{ flex: 1 }}
-                value={company}
-                onChange={(e) => setCompany(e.target.value)}
-              />
-              {exportChk(exports.company, (v) => setExports({ ...exports, company: v }))}
-            </div>
-            {comments.map((c, i) => (
-              // biome-ignore lint/suspicious/noArrayIndexKey: fixed 9 rows, never reordered
-              <div style={row} key={i}>
-                <span style={lab}>Comment{i + 1}:</span>
-                <input
-                  className="ze-search"
-                  style={{ flex: 1 }}
-                  value={c}
-                  onChange={(e) => {
-                    const next = [...comments];
-                    next[i] = e.target.value;
-                    setComments(next);
-                  }}
-                />
-                {exportChk(exports.comments[i]!, (v) => {
-                  const next = [...exports.comments];
-                  next[i] = v;
-                  setExports({ ...exports, comments: next });
-                })}
-              </div>
-            ))}
           </div>
         </div>
+
+        {error && <MessageDialogError message={error} onClose={() => setError(null)} />}
+
+        {/* OnWksFileSelection (:686-777): a wxFileDialog titled "Drawing Sheet
+            File" on FILEEXT::DrawingSheetFileWildcard, then LoadDrawingSheet on
+            what came back and DisplayErrorMessage if it will not parse. */}
+        {browsing && (
+          <OpenFileDialog
+            title="Drawing Sheet File"
+            filters={[drawingSheetWildcard()]}
+            kind="templates"
+            projectDir={projectDir}
+            onDone={(file) => {
+              setBrowsing(false);
+              if (!file) return;
+              try {
+                setWksSheet(parseDrawingSheet(file.text));
+              } catch (e) {
+                setError(
+                  `Error loading drawing sheet '${file.path}'.\n${e instanceof Error ? e.message : String(e)}`,
+                );
+                return;
+              }
+              // "Try to use a project-relative path" (:745-750); failing that
+              // upstream shortens with env vars, which a browser has none of.
+              const prefix = projectDir ? `${projectDir.replace(/\/$/, '')}/` : '';
+              setWksName(
+                prefix && file.path.startsWith(prefix) ? file.path.slice(prefix.length) : file.path,
+              );
+            }}
+          />
+        )}
+
         <div className="ze-modal-footer">
           <button className="ze-btn" onClick={onCancel}>
             Cancel
           </button>
-          <button className="ze-btn primary" onClick={submit}>
+          <button
+            className="ze-btn primary"
+            onClick={() => onOk({ ...s, portrait }, exports, wksSheet, wksName)}
+          >
             OK
           </button>
         </div>
