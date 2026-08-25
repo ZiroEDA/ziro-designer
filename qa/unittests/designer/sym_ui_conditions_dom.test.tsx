@@ -180,6 +180,14 @@ describe('with a ROOT symbol loaded', () => {
       'Show associated datasheet or document': b['Show associated datasheet or document'],
       // A single-unit symbol: IsMultiUnit() is false.
       'Synchronized pins mode': b['Synchronized pins mode'],
+      // `haveSymbolCond && cond.UndoAvailable()` (:537-538). Opening a symbol
+      // does not fill its undo stack — `GetUndoCommandCount()` is 0 until an
+      // edit — so both stay dead with the symbol on the canvas. This is the
+      // half of the rule the cold frame cannot see: there, `haveSymbolCond`
+      // alone is already false, so a frame that lied about the stack depth
+      // would still look right.
+      Undo: b.Undo,
+      Redo: b.Redo,
     }).toEqual({
       'Rotate clockwise': false,
       'Rotate counterclockwise': false,
@@ -191,6 +199,8 @@ describe('with a ROOT symbol loaded', () => {
       'Interactive delete': false,
       'Show associated datasheet or document': true,
       'Synchronized pins mode': true,
+      Undo: true,
+      Redo: true,
     });
   });
 });
