@@ -30,6 +30,12 @@ import {
 const SCH_LAYERS = {
   background: 'LAYER_SCHEMATIC_BACKGROUND',
   grid: 'LAYER_SCHEMATIC_GRID',
+  // `SCH_BASE_FRAME::UpdateGridColors` hands this one straight to the GAL:
+  // `GetGAL()->SetAxesColor( colorSettings->GetColor( LAYER_SCHEMATIC_GRID_AXES ) )`
+  // (`eeschema/sch_base_frame.cpp:612`). Only the Symbol Editor paints with it,
+  // because it is the frame that turns the axes ON
+  // (`symbol_edit_frame.cpp:265`, `GetCanvas()->GetGAL()->SetAxesEnabled( true )`).
+  gridAxes: 'LAYER_SCHEMATIC_GRID_AXES',
   wire: 'LAYER_WIRE',
   bus: 'LAYER_BUS',
   busJunction: 'LAYER_BUS_JUNCTION',
@@ -74,6 +80,8 @@ const SCH_LAYERS = {
 export interface Theme {
   background: string;
   grid: string;
+  /** LAYER_SCHEMATIC_GRID_AXES: the two lines through the world origin. */
+  gridAxes: string;
   wire: string;
   bus: string;
   busJunction: string;

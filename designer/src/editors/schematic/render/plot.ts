@@ -112,6 +112,7 @@ function monochromeTheme(): Theme {
   return {
     background: 'rgb(255, 255, 255)',
     grid: black,
+    gridAxes: black,
     wire: black,
     bus: black,
     busJunction: black,

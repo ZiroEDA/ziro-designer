@@ -19,6 +19,7 @@
 import { parse } from '@ziroeda/sexpr';
 import { readSymbolLib, serializeSymbolLib, type LibSymbol } from '@ziroeda/eeschema';
 import { libraryBase } from '../../libraryHosts.js';
+import { unescapeString } from '@ziroeda/common/src/string_utils.js';
 
 export interface ManagedLibrary {
   /** Library nickname shown in the tree (file basename without extension). */
@@ -169,10 +170,47 @@ export class SymbolLibraryManager {
     return this.libs.get(libName)?.symbols.get(symName);
   }
 
+  /**
+   * `SYMBOL_LIBRARY_MANAGER::SymbolNameInUse`
+   * (`eeschema/symbol_library_manager.cpp:653-669`).
+   *
+   * Upstream compares with `CmpNoCase` against `UnescapeString( aName )`, and
+   * says why in its own comment: "GetSymbolNames() is mostly used for GUI
+   * stuff, so it returns unescaped names". Ours was an exact `Map.has` on the
+   * ESCAPED name, so `r` did not collide with `R` and neither did a name whose
+   * only difference was an escape sequence — every caller that asks "is this
+   * taken?" (New Symbol, Rename, Import, Duplicate) missed those.
+   */
   symbolExists(libName: string, symName: string): boolean {
     const lib = this.libs.get(libName);
     if (!lib) return false;
-    return lib.loaded ? lib.symbols.has(symName) : lib.pendingNames.includes(symName);
+    const wanted = unescapeString(symName).toLowerCase();
+    const names = lib.loaded ? [...lib.symbols.keys()] : lib.pendingNames;
+    return names.some((n) => unescapeString(n).toLowerCase() === wanted);
+  }
+
+  /**
+   * `SYMBOL_EDIT_FRAME::ensureUniqueName`
+   * (`eeschema/symbol_editor/symbol_editor.cpp:1400-1413`):
+   *
+   * ```cpp
+   * int      i = 1;
+   * wxString newName = aSymbol->GetName();
+   *
+   * while( m_libMgr->SymbolNameInUse( newName, aLibrary ) )
+   *     newName.Printf( "%s_%d", aSymbol->GetName(), i++ );
+   * ```
+   *
+   * The counter is appended to the ORIGINAL name every time, so a third copy of
+   * `R` is `R_2` — not `R_1_1`, which is what a loop that appends to its own
+   * previous answer produces, and which is what both of our call sites did
+   * ("R_1_1_1" on import, "R_copy_copy" on duplicate).
+   */
+  ensureUniqueName(libName: string, name: string): string {
+    let candidate = name;
+    let i = 1;
+    while (this.symbolExists(libName, candidate)) candidate = `${name}_${i++}`;
+    return candidate;
   }
 
   /** Buffer an updated working copy (UpdateSymbol): marks it modified. */
@@ -185,7 +223,21 @@ export class SymbolLibraryManager {
     this.touch();
   }
 
-  /** UpdateSymbolAfterRename: re-key the buffer and keep the modified mark. */
+  /**
+   * `UpdateSymbolAfterRename` (`symbol_library_manager.cpp:472-509`): re-key the
+   * buffer and keep the modified mark.
+   *
+   * The `original` map is re-keyed TOO. Upstream has no such problem to solve —
+   * a SYMBOL_BUFFER holds its working copy and its original side by side, so
+   * renaming the buffer carries the original with it. Ours are two Maps keyed
+   * by name, and only one of them was being re-keyed, which meant a renamed
+   * symbol's original became unreachable and `revertSymbol` DELETED the symbol
+   * instead of restoring it.
+   *
+   * The original's own `libId` is deliberately left at the old name: that is
+   * what `RevertSymbol` compares against to decide it must rename back
+   * (`symbol_library_manager.cpp:524`).
+   */
   renameSymbol(libName: string, oldName: string, sym: LibSymbol): void {
     const lib = this.libs.get(libName);
     if (!lib) return;
@@ -194,29 +246,117 @@ export class SymbolLibraryManager {
       ([k, v]) => (k === oldName ? [sym.libId, sym] : [k, v]) as [string, LibSymbol],
     );
     lib.symbols = new Map(entries);
+    const orig = lib.original.get(oldName);
+    if (orig !== undefined) {
+      lib.original.delete(oldName);
+      lib.original.set(sym.libId, orig);
+    }
     lib.modified.delete(oldName);
     lib.modified.add(sym.libId);
     lib.libModified = true;
     this.touch();
   }
 
-  /** RemoveSymbol: drop it from the buffer. */
+  /**
+   * Every symbol in the library that `extends` `symName`, directly or through
+   * another derived symbol.
+   *
+   * `LIB_BUFFER::GetDerivedSymbolNames` (`symbol_library_manager.cpp:1238-1274`)
+   * walks the buffer looking for symbols whose parent resolves to this one.
+   */
+  derivedSymbolNames(libName: string, symName: string): string[] {
+    const lib = this.libs.get(libName);
+    if (!lib) return [];
+    const out: string[] = [];
+    const frontier = [symName];
+    while (frontier.length > 0) {
+      const parent = frontier.pop()!;
+      for (const [name, sym] of lib.symbols) {
+        if (sym.extends === parent && !out.includes(name)) {
+          out.push(name);
+          frontier.push(name);
+        }
+      }
+    }
+    return out;
+  }
+
+  /**
+   * `RemoveSymbol` (`symbol_library_manager.cpp:579-591`), which calls
+   * `LIB_BUFFER::DeleteSymbol` (`:979-1003`) — and that starts with
+   * `removeChildSymbols( *symbolBuf )` (`:1276-1300`) when the symbol being
+   * deleted is a root:
+   *
+   * ```cpp
+   * m_deleted.emplace_back( *it );
+   * m_symbols.erase( it );
+   * ```
+   *
+   * for every name `GetDerivedSymbolNames` returns. Ours deleted only the base
+   * and left its children behind with an `extends` pointing at nothing, at
+   * which point `flattenAgainst` stops resolving them and they render as empty
+   * symbols. Deleting a base symbol deletes its children, upstream and here.
+   */
   removeSymbol(libName: string, symName: string): void {
     const lib = this.libs.get(libName);
     if (!lib) return;
+    for (const child of this.derivedSymbolNames(libName, symName)) {
+      lib.symbols.delete(child);
+      lib.modified.delete(child);
+    }
     lib.symbols.delete(symName);
     lib.modified.delete(symName);
     lib.libModified = true;
     this.touch();
   }
 
-  /** RevertSymbol: back to the as-loaded copy (or drop a never-saved one). */
+  /**
+   * `RevertSymbol` (`symbol_library_manager.cpp:512-536`).
+   *
+   * ```cpp
+   * LIB_SYMBOL original( symbolBuf->GetOriginal() );
+   *
+   * if( original.GetName() != aSymbolName )
+   *     UpdateSymbolAfterRename( &original, aSymbolName, aLibrary );
+   * else
+   *     symbolBuf->GetSymbol() = original;
+   *
+   * return LIB_ID( aLibrary, original.GetName() );
+   * ```
+   *
+   * The rename branch is the whole point: reverting a symbol that was RENAMED
+   * has to put the name back too, and upstream returns the LIB_ID it reverted
+   * to so the frame can follow it. Ours had no such branch — it looked the
+   * original up under the NEW name, found nothing, and fell through to
+   * `lib.symbols.delete()`. Renaming a symbol and then reverting destroyed it.
+   *
+   * Returns the restored symbol, whose `libId` is the name to show; `undefined`
+   * for a symbol that was never saved, which upstream drops.
+   */
   revertSymbol(libName: string, symName: string): LibSymbol | undefined {
     const lib = this.libs.get(libName);
     if (!lib) return undefined;
     const orig = lib.original.get(symName);
-    if (orig) lib.symbols.set(symName, orig);
-    else lib.symbols.delete(symName);
+    if (!orig) {
+      lib.symbols.delete(symName);
+      lib.modified.delete(symName);
+      this.touch();
+      return undefined;
+    }
+    if (orig.libId !== symName) {
+      // `original.GetName() != aSymbolName` — rename the buffer BACK.
+      const entries = [...lib.symbols.entries()].map(
+        ([k, v]) => (k === symName ? [orig.libId, orig] : [k, v]) as [string, LibSymbol],
+      );
+      lib.symbols = new Map(entries);
+      lib.original.delete(symName);
+      lib.original.set(orig.libId, orig);
+      lib.modified.delete(symName);
+      lib.modified.delete(orig.libId);
+      this.touch();
+      return orig;
+    }
+    lib.symbols.set(symName, orig);
     lib.modified.delete(symName);
     this.touch();
     return orig;

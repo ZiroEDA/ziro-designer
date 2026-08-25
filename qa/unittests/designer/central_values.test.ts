@@ -157,7 +157,12 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // needs and COLOR4D::UNSPECIFIED does not, and five of them were sized
   // inline for the same reason.
   'editors/schematic': { colours: 60, metrics: 210 },
-  'editors/symbol': { colours: 12, metrics: 19 },
+  // colours 12 -> 7: the Symbol Editor parity pass. Four were
+  // SYMBOL_EDITOR_COLORS, a private copy of LAYER_SCHEMATIC_ANCHOR /
+  // LAYER_HIDDEN / LAYER_PRIVATE_NOTES / LAYER_FIELDS that matched the Default
+  // theme and was WRONG on Classic; they read `theme.*` now. The fifth was the
+  // `#888` on an invented empty-canvas hint that upstream does not draw.
+  'editors/symbol': { colours: 7, metrics: 19 },
   home: { colours: 7, metrics: 7 },
   mobile: { colours: 15, metrics: 23 },
   // 193 colours is the worst in the tree and 176 of them are rgba(): pcm.css
@@ -450,7 +455,11 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // 685 -> 675: the COLOR_SWATCH sweep, which took sixteen
     // `<input type="color">`s and the hex fallback each one needs. Rescanned
     // from this tree, not subtracted from the diff.
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(675);
+    // 675 -> 670: the Symbol Editor parity pass; see the editors/symbol row.
+    // Rescanned from this tree, and derived a second time independently -- the
+    // branch's diff removes exactly five colour literals from designer/src and
+    // adds none outside comments, so 675 - 5 agrees.
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(670);
     // 1657 -> 1649: the same sweep. A native colour input has no useful
     // default size, so eight of the sixteen sites gave theirs an inline
     // width and height; the shared swatch takes --swatch-*-w/h. Rescanned.

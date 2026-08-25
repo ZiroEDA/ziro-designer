@@ -36,7 +36,9 @@ import {
   zoomMsg,
 } from '../../ui/status_format.js';
 import {
+  LISTBOX_WIDTH,
   SYM_CONTROL,
+  SYM_TOOL_MSGS,
   SYM_TOP_TOOLBAR,
   SYM_LEFT_TOOLBAR,
   SYM_RIGHT_TOOLBAR,
@@ -58,6 +60,7 @@ import {
   allPins,
   createImagePins,
   deleteSymbolItems,
+  symbolDeleteOutcome,
   ensureUnitEntry,
   hasAlternateBodyStyle,
   mirrorSymbolItems,
@@ -93,6 +96,14 @@ import { dispatchMenuHotkey, focusBlocksHotkey } from '../../ui/menu_hotkeys.js'
 import { wasBrowserSuppressed, type FocusLike } from '../../ui/browser_hotkeys.js';
 import { OpenFileDialog } from '../../fs/OpenFileDialog.js';
 import { kicadSymbolLibWildcard } from '../../fs/wildcards.js';
+import { applyToggle, DEFAULT_TOGGLES } from './toggles.js';
+import { deleteSymbolPrompts } from './delete_symbol_prompt.js';
+import { SelectionFilterPanel } from '../../ui/SelectionFilterPanel.js';
+import { symSelectionFilterShown } from '../../ui/selection_filter_panel.js';
+import {
+  defaultSelectionFilter,
+  type SelectionFilterOptions,
+} from '@ziroeda/eeschema/src/tools/sch_selection_filter.js';
 
 /**
  * The Symbol Editor frame, the web mirror of KiCad's SYMBOL_EDIT_FRAME
@@ -140,51 +151,6 @@ const DEFAULT_LAST_PIN: LastPinState = {
   commonUnit: false,
   commonBody: false,
   visible: true,
-};
-
-const DEFAULT_TOGGLES = new Set([
-  'toggleGrid',
-  'unitsMm',
-  'toggleSyncedPinsMode',
-  'showLibraryTree',
-  'showProperties',
-  // `cursorSmallCrosshairs` is the group's first action, so it is the one the
-  // crosshair button shows on open.
-  'crosshairSmall',
-]);
-
-/**
- * The left toolbar's cycling groups — `AppendGroup( TOOLBAR_GROUP_CONFIG(...) )`
- * (`toolbars_symbol_editor.cpp:72-79`). One button each, showing the selected
- * action, so exactly one member is in `toggles` at a time.
- *
- * `showDeMorganStandard` / `showDeMorganAlternate` used to be a third pair here.
- * They were ours: neither name appears anywhere in KiCad 10.0.5, and the body
- * style is a CHOICE on the top bar upstream, not two toggle buttons.
- */
-const RADIO_GROUPS: string[][] = [
-  ['unitsMm', 'unitsInches', 'unitsMils'],
-  ['crosshairSmall', 'crosshairFull', 'crosshair45'],
-];
-
-/**
- * Field 6, the "Current Tool" pane: TOOLS_HOLDER::SetTool hands
- * `TOOL_ACTION::GetFriendlyName()` to `EDA_DRAW_FRAME::DisplayToolMsg`
- * (common/tool/tools_holder.cpp:72). These are SCH_ACTIONS' names verbatim
- * (eeschema/tools/sch_actions.cpp:376-426, :685-704; the selection and delete
- * tools are ACTIONS' own, common/tool/actions.cpp:416/:1230).
- */
-const SYM_TOOL_MSGS: Record<string, string> = {
-  select: 'Select item(s)',
-  placePin: 'Draw Pins',
-  placeText: 'Draw Text',
-  drawRectangle: 'Draw Rectangles',
-  drawCircle: 'Draw Circles',
-  drawArc: 'Draw Arcs',
-  drawLines: 'Draw Lines',
-  drawPolygon: 'Draw Polygons',
-  placeAnchor: 'Move Symbol Anchor',
-  deleteTool: 'Interactive Delete Tool',
 };
 
 const basename = (p: string): string => p.split('/').pop()!.split('\\').pop()!;
@@ -275,6 +241,9 @@ export function SymbolEditor({
    *  While set, Save routes back to the placement rather than to a library. */
   const [fromSchematic, setFromSchematic] = useState<string | null>(null);
   const [panelWidth, setPanelWidth] = useState(LIBRARY_TREE_WIDTH);
+  /** `SCH_SELECTION_TOOL::GetFilter()`, seeded from
+   *  `SYMBOL_EDITOR_SETTINGS::m_SelectionFilter` (`symbol_edit_frame.cpp:254`). */
+  const [selFilter, setSelFilter] = useState<SelectionFilterOptions>(defaultSelectionFilter);
 
   // Dialogs / pending placements.
   const [pinDialog, setPinDialog] = useState<{
@@ -584,6 +553,9 @@ export function SymbolEditor({
     if (orig) {
       const lib = manager.current.library(curLib)!;
       setWorkSymbol(flattenAgainst(orig, lib));
+      // `return LIB_ID( aLibrary, original.GetName() )` — reverting a RENAMED
+      // symbol puts the name back, and the frame follows it.
+      setCurName(orig.libId);
       undoStack.current = [];
       redoStack.current = [];
       setSelection(new Set());
@@ -696,7 +668,17 @@ export function SymbolEditor({
 
   const deleteSymbol = useCallback(
     (libName: string, symName: string) => {
-      if (!window.confirm(`Delete symbol '${symName}' from library '${libName}'?`)) return;
+      // `DeleteSymbolFromLibrary` (symbol_editor.cpp:1252-1301). An unmodified
+      // leaf symbol is deleted with NO prompt at all; the two that exist are
+      // built in `delete_symbol_prompt.ts`. What was here asked always, with a
+      // string of our own, and never warned that a base takes its children.
+      for (const prompt of deleteSymbolPrompts({
+        symName,
+        modified: manager.current.isSymbolModified(libName, symName),
+        derived: manager.current.derivedSymbolNames(libName, symName),
+      })) {
+        if (!window.confirm(prompt.message)) return;
+      }
       manager.current.removeSymbol(libName, symName);
       if (curLib === libName && curName === symName) {
         setWorkSymbol(null);
@@ -713,8 +695,7 @@ export function SymbolEditor({
       const lib = await manager.current.ensureLoaded(libName);
       const src = lib?.symbols.get(symName);
       if (!lib || !src) return;
-      let newName = symName;
-      while (lib.symbols.has(newName)) newName = `${newName}_copy`;
+      const newName = manager.current.ensureUniqueName(libName, symName);
       const copy = renameSymbol({ ...src, source: src.source }, newName);
       manager.current.updateSymbol(libName, copy);
       bump();
@@ -752,7 +733,7 @@ export function SymbolEditor({
         await manager.current.ensureLoaded(libName);
         const lib = manager.current.library(libName)!;
         let name = first.libId;
-        while (lib.symbols.has(name)) name = `${name}_1`; // ensureUniqueName
+        name = manager.current.ensureUniqueName(libName, name);
         manager.current.updateSymbol(
           libName,
           name === first.libId ? first : renameSymbol(first, name),
@@ -861,7 +842,7 @@ export function SymbolEditor({
           if (workSymbol) setCheckOpen(true);
           break;
         case 'toggleSyncedPinsMode':
-          setToggles((t) => flip(t, 'toggleSyncedPinsMode'));
+          setToggles((t) => applyToggle(t, 'toggleSyncedPinsMode'));
           break;
         case 'addSymbolToSchematic':
           if (workSymbol && curLib && onAddSymbolToSchematic) {
@@ -885,24 +866,10 @@ export function SymbolEditor({
     ],
   );
 
-  const radio = (t: Set<string>, id: string): Set<string> => {
-    const group = RADIO_GROUPS.find((g) => g.includes(id));
-    const next = new Set(t);
-    if (group) for (const g of group) next.delete(g);
-    next.add(id);
-    return next;
-  };
-  const flip = (t: Set<string>, id: string): Set<string> => {
-    const next = new Set(t);
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
-    return next;
-  };
-
+  // `applyToggle` is `editors/symbol/toggles.ts`' — the radio/flip rule and the
+  // groups it reads are both there, where a test can call them.
   const onLeftToggle = useCallback((id: string) => {
-    setToggles((prev) =>
-      RADIO_GROUPS.some((g) => g.includes(id)) ? radio(prev, id) : flip(prev, id),
-    );
+    setToggles((prev) => applyToggle(prev, id));
   }, []);
 
   // ----- pin placement (SYMBOL_EDITOR_PIN_TOOL) ---------------------------------------
@@ -1500,8 +1467,20 @@ export function SymbolEditor({
           redo();
           break;
         case 'doDelete':
+          // `DeleteSymbolFromLibrary` reads `GetSelectedLibIds()`
+          // (`symbol_editor.cpp:1254`), so the SAME action deletes the symbol
+          // picked in the tree when the canvas has nothing selected.
+          if (selection.size === 0 && treeSel?.name) {
+            deleteSymbol(treeSel.lib, treeSel.name);
+            break;
+          }
           if (workSymbol && selection.size > 0 && !isAlias) {
-            commit(deleteSymbolItems(workSymbol, selection), 'Delete');
+            // DoDelete HIDES fields and deletes only pins/graphics, and the
+            // undo description says which (symbol_editor_edit_tool.cpp:847-860).
+            const r = deleteSymbolItems(workSymbol, selection);
+            const outcome = symbolDeleteOutcome(r);
+            if (outcome.kind === 'commit') commit(r.symbol, outcome.description);
+            else if (outcome.kind === 'infobar') setStatus(outcome.message);
             setSelection(new Set());
           }
           break;
@@ -1776,6 +1755,7 @@ export function SymbolEditor({
             <select
               className="ze-select"
               title="Select body style"
+              style={{ width: LISTBOX_WIDTH }}
               disabled={!showDeMorgan}
               value={bodyStyle}
               onChange={(e) => {
@@ -1798,6 +1778,7 @@ export function SymbolEditor({
             <select
               className="ze-select"
               title="Select unit to edit"
+              style={{ width: LISTBOX_WIDTH }}
               disabled={units < 2}
               value={unit}
               onChange={(e) => {
@@ -1820,89 +1801,96 @@ export function SymbolEditor({
       />
 
       <div className="ze-body">
-        {toggles.has('showLibraryTree') && (
+        {/* Three independent AUI panes upstream — "LibraryTree"
+            (`symbol_edit_frame.cpp:219-225`), the properties pane
+            (`:227`) and "SelectionFilter" (`:228`) — so the dock is up
+            whenever EITHER of the two with a toggle is. It used to be gated on
+            the tree alone, which took Properties down with it. */}
+        {(toggles.has('showLibraryTree') || toggles.has('showProperties')) && (
           <>
             <div className="ze-leftdock" style={{ width: panelWidth, minWidth: panelWidth }}>
-              <div className="ze-panel grow">
-                <div className="ze-panel-header">Libraries</div>
-                <div style={{ padding: 4 }}>
-                  <input
-                    className="ze-search"
-                    placeholder="Filter"
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    onKeyDown={(e) => e.stopPropagation()}
-                    style={{ width: '100%' }}
-                  />
-                </div>
-                <div className="ze-panel-body">
-                  {treeRows.length === 0 && (
-                    <LibraryLoadingPanel
-                      kind="symbols"
-                      fallback={<div className="ze-muted">No libraries</div>}
-                      label="Loading symbol libraries..."
+              {toggles.has('showLibraryTree') && (
+                <div className="ze-panel grow">
+                  <div className="ze-panel-header">Libraries</div>
+                  <div style={{ padding: 4 }}>
+                    <input
+                      className="ze-search"
+                      placeholder="Filter"
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                      onKeyDown={(e) => e.stopPropagation()}
+                      style={{ width: '100%' }}
                     />
-                  )}
-                  {treeRows.map((row) =>
-                    row.sym === undefined ? (
-                      <div
-                        key={row.lib}
-                        className={`ze-tree-item root${treeSel?.lib === row.lib && !treeSel.name ? ' active' : ''}`}
-                        onClick={() => {
-                          setTreeSel({ lib: row.lib, name: null });
-                          if (!q) toggleLib(row.lib);
-                        }}
-                        title={manager.current.library(row.lib)?.fileName}
-                      >
-                        <span
-                          className={`twisty expandable${expanded.has(row.lib) || q ? ' open' : ''}`}
-                        />
-                        {toolbarIconUrl('library') && (
-                          <img
-                            src={toolbarIconUrl('library')}
-                            alt=""
-                            style={{ width: 16, height: 16 }}
-                          />
-                        )}
-                        <span>
-                          {row.lib}
-                          {row.modified ? ' *' : ''}
-                        </span>
-                      </div>
-                    ) : (
-                      <div
-                        key={`${row.lib}:${row.sym}`}
-                        className={`ze-tree-item${curLib === row.lib && curName === row.sym ? ' active' : ''}`}
-                        style={{
-                          paddingLeft: 26,
-                          fontWeight: curLib === row.lib && curName === row.sym ? 600 : 400,
-                        }}
-                        onClick={() => setTreeSel({ lib: row.lib, name: row.sym! })}
-                        onDoubleClick={() => void loadSymbol(row.lib, row.sym!)}
-                        title={row.desc ? `${row.sym}, ${row.desc}` : row.sym}
-                      >
-                        <span>
-                          {row.sym}
-                          {row.modified ? ' *' : ''}
-                        </span>
-                        {row.desc && (
+                  </div>
+                  <div className="ze-panel-body">
+                    {treeRows.length === 0 && (
+                      <LibraryLoadingPanel
+                        kind="symbols"
+                        fallback={<div className="ze-muted">No libraries</div>}
+                        label="Loading symbol libraries..."
+                      />
+                    )}
+                    {treeRows.map((row) =>
+                      row.sym === undefined ? (
+                        <div
+                          key={row.lib}
+                          className={`ze-tree-item root${treeSel?.lib === row.lib && !treeSel.name ? ' active' : ''}`}
+                          onClick={() => {
+                            setTreeSel({ lib: row.lib, name: null });
+                            if (!q) toggleLib(row.lib);
+                          }}
+                          title={manager.current.library(row.lib)?.fileName}
+                        >
                           <span
-                            style={{
-                              opacity: 0.55,
-                              marginLeft: 8,
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap',
-                            }}
-                          >
-                            {row.desc}
+                            className={`twisty expandable${expanded.has(row.lib) || q ? ' open' : ''}`}
+                          />
+                          {toolbarIconUrl('library') && (
+                            <img
+                              src={toolbarIconUrl('library')}
+                              alt=""
+                              style={{ width: 16, height: 16 }}
+                            />
+                          )}
+                          <span>
+                            {row.lib}
+                            {row.modified ? ' *' : ''}
                           </span>
-                        )}
-                      </div>
-                    ),
-                  )}
+                        </div>
+                      ) : (
+                        <div
+                          key={`${row.lib}:${row.sym}`}
+                          className={`ze-tree-item${curLib === row.lib && curName === row.sym ? ' active' : ''}`}
+                          style={{
+                            paddingLeft: 26,
+                            fontWeight: curLib === row.lib && curName === row.sym ? 600 : 400,
+                          }}
+                          onClick={() => setTreeSel({ lib: row.lib, name: row.sym! })}
+                          onDoubleClick={() => void loadSymbol(row.lib, row.sym!)}
+                          title={row.desc ? `${row.sym}, ${row.desc}` : row.sym}
+                        >
+                          <span>
+                            {row.sym}
+                            {row.modified ? ' *' : ''}
+                          </span>
+                          {row.desc && (
+                            <span
+                              style={{
+                                opacity: 0.55,
+                                marginLeft: 8,
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              {row.desc}
+                            </span>
+                          )}
+                        </div>
+                      ),
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
               {toggles.has('showProperties') && (
                 <div className="ze-panel">
                   <div className="ze-panel-header">Properties</div>
@@ -1914,6 +1902,21 @@ export function SymbolEditor({
                     </div>
                   </div>
                 </div>
+              )}
+              {/* `m_selectionFilterPanel = new PANEL_SCH_SELECTION_FILTER( this )`
+                  (`symbol_edit_frame.cpp:195`) — the SAME widget the schematic
+                  builds, which lays itself out differently for
+                  FRAME_SCH_SYMBOL_EDITOR. It has no toggle of its own; see
+                  `symSelectionFilterShown`. */}
+              {symSelectionFilterShown({
+                libraryTree: toggles.has('showLibraryTree'),
+                properties: toggles.has('showProperties'),
+              }) && (
+                <SelectionFilterPanel
+                  frame="FRAME_SCH_SYMBOL_EDITOR"
+                  filter={selFilter}
+                  onChange={setSelFilter}
+                />
               )}
             </div>
             <div className="ze-splitter" onMouseDown={startResize} title="Drag to resize" />
@@ -1950,22 +1953,16 @@ export function SymbolEditor({
             onCursorMove={setCursor}
             onScaleChange={setScale}
           />
-          {!workSymbol && (
-            <div
-              style={{
-                position: 'absolute',
-                inset: 0,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                pointerEvents: 'none',
-                color: '#888',
-                fontSize: 14,
-              }}
-            >
-              Double-click a symbol in the library tree to edit it, or File &gt; New Symbol...
-            </div>
-          )}
+          {/* Nothing goes here. An empty SYMBOL_EDIT_FRAME draws the axes and
+              the grid and no text at all: `LoadOneLibrarySymbolAux` simply
+              leaves the screen empty (`symbol_edit_frame.cpp:1546-1555`,
+              `emptyScreen`), and the only place upstream says anything is the
+              title bar's `[no symbol loaded]` (`symbol_editor.cpp:62`), which
+              `frame_title.ts` already prints.
+
+              What stood here was an invented hint centred on the canvas, in an
+              invented grey (`#888`) at an invented 14 px — two chrome literals
+              for a control KiCad does not have. */}
         </div>
 
         <Toolbar
@@ -2153,11 +2150,7 @@ export function SymbolEditor({
       )}
 
       {/* Tree context actions (delete/duplicate) via keyboard on the tree selection. */}
-      <TreeSelActions
-        treeSel={treeSel}
-        onDelete={deleteSymbol}
-        onDuplicate={(l, s) => void duplicateSymbol(l, s)}
-      />
+      <TreeSelActions treeSel={treeSel} onDuplicate={(l, s) => void duplicateSymbol(l, s)} />
 
       <LoadingOverlay label={loading} />
     </div>
@@ -2167,11 +2160,9 @@ export function SymbolEditor({
 /** Del / Ctrl+D on the library-tree selection (the context-menu subset). */
 function TreeSelActions({
   treeSel,
-  onDelete,
   onDuplicate,
 }: {
   treeSel: { lib: string; name: string | null } | null;
-  onDelete: (lib: string, name: string) => void;
   onDuplicate: (lib: string, name: string) => void;
 }): JSX.Element | null {
   useEffect(() => {
@@ -2186,9 +2177,16 @@ function TreeSelActions({
         e.preventDefault();
         onDuplicate(treeSel.lib, treeSel.name);
       }
+      // Delete is NOT handled here. `ACTIONS::doDelete` is declared by the
+      // Edit > Delete row (WXK_DELETE on this build, `actions.cpp:399`), and a
+      // frame must not restate a key its own menu row already declares —
+      // `menu_hotkey_coverage.test.ts` enforces that, and it caught the second
+      // listener that used to sit here. The row's `onMenuAction` case routes to
+      // the tree when the canvas has no selection, which is also how upstream
+      // routes it: `DeleteSymbolFromLibrary` reads `GetSelectedLibIds()`.
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [treeSel, onDelete, onDuplicate]);
+  }, [treeSel, onDuplicate]);
   return null;
 }

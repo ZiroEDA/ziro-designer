@@ -236,7 +236,10 @@ const BASELINE: Record<string, number> = {
   // `fontSize: 11`, and none of them exists upstream - the swatch clears
   // itself through the picker.
   'editors/schematic': 50,
-  'editors/symbol': 2,
+  // 2 until the Symbol Editor parity pass deleted the invented
+  // "Double-click a symbol..." hint that an empty SYMBOL_EDIT_FRAME does not
+  // have; it carried an inline `fontSize: 14` and a `color: '#888'`.
+  'editors/symbol': 1,
   home: 5,
   mobile: 6,
   pcm: 10,
@@ -393,7 +396,11 @@ describe('hardcoded font sizes do not grow', () => {
     // 368 until the wxGrid pass took `.ze-grid`'s font size; see the ui row.
     // Rescanned from the tree, and the diff agrees at 368 - 1.
     // 367 -> 361: the six above. Rescanned from this tree, not subtracted.
-    expect(sites.length).toBe(361);
+    // 361 -> 360: the Symbol Editor parity pass deleted the invented empty-canvas
+    // hint (editors/symbol 2 -> 1). Derived twice and independently, as this
+    // comment demands: rescanning the tree gives 360, and the branch's diff
+    // removes exactly one `fontSize:` line and adds none, so 361 - 1 agrees.
+    expect(sites.length).toBe(360);
   });
 });
 

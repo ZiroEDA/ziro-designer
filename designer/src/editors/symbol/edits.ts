@@ -433,18 +433,102 @@ export function mirrorSymbolItems(
   );
 }
 
-/** Delete the selected items (fields other than mandatory can go; pins/graphics always). */
-export function deleteSymbolItems(sym: LibSymbol, ids: ReadonlySet<string>): LibSymbol {
-  const units = sym.units.map((u, ui) => ({
-    ...u,
-    pins: u.pins.filter((_, pi) => !ids.has(symItemId('pin', ui, pi))),
-    graphics: u.graphics.filter((_, gi) => !ids.has(symItemId('gfx', ui, gi))),
-  }));
-  const MANDATORY = new Set(['Reference', 'Value', 'Footprint', 'Datasheet', 'Description']);
-  const properties = sym.properties.filter(
-    (f, fi) => !ids.has(symItemId('field', 0, fi)) || MANDATORY.has(f.key),
-  );
-  return { ...sym, units, properties };
+/** What `deleteSymbolItems` did, so the caller can name the undo step. */
+export interface SymbolDeleteResult {
+  symbol: LibSymbol;
+  /** `fieldsHidden` — visible fields that were hidden by this delete. */
+  fieldsHidden: number;
+  /** `fieldsAlreadyHidden` — selected fields that were hidden already. */
+  fieldsAlreadyHidden: number;
+  /** `toDelete.size()` — pins and graphics actually removed. */
+  itemsDeleted: number;
+}
+
+/**
+ * `SYMBOL_EDITOR_EDIT_TOOL::DoDelete`
+ * (`eeschema/tools/symbol_editor_edit_tool.cpp:796-860`).
+ *
+ * **A field is never deleted here.** Upstream's branch for `SCH_FIELD_T` is:
+ *
+ * ```cpp
+ * // Hide "deleted" fields
+ * if( field->IsVisible() )
+ * {
+ *     field->SetVisible( false );
+ *     fieldsHidden++;
+ * }
+ * else
+ * {
+ *     fieldsAlreadyHidden++;
+ * }
+ * ```
+ *
+ * — every field, mandatory or not. Only pins and graphics reach
+ * `symbol->RemoveDrawItem( item )`. Removing a field is the Symbol Properties
+ * dialog's job, which is what the infobar says when you press Delete on a
+ * field that is already hidden.
+ *
+ * Ours deleted non-mandatory fields outright, against a MANDATORY set written
+ * here rather than read from the model — so a user field was destroyed by a
+ * keystroke KiCad uses to hide it, and no undo description ever said "Hide".
+ */
+export function deleteSymbolItems(sym: LibSymbol, ids: ReadonlySet<string>): SymbolDeleteResult {
+  let itemsDeleted = 0;
+  const units = sym.units.map((u, ui) => {
+    const pins = u.pins.filter((_, pi) => !ids.has(symItemId('pin', ui, pi)));
+    const graphics = u.graphics.filter((_, gi) => !ids.has(symItemId('gfx', ui, gi)));
+    itemsDeleted += u.pins.length - pins.length + (u.graphics.length - graphics.length);
+    return { ...u, pins, graphics };
+  });
+
+  let fieldsHidden = 0;
+  let fieldsAlreadyHidden = 0;
+  const properties = sym.properties.map((f, fi) => {
+    if (!ids.has(symItemId('field', 0, fi))) return f;
+    if (f.effects?.hidden) {
+      fieldsAlreadyHidden++;
+      return f;
+    }
+    fieldsHidden++;
+    return { ...f, effects: { ...(f.effects ?? {}), hidden: true } };
+  });
+
+  return { symbol: { ...sym, units, properties }, fieldsHidden, fieldsAlreadyHidden, itemsDeleted };
+}
+
+/**
+ * The undo description `DoDelete` pushes, or the infobar error it shows instead
+ * (`symbol_editor_edit_tool.cpp:847-860`):
+ *
+ * ```cpp
+ * if( toDelete.size() == 0 )
+ * {
+ *     if( fieldsHidden == 1 )        commit.Push( _( "Hide Field" ) );
+ *     else if( fieldsHidden > 1 )    commit.Push( _( "Hide Fields" ) );
+ *     else if( fieldsAlreadyHidden > 0 )
+ *         m_frame->ShowInfoBarError( _( "Use the Symbol Properties dialog to remove fields." ) );
+ * }
+ * else
+ * {
+ *     commit.Push( _( "Delete" ) );
+ * }
+ * ```
+ *
+ * `kind: 'none'` is the case where nothing at all happened — no commit, no
+ * message.
+ */
+export function symbolDeleteOutcome(
+  r: SymbolDeleteResult,
+):
+  | { kind: 'commit'; description: string }
+  | { kind: 'infobar'; message: string }
+  | { kind: 'none' } {
+  if (r.itemsDeleted > 0) return { kind: 'commit', description: 'Delete' };
+  if (r.fieldsHidden === 1) return { kind: 'commit', description: 'Hide Field' };
+  if (r.fieldsHidden > 1) return { kind: 'commit', description: 'Hide Fields' };
+  if (r.fieldsAlreadyHidden > 0)
+    return { kind: 'infobar', message: 'Use the Symbol Properties dialog to remove fields.' };
+  return { kind: 'none' };
 }
 
 /** Replace one item by id. */

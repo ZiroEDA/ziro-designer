@@ -83,17 +83,34 @@ describe('the editor renders the dock through that order', () => {
   /**
    * Each pane must be emitted exactly once, inside the map. Two copies of a
    * pane's header would render it twice and no order test would notice.
+   *
+   * The Selection Filter is not in this list any more: it is
+   * `PANEL_SCH_SELECTION_FILTER`, ONE class serving both eeschema frames
+   * upstream (`sch_edit_frame.cpp` and `symbol_edit_frame.cpp:195`), so it is
+   * one shared component here too and its header lives there. The rule this
+   * checks is unchanged — see the two assertions below it.
    */
   it('emits each pane header exactly once', () => {
     const s = text();
-    for (const header of [
-      'Net Navigator</div>',
-      'Schematic Hierarchy</div>',
-      'Properties</div>',
-      'Selection Filter</div>',
-    ]) {
+    for (const header of ['Net Navigator</div>', 'Schematic Hierarchy</div>', 'Properties</div>']) {
       expect([...s.matchAll(new RegExp(header.replace(/[/]/g, '\\/'), 'g'))].length).toBe(1);
     }
+  });
+
+  /** ...and the shared one is mounted exactly once, for the same reason. */
+  it('mounts the shared Selection Filter panel exactly once', () => {
+    expect([...text().matchAll(/<SelectionFilterPanel/g)].length).toBe(1);
+    // It must not have been left behind inline as well.
+    expect(text()).not.toContain('Selection Filter</div>');
+  });
+
+  /** The shared component carries the caption, and carries it once. */
+  it('keeps the caption in the shared component', () => {
+    const panel = readFileSync(
+      fileURLToPath(new URL('../../../designer/src/ui/SelectionFilterPanel.tsx', import.meta.url)),
+      'utf8',
+    );
+    expect([...panel.matchAll(/Selection Filter<\/div>/g)].length).toBe(1);
   });
 });
 

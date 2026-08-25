@@ -16,6 +16,7 @@ import { EMPTY_SOURCE } from '@ziroeda/eeschema';
 import { KICAD_DEFAULT, type Theme } from '../schematic/theme.js';
 import { commonInputPrefs, wheelAction } from '../../ui/view_controls.js';
 import { drawCrosshair } from '../../ui/grid_cursor.js';
+import { SYM_SHAPE_TOOLS } from './symbolToolbars.js';
 import { settings } from '../../prefs/settings.js';
 import {
   fitSymbol,
@@ -29,6 +30,7 @@ import {
 import {
   boxSelectSymbol,
   deleteSymbolItems,
+  symbolDeleteOutcome,
   hitTestSymbol,
   moveSymbolItems,
   moveSymbolOrigin,
@@ -486,29 +488,20 @@ export const SymbolCanvas = forwardRef<SymbolCanvasController, Props>(function S
             opts.showHiddenPins,
             opts.showHiddenFields,
           );
-          if (hit) onCommit(deleteSymbolItems(symbol, new Set([hit.id])), 'Delete');
+          if (hit) {
+            const r = deleteSymbolItems(symbol, new Set([hit.id]));
+            const outcome = symbolDeleteOutcome(r);
+            if (outcome.kind === 'commit') onCommit(r.symbol, outcome.description);
+          }
         }
         return;
       }
 
-      // Shape drawing tools.
-      if (
-        activeTool === 'drawRectangle' ||
-        activeTool === 'drawCircle' ||
-        activeTool === 'drawArc' ||
-        activeTool === 'drawLines' ||
-        activeTool === 'drawPolygon'
-      ) {
-        const tool =
-          activeTool === 'drawRectangle'
-            ? 'rectangle'
-            : activeTool === 'drawCircle'
-              ? 'circle'
-              : activeTool === 'drawArc'
-                ? 'arc'
-                : activeTool === 'drawLines'
-                  ? 'lines'
-                  : 'polygon';
+      // Shape drawing tools. The id -> kind table is `symbolToolbars.ts`',
+      // beside the toolbar that emits the ids; it used to be a chain of
+      // comparisons here that had drifted off the toolbar by one action name.
+      const tool = SYM_SHAPE_TOOLS[activeTool as keyof typeof SYM_SHAPE_TOOLS];
+      if (tool) {
         const ds = drawStateRef.current;
         if (!ds) {
           drawStateRef.current = {

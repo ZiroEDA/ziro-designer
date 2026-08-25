@@ -113,7 +113,6 @@ import {
   applySelectionFilter,
   clickTarget,
   defaultSelectionFilter,
-  selectionFilterAll,
   type SelectionFilterOptions,
   getSelectedItemsAsText,
   type PasteMode,
@@ -454,6 +453,7 @@ import {
   schSelectionFilterShown,
   type SchLeftPane,
 } from './panes.js';
+import { SelectionFilterPanel } from '../../ui/SelectionFilterPanel.js';
 import { useStatusReadout } from '../../ui/useStatusReadout.js';
 import { useUnsavedGuard } from '../../ui/useUnsavedGuard.js';
 import '../../ui/shell.css';
@@ -601,21 +601,6 @@ const hAlignOf = (justify: readonly string[] | undefined): HAlign =>
 
 const vAlignOf = (justify: readonly string[] | undefined): VAlign =>
   justify?.includes('top') ? 'top' : justify?.includes('bottom') ? 'bottom' : 'center';
-
-// KiCad's Selection Filter categories, laid out in two columns (row-major).
-// Selection Filter categories, in PANEL_SCH_SELECTION_FILTER order (the
-// "All items" master and "Locked items" special are handled separately).
-const FILTER_CATS: [keyof SelectionFilterOptions, string][] = [
-  ['ruleAreas', 'Rule Areas'],
-  ['symbols', 'Symbols'],
-  ['pins', 'Pins'],
-  ['wires', 'Wires'],
-  ['labels', 'Labels'],
-  ['graphics', 'Graphics'],
-  ['images', 'Images'],
-  ['text', 'Text'],
-  ['otherItems', 'Other items'],
-];
 
 /** A file picked from disk for a project open. */
 /**
@@ -7692,61 +7677,20 @@ export function SchematicEditor({
                           {sashAfter('properties')}
                         </>
                       )}
+                      {/* `PANEL_SCH_SELECTION_FILTER`, the same widget the Symbol
+                          Editor builds (`ui/SelectionFilterPanel.tsx`). What was
+                          here was a private copy that (a) rendered a visible
+                          "Locked items" row — `m_cbLockedItems->Hide()`,
+                          `panel_sch_selection_filter_base.cpp:28`, hides it in
+                          BOTH frames — and (b) put "All items" on a row of its
+                          own above the grid, which shifted every pair one cell
+                          left of upstream's `wxGBPosition`s. */}
                       {paneKey === 'selectionFilter' && paneShown.selectionFilter && (
-                        <div className="ze-panel">
-                          <div className="ze-panel-header">Selection Filter</div>
-                          <div className="ze-panel-body">
-                            {/* "All items" toggles every category (not Locked items),
-                      exactly like PANEL_SCH_SELECTION_FILTER::OnFilterChanged. */}
-                            <label>
-                              <input
-                                type="checkbox"
-                                checked={selectionFilterAll(selFilter)}
-                                onChange={() => {
-                                  const next = !selectionFilterAll(selFilter);
-                                  setSelFilter((p) => ({
-                                    ...p,
-                                    symbols: next,
-                                    text: next,
-                                    wires: next,
-                                    labels: next,
-                                    pins: next,
-                                    graphics: next,
-                                    images: next,
-                                    ruleAreas: next,
-                                    otherItems: next,
-                                  }));
-                                }}
-                              />
-                              All items
-                            </label>
-                            {/* Locked items is special (allows selecting locked items). */}
-                            <label title="Allow selection of locked items">
-                              <input
-                                type="checkbox"
-                                checked={selFilter.lockedItems}
-                                onChange={(e) =>
-                                  setSelFilter((p) => ({ ...p, lockedItems: e.target.checked }))
-                                }
-                              />
-                              Locked items
-                            </label>
-                            <div className="ze-selfilter">
-                              {FILTER_CATS.map(([key, label]) => (
-                                <label key={key}>
-                                  <input
-                                    type="checkbox"
-                                    checked={selFilter[key]}
-                                    onChange={(e) =>
-                                      setSelFilter((p) => ({ ...p, [key]: e.target.checked }))
-                                    }
-                                  />
-                                  {label}
-                                </label>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
+                        <SelectionFilterPanel
+                          frame="FRAME_SCH"
+                          filter={selFilter}
+                          onChange={setSelFilter}
+                        />
                       )}
                     </Fragment>
                   ))}
