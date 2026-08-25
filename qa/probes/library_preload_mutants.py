@@ -57,7 +57,9 @@ class Mutant:
     new: str
     tests: list[str]
     # Which package's tsc must be clean for this mutant to be scorable.
-    packages: list[str] = field(default_factory=lambda: ["designer", "qa"])
+    # designer's tsc alone: it compiles every file mutated here (.ts and .tsx),
+    # and qa's would only re-report the same error more slowly.
+    packages: list[str] = field(default_factory=lambda: ["designer"])
 
 
 MUTANTS: list[Mutant] = [
