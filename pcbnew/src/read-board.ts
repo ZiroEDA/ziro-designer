@@ -25,6 +25,8 @@ import {
   boolField,
   childNamed,
   childrenNamed,
+  maybeAbsentBool,
+  maybeAbsentBoolOf,
   numArg,
   stringField,
   numberField,
@@ -62,6 +64,17 @@ import type {
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
 /**
+ * `PCB_IO_KICAD_SEXPR_PARSER::parseMaybeAbsentBool( aDefaultValue )`
+ * (pcb_io_kicad_sexpr_parser.cpp:265), bound to pcbnew's dialect: unlike
+ * eeschema's twin, it also accepts `true`/`false` (:274, :276).
+ *
+ * `undefined` means the token was absent altogether, which is *not* the same as
+ * the token being present with its default value.
+ */
+const maybeAbsent = (parent: SList, name: string, whenPresent: boolean): boolean | undefined =>
+  maybeAbsentBool(parent, name, whenPresent, 'yes-no-true-false');
+
+/**
  * `(teardrops …)` on a pad or via.
  * Counterpart: `PCB_IO_KICAD_SEXPR_PARSER::parseTEARDROP_PARAMETERS`.
  *
@@ -84,23 +97,17 @@ function readTeardropParams(node: SList | undefined): TeardropParams | undefined
     widthtoSizeFilterRatio: 0.9,
   };
 
-  // parseMaybeAbsentBool: a bare `(enabled)` means the token's "present" value.
-  const flag = (name: string, whenBare: boolean): boolean | undefined => {
-    const c = childNamed(node, name);
-    if (!c) return undefined;
-    const v = arg(c, 0);
-    return v === undefined ? whenBare : v === 'yes' || v === 'true';
-  };
-
   const numChild = (name: string): number | undefined => {
     const c = childNamed(node, name);
     return c ? (numArg(c, 0) ?? undefined) : undefined;
   };
 
-  p.enabled = flag('enabled', true) ?? p.enabled;
-  p.allowUseTwoTracks = flag('allow_two_segments', true) ?? p.allowUseTwoTracks;
+  // parseTEARDROP_PARAMETERS. Every one of these is parseMaybeAbsentBool, and
+  // `prefer_zone_connections` is the only one whose default is false.
+  p.enabled = maybeAbsent(node, 'enabled', true) ?? p.enabled; // :682
+  p.allowUseTwoTracks = maybeAbsent(node, 'allow_two_segments', true) ?? p.allowUseTwoTracks; // :686
 
-  const preferZone = flag('prefer_zone_connections', false);
+  const preferZone = maybeAbsent(node, 'prefer_zone_connections', false); // :690
   if (preferZone !== undefined) p.tdOnPadsInZones = !preferZone;
 
   p.bestLengthRatio = numChild('best_length_ratio') ?? p.bestLengthRatio;
@@ -113,7 +120,7 @@ function readTeardropParams(node: SList | undefined): TeardropParams | undefined
   const maxWidth = numChild('max_width');
   if (maxWidth !== undefined) p.tdMaxWidth = mmToIU(maxWidth);
 
-  const curved = flag('curved_edges', true);
+  const curved = maybeAbsent(node, 'curved_edges', true); // :720
   if (curved !== undefined) p.curvedEdges = curved;
   // Legacy: a non-zero segment count meant "curved".
   else if (numChild('curve_points') !== undefined)
@@ -372,7 +379,9 @@ function readDimension(item: SList): PcbDimension | null {
         unitsFormat: (numberField(fmtNode, 'units_format') ?? 1) as DimUnitsFormat,
         precision: (numberField(fmtNode, 'precision') ?? 4) as DimPrecision,
         overrideValue: stringField(fmtNode, 'override_value'),
-        suppressZeroes: boolField(fmtNode, 'suppress_zeroes'),
+        // parseMaybeAbsentBool( true ) at :4727; absent is
+        // PCB_DIMENSION_BASE's m_suppressZeroes( false ) (pcb_dimension.cpp:160).
+        suppressZeroes: maybeAbsent(fmtNode, 'suppress_zeroes', true) ?? false,
       }
     : undefined;
 
@@ -391,7 +400,18 @@ function readDimension(item: SList): PcbDimension | null {
       ? (numberField(styleNode, 'text_frame') as DimTextBorder | undefined)
       : undefined,
     extensionOffset: styleNode ? (mmOrUndef(styleNode, 'extension_offset') ?? 0) : 0,
-    keepTextAligned: styleNode ? boolField(styleNode, 'keep_text_aligned') : undefined,
+    // parseMaybeAbsentBool( true ) at :4802.
+    //
+    // Absent stays `false` here, which is *not* PCB_DIMENSION_BASE's
+    // constructor default (pcb_dimension.cpp:165 sets it true; only
+    // PCB_DIM_LEADER clears it at :1361). Upstream writes the token only when
+    // it is true (pcb_io_kicad_sexpr.cpp:986), so a non-leader dimension that
+    // lost the token reads back as true in KiCad and as false here. That is a
+    // separate defect from this one — the per-type constructor default — and
+    // fixing it belongs with the item defaults, not with the token grammar.
+    keepTextAligned: styleNode
+      ? (maybeAbsent(styleNode, 'keep_text_aligned', true) ?? false)
+      : undefined,
   };
 
   const textNode = childNamed(item, 'gr_text');
@@ -486,6 +506,7 @@ function readTextEffects(item: SList): {
   italic?: boolean;
   mirror?: boolean;
   justify?: string[];
+  hidden?: boolean;
 } {
   const effects = childNamed(item, 'effects');
   const font = effects ? childNamed(effects, 'font') : undefined;
@@ -498,10 +519,16 @@ function readTextEffects(item: SList): {
     // (size h w): height first, match the schematic reader convention of {x: w, y: h}.
     size: { x: size.y, y: size.x },
     thickness: thicknessMM !== undefined ? mmToIU(thicknessMM) : undefined,
-    bold: font ? stringField(font, 'bold') === 'yes' : undefined,
-    italic: font ? stringField(font, 'italic') === 'yes' : undefined,
+    // parseEDA_TEXT: bold and italic are parseMaybeAbsentBool( true ) at :803
+    // and :807, and real KiCad files write them bare — `(font (size 1 1)
+    // (thickness 0.2) bold)`.
+    bold: font ? (maybeAbsent(font, 'bold', true) ?? false) : undefined,
+    italic: font ? (maybeAbsent(font, 'italic', true) ?? false) : undefined,
     mirror: justify?.includes('mirror'),
     justify,
+    // parseEDA_TEXT's own `hide` at :841, inside `(effects …)` — the pre-v7
+    // location. `undefined` keeps it distinct from the item-level token.
+    hidden: effects ? maybeAbsent(effects, 'hide', true) : undefined,
   };
 }
 
@@ -516,7 +543,13 @@ function readPcbText(
   if (!pos) return null;
   const angle = at ? (numArg(at, 2) ?? 0) : 0;
   const fx = readTextEffects(item);
-  const hideNode = childNamed(item, 'hide');
+  // `hide` sits at the item level (parsePCB_TEXT_effects :3913) and, in older
+  // files, inside `(effects …)` (parseEDA_TEXT :841). Both are
+  // parseMaybeAbsentBool( true ), so a bare `hide` — which is how KiCad wrote
+  // it before v7, and how bitmap2component still writes it — means hidden.
+  // `(effects …)` is written after the item-level token, so upstream's token
+  // loop lets the later one win.
+  const hide = fx.hidden ?? maybeAbsent(item, 'hide', true) ?? false;
   // Footprint text (t != null) keeps upright unless it carries `unlocked`
   // (either positional after the angle in `at`, or a child `(unlocked yes)`).
   const unlockedNode = childNamed(item, 'unlocked');
@@ -536,7 +569,7 @@ function readPcbText(
     mirror: fx.mirror,
     justify: fx.justify,
     keepUpright: t !== null && !unlocked,
-    hide: hideNode ? arg(hideNode, 0) !== 'no' : false,
+    hide,
     knockout: childNamed(item, 'layer')
       ? args(childNamed(item, 'layer')!).includes('knockout')
       : false,
@@ -619,34 +652,45 @@ const strokeType = (item: SList): StrokeType | undefined => {
  * `undefined` means the node carried none of them, which keeps an untouched
  * item's source node out of the writer's way.
  */
+type UnconnectedLayerToken = 'remove_unused_layers' | 'keep_end_layers' | 'start_end_only';
+
 function readUnconnectedLayerMode(item: SList, forVia: boolean): UnconnectedLayerMode | undefined {
   let mode: UnconnectedLayerMode | undefined;
+  const known = (name: string | undefined): name is UnconnectedLayerToken =>
+    name === 'remove_unused_layers' || name === 'keep_end_layers' || name === 'start_end_only';
 
-  for (const child of item.items) {
-    if (!isList(child)) continue;
+  // Skip items[0], the node's own head token.
+  for (let i = 1; i < item.items.length; i++) {
+    const child = item.items[i]!;
 
-    const name = head(child);
-    if (
-      name !== 'remove_unused_layers' &&
-      name !== 'keep_end_layers' &&
-      name !== 'start_end_only'
-    ) {
+    // parseMaybeAbsentBool( true ) at :6366 and :6373 (pad), :7497, :7503 and
+    // :7509 (via). A bare positional token is the third shape it accepts.
+    if (child.kind === 'atom') {
+      if (!known(child.value)) continue;
+      applyMode(child.value, true);
       continue;
     }
 
-    // parseMaybeAbsentBool( true ): a bare token means yes.
-    const word = arg(child, 0);
-    const value = word === undefined ? true : word === 'yes' || word === 'true';
+    if (!isList(child)) continue;
 
-    if (forVia && !value) continue;
+    const name = head(child);
+    if (!known(name)) continue;
+
+    const value = maybeAbsentBoolOf(child, true, 'yes-no-true-false');
+
+    applyMode(name, value);
+  }
+
+  return mode;
+
+  function applyMode(name: UnconnectedLayerToken, value: boolean): void {
+    if (forVia && !value) return;
 
     if (name === 'remove_unused_layers') mode = value ? 'remove_all' : 'keep_all';
     else if (name === 'keep_end_layers')
       mode = value ? 'remove_except_start_and_end' : 'remove_all';
     else mode = 'start_end_only';
   }
-
-  return mode;
 }
 
 function readPad(item: SList, t: FpTransform | null): PcbPad | null {
@@ -779,7 +823,6 @@ function readFootprint(item: SList, local = false): PcbFootprint | null {
   // transform (legacy RebakeFromLib); a library footprint keeps local coords.
   const t: FpTransform | null = local ? null : { pos, angle };
   const attrNode = childNamed(item, 'attr');
-  const lockedNode = childNamed(item, 'locked');
   // parseFOOTPRINT, T_net_tie_pad_groups: every argument is one group string,
   // stored verbatim. The empty-string group is kept rather than dropped —
   // IsNetTie() distinguishes "no groups" from "one empty group" only by looking
@@ -799,7 +842,9 @@ function readFootprint(item: SList, local = false): PcbFootprint | null {
     localSolderPasteMargin: mmOrUndef(item, 'solder_paste_margin'),
     localSolderPasteMarginRatio: numberField(item, 'solder_paste_margin_ratio'),
     zoneConnection: zoneConnectOf(item),
-    locked: lockedNode ? arg(lockedNode, 0) !== 'no' : false,
+    // parseFOOTPRINT, parseMaybeAbsentBool( true ) at :5074. Legacy `(module …)`
+    // wrote it as a bare `locked` token.
+    locked: maybeAbsent(item, 'locked', true) ?? false,
     path: stringField(item, 'path'),
     sheetname: stringField(item, 'sheetname'),
     sheetfile: stringField(item, 'sheetfile'),
@@ -887,7 +932,6 @@ function readModel(item: SList): Model3D | null {
       z: inner ? (numArg(inner, 2) ?? def) * mul : def,
     };
   };
-  const hideNode = childNamed(item, 'hide');
   const offsetNode = childNamed(item, 'offset');
   const opacityNode = childNamed(item, 'opacity');
   const opacity = opacityNode ? numArg(opacityNode, 0) : undefined;
@@ -896,7 +940,8 @@ function readModel(item: SList): Model3D | null {
     offset: offsetNode ? xyzOf(offsetNode, 0) : xyzOf(childNamed(item, 'at'), 0, 25.4), // legacy `at` is in inches
     scale: xyzOf(childNamed(item, 'scale'), 1),
     rotate: xyzOf(childNamed(item, 'rotate'), 0),
-    hide: hideNode ? arg(hideNode, 0) !== 'no' : false,
+    // parse3DModel, parseMaybeAbsentBool( true ) at :955.
+    hide: maybeAbsent(item, 'hide', true) ?? false,
     ...(opacity !== undefined && opacity < 1 ? { opacity } : {}),
   };
 }
@@ -1125,7 +1170,18 @@ export function readBoard(root: SList): Board {
   };
   // `(locked yes)` child on tracks/vias/zones/graphics (PCB_IO writes it via
   // KICAD_FORMAT::FormatBool for every lockable item).
-  const lockedOf = (item: SList): boolean | undefined => {
+  //
+  // Upstream is not uniform about *how* it reads the token, so neither are we.
+  // `lockedOf` covers the items whose `case T_locked` is
+  // parseMaybeAbsentBool( true ) — segments (:7389), arcs (:7294), vias
+  // (:7591), graphic shapes (:3611), text boxes (:4181) and dimensions
+  // (:4951) — where 5.99 wrote a bare `(locked)`. `lockedBoolOf` covers the
+  // ones that call plain `parseBool()`: zones (:8448), groups (:7046), images
+  // (:3730), tables (:4363) and board text (:3923). For those, `(locked)`
+  // without an argument is an error upstream; we stay lenient there rather
+  // than fail a load over a form nothing has ever written.
+  const lockedOf = (item: SList): boolean | undefined => maybeAbsent(item, 'locked', true);
+  const lockedBoolOf = (item: SList): boolean | undefined => {
     const n = childNamed(item, 'locked');
     return n ? arg(n, 0) !== 'no' : undefined;
   };
@@ -1224,7 +1280,7 @@ export function readBoard(root: SList): Board {
         break;
       }
       case 'zone':
-        board.zones.push({ ...readZone(item), locked: lockedOf(item) });
+        board.zones.push({ ...readZone(item), locked: lockedBoolOf(item) });
         break;
       case 'group': {
         // `(group "name" (uuid …) [(locked yes)] (members "uuid"…))`, PCB_GROUP.
@@ -1232,7 +1288,7 @@ export function readBoard(root: SList): Board {
         board.groups.push({
           name: arg(item, 0) ?? '',
           uuid: uuidOf(item),
-          locked: lockedOf(item),
+          locked: lockedBoolOf(item),
           members: membersNode ? args(membersNode) : [],
           source: item,
         });
@@ -1250,7 +1306,7 @@ export function readBoard(root: SList): Board {
       }
       case 'gr_text': {
         const tx = readPcbText(item, 'user', arg(item, 0) ?? '', null);
-        if (tx) board.texts.push({ ...tx, locked: lockedOf(item) });
+        if (tx) board.texts.push({ ...tx, locked: lockedBoolOf(item) });
         break;
       }
       case 'gr_text_box': {
@@ -1260,12 +1316,12 @@ export function readBoard(root: SList): Board {
       }
       case 'image': {
         const img = readImage(item);
-        if (img) board.images.push({ ...img, locked: lockedOf(item) });
+        if (img) board.images.push({ ...img, locked: lockedBoolOf(item) });
         break;
       }
       case 'table': {
         const tb = readTable(item);
-        if (tb) board.tables.push({ ...tb, locked: lockedOf(item) });
+        if (tb) board.tables.push({ ...tb, locked: lockedBoolOf(item) });
         break;
       }
       case 'dimension': {

@@ -18,6 +18,7 @@ import {
   boolField,
   childNamed,
   childrenNamed,
+  maybeAbsentBool,
   numArg,
   numberField,
   stringField,
@@ -55,6 +56,15 @@ import type {
   TitleBlock,
   Vec2,
 } from '../../types.js';
+
+/**
+ * `SCH_IO_KICAD_SEXPR_PARSER::parseMaybeAbsentBool( aDefaultValue )`
+ * (sch_io_kicad_sexpr_parser.cpp:147). eeschema's copy takes `T_yes`/`T_no`
+ * only — pcbnew's also takes `true`/`false` — so the dialect is named here and
+ * the three token shapes come from the one shared helper.
+ */
+const maybeAbsent = (parent: SList, name: string, whenPresent: boolean): boolean | undefined =>
+  maybeAbsentBool(parent, name, whenPresent, 'yes-no');
 
 /**
  * Read two positional numeric args (millimetres) starting at `from` as an IU point.
@@ -117,21 +127,21 @@ export function readEffects(node: SList): TextEffects | undefined {
   const font = childNamed(e, 'font');
   const size = font ? childNamed(font, 'size') : undefined;
   const justify = childNamed(e, 'justify');
-  // hide is a bare `hide` token in older files or `(hide yes)` in newer ones.
-  const bareHidden = e.items.some((it) => it.kind === 'atom' && it.value === 'hide');
+  // parseEDA_TEXT's `hide`, parseMaybeAbsentBool( true ) at :891: a bare `hide`
+  // token in older files, `(hide)`, or `(hide yes)` in newer ones.
   const effects: { -readonly [K in keyof TextEffects]: TextEffects[K] } = {
-    hidden: bareHidden || boolField(e, 'hide', false),
+    hidden: maybeAbsent(e, 'hide', true) ?? false,
   };
   if (size) effects.fontSize = [mmToIU(numArg(size, 0) ?? 0), mmToIU(numArg(size, 1) ?? 0)];
   const face = font ? stringField(font, 'face') : undefined;
   if (face) effects.face = face;
   if (justify) effects.justify = args(justify);
   if (font) {
-    // bold/italic are bare tokens (legacy) or `(bold yes)` / `(italic yes)`.
-    const bareBold = font.items.some((it) => it.kind === 'atom' && it.value === 'bold');
-    if (bareBold || boolField(font, 'bold', false)) effects.bold = true;
-    const bareItalic = font.items.some((it) => it.kind === 'atom' && it.value === 'italic');
-    if (bareItalic || boolField(font, 'italic', false)) effects.italic = true;
+    // parseMaybeAbsentBool( true ) at :823 and :828: bare tokens (legacy) or
+    // `(bold yes)` / `(italic yes)`. Only a true ever sets the flag, so an
+    // absent token stays absent rather than becoming an explicit false.
+    if (maybeAbsent(font, 'bold', true) === true) effects.bold = true;
+    if (maybeAbsent(font, 'italic', true) === true) effects.italic = true;
     // `(thickness …)`: an explicit glyph pen. Only written when it is not auto,
     // so its absence is meaningful and must stay absent rather than become 0.
     const thick = childNamed(font, 'thickness');
@@ -203,9 +213,11 @@ export function readField(node: SList, invertY = false): SchField {
     (childNamed(node, 'hide') ? boolField(node, 'hide', false) : false);
   if (effects) field.effects = directHide ? { ...effects, hidden: true } : effects;
   else if (directHide) field.effects = { hidden: true };
-  if (boolField(node, 'show_name', false)) field.nameShown = true;
-  if (childNamed(node, 'do_not_autoplace'))
-    field.doNotAutoplace = boolField(node, 'do_not_autoplace', false);
+  // parseMaybeAbsentBool( true ) at :1144 (lib) and :2419 (schematic).
+  if (maybeAbsent(node, 'show_name', true) === true) field.nameShown = true;
+  // parseMaybeAbsentBool( true ) at :1151 (lib) and :2426 (schematic).
+  const doNotAutoplace = maybeAbsent(node, 'do_not_autoplace', true);
+  if (doNotAutoplace !== undefined) field.doNotAutoplace = doNotAutoplace;
   // `(show_in_chooser yes)`, the field is offered as a Symbol Chooser column
   // (SCH_FIELD::ShowInChooser / LIB_SYMBOL::cacheChooserFields).
   if (boolField(node, 'show_in_chooser', false)) field.showInChooser = true;
