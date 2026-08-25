@@ -47,8 +47,6 @@ import {
   layoutDrawingSheet,
   mmToIU,
   parseDrawingSheet,
-  DS_BG_COLOR_LIGHT,
-  DS_ITEM_COLOR,
   type WksResolveContext,
   type WksSheet,
 } from '@ziroeda/common';
@@ -62,6 +60,7 @@ import {
   orientationFromCustomSize,
   pageSettingsLabels,
   pageSizeMM,
+  previewColors,
   previewThumbSize,
   showsExportCheckboxes,
   showsSheetTallies,
@@ -115,6 +114,13 @@ export interface PageSettingsDialogProps {
   /** Which frame opened it — see {@link PageSettingsFrame}. */
   frame: PageSettingsFrame;
   /**
+   * pl_editor's `black_background` setting — the one frame whose preview
+   * background is a user toggle rather than a theme layer
+   * (`pl_editor_frame.cpp:541`). The other two read their own background layer
+   * and ignore it.
+   */
+  blackBackground?: boolean;
+  /**
    * The frame's display unit. `m_customSizeX`/`Y` are `UNIT_BINDER`s over the
    * parent frame (dialog_page_settings.cpp:65-66).
    */
@@ -150,6 +156,7 @@ export interface PageSettingsDialogProps {
 export function DialogPageSettings({
   value,
   frame,
+  blackBackground = false,
   units,
   sheetCount = 1,
   sheetNumber = 1,
@@ -165,6 +172,7 @@ export function DialogPageSettings({
   useModalEscape(onCancel);
 
   const labels = pageSettingsLabels(frame);
+  const preview = useMemo(() => previewColors(frame, blackBackground), [frame, blackBackground]);
   const pickerOn = wksPickerEnabled(frame);
   const exportsOn = showsExportCheckboxes(frame);
   const talliesOn = showsSheetTallies(frame);
@@ -233,7 +241,9 @@ export function DialogPageSettings({
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     // GRFilledRect( &memDC, (0,0), m_layout_size, 0, bgColor, bgColor ) with
     // bgColor = m_parent->GetDrawBgColor() (dialog_page_settings.cpp:598, 616).
-    ctx.fillStyle = DS_BG_COLOR_LIGHT;
+    // Both colours come from the PARENT FRAME, so they differ per editor — see
+    // `previewColors`. This was `#ffffff` and the schematic ink for all three.
+    ctx.fillStyle = preview.background;
     ctx.fillRect(0, 0, thumb.width, thumb.height);
 
     const ctxData: WksResolveContext = {
@@ -263,7 +273,7 @@ export function DialogPageSettings({
     ctx.scale(scale, scale);
     // renderSettings.SetDefaultPenWidth( 1 ) — one device pixel at this scale.
     drawDrawingSheetItems(ctx, draws, NO_PREVIEW_SELECTION, {
-      color: DS_ITEM_COLOR,
+      color: preview.ink,
       minWidth: 1 / scale,
     });
     ctx.restore();

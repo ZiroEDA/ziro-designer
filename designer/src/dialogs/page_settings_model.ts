@@ -26,6 +26,19 @@
  */
 
 import { PAPER_MM } from '@ziroeda/common';
+// The preview's two colours, from the same tables the canvases read. No colour
+// literal goes in this file: each is `builtin_color_themes.h`'s entry for its
+// layer, so the dialog and the canvas cannot drift apart.
+import {
+  DS_BG_COLOR as SCH_BACKGROUND,
+  DS_BG_COLOR_DARK as DS_BG_DARK,
+  DS_BG_COLOR_LIGHT as DS_BG_WHITE,
+  DS_ITEM_COLOR as SCH_DRAWINGSHEET,
+} from '@ziroeda/common';
+import {
+  PCB_BACKGROUND as PCB_BACKGROUND_COLOR,
+  PCB_DRAWINGSHEET,
+} from '../editors/pcb/pcbTheme.js';
 
 /**
  * Which frame opened the dialog. Upstream this is not a parameter — it is the
@@ -456,4 +469,44 @@ export function pageSettingsValue(
 ): PageSettingsValue {
   const comments = Array.from({ length: COMMENT_COUNT }, (_, i) => tb.comments[i] ?? '');
   return { ...fromPaperToken(paperToken), ...tb, comments };
+}
+
+/** The two colours `UpdateDrawingSheetExample` paints the preview with. */
+export interface PreviewColors {
+  /** `GRFilledRect( &memDC, …, bgColor, bgColor )` — the paper. */
+  background: string;
+  /** The colour the drawing-sheet items are stroked in. */
+  ink: string;
+}
+
+/**
+ * `DIALOG_PAGES_SETTINGS::UpdateDrawingSheetExample`
+ * (`common/dialogs/dialog_page_settings.cpp:594-616`), whose two colours come
+ * from the PARENT FRAME and therefore differ per editor. Ours painted
+ * `#ffffff` and the schematic ink for all three — right for eeschema, and a
+ * white sheet in the PCB editor where KiCad draws a near-black one.
+ *
+ * BACKGROUND is `m_parent->GetDrawBgColor()` (`:597`), and each frame answers
+ * from somewhere different:
+ *
+ *   eeschema   `LAYER_SCHEMATIC_BACKGROUND` — `SCH_BASE_FRAME` overrides the
+ *              getter outright (`eeschema/sch_base_frame.cpp:643-646`).
+ *   pcbnew     `LAYER_PCB_BACKGROUND`, pushed in by the appearance panel
+ *              (`pcbnew/widgets/appearance_controls.cpp:3235-3236`). The base
+ *              member is BLACK (`common/eda_draw_frame.cpp:121`); the default
+ *              theme's value is `rgb(0,16,35)`.
+ *   pl_editor  BLACK or WHITE by the `black_background` setting
+ *              (`pagelayout_editor/pl_editor_frame.cpp:541`) — the one frame
+ *              where this is a user toggle rather than a theme layer.
+ *
+ * INK is `LAYER_DRAWINGSHEET`, EXCEPT that the three schematic frame types
+ * substitute `LAYER_SCHEMATIC_DRAWINGSHEET` for it (`:606-613`) — which is why
+ * eeschema's sheet is dark red and pcbnew's is pink.
+ */
+export function previewColors(frame: PageSettingsFrame, blackBackground = false): PreviewColors {
+  if (frame === 'eeschema') return { background: SCH_BACKGROUND, ink: SCH_DRAWINGSHEET };
+  if (frame === 'pcbnew') return { background: PCB_BACKGROUND_COLOR, ink: PCB_DRAWINGSHEET };
+  // pl_editor is not a schematic frame, so it keeps `LAYER_DRAWINGSHEET` like
+  // pcbnew, over a background the user toggles.
+  return { background: blackBackground ? DS_BG_DARK : DS_BG_WHITE, ink: PCB_DRAWINGSHEET };
 }

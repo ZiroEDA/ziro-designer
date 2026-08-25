@@ -89,6 +89,11 @@ const layerColorsFor = (colors: ThemeColors): Record<string, string> =>
 export const PCB_LAYER_COLORS: Record<string, string> = layerColorsFor(BUILTIN_DEFAULT_THEME);
 
 export const PCB_BACKGROUND = at(BUILTIN_DEFAULT_THEME, 'LAYER_PCB_BACKGROUND');
+/** `LAYER_DRAWINGSHEET` — the sheet border and title block, as pcbnew draws
+ *  them and as `DIALOG_PAGES_SETTINGS`' preview paints them for a non-schematic
+ *  frame (dialog_page_settings.cpp:606-613 substitutes the schematic layer only
+ *  for FRAME_SCH*). */
+export const PCB_DRAWINGSHEET = at(BUILTIN_DEFAULT_THEME, 'LAYER_DRAWINGSHEET');
 export const PCB_GRID = at(BUILTIN_DEFAULT_THEME, 'LAYER_GRID');
 export const PCB_GRID_AXES = at(BUILTIN_DEFAULT_THEME, 'LAYER_GRID_AXES');
 export const PCB_CURSOR = at(BUILTIN_DEFAULT_THEME, 'LAYER_CURSOR');

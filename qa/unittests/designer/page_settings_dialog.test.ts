@@ -17,6 +17,8 @@
  * text is all there is; the rest calls the functions.
  */
 import { describe, expect, it } from 'vitest';
+import { DS_BG_COLOR, DS_BG_COLOR_DARK, DS_BG_COLOR_LIGHT, DS_ITEM_COLOR } from '@ziroeda/common';
+import { PCB_BACKGROUND, PCB_DRAWINGSHEET } from '@ziroeda/designer/src/editors/pcb/pcbTheme.js';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import {
@@ -41,6 +43,7 @@ import {
   showsExportCheckboxes,
   showsSheetTallies,
   TITLE_BLOCK_ROWS,
+  previewColors,
   toPaperToken,
   wksPickerEnabled,
   type PageSettingsFrame,
@@ -569,5 +572,56 @@ describe('what the merged component must NOT draw', () => {
     expect([...DIALOG.matchAll(/<select\b/g)]).toEqual([]);
     expect(DIALOG).toContain('ze-btn-bitmap');
     expect(DIALOG).toContain('OpenFileDialog');
+  });
+});
+
+describe('the preview takes both its colours from the parent frame', () => {
+  /**
+   * `UpdateDrawingSheetExample` (`dialog_page_settings.cpp:594-616`). Ours
+   * painted `#ffffff` and the schematic ink for all three frames, so the PCB
+   * editor showed a white sheet where KiCad shows a near-black one.
+   *
+   * Values are the theme entries, not literals repeated here — a colour written
+   * out twice is two numbers that have to agree.
+   */
+  it('eeschema: the schematic background and the schematic drawing-sheet ink', () => {
+    // `SCH_BASE_FRAME::GetDrawBgColor` returns LAYER_SCHEMATIC_BACKGROUND
+    // outright (eeschema/sch_base_frame.cpp:643-646), and :606-613 substitutes
+    // LAYER_SCHEMATIC_DRAWINGSHEET for the sheet layer on schematic frames.
+    expect(previewColors('eeschema')).toEqual({
+      background: DS_BG_COLOR,
+      ink: DS_ITEM_COLOR,
+    });
+  });
+
+  it('pcbnew: the board background and the plain drawing-sheet ink', () => {
+    // LAYER_PCB_BACKGROUND via appearance_controls.cpp:3235-3236, and NO
+    // substitution — pcbnew is not a schematic frame, so it keeps
+    // LAYER_DRAWINGSHEET.
+    const c = previewColors('pcbnew');
+    expect(c.background).toBe(PCB_BACKGROUND);
+    expect(c.ink).toBe(PCB_DRAWINGSHEET);
+    // The bug in one assertion: these are the two that used to be shared with
+    // eeschema, and neither may drift back to it.
+    expect(c.background).not.toBe(DS_BG_COLOR);
+    expect(c.ink).not.toBe(DS_ITEM_COLOR);
+  });
+
+  it('pl_editor: a user toggle, not a theme layer', () => {
+    // `SetDrawBgColor( cfg->m_BlackBackground ? BLACK : WHITE )`
+    // (pl_editor_frame.cpp:541) — the one frame where this is not a layer.
+    expect(previewColors('pl_editor', false).background).toBe(DS_BG_COLOR_LIGHT);
+    expect(previewColors('pl_editor', true).background).toBe(DS_BG_COLOR_DARK);
+    // Still not a schematic frame, so the ink is the plain sheet layer.
+    expect(previewColors('pl_editor').ink).toBe(PCB_DRAWINGSHEET);
+  });
+
+  it('gives every frame a different background', () => {
+    // Per-frame and not per-file: three frames sharing one colour is exactly
+    // the bug, and a check that only looked at one of them would have passed.
+    const backgrounds = (['eeschema', 'pcbnew', 'pl_editor'] as const).map(
+      (f) => previewColors(f).background,
+    );
+    expect(new Set(backgrounds).size).toBe(3);
   });
 });
