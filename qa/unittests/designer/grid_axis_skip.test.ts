@@ -95,6 +95,14 @@ function paint(
   view: GridView,
   axes: boolean,
   ctx: CanvasRenderingContext2D & { _t: { x: number; y: number } },
+  /**
+   * `GAL_DISPLAY_OPTIONS::m_gridMinSpacing`. Only the cache test sets it: a
+   * SMALL_CROSS grid needs twice the room a dot does
+   * (`cairo_gal.cpp:1787-1788`), so at KiCad's default 10 px the density loop
+   * steps a crosses lattice a whole tick further out than a lines one and the
+   * two stop being comparable. Lowering it keeps both at the same 20 px pitch.
+   */
+  minSpacingPx = 10,
 ): { segments: Segment[]; rects: Rect[]; rebuilt: boolean } {
   ops = [];
   ctx._t.x = 0;
@@ -104,7 +112,7 @@ function paint(
     color: '#888888',
     style,
     lineWidthPx: 1,
-    minSpacingPx: 10,
+    minSpacingPx,
     devicePixelRatio: 1,
     axes: axes ? { color: '#0000ff' } : null,
   });
@@ -260,14 +268,16 @@ describe('GRID_STYLE::SMALL_CROSS', () => {
     // guard as dead: the crosses BRANCH never reads them, so dropping the
     // guard changes no pixel, only the key.
     const ctx = makeCtx();
-    expect(paint('crosses', VIEW, true, ctx).rebuilt).toBe(true);
-    expect(paint('crosses', PANNED, true, ctx).rebuilt).toBe(false);
+    expect(paint('crosses', VIEW, true, ctx, 2).rebuilt).toBe(true);
+    expect(paint('crosses', PANNED, true, ctx, 2).rebuilt).toBe(false);
 
-    // The contrast, on the same two views: a LINES lattice DOES depend on the
-    // axis, so the same pan has to rebuild it.
+    // The contrast, at the same pitch over the same two views: a LINES lattice
+    // DOES depend on the axis, so the same pan has to rebuild it. Without this
+    // the assertion above would also pass on a painter that never rebuilt
+    // anything.
     const lineCtx = makeCtx();
-    expect(paint('lines', VIEW, true, lineCtx).rebuilt).toBe(true);
-    expect(paint('lines', PANNED, true, lineCtx).rebuilt).toBe(true);
+    expect(paint('lines', VIEW, true, lineCtx, 2).rebuilt).toBe(true);
+    expect(paint('lines', PANNED, true, lineCtx, 2).rebuilt).toBe(true);
   });
 });
 
