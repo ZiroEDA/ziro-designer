@@ -17,6 +17,8 @@
  * text is all there is; the rest calls the functions.
  */
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { DS_BG_COLOR, DS_BG_COLOR_DARK, DS_BG_COLOR_LIGHT, DS_ITEM_COLOR } from '@ziroeda/common';
 import { PCB_BACKGROUND, PCB_DRAWINGSHEET } from '@ziroeda/designer/src/editors/pcb/pcbTheme.js';
 import { readFileSync } from 'node:fs';
@@ -623,5 +625,41 @@ describe('the preview takes both its colours from the parent frame', () => {
       (f) => previewColors(f).background,
     );
     expect(new Set(backgrounds).size).toBe(3);
+  });
+});
+
+describe('and the dialog actually draws with them', () => {
+  const SRC = readFileSync(
+    fileURLToPath(
+      new URL('../../../designer/src/dialogs/dialog_page_settings.tsx', import.meta.url),
+    ),
+    'utf8',
+  );
+
+  /**
+   * `previewColors` being right is half the job. A sweep put the old literal
+   * back into the draw call and every test above still passed, because they
+   * exercise the RULE and nothing watched the call site — the same gap the
+   * pl_editor audit hit when it extracted undo into a module and the frame
+   * carried on not calling it.
+   *
+   * Source text, because the preview is a `<canvas>`: happy-dom gives us a DOM
+   * but not a 2D context, so `fillStyle` cannot be read back. This is the only
+   * assertion available for it, and it is per-occurrence — a colour literal
+   * ANYWHERE in the preview effect fails, not merely the absence of one name.
+   */
+  it('reads both colours from previewColors, with no literal left behind', () => {
+    expect(SRC).toContain('ctx.fillStyle = preview.background;');
+    expect(SRC).toContain('color: preview.ink,');
+
+    // The effect that paints the thumbnail, comments stripped so a citation
+    // naming a colour cannot read as code.
+    const at = SRC.indexOf('const cv = canvasRef.current;');
+    expect(at, 'the preview effect moved').toBeGreaterThan(-1);
+    const effect = SRC.slice(at, SRC.indexOf('}, [', at))
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/\/\/[^\n]*/g, '');
+    expect(effect.match(/#[0-9a-fA-F]{3,8}\b/g) ?? []).toEqual([]);
+    expect(effect.match(/\brgba?\(/g) ?? []).toEqual([]);
   });
 });
