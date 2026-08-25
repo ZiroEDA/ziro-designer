@@ -21,6 +21,8 @@
  * The units member of each set is checked in `opening_units.test.ts` against
  * `APP_SETTINGS_BASE`'s branch; here it is simply part of the set.
  */
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
   applyToggle as pcbApplyToggle,
@@ -229,5 +231,48 @@ describe('the two frames that already had their defaults in a .ts', () => {
    */
   it('opens the drawing sheet editor with three buttons', () => {
     expect(sorted(DS_TOGGLES)).toEqual(['layoutEditMode', 'toggleGrid', 'unitsMils']);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// the seam a `.ts` module cannot cover
+// ---------------------------------------------------------------------------
+
+/**
+ * Extracting the table only helps if the frame still SEEDS ITSELF FROM IT, and
+ * that last inch lives in a `.tsx`. There is no DOM test environment here, so
+ * it cannot be executed — a mutation sweep confirmed it: putting
+ * `new Set(['unitsMm', 'showHierarchy', 'showProperties'])` back into
+ * `SchematicEditor.tsx`, which is precisely the bug this branch fixes, failed
+ * NOT ONE test with only the module-level assertions above.
+ *
+ * So this is a source-text check, and it is honest about being one: it pins
+ * spelling, not behaviour. `drawing_sheet_palette.test.ts` already guards its
+ * frame the same way (`expect(EDITOR).toContain('togglesFromSettings(...)')`).
+ * It is written per FILE rather than as one scan of the directory, because the
+ * rule is per-occurrence: a frame that re-localised its table would otherwise
+ * hide behind five that did not.
+ */
+const src = (rel: string): string =>
+  readFileSync(fileURLToPath(new URL(`../../../designer/src/${rel}`, import.meta.url)), 'utf8');
+
+describe.each([
+  ['editors/schematic/SchematicEditor.tsx'],
+  ['editors/pcb/PcbEditor.tsx'],
+  ['editors/footprint/FootprintEditor.tsx'],
+  ['editors/gerbview/GerberViewer.tsx'],
+  ['editors/symbol/SymbolEditor.tsx'],
+])('%s seeds its toolbar from its toggles module', (rel) => {
+  it('takes DEFAULT_TOGGLES from ./toggles.js', () => {
+    expect(src(rel)).toMatch(/import \{[^}]*\bDEFAULT_TOGGLES\b[^}]*\} from '\.\/toggles\.js'/);
+  });
+
+  it('seeds the state with it and not with a literal of its own', () => {
+    const s = src(rel);
+    expect(s).toContain('useState<Set<string>>(new Set(DEFAULT_TOGGLES))');
+    // A second, local `const DEFAULT_TOGGLES = new Set([...])` would satisfy the
+    // line above while restating the table. That is exactly how the schematic's
+    // wrong unit shipped, so the declaration must not exist here at all.
+    expect(s).not.toMatch(/const DEFAULT_TOGGLES\s*(:|=)/);
   });
 });
