@@ -344,6 +344,7 @@ import { GL_PATH_FACTORY } from '../../render/gl/gl_path.js';
 import type { Viewer3D, Viewer3DStatus, Grid3D, View3DDir } from './pcb3d.js';
 import { VIEWER3D_TOP_TOOLBAR } from './viewer3dToolbars.js';
 import { buildViewer3DMenus } from './viewer3dMenus.js';
+import { applyToggle, DEFAULT_TOGGLES } from './toggles.js';
 import {
   layerColor,
   PCB_BACKGROUND,
@@ -604,23 +605,10 @@ const traceArc3 = (
   ctx.arc(o.x, o.y, r, a0, a2, ccw);
 };
 
-// Left-toolbar radio groups (same convention as the schematic editor).
-const RADIO_GROUPS: string[][] = [
-  ['unitsMm', 'unitsInches', 'unitsMils'],
-  ['crosshairSmall', 'crosshairFull', 'crosshair45'],
-  ['lineModeFree', 'lineMode90', 'lineMode45'],
-  ['zoneDisplayFilled', 'zoneDisplayOutline'],
-];
-const DEFAULT_TOGGLES = new Set([
-  'toggleGrid',
-  'unitsMm',
-  'crosshairSmall',
-  'lineMode90',
-  'ratsnestLineMode',
-  'zoneDisplayFilled',
-  'showLayersManager',
-  'showProperties',
-]);
+// The left toolbar's radio groups, its opening state and its reducer are in
+// `toggles.ts` rather than here, because `qa`'s tsconfig compiles `.ts` only:
+// a default written in a `.tsx` is one no test can read, and two of the seven
+// were on the wrong arm of pcbnew's own settings.
 
 const DEFAULT_OBJECTS: ObjectState = {
   tracks: true,
@@ -6607,19 +6595,7 @@ export function PcbEditor({
       toggleHighlightRef.current();
       return;
     }
-    setToggles((prev) => {
-      const next = new Set(prev);
-      const group = RADIO_GROUPS.find((g) => g.includes(id));
-      if (group) {
-        for (const g of group) next.delete(g);
-        next.add(id);
-      } else if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return next;
-    });
+    setToggles((prev) => applyToggle(prev, id));
   };
 
   const saveCopy = useCallback((): void => {

@@ -33,10 +33,10 @@ import {
   FOOTPRINT_LAYERS,
   FP_DEFAULT_ACTIVE_LAYER,
 } from '@ziroeda/designer/src/editors/footprint/footprintBoard.js';
-import {
-  footprintToolMsg,
-  FP_DEFAULT_TOGGLES,
-} from '@ziroeda/designer/src/editors/footprint/footprintToolbars.js';
+import { footprintToolMsg } from '@ziroeda/designer/src/editors/footprint/footprintToolbars.js';
+// The frame's opening toolbar state moved to `footprint/toggles.ts`, beside the
+// radio groups and the reducer that were still stranded in `FootprintEditor.tsx`.
+import { DEFAULT_TOGGLES as FP_DEFAULT_TOGGLES } from '@ziroeda/designer/src/editors/footprint/toggles.js';
 import { angleSnapModeOf, constraintsMsg } from '@ziroeda/designer/src/ui/status_format.js';
 import { GetLayerName } from '@ziroeda/pcbnew/src/layer_ids.js';
 

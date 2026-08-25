@@ -459,20 +459,19 @@ import { useUnsavedGuard } from '../../ui/useUnsavedGuard.js';
 import '../../ui/shell.css';
 import { schSymbolLibraryName } from '@ziroeda/eeschema';
 import { useModalEscape } from '../../ui/useModalEscape.js';
+import { applyToggle, DEFAULT_TOGGLES } from './toggles.js';
 
 // What KiCad writes for File > New Schematic: an empty sheet on A4 paper.
 // Launching the editor without a project starts here (no bundled demo).
 const EMPTY_SCH =
   '(kicad_sch (version 20231120) (generator "ziroeda") (paper "A4")\n  (lib_symbols)\n)\n';
 
-const RADIO_GROUPS: string[][] = [
-  ['unitsInches', 'unitsMils', 'unitsMm'],
-  ['crosshairSmall', 'crosshairFull', 'crosshair45'],
-  ['lineModeFree', 'lineMode90', 'lineMode45'],
-];
 // Local view toggles; grid/crosshair/line-mode/hidden-pins live in the settings
 // store (Preferences) and are derived each render so the two stay in sync.
-const DEFAULT_TOGGLES = new Set(['unitsMm', 'showHierarchy', 'showProperties']);
+// `RADIO_GROUPS`, `DEFAULT_TOGGLES` and `applyToggle` are in `toggles.ts`
+// rather than here, because `qa`'s tsconfig compiles `.ts` only: a default
+// written in a `.tsx` is one no test can read, and the opening units sat on the
+// wrong arm of `app_settings.cpp:228-238` for exactly that reason.
 /** Edit > Attributes menu ids, and the attribute each one sets. */
 /** The Attributes submenu, in the Edit menu's order (SCH_EDIT_TOOL). */
 const ATTRIBUTE_MENU: { id: string; label: string }[] = [
@@ -6783,16 +6782,7 @@ export function SchematicEditor({
         });
         return;
       }
-      setLocalToggles((prev) => {
-        const next = new Set(prev);
-        const group = RADIO_GROUPS.find((g) => g.includes(id));
-        if (group) {
-          for (const g of group) next.delete(g);
-          next.add(id);
-        } else if (next.has(id)) next.delete(id);
-        else next.add(id);
-        return next;
-      });
+      setLocalToggles((prev) => applyToggle(prev, id));
       // eslint-disable-next-line react-hooks/exhaustive-deps
     },
     [doc, selection, runCommand],
