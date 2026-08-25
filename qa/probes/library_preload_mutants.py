@@ -375,27 +375,36 @@ def run(cmd: list[str], cwd: Path = ROOT) -> tuple[int, str]:
 
 
 def main() -> int:
-    only = sys.argv[1] if len(sys.argv) > 1 else None
+    """`library_preload_mutants.py [START [END]]` - run mutants [START, END).
+
+    Ranges, not a single sweep, and the reason is in CLAUDE.md's neighbourhood:
+    a long background sweep that is killed leaves its current mutant applied in
+    the tree and loses every verdict it had buffered. That happened here. Run it
+    in short foreground steps and record the verdicts as they print.
+    """
+    start = int(sys.argv[1]) if len(sys.argv) > 1 else 0
+    stop = int(sys.argv[2]) if len(sys.argv) > 2 else len(MUTANTS)
     rows: list[tuple[str, str, str]] = []
 
-    dirty, _ = run(["git", "status", "--porcelain"])
-    if _.strip():
+    _, out = run(["git", "status", "--porcelain"])
+    if out.strip():
         print("REFUSING: working tree is dirty; commit the baseline first.")
+        print(out)
         return 2
 
-    for m in MUTANTS:
-        if only and only not in m.name:
+    for i, m in enumerate(MUTANTS):
+        if not (start <= i < stop):
             continue
         path = ROOT / m.file
         before = path.read_text()
         if m.old not in before:
             rows.append((m.name, "ANCHOR-MISSED", m.file))
-            print(f"  ANCHOR-MISSED  {m.name}")
+            print(f"  [{i:>2}] ANCHOR-MISSED  {m.name}", flush=True)
             continue
         # Exactly one occurrence, so the mutation is aimed rather than sprayed.
         if before.count(m.old) != 1:
             rows.append((m.name, f"AMBIGUOUS x{before.count(m.old)}", m.file))
-            print(f"  AMBIGUOUS      {m.name}")
+            print(f"  [{i:>2}] AMBIGUOUS      {m.name}", flush=True)
             continue
         path.write_text(before.replace(m.old, m.new, 1))
         after = path.read_text()
@@ -424,7 +433,7 @@ def main() -> int:
             path.write_text(before)
 
         rows.append((m.name, verdict, m.file))
-        print(f"  {verdict:<28} {m.name}")
+        print(f"  [{i:>2}] {verdict:<28} {m.name}", flush=True)
 
     print()
     print("=" * 78)
