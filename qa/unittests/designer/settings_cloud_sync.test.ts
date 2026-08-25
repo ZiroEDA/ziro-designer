@@ -238,6 +238,9 @@ describe('the same workspace on another device', () => {
       // The complaint this whole feature answers: mm/mils resetting.
       s.system.units = 'mm';
     });
+    a.updatePcbCalculator((s) => {
+      s.track_width.current = '4.5';
+    });
     a.updatePrivacy((s) => {
       s.crash_reports = false;
     });
@@ -262,6 +265,7 @@ describe('the same workspace on another device', () => {
     expect(b.eeschema.appearance.show_hidden_pins).toBe(true);
     expect(b.pcbnew.printing.scale).toBe(2.5);
     expect(b.plEditor.system.units).toBe('mm');
+    expect(b.pcbCalculator.track_width.current).toBe('4.5');
     expect(b.privacy.crash_reports).toBe(false);
     expect(b.userColors).toEqual({ wire: 'rgb(1, 2, 3)' });
     expect(b.hotkeys).toEqual({ 'eeschema.save': 'Ctrl+Alt+S' });
@@ -798,6 +802,7 @@ describe('the per-slice stamps', () => {
     a.updateEeschema(() => undefined);
     a.updatePcbnew(() => undefined);
     a.updatePlEditor(() => undefined);
+    a.updatePcbCalculator(() => undefined);
     a.updatePrivacy(() => undefined);
     a.setUserColors({});
     a.setHotkeys({});
@@ -812,12 +817,14 @@ describe('the per-slice stamps', () => {
     // drop a slice from the list AND from the manager and both sides shrink
     // together, which is green. These are KiCad's settings-file basenames —
     // common.json, eeschema.json, pcbnew.json, pl_editor.json, colors/user.json,
-    // user.hotkeys — plus `privacy`, which has no upstream counterpart.
+    // user.hotkeys, pcb_calculator.json — plus `privacy`, which has no upstream
+    // counterpart.
     const expected: SettingsSlice[] = [
       'colors.user',
       'common',
       'eeschema',
       'hotkeys',
+      'pcb_calculator',
       'pcbnew',
       'pl_editor',
       'privacy',

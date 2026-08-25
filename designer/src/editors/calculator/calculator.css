@@ -453,7 +453,12 @@ input.calc-input:disabled:not([type="checkbox"]):not([type="radio"]):not([type="
 
 .eser-grid th,
 .eser-grid td {
-  /* [data] SetGridLineColour( parent->GetBackgroundColour() ) */
+  /* [px] SetGridLineColour( parent->GetBackgroundColour() ), and the parent is
+     the frame's wxTreebook (pcb_calculator_frame.cpp:183). MEASURED, not
+     inferred: `qa/probes/eseries_grid_probe.cpp` builds a wxTreebook and asks
+     it, and it answers rgb(44, 44, 44) on this machine with this theme —
+     `--chrome-bg`, not the rgb(39,39,39) of wxSYS_COLOUR_WINDOW that the
+     fallback branch would have given. */
   border: 1px solid var(--chrome-bg);
   /* `AutoSizeColumn` sizes a column to its widest extent plus wxGrid's own
      margin, NOT to a number anybody wrote down: [px] KiCad's "E24" label inks
@@ -1535,7 +1540,8 @@ input.calc-input:disabled:not([type="checkbox"]):not([type="radio"]):not([type="
    stripe, so no horizontal rules cross it, repainted `s_colourMatching` =
    `GetLabelBackgroundColour()` "to make them less eye-catching"
    (panel_eseries_display.cpp:397-404). [px] rgb(55,55,55), the same face as the
-   label strip above it — ours drew nothing there. Its width is its "-" label's,
+   label strip above it — measured by `qa/probes/eseries_grid_probe.cpp`, which
+   asks a wxGrid for its own GetLabelBackgroundColour(). Ours drew nothing there. Its width is its "-" label's,
    AutoSizeColumn like every other column, so it is not pinned either. */
 .eser-grid .eser-gap {
   background: var(--ctl-face);

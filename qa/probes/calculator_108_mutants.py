@@ -17,6 +17,7 @@ Each mutant is (id, file, old, new, tests). For each:
 Run from anywhere:  python3 qa/probes/calculator_108_mutants.py [id ...]
 """
 
+import signal
 import subprocess
 import sys
 from pathlib import Path
@@ -66,10 +67,23 @@ MUTANTS = [
         [SETTINGS],
     ),
     (
+        # Adding or removing a TOP-LEVEL key is caught by the type system before
+        # any test runs -- PcbCalculatorSettings is an exact shape and every
+        # panel's saver is typed against it -- so this one is expected to score
+        # BUILD-FAILED, and that is the stronger guarantee. What the key-set
+        # assertion catches is a rename that still typechecks; see the
+        # test-side mutation in the report.
         "defaults-extra-key",
         f"{D}/prefs/settings.ts",
         "  corrosion_table: { threshold_voltage: '0', show_symbols: true },",
         "  corrosion_table: { threshold_voltage: '0', show_symbols: true, invented: 1 },",
+        [SETTINGS],
+    ),
+    (
+        "defaults-corrosion-symbols",
+        f"{D}/prefs/settings.ts",
+        "  corrosion_table: { threshold_voltage: '0', show_symbols: true },",
+        "  corrosion_table: { threshold_voltage: '0', show_symbols: false },",
         [SETTINGS],
     ),
     (
@@ -254,8 +268,30 @@ def typecheck(project: str):
     return run(f"{BIN}/tsc --noEmit -p tsconfig.json", WT / project, timeout=400)
 
 
+def dirty_targets() -> list[str]:
+    """Files this sweep mutates that already differ from HEAD.
+
+    Running over a dirty baseline scores every mutant against the wrong code,
+    and the restore then throws the difference away. A killed run leaves
+    exactly this state behind: `timeout` sends SIGTERM, which does not unwind
+    the `finally`, so the last mutant stays applied.
+    """
+    targets = {rel for _, rel, _, _, _ in MUTANTS}
+    out = run("git status --porcelain -- " + " ".join(sorted(targets)), WT).stdout
+    return [l[3:] for l in out.splitlines() if l.strip()]
+
+
 def main() -> int:
     wanted = set(sys.argv[1:])
+
+    dirty = dirty_targets()
+    if dirty:
+        print("REFUSING: these are already modified, so the baseline is not HEAD:")
+        for d in dirty:
+            print("  ", d)
+        print("`git checkout --` them first; a previous run was probably killed.")
+        return 2
+
     killed, survived, build_failed, harness = [], [], [], []
 
     for mid, rel, old, new, tests in MUTANTS:
@@ -282,7 +318,8 @@ def main() -> int:
                 build_failed.append(mid)
                 continue
 
-            spec = " ".join(tests)
+            # vitest runs from `qa/`, so the specs must be relative to it.
+            spec = " ".join(t[len("qa/"):] if t.startswith("qa/") else t for t in tests)
             r = run(f"{BIN}/vitest run {spec}", WT / "qa", timeout=600)
             out = r.stdout + r.stderr
             has_summary = "Test Files" in out
@@ -313,4 +350,8 @@ def main() -> int:
 
 
 if __name__ == "__main__":
+    # SIGTERM (what `timeout` sends) does not unwind the `finally` that
+    # restores the file, so a killed sweep leaves a live mutant behind. Turn it
+    # into an exception, which does.
+    signal.signal(signal.SIGTERM, lambda *_: sys.exit("terminated"))
     sys.exit(main())
