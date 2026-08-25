@@ -116,7 +116,10 @@ def restore(paths: list[str]) -> None:
 
 
 def main() -> int:
+    # `?? node_modules` is the worktree's root symlink; .gitignore's
+    # trailing slash does not match a symlink, so it is always untracked.
     rc, out = sh(["git", "status", "--porcelain"])
+    out = "\n".join(l for l in out.splitlines() if l.strip() != "?? node_modules")
     if out.strip():
         print("Working tree is dirty; commit the baseline first:\n" + out)
         return 2
