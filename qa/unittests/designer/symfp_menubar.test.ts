@@ -49,9 +49,22 @@ const handlers = (): SymbolMenuHandlers & FootprintMenuHandlers => ({
 /** Every ENABLE() condition true, so a greyed row is greyed on its own merits. */
 const SYM_ON: SymbolMenuConditions = {
   haveSymbol: true,
-  revert: true,
-  targetSymbol: true,
+  isEditable: true,
+  isEditableInAlias: true,
+  canUpdateFields: true,
+  symbolModified: true,
+  libSelected: true,
+  canEditProperties: true,
+  symbolSelectedInTree: true,
+  saveSymbolAs: true,
   symbolFromSchematic: false,
+  undoAvailable: true,
+  redoAvailable: true,
+  idle: true,
+  noActiveTool: true,
+  multiUnitMode: true,
+  multiBodyStyle: true,
+  haveDatasheet: true,
 };
 const FP_ON: FootprintMenuConditions = {
   haveFootprint: true,

@@ -89,6 +89,7 @@ import '../../ui/shell.css';
 import { AboutDialog } from '../../home/dialogs/dialog_about.js';
 import { PreferencesDialog } from '../../dialogs/PreferencesDialog.js';
 import { symbolEditorMenus } from './menubar.js';
+import { type SymbolConditions, symbolConditions, symbolToolbarDisabledIds } from './conditions.js';
 import { showHotkeyList } from '../../ui/hotkey_list_action.js';
 import { ABOUT_TITLES } from '../../ui/about_titles.js';
 import { useModalEscape } from '../../ui/useModalEscape.js';
@@ -764,14 +765,27 @@ export function SymbolEditor({
     setPendingText(null);
   }, []);
 
+  /**
+   * `SYMBOL_EDITOR_EDIT_TOOL::Rotate` (`symbol_editor_edit_tool.cpp:562-608`).
+   *
+   * No alias test, deliberately. Upstream gates rotate on `isEditableInAliasCond`
+   * and mirror on `isEditableCond` (`symbol_edit_frame.cpp:554-559`), with the
+   * comment "when editing alias field rotations are allowed" — a derived symbol
+   * owns its own fields and `rotateSymbolItems` rotates a field, so rotating on
+   * an alias is the upstream behaviour and not an oversight to tidy up. Ours
+   * returned early here, which made the toolbar's Rotate buttons dead clicks on
+   * every derived symbol.
+   */
   const rotateSel = useCallback(
     (ccw: boolean) => {
-      if (!workSymbol || selection.size === 0 || isAlias) return;
+      if (!workSymbol || selection.size === 0) return;
       commit(rotateSymbolItems(workSymbol, selection, ccw), ccw ? 'Rotate CCW' : 'Rotate CW');
     },
-    [workSymbol, selection, isAlias, commit],
+    [workSymbol, selection, commit],
   );
 
+  /** `SYMBOL_EDITOR_EDIT_TOOL::Mirror` (:610-…), gated on `isEditableCond`, so
+   *  the alias test that `rotateSel` must NOT have belongs here. */
   const mirrorSel = useCallback(
     (horizontal: boolean) => {
       if (!workSymbol || selection.size === 0 || isAlias) return;
@@ -794,6 +808,9 @@ export function SymbolEditor({
       switch (id) {
         case 'newSymbol':
           setNewSymbolOpen(true);
+          break;
+        case 'save':
+          save();
           break;
         case 'saveAll':
           saveAll();
@@ -854,6 +871,7 @@ export function SymbolEditor({
       }
     },
     [
+      save,
       saveAll,
       undo,
       redo,
@@ -1526,6 +1544,61 @@ export function SymbolEditor({
     ],
   );
 
+  // ----- ACTION_MANAGER conditions (SYMBOL_EDIT_FRAME::setupUIConditions) -------------
+  //
+  // The rules are `conditions.ts`; what stays here is the frame state they read,
+  // which is the division upstream draws too — `setupUIConditions` writes the
+  // lambdas once and every menu row, toolbar button and accelerator asks the
+  // same ACTION_MANAGER. Ours used to ask four booleans invented at the menu
+  // call site, and the toolbars asked nothing at all: every drawing tool, every
+  // rotate/mirror button and Synchronized Pins Mode were live on a cold frame.
+  const conds: SymbolConditions = useMemo(
+    () =>
+      symbolConditions({
+        symbol: workSymbol ?? null,
+        // `IsSymbolFromLegacyLibrary()` (`symbol_edit_frame.cpp:892-905`). This
+        // port reads `.kicad_sym` only — there is no legacy plugin to load a
+        // `.lib` through — so no symbol can come from one.
+        fromLegacyLibrary: false,
+        fromSchematic: editingSchematicSymbol,
+        libraryTreeShown: toggles.has('showLibraryTree'),
+        treeLibId: { nickname: treeSel?.lib ?? '', item: treeSel?.name ?? '' },
+        symbolLibId: { nickname: curLib ?? '', item: curName ?? '' },
+        undoCount: undoStack.current.length,
+        redoCount: redoStack.current.length,
+        // `SELECTION_CONDITIONS::Idle` (`selection_conditions.cpp:45-50`) is
+        // "the selection front is not IS_NEW | IS_PASTED | IS_MOVING". The
+        // item being placed is this frame's IS_NEW.
+        idle: pendingPin === null && pendingText === null,
+        activeTool,
+        isSymbolModified: (nickname, item) =>
+          nickname !== '' && item !== '' && manager.current.isSymbolModified(nickname, item),
+        symbolExists: (nickname, item) => manager.current.symbolExists(nickname, item),
+      }),
+    // `revision` is what `bump()` moves; the undo depth and the modified bit
+    // both live outside React state, so without it a save would leave Revert lit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [
+      workSymbol,
+      editingSchematicSymbol,
+      toggles,
+      treeSel,
+      curLib,
+      curName,
+      pendingPin,
+      pendingText,
+      activeTool,
+      revision,
+    ],
+  );
+
+  // The same table, for the three toolbars. `Toolbar` ORs this with a button's
+  // own static `disabled` (a feature not built yet), so a greyed-because-unbuilt
+  // button stays greyed and a live one now follows its ACTION_MANAGER condition.
+  const topDisabled = useMemo(() => symbolToolbarDisabledIds(SYM_TOP_TOOLBAR, conds), [conds]);
+  const leftDisabled = useMemo(() => symbolToolbarDisabledIds(SYM_LEFT_TOOLBAR, conds), [conds]);
+  const rightDisabled = useMemo(() => symbolToolbarDisabledIds(SYM_RIGHT_TOOLBAR, conds), [conds]);
+
   const menus: Menu[] = useMemo(
     () =>
       symbolEditorMenus(
@@ -1550,27 +1623,9 @@ export function SymbolEditor({
           showLibraryTree: toggles.has('showLibraryTree'),
           showProperties: toggles.has('showProperties'),
         },
-        {
-          haveSymbol: !!workSymbol,
-          revert: !!curName,
-          targetSymbol: !!(curName || treeSel?.name),
-          // `IsSymbolFromSchematic()`. Nothing can open this frame on a
-          // schematic's own symbol yet, so it is false and stays false until
-          // something can - at which point File > Save All disappears and Edit
-          // Library Symbol lights up, both on their own.
-          symbolFromSchematic: false,
-        },
+        conds,
       ),
-    [
-      onMenuAction,
-      onToolSelect,
-      onLeftToggle,
-      toggles,
-      workSymbol,
-      curName,
-      treeSel,
-      common.system.language,
-    ],
+    [onMenuAction, onToolSelect, onLeftToggle, toggles, conds, common.system.language],
   );
 
   // The chain above reads the tree through this ref; see `menusRef`.
@@ -1740,6 +1795,7 @@ export function SymbolEditor({
         orientation="horizontal"
         toggled={toggles}
         onActivate={onTopAction}
+        disabledIds={topDisabled}
         controls={{
           /**
            * `RebuildSymbolUnitAndBodyStyleLists`
@@ -1929,6 +1985,7 @@ export function SymbolEditor({
           side="left"
           toggled={toggles}
           onActivate={onLeftToggle}
+          disabledIds={leftDisabled}
         />
 
         <div className="ze-canvas-wrap">
@@ -1971,6 +2028,7 @@ export function SymbolEditor({
           side="right"
           activeTool={activeTool}
           onActivate={onToolSelect}
+          disabledIds={rightDisabled}
         />
       </div>
 

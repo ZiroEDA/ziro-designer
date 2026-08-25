@@ -107,8 +107,13 @@ export const SYM_TOOL_MSGS: Record<string, string> = {
 export const SYM_TOP_TOOLBAR: ToolEntry[] = [
   { id: 'newSymbol', icon: 'newSymbol', title: 'New symbol' },
   { id: 'saveAll', icon: 'saveAll', title: 'Save All' },
-  // ACTIONS::save. Only saveAll is wired in this frame today.
-  { id: 'save', icon: 'save', title: 'Save changes', disabled: true },
+  // ACTIONS::save, `ENABLE( SELECTION_CONDITIONS::ShowAlways )`
+  // (`symbol_edit_frame.cpp:529`) — Save reaches the library, not only the
+  // symbol on the canvas, which is why upstream never gates it, not even on a
+  // cold frame. This button carried a static `disabled: true` saying "only
+  // saveAll is wired in this frame", which was not true of the File > Save row
+  // beside it: the same `save()` the menu calls is now on the button.
+  { id: 'save', icon: 'save', title: 'Save changes' },
   sep,
   { id: 'undo', icon: 'undo', title: 'Undo' },
   { id: 'redo', icon: 'redo', title: 'Redo' },
