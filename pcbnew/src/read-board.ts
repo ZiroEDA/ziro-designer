@@ -767,8 +767,13 @@ export function readBoardFootprint(root: SList): PcbFootprint | null {
 function readFootprint(item: SList, local = false): PcbFootprint | null {
   const lib = arg(item, 0) ?? '';
   const at = childNamed(item, 'at');
-  const pos = ptAt(at) ?? (local ? { x: 0, y: 0 } : undefined);
-  if (!pos) return null;
+  // `(at …)` is optional. `parseFOOTPRINT` (`pcb_io_kicad_sexpr_parser.cpp:5110`)
+  // handles it as one case of its token loop and calls `SetPosition` only when
+  // it is present, so a footprint without one keeps FOOTPRINT's constructed
+  // origin — (0, 0). This reader used to reject such a node outright, which
+  // silently dropped it; GerbView writes exactly one, the `(footprint "slot"
+  // (pad …))` its drill-slot export emits (`gerbview/export_to_pcbnew.cpp:347`).
+  const pos = ptAt(at) ?? { x: 0, y: 0 };
   const angle = local ? 0 : at ? (numArg(at, 2) ?? 0) : 0;
   // On a board, children are baked to board coords through the placement
   // transform (legacy RebakeFromLib); a library footprint keeps local coords.

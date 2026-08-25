@@ -823,7 +823,7 @@ export function GerberViewer({
       setStatus('Nothing to export, no visible layers with content');
       return;
     }
-    const text = exportLayersToPcb(
+    const { text, fallbackLayers } = exportLayersToPcb(
       visible.map(({ layer, index }) => ({
         image: layer.image,
         name: gerbviewLayerDisplayName(layer.image, layer.image.fileName, index, {
@@ -837,7 +837,13 @@ export function GerberViewer({
     a.download = `${projectName || 'gerber_export'}.kicad_pcb`;
     a.click();
     URL.revokeObjectURL(url);
-    setStatus(`Exported ${visible.length} layer(s) to Pcbnew board file`);
+    // Upstream would have shown these rows in the mapping dialog and let the
+    // user assign them; with no dialog the least we owe them is the names.
+    const note =
+      fallbackLayers.length > 0
+        ? `; no matching board layer for ${fallbackLayers.join(', ')}, placed on a user layer`
+        : '';
+    setStatus(`Exported ${visible.length} layer(s) to Pcbnew board file${note}`);
   }, [layers, projectName]);
 
   const reloadAll = useCallback(() => {

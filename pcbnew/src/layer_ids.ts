@@ -10,6 +10,187 @@
 
 export type PCB_LAYER_ID = string;
 
+// ---------------------------------------------------------------------------
+// The numeric ids
+//
+// The string name above is the id our board model uses, but the *file* stores
+// both: `(layers (0 "F.Cu" signal) …)` is a numeric id, a name and a kind, and
+// anything that writes a `(layers …)` block from scratch needs the numbers.
+// They also carry the arithmetic KiCad leans on — copper is even, non-copper is
+// odd, inner copper is `B_Cu + 2n` — which no string can.
+
+/** `PCB_LAYER_ID::UNDEFINED_LAYER` (`include/layer_ids.h:61`). */
+export const UNDEFINED_LAYER = -1;
+/** `PCB_LAYER_ID::UNSELECTED_LAYER` (`include/layer_ids.h:62`). */
+export const UNSELECTED_LAYER = -2;
+/** `PCB_LAYER_ID_COUNT` (`include/layer_ids.h:171`). */
+export const PCB_LAYER_ID_COUNT = 128;
+/** `MAX_CU_LAYERS` (`include/layer_ids.h:175`). */
+export const MAX_CU_LAYERS = 32;
+
+/**
+ * `enum PCB_LAYER_ID` (`include/layer_ids.h:59-171`), verbatim.
+ *
+ * [data] KiCad's own numbering, and the one it has used since the v9 layer-id
+ * change: copper on the even ids and everything else on the odd ones. It is
+ * NOT the pre-v9 numbering (F.Cu = 0, B.Cu = 31, B.Adhes = 32 …) that older
+ * files carry — a 20240928-or-later board uses these.
+ */
+export const F_Cu = 0;
+export const B_Cu = 2;
+export const F_Mask = 1;
+export const B_Mask = 3;
+export const F_SilkS = 5;
+export const B_SilkS = 7;
+export const F_Adhes = 9;
+export const B_Adhes = 11;
+export const F_Paste = 13;
+export const B_Paste = 15;
+export const Dwgs_User = 17;
+export const Cmts_User = 19;
+export const Eco1_User = 21;
+export const Eco2_User = 23;
+export const Edge_Cuts = 25;
+export const Margin = 27;
+export const B_CrtYd = 29;
+export const F_CrtYd = 31;
+export const B_Fab = 33;
+export const F_Fab = 35;
+export const Rescue = 37;
+/** The first user-definable layer, `User_1` (`include/layer_ids.h:124`). */
+export const User_1 = 39;
+
+/**
+ * `In1_Cu = 4 … In30_Cu = 62`, which the enum spells out one line at a time.
+ * The relation is `In<n>_Cu == B_Cu + 2n`, and `LSET::Name` inverts it with
+ * `(aLayerId - B_Cu) / 2` — so generating the rows is reading the same table,
+ * not inventing a different one.
+ */
+export function In_Cu(n: number): number {
+  return B_Cu + 2 * n;
+}
+
+/**
+ * `IsPcbLayer` (`include/layer_ids.h:666`).
+ */
+export function IsPcbLayer(aLayer: number): boolean {
+  return aLayer >= F_Cu && aLayer < PCB_LAYER_ID_COUNT;
+}
+
+/**
+ * `IsCopperLayer` (`include/layer_ids.h:677`) — the even ids, which is the
+ * whole test upstream makes.
+ */
+export function IsCopperLayer(aLayerId: number): boolean {
+  return !(aLayerId & 1) && aLayerId < PCB_LAYER_ID_COUNT && aLayerId >= 0;
+}
+
+/** `IsExternalCopperLayer` (`include/layer_ids.h:687`). */
+export function IsExternalCopperLayer(aLayerId: number): boolean {
+  return aLayerId === F_Cu || aLayerId === B_Cu;
+}
+
+/** `IsInnerCopperLayer` (`include/layer_ids.h:699`). */
+export function IsInnerCopperLayer(aLayerId: number): boolean {
+  return IsCopperLayer(aLayerId) && !IsExternalCopperLayer(aLayerId);
+}
+
+/**
+ * `CopperLayerToOrdinal` (`include/layer_ids.h:913`) — the position of a
+ * copper layer in the stack, counting from the front.
+ */
+export function CopperLayerToOrdinal(aLayer: number): number {
+  if (aLayer === F_Cu) return 0;
+  if (aLayer === B_Cu) return MAX_CU_LAYERS - 1;
+  return (aLayer - B_Cu) / 2;
+}
+
+/**
+ * `LSET::Name( PCB_LAYER_ID )` (`common/lset.cpp:435-505`), the canonical token
+ * a layer is written as. The explicit cases are a switch upstream; the two
+ * computed defaults — `In%d.Cu` for an unnamed even id and `User.%d` for an
+ * unnamed odd one — are the same arithmetic it does.
+ */
+export function LSET_Name(aLayerId: number): PCB_LAYER_ID {
+  const named: Readonly<Record<number, string>> = {
+    [F_Cu]: 'F.Cu',
+    [B_Cu]: 'B.Cu',
+    [B_Adhes]: 'B.Adhes',
+    [F_Adhes]: 'F.Adhes',
+    [B_Paste]: 'B.Paste',
+    [F_Paste]: 'F.Paste',
+    [B_SilkS]: 'B.SilkS',
+    [F_SilkS]: 'F.SilkS',
+    [B_Mask]: 'B.Mask',
+    [F_Mask]: 'F.Mask',
+    [Dwgs_User]: 'Dwgs.User',
+    [Cmts_User]: 'Cmts.User',
+    [Eco1_User]: 'Eco1.User',
+    [Eco2_User]: 'Eco2.User',
+    [Edge_Cuts]: 'Edge.Cuts',
+    [Margin]: 'Margin',
+    [F_CrtYd]: 'F.CrtYd',
+    [B_CrtYd]: 'B.CrtYd',
+    [F_Fab]: 'F.Fab',
+    [B_Fab]: 'B.Fab',
+    [Rescue]: 'Rescue',
+  };
+  const hit = named[aLayerId];
+  if (hit !== undefined) return hit;
+  if (aLayerId < 0) return 'UNDEFINED';
+  if (aLayerId & 1) return `User.${(aLayerId - Rescue) / 2}`;
+  return `In${(aLayerId - B_Cu) / 2}.Cu`;
+}
+
+/**
+ * `LSET::AllCuMask( int aCuLayerCount )` (`common/lset.cpp:599`) as the LSET's
+ * own copper iteration order, which is what a caller printing the set wants.
+ *
+ * Two things upstream folds together here. `allCuMask` fills the set from
+ * `LAYER_RANGE( F_Cu, B_Cu, aCuLayerCount )` — F.Cu, then the inner layers,
+ * then B.Cu — and `LSET::copper_layers_iterator` (`common/lset.cpp:838-885`)
+ * then walks it F.Cu → In1 → In2 → … and reaches **B.Cu last**, because
+ * `next_copper_layer` steps 0 → 4 → 6 → … and only wraps to `B_Cu` when it
+ * runs off the end of the bitset. So B.Cu is the final `(N B.Cu signal)` row,
+ * not the second one, on any board with inner layers.
+ */
+export function AllCuMask(aCuLayerCount: number): number[] {
+  const out = [F_Cu];
+  for (let n = 1; n <= aCuLayerCount - 2; n++) out.push(In_Cu(n));
+  if (aCuLayerCount >= 2) out.push(B_Cu);
+  return out;
+}
+
+/**
+ * `LSET::AllTechMask()` = `BackTechMask() | FrontTechMask()`
+ * (`common/lset.cpp:646-681`), in the ascending order the non-copper iterator
+ * (`common/lset.cpp:909-915`, `++m_index` over the odd bits) yields.
+ */
+export const AllTechMask: readonly number[] = [
+  F_Mask,
+  B_Mask,
+  F_SilkS,
+  B_SilkS,
+  F_Adhes,
+  B_Adhes,
+  F_Paste,
+  B_Paste,
+  B_CrtYd,
+  F_CrtYd,
+  B_Fab,
+  F_Fab,
+];
+
+/** `LSET::UserMask()` (`common/lset.cpp:690-694`), ascending as above. */
+export const UserMask: readonly number[] = [
+  Dwgs_User,
+  Cmts_User,
+  Eco1_User,
+  Eco2_User,
+  Edge_Cuts,
+  Margin,
+];
+
 /**
  * The layer on the opposite board side, KiCad BOARD::FlipLayer (board.cpp:958),
  * whose front/back opposites all swap the `F.`/`B.` prefix for a standard stack
