@@ -332,6 +332,20 @@ describe('the frame runs these rules and not its own', () => {
     );
   });
 
+  /**
+   * `PL_POINT_EDITOR::Main` pushes the copy when the drag starts
+   * (pl_point_editor.cpp:214) and its cancel branch runs `RollbackFromUndo()`
+   * (:244), so Escape mid-resize puts the item back. Ours left it at the size
+   * the drag had reached, with the entry still on the stack.
+   */
+  it('rolls back a cancelled point drag, and drops the gesture with it', () => {
+    const esc = src.slice(src.indexOf("if (e.key === 'Escape')"));
+    const branch = esc.slice(0, esc.indexOf('return;') + 7);
+    expect(branch).toContain('pointDragUndoPushed.current');
+    expect(branch).toContain('cancelGesture()');
+    expect(branch).toContain('rollback()');
+  });
+
   /** Escaping a placement is the rollback, never the plain undo. */
   it('cancels an in-flight shape with rollback', () => {
     expect(src).toMatch(/const cancelDrawing = useCallback\(\(\) => \{[\s\S]*?rollback\(\);/);

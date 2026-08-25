@@ -71,6 +71,19 @@ import {
  */
 
 export interface DrawingSheetCanvasController {
+  /**
+   * Abandon whatever pointer gesture is running, without applying it.
+   *
+   * `PL_POINT_EDITOR::Main`'s cancel branch (pl_point_editor.cpp:241-247) and
+   * `PL_EDIT_TOOL::Main`'s (pl_edit_tool.cpp:222-244) both leave the drag loop
+   * on Escape, so the button still being down means nothing afterwards. Ours
+   * kept the gesture alive and applied its delta on pointer-up.
+   *
+   * Returns whether anything was actually running, so the frame's cancel chain
+   * can tell "I cancelled a drag" from "there was nothing to cancel" and fall
+   * through to the next link.
+   */
+  cancelGesture: () => boolean;
   zoomToFit: () => void;
   zoomToSelection: () => void;
   zoomIn: () => void;
@@ -661,6 +674,15 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
     useImperativeHandle(
       ref,
       () => ({
+        cancelGesture: () => {
+          const live = gestureRef.current !== null || drawingRef.current;
+          gestureRef.current = null;
+          moveDeltaRef.current = null;
+          boxRef.current = null;
+          drawingRef.current = false;
+          if (live) requestDraw();
+          return live;
+        },
         zoomToFit,
         zoomToSelection,
         zoomIn: () => zoomPresetStep(true),

@@ -1049,6 +1049,11 @@ export function DrawingSheetEditor({
     // `RollbackFromUndo`, not `Undo` (pl_drawing_tools.cpp:278, :292). The
     // difference is the redo entry: ours pushed one, so Escaping an unwanted
     // rectangle armed a Redo that would put it straight back.
+    //
+    // The canvas has its own "am I between the two clicks" flag, and it was
+    // never reset here: the click after an Escape was read as the SECOND click
+    // of the abandoned shape and swallowed.
+    controller.current?.cancelGesture();
     rollback();
   }, [rollback]);
 
@@ -1512,8 +1517,30 @@ export function DrawingSheetEditor({
       if (e.key === 'Escape') {
         // PL_ACTIONS' cancel chain: back out of the move, then the drawing,
         // then the tool, and only then drop the selection.
+        //
+        // A point drag comes first and is the only link with a model change to
+        // undo: `PL_POINT_EDITOR::Main` pushes the copy when the drag starts
+        // (pl_point_editor.cpp:214) and its cancel branch runs
+        // `RollbackFromUndo()` (:244). Ours left the item at the size the drag
+        // had reached and the entry on the stack, so Escape RESIZED rather than
+        // cancelled. The gesture has to be abandoned with it, or the still-held
+        // button would go on dragging the point we just restored.
+        if (pointDragUndoPushed.current) {
+          pointDragUndoPushed.current = false;
+          controller.current?.cancelGesture();
+          rollback();
+          return;
+        }
+        if (drawingIndex.current !== null) {
+          cancelDrawing();
+          return;
+        }
+        // A body drag or a marquee is a PREVIEW here — the model only changes
+        // on drop — so there is nothing to roll back, but the gesture still has
+        // to be dropped, and the selection SURVIVES it: `unselect` stays false
+        // unless the selection was a hover one (pl_edit_tool.cpp:311-317).
+        if (controller.current?.cancelGesture()) return;
         if (moveMode) setMoveMode(false);
-        else if (drawingIndex.current !== null) cancelDrawing();
         else if (activeTool !== 'select') setActiveTool('select');
         else setSelection(new Set());
         return;
@@ -1549,7 +1576,7 @@ export function DrawingSheetEditor({
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [activeTool, moveMode, selection, cancelDrawing, toggles, onLeftToggle]);
+  }, [activeTool, moveMode, selection, cancelDrawing, rollback, toggles, onLeftToggle]);
 
   // ---- system-clipboard paste (Ctrl+V): image → bitmap, .kicad_wks text → items ----
   useEffect(() => {
