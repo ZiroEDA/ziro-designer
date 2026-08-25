@@ -738,6 +738,39 @@ export function deepMerge<T>(defaults: T, stored: unknown): T {
 export const SETTINGS_VERSION = 2;
 
 /**
+ * The settings *files*, in KiCad's sense: one independently stored,
+ * independently versioned document each.
+ *
+ * `SETTINGS_MANAGER` keeps a `JSON_SETTINGS` per file and
+ * `SETTINGS_MANAGER::Save` (settings_manager.cpp:190-209) writes each of them
+ * to its own path; nothing upstream merges two of them or writes them as one
+ * blob. Ours are localStorage keys rather than paths, and the names below are
+ * the same basenames: `common.json`, `eeschema.json`, `pcbnew.json`,
+ * `pl_editor.json`, `colors/user.json`, `user.hotkeys`.
+ *
+ * This list is also the unit the account sync works in — see
+ * `cloud/settingsSync.ts` for why the granularity matters and what it costs.
+ *
+ * `privacy` has no upstream counterpart (KiCad collects nothing), and is a file
+ * of its own here for the reason `PRIVACY_DEFAULTS` gives: so `ziroeda.common`
+ * stays a faithful `common.json`.
+ */
+export const SETTINGS_SLICES = [
+  'common',
+  'eeschema',
+  'pcbnew',
+  'pl_editor',
+  'privacy',
+  'colors.user',
+  'hotkeys',
+] as const;
+
+export type SettingsSlice = (typeof SETTINGS_SLICES)[number];
+
+/** Where a slice lives in localStorage. The one place the prefix is written. */
+export const sliceStorageKey = (slice: SettingsSlice): string => `ziroeda.${slice}`;
+
+/**
  * Apply every correction newer than `from` to one stored eeschema settings
  * object, in place. Returns true if anything changed.
  *
@@ -774,17 +807,37 @@ export function migrateEeschemaSettings(s: EeschemaSettings, from: number): bool
   return changed;
 }
 
+/**
+ * Bring one slice's stored value up to `SETTINGS_VERSION`, in place.
+ *
+ * `JSON_SETTINGS::Migrate` (json_settings.cpp:714-750) walks the registered
+ * migrators from the file's `meta.version` up to the build's schema version and
+ * writes the result straight back — "write-out immediately so that we don't
+ * lose data if the program later crashes" (json_settings.cpp:372-375). Only
+ * eeschema has ever needed a migrator here, which is why only it has one; the
+ * dispatch exists so a slice arriving from the account goes through the same
+ * corrections as a slice arriving from localStorage, rather than a second copy
+ * of the same rules growing beside it.
+ *
+ * Returns true when something was rewritten.
+ */
+export function migrateSlice(slice: SettingsSlice, value: unknown, from: number): boolean {
+  if (from >= SETTINGS_VERSION) return false;
+  if (slice !== 'eeschema') return false;
+  return migrateEeschemaSettings(value as EeschemaSettings, from);
+}
+
 function migrateStored(): void {
   const versionKey = 'ziroeda.settings_version';
   try {
     const from = Number(localStorage.getItem(versionKey) ?? '0');
     if (from >= SETTINGS_VERSION) return;
 
-    const raw = localStorage.getItem('ziroeda.eeschema');
+    const raw = localStorage.getItem(sliceStorageKey('eeschema'));
     if (raw) {
       const s = JSON.parse(raw) as EeschemaSettings;
-      if (migrateEeschemaSettings(s, from))
-        localStorage.setItem('ziroeda.eeschema', JSON.stringify(s));
+      if (migrateSlice('eeschema', s, from))
+        localStorage.setItem(sliceStorageKey('eeschema'), JSON.stringify(s));
     }
 
     localStorage.setItem(versionKey, String(SETTINGS_VERSION));
@@ -829,20 +882,91 @@ function store(key: string, value: unknown): void {
  * Not `load()`ed: `deepMerge` keeps only keys present in the defaults, which is
  * right for a fixed settings shape and wrong for a free-form map — every stored
  * override would be dropped on the way back in.
+ *
+ * Takes a parsed value rather than reading storage itself, so the same
+ * normalisation runs on a map arriving from the account as on one arriving from
+ * localStorage. The old-spelling migration in particular has to apply to both,
+ * or signing in on a second device would resurrect the bare keys.
  */
-function loadHotkeys(): Record<string, string | null> {
+export function normalizeHotkeys(parsed: unknown): Record<string, string | null> {
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return {};
+  const out: Record<string, string | null> = {};
+  for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
+    if (v !== null && typeof v !== 'string') continue;
+    // Every action name carries an app prefix, so a key without one was
+    // written before the schematic's ids were qualified and can only have
+    // been the schematic's.
+    out[k.includes('.') ? k : `eeschema.${k}`] = v;
+  }
+  return out;
+}
+
+/** The "User" colour theme: layer key -> CSS colour. Free-form, same as above. */
+export function normalizeUserColors(parsed: unknown): Record<string, string> {
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return {};
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
+    if (typeof v === 'string') out[k] = v;
+  }
+  return out;
+}
+
+/**
+ * Read a free-form map out of localStorage through `normalize`.
+ *
+ * `load()` cannot do this: it goes through `deepMerge`, which keeps only keys
+ * the *defaults* already have, so a map whose defaults are `{}` comes back
+ * empty every time. `colors.user` was loaded that way, which meant the User
+ * colour theme was written on every change and silently discarded on every
+ * reload — the exact trap the note above `normalizeHotkeys` describes, in the
+ * one other place it applies.
+ */
+function loadFreeForm<T>(key: string, normalize: (parsed: unknown) => T): T {
   try {
-    const raw = localStorage.getItem('ziroeda.hotkeys');
+    const raw = localStorage.getItem(key);
+    if (!raw) return normalize(undefined);
+    return normalize(JSON.parse(raw));
+  } catch {
+    return normalize(undefined);
+  }
+}
+
+type Listener = () => void;
+
+/**
+ * What this device knows about one settings slice, in *this device's* clock.
+ *
+ * The same three facts `projectStore`'s `StoredRecord` keeps for a project, for
+ * the same reason: without `syncedAt`, "local is older than the account" cannot
+ * be told apart from "local was edited *and* is older", and a pull cannot know
+ * whether it is about to catch up or to overwrite something.
+ */
+export interface SliceStamp {
+  /** When this device last wrote the slice. Monotonic — see `touch`. */
+  updatedAt: number;
+  /** `updatedAt` at the moment the two sides last agreed. Absent: never synced. */
+  syncedAt?: number;
+  /**
+   * The account row's `updated_at` at that same moment, in the *server's*
+   * clock. Comparing the current row against this is how "the account moved
+   * since we agreed" is decided without involving a second machine's clock.
+   */
+  cloudAt?: number;
+}
+
+/** Where the stamps live. Deliberately not one of the slices: see `touch`. */
+const STAMPS_KEY = 'ziroeda.settings_sync';
+
+function loadStamps(): Record<string, SliceStamp> {
+  try {
+    const raw = localStorage.getItem(STAMPS_KEY);
     if (!raw) return {};
     const parsed: unknown = JSON.parse(raw);
     if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return {};
-    const out: Record<string, string | null> = {};
+    const out: Record<string, SliceStamp> = {};
     for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
-      if (v !== null && typeof v !== 'string') continue;
-      // Every action name carries an app prefix, so a key without one was
-      // written before the schematic's ids were qualified and can only have
-      // been the schematic's.
-      out[k.includes('.') ? k : `eeschema.${k}`] = v;
+      const s = v as SliceStamp | undefined;
+      if (typeof s?.updatedAt === 'number') out[k] = s;
     }
     return out;
   } catch {
@@ -850,7 +974,57 @@ function loadHotkeys(): Record<string, string | null> {
   }
 }
 
-type Listener = () => void;
+/** Reading and replacing one slice's value, in one table rather than seven. */
+interface SliceIO {
+  read(m: SettingsManager): unknown;
+  /** Replace the in-memory value with one that came from storage or the account. */
+  adopt(m: SettingsManager, value: unknown): void;
+}
+
+const SLICE_IO: Record<SettingsSlice, SliceIO> = {
+  common: {
+    read: (m) => m.common,
+    adopt: (m, v) => {
+      m.common = deepMerge(structuredClone(COMMON_DEFAULTS), v);
+    },
+  },
+  eeschema: {
+    read: (m) => m.eeschema,
+    adopt: (m, v) => {
+      m.eeschema = deepMerge(structuredClone(EESCHEMA_DEFAULTS), v);
+    },
+  },
+  pcbnew: {
+    read: (m) => m.pcbnew,
+    adopt: (m, v) => {
+      m.pcbnew = deepMerge(structuredClone(PCBNEW_DEFAULTS), v);
+    },
+  },
+  pl_editor: {
+    read: (m) => m.plEditor,
+    adopt: (m, v) => {
+      m.plEditor = deepMerge(structuredClone(PL_EDITOR_DEFAULTS), v);
+    },
+  },
+  privacy: {
+    read: (m) => m.privacy,
+    adopt: (m, v) => {
+      m.privacy = deepMerge(structuredClone(PRIVACY_DEFAULTS), v);
+    },
+  },
+  'colors.user': {
+    read: (m) => m.userColors,
+    adopt: (m, v) => {
+      m.userColors = normalizeUserColors(v);
+    },
+  },
+  hotkeys: {
+    read: (m) => m.hotkeys,
+    adopt: (m, v) => {
+      m.hotkeys = normalizeHotkeys(v);
+    },
+  },
+};
 
 /**
  * SETTINGS_MANAGER, web edition: owns the common + eeschema settings and the
@@ -858,16 +1032,34 @@ type Listener = () => void;
  * editors re-render through useSyncExternalStore).
  */
 export class SettingsManager {
-  common: CommonSettings = load('ziroeda.common', COMMON_DEFAULTS);
-  eeschema: EeschemaSettings = load('ziroeda.eeschema', EESCHEMA_DEFAULTS);
-  pcbnew: PcbnewSettings = load('ziroeda.pcbnew', PCBNEW_DEFAULTS);
+  common: CommonSettings = load(sliceStorageKey('common'), COMMON_DEFAULTS);
+  eeschema: EeschemaSettings = load(sliceStorageKey('eeschema'), EESCHEMA_DEFAULTS);
+  pcbnew: PcbnewSettings = load(sliceStorageKey('pcbnew'), PCBNEW_DEFAULTS);
   /** `pl_editor.json`, the Drawing Sheet Editor's own settings file. */
-  plEditor: PlEditorSettings = load('ziroeda.pl_editor', PL_EDITOR_DEFAULTS);
-  privacy: PrivacySettings = load('ziroeda.privacy', PRIVACY_DEFAULTS);
+  plEditor: PlEditorSettings = load(sliceStorageKey('pl_editor'), PL_EDITOR_DEFAULTS);
+  privacy: PrivacySettings = load(sliceStorageKey('privacy'), PRIVACY_DEFAULTS);
   /** The editable "User" colour theme: layer-key -> CSS colour overrides. */
-  userColors: Record<string, string> = load('ziroeda.colors.user', {});
+  userColors: Record<string, string> = loadFreeForm(
+    sliceStorageKey('colors.user'),
+    normalizeUserColors,
+  );
   /** HOTKEY_STORE's overrides: action name -> combo, or null for "no key". */
-  hotkeys: Record<string, string | null> = loadHotkeys();
+  hotkeys: Record<string, string | null> = loadFreeForm(
+    sliceStorageKey('hotkeys'),
+    normalizeHotkeys,
+  );
+  /** Per-slice modification and agreement stamps; see {@link SliceStamp}. */
+  stamps: Record<string, SliceStamp> = loadStamps();
+  /**
+   * Called with the slice a local edit just touched.
+   *
+   * The seam the account sync hangs off, installed the same way and for the
+   * same reason as `setCloudBackend`: a module that reaches `import.meta.env`
+   * cannot be imported from here, and a store that calls the network directly
+   * has no failure path anyone can test. Null while signed out, which is the
+   * whole of what "signed out behaves as before" costs.
+   */
+  onSliceChanged: ((slice: SettingsSlice) => void) | null = null;
   private listeners = new Set<Listener>();
   /** Monotonic snapshot id for useSyncExternalStore. */
   version = 0;
@@ -882,68 +1074,121 @@ export class SettingsManager {
     for (const fn of this.listeners) fn();
   }
 
+  /**
+   * Persist one slice, stamp it as locally edited, and tell everyone.
+   *
+   * The stamps are a separate localStorage key rather than a field inside each
+   * settings object, because those objects are faithful copies of KiCad's
+   * files: `common.json` has no "when did another machine last agree with this"
+   * member, and putting one there would put it in the JSON a user can read and
+   * in `deepMerge`'s way.
+   */
+  private commit(slice: SettingsSlice, value: unknown): void {
+    store(sliceStorageKey(slice), value);
+    const prev = this.stamps[slice];
+    // Strictly increasing, not `Date.now()`. Two edits inside one millisecond
+    // would otherwise share a stamp, so the second would satisfy
+    // `updatedAt === syncedAt` after the first was pushed — read as "already
+    // agreed" and never sent. It also survives a clock stepping backwards.
+    const at = Math.max(Date.now(), (prev?.updatedAt ?? 0) + 1);
+    this.stamps = { ...this.stamps, [slice]: { ...prev, updatedAt: at } };
+    store(STAMPS_KEY, this.stamps);
+    this.notify();
+    this.onSliceChanged?.(slice);
+  }
+
+  /** The slice's current value, for a push. */
+  sliceValue(slice: SettingsSlice): unknown {
+    return SLICE_IO[slice].read(this);
+  }
+
+  /**
+   * Take the account's copy of a slice.
+   *
+   * Not an edit: `updatedAt` does not move, and both watermarks are set so the
+   * two sides read as agreed — `markSynced`'s `r.syncedAt = r.updatedAt`
+   * (projectStore.ts:893) in the one other place this bookkeeping exists.
+   */
+  adoptSlice(slice: SettingsSlice, value: unknown, cloudAt: number): void {
+    SLICE_IO[slice].adopt(this, value);
+    store(sliceStorageKey(slice), SLICE_IO[slice].read(this));
+    const updatedAt = this.stamps[slice]?.updatedAt ?? Date.now();
+    this.stamps = { ...this.stamps, [slice]: { updatedAt, syncedAt: updatedAt, cloudAt } };
+    store(STAMPS_KEY, this.stamps);
+    this.notify();
+  }
+
+  /**
+   * Record that a push landed.
+   *
+   * `syncedAt` is the `updatedAt` the pushed *body* was read at, not the one in
+   * force now: an edit made while the request was in flight must stay dirty, or
+   * it is marked as agreed and never sent again. Recording agreement after a
+   * transfer that did not carry the current bytes is precisely the mistake
+   * `pushOne` documents in sync.ts.
+   */
+  markSliceSynced(slice: SettingsSlice, syncedAt: number, cloudAt: number): void {
+    const prev = this.stamps[slice];
+    this.stamps = {
+      ...this.stamps,
+      [slice]: { updatedAt: prev?.updatedAt ?? syncedAt, syncedAt, cloudAt },
+    };
+    store(STAMPS_KEY, this.stamps);
+  }
+
   updateCommon(mutate: (s: CommonSettings) => void): void {
     const next = structuredClone(this.common);
     mutate(next);
     this.common = next;
-    store('ziroeda.common', next);
-    this.notify();
+    this.commit('common', next);
   }
 
   updateEeschema(mutate: (s: EeschemaSettings) => void): void {
     const next = structuredClone(this.eeschema);
     mutate(next);
     this.eeschema = next;
-    store('ziroeda.eeschema', next);
-    this.notify();
+    this.commit('eeschema', next);
   }
 
   updatePcbnew(mutate: (s: PcbnewSettings) => void): void {
     const next = structuredClone(this.pcbnew);
     mutate(next);
     this.pcbnew = next;
-    store('ziroeda.pcbnew', next);
-    this.notify();
+    this.commit('pcbnew', next);
   }
 
   updatePlEditor(mutate: (s: PlEditorSettings) => void): void {
     const next = structuredClone(this.plEditor);
     mutate(next);
     this.plEditor = next;
-    store('ziroeda.pl_editor', next);
-    this.notify();
+    this.commit('pl_editor', next);
   }
 
   updatePrivacy(mutate: (s: PrivacySettings) => void): void {
     const next = structuredClone(this.privacy);
     mutate(next);
     this.privacy = next;
-    store('ziroeda.privacy', next);
-    this.notify();
+    this.commit('privacy', next);
   }
 
   resetCommon(): void {
     this.common = structuredClone(COMMON_DEFAULTS);
-    store('ziroeda.common', this.common);
-    this.notify();
+    this.commit('common', this.common);
   }
 
   resetEeschema(): void {
     this.eeschema = structuredClone(EESCHEMA_DEFAULTS);
-    store('ziroeda.eeschema', this.eeschema);
-    this.notify();
+    this.commit('eeschema', this.eeschema);
   }
 
   setUserColors(colors: Record<string, string>): void {
     this.userColors = { ...colors };
-    store('ziroeda.colors.user', this.userColors);
-    this.notify();
+    this.commit('colors.user', this.userColors);
   }
 
   resetUserColors(): void {
     this.userColors = {};
-    store('ziroeda.colors.user', this.userColors);
-    this.notify();
+    this.commit('colors.user', this.userColors);
   }
 
   /**
@@ -958,21 +1203,18 @@ export class SettingsManager {
     if (keys === undefined) delete next[id];
     else next[id] = keys;
     this.hotkeys = next;
-    store('ziroeda.hotkeys', next);
-    this.notify();
+    this.commit('hotkeys', next);
   }
 
   /** Replace the whole override map — the Hotkeys page committing on OK. */
   setHotkeys(overrides: Readonly<Record<string, string | null>>): void {
     this.hotkeys = { ...overrides };
-    store('ziroeda.hotkeys', this.hotkeys);
-    this.notify();
+    this.commit('hotkeys', this.hotkeys);
   }
 
   resetHotkeys(): void {
     this.hotkeys = {};
-    store('ziroeda.hotkeys', this.hotkeys);
-    this.notify();
+    this.commit('hotkeys', this.hotkeys);
   }
 }
 

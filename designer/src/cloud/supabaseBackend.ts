@@ -17,7 +17,7 @@
  */
 
 import { supabase } from '../auth/supabaseClient.js';
-import type { CloudBackend, ProjectRow, RowFile } from './backend.js';
+import type { CloudBackend, ProjectRow, RowFile, SettingsRow } from './backend.js';
 
 /**
  * Bucket for file blobs. Without it there is no object store to address, and
@@ -164,6 +164,32 @@ export function supabaseBackend(): CloudBackend {
       // report: there simply is no history to offer, and the caller falls back.
       if (error) return [];
       return (data ?? []) as { name: string; files: RowFile[]; committed_at: string }[];
+    },
+
+    async getSettings() {
+      // Rejects rather than returning []. A missing table and an expired token
+      // are both errors here, and the settings sync has to tell them apart — it
+      // says "run the migration" for one and nothing at all for the other. The
+      // `listVersions` shortcut above (swallow and fall back) is wrong for a
+      // read whose answer decides whether a *push* is safe.
+      const data = unwrap(
+        await db.from('user_settings').select('key, version, value, updated_at'),
+        'read settings',
+      );
+      return (data ?? []) as SettingsRow[];
+    },
+
+    async putSettings(row) {
+      // `updated_at` is not sent: the table's trigger stamps it from the
+      // server's clock, and reading it back is the point of the `.select()`.
+      const { data, error } = await db
+        .from('user_settings')
+        .upsert(row, { onConflict: 'user_id,key' })
+        .select('updated_at')
+        .single();
+      if (error) throw new Error(`write settings ${row.key}: ${error.message}`);
+      if (!data?.updated_at) throw new Error(`write settings ${row.key}: no timestamp returned`);
+      return data as { updated_at: string };
     },
   };
 }
