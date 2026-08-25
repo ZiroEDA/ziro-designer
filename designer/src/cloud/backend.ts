@@ -134,4 +134,45 @@ export interface CloudBackend {
     userId: string,
     projectId: string,
   ): Promise<{ name: string; files: RowFile[]; committed_at: string }[]>;
+
+  /**
+   * Every settings file the signed-in user has stored, with its bytes.
+   *
+   * Optional for the same reason as `recordVersion`: a database whose
+   * `supabase/user_settings.sql` migration has not been run has no such table,
+   * and the app must still work. localStorage is the source of truth either
+   * way; the account copy is only what makes it follow the person to another
+   * machine. See `settingsSync.ts`.
+   *
+   * Whole rows rather than a metadata listing: a user's seven settings files
+   * together are a few kilobytes, so a second round trip to fetch the ones that
+   * turned out to need pulling would cost more than it saved. That is the
+   * opposite call from projects, where the manifest exists precisely because
+   * the bytes are megabytes.
+   */
+  getSettings?(): Promise<SettingsRow[]>;
+
+  /**
+   * Write one settings file, returning the row's new `updated_at`.
+   *
+   * The timestamp comes back rather than being supplied because it is the
+   * *server's* clock, and one clock shared by every device is what lets "the
+   * account moved since we last agreed" be decided exactly. See `SliceStamp`.
+   */
+  putSettings?(row: {
+    user_id: string;
+    key: string;
+    version: number;
+    value: unknown;
+  }): Promise<{ updated_at: string }>;
+}
+
+/** A row of the `user_settings` table: one KiCad settings file. */
+export interface SettingsRow {
+  /** The file's basename — `common`, `eeschema`, `colors.user`, `hotkeys`, … */
+  key: string;
+  /** `meta.version`, the schema version of the build that wrote it. */
+  version: number;
+  value: unknown;
+  updated_at: string;
 }

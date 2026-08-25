@@ -20,6 +20,7 @@ import { setRecoveryProvider } from './home/recovery.js';
 import { recoverySnapshotFrom } from './home/recovery_source.js';
 import { formatTitle, useDocumentTitle } from './ui/useDocumentTitle.js';
 import { pushProject } from './cloud/sync.js';
+import { installSettingsSync } from './cloud/settingsSync.js';
 import { fetchDemoExtras, type DemoMeta } from './home/demos.js';
 import { useAuth } from './auth/AuthProvider.js';
 import {
@@ -203,6 +204,16 @@ export function App(): JSX.Element {
     userIdRef.current = userId;
     reportSignedIn(!!userId);
   }, [userId]);
+
+  // Preferences follow the account, so signing in on another device restores
+  // the same workspace. Here rather than in HomePage because settings belong to
+  // the session, not to the project browser: a deep link that opens straight
+  // into the schematic must still get the user's units.
+  //
+  // Signed out this installs nothing at all, which is what keeps an anonymous
+  // session byte-for-byte what it was: localStorage written by the mutator,
+  // read by the next page load, with nothing in between.
+  useEffect(() => installSettingsSync(userId), [userId]);
 
   const [view, setView] = useState<
     | 'home'

@@ -70,6 +70,18 @@ function need(): CloudBackend {
 }
 
 /**
+ * The installed transport, or null.
+ *
+ * Exposed so `settingsSync.ts` can work against the same seam rather than
+ * standing up a second registry of its own. Settings and projects reach the
+ * account through one Supabase client, one `setCloudBackend`, and one place
+ * where `{ data, error }` is translated; a parallel install seam would mean two
+ * of each, and the reason there is only one is the reason `supabaseBackend.ts`
+ * is short enough to audit at a glance.
+ */
+export const cloudBackend = (): CloudBackend | null => backend;
+
+/**
  * Reconcile the user's templates with the account.
  *
  * Here rather than in `templateSync.ts` because the installed transport is
