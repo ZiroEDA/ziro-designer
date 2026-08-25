@@ -23,7 +23,7 @@ import {
   deviceToWorldY,
   dimmedCursorColor,
   gridDotEdge,
-  gridDotWidths,
+  gridDotSize,
   gridIndexRange,
   gridPenWidths,
   visibleGridStep,
@@ -113,10 +113,10 @@ describe('gridIndexRange — DrawGrid start/end indices', () => {
   });
 });
 
-describe('gridPenWidths / gridDotWidths — GAL grid pen', () => {
+describe('gridPenWidths — OPENGL_GAL::DrawGrid’s minor/major line width', () => {
   it('derives the stored width the way updatedGalDisplayOptions does', () => {
     // m_gridLineWidth = scaleFactor * setting + 0.25, floored at 1 px, coarse
-    // lines double.
+    // lines double (graphics_abstraction_layer.cpp:124, opengl_gal.cpp:1911).
     expect(gridPenWidths(1, 2)).toEqual({ minor: 2.25, major: 4.5 });
   });
 
@@ -125,37 +125,81 @@ describe('gridPenWidths / gridDotWidths — GAL grid pen', () => {
     expect(gridPenWidths(0, 1).minor).toBe(1);
   });
 
-  it('doubles a dot before clamping, unlike a line', () => {
-    // drawGridPoint clamps each of width and height with std::max(1.0, ...)
-    // AFTER the tick doubling, so a sub-pixel setting still gives a coarse dot
-    // that is bigger than a minor one. Clamping first would make them equal.
-    const d = gridDotWidths(0.3, 1);
-    expect(d.minor).toBe(1);
-    expect(d.major).toBeCloseTo(1.1, 10);
-    expect(d.major).toBeGreaterThan(d.minor);
+  /**
+   * OpenGL clamps BEFORE doubling —
+   * `majorLineWidth = std::fmax( 1.0f, m_gridLineWidth ) * ... * 2.0f` — so
+   * the smallest setting the Preferences panel offers (0.5, giving a stored
+   * 0.75) gives a 1 px minor and a 2 px tick. Cairo's DOTS branch clamps after
+   * the doubling and would give 1.5 there; we follow OpenGL, which is what a
+   * live pl_editor runs.
+   */
+  it('doubles the CLAMPED minor, as the OpenGL backend does', () => {
+    expect(gridPenWidths(0.5, 1)).toEqual({ minor: 1, major: 2 });
+    expect(gridPenWidths(0.3, 1)).toEqual({ minor: 1, major: 2 });
   });
 
-  it('carries GAL’s own 0.25, so a default pen is a 1.25 px dot', () => {
-    // `m_gridLineWidth = m_scaleFactor * options.m_gridLineWidth + 0.25`
-    // (graphics_abstraction_layer.cpp:124) — the value drawGridPoint receives
-    // already has it. It is not the reason ours looked blurred; the missing
-    // snapping was.
-    expect(gridDotWidths(1, 1)).toStrictEqual({ minor: 1.25, major: 2.5 });
+  it('carries GAL’s own 0.25, so a default pen is 1.25 px and a tick 2.5', () => {
+    // `grid.line_width` defaults to 1.0 (app_settings.cpp:549-550) and
+    // `m_gridLineWidth = m_scaleFactor * that + 0.25`.
+    expect(gridPenWidths(1, 1)).toStrictEqual({ minor: 1.25, major: 2.5 });
+  });
+});
+
+describe('the grid dot is a whole number of device pixels', () => {
+  /**
+   * MEASURED against the installed KiCad 10.0.5 on this machine: a live
+   * pl_editor at the default `grid.line_width` of 1.0 was captured and its
+   * canvas held exactly two colours — background and rgb(194,194,194) — with
+   * no anti-aliased pixel anywhere. A minor mark was 1x1; a mark on a tick
+   * column was 3 wide and 1 tall; one on a tick row 1 wide and 3 tall. Tick
+   * columns were 955 px apart against a 95.5 px node pitch, i.e. every tenth,
+   * which is `SetCoarseGrid( 10 )`.
+   *
+   * The expectations below are those measured pixel counts, not what our code
+   * prints.
+   */
+  it('lights one pixel for a 1.25 px mark and three for a 2.5 px tick', () => {
+    expect(gridDotSize(1.25)).toBe(1);
+    expect(gridDotSize(2.5)).toBe(3);
+  });
+
+  /** A pixel is lit when its centre is in `[-w/2, w/2)`, so an even width is even. */
+  it('follows the pixel-centre rule for the other widths the panel offers', () => {
+    expect(gridDotSize(1)).toBe(1);
+    expect(gridDotSize(2)).toBe(2);
+    expect(gridDotSize(4.5)).toBe(5); // a 2x display's tick
+    expect(gridDotSize(2.25)).toBe(3); // a 2x display's minor
+  });
+
+  it('is always a whole number', () => {
+    for (const w of [1, 1.25, 1.75, 2, 2.5, 3.25, 4.5, 10.25])
+      expect(Number.isInteger(gridDotSize(w))).toBe(true);
   });
 
   it('puts a mark’s edges on whole pixels, which is why KiCad’s are sharp', () => {
     // roundp for an odd width is floor(x + 0.5) + 0.5, and drawGridPoint then
-    // offsets by -floor(sw/2) - 0.5. Net: the left edge is an integer, so a
-    // 1 px dot covers exactly one pixel however fractional the position was.
-    // A 1.25 px minor dot: floor(1.25 / 2) is 0, so the edge is the snapped
-    // position itself and the mark paints one solid pixel.
+    // offsets by -floor(sw/2) - 0.5. Net: the left edge is an integer.
+    // A 1.25 px minor mark: floor(1.25 / 2) is 0, so the edge is the snapped
+    // position itself and the mark paints that one pixel.
     expect(gridDotEdge(10.3, 1.25)).toBe(10);
     expect(gridDotEdge(10.7, 1.25)).toBe(11);
-    // A 2.5 px tick: floor(2.5 / 2) is 1, so it extends one pixel left.
+    // A 2.5 px tick: floor(2.5 / 2) is 1, so it extends one pixel left — and
+    // `gridDotSize` makes it three wide, so it reaches one pixel right too.
     expect(gridDotEdge(10.3, 2.5)).toBe(9);
+    expect(gridDotEdge(10.3, 2.5) + gridDotSize(2.5)).toBe(12);
     // Whatever the fraction, the edge is an integer — that is the point.
     expect(Number.isInteger(gridDotEdge(7.49, 1.25))).toBe(true);
     expect(Number.isInteger(gridDotEdge(7.51, 2.5))).toBe(true);
+  });
+
+  /** The tick mark is centred on the same pixel as a minor one would be. */
+  it('grows a tick symmetrically about the pixel a minor mark would light', () => {
+    for (const x of [10.1, 10.4, 10.5, 10.9, 37.0]) {
+      const minor = gridDotEdge(x, 1.25);
+      expect(gridDotSize(1.25)).toBe(1);
+      expect(gridDotEdge(x, 2.5)).toBe(minor - 1);
+      expect(gridDotEdge(x, 2.5) + gridDotSize(2.5)).toBe(minor + 2);
+    }
   });
 });
 
