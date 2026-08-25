@@ -31,8 +31,15 @@ import type { JSX } from 'react';
 /**
  * [data] the seven column colours, `wxColour( 0xBBGGRR )` literals from
  * panel_eseries_display.h:93-129. KiCad hardcodes these, so we mirror the
- * table rather than inventing one: honeydew, palegreen, cornflowerblue, plum,
- * skyblue, and two unnamed mixes.
+ * table rather than inventing one. Six of the seven are named HTML colours,
+ * and the header says so: honeydew, palegreen, cornflowerblue, plum, skyblue
+ * and — E96, `0x7aa0ff` — lightsalmon `#FFA07A`.
+ *
+ * **E48 is the exception, and it is a typo of upstream's.** The header comments
+ * it `olivedrab`, which is `#6B8E23` and would be `0x238E6B` in BGR; what is
+ * written is `0x23e86b`, the middle byte transposed, so the column renders a
+ * bright green `#6BE823`. Mirrored, because a colour table is data and the
+ * point is that the two panels look the same.
  */
 const S_C_E1_BGR = 0xf0fff0;
 const S_C_E3_BGR = 0x98fb98;
