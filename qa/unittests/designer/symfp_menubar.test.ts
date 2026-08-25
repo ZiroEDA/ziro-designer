@@ -56,9 +56,12 @@ const SYM_ON: SymbolMenuConditions = {
 const FP_ON: FootprintMenuConditions = {
   haveFootprint: true,
   targetLib: true,
-  modified: true,
   targetFootprint: true,
-  haveSelection: true,
+  footprintSelectedInTree: true,
+  contentModified: true,
+  hasItems: true,
+  undoAvailable: true,
+  redoAvailable: true,
 };
 
 const sym = (

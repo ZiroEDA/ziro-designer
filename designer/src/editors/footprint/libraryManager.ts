@@ -58,6 +58,13 @@ export const fpNameOf = (path: string): string =>
 
 export class FootprintLibraryManager {
   private libs = new Map<string, ManagedFpLibrary>();
+  /**
+   * `Prj().PinLibrary( nickname, PROJECT::LIB_TYPE_T::FOOTPRINT_LIB )` —
+   * `LIBRARY_EDITOR_CONTROL::changeSelectedPinStatus`
+   * (`common/tool/library_editor_control.cpp:99-130`), which is what the tree's
+   * Pin Library / Unpin Library rows run.
+   */
+  private pinned = new Set<string>();
   /** Bumped on every mutation so React can subscribe cheaply. */
   revision = 0;
 
@@ -65,8 +72,29 @@ export class FootprintLibraryManager {
     this.revision++;
   }
 
+  /**
+   * `LIB_TREE_NODE::Compare` (`common/lib_tree_model.cpp`, and the port in
+   * `widgets/lib_tree_model.ts:169-190`): pinned libraries sort ahead of the
+   * rest, and within each group it is the ordinary name order.
+   */
   libraryNames(): string[] {
-    return [...this.libs.keys()].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+    const byName = (a: string, b: string): number => a.toLowerCase().localeCompare(b.toLowerCase());
+    const all = [...this.libs.keys()];
+    return [
+      ...all.filter((n) => this.pinned.has(n)).sort(byName),
+      ...all.filter((n) => !this.pinned.has(n)).sort(byName),
+    ];
+  }
+
+  isPinned(name: string): boolean {
+    return this.pinned.has(name);
+  }
+
+  /** `PinLibrary` / `UnpinLibrary` for one nickname. */
+  setPinned(name: string, pin: boolean): void {
+    if (pin) this.pinned.add(name);
+    else this.pinned.delete(name);
+    this.touch();
   }
 
   library(name: string): ManagedFpLibrary | undefined {

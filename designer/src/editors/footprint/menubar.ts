@@ -74,16 +74,34 @@ export type FootprintMenuChecks = Readonly<Record<string, boolean>>;
  * frame evaluates them; the names are upstream's.
  */
 export interface FootprintMenuConditions {
-  /** `haveFootprintCond` — a footprint is loaded. */
+  /** `haveFootprintCond` (:1291-1295) — `GetBoard()->GetFirstFootprint() != nullptr`. */
   haveFootprint: boolean;
-  /** A library is selected to create the new footprint in. */
+  /** A library is selected to create the new footprint in. See `New Footprint`. */
   targetLib: boolean;
-  /** Anything unsaved anywhere — ENABLE for `ACTIONS::save`. */
-  modified: boolean;
-  /** The target LIB_ID names a footprint (the tree row, or the open one). */
+  /** `footprintTargettedCond` (:1297-1301) — `!GetTargetFPID().GetLibItemName().empty()`. */
   targetFootprint: boolean;
-  /** `SELECTION_CONDITIONS::NotEmpty`. */
-  haveSelection: boolean;
+  /**
+   * `footprintSelectedInTreeCond` (:1303-1308) — the tree's selected LIB_ID
+   * names both a nickname and an item.
+   */
+  footprintSelectedInTree: boolean;
+  /**
+   * `cond.ContentModified()` — `FOOTPRINT_EDIT_FRAME::IsContentModified()`
+   * (`footprint_edit_frame.cpp:368-372`), which is the **loaded footprint's**
+   * dirty bit and not "anything unsaved anywhere".
+   */
+  contentModified: boolean;
+  /**
+   * `cond.HasItems()` — `PCB_EDITOR_CONDITIONS::hasItemsFunc`
+   * (`pcb_editor_conditions.cpp:140-145`): `board && !board->IsEmpty()`. Note
+   * what it is NOT: a *selection* condition. Upstream's Delete row is live
+   * whenever the board holds anything at all.
+   */
+  hasItems: boolean;
+  /** `cond.UndoAvailable()` — `GetUndoCommandCount() > 0`. */
+  undoAvailable: boolean;
+  /** `cond.RedoAvailable()` — `GetRedoCommandCount() > 0`. */
+  redoAvailable: boolean;
 }
 
 /**
@@ -136,6 +154,14 @@ export function footprintEditorMenus(
         act('New Library...', 'newLibrary'),
         act('Add Library...', 'addLibrary'),
         // pcb_actions.cpp:868 — FriendlyName "New Footprint", no ellipsis.
+        //
+        // Upstream sets NO condition on this action, so the menu row is always
+        // live: `NewFootprint` (`footprint_editor_control.cpp:212-244`) creates
+        // the footprint on the canvas either way and only
+        // `tryToSaveFootprintInLibrary` (:174-208) checks the target, doing
+        // nothing when the nickname is empty. We cannot hold a library-less
+        // footprint — every buffer here is keyed by library — so the row is
+        // greyed rather than made to do nothing. Deliberate deviation.
         act('New Footprint', 'newFootprint', {
           shortcut: browserSafeKey('Ctrl+N'),
           disabled: !conds.targetLib,
@@ -143,9 +169,14 @@ export function footprintEditorMenus(
         stub('Create Footprint...', 'createFootprint'),
         stub('Edit Library Footprint...', 'editLibFpInFpEditor', { shortcut: 'Ctrl+Shift+E' }),
         SEP,
-        act('Save', 'save', { shortcut: 'Ctrl+S', disabled: !conds.modified }),
+        // `ENABLE( SELECTION_CONDITIONS::ShowAlways )` (:1353). Save is live
+        // even with nothing modified and nothing loaded — this frame's Save
+        // reaches the *library*, not only the open footprint, so upstream never
+        // gates it. Ours greyed it on "anything unsaved anywhere".
+        act('Save', 'save', { shortcut: 'Ctrl+S' }),
         stub('Save As...', 'saveAs', { shortcut: 'Ctrl+Shift+S' }),
-        stub('Revert', 'revert'),
+        // `ENABLE( cond.ContentModified() )` (:1352).
+        act('Revert', 'revert', { disabled: !conds.contentModified }),
         //
         // NOT here: "Save All". `ACTIONS::saveAll` appears nowhere in
         // `menubar_footprint_editor.cpp` — the footprint editor has no such
@@ -164,7 +195,9 @@ export function footprintEditorMenus(
         {
           label: 'Export',
           submenu: [
-            act('Footprint...', 'exportFootprint', { disabled: !conds.targetFootprint }),
+            // `ENABLE( haveFootprintCond )` (:1428) — the loaded footprint, not
+            // the tree's target FPID, which is what ours used to read.
+            act('Footprint...', 'exportFootprint', { disabled: !conds.haveFootprint }),
             // :78-81 — not an action at all but a raw
             // `Add( label, help, ID_FPEDIT_SAVE_PNG, BITMAPS::export_png )`,
             // so the help string is upstream's own and the `&` marks P.
@@ -177,8 +210,11 @@ export function footprintEditorMenus(
           ],
         },
         SEP,
+        // `ENABLE( footprintSelectedInTreeCond || haveFootprintCond )` (:1431).
+        // A tree row on its own opens it — `editFootprintPropertiesFromLibrary`
+        // (`footprint_editor_control.cpp:794`) is the branch for that.
         act('Footprint Properties...', 'footprintProperties', {
-          disabled: !conds.haveFootprint,
+          disabled: !(conds.footprintSelectedInTree || conds.haveFootprint),
         }),
         SEP,
         stub('Print...', 'print', { shortcut: 'Ctrl+P' }),
@@ -189,13 +225,16 @@ export function footprintEditorMenus(
     {
       label: 'Edit',
       items: [
-        act('Undo', 'undo', { shortcut: 'Ctrl+Z' }),
-        act('Redo', 'redo', { shortcut: 'Ctrl+Y' }),
+        // `ENABLE( cond.UndoAvailable() )` / `RedoAvailable()` (:1361-1362).
+        // Both were unconditionally live here.
+        act('Undo', 'undo', { shortcut: 'Ctrl+Z', disabled: !conds.undoAvailable }),
+        act('Redo', 'redo', { shortcut: 'Ctrl+Y', disabled: !conds.redoAvailable }),
         SEP,
         stub('Cut', 'cut', { shortcut: 'Ctrl+X' }),
         stub('Copy', 'copy', { shortcut: 'Ctrl+C' }),
         stub('Paste', 'paste', { shortcut: 'Ctrl+V' }),
-        act('Delete', 'doDelete', { shortcut: 'Delete', disabled: !conds.haveSelection }),
+        // `ENABLE( cond.HasItems() )` (:1370) — the BOARD, not the selection.
+        act('Delete', 'doDelete', { shortcut: 'Delete', disabled: !conds.hasItems }),
         stub('Duplicate', 'duplicate', { shortcut: 'Ctrl+D' }),
         SEP,
         // `selectSubMenu->SetTitle( _( "&Select" ) )` (:112-117). Two rows in a

@@ -648,9 +648,12 @@ const MENU_BUILDER: Readonly<Record<string, () => Menu[]>> = {
       {
         haveFootprint: true,
         targetLib: true,
-        modified: true,
         targetFootprint: true,
-        haveSelection: true,
+        footprintSelectedInTree: true,
+        contentModified: true,
+        hasItems: true,
+        undoAvailable: true,
+        redoAvailable: true,
       },
     ),
 };

@@ -144,3 +144,43 @@ export function polarMsg(r: string | null, thetaDeg?: number): string {
 export function gridMsg(x: string, y: string = x): string {
   return `grid ${x === y ? x : `${x} x ${y}`}`;
 }
+
+/**
+ * `LEADER_MODE`, the angle-snap mode a frame's drawing tools work in. Each
+ * editor stores it as one of the three `lineMode…` toolbar radio ids; these are
+ * the enumerators those ids stand for.
+ */
+export type AngleSnapMode = 'direct' | 'deg90' | 'deg45';
+
+/** The three `lineMode…` toolbar ids, as `OnAngleSnapModeChanged` maps them. */
+export function angleSnapModeOf(toggles: ReadonlySet<string>): AngleSnapMode {
+  if (toggles.has('lineMode45')) return 'deg45';
+  if (toggles.has('lineMode90')) return 'deg90';
+  return 'direct';
+}
+
+/**
+ * Field 7, `DisplayConstraintsMsg` (`common/eda_draw_frame.cpp:738-744`, which
+ * is `SetStatusText( msg, 7 )`). The text is `DRAWING_TOOL::UpdateStatusBar`
+ * (`pcbnew/tools/drawing_tool.cpp:340-357`):
+ *
+ *     case LEADER_MODE::DEG45: … _( "Constrain to H, V, 45" )
+ *     case LEADER_MODE::DEG90: … _( "Constrain to H, V" )
+ *     default:                 … wxString( "" )
+ *
+ * It is **not** conditional on a drawing tool being armed. `UpdateStatusBar` is
+ * called from `DRAWING_TOOL::Reset` (:329), which runs when the tool manager
+ * resets every tool at frame construction, so the pane is filled before the
+ * user touches anything — which is why a freshly-opened footprint editor reads
+ * "Constrain to H, V, 45" with the selection tool active.
+ */
+export function constraintsMsg(mode: AngleSnapMode): string {
+  switch (mode) {
+    case 'deg45':
+      return 'Constrain to H, V, 45';
+    case 'deg90':
+      return 'Constrain to H, V';
+    default:
+      return '';
+  }
+}
