@@ -38,8 +38,11 @@ const L = (...items: string[]): Layout => ({ items });
 const PAGE_A: Page = { paper: 'A3' };
 const PAGE_B: Page = { paper: 'A4' };
 
-const push = (s: ReturnType<typeof newUndoRedoState<Layout, Page>>, l: Layout, sel: number[] = []) =>
-  saveCopyInUndoList(s, captureUndoItem(l, sel, null));
+const push = (
+  s: ReturnType<typeof newUndoRedoState<Layout, Page>>,
+  l: Layout,
+  sel: number[] = [],
+) => saveCopyInUndoList(s, captureUndoItem(l, sel, null));
 
 describe('DS_PROXY_UNDO_ITEM: what one entry carries', () => {
   it('records INT_MAX when nothing is selected (ds_proxy_undo_item.cpp:35)', () => {
