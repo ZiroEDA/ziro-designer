@@ -193,7 +193,6 @@ export const PanelSymbolChooser = forwardRef<PanelSymbolChooserHandle, PanelSymb
     // A derived symbol's parent (LIB_SYMBOL::GetParent), needed for the details
     // pane's "Derived from" line and its inherited field rows.
     const [parentSymbol, setParentSymbol] = useState<LibSymbol | undefined>(undefined);
-    const [fetchingLib, setFetchingLib] = useState<string | null>(null);
     const [fpOverride, setFpOverride] = useState('');
     const fieldEdits = useRef<[string, string][]>([]);
     const loadedLibs = useRef(new Set<string>());
@@ -365,7 +364,13 @@ export const PanelSymbolChooser = forwardRef<PanelSymbolChooserHandle, PanelSymb
             setPreviewSymbol(stored);
             return;
           }
-          setFetchingLib(node.libNickname);
+          // No "fetching" state: `SYMBOL_PREVIEW_WIDGET` has none, because
+          // `IFACE::PreloadLibraries` (eeschema.cpp:487) has already made the
+          // design's symbols resident by the time the chooser opens. What is
+          // left is one hosted fetch for a symbol nothing has touched yet, and
+          // covering it with a spinner made every browse of the tree look like
+          // a load. The previous preview stays until the new one arrives,
+          // which is what upstream shows while a repaint is pending.
           void loadSymbol(node.libNickname, node.libItemName)
             .catch(() => undefined)
             .then((sym) => {
@@ -374,8 +379,7 @@ export const PanelSymbolChooser = forwardRef<PanelSymbolChooserHandle, PanelSymb
                 populateItemNode(node, sym, adapter);
                 void ensureLibraryLoaded(node.libNickname);
               }
-            })
-            .finally(() => setFetchingLib(null));
+            });
         } else {
           setPreviewSymbol(null);
         }
@@ -581,8 +585,6 @@ export const PanelSymbolChooser = forwardRef<PanelSymbolChooserHandle, PanelSymb
         symbol={validSelection ? previewSymbol : null}
         unit={selectedNode?.unit ?? 0}
         statusText="No symbol selected"
-        loading={!!fetchingLib}
-        loadingText={fetchingLib ? `Loading ${fetchingLib}...` : ''}
       />
     );
 

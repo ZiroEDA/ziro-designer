@@ -12,7 +12,6 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { type LibTreeNode, LibTreeNodeType } from './lib_tree_model.js';
 import { type LibTreeModelAdapter, SortMode, PINNING_SYMBOL } from './lib_tree_model_adapter.js';
 import { SelectColumnsDialog } from './select_columns_dialog.js';
-import { LibraryLoadingPanel } from './library_loading_panel.js';
 import { useModalEscape } from '../ui/useModalEscape.js';
 
 /** LIB_TREE::RECENT_SEARCHES_MAX. */
@@ -101,13 +100,6 @@ export function LibTree({
 
   const searching = search.trim().length > 0;
   const columns = adapter.getShownColumns();
-  // Whether the hosted libraries have landed in the tree yet: the Recently Used
-  // / Already Placed groups are always present, so an "empty" tree is one with
-  // no real library rows.
-  const hasLibraryRows = adapter.tree.children.some((n) => !n.isGroup);
-  // Which hosted set this tree waits on, so a footprint fetch elsewhere in the
-  // dialog can't make the symbol tree look like it is still loading.
-  const loadingKind = recentSearchesKey === 'footprints' ? 'footprints' : 'symbols';
 
   const select = useCallback(
     (node: LibTreeNode | null) => {
@@ -546,21 +538,17 @@ export function LibTree({
             ))}
           </div>
         ))}
-        {/* LIB_TREE has its libraries in hand by the time it is shown; ours
-            are still arriving, so the pane says so where the rows will be,
-            the "Recently Used"/"Already Placed" groups sit above, which is why
-            this keys off library rows rather than an empty tree. */}
-        {!hasLibraryRows && (
-          <LibraryLoadingPanel
-            kind={loadingKind}
-            fallback={
-              rows.length === 0 ? (
-                <div className="ze-muted" style={{ padding: 8 }}>
-                  No matches
-                </div>
-              ) : null
-            }
-          />
+        {/* LIB_TREE has no loading state, because by the time it is shown
+            `IFACE::PreloadLibraries` has run and the tree holds every library
+            that loaded. What it can be is EMPTY, and upstream shows nothing at
+            all for that; ours says so, because a hosted library that failed to
+            arrive and a filter that matched nothing look identical otherwise.
+            Progress belongs in the background job monitor
+            (ui/background_jobs_monitor.ts), which is where upstream puts it. */}
+        {rows.length === 0 && (
+          <div className="ze-muted" style={{ padding: 8 }}>
+            No matches
+          </div>
         )}
       </div>
 

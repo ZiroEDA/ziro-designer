@@ -23,11 +23,18 @@ export interface SymbolPreviewWidgetProps {
   symbol: LibSymbol | null;
   /** Unit to display (0/undefined = first unit, as upstream DisplaySymbol). */
   unit?: number;
-  /** Status label shown when no symbol is displayed, e.g. "No symbol selected". */
+  /**
+   * Status label shown when no symbol is displayed.
+   *
+   * `SYMBOL_PREVIEW_WIDGET::SetStatusText`
+   * (eeschema/widgets/symbol_preview_widget.cpp:141-148) is the widget's ONLY
+   * text state, and its callers pass exactly three things: "No symbol
+   * selected" (panel_symbol_chooser.cpp:672), "" and, on the footprint one,
+   * "No footprint specified" / "Invalid footprint specified". None of them is
+   * a loading message — upstream's preview never has one, because
+   * `IFACE::PreloadLibraries` has already run by the time the chooser opens.
+   */
   statusText?: string;
-  /** True while the symbol's library is being fetched. */
-  loading?: boolean;
-  loadingText?: string;
   /** Mouse preferences (PANEL_MOUSE_SETTINGS) for the zoom/pan gestures. */
   inputPrefs?: InputPrefs;
 }
@@ -36,8 +43,6 @@ export function SymbolPreviewWidget({
   symbol,
   unit = 0,
   statusText = '',
-  loading = false,
-  loadingText = '',
   inputPrefs,
 }: SymbolPreviewWidgetProps): JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -102,12 +107,6 @@ export function SymbolPreviewWidget({
         />
       ) : (
         <div className="ze-preview-status">{statusText}</div>
-      )}
-      {loading && (
-        <div className="ze-canvas-loading" style={{ color: '#555' }}>
-          <span className="ze-spinner" />
-          <span>{loadingText}</span>
-        </div>
       )}
     </div>
   );

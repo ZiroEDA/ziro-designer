@@ -277,6 +277,7 @@ import {
 import { SymbolLibraryBrowser } from './components/SymbolLibraryBrowser.js';
 import { loadFootprint, loadFootprintIndex } from '../../widgets/footprint_list.js';
 import { libraryUri, loadIndex, loadSymbol, symbolsBase } from './symbols/index.js';
+import { preloadSchematicLibraries } from './preload.js';
 import {
   projectSymbolLibraries,
   projectSymLibTablePath,
@@ -3258,6 +3259,10 @@ export function SchematicEditor({
         resetErc();
         if (name) setFileName(name);
         setError(null);
+        // `SCH_EDIT_FRAME::OpenProjectFiles`' trailing CallAfter (files-io.cpp:857-864):
+        // the libraries are paid for now, in the background, so nothing waits
+        // for them later. See ./preload.ts.
+        preloadSchematicLibraries([next]);
         // Fit after React commits the new doc to the canvas.
         requestAnimationFrame(() => controller.current?.zoomToFit());
       } catch (e) {
@@ -3341,6 +3346,11 @@ export function SchematicEditor({
         resetErc();
         setFileName(start);
         setError(problems.length ? `Some sheets failed to load: ${problems.join('; ')}` : null);
+        // The other CallAfter, `SCH_EDIT_FRAME::LoadProject`
+        // (sch_edit_frame.cpp:1492-1499). Every sheet, not just the one being
+        // shown: `PreloadLibraries` is hierarchy-wide because the library table
+        // is, and entering a sub-sheet must not start a fresh wait.
+        preloadSchematicLibraries(docs.values());
         requestAnimationFrame(() => controller.current?.zoomToFit());
       } catch (e) {
         // Each *sheet* is already caught individually and reported through

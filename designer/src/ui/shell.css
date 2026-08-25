@@ -2073,6 +2073,104 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   flex: 0 0 auto;
 }
 
+/* The two panes KISTATUSBAR appends after the frame's own,
+   FIELD::BGJOB_LABEL and FIELD::BGJOB_GAUGE
+   (common/widgets/kistatusbar.cpp, updateAuxFieldWidths :368-405). The label
+   is width -1 (stretch) and right-aligned (wxALIGN_RIGHT, :127-129); the gauge
+   is a fixed 75. Both are rendered only while a job runs, which is the DOM
+   equivalent of collapsing them to width 0 when idle. */
+.ze-statusbar .cell.bgjob-label {
+  flex: 1 1 0;
+  min-width: 0;
+  text-align: right;
+}
+.ze-statusbar .cell.bgjob-gauge {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  /* The gauge fills its field's height (`SetSize( …, h )`, :406). */
+  padding-right: 0;
+  cursor: pointer;
+}
+
+/* wxGauge. GTK draws a trough and a fill; <progress> is the same two parts, so
+   the colours come from the tokens rather than from a restated palette. */
+.ze-bgjob-gauge {
+  appearance: none;
+  width: 100%;
+  /* The gauge is sized to its field, `m_backgroundProgressBar->SetSize(
+     w - buttonSize.GetWidth() - padding, h )` where h is the field rect's own
+     height (kistatusbar.cpp:405-406) — so it states no height of its own. */
+  height: 100%;
+  border: 0;
+  background: var(--chrome-bg2);
+}
+.ze-bgjob-gauge::-webkit-progress-bar {
+  background: var(--chrome-bg2);
+}
+.ze-bgjob-gauge::-webkit-progress-value {
+  background: var(--chrome-active);
+}
+.ze-bgjob-gauge::-moz-progress-bar {
+  background: var(--chrome-active);
+}
+
+/* BACKGROUND_JOB_LIST (common/background_jobs_monitor.cpp:93-171). A
+   wxFRAME_NO_TASKBAR | wxBORDER_SIMPLE frame, so no caption is drawn — see the
+   note in BackgroundJobList.tsx. Size and the 75px row height come from
+   KiCad's own literals and live on the component. */
+.ze-bgjob-list {
+  position: fixed;
+  z-index: 60;
+  /* wxBORDER_SIMPLE. */
+  border: 1px solid var(--chrome-border);
+  background: var(--chrome-bg);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.ze-bgjob-list:focus {
+  outline: none;
+}
+/* The wxScrolledWindow, wxVSCROLL only (:101-103). */
+.ze-bgjob-scroll {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  /* [data] `m_contentSizer->Add( panel, 0, wxEXPAND | wxALL, 2 )` (:139) — a
+     2 px sizer border on all four sides of every panel. */
+  padding: 2px;
+  /* [data] the same 2, on the two facing sides of adjacent panels. */
+  gap: 4px;
+}
+/* BACKGROUND_JOB_PANEL: wxBORDER_SIMPLE, SetBackgroundColour(
+   wxSYS_COLOUR_3DLIGHT ) (:41-53). [px] 3DLIGHT measures #373737 on this
+   machine (qa/probes/syscolour_probe.cpp) — the same value as 3DFACE, which is
+   already --content-bg. */
+.ze-bgjob-panel {
+  border: 1px solid var(--chrome-border);
+  background: var(--content-bg);
+  color: var(--chrome-fg);
+  display: flex;
+  flex-direction: column;
+  /* Every child is added with `wxALL | wxEXPAND, 1` (:59, :64, :69). */
+  padding: 1px;
+  /* [data] the same 1, on the two facing sides of adjacent children. */
+  gap: 2px;
+  flex: 0 0 auto;
+  box-sizing: border-box;
+}
+/* wxFont( wxNORMAL_FONT->GetPointSize(), …, wxFONTWEIGHT_BOLD ) (:56-58) —
+   bold at the SAME size as everything else, not a larger heading. */
+.ze-bgjob-name {
+  font-weight: bold;
+}
+.ze-bgjob-status {
+  min-height: 1em;
+}
+
 /* Non-fatal open-error banner (dismiss on click). */
 .ze-error-banner {
   padding: 6px 12px;
