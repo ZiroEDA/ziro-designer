@@ -89,6 +89,19 @@ import {
   type PreviewSettings,
 } from './PageSettingsDialog.js';
 import { previewSettingsFromConfig, writePageToConfig } from './preview_settings.js';
+import {
+  captureUndoItem,
+  clearUndoRedoList,
+  getLayoutFromRedoList,
+  getLayoutFromUndoList,
+  newUndoRedoState,
+  historyDepthOf,
+  type RestoredLayout,
+  rollbackFromUndo,
+  saveCopyInUndoList,
+} from './undo_stack.js';
+import { toolClearsSelection } from './hit_test.js';
+import { pasteEnabled, redoEnabled, toolbarDisabledIds, undoEnabled } from './ui_conditions.js';
 import { imageFileToPng, decodeImageMeta } from '@ziroeda/common';
 import { drawDrawingSheetItems, DS_PRINT_PAPER_COLOR } from '@ziroeda/common';
 import '../../ui/shell.css';
@@ -267,8 +280,21 @@ export function DrawingSheetEditor({
    */
   const [fileName, setFileName] = useState('');
   const [dirty, setDirty] = useState(false);
-  const undoStack = useRef<WksSheet[]>([]);
-  const redoStack = useRef<WksSheet[]>([]);
+  /**
+   * `m_undoList` / `m_redoList`. The rules live in `undo_stack.ts`; what is
+   * here is only the React plumbing.
+   *
+   * The depths are STATE, not just the arrays behind a ref, because
+   * `setupUIConditions` binds Undo and Redo to `ENABLE( cond.UndoAvailable() )`
+   * / `RedoAvailable()` (pl_editor_frame.cpp:319-320) — a menu row that greys
+   * itself out needs the depth to be something a render reads.
+   */
+  const history = useRef(newUndoRedoState<WksSheet, PreviewSettings>());
+  const [historyDepth, setHistoryDepth] = useState({ undo: 0, redo: 0 });
+  const syncHistoryDepth = useCallback(() => {
+    const next = historyDepthOf(history.current);
+    setHistoryDepth((prev) => (prev.undo === next.undo && prev.redo === next.redo ? prev : next));
+  }, []);
 
   const [selectionRaw, setSelectionRaw] = useState<ReadonlySet<number>>(new Set());
   const selection = selectionRaw;
@@ -444,50 +470,149 @@ export function DrawingSheetEditor({
   );
 
   // ---- undoable commit ----
-  const commit = useCallback((next: WksSheet, description: string) => {
-    setSheet((prev) => {
-      undoStack.current.push(prev);
-      redoStack.current = [];
-      return next;
-    });
-    setDirty(true);
-    setStatus(description);
-  }, []);
+  /**
+   * `DS_PROXY_UNDO_ITEM`'s constructor reads the *live* model, frame and
+   * selection, so the pushes below have to as well. They cannot do it from
+   * inside a `setSheet` updater: a state updater must be pure and StrictMode
+   * runs it twice, which would pop or push the stack twice — the same trap
+   * `SchematicEditor.save` documents.
+   */
+  const sheetRef = useRef(sheet);
+  const selectionRef = useRef(selection);
+  const previewRef = useRef(preview);
+  useEffect(() => {
+    sheetRef.current = sheet;
+    selectionRef.current = selection;
+    previewRef.current = preview;
+  }, [sheet, selection, preview]);
+
+  /**
+   * `PL_EDITOR_FRAME::SaveCopyInUndoList` at a call site that also changes the
+   * model — `PL_EDIT_TOOL::Main`'s `SaveCopyInUndoList()` then the edit
+   * (pl_edit_tool.cpp:145).
+   *
+   * `aPage` is non-null only where upstream passes the frame to
+   * `DS_PROXY_UNDO_ITEM` — that is, Page Preview Settings and nothing else.
+   */
+  const saveCopy = useCallback(
+    (aPage: PreviewSettings | null = null) => {
+      saveCopyInUndoList(
+        history.current,
+        captureUndoItem(sheetRef.current, selectionRef.current, aPage),
+      );
+      syncHistoryDepth();
+    },
+    [syncHistoryDepth],
+  );
+
+  const commit = useCallback(
+    (next: WksSheet, description: string) => {
+      saveCopy();
+      // The ref is written here as well as in the effect above: two commits
+      // inside one event would otherwise both capture the pre-first-commit
+      // sheet, because the effect has not run between them.
+      sheetRef.current = next;
+      setSheet(next);
+      setDirty(true);
+      setStatus(description);
+    },
+    [saveCopy],
+  );
 
   /** Push the current sheet on the undo stack without changing it (in-flight edits). */
   const pushUndo = useCallback(() => {
-    setSheet((cur) => {
-      undoStack.current.push(cur);
-      redoStack.current = [];
-      return cur;
-    });
+    saveCopy();
     setDirty(true);
-  }, []);
+  }, [saveCopy]);
 
   /** Silent update used while dragging (no extra undo entries). */
   const updateSheet = useCallback((fn: (cur: WksSheet) => WksSheet) => {
     setSheet(fn);
   }, []);
 
-  const undo = useCallback(() => {
-    setSheet((cur) => {
-      const p = undoStack.current.pop();
-      if (!p) return cur;
-      redoStack.current.push(cur);
-      return p;
-    });
-    setSelection(new Set());
+  /**
+   * Apply what a pop handed back — the three pop paths differ only in what they
+   * leave on the stacks, so the restore half is shared, exactly as
+   * `DS_PROXY_UNDO_ITEM::Restore` is.
+   */
+  const applyRestored = useCallback(
+    (r: RestoredLayout<WksSheet, PreviewSettings> | null, aModify: boolean) => {
+      if (!r) return;
+      // `Restore` writes the page settings back only for the PLUS type
+      // (ds_proxy_undo_item.cpp:67-71).
+      if (r.item.withPageSettings && r.item.page) {
+        previewRef.current = r.item.page;
+        setPreview(r.item.page);
+      }
+      sheetRef.current = r.item.layout;
+      selectionRef.current = r.selection;
+      setSheet(r.item.layout);
+      setSelection(r.selection);
+      syncHistoryDepth();
+      // Both pop paths end in `OnModify()`; `RollbackFromUndo` deliberately
+      // does not, because a cancelled dialog changed nothing.
+      if (aModify) setDirty(true);
+      // `RollbackFromUndo`'s PLUS branch, and only it, re-fits the view
+      // (pl_editor_undo_redo.cpp:143-147).
+      if (!aModify && r.hardRedraw) requestAnimationFrame(() => controller.current?.zoomToFit());
+    },
+    [syncHistoryDepth],
+  );
+
+  /**
+   * `PL_EDITOR_FRAME::RollbackFromUndo` — the pop that leaves no redo behind.
+   * Cancelling an in-flight draw (pl_drawing_tools.cpp:110, :278, :292), a
+   * cancelled move (pl_edit_tool.cpp:313), a cancelled point drag
+   * (pl_point_editor.cpp:244) and Cancel in Page Preview Settings
+   * (pl_editor_control.cpp:103) all run this and not Undo.
+   */
+  const rollback = useCallback(() => {
     drawingIndex.current = null;
-  }, []);
+    applyRestored(rollbackFromUndo(history.current), false);
+  }, [applyRestored]);
+
+  const undo = useCallback(() => {
+    // `if( evt->IsCancelInteractive() || ( item && evt->IsAction( &ACTIONS::undo ) ) )`
+    // (pl_drawing_tools.cpp:124, :268): while a shape is in flight, Ctrl+Z is
+    // the cancel, which rolls back and leaves no redo behind.
+    if (drawingIndex.current !== null) {
+      rollback();
+      return;
+    }
+    applyRestored(
+      getLayoutFromUndoList(
+        history.current,
+        sheetRef.current,
+        selectionRef.current,
+        previewRef.current,
+      ),
+      true,
+    );
+  }, [applyRestored, rollback]);
   const redo = useCallback(() => {
-    setSheet((cur) => {
-      const n = redoStack.current.pop();
-      if (!n) return cur;
-      undoStack.current.push(cur);
-      return n;
-    });
-    setSelection(new Set());
-  }, []);
+    applyRestored(
+      getLayoutFromRedoList(
+        history.current,
+        sheetRef.current,
+        selectionRef.current,
+        previewRef.current,
+      ),
+      true,
+    );
+  }, [applyRestored]);
+
+  /**
+   * `PL_EDITOR_CONTROL::PageSetup` (pl_editor_control.cpp:90-111).
+   *
+   * The undo copy is pushed BEFORE the dialog opens, and it is the only place
+   * in pl_editor that hands the frame to `DS_PROXY_UNDO_ITEM` — which is what
+   * makes the entry PLUS-typed and so what makes the page settings part of
+   * what undo restores.
+   */
+  const pageSetup = useCallback(() => {
+    saveCopy(previewRef.current);
+    setShowPageDialog(true);
+  }, [saveCopy]);
 
   // ---- file ops ----
   // EDA_BASE_FRAME::UpdateFileHistory.
@@ -524,8 +649,8 @@ export function DrawingSheetEditor({
    * empty selection does here), update the title, and zoom to fit.
    */
   const newSheet = useCallback(() => {
-    undoStack.current = [];
-    redoStack.current = [];
+    clearUndoRedoList(history.current);
+    syncHistoryDepth();
     setSheet((s) => ({ ...s, items: [] }));
     setSelection(new Set());
     setDirty(false);
@@ -538,8 +663,8 @@ export function DrawingSheetEditor({
     async (name: string, text: string) => {
       try {
         const parsed = await backfillBitmapMeta(parseDrawingSheet(text));
-        undoStack.current = [];
-        redoStack.current = [];
+        clearUndoRedoList(history.current);
+        syncHistoryDepth();
         setSheet(parsed);
         setSelection(new Set());
         setDirty(false);
@@ -921,8 +1046,16 @@ export function DrawingSheetEditor({
   const cancelDrawing = useCallback(() => {
     if (drawingIndex.current === null) return;
     drawingIndex.current = null;
-    undo(); // roll back the in-flight item
-  }, [undo]);
+    // `RollbackFromUndo`, not `Undo` (pl_drawing_tools.cpp:278, :292). The
+    // difference is the redo entry: ours pushed one, so Escaping an unwanted
+    // rectangle armed a Redo that would put it straight back.
+    //
+    // The canvas has its own "am I between the two clicks" flag, and it was
+    // never reset here: the click after an Escape was read as the SECOND click
+    // of the abandoned shape and swallowed.
+    controller.current?.cancelGesture();
+    rollback();
+  }, [rollback]);
 
   // ---- one-click tools ----
   const addItem = useCallback(
@@ -1307,7 +1440,7 @@ export function DrawingSheetEditor({
           setShowInspector(true);
           break;
         case 'previewSettings':
-          setShowPageDialog(true);
+          pageSetup();
           break;
         case 'layoutNormalMode':
           setTitleBlockMode('layoutNormalMode');
@@ -1322,14 +1455,22 @@ export function DrawingSheetEditor({
     [requestFileCommand, save, printSheet, undo, redo, setTitleBlockMode],
   );
 
-  const onRightTool = useCallback((id: string) => {
-    if (id === 'appendSheet') {
-      setOpenDlg('append');
-      return;
-    }
-    setMoveMode(false);
-    setActiveTool(id);
-  }, []);
+  const onRightTool = useCallback(
+    (id: string) => {
+      if (id === 'appendSheet') {
+        setOpenDlg('append');
+        return;
+      }
+      setMoveMode(false);
+      // `PL_DRAWING_TOOLS::PlaceItem` and `::DrawShape` both open with
+      // `RunAction( ACTIONS::selectionClear )` (pl_drawing_tools.cpp:77, :243),
+      // so arming a placement tool empties the Properties pane. Nothing else
+      // does — see `hit_test.ts`.
+      if (toolClearsSelection(id)) setSelection(new Set());
+      setActiveTool(id);
+    },
+    [setSelection],
+  );
 
   /**
    * The menu tree, mirrored for the key chain below.
@@ -1376,8 +1517,30 @@ export function DrawingSheetEditor({
       if (e.key === 'Escape') {
         // PL_ACTIONS' cancel chain: back out of the move, then the drawing,
         // then the tool, and only then drop the selection.
+        //
+        // A point drag comes first and is the only link with a model change to
+        // undo: `PL_POINT_EDITOR::Main` pushes the copy when the drag starts
+        // (pl_point_editor.cpp:214) and its cancel branch runs
+        // `RollbackFromUndo()` (:244). Ours left the item at the size the drag
+        // had reached and the entry on the stack, so Escape RESIZED rather than
+        // cancelled. The gesture has to be abandoned with it, or the still-held
+        // button would go on dragging the point we just restored.
+        if (pointDragUndoPushed.current) {
+          pointDragUndoPushed.current = false;
+          controller.current?.cancelGesture();
+          rollback();
+          return;
+        }
+        if (drawingIndex.current !== null) {
+          cancelDrawing();
+          return;
+        }
+        // A body drag or a marquee is a PREVIEW here — the model only changes
+        // on drop — so there is nothing to roll back, but the gesture still has
+        // to be dropped, and the selection SURVIVES it: `unselect` stays false
+        // unless the selection was a hover one (pl_edit_tool.cpp:311-317).
+        if (controller.current?.cancelGesture()) return;
         if (moveMode) setMoveMode(false);
-        else if (drawingIndex.current !== null) cancelDrawing();
         else if (activeTool !== 'select') setActiveTool('select');
         else setSelection(new Set());
         return;
@@ -1413,7 +1576,7 @@ export function DrawingSheetEditor({
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [activeTool, moveMode, selection, cancelDrawing, toggles, onLeftToggle]);
+  }, [activeTool, moveMode, selection, cancelDrawing, rollback, toggles, onLeftToggle]);
 
   // ---- system-clipboard paste (Ctrl+V): image → bitmap, .kicad_wks text → items ----
   useEffect(() => {
@@ -1496,8 +1659,22 @@ export function DrawingSheetEditor({
       {
         label: 'Edit',
         items: [
-          { label: 'Undo', icon: 'undo', action: undo, shortcut: 'Ctrl+Z' },
-          { label: 'Redo', icon: 'redo', action: redo, shortcut: 'Ctrl+Y' },
+          // ENABLE( cond.UndoAvailable() ) / RedoAvailable()
+          // (pl_editor_frame.cpp:319-320).
+          {
+            label: 'Undo',
+            icon: 'undo',
+            action: undo,
+            shortcut: 'Ctrl+Z',
+            disabled: !undoEnabled(historyDepth),
+          },
+          {
+            label: 'Redo',
+            icon: 'redo',
+            action: redo,
+            shortcut: 'Ctrl+Y',
+            disabled: !redoEnabled(historyDepth),
+          },
           { sep: true },
           {
             label: 'Cut',
@@ -1522,6 +1699,13 @@ export function DrawingSheetEditor({
             action: () => void pasteFromSystem(),
             shortcut: 'Ctrl+V',
             nativeShortcut: true,
+            // ENABLE( SELECTION_CONDITIONS::Idle && cond.NoActiveTool() )
+            // (pl_editor_frame.cpp:326) — see `ui_conditions.ts`.
+            disabled: !pasteEnabled({
+              activeTool,
+              moving: moveMode,
+              drawing: drawingIndex.current !== null,
+            }),
           },
           {
             label: 'Delete',
@@ -1559,7 +1743,7 @@ export function DrawingSheetEditor({
           {
             label: 'Page Preview Settings...',
             icon: 'previewSettings',
-            action: () => setShowPageDialog(true),
+            action: pageSetup,
           },
         ],
       },
@@ -1569,18 +1753,18 @@ export function DrawingSheetEditor({
           {
             label: 'Draw Lines',
             icon: 'dsAddLine',
-            action: () => setActiveTool('dsAddLine'),
+            action: () => onRightTool('dsAddLine'),
           },
           {
             label: 'Draw Rectangles',
             icon: 'dsAddRect',
-            action: () => setActiveTool('dsAddRect'),
+            action: () => onRightTool('dsAddRect'),
           },
-          { label: 'Draw Text', icon: 'dsAddText', action: () => setActiveTool('dsAddText') },
+          { label: 'Draw Text', icon: 'dsAddText', action: () => onRightTool('dsAddText') },
           {
             label: 'Place Bitmaps',
             icon: 'dsAddBitmap',
-            action: () => setActiveTool('dsAddBitmap'),
+            action: () => onRightTool('dsAddBitmap'),
           },
           { sep: true },
           {
@@ -1635,6 +1819,14 @@ export function DrawingSheetEditor({
       printSheet,
       undo,
       redo,
+      // The depths, not the arrays: what makes the two rows re-evaluate their
+      // enable condition on every push and pop.
+      historyDepth,
+      // ACTIONS::paste's own condition; `drawingIndex` is a ref, but a shape
+      // can only be in flight while a tool is armed, so `activeTool` moves
+      // with it.
+      activeTool,
+      moveMode,
       cutSelection,
       copySelection,
       pasteFromSystem,
@@ -1861,6 +2053,10 @@ export function DrawingSheetEditor({
         entries={DS_TOP_TOOLBAR}
         orientation="horizontal"
         toggled={activeTool === 'zoomTool' ? new Set([...toggles, 'zoomTool']) : toggles}
+        // An ACTION_TOOLBAR button and a menu row share one ACTION_CONDITIONS,
+        // so the toolbar's Undo/Redo grey out with the Edit menu's
+        // (pl_editor_frame.cpp:319-320).
+        disabledIds={toolbarDisabledIds(historyDepth)}
         onActivate={onTopAction}
         controls={{
           originSelector: (
@@ -2057,10 +2253,10 @@ export function DrawingSheetEditor({
               copy: copySelection,
               paste: () => void pasteFromSystem(),
               doDelete: deleteSelection,
-              drawLine: () => setActiveTool('dsAddLine'),
-              drawRectangle: () => setActiveTool('dsAddRect'),
-              placeText: () => setActiveTool('dsAddText'),
-              placeImage: () => setActiveTool('dsAddBitmap'),
+              drawLine: () => onRightTool('dsAddLine'),
+              drawRectangle: () => onRightTool('dsAddRect'),
+              placeText: () => onRightTool('dsAddText'),
+              placeImage: () => onRightTool('dsAddBitmap'),
               // PL_EDITOR_CONTROL::GridResetOrigin, as the Place menu's row
               // already explains: our grid is anchored at (0, 0) and there is
               // no gridSetOrigin to move it, so only the refresh half shows.
@@ -2104,7 +2300,13 @@ export function DrawingSheetEditor({
           // (pl_editor_control.cpp:97-98).
           wksFileName={fileName}
           sheet={sheet}
-          onCancel={() => setShowPageDialog(false)}
+          onCancel={() => {
+            // "Nothing to roll back but we have to at least pop the stack"
+            // (pl_editor_control.cpp:102-103) — which undersells it: the
+            // rollback restores the page settings the entry captured.
+            rollback();
+            setShowPageDialog(false);
+          }}
           onOk={(next) => {
             setPreview(next);
             // The page — and only the page. `SaveSettings` writes the paper
@@ -2114,7 +2316,10 @@ export function DrawingSheetEditor({
             settings.updatePlEditor((s) => writePageToConfig(s, next));
             setShowPageDialog(false);
             setStatus(`Page: ${paperDescription(next)}`);
-            requestAnimationFrame(() => controller.current?.zoomToFit());
+            // `m_frame->OnModify(); m_frame->HardRedraw();`
+            // (pl_editor_control.cpp:106-108). No zoom-fit: only the CANCEL
+            // path re-fits the view, and that comes from `RollbackFromUndo`.
+            setDirty(true);
           }}
         />
       )}

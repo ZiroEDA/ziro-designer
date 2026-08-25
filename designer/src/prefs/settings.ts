@@ -29,6 +29,7 @@ import {
   type CrossProbingSettings,
 } from '@ziroeda/common/src/cross_probing_settings.js';
 import type { EdaUnits } from '@ziroeda/common/src/eda_units.js';
+import { defaultUnits } from '../ui/app_settings_units.js';
 import { DEFAULT_GRID_INDEX } from '../ui/grid_settings.js';
 import {
   DEFAULT_ROUTING_SETTINGS,
@@ -648,7 +649,10 @@ export interface PlEditorSettings {
 
 export const PL_EDITOR_DEFAULTS: PlEditorSettings = {
   system: {
-    units: 'mils',
+    // The `app_settings.cpp:228-238` branch, asked rather than restated: five
+    // editors already read their starting unit from `defaultUnits`, and this
+    // was the last copy of the answer written out by hand.
+    units: defaultUnits('pl_editor'),
     last_metric_units: 'mm',
     last_imperial_units: 'mils',
   },
