@@ -351,7 +351,13 @@ export function PanelTransline(): JSX.Element {
             thicknessM: si('T'),
             lengthM: si('L'),
           };
-          const r = type === 'microstrip' ? microstripAnalyze(phys, e) : striplineAnalyze(phys, e);
+          // STRIPLINE_A_PRM, the `a` substrate row. Microstrip has no such
+          // parameter; stripline's two half-lines are built from it
+          // (stripline.cpp:37-41), and the engine used to ignore the field.
+          const r =
+            type === 'microstrip'
+              ? microstripAnalyze(phys, e)
+              : striplineAnalyze({ ...phys, offsetM: si('a') }, e);
           out.push(
             g(r.epsEff),
             g(unitPropagationDelay(r.epsEff), 'ps/cm'),
@@ -532,7 +538,7 @@ export function PanelTransline(): JSX.Element {
         const s =
           type === 'microstrip'
             ? microstripSynthesize(phys, e, zTarget, angTarget)
-            : striplineSynthesize(phys, e, zTarget, angTarget);
+            : striplineSynthesize({ ...phys, offsetM: si('a') }, e, zTarget, angTarget);
         if (!s) {
           noSolution();
           return;

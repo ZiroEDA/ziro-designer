@@ -39,6 +39,8 @@ export {
   // TRANSLINE::calcUnitPropagationDelay (transline.cpp:443) — the panel's
   // "Unit propagation delay:" row, which was never rendered.
   unitPropagationDelay,
+  /** The electrical inputs every line type shares. */
+  type TcElectrical,
 } from './transline/tc_common.js';
 export * from './transline/microstrip.js';
 export * from './transline/c_microstrip.js';

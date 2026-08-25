@@ -112,7 +112,13 @@ describe('twisted pair (test_twistedpair.cpp)', () => {
       { ...phys, twistsPerM: 0 },
       { ...el({ epsilonR: 1, frequencyHz: 100e6 }), epsilonRenv: 1 },
     );
-    const analytic = (376.730313412 / Math.PI) * Math.acosh(1.0 / 0.511);
+    // ZF0, and it must be the value UPSTREAM holds: `constexpr double ZF0 =
+    // 376.730313668` (include/transline_calculations/units.h:64, whose own
+    // comment cites https://physics.nist.gov/cgi-bin/cuu/Value?z0). This line
+    // had 376.730313412, the pre-2018 CODATA figure, which is what our port
+    // was carrying too — so the test agreed with the code by sharing its
+    // mistake rather than by checking it.
+    const analytic = (376.730313668 / Math.PI) * Math.acosh(1.0 / 0.511);
     expect(r.z0).toBeCloseTo(analytic, 9);
     expect(r.epsEff).toBeCloseTo(1.0, 12);
   });

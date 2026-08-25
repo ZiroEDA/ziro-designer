@@ -2,10 +2,17 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * Symmetric stripline, faithful port of KiCad's
- * `transline_calculations/stripline.cpp` (Wheeler/Cohn line impedance combined
- * as two parallel half-lines). For the centred strip the offset a = (h−t)/2.
+ * Stripline, faithful port of KiCad's `transline_calculations/stripline.cpp`
+ * (Wheeler/Cohn line impedance, the two halves combined in parallel).
  * Counterpart: KiCad `common/transline_calculations/stripline.cpp`.
+ *
+ * The strip is **not** assumed centred. `STRIPLINE_A_PRM` — the panel's `a`
+ * row, "Distance between strip and top metal" (transline_ident.cpp,
+ * STRIPLINE_TYPE) — is a parameter the user sets, and `Analyse` builds the two
+ * half-lines from it: `2a + t` below and `2(h − a) − t` above (stripline.cpp:37-41).
+ * This used to hardcode `a = (h − t)/2`, so the panel showed the row, took the
+ * number and ignored it, and every stripline was symmetric no matter what the
+ * user typed.
  */
 
 import { C0, LOG2DB, type TcElectrical, ZF0, skinDepth } from './tc_common.js';
@@ -20,6 +27,15 @@ export interface StriplinePhysical {
   thicknessM: number;
   /** Line length, m. */
   lengthM: number;
+  /**
+   * `a`, the distance from the strip to the top metal, m (STRIPLINE_A_PRM).
+   *
+   * Required, not defaulted: a caller that forgets it would silently get the
+   * symmetric answer, which is the bug this replaced. `(h − t) / 2` is the
+   * centred case — that is what `calcZ0SymmetricStripline` wants and what
+   * c_stripline.ts passes.
+   */
+  offsetM: number;
 }
 
 /** KiCad STRIPLINE::lineImpedance, returns ZL and the conductor loss ac. */
@@ -69,8 +85,7 @@ function analyseZ0(
   phys: StriplinePhysical,
   el: TcElectrical,
 ): { z0: number; ac1: number; ac2: number } {
-  const { widthM: w, heightM: h, thicknessM: t } = phys;
-  const a = (h - t) / 2.0; // centred strip
+  const { widthM: w, heightM: h, thicknessM: t, offsetM: a } = phys;
   const l1 = lineImpedance(2.0 * a + t, w, t, el.epsilonR, el.frequencyHz, el.sigma);
   const l2 = lineImpedance(2.0 * (h - a) - t, w, t, el.epsilonR, el.frequencyHz, el.sigma);
   const z0 = 2.0 / (1.0 / l1.zl + 1.0 / l2.zl);
