@@ -95,7 +95,7 @@ function paint(
   view: GridView,
   axes: boolean,
   ctx: CanvasRenderingContext2D & { _t: { x: number; y: number } },
-): { segments: Segment[]; rects: Rect[] } {
+): { segments: Segment[]; rects: Rect[]; rebuilt: boolean } {
   ops = [];
   ctx._t.x = 0;
   ctx._t.y = 0;
@@ -126,7 +126,9 @@ function paint(
       rects.push({ x: op.a + tx, y: op.b + ty, w: op.c, h: op.d });
     }
   }
-  return { segments, rects };
+  // The painter retains its lattice per context and only translates it, so a
+  // frame that recorded no path operations at all was served from the cache.
+  return { segments, rects, rebuilt: ops.length > 0 };
 }
 
 function makeCtx(): CanvasRenderingContext2D & { _t: { x: number; y: number } } {
@@ -172,6 +174,15 @@ const AXIS_X = 100;
 const AXIS_Y = 100;
 /** Lattice pitch in device pixels: 100 IU x 0.2. */
 const PITCH = 20;
+/**
+ * The same canvas panned so the world origin lands at device (300, 300).
+ *
+ * Chosen so that everything in the geometry cache key EXCEPT the axis position
+ * is unchanged - same pitch, same 32x27 node counts, same pens - which is what
+ * makes a rebuild attributable to the axis and nothing else. The tick-aligned
+ * anchor moves a whole tick, so the axis sits on local index 20 rather than 10.
+ */
+const PANNED: GridView = { scale: 0.2, tx: 300, ty: 300 };
 
 const horizontalAt = (segs: Segment[], y: number): Segment[] =>
   segs.filter((s) => s.y1 === y && s.y2 === y && s.x1 !== s.x2);
@@ -237,6 +248,27 @@ describe('GRID_STYLE::SMALL_CROSS', () => {
     expect(horizontalAt(on, AXIS_Y).some((s) => s.x1 < AXIS_X && s.x2 > AXIS_X)).toBe(true);
     expect(verticalAt(on, AXIS_X).some((s) => s.y1 < AXIS_Y && s.y2 > AXIS_Y)).toBe(true);
   });
+
+  it('and does not pay for a skip it never applies', () => {
+    // A crosses lattice is the expensive one - a mark per NODE, not per line -
+    // and its geometry does not depend on where the axes are, so the axis
+    // position must stay out of its cache key or panning with the axes on
+    // rebuilds every cross for nothing.
+    //
+    // This is the only thing the `style !== 'crosses'` guard on the two skip
+    // indices does, and without this assertion a mutation sweep reported that
+    // guard as dead: the crosses BRANCH never reads them, so dropping the
+    // guard changes no pixel, only the key.
+    const ctx = makeCtx();
+    expect(paint('crosses', VIEW, true, ctx).rebuilt).toBe(true);
+    expect(paint('crosses', PANNED, true, ctx).rebuilt).toBe(false);
+
+    // The contrast, on the same two views: a LINES lattice DOES depend on the
+    // axis, so the same pan has to rebuild it.
+    const lineCtx = makeCtx();
+    expect(paint('lines', VIEW, true, lineCtx).rebuilt).toBe(true);
+    expect(paint('lines', PANNED, true, lineCtx).rebuilt).toBe(true);
+  });
 });
 
 describe('the retained lattice follows the axis as the view pans', () => {
@@ -251,8 +283,7 @@ describe('the retained lattice follows the axis as the view pans', () => {
     const first = paint('lines', VIEW, true, ctx).segments;
     expect(horizontalAt(first, AXIS_X)).toHaveLength(0);
 
-    const panned: GridView = { scale: 0.2, tx: 300, ty: 300 };
-    const second = paint('lines', panned, true, ctx).segments;
+    const second = paint('lines', PANNED, true, ctx).segments;
     expect(verticalAt(second, 300)).toHaveLength(0);
     expect(horizontalAt(second, 300)).toHaveLength(0);
     // and the hole the first frame left is filled back in
