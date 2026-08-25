@@ -8,7 +8,7 @@
  * Counterpart: KiCad `pcb_calculator/pcb_calculator_frame.cpp`.
  */
 
-import { useState, type JSX } from 'react';
+import { useEffect, useState, type JSX } from 'react';
 import { MenuBar, type Menu } from '../../ui/MenuBar.js';
 import { Modal } from './fields.js';
 import { PanelRegulator } from './panels/panel_regulator.js';
@@ -35,6 +35,12 @@ import { PreferencesDialog } from '../../dialogs/PreferencesDialog.js';
 import { setLanguageMenuItem } from '../../ui/language_menu.js';
 import { settings } from '../../prefs/settings.js';
 import { useCommonSettings } from '../../prefs/useSettings.js';
+import {
+  CALC_PAGE_INDEX,
+  calcPageFromIndex,
+  installCalcSettingsFlush,
+  useCalcSaveSettings,
+} from './calc_settings.js';
 
 interface TreeItem {
   id: string;
@@ -85,7 +91,17 @@ const TREE: TreeGroup[] = [
 ];
 
 export function CalculatorTools({ onExitToHome }: { onExitToHome: () => void }): JSX.Element {
-  const [active, setActive] = useState('regulators');
+  // `m_treebook->ChangeSelection( cfg->m_LastPage )`
+  // (pcb_calculator_frame.cpp:394), and `cfg->m_LastPage =
+  // m_treebook->GetSelection()` on the way out (:413).
+  const [active, setActive] = useState(() => calcPageFromIndex(settings.pcbCalculator.last_page));
+  useCalcSaveSettings((s) => {
+    s.last_page = CALC_PAGE_INDEX[active] ?? 1;
+  });
+  // The two stand-ins for wxEVT_CLOSE_WINDOW. `SaveSettings( config() )` runs
+  // once for the whole frame (pcb_calculator_frame.cpp:401-419), so this is
+  // installed here and not in a panel.
+  useEffect(() => installCalcSettingsFlush(), []);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [aboutOpen, setAboutOpen] = useState(false);
   const [prefsOpen, setPrefsOpen] = useState(false);

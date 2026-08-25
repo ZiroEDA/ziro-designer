@@ -880,7 +880,11 @@ export interface PcbCalculatorSettings {
 }
 
 /** Every attenuator opens on the same three numbers (pcb_calculator_settings.cpp:63-65). */
-const CALC_ATTENUATOR_DEFAULT: PcbCalculatorAttenuator = { attenuation: 6.0, zin: 50.0, zout: 50.0 };
+const CALC_ATTENUATOR_DEFAULT: PcbCalculatorAttenuator = {
+  attenuation: 6.0,
+  zin: 50.0,
+  zout: 50.0,
+};
 
 export const PCB_CALCULATOR_DEFAULTS: PcbCalculatorSettings = {
   board_class_units: 0,

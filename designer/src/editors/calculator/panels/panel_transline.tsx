@@ -76,6 +76,12 @@ import {
   TRANSLINES,
   type TranslinePrm,
 } from './transline_ident.js';
+import { useCalcSaveSettings } from '../calc_settings.js';
+import {
+  settings,
+  type CalcTransLineName,
+  type PcbCalculatorTransLine,
+} from '../../../prefs/settings.js';
 
 // KiCad's own dark-theme artwork (GPL), vendored under assets/.
 const TL_ART = import.meta.glob('../../../assets/calculator/*.svg', {
@@ -146,10 +152,86 @@ const defaults = (t: LineType): Record<string, string> =>
 const defaultUnits = (t: LineType): Record<string, number> =>
   Object.fromEntries(allPrms(t).map((p) => [p.key, 0]));
 
+/**
+ * One line type's parameters as `TRANSLINE_IDENT` holds them: numbers, not
+ * field text. `prm->m_Value` is a double and the entry shows `%g` of it
+ * (transline_dlg_funct.cpp:234).
+ */
+interface TlParams {
+  values: Record<string, number>;
+  units: Record<string, number>;
+}
+
+/**
+ * Which entry of `trans_line` a line type is stored under.
+ *
+ * Eight names for nine types: `C_STRIPLINE` sets the same `m_Name` as
+ * `C_MICROSTRIP` (transline/c_stripline.cpp:30 against c_microstrip.cpp:30), so
+ * the two share one entry in the file and whichever `WriteConfig` runs later in
+ * `m_transline_list` order — coupled stripline, which is index 3 against index
+ * 1 — is the one on disk. Upstream's bug, mirrored: the *in-memory* store below
+ * is per type, exactly as upstream keeps one `TRANSLINE_IDENT` per type, and
+ * only the save collapses.
+ */
+const STORE_NAME: Record<LineType, CalcTransLineName> = {
+  microstrip: 'MicroStrip',
+  c_microstrip: 'Coupled_MicroStrip',
+  stripline: 'StripLine',
+  c_stripline: 'Coupled_MicroStrip',
+  cpw: 'CoPlanar',
+  gcpw: 'GrCoPlanar',
+  rectwaveguide: 'RectWaveGuide',
+  coax: 'Coax',
+  twistedpair: 'TwistedPair',
+};
+
+/**
+ * `TRANSLINE_IDENT::ReadConfig` — a stored value replaces the parameter's
+ * default, and a key the file does not have leaves the default alone (the
+ * `try`/`catch` round `.at()`, transline_ident.cpp).
+ */
+function loadParams(t: LineType, stored: PcbCalculatorTransLine | undefined): TlParams {
+  const values: Record<string, number> = {};
+  const units: Record<string, number> = {};
+  for (const p of allPrms(t)) {
+    values[p.key] = stored?.values[p.key] ?? p.def;
+    units[p.key] = stored?.units[p.key] ?? 0;
+  }
+  return { values, units };
+}
+
+/** Every type's parameters, as the frame has them right after `LoadSettings`. */
+function loadAllParams(
+  cfg: Record<CalcTransLineName, PcbCalculatorTransLine>,
+): Record<LineType, TlParams> {
+  const out = {} as Record<LineType, TlParams>;
+  for (const t of LINE_TYPE_ORDER) out[t] = loadParams(t, cfg[STORE_NAME[t]]);
+  return out;
+}
+
+/** `%g` of every value — `TranslineTypeSelection` filling the slots. */
+const textOf = (t: LineType, p: TlParams): Record<string, string> =>
+  Object.fromEntries(
+    allPrms(t).map((q) => [q.key, q.dummy ? '' : printfG(p.values[q.key] ?? q.def)]),
+  );
+
 export function PanelTransline(): JSX.Element {
-  const [type, setType] = useState<LineType>('microstrip');
-  const [vals, setVals] = useState<Record<string, string>>(() => defaults('microstrip'));
-  const [units, setUnits] = useState<Record<string, number>>(() => defaultUnits('microstrip'));
+  // PANEL_TRANSLINE::LoadSettings (panel_transline.cpp:83-97): the type, then
+  // every TRANSLINE_IDENT's own ReadConfig.
+  const [store, setStore] = useState<Record<LineType, TlParams>>(() =>
+    loadAllParams(settings.pcbCalculator.trans_line),
+  );
+  const [type, setType] = useState<LineType>(
+    () => LINE_TYPE_ORDER[settings.pcbCalculator.translines.type] ?? 'microstrip',
+  );
+  const [vals, setVals] = useState<Record<string, string>>(() => {
+    const t = LINE_TYPE_ORDER[settings.pcbCalculator.translines.type] ?? 'microstrip';
+    return textOf(t, loadParams(t, settings.pcbCalculator.trans_line[STORE_NAME[t]]));
+  });
+  const [units, setUnits] = useState<Record<string, number>>(() => {
+    const t = LINE_TYPE_ORDER[settings.pcbCalculator.translines.type] ?? 'microstrip';
+    return loadParams(t, settings.pcbCalculator.trans_line[STORE_NAME[t]]).units;
+  });
   /** The ten Results slots. Empty until Analyze/Synthesize runs, as upstream. */
   const [msgs, setMsgs] = useState<string[]>([]);
   const [picking, setPicking] = useState<string | null>(null);
@@ -168,19 +250,65 @@ export function PanelTransline(): JSX.Element {
   };
   const put = (key: string, v: string): void => setVals((s) => ({ ...s, [key]: v }));
 
+  /** `TransfDlgDataToTranslineParams` — the fields back into the type's own
+   *  parameter objects, as doubles (transline_dlg_funct.cpp). */
+  const capture = (t: LineType, v = vals, u = units): TlParams => {
+    const values: Record<string, number> = {};
+    const unitSel: Record<string, number> = {};
+    for (const p of allPrms(t)) {
+      const n = parseNum(v[p.key] ?? '');
+      // `if( !std::isfinite( param->m_Value ) ) param->m_Value = 0;`
+      // (TRANSLINE_IDENT::WriteConfig, transline_ident.cpp).
+      values[p.key] = Number.isFinite(n) ? n : 0;
+      unitSel[p.key] = u[p.key] ?? 0;
+    }
+    return { values, units: unitSel };
+  };
+
+  // PANEL_TRANSLINE::SaveSettings: TransfDlgDataToTranslineParams for the
+  // current selection first, then every ident's WriteConfig
+  // (panel_transline.cpp:70-80). Written in m_transline_list order so the
+  // Coupled_MicroStrip collision resolves the way upstream's does.
+  useCalcSaveSettings((s) => {
+    s.translines.type = Math.max(0, LINE_TYPE_ORDER.indexOf(type));
+    for (const t of LINE_TYPE_ORDER) {
+      const p = t === type ? capture(t) : store[t];
+      s.trans_line[STORE_NAME[t]] = { values: { ...p.values }, units: { ...p.units } };
+    }
+  });
+
   /**
-   * PANEL_TRANSLINE::OnTranslineSelection — every parameter goes back to its
-   * m_DefaultValue and m_DefaultUnit and the messages are cleared
-   * (transline_dlg_funct.cpp:96-145).
+   * `OnTranslineSelection`: the outgoing type's fields are read back into its
+   * own parameters *first*, and the incoming type's fields are filled from
+   * **its** parameters — not from the defaults
+   * (transline_dlg_funct.cpp:339-352, and `TranslineTypeSelection`'s
+   * `SetValue( "%g", prm->m_Value )` at :234). Ours reset every parameter on
+   * every type change, so a W typed on microstrip was gone the moment you
+   * looked at stripline and came back.
    */
   const pick = (t: LineType): void => {
+    const outgoing = capture(type);
+    const incoming = t === type ? outgoing : store[t];
+    setStore((s) => ({ ...s, [type]: outgoing }));
     setType(t);
-    setVals(defaults(t));
-    setUnits(defaultUnits(t));
+    setVals(textOf(t, incoming));
+    setUnits(incoming.units);
     setMsgs([]);
     setError('');
   };
-  const resetDefaults = (): void => pick(type);
+
+  /** `OnTransLineResetButtonClick`: this type's parameters go back to their
+   *  m_DefaultValue / m_DefaultUnit, and only this type's
+   *  (transline_dlg_funct.cpp:356-375). */
+  const resetDefaults = (): void => {
+    const fresh: TlParams = { values: {}, units: defaultUnits(type) };
+    for (const p of allPrms(type)) fresh.values[p.key] = p.def;
+    setStore((s) => ({ ...s, [type]: fresh }));
+    setVals(defaults(type));
+    setUnits(defaultUnits(type));
+    setMsgs([]);
+    setError('');
+  };
 
   const el = () => ({
     frequencyHz: si('Frequency'),

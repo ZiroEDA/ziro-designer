@@ -25,6 +25,8 @@ import {
 import { Combo } from '../../../ui/Combo.js';
 import { SingleChoiceDialog } from '../../../ui/dialog_single_choice.js';
 import { parseNum } from '../fields.js';
+import { useCalcSaveSettings } from '../calc_settings.js';
+import { settings } from '../../../prefs/settings.js';
 
 // The four UNIT_SELECTORs this page uses, in their declared order; each opens on
 // index 0 (widgets/unit_selector.cpp:95, 205, 283, 311).
@@ -55,21 +57,39 @@ const SPEED = [
 type Row = 'frequency' | 'period' | 'vacuum' | 'medium' | 'speed';
 
 export function PanelWavelength(): JSX.Element {
-  // pcb_calculator_settings.cpp: frequency 1e9, permittivity 4.5, permeability 1.
-  const [er, setEr] = useState('4.5');
-  const [mur, setMur] = useState('1');
-  const [state, setState] = useState<WavelengthState>(() => fromFrequency(1e9, 4.5, 1));
+  // PANEL_WAVELENGTH::LoadSettings / SaveSettings (panel_wavelength.cpp).
+  // Frequency, permittivity and permeability are stored as DOUBLES — the whole
+  // page is derived from the frequency, so there is no field text to keep —
+  // and the five selectors as their indices. `wxString( "" ) << m_permittivity`
+  // is `%g`, so 4.5 comes back "4.5".
+  const cfg0 = settings.pcbCalculator.wavelength;
+  const [er, setEr] = useState(() => printfG(cfg0.permittivity));
+  const [mur, setMur] = useState(() => printfG(cfg0.permeability));
+  const [state, setState] = useState<WavelengthState>(() =>
+    fromFrequency(cfg0.frequency, cfg0.permittivity, cfg0.permeability),
+  );
   const [editing, setEditing] = useState<{ row: Row; text: string } | null>(null);
   const [picking, setPicking] = useState(false);
 
-  const [freqUnit, setFreqUnit] = useState(0);
-  const [periodUnit, setPeriodUnit] = useState(0);
-  const [vacUnit, setVacUnit] = useState(0);
-  const [medUnit, setMedUnit] = useState(0);
-  const [speedUnit, setSpeedUnit] = useState(0);
+  const [freqUnit, setFreqUnit] = useState(() => cfg0.frequencyUnit);
+  const [periodUnit, setPeriodUnit] = useState(() => cfg0.periodUnit);
+  const [vacUnit, setVacUnit] = useState(() => cfg0.wavelengthVacuumUnit);
+  const [medUnit, setMedUnit] = useState(() => cfg0.wavelengthMediumUnit);
+  const [speedUnit, setSpeedUnit] = useState(() => cfg0.speedUnit);
 
   const erN = parseNum(er) > 0 ? parseNum(er) : 1;
   const murN = parseNum(mur) > 0 ? parseNum(mur) : 1;
+
+  useCalcSaveSettings((s) => {
+    s.wavelength.frequency = state.frequencyHz;
+    s.wavelength.permittivity = erN;
+    s.wavelength.permeability = murN;
+    s.wavelength.frequencyUnit = freqUnit;
+    s.wavelength.periodUnit = periodUnit;
+    s.wavelength.wavelengthVacuumUnit = vacUnit;
+    s.wavelength.wavelengthMediumUnit = medUnit;
+    s.wavelength.speedUnit = speedUnit;
+  });
 
   const shown = (row: Row, si: number, scale: number): string =>
     editing?.row === row ? editing.text : Number.isFinite(si) ? printfG(si / scale) : '';

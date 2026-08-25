@@ -11,7 +11,7 @@
  * button works in a sandboxed frame too.
  */
 
-import { useEffect, useMemo, useRef, useState, type JSX } from 'react';
+import { useMemo, useRef, useState, type JSX } from 'react';
 import {
   formatRegulatorDataFile,
   parseRegulatorDataFile,
@@ -26,8 +26,8 @@ import {
 } from '@ziroeda/pcb_calculator';
 import { Combo } from '../../../ui/Combo.js';
 import { Field, Group, Modal, copyText, parseNum } from '../fields.js';
-
-const STORAGE_KEY = 'ziro.calculator.regulators';
+import { useCalcSaveSettings } from '../calc_settings.js';
+import { settings } from '../../../prefs/settings.js';
 
 // The tooltips wxFormBuilder attaches, character for character
 // (panel_regulator_base.cpp:29, 88, 108, 113, 118, 236, 258 — note the double
@@ -43,33 +43,25 @@ const TIP_REMOVE = 'Remove an item from the current list of available regulators
 const TIP_VREF = 'The internal reference voltage of the regulator.\nShould not be 0.';
 const TIP_IADJ = 'For 3 terminal regulators only, the  Adjust pin current.';
 
+/**
+ * The regulator library and the name selected in it.
+ *
+ * Upstream these are two different things in two different places: the list is
+ * a `.pcbcalc` file on disk read by `PANEL_REGULATOR::ReadDataFile`
+ * (datafile_read_write.cpp) and named by `regulators.data_file`, while the
+ * selection is `regulators.selected_regulator` in the settings file
+ * (pcb_calculator_settings.cpp:128-132). A browser has no disk, so both live in
+ * `pcb_calculator.json` — the list under the ZiroEDA-only `regulators.library`.
+ * They were in a standalone `ziro.calculator.regulators` key until v3 of the
+ * settings schema, which migrates it (`migrateRegulatorLibrary`).
+ *
+ * KiCad ships NO regulators: `REGULATOR_LIST` is empty until the user loads a
+ * data file or presses Add Regulator, which is why the selector opens blank and
+ * Edit/Remove open disabled (panel_regulator.cpp:47, 141).
+ */
 interface Stored {
   regulators: RegulatorData[];
   selected: string;
-}
-
-function loadRegulators(): Stored {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const s = JSON.parse(raw) as Stored;
-      if (Array.isArray(s.regulators) && s.regulators.length) return s;
-    }
-  } catch {
-    /* fresh defaults */
-  }
-  // KiCad ships NO regulators: `REGULATOR_LIST` is empty until the user loads
-  // a data file or presses Add Regulator, which is why the selector opens
-  // blank and Edit/Remove open disabled (panel_regulator.cpp:47, 141).
-  return { regulators: [], selected: '' };
-}
-
-function saveRegulators(s: Stored): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
-  } catch {
-    /* private mode */
-  }
 }
 
 // KiCad's own dark-theme artwork (GPL), vendored under assets/ — the panel
@@ -150,18 +142,33 @@ const roundTo = (v: number, precision = 0.001): string =>
     : '';
 
 export function PanelRegulator(): JSX.Element {
-  const [store, setStore] = useState<Stored>(loadRegulators);
-  const [type, setType] = useState<RegulatorType>(RegulatorType.THREE_TERMINAL);
-  const [solve, setSolve] = useState<RegulatorSolve>(RegulatorSolve.R1);
-  const [r1, setR1] = useState('0.240'); // kΩ
-  const [r2, setR2] = useState('0.720'); // kΩ
-  const [vout, setVout] = useState('5');
-  const [vrefMin, setVrefMin] = useState('1.20');
-  const [vrefTyp, setVrefTyp] = useState('1.25');
-  const [vrefMax, setVrefMax] = useState('1.30');
-  const [iadjTyp, setIadjTyp] = useState('50'); // µA
-  const [iadjMax, setIadjMax] = useState('100');
-  const [resTol, setResTol] = useState('1');
+  // PANEL_REGULATOR::LoadSettings / SaveSettings (panel_regulator.cpp:551-611),
+  // thirteen keys. Every one of the nine value fields is stored as the field
+  // TEXT, so "0.240" survives as "0.240".
+  const cfg0 = settings.pcbCalculator.regulators;
+  const [store, setStore] = useState<Stored>(() => ({
+    regulators: cfg0.library,
+    selected: cfg0.selected_regulator,
+  }));
+  const [type, setType] = useState<RegulatorType>(() =>
+    cfg0.type === RegulatorType.STANDARD ? RegulatorType.STANDARD : RegulatorType.THREE_TERMINAL,
+  );
+  // `regulators.last_param` indexes { m_rbRegulR1, m_rbRegulR2, m_rbRegulVout }
+  // and LoadSettings folds anything >= 3 back to 0 (panel_regulator.cpp:569-575).
+  const [solve, setSolve] = useState<RegulatorSolve>(() =>
+    cfg0.last_param >= 0 && cfg0.last_param < 3
+      ? (cfg0.last_param as RegulatorSolve)
+      : RegulatorSolve.R1,
+  );
+  const [r1, setR1] = useState(cfg0.r1); // kΩ
+  const [r2, setR2] = useState(cfg0.r2); // kΩ
+  const [vout, setVout] = useState(cfg0.voutTyp);
+  const [vrefMin, setVrefMin] = useState(cfg0.vrefMin);
+  const [vrefTyp, setVrefTyp] = useState(cfg0.vrefTyp);
+  const [vrefMax, setVrefMax] = useState(cfg0.vrefMax);
+  const [iadjTyp, setIadjTyp] = useState(cfg0.iadjTyp); // µA
+  const [iadjMax, setIadjMax] = useState(cfg0.iadjMax);
+  const [resTol, setResTol] = useState(cfg0.resTol);
   const [comment, setComment] = useState('');
   // KiCad holds no result object: RegulatorsSolve() writes every cell straight
   // back into its wxTextCtrl and the message into a wxStaticText, and nothing
@@ -185,10 +192,31 @@ export function PanelRegulator(): JSX.Element {
   // all complete silently, which is why the transient "toast" that used to sit
   // beside Calculate is gone.
   const [notice, setNotice] = useState('');
-  const [dataFileName, setDataFileName] = useState('');
+  const [dataFileName, setDataFileName] = useState(cfg0.data_file);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => saveRegulators(store), [store]);
+  useCalcSaveSettings((s) => {
+    s.regulators.resTol = resTol;
+    s.regulators.r1 = r1;
+    s.regulators.r2 = r2;
+    s.regulators.vrefMin = vrefMin;
+    s.regulators.vrefTyp = vrefTyp;
+    s.regulators.vrefMax = vrefMax;
+    // NOT `voutTyp = vout`. PANEL_REGULATOR::SaveSettings writes the setting
+    // INTO the control here — `m_voutTypVal->SetValue( aCfg->m_Regulators.voutTyp )`,
+    // panel_regulator.cpp:585 — where every line around it reads the control
+    // into the setting. So upstream loads Vout and never saves it, and a typed
+    // Vout does not survive the frame closing. Mirrored deliberately; deleting
+    // this comment and assigning `vout` is the one-line fix if it ever stops
+    // being what we want.
+    s.regulators.iadjTyp = iadjTyp;
+    s.regulators.iadjMax = iadjMax;
+    s.regulators.data_file = dataFileName;
+    s.regulators.selected_regulator = store.selected;
+    s.regulators.type = type;
+    s.regulators.last_param = solve;
+    s.regulators.library = store.regulators;
+  });
 
   const current = store.regulators.find((r) => r.name === store.selected) ?? null;
 

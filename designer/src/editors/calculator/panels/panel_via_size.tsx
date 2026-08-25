@@ -92,7 +92,9 @@ export function PanelViaSize(): JSX.Element {
   // PANEL_VIA_SIZE::LoadSettings / SaveSettings, all seventeen of them
   // (panel_via_size.cpp:152-198). The panel's state IS the field text plus the
   // selector index, which is what upstream stores.
-  const [vs, setVs] = useState<PcbCalculatorViaSize>(() => ({ ...settings.pcbCalculator.via_size }));
+  const [vs, setVs] = useState<PcbCalculatorViaSize>(() => ({
+    ...settings.pcbCalculator.via_size,
+  }));
   useCalcSaveSettings((s) => {
     s.via_size = { ...vs };
   });
