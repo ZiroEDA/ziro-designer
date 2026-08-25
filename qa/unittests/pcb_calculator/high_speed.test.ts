@@ -230,7 +230,8 @@ describe('rectangular waveguide', () => {
 describe('stripline', () => {
   it('FR4 b=1.6 mm, w≈0.70 mm is near 50 Ω', () => {
     const r = striplineAnalyze(
-      { widthM: 0.7e-3, heightM: 1.6e-3, thicknessM: 35e-6, lengthM: 0.05 },
+      // Centred: a = (h - t) / 2, which is what this case always meant.
+      { widthM: 0.7e-3, heightM: 1.6e-3, thicknessM: 35e-6, lengthM: 0.05, offsetM: 0.7825e-3 },
       el,
     );
     expect(r.z0).toBeGreaterThan(45);
@@ -240,7 +241,7 @@ describe('stripline', () => {
 
   it('synthesis hits the target', () => {
     const syn = striplineSynthesize(
-      { widthM: 1e-3, heightM: 1.6e-3, thicknessM: 35e-6, lengthM: 0.05 },
+      { widthM: 1e-3, heightM: 1.6e-3, thicknessM: 35e-6, lengthM: 0.05, offsetM: 0.7825e-3 },
       el,
       50,
       90,

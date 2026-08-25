@@ -29,6 +29,7 @@ import {
   type CrossProbingSettings,
 } from '@ziroeda/common/src/cross_probing_settings.js';
 import type { EdaUnits } from '@ziroeda/common/src/eda_units.js';
+import type { RegulatorData } from '@ziroeda/pcb_calculator';
 import { defaultUnits } from '../ui/app_settings_units.js';
 import { DEFAULT_GRID_INDEX } from '../ui/grid_settings.js';
 import {
@@ -687,6 +688,379 @@ export function gridSizeToIU(size: string): number {
   return Math.round(v * 254); // mils
 }
 
+// ----- PCB_CALCULATOR_SETTINGS ----------------------------------------------------
+
+/**
+ * `pcb_calculator.json`, mirroring `PCB_CALCULATOR_SETTINGS`
+ * (pcb_calculator/pcb_calculator_settings.cpp:35-289).
+ *
+ * Upstream registers **83** parameters there, which expand to 106 stored keys:
+ * the four attenuators share one three-parameter template and the eight
+ * transmission lines share one two-map template. The key names and the nesting
+ * below are those parameter paths character for character, including the two
+ * spellings of the same word — `translines.type` for the selected line type and
+ * `trans_line.<Name>.…` for the per-line values — because both are upstream's.
+ *
+ * Every field is loaded when the frame is created and written back when it is
+ * closed (`PCB_CALCULATOR_FRAME::LoadSettings` / `SaveSettings`,
+ * pcb_calculator_frame.cpp:385-419, each delegating to the panel's own
+ * `LoadSettings`/`SaveSettings`). Nothing here is a *preference* in the
+ * Preferences-dialog sense; it is the last thing the user typed, which is why
+ * the strings are stored as strings — see the note on `PcbCalculatorTrackWidth`.
+ */
+
+/** One entry of `m_Attenuators.attenuators` (pcb_calculator_settings.cpp:57-66). */
+export interface PcbCalculatorAttenuator {
+  attenuation: number;
+  zin: number;
+  zout: number;
+}
+
+/**
+ * One line type's saved parameters: keyword -> value, keyword -> unit index.
+ *
+ * Free-form, exactly as upstream's `PARAM_MAP<double>` / `PARAM_MAP<int>` are
+ * (pcb_calculator_settings.cpp:232-236). The keywords are `TRANSLINE_PRM`'s
+ * `m_KeyWord`s and they differ per line type, so this cannot be a fixed shape
+ * — and `deepMerge` would drop every key of one that were, which is why
+ * {@link normalizePcbCalculator} copies these two maps rather than merging them.
+ */
+export interface PcbCalculatorTransLine {
+  values: Record<string, number>;
+  units: Record<string, number>;
+}
+
+/**
+ * The attenuator names upstream stores, in upstream's order
+ * (pcb_calculator_settings.cpp:53-54).
+ */
+export const CALC_ATTENUATOR_NAMES = ['att_pi', 'att_tee', 'att_bridge', 'att_splitter'] as const;
+export type CalcAttenuatorName = (typeof CALC_ATTENUATOR_NAMES)[number];
+
+/**
+ * The transmission-line names upstream stores, in upstream's order
+ * (pcb_calculator_settings.cpp:227-228). There are **eight**, not nine.
+ *
+ * The ninth line type, coupled stripline, has no name of its own: `C_STRIPLINE`
+ * sets `m_Name = "Coupled_MicroStrip"` (transline/c_stripline.cpp:30), the same
+ * string `C_MICROSTRIP` uses (transline/c_microstrip.cpp:30), so the two share
+ * one entry and the later `WriteConfig` in `m_transline_list` order wins
+ * (transline_ident.cpp, `TRANSLINE_IDENT::WriteConfig`). That is upstream's
+ * copy-paste bug and it is mirrored deliberately: this table is the *file
+ * format*, and inventing a ninth key would make ours something a
+ * `pcb_calculator.json` reader has never seen. See `CALC_TRANSLINE_STORE_NAME`.
+ */
+export const CALC_TRANSLINE_NAMES = [
+  'MicroStrip',
+  'CoPlanar',
+  'GrCoPlanar',
+  'RectWaveGuide',
+  'Coax',
+  'Coupled_MicroStrip',
+  'StripLine',
+  'TwistedPair',
+] as const;
+export type CalcTransLineName = (typeof CALC_TRANSLINE_NAMES)[number];
+
+/** `m_Electrical` (pcb_calculator_settings.cpp:68-102). */
+export interface PcbCalculatorElectrical {
+  spacing_units: number;
+  spacing_voltage: string;
+  iec60664_ratedVoltage: number;
+  iec60664_OVC: number;
+  iec60664_RMSvoltage: number;
+  iec60664_transientOV: number;
+  iec60664_peakOV: number;
+  iec60664_insulationType: number;
+  iec60664_pollutionDegree: number;
+  iec60664_materialGroup: number;
+  iec60664_pcbMaterial: number;
+  iec60664_altitude: number;
+}
+
+/** `m_Regulators` (pcb_calculator_settings.cpp:104-138). */
+export interface PcbCalculatorRegulators {
+  resTol: string;
+  r1: string;
+  r2: string;
+  vrefMin: string;
+  vrefTyp: string;
+  vrefMax: string;
+  voutTyp: string;
+  iadjTyp: string;
+  iadjMax: string;
+  data_file: string;
+  selected_regulator: string;
+  type: number;
+  last_param: number;
+  /**
+   * The custom-regulator library.
+   *
+   * ZiroEDA-only, and the one key in this file with no upstream counterpart.
+   * Upstream this is a `.pcbcalc` *file on disk* named by `data_file` and read
+   * by `PANEL_REGULATOR::ReadDataFile` (datafile_read_write.cpp); a browser has
+   * no disk, so the file's contents live here, next to the name that would have
+   * pointed at it. Folding it in rather than leaving it in its own localStorage
+   * key is what makes a user's custom regulators follow their account.
+   */
+  library: RegulatorData[];
+}
+
+/** `m_cableSize` (pcb_calculator_settings.cpp:140-165). */
+export interface PcbCalculatorCableSize {
+  conductorMaterialResitivity: string;
+  conductorTemperature: string;
+  conductorThermalCoef: string;
+  currentDensityChoice: number;
+  diameterUnit: number;
+  linResUnit: number;
+  frequencyUnit: number;
+  lengthUnit: number;
+}
+
+/** `m_wavelength` (pcb_calculator_settings.cpp:167-190). */
+export interface PcbCalculatorWavelength {
+  frequency: number;
+  permeability: number;
+  permittivity: number;
+  frequencyUnit: number;
+  periodUnit: number;
+  wavelengthVacuumUnit: number;
+  wavelengthMediumUnit: number;
+  speedUnit: number;
+}
+
+/**
+ * `m_TrackWidth` (pcb_calculator_settings.cpp:192-225).
+ *
+ * Every value a wxTextCtrl holds is stored as a **string**, not a number, and
+ * the panel's state is that string: `SaveSettings` is
+ * `aCfg->m_TrackWidth.current = m_TrackCurrentValue->GetValue()`
+ * (panel_track_width.cpp). Storing `1.0` as a number and printing it back with
+ * `%g` would show `1`, which is not what the field says.
+ */
+export interface PcbCalculatorTrackWidth {
+  current: string;
+  delta_tc: string;
+  track_len: string;
+  track_len_units: number;
+  resistivity: string;
+  ext_track_width: string;
+  ext_track_width_units: number;
+  ext_track_thickness: string;
+  ext_track_thickness_units: number;
+  int_track_width: string;
+  int_track_width_units: number;
+  int_track_thickness: string;
+  int_track_thickness_units: number;
+}
+
+/** `m_ViaSize` (pcb_calculator_settings.cpp:238-286). */
+export interface PcbCalculatorViaSize {
+  hole_diameter: string;
+  hole_diameter_units: number;
+  thickness: string;
+  thickness_units: number;
+  length: string;
+  length_units: number;
+  pad_diameter: string;
+  pad_diameter_units: number;
+  clearance_diameter: string;
+  clearance_diameter_units: number;
+  characteristic_impedance: string;
+  characteristic_impedance_units: number;
+  applied_current: string;
+  plating_resistivity: string;
+  permittivity: string;
+  temp_rise: string;
+  pulse_rise_time: string;
+}
+
+export interface PcbCalculatorSettings {
+  board_class_units: number;
+  color_code_tolerance: number;
+  last_page: number;
+  /** The selected transmission line type. Spelt plural upstream, unlike
+   *  `trans_line` below (pcb_calculator_settings.cpp:45). */
+  translines: { type: number };
+  attenuators: { type: number } & Record<CalcAttenuatorName, PcbCalculatorAttenuator>;
+  electrical: PcbCalculatorElectrical;
+  regulators: PcbCalculatorRegulators;
+  cable_size: PcbCalculatorCableSize;
+  wavelength: PcbCalculatorWavelength;
+  track_width: PcbCalculatorTrackWidth;
+  trans_line: Record<CalcTransLineName, PcbCalculatorTransLine>;
+  via_size: PcbCalculatorViaSize;
+  corrosion_table: { threshold_voltage: string; show_symbols: boolean };
+}
+
+/** Every attenuator opens on the same three numbers (pcb_calculator_settings.cpp:63-65). */
+const CALC_ATTENUATOR_DEFAULT: PcbCalculatorAttenuator = {
+  attenuation: 6.0,
+  zin: 50.0,
+  zout: 50.0,
+};
+
+export const PCB_CALCULATOR_DEFAULTS: PcbCalculatorSettings = {
+  board_class_units: 0,
+  color_code_tolerance: 0,
+  // Treebook page 1. Page 0 is the "General system design" *group* node, which
+  // `wxTreebook::AddPage( nullptr, … )` counts as a page, so 1 is Regulators
+  // (pcb_calculator_frame.cpp:159-189).
+  last_page: 1,
+  translines: { type: 0 },
+  attenuators: {
+    type: 0,
+    att_pi: { ...CALC_ATTENUATOR_DEFAULT },
+    att_tee: { ...CALC_ATTENUATOR_DEFAULT },
+    att_bridge: { ...CALC_ATTENUATOR_DEFAULT },
+    att_splitter: { ...CALC_ATTENUATOR_DEFAULT },
+  },
+  electrical: {
+    spacing_units: 0,
+    spacing_voltage: '500',
+    iec60664_ratedVoltage: 230,
+    iec60664_OVC: 0,
+    iec60664_RMSvoltage: 230,
+    iec60664_transientOV: 1,
+    iec60664_peakOV: 0.5,
+    iec60664_insulationType: 0,
+    iec60664_pollutionDegree: 0,
+    iec60664_materialGroup: 0,
+    iec60664_pcbMaterial: 1,
+    iec60664_altitude: 2000,
+  },
+  regulators: {
+    // DEFAULT_REGULATOR_* (pcb_calculator_settings.h:32-40). Strings, and the
+    // trailing zeros are load-bearing: the panel opens reading "0.240".
+    resTol: '1',
+    r1: '0.240',
+    r2: '0.720',
+    vrefMin: '1.20',
+    vrefTyp: '1.25',
+    vrefMax: '1.30',
+    voutTyp: '5',
+    iadjTyp: '50',
+    iadjMax: '100',
+    data_file: '',
+    selected_regulator: '',
+    type: 1,
+    last_param: 0,
+    // KiCad ships no regulators: REGULATOR_LIST is empty until the user loads a
+    // data file or presses Add Regulator (panel_regulator.cpp:47, 141).
+    library: [],
+  },
+  cable_size: {
+    // Empty, not "1.72e-8": LoadSettings substitutes the physical defaults when
+    // the stored strings are empty, so a *fresh* config is genuinely blank
+    // (panel_cable_size.cpp, LoadSettings).
+    conductorMaterialResitivity: '',
+    conductorTemperature: '',
+    conductorThermalCoef: '',
+    currentDensityChoice: 0,
+    diameterUnit: 0,
+    linResUnit: 0,
+    frequencyUnit: 0,
+    lengthUnit: 0,
+  },
+  wavelength: {
+    frequency: 1e9,
+    permeability: 1,
+    permittivity: 4.5,
+    frequencyUnit: 0,
+    periodUnit: 0,
+    wavelengthVacuumUnit: 0,
+    wavelengthMediumUnit: 0,
+    speedUnit: 0,
+  },
+  track_width: {
+    current: '1.0',
+    delta_tc: '10.0',
+    track_len: '20',
+    track_len_units: 0,
+    resistivity: '1.72e-8',
+    ext_track_width: '0.2',
+    ext_track_width_units: 0,
+    ext_track_thickness: '35',
+    // 1 is µm in UNIT_SELECTOR_THICKNESS, which is why 35 reads as 35 microns
+    // and not 35 millimetres (pcb_calculator_settings.cpp:211).
+    ext_track_thickness_units: 1,
+    int_track_width: '0.2',
+    int_track_width_units: 0,
+    int_track_thickness: '35',
+    int_track_thickness_units: 1,
+  },
+  // `PARAM_MAP`'s default is `{}` — a fresh config stores nothing per line type
+  // and `TRANSLINE_IDENT::ReadConfig` swallows the missing-key exception, so
+  // every parameter keeps its own `m_DefaultValue` (transline_ident.cpp).
+  trans_line: {
+    MicroStrip: { values: {}, units: {} },
+    CoPlanar: { values: {}, units: {} },
+    GrCoPlanar: { values: {}, units: {} },
+    RectWaveGuide: { values: {}, units: {} },
+    Coax: { values: {}, units: {} },
+    Coupled_MicroStrip: { values: {}, units: {} },
+    StripLine: { values: {}, units: {} },
+    TwistedPair: { values: {}, units: {} },
+  },
+  via_size: {
+    hole_diameter: '0.4',
+    hole_diameter_units: 0,
+    thickness: '0.035',
+    thickness_units: 0,
+    length: '1.6',
+    length_units: 0,
+    pad_diameter: '0.6',
+    pad_diameter_units: 0,
+    clearance_diameter: '1.0',
+    clearance_diameter_units: 0,
+    characteristic_impedance: '50',
+    characteristic_impedance_units: 0,
+    applied_current: '1',
+    plating_resistivity: '1.72e-8',
+    permittivity: '4.5',
+    temp_rise: '10',
+    pulse_rise_time: '1',
+  },
+  corrosion_table: { threshold_voltage: '0', show_symbols: true },
+};
+
+/**
+ * Merge a stored `pcb_calculator.json` over the defaults.
+ *
+ * `deepMerge` alone is wrong here for one reason: `trans_line.*.values` and
+ * `.units` are free-form keyword maps whose defaults are `{}`, and `deepMerge`
+ * keeps only keys the *defaults* already have — so every saved transmission
+ * line parameter would be written on change and silently dropped on reload.
+ * That is exactly the trap `loadFreeForm` exists for on `colors.user`. The rest
+ * of the file has a fixed shape and goes through `deepMerge` as usual.
+ */
+export function normalizePcbCalculator(stored: unknown): PcbCalculatorSettings {
+  const out = deepMerge(structuredClone(PCB_CALCULATOR_DEFAULTS), stored);
+  const tl = (stored as { trans_line?: Record<string, unknown> } | null | undefined)?.trans_line;
+  if (typeof tl === 'object' && tl !== null) {
+    for (const name of CALC_TRANSLINE_NAMES) {
+      const entry = tl[name] as Partial<PcbCalculatorTransLine> | undefined;
+      if (typeof entry !== 'object' || entry === null) continue;
+      out.trans_line[name] = {
+        values: numberMap(entry.values),
+        units: numberMap(entry.units),
+      };
+    }
+  }
+  return out;
+}
+
+/** Keep only the entries of a free-form map that are finite numbers. */
+function numberMap(v: unknown): Record<string, number> {
+  if (typeof v !== 'object' || v === null || Array.isArray(v)) return {};
+  const out: Record<string, number> = {};
+  for (const [k, n] of Object.entries(v as Record<string, unknown>)) {
+    if (typeof n === 'number' && Number.isFinite(n)) out[k] = n;
+  }
+  return out;
+}
+
 // ----- BITMAP2CMP_SETTINGS -----------------------------------------------------
 
 /**
@@ -799,7 +1173,25 @@ export function deepMerge<T>(defaults: T, stored: unknown): T {
  * used the app before, a default that was simply wrong has to be rewritten
  * once, here. KiCad's own SETTINGS_MANAGER migrates stored files the same way.
  */
-export const SETTINGS_VERSION = 3;
+export const SETTINGS_VERSION = 4;
+
+/**
+ * Where the calculator's custom regulators used to live.
+ *
+ * `panel_regulator.tsx` wrote `{ regulators, selected }` here before
+ * `pcb_calculator` was a settings file at all. Version **4** moves both into
+ * the slice — `regulators.library` and `regulators.selected_regulator` — so
+ * they follow the account like everything else. Exported so the migration can
+ * be tested without guessing the string.
+ *
+ * Four, not three, even though this shipped alongside v3's
+ * `migrateBitmap2CmpKey`. A migration needs a version nobody has stamped yet:
+ * anyone who ran a build carrying v3 but not this one already has `3` in
+ * `ziroeda.settings_version`, so a `from < 3` gate would never fire for them
+ * and their custom regulators would be stranded — which is the one thing this
+ * migration exists to prevent.
+ */
+export const LEGACY_REGULATOR_KEY = 'ziro.calculator.regulators';
 
 /**
  * The localStorage key the Image Converter's settings used before they became a
@@ -824,8 +1216,8 @@ export const LEGACY_BITMAP2CMP_KEY = 'ziroeda.bitmap2cmp';
  * to its own path; nothing upstream merges two of them or writes them as one
  * blob. Ours are localStorage keys rather than paths, and the names below are
  * the same basenames: `common.json`, `eeschema.json`, `pcbnew.json`,
- * `pl_editor.json`, `bitmap2component.json`, `colors/user.json`,
- * `user.hotkeys`.
+ * `pl_editor.json`, `pcb_calculator.json`, `bitmap2component.json`,
+ * `colors/user.json`, `user.hotkeys`.
  *
  * This list is also the unit the account sync works in — see
  * `cloud/settingsSync.ts` for why the granularity matters and what it costs.
@@ -839,6 +1231,7 @@ export const SETTINGS_SLICES = [
   'eeschema',
   'pcbnew',
   'pl_editor',
+  'pcb_calculator',
   'bitmap2component',
   'privacy',
   'colors.user',
@@ -907,6 +1300,45 @@ export function migrateSlice(slice: SettingsSlice, value: unknown, from: number)
   return migrateEeschemaSettings(value as EeschemaSettings, from);
 }
 
+/** Whether a value stored under the legacy key can be used as a regulator. */
+function isRegulatorData(v: unknown): v is RegulatorData {
+  if (typeof v !== 'object' || v === null) return false;
+  const r = v as Record<string, unknown>;
+  return (
+    typeof r.name === 'string' &&
+    r.name !== '' &&
+    typeof r.vrefTyp === 'number' &&
+    Number.isFinite(r.vrefTyp)
+  );
+}
+
+/**
+ * Fold the pre-slice regulator store into `pcb_calculator.regulators`.
+ *
+ * Pure and exported so the migration can be tested on its own: a user who added
+ * regulators before this shipped must still have them, which is not something a
+ * "the defaults load" test would ever notice.
+ *
+ * Guarded on the library already being empty, so it cannot overwrite a library
+ * that arrived from the account, and so re-running it is harmless. The legacy
+ * key is deliberately *not* deleted: it costs nothing, and a browser whose
+ * `settings_version` is cleared should be able to recover from it again.
+ */
+export function migrateRegulatorLibrary(legacy: unknown, s: PcbCalculatorSettings): boolean {
+  if (s.regulators.library.length > 0) return false;
+  if (typeof legacy !== 'object' || legacy === null || Array.isArray(legacy)) return false;
+  const l = legacy as { regulators?: unknown; selected?: unknown };
+  if (!Array.isArray(l.regulators)) return false;
+  const kept = l.regulators.filter(isRegulatorData);
+  if (kept.length === 0) return false;
+  s.regulators.library = kept;
+  // `regulators.selected_regulator` is upstream's own key for this
+  // (pcb_calculator_settings.cpp:131-132); the old store spelt it `selected`.
+  if (typeof l.selected === 'string' && s.regulators.selected_regulator === '')
+    s.regulators.selected_regulator = l.selected;
+  return true;
+}
+
 /**
  * Move the Image Converter's stored settings onto their slice's key.
  *
@@ -946,6 +1378,19 @@ function migrateStored(): void {
 
     // v3: `ziroeda.bitmap2cmp` -> `ziroeda.bitmap2component`.
     if (from < 3) migrateBitmap2CmpKey();
+
+    // v4: the calculator's regulator library into `pcb_calculator.regulators`.
+    // Its own version, because a device that has already stamped 3 must still
+    // get this one.
+    if (from < 4) {
+      const legacyRaw = localStorage.getItem(LEGACY_REGULATOR_KEY);
+      if (legacyRaw) {
+        const calcRaw = localStorage.getItem(sliceStorageKey('pcb_calculator'));
+        const calc = normalizePcbCalculator(calcRaw ? JSON.parse(calcRaw) : undefined);
+        if (migrateRegulatorLibrary(JSON.parse(legacyRaw), calc))
+          localStorage.setItem(sliceStorageKey('pcb_calculator'), JSON.stringify(calc));
+      }
+    }
 
     localStorage.setItem(versionKey, String(SETTINGS_VERSION));
   } catch {
@@ -1081,7 +1526,7 @@ function loadStamps(): Record<string, SliceStamp> {
   }
 }
 
-/** Reading and replacing one slice's value, in one table rather than seven. */
+/** Reading and replacing one slice's value, in one table rather than nine. */
 interface SliceIO {
   read(m: SettingsManager): unknown;
   /** Replace the in-memory value with one that came from storage or the account. */
@@ -1111,6 +1556,13 @@ const SLICE_IO: Record<SettingsSlice, SliceIO> = {
     read: (m) => m.plEditor,
     adopt: (m, v) => {
       m.plEditor = deepMerge(structuredClone(PL_EDITOR_DEFAULTS), v);
+    },
+  },
+  pcb_calculator: {
+    read: (m) => m.pcbCalculator,
+    // Not `deepMerge`: the transmission-line keyword maps are free-form.
+    adopt: (m, v) => {
+      m.pcbCalculator = normalizePcbCalculator(v);
     },
   },
   bitmap2component: {
@@ -1150,6 +1602,11 @@ export class SettingsManager {
   pcbnew: PcbnewSettings = load(sliceStorageKey('pcbnew'), PCBNEW_DEFAULTS);
   /** `pl_editor.json`, the Drawing Sheet Editor's own settings file. */
   plEditor: PlEditorSettings = load(sliceStorageKey('pl_editor'), PL_EDITOR_DEFAULTS);
+  /** `pcb_calculator.json` — the Calculator Tools frame's last inputs. */
+  pcbCalculator: PcbCalculatorSettings = loadFreeForm(
+    sliceStorageKey('pcb_calculator'),
+    normalizePcbCalculator,
+  );
   /** `bitmap2component.json`, the Image Converter's own settings file. */
   bitmap2cmp: Bitmap2CmpSettings = load(sliceStorageKey('bitmap2component'), BITMAP2CMP_DEFAULTS);
   privacy: PrivacySettings = load(sliceStorageKey('privacy'), PRIVACY_DEFAULTS);
@@ -1278,6 +1735,20 @@ export class SettingsManager {
     mutate(next);
     this.plEditor = next;
     this.commit('pl_editor', next);
+  }
+
+  /**
+   * `PCB_CALCULATOR_FRAME::SaveSettings`, one panel's worth at a time.
+   *
+   * Upstream writes the whole file once, when the frame closes
+   * (pcb_calculator_frame.cpp:401-419). Ours is called from a debounce in
+   * `editors/calculator/calc_settings.ts` for the reason that file gives.
+   */
+  updatePcbCalculator(mutate: (s: PcbCalculatorSettings) => void): void {
+    const next = structuredClone(this.pcbCalculator);
+    mutate(next);
+    this.pcbCalculator = next;
+    this.commit('pcb_calculator', next);
   }
 
   updateBitmap2Cmp(mutate: (s: Bitmap2CmpSettings) => void): void {

@@ -32,43 +32,25 @@ import {
 } from '@ziroeda/pcb_calculator';
 import { Combo } from '../../../ui/Combo.js';
 import { SingleChoiceDialog } from '../../../ui/dialog_single_choice.js';
-import { type UnitOpt, parseNum } from '../fields.js';
+import {
+  CABLE_LEN_UNITS,
+  FREQ_UNITS,
+  LEN_UNITS,
+  LIN_RES_UNITS,
+  POWER_UNITS,
+  type UnitOpt,
+  VOLTAGE_UNITS,
+  parseNum,
+} from '../fields.js';
+import { useCalcSaveSettings } from '../calc_settings.js';
+import { settings } from '../../../prefs/settings.js';
 
-// Unit selectors, as in KiCad's UNIT_SELECTOR widgets (unit_selector.cpp).
-const DIA_UNITS: UnitOpt[] = [
-  { label: 'mm', mult: 1e-3 },
-  { label: 'µm', mult: 1e-6 },
-  { label: 'cm', mult: 1e-2 },
-  { label: 'mil', mult: 25.4e-6 },
-  { label: 'inch', mult: 25.4e-3 },
-];
-const LINR_UNITS: UnitOpt[] = [
-  { label: 'Ω/m', mult: 1 },
-  { label: 'Ω/km', mult: 1e-3 },
-  { label: 'Ω/ft', mult: 1 / 0.3048 },
-  { label: 'Ω/1000ft', mult: 1e-3 / 0.3048 },
-];
-const FREQ_UNITS: UnitOpt[] = [
-  { label: 'GHz', mult: 1e9 },
-  { label: 'MHz', mult: 1e6 },
-  { label: 'kHz', mult: 1e3 },
-  { label: 'Hz', mult: 1 },
-];
-const CABLE_LEN_UNITS: UnitOpt[] = [
-  { label: 'cm', mult: 1e-2 },
-  { label: 'm', mult: 1 },
-  { label: 'km', mult: 1e3 },
-  { label: 'inch', mult: 25.4e-3 },
-  { label: 'feet', mult: 0.3048 },
-];
-const VDROP_UNITS: UnitOpt[] = [
-  { label: 'mV', mult: 1e-3 },
-  { label: 'V', mult: 1 },
-];
-const POWER_UNITS: UnitOpt[] = [
-  { label: 'mW', mult: 1e-3 },
-  { label: 'W', mult: 1 },
-];
+// The six UNIT_SELECTORs this page carries all come from `fields.tsx` now.
+// They used to be six local copies, and one of them had drifted: `DIA_UNITS`
+// spelt the micron `µm` where UNIT_SELECTOR_LEN says `um` with an ASCII u
+// (unit_selector.cpp:35). Upstream has ONE UNIT_SELECTOR_LEN class that all
+// nineteen of its LEN sites share, which is exactly why upstream cannot have
+// that bug and we did.
 
 interface LinkedRowProps {
   label: string;
@@ -133,29 +115,59 @@ export function PanelCableSize(): JSX.Element {
   const TIP_LENGTH = 'Length includes the return path';
   const TIP_RESDC = 'DC Resistance of the conductor';
 
+  // PANEL_CABLE_SIZE::LoadSettings / SaveSettings — eight keys
+  // (panel_cable_size.cpp). Everything else on the page (the radius, the AWG
+  // choice, the current, the length and the two output selectors) is NOT
+  // persisted upstream and is not persisted here either.
+  const cfg0 = settings.pcbCalculator.cable_size;
+
   // Central model state, as in KiCad: the wire radius plus the plain inputs.
   const [radiusM, setRadiusM] = useState(0.0005); // 1 mm diameter
   const [awgSel, setAwgSel] = useState(-1);
-  // [px] the real fields read `1.72e-08` and `3.93e-3` — the first is written by
-  // `%g`, the second is the pick-list's own string.
-  const [rho20Text, setRho20Text] = useState(printfG(1.72e-8));
-  const [alphaText, setAlphaText] = useState('3.93e-3');
-  const [temp, setTemp] = useState('20');
-  const [density, setDensity] = useState(3);
+  // The stored strings default to EMPTY, and LoadSettings substitutes the
+  // physical values when it finds them so — with the resistivity written as the
+  // literal "1.72e-8", not through `%g` (panel_cable_size.cpp, LoadSettings).
+  // After one session the saved value comes back as `%g` of the number, which
+  // is "1.72e-08"; that difference is upstream's and is why the field reads one
+  // thing on a fresh install and another afterwards.
+  const [rho20Text, setRho20Text] = useState(() => cfg0.conductorMaterialResitivity || '1.72e-8');
+  const [alphaText, setAlphaText] = useState(() => cfg0.conductorThermalCoef || '3.93e-3');
+  const [temp, setTemp] = useState(() => cfg0.conductorTemperature || '20');
+  // `m_slCurrentDensity` runs 3..12 and LoadSettings clamps an out-of-range
+  // stored value back to AMP_DENSITY_BY_MM2 = 3 (panel_cable_size.cpp:33,
+  // 166-176; the slider's range is panel_cable_size_base.cpp:153).
+  const [density, setDensity] = useState(() =>
+    cfg0.currentDensityChoice >= 3 && cfg0.currentDensityChoice <= 12
+      ? cfg0.currentDensityChoice
+      : 3,
+  );
   const [current, setCurrent] = useState('1');
   // Every UNIT_SELECTOR on this page opens on index 0
   // (panel_cable_size_base.cpp:55,123,135,212,237,249): mm, Ω/m, GHz, cm, mV,
   // mW — and the length default is 100 cm, not 1 m.
   const [lengthText, setLengthText] = useState('100');
-  const [lengthUnit, setLengthUnit] = useState(0); // cm
+  const [lengthUnit, setLengthUnit] = useState(() => cfg0.lengthUnit);
   const [editing, setEditing] = useState<{ field: string; text: string } | null>(null);
 
-  const [diaUnit, setDiaUnit] = useState(0);
-  const [linRUnit, setLinRUnit] = useState(0);
-  const [freqUnit, setFreqUnit] = useState(0); // GHz
+  const [diaUnit, setDiaUnit] = useState(() => cfg0.diameterUnit);
+  const [linRUnit, setLinRUnit] = useState(() => cfg0.linResUnit);
+  const [freqUnit, setFreqUnit] = useState(() => cfg0.frequencyUnit);
   const [vdropUnit, setVdropUnit] = useState(0); // mV
   const [powerUnit, setPowerUnit] = useState(0); // mW
   const [picking, setPicking] = useState<'rho' | 'alpha' | null>(null);
+
+  useCalcSaveSettings((s) => {
+    // `wxString( "" ) << m_conductorMaterialResitivityRef` — the *number* the
+    // model holds, through `%g`, not the control's text.
+    s.cable_size.conductorMaterialResitivity = printfG(parseNum(rho20Text));
+    s.cable_size.conductorTemperature = temp;
+    s.cable_size.conductorThermalCoef = alphaText;
+    s.cable_size.currentDensityChoice = density;
+    s.cable_size.diameterUnit = diaUnit;
+    s.cable_size.linResUnit = linRUnit;
+    s.cable_size.frequencyUnit = freqUnit;
+    s.cable_size.lengthUnit = lengthUnit;
+  });
 
   const params: CableParams = {
     rho20: parseNum(rho20Text),
@@ -232,7 +244,7 @@ export function PanelCableSize(): JSX.Element {
               onChange={(v) => pickAwg(Number(v))}
             />
           </div>
-          {linked('Diameter:', 'dia', s?.diameterM ?? NaN, DIA_UNITS, diaUnit, setDiaUnit, (v) =>
+          {linked('Diameter:', 'dia', s?.diameterM ?? NaN, LEN_UNITS, diaUnit, setDiaUnit, (v) =>
             commitRadius(cableRadiusFromDiameter(v)),
           )}
           {linked(
@@ -296,7 +308,7 @@ export function PanelCableSize(): JSX.Element {
             'Linear resistance:',
             'linr',
             s?.linearResistance ?? NaN,
-            LINR_UNITS,
+            LIN_RES_UNITS,
             linRUnit,
             setLinRUnit,
             (v) => commitRadius(cableRadiusFromLinResistance(v, rhoHot)),
@@ -401,7 +413,7 @@ export function PanelCableSize(): JSX.Element {
             'Voltage drop:',
             'vdrop',
             s?.voltageDropV ?? NaN,
-            VDROP_UNITS,
+            VOLTAGE_UNITS,
             vdropUnit,
             setVdropUnit,
             (v) => commitRadius(cableRadiusFromVDrop(v, rhoHot, params.lengthM, params.currentA)),

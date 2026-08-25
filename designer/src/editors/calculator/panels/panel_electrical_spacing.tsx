@@ -24,27 +24,36 @@ import {
   ratedImpulseWithstandVoltageV,
 } from '@ziroeda/pcb_calculator';
 import { Combo } from '../../../ui/Combo.js';
-import { Field, Group, fmt, parseNum } from '../fields.js';
+import { Field, Group, LEN_UNITS, fmt, parseNum } from '../fields.js';
+import { useCalcSaveSettings } from '../calc_settings.js';
+import { CALC_ART_SIZE } from '../art_sizes.js';
+import { settings } from '../../../prefs/settings.js';
 
-// UNIT_SELECTOR_LEN (widgets/unit_selector.cpp:29-39): five entries, in this
-// order, and the label really is "um" — the `en` catalogue leaves it alone
-// (translation/pofiles/en.po), unlike UNIT_SELECTOR_THICKNESS which says "µm".
-// GetUnitScale returns metres per unit (lines 47-58).
-const SPACING_UNITS: readonly { label: string; scale: number }[] = [
-  { label: 'mm', scale: 1e-3 },
-  { label: 'um', scale: 1e-6 },
-  { label: 'cm', scale: 1e-2 },
-  { label: 'mil', scale: 25.4e-6 },
-  { label: 'inch', scale: 25.4e-3 },
-];
+/** `DoubleFromString` on a field that will not parse yields 0, and that is what
+ *  `SaveSettings` then stores (panel_electrical_spacing_iec60664.cpp). */
+const num = (t: string): number => (Number.isFinite(parseNum(t)) ? parseNum(t) : 0);
+
+/** A stored wxChoice selection, clamped to a list this build actually has. */
+const pickIdx = <T,>(list: readonly { v: T }[], idx: number, fallback: T): T =>
+  list[idx]?.v ?? fallback;
 
 function PanelIpc2221(): JSX.Element {
-  // pcb_calculator_settings.cpp:66-70 — unit index 0 (mm), voltage "500".
-  const [unitIdx, setUnitIdx] = useState(0);
-  const [voltage, setVoltage] = useState('500');
-  const [shownVoltage, setShownVoltage] = useState(500);
+  // PANEL_ELECTRICAL_SPACING_IPC2221::LoadSettings / SaveSettings —
+  // `electrical.spacing_units` and `electrical.spacing_voltage`, defaults 0 and
+  // "500" (pcb_calculator_settings.cpp:68-72).
+  const [unitIdx, setUnitIdx] = useState(() => settings.pcbCalculator.electrical.spacing_units);
+  const [voltage, setVoltage] = useState(() => settings.pcbCalculator.electrical.spacing_voltage);
+  // LoadSettings ends in ElectricalSpacingUpdateData, so the table is filled
+  // from the stored voltage under the same >= 500 clamp a typed one gets.
+  const [shownVoltage, setShownVoltage] = useState(() =>
+    Math.max(500, num(settings.pcbCalculator.electrical.spacing_voltage)),
+  );
+  useCalcSaveSettings((s) => {
+    s.electrical.spacing_units = unitIdx;
+    s.electrical.spacing_voltage = voltage;
+  });
 
-  const scale = SPACING_UNITS[unitIdx]?.scale ?? 1e-3;
+  const scale = LEN_UNITS[unitIdx]?.mult ?? 1e-3;
 
   // ElectricalSpacingUpdateData (panel_electrical_spacing_ipc2221.cpp:161-196):
   // an empty field means 500, anything under 500 is clamped to 500, and the
@@ -78,7 +87,7 @@ function PanelIpc2221(): JSX.Element {
         <Combo
           ariaLabel="Unit"
           value={String(unitIdx)}
-          options={SPACING_UNITS.map((u, i) => ({ value: String(i), label: u.label }))}
+          options={LEN_UNITS.map((u, i) => ({ value: String(i), label: u.label }))}
           onChange={(v) => setUnitIdx(Number(v))}
         />
         <hr className="calc-hr" />
@@ -249,8 +258,8 @@ function CreepageDrawing(): JSX.Element {
         className="calc-art"
         src={ES_ART['../../../assets/calculator/creepage_clearance.svg']}
         alt=""
-        width={227}
-        height={166}
+        width={CALC_ART_SIZE.creepage_clearance?.[0]}
+        height={CALC_ART_SIZE.creepage_clearance?.[1]}
       />
       <div className="es-iec-legend">
         solid: clearance
@@ -262,17 +271,56 @@ function CreepageDrawing(): JSX.Element {
 }
 
 function PanelIec60664(): JSX.Element {
-  // pcb_calculator_settings.cpp:73-101, every one of them.
-  const [ratedVoltage, setRatedVoltage] = useState('230');
-  const [ovc, setOvc] = useState<OvervoltageCategory>(1);
-  const [rms, setRms] = useState('230');
-  const [transient, setTransient] = useState('1');
-  const [peak, setPeak] = useState('0.5');
-  const [insul, setInsul] = useState<InsulationType>('functional');
-  const [pd, setPd] = useState<PollutionDegree>(1);
-  const [mg, setMg] = useState<MaterialGroup>('I');
-  const [pcb, setPcb] = useState(true);
-  const [altitude, setAltitude] = useState('2000');
+  // PANEL_ELECTRICAL_SPACING_IEC60664::LoadSettings / SaveSettings — all eleven
+  // (panel_electrical_spacing_iec60664.cpp). The five voltages are stored as
+  // DOUBLES, not as the field text: SaveSettings runs each through
+  // `DoubleFromString` and LoadSettings writes it back with `wxString("") << d`,
+  // which is `%g`. So "230.0" comes back as "230", and that is upstream.
+  const [ratedVoltage, setRatedVoltage] = useState(() =>
+    printfG(settings.pcbCalculator.electrical.iec60664_ratedVoltage),
+  );
+  const [ovc, setOvc] = useState<OvervoltageCategory>(() =>
+    pickIdx(OVC, settings.pcbCalculator.electrical.iec60664_OVC, 1),
+  );
+  const [rms, setRms] = useState(() =>
+    printfG(settings.pcbCalculator.electrical.iec60664_RMSvoltage),
+  );
+  const [transient, setTransient] = useState(() =>
+    printfG(settings.pcbCalculator.electrical.iec60664_transientOV),
+  );
+  const [peak, setPeak] = useState(() =>
+    printfG(settings.pcbCalculator.electrical.iec60664_peakOV),
+  );
+  const [insul, setInsul] = useState<InsulationType>(() =>
+    pickIdx(INSUL, settings.pcbCalculator.electrical.iec60664_insulationType, 'functional'),
+  );
+  const [pd, setPd] = useState<PollutionDegree>(() =>
+    pickIdx(PD, settings.pcbCalculator.electrical.iec60664_pollutionDegree, 1),
+  );
+  const [mg, setMg] = useState<MaterialGroup>(() =>
+    pickIdx(MG, settings.pcbCalculator.electrical.iec60664_materialGroup, 'I'),
+  );
+  // `m_pcbMaterial->GetValue() ? 1 : 0` — an int, not a bool
+  // (pcb_calculator_settings.cpp:97-98, default 1).
+  const [pcb, setPcb] = useState(
+    () => settings.pcbCalculator.electrical.iec60664_pcbMaterial !== 0,
+  );
+  const [altitude, setAltitude] = useState(() =>
+    printfG(settings.pcbCalculator.electrical.iec60664_altitude),
+  );
+
+  useCalcSaveSettings((s) => {
+    s.electrical.iec60664_ratedVoltage = num(ratedVoltage);
+    s.electrical.iec60664_RMSvoltage = num(rms);
+    s.electrical.iec60664_transientOV = num(transient);
+    s.electrical.iec60664_peakOV = num(peak);
+    s.electrical.iec60664_altitude = num(altitude);
+    s.electrical.iec60664_OVC = OVC.findIndex((o) => o.v === ovc);
+    s.electrical.iec60664_insulationType = INSUL.findIndex((o) => o.v === insul);
+    s.electrical.iec60664_pollutionDegree = PD.findIndex((o) => o.v === pd);
+    s.electrical.iec60664_materialGroup = MG.findIndex((o) => o.v === mg);
+    s.electrical.iec60664_pcbMaterial = pcb ? 1 : 0;
+  });
 
   const impulseKv = useMemo(() => {
     const r = ratedImpulseWithstandVoltageV(parseNum(ratedVoltage), ovc);
@@ -471,7 +519,18 @@ export function PanelElectricalSpacing(): JSX.Element {
           IEC 60664
         </button>
       </div>
-      {tab === 'ipc' ? <PanelIpc2221 /> : <PanelIec60664 />}
+      {/* A wxNotebook builds BOTH pages when the panel is created and shows
+          one at a time, and PANEL_ELECTRICAL_SPACING::LoadSettings/SaveSettings
+          walk `GetPage( 0 )` and `GetPage( 1 )` unconditionally
+          (panel_electrical_spacing.cpp). Rendering only the selected tab
+          unmounted the other one, which reset it and — now that these values
+          persist — meant the hidden page saved nothing at all. */}
+      <div hidden={tab !== 'ipc'} className="calc-page">
+        <PanelIpc2221 />
+      </div>
+      <div hidden={tab !== 'iec'} className="calc-page">
+        <PanelIec60664 />
+      </div>
     </div>
   );
 }

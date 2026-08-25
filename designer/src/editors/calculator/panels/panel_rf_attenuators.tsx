@@ -9,6 +9,22 @@
 import { useMemo, useState, type JSX } from 'react';
 import { ATTENUATORS, AttenuatorType, calculateAttenuator, printfG } from '@ziroeda/pcb_calculator';
 import { Field, Group, parseNum } from '../fields.js';
+import { useCalcSaveSettings } from '../calc_settings.js';
+import { CALC_ART_SIZE } from '../art_sizes.js';
+import {
+  CALC_ATTENUATOR_NAMES,
+  settings,
+  type CalcAttenuatorName,
+  type PcbCalculatorAttenuator,
+} from '../../../prefs/settings.js';
+
+/**
+ * The radio selection is `attenuators.type` and it indexes this list, which is
+ * `m_AttenuatorList`'s order (panel_rf_attenuators.cpp) — the same order
+ * `CALC_ATTENUATOR_NAMES` gives, so the name is just the index.
+ */
+const attName = (t: AttenuatorType): CalcAttenuatorName =>
+  CALC_ATTENUATOR_NAMES[t] ?? CALC_ATTENUATOR_NAMES[0];
 
 // KiCad's own dark-theme artwork (GPL), vendored under assets/.
 const ATT_ART = import.meta.glob('../../../assets/calculator/*.svg', {
@@ -23,15 +39,16 @@ const ATT_ART = import.meta.glob('../../../assets/calculator/*.svg', {
  * at the size the PNG has. Ours was a redrawing missing the Zin / Zout
  * terminals and their labels entirely.
  */
-const ATT_ART_NAME: Record<AttenuatorType, [string, number, number]> = {
-  [AttenuatorType.PI]: ['att_pi', 287, 159],
-  [AttenuatorType.TEE]: ['att_tee', 280, 147],
-  [AttenuatorType.BRIDGED_TEE]: ['att_bridge', 287, 257],
-  [AttenuatorType.SPLITTER]: ['att_splitter', 295, 121],
+const ATT_ART_NAME: Record<AttenuatorType, string> = {
+  [AttenuatorType.PI]: 'att_pi',
+  [AttenuatorType.TEE]: 'att_tee',
+  [AttenuatorType.BRIDGED_TEE]: 'att_bridge',
+  [AttenuatorType.SPLITTER]: 'att_splitter',
 };
 
 function AttenuatorDrawing({ type }: { type: AttenuatorType }): JSX.Element {
-  const [name, w, h] = ATT_ART_NAME[type];
+  const name = ATT_ART_NAME[type];
+  const [w, h] = CALC_ART_SIZE[name] ?? [0, 0];
   return (
     <img
       className="calc-art"
@@ -196,10 +213,43 @@ function AttenuatorFormula({ type }: { type: AttenuatorType }): JSX.Element {
 }
 
 export function PanelRfAttenuators(): JSX.Element {
-  const [type, setType] = useState<AttenuatorType>(AttenuatorType.PI);
-  const [atten, setAtten] = useState('6');
-  const [zin, setZin] = useState('50');
-  const [zout, setZout] = useState('50');
+  /**
+   * PANEL_RF_ATTENUATORS::LoadSettings / SaveSettings.
+   *
+   * Each ATTENUATOR keeps its OWN attenuation / Zin / Zout and reads and writes
+   * them itself (`ATTENUATOR::ReadConfig` / `WriteConfig`,
+   * attenuators/attenuator_classes.cpp:64-84), so switching topology restores
+   * that topology's three numbers rather than carrying the current ones over
+   * (`SetAttenuator` → `TransfAttenuatorDataToPanel`, panel_rf_attenuators.cpp).
+   *
+   * The stored numbers are only updated by `TransfPanelDataToAttenuator`, which
+   * runs on **Calculate** — `SaveSettings` does not read the controls, unlike
+   * PANEL_TRANSLINE's, which calls its transfer first (panel_transline.cpp:72-74).
+   * So a value typed and not calculated does not survive the frame closing.
+   * That is upstream's behaviour and it is mirrored here rather than improved.
+   */
+  const [store, setStore] = useState<Record<CalcAttenuatorName, PcbCalculatorAttenuator>>(() => {
+    const a = settings.pcbCalculator.attenuators;
+    return {
+      att_pi: { ...a.att_pi },
+      att_tee: { ...a.att_tee },
+      att_bridge: { ...a.att_bridge },
+      att_splitter: { ...a.att_splitter },
+    };
+  });
+  const [type, setType] = useState<AttenuatorType>(() => {
+    const t = settings.pcbCalculator.attenuators.type;
+    return (ATTENUATORS[t]?.type ?? AttenuatorType.PI) as AttenuatorType;
+  });
+  // `msg.Printf( "%g", … )` into each of the three fields.
+  const [atten, setAtten] = useState(() => printfG(store[attName(type)].attenuation));
+  const [zin, setZin] = useState(() => printfG(store[attName(type)].zin));
+  const [zout, setZout] = useState(() => printfG(store[attName(type)].zout));
+
+  useCalcSaveSettings((s) => {
+    s.attenuators.type = type;
+    for (const name of CALC_ATTENUATOR_NAMES) s.attenuators[name] = { ...store[name] };
+  });
 
   const info = ATTENUATORS[type] ?? ATTENUATORS[0]!;
   const r = useMemo(
@@ -217,7 +267,20 @@ export function PanelRfAttenuators(): JSX.Element {
   // the LAST press produced, and changing a parameter does not update it
   // (panel_rf_attenuators.cpp:211-245). Ours recomputed live.
   const [shown, setShown] = useState<ReturnType<typeof calculateAttenuator> | null>(null);
-  const calculate = (): void => setShown(r);
+  const calculate = (): void => {
+    // TransfPanelDataToAttenuator, then Calculate (panel_rf_attenuators.cpp).
+    // The transfer is what makes the three numbers persistable, and it happens
+    // here and nowhere else.
+    setStore((prev) => ({
+      ...prev,
+      [attName(type)]: {
+        attenuation: parseNum(atten) || 0,
+        zin: parseNum(zin) || 0,
+        zout: parseNum(zout) || 0,
+      },
+    }));
+    setShown(r);
+  };
 
   return (
     <div className="rf-panel">
@@ -233,7 +296,14 @@ export function PanelRfAttenuators(): JSX.Element {
                   name="att-type"
                   checked={type === a.type}
                   onChange={() => {
+                    // SetAttenuator: the new topology's own three numbers go
+                    // into the fields and the three results are blanked
+                    // (panel_rf_attenuators.cpp).
+                    const next = store[attName(a.type)];
                     setType(a.type);
+                    setAtten(printfG(next.attenuation));
+                    setZin(printfG(next.zin));
+                    setZout(printfG(next.zout));
                     setShown(null);
                   }}
                 />
@@ -248,11 +318,18 @@ export function PanelRfAttenuators(): JSX.Element {
             the units spilling out at 866..878, into the Formula pane. */}
         <div className="calc-col rf-mid">
           <Group title="Parameters" className="calc-grid3 rf-box">
+            {/* `msg.Printf( "%g", m_Attenuation ); SetValue( msg ); Enable(
+                m_Attenuation_Enable )` — the splitter's field is DISABLED but
+                still shows that attenuator's own number, which is 6 only until
+                someone changes it (panel_rf_attenuators.cpp). Ours printed a
+                literal "6" there. Zin, by contrast, really is cleared when it
+                is disabled: `msg.Clear()`. */}
             <Field
               label="Attenuation (a):"
-              value={info.hasAttenuation ? atten : '6'}
+              value={atten}
               onChange={info.hasAttenuation ? setAtten : undefined}
               readOnly={!info.hasAttenuation}
+              disabled={!info.hasAttenuation}
               unit="dB"
             />
             <Field

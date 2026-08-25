@@ -100,6 +100,42 @@ It also prints how many `GtkTreeView`s the dialog contains, because the mistake
 that started this was `next(w for w in ws if isinstance(w, Gtk.TreeView))`
 picking one by position rather than by identity.
 
+## `eseries_grid_probe.cpp`
+
+`PANEL_ESERIES_DISPLAY` paints its grid rules with
+`parent->GetBackgroundColour()` (panel_eseries_display.cpp:73-84), where the
+parent is the frame's `wxTreebook`. That is a value GTK decides, and our CSS
+had asserted it without a measurement — `--chrome-bg2`, documented as
+`wxSYS_COLOUR_WINDOW`, was the plausible alternative. The probe builds the
+wxTreebook and asks it:
+
+    treebook GetBackgroundColour       rgb(44, 44, 44)  #2C2C2C
+    wxSYS_COLOUR_WINDOW                rgb(39, 39, 39)  #272727
+    wxGrid default label bg            rgb(55, 55, 55)  #373737
+
+so `--chrome-bg` was right and is now measured rather than inferred, and the
+stripe-gap columns' `GetLabelBackgroundColour()` is confirmed as `--ctl-face`.
+
+## `stripline_oracle.cpp` — an engine oracle, not a widget one
+
+The odd one out. It builds no widget and asks GTK nothing; it exists because
+KiCad 10.0.5 ships no `test_stripline.cpp` and our stripline port had no direct
+expectations at all, only the coupled-stripline vectors reaching it sideways.
+
+Its two function bodies are KiCad's own source text, copied verbatim from
+`common/transline_calculations/stripline.cpp` (`Analyse`, `lineImpedance`) and
+`transline_calculation_base.cpp:147-159` (`SkinDepth`, `UnitPropagationDelay`),
+with `GetParameter( TCP::X )` rewritten as a plain double. Nothing else is
+changed. So what it prints is C++'s arithmetic, compiled by this machine's
+compiler — an oracle the TypeScript under test cannot have influenced, which is
+the whole reason it is worth having:
+
+    g++ -O2 -o stripline_oracle stripline_oracle.cpp && ./stripline_oracle
+
+The rows go straight into `qa/unittests/pcb_calculator/stripline_oracle.test.ts`.
+The same trick is available for any of the other transline models, all of which
+are similarly self-contained.
+
 ## Writing a new one
 
 Copy either file. The pattern is `wxEntryStart`, `CallOnInit`, build the widget

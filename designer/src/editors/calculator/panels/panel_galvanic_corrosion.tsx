@@ -20,6 +20,8 @@ import {
   corrosionInk,
   corrosionSignedDeltaV,
 } from '@ziroeda/pcb_calculator';
+import { useCalcSaveSettings } from '../calc_settings.js';
+import { settings } from '../../../prefs/settings.js';
 import { parseNum } from '../fields.js';
 
 /**
@@ -34,9 +36,19 @@ function cellStyle(diffV: number, thresholdMv: number): { background: string; co
 }
 
 export function PanelGalvanicCorrosion(): JSX.Element {
-  // pcb_calculator_settings.cpp:292 — the threshold defaults to "0".
-  const [threshold, setThreshold] = useState('0');
-  const [symbolic, setSymbolic] = useState(true);
+  // PANEL_GALVANIC_CORROSION::LoadSettings / SaveSettings —
+  // `m_CorrosionTable.threshold_voltage` (a string, default "0") and
+  // `.show_symbols` (panel_galvanic_corrosion.cpp).
+  const [threshold, setThreshold] = useState(
+    () => settings.pcbCalculator.corrosion_table.threshold_voltage,
+  );
+  const [symbolic, setSymbolic] = useState(
+    () => settings.pcbCalculator.corrosion_table.show_symbols,
+  );
+  useCalcSaveSettings((s) => {
+    s.corrosion_table.threshold_voltage = threshold;
+    s.corrosion_table.show_symbols = symbolic;
+  });
   const thresholdMv = Number.isFinite(parseNum(threshold)) ? parseNum(threshold) : 0;
   const label = (m: (typeof CORROSION_METALS)[number]): string => (symbolic ? m.symbol : m.name);
 

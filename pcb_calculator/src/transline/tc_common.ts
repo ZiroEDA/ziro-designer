@@ -11,7 +11,15 @@
 export const MU0 = 12.566370614e-7; // magnetic constant, H/m
 export const E0 = 8.854e-12; // permittivity of free space, F/m
 export const C0 = 299792458.0; // speed of light, m/s
-export const ZF0 = 376.730313412; // free-space wave impedance, Ω
+// [data] `constexpr double ZF0 = 376.730313668` — the wave resistance in
+// vacuum, and upstream's own comment points at where it came from:
+// https://physics.nist.gov/cgi-bin/cuu/Value?z0
+// (include/transline_calculations/units.h:64,70-71). We were carrying
+// 376.730313412, the pre-2018 CODATA figure KiCad used to have, which put
+// every transmission-line impedance out by 6.8e-10 relative — invisible in
+// the panel, and exactly the size of the gap between our stripline and the
+// C++ when they were finally compared digit for digit.
+export const ZF0 = 376.730313668; // free-space wave impedance, Ω
 export const LOG2DB = 20.0 / Math.log(10); // Nepers → dB (≈ 8.68589)
 export const UNIT_MICRON = 1e-6;
 

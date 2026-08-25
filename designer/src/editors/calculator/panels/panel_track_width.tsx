@@ -19,7 +19,18 @@ import {
   printfG,
   trackWidth,
 } from '@ziroeda/pcb_calculator';
-import { Field, Group, LEN_UNITS, NumField, ResultField, THICK_UNITS } from '../fields.js';
+import {
+  Field,
+  Group,
+  LEN_UNITS,
+  NumField,
+  parseNum,
+  ResultField,
+  THICK_UNITS,
+  type UnitOpt,
+} from '../fields.js';
+import { useCalcSaveSettings } from '../calc_settings.js';
+import { settings, type PcbCalculatorTrackWidth } from '../../../prefs/settings.js';
 
 /** Which of the three inputs is driving the other two. */
 type Controlling = 'current' | 'ext' | 'int';
@@ -27,34 +38,65 @@ type Controlling = 'current' | 'ext' | 'int';
 const g = (v: number | undefined | null): string =>
   typeof v === 'number' && Number.isFinite(v) ? printfG(v) : '';
 
+/** The field's number times its selector's scale — KiCad's `GetUnitScale()`. */
+const si = (text: string, units: UnitOpt[], idx: number): number =>
+  parseNum(text) * (units[idx]?.mult ?? 1);
+
+/**
+ * `OnTWResetButtonClick` (panel_track_width.cpp:237-258).
+ *
+ * The two thicknesses go back to 35 at selector index **1** — µm, the second
+ * entry of `UNIT_SELECTOR_THICKNESS` — and both widths to 0.2 mm. Current is
+ * set last, which is what makes Current the controlling value again.
+ * `m_TWResistivity` is rewritten too even though it is disabled, and the panel
+ * saves whatever it then holds.
+ */
+const TRACK_WIDTH_RESET: PcbCalculatorTrackWidth = {
+  current: printfG(1.0),
+  delta_tc: printfG(10.0),
+  track_len: printfG(20.0),
+  track_len_units: 0,
+  resistivity: printfG(COPPER_RESISTIVITY_OHM_M),
+  ext_track_width: printfG(0.2),
+  ext_track_width_units: 0,
+  ext_track_thickness: printfG(35.0),
+  ext_track_thickness_units: 1,
+  int_track_width: printfG(0.2),
+  int_track_width_units: 0,
+  int_track_thickness: printfG(35.0),
+  int_track_thickness_units: 1,
+};
+
 export function PanelTrackWidth(): JSX.Element {
-  // pcb_calculator_settings.cpp:184-220 — "1.0", "10.0", "20" mm, 35 µm both.
-  const [current, setCurrent] = useState('1.0');
-  const [deltaT, setDeltaT] = useState('10.0');
-  const [lengthM, setLengthM] = useState(20e-3);
-  const [extThicknessM, setExtThicknessM] = useState(35e-6);
-  const [intThicknessM, setIntThicknessM] = useState(35e-6);
-  const [extWidthM, setExtWidthM] = useState(0.2e-3);
-  const [intWidthM, setIntWidthM] = useState(0.2e-3);
+  // PANEL_TRACK_WIDTH::LoadSettings / SaveSettings (panel_track_width.cpp).
+  const [tw, setTw] = useState<PcbCalculatorTrackWidth>(() => ({
+    ...settings.pcbCalculator.track_width,
+  }));
+  const set = <K extends keyof PcbCalculatorTrackWidth>(
+    k: K,
+    v: PcbCalculatorTrackWidth[K],
+  ): void => setTw((p) => ({ ...p, [k]: v }));
+  // `m_TWMode` starts at TW_MASTER_CURRENT (panel_track_width.cpp:52) and is
+  // not persisted, so a reopened panel is always driven by the current — and
+  // the stored widths are immediately overwritten by the calculation unless the
+  // user makes one of them the master again.
   const [controlling, setControlling] = useState<Controlling>('current');
 
-  // PANEL_TRACK_WIDTH::OnTWResetButtonClick (panel_track_width.cpp:237-258).
-  // Note it resets the two thicknesses to 35 with unit index 1 — µm — and both
-  // widths to 0.2 mm, and finishes by setting the current, which makes Current
-  // the controlling value again.
   const resetDefaults = (): void => {
-    setDeltaT(printfG(10));
-    setLengthM(20e-3);
-    setExtWidthM(0.2e-3);
-    setExtThicknessM(35e-6);
-    setIntWidthM(0.2e-3);
-    setIntThicknessM(35e-6);
-    setCurrent(printfG(1));
+    setTw({ ...TRACK_WIDTH_RESET });
     setControlling('current');
   };
 
-  const currentA = Number(current);
-  const deltaTC = Number(deltaT);
+  const lengthM = si(tw.track_len, LEN_UNITS, tw.track_len_units);
+  const extThicknessM = si(tw.ext_track_thickness, THICK_UNITS, tw.ext_track_thickness_units);
+  const intThicknessM = si(tw.int_track_thickness, THICK_UNITS, tw.int_track_thickness_units);
+  const extWidthM = si(tw.ext_track_width, LEN_UNITS, tw.ext_track_width_units);
+  const intWidthM = si(tw.int_track_width, LEN_UNITS, tw.int_track_width_units);
+  const extScale = LEN_UNITS[tw.ext_track_width_units]?.mult ?? 1e-3;
+  const intScale = LEN_UNITS[tw.int_track_width_units]?.mult ?? 1e-3;
+
+  const currentA = Number(tw.current);
+  const deltaTC = Number(tw.delta_tc);
   const ok = currentA > 0 && deltaTC > 0 && extThicknessM > 0 && intThicknessM > 0;
 
   // Whichever value is controlling, resolve the current first, then derive
@@ -75,17 +117,41 @@ export function PanelTrackWidth(): JSX.Element {
 
   const shownExtWidthM = controlling === 'ext' ? extWidthM : (ext?.widthM ?? Number.NaN);
   const shownIntWidthM = controlling === 'int' ? intWidthM : (int_?.widthM ?? Number.NaN);
-  const shownCurrent = controlling === 'current' ? current : g(solvedCurrentA);
+  // `TWDisplayValues` writes `%g` of the value divided by the selector's scale
+  // into every field that is not the master (panel_track_width.cpp:262-290).
+  const shownExtWidth =
+    controlling === 'ext' ? tw.ext_track_width : g((ext?.widthM ?? Number.NaN) / extScale);
+  const shownIntWidth =
+    controlling === 'int' ? tw.int_track_width : g((int_?.widthM ?? Number.NaN) / intScale);
+  const shownCurrent = controlling === 'current' ? tw.current : g(solvedCurrentA);
+
+  // `SaveSettings` is `GetValue()` on each control, so it stores what the panel
+  // is *showing* — a derived width included — not only what was typed.
+  useCalcSaveSettings((s) => {
+    s.track_width = {
+      ...tw,
+      current: shownCurrent,
+      ext_track_width: shownExtWidth,
+      int_track_width: shownIntWidth,
+      // m_TWResistivity is disabled and always holds copper's value, and
+      // SaveSettings reads it back anyway (panel_track_width.cpp).
+      resistivity: printfG(COPPER_RESISTIVITY_OHM_M),
+    };
+  });
 
   const layerBox = (
     title: string,
     who: Controlling,
     r: ReturnType<typeof trackWidth> | null,
     widthM: number,
-    setWidthM: (v: number) => void,
+    widthText: string,
+    widthKey: 'ext_track_width' | 'int_track_width',
+    widthUnitKey: 'ext_track_width_units' | 'int_track_width_units',
     thicknessM: number,
-    setThicknessM: (v: number) => void,
+    thicknessKey: 'ext_track_thickness' | 'int_track_thickness',
+    thicknessUnitKey: 'ext_track_thickness_units' | 'int_track_thickness_units',
     areaM2: number,
+    widthScale: number,
   ): JSX.Element => (
     <Group
       title={title}
@@ -95,13 +161,15 @@ export function PanelTrackWidth(): JSX.Element {
       <NumField
         label="Track width (W):"
         units={LEN_UNITS}
-        defaultUnit="mm"
         base={widthM}
         bold={controlling === who}
-        onBase={(v) => {
-          setWidthM(v);
+        text={widthText}
+        onText={(t) => {
+          set(widthKey, t);
           setControlling(who);
         }}
+        unitIdx={tw[widthUnitKey]}
+        onUnitIdx={(i) => set(widthUnitKey, i)}
       />
       {/* m_ExtTrackThicknessUnit / m_IntTrackThicknessUnit are
           UNIT_SELECTOR_THICKNESS, not LEN (panel_track_width_base.cpp:123,221):
@@ -112,9 +180,11 @@ export function PanelTrackWidth(): JSX.Element {
         className="tw-pad-y"
         label="Track thickness (H):"
         units={THICK_UNITS}
-        defaultUnit="µm"
         base={thicknessM}
-        onBase={setThicknessM}
+        text={tw[thicknessKey]}
+        onText={(t) => set(thicknessKey, t)}
+        unitIdx={tw[thicknessUnitKey]}
+        onUnitIdx={(i) => set(thicknessUnitKey, i)}
       />
       {/* m_staticline3/4/5: one wxStaticLine per column, between the two
           entries and the four results (panel_track_width_base.cpp:126-134). */}
@@ -133,11 +203,17 @@ export function PanelTrackWidth(): JSX.Element {
             Power loss       wxRIGHT 5 only    → none
           A single row-gap cannot say that, which is why ours read too tight
           once the boxes grew. */}
+      {/* `(aExtWidth * aExtThickness) / (extScale * extScale)`, and the unit
+          label is `m_TW_ExtTrackWidth_choiceUnit->GetUnitName() + "²"`
+          (panel_track_width.cpp:275-303). The area is therefore in the WIDTH
+          selector's unit squared, which follows that selector; ours divided by
+          a fixed 1e-6 and printed a fixed "mm²", so switching the width to mils
+          left the area reading square millimetres of the wrong number. */}
       <ResultField
         className="tw-pad-y"
         label="Cross-section area:"
-        value={g(areaM2 * 1e6)}
-        unit="mm²"
+        value={g(areaM2 / (widthScale * widthScale))}
+        unit={`${LEN_UNITS[who === 'ext' ? tw.ext_track_width_units : tw.int_track_width_units]?.label ?? 'mm'}²`}
       />
       <ResultField className="tw-pad-b" label="Resistance:" value={g(r?.resistanceOhm)} unit="Ω" />
       <ResultField className="tw-pad-b" label="Voltage drop:" value={g(r?.voltageDrop)} unit="V" />
@@ -169,18 +245,25 @@ export function PanelTrackWidth(): JSX.Element {
               value={shownCurrent}
               bold={controlling === 'current'}
               onChange={(v) => {
-                setCurrent(v);
+                set('current', v);
                 setControlling('current');
               }}
               unit="A"
             />
-            <Field label="Temperature rise (ΔT):" value={deltaT} onChange={setDeltaT} unit="°C" />
+            <Field
+              label="Temperature rise (ΔT):"
+              value={tw.delta_tc}
+              onChange={(v) => set('delta_tc', v)}
+              unit="°C"
+            />
             <NumField
               label="Conductor length:"
               units={LEN_UNITS}
-              defaultUnit="mm"
               base={lengthM}
-              onBase={setLengthM}
+              text={tw.track_len}
+              onText={(t) => set('track_len', t)}
+              unitIdx={tw.track_len_units}
+              onUnitIdx={(i) => set('track_len_units', i)}
             />
             {/* [px] the real field reads `1.72e-08`, i.e. `%g` — String() writes
               `1.72e-8`, one digit short in the exponent. */}
@@ -197,8 +280,11 @@ export function PanelTrackWidth(): JSX.Element {
             />
           </Group>
           {/* m_htmlWinFormulas, showing
-            `tracks_width_versus_current_formula.md`. Carried here line for line. */}
-          <fieldset className="calc-group calc-help tw-help">
+            `tracks_width_versus_current_formula.md`. Carried here line for line.
+            It is added STRAIGHT to bSizeLeft with wxEXPAND|wxALL 8 - there is no
+            wxStaticBoxSizer round it (panel_track_width_base.cpp:85-86) - so it
+            must not be a `.calc-group`, which paints a rule KiCad does not. */}
+          <div className="calc-help tw-help">
             <div className="calc-help-body">
               <p>
                 If you specify the maximum current, then the track widths will be calculated to
@@ -215,8 +301,15 @@ export function PanelTrackWidth(): JSX.Element {
                 temperature rises up to 100 °C, and widths of up to 400 mils (10 mm).
               </p>
               <p>The formula, from IPC 2221, is</p>
+              {/* `<center>___I = K &middot; …___</center>`
+                  (tracks_width_versus_current_formula.md:10). `___…___` is
+                  markdown for strong AND em, so the line is bold *italic* -
+                  every other `___…___` on this page renders <b><i>, and this
+                  one had lost the italic. */}
               <p className="calc-formula">
-                I = K · ΔT<sup>0.44</sup> · (W · H)<sup>0.725</sup>
+                <i>
+                  I = K · ΔT<sup>0.44</sup> · (W · H)<sup>0.725</sup>
+                </i>
               </p>
               <p>
                 where:
@@ -247,7 +340,7 @@ export function PanelTrackWidth(): JSX.Element {
                 is 0.024 for internal tracks or 0.048 for external tracks
               </p>
             </div>
-          </fieldset>
+          </div>
         </div>
         <div className="tw-right">
           {layerBox(
@@ -255,20 +348,28 @@ export function PanelTrackWidth(): JSX.Element {
             'ext',
             ext,
             shownExtWidthM,
-            setExtWidthM,
+            shownExtWidth,
+            'ext_track_width',
+            'ext_track_width_units',
             extThicknessM,
-            setExtThicknessM,
+            'ext_track_thickness',
+            'ext_track_thickness_units',
             shownExtWidthM * extThicknessM,
+            extScale,
           )}
           {layerBox(
             'Internal Layer Tracks',
             'int',
             int_,
             shownIntWidthM,
-            setIntWidthM,
+            shownIntWidth,
+            'int_track_width',
+            'int_track_width_units',
             intThicknessM,
-            setIntThicknessM,
+            'int_track_thickness',
+            'int_track_thickness_units',
             shownIntWidthM * intThicknessM,
+            intScale,
           )}
           {/* m_buttonTrackWidthReset, wxALIGN_RIGHT|wxALL 5 — the last child of
             the RIGHT column (panel_track_width_base.cpp:288-289). */}

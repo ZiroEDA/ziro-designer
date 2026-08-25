@@ -131,7 +131,8 @@ function centeredFiniteThickness(
   // Finite-thickness single strip impedance via the stripline solver
   // (KiCad calcZ0SymmetricStripline: centred strip, tan δ = 0).
   const single = striplineAnalyze(
-    { widthM: w, heightM: h, thicknessM: t, lengthM: 1 },
+    // Centred: `calcZ0SymmetricStripline` is by definition the symmetric case.
+    { widthM: w, heightM: h, thicknessM: t, lengthM: 1, offsetM: (h - t) / 2.0 },
     { ...el, tanD: 0.0 },
   );
   const z0WHtH = single.z0;
@@ -222,7 +223,7 @@ export function coupledStriplineAnalyze(
   // Conductor loss via the single-stripline incremental-inductance result,
   // scaled per mode by Z0_single / Z0_mode (KiCad calcLosses).
   const single = striplineAnalyze(
-    { widthM: w, heightM: h, thicknessM: t, lengthM: len },
+    { widthM: w, heightM: h, thicknessM: t, lengthM: len, offsetM: (h - t) / 2.0 },
     { ...el, tanD: 0.0 },
   );
   const attenCondEvenDb =
