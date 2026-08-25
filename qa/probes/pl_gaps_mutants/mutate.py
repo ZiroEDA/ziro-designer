@@ -15,7 +15,10 @@ import os
 import subprocess
 import sys
 
-ROOT = os.path.realpath(os.path.join(os.path.dirname(__file__), '..', '..'))
+# Absolute, and NOT derived from __file__: `restore` runs `git checkout --`,
+# so a relative root computed from a file this script can itself revert is a
+# foot-gun.  This harness is worktree-local anyway.
+ROOT = '/home/akshay/ziro-wt-plgap'
 
 # name -> (path relative to repo root, old text, new text, expected occurrences)
 MUTANTS = {
@@ -106,8 +109,14 @@ def apply(name):
     return 0
 
 
+# Restore the SOURCE trees only.  `git checkout -- .` at the root would also
+# revert this harness, which is tracked - and it did, silently, on the first
+# run: every later mutant then reported ANCHOR-MISS against a stale path.
+RESTORE_PATHS = ['designer/src', 'qa/unittests']
+
+
 def restore():
-    subprocess.run(['git', 'checkout', '--', '.'], cwd=ROOT, check=True)
+    subprocess.run(['git', 'checkout', '--', *RESTORE_PATHS], cwd=ROOT, check=True)
     print('RESTORED')
 
 
