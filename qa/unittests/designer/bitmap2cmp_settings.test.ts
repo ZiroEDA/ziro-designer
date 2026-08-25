@@ -158,7 +158,7 @@ describe('a field survives the reload it is set in', () => {
   it.each(CHANGED)('%s', (field, value) => {
     const a = new SettingsManager();
     a.updateBitmap2Cmp((s) => {
-      (s as Record<string, unknown>)[field] = value;
+      (s as unknown as Record<string, unknown>)[field] = value;
     });
     // A new manager over the same storage: the tab was reloaded.
     expect(new SettingsManager().bitmap2cmp[field]).toBe(value);
@@ -206,7 +206,7 @@ describe('it follows the account', () => {
 
     const a = new SettingsManager();
     a.updateBitmap2Cmp((s) => {
-      (s as Record<string, unknown>)[field] = value;
+      (s as unknown as Record<string, unknown>)[field] = value;
     });
     const up = await syncSettings(USER, { manager: a });
     expect(up.error).toBeUndefined();
@@ -361,9 +361,54 @@ describe('the editor’s own LoadSettings / SaveSettings', () => {
       '@ziroeda/designer/src/editors/image/bitmap2cmpSettings.js'
     );
     const saved: Bitmap2CmpSettings = { ...BITMAP2CMP_DEFAULTS };
-    (saved as Record<string, unknown>)[field] = value;
+    (saved as unknown as Record<string, unknown>)[field] = value;
     mod.saveBitmap2CmpSettings(saved);
     expect(mod.loadBitmap2CmpSettings()[field]).toBe(value);
+  });
+
+  it('opening the editor and changing nothing does not claim an edit', async () => {
+    // `ImageConverter.tsx` saves from an effect, and an effect fires on MOUNT —
+    // with exactly the values `loadBitmap2CmpSettings` just returned. As a
+    // private localStorage key that only rewrote the same bytes. As a slice it
+    // would stamp `updatedAt`, and `decideSlice`'s `updatedAt > syncedAt` would
+    // read *opening the Image Converter* as this device having edited its
+    // settings: it would push a row identical to the one it pulled, then win
+    // the next conflict against the device where somebody actually changed
+    // something. A settings system that pushes on open is worse than one that
+    // does not sync at all.
+    const mod = await import('@ziroeda/designer/src/editors/image/bitmap2cmpSettings.js');
+    const mgr = (await import('@ziroeda/designer/src/prefs/settings.js')).settings;
+
+    // Put the slice in a known state and mark it agreed with the account — what
+    // a device that has just pulled looks like.
+    mod.saveBitmap2CmpSettings({ ...BITMAP2CMP_DEFAULTS, threshold: 73 });
+    const at = mgr.stamps.bitmap2component!.updatedAt;
+    mgr.markSliceSynced('bitmap2component', at, 1_000);
+    expect(mgr.stamps.bitmap2component!.syncedAt).toBe(at);
+
+    // Now the mount-time save: read the settings, hand the same values straight
+    // back.
+    mod.saveBitmap2CmpSettings(mod.loadBitmap2CmpSettings());
+
+    const s = mgr.stamps.bitmap2component!;
+    expect(s.updatedAt).toBe(at);
+    // The rule that decides a push, asserted directly rather than inferred.
+    expect(s.updatedAt > (s.syncedAt ?? -Infinity)).toBe(false);
+  });
+
+  it('but a real change still claims one', async () => {
+    // The other half. A guard that returned unconditionally would pass the test
+    // above and silently stop the settings syncing at all.
+    const mod = await import('@ziroeda/designer/src/editors/image/bitmap2cmpSettings.js');
+    const mgr = (await import('@ziroeda/designer/src/prefs/settings.js')).settings;
+    mod.saveBitmap2CmpSettings({ ...BITMAP2CMP_DEFAULTS, threshold: 73 });
+    const at = mgr.stamps.bitmap2component!.updatedAt;
+    mgr.markSliceSynced('bitmap2component', at, 1_000);
+
+    mod.saveBitmap2CmpSettings({ ...BITMAP2CMP_DEFAULTS, threshold: 74 });
+    const s = mgr.stamps.bitmap2component!;
+    expect(s.updatedAt).toBeGreaterThan(at);
+    expect(s.updatedAt > (s.syncedAt ?? -Infinity)).toBe(true);
   });
 
   it('saves through the shared manager, so the change reaches the slice', async () => {

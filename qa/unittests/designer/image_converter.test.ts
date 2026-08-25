@@ -711,12 +711,27 @@ describe('and where it deliberately does not: the dialect (#105 item 5)', () => 
 
   it('emits the modern spellings that version claims, not the legacy ones', () => {
     const text = emit('footprint');
+
+    // Every one of these is stated as "no occurrence of the LEGACY spelling",
+    // never as "some occurrence of the modern one". The positive form is the
+    // file-level check CLAUDE.md lists as unable to fail: an earlier draft
+    // asserted `toMatch(/\(uuid "…"\)/)`, and a mutant that unquoted the
+    // reference text's uuid survived it, because the value text's uuid was
+    // still quoted and satisfied the match. The rule is per occurrence, so the
+    // assertion has to be too.
+    expect(text).not.toMatch(/\(uuid [^"]/); // unquoted uuid: 6.0 spelling
+    expect(text).not.toMatch(/\(at -?[\d.]+ -?[\d.]+\)/); // two-argument at
+    expect(text).not.toMatch(/\bhide\s*$/m); // bare `hide` atom
+
+    // And the modern spellings are actually present, so a writer that emitted
+    // none of these nodes at all could not pass on the negatives alone.
     expect(text).toContain('(hide yes)');
-    expect(text).toMatch(/\(uuid "[0-9a-f-]{36}"\)/);
-    expect(text).toMatch(/\(at 0 0 0\)/);
-    // A bare `hide` atom closing a line is the legacy spelling; we must not
-    // write one. (KiCad's reference file does — see the next test.)
-    expect(text).not.toMatch(/\bhide\s*$/m);
+    expect((text.match(/\(uuid "[0-9a-f-]{36}"\)/g) ?? []).length).toBe(
+      (text.match(/\(uuid /g) ?? []).length,
+    );
+    expect((text.match(/\(at -?[\d.]+ -?[\d.]+ -?[\d.]+\)/g) ?? []).length).toBe(
+      (text.match(/\(at /g) ?? []).length,
+    );
   });
 
   it("KiCad's own output uses the legacy bare `hide`; ours the (hide yes) child", () => {

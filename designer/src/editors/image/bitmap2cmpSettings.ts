@@ -33,12 +33,28 @@ export function loadBitmap2CmpSettings(): Bitmap2CmpSettings {
 
 /**
  * `BITMAP2CMP_PANEL::SaveSettings` (bitmap2cmp_panel.cpp:110-117), which
- * upstream runs from the frame destructor. Ours writes on each change instead,
- * because a browser tab is not guaranteed a destructor; the debounce that stops
- * that being a request per keystroke is in `settingsSync.ts`, and it is the same
- * trade `SETTINGS_MANAGER` makes by writing on dialog-accept.
+ * upstream runs once, from the frame destructor (bitmap2cmp_frame.cpp:209).
+ * Ours writes on each change instead, because a browser tab is not guaranteed a
+ * destructor; the debounce that stops that being a request per keystroke is in
+ * `settingsSync.ts`, and it is the same trade `SETTINGS_MANAGER` makes by
+ * writing on dialog-accept.
+ *
+ * **An unchanged save must not record an edit**, which is why this compares
+ * before it commits. `ImageConverter.tsx` saves from an effect, and an effect
+ * also fires on mount — with exactly the values `loadBitmap2CmpSettings` just
+ * returned. While this was a private localStorage key that merely rewrote the
+ * same bytes. As a slice it would stamp `updatedAt`, and `decideSlice`'s
+ * `updatedAt > syncedAt` would read *opening the Image Converter* as this
+ * device having edited the settings: it would push a row identical to the one
+ * it just pulled, and then win the next conflict against the device where
+ * somebody actually changed something. Upstream cannot have this bug — a frame
+ * opened and closed with nothing touched writes the same values back, and
+ * `SETTINGS_MANAGER` has no second copy to lose to.
  */
 export function saveBitmap2CmpSettings(s: Bitmap2CmpSettings): void {
+  const cur = settings.bitmap2cmp;
+  const keys = Object.keys(BITMAP2CMP_DEFAULTS) as (keyof Bitmap2CmpSettings)[];
+  if (keys.every((k) => cur[k] === s[k])) return;
   settings.updateBitmap2Cmp((next) => {
     Object.assign(next, s);
   });
