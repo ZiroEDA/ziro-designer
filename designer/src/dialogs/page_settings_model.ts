@@ -239,6 +239,78 @@ export function noPageExports(): PageExportFlags {
 }
 
 /**
+ * `DIALOG_EESCHEMA_PAGE_SETTINGS::onTransferDataToWindow`
+ * (dialog_eeschema_page_settings.cpp:108-124).
+ *
+ * The ticks are a PREFERENCE, not one-shot dialog state — the destructor writes
+ * them back into `EESCHEMA_SETTINGS::m_PageSettings` (:39-81) and this reads
+ * them out again, so a project that wants its title carried onto every new
+ * sheet says so once. Ours wrote them and never read them: the dialog opened
+ * with all fourteen clear every time.
+ *
+ * ```cpp
+ * m_PaperExport->SetValue( cfg->m_PageSettings.export_paper );
+ * m_RevisionExport->SetValue( m_TextRevision->GetValue().IsEmpty()
+ *                                 ? false : cfg->m_PageSettings.export_revision );
+ * ```
+ *
+ * Note which one is NOT guarded: `m_PaperExport` takes the stored value
+ * outright, because a page always has a size. The other thirteen are forced
+ * back to false when the field they would copy is empty.
+ */
+export function pageExportsFromSettings(
+  stored: PageExportFlags,
+  value: PageSettingsValue,
+): PageExportFlags {
+  const ifSet = (text: string, flag: boolean): boolean => (text ? flag : false);
+  return {
+    paper: stored.paper,
+    date: ifSet(value.date, stored.date),
+    rev: ifSet(value.rev, stored.rev),
+    title: ifSet(value.title, stored.title),
+    company: ifSet(value.company, stored.company),
+    comments: Array.from({ length: COMMENT_COUNT }, (_, i) =>
+      ifSet(value.comments[i] ?? '', stored.comments[i] ?? false),
+    ),
+  };
+}
+
+/**
+ * `DIALOG_EESCHEMA_PAGE_SETTINGS::~DIALOG_EESCHEMA_PAGE_SETTINGS`
+ * (dialog_eeschema_page_settings.cpp:37-82) — the mirror of the rule above.
+ *
+ * ```cpp
+ * cfg->m_PageSettings.export_paper = m_PaperExport->GetValue();
+ *
+ * if( !m_TextRevision->GetValue().IsEmpty() )
+ *     cfg->m_PageSettings.export_revision = m_RevisionExport->GetValue();
+ * ```
+ *
+ * The thirteen guarded ones are written back only when the field they copy is
+ * non-empty, so leaving a field blank does not silently CLEAR a preference the
+ * user set while it had text in it. Ours wrote all fourteen unconditionally,
+ * which is how a tick set on a sheet with a title vanished on the next sheet
+ * without one.
+ */
+export function pageExportsToSettings(
+  stored: PageExportFlags,
+  value: PageSettingsValue,
+  ticked: PageExportFlags,
+): PageExportFlags {
+  const keep = (text: string, next: boolean, was: boolean): boolean => (text ? next : was);
+  return {
+    paper: ticked.paper,
+    date: keep(value.date, ticked.date, stored.date),
+    rev: keep(value.rev, ticked.rev, stored.rev),
+    title: keep(value.title, ticked.title, stored.title),
+    company: keep(value.company, ticked.company, stored.company),
+    comments: Array.from({ length: COMMENT_COUNT }, (_, i) =>
+      keep(value.comments[i] ?? '', ticked.comments[i] ?? false, stored.comments[i] ?? false),
+    ),
+  };
+}
+
+/**
  * `OnPaperSizeChoice` (dialog_page_settings.cpp:230-259).
  *
  * The custom width/height pair and the orientation choice are mutually

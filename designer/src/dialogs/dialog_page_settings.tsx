@@ -128,6 +128,16 @@ export interface PageSettingsDialogProps {
   sheet?: WksSheet | null;
   /** The project's folder, so Browse opens where `wxFileDialog` would. */
   projectDir?: string | null;
+  /**
+   * The "Export to other sheets" ticks as they were last left.
+   *
+   * They are a PREFERENCE, not one-shot dialog state:
+   * `DIALOG_EESCHEMA_PAGE_SETTINGS`'s destructor writes them into
+   * `EESCHEMA_SETTINGS::m_PageSettings` and `onTransferDataToWindow` reads them
+   * back (dialog_eeschema_page_settings.cpp:39-81, :108-124). Seed with
+   * `pageExportsFromSettings`, which applies the empty-field guard.
+   */
+  exports?: PageExportFlags;
   onOk: (
     next: PageSettingsValue,
     exports: PageExportFlags,
@@ -146,6 +156,7 @@ export function DialogPageSettings({
   wksFileName = '',
   sheet = null,
   projectDir = null,
+  exports: initialExports,
   onOk,
   onCancel,
 }: PageSettingsDialogProps): JSX.Element {
@@ -165,7 +176,7 @@ export function DialogPageSettings({
   }));
   const set = (patch: Partial<PageSettingsValue>): void => setS((cur) => ({ ...cur, ...patch }));
 
-  const [exports, setExports] = useState<PageExportFlags>(noPageExports);
+  const [exports, setExports] = useState<PageExportFlags>(() => initialExports ?? noPageExports());
 
   /**
    * `m_PickDate->SetValue( wxDateTime::Now() )` (dialog_page_settings.cpp:81).

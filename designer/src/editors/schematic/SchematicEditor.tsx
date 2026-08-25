@@ -331,11 +331,12 @@ import { DialogEditSymbolsLibId } from './dialogs/dialog_edit_symbols_libid.js';
 import { DialogResolveFieldCaseConflicts } from './dialogs/dialog_resolve_field_case_conflicts.js';
 import { DialogAnnotate, type AnnotateRun } from './dialogs/dialog_annotate.js';
 import { DialogLineProperties, type ItemColor } from './dialogs/dialog_line_properties.js';
-import { DialogPageSettings } from '../../dialogs/dialog_page_settings.js';
+import { DialogEeschemaPageSettings } from '../../dialogs/dialog_eeschema_page_settings.js';
 import {
   pageSettingsValue,
   toPaperToken,
   type PageExportFlags,
+  type PageSettingsValue,
 } from '../../dialogs/page_settings_model.js';
 import { DialogPasteSpecial } from './dialogs/dialog_paste_special.js';
 import { DialogSheetProperties, type SheetPropsResult } from './dialogs/dialog_sheet_properties.js';
@@ -505,6 +506,18 @@ const SETTINGS_TOGGLES = new Set([
 
 /** ERC_TESTER::TestDuplicateSheetNames, the guard the highlight tools run
  *  before picking (sheet names compare case-insensitively upstream). */
+/**
+ * The Page Settings dialog's seed value for a document.
+ *
+ * `TransferDataToWindow` builds it from `m_parent->GetPageSettings()` and
+ * `m_parent->GetTitleBlock()` (dialog_page_settings.cpp:120, :72); ours has to
+ * split the stored `(paper …)` token into PAGE_INFO's three pieces first.
+ */
+function pageSettingsSeed(sch: Schematic): PageSettingsValue {
+  const s = getPageSettings(sch);
+  return pageSettingsValue(s.paper, s);
+}
+
 function hasDuplicateSheetNames(sch: Schematic): boolean {
   const seen = new Set<string>();
   for (const s of sch.sheets) {
@@ -2126,17 +2139,11 @@ export function SchematicEditor({
   const applyPageSettings = useCallback(
     (next: PageSettings, exports: PageExportFlags, sheet: WksSheet | null, sheetName: string) => {
       runCommand(setPageSettingsCommand(next));
-      // The ticks are preferences upstream, not one-shot dialog state:
-      // `InitSheet` consults them when a *new* sheet is created, so a project
-      // that wants its title carried onto every sheet only says so once.
-      settings.updateEeschema((cfg) => {
-        cfg.page_settings.export_paper = exports.paper;
-        cfg.page_settings.export_revision = exports.rev;
-        cfg.page_settings.export_date = exports.date;
-        cfg.page_settings.export_title = exports.title;
-        cfg.page_settings.export_company = exports.company;
-        cfg.page_settings.export_comments = [...exports.comments];
-      });
+      // The ticks themselves are persisted by DIALOG_EESCHEMA_PAGE_SETTINGS —
+      // its destructor, which is `onStoreExports` at the call site. They are a
+      // preference rather than one-shot dialog state: `InitSheet` consults them
+      // when a *new* sheet is created, so a project that wants its title
+      // carried onto every sheet only says so once.
       // Adopt the chosen drawing sheet (name '' = built-in default) and persist
       // it into .kicad_pro (schematic.page_layout_descr_file), like KiCad.
       setSheetOverride({ name: sheetName, sheet });
@@ -8185,24 +8192,43 @@ export function SchematicEditor({
               />
             )}
             {pageSettingsOpen && doc && (
-              <DialogPageSettings
-                // DIALOG_EESCHEMA_PAGE_SETTINGS is the one subclass, and the
-                // only frame that shows the sheet tallies and the fourteen
-                // "Export to other sheets" checkboxes
-                // (dialog_eeschema_page_settings.cpp:85-102).
-                frame="eeschema"
+              // DIALOG_EESCHEMA_PAGE_SETTINGS, not DIALOG_PAGES_SETTINGS: the
+              // base class hides the sheet tallies and all fourteen "Export to
+              // other sheets" boxes (dialog_page_settings.cpp:169-185) and this
+              // subclass is the only thing that shows them
+              // (dialog_eeschema_page_settings.cpp:87-102). pcbnew and
+              // pl_editor open the base class and get neither.
+              <DialogEeschemaPageSettings
                 // `m_customSizeX( aParent, … )` — a UNIT_BINDER over the FRAME
                 // (dialog_page_settings.cpp:65-66), so the two custom-size
                 // fields read in the schematic frame's own unit. A fresh
                 // eeschema is in MILS (app_settings.cpp:228-238), which is why
-                // KiCad's showed mils where ours said "mm".
+                // real eeschema shows mils where ours said "mm".
                 units={units}
-                value={pageSettingsValue(getPageSettings(doc).paper, getPageSettings(doc))}
+                value={pageSettingsSeed(doc)}
                 sheetCount={flatSheets.length}
                 sheetNumber={Number(pageNumberOf(currentPath)) || 1}
                 wksFileName={sheetRefName}
                 sheet={activeSheet}
                 projectDir={projectName ? `/${projectName}` : null}
+                stored={{
+                  paper: es.page_settings.export_paper,
+                  date: es.page_settings.export_date,
+                  rev: es.page_settings.export_revision,
+                  title: es.page_settings.export_title,
+                  company: es.page_settings.export_company,
+                  comments: es.page_settings.export_comments,
+                }}
+                onStoreExports={(next) =>
+                  settings.updateEeschema((cfg) => {
+                    cfg.page_settings.export_paper = next.paper;
+                    cfg.page_settings.export_revision = next.rev;
+                    cfg.page_settings.export_date = next.date;
+                    cfg.page_settings.export_title = next.title;
+                    cfg.page_settings.export_company = next.company;
+                    cfg.page_settings.export_comments = [...next.comments];
+                  })
+                }
                 onOk={(next, exports, drawingSheet, drawingSheetName) =>
                   applyPageSettings(
                     {

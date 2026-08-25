@@ -32,6 +32,8 @@ import {
   MIN_PAGE_SIZE_MILS,
   noPageExports,
   orientationEnabled,
+  pageExportsFromSettings,
+  pageExportsToSettings,
   orientationFromCustomSize,
   pageSettingsValue,
   pageSizeMM,
@@ -198,6 +200,74 @@ describe('fgSizer2 — thirteen rows, one aligned checkbox column', () => {
         .flat()
         .every((v) => v === false),
     ).toBe(true);
+  });
+});
+
+describe('the export ticks are a preference, not dialog state', () => {
+  const stored = {
+    paper: true,
+    date: true,
+    rev: true,
+    title: true,
+    company: true,
+    comments: Array<boolean>(9).fill(true),
+  };
+  const filled = pageSettingsValue('A4', {
+    date: 'd',
+    rev: 'r',
+    title: 't',
+    company: 'c',
+    comments: Array<string>(9).fill('x'),
+  });
+  const blank = pageSettingsValue('A4', {
+    date: '',
+    rev: '',
+    title: '',
+    company: '',
+    comments: [],
+  });
+
+  it('comes back checked when the field it copies has text', () => {
+    // dialog_eeschema_page_settings.cpp:111-124.
+    expect(pageExportsFromSettings(stored, filled)).toEqual(stored);
+  });
+
+  it('comes back clear for every EMPTY field — except the paper one', () => {
+    // `m_PaperExport->SetValue( cfg->… )` is the one line with no
+    // `IsEmpty() ? false :` guard (:111), because a page always has a size.
+    const seeded = pageExportsFromSettings(stored, blank);
+    expect(seeded.paper).toBe(true);
+    expect(seeded.date).toBe(false);
+    expect(seeded.rev).toBe(false);
+    expect(seeded.title).toBe(false);
+    expect(seeded.company).toBe(false);
+    expect(seeded.comments).toEqual(Array<boolean>(9).fill(false));
+  });
+
+  it('does not CLEAR a stored tick when the field is left empty', () => {
+    // The destructor's mirror (:44-81): thirteen of the fourteen are written
+    // back only `if( !m_TextRevision->GetValue().IsEmpty() )`. Ours wrote all
+    // fourteen unconditionally, so opening the dialog on a sheet with no title
+    // and pressing OK forgot the Title tick set on the sheet that had one.
+    const ticked = pageExportsFromSettings(stored, blank); // all but paper false
+    const written = pageExportsToSettings(stored, blank, ticked);
+    expect(written.title).toBe(true);
+    expect(written.rev).toBe(true);
+    expect(written.comments).toEqual(Array<boolean>(9).fill(true));
+    // …and paper, which has no guard, takes whatever the box says.
+    expect(pageExportsToSettings(stored, blank, { ...ticked, paper: false }).paper).toBe(false);
+  });
+
+  it('writes a tick through when the field DOES have text', () => {
+    const cleared = {
+      paper: false,
+      date: false,
+      rev: false,
+      title: false,
+      company: false,
+      comments: Array<boolean>(9).fill(false),
+    };
+    expect(pageExportsToSettings(stored, filled, cleared)).toEqual(cleared);
   });
 });
 
@@ -404,6 +474,69 @@ function blankComments(text: string): string {
 }
 
 const DIALOG = blankComments(SOURCE);
+
+/**
+ * Upstream's structure, not just its behaviour.
+ *
+ * `DIALOG_PAGES_SETTINGS` ships WITHOUT the export column and the sheet
+ * tallies, and `DIALOG_EESCHEMA_PAGE_SETTINGS` is the one subclass that adds
+ * them along with their settings round-trip
+ * (dialog_eeschema_page_settings.cpp:37-125). Collapsing that into a boolean
+ * would leave the round-trip homeless, so the split is mirrored — and that
+ * makes "which component does each frame open" a fact worth pinning.
+ */
+const EDITOR = (rel: string): string =>
+  blankComments(
+    readFileSync(fileURLToPath(new URL(`../../../designer/src/${rel}`, import.meta.url)), 'utf8'),
+  );
+
+describe('the base class and its one subclass', () => {
+  it('is eeschema alone that opens the subclass', () => {
+    const sch = EDITOR('editors/schematic/SchematicEditor.tsx');
+    expect([...sch.matchAll(/<DialogEeschemaPageSettings\b/g)]).toHaveLength(1);
+    // …and it does NOT reach past it to the base class.
+    expect([...sch.matchAll(/<DialogPageSettings\b/g)]).toEqual([]);
+  });
+
+  it('pcbnew and pl_editor open the BASE class, as their tools do', () => {
+    // board_editor_control.cpp:530 and pl_editor_control.cpp:94 both construct
+    // DIALOG_PAGES_SETTINGS itself; neither has a subclass.
+    for (const rel of [
+      'editors/pcb/PcbEditor.tsx',
+      'editors/drawingsheet/DrawingSheetEditor.tsx',
+    ]) {
+      const src = EDITOR(rel);
+      expect([...src.matchAll(/<DialogPageSettings\b/g)], rel).toHaveLength(1);
+      expect([...src.matchAll(/DialogEeschemaPageSettings/g)], rel).toEqual([]);
+    }
+  });
+
+  it('and the subclass is the only thing that knows about the export settings', () => {
+    // The two transforms are the constructor/destructor pair; nothing else in
+    // the tree should be applying them, or the guard gets restated.
+    const wrapper = EDITOR('dialogs/dialog_eeschema_page_settings.tsx');
+    expect([...wrapper.matchAll(/pageExportsFromSettings\(/g)]).toHaveLength(1);
+    expect([...wrapper.matchAll(/pageExportsToSettings\(/g)]).toHaveLength(1);
+    for (const rel of [
+      'dialogs/dialog_page_settings.tsx',
+      'editors/pcb/PcbEditor.tsx',
+      'editors/drawingsheet/DrawingSheetEditor.tsx',
+    ]) {
+      expect([...EDITOR(rel).matchAll(/pageExports(From|To)Settings/g)], rel).toEqual([]);
+    }
+  });
+
+  it('leaves the base component with no eeschema settings knowledge at all', () => {
+    // `frame` decides show/hide (that IS the base's own Show(false) branch);
+    // the settings object never reaches it.
+    expect([
+      ...DIALOG.matchAll(/\.page_settings\b|export_paper|updateEeschema|EeschemaSettings/g),
+    ]).toEqual([]);
+    // The wrapper is where all four of those live.
+    const wrapper = EDITOR('dialogs/dialog_eeschema_page_settings.tsx');
+    expect([...wrapper.matchAll(/frame="eeschema"/g)]).toHaveLength(1);
+  });
+});
 
 describe('what the merged component must NOT draw', () => {
   it('writes no unit word of its own — the binder supplies it', () => {
