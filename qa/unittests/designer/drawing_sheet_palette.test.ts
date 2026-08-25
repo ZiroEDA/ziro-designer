@@ -460,10 +460,20 @@ describe('C5: zoomTool is an armed rubber-band tool', () => {
     // `evt->IsCancelInteractive()` — the other branch, the one that DOES set
     // `cancelled` and break out of `Main`. PL_ACTIONS' cancel chain backs out
     // of the tool before it drops the selection.
+    //
+    // Asserted as an ORDER, not as a fixed slice of the handler: the chain has
+    // grown links since (a point drag rolls back, a live gesture is dropped),
+    // and what has to hold is that disarming the tool still comes before
+    // emptying the selection — not that the two sit within N characters of the
+    // top.
     const esc = EDITOR.slice(EDITOR.indexOf("if (e.key === 'Escape')"));
-    expect(esc.slice(0, 500)).toContain(
-      "else if (activeTool !== 'select') setActiveTool('select')",
-    );
+    const body = esc.slice(0, esc.indexOf('\n      }'));
+    const disarm = body.indexOf("setActiveTool('select')");
+    const drop = body.indexOf('setSelection(new Set())');
+    expect(body).toContain("else if (activeTool !== 'select') setActiveTool('select');");
+    expect(disarm).toBeGreaterThan(-1);
+    expect(drop).toBeGreaterThan(-1);
+    expect(disarm).toBeLessThan(drop);
   });
 });
 
