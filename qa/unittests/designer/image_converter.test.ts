@@ -17,8 +17,12 @@ import { describe, it, expect } from 'vitest';
 import { Reporter, RPT_SEVERITY_ERROR } from '@ziroeda/common/src/reporter.js';
 import { parse } from '@ziroeda/sexpr';
 import { readFootprintFile } from '@ziroeda/pcbnew';
+import { FOOTPRINT_FILE_VERSION } from '@ziroeda/pcbnew/src/write-footprint.js';
 import { readSymbolLib } from '@ziroeda/eeschema';
+import { serializeSymbolLib } from '@ziroeda/eeschema/src/sch_io/sexpr/write-symbol-lib.js';
 import { readDrawingSheet } from '@ziroeda/common/src/drawing_sheet/read.js';
+import { serializeDrawingSheet } from '@ziroeda/common/src/drawing_sheet/write.js';
+import { defaultDrawingSheet } from '@ziroeda/common/src/drawing_sheet/default-sheet.js';
 import { Bitmap } from '@ziroeda/designer/src/editors/image/potrace.js';
 import {
   convert,
@@ -654,6 +658,104 @@ describe("matches KiCad's own bitmap2component output", () => {
       return out;
     };
     expect(points(text)).toEqual(points(readRef('kicad_twoblob_300dpi.ps')));
+  });
+});
+
+describe('and where it deliberately does not: the dialect (#105 item 5)', () => {
+  // KiCad's outputDataHeader freezes the file-format version it writes —
+  // `(version 20221018)` for the footprint (bitmap2component.cpp:163),
+  // `(version 20220914)` for the symbol library (:197) — and writes the 6.0
+  // spellings that went with them: a bare `hide` atom, an unquoted uuid, a
+  // two-argument `(at x y)`. KiCad 10.0.5's own writers are four years past
+  // that (SEXPR_BOARD_FILE_VERSION 20260206, pcb_io_kicad_sexpr.h:203), so
+  // pcbnew migrates bitmap2component's output the moment it loads it.
+  //
+  // We emit the modern dialect instead. That choice only stays honest if the
+  // `(version …)` token is the modern one, and that number belongs to the
+  // writer that defines the dialect — not to a copy in bitmap2component.ts,
+  // which is what it was until this test existed. Nothing pinned the token at
+  // all: the drawing sheet had already drifted to 20220228 against the shared
+  // 20231118, and no expectation moved when it was corrected.
+  const square = filledRect(24, 24, 6, 6, 18, 18);
+  const emit = (format: 'footprint' | 'symbol' | 'drawingsheet'): string =>
+    convert(square, { format, layer: 'F.Cu', dpiX: 300, dpiY: 300, name: NAME }).text;
+
+  const versionOf = (text: string): number | null => {
+    const m = /\(version (\d+)\)/.exec(text);
+    return m ? Number(m[1]) : null;
+  };
+
+  // One case per format on purpose. A single "some version token is right"
+  // assertion would pass with two of the three re-inlined as literals.
+
+  it("the symbol library's version is the one eeschema's writer emits", () => {
+    // Cross-checked against a document that writer actually produced, not
+    // against the constant: a literal re-inlined here would still have to
+    // survive eeschema bumping its format.
+    expect(versionOf(emit('symbol'))).toBe(versionOf(serializeSymbolLib([])));
+  });
+
+  it("the drawing sheet's version is the one common's writer emits", () => {
+    expect(versionOf(emit('drawingsheet'))).toBe(
+      versionOf(serializeDrawingSheet(defaultDrawingSheet())),
+    );
+  });
+
+  it("the footprint's version is pcbnew's FOOTPRINT_FILE_VERSION", () => {
+    // Weaker than the two above, and knowingly so: `writeFootprintNode` needs
+    // a PcbFootprint to serialize, and the only one to hand would be parsed
+    // back out of our own output, which would make the check circular. The
+    // constant is the next-best independent source.
+    expect(versionOf(emit('footprint'))).toBe(FOOTPRINT_FILE_VERSION);
+  });
+
+  it('emits the modern spellings that version claims, not the legacy ones', () => {
+    const text = emit('footprint');
+
+    // Every one of these is stated as "no occurrence of the LEGACY spelling",
+    // never as "some occurrence of the modern one". The positive form is the
+    // file-level check CLAUDE.md lists as unable to fail: an earlier draft
+    // asserted `toMatch(/\(uuid "…"\)/)`, and a mutant that unquoted the
+    // reference text's uuid survived it, because the value text's uuid was
+    // still quoted and satisfied the match. The rule is per occurrence, so the
+    // assertion has to be too.
+    expect(text).not.toMatch(/\(uuid [^"]/); // unquoted uuid: 6.0 spelling
+    expect(text).not.toMatch(/\(at -?[\d.]+ -?[\d.]+\)/); // two-argument at
+    expect(text).not.toMatch(/\bhide\s*$/m); // bare `hide` atom
+
+    // And the modern spellings are actually present, so a writer that emitted
+    // none of these nodes at all could not pass on the negatives alone.
+    expect(text).toContain('(hide yes)');
+    expect((text.match(/\(uuid "[0-9a-f-]{36}"\)/g) ?? []).length).toBe(
+      (text.match(/\(uuid /g) ?? []).length,
+    );
+    expect((text.match(/\(at -?[\d.]+ -?[\d.]+ -?[\d.]+\)/g) ?? []).length).toBe(
+      (text.match(/\(at /g) ?? []).length,
+    );
+  });
+
+  it("KiCad's own output uses the legacy bare `hide`; ours the (hide yes) child", () => {
+    // The concrete difference the decision turned on, quoted from the file the
+    // installed bitmap2component 10.0.5 wrote.
+    expect(readRef('kicad_square24_300dpi.kicad_mod')).toMatch(
+      /\(fp_text value "LOGO" \(at 0\.75 0\) \(layer "F\.SilkS"\) hide$/m,
+    );
+  });
+
+  it('a hidden footprint Value text survives our own reader', () => {
+    // This is why the compact writer was not ported. `read-board.ts:519` reads
+    // `hide` only as a `(hide yes)` child, so emitting KiCad's bare atom would
+    // give a footprint whose Value text KiCad hides and our footprint editor
+    // shows — a visible defect traded for a whitespace match nobody looks at.
+    const fp = readFootprintFile(parse(emit('footprint')))!;
+    const value = fp.texts.find((t) => t.kind === 'value');
+    expect(value).toBeDefined();
+    expect(value!.hide).toBe(true);
+  });
+
+  it('hidden symbol properties survive our own reader', () => {
+    const syms = readSymbolLib(parse(emit('symbol')));
+    expect(syms[0]!.properties.map((p) => p.effects?.hidden)).toEqual([true, true, true, true]);
   });
 });
 
