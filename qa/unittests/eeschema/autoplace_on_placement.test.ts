@@ -280,6 +280,14 @@ describe('the chooser preview measures and draws the autoplaced fields', () => {
   it('draws them, which upstream does and we did not', () => {
     expect(RENDERER).toContain('for (const f of previewFields) drawField(ctx, f, theme, false);');
   });
+
+  it('measures BOTH corners of each field box, not just its origin', () => {
+    // Dropping the far corner leaves the fit measuring anchors again, which is
+    // the bug this replaced, and every engine-level assertion above still
+    // passes because they test the boxes rather than the fit that uses them.
+    expect(RENDERER).toContain('inc({ x: b.box.x, y: b.box.y });');
+    expect(RENDERER).toContain('inc({ x: b.box.x + b.box.w, y: b.box.y + b.box.h });');
+  });
 });
 
 describe('the placement paths hand their symbol to the autoplacer', () => {
