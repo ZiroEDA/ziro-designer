@@ -122,7 +122,11 @@ describe("the search box owns both of its icons, because a wxSearchCtrl's entry 
   it('shows the cancel icon only while there is something to cancel', () => {
     // GtkSearchEntry hangs the secondary icon off a non-empty value, so an
     // always-present ✕ is one control too many on an empty box.
-    expect(tree('').querySelector('.ze-entry-icon.right')).toBeNull();
+    const empty = tree('');
+    // The control: `toBeNull()` on an empty container passes for the wrong
+    // reason, so prove the box rendered and is genuinely empty first.
+    expect((empty.querySelector('input.ze-search') as HTMLInputElement).value).toBe('');
+    expect(empty.querySelector('.ze-entry-icon.right')).toBeNull();
     expect(tree('terminal').querySelector('.ze-entry-icon.right')).not.toBeNull();
   });
 
@@ -260,11 +264,17 @@ describe('and what upstream does not draw', () => {
   it('puts no frame round the LIB_TREE, which is built wxNO_BORDER', () => {
     expect(decl('.ze-chooser-treepane > .ze-libtree', 'border')).toBeUndefined();
     expect(decl('.ze-chooser-treepane > .ze-libtree', 'border-radius')).toBeUndefined();
+    // rule() throws on a selector that is not in the file, so reaching this
+    // line at all proves those two are absences and not a missing rule.
     // treeSizer's wxALL is four sides, and this used to give it three.
     expect(decl('.ze-chooser-treepane > .ze-libtree', 'margin')).toBe('5px');
   });
 
   it('puts no frame round the preview panes, which are bare wxPanels', () => {
+    // The control: an absence read off a rule that does not exist, or off a
+    // prop name decl() cannot see, is undefined for the wrong reason. One
+    // declaration we know IS there proves the reader is pointed at the rule.
+    expect(decl('.ze-chooser-right > div', 'overflow')).toBe('hidden');
     expect(decl('.ze-chooser-right > div', 'border')).toBeUndefined();
     expect(decl('.ze-chooser-right > div', 'border-radius')).toBeUndefined();
   });
@@ -272,6 +282,7 @@ describe('and what upstream does not draw', () => {
   it('puts no padding and no rule on the search row', () => {
     // `sizer->Add( search_sizer, 0, wxEXPAND, 5 )` - wxEXPAND with no direction
     // flag, so that 5 is never applied to anything.
+    expect(decl('.ze-libtree-search', 'display')).toBe('flex'); // the control
     expect(decl('.ze-libtree-search', 'padding')).toBeUndefined();
     expect(decl('.ze-libtree-search', 'border-bottom')).toBeUndefined();
     expect(decl('.ze-libtree-search', 'gap')).toBeUndefined();
@@ -280,6 +291,7 @@ describe('and what upstream does not draw', () => {
   it('leaves no gap between the footprint selector and the footprint preview', () => {
     // constructRightPanel gives the selector wxLEFT|wxRIGHT and the preview
     // wxLEFT|wxRIGHT|wxBOTTOM: neither states a wxTOP, so they touch.
+    expect(decl('.ze-chooser-right', 'padding')).toBe('5px'); // the control
     expect(decl('.ze-chooser-right', 'gap')).toBeUndefined();
     expect(decl('.ze-chooser-preview', 'margin-bottom')).toBe('5px');
   });
@@ -287,6 +299,7 @@ describe('and what upstream does not draw', () => {
   it('dims nothing in the tree, because GetAttr sets only italic', () => {
     // LIB_TREE_MODEL_ADAPTER::GetAttr (lib_tree_model_adapter.cpp:781-801)
     // touches one attribute on one cell and never a colour or a weight.
+    expect(decl('.ze-libtree-row .col-desc', 'flex')).toBe('1'); // the control
     expect(decl('.ze-libtree-row .col-desc', 'color')).toBeUndefined();
     expect(decl('.ze-libtree-row.lib', 'font-weight')).toBe('400');
   });
