@@ -69,6 +69,59 @@ describe('EdaCombinedMatcher', () => {
 });
 
 /**
+ * WHICH patterns get a regex matcher at all.
+ *
+ * `EDA_PATTERN_MATCH_REGEX::SetPattern` (common/eda_pattern_match.cpp:80-104)
+ * accepts a pattern only if it is fully anchored (`^…$`) or slash-delimited
+ * (`/…/`, trailing slash optional) — "for now regular expressions must be
+ * explicit". Everything else returns false and `AddMatcher` drops the matcher,
+ * leaving CTX_LIBITEM with the escaped wildcard and the plain substring, both
+ * of which look for the pattern LITERALLY.
+ *
+ * So a metacharacter typed into the search box is a character, not syntax. The
+ * counts below are KiCad 10.0.5's own, measured over the whole of
+ * /usr/share/kicad/symbols/Device.kicad_sym with qa/probes/chooser_score:
+ *
+ *     r+   0 rows      c.   0 rows      (R)   0 rows
+ *     r*Var  18 rows   /^R_Var/  2 rows   r_var  2 rows
+ *
+ * We used to compile any pattern holding a metacharacter, so `r+` became /r+/
+ * and matched every symbol with an r in it.
+ */
+describe('EdaCombinedMatcher treats an unanchored metacharacter as a literal', () => {
+  it('does not read `r+` as a regex', () => {
+    const m = new EdaCombinedMatcher('r+');
+    expect(m.find('r_variable')).toBe(-1);
+    expect(m.find('resistor')).toBe(-1);
+    // ...but it still finds the literal two characters.
+    expect(m.find('r+5v rail')).toBe(0);
+  });
+
+  it('does not read `c.` or `(R)` as a regex', () => {
+    expect(new EdaCombinedMatcher('c.').find('capacitor')).toBe(-1);
+    expect(new EdaCombinedMatcher('c.').find('c.1 net')).toBe(0);
+    expect(new EdaCombinedMatcher('(r)').find('resistor')).toBe(-1);
+    expect(new EdaCombinedMatcher('(r)').find('net (r) here')).toBe(4);
+  });
+
+  it('still reads an anchored or slash-delimited pattern as a regex', () => {
+    expect(new EdaCombinedMatcher('^r$').find('r')).toBe(0);
+    expect(new EdaCombinedMatcher('^r$').find('r_variable')).toBe(-1);
+    expect(new EdaCombinedMatcher('/^r_/').find('r_variable')).toBe(0);
+    expect(new EdaCombinedMatcher('/^r_/').find('thermistor')).toBe(-1);
+    // The trailing slash is optional: "requiring a '/' on the end means they
+    // get no feedback while they type."
+    expect(new EdaCombinedMatcher('/^r_').find('r_variable')).toBe(0);
+  });
+
+  it('still reads `*` and `?` as wildcards', () => {
+    expect(new EdaCombinedMatcher('r*var').find('r_variable')).toBe(0);
+    expect(new EdaCombinedMatcher('r?var').find('r_variable')).toBe(0);
+    expect(new EdaCombinedMatcher('r?var').find('r__variable')).toBe(-1);
+  });
+});
+
+/**
  * EDA_COMBINED_MATCHER's CTX_NETCLASS arm (eda_pattern_match.cpp:413): an
  * anchored regex matcher and an anchored wildcard matcher, and nothing else —
  * no substring matcher, and no case folding.

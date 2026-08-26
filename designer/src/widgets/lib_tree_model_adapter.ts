@@ -21,8 +21,30 @@ export enum SortMode {
   ALPHABETIC = 1,
 }
 
-/** The columns shown by default ("Item" is always first, loadColumnConfig). */
-export const LIB_TREE_COLUMNS = ['Item', 'Description'] as const;
+/**
+ * `m_availableColumns` as the base adapter seeds it
+ * (common/lib_tree_model_adapter.cpp:168), plus the two the symbol tree adds on
+ * top of it (eeschema/symbol_tree_model_adapter.cpp:57-58). It is a fixed list
+ * upstream: `addColumnIfNecessary` is fed by the library plugin's
+ * `GetAvailableExtraFields`, which is a database-library capability, and NOT by
+ * the fields of the symbols in a `.kicad_sym`.
+ */
+export const LIB_TREE_COLUMNS = ['Item', 'Description', 'Value', 'Footprint'] as const;
+
+/**
+ * `loadColumnConfig`'s fallback when the saved config names no columns
+ * (eeschema/symbol_tree_model_adapter.cpp:74):
+ *
+ *     m_shownColumns = { _HKI( "Item" ), _HKI( "Description" ),
+ *                        GetDefaultFieldName( FIELD_T::VALUE, false ) };
+ *
+ * Value is not decoration. `LIB_TREE_NODE::RebuildSearchTerms` turns every
+ * shown column into a weight-4 search term, so dropping it from this list
+ * changes the RANKING as well as the header — measured against KiCad's own
+ * scorer, leaving it out reorders "conn" in Connector and "res" in Device
+ * (qa/probes/chooser_score).
+ */
+export const LIB_TREE_DEFAULT_SHOWN_COLUMNS = ['Item', 'Description', 'Value'] as const;
 
 /** The unicode mark upstream prefixes to a pinned library's name
  *  (LIB_TREE_MODEL_ADAPTER::GetPinningSymbol). */
@@ -40,8 +62,8 @@ export class LibTreeModelAdapter {
   private searchString = '';
   private preselect: { libId: string; unit: number } | null = null;
   /** m_shownColumns, ordered, "Item" always first (loadColumnConfig). */
-  private shownColumns: string[] = [...LIB_TREE_COLUMNS];
-  /** m_availableColumns, grows as items contribute chooser fields. */
+  private shownColumns: string[] = [...LIB_TREE_DEFAULT_SHOWN_COLUMNS];
+  /** m_availableColumns. */
   private availableColumns: string[] = [...LIB_TREE_COLUMNS];
   /** Details-pane HTML for a node (SYMBOL_TREE_MODEL_ADAPTER::GenerateInfo). */
   generateInfo: (node: LibTreeNode) => string = () => '';
@@ -125,8 +147,15 @@ export class LibTreeModelAdapter {
     for (const lib of this.tree.children) lib.assignIntrinsicRanks(false, this.shownColumns);
   }
 
-  /** addColumnIfNecessary, a field a symbol wants shown in the chooser
-   *  becomes an available column the moment the first symbol offers it. */
+  /**
+   * addColumnIfNecessary: an extra column the LIBRARY offers becomes available.
+   *
+   * Upstream's one caller feeds it `m_adapter->GetAvailableExtraFields( lib )`
+   * (eeschema/symbol_tree_model_adapter.cpp:150-151) — a database-library
+   * capability. It is NOT fed by the chooser fields of the symbols in a
+   * `.kicad_sym`: those are all of a symbol's fields, and offering Reference
+   * and Datasheet as tree columns is not something KiCad does.
+   */
   addColumnIfNecessary(header: string): void {
     if (!this.availableColumns.includes(header)) this.availableColumns.push(header);
   }

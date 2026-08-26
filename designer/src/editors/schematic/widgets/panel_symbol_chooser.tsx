@@ -33,6 +33,7 @@ import { FootprintSelectWidget } from '../../../widgets/footprint_select_widget.
 import { loadFootprintIndex, filterFootprints } from '../../../widgets/footprint_list.js';
 import { SymbolPreviewWidget } from './symbol_preview_widget.js';
 import { generateAliasInfo } from '../generate_alias_info.js';
+import { symbolChooserFields, symbolSearchTerms } from '../symbol_search_terms.js';
 import {
   powerSymbolTest,
   loadIndex,
@@ -118,35 +119,18 @@ const pinCountOf = (sym: LibSymbol): number =>
 
 /**
  * LIB_SYMBOL::cacheSearchTerms + cacheChooserFields, weighted terms and the
- * optional-column values, once the real symbol is known.
+ * optional-column values, once the real symbol is known. Both live in
+ * ../symbol_search_terms.ts, which is also where the reason the chooser fields
+ * are NOT gated on `show_in_chooser` is written down.
  */
 function populateItemNode(node: LibTreeNode, sym: LibSymbol, adapter?: LibTreeModelAdapter): void {
-  const keywords = symProp(sym, 'ki_keywords');
-  const desc = symProp(sym, 'Description');
-  node.desc = desc;
+  node.desc = symProp(sym, 'Description');
   node.footprint = symProp(sym, 'Footprint');
   node.isPower = sym.isPower;
   node.isRoot = !sym.extends;
   node.pinCount = pinCountOf(sym);
-  node.sourceSearchTerms = [
-    searchTerm(node.libNickname, 4),
-    searchTerm(node.name, 8, true),
-    searchTerm(node.libId, 16, true),
-    ...keywords
-      .split(/\s+/)
-      .filter(Boolean)
-      .map((kw) => searchTerm(kw, 4)),
-    searchTerm(keywords, 1),
-    searchTerm(desc, 1),
-  ];
-  if (node.footprint) node.sourceSearchTerms.push(searchTerm(node.footprint, 1));
-
-  // cacheChooserFields: fields flagged `(show_in_chooser yes)` become columns,
-  // and "Keywords" is offered unless the symbol defines a field by that name.
-  node.fields = new Map<string, string>();
-  for (const f of sym.properties) if (f.showInChooser) node.fields.set(f.key, f.value);
-  if (!node.fields.has('Keywords')) node.fields.set('Keywords', keywords);
-  if (adapter) for (const name of node.fields.keys()) adapter.addColumnIfNecessary(name);
+  node.sourceSearchTerms = symbolSearchTerms(node.libNickname, node.name, sym);
+  node.fields = symbolChooserFields(sym);
   node.rebuildSearchTerms(adapter?.getShownColumns() ?? []);
 
   addUnitRows(node, unitCountOf(sym));
