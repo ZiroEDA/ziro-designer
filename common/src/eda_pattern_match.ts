@@ -50,28 +50,55 @@ function substrMatcher(pattern: string): PatternMatcher {
   return { find: (candidate) => candidate.toLowerCase().indexOf(p) };
 }
 
-/** EDA_PATTERN_MATCH_WILDCARD: `?` = any char, `*` = any run; null without wildcards. */
+/**
+ * EDA_PATTERN_MATCH_WILDCARD: `?` = any char, `*` = any run, everything else
+ * escaped to a literal.
+ *
+ * `SetPattern` (common/eda_pattern_match.cpp:157-193) always succeeds, so this
+ * matcher is built for EVERY pattern, wildcards in it or not — with none it
+ * degenerates to the literal the substring matcher already finds, which is
+ * exactly why upstream can lean on it as the fallback that "will try its best".
+ */
 function wildcardMatcher(pattern: string): PatternMatcher | null {
-  if (!/[?*]/.test(pattern)) return null;
-  const escaped = pattern
-    .replace(/[.+^${}()|[\]\\]/g, '\\$&')
-    .replace(/\?/g, '.')
-    .replace(/\*/g, '.*');
   try {
-    const re = new RegExp(escaped, 'i');
+    const re = new RegExp(wildcardToRegex(pattern), 'i');
     return { find: (candidate) => candidate.search(re) };
   } catch {
     return null;
   }
 }
 
-/** EDA_PATTERN_MATCH_REGEX: the query as a regex, when it compiles. */
+/**
+ * EDA_PATTERN_MATCH_REGEX: the query as a regular expression — but only when
+ * the query SAYS it is one.
+ *
+ * `SetPattern` (common/eda_pattern_match.cpp:80-104) takes the pattern whole if
+ * it is `^…$`, strips the delimiters if it is `/…/` (the trailing slash is
+ * optional, "requiring a '/' on the end means they get no feedback while they
+ * type"), and otherwise returns false with the comment "for now regular
+ * expressions must be explicit" — whereupon `AddMatcher` drops the matcher
+ * entirely.
+ *
+ * We used to compile any pattern containing a metacharacter, which is a much
+ * larger claim: KiCad finds NOTHING for `r+` or `c.` or `(R)` in Device,
+ * because the only two matchers left are the escaped wildcard and the plain
+ * substring and no symbol contains that literal text. Ours turned `r+` into
+ * /r+/ and matched half the library. Measured with qa/probes/chooser_score.
+ */
 function regexMatcher(pattern: string): PatternMatcher | null {
-  // A pattern without any regex syntax is already covered by the substring
-  // matcher; compiling it here would only duplicate hits.
-  if (!/[.^$*+?()[\]{}|\\]/.test(pattern)) return null;
+  let source: string;
+
+  if (pattern.startsWith('^') && pattern.endsWith('$')) {
+    source = pattern;
+  } else if (pattern.startsWith('/')) {
+    source = pattern.slice(1);
+    if (source.endsWith('/')) source = source.slice(0, -1);
+  } else {
+    return null;
+  }
+
   try {
-    const re = new RegExp(pattern, 'i');
+    const re = new RegExp(source, 'i');
     return { find: (candidate) => candidate.search(re) };
   } catch {
     return null;
