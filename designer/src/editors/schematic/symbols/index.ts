@@ -132,6 +132,24 @@ export function loadIndex(): Promise<LibIndexEntry[]> {
 }
 
 const libCache = new Map<string, Promise<Map<string, LibSymbol>>>();
+
+/**
+ * The libraries that have finished loading — `LOAD_STATUS::LOADED`.
+ *
+ * `SYMBOL_TREE_MODEL_ADAPTER::AddLibraries` asks
+ * `m_adapter->GetLibraryStatus( lib )` for every row and adds only the ones
+ * that are LOADED (eeschema/symbol_tree_model_adapter.cpp:130-139); the rest go
+ * to `m_pending_load_libraries` and are retried. That test is synchronous, so a
+ * pending promise is not enough to answer it and a resolved set is kept beside
+ * the cache.
+ */
+const loadedLibraries = new Set<string>();
+
+/** `GetLibraryStatus( lib )->load_status == LOAD_STATUS::LOADED`. */
+export function libraryLoaded(name: string): boolean {
+  return loadedLibraries.has(name);
+}
+
 function loadLibrary(name: string): Promise<Map<string, LibSymbol>> {
   let p = libCache.get(name);
   if (!p) {
@@ -159,7 +177,10 @@ function loadLibrary(name: string): Promise<Map<string, LibSymbol>> {
           }
           return map;
         }),
-    );
+    ).then((map) => {
+      loadedLibraries.add(name);
+      return map;
+    });
     libCache.set(name, p);
   }
   return p;

@@ -33,7 +33,14 @@ import { FootprintSelectWidget } from '../../../widgets/footprint_select_widget.
 import { loadFootprintIndex, filterFootprints } from '../../../widgets/footprint_list.js';
 import { SymbolPreviewWidget } from './symbol_preview_widget.js';
 import { generateAliasInfo } from '../generate_alias_info.js';
-import { powerSymbolTest, loadIndex, loadLibrarySymbols, loadSymbol } from '../symbols/index.js';
+import {
+  powerSymbolTest,
+  loadIndex,
+  loadLibrarySymbols,
+  loadSymbol,
+  libraryLoaded,
+  type LibIndexEntry,
+} from '../symbols/index.js';
 import { settings } from '../../../prefs/settings.js';
 
 /** Upstream PICKED_SYMBOL (sch_screen.h): LIB_ID + unit + edited fields. */
@@ -96,6 +103,13 @@ function withFields(sym: LibSymbol, fields: readonly [string, string][]): LibSym
 
 const unitCountOf = (sym: LibSymbol): number =>
   new Set(sym.units.map((u) => u.unit).filter((u) => u > 0)).size;
+
+/**
+ * `m_check_pending_libraries_timer->Start( 1000 )`
+ * (eeschema/symbol_tree_model_adapter.cpp:209): how often AddLibraries retries
+ * the libraries that were not LOADED yet.
+ */
+const PENDING_LIBRARY_POLL_MS = 1000;
 
 /** LIB_SYMBOL::GetPinCount over the unit-1 (or common) graphical pins. */
 const pinCountOf = (sym: LibSymbol): number =>
@@ -280,19 +294,48 @@ export const PanelSymbolChooser = forwardRef<PanelSymbolChooserHandle, PanelSymb
     previewSymbolRef.current = previewSymbol;
     parentSymbolRef.current = parentSymbol;
 
-    // AddLibraries: seed every library from the index with name-only items;
-    // real data streams in lazily.
+    /**
+     * `SYMBOL_TREE_MODEL_ADAPTER::AddLibraries`, including the part that decides
+     * WHICH libraries are in the tree at all.
+     *
+     * Upstream adds a library only when its status is `LOAD_STATUS::LOADED`;
+     * anything else is put in `m_pending_load_libraries` and skipped
+     * (symbol_tree_model_adapter.cpp:130-139). If that set is non-empty it
+     * starts a wxTimer at **1000 ms** which re-runs AddLibraries until the set
+     * empties (:189-210). So the tree fills in a second at a time, and a user
+     * does not normally see it because `PreloadLibraries` finished when the
+     * project opened.
+     *
+     * We listed all 223 straight from the index whether they were loaded or
+     * not, which is why every row showed an empty Description and a bare name
+     * while the status bar still said "Loading Symbol Libraries".
+     */
     useEffect(() => {
       let cancelled = false;
-      loadIndex()
-        .then((index) => {
+      let timer: ReturnType<typeof setInterval> | null = null;
+      /** `m_pending_load_libraries`. */
+      let pending: LibIndexEntry[] = [];
+
+      const addLibraries = (index: readonly LibIndexEntry[]): void => {
           if (cancelled) return;
           const session = settings.common.system.session;
           // Built from the whole index, not per entry: the generator omits
           // `power` both for a library with none and for an index too old to
           // carry the flag, and only the index as a whole separates the two.
           const isPower = powerSymbolTest(index);
-          for (const lib of index) {
+          const stillPending: LibIndexEntry[] = [];
+          // `std::ranges::copy( m_pending_load_libraries, back_inserter( toLoad ) );`
+          // then `if( toLoad.empty() )` fall back to every row: a retry looks at
+          // the pending set ALONE and adds to the tree already built, it does
+          // not rebuild it.
+          const toLoad = pending.length > 0 ? pending : index;
+          for (const lib of toLoad) {
+            // `if( !status || status->load_status != LOAD_STATUS::LOADED )
+            //      { m_pending_load_libraries.insert( lib ); continue; }`
+            if (!libraryLoaded(lib.name)) {
+              stillPending.push(lib);
+              continue;
+            }
             const pinned = session.pinned_symbol_libs.includes(lib.name);
             const libNode = adapter.addLibrary(lib.name, lib.descr ?? '', pinned);
             for (const name of lib.symbols) {
@@ -320,10 +363,28 @@ export const PanelSymbolChooser = forwardRef<PanelSymbolChooserHandle, PanelSymb
           adapter.tree.assignIntrinsicRanks();
           setRegenerateNonce((n) => n + 1);
           onItemCountChanged?.(adapter.getItemCount());
-        })
+
+          pending = stillPending;
+          // `if( !m_pending_load_libraries.empty() && !m_check_pending_libraries_timer )`
+          // — one timer, started once, stopped when nothing is pending.
+          if (pending.length > 0 && !timer) {
+            timer = setInterval(() => {
+              if (cancelled) return;
+              addLibraries(index);
+              if (pending.length === 0 && timer) {
+                clearInterval(timer);
+                timer = null;
+              }
+            }, PENDING_LIBRARY_POLL_MS);
+          }
+      };
+
+      loadIndex()
+        .then((index) => addLibraries(index))
         .catch(() => {});
       return () => {
         cancelled = true;
+        if (timer) clearInterval(timer);
       };
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [adapter]);
