@@ -7693,7 +7693,21 @@ export function SchematicEditor({
                       {paneKey === 'netNavigator' && paneShown.netNavigator && (
                         <>
                           <div className="ze-panel grow" style={heightStyle('netNavigator')}>
-                            <div className="ze-panel-header">Net Navigator</div>
+                            <div className="ze-panel-header">
+                              <span>Net Navigator</span>
+                              {/* `.CloseButton( true )` on every one of these
+                                  palettes. Closing a pane is the same state the
+                                  View > Panels check item drives, which is why it
+                                  goes through the same toggle. */}
+                              <button
+                                type="button"
+                                className="ze-pane-close"
+                                onClick={() => onLeftToggle('showNetNavigator')}
+                                title="Close"
+                              >
+                                ⊠
+                              </button>
+                            </div>
                             <div className="ze-panel-body">
                               <NetNavigatorPanel
                                 doc={doc}
@@ -7726,7 +7740,21 @@ export function SchematicEditor({
                       {paneKey === 'hierarchy' && paneShown.hierarchy && (
                         <>
                           <div className="ze-panel grow" style={heightStyle('hierarchy')}>
-                            <div className="ze-panel-header">Schematic Hierarchy</div>
+                            <div className="ze-panel-header">
+                              <span>Schematic Hierarchy</span>
+                              {/* `.CloseButton( true )` on every one of these
+                                  palettes. Closing a pane is the same state the
+                                  View > Panels check item drives, which is why it
+                                  goes through the same toggle. */}
+                              <button
+                                type="button"
+                                className="ze-pane-close"
+                                onClick={() => onLeftToggle('showHierarchy')}
+                                title="Close"
+                              >
+                                ⊠
+                              </button>
+                            </div>
                             <div className="ze-panel-body">
                               {sheetTree &&
                                 renderSheetNode(
@@ -7745,7 +7773,21 @@ export function SchematicEditor({
                       {paneKey === 'properties' && paneShown.properties && (
                         <>
                           <div className="ze-panel grow" style={heightStyle('properties')}>
-                            <div className="ze-panel-header">Properties</div>
+                            <div className="ze-panel-header">
+                              <span>Properties</span>
+                              {/* `.CloseButton( true )` on every one of these
+                                  palettes. Closing a pane is the same state the
+                                  View > Panels check item drives, which is why it
+                                  goes through the same toggle. */}
+                              <button
+                                type="button"
+                                className="ze-pane-close"
+                                onClick={() => onLeftToggle('showProperties')}
+                                title="Close"
+                              >
+                                ⊠
+                              </button>
+                            </div>
                             <div className="ze-panel-body">
                               {propRows.length > 0 ? (
                                 <SchPropertiesPanel

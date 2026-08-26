@@ -1774,6 +1774,12 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   min-height: 18px;
   display: flex;
   align-items: center;
+  /* The caption's close box sits at the far end. Every `EDA_PANE().Palette()`
+     asks for one - `.CloseButton( true )` on the hierarchy
+     (sch_edit_frame.cpp:264), on Properties and on the Selection Filter
+     (eeschema_settings.cpp:100, :120) - and a caption with a single child is
+     unaffected by this. */
+  justify-content: space-between;
   /* 3px of lead-in, not 8. Measured on the real caption: the pane's left edge
      is x=100 and the caption's first ink is x=103, so the title starts hard
      against the edge. There is no side rule on the caption row either — the
@@ -3648,6 +3654,18 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-leftdock .ze-panel.grow {
   flex: 1;
   min-height: 60px;
+}
+/* Selection Filter: a FIXED-SIZE pane, sized to its content.
+   `defaultSchSelectionFilterPaneInfo` (eeschema/eeschema_settings.cpp:109-125)
+   gives it `MinSize( 180, -1 )` and `BestSize( 180, -1 )` under its own comment,
+   "Fixed-size pane; -1 for MinSize height is required" - so it takes the height
+   its checkboxes need and the two growing panes above it share the rest. The
+   markup already withholds `.grow` from it, but nothing said what a pane
+   WITHOUT that class does, so it grew anyway and the column came out in equal
+   thirds. `.ze-rightdock` has carried the same rule for pcbnew's copy of this
+   pane all along. */
+.ze-leftdock .ze-panel:not(.grow) {
+  flex: 0 0 auto;
 }
 .ze-selfilter {
   display: grid;

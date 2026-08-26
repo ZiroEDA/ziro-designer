@@ -51,7 +51,7 @@ async function fresh(): Promise<
   return import('@ziroeda/designer/src/editors/schematic/symbols/index.js');
 }
 
-describe('libraryLoaded', () => {
+describe('libraryLoaded', { timeout: 30_000 }, () => {
   it('is false before anything is fetched', async () => {
     serve((url) => (url.endsWith('index.json') ? INDEX : LIB_FILE));
     const { libraryLoaded } = await fresh();

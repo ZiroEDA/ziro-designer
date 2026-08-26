@@ -91,10 +91,31 @@ describe('the editor renders the dock through that order', () => {
    * checks is unchanged — see the two assertions below it.
    */
   it('emits each pane header exactly once', () => {
+    // The caption is `<span>Title</span>` beside its close box now, not the
+    // bare text node it used to be: every one of these palettes asks for
+    // `.CloseButton( true )` (sch_edit_frame.cpp:264, eeschema_settings.cpp:100).
     const s = text();
-    for (const header of ['Net Navigator</div>', 'Schematic Hierarchy</div>', 'Properties</div>']) {
-      expect([...s.matchAll(new RegExp(header.replace(/[/]/g, '\\/'), 'g'))].length).toBe(1);
+    for (const header of ['Net Navigator', 'Schematic Hierarchy', 'Properties']) {
+      expect([...s.matchAll(new RegExp(`<span>${header}</span>`, 'g'))].length).toBe(1);
     }
+  });
+
+  it('gives each of those captions its close box', () => {
+    // The close box drives the same state as the View > Panels check item, so
+    // it must go through the toolbar toggle rather than a local hide.
+    const s = text();
+    for (const toggle of ['showNetNavigator', 'showHierarchy', 'showProperties']) {
+      expect(s).toContain(`onLeftToggle('${toggle}')`);
+    }
+    expect([...s.matchAll(/ze-pane-close/g)].length).toBe(3);
+  });
+
+  it('gives the Selection Filter none, because upstream gives it no control', () => {
+    // "Don't give the selection filter its own visibility controls; instead
+    // show it if anything else is visible" - `updateSelectionFilterVisbility`
+    // (sch_edit_frame.cpp:2817-2831). Its visibility is derived, so a close box
+    // would have nothing to write.
+    expect(text()).not.toContain("onLeftToggle('showSelectionFilter')");
   });
 
   /** ...and the shared one is mounted exactly once, for the same reason. */
