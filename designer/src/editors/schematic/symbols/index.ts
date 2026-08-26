@@ -15,6 +15,17 @@ import { readSymbolLib, type LibSymbol } from '@ziroeda/eeschema';
 import { searchTerm, type SearchTerm } from '@ziroeda/common';
 import { fetchLibraryIndex, libraryBase } from '../../../libraryHosts.js';
 import { trackLibraryLoad } from '../../../widgets/library_loading.js';
+import { libTreeItem, symbolProperty, type LibTreeItem } from './lib_tree_item.js';
+import { loadLibraryItemsPooled } from './preload_pool.js';
+
+export type { LibTreeItem } from './lib_tree_item.js';
+/** Re-exported so callers keep one import site for symbol access. */
+export { symbolProperty, libSymbolPinCount, libSymbolUnitCount } from './lib_tree_item.js';
+
+/** `GetSymbols( lib )`'s map, keyed by the bare item name AddLibraries looks up. */
+function itemsByName(items: readonly LibTreeItem[]): Map<string, LibTreeItem> {
+  return new Map(items.map((i) => [i.name, i]));
+}
 
 export interface LibIndexEntry {
   name: string;
@@ -140,10 +151,17 @@ const libCache = new Map<string, Promise<Map<string, LibSymbol>>>();
  * `m_adapter->GetLibraryStatus( lib )` for every row and adds only the ones
  * that are LOADED (eeschema/symbol_tree_model_adapter.cpp:130-139); the rest go
  * to `m_pending_load_libraries` and are retried. That test is synchronous, so a
- * pending promise is not enough to answer it and a resolved set is kept beside
+ * pending promise is not enough to answer it and a resolved map is kept beside
  * the cache.
+ *
+ * What is kept is one {@link LibTreeItem} per symbol, `LIB_TREE_ITEM` being the
+ * whole of what the tree asks a symbol for. Upstream keeps the `LIB_SYMBOL`
+ * itself; we cannot, because the parsed form retains 21.1x its source text and
+ * the hosted set would be ~4.9 GB (see lib_tree_item.ts). Anything that needs
+ * the real symbol — the preview, a placement — goes through `loadSymbol`, which
+ * fetches that one symbol's own file.
  */
-const loadedLibraries = new Map<string, Map<string, LibSymbol>>();
+const loadedLibraries = new Map<string, Map<string, LibTreeItem>>();
 
 /** `GetLibraryStatus( lib )->load_status == LOAD_STATUS::LOADED`. */
 export function libraryLoaded(name: string): boolean {
@@ -156,7 +174,7 @@ export function libraryLoaded(name: string): boolean {
  * library is already LOADED by the time that line runs. Undefined for a library
  * that is not, which is the same thing as it not being in the tree yet.
  */
-export function loadedLibrarySymbols(name: string): LibSymbol[] | undefined {
+export function loadedLibraryItems(name: string): LibTreeItem[] | undefined {
   const map = loadedLibraries.get(name);
   return map ? [...map.values()] : undefined;
 }
@@ -189,7 +207,10 @@ function loadLibrary(name: string): Promise<Map<string, LibSymbol>> {
           return map;
         }),
     ).then((map) => {
-      loadedLibraries.set(name, map);
+      // A library read whole — by the library browser, or by `loadSymbol`
+      // falling back — is LOADED for the tree too, so record its items. This is
+      // the main-thread path; the preload's is `loadLibraryItemsPooled`.
+      loadedLibraries.set(name, itemsByName([...map.values()].map(libTreeItem)));
       return map;
     });
     libCache.set(name, p);
@@ -293,10 +314,41 @@ export async function loadSymbol(
  * bytes. The index is awaited before the list is built rather than being an
  * item in it, because it *is* our library table — upstream knows its row count
  * before the load starts, and so must we.
+ *
+ * **Each item runs on a worker, as `AsyncLoad` submits each row to the thread
+ * pool.** It used to call `loadLibrarySymbols`, which fetches and parses inline:
+ * 35 434 ms of main-thread CPU over the hosted set, in 92 tasks longer than
+ * 50 ms, worst 2 030 ms (qa/perf/parse_all.bench.ts). That is what made typing
+ * and scrolling stall while a project opened.
  */
 export async function symbolPreloadWork(): Promise<(() => Promise<unknown>)[]> {
   const index = await loadIndex();
-  return index.map((lib) => () => loadLibrarySymbols(lib.name));
+  return index.map((lib) => () => preloadLibraryItems(lib.name));
+}
+
+/**
+ * One library's worth of `LIB_TREE_ITEM`s, parsed off the main thread, recorded
+ * as LOADED.
+ *
+ * Memoised on `itemsPromises` the way `loadLibrary` is on `libCache`: the
+ * preload and a chooser opening over the top of it must not fetch twice.
+ */
+const itemsPromises = new Map<string, Promise<LibTreeItem[]>>();
+
+export function preloadLibraryItems(library: string): Promise<LibTreeItem[]> {
+  let p = itemsPromises.get(library);
+  if (!p) {
+    p = trackLibraryLoad(
+      'symbols',
+      `Loading ${library}...`,
+      loadLibraryItemsPooled(library, libraryUri(library)),
+    ).then((items) => {
+      loadedLibraries.set(library, itemsByName(items));
+      return items;
+    });
+    itemsPromises.set(library, p);
+  }
+  return p;
 }
 
 /**
@@ -311,11 +363,6 @@ export async function loadLibrarySymbols(library: string): Promise<LibSymbol[]> 
 /** LIBRARY_MANAGER::GetFullURI, where a library nickname's file actually lives. */
 export function libraryUri(library: string): string {
   return `${symbolsBase()}/${library}.kicad_sym`;
-}
-
-/** A symbol's `(property ...)` value, or '', LIB_SYMBOL::GetDescription/GetKeyWords. */
-export function symbolProperty(sym: LibSymbol, key: string): string {
-  return sym.properties.find((p) => p.key === key)?.value ?? '';
 }
 
 /**

@@ -37,12 +37,13 @@ import { symbolChooserFields, symbolSearchTerms } from '../symbol_search_terms.j
 import {
   powerSymbolTest,
   loadIndex,
-  loadLibrarySymbols,
+  preloadLibraryItems,
   loadSymbol,
   libraryLoaded,
-  loadedLibrarySymbols,
+  loadedLibraryItems,
   type LibIndexEntry,
 } from '../symbols/index.js';
+import { libTreeItem, type LibTreeItem } from '../symbols/lib_tree_item.js';
 import { settings } from '../../../prefs/settings.js';
 
 /** Upstream PICKED_SYMBOL (sch_screen.h): LIB_ID + unit + edited fields. */
@@ -103,9 +104,6 @@ function withFields(sym: LibSymbol, fields: readonly [string, string][]): LibSym
   return { ...sym, properties };
 }
 
-const unitCountOf = (sym: LibSymbol): number =>
-  new Set(sym.units.map((u) => u.unit).filter((u) => u > 0)).size;
-
 /**
  * `m_check_pending_libraries_timer->Start( 1000 )`
  * (eeschema/symbol_tree_model_adapter.cpp:209): how often AddLibraries retries
@@ -119,21 +117,55 @@ const pinCountOf = (sym: LibSymbol): number =>
 
 /**
  * LIB_SYMBOL::cacheSearchTerms + cacheChooserFields, weighted terms and the
- * optional-column values, once the real symbol is known. Both live in
- * ../symbol_search_terms.ts, which is also where the reason the chooser fields
- * are NOT gated on `show_in_chooser` is written down.
+ * optional-column values, once the item's `LIB_TREE_ITEM` face is known.
+ *
+ * Takes the projection rather than the `LIB_SYMBOL` because that is all it ever
+ * read, and because the preload no longer keeps the symbols — see
+ * symbols/lib_tree_item.ts. `populateFromSymbol` below is the same thing for
+ * the two call sites that do hold a real symbol.
  */
-function populateItemNode(node: LibTreeNode, sym: LibSymbol, adapter?: LibTreeModelAdapter): void {
-  node.desc = symProp(sym, 'Description');
-  node.footprint = symProp(sym, 'Footprint');
-  node.isPower = sym.isPower;
-  node.isRoot = !sym.extends;
-  node.pinCount = pinCountOf(sym);
-  node.sourceSearchTerms = symbolSearchTerms(node.libNickname, node.name, sym);
-  node.fields = symbolChooserFields(sym);
+function populateItemNode(
+  node: LibTreeNode,
+  item: LibTreeItem,
+  adapter?: LibTreeModelAdapter,
+): void {
+  const keywords = item.keywords;
+  node.desc = item.description;
+  node.footprint = item.footprint;
+  node.isPower = item.isPower;
+  node.isRoot = item.isRoot;
+  node.pinCount = item.pinCount;
+  node.sourceSearchTerms = [
+    searchTerm(node.libNickname, 4),
+    searchTerm(node.name, 8, true),
+    searchTerm(node.libId, 16, true),
+    ...keywords
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((kw) => searchTerm(kw, 4)),
+    searchTerm(keywords, 1),
+    searchTerm(item.description, 1),
+  ];
+  if (node.footprint) node.sourceSearchTerms.push(searchTerm(node.footprint, 1));
+
+  // cacheChooserFields: fields flagged `(show_in_chooser yes)` become columns,
+  // and "Keywords" is offered unless the symbol defines a field by that name.
+  node.fields = new Map<string, string>(item.chooserFields);
+  if (!node.fields.has('Keywords')) node.fields.set('Keywords', keywords);
+  if (adapter) for (const name of node.fields.keys()) adapter.addColumnIfNecessary(name);
   node.rebuildSearchTerms(adapter?.getShownColumns() ?? []);
 
-  addUnitRows(node, unitCountOf(sym));
+  addUnitRows(node, item.unitCount);
+}
+
+/** The same, from a symbol that is actually in hand (the history groups, and
+ *  the on-selection hydrate). */
+function populateFromSymbol(
+  node: LibTreeNode,
+  sym: LibSymbol,
+  adapter?: LibTreeModelAdapter,
+): void {
+  populateItemNode(node, libTreeItem(sym), adapter);
 }
 
 /**
@@ -241,7 +273,7 @@ export const PanelSymbolChooser = forwardRef<PanelSymbolChooserHandle, PanelSymb
           item.libItemName = itemName;
           const edited = picked.fields.length ? withFields(sym, picked.fields) : sym;
           groupSymbols.set(item, edited);
-          populateItemNode(item, edited, a);
+          populateFromSymbol(item, edited, a);
           group.children.push(item);
         }
       };
@@ -327,10 +359,7 @@ export const PanelSymbolChooser = forwardRef<PanelSymbolChooserHandle, PanelSymb
           // (:148). The library is LOADED, so its symbols are here and each
           // item is built from the real thing rather than from a name.
           const symbols = new Map(
-            (loadedLibrarySymbols(lib.name) ?? []).map((sym) => [
-              sym.libId.split(':').pop() ?? sym.libId,
-              sym,
-            ]),
+            (loadedLibraryItems(lib.name) ?? []).map((item) => [item.name, item]),
           );
           for (const name of lib.symbols) {
             const item = new LibTreeNode();
@@ -356,8 +385,8 @@ export const PanelSymbolChooser = forwardRef<PanelSymbolChooserHandle, PanelSymb
             // first. Upstream separates them on the keyword term alone -
             // "terminal" matches at position 0 and doubles to 2 x 4 where
             // "inverter" matches mid-word for 4 - which is 34 against 30.
-            const sym = symbols.get(name);
-            if (sym) populateItemNode(item, sym, adapter);
+            const loaded = symbols.get(name);
+            if (loaded) populateItemNode(item, loaded, adapter);
             // The unit rows are built with the node, from the count the index
             // carries, so a multi-unit part shows its expander before anything
             // is fetched. An index without the field simply has no counts and
@@ -413,8 +442,16 @@ export const PanelSymbolChooser = forwardRef<PanelSymbolChooserHandle, PanelSymb
      * — the same bytes, 536x the round trips, and between 10x and 50x the wall
      * clock. `loadSymbol` is still per-symbol for PLACING one part, which is
      * where the split pays; enriching a whole library's rows is the case it
-     * loses, badly. The fetched library also lands in `loadLibrary`'s cache, so
-     * every later `loadSymbol` in it is free.
+     * loses, badly.
+     *
+     * Two things it must NOT do. It must not run when the library is already
+     * LOADED — the preload covers every row of the table now, so `AddLibraries`
+     * has already built these nodes from real items and re-reading the library
+     * would be for nothing. And it must not read one on this thread: it used to
+     * call `loadLibrarySymbols`, so selecting a row in MCU_ST_STM32H7 parsed
+     * 15.5 MB inline, a 2 030 ms task (qa/perf/parse_all.bench.ts) — a click
+     * that froze the dialog. Both paths now go through the same pool the
+     * preload uses.
      */
     const ensureLibraryLoaded = useCallback(
       async (libNickname: string): Promise<void> => {
@@ -422,15 +459,11 @@ export const PanelSymbolChooser = forwardRef<PanelSymbolChooserHandle, PanelSymb
         loadedLibs.current.add(libNickname);
         const libNode = adapter.tree.children.find((n) => !n.isGroup && n.name === libNickname);
         if (!libNode) return;
-        const symbols = await loadLibrarySymbols(libNickname).catch(() => []);
-        // `loadLibrarySymbols` stamps each libId as "Library:Name"; the tree's
-        // item nodes carry the bare name.
-        const byName = new Map(
-          symbols.map((sym) => [sym.libId.slice(libNickname.length + 1), sym]),
-        );
+        const items = await preloadLibraryItems(libNickname).catch(() => []);
+        const byName = new Map(items.map((item) => [item.name, item]));
         for (const item of libNode.children) {
-          const sym = byName.get(item.libItemName);
-          if (sym) populateItemNode(item, sym, adapter);
+          const loaded = byName.get(item.libItemName);
+          if (loaded) populateItemNode(item, loaded, adapter);
         }
         setRegenerateNonce((n) => n + 1);
         onItemCountChanged?.(adapter.getItemCount());
@@ -451,7 +484,7 @@ export const PanelSymbolChooser = forwardRef<PanelSymbolChooserHandle, PanelSymb
           // before falling back to the hosted library.
           const stored = groupSymbols.get(node) ?? getPlacedLibSymbol?.(node.libId);
           if (stored) {
-            populateItemNode(node, stored, adapter);
+            populateFromSymbol(node, stored, adapter);
             setPreviewSymbol(stored);
             return;
           }
@@ -467,7 +500,7 @@ export const PanelSymbolChooser = forwardRef<PanelSymbolChooserHandle, PanelSymb
             .then((sym) => {
               setPreviewSymbol(sym ?? null);
               if (sym) {
-                populateItemNode(node, sym, adapter);
+                populateFromSymbol(node, sym, adapter);
                 void ensureLibraryLoaded(node.libNickname);
               }
             });
