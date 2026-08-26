@@ -92,11 +92,7 @@ export function symbolChooserFields(sym: LibSymbol): Map<string, string> {
  * The keyword tokenizer is `wxStringTokenizer( …, " \t\r\n", wxTOKEN_STRTOK )`,
  * which drops empty tokens — hence the filter.
  */
-export function symbolSearchTerms(
-  libNickname: string,
-  name: string,
-  sym: LibSymbol,
-): SearchTerm[] {
+export function symbolSearchTerms(libNickname: string, name: string, sym: LibSymbol): SearchTerm[] {
   const keywords = propValue(sym, 'ki_keywords');
   const footprint = propValue(sym, 'Footprint');
 
