@@ -5127,16 +5127,25 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   min-width: 0;
   display: flex;
   margin-right: 4px;
+  /* The entry carries the GtkEntry's two icon slots, so its text has to start
+     past the primary one: 9px inset + 16px icon + Yaru's 6px
+     `entry image.left { margin-right }` = 31, and the same on the right.
+
+     Fed to the SHARED input rule as a token rather than restated here. The
+     rule that styles every entry is
+     `.ze-app input:not([type=checkbox])...:not(.ze-bare)`, which is (0,6,1)
+     because each :not() carries its argument's specificity - it beat a local
+     padding-left on `.ze-libtree-entry .ze-search`, which is only (0,2,0), and
+     the magnifier sat on top of the placeholder. Restating the value at a higher
+     specificity is the trap CLAUDE.md names; the shared rule already reads
+     --field-pad-x, so the fix is to give it the right one. */
+  --field-pad-x: 31px;
 }
 /* The GtkEntry's two icon slots. [px] chooser_shell_probe: 16x16, inset 9px
    from the entry's end and centred in its 34px height. Yaru puts 6px between an
    icon and the text (`entry image.left { margin-right: 6px }`), so the text
    starts 9 + 16 + 6 = 31px in - which is why the padding below is stated here
    and not left to --field-pad-x. */
-.ze-libtree-entry .ze-search {
-  padding-left: 31px;
-  padding-right: 31px;
-}
 .ze-entry-icon {
   position: absolute;
   top: 50%;
@@ -5183,14 +5192,20 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   opacity: 0.55;
   pointer-events: none;
 }
+/* A BITMAP_BUTTON with wxBU_AUTODRAW (lib_tree.cpp:89-91): it draws the bitmap
+   and NOTHING else at rest - no border, no face, no radius - and only paints a
+   highlight while the pointer is over it. We had it wearing an entry's frame
+   and background, which is why it read as a boxed control beside KiCad's bare
+   icon. `wxBU_AUTODRAW` is exactly this "flat until hovered" behaviour. */
 .ze-libtree-sortbtn {
-  padding: 4px 8px;
-  background: var(--chrome-bg2);
-  border: 1px solid var(--chrome-border);
-  border-radius: 4px;
+  padding: 0;
+  background: none;
+  border: none;
   color: var(--chrome-fg);
   cursor: default;
   font: inherit;
+  display: flex;
+  align-items: center;
 }
 .ze-libtree-sortbtn:hover {
   background: var(--chrome-hover);

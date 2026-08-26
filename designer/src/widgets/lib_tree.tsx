@@ -13,6 +13,7 @@ import { type LibTreeNode, LibTreeNodeType } from './lib_tree_model.js';
 import { type LibTreeModelAdapter, SortMode, PINNING_SYMBOL } from './lib_tree_model_adapter.js';
 import { SelectColumnsDialog } from './select_columns_dialog.js';
 import { useModalEscape } from '../ui/useModalEscape.js';
+import { bitmapUrl } from '../ui/toolbarIcons.js';
 
 /** LIB_TREE::RECENT_SEARCHES_MAX. */
 const RECENT_SEARCHES_MAX = 10;
@@ -560,7 +561,18 @@ export function LibTree({
             title="Sort and expand options"
             onClick={() => setMenuOpen((o) => !o)}
           >
-            ⚙
+            {/* `m_sort_ctrl->SetBitmap( KiBitmapBundle( BITMAPS::config ) )`
+                (lib_tree.cpp:90). KiCad's own icon, vendored from its dark
+                sources, not a gear from the font.
+
+                16px, because that is what wx draws here: the store builds the
+                bundle from every size it has for the theme
+                (bitmap_store.cpp:126-141) and ships config at 16, 24 and 32
+                (bitmap_info.cpp), and `wxBitmapBundle::FromBitmaps` takes the
+                SMALLEST as the bundle's default size, which is what a 100%
+                scaling display asks for. 24 was a size KiCad only reaches at
+                150%. */}
+            <img src={bitmapUrl('config')} alt="" width={16} height={16} />
           </button>
           {sortMenu}
         </div>

@@ -280,7 +280,13 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // details pane's 10px inset and 5px top margin and the external variant's
   // three-sided 5px, the preview's 5px bottom margin, the 30px between the two
   // footer checkboxes, and the dialog's own 680px + 37px height.
-  ui: { colours: 282, metrics: 806 },
+  // 806 -> 801: the chooser's search entry and its sort button. The entry's
+  // padding-left/right went when the value moved onto --field-pad-x so the
+  // SHARED input rule computes it (a local restatement at (0,2,0) lost to
+  // that rule's (0,6,1) and drew the magnifier over the placeholder), and
+  // the sort button's padding, border and radius went because a
+  // BITMAP_BUTTON with wxBU_AUTODRAW draws none of them.
+  ui: { colours: 282, metrics: 801 },
   widgets: { colours: 6, metrics: 46 },
 };
 
@@ -536,7 +542,10 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // 1631 -> 1625: the same pass, seventeen out against eleven in. RESCANNED
     // from this tree, and the per-area table agrees, `ui` 812 -> 806 being the
     // only row that moved.
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1625);
+    // 1625 -> 1620: the five above; see the `ui` row. RESCANNED from this
+    // tree, and derived a second time from the per-area table -- `ui`
+    // 806 -> 801 is the only row that moved, and 1625 - 5 agrees.
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1620);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {

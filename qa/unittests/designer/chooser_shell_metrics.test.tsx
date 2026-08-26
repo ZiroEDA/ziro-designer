@@ -219,14 +219,26 @@ describe('the values, as the probes measured them', () => {
     expect(decl('.ze-entry-icon.left', 'left')).toBe('9px');
     expect(decl('.ze-entry-icon.right', 'right')).toBe('9px');
     // The text starts clear of the icon: 9 inset + 16 icon + Yaru's 6px
-    // `entry image.left { margin-right }`.
-    expect(decl('.ze-libtree-entry .ze-search', 'padding-left')).toBe('31px');
-    expect(decl('.ze-libtree-entry .ze-search', 'padding-right')).toBe('31px');
+    // `entry image.left` margin-right = 31.
+    //
+    // Delivered by FEEDING the shared entry rule its token, not by restating
+    // the padding here. `.ze-app input:not([type=checkbox])…:not(.ze-bare)` is
+    // (0,6,1) -- every :not() contributes its argument -- so a local
+    // padding-left at (0,2,0) lost to it and the magnifier drew on top of the
+    // placeholder. Measured in the live dialog: it computed 8px, not 31.
+    expect(decl('.ze-libtree-entry', '--field-pad-x')).toBe('31px');
     // An overlay, not a grey: `separator { background: rgba(0,0,0,0.1) }`, and
     // wx reports the same widget's background as #0000001A.
     expect(token('gtk-separator')).toBe('rgb(0 0 0 / 10%)');
     expect(decl('.ze-libtree-sep', 'background')).toBe('var(--gtk-separator)');
     expect(decl('.ze-libtree-sep', 'flex')).toBe('0 0 2px');
+  });
+
+  it('does not restate that padding on the input, where it would lose', () => {
+    // The control beside the token assertion above. Re-adding
+    // `.ze-libtree-entry .ze-search { padding-left: … }` would look like a fix,
+    // pass a naive test, and change nothing on screen.
+    expect(SHELL).not.toMatch(/\.ze-libtree-entry \.ze-search\s*\{/);
   });
 
   it("lays the details table out on wxHtml's own cellpadding and cellspacing", () => {
