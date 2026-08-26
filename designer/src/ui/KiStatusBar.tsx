@@ -57,8 +57,9 @@
  * default rather than guessed at. Measure it before changing it.
  */
 
-import type { JSX, ReactNode } from 'react';
+import { useCallback, useRef, useState, type JSX, type ReactNode } from 'react';
 import { STATUS_FIELD_TEMPLATES, StatusField } from './StatusField.js';
+import { BackgroundJobList, useFrontBackgroundJob } from './BackgroundJobList.js';
 
 /** The eight `EDA_DRAW_FRAME` panes, in the order `updateStatusBarWidths` sets them. */
 export const KISTATUSBAR_FIELDS = [
@@ -112,6 +113,72 @@ export interface KiStatusBarProps {
   testId?: string;
 }
 
+/**
+ * `wxGauge` field width while a job is running, `updateAuxFieldWidths`
+ * (common/widgets/kistatusbar.cpp:383): `m_fieldWidths[… BGJOB_GAUGE] = 75`.
+ * DATA — KiCad's own literal, not a theme metric.
+ */
+const BGJOB_GAUGE_WIDTH = 75;
+
+/**
+ * `layoutControls`' `constexpr int padding = 5` (kistatusbar.cpp:401): the
+ * gauge sits at `x + padding` and is `w - padding` wide inside its field.
+ */
+const BGJOB_GAUGE_PADDING = 5;
+
+/**
+ * The two panes `KISTATUSBAR` appends after whatever the frame asked for —
+ * `extraFields` starts at 2 for exactly these (kistatusbar.cpp:87-91), so
+ * every frame has them whether or not it knows about background jobs. Order is
+ * `FIELD::BGJOB_LABEL` then `FIELD::BGJOB_GAUGE` (kistatusbar.h's enum, and
+ * `fieldIndex` returning 0 and 1 for them).
+ *
+ * Both collapse to width 0 when no job is running (`updateAuxFieldWidths`,
+ * :375-384), so an idle bar is indistinguishable from one without them — which
+ * is why adding them here changes no existing frame's layout.
+ */
+function BackgroundJobFields(): JSX.Element | null {
+  const job = useFrontBackgroundJob();
+  const [listAt, setListAt] = useState<{ x: number; y: number } | null>(null);
+  const gaugeRef = useRef<HTMLDivElement>(null);
+  const closeList = useCallback(() => setListAt(null), []);
+
+  // `HideBackgroundProgressBar()` is the constructor's last act; the bar is
+  // shown only from `jobUpdated` (:339-346) and hidden again by `Remove` when
+  // the queue empties (:280-289).
+  if (!job) return null;
+
+  return (
+    <>
+      {/* wxALIGN_RIGHT | wxST_NO_AUTORESIZE (:127-129), and ellipsized at the
+          end by `updateBackgroundText` (:409-426). */}
+      <span className="cell bgjob-label" data-testid="statusbar-bgjob-label">
+        {job.status}
+      </span>
+      <div
+        ref={gaugeRef}
+        className="cell bgjob-gauge"
+        style={{ width: BGJOB_GAUGE_WIDTH, paddingLeft: BGJOB_GAUGE_PADDING }}
+        data-testid="statusbar-bgjob-gauge"
+        // `onBackgroundProgressClick` opens the list at the gauge's screen
+        // position plus the width of its field — the field's right edge.
+        onMouseDown={() => {
+          const r = gaugeRef.current?.getBoundingClientRect();
+          setListAt(r ? { x: r.right, y: r.top } : { x: 0, y: 0 });
+        }}
+      >
+        <progress
+          className="ze-bgjob-gauge"
+          max={job.maxProgress}
+          value={job.currentProgress}
+          aria-label={job.name}
+        />
+      </div>
+      {listAt && <BackgroundJobList anchorX={listAt.x} anchorY={listAt.y} onClose={closeList} />}
+    </>
+  );
+}
+
 export function KiStatusBar({ fields, testIds, children, testId }: KiStatusBarProps): JSX.Element {
   return (
     <div className="ze-statusbar" data-testid={testId}>
@@ -134,6 +201,7 @@ export function KiStatusBar({ fields, testIds, children, testId }: KiStatusBarPr
             );
           })
         : children}
+      <BackgroundJobFields />
     </div>
   );
 }

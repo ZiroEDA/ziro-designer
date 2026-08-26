@@ -41,7 +41,13 @@ export function FootprintPreviewWidget({
 }: FootprintPreviewWidgetProps): JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [fp, setFp] = useState<PcbFootprint | null>(null);
-  const [status, setStatus] = useState<'idle' | 'loading' | 'missing'>('idle');
+  // `FOOTPRINT_PREVIEW_WIDGET` has two states, not three: `DisplayFootprint`
+  // (common/widgets/footprint_preview_widget.cpp:107-123) either clears the
+  // status or sets "Footprint not found." There is no loading state because the
+  // read is off an already-resident library, so while ours is in flight the
+  // widget keeps showing what it showed before — which is what upstream's panel
+  // does too, since it only repaints once the new footprint resolves.
+  const [status, setStatus] = useState<'idle' | 'missing'>('idle');
 
   // DisplayFootprint: fetch the .kicad_mod on selection change.
   useEffect(() => {
@@ -51,7 +57,6 @@ export function FootprintPreviewWidget({
       setStatus('idle');
       return;
     }
-    setStatus('loading');
     void resolve(footprint).then((loaded) => {
       if (cancelled) return;
       setFp(loaded);
@@ -138,7 +143,7 @@ export function FootprintPreviewWidget({
         />
       ) : (
         <div className="ze-muted">
-          {!footprint ? statusText : status === 'loading' ? 'Loading...' : 'Footprint not found'}
+          {!footprint || status !== 'missing' ? statusText : 'Footprint not found.'}
         </div>
       )}
     </div>

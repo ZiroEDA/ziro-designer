@@ -12,7 +12,6 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { type LibTreeNode, LibTreeNodeType } from './lib_tree_model.js';
 import { type LibTreeModelAdapter, SortMode, PINNING_SYMBOL } from './lib_tree_model_adapter.js';
 import { SelectColumnsDialog } from './select_columns_dialog.js';
-import { LibraryLoadingPanel } from './library_loading_panel.js';
 import { useModalEscape } from '../ui/useModalEscape.js';
 
 /** LIB_TREE::RECENT_SEARCHES_MAX. */
@@ -101,13 +100,6 @@ export function LibTree({
 
   const searching = search.trim().length > 0;
   const columns = adapter.getShownColumns();
-  // Whether the hosted libraries have landed in the tree yet: the Recently Used
-  // / Already Placed groups are always present, so an "empty" tree is one with
-  // no real library rows.
-  const hasLibraryRows = adapter.tree.children.some((n) => !n.isGroup);
-  // Which hosted set this tree waits on, so a footprint fetch elsewhere in the
-  // dialog can't make the symbol tree look like it is still loading.
-  const loadingKind = recentSearchesKey === 'footprints' ? 'footprints' : 'symbols';
 
   const select = useCallback(
     (node: LibTreeNode | null) => {
@@ -214,8 +206,20 @@ export function LibTree({
     return expanded.has(keyOf(node));
   };
 
-  // ExpandAll/CollapseAll act on the whole tree control, so multi-unit symbols
-  // open too, not just the library rows.
+  /**
+   * ExpandAll/CollapseAll act on the whole tree control, so multi-unit symbols
+   * open too, not just the library rows.
+   *
+   * It notifies `onToggleLibrary` for NOTHING. `LIB_TREE::ExpandAll`
+   * (common/widgets/lib_tree.cpp:426-431) only walks the dataview and expands
+   * items; it cannot load anything, because `IFACE::PreloadLibraries` already
+   * made every library resident. Ours used to call `onToggleLibrary` for every
+   * library, which is the chooser's lazy-load hook — so one click on "Expand
+   * All" asked the bucket for all 223 hosted libraries, 219.7 MB. The rows
+   * still open; the ones whose library has not been fetched show their names
+   * without descriptions, which is the price of loading on demand and is much
+   * cheaper than the alternative.
+   */
   const expandCollapseAll = (expand: boolean) => {
     if (!expand) {
       setExpanded(new Set());
@@ -224,11 +228,33 @@ export function LibTree({
     const all = new Set<string>();
     for (const lib of adapter.tree.children) {
       all.add(lib.name);
-      onToggleLibrary?.(lib, true);
       for (const item of lib.children) if (item.children.length > 0) all.add(item.libId);
     }
     setExpanded(all);
   };
+
+  /**
+   * `PANEL_SYMBOL_CHOOSER::onOpenLibsTimer` -> `LIB_TREE_MODEL_ADAPTER::OpenLibs`
+   * (eeschema/widgets/panel_symbol_chooser.cpp:534-538,
+   * common/lib_tree_model_adapter.cpp:220-232): the libraries the user had open
+   * last time are expanded once the tree exists.
+   *
+   * `openLibs` already seeds `expanded`, so they LOOK open — but nothing ever
+   * told the owner, so the lazy-load hook never ran for them and a restored
+   * library sat there showing bare names until the user collapsed and
+   * re-expanded it. Upstream has no such gap: expanding is free there.
+   *
+   * Upstream defers this behind a 300 ms one-shot timer, and says why — "a
+   * gross hack to keep GTK from garbling the display" (panel_symbol_chooser.cpp:273-276).
+   * That is a GTK repaint problem, not a rule, so this runs on mount.
+   */
+  // biome-ignore lint/correctness/useExhaustiveDependencies: mount only, like the one-shot timer
+  useEffect(() => {
+    for (const lib of openLibs ?? []) {
+      const node = adapter.tree.children.find((n) => !n.isGroup && n.name === lib);
+      if (node) onToggleLibrary?.(node, true);
+    }
+  }, []);
 
   // Flatten the visible rows; zero-score nodes are filtered out while a
   // query is active (they aren't in the wxDataViewCtrl at all upstream).
@@ -546,21 +572,17 @@ export function LibTree({
             ))}
           </div>
         ))}
-        {/* LIB_TREE has its libraries in hand by the time it is shown; ours
-            are still arriving, so the pane says so where the rows will be,
-            the "Recently Used"/"Already Placed" groups sit above, which is why
-            this keys off library rows rather than an empty tree. */}
-        {!hasLibraryRows && (
-          <LibraryLoadingPanel
-            kind={loadingKind}
-            fallback={
-              rows.length === 0 ? (
-                <div className="ze-muted" style={{ padding: 8 }}>
-                  No matches
-                </div>
-              ) : null
-            }
-          />
+        {/* LIB_TREE has no loading state, because by the time it is shown
+            `IFACE::PreloadLibraries` has run and the tree holds every library
+            that loaded. What it can be is EMPTY, and upstream shows nothing at
+            all for that; ours says so, because a hosted library that failed to
+            arrive and a filter that matched nothing look identical otherwise.
+            Progress belongs in the background job monitor
+            (ui/background_jobs_monitor.ts), which is where upstream puts it. */}
+        {rows.length === 0 && (
+          <div className="ze-muted" style={{ padding: 8 }}>
+            No matches
+          </div>
         )}
       </div>
 

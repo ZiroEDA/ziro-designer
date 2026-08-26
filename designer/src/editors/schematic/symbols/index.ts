@@ -228,6 +228,40 @@ export async function loadSymbol(
 }
 
 /**
+ * `SYMBOL_LIBRARY_ADAPTER`'s side of `IFACE::PreloadLibraries`
+ * (eeschema/eeschema.cpp:487) — the work list the "Loading Symbol Libraries"
+ * background job runs.
+ *
+ * Upstream's adapter loads every row of the symbol library table. Ours cannot:
+ * the hosted set is 223 libraries totalling 219.7 MB, or 22 778 individual
+ * symbol files, both measured against the bucket. What it loads instead is the
+ * name index plus the library copy of every symbol the open design places —
+ * the set upstream's chooser reads synchronously when it builds its "Recently
+ * Used" and "Already Placed" groups, and the set ERC's symbol comparison walks.
+ * See libraryPreload.ts for why that substitution is the faithful answer.
+ *
+ * The index counts as one work item so the gauge moves for a design with few
+ * symbols, and because it genuinely is the largest single fetch of the set.
+ *
+ * A `libId` with no library part cannot be answered by any hosted library, so
+ * it is dropped rather than turned into a certain 404.
+ */
+export function symbolPreloadWork(libIds: Iterable<string>): (() => Promise<unknown>)[] {
+  const work: (() => Promise<unknown>)[] = [() => loadIndex()];
+  const seen = new Set<string>();
+  for (const libId of libIds) {
+    const sep = libId.indexOf(':');
+    if (sep <= 0 || sep === libId.length - 1) continue;
+    if (seen.has(libId)) continue;
+    seen.add(libId);
+    const library = libId.slice(0, sep);
+    const name = libId.slice(sep + 1);
+    work.push(() => loadSymbol(library, name));
+  }
+  return work;
+}
+
+/**
  * Every symbol of one library, in file order, SYMBOL_LIBRARY_ADAPTER::GetSymbols,
  * which the Symbol Library Browser needs whole so it can filter on keywords,
  * description and pin count rather than just names.

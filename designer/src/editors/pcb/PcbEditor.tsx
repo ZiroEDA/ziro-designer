@@ -318,6 +318,7 @@ import {
 } from '@ziroeda/pcbnew/src/teardrop.js';
 import { fetchNetlistFromSchematic } from './netlist_from_schematic.js';
 import { loadFootprint } from '../../widgets/footprint_list.js';
+import { preloadBoardLibraries } from './preload.js';
 import { parseFootprint } from '../footprint/footprintBoard.js';
 import {
   buildScene,
@@ -1453,6 +1454,10 @@ export function PcbEditor({
         sceneRef.current = buildBoardScene(b);
         setBoard(b);
         setVisible(new Set(b.layers.map((l) => l.name)));
+        // `PCB_EDIT_FRAME::OpenProjectFiles`' preload (pcbnew/files.cpp:610):
+        // the footprint libraries are paid for now, in the background. See
+        // ./preload.ts.
+        preloadBoardLibraries(b);
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : String(e));
       }

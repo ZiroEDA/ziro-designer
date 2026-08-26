@@ -163,7 +163,13 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // panel each carried a '#000000' or '#ffffff' fallback the native control
   // needs and COLOR4D::UNSPECIFIED does not, and five of them were sized
   // inline for the same reason.
-  'editors/schematic': { colours: 60, metrics: 210 },
+  // colours 60 -> 59: the symbol chooser's preview stopped drawing a
+  // `color: '#555'` loading overlay. `SYMBOL_PREVIEW_WIDGET` has no loading
+  // state at all (eeschema/widgets/symbol_preview_widget.cpp:141-148 is its
+  // only text state), because `IFACE::PreloadLibraries` has already run by the
+  // time the chooser opens — so the literal went out with the overlay rather
+  // than being re-sourced from a token.
+  'editors/schematic': { colours: 59, metrics: 210 },
   // colours 12 -> 7: the Symbol Editor parity pass. Four were
   // SYMBOL_EDITOR_COLORS, a private copy of LAYER_SCHEMATIC_ANCHOR /
   // LAYER_HIDDEN / LAYER_PRIVATE_NOTES / LAYER_FIELDS that matched the Default
@@ -469,7 +475,13 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // 670 -> 668: the two the schematic's copy of DIALOG_PAGES_SETTINGS drew
     // its preview with. RESCANNED from this tree, and derived a second time
     // from the per-area table: `dialogs` is the only row that moved, 7 -> 5.
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(668);
+    // 668 -> 667: the symbol chooser's loading overlay; see the
+    // editors/schematic row. RESCANNED from this tree, and derived a second
+    // time from the per-area table, where `editors/schematic` is the only row
+    // that moved (60 -> 59). Metrics are unchanged: the four the background
+    // job monitor added are KiCad's own sizer borders and window size and
+    // carry [data] on their own lines, so they never counted.
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(667);
     // 1657 -> 1649: the same sweep. A native colour input has no useful
     // default size, so eight of the sixteen sites gave theirs an inline
     // width and height; the shared swatch takes --swatch-*-w/h. Rescanned.

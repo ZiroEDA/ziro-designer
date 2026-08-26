@@ -183,6 +183,32 @@ export function loadFootprint(libId: string): Promise<PcbFootprint | null> {
   return p;
 }
 
+/**
+ * `FOOTPRINT_LIBRARY_ADAPTER`'s side of `IFACE::PreloadLibraries`
+ * (pcbnew/pcbnew.cpp:772) — the work list the "Loading Footprint Libraries"
+ * background job runs. The symbol counterpart is `symbolPreloadWork`
+ * (editors/schematic/symbols/index.ts) and the reasoning is the same one:
+ * upstream reads every table row off local disk, ours would be 155 hosted
+ * libraries and 15 435 footprint files, so what is made resident is the index
+ * plus every footprint the open design assigns.
+ *
+ * A LIB_ID with no library part is dropped; `loadFootprint` answers `null` for
+ * one anyway, and counting a guaranteed non-fetch against the gauge would make
+ * the preload look like it did more work than it did.
+ */
+export function footprintPreloadWork(fpIds: Iterable<string>): (() => Promise<unknown>)[] {
+  const work: (() => Promise<unknown>)[] = [() => loadFootprintIndex()];
+  const seen = new Set<string>();
+  for (const fpId of fpIds) {
+    const sep = fpId.indexOf(':');
+    if (sep <= 0 || sep === fpId.length - 1) continue;
+    if (seen.has(fpId)) continue;
+    seen.add(fpId);
+    work.push(() => loadFootprint(fpId));
+  }
+  return work;
+}
+
 /** One fp_filter glob compiled to an anchored matcher (EDA_PATTERN_MATCH_WILDCARD_ANCHORED). */
 function compileFilter(pattern: string): { withLib: boolean; re: RegExp } | null {
   const withLib = pattern.includes(':');
