@@ -10,6 +10,7 @@
  * appended after its own.
  */
 import type { LibSymbol } from '@ziroeda/eeschema';
+import { letterSubReference } from '@ziroeda/eeschema/src/fieldbox.js';
 
 function escapeHtml(text: string): string {
   return text
@@ -91,7 +92,13 @@ export function generateAliasInfo(
   }
 
   const desc = propOf(symbol, 'Description') || (parent ? propOf(parent, 'Description') : '');
-  if (desc) html += `<br>${linkify(escapeHtml(desc)).replace(/\n/g, '<br>')}`;
+  // `SetHtmlDesc` formats DescFormat ("<br>%s") UNCONDITIONALLY, where
+  // `SetHtmlKeywords` right below it substitutes an empty string when there are
+  // none (generate_alias_info.cpp:140-161). So a symbol with no description
+  // still gets its <br>, and that empty line is the extra space above the <hr>
+  // that KiCad shows and we did not. The asymmetry is upstream's, not a slip:
+  // keywords are prefixed with a label, a description is not.
+  html += `<br>${desc ? linkify(escapeHtml(desc)).replace(/\n/g, '<br>') : ''}`;
 
   const keywords = propOf(symbol, 'ki_keywords') || (parent ? propOf(parent, 'ki_keywords') : '');
   if (keywords) html += `<br>Keywords: ${escapeHtml(keywords)}`;
@@ -99,8 +106,14 @@ export function generateAliasInfo(
   html += '<hr><table border="0">';
 
   const reference = (() => {
+    // `SCH_FIELD::GetFullText( unit )` (sch_field.cpp:282-294). The REFERENCE
+    // field, and only it, always gets "?" appended; the unit display name
+    // follows ONLY when the symbol is multi-unit, which is why a single-unit
+    // 4006 reads "U?" and not "U?A". We appended a letter whenever a unit was
+    // passed and never appended the "?" at all.
     const ref = propOf(symbol, 'Reference');
-    return unit > 0 ? `${ref}${String.fromCharCode(64 + unit)}` : ref;
+    const units = symbol.units.reduce((m, u) => Math.max(m, u.unit), 0);
+    return units > 1 ? `${ref}?${letterSubReference(unit > 0 ? unit : 1)}` : `${ref}?`;
   })();
 
   for (const field of symbol.properties) {
