@@ -39,7 +39,7 @@
 
 import type { LibSymbol, SchField, SchSheet, SchSymbol, SchLine, Vec2 } from '../types.js';
 import { symbolBodyBBox, labelBox, type BBox } from './bbox.js';
-import { symbolFieldBoxes } from '../fieldbox.js';
+import { symbolFieldBoxes, type SymbolFieldBox } from '../fieldbox.js';
 import { measureText } from '@ziroeda/common/src/font/stroke_font.js';
 import { symbolTransform } from '@ziroeda/common/src/transform.js';
 import { mmToIU } from '@ziroeda/common/src/eda_units.js';
@@ -637,7 +637,24 @@ export function autoplacedLibFields(
   enable: boolean,
   opts: AutoplaceOptions,
 ): readonly SchField[] {
-  if (!enable) return lib.properties;
+  return libPreviewFields(lib, enable, opts).fields;
+}
+
+/**
+ * The same, plus each field's drawn box.
+ *
+ * The preview needs both: it draws the fields, and it scales itself to a
+ * bounding box that CONTAINS them, because `GetUnitBoundingBox` takes each
+ * field's full text extent rather than its anchor
+ * (symbol_preview_widget.cpp:238-239). Fitting to the anchors alone leaves a
+ * long value string hanging off the side of the pane, which is exactly what a
+ * first attempt at this did.
+ */
+export function libPreviewFields(
+  lib: LibSymbol,
+  enable: boolean,
+  opts: AutoplaceOptions,
+): { readonly fields: readonly SchField[]; readonly boxes: readonly SymbolFieldBox[] } {
   // The autoplacer works off a placement, so the library symbol stands in as
   // one at the origin, unrotated and unmirrored, carrying its own properties.
   const asPlaced: SchSymbol = {
@@ -652,7 +669,8 @@ export function autoplacedLibFields(
     fields: lib.properties,
     source: lib.source,
   };
-  return autoplacedFields(asPlaced, lib, opts);
+  const fields = enable ? autoplacedFields(asPlaced, lib, opts) : lib.properties;
+  return { fields, boxes: symbolFieldBoxes({ ...asPlaced, fields }, lib) };
 }
 
 /**

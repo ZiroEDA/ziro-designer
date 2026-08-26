@@ -254,7 +254,10 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // --libtree-row-pad half of LIB_TREE's own row-height formula,
   // FromDIP(6) + GetTextExtent("pdI").y (lib_tree.cpp:177-180), measured at
   // 24px here by qa/probes/libtree_rowheight_probe.cpp.
-  ui: { colours: 286, metrics: 812 },
+  // 286 -> 285: `.ze-preview-canvas` painted itself #fff. The canvas is
+  // cleared to the render theme's LAYER_SCHEMATIC_BACKGROUND every frame, so
+  // the literal was a second answer to a question the theme already answers.
+  ui: { colours: 285, metrics: 812 },
   widgets: { colours: 6, metrics: 46 },
 };
 
@@ -486,7 +489,10 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // that moved (60 -> 59). Metrics are unchanged: the four the background
     // job monitor added are KiCad's own sizer borders and window size and
     // carry [data] on their own lines, so they never counted.
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(667);
+    // 667 -> 666: `.ze-preview-canvas`'s #fff; see the `ui` row. RESCANNED
+    // from this tree, and derived a second time from the per-area table --
+    // `ui` 286 -> 285 is the only row that moved, and 667 - 1 agrees.
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(666);
     // 1657 -> 1649: the same sweep. A native colour input has no useful
     // default size, so eight of the sixteen sites gave theirs an inline
     // width and height; the shared swatch takes --swatch-*-w/h. Rescanned.

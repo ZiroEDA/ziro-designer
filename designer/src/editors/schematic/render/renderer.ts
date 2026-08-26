@@ -87,7 +87,7 @@ import { contentBBox } from '@ziroeda/eeschema/src/tools/scene_bbox.js';
 import { tableCellId } from '@ziroeda/eeschema/src/tools/table_cells.js';
 import { schSymbolLibraryName } from '@ziroeda/eeschema';
 import { imageDataUrl } from '@ziroeda/eeschema/src/import_gfx/image_format.js';
-import { autoplacedLibFields } from '@ziroeda/eeschema/src/tools/autoplace_fields.js';
+import { libPreviewFields } from '@ziroeda/eeschema/src/tools/autoplace_fields.js';
 import { drawField } from '../../symbol/render/symbolRenderer.js';
 
 /**
@@ -4021,13 +4021,17 @@ export function renderSymbolPreview(
   // is why KiCad's preview shows the reference and value beside the body and at
   // a scale that leaves room for them. Measuring the body alone made the same
   // symbol fill the pane.
-  const previewFields = autoplacedLibFields(lib, true, {
+  const preview = libPreviewFields(lib, true, {
     allowRejustify: true,
     alignToGrid: true,
   });
-  for (const f of previewFields) {
-    if (!f.at || f.effects?.hidden || f.value === '') continue;
-    inc(f.at);
+  const previewFields = preview.fields;
+  // Each field's DRAWN box, not its anchor: `GetUnitBoundingBox` takes the text
+  // extent, and fitting to anchors alone left a long value string hanging off
+  // the side of the pane.
+  for (const b of preview.boxes) {
+    inc({ x: b.box.x, y: b.box.y });
+    inc({ x: b.box.x + b.box.w, y: b.box.y + b.box.h });
   }
   if (!Number.isFinite(minX)) {
     ctx.fillStyle = '#888';

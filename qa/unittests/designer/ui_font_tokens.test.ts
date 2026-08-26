@@ -272,7 +272,17 @@ const BASELINE: Record<string, number> = {
   // wxCheckBoxes that get KIUI::GetControlFont. Both take --ui-font-size now.
   // Derived twice: rescanning this tree gives 143, and the diff removes
   // exactly two `font-size:` lines and adds none, so 145 - 2 agrees.
-  ui: 143,
+  // 143 -> 136: the rest of the symbol chooser, seven rules that each invented
+  // a size for a widget KiCad never gives one. LIB_TREE and
+  // FOOTPRINT_PREVIEW_WIDGET are common/ widgets that call SetFont nowhere, and
+  // the details pane is an HTML_WINDOW whose template
+  // (generate_alias_info.cpp:28-46) carries no size either, so every string in
+  // that dialog is the 11pt window font: the tree's context menu, its column
+  // headers, the details pane, the footprint preview's status text, the symbol
+  // preview's status text, the preview info name, and the footprint combo.
+  // Derived twice: rescanning gives 136, and the diff removes exactly seven
+  // `font-size:` lines and adds none, so 143 - 7 agrees.
+  ui: 136,
   widgets: 6,
 };
 
@@ -420,7 +430,10 @@ describe('hardcoded font sizes do not grow', () => {
     // see the `ui` row. RESCANNED from this tree, and derived a second time
     // from the per-area table — `ui` 145 -> 143 is the only row that moved,
     // and 352 - 2 agrees.
-    expect(sites.length).toBe(350);
+    // 350 -> 343: the seven above; see the `ui` row. RESCANNED from this tree,
+    // and derived a second time from the per-area table -- `ui` 143 -> 136 is
+    // the only row that moved, and 350 - 7 agrees.
+    expect(sites.length).toBe(343);
   });
 });
 

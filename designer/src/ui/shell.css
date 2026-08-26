@@ -5064,7 +5064,12 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
   padding: 4px;
   z-index: 30;
-  font-size: 13px;
+  /* [px] LIB_TREE and FOOTPRINT_PREVIEW_WIDGET are common/ widgets and set no
+     font at all, so every one of them inherits the 11pt window font. The
+     details pane is an HTML_WINDOW whose template (generate_alias_info.cpp:28-46)
+     carries <b>, <i>, <hr> and a table and NO size, so it renders at 11pt too.
+     There is no smaller text anywhere in this dialog upstream. */
+  font-size: var(--ui-font-size);
 }
 .ze-libtree-menu.ctx {
   position: fixed;
@@ -5096,7 +5101,8 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-libtree-cols {
   display: flex;
   padding: 3px 8px 3px 24px;
-  font-size: 11px;
+  /* The wxDataViewCtrl column headers, which GTK draws in the window font. */
+  font-size: var(--ui-font-size);
   font-weight: 600;
   color: #9a9ca0;
   background: var(--panel-header);
@@ -5189,7 +5195,12 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   overflow: auto;
   padding: 8px 12px;
   border-top: 1px solid var(--chrome-border);
-  font-size: 12px;
+  /* [px] LIB_TREE and FOOTPRINT_PREVIEW_WIDGET are common/ widgets and set no
+     font at all, so every one of them inherits the 11pt window font. The
+     details pane is an HTML_WINDOW whose template (generate_alias_info.cpp:28-46)
+     carries <b>, <i>, <hr> and a table and NO size, so it renders at 11pt too.
+     There is no smaller text anywhere in this dialog upstream. */
+  font-size: var(--ui-font-size);
 }
 .ze-libtree-details.external {
   flex: none;
@@ -5250,7 +5261,9 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   align-items: center;
   justify-content: center;
   color: #6b7280;
-  font-size: 12px;
+  /* SYMBOL_PREVIEW_WIDGET::SetStatusText's label, on a widget that sets no
+     font: the 11pt window font, like everything else in this dialog. */
+  font-size: var(--ui-font-size);
 }
 /* A canvas whose backing store is sized in device pixels reports that size as
    its intrinsic width, which would otherwise become its flex basis and push the
@@ -5261,7 +5274,11 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   min-height: 0;
   width: 100%;
   height: 100%;
-  background: #fff;
+  /* No colour of its own: the canvas is cleared to the render theme's
+     LAYER_SCHEMATIC_BACKGROUND every frame, as the GAL panel is. A white here
+     was a second answer to a question the theme already answers, and it showed
+     through before the first paint. */
+  background: transparent;
 }
 
 /* FOOTPRINT_SELECT_WIDGET */
@@ -5272,7 +5289,8 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   border: 1px solid var(--chrome-border);
   border-radius: 4px;
   font: inherit;
-  font-size: 12px;
+  /* A wxComboBox, so KIUI::GetControlFont: the window font. */
+  font-size: var(--ui-font-size);
 }
 /* FOOTPRINT_PREVIEW_PANEL paints on pcbnew's canvas, so its background is the
    board editor's (LAYER_PCB_BACKGROUND, rgb(0,16,35)), not the schematic
@@ -5304,7 +5322,8 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 /* Status text over the dark board background (SetStatusText). */
 .ze-fp-preview .ze-muted {
   color: #9aa2ab;
-  font-size: 12px;
+  /* SetStatusText on a widget that sets no font: the 11pt window font. */
+  font-size: var(--ui-font-size);
 }
 .ze-preview-info {
   padding: 8px 12px;
@@ -5314,7 +5333,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 }
 .ze-preview-info .nm {
   font-weight: 700;
-  font-size: 13px;
+  font-size: var(--ui-font-size);
 }
 .ze-preview-info .desc {
   color: #b6b8bb;

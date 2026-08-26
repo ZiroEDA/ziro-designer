@@ -30,6 +30,7 @@ import {
   autoplacedFields,
   autoplacedLibFields,
   autoplacePlacedSymbol,
+  libPreviewFields,
 } from '@ziroeda/eeschema/src/tools/autoplace_fields.js';
 import { mmToIU } from '@ziroeda/common/src/eda_units.js';
 import type { SchField, Vec2 } from '@ziroeda/eeschema/src/types.js';
@@ -177,6 +178,38 @@ describe('the chooser preview autoplaces the library symbol too', () => {
   });
 });
 
+describe('the preview fits the fields it draws, not their anchors', () => {
+  it('measures each field as a box with real width', () => {
+    // `GetUnitBoundingBox` takes the text extent
+    // (symbol_preview_widget.cpp:238-239). "Screw_Terminal_01x02" is twenty
+    // characters and far wider than the 2.54mm body, so a box that has no
+    // width means the anchor is being measured instead of the text, and the
+    // value string hangs off the side of the pane.
+    const { boxes } = libPreviewFields(lib!, true, OPTS);
+    const value = boxes.find((b) => b.key === 'Value');
+
+    expect(value).toBeDefined();
+    expect(value!.box.w).toBeGreaterThan(mmToIU(2.54));
+  });
+
+  it('so the fitted extent is wider than the body alone', () => {
+    const { boxes } = libPreviewFields(lib!, true, OPTS);
+    const right = Math.max(...boxes.map((b) => b.box.x + b.box.w));
+
+    // The body ends at x = 1.27mm; the fitted box has to reach past the value
+    // text that sits beyond it.
+    expect(right).toBeGreaterThan(mmToIU(1.27) + mmToIU(2.54));
+  });
+
+  it('reports boxes for the autoplaced positions, not the library ones', () => {
+    const placed = libPreviewFields(lib!, true, OPTS);
+    const raw = libPreviewFields(lib!, false, OPTS);
+
+    expect(placed.fields).not.toEqual(raw.fields);
+    expect(placed.boxes.map((b) => b.box.x)).not.toEqual(raw.boxes.map((b) => b.box.x));
+  });
+});
+
 // ---------------------------------------------------------------------------
 // the seam a `.ts` module cannot cover
 // ---------------------------------------------------------------------------
@@ -215,9 +248,33 @@ const RENDERER = readFileSync(
   'utf8',
 );
 
+const PREVIEW_WIDGET = readFileSync(
+  fileURLToPath(
+    new URL(
+      '../../../designer/src/editors/schematic/widgets/symbol_preview_widget.tsx',
+      import.meta.url,
+    ),
+  ),
+  'utf8',
+);
+
+describe('the preview paints in the theme the user chose', () => {
+  it('asks the shared hook, as the editor canvas does', () => {
+    // `::GetColorSettings( app_settings->m_ColorTheme )`
+    // (symbol_preview_widget.cpp:77-78), not a fixed theme.
+    expect(PREVIEW_WIDGET).toContain('useSchematicTheme()');
+  });
+
+  it('does not pin itself to KiCad Classic', () => {
+    // Classic's LAYER_SCHEMATIC_BACKGROUND is legacy('WHITE'), which is why
+    // this pane stayed pure white while the editor drew rgb(245, 244, 239).
+    expect(PREVIEW_WIDGET).not.toContain('KICAD_CLASSIC');
+  });
+});
+
 describe('the chooser preview measures and draws the autoplaced fields', () => {
   it('autoplaces before it measures, so the fit leaves room for them', () => {
-    expect(RENDERER).toContain('autoplacedLibFields(lib, true, {');
+    expect(RENDERER).toContain('libPreviewFields(lib, true, {');
   });
 
   it('draws them, which upstream does and we did not', () => {
