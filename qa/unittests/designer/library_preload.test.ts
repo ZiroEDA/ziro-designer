@@ -235,6 +235,34 @@ describe('preloadLibraries drives the background job', () => {
     expect(values.at(-1)).toBe(1000);
   });
 
+  it('an abort that lands as the loop finishes does not poison the NEXT preload', async () => {
+    // The one place eeschema and pcbnew disagree, and the reason this port took
+    // pcbnew's version: `pcbnew.cpp:878` clears `m_libraryPreloadAbort`
+    // unconditionally at the end, `eeschema.cpp` clears it only inside the
+    // aborted branch (:521-527).
+    //
+    // The window is real, not theoretical. The abort flag is checked at the TOP
+    // of an iteration, before the 150 ms sleep; the loop can then wake to a
+    // progress of 1 and break on THAT, never looking at the flag again. So the
+    // run finishes cleanly with the flag still set, and the next preload aborts
+    // on its very first iteration — a project opened twice would load its
+    // libraries the first time and silently not the second.
+    const first = scriptedAdapter();
+    first.progress = 1;
+    const run = preloadLibraries('symbols', first);
+    // `preloadLibraries` runs synchronously past the loop's first flag check
+    // before it returns, so this always lands during the first sleep.
+    await cancelPreload('symbols');
+    await run;
+    // It finished, it did not abort: BlockUntilLoaded, not AbortAsyncLoad.
+    expect([first.blocked, first.aborted]).toEqual([1, 0]);
+
+    const second = scriptedAdapter();
+    second.progress = 1;
+    await preloadLibraries('symbols', second);
+    expect([second.blocked, second.aborted]).toEqual([1, 0]);
+  });
+
   it('cancelPreload on an idle face is a no-op, so it cannot poison the next run', async () => {
     // `CancelPreload` is guarded by `if( m_libraryPreloadInProgress.load() )`
     // (eeschema.cpp:612). Without that guard the abort flag would still be set

@@ -28,39 +28,124 @@ import { resolve } from 'node:path';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { LibTree } from '@ziroeda/designer/src/widgets/lib_tree.js';
 import { LibTreeModelAdapter } from '@ziroeda/designer/src/widgets/lib_tree_model_adapter.js';
+import {
+  LibTreeNode,
+  LibTreeNodeType,
+} from '@ziroeda/designer/src/widgets/lib_tree_model.js';
 
 afterEach(cleanup);
 
+/**
+ * A tree of libraries, each holding one single-unit part and one two-unit part.
+ * Built the way `PanelSymbolChooser`'s index pass builds it
+ * (panel_symbol_chooser.tsx:294-310), because Expand All has to open the unit
+ * rows too: `LIB_TREE::ExpandAll` (common/widgets/lib_tree.cpp:426-431) calls
+ * `ExpandChildren` on the whole control, not just the top level.
+ */
 function treeOf(...libs: string[]): LibTreeModelAdapter {
+  const adapter = new LibTreeModelAdapter();
+  for (const lib of libs) {
+    const libNode = adapter.addLibrary(lib, `${lib} description`, false);
+    for (const [name, units] of [
+      ['R', 1],
+      ['LM358', 2],
+    ] as const) {
+      const item = new LibTreeNode();
+      item.type = LibTreeNodeType.ITEM;
+      item.parent = libNode;
+      item.name = name;
+      item.libNickname = lib;
+      item.libItemName = name;
+      for (let u = 1; u <= units && units > 1; ++u) {
+        const unit = new LibTreeNode();
+        unit.type = LibTreeNodeType.UNIT;
+        unit.parent = item;
+        unit.name = `Unit ${String.fromCharCode(64 + u)}`;
+        unit.unit = u;
+        unit.libNickname = lib;
+        unit.libItemName = name;
+        item.children.push(unit);
+      }
+      libNode.children.push(item);
+    }
+    adapter.finishLibrary(libNode);
+  }
+  adapter.tree.assignIntrinsicRanks();
+  return adapter;
+}
+
+/** The library / item / unit rows currently drawn. */
+function rowNames(container: HTMLElement): string[] {
+  return [...container.querySelectorAll('.ze-libtree-row .col-item')].map(
+    (el) => el.textContent ?? '',
+  );
+}
+
+/**
+ * A library with no children: one whose symbols have not been fetched yet.
+ * That is exactly the state the lazy-load hook exists for, and it is NOT the
+ * same fixture as `treeOf` -- a library that already has items gets expanded on
+ * mount, because `regenerate` runs `expandAncestors` on the adapter's best
+ * match (lib_tree.tsx:113-126, upstream `LIB_TREE::Regenerate` selecting and
+ * revealing the best match).
+ */
+function bareTreeOf(...libs: string[]): LibTreeModelAdapter {
   const adapter = new LibTreeModelAdapter();
   for (const lib of libs) adapter.addLibrary(lib, `${lib} description`, false);
   return adapter;
 }
 
 describe('Expand All', () => {
-  it('expands every library and asks the owner to load none of them', () => {
+  it('opens every library AND every multi-unit part, loading none of them', () => {
+    // Both halves in one test on purpose. Asserting only "nothing was loaded"
+    // is satisfied by doing nothing at all -- a mutant that replaced
+    // `setExpanded(all)` with `setExpanded(new Set())` passed it, and the
+    // absence was pinned while the behaviour was not.
     const onToggleLibrary = vi.fn();
-    render(
+    const { container } = render(
       <LibTree
-        adapter={treeOf('Device', 'power', 'Connector_Generic')}
+        adapter={treeOf('Device', 'power')}
         onSelect={() => {}}
         onChoose={() => {}}
         onToggleLibrary={onToggleLibrary}
       />,
     );
 
+    // Collapsed to begin with: two library rows and nothing beneath them.
+    expect(rowNames(container)).toEqual(['Device', 'power']);
+
     fireEvent.click(screen.getByTitle('Sort and expand options'));
     fireEvent.click(screen.getByText('Expand All'));
 
-    // Every library row is open...
+    const after = rowNames(container);
+    // Every library, every part, and the unit rows of the two-unit part.
+    for (const lib of ['Device', 'power']) expect(after).toContain(lib);
+    expect(after.filter((n) => n === 'R')).toHaveLength(2);
+    expect(after.filter((n) => n === 'LM358')).toHaveLength(2);
+    expect(after.filter((n) => n === 'Unit A')).toHaveLength(2);
+    expect(after.filter((n) => n === 'Unit B')).toHaveLength(2);
+
+    // And not one library was handed to the lazy-load hook.
     expect(onToggleLibrary).not.toHaveBeenCalled();
+  });
+
+  it('Collapse All puts them all back', () => {
+    const { container } = render(
+      <LibTree adapter={treeOf('Device', 'power')} onSelect={() => {}} onChoose={() => {}} />,
+    );
+    fireEvent.click(screen.getByTitle('Sort and expand options'));
+    fireEvent.click(screen.getByText('Expand All'));
+    expect(rowNames(container).length).toBeGreaterThan(2);
+    fireEvent.click(screen.getByTitle('Sort and expand options'));
+    fireEvent.click(screen.getByText('Collapse All'));
+    expect(rowNames(container)).toEqual(['Device', 'power']);
   });
 
   it('but one twisty still does, because that IS the lazy-load hook', () => {
     const onToggleLibrary = vi.fn();
     const { container } = render(
       <LibTree
-        adapter={treeOf('Device')}
+        adapter={bareTreeOf('Device')}
         onSelect={() => {}}
         onChoose={() => {}}
         onToggleLibrary={onToggleLibrary}
