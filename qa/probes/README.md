@@ -160,3 +160,13 @@ window steals the focus. That matters more than it sounds: Yaru declares
 against `#2c2c2c` and `#272727` focused, and GNOME's screenshot UI takes the
 focus - so **every window in a screenshot is in GTK's `:backdrop` state** and a
 face colour sampled out of one is one step off. Ask the probe, not the picture.
+
+`chooser_score/` - the Choose Symbol result ORDER, not a widget metric. It
+compiles KiCad 10.0.5's own `common/eda_pattern_match.cpp` out of the pinned
+reference tree and drives it with the terms `LIB_SYMBOL::cacheSearchTerms`,
+`cacheChooserFields` and `LIB_TREE_NODE::RebuildSearchTerms` build, over a real
+`.kicad_sym`. So the scores it prints are KiCad's arithmetic on KiCad's data,
+which is what settled the ranking bug: hand-computing the seven `cacheSearchTerms`
+terms reproduced OUR order, and only adding the shown columns' weight-4 field
+terms reproduced KiCad's. `--cols=` is `m_shownColumns`, so the contribution of
+any one column to the ranking can be measured by leaving it out.
