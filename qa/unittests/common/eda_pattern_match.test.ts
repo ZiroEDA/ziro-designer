@@ -23,11 +23,45 @@ function deviceR(): SearchTerm[] {
 }
 
 describe('EdaCombinedMatcher', () => {
-  it('finds plain substrings case-insensitively', () => {
+  /**
+   * `EDA_PATTERN_MATCH_SUBSTR::Find` (eda_pattern_match.cpp:49-57) is
+   *
+   *     int loc = aCandidate.Find( m_pattern );
+   *
+   * and `SetPattern` (:36-40) stores the pattern verbatim. Neither side is
+   * folded, so `Find` is case-SENSITIVE and `EDA_COMBINED_MATCHER( "resist" )`
+   * does not find "Resistor". A library search feels case-insensitive because
+   * both sides are lower-cased before they reach here — `ScoreTerms` normalises
+   * the term (:485-495), and every CTX_LIBITEM caller lower-cases the query
+   * token it constructs the matcher from.
+   *
+   * We folded the candidate inside the matcher instead. That is what made
+   * `find( 'Resistor' )` return 0, and it allocated a lower-cased copy of every
+   * search term on every keystroke — 219 176 of them in the symbol chooser.
+   */
+  it('finds plain substrings without folding case, as wxString::Find does', () => {
     const m = new EdaCombinedMatcher('resist');
-    expect(m.find('Resistor')).toBe(0);
+    expect(m.find('resistor')).toBe(0);
     expect(m.find('photoresistor')).toBe(5);
     expect(m.find('capacitor')).toBe(-1);
+    // The candidate is the caller's to normalise, and an unfolded one misses.
+    expect(m.find('Resistor')).toBe(-1);
+  });
+
+  /**
+   * The same rule where the chooser's hot loop actually depends on it.
+   * `ScoreTerms` normalises a term once and records that with
+   * `term.Normalized = true` (:485-495); a term arriving already flagged is
+   * taken at its word and scored as-is. So a flagged term whose text is not
+   * lower-case must score zero — folding again inside the matcher would score
+   * it, and would be doing the fold on every term of every pass.
+   */
+  it('does not re-fold a term already marked normalized', () => {
+    const m = new EdaCombinedMatcher('resist');
+    const flagged: SearchTerm = { text: 'Resistor', score: 8, isName: true, normalized: true };
+    expect(m.scoreTerms([flagged]).score).toBe(0);
+    // The same term unflagged is normalised here, and then does score.
+    expect(m.scoreTerms([{ text: 'Resistor', score: 8, isName: true }]).score).toBeGreaterThan(0);
   });
 
   it('matches wildcard patterns', () => {

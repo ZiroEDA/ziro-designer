@@ -107,6 +107,36 @@ interface Row {
   open: boolean;
 }
 
+/**
+ * Rows kept above and below the viewport so a scroll of a frame or two has
+ * something to show before the next render lands.
+ *
+ * Not a KiCad number, and not a theme value: upstream's `wxDataViewCtrl` is
+ * virtual natively (`LIB_TREE_MODEL_ADAPTER` derives from
+ * `wxDataViewModel`, and the control asks for the rows it is about to draw),
+ * so there is no upstream constant to mirror. It is a pure render knob.
+ */
+const ROW_OVERSCAN = 12;
+
+/**
+ * The on-screen row pitch, from the same tokens the stylesheet lays the rows
+ * out with — `--ui-text-height` inside `--libtree-row-pad` above and below,
+ * plus the `--libtree-row-sep` gap between rows.
+ *
+ * That is `LIB_TREE::SetRowHeight`'s `FromDIP( 6 ) + GetTextExtent( "pdI" ).y`
+ * = 24, plus GtkTreeView's `vertical-separator` = 26, both of which
+ * `qa/probes/libtree_rowheight_probe.cpp` measured and shell.css records. It is
+ * read from the tokens rather than restated so a theme change moves the
+ * virtual window with the rows; the measurement below then corrects it against
+ * a row that is actually on screen, which is the only fully authoritative
+ * answer once fonts have loaded.
+ */
+function rowPitchFromTokens(): number {
+  const root = getComputedStyle(document.documentElement);
+  const px = (name: string): number => Number.parseFloat(root.getPropertyValue(name)) || 0;
+  return px('--ui-text-height') + 2 * px('--libtree-row-pad') + px('--libtree-row-sep');
+}
+
 export function LibTree({
   adapter,
   recentSearchesKey = 'symbols',
@@ -137,6 +167,17 @@ export function LibTree({
   );
   // The adapter's nodes are mutated in place; bump to re-render after a pass.
   const [version, setVersion] = useState(0);
+  /**
+   * The scrolled window: which slice of `rows` is in the DOM.
+   *
+   * `wxDataViewCtrl` is a virtual control — it asks the model for the rows it
+   * is about to paint and no others, which is why upstream can hold 22 784
+   * symbols in the chooser and scroll it smoothly. We rendered every row, so
+   * expanding the libraries put 23 007 row elements (about 92 000 elements with
+   * their cells) into the document, and every scored keystroke re-rendered all
+   * of them.
+   */
+  const [win, setWin] = useState({ top: 0, height: 0, pitch: 0, gap: 0 });
 
   const searchRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -327,6 +368,75 @@ export function LibTree({
   }, [adapter, searching, expanded, version, sortMode, regenerateNonce, selected]);
 
   /**
+   * Re-read the scroll position and the row pitch.
+   *
+   * The pitch comes from the tokens until there is a row on screen to measure,
+   * and from the row after that: fonts, zoom and the theme all move it, and a
+   * window built on a stale pitch shows the wrong rows rather than merely
+   * slowly.
+   */
+  const remeasure = useCallback(() => {
+    const list = listRef.current;
+    if (!list) return;
+    const row = list.querySelector('.ze-libtree-row');
+    const gap = Number.parseFloat(getComputedStyle(list).rowGap) || 0;
+    const pitch = row ? row.getBoundingClientRect().height + gap : rowPitchFromTokens();
+    const top = list.scrollTop;
+    const height = list.clientHeight;
+    setWin((prev) =>
+      prev.top === top && prev.height === height && prev.pitch === pitch && prev.gap === gap
+        ? prev
+        : { top, height, pitch, gap },
+    );
+  }, []);
+
+  // The first measurement needs a committed layout, and every later one needs
+  // to survive the pane being resized by the chooser's sash.
+  useEffect(() => {
+    remeasure();
+    const list = listRef.current;
+    if (!list || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(remeasure);
+    ro.observe(list);
+    return () => ro.disconnect();
+  }, [remeasure]);
+
+  // A shorter list can leave the viewport scrolled past its own end.
+  useEffect(remeasure, [remeasure, rows.length]);
+
+  /**
+   * The slice of `rows` that is actually rendered, and the two spacers that
+   * stand in for the rest.
+   *
+   * The spacers are flex items in the same `row-gap` column as the rows, so
+   * each of them replaces one gap as well as its rows: a run of `n` rows is
+   * `n * pitch - gap` tall, and the gap the flex container puts beside the
+   * spacer supplies the missing one. That keeps every row at exactly
+   * `index * pitch`, which is what the scroll maths above assumes.
+   */
+  const view = useMemo(() => {
+    const { top, height, pitch, gap } = win;
+    if (pitch <= 0 || height <= 0) {
+      // Before the first measurement, show a viewport's worth from the top
+      // rather than the whole tree — the full render is the one thing
+      // virtualisation exists to prevent, and it must not happen even once.
+      return { first: 0, slice: rows.slice(0, ROW_OVERSCAN * 4), before: 0, after: 0 };
+    }
+    const first = Math.max(0, Math.floor(top / pitch) - ROW_OVERSCAN);
+    const count = Math.ceil(height / pitch) + ROW_OVERSCAN * 2;
+    const slice = rows.slice(first, first + count);
+    const rest = rows.length - first - slice.length;
+    // A run of n rows occupies `n * pitch - gap`; the gap the flex container
+    // puts between the spacer and its neighbour supplies the one subtracted.
+    return {
+      first,
+      slice,
+      before: first > 0 ? first * pitch - gap : 0,
+      after: rest > 0 ? rest * pitch - gap : 0,
+    };
+  }, [rows, win]);
+
+  /**
    * The parent first, then the item.
    *
    *     EnsureVisibleIfEnabled( m_widget, GetParent( item ) );
@@ -342,9 +452,29 @@ export function LibTree({
    */
   useEffect(() => {
     if (!selected) return;
-    if (selected.parent) rowRefs.current.get(selected.parent)?.scrollIntoView({ block: 'nearest' });
-    rowRefs.current.get(selected)?.scrollIntoView({ block: 'nearest' });
-  }, [selected, rows]);
+    const scrollTo = (node: LibTreeNode): void => {
+      const el = rowRefs.current.get(node);
+      if (el) {
+        el.scrollIntoView({ block: 'nearest' });
+        return;
+      }
+      // Virtualised out: the element the search jumped to may be thousands of
+      // rows outside the window, so put its index where scrollIntoView would
+      // have put the element and let the next measurement render it.
+      const list = listRef.current;
+      const { pitch, height } = win;
+      if (!list || pitch <= 0) return;
+      const index = rows.findIndex((r) => r.node === node);
+      if (index < 0) return;
+      const top = index * pitch;
+      // `block: 'nearest'` scrolls only when the row is outside the viewport,
+      // and only far enough to bring it to the near edge.
+      if (top < list.scrollTop) list.scrollTop = top;
+      else if (top + pitch > list.scrollTop + height) list.scrollTop = top + pitch - height;
+    };
+    if (selected.parent) scrollTo(selected.parent);
+    scrollTo(selected);
+  }, [selected, rows, win]);
 
   // Arrow keys move the selection whether they come from the search box or
   // the tree (upstream onQueryCharHook forwards them to the tree control).
@@ -616,9 +746,13 @@ export function LibTree({
           ref={listRef}
           tabIndex={0}
           onMouseLeave={hidePreview}
-          onScroll={hidePreview}
+          onScroll={() => {
+            hidePreview();
+            remeasure();
+          }}
         >
-          {rows.map(({ node, indent, expandable, open }) => (
+          {view.before > 0 && <div style={{ height: view.before, flex: '0 0 auto' }} />}
+          {view.slice.map(({ node, indent, expandable, open }) => (
             <div
               key={`${node.parent?.name ?? ''}/${node.libId || node.name}${node.type === LibTreeNodeType.UNIT ? `#${node.unit}` : ''}`}
               ref={(el) => {
@@ -672,6 +806,7 @@ export function LibTree({
               ))}
             </div>
           ))}
+          {view.after > 0 && <div style={{ height: view.after, flex: '0 0 auto' }} />}
           {/* LIB_TREE has no loading state, because by the time it is shown
             `IFACE::PreloadLibraries` has run and the tree holds every library
             that loaded. What it can be is EMPTY, and upstream shows nothing at

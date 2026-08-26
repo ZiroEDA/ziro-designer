@@ -139,3 +139,44 @@ console.log(`  Expand All, no query   ${rowsFor('', true)}`);
 console.log(`  query "r"              ${rowsFor('r', false)}`);
 console.log(`  query "res"            ${rowsFor('res', false)}`);
 console.log(`  query "1"              ${rowsFor('1', false)}`);
+
+// ---- C2: where the keystroke goes.
+{
+  const { EdaCombinedMatcher } = await import('@ziroeda/common');
+  const q = 'res';
+  const mk = () => [new EdaCombinedMatcher(q)];
+  const time = (f: () => void, n = 5): number => {
+    const runs: number[] = [];
+    for (let i = 0; i < n; i++) {
+      const s = performance.now();
+      f();
+      runs.push(performance.now() - s);
+    }
+    runs.sort((a, b) => a - b);
+    return runs[Math.floor(n / 2)]!;
+  };
+  console.log(`\n=== C2. split of one "${q}" keystroke ===`);
+  console.log(`  updateScore  ${time(() => adapter.tree.updateScore(mk(), null)).toFixed(1)} ms`);
+  console.log(`  sortNodes    ${time(() => adapter.tree.sortNodes(true)).toFixed(1)} ms`);
+  // scoreTerms alone, over every term in the tree.
+  const all = adapter.tree.children.flatMap((l) => l.children.map((i) => i.searchTerms));
+  console.log(
+    `  scoreTerms   ${time(() => {
+      const [m] = mk();
+      for (const t of all) m!.scoreTerms(t);
+    }).toFixed(1)} ms over ${all.length} items`,
+  );
+  // The toLowerCase() our substrMatcher does and KiCad's Find() does not.
+  const flat = all.flat().map((t) => t.text);
+  console.log(
+    `  ...of which lowercasing the candidates: ${time(() => {
+      let n = 0;
+      for (const t of flat) n += t.toLowerCase().indexOf(q);
+      return n;
+    }).toFixed(1)} ms vs ${time(() => {
+      let n = 0;
+      for (const t of flat) n += t.indexOf(q);
+      return n;
+    }).toFixed(1)} ms without, over ${flat.length} terms`,
+  );
+}

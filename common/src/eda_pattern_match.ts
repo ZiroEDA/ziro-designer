@@ -40,14 +40,42 @@ export function searchTerm(text: string, score: number, isName = false): SearchT
 const NOT_FOUND = -1;
 
 interface PatternMatcher {
-  /** Position of the first match of the pattern in `candidate`, or -1. */
+  /**
+   * `EDA_PATTERN_MATCH::Find( aCandidate )` — position of the first match, or
+   * -1, on a candidate that is **already normalised**.
+   *
+   * Upstream's matchers are all case-SENSITIVE: `wxString::Find` for SUBSTR,
+   * and `wxRegEx::Compile( …, wxRE_ADVANCED )` — no `wxRE_ICASE` — for the
+   * other two. What makes a library search feel case-insensitive is the caller
+   * folding both sides first: `EDA_COMBINED_MATCHER::ScoreTerms` lower-cases
+   * `term.Text` (eda_pattern_match.cpp:485-495) and every CTX_LIBITEM caller
+   * lower-cases the query token before constructing the matcher.
+   *
+   * This is therefore the hot entry point, and it must not fold anything.
+   *
+   * (The two unanchored regex/wildcard matchers below still carry the `i` flag,
+   * which upstream does not. That is a separate divergence and costs nothing at
+   * run time — a flag, not an allocation — so it is left as it is rather than
+   * changed under a performance fix.)
+   */
   find(candidate: string): number;
 }
 
-/** EDA_PATTERN_MATCH_SUBSTR: plain case-insensitive substring. */
+/**
+ * `EDA_PATTERN_MATCH_SUBSTR::Find` (eda_pattern_match.cpp:49-57), verbatim:
+ *
+ *     int loc = aCandidate.Find( m_pattern );
+ *
+ * A plain substring search that folds neither side, because `ScoreTerms` has
+ * already lower-cased the candidate and the caller the pattern.
+ *
+ * Ours folded the candidate here instead, allocating a fresh lower-cased copy
+ * of every search term on every keystroke. The symbol chooser's tree holds
+ * 219 176 of them, and the same scan measured 35.1 ms with the fold against
+ * 18.2 ms without — the largest single item in a 48 ms debounced keystroke.
+ */
 function substrMatcher(pattern: string): PatternMatcher {
-  const p = pattern.toLowerCase();
-  return { find: (candidate) => candidate.toLowerCase().indexOf(p) };
+  return { find: (candidate) => candidate.indexOf(pattern) };
 }
 
 /** EDA_PATTERN_MATCH_WILDCARD: `?` = any char, `*` = any run; null without wildcards. */
@@ -170,7 +198,16 @@ export class EdaCombinedMatcher {
     return this.pattern;
   }
 
-  /** Earliest match position across all matchers, or -1 when nothing fires. */
+  /**
+   * `EDA_COMBINED_MATCHER::Find`, earliest match position across the matchers,
+   * or -1, over a candidate **that has already been normalised**.
+   *
+   * Every caller has one: `scoreTerms` normalises the term itself, and the
+   * library browser passes `lib.name.toLowerCase()`. Both also lower-case the
+   * pattern before constructing the matcher, which is the other half of what
+   * makes a search case-insensitive; neither half happens in here, exactly as
+   * upstream's `Find` does neither.
+   */
   find(candidate: string): number {
     let position = NOT_FOUND;
     for (const matcher of this.matchers) {
@@ -213,6 +250,9 @@ export class EdaCombinedMatcher {
         score += 8 * term.score;
         if (term.isName) exact = true;
       } else {
+        // `Find( term.Text, ... )` — the term was normalised just above (or on
+        // an earlier pass), so this is upstream's case-sensitive search and
+        // must not fold again.
         const at = this.find(term.text);
         if (at === 0) score += 2 * term.score;
         else if (at > 0) score += term.score;
