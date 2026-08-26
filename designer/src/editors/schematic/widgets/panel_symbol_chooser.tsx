@@ -294,7 +294,7 @@ export const PanelSymbolChooser = forwardRef<PanelSymbolChooserHandle, PanelSymb
           const isPower = powerSymbolTest(index);
           for (const lib of index) {
             const pinned = session.pinned_symbol_libs.includes(lib.name);
-            const libNode = adapter.addLibrary(lib.name, '', pinned);
+            const libNode = adapter.addLibrary(lib.name, lib.descr ?? '', pinned);
             for (const name of lib.symbols) {
               const item = new LibTreeNode();
               item.type = LibTreeNodeType.ITEM;

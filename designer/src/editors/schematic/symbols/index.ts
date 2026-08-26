@@ -21,6 +21,17 @@ export interface LibIndexEntry {
   count: number;
   symbols: string[];
   /**
+   * The library's own description, shown against its row in the tree.
+   *
+   * It is the library TABLE row's, not anything inside the `.kicad_sym`:
+   * `libDescription = ( *rowResult )->Description()`
+   * (eeschema/symbol_tree_model_adapter.cpp:146), and KiCad ships the 223
+   * strings in `template/sym-lib-table`. Optional, because an index generated
+   * before the field existed simply has no descriptions and the column stays
+   * empty, which is what it did for every library until now.
+   */
+  descr?: string;
+  /**
    * Names of the power symbols in this library, when the index carries them.
    *
    * `LIB_SYMBOL::IsPower` is a property of the symbol, not of the library it
