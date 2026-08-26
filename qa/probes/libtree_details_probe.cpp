@@ -49,6 +49,34 @@ static void walk( wxHtmlCell* cell, int absY, std::vector<int>& tops )
     }
 }
 
+struct Box { int x, y, w, h; wxString text; };
+
+// Every word cell, in absolute window coordinates. The two <td>s of a
+// FieldFormat row land on two different x values, and that gap is the column
+// gap wxHtml gives a border-less table - the number the CSS has to reproduce.
+static void walkBoxes( wxHtmlCell* cell, int absX, int absY, std::vector<Box>& out )
+{
+    for( wxHtmlCell* c = cell; c; c = c->GetNext() )
+    {
+        if( wxHtmlContainerCell* cont = wxDynamicCast( c, wxHtmlContainerCell ) )
+        {
+            walkBoxes( cont->GetFirstChild(), absX + c->GetPosX(), absY + c->GetPosY(), out );
+        }
+        else if( wxHtmlWordCell* word = wxDynamicCast( c, wxHtmlWordCell ) )
+        {
+            out.push_back( { absX + c->GetPosX(), absY + c->GetPosY(), c->GetWidth(),
+                             c->GetHeight(), word->ConvertToText( nullptr ) } );
+        }
+        else if( c->GetHeight() > 0 )
+        {
+            // The <hr> is not a word cell, and its box is the only way to read
+            // the space the rule takes above and below itself.
+            out.push_back( { absX + c->GetPosX(), absY + c->GetPosY(), c->GetWidth(),
+                             c->GetHeight(), wxString::Format( "<%s>", c->GetClassInfo()->GetClassName() ) } );
+        }
+    }
+}
+
 class Probe : public wxApp
 {
 public:
@@ -80,6 +108,46 @@ public:
 
         for( size_t i = 1; i < tops.size(); ++i )
             printf( "  delta %zu->%zu   %d\n", i - 1, i, tops[i] - tops[i - 1] );
+
+        // Where each word actually sits, so the table's two columns can be read
+        // off rather than guessed.
+        std::vector<Box> boxes;
+
+        if( html->GetInternalRepresentation() )
+            walkBoxes( html->GetInternalRepresentation()->GetFirstChild(), 0, 0, boxes );
+
+        printf( "\nword cells (x, y, w, h):\n" );
+
+        for( const Box& b : boxes )
+            printf( "  %-28s x %3d  y %3d  w %3d  h %2d\n",
+                    (const char*) b.text.utf8_str(), b.x, b.y, b.w, b.h );
+
+        // The label column's left edge, the value column's left edge, and the
+        // pitch between the three table rows.
+        int labelX = -1, valueX = -1;
+        std::vector<int> rowY;
+
+        for( const Box& b : boxes )
+        {
+            if( b.text == wxS( "Reference" ) || b.text == wxS( "Footprint" )
+                || b.text == wxS( "Datasheet" ) )
+            {
+                if( labelX < 0 )
+                    labelX = b.x;
+
+                rowY.push_back( b.y );
+            }
+            else if( b.text == wxS( "J" ) && valueX < 0 )
+            {
+                valueX = b.x;
+            }
+        }
+
+        printf( "\ntable: label column x %d, value column x %d, gap %d px\n", labelX, valueX,
+                valueX - labelX );
+
+        for( size_t i = 1; i < rowY.size(); ++i )
+            printf( "  row pitch %zu->%zu   %d\n", i - 1, i, rowY[i] - rowY[i - 1] );
 
         dlg->Destroy();
         return false;

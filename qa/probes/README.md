@@ -147,3 +147,16 @@ be measured, show the frame and pump the GTK main loop a few times first, as
 Measuring a widget is not changing one. A shared widget's number moves every
 launcher, so a measurement goes to whoever owns that call, with the widget named
 and the method shown.
+
+`chooser_shell_probe.cpp` - the Choose Symbol dialog's shell, built out of the
+same widgets `PANEL_SYMBOL_CHOOSER` builds: what each region is painted, the
+`wxSplitterWindow` sash size, `ConvertDialogToPixels` for the four dialog-unit
+constants in `FinishSetup`, the `wxDataViewCtrl` column header, and the two
+icon names `wxSearchCtrl` hands its `GtkSearchEntry`.
+
+It also captures the SAME window twice, once focused and once after another
+window steals the focus. That matters more than it sounds: Yaru declares
+`theme_unfocused_bg_color #343434` and `theme_unfocused_base_color #2f2f2f`
+against `#2c2c2c` and `#272727` focused, and GNOME's screenshot UI takes the
+focus - so **every window in a screenshot is in GTK's `:backdrop` state** and a
+face colour sampled out of one is one step off. Ask the probe, not the picture.
