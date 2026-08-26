@@ -66,12 +66,34 @@ names the kind of evidence, and why #619 names the files.
 | editor | state |
 |---|---|
 | **Drawing Sheet Editor** (pl_editor) | frame and tools closed (PRs #604 #607 #614 #618). Grid dot and axis skip were both **measured** off a live pl_editor. Issue #619 lists 15 remaining gaps, headed by Preferences: upstream has four pages, we have one modal with two checkboxes. |
-| **Symbol Editor** | audited, PR #606. Open: enable/disable conditions (about 150 lines), LIB_TREE chrome, three missing dialogs. |
+| **Symbol Editor** | audited, PR #606. The enable/disable rules are now closed: all 53 `setupUIConditions` registrations ported per entry (PR #620) and the four the first mutation sweep could not tell apart pinned (PR #622). Open: LIB_TREE chrome, three missing dialogs. |
 | **Footprint Editor** | audited, PR #608. Open: seven items, headed by the dialog wall. `dialog_pad_properties.cpp` alone is 2492 lines against our 297 total. |
 | **GerbView** | exporter is a real port of `GBR_TO_PCB_EXPORTER` (PR #605). No mapping dialog, and aperture-macro holes export solid. |
 | **Schematic Editor** | tracker #195 |
 | **PCB Editor** | tracker #200 |
 | **3D Viewer**, **Project Manager** | not audited as units |
+
+## Library loading is an application-wide behaviour, not an editor's
+
+Upstream does not load libraries when the place tool is invoked. `IFACE::PreloadLibraries`
+is scheduled by `CallAfter` the moment a project opens (`sch_edit_frame.cpp:1492-1499`,
+`files-io.cpp:857-864`, `pcbnew/files.cpp:605-612`, `kicad_manager_frame.cpp:539-549`),
+so the chooser opens on data that is already resident. The progress lives in the status
+bar and its `BACKGROUND_JOB_LIST` window, never in a dialog, and the chooser itself has
+no loading state at all.
+
+Ported in PR #621. Two things are worth not re-deriving:
+
+- What the user was waiting on was measured, not guessed. Expanding one library in the
+  chooser fetched every symbol in it as its own file: "Device" cost 536 requests and
+  2,486,139 B where the library file is 2,414,640 B, the same bytes to within 3 percent
+  and 10 to 50 times the wall clock. Expand All did that for all 223 libraries, so one
+  click asked for 22,778 files and 219.7 MB.
+- What is preloaded is the name index plus every symbol the open design places and every
+  footprint it assigns, not the whole catalogue. That is precisely the set upstream's
+  chooser reads synchronously in `PANEL_SYMBOL_CHOOSER`'s constructor, so it is bounded
+  by the design rather than by the catalogue. 219.7 MB in a browser tab would be a worse
+  experience, not a more faithful one.
 
 ## Things measured once, worth not re-deriving
 
