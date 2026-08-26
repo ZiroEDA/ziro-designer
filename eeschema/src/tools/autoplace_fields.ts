@@ -589,6 +589,73 @@ export function autoplaceFields(
 }
 
 /**
+ * The autoplace a symbol gets because it is being *placed*, rather than because
+ * the user asked for one.
+ *
+ * `SCH_DRAWING_TOOLS::PlaceSymbol` runs it at both of its placement points,
+ * each guarded by `if( m_frame->eeconfig()->m_AutoplaceFields.enable )`
+ * (sch_drawing_tools.cpp:484-499). The preference defaults to true
+ * (eeschema_settings.cpp:328), so out of the box every placed symbol is
+ * autoplaced, and the library's own field positions are only a starting point.
+ *
+ * `sheet` is upstream's screen argument, and the two calls differ in nothing
+ * else. It is omitted while the symbol is still attached to the cursor ("Not
+ * placed yet, so pass a nullptr screen reference") and supplied once the symbol
+ * lands, which is what lets the second pass see the rest of the sheet and step
+ * the fields around what is already there.
+ *
+ * The gate lives here rather than at the call site so that it is reachable from
+ * a test: the placement path itself runs inside a WebGL canvas component.
+ */
+export function autoplacePlacedSymbol(
+  sym: SchSymbol,
+  lib: LibSymbol | undefined,
+  enable: boolean,
+  opts: AutoplaceOptions,
+  sheet?: AutoplaceSheet,
+): SchSymbol {
+  if (!enable) return sym;
+  return { ...sym, fields: autoplacedFields(sym, lib, opts, sheet) };
+}
+
+/**
+ * `LIB_SYMBOL::AutoplaceFields` on a library symbol's own properties, with no
+ * placement behind it.
+ *
+ * The symbol preview runs this before it measures anything
+ * (`SYMBOL_PREVIEW_WIDGET::DisplaySymbol`, symbol_preview_widget.cpp:229-233,
+ * and `DisplayPart` again at :283-287), under the same
+ * `m_AutoplaceFields.enable` gate as the placement tool. It is why the chooser
+ * shows a connector's reference and value stacked beside the body rather than
+ * above and below it where the library stores them, and why the preview is
+ * scaled to fit a symbol that includes its fields.
+ *
+ * There is no screen at this point, hence no sheet: nothing else is on it.
+ */
+export function autoplacedLibFields(
+  lib: LibSymbol,
+  enable: boolean,
+  opts: AutoplaceOptions,
+): readonly SchField[] {
+  if (!enable) return lib.properties;
+  // The autoplacer works off a placement, so the library symbol stands in as
+  // one at the origin, unrotated and unmirrored, carrying its own properties.
+  const asPlaced: SchSymbol = {
+    libId: lib.libId,
+    at: { x: 0, y: 0 },
+    angle: 0,
+    unit: 1,
+    bodyStyle: 1,
+    inBom: true,
+    onBoard: true,
+    dnp: false,
+    fields: lib.properties,
+    source: lib.source,
+  };
+  return autoplacedFields(asPlaced, lib, opts);
+}
+
+/**
  * `SCH_SHEET::AutoplaceFields` (sch_sheet.cpp:897): the sheet name goes above
  * the box and the filename below it, both left-justified against its left edge,
  * clear of the border by half a text height.

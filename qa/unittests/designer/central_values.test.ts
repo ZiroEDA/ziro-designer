@@ -249,7 +249,12 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // replacing a 16 px rule of ours.
   // 814 -> 815, and the one that arrived is editors/image's departing
   // `height: 7px`. A move, not a gain: the tree-wide totals below are the same.
-  ui: { colours: 286, metrics: 814 },
+  // 814 -> 812: the symbol chooser's tree row. Its `font-size: 13px` and its
+  // 2px vertical padding both went, replaced by --ui-font-size and the
+  // --libtree-row-pad half of LIB_TREE's own row-height formula,
+  // FromDIP(6) + GetTextExtent("pdI").y (lib_tree.cpp:177-180), measured at
+  // 24px here by qa/probes/libtree_rowheight_probe.cpp.
+  ui: { colours: 286, metrics: 812 },
   widgets: { colours: 6, metrics: 46 },
 };
 
@@ -492,7 +497,10 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // 1648 -> 1633: the fifteen the same dialog wrote inline. RESCANNED from
     // this tree; the per-area table agrees, `dialogs` 47 -> 32 and nothing
     // else moving, which is the second independent derivation.
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1633);
+    // 1633 -> 1631: the symbol chooser tree row's font size and its two
+    // padding literals; see the `ui` row. RESCANNED from this tree, and the
+    // per-area table agrees, `ui` 814 -> 812 being the only row that moved.
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1631);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {

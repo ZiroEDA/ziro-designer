@@ -87,6 +87,8 @@ import { contentBBox } from '@ziroeda/eeschema/src/tools/scene_bbox.js';
 import { tableCellId } from '@ziroeda/eeschema/src/tools/table_cells.js';
 import { schSymbolLibraryName } from '@ziroeda/eeschema';
 import { imageDataUrl } from '@ziroeda/eeschema/src/import_gfx/image_format.js';
+import { autoplacedLibFields } from '@ziroeda/eeschema/src/tools/autoplace_fields.js';
+import { drawField } from '../../symbol/render/symbolRenderer.js';
 
 /**
  * Which items this render is allowed to draw (`hiddenItems` / `onlyItems`).
@@ -4013,6 +4015,20 @@ export function renderSymbolPreview(
       inc(pinBodyEnd(pin.at, pin.angle, pin.length));
     }
   }
+  // The preview autoplaces the symbol's fields and then measures a bounding box
+  // that includes them (`DisplaySymbol` autoplaces at
+  // symbol_preview_widget.cpp:229-233, then takes `GetUnitBoundingBox`), which
+  // is why KiCad's preview shows the reference and value beside the body and at
+  // a scale that leaves room for them. Measuring the body alone made the same
+  // symbol fill the pane.
+  const previewFields = autoplacedLibFields(lib, true, {
+    allowRejustify: true,
+    alignToGrid: true,
+  });
+  for (const f of previewFields) {
+    if (!f.at || f.effects?.hidden || f.value === '') continue;
+    inc(f.at);
+  }
   if (!Number.isFinite(minX)) {
     ctx.fillStyle = '#888';
     ctx.font = '14px system-ui';
@@ -4071,6 +4087,10 @@ export function renderSymbolPreview(
       false,
       'fg',
     );
+  // The fields themselves, at the positions measured above. Hidden ones stay
+  // hidden: the preview is not the symbol editor and has no "show hidden
+  // fields" mode to reveal them.
+  for (const f of previewFields) drawField(ctx, f, theme, false);
   return used;
 }
 

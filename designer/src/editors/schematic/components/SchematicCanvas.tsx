@@ -25,7 +25,6 @@ import {
   orthoMove,
   addItems,
   deleteByIds,
-  placeSymbol,
   grabHotkeyAction,
   withPostMoveCleanup,
   planBreakWire,
@@ -550,6 +549,18 @@ interface Props {
    * placement and its number are one undo step, as KiCad's single COMMIT is.
    */
   onAnnotatePlacement?: (sym: SchSymbol, lib: LibSymbol) => SchSymbol;
+  /**
+   * Autoplace a symbol's fields as it is placed, gated on the
+   * "Automatically place symbol fields" preference
+   * (`SCH_DRAWING_TOOLS::PlaceSymbol`, sch_drawing_tools.cpp:484-499).
+   *
+   * Upstream runs it twice, and the difference is the screen argument: once
+   * with a null screen while the symbol is still attached to the cursor
+   * ("Not placed yet, so pass a nullptr screen reference"), and again with the
+   * real screen once it lands, so the second pass can see what is already on
+   * the sheet and step the fields around it. `dropped` picks which.
+   */
+  onAutoplacePlacement?: (sym: SchSymbol, lib: LibSymbol, dropped: boolean) => SchSymbol;
   /** Unit of `placeLib` attached to the cursor ("Place all units" stepping). */
   placeUnit?: number;
   /** A ready-built symbol to place instead of one made from `placeLib`'s
@@ -707,6 +718,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     wireStartRequest,
     placeLib,
     onAnnotatePlacement,
+    onAutoplacePlacement,
     placeUnit = 1,
     placeInstance = null,
     onSymbolPlaced,
@@ -1420,10 +1432,16 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     ) {
       // Ghost: show the symbol attached to the cursor (with its current orientation).
       const inst = placeInstanceRef.current;
-      doc = (
-        inst
-          ? placeSymbolInstance(placeLib, moveSymbolTo(inst, snap(cursorRef.current)))
-          : placeSymbol(placeLib, snap(cursorRef.current), placeOrientRef.current, placeUnit)
+      const ghost = inst
+        ? moveSymbolTo(inst, snap(cursorRef.current))
+        : makeSymbol(placeLib, snap(cursorRef.current), placeOrientRef.current, placeUnit);
+      // Upstream autoplaces the fields of the symbol on the cursor, not only of
+      // the one it drops, which is why KiCad's reference and value already sit
+      // beside the body while it is still following the pointer. The null
+      // screen is the `dropped = false` argument.
+      doc = placeSymbolInstance(
+        placeLib,
+        onAutoplacePlacement ? onAutoplacePlacement(ghost, placeLib, false) : ghost,
       ).apply(schematic);
       ghosting = true;
     }
@@ -2970,7 +2988,12 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
             ? moveSymbolTo(inst, snap(world))
             : makeSymbol(placeLib, snap(world), placeOrientRef.current, placeUnit);
           const ready = inst || !onAnnotatePlacement ? built : onAnnotatePlacement(built, placeLib);
-          onCommand(placeSymbolInstance(placeLib, ready));
+          // Autoplace last, after the reference is on: the field's own text is
+          // what the algorithm measures, so annotating afterwards would place
+          // the fields for a name the symbol no longer carries. Upstream has
+          // the same order, `annotate()` then `AutoplaceFields`.
+          const placed = onAutoplacePlacement ? onAutoplacePlacement(ready, placeLib, true) : ready;
+          onCommand(placeSymbolInstance(placeLib, placed));
           // The editor steps to the next unit, keeps placing copies, or
           // reopens the chooser (sch_drawing_tools.cpp after commit.Push).
           onSymbolPlaced?.();

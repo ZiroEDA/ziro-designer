@@ -121,11 +121,14 @@ export function DialogSymbolChooser({
             Place all units
           </label>
           <span className="ze-chooser-footer-spacer" />
-          <button className="ze-btn primary" onClick={accept}>
-            OK
-          </button>
+          {/* Cancel then OK, the order wxStdDialogButtonSizer lays out on GTK
+              and the order every other dialog here already uses. This one had
+              them the other way round. */}
           <button className="ze-btn" onClick={onCancel}>
             Cancel
+          </button>
+          <button className="ze-btn primary" onClick={accept}>
+            OK
           </button>
         </div>
       </div>

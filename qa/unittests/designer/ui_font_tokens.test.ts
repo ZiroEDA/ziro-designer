@@ -266,7 +266,13 @@ const BASELINE: Record<string, number> = {
   // 146 -> 145: `.ze-lp-clearcolor`'s own `font-size: 11px` went with the
   // buttons it styled; `.ze-help-label` that replaces it takes
   // var(--ui-font-size), which is what a wxStaticText gets.
-  ui: 145,
+  // 145 -> 143: the symbol chooser's two. `.ze-libtree-row` wrote
+  // `font-size: 13px`, which is why Akshay read the chooser's tree as smaller
+  // than KiCad's, and `.ze-chooser-footer .ze-check` wrote 12px for two plain
+  // wxCheckBoxes that get KIUI::GetControlFont. Both take --ui-font-size now.
+  // Derived twice: rescanning this tree gives 143, and the diff removes
+  // exactly two `font-size:` lines and adds none, so 145 - 2 agrees.
+  ui: 143,
   widgets: 6,
 };
 
@@ -410,7 +416,11 @@ describe('hardcoded font sizes do not grow', () => {
     // before the two copies of that dialog were merged into one. RESCANNED
     // from this tree, and derived a second time from the per-area table —
     // `dialogs` 13 -> 5 is the only row that moved, and 360 - 8 agrees.
-    expect(sites.length).toBe(352);
+    // 352 -> 350: the symbol chooser's tree row and its two footer checkboxes;
+    // see the `ui` row. RESCANNED from this tree, and derived a second time
+    // from the per-area table — `ui` 145 -> 143 is the only row that moved,
+    // and 352 - 2 agrees.
+    expect(sites.length).toBe(350);
   });
 });
 

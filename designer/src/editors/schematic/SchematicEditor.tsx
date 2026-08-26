@@ -40,6 +40,7 @@ import {
   alignItems,
   alignToGridCommand,
   autoplaceFields,
+  autoplacePlacedSymbol,
   autoplaceSheetFields,
   ALIGN_LABELS,
   type AlignMode,
@@ -2753,6 +2754,44 @@ export function SchematicEditor({
       return annotated[index] ?? sym;
     },
     [setup, es.annotation.automatic, hierarchyLibs, currentFile],
+  );
+
+  /**
+   * `SCH_DRAWING_TOOLS::PlaceSymbol` autoplaces the fields of the symbol it is
+   * placing whenever `m_AutoplaceFields.enable` is set, which it is by default
+   * (`eeschema_settings.cpp:328`), at both of its two placement points
+   * (sch_drawing_tools.cpp:484-499).
+   *
+   * Without this the fields keep the positions the library gave them, and for
+   * most parts that is not where KiCad shows them: Screw_Terminal_01x02 stores
+   * its Reference at (0, 2.54) and its Value at (0, -5.08), above and below the
+   * body, while KiCad draws both beside it because the autoplacer moved them
+   * off the pins.
+   *
+   * `dropped` is upstream's screen argument. False is the null screen used
+   * while the symbol is still on the cursor, and true is the real one, which
+   * lets the algorithm see the rest of the sheet and avoid it.
+   */
+  const autoplacePlacement = useCallback(
+    (sym: SchSymbol, lib: LibSymbol, dropped: boolean): SchSymbol => {
+      const d = docRef.current;
+      return autoplacePlacedSymbol(
+        sym,
+        lib,
+        es.autoplace_fields.enable,
+        {
+          allowRejustify: es.autoplace_fields.allow_rejustify,
+          alignToGrid: es.autoplace_fields.align_to_grid,
+        },
+        dropped && d ? { doc: d, libById, drawableArea: drawableArea(d) } : undefined,
+      );
+    },
+    [
+      es.autoplace_fields.enable,
+      es.autoplace_fields.allow_rejustify,
+      es.autoplace_fields.align_to_grid,
+      libById,
+    ],
   );
 
   // Annotate (SCH_EDIT_FRAME::AnnotateSymbols): one numbering pass across the
@@ -7854,6 +7893,7 @@ export function SchematicEditor({
               }}
               onCommand={runCommand}
               onAnnotatePlacement={annotatePlacement}
+              onAutoplacePlacement={autoplacePlacement}
               onEditDrawingSheet={() => setPageSettingsOpen(true)}
               onCursorMove={onCursorMove}
               onScaleChange={onScaleChange}

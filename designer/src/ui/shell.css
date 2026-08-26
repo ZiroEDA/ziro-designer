@@ -196,6 +196,21 @@
      SIZE they recorded (11) was right, and it is the size these tokens key
      on. */
   --ui-font-size: 11pt;
+  /* The line box of --ui-font-size, which is `GetTextExtent( "pdI" ).y` in wx:
+     the string is chosen for its ascender, descender and cap height, so the
+     extent is the whole line rather than a glyph. MEASURED on this machine by
+     `qa/probes/libtree_rowheight_probe.cpp`, which asks a wxPanel carrying the
+     default GUI font: Ubuntu Sans 11pt gives 18 px, and wx's GetCharHeight
+     agrees. It is a token rather than a literal because it is the second half
+     of LIB_TREE's row-height formula below, and a tree that restated it would
+     drift from the font the moment the theme changed. */
+  --ui-text-height: 18px;
+  /* LIB_TREE's tree rows, which do NOT take GTK's own row height: it overrides
+     them (common/widgets/lib_tree.cpp:177-180) with
+     `FromDIP( 6 ) + GetTextExtent( "pdI" ).y`, because "the GTK renderer seems
+     to calculate row height incorrectly sometimes". 6 + 18 = 24 px here. The
+     6 is split evenly as the row's vertical padding. */
+  --libtree-row-pad: 3px;
   /* The only two OTHER chrome text sizes KiCad has - and it derives both from
      the one above rather than declaring either.
      `getGUIFont( win, aRelativeSize )` (common/widgets/ui_common.cpp:109-129)
@@ -5112,12 +5127,16 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   display: flex;
   align-items: center;
   gap: 4px;
-  padding-top: 2px;
-  padding-bottom: 2px;
+  /* LIB_TREE::SetRowHeight: FromDIP(6) + GetTextExtent("pdI").y, so the line
+     box plus 3px above and below. The row carried 13px text in 2px padding,
+     which is neither the theme's font nor upstream's row height. */
+  padding-top: var(--libtree-row-pad);
+  padding-bottom: var(--libtree-row-pad);
   padding-right: 4px;
   border-radius: 3px;
   cursor: default;
-  font-size: 13px;
+  font-size: var(--ui-font-size);
+  line-height: var(--ui-text-height);
   white-space: nowrap;
 }
 .ze-libtree-row:hover {
@@ -5331,7 +5350,10 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
+  /* Ordinary wxCheckBoxes, so KIUI::GetControlFont, which is the window font
+     with a relative size of 0 (ui_common.cpp:168-171). That is --ui-font-size;
+     12px was a fourth chrome text size the theme does not have. */
+  font-size: var(--ui-font-size);
   margin-right: 16px;
   cursor: default;
   white-space: nowrap;
