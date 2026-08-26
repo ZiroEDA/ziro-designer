@@ -24,6 +24,51 @@ const PREVIEW_SIZE = { width: 240, height: 200 };
  *  ("symbols" / "power" / "footprints"), and equally long-lived. */
 const gRecentSearches = new Map<string, string[]>();
 
+/**
+ * The two icons a `wxSearchCtrl` shows.
+ *
+ * KiCad draws NEITHER of them. `LIB_TREE` asks for a `wxSearchCtrl` and calls
+ * `ShowCancelButton( true )` (common/widgets/lib_tree.cpp:79-81); on GTK3 that
+ * is a `GtkSearchEntry`, and the two glyphs it puts in its primary and
+ * secondary icon slots come from the ICON THEME - `edit-find-symbolic` and
+ * `edit-clear-symbolic`. `qa/probes/chooser_shell_probe.cpp` asks a real one:
+ *
+ *   primary   edit-find-symbolic    16x16 at x 9   of a 34px-tall entry
+ *   secondary edit-clear-symbolic   16x16 at x 385 of a 410px-wide entry
+ *
+ * so both are 16x16 inset 9px from their end. The active theme here is
+ * Yaru-dark, whose icons live in /usr/share/icons/Yaru/scalable/actions/; the
+ * path data below is those two files verbatim, with the theme's own `gray` /
+ * `#808080` fill replaced by `currentColor` because GTK recolours a symbolic
+ * icon to the style's colour (--entry-icon-fg).
+ *
+ * A generic magnifier and a bare "✕" are what we had, and the clear glyph in
+ * particular is not an ✕ at all: it is a backspace-shaped tag with the ✕ inside
+ * it, which is the single most recognisable thing in that row.
+ */
+function EditFindSymbolic(): JSX.Element {
+  return (
+    <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+      <path
+        fill="currentColor"
+        d="M7 1C3.69 1 1 3.69 1 7s2.69 6 6 6a5.948 5.948 0 0 0 3.664-1.273l2.863 2.863 1.063-1.063-2.863-2.863A5.949 5.949 0 0 0 13 7c0-3.31-2.69-6-6-6zm0 1a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5z"
+      />
+    </svg>
+  );
+}
+
+function EditClearSymbolic(): JSX.Element {
+  return (
+    <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+      <path
+        fill="currentColor"
+        fillRule="evenodd"
+        d="m4.9336 3-4.2227 4.2227-0.0039062-0.0039062-0.70703 0.70703 0.0039063 0.0039063-0.0039063 0.0039063 0.70703 0.70703 0.0039062-0.0039062 3.0469 3.0488 1.2422 1.2402v2e-3l0.072266 0.072219h10.928v-10h-11zm0.41406 1h9.6523v8h-9.5117l-4.0703-4.0703zm2.3594 1-0.70703 0.70703 2.2969 2.2969-2.2969 2.2988 0.70703 0.70703 2.2969-2.2988 2.2988 2.2988 0.70703-0.70703-2.2988-2.2988 2.2988-2.2969-0.70703-0.70703-2.2988 2.2969z"
+      />
+    </svg>
+  );
+}
+
 export interface LibTreeProps {
   adapter: LibTreeModelAdapter;
   /** m_recentSearchesKey, which recent-search list this tree shares. */
@@ -465,25 +510,49 @@ export function LibTree({
   return (
     <div className="ze-libtree" onKeyDown={onNavKey}>
       <div className="ze-libtree-search">
-        <div className="ze-libtree-recent-wrap">
+        {/* One wxSearchCtrl, not three controls in a row. Its magnifier and its
+            cancel button are the GtkEntry's own primary and secondary icons -
+            `wxSearchCtrl::ShowCancelButton( true )` plus the menu LIB_TREE hangs
+            off it (lib_tree.cpp:79-81, 450-476) - so they sit INSIDE the entry
+            rather than beside it, and the glyphs are the icon theme's, not
+            KiCad's. */}
+        <div className="ze-libtree-entry">
           <button
             type="button"
-            className="ze-libtree-recentbtn"
+            className="ze-entry-icon left"
             title="Recent searches"
             onClick={() => setRecentOpen((o) => !o)}
           >
-            🔍
+            <EditFindSymbolic />
           </button>
+          <input
+            ref={searchRef}
+            className="ze-search"
+            type="text"
+            placeholder="Filter"
+            value={search}
+            onChange={(e) => onQueryText(e.target.value)}
+          />
+          {/* ShowCancelButton only shows one while there is something to cancel:
+              GtkSearchEntry hangs the secondary icon off a non-empty value. */}
+          {search !== '' && (
+            <button
+              type="button"
+              className="ze-entry-icon right"
+              title="Clear"
+              onClick={() => {
+                onQueryText('');
+                searchRef.current?.focus();
+              }}
+            >
+              <EditClearSymbolic />
+            </button>
+          )}
           {recentMenu}
         </div>
-        <input
-          ref={searchRef}
-          className="ze-search"
-          type="search"
-          placeholder="Filter"
-          value={search}
-          onChange={(e) => onQueryText(e.target.value)}
-        />
+        {/* The wxStaticLine wxLI_VERTICAL between the entry and the sort button
+            (lib_tree.cpp:86-87), 3px in from the top and bottom of the row. */}
+        <div className="ze-libtree-sep" />
         <div className="ze-libtree-sortbtn-wrap">
           <button
             type="button"
@@ -497,93 +566,97 @@ export function LibTree({
         </div>
       </div>
 
-      <div
-        className="ze-libtree-cols"
-        onContextMenu={(e) => {
-          e.preventDefault();
-          setHeaderMenu({ x: e.clientX, y: e.clientY });
-        }}
-      >
-        {columns.map((col) => (
-          <span key={col} className={col === 'Item' ? 'col-item' : 'col-desc'}>
-            {col}
-          </span>
-        ))}
-      </div>
-
-      <div
-        className="ze-libtree-list"
-        ref={listRef}
-        tabIndex={0}
-        onMouseLeave={hidePreview}
-        onScroll={hidePreview}
-      >
-        {rows.map(({ node, indent, expandable, open }) => (
-          <div
-            key={`${node.parent?.name ?? ''}/${node.libId || node.name}${node.type === LibTreeNodeType.UNIT ? `#${node.unit}` : ''}`}
-            ref={(el) => {
-              el ? rowRefs.current.set(node, el) : rowRefs.current.delete(node);
-            }}
-            className={
-              `ze-libtree-row${node === selected ? ' active' : ''}` +
-              (node.type === LibTreeNodeType.LIBRARY ? ' lib' : '')
-            }
-            style={{ paddingLeft: 4 + indent * 16 }}
-            onClick={() => select(node)}
-            onDoubleClick={() => activate(node)}
-            onMouseMove={(e) => onRowHover(node, e)}
-            onContextMenu={(e) => {
-              e.preventDefault();
-              hidePreview();
-              select(node);
-              // LIB_TREE::onItemContextMenu: the row menu exists only for
-              // pinnable (non-group) library rows.
-              if (node.type === LibTreeNodeType.LIBRARY && !node.isGroup)
-                setCtxMenu({ x: e.clientX, y: e.clientY, node });
-            }}
-            title={node.libId || node.name}
-          >
-            <span
-              className={`twisty${expandable ? ' expandable' : ''}${open ? ' open' : ''}`}
-              onClick={(e) => {
-                if (expandable) {
-                  e.stopPropagation();
-                  toggle(node);
-                }
-              }}
-            />
-            {/* Names of non-root (derived) symbols are italicised, and a pinned
-                library carries the ☆ mark (GetAttr / GetPinningSymbol). */}
-            <span
-              className="col-item"
-              style={
-                node.type === LibTreeNodeType.ITEM && !node.isRoot
-                  ? { fontStyle: 'italic' }
-                  : undefined
-              }
-            >
-              {node.pinned ? PINNING_SYMBOL : ''}
-              {node.name}
+      {/* The wxDataViewCtrl is ONE control: its column header and its rows share
+          a frame, and the header is a button drawn inside it. */}
+      <div className="ze-libtree-tree">
+        <div
+          className="ze-libtree-cols"
+          onContextMenu={(e) => {
+            e.preventDefault();
+            setHeaderMenu({ x: e.clientX, y: e.clientY });
+          }}
+        >
+          {columns.map((col) => (
+            <span key={col} className={col === 'Item' ? 'col-item' : 'col-desc'}>
+              {col}
             </span>
-            {columns.slice(1).map((col) => (
-              <span key={col} className="col-desc">
-                {cellValue(node, col)}
+          ))}
+        </div>
+
+        <div
+          className="ze-libtree-list"
+          ref={listRef}
+          tabIndex={0}
+          onMouseLeave={hidePreview}
+          onScroll={hidePreview}
+        >
+          {rows.map(({ node, indent, expandable, open }) => (
+            <div
+              key={`${node.parent?.name ?? ''}/${node.libId || node.name}${node.type === LibTreeNodeType.UNIT ? `#${node.unit}` : ''}`}
+              ref={(el) => {
+                el ? rowRefs.current.set(node, el) : rowRefs.current.delete(node);
+              }}
+              className={
+                `ze-libtree-row${node === selected ? ' active' : ''}` +
+                (node.type === LibTreeNodeType.LIBRARY ? ' lib' : '')
+              }
+              style={{ paddingLeft: 4 + indent * 16 }}
+              onClick={() => select(node)}
+              onDoubleClick={() => activate(node)}
+              onMouseMove={(e) => onRowHover(node, e)}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                hidePreview();
+                select(node);
+                // LIB_TREE::onItemContextMenu: the row menu exists only for
+                // pinnable (non-group) library rows.
+                if (node.type === LibTreeNodeType.LIBRARY && !node.isGroup)
+                  setCtxMenu({ x: e.clientX, y: e.clientY, node });
+              }}
+              title={node.libId || node.name}
+            >
+              <span
+                className={`twisty${expandable ? ' expandable' : ''}${open ? ' open' : ''}`}
+                onClick={(e) => {
+                  if (expandable) {
+                    e.stopPropagation();
+                    toggle(node);
+                  }
+                }}
+              />
+              {/* Names of non-root (derived) symbols are italicised, and a pinned
+                library carries the ☆ mark (GetAttr / GetPinningSymbol). */}
+              <span
+                className="col-item"
+                style={
+                  node.type === LibTreeNodeType.ITEM && !node.isRoot
+                    ? { fontStyle: 'italic' }
+                    : undefined
+                }
+              >
+                {node.pinned ? PINNING_SYMBOL : ''}
+                {node.name}
               </span>
-            ))}
-          </div>
-        ))}
-        {/* LIB_TREE has no loading state, because by the time it is shown
+              {columns.slice(1).map((col) => (
+                <span key={col} className="col-desc">
+                  {cellValue(node, col)}
+                </span>
+              ))}
+            </div>
+          ))}
+          {/* LIB_TREE has no loading state, because by the time it is shown
             `IFACE::PreloadLibraries` has run and the tree holds every library
             that loaded. What it can be is EMPTY, and upstream shows nothing at
             all for that; ours says so, because a hosted library that failed to
             arrive and a filter that matched nothing look identical otherwise.
             Progress belongs in the background job monitor
             (ui/background_jobs_monitor.ts), which is where upstream puts it. */}
-        {rows.length === 0 && (
-          <div className="ze-muted" style={{ padding: 8 }}>
-            No matches
-          </div>
-        )}
+          {rows.length === 0 && (
+            <div className="ze-muted" style={{ padding: 8 }}>
+              No matches
+            </div>
+          )}
+        </div>
       </div>
 
       {preview && renderPreview && (

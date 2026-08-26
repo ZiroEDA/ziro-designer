@@ -346,6 +346,7 @@ public:
         rendered( "wxButton (OK)", ok, -1, -1 );
         rendered( "wxCheckBox", cb, -1, -1 );
         rendered( "wxStaticLine (vertical)", sep, 0, -1 );
+        rendered( "wxStaticLine col 1", sep, 1, -1 );
 
         // A window that is not the focused one is drawn in GTK's :backdrop
         // state, and Yaru's backdrop faces are DARKER than its normal ones. A

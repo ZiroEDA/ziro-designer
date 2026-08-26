@@ -18,6 +18,8 @@
 #include <wx/wx.h>
 #include <wx/html/htmlwin.h>
 #include <wx/html/htmlcell.h>
+#include <wx/dcmemory.h>
+#include <wx/settings.h>
 #include <cstdio>
 #include <vector>
 #include <algorithm>
@@ -148,6 +150,40 @@ public:
 
         for( size_t i = 1; i < rowY.size(); ++i )
             printf( "  row pitch %zu->%zu   %d\n", i - 1, i, rowY[i] - rowY[i - 1] );
+
+        // What colour does wxHtml actually paint the <hr> and the body? The
+        // template names neither: HTML_WINDOW::SetPage supplies text and
+        // bgcolor from wxSYS_COLOUR_WINDOWTEXT / _WINDOW, and the rule is
+        // wxHtmlLineCell's own. Render the window and look.
+        {
+            wxBitmap    bmp( 520, 300 );
+            wxMemoryDC  dc( bmp );
+            dc.SetBackground( wxBrush( html->GetBackgroundColour() ) );
+            dc.Clear();
+            wxHtmlRenderingInfo info;
+            wxDefaultHtmlRenderingStyle style( html );
+            info.SetStyle( &style );
+            html->GetInternalRepresentation()->Draw( dc, 0, 0, 0, INT_MAX, info );
+
+            wxImage  img = bmp.ConvertToImage();
+            auto     at = [&]( int x, int y )
+            {
+                printf( "  pixel (%d,%d)  #%02x%02x%02x\n", x, y, img.GetRed( x, y ),
+                        img.GetGreen( x, y ), img.GetBlue( x, y ) );
+            };
+
+            printf( "\npainted:\n" );
+            at( 200, 115 );      // the <hr>
+            at( 200, 110 );      // clear space above it
+        }
+
+        printf( "\nHTML_WINDOW::SetPage's colours: text %s  bgcolor %s  link %s\n",
+                (const char*) wxSystemSettings::GetColour( wxSYS_COLOUR_WINDOWTEXT )
+                        .GetAsString( wxC2S_HTML_SYNTAX ).mb_str(),
+                (const char*) wxSystemSettings::GetColour( wxSYS_COLOUR_WINDOW )
+                        .GetAsString( wxC2S_HTML_SYNTAX ).mb_str(),
+                (const char*) wxSystemSettings::GetColour( wxSYS_COLOUR_HOTLIGHT )
+                        .GetAsString( wxC2S_HTML_SYNTAX ).mb_str() );
 
         dlg->Destroy();
         return false;

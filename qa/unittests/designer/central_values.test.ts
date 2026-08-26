@@ -257,7 +257,30 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // 286 -> 285: `.ze-preview-canvas` painted itself #fff. The canvas is
   // cleared to the render theme's LAYER_SCHEMATIC_BACKGROUND every frame, so
   // the literal was a second answer to a question the theme already answers.
-  ui: { colours: 285, metrics: 812 },
+  //
+  // 285 -> 282 / 812 -> 806: the Choose Symbol shell pass. Counted twice, once
+  // by rescanning and once off the diff, and the two agree.
+  //
+  // The three colours are all one widget answering a question GTK had already
+  // answered: `.ze-libtree-cols` wrote #9a9ca0 for a wxDataViewCtrl column
+  // header (Yaru says #8f8f8f, --libtree-header-fg), `.ze-libtree-row .col-desc`
+  // dimmed the description to #b6b8bb when `LIB_TREE_MODEL_ADAPTER::GetAttr`
+  // sets no colour on any cell at all, and `.ze-libtree-details a` wrote
+  // #7f97b0 where `HTML_WINDOW::SetPage` passes wxSYS_COLOUR_HOTLIGHT.
+  //
+  // The six metrics net out of seventeen removed against eleven gained. Out:
+  // the search row's 8px padding and 6px gap (its sizer has no border flag at
+  // all), the magnifier button's 3px 6px and 4px radius (it is the ENTRY's own
+  // icon, not a button beside it), the tree pane's and preview panes' 2px
+  // radii and the tree pane's three-sided margin (wxALL is four), the column
+  // header's 3px 8px 3px 24px, the details pane's 8px 12px and the hr's 6px,
+  // the details table's 1px 10px 1px 0, the footer checkbox's 16px and the
+  // sash's 4px height. In: the entry's 4px right margin and its two 31px icon
+  // insets, the 16px icon, the separator's 3px, the header button's 0 6px, the
+  // details pane's 10px inset and 5px top margin and the external variant's
+  // three-sided 5px, the preview's 5px bottom margin, the 30px between the two
+  // footer checkboxes, and the dialog's own 680px + 37px height.
+  ui: { colours: 282, metrics: 806 },
   widgets: { colours: 6, metrics: 46 },
 };
 
@@ -492,7 +515,11 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // 667 -> 666: `.ze-preview-canvas`'s #fff; see the `ui` row. RESCANNED
     // from this tree, and derived a second time from the per-area table --
     // `ui` 286 -> 285 is the only row that moved, and 667 - 1 agrees.
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(666);
+    // 666 -> 663: the Choose Symbol shell pass; see the `ui` row for what the
+    // three were. RESCANNED from this tree, and derived a second time from the
+    // per-area table -- `ui` 285 -> 282 is the only row that moved, and
+    // 666 - 3 agrees.
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(663);
     // 1657 -> 1649: the same sweep. A native colour input has no useful
     // default size, so eight of the sixteen sites gave theirs an inline
     // width and height; the shared swatch takes --swatch-*-w/h. Rescanned.
@@ -506,7 +533,10 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // 1633 -> 1631: the symbol chooser tree row's font size and its two
     // padding literals; see the `ui` row. RESCANNED from this tree, and the
     // per-area table agrees, `ui` 814 -> 812 being the only row that moved.
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1631);
+    // 1631 -> 1625: the same pass, seventeen out against eleven in. RESCANNED
+    // from this tree, and the per-area table agrees, `ui` 812 -> 806 being the
+    // only row that moved.
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1625);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {

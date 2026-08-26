@@ -124,11 +124,54 @@
      The colour is wxSYS_COLOUR_3DFACE, which is why it equals --content-bg;
      they are the same system colour reached for two different reasons, not one
      value with two names.
-     Not to be confused with --chrome-border on .ze-sash: that is a
-     wxSplitterWindow sash inside a dialog, a different widget that GTK draws
-     differently. */
+     Not to be confused with --splitter-sash below: that is a wxSplitterWindow
+     sash inside a dialog, a different widget that GTK draws differently. */
   --aui-sash: #373737;
   --aui-sash-size: 5px;
+  /* That other sash. PANEL_SYMBOL_CHOOSER builds its panes with a
+     wxSplitterWindow pair (eeschema/widgets/panel_symbol_chooser.cpp:193-210,
+     wxSP_LIVE_UPDATE | wxSP_NOBORDER | wxSP_3DSASH) and names neither number.
+     [px] `qa/probes/chooser_shell_probe.cpp` builds that splitter with those
+     styles and asks it: `GetSashSize()` is 5, and the mapped window read back
+     off the display server paints the strip #181818. Not --aui-sash (#373737),
+     and not --chrome-border (#1e1e1e), which is what .ze-sash used to say. */
+  --splitter-sash: #181818;
+  --splitter-sash-size: 5px;
+  /* A wxDataViewCtrl's column header. GTK draws it as a button inside the
+     treeview, and Yaru's rule for it is
+
+       treeview.view header button { color: #8f8f8f; background-color: #272727;
+         font-weight: bold; padding: 0 6px;
+         border-style: none solid solid none; border-color: #2c2c2c }
+
+     so only the foreground is a value we do not already hold: the face is
+     --chrome-bg2 (wxSYS_COLOUR_LISTBOX) and the 1 px rule under and beside it
+     is --chrome-bg, the window background showing through. [px] the rendered
+     header measures #8f8f8f on #272727 and is 24 px tall over a 1 px #2c2c2c
+     rule (`qa/probes/chooser_shell_probe.cpp`). It is NOT wxSYS_COLOUR_GRAYTEXT
+     (#929292); those two are close and different. */
+  --libtree-header-fg: #8f8f8f;
+  --libtree-header-height: 24px;
+  /* The colour GTK recolours a symbolic icon to inside a text entry - the
+     magnifier and the clear button a wxSearchCtrl gets from the icon theme.
+     Yaru: `entry image { color: #cdcdcd }`, `:hover { color: #F7F7F7 }`,
+     `:active { color: #E95420 }`, so hover is --chrome-fg and pressed is the
+     accent and only the resting colour is new. [px] the rendered icons measure
+     #cdcdcd (`qa/probes/chooser_shell_probe.cpp`), which is exactly
+     mix(#f7f7f7, #272727, 80%). */
+  --entry-icon-fg: #cdcdcd;
+  /* A GtkSeparator - what a wxStaticLine is. Yaru draws it as an overlay, not a
+     grey: `separator { background: rgba(0, 0, 0, 0.1); min-width: 1px }`. wx
+     agrees: a real wxStaticLine reports its background as #0000001A, and 26/255
+     is that same 10.2%. So it darkens whatever it is drawn on, and a flat grey
+     could only ever be right on one surface. */
+  --gtk-separator: rgb(0 0 0 / 10%);
+  /* wxSYS_COLOUR_HOTLIGHT, and the only place a link colour comes from:
+     `HTML_WINDOW::SetPage` (common/widgets/html_window.cpp:56-66) wraps every
+     page it is handed in `<body text=WINDOWTEXT bgcolor=WINDOW link=HOTLIGHT>`,
+     so the details pane's text, face and links are three system colours rather
+     than a stylesheet. [px] qa/probes/chooser_shell_probe.cpp. */
+  --html-link: #f08762;
   /* EDA_MSG_PANEL's background, wxSYS_COLOUR_BTNFACE, measured by
      qa/probes/aui_sash_probe.cpp. See .ze-msgpanel. */
   --msgpanel-bg: #373737;
@@ -4955,10 +4998,27 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 }
 
 /* Choose Symbol dialog (dialog_symbol_chooser + panel_symbol_chooser):
-   lib tree | sash | preview column, mirroring the KiCad 10 layout. */
+   lib tree | sash | preview column, mirroring the KiCad 10 layout.
+
+   The size is one of the few a KiCad dialog really does state:
+   `PANEL_SYMBOL_CHOOSER::FinishSetup` (panel_symbol_chooser.cpp:414-424) falls
+   back to `horizPixelsFromDU( 440 )` by `horizPixelsFromDU( 340 )` when nothing
+   has been persisted. Those are DIALOG UNITS, so the pixel count depends on the
+   font wx measures a character cell with, and it has to be asked rather than
+   computed: [px] `qa/probes/chooser_shell_probe.cpp` calls
+   ConvertDialogToPixels on a real wxDialog here and gets 880 x 680.
+
+   680 is what `SetSize` gives the window, and on GTK that is the CLIENT area -
+   the desktop's title bar is not in it. Ours draws its own title bar inside the
+   frame (.ze-modal-header, 37px), so the box has to be that much taller to put
+   the same 680px of dialog on the screen.
+
+   Do not re-derive this from a screenshot: 880 x 680 is the DEFAULT, and KiCad
+   saves and restores this dialog's size, so a running instance is usually
+   showing whatever the user last dragged it to. */
 .ze-modal.ze-symbol-chooser {
-  width: 920px;
-  height: 620px;
+  width: 880px;
+  height: calc(680px + 37px);
 }
 .ze-chooser-panel {
   flex: 1;
@@ -4980,40 +5040,61 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   display: flex;
   flex-direction: column;
 }
+/* A wxSplitterWindow sash, not a wxAUI one. See --splitter-sash. */
 .ze-sash {
   flex: 0 0 auto;
-  background: var(--chrome-border);
+  background: var(--splitter-sash);
 }
 .ze-sash.v {
-  width: 4px;
+  width: var(--splitter-sash-size);
   cursor: col-resize;
 }
 .ze-sash.h {
-  height: 4px;
+  height: var(--splitter-sash-size);
   cursor: row-resize;
 }
-/* constructRightPanel's sizer margins: the symbol preview has 5px all round,
-   the footprint selector 5px left/right, the footprint preview 5px
-   left/right/bottom, so the panes never bleed into the dialog edge. */
+/* constructRightPanel's sizer (panel_symbol_chooser.cpp:378-396):
+
+     m_symbol_preview  proportion 11  wxEXPAND | wxALL                    5
+     m_fp_sel_ctrl     proportion  0  wxEXPAND | wxLEFT | wxRIGHT         5
+     m_fp_preview      proportion 10  wxEXPAND | wxLEFT|wxRIGHT|wxBOTTOM  5
+
+   which is NOT a uniform gap: the preview's own wxBOTTOM puts 5px under it, and
+   then the selector sits DIRECTLY on the footprint preview with nothing between
+   them, because neither states a wxTOP. `gap: 5px` gave that seam a gap KiCad
+   does not have. */
 .ze-chooser-right {
   flex: 1;
   display: flex;
   flex-direction: column;
   min-width: 0;
-  gap: 5px;
   padding: 5px;
 }
-/* The tree panel carries the same 5px border (treeSizer's wxALL). */
-.ze-chooser-treepane > .ze-libtree {
-  border: 1px solid var(--chrome-border);
-  border-radius: 2px;
-  margin: 5px 0 5px 5px;
+.ze-chooser-preview {
+  flex: 11;
+  min-height: 0;
+  display: flex;
+  margin-bottom: 5px;
 }
-/* The preview panes (the GAL canvases upstream) sit in their own frames; the
-   footprint selector keeps its control border. */
+.ze-chooser-fppreview {
+  flex: 10;
+  min-height: 0;
+  display: flex;
+}
+/* treeSizer->Add( m_tree, 1, wxALL | wxEXPAND, 5 ): 5px on ALL four sides, and
+   the LIB_TREE itself is built wxNO_BORDER (lib_tree.cpp:56-57), so there is no
+   frame around it and never was. The frame in this dialog belongs to the
+   wxDataViewCtrl inside it - see .ze-libtree-tree - and drawing a second one
+   out here is what made our tree read as a boxed-in panel. */
+.ze-chooser-treepane > .ze-libtree {
+  margin: 5px;
+}
+/* SYMBOL_PREVIEW_WIDGET and FOOTPRINT_PREVIEW_WIDGET are bare wxPanels
+   (symbol_preview_widget.cpp:40, footprint_preview_widget.cpp:30-31) - style 0
+   and wxFULL_REPAINT_ON_RESIZE|wxTAB_TRAVERSAL, neither of which draws a
+   border. The canvas meets the dialog face directly. The footprint selector is
+   a combo and keeps its own control border, which is the combo's, not ours. */
 .ze-chooser-right > div {
-  border: 1px solid var(--chrome-border);
-  border-radius: 2px;
   overflow: hidden;
 }
 
@@ -5024,34 +5105,77 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   display: flex;
   flex-direction: column;
 }
+/* LIB_TREE's search row is `sizer->Add( search_sizer, 0, wxEXPAND, 5 )`
+   (lib_tree.cpp:90) - wxEXPAND with NO direction flag, so that 5 is never
+   applied and the row has no padding at all, and no rule under it either. The
+   only spacing inside it is the entry's own `wxRIGHT, 4`.
+
+   We had 8px of padding and a 1px border-bottom; the border in particular is
+   wrong twice over, because the wxDataViewCtrl below already draws its own
+   frame and the two stacked into a double line. */
 .ze-libtree-search {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px;
-  border-bottom: 1px solid var(--chrome-border);
 }
-.ze-libtree-sortbtn-wrap,
-.ze-libtree-recent-wrap {
+.ze-libtree-sortbtn-wrap {
   position: relative;
 }
-/* The search control's magnifier button and its recent-searches menu
-   (wxSearchCtrl::SetMenu / LIB_TREE::updateRecentSearchMenu). */
-.ze-libtree-recentbtn {
-  padding: 3px 6px;
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: 4px;
-  color: var(--chrome-fg);
+/* The wxSearchCtrl. `search_sizer->Add( m_query_ctrl, 1, ..., wxRIGHT, 4 )`. */
+.ze-libtree-entry {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  margin-right: 4px;
+}
+/* The GtkEntry's two icon slots. [px] chooser_shell_probe: 16x16, inset 9px
+   from the entry's end and centred in its 34px height. Yaru puts 6px between an
+   icon and the text (`entry image.left { margin-right: 6px }`), so the text
+   starts 9 + 16 + 6 = 31px in - which is why the padding below is stated here
+   and not left to --field-pad-x. */
+.ze-libtree-entry .ze-search {
+  padding-left: 31px;
+  padding-right: 31px;
+}
+.ze-entry-icon {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: none;
+  background: none;
   cursor: default;
-  font: inherit;
-  opacity: 0.8;
+  color: var(--entry-icon-fg);
+  display: flex;
 }
-.ze-libtree-recentbtn:hover {
-  background: var(--chrome-hover);
-  border-color: var(--chrome-border);
+.ze-entry-icon.left {
+  left: 9px;
 }
-.ze-libtree-recent-wrap .ze-libtree-menu {
+.ze-entry-icon.right {
+  right: 9px;
+}
+/* Yaru: `entry image:hover { color: #F7F7F7 }`, `:active { color: #E95420 }`. */
+.ze-entry-icon:hover {
+  color: var(--chrome-fg);
+}
+.ze-entry-icon:active {
+  color: var(--chrome-active);
+}
+/* wxStaticLine, wxLI_VERTICAL, `wxEXPAND | wxTOP | wxBOTTOM, 3`
+   (lib_tree.cpp:86-87). It is an OVERLAY, not a grey: Yaru says
+   `separator { background: rgba(0, 0, 0, 0.1) }`, wx reports the widget's
+   background as #0000001A (26/255 = 10.2%), and [px] both columns of the 2px
+   widget render #282828 on the #2c2c2c face, which is 44 x 0.9 = 39.6.
+   Three readings, one value. */
+.ze-libtree-sep {
+  flex: 0 0 2px;
+  align-self: stretch;
+  margin: 3px 0;
+  background: var(--gtk-separator);
+}
+.ze-libtree-entry .ze-libtree-menu {
   right: auto;
   left: 0;
 }
@@ -5116,18 +5240,52 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   margin: 4px 6px;
   background: var(--chrome-border);
 }
+/* The wxDataViewCtrl itself. It is ONE control - header and rows inside one
+   frame - and that frame is the only border in the tree pane: [px] a real
+   wxDataViewCtrl renders a 1px #181818 line all round
+   (`qa/probes/chooser_shell_probe.cpp`), which is --ctl-border, the same
+   wxSYS_COLOUR_3DSHADOW every other control here is outlined in. The row area's
+   face is wxSYS_COLOUR_LISTBOX, and it was inheriting the dialog's #2c2c2c. */
+.ze-libtree-tree {
+  flex: 5;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--ctl-border);
+  background: var(--chrome-bg2);
+}
+/* The header is a GtkButton drawn inside the treeview: see --libtree-header-fg
+   for Yaru's rule and the measurement. `padding: 0 6px` is its own, the 24px
+   height is measured, and the 1px rule under it is --chrome-bg showing through
+   rather than a border colour of its own. Ours was a 600-weight #9a9ca0 on
+   --panel-header, which is the wxAUI CAPTION bar - a different widget. */
 .ze-libtree-cols {
   display: flex;
-  padding: 3px 8px 3px 24px;
-  /* The wxDataViewCtrl column headers, which GTK draws in the window font. */
+  flex: 0 0 auto;
+  align-items: center;
+  height: var(--libtree-header-height);
   font-size: var(--ui-font-size);
-  font-weight: 600;
-  color: #9a9ca0;
-  background: var(--panel-header);
-  border-bottom: 1px solid var(--chrome-border);
+  font-weight: bold;
+  color: var(--libtree-header-fg);
+  background: var(--chrome-bg2);
+  border-bottom: 1px solid var(--chrome-bg);
+}
+/* The 6px is each header BUTTON's padding, so it belongs on the column and not
+   on the row: the second column's label is inset from its own left edge too. */
+.ze-libtree-cols > span {
+  padding: 0 6px;
+  box-sizing: border-box;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .ze-libtree-cols .col-item {
   flex: 0 0 45%;
+}
+/* `border-style: none solid solid none` with `header button:last-child {
+   border-right-style: none }` - every column but the last carries a 1px rule on
+   its right. */
+.ze-libtree-cols > span:not(:last-child) {
+  border-right: 1px solid var(--chrome-bg);
 }
 .ze-libtree-cols .col-desc {
   flex: 1;
@@ -5174,20 +5332,28 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   background: var(--chrome-active);
   color: #fff;
 }
+/* A library row is not bold. GetAttr sets italic and nothing else - see
+   .ze-libtree-row .col-desc - so a container row draws in the same face as its
+   children, and the 700 here was ours. */
 .ze-libtree-row.lib {
-  font-weight: 700;
+  font-weight: 400;
 }
 .ze-libtree-row .col-item {
   flex: 0 0 45%;
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* No colour of its own. `LIB_TREE_MODEL_ADAPTER::GetAttr`
+   (common/lib_tree_model_adapter.cpp:781-801) is the ONLY thing that styles a
+   cell in this tree, it sets exactly one attribute - italic, on a non-root
+   alias's name - and it never touches colour or weight. So every cell in every
+   column is wxSYS_COLOUR_LISTBOXTEXT, and the #b6b8bb this used to dim the
+   description with was ours. */
 .ze-libtree-row .col-desc {
   flex: 1;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
-  color: #b6b8bb;
   font-weight: 400;
 }
 .ze-libtree-row .twisty {
@@ -5211,12 +5377,28 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-libtree-row .twisty.expandable.open::before {
   transform: translate(-50%, -70%) rotate(135deg);
 }
+/* The details pane, and it is a WINDOW rather than a region of the panel:
+   `HTML_WINDOW::SetPage` writes `<body text=wxSYS_COLOUR_WINDOWTEXT
+   bgcolor=wxSYS_COLOUR_WINDOW>` around the template
+   (common/widgets/html_window.cpp:56-66), so its face is --chrome-bg2 and its
+   text --view-fg, exactly like the tree above it. Ours took the dialog's own
+   #2c2c2c, which is the one surface it is definitely not.
+
+   LIB_TREE gives it `sizer->Add( m_details_ctrl, 2, wxTOP | wxEXPAND, 5 )`
+   against the tree's proportion 5 (lib_tree.cpp:181, 193-197): a 5:2 split of
+   whatever height is going, with 5px above it and NO rule. `26%` was neither
+   the ratio nor anything upstream states, and the rule was ours.
+
+   The 10px inset is wxHtmlWindow's own border: [px] the first line box of the
+   real template lands at x 10, y 10 (`qa/probes/libtree_details_probe.cpp`). */
 .ze-libtree-details {
-  flex: 0 0 26%;
+  flex: 2;
   min-height: 0;
   overflow: auto;
-  padding: 8px 12px;
-  border-top: 1px solid var(--chrome-border);
+  padding: 10px;
+  margin-top: 5px;
+  color: var(--view-fg);
+  background: var(--chrome-bg2);
   line-height: var(--libtree-details-line);
   /* [px] LIB_TREE and FOOTPRINT_PREVIEW_WIDGET are common/ widgets and set no
      font at all, so every one of them inherits the 11pt window font. The
@@ -5225,8 +5407,13 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
      There is no smaller text anywhere in this dialog upstream. */
   font-size: var(--ui-font-size);
 }
+/* The no-footprints layout gives the details pane its own wxPanel below the
+   vertical splitter, and the sizer there is
+   `wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 5` (panel_symbol_chooser.cpp:217) -
+   5px on three sides and nothing on top, where the sash already is. */
 .ze-libtree-details.external {
   flex: none;
+  margin: 0 5px 5px;
 }
 /* LIB_TREE's hover preview popup (PREVIEW_SIZE 240x200, pinned to the tree's
    right edge and vertically centred on the cursor). */
@@ -5240,20 +5427,40 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   display: flex;
   pointer-events: none;
 }
+/* [px] libtree_details_probe renders the real template: the <hr> cell is 1px
+   tall, sits 21px below the last line box and 21px above the table, and is
+   painted #808080. That grey is DATA, not chrome - wxHtmlLineCell hardcodes
+   "GREY" and no theme reaches it - so it stays a literal. The 21s are the line
+   box the pane already has a token for. */
 .ze-libtree-details hr {
+  height: 1px;
   border: none;
-  border-top: 1px solid var(--chrome-border);
-  margin: 6px 0;
+  margin: var(--libtree-details-line) 0;
+  background: #808080; /* [data] wxHtmlLineCell's own pen, not a theme colour */
 }
+/* `FieldFormat` (eeschema/generate_alias_info.cpp:41-46) emits
+   `<table border=0><tr><td><b>name</b></td><td>value</td></tr>`, and wxHtml
+   lays a border-less table out with its DEFAULT cellpadding 3 and cellspacing
+   2. [px] libtree_details_probe puts the label column's text at x 15 and the
+   value column's at x 99 with the widest label 76 wide, and the rows 29 apart:
+
+     15  = table left 10 + spacing 2 + padding 3
+     99  = 15 + 76 + padding 3 + spacing 2 + padding 3
+     29  = the 21px line box + padding 3 + 3 + spacing 2
+
+   three readings that solve to one pair of numbers. Ours collapsed the borders
+   and hung a 10px right padding off the label instead, so both the column gap
+   and the row pitch were ours rather than wxHtml's. */
 .ze-libtree-details table {
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 2px;
 }
 .ze-libtree-details td {
-  padding: 1px 10px 1px 0;
+  padding: 3px;
   vertical-align: top;
 }
 .ze-libtree-details a {
-  color: #7f97b0;
+  color: var(--html-link);
 }
 
 /* SYMBOL_PREVIEW_WIDGET */
@@ -5388,6 +5595,12 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-chooser-footer {
   align-items: center;
 }
+/* buttonsSizer (dialog_symbol_chooser.cpp:86-87) puts "Place repeated copies"
+   at wxLEFT 5 and "Place all units" at wxLEFT 30, so the gap between the two
+   checkboxes is 30px and not the 16 we had. */
+.ze-chooser-footer .ze-check + .ze-check {
+  margin-left: 30px;
+}
 .ze-chooser-footer .ze-check {
   display: flex;
   align-items: center;
@@ -5396,7 +5609,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
      with a relative size of 0 (ui_common.cpp:168-171). That is --ui-font-size;
      12px was a fourth chrome text size the theme does not have. */
   font-size: var(--ui-font-size);
-  margin-right: 16px;
   cursor: default;
   white-space: nowrap;
 }

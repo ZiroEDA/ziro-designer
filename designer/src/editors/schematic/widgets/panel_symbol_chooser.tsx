@@ -618,7 +618,11 @@ export const PanelSymbolChooser = forwardRef<PanelSymbolChooserHandle, PanelSymb
           {tree}
           <div className="ze-sash v" onMouseDown={dragSash('h')} />
           <div className="ze-chooser-right" style={{ width: sashH, flex: 'none' }}>
-            <div style={{ flex: 11, minHeight: 0, display: 'flex' }}>{symbolPreview}</div>
+            {/* constructRightPanel's proportions: 11 for the symbol preview, 10
+                for the footprint preview, 0 for the selector between them
+                (panel_symbol_chooser.cpp:378-392). The margins are the sizer's
+                and live in .ze-chooser-right. */}
+            <div className="ze-chooser-preview">{symbolPreview}</div>
             <FootprintSelectWidget
               defaultFootprint={defaultFootprint}
               items={fpItems}
@@ -626,7 +630,7 @@ export const PanelSymbolChooser = forwardRef<PanelSymbolChooserHandle, PanelSymb
               disabled={!validSelection}
               onFootprintSelected={onFootprintSelected}
             />
-            <div style={{ flex: 10, minHeight: 0, display: 'flex' }}>
+            <div className="ze-chooser-fppreview">
               <FootprintPreviewWidget
                 footprint={validSelection && !fpStatus ? shownFootprint : ''}
                 statusText={fpStatus}
@@ -644,7 +648,10 @@ export const PanelSymbolChooser = forwardRef<PanelSymbolChooserHandle, PanelSymb
           {tree}
           <div className="ze-sash v" onMouseDown={dragSash('h')} />
           <div className="ze-chooser-right" style={{ width: sashH, flex: 'none' }}>
-            <div style={{ flex: 1, minHeight: 0, display: 'flex' }}>{symbolPreview}</div>
+            {/* The no-footprints branch adds the preview alone, wxALL 5. */}
+            <div className="ze-chooser-preview" style={{ flex: 1, marginBottom: 0 }}>
+              {symbolPreview}
+            </div>
           </div>
         </div>
         <div className="ze-sash h" onMouseDown={dragSash('v')} />

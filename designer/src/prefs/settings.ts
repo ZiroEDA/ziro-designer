@@ -431,9 +431,19 @@ export const EESCHEMA_DEFAULTS: EeschemaSettings = {
     cmp_list_width: 150,
     show_pin_electrical_type: true,
   },
+  // PANEL_SYMBOL_CHOOSER::FinishSetup (panel_symbol_chooser.cpp:436-446) seeds
+  // both from dialog units: sash_pos_h = horizPixelsFromDU( 220 ) and
+  // sash_pos_v = horizPixelsFromDU( 230 ), which [px] measure 440 and 460 here
+  // (qa/probes/chooser_shell_probe.cpp). Those are wxSplitterWindow sash
+  // positions, so they size the FIRST pane; ours store the second, so each is
+  // the container minus the sash minus upstream's number:
+  //   880 dialog wide   - 440 - 5 sash          = 435 for the preview column
+  //   631 splitter tall - 460 - 5 sash          = 166 for the details pane
+  // (631 is the 680px client height less the 5px wxBOTTOM under the splitter
+  // and the 44px button row - a 34px wxButton in a wxALL 5 border.)
   sym_chooser: {
-    sash_pos_h: 360,
-    sash_pos_v: 150,
+    sash_pos_h: 435,
+    sash_pos_v: 166,
     sort_mode: 0,
   },
   printing: {
