@@ -1695,7 +1695,36 @@ export function SchematicEditor({
   }, [toggles, doc, liveDocs, sheetInstanceRefs, busAliases]);
 
   // ----- Choose Symbol dialog (DIALOG_SYMBOL_CHOOSER) ----------------------------
-  const chooserOpen = (activeTool === 'placeSymbol' || activeTool === 'placePower') && !placeLib;
+  /**
+   * Dismissed by Cancel, and reopened by the next click.
+   *
+   * `PickSymbolFromLibrary` returning an invalid LIB_ID is a `continue`
+   * (sch_drawing_tools.cpp:416-419): back to the top of `Wait()` with no
+   * `PopTool` and no `break`, so the TOOL STAYS ACTIVE and the chooser comes
+   * back on the next click, which is the click branch that opened it in the
+   * first place (:371-375). Ours called `setActiveTool('select')`, dropping the
+   * tool the moment the dialog closed.
+   *
+   * It cannot simply be derived from "the tool is active and nothing is on the
+   * cursor", because that is true again the instant Cancel returns and the
+   * dialog would reopen forever. Upstream is event-driven and so is this.
+   */
+  const [chooserDismissed, setChooserDismissed] = useState(false);
+  const chooserOpen =
+    (activeTool === 'placeSymbol' || activeTool === 'placePower') && !placeLib && !chooserDismissed;
+
+  /**
+   * Activating the tool primes it, and a primed event IS a click here.
+   * `PrimeTool` posts `TOOL_EVENT( TC_MOUSE, TA_PRIME, BUT_LEFT )`
+   * (tool_manager.cpp:414-430); `TA_PRIME` is 0x800001 and carries
+   * `TA_MOUSE_CLICK`'s 0x0001 bit, and `IsClick()` tests exactly that bit
+   * (tool_event.cpp:212-215). With `input.immediate_actions` set, which is its
+   * default (common_settings.cpp:251-252), the tool therefore opens its chooser
+   * on activation without the user clicking anything.
+   */
+  useEffect(() => {
+    setChooserDismissed(false);
+  }, [activeTool]);
 
   // The chooser's "-- Already Placed --" group: every distinct library symbol
   // used anywhere in the hierarchy, filtered to the tool's power-symbol flavour
@@ -7894,6 +7923,7 @@ export function SchematicEditor({
               onCommand={runCommand}
               onAnnotatePlacement={annotatePlacement}
               onAutoplacePlacement={autoplacePlacement}
+              onRequestChooser={() => setChooserDismissed(false)}
               onEditDrawingSheet={() => setPageSettingsOpen(true)}
               onCursorMove={onCursorMove}
               onScaleChange={onScaleChange}
@@ -8718,7 +8748,7 @@ export function SchematicEditor({
           alreadyPlaced={alreadyPlaced}
           getPlacedLibSymbol={getPlacedLibSymbol}
           onOk={onChooserOk}
-          onCancel={() => setActiveTool('select')}
+          onCancel={() => setChooserDismissed(true)}
         />
       )}
 

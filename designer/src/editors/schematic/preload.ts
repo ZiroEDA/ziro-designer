@@ -68,10 +68,14 @@ export function assignedFootprintIds(docs: Iterable<Schematic>): string[] {
  */
 export function preloadSchematicLibraries(docs: Iterable<Schematic>): void {
   const all = [...docs];
-  const symbols = symbolPreloadWork(placedSymbolIds(all));
   const footprints = footprintPreloadWork(assignedFootprintIds(all));
   setTimeout(() => {
-    void preloadLibraries('symbols', workQueueAdapter(symbols));
+    // Symbols: every library, which needs the index first because the index is
+    // our library table. Awaiting it here rather than making it a work item
+    // keeps the gauge counting libraries, as `m_loadTotal = rows.size()` does.
+    void symbolPreloadWork().then((symbols) =>
+      preloadLibraries('symbols', workQueueAdapter(symbols)),
+    );
     void preloadLibraries('footprints', workQueueAdapter(footprints));
   }, 0);
 }

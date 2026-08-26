@@ -16,6 +16,16 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 
 const INDEX = JSON.stringify([{ name: 'Device', count: 1, symbols: ['R'] }]);
+/** Three library-table rows, which is what the preload's work list is built from. */
+const THREE_LIB_INDEX = JSON.stringify([
+  { name: 'Device', count: 1, symbols: ['R'] },
+  { name: 'Connector', count: 1, symbols: ['Conn_01x01'] },
+  { name: '74xGxx', count: 1, symbols: ['Inverter_Schmitt_Dual'] },
+]);
+/** A whole merged library, which is what `<base>/<Library>.kicad_sym` serves. */
+const LIB_FILE = `(kicad_symbol_lib (version 20241209) (generator "x")
+	(symbol "R" (property "Reference" "R" (at 0 0 0) (effects (font (size 1.27 1.27))))))
+`;
 const FP_INDEX = JSON.stringify([{ name: 'Resistor_SMD', footprints: ['R_0805'] }]);
 /** The per-symbol file the host serves at `<base>/<Library>/<Symbol>.kicad_sym`,
  *  holding the symbol asked for (tools/libraries/upload.mjs). */
@@ -77,68 +87,52 @@ const runAll = async (work: readonly (() => Promise<unknown>)[]): Promise<void> 
 };
 
 describe('symbolPreloadWork', { timeout: 30_000 }, () => {
-  it('fetches the index and each placed symbol, and nothing else', async () => {
-    serve((url) => (url.endsWith('index.json') ? INDEX : oneSymbol(symbolOf(url))));
+  it('fetches every library in the index, whole, and nothing per-symbol', async () => {
+    // Upstream's adapter loads every row of the symbol library table, and this
+    // now does the same: one whole-library fetch each. The old bounded list -
+    // the index plus the symbols the design already placed - was justified by
+    // the set being "219.7 MB", which was its UNCOMPRESSED size; stored with
+    // content-encoding the same 223 libraries are 9.7 MB.
+    serve((url) => (url.endsWith('index.json') ? THREE_LIB_INDEX : LIB_FILE));
     const { symbolPreloadWork } = await freshSymbols();
 
-    const work = symbolPreloadWork(['Device:R', 'Device:C']);
+    const work = await symbolPreloadWork();
     await runAll(work);
 
-    // The index is item 0, so the tree can be built even if every symbol fetch
-    // fails — it is what the chooser lists from.
-    expect(requested[0]).toMatch(/\/symbols\/index\.json$/);
-    expect(requested.some((u) => u.endsWith('/symbols/Device/R.kicad_sym'))).toBe(true);
-    expect(requested.some((u) => u.endsWith('/symbols/Device/C.kicad_sym'))).toBe(true);
-    // No whole-library fetch: `Device.kicad_sym` alone is 500 kB, and the
-    // preload exists to avoid exactly that shape of download.
-    expect(requested.some((u) => /\/symbols\/Device\.kicad_sym$/.test(u))).toBe(false);
-    expect(requested).toHaveLength(3);
+    for (const lib of ['Device', 'Connector', '74xGxx'])
+      expect(requested.some((u) => u.endsWith(`/symbols/${lib}.kicad_sym`))).toBe(true);
+    // Per-symbol files are the OLD shape. Fetching one library as N symbol
+    // files was 536 requests for Device alone.
+    expect(requested.some((u) => /\/symbols\/[^/]+\/[^/]+\.kicad_sym$/.test(u))).toBe(false);
   });
 
-  it('asks for a repeated symbol once, and counts it once', async () => {
-    // A design places twenty 100 nF capacitors.
-    //
-    // Asserting only the FETCH here cannot fail: `loadSymbol` memoises on
-    // `symbolCache`, so the duplicate costs no request whether or not the work
-    // list dedupes -- a mutant that removed the dedupe survived this test until
-    // the second half was added.
-    //
-    // What dedupe actually buys is the DENOMINATOR. `m_loadTotal` is
-    // `rows.size()` and the gauge is `loaded / total`
-    // (common/libraries/library_manager.cpp:1798-1800, :1399-1408), so twenty
-    // copies of one capacitor must be one work item or the bar crawls through
-    // nineteen no-ops and then jumps.
-    serve((url) => (url.endsWith('index.json') ? INDEX : oneSymbol(symbolOf(url))));
+  it('counts libraries, because that is what m_loadTotal counts', async () => {
+    // `m_loadTotal = rows.size()` (library_manager.cpp:1798-1800) and the gauge
+    // is loaded/total, so one work item per library is the denominator KiCad
+    // shows. The index is awaited before the list exists rather than being an
+    // item in it: it IS our library table, and upstream knows its row count
+    // before the load starts.
+    serve((url) => (url.endsWith('index.json') ? THREE_LIB_INDEX : LIB_FILE));
     const { symbolPreloadWork } = await freshSymbols();
 
-    const work = symbolPreloadWork(['Device:R', 'Device:R', 'Device:R', 'Device:C']);
-    await runAll(work);
+    const work = await symbolPreloadWork();
 
-    expect(requested.filter((u) => u.endsWith('/Device/R.kicad_sym'))).toHaveLength(1);
-    // One work item, one request: index + R + C.
     expect(work).toHaveLength(3);
-    expect(work.length).toBe(requested.length);
+    await runAll(work);
+    expect(requested.filter((u) => u.endsWith('.kicad_sym'))).toHaveLength(3);
   });
 
-  it('drops a LIB_ID with no library part rather than 404ing on it', async () => {
-    // `LIB_ID::IsValid` wants both halves; a bare name resolves through no
-    // library table row at all, so there is nothing to fetch.
-    serve((url) => (url.endsWith('index.json') ? INDEX : oneSymbol(symbolOf(url))));
+  it('does not depend on what the design places', async () => {
+    // The control on the two above. The old list was built FROM the design, so
+    // an empty schematic preloaded almost nothing and every later chooser
+    // search saw only library names. A design-independent list is the whole
+    // point, so this must not vary with it.
+    serve((url) => (url.endsWith('index.json') ? THREE_LIB_INDEX : LIB_FILE));
     const { symbolPreloadWork } = await freshSymbols();
 
-    await runAll(symbolPreloadWork(['R', ':R', 'Device:', 'Device:R']));
-
-    expect(requested).toHaveLength(2);
-    expect(requested[1]).toMatch(/\/Device\/R\.kicad_sym$/);
-  });
-
-  it('is just the index when the design places nothing', async () => {
-    serve(() => INDEX);
-    const { symbolPreloadWork } = await freshSymbols();
-    expect(symbolPreloadWork([])).toHaveLength(1);
+    expect(await symbolPreloadWork()).toHaveLength(3);
   });
 });
-
 describe('footprintPreloadWork', { timeout: 30_000 }, () => {
   it('fetches the index and each assigned footprint', async () => {
     serve((url) => (url.endsWith('index.json') ? FP_INDEX : ONE_FOOTPRINT));

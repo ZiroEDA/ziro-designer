@@ -561,6 +561,13 @@ interface Props {
    * the sheet and step the fields around it. `dropped` picks which.
    */
   onAutoplacePlacement?: (sym: SchSymbol, lib: LibSymbol, dropped: boolean) => SchSymbol;
+  /**
+   * A click with the place tool active and nothing on the cursor: reopen the
+   * chooser. Upstream has no separate path for this - the chooser lives inside
+   * the click branch's `if( !symbol )` - so a Cancel leaves the tool running
+   * and the very next click asks again.
+   */
+  onRequestChooser?: () => void;
   /** Unit of `placeLib` attached to the cursor ("Place all units" stepping). */
   placeUnit?: number;
   /** A ready-built symbol to place instead of one made from `placeLib`'s
@@ -719,6 +726,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     placeLib,
     onAnnotatePlacement,
     onAutoplacePlacement,
+    onRequestChooser,
     placeUnit = 1,
     placeInstance = null,
     onSymbolPlaced,
@@ -2997,6 +3005,12 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
           // The editor steps to the next unit, keeps placing copies, or
           // reopens the chooser (sch_drawing_tools.cpp after commit.Push).
           onSymbolPlaced?.();
+        } else {
+          // `if( !symbol )` inside the click branch: with nothing on the cursor,
+          // a click is what opens the chooser (sch_drawing_tools.cpp:371-375).
+          // That is also how it comes back after a Cancel, which only
+          // `continue`s the loop and leaves the tool active.
+          onRequestChooser?.();
         }
         return;
       }

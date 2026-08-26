@@ -232,33 +232,28 @@ export async function loadSymbol(
  * (eeschema/eeschema.cpp:487) — the work list the "Loading Symbol Libraries"
  * background job runs.
  *
- * Upstream's adapter loads every row of the symbol library table. Ours cannot:
- * the hosted set is 223 libraries totalling 219.7 MB, or 22 778 individual
- * symbol files, both measured against the bucket. What it loads instead is the
- * name index plus the library copy of every symbol the open design places —
- * the set upstream's chooser reads synchronously when it builds its "Recently
- * Used" and "Already Placed" groups, and the set ERC's symbol comparison walks.
- * See libraryPreload.ts for why that substitution is the faithful answer.
+ * **Every library, as upstream's adapter loads every row of the symbol library
+ * table.** This used to load only the index plus the symbols the open design
+ * already placed, on the measurement that the hosted set was "223 libraries
+ * totalling 219.7 MB". That number was the *uncompressed* size, and it was
+ * large only because the bucket stored those objects with no
+ * `content-encoding`. Stored gzipped, which they now are, the same 223
+ * libraries are **9.7 MB** — Connector_Generic alone goes from 6.6 MB to
+ * 214 kB. The objection was to our own headers, not to the data, and the
+ * bounded substitution it justified is what made the chooser's search return
+ * different results from KiCad's: `LIB_TREE_NODE`'s scoring gives an unloaded
+ * library only its own name to match on (lib_tree_model.ts), so a query hit
+ * every resident symbol upstream and only the library names here.
  *
- * The index counts as one work item so the gauge moves for a design with few
- * symbols, and because it genuinely is the largest single fetch of the set.
- *
- * A `libId` with no library part cannot be answered by any hosted library, so
- * it is dropped rather than turned into a certain 404.
+ * One work item per library, so the gauge counts what upstream's counts:
+ * `m_loadTotal = rows.size()` (library_manager.cpp:1798-1800) is libraries, not
+ * bytes. The index is awaited before the list is built rather than being an
+ * item in it, because it *is* our library table — upstream knows its row count
+ * before the load starts, and so must we.
  */
-export function symbolPreloadWork(libIds: Iterable<string>): (() => Promise<unknown>)[] {
-  const work: (() => Promise<unknown>)[] = [() => loadIndex()];
-  const seen = new Set<string>();
-  for (const libId of libIds) {
-    const sep = libId.indexOf(':');
-    if (sep <= 0 || sep === libId.length - 1) continue;
-    if (seen.has(libId)) continue;
-    seen.add(libId);
-    const library = libId.slice(0, sep);
-    const name = libId.slice(sep + 1);
-    work.push(() => loadSymbol(library, name));
-  }
-  return work;
+export async function symbolPreloadWork(): Promise<(() => Promise<unknown>)[]> {
+  const index = await loadIndex();
+  return index.map((lib) => () => loadLibrarySymbols(lib.name));
 }
 
 /**
