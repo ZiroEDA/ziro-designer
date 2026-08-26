@@ -143,11 +143,22 @@ const libCache = new Map<string, Promise<Map<string, LibSymbol>>>();
  * pending promise is not enough to answer it and a resolved set is kept beside
  * the cache.
  */
-const loadedLibraries = new Set<string>();
+const loadedLibraries = new Map<string, Map<string, LibSymbol>>();
 
 /** `GetLibraryStatus( lib )->load_status == LOAD_STATUS::LOADED`. */
 export function libraryLoaded(name: string): boolean {
   return loadedLibraries.has(name);
+}
+
+/**
+ * `m_adapter->GetSymbols( lib )` at the point AddLibraries calls it
+ * (eeschema/symbol_tree_model_adapter.cpp:148) — synchronous, because the
+ * library is already LOADED by the time that line runs. Undefined for a library
+ * that is not, which is the same thing as it not being in the tree yet.
+ */
+export function loadedLibrarySymbols(name: string): LibSymbol[] | undefined {
+  const map = loadedLibraries.get(name);
+  return map ? [...map.values()] : undefined;
 }
 
 function loadLibrary(name: string): Promise<Map<string, LibSymbol>> {
@@ -178,7 +189,7 @@ function loadLibrary(name: string): Promise<Map<string, LibSymbol>> {
           return map;
         }),
     ).then((map) => {
-      loadedLibraries.add(name);
+      loadedLibraries.set(name, map);
       return map;
     });
     libCache.set(name, p);

@@ -71,6 +71,22 @@ export class LibTreeModelAdapter {
    * no children and is kept: its symbols are not known yet, and hiding it would
    * make a library the user is about to open disappear.
    */
+  /**
+   * Whether a row is drawn — `LIB_TREE_MODEL_ADAPTER::GetChildren`
+   * (common/lib_tree_model_adapter.cpp:598-619), which hands the dataview only
+   * the children whose score is above zero:
+   *
+   *     for( child : node->m_Children )
+   *         if( child->m_Score > 0 ) { aChildren.Add( ToItem( &*child ) ); ++count; }
+   *
+   * So a search DOES prune the tree, and `showResults` (:820-844) is only about
+   * which of the survivors get their ancestors expanded and which one is
+   * scrolled to. Reading showResults alone suggests nothing is ever hidden; the
+   * model is where the filtering actually happens.
+   *
+   * `m_filter` is the tool's own flavour filter (power symbols), and applies
+   * whether or not a query is live.
+   */
   isVisible(node: LibTreeNode, searching: boolean): boolean {
     if (node.type === LibTreeNodeType.LIBRARY) {
       if (searching && node.score <= 0) return false;

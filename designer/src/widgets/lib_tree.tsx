@@ -326,8 +326,24 @@ export function LibTree({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [adapter, searching, expanded, version, sortMode, regenerateNonce, selected]);
 
+  /**
+   * The parent first, then the item.
+   *
+   *     EnsureVisibleIfEnabled( m_widget, GetParent( item ) );
+   *     EnsureVisibleIfEnabled( m_widget, item );
+   *       -- common/lib_tree_model_adapter.cpp:386-387
+   *
+   * with upstream's own reason: "The selected item is the first (shown) child
+   * of the parent. So it's always right below the parent, and this way the user
+   * can also see what library the selected part belongs to, without having a
+   * case where the selection is off the screen." Scrolling only the item leaves
+   * a hit sitting at the top of the pane with no clue which library it came
+   * from.
+   */
   useEffect(() => {
-    if (selected) rowRefs.current.get(selected)?.scrollIntoView({ block: 'nearest' });
+    if (!selected) return;
+    if (selected.parent) rowRefs.current.get(selected.parent)?.scrollIntoView({ block: 'nearest' });
+    rowRefs.current.get(selected)?.scrollIntoView({ block: 'nearest' });
   }, [selected, rows]);
 
   // Arrow keys move the selection whether they come from the search box or

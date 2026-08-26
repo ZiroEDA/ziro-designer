@@ -39,6 +39,7 @@ import {
   loadLibrarySymbols,
   loadSymbol,
   libraryLoaded,
+  loadedLibrarySymbols,
   type LibIndexEntry,
 } from '../symbols/index.js';
 import { settings } from '../../../prefs/settings.js';
@@ -317,66 +318,88 @@ export const PanelSymbolChooser = forwardRef<PanelSymbolChooserHandle, PanelSymb
       let pending: LibIndexEntry[] = [];
 
       const addLibraries = (index: readonly LibIndexEntry[]): void => {
-          if (cancelled) return;
-          const session = settings.common.system.session;
-          // Built from the whole index, not per entry: the generator omits
-          // `power` both for a library with none and for an index too old to
-          // carry the flag, and only the index as a whole separates the two.
-          const isPower = powerSymbolTest(index);
-          const stillPending: LibIndexEntry[] = [];
-          // `std::ranges::copy( m_pending_load_libraries, back_inserter( toLoad ) );`
-          // then `if( toLoad.empty() )` fall back to every row: a retry looks at
-          // the pending set ALONE and adds to the tree already built, it does
-          // not rebuild it.
-          const toLoad = pending.length > 0 ? pending : index;
-          for (const lib of toLoad) {
-            // `if( !status || status->load_status != LOAD_STATUS::LOADED )
-            //      { m_pending_load_libraries.insert( lib ); continue; }`
-            if (!libraryLoaded(lib.name)) {
-              stillPending.push(lib);
-              continue;
-            }
-            const pinned = session.pinned_symbol_libs.includes(lib.name);
-            const libNode = adapter.addLibrary(lib.name, lib.descr ?? '', pinned);
-            for (const name of lib.symbols) {
-              const item = new LibTreeNode();
-              item.type = LibTreeNodeType.ITEM;
-              item.parent = libNode;
-              item.name = name;
-              item.libNickname = lib.name;
-              item.libItemName = name;
-              item.isPower = isPower(lib, name);
-              item.sourceSearchTerms = [
-                searchTerm(lib.name, 4),
-                searchTerm(name, 8, true),
-                searchTerm(`${lib.name}:${name}`, 16, true),
-              ];
-              // The unit rows are built with the node, from the count the index
-              // carries, so a multi-unit part shows its expander before anything
-              // is fetched. An index without the field simply has no counts and
-              // the rows appear on selection as they used to.
-              addUnitRows(item, lib.units?.[name] ?? 1);
-              libNode.children.push(item);
-            }
-            adapter.finishLibrary(libNode);
+        if (cancelled) return;
+        const session = settings.common.system.session;
+        // Built from the whole index, not per entry: the generator omits
+        // `power` both for a library with none and for an index too old to
+        // carry the flag, and only the index as a whole separates the two.
+        const isPower = powerSymbolTest(index);
+        const stillPending: LibIndexEntry[] = [];
+        // `std::ranges::copy( m_pending_load_libraries, back_inserter( toLoad ) );`
+        // then `if( toLoad.empty() )` fall back to every row: a retry looks at
+        // the pending set ALONE and adds to the tree already built, it does
+        // not rebuild it.
+        const toLoad = pending.length > 0 ? pending : index;
+        for (const lib of toLoad) {
+          // `if( !status || status->load_status != LOAD_STATUS::LOADED )
+          //      { m_pending_load_libraries.insert( lib ); continue; }`
+          if (!libraryLoaded(lib.name)) {
+            stillPending.push(lib);
+            continue;
           }
-          adapter.tree.assignIntrinsicRanks();
-          setRegenerateNonce((n) => n + 1);
-          onItemCountChanged?.(adapter.getItemCount());
+          const pinned = session.pinned_symbol_libs.includes(lib.name);
+          const libNode = adapter.addLibrary(lib.name, lib.descr ?? '', pinned);
+          // `std::vector<LIB_SYMBOL*> libSymbols = m_adapter->GetSymbols( lib );`
+          // (:148). The library is LOADED, so its symbols are here and each
+          // item is built from the real thing rather than from a name.
+          const symbols = new Map(
+            (loadedLibrarySymbols(lib.name) ?? []).map((sym) => [
+              sym.libId.split(':').pop() ?? sym.libId,
+              sym,
+            ]),
+          );
+          for (const name of lib.symbols) {
+            const item = new LibTreeNode();
+            item.type = LibTreeNodeType.ITEM;
+            item.parent = libNode;
+            item.name = name;
+            item.libNickname = lib.name;
+            item.libItemName = name;
+            item.isPower = isPower(lib, name);
+            item.sourceSearchTerms = [
+              searchTerm(lib.name, 4),
+              searchTerm(name, 8, true),
+              searchTerm(`${lib.name}:${name}`, 16, true),
+            ];
+            // `LIB_SYMBOL::cacheSearchTerms` is SEVEN terms, not three
+            // (eeschema/lib_symbol.cpp:160-183): the nickname at 4, the name at
+            // 8, the LIB_ID at 16, then EACH KEYWORD TOKEN at 4, the whole
+            // keyword string at 1, the description at 1 and the footprint at 1.
+            // The three the index can answer are not enough to rank anything:
+            // searching "ter" scored Screw_Terminal_01x01 and
+            // Inverter_Schmitt_Dual identically at 8 + 16, so the tie fell to
+            // tree order and the chooser scrolled to whichever library sorted
+            // first. Upstream separates them on the keyword term alone -
+            // "terminal" matches at position 0 and doubles to 2 x 4 where
+            // "inverter" matches mid-word for 4 - which is 34 against 30.
+            const sym = symbols.get(name);
+            if (sym) populateItemNode(item, sym, adapter);
+            // The unit rows are built with the node, from the count the index
+            // carries, so a multi-unit part shows its expander before anything
+            // is fetched. An index without the field simply has no counts and
+            // the rows appear on selection as they used to.
+            addUnitRows(item, lib.units?.[name] ?? 1);
+            libNode.children.push(item);
+          }
+          adapter.finishLibrary(libNode);
+        }
+        adapter.tree.assignIntrinsicRanks();
+        setRegenerateNonce((n) => n + 1);
+        onItemCountChanged?.(adapter.getItemCount());
 
-          pending = stillPending;
-          // `if( !m_pending_load_libraries.empty() && !m_check_pending_libraries_timer )`
-          // — one timer, started once, stopped when nothing is pending.
-          if (pending.length > 0 && !timer) {
-            timer = setInterval(() => {
-              if (cancelled) return;
-              addLibraries(index);
-              if (pending.length === 0 && timer) {
-                clearInterval(timer);
-                timer = null;
-              }
-            }, PENDING_LIBRARY_POLL_MS);
-          }
+        pending = stillPending;
+        // `if( !m_pending_load_libraries.empty() && !m_check_pending_libraries_timer )`
+        // — one timer, started once, stopped when nothing is pending.
+        if (pending.length > 0 && !timer) {
+          timer = setInterval(() => {
+            if (cancelled) return;
+            addLibraries(index);
+            if (pending.length === 0 && timer) {
+              clearInterval(timer);
+              timer = null;
+            }
+          }, PENDING_LIBRARY_POLL_MS);
+        }
       };
 
       loadIndex()
