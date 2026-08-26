@@ -26,16 +26,33 @@ export function SelectionFilterPanel({
   frame,
   filter,
   onChange,
+  onClose,
 }: {
   /** `EDA_BASE_FRAME::GetFrameType()`, which is what upstream branches on. */
   frame: SelectionFilterFrame;
   filter: SelectionFilterOptions;
   onChange: (next: SelectionFilterOptions) => void;
+  /**
+   * The caption's close box. `defaultSchSelectionFilterPaneInfo` asks for
+   * `.CloseButton( true )` like every other palette
+   * (eeschema/eeschema_settings.cpp:120), so the caption carries one even
+   * though this pane has no visibility control of its own: closing it hides the
+   * pane until `updateSelectionFilterVisbility` next runs and derives it back
+   * from the other three (sch_edit_frame.cpp:2817-2831).
+   */
+  onClose?: () => void;
 }): JSX.Element {
   const all = selectionFilterAll(filter);
   return (
     <div className="ze-panel">
-      <div className="ze-panel-header">Selection Filter</div>
+      <div className="ze-panel-header">
+        <span>Selection Filter</span>
+        {onClose && (
+          <button type="button" className="ze-pane-close" onClick={onClose} title="Close">
+            ⊠
+          </button>
+        )}
+      </div>
       <div className="ze-panel-body">
         <div className="ze-selfilter">
           {selectionFilterGrid(frame).map((row, r) =>

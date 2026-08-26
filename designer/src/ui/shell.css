@@ -3229,7 +3229,11 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
    .ze-panel-header padding (5px) reads noticeably taller by comparison. */
 .sch-leftdock .ze-panel-header,
 .sch-bottomdock .ze-panel-header {
-  padding: 3px 9px;
+  /* Vertical only. The SIDE padding stays the measured 3px lead-in from
+     `.ze-panel-header` - "the pane's left edge is x=100 and the caption's first
+     ink is x=103" - and 9px here put the title 9px in and pushed the close box
+     to 10px from the pane edge, where a real caption's sits at about 5. */
+  padding: 3px;
 }
 /* HIERARCHY_PANE's row icon: a plain filled circle, not a document glyph. */
 .ze-tree-sheet-icon {
@@ -3666,6 +3670,18 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
    pane all along. */
 .ze-leftdock .ze-panel:not(.grow) {
   flex: 0 0 auto;
+}
+/* ...and it reads as ONE body, not a boxed pane. `PANEL_SELECTION_FILTER` is a
+   plain panel whose caption and checkbox area carry the same face, so the two
+   run together; the hierarchy and properties panes above it are the ones that
+   look like boxes. Ours gave every pane a caption in --panel-header over a
+   --panel-bg body, which drew a seam across this one. */
+.ze-leftdock .ze-panel:not(.grow),
+.ze-leftdock .ze-panel:not(.grow) > .ze-panel-header {
+  background: var(--panel-header);
+}
+.ze-leftdock .ze-panel:not(.grow) {
+  border-bottom: none;
 }
 .ze-selfilter {
   display: grid;
@@ -8177,7 +8193,11 @@ textarea.ze-ds-textedit {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 11px;
+  /* The BOX is 11x11 and the glyph has to fill it. U+22A0 draws about 0.73 em
+     of ink, so at 11px it came out 8px wide and read small beside the real
+     caption's. --ui-font-size (11pt = 14.67px) puts it at ~11px, which is the
+     measured glyph size, and keeps this off a fourth invented chrome size. */
+  font-size: var(--ui-font-size);
   line-height: 11px;
   color: inherit;
   cursor: default;

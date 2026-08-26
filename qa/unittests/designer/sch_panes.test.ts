@@ -131,7 +131,11 @@ describe('the editor renders the dock through that order', () => {
       fileURLToPath(new URL('../../../designer/src/ui/SelectionFilterPanel.tsx', import.meta.url)),
       'utf8',
     );
-    expect([...panel.matchAll(/Selection Filter<\/div>/g)].length).toBe(1);
+    // The caption is `<span>` + close box now: `defaultSchSelectionFilterPaneInfo`
+    // asks for `.CloseButton( true )` like every other palette
+    // (eeschema/eeschema_settings.cpp:120).
+    expect([...panel.matchAll(/<span>Selection Filter<\/span>/g)].length).toBe(1);
+    expect(panel).toContain('ze-pane-close');
   });
 });
 

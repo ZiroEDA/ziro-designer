@@ -286,7 +286,11 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // that rule's (0,6,1) and drew the magnifier over the placeholder), and
   // the sort button's padding, border and radius went because a
   // BITMAP_BUTTON with wxBU_AUTODRAW draws none of them.
-  ui: { colours: 282, metrics: 801 },
+  // 801 -> 800: `.sch-leftdock .ze-panel-header` wrote `padding: 3px 9px`. The
+  // 9 put the caption title 9px in and its close box 10px from the pane edge,
+  // where a measured caption has 3 and about 5; the side padding is the base
+  // rule's measured 3px lead-in now, so only the vertical stays here.
+  ui: { colours: 282, metrics: 800 },
   widgets: { colours: 6, metrics: 46 },
 };
 
@@ -545,7 +549,10 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // 1625 -> 1620: the five above; see the `ui` row. RESCANNED from this
     // tree, and derived a second time from the per-area table -- `ui`
     // 806 -> 801 is the only row that moved, and 1625 - 5 agrees.
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1620);
+    // 1620 -> 1619: the caption's side padding; see the `ui` row. RESCANNED
+    // from this tree, and the per-area table agrees -- `ui` 801 -> 800 is the
+    // only row that moved.
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1619);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {

@@ -1709,6 +1709,20 @@ export function SchematicEditor({
    * cursor", because that is true again the instant Cancel returns and the
    * dialog would reopen forever. Upstream is event-driven and so is this.
    */
+  /**
+   * The Selection Filter's close box, which holds only until its visibility is
+   * derived again.
+   *
+   * The pane has no visibility control of its own - upstream's own comment,
+   * "Don't give the selection filter its own visibility controls; instead show
+   * it if anything else is visible" - but its pane info still asks for
+   * `.CloseButton( true )` (eeschema_settings.cpp:120). Closing it hides the
+   * pane, and the next `updateSelectionFilterVisbility` writes the derived
+   * answer back over it (sch_edit_frame.cpp:2817-2831). That runs whenever a
+   * pane opens or closes, which is what clears the latch here.
+   */
+  const [selectionFilterClosed, setSelectionFilterClosed] = useState(false);
+
   const [chooserDismissed, setChooserDismissed] = useState(false);
   const chooserOpen =
     (activeTool === 'placeSymbol' || activeTool === 'placePower') && !placeLib && !chooserDismissed;
@@ -1725,6 +1739,12 @@ export function SchematicEditor({
   useEffect(() => {
     setChooserDismissed(false);
   }, [activeTool]);
+
+  /** `updateSelectionFilterVisbility` runs on every pane show/hide. */
+  const selFilterInputs = `${toggles.has('showNetNavigator')}|${toggles.has('showHierarchy')}|${toggles.has('showProperties')}`;
+  useEffect(() => {
+    setSelectionFilterClosed(false);
+  }, [selFilterInputs]);
 
   // The chooser's "-- Already Placed --" group: every distinct library symbol
   // used anywhere in the hierarchy, filtered to the tool's power-symbol flavour
@@ -7662,7 +7682,10 @@ export function SchematicEditor({
             ...growShown,
             // Not a toggle of its own: `updateSelectionFilterVisbility` ORs the
             // other three panes. See `schSelectionFilterShown`.
-            selectionFilter: schSelectionFilterShown(growShown),
+            // `updateSelectionFilterVisbility` ORs the other three and writes
+            // the answer every time it runs, so a close only holds until the
+            // next recompute — which is exactly what the latch below does.
+            selectionFilter: schSelectionFilterShown(growShown) && !selectionFilterClosed,
           };
           // Adjacent visible grow panes get a drag sash between them, top pane
           // resizes (KiCad's wxAUI sash chain); Selection Filter (prop=0 in
@@ -7821,6 +7844,7 @@ export function SchematicEditor({
                           frame="FRAME_SCH"
                           filter={selFilter}
                           onChange={setSelFilter}
+                          onClose={() => setSelectionFilterClosed(true)}
                         />
                       )}
                     </Fragment>

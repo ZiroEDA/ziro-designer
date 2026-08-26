@@ -282,7 +282,10 @@ const BASELINE: Record<string, number> = {
   // preview's status text, the preview info name, and the footprint combo.
   // Derived twice: rescanning gives 136, and the diff removes exactly seven
   // `font-size:` lines and adds none, so 143 - 7 agrees.
-  ui: 136,
+  // 136 -> 135: `.ze-pane-close` wrote `font-size: 11px` to match its 11x11
+  // box, but U+22A0 draws about 0.73 em of ink so the glyph came out 8px and
+  // read small beside a real pane caption's. --ui-font-size puts it at ~11px.
+  ui: 135,
   widgets: 6,
 };
 
@@ -433,7 +436,10 @@ describe('hardcoded font sizes do not grow', () => {
     // 350 -> 343: the seven above; see the `ui` row. RESCANNED from this tree,
     // and derived a second time from the per-area table -- `ui` 143 -> 136 is
     // the only row that moved, and 350 - 7 agrees.
-    expect(sites.length).toBe(343);
+    // 343 -> 342: the close box's own size; see the `ui` row. RESCANNED from
+    // this tree, and the per-area table agrees -- `ui` 136 -> 135 is the only
+    // row that moved.
+    expect(sites.length).toBe(342);
   });
 });
 
