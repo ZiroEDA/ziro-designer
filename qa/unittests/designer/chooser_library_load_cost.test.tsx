@@ -215,9 +215,21 @@ describe('enriching one library is one request', () => {
   });
 
   it('fetches the library, not each of its symbols', () => {
-    expect(body).toContain('loadLibrarySymbols(libNickname)');
+    expect(body).toContain('preloadLibraryItems(libNickname)');
     expect(body).not.toMatch(/loadSymbol\(/);
     // And no fan-out: one await, not a Promise.all over the item nodes.
     expect(body).not.toMatch(/Promise\.all/);
+  });
+
+  /**
+   * And not on this thread. `preloadLibraryItems` goes through the same pool
+   * `IFACE::PreloadLibraries` uses (symbols/preload_pool.ts);
+   * `loadLibrarySymbols` fetches and parses inline, which for MCU_ST_STM32H7 is
+   * 15.5 MB and a 2 030 ms task (qa/perf/parse_all.bench.ts) — so selecting a
+   * row in it froze the dialog for two seconds. The two names differ by one
+   * call, and only one of them keeps the click responsive.
+   */
+  it('does not parse the library on the thread that draws', () => {
+    expect(body).not.toContain('loadLibrarySymbols');
   });
 });

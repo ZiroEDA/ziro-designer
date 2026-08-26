@@ -104,7 +104,19 @@ console.log(
 );
 
 console.log(`\n=== C. adapter.updateSearchString - ONE debounced keystroke ===`);
-const queries = ['r', 're', 'res', 'resi', 'resis', 'resist', 'resistor', 'stm32', 'ter', 'conn 01x', '1'];
+const queries = [
+  'r',
+  're',
+  'res',
+  'resi',
+  'resis',
+  'resist',
+  'resistor',
+  'stm32',
+  'ter',
+  'conn 01x',
+  '1',
+];
 const medians: number[] = [];
 for (const q of queries) {
   const runs: number[] = [];

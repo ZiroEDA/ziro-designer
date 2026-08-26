@@ -8,7 +8,12 @@ import { test } from 'vitest';
 import { render, cleanup } from '@testing-library/react';
 import { LibTreeNode, LibTreeNodeType } from '@ziroeda/designer/src/widgets/lib_tree_model.js';
 
-interface Row { node: LibTreeNode; indent: number; expandable: boolean; open: boolean }
+interface Row {
+  node: LibTreeNode;
+  indent: number;
+  expandable: boolean;
+  open: boolean;
+}
 
 function makeRows(n: number): Row[] {
   const out: Row[] = [];
@@ -60,7 +65,9 @@ test('row render cost', () => {
     render(<Rows rows={rows} />);
     const t = performance.now() - s;
     const nodes = document.querySelectorAll('*').length;
-    console.log(`  ${String(n).padStart(6)} rows -> React mount ${t.toFixed(0).padStart(6)} ms, ${String(nodes).padStart(7)} DOM elements`);
+    console.log(
+      `  ${String(n).padStart(6)} rows -> React mount ${t.toFixed(0).padStart(6)} ms, ${String(nodes).padStart(7)} DOM elements`,
+    );
     cleanup();
   }
 }, 600_000);

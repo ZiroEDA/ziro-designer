@@ -52,7 +52,10 @@ console.log(
 console.log(
   per
     .slice(0, 8)
-    .map((p) => `    ${p.name.padEnd(24)} ${p.t.toFixed(0).padStart(7)} ms  ${(p.bytes / 1e6).toFixed(1)} MB`)
+    .map(
+      (p) =>
+        `    ${p.name.padEnd(24)} ${p.t.toFixed(0).padStart(7)} ms  ${(p.bytes / 1e6).toFixed(1)} MB`,
+    )
     .join('\n'),
 );
 console.log(`  libs kept ${libs.size}`);

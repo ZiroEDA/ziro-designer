@@ -107,12 +107,7 @@ afterEach(() => {
 
 function mount() {
   const result = render(
-    <LibTree
-      adapter={bigAdapter()}
-      openLibs={[LIBRARY]}
-      onSelect={() => {}}
-      onChoose={() => {}}
-    />,
+    <LibTree adapter={bigAdapter()} openLibs={[LIBRARY]} onSelect={() => {}} onChoose={() => {}} />,
   );
   const list = result.container.querySelector('.ze-libtree-list') as HTMLElement;
   return { ...result, list };
@@ -134,7 +129,9 @@ describe('the library tree row list', () => {
 
   it('reserves the height of the rows it did not render, so the scrollbar is honest', () => {
     const { list } = mount();
-    const spacers = [...list.children].filter((c) => !c.classList.contains('ze-libtree-row'));
+    const spacers = Array.from(list.children).filter(
+      (c) => !c.classList.contains('ze-libtree-row'),
+    );
 
     // Nothing above the window, so one spacer only, below it.
     expect(spacers.length).toBe(1);
@@ -174,7 +171,9 @@ describe('the library tree row list', () => {
 
     const first = 1 + ITEMS - OVERSCAN;
     expect(container.querySelectorAll('.ze-libtree-row').length).toBe(OVERSCAN);
-    const spacers = [...list.children].filter((c) => !c.classList.contains('ze-libtree-row'));
+    const spacers = Array.from(list.children).filter(
+      (c) => !c.classList.contains('ze-libtree-row'),
+    );
     expect(spacers.length).toBe(1);
     expect((spacers[0] as HTMLElement).style.height).toBe(`${first * PITCH - GAP}px`);
   });

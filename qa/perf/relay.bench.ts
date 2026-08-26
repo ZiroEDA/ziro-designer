@@ -11,5 +11,7 @@ for (const name of ['Relay', 'Device', 'MCU_ST_STM32H7']) {
   const syms = readSymbolLib(sx);
   const tRead = performance.now() - s;
   const extendsCount = syms.filter((x) => x.extends).length;
-  console.log(`${name.padEnd(18)} ${(text.length/1e6).toFixed(2)} MB  parse ${tParse.toFixed(1)} ms  readSymbolLib ${tRead.toFixed(1)} ms  symbols ${syms.length}  derived ${extendsCount}`);
+  console.log(
+    `${name.padEnd(18)} ${(text.length / 1e6).toFixed(2)} MB  parse ${tParse.toFixed(1)} ms  readSymbolLib ${tRead.toFixed(1)} ms  symbols ${syms.length}  derived ${extendsCount}`,
+  );
 }
