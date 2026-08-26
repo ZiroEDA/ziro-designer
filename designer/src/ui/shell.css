@@ -208,9 +208,27 @@
   /* LIB_TREE's tree rows, which do NOT take GTK's own row height: it overrides
      them (common/widgets/lib_tree.cpp:177-180) with
      `FromDIP( 6 ) + GetTextExtent( "pdI" ).y`, because "the GTK renderer seems
-     to calculate row height incorrectly sometimes". 6 + 18 = 24 px here. The
-     6 is split evenly as the row's vertical padding. */
+     to calculate row height incorrectly sometimes". 6 + 18 = 24 px here, and
+     the 6 is split evenly as the row's vertical padding. */
   --libtree-row-pad: 3px;
+  /* But 24 is what wx ASKS FOR, not what gets drawn. GtkTreeView adds its
+     "vertical-separator" style property BETWEEN rows, so the pitch on screen is
+     24 + 2 = 26. Measured by `qa/probes/libtree_rowheight_probe.cpp`, which
+     builds a real wxDataViewCtrl, calls SetRowHeight(24) on it and then asks
+     GTK for the separator it will insert. Corroborated independently against a
+     live chooser: 17 rows spanning 416 px is 26.0 per row.
+
+     It is a gap rather than more padding because that is what it is upstream -
+     space between rows, outside the cell the row highlight fills. */
+  --libtree-row-sep: 2px;
+  /* The details pane is an HTML_WINDOW, and wxHtml adds its own leading between
+     <br> lines: NOT the font's 18 px line box but 21. Measured by
+     `qa/probes/libtree_details_probe.cpp`, which renders the real template from
+     generate_alias_info.cpp:28-46 and reads back where each line box lands
+     (tops at 10, 31, 52, 73 - four lines, three 21 px steps). A browser's
+     default `normal` line-height gives about 17.6 px for this font, which is
+     what made the description read tighter than KiCad's. */
+  --libtree-details-line: 21px;
   /* The only two OTHER chrome text sizes KiCad has - and it derives both from
      the one above rather than declaring either.
      `getGUIFont( win, aRelativeSize )` (common/widgets/ui_common.cpp:109-129)
@@ -5129,6 +5147,10 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-libtree-list > .ze-libtree-row {
   flex: 0 0 auto;
 }
+/* GtkTreeView's vertical-separator, between rows and not inside them. */
+.ze-libtree-list {
+  row-gap: var(--libtree-row-sep);
+}
 .ze-libtree-row {
   display: flex;
   align-items: center;
@@ -5195,6 +5217,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   overflow: auto;
   padding: 8px 12px;
   border-top: 1px solid var(--chrome-border);
+  line-height: var(--libtree-details-line);
   /* [px] LIB_TREE and FOOTPRINT_PREVIEW_WIDGET are common/ widgets and set no
      font at all, so every one of them inherits the 11pt window font. The
      details pane is an HTML_WINDOW whose template (generate_alias_info.cpp:28-46)
