@@ -34,13 +34,22 @@ import { makeItemNode } from '@ziroeda/designer/src/widgets/lib_tree_model.js';
  *
  * `ROW_H` is `LIB_TREE::SetRowHeight`'s `FromDIP( 6 ) + GetTextExtent( "pdI" ).y`
  * = 24 on this theme, which `qa/probes/libtree_rowheight_probe.cpp` measured and
- * `--ui-text-height` / `--libtree-row-pad` in shell.css record. happy-dom
- * resolves no stylesheet, so the `row-gap` the widget reads comes back empty
- * and the pitch is the row height alone — hence GAP, which the expectations
- * below carry explicitly rather than assuming away.
+ * `--ui-text-height` / `--libtree-row-pad` in shell.css record, and `GAP` is
+ * `--libtree-row-sep`. Both are reported by stubs, because happy-dom does no
+ * layout and resolves no stylesheet.
  */
 const ROW_H = 24;
-const GAP = 0;
+/**
+ * `--libtree-row-sep`, GtkTreeView's `vertical-separator` between rows, which
+ * `qa/probes/libtree_rowheight_probe.cpp` measured at 2 px and shell.css
+ * records — so the on-screen pitch is 26, not 24.
+ *
+ * It has to be stubbed. happy-dom resolves no stylesheet, so the widget's
+ * `getComputedStyle( list ).rowGap` is "" and its gap would be 0 — and with a
+ * zero gap `n * pitch - gap` and `n * pitch` are the same number, which leaves
+ * the term the spacers depend on unpinned. A mutation sweep found exactly that.
+ */
+const GAP = 2;
 const PITCH = ROW_H + GAP;
 /** A list pane 400 px tall, about what the chooser's sash leaves it. */
 const VIEWPORT = 400;
@@ -88,7 +97,34 @@ beforeEach(() => {
     },
   });
 
+  // …and the list reports the theme's row-gap, which no stylesheet is here to
+  // supply. Everything else on the declaration is passed through, so the
+  // widget's other reads behave as they would without the stub.
+  const realComputedStyle = globalThis.getComputedStyle;
+  const stubbed = ((el: Element, pseudo?: string | null) => {
+    const cs = realComputedStyle(el, pseudo ?? undefined);
+    return new Proxy(cs, {
+      get(target, key) {
+        if (key === 'rowGap') return `${GAP}px`;
+        const value = Reflect.get(target, key) as unknown;
+        return typeof value === 'function' ? value.bind(target) : value;
+      },
+    });
+  }) as typeof globalThis.getComputedStyle;
+  Object.defineProperty(globalThis, 'getComputedStyle', {
+    configurable: true,
+    writable: true,
+    value: stubbed,
+  });
+
   restore = [
+    () => {
+      Object.defineProperty(globalThis, 'getComputedStyle', {
+        configurable: true,
+        writable: true,
+        value: realComputedStyle,
+      });
+    },
     () => {
       if (rectDesc)
         Object.defineProperty(globalThis.Element.prototype, 'getBoundingClientRect', rectDesc);

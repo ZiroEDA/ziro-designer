@@ -116,7 +116,14 @@ const runAll = async (work: readonly (() => Promise<unknown>)[]): Promise<void> 
   await Promise.all(work.map((item) => item().catch(() => undefined)));
 };
 
-describe('symbolPreloadWork with a worker available', () => {
+/**
+ * The 30 s budget is `library_preload_work.test.ts`'s, for the same reason: each
+ * case does `vi.resetModules()` and re-imports the symbols module graph, which
+ * is seconds of transform on its own and misses vitest's 5 s default whenever
+ * the machine is busy. It is a ceiling on a setup cost, not an assertion about
+ * speed — the timings this file exists to defend are in qa/perf.
+ */
+describe('symbolPreloadWork with a worker available', { timeout: 30_000 }, () => {
   it('hands every library to a worker and fetches none of them here', async () => {
     vi.stubGlobal('Worker', FakeWorker);
     const { symbolPreloadWork } = await freshSymbols();
