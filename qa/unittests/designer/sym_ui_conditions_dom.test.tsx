@@ -25,7 +25,7 @@
  * `m_symbol` loaded without a library server behind it.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, waitFor } from '@testing-library/react';
+import { fireEvent, render, waitFor } from '@testing-library/react';
 import { parse } from '@ziroeda/sexpr';
 import { readSymbolLib } from '@ziroeda/eeschema';
 import type { LibSymbol } from '@ziroeda/eeschema/src/types.js';
@@ -180,6 +180,14 @@ describe('with a ROOT symbol loaded', () => {
       'Show associated datasheet or document': b['Show associated datasheet or document'],
       // A single-unit symbol: IsMultiUnit() is false.
       'Synchronized pins mode': b['Synchronized pins mode'],
+      // `haveSymbolCond && cond.UndoAvailable()` (:537-538). Opening a symbol
+      // does not fill its undo stack — `GetUndoCommandCount()` is 0 until an
+      // edit — so both stay dead with the symbol on the canvas. This is the
+      // half of the rule the cold frame cannot see: there, `haveSymbolCond`
+      // alone is already false, so a frame that lied about the stack depth
+      // would still look right.
+      Undo: b.Undo,
+      Redo: b.Redo,
     }).toEqual({
       'Rotate clockwise': false,
       'Rotate counterclockwise': false,
@@ -191,6 +199,8 @@ describe('with a ROOT symbol loaded', () => {
       'Interactive delete': false,
       'Show associated datasheet or document': true,
       'Synchronized pins mode': true,
+      Undo: true,
+      Redo: true,
     });
   });
 });
@@ -249,5 +259,109 @@ describe('with a DERIVED symbol loaded', () => {
     const { b, unmount } = await openOn('R_Small');
     unmount();
     expect(b['Show associated datasheet or document']).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The library tree, which is the only way to reach two of the conditions
+// ---------------------------------------------------------------------------
+
+/**
+ * A project whose `sym-lib-table` registers `Device.kicad_sym`
+ * (`project_sym_lib_table.ts`, `eeschema/symbol_lib_table.cpp`). The frame is
+ * driven through the tree here rather than through `schematicSymbol`, and that
+ * is the point: a symbol handed over by the schematic makes
+ * `IsSymbolFromSchematic()` true, which is the term that rescues
+ * `IsSymbolEditable()` from the legacy-library test. Every other case in this
+ * file therefore cannot see that test at all.
+ */
+const PROJECT = [
+  {
+    name: 'sym-lib-table',
+    text: `(sym_lib_table (version 7)
+  (lib (name "Device")(type "KiCad")(uri "\${KIPRJMOD}/Device.kicad_sym")(options "")(descr ""))
+)`,
+  },
+  { name: 'Device.kicad_sym', text: LIB },
+];
+
+/** Mount on the project and expand the one library, returning its tree rows. */
+const openProject = async (): Promise<{
+  container: HTMLElement;
+  rows: () => HTMLElement[];
+  unmount: () => void;
+}> => {
+  const { container, unmount } = render(
+    <SymbolEditor onExitToHome={() => {}} initialProject={PROJECT} />,
+  );
+  const rows = (): HTMLElement[] =>
+    Array.from(container.querySelectorAll('.ze-tree-item')) as HTMLElement[];
+  await waitFor(() => expect(rows().length).toBeGreaterThan(0));
+  fireEvent.click(rows().find((r) => r.textContent?.includes('Device'))!);
+  await waitFor(() => expect(rows().some((r) => r.textContent?.trim() === 'R')).toBe(true));
+  return { container, rows, unmount };
+};
+
+describe('with a tree row selected and nothing loaded', () => {
+  /**
+   * `symbolProperties` is `ENABLE( symbolSelectedInTreeCondition ||
+   * ( canEditProperties && haveSymbolCond ) )` (:634). A single click on a
+   * tree row selects without opening — `SYMBOL_EDIT_FRAME` opens on
+   * double-click too — so this is the state where the FIRST branch is the only
+   * one true, and `SYMBOL_EDITOR_CONTROL::EditSymbolProperties` has a path for
+   * exactly it. Ours read `haveSymbolCond` alone and greyed the row.
+   */
+  it('lights Symbol Properties and nothing that needs m_symbol', async () => {
+    const { container, rows, unmount } = await openProject();
+    fireEvent.click(rows().find((r) => r.textContent?.trim() === 'R')!);
+    const b = buttons(container);
+    unmount();
+    expect({
+      'Edit symbol properties': b['Edit symbol properties'],
+      'Add a rectangle': b['Add a rectangle'],
+      'Edit pins in a table': b['Edit pins in a table'],
+      'Mirror horizontally': b['Mirror horizontally'],
+    }).toEqual({
+      'Edit symbol properties': false,
+      'Add a rectangle': true,
+      'Edit pins in a table': true,
+      'Mirror horizontally': true,
+    });
+  });
+});
+
+describe('with a symbol opened from a LIBRARY, not the schematic', () => {
+  /**
+   * `IsSymbolEditable()` (:2231-2234) is
+   * `m_symbol && ( !IsSymbolFromLegacyLibrary() || IsSymbolFromSchematic() )`.
+   * Here the second disjunct is false, so the whole expression rests on the
+   * legacy test — and a frame that reported every symbol as coming from a
+   * legacy library would grey all of this, which no other case in this file
+   * would notice.
+   */
+  it('lights every editing tool', async () => {
+    const { container, rows, unmount } = await openProject();
+    fireEvent.doubleClick(rows().find((r) => r.textContent?.trim() === 'R')!);
+    await waitFor(() => expect(buttons(container)['Add a rectangle']).toBe(false));
+    const b = buttons(container);
+    unmount();
+    expect({
+      'Add a rectangle': b['Add a rectangle'],
+      'Add a pin': b['Add a pin'],
+      'Mirror horizontally': b['Mirror horizontally'],
+      'Rotate clockwise': b['Rotate clockwise'],
+      'Edit pins in a table': b['Edit pins in a table'],
+      // Freshly opened: empty undo stack, empty Datasheet field.
+      Undo: b.Undo,
+      'Show associated datasheet or document': b['Show associated datasheet or document'],
+    }).toEqual({
+      'Add a rectangle': false,
+      'Add a pin': false,
+      'Mirror horizontally': false,
+      'Rotate clockwise': false,
+      'Edit pins in a table': false,
+      Undo: true,
+      'Show associated datasheet or document': true,
+    });
   });
 });
