@@ -7671,6 +7671,13 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   color: inherit;
   cursor: default;
 }
+/* A disabled page's tab — `m_pinTablePage->Disable()` when the part has
+   multiple body styles (dialog_symbol_properties.cpp:352-360). GTK draws an
+   insensitive label in wxSYS_COLOUR_GRAYTEXT, which is --ctl-fg-disabled. */
+.ze-ds-tabs button:disabled,
+.ze-nb-tabs button:disabled {
+  color: var(--ctl-fg-disabled);
+}
 .ze-ds-tabs button.active,
 .ze-nb-tabs button.active {
   /* [px] the selected tab's marker sampled off the same capture: a solid band

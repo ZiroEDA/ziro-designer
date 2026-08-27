@@ -140,9 +140,13 @@ export const gridRowIndices = (rows: readonly FieldRow[]): number[] =>
   rows.map((_, i) => i).filter((i) => !rows[i]?.isPrivate);
 
 /**
- * `FIELDS_GRID_TABLE::GetMandatoryRowCount`. Positional, not per-row: the
- * mandatory fields are the leading block, and every row rule below counts
- * against the size of that block rather than asking each row what it is.
+ * `FIELDS_GRID_TABLE::GetMandatoryRowCount` (fields_grid_table.cpp:247-258):
+ * how many of the rows are mandatory, counted.
+ *
+ * The rules below then compare a row INDEX against it, which is only sound
+ * because the mandatory fields are the leading block — and they are, because
+ * `rowsFromSymbol` puts them there. That is upstream's arrangement too, and
+ * upstream's rules make the same assumption.
  */
 export const mandatoryRowCount = (rows: readonly FieldRow[]): number =>
   rows.filter((r) => isMandatoryField(r.key)).length;

@@ -233,6 +233,27 @@ describe('4. a cell is a control only while it is being edited', () => {
     expect(cells[5]?.textContent).toBe('Center');
   });
 
+  it('the opened editor offers the choice editor s items, in its order', () => {
+    // wxArrayString hAlignNames { Left, Center, Right } (fields_grid_table.cpp:
+    // 355-357). The <option>s come off FIELDS_GRID_COLUMNS, so the list the
+    // dialog offers and the list the column table records cannot drift apart.
+    open(SHEET);
+    const hAlign = within(fieldRows()[1]!).getAllByRole('cell')[4]!;
+    fireEvent.doubleClick(hAlign);
+    expect(Array.from(hAlign.querySelector('select')!.options).map((o) => o.text)).toStrictEqual([
+      'Left',
+      'Center',
+      'Right',
+    ]);
+    const vAlign = within(fieldRows()[1]!).getAllByRole('cell')[5]!;
+    fireEvent.doubleClick(vAlign);
+    expect(Array.from(vAlign.querySelector('select')!.options).map((o) => o.text)).toStrictEqual([
+      'Top',
+      'Center',
+      'Bottom',
+    ]);
+  });
+
   it('a second click on the cell under the cursor opens its editor', () => {
     open(SHEET);
     const cell = within(fieldRows()[1]!).getAllByRole('cell')[4]!;

@@ -149,6 +149,18 @@ function absField(row: Row, sym: SchSymbol): SchField {
   };
 }
 
+/**
+ * A `wxGridCellChoiceEditor`'s items, straight off the column table so the
+ * order in one place is the order in the other. The stored cell values are
+ * lower case (`'left'`, `'top'`, `'horizontal'`); the labels are KiCad's.
+ */
+const choiceOptions = (col: number): JSX.Element[] =>
+  (FIELDS_GRID_COLUMNS[col]?.choices ?? []).map((label) => (
+    <option key={label} value={label.toLowerCase()}>
+      {label}
+    </option>
+  ));
+
 /** The grid cursor: `SetGridCursor( row, col )`, and whether its editor is up. */
 interface Cursor {
   /** Index into the *visible* rows, which is what `getField( aRow )` maps. */
@@ -456,9 +468,7 @@ export function SymbolPropertiesDialog({
               setCursor((c) => ({ ...c, editing: false }));
             }}
           >
-            <option value="left">Left</option>
-            <option value="center">Center</option>
-            <option value="right">Right</option>
+            {choiceOptions(4)}
           </select>
         ) : (
           <span className="ze-grid-text">{label}</span>
@@ -486,9 +496,7 @@ export function SymbolPropertiesDialog({
               setCursor((c) => ({ ...c, editing: false }));
             }}
           >
-            <option value="top">Top</option>
-            <option value="center">Center</option>
-            <option value="bottom">Bottom</option>
+            {choiceOptions(5)}
           </select>
         ) : (
           <span className="ze-grid-text">{label}</span>
@@ -527,15 +535,14 @@ export function SymbolPropertiesDialog({
             // biome-ignore lint/a11y/noAutofocus: EnableCellEditControl( true )
             autoFocus
             className="ze-grid-input"
-            value={label}
+            value={label.toLowerCase()}
             onBlur={() => setCursor((c) => ({ ...c, editing: false }))}
             onChange={(e) => {
-              patchRow(viewRow, { angle: e.target.value === 'Vertical' ? 90 : 0 });
+              patchRow(viewRow, { angle: e.target.value === 'vertical' ? 90 : 0 });
               setCursor((c) => ({ ...c, editing: false }));
             }}
           >
-            <option>Horizontal</option>
-            <option>Vertical</option>
+            {choiceOptions(9)}
           </select>
         ) : (
           <span className="ze-grid-text">{label}</span>
@@ -594,10 +601,9 @@ export function SymbolPropertiesDialog({
 
   return (
     <div className="ze-modal-backdrop" onMouseDown={onCancel}>
-      <div
-        className="ze-modal ze-props-dialog ze-symprops"
-        onMouseDown={(e) => e.stopPropagation()}
-      >
+      {/* NOT `.ze-props-dialog`, which states a 1060 px width. This dialog is
+          `mainSizer->Fit( this )` and states none. */}
+      <div className="ze-modal ze-symprops" onMouseDown={(e) => e.stopPropagation()}>
         <div className="ze-modal-header">
           Symbol Properties
           <span className="x" onClick={onCancel}>
