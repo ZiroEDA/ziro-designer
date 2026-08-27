@@ -25,7 +25,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readSchematic } from '@ziroeda/eeschema';
+import { readSchematic, serializeSchematic } from '@ziroeda/eeschema';
 import {
   autoplacedFields,
   autoplacedLibFields,
@@ -126,6 +126,33 @@ describe('the gate the placement tool applies', () => {
 
     expect(placed).toBe(sym);
     expect(at(placed.fields, 'Reference').x).toBe(mmToIU(100));
+    expect(placed.fieldsAutoplaced).toBeUndefined();
+  });
+
+  it('records the flag, which is the whole reason a later R stays level', () => {
+    // `SCH_SYMBOL::AutoplaceFields` ends with `m_fieldsAutoplaced = AUTOPLACE_AUTO`
+    // (autoplace_fields.cpp:774-777), and that flag is the sole thing
+    // `SCH_EDIT_TOOL::Rotate` tests before re-running the autoplacer
+    // (sch_edit_tool.cpp:1022-1029). Without it every placed symbol behaves
+    // like a hand-placed one: R turns the fields with the body and the drawn
+    // angle flips, which is the vertical reference this branch set out to fix.
+    // It also has to survive the file, and `saveSymbol` prints it as a bare
+    // bool (sch_io_kicad_sexpr.cpp:779-783).
+    const placed = autoplacePlacedSymbol(sym, lib, true, OPTS);
+
+    expect(placed.fieldsAutoplaced).toBe('auto');
+    expect(serializeSchematic({ ...doc, symbols: [placed] })).toContain('(fields_autoplaced yes)');
+  });
+
+  it('does not infer the flag for a symbol whose file never carried it', () => {
+    // `parseSchematicSymbol` sets AUTOPLACE_NONE up front and only a
+    // `(fields_autoplaced …)` token raises it (…parser.cpp:3112-3113, 3247).
+    // So a sheet written before this branch — or by any tool that does not
+    // emit the token — really does have hand-placed fields as far as both
+    // KiCad and we are concerned, and R leaves them where the transform puts
+    // them. Autoplace Fields (O) is what opts such a symbol back in.
+    expect(doc.symbols[0]!.fieldsAutoplaced).toBeUndefined();
+    expect(serializeSchematic(doc)).not.toContain('fields_autoplaced');
   });
 
   it('takes the sheet into account only once the symbol has landed', () => {
