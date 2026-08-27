@@ -301,7 +301,14 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // and all three went with it. The wxOwnerDrawnComboBox that replaced it adds
   // none: every length it states is either a token, a 1px rule the scanner does
   // not count, or a measurement carrying [px]/[data] on its own comment run.
-  ui: { colours: 282, metrics: 797 },
+  // 282 -> 281 and 797 -> 796: the Symbol Properties rebuild. `.ze-props-libid`
+  // and `.ze-props-libid .val` went with the plain-text library link the
+  // dialog used to draw — upstream's is a wxTextCtrl painted
+  // KIPLATFORM::UI::GetDialogBGColour(), so the replacement asks --ctl-face
+  // and --ui-font-size-small and states no colour and no size of its own. The
+  // rule that replaced it, and every other `.ze-symprops-*` rule, carries
+  // either a token or a [data]/[px] marker on the literal's own line.
+  ui: { colours: 281, metrics: 796 },
   widgets: { colours: 6, metrics: 46 },
 };
 
@@ -544,7 +551,9 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // row for what the two are. RESCANNED from this tree, and derived a second
     // time from the per-area table -- `editors/schematic` 59 -> 61 is the only
     // row that moved, and 663 + 2 agrees.
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(665);
+    // 665 -> 664: the Symbol Properties rebuild, `ui` row above. RESCANNED
+    // from this tree, not subtracted from the diff.
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(664);
     // 1657 -> 1649: the same sweep. A native colour input has no useful
     // default size, so eight of the sixteen sites gave theirs an inline
     // width and height; the shared swatch takes --swatch-*-w/h. Rescanned.
@@ -570,7 +579,8 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // 1619 -> 1616: the footprint drop-down; see the `ui` row. RESCANNED from
     // this tree, and derived a second time from the per-area table -- `ui`
     // 800 -> 797 is the only row that moved, and 1619 - 3 agrees.
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1616);
+    // 1616 -> 1615: the same rebuild. RESCANNED from this tree.
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1615);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {

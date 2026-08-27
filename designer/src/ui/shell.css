@@ -5783,6 +5783,21 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   flex: 0 0 auto;
   white-space: nowrap;
 }
+/* A wxCheckBox with its label — one rule, because KiCad has one widget. The
+   indicator itself is the shared `input[type="checkbox"]` rule further up; all
+   this states is the row it sits in. The gap either side of the indicator is
+   [css] `check, radio { margin: 0 4px }`, which is already --check-margin, and
+   the row is --check-row, a real GtkCheckButton's preferred height. The text is
+   KIUI::GetControlFont like every other label. */
+.ze-check {
+  display: flex;
+  align-items: center;
+  gap: var(--check-margin);
+  min-height: var(--check-row);
+  font-size: var(--ui-font-size);
+  cursor: default;
+  white-space: nowrap;
+}
 /* Chooser footer: the checkboxes sit ahead of the OK/Cancel std buttons. */
 .ze-chooser-footer {
   align-items: center;
@@ -5876,12 +5891,31 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   background: var(--grid-label-bg);
   text-align: center;
 }
-/* A READ-ONLY WX_GRID cell holds text instead of an entry, so the padding the
-   entry would have carried sits on the cell. Same two numbers as
-   `.ze-grid td input`, stated once: a read-only grid and an editable one must
-   line up, which they cannot do if each invents its own inset. */
-.ze-grid td.ze-grid-text {
+/* A WX_GRID cell holds text instead of an entry whenever it is not being
+   edited — a read-only cell always, and every other cell until the grid cursor
+   opens its editor (a wxGridCellChoiceEditor draws nothing at all until then).
+   So the padding the entry would have carried sits on the cell. Same two
+   numbers as `.ze-grid td input`, stated once: a read-only grid and an
+   editable one must line up, which they cannot do if each invents its own
+   inset. Both forms are here because some grids mark the CELL read-only and
+   some wrap the text in a span alongside other cell content. */
+.ze-grid td.ze-grid-text,
+.ze-grid td > .ze-grid-text {
   padding: 3px 6px;
+}
+/* `SetDefaultCellOverflow( false )` (common/widgets/wx_grid.cpp:213): a cell
+   clips, it does not spill into its neighbour. */
+.ze-grid td > .ze-grid-text {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+/* wxALIGN_CENTER on the attr, which is what FIELDS_GRID_TABLE gives its bool
+   and choice columns (fields_grid_table.cpp:341, 349, 357, 364). */
+.ze-grid td.c,
+.ze-grid th.c {
+  text-align: center;
 }
 /* A selected row is FILLED, not outlined.
    wxGrid draws a selection block in wxSYS_COLOUR_HIGHLIGHT and the text in
@@ -6589,18 +6623,229 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   color: #c7c9cc;
   font-size: 13px;
 }
-.ze-props-libid {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  font-size: 12.5px;
-  color: #9a9ca0;
+/* ---------------------------------------------------------------------------
+   Symbol Properties (DIALOG_SYMBOL_PROPERTIES over
+   dialog_symbol_properties_base.cpp). Every number below is one of upstream's,
+   or a measurement of the widget upstream builds — none is chosen here.
+
+   The dialog states NO size, because upstream states none: `mainSizer->Fit(
+   this )` plus `finishDialogSettings()`, which is what `.ze-modal`'s
+   `max-content` already gives it. The width it lands on is the fields grid's,
+   and the grid's is the Value column's — `SetupColumnAutosizer( FDC_VALUE )`
+   (fields_grid_table.cpp:423) makes that one column as wide as its widest
+   value, so a symbol with a long footprint string opens a wider dialog than a
+   symbol without. [px] a live KiCad 10.0.5 on this machine measures 1015 x 588
+   for a Device:C whose footprint is Capacitor_THT:C_Radial_D8.0mm_H11.5mm_
+   P3.50mm, frame edges read off the capture at x=545..1559 and y=331..918. */
+.ze-modal.ze-symprops {
+  max-width: 96vw;
 }
-.ze-props-libid .val {
+.ze-symprops-body {
+  display: flex;
+  flex-direction: column;
+  /* [data] mainSizer->Add( m_notebook1, 1, wxEXPAND|wxALL, 10 ). */
+  padding: 10px;
+  min-height: 0;
+}
+/* A wxNotebook page. Its face is wxSYS_COLOUR_WINDOW, not the dialog's own
+   background — [px] the page reads rgb(39,39,39) against rgb(44,44,44) either
+   side of the notebook on the capture above, which is --chrome-bg2 against
+   --chrome-bg. generalPageSizer's items each carry a 5 px border. */
+.ze-symprops-page {
+  display: flex;
+  flex-direction: column;
+  background: var(--chrome-bg2);
+  border: 1px solid var(--chrome-border);
+  border-top: none;
+  /* [data] generalPageSizer's items each carry a 5 px border. */
+  padding: 5px;
+  min-height: 0;
+}
+.ze-symprops-page[hidden] {
+  display: none;
+}
+/* sbFields, generalPageSizer->Add( sbFields, 1, wxEXPAND|wxBOTTOM|wxRIGHT|wxLEFT, 5 ). */
+.ze-symprops-fields {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+/* `m_fieldsGrid->SetMinSize( wxSize( -1, 160 ) )`
+   (dialog_symbol_properties.cpp:342), and Fit() means the dialog opens at
+   exactly that minimum. [px] the capture agrees: the grid runs y=436..597,
+   161 px including its 1 px frame. */
+.ze-symprops-grid-pane {
+  /* [data] `m_fieldsGrid->SetMinSize( wxSize( -1, 160 ) )`. */
+  height: 160px;
+  flex: 0 0 auto;
+}
+/* `SetColLabelSize( 22 )` (dialog_symbol_properties_base.cpp:70). The shared
+   .ze-grid rule carries the Design Inspector's 30; this grid states its own,
+   because the number is per-dialog upstream too. */
+.ze-symprops-grid th {
+  /* [data] `SetColLabelSize( 22 )`, dialog_symbol_properties_base.cpp:70. */
+  height: 22px;
+}
+/* `WX_GRID::WX_GRID` does `SetDefaultRowSize( GetDefaultRowSize() + FromDIP( 4 ) )`
+   (common/widgets/wx_grid.cpp:211). Asked of a real wxGrid carrying
+   wxSYS_DEFAULT_GUI_FONT by `qa/probes/fields_grid_probe.cpp`:
+   GetDefaultRowSize() is 26, so the row is 30. [px] the capture's grid lines
+   fall at y=487, 517, 547 and 577 — a pitch of exactly 30. */
+.ze-symprops-grid td {
+  /* [px] 26 + FromDIP( 4 ); the 26 asked of a real wxGrid by the probe. */
+  height: 30px;
+}
+/* wxGrid draws a box round the CURSOR cell; the row only fills when it is
+   selected, which `SetGridCursor` never does. See `.ze-grid tr.selected` for
+   the fill. */
+.ze-symprops-grid td.cursor {
+  box-shadow: inset 0 0 0 1px var(--selection-bg);
+}
+/* bButtonSize->Add( 20, 0, 0, wxEXPAND, 10 ): the delete button is set apart
+   from add/up/down by a fixed 20 px, not pushed to the far end. */
+.ze-symprops-btngap {
+  width: 20px;
+  flex: 0 0 auto;
+}
+/* bLowerSizer, at the sizer proportions of the base file: General 4,
+   Attributes 3, the button column 3. */
+.ze-symprops-lower {
+  display: flex;
+  align-items: stretch;
+}
+.ze-symprops-general {
+  flex: 4;
+  min-width: 0;
+}
+.ze-symprops-attrs {
+  flex: 3;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.ze-symprops-buttons {
+  flex: 3;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  /* [data] each button is added with a 5 px border, so 10 px between two. */
+  gap: 10px;
+  /* [data] and 5 px around the column itself, wxEXPAND|wxALL 5. */
+  padding: 5px;
+}
+/* buttonsSizer->Add( 0, 20, 0, wxEXPAND, 5 ) before Edit Library Symbol. */
+.ze-symprops-btnsgap {
+  /* [data] buttonsSizer->Add( 0, 20, 0, wxEXPAND, 5 ). */
+  height: 20px;
+  flex: 0 0 auto;
+}
+/* gbSizer1 = wxGridBagSizer( 3, 3 ): label column, growable control column. */
+.ze-symprops-gb {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  /* [data] wxGridBagSizer( 3, 3 ) — the vgap and hgap. */
+  gap: 3px;
+  align-items: center;
+  /* [data] every item in it carries wxLEFT|wxRIGHT 5. */
+  padding: 0 5px;
+}
+.ze-symprops-lbl {
+  font-size: var(--ui-font-size);
+  white-space: nowrap;
+}
+/* gbSizer1->SetEmptyCellSize( wxSize( -1, 12 ) ): row 2 is empty. */
+.ze-symprops-gbgap {
+  grid-column: 1 / -1;
+  /* [data] gbSizer1->SetEmptyCellSize( wxSize( -1, 12 ) ). */
+  height: 12px;
+}
+/* sbGeneralProps->Add( bSizer11, 0, wxEXPAND|wxTOP, 13 ), two checkboxes each
+   at proportion 1 with a 3 px border. */
+.ze-symprops-pinchecks {
+  display: flex;
+  /* [data] sbGeneralProps->Add( bSizer11, 0, wxEXPAND|wxTOP, 13 ). */
+  margin-top: 13px;
+  /* [data] each checkbox is added wxALL 3, inside the box's own 5 px inset. */
+  padding: 3px 5px;
+  /* [data] two wxALL-3 borders meeting. */
+  gap: 6px;
+}
+.ze-symprops-pinchecks .ze-check {
+  flex: 1;
+}
+/* sbAttributes->Add( 0, 10, 0, wxEXPAND, 5 ) after Exclude from simulation. */
+.ze-symprops-attrgap {
+  /* [data] sbAttributes->Add( 0, 10, 0, wxEXPAND, 5 ). */
+  height: 10px;
+  flex: 0 0 auto;
+}
+/* bSizerBottom, added with wxEXPAND|wxLEFT 12. It sits outside the notebook,
+   so it does not change with the page. */
+.ze-symprops-foot {
+  /* [data] mainSizer->Add( bSizerBottom, 0, wxEXPAND|wxLEFT, 12 ). */
+  padding-left: 12px;
+  justify-content: flex-start;
+}
+/* m_libraryIDLabel and m_tcLibraryID both take KIUI::GetSmallInfoFont, which
+   is getGUIFont( win, -2 ) — --ui-font-size-small. */
+.ze-symprops-libid-label {
+  font-size: var(--ui-font-size-small);
+  flex: 0 0 auto;
+}
+/* wxTE_READONLY | wxBORDER_NONE, then
+   `SetBackgroundColour( KIPLATFORM::UI::GetDialogBGColour() )`, which is
+   wxSYS_COLOUR_BTNFACE (libs/kiplatform/port/wxgtk/ui.cpp:63-66) — the token
+   for that face is --ctl-face, asked of wx by qa/probes/fields_grid_probe.cpp.
+   A GTK dialog does not paint itself that colour, which is why the field reads
+   as a lighter band across the bottom rather than disappearing into it. */
+.ze-symprops-libid {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  font-size: var(--ui-font-size-small);
   color: var(--chrome-fg);
-  font-family: monospace;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  background: var(--ctl-face);
+  border: none;
+  outline: none;
+  /* [css] entry { padding: 2px 8px } — the 8 is already --field-pad-x. */
+  padding: 2px var(--field-pad-x);
+  /* [data] bSizerBottom->Add( m_tcLibraryID, 1, …|wxALL, 5 ). */
+  margin: 5px;
+}
+/* m_spiceFieldsButton is added with wxRIGHT|wxLEFT 15, and the std OK/Cancel
+   sizer with wxALL 5 — so the gap either side of it is wider than the gap
+   between OK and Cancel. */
+.ze-symprops-foot .ze-btn {
+  /* [data] the std OK/Cancel sizer is added wxALL 5. */
+  margin: 5px 0;
+}
+.ze-symprops-foot .ze-btn:first-of-type {
+  /* [data] m_spiceFieldsButton is added wxRIGHT|wxLEFT 15 instead. */
+  margin: 5px 15px;
+}
+/* GRID_TRICKS::onGridLabelRightClick's column menu. It is a .ze-dropdown, the
+   shared GTK menu skin; only the anchoring is stated here, because the menu
+   pops at the pointer rather than under a menu-bar item. */
+.ze-symprops-colmenu {
+  position: fixed;
+  top: auto;
+  left: auto;
+}
+.ze-symprops-menu-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 99;
+}
+.ze-symprops-embedfonts {
+  /* [data] m_buttonsSizer->Add( 20, 0 ) before the Embed fonts checkbox
+     (common/dialogs/panel_embedded_files_base.cpp). */
+  margin-left: 20px;
+}
+.ze-symprops-pin-pane,
+.ze-symprops-files-pane {
+  flex: 1;
+  /* [data] the same wxSize( -1, 160 ) minimum the fields grid carries. */
+  min-height: 160px;
 }
 
 /* ERC results panel (KiCad DIALOG_ERC, modeless) */

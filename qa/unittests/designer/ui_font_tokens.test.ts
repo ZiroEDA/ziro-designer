@@ -285,7 +285,11 @@ const BASELINE: Record<string, number> = {
   // 136 -> 135: `.ze-pane-close` wrote `font-size: 11px` to match its 11x11
   // box, but U+22A0 draws about 0.73 em of ink so the glyph came out 8px and
   // read small beside a real pane caption's. --ui-font-size puts it at ~11px.
-  ui: 135,
+  // 135 -> 134: the Symbol Properties rebuild took `.ze-props-libid`'s
+  // `font-size: 12.5px`. Upstream's library link is a wxStaticText and a
+  // wxTextCtrl both carrying KIUI::GetSmallInfoFont == getGUIFont( win, -2 ),
+  // so the replacement asks --ui-font-size-small.
+  ui: 134,
   widgets: 6,
 };
 
@@ -439,7 +443,8 @@ describe('hardcoded font sizes do not grow', () => {
     // 343 -> 342: the close box's own size; see the `ui` row. RESCANNED from
     // this tree, and the per-area table agrees -- `ui` 136 -> 135 is the only
     // row that moved.
-    expect(sites.length).toBe(342);
+    // 342 -> 341: the `ui` row above. RESCANNED from this tree.
+    expect(sites.length).toBe(341);
   });
 });
 
