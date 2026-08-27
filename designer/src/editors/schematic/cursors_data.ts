@@ -21,6 +21,54 @@ export interface XpmCursor {
 }
 
 export const XPM_CURSORS: Record<string, XpmCursor> = {
+  // KICURSOR::MOVING. CURSOR_STORE maps it to `cursor_select_m_black_xpm` off
+  // Windows (cursors.cpp:143-160), hotspot 1,1; the Windows build takes the
+  // white-outlined `cursor_select_m_xpm`, and GetStockCursor's wxCURSOR_SIZING
+  // is only the fallback for when no bitmap is available. `kiCursor` used to
+  // answer CSS `move` here -- the browser's cursor, the one entry in this table
+  // that was not KiCad's own bitmap.
+  moving: {
+    palette: {
+      ' ': '',
+      '.': '#FFFFFF',
+      '+': '#000000',
+    },
+    rows: [
+      '.                               ',
+      '..                              ',
+      '.+.                             ',
+      '.++.                            ',
+      '.+++.                           ',
+      '.++++.                          ',
+      '.+++++.                         ',
+      '.++++++.                        ',
+      '.+++++++.                       ',
+      '.++++++++.                      ',
+      '.+++++++++.                     ',
+      '.++++++.....                    ',
+      '.++++++.                        ',
+      '.++..++.                        ',
+      '.+. .+++.                       ',
+      '..   .++.                       ',
+      '.    .+++.           .          ',
+      '      .+.           .+.         ',
+      '      ..           .+++.        ',
+      '                  .+++++.       ',
+      '                 . ..+.. .      ',
+      '                .+. .+. .+.     ',
+      '               .++...+...++.    ',
+      '              .+++++++++++++.   ',
+      '               .++...+...++.    ',
+      '                .+. .+. .+.     ',
+      '                 . ..+.. .      ',
+      '                  .+++++.       ',
+      '                   .+++.        ',
+      '                    .+.         ',
+      '                     .          ',
+      '                                ',
+    ],
+    hotspot: [1, 1],
+  },
   place: {
     palette: {
       ' ': '',

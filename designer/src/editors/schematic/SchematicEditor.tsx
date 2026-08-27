@@ -7216,9 +7216,29 @@ export function SchematicEditor({
         } else if (pendingLabel) {
           setPendingLabel(null);
           setActiveTool('select');
+        } else if (placeLib || placeInstance) {
+          // `PlaceSymbol`'s cancel is TWO states, not one
+          // (sch_drawing_tools.cpp:324-344):
+          //
+          //     if( symbol ) { cleanup();
+          //                    if( keepSymbol ) PostAction( cursorClick ); }
+          //     else         { m_frame->PopTool( aEvent ); break; }
+          //
+          // The first Escape runs `cleanup()` — drop the symbol, clear the
+          // selection — and LEAVES THE TOOL RUNNING; only a second one, with
+          // nothing on the cursor, pops it. Ours collapsed both into a single
+          // press, which put the tool away while KiCad keeps it armed for the
+          // next symbol. Two presses to leave the tool is upstream's answer,
+          // not a wrong count.
+          setPlaceLib(null);
+          // cleanup()'s own first line, ACTIONS::selectionClear.
+          setSelection(new Set());
+          // `if( keepSymbol ) PostAction( ACTIONS::cursorClick )` re-enters the
+          // chooser straight away; without it the tool waits, and it is the
+          // next click that reopens it (the click branch at :371-375).
+          setChooserDismissed(!placeFlags.current.keepSymbol);
         } else if (activeTool !== 'select') {
           setActiveTool('select');
-          setPlaceLib(null);
         } else if (selection.size > 0) setSelection(new Set());
         // "<ESC> clears net highlighting": with nothing else pending, the next
         // Escape clears the highlighted net (eeschema input.esc_clears_net_highlight).
@@ -7415,6 +7435,9 @@ export function SchematicEditor({
     onLeftToggle,
     libById,
     pendingLabel,
+    pendingImage,
+    placeLib,
+    placeInstance,
     propsTarget,
     pastePending,
     duplicateSelection,

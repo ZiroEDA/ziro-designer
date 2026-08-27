@@ -65,12 +65,23 @@ function cssCursor(name: string, def: XpmCursor, fallback: string): string {
   return value;
 }
 
-/** The CSS cursor for a KICURSOR value. */
+/**
+ * The CSS cursor for a KICURSOR value.
+ *
+ * KICURSOR::ARROW is the only one with no bitmap of its own — CURSOR_STORE
+ * leaves it to the platform, which is what `default` is. Every other entry is
+ * a KiCad XPM, MOVING included: it used to answer the browser's `move`
+ * keyword, which made it the one cursor in this table that was not KiCad's own
+ * drawing, and the four-arrow pointer the desktop supplies looks nothing like
+ * the arrow-with-a-cross KiCad paints. The keyword survives only as the
+ * fallback for when the bitmap cannot be rasterised, which is the role
+ * `CURSOR_STORE::GetStockCursor`'s wxCURSOR_SIZING plays upstream.
+ */
 export function kiCursor(cursor: KiCursor): string {
   if (cursor === 'arrow') return 'default';
-  if (cursor === 'moving') return 'move';
+  const fallback = cursor === 'moving' ? 'move' : 'crosshair';
   const def = XPM_CURSORS[cursor];
-  return def ? cssCursor(cursor, def, 'crosshair') : 'crosshair';
+  return def ? cssCursor(cursor, def, fallback) : fallback;
 }
 
 /**

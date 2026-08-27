@@ -169,7 +169,12 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // only text state), because `IFACE::PreloadLibraries` has already run by the
   // time the chooser opens — so the literal went out with the overlay rather
   // than being re-sourced from a token.
-  'editors/schematic': { colours: 59, metrics: 210 },
+  // 59 -> 61: the two palette entries of KiCad's MOVING cursor, vendored into
+  // cursors_data.ts from resources/bitmaps_png/cursors/cursor-select-m-black.xpm
+  // so the symbol tool stops borrowing the browser's CSS `move` keyword. These
+  // are the XPM's own #FFFFFF and #000000 — bitmap DATA, not chrome, and the
+  // same two every other cursor in that file already contributes to this row.
+  'editors/schematic': { colours: 61, metrics: 210 },
   // colours 12 -> 7: the Symbol Editor parity pass. Four were
   // SYMBOL_EDITOR_COLORS, a private copy of LAYER_SCHEMATIC_ANCHOR /
   // LAYER_HIDDEN / LAYER_PRIVATE_NOTES / LAYER_FIELDS that matched the Default
@@ -529,7 +534,11 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // three were. RESCANNED from this tree, and derived a second time from the
     // per-area table -- `ui` 285 -> 282 is the only row that moved, and
     // 666 - 3 agrees.
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(663);
+    // 663 -> 665: KiCad's MOVING cursor bitmap; see the `editors/schematic`
+    // row for what the two are. RESCANNED from this tree, and derived a second
+    // time from the per-area table -- `editors/schematic` 59 -> 61 is the only
+    // row that moved, and 663 + 2 agrees.
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(665);
     // 1657 -> 1649: the same sweep. A native colour input has no useful
     // default size, so eight of the sixteen sites gave theirs an inline
     // width and height; the shared swatch takes --swatch-*-w/h. Rescanned.

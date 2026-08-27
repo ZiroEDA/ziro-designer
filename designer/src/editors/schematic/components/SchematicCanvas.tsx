@@ -254,16 +254,15 @@ const BULLSEYE_CURSOR = (() => {
 /** The wire cursor, also shown over a dangling pin with the select tool. */
 const WIRE_CURSOR = kiCursor('lineWire');
 
-/** The cursor a tool shows while it is active (SetCurrentCursor per tool). */
-function toolCursor(tool: string, attached = false): string {
+/**
+ * The cursor a tool shows while it is active (SetCurrentCursor per tool).
+ *
+ * `attached` is what the thing riding the pointer asks for, which is not the
+ * same for every tool — see `attachedCursor` for the table and the sources.
+ */
+function toolCursor(tool: string, attached: 'none' | 'moving' | 'place' = 'none'): string {
   if (tool === 'highlightNet') return BULLSEYE_CURSOR;
-  // `setCursor` tests the attached item first, so every placement tool shows
-  // the place cursor once something is riding the pointer:
-  //
-  //     if( item )
-  //         m_frame->GetCanvas()->SetCurrentCursor( KICURSOR::PLACE );
-  //     else if( isText ) ...
-  if (attached) return kiCursor('place');
+  if (attached !== 'none') return kiCursor(attached === 'moving' ? 'moving' : 'place');
   return kiToolCursor(tool);
 }
 
@@ -1325,19 +1324,32 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
   }, [setPointHandles]);
 
   /**
-   * Is something riding the pointer waiting to be dropped?
+   * Is something riding the pointer waiting to be dropped, and which cursor
+   * does it ask for?
    *
-   * `setCursor` asks exactly this before anything else, so a symbol, label,
-   * directive flag, image or pasted group all show KICURSOR::PLACE while they
-   * are attached, whatever tool put them there.
+   * There is NO single answer upstream. Each tool writes its own `setCursor`
+   * and they disagree about what an attached item looks like:
+   *
+   *   PlaceSymbol / placePower  symbol ? MOVING : COMPONENT
+   *                             (sch_drawing_tools.cpp:232)
+   *   PlaceImage                image  ? MOVING : ARROW            (:1169-1173)
+   *   SCH_MOVE_TOOL             MOVING, or PLACE over a sheet
+   *                             (sch_move_tool.cpp:698, :833)
+   *   TwoClickPlace             item   ? PLACE : TEXT/LABEL_*      (:2096-2108)
+   *   SingleClickPlace          PLACE, attached or not             (:1638)
+   *
+   * This used to answer PLACE for all of them and cite TwoClickPlace, which is
+   * the one branch that does NOT cover the symbol tool. A symbol on the cursor
+   * is a MOVE in KiCad — it is carrying IS_MOVING — and the four-arrow cursor
+   * is the visible difference.
    */
-  const attachedItem = !!(
-    placeLib ||
-    pendingLabel ||
-    pendingDirective ||
-    pendingImage ||
-    pastePending
-  );
+  const attachedCursor: 'none' | 'moving' | 'place' =
+    placeLib || pendingImage || pastePending
+      ? 'moving'
+      : pendingLabel || pendingDirective
+        ? 'place'
+        : 'none';
+  const attachedItem = attachedCursor !== 'none';
 
   /**
    * `SCH_POINT_EDITOR::Main` shows its points for a single selected item of a
@@ -1440,17 +1452,38 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     ) {
       // Ghost: show the symbol attached to the cursor (with its current orientation).
       const inst = placeInstanceRef.current;
-      const ghost = inst
+      const built = inst
         ? moveSymbolTo(inst, snap(cursorRef.current))
         : makeSymbol(placeLib, snap(cursorRef.current), placeOrientRef.current, placeUnit);
+      // `addSymbol( symbol ); annotate();` — PlaceSymbol annotates the symbol as
+      // it goes ON the cursor, not when it is dropped, and does it again for
+      // every `nextSymbol` it attaches (sch_drawing_tools.cpp:474-475, :568-573).
+      // So the reference KiCad drags around already reads J1, where ours read
+      // J? until the click landed. "Place next unit" keeps the reference it is
+      // copying (upstream passes reannotate = false), so `inst` is left alone —
+      // the same exception the drop path below makes.
+      //
+      // Autoplacing AFTER this matters as much as the text does: the algorithm
+      // measures the field's own string, so the un-annotated ghost had its
+      // fields laid out for "J?" and they shifted when the click renamed it.
+      const ghost = inst || !onAnnotatePlacement ? built : onAnnotatePlacement(built, placeLib);
       // Upstream autoplaces the fields of the symbol on the cursor, not only of
       // the one it drops, which is why KiCad's reference and value already sit
       // beside the body while it is still following the pointer. The null
       // screen is the `dropped = false` argument.
-      doc = placeSymbolInstance(
-        placeLib,
-        onAutoplacePlacement ? onAutoplacePlacement(ghost, placeLib, false) : ghost,
-      ).apply(schematic);
+      const rider = onAutoplacePlacement ? onAutoplacePlacement(ghost, placeLib, false) : ghost;
+      doc = placeSymbolInstance(placeLib, rider).apply(schematic);
+      // `addSymbol`'s first two lines are a selection change, not a preview one:
+      //
+      //     m_toolMgr->RunAction( ACTIONS::selectionClear );
+      //     m_selectionTool->AddItemToSel( aSymbol );
+      //
+      // so the symbol on the cursor is SELECTED the whole time it is being
+      // placed, and is drawn with the selection halo (sch_drawing_tools.cpp:
+      // 218-232). Every other rider on this path already said so; the symbol
+      // never did, which is why ours was the one that sank into the sheet
+      // under it. `placeCmd` appends, so the rider takes the next index.
+      ghostIds.add(refId('symbol', rider.uuid, schematic.symbols.length));
       ghosting = true;
     }
     // Ghost: the named label follows the cursor (with its flag) until clicked to place.
@@ -1590,6 +1623,8 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     pendingImage,
     snapConn,
     buildMove,
+    onAnnotatePlacement,
+    onAutoplacePlacement,
     GRID,
   ]);
 
@@ -2601,8 +2636,8 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     // picker the bullseye (sch_editor_control.cpp:1802), everything else the
     // plain crosshair the drawing tools show.
     const canvas = canvasRef.current;
-    if (canvas) canvas.style.cursor = toolCursor(activeTool, attachedItem);
-  }, [activeTool, attachedItem]);
+    if (canvas) canvas.style.cursor = toolCursor(activeTool, attachedCursor);
+  }, [activeTool, attachedCursor]);
 
   const toWorld = (clientX: number, clientY: number): Vec2 => {
     const canvas = canvasRef.current!;
@@ -3768,7 +3803,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     return () => window.removeEventListener('keydown', onKey);
   }, [requestDraw, activeTool, placeLib, finishPoly, finishWireChain]);
 
-  const cursor = toolCursor(activeTool, attachedItem);
+  const cursor = toolCursor(activeTool, attachedCursor);
 
   return (
     <div
