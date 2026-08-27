@@ -181,8 +181,20 @@ export function fpItemBBox(fp: PcbFootprint, id: string): FpBBox | null {
  * It feeds zoom-to-fit and the spread-footprints layout, so a board whose
  * outermost ink was a silkscreen value was zoomed with that value cropped, and
  * spread footprints were packed close enough for their text to overlap.
+ *
+ * `aIncludeText` is upstream's own parameter and it has one caller that passes
+ * false: the footprint preview panel's zoom-to-fit
+ * (`FOOTPRINT_PREVIEW_PANEL::fitToCurrentFootprint`, footprint_preview_panel.cpp:
+ * `bool includeText = m_currentFootprint->TextOnly()`). Everything else — the
+ * board bounding box (`board.cpp:2255`), selection, spread — takes the default
+ * `true`. Upstream also drops annotation *graphics* (dimensions, the four user
+ * layers) when text is excluded, but only `if( footprintSide != UNDEFINED_LAYER )`
+ * — and `FOOTPRINT::GetSide` answers UNDEFINED_LAYER for every footprint on a
+ * footprint-holder board (`footprint.cpp:2219-2225`), which is the only board
+ * the false case is ever asked about. So on that path nothing but text is
+ * dropped, and that is what this does.
  */
-export function footprintBBox(fp: PcbFootprint): FpBBox | null {
+export function footprintBBox(fp: PcbFootprint, includeText = true): FpBBox | null {
   let minX = Infinity,
     minY = Infinity,
     maxX = -Infinity,
@@ -193,17 +205,39 @@ export function footprintBBox(fp: PcbFootprint): FpBBox | null {
     if (p.x > maxX) maxX = p.x;
     if (p.y > maxY) maxY = p.y;
   };
+  // NOT ported: `BOX2I bbox( m_pos ); bbox.Inflate( pcbIUScale.mmToIU( 0.25 ) );`,
+  // upstream's "give a min size to the bbox" seed (`footprint.cpp:1800-1801`).
+  // It only ever shows on a footprint holding nothing at all, and this box is
+  // also what board hit-testing and the mirror pivot are measured from, where
+  // a synthetic half-millimetre around an empty footprint invents a hit and
+  // moves a pivot. Ours answers null for that footprint instead. Left as its
+  // own change rather than smuggled in with the preview's framing fix.
   for (const pad of fp.pads) padPoints(pad).forEach(grow);
   for (const s of fp.shapes) shapePoints(s).forEach(grow);
-  for (const t of fp.texts) {
-    if (t.hide) continue;
-    // The same `textItemBBox` `fpItemBBox` selects this text with, so the box
-    // that zooms to it and the box that highlights it cannot drift apart.
-    const b = textItemBBox(t);
-    grow({ x: b.x, y: b.y });
-    grow({ x: b.x + b.w, y: b.y + b.h });
+  if (includeText) {
+    for (const t of fp.texts) {
+      if (t.hide) continue;
+      // The same `textItemBBox` `fpItemBBox` selects this text with, so the box
+      // that zooms to it and the box that highlights it cannot drift apart.
+      const b = textItemBBox(t);
+      grow({ x: b.x, y: b.y });
+      grow({ x: b.x + b.w, y: b.y + b.h });
+    }
   }
   return minX <= maxX ? { minX, minY, maxX, maxY } : null;
+}
+
+/**
+ * `FOOTPRINT::TextOnly` (`pcbnew/footprint.cpp:1749-1761`): is every one of the
+ * footprint's graphical items a text?
+ *
+ * Note what it does *not* look at — pads and zones. A footprint that is nothing
+ * but pads is "text only" by this test, and that is deliberate: the one caller
+ * uses the answer to decide whether the fit box may exclude text, and a
+ * footprint with no graphics has nothing else for the box to be made of.
+ */
+export function footprintTextOnly(fp: PcbFootprint): boolean {
+  return fp.shapes.length === 0;
 }
 
 // ----- hit testing ------------------------------------------------------------

@@ -9,6 +9,7 @@ import {
   fpItemId,
   hitTestFootprint,
   footprintBBox,
+  footprintTextOnly,
   moveFootprintItems,
   rotateFootprintItems,
   mirrorFootprintItems,
@@ -231,5 +232,55 @@ describe('footprint editing', () => {
     expect(d.pads).toHaveLength(1);
     expect(iuToMM(d.pads[0]!.at.x)).toBeCloseTo(0.8, 6); // old pad 2 is now pad 0
     void at; // (helper kept for readability of intent)
+  });
+});
+
+/**
+ * `FOOTPRINT::GetBoundingBox( bool aIncludeText )` and `FOOTPRINT::TextOnly()`
+ * (`pcbnew/footprint.cpp:1749-1761, 1770+`).
+ *
+ * The `false` case has exactly one caller upstream —
+ * `FOOTPRINT_PREVIEW_PANEL::fitToCurrentFootprint`, which passes `TextOnly()` —
+ * and the chooser's footprint preview had no equivalent at all: it fitted the
+ * whole scene, text and all, so the F.Fab value string (wider than the part on
+ * most library footprints) decided the zoom and the part came out small.
+ */
+describe('the text-excluded bounding box', () => {
+  it('drops the text and keeps the pads and graphics', () => {
+    const withText = footprintBBox(read(), true)!;
+    const without = footprintBBox(read(), false)!;
+
+    // "REF**" at 1 mm is wider than the 2.5 mm pad span and sits above the silk
+    // line, so excluding it must pull both the left edge and the top in.
+    expect(without.minX).toBeGreaterThan(withText.minX);
+    expect(without.minY).toBeGreaterThan(withText.minY);
+    // What is left is the pads and the silk line: pad 1's left edge at
+    // -0.8 - 0.45 mm, pad 2's right edge at 0.8 + 0.45 mm.
+    expect(iuToMM(without.minX)).toBeCloseTo(-1.25, 3);
+    expect(iuToMM(without.maxX)).toBeCloseTo(1.25, 3);
+  });
+
+  it('defaults to including it, which is what every other caller wants', () => {
+    expect(footprintBBox(read())).toEqual(footprintBBox(read(), true));
+  });
+});
+
+describe('TextOnly', () => {
+  it('is false for a footprint with graphics', () => {
+    expect(footprintTextOnly(read())).toBe(false);
+  });
+
+  it('is true for one whose only drawings are text', () => {
+    const textish = readFootprintFile(
+      parse(`(footprint "T" (version 20241229) (generator "t") (layer "F.Cu")
+	(property "Reference" "REF**" (at 0 -1 0) (layer "F.SilkS")
+		(effects (font (size 1 1) (thickness 0.15))))
+	(pad "1" smd rect (at 0 0) (size 1 1) (layers "F.Cu")))`),
+    )!;
+
+    // Pads are not drawings: `TextOnly` walks `m_drawings` only, so a
+    // footprint that is nothing but pads answers true — deliberately, since
+    // its caller is deciding whether the fit box may drop the text.
+    expect(footprintTextOnly(textish)).toBe(true);
   });
 });

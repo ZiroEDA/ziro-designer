@@ -10,10 +10,16 @@
  * ("No footprint specified" / "Footprint not found").
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { PcbFootprint } from '@ziroeda/pcbnew';
+import { footprintBBox, footprintTextOnly, type PcbFootprint } from '@ziroeda/pcbnew';
 import { usePreviewViewControls, type PreviewView } from './preview_view_controls.js';
 import type { InputPrefs } from '../ui/view_controls.js';
-import { buildScene, drawBoard, DEFAULT_DRAW_OPTIONS } from '../editors/pcb/renderBoard.js';
+import {
+  buildScene,
+  drawBoard,
+  pcbGridOptions,
+  DEFAULT_DRAW_OPTIONS,
+} from '../editors/pcb/renderBoard.js';
+import { drawGrid } from '../ui/grid_cursor.js';
 import { PCB_BACKGROUND } from '../editors/pcb/pcbTheme.js';
 import { footprintToBoard, FOOTPRINT_LAYERS } from '../editors/footprint/footprintBoard.js';
 import { loadFootprint } from './footprint_list.js';
@@ -90,10 +96,28 @@ export function FootprintPreviewWidget({
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.fillStyle = PCB_BACKGROUND;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    const scene = buildScene(footprintToBoard(footprintNow));
-    const b = scene.bbox;
+    const scene = buildScene(footprintToBoard(footprintNow), {
+      // `PAD::GetOwnClearance` is "if this board has a DRC engine ask it, else
+      // 0" (board_connected_item.cpp:121-130) and the preview's `m_dummyBoard`
+      // is a bare `new BOARD()` with none, so every pad's clearance here is 0
+      // and `draw( const PAD* )` skips the outline (`clearance > 0`,
+      // pcb_painter.cpp:1974). Ours drew a ring round every pad that pcbnew's
+      // preview does not have.
+      clearanceForNet: () => 0,
+    });
     const w = canvas.width;
     const h = canvas.height;
+    // `fitToCurrentFootprint` (pcbnew/footprint_preview_panel.cpp):
+    //
+    //     bool  includeText = m_currentFootprint->TextOnly();
+    //     BOX2I bbox = m_currentFootprint->GetBoundingBox( includeText );
+    //
+    // — the FOOTPRINT's own box, and with its **text excluded** unless the
+    // footprint is nothing but text. This used `scene.bbox`, the whole board's,
+    // so the value on F.Fab (`D_DO-41_SOD81_P10.16mm_Horizontal`, three times
+    // wider than the part) was inside the box being fitted and the footprint
+    // came out small and pushed off-centre.
+    const b = footprintBBox(footprintNow, footprintTextOnly(footprintNow));
     if (!b) return;
     const bw = Math.max(1, b.maxX - b.minX);
     const bh = Math.max(1, b.maxY - b.minY);
@@ -105,6 +129,14 @@ export function FootprintPreviewWidget({
       ty: h / 2 - ((b.minY + b.maxY) / 2) * fitScale,
     };
     viewRef.current = view;
+    // `FOOTPRINT_PREVIEW_PANEL::New` turns the grid on and sizes it from
+    // pcbnew's own window settings — `panel->GetGAL()->SetGridVisibility(
+    // gridCfg.show )` and `SetGridSize( gridCfg.grids[last_size_idx] )` off
+    // `PCBNEW_SETTINGS::m_Window.grid`, whose defaults are `show = true`
+    // (app_settings.cpp:555-556) and index 15 of the non-eeschema grid list,
+    // 0.50 mm (app_settings.cpp:462-481) — which is `PCB_DEFAULT_GRID_IU`.
+    // So the preview canvas is a dotted board grid, and ours had none at all.
+    drawGrid(ctx, view, w, h, pcbGridOptions({ show: true, devicePixelRatio: dpr }));
     drawBoard(ctx, scene, view, ALL_LAYERS, w, h, {
       ...DEFAULT_DRAW_OPTIONS,
       drawingSheet: false,

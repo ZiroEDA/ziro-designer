@@ -40,6 +40,7 @@ import {
   textBoxBBox,
   textBoxCorners,
   tessellateArc,
+  footprintBBox,
   type Board,
   type PcbDimension,
   type PcbImage,
@@ -1402,8 +1403,16 @@ function compileScene(board: Board, filter: SceneFilter): BoardScene {
         addPadShape(b.pads, pad);
         b.hasPads = true;
         // Pad clearance outline is drawn per copper layer the pad flashes on
-        // (not the mask layers), in that layer's color.
-        if (copperNames.includes(layer)) {
+        // (not the mask layers), in that layer's color — and only when the
+        // clearance the rules resolve to is greater than zero
+        // (`draw( const PAD* )`: `if( aPad->FlashLayer( … ) && clearance > 0 )`,
+        // pcb_painter.cpp:1974). A board with no design rules answers 0 from
+        // `BOARD_CONNECTED_ITEM::GetOwnClearance`, whose whole body is "if this
+        // board has a DRC engine, ask it; otherwise 0"
+        // (board_connected_item.cpp:121-130) — which is the case for the
+        // footprint preview's dummy BOARD, and why upstream draws no ring there
+        // while a ring exactly on the pad edge is all a zero clearance can be.
+        if (copperNames.includes(layer) && padClr > 0) {
           addPadClearanceShape(b.clearance, pad, padClr);
           b.hasClearance = true;
         }
@@ -1434,6 +1443,17 @@ function compileScene(board: Board, filter: SceneFilter): BoardScene {
       grow(pad.at.x, pad.at.y, Math.max(pad.size.x, pad.size.y) / 2);
     }
     grow(fp.at.x, fp.at.y);
+    // `BOARD::ComputeBoundingBox` merges `footprint->GetBoundingBox( true )`
+    // (`pcbnew/board.cpp:2255`) — the whole footprint, not just its pads. This
+    // loop grew the box by the pads and the anchor only, so a footprint's
+    // silkscreen, courtyard, fabrication outline and text were drawn but never
+    // measured: zoom-to-fit in the PCB and footprint editors cropped exactly
+    // the ink that sits outside the pads.
+    const fpBox = footprintBBox(fp);
+    if (fpBox) {
+      grow(fpBox.minX, fpBox.minY);
+      grow(fpBox.maxX, fpBox.maxY);
+    }
   }
   pathFactory.setOwner?.(undefined);
   for (const t of board.texts) {
@@ -2051,8 +2071,19 @@ export function buildDrawSteps(
   // label fails its LOD, and zooming in never re-records. The GL caller draws
   // this pass itself, per frame, on the overlay canvas (`drawNetNames`); the
   // recorder is recognised by the `hairlines` switch only it carries.
+  //
+  // `padLabels` belongs in this test, and its absence is why no pad ever showed
+  // its number in the footprint editor or in the chooser's footprint preview:
+  // a board holding one footprint has no tracks and no vias, so the whole pass
+  // — the pass that draws pad numbers as well — was never scheduled. In
+  // pcb_painter.cpp the three are independent draw() branches on independent
+  // layers (LAYER_PAD_NETNAMES vs the track and via netname layers), so one
+  // being empty says nothing about the others.
   const retained = (ctx as { hairlines?: unknown }).hairlines !== undefined;
-  if (!retained && (scene.netLabels.length > 0 || scene.viaNetLabels.length > 0)) {
+  if (
+    !retained &&
+    (scene.netLabels.length > 0 || scene.viaNetLabels.length > 0 || scene.padLabels.length > 0)
+  ) {
     steps.push(() => {
       drawNetNames(ctx, scene, view, visible, widthPx, heightPx, opts, emphasis);
     });
