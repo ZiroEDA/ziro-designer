@@ -22,7 +22,10 @@ import { LoadingOverlay } from '../../ui/LoadingOverlay.js';
 import { formatTitle, useDocumentTitle } from '../../ui/useDocumentTitle.js';
 import { useUnsavedGuard } from '../../ui/useUnsavedGuard.js';
 import { LibraryLoadingPanel } from '../../widgets/library_loading_panel.js';
-import { toolbarIconUrl } from '../../ui/toolbarIcons.js';
+// The ONE tree widget, as `SYMBOL_TREE_PANE` mounts the ONE `LIB_TREE`.
+import { LibTree } from '../../widgets/lib_tree.js';
+import { LibTreeNode, LibTreeNodeType } from '../../widgets/lib_tree_model.js';
+import { SymbolTreeSynchronizingAdapter } from './symbol_tree_synchronizing_adapter.js';
 import { KiStatusBar } from '../../ui/KiStatusBar.js';
 import { MsgPanel, type MsgPanelItem } from '../../ui/MsgPanel.js';
 import {
@@ -235,8 +238,10 @@ export function SymbolEditor({
   const [loading, setLoading] = useState<string | null>(null);
 
   // Library tree state (LIB_TREE: search box + expandable libraries).
-  const [query, setQuery] = useState('');
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  // `query` and `expanded` used to live here. Both belong to `LIB_TREE` —
+  // upstream's frame owns neither the filter text nor the expansion state, it
+  // owns a pointer to the widget — and keeping ours meant the pane could not
+  // use the shared one. What the frame DOES have is `SelectLibId`, below.
   const [treeSel, setTreeSel] = useState<{ lib: string; name: string | null } | null>(null);
   /** The symbol currently on loan from the schematic, by name; null otherwise.
    *  While set, Save routes back to the placement rather than to a library. */
@@ -479,7 +484,6 @@ export function SymbolEditor({
     void (async () => {
       const loaded = await manager.current.ensureLoaded(lib);
       if (!loaded) return;
-      setExpanded((s) => new Set(s).add(lib));
       const first = manager.current.symbolNames(lib)[0];
       setTreeSel({ lib, name: first ?? null });
       if (first) void loadSymbol(lib, first);
@@ -501,7 +505,6 @@ export function SymbolEditor({
     const sym: LibSymbol = { ...req.symbol, libId: name };
     if (!manager.current.libraryExists(SCHEMATIC_LIB)) manager.current.createLibrary(SCHEMATIC_LIB);
     manager.current.updateSymbol(SCHEMATIC_LIB, sym);
-    setExpanded((e) => new Set(e).add(SCHEMATIC_LIB));
     setTreeSel({ lib: SCHEMATIC_LIB, name });
     setFromSchematic(name);
     void loadSymbol(SCHEMATIC_LIB, name).then(() => {
@@ -767,7 +770,9 @@ export function SymbolEditor({
     (fileName: string, text: string) => {
       const name = basename(fileName).replace(/\.kicad_sym$/i, '');
       manager.current.addProjectLibrary(name, fileName, text);
-      setExpanded((p) => new Set([...p, name]));
+      // `SYMBOL_EDIT_FRAME::AddLibraryFile`'s tail:
+      // `m_treePane->GetLibTree()->SelectLibId( LIB_ID( libNickname, "" ) )`.
+      setSelectLibId(name);
       bump();
     },
     [bump],
@@ -1399,63 +1404,133 @@ export function SymbolEditor({
 
   // ----- library tree (symbol_tree_pane / LIB_TREE) -----------------------------------------
   const libNames = manager.current.libraryNames();
-  const q = query.trim().toLowerCase();
   void revision;
 
-  const treeRows = useMemo(() => {
-    interface Row {
-      lib: string;
-      sym?: string;
-      desc?: string;
-      modified?: boolean;
-    }
-    const rows: Row[] = [];
-    const mgr = manager.current;
-    for (const libName of libNames) {
-      const lib = mgr.library(libName)!;
-      const names = mgr.symbolNames(libName);
-      if (q) {
-        const matches = names.filter(
-          (n) => n.toLowerCase().includes(q) || `${libName}:${n}`.toLowerCase().includes(q),
-        );
-        if (matches.length === 0 && !libName.toLowerCase().includes(q)) continue;
-        rows.push({ lib: libName, modified: mgr.isLibraryModified(libName) });
-        for (const n of (matches.length > 0 ? matches : names).slice(0, 100)) {
-          rows.push({ lib: libName, sym: n, modified: mgr.isSymbolModified(libName, n) });
-        }
-      } else {
-        rows.push({ lib: libName, modified: mgr.isLibraryModified(libName) });
-        if (expanded.has(libName)) {
-          for (const n of names) {
-            const sym = lib.symbols.get(n);
-            const desc = sym?.properties.find(
-              (f) => f.key === 'Description' || f.key === 'ki_description',
-            )?.value;
-            rows.push({
-              lib: libName,
-              sym: n,
-              ...(desc ? { desc } : {}),
-              modified: mgr.isSymbolModified(libName, n),
-            });
-          }
-        }
-      }
-    }
-    return rows;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [libNames, q, expanded, revision]);
+  /**
+   * `m_libMgr->GetAdapter()` — the ONE adapter this frame's tree is built on
+   * (`symbol_tree_pane.cpp:42`). It is a `SYMBOL_TREE_SYNCHRONIZING_ADAPTER`,
+   * so every row face is re-derived from the manager on each paint and none of
+   * it is cached: see `symbol_tree_synchronizing_adapter.ts`.
+   *
+   * Built once, like the manager it wraps. The callbacks read refs rather than
+   * state so the memo never has to be rebuilt to see a fresh answer — which is
+   * the same reason upstream's adapter holds a `LIB_SYMBOL_LIBRARY_MANAGER*`
+   * and a `SYMBOL_EDIT_FRAME*` instead of copies.
+   */
+  const curLibIdRef = useRef('');
+  curLibIdRef.current = curLib && curName ? `${curLib}:${curName}` : '';
+  const treeAdapter = useMemo(
+    () =>
+      new SymbolTreeSynchronizingAdapter({
+        isLibraryModified: (lib) => manager.current.isLibraryModified(lib),
+        isSymbolModified: (lib, sym) => manager.current.isSymbolModified(lib, sym),
+        // `IsLibraryLoaded` upstream is "the file parsed", not "the file has
+        // been fetched" — our libraries are fetched lazily and that is not a
+        // failure, so the only thing that can grey a row here is a library
+        // that has left the manager while its node is still in the tree.
+        isLibraryLoaded: (lib) => manager.current.libraryExists(lib),
+        currentLibId: () => curLibIdRef.current,
+      }),
+    [],
+  );
 
-  const toggleLib = useCallback(
-    (libName: string) => {
-      setExpanded((prev) => {
-        const next = new Set(prev);
-        if (next.has(libName)) next.delete(libName);
-        else {
-          next.add(libName);
-          void manager.current.ensureLoaded(libName).then(bump);
-        }
-        return next;
-      });
+  /**
+   * `SYMBOL_TREE_SYNCHRONIZING_ADAPTER::Sync` — rebuild the node tree when the
+   * SET of libraries or symbols changed, and only then.
+   *
+   * The signature is what upstream's Sync walks to decide: a library's name,
+   * whether it is loaded, and its symbol names. Modified-ness is deliberately
+   * NOT in it — that is the adapter's job to answer live, and putting it here
+   * would rebuild the whole tree on every keystroke of an edit.
+   */
+  const treeSignature = libNames
+    .map(
+      (n) =>
+        `${n}\u0000${manager.current.library(n)?.loaded ? 1 : 0}\u0000${manager.current.symbolNames(n).join('\u0001')}`,
+    )
+    .join('\u0002');
+  const [treeNonce, setTreeNonce] = useState(0);
+  useEffect(() => {
+    const mgr = manager.current;
+    treeAdapter.tree.children.length = 0;
+    for (const libName of mgr.libraryNames()) {
+      const lib = mgr.library(libName);
+      if (!lib) continue;
+      // The Description column of a LIBRARY row is the sym-lib-table row's
+      // `Description()` (`symbol_tree_synchronizing_adapter.cpp:290-294`), not
+      // the file name. Our `ManagedLibrary` does not carry the table's descr,
+      // so the cell is empty rather than filled with something else.
+      const libNode = treeAdapter.addLibrary(libName, '', false);
+      for (const name of mgr.symbolNames(libName)) {
+        const sym = lib.symbols.get(name);
+        const item = new LibTreeNode();
+        item.type = LibTreeNodeType.ITEM;
+        item.parent = libNode;
+        item.name = name;
+        item.libNickname = libName;
+        item.libItemName = name;
+        // `LIB_SYMBOL::IsRoot`, which is what GetAttr italicises on (:381).
+        item.isRoot = sym ? sym.extends === undefined : true;
+        item.isPower = sym?.isPower ?? false;
+        item.desc =
+          sym?.properties.find((f) => f.key === 'Description' || f.key === 'ki_description')
+            ?.value ?? '';
+        // `LIB_SYMBOL::cacheSearchTerms`' first three terms; the rest need
+        // keywords the manager does not carry for an unfetched library.
+        item.sourceSearchTerms = [
+          { text: libName.toLowerCase(), score: 4 },
+          { text: name.toLowerCase(), score: 8 },
+          { text: `${libName}:${name}`.toLowerCase(), score: 16 },
+        ];
+        item.rebuildSearchTerms(treeAdapter.getShownColumns());
+        libNode.children.push(item);
+      }
+      treeAdapter.finishLibrary(libNode);
+    }
+    treeAdapter.tree.assignIntrinsicRanks();
+    setTreeNonce((n) => n + 1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [treeSignature, treeAdapter]);
+
+  /**
+   * `LIB_TREE::SelectLibId`, which `SYMBOL_EDIT_FRAME` calls to make the tree
+   * follow the frame: after a load (the symbol on the canvas), and after
+   * `AddLibraryFile` (the library just added). One piece of state, because
+   * upstream is one call either way.
+   */
+  const [selectLibId, setSelectLibId] = useState('');
+  useEffect(() => {
+    if (curLib && curName) setSelectLibId(`${curLib}:${curName}`);
+  }, [curLib, curName]);
+
+  /** `EVT_LIBITEM_SELECTED` — the tree's selection, which is `GetTargetLibId`'s
+   *  first source (`symbol_edit_frame.cpp:1359-1370`). */
+  const onTreeSelect = useCallback((node: LibTreeNode | null) => {
+    if (!node) {
+      setTreeSel(null);
+      return;
+    }
+    if (node.type === LibTreeNodeType.LIBRARY) setTreeSel({ lib: node.name, name: null });
+    else setTreeSel({ lib: node.libNickname, name: node.libItemName });
+  }, []);
+
+  /** `SYMBOL_TREE_PANE::onSymbolSelected`, bound to `EVT_LIBITEM_CHOSEN`
+   *  (`symbol_tree_pane.cpp:53`): a double-click or Enter LOADS the symbol. */
+  const onTreeChoose = useCallback(
+    (node: LibTreeNode) => {
+      if (node.type === LibTreeNodeType.LIBRARY) return;
+      void loadSymbol(node.libNickname, node.libItemName);
+    },
+    [loadSymbol],
+  );
+
+  /** Expanding a library fetches it — our lazy stand-in for upstream's
+   *  `PreloadLibraries`, which has every library resident before the tree
+   *  appears. Collapsing needs nothing. */
+  const onTreeToggleLibrary = useCallback(
+    (node: LibTreeNode, open: boolean) => {
+      if (!open) return;
+      void manager.current.ensureLoaded(node.name).then(bump);
     },
     [bump],
   );
@@ -1922,83 +1997,47 @@ export function SymbolEditor({
               {toggles.has('showLibraryTree') && (
                 <div className="ze-panel grow">
                   <div className="ze-panel-header">Libraries</div>
-                  <div style={{ padding: 4 }}>
-                    <input
-                      className="ze-search"
-                      placeholder="Filter"
-                      value={query}
-                      onChange={(e) => setQuery(e.target.value)}
-                      onKeyDown={(e) => e.stopPropagation()}
-                      style={{ width: '100%' }}
+                  {/*
+                   * `SYMBOL_TREE_PANE` (`eeschema/widgets/symbol_tree_pane.cpp:40-44`)
+                   * is a panel whose entire body is ONE `LIB_TREE`:
+                   *
+                   *     m_tree = new LIB_TREE( this, wxT( "symbols" ),
+                   *                            m_libMgr->GetAdapter(),
+                   *                            LIB_TREE::SEARCH | LIB_TREE::MULTISELECT );
+                   *
+                   * SEARCH and MULTISELECT, and NOT `DETAILS` — hence
+                   * `hasExternalDetails`, which is what keeps the HTML info
+                   * pane the chooser has out of this dock.
+                   *
+                   * What stood here was a second tree: a `treeRows` memo and
+                   * eighty lines of JSX. That is why this pane had no "Item"
+                   * header, a bare `<input>` instead of the `wxSearchCtrl` with
+                   * its magnifier and its recent-search menu, no sort/expand
+                   * menu, a library glyph KiCad does not draw, no virtual
+                   * scrolling and none of the row faces — and why the scroll
+                   * fix made in `widgets/lib_tree.tsx` helped the chooser and
+                   * not this pane.
+                   */}
+                  {libNames.length === 0 && (
+                    <LibraryLoadingPanel
+                      kind="symbols"
+                      fallback={<div className="ze-muted">No libraries</div>}
+                      label="Loading symbol libraries..."
                     />
-                  </div>
-                  <div className="ze-panel-body">
-                    {treeRows.length === 0 && (
-                      <LibraryLoadingPanel
-                        kind="symbols"
-                        fallback={<div className="ze-muted">No libraries</div>}
-                        label="Loading symbol libraries..."
-                      />
-                    )}
-                    {treeRows.map((row) =>
-                      row.sym === undefined ? (
-                        <div
-                          key={row.lib}
-                          className={`ze-tree-item root${treeSel?.lib === row.lib && !treeSel.name ? ' active' : ''}`}
-                          onClick={() => {
-                            setTreeSel({ lib: row.lib, name: null });
-                            if (!q) toggleLib(row.lib);
-                          }}
-                          title={manager.current.library(row.lib)?.fileName}
-                        >
-                          <span
-                            className={`twisty expandable${expanded.has(row.lib) || q ? ' open' : ''}`}
-                          />
-                          {toolbarIconUrl('library') && (
-                            <img
-                              src={toolbarIconUrl('library')}
-                              alt=""
-                              style={{ width: 16, height: 16 }}
-                            />
-                          )}
-                          <span>
-                            {row.lib}
-                            {row.modified ? ' *' : ''}
-                          </span>
-                        </div>
-                      ) : (
-                        <div
-                          key={`${row.lib}:${row.sym}`}
-                          className={`ze-tree-item${curLib === row.lib && curName === row.sym ? ' active' : ''}`}
-                          style={{
-                            paddingLeft: 26,
-                            fontWeight: curLib === row.lib && curName === row.sym ? 600 : 400,
-                          }}
-                          onClick={() => setTreeSel({ lib: row.lib, name: row.sym! })}
-                          onDoubleClick={() => void loadSymbol(row.lib, row.sym!)}
-                          title={row.desc ? `${row.sym}, ${row.desc}` : row.sym}
-                        >
-                          <span>
-                            {row.sym}
-                            {row.modified ? ' *' : ''}
-                          </span>
-                          {row.desc && (
-                            <span
-                              style={{
-                                opacity: 0.55,
-                                marginLeft: 8,
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap',
-                              }}
-                            >
-                              {row.desc}
-                            </span>
-                          )}
-                        </div>
-                      ),
-                    )}
-                  </div>
+                  )}
+                  <LibTree
+                    adapter={treeAdapter}
+                    // `LIB_TREE( this, wxT( "symbols" ), … )` — the Symbol
+                    // Editor shares `g_recentSearches["symbols"]` with the
+                    // chooser, which is upstream's own key.
+                    recentSearchesKey="symbols"
+                    regenerateNonce={treeNonce}
+                    selectLibId={selectLibId}
+                    onSelect={onTreeSelect}
+                    onChoose={onTreeChoose}
+                    onToggleLibrary={onTreeToggleLibrary}
+                    hasExternalDetails
+                  />
                 </div>
               )}
               {toggles.has('showProperties') && (
@@ -2233,7 +2272,7 @@ export function SymbolEditor({
                     e.stopPropagation();
                     if (e.key === 'Enter' && newLibName.trim()) {
                       manager.current.createLibrary(newLibName.trim());
-                      setExpanded((p) => new Set([...p, newLibName.trim()]));
+                      setSelectLibId(newLibName.trim());
                       setNewLibName(null);
                       bump();
                     }
@@ -2250,7 +2289,7 @@ export function SymbolEditor({
                 disabled={!newLibName.trim()}
                 onClick={() => {
                   manager.current.createLibrary(newLibName.trim());
-                  setExpanded((p) => new Set([...p, newLibName.trim()]));
+                  setSelectLibId(newLibName.trim());
                   setNewLibName(null);
                   bump();
                 }}

@@ -307,7 +307,16 @@ const PROJECT = [
   { name: 'Device.kicad_sym', text: LIB },
 ];
 
-/** Mount on the project and expand the one library, returning its tree rows. */
+/**
+ * Mount on the project and expand the one library, returning its tree rows.
+ *
+ * The rows are `LIB_TREE`'s (`.ze-libtree-row`), because the Libraries pane is
+ * now the shared widget — `SYMBOL_TREE_PANE` mounts `LIB_TREE` and nothing
+ * else. Two consequences the old selector hid: a row's text is its Item cell
+ * PLUS the Description and Value cells, so a row is addressed by `.col-item`;
+ * and a click SELECTS rather than expanding, since the expander is the twisty
+ * (`wxDataViewCtrl` behaviour, and `LIB_TREE` inherits it).
+ */
 const openProject = async (): Promise<{
   container: HTMLElement;
   rows: () => HTMLElement[];
@@ -317,12 +326,21 @@ const openProject = async (): Promise<{
     <SymbolEditor onExitToHome={() => {}} initialProject={PROJECT} />,
   );
   const rows = (): HTMLElement[] =>
-    Array.from(container.querySelectorAll('.ze-tree-item')) as HTMLElement[];
+    Array.from(container.querySelectorAll('.ze-libtree-row')) as HTMLElement[];
   await waitFor(() => expect(rows().length).toBeGreaterThan(0));
-  fireEvent.click(rows().find((r) => r.textContent?.includes('Device'))!);
-  await waitFor(() => expect(rows().some((r) => r.textContent?.trim() === 'R')).toBe(true));
+  const device = rows().find((r) => itemText(r) === 'Device')!;
+  // `showResults`' last fallback expands a lone library on its own
+  // (`LIB_TREE_MODEL_ADAPTER::UpdateSearchString`), so clicking unconditionally
+  // would COLLAPSE it.
+  const twisty = device.querySelector('.twisty')!;
+  if (!twisty.classList.contains('open')) fireEvent.click(twisty);
+  await waitFor(() => expect(rows().some((r) => itemText(r) === 'R')).toBe(true));
   return { container, rows, unmount };
 };
+
+/** A tree row's Item cell, which is `GetValue( …, NAME_COL )`. */
+const itemText = (row: HTMLElement): string =>
+  row.querySelector('.col-item')?.textContent?.trim() ?? '';
 
 describe('with a tree row selected and nothing loaded', () => {
   /**
@@ -335,7 +353,7 @@ describe('with a tree row selected and nothing loaded', () => {
    */
   it('lights Symbol Properties and nothing that needs m_symbol', async () => {
     const { container, rows, unmount } = await openProject();
-    fireEvent.click(rows().find((r) => r.textContent?.trim() === 'R')!);
+    fireEvent.click(rows().find((r) => itemText(r) === 'R')!);
     const b = buttons(container);
     unmount();
     expect({
@@ -363,7 +381,7 @@ describe('with a symbol opened from a LIBRARY, not the schematic', () => {
    */
   it('lights every editing tool', async () => {
     const { container, rows, unmount } = await openProject();
-    fireEvent.doubleClick(rows().find((r) => r.textContent?.trim() === 'R')!);
+    fireEvent.doubleClick(rows().find((r) => itemText(r) === 'R')!);
     await waitFor(() => expect(buttons(container)['Add a rectangle']).toBe(false));
     const b = buttons(container);
     unmount();
@@ -699,9 +717,7 @@ describe('the Zoom to Selection Area button', () => {
    * static `disabled: true` was hiding.
    */
   it('arms the tool rather than zooming, and says so in field 6', () => {
-    const { container, getByTestId, unmount } = render(
-      <SymbolEditor onExitToHome={() => {}} />,
-    );
+    const { container, getByTestId, unmount } = render(<SymbolEditor onExitToHome={() => {}} />);
     const before = getByTestId('sym-tool-msg').textContent;
     const bar = container.querySelector('.ze-toolbar.horizontal');
     const btn = Array.from(bar?.querySelectorAll('button') ?? []).find(

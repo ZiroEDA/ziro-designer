@@ -15,6 +15,25 @@ import {
   type LibTreeNodeFilter,
 } from './lib_tree_model.js';
 
+/**
+ * The `wxDataViewItemAttr` fields `GetAttr` can set. Upstream's are
+ * `SetBold`, `SetItalic`, `SetStrikethrough` and `SetColour`; the colour is
+ * only ever `wxSYS_COLOUR_GRAYTEXT` for an unloaded library, so it is a flag
+ * here rather than a colour — a literal colour would be exactly the drift the
+ * central-value rule is about.
+ */
+export interface LibTreeNodeAttr {
+  /** `SetBold` — a modified library or symbol. */
+  bold?: boolean;
+  /** `SetItalic` — a derived (alias) symbol. */
+  italic?: boolean;
+  /** `SetStrikethrough` — "LIB_TREE_RENDERER uses strikethrough as a proxy for
+   *  is canvas item" (`symbol_tree_synchronizing_adapter.cpp:369`). */
+  strikethrough?: boolean;
+  /** `SetColour( wxSYS_COLOUR_GRAYTEXT )` — a library that failed to load. */
+  greyed?: boolean;
+}
+
 /** LIB_TREE_MODEL_ADAPTER::SORT_MODE. */
 export enum SortMode {
   BEST_MATCH = 0,
@@ -67,6 +86,35 @@ export class LibTreeModelAdapter {
   private availableColumns: string[] = [...LIB_TREE_COLUMNS];
   /** Details-pane HTML for a node (SYMBOL_TREE_MODEL_ADAPTER::GenerateInfo). */
   generateInfo: (node: LibTreeNode) => string = () => '';
+
+  /**
+   * `LIB_TREE_MODEL_ADAPTER::GetValue( …, NAME_COL )`
+   * (`common/lib_tree_model_adapter.cpp`), the text of the Item cell.
+   *
+   * A method rather than a field on the node because upstream computes it on
+   * every paint from state the adapter owns and the model does not — the
+   * Symbol Editor's override asks `LIB_SYMBOL_LIBRARY_MANAGER` whether the row
+   * is dirty and appends " *" (`symbol_tree_synchronizing_adapter.cpp:272-281`).
+   * A flag cached on the node would be a second copy of the manager's answer.
+   *
+   * The pinning mark is NOT here: `LIB_TREE` prepends `GetPinningSymbol()`
+   * itself, and both adapters share that.
+   */
+  nameCell(node: LibTreeNode): string {
+    return node.name;
+  }
+
+  /**
+   * `LIB_TREE_MODEL_ADAPTER::GetAttr( …, NAME_COL )` — how the row is drawn.
+   *
+   * The base answer is upstream's: a derived symbol's name is italic and
+   * nothing else is marked. `SYMBOL_TREE_SYNCHRONIZING_ADAPTER` overrides it
+   * (`:336-397`) to add bold for a modified library or symbol, strikethrough
+   * for whatever is on the canvas, and grey for a library that failed to load.
+   */
+  nodeAttr(node: LibTreeNode, _expanded = false): LibTreeNodeAttr {
+    return { italic: node.type === LibTreeNodeType.ITEM && !node.isRoot };
+  }
 
   getFilter(): LibTreeNodeFilter | null {
     return this.filter;

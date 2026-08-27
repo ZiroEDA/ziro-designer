@@ -8,12 +8,40 @@
  * info generator. Mirrors kicad/common/widgets/lib_tree.cpp (LIB_TREE); the
  * wxDataViewCtrl becomes a scrollable flex list here.
  */
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from 'react';
 import { type LibTreeNode, LibTreeNodeType } from './lib_tree_model.js';
-import { type LibTreeModelAdapter, SortMode, PINNING_SYMBOL } from './lib_tree_model_adapter.js';
+import {
+  type LibTreeModelAdapter,
+  type LibTreeNodeAttr,
+  SortMode,
+  PINNING_SYMBOL,
+} from './lib_tree_model_adapter.js';
 import { SelectColumnsDialog } from './select_columns_dialog.js';
 import { useModalEscape } from '../ui/useModalEscape.js';
 import { bitmapUrl } from '../ui/toolbarIcons.js';
+
+/**
+ * `wxDataViewItemAttr` as CSS. `SetColour( wxSYS_COLOUR_GRAYTEXT )` becomes
+ * the `--ctl-fg-disabled` token rather than a literal: GRAYTEXT is a system
+ * colour, that token is where `shell.css` already keeps it (#929292 on this
+ * machine, measured), and every other greyed thing in the app reads it there.
+ */
+function itemCellStyle(attr: LibTreeNodeAttr): CSSProperties | undefined {
+  const style: CSSProperties = {};
+  if (attr.bold) style.fontWeight = 700;
+  if (attr.italic) style.fontStyle = 'italic';
+  if (attr.strikethrough) style.textDecoration = 'line-through';
+  if (attr.greyed) style.color = 'var(--ctl-fg-disabled)';
+  return Object.keys(style).length > 0 ? style : undefined;
+}
 
 /** LIB_TREE::RECENT_SEARCHES_MAX. */
 const RECENT_SEARCHES_MAX = 10;
@@ -98,6 +126,21 @@ export interface LibTreeProps {
   hasExternalDetails?: boolean;
   /** Libraries to open initially (EESCHEMA_SETTINGS m_LibTree.open_libs). */
   openLibs?: readonly string[];
+  /**
+   * `LIB_TREE::SelectLibId( aLibId )` (`common/widgets/lib_tree.cpp:375-384`),
+   * driven as a prop: whenever this changes, the row it names is found, its
+   * ancestors are expanded and it is selected.
+   *
+   *     wxDataViewItem item = m_adapter->FindItem( aLibId );
+   *     if( item.IsOk() ) m_tree_ctrl->ExpandAncestors( item );
+   *     selectIfValid( item );
+   *
+   * A frame's only way of making the tree follow the canvas —
+   * `SYMBOL_EDIT_FRAME` calls it after every load and after `AddLibraryFile`.
+   * Either half of a LIB_ID: `"Device"` names the library row, `"Device:R"`
+   * the symbol.
+   */
+  selectLibId?: string;
 }
 
 interface Row {
@@ -152,6 +195,7 @@ export function LibTree({
   renderPreview,
   hasExternalDetails = false,
   openLibs,
+  selectLibId,
 }: LibTreeProps): JSX.Element {
   const [search, setSearch] = useState(initialSearch);
   const [sortMode, setSortModeState] = useState<SortMode>(adapter.getSortMode());
@@ -197,6 +241,19 @@ export function LibTree({
     [onSelect],
   );
 
+  /** `m_adapter->FindItem( aLibId )` — the node a LIB_ID names, either half. */
+  const findByLibId = useCallback(
+    (libId: string): LibTreeNode | null => {
+      if (!libId) return null;
+      for (const lib of adapter.tree.children) {
+        if (lib.name === libId) return lib;
+        for (const item of lib.children) if (item.libId === libId) return item;
+      }
+      return null;
+    },
+    [adapter],
+  );
+
   /** ExpandAncestors: make sure the node the adapter picked is reachable. */
   const expandAncestors = useCallback((node: LibTreeNode | null) => {
     if (!node) return;
@@ -237,6 +294,22 @@ export function LibTree({
     if (regenerateNonce > 0) regenerate(search, false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [regenerateNonce]);
+
+  /**
+   * `LIB_TREE::SelectLibId`. Keyed on the prop, not on every render, so a frame
+   * that keeps handing over the same id does not fight the user's own clicks —
+   * upstream calls it once per load, not once per paint. It also re-runs on
+   * `regenerateNonce`, because the node the id names does not exist until the
+   * owner has put it in the adapter.
+   */
+  useEffect(() => {
+    if (!selectLibId) return;
+    const node = findByLibId(selectLibId);
+    if (!node) return;
+    expandAncestors(node);
+    select(node);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectLibId, regenerateNonce]);
 
   /** updateRecentSearchMenu: the current query moves to the head of the list. */
   const updateRecentSearchMenu = useCallback(() => {
@@ -804,18 +877,16 @@ export function LibTree({
                   }
                 }}
               />
-              {/* Names of non-root (derived) symbols are italicised, and a pinned
-                library carries the ☆ mark (GetAttr / GetPinningSymbol). */}
-              <span
-                className="col-item"
-                style={
-                  node.type === LibTreeNodeType.ITEM && !node.isRoot
-                    ? { fontStyle: 'italic' }
-                    : undefined
-                }
-              >
+              {/* The Item cell is `GetValue( …, NAME_COL )` and its face is
+                `GetAttr( …, NAME_COL )` — both the adapter's, because both are
+                computed on every paint from state the adapter owns. The Symbol
+                Editor's synchronizing adapter is the one that has more to say
+                than the base (`symbol_tree_synchronizing_adapter.cpp:249-397`);
+                the italic for a derived symbol is the base answer and reaches
+                the chooser unchanged. The pinning mark is LIB_TREE's own. */}
+              <span className="col-item" style={itemCellStyle(adapter.nodeAttr(node, open))}>
                 {node.pinned ? PINNING_SYMBOL : ''}
-                {node.name}
+                {adapter.nameCell(node)}
               </span>
               {columns.slice(1).map((col) => (
                 <span key={col} className="col-desc">

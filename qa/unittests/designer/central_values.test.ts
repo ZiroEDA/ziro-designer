@@ -180,7 +180,13 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // LAYER_HIDDEN / LAYER_PRIVATE_NOTES / LAYER_FIELDS that matched the Default
   // theme and was WRONG on Classic; they read `theme.*` now. The fifth was the
   // `#888` on an invented empty-canvas hint that upstream does not draw.
-  'editors/symbol': { colours: 7, metrics: 19 },
+  // metrics 19 -> 15: the Libraries pane stopped being a second tree. Four of
+  // the nineteen were the inline rows' own geometry — `padding: 4`,
+  // `paddingLeft: 26`, `marginLeft: 8` and the 16x16 library glyph — and all
+  // four went out with the JSX when `SYMBOL_TREE_PANE`'s one `LIB_TREE` took
+  // over. None was re-sourced from a token; there is simply no local row to
+  // size any more, which is what the shared-widget rule is for.
+  'editors/symbol': { colours: 7, metrics: 15 },
   home: { colours: 7, metrics: 7 },
   mobile: { colours: 15, metrics: 23 },
   // 193 colours is the worst in the tree and 176 of them are rgba(): pcm.css
@@ -580,7 +586,13 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // this tree, and derived a second time from the per-area table -- `ui`
     // 800 -> 797 is the only row that moved, and 1619 - 3 agrees.
     // 1616 -> 1615: the same rebuild. RESCANNED from this tree.
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1615);
+    // 1615 -> 1611: the Symbol Editor's Libraries pane became the shared
+    // `LIB_TREE`; see the editors/symbol row. RESCANNED — and, because this
+    // checkout had a second agent's uncommitted refactor in it at the time,
+    // rescanned in a CLEAN worktree of the commit this branch sat on with only
+    // this change applied, where `editors/symbol` 19 -> 15 is the one row that
+    // moves and 1615 - 4 agrees.
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1611);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {
