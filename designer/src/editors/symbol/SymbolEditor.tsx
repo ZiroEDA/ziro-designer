@@ -97,7 +97,7 @@ import { dispatchMenuHotkey, focusBlocksHotkey } from '../../ui/menu_hotkeys.js'
 import { wasBrowserSuppressed, type FocusLike } from '../../ui/browser_hotkeys.js';
 import { OpenFileDialog } from '../../fs/OpenFileDialog.js';
 import { kicadSymbolLibWildcard } from '../../fs/wildcards.js';
-import { applyToggle, DEFAULT_TOGGLES } from './toggles.js';
+import { applyToggle, DEFAULT_TOGGLES, withSyncPinEdit } from './toggles.js';
 import { deleteSymbolPrompts } from './delete_symbol_prompt.js';
 import { SelectionFilterPanel } from '../../ui/SelectionFilterPanel.js';
 import { symSelectionFilterShown } from '../../ui/selection_filter_panel.js';
@@ -347,6 +347,21 @@ export function SymbolEditor({
     [unit, bodyStyle, toggles],
   );
 
+  /**
+   * `SYMBOL_EDIT_FRAME::SetCurSymbol` (`symbol_edit_frame.cpp:940-985`): adopt a
+   * newly *loaded* symbol (or none) and re-derive the frame state that hangs off
+   * it. Only `m_SyncPinEdit` (:968) does so for us today.
+   *
+   * The distinction this funnel exists to keep is upstream's own: an **edit**
+   * goes through `commit`, which does not call `SetCurSymbol` and so must not
+   * disturb Synchronized Pins mode — `SYMBOL_EDITOR_EDIT_TOOL` recomputes it
+   * only when `UnitsLocked()` itself changed (:1104-1108).
+   */
+  const setCurSymbol = useCallback((next: LibSymbol | null) => {
+    setWorkSymbol(next);
+    setToggles((t) => withSyncPinEdit(t, next));
+  }, []);
+
   /** Commit one undoable edit (SaveCopyInUndoList + OnModify + buffer to the manager). */
   const commit = useCallback(
     (next: LibSymbol, description: string) => {
@@ -407,7 +422,7 @@ export function SymbolEditor({
         const flat = flattenAgainst(sym, lib);
         setCurLib(libName);
         setCurName(symName);
-        setWorkSymbol(flat);
+        setCurSymbol(flat);
         setUnit(1);
         setBodyStyle(1);
         undoStack.current = [];
@@ -427,7 +442,7 @@ export function SymbolEditor({
         setLoading(null);
       }
     },
-    [bump],
+    [bump, setCurSymbol],
   );
 
   // Open the specific library the project manager launched us on, KiCad's
@@ -553,7 +568,7 @@ export function SymbolEditor({
     const orig = manager.current.revertSymbol(curLib, curName);
     if (orig) {
       const lib = manager.current.library(curLib)!;
-      setWorkSymbol(flattenAgainst(orig, lib));
+      setCurSymbol(flattenAgainst(orig, lib));
       // `return LIB_ID( aLibrary, original.GetName() )` — reverting a RENAMED
       // symbol puts the name back, and the frame follows it.
       setCurName(orig.libId);
@@ -561,11 +576,11 @@ export function SymbolEditor({
       redoStack.current = [];
       setSelection(new Set());
     } else {
-      setWorkSymbol(null);
+      setCurSymbol(null);
       setCurName(null);
     }
     bump();
-  }, [curLib, curName, workSymbol, bump]);
+  }, [curLib, curName, workSymbol, bump, setCurSymbol]);
 
   // ----- symbol management (symbol_editor.cpp) --------------------------------------
   const targetLib = treeSel?.lib ?? curLib;
@@ -682,12 +697,12 @@ export function SymbolEditor({
       }
       manager.current.removeSymbol(libName, symName);
       if (curLib === libName && curName === symName) {
-        setWorkSymbol(null);
+        setCurSymbol(null);
         setCurName(null);
       }
       bump();
     },
-    [curLib, curName, bump],
+    [curLib, curName, bump, setCurSymbol],
   );
 
   /** DuplicateSymbol: insert a copy with a unique name next to the source. */
@@ -833,6 +848,12 @@ export function SymbolEditor({
         case 'zoomFit':
           controller.current?.zoomToFit();
           break;
+        // `ACTIONS::zoomTool` is AF_ACTIVATE: the button ARMS `ZOOM_TOOL`, it
+        // does not zoom on click. The drag that follows is the tool
+        // (`common/tool/zoom_tool.cpp`), and it stays armed afterwards.
+        case 'zoomTool':
+          onToolSelect('zoomTool');
+          break;
         case 'rotateCCW':
           rotateSel(true);
           break;
@@ -881,6 +902,7 @@ export function SymbolEditor({
       curLib,
       onAddSymbolToSchematic,
       showDatasheet,
+      onToolSelect,
     ],
   );
 
@@ -1534,6 +1556,9 @@ export function SymbolEditor({
         case 'zoomRedraw':
           controller.current?.zoomToFit();
           break;
+        case 'zoomTool':
+          onToolSelect('zoomTool');
+          break;
         case 'showDatasheet':
           showDatasheet();
           break;
@@ -1561,6 +1586,7 @@ export function SymbolEditor({
       isAlias,
       commit,
       showDatasheet,
+      onToolSelect,
     ],
   );
 
@@ -1814,6 +1840,14 @@ export function SymbolEditor({
         entries={SYM_TOP_TOOLBAR}
         orientation="horizontal"
         toggled={toggles}
+        // `CHECK( cond.CurrentTool( ACTIONS::zoomTool ) )`
+        // (`symbol_edit_frame.cpp:561`), which is the ONE check on this bar
+        // that is about the armed tool rather than a frame flag — Zoom to
+        // Selection Area stays lit while `ZOOM_TOOL` is running. `Toolbar`
+        // already reads `activeTool` for exactly this; the bar was simply not
+        // being handed it, so the button armed the tool and painted flat.
+        // No other top-bar id can collide: the drawing tools are on the right.
+        activeTool={activeTool}
         onActivate={onTopAction}
         disabledIds={topDisabled}
         controls={{

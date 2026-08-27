@@ -63,6 +63,10 @@ export const BITMAP: Record<string, string> = {
   drawBezier: 'add_bezier',
   placeImage: 'image',
   drawTextBox: 'add_textbox',
+  // `SCH_ACTIONS::drawSymbolTextBox` — a DIFFERENT action from the schematic's
+  // `drawTextBox`, with its own id here (they are dispatched separately), but
+  // the same `.Icon( BITMAPS::add_textbox )` (`eeschema/tools/sch_actions.cpp:401`).
+  drawSymbolTextBox: 'add_textbox',
   drawTable: 'table',
   dimAligned: 'add_aligned_dimension',
   dimOrthogonal: 'add_orthogonal_dimension',
@@ -101,6 +105,11 @@ export const BITMAP: Record<string, string> = {
   new: 'new_generic',
   open: 'directory_open',
   save: 'save',
+  // `ACTIONS::saveAll` — `.Icon( BITMAPS::save_all )` (`common/tool/actions.cpp:118`).
+  // Missing here, so `toolbarIconUrl` returned undefined and the Symbol Editor's
+  // Save All button (`toolbars_symbol_editor.cpp:112`) painted the empty-box
+  // placeholder where KiCad shows two stacked floppies.
+  saveAll: 'save_all',
   schematicSetup: 'options_schematic',
   pageSettings: 'sheetset',
   print: 'print_button',

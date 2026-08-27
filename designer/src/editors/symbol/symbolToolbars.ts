@@ -101,6 +101,10 @@ export const SYM_TOOL_MSGS: Record<string, string> = {
   drawPolygon: 'Draw Polygons',
   placeAnchor: 'Move Symbol Anchor',
   deleteTool: 'Interactive Delete Tool',
+  // `ACTIONS::zoomTool`'s FriendlyName (`common/tool/actions.cpp:822`).
+  // `ZOOM_TOOL::Main` opens with `m_frame->PushTool( aEvent )`, so the field
+  // fills in for it exactly as it does for a drawing tool.
+  zoomTool: 'Zoom to Selection Area',
 };
 
 /** Top horizontal toolbar (ReCreateHToolbar). */
@@ -127,7 +131,13 @@ export const SYM_TOP_TOOLBAR: ToolEntry[] = [
   { id: 'zoomIn', icon: 'zoomIn', title: 'Zoom in' },
   { id: 'zoomOut', icon: 'zoomOut', title: 'Zoom out' },
   { id: 'zoomFit', icon: 'zoomFit', title: 'Zoom to fit symbol' },
-  { id: 'zoomTool', icon: 'zoomTool', title: 'Zoom to Selection Area', disabled: true },
+  // `ACTIONS::zoomTool` gets no `ENABLE` in `setupUIConditions` at all — only
+  // `CHECK( cond.CurrentTool( ACTIONS::zoomTool ) )` (`symbol_edit_frame.cpp:561`)
+  // — so it is live on a cold frame, and `SYMBOL_EDIT_FRAME` registers the tool
+  // itself (`RegisterTool( new ZOOM_TOOL )`, :425). This button carried a static
+  // `disabled: true`; the drag now runs off `ui/zoom_tool.ts`, the shared module
+  // the drawing sheet and GerbView canvases already use.
+  { id: 'zoomTool', icon: 'zoomTool', title: 'Zoom to Selection Area' },
   sep,
   { id: 'rotateCCW', icon: 'rotateCCW', title: 'Rotate counterclockwise' },
   { id: 'rotateCW', icon: 'rotateCW', title: 'Rotate clockwise' },

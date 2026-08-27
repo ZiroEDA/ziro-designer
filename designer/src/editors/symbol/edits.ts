@@ -107,6 +107,19 @@ export function hasAlternateBodyStyle(sym: LibSymbol): boolean {
   return sym.units.some((u) => u.bodyStyle > 1);
 }
 
+/**
+ * `LIB_SYMBOL::UnitsLocked()` — the units are NOT interchangeable.
+ *
+ * Serialised as the `ki_locked` user field
+ * (`sch_io_kicad_sexpr_lib_cache.cpp:466-474`), which is where we read it.
+ * It lives here, beside `unitCount`, because two callers need the same answer:
+ * `multiUnitModeCond` in `conditions.ts` (:609-613) and `m_SyncPinEdit` in
+ * `toggles.ts` (:968). A second copy is how the two drift apart.
+ */
+export function unitsLocked(sym: LibSymbol): boolean {
+  return sym.properties.some((f) => f.key === 'ki_locked');
+}
+
 /** All pins visible for a unit/body-style view. */
 export function pinsShown(
   sym: LibSymbol,

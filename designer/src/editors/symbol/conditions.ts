@@ -55,7 +55,7 @@
  */
 
 import type { LibSymbol } from '@ziroeda/eeschema/src/types.js';
-import { hasAlternateBodyStyle, unitCount } from './edits.js';
+import { hasAlternateBodyStyle, unitCount, unitsLocked } from './edits.js';
 import type { ToolEntry } from '../../ui/toolbar_types.js';
 
 /** The two halves of a `LIB_ID`, as `GetLibNickname()` / `GetLibItemName()`. */
@@ -147,12 +147,6 @@ export interface SymbolConditions {
   multiBodyStyle: boolean;
   /** `haveDatasheetCond` (:627-631) — the Datasheet field's text is not empty. */
   haveDatasheet: boolean;
-}
-
-/** `LIB_SYMBOL::UnitsLocked()`. Serialised as the `ki_locked` user field
- *  (`sch_io_kicad_sexpr_lib_cache.cpp:466-474`), which is where we read it. */
-function unitsLocked(sym: LibSymbol): boolean {
-  return sym.properties.some((f) => f.key === 'ki_locked');
 }
 
 /** `LIB_SYMBOL::GetDatasheetField().GetText()`. */

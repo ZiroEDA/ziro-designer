@@ -707,6 +707,7 @@ describe('the menu bar reads the table', () => {
       'Save',
       'Symbol Checker',
       'Refresh',
+      'Zoom to Selection Area',
       'Revert',
       'Undo',
       'Delete',
@@ -730,6 +731,12 @@ describe('the menu bar reads the table', () => {
       // View button beside it was already live and working while this row was
       // a permanently greyed stub.
       Refresh: true,
+      // `ACTIONS::zoomTool`: CHECK-only at :561, no ENABLE, and
+      // `SYMBOL_EDIT_FRAME` registers `ZOOM_TOOL` itself (:425). Same shape as
+      // Refresh above — a permanently greyed stub here while its own toolbar
+      // button sat greyed too, so BOTH surfaces were wrong and neither one
+      // could point at the other.
+      'Zoom to Selection Area': true,
       // Everything else is gated and the frame is cold.
       Revert: false,
       Undo: false,

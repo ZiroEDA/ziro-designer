@@ -270,7 +270,10 @@ export function symbolEditorMenus(
         act('Zoom Out', 'zoomOutCenter'),
         // actions.cpp:717 — WXK_HOME. (Ctrl+0 is nowhere in this action.)
         act('Zoom to Fit', 'zoomFitScreen', { shortcut: 'Home' }),
-        stub('Zoom to Selection Area', 'zoomTool', { shortcut: 'Ctrl+F5' }),
+        // `ACTIONS::zoomTool` gets no SetConditions either, and the tool it
+        // arms is now wired (`ZOOM_TOOL`, registered at :425 upstream and run
+        // out of `ui/zoom_tool.ts` here), so the row is live like Refresh below.
+        act('Zoom to Selection Area', 'zoomTool', { shortcut: 'Ctrl+F5' }),
         // actions.cpp:705 — WXK_F5, not Ctrl+R. `ACTIONS::zoomRedraw` gets no
         // SetConditions, so the row is live; it was a `stub` here while the
         // top toolbar's Redraw View button — the same action, the same id —
