@@ -31,7 +31,6 @@ import {
   replaceSheet,
   replaceTable,
   replaceTextBox,
-  setSymbolsLockedCommand,
 } from './mutate.js';
 import { moveItems } from './move.js';
 import { parseSheetPinId } from './sch_sheet_pin_tool.js';
@@ -106,12 +105,49 @@ const chain = (label: string, cmds: EditCommand[]): EditCommand => ({
   },
 });
 
+/**
+ * `SYMBOL::SetShowPinNumbers` / `SetShowPinNames`.
+ *
+ * SCH_SYMBOL does not store either flag: both getters and both setters forward
+ * to the LIB_SYMBOL it owns a copy of (sch_symbol.cpp:3529-3552), so the write
+ * lands on the sheet's cached definition and only on the one this placement
+ * uses — hiding one symbol's pin numbers must not change every other use of the
+ * same part. The same write the Symbol Properties dialog makes.
+ */
+function setPinTextHidden(
+  libId: string,
+  which: 'pinNumbersHidden' | 'pinNamesHidden',
+  hidden: boolean,
+): EditCommand {
+  return {
+    label: which === 'pinNumbersHidden' ? 'Show Pin Numbers' : 'Show Pin Names',
+    apply: (doc) => ({
+      ...doc,
+      libSymbols: doc.libSymbols.map((l) => (l.libId === libId ? { ...l, [which]: hidden } : l)),
+    }),
+    invert: (before) => {
+      const prev = before.libSymbols.find((l) => l.libId === libId);
+      return setPinTextHidden(libId, which, prev ? prev[which] : false);
+    },
+  };
+}
+
+/**
+ * The property names SCH_SYMBOL registers itself, in the "Fields" group
+ * (sch_symbol.cpp SCH_SYMBOL_DESC). `SCH_PROPERTIES_PANEL::rebuildProperties`
+ * adds a SCH_SYMBOL_FIELD_PROPERTY for a field only when the property manager
+ * does not already have one under that name, so a field called "Value" is
+ * served by the static row and never doubled.
+ */
+const SYMBOL_STATIC_FIELD_ROWS = ['Reference', 'Value'];
+
 function symbolRows(sch: Schematic, libById: Map<string, LibSymbol>, index: number): PropRow[] {
   const s = sch.symbols[index]!;
   const id = refId('symbol', s.uuid, index);
   const ids = new Set([id]);
   const field = (key: string): string => s.fields.find((f) => f.key === key)?.value ?? '';
-  const lib = libById.get(schSymbolLibraryName(s));
+  const libName = schSymbolLibraryName(s);
+  const lib = libById.get(libName);
   const patch = (label: string, p: Partial<SchSymbol>): EditCommand => ({
     label,
     apply: (doc) => ({
@@ -126,7 +162,37 @@ function symbolRows(sch: Schematic, libById: Map<string, LibSymbol>, index: numb
     },
   });
 
-  const rows: PropRow[] = [
+  const rows: PropRow[] = [];
+
+  // "Pin numbers" and "Pin names" come FIRST, and they are not SCH_SYMBOL's own
+  // properties: they are registered on the SYMBOL base class, and
+  // CLASS_DESC::collectPropsRecur gives a base class's properties display
+  // indices BELOW the subclass's (`displayOrderStart = firstSoFar -
+  // m_ownProperties.size()`, property_mgr.cpp:369), so an inherited property
+  // sorts ahead of an own one inside the same group.
+  //
+  // Both carry `.SetAvailableFunc( hasLibPart )`, so they are absent — not
+  // greyed — when the placement resolves to no cached definition.
+  if (lib) {
+    rows.push(
+      {
+        group: '',
+        name: 'Pin numbers',
+        kind: 'bool',
+        value: !lib.pinNumbersHidden,
+        set: (v) => setPinTextHidden(libName, 'pinNumbersHidden', !v),
+      },
+      {
+        group: '',
+        name: 'Pin names',
+        kind: 'bool',
+        value: !lib.pinNamesHidden,
+        set: (v) => setPinTextHidden(libName, 'pinNamesHidden', !v),
+      },
+    );
+  }
+
+  rows.push(
     ...positionRows(id, s.at),
     {
       group: '',
@@ -160,13 +226,27 @@ function symbolRows(sch: Schematic, libById: Map<string, LibSymbol>, index: numb
       value: s.mirror === 'y',
       set: () => transformItems(ids, 'mirrorY'),
     },
-    {
+  );
+
+  // "Unit" is registered after the Fields group's properties but without a
+  // group of its own, so it lands at the END of Basic Properties rather than
+  // beside Mirror Y. Multi-unit symbols only (`.SetAvailableFunc( multiUnit )`).
+  const units = lib ? new Set(lib.units.map((u) => u.unit).filter((u) => u > 0)).size : 1;
+  if (units > 1) {
+    rows.push({
       group: '',
-      name: 'Locked',
-      kind: 'bool',
-      value: !!s.locked,
-      set: () => setSymbolsLockedCommand(ids, 'toggle'),
-    },
+      name: 'Unit',
+      kind: 'int',
+      value: s.unit,
+      set: (v) => {
+        const n = num(v);
+        if (n === null || n < 1 || n > units || n === s.unit) return null;
+        return patch('Change Unit', { unit: n });
+      },
+    });
+  }
+
+  rows.push(
     {
       group: 'Fields',
       name: 'Reference',
@@ -181,6 +261,7 @@ function symbolRows(sch: Schematic, libById: Map<string, LibSymbol>, index: numb
       value: field('Value'),
       set: (v) => bulkEditFieldsCommand(new Map([[id, { Value: String(v) }]])),
     },
+    // NO_SETTER on all three (sch_symbol.cpp), so read-only.
     { group: 'Fields', name: 'Library Link', kind: 'string', value: s.libId },
     {
       group: 'Fields',
@@ -194,20 +275,24 @@ function symbolRows(sch: Schematic, libById: Map<string, LibSymbol>, index: numb
       kind: 'string',
       value: lib?.properties.find((f) => f.key === 'ki_keywords')?.value ?? '',
     },
-  ];
+  );
 
-  const units = lib ? new Set(lib.units.map((u) => u.unit).filter((u) => u > 0)).size : 1;
-  if (units > 1) {
+  // The symbol's own fields, as SCH_SYMBOL_FIELD_PROPERTY
+  // (sch_properties_panel.cpp:57-128). Private fields are skipped
+  // (`if( field.IsPrivate() ) continue;`), and the names are collected into a
+  // std::set, so they are registered — and so ordered — alphabetically, after
+  // every property SCH_SYMBOL declares statically.
+  for (const f of [...s.fields].sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0))) {
+    if (f.isPrivate) continue;
+    if (SYMBOL_STATIC_FIELD_ROWS.includes(f.key)) continue;
+    const key = f.key;
     rows.push({
-      group: '',
-      name: 'Unit',
-      kind: 'int',
-      value: s.unit,
-      set: (v) => {
-        const n = num(v);
-        if (n === null || n < 1 || n > units || n === s.unit) return null;
-        return patch('Change Unit', { unit: n });
-      },
+      group: 'Fields',
+      name: key,
+      kind: 'string',
+      value: f.value,
+      set: (v) =>
+        String(v) === f.value ? null : bulkEditFieldsCommand(new Map([[id, { [key]: String(v) }]])),
     });
   }
 
@@ -232,6 +317,13 @@ function symbolRows(sch: Schematic, libById: Map<string, LibSymbol>, index: numb
       kind: 'bool',
       value: !s.onBoard,
       set: (v) => patch('Toggle Exclude From Board', { onBoard: !v }),
+    },
+    {
+      group: 'Attributes',
+      name: 'Exclude From Position Files',
+      kind: 'bool',
+      value: !!s.excludedFromPosFiles,
+      set: (v) => patch('Toggle Exclude From Position Files', { excludedFromPosFiles: !!v }),
     },
     {
       group: 'Attributes',
@@ -537,6 +629,84 @@ function pinRows(sch: Schematic, libById: Map<string, LibSymbol>, id: string): P
     }
   }
   return [];
+}
+
+/**
+ * `EDA_ITEM::GetFriendlyName()` — the item's TYPE, which
+ * `PROPERTIES_PANEL::rebuildProperties` puts in the panel's caption when
+ * exactly one item is selected (properties_panel.cpp:201).
+ *
+ * The default (`EDA_ITEM::GetFriendlyName` -> `GetTypeDesc`) reads the string
+ * out of `ENUM_MAP<KICAD_T>` in `EDA_ITEM_DESC` (common/eda_item.cpp:474-495),
+ * which is why a shape is "Graphic" and a no-connect is "No-Connect Flag" and
+ * not what either class is called. The overrides are per-class:
+ * SCH_LINE picks by layer (sch_line.cpp), and the four label classes, SCH_FIELD,
+ * SCH_PIN, SCH_TEXT and SCH_SHEET_PIN each return a literal.
+ */
+export function schItemFriendlyName(sch: Schematic, ref: ItemRef): string {
+  const indexOf = <T>(arr: readonly T[], uuid: (t: T, i: number) => string): number => {
+    for (let i = 0; i < arr.length; i++) if (uuid(arr[i]!, i) === ref.id) return i;
+    return -1;
+  };
+  switch (ref.kind) {
+    case 'symbol':
+      return 'Symbol';
+    case 'field':
+      return 'Field';
+    case 'pin':
+      return 'Pin';
+    case 'sheet':
+      return 'Sheet';
+    case 'sheetpin':
+      return 'Sheet Pin';
+    case 'junction':
+      return 'Junction';
+    case 'noconnect':
+      return 'No-Connect Flag';
+    case 'image':
+      return 'Bitmap';
+    case 'textbox':
+      return 'Text Box';
+    case 'table':
+      return 'Table';
+    case 'tablecell':
+      return 'Table Cell';
+    case 'directive':
+      return 'Directive Label';
+    case 'busentry': {
+      // SCH_BUS_WIRE_ENTRY_T -> "Wire Entry", SCH_BUS_BUS_ENTRY_T -> "Bus
+      // Entry". We model both as one item, so the bus case is not
+      // distinguishable here and takes the wire name.
+      return 'Wire Entry';
+    }
+    case 'line': {
+      const i = indexOf(sch.lines, (t, k) => refId('line', t.uuid, k));
+      const kind = i < 0 ? undefined : sch.lines[i]!.kind;
+      return kind === 'wire' ? 'Wire' : kind === 'bus' ? 'Bus' : 'Graphic Line';
+    }
+    case 'label': {
+      const i = indexOf(sch.labels, (t, k) => refId('label', t.uuid, k));
+      switch (i < 0 ? undefined : sch.labels[i]!.kind) {
+        case 'global_label':
+          return 'Global Label';
+        case 'hierarchical_label':
+          return 'Hierarchical Label';
+        // SCH_TEXT, whose GetFriendlyName is _( "Text" ) (sch_text.h:57).
+        case 'text':
+          return 'Text';
+        default:
+          return 'Label';
+      }
+    }
+    case 'graphic': {
+      const i = indexOf(sch.graphics, (_t, k) => refId('graphic', undefined, k));
+      const g = i < 0 ? undefined : sch.graphics[i]!;
+      // A rule area is SCH_RULE_AREA, whose GetFriendlyName overrides
+      // "Graphic" (sch_rule_area.cpp:63).
+      if (g && g.kind === 'rectangle' && g.ruleArea) return 'Rule Area';
+      return g?.kind === 'text' ? 'Text' : 'Graphic';
+    }
+  }
 }
 
 export function schPropertiesFor(

@@ -255,6 +255,7 @@ import {
   describeItem,
   itemRefById,
   schPropertiesFor,
+  schItemFriendlyName,
   type PropRow,
   getMsgPanelItems,
   type MsgPanelItem,
@@ -7796,6 +7797,14 @@ export function SchematicEditor({
     return ref ? schPropertiesFor(doc, libById, ref) : [];
   }, [doc, selection, libById]);
 
+  // `PROPERTIES_PANEL::rebuildProperties` captions a single selection with
+  // `aSelection.Front()->GetFriendlyName()` — the item's TYPE.
+  const propFriendlyName = useMemo<string | undefined>(() => {
+    if (!doc || selection.size !== 1) return undefined;
+    const ref = itemRefById(doc, [...selection][0]!);
+    return ref ? schItemFriendlyName(doc, ref) : undefined;
+  }, [doc, selection]);
+
   // Existing net/label names for the label dialog's completion list
   // (DIALOG_LABEL_PROPERTIES pre-loads its combo with the sheet's net names).
   /** The combo is loaded with the existing labels *of the same type* across the
@@ -8174,20 +8183,18 @@ export function SchematicEditor({
                               </button>
                             </div>
                             <div className="ze-panel-body">
-                              {propRows.length > 0 ? (
-                                <SchPropertiesPanel
-                                  rows={propRows}
-                                  fmt={(iu) => fmt(iu)}
-                                  parse={parseDist}
-                                  onCommand={runCommand}
-                                />
-                              ) : (
-                                <div className="ze-muted">
-                                  {selection.size === 0
-                                    ? 'No objects selected'
-                                    : `${selection.size} item(s) selected`}
-                                </div>
-                              )}
+                              {/* The empty and multi-selection captions are
+                                  PROPERTIES_PANEL's own (properties_panel.cpp:
+                                  196-210), so the panel renders them rather
+                                  than the frame swapping in a placeholder. */}
+                              <SchPropertiesPanel
+                                rows={propRows}
+                                selectionCount={selection.size}
+                                friendlyName={propFriendlyName}
+                                fmt={(iu) => fmt(iu)}
+                                parse={parseDist}
+                                onCommand={runCommand}
+                              />
                             </div>
                           </div>
                           {sashAfter('properties')}

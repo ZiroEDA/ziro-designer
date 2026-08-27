@@ -1,0 +1,214 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later
+   Copyright (C) 2026 ZiroEDA and contributors.
+   Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
+
+   PROPERTIES_PANEL (common/widgets/properties_panel.cpp) - the docked
+   Properties pane every design editor shares. It is a wxPanel holding a
+   wxStaticText caption and a wxPropertyGrid, and KiCad states almost nothing
+   about how either looks: the caption is added with `wxALL | wxEXPAND, 5`,
+   the panel font is KIUI::GetDockedPaneFont (on GTK the plain
+   wxSYS_DEFAULT_GUI_FONT), and every metric below that is wxPropertyGrid's.
+
+   So the numbers here were MEASURED, by `qa/probes/propgrid_probe.cpp`, which
+   builds that panel with wxWidgets and asks it - the same call KiCad makes, on
+   this machine, with this theme. They are corroborated by a live eeschema
+   capture of the same pane, which shares no arithmetic with the probe.
+
+   Everything the theme decides is taken from the tokens in ui/shell.css rather
+   than restated. This file states ONLY what wxPropertyGrid itself decides. */
+
+/* The panel IS the docked pane's content: `EDA_PANE().Palette()` gives the AUI
+   pane no inner border, and the caption's own 5px is the only inset there is.
+   The same rule ui/shell.css already states for PANEL_SCH_SELECTION_FILTER,
+   which is a pane-filling widget for the same reason. */
+.ze-panel-body:has(> .ze-pgrid-panel) {
+  padding: 0;
+  overflow: hidden;
+}
+
+.ze-pgrid-panel {
+  /* PROPERTIES_PANEL is a wxPanel: its face is wxSYS_COLOUR_3DFACE, not the
+     docked-pane body colour. The caption strip really is one step lighter than
+     the grid under it, and both were flat --panel-bg here before. */
+  background: var(--content-bg);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  /* No font is stated on purpose. KiCad's SetFont( GetDockedPaneFont( this ) )
+     is, off macOS, getGUIFont( win, 0 ) - the same wxSYS_DEFAULT_GUI_FONT the
+     rest of the shell already inherits from --ui-font-size / --ui-font-family.
+     Restating it here is the specificity trap CLAUDE.md names: a local rule
+     that happens to agree today and silently stops tracking the token. */
+}
+
+/* `m_caption`, a wxStaticText holding EDA_ITEM::GetFriendlyName() for a single
+   selection, "No objects selected", or "%d objects selected"
+   (properties_panel.cpp:82, 196-210). Added to the panel sizer with
+   `wxALL | wxEXPAND, 5`, and [px] its best height is 18 - so the strip is
+   5 + 18 + 5 = 28, which is exactly the band a live capture measures. */
+.ze-pgrid-caption {
+  padding: 5px;
+  /* wxSYS_COLOUR_BTNTEXT, the text ON a widget rather than inside a view. */
+  color: var(--chrome-fg);
+  line-height: var(--ui-line-height);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+
+/* The wxPropertyGrid itself. */
+.ze-pgrid {
+  /* [px] GetCellBackgroundColour() = #272727 = wxSYS_COLOUR_WINDOW. */
+  background: var(--panel-bg);
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  /* wxPropertyGrid draws a value as TEXT and only builds an editor control
+     when the cell is activated, so the grid is not a form and its text is not
+     selectable the way a document's is. */
+  user-select: none;
+
+  /* [px] GetRowHeight() = 25, uniform for a category and for a property. A
+     capture of the live pane confirms the pitch: 24 rows of cell then one row
+     of line, repeating. */
+  --pgrid-row-height: 25px;
+  /* [px] GetMarginWidth() = 15. The gutter down the left that the category
+     twisty is drawn in; it is painted GetMarginColour(), not the cell colour. */
+  --pgrid-margin-width: 15px;
+  /* wxPG_XBEFORETEXT, the gap between a column's edge and its text.
+     propgriddefs.h states it per platform and the __WXGTK__ block says 5;
+     a capture agrees, label and value ink both starting 5px into their cell. */
+  --pgrid-text-inset: 5px;
+  /* `m_grid->CenterSplitter()` (properties_panel.cpp:126) and
+     RecalculateSplitterPos(): with no dragged proportion stored the name/value
+     split sits at half the grid's width. */
+  --pgrid-splitter: 50%;
+}
+
+.ze-pgrid-row,
+.ze-pgrid-cat {
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  height: var(--pgrid-row-height);
+  /* [px] GetLineColour() = #373737. It is the same colour as the margin and
+     the category bar, which is why a category reads as an unbroken band. */
+  border-bottom: 1px solid var(--content-bg);
+}
+
+/* A wxPropertyCategory. It spans the whole width - no splitter is drawn on it -
+   and takes GetCaptionBackgroundColour() / GetCaptionForegroundColour(). The
+   caption font is the grid font made bold, which is wxPropertyGrid's own
+   `m_captionFont` rather than anything KiCad asks for. */
+.ze-pgrid-cat {
+  background: var(--content-bg);
+  color: var(--chrome-fg);
+  font-weight: bold;
+  cursor: default;
+}
+
+.ze-pgrid-cat-label {
+  padding-left: var(--pgrid-text-inset);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The expander wxRendererNative draws for a category. wxPG_ICON_WIDTH is 9 in
+   the __WXGTK__ block, and it sits at the left of the 15px margin. */
+.ze-pgrid-twisty {
+  flex: 0 0 var(--pgrid-margin-width);
+  position: relative;
+  align-self: stretch;
+}
+.ze-pgrid-twisty::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 9px;
+  height: 9px;
+  border-top: 1.5px solid var(--chrome-fg);
+  border-right: 1.5px solid var(--chrome-fg);
+  transform: translate(0, -70%) rotate(135deg);
+}
+.ze-pgrid-twisty:not(.open)::before {
+  transform: translate(0, -50%) rotate(45deg);
+}
+
+/* A property row: margin gutter, name cell, splitter, value cell. */
+.ze-pgrid-margin {
+  flex: 0 0 var(--pgrid-margin-width);
+  align-self: stretch;
+  /* [px] GetMarginColour() = #373737. */
+  background: var(--content-bg);
+}
+
+.ze-pgrid-name {
+  flex: 0 0 calc(var(--pgrid-splitter) - var(--pgrid-margin-width));
+  min-width: 0;
+  padding-left: var(--pgrid-text-inset);
+  box-sizing: border-box;
+  /* [px] GetCellTextColour() = #ffffff = wxSYS_COLOUR_WINDOWTEXT. A name cell
+     is not greyed when the property is read-only - PG_CELL_RENDERER::Render
+     only swaps the foreground for `aColumn > 0`. */
+  color: var(--view-fg);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ze-pgrid-value {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  padding-left: var(--pgrid-text-inset);
+  box-sizing: border-box;
+  color: var(--view-fg);
+  /* The splitter. One pixel, in the line colour, and it is the ONLY rule on a
+     value cell: wxPropertyGrid draws no box round a value. */
+  border-left: 1px solid var(--content-bg);
+  overflow: hidden;
+}
+
+.ze-pgrid-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* PG_CELL_RENDERER::Render (common/properties/pg_cell_renderer.cpp:60-70):
+   a read-only property's VALUE is drawn in GetCellDisabledTextColour(), which
+   properties_panel.cpp:118 sets to wxSYS_COLOUR_GRAYTEXT. */
+.ze-pgrid-row[data-readonly] .ze-pgrid-value {
+  color: var(--ctl-fg-disabled);
+}
+
+/* PGPROPERTY_BOOL uses PG_CHECKBOX_EDITOR, and a checkbox editor's DrawValue
+   paints the box whether or not the cell is active - so a bool row shows a
+   real checkbox at rest while every other kind shows text. [px] the box
+   measures 16 across in a live capture, which is --check-size. */
+.ze-pgrid-check {
+  width: var(--check-size);
+  height: var(--check-size);
+  margin: 0;
+  flex: 0 0 auto;
+}
+
+/* The editor wxPropertyGrid builds when a cell is ACTIVATED - a wxTextCtrl
+   from GenerateEditorTextCtrl, or the combo an enum property makes. Its
+   chrome is an entry's and a combo's, which ui/shell.css already states once
+   for every control in the app; the only thing the GRID decides is that the
+   control is positioned over the cell, so that is all this rule says. */
+.ze-pgrid-editor {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  height: 100%;
+  margin-left: calc(-1 * var(--pgrid-text-inset));
+  font: inherit;
+}
