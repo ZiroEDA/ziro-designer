@@ -1497,7 +1497,19 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     if (pastePending && cursorRef.current) {
       const c = snap(cursorRef.current);
       const delta = { x: c.x - pastePending.refPoint.x, y: c.y - pastePending.refPoint.y };
-      doc = pasteItems(translatePayload(pastePending, delta)).apply(doc);
+      const riding = translatePayload(pastePending, delta);
+      doc = pasteItems(riding).apply(doc);
+      // Drawn SELECTED while it rides, like every other rider. Paste ends by
+      // taking the pasted items into the selection and moving them, which is
+      // what Ctrl+D inherits — `Duplicate` is `doCopy( true ); Paste( aEvent );`
+      // (sch_editor_control.cpp:1797-1803) — so the new copy is the highlighted
+      // thing from the moment it appears, not from the moment it is dropped.
+      // `refId` is the uuid itself wherever one exists (hittest.ts:314-316),
+      // which is why the drop path below can add bare uuids and why these match.
+      for (const s of riding.batch.symbols) if (s.uuid) ghostIds.add(s.uuid);
+      for (const l of riding.batch.lines) if (l.uuid) ghostIds.add(l.uuid);
+      for (const j of riding.batch.junctions) if (j.uuid) ghostIds.add(j.uuid);
+      for (const l of riding.batch.labels) if (l.uuid) ghostIds.add(l.uuid);
       ghosting = true;
     }
     // Ghost: an image chosen in the editor follows the cursor until clicked.
@@ -3037,6 +3049,19 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
           // the same order, `annotate()` then `AutoplaceFields`.
           const placed = onAutoplacePlacement ? onAutoplacePlacement(ready, placeLib, true) : ready;
           onCommand(placeSymbolInstance(placeLib, placed));
+          // ...and it STAYS selected once dropped. `addSymbol` put the symbol in
+          // the selection when it went on the cursor, and the drop branch does
+          // not take it back out: it clears the PREVIEW
+          // (`m_view->ClearPreview()`), adds the item to the screen and pushes
+          // the commit, and nothing there runs `selectionClear`
+          // (sch_drawing_tools.cpp:494-511). So the symbol you just placed is
+          // the selection until you click elsewhere or press Escape.
+          //
+          // Ours dropped it into the document and left the selection empty, so
+          // the highlight vanished the instant the click landed. `placeCmd`
+          // appends, so the new symbol takes the next index. This is the same
+          // thing the label and directive drops above already do.
+          onSelect(refId('symbol', placed.uuid, schematic.symbols.length), false);
           // The editor steps to the next unit, keeps placing copies, or
           // reopens the chooser (sch_drawing_tools.cpp after commit.Push).
           onSymbolPlaced?.();

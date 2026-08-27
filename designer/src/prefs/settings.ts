@@ -464,7 +464,19 @@ export const EESCHEMA_DEFAULTS: EeschemaSettings = {
       min_spacing: 10,
       snap: 0,
       show: true,
-      overrides_enabled: false,
+      // `true`, and in BOTH arms of the per-editor split: APP_SETTINGS_BASE
+      // gives eeschema/symbol_editor and everything else the same default for
+      // this one (app_settings.cpp:497-498 and :523-524), and only
+      // `override_connected` and `override_graphics_idx` differ between them.
+      // So it is editor-independent, which is why it can live in this one
+      // shared grid block.
+      //
+      // Ours defaulted it false, which is why the schematic's grid-overrides
+      // toolbar button opened unlit where a real eeschema shows it lit — the
+      // button is one of the two that genuinely IS a toggle
+      // (ACTIONS::toggleGridOverrides declares TOOLBAR_STATE::TOGGLE), so the
+      // wrong default reads as the wrong button state.
+      overrides_enabled: true,
       overrides: {
         connected: { enabled: false, size: '50 mil' },
         wires: { enabled: false, size: '50 mil' },

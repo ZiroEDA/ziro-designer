@@ -873,6 +873,21 @@ export function SchematicEditor({
   const setPlaceLib = useCallback((lib: LibSymbol | null) => {
     setPlaceLibOnly(lib);
     setPlaceInstance(null);
+    // `addSymbol`'s first line, when the symbol goes ON the cursor:
+    //
+    //     m_toolMgr->RunAction( ACTIONS::selectionClear );
+    //     m_selectionTool->AddItemToSel( aSymbol );
+    //
+    // This is NOT what unhighlights the previous symbol when you open the
+    // chooser — the click branch already cleared it before the dialog went up
+    // (see `chooserOpen` below), so by the time a pick gets here there is
+    // nothing left to clear. It is the operative one on the paths that attach
+    // a symbol WITHOUT a chooser: Place Next Symbol Unit, and the repeated
+    // copies of "Place all units" / KeepSymbol.
+    //
+    // Only on attach: `setPlaceLib( null )` is the abandon path, and Escape's
+    // own cleanup() clears the selection there.
+    if (lib) setSelection(new Set());
   }, []);
   // Unit attached to the cursor, and the chooser's checkbox state driving the
   // after-placement continuation (KeepSymbol / PlaceAllUnits stepping).
@@ -1246,7 +1261,32 @@ export function SchematicEditor({
   // The symbol whose properties dialog is open (its refId), or null.
   const [propsTarget, setPropsTarget] = useState<string | null>(null);
   // Items parsed from the clipboard, attached to the cursor until dropped.
-  const [pastePending, setPastePending] = useState<PastePayload | null>(null);
+  const [pastePending, setPastePendingOnly] = useState<PastePayload | null>(null);
+  /**
+   * Attaching a paste clears the selection, so the items it came from go dark.
+   *
+   * Ctrl+D is not its own operation upstream — it IS a paste:
+   *
+   *     int SCH_EDITOR_CONTROL::Duplicate( const TOOL_EVENT& aEvent )
+   *     {
+   *         doCopy( true ); // Use the local clipboard
+   *         Paste( aEvent );
+   *     }
+   *
+   * (sch_editor_control.cpp:1797-1803), and the paste path clears the selection
+   * before it takes the pasted items into it. So the moment you duplicate, the
+   * original stops being selected and the new copy is what is highlighted.
+   * Ours left the original lit and only moved the selection across on the drop.
+   *
+   * Every paste path goes through this one setter — Ctrl+V, Duplicate, the
+   * repeat-item and drag-drop paths — so the rule is stated once here rather
+   * than at seven call sites. `null` is the abandon/finish path and leaves the
+   * selection alone: `onPasteDone` sets it to the items just dropped.
+   */
+  const setPastePending = useCallback((payload: PastePayload | null) => {
+    setPastePendingOnly(payload);
+    if (payload) setSelection(new Set());
+  }, []);
   /** File > Import > Graphics (Ctrl+Shift+F): the open DIALOG_IMPORT_GFX_SCH. */
   const [importGfxOpen, setImportGfxOpen] = useState(false);
   // ERC markers: null until a run has happened. They live on past the dialog
@@ -1728,6 +1768,27 @@ export function SchematicEditor({
     (activeTool === 'placeSymbol' || activeTool === 'placePower') && !placeLib && !chooserDismissed;
 
   /**
+   * The selection goes dark as the chooser OPENS, not when you pick from it.
+   *
+   * `selectionClear` is the first statement inside the click branch's
+   * `if( !symbol )`, ahead of the whole already-placed scan and of
+   * `PickSymbolFromLibrary` itself (sch_drawing_tools.cpp:375-377):
+   *
+   *     if( !symbol )
+   *     {
+   *         m_toolMgr->RunAction( ACTIONS::selectionClear );
+   *         ...
+   *         PICKED_SYMBOL sel = m_frame->PickSymbolFromLibrary( ... );
+   *
+   * so the symbol placed a moment ago is unhighlighted the instant the dialog
+   * appears — which is also the instant `A` primes the tool, since the prime
+   * IS that click. Ours held the highlight through the whole chooser session.
+   */
+  useEffect(() => {
+    if (chooserOpen) setSelection(new Set());
+  }, [chooserOpen]);
+
+  /**
    * Activating the tool primes it, and a primed event IS a click here.
    * `PrimeTool` posts `TOOL_EVENT( TC_MOUSE, TA_PRIME, BUT_LEFT )`
    * (tool_manager.cpp:414-430); `TA_PRIME` is 0x800001 and carries
@@ -1866,15 +1927,25 @@ export function SchematicEditor({
           : placeUnit + 1;
       if (next > 1) {
         setPlaceUnit(next);
+        // `addSymbol` opens with `ACTIONS::selectionClear` before it selects the
+        // symbol it is attaching (sch_drawing_tools.cpp:218-232), so the one just
+        // dropped stops being the selection the moment a next one rides the
+        // cursor. Only the path below, where nothing more attaches, leaves it lit.
+        setSelection(new Set());
         return;
       }
       // Wrapped: every unit is placed. Upstream keeps cycling from 1 only when
       // the symbol is staying on the cursor.
       if (keepSymbol) {
         setPlaceUnit(1);
+        // selectionClear, as above: another unit is going on the cursor.
+        setSelection(new Set());
         return;
       }
     } else if (keepSymbol) {
+      // selectionClear, as above: the same symbol stays on the cursor, so the
+      // copy just dropped hands the selection over to it.
+      setSelection(new Set());
       return; // same symbol stays on the cursor
     }
     setPlaceLib(null);
@@ -7249,12 +7320,31 @@ export function SchematicEditor({
           // chooser straight away; without it the tool waits, and it is the
           // next click that reopens it (the click branch at :371-375).
           setChooserDismissed(!placeFlags.current.keepSymbol);
-        } else if (activeTool !== 'select') {
-          setActiveTool('select');
-        } else if (selection.size > 0) setSelection(new Set());
-        // "<ESC> clears net highlighting": with nothing else pending, the next
-        // Escape clears the highlighted net (eeschema input.esc_clears_net_highlight).
-        else if (settings.eeschema.input.esc_clears_net_highlight) clearHighlight();
+        } else {
+          // Popping the tool and clearing the selection are NOT alternatives.
+          // TWO tools see this one cancel event, because SCH_SELECTION_TOOL is
+          // not "the tool you go back to" — it runs the whole time, alongside
+          // whatever drawing tool is active:
+          //
+          //   PlaceSymbol, nothing on the cursor:
+          //       m_frame->PopTool( aEvent ); break;      (:341-343)
+          //     — pops the tool and never touches the selection.
+          //   SCH_SELECTION_TOOL::Main, same event:
+          //       if( !GetSelection().Empty() ) ClearSelection();
+          //                                              (sch_selection_tool.cpp:1093-1096)
+          //
+          // So one Escape after a drop both puts the tool away AND unhighlights
+          // the symbol you just placed. Ours had these as `else if` arms of one
+          // chain, which made it take two presses to get back to a clean sheet.
+          if (activeTool !== 'select') setActiveTool('select');
+
+          // The selection tool's own arms, in its order: it clears the
+          // selection, and only when there was nothing to clear does the
+          // Escape fall through to the net highlight.
+          if (selection.size > 0) setSelection(new Set());
+          // "<ESC> clears net highlighting" (eeschema input.esc_clears_net_highlight).
+          else if (settings.eeschema.input.esc_clears_net_highlight) clearHighlight();
+        }
       } else if (!e.ctrlKey && !e.metaKey && !e.altKey) {
         // KiCad single-key tool hotkeys (A=symbol, W=wire, …). Skip while
         // typing, but a focused checkbox/radio isn't typing.
