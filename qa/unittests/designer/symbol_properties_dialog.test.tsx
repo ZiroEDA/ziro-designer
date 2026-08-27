@@ -394,6 +394,19 @@ describe('8. the library link is a read-only entry', () => {
   });
 });
 
+describe('the dialog is Fit(), so it states no size', () => {
+  it('the modal root carries no sized variant class', () => {
+    // `mainSizer->Fit( this )` and `finishDialogSettings()`, and no SetSize
+    // anywhere in DIALOG_SYMBOL_PROPERTIES. `.ze-props-dialog`, which this used
+    // to carry alongside `.ze-symprops`, states `width: 1060px` in shell.css —
+    // a number that appears nowhere upstream and that silently won over
+    // `.ze-modal`'s max-content.
+    open(SHEET);
+    const modal = document.querySelector('.ze-modal')!;
+    expect(modal.className.split(/\s+/).sort()).toStrictEqual(['ze-modal', 'ze-symprops']);
+  });
+});
+
 describe('9. the grid opens with a cursor, not a selection', () => {
   it('nothing is filled until the user clicks a row', () => {
     // The constructor queues SYMBOL_DELAY_FOCUS / SYMBOL_DELAY_SELECTION for
