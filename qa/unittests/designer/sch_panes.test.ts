@@ -233,7 +233,9 @@ describe('the editor renders the dock through that order', () => {
    */
   it('maps over the order that Update produced', () => {
     const s = text();
-    expect(s).toContain('schLeftDockLayout(dockPosRef.current, paneShown)');
+    expect(s).toMatch(
+      /^\s*const dockLayout = schLeftDockLayout\(dockPosRef\.current, paneShown\);$/m,
+    );
     expect(s).toContain('dockLayout.order.map(');
   });
 
@@ -241,10 +243,16 @@ describe('the editor renders the dock through that order', () => {
    * ...and it must FEED THE NUMBERS BACK. A layout call that throws away
    * `dockLayout.dockPos` restarts from `Position()` every render, which is the
    * fixed order again with extra steps.
+   *
+   * Anchored as a whole statement on its own line rather than as a substring:
+   * commenting the assignment out leaves the substring in the file, and that
+   * mutant survived a `toContain` here.
    */
   it('carries dock_pos forward to the next Update', () => {
-    expect(text()).toContain('dockPosRef.current = dockLayout.dockPos');
-    expect(text()).toContain('useRef<SchDockPos>(SCH_LEFT_PANE_POSITION)');
+    expect(text()).toMatch(/^\s*dockPosRef\.current = dockLayout\.dockPos;$/m);
+    expect(text()).toMatch(
+      /^\s*const dockPosRef = useRef<SchDockPos>\(SCH_LEFT_PANE_POSITION\);$/m,
+    );
   });
 
   it('takes the sash chain from the same order', () => {
