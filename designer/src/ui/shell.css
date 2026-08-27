@@ -556,6 +556,16 @@
      Yaru's box-shadow as a border. Left alone rather than changed on a hunch;
      it wants a rendered menu sampled edge-on. */
   --menu-separator: #4b4b4b;
+  /* [data] `wxColour FOOTPRINT_CHOICE::m_grey( 0x808080 )`
+     (common/widgets/footprint_choice.cpp:25). KiCad's own literal, NOT a theme
+     colour - wxSYS_COLOUR_GRAYTEXT is #929292 on this machine, which is what
+     --ctl-fg-disabled carries, and using that here would be a fifth of a
+     channel out. A token rather than two literals because upstream has one
+     static: the same m_grey paints the dim library prefix of a row (:111) and
+     the rule across a separator row (:64). [px] both confirmed at exactly
+     #808080, with no lighter antialiased pixel above them, by reading the
+     popup window back off the display server (~/kicad-probes/fp_choice_pixels.cpp). */
+  --odcombo-grey: #808080;
   --slider-track-bg: #4b4b4b;
   /* [css] scale { padding: 12px } insets the trough from the widget's own box.
      [px] the real trough runs 1671..1893 inside a slider box of 1659..1903,
@@ -5687,16 +5697,22 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   background: transparent;
 }
 
-/* FOOTPRINT_SELECT_WIDGET */
-.ze-fp-select {
-  padding: 4px 6px;
-  background: var(--chrome-bg2);
-  color: var(--chrome-fg);
-  border: 1px solid var(--chrome-border);
-  border-radius: 4px;
-  font: inherit;
-  /* A wxComboBox, so KIUI::GetControlFont: the window font. */
-  font-size: var(--ui-font-size);
+/* FOOTPRINT_SELECT_WIDGET holds a FOOTPRINT_CHOICE
+   (common/widgets/footprint_select_widget.cpp:40), which is an
+   .ze-odcombo - see the wxOwnerDrawnComboBox block. Nothing about the control
+   is restated here; the only thing this dialog adds is the ONE thing
+   FOOTPRINT_CHOICE draws that the base class does not. */
+.ze-chooser-right > .ze-fp-choice {
+  /* A control between two stretchy previews: sized by itself, not by the
+     leftovers. `constructRightPanel` gives it proportion 0
+     (eeschema/widgets/panel_symbol_chooser.cpp:378-392). */
+  flex: 0 0 auto;
+}
+/* `aDC.SetTextForeground( m_grey )` around the library fragment
+   (common/widgets/footprint_choice.cpp:111). The colour is the shared static,
+   so it is the shared token; see --odcombo-grey. */
+.ze-fp-lib {
+  color: var(--odcombo-grey);
 }
 /* FOOTPRINT_PREVIEW_PANEL paints on pcbnew's canvas, so its background is the
    board editor's (LAYER_PCB_BACKGROUND, rgb(0,16,35)), not the schematic
@@ -8833,6 +8849,177 @@ textarea.ze-ds-textedit {
 }
 .ze-combo-item.disabled {
   color: var(--ctl-fg-disabled);
+}
+
+/* ---------------------------------------------------------------------------
+   wxOwnerDrawnComboBox (ui/OwnerDrawnCombo.tsx).
+
+   The OTHER combo. .ze-combo above is a wxChoice, whose list GTK draws as a
+   MENU: #1d1d1d, 30px rows, opened OVER the closed box. This one is a
+   wxComboCtrl, whose popup is a window of its own carrying a wxVListBox, and
+   it agrees with that on nothing:
+
+                        wxChoice popup    wxComboCtrl popup
+     background         #1d1d1d (MENU)    #272727 (LISTBOX)
+     text               --chrome-fg       --view-fg (#ffffff)
+     row height         30                18  (= GetCharHeight())
+     highlighted row    #3e3e3e-ish       #e95420 (SYS_HIGHLIGHT)
+     border             1px #4b4b4b, r6   1px #f7f7f7, square
+     placement          over the box      flush BELOW the box
+     width              the control's     the widest ROW's
+
+   So it is a second widget rather than a modifier on the first, exactly as
+   upstream has two classes. Every number below is measured, not read out of
+   Yaru or sampled off a screenshot: ~/kicad-probes/fp_choice_probe.cpp builds
+   the same read-only wxOwnerDrawnComboBox FOOTPRINT_CHOICE builds and asks it,
+   and ~/kicad-probes/fp_choice_pixels.cpp reads the popped-up window back out
+   of the display server pixel by pixel. */
+.ze-odcombo {
+  display: flex;
+  align-items: center;
+  /* [px] the control measures 420 x 34 - the same --ctl-height every button,
+     entry and choice in a KiCad row is, which is why they line up. */
+  height: var(--ctl-height);
+  /* [px] the text starts 4px in: GetTextRect().x is 1 and GetMargins().x is 3,
+     and `x = aRect.x + GetMargins().x` (footprint_choice.cpp:76) adds them.
+     NOT --ctl-pad-x (9px): a wxComboCtrl is not a GTK button. The 3 is on
+     .ze-odcombo-text so the focus highlight starts where wx's does. */
+  padding: 0 0 0 1px;
+  /* [px] rgb(44,44,44) under the closed control's text, unfocused, off the
+     rendered frame. That is wxSYS_COLOUR_MENU / --chrome-bg, not the #373737
+     3DFACE a wxChoice button takes. */
+  background: var(--chrome-bg);
+  /* [px] #f7f7f7 - wxSYS_COLOUR_BTNTEXT, the widget foreground. A LIST row is
+     a different colour (--view-fg); see .ze-odcombo-item. */
+  color: var(--chrome-fg);
+  /* Not measured separately, and deliberately not restated: a control border
+     is one answer for the whole app and these are the tokens that carry it. */
+  border: 1px solid var(--ctl-border);
+  border-radius: var(--ctl-radius);
+  font: inherit;
+  /* [px] the control's font is Ubuntu Sans 11pt, pixel size 18 - the window
+     font, which is what KIUI::GetControlFont returns. */
+  font-size: var(--ui-font-size);
+  cursor: default;
+  text-align: left;
+  min-width: 0;
+}
+.ze-odcombo:disabled {
+  background: var(--ctl-face-disabled);
+  color: var(--ctl-fg-disabled);
+}
+/* GTK3's dashed keyboard-navigation rectangle, keyboard-only - the same rule
+   .ze-combo carries, for the same reason. */
+.ze-odcombo:focus {
+  outline: none;
+}
+.ze-odcombo:focus-visible {
+  outline: 1px dashed var(--field-focus-border);
+  outline-offset: -3px;
+}
+.ze-odcombo-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  /* [px] `GetMargins().x`, which OnDrawItem adds to the text rect's own x when
+     it paints the control (footprint_choice.cpp:76). The probe asks the control
+     for both: margins 3,-1 and a text rect at x=1, and the rendered frame has
+     the first glyph 4px inside the control's left edge. It is here rather than
+     in the button's padding so the focus highlight starts where wx's does. */
+  margin-left: 3px;
+  line-height: var(--ui-line-height);
+  /* KiCad's rows do not wrap and do not ellipsize; the box simply ends. */
+  overflow: hidden;
+  white-space: nowrap;
+}
+/* wxComboCtrlBase::ShouldDrawFocus(): a read-only combo that HAS the focus with
+   its popup CLOSED paints its value as if it were a selected row -
+   wxODCB_PAINTING_SELECTED goes on, so FOOTPRINT_CHOICE's greying is skipped
+   and the whole string is flat. [px] the text area reads #e95420 behind
+   #ffffff text in that state and #2c2c2c behind #f7f7f7 without the focus; the
+   probe also confirms the flag drops again the moment the list opens. */
+.ze-odcombo-text.selected {
+  background: var(--selection-bg);
+  color: var(--selection-fg);
+}
+/* The chevron is .ze-combo-arrow's, shared rather than redrawn. */
+.ze-odcombo-arrow {
+  flex: 0 0 auto;
+}
+
+.ze-odcombo-popup {
+  z-index: 1000;
+  /* [px] the popup window is 1px larger than its client area on every side and
+     the corner pixel is that same colour, so: a square 1px border, and it is
+     LIGHT - #f7f7f7, wxSYS_COLOUR_BTNTEXT - where a menu's is #4b4b4b. It is
+     plainly visible round KiCad's footprint list in the reference screenshot. */
+  border: 1px solid var(--chrome-fg);
+  /* [px] rgb(39,39,39) between the rows: wxSYS_COLOUR_LISTBOX, because this
+     popup is a wxVListBox and not a menu. */
+  background: var(--chrome-bg2);
+  /* [px] row 0 begins at y=1, immediately inside the border: no padding, and no
+     shadow either - adding one would be an invention. */
+  padding: 0;
+  box-sizing: border-box;
+  /* [px] 398 with 200 items in the list, however many more there are: a 1px
+     border, 22 rows of 18 and a 1px border. wxComboCtrlBase clamps its popup to
+     a default maximum height and rounds down to whole rows. Must stay equal to
+     POPUP_MAX_H in ui/owner_drawn_combo_popup.ts, which decides whether the
+     list still fits below the control or has to flip above it. */
+  max-height: 398px;
+  overflow-y: auto;
+  /* The popup is as wide as its widest row - [px] 748 for a 420px control whose
+     widest entry measures 735 - which is why KiCad's footprint list hangs well
+     outside the Choose Symbol dialog. */
+  width: max-content;
+}
+.ze-odcombo-item {
+  /* [px] 18. wxOwnerDrawnComboBox::OnMeasureItem returns -1 for an ordinary
+     item, so wxVListBoxComboPopup falls back to the font's cell height, and
+     GetCharHeight() is 18 here - the same 18 --ui-line-height already carries.
+     Confirmed twice over: VirtualHitTest puts every row boundary 18 apart, and
+     the row rectangles read off the popup image are y 1..19, 19..37, 48..66. */
+  height: var(--ui-line-height);
+  line-height: var(--ui-line-height);
+  /* `x = aRect.x + 2` (footprint_choice.cpp:81) - a list row is inset by 2,
+     not by the control's margin. [data] KiCad's own literal. */
+  padding: 0 0 0 2px;
+  /* [px] #ffffff - wxSYS_COLOUR_LISTBOXTEXT. Brighter than the closed control's
+     #f7f7f7 above, and that difference is wx's, not ours. */
+  color: var(--view-fg);
+  font-size: var(--ui-font-size);
+  cursor: default;
+  /* KiCad's rows do not wrap: the popup grows to the widest one instead. */
+  white-space: nowrap;
+}
+/* wxODCB_PAINTING_SELECTED. There is no separate hover colour because there is
+   no separate hover STATE: wxVListBoxComboPopup moves its selection to the row
+   under the pointer, which is why FOOTPRINT_CHOICE has to veto wxEVT_MOTION to
+   keep the separator unhighlightable. [px] rgb(233,84,32) behind flat #ffffff. */
+.ze-odcombo-item.selected {
+  background: var(--selection-bg);
+  color: var(--selection-fg);
+}
+.ze-odcombo-item.disabled {
+  color: var(--ctl-fg-disabled);
+}
+/* An empty item is a separator, and a separator is a RULE, not a blank row
+   (footprint_choice.cpp:62-69). */
+.ze-odcombo-sep {
+  /* [data] `if( SafeGetString( aItem ) == wxS( "" ) ) return 11;`
+     (footprint_choice.cpp:127-128) - KiCad's own literal, and shorter than the
+     18 of a text row. [px] the separator row measures y 37..48 in the popup
+     image, which is 11. */
+  height: 11px;
+  cursor: default;
+}
+.ze-odcombo-sep::before {
+  content: "";
+  display: block;
+  /* `aRect.y + aRect.height / 2` - integer division, so 5 down a row of 11.
+     [px] the rule lands on y=42 of a row starting at 37. */
+  margin-top: 5px;
+  height: 1px;
+  background: var(--odcombo-grey);
 }
 
 /* wxGetSingleChoice raises a wxSingleChoiceDialog, which is sized by its LIST -

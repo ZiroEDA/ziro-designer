@@ -295,7 +295,13 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // 9 put the caption title 9px in and its close box 10px from the pane edge,
   // where a measured caption has 3 and about 5; the side padding is the base
   // rule's measured 3px lead-in now, so only the vertical stays here.
-  ui: { colours: 282, metrics: 800 },
+  // 800 -> 797: the footprint drop-down stopped being a native <select>.
+  // `.ze-fp-select` wrote `padding: 4px 6px` and `border-radius: 4px` - four
+  // and six and four for a control whose height, inset and radius wx decides -
+  // and all three went with it. The wxOwnerDrawnComboBox that replaced it adds
+  // none: every length it states is either a token, a 1px rule the scanner does
+  // not count, or a measurement carrying [px]/[data] on its own comment run.
+  ui: { colours: 282, metrics: 797 },
   widgets: { colours: 6, metrics: 46 },
 };
 
@@ -561,7 +567,10 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // 1620 -> 1619: the caption's side padding; see the `ui` row. RESCANNED
     // from this tree, and the per-area table agrees -- `ui` 801 -> 800 is the
     // only row that moved.
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1619);
+    // 1619 -> 1616: the footprint drop-down; see the `ui` row. RESCANNED from
+    // this tree, and derived a second time from the per-area table -- `ui`
+    // 800 -> 797 is the only row that moved, and 1619 - 3 agrees.
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1616);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {
