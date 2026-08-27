@@ -265,6 +265,18 @@ describe('where the values live: common.json', () => {
     expect(mergeCommon(stored).dialog.controls['Choose Symbol']).toEqual({ keepSymbol: true });
   });
 
+  it('survives arriving from the account, not just from localStorage', () => {
+    // The second route into the same value. A subtree repaired on only one of
+    // them is the `colors.user` bug: written on every change here, dropped the
+    // moment the slice comes back from the other side.
+    settings.adoptSlice(
+      'common',
+      { ...structuredClone(COMMON_DEFAULTS), dialog: { controls: { Dlg: { flag: true } } } },
+      1,
+    );
+    expect(settings.common.dialog.controls).toEqual({ Dlg: { flag: true } });
+  });
+
   it('is not eaten by deepMerge on the way back in', () => {
     // The trap `normalizeHotkeys` and `colors.user` both document: deepMerge
     // keeps only keys the *defaults* have, and the default here is `{}`. Loaded
