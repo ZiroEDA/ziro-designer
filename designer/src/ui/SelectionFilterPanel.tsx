@@ -44,7 +44,13 @@ export function SelectionFilterPanel({
 }): JSX.Element {
   const all = selectionFilterAll(filter);
   return (
-    <div className="ze-panel">
+    // `.fixed` is `dock_proportion = 0`. Both frames that build this panel say
+    // so outright — `selectionFilterPane.dock_proportion = 0` at
+    // sch_edit_frame.cpp:325 under the comment "The selection filter doesn't
+    // need to grow in the vertical direction when docked", and again at
+    // symbol_edit_frame.cpp:245. A docked pane grows by default, so this is the
+    // one pane in the column that has to declare that it does not.
+    <div className="ze-panel fixed">
       <div className="ze-panel-header">
         <span>Selection Filter</span>
         {onClose && (

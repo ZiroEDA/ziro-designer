@@ -3301,8 +3301,11 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   min-height: 0;
   overflow: hidden;
 }
-/* Selection Filter pane: fixed at the bottom, sized to its content. */
-.ze-rightdock .ze-panel:not(.grow) {
+/* Selection Filter pane: fixed at the bottom, sized to its content —
+   `m_auimgr.GetPane( "SelectionFilter" ).dock_proportion = 0`
+   (pcbnew/pcb_edit_frame.cpp:422). Same class as the left dock's, because it is
+   the same statement upstream; see the note there for why it is opt-in. */
+.ze-rightdock .ze-panel.fixed {
   flex: 0 0 auto;
   border-bottom: none;
 }
@@ -3684,6 +3687,39 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   flex: 1;
   min-height: 0;
 }
+/* A DOCKED PANE GROWS. wxAUI divides a dock row's length between the panes
+   sharing it in `wxAuiPaneInfo::dock_proportion` ("proportion while docked",
+   wx/aui/framemanager.h:391), and every `AddPane` in KiCad leaves it at the
+   value `DefaultPane()` gives it — so filling the dock is what a pane does
+   unless the frame says otherwise.
+
+   Saying otherwise is written out, and in the whole of KiCad 10.0.5 it is
+   written exactly four times, all of them the same pane:
+
+     eeschema/sch_edit_frame.cpp:324-325
+       // The selection filter doesn't need to grow in the vertical direction
+       // when docked
+       selectionFilterPane.dock_proportion = 0;
+     eeschema/symbol_editor/symbol_edit_frame.cpp:245
+     pcbnew/pcb_edit_frame.cpp:422
+     pcbnew/footprint_edit_frame.cpp:267
+
+   Nothing else in the tree zeroes it. The project manager's tree certainly
+   does not — `EDA_PANE().Palette().Name( "ProjectTree" ).Left().Layer( 1 )
+   .Caption( PROJECT_FILES_CAPTION ).PaneBorder( false ).MinSize( m_leftWinWidth,
+   -1 ).Floatable( false ).Movable( false )` (kicad/kicad_manager_frame.cpp:236-239)
+   sets a WIDTH and leaves the height to the dock — so it runs the full column.
+
+   `.fixed` is our `dock_proportion = 0`, and like upstream's it is opt-in. It
+   used to be `:not(.grow)`, the opposite polarity, which made every unmarked
+   pane fixed: at (0,3,0) that outranked `.ze-leftdock > .ze-panel` below and
+   collapsed the project tree to the height of its rows. */
+.ze-leftdock .ze-panel {
+  flex: 1 1 0;
+  min-height: 0;
+}
+/* `MinSize( 240, 60 )` — `defaultPropertiesPaneInfo` (eeschema_settings.cpp:101)
+   and the panes that copy it. A growing pane may not be squeezed below it. */
 .ze-leftdock .ze-panel.grow {
   flex: 1;
   min-height: 60px;
@@ -3692,12 +3728,8 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
    `defaultSchSelectionFilterPaneInfo` (eeschema/eeschema_settings.cpp:109-125)
    gives it `MinSize( 180, -1 )` and `BestSize( 180, -1 )` under its own comment,
    "Fixed-size pane; -1 for MinSize height is required" - so it takes the height
-   its checkboxes need and the two growing panes above it share the rest. The
-   markup already withholds `.grow` from it, but nothing said what a pane
-   WITHOUT that class does, so it grew anyway and the column came out in equal
-   thirds. `.ze-rightdock` has carried the same rule for pcbnew's copy of this
-   pane all along. */
-.ze-leftdock .ze-panel:not(.grow) {
+   its checkboxes need and the two growing panes above it share the rest. */
+.ze-leftdock .ze-panel.fixed {
   flex: 0 0 auto;
 }
 /* ...and it reads as ONE body, not a boxed pane. `PANEL_SELECTION_FILTER` is a
@@ -3705,11 +3737,11 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
    run together; the hierarchy and properties panes above it are the ones that
    look like boxes. Ours gave every pane a caption in --panel-header over a
    --panel-bg body, which drew a seam across this one. */
-.ze-leftdock .ze-panel:not(.grow),
-.ze-leftdock .ze-panel:not(.grow) > .ze-panel-header {
+.ze-leftdock .ze-panel.fixed,
+.ze-leftdock .ze-panel.fixed > .ze-panel-header {
   background: var(--panel-header);
 }
-.ze-leftdock .ze-panel:not(.grow) {
+.ze-leftdock .ze-panel.fixed {
   border-bottom: none;
 }
 /* PANEL_SCH_SELECTION_FILTER is the AUI pane's client area itself — the grid

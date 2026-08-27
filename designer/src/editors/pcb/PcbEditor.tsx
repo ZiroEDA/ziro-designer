@@ -7940,7 +7940,11 @@ export function PcbEditor({
               </div>
             </div>
 
-            <div className="ze-panel">
+            {/* `.fixed` is `dock_proportion = 0` —
+                `m_auimgr.GetPane( "SelectionFilter" ).dock_proportion = 0`
+                (pcbnew/pcb_edit_frame.cpp:422). A docked pane grows by default;
+                this is the pane that declares it does not. */}
+            <div className="ze-panel fixed">
               <div className="ze-panel-header">Selection Filter</div>
               <div className="ze-panel-body">
                 {/* PANEL_SELECTION_FILTER_BASE's wxGridBagSizer: "All items"
