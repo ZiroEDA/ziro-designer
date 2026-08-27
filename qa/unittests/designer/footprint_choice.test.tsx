@@ -448,6 +448,33 @@ describe('keyboard, which the native select used to provide', () => {
     expect(btn.getAttribute('aria-activedescendant')).toBe((rows[1] as HTMLElement).id);
   });
 
+  it('draws the closed control flat while it has the focus, dim when it does not', () => {
+    // `wxComboCtrlBase::ShouldDrawFocus()` - a READ-ONLY combo that has the
+    // focus with its popup shut paints its value as a selected row, so
+    // FOOTPRINT_CHOICE's greying is skipped. [measured] the flags probe records
+    // "control UNFOCUSED: CONTROL=1 SELECTED=0" and "control FOCUSED:
+    // CONTROL=1 SELECTED=1"; the pixel probe agrees, #808080 on the library run
+    // unfocused and a flat #ffffff on #e95420 focused.
+    const fp = 'Lib:Fp';
+    const r = render(
+      <FootprintChoice items={[{ label: fp, value: fp }]} value={fp} onChange={() => {}} />,
+    );
+    const btn = r.container.querySelector('.ze-odcombo') as HTMLElement;
+    const text = r.container.querySelector('.ze-odcombo-text') as HTMLElement;
+
+    expect(text.querySelectorAll('.ze-fp-lib')).toHaveLength(1);
+    expect(text.className).not.toContain('selected');
+
+    fireEvent.focus(btn);
+    expect(text.querySelectorAll('.ze-fp-lib')).toHaveLength(0);
+    expect(text.textContent).toBe(fp);
+    expect(text.className).toContain('selected');
+
+    // And it goes back the moment the focus leaves, rather than latching.
+    fireEvent.blur(btn);
+    expect(text.querySelectorAll('.ze-fp-lib')).toHaveLength(1);
+  });
+
   it('is focusable and carries a name and combobox semantics', () => {
     // The half of a native <select> that is not visible. `aria-expanded` is what
     // tells a screen reader the list is open at all.
@@ -533,6 +560,38 @@ describe('the rows take GTK’s metrics, not the browser’s', () => {
     // never ellipsize.
     expect(rule('.ze-odcombo-item')).toMatch(/white-space:\s*nowrap/);
     expect(rule('.ze-odcombo-popup')).toMatch(/width:\s*max-content/);
+  });
+
+  it('insets a list row by 2 and the closed control by GetMargins().x', () => {
+    // Two different insets, and OnDrawItem says so in one `if`
+    // (footprint_choice.cpp:74-83): `x = aRect.x + GetMargins().x` when it is
+    // painting the CONTROL, `x = aRect.x + 2` when it is painting a list ROW.
+    // [data] the 2 is KiCad's own literal; [px] GetMargins().x is 3 here, and
+    // the first glyph of the rendered control sits 4px in, which is that 3 on
+    // top of the text rect's own x=1.
+    expect(rule('.ze-odcombo-item')).toMatch(/padding:\s*0 0 0 2px/);
+    expect(rule('.ze-odcombo-text')).toMatch(/margin-left:\s*3px/);
+  });
+
+  it('is the same height as every other control in a KiCad row', () => {
+    // [px] the control measures 420 x 34, and 34 is --ctl-height - which a
+    // button, an entry and a wxChoice all take, which is why a mixed row lines
+    // up. A literal here would be a fourth answer.
+    const body = rule('.ze-odcombo');
+    expect(body).toMatch(/height:\s*var\(--ctl-height\)/);
+    expect(body).not.toMatch(/height:\s*\d/);
+  });
+
+  it('borders the popup in the light edge wx draws, not a menu edge', () => {
+    // [px] the popup window's four edge pixels and its corner all read #f7f7f7 -
+    // wxSYS_COLOUR_BTNTEXT, --chrome-fg - and the same light edge is plainly
+    // visible round the footprint list in the reference KiCad screenshot. A
+    // wxChoice's menu popup is bordered #4b4b4b instead, and taking that here
+    // would be borrowing the wrong widget's chrome.
+    const body = rule('.ze-odcombo-popup');
+    expect(body).toMatch(/border:\s*1px solid var\(--chrome-fg\)/);
+    expect(body).not.toContain('--menu-separator');
+    expect(body).not.toContain('#4b4b4b');
   });
 
   it('has no native <select> left in the footprint selector', () => {
