@@ -1047,14 +1047,22 @@ export function renderSchematic(
   // Sheet-level graphic shapes (rectangle/circle/arc on the notes layer): the
   // item's own stroke colour/dash, else LAYER_NOTES; colour fills honoured.
   sch.graphics.forEach((g, i) => {
-    if (!drawable(refId('graphic', undefined, i))) return;
-    drawSheetGraphic(ctx, g, theme);
+    const gid = refId('graphic', undefined, i);
+    if (!drawable(gid)) return;
+    // `isBackgroundLayer` in getRenderColor covers LAYER_NOTES_BACKGROUND and
+    // LAYER_SHAPES_BACKGROUND, which is the layer draw( SCH_SHAPE ) fills a
+    // FILLED_WITH_COLOR / FILLED_WITH_BG_BODYCOLOR shape on — so a selected
+    // rectangle washes out exactly the way a selected symbol body does.
+    drawSheetGraphic(ctx, g, theme, selection?.has(gid) ?? false, hl(gid));
   });
 
   // Text boxes (SCH_TEXTBOX): bordered box with word-wrapped text inside.
   sch.textBoxes.forEach((tb, i) => {
-    if (!drawable(refId('textbox', tb.uuid, i))) return;
-    drawTextBox(ctx, tb, theme);
+    const tid = refId('textbox', tb.uuid, i);
+    if (!drawable(tid)) return;
+    // draw( SCH_TEXTBOX ) fills on the same background layers, through the same
+    // getRenderColor, so it takes the same alpha.
+    drawTextBox(ctx, tb, theme, selection?.has(tid) ?? false, hl(tid));
   });
 
   // Tables (SCH_TABLE): cell text, then border + row/column separators.
@@ -1559,8 +1567,30 @@ export function renderSchematic(
   }
 }
 
-/** Draw one sheet-level graphic shape (notes layer). */
-function drawSheetGraphic(ctx: CanvasRenderingContext2D, g: LibGraphic, theme: Theme): void {
+/**
+ * Draw one sheet-level graphic shape (notes layer).
+ *
+ * `selected` / `brightened` are the item's state, which decides the alpha its
+ * *fill* is drawn at — the fill goes on a background layer, and
+ * `SCH_PAINTER::getRenderColor` ends:
+ *
+ *     else if( aItem->IsSelected() && isBackgroundLayer( aLayer ) )
+ *         // Selected items will be painted over all other items, so make backgrounds
+ *         // translucent so that non-selected overlapping objects are visible
+ *         color = color.WithAlpha( 0.5 );
+ *
+ * with the brightened arm just above forcing 0.2. The stroke is on the
+ * foreground layer and keeps its own alpha.
+ */
+function drawSheetGraphic(
+  ctx: CanvasRenderingContext2D,
+  g: LibGraphic,
+  theme: Theme,
+  /** Required, not defaulted: a caller that forgot it would silently draw an
+   *  opaque fill for a selected shape, which is the bug this argument fixes. */
+  selected: boolean,
+  brightened: boolean,
+): void {
   if (g.kind === 'text') return; // free text arrives via labels, not graphics
   const stroke = g.stroke;
   const width = stroke && stroke.width > 0 ? stroke.width : g_defaultPen;
@@ -1570,7 +1600,11 @@ function drawSheetGraphic(ctx: CanvasRenderingContext2D, g: LibGraphic, theme: T
   // as it does for any shape.
   const layerColor = g.ruleArea ? theme.ruleArea : theme.noteLine;
   const color = stroke?.color ? cssColor(stroke.color) : layerColor;
-  const fill = g.fill?.type === 'color' && g.fill.color ? cssColor(g.fill.color) : null;
+  const ownFill = g.fill?.type === 'color' && g.fill.color ? cssColor(g.fill.color) : null;
+  const fill =
+    ownFill === null
+      ? null
+      : cssWithAlpha(ownFill, backgroundLayerAlpha(parseColor4d(ownFill).a, selected, brightened));
 
   // Cheap culling per shape.
   let minX = Infinity,
@@ -1687,6 +1721,11 @@ function drawTextBox(
   ctx: CanvasRenderingContext2D,
   tbIn: Schematic['textBoxes'][number],
   theme: Theme,
+  /** See `drawSheetGraphic`: the box's fill is on a background layer, so a
+   *  selected one is forced to alpha 0.5 and a brightened one to 0.2. Required
+   *  for the same reason. */
+  selected: boolean,
+  brightened: boolean,
 ): void {
   // GetShownText: expand `${VAR}` before wrapping (substitution changes widths).
   const tb =
@@ -1701,12 +1740,16 @@ function drawTextBox(
   const width = stroke && stroke.width > 0 ? stroke.width : g_defaultPen;
   const borderColor = stroke?.color ? cssColor(stroke.color) : theme.noteLine;
   const textColor = tb.effects?.color ? cssColor(tb.effects.color) : theme.noteLine;
-  const fill =
+  const ownFill =
     tb.fill?.type === 'color' && tb.fill.color
       ? cssColor(tb.fill.color)
       : tb.fill?.type === 'background'
         ? theme.background
         : null;
+  const fill =
+    ownFill === null
+      ? null
+      : cssWithAlpha(ownFill, backgroundLayerAlpha(parseColor4d(ownFill).a, selected, brightened));
 
   // Border + fill. A width-0 default border still draws (KiCad draws the outline).
   ctx.beginPath();

@@ -73,7 +73,18 @@ export interface ContentKey {
   highlight: ReadonlySet<string> | undefined;
 }
 
-const sameContent = (a: ContentKey | null, b: ContentKey): boolean =>
+/**
+ * Whether the recorded buffer still depicts `b`, i.e. whether a re-record can
+ * be skipped.
+ *
+ * Exported so the *selection* term can be pinned. The buffer holds the geometry
+ * at its recorded colours, and `SCH_PAINTER::getRenderColor` makes a selected
+ * item's background translucent — so selection is part of what is drawn, not
+ * part of the view, and a key that ignored it would leave a selected symbol's
+ * body solid on screen no matter how right the painter was. Nothing else can
+ * reach this: `SchematicGl.render` needs a live WebGL device.
+ */
+export const sameContent = (a: ContentKey | null, b: ContentKey): boolean =>
   a !== null &&
   a.doc === b.doc &&
   a.theme === b.theme &&
