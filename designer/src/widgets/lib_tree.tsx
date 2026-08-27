@@ -450,6 +450,24 @@ export function LibTree({
    * a hit sitting at the top of the pane with no clue which library it came
    * from.
    */
+  // Read inside the effect below rather than depended on: see its comment.
+  const winRef = useRef(win);
+  winRef.current = win;
+
+  // `EnsureVisibleIfEnabled` runs when the SELECTION moves, and only then.
+  //
+  // `win` must not be a dependency here. It is the virtual window, and its
+  // `top` IS `list.scrollTop` (see `remeasure`), so it changes on every scroll
+  // — which made this effect a feedback loop: scroll, `win` changes, the effect
+  // re-runs, and it scrolls straight back to the selected row. That is the
+  // hand-scrolling snapping back to the top, and it made the tree unusable
+  // below the first screenful, since the selection is the first row until you
+  // pick something.
+  //
+  // `rows` stays: a search changes the row set and the selection together, and
+  // that jump is exactly what upstream calls EnsureVisibleIfEnabled for. It is
+  // recomputed from the model rather than from the scroll offset, so it does
+  // not move when the pointer does.
   useEffect(() => {
     if (!selected) return;
     const scrollTo = (node: LibTreeNode): void => {
@@ -462,7 +480,7 @@ export function LibTree({
       // rows outside the window, so put its index where scrollIntoView would
       // have put the element and let the next measurement render it.
       const list = listRef.current;
-      const { pitch, height } = win;
+      const { pitch, height } = winRef.current;
       if (!list || pitch <= 0) return;
       const index = rows.findIndex((r) => r.node === node);
       if (index < 0) return;
@@ -474,7 +492,7 @@ export function LibTree({
     };
     if (selected.parent) scrollTo(selected.parent);
     scrollTo(selected);
-  }, [selected, rows, win]);
+  }, [selected, rows]);
 
   // Arrow keys move the selection whether they come from the search box or
   // the tree (upstream onQueryCharHook forwards them to the tree control).

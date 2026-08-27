@@ -79,6 +79,8 @@ const bytes = (s: Scene): string => s.segments.view().join(',');
 
 /** Every symbol on the sheet, by the id the renderer keys them under. */
 const symbolIds = (): string[] => doc().symbols.map((s, i) => refId('symbol', s.uuid, i));
+/** Every wire, which unlike a symbol carries no fields and so no anchor crosses. */
+const wireIds = (): string[] => doc().lines.map((l, i) => refId('line', l.uuid, i));
 
 describe('with no filter set', () => {
   it('draws exactly what it drew before', () => {
@@ -493,7 +495,17 @@ describe('the selection shadow honours the filter too', () => {
     // re-recorded on a zoom. Baking one in froze it at the width it had when it
     // was recorded, which is a three-pixel glow at fit-to-page and a
     // twenty-pixel bar once you zoom in on a part.
-    const moving = new Set([symbolIds()[0]!]);
+    // Selecting a WIRE, not a symbol. The count equality is a proxy for "no
+    // halo was recorded", and it only isolates the halo if the selection adds
+    // nothing else -- but a selected SYMBOL also selects its fields
+    // (SCH_SELECTION_TOOL::highlight's child walk) and each of those draws an
+    // anchor cross, which `recordSchematicScene` records on purpose: it records
+    // through the real view scale precisely so "the selection halo, a field's
+    // umbilical, a selected field's anchor cross" come out at the right size.
+    // A wire has no fields, so its selection contributes a halo and nothing
+    // else, and the proxy measures what this test is named for again.
+    const moving = new Set([wireIds()[0]!]);
+    expect(moving.size).toBe(1);
     expect(record({ selection: moving }).segmentCount).toBe(record({}).segmentCount);
   });
 });

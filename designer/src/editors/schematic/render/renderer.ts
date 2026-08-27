@@ -1456,10 +1456,30 @@ export function renderSchematic(
     ctx.strokeStyle = theme.anchor;
     sch.symbols.forEach((sym, si) => {
       const symId = refId('symbol', sym.uuid, si);
-      if (selection.has(symId)) return; // parentMoving / parent selected
+      // Selecting a SYMBOL selects its fields too, so the anchors appear on all
+      // of them and not only on a field picked out on its own. That is
+      // `SCH_SELECTION_TOOL::highlight` under its own comment "Highlight pins
+      // and fields", which walks the item's children the moment the parent is
+      // selected (sch_selection_tool.cpp:3771-3792):
+      //
+      //     sch_item->RunOnChildren(
+      //             [&]( SCH_ITEM* aChild )
+      //             {
+      //                 if( aMode == SELECTED )
+      //                 {
+      //                     aChild->SetSelected();
+      //
+      // so `aField->IsSelected()` below is true for every field of a selected
+      // symbol. This used to `return` on exactly that case, reading the
+      // parent's selection as upstream's `parentMoving` -- but those are two
+      // different conditions, and only the second one suppresses anything.
+      const parentSelected = selection.has(symId);
       for (const fd of fieldDraws[si] ?? []) {
         const fid = fieldId(symId, fd.index);
-        if (!selection.has(fid)) continue;
+        // `aField->IsSelected()`: its own selection, or the parent's by way of
+        // the child walk above.
+        const fieldSelected = parentSelected || selection.has(fid);
+        if (!fieldSelected) continue;
         // The anchor belongs to the field, so it goes wherever the field goes:
         // the base must not draw it for a field a drag has taken, and the
         // preview must draw it at the position the drag has moved it to. This
@@ -1468,7 +1488,17 @@ export function renderSchematic(
         if (!drawableChild(symId, fid)) continue;
         const at = sym.fields[fd.index]?.at;
         if (!at) continue;
-        if (opts.movingSelection) {
+        //     bool parentMoving = fieldParent && fieldParent->IsMoving();
+        //
+        //     if( aField->IsMoving() && !parentMoving )   -> umbilical line
+        //     else if( aField->IsSelected() && !parentMoving ) -> drawAnchor
+        //
+        // Both arms are gated on the PARENT not moving: when the symbol is the
+        // thing being dragged its fields ride along, and neither a line nor a
+        // cross means anything (sch_painter.cpp:3072-3089).
+        const parentMoving = opts.movingSelection && parentSelected;
+        if (parentMoving) continue;
+        if (opts.movingSelection && selection.has(fid)) {
           // GetOutlineWidth() is 1 IU (render_settings.cpp), a hairline, so
           // floor it at one device pixel rather than letting it vanish.
           ctx.lineWidth = Math.max(1, g_scale > 0 ? 1 / g_scale : 1);

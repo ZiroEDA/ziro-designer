@@ -19,6 +19,11 @@
 import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
 import { readSchematic, refId } from '@ziroeda/eeschema';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { readSymbolLib } from '@ziroeda/eeschema/src/sch_io/sexpr/read-schematic.js';
+import { fieldId } from '@ziroeda/eeschema/src/tools/hittest.js';
+import { placeSymbol } from '@ziroeda/eeschema/src/tools/index.js';
 import {
   DEFAULT_RENDER_OPTS,
   renderSchematic,
@@ -313,5 +318,67 @@ describe('what counts as selected while a drag runs', () => {
     // The symbol is what the user grabbed; the label came along for the ride.
     expect(crossAt(paint(doc, new Set(['some-symbol'])), at(60, 60))).toBe(false);
     expect(crossAt(paint(doc, new Set(['some-symbol', 'l1'])), at(60, 60))).toBe(true);
+  });
+});
+
+/**
+ * The same cross, on a SYMBOL's fields.
+ *
+ * `SCH_PAINTER::draw( SCH_FIELD )` ends with the pair (sch_painter.cpp:3072-3089):
+ *
+ *     bool parentMoving = fieldParent && fieldParent->IsMoving();
+ *
+ *     if( aField->IsMoving() && !parentMoving )        -> umbilical line
+ *     else if( aField->IsSelected() && !parentMoving ) -> drawAnchor
+ *
+ * and the thing that makes it visible on a whole-symbol selection is
+ * `SCH_SELECTION_TOOL::highlight`, which under the comment "Highlight pins and
+ * fields" walks the children of whatever was just selected and calls
+ * `aChild->SetSelected()` on each (sch_selection_tool.cpp:3771-3792). So the
+ * fields of a selected symbol ARE selected, and every one of them gets a cross.
+ *
+ * Ours read the parent's selection as upstream's `parentMoving` and returned on
+ * it, so selecting a symbol showed no anchors at all. Only the parent MOVING
+ * suppresses them -- then the fields ride along with the body and neither the
+ * line nor the cross means anything.
+ */
+describe("a selected symbol's field anchors", () => {
+  const R = readSymbolLib(
+    parse(readFileSync(fileURLToPath(new URL('../../data/R.kicad_sym', import.meta.url)), 'utf8')),
+  )[0]!;
+  const doc: Schematic = placeSymbol(R, { x: mmToIU(100), y: mmToIU(100) }, { angle: 0 }, 1).apply(
+    readSchematic(parse('(kicad_sch (version 1) (lib_symbols))')),
+  );
+
+  const sym = doc.symbols[0]!;
+  const symId = refId('symbol', sym.uuid, 0);
+  // Reference and Value, the two a placed symbol shows.
+  const refAt = sym.fields[0]!.at!;
+  const valAt = sym.fields[1]!.at!;
+
+  it('are absent when nothing is selected', () => {
+    const s = paint(doc, undefined);
+    expect(crossAt(s, refAt)).toBe(false);
+    expect(crossAt(s, valAt)).toBe(false);
+  });
+
+  it('appear on a field selected on its own', () => {
+    // `aField->IsSelected()` directly.
+    const s = paint(doc, new Set([fieldId(symId, 0)]));
+    expect(crossAt(s, refAt)).toBe(true);
+  });
+
+  it('and on EVERY field when the symbol itself is selected', () => {
+    // The child walk in highlight(): selecting the parent selects the fields,
+    // so both crosses appear, not neither.
+    const s = paint(doc, new Set([symId]));
+    expect(crossAt(s, refAt)).toBe(true);
+    expect(crossAt(s, valAt)).toBe(true);
+  });
+
+  it('but not while the symbol is being moved, which is upstream’s parentMoving', () => {
+    const s = paint(doc, new Set([symId]), { movingSelection: true });
+    expect(crossAt(s, refAt)).toBe(false);
+    expect(crossAt(s, valAt)).toBe(false);
   });
 });

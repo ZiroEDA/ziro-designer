@@ -1879,6 +1879,18 @@ export function SchematicEditor({
     }
     setPlaceLib(null);
     setPlaceUnit(1);
+    // ...and the chooser does NOT come straight back. After `commit.Push` the
+    // tool sets `symbol = nextSymbol` (nullptr here) and falls to the bottom of
+    // the loop; nothing opens the chooser there. It reopens only where it
+    // opened the first time — inside the CLICK branch, under `if( !symbol )`
+    // (sch_drawing_tools.cpp:371-375) — so KiCad leaves the tool armed with an
+    // empty cursor and waits for you to click the sheet again.
+    //
+    // Ours derives `chooserOpen` from "tool active and nothing on the cursor",
+    // which is true the instant the symbol is dropped, so the dialog flew back
+    // up on its own. This is the same latch a Cancel uses; the canvas clears it
+    // through `onRequestChooser` on the next click.
+    setChooserDismissed(true);
   }, [placeUnit, placeInstance, setPlaceLib, referenceForPlacement]);
 
   /**

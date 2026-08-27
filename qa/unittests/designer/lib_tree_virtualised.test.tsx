@@ -214,3 +214,77 @@ describe('the library tree row list', () => {
     expect((spacers[0] as HTMLElement).style.height).toBe(`${first * PITCH - GAP}px`);
   });
 });
+
+/**
+ * Scrolling by hand must stay where it was put.
+ *
+ * `LIB_TREE_MODEL_ADAPTER` calls `EnsureVisibleIfEnabled( m_widget, item )` when
+ * the SELECTION moves (common/lib_tree_model_adapter.cpp:386-387) -- never in
+ * response to a scroll. wxDataViewCtrl has no way to make that mistake, but a
+ * React effect does: ours listed the virtual window `win` among its
+ * dependencies, and `win.top` IS `list.scrollTop` (see `remeasure`). So every
+ * scroll re-ran the effect, which scrolled straight back to the selected row --
+ * the top one until you pick something further down. The tree could not be
+ * scrolled past its first screenful by hand.
+ *
+ * What is asserted is the WIDGET'S OWN WRITES to `scrollTop`, not the value.
+ * happy-dom does no layout, so the spacers give the list no scrollable height
+ * and the element clamps `scrollTop` back to 0 on the next render -- the value
+ * is not an observable here, but "did the widget assign to it" is exactly the
+ * question the bug turns on.
+ */
+describe('a hand scroll is not undone by the selection', () => {
+  /** Replace `scrollTop` on this one element with a recording cell. */
+  const watchScrollTop = (list: HTMLElement): number[] => {
+    const writes: number[] = [];
+    let value = 0;
+    Object.defineProperty(list, 'scrollTop', {
+      configurable: true,
+      get: () => value,
+      set: (v: number) => {
+        value = v;
+        writes.push(v);
+      },
+    });
+    return writes;
+  };
+
+  const selectFirstItem = (container: HTMLElement): void => {
+    // Row 0 is the library; row 1 is the first symbol under it.
+    const row = container.querySelectorAll('.ze-libtree-row')[1] as HTMLElement;
+    expect(row.textContent).toContain('Sym00000');
+    act(() => {
+      fireEvent.click(row);
+    });
+  };
+
+  it('does not write scrollTop back when the pane is scrolled', () => {
+    const { list, container } = mount();
+    selectFirstItem(container);
+
+    const writes = watchScrollTop(list);
+    act(() => {
+      list.scrollTop = 1000 * PITCH;
+      fireEvent.scroll(list);
+    });
+
+    // The test's own assignment, and nothing after it. The regression showed up
+    // here as a second write putting the selected row back on screen.
+    expect(writes).toEqual([1000 * PITCH]);
+  });
+
+  it('and the window still shows the rows that were scrolled to', () => {
+    const { list, container } = mount();
+    selectFirstItem(container);
+
+    act(() => {
+      list.scrollTop = 1000 * PITCH;
+      fireEvent.scroll(list);
+    });
+
+    // The same window the unselected scroll test above pins, so the selection
+    // has not dragged it back: `first = 1000 - OVERSCAN`, item i at flat i + 1.
+    const rows = container.querySelectorAll('.ze-libtree-row');
+    expect(rows[0]?.textContent).toContain(`Sym${String(1000 - OVERSCAN - 1).padStart(5, '0')}`);
+  });
+});
