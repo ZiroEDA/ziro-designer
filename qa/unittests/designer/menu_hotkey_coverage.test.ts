@@ -498,7 +498,13 @@ const CANVAS_KEYS: Readonly<
       ['U V F edit field', /FIELD_KEYS/],
       ['D show datasheet', /showDatasheet/],
       ['O autoplace fields', /autoplaceFields/],
-      ['E properties', /openProperties\(\[\.\.\.selection\]\[0\]!\)/],
+      // The E arm no longer reads `selection` directly: like every other
+      // editing command it asks `RequestSelection` for its target, so the id it
+      // opens comes from the seam. What this guard is for is unchanged — the E
+      // key must still reach Properties, because it has no menu row — so it is
+      // anchored on the arm's own `if` and on the call inside it rather than on
+      // the expression that happened to spell the id.
+      ['E properties', /if \(e\.key\.toLowerCase\(\) === 'e'\) \{[\s\S]{0,800}?openProperties\(/],
       ['Esc cancel', /e\.key === 'Escape'/],
     ],
   },

@@ -109,6 +109,16 @@ import {
   clickTarget,
   defaultSelectionFilter,
   type SelectionFilterOptions,
+  // SCH_SELECTION_TOOL::RequestSelection's aScanTypes tables: what each command
+  // will pick up from under the cursor, and what it trims a selection down to.
+  AnyItems,
+  AttributeItems,
+  DeletableItems,
+  MovableItems,
+  RotatableItems,
+  SheetItems,
+  SymbolItems,
+  type ScanTypes,
   getSelectedItemsAsText,
   type PasteMode,
   type PasteOptions,
@@ -302,7 +312,13 @@ import {
 } from './toolbars_sch_editor.js';
 import { MenuBar, ContextMenu, type Menu, type MenuItem } from '../../ui/MenuBar.js';
 import { assembleMenu, type RankedItem } from '../../ui/menu_rank.js';
-import { isHoverSelection, rightClickSelection } from './hover_selection.js';
+import {
+  clearHoverSelection,
+  isHoverSelection,
+  requestSelection,
+  rightClickSelection,
+  type HoverSelection,
+} from './hover_selection.js';
 import { buildMenus } from './menubar.js';
 import { CONFIRMATION_CAPTION, revertPromptMessage, savedFileMessage } from './files_io.js';
 import { MessageDialogYesNo } from '../../ui/dialog_message.js';
@@ -1629,6 +1645,84 @@ export function SchematicEditor({
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
+  );
+
+  /** Push a resolved selection state into both the state and its refs, so a
+   *  second command in the same tick reads what the first one left. */
+  const applySelectionState = useCallback((next: HoverSelection): void => {
+    if (next.selection !== selectionRef.current) {
+      selectionRef.current = next.selection;
+      setSelection(next.selection);
+    }
+    if (next.hover !== hoverSelectionRef.current) {
+      hoverSelectionRef.current = next.hover;
+      setHoverSelection(next.hover);
+    }
+  }, []);
+
+  /**
+   * `SCH_SELECTION_TOOL::RequestSelection` — the one place an editing command
+   * gets its target (sch_selection_tool.cpp:1945-1994).
+   *
+   * Every editor command that upstream routes through `RequestSelection` routes
+   * through here, which is why hovering an unselected symbol and pressing R
+   * rotates it, hovering one and pressing Delete deletes it, and so on: none of
+   * those is a per-command feature, they are all this function.
+   *
+   * `SelectPoint`'s own two follow-ups are supplied here because they need the
+   * editor's live settings: the Selection Filter (`clickTarget`) and group
+   * promotion.
+   */
+  const requestTarget = useCallback(
+    (scanTypes: ScanTypes): ReadonlySet<string> => {
+      const d = docRef.current;
+      if (!d) return new Set();
+      const before: HoverSelection = {
+        selection: selectionRef.current,
+        hover: hoverSelectionRef.current,
+      };
+      const req = requestSelection(
+        d,
+        before,
+        scanTypes,
+        // `GetCursorPosition( true )` + the collector, both of which are the
+        // canvas's: the editor knows neither the zoom nor the snapped cursor.
+        controller.current?.candidatesAtCursor() ?? [],
+        (id) => {
+          const target = clickTarget(d, id, selFilterRef.current);
+          return target === null ? [] : promote(new Set([target]));
+        },
+      );
+      applySelectionState(req.state);
+      return req.target;
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [applySelectionState],
+  );
+
+  /** `if( selection.IsHover() ) RunAction( ACTIONS::selectionClear )`: the
+   *  disposable selection a command picked up is thrown away when it finishes. */
+  const finishCommand = useCallback((): void => {
+    applySelectionState(
+      clearHoverSelection({
+        selection: selectionRef.current,
+        hover: hoverSelectionRef.current,
+      }),
+    );
+  }, [applySelectionState]);
+
+  /**
+   * Request → act → clear-if-hover: the shape every `SCH_EDIT_TOOL` handler
+   * has, so each command states only its scan types and its body.
+   */
+  const withSelection = useCallback(
+    (scanTypes: ScanTypes, act: (ids: ReadonlySet<string>) => void): void => {
+      const ids = requestTarget(scanTypes);
+      if (ids.size === 0) return;
+      act(ids);
+      finishCommand();
+    },
+    [requestTarget, finishCommand],
   );
 
   // Every edit runs through KiCad's post-commit cleanup (colinear wire merge),
@@ -4220,7 +4314,13 @@ export function SchematicEditor({
   // Duplicate (Ctrl+D): copy to a local buffer and paste from it. KiCad anchors
   // the copy at the connection point closest to the cursor so it doesn't jump.
   const duplicateSelection = useCallback(() => {
-    if (!doc || selection.size === 0) return;
+    // `SCH_EDITOR_CONTROL::doCopy( true )` (sch_editor_control.cpp:1654-1661):
+    // Duplicate copies `RequestSelection()` — unfiltered — and remembers
+    // whether that was a hover, so the original is dropped from the selection
+    // once the copy is on the cursor (:1772).
+    const ids = requestTarget(AnyItems);
+    const doc = docRef.current;
+    if (!doc || ids.size === 0) return;
     // sch_edit_tool.cpp, DUPLICATE: the copy is re-annotated only when the
     // toggle is on —
     //
@@ -4231,7 +4331,7 @@ export function SchematicEditor({
     // which is the state the annotate check is there to report. This always
     // re-annotated, so the toggle made no difference here either.
     const payload = parsePastedText(
-      copySelectionText(doc, selection),
+      copySelectionText(doc, ids),
       doc,
       pasteOptions(es.annotation.automatic ? 'unique' : 'keep'),
     );
@@ -4265,7 +4365,10 @@ export function SchematicEditor({
     }
     setActiveTool('select');
     setPastePending({ ...payload, refPoint });
-  }, [doc, selection, es.annotation.automatic, pasteOptions]);
+    // `m_duplicateIsHoverSelection`: the hover the copy was taken from is
+    // dropped now that the duplicate is the thing on the cursor.
+    finishCommand();
+  }, [es.annotation.automatic, pasteOptions, requestTarget, finishCommand]);
 
   // The paste was dropped: keep the pasted items selected, as KiCad does.
   const onPasteDone = useCallback((ids: ReadonlySet<string>) => {
@@ -5894,11 +5997,15 @@ export function SchematicEditor({
         // every sheet of the open screen. Both need the sub-sheet's document,
         // which only a loaded project has.
         const d = docRef.current;
+        // The single-sheet form is `RequestSelection( { SCH_SHEET_T } )`, the
+        // list every other sheet command uses (sch_edit_tool.cpp:3403, :3430),
+        // so hovering a sheet is enough to open its Sync Sheet Pins.
+        const target = id === 'syncSheetPins' ? requestTarget(SheetItems) : new Set<string>();
         const wanted =
           id === 'syncSheetPins'
             ? (d?.sheets
                 .map((sh, i) => ({ sh, i }))
-                .filter(({ sh, i }) => selection.has(refId('sheet', sh.uuid, i))) ?? [])
+                .filter(({ sh, i }) => target.has(refId('sheet', sh.uuid, i))) ?? [])
             : (d?.sheets.map((sh, i) => ({ sh, i })) ?? []);
         const entries: SyncSheetEntry[] = [];
         for (const { sh, i } of wanted) {
@@ -5924,7 +6031,7 @@ export function SchematicEditor({
           // pre-selects (`SCH_SHEET* selectedSheet = … GetSelection().Front()`).
           syncParentFile.current = currentFile;
           const sel = entries.findIndex(({ sheetIndex }) =>
-            selection.has(refId('sheet', d?.sheets[sheetIndex]?.uuid, sheetIndex)),
+            target.has(refId('sheet', d?.sheets[sheetIndex]?.uuid, sheetIndex)),
           );
           syncPage.current = sel >= 0 ? sel : 0;
           setSyncPinsOpen(entries);
@@ -6001,18 +6108,19 @@ export function SchematicEditor({
           if (d && canRemoveFromGroup(d, sel)) runCommand(removeFromGroupCommand(sel));
           return sel;
         });
-      // Lock / Unlock / Toggle Lock (SCH_EDIT_TOOL): protect symbols from edits.
+      // Lock / Unlock / Toggle Lock: `SCH_EDIT_TOOL::SetAttribute`
+      // (sch_edit_tool.cpp:3530-3616), whose target is
+      // `RequestSelection( { SCH_SYMBOL_T, SCH_SHEET_T, SCH_RULE_AREA_T } )`
+      // and which clears a hover selection at :3614.
       else if (id === 'lock' || id === 'unlock' || id === 'toggleLock')
-        setSelection((sel) => {
-          if (sel.size > 0)
-            runCommand(
-              setSymbolsLockedCommand(
-                sel,
-                id === 'lock' ? 'lock' : id === 'unlock' ? 'unlock' : 'toggle',
-              ),
-            );
-          return sel;
-        });
+        withSelection(AttributeItems, (ids) =>
+          runCommand(
+            setSymbolsLockedCommand(
+              ids,
+              id === 'lock' ? 'lock' : id === 'unlock' ? 'unlock' : 'toggle',
+            ),
+          ),
+        );
       else if (id === 'openPreferences') setPrefsOpen(true);
       else if (id === 'close') onExitToHome();
       // ACTIONS::help — "Open product documentation in a web browser".
@@ -6093,14 +6201,16 @@ export function SchematicEditor({
       // clicks can't synthesize a trusted paste event).
       else if (id === 'cut') document.execCommand('cut');
       else if (id === 'copy') document.execCommand('copy');
-      // ACTIONS::copyAsText (SCH_EDITOR_CONTROL::CopyAsText): the selected
-      // items' shown texts, newline-joined, to the system clipboard.
-      else if (id === 'copyAsText') {
-        if (doc && selection.size > 0) {
-          const text = getSelectedItemsAsText(doc, selection);
+      // ACTIONS::copyAsText (SCH_EDITOR_CONTROL::CopyAsText,
+      // sch_editor_control.cpp:1840-1852): `RequestSelection()` with no filter,
+      // and `if( selection.IsHover() ) selectionClear` at :1849.
+      else if (id === 'copyAsText')
+        withSelection(AnyItems, (ids) => {
+          const d = docRef.current;
+          const text = d ? getSelectedItemsAsText(d, ids) : '';
           if (text) void navigator.clipboard?.writeText(text);
-        }
-      } else if (id === 'pasteSpecial') setPasteSpecialOpen(true);
+        });
+      else if (id === 'pasteSpecial') setPasteSpecialOpen(true);
       else if (id === 'paste')
         void navigator.clipboard?.readText().then((text) => {
           setDoc((d) => {
@@ -6112,16 +6222,20 @@ export function SchematicEditor({
             return d;
           });
         });
+      // `SCH_EDIT_TOOL::DoDelete` (sch_edit_tool.cpp:2224-2235): the target is
+      // `RequestSelection( DeletableItems )`, and the selection is cleared
+      // unconditionally afterwards ("Don't leave a freed pointer in the
+      // selection"), hover or not.
       else if (id === 'delete')
-        setSelection((sel) => {
-          if (sel.size > 0 && doc) runCommand(deleteItems(doc, sel));
-          return new Set();
+        withSelection(DeletableItems, (ids) => {
+          const d = docRef.current;
+          if (d) runCommand(deleteItems(d, ids));
+          applySelectionState({ selection: new Set(), hover: null });
         });
+      // `SCH_EDIT_TOOL::Rotate` / `::Mirror` (sch_edit_tool.cpp:967, :1297),
+      // both over `RotatableItems`.
       else if (TX[id])
-        setSelection((sel) => {
-          if (sel.size > 0) runCommand(transformItems(sel, TX[id]!));
-          return sel;
-        });
+        withSelection(RotatableItems, (ids) => runCommand(transformItems(ids, TX[id]!)));
     },
     [
       undo,
@@ -6147,6 +6261,9 @@ export function SchematicEditor({
       libById,
       pageNumberOf,
       pasteOptions,
+      withSelection,
+      requestTarget,
+      applySelectionState,
     ],
   );
 
@@ -6708,7 +6825,14 @@ export function SchematicEditor({
           label: 'Properties...',
           icon: 'properties',
           shortcut: 'E',
-          action: () => openProperties([...selection][0]!),
+          // Same handler as E: the right-click's hover selection is thrown away
+          // once the dialog is up (`clearSelection = selection.IsHover()`).
+          action: () => {
+            const ids = requestTarget(AnyItems);
+            if (ids.size !== 1) return;
+            openProperties([...ids][0]!);
+            finishCommand();
+          },
         });
       // SCH_ACTIONS::unfoldBus (C): BUS_UNFOLD_MENU lists the bus's members and
       // picking one drops an entry plus a label for it.
@@ -7389,11 +7513,22 @@ export function SchematicEditor({
         }
         // M = Move (leaves connected wires behind), G = Drag (keeps them
         // attached), SCH_ACTIONS::move / drag. Grabs the current selection.
-        if ((e.key.toLowerCase() === 'm' || e.key.toLowerCase() === 'g') && selection.size > 0) {
-          e.preventDefault();
-          const kind = e.key.toLowerCase() === 'm' ? 'move' : 'drag';
-          setGrabRequest((prev) => ({ kind, nonce: (prev?.nonce ?? 0) + 1 }));
-          return;
+        if (e.key.toLowerCase() === 'm' || e.key.toLowerCase() === 'g') {
+          // `SCH_MOVE_TOOL::Main` (sch_move_tool.cpp:1109-1110):
+          //
+          //     SCH_SELECTION& selection =
+          //             m_selectionTool->RequestSelection( SCH_COLLECTOR::MovableItems, true );
+          //     aUnselect = selection.IsHover();
+          //
+          // so M or G over an unselected symbol picks it up and moves it. The
+          // hover is dropped when the move ends rather than now, which is what
+          // `aUnselect` is carried through the move for.
+          if (requestTarget(MovableItems).size > 0) {
+            e.preventDefault();
+            const kind = e.key.toLowerCase() === 'm' ? 'move' : 'drag';
+            setGrabRequest((prev) => ({ kind, nonce: (prev?.nonce ?? 0) + 1 }));
+            return;
+          }
         }
         // ` = Highlight Net tool, ~ = clear highlighting
         // (SCH_ACTIONS::highlightNet / clearHighlight).
@@ -7483,43 +7618,65 @@ export function SchematicEditor({
             }
           }
         }
-        // D = Show Datasheet (ACTIONS::showDatasheet) for the selected symbol.
-        if (e.key.toLowerCase() === 'd' && doc && selection.size === 1) {
-          const id = [...selection][0]!;
-          const sym = doc.symbols.find((sy, i) => refId('symbol', sy.uuid, i) === id);
+        // D = Show Datasheet (ACTIONS::showDatasheet), whose target is
+        // `RequestSelection( { SCH_SYMBOL_T } )` and which clears a hover
+        // selection afterwards (sch_editor_control.cpp:2845-2852).
+        if (e.key.toLowerCase() === 'd' && doc) {
+          const ids = requestTarget(SymbolItems);
+          const id = ids.size === 1 ? [...ids][0]! : null;
+          const sym =
+            id === null
+              ? undefined
+              : doc.symbols.find((sy, i) => refId('symbol', sy.uuid, i) === id);
           if (sym) {
             e.preventDefault();
             const url = (sym.fields.find((f) => f.key === 'Datasheet')?.value ?? '').trim();
             // "~" is KiCad's "no datasheet", not a URL.
             if (url === '' || url === '~') setError('No datasheet defined.');
             else window.open(url, '_blank', 'noopener,noreferrer');
+            finishCommand();
             return;
           }
         }
-        // O = Autoplace Fields (SCH_ACTIONS::autoplaceFields) on the selection.
-        if (e.key.toLowerCase() === 'o' && selection.size > 0) {
+        // O = Autoplace Fields (SCH_ACTIONS::autoplaceFields). Its target is
+        // `RequestSelection( RotatableItems )` (sch_edit_tool.cpp:2463) and it
+        // clears a hover selection at :2502.
+        if (e.key.toLowerCase() === 'o' && requestTarget(RotatableItems).size > 0) {
           e.preventDefault();
-          if (doc) {
+          withSelection(RotatableItems, (ids) => {
+            const d = docRef.current;
+            if (!d) return;
             const cmd = autoplaceFields(
-              doc,
-              selection,
+              d,
+              ids,
               libById,
               {
                 allowRejustify: es.autoplace_fields.allow_rejustify,
                 alignToGrid: es.autoplace_fields.align_to_grid,
               },
-              drawableArea(doc),
+              drawableArea(d),
             );
             if (cmd) runCommand(cmd);
-          }
+          });
           return;
         }
         // E = Properties (KiCad SCH_ACTIONS::properties) on a single selected
         // item (openProperties routes by item kind).
-        if (e.key.toLowerCase() === 'e' && selection.size === 1) {
-          e.preventDefault();
-          openProperties([...selection][0]!);
-          return;
+        if (e.key.toLowerCase() === 'e') {
+          // `SCH_EDIT_TOOL::Properties` (sch_edit_tool.cpp:2569-2571):
+          //
+          //     SCH_SELECTION& selection = m_selectionTool->RequestSelection();
+          //     bool           clearSelection = selection.IsHover();
+          //
+          // Unfiltered, and the hover it may have picked up is cleared once the
+          // dialog returns.
+          const ids = requestTarget(AnyItems);
+          if (ids.size === 1) {
+            e.preventDefault();
+            openProperties([...ids][0]!);
+            finishCommand();
+            return;
+          }
         }
         // A, P, W, B, Z, Q, J, L, H, S, T and I used to be dispatched here
         // out of TOOL_HOTKEYS, and every one of them is also a Place menu row
@@ -7563,6 +7720,9 @@ export function SchematicEditor({
     openProperties,
     toggles,
     endSyncPlacement,
+    requestTarget,
+    withSelection,
+    finishCommand,
   ]);
 
   const fmt = (iu: number): string => {

@@ -527,6 +527,16 @@ export interface CanvasController {
   zoomOut: () => void;
   /** Centre the viewport on a world point (used by ERC click-to-locate). */
   centerOn: (p: Vec2) => void;
+  /**
+   * What `SCH_SELECTION_TOOL::SelectPoint` would collect at the cursor:
+   * `collectAndGuess`' candidates, closest first, empty when the pointer is off
+   * the canvas.
+   *
+   * `RequestSelection` reads `GetCursorPosition( true )` — the *snapped* cursor
+   * — and the hit accuracy scales with the zoom, so both live here rather than
+   * in the editor, which knows neither.
+   */
+  candidatesAtCursor: () => readonly ItemRef[];
 }
 
 interface Props {
@@ -2521,8 +2531,13 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
         };
         requestDraw();
       },
+      candidatesAtCursor: () => {
+        const world = cursorRef.current;
+        if (!world) return [];
+        return collectAndGuess(schematic, libById, snap(world), hitAccuracy(), lineSlop());
+      },
     }),
-    [schematic, libById, requestDraw, zoomAbout, zoomAboutCursor],
+    [schematic, libById, requestDraw, zoomAbout, zoomAboutCursor, snap, hitAccuracy, lineSlop],
   );
 
   useEffect(() => {
