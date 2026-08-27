@@ -40,6 +40,7 @@ import {
   mergeCommon,
   normalizeDialogControls,
   settings,
+  SettingsManager,
   sliceStorageKey,
 } from '@ziroeda/designer/src/prefs/settings.js';
 
@@ -293,10 +294,30 @@ describe('where the values live: common.json', () => {
     // `dlgVal.is_object()` per dialog, and skips anything else.
     expect(normalizeDialogControls(undefined)).toEqual({});
     expect(normalizeDialogControls('nope')).toEqual({});
-    expect(normalizeDialogControls([1, 2])).toEqual({});
+    // An array of plausible-looking dialogs, not of junk: `[1, 2]` is rejected
+    // by the per-dialog check even with the top-level one gone, so it would
+    // pass against an implementation that had no top-level check at all.
+    expect(normalizeDialogControls([{ Dlg: { ok: true } }])).toEqual({});
     expect(normalizeDialogControls({ Dlg: 'nope' })).toEqual({});
     expect(normalizeDialogControls({ Dlg: { ok: true, bad: { x: 1 }, worse: [1] } })).toEqual({
       Dlg: { ok: true },
+    });
+  });
+
+  it('is what a freshly started app reads out of storage', () => {
+    // `mergeCommon` being right is not the same claim as the manager using it:
+    // the field initialiser ran `load()` for every other slice, and `load()`
+    // goes through deepMerge. A new manager over a seeded store is the only
+    // way to reach that line, since the singleton was built at import time.
+    localStorage.setItem(
+      sliceStorageKey('common'),
+      JSON.stringify({
+        ...structuredClone(COMMON_DEFAULTS),
+        dialog: { controls: { 'Choose Symbol': { keepSymbol: true } } },
+      }),
+    );
+    expect(new SettingsManager().common.dialog.controls).toEqual({
+      'Choose Symbol': { keepSymbol: true },
     });
   });
 
