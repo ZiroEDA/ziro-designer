@@ -621,6 +621,10 @@ function readSymbol(node: SList): SchSymbol {
     source: node,
   };
   if (mirror === 'x' || mirror === 'y') sym.mirror = mirror;
+  // `(fields_autoplaced yes)`. The parser defaults to AUTOPLACE_NONE and the
+  // token can only ever raise it to AUTOPLACE_AUTO — MANUAL is never written,
+  // so it is never read back either (sch_io_kicad_sexpr_parser.cpp:3112, :3247).
+  if (boolField(node, 'fields_autoplaced', false)) sym.fieldsAutoplaced = 'auto';
   // (pin_map_override (mode …) (map "…") (edit "<pin>" "<pad>") …)
   const overrideNode = childNamed(node, 'pin_map_override');
   if (overrideNode) {

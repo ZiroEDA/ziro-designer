@@ -53,6 +53,15 @@ const EXCLUDED: Record<string, string> = {
   // to. Renaming the number does not rename a pin — it points the record at a
   // pin that does not exist, and the reader drops it.
   'symbols.pins.number': 'identity: which library pin this record is for',
+  // `AUTOPLACE_MANUAL` cannot survive a save, and upstream is the same: the
+  // file carries a bare bool, `saveSymbol` prints it for AUTOPLACE_AUTO and
+  // AUTOPLACE_MANUAL alike (sch_io_kicad_sexpr.cpp:780-783), and the parser
+  // reads any `(fields_autoplaced yes)` back as AUTOPLACE_AUTO
+  // (…parser.cpp:3247). Holding the distinction across a reload would be the
+  // parity bug, not losing it. The half that *is* persisted — set vs. cleared,
+  // and the token being removed rather than written `no` — is pinned in
+  // `rotate_field_readability.test.ts`.
+  'symbols.fieldsAutoplaced': 'auto/manual is in-memory only; the file is a bool',
   // A symbol instance is keyed by project + sheet path — `m_instancePathIndex`
   // in SCH_SYMBOL is exactly that map. Assigning either one does not move a
   // record, it names a sheet path that has no record, so the writer matches

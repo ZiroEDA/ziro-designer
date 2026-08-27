@@ -419,6 +419,21 @@ export interface SchSymbol {
   readonly dnp: boolean;
   /** `(locked yes)`, the symbol is protected from moves/edits (SCH_ITEM::IsLocked). */
   readonly locked?: boolean;
+  /**
+   * `SCH_ITEM::GetFieldsAutoplaced` (`AUTOPLACE_ALGO`): whether the fields are
+   * where the autoplacer put them, and which pass put them there.
+   *
+   * It is what decides whether rotating the symbol re-runs the autoplacer
+   * (`SCH_EDIT_TOOL::Rotate`, sch_edit_tool.cpp:1022-1029) — a hand-placed
+   * reference must stay where the user dragged it, and an autoplaced one has
+   * to move so it keeps reading horizontally beside the turned body.
+   *
+   * The file carries only a bool: `(fields_autoplaced yes)` is written for
+   * AUTOPLACE_AUTO *and* AUTOPLACE_MANUAL (sch_io_kicad_sexpr.cpp:782) and read
+   * back as AUTOPLACE_AUTO (…parser.cpp:3247), so the manual/auto distinction
+   * lives only in memory. `undefined` is AUTOPLACE_NONE.
+   */
+  readonly fieldsAutoplaced?: 'auto' | 'manual';
   /** `(passthrough block|force)`, net-chain bridge participation
    *  (SCH_SYMBOL::PASSTHROUGH_MODE); undefined = DEFAULT (omitted in files). */
   readonly passthrough?: 'block' | 'force';

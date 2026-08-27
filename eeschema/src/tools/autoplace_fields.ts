@@ -569,7 +569,9 @@ export function autoplaceFields(
         ...d,
         symbols: d.symbols.map((s, i) => {
           const fields = placed.get(i);
-          return fields ? { ...s, fields } : s;
+          // `SetFieldsAutoplaced( AUTOPLACE_MANUAL )`: the O hotkey's run is
+          // still an autoplacer run, so a later rotate re-places these too.
+          return fields ? { ...s, fields, fieldsAutoplaced: 'manual' } : s;
         }),
       };
     },
@@ -578,9 +580,19 @@ export function autoplaceFields(
         label: 'Autoplace Fields',
         apply: (d) => ({
           ...d,
-          symbols: d.symbols.map((s, i) =>
-            placed.has(i) ? { ...s, fields: before.symbols[i]!.fields } : s,
-          ),
+          symbols: d.symbols.map((s, i) => {
+            if (!placed.has(i)) return s;
+            const was = before.symbols[i]!;
+            const next: { -readonly [K in keyof SchSymbol]: SchSymbol[K] } = {
+              ...s,
+              fields: was.fields,
+            };
+            // Undo restores the flag as well, or a second rotate would keep
+            // autoplacing fields the user has just put back by hand.
+            if (was.fieldsAutoplaced) next.fieldsAutoplaced = was.fieldsAutoplaced;
+            else delete next.fieldsAutoplaced;
+            return next;
+          }),
         }),
         invert: () => autoplaceFields(doc, ids, libById, opts)!,
       };
@@ -615,7 +627,10 @@ export function autoplacePlacedSymbol(
   sheet?: AutoplaceSheet,
 ): SchSymbol {
   if (!enable) return sym;
-  return { ...sym, fields: autoplacedFields(sym, lib, opts, sheet) };
+  // `SetFieldsAutoplaced( AUTOPLACE_AUTO )`, which `AutoplaceFields` sets on
+  // every run it is given AUTOPLACE_AUTO for. It is what later tells
+  // `SCH_EDIT_TOOL::Rotate` these fields are the autoplacer's to move again.
+  return { ...sym, fields: autoplacedFields(sym, lib, opts, sheet), fieldsAutoplaced: 'auto' };
 }
 
 /**

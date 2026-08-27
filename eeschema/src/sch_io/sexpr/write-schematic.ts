@@ -517,6 +517,27 @@ function patchSymbolBool(node: SList, name: string, value: boolean, dflt: boolea
   return insertCanonical(node, list(atom(name), atom(value ? 'yes' : 'no')));
 }
 
+/**
+ * Patch `(fields_autoplaced yes)`.
+ *
+ * `saveSymbol` prints it for AUTOPLACE_AUTO and AUTOPLACE_MANUAL alike and
+ * prints *nothing* for AUTOPLACE_NONE (sch_io_kicad_sexpr.cpp:780-783) — so
+ * clearing the flag has to remove the token, not write `no`. That is why this
+ * is its own patcher rather than a `patchSymbolBool` call: mirroring a symbol
+ * clears the flag (sch_edit_tool.cpp:1331), and `(fields_autoplaced no)` is a
+ * line KiCad never writes.
+ */
+function patchFieldsAutoplaced(node: SList, algo: 'auto' | 'manual' | undefined): SList {
+  const child = childNamed(node, 'fields_autoplaced');
+  if (algo === undefined)
+    return child ? { kind: 'list', items: node.items.filter((it) => it !== child) } : node;
+  if (child) {
+    if (child.items[1]?.kind === 'atom' && child.items[1].value !== 'no') return node;
+    return mapChild(node, 'fields_autoplaced', () => list(atom('fields_autoplaced'), atom('yes')));
+  }
+  return insertCanonical(node, list(atom('fields_autoplaced'), atom('yes')));
+}
+
 /** Patch `(passthrough block|force)`; DEFAULT (undefined) removes the token,
  *  the writer omits it "to avoid file churn" (saveSymbol). */
 function patchPassthrough(node: SList, mode: 'block' | 'force' | undefined): SList {
@@ -669,6 +690,7 @@ function writeSymbol(sym: SchSymbol): SList {
   node = patchSymbolBool(node, 'dnp', sym.dnp, false);
   node = patchPassthrough(node, sym.passthrough);
   node = patchSymbolBool(node, 'locked', sym.locked ?? false, false);
+  node = patchFieldsAutoplaced(node, sym.fieldsAutoplaced);
   node = patchSymbolPins(node, sym.pins);
   node = patchSymbolInstances(node, sym);
 

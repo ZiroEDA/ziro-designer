@@ -6235,7 +6235,32 @@ export function SchematicEditor({
       // `SCH_EDIT_TOOL::Rotate` / `::Mirror` (sch_edit_tool.cpp:967, :1297),
       // both over `RotatableItems`.
       else if (TX[id])
-        withSelection(RotatableItems, (ids) => runCommand(transformItems(ids, TX[id]!)));
+        withSelection(RotatableItems, (ids) => {
+          const d = docRef.current;
+          runCommand(
+            transformItems(
+              ids,
+              TX[id]!,
+              // No centre and no grid override: both keep their defaults, and
+              // threading the window's live grid through is a separate change
+              // (see `DEFAULT_GRID_IU`).
+              undefined,
+              undefined,
+              // `if( m_frame->eeconfig()->m_AutoplaceFields.enable )` — the
+              // block that keeps a rotated symbol's reference reading
+              // horizontally (sch_edit_tool.cpp:1022-1029).
+              {
+                enable: es.autoplace_fields.enable,
+                libById,
+                opts: {
+                  allowRejustify: es.autoplace_fields.allow_rejustify,
+                  alignToGrid: es.autoplace_fields.align_to_grid,
+                },
+                ...(d ? { drawableArea: drawableArea(d) } : {}),
+              },
+            ),
+          );
+        });
     },
     [
       undo,
