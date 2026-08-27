@@ -66,8 +66,7 @@ import {
 } from '@ziroeda/eeschema';
 import type { Theme } from '../theme.js';
 import {
-  backgroundLayerAlpha,
-  backgroundLayerAlphaOverride,
+  backgroundLayerFill,
   brightened,
   cssWithAlpha,
   inverted,
@@ -1210,10 +1209,8 @@ export function renderSchematic(
             shadowWidth,
             opts.showHiddenPins,
             'bg',
-            backgroundLayerAlphaOverride(
-              selection?.has(symId) ?? false,
-              highlight?.has(symId) ?? false,
-            ),
+            selection?.has(symId) ?? false,
+            highlight?.has(symId) ?? false,
           );
       }
       for (const unit of lib.units) {
@@ -1331,13 +1328,10 @@ export function renderSchematic(
       // The gate above is `backgroundColor.a > 0.0` on the *unselected* colour,
       // exactly as draw( SCH_SHEET ) has it: a sheet left on the theme's
       // transparent default stays unfilled even while it is selected.
-      ctx.fillStyle = cssWithAlpha(
+      ctx.fillStyle = backgroundLayerFill(
         sheetFill,
-        backgroundLayerAlpha(
-          parseColor4d(sheetFill).a,
-          sheetSelected,
-          hl(refId('sheet', sh.uuid, si)),
-        ),
+        sheetSelected,
+        hl(refId('sheet', sh.uuid, si)),
       );
       ctx.fillRect(sh.at.x, sh.at.y, sh.size.w, sh.size.h);
     }
@@ -1601,10 +1595,7 @@ function drawSheetGraphic(
   const layerColor = g.ruleArea ? theme.ruleArea : theme.noteLine;
   const color = stroke?.color ? cssColor(stroke.color) : layerColor;
   const ownFill = g.fill?.type === 'color' && g.fill.color ? cssColor(g.fill.color) : null;
-  const fill =
-    ownFill === null
-      ? null
-      : cssWithAlpha(ownFill, backgroundLayerAlpha(parseColor4d(ownFill).a, selected, brightened));
+  const fill = ownFill === null ? null : backgroundLayerFill(ownFill, selected, brightened);
 
   // Cheap culling per shape.
   let minX = Infinity,
@@ -1746,10 +1737,7 @@ function drawTextBox(
       : tb.fill?.type === 'background'
         ? theme.background
         : null;
-  const fill =
-    ownFill === null
-      ? null
-      : cssWithAlpha(ownFill, backgroundLayerAlpha(parseColor4d(ownFill).a, selected, brightened));
+  const fill = ownFill === null ? null : backgroundLayerFill(ownFill, selected, brightened);
 
   // Border + fill. A width-0 default border still draws (KiCad draws the outline).
   ctx.beginPath();
@@ -3413,13 +3401,14 @@ function drawLibUnit(
   // 'bg' phase across all units first, then the 'fg' phase.
   phase: 'bg' | 'fg' | 'all' = 'all',
   /**
-   * getRenderColor's alpha for LAYER_DEVICE_BACKGROUND: a selected symbol's
-   * body fill goes translucent, "so that non-selected overlapping objects are
-   * visible". `WithAlpha` replaces the alpha rather than scaling it, so this is
-   * the value each background shape is forced to; null leaves every shape the
-   * alpha of its own colour.
+   * The symbol's state, which decides how LAYER_DEVICE_BACKGROUND is composited:
+   * a selected symbol's body fill goes translucent, "so that non-selected
+   * overlapping objects are visible". `backgroundLayerFill` owns the arithmetic
+   * — and, importantly, owns the fact that what KiCad's canvas actually puts on
+   * the glass is not the `WithAlpha( 0.5 )` its painter states.
    */
-  bgAlpha: number | null = null,
+  bgSelected = false,
+  bgBrightened = false,
 ): number {
   // Two passes matching SCH_PAINTER's layer order: background/custom fills
   // first (LAYER_DEVICE_BACKGROUND), then outlines and outline-colour fills
@@ -3474,7 +3463,7 @@ function drawLibUnit(
       if (fillType !== 'background' && fillType !== 'color') continue;
       const bodyFill =
         fillType === 'color' && g.fill?.color ? cssColor(g.fill.color) : theme.symbolFill;
-      ctx.fillStyle = bgAlpha === null ? bodyFill : cssWithAlpha(bodyFill, bgAlpha);
+      ctx.fillStyle = backgroundLayerFill(bodyFill, bgSelected, bgBrightened);
       if (g.kind === 'arc') {
         drawArc(
           ctx,

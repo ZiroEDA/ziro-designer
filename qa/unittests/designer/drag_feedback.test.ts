@@ -240,7 +240,15 @@ describe('a sheet whose stored fill is all zeroes', () => {
   });
 
   it('and dims it when the sheet is selected', () => {
-    expect(body(paint(doc, new Set([SH]), {}, themed))[0]?.colour).toBe('rgba(200, 220, 255, 0.5)');
+    // Re-derived from the probe, not from what the renderer now prints: a
+    // selected background-layer fill composites as clamp( 0.5*c + 0.75*dst ),
+    // drawn as colour c/0.5 at alpha 1 - 0.75. Every channel of (200,220,255)
+    // doubles past 255, so the CSS colour saturates - as KiCad's own pixels do
+    // for a fill this bright. See `backgroundLayerFill` and
+    // qa/probes/sch_selected_background/.
+    expect(body(paint(doc, new Set([SH]), {}, themed))[0]?.colour).toBe(
+      'rgba(255, 255, 255, 0.25)',
+    );
   });
 
   it('still draws nothing when the theme leaves it transparent, as both builtins do', () => {
@@ -252,18 +260,25 @@ describe('a sheet whose stored fill is all zeroes', () => {
   });
 });
 
-describe("a selected sheet keeps its own colour's hue", () => {
+describe("a selected sheet keeps its own colour's hue where it can", () => {
   /**
-   * Selection does not recolour a sheet. `getRenderColor` takes the sheet's own
-   * background (falling back to the theme only when it is UNSPECIFIED) and then
-   * forces the alpha:
+   * Selection does not *recolour* a sheet. `getRenderColor` takes the sheet's
+   * own background (falling back to the theme only when it is UNSPECIFIED) and
+   * then forces the alpha:
    *
    *     else if( aItem->IsSelected() && isBackgroundLayer( aLayer ) )
    *         color = color.WithAlpha( 0.5 );
    *
-   * `WithAlpha` *replaces* the alpha. Scaling it instead — which is what this
-   * did — agrees only for a fully opaque colour, and makes a translucent one
+   * `WithAlpha` *replaces* the alpha. Scaling it instead - which is what this
+   * did - agrees only for a fully opaque colour, and makes a translucent one
    * fade when upstream makes it firmer.
+   *
+   * What reaches the glass is not that alpha, though. KiCad's canvas composites
+   * a selected background fill as clamp( 0.5*c + 0.75*dst ) - measured, see
+   * `backgroundLayerFill` - which we draw as colour c/0.5 at alpha 1 - 0.75.
+   * The hue survives that doubling only while every channel stays under 128;
+   * above it the colour saturates, and so does KiCad's, which is why the stock
+   * light-yellow body comes out white in both.
    */
   const sheet = (fill: string): Schematic =>
     readSchematic(
@@ -281,16 +296,27 @@ describe("a selected sheet keeps its own colour's hue", () => {
     expect(body(paint(doc, undefined))[0]?.colour).toBe('rgb(170, 230, 255)');
   });
 
-  it('and at half alpha — same hue — when it is', () => {
+  it('keeps the hue when the colour is dark enough to survive the doubling', () => {
+    // (40,60,100) doubles to (80,120,200): the 2:3:5 ratio is untouched.
+    const doc = sheet('(fill (color 40 60 100 1))');
+    expect(body(paint(doc, new Set([SH])))[0]?.colour).toBe('rgba(80, 120, 200, 0.25)');
+  });
+
+  it('and saturates when it is not, exactly as KiCad does', () => {
+    // KiCad measured for this fill over the stock sheet:
+    //   0.5*(170,230,255) + 0.75*(245,244,239) = (268, 298, 306) -> pure white.
+    // So the hue genuinely goes on a bright fill; keeping it would be *our*
+    // invention, not KiCad's behaviour.
     const doc = sheet('(fill (color 170 230 255 1))');
-    expect(body(paint(doc, new Set([SH])))[0]?.colour).toBe('rgba(170, 230, 255, 0.5)');
+    expect(body(paint(doc, new Set([SH])))[0]?.colour).toBe('rgba(255, 255, 255, 0.25)');
   });
 
   it('selecting a translucent one makes it firmer, not fainter', () => {
-    const doc = sheet('(fill (color 170 230 255 0.25))');
-    expect(body(paint(doc, undefined))[0]?.colour).toBe('rgba(170, 230, 255, 0.25)');
-    // Scaling would have given 0.125.
-    expect(body(paint(doc, new Set([SH])))[0]?.colour).toBe('rgba(170, 230, 255, 0.5)');
+    const doc = sheet('(fill (color 40 60 100 0.25))');
+    expect(body(paint(doc, undefined))[0]?.colour).toBe('rgba(40, 60, 100, 0.25)');
+    // `WithAlpha` replaces: the fill's own 0.25 is discarded, so this is
+    // identical to the opaque case above. Scaling would have compounded them.
+    expect(body(paint(doc, new Set([SH])))[0]?.colour).toBe('rgba(80, 120, 200, 0.25)');
   });
 });
 

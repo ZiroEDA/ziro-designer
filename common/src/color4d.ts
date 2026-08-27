@@ -395,42 +395,91 @@ export function editPointColors(auxItemsCss: string, backgroundCss: string): Edi
 }
 
 /**
- * `SCH_PAINTER::getRenderColor`'s alpha for a *background* layer
- * (LAYER_DEVICE_BACKGROUND, LAYER_NOTES_BACKGROUND, LAYER_SHAPES_BACKGROUND,
- * LAYER_SHEET_BACKGROUND):
- *
- *     if( aItem->IsBrightened() ) { ... else if( isBackgroundLayer( aLayer ) ) color = color.WithAlpha( 0.2 ); }
- *     else if( aItem->IsSelected() && isBackgroundLayer( aLayer ) )
- *         // "Selected items will be painted over all other items, so make backgrounds
- *         //  translucent so that non-selected overlapping objects are visible"
- *         color = color.WithAlpha( 0.5 );
- *
- * `WithAlpha` *replaces* the alpha — `return COLOR4D( r, g, b, aAlpha )` — it
- * does not scale it. So a half-transparent background comes out **more** opaque
- * when selected, not less. This used to return a multiplier the callers applied
- * to the colour's own alpha, which is the same number only for a fully opaque
- * one and quietly wrong for every other. It takes the colour's alpha now so
- * there is nothing left to multiply.
+ * The alpha a selected item's background fill is *stated* to take.
+ * `getRenderColor`'s `color.WithAlpha( 0.5 )`.
  */
-export function backgroundLayerAlpha(
-  ownAlpha: number,
-  selected: boolean,
-  brightenedItem: boolean,
-): number {
-  return backgroundLayerAlphaOverride(selected, brightenedItem) ?? ownAlpha;
-}
+export const SELECTED_BACKGROUND_ALPHA = 0.5;
 
 /**
- * The same rule for a caller that has many shapes and one selection state: the
- * alpha every background shape is forced to, or null when the item is neither
- * brightened nor selected and each shape keeps the alpha of its own colour.
+ * The weight KiCad's canvas actually leaves on whatever is **underneath** a
+ * selected item's background fill.
+ *
+ * **This is a measurement of KiCad's pixels, not a rule KiCad states**, and it
+ * contradicts both `getRenderColor` — which says the fill is simply
+ * `WithAlpha( 0.5 )`, i.e. a destination weight of 0.5 — and KiCad's own
+ * plotter, which emits the flat `#FFFFC2` for the same body. Do not "fix" it
+ * back to `1 - SELECTED_BACKGROUND_ALPHA` on the strength of reading the C++.
+ *
+ * Measured with real eeschema 10.0.5 driven by XTEST, theme `_builtin_default`,
+ * sheet background (245,244,239) — `qa/probes/sch_selected_background/`, which
+ * carries the captures, the nine-colour table and the controls. In short:
+ *
+ * - Nine known fills, selected, fit `clamp( 0.5·c + 0.75·dst )` 9/9 to within
+ *   one LSB. The weights sum to 1.25, so it is not any alpha blend.
+ * - The same fills at explicit alpha 0.25/0.5/0.75 while **un**selected
+ *   composite textbook-correctly, 8/8 — so this is specific to the selected
+ *   path, not to translucency.
+ * - A selected grey (100,100,100) body over an *unselected opaque black* one
+ *   reads (50,50,50), pinning the weight to the real destination rather than to
+ *   the sheet colour: the rival law `0.5·c + 0.5·dst + 0.25·bg` predicts
+ *   (111,111,110), 61 levels away.
+ *
+ * 0.75 is `1 - 0.5²`. A destination weight of `1 - α²` is the signature of a
+ * buffer whose alpha channel is premultiplied twice, and selected items are the
+ * ones drawn into the GAL's overlay target (`SetLayerTarget(
+ * LAYER_SELECT_OVERLAY, KIGFX::TARGET_OVERLAY )`, eeschema/sch_draw_panel.cpp).
+ * That is a hypothesis; no line of KiCad source was found stating it. **If
+ * KiCad changes its compositor, re-run the probe** — this number is the first
+ * thing that goes stale.
  */
-export function backgroundLayerAlphaOverride(
+export const SELECTED_BACKGROUND_DST_WEIGHT = 0.75;
+
+/**
+ * A background-layer fill as it should be *drawn*, given the item's state.
+ *
+ * The selected case cannot be written as a plain alpha, because
+ * `α·c + 0.75·dst` puts 1.25 of weight on the page and no convex blend can.
+ * A single source-over draw reproduces it exactly as
+ *
+ *     colour  c / α        alpha  1 - dstWeight  ( = (2c, 0.25) at α = 0.5 )
+ *
+ * since `0.25·(2c) + 0.75·dst` is the same arithmetic. Both backends take the
+ * one CSS string, so Canvas2D and the WebGL recorder stay identical.
+ *
+ * **Known residual.** `c / α` is a CSS colour, so it clamps at 255, while
+ * KiCad's clamp falls on the *sum*. Where a channel of `c` exceeds 127 and the
+ * destination is bright, KiCad saturates and we stop short: the stock
+ * LAYER_DEVICE_BACKGROUND over the stock sheet is (255,255,255) in KiCad and
+ * (248,247,243) here — 12 levels in blue, against 39 before this existed. To
+ * close it, the source has to survive out of range to the compositor: on
+ * Canvas2D a second `globalCompositeOperation = 'lighter'` pass, and on the GL
+ * path a second triangle bucket drawn with `blendFuncSeparate(SRC_ALPHA,
+ * ONE_MINUS_SRC_ALPHA, SRC_ALPHA, ONE_MINUS_SRC_ALPHA)`, whose `α²` alpha *is*
+ * the measured law. Both are real work in a retained renderer and neither is
+ * done here.
+ *
+ * The brightened arm keeps `WithAlpha( 0.2 )` untouched: it was **not
+ * measured**, and it is unreachable in KiCad anyway, since
+ * `UpdateNetHighlighting` brightens a symbol's pins and a power symbol's
+ * fields, never the symbol, shape or text box itself.
+ */
+export function backgroundLayerFill(
+  css: string,
   selected: boolean,
   brightenedItem: boolean,
-): number | null {
-  if (brightenedItem) return 0.2;
-  return selected ? 0.5 : null;
+): string {
+  const c = parseColor4d(css);
+  if (brightenedItem) return toCss(withAlpha(c, 0.2));
+  // Normalised rather than passed through, so one spelling of a colour reaches
+  // the backends whatever the theme or the file wrote.
+  if (!selected) return toCss(c);
+  const k = 1 / SELECTED_BACKGROUND_ALPHA;
+  return toCss({
+    r: clamp01(c.r * k),
+    g: clamp01(c.g * k),
+    b: clamp01(c.b * k),
+    a: 1 - SELECTED_BACKGROUND_DST_WEIGHT,
+  });
 }
 
 /**
