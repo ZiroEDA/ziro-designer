@@ -10,6 +10,8 @@
  * `Toolbar.tsx` re-exports all four, so existing importers are unaffected.
  */
 
+import { actionIsToolbarToggle } from './toolbar_action_state.js';
+
 export interface ToolButton {
   id: string;
   icon: string;
@@ -26,6 +28,17 @@ export interface ToolButton {
    * rule is about, and specificity would hide which one was winning.
    */
   title?: string;
+  /**
+   * A left-toolbar option button, whose lit state comes from the frame's
+   * `toggled` set rather than from `activeTool`.
+   *
+   * **Never set this on a member of a {@link ToolGroup}.** A group button's
+   * check-item-ness is `isToggleEntry` in `ACTION_TOOLBAR::AddGroup`, an OR
+   * over the ACTIONS' own `TOOLBAR_STATE::TOGGLE` — a property of the action,
+   * shared by every editor that uses it, and transcribed once in
+   * `ui/toolbar_action_state.ts`. Restating it per editor is what let eeschema
+   * and pl_editor disagree about the same three unit actions.
+   */
   toggle?: boolean;
   /** Feature not implemented yet, shown greyed in its upstream position. */
   disabled?: boolean;
@@ -89,12 +102,20 @@ export interface ToolGroup {
  * A wxITEM_NORMAL cannot be checked at all, which is why a live pl_editor
  * shows the units button flat while the grid toggle above it stays lit.
  *
- * `cycleOnClick` carries the second half. It is our name for upstream's test
- * in `onToolEvent` — "none of the actions is an activation" — which is what
- * separates a *toggle* group (units, crosshairs, line modes) from a *tool*
- * group (selection modes, routing, tuning). A tool group's actions are
- * activations and do declare TOGGLE upstream, so its button is a check item
- * and our `activeTool` is what lights it.
+ * The answer comes from `ui/toolbar_action_state.ts` and from nowhere else.
+ * Upstream's OR runs over the ACTIONS themselves, and an action's toolbar state
+ * is declared once beside the action — so an editor's toolbar file has no say
+ * in it, and must not be given one. It had one here: the rule used to read
+ * `!group.cycleOnClick || group.actions.some((a) => a.toggle)`, taking `toggle`
+ * from each editor's own inventory. Seven editors wrote the Units group without
+ * it and eeschema wrote it with, so the same three `ACTIONS::` objects produced
+ * a flat button in pl_editor and a permanently lit one in the schematic editor.
+ *
+ * `cycleOnClick` no longer takes part. It is our name for upstream's *other*
+ * test, the one in `onToolEvent` — "none of the actions is an activation" —
+ * which decides whether a click cycles to the next member or dispatches the
+ * shown one. That it correlated with the check-item answer is a fact about
+ * KiCad's action table, not a rule; reading the table directly is the rule.
  *
  * This exists as a named function, and not as a condition inside the renderer,
  * because the renderer's own decision is not reachable from a Node test. The
@@ -105,7 +126,7 @@ export interface ToolGroup {
  * as dead when it was the only thing doing the work.
  */
 export function groupIsCheckItem(group: ToolGroup): boolean {
-  return !group.cycleOnClick || group.actions.some((a) => a.toggle);
+  return group.actions.some((a) => actionIsToolbarToggle(a.id));
 }
 
 export function nextInGroup(group: ToolGroup, shownId: string): ToolButton {
