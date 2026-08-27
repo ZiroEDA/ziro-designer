@@ -467,7 +467,8 @@ import { formatTitle, useDocumentTitle } from '../../ui/useDocumentTitle.js';
 import { fileBaseName, pathHumanReadable, SCH_FRAME_NAME, schFrameTitle } from './frame_title.js';
 import {
   SCH_BOTTOM_DOCK,
-  SCH_LEFT_PANE_POSITION,
+  SCH_LEFT_PANE_ADD_ORDER,
+  schDockPosFrom,
   schLeftDockLayout,
   schPaneGrows,
   schSelectionFilterShown,
@@ -1128,7 +1129,29 @@ export function SchematicEditor({
   // A ref rather than state: it is written during the render that lays the
   // column out, and every write is accompanied by the toggle change that
   // caused it, so there is nothing extra to re-render for.
-  const dockPosRef = useRef<SchDockPos>(SCH_LEFT_PANE_POSITION);
+  //
+  // It starts from the stored perspective, not from the `Position()` table:
+  // `RestoreAuiLayout()` runs before any pane is shown, so upstream's column
+  // resumes wherever the last session left it. See `schDockPosFrom`.
+  const dockPosRef = useRef<SchDockPos>(schDockPosFrom(settings.eeschema.window.left_dock_pos));
+  // The numbers the last laid-out render produced, persisted after it.
+  const dockPosSaveRef = useRef<SchDockPos>(dockPosRef.current);
+  // `SCH_EDIT_FRAME::SaveSettings` writes `m_auimgr.SavePerspective()`, which
+  // carries every pane's `dock_pos`, so the renumbering wxAUI did during the
+  // session outlives it. Ours is written after the render that produced it
+  // rather than during, because a settings commit notifies subscribers.
+  //
+  // No dependency array: the value is a ref, so there is nothing React could
+  // key on, and the comparison below makes the pass a no-op whenever the column
+  // did not move.
+  useEffect(() => {
+    const next = dockPosSaveRef.current;
+    const stored = settings.eeschema.window.left_dock_pos;
+    if (SCH_LEFT_PANE_ADD_ORDER.every((pane) => stored[pane] === next[pane])) return;
+    settings.updateEeschema((s) => {
+      s.window.left_dock_pos = { ...next };
+    });
+  });
   const startLeftDockResize = (e: React.MouseEvent): void => {
     e.preventDefault();
     const startX = e.clientX;
@@ -8025,6 +8048,7 @@ export function SchematicEditor({
           // and the same numbers.
           const dockLayout = schLeftDockLayout(dockPosRef.current, paneShown);
           dockPosRef.current = dockLayout.dockPos;
+          dockPosSaveRef.current = dockLayout.dockPos;
           // Adjacent visible grow panes get a drag sash between them, top pane
           // resizes (KiCad's wxAUI sash chain); Selection Filter (prop=0 in
           // KiCad's perspective) never grows, so it's never in this list.

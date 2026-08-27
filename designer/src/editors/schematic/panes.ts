@@ -91,6 +91,35 @@ export const SCH_LEFT_PANE_ADD_ORDER: readonly SchLeftPane[] = [
 /** `dock_pos` for every pane of the column, the state wxAUI carries forward. */
 export type SchDockPos = Readonly<Record<SchLeftPane, number>>;
 
+/**
+ * The column's starting `dock_pos`, from a stored perspective or from
+ * `AddPane`.
+ *
+ * `RestoreAuiLayout()` (sch_edit_frame.cpp:304) loads `window.perspective`
+ * before a single pane is shown, so the numbers a previous session was left
+ * with — not {@link SCH_LEFT_PANE_POSITION} — are what the next one starts
+ * from. That matters because wxAUI's renumbering pass is not reversible: it
+ * compacts whatever was shown, and a pane hidden at that moment keeps the
+ * number it had. Measured with `qa/probes/aui_dock_pos_probe.cpp` on this
+ * machine's own saved perspective (Properties `pos=0`, hierarchy `pos=1`),
+ * closing both palettes and re-opening Properties and then the hierarchy leaves
+ * **Properties on top**; run from `AddPane`'s numbers the very same sequence
+ * leaves the **hierarchy** on top, because the two tie at 0 and `AddPane` order
+ * breaks the tie. So an editor that forgets the numbers between sessions
+ * answers a question KiCad answers from memory.
+ *
+ * A missing or non-numeric entry falls back to `AddPane`'s value, which is what
+ * a pane absent from the perspective string gets upstream.
+ */
+export function schDockPosFrom(stored: Readonly<Record<string, number>> | undefined): SchDockPos {
+  const out = { ...SCH_LEFT_PANE_POSITION } as Record<SchLeftPane, number>;
+  for (const pane of SCH_LEFT_PANE_ADD_ORDER) {
+    const v = stored?.[pane];
+    if (typeof v === 'number' && Number.isFinite(v)) out[pane] = v;
+  }
+  return out;
+}
+
 /** What one `wxAuiManager::Update()` leaves behind. */
 export interface SchLeftDockLayout {
   /** The panes on screen, TOP TO BOTTOM. */

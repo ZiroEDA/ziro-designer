@@ -24,6 +24,7 @@ import {
   SCH_BOTTOM_DOCK,
   SCH_LEFT_PANE_ADD_ORDER,
   SCH_LEFT_PANE_POSITION,
+  schDockPosFrom,
   schLeftDockLayout,
   schPaneGrows,
   schSelectionFilterShown,
@@ -69,12 +70,21 @@ describe('the Position() each pane is docked at', () => {
  * one pane, `updateSelectionFilterVisbility` decides the Selection Filter, and
  * one Update lays the result out and renumbers.
  */
-function frame(): (
-  pane: 'netNavigator' | 'hierarchy' | 'properties',
-  on: boolean,
-) => readonly SchLeftPane[] {
-  let dockPos: SchDockPos = SCH_LEFT_PANE_POSITION;
-  const grow = { netNavigator: false, hierarchy: false, properties: false };
+function frame(
+  start: SchDockPos = SCH_LEFT_PANE_POSITION,
+  open: Partial<Record<'netNavigator' | 'hierarchy' | 'properties', boolean>> = {},
+): (pane: 'netNavigator' | 'hierarchy' | 'properties', on: boolean) => readonly SchLeftPane[] {
+  let dockPos: SchDockPos = start;
+  const grow = { netNavigator: false, hierarchy: false, properties: false, ...open };
+  // The startup Update: `sch_edit_frame.cpp:313-315` shows the panes the
+  // settings ask for and `FinishAUIInitialization` lays them out once, before
+  // the user touches anything.
+  if (grow.netNavigator || grow.hierarchy || grow.properties) {
+    dockPos = schLeftDockLayout(dockPos, {
+      ...grow,
+      selectionFilter: schSelectionFilterShown(grow),
+    }).dockPos;
+  }
 
   return (pane, on) => {
     grow[pane] = on;
@@ -153,6 +163,110 @@ describe('the left column is ordered by when each pane was opened', () => {
       'properties',
       'selectionFilter',
     ]);
+  });
+});
+
+/**
+ * The sequence the user actually performs, from the state eeschema is actually
+ * in — both palettes shown, because `aui.show_schematic_hierarchy` and
+ * `aui.show_properties` both default true (eeschema_settings.cpp:246-247 and
+ * :318-319) and `sch_edit_frame.cpp:313-315` shows them before the first
+ * `Update()`.
+ *
+ * Every number below is `qa/probes/aui_dock_pos_probe.cpp`'s two `fromStartup`
+ * / `fromPerspective` scenarios, which begin from that state instead of from
+ * both panes hidden. The old scenarios in that file all began hidden, which is
+ * a state a fresh eeschema is never in.
+ */
+describe('closing both palettes and re-opening them', () => {
+  const startup = (start?: SchDockPos) => frame(start, { hierarchy: true, properties: true });
+
+  /**
+   * Probe, "startup: hierarchy + properties shown in ONE Update":
+   * Hierarchy dock_pos=0 y=18, Properties dock_pos=1 y=263,
+   * SelectionFilter dock_pos=2 y=509.
+   */
+  it('starts with the hierarchy on top, compacted from Position()', () => {
+    const layout = schLeftDockLayout(SCH_LEFT_PANE_POSITION, {
+      netNavigator: false,
+      hierarchy: true,
+      properties: true,
+      selectionFilter: true,
+    });
+    expect(layout.order).toEqual(['hierarchy', 'properties', 'selectionFilter']);
+    expect(layout.dockPos.hierarchy).toBe(0);
+    expect(layout.dockPos.properties).toBe(1);
+    expect(layout.dockPos.selectionFilter).toBe(2);
+  });
+
+  /**
+   * Probe, "startup, close both, then Properties, then Hierarchy". The two tie
+   * at 0 — Properties compacted there while alone, the hierarchy left there
+   * when it was hidden — and AddPane order gives the hierarchy the top slot.
+   *
+   * This is the answer a session with NO stored perspective gives, and it is
+   * not the one the user's own eeschema gives; see the next test.
+   */
+  it('gives the hierarchy the top slot when nothing was remembered', () => {
+    const toggle = startup();
+    expect(toggle('hierarchy', false)).toEqual(['properties', 'selectionFilter']);
+    expect(toggle('properties', false)).toEqual([]);
+    expect(toggle('properties', true)).toEqual(['properties', 'selectionFilter']);
+    expect(toggle('hierarchy', true)).toEqual(['hierarchy', 'properties', 'selectionFilter']);
+  });
+
+  /**
+   * Probe, "restored perspective (Properties pos=0), then the same sequence" —
+   * seeded with the `pos=` fields this machine's own
+   * `~/.config/kicad/10.0/eeschema.json` holds (`PropertiesManager;…;pos=0`,
+   * `SchematicHierarchy;…;pos=1`, `SelectionFilter;…;pos=2`). The very same
+   * clicks then leave `drawn top-to-bottom: Properties, Hierarchy,
+   * SelectionFilter`, because the hierarchy comes back holding 1 and does not
+   * tie with anything.
+   *
+   * This is the rule the model was missing: not how one Update sorts a column,
+   * but that the numbers it produced survive the session.
+   */
+  it('gives Properties the top slot when the last session left it there', () => {
+    const saved: SchDockPos = {
+      netNavigator: 0,
+      hierarchy: 1,
+      properties: 0,
+      selectionFilter: 2,
+    };
+    const toggle = startup(saved);
+    expect(toggle('hierarchy', false)).toEqual(['properties', 'selectionFilter']);
+    expect(toggle('properties', false)).toEqual([]);
+    expect(toggle('properties', true)).toEqual(['properties', 'selectionFilter']);
+    expect(toggle('hierarchy', true)).toEqual(['properties', 'hierarchy', 'selectionFilter']);
+  });
+});
+
+/**
+ * `schDockPosFrom`: what `RestoreAuiLayout()` (sch_edit_frame.cpp:304) leaves
+ * the column holding before a single pane is shown.
+ */
+describe('the stored perspective', () => {
+  it('is what the column starts from when there is one', () => {
+    expect(
+      schDockPosFrom({ netNavigator: 0, hierarchy: 1, properties: 0, selectionFilter: 2 }),
+    ).toEqual({ netNavigator: 0, hierarchy: 1, properties: 0, selectionFilter: 2 });
+  });
+
+  /** No saved layout at all: a fresh profile gets `AddPane`'s numbers. */
+  it('falls back to Position() when there is none', () => {
+    expect(schDockPosFrom(undefined)).toEqual(SCH_LEFT_PANE_POSITION);
+  });
+
+  /**
+   * A pane missing from the perspective string keeps its `AddPane` value
+   * upstream, so a partial record must not zero the rest of the column.
+   */
+  it('fills a pane the perspective does not mention from Position()', () => {
+    expect(schDockPosFrom({ properties: 0 })).toEqual({
+      ...SCH_LEFT_PANE_POSITION,
+      properties: 0,
+    });
   });
 });
 
@@ -250,9 +364,34 @@ describe('the editor renders the dock through that order', () => {
    */
   it('carries dock_pos forward to the next Update', () => {
     expect(text()).toMatch(/^\s*dockPosRef\.current = dockLayout\.dockPos;$/m);
+  });
+
+  /**
+   * ...and it must START from the stored perspective rather than from the
+   * `Position()` table. `RestoreAuiLayout()` (sch_edit_frame.cpp:304) runs
+   * before any pane is shown, so beginning each session at `AddPane`'s numbers
+   * throws away the compaction the last one did — which is exactly the
+   * difference between the probe's two startup scenarios: the same clicks give
+   * the hierarchy the top slot from `Position()` and Properties the top slot
+   * from this machine's saved perspective.
+   */
+  it('starts the column from the stored perspective', () => {
     expect(text()).toMatch(
-      /^\s*const dockPosRef = useRef<SchDockPos>\(SCH_LEFT_PANE_POSITION\);$/m,
+      /^\s*const dockPosRef = useRef<SchDockPos>\(\s*schDockPosFrom\(settings\.eeschema\.window\.left_dock_pos\),?\s*\);$/m,
     );
+  });
+
+  /**
+   * ...and it must WRITE THEM BACK, or the next session starts from
+   * `Position()` again however the column was left.
+   * `SCH_EDIT_FRAME::SaveSettings` persists `m_auimgr.SavePerspective()`, which
+   * carries every pane's `dock_pos`.
+   *
+   * Anchored as a whole statement: commenting the assignment out leaves the
+   * substring in the file.
+   */
+  it('persists dock_pos so the next session resumes there', () => {
+    expect(text()).toMatch(/^\s*s\.window\.left_dock_pos = \{ \.\.\.next \};$/m);
   });
 
   it('takes the sash chain from the same order', () => {

@@ -348,6 +348,26 @@ export interface EeschemaSettings {
     title_block: boolean;
   };
   window: {
+    /**
+     * `dock_pos` for the panes of the left column, the part of
+     * `window.perspective` our column can express.
+     *
+     * KiCad persists its whole wxAUI layout as one string
+     * (`SCH_EDIT_FRAME::SaveSettings` -> `m_auimgr.SavePerspective()`, restored
+     * by `RestoreAuiLayout()` at sch_edit_frame.cpp:304 BEFORE any pane is
+     * shown), and each pane's entry carries a `pos=` field. Those numbers are
+     * not `AddPane`'s `Position()`: wxAUI renumbers the shown panes of a dock on
+     * every `Update()`, so they are wherever the last session left them.
+     *
+     * Measured with `qa/probes/aui_dock_pos_probe.cpp`: seeded with this
+     * machine's own saved perspective (PropertiesManager `pos=0`,
+     * SchematicHierarchy `pos=1`), closing both palettes and re-opening
+     * Properties then the hierarchy leaves Properties on top — while the same
+     * sequence from `AddPane`'s numbers leaves the hierarchy on top. Restarting
+     * every session from the `Position()` table, as we did, therefore made the
+     * column forget an order KiCad remembers.
+     */
+    left_dock_pos: Record<string, number>;
     grid: {
       sizes: string[]; // "50 mil", "25 mil", ...
       last_size_idx: number;
@@ -500,6 +520,11 @@ export const EESCHEMA_DEFAULTS: EeschemaSettings = {
     title_block: false,
   },
   window: {
+    // The state `AddPane` leaves behind, i.e. a profile with no saved
+    // perspective: `SCH_LEFT_PANE_POSITION` in
+    // `editors/schematic/panes.ts`, which is where the numbers are documented
+    // against their `Position()` call sites.
+    left_dock_pos: { netNavigator: 0, hierarchy: 1, properties: 2, selectionFilter: 4 },
     grid: {
       sizes: ['100 mil', '50 mil', '25 mil', '10 mil'],
       last_size_idx: 1,

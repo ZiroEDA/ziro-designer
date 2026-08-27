@@ -155,6 +155,98 @@
 //   drawn top-to-bottom: NetNavigator, Hierarchy, Properties, SelectionFilter
 //
 // ---------------------------------------------------------------------------
+// OUTPUT, the scenarios that start where eeschema actually starts
+//
+// Every scenario above begins with BOTH palettes hidden, which a fresh
+// eeschema is never in: `aui.show_schematic_hierarchy` and `aui.show_properties`
+// both default true (eeschema_settings.cpp:246-247, :318-319) and
+// sch_edit_frame.cpp:313-315 shows them before the first Update(). The two runs
+// below start there instead. The second also seeds the `pos=` fields this
+// machine's ~/.config/kicad/10.0/eeschema.json actually holds
+// (PropertiesManager pos=0, SchematicHierarchy pos=1, SelectionFilter pos=2),
+// which is what `RestoreAuiLayout()` (sch_edit_frame.cpp:304) loads before any
+// pane is shown.
+//
+// == scenario: startup, close both, then Properties, then Hierarchy ==
+// -- startup: hierarchy + properties shown in ONE Update --
+//     NetNavigator     hidden  dock_pos=0 layer=3 row=0  y=-
+//     Hierarchy        SHOWN   dock_pos=0 layer=3 row=0  y=18
+//     Properties       SHOWN   dock_pos=1 layer=3 row=0  y=263
+//     SelectionFilter  SHOWN   dock_pos=2 layer=3 row=0  y=509
+//   drawn top-to-bottom: Hierarchy, Properties, SelectionFilter
+//
+// -- Hide Hierarchy --
+//     NetNavigator     hidden  dock_pos=0 layer=3 row=0  y=-
+//     Hierarchy        hidden  dock_pos=0 layer=3 row=0  y=-
+//     Properties       SHOWN   dock_pos=0 layer=3 row=0  y=18
+//     SelectionFilter  SHOWN   dock_pos=1 layer=3 row=0  y=509
+//   drawn top-to-bottom: Properties, SelectionFilter
+//
+// -- Hide Properties --
+//     NetNavigator     hidden  dock_pos=0 layer=3 row=0  y=-
+//     Hierarchy        hidden  dock_pos=0 layer=3 row=0  y=-
+//     Properties       hidden  dock_pos=0 layer=3 row=0  y=-
+//     SelectionFilter  hidden  dock_pos=1 layer=3 row=0  y=-
+//   drawn top-to-bottom: (nothing)
+//
+// -- Show Properties --
+//     NetNavigator     hidden  dock_pos=0 layer=3 row=0  y=-
+//     Hierarchy        hidden  dock_pos=0 layer=3 row=0  y=-
+//     Properties       SHOWN   dock_pos=0 layer=3 row=0  y=18
+//     SelectionFilter  SHOWN   dock_pos=1 layer=3 row=0  y=509
+//   drawn top-to-bottom: Properties, SelectionFilter
+//
+// -- Show Hierarchy --
+//     NetNavigator     hidden  dock_pos=0 layer=3 row=0  y=-
+//     Hierarchy        SHOWN   dock_pos=0 layer=3 row=0  y=18
+//     Properties       SHOWN   dock_pos=1 layer=3 row=0  y=263
+//     SelectionFilter  SHOWN   dock_pos=2 layer=3 row=0  y=509
+//   drawn top-to-bottom: Hierarchy, Properties, SelectionFilter
+//
+// == scenario: restored perspective (Properties pos=0), then the same sequence ==
+// -- restored perspective, hierarchy + properties shown --
+//     NetNavigator     hidden  dock_pos=0 layer=3 row=0  y=-
+//     Hierarchy        SHOWN   dock_pos=1 layer=3 row=0  y=263
+//     Properties       SHOWN   dock_pos=0 layer=3 row=0  y=18
+//     SelectionFilter  SHOWN   dock_pos=2 layer=3 row=0  y=509
+//   drawn top-to-bottom: Properties, Hierarchy, SelectionFilter
+//
+// -- Hide Hierarchy --
+//     NetNavigator     hidden  dock_pos=0 layer=3 row=0  y=-
+//     Hierarchy        hidden  dock_pos=1 layer=3 row=0  y=-
+//     Properties       SHOWN   dock_pos=0 layer=3 row=0  y=18
+//     SelectionFilter  SHOWN   dock_pos=1 layer=3 row=0  y=509
+//   drawn top-to-bottom: Properties, SelectionFilter
+//
+// -- Hide Properties --
+//     NetNavigator     hidden  dock_pos=0 layer=3 row=0  y=-
+//     Hierarchy        hidden  dock_pos=1 layer=3 row=0  y=-
+//     Properties       hidden  dock_pos=0 layer=3 row=0  y=-
+//     SelectionFilter  hidden  dock_pos=1 layer=3 row=0  y=-
+//   drawn top-to-bottom: (nothing)
+//
+// -- Show Properties --
+//     NetNavigator     hidden  dock_pos=0 layer=3 row=0  y=-
+//     Hierarchy        hidden  dock_pos=1 layer=3 row=0  y=-
+//     Properties       SHOWN   dock_pos=0 layer=3 row=0  y=18
+//     SelectionFilter  SHOWN   dock_pos=1 layer=3 row=0  y=509
+//   drawn top-to-bottom: Properties, SelectionFilter
+//
+// -- Show Hierarchy --
+//     NetNavigator     hidden  dock_pos=0 layer=3 row=0  y=-
+//     Hierarchy        SHOWN   dock_pos=1 layer=3 row=0  y=263
+//     Properties       SHOWN   dock_pos=0 layer=3 row=0  y=18
+//     SelectionFilter  SHOWN   dock_pos=2 layer=3 row=0  y=509
+//   drawn top-to-bottom: Properties, Hierarchy, SelectionFilter
+//
+// The same four clicks, two different answers: from AddPane's numbers the
+// hierarchy takes the top slot, from the saved perspective Properties keeps it.
+// Nothing about how ONE Update sorts a column differs between them - the
+// difference is entirely the state the session STARTED from. So the rule the
+// TypeScript model was missing is not in the sort at all: it is that dock_pos
+// survives the session, in `window.perspective`.
+//
+// ---------------------------------------------------------------------------
 // WHAT wxAUI IS DOING
 //
 // Two rules account for every line above, and neither is in KiCad's source:
@@ -400,6 +492,83 @@ public:
         pump();
     }
 
+    // KiCad's REAL startup: sch_edit_frame.cpp:313-315 shows the hierarchy and
+    // Properties before the first Update(), because both settings default true
+    // (eeschema_settings.cpp:246-247, :318-319). Every earlier scenario in this
+    // file began from both HIDDEN, which is not a state eeschema is ever in on
+    // a fresh profile - and it is the state the whole model was derived from.
+    void fromStartup( const char* title,
+                      const std::vector<std::pair<const char*, bool>>& steps )
+    {
+        printf( "== scenario: %s ==\n", title );
+
+        wxFrame*          f = new wxFrame( nullptr, wxID_ANY, "probe", wxDefaultPosition,
+                                           wxSize( 900, 600 ) );
+        std::vector<Pane> panes;
+        wxAuiManager*     mgr = build( f, panes );
+
+        mgr->GetPane( "Hierarchy" ).Show( true );
+        mgr->GetPane( "Properties" ).Show( true );
+        updateSelectionFilter( *mgr );
+        mgr->Update();
+        f->Show();
+        pump();
+        report( *mgr, panes, "startup: hierarchy + properties shown in ONE Update" );
+
+        for( const auto& step : steps )
+        {
+            showPane( *mgr, step.first, step.second );
+            report( *mgr, panes, wxString::Format( "%s %s", step.second ? "Show" : "Hide",
+                                                   step.first ).utf8_str() );
+        }
+
+        mgr->UnInit();
+        delete mgr;
+        f->Destroy();
+        pump();
+    }
+
+    // The same, but seeded with a RESTORED perspective instead of the
+    // Position() table. `RestoreAuiLayout()` (sch_edit_frame.cpp:304) loads
+    // `window.perspective` from the user's config before any pane is shown, so
+    // the numbers a previous session left behind - not AddPane's - are what the
+    // column starts from. `pos` is read straight out of that string.
+    void fromPerspective( const char* title, int hierarchyPos, int propertiesPos,
+                          int selFilterPos,
+                          const std::vector<std::pair<const char*, bool>>& steps )
+    {
+        printf( "== scenario: %s ==\n", title );
+
+        wxFrame*          f = new wxFrame( nullptr, wxID_ANY, "probe", wxDefaultPosition,
+                                           wxSize( 900, 600 ) );
+        std::vector<Pane> panes;
+        wxAuiManager*     mgr = build( f, panes );
+
+        mgr->GetPane( "Hierarchy" ).Position( hierarchyPos );
+        mgr->GetPane( "Properties" ).Position( propertiesPos );
+        mgr->GetPane( "SelectionFilter" ).Position( selFilterPos );
+
+        mgr->GetPane( "Hierarchy" ).Show( true );
+        mgr->GetPane( "Properties" ).Show( true );
+        updateSelectionFilter( *mgr );
+        mgr->Update();
+        f->Show();
+        pump();
+        report( *mgr, panes, "restored perspective, hierarchy + properties shown" );
+
+        for( const auto& step : steps )
+        {
+            showPane( *mgr, step.first, step.second );
+            report( *mgr, panes, wxString::Format( "%s %s", step.second ? "Show" : "Hide",
+                                                   step.first ).utf8_str() );
+        }
+
+        mgr->UnInit();
+        delete mgr;
+        f->Destroy();
+        pump();
+    }
+
     bool OnInit() override
     {
         scenario( "Hierarchy first, then Properties",
@@ -425,6 +594,41 @@ public:
         // before the single Update(), so nothing has been renumbered yet and
         // the Position() table is the only thing ordering them.
         restored( "all four shown in ONE Update (a restored frame)" );
+
+        // The user's actual sequence, from the state eeschema actually starts
+        // in: close both palettes, then re-open Properties and then Hierarchy.
+        fromStartup( "startup, close both, then Properties, then Hierarchy",
+                     { { "Hierarchy", false },
+                       { "Properties", false },
+                       { "Properties", true },
+                       { "Hierarchy", true } } );
+
+        // The mirror image, to tell "the first one opened wins" apart from
+        // "Properties always wins".
+        fromStartup( "startup, close both, then Hierarchy, then Properties",
+                     { { "Hierarchy", false },
+                       { "Properties", false },
+                       { "Hierarchy", true },
+                       { "Properties", true } } );
+
+        // Closing them the other way round, in case the order of the two hides
+        // is what decides.
+        fromStartup( "startup, close Properties first, then Properties, then Hierarchy",
+                     { { "Properties", false },
+                       { "Hierarchy", false },
+                       { "Properties", true },
+                       { "Hierarchy", true } } );
+
+        // The perspective this machine's ~/.config/kicad/10.0/eeschema.json
+        // actually holds: PropertiesManager pos=0, SchematicHierarchy pos=1,
+        // SelectionFilter pos=2. It is what the user's own eeschema starts
+        // from, and it is why their Properties pane stays on top.
+        fromPerspective( "restored perspective (Properties pos=0), then the same sequence",
+                         1, 0, 2,
+                         { { "Hierarchy", false },
+                           { "Properties", false },
+                           { "Properties", true },
+                           { "Hierarchy", true } } );
 
         return false;
     }
