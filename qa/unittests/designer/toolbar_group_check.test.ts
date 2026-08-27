@@ -212,6 +212,22 @@ describe('the Units toolbar group is not a check item, per editor', () => {
       ).toBe(false);
     });
 
+    it('answers false for an id nobody has transcribed, as upstream does', () => {
+      // `TOOL_ACTION::m_toolbarState` is a default-constructed bitset
+      // (`include/tool/tool_action.h:511`), so an action that never calls
+      // `.ToolbarState(...)` has every flag clear. The lookup's fallback IS
+      // that default, not a convenience — defaulting the other way would light
+      // every group we have not got round to transcribing.
+      expect('no.such.action' in GROUP_ACTION_TOOLBAR_TOGGLE).toBe(false);
+      expect(actionIsToolbarToggle('no.such.action')).toBe(false);
+      expect(
+        groupIsCheckItem({
+          group: 'Untranscribed',
+          actions: [{ id: 'no.such.action', icon: 'x' }],
+        }),
+      ).toBe(false);
+    });
+
     it('does not consult cycleOnClick either', () => {
       // `cycleOnClick` is upstream's OTHER test (onToolEvent: "none of the
       // actions is an activation"), which decides click behaviour. That it
