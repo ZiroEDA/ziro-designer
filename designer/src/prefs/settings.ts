@@ -113,7 +113,50 @@ export interface CommonSettings {
      */
     selection_zoom: 'none' | 'pan' | 'zoom';
   };
+  /**
+   * `dialog.controls` — every dialog's remembered control values.
+   *
+   * COMMON_SETTINGS registers this as a `PARAM_LAMBDA<nlohmann::json>` named
+   * exactly `"dialog.controls"` (common/settings/common_settings.cpp:478-505),
+   * fed from `COMMON_SETTINGS_INTERNALS::m_dialogControlValues`, a
+   * `map<dialog key, map<control key, json>>`
+   * (include/settings/common_settings_internals.h:29). So this is a *user*
+   * setting living in `common.json`, not session state: it outlives the
+   * process, which is why KiCad's "Place repeated copies" is still ticked after
+   * the placer tool has been closed and reopened.
+   *
+   * Written by `DIALOG_SHIM::SaveControlState` and read back by
+   * `DIALOG_SHIM::LoadControlState` (common/dialog_shim.cpp:654, :765); see
+   * `ui/dialog_control_state.ts` for the port of that half.
+   */
+  dialog: {
+    controls: DialogControls;
+  };
 }
+
+/**
+ * One remembered control value.
+ *
+ * `SaveControlState` stores a `nlohmann::json` per control, and the branches it
+ * writes are exhaustively: a UNIT_BINDER's int, a `wxComboBox`'s string, a
+ * `wxOwnerDrawnComboBox`/`wxChoice`/`wxRadioBox`'s selection index, a
+ * `wxTextEntry`'s string, a `wxCheckBox`/`wxRadioButton`'s bool, a
+ * `wxSpinCtrl`'s int, a splitter's sash position, a scrolled window's scroll
+ * position, a notebook's *page title*, and a WX_GRID's shown-columns string
+ * (dialog_shim.cpp:678-745). Every one of those is a JSON scalar, so this is
+ * the whole value domain for a *control*.
+ *
+ * The one non-scalar upstream writes into the same map is the dialog's own
+ * geometry, an `{x,y,w,h}` object under the reserved key `"__geometry"`
+ * (dialog_shim.cpp:664-671, read back in `DIALOG_SHIM::Show`, :455-468). That
+ * is not ported: a wxDialog is a top-level window the user drags and resizes
+ * and ours are centred `.ze-modal` divs, so there is no position to remember.
+ * When one becomes movable, geometry belongs here under that same key.
+ */
+export type DialogControlValue = boolean | number | string;
+
+/** dialog key -> control key -> value; `m_dialogControlValues`. */
+export type DialogControls = Record<string, Record<string, DialogControlValue>>;
 
 export const COMMON_DEFAULTS: CommonSettings = {
   appearance: {
@@ -161,6 +204,9 @@ export const COMMON_DEFAULTS: CommonSettings = {
   search_pane: {
     selection_zoom: 'pan',
   },
+  // `nlohmann::json::object()` is the param's default (common_settings.cpp:505):
+  // no dialog has been opened yet, so every control takes its own default.
+  dialog: { controls: {} },
 };
 
 // ----- EESCHEMA_SETTINGS --------------------------------------------------------
@@ -1475,6 +1521,56 @@ export function normalizeHotkeys(parsed: unknown): Record<string, string | null>
   return out;
 }
 
+/**
+ * `dialog.controls` on the way in — the port of the PARAM_LAMBDA *setter* at
+ * common_settings.cpp:488-503.
+ *
+ * Upstream reads it defensively for the same reason ours must: the file is on
+ * disk and hand-editable, so it checks `aVal.is_object()` and then
+ * `dlgVal.is_object()` per dialog before copying, and silently skips anything
+ * else. Ours adds the leaf check upstream gets for free from `nlohmann::json`
+ * being able to hold anything: a leaf that is not a scalar is dropped, because
+ * {@link DialogControlValue} is the whole domain `SaveControlState` writes.
+ *
+ * Free-form, so not `deepMerge`d — see the note above `normalizeHotkeys`: the
+ * defaults are `{}` and `deepMerge` keeps only keys the defaults already have,
+ * so every stored dialog would be dropped on the way back in.
+ */
+export function normalizeDialogControls(parsed: unknown): DialogControls {
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return {};
+  const out: DialogControls = {};
+  for (const [dlgKey, dlgVal] of Object.entries(parsed as Record<string, unknown>)) {
+    if (typeof dlgVal !== 'object' || dlgVal === null || Array.isArray(dlgVal)) continue;
+    const controls: Record<string, DialogControlValue> = {};
+    for (const [ctrlKey, ctrlVal] of Object.entries(dlgVal as Record<string, unknown>)) {
+      if (
+        typeof ctrlVal === 'boolean' ||
+        typeof ctrlVal === 'number' ||
+        typeof ctrlVal === 'string'
+      )
+        controls[ctrlKey] = ctrlVal;
+    }
+    out[dlgKey] = controls;
+  }
+  return out;
+}
+
+/**
+ * `common.json` on the way in: the fixed settings tree merged as usual, with
+ * the one free-form subtree inside it normalised instead.
+ *
+ * One function rather than two because the same value arrives by two routes —
+ * localStorage at startup and the account at sign-in — and a subtree repaired
+ * on only one of them is the `colors.user` bug again, where every change was
+ * written and silently discarded on reload.
+ */
+export function mergeCommon(stored: unknown): CommonSettings {
+  const out = deepMerge(structuredClone(COMMON_DEFAULTS), stored);
+  const dialog = (stored as { dialog?: { controls?: unknown } } | undefined)?.dialog;
+  out.dialog = { controls: normalizeDialogControls(dialog?.controls) };
+  return out;
+}
+
 /** The "User" colour theme: layer key -> CSS colour. Free-form, same as above. */
 export function normalizeUserColors(parsed: unknown): Record<string, string> {
   if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return {};
@@ -1558,8 +1654,9 @@ interface SliceIO {
 const SLICE_IO: Record<SettingsSlice, SliceIO> = {
   common: {
     read: (m) => m.common,
+    // Not `deepMerge` alone: `dialog.controls` is free-form. See `mergeCommon`.
     adopt: (m, v) => {
-      m.common = deepMerge(structuredClone(COMMON_DEFAULTS), v);
+      m.common = mergeCommon(v);
     },
   },
   eeschema: {
@@ -1619,7 +1716,8 @@ const SLICE_IO: Record<SettingsSlice, SliceIO> = {
  * editors re-render through useSyncExternalStore).
  */
 export class SettingsManager {
-  common: CommonSettings = load(sliceStorageKey('common'), COMMON_DEFAULTS);
+  // Not `load()`: `common.json` carries one free-form subtree. See `mergeCommon`.
+  common: CommonSettings = loadFreeForm(sliceStorageKey('common'), mergeCommon);
   eeschema: EeschemaSettings = load(sliceStorageKey('eeschema'), EESCHEMA_DEFAULTS);
   pcbnew: PcbnewSettings = load(sliceStorageKey('pcbnew'), PCBNEW_DEFAULTS);
   /** `pl_editor.json`, the Drawing Sheet Editor's own settings file. */
@@ -1736,6 +1834,28 @@ export class SettingsManager {
     mutate(next);
     this.common = next;
     this.commit('common', next);
+  }
+
+  /**
+   * Remember one control's value for one dialog — `dlgMap[ key ] = value` in
+   * `DIALOG_SHIM::SaveControlState` (common/dialog_shim.cpp:678-745).
+   *
+   * The early return is not upstream's, and is deliberate. Upstream's
+   * assignment is free — it writes an in-memory `std::map`, and the file is
+   * written once at exit by `SETTINGS_MANAGER::Save` — so it re-stores every
+   * control on every close without paying for it. A browser has no exit hook to
+   * flush at, so ours must persist as it goes; and `commit` stamps the slice
+   * dirty and wakes the account sync, so re-storing a value that is already
+   * stored would push `common.json` to the server every time any dialog is
+   * opened and closed unchanged. Storing the same bytes is what is skipped, not
+   * a change.
+   */
+  setDialogControl(dialogKey: string, controlKey: string, value: DialogControlValue): void {
+    if (this.common.dialog.controls[dialogKey]?.[controlKey] === value) return;
+    this.updateCommon((s) => {
+      s.dialog.controls[dialogKey] ??= {};
+      s.dialog.controls[dialogKey][controlKey] = value;
+    });
   }
 
   updateEeschema(mutate: (s: EeschemaSettings) => void): void {
