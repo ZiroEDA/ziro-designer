@@ -1110,7 +1110,7 @@ export function SymbolPropertiesDialog({
                   }
                 >
                   <span className="mcheck">{shownCols.has(i) ? '✓' : ''}</span>
-                  {c.label}
+                  <span className="lbl">{c.label}</span>
                 </div>
               ))}
             </div>

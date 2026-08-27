@@ -153,3 +153,230 @@ describe('the colour swatch', () => {
     expect(colorFromHex('not a colour')).toBeUndefined();
   });
 });
+
+/* ---------------------------------------------------------------------------
+ * FIELDS_GRID_TABLE's shape, and the row rules the dialog's four buttons ask.
+ *
+ * These are the parts of the grid that are DATA rather than DOM — the column
+ * table, which columns start shown, and which rows may be renamed, deleted or
+ * moved — so they are pinned here rather than through a render. The rendering
+ * of them is `symbol_properties_dialog.test.tsx`.
+ * ------------------------------------------------------------------------ */
+
+import {
+  canDeleteRow,
+  canMoveRowDown,
+  canMoveRowUp,
+  DEFAULT_SHOWN_COLUMNS,
+  defaultShownColumns,
+  FIELDS_GRID_COLUMNS,
+  gridRowIndices,
+  isNameReadOnly,
+  isValueReadOnly,
+  mandatoryRowCount,
+} from '@ziroeda/designer/src/editors/schematic/symbol_props_rows.js';
+
+/** A part carrying all five mandatory properties, as every LIB_SYMBOL does. */
+const LIB = `(kicad_sch (version 20250114)
+  (lib_symbols (symbol "Device:R"
+    (property "Reference" "R" (at 0 0 0))
+    (property "Value" "R" (at 0 0 0))
+    (property "Footprint" "" (at 0 0 0))
+    (property "Datasheet" "~" (at 0 0 0))
+    (property "Description" "Resistor" (at 0 0 0))
+    (symbol "R_0_1" (rectangle (start -1 1) (end 1 -1))))))`;
+const libSymbol = () => readSchematic(parse(LIB)).libSymbols[0]!;
+
+describe('the mandatory block is always five rows, and always first', () => {
+  it('materialises the ones the file left out, in FIELD_T order', () => {
+    // SCH_SYMBOL holds REFERENCE, VALUE, FOOTPRINT, DATASHEET and DESCRIPTION
+    // whether or not the file wrote them, which is why TransferDataToWindow can
+    // push GetFields() straight into the grid and get five rows.
+    const rows = rowsFromSymbol(sheet().symbols[0]!);
+    expect(rows.slice(0, 5).map((r) => r.key)).toStrictEqual([
+      'Reference',
+      'Value',
+      'Footprint',
+      'Datasheet',
+      'Description',
+    ]);
+    expect(mandatoryRowCount(rows)).toBe(5);
+  });
+
+  it('takes a materialised one from the library part, not from thin air', () => {
+    const rows = rowsFromSymbol(sheet().symbols[0]!, undefined, libSymbol());
+    expect(rows.find((r) => r.key === 'Description')!.value).toBe('Resistor');
+    // Without a part there is nothing to copy, so the row is empty and hidden —
+    // still a row, because the row is what makes the field editable at all.
+    const bare = rowsFromSymbol(sheet().symbols[0]!);
+    expect(bare.find((r) => r.key === 'Description')!.value).toBe('');
+    expect(bare.find((r) => r.key === 'Description')!.effects.hidden).toBe(true);
+  });
+
+  it('keeps the user fields after them, in the file s order', () => {
+    const rows = rowsFromSymbol(sheet().symbols[0]!);
+    expect(rows.map((r) => r.key).slice(5)).toStrictEqual(['Sim.Params']);
+  });
+
+  it('does not duplicate one the file DID write', () => {
+    const rows = rowsFromSymbol(sheet().symbols[0]!, undefined, libSymbol());
+    // The fixture's Footprint is R_0603 with its own flags; the library's is
+    // empty. The placement's wins, and there is one of it.
+    expect(rows.filter((r) => r.key === 'Footprint')).toHaveLength(1);
+    expect(rows.find((r) => r.key === 'Footprint')!.value).toBe('R_0603');
+  });
+});
+
+describe('a private field is in the table but not in the grid', () => {
+  it('gridRowIndices skips it, and skips only it', () => {
+    // FIELDS_GRID_TABLE::getVisibleRowCount / getField, fields_grid_table.cpp:
+    // 474-516, for FRAME_SCH and FRAME_SCH_VIEWER.
+    const rows = rowsFromSymbol(sheet().symbols[0]!);
+    const view = gridRowIndices(rows);
+    expect(view.map((i) => rows[i]!.key)).not.toContain('Sim.Params');
+    expect(view).toHaveLength(rows.length - 1);
+  });
+
+  it('and fieldsFromRows still hands it back, so OK cannot drop it', () => {
+    const rows = rowsFromSymbol(sheet().symbols[0]!);
+    expect(fieldsFromRows(rows).map((f) => f.key)).toContain('Sim.Params');
+  });
+});
+
+describe('the row rules the add/up/down/delete buttons guard', () => {
+  const rows = () => rowsFromSymbol(sheet().symbols[0]!);
+
+  it('delete refuses any row inside the mandatory block', () => {
+    // OnDeleteField's filter: `row < m_fields->GetMandatoryRowCount()`.
+    for (let i = 0; i < 5; i++) expect(canDeleteRow(rows(), i)).toBe(false);
+    expect(canDeleteRow(rows(), 5)).toBe(true);
+  });
+
+  it('move-up refuses the FIRST user row as well as the mandatory ones', () => {
+    // `row > GetMandatoryRowCount()`, strictly greater — row 5 would swap into
+    // the block.
+    expect(canMoveRowUp(rows(), 5)).toBe(false);
+    const two = [...rows(), { ...rows()[5]!, key: 'Extra' }];
+    expect(canMoveRowUp(two, 6)).toBe(true);
+  });
+
+  it('move-down allows the first user row, but not the last row', () => {
+    // `row >= GetMandatoryRowCount()`, plus WX_GRID's `i + 1 < GetNumberRows()`.
+    const two = [...rows(), { ...rows()[5]!, key: 'Extra' }];
+    expect(canMoveRowDown(two, 5)).toBe(true);
+    expect(canMoveRowDown(two, 6)).toBe(false);
+    expect(canMoveRowDown(two, 4)).toBe(false);
+  });
+});
+
+describe('which cells GetAttr makes read-only', () => {
+  it('a mandatory field s name, and no user field s', () => {
+    const rows = rowsFromSymbol(sheet().symbols[0]!);
+    expect(rows.filter(isNameReadOnly).map((r) => r.key)).toStrictEqual([
+      'Reference',
+      'Value',
+      'Footprint',
+      'Datasheet',
+      'Description',
+    ]);
+  });
+
+  it('a power symbol s Footprint VALUE, and nothing else of it', () => {
+    // "Power symbols do not appear in the board, so don't allow a footprint."
+    const rows = rowsFromSymbol(sheet().symbols[0]!);
+    expect(rows.filter((r) => isValueReadOnly(r, true)).map((r) => r.key)).toStrictEqual([
+      'Footprint',
+    ]);
+    expect(rows.filter((r) => isValueReadOnly(r, false))).toHaveLength(0);
+  });
+});
+
+describe('the column table', () => {
+  it('is FDC_SCH_EDIT_COUNT columns, labelled as GetColLabelValue labels them', () => {
+    expect(FIELDS_GRID_COLUMNS.map((c) => c.label)).toStrictEqual([
+      'Name',
+      'Value',
+      'Show',
+      'Show Name',
+      'H Align',
+      'V Align',
+      'Italic',
+      'Bold',
+      'Text Size',
+      'Orientation',
+      'X Position',
+      'Y Position',
+      'Font',
+      'Color',
+      'Allow Autoplacement',
+    ]);
+  });
+
+  it('marks as bool exactly the columns m_boolAttr covers', () => {
+    // FDC_SHOWN, FDC_SHOW_NAME, FDC_ITALIC, FDC_BOLD, FDC_ALLOW_AUTOPLACE —
+    // the wxGridCellBoolRenderer set, and the reason those cells always draw a
+    // checkbox where H/V Align do not.
+    expect(FIELDS_GRID_COLUMNS.filter((c) => c.kind === 'bool').map((c) => c.id)).toStrictEqual([
+      'shown',
+      'show_name',
+      'italic',
+      'bold',
+      'allow_autoplace',
+    ]);
+  });
+
+  it('marks as choice exactly the columns a wxGridCellChoiceEditor covers', () => {
+    expect(FIELDS_GRID_COLUMNS.filter((c) => c.kind === 'choice').map((c) => c.id)).toStrictEqual([
+      'h_align',
+      'v_align',
+      'orientation',
+    ]);
+  });
+
+  it('carries each choice editor s items in its own order', () => {
+    const choices = (id: string) => FIELDS_GRID_COLUMNS.find((c) => c.id === id)?.choices;
+    expect(choices('h_align')).toStrictEqual(['Left', 'Center', 'Right']);
+    expect(choices('v_align')).toStrictEqual(['Top', 'Center', 'Bottom']);
+    expect(choices('orientation')).toStrictEqual(['Horizontal', 'Vertical']);
+  });
+
+  it('centres the columns whose attr sets wxALIGN_CENTER, and only those', () => {
+    expect(FIELDS_GRID_COLUMNS.filter((c) => c.center).map((c) => c.id)).toStrictEqual([
+      'shown',
+      'show_name',
+      'h_align',
+      'v_align',
+      'italic',
+      'bold',
+      'orientation',
+      'allow_autoplace',
+    ]);
+  });
+
+  it('carries the base file s column widths', () => {
+    // SetColSize, dialog_symbol_properties_base.cpp:40-53; the fifteenth has
+    // none and takes wxGrid's default 80, asked of a real grid by the probe.
+    expect(FIELDS_GRID_COLUMNS.map((c) => c.width)).toStrictEqual([
+      72, 10, 48, 84, 66, 66, 48, 48, 84, 84, 84, 84, 10, 48, 80,
+    ]);
+  });
+
+  it('starts with the eight ShowHideColumns names', () => {
+    expect(DEFAULT_SHOWN_COLUMNS).toBe('0 1 2 3 4 5 6 7');
+    expect([...defaultShownColumns()].sort((a, b) => a - b)).toStrictEqual([
+      0, 1, 2, 3, 4, 5, 6, 7,
+    ]);
+    // Which is Name through Bold. Text Size, Orientation, the two positions,
+    // Font, Color and Allow Autoplacement are hidden until the user asks.
+    expect([...defaultShownColumns()].map((i) => FIELDS_GRID_COLUMNS[i]!.label)).toStrictEqual([
+      'Name',
+      'Value',
+      'Show',
+      'Show Name',
+      'H Align',
+      'V Align',
+      'Italic',
+      'Bold',
+    ]);
+  });
+});
