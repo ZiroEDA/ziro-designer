@@ -510,6 +510,33 @@
      5 top + 5 bottom + a 2 px flexgrid vgap (bitmap2cmp_panel_base.cpp:161-193),
      so the control itself is 22. */
   --check-row: 22px;
+  /* The same row, for a checkbox carrying KIUI::GetInfoFont rather than the GUI
+     font. That is `getGUIFont( win, -1 )` (common/widgets/ui_common.cpp:156) —
+     one point down — and a point of font is a pixel of row here.
+     [px] asked of the widget two ways, which agree: wxCheckBox::GetBestSize
+     (qa/probes/selfilter_grid_probe.cpp) and Gtk.CheckButton's own natural
+     height both return 21 at 10pt and 22 at 11pt, and a checkbox and a radio
+     return the same number, so --check-row above is not wrong — it is the
+     11pt answer, and this is the 10pt one.
+     PANEL_SCH_SELECTION_FILTER puts the info font on every one of its
+     checkboxes (panel_sch_selection_filter.cpp:36-47), so its rows are 21. */
+  --check-row-info: 21px;
+  /* The air GTK puts around a checkbox's parts, which is ONE number appearing
+     three times, not three numbers. [px] asked of Gtk.CheckButton's style
+     properties: focus-padding 1 + focus-line-width 1 + indicator-spacing 2 = 4,
+     applied before the indicator, again between indicator and label, and again
+     after the label. The widget's own allocation agrees on both ends: it puts
+     its label child at x=24 from the button's left edge (4 + 16 + 4), and
+     wxCheckBox::GetBestSize is text + 28 (4 + 16 + 4 + text + 4) for every one
+     of the ten Selection Filter labels — the same constant ten times, which is
+     what makes it a metric rather than a coincidence.
+     A running eeschema confirms both ends independently: its pane edge is at
+     x=66, its indicator's left edge at 75 (5 of wxLEFT border + this 4) and its
+     first label pixel at 95 (a further 16 + this 4).
+     Ours draws the indicator with `appearance: none` at exactly --check-size
+     and gets none of that for free, so wherever we lay a checkbox beside a
+     label, this is the padding and the gap. */
+  --check-inset: 4px;
 
   /* [px] the wxSlider track is 4 px of flat #4b4b4b with the filled part in the
      desktop accent; the thumb is a 20 px circle. [css] agrees on the thumb —
@@ -1606,13 +1633,15 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
    neither states anything here.
 
    The gap between a swatch and its label, and between a checkbox indicator and
-   its label, are both GTK's and neither is measured yet: a 4px and a 6px were
-   written here on the way past and removed again rather than shipped, because
-   an unmeasured chrome number is the drift this stylesheet exists to stop.
-   Sampling them wants a rendered menu edge-on, the same probe the menu and
-   tooltip border widths are waiting on. Until then the slot's own padding
-   spaces them, and the pair below only needs to sit on one line — which is
-   layout, carrying no number at all. */
+   its label, are both GTK's. The checkbox one is now measured and is
+   --check-inset: Gtk.CheckButton was asked for its style properties and its
+   label child's allocation, so the 6px written here on the way past would have
+   been wrong by 2. The swatch one is still unmeasured, and sampling it wants a
+   rendered menu edge-on, the same probe the menu and tooltip border widths are
+   waiting on.
+   Neither is stated here regardless: the slot's own padding spaces them, and
+   the pair below only needs to sit on one line — which is layout, carrying no
+   number at all. */
 .ze-tb-layerbox {
   display: inline-flex;
   align-items: center;
@@ -3683,18 +3712,84 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-leftdock .ze-panel:not(.grow) {
   border-bottom: none;
 }
+/* PANEL_SCH_SELECTION_FILTER is the AUI pane's client area itself — the grid
+   sizer is set on the panel and `m_gridSizer->Fit( this )` sizes the panel to
+   it, so nothing sits between the pane edge and the sizer's own 5px borders.
+   `.ze-panel-body`'s 6px/8px is our generic pane inset and it does not belong
+   here: it stacked on top of the 5, putting the indicator 12px from the pane
+   edge where a running eeschema has it at 9. */
+.ze-panel-body:has(> .ze-selfilter) {
+  padding: 0;
+}
+/* ONE rule for both editors' filter panels, because upstream states the same
+   layout twice: eeschema's panel_sch_selection_filter_base.cpp:14-66 and
+   pcbnew's panel_selection_filter_base.cpp:15-71 differ only in which
+   categories they list, and both set KIUI::GetInfoFont on every checkbox
+   (panel_sch_selection_filter.cpp:36, panel_selection_filter.cpp:36). The three
+   structural rules below read off DOM position, and both panels' markup emits
+   the cells in the sizer's row-major order, so each one lands on the same item
+   the sizer gives the border to — including pcbnew's, where the wxBOTTOM is on
+   "Points" alone in row 6 rather than on the last cell of the last full row.
+
+   The grid is `wxGridBagSizer( 0, 0 )` — vgap 0, hgap 0. So there is no gap
+   anywhere in this panel: every pixel of space between the checkboxes is a
+   per-item BORDER, and only three of the eleven items carry one vertically.
+
+     (0,0) All items      wxLEFT|wxTOP             5   <- no wxRIGHT
+     (0,1) Rule Areas     wxLEFT|wxRIGHT|wxTOP     5
+     rows 1-3, (4,0)      wxLEFT|wxRIGHT           5
+     (4,1) Other items    wxBOTTOM|wxLEFT|wxRIGHT  5
+
+   The rows therefore TOUCH — the row pitch is just the checkbox's own height —
+   and 5px of air exists above the first row and below the last, nowhere else.
+   Ours had `gap: 1px 12px` over `padding: 2px 0`, which made the pitch 27px
+   against KiCad's 21 and stretched the pane 24px taller than the real one.
+
+   A gridbag column is as wide as the widest item in it, so `1fr 1fr` was wrong
+   in two ways at once: it divided the PANE rather than the content, and it
+   moved whenever the pane's width did. `max-content` is the sizer's own rule.
+   It comes out at 90px for column 0 — "Graphics", the widest label at 80px,
+   plus its 5+5 — and a running eeschema draws its two indicator columns exactly
+   90px apart, where ours had them 148 apart. */
 .ze-selfilter {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1px 12px;
+  grid-template-columns: max-content max-content;
+  gap: 0;
+  justify-content: start;
 }
 .ze-selfilter label {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 2px 0;
+  /* The label is the check BUTTON, so it carries GTK's own inset on both edges
+     and between the indicator and the text. That is what makes its width come
+     out at text + 28, the number wx measures, and so what makes the
+     max-content column above land on the sizer's 90px. */
+  gap: var(--check-inset);
+  padding: 0 var(--check-inset);
+  /* wxLEFT|wxRIGHT, 5. A wx border sits OUTSIDE the item, so it is margin here,
+     which is also what makes the max-content column above measure the same
+     thing the sizer measures. */
+  margin: 0 5px;
+  /* vgap is 0, so the row IS the control, and the control is the info-font one
+     because the panel sets that font on all eleven. */
+  height: var(--check-row-info);
   font-size: var(--ui-font-size-info);
   cursor: default;
+}
+/* wxTOP, 5 — on row 0 only, which is both of the first two cells. */
+.ze-selfilter > :nth-child(-n + 2) {
+  margin-top: 5px;
+}
+/* wxBOTTOM, 5 — carried by exactly one cell, the one that closes the grid:
+   "Other items" (4,1) in eeschema, "Points" (6,0) in pcbnew. */
+.ze-selfilter > :last-child {
+  margin-bottom: 5px;
+}
+/* (0,0) is the one cell added without wxRIGHT. It does not move column 0 here
+   (84px against the 90 "Graphics" asks for) but it is what the sizer says, and
+   a longer translation of "All items" would make it show. */
+.ze-selfilter > :first-child {
+  margin-right: 0;
 }
 .ze-muted {
   color: #9a9ca0;
