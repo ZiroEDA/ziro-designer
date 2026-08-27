@@ -231,6 +231,26 @@ export function SymbolEditor({
 
   const [selection, setSelection] = useState<ReadonlySet<string>>(new Set());
   const [activeTool, setActiveTool] = useState('select');
+  /**
+   * Status-bar field 6, the "Current Tool" pane, which is written by
+   * `TOOLS_HOLDER` and by nothing else:
+   *
+   *   PushTool  DisplayToolMsg( action->GetFriendlyName() )   (:72-76)
+   *   PopTool   DisplayToolMsg( ACTIONS::selectionTool.GetFriendlyName() )
+   *             when the stack empties                        (:112-113)
+   *
+   * So it is EMPTY on a cold frame and reads "Select item(s)" only after a
+   * tool has been armed and left. `SCH_SELECTION_TOOL` never gets there: the
+   * frame starts it with `InvokeTool( "common.InteractiveSelection" )`
+   * (`symbol_edit_frame.cpp:440`), which does not push. The button still
+   * paints checked, because `IsCurrentTool` answers
+   * `&aAction == &ACTIONS::selectionTool` for an EMPTY stack (:129-135) —
+   * checked and unnamed at the same time, which is exactly what a captured
+   * cold KiCad shows and what ours did not: we derived the field from
+   * `activeTool`, whose opening value is `'select'`, so field 6 read
+   * "Select item(s)" from the first paint.
+   */
+  const [toolMsg, setToolMsg] = useState('');
   const [toggles, setToggles] = useState<Set<string>>(new Set(DEFAULT_TOGGLES));
   const [cursor, setCursor] = useState<Vec2 | null>(null);
   const [scale, setScale] = useState(1);
@@ -781,6 +801,9 @@ export function SymbolEditor({
   // ----- tool / toolbar dispatch -----------------------------------------------------
   const onToolSelect = useCallback((id: string) => {
     setActiveTool(id);
+    // `TOOLS_HOLDER::PushTool` — the ONLY caller of `DisplayToolMsg` besides
+    // `PopTool` (`common/tool/tools_holder.cpp:57-77, :113`). See `toolMsg`.
+    setToolMsg(SYM_TOOL_MSGS[id] ?? '');
     setPendingPin(null);
     setPendingText(null);
   }, []);
@@ -2144,7 +2167,7 @@ export function SymbolEditor({
             : deltasMsg(null),
           grid: gridMsg(fmt(GRID)),
           units: unitsMsg(unitsLabel),
-          tool: SYM_TOOL_MSGS[activeTool] ?? '',
+          tool: toolMsg,
         }}
       />
 

@@ -728,13 +728,62 @@ describe('the Zoom to Selection Area button', () => {
     const after = getByTestId('sym-tool-msg').textContent;
     const lit = btn.getAttribute('aria-pressed');
     unmount();
-    // `Select item(s)` is `ACTIONS::selectionTool`'s FriendlyName, which the
-    // frame opens on; the point is that the click MOVED it.
+    // Field 6 starts EMPTY: `DisplayToolMsg` is only ever called from
+    // `TOOLS_HOLDER::PushTool` / `PopTool` (`common/tool/tools_holder.cpp:72,
+    // :113`), and the selection tool is started with `InvokeTool`
+    // (`symbol_edit_frame.cpp:440`), which pushes nothing. A captured cold
+    // KiCad shows that pane blank while the selection button is checked.
     expect({ before, after, lit }).toEqual({
-      before: 'Select item(s)',
+      before: '',
       after: 'Zoom to Selection Area',
       // TOOLBAR_STATE::TOGGLE + CurrentTool( zoomTool ) (:561): armed = checked.
       lit: 'true',
+    });
+  });
+});
+
+describe('status-bar field 6, the Current Tool pane', () => {
+  /**
+   * `DisplayToolMsg` has exactly two callers, and both are in `TOOLS_HOLDER`:
+   *
+   *     PushTool  DisplayToolMsg( action->GetFriendlyName() )      (:72-76)
+   *     PopTool   DisplayToolMsg( ACTIONS::selectionTool
+   *                                 .GetFriendlyName() )           (:112-113)
+   *                 -- only when the stack has emptied
+   *
+   * The selection tool never reaches either: `SYMBOL_EDIT_FRAME` starts it with
+   * `m_toolManager->InvokeTool( "common.InteractiveSelection" )` (:440). So the
+   * pane is blank on a cold frame and says "Select item(s)" only after a tool
+   * has been armed and dropped. Ours read the field straight off `activeTool`,
+   * which opens at `'select'`, so it said "Select item(s)" from the first
+   * paint — the one thing in that status bar a capture of KiCad does not show.
+   *
+   * All three states in one test, because "blank at the start" alone would
+   * pass against a field that is blank forever.
+   */
+  it('is blank until a tool is armed, then names it, then names Select', () => {
+    const { container, getByTestId, unmount } = render(<SymbolEditor onExitToHome={() => {}} />);
+    const field = (): string => getByTestId('sym-tool-msg').textContent ?? '';
+    const press = (title: string): void => {
+      const bar = container.querySelector('.ze-toolbar.horizontal');
+      const right = container.querySelector('.ze-toolbar.vertical.right');
+      const btn = [
+        ...Array.from(bar?.querySelectorAll('button') ?? []),
+        ...Array.from(right?.querySelectorAll('button') ?? []),
+      ].find((b) => b.getAttribute('title') === title);
+      if (!btn) throw new Error(`no button titled ${title}`);
+      fireEvent.click(btn);
+    };
+    const cold = field();
+    press('Zoom to Selection Area');
+    const armed = field();
+    press('Select item(s)');
+    const back = field();
+    unmount();
+    expect({ cold, armed, back }).toEqual({
+      cold: '',
+      armed: 'Zoom to Selection Area',
+      back: 'Select item(s)',
     });
   });
 });
