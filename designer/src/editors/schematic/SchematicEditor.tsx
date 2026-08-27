@@ -451,9 +451,11 @@ import { formatTitle, useDocumentTitle } from '../../ui/useDocumentTitle.js';
 import { fileBaseName, pathHumanReadable, SCH_FRAME_NAME, schFrameTitle } from './frame_title.js';
 import {
   SCH_BOTTOM_DOCK,
-  SCH_LEFT_GROW_PANES,
-  SCH_LEFT_PANE_ORDER,
+  SCH_LEFT_PANE_POSITION,
+  schLeftDockLayout,
+  schPaneGrows,
   schSelectionFilterShown,
+  type SchDockPos,
   type SchLeftPane,
 } from './panes.js';
 import { SelectionFilterPanel } from '../../ui/SelectionFilterPanel.js';
@@ -1100,6 +1102,17 @@ export function SchematicEditor({
   // perspective) never grows, so it's excluded from panelHeights.
   const [leftDockWidth, setLeftDockWidth] = useState(300);
   const [panelHeights, setPanelHeights] = useState<Record<string, number>>({});
+  // `dock_pos` for the left column, which is state and not a table: wxAUI
+  // renumbers the SHOWN panes on every Update, so the pane opened first ends
+  // up at 0 and the next one keeps its (larger) `Position()` and docks below
+  // it. See `schLeftDockLayout` and `qa/probes/aui_dock_pos_probe.cpp`. It
+  // starts at what `AddPane` leaves behind, so a frame that opens with several
+  // panes already shown gets them in `Position()` order.
+  //
+  // A ref rather than state: it is written during the render that lays the
+  // column out, and every write is accompanied by the toggle change that
+  // caused it, so there is nothing extra to re-render for.
+  const dockPosRef = useRef<SchDockPos>(SCH_LEFT_PANE_POSITION);
   const startLeftDockResize = (e: React.MouseEvent): void => {
     e.preventDefault();
     const startX = e.clientX;
@@ -7794,10 +7807,8 @@ export function SchematicEditor({
 
       <div className="ze-body">
         {(() => {
-          // Which panes are on screen, in the dock order wxAUI sorts them
-          // into — `SCH_LEFT_PANE_ORDER`, the upstream `Position()` numbers.
-          // Ours used to hardcode the order here, and had Properties above the
-          // hierarchy where upstream has it below.
+          // Which panes are on screen. The ORDER they are drawn in is not a
+          // table: it is `schLeftDockLayout`, one wxAUI Update, run below.
           const growShown = {
             netNavigator: toggles.has('showNetNavigator') && !!doc,
             hierarchy: toggles.has('showHierarchy'),
@@ -7812,12 +7823,22 @@ export function SchematicEditor({
             // next recompute — which is exactly what the latch below does.
             selectionFilter: schSelectionFilterShown(growShown) && !selectionFilterClosed,
           };
+          // One `wxAuiManager::Update()`: sort the shown panes by `dock_pos`,
+          // draw them in that order, and renumber them for the next time. The
+          // pane opened FIRST holds the top of the column, which is what
+          // upstream does and what a fixed order table could not express.
+          //
+          // Writing the ref here is safe because the pass is idempotent: a
+          // second render with the same panes shown produces the same order
+          // and the same numbers.
+          const dockLayout = schLeftDockLayout(dockPosRef.current, paneShown);
+          dockPosRef.current = dockLayout.dockPos;
           // Adjacent visible grow panes get a drag sash between them, top pane
           // resizes (KiCad's wxAUI sash chain); Selection Filter (prop=0 in
           // KiCad's perspective) never grows, so it's never in this list.
           // Search is not here either — it is the BOTTOM dock, below the
           // canvas, and its sash is its own (`SCH_BOTTOM_DOCK`).
-          const visibleGrowKeys: string[] = SCH_LEFT_GROW_PANES.filter((k) => paneShown[k]);
+          const visibleGrowKeys: string[] = dockLayout.order.filter(schPaneGrows);
           const sashAfter = (key: string): JSX.Element | null =>
             visibleGrowKeys.indexOf(key) < visibleGrowKeys.length - 1 ? (
               <div
@@ -7833,10 +7854,10 @@ export function SchematicEditor({
             (paneShown.properties || paneShown.hierarchy || paneShown.netNavigator) && (
               <>
                 <div className="ze-leftdock sch-leftdock" style={{ width: leftDockWidth }}>
-                  {/* The four docked panes, rendered in the order wxAUI sorts
-                      them into from their `Position()` — see `panes.ts`. Only
-                      the ORDER is data; each pane's contents stay inline. */}
-                  {SCH_LEFT_PANE_ORDER.map((paneKey) => (
+                  {/* The docked panes, in the order the wxAUI Update above
+                      sorted them into — see `panes.ts`. Only the ORDER is
+                      data; each pane's contents stay inline. */}
+                  {dockLayout.order.map((paneKey) => (
                     <Fragment key={paneKey}>
                       {paneKey === 'netNavigator' && paneShown.netNavigator && (
                         <>
