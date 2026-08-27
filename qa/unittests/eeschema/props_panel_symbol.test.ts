@@ -161,8 +161,11 @@ describe('writeability follows the registrations', () => {
   });
 
   it('leaves every other row writeable', () => {
+    // Counted out, not derived from the code under test: 2 pin flags + 5
+    // Basic Properties + 5 static Fields + 3 symbol fields + 5 Attributes.
     const rows = rowsOf(withLib());
-    expect(rows.filter((r) => r.set).length).toBe(rows.length - 3);
+    expect(rows).toHaveLength(20);
+    expect(rows.filter((r) => r.set)).toHaveLength(17);
   });
 });
 

@@ -55,6 +55,17 @@ const ROWS: PropertyGridRow<Cmd>[] = [
   },
   { group: 'Fields', name: 'Reference', kind: 'string', value: 'J1', set: () => ({ what: 'r' }) },
   { group: 'Fields', name: 'Library Link', kind: 'string', value: 'Connector:Screw' },
+  // SCH_SYMBOL's third group, and it is here so the group ORDER is testable:
+  // the display order is '', Fields, Attributes, while alphabetical order is
+  // '', Attributes, Fields. With only two groups the two agree and no
+  // assertion about ordering can fail.
+  {
+    group: 'Attributes',
+    name: 'Do not Populate',
+    kind: 'bool',
+    value: false,
+    set: () => ({ what: 'dnp' }),
+  },
 ];
 
 const panel = (rows = ROWS, count = 1, name: string | undefined = 'Symbol') =>
@@ -104,7 +115,11 @@ describe('the caption is the item type, above the grid', () => {
 describe('groups are collapsible wxPropertyCategory rows', () => {
   it('captions the unnamed group "Basic Properties" and names the rest as given', () => {
     const { container } = panel();
-    expect(texts(container, '.ze-pgrid-cat-label')).toEqual([UNSPECIFIED_GROUP_CAPTION, 'Fields']);
+    expect(texts(container, '.ze-pgrid-cat-label')).toEqual([
+      UNSPECIFIED_GROUP_CAPTION,
+      'Fields',
+      'Attributes',
+    ]);
   });
 
   it('puts each row under its own group', () => {
@@ -120,22 +135,28 @@ describe('groups are collapsible wxPropertyCategory rows', () => {
       'Fields',
       'Reference',
       'Library Link',
+      'Attributes',
+      'Do not Populate',
     ]);
   });
 
   it('gives every category a twisty', () => {
     const { container } = panel();
-    expect(container.querySelectorAll('.ze-pgrid-cat .ze-pgrid-twisty')).toHaveLength(2);
-    expect(container.querySelectorAll('.ze-pgrid-twisty.open')).toHaveLength(2);
+    expect(container.querySelectorAll('.ze-pgrid-cat .ze-pgrid-twisty')).toHaveLength(3);
+    expect(container.querySelectorAll('.ze-pgrid-twisty.open')).toHaveLength(3);
   });
 
   it('collapses only the category that was clicked', () => {
     const { container } = panel();
     const cats = container.querySelectorAll('.ze-pgrid-cat');
     fireEvent.click(cats[0]!);
-    expect(texts(container, '.ze-pgrid-name')).toEqual(['Reference', 'Library Link']);
-    // Both categories are still listed; only the rows went away.
-    expect(container.querySelectorAll('.ze-pgrid-cat')).toHaveLength(2);
+    expect(texts(container, '.ze-pgrid-name')).toEqual([
+      'Reference',
+      'Library Link',
+      'Do not Populate',
+    ]);
+    // Every category is still listed; only the one clicked lost its rows.
+    expect(container.querySelectorAll('.ze-pgrid-cat')).toHaveLength(3);
     fireEvent.click(container.querySelectorAll('.ze-pgrid-cat')[0]!);
     expect(texts(container, '.ze-pgrid-name')).toEqual([
       'Pin numbers',
@@ -143,6 +164,7 @@ describe('groups are collapsible wxPropertyCategory rows', () => {
       'Orientation',
       'Reference',
       'Library Link',
+      'Do not Populate',
     ]);
   });
 });
@@ -169,7 +191,7 @@ describe('a value cell is a grid cell, not a permanently-rendered control', () =
   it('has no control anywhere in the grid except the bool row', () => {
     const { container } = panel();
     const controls = [...container.querySelectorAll('.ze-pgrid input, .ze-pgrid select')];
-    expect(controls.map((c) => (c as HTMLInputElement).type)).toEqual(['checkbox']);
+    expect(controls.map((c) => (c as HTMLInputElement).type)).toEqual(['checkbox', 'checkbox']);
   });
 
   it('builds a text editor only once the cell is activated', () => {
