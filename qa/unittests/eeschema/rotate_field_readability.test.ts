@@ -270,6 +270,18 @@ describe('the schematic editor hands the rotate command the preference', () => {
     expect(arm).toMatch(/allowRejustify: es\.autoplace_fields\.allow_rejustify/);
     expect(arm).toMatch(/alignToGrid: es\.autoplace_fields\.align_to_grid/);
   });
+
+  it('and hands it the live document, so the autoplacer can see the page', () => {
+    // `AutoplaceFields( screen, … )` — upstream always passes the screen from
+    // the rotate handler, which is what lets the autoplacer skip a side that
+    // would put the fields off the drawing sheet. Losing it does not stop the
+    // fields being placed, so nothing above notices; this is the assertion
+    // that does.
+    const i = src.indexOf('else if (TX[id])');
+    const arm = src.slice(i, i + 1200);
+    expect(arm).toMatch(/const d = docRef\.current;/);
+    expect(arm).toMatch(/drawableArea: drawableArea\(d\)/);
+  });
 });
 
 describe('the flag itself', () => {
@@ -280,6 +292,20 @@ describe('the flag itself', () => {
 
   it('is written back for a symbol that has it', () => {
     expect(serializeSchematic(sheet(true))).toContain('(fields_autoplaced yes)');
+  });
+
+  it('is *added* to a symbol whose source never had the token', () => {
+    // The preserve path and the insert path are different branches, and only
+    // the insert one matters for a symbol we placed or autoplaced ourselves:
+    // its source node came from a file that had no `fields_autoplaced`, so
+    // failing to insert loses the flag on the next save and rotate silently
+    // stops re-placing the fields.
+    const d = sheet(false);
+    expect(serializeSchematic(d)).not.toContain('fields_autoplaced');
+    const text = serializeSchematic(autoplaceFields(d, new Set([ID]), LIB)!.apply(d));
+    expect(text).toContain('(fields_autoplaced yes)');
+    // …and it survives the round trip, as AUTOPLACE_AUTO.
+    expect(readSchematic(parse(text)).symbols[0]!.fieldsAutoplaced).toBe('auto');
   });
 
   it('is removed, not written as `no`, when a mirror clears it', () => {
