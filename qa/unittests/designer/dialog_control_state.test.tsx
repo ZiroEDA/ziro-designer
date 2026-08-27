@@ -243,6 +243,10 @@ describe('OptOut — what is never remembered', () => {
 
     render(<CheckBox title={null} control="keepSymbol" defaultValue={false} />);
     expect(box('keepSymbol').checked).toBe(false); // did not read
+    // Twice, so the value at close is `false` — *unlike* the `true` a dialog
+    // that had opted in left there. Ending on `true` would leave a stray write
+    // storing the value that was already stored, and this could not fail.
+    fireEvent.click(box('keepSymbol'));
     fireEvent.click(box('keepSymbol'));
     cleanup();
 
