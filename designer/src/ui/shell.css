@@ -8284,11 +8284,22 @@ textarea.ze-ds-textedit {
 }
 /* Two panes sharing a dock row get equal shares of it. Measured off a running
    frame with both shown at 1854x1131: Project Files y95..632 and Local History
-   y638..1175 — an even split either side of the sash. */
-.ze-leftdock > .ze-panel,
+   y638..1175 — an even split either side of the sash.
+
+   That even split IS the dock's default proportion, stated once for every
+   docked pane up at `.ze-leftdock .ze-panel`. Only Local History needs saying
+   again, because it is a pane of the dock without being one of our
+   `.ze-panel`s. Restating it for `.ze-panel` here is what let the polarity bug
+   hide: two rules said "grows" and a third, more specific one said "does not",
+   so removing either of the first two changed nothing. */
 .ze-leftdock > .ze-lhist {
   flex: 1 1 0;
   min-height: 0;
+}
+/* Both panes carry the dock's own width inline (`panelWidth`), which would
+   otherwise outrank the `width: auto` a docked pane gets. */
+.ze-leftdock > .ze-panel,
+.ze-leftdock > .ze-lhist {
   width: auto !important;
 }
 /* The sash AUI draws between two panes sharing a dock row: measured as a 5px
