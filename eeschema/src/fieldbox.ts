@@ -73,7 +73,7 @@ const fieldSize = (f: SchField): { h: number; w: number } => ({
   w: f.effects?.fontSize?.[1] ?? DEFAULT_TEXT_SIZE,
 });
 
-type HJustify = 'left' | 'center' | 'right';
+export type HJustify = 'left' | 'center' | 'right';
 type VJustify = 'top' | 'center' | 'bottom';
 
 export const storedHJustify = (f: SchField): HJustify =>

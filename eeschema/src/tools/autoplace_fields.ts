@@ -39,7 +39,13 @@
 
 import type { LibSymbol, SchField, SchSheet, SchSymbol, SchLine, Vec2 } from '../types.js';
 import { symbolBodyBBox, labelBox, type BBox } from './bbox.js';
-import { symbolFieldBoxes, type SymbolFieldBox } from '../fieldbox.js';
+import {
+  symbolFieldBoxes,
+  effectiveHorizJustify,
+  storedForEffectiveHoriz,
+  type HJustify,
+  type SymbolFieldBox,
+} from '../fieldbox.js';
 import { measureText } from '@ziroeda/common/src/font/stroke_font.js';
 import { symbolTransform } from '@ziroeda/common/src/transform.js';
 import { mmToIU } from '@ziroeda/common/src/eda_units.js';
@@ -406,16 +412,56 @@ function fieldBoxTopLeft(bbox: BBox, size: Vec2, side: Side): Vec2 {
 }
 
 /**
+ * `m_field_angle`: the angle every autoplaced field ends up stored at.
+ *
+ * "Fields always display horizontally after autoplace. For 90/270 rotated
+ * symbols, GetDrawRotation() flips the stored angle, so we store VERTICAL to
+ * counteract the transform and produce horizontal display."
+ * (autoplace_fields.cpp:117-121.)
+ */
+const autoplaceFieldAngle = (sym: SchSymbol): 0 | 90 =>
+  symbolTransform(sym.angle, sym.mirror).y1 !== 0 ? 90 : 0;
+
+/**
+ * The symbol as the autoplacer measures it: every field already turned to
+ * `m_field_angle`.
+ *
+ * This is not a detail. `computeFBoxSize` measures each field with its angle
+ * *temporarily* set to `m_field_angle` — "GetBoundingBox() applies both the
+ * field's text angle and the symbol transform. Set the display angle so the
+ * combined rotation produces bounding box dimensions matching the final
+ * horizontal display, then restore the original angle"
+ * (autoplace_fields.cpp:203-211) — and `fieldVPlacement` reads
+ * `GetBoundingBox().GetHeight()` after `DoAutoplace`'s loop has already done
+ * `field->SetTextAngle( m_field_angle )` (:157).
+ *
+ * Measuring at the *stored* angle instead is measuring the field sideways: on a
+ * 90° symbol a field stored at 0 draws vertically, so its box comes back as tall
+ * as the text is wide. Against KiCad 10.0.5 on a Device:D turned by R, the row
+ * pitch that produces is 5.71 mm instead of 2.54 mm, and the pair of fields ends
+ * up 0.955 mm off centre — measured, before this, as Reference at
+ * (+2.54, -3.81) and Value at (+2.54, +1.90) where eeschema writes
+ * (+2.54, -1.27) and (+2.54, +1.27).
+ */
+const atFieldAngle = (sym: SchSymbol): SchSymbol => {
+  const angle = autoplaceFieldAngle(sym);
+  if (sym.fields.every((f) => f.angle === angle)) return sym;
+  return { ...sym, fields: sym.fields.map((f) => (f.angle === angle ? f : { ...f, angle })) };
+};
+
+/**
  * The fields' bounding box: as wide as the widest field, as tall as all of them
  * stacked with their padding (`computeFBoxSize`, dynamic spacing).
+ *
+ * `sym` must already be `atFieldAngle(…)`.
  */
 function fieldBoxSize(
   sym: SchSymbol,
   lib: LibSymbol | undefined,
   alignToGrid: boolean,
   dynamic = true,
-): { boxes: { index: number; w: number; h: number }[]; size: Vec2 } {
-  const boxes: { index: number; w: number; h: number }[] = [];
+): { boxes: { index: number; w: number; h: number; shown: string }[]; size: Vec2 } {
+  const boxes: { index: number; w: number; h: number; shown: string }[] = [];
   let maxWidth = 0;
   let totalHeight = 0;
   for (const fb of symbolFieldBoxes(sym, lib)) {
@@ -423,7 +469,7 @@ function fieldBoxSize(
     if (!f || !placeable(f)) continue;
     const w = fb.box.w;
     const h = fb.box.h;
-    boxes.push({ index: fb.index, w, h });
+    boxes.push({ index: fb.index, w, h, shown: fb.shown });
     maxWidth = Math.max(maxWidth, w);
     // Non-dynamic: one wire pitch per field, whatever the text measures.
     totalHeight += !dynamic
@@ -447,7 +493,11 @@ export function autoplacedFields(
 ): SchField[] {
   const powerSymbol = !!lib?.isPower;
   const bbox = symbolBodyBBox(sym, lib);
-  const { boxes, size } = fieldBoxSize(sym, lib, opts.alignToGrid);
+  // `DoAutoplace` turns each field to `m_field_angle` before it measures or
+  // justifies anything, so every box below is the horizontal-display box.
+  const fieldAngle = autoplaceFieldAngle(sym);
+  const measured = atFieldAngle(sym);
+  const { boxes, size } = fieldBoxSize(measured, lib, opts.alignToGrid);
   if (boxes.length === 0) return sym.fields.slice();
 
   // Step 2: the highest-ranked side with no pins, else the fewest-pin side —
@@ -496,7 +546,14 @@ export function autoplacedFields(
   const out = sym.fields.slice();
   for (const b of boxes) {
     const f = out[b.index]!;
-    const justify = hJustify ?? currentHJustify(f);
+    // `fieldHPlacement` anchors on the *effective* justification, not the stored
+    // one: "if( aField->IsHorizJustifyFlipped() ) field_hjust = -GetHorizJustify()"
+    // (autoplace_fields.cpp:684-687). When the placer just set it, that unwinds
+    // to exactly the side it asked for, so `hJustify` is already the effective
+    // value; when `allow_rejustify` is off the field keeps whatever it had, and
+    // the effective reading of that is what anchors it.
+    const justify =
+      hJustify ?? effectiveHorizJustify(measured.fields[b.index]!, sym, b.shown, measureText);
     // fieldVPlacement's !aDynamic branch: one wire pitch per field, split evenly
     // between the field and its padding, so each lands on its own wire slot.
     const height = forceWireSpacing ? WIRE_V_SPACING / 2 : b.h;
@@ -519,7 +576,29 @@ export function autoplacedFields(
 
     const effects = { ...(f.effects ?? { hidden: false }) };
     if (hJustify !== null) {
-      const tokens = [justify, 'center'].filter((t) => t !== 'center');
+      // `justifyField` (autoplace_fields.cpp:552-560) does not store the side it
+      // wants — it stores the value that *renders* as that side:
+      //
+      //     aField->SetHorizJustify( ToHAlignment( -aFieldSide.x ) );
+      //     if( aField->IsHorizJustifyFlipped() )
+      //         aField->SetHorizJustify( GetFlippedAlignment( … ) );
+      //     aField->SetVertJustify( GR_TEXT_V_ALIGN_CENTER );
+      //
+      // The comment on the first line is upstream's own: "Justification is set
+      // twice to allow IsHorizJustifyFlipped() to work correctly." Which way it
+      // lands depends on the symbol transform, so the two rotations differ:
+      // measured in KiCad 10.0.5, a Device:D turned to 90° stores `right` and
+      // one turned to 270° stores `left`, both to read left-to-right away from
+      // the body. Storing the unflipped value throws the 90° case's text back
+      // across the symbol.
+      const stored = storedForEffectiveHoriz(
+        measured.fields[b.index]!,
+        sym,
+        b.shown,
+        measureText,
+        justify as HJustify,
+      );
+      const tokens = [stored, 'center'].filter((t) => t !== 'center');
       if (tokens.length) (effects as { justify?: string[] }).justify = tokens;
       else delete (effects as { justify?: string[] }).justify;
     }
@@ -528,15 +607,12 @@ export function autoplacedFields(
       at: { x: Math.round(px), y: Math.round(py) },
       // Fields always display horizontally after autoplace; a symbol turned 90
       // degrees stores them vertical so the transform brings them back level.
-      angle: symbolTransform(sym.angle, sym.mirror).y1 !== 0 ? 90 : 0,
+      angle: fieldAngle,
       effects,
     };
   }
   return out;
 }
-
-const currentHJustify = (f: SchField): string =>
-  (f.effects?.justify ?? []).find((t) => t === 'left' || t === 'right') ?? 'center';
 
 /**
  * Autoplace the fields of every selected symbol
