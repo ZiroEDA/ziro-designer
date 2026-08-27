@@ -477,8 +477,13 @@ describe('the plot path keeps the flat colour', () => {
     const svg = sheetToSvg(doc, KICAD_DEFAULT, opts);
     // KiCad's own export of the same body. Ours is written as an rgb() triple.
     expect(svg).toMatch(/rgb\(255, ?255, ?194\)|#FFFFC2/i);
-    // And none of the selected composite: neither the drawn colour nor its alpha.
+    // And none of the selected composite. Only the first of these is
+    // load-bearing — mutating the plotter to pass a selection is killed by the
+    // positive assertion above on its own — but a plot that started emitting a
+    // translucent body fill at all is the failure mode worth naming, so the
+    // fill-opacity form is checked too rather than a bare '0.25' substring,
+    // which would match any unrelated number a future SVG happens to carry.
     expect(svg).not.toContain('rgba(255, 255, 255, 0.25)');
-    expect(svg).not.toContain('0.25');
+    expect(svg).not.toMatch(/fill-opacity[:=]"?0?\.25/);
   });
 });

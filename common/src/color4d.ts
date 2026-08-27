@@ -474,10 +474,12 @@ export function backgroundLayerFill(
   // the backends whatever the theme or the file wrote.
   if (!selected) return toCss(c);
   const k = 1 / SELECTED_BACKGROUND_ALPHA;
+  // `toCss` owns the clamp — restating it here changed nothing and only made a
+  // mutant look survivable.
   return toCss({
-    r: clamp01(c.r * k),
-    g: clamp01(c.g * k),
-    b: clamp01(c.b * k),
+    r: c.r * k,
+    g: c.g * k,
+    b: c.b * k,
     a: 1 - SELECTED_BACKGROUND_DST_WEIGHT,
   });
 }
