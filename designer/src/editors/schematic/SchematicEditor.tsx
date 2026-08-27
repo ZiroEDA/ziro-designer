@@ -7641,24 +7641,31 @@ export function SchematicEditor({
         // O = Autoplace Fields (SCH_ACTIONS::autoplaceFields). Its target is
         // `RequestSelection( RotatableItems )` (sch_edit_tool.cpp:2463) and it
         // clears a hover selection at :2502.
-        if (e.key.toLowerCase() === 'o' && requestTarget(RotatableItems).size > 0) {
-          e.preventDefault();
-          withSelection(RotatableItems, (ids) => {
+        if (e.key.toLowerCase() === 'o') {
+          // `withSelection` inlined rather than called, because O has to fall
+          // through to the menu accelerators when the request comes back empty
+          // — and asking the seam twice, once to decide that and once inside,
+          // would leave the outer scan types free to drift from the inner ones.
+          const ids = requestTarget(RotatableItems);
+          if (ids.size > 0) {
+            e.preventDefault();
             const d = docRef.current;
-            if (!d) return;
-            const cmd = autoplaceFields(
-              d,
-              ids,
-              libById,
-              {
-                allowRejustify: es.autoplace_fields.allow_rejustify,
-                alignToGrid: es.autoplace_fields.align_to_grid,
-              },
-              drawableArea(d),
-            );
-            if (cmd) runCommand(cmd);
-          });
-          return;
+            if (d) {
+              const cmd = autoplaceFields(
+                d,
+                ids,
+                libById,
+                {
+                  allowRejustify: es.autoplace_fields.allow_rejustify,
+                  alignToGrid: es.autoplace_fields.align_to_grid,
+                },
+                drawableArea(d),
+              );
+              if (cmd) runCommand(cmd);
+            }
+            finishCommand();
+            return;
+          }
         }
         // E = Properties (KiCad SCH_ACTIONS::properties) on a single selected
         // item (openProperties routes by item kind).

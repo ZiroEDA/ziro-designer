@@ -397,8 +397,8 @@ const WIRING: { name: string; anchor: string; seam: RegExp }[] = [
   },
   {
     name: 'autoplace fields',
-    anchor: "if (e.key.toLowerCase() === 'o' &&",
-    seam: /withSelection\(RotatableItems,/,
+    anchor: "if (e.key.toLowerCase() === 'o') {",
+    seam: /requestTarget\(RotatableItems\)/,
   },
   {
     name: 'show datasheet',
