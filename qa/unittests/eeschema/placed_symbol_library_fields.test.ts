@@ -117,6 +117,14 @@ describe('the fields a freshly placed symbol is made with', () => {
   });
 });
 
+/** Assign a footprint, shown or hidden — an empty field is skipped either way. */
+const withFootprint = (s: SchSymbol, value: string, hidden: boolean): SchSymbol => ({
+  ...s,
+  fields: s.fields.map((f) =>
+    f.key === 'Footprint' ? { ...f, value, effects: { ...f.effects, hidden } } : f,
+  ),
+});
+
 describe('what the autoplacer does with them', () => {
   const opts = { allowRejustify: true, alignToGrid: true };
 
@@ -126,7 +134,12 @@ describe('what the autoplacer does with them', () => {
    * offset while the reference and value are moved beside the body.
    */
   it('leaves the hidden ones exactly where the library put them', () => {
-    const placed = autoplacePlacedSymbol(makeSymbol(C, AT), C, true, opts);
+    // The Footprint carries TEXT here — an assigned footprint the user has not
+    // chosen to show. An empty one is skipped for a different reason (there is
+    // nothing to lay out), which would make this test pass whatever the
+    // visibility rule did.
+    const assigned = withFootprint(makeSymbol(C, AT), 'Capacitor_THT:C_Radial_D8.0mm', true);
+    const placed = autoplacePlacedSymbol(assigned, C, true, opts);
     expect(offset(placed, 'Footprint')).toEqual({ x: mmToIU(0.9652), y: mmToIU(3.81) });
     expect(offset(placed, 'Datasheet')).toEqual({ x: 0, y: 0 });
     // ...while the two visible ones did move, so the run was not a no-op.
@@ -139,16 +152,12 @@ describe('what the autoplacer does with them', () => {
    * about visibility and not about the field's name.
    */
   it('places a Footprint the user has made visible', () => {
-    const shown = makeSymbol(C, AT);
-    const withShown: SchSymbol = {
-      ...shown,
-      fields: shown.fields.map((f) =>
-        f.key === 'Footprint'
-          ? { ...f, value: 'C_Radial_D8.0mm', effects: { ...f.effects, hidden: false } }
-          : f,
-      ),
-    };
-    const placed = autoplacePlacedSymbol(withShown, C, true, opts);
+    const placed = autoplacePlacedSymbol(
+      withFootprint(makeSymbol(C, AT), 'Capacitor_THT:C_Radial_D8.0mm', false),
+      C,
+      true,
+      opts,
+    );
     expect(offset(placed, 'Footprint')).not.toEqual({ x: mmToIU(0.9652), y: mmToIU(3.81) });
     // It lands in the same column as the reference: one x, three stacked rows.
     expect(offset(placed, 'Footprint')?.x).toBe(offset(placed, 'Reference')?.x);
