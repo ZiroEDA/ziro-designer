@@ -30,6 +30,7 @@ import { act, cleanup, render } from '@testing-library/react';
 import { FootprintPreviewWidget } from '@ziroeda/designer/src/widgets/footprint_preview_widget.js';
 import { parseFootprint } from '@ziroeda/designer/src/editors/footprint/footprintBoard.js';
 import { layerColor, PCB_GRID } from '@ziroeda/designer/src/editors/pcb/pcbTheme.js';
+import { netnameColorFor } from '@ziroeda/designer/src/editors/pcb/renderBoard.js';
 
 afterEach(cleanup);
 
@@ -121,11 +122,19 @@ class FakeMatrix {
   }
 }
 
-/** Paint the widget once against a recording context and report what happened. */
-async function paint(): Promise<{ rec: Recorder; gridFill: FakePath | null }> {
-  const rec: Recorder = { calls: [], transforms: [], fills: [], strokeStyles: [] };
-  let gridFill: FakePath | null = null;
+/**
+ * The recording context, created ONCE for the file.
+ *
+ * `drawNetNames` unions each colour group of glyphs through a module-level
+ * scratch canvas (`scratchFor`), created on first use and cached for the life
+ * of the module. A per-test context therefore never sees the pad numbers: they
+ * are stroked onto whichever context the scratch canvas was born holding. One
+ * shared recorder, reset per paint, is what keeps that observable.
+ */
+const rec: Recorder = { calls: [], transforms: [], fills: [], strokeStyles: [] };
+let gridFill: FakePath | null = null;
 
+const ctx = (() => {
   const ctx = {
     fillStyle: '',
     strokeStyle: '',
@@ -164,6 +173,16 @@ async function paint(): Promise<{ rec: Recorder; gridFill: FakePath | null }> {
       rec.strokeStyles.push(ctx.strokeStyle);
     },
   };
+  return ctx;
+})();
+
+/** Paint the widget once against that context and report what happened. */
+async function paint(): Promise<{ rec: Recorder; gridFill: FakePath | null }> {
+  rec.calls.length = 0;
+  rec.transforms.length = 0;
+  rec.fills.length = 0;
+  rec.strokeStyles.length = 0;
+  gridFill = null;
 
   const win = globalThis as unknown as {
     Path2D: unknown;
@@ -284,11 +303,20 @@ describe('the preview canvas has pcbnew grid on it', () => {
 describe('the preview paints its pads the way pcbnew does', () => {
   it('draws the pad numbers', async () => {
     // At the fitted zoom a 2.2 mm pad is 48 px, so PAD::ViewGetLOD passes and
-    // both numbers are stroked as glyphs. Zero strokes means the per-frame
-    // netname pass was never scheduled at all — the bug this pane showed.
+    // both numbers are stroked as glyphs. Identified by the colour rather than
+    // by "something was stroked": this footprint's silkscreen and courtyard are
+    // stroked too, and a bare count passes with the whole netname pass never
+    // scheduled — which is the bug this pane showed.
+    //
+    // The colour is LAYER_PAD_NETNAMES, which `RENDER_SETTINGS::update()`
+    // overwrites with `GetColor( NETNAMES_LAYER_ID_START )` — white at 0.7 in
+    // the KiCad Default theme. The alpha is not on the pen: the pass strokes
+    // each colour group at full ink on a scratch canvas and stamps the union
+    // once at that alpha, so what a stroke carries is the opaque ink.
     const { rec } = await paint();
 
-    expect(rec.strokeStyles.length).toBeGreaterThan(0);
+    expect(netnameColorFor('F.Cu', undefined, true)).toBe('rgba(255,255,255,0.7)');
+    expect(rec.strokeStyles).toContain('rgb(255,255,255)');
   });
 
   it('draws no pad clearance ring, as a board with no design rules cannot', () => {
