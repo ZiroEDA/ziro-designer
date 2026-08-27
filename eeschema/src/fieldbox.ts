@@ -29,7 +29,12 @@ import type { LibSymbol, SchField, SchSymbol, Vec2 } from './types.js';
 import { mmToIU } from '@ziroeda/common/src/eda_units.js';
 import { textWidth } from '@ziroeda/common/src/font/font_provider.js';
 import { ITALIC_TILT } from '@ziroeda/common/src/font/font_metrics.js';
-import { symbolTransform, applyTransform, type Transform } from '@ziroeda/common/src/transform.js';
+import {
+  symbolTransform,
+  applyTransform,
+  invertTransform,
+  type Transform,
+} from '@ziroeda/common/src/transform.js';
 
 /** Advance width of `text` at glyph size `sizeIU` (Newstroke advance sum). */
 export type TextMeasurer = (text: string, sizeIU: number) => number;
@@ -199,10 +204,46 @@ function rotatePoint(p: Vec2, c: Vec2, angleDeg: number): Vec2 {
   return { x: c.x + kiRound(x * cos + y * sin), y: c.y + kiRound(y * cos - x * sin) };
 }
 
-/** Invert a placement transform (det is always ±1, so this stays integral). */
-function invTransform(t: Transform): Transform {
-  const det = t.x1 * t.y2 - t.y1 * t.x2;
-  return { x1: t.y2 / det, y1: -t.y1 / det, x2: -t.x2 / det, y2: t.x1 / det };
+/** A symbol's placement, as much of it as a field's position depends on. */
+export interface SymbolPlacement {
+  readonly at: Vec2;
+  readonly angle: number;
+  readonly mirror?: 'x' | 'y';
+}
+
+/**
+ * `SCH_FIELD::GetPosition()` composed with `SCH_FIELD::SetPosition()`: where a
+ * field that KiCad is not moving ends up drawn once its parent symbol's
+ * placement changes.
+ *
+ * KiCad never writes this composition, because it does not have to. A symbol's
+ * field stores `m_pos` in **symbol-local, un-transformed** coordinates, and the
+ * position that is drawn and written to file is derived on demand
+ * (sch_field.cpp:1425-1438):
+ *
+ *     relativePos = GetTextPos() - parentSymbol->GetPosition();
+ *     relativePos = parentSymbol->GetTransform().TransformCoordinate( relativePos );
+ *     return relativePos + parentSymbol->GetPosition();
+ *
+ * so `SetOrientation` alone carries every field round with the body. We hold the
+ * derived position instead — it is what the file's `(at …)` means
+ * (`saveField`, sch_io_kicad_sexpr.cpp:1016-1019) and what `fieldBoundingBox`
+ * takes back through the inverse — so the trip out to local and back has to be
+ * spelled out at every place that changes a symbol's angle, mirror or position.
+ */
+export function reanchorFields<F extends SchField>(
+  fields: readonly F[],
+  from: SymbolPlacement,
+  to: SymbolPlacement,
+): readonly F[] {
+  const toLocal = invertTransform(symbolTransform(from.angle, from.mirror));
+  const toWorld = symbolTransform(to.angle, to.mirror);
+  return fields.map((f) => {
+    if (!f.at) return f;
+    const local = applyTransform(toLocal, { x: f.at.x - from.at.x, y: f.at.y - from.at.y });
+    const drawn = applyTransform(toWorld, local);
+    return { ...f, at: { x: to.at.x + drawn.x, y: to.at.y + drawn.y } };
+  });
 }
 
 /**
@@ -219,7 +260,7 @@ export function fieldBoundingBox(field: SchField, sym: SchSymbol, shownText: str
   const origin = sym.at;
   const t: Transform = symbolTransform(sym.angle, sym.mirror);
   const relFile: Vec2 = { x: (field.at?.x ?? 0) - origin.x, y: (field.at?.y ?? 0) - origin.y };
-  const pos = applyTransform(invTransform(t), relFile); // GetTextPos() - origin
+  const pos = applyTransform(invertTransform(t), relFile); // GetTextPos() - origin
 
   const box = fieldTextBox(field, shownText, pos);
   let begin: Vec2 = { x: box.x, y: box.y };

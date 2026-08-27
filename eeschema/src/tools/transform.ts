@@ -15,8 +15,9 @@
  *    (for a wire) the endpoint that is not selected. With more than one it is
  *    `GetNearestHalfGridPosition( selection.GetCenter() )`. See `transformCenter`;
  *  - **what each type does** with that point differs. Most move every geometric
- *    point that defines them; a symbol advances its orientation instead and
- *    translates its fields by its own delta; a label turns in place when it is
+ *    point that defines them; a symbol advances its orientation instead, which
+ *    carries its fields round with it because their stored position is read
+ *    back through that orientation; a label turns in place when it is
  *    alone and moves as well when it is not; a sheet turns its size vector; a
  *    table turns its cells and re-lays itself out; a table's mirror is
  *    deliberately nothing at all.
@@ -47,6 +48,7 @@ import type {
   Vec2,
 } from '../types.js';
 import { rotateOrientation, mirrorOrientation } from '@ziroeda/common/src/transform.js';
+import { reanchorFields } from '../fieldbox.js';
 import { nearestHalfGridPosition } from '@ziroeda/common/src/eda_draw_frame.js';
 import { CalcArcCenter } from '@ziroeda/kimath/src/trigo.js';
 import { fieldId, refId, sheetPinId } from './hittest.js';
@@ -126,19 +128,33 @@ export function transformSymbol(
   // `SCH_SYMBOL::Rotate` (sch_symbol.cpp:2837), `::MirrorHorizontally` (:2801) and
   // `::MirrorVertically` (:2819) all transform `m_pos` alone and then *translate*
   // each field by the symbol's own delta ("move the fields to the new position
-  // because the symbol itself has moved"). The fields do not orbit the centre.
+  // because the symbol itself has moved"). Read on its own that says the fields
+  // never orbit anything — and that reading is what put a rotated symbol's
+  // reference on top of its body.
   //
-  // The consequence upstream intends: rotating a single symbol turns it about its
-  // own position, so the delta is zero and the fields do not move at all — the
-  // reference stays on the side of the body the user put it on, turn after turn.
-  const dx = at.x - s.at.x;
-  const dy = at.y - s.at.y;
-  const fields =
-    dx === 0 && dy === 0
-      ? s.fields
-      : s.fields.map((f: SchField) =>
-          f.at ? { ...f, at: { x: f.at.x + dx, y: f.at.y + dy } } : f,
-        );
+  // What it misses is that the position those three lines translate is
+  // `GetTextPos()`, which for a symbol's field is **symbol-local and
+  // un-transformed**. The position that gets drawn (and written to file) is
+  // `SCH_FIELD::GetPosition()`, sch_field.cpp:1425-1438:
+  //
+  //     relativePos = GetTextPos() - parentSymbol->GetPosition();
+  //     relativePos = parentSymbol->GetTransform().TransformCoordinate( relativePos );
+  //     return relativePos + parentSymbol->GetPosition();
+  //
+  // so changing `m_transform` moves every field implicitly, without any code
+  // touching them. `SCH_FIELD::SetPosition` (:1405-1422) is the inverse, and
+  // `saveField` writes `GetPosition()` (sch_io_kicad_sexpr.cpp:1016-1019) —
+  // which is why our model, and `fieldBoundingBox`, hold the transformed one.
+  //
+  // Holding the transformed position means we have to do explicitly what
+  // upstream gets for free — `reanchorFields`. Measured against KiCad 10.0.5 on
+  // a diode at (63.5, 63.5) with its reference at (63.5, 60.96) and no
+  // `fields_autoplaced`: after R the file it writes reads
+  // `(at 63.5 63.5 90)` / `(at 60.96 63.5 0)` — offset (0, -2.54) turned to
+  // (-2.54, 0), exactly this composition. The translation of the symbol itself
+  // falls out of the same expression, so it also covers the multi-item arm where
+  // the symbol orbits a distant centre.
+  const fields = reanchorFields(s.fields, s, { ...orient, at });
   const next: { -readonly [K in keyof SchSymbol]: SchSymbol[K] } = {
     ...s,
     at,

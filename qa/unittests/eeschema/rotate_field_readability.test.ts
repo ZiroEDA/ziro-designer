@@ -6,11 +6,13 @@
  *
  * Three separate rules, and it takes all three to get there:
  *
- * 1. `SCH_SYMBOL::Rotate` (sch_symbol.cpp:2837-2853) does **not** rotate the
- *    fields. It transforms `m_pos` and then translates each field by the
- *    symbol's own move vector — so a symbol turned about its own position has a
- *    zero move vector and its fields do not move at all. Their stored text
- *    angle is never touched. (`transform_symbol_fields.test.ts` pins that half.)
+ * 1. `SCH_SYMBOL::Rotate` (sch_symbol.cpp:2837-2853) never touches a field's
+ *    stored text **angle**, and its explicit field loop only translates them by
+ *    the symbol's own move vector. Their drawn **position** still turns with the
+ *    body, because a symbol field's stored position is symbol-local and the
+ *    drawn one is that mapped through the parent's transform
+ *    (`SCH_FIELD::GetPosition`, sch_field.cpp:1425-1438).
+ *    (`transform_symbol_fields.test.ts` pins that half against a KiCad probe.)
  * 2. `SCH_FIELD::GetDrawRotation` (sch_field.cpp:446-465) nevertheless *draws*
  *    a horizontal field vertically once its parent's transform has `y1 != 0`:
  *
@@ -100,6 +102,27 @@ const at = (s: SchSymbol): (string | undefined)[] =>
 const ROTATIONS = ['rotateCW', 'rotateCCW'] as const;
 const MIRRORS = ['mirrorX', 'mirrorY'] as const;
 
+/**
+ * Where this sheet's two fields land when nothing re-places them — the symbol's
+ * transform alone carrying them round, per rule 1 above.
+ *
+ * The symbol sits at (100, 100) mm, its reference at (103, 98) and its value at
+ * (103, 102), so the offsets are (+30000, -20000) and (+30000, +20000) in IU.
+ * In +Y-down screen space CW is (x, y) -> (-y, x) and CCW is (x, y) -> (y, -x);
+ * `mirrorX` (KiCad's hotkey Y, MirrorVertically) negates y and `mirrorY`
+ * (hotkey X, MirrorHorizontally) negates x. Measured in KiCad 10.0.5 on a
+ * `Device:D` at (50.8, 50.8) with its reference 2.54 mm above the body and no
+ * `fields_autoplaced`: R left it 2.54 mm to the *left* of the body,
+ * Shift+R 2.54 mm to the right, X unmoved (no x offset to flip) and Y 2.54 mm
+ * below — the same four rules.
+ */
+const TURNED: Record<(typeof ROTATIONS | typeof MIRRORS)[number], string[]> = {
+  rotateCW: ['1020000,1030000', '980000,1030000'],
+  rotateCCW: ['980000,970000', '1020000,970000'],
+  mirrorX: ['1030000,1020000', '1030000,980000'],
+  mirrorY: ['970000,980000', '970000,1020000'],
+};
+
 describe.each(ROTATIONS)('%s, on an autoplaced symbol with the preference on', (op) => {
   const before = sheet(true);
   const after = rotate(before, op, prefs(true));
@@ -135,13 +158,13 @@ describe.each(ROTATIONS)('%s, on an autoplaced symbol with the preference on', (
 describe.each(ROTATIONS)('%s, with the Autoplace Fields preference off', (op) => {
   it('leaves the fields exactly as SCH_SYMBOL::Rotate does — position and angle', () => {
     // `m_AutoplaceFields.enable` gates the whole block, so this is rules 1 and 2
-    // alone: the fields do not move, their stored angle is untouched, and the
-    // drawn angle therefore flips. Upstream behaves the same way with the
-    // preference off, and this is what says the fix is the gate and not a
-    // change to `Rotate` itself.
+    // alone: the fields swing round with the transform, their stored angle is
+    // untouched, and the drawn angle therefore flips. Upstream behaves the same
+    // way with the preference off, and this is what says the fix is the gate and
+    // not a change to `Rotate` itself.
     const before = sheet(true);
     const after = rotate(before, op, prefs(false));
-    expect(at(after.symbols[0]!)).toEqual(at(before.symbols[0]!));
+    expect(at(after.symbols[0]!)).toEqual(TURNED[op]);
     expect(stored(after.symbols[0]!)).toEqual([0, 0]);
     expect(drawn(after.symbols[0]!)).toEqual([90, 90]);
   });
@@ -150,11 +173,15 @@ describe.each(ROTATIONS)('%s, with the Autoplace Fields preference off', (op) =>
 describe.each(ROTATIONS)('%s, on a symbol whose fields the user placed', (op) => {
   it('does not touch them: AUTOPLACE_NONE fails the flag test', () => {
     // `if( fieldsAutoplaced == AUTOPLACE_AUTO || fieldsAutoplaced == AUTOPLACE_MANUAL )`.
-    // A reference dragged where the user wants it stays there, turn or no turn.
+    // A reference dragged where the user wants it is not re-placed — it keeps
+    // the side of the body it was on, rather than being recomputed. It still
+    // travels with the body, because that is the transform and not the
+    // autoplacer: this is the exact case measured on KiCad's D1/D2, which have
+    // no `fields_autoplaced` and whose fields ended up beside the turned body.
     const before = sheet(false);
     expect(before.symbols[0]!.fieldsAutoplaced).toBeUndefined();
     const after = rotate(before, op, prefs(true));
-    expect(at(after.symbols[0]!)).toEqual(at(before.symbols[0]!));
+    expect(at(after.symbols[0]!)).toEqual(TURNED[op]);
     expect(stored(after.symbols[0]!)).toEqual([0, 0]);
   });
 });
@@ -168,10 +195,14 @@ describe.each(MIRRORS)('%s', (op) => {
     expect(s.mirror).toBe(op === 'mirrorX' ? 'x' : 'y');
   });
 
-  it('never autoplaces: the fields keep their position and their angle', () => {
+  it('never autoplaces: the fields are only flipped, never re-placed', () => {
     // The single-item mirror arm calls `SetOrientation` and nothing else — no
-    // `MirrorHorizontally`, no autoplace — so the fields are left alone.
-    expect(at(s)).toEqual(at(before.symbols[0]!));
+    // `MirrorHorizontally`, no autoplace. The orientation is still what the
+    // drawn field position is read through, so each field crosses the axis;
+    // nothing recomputes where it belongs. Measured on KiCad's D3 (hotkey X,
+    // fields on the centre line so the numbers do not move) and D4 (hotkey Y,
+    // reference and value swap sides).
+    expect(at(s)).toEqual(TURNED[op]);
     expect(stored(s)).toEqual([0, 0]);
   });
 
@@ -184,8 +215,16 @@ describe.each(MIRRORS)('%s', (op) => {
   });
 
   it('so a rotate after it no longer re-places the fields', () => {
+    // Not "the fields do not move" — they turn with the body, as always. What
+    // the cleared flag buys is that the autoplacer does not run, so the stored
+    // angle is left at 0 and the offsets are simply the mirrored ones rotated
+    // CW: (x, y) -> (-y, x) applied to `TURNED[op]`.
     const turned = rotate(after, 'rotateCW', prefs(true));
-    expect(at(turned.symbols[0]!)).toEqual(at(s));
+    expect(at(turned.symbols[0]!)).toEqual(
+      op === 'mirrorX'
+        ? ['980000,1030000', '1020000,1030000']
+        : ['1020000,970000', '980000,970000'],
+    );
     expect(stored(turned.symbols[0]!)).toEqual([0, 0]);
   });
 });
@@ -208,19 +247,24 @@ describe('more than one item selected', () => {
     expect(stored(after.symbols[1]!)).toEqual([0, 0]);
   });
 
-  it('translates the fields by each symbol’s own move vector', () => {
-    // "Move the fields to the new position because the symbol itself has
-    // moved" — the offset from the body is the invariant, not the position.
+  it('moves each body about the selection centre and turns its fields with it', () => {
+    // Two effects at once, and KiCad's D5/D6 pair shows both: the bodies orbit
+    // the selection centre ("move the fields to the new position because the
+    // symbol itself has moved"), while each field's offset from its own anchor
+    // turns because that offset is read through the symbol's transform. Both
+    // probe symbols came out of the group R with their reference at (-2.54, 0).
+    //
+    // Here the offsets start at (+30000, -20000) and (+30000, +20000), and CW in
+    // +Y-down screen space is (x, y) -> (-y, x).
     const after = rotate(two, 'rotateCW', prefs(true), ids);
     for (let i = 0; i < 2; i++) {
       const b = two.symbols[i]!;
       const a = after.symbols[i]!;
-      const dx = a.at.x - b.at.x;
-      const dy = a.at.y - b.at.y;
-      expect(dx === 0 && dy === 0).toBe(false); // the symbols really did move
-      expect(a.fields.map((f) => f.at)).toEqual(
-        b.fields.map((f) => (f.at ? { x: f.at.x + dx, y: f.at.y + dy } : f.at)),
-      );
+      expect(a.at).not.toEqual(b.at); // the symbols really did move
+      expect(a.fields.map((f) => ({ x: f.at!.x - a.at.x, y: f.at!.y - a.at.y }))).toEqual([
+        { x: 20000, y: 30000 },
+        { x: -20000, y: 30000 },
+      ]);
     }
   });
 
