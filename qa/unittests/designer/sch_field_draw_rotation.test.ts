@@ -76,7 +76,13 @@ const SRC = (fieldAngle: 0 | 90): string => `(kicad_sch (version 20250114) (lib_
     (property "Value" "" (at 103 102 0) (effects (font (size 1.27 1.27)))))
 )`;
 
-/** Every `rotate` the painter issues, in radians. */
+/**
+ * Every `rotate` the painter issues, in radians.
+ *
+ * An empty list is the *expected* answer for the level case, so this also
+ * checks the run painted something at all — a culled symbol would give an empty
+ * list too, and the level assertion would pass without a field on screen.
+ */
 function rotations(fieldAngle: 0 | 90): number[] {
   const doc = readSchematic(parse(SRC(fieldAngle)));
   expect(doc.symbols[0]!.angle).toBe(90);
@@ -105,6 +111,9 @@ function rotations(fieldAngle: 0 | 90): number[] {
   } finally {
     (globalThis as { Path2D?: unknown }).Path2D = orig;
   }
+  // `drawText` translates to the anchor for every run it paints; if the symbol
+  // and its field had been culled there would be none.
+  expect(ctx.__calls.filter((c) => c.op === 'translate').length).toBeGreaterThanOrEqual(2);
   return ctx.__calls.filter((c) => c.op === 'rotate').map((c) => c.args[0] as number);
 }
 
