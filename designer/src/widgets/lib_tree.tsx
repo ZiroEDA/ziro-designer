@@ -116,6 +116,45 @@ export interface LibTreeProps {
   onToggleLibrary?: (node: LibTreeNode, open: boolean) => void;
   /** Pin/Unpin Library from the context menu; owner persists and re-sorts. */
   onPinLibrary?: (node: LibTreeNode, pinned: boolean) => void;
+  /**
+   * `m_adapter->GetContextMenuTool()` (`common/widgets/lib_tree.cpp:1056-1066`).
+   *
+   * `onItemContextMenu` selects the row under the pointer and then, if the
+   * adapter names a tool, shows THAT TOOL's menu:
+   *
+   *     if( TOOL_INTERACTIVE* tool = m_adapter->GetContextMenuTool() )
+   *     {   tool->Activate(); … tool->GetToolMenu().ShowContextMenu(); }
+   *     else { … ACTIONS::pinLibrary / unpinLibrary on a library row … }
+   *
+   * The Pin/Unpin pair below is upstream's ELSE branch, not its only one: it is
+   * what the chooser gets, because `LIB_TREE_MODEL_ADAPTER::GetContextMenuTool`
+   * returns `nullptr` (`include/lib_tree_model_adapter.h:362`) and only the two
+   * library editors override it. Ours had the else branch and no way to reach
+   * the other, so a frame with a fifteen-row tree menu could not mount this
+   * widget without losing it.
+   *
+   * Supplying this handler IS the adapter naming a tool: the owner draws the
+   * menu, because the menu is the frame's, evaluated against the row that was
+   * clicked — which this widget has already selected by the time it calls.
+   */
+  onItemContextMenu?: (node: LibTreeNode, x: number, y: number) => void;
+  /**
+   * `LIB_TREE::Unselect()` (`common/widgets/lib_tree.cpp:393`), driven as a
+   * nonce: each new value clears the tree's selection.
+   *
+   * `FOOTPRINT_TREE_PANE::onComponentSelected` calls it immediately after the
+   * double-click has loaded the footprint, with its own reason — "Make sure
+   * current-part highlighting doesn't get lost in seleciton highlighting"
+   * (`pcbnew/footprint_tree_pane.cpp:88-93`). The current part is drawn STRUCK
+   * THROUGH by `FP_TREE_SYNCHRONIZING_ADAPTER::GetAttr`, and a selected row
+   * would paint the highlight band over it.
+   */
+  unselectNonce?: number;
+  /**
+   * `SaveSettings`' `m_cfg.column_widths` (`common/lib_tree_model_adapter.cpp:240-245`)
+   * — the header was dragged, so the owner persists the adapter's new widths.
+   */
+  onColumnWidthsChanged?: (widths: Record<string, number>) => void;
   /** Sort mode switched from the menu; owner persists it (SaveSettings). */
   onSortModeChanged?: (mode: SortMode) => void;
   /** Shown columns changed through the header's Select Columns dialog. */
@@ -236,6 +275,9 @@ export function LibTree({
   onChoose,
   onToggleLibrary,
   onPinLibrary,
+  onItemContextMenu,
+  unselectNonce = 0,
+  onColumnWidthsChanged,
   onSortModeChanged,
   onShownColumnsChanged,
   renderPreview,
@@ -257,6 +299,8 @@ export function LibTree({
   );
   // The adapter's nodes are mutated in place; bump to re-render after a pass.
   const [version, setVersion] = useState(0);
+  /** Bumped while a header edge is being dragged; see `startColumnResize`. */
+  const [colWidthNonce, setColWidthNonce] = useState(0);
   /**
    * The scrolled window: which slice of `rows` is in the DOM.
    *
@@ -289,8 +333,40 @@ export function LibTree({
    */
   const colWidths = useMemo(
     () => columns.map((col) => adapter.getColumnWidth(col) ?? headerMinWidth(col)),
-    [adapter, columns],
+    // `colWidthNonce` re-reads the adapter after a drag has written to it, the
+    // way `recreateColumns` re-reads `m_colWidths`.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [adapter, columns, colWidthNonce],
   );
+
+  /**
+   * `wxDATAVIEW_COL_RESIZABLE` with `col->SetMinWidth( headerMinWidth.x )`
+   * (`doAddColumn`, common/lib_tree_model_adapter.cpp:490-495): every column in
+   * this tree can be dragged, and none of them narrower than its own header
+   * plus three Ms. The grip is the header cell's right edge — GTK draws no
+   * pixels of its own for it, so neither does this.
+   */
+  const startColumnResize = (index: number, e: React.MouseEvent): void => {
+    e.preventDefault();
+    e.stopPropagation();
+    const col = columns[index];
+    if (!col) return;
+    const startX = e.clientX;
+    const startW = colWidths[index] ?? 0;
+    const min = headerMinWidth(col);
+    const onMove = (ev: MouseEvent): void => {
+      const next = Math.max(min, Math.round(startW + ev.clientX - startX));
+      adapter.setColumnWidth(col, next);
+      setColWidthNonce((n) => n + 1);
+    };
+    const onUp = (): void => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      onColumnWidthsChanged?.(adapter.getColumnWidths());
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  };
 
   const select = useCallback(
     (node: LibTreeNode | null) => {
@@ -370,6 +446,16 @@ export function LibTree({
     select(node);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectLibId, regenerateNonce]);
+
+  /**
+   * `LIB_TREE::Unselect()`. Keyed on the nonce alone: a frame calls it at a
+   * moment, not in a state, and re-running it on every render would fight the
+   * user's next click.
+   */
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the nonce IS the call
+  useEffect(() => {
+    if (unselectNonce > 0) select(null);
+  }, [unselectNonce]);
 
   /** updateRecentSearchMenu: the current query moves to the head of the list. */
   const updateRecentSearchMenu = useCallback(() => {
@@ -890,9 +976,25 @@ export function LibTree({
             <span
               key={col}
               className={col === 'Item' ? 'col-item' : 'col-desc'}
-              style={{ width: colWidths[i] }}
+              style={{ width: colWidths[i], position: 'relative' }}
             >
               {col}
+              {/* The drag grip. `wxDATAVIEW_COL_RESIZABLE` puts it on the
+                  header button's own right edge and gives it no pixels of its
+                  own, so this is an overlay rather than a separator: nothing in
+                  the header moves because it is there. */}
+              <span
+                className="ze-libtree-colgrip"
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  right: 0,
+                  bottom: 0,
+                  width: 4,
+                  cursor: 'col-resize',
+                }}
+                onMouseDown={(e) => startColumnResize(i, e)}
+              />
             </span>
           ))}
         </div>
@@ -927,9 +1029,16 @@ export function LibTree({
               onContextMenu={(e) => {
                 e.preventDefault();
                 hidePreview();
+                // "Select the item under the cursor before showing the context
+                // menu" (`lib_tree.cpp:1041-1053`), whichever menu follows.
                 select(node);
-                // LIB_TREE::onItemContextMenu: the row menu exists only for
-                // pinnable (non-group) library rows.
+                if (onItemContextMenu) {
+                  // The adapter names a tool, so the tool's menu is what opens.
+                  onItemContextMenu(node, e.clientX, e.clientY);
+                  return;
+                }
+                // The else branch: Pin/Unpin, and only on a pinnable
+                // (non-group) library row.
                 if (node.type === LibTreeNodeType.LIBRARY && !node.isGroup)
                   setCtxMenu({ x: e.clientX, y: e.clientY, node });
               }}

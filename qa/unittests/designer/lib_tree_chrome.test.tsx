@@ -341,6 +341,194 @@ describe('no consumer restates the tree locally', () => {
   });
 });
 
+describe('every column is drag-resizable, in both consumers', () => {
+  /**
+   * `doAddColumn` (`common/lib_tree_model_adapter.cpp:490-495`):
+   *
+   *     wxDataViewColumn* col = new wxDataViewColumn( translatedHeader, …,
+   *             m_colWidths[aHeader], wxALIGN_NOT,
+   *             wxDATAVIEW_CELL_INERT | (int) wxDATAVIEW_COL_RESIZABLE );
+   *     col->SetMinWidth( headerMinWidth.x );
+   *
+   * Every column in this tree carries `wxDATAVIEW_COL_RESIZABLE`, and none of
+   * them may go below its own header's extent plus three Ms. Ours had fixed
+   * columns and no grip at all, so a 250 px dock showed the Item column and
+   * nothing else with no way to trade one against the other.
+   */
+  const assertGrips = (root: HTMLElement) => {
+    const spans = Array.from(root.querySelectorAll('.ze-libtree-cols > span'));
+    expect(spans.length).toBeGreaterThan(1);
+    // Every column, not just the first: `wxDATAVIEW_COL_RESIZABLE` is passed
+    // per column and a grip on the Item column alone would still let the
+    // header "be resizable" by a careless test.
+    expect(spans.map((c) => c.querySelectorAll('.ze-libtree-colgrip').length)).toEqual(
+      spans.map(() => 1),
+    );
+  };
+
+  it('in the Symbol Editor dock', async () => assertGrips(await openEditor()));
+  it('in the bare widget the chooser mounts', () => assertGrips(openWidget()));
+
+  /** Dragging the Item column's edge moves the header AND the rows' cells,
+   *  because upstream they are the same column. */
+  it('a drag on the grip widens the column and the cells under it', () => {
+    const root = openWidget();
+    const head = root.querySelectorAll('.ze-libtree-cols > span')[0] as HTMLElement;
+    const cell = root.querySelector('.ze-libtree-row .col-item') as HTMLElement;
+    const before = { head: head.style.width, cell: cell.style.width };
+    fireEvent.mouseDown(head.querySelector('.ze-libtree-colgrip')!, { clientX: 300 });
+    fireEvent.mouseMove(document, { clientX: 360 });
+    fireEvent.mouseUp(document);
+    expect(before).toEqual({ head: '300px', cell: '276px' });
+    expect({
+      head: (root.querySelectorAll('.ze-libtree-cols > span')[0] as HTMLElement).style.width,
+      cell: (root.querySelector('.ze-libtree-row .col-item') as HTMLElement).style.width,
+    }).toEqual({ head: '360px', cell: '336px' });
+  });
+
+  /**
+   * `col->SetMinWidth( headerMinWidth.x )`. happy-dom measures no text, so the
+   * header's extent there is 0 — the claim that survives is that the width
+   * cannot be dragged NEGATIVE, which is what `Math.max( min, … )` guarantees
+   * and an unclamped `startW + dx` does not.
+   */
+  it('and cannot be dragged past its minimum', () => {
+    const root = openWidget();
+    const head = root.querySelectorAll('.ze-libtree-cols > span')[0] as HTMLElement;
+    fireEvent.mouseDown(head.querySelector('.ze-libtree-colgrip')!, { clientX: 300 });
+    fireEvent.mouseMove(document, { clientX: -900 });
+    fireEvent.mouseUp(document);
+    const width = Number.parseFloat(
+      (root.querySelectorAll('.ze-libtree-cols > span')[0] as HTMLElement).style.width,
+    );
+    expect(width).toBeGreaterThanOrEqual(0);
+  });
+
+  /**
+   * `SaveSettings`' `m_cfg.column_widths` (`:240-245`), which is what makes a
+   * drag outlive the frame. The callback fires on the mouse UP, not on every
+   * frame of the drag — upstream writes the file when the frame closes, not
+   * while the pointer moves.
+   */
+  it('and reports the new widths once, when the drag ends', () => {
+    const adapter = new LibTreeModelAdapter();
+    const lib = adapter.addLibrary('Device', '', false);
+    makeItemNode(lib, 'Device', 'R');
+    adapter.finishLibrary(lib);
+    const seen: Record<string, number>[] = [];
+    const { container } = render(
+      <LibTree
+        adapter={adapter}
+        onSelect={() => {}}
+        onChoose={() => {}}
+        onColumnWidthsChanged={(w) => seen.push(w)}
+      />,
+    );
+    const head = container.querySelectorAll('.ze-libtree-cols > span')[0] as HTMLElement;
+    fireEvent.mouseDown(head.querySelector('.ze-libtree-colgrip')!, { clientX: 300 });
+    fireEvent.mouseMove(document, { clientX: 320 });
+    fireEvent.mouseMove(document, { clientX: 340 });
+    expect(seen).toEqual([]);
+    fireEvent.mouseUp(document);
+    expect(seen.length).toBe(1);
+    // The adapter is where the number lives now, not a module constant —
+    // `getColumnWidth` used to read `LIB_TREE_DEFAULT_COL_WIDTHS` directly, so
+    // a dragged width had nowhere to go.
+    expect(seen[0]?.Item).toBe(340);
+    expect(adapter.getColumnWidth('Item')).toBe(340);
+    // Untouched columns keep the table's own number.
+    expect(seen[0]?.Description).toBe(LIB_TREE_DEFAULT_COL_WIDTHS.Description);
+  });
+
+  /**
+   * `loadColumnConfig` (`:184-197`), the read half, and `IsValidColumnWidth`
+   * guarding it (`:41-49`): "anything outside a width that could legitimately
+   * fit on a display is treated as corrupt rather than a resize".
+   */
+  it('and a stored width is taken back, unless it is corrupt', () => {
+    const adapter = new LibTreeModelAdapter();
+    adapter.loadColumnConfig({ widths: { Item: 412, Description: 0, Value: 1e9 } });
+    expect(adapter.getColumnWidth('Item')).toBe(412);
+    expect(adapter.getColumnWidth('Description')).toBe(LIB_TREE_DEFAULT_COL_WIDTHS.Description);
+    expect(adapter.getColumnWidth('Value')).toBeNull();
+  });
+});
+
+describe("the row menu is the adapter's tool's, and Pin/Unpin is the fallback", () => {
+  /**
+   * `LIB_TREE::onItemContextMenu` (`common/widgets/lib_tree.cpp:1056-1086`):
+   *
+   *     if( TOOL_INTERACTIVE* tool = m_adapter->GetContextMenuTool() )
+   *         … tool->GetToolMenu().ShowContextMenu();
+   *     else
+   *         … ACTIONS::pinLibrary / unpinLibrary on a library row …
+   *
+   * `LIB_TREE_MODEL_ADAPTER::GetContextMenuTool` returns `nullptr`
+   * (`include/lib_tree_model_adapter.h:362`), so the chooser gets the else
+   * branch — which is all our widget could draw before the Footprint Editor
+   * needed the other one.
+   */
+  it('the chooser gets the pin pair, because its adapter names no tool', () => {
+    const root = openWidget();
+    const libRow = rows(root).find((r) => r.classList.contains('lib'))!;
+    fireEvent.contextMenu(libRow);
+    const menu = root.querySelector('.ze-libtree-menu.ctx');
+    expect(menu?.textContent).toContain('Pin Library');
+  });
+
+  it('and a consumer that names one gets its menu instead, on the selected row', () => {
+    const adapter = new LibTreeModelAdapter();
+    const lib = adapter.addLibrary('Device', '', false);
+    makeItemNode(lib, 'Device', 'R');
+    adapter.finishLibrary(lib);
+    const calls: { name: string; x: number; y: number }[] = [];
+    const { container } = render(
+      <LibTree
+        adapter={adapter}
+        onSelect={() => {}}
+        onChoose={() => {}}
+        onItemContextMenu={(node, x, y) => calls.push({ name: node.name, x, y })}
+      />,
+    );
+    const libRow = rows(container).find((r) => r.classList.contains('lib'))!;
+    fireEvent.contextMenu(libRow, { clientX: 11, clientY: 22 });
+    expect(calls).toEqual([{ name: 'Device', x: 11, y: 22 }]);
+    // "Select the item under the cursor before showing the context menu"
+    // (`:1041-1053`) — the frame's menu is evaluated against the selection, so
+    // the row must already be selected when the handler runs.
+    expect(libRow.classList.contains('active')).toBe(true);
+    // And the fallback did not also open.
+    expect(container.querySelectorAll('.ze-libtree-menu.ctx').length).toBe(0);
+  });
+});
+
+describe('LIB_TREE::Unselect', () => {
+  /**
+   * `lib_tree.cpp:393`, driven as a nonce. `FOOTPRINT_TREE_PANE::onComponentSelected`
+   * is the caller (`pcbnew/footprint_tree_pane.cpp:88-93`); the symbol editor
+   * never calls it, which is why it has to be a prop the widget only acts on
+   * when it changes and not a state it holds.
+   */
+  it('clears the selection when the nonce moves, and not before', () => {
+    const adapter = new LibTreeModelAdapter();
+    const lib = adapter.addLibrary('Device', '', false);
+    makeItemNode(lib, 'Device', 'R');
+    adapter.finishLibrary(lib);
+    const tree = (nonce: number): JSX.Element => (
+      <LibTree adapter={adapter} onSelect={() => {}} onChoose={() => {}} unselectNonce={nonce} />
+    );
+    const { container, rerender } = render(tree(0));
+    const libRow = rows(container).find((r) => r.classList.contains('lib'))!;
+    fireEvent.click(libRow);
+    expect(libRow.classList.contains('active')).toBe(true);
+    // A re-render that does NOT move the nonce leaves the selection alone.
+    rerender(tree(0));
+    expect(rows(container).some((r) => r.classList.contains('active'))).toBe(true);
+    rerender(tree(1));
+    expect(rows(container).some((r) => r.classList.contains('active'))).toBe(false);
+  });
+});
+
 describe("the Symbol Editor's pane captions carry the close box their pane asks for", () => {
   const caption = (root: HTMLElement, title: string): HTMLElement | undefined =>
     (Array.from(root.querySelectorAll('.ze-panel-header')) as HTMLElement[]).find(

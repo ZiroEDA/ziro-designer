@@ -47,8 +47,27 @@ export enum SortMode {
  * upstream: `addColumnIfNecessary` is fed by the library plugin's
  * `GetAvailableExtraFields`, which is a database-library capability, and NOT by
  * the fields of the symbols in a `.kicad_sym`.
+ *
+ * These are the SYMBOL side's four, and they are the class default here because
+ * the symbol chooser mounts `LibTreeModelAdapter` itself rather than a subclass
+ * — upstream that mount is a `SYMBOL_TREE_MODEL_ADAPTER`. An adapter for
+ * anything else narrows them back to {@link LIB_TREE_BASE_COLUMNS} in its
+ * constructor, which is what `FP_TREE_MODEL_ADAPTER` gets for free by not
+ * adding any.
  */
 export const LIB_TREE_COLUMNS = ['Item', 'Description', 'Value', 'Footprint'] as const;
+
+/**
+ * `m_availableColumns = { _HKI( "Item" ), _HKI( "Description" ) }` and
+ * `m_shownColumns = { _HKI( "Item" ), _HKI( "Description" ) }` — the base
+ * adapter's own two (common/lib_tree_model_adapter.cpp:168, 195-196).
+ *
+ * The footprint tree has exactly these: `FP_TREE_MODEL_ADAPTER`'s constructor
+ * (pcbnew/fp_tree_model_adapter.cpp:42-46) adds nothing to either list, so
+ * Value and Footprint — which the symbol tree adds — are not columns the
+ * Footprint Editor can show, and its Select Columns dialog offers two rows.
+ */
+export const LIB_TREE_BASE_COLUMNS = ['Item', 'Description'] as const;
 
 /**
  * `loadColumnConfig`'s fallback when the saved config names no columns
@@ -89,6 +108,25 @@ export const LIB_TREE_DEFAULT_COL_WIDTHS: Readonly<Record<string, number>> = {
 };
 
 /**
+ * `LIB_TREE_MODEL_ADAPTER::MAX_COL_WIDTH` (include/lib_tree_model_adapter.h:117)
+ * and `IsValidColumnWidth` (:41-49), with upstream's own reason:
+ *
+ *     // An out-of-range persisted width (seen after mixed-DPI monitor changes)
+ *     // can push the tree content out of view and leave the chooser unusable,
+ *     // so anything outside a width that could legitimately fit on a display is
+ *     // treated as corrupt rather than a resize.
+ *
+ * It guards both ends of the round trip — `loadColumnConfig` skips a stored
+ * width that fails it (:186-190) and `SaveSettings` refuses to write one
+ * (:241-245) — so a bad number can neither be read nor written.
+ */
+export const LIB_TREE_MAX_COL_WIDTH = 100000;
+
+export function isValidColumnWidth(width: number): boolean {
+  return width > 0 && width <= LIB_TREE_MAX_COL_WIDTH;
+}
+
+/**
  * `aDataViewCtrl->SetIndent( kDataViewIndent )` in `AttachTo`
  * (common/lib_tree_model_adapter.cpp:40, 397) — the px a child row is indented
  * past its parent. Data: a KiCad constant, not a GTK one. Ours was 16.
@@ -111,9 +149,20 @@ export class LibTreeModelAdapter {
   private searchString = '';
   private preselect: { libId: string; unit: number } | null = null;
   /** m_shownColumns, ordered, "Item" always first (loadColumnConfig). */
-  private shownColumns: string[] = [...LIB_TREE_DEFAULT_SHOWN_COLUMNS];
+  protected shownColumns: string[] = [...LIB_TREE_DEFAULT_SHOWN_COLUMNS];
   /** m_availableColumns. */
-  private availableColumns: string[] = [...LIB_TREE_COLUMNS];
+  protected availableColumns: string[] = [...LIB_TREE_COLUMNS];
+  /**
+   * `m_colWidths`, per adapter and not per class.
+   *
+   * It is a member upstream, seeded with the two defaults in the constructor
+   * and then written by `loadColumnConfig` from the settings file and by
+   * `recreateColumns` from the widths the user dragged the header to
+   * (common/lib_tree_model_adapter.cpp:158-160, 186-190, 660-682). Ours read
+   * the constant table directly, so a dragged or a stored width had nowhere to
+   * live.
+   */
+  protected colWidths: Record<string, number> = { ...LIB_TREE_DEFAULT_COL_WIDTHS };
   /** Details-pane HTML for a node (SYMBOL_TREE_MODEL_ADAPTER::GenerateInfo). */
   generateInfo: (node: LibTreeNode) => string = () => '';
 
@@ -221,7 +270,44 @@ export class LibTreeModelAdapter {
    * cannot be answered here; the widget does that half.
    */
   getColumnWidth(header: string): number | null {
-    return LIB_TREE_DEFAULT_COL_WIDTHS[header] ?? null;
+    return this.colWidths[header] ?? null;
+  }
+
+  /**
+   * `recreateColumns`' write-back of the widths read off the columns
+   * (common/lib_tree_model_adapter.cpp:672-680): the header was dragged, so the
+   * adapter's table takes the new number — but only if it passes
+   * `IsValidColumnWidth`, "Keep the prior sane width if a DPI change handed
+   * back a corrupt one."
+   */
+  setColumnWidth(header: string, width: number): void {
+    if (isValidColumnWidth(width)) this.colWidths[header] = width;
+  }
+
+  /**
+   * `SaveSettings`' half of the round trip (:240-245) — `m_cfg.column_widths`,
+   * skipping anything `IsValidColumnWidth` rejects. Only the columns actually
+   * shown have a `wxDataViewColumn` upstream, so only those are written.
+   */
+  getColumnWidths(): Record<string, number> {
+    const out: Record<string, number> = {};
+    for (const col of this.shownColumns) {
+      const width = this.colWidths[col];
+      if (width !== undefined && isValidColumnWidth(width)) out[col] = width;
+    }
+    return out;
+  }
+
+  /**
+   * `loadColumnConfig` (:184-197), both halves: the stored widths over the
+   * defaults, each one checked, and then the stored column list with "Item"
+   * forced to the front.
+   */
+  loadColumnConfig(config: { columns?: readonly string[]; widths?: Record<string, number> }): void {
+    for (const [name, width] of Object.entries(config.widths ?? {}))
+      if (isValidColumnWidth(width)) this.colWidths[name] = width;
+
+    if (config.columns && config.columns.length > 0) this.setShownColumns(config.columns);
   }
 
   getAvailableColumns(): readonly string[] {

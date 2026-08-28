@@ -769,6 +769,89 @@ export const PL_EDITOR_DEFAULTS: PlEditorSettings = {
   last_was_portrait: false,
 };
 
+// ----- FOOTPRINT_EDITOR_SETTINGS ("fpedit.json") -------------------------------
+
+/**
+ * The Footprint Editor's own settings file — `PCB_VIEWERS_SETTINGS_BASE( "fpedit", … )`
+ * (`pcbnew/footprint_editor_settings.cpp:46`).
+ *
+ * Only the two things the library tree needs are here. The rest of
+ * FOOTPRINT_EDITOR_SETTINGS (design settings, magnetic items, layer presets)
+ * either lives elsewhere in this port already or is not persisted yet, and a
+ * key that nothing reads is a key that can drift.
+ */
+export interface FpEditSettings {
+  window: {
+    /**
+     * `PARAM<int>( "window.lib_width", &m_LibWidth, 250 )`
+     * (`footprint_editor_settings.cpp:69-70`).
+     *
+     * `FOOTPRINT_EDIT_FRAME` writes `m_treePane->GetSize().x` into it from
+     * `SaveSettings` (`:837`) and whenever the pane is hidden (`:414`), and
+     * restores it with `SetAuiPaneSize` on open (`:279-280`) and whenever the
+     * pane is shown again (`:410`). The 250 is the same number the pane's
+     * `.MinSize( FromDIP( 250 ), … ).BestSize( FromDIP( 250 ), -1 )` declares,
+     * which is why a fresh install opens at exactly the default.
+     */
+    lib_width: number;
+  };
+  /**
+   * `APP_SETTINGS_BASE::m_LibTree`, the `lib_tree.*` params every app settings
+   * file carries (`common/settings/app_settings.cpp:140-171`). The Footprint
+   * Editor's tree reads and writes this one, the symbol editor's reads
+   * `eeschema.json`'s.
+   */
+  lib_tree: {
+    /** `lib_tree.columns` — the shown columns, "Item" always first. */
+    columns: string[];
+    /**
+     * `lib_tree.column_widths`, a free-form `{ column: px }` object written by
+     * a `PARAM_LAMBDA<nlohmann::json>` (`:142-168`). Free-form, so it is
+     * normalised rather than `deepMerge`d — see {@link normalizeColumnWidths}.
+     */
+    column_widths: Record<string, number>;
+    /** `lib_tree.open_libs` — the libraries expanded when the frame closed. */
+    open_libs: string[];
+  };
+}
+
+export const FPEDIT_DEFAULTS: FpEditSettings = {
+  window: { lib_width: 250 },
+  lib_tree: { columns: [], column_widths: {}, open_libs: [] },
+};
+
+/**
+ * `lib_tree.column_widths` on the way in — the getter/setter pair at
+ * `app_settings.cpp:142-168`, which reads the JSON object back a key at a time
+ * and takes only integer values.
+ *
+ * Free-form, so not `deepMerge`d: the defaults are `{}` and `deepMerge` keeps
+ * only keys the defaults already have, so every stored width would be dropped
+ * on the way back in. That is the trap the note above `normalizeHotkeys`
+ * describes.
+ */
+export function normalizeColumnWidths(parsed: unknown): Record<string, number> {
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return {};
+  const out: Record<string, number> = {};
+  for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
+    if (typeof v === 'number' && Number.isFinite(v)) out[k] = v;
+  }
+  return out;
+}
+
+/**
+ * `fpedit.json` on the way in: the fixed tree merged as usual, with the one
+ * free-form subtree inside it normalised instead — the same shape as
+ * {@link mergeCommon}, and for the same reason.
+ */
+export function mergeFpEdit(stored: unknown): FpEditSettings {
+  const out = deepMerge(structuredClone(FPEDIT_DEFAULTS), stored);
+  const widths = (stored as { lib_tree?: { column_widths?: unknown } } | undefined)?.lib_tree
+    ?.column_widths;
+  out.lib_tree.column_widths = normalizeColumnWidths(widths);
+  return out;
+}
+
 /** Parse a grid size string ("50 mil", "1.27 mm") into IU (100 nm). */
 export function gridSizeToIU(size: string): number {
   const m = /^\s*([\d.]+)\s*(mil|mils|mm|in|inch)?\s*$/i.exec(size);
@@ -1324,6 +1407,7 @@ export const SETTINGS_SLICES = [
   'eeschema',
   'pcbnew',
   'pl_editor',
+  'fpedit',
   'pcb_calculator',
   'bitmap2component',
   'privacy',
@@ -1702,6 +1786,13 @@ const SLICE_IO: Record<SettingsSlice, SliceIO> = {
       m.plEditor = deepMerge(structuredClone(PL_EDITOR_DEFAULTS), v);
     },
   },
+  fpedit: {
+    read: (m) => m.fpEdit,
+    // Not `deepMerge` alone: `lib_tree.column_widths` is free-form.
+    adopt: (m, v) => {
+      m.fpEdit = mergeFpEdit(v);
+    },
+  },
   pcb_calculator: {
     read: (m) => m.pcbCalculator,
     // Not `deepMerge`: the transmission-line keyword maps are free-form.
@@ -1747,6 +1838,9 @@ export class SettingsManager {
   pcbnew: PcbnewSettings = load(sliceStorageKey('pcbnew'), PCBNEW_DEFAULTS);
   /** `pl_editor.json`, the Drawing Sheet Editor's own settings file. */
   plEditor: PlEditorSettings = load(sliceStorageKey('pl_editor'), PL_EDITOR_DEFAULTS);
+  /** `fpedit.json`, the Footprint Editor's own settings file. Not `load()`:
+   *  `lib_tree.column_widths` is free-form. See `mergeFpEdit`. */
+  fpEdit: FpEditSettings = loadFreeForm(sliceStorageKey('fpedit'), mergeFpEdit);
   /** `pcb_calculator.json` — the Calculator Tools frame's last inputs. */
   pcbCalculator: PcbCalculatorSettings = loadFreeForm(
     sliceStorageKey('pcb_calculator'),
@@ -1902,6 +1996,14 @@ export class SettingsManager {
     mutate(next);
     this.plEditor = next;
     this.commit('pl_editor', next);
+  }
+
+  /** `FOOTPRINT_EDIT_FRAME::SaveSettings` (`footprint_edit_frame.cpp:823-860`). */
+  updateFpEdit(mutate: (s: FpEditSettings) => void): void {
+    const next = structuredClone(this.fpEdit);
+    mutate(next);
+    this.fpEdit = next;
+    this.commit('fpedit', next);
   }
 
   /**
