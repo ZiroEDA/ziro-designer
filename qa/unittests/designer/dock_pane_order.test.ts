@@ -110,11 +110,20 @@ describe('a vertical toolbar touches the canvas; a palette docks outside it', ()
     );
   });
 
-  it('footprint editor: LayersManager L3 outside RightToolbar L2', () => {
+  it('footprint editor: LayersManager + SelectionFilter L3 outside RightToolbar L2', () => {
     // The second one this branch fixed, and it is why the rule is asserted per
     // launcher rather than once: pl_editor and the footprint editor had the
     // same bug, and three other launchers did not.
-    before(FP, 'entries={FP_RIGHT_TOOLBAR}', 'className="ze-leftdock on-right"', 'fp right');
+    //
+    // The dock is `.ze-rightdock`, the same construct pcbnew uses, since
+    // `footprint_edit_frame.cpp:243-254` docks LayersManager and SelectionFilter
+    // exactly the way `pcb_edit_frame.cpp:345-365` does: two panes in one
+    // `.Right().Layer( 3 )` stack, the filter at `.Position( 2 )`. It used to be
+    // the LEFT dock rule with the border flipped over, which is why the filter
+    // pane could not be stacked under it at all.
+    before(FP, 'entries={FP_RIGHT_TOOLBAR}', 'className="ze-rightdock"', 'fp right');
+    before(FP, 'className="ze-rightdock"', 'ze-panel-header">Appearance', 'fp appearance');
+    before(FP, 'ze-panel-header">Appearance', 'ze-panel-header">Selection Filter', 'fp filter');
   });
 
   it('symbol editor: LibraryTree L3 outside LeftToolbar L2', () => {

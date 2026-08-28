@@ -139,7 +139,12 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   dialogs: { colours: 5, metrics: 32 },
   'editors/calculator': { colours: 2, metrics: 18 },
   'editors/drawingsheet': { colours: 0, metrics: 0 },
-  'editors/footprint': { colours: 9, metrics: 20 },
+  // 9/20 -> 8/17: the Appearance panel became the shared APPEARANCE_CONTROLS
+  // and the hand-rolled layer list went with it. The colour was the swatch's
+  // invented `border: '1px solid #444'`; the three metrics were that swatch's
+  // inline width, height and border-radius. All four are now the shared
+  // `.ze-layer-swatch` rule.
+  'editors/footprint': { colours: 8, metrics: 17 },
   'editors/gerbview': { colours: 3, metrics: 4 },
   // 1 -> 0. Its last metric was the slider's `height: 7px` NOT-PROVEN fudge,
   // and the slider itself moved to ui/Slider.tsx + shell.css when it stopped
@@ -157,7 +162,15 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // div's and the swatch's inline sizes (6 metrics).
   // colours 69 -> 67: the two Appearance net/netclass swatches stopped
   // writing '#000000' as the value a native colour input falls back to.
-  'editors/pcb': { colours: 67, metrics: 387 },
+  // colours 67 -> 63, metrics 387 -> 381: the Appearance panel and the
+  // Selection Filter became the shared APPEARANCE_CONTROLS and
+  // PANEL_SELECTION_FILTER. One colour MOVED (the opacity slider's #55585d
+  // track, now in `widgets`); the other three and six of the metrics died with
+  // the Selection Filter's bespoke "Only <category>" popup, which is an
+  // ordinary wxMenu upstream and is now the shared ContextMenu — it carried
+  // #26262b, #444, rgba(0,0,0,0.5), a borderRadius, a minWidth, a boxShadow
+  // and two paddings of its own.
+  'editors/pcb': { colours: 63, metrics: 381 },
   // 68/215 -> 60/210: the COLOR_SWATCH sweep. Eight `<input type="color">`s
   // across the item dialogs, the net-chain table and the colour-settings
   // panel each carried a '#000000' or '#ffffff' fallback the native control
@@ -315,7 +328,18 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // rule that replaced it, and every other `.ze-symprops-*` rule, carries
   // either a token or a [data]/[px] marker on the literal's own line.
   ui: { colours: 281, metrics: 796 },
-  widgets: { colours: 6, metrics: 46 },
+  // colours 6 -> 7: the opacity slider's #55585d track arrived here with
+  // APPEARANCE_CONTROLS; it is the same literal `editors/pcb` lost, not a new
+  // one. The panel's own stylesheet adds none: every length in
+  // widgets/appearance_controls.css is a wx sizer border and carries [data].
+  //
+  // metrics 46 -> 50: NOT this branch. A pristine checkout of HEAD already
+  // scans 50 here — `designer: PROPERTIES_PANEL once, as a shared widget`
+  // (168fdbd9) added widgets/properties_panel.css, whose padding: 5px,
+  // height: 9px, two 1.5px borders and one 1px border are unmarked, and left
+  // this row at 46. Recorded here because the row has to match the tree; the
+  // five literals are that commit's to answer for.
+  widgets: { colours: 7, metrics: 50 },
 };
 
 /** Properties whose value the GTK theme decides, so a px in one is drift. */
@@ -559,7 +583,13 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // row that moved, and 663 + 2 agrees.
     // 665 -> 664: the Symbol Properties rebuild, `ui` row above. RESCANNED
     // from this tree, not subtracted from the diff.
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(664);
+    // 664 -> 660: the Appearance panel and the Selection Filter became one
+    // shared widget each. RESCANNED — and, because this checkout carried two
+    // other agents' uncommitted work, rescanned in a tree built from `git
+    // archive HEAD` with only this change's files overlaid, where the three
+    // rows above are the only ones that move: 7 - 1 for `widgets`, 8 - 9 for
+    // `editors/footprint`, 63 - 67 for `editors/pcb`, and 664 - 4 agrees.
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(660);
     // 1657 -> 1649: the same sweep. A native colour input has no useful
     // default size, so eight of the sixteen sites gave theirs an inline
     // width and height; the shared swatch takes --swatch-*-w/h. Rescanned.
@@ -592,7 +622,12 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // rescanned in a CLEAN worktree of the commit this branch sat on with only
     // this change applied, where `editors/symbol` 19 -> 15 is the one row that
     // moves and 1615 - 4 agrees.
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1611);
+    // 1611 -> 1615: NOT this branch. The same pristine-HEAD scan reports 1615,
+    // because the `widgets` row above was left at 46 when PROPERTIES_PANEL
+    // landed. 1615 -> 1606: this change, `editors/footprint` 20 -> 17 and
+    // `editors/pcb` 387 -> 381 being the only rows that move, and 1615 - 9
+    // agrees.
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1606);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {

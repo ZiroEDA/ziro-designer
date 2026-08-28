@@ -19,7 +19,14 @@ const read = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
 
 const SHELL = read('../../../designer/src/ui/shell.css');
-const PCB = read('../../../designer/src/editors/pcb/PcbEditor.tsx');
+// The panel is now ONE widget both frames construct, so what used to be read
+// out of `PcbEditor.tsx` is read out of the widget — see
+// `appearance_controls_shared.test.tsx` for the per-frame assertions.
+const PCB = read('../../../designer/src/widgets/appearance_controls.tsx');
+// The frame that fills it. The wrench button's action is the frame's — upstream
+// it is `m_frame->ShowBoardSetupDialog( _( "Net Classes" ) )`, a PCB_EDIT_FRAME
+// call the panel makes through its m_frame pointer.
+const FRAME = read('../../../designer/src/editors/pcb/PcbEditor.tsx');
 
 /**
  * The body of a rule.
@@ -49,10 +56,12 @@ const block = (src: string, from: string, to: string): string => {
 };
 
 describe('the notebook tab strip is the shared one', () => {
-  const tabs = block(PCB, '<div className="ze-nb-tabs">', '</div>');
+  const tabs = block(PCB, '<div className="ze-nb-tabs" role="tablist">', '</div>');
 
   it('found the strip, so this cannot pass by scanning nothing', () => {
-    expect(tabs).toContain("'Layers', 'Objects', 'Nets'");
+    // The page set itself is `appearanceTabs`, asserted per frame against the
+    // rendered strip in `appearance_controls_shared.test.tsx`.
+    expect(tabs).toContain('tabs.map((t) => (');
   });
 
   // pl_editor's properties pane and GerbView's LAYER_WIDGET draw the same
@@ -68,7 +77,7 @@ describe('the notebook tab strip is the shared one', () => {
   });
 
   it('marks the selected tab with the class the shared rule keys on', () => {
-    expect(tabs).toContain("className={tab === t ? 'active' : undefined}");
+    expect(tabs).toContain("className={page === t ? 'active' : undefined}");
   });
 
   it('and that shared rule paints the desktop accent, not a blue of ours', () => {
@@ -140,12 +149,13 @@ describe('the Nets tab carries the controls KiCad carries', () => {
   });
 
   it('opens Board Setup on Net Classes, as ShowBoardSetupDialog does', () => {
-    expect(classes).toContain("setBoardSetupPage('netclasses')");
+    expect(classes).toContain('onClick={nets.onConfigureNetclasses}');
+    expect(FRAME).toContain("setBoardSetupPage('netclasses');");
   });
 
   it('withholds a colour swatch from the Default netclass', () => {
     // "Default netclass can't have an override color" (appearance_controls.cpp:2607).
-    expect(PCB).toContain("const isDefault = cls === 'Default';");
+    expect(PCB).toContain("const isDefault = cls.name === 'Default';");
     expect(PCB).toContain('{isDefault ? (');
   });
 });

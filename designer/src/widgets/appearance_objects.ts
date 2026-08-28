@@ -2,12 +2,17 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * The Appearance panel's Objects tab: what each row means, and how flipping
- * one affects the others.
+ * The Appearance panel's Objects tab: what each row means, which rows each
+ * frame gets, and how flipping one affects the others.
  *
- * A plain module rather than part of `PcbEditor.tsx` so the rules can be
- * tested: `qa`'s tsconfig does not set `--jsx`, so anything a test imports has
- * to live outside a `.tsx` file.
+ * Counterpart: `APPEARANCE_CONTROLS::s_objectSettings` and
+ * `s_allowedInFpEditor` (`pcbnew/widgets/appearance_controls.cpp:329-379`),
+ * read by the one `rebuildObjects` (`:2434-2470`) that both PCB_EDIT_FRAME and
+ * FOOTPRINT_EDIT_FRAME's APPEARANCE_CONTROLS runs.
+ *
+ * It sits in `widgets/` beside `appearance_controls.tsx` rather than under
+ * `editors/pcb/`, because the widget that reads it is shared: a table under one
+ * launcher's directory is a table the other launcher copies.
  */
 
 export interface ObjectState {
@@ -151,3 +156,102 @@ export const OBJECT_ROWS: readonly ObjectRow[] = [
   },
   { key: 'grid', label: 'Grid', tooltip: 'Show the (x,y) grid dots' },
 ];
+
+/**
+ * The GAL layers the **footprint editor** shows on this tab:
+ * `s_allowedInFpEditor` (`appearance_controls.cpp:365-379`), keyed by our
+ * `ObjectState` name for each `LAYER_*` id.
+ *
+ * [data] Upstream's set is `{ LAYER_TRACKS, LAYER_VIAS, LAYER_PADS,
+ * LAYER_ZONES, LAYER_FILLED_SHAPES, LAYER_FP_VALUES, LAYER_FP_REFERENCES,
+ * LAYER_FP_TEXT, LAYER_DRAW_BITMAPS, LAYER_GRID, LAYER_POINTS }` — eleven ids,
+ * eleven keys here.
+ *
+ * This is the whole of the per-frame variation on this tab. It is DATA the
+ * frame supplies, not a second widget: `rebuildObjects` walks the one
+ * `s_objectSettings` table and skips what this set does not name.
+ */
+export const FP_EDITOR_OBJECT_KEYS: ReadonlySet<keyof ObjectState> = new Set<keyof ObjectState>([
+  'tracks',
+  'vias',
+  'pads',
+  'zones',
+  'filledShapes',
+  'images',
+  'fpValues',
+  'fpReferences',
+  'fpText',
+  'points',
+  'grid',
+]);
+
+/**
+ * The Objects rows one frame shows, in `s_objectSettings` order.
+ *
+ * The filter upstream is `if( m_isFpEditor && !s_allowedInFpEditor.count(
+ * s_setting.id ) ) continue;` (`:2436`). A spacer row is `RR()`, whose default
+ * constructor sets `id( -1 )` (`appearance_controls.h:172`), and -1 is not in
+ * `s_allowedInFpEditor` — so the footprint editor drops the group separators
+ * too, and its eleven rows run in one unbroken column.
+ */
+export function appearanceObjectRows(aFpEditor: boolean): readonly ObjectRow[] {
+  if (!aFpEditor) return OBJECT_ROWS;
+  return OBJECT_ROWS.filter((r) => r !== 'sep' && FP_EDITOR_OBJECT_KEYS.has(r.key));
+}
+
+/**
+ * Every Objects row's opening visibility.
+ *
+ * [data] `GAL_SET::DefaultVisible()` (`pcbnew/layer_ids.cpp`) with the
+ * project-local defaults on top: everything this tab lists is visible on a
+ * fresh board, which is also why `matchPresetName`'s "renderLayers match" test
+ * is "the Objects tab is untouched".
+ */
+export const DEFAULT_OBJECTS: ObjectState = {
+  tracks: true,
+  vias: true,
+  pads: true,
+  zones: true,
+  filledShapes: true,
+  images: true,
+  footprintsFront: true,
+  footprintsBack: true,
+  fpValues: true,
+  fpReferences: true,
+  fpText: true,
+  ratsnest: true,
+  drcWarnings: true,
+  drcErrors: true,
+  drcExclusions: true,
+  anchors: true,
+  points: true,
+  lockedShadow: true,
+  collidingCourtyards: true,
+  boardAreaShadow: true,
+  drawingSheet: true,
+  grid: true,
+};
+
+/** The six rows that carry an opacity slider, and where their sliders open. */
+export interface ObjectOpacity {
+  tracks: number;
+  vias: number;
+  pads: number;
+  zones: number;
+  filledShapes: number;
+  images: number;
+}
+
+/**
+ * [data] `PROJECT_LOCAL_SETTINGS`' opacity defaults
+ * (`pcbnew/project/project_local_settings.cpp`): tracks/vias/pads/filled
+ * shapes open opaque, zones and images at 0.6.
+ */
+export const DEFAULT_OPACITY: ObjectOpacity = {
+  tracks: 1.0,
+  vias: 1.0,
+  pads: 1.0,
+  zones: 0.6,
+  filledShapes: 1.0,
+  images: 0.6,
+};

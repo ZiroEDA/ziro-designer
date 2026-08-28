@@ -248,13 +248,31 @@ import {
 import { DialogInspectConstraints } from './dialogs/dialog_inspect_constraints.js';
 import { inspectSelection, describeSelected } from './inspect_selection.js';
 import { netClassFor, netclassesForNet } from './netclass_resolve.js';
-import { OBJECT_ROWS, toggleObject, type ObjectState } from './pcb_objects.js';
+// APPEARANCE_CONTROLS is ONE widget that PCB_EDIT_FRAME and
+// FOOTPRINT_EDIT_FRAME both construct, so the panel, its Objects table and its
+// presets live in `widgets/` and this frame supplies only its own data.
+import { AppearanceControls, type AppearanceTab } from '../../widgets/appearance_controls.js';
+import {
+  DEFAULT_OBJECTS,
+  DEFAULT_OPACITY,
+  OBJECT_ROWS,
+  toggleObject,
+  type ObjectOpacity,
+  type ObjectState,
+} from '../../widgets/appearance_objects.js';
 import {
   BUILTIN_PRESETS,
   matchPresetName,
   presetComboItems,
   PRESET_SEPARATOR,
-} from './pcb_presets.js';
+  viewportComboItems,
+} from '../../widgets/appearance_presets.js';
+import {
+  DEFAULT_SELECTION_FILTER_OPTIONS,
+  SelectionFilterOnlyMenu,
+  SelectionFilterPanel,
+  type SelectionFilterItem,
+} from '../../widgets/panel_selection_filter.js';
 import { align, type PcbGridState } from '@ziroeda/pcbnew/src/pcb_grid_helper.js';
 import { bestSnapAnchor, snapToBoardCopper } from '@ziroeda/pcbnew/src/pcb_cursor_snap.js';
 import { parseDrcRules } from '@ziroeda/pcbnew/src/drc/drc_rule.js';
@@ -362,7 +380,6 @@ import {
   PCB_LEFT_TOOLBAR,
   PCB_RIGHT_TOOLBAR,
   PCB_CONTROL,
-  PCB_FILTER_CATS,
 } from './pcbToolbars.js';
 import '../../ui/shell.css';
 import { AboutDialog } from '../../home/dialogs/dialog_about.js';
@@ -475,32 +492,6 @@ const PCB_GRIDS: number[] = gridSizesIU('pcbnew', MM);
  * that pcbnew calls `Z 2.10`.
  */
 
-// Visibility (eye) toggle, drawn inline so it always renders (no asset-URL
-// resolution) and reads as KiCad's light-grey eye on the dark panel. `on`
-// draws the open eye; off draws it struck through and dimmed
-// (APPEARANCE_CONTROLS' BITMAP_TOGGLE visible/not-visible bitmaps).
-function EyeIcon({ on }: { on: boolean }): JSX.Element {
-  return (
-    <svg
-      className="ze-eye"
-      viewBox="0 0 24 24"
-      width="16"
-      height="16"
-      aria-hidden="true"
-      style={{ opacity: on ? 1 : 0.4 }}
-    >
-      <path
-        d="M12 5c-5 0-9 4.5-10 7 1 2.5 5 7 10 7s9-4.5 10-7c-1-2.5-5-7-10-7z"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.6"
-      />
-      <circle cx="12" cy="12" r="3" fill="currentColor" />
-      {!on && <line x1="4" y1="20" x2="20" y2="4" stroke="currentColor" strokeWidth="1.6" />}
-    </svg>
-  );
-}
-
 // The graphic-shape drawing tools (DRAWING_TOOL) and the PcbShape kind each
 // one creates.
 const DRAW_SHAPE_TOOLS: Record<string, PcbShape['kind']> = {
@@ -611,41 +602,6 @@ const traceArc3 = (
 // `toggles.ts` rather than here, because `qa`'s tsconfig compiles `.ts` only:
 // a default written in a `.tsx` is one no test can read, and two of the seven
 // were on the wrong arm of pcbnew's own settings.
-
-const DEFAULT_OBJECTS: ObjectState = {
-  tracks: true,
-  vias: true,
-  pads: true,
-  zones: true,
-  filledShapes: true,
-  images: true,
-  footprintsFront: true,
-  footprintsBack: true,
-  fpValues: true,
-  fpReferences: true,
-  fpText: true,
-  ratsnest: true,
-  drcWarnings: true,
-  drcErrors: true,
-  drcExclusions: true,
-  anchors: true,
-  points: true,
-  lockedShadow: true,
-  collidingCourtyards: true,
-  boardAreaShadow: true,
-  drawingSheet: true,
-  grid: true,
-};
-// project_local_settings.cpp defaults.
-
-const DEFAULT_OPACITY = {
-  tracks: 1.0,
-  vias: 1.0,
-  pads: 1.0,
-  zones: 0.6,
-  filledShapes: 1.0,
-  images: 0.6,
-};
 
 // `rebuildLayers()`'s non_cu_seq order and its tooltips now live in
 // `widgets/appearance_layers.ts`, because APPEARANCE_CONTROLS is ONE widget
@@ -833,16 +789,19 @@ export function PcbEditor({
   // PAD level (BOARD_INSPECTION_TOOL::LocalRatsnestTool toggles
   // PAD::SetLocalRatsnestVisible; a footprint click sets all its pads).
   const [localRats, setLocalRats] = useState<ReadonlySet<string>>(new Set());
+  // PROJECT_LOCAL_SETTINGS' `board.selection_filter` defaults, which are the
+  // shared table's: everything but "Locked items"
+  // (common/project/project_local_settings.cpp:160-172). Ours ticked all
+  // twelve, so a fresh board would select locked items.
   const [selFilter, setSelFilter] = useState<Set<string>>(
-    new Set(PCB_FILTER_CATS.map((c) => c.key)),
+    new Set(DEFAULT_SELECTION_FILTER_OPTIONS),
   );
   // Right-click "Only <category>" popup of the Selection Filter panel
   // (PANEL_SELECTION_FILTER::onRightClick).
   const [filterMenu, setFilterMenu] = useState<{
     x: number;
     y: number;
-    key: string;
-    label: string;
+    item: SelectionFilterItem;
   } | null>(null);
   // Net highlight (BOARD_INSPECTION_TOOL): the set of net codes currently
   // highlighted. When non-empty the whole board dims and these nets' copper
@@ -6382,6 +6341,44 @@ export function PcbEditor({
     [classColors, netclassInfo],
   );
 
+  // ----- what APPEARANCE_CONTROLS is handed ------------------------------------
+  //
+  // The widget draws; this frame supplies. Each of these is one of the model
+  // structs the C++ builds inside the panel because there it *is* the frame's
+  // neighbour: NET_GRID_TABLE's rows, m_netclassSettings, and the two combos.
+
+  /** NET_GRID_TABLE's rows (appearance_controls.h:48-62). */
+  const netRows = useMemo(
+    () =>
+      nets.map(([code, name]) => ({
+        code,
+        name,
+        color: netColors.get(code),
+        visible: !hiddenNets.has(code),
+      })),
+    [nets, netColors, hiddenNets],
+  );
+
+  /** m_netclassSettings, in Board Setup order. */
+  const netclassRows = useMemo(
+    () =>
+      netclassInfo.classes.map((name) => ({
+        name,
+        color: classColorOf(name),
+        visible: !hiddenClasses.has(name),
+      })),
+    [netclassInfo, classColorOf, hiddenClasses],
+  );
+
+  const presetItems = useMemo(
+    () => presetComboItems(userPresets.map((u) => u.name)),
+    [userPresets],
+  );
+  const viewportItems = useMemo(
+    () => viewportComboItems(viewports.map((v) => v.name)),
+    [viewports],
+  );
+
   // The airwires (CONNECTIVITY_DATA::GetRatsnest), recomputed on every edit.
   const ratsnestEdges = useMemo(() => (board ? buildRatsnest(board) : []), [board]);
   const ratsnestEdgesRef = useRef<RatsnestEdge[]>(ratsnestEdges);
@@ -7519,425 +7516,71 @@ export function PcbEditor({
             <DockSash edge="left" width={appWidth} min={200} max={500} onResize={setAppWidth} />
             <div className="ze-panel grow">
               <div className="ze-panel-header">Appearance</div>
-              {/* APPEARANCE_CONTROLS' wxNotebook (appearance_controls_base.cpp:22).
-                  The same widget pl_editor and GerbView draw, so it takes the
-                  shared .ze-nb-tabs rule and states nothing of its own: the
-                  inline styles here painted a selected-tab background GTK does
-                  not paint and a 2px #4d7fc4 underline where the marker is the
-                  desktop accent. */}
-              <div className="ze-nb-tabs">
-                {(['Layers', 'Objects', 'Nets'] as const).map((t) => (
-                  <button
-                    key={t}
-                    type="button"
-                    className={tab === t ? 'active' : undefined}
-                    onClick={() => setTab(t)}
-                  >
-                    {t}
-                  </button>
-                ))}
-              </div>
-
-              <div className="ze-panel-body" style={{ overflow: 'auto' }}>
-                {tab === 'Layers' &&
-                  layerRows.map((name) => {
-                    const on = visible.has(name);
-                    return (
-                      // appendLayer row: [indicator][color swatch][eye][name]
-                      <div
-                        key={name}
-                        className={`ze-layer-row${name === activeLayer ? ' active' : ''}`}
-                        onClick={() => setActiveLayer(name)}
-                        onContextMenu={(e) => {
-                          e.preventDefault();
-                          setLayerMenu({ x: e.clientX, y: e.clientY });
-                        }}
-                        title={layerTooltip(name)}
-                      >
-                        <span
-                          className={`ze-layer-indicator${name === activeLayer ? ' on' : ''}`}
-                        />
-                        <span
-                          className="ze-layer-swatch"
-                          style={{ background: layerColor(name) }}
-                        />
-                        <button
-                          type="button"
-                          className="ze-eye-btn"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleLayer(name);
-                          }}
-                          title="Show or hide this layer"
-                        >
-                          <EyeIcon on={on} />
-                        </button>
-                        <span className="ze-ellipsis">{layerName(name)}</span>
-                      </div>
-                    );
-                  })}
-
-                {tab === 'Objects' &&
-                  OBJECT_ROWS.map((row, i) => {
-                    // m_objectsOuterSizer->AddSpacer( m_pointSize / 2 ): half the
-                    // GUI font's point size, 11/2 = 5 (appearance_controls.cpp:2461).
-                    if (row === 'sep') return <div key={`sep${i}`} className="ze-object-sep" />;
-                    const { key, label, tooltip, slider, noVisibility } = row;
-                    const on = objects[key];
-                    const swatchColor = PCB_OBJECT_COLORS[key];
-                    return (
-                      // appendObject row: [swatch][eye|spacer][label][slider]
-                      <div key={key} className="ze-object-row" title={tooltip}>
-                        {/* Every row carries a swatch. A row with no theme
-                            colour gets COLOR_SWATCH's checkerboard rather than
-                            a gap, because GetDefaultColor never answers
-                            UNSPECIFIED (color_settings.cpp:411). */}
-                        <span
-                          className={`ze-layer-swatch${swatchColor ? '' : ' unset'}`}
-                          style={swatchColor ? { background: swatchColor } : undefined}
-                        />
-                        {noVisibility ? (
-                          <span style={{ width: 16, flex: '0 0 auto' }} />
-                        ) : (
-                          <button
-                            type="button"
-                            className="ze-eye-btn"
-                            onClick={() => setObjects((p) => toggleObject(p, key))}
-                            title={`Show or hide ${label.toLowerCase()}`}
-                          >
-                            <EyeIcon on={on} />
-                          </button>
-                        )}
-                        {/* Opacity rows fix the label width so all sliders line
-                            up (KiCad's label->SetMinSize(labelWidth)); other
-                            rows let the label fill the row. */}
-                        <span className={`ze-obj-label${slider ? ' fixed' : ''}`}>{label}</span>
-                        {slider &&
-                          key in opacity &&
-                          (() => {
-                            const pct = Math.round(opacity[key as keyof typeof opacity] * 100);
-                            return (
-                              <input
-                                type="range"
-                                className="ze-opacity"
-                                min={0}
-                                max={100}
-                                value={pct}
-                                // Fill the track left of the thumb (KiCad's slider
-                                // shows the set portion), the rest neutral grey.
-                                style={{
-                                  background: `linear-gradient(to right, var(--slider-fill) 0 ${pct}%, #55585d ${pct}% 100%)`,
-                                }}
-                                title={`Set opacity of ${label.toLowerCase()}`}
-                                onChange={(e) =>
-                                  setOpacity((p) => ({
-                                    ...p,
-                                    [key]: Number(e.target.value) / 100,
-                                  }))
-                                }
-                              />
-                            );
-                          })()}
-                      </div>
-                    );
-                  })}
-
-                {tab === 'Nets' && (
-                  <>
-                    {/* Nets box: header + filter + the scrollable net list, its
-                        own panel like KiCad's nets/netclasses splitter. */}
-                    <div className="ze-nets-box">
-                      {/* m_txtNetFilter is constructed and then Hide()n
-                          (appearance_controls_base.cpp:67); what sits at the
-                          right of this header is the Net Inspector button. */}
-                      <div className="ze-nets-header">
-                        <span>Nets</span>
-                        {/* PCB_ACTIONS::showNetInspector. The panel it opens
-                            is not ported, so the button is genuinely
-                            unavailable and says so — unlike the Objects rows,
-                            which were greyed while KiCad had them working. */}
-                        <button
-                          type="button"
-                          className="ze-bitmap-btn"
-                          title="Show the Net Inspector"
-                          disabled
-                        >
-                          <Icon name="listNets" />
-                        </button>
-                      </div>
-                      <div className="ze-nets-list">
-                        {/* Net rows: [color swatch][visibility][name]; the swatch
-                            opens a color picker, the eye hides the net's ratsnest. */}
-                        {nets.slice(0, 400).map(([code, name]) => {
-                          const color = netColors.get(code);
-                          const on = !hiddenNets.has(code);
-                          return (
-                            <div key={code} className="ze-object-row" title={`Net ${code}`}>
-                              {/* COLOR_SWATCH (color_swatch.cpp:301-328) -
-                                  the same control APPEARANCE_CONTROLS builds
-                                  for a net row. It was an <input type="color">,
-                                  i.e. the desktop's popup anchored to a control
-                                  in the far-right pane, where it opened
-                                  off-screen. */}
-                              <ColorSwatch
-                                size="small"
-                                label={`Set color for net ${name}`}
-                                color={color ? parseColor4d(color) : COLOR4D_UNSPECIFIED}
-                                onChange={(picked) =>
-                                  setNetColors((p) =>
-                                    new Map(p).set(code, toCssColor(picked, ', ')),
-                                  )
-                                }
-                              />
-                              <button
-                                type="button"
-                                className="ze-eye-btn"
-                                title={`Show or hide ratsnest for ${name}`}
-                                onClick={() =>
-                                  setHiddenNets((p) => {
-                                    const next = new Set(p);
-                                    if (next.has(code)) next.delete(code);
-                                    else next.add(code);
-                                    return next;
-                                  })
-                                }
-                              >
-                                <EyeIcon on={on} />
-                              </button>
-                              <span className="ze-ellipsis">{name || `(unnamed ${code})`}</span>
-                            </div>
-                          );
-                        })}
-                        {nets.length > 400 && (
-                          <div className="ze-muted">…{nets.length - 400} more</div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Net Classes box: the lower panel of KiCad's nets splitter. */}
-                    <div className="ze-nets-box">
-                      <div className="ze-nets-header">
-                        <span>Net Classes</span>
-                        <button
-                          type="button"
-                          className="ze-bitmap-btn"
-                          title="Configure net classes"
-                          onClick={() => {
-                            setBoardSetupPage('netclasses');
-                            setBoardSetupOpen(true);
-                          }}
-                        >
-                          <Icon name="optionsGeneric" />
-                        </button>
-                      </div>
-                      {netclassInfo.classes.map((cls) => {
-                        const color = classColorOf(cls);
-                        const on = !hiddenClasses.has(cls);
-                        // "Default netclass can't have an override color", so
-                        // its swatch is Hide()n — but added with
-                        // wxRESERVE_SPACE_EVEN_IF_HIDDEN, so the row still
-                        // indents by a swatch (appearance_controls.cpp:2607).
-                        const isDefault = cls === 'Default';
-                        return (
-                          <div key={cls} className="ze-object-row">
-                            {isDefault ? (
-                              <span className="ze-layer-swatch" aria-hidden="true" />
-                            ) : (
-                              // The same COLOR_SWATCH as the net row above.
-                              <ColorSwatch
-                                size="small"
-                                label={`Set color for the ${cls} netclass`}
-                                color={color ? parseColor4d(color) : COLOR4D_UNSPECIFIED}
-                                onChange={(picked) =>
-                                  setClassColors((p) =>
-                                    new Map(p).set(cls, toCssColor(picked, ', ')),
-                                  )
-                                }
-                              />
-                            )}
-                            <button
-                              type="button"
-                              className="ze-eye-btn"
-                              title={`Show or hide ratsnest for the ${cls} class`}
-                              onClick={() =>
-                                setHiddenClasses((p) => {
-                                  const next = new Set(p);
-                                  if (next.has(cls)) next.delete(cls);
-                                  else next.add(cls);
-                                  return next;
-                                })
-                              }
-                            >
-                              <EyeIcon on={on} />
-                            </button>
-                            <span className="ze-ellipsis">{cls}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </>
-                )}
-              </div>
-
-              {/* "Net Display Options" collapsible pane on the Nets tab. */}
-              {tab === 'Nets' && (
-                <div className="ze-collapsepane">
-                  <button className="ze-collapse-toggle" onClick={() => setNetOptsOpen((o) => !o)}>
-                    <span className={`ze-collapse-arrow${netOptsOpen ? ' open' : ''}`} />
-                    Net Display Options
-                  </button>
-                  {netOptsOpen && (
-                    <div className="ze-collapse-body">
-                      <div className="ze-info" title="Choose when to show net and netclass colors">
-                        Net colors:
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <label title="Net and netclass colors are shown on all copper items">
-                          <input
-                            type="radio"
-                            name="ze-netcolor"
-                            checked={netColorMode === 'all'}
-                            onChange={() => setNetColorMode('all')}
-                          />
-                          All
-                        </label>
-                        <label title="Net and netclass colors are shown on the ratsnest only">
-                          <input
-                            type="radio"
-                            name="ze-netcolor"
-                            checked={netColorMode === 'ratsnest'}
-                            onChange={() => setNetColorMode('ratsnest')}
-                          />
-                          Ratsnest
-                        </label>
-                        <label title="Net and netclass colors are not shown">
-                          <input
-                            type="radio"
-                            name="ze-netcolor"
-                            checked={netColorMode === 'off'}
-                            onChange={() => setNetColorMode('off')}
-                          />
-                          None
-                        </label>
-                      </div>
-                      <div className="ze-info" style={{ marginTop: 6 }}>
-                        Ratsnest display:
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <label title="Show ratsnest lines to items on all layers">
-                          <input
-                            type="radio"
-                            name="ze-ratsmode"
-                            checked={ratsnestMode === 'all'}
-                            onChange={() => setRatsnestMode('all')}
-                          />
-                          All
-                        </label>
-                        <label title="Show ratsnest lines to items on visible layers">
-                          <input
-                            type="radio"
-                            name="ze-ratsmode"
-                            checked={ratsnestMode === 'visible'}
-                            onChange={() => setRatsnestMode('visible')}
-                          />
-                          Visible layers
-                        </label>
-                        <label title="Hide all ratsnest lines">
-                          <input
-                            type="radio"
-                            name="ze-ratsmode"
-                            checked={ratsnestMode === 'off'}
-                            onChange={() => setRatsnestMode('off')}
-                          />
-                          None
-                        </label>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* "Layer Display Options" collapsible pane at the bottom of the
-                  Layers tab (createControls). */}
-              {tab === 'Layers' && (
-                <div className="ze-collapsepane">
-                  <button
-                    className="ze-collapse-toggle"
-                    onClick={() => setLayerOptsOpen((o) => !o)}
-                  >
-                    <span className={`ze-collapse-arrow${layerOptsOpen ? ' open' : ''}`} />
-                    Layer Display Options
-                  </button>
-                  {layerOptsOpen && (
-                    <div className="ze-collapse-body">
-                      <div className="ze-info">Inactive layers (H):</div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <label title="Inactive layers will be shown in full color">
-                          <input
-                            type="radio"
-                            name="ze-hc"
-                            checked={contrast === 'normal'}
-                            onChange={() => setContrast('normal')}
-                          />
-                          Normal
-                        </label>
-                        <label title="Inactive layers will be dimmed">
-                          <input
-                            type="radio"
-                            name="ze-hc"
-                            checked={contrast === 'dim'}
-                            onChange={() => setContrast('dim')}
-                          />
-                          Dim
-                        </label>
-                        <label title="Inactive layers will be hidden">
-                          <input
-                            type="radio"
-                            name="ze-hc"
-                            checked={contrast === 'hide'}
-                            onChange={() => setContrast('hide')}
-                          />
-                          Hide
-                        </label>
-                      </div>
-                      <hr className="ze-hr" />
-                      <label>
-                        <input type="checkbox" checked={flipView} onChange={toggleFlip} />
-                        Flip board view
-                      </label>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Presets / Viewports below the notebook (appearance_controls_base). */}
-              <div className="ze-appearance-bottom">
-                <div className="ze-info">Presets (Ctrl+Tab):</div>
-                <select value={preset} onChange={(e) => onPresetChoice(e.target.value)}>
-                  {presetComboItems(userPresets.map((u) => u.name)).map((name, i) => (
-                    <option
-                      key={`${name}:${i}`}
-                      value={name}
-                      disabled={name === 'Delete preset...' && userPresets.length === 0}
-                    >
-                      {name}
-                    </option>
-                  ))}
-                </select>
-                <div className="ze-info" style={{ marginTop: 4 }}>
-                  Viewports (Shift+Tab):
-                </div>
-                <select value={viewportSel} onChange={(e) => onViewportChoice(e.target.value)}>
-                  {viewports.map((v) => (
-                    <option key={v.name} value={v.name}>
-                      {v.name}
-                    </option>
-                  ))}
-                  <option value="---">---</option>
-                  <option>Save viewport...</option>
-                  <option disabled={viewports.length === 0}>Delete viewport...</option>
-                </select>
-              </div>
+              {/* APPEARANCE_CONTROLS. The identical widget the footprint editor
+                  builds; everything below is data this frame supplies. */}
+              <AppearanceControls
+                tab={tab}
+                onTab={setTab}
+                layerRows={layerRows}
+                layerName={layerName}
+                layerColor={layerColor}
+                activeLayer={activeLayer}
+                onActiveLayer={setActiveLayer}
+                visibleLayers={visible}
+                onToggleLayer={toggleLayer}
+                onLayerContextMenu={(x, y) => setLayerMenu({ x, y })}
+                objects={objects}
+                onToggleObject={(key) => setObjects((p) => toggleObject(p, key))}
+                objectColor={(key) => PCB_OBJECT_COLORS[key]}
+                opacity={opacity}
+                onOpacity={(key, value) => setOpacity((p) => ({ ...p, [key]: value }))}
+                contrast={contrast}
+                onContrast={setContrast}
+                flipBoard={flipView}
+                onFlipBoard={toggleFlip}
+                layerOptionsOpen={layerOptsOpen}
+                onLayerOptionsOpen={setLayerOptsOpen}
+                nets={{
+                  nets: netRows,
+                  onNetColor: (code, picked) =>
+                    setNetColors((p) => new Map(p).set(code, toCssColor(picked, ', '))),
+                  onNetVisibility: (code) =>
+                    setHiddenNets((p) => {
+                      const next = new Set(p);
+                      if (next.has(code)) next.delete(code);
+                      else next.add(code);
+                      return next;
+                    }),
+                  netclasses: netclassRows,
+                  onNetclassColor: (cls, picked) =>
+                    setClassColors((p) => new Map(p).set(cls, toCssColor(picked, ', '))),
+                  onNetclassVisibility: (cls) =>
+                    setHiddenClasses((p) => {
+                      const next = new Set(p);
+                      if (next.has(cls)) next.delete(cls);
+                      else next.add(cls);
+                      return next;
+                    }),
+                  onConfigureNetclasses: () => {
+                    setBoardSetupPage('netclasses');
+                    setBoardSetupOpen(true);
+                  },
+                  netColorMode,
+                  onNetColorMode: setNetColorMode,
+                  ratsnestMode,
+                  onRatsnestMode: setRatsnestMode,
+                  optionsOpen: netOptsOpen,
+                  onOptionsOpen: setNetOptsOpen,
+                }}
+                presetItems={presetItems}
+                preset={preset}
+                onPreset={onPresetChoice}
+                deletePresetDisabled={userPresets.length === 0}
+                viewportItems={viewportItems}
+                viewport={viewportSel}
+                onViewport={onViewportChoice}
+                deleteViewportDisabled={viewports.length === 0}
+              />
             </div>
 
             {/* `.fixed` is `dock_proportion = 0` —
@@ -7947,51 +7590,13 @@ export function PcbEditor({
             <div className="ze-panel fixed">
               <div className="ze-panel-header">Selection Filter</div>
               <div className="ze-panel-body">
-                {/* PANEL_SELECTION_FILTER_BASE's wxGridBagSizer: "All items"
-                    at (0,0), then the categories two per row in upstream
-                    order. Right-clicking a category pops "Only <label>". */}
-                <div className="ze-selfilter">
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={selFilter.size === PCB_FILTER_CATS.length}
-                      onChange={() =>
-                        // OnFilterChanged on m_cbAllItems: drive every
-                        // category to the new state.
-                        setSelFilter((p) =>
-                          p.size === PCB_FILTER_CATS.length
-                            ? new Set()
-                            : new Set(PCB_FILTER_CATS.map((c) => c.key)),
-                        )
-                      }
-                    />
-                    All items
-                  </label>
-                  {PCB_FILTER_CATS.map(({ key, label, tooltip }) => (
-                    <label
-                      key={key}
-                      title={tooltip}
-                      onContextMenu={(e) => {
-                        e.preventDefault();
-                        setFilterMenu({ x: e.clientX, y: e.clientY, key, label });
-                      }}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selFilter.has(key)}
-                        onChange={() =>
-                          setSelFilter((p) => {
-                            const n = new Set(p);
-                            if (n.has(key)) n.delete(key);
-                            else n.add(key);
-                            return n;
-                          })
-                        }
-                      />
-                      {label}
-                    </label>
-                  ))}
-                </div>
+                {/* PANEL_SELECTION_FILTER — the same widget the footprint
+                    editor docks. Right-clicking a category pops "Only <label>". */}
+                <SelectionFilterPanel
+                  filter={selFilter}
+                  onChange={setSelFilter}
+                  onContextMenu={(x, y, item) => setFilterMenu({ x, y, item })}
+                />
               </div>
             </div>
           </div>
@@ -8109,46 +7714,13 @@ export function PcbEditor({
         />
       )}
 
-      {/* Selection Filter right-click menu (PANEL_SELECTION_FILTER::onRightClick):
-          a single "Only <category>" entry that unchecks everything else. */}
+      {/* PANEL_SELECTION_FILTER::onRightClick's one-item wxMenu. */}
       {filterMenu && (
-        <>
-          <div
-            style={{ position: 'fixed', inset: 0, zIndex: 60 }}
-            onMouseDown={() => setFilterMenu(null)}
-            onContextMenu={(e) => {
-              e.preventDefault();
-              setFilterMenu(null);
-            }}
-          />
-          <div
-            style={{
-              position: 'fixed',
-              left: Math.min(filterMenu.x, window.innerWidth - 200),
-              top: filterMenu.y,
-              zIndex: 61,
-              background: '#26262b',
-              border: '1px solid #444',
-              borderRadius: 4,
-              minWidth: 160,
-              padding: '4px 0',
-              fontSize: 12,
-              boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
-            }}
-            onMouseDown={(e) => e.stopPropagation()}
-          >
-            <div
-              className="ze-tree-item"
-              style={{ padding: '3px 12px', cursor: 'default' }}
-              onClick={() => {
-                setSelFilter(new Set([filterMenu.key]));
-                setFilterMenu(null);
-              }}
-            >
-              Only {filterMenu.label.toLowerCase()}
-            </div>
-          </div>
-        </>
+        <SelectionFilterOnlyMenu
+          at={filterMenu}
+          onOnly={(key) => setSelFilter(new Set([key]))}
+          onClose={() => setFilterMenu(null)}
+        />
       )}
 
       {/* Layer right-click menu (APPEARANCE_CONTROLS::rightClickHandler /

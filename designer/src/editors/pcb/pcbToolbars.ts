@@ -368,26 +368,7 @@ export const PCB_RIGHT_TOOLBAR: ToolEntry[] = [
   },
 ];
 
-/**
- * Selection Filter categories, transcribed from pcbnew
- * panel_selection_filter_base.cpp. Rendered two columns row-major with the
- * "All items" checkbox occupying cell (0,0), which reproduces the exact
- * wxGridBagSizer positions: Locked items (0,1), Footprints (1,0), Text (1,1),
- * Tracks (2,0), Vias (2,1), Pads (3,0), Graphics (3,1), Zones (4,0),
- * Rule Areas (4,1), Dimensions (5,0), Other items (5,1), Points (6,0).
- * Keys follow PCB_SELECTION_FILTER_OPTIONS member names.
- */
-export const PCB_FILTER_CATS: { key: string; label: string; tooltip?: string }[] = [
-  { key: 'lockedItems', label: 'Locked items', tooltip: 'Allow selection of locked items' },
-  { key: 'footprints', label: 'Footprints' },
-  { key: 'text', label: 'Text' },
-  { key: 'tracks', label: 'Tracks' },
-  { key: 'vias', label: 'Vias' },
-  { key: 'pads', label: 'Pads' },
-  { key: 'graphics', label: 'Graphics' },
-  { key: 'zones', label: 'Zones' },
-  { key: 'keepouts', label: 'Rule Areas' },
-  { key: 'dimensions', label: 'Dimensions' },
-  { key: 'otherItems', label: 'Other items' },
-  { key: 'points', label: 'Points' },
-];
+// The Selection Filter's categories moved to `widgets/panel_selection_filter.tsx`
+// with the widget that draws them: PANEL_SELECTION_FILTER is one wx widget that
+// both PCB_EDIT_FRAME and FOOTPRINT_EDIT_FRAME dock, and a table under one
+// launcher's toolbar module is a table the other launcher cannot reach.

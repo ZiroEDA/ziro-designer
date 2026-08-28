@@ -236,7 +236,10 @@ const BASELINE: Record<string, number> = {
   // out: those tabs are the shared .ze-nb-tabs wxNotebook and state nothing.
   // 123 until the toolbars pass: the hand-rolled TOP_AUX div's `fontSize: 12`
   // went with the div, and a real Toolbar's controls take the shared skin.
-  'editors/pcb': 122,
+  // 122 -> 121: the Selection Filter's "Only <category>" popup was a bespoke
+  // <div> with its own fontSize: 12; PANEL_SELECTION_FILTER's menu is an
+  // ordinary wxMenu, so it is now the shared ContextMenu and states nothing.
+  'editors/pcb': 121,
   // 55 -> 50: the COLOR_SWATCH sweep's second half. Seven Clear buttons and
   // one `(using Schematic Editor colors)` hint each carried an inline
   // `fontSize: 11`, and none of them exists upstream - the swatch clears
@@ -444,7 +447,12 @@ describe('hardcoded font sizes do not grow', () => {
     // this tree, and the per-area table agrees -- `ui` 136 -> 135 is the only
     // row that moved.
     // 342 -> 341: the `ui` row above. RESCANNED from this tree.
-    expect(sites.length).toBe(341);
+    // 341 -> 340: the `editors/pcb` row above — the Selection Filter's "Only"
+    // popup became the shared ContextMenu when PANEL_SELECTION_FILTER was
+    // extracted. RESCANNED from this tree, and derived a second time from the
+    // per-area table: `editors/pcb` 122 -> 121 is the only row that moved, and
+    // 341 - 1 agrees.
+    expect(sites.length).toBe(340);
   });
 });
 

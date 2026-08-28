@@ -144,8 +144,16 @@ describe('shared grid + crosshair', () => {
     expect(read('editors/symbol/SymbolEditor.tsx')).toMatch(
       /showGrid: toggles\.has\('toggleGrid'\)/,
     );
+    // The footprint editor's grid has TWO gates, as pcbnew's does, because it
+    // now docks the same APPEARANCE_CONTROLS: ACTIONS::toggleGrid's
+    // SetGridVisibility, and the Objects tab's LAYER_GRID row, which
+    // `s_allowedInFpEditor` lists (appearance_controls.cpp:377) and
+    // `setVisibleObjects`' fp branch drives through
+    // `view->SetLayerVisible( LAYER_GRID, … )` (:1420-1432). Unchecking Grid
+    // there hides it in the footprint editor exactly as in the PCB editor,
+    // where `objects.grid && toggles.has('toggleGrid')` was already the rule.
     expect(read('editors/footprint/FootprintEditor.tsx')).toMatch(
-      /showGrid=\{toggles\.has\('toggleGrid'\)\}/,
+      /showGrid=\{objects\.grid && toggles\.has\('toggleGrid'\)\}/,
     );
   });
 

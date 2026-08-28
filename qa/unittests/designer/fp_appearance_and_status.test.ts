@@ -47,12 +47,23 @@ describe('the layers this frame enables', () => {
   /**
    * `enabledLayers |= LSET{ F_Cu, In1_Cu, B_Cu }` under
    * FOOTPRINT_STACKUP::EXPAND_INNER_LAYERS, which is the mode used when no
-   * footprint is loaded (:582), with `board.SetLayerName( In1_Cu, _( "Inner
-   * layers" ) )` (:560). Ours had F.Cu and B.Cu and no inner row at all.
+   * footprint is loaded (:582). Ours had F.Cu and B.Cu and no inner row at all.
+   *
+   * The row keeps its STANDARD name. The next line of the lambda is
+   * `board.SetLayerName( In1_Cu, _( "Inner layers" ) )` (:560) and it does
+   * nothing: `BOARD::SetLayerName` stores the user name only when
+   * `IsLayerEnabled( aLayer )` already holds (`board.cpp:769-774`), and the
+   * statement before it — `board.SetCopperLayerCount( cuLayers.count() )` with
+   * a count of 0, since no footprint means an empty stackup set — has just
+   * called `m_enabledLayers.ClearCopperLayers()` and added nothing back
+   * (`board_design_settings.cpp:1607-1616`). `board.SetEnabledLayers(
+   * enabledLayers )` is 55 lines further on (:614). So the name is dropped,
+   * and a live KiCad 10.0.5 footprint editor with no footprint loaded shows
+   * "In1.Cu" — which is what this used to assert was "Inner layers".
    */
-  it('has an In1.Cu row named "Inner layers"', () => {
+  it('has an In1.Cu row, under its standard name', () => {
     expect(NAMES).toContain('In1.Cu');
-    expect(shown('In1.Cu')).toBe('Inner layers');
+    expect(shown('In1.Cu')).toBe('In1.Cu');
   });
 
   /**
@@ -155,7 +166,7 @@ describe('the Appearance panel rows', () => {
   it('are labelled the way KiCad labels them', () => {
     expect(rows.map(shown)).toEqual([
       'F.Cu',
-      'Inner layers',
+      'In1.Cu',
       'B.Cu',
       'F.Adhesive',
       'B.Adhesive',

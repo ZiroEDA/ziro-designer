@@ -69,8 +69,33 @@ import {
   FOOTPRINT_LAYERS,
   FP_DEFAULT_ACTIVE_LAYER,
 } from './footprintBoard.js';
-import { layerColor } from '../pcb/pcbTheme.js';
-import { appearanceLayerRows, layerTooltip } from '../../widgets/appearance_layers.js';
+import { layerColor, PCB_OBJECT_COLORS } from '../pcb/pcbTheme.js';
+import { appearanceLayerRows } from '../../widgets/appearance_layers.js';
+// APPEARANCE_CONTROLS and PANEL_SELECTION_FILTER are the same two widgets
+// pcbnew docks; FOOTPRINT_EDIT_FRAME passes `aFpEditor = true` and its own
+// board's data, and that is the whole of the difference
+// (footprint_edit_frame.cpp:177-178).
+import { AppearanceControls, type AppearanceTab } from '../../widgets/appearance_controls.js';
+import {
+  DEFAULT_OBJECTS,
+  DEFAULT_OPACITY,
+  OBJECT_ROWS,
+  toggleObject,
+  type ObjectState,
+} from '../../widgets/appearance_objects.js';
+import {
+  BUILTIN_PRESETS,
+  matchPresetName,
+  presetComboItems,
+  PRESET_SEPARATOR,
+  viewportComboItems,
+} from '../../widgets/appearance_presets.js';
+import {
+  DEFAULT_SELECTION_FILTER_OPTIONS,
+  SelectionFilterOnlyMenu,
+  SelectionFilterPanel,
+  type SelectionFilterItem,
+} from '../../widgets/panel_selection_filter.js';
 import { GetLayerName } from '@ziroeda/pcbnew/src/layer_ids.js';
 import { DEFAULT_DRAW_OPTIONS, type PcbDrawOptions } from '../pcb/renderBoard.js';
 import '../../ui/shell.css';
@@ -134,6 +159,18 @@ const FP_DEFAULT_GRID = defaultGridIU('pcbnew', PCB_IU_PER_MM);
 const basename = (p: string): string => p.split('/').pop()!.split('\\').pop()!;
 
 const ALL_FP_LAYERS = FOOTPRINT_LAYERS.map((l) => l.name);
+
+/**
+ * The two combos under the notebook.
+ *
+ * `loadDefaultLayerPresets` and `rebuildViewportsWidget` are called from the
+ * one `APPEARANCE_CONTROLS` constructor with no `m_isFpEditor` branch, so this
+ * frame gets the same eight built-in presets pcbnew does. Neither list can grow
+ * here yet: this frame has no project to save a user preset or a viewport into,
+ * which is why both "Delete …" rows are handed in disabled.
+ */
+const PRESET_ITEMS = presetComboItems();
+const VIEWPORT_ITEMS = viewportComboItems();
 
 // The left toolbar's radio groups, its opening state and its reducer are in
 // `toggles.ts` rather than here, because `qa`'s tsconfig compiles `.ts` only:
@@ -238,6 +275,33 @@ export function FootprintEditor({
   const [visible, setVisible] = useState<ReadonlySet<string>>(new Set(ALL_FP_LAYERS));
   // `SetActiveLayer( F_SilkS )` — see `FP_DEFAULT_ACTIVE_LAYER`.
   const [activeLayer, setActiveLayer] = useState(FP_DEFAULT_ACTIVE_LAYER);
+  // ----- APPEARANCE_CONTROLS' state -------------------------------------------
+  //
+  // Held by the frame, exactly as upstream holds it on the BOARD/VIEW and the
+  // panel reads it back through `getVisibleLayers()` / `getVisibleObjects()`.
+  // Every one of these had no counterpart here at all: the panel was a list of
+  // coloured squares with no tabs, no objects, no display options and no
+  // presets.
+  const [tab, setTab] = useState<AppearanceTab>('Layers');
+  const [objects, setObjects] = useState<ObjectState>(DEFAULT_OBJECTS);
+  const [opacity, setOpacity] = useState(DEFAULT_OPACITY);
+  /** HIGH_CONTRAST_MODE, `m_ContrastModeDisplay` (NORMAL by default). */
+  const [contrast, setContrast] = useState<'normal' | 'dim' | 'hide'>('normal');
+  /** `PCB_DISPLAY_OPTIONS::m_FlipBoardView`. */
+  const [flipBoard, setFlipBoard] = useState(false);
+  /** `m_paneLayerDisplayOptions->Collapse()` (appearance_controls.cpp:628). */
+  const [layerOptsOpen, setLayerOptsOpen] = useState(false);
+  /** `m_tool->GetFilter()`, PANEL_SELECTION_FILTER's options. */
+  const [selFilter, setSelFilter] = useState<Set<string>>(
+    new Set(DEFAULT_SELECTION_FILTER_OPTIONS),
+  );
+  const [filterMenu, setFilterMenu] = useState<{
+    x: number;
+    y: number;
+    item: SelectionFilterItem;
+  } | null>(null);
+  /** `m_cbViewports->SetSelection( GetCount() - 3 )` — the separator. */
+  const [viewportSel, setViewportSel] = useState(PRESET_SEPARATOR);
   const [toggles, setToggles] = useState<Set<string>>(new Set(DEFAULT_TOGGLES));
   const [activeTool, setActiveTool] = useState('selectSetRect');
   /** Whether any tool has been pushed since the frame opened — see `selectTool`. */
@@ -319,12 +383,35 @@ export function FootprintEditor({
 
   const targetLib = treeSel?.lib ?? curLib;
 
+  /**
+   * Draw options from the Appearance panel's Objects tab and its Layer Display
+   * Options, the way pcbnew derives them — the controls are the same widget's,
+   * so what they mean has to be the same too. Before the panel was shared this
+   * frame had no Objects tab at all, and the only line here was the pad sketch
+   * mode.
+   */
   const drawOpts = useMemo<PcbDrawOptions>(
     () => ({
       ...DEFAULT_DRAW_OPTIONS,
-      padOpacity: toggles.has('padDisplayMode') ? 0.5 : 1,
+      tracks: objects.tracks,
+      vias: objects.vias,
+      pads: objects.pads,
+      zones: objects.zones,
+      fpValues: objects.fpValues,
+      fpReferences: objects.fpReferences,
+      fpText: objects.fpText,
+      drawingSheet: objects.drawingSheet,
+      trackOpacity: opacity.tracks,
+      viaOpacity: opacity.vias,
+      padOpacity: opacity.pads,
+      zoneOpacity: opacity.zones,
+      filledShapeOpacity: opacity.filledShapes,
+      // Display-mode toggle: on = sketch (outline) = fill off (m_DisplayPadFill).
+      padFill: !toggles.has('padDisplayMode'),
+      contrastMode: contrast,
+      activeLayer,
     }),
-    [toggles],
+    [toggles, objects, opacity, contrast, activeLayer],
   );
 
   // ----- load / save ------------------------------------------------------------
@@ -1186,6 +1273,40 @@ export function FootprintEditor({
   const layerRows = useMemo(() => appearanceLayerRows(FOOTPRINT_COPPER_STACK, ALL_FP_LAYERS), []);
 
   /**
+   * Which preset the combo shows — `syncLayerPresetSelection`, derived from the
+   * view rather than stored, exactly as in pcbnew. The two frames run the same
+   * function; only the layer set it compares against differs.
+   */
+  const preset = useMemo(
+    () =>
+      matchPresetName({
+        visibleLayers: visible,
+        objectsAtDefault: OBJECT_ROWS.every(
+          (r) => r === 'sep' || objects[r.key] === DEFAULT_OBJECTS[r.key],
+        ),
+        flipBoard,
+        allLayers: ALL_FP_LAYERS,
+        copperLayers: FOOTPRINT_COPPER_STACK,
+      }),
+    [visible, objects, flipBoard],
+  );
+
+  /** `doApplyLayerPreset` — the layers, the flip and the preset's active layer. */
+  const applyPreset = useCallback((name: string): void => {
+    const p = BUILTIN_PRESETS.find((x) => x.name === name);
+    if (!p) return;
+    setVisible(
+      new Set(
+        p
+          .layers([...ALL_FP_LAYERS], [...FOOTPRINT_COPPER_STACK])
+          .filter((l) => ALL_FP_LAYERS.includes(l)),
+      ),
+    );
+    setFlipBoard(p.flipBoard);
+    if (p.activeLayer && ALL_FP_LAYERS.includes(p.activeLayer)) setActiveLayer(p.activeLayer);
+  }, []);
+
+  /**
    * `board->GetLayerName( layer )` (:1876, and :1902's fp-editor branch, which
    * falls back to `GetStandardLayerName`). Every place a layer is put in front
    * of the user goes through it: the Appearance rows, the layer selector and
@@ -1412,7 +1533,7 @@ export function FootprintEditor({
             drawOpts={drawOpts}
             selection={selection}
             activeTool={activeTool}
-            showGrid={toggles.has('toggleGrid')}
+            showGrid={objects.grid && toggles.has('toggleGrid')}
             gridIU={gridIU}
             onCursorMove={setCursor}
             onScaleChange={setScale}
@@ -1453,42 +1574,62 @@ export function FootprintEditor({
           onActivate={selectTool}
         />
 
+        {/* LayersManager and SelectionFilter are both `.Right().Layer( 3 )`,
+            outside the `.Layer( 2 )` right toolbar
+            (footprint_edit_frame.cpp:243-254) — the same dock pcbnew builds, so
+            the same `.ze-rightdock` construct rather than the left dock flipped
+            over. `MinSize( FromDIP( 180 ), … )` on both panes. */}
         {toggles.has('showLayersManager') && (
-          <div className="ze-leftdock on-right" style={{ width: LAYERS_MANAGER_WIDTH }}>
+          <div className="ze-rightdock" style={{ width: LAYERS_MANAGER_WIDTH }}>
             <div className="ze-panel grow">
               <div className="ze-panel-header">Appearance</div>
-              <div className="ze-panel-body" style={{ overflow: 'auto' }}>
-                {layerRows.map((name) => {
-                  const on = visible.has(name);
-                  return (
-                    <div
-                      key={name}
-                      className={`ze-tree-item ${name === activeLayer ? 'active' : ''}`}
-                      style={{ display: 'flex', alignItems: 'center', gap: 7, cursor: 'default' }}
-                      onClick={() => setActiveLayer(name)}
-                      // `setting->tooltip` (appearance_controls.cpp:1868, :1912)
-                      // — non_cu_seq's own text, shared with the PCB editor.
-                      title={layerTooltip(name)}
-                    >
-                      <span
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleLayer(name);
-                        }}
-                        style={{
-                          width: 14,
-                          height: 14,
-                          borderRadius: 2,
-                          flex: '0 0 auto',
-                          background: layerColor(name),
-                          border: '1px solid #444',
-                          opacity: on ? 1 : 0.25,
-                        }}
-                      />
-                      <span style={{ opacity: on ? 1 : 0.5 }}>{layerName(name)}</span>
-                    </div>
-                  );
-                })}
+              {/* `new APPEARANCE_CONTROLS( this, GetCanvas(), true )`
+                  (footprint_edit_frame.cpp:178). `fpEditor` removes the Nets
+                  page and trims the Objects rows to `s_allowedInFpEditor`;
+                  everything else is the identical widget pcbnew docks. */}
+              <AppearanceControls
+                fpEditor
+                tab={tab}
+                onTab={setTab}
+                layerRows={layerRows}
+                layerName={layerName}
+                layerColor={layerColor}
+                activeLayer={activeLayer}
+                onActiveLayer={setActiveLayer}
+                visibleLayers={visible}
+                onToggleLayer={toggleLayer}
+                objects={objects}
+                onToggleObject={(key) => setObjects((p) => toggleObject(p, key))}
+                objectColor={(key) => PCB_OBJECT_COLORS[key]}
+                opacity={opacity}
+                onOpacity={(key, value) => setOpacity((p) => ({ ...p, [key]: value }))}
+                contrast={contrast}
+                onContrast={setContrast}
+                flipBoard={flipBoard}
+                onFlipBoard={() => setFlipBoard((f) => !f)}
+                layerOptionsOpen={layerOptsOpen}
+                onLayerOptionsOpen={setLayerOptsOpen}
+                presetItems={PRESET_ITEMS}
+                preset={preset}
+                onPreset={applyPreset}
+                deletePresetDisabled
+                viewportItems={VIEWPORT_ITEMS}
+                viewport={viewportSel}
+                onViewport={setViewportSel}
+                deleteViewportDisabled
+              />
+            </div>
+
+            {/* `m_auimgr.GetPane( "SelectionFilter" ).dock_proportion = 0`
+                (footprint_edit_frame.cpp:267) — a fixed-height pane. */}
+            <div className="ze-panel fixed">
+              <div className="ze-panel-header">Selection Filter</div>
+              <div className="ze-panel-body">
+                <SelectionFilterPanel
+                  filter={selFilter}
+                  onChange={setSelFilter}
+                  onContextMenu={(x, y, item) => setFilterMenu({ x, y, item })}
+                />
               </div>
             </div>
           </div>
@@ -1526,6 +1667,15 @@ export function FootprintEditor({
           constraint: constraintsMsg(angleSnapModeOf(toggles)),
         }}
       />
+
+      {/* PANEL_SELECTION_FILTER::onRightClick's one-item wxMenu. */}
+      {filterMenu && (
+        <SelectionFilterOnlyMenu
+          at={filterMenu}
+          onOnly={(key) => setSelFilter(new Set([key]))}
+          onClose={() => setFilterMenu(null)}
+        />
+      )}
 
       {/* New Library dialog. */}
       {newLibName !== null && (
