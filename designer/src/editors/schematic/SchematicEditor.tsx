@@ -289,6 +289,7 @@ import {
 import { SymbolLibraryBrowser } from './components/SymbolLibraryBrowser.js';
 import { loadFootprint, loadFootprintIndex } from '../../widgets/footprint_list.js';
 import { libraryUri, loadIndex, loadSymbol, symbolsBase } from './symbols/index.js';
+import { repairSourceLibs } from './symbols/repair_source.js';
 import { preloadSchematicLibraries } from './preload.js';
 import {
   projectSymbolLibraries,
@@ -2884,9 +2885,28 @@ export function SchematicEditor({
   // Change Symbols / Update Symbols from Library (DIALOG_CHANGE_SYMBOLS). The
   // dialog stays open on its report, as upstream's does.
   const runChangeSymbols = useCallback(
-    (o: ChangeSymbolsOptions) => {
+    async (o: ChangeSymbolsOptions) => {
       const sheets = annotateSheets('all', false);
-      const libs = hierarchyLibs(sheets);
+      // The repair source is the LIBRARY, not the document's own cache.
+      //
+      // `DIALOG_CHANGE_SYMBOLS::processSymbols` resolves every lib_id through
+      // the symbol library table (`SCH_SYMBOL::ResolveLibSymbol`), which is the
+      // whole point of the command: the schematic's `lib_symbols` block is the
+      // thing being brought back into line, so it cannot also be the thing that
+      // says what "correct" is. Ours passed `hierarchyLibs`, whose first term
+      // `libById` is built from `doc.libSymbols` -- the cache itself -- so
+      // Update Symbols from Library compared each symbol against a copy of
+      // itself and could only ever report "no changes".
+      //
+      // It showed up on a schematic written before placements were flattened
+      // (fb9a40b1): its cached `Diode:1N4007` carries `extends` and no body,
+      // the library has the real one, and the command that exists to repair
+      // exactly that repaired nothing.
+      const libs = await repairSourceLibs(
+        sheets.flatMap((s) => s.doc.symbols.map((sym) => sym.libId)),
+        loadSymbol,
+        hierarchyLibs(sheets),
+      );
       const changedFiles: PickedFile[] = [];
       const messages: ChangeSymbolsMessage[] = [];
       for (const sheet of sheets) {
