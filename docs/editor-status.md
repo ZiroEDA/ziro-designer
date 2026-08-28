@@ -66,13 +66,21 @@ it found more, including four things all three earlier read-only passes had
 looked straight past. It also settles the question the table is for: the editor
 is **still not complete**, and the reason is one named page group, not a fog.
 
-A fifth pass has since closed three of that group's four pages, and it is worth
-saying what the fourth one now is. **Toolbars is not this editor's gap.** No
-launcher here has that page, because none has the `TOOLBAR_SETTINGS` store it
-edits; building it for pl_editor alone would be the per-launcher copy the
-Preferences dialog was split up to stop. So the last row of the Drawing Sheet
-Editor's tree is an app-wide item that happens to be visible here first - which
-is exactly the distinction this table exists to make.
+A fifth pass closed three of that group's four pages, and named the fourth as an
+**app-wide** item rather than this editor's: no launcher here had Toolbars,
+because none had the `TOOLBAR_SETTINGS` store it edits, and building it for
+pl_editor alone would have been the per-launcher copy the Preferences dialog was
+split up to stop.
+
+A sixth pass has since built it **as app-wide work**, which is the only way it
+was ever going to be built. The store went in first
+(`designer/src/ui/toolbar_config.ts`), then one `PANEL_TOOLBAR_CUSTOMIZATION`
+(`designer/src/dialogs/prefs/`), and the page now ships under all three headings
+this port has - Schematic Editor, PCB Editor and Drawing Sheet Editor - with
+ten toolbars across the three frames reading the store rather than their module
+constants. So the distinction this table exists to make held: the row was
+app-wide, it was fixed app-wide, and pl_editor got it for free along with two
+editors that were never the ones being audited.
 
 It is not the only thing left, though, and the entry stays in "Not complete"
 for its own reasons as well: two gaps sit *inside* the three pages that did
@@ -82,7 +90,7 @@ ship, and both are named below.
 
 | editor | state |
 |---|---|
-| **Drawing Sheet Editor** (pl_editor) | E1 + E2 + E3 + **E4 everywhere except one Preferences page**. Frame, tools, menubar, status bar, print and **all the file commands** are closed and were compared against the running program (PRs #604 #607 #614 #618, plus the E4 pass below). Grid dot, axis skip, the status-bar field widths and the grid origin were all **measured** off a live pl_editor. Preferences is now the shared dialog with three of upstream's four pages under it - Display Options, Grids and Colors, two of them the shared `common/` panels rather than copies. What remains is **Toolbars** - an **app-wide** gap rather than this editor's, since no launcher here has one and none has a `TOOLBAR_SETTINGS` store for it to edit, declared in `OMITTED_PAGES` and pinned by a test rather than merely absent - **plus two items inside the pages that did ship**: the Colors page stores a theme the canvas does not read, and the Grids page has Add and Remove where upstream has Add, Edit, Remove, Move Up and Move Down behind `DIALOG_GRID_SETTINGS`. So Toolbars landing does **not** by itself make this editor complete. #619's other fourteen items are closed. |
+| **Drawing Sheet Editor** (pl_editor) | E1 + E2 + E3 + **E4 everywhere except one Preferences page**. Frame, tools, menubar, status bar, print and **all the file commands** are closed and were compared against the running program (PRs #604 #607 #614 #618, plus the E4 pass below). Grid dot, axis skip, the status-bar field widths and the grid origin were all **measured** off a live pl_editor. Preferences is now the shared dialog with three of upstream's four pages under it - Display Options, Grids and Colors, two of them the shared `common/` panels rather than copies. **Toolbars has since landed**, as the app-wide work it always was: a `TOOLBAR_SETTINGS` store, one shared `PANEL_TOOLBAR_CUSTOMIZATION`, and the page under all three headings this port ships - so all four of upstream's pl_editor pages are now in. What remains are **two items inside the pages that did ship**: the Colors page stores a theme the canvas does not read, and the Grids page has Add and Remove where upstream has Add, Edit, Remove, Move Up and Move Down behind `DIALOG_GRID_SETTINGS`. So Toolbars landing does **not** by itself make this editor complete. #619's other fourteen items are closed. |
 | **Symbol Editor** | audited, PR #606. The enable/disable rules are now closed: all 53 `setupUIConditions` registrations ported per entry (PR #620) and the four the first mutation sweep could not tell apart pinned (PR #622). Open: LIB_TREE chrome, three missing dialogs. |
 | **Footprint Editor** | audited, PR #608. Open: seven items, headed by the dialog wall. `dialog_pad_properties.cpp` alone is 2492 lines against our 297 total. |
 | **GerbView** | exporter is a real port of `GBR_TO_PCB_EXPORTER` (PR #605). No mapping dialog, and aperture-macro holes export solid. |
@@ -226,7 +234,8 @@ reported as unknown rather than clean. Two of them are answers, not gaps:
 
 ### Still open, and named
 
-- **Preferences: three of the four pages are in, and the fourth is declared.**
+- **Preferences: all four pages are in.** Three landed in the fifth pass; the
+  fourth, Toolbars, landed in the sixth as app-wide work - see below.
   The dialog was opened on a running pl_editor and photographed: under
   `Drawing Sheet Editor` the tree carries exactly four pages - Display Options
   (`PANEL_GAL_OPTIONS`), Grids (`PANEL_GRID_SETTINGS`), Colors, Toolbars
@@ -251,22 +260,62 @@ reported as unknown rather than clean. Two of them are answers, not gaps:
   0.5, minimum grid spacing 2..50 against 5..200 by 5. Those are fixed for both
   editors at once, which is what having one copy is for.
 
-  **Toolbars is not shipped, and that is recorded rather than left to be
-  noticed.** `OMITTED_PAGES` in `designer/src/dialogs/prefs/registry.ts` names
-  it with its reason, next to `UPSTREAM_BOOK` - upstream's own page list per
-  heading, transcribed from `EDA_BASE_FRAME::ShowPreferences`. A test requires
-  that shipped + declared-absent equals upstream's list, in upstream's order,
-  per heading, so the omission is binding rather than decorative and cannot be
-  quietly widened.
+  **Toolbars was declared absent rather than left to be noticed, and that is
+  how it got built.** `OMITTED_PAGES` in
+  `designer/src/dialogs/prefs/registry.ts` named it with its reason, next to
+  `UPSTREAM_BOOK` - upstream's own page list per heading, transcribed from
+  `EDA_BASE_FRAME::ShowPreferences` - and a test required that shipped +
+  declared-absent equal upstream's list, in upstream's order, per heading. The
+  declaration is what made the gap addressable instead of invisible.
 
-  Nothing about `PANEL_TOOLBAR_CUSTOMIZATION` is browser-hostile - it is pure
-  UI state. It is not shipped because it edits a `TOOLBAR_SETTINGS` file this
-  port does not have: every launcher's toolbars are module constants
-  (`editors/*/…Toolbars.ts`), so the page would have nothing to write to. All
-  four of upstream's Toolbars pages are one panel over one store, and building
-  it for pl_editor alone is exactly the per-launcher copy this dialog was split
-  up to stop. It is app-wide work and stays open on #619 - **the one reason
-  this editor is still in this table.**
+  **It now ships, app-wide.** Nothing about `PANEL_TOOLBAR_CUSTOMIZATION` is
+  browser-hostile; the reason it was absent is that it edits a
+  `TOOLBAR_SETTINGS` file this port did not have, every launcher's toolbars
+  being module constants (`editors/*/…Toolbars.ts`), so the page would have had
+  nothing to write to. That was fixed in the order the dependency runs:
+
+  - `designer/src/ui/toolbar_config.ts` is the store, keyed as KiCad keys it -
+    a `toolbars` list of `{ name, contents }`, `TOOLBAR_ITEM_TYPE` and
+    `TOOLBAR_LOC` spelled as `magic_enum` spells them - loaded free-form,
+    because a stored toolbar *replaces* its default and merging the two would
+    produce a toolbar neither side asked for. Each editor's existing
+    `…Toolbars.ts` gained a `DefaultToolbarConfig` map, so no toolbar is
+    transcribed twice.
+  - `designer/src/dialogs/prefs/PanelToolbarCustomization.tsx` is the page,
+    **once**, the way `PANEL_GRID_SETTINGS` is - three ten-line wrappers pass
+    their app's settings, store and defaults, which is all the seven KIFACEs
+    pass upstream.
+  - the frames **read it**. `EDA_BASE_FRAME::RecreateToolbars` asks
+    `GetToolbarConfig( loc, m_CustomToolbars )` and never touches
+    `DefaultToolbarConfig`; `ui/useToolbarEntries.ts` is that call, and all ten
+    toolbars across the drawing sheet, schematic and board editors go through
+    it. This is the half a customisation page is worthless without, so it is
+    pinned twice: a rendered test that drives a real `<Toolbar>` and asserts on
+    the buttons in the DOM, and a per-occurrence call-site test - one bar left
+    wired to its constant is exactly the bug, and it would survive a check that
+    the editor merely mentions the hook somewhere.
+
+  Toolbars therefore moved out of `OMITTED_PAGES` under all three headings this
+  port ships, and the page-book test gained an arm that requires every heading
+  whose upstream list has a Toolbars row to **ship** one. Symbol Editor,
+  Footprint Editor, 3D Viewer and Gerber Viewer have Toolbars pages upstream and
+  no Preferences heading here at all, so theirs arrive with those headings.
+
+  **Two divergences are deliberate and stated at the seam.** Upstream's
+  `TransferDataFromWindow` writes all four toolbars back on OK, changed or not,
+  so merely opening the page and pressing OK freezes that app's toolbars at
+  today's defaults for ever; ours stores a toolbar only once it is edited.
+  And `ResetPanel` empties the store instead of refilling it with the defaults -
+  same drawn result, since `GetToolbarConfig` falls through to
+  `DefaultToolbarConfig` when nothing is stored. Neither is visible on screen;
+  a `<app>-toolbars.json` written by the two would differ.
+
+  **What is genuinely reduced**, and is said on the page's own module rather
+  than only here: upstream's action list is `ACTION_MANAGER`'s whole registry
+  filtered by `isActionSupported`, and ours is the union of that app's default
+  toolbars. A button's icon and tooltip live on the `ToolButton` literal in the
+  editor's toolbar module, so an action on no default toolbar has no literal to
+  take them from. Closing that needs an action registry, not a bigger page.
 
   The same mechanism caught two things nobody was looking for. Our *Schematic
   Editor* heading carries an **Annotation Options** page upstream does not have
@@ -282,9 +331,9 @@ reported as unknown rather than clean. Two of them are answers, not gaps:
   three-way radio, `Small crosshairs` / `Full window crosshairs` /
   `45 degree crosshairs`, plus a separate `Always show crosshairs`.
 
-  **Is the editor complete once Toolbars lands? No.** Two things inside pages
-  this pass shipped are still open, and both are pl_editor's own rather than
-  app-wide:
+  **Is the editor complete now Toolbars has landed? No.** Two things inside
+  pages the fifth pass shipped are still open, and both are pl_editor's own
+  rather than app-wide:
 
   - **The Colors page stores a theme nothing reads.** The control is upstream's
     control and persists upstream's key, so the choice survives a restart - but
@@ -303,7 +352,7 @@ reported as unknown rather than clean. Two of them are answers, not gaps:
 
   Neither is a reason to hold the three pages back, and neither is hidden: the
   first is why "E4 everywhere except one Preferences page" in the table above
-  is still not "complete", alongside Toolbars.
+  is still not "complete".
 
   One divergence inside the Grids page is worth naming rather than leaving to
   be found. Upstream stores a `GRID{ name, x, y }` per row, renders it through

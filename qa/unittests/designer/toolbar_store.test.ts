@@ -41,6 +41,43 @@ import {
 import { SCH_DEFAULT_TOOLBARS } from '@ziroeda/designer/src/editors/schematic/toolbars_sch_editor.js';
 import { PCB_DEFAULT_TOOLBARS } from '@ziroeda/designer/src/editors/pcb/pcbToolbars.js';
 import type { ToolEntry } from '@ziroeda/designer/src/ui/toolbar_types.js';
+import {
+  EESCHEMA_DEFAULTS,
+  PCBNEW_DEFAULTS,
+  PL_EDITOR_DEFAULTS,
+  TOOLBAR_APPS,
+  toolbarSlice,
+} from '@ziroeda/designer/src/prefs/settings.js';
+
+// ----------------------------------------------------------- where it is stored
+
+describe('the store is a file per app, off by default', () => {
+  it('is named as KiCad names the file', () => {
+    // `GetToolbarSettings<PL_EDITOR_TOOLBAR_SETTINGS>( "pl_editor-toolbars" )`
+    // (`pagelayout_editor/pl_editor.cpp:88`), and the same shape in
+    // `eeschema/eeschema.cpp:346` and `pcbnew/pcbnew.cpp:455`. A slice named
+    // for the app alone would write the toolbars into that app's OWN settings
+    // file and take the rest of it with them.
+    expect(TOOLBAR_APPS.map(toolbarSlice)).toEqual([
+      'eeschema-toolbars',
+      'pcbnew-toolbars',
+      'pl_editor-toolbars',
+    ]);
+  });
+
+  it('has custom_toolbars off in every app', () => {
+    // `m_params.emplace_back( new PARAM<bool>( "appearance.custom_toolbars",
+    // &m_CustomToolbars, false ) )` (`common/settings/app_settings.cpp:285`).
+    //
+    // Nothing else here can see this: with no configuration stored, both
+    // settings draw `DefaultToolbarConfig`, so a default of `true` is invisible
+    // everywhere except on the page itself -- where it would open with
+    // "Customize toolbars" already ticked, which a live KiCad does not.
+    expect(EESCHEMA_DEFAULTS.appearance.custom_toolbars).toBe(false);
+    expect(PCBNEW_DEFAULTS.appearance.custom_toolbars).toBe(false);
+    expect(PL_EDITOR_DEFAULTS.appearance.custom_toolbars).toBe(false);
+  });
+});
 
 // ------------------------------------------------------------------ the enums
 
