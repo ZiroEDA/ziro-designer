@@ -261,8 +261,15 @@
      GTK for the separator it will insert. Corroborated independently against a
      live chooser: 17 rows spanning 416 px is 26.0 per row.
 
-     It is a gap rather than more padding because that is what it is upstream -
-     space between rows, outside the cell the row highlight fills. */
+     It is INSIDE the highlighted band, not between two of them. [px]
+     `qa/probes/libtree_selection_probe.cpp` asks the realized GtkTreeView for
+     both rectangles - `background_area = 26` around `cell_area = 24`, offset by
+     1 - and reads a selected row back off the rendered window as 26 px of solid
+     highlight. So the separator is 1 px of the row's own padding at each end,
+     and this token is halved into `.ze-libtree-row`'s padding rather than being
+     the list's `row-gap`. The earlier reading of it as a gap was taken from
+     `gtk_widget_style_get( "vertical-separator" )` alone, which says how big it
+     is and not which box owns it. */
   --libtree-row-sep: 2px;
   /* The details pane is an HTML_WINDOW, and wxHtml adds its own leading between
      <br> lines: NOT the font's 18 px line box but 21. Measured by
@@ -5455,6 +5462,10 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   color: var(--libtree-header-fg);
   background: var(--chrome-bg2);
   border-bottom: 1px solid var(--chrome-bg);
+  /* The header and the rows are ONE control upstream, so they share one
+     horizontal scroll position: the columns overflow this box and the widget
+     drives its scrollLeft from the row list's. */
+  overflow: hidden;
 }
 /* The 6px is each header BUTTON's padding, so it belongs on the column and not
    on the row: the second column's label is inset from its own left edge too. */
@@ -5464,8 +5475,17 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* Every column is a fixed width the ADAPTER decides - LIB_TREE_DEFAULT_COL_WIDTHS,
+   which mirrors `m_colWidths` (Item 300, Description 600) - so the width is set
+   on the element and none of the four rules below may shrink or grow it. When
+   the columns together are wider than the pane the control scrolls sideways,
+   exactly as the wxDataViewCtrl does; the `45%` and `flex: 1` that used to be
+   here were a proportional split upstream never had. */
 .ze-libtree-cols .col-item {
-  flex: 0 0 45%;
+  flex: 0 0 auto;
+}
+.ze-libtree-cols .col-desc {
+  flex: 0 0 auto;
 }
 /* `border-style: none solid solid none` with `header button:last-child {
    border-right-style: none }` - every column but the last carries a 1px rule on
@@ -5473,14 +5493,17 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-libtree-cols > span:not(:last-child) {
   border-right: 1px solid var(--chrome-bg);
 }
-.ze-libtree-cols .col-desc {
-  flex: 1;
-  min-width: 0;
-}
+/* No padding of its own. [px] `qa/probes/libtree_selection_probe.cpp` builds the
+   control LIB_TREE builds - a wxDataViewCtrl over LIB_TREE_RENDERER, given
+   SetRowHeight( FromDIP(6) + GetTextExtent("pdI").y ) - and reads the rendered
+   toplevel back: row 0's background area starts at the first pixel under the
+   header, and a selected row's highlight spans x=1..416 of a 420 px control,
+   i.e. the whole client width inside the 1 px frame. The `2px 4px` here inset
+   every row's highlight from that frame, which is what made a selected row read
+   as a pill floating in the tree instead of a band across it. */
 .ze-libtree-list {
   flex: 1;
   overflow: auto;
-  padding: 2px 4px;
   outline: none;
   /* A column flex so the "loading libraries" panel can centre itself in the
      space the rows will occupy. */
@@ -5488,24 +5511,36 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   flex-direction: column;
   align-items: stretch;
 }
+/* As wide as its columns, and never narrower than the viewport: the selection
+   band is the row's own background, and [px] libtree_selection_probe measures it
+   across the whole client width - including the empty space to the right of the
+   last column, and including the part scrolled off to the right. */
 .ze-libtree-list > .ze-libtree-row {
   flex: 0 0 auto;
-}
-/* GtkTreeView's vertical-separator, between rows and not inside them. */
-.ze-libtree-list {
-  row-gap: var(--libtree-row-sep);
+  width: max-content;
+  min-width: 100%;
 }
 .ze-libtree-row {
   display: flex;
   align-items: center;
   gap: 4px;
-  /* LIB_TREE::SetRowHeight: FromDIP(6) + GetTextExtent("pdI").y, so the line
-     box plus 3px above and below. The row carried 13px text in 2px padding,
-     which is neither the theme's font nor upstream's row height. */
-  padding-top: var(--libtree-row-pad);
-  padding-bottom: var(--libtree-row-pad);
+  /* The row's box is GTK's BACKGROUND AREA, not its cell area, because that is
+     what the selection fills.
+
+     [px] libtree_selection_probe asks the realized GtkTreeView for both:
+     `gtk_tree_view_get_background_area( row ) = 26` around
+     `gtk_tree_view_get_cell_area( row ) = 24`, so the 2 px vertical-separator
+     is split 1 px above and 1 px below the 24 px cell - INSIDE the band, not
+     between the bands. The painted highlight measures 26 px tall, edge to edge,
+     which is the same number from the other side.
+
+     So the separator is half-padding here rather than the list's `row-gap`,
+     which is what it was: that put the 2 px between two 24 px highlights and
+     left a stripe of unhighlighted face through the middle of a selection. The
+     pitch is 26 either way; only the band moved. */
+  padding-top: calc(var(--libtree-row-pad) + var(--libtree-row-sep) / 2);
+  padding-bottom: calc(var(--libtree-row-pad) + var(--libtree-row-sep) / 2);
   padding-right: 4px;
-  border-radius: 3px;
   cursor: default;
   font-size: var(--ui-font-size);
   line-height: var(--ui-text-height);
@@ -5514,9 +5549,15 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-libtree-row:hover {
   background: var(--chrome-hover);
 }
+/* wxSYS_COLOUR_HIGHLIGHT on wxSYS_COLOUR_HIGHLIGHTTEXT, by their own names:
+   this is a SELECTION, not an active control accent, and the two tokens hold
+   the same value in this theme for reasons that are not a rule. [px]
+   libtree_selection_probe reads the band back as a flat #e95420 with SQUARE
+   corners - the 3 px radius that used to be on .ze-libtree-row was ours, and a
+   GtkTreeView row has no radius at all. */
 .ze-libtree-row.active {
-  background: var(--chrome-active);
-  color: #fff;
+  background: var(--selection-bg);
+  color: var(--selection-fg);
 }
 /* A library row is not bold. GetAttr sets italic and nothing else - see
    .ze-libtree-row .col-desc - so a container row draws in the same face as its
@@ -5525,7 +5566,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   font-weight: 400;
 }
 .ze-libtree-row .col-item {
-  flex: 0 0 45%;
+  flex: 0 0 auto;
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -5536,8 +5577,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
    column is wxSYS_COLOUR_LISTBOXTEXT, and the #b6b8bb this used to dim the
    description with was ours. */
 .ze-libtree-row .col-desc {
-  flex: 1;
-  min-width: 0;
+  flex: 0 0 auto;
   overflow: hidden;
   text-overflow: ellipsis;
   font-weight: 400;

@@ -311,7 +311,11 @@ describe('and what upstream does not draw', () => {
   it('dims nothing in the tree, because GetAttr sets only italic', () => {
     // LIB_TREE_MODEL_ADAPTER::GetAttr (lib_tree_model_adapter.cpp:781-801)
     // touches one attribute on one cell and never a colour or a weight.
-    expect(decl('.ze-libtree-row .col-desc', 'flex')).toBe('1'); // the control
+    // The control was `flex: 1` until the columns took the adapter's own widths
+    // (`m_colWidths`: Item 300, Description 600) and stopped dividing the pane
+    // between themselves; `overflow` is the declaration on this selector that
+    // has nothing to do with either change.
+    expect(decl('.ze-libtree-row .col-desc', 'overflow')).toBe('hidden'); // the control
     expect(decl('.ze-libtree-row .col-desc', 'color')).toBeUndefined();
     expect(decl('.ze-libtree-row.lib', 'font-weight')).toBe('400');
   });

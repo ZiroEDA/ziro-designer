@@ -22,6 +22,7 @@ import {
   type LibTreeModelAdapter,
   type LibTreeNodeAttr,
   SortMode,
+  LIB_TREE_INDENT,
   PINNING_SYMBOL,
 } from './lib_tree_model_adapter.js';
 import { SelectColumnsDialog } from './select_columns_dialog.js';
@@ -164,7 +165,10 @@ const ROW_OVERSCAN = 12;
 /**
  * The on-screen row pitch, from the same tokens the stylesheet lays the rows
  * out with — `--ui-text-height` inside `--libtree-row-pad` above and below,
- * plus the `--libtree-row-sep` gap between rows.
+ * plus `--libtree-row-sep`, GtkTreeView's vertical-separator. The sum is the
+ * pitch either way; the separator sits inside the row's own box rather than
+ * between two boxes, because that is the rectangle the selection fills
+ * (`qa/probes/libtree_selection_probe.cpp`).
  *
  * That is `LIB_TREE::SetRowHeight`'s `FromDIP( 6 ) + GetTextExtent( "pdI" ).y`
  * = 24, plus GtkTreeView's `vertical-separator` = 26, both of which
@@ -174,6 +178,37 @@ const ROW_OVERSCAN = 12;
  * a row that is actually on screen, which is the only fully authoritative
  * answer once fonts have loaded.
  */
+/**
+ * `doAddColumn`'s width for a column `m_colWidths` does not name
+ * (common/lib_tree_model_adapter.cpp:481-486):
+ *
+ *     // The extent of the text doesn't take into account the space on either
+ *     // side in the header, so artificially pad it
+ *     wxSize headerMinWidth = KIUI::GetTextSize( translatedHeader + wxT( "MMM" ), m_widget );
+ *
+ * — the header's own text extent in the window's font, plus three Ms. The font
+ * comes from the same computed `--ui-font-*` the header is drawn in rather than
+ * a literal, so this measures the face that is really on screen.
+ */
+const headerWidths = new Map<string, number>();
+
+function headerMinWidth(header: string): number {
+  const cached = headerWidths.get(header);
+  if (cached !== undefined) return cached;
+
+  const root = getComputedStyle(document.documentElement);
+  const ctx = document.createElement('canvas').getContext('2d');
+  let width = 0;
+  if (ctx) {
+    ctx.font = `bold ${root.getPropertyValue('--ui-font-size').trim()} ${root
+      .getPropertyValue('--ui-font-family')
+      .trim()}`;
+    width = Math.ceil(ctx.measureText(`${header}MMM`).width);
+  }
+  headerWidths.set(header, width);
+  return width;
+}
+
 function rowPitchFromTokens(): number {
   const root = getComputedStyle(document.documentElement);
   const px = (name: string): number => Number.parseFloat(root.getPropertyValue(name)) || 0;
@@ -225,12 +260,26 @@ export function LibTree({
 
   const searchRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  /** The column header, scrolled sideways with the rows: upstream they are one
+   *  control and share one horizontal scroll position. */
+  const headerRef = useRef<HTMLDivElement>(null);
   const rowRefs = useRef(new Map<LibTreeNode, HTMLDivElement>());
   const debounce = useRef<number | undefined>(undefined);
   const hoverTimer = useRef<number | undefined>(undefined);
 
   const searching = search.trim().length > 0;
   const columns = adapter.getShownColumns();
+  /**
+   * Each column's width in px, the adapter's table first and the header's own
+   * extent for anything it does not name — `doAddColumn`'s two cases, in its
+   * order. They are FIXED: a wxDataViewColumn is created at a width and keeps
+   * it, and when the columns are wider than the control the control scrolls
+   * horizontally. Nothing upstream divides the pane into proportions.
+   */
+  const colWidths = useMemo(
+    () => columns.map((col) => adapter.getColumnWidth(col) ?? headerMinWidth(col)),
+    [adapter, columns],
+  );
 
   const select = useCallback(
     (node: LibTreeNode | null) => {
@@ -820,13 +869,18 @@ export function LibTree({
       <div className="ze-libtree-tree">
         <div
           className="ze-libtree-cols"
+          ref={headerRef}
           onContextMenu={(e) => {
             e.preventDefault();
             setHeaderMenu({ x: e.clientX, y: e.clientY });
           }}
         >
-          {columns.map((col) => (
-            <span key={col} className={col === 'Item' ? 'col-item' : 'col-desc'}>
+          {columns.map((col, i) => (
+            <span
+              key={col}
+              className={col === 'Item' ? 'col-item' : 'col-desc'}
+              style={{ width: colWidths[i] }}
+            >
               {col}
             </span>
           ))}
@@ -837,9 +891,11 @@ export function LibTree({
           ref={listRef}
           tabIndex={0}
           onMouseLeave={hidePreview}
-          onScroll={() => {
+          onScroll={(e) => {
             hidePreview();
             remeasure();
+            // One control, one horizontal scroll position.
+            if (headerRef.current) headerRef.current.scrollLeft = e.currentTarget.scrollLeft;
           }}
         >
           {view.before > 0 && <div style={{ height: view.before, flex: '0 0 auto' }} />}
@@ -853,7 +909,7 @@ export function LibTree({
                 `ze-libtree-row${node === selected ? ' active' : ''}` +
                 (node.type === LibTreeNodeType.LIBRARY ? ' lib' : '')
               }
-              style={{ paddingLeft: 4 + indent * 16 }}
+              style={{ paddingLeft: 4 + indent * LIB_TREE_INDENT }}
               onClick={() => select(node)}
               onDoubleClick={() => activate(node)}
               onMouseMove={(e) => onRowHover(node, e)}
@@ -884,12 +940,20 @@ export function LibTree({
                 than the base (`symbol_tree_synchronizing_adapter.cpp:249-397`);
                 the italic for a derived symbol is the base answer and reaches
                 the chooser unchanged. The pinning mark is LIB_TREE's own. */}
-              <span className="col-item" style={itemCellStyle(adapter.nodeAttr(node, open))}>
+              <span
+                className="col-item"
+                style={{
+                  ...itemCellStyle(adapter.nodeAttr(node, open)),
+                  // The Item cell starts past the expander, so the width the
+                  // column was created at is what is left of it.
+                  width: (colWidths[0] ?? 0) - (4 + indent * LIB_TREE_INDENT) - 16,
+                }}
+              >
                 {node.pinned ? PINNING_SYMBOL : ''}
                 {adapter.nameCell(node)}
               </span>
-              {columns.slice(1).map((col) => (
-                <span key={col} className="col-desc">
+              {columns.slice(1).map((col, i) => (
+                <span key={col} className="col-desc" style={{ width: colWidths[i + 1] }}>
                   {cellValue(node, col)}
                 </span>
               ))}

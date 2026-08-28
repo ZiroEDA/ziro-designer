@@ -270,6 +270,16 @@ export function SymbolEditor({
   /** `SCH_SELECTION_TOOL::GetFilter()`, seeded from
    *  `SYMBOL_EDITOR_SETTINGS::m_SelectionFilter` (`symbol_edit_frame.cpp:254`). */
   const [selFilter, setSelFilter] = useState<SelectionFilterOptions>(defaultSelectionFilter);
+  /**
+   * The Selection Filter's caption close box was clicked.
+   *
+   * The pane has no visibility control of its own — `updateSelectionFilterVisbility`
+   * (`symbol_edit_frame.cpp:2249-2261`) derives it from the other two — but
+   * `defaultSchSelectionFilterPaneInfo` still asks for `.CloseButton( true )`,
+   * so it can be closed and stays closed until that function next runs, which
+   * is when one of the other two panes is shown or hidden.
+   */
+  const [selFilterClosed, setSelFilterClosed] = useState(false);
 
   // Dialogs / pending placements.
   const [pinDialog, setPinDialog] = useState<{
@@ -952,6 +962,10 @@ export function SymbolEditor({
       setPrefsOpen(true);
       return;
     }
+    // Showing or hiding either of the other two left-dock panes is exactly when
+    // `updateSelectionFilterVisbility` runs, so a filter pane the user closed
+    // comes back with the next one of those.
+    if (id === 'showLibraryTree' || id === 'showProperties') setSelFilterClosed(false);
     setToggles((prev) => applyToggle(prev, id));
   }, []);
 
@@ -2065,7 +2079,23 @@ export function SymbolEditor({
               )}
               {toggles.has('showProperties') && (
                 <div className="ze-panel">
-                  <div className="ze-panel-header">Properties</div>
+                  {/* `defaultPropertiesPaneInfo` asks for `.CloseButton( true )`
+                      (`eeschema/eeschema_settings.cpp:99`), unlike the
+                      LibraryTree pane beside it, which is an `EDA_PANE` and so
+                      carries the base class's `CloseButton( false )`
+                      (`include/eda_base_frame.h:927-932`). Closing it is the
+                      same state View > Show Properties Manager drives. */}
+                  <div className="ze-panel-header">
+                    <span>Properties</span>
+                    <button
+                      type="button"
+                      className="ze-pane-close"
+                      onClick={() => onLeftToggle('showProperties')}
+                      title="Close"
+                    >
+                      ⊠
+                    </button>
+                  </div>
                   <div className="ze-panel-body">
                     <div className="ze-muted">
                       {selection.size === 0
@@ -2080,16 +2110,18 @@ export function SymbolEditor({
                   builds, which lays itself out differently for
                   FRAME_SCH_SYMBOL_EDITOR. It has no toggle of its own; see
                   `symSelectionFilterShown`. */}
-              {symSelectionFilterShown({
-                libraryTree: toggles.has('showLibraryTree'),
-                properties: toggles.has('showProperties'),
-              }) && (
-                <SelectionFilterPanel
-                  frame="FRAME_SCH_SYMBOL_EDITOR"
-                  filter={selFilter}
-                  onChange={setSelFilter}
-                />
-              )}
+              {!selFilterClosed &&
+                symSelectionFilterShown({
+                  libraryTree: toggles.has('showLibraryTree'),
+                  properties: toggles.has('showProperties'),
+                }) && (
+                  <SelectionFilterPanel
+                    frame="FRAME_SCH_SYMBOL_EDITOR"
+                    filter={selFilter}
+                    onChange={setSelFilter}
+                    onClose={() => setSelFilterClosed(true)}
+                  />
+                )}
             </div>
             <div className="ze-splitter" onMouseDown={startResize} title="Drag to resize" />
           </>

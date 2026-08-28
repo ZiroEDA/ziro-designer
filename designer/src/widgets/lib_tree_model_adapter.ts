@@ -65,6 +65,36 @@ export const LIB_TREE_COLUMNS = ['Item', 'Description', 'Value', 'Footprint'] as
  */
 export const LIB_TREE_DEFAULT_SHOWN_COLUMNS = ['Item', 'Description', 'Value'] as const;
 
+/**
+ * `m_colWidths` as the adapter's constructor seeds it
+ * (common/lib_tree_model_adapter.cpp:158-160):
+ *
+ *     // Default column widths.  Do not translate these names.
+ *     m_colWidths[ _HKI( "Item" ) ] = 300;
+ *     m_colWidths[ _HKI( "Description" ) ] = 600;
+ *
+ * DATA, not chrome: KiCad writes these two numbers itself and asks nothing for
+ * them, so they are mirrored rather than derived. They are also why the Symbol
+ * Editor's dock shows a name column and no description at all — the pane is
+ * 250 px and the Item column alone is 300, so the rest is off the right-hand
+ * edge behind a horizontal scrollbar. Ours divided the pane 45/55 between the
+ * two, which is a proportion upstream never had.
+ *
+ * A column that is not in this table takes the width `doAddColumn` computes
+ * from its own header (`:481-486`); see `headerMinWidth` in `lib_tree.tsx`.
+ */
+export const LIB_TREE_DEFAULT_COL_WIDTHS: Readonly<Record<string, number>> = {
+  Item: 300,
+  Description: 600,
+};
+
+/**
+ * `aDataViewCtrl->SetIndent( kDataViewIndent )` in `AttachTo`
+ * (common/lib_tree_model_adapter.cpp:40, 397) — the px a child row is indented
+ * past its parent. Data: a KiCad constant, not a GTK one. Ours was 16.
+ */
+export const LIB_TREE_INDENT = 20;
+
 /** The unicode mark upstream prefixes to a pinned library's name
  *  (LIB_TREE_MODEL_ADAPTER::GetPinningSymbol). */
 export const PINNING_SYMBOL = '☆ ';
@@ -181,6 +211,17 @@ export class LibTreeModelAdapter {
 
   getShownColumns(): readonly string[] {
     return this.shownColumns;
+  }
+
+  /**
+   * `m_colWidths[ aHeader ]`, or null for a column the table does not name.
+   *
+   * `doAddColumn` (common/lib_tree_model_adapter.cpp:477-496) fills a missing
+   * entry in from the header's own text extent, which needs a font and so
+   * cannot be answered here; the widget does that half.
+   */
+  getColumnWidth(header: string): number | null {
+    return LIB_TREE_DEFAULT_COL_WIDTHS[header] ?? null;
   }
 
   getAvailableColumns(): readonly string[] {
