@@ -133,6 +133,17 @@ public:
                     r1.y - r0.y, ( r5.y - r0.y ) / 5.0, lv->GetCharHeight() );
         };
 
+        // Where the row's TEXT starts inside the item: wxListCtrl's own label
+        // rect, which is the inset a CSS padding has to reproduce.
+        {
+            wxRect label;
+            monoList->GetItemRect( 0, label, wxLIST_RECT_LABEL );
+            wxRect bounds;
+            monoList->GetItemRect( 0, bounds, wxLIST_RECT_BOUNDS );
+            printf( "list label rect x=%d (bounds x=%d) -> text inset %d\n", label.x, bounds.x,
+                    label.x - bounds.x );
+        }
+
         rows( "mono list", monoList );
         rows( "plain list", plainList );
         rows( "mono 7pt list", smallList );
@@ -171,6 +182,45 @@ public:
                 art->GetColour( wxAUI_DOCKART_INACTIVE_CAPTION_TEXT_COLOUR ).Red(),
                 art->GetColour( wxAUI_DOCKART_INACTIVE_CAPTION_TEXT_COLOUR ).Green(),
                 art->GetColour( wxAUI_DOCKART_INACTIVE_CAPTION_TEXT_COLOUR ).Blue() );
+        // Where the CAPTION's text starts: paint the art provider's own caption
+        // into a bitmap and find the first column that is not the caption fill.
+        {
+            wxBitmap bmp( 300, 40 );
+            wxMemoryDC mdc( bmp );
+            mdc.SetBackground( *wxBLACK_BRUSH );
+            mdc.Clear();
+            wxRect capRect( 0, 0, 300, art->GetMetric( wxAUI_DOCKART_CAPTION_SIZE ) );
+            art->DrawCaption( mdc, auiFrame, wxT( "Footprint Libraries" ), capRect, pane );
+            mdc.SelectObject( wxNullBitmap );
+            wxImage img = bmp.ConvertToImage();
+
+            // The same caption with no text, so the first column where the two
+            // differ is the text's own left edge and nothing else's.
+            wxBitmap blankBmp( 300, 40 );
+            wxMemoryDC bdc( blankBmp );
+            bdc.SetBackground( *wxBLACK_BRUSH );
+            bdc.Clear();
+            art->DrawCaption( bdc, auiFrame, wxEmptyString, capRect, pane );
+            bdc.SelectObject( wxNullBitmap );
+            wxImage blank = blankBmp.ConvertToImage();
+
+            int firstInk = -1;
+            for( int x = 0; x < img.GetWidth() && firstInk < 0; x++ )
+            {
+                for( int y = 0; y < capRect.height; y++ )
+                {
+                    if( img.GetRed( x, y ) != blank.GetRed( x, y )
+                        || img.GetGreen( x, y ) != blank.GetGreen( x, y )
+                        || img.GetBlue( x, y ) != blank.GetBlue( x, y ) )
+                    {
+                        firstInk = x;
+                        break;
+                    }
+                }
+            }
+            printf( "aui caption text left edge    %d\n", firstInk );
+        }
+
         mgr.UnInit();
         auiFrame->Destroy();
 

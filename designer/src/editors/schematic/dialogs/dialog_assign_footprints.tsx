@@ -1134,7 +1134,9 @@ export function DialogAssignFootprints({
                 // no FOOTPRINT_INFO for gets the warning background — which an
                 // *unassigned* symbol is too, GetFootprintInfo("") being null.
                 const warn = indexLoaded && !hasFootprintInfo(knownFootprints, fpid);
-                return <span className={warn ? 'ze-fpassign-warn' : undefined}>{symbolRows[i]}</span>;
+                return (
+                  <span className={warn ? 'ze-fpassign-warn' : undefined}>{symbolRows[i]}</span>
+                );
               }}
             />
             {components.length === 0 && (
@@ -1143,7 +1145,10 @@ export function DialogAssignFootprints({
           </section>
 
           {/* Filtered Footprints (FOOTPRINTS_LISTBOX) */}
-          <section className="ze-fpassign-pane last" style={{ flex: '0 0 30%', position: 'relative' }}>
+          <section
+            className="ze-fpassign-pane last"
+            style={{ flex: '0 0 30%', position: 'relative' }}
+          >
             <div className="ze-fpassign-caption">Filtered Footprints</div>
             <VirtualList
               rows={footprintRows}

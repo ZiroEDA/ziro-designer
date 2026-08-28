@@ -102,13 +102,13 @@ function rowBox(el: Element): { top: number; height: number } {
 
 describe('the row pitch of the three panes is the one wx reports', () => {
   it('gives every row the measured 24 px, not the 18 px line box', () => {
-    const rows = window_().querySelectorAll('.ze-fpassign-row');
+    const rows = Array.from(window_().querySelectorAll('.ze-fpassign-row'));
     expect(rows.length).toBeGreaterThan(2);
     for (const r of rows) expect(rowBox(r).height).toBe(24);
   });
 
   it('stacks them at that pitch, so the pane is as tall as wx makes it', () => {
-    const rows = [...window_().querySelectorAll('.ze-fpassign-row')];
+    const rows = Array.from(window_().querySelectorAll('.ze-fpassign-row'));
     // Absolute tops, not a height each: a list that drew 24 px rows 18 px apart
     // would pass the assertion above and overlap on screen.
     const tops = rows.map((r) => rowBox(r).top);
@@ -137,6 +137,22 @@ describe('the panes carry KIUI::GetMonospacedUIFont, size and all', () => {
 
   it('sets the row’s line box from --ui-text-height, the other half of the 24', () => {
     expect(decl('.ze-fpassign-row', 'line-height')).toBe('var(--ui-text-height)');
+  });
+
+  it('insets the row text by nothing, because a wxListView row does not', () => {
+    // `GetItemRect( 0, r, wxLIST_RECT_LABEL ).x` equals the item's own x, so
+    // the text starts flush; the columns are the spaces formatSymbolDesc puts
+    // in the STRING. 6 px of padding here shifted every row off that grid.
+    expect(decl('.ze-fpassign-row', 'padding')).toBeUndefined();
+  });
+});
+
+describe('the toolbar’s "Footprint Filters:" label', () => {
+  it('sits behind AppendSpacer( 15 ) and nothing else', () => {
+    // `config.AppendSeparator().AppendSpacer( 15 ).AppendControl( … )`,
+    // toolbars_cvpcb.cpp:69-71. KiCad's number; ours was 10 on the left and a
+    // 6 on the right that upstream does not have at all.
+    expect(decl('.ze-fpassign-filters-label', 'padding')).toBe('0 0 0 15px');
   });
 });
 
@@ -175,12 +191,21 @@ describe('the wxAUI caption band over each pane', () => {
     expect(decl('.ze-fpassign-caption', 'font-size')).toBe('var(--fpassign-caption-size)');
   });
 
+  it('starts its text 4 px in, where DrawCaption puts it', () => {
+    // Measured by painting the art provider's caption twice, once with the
+    // string and once empty, and taking the first column where the two bitmaps
+    // differ (qa/probes/cvpcb_listbox_probe.cpp).
+    expect(decl('.ze-fpassign-caption', 'padding')).toBe('0 4px');
+  });
+
   it('paints wxSYS_COLOUR_BTNTEXT, which WX_AUI_DOCK_ART sets both captions to', () => {
     expect(decl('.ze-fpassign-caption', 'color')).toBe('var(--chrome-fg)');
   });
 
   it('has no close box: EDA_PANE’s constructor calls CloseButton( false )', () => {
-    const captions = [...window_().querySelectorAll('.ze-fpassign-pane > .ze-fpassign-caption')];
+    const captions = Array.from(
+      window_().querySelectorAll('.ze-fpassign-pane > .ze-fpassign-caption'),
+    );
     expect(captions).toHaveLength(3);
     for (const c of captions) expect(c.querySelector('.x')).toBeNull();
   });
@@ -209,7 +234,7 @@ describe('the window opens at the size EDA_BASE_FRAME gives a cvpcb frame', () =
 
 describe('the menu bar is cvpcb/menubar.cpp’s', () => {
   it('ends with the Help menu AddStandardHelpMenu appends', () => {
-    const labels = [...window_().querySelectorAll('.ze-menubar > *')].map((e) =>
+    const labels = Array.from(window_().querySelectorAll('.ze-menubar > *')).map((e) =>
       e.textContent?.trim(),
     );
     expect(labels).toEqual(['File', 'Edit', 'Preferences', 'Help']);
@@ -219,7 +244,7 @@ describe('the menu bar is cvpcb/menubar.cpp’s', () => {
 describe('the button row is buttonsSizer, and only that', () => {
   it('holds the three buttons and nothing to their left', () => {
     const footer = window_().querySelector('.ze-modal-footer')!;
-    expect([...footer.children].map((c) => c.textContent)).toEqual([
+    expect(Array.from(footer.children).map((c) => c.textContent)).toEqual([
       'Apply, Save Schematic & Continue',
       'Cancel',
       'OK',
@@ -244,7 +269,9 @@ describe('the filter status line is DisplayStatus’s first line', () => {
     // The one already-assigned symbol: the footprint after the colon is the
     // thing the report was about, and the padding is read verbatim rather than
     // through a whitespace-normalising matcher.
-    const rows = [...window_().querySelectorAll('.ze-fpassign-row')].map((r) => r.textContent);
+    const rows = Array.from(window_().querySelectorAll('.ze-fpassign-row')).map(
+      (r) => r.textContent,
+    );
     expect(rows).toContain('  1       R1 -               1k : Resistor_THT:R_Axial_DIN0207');
     expect(rows).toContain('  2       R2 -              2k2 : ');
   });
