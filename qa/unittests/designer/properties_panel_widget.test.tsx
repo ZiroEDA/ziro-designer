@@ -81,7 +81,7 @@ const panel = (rows = ROWS, count = 1, name: string | undefined = 'Symbol') =>
   );
 
 const texts = (root: HTMLElement, sel: string): string[] =>
-  [...root.querySelectorAll(sel)].map((e) => e.textContent ?? '');
+  Array.from(root.querySelectorAll(sel)).map((e) => e.textContent ?? '');
 
 describe('the caption is the item type, above the grid', () => {
   it('renders one caption element carrying GetFriendlyName()', () => {
@@ -124,7 +124,7 @@ describe('groups are collapsible wxPropertyCategory rows', () => {
 
   it('puts each row under its own group', () => {
     const { container } = panel();
-    const order = [...container.querySelectorAll('.ze-pgrid-cat-label, .ze-pgrid-name')].map(
+    const order = Array.from(container.querySelectorAll('.ze-pgrid-cat-label, .ze-pgrid-name')).map(
       (e) => e.textContent,
     );
     expect(order).toEqual([
@@ -172,7 +172,7 @@ describe('groups are collapsible wxPropertyCategory rows', () => {
 describe('a value cell is a grid cell, not a permanently-rendered control', () => {
   it('draws a writeable text row as text with no control', () => {
     const { container } = panel();
-    const cell = [...container.querySelectorAll('.ze-pgrid-row')].find(
+    const cell = Array.from(container.querySelectorAll('.ze-pgrid-row')).find(
       (r) => r.querySelector('.ze-pgrid-name')!.textContent === 'Reference',
     )!;
     expect(cell.querySelector('.ze-pgrid-value')!.textContent).toBe('J1');
@@ -181,7 +181,7 @@ describe('a value cell is a grid cell, not a permanently-rendered control', () =
 
   it('draws a choice row as its label, not as a dropdown', () => {
     const { container } = panel();
-    const cell = [...container.querySelectorAll('.ze-pgrid-row')].find(
+    const cell = Array.from(container.querySelectorAll('.ze-pgrid-row')).find(
       (r) => r.querySelector('.ze-pgrid-name')!.textContent === 'Orientation',
     )!;
     expect(cell.querySelector('.ze-pgrid-value')!.textContent).toBe('180');
@@ -190,13 +190,13 @@ describe('a value cell is a grid cell, not a permanently-rendered control', () =
 
   it('has no control anywhere in the grid except the bool row', () => {
     const { container } = panel();
-    const controls = [...container.querySelectorAll('.ze-pgrid input, .ze-pgrid select')];
+    const controls = Array.from(container.querySelectorAll('.ze-pgrid input, .ze-pgrid select'));
     expect(controls.map((c) => (c as HTMLInputElement).type)).toEqual(['checkbox', 'checkbox']);
   });
 
   it('builds a text editor only once the cell is activated', () => {
     const { container } = panel();
-    const cell = [...container.querySelectorAll('.ze-pgrid-row')].find(
+    const cell = Array.from(container.querySelectorAll('.ze-pgrid-row')).find(
       (r) => r.querySelector('.ze-pgrid-name')!.textContent === 'Reference',
     )!;
     fireEvent.click(cell.querySelector('.ze-pgrid-text')!);
@@ -207,18 +207,18 @@ describe('a value cell is a grid cell, not a permanently-rendered control', () =
 
   it('builds the combo only once a choice cell is activated', () => {
     const { container } = panel();
-    const cell = [...container.querySelectorAll('.ze-pgrid-row')].find(
+    const cell = Array.from(container.querySelectorAll('.ze-pgrid-row')).find(
       (r) => r.querySelector('.ze-pgrid-name')!.textContent === 'Orientation',
     )!;
     fireEvent.click(cell.querySelector('.ze-pgrid-text')!);
     const editor = cell.querySelector('select.ze-pgrid-editor') as HTMLSelectElement;
     expect(editor).not.toBeNull();
-    expect([...editor.options].map((o) => o.value)).toEqual(['0', '90', '180', '270']);
+    expect(Array.from(editor.options).map((o) => o.value)).toEqual(['0', '90', '180', '270']);
   });
 
   it('keeps the checkbox a bool row draws at rest — PG_CHECKBOX_EDITOR::DrawValue', () => {
     const { container } = panel();
-    const cell = [...container.querySelectorAll('.ze-pgrid-row')].find(
+    const cell = Array.from(container.querySelectorAll('.ze-pgrid-row')).find(
       (r) => r.querySelector('.ze-pgrid-name')!.textContent === 'Pin numbers',
     )!;
     const box = cell.querySelector('input.ze-pgrid-check') as HTMLInputElement;
@@ -229,7 +229,7 @@ describe('a value cell is a grid cell, not a permanently-rendered control', () =
 
   it('renders a distance through the frame’s unit conversion', () => {
     const { container } = panel();
-    const cell = [...container.querySelectorAll('.ze-pgrid-row')].find(
+    const cell = Array.from(container.querySelectorAll('.ze-pgrid-row')).find(
       (r) => r.querySelector('.ze-pgrid-name')!.textContent === 'Position X',
     )!;
     expect(cell.querySelector('.ze-pgrid-value')!.textContent).toBe('1 mils');
@@ -239,7 +239,7 @@ describe('a value cell is a grid cell, not a permanently-rendered control', () =
 describe('read-only rows', () => {
   it('marks the row so its VALUE greys, and does not activate on click', () => {
     const { container } = panel();
-    const rows = [...container.querySelectorAll('.ze-pgrid-row')];
+    const rows = Array.from(container.querySelectorAll('.ze-pgrid-row'));
     const ro = rows.find((r) => r.querySelector('.ze-pgrid-name')!.textContent === 'Library Link')!;
     const rw = rows.find((r) => r.querySelector('.ze-pgrid-name')!.textContent === 'Reference')!;
     expect(ro.hasAttribute('data-readonly')).toBe(true);
