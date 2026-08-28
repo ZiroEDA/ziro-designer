@@ -48,6 +48,41 @@ function token(name: string): string {
   return (m[1] ?? '').trim();
 }
 
+describe("APPEARANCE_CONTROLS' list background is derived, not chosen", () => {
+  /**
+   * `m_layerPanelColour = m_panelLayers->GetBackgroundColour().ChangeLightness( 110 )`
+   * (pcbnew/widgets/appearance_controls.cpp:433, :1240).
+   * `qa/probes/layer_panel_colour_probe.cpp` builds that panel and asks wx:
+   *
+   *     m_panelLayers GetBackgroundColour      rgb( 55,  55,  55)  #373737
+   *       .ChangeLightness( 110 )              rgb( 75,  75,  75)  #4B4B4B
+   *
+   * It was #3a3d42, which cannot be right BY CONSTRUCTION rather than merely
+   * by measurement: ChangeLightness of a neutral grey is neutral, and
+   * #3a3d42 is blue-tinted. That is the check the second test makes, so this
+   * cannot be re-broken by any tinted value, only by the wrong grey.
+   */
+  it('is the panel background lightened, which wx computes as #4b4b4b', () => {
+    expect(token('--panel-list-bg')).toBe('#4b4b4b');
+  });
+
+  it('and is therefore NEUTRAL - equal parts - however it is spelled', () => {
+    const m = /^#(\w{2})(\w{2})(\w{2})$/.exec(token('--panel-list-bg'));
+    expect(m).not.toBeNull();
+    const [r, g, b] = (m as RegExpExecArray).slice(1).map((h) => parseInt(h, 16));
+    expect(r).toBe(g);
+    expect(g).toBe(b);
+  });
+
+  // It is lighter than the panel it sits on: that is the whole purpose of the
+  // ChangeLightness call, and #373737 (the UNLIGHTENED background, which the
+  // deleted .sch-leftdock shadow restated) would fail this.
+  it('and is lighter than the BTNFACE panel behind it', () => {
+    const lum = (t: string) => parseInt(token(t).slice(1, 3), 16);
+    expect(lum('--panel-list-bg')).toBeGreaterThan(lum('--content-bg'));
+  });
+});
+
 describe('a raw wxGrid takes its colours from wx', () => {
   it('draws its grid lines at BTNFACE, not at the control border', () => {
     expect(token('--grid-line')).toBe('#373737');

@@ -318,9 +318,16 @@
      nothing reads them yet, so adding them moves no pixel. */
   --ui-font-size-info: 10pt;
   --ui-font-size-small: 9pt;
-  /* KiCad's Appearance list background (m_layerPanelColour): a mid grey,
-     lighter than the chrome so the layer/object rows read as a list. */
-  --panel-list-bg: #3a3d42;
+  /* KiCad's Appearance list background, and it is DERIVED, not chosen:
+       m_layerPanelColour = m_panelLayers->GetBackgroundColour().ChangeLightness( 110 )
+     (pcbnew/widgets/appearance_controls.cpp:433, :1240) -- the panel's own
+     background, lightened, so the layer/object rows read as a list against the
+     chrome. `qa/probes/layer_panel_colour_probe.cpp` builds that panel and asks
+     wx: background #373737, ChangeLightness( 110 ) -> #4b4b4b.
+     This said #3a3d42, which cannot be right by construction: ChangeLightness
+     on a NEUTRAL grey stays neutral, and #3a3d42 is blue-tinted (58, 61, 66).
+     It was our own chrome tint, not KiCad's derivation. */
+  --panel-list-bg: #4b4b4b;
   /* Filled portion of an opacity slider, left of the thumb. */
   --slider-fill: #e8912b;
 
@@ -3164,18 +3171,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   flex-direction: column;
   min-height: 0;
   border-top: 1px solid var(--chrome-border);
-}
-/* Schematic Editor's left dock only: real eeschema's own chrome colors
-   (sampled off a live 9.0.8 window, GTK/Yaru dark theme - neutral greys,
-   not our app's blue-tinted chrome, and its orange row/checkbox highlight
-   instead of our blue --chrome-active), scoped via custom-property
-   shadowing so every descendant rule (.ze-panel, .ze-panel-header,
-   .ze-tree-item.active/:hover, twisty, checkboxes...) picks it up for free. */
-.sch-leftdock,
-.sch-bottomdock {
-  --panel-bg: #272727;
-  --panel-header: #2e2e2e;
-  --panel-list-bg: #373737;
 }
 /* wxTreeCtrl's row selection is a sharp-edged rectangle, not rounded. */
 .sch-leftdock .ze-tree-item {
