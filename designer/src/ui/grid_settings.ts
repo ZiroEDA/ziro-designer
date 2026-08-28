@@ -245,6 +245,43 @@ export function secondaryUnits(primary: StatusUnits): StatusUnits {
 }
 
 /**
+ * `GRID::MessageText` (`common/settings/grid_settings.cpp:27-45`) — one grid as
+ * ONE number in ONE unit, which is not the same string as a grid menu row.
+ *
+ *     wxString xStr = MessageTextFromValue( aScale, aUnits, x, aDisplayUnits );
+ *     wxString yStr = ...
+ *     if( xStr == yStr ) return xStr;
+ *     return wxString::Format( wxS( "%s x %s" ), xStr, yStr );
+ *
+ * `GRID::UserUnitsMessageText( aProvider, aDisplayUnits )` (`:47-50`) is this
+ * same call with the frame's own IU scale and units, so it is what a caller
+ * holding `units` already has: `SCH_EDITOR_CONTROL::GridFeedback` builds the
+ * hotkey popup's list out of it (`eeschema/tools/sch_editor_control.cpp:3371`)
+ * and `EDA_DRAW_FRAME::DisplayGridMsg` the status bar's
+ * (`common/eda_draw_frame.cpp:757`).
+ *
+ * The collapse at `xStr == yStr` compares the FORMATTED strings, not the
+ * values, so two sizes that round to the same display print once.
+ */
+export function gridMessageText(
+  size: GridSize,
+  units: StatusUnits,
+  iuPerMM: number,
+  displayUnits = true,
+): string {
+  const x = gridSizeToMM(size.x);
+  // A zero Y is a real entry in gerbview's defaults, so `null` from the parser
+  // means "unparseable", not "absent" — those fall back to X alone.
+  const y = gridAxisMM(size.y);
+  if (x === null) return size.x;
+  const suffix = displayUnits ? unitText(units) : '';
+  const xs = messageTextFromValue(x, units, iuPerMM) + suffix;
+  if (y === null) return xs;
+  const ys = messageTextFromValue(y, units, iuPerMM) + suffix;
+  return xs === ys ? xs : `${xs} x ${ys}`;
+}
+
+/**
  * One row of a `gridSelect` toolbar control, per
  * `GRID_MENU::BuildChoiceList` (`common/tool/grid_menu.cpp:83-104`):
  *
@@ -265,24 +302,11 @@ export function gridChoiceLabel(
   iuPerMM: number,
   name = '',
 ): string {
-  const x = gridSizeToMM(size.x);
-  const y = gridAxisMM(size.y);
-  if (x === null) return size.x;
+  if (gridSizeToMM(size.x) === null) return size.x;
   const secondary = secondaryUnits(primary);
-  /**
-   * `GRID::MessageText`: format each axis, and collapse to one number only
-   * when the two FORMATTED strings match — not when the values do. Two sizes
-   * that round to the same display therefore print once, which is upstream's
-   * rule and not the same as comparing the numbers.
-   */
-  const axis = (u: StatusUnits): string => {
-    const xs = messageTextFromValue(x, u, iuPerMM) + unitText(u);
-    // A zero Y is a real entry in gerbview's defaults, so `null` from the
-    // parser means "unparseable", not "absent" — those fall back to X alone.
-    if (y === null) return xs;
-    const ys = messageTextFromValue(y, u, iuPerMM) + unitText(u);
-    return xs === ys ? xs : `${xs} x ${ys}`;
-  };
+  // Both halves are `GRID::MessageText` with `aDisplayUnits` true, which is
+  // exactly what `BuildChoiceList` calls twice.
+  const axis = (u: StatusUnits): string => gridMessageText(size, u, iuPerMM);
   return `${name ? `${name}: ` : ''}${axis(primary)} (${axis(secondary)})`;
 }
 

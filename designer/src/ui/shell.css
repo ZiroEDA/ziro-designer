@@ -764,6 +764,19 @@
      is 5 px in. */
   --wx-border: 5px;
 
+  /* HOTKEY_CYCLE_POPUP's own two numbers. KiCad hardcodes them per platform —
+       #ifdef __WXGTK__
+       #define LIST_BOX_H_PADDING 20
+       #define LIST_BOX_V_PADDING 8
+                          common/dialogs/hotkey_cycle_popup.cpp:29-38
+     — so they are [data], not chrome: nothing in the theme decides them and
+     the GTK row is the one this build takes. The H figure is the total across
+     both edges of the list (`width + LIST_BOX_H_PADDING`, `:93`); the V figure
+     is per edge (`height + LIST_BOX_V_PADDING * 2`, `:94`) and is ALSO the
+     leading added to each row (`:90`). */
+  --hkcycle-list-h-padding: 20px; /* [data] */
+  --hkcycle-list-v-padding: 8px; /* [data] */
+
   /* The shell is dark-only, and this is what tells the engine so: it paints
      every *native* control, scrollbar and popup from its dark palette —
      including the list a <select> opens, which no CSS rule can reach. Without
@@ -9797,4 +9810,67 @@ textarea.ze-ds-textedit {
 .ze-tbcust-gap {
   width: 20px; /* [data] `bSizerToolbarBtns->Add( 20, 0, 0, 0, 5 )`, the fixed spacer before Delete */
   flex: 0 0 auto;
+}
+
+/* ---- HOTKEY_CYCLE_POPUP (common/dialogs/hotkey_cycle_popup.cpp) -------------
+   The panel that flashes when a single-stroke hotkey cycles a setting. Its
+   layout is EDA_VIEW_SWITCHER_BASE (common/dialogs/eda_view_switcher_base.cpp:
+   12-32): a vertical box sizer with the title added `wxALL|wxEXPAND, 5` and a
+   borderless wxListBox added `wxBOTTOM|wxLEFT|wxRIGHT, 5`, both of which are
+   --wx-border. Nothing here states a colour or a font: the frame IS .ze-modal,
+   which already holds the dialog face, border and shadow. */
+.ze-hkcycle-layer {
+  /* `Centre()` after `Show( true )` (hotkey_cycle_popup.cpp:132-133) centres the
+     dialog on the frame that owns it, and this popup is the whole frame's, not
+     one pane's. */
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* wxSTAY_ON_TOP: above the canvas, below .ze-modal-backdrop's 200. */
+  z-index: 150; /* [art] */
+  /* `TryBefore` (hotkey_cycle_popup.cpp:139-150) hands every key it receives
+     straight to the canvas: this window is feedback, never a target. */
+  pointer-events: none;
+}
+.ze-modal.ze-hkcycle {
+  /* The base class's dialog style defaults to wxSTAY_ON_TOP ALONE
+     (eda_view_switcher_base.h:40), so the window manager draws no caption and
+     none of .ze-modal's title-bar geometry applies. */
+  border-radius: 0;
+  /* wxNORMAL_FONT, set explicitly on the title at
+     eda_view_switcher_base.cpp:21 and the wxListBox default besides. */
+  font-family: var(--ui-font-family);
+  font-size: var(--ui-font-size);
+  line-height: var(--ui-line-height);
+}
+.ze-hkcycle-title {
+  margin: var(--wx-border);
+  /* `Popup()` sizes the LIST BOX to `max( titleWidth, itemWidths ) +
+     LIST_BOX_H_PADDING` (hotkey_cycle_popup.cpp:83-94), so the title's own
+     width has to demand that same padding of the column while the text itself
+     still starts at the sizer's 5px border - which is what an end-padding does
+     and a symmetric one would not. */
+  padding-inline-end: var(--hkcycle-list-h-padding);
+}
+.ze-hkcycle-list {
+  margin: 0 var(--wx-border) var(--wx-border);
+  /* wxSYS_COLOUR_LISTBOX, and wxBORDER_NONE means no control border. */
+  background: var(--chrome-bg2);
+  /* `SetMinSize( width + LIST_BOX_H_PADDING, height + LIST_BOX_V_PADDING * 2 )`
+     (hotkey_cycle_popup.cpp:93-94) - the H padding is the total across both
+     edges, the V padding is per edge. */
+  padding: var(--hkcycle-list-v-padding) calc(var(--hkcycle-list-h-padding) / 2);
+}
+.ze-hkcycle-item {
+  /* `height += extents.y + LIST_BOX_V_PADDING` per item (`:90`): one line of
+     text plus the padding, which is the row pitch this list is measured at. */
+  line-height: calc(var(--ui-line-height) + var(--hkcycle-list-v-padding));
+  white-space: pre;
+}
+.ze-hkcycle-item.selected {
+  /* `SetSelection` on a wxListBox: wxSYS_COLOUR_HIGHLIGHT / _HIGHLIGHTTEXT. */
+  background: var(--selection-bg);
+  color: var(--selection-fg);
 }

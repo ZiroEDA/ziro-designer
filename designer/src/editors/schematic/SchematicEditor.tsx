@@ -435,7 +435,8 @@ import type { ProgressSnapshot } from '../../ui/progress_reporter.js';
 import { PreferencesDialog } from '../../dialogs/PreferencesDialog.js';
 import type { PrefsPageId } from '../../dialogs/prefs/types.js';
 import { settings, gridSizeToIU } from '../../prefs/settings.js';
-import { gridChoiceLabel } from '../../ui/grid_settings.js';
+import { gridChoiceLabel, gridMessageText } from '../../ui/grid_settings.js';
+import { useHotkeyCyclePopup } from '../../widgets/HotkeyCyclePopup.js';
 import {
   useCommonSettings,
   useEeschemaSettings,
@@ -1298,6 +1299,38 @@ export function SchematicEditor({
       ? 'mils'
       : 'mm';
   const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+
+  // HOTKEY_CYCLE_POPUP, this frame's one instance (EDA_DRAW_FRAME::m_hotkeyPopup).
+  // Its expiry hands the keyboard back with `m_drawFrame->GetCanvas()->SetFocus()`
+  // (common/dialogs/hotkey_cycle_popup.cpp:48).
+  const appRef = useRef<HTMLDivElement>(null);
+  const hotkeyPopup = useHotkeyCyclePopup(() => appRef.current?.querySelector('canvas')?.focus());
+  /**
+   * `SCH_EDITOR_CONTROL::GridFeedback`
+   * (eeschema/tools/sch_editor_control.cpp:3360-3382), bound to
+   * `EVENTS::GridChangedByKeyEvent` (`:3550`) - which `COMMON_TOOLS::
+   * OnGridChanged` posts only for the HOTKEY paths, never for the grid combo
+   * or the menu (common/tool/common_tools.cpp:562-564).
+   *
+   * Held in a ref because the keydown listener is installed once, while the
+   * labels depend on the frame's live units.
+   */
+  const gridFeedbackRef = useRef<() => void>(() => {});
+  gridFeedbackRef.current = () => {
+    // `if( !Pgm().GetCommonSettings()->m_Input.hotkey_feedback ) return 0;` (`:3362`)
+    if (!settings.common.input.hotkey_feedback) return;
+    const grid = settings.eeschema.window.grid;
+    hotkeyPopup.popup(
+      // `_( "Grid" )` (`:3379`).
+      'Grid',
+      // `gridsLabels.Add( grid.UserUnitsMessageText( m_frame ) )` (`:3371`) -
+      // the size in the frame's own units, and NOT the grid menu's two-unit
+      // row: no name, no bracketed second unit.
+      grid.sizes.map((size) => gridMessageText(size, units, SCH_IU_PER_MM)),
+      // `m_Window.grid.last_size_idx` (`:3367`).
+      grid.last_size_idx,
+    );
+  };
   const statusReadout = useStatusReadout({
     units,
     localOrigin,
@@ -7505,6 +7538,9 @@ export function SchematicEditor({
                   ? g2
                   : g1;
         });
+        // GridFast1/2/Cycle all reach `GridPreset( idx, true )`, so they post
+        // GridChangedByKeyEvent too (common/tool/common_tools.cpp:569-592).
+        gridFeedbackRef.current();
       } else if (e.altKey && e.key === '3') {
         // SCH_ACTIONS::selectNode (Alt+3): select the connection item under the
         // cursor. The pick is GetNode's, connectable types only at growing
@@ -7683,6 +7719,8 @@ export function SchematicEditor({
               s.window.grid.last_size_idx =
                 (s.window.grid.last_size_idx + (e.shiftKey ? n - 1 : 1)) % n;
           });
+          // `OnGridChanged( true )` ends by posting GridChangedByKeyEvent.
+          gridFeedbackRef.current();
           return;
         }
         // C = Unfold from Bus (SCH_ACTIONS::unfoldBus) on the bus under the
@@ -7970,7 +8008,14 @@ export function SchematicEditor({
   };
 
   return (
-    <div className="ze-app sch-theme" onDrop={onDrop} onDragOver={(e) => e.preventDefault()}>
+    <div
+      ref={appRef}
+      className="ze-app sch-theme"
+      onDrop={onDrop}
+      onDragOver={(e) => e.preventDefault()}
+    >
+      {/* HOTKEY_CYCLE_POPUP: a wxSTAY_ON_TOP window over the whole frame. */}
+      {hotkeyPopup.node}
       {copyAsOpen && (
         <SaveAsDialog
           title="Save Current Sheet Copy As"
