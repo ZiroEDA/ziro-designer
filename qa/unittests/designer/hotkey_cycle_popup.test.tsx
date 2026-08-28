@@ -31,6 +31,14 @@ import {
 
 afterEach(cleanup);
 
+/**
+ * `#define SHOW_TIME_MS 500` (`common/dialogs/hotkey_cycle_popup.cpp:40`),
+ * written out here as a literal ON PURPOSE. Driving the clock by the module's
+ * own exported constant would make every boundary below self-consistent at any
+ * value — advance `SHOW_TIME_MS - 1`, then 1 — and so unable to fail.
+ */
+const SHOW_TIME_MS_CPP = 500;
+
 /** eeschema's own `DefaultGridSizeList()` row — what N cycles in the schematic. */
 const EESCHEMA_GRIDS: GridEntry[] = GRID_SIZE_LIST.eeschema.map(gridEntryOf);
 
@@ -53,7 +61,7 @@ describe('HOTKEY_CYCLE_POPUP: the 500 ms timer', () => {
   it('`#define SHOW_TIME_MS 500` (hotkey_cycle_popup.cpp:40) is the whole visible life', () => {
     // Derived from the C++, not from the code under test: the popup is up for
     // half a second after the keystroke and gone on the tick after.
-    expect(SHOW_TIME_MS).toBe(500);
+    expect(SHOW_TIME_MS).toBe(SHOW_TIME_MS_CPP);
   });
 
   it('`Show( true )` on the first Popup(), `Show( false )` when the timer expires', () => {
@@ -66,7 +74,7 @@ describe('HOTKEY_CYCLE_POPUP: the 500 ms timer', () => {
 
     // One millisecond short of the deadline it is STILL up. Without this the
     // test cannot distinguish 500 from 1.
-    act(() => void vi.advanceTimersByTime(SHOW_TIME_MS - 1));
+    act(() => void vi.advanceTimersByTime(SHOW_TIME_MS_CPP - 1));
     expect(p.shown).toBe(true);
     expect(focusCanvas).not.toHaveBeenCalled();
 
@@ -81,7 +89,7 @@ describe('HOTKEY_CYCLE_POPUP: the 500 ms timer', () => {
     p.popup('Grid', ['100 mils'], 0);
     expect(focusCanvas).not.toHaveBeenCalled();
 
-    act(() => void vi.advanceTimersByTime(SHOW_TIME_MS));
+    act(() => void vi.advanceTimersByTime(SHOW_TIME_MS_CPP));
     expect(focusCanvas).toHaveBeenCalledTimes(1);
     // `Show( false )` runs first, so by the time focus moves the window is gone.
     expect(p.shown).toBe(false);
@@ -123,7 +131,7 @@ describe('HOTKEY_CYCLE_POPUP: the 500 ms timer', () => {
 
     // No lower clamp upstream: an empty list selects -1, which is
     // wxListBox's "nothing selected".
-    act(() => void vi.advanceTimersByTime(SHOW_TIME_MS));
+    act(() => void vi.advanceTimersByTime(SHOW_TIME_MS_CPP));
     p.popup('Grid', [], 0);
     expect(p.contents?.selection).toBe(-1);
   });
@@ -134,7 +142,7 @@ describe('HOTKEY_CYCLE_POPUP: the 500 ms timer', () => {
 
     p.popup('Grid', ['100 mils'], 0);
     p.destroy();
-    act(() => void vi.advanceTimersByTime(SHOW_TIME_MS * 4));
+    act(() => void vi.advanceTimersByTime(SHOW_TIME_MS_CPP * 4));
     expect(focusCanvas).not.toHaveBeenCalled();
   });
 });
@@ -239,7 +247,7 @@ describe('useHotkeyCyclePopup', () => {
     );
   }
 
-  it('renders nothing until Popup(), then clears itself after SHOW_TIME_MS', () => {
+  it('renders nothing until Popup(), then clears itself after 500 ms', () => {
     const focusCanvas = vi.fn();
     render(<Frame focusCanvas={focusCanvas} />);
     expect(document.querySelector('.ze-hkcycle')).toBeNull();
@@ -248,7 +256,7 @@ describe('useHotkeyCyclePopup', () => {
     expect(document.querySelector('.ze-hkcycle')).not.toBeNull();
     expect(document.querySelector('.ze-hkcycle-item.selected')?.textContent).toBe('50 mils');
 
-    act(() => void vi.advanceTimersByTime(SHOW_TIME_MS - 1));
+    act(() => void vi.advanceTimersByTime(SHOW_TIME_MS_CPP - 1));
     expect(document.querySelector('.ze-hkcycle')).not.toBeNull();
 
     act(() => void vi.advanceTimersByTime(1));
@@ -261,7 +269,7 @@ describe('useHotkeyCyclePopup', () => {
     const view = render(<Frame focusCanvas={focusCanvas} />);
     act(() => screen.getByText('cycle').click());
     view.unmount();
-    act(() => void vi.advanceTimersByTime(SHOW_TIME_MS * 4));
+    act(() => void vi.advanceTimersByTime(SHOW_TIME_MS_CPP * 4));
     expect(focusCanvas).not.toHaveBeenCalled();
   });
 });
