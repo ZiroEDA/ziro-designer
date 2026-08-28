@@ -32,6 +32,7 @@ import type {
   CommonSettings,
   EeschemaSettings,
   PcbnewSettings,
+  PlEditorSettings,
   PrivacySettings,
 } from '../../prefs/settings.js';
 
@@ -46,10 +47,13 @@ export type PrefsPageId =
   | 'sch-annotation'
   | 'sch-colors'
   | 'sch-fields'
-  | 'pcb-display';
+  | 'pcb-display'
+  | 'ds-display'
+  | 'ds-grids'
+  | 'ds-colors';
 
 /** Which module owns a page, and therefore which bundle it is lazily pulled from. */
-export type PrefsPageOwner = 'generic' | 'schematic' | 'pcb';
+export type PrefsPageOwner = 'generic' | 'schematic' | 'pcb' | 'drawingsheet';
 
 /**
  * The working copy the dialog edits, plus its setters. Handed to every panel;
@@ -59,6 +63,7 @@ export interface PrefsContext {
   common: CommonSettings;
   eeschema: EeschemaSettings;
   pcbnew: PcbnewSettings;
+  plEditor: PlEditorSettings;
   privacy: PrivacySettings;
   userColors: Record<string, string>;
   hotkeys: HotkeyOverrides;
@@ -66,9 +71,11 @@ export interface PrefsContext {
   upC: (fn: (s: CommonSettings) => void) => void;
   upE: (fn: (s: EeschemaSettings) => void) => void;
   upP: (fn: (s: PcbnewSettings) => void) => void;
+  upPl: (fn: (s: PlEditorSettings) => void) => void;
   setCommon: Dispatch<SetStateAction<CommonSettings>>;
   setEeschema: Dispatch<SetStateAction<EeschemaSettings>>;
   setPcbnew: Dispatch<SetStateAction<PcbnewSettings>>;
+  setPlEditor: Dispatch<SetStateAction<PlEditorSettings>>;
   setPrivacy: Dispatch<SetStateAction<PrivacySettings>>;
   setUserColors: Dispatch<SetStateAction<Record<string, string>>>;
   setHotkeys: Dispatch<SetStateAction<HotkeyOverrides>>;

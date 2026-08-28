@@ -40,7 +40,6 @@ import {
 } from '../../ui/zoom_settings.js';
 import { PL_IU_PER_MM } from '@ziroeda/common';
 import {
-  GRID_SIZE_LIST,
   // One copy, in the shared module. This file had its own `secondaryUnits` and
   // `gridChoiceLabel`, a per-editor copy of a `common/` helper — and the copy
   // could not print a non-square grid at all, because it took a single size
@@ -81,6 +80,13 @@ export interface DsContextMenuState {
   zoom: number;
   /** `grid.last_size_idx`, which decides which Grid row is ticked. */
   gridIndex: number;
+  /**
+   * `GRID_SETTINGS::grids` — the list itself, which `GRID_MENU::update`
+   * (`common/tool/grid_menu.cpp`) reads off the settings object and not off
+   * `DefaultGridSizeList()`. The distinction became visible once Preferences >
+   * Drawing Sheet Editor > Grids could edit it.
+   */
+  gridSizes: readonly string[];
   /** `GetUnitPair`'s primary unit — the frame's display unit. */
   primaryUnits: StatusUnits;
 }
@@ -97,6 +103,7 @@ export function dsZoomSubmenu(zoom: number, setZoom: (factor: number) => void): 
 /** `GRID_MENU` (common/tool/grid_menu.cpp) as a submenu. */
 export function dsGridSubmenu(
   gridIndex: number,
+  gridSizes: readonly string[],
   primaryUnits: StatusUnits,
   gridOrigin: () => void,
   setGrid: (index: number) => void,
@@ -104,12 +111,14 @@ export function dsGridSubmenu(
   return [
     { label: 'Grid Origin...', icon: 'gridOrigin', action: gridOrigin },
     { sep: true },
-    ...GRID_SIZE_LIST[APP].map((size, i) => ({
+    // Every entry pl_editor's row of the table can hold is square, so the
+    // stored string is the whole `GRID{ name, x, y }`.
+    ...gridSizes.map((sz, i) => ({
       // pl_editor's own IU scale (`drawSheetIUScale`, base_units.h:113), not
       // the schematic's. It decides the precision: `short_form` upstream is
       // `IU_PER_MM == SCH_IU_PER_MM`, which pl_editor is not, so its rows read
       // `196.85 mils (5.0000 mm)` rather than the shortened `197 mils`.
-      label: gridChoiceLabel(size, primaryUnits, PL_IU_PER_MM),
+      label: gridChoiceLabel({ x: sz, y: sz }, primaryUnits, PL_IU_PER_MM),
       checked: i === gridIndex,
       action: () => setGrid(i),
     })),
@@ -193,6 +202,7 @@ export function buildDsContextMenu(
         icon: 'toggleGrid',
         submenu: dsGridSubmenu(
           state.gridIndex,
+          state.gridSizes,
           state.primaryUnits,
           actions.gridOrigin,
           actions.setGrid,

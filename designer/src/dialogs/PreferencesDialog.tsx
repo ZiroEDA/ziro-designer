@@ -7,6 +7,7 @@ import {
   type CommonSettings,
   type EeschemaSettings,
   type PcbnewSettings,
+  type PlEditorSettings,
   type PrivacySettings,
 } from '../prefs/settings.js';
 import { FIRST_PAGE, PAGES, labelOf, ownerOf } from './prefs/registry.js';
@@ -72,6 +73,9 @@ export function PreferencesDialog({
     ...settings.userColors,
   }));
   const [pcbnew, setPcbnew] = useState<PcbnewSettings>(() => structuredClone(settings.pcbnew));
+  const [plEditor, setPlEditor] = useState<PlEditorSettings>(() =>
+    structuredClone(settings.plEditor),
+  );
   const [privacy, setPrivacy] = useState<PrivacySettings>(() => structuredClone(settings.privacy));
   const [hotkeys, setHotkeys] = useState<HotkeyOverrides>(() => ({ ...settings.hotkeys }));
 
@@ -95,10 +99,18 @@ export function PreferencesDialog({
       return n;
     });
 
+  const upPl = (fn: (s: PlEditorSettings) => void): void =>
+    setPlEditor((s) => {
+      const n = structuredClone(s);
+      fn(n);
+      return n;
+    });
+
   const ok = (): void => {
     settings.updateCommon((s) => Object.assign(s, common));
     settings.updateEeschema((s) => Object.assign(s, eeschema));
     settings.updatePcbnew((s) => Object.assign(s, pcbnew));
+    settings.updatePlEditor((s) => Object.assign(s, plEditor));
     settings.setUserColors(userColors);
     settings.setHotkeys(hotkeys);
     // Routed through the reporter rather than written directly: switching this
@@ -115,15 +127,18 @@ export function PreferencesDialog({
     common,
     eeschema,
     pcbnew,
+    plEditor,
     privacy,
     userColors,
     hotkeys,
     upC,
     upE,
     upP,
+    upPl,
     setCommon,
     setEeschema,
     setPcbnew,
+    setPlEditor,
     setPrivacy,
     setUserColors,
     setHotkeys,

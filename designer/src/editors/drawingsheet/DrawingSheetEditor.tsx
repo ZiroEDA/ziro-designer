@@ -73,11 +73,6 @@ import { DEFAULT_GRID_INDEX, GRID_SIZE_LIST, gridSizeToMM } from '../../ui/grid_
 import { DrawingSheetCanvas, type DrawingSheetCanvasController } from './DrawingSheetCanvas.js';
 import { PropertiesFrame, SyntaxHelpDialog } from './PropertiesFrame.js';
 import { DockSash } from '../../ui/DockSash.js';
-import {
-  ALWAYS_SHOW_CROSSHAIRS_LABEL,
-  CROSSHAIR_MODE_CHOICES,
-  type CrosshairMode,
-} from '../../ui/grid_cursor.js';
 import { dockedPaneWidth } from '../../ui/dock_sash.js';
 import { SaveAsDialog } from '../../fs/SaveAsDialog.js';
 import { leafOf, savePathWithExtension } from '../../fs/save_path.js';
@@ -130,7 +125,11 @@ import { drawDrawingSheetItems, DS_PRINT_PAPER_COLOR } from '@ziroeda/common';
 import '../../ui/shell.css';
 import { standardHelpMenu } from '../../ui/help_menu.js';
 import { showHotkeyList } from '../../ui/hotkey_list_action.js';
-import { useModalEscape } from '../../ui/useModalEscape.js';
+// The shared Preferences dialog, the one every other launcher opens.
+// `EDA_BASE_FRAME::ShowPreferences` is on the base frame precisely so that no
+// editor writes its own (common/eda_base_frame.cpp:1573).
+import { PreferencesDialog } from '../../dialogs/PreferencesDialog.js';
+import type { PrefsPageId } from '../../dialogs/prefs/types.js';
 import {
   FileHistory,
   MISSING_FILE_EXTENDED,
@@ -499,7 +498,13 @@ export function DrawingSheetEditor({
   const [showInspector, setShowInspector] = useState(false);
   const [showPageDialog, setShowPageDialog] = useState(false);
   const [showSyntaxHelp, setShowSyntaxHelp] = useState(false);
-  const [showPrefs, setShowPrefs] = useState(false);
+  /**
+   * `ShowPreferences( aStartPage, aStartParentPage )`'s first argument, held as
+   * state: `null` while the dialog is closed, `'default'` for the menu item —
+   * upstream passes `wxEmptyString` and the tree opens on its first page — and a
+   * page id for the one command that names a page, `ACTIONS::gridProperties`.
+   */
+  const [showPrefs, setShowPrefs] = useState<PrefsPageId | 'default' | null>(null);
   const recent = useFileHistory(recentFiles);
   const common = useCommonSettings();
   /** The live `pl_editor.json`, for the values the canvas reads every frame. */
@@ -1628,16 +1633,14 @@ export function DrawingSheetEditor({
    * `ACTIONS::gridProperties` is `COMMON_TOOLS::GridProperties`
    * (`common/tool/common_tools.cpp:609-634`), a switch on the frame type that
    * for `FRAME_PL_EDITOR` calls `ShowPreferences( "Grids", "Drawing Sheet
-   * Editor" )` — Preferences, opened on that frame's Grids page. We have the
-   * dialog but not that page: pl_editor's preferences are still the two display
-   * options, where upstream's KIFACE offers Display Options, Grids, Colors and
-   * Toolbars (`pagelayout_editor/pl_editor.cpp:68-100`). Opening the dialog is
-   * the half of the action we can honour today; the page is tracked separately.
+   * Editor" )` — Preferences, opened on that frame's Grids page. It now lands
+   * there: the action is nothing but that argument, so an "Edit Grids..." that
+   * opened the book at Common would not be the action at all.
    */
   const onLeftAction = useCallback(
     (id: string) => {
       if (id === 'gridProperties') {
-        setShowPrefs(true);
+        setShowPrefs('ds-grids');
         return;
       }
       onLeftToggle(id);
@@ -2052,7 +2055,7 @@ export function DrawingSheetEditor({
         // menubar.cpp:142-149 — openPreferences then AddMenuLanguageList, and
         // unlike bitmap2cmp and cvpcb pl_editor puts no separator between them.
         items: [
-          { label: 'Preferences...', action: () => setShowPrefs(true), shortcut: 'Ctrl+,' },
+          { label: 'Preferences...', action: () => setShowPrefs('default'), shortcut: 'Ctrl+,' },
           setLanguageMenuItem({
             current: common.system.language,
             onSelect: (label) =>
@@ -2199,7 +2202,13 @@ export function DrawingSheetEditor({
    * upstream list and its index keeps the two independent, as they are
    * upstream; `gridIndex` starts at DEFAULT_GRID_INDEX.pl_editor = 4.
    */
-  const gridIU = mmToIU(gridSizeToMM(GRID_SIZE_LIST.pl_editor[gridIndex]?.x ?? '0.50 mm') ?? 0.5);
+  // The list is `window.grid.sizes`, not `DefaultGridSizeList()` read straight
+  // off the table: `PANEL_GRID_SETTINGS` edits it (Preferences > Drawing Sheet
+  // Editor > Grids), and a canvas that kept reading the table would make every
+  // row on that page a control nothing obeys. The table is still where the
+  // stored list is seeded from (`PL_EDITOR_DEFAULTS`).
+  const gridSizes = plCfg.window.grid.sizes;
+  const gridIU = mmToIU(gridSizeToMM(gridSizes[gridIndex] ?? '0.50 mm') ?? 0.5);
   // PL_EDITOR_FRAME::DisplayGridMsg (pagelayout_editor/pl_editor_frame.cpp:710)
   // formats the grid itself - "grid %.4f" in mm, "grid %.3f" in inch - rather
   // than going through GRID::MessageText, which is what MessageTextFromValue's
@@ -2559,6 +2568,7 @@ export function DrawingSheetEditor({
               hasSelection: selection.size > 0,
               zoom: zoomFactorForScale(scale, dpr, SCH_IU_PER_MM),
               gridIndex,
+              gridSizes,
               primaryUnits: unit === 'inches' ? 'in' : unit,
             },
             {
@@ -2701,125 +2711,20 @@ export function DrawingSheetEditor({
         <AboutDialog title={ABOUT_TITLES.drawingSheet} onClose={() => setAboutOpen(false)} />
       )}
 
-      {showPrefs && (
+      {/*
+        `EDA_BASE_FRAME::ShowPreferences` — the one `PAGED_DIALOG` every launcher
+        opens, not a modal of this editor's own. `showPrefs` carries the page it
+        opens on, which is `ShowPreferences( aStartPage, aStartParentPage )`'s
+        first argument: null for the Preferences menu item (upstream passes
+        `wxEmptyString` and the book opens on Common), 'ds-grids' for
+        `ACTIONS::gridProperties`.
+      */}
+      {showPrefs !== null && (
         <PreferencesDialog
-          crosshair={plCfg.window.cursor.crosshair}
-          alwaysShowCursor={plCfg.window.cursor.always_show_cursor}
-          onCrosshair={(mode) =>
-            settings.updatePlEditor((s) => {
-              s.window.cursor.crosshair = mode;
-            })
-          }
-          onAlwaysShowCursor={(v) =>
-            settings.updatePlEditor((s) => {
-              s.window.cursor.always_show_cursor = v;
-            })
-          }
-          onClose={() => setShowPrefs(false)}
+          {...(showPrefs === 'default' ? {} : { initialPage: showPrefs })}
+          onClose={() => setShowPrefs(null)}
         />
       )}
-    </div>
-  );
-}
-
-/**
- * Preferences.
- *
- * Upstream this is `EDA_BASE_FRAME::ShowPreferences`, a `PAGED_DIALOG` whose
- * Drawing Sheet Editor heading carries **four** pages — Display Options
- * (`PANEL_GAL_OPTIONS`), Grids (`PANEL_GRID_SETTINGS`), Colors and Toolbars
- * (`PANEL_TOOLBAR_CUSTOMIZATION`), registered at
- * `pagelayout_editor/pl_editor.cpp:68, 71, 82, 85` and confirmed by opening the
- * dialog on a running pl_editor. We have none of the four, and this modal is
- * not the shared `PreferencesDialog` every other launcher opens, which is a
- * central-value violation in its own right. That whole gap is issue #619's G12
- * and is not closed here.
- *
- * What IS closed here is the two ways this modal was not merely small but
- * wrong:
- *
- *  - **"Use a black background" is not a control upstream.** `m_BlackBackground`
- *    exists only as the field, its `PARAM`, and the frame's load/save
- *    (pl_editor_settings.h:48, pl_editor_settings.cpp:42, 50,
- *    pl_editor_frame.cpp:541, 562). Nothing in pl_editor calls
- *    `SetDrawBgColor` other than `LoadSettings`, so there is no command, menu
- *    item or checkbox that can change it — it is a settings-file-only value.
- *    The checkbox was ours, and it is gone; the setting is still read at load,
- *    exactly as upstream.
- *  - **The crosshair is two controls, not one.** `PANEL_GAL_OPTIONS` has a
- *    three-way shape radio — Small crosshairs / Full window crosshairs / 45
- *    degree crosshairs — and a separate `Always show crosshairs` checkbox
- *    (common/dialogs/panel_gal_options_base.cpp:102-114), read off the running
- *    dialog. Ours was one checkbox spelled "Always show full-window
- *    crosshairs", which is the two of them run together and could not reach
- *    the 45-degree mode at all, though `ui/grid_cursor.ts` has always drawn it.
- */
-function PreferencesDialog({
-  crosshair,
-  alwaysShowCursor,
-  onCrosshair,
-  onAlwaysShowCursor,
-  onClose,
-}: {
-  crosshair: CrosshairMode;
-  alwaysShowCursor: boolean;
-  onCrosshair: (mode: CrosshairMode) => void;
-  onAlwaysShowCursor: (v: boolean) => void;
-  onClose: () => void;
-}): JSX.Element {
-  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
-  // ui/modal_escape.ts.
-  useModalEscape(onClose);
-
-  return (
-    <div className="ze-modal-backdrop" onMouseDown={onClose}>
-      <div className="ze-modal ze-label-dialog" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="ze-modal-header">
-          Preferences
-          <span className="x" onClick={onClose}>
-            ✕
-          </span>
-        </div>
-        {/* Spacing is the wxFormBuilder unit, --wx-border, not a number picked
-            here: KiCad's dialogs are laid out with `wxALL, 5` throughout, so
-            every inset in one is a multiple of 5 and they line up because of
-            it. */}
-        <div
-          style={{
-            padding: 'calc(var(--wx-border) * 2) calc(var(--wx-border) * 3)',
-            fontSize: 12,
-            display: 'grid',
-            gap: 'calc(var(--wx-border) * 2)',
-          }}
-        >
-          {/* `PANEL_GAL_OPTIONS`' Cursor group, labels verbatim
-              (panel_gal_options_base.cpp:102-114). */}
-          {CROSSHAIR_MODE_CHOICES.map(([value, label]) => (
-            <label key={value}>
-              <input
-                type="radio"
-                name="ds-crosshair"
-                checked={crosshair === value}
-                onChange={() => onCrosshair(value)}
-              />{' '}
-              {label}
-            </label>
-          ))}
-          <label>
-            <input
-              type="checkbox"
-              checked={alwaysShowCursor}
-              onChange={(e) => onAlwaysShowCursor(e.target.checked)}
-            />{' '}
-            {ALWAYS_SHOW_CROSSHAIRS_LABEL}
-          </label>
-        </div>
-        <div className="ze-modal-footer">
-          <button className="ze-btn primary" onClick={onClose}>
-            Close
-          </button>
-        </div>
-      </div>
     </div>
   );
 }

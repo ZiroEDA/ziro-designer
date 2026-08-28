@@ -48,6 +48,7 @@ export function Num({
   unit,
   min,
   max,
+  step,
   width,
 }: {
   label: string;
@@ -56,6 +57,8 @@ export function Num({
   unit?: string;
   min?: number;
   max?: number;
+  /** `wxSpinCtrl::SetIncrement` — how far one arrow click moves the value. */
+  step?: number;
   width?: number;
 }): JSX.Element {
   return (
@@ -67,6 +70,7 @@ export function Num({
         value={value}
         {...(min !== undefined ? { min } : {})}
         {...(max !== undefined ? { max } : {})}
+        {...(step !== undefined ? { step } : {})}
         style={{ width: width ?? 80 }}
         onChange={(e) => {
           const v = Number(e.target.value);
@@ -84,11 +88,14 @@ export function Sel<T extends string | number>({
   value,
   options,
   onChange,
+  unit,
 }: {
   label: string;
   value: T;
   options: [T, string][];
   onChange: (v: T) => void;
+  /** A trailing `wxStaticText`, as `l_gridLineWidthUnits`' "pixels" is. */
+  unit?: string;
 }): JSX.Element {
   return (
     <label className="ze-pref-row">
@@ -107,6 +114,7 @@ export function Sel<T extends string | number>({
           </option>
         ))}
       </select>
+      {unit && <span className="unit">{unit}</span>}
     </label>
   );
 }
@@ -116,6 +124,56 @@ export function Group({ title, children }: { title: string; children: ReactNode 
     <div className="ze-pref-group">
       <div className="ze-pref-group-title">{title}</div>
       <div className="ze-pref-group-body">{children}</div>
+    </div>
+  );
+}
+
+/**
+ * A `wxRB_GROUP` run of `wxRadioButton`s, which is what KiCad reaches for
+ * wherever a choice is small and its options should all be visible at once —
+ * `PANEL_GAL_OPTIONS`' grid style and crosshair shape are both this
+ * (`common/dialogs/panel_gal_options_base.cpp:27-41` and `:100-112`), and a
+ * `wxChoice` in their place hides two of the three answers behind a click.
+ *
+ * `name` is the radio group: every button sharing it is mutually exclusive,
+ * which is what `wxRB_GROUP` declares. Two groups on one page must not share
+ * one, so it is required rather than derived.
+ *
+ * `row` lays the buttons out horizontally after the label, as the grid style's
+ * `wxBoxSizer( wxHORIZONTAL )` does; without it they stack, as the crosshair
+ * shape's `wxFlexGridSizer( 0, 1, 3, 0 )` does.
+ */
+export function Radio<T extends string | number>({
+  label,
+  name,
+  value,
+  options,
+  onChange,
+  row,
+}: {
+  label?: string;
+  name: string;
+  value: T;
+  options: readonly (readonly [T, string])[];
+  onChange: (v: T) => void;
+  row?: boolean;
+}): JSX.Element {
+  return (
+    <div className={row ? 'ze-pref-row' : 'ze-pref-radios'}>
+      {label !== undefined && <span className="lbl">{label}</span>}
+      {options.map(([v, l]) => (
+        <label key={String(v)} className="ze-pref-radio">
+          <input
+            type="radio"
+            name={name}
+            checked={value === v}
+            onChange={() => {
+              onChange(v);
+            }}
+          />
+          {l}
+        </label>
+      ))}
     </div>
   );
 }

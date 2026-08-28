@@ -422,6 +422,30 @@ const EDITOR = readFileSync(
 );
 
 /**
+ * The two cursor controls moved out of the editor and into `PANEL_GAL_OPTIONS`,
+ * where upstream has always had them — the Drawing Sheet Editor's Preferences
+ * is now the shared `PAGED_DIALOG` with pl_editor's own pages under it, not a
+ * modal of this editor's own. The writes still have to reach `pl_editor.json`,
+ * so the expectation is re-scoped to where they landed rather than dropped: the
+ * panel mutates the dialog's working copy, and OK commits that copy to the
+ * `plEditor` slice.
+ *
+ * `ds_preferences.test.ts` proves the whole chain link by link, including that
+ * the editor no longer holds a second copy of either control.
+ */
+const GAL_PANEL = readFileSync(
+  fileURLToPath(
+    new URL('../../../designer/src/dialogs/prefs/PanelGalOptions.tsx', import.meta.url),
+  ),
+  'utf8',
+);
+
+const PREFS_SHELL = readFileSync(
+  fileURLToPath(new URL('../../../designer/src/dialogs/PreferencesDialog.tsx', import.meta.url)),
+  'utf8',
+);
+
+/**
  * The wiring itself. Every rule above is a pure function, and a pure function
  * that nothing calls passes its tests forever — the editor lives in a `.tsx`
  * and `qa` has no DOM, so reading it as text is the only way to see that the
@@ -488,11 +512,20 @@ describe('the editor reads and writes the store', () => {
       's.properties_frame_width = w',
       's.window.grid.last_size_idx = idx',
       // `s.black_background = on` is deliberately absent — see above.
-      's.window.cursor.crosshair = mode',
-      's.window.cursor.always_show_cursor = v',
       'writePageToConfig(s, next)',
     ]) {
       expect(EDITOR, `${write} must reach updatePlEditor`).toContain(write);
     }
+  });
+
+  it('writes the two cursor settings back through the shared Preferences panel', () => {
+    // `PANEL_GAL_OPTIONS::TransferDataFromWindow` (panel_gal_options.cpp:
+    // 110-124) is where these two land upstream, so it is where they land here.
+    for (const write of ['w.cursor.crosshair = v', 'w.cursor.always_show_cursor = v'])
+      expect(GAL_PANEL, `${write} must be written by PANEL_GAL_OPTIONS`).toContain(write);
+    // And the dialog's OK is what carries that working copy into the store —
+    // without this line the panel would edit a clone and throw it away, which is
+    // precisely the "displays a value and then discards it" failure.
+    expect(PREFS_SHELL).toContain('settings.updatePlEditor((s) => Object.assign(s, plEditor));');
   });
 });

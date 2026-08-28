@@ -14,7 +14,8 @@
  * only by this page, so they belong to it. Nothing else re-rendered on them.
  */
 import { useMemo, type JSX } from 'react';
-import { Group, Sel, joinCss, splitCss } from '../../../dialogs/prefs/widgets.js';
+import { Group, splitCss } from '../../../dialogs/prefs/widgets.js';
+import { ColorThemeChoice } from '../../../dialogs/prefs/ColorThemeChoice.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
 import { pcm, usePcmVersion } from '../../../pcm/pcmStore.js';
 import { BUILTIN_THEMES, KICAD_DEFAULT, type Theme } from '../theme.js';
@@ -63,10 +64,10 @@ const COLOR_LAYERS: [keyof Theme, string][] = [
 export function PanelEeschemaColorSettings({ ctx }: { ctx: PrefsContext }): JSX.Element {
   const { eeschema, upE, userColors, setUserColors } = ctx;
 
+  // Colour themes installed via the Plugin and Content Manager are offered by
+  // `ColorThemeChoice`, which subscribes to the store itself; this page still
+  // needs the version to re-derive `activeColors` when one is installed.
   usePcmVersion();
-  // Colour themes installed via the Plugin and Content Manager, offered here
-  // alongside the built-in themes.
-  const installedThemes = pcm.installedThemes();
   const themeId = eeschema.appearance.color_theme;
   const activeColors: Theme = useMemo(() => {
     const builtin = BUILTIN_THEMES[themeId];
@@ -79,15 +80,15 @@ export function PanelEeschemaColorSettings({ ctx }: { ctx: PrefsContext }): JSX.
   return (
     <>
       <Group title="Theme">
-        <Sel
+        {/*
+          `PANEL_COLOR_SETTINGS_BASE`'s `Theme:` choice, filled from
+          `GetColorSettingsList()`. The list is app-wide upstream and the
+          Drawing Sheet Editor's Colors page is that one control and no other,
+          so it is one component here rather than a copy per page.
+        */}
+        <ColorThemeChoice
           label="Theme:"
           value={themeId}
-          options={[
-            ['_builtin_default', 'KiCad Default'],
-            ['_builtin_classic', 'KiCad Classic'],
-            ...installedThemes.map((t): [string, string] => [t.id, t.name]),
-            ['user', 'User'],
-          ]}
           onChange={(v) =>
             upE((s) => {
               s.appearance.color_theme = v;

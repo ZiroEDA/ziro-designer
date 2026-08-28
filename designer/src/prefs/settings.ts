@@ -31,7 +31,7 @@ import {
 import type { EdaUnits } from '@ziroeda/common/src/eda_units.js';
 import type { RegulatorData } from '@ziroeda/pcb_calculator';
 import { defaultUnits } from '../ui/app_settings_units.js';
-import { DEFAULT_GRID_INDEX } from '../ui/grid_settings.js';
+import { DEFAULT_GRID_INDEX, GRID_SIZE_LIST } from '../ui/grid_settings.js';
 import {
   DEFAULT_ROUTING_SETTINGS,
   writeRoutingSettings,
@@ -700,8 +700,31 @@ export interface PlEditorSettings {
      */
     last_imperial_units: EdaUnits;
   };
+  /**
+   * `appearance.color_theme` -> `APP_SETTINGS_BASE::m_ColorTheme`
+   * (app_settings.cpp:282-283), default `COLOR_SETTINGS::COLOR_BUILTIN_DEFAULT`.
+   * The one control on Preferences > Drawing Sheet Editor > Colors, which is
+   * `Color theme:` and nothing else
+   * (pagelayout_editor/dialogs/panel_pl_editor_color_settings_base.cpp:19-27).
+   */
+  appearance: {
+    color_theme: string;
+  };
   window: {
     grid: {
+      /**
+       * `window.grid.sizes` -> `GRID_SETTINGS::grids`
+       * (app_settings.cpp:476-477), seeded from `DefaultGridSizeList()`'s
+       * pl_editor row. Stored rather than read straight off the table because
+       * `PANEL_GRID_SETTINGS` edits it: add, edit, remove and reorder all write
+       * `m_grids` back into `gridCfg.grids`
+       * (common/dialogs/panel_grid_settings.cpp:190-192).
+       *
+       * Every entry in pl_editor's row is square, so one string per grid says
+       * all of `GRID{ name, x, y }` that this editor can produce — the same
+       * shape `EeschemaSettings` already stores.
+       */
+      sizes: string[];
       /**
        * `window.grid.last_size` -> `GRID_SETTINGS::last_size_idx`
        * (app_settings.cpp:480-481), default `defaultGridIdx` = 4 for
@@ -710,6 +733,24 @@ export interface PlEditorSettings {
        */
       last_size_idx: number;
       /**
+       * `window.grid.fast_grid_1` (app_settings.cpp:483-484), default
+       * `defaultGridIdx`, i.e. the same grid `last_size` starts on.
+       */
+      fast_grid_1: number;
+      /**
+       * `window.grid.fast_grid_2` (app_settings.cpp:486-487), default
+       * `defaultGridIdx + 1`.
+       */
+      fast_grid_2: number;
+      /** `window.grid.style` (app_settings.cpp:558-559), 0 = DOTS. */
+      style: 'dots' | 'lines' | 'crosses';
+      /** `window.grid.line_width` (app_settings.cpp:549-550), 1.0 px. */
+      line_width: number;
+      /** `window.grid.min_spacing` (app_settings.cpp:552-553), 10 px. */
+      min_spacing: number;
+      /** `window.grid.snap` (app_settings.cpp:561-562), 0 = ALWAYS. */
+      snap: 0 | 1 | 2;
+      /**
        * `window.grid.show` (app_settings.cpp:555-556), default true. Not
        * written by `SaveSettings`: `ACTIONS::toggleGrid` mutates the settings
        * object in place through `EDA_DRAW_FRAME::SetGridVisibility`
@@ -717,6 +758,26 @@ export interface PlEditorSettings {
        * restart.
        */
       show: boolean;
+      /**
+       * `window.grid.overrides_enabled` (app_settings.cpp:522-523), true for
+       * pl_editor as for everything else — the `else` arm gives it the same
+       * default the eeschema arm does.
+       */
+      overrides_enabled: boolean;
+      /**
+       * The two per-item overrides `PANEL_GRID_SETTINGS` leaves visible for
+       * `FRAME_PL_EDITOR`. Its constructor hides the vias row for every frame
+       * outside pcbnew, and hides the connected and wires rows for every frame
+       * that is not one of the four schematic ones
+       * (common/dialogs/panel_grid_settings.cpp:62-82), which leaves Text and
+       * Graphics. Both default off, at grid indices 18 and 15 of the *pcbnew*
+       * row upstream — indices into a 22-entry list pl_editor does not have, so
+       * ours name the grid by its string instead.
+       */
+      overrides: {
+        text: GridOverride;
+        graphics: GridOverride;
+      };
     };
     cursor: {
       /** `window.cursor.cross_hair_mode` (app_settings.cpp:567-568), SMALL_CROSS. */
@@ -750,10 +811,34 @@ export const PL_EDITOR_DEFAULTS: PlEditorSettings = {
     last_metric_units: 'mm',
     last_imperial_units: 'mils',
   },
+  appearance: {
+    color_theme: '_builtin_default',
+  },
   window: {
     grid: {
+      // `DefaultGridSizeList()`'s pl_editor row, asked rather than restated —
+      // the same table the grid selector and the canvas already read. All eight
+      // are square, so the X column says the whole grid.
+      sizes: GRID_SIZE_LIST.pl_editor.map((g) => g.x),
       last_size_idx: DEFAULT_GRID_INDEX.pl_editor,
+      // `fast_grid_1 = defaultGridIdx`, `fast_grid_2 = defaultGridIdx + 1`
+      // (app_settings.cpp:483-487) — not two literals.
+      fast_grid_1: DEFAULT_GRID_INDEX.pl_editor,
+      fast_grid_2: DEFAULT_GRID_INDEX.pl_editor + 1,
+      style: 'dots',
+      line_width: 1,
+      min_spacing: 10,
+      snap: 0,
       show: true,
+      overrides_enabled: true,
+      // The `else` arm of app_settings.cpp:520-546: both off. Upstream's
+      // indices (18, 15) point into pcbnew's grid list; the nearest thing
+      // pl_editor's own row has is its finest grid, which is what a text or
+      // graphics override would be for.
+      overrides: {
+        text: { enabled: false, size: '0.10 mm' },
+        graphics: { enabled: false, size: '0.10 mm' },
+      },
     },
     cursor: {
       crosshair: 'small',

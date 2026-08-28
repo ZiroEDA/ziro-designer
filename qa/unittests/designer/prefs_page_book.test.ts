@@ -22,10 +22,14 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
 import {
+  EXTRA_PAGES,
   FIRST_PAGE,
+  OMITTED_PAGES,
   PAGES,
+  UPSTREAM_BOOK,
   labelOf,
   ownerOf,
+  shippedUnder,
   type PrefsPageEntry,
 } from '@ziroeda/designer/src/dialogs/prefs/registry.js';
 
@@ -49,6 +53,12 @@ const EXPECTED: PrefsPageEntry[] = [
   { id: 'sch-fields', label: 'Field Name Templates', indent: true, owner: 'schematic' },
   { id: null, label: 'PCB Editor' },
   { id: 'pcb-display', label: 'Display Options', indent: true, owner: 'pcb' },
+  // pl_editor's KIFACE is consulted last of the four
+  // (`common/eda_base_frame.cpp:1726-1737`), so its heading is last.
+  { id: null, label: 'Drawing Sheet Editor' },
+  { id: 'ds-display', label: 'Display Options', indent: true, owner: 'drawingsheet' },
+  { id: 'ds-grids', label: 'Grids', indent: true, owner: 'drawingsheet' },
+  { id: 'ds-colors', label: 'Colors', indent: true, owner: 'drawingsheet' },
 ];
 
 describe('the Preferences page book', () => {
@@ -98,6 +108,7 @@ const OWNER_SOURCES: Record<string, string> = {
   generic: 'dialogs/prefs/panels/index.ts',
   schematic: 'editors/schematic/prefs/index.ts',
   pcb: 'editors/pcb/prefs/index.ts',
+  drawingsheet: 'editors/drawingsheet/prefs/index.ts',
 };
 
 describe('every page id is constructed by its owner', () => {
@@ -117,5 +128,92 @@ describe('every page id is constructed by its owner', () => {
       ),
     );
     for (const p of PAGES) if (p.id !== null) expect(constructed.has(p.id), p.id).toBe(true);
+  });
+});
+
+/**
+ * The book against KiCad's, heading by heading.
+ *
+ * Everything above this point compares `PAGES` with a transcript of `PAGES`.
+ * That catches a reorder and a rename and nothing else: a page upstream has and
+ * we never built is identical, to such a test, to a page that does not exist.
+ * The Drawing Sheet Editor shipped as "complete" with its whole heading missing
+ * for exactly that reason.
+ *
+ * So this compares against the C++ instead. `UPSTREAM_BOOK` is transcribed from
+ * `EDA_BASE_FRAME::ShowPreferences`' `AddLazySubPage` runs
+ * (`common/eda_base_frame.cpp:1644-1652`, `:1684-1691`, `:1733-1737`), and the
+ * rule is per heading: what we ship, plus what we have *declared* absent, must
+ * be that list — in that order — with nothing shipped that upstream has not got
+ * unless that too is declared.
+ *
+ * Per heading and not in aggregate, because "right in pl_editor, wrong in
+ * eeschema" is the shape of bug this codebase produces most.
+ */
+describe('each editor heading against KiCad’s own list', () => {
+  const HEADINGS = Object.keys(UPSTREAM_BOOK);
+
+  it('covers every heading the tree actually shows', () => {
+    const shown = PAGES.filter((p) => p.id === null).map((p) => p.label);
+    expect(shown.sort()).toEqual([...HEADINGS].sort());
+  });
+
+  it.each(HEADINGS)('%s: shipped + declared-absent is upstream’s list, in order', (heading) => {
+    const upstream = UPSTREAM_BOOK[heading] as readonly string[];
+    const shipped = shippedUnder(heading);
+    const omitted = (OMITTED_PAGES[heading] ?? []).map((p) => p.label);
+    const extra = (EXTRA_PAGES[heading] ?? []).map((p) => p.label);
+
+    // Nothing invented: every row we show is either upstream's or declared.
+    for (const label of shipped)
+      expect(upstream.concat(extra), `${heading} > ${label}`).toContain(label);
+
+    // Nothing lost: upstream's list is exactly the shipped rows plus the
+    // declared-absent ones, and the shipped ones keep upstream's order.
+    const accounted = upstream.filter(
+      (label) => shipped.includes(label) || omitted.includes(label),
+    );
+    expect(accounted).toEqual([...upstream]);
+    expect(shipped.filter((l) => !extra.includes(l))).toEqual(
+      upstream.filter((l) => !omitted.includes(l)),
+    );
+  });
+
+  it('the Drawing Sheet Editor has the four pages pl_editor’s KIFACE registers', () => {
+    // `pagelayout_editor/pl_editor.cpp:68, 71, 82, 85` — PANEL_DS_DISPLAY_OPTIONS,
+    // PANEL_DS_GRIDS, PANEL_DS_COLORS, PANEL_DS_TOOLBARS — and the labels are
+    // `eda_base_frame.cpp:1734-1737`. Read off a running pl_editor as well.
+    expect(UPSTREAM_BOOK['Drawing Sheet Editor']).toEqual([
+      'Display Options',
+      'Grids',
+      'Colors',
+      'Toolbars',
+    ]);
+    expect(shippedUnder('Drawing Sheet Editor')).toEqual(['Display Options', 'Grids', 'Colors']);
+  });
+
+  it('states a reason for every declared page, and declares no page twice', () => {
+    for (const table of [OMITTED_PAGES, EXTRA_PAGES]) {
+      for (const [heading, rows] of Object.entries(table)) {
+        const labels = rows.map((r) => r.label);
+        expect(new Set(labels).size, heading).toBe(labels.length);
+        for (const row of rows)
+          expect(row.reason.length, `${heading} > ${row.label}`).toBeGreaterThan(20);
+      }
+    }
+  });
+
+  it('declares absent only pages upstream actually has', () => {
+    // A reason attached to a row KiCad does not have would read as diligence
+    // and mean nothing.
+    for (const [heading, rows] of Object.entries(OMITTED_PAGES))
+      for (const row of rows)
+        expect(UPSTREAM_BOOK[heading], `${heading} > ${row.label}`).toContain(row.label);
+  });
+
+  it('declares extra only pages upstream does not have', () => {
+    for (const [heading, rows] of Object.entries(EXTRA_PAGES))
+      for (const row of rows)
+        expect(UPSTREAM_BOOK[heading], `${heading} > ${row.label}`).not.toContain(row.label);
   });
 });
