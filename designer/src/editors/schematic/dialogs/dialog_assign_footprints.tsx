@@ -151,6 +151,18 @@ const FILTER_DEBOUNCE_MS = 200;
 /** `m_tcFilterString->SetMinSize( wxSize( 150, -1 ) )` (toolbars_cvpcb.cpp:112). */
 const FILTER_BOX_WIDTH = 150;
 
+/**
+ * The size the window opens at, and the smallest it goes.
+ *
+ * DATA, both of them constants KiCad writes itself. CVPCB_MAINFRAME passes
+ * `wxDefaultSize` to KIWAY_PLAYER, so it takes EDA_BASE_FRAME's
+ * `defaultSize( aFrameType, this )` — 850x540 for the project manager and
+ * `FromDIP( wxSize( 1280, 720 ) )` for every other frame, cvpcb included
+ * (common/eda_base_frame.cpp:110-120) — and `minSizeLookup` gives it 500x400
+ * (:96-107). Ours was 1240x760, which is neither.
+ */
+const FRAME_SIZE = { width: 1280, height: 720, minWidth: 500, minHeight: 400 };
+
 interface Props {
   /** Every sheet of the open project, keyed by file name. */
   docs: ReadonlyMap<string, Schematic>;
@@ -1031,7 +1043,15 @@ export function DialogAssignFootprints({
       <div
         className="ze-modal ze-fpassign"
         ref={frameRef}
-        style={{ width: 1240, maxWidth: '96vw', height: 760, maxHeight: '92vh' }}
+        style={{
+          width: FRAME_SIZE.width,
+          height: FRAME_SIZE.height,
+          minWidth: FRAME_SIZE.minWidth,
+          minHeight: FRAME_SIZE.minHeight,
+          // A desktop frame is clamped by the screen; a modal by the viewport.
+          maxWidth: '96vw',
+          maxHeight: '92vh',
+        }}
         onMouseDown={(e) => e.stopPropagation()}
         onKeyDown={onKeyDown}
         tabIndex={-1}

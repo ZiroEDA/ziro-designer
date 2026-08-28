@@ -190,6 +190,23 @@ describe('the wxAUI caption band over each pane', () => {
   });
 });
 
+describe('the window opens at the size EDA_BASE_FRAME gives a cvpcb frame', () => {
+  it('is 1280x720, not a size of ours', () => {
+    // CVPCB_MAINFRAME hands KIWAY_PLAYER wxDefaultSize, so it takes
+    // `defaultSize( aFrameType, this )` — `FromDIP( wxSize( 1280, 720 ) )` for
+    // every frame but the project manager (common/eda_base_frame.cpp:110-120).
+    const frame = window_().querySelector('.ze-fpassign') as HTMLElement;
+    expect(frame.style.width).toBe('1280px');
+    expect(frame.style.height).toBe('720px');
+  });
+
+  it('will not shrink past minSizeLookup’s 500x400', () => {
+    const frame = window_().querySelector('.ze-fpassign') as HTMLElement;
+    expect(frame.style.minWidth).toBe('500px');
+    expect(frame.style.minHeight).toBe('400px');
+  });
+});
+
 describe('the menu bar is cvpcb/menubar.cpp’s', () => {
   it('ends with the Help menu AddStandardHelpMenu appends', () => {
     const labels = [...window_().querySelectorAll('.ze-menubar > *')].map((e) =>
