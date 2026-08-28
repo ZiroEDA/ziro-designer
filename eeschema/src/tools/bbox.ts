@@ -265,7 +265,7 @@ export function labelTextBox(
   const fudge = Math.round(extentsY * 0.17);
   let sizeY = extentsY + fudge;
   // `text.Contains( "~{" )`: an overbar climbs above the nominal ascent.
-  if (text.includes('~{')) sizeY += Math.round(extentsY / 6);
+  if (text.includes('~{')) sizeY += Math.trunc(extentsY / 6);
 
   // GetTextBox's horizontal switch, unmirrored:
   //

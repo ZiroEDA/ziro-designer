@@ -165,8 +165,14 @@ export function fieldTextBox(field: SchField, shownText: string, posOverride?: V
   const extentsY = h + 2 * inflate;
 
   const fudge = kiRound(extentsY * 0.17); // stroke-font fudge factor
+  // `if( text.Contains( "~{" ) ) overbarOffset = extents.y / 6;` — an overbar
+  // climbs above the nominal ascent, so the box grows to hold it. Integer
+  // division in C++, hence trunc and not round. It is added AFTER the fudge and
+  // is part of GetHeight(), which is what the centre/bottom arms below divide
+  // and subtract; the top/bottom *offsets* stay on the fudge alone.
+  const overbar = shownText.includes('~{') ? Math.trunc(extentsY / 6) : 0;
   const pos = posOverride ?? field.at ?? { x: 0, y: 0 };
-  const box: Box = { x: pos.x, y: pos.y, w: extentsX, h: extentsY + fudge };
+  const box: Box = { x: pos.x, y: pos.y, w: extentsX, h: extentsY + fudge + overbar };
 
   const italicOffset = italic ? kiRound(h * ITALIC_TILT) : 0;
   switch (storedHJustify(field)) {
