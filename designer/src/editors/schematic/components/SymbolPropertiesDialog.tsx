@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
-import { iuToMM } from '@ziroeda/common';
+import { iuToMM, schIUScale } from '@ziroeda/common';
 import { mmToIU, symbolTransform, composeMirror, orientationFromTransform } from '@ziroeda/common';
 import type { FieldTemplate } from '../schematic_settings.js';
 import {
@@ -9,6 +9,7 @@ import {
   canMoveRowDown,
   canMoveRowUp,
   defaultShownColumns,
+  duplicateNameError,
   fieldsFromRows,
   FIELDS_GRID_COLUMNS,
   gridRowIndices,
@@ -46,7 +47,8 @@ import {
   embeddedFilesIn,
 } from '@ziroeda/eeschema';
 import { PIN_SHAPE_NAMES, PIN_TYPE_NAMES } from '../../symbol/render/symbolRenderer.js';
-import { measureText } from '@ziroeda/common/src/font/stroke_font.js';
+import { DEFAULT_FONT_NAME, measureText } from '@ziroeda/common/src/font/stroke_font.js';
+import { parseUnitValueDouble, stringFromValue, type EdaUnits } from '../../../ui/unit_binder.js';
 import { useModalEscape } from '../../../ui/useModalEscape.js';
 import { ColorSwatch } from '../../../ui/ColorSwatch.js';
 import { StdBitmapButton } from '../../../ui/StdBitmapButton.js';
@@ -87,14 +89,31 @@ import { color4dToItemColor, itemColorToColor4d } from '../dialogs/item_color.js
  *  - a `private` field is not a row here at all (`getVisibleRowCount`), though
  *    it stays in the table so OK cannot drop it;
  *  - positions are shown symbol-relative (`TransferDataToWindow` offsets each
- *    copy by -symbol position) in the user units (mm);
+ *    copy by -symbol position), and Text Size / X / Y carry their unit word
+ *    because `StringFromValue`'s `aAddUnitLabel` is true there;
  *  - the H/V-align cells show the *effective* justification and setting them
- *    stores the possibly-flipped one (Get/SetEffectiveHorizJustify).
+ *    stores the possibly-flipped one (Get/SetEffectiveHorizJustify). A field
+ *    with no `(justify …)` token reads "Center" in BOTH programs — a KiCad
+ *    that reads "Left" is showing a field whose token says left, which
+ *    autoplacement writes and a bare library placement does not. It is data,
+ *    not a dialog difference, and must not be "corrected" here.
  *
  * Not reachable from the browser build, and reported rather than faked:
- * the Simulation Model dialog (`OnEditSpiceModel`), the font list (everything
- * renders with KiCad's stroke font), and adding to / removing from a library
- * symbol's embedded files, which has no write path in our model yet.
+ *
+ *  - the Simulation Model dialog (`OnEditSpiceModel`, :587 → DIALOG_SIM_MODEL).
+ *    Upstream never disables that button — it only *hides* it for a power
+ *    symbol (:375) — so ours is the one control that is greyed where KiCad's
+ *    is live. It carries the reason as its tooltip;
+ *  - the FDC_FONT list. `Fontconfig()->ListFonts` has no browser counterpart
+ *    without the Local Font Access prompt, so the cell shows the face name and
+ *    offers no list. The name it shows is upstream's, "Default Font";
+ *  - wxMINIMIZE_BOX / wxMAXIMIZE_BOX from the base file's style flags
+ *    (dialog_symbol_properties_base.h:110). Those are decorations the desktop's
+ *    window manager draws on a real top-level wxDialog; a DOM modal is not a
+ *    window and has none to draw. wxRESIZE_BORDER, the third flag, IS
+ *    expressible and is honoured — see `.ze-modal.ze-symprops`;
+ *  - adding to / removing from a library symbol's embedded files, which has no
+ *    write path in our model yet.
  */
 
 type Row = FieldRow;
@@ -108,6 +127,14 @@ interface Props {
   fieldTemplates?: readonly FieldTemplate[];
   /** Unit-notation inputs for the shown Reference (SubReference). */
   subpart?: SubpartSettings;
+  /**
+   * `m_frame->GetUserUnits()`, which is what `FIELDS_GRID_TABLE` formats and
+   * parses Text Size / X Position / Y Position with
+   * (fields_grid_table.cpp:823-833). Defaults to millimetres so a caller with
+   * no frame behind it still gets upstream's default unit rather than a bare
+   * number in unstated units.
+   */
+  units?: EdaUnits;
   /** Whether the library symbol draws a second body style (De Morgan).
    *  `LIB_SYMBOL::IsMultiBodyStyle`; defaults to asking `lib` itself. */
   hasAlternate?: boolean;
@@ -130,11 +157,17 @@ interface Props {
   onEditLibrarySymbol?: () => void;
 }
 
-const mmStr = (iu: number): string => {
-  let s = iuToMM(iu).toFixed(4).replace(/0+$/, '').replace(/\.$/, '');
-  if (s === '-0' || s === '') s = '0';
-  return s;
-};
+/**
+ * What the Text Size / X Position / Y Position cells hold:
+ * `m_frame->StringFromValue( value, true )` (fields_grid_table.cpp:823-833).
+ *
+ * `aAddUnitLabel` is TRUE there, so the cell reads "1.27 mm" and not "1.27" —
+ * these are `wxGridCellTextEditor` cells with no unit word beside them, and the
+ * suffix is the only thing that says what the number is in. The formatting is
+ * the shared `UNIT_BINDER` half of `eda_units.cpp`, at the SCHEMATIC IU scale.
+ */
+const valueStr = (iu: number, units: EdaUnits): string =>
+  stringFromValue(iuToMM(iu), units, true, schIUScale);
 
 /** A row as an absolute-position SchField, for the justify/box computations. */
 function absField(row: Row, sym: SchSymbol): SchField {
@@ -186,6 +219,7 @@ export function SymbolPropertiesDialog({
   fieldTemplates,
   subpart,
   hasAlternate,
+  units = 'mm',
   onOk,
   onCancel,
   onChangeSymbol,
@@ -239,6 +273,20 @@ export function SymbolPropertiesDialog({
   // Pin selections accumulate on a working copy, so Cancel discards them with
   // everything else rather than having already been applied.
   const [pinSym, setPinSym] = useState<SchSymbol>(symbol);
+  /**
+   * `OnUnitChoice` (dialog_symbol_properties.cpp:1172-1203) sets the symbol to
+   * the newly chosen unit, rebuilds the pin model from `GetRawPins()` and puts
+   * the unit back — so the Pin Functions page lists the pins of the unit the
+   * COMBO is on, not the one the placement was opened as. Picking unit B and
+   * looking at the page must show B's pins.
+   *
+   * Upstream `clear()`s the model, which also discards alternates entered for
+   * the previous unit; ours are keyed by pin number on the working copy, so
+   * they survive. That is the one place this deliberately keeps more than
+   * upstream — throwing an edit away on a combo change is a data loss, not a
+   * behaviour worth reproducing.
+   */
+  const pinUnitSym = useMemo(() => ({ ...pinSym, unit, bodyStyle }), [pinSym, unit, bodyStyle]);
 
   // "Multiple body styles are a superclass of alternate pin assignments, so
   // don't allow free-form alternate assignments as well." The page is disabled
@@ -272,11 +320,15 @@ export function SymbolPropertiesDialog({
       // biome-ignore lint/a11y/noAutofocus: SetGridCursor + EnableCellEditControl
       autoFocus
       className="ze-grid-input num"
-      value={cellText ?? mmStr(valueIU)}
+      value={cellText ?? valueStr(valueIU, units)}
       onChange={(e) => setCellText(e.target.value)}
       onBlur={(e) => {
-        const v = Number(e.target.value.replace(',', '.'));
-        if (Number.isFinite(v)) commit(mmToIU(v));
+        // `WX_GRID`'s numeric cells go through `ValueFromString`, i.e. the same
+        // `DoubleValueFromString` a UNIT_BINDER uses: the leading numeric run
+        // is parsed and a trailing designator overrides the display unit, so
+        // the " mm" the cell was showing does not become part of the number and
+        // "50mil" typed into a mm cell means 50 mils.
+        commit(mmToIU(parseUnitValueDouble(e.target.value, units)));
         setCellText(null);
         setCursor((c) => ({ ...c, editing: false }));
       }}
@@ -396,9 +448,26 @@ export function SymbolPropertiesDialog({
             // biome-ignore lint/a11y/noAutofocus: EnableCellEditControl( true )
             autoFocus
             className="ze-grid-input"
-            value={row.key}
-            onChange={(e) => patchRow(viewRow, { key: e.target.value })}
-            onBlur={() => setCursor((c) => ({ ...c, editing: false }))}
+            // A wxGrid editor holds a string of its own and writes the table
+            // only on commit, which is what lets `OnGridCellChanging` refuse
+            // the write. Typing straight into the row would leave nothing to
+            // refuse.
+            value={cellText ?? row.key}
+            onChange={(e) => setCellText(e.target.value)}
+            onBlur={(e) => {
+              // `OnGridCellChanging` (dialog_symbol_properties.cpp:878-896):
+              // a name already in use is vetoed, the message shown, and the
+              // cell re-focused with its OLD value — the edit is discarded,
+              // not kept as a pending correction.
+              const dup = duplicateNameError(rows, view[viewRow] ?? -1, e.target.value);
+              setCellText(null);
+              if (dup) {
+                setError(dup);
+                return;
+              }
+              patchRow(viewRow, { key: e.target.value });
+              setCursor((c) => ({ ...c, editing: false }));
+            }}
             onKeyDown={(e) => {
               e.stopPropagation();
               if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
@@ -525,7 +594,7 @@ export function SymbolPropertiesDialog({
         return editing ? (
           numEditor(size, (iu) => patchEffects(viewRow, { fontSize: [iu, iu] }))
         ) : (
-          <span className="ze-grid-text">{mmStr(size)}</span>
+          <span className="ze-grid-text">{valueStr(size, units)}</span>
         );
       }
       case 9: {
@@ -552,19 +621,26 @@ export function SymbolPropertiesDialog({
         return editing ? (
           numEditor(row.at.x, (iu) => patchRow(viewRow, { at: { ...row.at, x: iu } }))
         ) : (
-          <span className="ze-grid-text">{mmStr(row.at.x)}</span>
+          <span className="ze-grid-text">{valueStr(row.at.x, units)}</span>
         );
       case 11:
         return editing ? (
           numEditor(row.at.y, (iu) => patchRow(viewRow, { at: { ...row.at, y: iu } }))
         ) : (
-          <span className="ze-grid-text">{mmStr(row.at.y)}</span>
+          <span className="ze-grid-text">{valueStr(row.at.y, units)}</span>
         );
       case 12:
-        // FDC_FONT. `Fontconfig()->ListFonts` has no browser counterpart — the
-        // whole build draws with KiCad's stroke font — so the cell states which
-        // font that is rather than offering a list that could not be honoured.
-        return <span className="ze-grid-text">{row.effects.face ?? 'KiCad Font'}</span>;
+        // FDC_FONT. `field.GetFont() ? GetName() : DEFAULT_FONT_NAME`
+        // (fields_grid_table.cpp:838-841), and DEFAULT_FONT_NAME is
+        // `_( "Default Font" )` (:60) — NOT "KiCad Font", which is a face a
+        // field can name explicitly and which the combo lists as a second,
+        // separate entry (:410-411). A field with no `(face …)` reads "Default
+        // Font" in KiCad even though the stroke font is what draws it.
+        //
+        // The combo behind the cell is `Fontconfig()->ListFonts`, which has no
+        // browser counterpart, so the cell is text here rather than a list that
+        // could not be honoured.
+        return <span className="ze-grid-text">{row.effects.face ?? DEFAULT_FONT_NAME}</span>;
       case 13:
         // FDC_COLOR: GRID_CELL_COLOR_RENDERER, a swatch at all times. It can
         // express "unspecified" — MakeBitmap paints a checkerboard for it —
@@ -670,7 +746,7 @@ export function SymbolPropertiesDialog({
                     </tr>
                   </thead>
                   <tbody>
-                    {pinGridRows(pinSym, lib).map((r) => (
+                    {pinGridRows(pinUnitSym, lib).map((r) => (
                       <tr key={r.number}>
                         <td>
                           <span className="ze-grid-text">{r.number}</span>
@@ -689,9 +765,20 @@ export function SymbolPropertiesDialog({
                               className="ze-grid-input"
                               value={r.alternate}
                               onChange={(e) =>
-                                setPinSym((sym) =>
-                                  setPinAlternate(sym, lib, r.number, e.target.value),
-                                )
+                                setPinSym((sym) => ({
+                                  ...sym,
+                                  // The row's pin is found in the unit the
+                                  // CHOICE is on, not the one the placement
+                                  // was opened as; `sym.unit` itself is left
+                                  // alone, since OK writes the unit from the
+                                  // combo and not from this working copy.
+                                  pins: setPinAlternate(
+                                    { ...sym, unit, bodyStyle },
+                                    lib,
+                                    r.number,
+                                    e.target.value,
+                                  ).pins,
+                                }))
                               }
                             >
                               {r.choices.map((c) => (
@@ -862,7 +949,14 @@ export function SymbolPropertiesDialog({
               <fieldset className="ze-ds-group ze-symprops-general">
                 <legend>General</legend>
                 <div className="ze-symprops-gb">
-                  <label className="ze-symprops-lbl" htmlFor="ze-symprops-unit">
+                  {/* `m_unitLabel->Enable( false )` as well as the choice
+                      (dialog_symbol_properties.cpp:504): a wxStaticText greys
+                      with its control, so the word "Unit:" is grey too on a
+                      single-unit part. */}
+                  <label
+                    className={multiUnit ? 'ze-symprops-lbl' : 'ze-symprops-lbl disabled'}
+                    htmlFor="ze-symprops-unit"
+                  >
                     Unit:
                   </label>
                   <select
@@ -886,7 +980,12 @@ export function SymbolPropertiesDialog({
                       : null}
                   </select>
 
-                  <label className="ze-symprops-lbl" htmlFor="ze-symprops-bodystyle">
+                  {/* `m_bodyStyle->Enable( false )` (:537), the same rule for
+                      the label of a part with only one body style. */}
+                  <label
+                    className={multiBodyStyle ? 'ze-symprops-lbl' : 'ze-symprops-lbl disabled'}
+                    htmlFor="ze-symprops-bodystyle"
+                  >
                     Body style:
                   </label>
                   <select
@@ -1067,11 +1166,31 @@ export function SymbolPropertiesDialog({
             the General page, so it stays put as the pages change. */}
         <div className="ze-modal-footer ze-symprops-foot">
           <span className="ze-symprops-libid-label">Library link:</span>
-          {/* wxTE_READONLY | wxBORDER_NONE, painted
+          {/* `wxTextCtrl( …, wxTE_READONLY|wxBORDER_NONE )`
+              (dialog_symbol_properties_base.cpp:323), painted
               KIPLATFORM::UI::GetDialogBGColour() — wxSYS_COLOUR_BTNFACE, which
-              is LIGHTER than the dialog around it. */}
-          <input className="ze-symprops-libid" readOnly value={symbol.libId} title={symbol.libId} />
-          {/* `if( m_part && m_part->IsPower() ) m_spiceFieldsButton->Hide();` */}
+              is LIGHTER than the dialog around it. Nothing ever clears
+              wxTE_READONLY: the LIB_ID is changed by "Change Symbol...", never
+              by typing here. `aria-readonly` says so to a screen reader, since
+              a borderless read-only entry looks like a label. */}
+          <input
+            className="ze-symprops-libid"
+            readOnly
+            aria-readonly="true"
+            aria-label="Library link"
+            value={symbol.libId}
+            title={symbol.libId}
+          />
+          {/* `if( m_part && m_part->IsPower() ) m_spiceFieldsButton->Hide();`
+              (dialog_symbol_properties.cpp:375-376) is the ONLY thing upstream
+              ever does to this button — it is hidden for a power symbol and
+              live for every other one, with no wxUpdateUI handler and no
+              enable condition at all.
+              SEAM: it stays disabled here because `OnEditSpiceModel` (:587)
+              opens DIALOG_SIM_MODEL, which is not ported — eeschema/src/sim/
+              carries the model types the SPICE exporter needs, not the dialog.
+              A live button that opened nothing would be the worse divergence,
+              so the reason is stated in the tooltip the user actually sees. */}
           {!isPower && (
             <button
               type="button"

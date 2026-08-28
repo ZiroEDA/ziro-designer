@@ -38,7 +38,7 @@ import {
   type WksOption,
   type WksColor,
 } from '@ziroeda/common';
-import { KICAD_FONT_NAME } from '@ziroeda/common/src/font/stroke_font.js';
+import { DEFAULT_FONT_NAME, KICAD_FONT_NAME } from '@ziroeda/common/src/font/stroke_font.js';
 import { bitmapUrl } from '../../ui/toolbarIcons.js';
 import { DialogColorPicker } from '../../ui/DialogColorPicker.js';
 import { COLOR4D_UNSPECIFIED, type Color4d } from '@ziroeda/common/src/color4d.js';
@@ -67,7 +67,7 @@ import { fmtInt, fmtRotation } from './properties_format.js';
  * schematic text and label dialogs already offer.
  */
 const FACE_CHOICES: readonly ComboOption[] = [
-  { value: '', label: 'Default Font' },
+  { value: '', label: DEFAULT_FONT_NAME },
   { value: KICAD_FONT_NAME, label: KICAD_FONT_NAME },
 ];
 

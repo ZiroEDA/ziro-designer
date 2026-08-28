@@ -19,6 +19,7 @@
  */
 
 import {
+  fieldNamesAreDuplicates,
   isMandatoryField,
   MANDATORY_FIELDS,
   type LibSymbol,
@@ -283,15 +284,41 @@ export function fieldsFromRows(rows: readonly FieldRow[]): EditedField[] {
 }
 
 /**
- * `Validate()`: a non-mandatory row with a value but no name is an error.
- * Nameless *and* valueless rows are dropped silently instead, which is why
- * this is not simply "every row needs a name".
+ * `DIALOG_SYMBOL_PROPERTIES::Validate` (dialog_symbol_properties.cpp:665-695):
+ * every non-mandatory field must have a name. Nothing else — the value is not
+ * consulted.
+ *
+ * `TransferDataFromWindow` then has a `fieldName.IsEmpty() && GetText().IsEmpty()
+ * → continue` branch (:771) that looks like it lets a blank row through, but
+ * `Validate()` runs first and already refused it; that branch only guards the
+ * paths that reach `TransferDataFromWindow` without the OK button, and it is
+ * `fieldsFromRows` here, not this function. Deciding it here instead — "no name
+ * AND no value is fine" — silently swallows the row the user emptied by hand
+ * and is the divergence this comment exists to stop coming back.
  */
 export function validateRows(rows: readonly FieldRow[]): string | null {
   for (const r of rows) {
-    if (!isMandatoryField(r.key) && r.key.trim() === '' && r.value !== '') {
-      return 'Fields must have a name.';
-    }
+    if (!isMandatoryField(r.key) && r.key.trim() === '') return 'Fields must have a name.';
+  }
+  return null;
+}
+
+/**
+ * `OnGridCellChanging`'s FDC_NAME branch (dialog_symbol_properties.cpp:878-896):
+ * a rename that collides with any OTHER row's name is vetoed with this message.
+ *
+ * The comparison is `FieldNamesAreDuplicates`, not `==`, so renaming a user
+ * field to "reference" is refused as well as to "Reference".
+ */
+export function duplicateNameError(
+  rows: readonly FieldRow[],
+  row: number,
+  newName: string,
+): string | null {
+  for (let i = 0; i < rows.length; ++i) {
+    if (i === row) continue;
+    if (fieldNamesAreDuplicates(newName, rows[i]!.key))
+      return `Field name '${newName}' already in use.`;
   }
   return null;
 }

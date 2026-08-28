@@ -26,6 +26,28 @@ export const MANDATORY_FIELDS = ['Reference', 'Value', 'Footprint', 'Datasheet',
 
 export const isMandatoryField = (key: string): boolean => MANDATORY_FIELDS.includes(key);
 
+/**
+ * `FieldNamesAreDuplicates` (common/template_fieldnames.cpp:99-125).
+ *
+ * Two names collide when they are equal, and ALSO when they differ only in case
+ * AND one of them is a mandatory canonical name: "reference" collides with
+ * "Reference" because the s-expression parser folds mandatory names
+ * case-insensitively, while "partno" and "PartNo" are two distinct user fields.
+ *
+ * That asymmetry is the whole function — a plain `CmpNoCase` would refuse a
+ * legal pair of user fields, and a plain `==` would let a symbol be written
+ * with two Reference fields.
+ */
+export function fieldNamesAreDuplicates(lhs: string, rhs: string): boolean {
+  if (lhs === rhs) return true;
+
+  // If they don't even match case-insensitively they can't both be variants of
+  // the same canonical mandatory field name.
+  if (lhs.toLowerCase() !== rhs.toLowerCase()) return false;
+
+  return MANDATORY_FIELDS.some((name) => lhs.toLowerCase() === name.toLowerCase());
+}
+
 /** A field as edited in the dialog: `at` is symbol-relative, `source` optional (new fields). */
 export type EditedField = Omit<SchField, 'source'> & { readonly source?: SchField['source'] };
 

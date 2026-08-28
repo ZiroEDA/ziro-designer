@@ -4953,6 +4953,10 @@ export function SchematicEditor({
       showHiddenPins: es.appearance.show_hidden_pins,
       showHiddenFields: es.appearance.show_hidden_fields,
       showPageLimits: es.appearance.show_page_limits,
+      // `eeconfig()->m_Appearance.mark_sim_exclusions` — the painter reads it
+      // per symbol (sch_painter.cpp:2696), so the marker disappears the moment
+      // Display Options turns it off.
+      markSimExclusions: es.appearance.mark_sim_exclusions,
       ...(activeSheet ? { drawingSheet: activeSheet } : {}),
       // The on-screen title block shows the current instance's real page
       // number, sheet count and path (SCH_EDIT_FRAME::SetSheetNumberAndCount).
@@ -9225,6 +9229,9 @@ export function SchematicEditor({
           lib={libById.get(schSymbolLibraryName(propsSymbol))}
           fieldTemplates={setup.fieldTemplates}
           subpart={subpartSettings(setup.annotation)}
+          // `m_frame->GetUserUnits()` — the grid's Text Size / X / Y cells are
+          // formatted and parsed in the frame's display unit, not in mm.
+          units={units}
           onOk={(edit: SymbolEdit) => {
             runCommand(editSymbolProperties(propsTarget, edit));
             setPropsTarget(null);

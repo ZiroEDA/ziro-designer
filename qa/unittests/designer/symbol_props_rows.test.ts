@@ -128,13 +128,24 @@ describe('the template rows and the drop rule', () => {
     expect(mpn.effects.hidden).toBe(false);
   });
 
-  it('drops a nameless valueless row but rejects a nameless one with a value', () => {
+  it('rejects EVERY nameless user row, whether or not it has a value', () => {
+    // Re-derived, not re-baselined: `DIALOG_SYMBOL_PROPERTIES::Validate`
+    // (dialog_symbol_properties.cpp:673-692) reads `field.GetName( false )` and
+    // nothing else — an empty name is refused with "Fields must have a name."
+    // whatever the text beside it. This expectation used to say a nameless
+    // valueless row was fine, borrowing the rule from `TransferDataFromWindow`'s
+    // "no name AND no value → continue" (:771); but Validate runs FIRST and
+    // such a row never reaches that branch from the OK button. The drop rule is
+    // still `fieldsFromRows`'s, and that half is unchanged.
     const rows = rowsFromSymbol(sheet().symbols[0]!);
     const blank = { ...rows[0]!, key: '', value: '' };
     const named = { ...rows[0]!, key: '', value: 'orphan' };
-    expect(validateRows([...rows, blank])).toBeNull();
-    expect(fieldsFromRows([...rows, blank])).toHaveLength(rows.length);
+    expect(validateRows([...rows, blank])).toBe('Fields must have a name.');
     expect(validateRows([...rows, named])).toBe('Fields must have a name.');
+    // …and a mandatory row is exempt, because `field.IsMandatory() → continue`.
+    expect(validateRows(rows)).toBeNull();
+    // `TransferDataFromWindow` still drops the blank one if it ever gets there.
+    expect(fieldsFromRows([...rows, blank])).toHaveLength(rows.length);
   });
 });
 

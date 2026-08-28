@@ -6589,6 +6589,18 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
    P3.50mm, frame edges read off the capture at x=545..1559 and y=331..918. */
 .ze-modal.ze-symprops {
   max-width: 96vw;
+  /* `wxRESIZE_BORDER` (dialog_symbol_properties_base.h:110). Almost every
+     KiCad dialog is fixed; this one states a resize border, and the fields
+     grid is `OverrideMinSize( 1.0, 1.0 )` precisely so it can grow with it.
+     `resize` is the DOM's only resize border, and `overflow` has to be
+     something other than `visible` for the browser to draw the grip.
+     The base file's wxMAXIMIZE_BOX | wxMINIMIZE_BOX are window-manager
+     decorations of a real top-level wxDialog, and a DOM modal has no
+     window-manager to decorate it — recorded at the seam in
+     SymbolPropertiesDialog.tsx rather than faked with buttons that would have
+     nothing to do. */
+  resize: both;
+  overflow: hidden;
 }
 .ze-symprops-body {
   display: flex;
@@ -9382,6 +9394,7 @@ textarea.ze-ds-textedit {
    static text together (unit_binder.cpp:697-706) — by colour, as GTK's
    `label:disabled { color: #929292 }` does, never by opacity. */
 .ze-unit-label.disabled,
+.ze-symprops-lbl.disabled,
 .ze-pgs .disabled-label {
   color: var(--ctl-fg-disabled);
 }

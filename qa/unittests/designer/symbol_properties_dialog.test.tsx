@@ -91,6 +91,77 @@ const POWER = `(kicad_sch (version 20250114) (generator "test")
     (property "Reference" "#PWR01" (at 0 0 0))
     (property "Value" "GND" (at 0 0 0))))`;
 
+/**
+ * Multi-unit with ONE body style. MULTI is multi-unit AND multi-body-style and
+ * SHEET is neither, so on those two alone a rule that greys both the Unit and
+ * the Body style label off a single condition cannot be told from the right
+ * one. This fixture is the case that separates them.
+ */
+const DUAL_UNIT_ONLY = `(kicad_sch (version 20250114) (generator "test")
+  (lib_symbols
+    (symbol "Device:DualU"
+      (property "Reference" "U" (at 0 0 0))
+      (property "Value" "DualU" (at 0 0 0))
+      (symbol "DualU_1_1" (rectangle (start -5.08 5.08) (end 5.08 -5.08)))
+      (symbol "DualU_2_1" (rectangle (start -5.08 5.08) (end 5.08 -5.08)))))
+  (symbol (lib_id "Device:DualU") (at 50.8 50.8 0) (unit 1) (uuid "du-1")
+    (property "Reference" "U1" (at 0 0 0))
+    (property "Value" "DualU" (at 0 0 0))))`;
+
+/** A symbol whose Reference names a face, for the Font column. */
+const FACED = `(kicad_sch (version 20250114) (generator "test")
+  (lib_symbols
+    (symbol "Device:R"
+      (property "Reference" "R" (at 0 0 0))
+      (property "Value" "R" (at 0 0 0))
+      (symbol "R_0_1" (rectangle (start -1 1) (end 1 -1)))))
+  (symbol (lib_id "Device:R") (at 50.8 50.8 0) (unit 1) (uuid "r-3")
+    (property "Reference" "R1" (at 50.8 45.8 0)
+      (effects (font (face "Times New Roman") (size 1.27 1.27))))
+    (property "Value" "R" (at 0 0 0))))`;
+
+/**
+ * Pins declared 10, 2, 1. Library order, a stable sort and a plain string sort
+ * ("1" < "10" < "2") each produce a different wrong answer, so only
+ * `PIN_NUMBERS::Compare` gives 1, 2, 10.
+ */
+const PINS = `(kicad_sch (version 20250114) (generator "test")
+  (lib_symbols
+    (symbol "Device:Conn"
+      (property "Reference" "J" (at 0 0 0))
+      (property "Value" "Conn" (at 0 0 0))
+      (symbol "Conn_1_1"
+        (pin passive line (at 0 5.08 180) (length 2.54)
+          (name "C" (effects (font (size 1.27 1.27))))
+          (number "10" (effects (font (size 1.27 1.27)))))
+        (pin passive line (at 0 2.54 180) (length 2.54)
+          (name "B" (effects (font (size 1.27 1.27))))
+          (number "2" (effects (font (size 1.27 1.27)))))
+        (pin passive line (at 0 0 180) (length 2.54)
+          (name "A" (effects (font (size 1.27 1.27))))
+          (number "1" (effects (font (size 1.27 1.27))))))))
+  (symbol (lib_id "Device:Conn") (at 50.8 50.8 0) (unit 1) (uuid "j-1")
+    (property "Reference" "J1" (at 0 0 0))
+    (property "Value" "Conn" (at 0 0 0))))`;
+
+/** Two units, one pin each, one body style — for the Unit combo's rebuild. */
+const TWO_UNIT_PINS = `(kicad_sch (version 20250114) (generator "test")
+  (lib_symbols
+    (symbol "Device:DualP"
+      (property "Reference" "U" (at 0 0 0))
+      (property "Value" "DualP" (at 0 0 0))
+      (symbol "DualP_1_1"
+        (pin passive line (at 0 0 180) (length 2.54)
+          (name "A" (effects (font (size 1.27 1.27))))
+          (number "1" (effects (font (size 1.27 1.27))))))
+      (symbol "DualP_2_1"
+        (pin passive line (at 0 0 180) (length 2.54)
+          (name "B" (effects (font (size 1.27 1.27))))
+          (number "2" (effects (font (size 1.27 1.27))))))))
+  (symbol (lib_id "Device:DualP") (at 50.8 50.8 0) (unit 1) (uuid "dp-1")
+    (property "Reference" "U1" (at 0 0 0))
+    (property "Value" "DualP" (at 0 0 0))))`;
+
 /** A part carrying an embedded file, for the third page. */
 const EMBEDDED = `(kicad_sch (version 20250114) (generator "test")
   (lib_symbols
@@ -573,5 +644,227 @@ describe('the hidden columns are reachable, as GRID_TRICKS makes them', () => {
     expect(
       Array.from(document.querySelectorAll('.ze-symprops-grid thead th')).map((t) => t.textContent),
     ).toContain('X Position');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Round 2: the divergences a second side-by-side against KiCad 10.0.5 turned
+// up. Each is one line of C++ that our port had not reached.
+// ---------------------------------------------------------------------------
+
+/** Turn a hidden column on and hand back its header index. */
+function showColumn(label: string): number {
+  fireEvent.contextMenu(document.querySelector('.ze-symprops-grid thead tr')!);
+  fireEvent.click(screen.getByRole('menuitemcheckbox', { name: label }));
+  const heads = Array.from(document.querySelectorAll('.ze-symprops-grid thead th'));
+  const at = heads.findIndex((t) => t.textContent === label);
+  if (at === -1) throw new Error(`column ${label} did not appear`);
+  return at;
+}
+
+/** The text of one visible column, row by row. */
+const columnText = (at: number): string[] =>
+  fieldRows().map((tr) => (tr.children[at]?.textContent ?? '').trim());
+
+describe('the Unit and Body style LABELS grey with their combos', () => {
+  // `m_unitLabel->Enable( false )` (dialog_symbol_properties.cpp:504) and
+  // `m_bodyStyle->Enable( false )` (:537) sit beside the Enable( false ) on the
+  // choices. A wxStaticText greys when it is disabled, so the WORDS "Unit:" and
+  // "Body style:" are grey on a single-unit, single-body-style part — which is
+  // most parts, and is the first thing a side-by-side shows.
+  const labelOf = (id: string): HTMLLabelElement =>
+    document.querySelector<HTMLLabelElement>(`label[for="${id}"]`)!;
+
+  it('both are marked disabled for a part that is neither', () => {
+    open(SHEET);
+    expect(labelOf('ze-symprops-unit').className).toContain('disabled');
+    expect(labelOf('ze-symprops-bodystyle').className).toContain('disabled');
+  });
+
+  it('and neither is, for a part that is both', () => {
+    open(MULTI);
+    expect(labelOf('ze-symprops-unit').className).not.toContain('disabled');
+    expect(labelOf('ze-symprops-bodystyle').className).not.toContain('disabled');
+  });
+
+  it('the label greys with its OWN control, not with the other one', () => {
+    // MULTI is multi-unit AND multi-body-style, SHEET is neither, so on those
+    // two fixtures alone a rule that greyed both labels off one condition
+    // would pass. `DUAL_UNIT_ONLY` is multi-unit with a single body style,
+    // which is the case that separates them.
+    open(DUAL_UNIT_ONLY);
+    expect(document.querySelector<HTMLSelectElement>('#ze-symprops-unit')!.disabled).toBe(false);
+    expect(document.querySelector<HTMLSelectElement>('#ze-symprops-bodystyle')!.disabled).toBe(
+      true,
+    );
+    expect(labelOf('ze-symprops-unit').className).not.toContain('disabled');
+    expect(labelOf('ze-symprops-bodystyle').className).toContain('disabled');
+  });
+});
+
+describe('the numeric cells carry their unit word', () => {
+  // `m_frame->StringFromValue( field.GetTextHeight(), true )`
+  // (fields_grid_table.cpp:823-833) — `aAddUnitLabel` is TRUE for Text Size,
+  // X Position and Y Position alike, and `EDA_UNIT_UTILS::GetText( MM )` is
+  // " mm" with a leading space (common/eda_units.cpp:151). The cells have no
+  // unit static text beside them, so the suffix is the only thing that says
+  // what the number is.
+  it('Text Size reads "1.27 mm", not "1.27"', () => {
+    open(SHEET);
+    expect(columnText(showColumn('Text Size'))[0]).toBe('1.27 mm');
+  });
+
+  it('X Position is symbol-relative and carries the unit too', () => {
+    // The fixture's Reference sits at 53.34 against a symbol at 50.8, so the
+    // symbol-relative x is 2.54 mm.
+    open(SHEET);
+    expect(columnText(showColumn('X Position'))[0]).toBe('2.54 mm');
+  });
+
+  it('and the unit is the FRAME s, not a hardcoded millimetre', () => {
+    // `GetUserUnits()`, so a frame in inches shows 0.05 in for 1.27 mm.
+    open(SHEET, { units: 'in' });
+    expect(columnText(showColumn('Text Size'))[0]).toBe('0.05 in');
+  });
+
+  it('the editor parses the unit back off the text it was showing', () => {
+    // `ValueFromString` is `DoubleValueFromString`: only the leading numeric
+    // run is read, so the " mm" the cell was showing does not corrupt the
+    // number, and a designator the user types overrides the display unit.
+    const { edits } = open(SHEET);
+    const at = showColumn('Text Size');
+    const cell = fieldRows()[0]!.children[at]!;
+    fireEvent.mouseDown(cell);
+    fireEvent.doubleClick(cell);
+    const input = cell.querySelector('input')!;
+    fireEvent.change(input, { target: { value: '2 mm' } });
+    fireEvent.blur(input);
+    fireEvent.click(screen.getByRole('button', { name: 'OK' }));
+    expect(edits[0]?.fields[0]?.effects.fontSize?.[0]).toBe(20000);
+  });
+});
+
+describe('the Font cell names the DEFAULT font, not the stroke font', () => {
+  // `field.GetFont() ? GetName() : DEFAULT_FONT_NAME`
+  // (fields_grid_table.cpp:838-841), and `#define DEFAULT_FONT_NAME
+  // _( "Default Font" )` (:60). "KiCad Font" is a DIFFERENT entry in the same
+  // combo (:410-411) — the face a field can name explicitly — so showing it
+  // for a field with no `(face …)` claims a token the file does not have.
+  it('a field with no (face …) reads "Default Font"', () => {
+    open(SHEET);
+    expect(columnText(showColumn('Font'))[0]).toBe('Default Font');
+  });
+
+  it('and a field that names a face reads that face', () => {
+    open(FACED);
+    expect(columnText(showColumn('Font'))[0]).toBe('Times New Roman');
+  });
+});
+
+describe('a field name must be unique, and must exist', () => {
+  /** Open the Name cell of the given visible row. */
+  function editName(row: number): HTMLInputElement {
+    const cell = fieldRows()[row]!.children[0]!;
+    fireEvent.mouseDown(cell);
+    fireEvent.doubleClick(cell);
+    return cell.querySelector('input')!;
+  }
+
+  const addField = (): void => fireEvent.click(screen.getByRole('button', { name: 'Add field' }));
+
+  it('renaming onto another row s name is refused with upstream s message', () => {
+    // `OnGridCellChanging` (dialog_symbol_properties.cpp:878-896).
+    open(SHEET);
+    addField();
+    const input = editName(5);
+    fireEvent.change(input, { target: { value: 'Value' } });
+    fireEvent.blur(input);
+    expect(screen.getByText(/Field name 'Value' already in use/)).toBeTruthy();
+    // Vetoed, not applied: the row keeps the name it had.
+    expect(fieldNames()[5]).toBe('Field5');
+  });
+
+  it('a case variant of a MANDATORY name collides too', () => {
+    // `FieldNamesAreDuplicates` (common/template_fieldnames.cpp:99-119): a
+    // case-insensitive match counts only when one side is a mandatory
+    // canonical name, because the s-expression parser folds those.
+    open(SHEET);
+    addField();
+    const input = editName(5);
+    fireEvent.change(input, { target: { value: 'reference' } });
+    fireEvent.blur(input);
+    expect(screen.getByText(/already in use/)).toBeTruthy();
+  });
+
+  it('but a case variant of a USER name does not', () => {
+    // Two user fields differing only in case are two fields. A rule written as
+    // a bare CmpNoCase would refuse this, and nothing else here would notice.
+    open(SHEET);
+    addField();
+    let input = editName(5);
+    fireEvent.change(input, { target: { value: 'PartNo' } });
+    fireEvent.blur(input);
+    addField();
+    input = editName(6);
+    fireEvent.change(input, { target: { value: 'partno' } });
+    fireEvent.blur(input);
+    expect(document.querySelector('.ze-props-error')).toBeNull();
+    expect(fieldNames().slice(5)).toStrictEqual(['PartNo', 'partno']);
+  });
+
+  it('OK refuses a nameless user field even when it has no value either', () => {
+    // `Validate()` (dialog_symbol_properties.cpp:673-692) consults ONLY the
+    // name. `TransferDataFromWindow`'s "no name AND no value → skip" branch
+    // (:771) never sees such a row, because Validate has already refused it.
+    const { edits } = open(SHEET);
+    addField();
+    const input = editName(5);
+    fireEvent.change(input, { target: { value: '' } });
+    fireEvent.blur(input);
+    fireEvent.click(screen.getByRole('button', { name: 'OK' }));
+    expect(screen.getByText(/Fields must have a name/)).toBeTruthy();
+    expect(edits).toHaveLength(0);
+  });
+});
+
+describe('the Pin Functions grid', () => {
+  it('is sorted by pin number, not left in library order', () => {
+    // `m_dataModel->SortRows( COL_NUMBER, true )`
+    // (dialog_symbol_properties.cpp:369), through `PIN_NUMBERS::Compare` —
+    // a natural compare, so 10 follows 9 and not 1. PINS declares them
+    // 10, 2, 1 so both a stable no-sort and a plain string sort come out wrong.
+    open(PINS);
+    fireEvent.click(screen.getByRole('tab', { name: 'Pin Functions' }));
+    const numbers = Array.from(
+      document.querySelectorAll('.ze-symprops-pin-pane tbody tr td:first-child'),
+    ).map((td) => td.textContent);
+    expect(numbers).toStrictEqual(['1', '2', '10']);
+  });
+
+  it('follows the Unit combo, as OnUnitChoice rebuilds it', () => {
+    // `OnUnitChoice` (:1172-1203) sets the symbol to the chosen unit, rebuilds
+    // the model from GetRawPins() and puts the unit back. The page must list
+    // the pins of the unit the COMBO is on, not the one the symbol opened as.
+    open(TWO_UNIT_PINS);
+    fireEvent.click(screen.getByRole('tab', { name: 'Pin Functions' }));
+    const numbers = (): (string | null)[] =>
+      Array.from(document.querySelectorAll('.ze-symprops-pin-pane tbody tr td:first-child')).map(
+        (td) => td.textContent,
+      );
+    expect(numbers()).toStrictEqual(['1']);
+    fireEvent.change(document.querySelector('#ze-symprops-unit')!, { target: { value: '2' } });
+    expect(numbers()).toStrictEqual(['2']);
+  });
+});
+
+describe('the library link is never writeable', () => {
+  it('carries readOnly, as wxTE_READONLY does, and nothing clears it', () => {
+    // `wxTextCtrl( …, wxTE_READONLY|wxBORDER_NONE )`
+    // (dialog_symbol_properties_base.cpp:323). `TransferDataToWindow` calls
+    // SetValue on it (:575) and no code path ever calls SetEditable.
+    open(SHEET);
+    const entry = document.querySelector<HTMLInputElement>('.ze-symprops-libid')!;
+    expect(entry.readOnly).toBe(true);
+    expect(entry.getAttribute('aria-readonly')).toBe('true');
   });
 });
