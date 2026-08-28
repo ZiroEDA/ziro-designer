@@ -72,14 +72,17 @@ launcher here has that page, because none has the `TOOLBAR_SETTINGS` store it
 edits; building it for pl_editor alone would be the per-launcher copy the
 Preferences dialog was split up to stop. So the last row of the Drawing Sheet
 Editor's tree is an app-wide item that happens to be visible here first - which
-is exactly the distinction this table exists to make, and the reason the entry
-is still in "Not complete" rather than quietly moved up.
+is exactly the distinction this table exists to make.
+
+It is not the only thing left, though, and the entry stays in "Not complete"
+for its own reasons as well: two gaps sit *inside* the three pages that did
+ship, and both are named below.
 
 ### Not complete
 
 | editor | state |
 |---|---|
-| **Drawing Sheet Editor** (pl_editor) | E1 + E2 + E3 + **E4 everywhere except one Preferences page**. Frame, tools, menubar, status bar, print and **all the file commands** are closed and were compared against the running program (PRs #604 #607 #614 #618, plus the E4 pass below). Grid dot, axis skip, the status-bar field widths and the grid origin were all **measured** off a live pl_editor. Preferences is now the shared dialog with three of upstream's four pages under it - Display Options, Grids and Colors, two of them the shared `common/` panels rather than copies. What remains is **Toolbars**, one page, and it is an **app-wide** gap rather than this editor's: no launcher here has one, because none has a `TOOLBAR_SETTINGS` store for it to edit. It is declared in `OMITTED_PAGES` with its reason and pinned by a test, not merely absent. #619's other fourteen items are closed. |
+| **Drawing Sheet Editor** (pl_editor) | E1 + E2 + E3 + **E4 everywhere except one Preferences page**. Frame, tools, menubar, status bar, print and **all the file commands** are closed and were compared against the running program (PRs #604 #607 #614 #618, plus the E4 pass below). Grid dot, axis skip, the status-bar field widths and the grid origin were all **measured** off a live pl_editor. Preferences is now the shared dialog with three of upstream's four pages under it - Display Options, Grids and Colors, two of them the shared `common/` panels rather than copies. What remains is **Toolbars** - an **app-wide** gap rather than this editor's, since no launcher here has one and none has a `TOOLBAR_SETTINGS` store for it to edit, declared in `OMITTED_PAGES` and pinned by a test rather than merely absent - **plus two items inside the pages that did ship**: the Colors page stores a theme the canvas does not read, and the Grids page has Add and Remove where upstream has Add, Edit, Remove, Move Up and Move Down behind `DIALOG_GRID_SETTINGS`. So Toolbars landing does **not** by itself make this editor complete. #619's other fourteen items are closed. |
 | **Symbol Editor** | audited, PR #606. The enable/disable rules are now closed: all 53 `setupUIConditions` registrations ported per entry (PR #620) and the four the first mutation sweep could not tell apart pinned (PR #622). Open: LIB_TREE chrome, three missing dialogs. |
 | **Footprint Editor** | audited, PR #608. Open: seven items, headed by the dialog wall. `dialog_pad_properties.cpp` alone is 2492 lines against our 297 total. |
 | **GerbView** | exporter is a real port of `GBR_TO_PCB_EXPORTER` (PR #605). No mapping dialog, and aperture-macro holes export solid. |
@@ -278,6 +281,29 @@ reported as unknown rather than clean. Two of them are answers, not gaps:
   four pl_editor sources for it, not just the editor - and the crosshair is the
   three-way radio, `Small crosshairs` / `Full window crosshairs` /
   `45 degree crosshairs`, plus a separate `Always show crosshairs`.
+
+  **Is the editor complete once Toolbars lands? No.** Two things inside pages
+  this pass shipped are still open, and both are pl_editor's own rather than
+  app-wide:
+
+  - **The Colors page stores a theme nothing reads.** The control is upstream's
+    control and persists upstream's key, so the choice survives a restart - but
+    `DrawingSheetCanvas.tsx` has no theme at all. Its palette is declared inline
+    and switches only on `black_background`, where `PL_EDITOR_FRAME` draws from
+    `GetColorSettings()`. Closing it means giving that canvas a theme, which is
+    a renderer change, not a Preferences one. Named at the seam in
+    `PanelPlEditorColorSettings.tsx`.
+  - **The Grids page has two of upstream's five buttons.**
+    `PANEL_GRID_SETTINGS` offers Add, Edit, Remove, Move Up and Move Down, and
+    Add and Edit both open `DIALOG_GRID_SETTINGS` - a modal with a name and X/Y
+    fields, which also raises `Grid size '%s' already exists.`. Ours has Add,
+    which appends this editor's default grid, and Remove; a row is edited in
+    place in a text field. So the grid list can be extended and trimmed but not
+    reordered, and a grid cannot be named.
+
+  Neither is a reason to hold the three pages back, and neither is hidden: the
+  first is why "E4 everywhere except one Preferences page" in the table above
+  is still not "complete", alongside Toolbars.
 
   One divergence inside the Grids page is worth naming rather than leaving to
   be found. Upstream stores a `GRID{ name, x, y }` per row, renders it through
