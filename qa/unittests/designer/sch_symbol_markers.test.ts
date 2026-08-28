@@ -33,7 +33,7 @@ import {
 import { dimmedColor } from '@ziroeda/designer/src/editors/schematic/render/render_color.js';
 import { BUILTIN_DEFAULT_THEME } from '@ziroeda/common/src/settings/builtin_color_themes.js';
 import { toCssColor } from '@ziroeda/common';
-import type { BBox } from '@ziroeda/eeschema/src/tools/bbox.js';
+import { symbolBodyBBox, type BBox } from '@ziroeda/eeschema/src/tools/bbox.js';
 import type { Schematic } from '@ziroeda/eeschema/src/types.js';
 import type { RenderOpts } from '@ziroeda/designer/src/editors/schematic/render/renderer.js';
 
@@ -70,8 +70,8 @@ describe('the DNP cross, sch_painter.cpp:2809-2835', () => {
     // not merely "whatever the code prints": 90 and 150 are both reachable
     // from this fixture and only one of them is KiCad's.
     const [a] = dnpMarkerSegments(BODY, PINS);
-    expect(a.a.y).toBe(-90);
-    expect(a.a.y).not.toBe(-150);
+    expect(a!.a.y).toBe(-90);
+    expect(a!.a.y).not.toBe(-150);
   });
 
   it('rounds each axis with KiROUND before inflating, not after', () => {
@@ -81,7 +81,7 @@ describe('the DNP cross, sch_painter.cpp:2809-2835', () => {
       { minX: 0, minY: 0, maxX: 100, maxY: 100 },
       { minX: -9, minY: -5, maxX: 100, maxY: 100 },
     );
-    expect(a.a).toEqual({ x: -5, y: -3 });
+    expect(a!.a).toEqual({ x: -5, y: -3 });
   });
 
   it('leaves the box alone when the pins do not stick out', () => {
@@ -191,6 +191,86 @@ describe('getRenderColor’s aDimmed tail, sch_painter.cpp:482-486', () => {
     // KiCad Classic's background is white, so the same red lands lighter:
     // 0.5 * 255 + 0.5 * 127.5 = 191.25 -> 191.
     expect(dimmedColor('rgb(255, 0, 0)', 'rgb(255, 255, 255)')).toBe('rgb(191, 191, 191)');
+  });
+});
+
+/* ------------------------------------------------------- the boxes it is sized from */
+
+/**
+ * `Connector:Screw_Terminal_01x02`, the symbol the divergence was found on,
+ * trimmed to the parts that set its bounding boxes: the 0.254 mm body
+ * rectangle, one 0.1524 mm circle, and the two 3.81 mm pins whose connection
+ * points sit 5.08 mm out.
+ *
+ * The numbers below are worked through from the C++ rather than read off our
+ * output, because the point of the test is that our output was wrong:
+ *
+ *   body        rectangle (-1.27, 1.27)..(1.27, -3.81), inflated by half its
+ *               own 0.254 pen (`EDA_SHAPE::getBoundingBox`) -> 2.794 x 5.334,
+ *               and the pin ROOTS at x = -1.27 fall inside it;
+ *   body+pins   the pin box reaches the connection point at x = -5.08 with NO
+ *               inflation, since `SCH_PIN::GetPenWidth()` returns 0.
+ *
+ *   margins.x = max( -1.397 - -5.08, 1.397 - 1.397 ) = 3.683,  margins.y = 0
+ *   margins.x = max( 3.683 * 0.6, 0 )          = 2.2098
+ *   margins.y = max( 0, 2.2098 * 0.3 )         = 0.66294  -> KiROUND 6629 IU
+ *   cross      = 2.794 + 2 * 2.2098 = 7.2136 wide
+ *                5.334 + 2 * 0.6629 = 6.6598 tall
+ */
+const SCREW_TERMINAL = `(symbol "Screw_Terminal_01x02" (pin_names (offset 1.016) (hide yes))
+  (property "Reference" "J" (at 0 2.54 0) (effects (font (size 1.27 1.27))))
+  (property "Value" "Screw_Terminal_01x02" (at 0 -5.08 0) (effects (font (size 1.27 1.27))))
+  (symbol "Screw_Terminal_01x02_1_1"
+    (rectangle (start -1.27 1.27) (end 1.27 -3.81)
+      (stroke (width 0.254) (type default)) (fill (type background)))
+    (circle (center 0 0) (radius 0.635)
+      (stroke (width 0.1524) (type default)) (fill (type none)))
+    (pin passive line (at -5.08 0 0) (length 3.81)
+      (name "Pin_1" (effects (font (size 1.27 1.27))))
+      (number "1" (effects (font (size 1.27 1.27)))))
+    (pin passive line (at -5.08 -2.54 0) (length 3.81)
+      (name "Pin_2" (effects (font (size 1.27 1.27))))
+      (number "2" (effects (font (size 1.27 1.27)))))))`;
+
+const screwTerminalAt = (angle: number): Schematic =>
+  readSchematic(
+    parse(`(kicad_sch (version 20250114) (lib_symbols ${SCREW_TERMINAL})
+      (symbol (lib_id "Screw_Terminal_01x02") (at 100 100 ${angle}) (unit 1) (uuid "j1")
+        (property "Reference" "J1" (at 100 97 0) (effects (font (size 1.27 1.27))))
+        (property "Value" "S" (at 100 105 0) (effects (font (size 1.27 1.27))))))`),
+  );
+
+describe('the boxes the markers are sized from are KiCad\u2019s, to the internal unit', () => {
+  it('counts half a shape\u2019s own pen, as EDA_SHAPE::getBoundingBox does', () => {
+    const doc = screwTerminalAt(0);
+    const body = symbolBodyBBox(doc.symbols[0]!, doc.libSymbols[0]!, { includePins: false });
+    // -1.27 - 0.127 and 1.27 + 0.127, in IU. Measured on the centreline
+    // instead, this box was 12.7 mm too narrow -- 0.254 mm, the rectangle's
+    // whole stroke -- in each dimension.
+    // 27940 and 53340 IU, written out because `5.334 * 10000` is 53339.999… .
+    expect(body.maxX - body.minX).toBe(27940);
+    expect(body.maxY - body.minY).toBe(53340);
+  });
+
+  it('gives a pin NO pen inflation \u2014 SCH_PIN::GetPenWidth() is 0', () => {
+    const doc = screwTerminalAt(0);
+    const pins = symbolBodyBBox(doc.symbols[0]!, doc.libSymbols[0]!);
+    // The connection point, exactly: 100 - 5.08 mm.
+    expect(pins.minX).toBe(949200);
+  });
+
+  it.each([0, 180])('sizes the cross the same at %s degrees', (angle) => {
+    const doc = screwTerminalAt(angle);
+    const lib = doc.libSymbols[0]!;
+    const [a] = dnpMarkerSegments(
+      symbolBodyBBox(doc.symbols[0]!, lib, { includePins: false }),
+      symbolBodyBBox(doc.symbols[0]!, lib),
+    );
+    // margins.x is a max over BOTH sides, so mirroring the symbol cannot
+    // change it -- a port that read only one side would be wrong at one of
+    // these two angles and right at the other.
+    expect(a!.b.x - a!.a.x).toBe(72136);
+    expect(a!.b.y - a!.a.y).toBe(2 * 6629 + 53340);
   });
 });
 

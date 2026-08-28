@@ -86,6 +86,30 @@ function includeUnit(
   includePins: boolean,
 ): void {
   for (const g of unit.graphics) {
+    /**
+     * `EDA_SHAPE::getBoundingBox` ends with
+     *
+     *     bbox.Inflate( std::max( 0, GetWidth() ) / 2 );
+     *
+     * (`common/eda_shape.cpp`), so a shape's box is its geometry plus half its
+     * own pen — the ink, not the centreline. We measured the centreline, which
+     * made every symbol's box narrower than KiCad's by the body outline's
+     * stroke: on `Connector:Screw_Terminal_01x02`, whose rectangle is 0.254 mm
+     * wide, 0.254 mm short in each dimension.
+     *
+     * It shows up in the DNP cross, which is sized off both boxes, but it is
+     * not the cross's bug — selection, hit-testing and the field autoplacer all
+     * read these boxes too.
+     *
+     * `GetWidth()` is the STORED width, and a shape left on the default stores
+     * 0; `std::max( 0, … )` then contributes nothing. It is not resolved to the
+     * effective 6 mils first, so a zero-width shape inflates by nothing here.
+     */
+    const pen = g.kind !== 'text' && g.stroke && g.stroke.width > 0 ? g.stroke.width / 2 : 0;
+    const inc = (p: Vec2): void => {
+      includePoint(b, { x: p.x - pen, y: p.y - pen });
+      includePoint(b, { x: p.x + pen, y: p.y + pen });
+    };
     switch (g.kind) {
       case 'rectangle':
         for (const c of [
@@ -94,11 +118,11 @@ function includeUnit(
           g.end,
           { x: g.start.x, y: g.end.y },
         ])
-          includePoint(b, localToWorld(origin, t, c));
+          inc(localToWorld(origin, t, c));
         break;
       case 'polyline':
       case 'bezier': // control-point hull is a conservative bound
-        for (const p of g.points) includePoint(b, localToWorld(origin, t, p));
+        for (const p of g.points) inc(localToWorld(origin, t, p));
         break;
       case 'circle':
         for (const c of [
@@ -107,12 +131,12 @@ function includeUnit(
           { x: g.center.x, y: g.center.y - g.radius },
           { x: g.center.x, y: g.center.y + g.radius },
         ])
-          includePoint(b, localToWorld(origin, t, c));
+          inc(localToWorld(origin, t, c));
         break;
       case 'arc':
-        includePoint(b, localToWorld(origin, t, g.start));
-        includePoint(b, localToWorld(origin, t, g.mid));
-        includePoint(b, localToWorld(origin, t, g.end));
+        inc(localToWorld(origin, t, g.start));
+        inc(localToWorld(origin, t, g.mid));
+        inc(localToWorld(origin, t, g.end));
         break;
       case 'text':
         includePoint(b, localToWorld(origin, t, g.at));
@@ -125,6 +149,10 @@ function includeUnit(
   // `GetPinRoot()` — "the roots of the pins are always included for symbols
   // that don't have a well-defined body". So a body-only box stops at the body
   // edge; a body-and-pins box reaches the connection point.
+  //
+  // A pin gets NO pen inflation, unlike a shape: `PIN_LAYOUT_CACHE` does
+  // `pinBox.Inflate( m_pin.GetPenWidth() / 2 )` (`pin_layout_cache.cpp`) and
+  // `SCH_PIN::GetPenWidth()` is `{ return 0; }` (`sch_pin.h:251`).
   for (const pin of unit.pins)
     includePoint(b, localToWorld(origin, t, includePins ? pin.at : pinRoot(pin)));
 }

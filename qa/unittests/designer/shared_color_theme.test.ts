@@ -237,8 +237,14 @@ describe('eeschema resolves to the schematic layers', () => {
     // `GetGAL()->SetAxesColor( colorSettings->GetColor( LAYER_SCHEMATIC_GRID_AXES ) )`
     // (`eeschema/sch_base_frame.cpp:612`) — and the Symbol Editor is the frame
     // that switches those axes on (`symbol_edit_frame.cpp:265`).
+    //
+    // 44 since `dnpMarker` and `excludedFromSim`, which are likewise KiCad's
+    // own: `LAYER_DNP_MARKER` and `LAYER_EXCLUDED_FROM_SIM` are the colours
+    // `SCH_PAINTER::draw( SCH_SYMBOL )` asks for at `sch_painter.cpp:2811` and
+    // `:2839`, they are already in the shared builtin themes, and the Colors
+    // page lists both (`common/layer_id.cpp:100-101`).
     const fields = Object.entries(KICAD_DEFAULT);
-    expect(fields).toHaveLength(42);
+    expect(fields).toHaveLength(44);
     for (const [name, value] of fields) expect(value, name).toMatch(/^rgba?\(/);
   });
 
