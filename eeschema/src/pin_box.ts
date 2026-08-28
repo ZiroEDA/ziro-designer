@@ -34,26 +34,58 @@
  *   `SCH_PIN` constructor (sch_pin.cpp:131-194) and only the *schematic's*
  *   pins are ever updated by the connectivity pass — a library pin keeps the
  *   initial `true`. `IsDangling()` then returns false only for the two
- *   not-connected electrical types (sch_pin.cpp:463-469), which is a property
+ *   not-connected electrical types (sch_pin.cpp:464-470), which is a property
  *   of the pin, not of what is wired to it.
  *
  * ## What is not modelled
  *
- * - The electrical-type label. `SCH_PIN::GetBoundingBox()`'s third argument is
- *   `m_flags & SHOW_ELEC_TYPE`, a symbol-editor view flag that is never set on
- *   a placed pin, so its box is unreachable from here (sch_pin.h:221-223).
+ * - The electrical-type label, behind two independent gates. The no-arg
+ *   `GetBoundingBox()` override passes `m_flags & SHOW_ELEC_TYPE`, a
+ *   symbol-editor view flag (sch_pin.h:220-224 — and it is an override rather
+ *   than a default argument because, as the comment there says, a default
+ *   "will not be compatible with the virtual"). Independently,
+ *   `getUntransformedPinTypeBox` returns nullopt unless the cache's
+ *   `m_showElectricalType` render parameter is set, and it defaults to false
+ *   (pin_layout_cache.cpp:600-603, pin_layout_cache.h:190).
  * - The alternate-function icon, which `getUntransformedAltIconBox` returns
- *   only when the pin declares alternates *and* `m_showAltIcons` — a render
- *   parameter the painter pushes into the cache, not a property of the pin.
- * - Stacked pin numbers (`FormatStackedPinForDisplay`), which wrap a multi-line
- *   number column; the single-line box below is what an ordinary number gets.
+ *   only when the pin declares alternates *and* the cache's `m_showAltIcons`
+ *   render parameter is set (pin_layout_cache.cpp:617-622). Note what that
+ *   guarantee rests on: `m_showAltIcons` is mutable state on the LIB_SYMBOL's
+ *   own lazily-created cache, so it is object identity that saves us — KiCad
+ *   renders the schematic's `lib_symbols` copy, never the library-table symbol
+ *   this box is measured on. It is not a property of the pin.
+ *
+ * ## What looks like an omission and is not
+ *
+ * Stacked pin numbers. `FormatStackedPinForDisplay` is called only from
+ * `GetPinNumberInfo` (pin_layout_cache.cpp:55), the DRAWING path;
+ * `GetPinBoundingBox` goes through `recomputeCaches`, which measures the raw
+ * `GetShownNumber()` (pin_layout_cache.cpp:294-299). KiCad's own bounding box
+ * does not cover a wrapped stacked number either, so the single-line box below
+ * is parity, not a gap — do not "fix" it.
+ *
+ * One upstream inconsistency is reproduced deliberately: the drawing clearance
+ * is `getPinTextOffset() + PIN_TEXT_MARGIN + thickness`
+ * (pin_layout_cache.cpp:66, 118-124) while the bounding-box helpers use
+ * `getPinTextOffset()` alone (:553, :585-590), so KiCad's box under-covers the
+ * text it draws. This is the box, so it does too.
  */
 
 import type { LibPin, LibSymbol } from './types.js';
 import { mmToIU } from '@ziroeda/common/src/eda_units.js';
 import { stringBoundaryLimits } from '@ziroeda/common/src/font/text_box.js';
-import { DEFAULT_TEXT_SIZE } from './fieldbox.js';
 import type { BBox } from './tools/bbox.js';
+
+/**
+ * `SCH_PIN::IsDangling` returns false only for the not-connected types
+ * (sch_pin.cpp:464-470), which is where a library pin's otherwise-always-true
+ * `m_isDangling` is overridden.
+ */
+export const NOT_CONNECTED_TYPES: ReadonlySet<string> = new Set([
+  'no_connect',
+  'unconnected', // the pre-20210123 spelling of the same PT_NC
+  'free',
+]);
 
 const kiRound = (v: number): number => (v < 0 ? Math.ceil(v - 0.5) : Math.floor(v + 0.5));
 /** C++ `int / int`: truncation toward zero, which every `BOX2I` halving does. */
@@ -100,12 +132,28 @@ const moved = (b: BBox, dx: number, dy: number): BBox => ({
  * (gr_text.cpp:61-64).
  */
 function extents(text: string, size: number): { x: number; y: number } {
-  return stringBoundaryLimits(text, { size: { x: size, y: size } }, kiRound(size / 8));
+  const e = stringBoundaryLimits(text, { size: { x: size, y: size } }, kiRound(size / 8));
+  // `FONT::StringBoundaryLimits` accumulates into a `BOX2I` and returns
+  // `GetSize()` (font.cpp:451-477), so upstream's extents are whole internal
+  // units and every division of them below truncates an integer. Our measurer
+  // returns the unrounded sum; round here, at the boundary where the C++
+  // crosses into ints, or the reflections in `orient` come out fractional and
+  // a mirrored pin's box stops being the same width as its original.
+  return { x: Math.round(e.x), y: Math.round(e.y) };
 }
 
-/** `GetNameTextSize` / `GetNumberTextSize`: the pin's own, else the 50 mil default. */
-const nameSize = (pin: LibPin): number => pin.nameSize ?? DEFAULT_TEXT_SIZE;
-const numberSize = (pin: LibPin): number => pin.numberSize ?? DEFAULT_TEXT_SIZE;
+/**
+ * `GetNameTextSize` / `GetNumberTextSize`: the pin's own, else the pin default.
+ *
+ * These are `DEFAULT_PINNAME_SIZE` and `DEFAULT_PINNUM_SIZE`
+ * (default_values.h:42,45), not `DEFAULT_TEXT_SIZE` (:69). All three are 50
+ * mils today, so borrowing the text one reads as parity and is not: a change to
+ * either pin default upstream would pass us by.
+ */
+const DEFAULT_PINNAME_SIZE = mmToIU(50 * 0.0254);
+const DEFAULT_PINNUM_SIZE = mmToIU(50 * 0.0254);
+const nameSize = (pin: LibPin): number => pin.nameSize ?? DEFAULT_PINNAME_SIZE;
+const numberSize = (pin: LibPin): number => pin.numberSize ?? DEFAULT_PINNUM_SIZE;
 
 /**
  * `getUntransformedDecorationBox`. Both sizes take the null-settings arm:
@@ -251,9 +299,16 @@ export function libPinBoundingBox(pin: LibPin, lib: LibSymbol): BBox {
   box = orient(box, pin);
 
   // `IsDangling()`, which for a library pin is the constructor's `true` unless
-  // the pin is one of the two not-connected types. The indicator is a circle on
-  // the connection point.
-  if (pin.electricalType !== 'no_connect' && pin.electricalType !== 'free') {
+  // the pin is one of the not-connected types (sch_pin.cpp:464-470). The
+  // indicator is a circle on the connection point.
+  //
+  // `unconnected` is in the set because the parser folds it into the same
+  // `ELECTRICAL_PINTYPE::PT_NC`: `case T_unconnected: case T_no_connect:`
+  // (sch_io_kicad_sexpr_parser.cpp:1601-1602). It is what files written before
+  // 20210123 spell that type — "Rename 'unconnected' pintype to 'no_connect'"
+  // (sch_file_versions.h:79) — and we keep the token the file used, so the test
+  // has to accept both spellings.
+  if (!NOT_CONNECTED_TYPES.has(pin.electricalType)) {
     box = merge(box, byCenter(pin.at.x, pin.at.y, TARGET_PIN_RADIUS * 2, TARGET_PIN_RADIUS * 2));
   }
 

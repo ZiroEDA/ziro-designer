@@ -755,7 +755,13 @@ export function autoplacedFields(
     }
     out[b.index] = {
       ...f,
-      at: { x: Math.round(px), y: Math.round(py) },
+      // `field->SetPosition( VECTOR2I( fieldHPlacement(…), fieldVPlacement(…) ) )`
+      // (autoplace_fields.cpp:174-175). No rounding, because upstream has no
+      // fractional quantity to round: the field extents arrived as a BOX2I and
+      // every division since has been integer. We used to round here, which
+      // silently absorbed a fractional field width instead of matching KiCad's
+      // truncation — so leaving it off is what keeps that honest.
+      at: { x: px, y: py },
       // Fields always display horizontally after autoplace; a symbol turned 90
       // degrees stores them vertical so the transform brings them back level.
       angle: fieldAngle,
