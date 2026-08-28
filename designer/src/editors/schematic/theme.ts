@@ -60,6 +60,11 @@ const SCH_LAYERS = {
   ruleArea: 'LAYER_RULE_AREAS',
   privateNote: 'LAYER_PRIVATE_NOTES',
   noConnect: 'LAYER_NOCONNECT',
+  // The two marker layers `SCH_PAINTER::draw( SCH_SYMBOL )` paints over a
+  // symbol's body: the DNP cross (sch_painter.cpp:2811) and the
+  // excluded-from-simulation box and badge (:2839).
+  dnpMarker: 'LAYER_DNP_MARKER',
+  excludedFromSim: 'LAYER_EXCLUDED_FROM_SIM',
   ercError: 'LAYER_ERC_ERR',
   ercWarning: 'LAYER_ERC_WARN',
   ercExclusion: 'LAYER_ERC_EXCLUSION',
@@ -110,6 +115,10 @@ export interface Theme {
   ruleArea: string;
   privateNote: string;
   noConnect: string;
+  /** LAYER_DNP_MARKER: the red cross over a "Do not populate" symbol. */
+  dnpMarker: string;
+  /** LAYER_EXCLUDED_FROM_SIM: the box and tilde badge on an excluded symbol. */
+  excludedFromSim: string;
   ercError: string;
   ercWarning: string;
   /** LAYER_ERC_EXCLUSION, the colour of an excluded marker. */

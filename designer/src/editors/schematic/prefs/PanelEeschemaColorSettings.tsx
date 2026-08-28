@@ -32,8 +32,12 @@ const COLOR_LAYERS: [keyof Theme, string][] = [
   ['symbolFill', 'Symbol body fills'],
   ['symbolOutline', 'Symbol body outlines'],
   ['cursor', 'Cursor'],
+  // `createSwatches` sorts m_validLayers by LayerName (panel_eeschema_color_
+  // settings.cpp:197-201), so these two land here and not at the end.
+  ['dnpMarker', 'DNP markers'],
   ['ercError', 'ERC errors'],
   ['ercWarning', 'ERC warnings'],
+  ['excludedFromSim', 'Excluded-from-simulation markers'],
   ['fields', 'Symbol fields'],
   ['grid', 'Grid'],
   ['hidden', 'Hidden items'],
