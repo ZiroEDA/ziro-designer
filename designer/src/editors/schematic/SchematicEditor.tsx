@@ -39,6 +39,7 @@ import {
   setAttribute,
   alignItems,
   alignToGridCommand,
+  autoplaceAfterFieldEdit,
   autoplaceFields,
   autoplacePlacedSymbol,
   autoplaceSheetFields,
@@ -222,6 +223,7 @@ import {
   hierarchicalLabelNames,
   deleteSheetPin,
   type SheetPinRef,
+  fieldEditCaption,
   isMandatoryField,
   imagePPI,
   imagePixelSize,
@@ -3897,6 +3899,19 @@ export function SchematicEditor({
   const onEditItem = useCallback(
     (id: string, kind: ItemRef['kind']) => {
       if (kind === 'symbol') setPropsTarget(id);
+      // `Properties`' `case SCH_FIELD_T` (sch_edit_tool.cpp:2880-2890): a
+      // field is an item in its own right, so double-clicking a symbol's
+      // Reference / Value / Footprint / user field opens DIALOG_FIELD_
+      // PROPERTIES for THAT field, not the whole symbol's dialog. The
+      // hit-test already ranks the field's small text box over the body
+      // (`collectAndGuess`), so this arm is what the click was picking out.
+      if (kind === 'field' && doc) {
+        const at = id.lastIndexOf(':field');
+        const symId = id.slice(0, at);
+        const fi = Number(id.slice(at + ':field'.length));
+        const si = doc.symbols.findIndex((s, i) => refId('symbol', s.uuid, i) === symId);
+        if (si !== -1 && doc.symbols[si]!.fields[fi]) setFieldEdit({ symbol: si, index: fi });
+      }
       if (kind === 'label' && doc) {
         const idx = doc.labels.findIndex((l, i) => refId('label', l.uuid, i) === id);
         if (idx !== -1) {
@@ -5812,16 +5827,37 @@ export function SchematicEditor({
           nameShown: r.nameShown,
           doNotAutoplace: r.doNotAutoplace,
         };
-        runCommand(
-          replaceSymbol(fe.symbol, {
-            ...sym,
-            fields: sym.fields.map((f, i) => (i === fe.index ? next : f)),
-          }),
+        const edited: SchSymbol = {
+          ...sym,
+          fields: sym.fields.map((f, i) => (i === fe.index ? next : f)),
+        };
+        // `editFieldText`'s tail (sch_edit_tool.cpp:2357-2365): with
+        // `m_AutoplaceFields.enable` set, a parent whose fields the autoplacer
+        // already owns has them re-placed, INSIDE the same commit — which is
+        // why making a Value longer nudges the Reference along.
+        const replaced = autoplaceAfterFieldEdit(
+          edited,
+          libById.get(schSymbolLibraryName(edited)),
+          es.autoplace_fields.enable,
+          {
+            allowRejustify: es.autoplace_fields.allow_rejustify,
+            alignToGrid: es.autoplace_fields.align_to_grid,
+          },
+          { doc, libById, drawableArea: drawableArea(doc) },
         );
+        // `commit.Push( caption )`: the undo entry is named after the dialog,
+        // not "Edit Symbol".
+        runCommand(
+          composeCommands(fieldEditCaption(orig.key), [replaceSymbol(fe.symbol, replaced)]),
+        );
+        // "if( !field->IsVisible() ) m_toolMgr->RunAction( ACTIONS::selectionClear )"
+        // (sch_edit_tool.cpp:2886-2887): unticking Visible in the dialog leaves
+        // the selection pointing at something no longer drawn, so it goes.
+        if (next.effects?.hidden) setSelection(new Set());
         return null;
       });
     },
-    [doc, runCommand],
+    [doc, runCommand, libById, es.autoplace_fields],
   );
 
   /** Apply DIALOG_IMAGE_PROPERTIES: position, scale, and the payload when
@@ -9627,6 +9663,7 @@ export function SchematicEditor({
       {fieldEdit && fieldPropsOf(fieldEdit) && (
         <DialogFieldProperties
           initial={fieldPropsOf(fieldEdit)!}
+          caption={fieldEditCaption(doc.symbols[fieldEdit.symbol]!.fields[fieldEdit.index]!.key)}
           mandatory={isMandatoryField(doc.symbols[fieldEdit.symbol]!.fields[fieldEdit.index]!.key)}
           onOk={commitFieldEdit}
           onCancel={() => setFieldEdit(null)}

@@ -715,3 +715,40 @@ export function formatG(value: number, precision = 4): string {
   }
   return trim(value.toFixed(Math.max(0, p - 1 - exponent)));
 }
+
+/**
+ * `wxStringSplit` (common/string_utils.cpp:1402-1421).
+ *
+ * Not `String.split`: wx appends the accumulated word at every separator, so
+ * two adjacent separators yield an empty element, but it appends the tail only
+ * `if( !tmp.IsEmpty() )`, so exactly ONE trailing empty is dropped. `"a  "`
+ * therefore splits to `["a", ""]`, where `split(' ')` gives `["a", "", ""]`.
+ */
+function wxStringSplit(text: string, splitter: string): string[] {
+  const parts = text.split(splitter);
+  if (parts.length > 0 && parts[parts.length - 1] === '') parts.pop();
+  return parts;
+}
+
+/** `wxString::Capitalize`: first character upper, the REST lower. */
+const capitalize = (word: string): string =>
+  word.length === 0 ? word : word[0]!.toUpperCase() + word.slice(1).toLowerCase();
+
+/**
+ * `TitleCaps` (common/string_utils.cpp:397-414).
+ *
+ * Splits on spaces, capitalizes each word, and rejoins with a single space.
+ * Because the join is `if( !result.IsEmpty() ) result += " "`, a leading empty
+ * word contributes nothing — a leading space is swallowed — while an interior
+ * one still gets its separator, so runs of spaces inside the string survive.
+ */
+export function titleCaps(str: string): string {
+  let result = '';
+
+  for (const word of wxStringSplit(str, ' ')) {
+    if (result !== '') result += ' ';
+    result += capitalize(word);
+  }
+
+  return result;
+}

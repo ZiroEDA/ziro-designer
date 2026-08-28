@@ -44,6 +44,14 @@ export interface FieldPropsResult {
 
 interface Props {
   initial: FieldPropsResult;
+  /**
+   * The window caption, which upstream's caller computes rather than the
+   * dialog: `DIALOG_FIELD_PROPERTIES dlg( m_frame, caption, aField )`
+   * (sch_edit_tool.cpp:2353) and `DIALOG_FIELD_PROPERTIES_BASE( aParent,
+   * wxID_ANY, aTitle )` (dialog_field_properties.cpp:52). See
+   * `fieldEditCaption`.
+   */
+  caption: string;
   /** Reference / Value / Footprint / Datasheet cannot be renamed. */
   mandatory: boolean;
   onOk: (r: FieldPropsResult) => void;
@@ -58,7 +66,13 @@ const alignOf = (fx: TextEffects, axis: 'h' | 'v'): string => {
   return (fx.justify ?? []).find((t) => (set as readonly string[]).includes(t)) ?? 'center';
 };
 
-export function DialogFieldProperties({ initial, mandatory, onOk, onCancel }: Props): JSX.Element {
+export function DialogFieldProperties({
+  initial,
+  caption,
+  mandatory,
+  onOk,
+  onCancel,
+}: Props): JSX.Element {
   // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
   // ui/modal_escape.ts.
   useModalEscape(onCancel);
@@ -112,7 +126,7 @@ export function DialogFieldProperties({ initial, mandatory, onOk, onCancel }: Pr
     <div className="ze-modal-backdrop" onMouseDown={onCancel}>
       <div className="ze-modal ze-label-dialog" onMouseDown={(e) => e.stopPropagation()}>
         <div className="ze-modal-header">
-          Field Properties
+          {caption}
           <span className="x" title="Cancel" onClick={onCancel}>
             ✕
           </span>

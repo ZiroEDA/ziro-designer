@@ -43,6 +43,7 @@ export * from './annotate.js';
 export * from './hop_over.js';
 export * from './intersheet_refs.js';
 export * from './label_properties.js';
+export * from './field_properties.js';
 export * from './change_text_type.js';
 export * from './set_attribute.js';
 export * from './sch_align_tool.js';
