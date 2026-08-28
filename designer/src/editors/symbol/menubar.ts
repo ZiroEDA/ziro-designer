@@ -245,8 +245,20 @@ export function symbolEditorMenus(
         stub('Select All', 'selectAll', { shortcut: 'Ctrl+A' }),
         stub('Unselect All', 'unselectAll', { shortcut: 'Ctrl+Shift+A' }),
         SEP,
-        stub('Find', 'find', { shortcut: 'Ctrl+F' }),
-        stub('Find and Replace', 'findAndReplace', { shortcut: 'Ctrl+Alt+F' }),
+        // `ACTIONS::find` and `ACTIONS::findAndReplace`, neither of which
+        // `setupUIConditions` names — so both are `ShowAlways`, live even on a
+        // cold frame. They were `stub`s here because the Find dialog was built
+        // under `editors/schematic/`, where this frame could not reach it;
+        // upstream it is a `SCH_BASE_FRAME` member both frames inherit
+        // (`sch_base_frame.h:246-248, :318`) and it now lives in
+        // `widgets/dialog_sch_find.tsx`.
+        //
+        // The id is `findReplace`, not `ACTIONS::findAndReplace`'s own name:
+        // that is the id `ui/toolbar_actions.ts`, both top toolbars and the
+        // schematic's menu bar already key on, and a second spelling here would
+        // be a row that dispatches to nothing.
+        act('Find', 'find', { shortcut: 'Ctrl+F' }),
+        act('Find and Replace', 'findReplace', { shortcut: 'Ctrl+Alt+F' }),
         SEP,
         // ENABLE( isEditableCond && haveSymbolCond ) (:636) — `isEditableCond`
         // excludes an alias, so Pin Table is dead on a derived symbol.

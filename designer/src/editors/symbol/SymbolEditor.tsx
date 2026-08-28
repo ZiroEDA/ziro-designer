@@ -74,7 +74,7 @@ import {
   setUnitCount,
   unitCount,
 } from './edits.js';
-import { GRID, MM, type SymbolViewOptions } from './render/symbolRenderer.js';
+import { GRID, MM, symItemId, type SymbolViewOptions } from './render/symbolRenderer.js';
 import { settings } from '../../prefs/settings.js';
 import type { SymbolHit } from './edits.js';
 import {
@@ -92,6 +92,15 @@ import '../../ui/shell.css';
 import { AboutDialog } from '../../home/dialogs/dialog_about.js';
 import { PreferencesDialog } from '../../dialogs/PreferencesDialog.js';
 import { symbolEditorMenus } from './menubar.js';
+import { DialogSchFind } from '../../widgets/dialog_sch_find.js';
+import {
+  defaultSearchData,
+  findMatchesInSymbol,
+  replaceInSymbol,
+  type SchSearchData,
+  type SymbolFindMatch,
+  type SymbolItemRef,
+} from '@ziroeda/eeschema/src/tools/sch_find_replace_tool.js';
 import { type SymbolConditions, symbolConditions, symbolToolbarDisabledIds } from './conditions.js';
 import { showHotkeyList } from '../../ui/hotkey_list_action.js';
 import { ABOUT_TITLES } from '../../ui/about_titles.js';
@@ -856,11 +865,123 @@ export function SymbolEditor({
     else setStatus(url ? `Datasheet: ${url}` : 'No datasheet defined');
   }, [workSymbol]);
 
+  // ----- Find / Find and Replace (SCH_FIND_REPLACE_TOOL) ------------------------------
+  //
+  // `SYMBOL_EDIT_FRAME::setupTools` does `RegisterTool( new SCH_FIND_REPLACE_TOOL )`
+  // (`symbol_edit_frame.cpp:432`) — the SAME tool the schematic registers,
+  // because `ShowFindReplaceDialog` and `m_findReplaceDialog` are on
+  // `SCH_BASE_FRAME`. The dialog is therefore `widgets/dialog_sch_find.tsx`
+  // and the walk is `findMatchesInSymbol` in the same engine module as the
+  // schematic's `findMatches`, which is where the C++ keeps both branches too.
+  const [findOpen, setFindOpen] = useState<false | 'find' | 'replace'>(false);
+  const [searchData, setSearchData] = useState<SchSearchData>(defaultSearchData);
+  const [findStatus, setFindStatus] = useState('');
+  const findCursor = useRef(-1);
+  const lastMatch = useRef<SymbolItemRef | null>(null);
+
+  const openFindDialog = useCallback((mode: 'find' | 'replace') => {
+    setFindOpen(mode);
+    findCursor.current = -1;
+    lastMatch.current = null;
+    setFindStatus('');
+  }, []);
+
+  /** The selection ids for one hit — `symItemId`'s format, so the canvas and
+   *  `parseItemId` both read it. */
+  const matchId = (m: SymbolItemRef): string => symItemId(m.kind, m.unitIdx, m.itemIdx);
+
+  /** `searchSelectedOnly` — the one scope box the dialog leaves visible in
+   *  this frame, read back out of our id-keyed selection. */
+  const selectedRefs = useCallback((): SymbolItemRef[] => {
+    const out: SymbolItemRef[] = [];
+    for (const id of selection) {
+      const ref = parseItemId(id);
+      if (ref) out.push({ kind: ref.kind, unitIdx: ref.unitIdx, itemIdx: ref.itemIdx });
+    }
+    return out;
+  }, [selection]);
+
+  /**
+   * `SCH_FIND_REPLACE_TOOL::FindNext` / `FindPrevious` for this frame: walk the
+   * symbol, advance the cursor with wrap-around, select and focus.
+   *
+   * No unit switch, deliberately. `FindNext` ends on
+   * `m_frame->FocusOnLocation( … )` and nothing else — the schematic arm calls
+   * `SCH_ACTIONS::changeSheet` when a hit is on another sheet, and the symbol
+   * arm has no counterpart, so a hit in another unit is selected and centred
+   * exactly as upstream leaves it.
+   */
+  const doFind = useCallback(
+    (dir: 1 | -1) => {
+      if (!workSymbol) return;
+      const only = searchData.searchSelectedOnly ? selectedRefs() : undefined;
+      const all: SymbolFindMatch[] = findMatchesInSymbol(workSymbol, searchData, only);
+      if (all.length === 0) {
+        findCursor.current = -1;
+        lastMatch.current = null;
+        // `ShowFindReplaceStatus( _( "No matches found." ), 2000 )`.
+        setFindStatus(searchData.findString ? 'No matches found.' : '');
+        return;
+      }
+      findCursor.current =
+        findCursor.current === -1
+          ? dir === 1
+            ? 0
+            : all.length - 1
+          : (findCursor.current + dir + all.length) % all.length;
+      const m = all[findCursor.current]!;
+      lastMatch.current = { kind: m.kind, unitIdx: m.unitIdx, itemIdx: m.itemIdx };
+      setSelection(new Set([matchId(m)]));
+      controller.current?.centerOn(m.pos);
+      setFindStatus(`${findCursor.current + 1} of ${all.length}`);
+    },
+    [workSymbol, searchData, selectedRefs],
+  );
+
+  const doFindRef = useRef(doFind);
+  doFindRef.current = doFind;
+
+  /** `ReplaceAndFindNext`: replace inside the current match, then find the next. */
+  const doReplaceNext = useCallback(() => {
+    if (!workSymbol || !searchData.findString) return;
+    if (findCursor.current === -1 || !lastMatch.current) {
+      doFind(1);
+      return;
+    }
+    const next = replaceInSymbol(workSymbol, searchData, [lastMatch.current]);
+    // `if( !commit.Empty() ) commit.Push( … )` — no undo entry for a no-op.
+    if (next) commit(next, 'Find and Replace');
+    // The replaced item usually drops out of the list; step back so the
+    // follow-up FindNext lands on the item after it.
+    findCursor.current = Math.max(-1, findCursor.current - 1);
+    lastMatch.current = null;
+    requestAnimationFrame(() => doFindRef.current(1));
+  }, [workSymbol, searchData, commit, doFind]);
+
+  /** `ReplaceAll`, over the whole symbol (or the selection, when scoped). */
+  const doReplaceAll = useCallback(() => {
+    if (!workSymbol || !searchData.findString) return;
+    const only = searchData.searchSelectedOnly ? selectedRefs() : undefined;
+    const next = replaceInSymbol(workSymbol, searchData, only);
+    if (next) commit(next, 'Find and Replace All');
+    findCursor.current = -1;
+    lastMatch.current = null;
+    setFindStatus('');
+  }, [workSymbol, searchData, commit, selectedRefs]);
+
   const onTopAction = useCallback(
     (id: string) => {
       switch (id) {
         case 'newSymbol':
           setNewSymbolOpen(true);
+          break;
+        // `SCH_FIND_REPLACE_TOOL::FindAndReplace` —
+        // `m_frame->ShowFindReplaceDialog( aEvent.IsAction( &ACTIONS::findAndReplace ) )`.
+        case 'find':
+          openFindDialog('find');
+          break;
+        case 'findReplace':
+          openFindDialog('replace');
           break;
         case 'save':
           save();
@@ -941,6 +1062,7 @@ export function SymbolEditor({
       onAddSymbolToSchematic,
       showDatasheet,
       onToolSelect,
+      openFindDialog,
     ],
   );
 
@@ -1606,6 +1728,14 @@ export function SymbolEditor({
         case 'newSymbol':
           setNewSymbolOpen(true);
           break;
+        // Edit > Find / Find and Replace, the same two actions the top toolbar
+        // dispatches (`SCH_FIND_REPLACE_TOOL::FindAndReplace`).
+        case 'find':
+          openFindDialog('find');
+          break;
+        case 'findReplace':
+          openFindDialog('replace');
+          break;
         case 'save':
           save();
           break;
@@ -1699,6 +1829,7 @@ export function SymbolEditor({
       commit,
       showDatasheet,
       onToolSelect,
+      openFindDialog,
     ],
   );
 
@@ -2252,6 +2383,23 @@ export function SymbolEditor({
             />
           );
         })()}
+      {/* `SCH_BASE_FRAME::ShowFindReplaceDialog` — the same DIALOG_SCH_FIND the
+          schematic opens, told which frame it is in so it takes the
+          `FRAME_SCH_SYMBOL_EDITOR` branch of its own constructor. */}
+      {findOpen && (
+        <DialogSchFind
+          frame="FRAME_SCH_SYMBOL_EDITOR"
+          data={searchData}
+          onChange={setSearchData}
+          onFindNext={() => doFind(1)}
+          onFindPrevious={() => doFind(-1)}
+          onClose={() => setFindOpen(false)}
+          status={findStatus}
+          replace={findOpen === 'replace'}
+          onReplace={doReplaceNext}
+          onReplaceAll={doReplaceAll}
+        />
+      )}
       {aboutOpen && <AboutDialog title={ABOUT_TITLES.symbol} onClose={() => setAboutOpen(false)} />}
       {prefsOpen && <PreferencesDialog onClose={() => setPrefsOpen(false)} />}
       {newSymbolOpen && (

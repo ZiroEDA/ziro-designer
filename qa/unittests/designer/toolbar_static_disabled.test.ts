@@ -104,12 +104,14 @@ const UNBUILT: Readonly<Record<string, readonly string[]>> = {
   'schematic left': [],
   'schematic right': [],
   // `SCH_FIND_REPLACE_TOOL` is registered by SYMBOL_EDIT_FRAME
-  // (`symbol_edit_frame.cpp:432`) and `UpdateFind` has a `LIB_SYMBOL` branch of
-  // its own (`sch_find_replace_tool.cpp:73-84`), so both of these are live in
-  // KiCad's Symbol Editor. Ours has the schematic's find only: `findMatches` in
-  // `eeschema/src/tools/sch_find_replace_tool.ts` takes a `Schematic`, and
-  // there is no LIB_SYMBOL walk beside it yet.
-  'symbol top': ['find', 'findReplace'],
+  // (`symbol_edit_frame.cpp:432`) and both `UpdateFind` and `nextMatch` have a
+  // `LIB_SYMBOL` branch of their own (`sch_find_replace_tool.cpp:73-84`,
+  // `:190-198`), so Find and Find and Replace are live in KiCad's Symbol
+  // Editor. They were greyed here because the dialog had been built under
+  // `editors/schematic/` — a `SCH_BASE_FRAME` facility in a subclass's folder
+  // — and the engine had only the `Schematic` walk. Both are fixed:
+  // `widgets/dialog_sch_find.tsx` and `findMatchesInSymbol`.
+  'symbol top': [],
   'symbol left': [],
   // `SCH_ACTIONS::drawSymbolTextBox` and `drawBezier`: no tool behind either.
   'symbol right': ['drawSymbolTextBox', 'bezier'],

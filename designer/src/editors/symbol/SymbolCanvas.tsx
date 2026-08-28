@@ -58,6 +58,13 @@ export interface SymbolCanvasController {
   zoomToFit: () => void;
   zoomIn: () => void;
   zoomOut: () => void;
+  /**
+   * `EDA_DRAW_FRAME::FocusOnLocation` (`common/eda_draw_frame.cpp`), which is
+   * `GetCanvas()->GetView()->SetCenter( aPos )` once the point is off-screen:
+   * the scale is kept and the world point goes to the middle of the canvas.
+   * `SCH_FIND_REPLACE_TOOL::FindNext` ends on it for every hit.
+   */
+  centerOn: (pos: Vec2) => void;
 }
 
 /** In-progress shape state, mirroring EDA_SHAPE::m_editState. */
@@ -387,6 +394,17 @@ export const SymbolCanvas = forwardRef<SymbolCanvasController, Props>(function S
       zoomOut: () => {
         const c = canvasRef.current;
         if (c) zoomAbout(c.width / 2, c.height / 2, 0.8);
+      },
+      centerOn: (pos: Vec2) => {
+        const c = canvasRef.current;
+        const vp = viewportRef.current;
+        if (!c || !vp) return;
+        viewportRef.current = {
+          scale: vp.scale,
+          offsetX: c.width / 2 - pos.x * vp.scale,
+          offsetY: c.height / 2 - pos.y * vp.scale,
+        };
+        draw();
       },
     }),
     [symbol, opts.unit, opts.bodyStyle, draw, zoomAbout],

@@ -332,7 +332,7 @@ import {
   parentPath,
   type SheetRef,
 } from './sch_navigate_tool.js';
-import { DialogSchematicFind } from './dialogs/dialog_schematic_find.js';
+import { DialogSchFind } from '../../widgets/dialog_sch_find.js';
 import {
   DialogIncrementAnnotations,
   type IncrementAnnotationsResult,
@@ -8620,7 +8620,11 @@ export function SchematicEditor({
               />
             )}
             {findOpen && (
-              <DialogSchematicFind
+              <DialogSchFind
+                // `SCH_BASE_FRAME::ShowFindReplaceDialog` builds the same
+                // DIALOG_SCH_FIND in both frames; the dialog branches on the
+                // frame type itself, so this is the whole of the difference.
+                frame="FRAME_SCH"
                 data={searchData}
                 onChange={setSearchData}
                 onFindNext={() => doFind(1)}

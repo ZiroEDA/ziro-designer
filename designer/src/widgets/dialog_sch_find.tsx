@@ -4,7 +4,57 @@
 /**
  * Modeless Find / Find and Replace dialog. Counterpart:
  * `eeschema/dialogs/dialog_sch_find.cpp` (DIALOG_SCH_FIND,
- * dialog_sch_find_base.cpp). Layout mirrors the base sizers exactly:
+ * dialog_sch_find_base.cpp).
+ *
+ * ---------------------------------------------------------------------------
+ * WHY THIS IS IN `widgets/` AND NOT UNDER `editors/schematic/`
+ * ---------------------------------------------------------------------------
+ *
+ * It is a `SCH_BASE_FRAME` facility, not a `SCH_EDIT_FRAME` one:
+ *
+ *     void             ShowFindReplaceDialog( bool aReplace );
+ *     DIALOG_SCH_FIND* GetFindReplaceDialog() const { return m_findReplaceDialog; }
+ *     …
+ *     DIALOG_SCH_FIND* m_findReplaceDialog;      — eeschema/sch_base_frame.h:246-248, :318
+ *
+ * and `SCH_EDIT_FRAME` and `SYMBOL_EDIT_FRAME` both inherit it — one dialog
+ * class, one `ShowFindReplaceDialog`, one search-data object, branching
+ * internally on `GetFrameType()`. This port splits eeschema into two editors,
+ * so a base-class facility has to live above both of them or it becomes a
+ * per-editor copy; `widgets/dialog_sym_lib_table.tsx` (upstream
+ * `eeschema/dialogs/dialog_sym_lib_table.cpp`, opened from either frame) and
+ * `widgets/lib_tree.tsx` are already here for the same reason.
+ *
+ * It lived at `editors/schematic/dialogs/dialog_schematic_find.tsx` and was
+ * wired only into `SchematicEditor.tsx`, which is why the Symbol Editor's Find
+ * and Find-and-Replace buttons carried a static `disabled: true` against a
+ * KiCad toolbar that greys neither.
+ *
+ * ---------------------------------------------------------------------------
+ * THE TWO FRAMES
+ * ---------------------------------------------------------------------------
+ *
+ * `DIALOG_SCH_FIND::DIALOG_SCH_FIND` (`dialog_sch_find.cpp:57-67`):
+ *
+ *     if( m_frame->GetFrameType() == FRAME_SCH_SYMBOL_EDITOR )
+ *     {
+ *         m_findReplaceData->searchAllPins = true;
+ *
+ *         m_cbCurrentSheetOnly->Hide();
+ *         m_cbSearchPins->Hide();
+ *         m_cbSearchNetNames->Hide();
+ *         m_cbReplaceReferences->Hide();
+ *
+ *         m_staticline1->Hide();
+ *         m_searchPanelLink->Hide();
+ *     }
+ *
+ * — four option boxes gone, pin search forced ON rather than merely defaulted,
+ * and the separator plus the "Show search panel" link gone with them. What is
+ * left in that frame is Match case, Whole words only, Regular Expression,
+ * Include hidden fields, and (replace mode only) the current-selection scope.
+ *
+ * Layout mirrors the base sizers exactly:
  *
  *   mainSizer (vertical)
  *     topSizer (horizontal): leftSizer (grows) | rightSizer (buttons)
@@ -23,7 +73,15 @@
 import { useEffect, useRef, useState, type JSX } from 'react';
 import type { MatchMode, SchSearchData } from '@ziroeda/eeschema';
 
+/** `EDA_BASE_FRAME::GetFrameType()`, the only thing the dialog branches on. */
+export type SchFindFrame = 'FRAME_SCH' | 'FRAME_SCH_SYMBOL_EDITOR';
+
 interface Props {
+  /**
+   * Which frame opened it. `FRAME_SCH_SYMBOL_EDITOR` takes the constructor
+   * branch quoted above; anything else is the schematic's full option set.
+   */
+  frame: SchFindFrame;
   data: SchSearchData;
   onChange: (next: SchSearchData) => void;
   onFindNext: () => void;
@@ -42,7 +100,8 @@ interface Props {
   onShowSearchPanel?: () => void;
 }
 
-export function DialogSchematicFind({
+export function DialogSchFind({
+  frame,
   data,
   onChange,
   onFindNext,
@@ -56,11 +115,24 @@ export function DialogSchematicFind({
 }: Props): JSX.Element {
   const inputRef = useRef<HTMLInputElement>(null);
   const [text, setText] = useState(data.findString);
+  const symbolEditor = frame === 'FRAME_SCH_SYMBOL_EDITOR';
 
   useEffect(() => {
     inputRef.current?.focus();
     inputRef.current?.select();
   }, []);
+
+  // `m_findReplaceData->searchAllPins = true;` — the CONSTRUCTOR sets the flag
+  // for this frame, it does not merely tick a box, so a symbol's pins are
+  // searched whether or not the schematic left the option off. The checkbox is
+  // hidden straight after, which is why this is not a rendered control. On
+  // mount only, because that is when the constructor runs.
+  const openedRef = useRef(false);
+  useEffect(() => {
+    if (openedRef.current) return;
+    openedRef.current = true;
+    if (symbolEditor && !data.searchAllPins) onChange({ ...data, searchAllPins: true });
+  }, [symbolEditor, data, onChange]);
 
   const commitText = (value: string): void => {
     setText(value);
@@ -149,14 +221,18 @@ export function DialogSchematicFind({
               </label>
               {/* gbSizer2 row 1 is an empty 8px spacer row. */}
               <div className="ze-schfind-gap" style={{ gridColumn: '1 / -1' }} />
-              <label style={{ gridColumn: '1 / -1' }}>
-                <input
-                  type="checkbox"
-                  checked={data.searchAllPins}
-                  onChange={(e) => onChange({ ...data, searchAllPins: e.target.checked })}
-                />
-                Search pin names and numbers
-              </label>
+              {/* `m_cbSearchPins->Hide()` — forced on and hidden in the
+                  Symbol Editor, where every symbol pin is always searched. */}
+              {!symbolEditor && (
+                <label style={{ gridColumn: '1 / -1' }}>
+                  <input
+                    type="checkbox"
+                    checked={data.searchAllPins}
+                    onChange={(e) => onChange({ ...data, searchAllPins: e.target.checked })}
+                  />
+                  Search pin names and numbers
+                </label>
+              )}
               <label style={{ gridColumn: '1 / -1' }}>
                 <input
                   type="checkbox"
@@ -165,15 +241,20 @@ export function DialogSchematicFind({
                 />
                 Include hidden fields
               </label>
-              <label style={{ gridColumn: '1 / -1' }}>
-                <input
-                  type="checkbox"
-                  checked={data.searchCurrentSheetOnly}
-                  disabled={data.searchSelectedOnly}
-                  onChange={(e) => onChange({ ...data, searchCurrentSheetOnly: e.target.checked })}
-                />
-                Search the current sheet only
-              </label>
+              {/* `m_cbCurrentSheetOnly->Hide()` — a symbol has no sheets. */}
+              {!symbolEditor && (
+                <label style={{ gridColumn: '1 / -1' }}>
+                  <input
+                    type="checkbox"
+                    checked={data.searchCurrentSheetOnly}
+                    disabled={data.searchSelectedOnly}
+                    onChange={(e) =>
+                      onChange({ ...data, searchCurrentSheetOnly: e.target.checked })
+                    }
+                  />
+                  Search the current sheet only
+                </label>
+              )}
               <label style={{ gridColumn: '1 / -1' }}>
                 <input
                   type="checkbox"
@@ -182,7 +263,9 @@ export function DialogSchematicFind({
                 />
                 Search the current selection only
               </label>
-              {replace && (
+              {/* `m_cbReplaceReferences->Hide()` — the Reference field of a
+                  LIB_SYMBOL never matches at all (`sch_field.cpp:637-641`). */}
+              {replace && !symbolEditor && (
                 <label style={{ gridColumn: '1 / -1' }}>
                   <input
                     type="checkbox"
@@ -193,15 +276,20 @@ export function DialogSchematicFind({
                 </label>
               )}
               {/* Last in the box, as dialog_sch_find_base.cpp orders it: it
-                  comes after the replace option, not beside the pin search. */}
-              <label style={{ gridColumn: '1 / -1' }}>
-                <input
-                  type="checkbox"
-                  checked={data.searchNetNames}
-                  onChange={(e) => onChange({ ...data, searchNetNames: e.target.checked })}
-                />
-                Search net names
-              </label>
+                  comes after the replace option, not beside the pin search.
+                  `m_cbSearchNetNames->Hide()` in the Symbol Editor — the walk
+                  there passes `aSheet = nullptr`, so there is no connection to
+                  read a net name off (`sch_pin.cpp:514-523`). */}
+              {!symbolEditor && (
+                <label style={{ gridColumn: '1 / -1' }}>
+                  <input
+                    type="checkbox"
+                    checked={data.searchNetNames}
+                    onChange={(e) => onChange({ ...data, searchNetNames: e.target.checked })}
+                  />
+                  Search net names
+                </label>
+              )}
             </div>
           </div>
           {/* rightSizer: vertical button stack. */}
@@ -224,11 +312,13 @@ export function DialogSchematicFind({
             </button>
           </div>
         </div>
-        <div className="ze-find-sep" />
+        {/* `m_staticline1->Hide()` in the Symbol Editor, with the link. */}
+        {!symbolEditor && <div className="ze-find-sep" />}
         {/* bSizer6: status + "Show search panel" link. */}
         <div className="ze-find-status">
           <span className="status">{status}</span>
-          {onShowSearchPanel && (
+          {/* `m_searchPanelLink->Hide()` — that frame has no search panel. */}
+          {!symbolEditor && onShowSearchPanel && (
             // The label carries the action's hotkey, as upstream appends
             // KeyNameFromKeyCode( ACTIONS::showSearch.GetHotKey() ) to it.
             <button
