@@ -17,7 +17,11 @@ import { titleCaps } from '@ziroeda/common';
 import type { LibSymbol, SchSymbol, Schematic } from '../types.js';
 import { isMandatoryField } from './properties.js';
 import { refId } from './hittest.js';
-import { autoplacedFields, type AutoplaceOptions, type AutoplaceSheet } from './autoplace_fields.js';
+import {
+  autoplacedFields,
+  type AutoplaceOptions,
+  type AutoplaceSheet,
+} from './autoplace_fields.js';
 
 /**
  * Resolve a `field` item id — `"<symbolRefId>:field<k>"`, what `collectAndGuess`
@@ -110,7 +114,10 @@ export function autoplaceAfterFieldEdit(
   lib: LibSymbol | undefined,
   enable: boolean,
   opts: AutoplaceOptions,
-  sheet: Omit<AutoplaceSheet, 'doc' | 'libById'> & { doc: Schematic; libById: Map<string, LibSymbol> },
+  sheet: Omit<AutoplaceSheet, 'doc' | 'libById'> & {
+    doc: Schematic;
+    libById: Map<string, LibSymbol>;
+  },
 ): SchSymbol {
   if (!enable) return sym;
 

@@ -24,10 +24,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import {
-  DEFAULT_FONT_NAME,
-  KICAD_FONT_NAME,
-} from '@ziroeda/common/src/font/stroke_font.js';
+import { DEFAULT_FONT_NAME, KICAD_FONT_NAME } from '@ziroeda/common/src/font/stroke_font.js';
 
 const read = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
@@ -212,7 +209,7 @@ describe('the row labels are the ones properties_frame_base.cpp declares', () =>
     // constants in that order and, separately, what the constants say.
     const faces = PANEL.slice(PANEL.indexOf('const FACE_CHOICES'));
     expect(faces.slice(0, faces.indexOf('];'))).toContain(
-      '{ value: \'\', label: DEFAULT_FONT_NAME },\n  { value: KICAD_FONT_NAME, label: KICAD_FONT_NAME },',
+      "{ value: '', label: DEFAULT_FONT_NAME },\n  { value: KICAD_FONT_NAME, label: KICAD_FONT_NAME },",
     );
     expect(DEFAULT_FONT_NAME).toBe('Default Font');
     expect(KICAD_FONT_NAME).toBe('KiCad Font');

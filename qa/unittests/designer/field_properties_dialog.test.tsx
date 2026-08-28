@@ -51,7 +51,7 @@ describe('the field dialog wears the caption its caller computed', () => {
     expect(screen.queryByText('Field Properties')).toBeNull();
   });
 
-  it("shows \"Edit 'MPN' Field\" for a user field", () => {
+  it('shows "Edit \'MPN\' Field" for a user field', () => {
     renderFor('MPN', 'RC0402FR-0710KL');
     expect(screen.getByText("Edit 'MPN' Field")).toBeTruthy();
   });

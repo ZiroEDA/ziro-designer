@@ -47,7 +47,7 @@ import { schSymbolLibraryName } from '../lib_symbol_compare.js';
 export interface PropRow {
   group: string;
   name: string;
-  kind: 'coord' | 'dist' | 'string' | 'bool' | 'int' | 'choice';
+  kind: 'coord' | 'dist' | 'string' | 'bool' | 'int' | 'choice' | 'color';
   choices?: readonly string[];
   /** `PGPROPERTY_COLOR4D`'s colour cell (pg_cell_renderer.cpp:38-58), which
    *  `SCH_PROPERTIES_PANEL::createPGProperty` builds for every COLOR4D
@@ -798,8 +798,9 @@ function fieldRows(sch: Schematic, id: string): PropRow[] {
     {
       group: 'Text Properties',
       name: 'Color',
-      kind: 'string',
-      swatch: colorCss,
+      // `PGPROPERTY_COLOR4D` (sch_properties_panel.cpp:472-476), a COLOR_SWATCH
+      // that opens DIALOG_COLOR_PICKER -- not a cell you type a colour into.
+      kind: 'color',
       value: colorCss,
       set: (v) => {
         const css = String(v).trim();

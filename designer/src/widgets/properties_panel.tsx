@@ -56,6 +56,8 @@
  */
 import { Fragment, useEffect, useState } from 'react';
 import type { JSX } from 'react';
+import { COLOR4D_UNSPECIFIED, parseColor4d, toHexString } from '@ziroeda/common';
+import { ColorSwatch } from '../ui/ColorSwatch.js';
 import './properties_panel.css';
 
 /**
@@ -71,7 +73,7 @@ export interface PropertyGridRow<C> {
   /** The property's group; '' is upstream's unnamed group. */
   readonly group: string;
   readonly name: string;
-  readonly kind: 'coord' | 'dist' | 'string' | 'bool' | 'int' | 'choice';
+  readonly kind: 'coord' | 'dist' | 'string' | 'bool' | 'int' | 'choice' | 'color';
   readonly choices?: readonly string[];
   /**
    * `PGPROPERTY_COLORENUM`'s custom image (pg_properties.cpp:647-669): a CSS
@@ -100,6 +102,19 @@ export interface PropertyGridRow<C> {
  * registered without one falls into is captioned "Basic Properties".
  */
 export const UNSPECIFIED_GROUP_CAPTION = 'Basic Properties';
+
+/**
+ * What a colour cell commits.
+ *
+ * `COLOR4D::UNSPECIFIED` is fully transparent, and upstream stores it as "no
+ * colour" rather than as a transparent black -- `SCH_FIELD` has no colour token
+ * at all in that state. So an alpha of zero clears the property; anything else
+ * commits the colour. Named rather than inlined because it is a rule, and a
+ * lambda in a JSX prop is not reachable from a test.
+ */
+export function colorCellValue(c: { readonly a: number }): string {
+  return c.a <= 0 ? '' : toHexString(c as Parameters<typeof toHexString>[0]);
+}
 
 /**
  * The caption string, from `PROPERTIES_PANEL::rebuildProperties` (:196-210).
@@ -200,6 +215,29 @@ function ValueCell<C>({
       {inner}
     </span>
   );
+
+  // `PGPROPERTY_COLOR4D`, which `SCH_PROPERTIES_PANEL::createPGProperty`
+  // (sch_properties_panel.cpp:472-476) builds for every COLOR4D property and
+  // hands `LAYER_SCHEMATIC_BACKGROUND` so the cell composites over the sheet.
+  // It is not the `swatch` above: that one is `PGPROPERTY_COLORENUM`'s painted
+  // rectangle, which pcbnew gives a layer row and which nothing can click. This
+  // is `COLOR_SWATCH` — a control, opening `DIALOG_COLOR_PICKER`.
+  //
+  // `ui/ColorSwatch.tsx` already is that control, checkerboard and picker
+  // included, so this row hands it the value and takes the answer back; the
+  // panel does not draw a swatch of its own.
+  if (row.kind === 'color') {
+    const css = typeof row.value === 'string' ? row.value : '';
+    return cell(
+      <ColorSwatch
+        color={css === '' ? COLOR4D_UNSPECIFIED : parseColor4d(css)}
+        size="small"
+        label={row.name}
+        disabled={!row.set}
+        onChange={(c) => commitValue(colorCellValue(c))}
+      />,
+    );
+  }
 
   if (row.kind === 'bool') {
     return cell(

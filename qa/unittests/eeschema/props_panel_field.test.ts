@@ -28,7 +28,10 @@ import { itemRefById, refId } from '@ziroeda/eeschema/src/tools/hittest.js';
 import { mmToIU } from '@ziroeda/common/src/eda_units.js';
 import type { LibSymbol, Schematic } from '@ziroeda/eeschema/src/types.js';
 
-const rawR = readFileSync(fileURLToPath(new URL('../../data/R.kicad_sym', import.meta.url)), 'utf8');
+const rawR = readFileSync(
+  fileURLToPath(new URL('../../data/R.kicad_sym', import.meta.url)),
+  'utf8',
+);
 const R = readSymbolLib(parse(rawR))[0]!;
 const LIB = new Map<string, LibSymbol>([[R.libId, R]]);
 const rBlock = rawR.slice(rawR.indexOf('(symbol "'), rawR.lastIndexOf(')'));
@@ -145,7 +148,12 @@ describe('each row reads the field, not a default', () => {
   it('reads Font, Color, the two justifications and the three flags', () => {
     expect(named(rows(), 'Font')!.value).toBe('KiCad Font');
     expect(named(rows(), 'Color')!.value).toBe('rgb(255, 0, 0)');
-    expect(named(rows(), 'Color')!.swatch).toBe('rgb(255, 0, 0)');
+    // Not `swatch`: that field is `PGPROPERTY_COLORENUM`'s painted rectangle,
+    // which pcbnew gives a layer row and which nothing can click. A field's
+    // Color is `PGPROPERTY_COLOR4D` (sch_properties_panel.cpp:472-476), a
+    // COLOR_SWATCH control that opens DIALOG_COLOR_PICKER, so the row declares
+    // the CONTROL and the panel renders the shared one.
+    expect(named(rows(), 'Color')!.kind).toBe('color');
     expect(named(rows(), 'Horizontal Justification')!.value).toBe('Right');
     expect(named(rows(), 'Vertical Justification')!.value).toBe('Bottom');
     expect(named(rows(), 'Bold')!.value).toBe(true);

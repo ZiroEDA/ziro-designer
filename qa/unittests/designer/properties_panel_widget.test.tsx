@@ -31,6 +31,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { cleanup, fireEvent, render } from '@testing-library/react';
 import {
+  colorCellValue,
   PropertiesPanel,
   propertiesPanelCaption,
   UNSPECIFIED_GROUP_CAPTION,
@@ -611,5 +612,73 @@ describe('the private pcbnew copy of this widget is gone', () => {
       expect(pcb, sym).not.toContain(sym);
     expect(pcb).not.toContain('PcbSelectionInfo');
     expect(pcb).toContain('<PcbPropertiesPanel');
+  });
+});
+
+/**
+ * `PGPROPERTY_COLOR4D` — the one cell that is a control rather than text.
+ *
+ * `SCH_PROPERTIES_PANEL::createPGProperty` (sch_properties_panel.cpp:472-476)
+ * builds it for every COLOR4D property and hands it the sheet background, so
+ * the swatch composites over what the canvas draws. It is NOT the `swatch`
+ * field a layer row carries: that one is `PGPROPERTY_COLORENUM`'s painted
+ * rectangle (pg_properties.cpp:647-669), which is paint and cannot be clicked.
+ * This is `COLOR_SWATCH`, and clicking it opens `DIALOG_COLOR_PICKER`.
+ *
+ * The rendered half matters here more than usual: the eeschema side already
+ * pins that the ROW says `kind: 'color'`, and a mutant that stopped the widget
+ * ever matching that kind still passed every one of those assertions — the row
+ * was a value nothing read. These ask the DOM instead.
+ */
+describe('a colour cell is a swatch control, not text', () => {
+  const colorRows = [
+    { group: '', name: 'Color', kind: 'color' as const, value: 'rgb(255, 0, 0)', set: () => null },
+    { group: '', name: 'Text', kind: 'string' as const, value: 'hello', set: () => null },
+  ];
+
+  it('renders a swatch button for the colour row', () => {
+    const { container } = panel(colorRows);
+    expect(container.querySelectorAll('.ze-swatch')).toHaveLength(1);
+  });
+
+  it('labels it with the property name, since a bare button has no label', () => {
+    const { getByRole } = panel(colorRows);
+    expect(getByRole('button', { name: 'Color' })).toBeTruthy();
+  });
+
+  it('commits nothing for a fully transparent colour, which means "unset"', () => {
+    // COLOR4D::UNSPECIFIED is transparent, and upstream stores that as the
+    // ABSENCE of a colour -- a SCH_FIELD carries no colour token at all -- so
+    // the cell must clear the property rather than commit a transparent black.
+    expect(colorCellValue({ r: 0, g: 0, b: 0, a: 0 })).toBe('');
+  });
+
+  it('and commits the colour itself when it is not transparent', () => {
+    expect(colorCellValue({ r: 1, g: 0, b: 0, a: 1 })).not.toBe('');
+  });
+
+  it('and gives the ordinary text row no swatch', () => {
+    const { container } = panel([colorRows[1]!]);
+    expect(container.querySelectorAll('.ze-swatch')).toHaveLength(0);
+  });
+
+  it('shows an unset colour as the unspecified swatch, not an empty cell', () => {
+    // COLOR4D::UNSPECIFIED is transparent, which `MakeBitmap` leaves as the
+    // bare checkerboard (color_swatch.cpp:78-133) rather than nothing at all.
+    const { container } = panel([{ ...colorRows[0]!, value: '' }]);
+    // Counting swatches is not enough: a swatch painted solid black is still a
+    // swatch, and that is the mutant this closes. `MakeBitmap` lays the
+    // checkerboard down and paints the colour over it AT ITS OWN ALPHA
+    // (color_swatch.cpp:78-133), so what makes an unset colour read as unset is
+    // that its alpha is zero -- not the class, which every swatch carries.
+    const style = (root: HTMLElement): string =>
+      root.querySelector('.ze-swatch')!.getAttribute('style') ?? '';
+    expect(style(container)).toMatch(/rgba\([^)]*,\s*0\)/);
+    // ...and a real colour is opaque -- `rgb(...)`, no alpha term -- or the
+    // assertion above holds for any input at all. (A solid black swatch, which
+    // is what dropping the UNSPECIFIED branch produces, fails here.)
+    const set = panel([colorRows[0]!]);
+    expect(style(set.container)).toContain('255');
+    expect(style(set.container)).not.toContain('rgba');
   });
 });
