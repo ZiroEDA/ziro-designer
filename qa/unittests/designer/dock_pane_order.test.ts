@@ -63,7 +63,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { PL_EDITOR_DEFAULTS } from '@ziroeda/designer/src/prefs/settings.js';
+import { FPEDIT_DEFAULTS, PL_EDITOR_DEFAULTS } from '@ziroeda/designer/src/prefs/settings.js';
 
 const read = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
@@ -191,7 +191,15 @@ describe('a docked pane is sized by the numbers upstream states, not at the call
     expect(SYM).toMatch(/const LIBRARY_TREE_WIDTH = 250;/);
     expect(FP).toMatch(/const LIBRARY_TREE_WIDTH = 250;/);
     expect(SYM).toContain('useState(LIBRARY_TREE_WIDTH)');
-    expect(FP).toContain('useState(LIBRARY_TREE_WIDTH)');
+    // The Footprint Editor's pane is a PERSISTED width now —
+    // `PARAM<int>( "window.lib_width", &m_LibWidth, 250 )`
+    // (footprint_editor_settings.cpp:69-70), restored with `SetAuiPaneSize` at
+    // :279-280 — so it opens at the stored number and the constant is only the
+    // fallback for a profile that has never dragged it. The same shape the
+    // pl_editor Props pane above took, and the 250 is still upstream's, stated
+    // once in the settings defaults.
+    expect(FPEDIT_DEFAULTS.window.lib_width).toBe(250);
+    expect(FP).toContain('settings.fpEdit.window.lib_width || LIBRARY_TREE_WIDTH');
     // Both were 260, which is neither frame's number.
     expect(SYM).not.toContain('useState(260)');
     expect(FP).not.toContain('useState(260)');

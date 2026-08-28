@@ -144,7 +144,14 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // invented `border: '1px solid #444'`; the three metrics were that swatch's
   // inline width, height and border-radius. All four are now the shared
   // `.ze-layer-swatch` rule.
-  'editors/footprint': { colours: 8, metrics: 17 },
+  //
+  // 17 -> 14: the private library tree went the same way, to the shared
+  // `LIB_TREE`. Its three metrics were the filter box's `padding: 4` and
+  // `width: '100%'` — the `wxSearchCtrl` lays itself out in
+  // `.ze-libtree-search` now — and a footprint row's `paddingLeft: 26`, which
+  // was not even a spacing value: it was one level of tree indent, and
+  // `kDataViewIndent` is 20 (`lib_tree_model_adapter.cpp:40`).
+  'editors/footprint': { colours: 8, metrics: 14 },
   'editors/gerbview': { colours: 3, metrics: 4 },
   // 1 -> 0. Its last metric was the slider's `height: 7px` NOT-PROVEN fudge,
   // and the slider itself moved to ui/Slider.tsx + shell.css when it stopped
