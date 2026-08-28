@@ -42,7 +42,7 @@ import {
 } from '@ziroeda/designer/src/ui/useDocumentTitle.js';
 import { PL_EDITOR_DEFAULTS } from '@ziroeda/designer/src/prefs/settings.js';
 import { togglesFromSettings } from '@ziroeda/designer/src/editors/drawingsheet/toggles.js';
-import { DEFAULT_GRID_INDEX } from '@ziroeda/designer/src/ui/grid_settings.js';
+import { DEFAULT_GRID_INDEX, GRID_SIZE_LIST } from '@ziroeda/designer/src/ui/grid_settings.js';
 
 const read = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
@@ -303,9 +303,21 @@ describe('C9: the frame opens in mils, and the grid does not follow the unit', (
     // It is now a persisted setting as well, so the default moved into
     // `PL_EDITOR_DEFAULTS` — where it is still the shared table's entry and not
     // a second copy of the number.
+    //
+    // And the LIST moved there too, once Preferences > Drawing Sheet Editor >
+    // Grids could edit it: `PANEL_GRID_SETTINGS` writes `m_grids` back into
+    // `gridCfg.grids` (`common/dialogs/panel_grid_settings.cpp:190-192`), so a
+    // canvas still reading `DefaultGridSizeList()` directly would make every
+    // row on that page a control nothing obeys. What this pins is unchanged —
+    // the spacing is the TABLE's default entry and not the unit's — but the
+    // table now reaches the canvas through the settings object, so both links
+    // are checked: the stored default IS the shared table, and the canvas
+    // indexes the stored list.
     expect(PL_EDITOR_DEFAULTS.window.grid.last_size_idx).toBe(DEFAULT_GRID_INDEX.pl_editor);
+    expect(PL_EDITOR_DEFAULTS.window.grid.sizes).toEqual(GRID_SIZE_LIST.pl_editor.map((g) => g.x));
     expect(EDITOR).toContain('useState(settings.plEditor.window.grid.last_size_idx)');
-    expect(EDITOR).toContain('GRID_SIZE_LIST.pl_editor[gridIndex]');
+    expect(EDITOR).toContain('const gridSizes = plCfg.window.grid.sizes;');
+    expect(EDITOR).toContain('gridSizes[gridIndex]');
     expect(EDITOR).not.toMatch(/gridIU\s*=\s*unit ===/);
   });
 });
@@ -660,7 +672,18 @@ describe('D7: this editor adds no new hardcoded font size', () => {
     // declaring a size at all.
     // 6 until Preview Settings was rebuilt as DIALOG_PAGES_SETTINGS: the five
     // inline sizes went with the hand-rolled layout it replaced. The one left
-    // is the canvas, which sizes text in world units, not chrome units.
+    // was the editor's own Preferences modal, whose body declared
+    // `fontSize: 12`.
+    //
+    // 0 now: that modal is gone. The Drawing Sheet Editor opens the shared
+    // `PreferencesDialog` — `EDA_BASE_FRAME::ShowPreferences` is on the base
+    // frame precisely so no editor writes its own — and the shared dialog sets
+    // no font, exactly as KiCad's panels set none. This is the ratchet moving
+    // the way it is supposed to: a pass that removes a literal lowers the
+    // number rather than leaving slack behind for the next one to spend.
+    //
+    // Zero is a real floor here, not a vacuous one: the three files are still
+    // scanned, so the next inline size added to any of them fails this.
     //
     // PageSettingsDialog.tsx is off this list because the FILE is gone: this
     // editor no longer keeps its own copy of DIALOG_PAGES_SETTINGS, it opens
@@ -669,7 +692,7 @@ describe('D7: this editor adds no new hardcoded font size', () => {
     // note what still guards the merged component: `dialogs` has its own row in
     // ui_font_tokens.test.ts's BASELINE (5, lowered from 13 by this merge), and
     // that scanner walks the whole of designer/src.
-    expect(n).toBe(1);
+    expect(n).toBe(0);
   });
 
   it('adds none in the chrome this PR wrote', () => {

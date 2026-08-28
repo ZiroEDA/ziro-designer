@@ -227,9 +227,19 @@ const BASELINE: Record<string, number> = {
   // shared `.ze-grid` skin, which carries the size so the call site does not.
   // 6 until Preview Settings was rebuilt as DIALOG_PAGES_SETTINGS: its five
   // inline `fontSize: 12`/`11` literals went with the hand-rolled layout, and
-  // its labels are `.ze-pgs-label` off --ui-font-size now. The one left is the
-  // canvas, which sizes text in world units, not chrome units.
-  'editors/drawingsheet': 1,
+  // its labels are `.ze-pgs-label` off --ui-font-size now. The one left was
+  // the editor's own Preferences modal, whose body declared `fontSize: 12`.
+  // 1 -> 0: that modal is gone. pl_editor's Preferences is the shared
+  // `PreferencesDialog` now — `EDA_BASE_FRAME::ShowPreferences` lives on the
+  // base frame precisely so no editor writes its own — and the shared dialog
+  // sets no font, as KiCad's panels set none. RESCANNED in a tree built from
+  // `git archive HEAD`, because three other agents have uncommitted work in
+  // this checkout: this area does not appear in that scan at all.
+  //
+  // This area is now the second at zero, after `editors/calculator`. Zero is
+  // not vacuous — the scanner still walks the directory, so the next literal
+  // added anywhere under it fails `no area gains one`.
+  'editors/drawingsheet': 0,
   'editors/footprint': 1,
   'editors/gerbview': 0,
   // 124 until the Appearance panel took the tab strip's inline `fontSize: 12`
@@ -473,7 +483,12 @@ describe('hardcoded font sizes do not grow', () => {
     // work in this checkout. Two rows move: `ui` 134 -> 131, which is this
     // pass, and `editors/schematic` 50 -> 49, which arrived at HEAD with
     // e3b79196 and is not. 340 - 3 - 1 agrees.
-    expect(sites.length).toBe(336);
+    // 336 -> 335: the `editors/drawingsheet` row above, 1 -> 0, when
+    // pl_editor's own Preferences modal was replaced by the shared dialog.
+    // RESCANNED from `git archive HEAD`, where that area does not appear;
+    // `editors/drawingsheet` is the only row this pass moves, and 336 - 1
+    // agrees.
+    expect(sites.length).toBe(335);
   });
 });
 

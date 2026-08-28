@@ -123,19 +123,19 @@ export const OMITTED_PAGES: Readonly<Record<string, readonly DeclaredPage[]>> = 
       label: 'Toolbars',
       reason:
         'PANEL_TOOLBAR_CUSTOMIZATION, and no launcher here has one. See the Drawing ' +
-        'Sheet Editor row: it is one app-wide port, tracked on issue #619.',
+        'Sheet Editor row: it is one app-wide port, tracked on issue 619.',
     },
-    { label: 'Data Sources', reason: 'Schematic Editor tracker #195.' },
-    { label: 'Simulator', reason: 'No ngspice in the browser; tracker #195.' },
+    { label: 'Data Sources', reason: 'Schematic Editor tracker 195.' },
+    { label: 'Simulator', reason: 'No ngspice in the browser; tracker 195.' },
   ],
   'PCB Editor': [
-    { label: 'Grids', reason: 'PCB Editor tracker #200.' },
-    { label: 'Origins & Axes', reason: 'PCB Editor tracker #200.' },
-    { label: 'Editing Options', reason: 'PCB Editor tracker #200.' },
-    { label: 'Colors', reason: 'PCB Editor tracker #200.' },
+    { label: 'Grids', reason: 'PCB Editor tracker 200.' },
+    { label: 'Origins & Axes', reason: 'PCB Editor tracker 200.' },
+    { label: 'Editing Options', reason: 'PCB Editor tracker 200.' },
+    { label: 'Colors', reason: 'PCB Editor tracker 200.' },
     {
       label: 'Toolbars',
-      reason: 'PANEL_TOOLBAR_CUSTOMIZATION; see the Drawing Sheet Editor row. Tracked on #619.',
+      reason: 'PANEL_TOOLBAR_CUSTOMIZATION; see the Drawing Sheet Editor row. Tracked on 619.',
     },
     {
       label: 'Plugins',
@@ -153,7 +153,7 @@ export const OMITTED_PAGES: Readonly<Record<string, readonly DeclaredPage[]>> = 
         'are module constants (`editors/*/…Toolbars.ts`), so the page would have nothing ' +
         "to write to. All four of upstream's Toolbars pages are one shared panel over one " +
         'shared store, and building it for pl_editor alone is exactly the per-launcher copy ' +
-        'this dialog was split up to stop. App-wide work; stays open on issue #619.',
+        'this dialog was split up to stop. App-wide work; stays open on issue 619.',
     },
   ],
 };
@@ -171,7 +171,7 @@ export const EXTRA_PAGES: Readonly<Record<string, readonly DeclaredPage[]>> = {
       reason:
         'Upstream has no such page: `PANEL_EESCHEMA_ANNOTATION_OPTIONS` is a page of ' +
         'DIALOG_SCHEMATIC_SETUP, not of Preferences. Ours puts it in the wrong dialog. ' +
-        'Tracked with the schematic, #195.',
+        'Tracked with the schematic, 195.',
     },
   ],
 };
