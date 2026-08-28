@@ -158,3 +158,42 @@ export interface ToolSpacer {
 }
 
 export type ToolEntry = ToolButton | ToolGroup | ToolControl | ToolSpacer | 'sep';
+
+/**
+ * Whether a button on a rendered bar is greyed. The ONE place the two inputs
+ * meet:
+ *
+ *   * the button's own static `disabled` — "we have not built this tool yet",
+ *     a claim about us, which upstream has no counterpart for;
+ *   * `disabledIds`, the editor's transcription of that frame's
+ *     `setupUIConditions`, which is the only thing that greys a row in KiCad.
+ *
+ * `Toolbar.tsx` calls this rather than restating the OR, and it is here rather
+ * than there because `qa`'s tsconfig compiles `.ts` only: a rule written inside
+ * the renderer is a rule no test can run, which is exactly how the Symbol
+ * Editor shipped Find, Find and Replace and Zoom to Selection Area greyed on a
+ * bar where KiCad greys none of the three. Each half was pinned on its own —
+ * `toolbar_static_disabled.test.ts` and each editor's conditions test — and the
+ * button a user actually sees is the OR, which nothing asked for.
+ */
+export function toolbarButtonDisabled(b: ToolButton, disabledIds?: ReadonlySet<string>): boolean {
+  return !!b.disabled || !!disabledIds?.has(b.id);
+}
+
+/** The ids of every button on `entries` — walking into a group, as a rendered
+ *  bar does — that is live, i.e. what a user can click. */
+export function toolbarEnabledIds(
+  entries: readonly ToolEntry[],
+  disabledIds?: ReadonlySet<string>,
+): string[] {
+  const out: string[] = [];
+  const visit = (b: ToolButton): void => {
+    if (!toolbarButtonDisabled(b, disabledIds)) out.push(b.id);
+  };
+  for (const e of entries) {
+    if (e === 'sep' || 'spacer' in e || 'control' in e) continue;
+    if ('group' in e) for (const a of e.actions) visit(a);
+    else visit(e);
+  }
+  return out;
+}
