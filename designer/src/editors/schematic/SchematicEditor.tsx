@@ -224,6 +224,7 @@ import {
   deleteSheetPin,
   type SheetPinRef,
   fieldEditCaption,
+  fieldEditTarget,
   isMandatoryField,
   imagePPI,
   imagePixelSize,
@@ -3906,11 +3907,8 @@ export function SchematicEditor({
       // hit-test already ranks the field's small text box over the body
       // (`collectAndGuess`), so this arm is what the click was picking out.
       if (kind === 'field' && doc) {
-        const at = id.lastIndexOf(':field');
-        const symId = id.slice(0, at);
-        const fi = Number(id.slice(at + ':field'.length));
-        const si = doc.symbols.findIndex((s, i) => refId('symbol', s.uuid, i) === symId);
-        if (si !== -1 && doc.symbols[si]!.fields[fi]) setFieldEdit({ symbol: si, index: fi });
+        const target = fieldEditTarget(doc, id);
+        if (target) setFieldEdit(target);
       }
       if (kind === 'label' && doc) {
         const idx = doc.labels.findIndex((l, i) => refId('label', l.uuid, i) === id);
@@ -3968,11 +3966,9 @@ export function SchematicEditor({
           setSheetPinEdit(spRef);
           return d;
         }
-        const field = /^(.*):field(\d+)$/.exec(id);
+        const field = fieldEditTarget(d, id);
         if (field) {
-          const si = d.symbols.findIndex((s, i) => refId('symbol', s.uuid, i) === field[1]);
-          const fi = Number(field[2]);
-          if (si !== -1 && d.symbols[si]!.fields[fi]) setFieldEdit({ symbol: si, index: fi });
+          setFieldEdit(field);
         } else if (d.symbols.some((s, i) => refId('symbol', s.uuid, i) === id)) setPropsTarget(id);
         else if (d.labels.some((l, i) => refId('label', l.uuid, i) === id)) onEditItem(id, 'label');
         else if (d.textBoxes.some((tb, i) => refId('textbox', tb.uuid, i) === id))

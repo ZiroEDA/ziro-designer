@@ -16,7 +16,35 @@
 import { titleCaps } from '@ziroeda/common';
 import type { LibSymbol, SchSymbol, Schematic } from '../types.js';
 import { isMandatoryField } from './properties.js';
+import { refId } from './hittest.js';
 import { autoplacedFields, type AutoplaceOptions, type AutoplaceSheet } from './autoplace_fields.js';
+
+/**
+ * Resolve a `field` item id — `"<symbolRefId>:field<k>"`, what `collectAndGuess`
+ * hands back for a click on a symbol's reference / value / footprint text — to
+ * the symbol and field it names, or null when it names something else.
+ *
+ * This is the `static_cast<SCH_FIELD*>( aItem )` that `Properties`' `case
+ * SCH_FIELD_T` does for free (sch_edit_tool.cpp:2882): upstream's collector
+ * hands the tool a typed pointer, ours hands it a string, so the cast is a
+ * lookup. It returns null for a symbol id, which is what keeps a double-click
+ * on the BODY on the symbol-dialog branch.
+ */
+export function fieldEditTarget(
+  sch: Schematic,
+  id: string,
+): { symbol: number; index: number } | null {
+  const parsed = /^(.*):field(\d+)$/.exec(id);
+  if (!parsed) return null;
+
+  const symId = parsed[1]!;
+  const index = Number(parsed[2]);
+
+  const symbol = sch.symbols.findIndex((s, i) => refId('symbol', s.uuid, i) === symId);
+  if (symbol < 0 || !sch.symbols[symbol]!.fields[index]) return null;
+
+  return { symbol, index };
+}
 
 /**
  * The dialog's caption (sch_edit_tool.cpp:2338-2350).
