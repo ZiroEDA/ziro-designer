@@ -9,6 +9,7 @@
  * groups: one button showing the selected action, long-press for the rest).
  */
 
+import type { ToolbarDefaults } from '../../ui/toolbar_config.js';
 import type { ToolEntry } from '../../ui/toolbar_types.js';
 
 const sep: ToolEntry = 'sep';
@@ -372,3 +373,18 @@ export const PCB_RIGHT_TOOLBAR: ToolEntry[] = [
 // with the widget that draws them: PANEL_SELECTION_FILTER is one wx widget that
 // both PCB_EDIT_FRAME and FOOTPRINT_EDIT_FRAME dock, and a table under one
 // launcher's toolbar module is a table the other launcher cannot reach.
+
+/**
+ * `PCB_EDIT_TOOLBAR_SETTINGS::DefaultToolbarConfig`
+ * (`pcbnew/toolbars_pcb_editor.cpp:140-410`), keyed by `TOOLBAR_LOC`.
+ *
+ * pcbnew is the one editor here with all four: `TOOLBAR_LOC::TOP_AUX` is the
+ * second row of controls (`:365`), not `std::nullopt` as it is in pl_editor and
+ * eeschema.
+ */
+export const PCB_DEFAULT_TOOLBARS: ToolbarDefaults = {
+  LEFT: PCB_LEFT_TOOLBAR,
+  RIGHT: PCB_RIGHT_TOOLBAR,
+  TOP_MAIN: PCB_TOP_TOOLBAR,
+  TOP_AUX: PCB_AUX_TOOLBAR,
+};

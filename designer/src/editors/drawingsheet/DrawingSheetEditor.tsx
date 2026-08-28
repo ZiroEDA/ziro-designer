@@ -67,7 +67,8 @@ import {
   zoomFactorForScale,
   zoomMsg,
 } from '../../ui/status_format.js';
-import { DS_TOP_TOOLBAR, DS_LEFT_TOOLBAR, DS_RIGHT_TOOLBAR } from './drawingSheetToolbars.js';
+import { DS_DEFAULT_TOOLBARS } from './drawingSheetToolbars.js';
+import { useToolbarEntries } from '../../ui/useToolbarEntries.js';
 import { buildDsContextMenu } from './ds_context_menu.js';
 import { DEFAULT_GRID_INDEX, GRID_SIZE_LIST, gridSizeToMM } from '../../ui/grid_settings.js';
 import { DrawingSheetCanvas, type DrawingSheetCanvasController } from './DrawingSheetCanvas.js';
@@ -509,6 +510,15 @@ export function DrawingSheetEditor({
   const common = useCommonSettings();
   /** The live `pl_editor.json`, for the values the canvas reads every frame. */
   const plCfg = usePlEditorSettings();
+  /**
+   * `EDA_BASE_FRAME::RecreateToolbars` (`common/eda_base_frame.cpp:1728-1843`):
+   * the frame asks `GetToolbarConfig( loc, m_CustomToolbars )` for each bar and
+   * never reads `DefaultToolbarConfig` itself, which is what lets Preferences >
+   * Toolbars change what is drawn.
+   */
+  const dsTopBar = useToolbarEntries('pl_editor', 'TOP_MAIN', DS_DEFAULT_TOOLBARS);
+  const dsLeftBar = useToolbarEntries('pl_editor', 'LEFT', DS_DEFAULT_TOOLBARS);
+  const dsRightBar = useToolbarEntries('pl_editor', 'RIGHT', DS_DEFAULT_TOOLBARS);
   /**
    * `black_background` -> `SetDrawBgColor( cfg->m_BlackBackground ? BLACK : WHITE )`
    * (pl_editor_frame.cpp:541), written back from the live canvas colour at
@@ -2329,7 +2339,7 @@ export function DrawingSheetEditor({
           this replaces painted --chrome-bg behind a --content-bg toolbar, so
           the strip showed the menu-bar grey either side of the buttons. */}
       <Toolbar
-        entries={DS_TOP_TOOLBAR}
+        entries={dsTopBar}
         orientation="horizontal"
         toggled={activeTool === 'zoomTool' ? new Set([...toggles, 'zoomTool']) : toggles}
         // An ACTION_TOOLBAR button and a menu row share one ACTION_CONDITIONS,
@@ -2391,7 +2401,7 @@ export function DrawingSheetEditor({
 
       <div className="ze-body" ref={bodyRef}>
         <Toolbar
-          entries={DS_LEFT_TOOLBAR}
+          entries={dsLeftBar}
           app="pl_editor"
           orientation="vertical"
           side="left"
@@ -2440,7 +2450,7 @@ export function DrawingSheetEditor({
             so the toolbar touches the canvas and the palette sits outside it.
             The toolbar therefore comes FIRST in this row. */}
         <Toolbar
-          entries={DS_RIGHT_TOOLBAR}
+          entries={dsRightBar}
           orientation="vertical"
           side="right"
           activeTool={moveMode ? '' : activeTool}

@@ -16,6 +16,7 @@
  * implemented yet are `disabled` (greyed in place, like the menu bar).
  */
 
+import type { ToolbarDefaults } from '../../ui/toolbar_config.js';
 import type { ToolEntry } from '../../ui/toolbar_types.js';
 
 const sep: ToolEntry = 'sep';
@@ -198,3 +199,16 @@ export const RIGHT_TOOLBAR: ToolEntry[] = [
   { id: 'image', icon: 'image' },
   { id: 'delete', icon: 'delete' },
 ];
+
+/**
+ * `SCH_EDIT_TOOLBAR_SETTINGS::DefaultToolbarConfig`
+ * (`eeschema/toolbars_sch_editor.cpp:60-200`), keyed by `TOOLBAR_LOC`.
+ *
+ * `TOP_AUX` is absent because upstream's first case is `return std::nullopt`
+ * (`:67-68`).
+ */
+export const SCH_DEFAULT_TOOLBARS: ToolbarDefaults = {
+  LEFT: LEFT_TOOLBAR,
+  RIGHT: RIGHT_TOOLBAR,
+  TOP_MAIN: TOP_TOOLBAR,
+};

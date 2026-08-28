@@ -375,13 +375,8 @@ import {
 import { parseUnitValue, stringFromValue } from '../../ui/unit_binder.js';
 import { drawGrid, drawCrosshair } from '../../ui/grid_cursor.js';
 import { gridSizesIU } from '../../ui/grid_settings.js';
-import {
-  PCB_TOP_TOOLBAR,
-  PCB_AUX_TOOLBAR,
-  PCB_LEFT_TOOLBAR,
-  PCB_RIGHT_TOOLBAR,
-  PCB_CONTROL,
-} from './pcbToolbars.js';
+import { PCB_CONTROL, PCB_DEFAULT_TOOLBARS } from './pcbToolbars.js';
+import { useToolbarEntries } from '../../ui/useToolbarEntries.js';
 import '../../ui/shell.css';
 import { AboutDialog } from '../../home/dialogs/dialog_about.js';
 import { PreferencesDialog } from '../../dialogs/PreferencesDialog.js';
@@ -733,6 +728,16 @@ export function PcbEditor({
    *  (KiCad's SCH_EDIT_FRAME::doUpdatePcb hands off to pcbnew the same way). */
   updateFromSchematic?: number | null;
 }): JSX.Element {
+  /**
+   * `EDA_BASE_FRAME::RecreateToolbars` (`common/eda_base_frame.cpp:1728-1843`):
+   * the frame asks `GetToolbarConfig( loc, m_CustomToolbars )` for each bar and
+   * never reads `DefaultToolbarConfig` itself, which is what lets Preferences >
+   * Toolbars change what is drawn.
+   */
+  const pcbTopBar = useToolbarEntries('pcbnew', 'TOP_MAIN', PCB_DEFAULT_TOOLBARS);
+  const pcbAuxBar = useToolbarEntries('pcbnew', 'TOP_AUX', PCB_DEFAULT_TOOLBARS);
+  const pcbLeftBar = useToolbarEntries('pcbnew', 'LEFT', PCB_DEFAULT_TOOLBARS);
+  const pcbRightBar = useToolbarEntries('pcbnew', 'RIGHT', PCB_DEFAULT_TOOLBARS);
   const [board, setBoard] = useState<Board | null>(null);
   // Unsaved-changes flag: '*' in the title while modified, Save greys when
   // clean (KiCad's IsContentModified / m_infoBar save affordance).
@@ -7225,7 +7230,7 @@ export function PcbEditor({
         }
       />
       <Toolbar
-        entries={PCB_TOP_TOOLBAR}
+        entries={pcbTopBar}
         orientation="horizontal"
         disabledIds={topDisabled}
         onActivate={onTopAction}
@@ -7260,7 +7265,7 @@ export function PcbEditor({
           supplied through `controls`, as KiCad supplies them through
           RegisterCustomToolbarControlFactory. */}
       <Toolbar
-        entries={PCB_AUX_TOOLBAR}
+        entries={pcbAuxBar}
         orientation="horizontal"
         onActivate={onTopAction}
         controls={{
@@ -7407,7 +7412,7 @@ export function PcbEditor({
         )}
 
         <Toolbar
-          entries={PCB_LEFT_TOOLBAR}
+          entries={pcbLeftBar}
           app="pcbnew"
           orientation="vertical"
           side="left"
@@ -7514,7 +7519,7 @@ export function PcbEditor({
         </div>
 
         <Toolbar
-          entries={PCB_RIGHT_TOOLBAR}
+          entries={pcbRightBar}
           orientation="vertical"
           side="right"
           activeTool={activeTool}

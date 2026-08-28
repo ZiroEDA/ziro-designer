@@ -32,6 +32,7 @@ import type { EdaUnits } from '@ziroeda/common/src/eda_units.js';
 import type { RegulatorData } from '@ziroeda/pcb_calculator';
 import { defaultUnits } from '../ui/app_settings_units.js';
 import { DEFAULT_GRID_INDEX, GRID_SIZE_LIST } from '../ui/grid_settings.js';
+import { normalizeToolbarSettings, type ToolbarSettings } from '../ui/toolbar_config.js';
 import {
   DEFAULT_ROUTING_SETTINGS,
   writeRoutingSettings,
@@ -241,6 +242,18 @@ export interface EeschemaSettings {
     show_pin_alt_icons: boolean;
     show_page_limits: boolean;
     footprint_preview: boolean;
+    /**
+     * `APP_SETTINGS_BASE::m_CustomToolbars` -> `appearance.custom_toolbars`
+     * (`common/settings/app_settings.cpp:285-286`), default false.
+     *
+     * The "Customize toolbars" checkbox at the top of Preferences > Toolbars,
+     * and the `aAllowCustom` argument every `GetToolbarConfig` call passes
+     * (`common/eda_base_frame.cpp:784`, `:800`, `:815`, `:831`): with it off the
+     * frame draws `DefaultToolbarConfig` even when a stored configuration
+     * exists, so switching it off restores the stock toolbars without
+     * discarding the customisation.
+     */
+    custom_toolbars: boolean;
   };
   /**
    * APP_SETTINGS_BASE `cross_probing.*` (app_settings.cpp:290-303), edited by
@@ -433,6 +446,7 @@ export const EESCHEMA_DEFAULTS: EeschemaSettings = {
     show_pin_alt_icons: true,
     show_page_limits: true,
     footprint_preview: true,
+    custom_toolbars: false,
   },
   cross_probing: { ...CROSS_PROBING_DEFAULTS },
   autoplace_fields: {
@@ -614,6 +628,18 @@ export interface PcbnewSettings {
   appearance: {
     /** The editor's active color theme (APP_SETTINGS_BASE m_ColorTheme). */
     color_theme: string;
+    /**
+     * `APP_SETTINGS_BASE::m_CustomToolbars` -> `appearance.custom_toolbars`
+     * (`common/settings/app_settings.cpp:285-286`), default false.
+     *
+     * The "Customize toolbars" checkbox at the top of Preferences > Toolbars,
+     * and the `aAllowCustom` argument every `GetToolbarConfig` call passes
+     * (`common/eda_base_frame.cpp:784`, `:800`, `:815`, `:831`): with it off the
+     * frame draws `DefaultToolbarConfig` even when a stored configuration
+     * exists, so switching it off restores the stock toolbars without
+     * discarding the customisation.
+     */
+    custom_toolbars: boolean;
   };
   /**
    * APP_SETTINGS_BASE `cross_probing.*` (app_settings.cpp:290-303), edited by
@@ -638,6 +664,7 @@ export interface PcbnewSettings {
 export const PCBNEW_DEFAULTS: PcbnewSettings = {
   appearance: {
     color_theme: '_builtin_default',
+    custom_toolbars: false,
   },
   cross_probing: { ...CROSS_PROBING_DEFAULTS },
   tools: {
@@ -709,6 +736,18 @@ export interface PlEditorSettings {
    */
   appearance: {
     color_theme: string;
+    /**
+     * `APP_SETTINGS_BASE::m_CustomToolbars` -> `appearance.custom_toolbars`
+     * (`common/settings/app_settings.cpp:285-286`), default false.
+     *
+     * The "Customize toolbars" checkbox at the top of Preferences > Toolbars,
+     * and the `aAllowCustom` argument every `GetToolbarConfig` call passes
+     * (`common/eda_base_frame.cpp:784`, `:800`, `:815`, `:831`): with it off the
+     * frame draws `DefaultToolbarConfig` even when a stored configuration
+     * exists, so switching it off restores the stock toolbars without
+     * discarding the customisation.
+     */
+    custom_toolbars: boolean;
   };
   window: {
     grid: {
@@ -813,6 +852,7 @@ export const PL_EDITOR_DEFAULTS: PlEditorSettings = {
   },
   appearance: {
     color_theme: '_builtin_default',
+    custom_toolbars: false,
   },
   window: {
     grid: {
@@ -1498,9 +1538,35 @@ export const SETTINGS_SLICES = [
   'privacy',
   'colors.user',
   'hotkeys',
+  // `TOOLBAR_SETTINGS` is a file of its own per app, not a key inside the app's
+  // settings: `GetToolbarSettings<…>( "pl_editor-toolbars" )`
+  // (`pagelayout_editor/pl_editor.cpp:88`, `eeschema/eeschema.cpp:346`,
+  // `pcbnew/pcbnew.cpp:455`). One slice each, spelled as upstream spells the
+  // file, so a synced account carries `eeschema-toolbars.json` and not a
+  // sub-object of `eeschema.json`.
+  'eeschema-toolbars',
+  'pcbnew-toolbars',
+  'pl_editor-toolbars',
 ] as const;
 
 export type SettingsSlice = (typeof SETTINGS_SLICES)[number];
+
+/**
+ * An app that has a `TOOLBAR_SETTINGS` file, and therefore a Preferences >
+ * Toolbars page.
+ *
+ * Upstream seven frames do (`common/eda_base_frame.cpp:1637`, `:1647`, `:1672`,
+ * `:1686`, `:1694`, `:1715`, `:1737`). These three are the ones whose heading
+ * this port ships at all; Symbol Editor, Footprint Editor, 3D Viewer and Gerber
+ * Viewer have no Preferences heading here yet, and their toolbar stores arrive
+ * with those headings rather than sitting unread in the meantime.
+ */
+export const TOOLBAR_APPS = ['eeschema', 'pcbnew', 'pl_editor'] as const;
+
+export type ToolbarApp = (typeof TOOLBAR_APPS)[number];
+
+/** `GetToolbarSettings<…>( "<app>-toolbars" )` — the file name, spelled once. */
+export const toolbarSlice = (app: ToolbarApp): SettingsSlice => `${app}-toolbars` as SettingsSlice;
 
 /** Where a slice lives in localStorage. The one place the prefix is written. */
 export const sliceStorageKey = (slice: SettingsSlice): string => `ziroeda.${slice}`;
@@ -1909,6 +1975,28 @@ const SLICE_IO: Record<SettingsSlice, SliceIO> = {
       m.hotkeys = normalizeHotkeys(v);
     },
   },
+  // One entry per `TOOLBAR_SETTINGS` file. Not `deepMerge`: a stored toolbar
+  // *replaces* its default rather than being merged over it, and merging two
+  // item lists would produce a toolbar neither side asked for. See
+  // `normalizeToolbarSettings`.
+  'eeschema-toolbars': {
+    read: (m) => m.toolbars.eeschema,
+    adopt: (m, v) => {
+      m.toolbars = { ...m.toolbars, eeschema: normalizeToolbarSettings(v) };
+    },
+  },
+  'pcbnew-toolbars': {
+    read: (m) => m.toolbars.pcbnew,
+    adopt: (m, v) => {
+      m.toolbars = { ...m.toolbars, pcbnew: normalizeToolbarSettings(v) };
+    },
+  },
+  'pl_editor-toolbars': {
+    read: (m) => m.toolbars.pl_editor,
+    adopt: (m, v) => {
+      m.toolbars = { ...m.toolbars, pl_editor: normalizeToolbarSettings(v) };
+    },
+  },
 };
 
 /**
@@ -1944,6 +2032,21 @@ export class SettingsManager {
     sliceStorageKey('hotkeys'),
     normalizeHotkeys,
   );
+  /**
+   * `<app>-toolbars.json`, one per app with a Preferences > Toolbars page.
+   *
+   * Upstream these are separate `TOOLBAR_SETTINGS` objects the settings manager
+   * hands out by file name, never a member of the app's own settings — a frame
+   * holds `m_toolbarSettings` beside `config()`, and the customisation panel is
+   * given both (`PANEL_TOOLBAR_CUSTOMIZATION`'s `aCfg` and `aTbSettings`). One
+   * field holding all three keeps that separation without three near-identical
+   * members and three near-identical updaters.
+   */
+  toolbars: Record<ToolbarApp, ToolbarSettings> = {
+    eeschema: loadFreeForm(sliceStorageKey('eeschema-toolbars'), normalizeToolbarSettings),
+    pcbnew: loadFreeForm(sliceStorageKey('pcbnew-toolbars'), normalizeToolbarSettings),
+    pl_editor: loadFreeForm(sliceStorageKey('pl_editor-toolbars'), normalizeToolbarSettings),
+  };
   /** Per-slice modification and agreement stamps; see {@link SliceStamp}. */
   stamps: Record<string, SliceStamp> = loadStamps();
   /**
@@ -2081,6 +2184,18 @@ export class SettingsManager {
     mutate(next);
     this.plEditor = next;
     this.commit('pl_editor', next);
+  }
+
+  /**
+   * One app's `TOOLBAR_SETTINGS`, which is what
+   * `PANEL_TOOLBAR_CUSTOMIZATION::TransferDataFromWindow` writes through
+   * `SetStoredToolbarConfig` (`panel_toolbar_customization.cpp:352-354`).
+   */
+  updateToolbars(app: ToolbarApp, mutate: (s: ToolbarSettings) => void): void {
+    const next = structuredClone(this.toolbars[app]);
+    mutate(next);
+    this.toolbars = { ...this.toolbars, [app]: next };
+    this.commit(toolbarSlice(app), next);
   }
 
   /** `FOOTPRINT_EDIT_FRAME::SaveSettings` (`footprint_edit_frame.cpp:823-860`). */

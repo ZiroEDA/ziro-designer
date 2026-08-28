@@ -305,12 +305,8 @@ import { Toolbar } from '../../ui/Toolbar.js';
 import { OpenFileDialog } from '../../fs/OpenFileDialog.js';
 import { SaveAsDialog } from '../../fs/SaveAsDialog.js';
 import { kicadSchematicWildcard } from '../../fs/wildcards.js';
-import {
-  TOP_TOOLBAR,
-  LEFT_TOOLBAR,
-  RIGHT_TOOLBAR,
-  RIGHT_TOOLBAR_COMMANDS,
-} from './toolbars_sch_editor.js';
+import { RIGHT_TOOLBAR_COMMANDS, SCH_DEFAULT_TOOLBARS } from './toolbars_sch_editor.js';
+import { useToolbarEntries } from '../../ui/useToolbarEntries.js';
 import { MenuBar, ContextMenu, type Menu, type MenuItem } from '../../ui/MenuBar.js';
 import { assembleMenu, type RankedItem } from '../../ui/menu_rank.js';
 import {
@@ -1233,6 +1229,15 @@ export function SchematicEditor({
   }, []);
   const common = useCommonSettings();
   const es = useEeschemaSettings();
+  /**
+   * `EDA_BASE_FRAME::RecreateToolbars` (`common/eda_base_frame.cpp:1728-1843`):
+   * the frame asks `GetToolbarConfig( loc, m_CustomToolbars )` for each bar and
+   * never reads `DefaultToolbarConfig` itself, which is what lets Preferences >
+   * Toolbars change what is drawn.
+   */
+  const schTopBar = useToolbarEntries('eeschema', 'TOP_MAIN', SCH_DEFAULT_TOOLBARS);
+  const schLeftBar = useToolbarEntries('eeschema', 'LEFT', SCH_DEFAULT_TOOLBARS);
+  const schRightBar = useToolbarEntries('eeschema', 'RIGHT', SCH_DEFAULT_TOOLBARS);
   const theme = useSchematicTheme();
 
   // The displayed toggle set: local toggles plus the settings-derived ones
@@ -8013,7 +8018,7 @@ export function SchematicEditor({
       />
 
       <Toolbar
-        entries={TOP_TOOLBAR}
+        entries={schTopBar}
         app="eeschema"
         orientation="horizontal"
         disabledIds={dirty ? navDisabled : new Set([...(navDisabled ?? []), 'save'])}
@@ -8230,7 +8235,7 @@ export function SchematicEditor({
         })()}
 
         <Toolbar
-          entries={LEFT_TOOLBAR}
+          entries={schLeftBar}
           app="eeschema"
           orientation="vertical"
           side="left"
@@ -9131,7 +9136,7 @@ export function SchematicEditor({
         </div>
 
         <Toolbar
-          entries={RIGHT_TOOLBAR}
+          entries={schRightBar}
           app="eeschema"
           orientation="vertical"
           side="right"

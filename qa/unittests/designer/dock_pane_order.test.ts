@@ -94,11 +94,11 @@ describe('a vertical toolbar touches the canvas; a palette docks outside it', ()
     // `<DrawingSheetCanvas` alone also matches inside
     // `useRef<DrawingSheetCanvasController>`, so anchor on the JSX open tag.
     const canvas = '<DrawingSheetCanvas\n';
-    before(DS, 'entries={DS_LEFT_TOOLBAR}', canvas, 'pl_editor left');
-    before(DS, canvas, 'entries={DS_RIGHT_TOOLBAR}', 'pl_editor canvas');
+    before(DS, 'entries={dsLeftBar}', canvas, 'pl_editor left');
+    before(DS, canvas, 'entries={dsRightBar}', 'pl_editor canvas');
     // The one this branch fixed: Props used to render between the canvas and
     // the toolbar, i.e. as though it were Layer 1.
-    before(DS, 'entries={DS_RIGHT_TOOLBAR}', 'className="ze-leftdock on-right"', 'pl_editor right');
+    before(DS, 'entries={dsRightBar}', 'className="ze-leftdock on-right"', 'pl_editor right');
   });
 
   it('footprint editor: Footprints tree L4 and Properties L3 outside LeftToolbar L2', () => {
@@ -131,12 +131,12 @@ describe('a vertical toolbar touches the canvas; a palette docks outside it', ()
   });
 
   it('eeschema: the Properties / Hierarchy column L3 outside LeftToolbar L2', () => {
-    before(SCH, 'className="ze-leftdock sch-leftdock"', 'entries={LEFT_TOOLBAR}', 'sch left');
+    before(SCH, 'className="ze-leftdock sch-leftdock"', 'entries={schLeftBar}', 'sch left');
   });
 
   it('pcbnew: Properties L5 outside LeftToolbar L3, LayersManager L4 outside RightToolbar L3', () => {
-    before(PCB, 'className="ze-leftdock"', 'entries={PCB_LEFT_TOOLBAR}', 'pcb left');
-    before(PCB, 'entries={PCB_RIGHT_TOOLBAR}', 'className="ze-rightdock"', 'pcb right');
+    before(PCB, 'className="ze-leftdock"', 'entries={pcbLeftBar}', 'pcb left');
+    before(PCB, 'entries={pcbRightBar}', 'className="ze-rightdock"', 'pcb right');
   });
 });
 
