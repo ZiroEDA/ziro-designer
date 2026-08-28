@@ -49,12 +49,36 @@ const SHEET = `(kicad_sch (version 20231120) (generator "test") (paper "A4")
   (symbol (lib_id "Device:R") (at 70 50 0) (unit 1) (uuid "r3")
     (property "Reference" "R3" (at 0 0 0)) (property "Value" "4k7" (at 0 0 0))))`;
 
-function open_(): HTMLElement {
-  const docs = new Map([['a.kicad_sch', readSchematic(parse(SHEET))]]);
+/**
+ * The same three symbols with every one of them already assigned.
+ *
+ * `ReadNetListAndFpFiles` selects the first symbol with NO footprint
+ * (readwrite_dlgs.cpp:271-274), so a sheet with nothing left to assign is the
+ * only way to reach the window's empty-selection state — and an empty
+ * selection is exactly where an invented `disabled` on Cut / Copy / Paste
+ * would bite. Without this fixture the enabled-ness test cannot fail: the
+ * default sheet always opens with R2 selected.
+ */
+const ASSIGNED_SHEET = SHEET.replace(
+  /\(property "Reference" "(R2|R3)" \(at 0 0 0\)\)/g,
+  '(property "Reference" "$1" (at 0 0 0)) (property "Footprint" "Resistor_THT:R_Axial_DIN0207" (at 0 0 0))',
+);
+
+function render_(sheet: string): HTMLElement {
+  const docs = new Map([['a.kicad_sch', readSchematic(parse(sheet))]]);
   const { container } = render(
     <DialogAssignFootprints docs={docs} onApply={() => {}} onClose={() => {}} />,
   );
   return container;
+}
+
+function open_(): HTMLElement {
+  return render_(SHEET);
+}
+
+/** The window with nothing selected, because nothing is left to assign. */
+function openAllAssigned_(): HTMLElement {
+  return render_(ASSIGNED_SHEET);
 }
 
 /** `dialogKeyFromTitle( "Assign Footprints" )` — no parenthesised suffix. */
@@ -132,20 +156,38 @@ describe('the Edit menu is cvpcb/menubar.cpp’s, row for row', () => {
     expect(shortcutOf(c, 'Edit', 'Paste')).toBe('Ctrl+V');
   });
 
-  it('leaves all three ENABLED, because setupUIConditions gives them no condition', () => {
-    // cvpcb_mainframe.cpp:284-329 sets a condition for saveAssociations, undo
-    // and redo and for nothing else. Nothing is selected here and the schematic
-    // is untouched, which is exactly when a plausible invented `disabled` would
-    // have greyed them.
-    const c = open_();
+  /** The labels of the Edit menu's greyed rows, in order. */
+  function greyedEditRows(c: HTMLElement): (string | null | undefined)[] {
     const edit = Array.from(c.querySelectorAll('.ze-menubar > .ze-menu')).find((m) =>
       m.textContent?.trim().startsWith('Edit'),
     )!;
     fireEvent.click(edit);
-    const greyed = Array.from(edit.querySelectorAll('.ze-mitem.disabled')).map(
+    return Array.from(edit.querySelectorAll('.ze-mitem.disabled')).map(
       (m) => m.querySelector('.lbl')?.textContent,
     );
-    expect(greyed).toEqual(['Undo', 'Redo']);
+  }
+
+  it('leaves all three ENABLED, because setupUIConditions gives them no condition', () => {
+    // cvpcb_mainframe.cpp:284-329 sets a condition for saveAssociations, undo
+    // and redo and for nothing else, so only those two are ever greyed.
+    //
+    // BOTH fixtures, because one of them alone cannot fail. The default sheet
+    // opens with R2 selected and unassigned, which is where a `disabled` on
+    // COPY ("nothing to copy") would bite; the all-assigned sheet opens with
+    // NOTHING selected, which is where a `disabled` on CUT or PASTE
+    // ("nothing selected") would. Checked with the default sheet only, a
+    // `disabled: selection.length === 0` on Cut survived this test.
+    expect(greyedEditRows(open_())).toEqual(['Undo', 'Redo']);
+    cleanup();
+    expect(greyedEditRows(openAllAssigned_())).toEqual(['Undo', 'Redo']);
+  });
+
+  it('opens with no selection at all when every symbol is already assigned', () => {
+    // The fixture above is only load-bearing if it really reaches that state;
+    // `SetSelectedComponent( -1 )` -> DeselectAll, no row (readwrite_dlgs.cpp).
+    const rows = Array.from(openAllAssigned_().querySelectorAll('.ze-fpassign-row'));
+    expect(rows).toHaveLength(3);
+    expect(rows.filter((r) => r.classList.contains('selected'))).toEqual([]);
   });
 
   it('still keeps Delete on the keyboard, where deleteAssoc’s hotkey is', () => {
