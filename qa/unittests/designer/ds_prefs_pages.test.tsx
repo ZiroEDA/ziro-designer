@@ -63,8 +63,11 @@ async function openPage(id: 'ds-display' | 'ds-grids' | 'ds-colors'): Promise<vo
   // `openPage` in a run spends ~1 s compiling that chain and every later one
   // takes ~30 ms. Growing the chain by one module — which porting
   // `DIALOG_GRID_SETTINGS` did — pushed exactly one test over it, which is the
-  // shape CLAUDE.md names as a flake rather than a failure.
-  await screen.findByText(ANCHOR[id], { exact: false }, { timeout: 5000 });
+  // shape CLAUDE.md names as a flake rather than a failure. 5 s was still not
+  // enough under the FULL suite, where the transform competes with every other
+  // worker; the budget is deliberately far larger than the work, because a
+  // number that has to be tuned is the assertion this comment says it is not.
+  await screen.findByText(ANCHOR[id], { exact: false }, { timeout: 15000 });
 }
 
 const panelText = (): string =>
