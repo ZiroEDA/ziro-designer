@@ -258,6 +258,9 @@ describe('PAD rows', () => {
     expect(unset.value).toBeNull();
     expect(unset.optional).toBe(true);
     expect(row(pth, 'Clearance Override').value).toBe(MM(0.3));
+    // The model field really is set, so the "cleared" assertion below is not
+    // reading an always-undefined property.
+    expect(B.footprints[0]?.pads[1]?.localClearance).toBe(MM(0.3));
   });
 
   it('clears an override when the cell is emptied', () => {
@@ -267,7 +270,7 @@ describe('PAD rows', () => {
     // the rejection and the clear would be indistinguishable.
     expect(next).not.toBeNull();
     expect(next).not.toBeUndefined();
-    expect(next?.footprints[0]?.pads[1]?.clearance ?? null).toBeNull();
+    expect(next?.footprints[0]?.pads[1]?.localClearance ?? null).toBeNull();
     // The pad is otherwise untouched, so this is a cleared override and not a
     // dropped pad.
     expect(next?.footprints[0]?.pads[1]?.number).toBe('2');
