@@ -19,7 +19,9 @@
  * part that vanished.
  */
 
+import { Reporter } from '@ziroeda/common/src/reporter.js';
 import type { LibSymbol, Schematic, SchField, SchSymbol } from '../types.js';
+import { flattenLibSymbol } from '../lib_symbol.js';
 import type { EditCommand } from './command.js';
 import { refId } from './hittest.js';
 import { schSymbolLibraryName } from '../lib_symbol_compare.js';
@@ -190,11 +192,20 @@ export interface LibIdChangeResult {
  */
 export function applyLibIdChanges(
   doc: Schematic,
-  libById: ReadonlyMap<string, LibSymbol>,
+  librarySymbols: ReadonlyMap<string, LibSymbol>,
   changes: ReadonlyMap<string, string>,
 ): LibIdChangeResult {
   const errors: string[] = [];
   let changed = 0;
+
+  // `candidate.m_Symbol->SetLibSymbol( symbol->Flatten().release() )`
+  // (dialog_edit_symbols_libid.cpp:766): re-pointing a placement caches the
+  // flattened part, never the derived one — the schematic has nowhere to put
+  // the parent it would otherwise need.
+  const reporter = new Reporter();
+  const libById = new Map<string, LibSymbol>();
+  for (const [id, lib] of librarySymbols) libById.set(id, flattenLibSymbol(lib, reporter));
+  for (const line of reporter.lines) if (!errors.includes(line.message)) errors.push(line.message);
 
   const symbols = doc.symbols.map((sym) => {
     const next = changes.get(schSymbolLibraryName(sym));

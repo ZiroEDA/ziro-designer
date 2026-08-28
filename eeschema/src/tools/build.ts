@@ -30,6 +30,7 @@ import type {
 } from '../types.js';
 import type { Orientation } from '@ziroeda/common/src/transform.js';
 import { buildPropertyNode as writeFieldNode } from '../sch_io/sexpr/write-schematic.js';
+import { flattenLibSymbol } from '../lib_symbol.js';
 import { MANDATORY_FIELDS, isMandatoryField } from './properties.js';
 
 /**
@@ -477,11 +478,17 @@ function buildSymbolNode(
  * visible Reference/Value fields are offset using the library's field templates.
  */
 export function makeSymbol(
-  lib: LibSymbol,
+  libSymbol: LibSymbol,
   at: Vec2,
   orient: Orientation = { angle: 0 },
   unit = 1,
 ): SchSymbol {
+  // `SCH_SYMBOL::SCH_SYMBOL( const LIB_SYMBOL& … )` (sch_symbol.cpp:92):
+  // `part = aSymbol.Flatten(); part->SetParent();` before it copies a single
+  // field. A placement is never derived, so the fields it inherits — Sim.Device,
+  // Sim.Pins and any other the parent defines — have to come from the flattened
+  // symbol, not from the two or three properties the derived one lists.
+  const lib = flattenLibSymbol(libSymbol);
   const uuid = newKiid();
   const refProp = lib.properties.find((p) => p.key === 'Reference');
   const valProp = lib.properties.find((p) => p.key === 'Value');

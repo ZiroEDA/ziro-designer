@@ -307,6 +307,17 @@ export interface LibSymbol {
   readonly libId: string;
   /** Parent symbol name if this is a derived symbol (`extends`); units come from it. */
   readonly extends?: string;
+  /**
+   * The parent *symbol*, `LIB_SYMBOL::m_parent`. Linked once every symbol of a
+   * file has been read (`SCH_IO_KICAD_SEXPR_LIB_CACHE::updateParentSymbolLinks`),
+   * which is what lets `flattenLibSymbol` walk the chain to the root the way
+   * `LIB_SYMBOL::Flatten()` walks `m_parent.lock()`.
+   *
+   * Not part of the file format and never serialized: `extends` is the name on
+   * disk, this is the resolved link. Absent on a root symbol, and on a derived
+   * one whose parent was not in the file (which `Flatten` reports).
+   */
+  readonly parent?: LibSymbol;
   readonly isPower: boolean;
   /** `(power local)`, a local power symbol drives only its own sheet
    *  (SYMBOL::IsLocalPower); `(power)` / `(power global)` is global. */
