@@ -50,6 +50,37 @@ export interface GridSize {
   readonly y: string;
 }
 
+/**
+ * `GRID` (`include/settings/grid_settings.h:33-54`) as `GRID_SETTINGS::grids`
+ * stores it — the row `PANEL_GRID_SETTINGS` edits and `DIALOG_GRID_SETTINGS`
+ * fills its three fields from.
+ *
+ * Mutable, and named, where {@link GridSize} is neither: that one is a row of
+ * `DefaultGridSizeList()`, a constant table nobody edits, and the built-in
+ * grids all have an empty name (`grid_menu.cpp:83-104` prints `name` followed
+ * by `": "` only when it is non-empty). This is the stored, user-editable one.
+ *
+ * The settings used to hold one string per grid — X only, no name and no Y —
+ * which is what made a Name field impossible and left `DIALOG_GRID_SETTINGS`
+ * unportable.
+ */
+export interface GridEntry {
+  /** `GRID::name`, the optional label. Empty for every built-in. */
+  name: string;
+  /** `GRID::x`, **always stored in millimetres** — `dialog_grid_settings.cpp:98-99`. */
+  x: string;
+  /** `GRID::y`. */
+  y: string;
+}
+
+/** `GRID::operator==` (`common/settings/grid_settings.cpp:60-63`) — all three fields. */
+export function gridEquals(a: GridEntry, b: GridEntry): boolean {
+  return a.x === b.x && a.y === b.y && a.name === b.name;
+}
+
+/** One row of {@link GRID_SIZE_LIST} as a stored, nameless {@link GridEntry}. */
+export const gridEntryOf = (size: GridSize): GridEntry => ({ name: '', x: size.x, y: size.y });
+
 /** A square grid, which is all but four rows of the whole table. */
 const sq = (size: string): GridSize => ({ x: size, y: size });
 
@@ -136,16 +167,26 @@ export const DEFAULT_GRID_INDEX: Record<GridApp, number> = {
 const MILS_PER_MM = 1000 / 25.4;
 
 /**
- * `GRID::ToDouble` for one entry, in millimetres. An unrecognised or unitless
- * entry is read as mils, which is what `EDA_UNIT_UTILS::UI::ValueFromString`
- * falls back to for a bare number in an imperial frame.
+ * `GRID::ToDouble` for one entry, in millimetres.
+ *
+ * A unitless entry is **millimetres**, not mils, because `GRID::ToDouble` names
+ * the unit itself:
+ *
+ *     DoubleValueFromString( aScale, EDA_UNITS::MM, x )
+ *                                   common/settings/grid_settings.cpp:53-57
+ *
+ * and `DIALOG_GRID_SETTINGS` writes a grid back through
+ * `StringFromValue( scale, EDA_UNITS::MM, gridX )` (`dialog_grid_settings.cpp:97-100`),
+ * whose `aAddUnitsText` defaults to false — so every grid a user creates is
+ * stored as a bare number and MUST read as millimetres. This fell back to mils,
+ * which turned a `0.5` typed into that dialog into a 0.0127 mm grid.
  */
 export function gridSizeToMM(size: string): number | null {
   const m = /^\s*([\d.]+)\s*(mil|mils|mm|in|inch|")?\s*$/i.exec(size);
   if (!m) return null;
   const v = Number(m[1]);
   if (!Number.isFinite(v) || v <= 0) return null;
-  const unit = (m[2] ?? 'mil').toLowerCase();
+  const unit = (m[2] ?? 'mm').toLowerCase();
   if (unit.startsWith('mm')) return v;
   if (unit.startsWith('in') || unit === '"') return v * 25.4;
   return v / MILS_PER_MM;
