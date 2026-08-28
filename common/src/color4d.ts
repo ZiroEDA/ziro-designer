@@ -485,6 +485,85 @@ export function backgroundLayerFill(
 }
 
 /**
+ * `COLOR4D::ToHSL` (`common/gal/color4d.cpp:313-341`).
+ *
+ * Hue in degrees 0..360, saturation and lightness in 0..1. Unlike `toHSV` this
+ * has no `alwaysDefineHue`: upstream returns 0 for a greyscale colour.
+ */
+export function toHSL(c: Color4d): { hue: number; sat: number; lightness: number } {
+  const min = Math.min(c.r, Math.min(c.g, c.b));
+  const max = Math.max(c.r, Math.max(c.g, c.b));
+  const diff = max - min;
+
+  const lightness = (max + min) / 2.0;
+  const sat = lightness >= 1.0 ? 0.0 : diff / (1.0 - Math.abs(2.0 * lightness - 1.0));
+
+  let hue: number;
+
+  if (diff <= 0.0) hue = 0.0;
+  else if (max === c.r) hue = (c.g - c.b) / diff;
+  else if (max === c.g) hue = (c.b - c.r) / diff + 2.0;
+  else hue = (c.r - c.g) / diff + 4.0;
+
+  hue = hue > 0.0 ? hue * 60.0 : hue * 60.0 + 360.0;
+
+  while (hue < 0.0) hue += 360.0;
+
+  return { hue, sat, lightness };
+}
+
+/**
+ * `COLOR4D::FromHSL` (`common/gal/color4d.cpp:344-385`). Alpha is untouched, as
+ * upstream — `FromHSL` writes only r/g/b.
+ */
+export function fromHSL(hue: number, sat: number, lightness: number, a = 1): Color4d {
+  const P = (1.0 - Math.abs(2.0 * lightness - 1.0)) * sat;
+  const scaledHue = hue / 60.0;
+  const Q = P * (1.0 - Math.abs((scaledHue % 2.0) - 1.0));
+
+  const base = lightness - P / 2.0;
+  let r = base;
+  let g = base;
+  let b = base;
+
+  if (scaledHue < 1.0) {
+    r += P;
+    g += Q;
+  } else if (scaledHue < 2.0) {
+    r += Q;
+    g += P;
+  } else if (scaledHue < 3.0) {
+    g += P;
+    b += Q;
+  } else if (scaledHue < 4.0) {
+    g += Q;
+    b += P;
+  } else if (scaledHue < 5.0) {
+    r += Q;
+    b += P;
+  } else {
+    r += P;
+    b += Q;
+  }
+
+  return { r, g, b, a };
+}
+
+/**
+ * `COLOR4D::Desaturate` (`common/gal/color4d.cpp:532-545`).
+ *
+ * Round-trips through HSL with the saturation forced to zero. Upstream returns
+ * `*this` untouched when `r == g == b`, which matters: `ToHSL` of an
+ * already-grey colour is exact, but the guard also spares the round-trip.
+ */
+export const desaturate = (c: Color4d): Color4d => {
+  if (c.r === c.g && c.r === c.b) return c;
+
+  const { hue, lightness } = toHSL(c);
+  return fromHSL(hue, 0.0, lightness, c.a);
+};
+
+/**
  * `COLOR4D::ToHSV` (`common/gal/color4d.cpp:387-438`).
  *
  * Hue in degrees, saturation and value in 0..1. `alwaysDefineHue` is upstream's
