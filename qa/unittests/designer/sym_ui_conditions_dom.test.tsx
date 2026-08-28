@@ -475,12 +475,21 @@ describe('the whole top bar, against a captured KiCad', () => {
       Redo: true,
       // ACTIONS::find / findAndReplace get NO SetConditions anywhere in
       // eeschema, and SYMBOL_EDIT_FRAME registers SCH_FIND_REPLACE_TOOL (:432),
-      // so both are live upstream on a cold frame. Ours are greyed because the
-      // tool is not ported for a LIB_SYMBOL yet — the only two deliberate
-      // deviations left on this bar, and the reason they are written out here
-      // rather than skipped is so that building the tool moves an expectation.
-      Find: true,
-      'Find and Replace': true,
+      // so both are live upstream on a cold frame.
+      //
+      // These two used to read `true` here, written out as the last deliberate
+      // deviation on this bar so that building the tool would move an
+      // expectation. It did. `ShowFindReplaceDialog`, `GetFindReplaceDialog`
+      // and `m_findReplaceDialog` are SCH_BASE_FRAME members
+      // (`sch_base_frame.h:246-248, :318`) that SYMBOL_EDIT_FRAME inherits,
+      // and the dialog we had built only for the schematic now lives in
+      // `widgets/dialog_sch_find.tsx` with the LIB_SYMBOL walk beside the
+      // schematic's in the same engine module. Re-derived from the C++, not
+      // re-baselined: ShowAlways is `ACTION_CONDITIONS()`'s constructed
+      // default (`include/tool/action_manager.h:50-55`), so an unnamed action
+      // is live, and neither of these is named.
+      Find: false,
+      'Find and Replace': false,
       // The zooms: no ENABLE on any of them (`eda_draw_frame.cpp:1363-1374`
       // registers only the three unit CHECKs), and zoomTool is CHECK-only
       // (:561), so all five are live with an empty canvas.
@@ -534,8 +543,10 @@ describe('the whole top bar, against a captured KiCad', () => {
       // GetUndoCommandCount() is 0 on a freshly loaded symbol.
       Undo: true,
       Redo: true,
-      Find: true,
-      'Find and Replace': true,
+      // Unnamed by setupUIConditions, so live here as well — the pair does not
+      // depend on m_symbol in either direction.
+      Find: false,
+      'Find and Replace': false,
       'Redraw view': false,
       'Zoom in': false,
       'Zoom out': false,
