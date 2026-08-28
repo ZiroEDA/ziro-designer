@@ -118,10 +118,11 @@ describe('the searched set is LIB_SYMBOL::GetDrawItems()', () => {
   it('never matches a shape, whatever it is called', () => {
     const shapes = SYM.units[0]!.graphics.filter((g) => g.kind !== 'text');
     expect(shapes.map((g) => g.kind)).toEqual(['rectangle', 'circle', 'polyline']);
-    for (const m of findMatchesInSymbol(SYM, symbolFind())) {
-      if (m.kind !== 'gfx') continue;
-      expect(SYM.units[m.unitIdx]!.graphics[m.itemIdx]!.kind).toBe('text');
-    }
+    const gfx = findMatchesInSymbol(SYM, symbolFind()).filter((m) => m.kind === 'gfx');
+    // Not vacuous: the text item IS found, so "every gfx hit is a text" is a
+    // claim about a non-empty list rather than one that holds for an empty one.
+    expect(gfx).toHaveLength(1);
+    for (const m of gfx) expect(SYM.units[m.unitIdx]!.graphics[m.itemIdx]!.kind).toBe('text');
   });
 
   /**
@@ -294,6 +295,51 @@ const ORDER_LIB = `(kicad_symbol_lib (version 20241209) (generator "qa")
   )
 )`;
 const ORDER: LibSymbol = readSymbolLib(parse(ORDER_LIB))[0]!;
+
+/**
+ * A field whose stored value carries KiCad's `{slash}` escape. `SCH_FIELD::Matches`
+ * compares `UnescapeString( GetText() )` (`sch_field.cpp:628`) — unlike
+ * `SCH_TEXT::Matches`, which compares `GetText()` raw (`sch_text.h:129-131`).
+ * So the user searches for what they SEE, `A/B`, not for what is on disk.
+ */
+const ESCAPED_LIB = `(kicad_symbol_lib (version 20241209) (generator "qa")
+  (symbol "ESC"
+    (property "Reference" "E" (at 0 0 0) (effects (font (size 1.27 1.27))))
+    (property "Value" "A{slash}B" (at 0 0 0) (effects (font (size 1.27 1.27))))
+    (symbol "ESC_1_1"
+      (text "C{slash}D" (at 10 0 0) (effects (font (size 1.27 1.27))))
+    )
+  )
+)`;
+const ESCAPED: LibSymbol = readSymbolLib(parse(ESCAPED_LIB))[0]!;
+
+describe('UnescapeString, on the field but not on the text', () => {
+  /** The premise, so this is not passing because the parser already unescaped. */
+  it('stores the escape as written', () => {
+    expect(ESCAPED.properties[1]!.value).toBe('A{slash}B');
+  });
+
+  it('finds a field by its unescaped text', () => {
+    const got = findMatchesInSymbol(ESCAPED, symbolFind({ findString: 'A/B' }));
+    expect(got.map((m) => m.kind)).toEqual(['field']);
+  });
+
+  /**
+   * And the raw form does NOT match, which is the half that says the compare
+   * really happened on the unescaped string rather than on both.
+   */
+  it('does not find that field by its raw stored text', () => {
+    expect(findMatchesInSymbol(ESCAPED, symbolFind({ findString: 'A{slash}B' }))).toEqual([]);
+  });
+
+  /** SCH_TEXT has no UnescapeString, so a text item is the other way round. */
+  it('finds a text item by its raw text and not by the unescaped form', () => {
+    expect(
+      findMatchesInSymbol(ESCAPED, symbolFind({ findString: 'C{slash}D' })).map((m) => m.kind),
+    ).toEqual(['gfx']);
+    expect(findMatchesInSymbol(ESCAPED, symbolFind({ findString: 'C/D' }))).toEqual([]);
+  });
+});
 
 describe("nextMatch's sort (sch_find_replace_tool.cpp:203-216)", () => {
   /**

@@ -173,6 +173,32 @@ describe('the Symbol Editor top toolbar with no symbol loaded', () => {
   });
 
   /**
+   * The OR itself, on a bar built for it. Both halves have to be able to grey a
+   * button on their own, and the real bars cannot show that any more: after
+   * this change the symbol top bar has no static `disabled` left on it, so
+   * dropping `!!b.disabled` from `toolbarButtonDisabled` changes nothing there
+   * — a mutant that did exactly that survived the sweep against the tables
+   * above. It is a shared function every editor's bar goes through, so pinning
+   * it synthetically is pinning it where it lives, not inventing a case.
+   */
+  it('greys on either input alone', () => {
+    const bar: ToolEntry[] = [
+      { id: 'built', icon: 'x' },
+      { id: 'unbuilt', icon: 'x', disabled: true },
+      { id: 'gated', icon: 'x' },
+      { group: 'G', actions: [{ id: 'inGroup', icon: 'x', disabled: true }] },
+    ];
+    const gated = new Set(['gated']);
+    expect(toolbarEnabledIds(bar, gated)).toEqual(['built']);
+    // Each half on its own, so neither can be dropped without moving a line.
+    expect(toolbarEnabledIds(bar, new Set())).toEqual(['built', 'gated']);
+    expect(toolbarEnabledIds(bar, new Set(['built', 'gated']))).toEqual([]);
+    expect(toolbarButtonDisabled({ id: 'unbuilt', icon: 'x', disabled: true })).toBe(true);
+    expect(toolbarButtonDisabled({ id: 'built', icon: 'x' }, gated)).toBe(false);
+    expect(toolbarButtonDisabled({ id: 'gated', icon: 'x' }, gated)).toBe(true);
+  });
+
+  /**
    * Per editor. "Right in the symbol editor, wrong in eeschema" is the shape
    * this codebase keeps producing, and the dialog only just moved out from
    * under `editors/schematic/`, so the schematic's own two buttons are checked
