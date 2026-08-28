@@ -218,6 +218,17 @@ export interface RenderOpts {
   minWidth?: number;
   /** Item index brightened by the interactive-delete picker (green). */
   brightened?: number | null;
+  /**
+   * `GRForceBlackPen( true )` (common/gr_basic.cpp), which pl_editor wraps the
+   * whole printed page in (`dialogs_for_printing.cpp:184`, cleared again at
+   * :213).
+   *
+   * It is not the same as passing `color: '#000'`: the flag makes every GR
+   * drawing call use BLACK regardless of the colour it was asked for, so a
+   * `(tbtext … (color …))` prints black too. Setting only the base colour
+   * leaves a coloured text item coloured, which is what ours did.
+   */
+  forceBlackPen?: boolean;
 }
 
 /** Line-pitch factor for multi-line outline text (FONT_METRICS m_InterlinePitch). */
@@ -439,7 +450,9 @@ export function drawDrawingSheetItems(
   selected: ReadonlySet<number>,
   opts: RenderOpts = {},
 ): void {
-  const baseColor = opts.color ?? DS_ITEM_COLOR;
+  // `GRForceBlackPen`: the pen is black whatever the item asked for.
+  const forceBlack = opts.forceBlackPen === true;
+  const baseColor = forceBlack ? '#000000' : (opts.color ?? DS_ITEM_COLOR);
   const minWidth = opts.minWidth ?? 1;
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
@@ -448,11 +461,16 @@ export function drawDrawingSheetItems(
     const sel = selected.has(d.src);
     // Priority: delete-picker brighten > selection > per-item colour > layer colour.
     const itemColor =
-      d.kind === 'text' && d.color
+      !forceBlack && d.kind === 'text' && d.color
         ? `rgba(${d.color.r},${d.color.g},${d.color.b},${d.color.a})`
         : baseColor;
-    const color =
-      opts.brightened === d.src ? DS_BRIGHTENED_COLOR : sel ? DS_SELECTED_COLOR : itemColor;
+    const color = forceBlack
+      ? baseColor
+      : opts.brightened === d.src
+        ? DS_BRIGHTENED_COLOR
+        : sel
+          ? DS_SELECTED_COLOR
+          : itemColor;
     switch (d.kind) {
       case 'line': {
         const w = Math.max(d.width, minWidth);

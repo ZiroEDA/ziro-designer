@@ -441,10 +441,33 @@ describe('the editor reads and writes the store', () => {
       'settings.plEditor.corner_origin',
       'settings.plEditor.properties_frame_width',
       'settings.plEditor.window.grid.last_size_idx',
-      'settings.plEditor.black_background',
     ]) {
       expect(EDITOR, `${seed} must seed a control`).toContain(seed);
     }
+  });
+
+  it('reads black_background, but no control writes it — as upstream', () => {
+    /*
+     * `black_background` is the one setting in this file with no user interface
+     * at all. `LoadSettings` turns it into the canvas colour
+     * (`SetDrawBgColor( cfg->m_BlackBackground ? BLACK : WHITE )`,
+     * pl_editor_frame.cpp:541) and `SaveSettings` writes back whatever colour
+     * the canvas has (:562) — and nothing else in `pagelayout_editor` ever
+     * calls `SetDrawBgColor`, so no action, menu item or Preferences control
+     * can move it. Grep the reference tree: the only other hits are the two
+     * lines of the printout that force white paper.
+     *
+     * We had invented a checkbox for it. This expectation moved from "a
+     * control is seeded from it and writes it back" to "it is read and never
+     * written", and the derivation for the new one is the paragraph above, not
+     * what the code now happens to print.
+     */
+    expect(EDITOR).toContain('plCfg.black_background');
+    expect(EDITOR).not.toContain('s.black_background =');
+    // The checkbox's prop. The LABEL is asserted in ds_preferences.test.ts,
+    // which filters comments out first — this file does not, and the comment
+    // recording why the control was removed names it.
+    expect(EDITOR).not.toContain('onBlackBackground');
   });
 
   it('takes the always-show crosshair from the settings, not a literal', () => {
@@ -464,7 +487,9 @@ describe('the editor reads and writes the store', () => {
       's.corner_origin = idx',
       's.properties_frame_width = w',
       's.window.grid.last_size_idx = idx',
-      's.black_background = on',
+      // `s.black_background = on` is deliberately absent — see above.
+      's.window.cursor.crosshair = mode',
+      's.window.cursor.always_show_cursor = v',
       'writePageToConfig(s, next)',
     ]) {
       expect(EDITOR, `${write} must reach updatePlEditor`).toContain(write);

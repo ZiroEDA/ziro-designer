@@ -112,8 +112,13 @@ export interface DrawingSheetCanvasProps {
    * `m_originSelectChoice` 0.
    */
   originIU?: Vec2;
-  /** Draw a full-window crosshair at the cursor. */
-  fullCrosshair?: boolean;
+  /**
+   * `window.cursor.cross_hair_mode` (app_settings.cpp:567-568), the three-way
+   * `PANEL_GAL_OPTIONS` radio: small / full window / 45 degree
+   * (common/dialogs/panel_gal_options_base.cpp:102-108). This used to be a
+   * boolean, which could not express the third one.
+   */
+  crosshairMode?: 'small' | 'full' | '45';
   /**
    * `window.cursor.always_show_cursor` (app_settings.cpp:564-565).
    *
@@ -187,7 +192,7 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
       showGrid,
       gridIU,
       originIU,
-      fullCrosshair,
+      crosshairMode,
       alwaysShowCursor = true,
       blackBackground,
       editPoints,
@@ -473,7 +478,7 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
       // selection tool it is there only because always_show_cursor is on, and
       // a forced cursor is dimmed.
       drawCrosshair(ctx, cursorPxRef.current, canvas.width, canvas.height, {
-        mode: fullCrosshair ? 'full' : 'small',
+        mode: crosshairMode ?? 'small',
         color: darkBg ? DS_CURSOR_COLOR_ON_DARK : DS_CURSOR_COLOR_ON_LIGHT,
         toolWantsCursor: activeTool !== 'select',
         alwaysShow: alwaysShowCursor,
@@ -494,7 +499,7 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
       originIU,
       dpr,
       activeTool,
-      fullCrosshair,
+      crosshairMode,
       alwaysShowCursor,
       blackBackground,
       onScaleChange,
