@@ -175,6 +175,18 @@ export function fieldTextBox(field: SchField, shownText: string, posOverride?: V
   const box: Box = { x: pos.x, y: pos.y, w: extentsX, h: extentsY + fudge + overbar };
 
   const italicOffset = italic ? kiRound(h * ITALIC_TILT) : 0;
+  // GetTextBox's horizontal switch guards two of its three arms on
+  // `IsMirrored()` — LEFT moves only when mirrored, RIGHT only when not — and
+  // NEITHER guard is modelled here, deliberately. A schematic field is never
+  // mirrored: the parser reads the token and throws it away,
+  //
+  //     // Do not set mirror property for schematic text elements
+  //     case T_mirror: break;
+  //
+  // (sch_io_kicad_sexpr_parser.cpp:862-863), so `IsMirrored()` is false for
+  // every SCH_FIELD and only the unmirrored arms are reachable. Our `justify`
+  // keeps every token the file carried, so `(justify left mirror)` does reach
+  // this switch — and must still be boxed unmirrored, exactly as it is.
   switch (storedHJustify(field)) {
     case 'left':
       break;
