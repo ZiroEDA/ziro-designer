@@ -266,13 +266,13 @@ describe('the same workspace on another device', () => {
     // thing that must follow the account — it is why the slices exist — so it
     // makes the same round trip as the rest rather than only being counted.
     a.updateToolbars('eeschema', (s) => {
-      s.toolbars = [{ name: 'top_main', contents: [] }];
+      s.toolbars = [{ name: 'TOP_MAIN', contents: [] }];
     });
     a.updateToolbars('pcbnew', (s) => {
-      s.toolbars = [{ name: 'left', contents: [] }];
+      s.toolbars = [{ name: 'LEFT', contents: [] }];
     });
     a.updateToolbars('pl_editor', (s) => {
-      s.toolbars = [{ name: 'right', contents: [] }];
+      s.toolbars = [{ name: 'RIGHT', contents: [] }];
     });
 
     const up = await syncSettings(USER, { manager: a });
@@ -301,9 +301,9 @@ describe('the same workspace on another device', () => {
     expect(b.userColors).toEqual({ wire: 'rgb(1, 2, 3)' });
     expect(b.hotkeys).toEqual({ 'eeschema.save': 'Ctrl+Alt+S' });
     // Each app's toolbars came down as its own file, not as one shared blob.
-    // The name comes back in magic_enum's own spelling for TOOLBAR_LOC, which
-    // the store writes however the caller spelled it, so this pins the
-    // normalisation as well as the transport.
+    // `TOOLBAR_LOC` in magic_enum's own spelling, which is the only spelling
+    // the type admits — the store reads other cases back but does not accept
+    // them here.
     expect(b.toolbars.eeschema.toolbars[0]?.name).toBe('TOP_MAIN');
     expect(b.toolbars.pcbnew.toolbars[0]?.name).toBe('LEFT');
     expect(b.toolbars.pl_editor.toolbars[0]?.name).toBe('RIGHT');
