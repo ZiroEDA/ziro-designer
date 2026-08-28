@@ -7,7 +7,7 @@
  * `cvpcb/symbols_listbox.cpp`, `cvpcb/library_listbox.cpp` and
  * `cvpcb/footprints_listbox.cpp`.
  *
- * Same window: the File / Edit / Preferences menu bar, the top toolbar (save,
+ * Same window: the File / Edit / Preferences / Help menu bar, the top toolbar (save,
  * view footprint, previous/next unassigned, undo, redo, delete all, then
  * "Footprint Filters:" with the three toggles and the search box), the three
  * monospaced panes, "Footprint Libraries" (20%), "Symbol : Footprint
@@ -29,9 +29,19 @@
  * Web deltas: KiCad's footprint viewer is a second frame, here it is a panel
  * over the footprint pane using the shared FOOTPRINT_PREVIEW_WIDGET. The
  * ".equ"-file features (Automatically Assign Footprints, Manage Footprint
- * Association Files) and the footprint library table editor are left out
- * rather than shown dead: the browser build has no association files and no
- * fp-lib-table to edit.
+ * Association Files) are left out rather than shown dead: the browser build has
+ * no association files.
+ *
+ * Still missing, and named here so it is not mistaken for a deliberate delta:
+ * ACTIONS::cut / copy / paste on the Edit menu, which in cvpcb copy the
+ * SELECTED symbol's FPID to the clipboard and paste it onto the selection
+ * (CVPCB_ASSOCIATION_TOOL::CopyAssoc / CutAssoc / PasteAssoc,
+ * cvpcb_association_tool.cpp:50-165). Ours shows two Delete entries there that
+ * upstream's Edit menu does not have.
+ *
+ * Chrome lives in `dialog_assign_footprints.css` beside this file, not in
+ * ui/shell.css, so that every metric in it can name the token or the
+ * measurement it came from.
  */
 
 import { useEffect, useMemo, useRef, useState, type JSX } from 'react';
@@ -102,14 +112,38 @@ import type { FocusLike } from '../../../ui/browser_hotkeys.js';
 import { addClose } from '../../../ui/action_menu.js';
 import { UnsavedChangesDialog } from '../../../ui/dialog_unsaved_changes.js';
 import type { UnsavedChangesResult } from '../../../ui/confirm.js';
+import { standardHelpMenu } from '../../../ui/help_menu.js';
+import { showHotkeyList } from '../../../ui/hotkey_list_action.js';
+import { setLanguageMenuItem } from '../../../ui/language_menu.js';
+import { ABOUT_TITLES } from '../../../ui/about_titles.js';
+import { AboutDialog } from '../../../home/dialogs/dialog_about.js';
+import { PreferencesDialog } from '../../../dialogs/PreferencesDialog.js';
+import './dialog_assign_footprints.css';
 
 /** FOOTPRINTS_LISTBOX filter flags (listboxes.h). */
 const FILTER_BY_FP_FILTERS = 0x0001;
 const FILTER_BY_PIN_COUNT = 0x0002;
 const FILTER_BY_LIBRARY = 0x0004;
 
-/** Row height of the three virtual lists, in px (a monospaced text row). */
-const ROW_H = 18;
+/**
+ * Row pitch of the three virtual lists, in px.
+ *
+ * MEASURED, not chosen: `qa/probes/cvpcb_listbox_probe.cpp` builds the same
+ * widget CVPCB does - a `wxListView` with `LISTBOX_STYLE` (listboxes.h:36)
+ * carrying `KIUI::GetMonospacedUIFont()` - shows it, pumps the loop and reads
+ * `GetItemRect()`. On this desktop:
+ *
+ *     mono list   itemRect0=(0,0 80x24)  pitch(1-0)=24  charHeight=18
+ *     mono  7pt   itemRect0=(0,0 80x18)  pitch=18       charHeight=12
+ *     mono 16pt   itemRect0=(0,0 80x32)  pitch=32       charHeight=26
+ *
+ * i.e. the row is the font's line box plus a fixed 6 px, the same 6 px
+ * `LIB_TREE` adds by hand (`FromDIP( 6 ) + GetTextExtent( "pdI" ).y`,
+ * lib_tree.cpp:177-180) - so 18 + 6 = 24 here, and it tracks --ui-text-height
+ * rather than being a number of its own. 18 was the LINE BOX being used as the
+ * row, which made every one of the three panes a third too dense.
+ */
+const ROW_H = 24;
 
 /** `m_filterTimer->StartOnce( 200 )` (cvpcb_mainframe.cpp:438-446). */
 const FILTER_DEBOUNCE_MS = 200;
@@ -280,7 +314,7 @@ function VirtualList({
     rows.push(
       <div
         key={i}
-        className={`ze-cvpcb-row${selection.has(i) ? ' selected' : ''}`}
+        className={`ze-fpassign-row${selection.has(i) ? ' selected' : ''}`}
         style={{ top: i * ROW_H, height: ROW_H }}
         // biome-ignore lint/a11y/useKeyWithClickEvents: the list owns the keyboard, see onKeyDown
         onClick={(e) => clickRow(i, e)}
@@ -293,7 +327,7 @@ function VirtualList({
 
   return (
     <div
-      className="ze-cvpcb-list"
+      className="ze-fpassign-list"
       ref={ref}
       tabIndex={0}
       onFocus={onFocus}
@@ -447,6 +481,8 @@ export function DialogAssignFootprints({
   const [filterText, setFilterText] = useState('');
   const [viewerOpen, setViewerOpen] = useState(false);
   const [libTableOpen, setLibTableOpen] = useState(false);
+  const [prefsOpen, setPrefsOpen] = useState(false);
+  const [aboutOpen, setAboutOpen] = useState(false);
   // Focused pane, the third status line names the library of the focused
   // pane's selection (CVPCB_MAINFRAME::GetFocusedControl).
   // `SYMBOLS_LISTBOX::OnSelectComponent` calls `SetFocus()`, and the startup
@@ -810,17 +846,37 @@ export function DialogAssignFootprints({
         },
       ],
     },
+    // menubar.cpp:66-75 — configurePaths, showFootprintLibTable,
+    // showEquFileTable, openPreferences, a separator, then the language list.
+    // Ours ended after the library table: no Preferences..., no Set Language,
+    // and no Configure Paths even as the greyed row every other launcher shows.
     {
       label: 'Preferences',
       items: [
+        { label: 'Configure Paths...', disabled: true },
         {
           label: 'Manage Footprint Libraries...',
           icon: 'cvpcbLibTable',
           disabled: !onSaveLibTable,
           action: () => setLibTableOpen(true),
         },
+        { label: 'Preferences...', shortcut: 'Ctrl+,', action: () => setPrefsOpen(true) },
+        { sep: true },
+        setLanguageMenuItem({
+          current: settings.common.system.language,
+          onSelect: (label) =>
+            settings.updateCommon((c) => {
+              c.system.language = label;
+            }),
+        }),
       ],
     },
+    // `AddStandardHelpMenu( menuBar )` (menubar.cpp:82) — cvpcb appends it like
+    // every other frame, and ours had no Help menu at all.
+    standardHelpMenu({
+      showHotkeys: showHotkeyList,
+      showAbout: () => setAboutOpen(true),
+    }),
   ];
 
   const toolbarEntries: ToolEntry[] = [
@@ -961,8 +1017,6 @@ export function DialogAssignFootprints({
     }
   };
 
-  const assignedCount = components.filter((c) => footprintOf(c)).length;
-
   /** SYMBOLS_LISTBOX's rows (`formatSymbolDesc`), which the pane renders and
    *  the type-ahead reads. */
   const symbolRows = components.map((c, i) =>
@@ -975,7 +1029,7 @@ export function DialogAssignFootprints({
   return (
     <div className="ze-modal-backdrop" onMouseDown={closeWindow}>
       <div
-        className="ze-modal ze-cvpcb"
+        className="ze-modal ze-fpassign"
         ref={frameRef}
         style={{ width: 1240, maxWidth: '96vw', height: 760, maxHeight: '92vh' }}
         onMouseDown={(e) => e.stopPropagation()}
@@ -996,7 +1050,7 @@ export function DialogAssignFootprints({
           disabledIds={disabledIds}
           onActivate={onToolbar}
           controls={{
-            filtersLabel: <span className="ze-cvpcb-filters-label">Footprint Filters:</span>,
+            filtersLabel: <span className="ze-fpassign-filters-label">Footprint Filters:</span>,
             filterText: (
               <input
                 className="ze-search"
@@ -1017,10 +1071,10 @@ export function DialogAssignFootprints({
           }}
         />
 
-        <div className="ze-cvpcb-body">
+        <div className="ze-fpassign-body">
           {/* Footprint Libraries (LIBRARY_LISTBOX) */}
-          <section className="ze-cvpcb-pane" style={{ flex: '0 0 20%' }}>
-            <div className="ze-cvpcb-caption">Footprint Libraries</div>
+          <section className="ze-fpassign-pane" style={{ flex: '0 0 20%' }}>
+            <div className="ze-fpassign-caption">Footprint Libraries</div>
             <VirtualList
               rows={libRows}
               selection={libSelection}
@@ -1042,8 +1096,8 @@ export function DialogAssignFootprints({
           </section>
 
           {/* Symbol : Footprint Assignments (SYMBOLS_LISTBOX) */}
-          <section className="ze-cvpcb-pane" style={{ flex: 1 }}>
-            <div className="ze-cvpcb-caption">Symbol : Footprint Assignments</div>
+          <section className="ze-fpassign-pane" style={{ flex: 1 }}>
+            <div className="ze-fpassign-caption">Symbol : Footprint Assignments</div>
             <VirtualList
               rows={symbolRows}
               selection={symbolSelection}
@@ -1060,17 +1114,17 @@ export function DialogAssignFootprints({
                 // no FOOTPRINT_INFO for gets the warning background — which an
                 // *unassigned* symbol is too, GetFootprintInfo("") being null.
                 const warn = indexLoaded && !hasFootprintInfo(knownFootprints, fpid);
-                return <span className={warn ? 'ze-cvpcb-warn' : undefined}>{symbolRows[i]}</span>;
+                return <span className={warn ? 'ze-fpassign-warn' : undefined}>{symbolRows[i]}</span>;
               }}
             />
             {components.length === 0 && (
-              <div className="ze-cvpcb-empty">No symbols, place and annotate symbols first.</div>
+              <div className="ze-fpassign-empty">No symbols, place and annotate symbols first.</div>
             )}
           </section>
 
           {/* Filtered Footprints (FOOTPRINTS_LISTBOX) */}
-          <section className="ze-cvpcb-pane last" style={{ flex: '0 0 30%', position: 'relative' }}>
-            <div className="ze-cvpcb-caption">Filtered Footprints</div>
+          <section className="ze-fpassign-pane last" style={{ flex: '0 0 30%', position: 'relative' }}>
+            <div className="ze-fpassign-caption">Filtered Footprints</div>
             <VirtualList
               rows={footprintRows}
               selection={footprintSelection}
@@ -1088,8 +1142,8 @@ export function DialogAssignFootprints({
               <LibraryLoadingPanel kind="footprints" label="Loading footprint libraries..." />
             )}
             {viewerOpen && (
-              <div className="ze-cvpcb-viewer">
-                <div className="ze-cvpcb-caption">
+              <div className="ze-fpassign-viewer">
+                <div className="ze-fpassign-caption">
                   {selectedFootprint || 'No footprint specified'}
                   <span className="x" title="Close" onClick={() => setViewerOpen(false)}>
                     ✕
@@ -1108,11 +1162,18 @@ export function DialogAssignFootprints({
         </div>
 
         {/* The three status lines of the bottom panel. */}
-        <div className="ze-cvpcb-status">
+        <div className="ze-fpassign-status">
           <div>{statusLine1}</div>
           <div>{statusLine2}</div>
           <div>{statusLine3}</div>
         </div>
+
+        {prefsOpen && <PreferencesDialog onClose={() => setPrefsOpen(false)} />}
+        {/* DIALOG_ABOUT titles itself from EDA_BASE_FRAME::GetAboutTitle, and
+            cvpcb_mainframe.cpp:88 sets that to the bare "Assign Footprints". */}
+        {aboutOpen && (
+          <AboutDialog title={ABOUT_TITLES.cvpcb} onClose={() => setAboutOpen(false)} />
+        )}
 
         {libTableOpen && onSaveLibTable && (
           <DialogFpLibTable
@@ -1134,10 +1195,13 @@ export function DialogAssignFootprints({
             onResult={answerUnsavedChanges}
           />
         )}
+        {/* `buttonsSizer` (cvpcb_mainframe.cpp:157-171): "Apply, Save Schematic
+            && Continue", then the wxStdDialogButtonSizer's OK and Cancel, the
+            whole row wxALIGN_RIGHT. There is nothing else on it - the count of
+            assigned symbols this used to carry on the left exists nowhere in
+            cvpcb, and the window says how much is left to do by selecting the
+            first unassigned symbol instead. */}
         <div className="ze-modal-footer">
-          <span className="ze-muted" style={{ marginRight: 'auto', fontSize: 12 }}>
-            {assignedCount} of {components.length} assigned
-          </span>
           <button
             className="ze-btn"
             disabled={!changed}

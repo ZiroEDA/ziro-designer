@@ -10,6 +10,8 @@
 import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
 import { readSchematic } from '@ziroeda/eeschema';
+import { makeSymbol } from '@ziroeda/eeschema/src/tools/build.js';
+import { mmToIU } from '@ziroeda/common/src/eda_units.js';
 import {
   collectCvpcbComponents,
   firstUnassignedComponent,
@@ -275,5 +277,76 @@ describe('firstUnassignedComponent', () => {
 
   it('is -1 for an empty netlist', () => {
     expect(firstUnassignedComponent([])).toBe(-1);
+  });
+});
+
+/**
+ * The bug Akshay reported: a diode placed from the library showed
+ * `D1 - 1N4001 :` with nothing after the colon in Assign Footprints, while the
+ * same part in KiCad reads
+ * `1N4007 : Diode_THT:D_DO-41_SOD81_P10.16mm_Horizontal`.
+ *
+ * Nothing was wrong in cvpcb. `collectCvpcbComponents` has always read
+ * `fieldOf( sym, 'Footprint' )`, which is what CVPCB is handed by the netlist
+ * (`netlist_exporter_xml.cpp` emits the symbol's Footprint field). The placed
+ * symbol simply had no such field: `makeSymbol` created Reference and Value and
+ * stopped, where `SCH_SYMBOL`'s library constructor ends in
+ * `UpdateFields( aSheet, true, … )` (sch_symbol.cpp:97-101) and copies EVERY
+ * field the library defines — Footprint included, hidden, at the library's own
+ * offset. Stock `Diode:1N4007` ships `(property "Footprint"
+ * "Diode_THT:D_DO-41_SOD81_P10.16mm_Horizontal")`, so in KiCad the assignment
+ * is there before CvPcb ever opens.
+ *
+ * This is the two halves joined up, which neither half's own tests cover:
+ * `placed_symbol_library_fields.test.ts` pins that makeSymbol makes the field,
+ * and the block above pins that cvpcb reads one. Only this pins that a symbol
+ * placed from a library that names a footprint ARRIVES in this window carrying
+ * it — the sentence the report is about.
+ */
+describe('a symbol placed from a library that names a footprint', () => {
+  // A diode library symbol shaped like the stock one: the Footprint property
+  // is on the LIBRARY part, hidden, and nothing in the placement flow types it.
+  const DIODE_SHEET = `(kicad_sch (version 20231120) (generator "test") (paper "A4")
+    (lib_symbols
+      (symbol "Diode:1N4007" (property "Reference" "D" (at 0 0 0))
+        (property "Value" "1N4007" (at 0 0 0))
+        (property "Footprint" "Diode_THT:D_DO-41_SOD81_P10.16mm_Horizontal" (at 0 -3.81 0))
+        (property "Datasheet" "" (at 0 0 0))
+        (property "Description" "" (at 0 0 0))
+        (property "ki_fp_filters" "D*DO?41*" (at 0 0 0))
+        (symbol "1N4007_0_1"
+          (pin passive line (at -3.81 0 0) (length 1.27) (name "K") (number "1"))
+          (pin passive line (at 3.81 0 180) (length 1.27) (name "A") (number "2"))))))`;
+
+  const sheet = readSchematic(parse(DIODE_SHEET));
+  const lib = sheet.libSymbols[0]!;
+  // Exactly what the place tool does with the part the chooser handed it.
+  const placed = makeSymbol(lib, { x: mmToIU(100), y: mmToIU(100) });
+  const withRef = {
+    ...placed,
+    fields: placed.fields.map((f) => (f.key === 'Reference' ? { ...f, value: 'D1' } : f)),
+  };
+  const docs = new Map([['d.kicad_sch', { ...sheet, symbols: [withRef] }]]);
+
+  it('reaches the assignment list with the library’s footprint already set', () => {
+    const comps = collectCvpcbComponents(docs, ['d.kicad_sch']);
+    expect(comps).toHaveLength(1);
+    expect(comps[0]!.footprint).toBe('Diode_THT:D_DO-41_SOD81_P10.16mm_Horizontal');
+  });
+
+  it('shows it after the colon in the row, not an empty tail', () => {
+    const c = collectCvpcbComponents(docs, ['d.kicad_sch'])[0]!;
+    // The whole row, so a footprint that arrived in the wrong column fails too.
+    expect(formatSymbolDesc(1, c.reference, c.value, c.footprint)).toBe(
+      '  1       D1 -           1N4007 : Diode_THT:D_DO-41_SOD81_P10.16mm_Horizontal',
+    );
+    expect(formatSymbolDesc(1, c.reference, c.value, c.footprint)).not.toMatch(/: *$/);
+  });
+
+  it('is therefore not the row the window opens on', () => {
+    // readwrite_dlgs.cpp:260-282 — the window lands on the first symbol with no
+    // footprint, and selects nothing when there is none. An already-assigned
+    // diode must not be counted as work outstanding.
+    expect(firstUnassignedComponent(collectCvpcbComponents(docs, ['d.kicad_sch']))).toBe(-1);
   });
 });

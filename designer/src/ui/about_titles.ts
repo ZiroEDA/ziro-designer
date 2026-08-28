@@ -51,6 +51,12 @@ export const ABOUT_TITLES = {
   imageConverter: `${PRODUCT} Image Converter`,
   calculator: `${PRODUCT} Calculator Tools`,
   viewer3d: `${PRODUCT} 3D Viewer`,
+  /** cvpcb_mainframe.cpp:88 is the one frame that does NOT put the product in
+   *  front: `m_aboutTitle = _( "Assign Footprints" )`, so its About window is
+   *  titled "About Assign Footprints". Mirrored rather than regularised - the
+   *  point of this table is to be upstream's, including where upstream is
+   *  inconsistent. */
+  cvpcb: 'Assign Footprints',
 } as const;
 
 /** `wxString::Format( _( "About %s" ), m_titleName )`. */
