@@ -66,11 +66,20 @@ it found more, including four things all three earlier read-only passes had
 looked straight past. It also settles the question the table is for: the editor
 is **still not complete**, and the reason is one named page group, not a fog.
 
+A fifth pass has since closed three of that group's four pages, and it is worth
+saying what the fourth one now is. **Toolbars is not this editor's gap.** No
+launcher here has that page, because none has the `TOOLBAR_SETTINGS` store it
+edits; building it for pl_editor alone would be the per-launcher copy the
+Preferences dialog was split up to stop. So the last row of the Drawing Sheet
+Editor's tree is an app-wide item that happens to be visible here first - which
+is exactly the distinction this table exists to make, and the reason the entry
+is still in "Not complete" rather than quietly moved up.
+
 ### Not complete
 
 | editor | state |
 |---|---|
-| **Drawing Sheet Editor** (pl_editor) | E1 + E2 + E3 + **E4 everywhere except Preferences**. Frame, tools, menubar, status bar, print and **all the file commands** are closed and were compared against the running program (PRs #604 #607 #614 #618, plus the E4 pass below). Grid dot, axis skip, the status-bar field widths and the grid origin were all **measured** off a live pl_editor. What remains is **Preferences**, and it is not a detail: upstream has four pages under Drawing Sheet Editor and we have none of them, in a modal that is not the shared one. #619's other fourteen items are closed. |
+| **Drawing Sheet Editor** (pl_editor) | E1 + E2 + E3 + **E4 everywhere except one Preferences page**. Frame, tools, menubar, status bar, print and **all the file commands** are closed and were compared against the running program (PRs #604 #607 #614 #618, plus the E4 pass below). Grid dot, axis skip, the status-bar field widths and the grid origin were all **measured** off a live pl_editor. Preferences is now the shared dialog with three of upstream's four pages under it - Display Options, Grids and Colors, two of them the shared `common/` panels rather than copies. What remains is **Toolbars**, one page, and it is an **app-wide** gap rather than this editor's: no launcher here has one, because none has a `TOOLBAR_SETTINGS` store for it to edit. It is declared in `OMITTED_PAGES` with its reason and pinned by a test, not merely absent. #619's other fourteen items are closed. |
 | **Symbol Editor** | audited, PR #606. The enable/disable rules are now closed: all 53 `setupUIConditions` registrations ported per entry (PR #620) and the four the first mutation sweep could not tell apart pinned (PR #622). Open: LIB_TREE chrome, three missing dialogs. |
 | **Footprint Editor** | audited, PR #608. Open: seven items, headed by the dialog wall. `dialog_pad_properties.cpp` alone is 2492 lines against our 297 total. |
 | **GerbView** | exporter is a real port of `GBR_TO_PCB_EXPORTER` (PR #605). No mapping dialog, and aperture-macro holes export solid. |
@@ -214,32 +223,75 @@ reported as unknown rather than clean. Two of them are answers, not gaps:
 
 ### Still open, and named
 
-- **Preferences. This is the whole of what is left, and it is why the editor is
-  not marked complete.** The dialog was opened on a running pl_editor and
-  photographed: under `Drawing Sheet Editor` the tree carries exactly four
-  pages - Display Options (`PANEL_GAL_OPTIONS`), Grids (`PANEL_GRID_SETTINGS`),
-  Colors, Toolbars (`PANEL_TOOLBAR_CUSTOMIZATION`), registered at
-  `pagelayout_editor/pl_editor.cpp:68, 71, 82, 85`. We have a local modal and
-  none of the four, and that modal is not the shared `PreferencesDialog` every
-  other launcher opens, which is a central-value violation of its own.
+- **Preferences: three of the four pages are in, and the fourth is declared.**
+  The dialog was opened on a running pl_editor and photographed: under
+  `Drawing Sheet Editor` the tree carries exactly four pages - Display Options
+  (`PANEL_GAL_OPTIONS`), Grids (`PANEL_GRID_SETTINGS`), Colors, Toolbars
+  (`PANEL_TOOLBAR_CUSTOMIZATION`), registered at
+  `pagelayout_editor/pl_editor.cpp:68, 71, 82, 85`.
 
-  Display Options alone, read off the capture, is a **Grid Display** group -
-  Style (Dots / Lines / Small crosses), Grid thickness, Minimum grid spacing,
-  Snap to grid - above the **Cursor** group we do have. Its button reads
-  `Reset Display Options to Defaults`.
+  The local modal is gone. pl_editor now opens the shared `PreferencesDialog`
+  every other launcher opens, and Display Options, Grids and Colors are pages
+  of it. **Two of the three are shared code rather than new files**, which is
+  the point: `PANEL_PL_EDITOR_DISPLAY_OPTIONS` is upstream nothing but an
+  embedded `PANEL_GAL_OPTIONS`, and the Grids page *is* `PANEL_GRID_SETTINGS`
+  - one class every KIFACE constructs with its own `FRAME_T`, which is the
+  whole difference between one editor's page and another's. Both now exist once
+  in `designer/src/dialogs/prefs/`, and eeschema's Display Options and Grids
+  pages are the same two components. `ACTIONS::gridProperties` lands on the
+  Grids page, which is the whole of what that action is.
 
-  What *is* closed is the part of that modal that was wrong rather than small:
-  the invented "black background" checkbox is gone (the capture confirms
-  pl_editor has no such control anywhere), and the crosshair is now the
-  three-way radio - `Small crosshairs` / `Full window crosshairs` /
-  `45 degree crosshairs` - plus a separate `Always show crosshairs`, all four
-  labels read back off the running dialog.
+  Folding eeschema's private copy in found that it had **drifted from KiCad in
+  four places** nobody had looked at: a `wxChoice` where upstream has radio
+  buttons, `45 degree crosshairs` spelled `45 full window crosshairs`, and both
+  numeric ranges invented - grid thickness 1..5 against upstream's 0.5..10.0 by
+  0.5, minimum grid spacing 2..50 against 5..200 by 5. Those are fixed for both
+  editors at once, which is what having one copy is for.
 
-  Two of the four pages are app-wide rather than pl_editor's: no launcher here
-  has a Toolbars page, and `PANEL_GRID_SETTINGS` is shared upstream while
-  eeschema keeps a private copy of it here, so folding it is a change to the
-  schematic editor as much as to this one. That is why this is #619's G12 and
-  its own PR.
+  **Toolbars is not shipped, and that is recorded rather than left to be
+  noticed.** `OMITTED_PAGES` in `designer/src/dialogs/prefs/registry.ts` names
+  it with its reason, next to `UPSTREAM_BOOK` - upstream's own page list per
+  heading, transcribed from `EDA_BASE_FRAME::ShowPreferences`. A test requires
+  that shipped + declared-absent equals upstream's list, in upstream's order,
+  per heading, so the omission is binding rather than decorative and cannot be
+  quietly widened.
+
+  Nothing about `PANEL_TOOLBAR_CUSTOMIZATION` is browser-hostile - it is pure
+  UI state. It is not shipped because it edits a `TOOLBAR_SETTINGS` file this
+  port does not have: every launcher's toolbars are module constants
+  (`editors/*/…Toolbars.ts`), so the page would have nothing to write to. All
+  four of upstream's Toolbars pages are one panel over one store, and building
+  it for pl_editor alone is exactly the per-launcher copy this dialog was split
+  up to stop. It is app-wide work and stays open on #619 - **the one reason
+  this editor is still in this table.**
+
+  The same mechanism caught two things nobody was looking for. Our *Schematic
+  Editor* heading carries an **Annotation Options** page upstream does not have
+  there at all - `PANEL_EESCHEMA_ANNOTATION_OPTIONS` is a page of
+  `DIALOG_SCHEMATIC_SETUP`, not of Preferences - now declared in `EXTRA_PAGES`
+  and tracked with #195. And the PCB Editor heading ships one of its seven
+  pages, which is #200's, but is now stated rather than implied.
+
+  What was already closed stays closed: the invented "black background"
+  checkbox is gone (the capture confirms pl_editor has no such control
+  anywhere) and does not come back with the new pages - the test now checks all
+  four pl_editor sources for it, not just the editor - and the crosshair is the
+  three-way radio, `Small crosshairs` / `Full window crosshairs` /
+  `45 degree crosshairs`, plus a separate `Always show crosshairs`.
+
+  One divergence inside the Grids page is worth naming rather than leaving to
+  be found. Upstream stores a `GRID{ name, x, y }` per row, renders it through
+  `GRID::MessageText` in both unit systems, and edits it in a
+  `DIALOG_GRID_SETTINGS` modal reached from an Edit button, alongside Move Up
+  and Move Down. Ours stores one unit-bearing string per grid and edits it in
+  place in a text field - the shape both settings objects already had. Porting
+  `DIALOG_GRID_SETTINGS` and the reorder buttons is separate work.
+
+  The grid list is now a *setting* rather than a read of
+  `DefaultGridSizeList()`, because a page that edits a list nothing reads is
+  the failure this whole audit exists to catch. The canvas and the grid context
+  menu both index `window.grid.sizes`, which `PL_EDITOR_DEFAULTS` seeds from
+  the shared table.
 - **The infobar's palette.** The strip uses the shared `.ze-infobar` the
   schematic raises. Its colours were ported for that editor and have **not**
   been measured against a live pl_editor's `wxInfoBar`, which is a dark bar with

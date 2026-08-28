@@ -67,10 +67,9 @@ export interface GridSettingsSlice {
 }
 
 /**
- * The grid a new row starts on. `OnAddGrid` opens `DIALOG_GRID_SETTINGS` on an
- * empty `GRID{ "", "", "" }` (`panel_grid_settings.cpp:250`); with no such
- * dialog here the caller says what an added row should read, because the answer
- * is per-editor — a schematic grid is in mils and a drawing sheet's in mm.
+ * The Grids page. One component, as `PANEL_GRID_SETTINGS` is one class: what
+ * differs between editors arrives as `frameType` and the settings slice, never
+ * as a second copy of this file.
  */
 export function PanelGridSettings({
   grid,
@@ -79,9 +78,22 @@ export function PanelGridSettings({
   newGridSize,
   idPrefix,
 }: {
+  /** `m_cfg->m_Window.grid`, the slice this panel writes back. */
   grid: GridSettingsSlice;
+  /** Mutate a clone of it — the working copy the shell commits on OK. */
   update: (fn: (g: GridSettingsSlice) => void) => void;
+  /**
+   * `FRAME_T aFrameType`, the constructor's fifth argument. It selects the
+   * Grid Overrides rows and nothing else, exactly as upstream.
+   */
   frameType: GridFrameType;
+  /**
+   * The grid a new row starts on. `OnAddGrid` opens `DIALOG_GRID_SETTINGS` on
+   * an empty `GRID{ "", "", "" }` (`panel_grid_settings.cpp:250`); with that
+   * dialog not ported, the caller says what an added row should read, because
+   * the answer is per-editor — a schematic grid is in mils, a drawing sheet's
+   * in mm.
+   */
   newGridSize: string;
   /** The current-grid radio group's `name`; see `Radio` in `./widgets.js`. */
   idPrefix: string;

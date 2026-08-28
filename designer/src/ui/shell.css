@@ -7466,11 +7466,27 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   gap: 5px;
   padding-left: 4px;
 }
-.ze-pref-check {
+/* A `wxCheckBox` row and a `wxRadioButton` row. One rule, because these panels
+   lay the two out with the same sizer flags -- `PANEL_GAL_OPTIONS` adds its
+   crosshair radios and its `Always show crosshairs` checkbox to the same
+   `wxFlexGridSizer` (`panel_gal_options_base.cpp:104-118`) -- so a second rule
+   restating these values is how the two would drift apart. */
+.ze-pref-check,
+.ze-pref-radio {
   display: flex;
   align-items: center;
   gap: 8px;
   font-size: 13px;
+}
+/* A `wxRB_GROUP` stacked vertically: the crosshair shape's
+   `wxFlexGridSizer( 0, 1, 3, 0 )` (`panel_gal_options_base.cpp:100`). The 3 is
+   DATA -- wxFormBuilder's vgap for that sizer -- not a value picked here. A
+   radio group laid out in a row (the grid style's `wxBoxSizer( wxHORIZONTAL )`)
+   is a `.ze-pref-row` instead and takes that rule. */
+.ze-pref-radios {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
 }
 .ze-pref-row {
   display: flex;
