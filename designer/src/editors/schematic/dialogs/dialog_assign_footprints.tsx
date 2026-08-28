@@ -28,23 +28,59 @@
  *
  * Web deltas: KiCad's footprint viewer is a second frame, here it is a panel
  * over the footprint pane using the shared FOOTPRINT_PREVIEW_WIDGET. The
- * ".equ"-file features (Automatically Assign Footprints, Manage Footprint
- * Association Files) are left out rather than shown dead: the browser build has
- * no association files.
+ * ".equ"-file features are left out rather than shown dead, because the browser
+ * build has no association files: Manage Footprint Association Files
+ * (`CVPCB_ACTIONS::showEquFileTable`) and, with it,
+ * **`CVPCB_ACTIONS::autoAssociate`** — the toolbar's second red X, which
+ * `toolbars_cvpcb.cpp:59-64` puts between redo and deleteAll. It is not a
+ * missing port: `AutomaticFootprintMatching` (auto_associate.cpp:170-260) is
+ * nothing but `buildEquivalenceList` over those files followed by a match on
+ * symbol VALUE, so with no `.equ` file it reports "0 footprint/symbol
+ * equivalences found." and assigns nothing. The seam is marked at the toolbar
+ * entry it would sit in, not left as a dead button.
  *
- * Still missing, and named here so it is not mistaken for a deliberate delta:
- * ACTIONS::cut / copy / paste on the Edit menu, which in cvpcb copy the
- * SELECTED symbol's FPID to the clipboard and paste it onto the selection
- * (CVPCB_ASSOCIATION_TOOL::CopyAssoc / CutAssoc / PasteAssoc,
- * cvpcb_association_tool.cpp:50-165). Ours shows two Delete entries there that
- * upstream's Edit menu does not have.
+ * ## PERSISTED
+ *
+ * `CVPCB_SETTINGS` (common/settings/cvpcb_settings.cpp:44-49) keeps four of
+ * this window's values — `filter_footprint`, `filter_footprint_text`,
+ * `libraries_pane_width` and `footprints_pane_width` — and they are kept here
+ * under those same four names, through `ui/useDialogControl.ts`.
+ *
+ * That is `DIALOG_SHIM::SaveControlState` / `LoadControlState`, not
+ * `CVPCB_SETTINGS`, and the reason is what this window *is*. Upstream cvpcb is
+ * a `KIWAY_PLAYER` frame, and a frame's settings live in its own
+ * `APP_SETTINGS_BASE` file (`cvpcb.json`) because a frame has one. Here Assign
+ * Footprints is a dialog inside eeschema; the base class it actually inherits
+ * is DIALOG_SHIM, whose per-dialog map in `common.json` is the same kind of
+ * store — a user setting, written once on close, read once on open — under the
+ * same key the frame's title gives it. Adding a `cvpcb` slice to
+ * `prefs/settings.ts` would be a second store for one dialog's four values,
+ * which is the per-editor copy the shared-module rule exists to stop.
+ *
+ * One deliberate delta inside that. `SaveSettings` writes
+ * `m_librariesListBox->GetSize().x` **unconditionally** (`:553-554`), so a
+ * cvpcb that has never been dragged still stores a pixel width — safe there
+ * only because `EDA_BASE_FRAME::SaveSettings` stores the frame's own size
+ * beside it and the two come back together. Ours has no saved frame size: the
+ * window is `min( 1280px, 96vw )`, so an absolute width saved on one display
+ * would be restored onto another. So the width is written by a **drag** and
+ * nothing else, and 0 — upstream's own "nothing saved", the `> 0` its restore
+ * is guarded by (`:204-208`) — keeps the 20% / 30% BestSize share.
+ *
+ * ## Still not ported, and named so it is not mistaken for a delta
+ *
+ * The two CONTEXT menus `setupEventHandlers` binds to the right button
+ * (cvpcb_mainframe.cpp:271-283): the symbols pane's showFootprintViewer / cut /
+ * copy / paste / deleteAssoc, and the footprint pane's showFootprintViewer. All
+ * five commands exist and are reachable — from the Edit menu, the toolbar and
+ * the keyboard — but the right button opens nothing.
  *
  * Chrome lives in `dialog_assign_footprints.css` beside this file, not in
  * ui/shell.css, so that every metric in it can name the token or the
  * measurement it came from.
  */
 
-import { useEffect, useMemo, useRef, useState, type JSX } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type JSX } from 'react';
 import type { Schematic } from '@ziroeda/eeschema';
 import { MenuBar, type Menu } from '../../../ui/MenuBar.js';
 import { Toolbar, type ToolEntry } from '../../../ui/Toolbar.js';
@@ -86,8 +122,11 @@ import {
   associate as associateCommand,
   changeFocus,
   closeWindow as closeWindowCommand,
+  copyAssoc as copyAssocCommand,
+  cutAssoc as cutAssocCommand,
   deleteAll as deleteAllCommand,
   deleteAssoc as deleteAssocCommand,
+  pasteAssoc as pasteAssocCommand,
   emptyAssociations,
   footprintOf as associationFootprintOf,
   gotoNA as gotoNACommand,
@@ -105,6 +144,8 @@ import {
   type CvpcbSaveCommand,
 } from '../cvpcb_commands.js';
 import { settings } from '../../../prefs/settings.js';
+import { useDialogControl } from '../../../ui/useDialogControl.js';
+import { DockSash } from '../../../ui/DockSash.js';
 import type { FieldsEdits } from './dialog_symbol_fields_table.js';
 import { useModalEscape } from '../../../ui/useModalEscape.js';
 import { dispatchMenuHotkey } from '../../../ui/menu_hotkeys.js';
@@ -120,10 +161,31 @@ import { AboutDialog } from '../../../home/dialogs/dialog_about.js';
 import { PreferencesDialog } from '../../../dialogs/PreferencesDialog.js';
 import './dialog_assign_footprints.css';
 
+/**
+ * `_( "Assign Footprints" )`, the title KIWAY_PLAYER is constructed with
+ * (cvpcb_mainframe.cpp:73). It is the window's caption, the name File > Close
+ * spells out, and — because `dialogKeyFromTitle` derives the key from the
+ * title — the key everything below is filed under. One string, so the three
+ * cannot drift apart and lose the saved settings.
+ */
+const WINDOW_TITLE = 'Assign Footprints';
+
 /** FOOTPRINTS_LISTBOX filter flags (listboxes.h). */
 const FILTER_BY_FP_FILTERS = 0x0001;
 const FILTER_BY_PIN_COUNT = 0x0002;
 const FILTER_BY_LIBRARY = 0x0004;
+
+/**
+ * `pane.MinSize( 20, -1 )` — the floor `setPaneWidth` puts back on the two
+ * side panes after its wxAUI width hack (cvpcb_mainframe.cpp:194-196), and the
+ * only pane-width minimum cvpcb states anywhere. DATA: cvpcb's own number.
+ *
+ * It is also what the centre pane is left when a sash is dragged as far as it
+ * goes, because `EDA_PANE().Palette()` sets no MinSize of its own
+ * (eda_base_frame.h:962-970) and the Symbols pane is added without one
+ * (`:126-127`).
+ */
+const PANE_MIN_WIDTH = 20;
 
 /**
  * Row pitch of the three virtual lists, in px.
@@ -484,13 +546,27 @@ export function DialogAssignFootprints({
     curFpRef.current = index;
     setCurFpState(index);
   };
-  const [filterFlags, setFilterFlags] = useState(0);
+  // The four values CVPCB_SETTINGS keeps (see PERSISTED above), under the same
+  // four names it files them under.
+  const [filterFlags, setFilterFlags] = useDialogControl(WINDOW_TITLE, 'filter_footprint', 0);
   // What the box shows, and what the list is filtered by: `onTextFilterChanged`
   // only restarts a 200 ms `wxTimer` (cvpcb_mainframe.cpp:438-446) and it is
   // `onTextFilterChangedTimer` that rebuilds the list, so a fast typist filters
   // fifteen thousand footprints once instead of once per keystroke.
-  const [filterInput, setFilterInput] = useState('');
-  const [filterText, setFilterText] = useState('');
+  //
+  // The BOX is what is saved, because upstream saves
+  // `m_tcFilterString->GetValue()` and restores it with `ChangeValue` — which
+  // does not raise `wxEVT_TEXT`, so no timer starts. The list is filtered by it
+  // from the first build all the same: `BuildFOOTPRINTS_LISTBOX` reads
+  // `m_tcFilterString->GetValue()` live (`:459`), so the applied text starts
+  // equal to the restored box rather than empty.
+  const [filterInput, setFilterInput] = useDialogControl(WINDOW_TITLE, 'filter_footprint_text', '');
+  const [filterText, setFilterText] = useState(() => filterInput);
+  // `libraries_pane_width` / `footprints_pane_width`, in CSS px. 0 is
+  // upstream's "nothing saved": `if( cfg->m_LibrariesWidth > 0 )` guards the
+  // restore (`:204-208`), and the pane keeps the BestSize the frame gave it.
+  const [libPaneWidth, setLibPaneWidth] = useDialogControl(WINDOW_TITLE, 'libraries_pane_width', 0);
+  const [fpPaneWidth, setFpPaneWidth] = useDialogControl(WINDOW_TITLE, 'footprints_pane_width', 0);
   const [viewerOpen, setViewerOpen] = useState(false);
   const [libTableOpen, setLibTableOpen] = useState(false);
   const [prefsOpen, setPrefsOpen] = useState(false);
@@ -665,6 +741,36 @@ export function DialogAssignFootprints({
   /** Delete the selected symbol's assignment (CVPCB_ACTIONS::deleteAssoc). */
   const deleteAssoc = (): void => setModel((m) => deleteAssocCommand(m, components));
 
+  // ----- cut / copy / paste ------------------------------------------------
+  //
+  // The three commands are in cvpcb_commands.ts; what is left here is the
+  // clipboard itself, which is the one part of `wxTheClipboard` the browser
+  // does not hand over on the same terms. `wxLogNull raiiDoNotLog` wraps every
+  // upstream access precisely because a clipboard call can fail and must stay
+  // silent when it does, so the `.catch(() => {})` below is that same rule.
+
+  /** `CopyAssoc` — the selected footprint or the selected symbol's FPID. */
+  const copyAssoc = (): void => {
+    const fpid = copyAssocCommand(model, components, focus, selectedFootprint);
+    if (fpid !== null) void navigator.clipboard?.writeText?.(fpid).catch(() => {});
+  };
+
+  /** `CutAssoc` — copy, then clear the FIRST selected symbol only. */
+  const cutAssoc = (): void => {
+    const { clipboard, state } = cutAssocCommand(model, components, focus);
+    if (clipboard === null) return;
+    void navigator.clipboard?.writeText?.(clipboard).catch(() => {});
+    setModel(state);
+  };
+
+  /** `PasteAssoc` — assign the clipboard's id to every selected symbol. */
+  const pasteAssoc = async (): Promise<void> => {
+    if (model.selection.length === 0) return;
+    const text = await navigator.clipboard?.readText?.().catch(() => '');
+    if (text === undefined) return;
+    setModel((m) => pasteAssocCommand(m, components, text));
+  };
+
   /** gotoNextNA / gotoPreviousNA, the next symbol with no assignment. */
   const gotoNA = (dir: 1 | -1): void => setModel((m) => gotoNACommand(m, components, dir));
 
@@ -788,6 +894,37 @@ export function DialogAssignFootprints({
 
   // ----- focus (CVPCB_MAINFRAME::GetFocusedControl / SetFocusedControl) -----
 
+  // ----- the two sashes ----------------------------------------------------
+  //
+  // A pane whose saved width is 0 is laid out by its BestSize share — 20% and
+  // 30% of the frame (cvpcb_mainframe.cpp:122-131) — and one that has been
+  // dragged is laid out in px, which is what upstream stores. The `flex` basis
+  // says which, so the percentage is still the percentage on a window of any
+  // width until the user has expressed a width of their own.
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const libPaneRef = useRef<HTMLElement>(null);
+  const fpPaneRef = useRef<HTMLElement>(null);
+  const libPaneStyle = libPaneWidth > 0 ? { flex: `0 0 ${libPaneWidth}px` } : { flex: '0 0 20%' };
+  const fpPaneStyle =
+    fpPaneWidth > 0
+      ? { flex: `0 0 ${fpPaneWidth}px`, position: 'relative' as const }
+      : { flex: '0 0 30%', position: 'relative' as const };
+
+  // What the sash drags FROM, and how far it may go. Both are read off the DOM
+  // rather than assumed, the way `dockedPaneWidth`'s comment asks: a pane that
+  // has never been dragged has no number anywhere but its own box.
+  const [measured, setMeasured] = useState({ lib: 0, fp: 0, body: 0 });
+  useLayoutEffect(() => {
+    setMeasured({
+      lib: libPaneRef.current?.offsetWidth ?? 0,
+      fp: fpPaneRef.current?.offsetWidth ?? 0,
+      body: bodyRef.current?.clientWidth ?? 0,
+    });
+  }, []);
+  const libWidth = libPaneWidth > 0 ? libPaneWidth : measured.lib;
+  const fpWidth = fpPaneWidth > 0 ? fpPaneWidth : measured.fp;
+  const bodyWidth = measured.body;
+
   const frameRef = useRef<HTMLDivElement>(null);
   const libraryListRef = useRef<HTMLDivElement>(null);
   const symbolListRef = useRef<HTMLDivElement>(null);
@@ -822,9 +959,13 @@ export function DialogAssignFootprints({
           action: () => runSave(saveToSchematicCommand()),
         },
         { sep: true },
-        addClose('Assign Footprints', closeWindow),
+        addClose(WINDOW_TITLE, closeWindow),
       ],
     },
+    // menubar.cpp:53-62 — undo, redo, a separator, then ACTIONS::cut / copy /
+    // paste, and nothing else. Neither Delete row belongs here: `deleteAssoc`
+    // is on the symbols pane's CONTEXT menu (cvpcb_mainframe.cpp:272-279) with
+    // WXK_DELETE as its own hotkey, and `deleteAll` is on the toolbar only.
     {
       label: 'Edit',
       items: [
@@ -843,18 +984,22 @@ export function DialogAssignFootprints({
           action: redo,
         },
         { sep: true },
+        // None of the three carries a `disabled`, and that is upstream, not an
+        // oversight: `setupUIConditions` (cvpcb_mainframe.cpp:284-329) sets a
+        // condition for saveAssociations, undo and redo and for nothing else,
+        // so cut, copy and paste are always live and take their own guards
+        // silently. See cvpcb_commands.ts for what each of those guards is.
+        { label: 'Cut', icon: 'cut', shortcut: 'Ctrl+X', action: cutAssoc },
+        { label: 'Copy', icon: 'copy', shortcut: 'Ctrl+C', action: copyAssoc },
         {
-          label: 'Delete Footprint Assignment',
-          shortcut: 'Delete',
-          // DeleteAssoc walks the whole selection, so the row is live while
-          // any selected symbol still has a footprint to clear.
-          disabled: !model.selection.some((i) => footprintOf(components[i]!)),
-          action: deleteAssoc,
-        },
-        {
-          label: 'Delete All Footprint Assignments',
-          icon: 'cvpcbDeleteAll',
-          action: deleteAll,
+          label: 'Paste',
+          icon: 'paste',
+          shortcut: 'Ctrl+V',
+          // Ctrl+V is left to the browser's own paste, the only reliable read
+          // of the system clipboard — see MenuItem.nativeShortcut. The action
+          // is what the ROW does when it is clicked, which may prompt.
+          nativeShortcut: true,
+          action: () => void pasteAssoc(),
         },
       ],
     },
@@ -903,6 +1048,13 @@ export function DialogAssignFootprints({
     'sep',
     { id: 'cvpcbUndo', icon: 'cvpcbUndo', title: 'Undo' },
     { id: 'cvpcbRedo', icon: 'cvpcbRedo', title: 'Redo' },
+    // `CVPCB_ACTIONS::autoAssociate` sits HERE, between redo and deleteAll
+    // (toolbars_cvpcb.cpp:59-64), and is deliberately absent: see the header's
+    // note on the `.equ` features. It is not a button we have not got round to
+    // — it is `AutomaticFootprintMatching`, which is `buildEquivalenceList`
+    // over the project's footprint association files (auto_associate.cpp:170)
+    // and does nothing whatever when there are none. Shipping it would be a
+    // second red X that always reports "0 footprint/symbol equivalences found."
     { id: 'cvpcbDeleteAll', icon: 'cvpcbDeleteAll', title: 'Delete All Footprint Assignments' },
     'sep',
     { control: 'filtersLabel' },
@@ -1027,6 +1179,39 @@ export function DialogAssignFootprints({
       associate(selectedFootprint);
       e.preventDefault();
     }
+
+    if (e.key === 'Delete') {
+      // `CVPCB_ACTIONS::deleteAssoc` carries `.DefaultHotkey( WXK_DELETE )`
+      // (cvpcb_actions.cpp:129-134) and its only menu home upstream is the
+      // symbols pane's CONTEXT menu (cvpcb_mainframe.cpp:279), not the Edit
+      // menu — so like Enter it is dispatched here rather than off a row.
+      //
+      // No guard, and that is the point of the move: `setupUIConditions` gives
+      // deleteAssoc no ENABLE, so the key is always live and DeleteAssoc's own
+      // loop over the selection is the whole condition. The Edit-menu row this
+      // replaces greyed itself out, which is a condition cvpcb does not have.
+      deleteAssoc();
+      e.preventDefault();
+    }
+  };
+
+  /**
+   * `ACTIONS::paste`'s Ctrl+V. The row is marked `nativeShortcut`, so
+   * `dispatchMenuHotkey` leaves the key alone and the browser raises `paste`
+   * here instead — the only read of the system clipboard that needs no
+   * permission. On the dialog's own subtree rather than the window, for the
+   * same reason `onKeyDown` is: a wx modal is the only window hearing the
+   * event.
+   */
+  const onPasteEvent = (e: React.ClipboardEvent): void => {
+    // The filter box is a text field; a paste into it is text, not an
+    // association. wx never sees this case because the box is a wxTextCtrl
+    // with its own handler.
+    if (e.target instanceof HTMLInputElement) return;
+    const text = e.clipboardData?.getData('text/plain');
+    if (text === undefined) return;
+    e.preventDefault();
+    setModel((m) => pasteAssocCommand(m, components, text));
   };
 
   /** SYMBOLS_LISTBOX's rows (`formatSymbolDesc`), which the pane renders and
@@ -1054,10 +1239,11 @@ export function DialogAssignFootprints({
         }}
         onMouseDown={(e) => e.stopPropagation()}
         onKeyDown={onKeyDown}
+        onPaste={onPasteEvent}
         tabIndex={-1}
       >
         <div className="ze-modal-header">
-          Assign Footprints
+          {WINDOW_TITLE}
           <span className="x" title="Close" onClick={closeWindow}>
             ✕
           </span>
@@ -1091,9 +1277,9 @@ export function DialogAssignFootprints({
           }}
         />
 
-        <div className="ze-fpassign-body">
+        <div className="ze-fpassign-body" ref={bodyRef}>
           {/* Footprint Libraries (LIBRARY_LISTBOX) */}
-          <section className="ze-fpassign-pane" style={{ flex: '0 0 20%' }}>
+          <section className="ze-fpassign-pane" ref={libPaneRef} style={libPaneStyle}>
             <div className="ze-fpassign-caption">Footprint Libraries</div>
             <VirtualList
               rows={libRows}
@@ -1114,6 +1300,19 @@ export function DialogAssignFootprints({
               <LibraryLoadingPanel kind="footprints" label="Loading footprint libraries..." />
             )}
           </section>
+
+          {/* wxAUI puts a sash between a docked pane and the centre one, so all
+              three of cvpcb's panes are draggable without cvpcb writing a line.
+              Ours were a fixed 20% / 1fr / 30%. `min` is the pane's own
+              MinSize; `max` is where the centre pane would be squeezed past
+              that same floor, measured off the body rather than chosen. */}
+          <DockSash
+            edge="right"
+            width={libWidth}
+            min={PANE_MIN_WIDTH}
+            max={Math.max(PANE_MIN_WIDTH, bodyWidth - fpWidth - PANE_MIN_WIDTH)}
+            onResize={setLibPaneWidth}
+          />
 
           {/* Symbol : Footprint Assignments (SYMBOLS_LISTBOX) */}
           <section className="ze-fpassign-pane" style={{ flex: 1 }}>
@@ -1144,11 +1343,16 @@ export function DialogAssignFootprints({
             )}
           </section>
 
+          <DockSash
+            edge="left"
+            width={fpWidth}
+            min={PANE_MIN_WIDTH}
+            max={Math.max(PANE_MIN_WIDTH, bodyWidth - libWidth - PANE_MIN_WIDTH)}
+            onResize={setFpPaneWidth}
+          />
+
           {/* Filtered Footprints (FOOTPRINTS_LISTBOX) */}
-          <section
-            className="ze-fpassign-pane last"
-            style={{ flex: '0 0 30%', position: 'relative' }}
-          >
+          <section className="ze-fpassign-pane last" ref={fpPaneRef} style={fpPaneStyle}>
             <div className="ze-fpassign-caption">Filtered Footprints</div>
             <VirtualList
               rows={footprintRows}
