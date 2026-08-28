@@ -24,6 +24,10 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import {
+  DEFAULT_FONT_NAME,
+  KICAD_FONT_NAME,
+} from '@ziroeda/common/src/font/stroke_font.js';
 
 const read = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
@@ -203,10 +207,15 @@ describe('the row labels are the ones properties_frame_base.cpp declares', () =>
     // that order, and they mean different things: "Default Font" leaves
     // m_Font null, "KiCad Font" names the stroke font. They are two rows of
     // the shared Combo's option list, not one merged entry.
+    // The labels are DEFAULT_FONT_NAME and KICAD_FONT_NAME, stated once in
+    // common/src/font/stroke_font.ts; this asserts the panel names the
+    // constants in that order and, separately, what the constants say.
     const faces = PANEL.slice(PANEL.indexOf('const FACE_CHOICES'));
     expect(faces.slice(0, faces.indexOf('];'))).toContain(
-      "{ value: '', label: 'Default Font' },\n  { value: KICAD_FONT_NAME, label: KICAD_FONT_NAME },",
+      '{ value: \'\', label: DEFAULT_FONT_NAME },\n  { value: KICAD_FONT_NAME, label: KICAD_FONT_NAME },',
     );
+    expect(DEFAULT_FONT_NAME).toBe('Default Font');
+    expect(KICAD_FONT_NAME).toBe('KiCad Font');
     // The three CSS generics we invented are gone.
     expect(PANEL).not.toContain('Sans-serif');
     expect(PANEL).not.toContain("label: 'Serif'");
@@ -313,7 +322,16 @@ describe('DSP-20 — the label text KiCad prints', () => {
   it('offers Default Font and KiCad Font as two separate entries', () => {
     // m_fontCtrlChoices (:155). They are not the same value: the first writes
     // no (face …) at all, the second writes (face "KiCad Font").
-    expect(PANEL).toContain("{ value: '', label: 'Default Font' }");
+    //
+    // Both labels are now stated once in common/src/font/stroke_font.ts, so
+    // this asserts the panel names the CONSTANTS and, separately, what the
+    // constants say — which lets the literal be tokenised and still fails if
+    // either word changes. Asserting the literal in this file would have made
+    // tokenising it look like a regression, which is exactly what it did.
+    expect(DEFAULT_FONT_NAME).toBe('Default Font');
+    expect(KICAD_FONT_NAME).toBe('KiCad Font');
+    expect(PANEL).toContain("{ value: '', label: DEFAULT_FONT_NAME }");
+    expect(PANEL).toContain('{ value: KICAD_FONT_NAME, label: KICAD_FONT_NAME }');
     expect(PANEL).not.toContain('Default Font (KiCad Font)');
   });
 });
