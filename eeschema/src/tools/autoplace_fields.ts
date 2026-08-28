@@ -85,6 +85,20 @@ const roundN = (value: number, n: number, up: boolean): number =>
   value % n ? n * (Math.trunc(value / n) + (up ? 1 : 0)) : value;
 
 /**
+ * C++ `int / int`, which truncates toward zero.
+ *
+ * The autoplacer works in `VECTOR2I` and `BOX2I` throughout, so every halving it
+ * does — `BOX2I::Centre()`, `( width + fbox.x ) / 2`, `padding / 2`,
+ * `field_height / 2` — drops the remainder rather than carrying it. Doing them
+ * in floating point and rounding once at the end is off by one IU wherever two
+ * odd halves meet, which is exactly what `fieldVPlacement` does: `padding` and
+ * `field_height` sum to an even 50 mil multiple, so when the height is odd both
+ * halves truncate and the row lands 1 IU short. Measured against KiCad 10.0.5,
+ * every autoplaced row on a left/right side came out 0.0001 mm above ours.
+ */
+const idiv = (a: number, b: number): number => Math.trunc(a / b);
+
+/**
  * `getPinSide`. A pin drawn pointing right sits on the symbol's *left*: the pin
  * line runs outward from the body, so the side it occupies is the opposite of
  * the direction it points.
@@ -398,16 +412,25 @@ function chooseSide(
   return sel;
 }
 
-/** `fieldBoxPlacement`: the top-left of the field box on a given side. */
+/**
+ * `fieldBoxPlacement`: the top-left of the field box on a given side.
+ *
+ * Every division here is `BOX2I`/`VECTOR2I` integer division upstream —
+ * `BOX2I::Centre()` is `m_Pos + m_Size / 2` — so they truncate rather than
+ * round.
+ */
 function fieldBoxTopLeft(bbox: BBox, size: Vec2, side: Side): Vec2 {
-  const centre = { x: (bbox.minX + bbox.maxX) / 2, y: (bbox.minY + bbox.maxY) / 2 };
-  let offsX = (bbox.maxX - bbox.minX + size.x) / 2;
-  let offsY = (bbox.maxY - bbox.minY + size.y) / 2;
+  const centre = {
+    x: bbox.minX + idiv(bbox.maxX - bbox.minX, 2),
+    y: bbox.minY + idiv(bbox.maxY - bbox.minY, 2),
+  };
+  let offsX = idiv(bbox.maxX - bbox.minX + size.x, 2);
+  let offsY = idiv(bbox.maxY - bbox.minY + size.y, 2);
   if (side.x !== 0) offsX += HPADDING;
   else if (side.y !== 0) offsY += VPADDING;
   return {
-    x: centre.x + side.x * offsX - size.x / 2,
-    y: centre.y + side.y * offsY - size.y / 2,
+    x: centre.x + side.x * offsX - idiv(size.x, 2),
+    y: centre.y + side.y * offsY - idiv(size.y, 2),
   };
 }
 
@@ -492,7 +515,10 @@ export function autoplacedFields(
   sheet?: AutoplaceSheet,
 ): SchField[] {
   const powerSymbol = !!lib?.isPower;
-  const bbox = symbolBodyBBox(sym, lib);
+  // `m_symbol_bbox = m_symbol->GetBodyBoundingBox()` (autoplace_fields.cpp:124):
+  // the body without its pins. Taking the pins in pushes the field box out by
+  // half the pin length on every side the pins stick out of.
+  const bbox = symbolBodyBBox(sym, lib, { includePins: false });
   // `DoAutoplace` turns each field to `m_field_angle` before it measures or
   // justifies anything, so every box below is the horizontal-display box.
   const fieldAngle = autoplaceFieldAngle(sym);
@@ -562,11 +588,14 @@ export function autoplacedFields(
       : opts.alignToGrid
         ? roundN(b.h, GRID_50_MIL, true) - b.h
         : FIELD_PADDING;
-    let py = y + padding / 2 + height / 2;
+    // `*aAccumulatedPosition + padding / 2 + field_height / 2`, both halves
+    // truncated on their own before they are added.
+    let py = y + idiv(padding, 2) + idiv(height, 2);
     y += padding + height;
-    // fieldHPlacement: the anchor follows the justification.
+    // fieldHPlacement: the anchor follows the justification. `Centre().x` is
+    // `GetLeft() + GetWidth() / 2`, integer division again.
     let px =
-      justify === 'left' ? boxLeft : justify === 'right' ? boxRight : (boxLeft + boxRight) / 2;
+      justify === 'left' ? boxLeft : justify === 'right' ? boxRight : boxLeft + idiv(size.x, 2);
 
     if (opts.alignToGrid) {
       // Rounded away from the symbol, so a field never creeps back over it.

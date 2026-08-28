@@ -14,11 +14,11 @@
  *
  *   op                     flag   symbol      Reference        Value
  *   R       (rotate CCW)   none   at 90       (-2.54,  0) a0   (+2.54,  0) a0
- *   R       (rotate CCW)   auto   at 90       (+2.54, -1.27) a90 right
- *                                             (+2.54, +1.27) a90 right
+ *   R       (rotate CCW)   auto   at 90       (+2.54, -1.2701) a90 right
+ *                                             (+2.54, +1.2699) a90 right
  *   Shift+R (rotate CW)    none   at 270      (+2.54,  0) a0   (-2.54,  0) a0
- *   Shift+R (rotate CW)    auto   at 270      (+2.54, -1.27) a90 left
- *                                             (+2.54, +1.27) a90 left
+ *   Shift+R (rotate CW)    auto   at 270      (+2.54, -1.2701) a90 left
+ *                                             (+2.54, +1.2699) a90 left
  *   X       (mirror H)     auto   mirror y    (0, -2.54) a0    (0, +2.54) a0
  *                                             and the flag is GONE
  *   Y       (mirror V)     none   mirror x    (0, +2.54) a0    (0, -2.54) a0
@@ -111,7 +111,23 @@ const field = (s: SchSymbol, key: string): [number, number, number, string | und
 };
 
 const MM = mmToIU(2.54);
-const HALF = mmToIU(1.27);
+/**
+ * Half a row, as eeschema wrote it — which is not `mmToIU(1.27)`.
+ *
+ * This file first pinned the autoplaced pair at exactly ±1.27 mm. Re-running the
+ * same probe and reading the file byte for byte gives `74.9299` and `77.4699`
+ * against a symbol at `76.2000`: the rows are one internal unit (0.0001 mm)
+ * above the round number, and the pair is *not* symmetric about the body.
+ *
+ * That is not eeschema being sloppy. `fieldVPlacement` accumulates
+ * `padding / 2 + field_height / 2` in `int` (autoplace_fields.cpp:726-741), and
+ * the two sum to a whole 50 mil row, so when the height is odd — which it is at
+ * the default 1.27 mm text — both halves truncate and the row loses 1 IU.
+ * Rounding the sum once instead loses the asymmetry, which is what these two
+ * expectations used to assert.
+ */
+const HALF_LOW = mmToIU(1.2699);
+const HALF_HIGH = mmToIU(1.2701);
 
 describe('a symbol with no (fields_autoplaced)', () => {
   it('turns its fields with the body on R, and leaves them reading vertically', () => {
@@ -153,8 +169,8 @@ describe('a symbol with (fields_autoplaced yes)', () => {
     // The row pitch is the field's *height* rounded up to 50 mil, so 100 mil
     // between the two rows and the pair centred on the body. Measuring the
     // field sideways gave 5.715 mm here, and put the pair 0.955 mm off centre.
-    expect(field(s, 'Reference')).toEqual([MM, -HALF, 90, 'right']);
-    expect(field(s, 'Value')).toEqual([MM, HALF, 90, 'right']);
+    expect(field(s, 'Reference')).toEqual([MM, -HALF_HIGH, 90, 'right']);
+    expect(field(s, 'Value')).toEqual([MM, HALF_LOW, 90, 'right']);
   });
 
   it('stores the other justification on a symbol turned CW', () => {
@@ -162,8 +178,8 @@ describe('a symbol with (fields_autoplaced yes)', () => {
     expect([s.angle, s.fieldsAutoplaced]).toEqual([270, 'auto']);
     // Same side, same offsets — only the stored justify differs, because
     // IsHorizJustifyFlipped() is true at 90° and false at 270°.
-    expect(field(s, 'Reference')).toEqual([MM, -HALF, 90, 'left']);
-    expect(field(s, 'Value')).toEqual([MM, HALF, 90, 'left']);
+    expect(field(s, 'Reference')).toEqual([MM, -HALF_HIGH, 90, 'left']);
+    expect(field(s, 'Value')).toEqual([MM, HALF_LOW, 90, 'left']);
   });
 
   it('drops the flag on a mirror, and does not re-place anything', () => {
