@@ -56,7 +56,15 @@ async function openPage(id: 'ds-display' | 'ds-grids' | 'ds-colors'): Promise<vo
   render(<PreferencesDialog onClose={() => {}} initialPage={id} />);
   // `AddLazySubPage`: the panel is constructed on first open, so nothing is in
   // the DOM synchronously. `findBy*` retries until it is.
-  await screen.findByText(ANCHOR[id], { exact: false });
+  //
+  // The timeout is raised off `findBy`'s 1000 ms default because that default
+  // is a WALL-CLOCK assertion on vitest's first transform of the lazily
+  // imported page module, not on anything this file is testing: the FIRST
+  // `openPage` in a run spends ~1 s compiling that chain and every later one
+  // takes ~30 ms. Growing the chain by one module — which porting
+  // `DIALOG_GRID_SETTINGS` did — pushed exactly one test over it, which is the
+  // shape CLAUDE.md names as a flake rather than a failure.
+  await screen.findByText(ANCHOR[id], { exact: false }, { timeout: 5000 });
 }
 
 const panelText = (): string =>
@@ -121,10 +129,22 @@ describe('Drawing Sheet Editor > Grids', () => {
 
   it('lists this editor’s grids, from the settings and not from the unit', async () => {
     await openPage('ds-grids');
-    const values = Array.from(document.querySelectorAll('input.ze-search')).map(
-      (i) => (i as HTMLInputElement).value,
+    // `m_currentGridCtrl`, a wxListBox (`panel_grid_settings_base.cpp:29`), so
+    // the rows are options and not the text fields they used to be.
+    const options = Array.from(document.querySelectorAll('select.ze-gridlist option')).map(
+      (o) => o.textContent,
     );
-    for (const size of PL_EDITOR_DEFAULTS.window.grid.sizes) expect(values, size).toContain(size);
+    expect(options).toHaveLength(PL_EDITOR_DEFAULTS.window.grid.sizes.length);
+
+    // `RebuildGridSizes`' `_( "%s%s (%s)" )` (`panel_grid_settings.cpp:139-143`):
+    // the optional name, the size in the frame's unit, then in the other one.
+    // Written out rather than computed, and re-derived from the C++ rather than
+    // read off the page: pl_editor opens in MILS (`app_settings.cpp:228-238`)
+    // and counts microns, so it is NOT the eeschema short form —
+    // `MessageTextFromValue` gives mils two decimals and mm four
+    // (`common/eda_units.cpp:445-460`). 5 mm is 196.8503937 mils.
+    expect(options[0]).toBe('196.85 mils (5.0000 mm)');
+    expect(options[4]).toBe('19.69 mils (0.5000 mm)');
   });
 
   it('shows exactly the override rows FRAME_PL_EDITOR shows', async () => {

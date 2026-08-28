@@ -2225,7 +2225,7 @@ export function DrawingSheetEditor({
   // row on that page a control nothing obeys. The table is still where the
   // stored list is seeded from (`PL_EDITOR_DEFAULTS`).
   const gridSizes = plCfg.window.grid.sizes;
-  const gridIU = mmToIU(gridSizeToMM(gridSizes[gridIndex] ?? '0.50 mm') ?? 0.5);
+  const gridIU = mmToIU(gridSizeToMM(gridSizes[gridIndex]?.x ?? '0.50 mm') ?? 0.5);
   // PL_EDITOR_FRAME::DisplayGridMsg (pagelayout_editor/pl_editor_frame.cpp:710)
   // formats the grid itself - "grid %.4f" in mm, "grid %.3f" in inch - rather
   // than going through GRID::MessageText, which is what MessageTextFromValue's

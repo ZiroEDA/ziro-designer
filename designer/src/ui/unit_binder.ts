@@ -135,6 +135,22 @@ export function parseUnitValue(
   units: EdaUnits,
   iuScale: EdaIuScale = drawSheetIUScale,
 ): number {
+  return iuScale.iuToMM(iuScale.mmToIU(parseUnitValueDouble(text, units)));
+}
+
+/**
+ * `UNIT_BINDER::GetDoubleValue()` (unit_binder.cpp:262-291) — the SAME parse
+ * without the integer quantisation, because that overload returns a `double`
+ * and its only rounding is `setPrecision( …, false )`, a no-op unless the
+ * binder was given a precision.
+ *
+ * Which of the two a caller wants is not a detail: `DIALOG_GRID_SETTINGS` reads
+ * `m_gridSizeX.GetDoubleValue()` (`dialog_grid_settings.cpp:80`), so `2` typed
+ * into a mils field is stored as exactly 0.0508 mm. Quantising it to the
+ * drawing sheet's microns first would store 0.051 and print the grid back as
+ * `2.01 mils` — a value the user never typed.
+ */
+export function parseUnitValueDouble(text: string, units: EdaUnits): number {
   const buf = text.trim().replace(/,/g, '.');
 
   let brk = 0;
@@ -155,7 +171,7 @@ export function parseUnitValue(
   else if (designator === 'mi' || designator === 'th') entered = 'mils';
   else if (designator === 'in' || designator.startsWith('"')) entered = 'in';
 
-  return iuScale.iuToMM(iuScale.mmToIU(fromUserUnit(entered, value)));
+  return fromUserUnit(entered, value);
 }
 
 /**

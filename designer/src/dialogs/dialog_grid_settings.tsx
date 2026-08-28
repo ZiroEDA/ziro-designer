@@ -33,7 +33,7 @@ import { MessageDialogError } from '../ui/dialog_message.js';
 import type { GridEntry } from '../ui/grid_settings.js';
 import {
   type EdaUnits,
-  parseUnitValue,
+  parseUnitValueDouble,
   stringFromValue,
   unitLabel,
   validateUnitValue,
@@ -101,8 +101,10 @@ export function DialogGridSettings({
     return {
       name: grid.name,
       linked,
-      x: stringFromValue(parseUnitValue(grid.x, 'mm', iuScale), units, false, iuScale),
-      y: linked ? '' : stringFromValue(parseUnitValue(grid.y, 'mm', iuScale), units, false, iuScale),
+      // `m_grid.ToDouble( scale )` then `SetDoubleValue` (:62-70) — both
+      // full-precision, so a grid round-trips through this dialog unchanged.
+      x: stringFromValue(parseUnitValueDouble(grid.x, 'mm'), units, false, iuScale),
+      y: linked ? '' : stringFromValue(parseUnitValueDouble(grid.y, 'mm'), units, false, iuScale),
     };
   });
 
@@ -115,14 +117,16 @@ export function DialogGridSettings({
 
   /** `TransferDataFromWindow` (`dialog_grid_settings.cpp:78-103`). */
   const accept = (): void => {
-    const gridX = parseUnitValue(x, units, iuScale);
+    // `m_gridSizeX.GetDoubleValue()` (:80), NOT `GetValue()`: the grid is stored
+    // at full precision, so 2 typed into a mils field is exactly 0.0508 mm.
+    const gridX = parseUnitValueDouble(x, units);
 
     if (validateUnitValue('X:', gridX, GRID_RANGE_MM, units, iuScale) !== null) {
       setError(X_OUT_OF_RANGE);
       return;
     }
 
-    const typedY = parseUnitValue(y, units, iuScale);
+    const typedY = parseUnitValueDouble(y, units);
 
     if (!linked && validateUnitValue('Y:', typedY, GRID_RANGE_MM, units, iuScale) !== null) {
       setError(Y_OUT_OF_RANGE);

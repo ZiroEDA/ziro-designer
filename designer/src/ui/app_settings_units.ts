@@ -62,6 +62,22 @@ export function defaultUnits(app: AppSettingsName): DefaultUnits {
 }
 
 /**
+ * `EDA_UNITS` as stored in `system.units`, narrowed to the three a drawing
+ * frame can display.
+ *
+ * `EDA_UNITS` has nine members and a settings file can hold any of them, but a
+ * frame's Units toolbar group offers three (`ACTIONS::millimetersUnits`,
+ * `inchesUnits`, `milsUnits`) and every `UNITS_PROVIDER` consumer here is typed
+ * to those. Anything else — `um`, `cm`, `degrees` — is not a length a grid or a
+ * coordinate is ever shown in, so it reads as millimetres, which is the branch
+ * `EDA_DRAW_FRAME::GetUnitPair` treats as the metric side
+ * (`common/eda_draw_frame.cpp:1400-1421`).
+ */
+export function toStatusUnits(units: string): 'mm' | 'in' | 'mils' {
+  return units === 'mils' ? 'mils' : units === 'in' ? 'in' : 'mm';
+}
+
+/**
  * The same answer as the id of the Units toolbar group's checked action —
  * `ACTIONS::millimetersUnits` / `ACTIONS::milsUnits`, which is how a frame's
  * `DEFAULT_TOGGLES` spells its starting unit.

@@ -19,18 +19,10 @@
  * (`common/tool/common_tools.cpp:609-634`).
  */
 import type { JSX } from 'react';
+import { drawSheetIUScale } from '@ziroeda/common';
 import { PanelGridSettings } from '../../../dialogs/prefs/PanelGridSettings.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
-import { DEFAULT_GRID_INDEX, GRID_SIZE_LIST } from '../../../ui/grid_settings.js';
-
-/**
- * What an added row starts at. Upstream `OnAddGrid` opens
- * `DIALOG_GRID_SETTINGS` on an empty grid; with that dialog not ported, the row
- * starts on this editor's own default grid rather than on a literal — the same
- * table `PL_EDITOR_DEFAULTS` seeds the list from.
- */
-const NEW_GRID_SIZE =
-  GRID_SIZE_LIST.pl_editor[DEFAULT_GRID_INDEX.pl_editor]?.x ?? GRID_SIZE_LIST.pl_editor[0]!.x;
+import { toStatusUnits } from '../../../ui/app_settings_units.js';
 
 export function PanelPlEditorGrids({ ctx }: { ctx: PrefsContext }): JSX.Element {
   const { plEditor, upPl } = ctx;
@@ -39,7 +31,14 @@ export function PanelPlEditorGrids({ ctx }: { ctx: PrefsContext }): JSX.Element 
       grid={plEditor.window.grid}
       update={(fn) => upPl((s) => fn(s.window.grid))}
       frameType="FRAME_PL_EDITOR"
-      newGridSize={NEW_GRID_SIZE}
+      // The `UNITS_PROVIDER` is the FRAME (`pl_editor.cpp:71-79` passes
+      // `frame`), so the rows and the Grid Settings dialog read in whatever
+      // unit pl_editor is displaying — `system.units`, which opens on mils.
+      units={toStatusUnits(plEditor.system.units)}
+      // `drawSheetIUScale`, `base_units.h:113` — microns, not the schematic's
+      // 100 nm. It is what makes a pl_editor row read `196.85 mils (5.0000 mm)`
+      // rather than the eeschema short form.
+      iuScale={drawSheetIUScale}
       idPrefix="ds"
     />
   );

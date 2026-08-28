@@ -15,8 +15,10 @@
  * `FRAME_PL_EDITOR`.
  */
 import type { JSX } from 'react';
+import { schIUScale } from '@ziroeda/common';
 import { PanelGridSettings } from '../../../dialogs/prefs/PanelGridSettings.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
+import { defaultUnits, toStatusUnits } from '../../../ui/app_settings_units.js';
 
 export function PanelEeschemaGrids({ ctx }: { ctx: PrefsContext }): JSX.Element {
   const { eeschema, upE } = ctx;
@@ -25,10 +27,15 @@ export function PanelEeschemaGrids({ ctx }: { ctx: PrefsContext }): JSX.Element 
       grid={eeschema.window.grid}
       update={(fn) => upE((s) => fn(s.window.grid))}
       frameType="FRAME_SCH"
-      // Ours, not KiCad's: `OnAddGrid` opens `DIALOG_GRID_SETTINGS` on an empty
-      // grid and lets the user type one, which is the port this page still
-      // owes. Until then a new row starts at a schematic-shaped size.
-      newGridSize="25 mil"
+      // The `UNITS_PROVIDER` is the frame, and eeschema's live display unit is
+      // toolbar state rather than a key in `EeschemaSettings` — `system.units`
+      // is one of the APP_SETTINGS_BASE keys we do not model yet. So this is
+      // the unit the frame OPENS on, `app_settings.cpp:228-238`'s imperial
+      // branch, asked for by name rather than written out.
+      units={toStatusUnits(defaultUnits('eeschema'))}
+      // `schIUScale` — eeschema is the `is_eeschema` short form, so its rows
+      // print one digit fewer than the drawing sheet's.
+      iuScale={schIUScale}
       idPrefix="sch"
     />
   );

@@ -31,7 +31,12 @@ import {
 import type { EdaUnits } from '@ziroeda/common/src/eda_units.js';
 import type { RegulatorData } from '@ziroeda/pcb_calculator';
 import { defaultUnits } from '../ui/app_settings_units.js';
-import { DEFAULT_GRID_INDEX, GRID_SIZE_LIST } from '../ui/grid_settings.js';
+import {
+  DEFAULT_GRID_INDEX,
+  GRID_SIZE_LIST,
+  type GridEntry,
+  gridEntryOf,
+} from '../ui/grid_settings.js';
 import { normalizeToolbarSettings, type ToolbarSettings } from '../ui/toolbar_config.js';
 import {
   DEFAULT_ROUTING_SETTINGS,
@@ -382,7 +387,15 @@ export interface EeschemaSettings {
      */
     left_dock_pos: Record<string, number>;
     grid: {
-      sizes: string[]; // "50 mil", "25 mil", ...
+      /**
+       * `GRID_SETTINGS::grids` — `GRID{ name, x, y }` per row
+       * (`include/settings/grid_settings.h:33-54`), which is what
+       * `PANEL_GRID_SETTINGS` writes back (`panel_grid_settings.cpp:190`) and
+       * what `DIALOG_GRID_SETTINGS` edits. It held one string per grid until
+       * that dialog was ported, which could carry neither a name nor a
+       * non-square Y.
+       */
+      sizes: GridEntry[];
       last_size_idx: number;
       fast_grid_1: number;
       fast_grid_2: number;
@@ -540,8 +553,11 @@ export const EESCHEMA_DEFAULTS: EeschemaSettings = {
     // against their `Position()` call sites.
     left_dock_pos: { netNavigator: 0, hierarchy: 1, properties: 2, selectionFilter: 4 },
     grid: {
-      sizes: ['100 mil', '50 mil', '25 mil', '10 mil'],
-      last_size_idx: 1,
+      // `DefaultGridSizeList()`'s eeschema row, asked rather than restated —
+      // the same table the grid selector reads. It was written out by hand here
+      // and agreed with the table by coincidence.
+      sizes: GRID_SIZE_LIST.eeschema.map(gridEntryOf),
+      last_size_idx: DEFAULT_GRID_INDEX.eeschema,
       fast_grid_1: 1,
       fast_grid_2: 2,
       style: 'dots',
@@ -759,11 +775,12 @@ export interface PlEditorSettings {
        * `m_grids` back into `gridCfg.grids`
        * (common/dialogs/panel_grid_settings.cpp:190-192).
        *
-       * Every entry in pl_editor's row is square, so one string per grid says
-       * all of `GRID{ name, x, y }` that this editor can produce — the same
-       * shape `EeschemaSettings` already stores.
+       * The row is `GRID{ name, x, y }`, as upstream's is: every DEFAULT of
+       * pl_editor's row is square and nameless, but the Grids page can now add
+       * a named, non-square one through `DIALOG_GRID_SETTINGS`, so the stored
+       * shape has to be able to hold it.
        */
-      sizes: string[];
+      sizes: GridEntry[];
       /**
        * `window.grid.last_size` -> `GRID_SETTINGS::last_size_idx`
        * (app_settings.cpp:480-481), default `defaultGridIdx` = 4 for
@@ -859,7 +876,7 @@ export const PL_EDITOR_DEFAULTS: PlEditorSettings = {
       // `DefaultGridSizeList()`'s pl_editor row, asked rather than restated —
       // the same table the grid selector and the canvas already read. All eight
       // are square, so the X column says the whole grid.
-      sizes: GRID_SIZE_LIST.pl_editor.map((g) => g.x),
+      sizes: GRID_SIZE_LIST.pl_editor.map(gridEntryOf),
       last_size_idx: DEFAULT_GRID_INDEX.pl_editor,
       // `fast_grid_1 = defaultGridIdx`, `fast_grid_2 = defaultGridIdx + 1`
       // (app_settings.cpp:483-487) — not two literals.
@@ -1736,6 +1753,50 @@ function load<T>(key: string, defaults: T): T {
   }
 }
 
+/**
+ * Upgrade a stored grid list to `GRID{ name, x, y }`.
+ *
+ * `window.grid.sizes` held one unit-bearing string per grid before
+ * `DIALOG_GRID_SETTINGS` was ported, and `deepMerge` adopts a stored array
+ * whole (it only checks that an array default got an array), so a settings file
+ * written by an older build arrives here as `string[]` and would reach the grid
+ * menu as a list of rows with no `.x`.
+ *
+ * Done at load rather than as a `SETTINGS_VERSION` step because it has to hold
+ * for a hand-edited file too, and because the next `commit()` writes the new
+ * shape back anyway. A row that is neither a string nor an object with an `x`
+ * is dropped; if that empties the list the defaults stand, since a frame with
+ * no grids has no grid to snap to.
+ */
+export function normalizeGrids<T extends { window: { grid: { sizes: GridEntry[] } } }>(
+  settings: T,
+  defaults: readonly GridEntry[],
+): T {
+  const stored: unknown = settings.window.grid.sizes;
+  if (!Array.isArray(stored)) {
+    settings.window.grid.sizes = defaults.map((g) => ({ ...g }));
+    return settings;
+  }
+  const rows: GridEntry[] = [];
+  for (const row of stored as unknown[]) {
+    if (typeof row === 'string') {
+      // The old shape: X only, square, unnamed.
+      if (row !== '') rows.push({ name: '', x: row, y: row });
+    } else if (typeof row === 'object' && row !== null) {
+      const g = row as Partial<GridEntry>;
+      if (typeof g.x === 'string' && g.x !== '') {
+        rows.push({
+          name: typeof g.name === 'string' ? g.name : '',
+          x: g.x,
+          y: typeof g.y === 'string' && g.y !== '' ? g.y : g.x,
+        });
+      }
+    }
+  }
+  settings.window.grid.sizes = rows.length > 0 ? rows : defaults.map((g) => ({ ...g }));
+  return settings;
+}
+
 function store(key: string, value: unknown): void {
   try {
     localStorage.setItem(key, JSON.stringify(value));
@@ -2007,10 +2068,16 @@ const SLICE_IO: Record<SettingsSlice, SliceIO> = {
 export class SettingsManager {
   // Not `load()`: `common.json` carries one free-form subtree. See `mergeCommon`.
   common: CommonSettings = loadFreeForm(sliceStorageKey('common'), mergeCommon);
-  eeschema: EeschemaSettings = load(sliceStorageKey('eeschema'), EESCHEMA_DEFAULTS);
+  eeschema: EeschemaSettings = normalizeGrids(
+    load(sliceStorageKey('eeschema'), EESCHEMA_DEFAULTS),
+    EESCHEMA_DEFAULTS.window.grid.sizes,
+  );
   pcbnew: PcbnewSettings = load(sliceStorageKey('pcbnew'), PCBNEW_DEFAULTS);
   /** `pl_editor.json`, the Drawing Sheet Editor's own settings file. */
-  plEditor: PlEditorSettings = load(sliceStorageKey('pl_editor'), PL_EDITOR_DEFAULTS);
+  plEditor: PlEditorSettings = normalizeGrids(
+    load(sliceStorageKey('pl_editor'), PL_EDITOR_DEFAULTS),
+    PL_EDITOR_DEFAULTS.window.grid.sizes,
+  );
   /** `fpedit.json`, the Footprint Editor's own settings file. Not `load()`:
    *  `lib_tree.column_widths` is free-form. See `mergeFpEdit`. */
   fpEdit: FpEditSettings = loadFreeForm(sliceStorageKey('fpedit'), mergeFpEdit);

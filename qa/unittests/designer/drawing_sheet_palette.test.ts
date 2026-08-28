@@ -318,7 +318,12 @@ describe('C9: the frame opens in mils, and the grid does not follow the unit', (
     // are checked: the stored default IS the shared table, and the canvas
     // indexes the stored list.
     expect(PL_EDITOR_DEFAULTS.window.grid.last_size_idx).toBe(DEFAULT_GRID_INDEX.pl_editor);
-    expect(PL_EDITOR_DEFAULTS.window.grid.sizes).toEqual(GRID_SIZE_LIST.pl_editor.map((g) => g.x));
+    // `GRID{ name, x, y }` per row since `DIALOG_GRID_SETTINGS` was ported —
+    // the stored shape upstream has always had (`grid_settings.h:33-54`). The
+    // built-ins are square and nameless, which is what `gridEntryOf` says.
+    expect(PL_EDITOR_DEFAULTS.window.grid.sizes).toEqual(
+      GRID_SIZE_LIST.pl_editor.map((g) => ({ name: '', x: g.x, y: g.y })),
+    );
     expect(EDITOR).toContain('useState(settings.plEditor.window.grid.last_size_idx)');
     expect(EDITOR).toContain('const gridSizes = plCfg.window.grid.sizes;');
     expect(EDITOR).toContain('gridSizes[gridIndex]');

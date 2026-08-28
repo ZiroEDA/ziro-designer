@@ -431,6 +431,7 @@ import type { ProgressSnapshot } from '../../ui/progress_reporter.js';
 import { PreferencesDialog } from '../../dialogs/PreferencesDialog.js';
 import type { PrefsPageId } from '../../dialogs/prefs/types.js';
 import { settings, gridSizeToIU } from '../../prefs/settings.js';
+import { gridChoiceLabel } from '../../ui/grid_settings.js';
 import {
   useCommonSettings,
   useEeschemaSettings,
@@ -4972,7 +4973,7 @@ export function SchematicEditor({
       highlightThicknessMils: es.selection.highlight_thickness,
       grid: {
         show: es.window.grid.show,
-        sizeIU: gridSizeToIU(es.window.grid.sizes[es.window.grid.last_size_idx] ?? '50 mil'),
+        sizeIU: gridSizeToIU(es.window.grid.sizes[es.window.grid.last_size_idx]?.x ?? '50 mil'),
         style: es.window.grid.style,
         lineWidthPx: es.window.grid.line_width,
         minSpacingPx: es.window.grid.min_spacing,
@@ -5149,7 +5150,7 @@ export function SchematicEditor({
 
   /** The active grid step, which the table's cell size is snapped to. */
   const gridSizeIU = useMemo(
-    () => gridSizeToIU(es.window.grid.sizes[es.window.grid.last_size_idx] ?? '50 mil'),
+    () => gridSizeToIU(es.window.grid.sizes[es.window.grid.last_size_idx]?.x ?? '50 mil'),
     [es.window.grid.sizes, es.window.grid.last_size_idx],
   );
 
@@ -6797,7 +6798,7 @@ export function SchematicEditor({
           label: 'Align Items to Grid',
           action: () => {
             const grid = gridSizeToIU(
-              es.window.grid.sizes[es.window.grid.last_size_idx] ?? '50 mil',
+              es.window.grid.sizes[es.window.grid.last_size_idx]?.x ?? '50 mil',
             );
             const cmd = alignToGridCommand(doc, selection, libById, grid);
             if (cmd) runCommand(cmd);
@@ -6815,7 +6816,7 @@ export function SchematicEditor({
               action: () => {
                 if (!doc) return;
                 const grid = gridSizeToIU(
-                  es.window.grid.sizes[es.window.grid.last_size_idx] ?? '50 mil',
+                  es.window.grid.sizes[es.window.grid.last_size_idx]?.x ?? '50 mil',
                 );
                 const cmd = alignItems(
                   doc,
@@ -7095,8 +7096,13 @@ export function SchematicEditor({
       {
         label: 'Grid',
         items: [
+          // `GRID_MENU::update` (common/tool/grid_menu.cpp:52-104) labels each
+          // row with `BuildChoiceList`'s `"%s%s (%s)"` — the optional name, the
+          // size in the frame's unit, and the same size in the other one. The
+          // raw stored string stood here, which cannot show a grid's name and
+          // shows only its X.
           ...es.window.grid.sizes.map((size, i) => ({
-            label: size,
+            label: gridChoiceLabel(size, units, SCH_IU_PER_MM, size.name),
             checked: es.window.grid.last_size_idx === i,
             action: () =>
               settings.updateEeschema((st) => {
@@ -7452,7 +7458,7 @@ export function SchematicEditor({
           // GetNode's widest threshold is max(HITTEST_THRESHOLD, grid size);
           // with no pointer scale to hand here the grid is the threshold.
           const grid = gridSizeToIU(
-            settings.eeschema.window.grid.sizes[settings.eeschema.window.grid.last_size_idx] ??
+            settings.eeschema.window.grid.sizes[settings.eeschema.window.grid.last_size_idx]?.x ??
               '50 mil',
           );
           const node = getNode(doc, libById, cursorRef.current, grid);

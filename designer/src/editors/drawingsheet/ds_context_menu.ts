@@ -48,6 +48,7 @@ import {
   gridSizeToMM,
   secondaryUnits,
   type GridApp,
+  type GridEntry,
 } from '../../ui/grid_settings.js';
 import { messageTextFromValue, unitText, type StatusUnits } from '../../ui/status_format.js';
 
@@ -86,7 +87,7 @@ export interface DsContextMenuState {
    * `DefaultGridSizeList()`. The distinction became visible once Preferences >
    * Drawing Sheet Editor > Grids could edit it.
    */
-  gridSizes: readonly string[];
+  gridSizes: readonly GridEntry[];
   /** `GetUnitPair`'s primary unit — the frame's display unit. */
   primaryUnits: StatusUnits;
 }
@@ -103,7 +104,7 @@ export function dsZoomSubmenu(zoom: number, setZoom: (factor: number) => void): 
 /** `GRID_MENU` (common/tool/grid_menu.cpp) as a submenu. */
 export function dsGridSubmenu(
   gridIndex: number,
-  gridSizes: readonly string[],
+  gridSizes: readonly GridEntry[],
   primaryUnits: StatusUnits,
   gridOrigin: () => void,
   setGrid: (index: number) => void,
@@ -111,14 +112,12 @@ export function dsGridSubmenu(
   return [
     { label: 'Grid Origin...', icon: 'gridOrigin', action: gridOrigin },
     { sep: true },
-    // Every entry pl_editor's row of the table can hold is square, so the
-    // stored string is the whole `GRID{ name, x, y }`.
     ...gridSizes.map((sz, i) => ({
       // pl_editor's own IU scale (`drawSheetIUScale`, base_units.h:113), not
       // the schematic's. It decides the precision: `short_form` upstream is
       // `IU_PER_MM == SCH_IU_PER_MM`, which pl_editor is not, so its rows read
       // `196.85 mils (5.0000 mm)` rather than the shortened `197 mils`.
-      label: gridChoiceLabel({ x: sz, y: sz }, primaryUnits, PL_IU_PER_MM),
+      label: gridChoiceLabel(sz, primaryUnits, PL_IU_PER_MM, sz.name),
       checked: i === gridIndex,
       action: () => setGrid(i),
     })),
