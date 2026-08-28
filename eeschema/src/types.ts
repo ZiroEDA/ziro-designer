@@ -453,6 +453,22 @@ export interface SchSymbol {
   /** `(in_pos_files no)`, SCH_SYMBOL::GetExcludedFromPosFiles (stored inverted
    *  in the file); undefined when the token is absent (pre-10.0 files). */
   readonly excludedFromPosFiles?: boolean;
+  /**
+   * `SYMBOL::m_pinNameOffset` (`eeschema/symbol.h:269`) as a SCH_SYMBOL carries
+   * it — the "Pin Name Position Offset" property registered on the SYMBOL base
+   * (`eeschema/lib_symbol.cpp:2688`).
+   *
+   * It is deliberately NOT the placement's cached definition's offset. SYMBOL
+   * declares the member, SCH_SYMBOL never overrides the accessors and never
+   * copies the value out of `m_part` — neither `SetLibSymbol`
+   * (`sch_symbol.cpp:254-266`) nor the from-LIB_SYMBOL constructor
+   * (`:80-114`, which copies only the four exclusion flags) touches it — and
+   * no schematic file token writes it. So a placed symbol's offset is the
+   * `0` of SYMBOL's constructor (`symbol.h:71`) until this row sets it, which
+   * is why KiCad's schematic Properties panel reads `0 mils` on a symbol whose
+   * library definition has a non-zero offset. Undefined is that 0.
+   */
+  readonly pinNameOffset?: number;
   readonly uuid?: string;
   readonly fields: readonly SchField[];
   /** `(pin_map_override …)`, this instance's pin-map resolution. */

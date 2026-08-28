@@ -13,6 +13,7 @@
 import type {
   LibSymbol,
   SchLabel,
+  SchSheet,
   SchSymbol,
   Schematic,
   Stroke,
@@ -140,6 +141,33 @@ function setPinTextHidden(
  * served by the static row and never doubled.
  */
 const SYMBOL_STATIC_FIELD_ROWS = ['Reference', 'Value'];
+
+/**
+ * The field names `SCH_PROPERTIES_PANEL::rebuildProperties` turns into rows
+ * (sch_properties_panel.cpp:407-436), for either arm of its loop.
+ *
+ * Two facts about it, both load-bearing and both from the C++:
+ *
+ *  - `if( field.IsPrivate() ) continue;` — a private field gets no row;
+ *  - the names go into a `std::set<wxString>`, so they come back **sorted**,
+ *    not in the order the file wrote them, and a repeat is collapsed.
+ *
+ * On a MULTI-selection the loop runs over the whole `aSelection` and inserts
+ * into that one set, which makes the set a **union**, not an intersection: a
+ * field on any selected item earns a row. The per-property availability
+ * callback then asks only `m_currentSymbolFieldNames.count( name )` (:446) —
+ * the set, not the item — so the row stays available for every item in the
+ * selection, and an item that lacks the field answers with
+ * MISSING_FIELD_SENTINEL (:127) rather than failing, which
+ * `extractValueAndWritability` turns into the "<...>" differing-value cell.
+ */
+export function dynamicFieldNames(
+  fields: readonly { readonly key: string; readonly isPrivate?: boolean }[],
+): string[] {
+  const names = new Set<string>();
+  for (const f of fields) if (!f.isPrivate) names.add(f.key);
+  return [...names].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+}
 
 function symbolRows(sch: Schematic, libById: Map<string, LibSymbol>, index: number): PropRow[] {
   const s = sch.symbols[index]!;
@@ -282,17 +310,16 @@ function symbolRows(sch: Schematic, libById: Map<string, LibSymbol>, index: numb
   // (`if( field.IsPrivate() ) continue;`), and the names are collected into a
   // std::set, so they are registered — and so ordered — alphabetically, after
   // every property SCH_SYMBOL declares statically.
-  for (const f of [...s.fields].sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0))) {
-    if (f.isPrivate) continue;
-    if (SYMBOL_STATIC_FIELD_ROWS.includes(f.key)) continue;
-    const key = f.key;
+  for (const key of dynamicFieldNames(s.fields)) {
+    if (SYMBOL_STATIC_FIELD_ROWS.includes(key)) continue;
+    const value = s.fields.find((f) => f.key === key)?.value ?? '';
     rows.push({
       group: 'Fields',
       name: key,
       kind: 'string',
-      value: f.value,
+      value,
       set: (v) =>
-        String(v) === f.value ? null : bulkEditFieldsCommand(new Map([[id, { [key]: String(v) }]])),
+        String(v) === value ? null : bulkEditFieldsCommand(new Map([[id, { [key]: String(v) }]])),
     });
   }
 
@@ -333,7 +360,92 @@ function symbolRows(sch: Schematic, libById: Map<string, LibSymbol>, index: numb
       set: (v) => patch('Toggle Do not Populate', { dnp: !!v }),
     },
   );
+
+  // ── "Pin Display" (lib_symbol.cpp:2676-2690) ──────────────────────────────
+  //
+  // The group is declared in LIB_SYMBOL_DESC, but three of its four rows are
+  // `PROPERTY<SYMBOL, …>` — and SYMBOL is the base of BOTH LIB_SYMBOL and
+  // SCH_SYMBOL (symbol.h:62, `class SYMBOL : public SCH_ITEM`), so a PLACED
+  // symbol inherits them and the group with them. The fourth, "Place Pin Names
+  // Inside", is `PROPERTY<LIB_SYMBOL, bool>` (:2684) and so belongs to the
+  // Symbol Editor alone; it must never appear here.
+  //
+  // The group sorts LAST. `CLASS_DESC::rebuild` collects a class's OWN groups
+  // before recursing into its bases (property_mgr.cpp:317-343), so
+  // SCH_SYMBOL's own "", "Fields" and "Attributes" come first and SYMBOL's
+  // "Pin Display" is appended after them.
+  //
+  // Note the deliberate duplication upstream: "Pin numbers" / "Pin names"
+  // above (sch_symbol.cpp:3930-3936) are SEPARATE properties with the same
+  // setters, so two rows drive one value. `AddProperty` de-duplicates by name
+  // (property_mgr.cpp:140), and these names differ, so both survive.
+  rows.push(
+    {
+      group: 'Pin Display',
+      name: 'Show Pin Number',
+      kind: 'bool',
+      // `SCH_SYMBOL::GetShowPinNumbers` is `m_part && m_part->GetShowPinNumbers()`
+      // (sch_symbol.cpp:3542-3545): false, not absent, without a cached
+      // definition — this pair carries NO `SetAvailableFunc`, unlike the
+      // "Pin numbers"/"Pin names" pair.
+      value: !!lib && !lib.pinNumbersHidden,
+      // `SCH_SYMBOL::SetShowPinNumbers` is `if( m_part ) …` (:3548-3552), so
+      // with no definition to write to the edit is a no-op.
+      set: (v) => (lib ? setPinTextHidden(libName, 'pinNumbersHidden', !v) : null),
+    },
+    {
+      group: 'Pin Display',
+      name: 'Show Pin Name',
+      kind: 'bool',
+      value: !!lib && !lib.pinNamesHidden,
+      set: (v) => (lib ? setPinTextHidden(libName, 'pinNamesHidden', !v) : null),
+    },
+    {
+      group: 'Pin Display',
+      name: 'Pin Name Position Offset',
+      // `PROPERTY_DISPLAY::PT_SIZE` (:2689) → `PGPROPERTY_SIZE`, whose
+      // `DistanceToString` prints `StringFromValue( …, true )` — a distance
+      // with its unit, `0 mils`.
+      kind: 'dist',
+      // The SCH_SYMBOL's OWN offset, which is 0 for a placement and is not the
+      // cached definition's `lib.pinNameOffset`. See `SchSymbol.pinNameOffset`.
+      value: s.pinNameOffset ?? 0,
+      set: (v) => {
+        const n = num(v);
+        return n === null || n === (s.pinNameOffset ?? 0)
+          ? null
+          : patch('Change Pin Name Position Offset', { pinNameOffset: n });
+      },
+    },
+  );
   return rows;
+}
+
+/**
+ * SCH_SHEET_FIELD_PROPERTY, one per non-private sheet field
+ * (sch_properties_panel.cpp:135-212, registered at :451-462).
+ *
+ * Its setter writes the field's text, and creates the field when the sheet has
+ * none under that name (:154-165); ours only rewrites an existing one, because
+ * every name it is asked about came from `sh.fields` in the first place.
+ */
+function sheetFieldRows(sh: SchSheet, index: number): PropRow[] {
+  return dynamicFieldNames(sh.fields).map((key) => {
+    const value = sh.fields.find((f) => f.key === key)?.value ?? '';
+    return {
+      group: 'Fields',
+      name: key,
+      kind: 'string',
+      value,
+      set: (v: string | number | boolean) =>
+        String(v) === value
+          ? null
+          : replaceSheet(index, {
+              ...sh,
+              fields: sh.fields.map((f) => (f.key === key ? { ...f, value: String(v) } : f)),
+            }),
+    };
+  });
 }
 
 function lineRows(sch: Schematic, index: number): PropRow[] {
@@ -881,23 +993,21 @@ export function schPropertiesFor(
       const i = indexOf(sch.sheets, (t, k) => refId('sheet', t.uuid, k));
       if (i < 0) return [];
       const sh = sch.sheets[i]!;
-      const fieldVal = (key: string): string => sh.fields.find((f) => f.key === key)?.value ?? '';
       return [
         ...positionRows(refId('sheet', sh.uuid, i), sh.at),
-        {
-          group: 'Fields',
-          name: 'Sheetname',
-          kind: 'string',
-          value: fieldVal('Sheetname'),
-          set: (v) =>
-            replaceSheet(i, {
-              ...sh,
-              fields: sh.fields.map((f) =>
-                f.key === 'Sheetname' ? { ...f, value: String(v) } : f,
-              ),
-            }),
-        },
-        { group: 'Fields', name: 'Sheetfile', kind: 'string', value: fieldVal('Sheetfile') },
+        // The SCH_SHEET_T arm of `SCH_PROPERTIES_PANEL::rebuildProperties`
+        // (sch_properties_panel.cpp:426-433): every non-private field of the
+        // sheet becomes a SCH_SHEET_FIELD_PROPERTY in the "Fields" group.
+        // SCH_SHEET_DESC (sch_sheet.cpp:2122-2173) declares no "Fields" group
+        // of its own, so EVERY row here is one of these — including the two
+        // mandatory ones, whose canonical names are "Sheetname" and
+        // "Sheetfile". The names come out of a `std::set<wxString>`, so they
+        // are alphabetical: Sheetfile before Sheetname, and a user field
+        // sorts in among them rather than after them.
+        //
+        // Both are writeable: SCH_SHEET_FIELD_PROPERTY has a real setter
+        // (:145-171) and SCH_SHEET_DESC declares no NO_SETTER row.
+        ...sheetFieldRows(sh, i),
       ];
     }
     // SCH_TABLE's registered properties: the border and separator toggles, and

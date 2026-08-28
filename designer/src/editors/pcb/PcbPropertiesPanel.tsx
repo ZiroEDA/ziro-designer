@@ -31,14 +31,16 @@
 import type { JSX } from 'react';
 import type { Board } from '@ziroeda/pcbnew';
 import type { PcbPropRow } from '@ziroeda/pcbnew/src/properties_panel.js';
+import { pcbIUScale } from '@ziroeda/common';
+import type { StatusUnits } from '../../ui/status_format.js';
 import { PropertiesPanel } from '../../widgets/properties_panel.js';
+import { distanceToString, stringToDistance } from '../../widgets/pg_properties.js';
 
 export function PcbPropertiesPanel({
   rows,
   selectionCount,
   friendlyName,
-  fmt,
-  parse,
+  units,
   onCommand,
 }: {
   rows: readonly PcbPropRow[];
@@ -46,8 +48,8 @@ export function PcbPropertiesPanel({
   selectionCount: number;
   /** `GetFriendlyName()` of the single selected item, when there is one. */
   friendlyName?: string;
-  fmt: (iu: number) => string;
-  parse: (text: string) => number | null;
+  /** The frame's display units, `EDA_DRAW_FRAME::GetUserUnits()`. */
+  units: StatusUnits;
   /** `BOARD_COMMIT::Push( "Edit Properties" )` — our command is the next board. */
   onCommand: (board: Board) => void;
 }): JSX.Element {
@@ -56,8 +58,10 @@ export function PcbPropertiesPanel({
       selectionCount={selectionCount}
       friendlyName={friendlyName}
       rows={rows}
-      fmt={fmt}
-      parse={parse}
+      /* The same PGPROPERTY_DISTANCE the schematic panel uses, at THIS frame's
+         EDA_IU_SCALE — the one thing the two subclasses may differ about. */
+      fmt={(iu) => distanceToString(iu, units, pcbIUScale)}
+      parse={(text) => stringToDistance(text, units, pcbIUScale)}
       onCommand={onCommand}
     />
   );

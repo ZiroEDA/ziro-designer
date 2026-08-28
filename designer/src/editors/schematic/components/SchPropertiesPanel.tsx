@@ -26,14 +26,16 @@
 
 import type { JSX } from 'react';
 import type { EditCommand, PropRow } from '@ziroeda/eeschema';
+import { schIUScale } from '@ziroeda/common';
+import type { StatusUnits } from '../../../ui/status_format.js';
 import { PropertiesPanel } from '../../../widgets/properties_panel.js';
+import { distanceToString, stringToDistance } from '../../../widgets/pg_properties.js';
 
 export function SchPropertiesPanel({
   rows,
   selectionCount,
   friendlyName,
-  fmt,
-  parse,
+  units,
   onCommand,
 }: {
   rows: PropRow[];
@@ -41,8 +43,8 @@ export function SchPropertiesPanel({
   selectionCount: number;
   /** `GetFriendlyName()` of the single selected item, when there is one. */
   friendlyName?: string;
-  fmt: (iu: number) => string;
-  parse: (text: string) => number | null;
+  /** The frame's display units, `EDA_DRAW_FRAME::GetUserUnits()`. */
+  units: StatusUnits;
   onCommand: (cmd: EditCommand) => void;
 }): JSX.Element {
   return (
@@ -50,8 +52,14 @@ export function SchPropertiesPanel({
       selectionCount={selectionCount}
       friendlyName={friendlyName}
       rows={rows}
-      fmt={fmt}
-      parse={parse}
+      /* A distance cell goes through PGPROPERTY_DISTANCE, and the scale it
+         formats at is the FRAME's: `m_parentFrame->StringFromValue`
+         (pg_properties.cpp:357). Binding it here rather than taking a
+         formatter from the caller is what upstream's per-frame property does,
+         and it is why eeschema cannot again be handed the message panel's
+         `MessageTextFromValue` by mistake. */
+      fmt={(iu) => distanceToString(iu, units, schIUScale)}
+      parse={(text) => stringToDistance(text, units, schIUScale)}
       onCommand={onCommand}
     />
   );

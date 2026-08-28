@@ -7866,14 +7866,6 @@ export function SchematicEditor({
     return getMsgPanelItems(doc, libById, ref, fmt, net?.name ?? null, ncName);
   }, [doc, selection, libById, netlist, fmt, setup.netClasses]);
 
-  // Parse a distance typed into the grid, in the current units, back to IU.
-  const parseDist = (text: string): number | null => {
-    const n = Number(text.trim());
-    if (!Number.isFinite(n)) return null;
-    const mm = units === 'mm' ? n : units === 'mils' ? n * 0.0254 : n * 25.4;
-    return Math.round(mmToIU(mm));
-  };
-
   /**
    * The frame title, `SCH_EDIT_FRAME::updateTitle`
    * (eeschema/sch_edit_frame.cpp:1819-1862), built by the shared rule rather
@@ -8222,8 +8214,7 @@ export function SchematicEditor({
                                 rows={propRows}
                                 selectionCount={selection.size}
                                 friendlyName={propFriendlyName}
-                                fmt={(iu) => fmt(iu)}
-                                parse={parseDist}
+                                units={units}
                                 onCommand={runCommand}
                               />
                             </div>

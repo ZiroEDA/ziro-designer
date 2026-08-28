@@ -372,7 +372,6 @@ import {
   pcbPropertiesFor,
   type PcbPropRow,
 } from '@ziroeda/pcbnew/src/properties_panel.js';
-import { parseUnitValue, stringFromValue } from '../../ui/unit_binder.js';
 import { drawGrid, drawCrosshair } from '../../ui/grid_cursor.js';
 import { gridSizesIU } from '../../ui/grid_settings.js';
 import { PCB_CONTROL, PCB_DEFAULT_TOOLBARS } from './pcbToolbars.js';
@@ -7072,32 +7071,6 @@ export function PcbEditor({
 
   // ----- PCB_PROPERTIES_PANEL -------------------------------------------------
 
-  /**
-   * A distance cell's text. `PGPROPERTY_DISTANCE::DistanceToString` calls
-   * `StringFromValue` with `aAddUnitsText` TRUE, so the grid shows the unit —
-   * `1.27 mm`, not `1.27` — and at the high precision an editable field needs,
-   * which is not the message panel's `fmtCoord` above.
-   */
-  const pgFmt = useCallback(
-    (iu: number): string => stringFromValue(iuToMM(iu), unitLabel, true, pcbIUScale),
-    [unitLabel],
-  );
-
-  /**
-   * The other half: `DoubleValueFromString` + `FromUserUnit`, which accepts a
-   * trailing unit designator so `1.5mm` typed into a mils cell means 1.5 mm.
-   * A cell with no leading number at all is rejected rather than read as zero
-   * — upstream `PGPROPERTY_COORD::DoGetValidator` returns a numeric validator
-   * and the grid refuses the edit.
-   */
-  const pgParse = useCallback(
-    (text: string): number | null =>
-      /^[+-]?(\d|[.,]\d)/.test(text.trim())
-        ? Math.round(mmToIU(parseUnitValue(text, unitLabel, pcbIUScale)))
-        : null,
-    [unitLabel],
-  );
-
   const propRows = useMemo<PcbPropRow[]>(
     () => (board ? pcbPropertiesFor(board, selection, { layerColor }) : []),
     [board, selection],
@@ -7399,8 +7372,7 @@ export function PcbEditor({
                   rows={propRows}
                   selectionCount={selection.size}
                   friendlyName={propFriendlyName}
-                  fmt={pgFmt}
-                  parse={pgParse}
+                  units={unitLabel}
                   onCommand={commitBoard}
                 />
               </div>

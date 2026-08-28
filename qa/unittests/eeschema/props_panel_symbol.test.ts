@@ -141,10 +141,22 @@ describe('a selected symbol lists the rows SCH_SYMBOL registers, in KiCad order'
     ]);
   });
 
-  it('uses only the three group names SCH_SYMBOL_DESC declares, in that order', () => {
+  /**
+   * The three SCH_SYMBOL_DESC declares plus the one it INHERITS.
+   *
+   * `CLASS_DESC::rebuild`'s `collectGroupsRecursive`
+   * (common/properties/property_mgr.cpp:317-343) walks a class's own
+   * `m_groupDisplayOrder` first and only then recurses into its bases, adding
+   * a group the first time it is seen. SCH_SYMBOL's own registration order is
+   * "" (Position X, sch_symbol.cpp:3908), "Fields" (:3938) and "Attributes"
+   * (:4007); "Pin Display" is registered against the SYMBOL base by
+   * LIB_SYMBOL_DESC (lib_symbol.cpp:2676), so it can only be appended after
+   * all three — never interleaved.
+   */
+  it('appends the inherited "Pin Display" group after SCH_SYMBOL_DESC\'s own three', () => {
     const seen: string[] = [];
     for (const r of rowsOf(withLib())) if (!seen.includes(r.group)) seen.push(r.group);
-    expect(seen).toEqual(['', 'Fields', 'Attributes']);
+    expect(seen).toEqual(['', 'Fields', 'Attributes', 'Pin Display']);
   });
 
   it('has no "Locked" row — SCH_ITEM_DESC guards it with #ifdef NOTYET', () => {
@@ -162,10 +174,12 @@ describe('writeability follows the registrations', () => {
 
   it('leaves every other row writeable', () => {
     // Counted out, not derived from the code under test: 2 pin flags + 5
-    // Basic Properties + 5 static Fields + 3 symbol fields + 5 Attributes.
+    // Basic Properties + 5 static Fields + 3 symbol fields + 5 Attributes +
+    // 3 Pin Display. Only the three NO_SETTER Fields rows are read-only; all
+    // three Pin Display rows have setters (lib_symbol.cpp:2678-2690).
     const rows = rowsOf(withLib());
-    expect(rows).toHaveLength(20);
-    expect(rows.filter((r) => r.set)).toHaveLength(17);
+    expect(rows).toHaveLength(23);
+    expect(rows.filter((r) => r.set)).toHaveLength(20);
   });
 });
 
@@ -199,6 +213,124 @@ describe('the pin flags read and write the cached library symbol', () => {
     expect(names).not.toContain('Pin numbers');
     expect(names).not.toContain('Pin names');
     expect(names[0]).toBe('Position X');
+  });
+});
+
+/**
+ * The "Pin Display" group, `lib_symbol.cpp:2676-2690`.
+ *
+ * It is declared in LIB_SYMBOL_DESC, but three of its four rows are
+ * `PROPERTY<SYMBOL, …>` and SYMBOL is the base of BOTH LIB_SYMBOL and
+ * SCH_SYMBOL (`eeschema/symbol.h:62`), so a placed symbol inherits them. The
+ * fourth is `PROPERTY<LIB_SYMBOL, bool>` and cannot reach a SCH_SYMBOL:
+ * `PROPERTIES_PANEL::rebuildProperties` only ever offers
+ * `propMgr.GetProperties( TYPE_HASH( SCH_SYMBOL ) )`, and LIB_SYMBOL is a
+ * SIBLING of SCH_SYMBOL under SYMBOL, not a base of it.
+ */
+describe('the Pin Display group a schematic symbol inherits from SYMBOL', () => {
+  it('lists exactly the three SYMBOL-owned rows, in LIB_SYMBOL_DESC order', () => {
+    const pinDisplay = rowsOf(withLib())
+      .filter((r) => r.group === 'Pin Display')
+      .map((r) => r.name);
+    expect(pinDisplay).toEqual(['Show Pin Number', 'Show Pin Name', 'Pin Name Position Offset']);
+  });
+
+  it('never offers "Place Pin Names Inside", which is PROPERTY<LIB_SYMBOL, bool>', () => {
+    // lib_symbol.cpp:2684. The Symbol Editor's LIB_SYMBOL gets it; a placement
+    // never can. "Right in one frame, wrong in the other" is the bug shape.
+    expect(rowsOf(withLib()).map((r) => r.name)).not.toContain('Place Pin Names Inside');
+    expect(rowsOf(withoutLib(), new Map()).map((r) => r.name)).not.toContain(
+      'Place Pin Names Inside',
+    );
+  });
+
+  /**
+   * Upstream registers "Pin numbers"/"Pin names" (sch_symbol.cpp:3930-3936)
+   * AND "Show Pin Number"/"Show Pin Name" (lib_symbol.cpp:2678-2683) over the
+   * SAME `SYMBOL::SetShowPinNumbers` / `SetShowPinNames`.
+   * `PROPERTY_MANAGER::AddProperty` de-duplicates by NAME
+   * (property_mgr.cpp:140), and these four names are all different, so all
+   * four rows exist and two of them drive each value. That is upstream's
+   * shape, not a bug to tidy away.
+   */
+  it('duplicates each flag: one row in Basic Properties, one in Pin Display', () => {
+    const rows = rowsOf(withLib());
+    const at = (n: string) => rows.find((r) => r.name === n)!;
+    // R.kicad_sym hides pin numbers and shows pin names, so the pair does not
+    // read the same value and an accidental swap would show.
+    expect(at('Pin numbers').value).toBe(at('Show Pin Number').value);
+    expect(at('Pin names').value).toBe(at('Show Pin Name').value);
+    expect(at('Show Pin Number').value).toBe(false);
+    expect(at('Show Pin Name').value).toBe(true);
+  });
+
+  it('writes the same flag from either of the two rows', () => {
+    for (const name of ['Pin numbers', 'Show Pin Number']) {
+      const doc = withLib();
+      const next = rowsOf(doc).find((r) => r.name === name)!.set!(true)!.apply(doc);
+      expect(next.libSymbols[0]!.pinNumbersHidden).toBe(false);
+      // Both rows follow, because both read the one cached definition. The
+      // map is rebuilt from the edited document exactly as the frame's
+      // `libById` memo does (SchematicEditor.tsx:1402-1405).
+      const after = schPropertiesFor(
+        next,
+        new Map(next.libSymbols.map((l) => [l.libId, l])),
+        itemRefById(next, 'r1')!,
+      );
+      expect(after.find((r) => r.name === 'Pin numbers')!.value).toBe(true);
+      expect(after.find((r) => r.name === 'Show Pin Number')!.value).toBe(true);
+    }
+  });
+
+  /**
+   * The pair in Pin Display carries NO `SetAvailableFunc` — only the
+   * sch_symbol.cpp pair does (`:3932`, `:3936`). So without a cached
+   * definition these two rows REMAIN, reading false, because
+   * `SCH_SYMBOL::GetShowPinNumbers` is `m_part && …` (sch_symbol.cpp:3542).
+   */
+  it('keeps its two flags — unlike the gated pair — with no cached definition', () => {
+    const rows = rowsOf(withoutLib(), new Map());
+    const names = rows.map((r) => r.name);
+    expect(names).toContain('Show Pin Number');
+    expect(names).toContain('Show Pin Name');
+    expect(names).not.toContain('Pin numbers');
+    expect(rows.find((r) => r.name === 'Show Pin Number')!.value).toBe(false);
+    expect(rows.find((r) => r.name === 'Show Pin Name')!.value).toBe(false);
+  });
+
+  /**
+   * `PROPERTY_DISPLAY::PT_SIZE` (lib_symbol.cpp:2689) makes it a distance row,
+   * and it reads `SYMBOL::GetPinNameOffset` on the SCH_SYMBOL — which is
+   * SYMBOL's own member, 0 from `symbol.h:71` and never copied out of the
+   * cached definition by `SetLibSymbol` (sch_symbol.cpp:254-266) or the
+   * from-LIB_SYMBOL constructor (:80-114). So a placement whose definition
+   * offsets its pin names by 20 mils still reads 0.
+   */
+  it('is a distance row reading the placement’s own offset, not the definition’s', () => {
+    const offsetLib = rBlock.replace('(offset 0)', '(offset 0.508)');
+    const doc = readSchematic(
+      parse(`(kicad_sch (version 20250114) (lib_symbols ${offsetLib})
+        (symbol (lib_id "R") (at 100 100 0) (unit 1) (uuid "r1")
+          (property "Reference" "R1" (at 0 0 0))
+          (property "Value" "10k" (at 0 0 0))))`),
+    );
+    // The fixture really does carry the non-zero offset...
+    expect(doc.libSymbols[0]!.pinNameOffset).toBe(5080);
+    // ...and the row still reads the SCH_SYMBOL's own zero.
+    const row = schPropertiesFor(doc, LIB, itemRefById(doc, 'r1')!).find(
+      (r) => r.name === 'Pin Name Position Offset',
+    )!;
+    expect(row.kind).toBe('dist');
+    expect(row.value).toBe(0);
+  });
+
+  it('writes the offset onto the placement, leaving the cached definition alone', () => {
+    const doc = withLib();
+    const cmd = rowsOf(doc).find((r) => r.name === 'Pin Name Position Offset')!.set!(5080)!;
+    const next = cmd.apply(doc);
+    expect(next.symbols[0]!.pinNameOffset).toBe(5080);
+    expect(next.libSymbols[0]).toEqual(doc.libSymbols[0]);
+    expect(cmd.invert(doc).apply(next).symbols[0]!.pinNameOffset).toBe(undefined);
   });
 });
 
