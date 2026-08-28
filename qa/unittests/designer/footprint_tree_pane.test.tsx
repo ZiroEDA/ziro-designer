@@ -250,6 +250,12 @@ describe('what the private tree did, and still happens', () => {
   it('and then unselects the tree, leaving the row struck through instead', async () => {
     const container = await open();
     fireEvent.click(twistyOf(rowNamed(container, 'Resistor_SMD')!));
+    // The click that SELECTS it, first. `fireEvent.doubleClick` does not fire a
+    // preceding click, so without this the row was never selected and
+    // "unselected afterwards" was a claim about nothing — a mutation sweep
+    // found it by deleting the Unselect and watching this pass anyway.
+    fireEvent.click(rowNamed(container, 'R_0805')!);
+    expect(rowNamed(container, 'R_0805')!.classList.contains('active')).toBe(true);
     fireEvent.doubleClick(rowNamed(container, 'R_0805')!);
     await waitFor(() => expect(loaded(container)).toBe(true));
     const row = rowNamed(container, 'R_0805')!;
@@ -333,15 +339,38 @@ describe('what the private tree did, and still happens', () => {
    * pinning changes no library's NAME and no footprint's, so the adapter's Sync
    * signature has to carry the pin state or the star never appears.
    */
-  it('Pin Library marks the row and floats it to the top', async () => {
-    const container = await open();
-    expect(rows(container).map(itemText)).toEqual(['Capacitor_SMD', 'Resistor_SMD']);
-    fireEvent.contextMenu(rowNamed(container, 'Resistor_SMD')!);
+  const pin = (root: HTMLElement, library: string): void => {
+    fireEvent.contextMenu(rowNamed(root, library)!);
     fireEvent.click(
-      Array.from(container.querySelectorAll('.ze-context .ze-mitem')).find(
+      Array.from(root.querySelectorAll('.ze-context .ze-mitem')).find(
         (i) => i.textContent === 'Pin Library',
       )!,
     );
+  };
+
+  /**
+   * The MARK, on a library that is already first.
+   *
+   * Pinning changes no library's name and no footprint's, so the only thing
+   * that can tell the adapter to rebuild is the pin state itself. Pinning
+   * `Resistor_SMD` would also reorder the two rows, and the reordering alone
+   * moves the Sync signature — which is why that case cannot pin this: a
+   * signature that ignored the pin flag entirely still passed it.
+   */
+  it('Pin Library marks the row, even when the order does not change', async () => {
+    const container = await open();
+    expect(rows(container).map(itemText)).toEqual(['Capacitor_SMD', 'Resistor_SMD']);
+    pin(container, 'Capacitor_SMD');
+    await waitFor(() =>
+      expect(rows(container).map(itemText)).toEqual(['☆ Capacitor_SMD', 'Resistor_SMD']),
+    );
+  });
+
+  /** And `LIB_TREE_NODE::Compare` — "Pinned nodes go next", above every
+   *  unpinned library whatever its name. */
+  it('and floats the pinned library above the rest', async () => {
+    const container = await open();
+    pin(container, 'Resistor_SMD');
     await waitFor(() =>
       expect(rows(container).map(itemText)).toEqual(['☆ Resistor_SMD', 'Capacitor_SMD']),
     );
@@ -503,6 +532,51 @@ describe('the Footprints pane remembers how wide it was', () => {
    */
   it('and the file it lives in is one of the synced slices', () => {
     expect([...SETTINGS_SLICES]).toContain('fpedit');
+  });
+
+  /**
+   * `loadColumnConfig`, the read half (`common/lib_tree_model_adapter.cpp:184-197`),
+   * end to end: a width in the settings file is the width the header opens at.
+   *
+   * Without this the write half could pass on its own — the callback fires, the
+   * file is written — while nothing ever read it back, which is a value nothing
+   * reads.
+   */
+  it('and opens its columns at the stored widths', async () => {
+    settings.updateFpEdit((s) => {
+      s.lib_tree.column_widths = { Item: 412 };
+    });
+    const container = await open();
+    const head = container.querySelectorAll('.ze-libtree-cols > span');
+    expect((head[0] as HTMLElement).style.width).toBe('412px');
+    // The column it does not name keeps the adapter's own default.
+    expect((head[1] as HTMLElement).style.width).toBe('600px');
+  });
+
+  /**
+   * `m_cfg.open_libs = GetOpenLibs()` (`common/lib_tree_model_adapter.cpp:246`)
+   * and `OpenLibs( … )` on the way back in (`:220-232`), both halves.
+   *
+   * `LIB_TREE` owns the expansion state now, so the frame cannot walk the
+   * control the way `GetOpenLibs` does — it hears every change through
+   * `onToggleLibrary` and keeps the set for the settings file alone. Which
+   * means the write half is easy to have and the READ half easy to forget, and
+   * a stored list nothing re-opens is a value nothing reads.
+   */
+  it('and re-opens the libraries that were open last time', async () => {
+    const first = await open();
+    fireEvent.click(twistyOf(rowNamed(first, 'Resistor_SMD')!));
+    expect(settings.fpEdit.lib_tree.open_libs).toEqual(['Resistor_SMD']);
+    cleanup();
+
+    // A second session, same settings file.
+    const second = await open();
+    expect(rows(second).map(itemText)).toEqual([
+      'Capacitor_SMD',
+      'Resistor_SMD',
+      'R_0603',
+      'R_0805',
+    ]);
   });
 
   /**

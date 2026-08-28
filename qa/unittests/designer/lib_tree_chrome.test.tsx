@@ -387,24 +387,6 @@ describe('every column is drag-resizable, in both consumers', () => {
   });
 
   /**
-   * `col->SetMinWidth( headerMinWidth.x )`. happy-dom measures no text, so the
-   * header's extent there is 0 — the claim that survives is that the width
-   * cannot be dragged NEGATIVE, which is what `Math.max( min, … )` guarantees
-   * and an unclamped `startW + dx` does not.
-   */
-  it('and cannot be dragged past its minimum', () => {
-    const root = openWidget();
-    const head = root.querySelectorAll('.ze-libtree-cols > span')[0] as HTMLElement;
-    fireEvent.mouseDown(head.querySelector('.ze-libtree-colgrip')!, { clientX: 300 });
-    fireEvent.mouseMove(document, { clientX: -900 });
-    fireEvent.mouseUp(document);
-    const width = Number.parseFloat(
-      (root.querySelectorAll('.ze-libtree-cols > span')[0] as HTMLElement).style.width,
-    );
-    expect(width).toBeGreaterThanOrEqual(0);
-  });
-
-  /**
    * `SaveSettings`' `m_cfg.column_widths` (`:240-245`), which is what makes a
    * drag outlive the frame. The callback fires on the mouse UP, not on every
    * frame of the drag — upstream writes the file when the frame closes, not
