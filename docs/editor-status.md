@@ -82,15 +82,20 @@ constants. So the distinction this table exists to make held: the row was
 app-wide, it was fixed app-wide, and pl_editor got it for free along with two
 editors that were never the ones being audited.
 
-It is not the only thing left, though, and the entry stays in "Not complete"
-for its own reasons as well: two gaps sit *inside* the three pages that did
-ship, and both are named below.
+A seventh pass has closed the two gaps that sat *inside* the three pages the
+fifth one shipped. The Colors page's theme now reaches the canvas, and the Grids
+page has all five of `PANEL_GRID_SETTINGS`' buttons with `DIALOG_GRID_SETTINGS`
+behind two of them. Both are described below, with what each cost.
+
+The entry stays in **Not complete** all the same, and the reason has moved: what
+is left is the list under "Still open, and named" - the infobar palette, the
+stale status-bar templates, and the rest - rather than a Preferences page.
 
 ### Not complete
 
 | editor | state |
 |---|---|
-| **Drawing Sheet Editor** (pl_editor) | E1 + E2 + E3 + **E4 everywhere except one Preferences page**. Frame, tools, menubar, status bar, print and **all the file commands** are closed and were compared against the running program (PRs #604 #607 #614 #618, plus the E4 pass below). Grid dot, axis skip, the status-bar field widths and the grid origin were all **measured** off a live pl_editor. Preferences is now the shared dialog with three of upstream's four pages under it - Display Options, Grids and Colors, two of them the shared `common/` panels rather than copies. **Toolbars has since landed**, as the app-wide work it always was: a `TOOLBAR_SETTINGS` store, one shared `PANEL_TOOLBAR_CUSTOMIZATION`, and the page under all three headings this port ships - so all four of upstream's pl_editor pages are now in. What remains are **two items inside the pages that did ship**: the Colors page stores a theme the canvas does not read, and the Grids page has Add and Remove where upstream has Add, Edit, Remove, Move Up and Move Down behind `DIALOG_GRID_SETTINGS`. So Toolbars landing does **not** by itself make this editor complete. #619's other fourteen items are closed. |
+| **Drawing Sheet Editor** (pl_editor) | E1 + E2 + E3 + **E4 everywhere except one Preferences page**. Frame, tools, menubar, status bar, print and **all the file commands** are closed and were compared against the running program (PRs #604 #607 #614 #618, plus the E4 pass below). Grid dot, axis skip, the status-bar field widths and the grid origin were all **measured** off a live pl_editor. Preferences is now the shared dialog with three of upstream's four pages under it - Display Options, Grids and Colors, two of them the shared `common/` panels rather than copies. **Toolbars has since landed**, as the app-wide work it always was: a `TOOLBAR_SETTINGS` store, one shared `PANEL_TOOLBAR_CUSTOMIZATION`, and the page under all three headings this port ships - so all four of upstream's pl_editor pages are now in. The **two items inside the pages that did ship** are closed too: the canvas reads `GetColorSettings()` the way `PL_DRAW_PANEL_GAL`'s constructor loads it, and the Grids page has all five buttons plus `DIALOG_GRID_SETTINGS`. So all four Preferences pages are in and none of them is a control nothing reads. #619 is closed apart from the items below, which are chrome and measurement rather than pages. |
 | **Symbol Editor** | audited, PR #606. The enable/disable rules are now closed: all 53 `setupUIConditions` registrations ported per entry (PR #620) and the four the first mutation sweep could not tell apart pinned (PR #622). Open: LIB_TREE chrome, three missing dialogs. |
 | **Footprint Editor** | audited, PR #608. Open: seven items, headed by the dialog wall. `dialog_pad_properties.cpp` alone is 2492 lines against our 297 total. |
 | **GerbView** | exporter is a real port of `GBR_TO_PCB_EXPORTER` (PR #605). No mapping dialog, and aperture-macro holes export solid. |
@@ -331,36 +336,52 @@ reported as unknown rather than clean. Two of them are answers, not gaps:
   three-way radio, `Small crosshairs` / `Full window crosshairs` /
   `45 degree crosshairs`, plus a separate `Always show crosshairs`.
 
-  **Is the editor complete now Toolbars has landed? No.** Two things inside
-  pages the fifth pass shipped are still open, and both are pl_editor's own
-  rather than app-wide:
+  **The two things inside those pages are closed.** Both were pl_editor's own
+  rather than app-wide, and both were recorded before they were fixed:
 
-  - **The Colors page stores a theme nothing reads.** The control is upstream's
-    control and persists upstream's key, so the choice survives a restart - but
-    `DrawingSheetCanvas.tsx` has no theme at all. Its palette is declared inline
-    and switches only on `black_background`, where `PL_EDITOR_FRAME` draws from
-    `GetColorSettings()`. Closing it means giving that canvas a theme, which is
-    a renderer change, not a Preferences one. Named at the seam in
-    `PanelPlEditorColorSettings.tsx`.
-  - **The Grids page has two of upstream's five buttons.**
-    `PANEL_GRID_SETTINGS` offers Add, Edit, Remove, Move Up and Move Down, and
-    Add and Edit both open `DIALOG_GRID_SETTINGS` - a modal with a name and X/Y
-    fields, which also raises `Grid size '%s' already exists.`. Ours has Add,
-    which appends this editor's default grid, and Remove; a row is edited in
-    place in a text field. So the grid list can be extended and trimmed but not
-    reordered, and a grid cannot be named.
+  - **The Colors page changes what is drawn.** It stored `appearance.color_theme`
+    and nothing read it. The colours enter in `PL_DRAW_PANEL_GAL`'s own
+    constructor - `m_painter->GetSettings()->LoadColors( ::GetColorSettings(
+    cfg->m_ColorTheme ) )` (`pl_draw_panel_gal.cpp:57-59`) - and
+    `DS_RENDER_SETTINGS::LoadColors` takes exactly three layers of it
+    (`ds_painter.cpp:66-68`): background, page border and sheet ink. The canvas
+    calls that as a hook, because upstream it is the DRAW PANEL that asks and
+    not the frame.
 
-  Neither is a reason to hold the three pages back, and neither is hidden: the
-  first is why "E4 everywhere except one Preferences page" in the table above
-  is still not "complete".
+    It also settled `black_background`, which our canvas had been painting from.
+    Upstream that never reaches the GAL: it sets `m_drawBgColor`
+    (`pl_editor_frame.cpp:541`) while `onPaint` clears to
+    `settings->GetBackgroundColor()` (`draw_panel_gal.cpp:364`). Its readers are
+    the printer, the properties frame's swatch and DIALOG_PAGES_SETTINGS'
+    preview, and it now goes to that preview.
+  - **The Grids page has all five buttons.** Add, Edit, Move Up, Move Down and
+    Remove (`panel_grid_settings_base.cpp:34-56`), each acting on
+    `m_currentGridCtrl`'s selection - which is a `wxListBox` whose selection is
+    *also* the current grid (`:194`), so the radio-per-row and the per-row
+    Remove went with it. `DIALOG_GRID_SETTINGS` is
+    `designer/src/dialogs/dialog_grid_settings.tsx`, in `dialogs/` rather than
+    `dialogs/prefs/` because upstream it is `common/dialogs/` and owned by no
+    app. `Grid size '%s' already exists.` and `Grid size X out of range.` are
+    both in.
 
-  One divergence inside the Grids page is worth naming rather than leaving to
-  be found. Upstream stores a `GRID{ name, x, y }` per row, renders it through
-  `GRID::MessageText` in both unit systems, and edits it in a
-  `DIALOG_GRID_SETTINGS` modal reached from an Edit button, alongside Move Up
-  and Move Down. Ours stores one unit-bearing string per grid and edits it in
-  place in a text field - the shape both settings objects already had. Porting
-  `DIALOG_GRID_SETTINGS` and the reorder buttons is separate work.
+    The stored shape had to change with it: `window.grid.sizes` held one string
+    per grid where `GRID_SETTINGS::grids` holds `GRID{ name, x, y }`
+    (`grid_settings.h:33-54`), so there was nowhere to put a name or a
+    non-square Y. Stored files upgrade at load, and every row now renders
+    through `RebuildGridSizes`' `_( "%s%s (%s)" )`, which is also what gives
+    eeschema's View > Grid menu its second unit.
+
+  Two bugs fell out of reading that C++ rather than watching the behaviour: a
+  **unitless** grid string is millimetres and not mils (`GRID::ToDouble` passes
+  `EDA_UNITS::MM`, `grid_settings.cpp:53-57`), and the dialog reads
+  `GetDoubleValue()` rather than `GetValue()` (`dialog_grid_settings.cpp:80`),
+  so a typed grid is stored unquantised.
+
+  **`PANEL_GRID_SETTINGS` is shared, and one launcher is still missing.**
+  Upstream pcbnew and the footprint editor mount it too, and `OVERRIDE_ROWS`
+  already carries their rows; we have `sch-grids` and `ds-grids` only, because
+  `PcbnewSettings` has no `window.grid` for the page to write. That is a pcbnew
+  gap rather than a pl_editor one, and it is the next thing this panel wants.
 
   The grid list is now a *setting* rather than a read of
   `DefaultGridSizeList()`, because a page that edits a list nothing reads is
