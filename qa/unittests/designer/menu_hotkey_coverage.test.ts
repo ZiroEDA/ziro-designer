@@ -328,7 +328,24 @@ describe('a converted frame has no listener of its own', () => {
     // CVPCB keeps Enter, which is CVPCB_ACTIONS::associate and has no row.
     const cvpcb = source('editors/schematic/dialogs/dialog_assign_footprints.tsx');
     expect(cvpcb).toMatch(/e\.key === 'Enter'/);
-    expect(cvpcb).not.toMatch(/e\.key === 'Delete'/);
+    // …and Delete, which is now in the same position and was not before.
+    //
+    // This line read `not.toMatch` while the Edit menu carried a "Delete
+    // Footprint Assignment" row. That row is not upstream's:
+    // `cvpcb/menubar.cpp:53-62` is undo, redo, a separator, then
+    // ACTIONS::cut / copy / paste and nothing else, and the only menu
+    // `CVPCB_ACTIONS::deleteAssoc` appears on is the SYMBOLS PANE's context
+    // menu (`cvpcb_mainframe.cpp:279`), which is not ported. So with the
+    // invented row gone, `.DefaultHotkey( WXK_DELETE )`
+    // (cvpcb_actions.cpp:129-134) has no row to be dispatched from and belongs
+    // in the frame's own handler — which is exactly what this rule says.
+    // Re-derived from the C++, not re-baselined onto what the file now prints.
+    expect(cvpcb).toMatch(/e\.key === 'Delete'/);
+    // The negative control the flip would otherwise lose: the keys that DO
+    // have rows are still dispatched off them, never re-stated here. Ctrl+Z,
+    // Ctrl+Y and Ctrl+S are Undo, Redo and File > Save to Schematic.
+    expect(cvpcb).toMatch(/dispatchMenuHotkey\(menus,/);
+    expect(cvpcb).not.toMatch(/e\.key === '[zys]'/);
   });
 });
 
