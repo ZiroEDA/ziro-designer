@@ -202,7 +202,7 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // because the row has to match the tree and the totals below have to match
   // the sum; the two colours and nine metrics are that commit's to answer for,
   // not this one's.
-  'editors/schematic': { colours: 63, metrics: 219 },
+  'editors/schematic': { colours: 61, metrics: 211 },
   // colours 12 -> 7: the Symbol Editor parity pass. Four were
   // SYMBOL_EDITOR_COLORS, a private copy of LAYER_SCHEMATIC_ANCHOR /
   // LAYER_HIDDEN / LAYER_PRIVATE_NOTES / LAYER_FIELDS that matched the Default
@@ -358,7 +358,7 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   //     26 metrics in them. The replacement states neither: every colour in
   //     widgets/properties_panel.css is a shared token, which that widget's
   //     own test asserts.
-  ui: { colours: 261, metrics: 767 },
+  ui: { colours: 257, metrics: 755 },
   // colours 6 -> 7: the opacity slider's #55585d track arrived here with
   // APPEARANCE_CONTROLS; it is the same literal `editors/pcb` lost, not a new
   // one. The panel's own stylesheet adds none: every length in
@@ -642,7 +642,7 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // directions: `ui` 281 -> 261 (of which 1 was already gone at HEAD, with
     // 7ebff497) and `editors/schematic` 61 -> 63, which arrived at HEAD with
     // e3b79196 and is not this pass's. 660 - 20 + 2 agrees.
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(642);
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(636);
     // 1657 -> 1649: the same sweep. A native colour input has no useful
     // default size, so eight of the sixteen sites gave theirs an inline
     // width and height; the shared swatch takes --swatch-*-w/h. Rescanned.
@@ -685,7 +685,7 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // 50 -> 46 as its four literals took their markers, and
     // `editors/schematic` 210 -> 219, which arrived at HEAD with e3b79196.
     // 1606 - 29 - 4 + 9 agrees.
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1582);
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1559);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {

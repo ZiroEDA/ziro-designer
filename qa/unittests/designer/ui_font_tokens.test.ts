@@ -318,7 +318,7 @@ const BASELINE: Record<string, number> = {
   // change's files overlaid gives 134 -> 131, and grepping the two deleted
   // blocks out of HEAD's shell.css finds exactly three `font-size:` lines in
   // them.
-  ui: 131,
+  ui: 126,
   widgets: 6,
 };
 
@@ -488,7 +488,14 @@ describe('hardcoded font sizes do not grow', () => {
     // RESCANNED from `git archive HEAD`, where that area does not appear;
     // `editors/drawingsheet` is the only row this pass moves, and 336 - 1
     // agrees.
-    expect(sites.length).toBe(335);
+    // 335 -> 330: `ui` 131 -> 126, the accumulated removals of a night that
+    // moved the shared widgets onto tokens -- the properties panel's distance
+    // cells onto `pg_properties`, the field rows onto the shared grid, and the
+    // dead `.ze-cvpcb-*` block out of shell.css. `ui` is the only row that
+    // moves, the per-area check names it and nothing else, and 335 - 5 agrees
+    // with the table: two derivations of the same number, which is what this
+    // file has always required before a baseline comes down.
+    expect(sites.length).toBe(330);
   });
 });
 
