@@ -262,7 +262,15 @@ describe('PAD rows', () => {
 
   it('clears an override when the cell is emptied', () => {
     const next = row(pth, 'Clearance Override').set?.('');
+    // Asserted BEFORE the value: a builder that simply refused the empty
+    // string would return null here, and `null?.…  ?? null` is also null —
+    // the rejection and the clear would be indistinguishable.
+    expect(next).not.toBeNull();
+    expect(next).not.toBeUndefined();
     expect(next?.footprints[0]?.pads[1]?.clearance ?? null).toBeNull();
+    // The pad is otherwise untouched, so this is a cleared override and not a
+    // dropped pad.
+    expect(next?.footprints[0]?.pads[1]?.number).toBe('2');
   });
 
   it('offers the board’s nets as the Net choices, sorted by name', () => {
