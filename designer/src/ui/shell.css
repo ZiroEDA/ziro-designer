@@ -1428,6 +1428,16 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
      Ubuntu Sans here and "General system design" advances 147.5px against
      KiCad's measured 147px ink, so the token is already the right answer. */
   font: var(--ui-font-size) / 1.3 var(--ui-font-family);
+  /* The accent every native control paints itself with: a checkbox tick, a
+     radio dot, a range thumb, and the highlighted row of a `select` popup —
+     which the browser otherwise paints its own blue, because nothing here had
+     ever told it otherwise. GTK takes that colour from the theme
+     (`wxSYS_COLOUR_HIGHLIGHT`, Yaru's #e95420), which is what --chrome-active
+     already holds, so every launcher inheriting this root gets it for free.
+     Stated ONCE here rather than per launcher: the calculator had it locally
+     and nothing else did, which is exactly the drift CLAUDE.md's central-value
+     rule describes. */
+  accent-color: var(--chrome-active);
   color: var(--chrome-fg);
   user-select: none;
   /* `cursor` inherits, so with no `pointer` left anywhere this one declaration
