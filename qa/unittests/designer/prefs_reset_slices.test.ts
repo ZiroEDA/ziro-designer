@@ -52,6 +52,11 @@ import {
   type PrivacySettings,
 } from '@ziroeda/designer/src/prefs/settings.js';
 import type { PrefsContext, PrefsPageId } from '@ziroeda/designer/src/dialogs/prefs/types.js';
+import { TOOLBAR_APPS, type ToolbarApp } from '@ziroeda/designer/src/prefs/settings.js';
+import {
+  TOOLBAR_SETTINGS_DEFAULTS,
+  type ToolbarSettings,
+} from '@ziroeda/designer/src/ui/toolbar_config.js';
 import {
   resetCommonPanel,
   resetMousePanel,
@@ -62,12 +67,17 @@ import {
   resetEeschemaDisplayOptions,
   resetEeschemaEditingOptions,
   resetEeschemaGrids,
+  resetEeschemaToolbars,
 } from '@ziroeda/designer/src/editors/schematic/prefs/resets.js';
-import { resetPcbDisplayOptions } from '@ziroeda/designer/src/editors/pcb/prefs/resets.js';
+import {
+  resetPcbDisplayOptions,
+  resetPcbToolbars,
+} from '@ziroeda/designer/src/editors/pcb/prefs/resets.js';
 import {
   resetPlEditorColorSettings,
   resetPlEditorDisplayOptions,
   resetPlEditorGrids,
+  resetPlEditorToolbars,
 } from '@ziroeda/designer/src/editors/drawingsheet/prefs/resets.js';
 
 const SRC = fileURLToPath(new URL('../../../designer/src', import.meta.url));
@@ -192,6 +202,12 @@ const SLICES: Partial<Record<PrefsPageId, readonly string[]>> = {
   'sch-colors': ['eeschema.appearance.color_theme', 'userColors'],
   // PanelPcbDisplayOptions.tsx — only the Cross-probing group is ported.
   'pcb-display': ['pcbnew.cross_probing'],
+  // PanelToolbarCustomization, one per app. `ResetPanel` refills the shadow
+  // toolbars from `DefaultToolbarConfig` and touches nothing else — notably NOT
+  // `appearance.custom_toolbars`, which is an APP_SETTINGS_BASE value the page
+  // merely edits (`panel_toolbar_customization.cpp:243-267`).
+  'sch-toolbars': ['toolbars.eeschema'],
+  'pcb-toolbars': ['toolbars.pcbnew'],
   // PanelPlEditorDisplayOptions.tsx — the embedded PANEL_GAL_OPTIONS and
   // nothing else: that panel IS the whole page
   // (`panel_pl_editor_display_options.cpp:33-46`).
@@ -216,6 +232,7 @@ const SLICES: Partial<Record<PrefsPageId, readonly string[]>> = {
   // PanelPlEditorColorSettings.tsx — one `Color theme:` choice and no swatches,
   // so unlike eeschema's Colors page it does NOT own `userColors`.
   'ds-colors': ['plEditor.appearance.color_theme'],
+  'ds-toolbars': ['toolbars.pl_editor'],
 };
 
 /** Every page's `RESETTABLE_PANEL::ResetPanel`, by id. */
@@ -229,9 +246,12 @@ const RESETS: Partial<Record<PrefsPageId, (ctx: PrefsContext) => void>> = {
   'sch-annotation': resetEeschemaAnnotationOptions,
   'sch-colors': resetEeschemaColorSettings,
   'pcb-display': resetPcbDisplayOptions,
+  'sch-toolbars': resetEeschemaToolbars,
+  'pcb-toolbars': resetPcbToolbars,
   'ds-display': resetPlEditorDisplayOptions,
   'ds-grids': resetPlEditorGrids,
   'ds-colors': resetPlEditorColorSettings,
+  'ds-toolbars': resetPlEditorToolbars,
 };
 
 /**
@@ -251,6 +271,7 @@ interface Bag {
   privacy: PrivacySettings;
   userColors: Record<string, string>;
   hotkeys: Record<string, string>;
+  toolbars: Record<ToolbarApp, ToolbarSettings>;
 }
 
 const freshBag = (): Bag => ({
@@ -261,6 +282,11 @@ const freshBag = (): Bag => ({
   privacy: structuredClone(PRIVACY_DEFAULTS),
   userColors: {},
   hotkeys: {},
+  toolbars: {
+    eeschema: structuredClone(TOOLBAR_SETTINGS_DEFAULTS),
+    pcbnew: structuredClone(TOOLBAR_SETTINGS_DEFAULTS),
+    pl_editor: structuredClone(TOOLBAR_SETTINGS_DEFAULTS),
+  },
 });
 
 /**
@@ -301,6 +327,14 @@ function makeCtx(bag: Bag): PrefsContext {
     },
     get hotkeys() {
       return bag.hotkeys;
+    },
+    get toolbars() {
+      return bag.toolbars;
+    },
+    upTb: (app: ToolbarApp, fn: (s: ToolbarSettings) => void) => {
+      const next = structuredClone(bag.toolbars[app]);
+      fn(next);
+      bag.toolbars = { ...bag.toolbars, [app]: next };
     },
     upC: updater('common'),
     upE: updater('eeschema'),
@@ -343,6 +377,9 @@ const bagLeaves = (bag: Bag): Map<string, Json> => {
   // Records with no fixed shape: compared whole.
   out.set('userColors', bag.userColors);
   out.set('hotkeys', bag.hotkeys);
+  // One leaf per app: a `TOOLBAR_SETTINGS` file is a list with no fixed shape,
+  // so it is compared whole, as `userColors` is.
+  for (const app of TOOLBAR_APPS) out.set(`toolbars.${app}`, bag.toolbars[app]);
   return out;
 };
 
@@ -369,6 +406,8 @@ function dirtyEverything(bag: Bag): void {
   bag.privacy = dirty(bag.privacy) as PrivacySettings;
   bag.userColors = { wire: '#ff0000' };
   bag.hotkeys = { 'sch.drawWire': 'Ctrl+Shift+W' };
+  for (const app of TOOLBAR_APPS)
+    bag.toolbars[app] = { toolbars: [{ name: 'LEFT', contents: [{ type: 'SEPARATOR' }] }] };
 }
 
 /** The leaf paths a slice covers: a path naming a subtree covers all of it. */

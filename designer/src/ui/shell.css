@@ -9646,3 +9646,116 @@ textarea.ze-ds-textedit {
 .ze-cp-buttons .ze-modal-footer {
   flex: 1;
 }
+/* ---- Preferences > Toolbars (PANEL_TOOLBAR_CUSTOMIZATION) ----------------
+   Every length below is a wxFormBuilder border or spacer from
+   `common/dialogs/panel_toolbar_customization_base.cpp:15-133` — KiCad's own
+   layout data, marked per occurrence. The colours are tokens, because the tree
+   and the action list are a wxTreeCtrl and a wxListCtrl and take
+   wxSYS_COLOUR_LISTBOX like every other list in the app. */
+
+/* Like `.ze-prefs-panel > .ze-hotkeys-panel` above, and for the same reason:
+   the tree and the action list scroll inside themselves, so the page has to
+   fill its height rather than size to its content. */
+.ze-prefs-panel > .ze-tbcust {
+  height: 100%;
+}
+.ze-tbcust {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.ze-tbcust > .ze-pref-check {
+  margin: 10px; /* [data] `bPanelSizer->Add( m_customToolbars, 0, wxALL, 10 )` */
+}
+.ze-tbcust-rule {
+  margin: 0 5px 5px; /* [data] `m_staticline1`, `wxBOTTOM|wxRIGHT|wxLEFT, 5` */
+  border: 0;
+  border-top: 1px solid var(--chrome-border);
+}
+/* `wxFlexGridSizer( 1, 3, 0, 0 )` growing columns 0 and 2: the toolbar being
+   edited, the add button, the action list. The middle column does not grow, so
+   it takes only what the button needs. */
+.ze-tbcust-cols {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+.ze-tbcust-col {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+/* `bSizer6` centres `m_btnAddTool` between two growing spacers. */
+.ze-tbcust-mid {
+  display: flex;
+  align-items: center;
+  padding: 5px; /* [data] `bSizer6->Add( m_btnAddTool, 0, wxALL, 5 )` */
+}
+/* The wxTreeCtrl (`wxEXPAND|wxTOP|wxRIGHT|wxLEFT, 5`) and the wxListCtrl
+   (`wxALL|wxEXPAND, 5`). */
+.ze-tbcust-tree,
+.ze-tbcust-list {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  margin: 5px; /* [data] both controls' sizer border */
+  padding: 0;
+  list-style: none;
+  background: var(--chrome-bg2);
+  border: 1px solid var(--ctl-border);
+}
+.ze-tbcust-tree ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ze-tbcust-row {
+  display: flex;
+  align-items: center;
+  gap: var(--msgpanel-space);
+  padding: var(--libtree-row-pad) var(--msgpanel-space);
+  font-size: var(--ui-font-size);
+  cursor: default;
+  white-space: nowrap;
+}
+.ze-tbcust-row.sel {
+  background: var(--selection-bg);
+  color: var(--selection-fg);
+}
+/* A group's children sit one level in, under the wxTR_HIDE_ROOT root. */
+.ze-tbcust-row.child {
+  padding-left: 24px; /* [data] `.ze-prefs-page.indent`, this dialog's own tree indent */
+}
+.ze-tbcust-row img,
+.ze-tbcust-noicon {
+  width: 16px; /* [data] the small-image list a wxTreeCtrl/wxListCtrl row draws */
+  height: 16px; /* [data] as above */
+  flex: 0 0 auto;
+}
+.ze-tbcust-btns {
+  display: flex;
+  align-items: center;
+  gap: 5px; /* [data] `wxTOP|wxBOTTOM, 5` on the buttons of bSizerToolbarBtns */
+  padding: 5px; /* [data] `wxEXPAND|wxBOTTOM|wxRIGHT|wxLEFT, 5` on the row */
+}
+.ze-tbcust-split {
+  display: flex;
+  align-items: center;
+}
+/* SPLIT_BUTTON draws one control: the label half and the arrow half share an
+   edge rather than each carrying their own. */
+.ze-tbcust-split > .ze-btn:first-child {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+  border-right: 0;
+}
+.ze-tbcust-splitarrow {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+.ze-tbcust-gap {
+  width: 20px; /* [data] `bSizerToolbarBtns->Add( 20, 0, 0, 0, 5 )`, the fixed spacer before Delete */
+  flex: 0 0 auto;
+}

@@ -4,12 +4,15 @@
 import { useEffect, useState, type JSX } from 'react';
 import {
   settings,
+  TOOLBAR_APPS,
   type CommonSettings,
   type EeschemaSettings,
   type PcbnewSettings,
   type PlEditorSettings,
   type PrivacySettings,
+  type ToolbarApp,
 } from '../prefs/settings.js';
+import type { ToolbarSettings } from '../ui/toolbar_config.js';
 import { FIRST_PAGE, PAGES, labelOf, ownerOf } from './prefs/registry.js';
 import { loadPrefsPanel, peekPrefsPanel } from './prefs/lazy_pages.js';
 import {
@@ -78,6 +81,15 @@ export function PreferencesDialog({
   );
   const [privacy, setPrivacy] = useState<PrivacySettings>(() => structuredClone(settings.privacy));
   const [hotkeys, setHotkeys] = useState<HotkeyOverrides>(() => ({ ...settings.hotkeys }));
+  /**
+   * Each app's `TOOLBAR_SETTINGS`, cloned like the rest. Upstream the Toolbars
+   * page keeps its own shadow copy of the toolbars for exactly this reason —
+   * `m_toolbars` in `PANEL_TOOLBAR_CUSTOMIZATION`, written back to the real
+   * `TOOLBAR_SETTINGS` only in `TransferDataFromWindow`.
+   */
+  const [toolbars, setToolbars] = useState<Record<ToolbarApp, ToolbarSettings>>(() =>
+    structuredClone(settings.toolbars),
+  );
 
   const upC = (fn: (s: CommonSettings) => void): void =>
     setCommon((s) => {
@@ -106,11 +118,23 @@ export function PreferencesDialog({
       return n;
     });
 
+  const upTb = (app: ToolbarApp, fn: (s: ToolbarSettings) => void): void =>
+    setToolbars((s) => {
+      const n = structuredClone(s[app]);
+      fn(n);
+      return { ...s, [app]: n };
+    });
+
   const ok = (): void => {
     settings.updateCommon((s) => Object.assign(s, common));
     settings.updateEeschema((s) => Object.assign(s, eeschema));
     settings.updatePcbnew((s) => Object.assign(s, pcbnew));
     settings.updatePlEditor((s) => Object.assign(s, plEditor));
+    // `TransferDataFromWindow` writes every toolbar back through
+    // `SetStoredToolbarConfig`, changed or not
+    // (`panel_toolbar_customization.cpp:352-354`).
+    for (const app of TOOLBAR_APPS)
+      settings.updateToolbars(app, (s) => Object.assign(s, toolbars[app]));
     settings.setUserColors(userColors);
     settings.setHotkeys(hotkeys);
     // Routed through the reporter rather than written directly: switching this
@@ -131,10 +155,12 @@ export function PreferencesDialog({
     privacy,
     userColors,
     hotkeys,
+    toolbars,
     upC,
     upE,
     upP,
     upPl,
+    upTb,
     setCommon,
     setEeschema,
     setPcbnew,

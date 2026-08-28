@@ -24,7 +24,9 @@ import {
   resetPlEditorColorSettings,
   resetPlEditorDisplayOptions,
   resetPlEditorGrids,
+  resetPlEditorToolbars,
 } from './resets.js';
+import { PanelPlEditorToolbars } from './PanelPlEditorToolbars.js';
 import type {
   PrefsPageId,
   PrefsPanelFactory,
@@ -53,6 +55,12 @@ export const createPrefsPanel: PrefsPanelFactory = (id: PrefsPageId): PrefsPanel
       return {
         Panel: PanelPlEditorColorSettings,
         reset: resetPlEditorColorSettings,
+      };
+
+    case 'ds-toolbars':
+      return {
+        Panel: PanelPlEditorToolbars,
+        reset: resetPlEditorToolbars,
       };
 
     default:

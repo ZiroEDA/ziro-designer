@@ -50,15 +50,18 @@ const EXPECTED: PrefsPageEntry[] = [
   { id: 'sch-editing', label: 'Editing Options', indent: true, owner: 'schematic' },
   { id: 'sch-annotation', label: 'Annotation Options', indent: true, owner: 'schematic' },
   { id: 'sch-colors', label: 'Colors', indent: true, owner: 'schematic' },
+  { id: 'sch-toolbars', label: 'Toolbars', indent: true, owner: 'schematic' },
   { id: 'sch-fields', label: 'Field Name Templates', indent: true, owner: 'schematic' },
   { id: null, label: 'PCB Editor' },
   { id: 'pcb-display', label: 'Display Options', indent: true, owner: 'pcb' },
+  { id: 'pcb-toolbars', label: 'Toolbars', indent: true, owner: 'pcb' },
   // pl_editor's KIFACE is consulted last of the four
   // (`common/eda_base_frame.cpp:1726-1737`), so its heading is last.
   { id: null, label: 'Drawing Sheet Editor' },
   { id: 'ds-display', label: 'Display Options', indent: true, owner: 'drawingsheet' },
   { id: 'ds-grids', label: 'Grids', indent: true, owner: 'drawingsheet' },
   { id: 'ds-colors', label: 'Colors', indent: true, owner: 'drawingsheet' },
+  { id: 'ds-toolbars', label: 'Toolbars', indent: true, owner: 'drawingsheet' },
 ];
 
 describe('the Preferences page book', () => {
@@ -189,7 +192,30 @@ describe('each editor heading against KiCad’s own list', () => {
       'Colors',
       'Toolbars',
     ]);
-    expect(shippedUnder('Drawing Sheet Editor')).toEqual(['Display Options', 'Grids', 'Colors']);
+    expect(shippedUnder('Drawing Sheet Editor')).toEqual([
+      'Display Options',
+      'Grids',
+      'Colors',
+      'Toolbars',
+    ]);
+  });
+
+  it('gives every heading upstream registers a Toolbars page one', () => {
+    // `PANEL_SYM_TOOLBARS`, `PANEL_SCH_TOOLBARS`, `PANEL_FP_TOOLBARS`,
+    // `PANEL_PCB_TOOLBARS`, `PANEL_3DV_TOOLBARS`, `PANEL_GBR_TOOLBARS`,
+    // `PANEL_DS_TOOLBARS` — seven frames (`common/eda_base_frame.cpp:1637`,
+    // `:1647`, `:1672`, `:1686`, `:1694`, `:1715`, `:1737`), all of them one
+    // `PANEL_TOOLBAR_CUSTOMIZATION`. Four of those headings do not exist here
+    // at all, so this is per heading over the ones that do: "right in
+    // pl_editor, wrong in eeschema" is what it is here to stop.
+    for (const [heading, upstream] of Object.entries(UPSTREAM_BOOK)) {
+      if (!upstream.includes('Toolbars')) continue;
+      expect(shippedUnder(heading), `${heading} > Toolbars`).toContain('Toolbars');
+      expect(
+        (OMITTED_PAGES[heading] ?? []).map((p) => p.label),
+        heading,
+      ).not.toContain('Toolbars');
+    }
   });
 
   it('states a reason for every declared page, and declares no page twice', () => {

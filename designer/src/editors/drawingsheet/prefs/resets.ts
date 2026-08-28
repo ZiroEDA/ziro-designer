@@ -13,6 +13,7 @@
 import { PL_EDITOR_DEFAULTS } from '../../../prefs/settings.js';
 import { resetKeys } from '../../../dialogs/prefs/reset.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
+import { resetToolbarsPanel } from '../../../dialogs/prefs/toolbar_reset.js';
 
 /**
  * `PANEL_PL_EDITOR_DISPLAY_OPTIONS::ResetPanel`
@@ -71,5 +72,18 @@ export function resetPlEditorGrids(ctx: PrefsContext): void {
 export function resetPlEditorColorSettings(ctx: PrefsContext): void {
   ctx.upPl((s) => {
     resetKeys(s.appearance, PL_EDITOR_DEFAULTS.appearance, ['color_theme']);
+  });
+}
+
+/**
+ * `PANEL_TOOLBAR_CUSTOMIZATION::ResetPanel`
+ * (`common/dialogs/panel_toolbar_customization.cpp:243-267`) over this app's
+ * toolbars, through the shared implementation. It does not touch
+ * `appearance.custom_toolbars`: upstream's ResetPanel refills `m_toolbars` and
+ * leaves `m_CustomToolbars` exactly as the user left it.
+ */
+export function resetPlEditorToolbars(ctx: PrefsContext): void {
+  ctx.upTb('pl_editor', (s) => {
+    resetToolbarsPanel(s);
   });
 }

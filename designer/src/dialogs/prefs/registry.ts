@@ -49,15 +49,18 @@ export const PAGES: readonly PrefsPageEntry[] = [
   { id: 'sch-editing', label: 'Editing Options', indent: true, owner: 'schematic' },
   { id: 'sch-annotation', label: 'Annotation Options', indent: true, owner: 'schematic' },
   { id: 'sch-colors', label: 'Colors', indent: true, owner: 'schematic' },
+  { id: 'sch-toolbars', label: 'Toolbars', indent: true, owner: 'schematic' },
   { id: 'sch-fields', label: 'Field Name Templates', indent: true, owner: 'schematic' },
   { id: null, label: 'PCB Editor' },
   { id: 'pcb-display', label: 'Display Options', indent: true, owner: 'pcb' },
+  { id: 'pcb-toolbars', label: 'Toolbars', indent: true, owner: 'pcb' },
   // pl_editor's KIFACE is added last of the four, after gerbview's
   // (`common/eda_base_frame.cpp:1726-1737`).
   { id: null, label: 'Drawing Sheet Editor' },
   { id: 'ds-display', label: 'Display Options', indent: true, owner: 'drawingsheet' },
   { id: 'ds-grids', label: 'Grids', indent: true, owner: 'drawingsheet' },
   { id: 'ds-colors', label: 'Colors', indent: true, owner: 'drawingsheet' },
+  { id: 'ds-toolbars', label: 'Toolbars', indent: true, owner: 'drawingsheet' },
 ];
 
 /**
@@ -119,12 +122,6 @@ export interface DeclaredPage {
  */
 export const OMITTED_PAGES: Readonly<Record<string, readonly DeclaredPage[]>> = {
   'Schematic Editor': [
-    {
-      label: 'Toolbars',
-      reason:
-        'PANEL_TOOLBAR_CUSTOMIZATION, and no launcher here has one. See the Drawing ' +
-        'Sheet Editor row: it is one app-wide port, tracked on issue 619.',
-    },
     { label: 'Data Sources', reason: 'Schematic Editor tracker 195.' },
     { label: 'Simulator', reason: 'No ngspice in the browser; tracker 195.' },
   ],
@@ -134,26 +131,9 @@ export const OMITTED_PAGES: Readonly<Record<string, readonly DeclaredPage[]>> = 
     { label: 'Editing Options', reason: 'PCB Editor tracker 200.' },
     { label: 'Colors', reason: 'PCB Editor tracker 200.' },
     {
-      label: 'Toolbars',
-      reason: 'PANEL_TOOLBAR_CUSTOMIZATION; see the Drawing Sheet Editor row. Tracked on 619.',
-    },
-    {
       label: 'Plugins',
       reason:
         'PANEL_PCBNEW_ACTION_PLUGINS lists Python action plugins, which have no browser form.',
-    },
-  ],
-  'Drawing Sheet Editor': [
-    {
-      label: 'Toolbars',
-      reason:
-        'PANEL_TOOLBAR_CUSTOMIZATION (`common/dialogs/panel_toolbar_customization.cpp`, ' +
-        '1147 lines). Nothing about it is browser-hostile — it is pure UI state — but it ' +
-        "edits a TOOLBAR_SETTINGS file this port does not have: every launcher's toolbars " +
-        'are module constants (`editors/*/…Toolbars.ts`), so the page would have nothing ' +
-        "to write to. All four of upstream's Toolbars pages are one shared panel over one " +
-        'shared store, and building it for pl_editor alone is exactly the per-launcher copy ' +
-        'this dialog was split up to stop. App-wide work; stays open on issue 619.',
     },
   ],
 };

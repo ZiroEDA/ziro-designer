@@ -14,7 +14,8 @@
  * blocked on this split; they are not part of it.
  */
 import { PanelPcbDisplayOptions } from './PanelPcbDisplayOptions.js';
-import { resetPcbDisplayOptions } from './resets.js';
+import { resetPcbDisplayOptions, resetPcbToolbars } from './resets.js';
+import { PanelPcbToolbars } from './PanelPcbToolbars.js';
 import type {
   PrefsPageId,
   PrefsPanelFactory,
@@ -27,6 +28,12 @@ export const createPrefsPanel: PrefsPanelFactory = (id: PrefsPageId): PrefsPanel
       return {
         Panel: PanelPcbDisplayOptions,
         reset: resetPcbDisplayOptions,
+      };
+
+    case 'pcb-toolbars':
+      return {
+        Panel: PanelPcbToolbars,
+        reset: resetPcbToolbars,
       };
 
     default:
