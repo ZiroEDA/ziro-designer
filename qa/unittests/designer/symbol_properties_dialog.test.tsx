@@ -740,7 +740,7 @@ describe('the numeric cells carry their unit word', () => {
     fireEvent.change(input, { target: { value: '2 mm' } });
     fireEvent.blur(input);
     fireEvent.click(screen.getByRole('button', { name: 'OK' }));
-    expect(edits[0]?.fields[0]?.effects.fontSize?.[0]).toBe(20000);
+    expect(edits[0]?.fields[0]?.effects?.fontSize?.[0]).toBe(20000);
   });
 });
 
@@ -770,7 +770,9 @@ describe('a field name must be unique, and must exist', () => {
     return cell.querySelector('input')!;
   }
 
-  const addField = (): void => fireEvent.click(screen.getByRole('button', { name: 'Add field' }));
+  const addField = (): void => {
+    fireEvent.click(screen.getByRole('button', { name: 'Add field' }));
+  };
 
   it('renaming onto another row s name is refused with upstream s message', () => {
     // `OnGridCellChanging` (dialog_symbol_properties.cpp:878-896).
@@ -794,6 +796,21 @@ describe('a field name must be unique, and must exist', () => {
     fireEvent.change(input, { target: { value: 'reference' } });
     fireEvent.blur(input);
     expect(screen.getByText(/already in use/)).toBeTruthy();
+  });
+
+  it('re-typing a row s OWN name is not a duplicate of itself', () => {
+    // `if( i == event.GetRow() ) continue;` (dialog_symbol_properties.cpp:884).
+    // Every other case here changes the name to something new, so the skip is
+    // invisible to them: the comparison is against the row's OLD key, which a
+    // changed name never matches. Committing the cell unchanged is the one
+    // action that reaches it, and without the skip it refuses every field the
+    // user merely tabbed through.
+    open(SHEET);
+    addField();
+    const input = editName(5);
+    fireEvent.blur(input);
+    expect(document.querySelector('.ze-props-error')).toBeNull();
+    expect(fieldNames()[5]).toBe('Field5');
   });
 
   it('but a case variant of a USER name does not', () => {

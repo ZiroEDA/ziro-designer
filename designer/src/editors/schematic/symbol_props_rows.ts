@@ -309,6 +309,13 @@ export function validateRows(rows: readonly FieldRow[]): string | null {
  *
  * The comparison is `FieldNamesAreDuplicates`, not `==`, so renaming a user
  * field to "reference" is refused as well as to "Reference".
+ *
+ * `row` indexes `rows`, the whole table, where upstream's loop runs over
+ * `GetNumberRows()` — the VISIBLE rows — and so cannot see a `private` field's
+ * name. Scanning all of them is the deliberate difference: a collision with a
+ * hidden field is still a collision, and the file it would produce still has
+ * two fields of one name. Nothing in this build creates a private field, so
+ * the two agree on every reachable case today.
  */
 export function duplicateNameError(
   rows: readonly FieldRow[],

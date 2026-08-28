@@ -6809,6 +6809,32 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   /* [data] the same wxSize( -1, 160 ) minimum the fields grid carries. */
   min-height: 160px;
 }
+/* `m_pinGrid->SetColLabelSize( 24 )` (dialog_symbol_properties_base.cpp:291) —
+   two pixels taller than the fields grid's 22, and stated per-grid upstream
+   too, which is why it is not the shared .ze-grid value. */
+.ze-symprops-pin-pane th {
+  /* [data] `m_pinGrid->SetColLabelSize( 24 )`. */
+  height: 24px;
+}
+/* `SetColSize` at :279-283, then `AdjustPinsGridColumns`
+   (dialog_symbol_properties.cpp:1066-1085): everything but Base Name and
+   Alternate Assignment keeps its stated width, and those two SHARE what is
+   left, `pinTblWidth / 2` each. Two 50% columns beside three fixed ones is
+   that division. */
+.ze-symprops-pin-pane th:nth-child(1) {
+  /* [data] `m_pinGrid->SetColSize( 0, 160 )`. */
+  width: 160px;
+}
+.ze-symprops-pin-pane th:nth-child(2),
+.ze-symprops-pin-pane th:nth-child(3) {
+  /* [data] `pinTblWidth / 2` each, after the fixed columns are taken off. */
+  width: 50%;
+}
+.ze-symprops-pin-pane th:nth-child(4),
+.ze-symprops-pin-pane th:nth-child(5) {
+  /* [data] `m_pinGrid->SetColSize( 3, 140 )` and `( 4, 140 )`. */
+  width: 140px;
+}
 
 /* ERC results panel (KiCad DIALOG_ERC, modeless) */
 /* Electrical Rules Checker (dialog_erc_base.cpp). A DIALOG_SHIM is a real
