@@ -112,8 +112,8 @@ export const UNSPECIFIED_GROUP_CAPTION = 'Basic Properties';
  * commits the colour. Named rather than inlined because it is a rule, and a
  * lambda in a JSX prop is not reachable from a test.
  */
-export function colorCellValue(c: { readonly a: number }): string {
-  return c.a <= 0 ? '' : toHexString(c as Parameters<typeof toHexString>[0]);
+export function colorCellValue(c: Parameters<typeof toHexString>[0]): string {
+  return c.a <= 0 ? '' : toHexString(c);
 }
 
 /**
