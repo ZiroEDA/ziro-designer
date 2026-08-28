@@ -187,7 +187,15 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // so the symbol tool stops borrowing the browser's CSS `move` keyword. These
   // are the XPM's own #FFFFFF and #000000 — bitmap DATA, not chrome, and the
   // same two every other cursor in that file already contributes to this row.
-  'editors/schematic': { colours: 61, metrics: 210 },
+  // 61 -> 63 and 210 -> 219: NOT this branch. A pristine checkout of
+  // `cvpcb: the window's own measured metrics, and the menus it was missing`
+  // (e3b79196) already scans 63/219 here — that pass added
+  // editors/schematic/dialogs/dialog_assign_footprints.css and left this row
+  // where it was, so the ratchet was already red at HEAD. Recorded here
+  // because the row has to match the tree and the totals below have to match
+  // the sum; the two colours and nine metrics are that commit's to answer for,
+  // not this one's.
+  'editors/schematic': { colours: 63, metrics: 219 },
   // colours 12 -> 7: the Symbol Editor parity pass. Four were
   // SYMBOL_EDITOR_COLORS, a private copy of LAYER_SCHEMATIC_ANCHOR /
   // LAYER_HIDDEN / LAYER_PRIVATE_NOTES / LAYER_FIELDS that matched the Default
@@ -327,19 +335,51 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // and --ui-font-size-small and states no colour and no size of its own. The
   // rule that replaced it, and every other `.ze-symprops-*` rule, carries
   // either a token or a [data]/[px] marker on the literal's own line.
-  ui: { colours: 281, metrics: 796 },
+  // 281 -> 261 and 796 -> 767, and the twenty and twenty-nine are two
+  // different passes, counted separately:
+  //   * 1 colour and 3 metrics were already gone at HEAD. `lib_tree: the
+  //     selection band, the column widths and the indent GTK really draws`
+  //     (7ebff497) took them and left this row where it was, so a pristine
+  //     checkout of that commit scans 280/793 here.
+  //   * 19 colours and 26 metrics are the PROPERTIES_PANEL adoption below.
+  //     `.ze-pg*` (the PCB property grid PcbEditor.tsx drew inline) and
+  //     `.ze-propgrid*` (what the schematic panel used before 168fdbd9) were
+  //     both dead once pcbnew consumed the shared widget, and both are
+  //     deleted. Derived twice and the two agree: rescanning the tree gives
+  //     280 -> 261 / 793 -> 767, and scanning the two deleted blocks ALONE —
+  //     93 lines and 46 lines out of HEAD's shell.css — counts 19 colours and
+  //     26 metrics in them. The replacement states neither: every colour in
+  //     widgets/properties_panel.css is a shared token, which that widget's
+  //     own test asserts.
+  ui: { colours: 261, metrics: 767 },
   // colours 6 -> 7: the opacity slider's #55585d track arrived here with
   // APPEARANCE_CONTROLS; it is the same literal `editors/pcb` lost, not a new
   // one. The panel's own stylesheet adds none: every length in
   // widgets/appearance_controls.css is a wx sizer border and carries [data].
   //
-  // metrics 46 -> 50: NOT this branch. A pristine checkout of HEAD already
-  // scans 50 here — `designer: PROPERTIES_PANEL once, as a shared widget`
-  // (168fdbd9) added widgets/properties_panel.css, whose padding: 5px,
-  // height: 9px, two 1.5px borders and one 1px border are unmarked, and left
-  // this row at 46. Recorded here because the row has to match the tree; the
-  // five literals are that commit's to answer for.
-  widgets: { colours: 7, metrics: 50 },
+  // metrics 50 -> 46, back where it was before `designer: PROPERTIES_PANEL
+  // once, as a shared widget` (168fdbd9). That commit added
+  // widgets/properties_panel.css with four unmarked literals and raised this
+  // row to cover them; they are now marked, on their own lines, with what
+  // states them:
+  //   * `.ze-pgrid-caption`'s `padding: 5px` is [data] — the wxSizer border
+  //     PROPERTIES_PANEL passes for the caption, `wxALL | wxEXPAND, 5`
+  //     (properties_panel.cpp:82), the same reason every length in
+  //     widgets/appearance_controls.css carries [data].
+  //   * the twisty's `height: 9px` is [data] — wxPG_ICON_WIDTH, 9 in
+  //     propgriddefs.h's __WXGTK__ block.
+  //   * its two `1.5px` chevron strokes are [art] — wxRendererNative hands the
+  //     expander to GTK, which paints pan-down-symbolic.svg; we cannot call it,
+  //     so those are the glyph re-drawn and not a number anybody states.
+  // Four, not the five that note claimed: the fifth was a `1px` border, and
+  // the scanner skips 1px. Derived twice — rescanning the tree gives 50 -> 46,
+  // and scanning widgets/properties_panel.css alone lists exactly those four
+  // sites before the markers and none after.
+  //
+  // The swatch the pcbnew adoption added states no unmarked length either:
+  // --pgrid-swatch-width is a token declaration, and the one `margin: 1px 0`
+  // is a 1px the scanner does not count.
+  widgets: { colours: 7, metrics: 46 },
 };
 
 /** Properties whose value the GTK theme decides, so a px in one is drift. */
@@ -589,7 +629,13 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // archive HEAD` with only this change's files overlaid, where the three
     // rows above are the only ones that move: 7 - 1 for `widgets`, 8 - 9 for
     // `editors/footprint`, 63 - 67 for `editors/pcb`, and 664 - 4 agrees.
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(660);
+    // 660 -> 642. RESCANNED in a tree built from `git archive HEAD` with only
+    // this change's files overlaid, because three other agents had uncommitted
+    // work in this checkout. Two rows move and they move in opposite
+    // directions: `ui` 281 -> 261 (of which 1 was already gone at HEAD, with
+    // 7ebff497) and `editors/schematic` 61 -> 63, which arrived at HEAD with
+    // e3b79196 and is not this pass's. 660 - 20 + 2 agrees.
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(642);
     // 1657 -> 1649: the same sweep. A native colour input has no useful
     // default size, so eight of the sixteen sites gave theirs an inline
     // width and height; the shared swatch takes --swatch-*-w/h. Rescanned.
@@ -627,7 +673,12 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // landed. 1615 -> 1606: this change, `editors/footprint` 20 -> 17 and
     // `editors/pcb` 387 -> 381 being the only rows that move, and 1615 - 9
     // agrees.
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1606);
+    // 1606 -> 1582, rescanned the same way. Three rows move: `ui` 796 -> 767
+    // (3 of the 29 were already gone at HEAD with 7ebff497), `widgets`
+    // 50 -> 46 as its four literals took their markers, and
+    // `editors/schematic` 210 -> 219, which arrived at HEAD with e3b79196.
+    // 1606 - 29 - 4 + 9 agrees.
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1582);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {

@@ -48,6 +48,9 @@
    `wxALL | wxEXPAND, 5`, and [px] its best height is 18 - so the strip is
    5 + 18 + 5 = 28, which is exactly the band a live capture measures. */
 .ze-pgrid-caption {
+  /* [data] the wxSizer border `PROPERTIES_PANEL` passes for the caption,
+     `wxALL | wxEXPAND, 5` (properties_panel.cpp:82). A sizer border is a
+     number KiCad itself writes down, so it stays a literal here. */
   padding: 5px;
   /* wxSYS_COLOUR_BTNTEXT, the text ON a widget rather than inside a view. */
   color: var(--chrome-fg);
@@ -86,6 +89,10 @@
      RecalculateSplitterPos(): with no dragged proportion stored the name/value
      split sits at half the grid's width. */
   --pgrid-splitter: 50%;
+  /* PGPROPERTY_COLORENUM::OnMeasureImage (pg_properties.cpp:636-644) returns
+     `FromDIP( wxSize( 16, -1 ) )`: the custom image slot is 16 wide, and -1
+     means "the whole cell" vertically. */
+  --pgrid-swatch-width: 16px;
 }
 
 .ze-pgrid-row,
@@ -130,8 +137,15 @@
   top: 50%;
   left: 0;
   width: 9px;
+  /* [data] wxPG_ICON_WIDTH, 9 in propgriddefs.h's __WXGTK__ block, which is
+     the box wxPropertyGrid gives the expander in both directions. */
   height: 9px;
+  /* [art] the chevron's own stroke. wxRendererNative::DrawTreeItemButton hands
+     GTK's `expander` node, which paints pan-down-symbolic.svg; we cannot call
+     it, so this is the glyph re-drawn. The stroke is the icon's, not a number
+     KiCad or GTK states anywhere. */
   border-top: 1.5px solid var(--chrome-fg);
+  /* [art] as above. */
   border-right: 1.5px solid var(--chrome-fg);
   transform: translate(0, -70%) rotate(135deg);
 }
@@ -179,6 +193,23 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* PGPROPERTY_COLORENUM's custom image (pg_properties.cpp:647-669):
+   `SetPen( *wxTRANSPARENT_PEN ); SetBrush( colour ); DrawRectangle( aRect )`.
+   A flat rectangle, no border and no rounding, sitting in the value cell's
+   image slot ahead of the text — which is where `GetImageOffset` puts the
+   text. It is NOT a COLOR_SWATCH: that widget is a button onto
+   DIALOG_COLOR_PICKER, and a layer row's swatch cannot be clicked. */
+.ze-pgrid-swatch {
+  flex: 0 0 var(--pgrid-swatch-width);
+  align-self: stretch;
+  /* wxPG_CUSTOM_IMAGE_SPACINGY, the one pixel of cell the custom image does
+     not get, top and bottom. */
+  margin: 1px 0;
+  /* wxPG_XBEFORETEXT again: the same gap that leads a cell's text in also
+     separates the image from it. */
+  margin-right: var(--pgrid-text-inset);
 }
 
 /* PG_CELL_RENDERER::Render (common/properties/pg_cell_renderer.cpp:60-70):

@@ -318,3 +318,237 @@ describe('the stylesheet states what wxPropertyGrid decides, and nothing else', 
     expect(rules.match(/\bfont:\s*[^;]+;/g)).toEqual(['font: inherit;']);
   });
 });
+
+/*
+ * The two fields pcbnew's subclass needed, exercised through rows of the shape
+ * pcbnew's `pcbPropertiesFor` actually emits. `ROWS` above is eeschema-shaped,
+ * so both editors' row shapes go through this one widget here — which is the
+ * point: "right in one, wrong in the other" is what a shared widget invites.
+ */
+const PCB_ROWS: PropertyGridRow<Cmd>[] = [
+  // PCB_PROPERTIES_PANEL::createPGProperty makes every PCB_LAYER_ID property a
+  // PGPROPERTY_COLORENUM, so a Layer row carries a colour AND a choice list.
+  {
+    group: '',
+    name: 'Layer',
+    kind: 'choice',
+    choices: ['F.Cu', 'B.Cu'],
+    value: 'F.Cu',
+    swatch: '#c83434',
+    set: () => ({ what: 'layer' }),
+  },
+  // PGPROPERTY_DISTANCE over std::optional<int>: no override set.
+  {
+    group: 'Overrides',
+    name: 'Clearance Override',
+    kind: 'dist',
+    value: null,
+    optional: true,
+    set: () => ({ what: 'clr' }),
+  },
+  {
+    group: 'Overrides',
+    name: 'Thermal Relief Gap',
+    kind: 'dist',
+    value: 500,
+    optional: true,
+    set: () => ({ what: 'gap' }),
+  },
+];
+
+const rowNamed = (container: HTMLElement, name: string): HTMLElement =>
+  Array.from(container.querySelectorAll('.ze-pgrid-row')).find(
+    (r) => r.querySelector('.ze-pgrid-name')!.textContent === name,
+  ) as HTMLElement;
+
+describe('a layer row carries PGPROPERTY_COLORENUM’s colour image', () => {
+  it('paints the swatch in the VALUE cell, ahead of the text', () => {
+    const { container } = panel(PCB_ROWS, 1, 'Track');
+    const value = rowNamed(container, 'Layer').querySelector('.ze-pgrid-value')!;
+    const swatch = value.querySelector('.ze-pgrid-swatch') as HTMLElement;
+    expect(swatch).not.toBeNull();
+    expect(swatch.style.background).toBe('#c83434');
+    // OnCustomPaint draws the image, then GetImageOffset shifts the text past
+    // it — so the swatch precedes the value text inside the same cell.
+    const text = value.querySelector('.ze-pgrid-text')!;
+    expect(swatch.compareDocumentPosition(text) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('draws no swatch on a row that has no colour', () => {
+    const { container } = panel(PCB_ROWS, 1, 'Track');
+    expect(rowNamed(container, 'Clearance Override').querySelector('.ze-pgrid-swatch')).toBeNull();
+    // …and none anywhere in an eeschema row set, which has no layer property.
+    expect(panel().container.querySelectorAll('.ze-pgrid-swatch')).toHaveLength(0);
+  });
+
+  it('keeps the cell an editable enum: the swatch is paint, not a button', () => {
+    // PGPROPERTY_COLORENUM is a wxEnumProperty. Its image is drawn by
+    // OnCustomPaint and is not a COLOR_SWATCH, which would be a control.
+    const { container } = panel(PCB_ROWS, 1, 'Track');
+    const cell = rowNamed(container, 'Layer');
+    expect(cell.querySelectorAll('button')).toHaveLength(0);
+    fireEvent.click(cell.querySelector('.ze-pgrid-text')!);
+    const editor = cell.querySelector('select.ze-pgrid-editor') as HTMLSelectElement;
+    expect(Array.from(editor.options).map((o) => o.value)).toEqual(['F.Cu', 'B.Cu']);
+  });
+});
+
+describe('an optional distance is blank when it has no value', () => {
+  it('renders an unset override as the empty string, not as 0', () => {
+    // PGPROPERTY_DISTANCE::DistanceToString returns wxEmptyString for an empty
+    // std::optional<int>. `fmt` must not be reached at all: this panel's fmt
+    // would print "0 mils".
+    const { container } = panel(PCB_ROWS, 1, 'Pad');
+    expect(
+      rowNamed(container, 'Clearance Override').querySelector('.ze-pgrid-value')!.textContent,
+    ).toBe('');
+    expect(
+      rowNamed(container, 'Thermal Relief Gap').querySelector('.ze-pgrid-value')!.textContent,
+    ).toBe('0.5 mils');
+  });
+
+  it('commits the empty string when the cell is cleared', () => {
+    // PG_UNIT_EDITOR::GetValueFromControl writes `std::optional<int>()` back
+    // when the binder is null, rather than parsing "" as zero.
+    const seen: (string | number | boolean)[] = [];
+    const rows: PropertyGridRow<Cmd>[] = PCB_ROWS.map((r) =>
+      r.name === 'Thermal Relief Gap'
+        ? {
+            ...r,
+            set: (v) => {
+              seen.push(v);
+              return { what: 'gap' };
+            },
+          }
+        : r,
+    );
+    const { container } = panel(rows, 1, 'Pad');
+    const cell = rowNamed(container, 'Thermal Relief Gap');
+    fireEvent.click(cell.querySelector('.ze-pgrid-text')!);
+    const editor = cell.querySelector('input.ze-pgrid-editor') as HTMLInputElement;
+    fireEvent.change(editor, { target: { value: '  ' } });
+    fireEvent.keyDown(editor, { key: 'Enter' });
+    expect(seen).toEqual(['']);
+  });
+
+  it('still parses a NON-optional distance cell, so an emptied one is refused', () => {
+    // `Position X` is a plain PGPROPERTY_COORD: clearing it goes through
+    // `parse`, which this panel's parse rejects, and the cell snaps back.
+    const seen: (string | number | boolean)[] = [];
+    const rows = ROWS.map((r) =>
+      r.name === 'Position X'
+        ? {
+            ...r,
+            set: (v: string | number | boolean) => {
+              seen.push(v);
+              return { what: 'x' };
+            },
+          }
+        : r,
+    );
+    const { container } = panel(rows, 1, 'Symbol');
+    const cell = rowNamed(container, 'Position X');
+    fireEvent.click(cell.querySelector('.ze-pgrid-text')!);
+    const editor = cell.querySelector('input.ze-pgrid-editor') as HTMLInputElement;
+    fireEvent.change(editor, { target: { value: 'nonsense' } });
+    fireEvent.keyDown(editor, { key: 'Enter' });
+    expect(seen).toEqual([]);
+    expect(cell.querySelector('.ze-pgrid-value')!.textContent).toBe('1 mils');
+  });
+});
+
+describe('the editing rules every launcher relies on', () => {
+  it('commits on Enter and on blur, and abandons on Escape', () => {
+    const seen: (string | number | boolean)[] = [];
+    const rows = ROWS.map((r) =>
+      r.name === 'Reference'
+        ? {
+            ...r,
+            set: (v: string | number | boolean) => {
+              seen.push(v);
+              return { what: 'r' };
+            },
+          }
+        : r,
+    );
+    const open = (container: HTMLElement): HTMLInputElement => {
+      const cell = rowNamed(container, 'Reference');
+      fireEvent.click(cell.querySelector('.ze-pgrid-text')!);
+      return cell.querySelector('input.ze-pgrid-editor') as HTMLInputElement;
+    };
+
+    const a = panel(rows, 1, 'Symbol').container;
+    const e1 = open(a);
+    fireEvent.change(e1, { target: { value: 'R9' } });
+    fireEvent.keyDown(e1, { key: 'Enter' });
+    expect(seen).toEqual(['R9']);
+
+    const b = panel(rows, 1, 'Symbol').container;
+    const e2 = open(b);
+    fireEvent.change(e2, { target: { value: 'R8' } });
+    fireEvent.blur(e2);
+    expect(seen).toEqual(['R9', 'R8']);
+
+    // Escape closes the editor, commits nothing, and puts the CELL back to the
+    // value it had — an editor that only stopped editing would leave "R7"
+    // in its draft and show it again on the next click.
+    const c = panel(rows, 1, 'Symbol').container;
+    const cell = rowNamed(c, 'Reference');
+    const e3 = open(c);
+    fireEvent.change(e3, { target: { value: 'R7' } });
+    fireEvent.keyDown(e3, { key: 'Escape' });
+    expect(seen).toEqual(['R9', 'R8']);
+    expect(cell.querySelector('.ze-pgrid-value')!.textContent).toBe('J1');
+    fireEvent.click(cell.querySelector('.ze-pgrid-text')!);
+    expect((cell.querySelector('input.ze-pgrid-editor') as HTMLInputElement).value).toBe('J1');
+  });
+
+  it('swallows keys inside a cell editor, so the canvas hotkeys do not fire', () => {
+    // The canvas binds bare letters (R rotates, Delete deletes). Typing a net
+    // name into a grid cell must not reach it.
+    for (const rows of [ROWS, PCB_ROWS]) {
+      const { container } = panel(rows, 1, 'Item');
+      const cell = rowNamed(container, rows === ROWS ? 'Reference' : 'Layer');
+      fireEvent.click(cell.querySelector('.ze-pgrid-text')!);
+      const editor = cell.querySelector('.ze-pgrid-editor') as HTMLElement;
+      let reachedCanvas = false;
+      const spy = (): void => {
+        reachedCanvas = true;
+      };
+      // React 18 delegates to the render container, so the listener has to sit
+      // OUTSIDE it — that is where the canvas's own document-level hotkey
+      // handler sits too.
+      document.addEventListener('keydown', spy);
+      editor.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'r', bubbles: true, cancelable: true }),
+      );
+      document.removeEventListener('keydown', spy);
+      expect(reachedCanvas, rows === ROWS ? 'eeschema row' : 'pcbnew row').toBe(false);
+      cleanup();
+    }
+  });
+});
+
+describe('the private pcbnew copy of this widget is gone', () => {
+  const shell = readFileSync(resolve(process.cwd(), '../designer/src/ui/shell.css'), 'utf8');
+
+  it('leaves no .ze-pg* rules behind in ui/shell.css', () => {
+    // PcbEditor.tsx drew its own grid with `PgCat`/`PgRow`/`PgEdit` styled by
+    // `.ze-pg*`; the eeschema panel before it left `.ze-propgrid*`. Both are
+    // dead, and dead CSS is what the next copy gets built out of.
+    expect(shell).not.toMatch(/^\.ze-pg[\s.:{,]/m);
+    expect(shell).not.toContain('.ze-pg-');
+    expect(shell).not.toContain('.ze-propgrid');
+  });
+
+  it('leaves no Pg* components in PcbEditor.tsx', () => {
+    const pcb = readFileSync(
+      resolve(process.cwd(), '../designer/src/editors/pcb/PcbEditor.tsx'),
+      'utf8',
+    );
+    for (const sym of ['PgCat', 'PgRow', 'PgRO', 'PgCheck', 'PgLayer', 'PgEdit', 'PgChoice'])
+      expect(pcb, sym).not.toContain(sym);
+    expect(pcb).not.toContain('PcbSelectionInfo');
+    expect(pcb).toContain('<PcbPropertiesPanel');
+  });
+});

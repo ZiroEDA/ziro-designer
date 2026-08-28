@@ -34,17 +34,25 @@
  * way `PROPERTIES_PANEL` is: eeschema commits through `SCH_COMMIT`, pcbnew
  * through `BOARD_COMMIT`, and the widget knows about neither.
  *
- * pcbnew has a second copy of all of this, written inline in `PcbEditor.tsx`
- * (the `Pg*` components and the seven per-item panels below them). Its rows
- * are the same shape as `PropertyGridRow`, so consuming this widget is a
- * matter of turning those panels into row builders — a `pcbPropertiesFor` to
- * match eeschema's `schPropertiesFor` — rather than of changing the API. The
- * one thing it needs that is not here is a `color` kind: `PGPROPERTY_COLOR4D`
- * has `PG_CELL_RENDERER` paint a `COLOR_SWATCH` into the value cell
- * (pg_cell_renderer.cpp:38-58), which is how a layer row gets its swatch.
- * That kind is deliberately absent until something reads it — an unused field
- * beside a component that draws its own is exactly the drift this widget
- * exists to end.
+ * pcbnew consumes this too, through `pcbnew/src/properties_panel.ts` and
+ * `editors/pcb/PcbPropertiesPanel.tsx`; the ~1200 lines of `Pg*` components
+ * and seven per-item panels that used to live inline in `PcbEditor.tsx` are
+ * gone. Adopting it needed two fields, and each has a real consumer:
+ *
+ *  - `swatch`, the colour rectangle `PGPROPERTY_COLORENUM::OnCustomPaint`
+ *    (pg_properties.cpp:647-669) paints before the value.
+ *    `PCB_PROPERTIES_PANEL::createPGProperty` (:466-500) turns EVERY
+ *    `PCB_LAYER_ID` property into one of those, with `SetColorFunc` reading
+ *    `m_frame->GetColorSettings()->GetColor()`, which is how a Layer row gets
+ *    its swatch. It is NOT `PGPROPERTY_COLOR4D`/`COLOR_SWATCH`
+ *    (pg_cell_renderer.cpp:38-58): that paints the WHOLE value cell and is
+ *    used by *eeschema*'s subclass (sch_properties_panel.cpp:472), not by
+ *    pcbnew's, and nothing here reads it yet.
+ *  - `optional`, which is `PGPROPERTY_DISTANCE` over `std::optional<int>`:
+ *    `DistanceToString` returns `wxEmptyString` when the optional is empty and
+ *    `PG_UNIT_EDITOR::GetValueFromControl` (pg_editors.cpp:262-286) writes an
+ *    empty optional back when the control is cleared. That is what makes a
+ *    pad's Clearance Override read blank — "inherit" — rather than "0".
  */
 import { Fragment, useEffect, useState } from 'react';
 import type { JSX } from 'react';
@@ -65,7 +73,23 @@ export interface PropertyGridRow<C> {
   readonly name: string;
   readonly kind: 'coord' | 'dist' | 'string' | 'bool' | 'int' | 'choice';
   readonly choices?: readonly string[];
-  readonly value: string | number | boolean;
+  /**
+   * `PGPROPERTY_COLORENUM`'s custom image (pg_properties.cpp:647-669): a CSS
+   * colour painted as a rectangle before the value. pcbnew gives one to every
+   * `PCB_LAYER_ID` row.
+   */
+  readonly swatch?: string;
+  /**
+   * `null` is `std::optional<int>` with no value, which
+   * `PGPROPERTY_DISTANCE::DistanceToString` renders as the empty string.
+   */
+  readonly value: string | number | boolean | null;
+  /**
+   * The underlying property is `std::optional<int>`, so an emptied cell means
+   * "no value" and commits `''` rather than being parsed as a number
+   * (`PG_UNIT_EDITOR::GetValueFromControl`, pg_editors.cpp:262-286).
+   */
+  readonly optional?: boolean;
   /** Absent for a read-only property. Returns the edit to commit, or null to
    *  reject the input and put the cell back. */
   readonly set?: (v: string | number | boolean) => C | null;
@@ -129,7 +153,7 @@ function ValueCell<C>({
   onCommand: (cmd: C) => void;
 }): JSX.Element {
   const isDist = row.kind === 'coord' || row.kind === 'dist';
-  const display = isDist ? fmt(row.value as number) : String(row.value);
+  const display = row.value === null ? '' : isDist ? fmt(row.value as number) : String(row.value);
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState(display);
 
@@ -198,6 +222,12 @@ function ValueCell<C>({
     if (text === display) return;
     let v: string | number | boolean = text;
     if (isDist) {
+      // The `std::optional<int>` branch: an emptied cell is "no value", and it
+      // is committed as such instead of being parsed into a number.
+      if (row.optional && text.trim() === '') {
+        if (!commitValue('')) setText(display);
+        return;
+      }
       const iu = parse(text);
       if (iu === null) {
         setText(display);
@@ -294,6 +324,13 @@ export function PropertiesPanel<C>({
                       {r.name}
                     </span>
                     <span className="ze-pgrid-value">
+                      {/* `PGPROPERTY_COLORENUM::OnCustomPaint`: a plain filled
+                          rectangle in the cell's image slot, drawn before the
+                          value text. Not a `COLOR_SWATCH` — that widget is a
+                          button onto DIALOG_COLOR_PICKER and this is paint. */}
+                      {r.swatch !== undefined && (
+                        <span className="ze-pgrid-swatch" style={{ background: r.swatch }} />
+                      )}
                       <ValueCell
                         key={`${r.name}:${String(r.value)}`}
                         row={r}

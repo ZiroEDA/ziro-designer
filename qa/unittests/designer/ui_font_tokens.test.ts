@@ -244,7 +244,12 @@ const BASELINE: Record<string, number> = {
   // one `(using Schematic Editor colors)` hint each carried an inline
   // `fontSize: 11`, and none of them exists upstream - the swatch clears
   // itself through the picker.
-  'editors/schematic': 50,
+  // 50 -> 49: NOT this branch. A pristine checkout of `cvpcb: the window's own
+  // measured metrics, and the menus it was missing` (e3b79196) already scans
+  // 49 here; that pass took the literal and left this row at 50. Lowered here
+  // because the row has to match the tree and the total below has to match it
+  // too.
+  'editors/schematic': 49,
   // 2 until the Symbol Editor parity pass deleted the invented
   // "Double-click a symbol..." hint that an empty SYMBOL_EDIT_FRAME does not
   // have; it carried an inline `fontSize: 14` and a `color: '#888'`.
@@ -292,7 +297,18 @@ const BASELINE: Record<string, number> = {
   // `font-size: 12.5px`. Upstream's library link is a wxStaticText and a
   // wxTextCtrl both carrying KIUI::GetSmallInfoFont == getGUIFont( win, -2 ),
   // so the replacement asks --ui-font-size-small.
-  ui: 134,
+  // 134 -> 131: pcbnew stopped keeping a private copy of PROPERTIES_PANEL, so
+  // `.ze-pg*` and `.ze-propgrid*` left ui/shell.css and took three
+  // `font-size: 12px` with them — the PCB grid's, the schematic grid's, and
+  // the one on the schematic grid's cell editors. The shared widget states
+  // none: KIUI::GetDockedPaneFont is the plain wxSYS_DEFAULT_GUI_FONT, which
+  // --ui-font-size already carries, and widgets/properties_panel.css says so
+  // in a comment and has a test that no `font-size:` appears in it at all.
+  // Derived twice: rescanning a tree of `git archive HEAD` with only this
+  // change's files overlaid gives 134 -> 131, and grepping the two deleted
+  // blocks out of HEAD's shell.css finds exactly three `font-size:` lines in
+  // them.
+  ui: 131,
   widgets: 6,
 };
 
@@ -452,7 +468,12 @@ describe('hardcoded font sizes do not grow', () => {
     // extracted. RESCANNED from this tree, and derived a second time from the
     // per-area table: `editors/pcb` 122 -> 121 is the only row that moved, and
     // 341 - 1 agrees.
-    expect(sites.length).toBe(340);
+    // 340 -> 336. RESCANNED in a tree built from `git archive HEAD` with only
+    // this change's files overlaid, because three other agents had uncommitted
+    // work in this checkout. Two rows move: `ui` 134 -> 131, which is this
+    // pass, and `editors/schematic` 50 -> 49, which arrived at HEAD with
+    // e3b79196 and is not. 340 - 3 - 1 agrees.
+    expect(sites.length).toBe(336);
   });
 });
 
