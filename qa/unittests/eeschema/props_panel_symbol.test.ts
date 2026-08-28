@@ -314,10 +314,15 @@ describe('the Pin Display group a schematic symbol inherits from SYMBOL', () => 
           (property "Reference" "R1" (at 0 0 0))
           (property "Value" "10k" (at 0 0 0))))`),
     );
-    // The fixture really does carry the non-zero offset...
-    expect(doc.libSymbols[0]!.pinNameOffset).toBe(5080);
+    // The fixture really does carry the non-zero offset — and the map the row
+    // provider is handed must be built from THIS document, not from the
+    // module-level `LIB` whose R has `(offset 0)`. Resolving to a definition
+    // that happens to say 0 would make a row reading `lib.pinNameOffset`
+    // indistinguishable from one reading the placement's own.
+    const libById = new Map(doc.libSymbols.map((l) => [l.libId, l]));
+    expect(libById.get('R')!.pinNameOffset).toBe(5080);
     // ...and the row still reads the SCH_SYMBOL's own zero.
-    const row = schPropertiesFor(doc, LIB, itemRefById(doc, 'r1')!).find(
+    const row = schPropertiesFor(doc, libById, itemRefById(doc, 'r1')!).find(
       (r) => r.name === 'Pin Name Position Offset',
     )!;
     expect(row.kind).toBe('dist');
