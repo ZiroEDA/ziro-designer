@@ -148,17 +148,53 @@ export function schLeftDockLayout(
   // The comparator states the tie-break instead of leaning on Array.sort being
   // stable over an array that happens to be in AddPane order: the tie is a
   // measured rule and deserves to be written down.
-  const order = SCH_LEFT_PANE_ADD_ORDER.filter((p) => shown[p]).sort(
-    (a, b) =>
-      dockPos[a] - dockPos[b] ||
-      SCH_LEFT_PANE_ADD_ORDER.indexOf(a) - SCH_LEFT_PANE_ADD_ORDER.indexOf(b),
-  );
+  const bySlot = (a: SchLeftPane, b: SchLeftPane): number =>
+    dockPos[a] - dockPos[b] ||
+    SCH_LEFT_PANE_ADD_ORDER.indexOf(a) - SCH_LEFT_PANE_ADD_ORDER.indexOf(b);
 
+  // The Selection Filter is not one of the panes that contend for a slot. It is
+  // the LAST row of the column, always, and the three facts that say so all
+  // agree: `Position( 4 )` where the others are 0, 1 and 2 and 3 is deliberately
+  // skipped; `dock_proportion = 0`, so it alone never grows; and no visibility
+  // control of its own. Read back out of a real eeschema's saved perspective on
+  // this machine (`~/.config/kicad/10.0/eeschema.json`):
+  //
+  //     PropertiesManager    pos=0 prop=100000
+  //     SchematicHierarchy   pos=1 prop=100000
+  //     SelectionFilter      pos=2 prop=0
+  //
+  // -- highest position of the three, and the only one with no proportion, which
+  // is why it sits flush against the message panel as part of the same band
+  // rather than floating between two palettes.
+  const CONTENDERS = SCH_LEFT_PANE_ADD_ORDER.filter((p) => p !== 'selectionFilter');
+
+  const shownContenders = CONTENDERS.filter((p) => shown[p]).sort(bySlot);
   const next: Record<SchLeftPane, number> = { ...dockPos };
-
-  order.forEach((pane, i) => {
+  shownContenders.forEach((pane, i) => {
     next[pane] = i;
   });
+
+  // A HIDDEN contender is left alone, which is what wxAUI does and what
+  // `qa/probes/aui_dock_pos_probe.cpp` measures -- including the tie that
+  // follows when a shown pane later compacts onto the number a hidden one still
+  // holds. The probe drives the same path the frame does, `Show()` then
+  // `SetAuiPaneSize`'s MinSize/Fixed/Update/Resizable/Update (its lines
+  // 406-422), so that tie is real and is deliberately NOT smoothed away here.
+
+  // The filter goes immediately after the SHOWN panes, so nothing can renumber
+  // it into the middle of the column. `shownContenders.length` and not
+  // `CONTENDERS.length`, because that is the number a real perspective holds:
+  // with Properties and the hierarchy shown and the Net Navigator hidden, this
+  // machine's eeschema.json has `SelectionFilter … pos=2`, one past the two
+  // panes above it — not one past every pane that could exist.
+  // Only when it is on screen: a hidden pane keeps the number it had, which is
+  // the rule the probe measured for every other pane and there is no reason the
+  // filter should differ. It also keeps an empty column a no-op.
+  if (shown.selectionFilter) next.selectionFilter = shownContenders.length;
+
+  const order: SchLeftPane[] = shown.selectionFilter
+    ? [...shownContenders, 'selectionFilter']
+    : shownContenders;
 
   return { order, dockPos: next };
 }

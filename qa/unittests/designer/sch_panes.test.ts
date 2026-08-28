@@ -98,11 +98,16 @@ function frame(
 }
 
 describe('the left column is ordered by when each pane was opened', () => {
-  /** Probe scenario 1, "Hierarchy first, then Properties". */
+  /**
+   * Probe scenario 1, "Hierarchy first, then Properties", with the filter put
+   * back where the frame keeps it. See the note on the Selection Filter below:
+   * the probe toggles it as a pane of its own, which `SCH_EDIT_FRAME` cannot
+   * do, and scenario 1 is one of the runs where that let it float upward.
+   */
   it('puts the hierarchy on top when the hierarchy was opened first', () => {
     const toggle = frame();
     expect(toggle('hierarchy', true)).toEqual(['hierarchy', 'selectionFilter']);
-    expect(toggle('properties', true)).toEqual(['hierarchy', 'selectionFilter', 'properties']);
+    expect(toggle('properties', true)).toEqual(['hierarchy', 'properties', 'selectionFilter']);
   });
 
   /**
@@ -119,14 +124,15 @@ describe('the left column is ordered by when each pane was opened', () => {
   /**
    * Probe scenario 3. The hierarchy is compacted to 0 the moment it is alone
    * in the dock, and hiding it does not take that away, so it comes back to
-   * the top rather than to the bottom.
+   * the top rather than to the bottom. That part is measured and stands; only
+   * the filter's row moves, for the reason below.
    */
   it('returns a re-opened pane to the slot it was compacted into', () => {
     const toggle = frame();
     toggle('hierarchy', true);
     toggle('properties', true);
-    expect(toggle('hierarchy', false)).toEqual(['selectionFilter', 'properties']);
-    expect(toggle('hierarchy', true)).toEqual(['hierarchy', 'selectionFilter', 'properties']);
+    expect(toggle('hierarchy', false)).toEqual(['properties', 'selectionFilter']);
+    expect(toggle('hierarchy', true)).toEqual(['hierarchy', 'properties', 'selectionFilter']);
   });
 
   /**
