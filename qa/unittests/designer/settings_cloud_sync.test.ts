@@ -262,6 +262,18 @@ describe('the same workspace on another device', () => {
     });
     a.setUserColors({ wire: 'rgb(1, 2, 3)' });
     a.setHotkeys({ 'eeschema.save': 'Ctrl+Alt+S' });
+    // The three TOOLBAR_SETTINGS files. A customised toolbar is the kind of
+    // thing that must follow the account — it is why the slices exist — so it
+    // makes the same round trip as the rest rather than only being counted.
+    a.updateToolbars('eeschema', (s) => {
+      s.toolbars = [{ name: 'top_main', contents: [] }];
+    });
+    a.updateToolbars('pcbnew', (s) => {
+      s.toolbars = [{ name: 'left', contents: [] }];
+    });
+    a.updateToolbars('pl_editor', (s) => {
+      s.toolbars = [{ name: 'right', contents: [] }];
+    });
 
     const up = await syncSettings(USER, { manager: a });
     expect(up.error).toBeUndefined();
@@ -288,6 +300,13 @@ describe('the same workspace on another device', () => {
     expect(b.privacy.crash_reports).toBe(false);
     expect(b.userColors).toEqual({ wire: 'rgb(1, 2, 3)' });
     expect(b.hotkeys).toEqual({ 'eeschema.save': 'Ctrl+Alt+S' });
+    // Each app's toolbars came down as its own file, not as one shared blob.
+    // The name comes back in magic_enum's own spelling for TOOLBAR_LOC, which
+    // the store writes however the caller spelled it, so this pins the
+    // normalisation as well as the transport.
+    expect(b.toolbars.eeschema.toolbars[0]?.name).toBe('TOP_MAIN');
+    expect(b.toolbars.pcbnew.toolbars[0]?.name).toBe('LEFT');
+    expect(b.toolbars.pl_editor.toolbars[0]?.name).toBe('RIGHT');
   });
 
   it('a pull survives the device reloading', async () => {
@@ -832,6 +851,12 @@ describe('the per-slice stamps', () => {
     a.resetUserColors();
     a.resetHotkeys();
     a.setHotkey('eeschema.save', null);
+    // The three TOOLBAR_SETTINGS files, which are slices in their own right.
+    // Without these the list below would name three slices the manager never
+    // writes — present for the reconcile, never actually synced.
+    a.updateToolbars('eeschema', () => undefined);
+    a.updateToolbars('pcbnew', () => undefined);
+    a.updateToolbars('pl_editor', () => undefined);
 
     // Written out rather than compared against `SETTINGS_SLICES`. Comparing the
     // list to itself is an expectation computed by calling the code under test:
@@ -840,17 +865,24 @@ describe('the per-slice stamps', () => {
     // common.json, eeschema.json, pcbnew.json, pl_editor.json,
     // pcb_calculator.json, bitmap2component.json, fpedit.json,
     // colors/user.json, user.hotkeys — plus `privacy`, which has no upstream
-    // counterpart.
+    // counterpart, and the three `*-toolbars` files. Those are files in their
+    // own right upstream, not keys inside an app's settings:
+    // `GetToolbarSettings<…>( "pl_editor-toolbars" )` (pl_editor.cpp:88,
+    // eeschema.cpp:346, pcbnew.cpp:455), so a synced account carries
+    // `eeschema-toolbars.json` rather than a sub-object of `eeschema.json`.
     const expected: SettingsSlice[] = [
       'bitmap2component',
       'colors.user',
       'common',
       'eeschema',
+      'eeschema-toolbars',
       'fpedit',
       'hotkeys',
       'pcb_calculator',
       'pcbnew',
+      'pcbnew-toolbars',
       'pl_editor',
+      'pl_editor-toolbars',
       'privacy',
     ];
     expect([...touched].sort()).toEqual(expected);
