@@ -461,9 +461,14 @@ export function drawDrawingSheetItems(
     const sel = selected.has(d.src);
     // Priority: delete-picker brighten > selection > per-item colour > layer colour.
     const itemColor =
-      !forceBlack && d.kind === 'text' && d.color
+      d.kind === 'text' && d.color
         ? `rgba(${d.color.r},${d.color.g},${d.color.b},${d.color.a})`
         : baseColor;
+    // `GRForceBlackPen` is consulted by `GRSetColorPen` on every call, so it
+    // wins over all four of those and there is exactly one place to say so.
+    // The item's own colour is deliberately NOT guarded a second time above:
+    // a mutation sweep showed the guard was unreachable, which means the rule
+    // was written twice and only one of the two could ever be wrong.
     const color = forceBlack
       ? baseColor
       : opts.brightened === d.src

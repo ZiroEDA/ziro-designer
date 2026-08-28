@@ -74,3 +74,52 @@ export const PL_EDITOR_STATUS_TEMPLATES = {
   /** `_( "Constrain to H, V, 45" )` (:178). Pane 7 is fixed here, not stretched. */
   constraint: 'Constrain to H, V, 45M',
 } as const;
+
+/**
+ * The two coordinate panes, formatted as `UpdateStatusBar` formats them
+ * (pl_editor_frame.cpp:765-797).
+ *
+ * ## There is no empty state
+ *
+ * `UpdateStatusBar` always reads
+ * `GetCanvas()->GetViewControls()->GetCursorPosition()`, and a freshly built
+ * `VIEW_CONTROLS` holds (0, 0). It then subtracts `ReturnCoordOriginCorner()`
+ * and multiplies each axis by its sign, so what a pl_editor that has never seen
+ * the pointer shows depends on the origin corner and is never a dash. On a
+ * `corner_origin = 1` profile with A3 paper and 10 mm margins the bar reads
+ *
+ *     X 410  Y 287        dx -0  dy -0
+ *
+ * which is (0, 0) through the right-bottom transform - and the minus zero is
+ * real: `%.4g` of `0 * -1` is `-0` in C, and `formatG` reproduces it. Both were
+ * photographed off the running program (`qa/probes/pl_e2e`). Ours used to print
+ * the placeholders `X, Y -` and `dx, dy -`, two strings upstream has nowhere.
+ *
+ * Here rather than in the frame because the frame is a `.tsx` and `qa`'s
+ * tsconfig sets no `--jsx`: a rule that lives inside it cannot be run, only
+ * grepped for, and a fallback value is exactly the kind of rule a grep gets
+ * wrong.
+ *
+ * @param aCursor cursor position in IU, or null before the pointer has entered.
+ * @param aOrigin `ReturnCoordOriginCorner()` in page IU.
+ * @param aSigns the per-axis `Xsign` / `Ysign` for the selected corner.
+ * @param aLocalOrigin `GetScreen()->m_LocalOrigin`, in IU.
+ * @param aToUser IU to the displayed unit (`EDA_UNIT_UTILS::UI::ToUserUnit`).
+ * @param aFormat `%.4g`.
+ */
+export function plCoordFields(
+  aCursor: { x: number; y: number } | null,
+  aOrigin: { x: number; y: number },
+  aSigns: { xs: number; ys: number },
+  aLocalOrigin: { x: number; y: number },
+  aToUser: (iu: number) => number,
+  aFormat: (n: number) => string,
+): { coords: string; deltas: string } {
+  // `VECTOR2D cursorPos = GetCanvas()->GetViewControls()->GetCursorPosition();`
+  const c = aCursor ?? { x: 0, y: 0 };
+  const at = (v: number, o: number, s: number): string => aFormat(aToUser((v - o) * s));
+  return {
+    coords: `X ${at(c.x, aOrigin.x, aSigns.xs)}  Y ${at(c.y, aOrigin.y, aSigns.ys)}`,
+    deltas: `dx ${at(c.x, aLocalOrigin.x, aSigns.xs)}  dy ${at(c.y, aLocalOrigin.y, aSigns.ys)}`,
+  };
+}

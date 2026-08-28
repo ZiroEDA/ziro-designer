@@ -202,3 +202,68 @@ describe('the file history is written by the loader alone', () => {
     expect(statements(open, 'addRecent(')).toHaveLength(1);
   });
 });
+
+describe('the seams the strings above have to reach', () => {
+  /*
+   * A constant that is right and a frame that ignores it is the failure this
+   * whole pass exists to catch — the Preferences panel that displayed a value
+   * and then discarded it. The frame is a `.tsx` and `qa`'s tsconfig sets no
+   * `--jsx`, so each seam is read rather than run.
+   */
+  it('titles the Open chooser from the constant, not "Open"', () => {
+    // `_( "Open Drawing Sheet" )` (files.cpp:161). "Open" is the wxFileDialog
+    // DEFAULT, which is why upstream took the trouble to replace it.
+    expect(statements(EDITOR, 'DS_OPEN_DIALOG_TITLE')).toHaveLength(2); // import + use
+    expect(statements(EDITOR, "title={openDlg === 'append' ? 'Append")).toHaveLength(0);
+  });
+
+  it('starts Save As in the user templates directory', () => {
+    // `wxString dir = PATHS::GetUserTemplatesPath();` is the chooser's
+    // `defaultDir` (files.cpp:202-204), and a driven pl_editor with a sheet
+    // already loaded still opens Save As there rather than beside the sheet.
+    // Our places list puts the open project first, so without this the dialog
+    // starts on the wrong one of the two.
+    expect(statements(EDITOR, 'initialPlace="templates"')).toHaveLength(1);
+    expect(statements(EDITOR, 'title={DS_SAVE_AS_DIALOG_TITLE}')).toHaveLength(1);
+  });
+
+  it('raises the outdated-format infobar rather than only computing it', () => {
+    // `m_infoBar->ShowMessage( …, OUTDATED_SAVE )` (files.cpp:267-274). The
+    // flag has to reach the DOM: a state nothing renders is the shape of bug
+    // this file is here for.
+    expect(statements(EDITOR, '{outdatedFormat && (')).toHaveLength(1);
+    expect(statements(EDITOR, '{DS_OUTDATED_FORMAT_INFOBAR}')).toHaveLength(1);
+    // Set on load, cleared by a successful save (:265, :329-330).
+    expect(statements(EDITOR, 'setOutdatedFormat(')).toHaveLength(3);
+  });
+
+  it('shows the queued modals one at a time, in order', () => {
+    // A bad file raises TWO. A single slot would have shown the second only.
+    expect(statements(EDITOR, 'errorDialogs[0]?.kind ===')).toHaveLength(2);
+    expect(statements(EDITOR, 'setErrorDialogs((q) => q.slice(1))')).toHaveLength(2);
+  });
+
+  it('lets Append set the modified flag without retitling', () => {
+    // `GetScreen()->SetContentModified()` and not `OnModify()`
+    // (files.cpp:150). A driven pl_editor shows `probe — Drawing Sheet Editor`
+    // straight after an Append, not `*probe`, so the title takes
+    // `titleModified` and the Append path sets only `setDirty`.
+    expect(statements(EDITOR, 'titleModified)')).toHaveLength(1);
+    const insert = EDITOR.slice(
+      EDITOR.indexOf('const insertDrawingSheetFile = useCallback'),
+      EDITOR.indexOf('/** Silent update used while dragging'),
+    );
+    expect(insert.length).toBeGreaterThan(200);
+    expect(statements(insert, 'setDirty(true)')).toHaveLength(1);
+    expect(statements(insert, 'onModify()')).toHaveLength(0);
+  });
+
+  it('opens the shared About dialog instead of writing the status line', () => {
+    expect(statements(EDITOR, '<AboutDialog title={ABOUT_TITLES.drawingSheet}')).toHaveLength(1);
+    // The whole call, not the phrase: the phrase survives in the JSX comment
+    // that records why the status write was wrong, and `statements` cannot see
+    // inside a `{/* … */}` block's continuation lines.
+    expect(statements(EDITOR, "setStatus('ZiroEDA Drawing Sheet Editor')")).toHaveLength(0);
+    expect(statements(EDITOR, 'showAbout: () => setAboutOpen(true)')).toHaveLength(1);
+  });
+});

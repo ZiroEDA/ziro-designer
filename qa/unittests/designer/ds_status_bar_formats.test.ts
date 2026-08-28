@@ -25,6 +25,17 @@ describe('formatG — C’s %g', () => {
     expect(formatG(-12660)).toBe('-1.266e+04');
   });
 
+  it('keeps the sign of negative zero, as the C library does', () => {
+    // Not pedantic: `UpdateStatusBar` multiplies each delta by the origin
+    // corner's axis sign, so a pl_editor on `Right Bottom page corner` with the
+    // cursor on its local origin computes `0 * -1`. A driven pl_editor's bar
+    // reads `dx -0  dy -0`; ours read `dx 0  dy 0` until this was fixed.
+    expect(formatG(-0)).toBe('-0');
+    expect(formatG(0)).toBe('0');
+    // `-0` is not `0 - something`: only an exact negative zero prints it.
+    expect(formatG(-0.0000001, 4)).toBe('-1e-07');
+  });
+
   it('stays in fixed form while the exponent is inside -4 <= e < precision', () => {
     expect(formatG(7736)).toBe('7736');
     expect(formatG(5413)).toBe('5413');

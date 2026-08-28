@@ -21,7 +21,14 @@
  * spacer, and does not follow from the shared table at any spacer.
  */
 import { describe, expect, it } from 'vitest';
-import { PL_EDITOR_STATUS_TEMPLATES } from '@ziroeda/designer/src/editors/drawingsheet/pl_status_bar.js';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import {
+  PL_EDITOR_STATUS_TEMPLATES,
+  plCoordFields,
+} from '@ziroeda/designer/src/editors/drawingsheet/pl_status_bar.js';
+import { formatG } from '@ziroeda/designer/src/ui/status_format.js';
+import { mmToIU } from '@ziroeda/common';
 import { STATUS_FIELD_TEMPLATES } from '@ziroeda/designer/src/ui/StatusField.js';
 
 describe('the pl_editor dims[] table', () => {
@@ -76,5 +83,93 @@ describe('the pl_editor dims[] table', () => {
       'units',
       'zoom',
     ]);
+  });
+});
+
+describe('the coordinate panes before the pointer has ever entered', () => {
+  /*
+   * Photographed off a pl_editor launched on a `corner_origin = 1` profile with
+   * A3 paper and 10 mm margins, with the pointer never over its canvas:
+   *
+   *     X 410  Y 287        dx -0  dy -0
+   *
+   * `UpdateStatusBar` has no empty state - it reads
+   * `GetCanvas()->GetViewControls()->GetCursorPosition()`, which a fresh
+   * `VIEW_CONTROLS` answers (0, 0), and puts it through the origin transform
+   * (pl_editor_frame.cpp:765-797). The numbers below are that arithmetic on the
+   * page the capture used, not a re-baseline of what our code prints.
+   */
+  const mm = (n: number): number => mmToIU(n);
+  /** `ReturnCoordOriginCorner()` for choice 1 on A3 with 10 mm margins. */
+  const RB = { x: mm(420 - 10), y: mm(297 - 10) };
+  const SIGNS = { xs: -1, ys: -1 };
+  const toUserMM = (iu: number): number => iu / mm(1);
+  const fmt4 = (n: number): string => formatG(n, 4);
+
+  it('reads the origin corner, not a dash and not zero', () => {
+    const f = plCoordFields(null, RB, SIGNS, { x: 0, y: 0 }, toUserMM, fmt4);
+    expect(f.coords).toBe('X 410  Y 287');
+  });
+
+  it('keeps the minus zero C prints for `0 * -1`', () => {
+    // `%.4g` of -0.0 is `-0`, and the capture shows it. A JS implementation
+    // that normalised the sign here would print `dx 0  dy 0`.
+    const f = plCoordFields(null, RB, SIGNS, { x: 0, y: 0 }, toUserMM, fmt4);
+    expect(f.deltas).toBe('dx -0  dy -0');
+  });
+
+  it('still follows the pointer once there is one', () => {
+    // The fallback must not be a constant: a cursor 10 mm inside the corner
+    // reads 10 on both axes through the right-bottom transform.
+    const f = plCoordFields(
+      { x: RB.x - mm(10), y: RB.y - mm(10) },
+      RB,
+      SIGNS,
+      { x: 0, y: 0 },
+      toUserMM,
+      fmt4,
+    );
+    expect(f.coords).toBe('X 10  Y 10');
+  });
+
+  it('is (0, 0) at rest for the default corner too, where the transform is identity', () => {
+    // Choice 0 is `paper Left Top corner`: origin (0, 0), both signs +1.
+    const f = plCoordFields(null, { x: 0, y: 0 }, { xs: 1, ys: 1 }, { x: 0, y: 0 }, toUserMM, fmt4);
+    expect(f.coords).toBe('X 0  Y 0');
+    expect(f.deltas).toBe('dx 0  dy 0');
+  });
+});
+
+const EDITOR = readFileSync(
+  fileURLToPath(
+    new URL('../../../designer/src/editors/drawingsheet/DrawingSheetEditor.tsx', import.meta.url),
+  ),
+  'utf8',
+);
+
+describe('the frame hands the cursor over as it found it', () => {
+  /*
+   * `plCoordFields` owns the at-rest rule, and the frame can still defeat it by
+   * substituting its own fallback before the call - which is exactly what the
+   * frame used to do, one line further down, with `X, Y -`. A mutation sweep
+   * put `cursor ?? { x: 1, y: 1 }` back at the call site and nothing failed
+   * until this was here.
+   */
+  it('passes the raw cursor, null included', () => {
+    const call = EDITOR.slice(
+      EDITOR.indexOf('} = plCoordFields('),
+      EDITOR.indexOf('} = plCoordFields(') + 200,
+    );
+    expect(call).toContain('plCoordFields(\n    cursor,\n');
+    expect(call).not.toContain('cursor ??');
+  });
+
+  it('states no coordinate template of its own', () => {
+    // The `X %.4g  Y %.4g` / `dx %.4g  dy %.4g` pair lives in one place now.
+    const statements = EDITOR.split('\n')
+      .map((l) => l.trim())
+      .filter((l) => !l.startsWith('//') && !l.startsWith('*') && !l.startsWith('/*'));
+    expect(statements.filter((l) => l.includes('`X ${'))).toHaveLength(0);
+    expect(statements.filter((l) => l.includes('`dx ${'))).toHaveLength(0);
   });
 });

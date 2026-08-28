@@ -98,7 +98,7 @@ import {
   dsFileSavedMsg,
   dsUnableToLoadMsg,
 } from './file_commands.js';
-import { PL_EDITOR_STATUS_TEMPLATES } from './pl_status_bar.js';
+import { PL_EDITOR_STATUS_TEMPLATES, plCoordFields } from './pl_status_bar.js';
 import { PL_EDITOR_PRINT_PAGES, printDocumentHtml } from './print_document.js';
 import { DS_CANVAS_PAGE_NUMBERING, dsPrintPageNumbering } from './page_numbering.js';
 import { UnsavedChangesDialog } from '../../ui/dialog_unsaved_changes.js';
@@ -2173,21 +2173,18 @@ export function DrawingSheetEditor({
   }, [sheet.setup, pageMM, originChoice]);
 
   /**
-   * `UpdateStatusBar` has no empty state: it always formats from
-   * `GetCanvas()->GetViewControls()->GetCursorPosition()`
-   * (pl_editor_frame.cpp:766-797), and a freshly built `VIEW_CONTROLS` holds
-   * (0, 0). So a pl_editor that has never seen the pointer reads
-   * `X 0  Y 0` / `dx 0  dy 0`, offset by whichever origin corner is selected —
-   * never a dash. Ours printed the placeholders `X, Y -` and `dx, dy -`, two
-   * strings upstream has nowhere.
+   * `UpdateStatusBar` has no empty state, and what it shows before the pointer
+   * has ever entered depends on the origin corner. The rule and the measurement
+   * are in `plCoordFields`; this is only the call.
    */
-  const cursorPos = cursor ?? { x: 0, y: 0 };
-  const absCoord = `X ${fmt4(
-    toUser((cursorPos.x - originInfo.origin.x) * originInfo.xs),
-  )}  Y ${fmt4(toUser((cursorPos.y - originInfo.origin.y) * originInfo.ys))}`;
-  const relCoord = `dx ${fmt4(
-    toUser((cursorPos.x - localOrigin.x) * originInfo.xs),
-  )}  dy ${fmt4(toUser((cursorPos.y - localOrigin.y) * originInfo.ys))}`;
+  const { coords: absCoord, deltas: relCoord } = plCoordFields(
+    cursor,
+    originInfo.origin,
+    originInfo,
+    localOrigin,
+    toUser,
+    fmt4,
+  );
 
   /*
    * The grid is a WINDOW setting, not a unit-derived one: pl_editor's default

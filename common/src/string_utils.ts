@@ -693,7 +693,13 @@ export function valueStringCompare(strFWord: string, strSWord: string): number {
  */
 export function formatG(value: number, precision = 4): string {
   if (!Number.isFinite(value)) return String(value);
-  if (value === 0) return '0';
+  // Negative zero keeps its sign, as the C library does. This is visible, not
+  // pedantic: `PL_EDITOR_FRAME::UpdateStatusBar` multiplies each delta by the
+  // origin corner's axis sign, so a pl_editor sitting on `Right Bottom page
+  // corner` with the cursor on its local origin computes `0 * -1` and its
+  // status bar reads `dx -0  dy -0`. Photographed off the running program
+  // (`qa/probes/pl_e2e`); ours read `dx 0  dy 0`.
+  if (value === 0) return Object.is(value, -0) ? '-0' : '0';
 
   const p = precision <= 0 ? 1 : precision;
   const rounded = value.toExponential(p - 1);
