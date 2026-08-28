@@ -188,7 +188,13 @@ describe('the shared checkbox takes the desktop accent, not a shade of our own',
       .split('}')
       .filter((block) => /accent-color/.test(block))
       .map((block) => block.split('{')[0]!.trim().replace(/\s+/g, ' '))
-      .filter((sel) => sel !== '.ze-app input[type="checkbox"]');
+      // `.ze-app select` is allowed and is the ONLY other one: a dropdown's
+      // popup is painted by the browser, so the accent is the only way to
+      // reach it. A checkbox and a radio are drawn here instead, for the
+      // reason recorded beside them — the browser picks the tick's colour and
+      // Chrome picks black where GTK strokes white — so an accent for THOSE
+      // would re-open a measured decision, and this list still catches it.
+      .filter((sel) => sel !== '.ze-app input[type="checkbox"]' && sel !== '.ze-app select');
     expect(
       offenders,
       'the accent is the theme\u2019s, so only the shared rule states it',
