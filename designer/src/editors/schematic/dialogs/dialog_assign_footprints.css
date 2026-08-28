@@ -22,25 +22,26 @@
   display: flex;
   flex-direction: column;
 
-  /* wxAuiDefaultDockArt::wxAuiDefaultDockArt sets `m_captionSize =
+  /* [data] wxAuiDefaultDockArt::wxAuiDefaultDockArt sets `m_captionSize =
      wxWindow::FromDIP( 17 )` and `m_captionFont = wxFont( 8, wxDEFAULT, ... )`,
      and WX_AUI_DOCK_ART (common/widgets/wx_aui_art_providers.cpp:307-325) only
      overrides those two inside `#if defined( _WIN32 )`. So on Linux the caption
-     band is wx's own 17 px at wx's own 8 pt: DATA, wx's constants, not the
-     theme's. Confirmed by asking the art provider itself
-     (qa/probes/cvpcb_listbox_probe.cpp: "aui caption size 17", font pt=8). */
+     band is wx's own 17 px at wx's own 8 pt: wx's constants, not the theme's.
+     Confirmed by asking the art provider itself
+     (qa/probes/cvpcb_listbox_probe.cpp: "aui caption size 17", font pt=8).
+
+     STILL A PRIVATE COPY, and named so: `.ze-panel-header` in ui/shell.css is
+     the same wxAuiDefaultDockArt caption and states the same two constants as
+     its own literals (`min-height: 18px`, i.e. the 17 plus its rule, and
+     `font-size: 8pt`). The pair wants one `--aui-caption-*` token beside
+     `--aui-sash`, consumed from both. Not done here because
+     `qa/unittests/designer/ui_font_tokens.test.ts` pins the exact COUNT of
+     font-size literals in `ui` (`sites.length` is 335), so moving
+     `.ze-panel-header`'s 8pt is a change to that test's numbers and belongs in
+     a commit that is about them — not smuggled into a cvpcb one while another
+     agent is working in that area. */
   --fpassign-caption-h: 17px;
   --fpassign-caption-size: 8pt;
-
-  /* CHROME. wxAUI's inactive caption fill, which is the only one CVPCB shows:
-     WX_AUI_DOCK_ART turns the gradient off (`m_gradientType =
-     wxAUI_GRADIENT_NONE`) and KiCad does not pass wxAUI_MGR_ALLOW_ACTIVE_PANE,
-     so every pane paints wxAUI_DOCKART_INACTIVE_CAPTION_COLOUR flat. #2e2e2e
-     measured from the art provider on this desktop by
-     qa/probes/cvpcb_listbox_probe.cpp. It is close to --chrome-bg (#2c2c2c) but
-     is a different question, and there is no token for it yet; it belongs
-     beside the other wxAUI metrics in ui/shell.css when that file is free. */
-  --fpassign-caption-bg: #2e2e2e;
 
   /* CHROME. KIUI::GetMonospacedUIFont() is `wxFont( guiFontSize,
      wxFONTFAMILY_MODERN, ... )` with no face name, so fontconfig answers it:
@@ -104,7 +105,20 @@
   /* WX_AUI_DOCK_ART sets both caption text colours to wxSYS_COLOUR_BTNTEXT
      (wx_aui_art_providers.cpp:318-321), which is --chrome-fg. */
   color: var(--chrome-fg);
-  background: var(--fpassign-caption-bg);
+  /* wxAUI's inactive caption fill, which is the only one CVPCB shows:
+     WX_AUI_DOCK_ART turns the gradient off (`m_gradientType =
+     wxAUI_GRADIENT_NONE`) and KiCad does not pass wxAUI_MGR_ALLOW_ACTIVE_PANE,
+     so every pane paints wxAUI_DOCKART_INACTIVE_CAPTION_COLOUR flat.
+
+     --panel-header, the token every other docked caption in the app already
+     uses, and NOT a #2e2e2e of ours — which is what stood here, as a private
+     `--fpassign-caption-bg`. The two agree, and they are independent readings:
+     the token was sampled off a live KiCad pane, while
+     qa/probes/cvpcb_listbox_probe.cpp asks the art provider for
+     wxAUI_DOCKART_INACTIVE_CAPTION_COLOUR directly. A per-dialog custom
+     property is still a launcher-local copy — one the central-value ratchet
+     cannot see, because it skips custom-property declarations. */
+  background: var(--panel-header);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

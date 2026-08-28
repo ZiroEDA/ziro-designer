@@ -202,6 +202,18 @@ describe('the wxAUI caption band over each pane', () => {
     expect(decl('.ze-fpassign-caption', 'color')).toBe('var(--chrome-fg)');
   });
 
+  it('fills from --panel-header, the token every other docked caption uses', () => {
+    // `m_gradientType = wxAUI_GRADIENT_NONE` and no wxAUI_MGR_ALLOW_ACTIVE_PANE,
+    // so every pane paints wxAUI_DOCKART_INACTIVE_CAPTION_COLOUR flat — the
+    // same value --panel-header already holds. This stood here as a private
+    // `--fpassign-caption-bg: #2e2e2e`, which the central-value ratchet cannot
+    // see: it skips custom-property DECLARATIONS, so a launcher-local token is
+    // drift that counts as zero. Hence the second half, which is the half that
+    // fails if the private property comes back under any name.
+    expect(decl('.ze-fpassign-caption', 'background')).toBe('var(--panel-header)');
+    expect(CSS).not.toMatch(/--fpassign-[\w-]*(bg|colou?r)\s*:/);
+  });
+
   it('has no close box: EDA_PANE’s constructor calls CloseButton( false )', () => {
     const captions = Array.from(
       window_().querySelectorAll('.ze-fpassign-pane > .ze-fpassign-caption'),
