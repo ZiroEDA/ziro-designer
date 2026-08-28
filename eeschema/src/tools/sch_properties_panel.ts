@@ -20,6 +20,7 @@ import type {
   TextEffects,
   Vec2,
 } from '../types.js';
+import { parseColor4d, rgb8ToCss } from '@ziroeda/common';
 import type { EditCommand } from './command.js';
 import { refId, type ItemRef } from './hittest.js';
 import {
@@ -37,6 +38,7 @@ import { moveItems } from './move.js';
 import { parseSheetPinId } from './sch_sheet_pin_tool.js';
 import { transformItems } from './transform.js';
 import { bulkEditFieldsCommand } from './properties.js';
+import { isGeneratedField } from './fields_data_model.js';
 import { schSymbolLibraryName } from '../lib_symbol_compare.js';
 
 /** One grid row: `coord`/`dist` are IU numbers the panel renders in the
@@ -47,6 +49,10 @@ export interface PropRow {
   name: string;
   kind: 'coord' | 'dist' | 'string' | 'bool' | 'int' | 'choice';
   choices?: readonly string[];
+  /** `PGPROPERTY_COLOR4D`'s colour cell (pg_cell_renderer.cpp:38-58), which
+   *  `SCH_PROPERTIES_PANEL::createPGProperty` builds for every COLOR4D
+   *  property (sch_properties_panel.cpp:472-476). */
+  swatch?: string;
   value: string | number | boolean;
   set?: (v: string | number | boolean) => EditCommand | null;
 }
@@ -595,9 +601,73 @@ function labelRows(sch: Schematic, index: number): PropRow[] {
  */
 
 /**
- * A symbol field selected on its own (SCH_FIELD): its text and where it sits.
- * Position goes through moveItems on the field id, so only the text moves,
- * the symbol stays put, matching SCH_FIELD being independently movable.
+ * `GR_TEXT_H_ALIGN_T` / `GR_TEXT_V_ALIGN_T`, whose labels SCH_FIELD_DESC maps
+ * verbatim (sch_field.cpp:1745-1757 — the same table EDA_TEXT_DESC declares,
+ * built in whichever of the two runs first).
+ */
+const H_JUSTIFY_LABELS = ['Left', 'Center', 'Right'] as const;
+const V_JUSTIFY_LABELS = ['Top', 'Center', 'Bottom'] as const;
+/** The `(justify …)` tokens those map onto, in the same order. */
+const H_JUSTIFY_TOKENS = ['left', 'center', 'right'] as const;
+const V_JUSTIFY_TOKENS = ['top', 'center', 'bottom'] as const;
+
+/**
+ * `FONT_CHOICE` (common/widgets/font_choice.cpp:240-258): "Default Font" for
+ * no `(font (face …))` at all, plus the stroke font by name. We ship no
+ * outline faces, so the fontconfig list `EDA_TEXT_DESC`'s `SetChoicesFunc`
+ * enumerates (common/eda_text.cpp:1357-1379) is these two here — the same pair
+ * the Text and Label Properties dialogs offer.
+ */
+const FONT_CHOICES = ['Default Font', 'KiCad Font'] as const;
+
+const justifyOf = (fx: TextEffects | undefined, tokens: readonly string[]): number => {
+  const found = (fx?.justify ?? []).find((t) => tokens.includes(t));
+  // `center` is the default on both axes, and KiCad writes no token for it.
+  return found === undefined ? tokens.indexOf('center') : tokens.indexOf(found);
+};
+
+/** Replace the justification token on one axis, leaving the other alone. */
+const withJustify = (
+  fx: TextEffects | undefined,
+  tokens: readonly string[],
+  token: string,
+): readonly string[] => {
+  const kept = (fx?.justify ?? []).filter((t) => !tokens.includes(t));
+  return token === 'center' ? kept : [...kept, token];
+};
+
+/**
+ * A symbol field selected on its own (SCH_FIELD).
+ *
+ * The row set is `SCH_FIELD_DESC` (eeschema/sch_field.cpp:1739-1814) resolved
+ * against what it inherits, and the omissions are as load-bearing as the rows:
+ *
+ *  - **no Position X / Position Y.** Neither EDA_ITEM, SCH_ITEM nor EDA_TEXT
+ *    registers a position; every item that shows those rows registers them
+ *    itself (SCH_SYMBOL at sch_symbol.cpp:3908, SCH_PIN at sch_pin.cpp:2043,
+ *    SCH_BITMAP at sch_bitmap.cpp:308). SCH_FIELD registers none, so it has
+ *    none — even though a field is independently movable.
+ *  - **no Orientation.** `propMgr.Mask( TYPE_HASH( SCH_FIELD ),
+ *    TYPE_HASH( EDA_TEXT ), _HKI( "Orientation" ) )` (:1791) hides the one row
+ *    EDA_TEXT contributes to the unnamed group.
+ *  - **no Thickness, Mirrored, Width, Height or Hyperlink** — masked together
+ *    at :1780-1784. Width and Height go because SCH_FIELD replaces them with a
+ *    single `Text Size` (:1787): `SetSchTextSize` writes both axes at once.
+ *  - **no Unit, Body Style or Private rows**: SCH_ITEM registers all three
+ *    `.SetIsHiddenFromDesignEditors()` (sch_item.cpp SCH_ITEM_DESC), which is
+ *    what keeps them out of this panel. `Private` additionally carries
+ *    `OverrideAvailability( …, isNonMandatoryField )` (:1813), a lambda that
+ *    returns false for anything that is not a SCH_FIELD.
+ *
+ * `Show Field Name` (:1774) and `Allow Autoplacement` (:1777) take no group
+ * argument, so they land in the unnamed group the panel captions "Basic
+ * Properties"; every other row is `_HKI( "Text Properties" )`, in the order
+ * EDA_TEXT declares them, then the two `ReplaceProperty` justifications, then
+ * `Text Size`.
+ *
+ * This used to show Position X, Position Y and Orientation — three rows
+ * upstream masks or never had — inside a "Field" group that exists nowhere in
+ * the C++, and none of the ten rows above.
  */
 function fieldRows(sch: Schematic, id: string): PropRow[] {
   const at = id.lastIndexOf(':field');
@@ -623,31 +693,175 @@ function fieldRows(sch: Schematic, id: string): PropRow[] {
     invert: () => replaceField(label, f),
   });
 
+  const fx = f.effects;
+  const setEffects = (label: string, p: Partial<TextEffects>): EditCommand =>
+    replaceField(label, { ...f, effects: { hidden: false, ...fx, ...p } });
+
+  // `GetSchTextSize() { return GetTextWidth(); }` (sch_field.h:180) — the
+  // WIDTH, which is `(size <height> <width>)`'s second number; the setter
+  // writes both axes to it (`SetTextSize( VECTOR2I( aSize, aSize ) )`, :181).
+  const textSize = fx?.fontSize?.[1] ?? fx?.fontSize?.[0] ?? 0;
+
+  // `GetTextColor()`. COLOR4D::UNSPECIFIED is fully transparent, and its cell
+  // is empty rather than black.
+  const c = fx?.color;
+  const colorCss = c && c[3] > 0 ? rgb8ToCss([c[0], c[1], c[2]]) : '';
+
+  const hIdx = justifyOf(fx, H_JUSTIFY_TOKENS);
+  const vIdx = justifyOf(fx, V_JUSTIFY_TOKENS);
+
   return [
-    ...positionRows(id, f.at),
     {
       group: '',
-      name: 'Orientation',
-      kind: 'choice',
-      choices: ORIENTATIONS,
-      value: String(((f.angle % 360) + 360) % 360),
-      set: (v) => replaceField('Change Orientation', { ...f, angle: Number(v) }),
+      name: 'Show Field Name',
+      kind: 'bool',
+      value: !!f.nameShown,
+      set: (v) => replaceField('Show Field Name', { ...f, nameShown: !!v }),
     },
-    { group: 'Field', name: 'Name', kind: 'string', value: f.key },
     {
-      group: 'Field',
-      name: 'Value',
+      group: '',
+      name: 'Allow Autoplacement',
+      kind: 'bool',
+      // `CanAutoplace()` is the positive sense; the file stores the negative
+      // (`(do_not_autoplace)`).
+      value: !f.doNotAutoplace,
+      set: (v) => replaceField('Allow Autoplacement', { ...f, doNotAutoplace: !v }),
+    },
+    {
+      group: 'Text Properties',
+      name: 'Text',
       kind: 'string',
       value: f.value,
-      set: (v) =>
-        String(v) === f.value ? null : replaceField('Edit Field', { ...f, value: String(v) }),
+      // `OverrideWriteability( …, "Text", isNotGeneratedField )` (:1801): a
+      // generated field's text is computed from its name, and SCH_FIELD::
+      // SetText refuses to change it (sch_field.cpp:1077-1082), so the cell is
+      // read-only. `::IsGeneratedField` is a name that is exactly one text
+      // variable, like `${QUANTITY}`.
+      ...(isGeneratedField(f.key)
+        ? {}
+        : {
+            set: (v: string | number | boolean) =>
+              String(v) === f.value ? null : replaceField('Edit Field', { ...f, value: String(v) }),
+          }),
     },
     {
-      group: 'Field',
-      name: 'Show',
+      group: 'Text Properties',
+      name: 'Font',
+      kind: 'choice',
+      choices: FONT_CHOICES,
+      // `GetFontProp()` answers "Default Font" for an eeschema item with no
+      // font set (common/eda_text.cpp:1023-1032).
+      value: fx?.face ? fx.face : 'Default Font',
+      // `SetFontProp`: "Default Font" clears the face (:1035-1043).
+      set: (v) =>
+        setEffects('Change Font', {
+          face: String(v) === 'Default Font' ? undefined : String(v),
+        }),
+    },
+    {
+      group: 'Text Properties',
+      name: 'Auto Thickness',
       kind: 'bool',
-      value: !f.effects?.hidden,
-      set: (v) => replaceField('Show Field', { ...f, effects: { ...f.effects, hidden: !v } }),
+      // `GetAutoThickness() { return GetTextThickness() == 0; }`
+      // (include/eda_text.h:150); an absent `(thickness …)` token is auto.
+      value: !fx?.thickness,
+      // `SetAutoThickness( aAuto )` writes 0 for auto and the *effective* pen
+      // otherwise (common/eda_text.cpp:276-280). We resolve that pen at draw
+      // time from the size and the bold flag, so only the auto direction is
+      // expressible from a checkbox; unticking is refused rather than guessed.
+      set: (v) => (v ? setEffects('Auto Thickness', { thickness: undefined }) : null),
+    },
+    {
+      group: 'Text Properties',
+      name: 'Italic',
+      kind: 'bool',
+      value: !!fx?.italic,
+      set: (v) => setEffects('Toggle Italic', { italic: !!v || undefined }),
+    },
+    {
+      group: 'Text Properties',
+      name: 'Bold',
+      kind: 'bool',
+      value: !!fx?.bold,
+      set: (v) => setEffects('Toggle Bold', { bold: !!v || undefined }),
+    },
+    {
+      group: 'Text Properties',
+      name: 'Visible',
+      // EDA_TEXT's Visible row carries `.SetAvailableFunc( isField )`
+      // (common/eda_text.cpp:1391-1400), so a FIELD is the only schematic item
+      // that shows it — a label or a text box does not.
+      kind: 'bool',
+      value: !fx?.hidden,
+      set: (v) => setEffects('Show Field', { hidden: !v }),
+    },
+    {
+      group: 'Text Properties',
+      name: 'Color',
+      kind: 'string',
+      swatch: colorCss,
+      value: colorCss,
+      set: (v) => {
+        const css = String(v).trim();
+        if (css === '') return setEffects('Change Color', { color: undefined });
+        const parsed = parseColor4d(css);
+        return parsed.a <= 0
+          ? null
+          : setEffects('Change Color', {
+              color: [
+                Math.round(parsed.r * 255),
+                Math.round(parsed.g * 255),
+                Math.round(parsed.b * 255),
+                parsed.a,
+              ] as const,
+            });
+      },
+    },
+    {
+      group: 'Text Properties',
+      name: 'Horizontal Justification',
+      kind: 'choice',
+      choices: H_JUSTIFY_LABELS,
+      // `GetEffectiveHorizJustify` swaps Left and Right when the parent
+      // symbol's transform flips the field (sch_field.cpp:543-551); that flip
+      // lives in our renderer, so the stored token is what the row reports.
+      value: H_JUSTIFY_LABELS[hIdx]!,
+      set: (v) => {
+        const i = (H_JUSTIFY_LABELS as readonly string[]).indexOf(String(v));
+        return i < 0
+          ? null
+          : setEffects('Change Horizontal Justification', {
+              justify: withJustify(fx, H_JUSTIFY_TOKENS, H_JUSTIFY_TOKENS[i]!),
+            });
+      },
+    },
+    {
+      group: 'Text Properties',
+      name: 'Vertical Justification',
+      kind: 'choice',
+      choices: V_JUSTIFY_LABELS,
+      value: V_JUSTIFY_LABELS[vIdx]!,
+      set: (v) => {
+        const i = (V_JUSTIFY_LABELS as readonly string[]).indexOf(String(v));
+        return i < 0
+          ? null
+          : setEffects('Change Vertical Justification', {
+              justify: withJustify(fx, V_JUSTIFY_TOKENS, V_JUSTIFY_TOKENS[i]!),
+            });
+      },
+    },
+    {
+      group: 'Text Properties',
+      name: 'Text Size',
+      // `PROPERTY_DISPLAY::PT_SIZE` (:1788): rendered as a distance in the
+      // frame's units, which is why his screenshot reads "50 mils".
+      kind: 'dist',
+      value: textSize,
+      set: (v) => {
+        const n = num(v);
+        // `SetSchTextSize` writes the one value to both axes.
+        return n === null || n <= 0 ? null : setEffects('Change Text Size', { fontSize: [n, n] });
+      },
     },
   ];
 }
