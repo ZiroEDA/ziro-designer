@@ -114,17 +114,21 @@ const MM = mmToIU(2.54);
 /**
  * Half a row, as eeschema wrote it — which is not `mmToIU(1.27)`.
  *
- * This file first pinned the autoplaced pair at exactly ±1.27 mm. Re-running the
- * same probe and reading the file byte for byte gives `74.9299` and `77.4699`
- * against a symbol at `76.2000`: the rows are one internal unit (0.0001 mm)
- * above the round number, and the pair is *not* symmetric about the body.
+ * This file first pinned the autoplaced pair at exactly ±1.27 mm. It is not
+ * symmetric: the rows sit one internal unit (0.0001 mm) above the round number.
  *
- * That is not eeschema being sloppy. `fieldVPlacement` accumulates
- * `padding / 2 + field_height / 2` in `int` (autoplace_fields.cpp:726-741), and
- * the two sum to a whole 50 mil row, so when the height is odd — which it is at
- * the default 1.27 mm text — both halves truncate and the row loses 1 IU.
- * Rounding the sum once instead loses the asymmetry, which is what these two
- * expectations used to assert.
+ * The reason is in the source, and does not need a measurement at all.
+ * `fieldVPlacement` accumulates `*aAccumulatedPosition + padding / 2 +
+ * field_height / 2` in `int` (autoplace_fields.cpp:726-741). `padding` and
+ * `field_height` sum to a whole 50 mil row, so when the height is odd — which
+ * it is at the default 1.27 mm text — *both* halves truncate on their own and
+ * the row lands 1 IU short. Rounding the sum once instead loses the asymmetry,
+ * which is what these two expectations used to assert.
+ *
+ * Corroborated in a file eeschema itself wrote, from a probe run that is not
+ * this one: `/home/akshay/kicad-rotate-probe/probe.kicad_sch`, `(version
+ * 20260306)`, holds an autoplaced symbol at 90° whose Reference and Value are
+ * at exactly (+2.5400, -1.2701) and (+2.5400, +1.2699) from the body.
  */
 const HALF_LOW = mmToIU(1.2699);
 const HALF_HIGH = mmToIU(1.2701);
