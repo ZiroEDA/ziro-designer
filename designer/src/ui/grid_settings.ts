@@ -310,6 +310,58 @@ export function gridChoiceLabel(
   return `${name ? `${name}: ` : ''}${axis(primary)} (${axis(secondary)})`;
 }
 
+/** `_( "Grid" )`, the hotkey popup's title (`sch_editor_control.cpp:3379`). */
+export const GRID_FEEDBACK_TITLE = 'Grid';
+
+/**
+ * `SCH_EDITOR_CONTROL::GridFeedback`
+ * (`eeschema/tools/sch_editor_control.cpp:3360-3382`) — everything that call
+ * does apart from finding the popup:
+ *
+ *     if( !Pgm().GetCommonSettings()->m_Input.hotkey_feedback ) return 0;   :3362
+ *     for( const GRID& grid : gridSettings.grids )
+ *         gridsLabels.Add( grid.UserUnitsMessageText( m_frame ) );          :3370-3371
+ *     popup->Popup( _( "Grid" ), gridsLabels, currentIdx );                 :3379
+ *
+ * where `currentIdx` is `m_Window.grid.last_size_idx` (`:3367`).
+ *
+ * The gate is upstream's own first line and belongs to the CALLER, not to the
+ * popup: `PCB_CONTROL`'s three feedback handlers each repeat it
+ * (`pcbnew/tools/pcb_control.cpp:403`, `:715`, `:2355`), so a popup that
+ * enforced it internally would be enforcing someone else's rule.
+ *
+ * It is one function here, rather than a copy per frame, because the rows it
+ * builds are `GRID_SETTINGS::grids` — which every editor has — and because the
+ * only thing an editor supplies is its own units and IU scale. Upstream has
+ * exactly one caller today; eeschema is the only frame that posts
+ * `GridChangedByKeyEvent`.
+ */
+export function gridFeedback(
+  /** The frame's `HOTKEY_CYCLE_POPUP`. Structural, so the widget stays unaware of grids. */
+  popup: { popup: (title: string, items: readonly string[], selection: number) => void },
+  cfg: {
+    /** `Pgm().GetCommonSettings()->m_Input.hotkey_feedback`. */
+    hotkeyFeedback: boolean;
+    /** `GRID_SETTINGS::grids`. */
+    grids: readonly GridEntry[];
+    /** `GRID_SETTINGS::last_size_idx`. */
+    lastSizeIdx: number;
+    /** The frame's `GetUserUnits()`. */
+    units: StatusUnits;
+    /** The frame's `GetIuScale().IU_PER_MM`. */
+    iuPerMM: number;
+  },
+): void {
+  if (!cfg.hotkeyFeedback) return;
+
+  popup.popup(
+    GRID_FEEDBACK_TITLE,
+    // `UserUnitsMessageText` — ONE unit, and no name. Not `gridChoiceLabel`.
+    cfg.grids.map((grid) => gridMessageText(grid, cfg.units, cfg.iuPerMM)),
+    cfg.lastSizeIdx,
+  );
+}
+
 /**
  * The two rows `UpdateGridSelectBox` appends after the grids
  * (`common/eda_draw_frame.cpp:220-221`):

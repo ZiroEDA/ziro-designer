@@ -435,7 +435,7 @@ import type { ProgressSnapshot } from '../../ui/progress_reporter.js';
 import { PreferencesDialog } from '../../dialogs/PreferencesDialog.js';
 import type { PrefsPageId } from '../../dialogs/prefs/types.js';
 import { settings, gridSizeToIU } from '../../prefs/settings.js';
-import { gridChoiceLabel, gridMessageText } from '../../ui/grid_settings.js';
+import { gridChoiceLabel, gridFeedback } from '../../ui/grid_settings.js';
 import { useHotkeyCyclePopup } from '../../widgets/HotkeyCyclePopup.js';
 import {
   useCommonSettings,
@@ -1317,19 +1317,18 @@ export function SchematicEditor({
    */
   const gridFeedbackRef = useRef<() => void>(() => {});
   gridFeedbackRef.current = () => {
-    // `if( !Pgm().GetCommonSettings()->m_Input.hotkey_feedback ) return 0;` (`:3362`)
-    if (!settings.common.input.hotkey_feedback) return;
+    // The settings manager is read here rather than the render-time `es`,
+    // because this runs immediately after `updateEeschema` has moved the index
+    // and must see the grid the keystroke just chose - as upstream does, where
+    // `OnGridChanged` assigns `last_size_idx` before posting the event.
     const grid = settings.eeschema.window.grid;
-    hotkeyPopup.popup(
-      // `_( "Grid" )` (`:3379`).
-      'Grid',
-      // `gridsLabels.Add( grid.UserUnitsMessageText( m_frame ) )` (`:3371`) -
-      // the size in the frame's own units, and NOT the grid menu's two-unit
-      // row: no name, no bracketed second unit.
-      grid.sizes.map((size) => gridMessageText(size, units, SCH_IU_PER_MM)),
-      // `m_Window.grid.last_size_idx` (`:3367`).
-      grid.last_size_idx,
-    );
+    gridFeedback(hotkeyPopup, {
+      hotkeyFeedback: settings.common.input.hotkey_feedback,
+      grids: grid.sizes,
+      lastSizeIdx: grid.last_size_idx,
+      units,
+      iuPerMM: SCH_IU_PER_MM,
+    });
   };
   const statusReadout = useStatusReadout({
     units,
