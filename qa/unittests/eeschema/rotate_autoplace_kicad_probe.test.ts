@@ -53,9 +53,9 @@
 import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr/src/index.js';
 import { readSchematic } from '@ziroeda/eeschema/src/sch_io/sexpr/read-schematic.js';
-import { transformItems } from '@ziroeda/eeschema/src/tools/transform.js';
+import { transformItems, type TransformOp } from '@ziroeda/eeschema/src/tools/transform.js';
 import { refId } from '@ziroeda/eeschema/src/tools/hittest.js';
-import type { Schematic, SchSymbol, TransformOp } from '@ziroeda/eeschema/src/types.js';
+import type { Schematic, SchSymbol } from '@ziroeda/eeschema/src/types.js';
 import { mmToIU } from '@ziroeda/common/src/eda_units.js';
 
 /**
