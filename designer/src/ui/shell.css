@@ -190,7 +190,16 @@
      Akshay saw as "the boxes are more whiter" in KiCad. */
   --grid-label-bg: #373737;
   --grid-cell-bg: #272727;
-  --grid-line: #181818;
+  /* wxGrid's OWN line colour, which is not the control border. `wxGrid`
+     defaults `SetGridLineColour` to the same BTNFACE the labels take, so the
+     lines read as part of the header band rather than as dark rules -- the
+     same reason a wxPropertyGrid category reads as an unbroken band (see
+     widgets/properties_panel.css). This said #181818, which is --ctl-border's
+     value: copied from the control border rather than asked of wx, and never
+     pinned by anything. `qa/probes/eseries_grid_probe.cpp` builds a real
+     wxGrid and asks it -- `wxGrid default line colour rgb(55, 55, 55)`, the
+     same call KiCad makes, on this machine, with this theme. */
+  --grid-line: #373737;
   /* EDA_MSG_PANEL lays itself out in units of one 'W':
        m_fontSize = GetTextExtent( "W" )                     msgpanel.cpp:72
        if( m_last_x == 0 ) m_last_x = m_fontSize.x;          :143  (first item)
