@@ -370,4 +370,91 @@ describe('the three panes have wxAUI’s sashes and they resize', () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// The clipboard seam: the accelerator, the system clipboard, and the paste event
+// ---------------------------------------------------------------------------
+
+describe('the Edit menu’s three rows reach the system clipboard', () => {
+  let written: string[] = [];
+  let clipDesc: PropertyDescriptor | undefined;
+
+  beforeEach(() => {
+    written = [];
+    clipDesc = Object.getOwnPropertyDescriptor(globalThis.navigator, 'clipboard');
+    Object.defineProperty(globalThis.navigator, 'clipboard', {
+      configurable: true,
+      value: {
+        writeText: async (t: string) => {
+          written.push(t);
+        },
+        readText: async () => written[written.length - 1] ?? '',
+      },
+    });
+  });
+
+  afterEach(() => {
+    if (clipDesc) Object.defineProperty(globalThis.navigator, 'clipboard', clipDesc);
+  });
+
+  /** Select the one assigned symbol, R1, which the window does not open on. */
+  function withR1Selected(): HTMLElement {
+    const c = open_();
+    const r1 = Array.from(c.querySelectorAll('.ze-fpassign-row')).find((r) =>
+      r.textContent?.includes('R1'),
+    )!;
+    fireEvent.click(r1);
+    return c;
+  }
+
+  it('Ctrl+C puts the FPID on the clipboard, and only the FPID', async () => {
+    // `ACTIONS::copy`'s own accelerator, dispatched off the row by
+    // ui/menu_hotkeys.ts. The payload is `GetUniStringLibId()` — no prefix, no
+    // s-expression, nothing but the id, so it pastes into a text editor as
+    // itself and back into cvpcb as an assignment.
+    const c = withR1Selected();
+    fireEvent.keyDown(c.querySelector('.ze-fpassign')!, { key: 'c', ctrlKey: true });
+    await Promise.resolve();
+    expect(written).toEqual(['Resistor_THT:R_Axial_DIN0207']);
+  });
+
+  it('Ctrl+X copies the same text and then clears the row', async () => {
+    const c = withR1Selected();
+    fireEvent.keyDown(c.querySelector('.ze-fpassign')!, { key: 'x', ctrlKey: true });
+    await Promise.resolve();
+    expect(written).toEqual(['Resistor_THT:R_Axial_DIN0207']);
+    expect(c.textContent).not.toContain('Resistor_THT:R_Axial_DIN0207');
+  });
+
+  it('Ctrl+C in the filter box is the box’s, not the window’s', () => {
+    // `tool_dispatcher.cpp:654-670` — no hotkey fires while an editable text
+    // entry has focus, Ctrl-combinations included. Copying out of the search
+    // box must not put a footprint id on the clipboard instead.
+    const c = withR1Selected();
+    fireEvent.keyDown(c.querySelector('.ze-search')!, { key: 'c', ctrlKey: true });
+    expect(written).toEqual([]);
+  });
+
+  it('a paste event assigns the clipboard’s id to the selection', () => {
+    // Ctrl+V is left to the browser (`nativeShortcut`), so the window listens
+    // for the event the browser then raises. The dialog opens on R2, the first
+    // unassigned symbol.
+    const c = open_();
+    fireEvent.paste(c.querySelector('.ze-fpassign')!, {
+      clipboardData: { getData: () => 'Package_SO:SOIC-8' },
+    });
+    const r2 = Array.from(c.querySelectorAll('.ze-fpassign-row')).find((r) =>
+      r.textContent?.includes('R2'),
+    )!;
+    expect(r2.textContent).toContain('Package_SO:SOIC-8');
+  });
+
+  it('a paste into the filter box stays text', () => {
+    const c = open_();
+    fireEvent.paste(c.querySelector('.ze-search')!, {
+      clipboardData: { getData: () => 'Package_SO:SOIC-8' },
+    });
+    expect(c.textContent).not.toContain('Package_SO:SOIC-8');
+  });
+});
+
 afterEach(cleanup);
