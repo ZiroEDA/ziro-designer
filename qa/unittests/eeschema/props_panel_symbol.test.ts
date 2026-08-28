@@ -181,6 +181,37 @@ describe('writeability follows the registrations', () => {
     expect(rows).toHaveLength(23);
     expect(rows.filter((r) => r.set)).toHaveLength(20);
   });
+
+  /**
+   * "Has a setter" and "the setter edits the field" are different claims, and
+   * only the second is what a user sees. Datasheet and Footprint reach the
+   * panel as SCH_SYMBOL_FIELD_PROPERTY rows (sch_properties_panel.cpp:57-128),
+   * whose `Set` writes the field's value, so each has to survive the round
+   * trip into the document.
+   */
+  it.each(['Datasheet', 'Footprint'])('commits an edit to the %s field', (fieldName) => {
+    const doc = withLib();
+    const cmd = rowsOf(doc).find((r) => r.name === fieldName)!.set!('edited')!;
+    const next = cmd.apply(doc);
+    const readField = (d: typeof doc): string | undefined =>
+      d.symbols[0]!.fields.find((f) => f.key === fieldName)?.value;
+    expect(readField(doc)).not.toBe('edited');
+    expect(readField(next)).toBe('edited');
+    // …and the other field is untouched, so a shared `[key]` capture that had
+    // gone stale would show up here rather than passing on symmetry.
+    expect(readField(cmd.invert(doc).apply(next))).toBe(readField(doc));
+    expect(next.symbols[0]!.fields.map((f) => f.key)).toEqual(
+      doc.symbols[0]!.fields.map((f) => f.key),
+    );
+  });
+
+  it.each([
+    'Library Link',
+    'Library Description',
+    'Keywords',
+  ])('offers no setter at all for %s, which is NO_SETTER upstream', (rowName) => {
+    expect(rowsOf(withLib()).find((r) => r.name === rowName)!.set).toBeUndefined();
+  });
 });
 
 describe('the pin flags read and write the cached library symbol', () => {

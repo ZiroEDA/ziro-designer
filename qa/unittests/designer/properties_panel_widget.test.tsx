@@ -216,6 +216,67 @@ describe('a value cell is a grid cell, not a permanently-rendered control', () =
     expect(Array.from(editor.options).map((o) => o.value)).toEqual(['0', '90', '180', '270']);
   });
 
+  /**
+   * `wxPropertyGrid::HandleMouseClick( int x, unsigned int y, wxMouseEvent& )`
+   * (wx/propgrid/propgrid.h:1747) is handed the click's x and compares it with
+   * the splitter position: the CELL is the hit area, not the glyphs painted in
+   * it. Hung on the text span instead, the hit target was as wide as the value
+   * happened to be — which is nothing at all for a blank one.
+   */
+  it('activates on a click anywhere in the value cell, not only on its text', () => {
+    const { container } = panel();
+    const cell = rowNamed(container, 'Reference');
+    // Dispatched on the cell itself. A handler on the child text span would
+    // never see this: a click does not travel DOWN.
+    fireEvent.click(cell.querySelector('.ze-pgrid-value')!);
+    expect((cell.querySelector('input.ze-pgrid-editor') as HTMLInputElement).value).toBe('J1');
+  });
+
+  it('opens a row whose value is empty, which has no text to click', () => {
+    // "Footprint" on a symbol whose library part leaves it blank, and
+    // "Datasheet", which KiCad's libraries write as the single character "~".
+    const seen: (string | number | boolean)[] = [];
+    const blank: PropertyGridRow<Cmd>[] = [
+      {
+        group: 'Fields',
+        name: 'Footprint',
+        kind: 'string',
+        value: '',
+        set: (v) => {
+          seen.push(v);
+          return { what: 'fp' };
+        },
+      },
+      {
+        group: 'Fields',
+        name: 'Datasheet',
+        kind: 'string',
+        value: '~',
+        set: () => ({ what: 'ds' }),
+      },
+    ];
+    const { container } = panel(blank, 1, 'Symbol');
+    const cell = rowNamed(container, 'Footprint');
+    expect(cell.querySelector('.ze-pgrid-value')!.textContent).toBe('');
+    fireEvent.click(cell.querySelector('.ze-pgrid-value')!);
+    const editor = cell.querySelector('input.ze-pgrid-editor') as HTMLInputElement;
+    expect(editor).not.toBeNull();
+    fireEvent.change(editor, { target: { value: 'Connector:Screw' } });
+    fireEvent.keyDown(editor, { key: 'Enter' });
+    expect(seen).toEqual(['Connector:Screw']);
+
+    const ds = rowNamed(container, 'Datasheet');
+    fireEvent.click(ds.querySelector('.ze-pgrid-value')!);
+    expect(ds.querySelector('input.ze-pgrid-editor')).not.toBeNull();
+  });
+
+  it('does not activate a read-only row from a click on its cell', () => {
+    const { container } = panel();
+    const ro = rowNamed(container, 'Library Link');
+    fireEvent.click(ro.querySelector('.ze-pgrid-value')!);
+    expect(ro.querySelectorAll('input, select')).toHaveLength(0);
+  });
+
   it('keeps the checkbox a bool row draws at rest — PG_CHECKBOX_EDITOR::DrawValue', () => {
     const { container } = panel();
     const cell = Array.from(container.querySelectorAll('.ze-pgrid-row')).find(

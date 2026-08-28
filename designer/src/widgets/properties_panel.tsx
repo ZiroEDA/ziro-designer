@@ -140,6 +140,16 @@ function groupRows<C>(
  * checkbox editor's `DrawValue` paints the box in the resting cell too, which
  * is why the pin flags and the mirror flags show real checkboxes while
  * Orientation shows the word "180".
+ *
+ * What ACTIVATES the cell is the cell, not the text in it. `HandleMouseClick(
+ * int x, unsigned int y, wxMouseEvent& )` (wx/propgrid/propgrid.h:1747) is
+ * handed the click's x and compares it against the splitter position, so
+ * anywhere right of the splitter selects the property and builds its editor.
+ * This component therefore renders the value cell itself and carries the
+ * handler there: hung on the text span instead, a row whose value is EMPTY —
+ * "Footprint" on a symbol whose library part leaves it blank — had a
+ * zero-width hit target and could not be opened at all, and a one-character
+ * one ("Datasheet", which KiCad's libraries write as "~") had a few pixels.
  */
 function ValueCell<C>({
   row,
@@ -168,34 +178,51 @@ function ValueCell<C>({
     return true;
   };
 
+  /**
+   * The cell the row's value lives in. `activate` is the click wxPropertyGrid
+   * answers with `DoSelectProperty`; it is absent for a read-only property, for
+   * a bool (whose checkbox is the editor, and is already live at rest), and
+   * once the editor is up.
+   */
+  const cell = (inner: JSX.Element, activate?: () => void): JSX.Element => (
+    // biome-ignore lint/a11y/useKeyWithClickEvents: a wxPropertyGrid cell is
+    // reached from the keyboard by selecting the ROW, which is the grid's job,
+    // not the cell's.
+    // biome-ignore lint/a11y/noStaticElementInteractions: as above — this is
+    // the cell rectangle wxPropertyGrid hit-tests, not a control.
+    <span className="ze-pgrid-value" onClick={activate}>
+      {/* `PGPROPERTY_COLORENUM::OnCustomPaint`: a plain filled rectangle in the
+          cell's image slot, drawn before the value text. Not a `COLOR_SWATCH` —
+          that widget is a button onto DIALOG_COLOR_PICKER and this is paint. */}
+      {row.swatch !== undefined && (
+        <span className="ze-pgrid-swatch" style={{ background: row.swatch }} />
+      )}
+      {inner}
+    </span>
+  );
+
   if (row.kind === 'bool') {
-    return (
+    return cell(
       <input
         className="ze-pgrid-check"
         type="checkbox"
         checked={row.value as boolean}
         disabled={!row.set}
         onChange={(e) => commitValue(e.target.checked)}
-      />
+      />,
     );
   }
 
-  if (!row.set)
-    return (
+  if (!row.set || !editing)
+    return cell(
       <span className="ze-pgrid-text" title={display}>
         {display}
-      </span>
-    );
-
-  if (!editing)
-    return (
-      <span className="ze-pgrid-text" title={display} onClick={() => setEditing(true)}>
-        {display}
-      </span>
+      </span>,
+      row.set ? () => setEditing(true) : undefined,
     );
 
   if (row.kind === 'choice') {
-    return (
+    return cell(
       <select
         className="ze-pgrid-editor"
         // biome-ignore lint/a11y/noAutofocus: the just-activated cell's editor
@@ -213,7 +240,7 @@ function ValueCell<C>({
             {c}
           </option>
         ))}
-      </select>
+      </select>,
     );
   }
 
@@ -245,7 +272,7 @@ function ValueCell<C>({
     if (!commitValue(v)) setText(display);
   };
 
-  return (
+  return cell(
     <input
       className="ze-pgrid-editor"
       type="text"
@@ -263,7 +290,7 @@ function ValueCell<C>({
         // The canvas listens for bare keys; a cell editor must swallow them.
         e.stopPropagation();
       }}
-    />
+    />,
   );
 }
 
@@ -323,22 +350,16 @@ export function PropertiesPanel<C>({
                     <span className="ze-pgrid-name" title={r.name}>
                       {r.name}
                     </span>
-                    <span className="ze-pgrid-value">
-                      {/* `PGPROPERTY_COLORENUM::OnCustomPaint`: a plain filled
-                          rectangle in the cell's image slot, drawn before the
-                          value text. Not a `COLOR_SWATCH` — that widget is a
-                          button onto DIALOG_COLOR_PICKER and this is paint. */}
-                      {r.swatch !== undefined && (
-                        <span className="ze-pgrid-swatch" style={{ background: r.swatch }} />
-                      )}
-                      <ValueCell
-                        key={`${r.name}:${String(r.value)}`}
-                        row={r}
-                        fmt={fmt}
-                        parse={parse}
-                        onCommand={onCommand}
-                      />
-                    </span>
+                    {/* ValueCell renders `.ze-pgrid-value` itself, swatch and
+                        all, because the cell rectangle is what a click has to
+                        land on to activate the property. */}
+                    <ValueCell
+                      key={`${r.name}:${String(r.value)}`}
+                      row={r}
+                      fmt={fmt}
+                      parse={parse}
+                      onCommand={onCommand}
+                    />
                   </div>
                 ))}
             </Fragment>

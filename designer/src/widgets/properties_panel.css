@@ -189,6 +189,9 @@
   overflow: hidden;
 }
 
+/* The resting value, painted text rather than a control. It is sized to its
+   content: what activates a property is the whole value CELL and not the
+   glyphs in it, so `.ze-pgrid-value` — not this — carries the click. */
 .ze-pgrid-text {
   overflow: hidden;
   text-overflow: ellipsis;
