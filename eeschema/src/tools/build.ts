@@ -499,14 +499,35 @@ export function makeSymbol(
   const mkField = (key: string, val: string, tmpl: SchField | undefined): SchField => {
     const fat: Vec2 = tmpl?.at ? { x: at.x + tmpl.at.x, y: at.y + tmpl.at.y } : at;
     const angle = tmpl?.angle ?? 0;
-    return {
+    // `SCH_FIELD::ImportValues` (sch_field.cpp), which `UpdateFields` calls for
+    // every library field when `aUpdateStyle` is set -- and the SCH_SYMBOL
+    // constructor sets it (sch_symbol.cpp:97-101):
+    //
+    //     SetAttributes( aSource );          // the whole TEXT_ATTRIBUTES
+    //     SetVisible( aSource.IsVisible() );
+    //     SetNameShown( aSource.IsNameShown() );
+    //     SetCanAutoplace( aSource.CanAutoplace() );
+    //
+    // So a placement takes the library field's STYLE, not a fresh one. This
+    // invented `{ hidden: false, fontSize: [12700, 12700] }`, which threw away
+    // the size, the bold/italic/justify/colour and -- the visible symptom --
+    // the visibility: `power.kicad_sym`'s every symbol hides its Reference
+    // (`#PWR`), so a placed GND drew "#PWR1" above "GND" where KiCad draws
+    // "GND" alone.
+    //
+    // The source node has to come from the real serializer for the same
+    // reason: the local `buildPropertyNode` below emits only `at` and a default
+    // font, so it cannot express `hide` even once the model carries it.
+    const base: Omit<SchField, 'source'> = {
       key,
       value: val,
       at: fat,
       angle,
-      effects: { hidden: false, fontSize: [12700, 12700] },
-      source: buildPropertyNode(key, val, fat, angle),
+      effects: tmpl?.effects ?? { hidden: false, fontSize: [12700, 12700] },
+      ...(tmpl?.nameShown ? { nameShown: tmpl.nameShown } : {}),
+      ...(tmpl?.doNotAutoplace ? { doNotAutoplace: tmpl.doNotAutoplace } : {}),
     };
+    return { ...base, source: writeFieldNode(base) };
   };
 
   const fields: SchField[] = [
