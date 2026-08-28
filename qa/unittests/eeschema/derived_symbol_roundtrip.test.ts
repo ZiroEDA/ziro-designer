@@ -24,6 +24,7 @@ import { writeSchematic } from '@ziroeda/eeschema/src/sch_io/sexpr/write-schemat
 import { writeSymbolLib } from '@ziroeda/eeschema/src/sch_io/sexpr/write-symbol-lib.js';
 import { flattenLibSymbol } from '@ziroeda/eeschema/src/lib_symbol.js';
 import { placeSymbol } from '@ziroeda/eeschema/src/tools/mutate.js';
+import { makeSymbol } from '@ziroeda/eeschema/src/tools/build.js';
 import {
   changeSymbols,
   defaultChangeSymbolsOptions,
@@ -132,6 +133,17 @@ describe('a derived symbol placed on a schematic', () => {
     expect(value('Datasheet')).toBe('base.pdf');
     expect(value('Sim.Device')).toBe('D');
     expect(value('ki_keywords')).toBe('diode');
+  });
+
+  it('gives the placement the fields the flattened part has, not the derived one', () => {
+    // `SCH_SYMBOL::UpdateFields` runs over the flattened part, so a placed
+    // 1N4007 carries the Sim.* fields only 1N4001 declares — the file KiCad
+    // wrote for this schematic has exactly that on its placed symbols.
+    const placed = makeSymbol({ ...child(), libId: 'Diode:CHILD' }, { x: 0, y: 0 });
+    expect(placed.fields.find((f) => f.key === 'Sim.Device')?.value).toBe('D');
+    expect(placed.fields.find((f) => f.key === 'Datasheet')?.value).toBe('base.pdf');
+    // …and not the ones KiCad keeps off a placement entirely.
+    expect(placed.fields.some((f) => f.key === 'ki_keywords')).toBe(false);
   });
 
   it('takes the parent pin display settings, not the derived symbol defaults', () => {

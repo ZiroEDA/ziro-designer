@@ -12,6 +12,7 @@
  */
 import { parse } from '@ziroeda/sexpr';
 import { readSymbolLib, type LibSymbol } from '@ziroeda/eeschema';
+import { Reporter } from '@ziroeda/common/src/reporter.js';
 import { searchTerm, type SearchTerm } from '@ziroeda/common';
 import { fetchLibraryIndex, libraryBase } from '../../../libraryHosts.js';
 import { trackLibraryLoad } from '../../../widgets/library_loading.js';
@@ -21,6 +22,23 @@ import { loadLibraryItemsPooled } from './preload_pool.js';
 export type { LibTreeItem } from './lib_tree_item.js';
 /** Re-exported so callers keep one import site for symbol access. */
 export { symbolProperty, libSymbolPinCount, libSymbolUnitCount } from './lib_tree_item.js';
+
+/**
+ * Read a library, saying so when a derived symbol's parent is not in the file.
+ *
+ * `SCH_IO_KICAD_SEXPR_LIB_CACHE::updateParentSymbolLinks` throws an IO_ERROR
+ * there, because a symbol whose `extends` names nothing has no body: every
+ * draw item it renders belongs to the parent. We do not refuse the whole
+ * library over one bad entry — the other few thousand symbols in it are fine —
+ * but it must not pass in silence, because the symptom (a part that draws as
+ * its field text and nothing else) says nothing about the cause.
+ */
+function readLibraryText(name: string, text: string): LibSymbol[] {
+  const reporter = new Reporter();
+  const symbols = readSymbolLib(parse(text), reporter);
+  for (const line of reporter.lines) console.warn(`symbol library "${name}": ${line.message}`);
+  return symbols;
+}
 
 /** `GetSymbols( lib )`'s map, keyed by the bare item name AddLibraries looks up. */
 function itemsByName(items: readonly LibTreeItem[]): Map<string, LibTreeItem> {
@@ -200,7 +218,7 @@ function loadLibrary(name: string): Promise<Map<string, LibSymbol>> {
         })
         .then((text) => {
           const map = new Map<string, LibSymbol>();
-          for (const sym of readSymbolLib(parse(text))) {
+          for (const sym of readLibraryText(name, text)) {
             // Give it a KiCad-style Library:Name id.
             map.set(sym.libId, { ...sym, libId: `${name}:${sym.libId}` });
           }
@@ -246,7 +264,7 @@ async function fetchOneSymbol(library: string, symbolName: string): Promise<LibS
   const text = await res.text();
   // The file holds the parent chain too, so pick out the one that was asked
   // for; `readSymbolLib` has already flattened it against those parents.
-  for (const sym of readSymbolLib(parse(text))) {
+  for (const sym of readLibraryText(library, text)) {
     if (sym.libId === symbolName) return { ...sym, libId: `${library}:${sym.libId}` };
   }
   return undefined;
