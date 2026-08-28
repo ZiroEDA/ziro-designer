@@ -163,6 +163,17 @@ interface Row {
 const ROW_OVERSCAN = 12;
 
 /**
+ * What a row spends before its Item cell: the 4px lead-in, the 12px expander
+ * and the two 4px flex gaps around it, all of them `.ze-libtree-row`'s in
+ * shell.css. The Item cell is the rest of the column, so the second column
+ * starts under its own header — upstream the expander is drawn INSIDE the
+ * cell rect and this arithmetic is the control's.
+ */
+const ROW_LEAD_IN = 4;
+const TWISTY_W = 12;
+const CELL_GAP = 4;
+
+/**
  * The on-screen row pitch, from the same tokens the stylesheet lays the rows
  * out with — `--ui-text-height` inside `--libtree-row-pad` above and below,
  * plus `--libtree-row-sep`, GtkTreeView's vertical-separator. The sum is the
@@ -909,7 +920,7 @@ export function LibTree({
                 `ze-libtree-row${node === selected ? ' active' : ''}` +
                 (node.type === LibTreeNodeType.LIBRARY ? ' lib' : '')
               }
-              style={{ paddingLeft: 4 + indent * LIB_TREE_INDENT }}
+              style={{ paddingLeft: ROW_LEAD_IN + indent * LIB_TREE_INDENT }}
               onClick={() => select(node)}
               onDoubleClick={() => activate(node)}
               onMouseMove={(e) => onRowHover(node, e)}
@@ -946,7 +957,11 @@ export function LibTree({
                   ...itemCellStyle(adapter.nodeAttr(node, open)),
                   // The Item cell starts past the expander, so the width the
                   // column was created at is what is left of it.
-                  width: (colWidths[0] ?? 0) - (4 + indent * LIB_TREE_INDENT) - 16,
+                  width:
+                    (colWidths[0] ?? 0) -
+                    (ROW_LEAD_IN + indent * LIB_TREE_INDENT) -
+                    TWISTY_W -
+                    2 * CELL_GAP,
                 }}
               >
                 {node.pinned ? PINNING_SYMBOL : ''}

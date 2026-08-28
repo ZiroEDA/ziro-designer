@@ -62,6 +62,28 @@ function decl(selector: string, prop: string): string | undefined {
   return m?.[1]?.trim();
 }
 
+/**
+ * The same declaration across EVERY rule that carries this selector, not just
+ * the first.
+ *
+ * `decl` reads one rule, so "shell.css does not say this any more" is a claim it
+ * cannot make: a second `.ze-libtree-list { row-gap: … }` further down the file
+ * restores the property and the first rule still reads clean. A mutation sweep
+ * found exactly that.
+ */
+function declsEverywhere(selector: string, prop: string): string[] {
+  const out: string[] = [];
+  let at = SHELL.indexOf(`\n${selector} {`);
+  while (at >= 0) {
+    const end = SHELL.indexOf('\n}', at);
+    const body = SHELL.slice(at + selector.length + 3, end).replace(/\/\*[\s\S]*?\*\//g, '');
+    const m = body.match(new RegExp(`(?:^|;|\\{)\\s*${prop}\\s*:\\s*([^;]+);`));
+    if (m?.[1]) out.push(m[1].trim());
+    at = SHELL.indexOf(`\n${selector} {`, end);
+  }
+  return out;
+}
+
 const LIB = `(kicad_symbol_lib (version 20241209) (generator "qa")
   (symbol "R" (pin_numbers (hide yes)) (pin_names (offset 0))
     (property "Reference" "R" (at 0 0 0) (effects (font (size 1.27 1.27))))
@@ -195,21 +217,36 @@ describe("the columns take the adapter's own widths", () => {
     const spans = Array.from(header?.children ?? []) as HTMLElement[];
     expect(spans[0]?.style.width).toBe('300px');
     expect(spans[1]?.style.width).toBe('600px');
-    // A top-level row's Item cell is the column minus the expander before it,
-    // so the cells line up under the header they belong to.
+    // A top-level row's Item cell is the column minus what the row spends
+    // before it — the 4px lead-in, the 12px expander and the 4px gap on each
+    // side of it — so the second column starts under its own header at 300.
     const cell = rows(root)[0]?.querySelector('.col-item') as HTMLElement | undefined;
-    expect(cell?.style.width).toBe(`${300 - 4 - 16}px`);
+    expect(cell?.style.width).toBe(`${300 - 4 - 12 - 4 - 4}px`);
   };
 
   it('in the Symbol Editor dock', async () => assertColumnWidths(await openEditor()));
   it('in the bare widget the chooser mounts', () => assertColumnWidths(openWidget()));
 
-  it('and the header scrolls sideways with the rows rather than staying put', () => {
-    // They are one control upstream. The header therefore clips its columns and
-    // the widget drives its scroll position from the list's.
+  it('and no column may shrink to fit the pane instead', () => {
+    expect(decl('.ze-libtree-cols .col-item', 'flex')).toBe('0 0 auto');
+    expect(decl('.ze-libtree-cols .col-desc', 'flex')).toBe('0 0 auto');
+    expect(decl('.ze-libtree-row .col-item', 'flex')).toBe('0 0 auto');
+    expect(decl('.ze-libtree-row .col-desc', 'flex')).toBe('0 0 auto');
+  });
+
+  it('and the header follows the rows sideways, because they are one control', () => {
+    // The header clips its columns...
     expect(decl('.ze-libtree-cols', 'overflow')).toBe('hidden');
-    expect(rule('.ze-libtree-cols .col-item')).toContain('flex: 0 0 auto');
-    expect(rule('.ze-libtree-row .col-desc')).toContain('flex: 0 0 auto');
+    // ...and the widget hands it the list's scroll position. Rendered, not
+    // declared: a stylesheet cannot express "these two scroll together", and
+    // the header staying put while the rows move is the whole bug.
+    const root = openWidget();
+    const list = root.querySelector('.ze-libtree-list') as HTMLElement;
+    const header = root.querySelector('.ze-libtree-cols') as HTMLElement;
+    expect(header.scrollLeft).toBe(0);
+    list.scrollLeft = 120;
+    fireEvent.scroll(list);
+    expect(header.scrollLeft).toBe(120);
   });
 });
 
@@ -256,17 +293,17 @@ describe('a selected row is the band GTK paints, not a pill', () => {
   });
 
   it('has square corners and reaches both edges', () => {
-    expect(decl('.ze-libtree-row', 'border-radius')).toBeUndefined();
+    expect(declsEverywhere('.ze-libtree-row', 'border-radius')).toEqual([]);
     // The list inset every band by 4px when it had horizontal padding.
-    expect(decl('.ze-libtree-list', 'padding')).toBeUndefined();
-    expect(rule('.ze-libtree-list > .ze-libtree-row')).toContain('min-width: 100%');
+    expect(declsEverywhere('.ze-libtree-list', 'padding')).toEqual([]);
+    expect(decl('.ze-libtree-list > .ze-libtree-row', 'min-width')).toBe('100%');
   });
 
   it('and the vertical-separator is inside the band, so no gap splits it', () => {
     // background_area = cell_area + the separator, half at each end. As a
     // `row-gap` it fell BETWEEN two bands instead, leaving a stripe of
     // unhighlighted face through a selection.
-    expect(decl('.ze-libtree-list', 'row-gap')).toBeUndefined();
+    expect(declsEverywhere('.ze-libtree-list', 'row-gap')).toEqual([]);
     expect(decl('.ze-libtree-row', 'padding-top')).toBe(
       'calc(var(--libtree-row-pad) + var(--libtree-row-sep) / 2)',
     );
@@ -295,7 +332,9 @@ describe('no consumer restates the tree locally', () => {
     const scoped = Array.from(SHELL.matchAll(/^([^{}\n][^{\n]*)\{/gm))
       .map((m) => (m[1] ?? '').trim())
       .filter((sel) => sel.includes('.ze-libtree'))
-      .filter((sel) => /\.(ze-leftdock|sch-leftdock|ze-chooser[\w-]*|ze-lib-viewer-pane)\b/.test(sel));
+      .filter((sel) =>
+        /\.(ze-leftdock|sch-leftdock|ze-chooser[\w-]*|ze-lib-viewer-pane)\b/.test(sel),
+      );
 
     expect(scoped).toEqual(['.ze-chooser-treepane > .ze-libtree']);
     expect(decl('.ze-chooser-treepane > .ze-libtree', 'margin')).toBe('5px');
