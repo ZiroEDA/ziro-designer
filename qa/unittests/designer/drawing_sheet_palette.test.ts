@@ -131,10 +131,14 @@ describe('D1: the canvas is one flat colour and the page is an outline', () => {
   });
 
   it('strokes the page rectangle in the border colour instead', () => {
-    expect(CANVAS).toContain('ctx.strokeStyle = DS_PAGE_BORDER_COLOR;');
+    // `m_pageBorderColor`, which is now READ off the chosen theme rather than
+    // named as a module constant — `ds_canvas_color_theme.test.tsx` renders the
+    // canvas and asserts the colour that comes out. What is checked here is the
+    // shape of the call: a stroke, no fill, one device pixel wide.
+    expect(CANVAS).toContain('ctx.strokeStyle = colors.pageBorder;');
     // One device pixel: GetDefaultPenWidth() renders as a hairline at any zoom,
     // and `worldPen` is 1 device px expressed in world units.
-    const stroke = CANVAS.indexOf('ctx.strokeStyle = DS_PAGE_BORDER_COLOR;');
+    const stroke = CANVAS.indexOf('ctx.strokeStyle = colors.pageBorder;');
     expect(CANVAS.slice(stroke, stroke + 200)).toContain('ctx.lineWidth = worldPen;');
     // The rect is stroked in DEVICE space, from the page corners transformed by
     // hand, so the hairline lands on a pixel centre instead of straddling two —

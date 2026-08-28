@@ -53,6 +53,15 @@ import { Scene } from './scene.js';
 export interface DrawingSheetGlContent {
   draws: readonly DsDrawItem[];
   selection: ReadonlySet<number>;
+  /**
+   * `DS_RENDER_SETTINGS::m_normalColor` — the theme's LAYER_SCHEMATIC_DRAWINGSHEET.
+   *
+   * Recorded into the vertex colours, so it belongs to the content key: a theme
+   * change has to re-record, exactly as `UpdateAllItems( KIGFX::COLOR )` makes
+   * the GAL re-cache (`pl_editor_frame.cpp:649`). Omitted = the painter's own
+   * default, "KiCad Default".
+   */
+  color?: string;
   /** The delete picker's hovered item, drawn brightened. */
   brightened?: number;
 }
@@ -104,6 +113,7 @@ export function recordDrawingSheetScene(scene: Scene, content: DrawingSheetGlCon
     hairlines: 'solid',
   });
   const opts: RenderOpts = { minWidth: 0 };
+  if (content.color !== undefined) opts.color = content.color;
   if (content.brightened !== undefined) opts.brightened = content.brightened;
   drawDrawingSheetItems(
     // The cast `plot.ts` and the other adapters use: the painter declares the
@@ -178,7 +188,7 @@ export class DrawingSheetGl {
  * here re-records every frame and looks exactly like "GL did not help".
  */
 function sameContent(a: DrawingSheetGlContent, b: DrawingSheetGlContent): boolean {
-  if (a.draws !== b.draws || a.brightened !== b.brightened) return false;
+  if (a.draws !== b.draws || a.brightened !== b.brightened || a.color !== b.color) return false;
   if (a.selection === b.selection) return true;
   if (a.selection.size !== b.selection.size) return false;
   for (const s of a.selection) if (!b.selection.has(s)) return false;

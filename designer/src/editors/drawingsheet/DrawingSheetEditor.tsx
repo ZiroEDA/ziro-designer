@@ -526,8 +526,15 @@ export function DrawingSheetEditor({
    *
    * READ-ONLY, as upstream. Nothing in pl_editor 10.0.5 calls `SetDrawBgColor`
    * except that load — no menu item, no action, no Preferences control — so the
-   * only way to a black canvas is editing `pl_editor.json` by hand. The
-   * checkbox we had for it was an invention; see `PreferencesDialog` below.
+   * only way to change it is editing `pl_editor.json` by hand. The checkbox we
+   * had for it was an invention; see `PreferencesDialog` below.
+   *
+   * It does NOT reach the canvas. `m_drawBgColor` is the device-context
+   * background; the GAL canvas clears to `settings->GetBackgroundColor()`
+   * (`common/draw_panel_gal.cpp:364`), which `LoadColors` takes from the chosen
+   * colour theme. Ours painted the canvas from it, which is why picking a theme
+   * changed nothing. It goes to DIALOG_PAGES_SETTINGS' preview instead, which
+   * is what reads `GetDrawBgColor()` upstream.
    */
   const blackBackground = plCfg.black_background;
 
@@ -2421,7 +2428,6 @@ export function DrawingSheetEditor({
           originIU={originInfo.origin}
           crosshairMode={plCfg.window.cursor.crosshair}
           alwaysShowCursor={plCfg.window.cursor.always_show_cursor}
-          blackBackground={blackBackground}
           editPoints={editPoints}
           moveMode={moveMode}
           onCursorMove={setCursor}
@@ -2638,6 +2644,15 @@ export function DrawingSheetEditor({
           // that re-labels the title, the Paper heading and the Title Block
           // heading, and the one caller that disables the file picker.
           frame="pl_editor"
+          // `COLOR4D bgColor = m_parent->GetDrawBgColor()`
+          // (`common/dialogs/dialog_page_settings.cpp:598`) — the preview's
+          // paper. This is the ONE place in pl_editor 10.0.5 that a browser can
+          // show `black_background`: the other two readers of `GetDrawBgColor()`
+          // are the printer, which overwrites it with WHITE for the duration
+          // (`dialogs_for_printing.cpp:187`), and the properties frame's colour
+          // swatch background (`properties_frame.cpp:125`). The CANVAS is not
+          // one of them — see DrawingSheetCanvas.
+          blackBackground={blackBackground}
           // The dialog's custom-size fields are UNIT_BINDERs over the FRAME
           // (dialog_page_settings.cpp:65-66), so they read in the frame's unit.
           units={unit === 'inches' ? 'in' : unit}

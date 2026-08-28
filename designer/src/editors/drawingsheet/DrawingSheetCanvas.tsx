@@ -34,19 +34,17 @@ import {
 import {
   drawDrawingSheetItems,
   dsBackgroundIsDark,
-  DS_BG_COLOR,
-  DS_BG_COLOR_DARK,
   DS_CURSOR_COLOR_ON_DARK,
   DS_CURSOR_COLOR_ON_LIGHT,
   DS_GRID_COLOR_ON_DARK,
   DS_GRID_COLOR_ON_LIGHT,
-  DS_PAGE_BORDER_COLOR,
   PAGE_MARKER_SIZE_IU,
   DS_EDIT_POINT_ON_DARK,
   DS_EDIT_POINT_ON_LIGHT,
   DS_MARQUEE,
 } from '@ziroeda/common';
 import { setBitmapInvalidate } from '@ziroeda/common';
+import { usePlEditorColors } from '../../prefs/useSettings.js';
 import { DrawingSheetGl } from '../../render/gl/drawingsheet_gl.js';
 import { commonInputPrefs, wheelAction, zoomFitView } from '../../ui/view_controls.js';
 import { clampViewScale } from '../../ui/zoom_settings.js';
@@ -129,8 +127,20 @@ export interface DrawingSheetCanvasProps {
    * its settings object has to come out of ours.
    */
   alwaysShowCursor?: boolean;
-  /** Dark canvas background (display option `black_background`). */
-  blackBackground?: boolean;
+  /*
+   * There is no `blackBackground` here any more, and there was never an
+   * upstream one: `black_background` reaches `SetDrawBgColor`
+   * (`pl_editor_frame.cpp:541`), which sets `EDA_DRAW_FRAME::m_drawBgColor` —
+   * the DEVICE-CONTEXT background. Nothing in `EDA_DRAW_PANEL_GAL` reads it;
+   * `onPaint` clears the canvas to `settings->GetBackgroundColor()`
+   * (`common/draw_panel_gal.cpp:364`), which is `m_backgroundColor`, which is
+   * `LAYER_SCHEMATIC_BACKGROUND` out of the chosen theme. The three consumers
+   * of `GetDrawBgColor()` in 10.0.5 are the printer
+   * (`dialogs_for_printing.cpp:186`), the properties frame's colour swatch
+   * (`properties_frame.cpp:125`) and DIALOG_PAGES_SETTINGS' preview
+   * (`common/dialogs/dialog_page_settings.cpp:598`) — and it is the last of
+   * those that `DrawingSheetEditor` now hands the setting to.
+   */
   /** Endpoint/corner handles of the point editor (page IU), or empty. */
   editPoints?: Vec2[];
   /** Move mode (M): selection travels with the cursor until dropped. */
@@ -194,7 +204,6 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
       originIU,
       crosshairMode,
       alwaysShowCursor = true,
-      blackBackground,
       editPoints,
       moveMode,
       onCursorMove,
@@ -214,6 +223,15 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
       onSetLocalOrigin,
       onMoveDrop,
     } = props;
+
+    /*
+     * `m_painter->GetSettings()->LoadColors( ::GetColorSettings( cfg->m_ColorTheme ) )`
+     * — `PL_DRAW_PANEL_GAL::PL_DRAW_PANEL_GAL` (`pl_draw_panel_gal.cpp:57-59`).
+     * The draw panel reads `pl_editor`'s own `appearance.color_theme`, which is
+     * the value Preferences > Drawing Sheet Editor > Colors writes, so a theme
+     * chosen there repaints this canvas.
+     */
+    const colors = usePlEditorColors();
 
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const glCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -256,7 +274,9 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
       if (!ctx) return;
       const v = viewRef.current;
 
-      const background = blackBackground ? DS_BG_COLOR_DARK : DS_BG_COLOR;
+      // `m_gal->SetClearColor( settings->GetBackgroundColor() )`, then
+      // `ClearScreen()` (common/draw_panel_gal.cpp:364, :372).
+      const background = colors.background;
       const darkBg = dsBackgroundIsDark(background);
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.fillStyle = background;
@@ -291,7 +311,7 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
 
       // The page outline (ds_painter.cpp:361-368). One device pixel, drawn on
       // top of the grid the way the LAYER_DRAWINGSHEET page item is.
-      ctx.strokeStyle = DS_PAGE_BORDER_COLOR;
+      ctx.strokeStyle = colors.pageBorder;
       ctx.lineWidth = worldPen;
       // Snapped for the same reason the sheet's own hairlines are: this rect is
       // ONE device pixel and straddles two of them wherever the page edge
@@ -374,6 +394,10 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
           {
             draws: drawsRef.current,
             selection: selRef.current,
+            // `m_normalColor`, so the GL layer and the raster path paint the
+            // sheet the same colour. It is part of the recorded geometry, so it
+            // is part of the key that decides whether to re-record.
+            color: colors.normal,
             ...(brightened === null ? {} : { brightened }),
           },
           { scale: v.scale, tx: v.tx, ty: v.ty },
@@ -402,16 +426,21 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
       } else if (md && selRef.current.size > 0) {
         const still = drawsRef.current.filter((d) => !selRef.current.has(d.src));
         drawDrawingSheetItems(ctx, still, new Set(), {
+          color: colors.normal,
           minWidth: worldPen,
           brightened: brightenedRef.current,
         });
         ctx.save();
         ctx.translate(md.x, md.y);
         const moving = drawsRef.current.filter((d) => selRef.current.has(d.src));
-        drawDrawingSheetItems(ctx, moving, selRef.current, { minWidth: worldPen });
+        drawDrawingSheetItems(ctx, moving, selRef.current, {
+          color: colors.normal,
+          minWidth: worldPen,
+        });
         ctx.restore();
       } else {
         drawDrawingSheetItems(ctx, drawsRef.current, selRef.current, {
+          color: colors.normal,
           minWidth: worldPen,
           brightened: brightenedRef.current,
         });
@@ -501,7 +530,9 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
       activeTool,
       crosshairMode,
       alwaysShowCursor,
-      blackBackground,
+      // `CommonSettingsChanged`'s `LoadColors` + `UpdateAllItems( COLOR )` +
+      // `ForceRefresh()` (pl_editor_frame.cpp:645-650): a new theme repaints.
+      colors,
       onScaleChange,
     ]);
 

@@ -18,22 +18,18 @@
  * `cfg->m_ColorTheme` — `appearance.color_theme` — which is why the setting is
  * on `PlEditorSettings` rather than borrowed from eeschema's.
  *
- * **The chosen theme is stored and not yet read.** `DrawingSheetCanvas.tsx`
- * has no theme at all: its palette is declared inline and switches only on
- * `black_background`, so nothing downstream of this control repaints when the
- * theme changes. Upstream `PL_EDITOR_FRAME` draws from `GetColorSettings()`,
- * so closing this means giving that canvas a theme — a change to the renderer,
- * not to this page.
+ * **What reads it.** `DrawingSheetCanvas` calls `usePlEditorColors()`, which is
+ * `LoadColors( ::GetColorSettings( cfg->m_ColorTheme ) )` — the line
+ * `PL_DRAW_PANEL_GAL`'s constructor runs (`pl_draw_panel_gal.cpp:57-59`) and
+ * `PL_EDITOR_FRAME::CommonSettingsChanged` runs again on a settings change
+ * (`pl_editor_frame.cpp:641-650`). It takes three layers and only three:
+ * LAYER_SCHEMATIC_BACKGROUND, LAYER_SCHEMATIC_GRID and
+ * LAYER_SCHEMATIC_DRAWINGSHEET (`ds_painter.cpp:66-68`). Picking a theme here
+ * therefore changes the canvas colour, the page outline and the sheet ink.
  *
- * Recorded rather than fixed here, and recorded rather than the page being
- * dropped: the control *is* upstream's control and it persists upstream's key,
- * so a user who picks a theme keeps it. What it does not yet do is change what
- * is drawn. That is the same treatment, and the same wording, as the
- * cross-probing group in the schematic's Display Options, which is likewise
- * stored but inert. It is named in `docs/editor-status.md` and on issue 619 so
- * it cannot be mistaken for done — a control that displays a value and then
- * discards it is exactly the failure this editor's audit exists to catch, and
- * this one is halfway there: it stores, but nothing reads.
+ * It was stored and unread for one commit, and named as such on issue 619 —
+ * a control that displays a value and then discards it is exactly the failure
+ * this editor's audit exists to catch.
  */
 import type { JSX } from 'react';
 import { ColorThemeChoice } from '../../../dialogs/prefs/ColorThemeChoice.js';
