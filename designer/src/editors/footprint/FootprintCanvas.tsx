@@ -37,8 +37,11 @@ import {
   type ZoomArea,
 } from '../../ui/zoom_tool.js';
 import {
+  constantGlyphHeightPx,
+  constantLinePitchPx,
   rulerDimensionStrings,
   rulerEnd,
+  rulerTicks,
   type RulerPoint,
   type RulerUnits,
 } from '../../ui/ruler_item.js';
@@ -47,6 +50,7 @@ import { itemsInBox, fpItemBBox, type PcbFootprint } from '@ziroeda/pcbnew';
 import {
   buildScene,
   buildDrawSteps,
+  drawAnchors,
   DEFAULT_DRAW_OPTIONS,
   type BoardScene,
   type PcbDrawOptions,
@@ -55,8 +59,6 @@ import { PCB_BACKGROUND, PCB_CURSOR, PCB_GRID_AXES, PCB_SPECIAL } from '../pcb/p
 import { footprintToBoard } from './footprintBoard.js';
 import { pcbGridOptions, PCB_DEFAULT_GRID_IU } from '../pcb/renderBoard.js';
 import { snapToGridSize } from '../pcb/pcb_grid.js';
-
-const MM = 10000;
 
 export interface FootprintCanvasController {
   zoomToFit: () => void;
@@ -332,6 +334,33 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
         ctx.setTransform(1, 0, 0, 1, 0, 0);
       }
 
+      // `draw( const FOOTPRINT* )`'s LAYER_ANCHOR cross at the footprint
+      // origin. It is a per-frame SCREEN-space pass, never part of the retained
+      // scene -- 5 px arms at 1 px, "size and width constant, not related to
+      // the scale because the anchor is just a marker on screen" -- so it is
+      // painted here rather than into the cached raster above, which is blitted
+      // under a delta transform and would scale it.
+      //
+      // Only PcbEditor called this. The footprint editor and CVPCB's viewer
+      // draw the same footprints through the same painter and had no component
+      // origin at all, which is the marker Akshay pointed out is present
+      // everywhere in pcbnew.
+      const sc = sceneRef.current;
+      if (sc) {
+        drawAnchors(
+          ctx,
+          sc,
+          { scale: v.scale, tx: v.tx, ty: v.ty },
+          visible,
+          canvas.width,
+          canvas.height,
+          drawOpts,
+          'none',
+          dpr,
+        );
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+      }
+
       // ----- selection + gesture overlay (device-pixel space) -----------------
       const fp = fpForDrawRef.current;
       const sel = selForDrawRef.current;
@@ -427,21 +456,81 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
           ctx.lineTo(b.x + nx, b.y + ny);
           ctx.stroke();
         }
-        const lines = rulerDimensionStrings(rl.origin, rl.end, MM, measureUnitsRef.current);
+        // PCB_IU_PER_MM, asked for rather than restated. This file used to
+        // hold `const MM = 10000` -- eeschema's scale -- in a PCB canvas, and
+        // it read 9.83 mm as 983.370 mm. Every other pcbnew module writes
+        // `const MM = PCB_IU_PER_MM`; this one was the exception.
+        // `drawTicksAlongLine`: a tick every `tickSpace` along the line,
+        // perpendicular to it, with the value on major and mid ones. All the
+        // sizes are screen sizes upstream (`5.0 / GetWorldScale()`), so they are
+        // device px here and the ruler does not grow with zoom.
+        const dxw = rl.end.x - rl.origin.x;
+        const dyw = rl.end.y - rl.origin.y;
+        const lenIU = Math.hypot(dxw, dyw);
+        if (lenIU > 0) {
+          const ux = dxw / lenIU;
+          const uy = dyw / lenIU;
+          // `RotatePoint( tickLine, ANGLE_90 )` — the tick direction.
+          const px = -uy;
+          const py = ux;
+          const ticks = rulerTicks(lenIU, v.scale, PCB_IU_PER_MM, measureUnitsRef.current);
+          const tickFont = constantGlyphHeightPx(dpr, -1) * dpr;
+          // `labelOffset = tickLine.Resize( majorTickLen )`, where
+          // drawTicksAlongLine's majorTickLen is minor * (2.5 + 1).
+          const labelOff = 5 * 3.5 * dpr;
+          ctx.font = `${tickFont}px ui-monospace, monospace`;
+          ctx.textBaseline = 'middle';
+          // `EDA_ANGLE( aLine ) > ANGLE_0 ? LEFT : RIGHT`, with the text turned
+          // to run along the line either way.
+          const angle = Math.atan2(dyw, dxw);
+          const flip = !(-angle > 0);
+          ctx.textAlign = flip ? 'right' : 'left';
+          ctx.lineWidth = Math.max(1, dpr);
+          for (const t of ticks) {
+            const wx = rl.origin.x + ux * t.distIU;
+            const wy = rl.origin.y + uy * t.distIU;
+            const p = toPx({ x: wx, y: wy });
+            if (p.x < -50 || p.x > canvas.width + 50 || p.y < -50 || p.y > canvas.height + 50)
+              continue;
+            const L = t.lengthPx * dpr;
+            ctx.beginPath();
+            ctx.moveTo(p.x, p.y);
+            ctx.lineTo(p.x + px * L, p.y + py * L);
+            ctx.stroke();
+            if (t.label !== null) {
+              ctx.save();
+              ctx.translate(p.x + px * labelOff, p.y + py * labelOff);
+              ctx.rotate(flip ? angle + Math.PI : angle);
+              ctx.fillText(t.label, 0, 0);
+              ctx.restore();
+            }
+          }
+        }
+        const lines = rulerDimensionStrings(
+          rl.origin,
+          rl.end,
+          PCB_IU_PER_MM,
+          measureUnitsRef.current,
+        );
         // `DrawTextNextToCursor`'s 15 px offset, and the quadrant it prefers:
         // away from the origin, so the labels never sit on the ruler
         // (ruler_item.cpp:342-343, 363).
         const offX = 15 * dpr;
-        const pitch = 13 * dpr;
+        // `DrawTextNextToCursor` at GetConstantGlyphHeight()'s size and pitch —
+        // sizes[3] = 14 / hdpiSizes[3] = 11, times linePitchFactor 1.9 / 1.7.
+        const pitch = constantLinePitchPx(dpr) * dpr;
         const sx = rl.end.y < rl.origin.y ? -1 : 1;
         const sy = rl.end.x < rl.origin.x ? 1 : -1;
-        ctx.font = `${11 * dpr}px ui-monospace, monospace`;
+        ctx.font = `${constantGlyphHeightPx(dpr) * dpr}px ui-monospace, monospace`;
         ctx.textAlign = sx < 0 ? 'right' : 'left';
         ctx.textBaseline = 'middle';
+        // The quadrant only decides where the BLOCK sits; the lines inside it
+        // stay in GetDimensionStrings' order — x, y, r, θ, top to bottom.
+        // Stacking them along `sy` reversed them whenever the block went up.
         const x0 = b.x + sx * offX;
-        const y0 = b.y + sy * offX;
+        const top = sy < 0 ? b.y - offX - (lines.length - 1) * pitch : b.y + offX;
         for (let i = 0; i < lines.length; i++) {
-          ctx.fillText(lines[i]!, x0, y0 + sy * i * pitch);
+          ctx.fillText(lines[i]!, x0, top + i * pitch);
         }
         ctx.restore();
       }
@@ -516,7 +605,15 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
       const scn = sceneRef.current;
       if (!canvas) return;
       // A footprint with no geometry (a brand-new one): centre on the origin.
-      const bbox = scn?.bbox ?? { minX: -5 * MM, minY: -5 * MM, maxX: 5 * MM, maxY: 5 * MM };
+      // The same constant, and the same bug: at 10000 this asked for a 0.1 mm
+      // box rather than a 10 mm one, which is why an empty viewer opened at
+      // Zoom 1484.
+      const bbox = scn?.bbox ?? {
+        minX: -5 * PCB_IU_PER_MM,
+        minY: -5 * PCB_IU_PER_MM,
+        maxX: 5 * PCB_IU_PER_MM,
+        maxY: 5 * PCB_IU_PER_MM,
+      };
       // `margin_scale_factor` is per FRAME TYPE (common_tools.cpp:381-401):
       // 1.48 for FRAME_FOOTPRINT_EDITOR, which leaves the library editors more
       // slack than the board editor, and the default 1.04 for CVPCB's viewer,
@@ -854,12 +951,17 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
             // `ZOOM_TOOL::Main`'s setCursor is
             // `SetCurrentCursor( KICURSOR::ZOOM_IN )` (`zoom_tool.cpp:65-69`)
             // — KiCad's own art, not the browser's `zoom-in`.
+            // `ZOOM_TOOL::Main` and `PCB_VIEWER_TOOLS::MeasureTool` each set
+            // their own: KICURSOR::ZOOM_IN (`zoom_tool.cpp:65-69`) and
+            // KICURSOR::MEASURE (`pcb_viewer_tools.cpp:292`).
             cursor:
               activeTool === 'zoomTool'
                 ? kiCursor('ZOOM_IN')
-                : activeTool === 'selectSetRect'
-                  ? 'default'
-                  : 'crosshair',
+                : activeTool === 'measureTool'
+                  ? kiCursor('MEASURE')
+                  : activeTool === 'selectSetRect'
+                    ? 'default'
+                    : 'crosshair',
           }}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}

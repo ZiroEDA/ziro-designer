@@ -56,6 +56,8 @@ const STORE = {
   MOVING: { file: 'cursor-select-m-black', x: 1, y: 1, fallback: 'move' },
   /** cursors.cpp — ACTIONS::zoomTool's rubber band. */
   ZOOM_IN: { file: 'cursor-zoom-in', x: 7, y: 7, fallback: 'zoom-in' },
+  /** cursors.cpp:199-205 — ACTIONS::measureTool, hotspot (4, 4). */
+  MEASURE: { file: 'cursor-measure', x: 4, y: 4, fallback: 'crosshair' },
 } as const satisfies Record<string, CursorSpec>;
 
 export type KiCursor = keyof typeof STORE;

@@ -107,3 +107,129 @@ export function rulerDimensionStrings(
     label('θ', theta.toFixed(DEGREE_DECIMALS), '°'),
   ];
 }
+
+/* ------------------------------------------------------------------------ *
+ * Ticks.
+ *
+ * `drawTicksAlongLine` (`common/preview_items/ruler_item.cpp:121-227`) and the
+ * `getTickFormatForScale` above it. Every constant below is that file's.
+ * ------------------------------------------------------------------------ */
+
+/** `static const double maxTickDensity = 10.0;` — min pixels between ticks. */
+const MAX_TICK_DENSITY = 10.0;
+/** `midTickLengthFactor = 1.5`, `majorTickLengthFactor = 2.5` (`:35-36`). */
+const MID_TICK_FACTOR = 1.5;
+const MAJOR_TICK_FACTOR = 2.5;
+/** `double minorTickLen = 5.0 / gal->GetWorldScale();` (`:421`) — screen px. */
+export const MINOR_TICK_PX = 5.0;
+
+/**
+ * `tickFormats` (`:81-86`) — "simple 1/2/5 scales per decade".
+ *
+ *     { 2,    10,     5 },    // |....:....|
+ *     { 2,     5,     0 },    // |....|
+ *     { 2.5,   2,     0 },    // |.|.|
+ */
+interface TickFormat {
+  /** Multiple from the last scale. */
+  divisionBase: number;
+  /** Ticks between major (labelled, long) ticks. */
+  majorStep: number;
+  /** Ticks between medium ticks; 0 for none. */
+  midStep: number;
+}
+const TICK_FORMATS: readonly TickFormat[] = [
+  { divisionBase: 2, majorStep: 10, midStep: 5 },
+  { divisionBase: 2, majorStep: 5, midStep: 0 },
+  { divisionBase: 2.5, majorStep: 2, midStep: 0 },
+];
+
+export interface RulerTick {
+  /** Distance from the origin, in IU. */
+  distIU: number;
+  /** Tick length in screen px — minor, mid or major. */
+  lengthPx: number;
+  /** The value, unit-less, on major and mid ticks only (`aIncludeUnits=false`). */
+  label: string | null;
+}
+
+/**
+ * `getTickFormatForScale` then the loop in `drawTicksAlongLine`.
+ *
+ * `pxPerIU` is `gal->GetWorldScale()`: the tick spacing grows by the 1/2/5
+ * sequence until one tick is at least `maxTickDensity` pixels from the next,
+ * so the ruler never becomes a solid bar when you zoom out.
+ */
+export function rulerTicks(
+  lengthIU: number,
+  pxPerIU: number,
+  iuPerMM: number,
+  units: RulerUnits,
+): RulerTick[] {
+  if (!(lengthIU > 0) || !(pxPerIU > 0)) return [];
+
+  // `aTickSpace = 1;` then `*= 2.54` for imperial — "convert to a round
+  // (mod-10) number of mils for imperial units".
+  let tickSpaceMM = units === 'mm' ? 1 : 2.54;
+  let fmt = 0;
+  // Bounded: each turn multiplies the spacing by at least 2, so it reaches any
+  // reachable density in a few dozen steps. Upstream's `while( true )` cannot
+  // spin because GetWorldScale is never zero; ours is guarded above.
+  for (let guard = 0; guard < 64; guard++) {
+    if (tickSpaceMM * iuPerMM * pxPerIU >= MAX_TICK_DENSITY) break;
+    fmt = (fmt + 1) % TICK_FORMATS.length;
+    tickSpaceMM *= TICK_FORMATS[fmt]!.divisionBase;
+  }
+  const format = TICK_FORMATS[fmt]!;
+  const tickSpaceIU = tickSpaceMM * iuPerMM;
+
+  // `int numTicks = (int) std::ceil( aLine.EuclideanNorm() / tickSpace );`
+  const numTicks = Math.ceil(lengthIU / tickSpaceIU);
+  const d = DECIMALS[units];
+  const out: RulerTick[] = [];
+  for (let i = 0; i < numTicks; i++) {
+    let lengthPx = MINOR_TICK_PX;
+    let labelled = false;
+    if (i % format.majorStep === 0) {
+      labelled = true;
+      lengthPx *= MAJOR_TICK_FACTOR;
+    } else if (format.midStep && i % format.midStep === 0) {
+      labelled = true;
+      lengthPx *= MID_TICK_FACTOR;
+    }
+    const distIU = tickSpaceIU * i;
+    out.push({
+      distIU,
+      lengthPx,
+      // `DimensionLabel( "", tickSpace * i, …, false )`: the value alone, no
+      // prefix and no unit suffix.
+      label: labelled ? fromIU(distIU, iuPerMM, units).toFixed(d) : null,
+    });
+  }
+  return out;
+}
+
+/**
+ * `GetConstantGlyphHeight` (`common/preview_items/preview_utils.cpp:72-100`).
+ *
+ *     constexpr double hdpiSizes[] = { 7,  8,  9,  11,  13, 14, 16 };
+ *     constexpr double sizes[]     = { 8, 10, 12,  14,  15, 16, 18 };
+ *     height = <table>[ 3 + aRelativeSize ];
+ *
+ * The HiDPI table is taken when `HIDPI_GL_CANVAS::GetScaleFactor() > 1`, which
+ * is the device pixel ratio. The height is a SCREEN size — upstream divides it
+ * by the world scale so the text never grows with zoom — so these are logical
+ * pixels and a caller in device space multiplies by the ratio itself.
+ */
+export function constantGlyphHeightPx(devicePixelRatio: number, relativeSize = 0): number {
+  const hdpi = [7, 8, 9, 11, 13, 14, 16];
+  const std = [8, 10, 12, 14, 15, 16, 18];
+  const i = 3 + relativeSize;
+  return devicePixelRatio > 1 ? hdpi[i]! : std[i]!;
+}
+
+/** `linePitchFactor`, the other half of the same branch: 1.7 HiDPI, else 1.9. */
+export function constantLinePitchPx(devicePixelRatio: number, relativeSize = 0): number {
+  const f = devicePixelRatio > 1 ? 1.7 : 1.9;
+  return constantGlyphHeightPx(devicePixelRatio, relativeSize) * f;
+}
