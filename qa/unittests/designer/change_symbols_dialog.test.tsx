@@ -26,7 +26,7 @@
  * boxes.
  */
 import { describe, expect, it, afterEach } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { DialogChangeSymbols } from '@ziroeda/designer/src/editors/schematic/dialogs/dialog_change_symbols.js';
 
 afterEach(cleanup);
@@ -273,7 +273,7 @@ describe('the library-identifier browse button is a STD_BITMAP_BUTTON', () => {
     open(SUBJECT);
     fireEvent.click(screen.getByRole('button', { name: 'Browse for symbol' }));
 
-    const backdrops = [...document.querySelectorAll('.ze-modal-backdrop')];
+    const backdrops = Array.from(document.querySelectorAll('.ze-modal-backdrop'));
     const dialogAt = backdrops.findIndex((b) => b.querySelector('.ze-chsym'));
     const chooserAt = backdrops.findIndex((b) => b.querySelector('.ze-symbol-chooser'));
 
@@ -281,6 +281,29 @@ describe('the library-identifier browse button is a STD_BITMAP_BUTTON', () => {
     expect(chooserAt).toBeGreaterThanOrEqual(0);
     // Later sibling wins at equal z-index, so the chooser must come second.
     expect(chooserAt).toBeGreaterThan(dialogAt);
+  });
+
+  /**
+   * The panel's signature is
+   *   `(…, bool aAllowFieldEdits, bool aShowFootprints, bool& aCancelled, …)`
+   * and SYMBOL_CHOOSER_FRAME hardcodes `false, false` (symbol_chooser_frame.cpp
+   * :87). DIALOG_SYMBOL_CHOOSER forwards both from ITS caller, which is where
+   * the "Show footprint previews in Symbol Chooser" preference gets in — the
+   * frame consults no preference at all. The header: "if false, all footprint
+   * preview and selection features are disabled. This forces aAllowFieldEdits
+   * false too."
+   *
+   * This shipped reading the preference, so it showed the footprint preview and
+   * the footprint selector where the real dialog shows one symbol pane and
+   * nothing else. Akshay caught it against a live KiCad.
+   */
+  it('shows no footprint preview and no footprint selector', () => {
+    open(SUBJECT);
+    fireEvent.click(screen.getByRole('button', { name: 'Browse for symbol' }));
+
+    const chooser = document.querySelector('.ze-symbol-chooser') as HTMLElement;
+    expect(chooser.querySelector('.ze-chooser-fppreview')).toBeNull();
+    expect(within(chooser).queryByLabelText('Footprint')).toBeNull();
   });
 
   it('closing the chooser leaves the dialog that opened it standing', () => {
