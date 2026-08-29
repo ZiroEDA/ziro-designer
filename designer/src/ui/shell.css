@@ -6258,9 +6258,15 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   box-shadow: 0 1px 6px rgba(0, 0, 0, 0.4);
 }
 
-/* Label properties dialog */
+/* Label properties dialog.
+   No width. `dialog_field_properties_base.cpp:19` is
+   `SetSizeHints( wxDefaultSize, wxDefaultSize )` -- no minimum at all -- so the
+   dialog is whatever `Fit()` makes it, which is its sizer's own minimum. The
+   `440px` that used to be here was an invented number, and once the formatting
+   row took wx's real button sizes the buttons ran straight out of the dialog
+   instead of widening it. `.ze-modal` already states `width: max-content`,
+   which is `Fit()`; this rule only has to stop overriding it. */
 .ze-modal.ze-label-dialog {
-  width: 440px;
   height: auto;
 }
 .ze-label-dialog-body {
