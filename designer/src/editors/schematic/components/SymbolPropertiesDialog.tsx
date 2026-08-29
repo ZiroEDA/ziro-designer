@@ -1174,7 +1174,14 @@ export function SymbolPropertiesDialog({
               by typing here. `aria-readonly` says so to a screen reader, since
               a borderless read-only entry looks like a label. */}
           <input
-            className="ze-symprops-libid"
+            /* `ze-bare` is the shared entry rule's own opt-out. Without it that
+               rule wins on specificity — `.ze-app input:not(…)×5` is (0,6,1)
+               against this class's (0,1,0) — and its `font: inherit` resets
+               the size back to the dialog's 11pt, so the 9pt below never
+               applied. KiCad sets `KIUI::GetSmallInfoFont` here
+               (dialog_symbol_properties.cpp:381-383) and this is not a GTK
+               entry anyway: it is wxTE_READONLY | wxBORDER_NONE. */
+            className="ze-symprops-libid ze-bare"
             readOnly
             aria-readonly="true"
             aria-label="Library link"

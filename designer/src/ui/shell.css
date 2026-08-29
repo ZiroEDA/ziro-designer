@@ -6729,20 +6729,17 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
    exactly that minimum. [px] the capture agrees: the grid runs y=436..597,
    161 px including its 1 px frame. */
 .ze-symprops-grid-pane {
-  /* The 160 is a FLOOR, not the height. `SetMinSize( wxSize( -1, 160 ) )`
-     (dialog_symbol_properties.cpp:342) sets the minimum, and the sizer then
-     adds the grid with proportion 1 and wxEXPAND —
+  /* [data] `m_fieldsGrid->SetMinSize( wxSize( -1, 160 ) )` — the flex BASIS, so
+     the grid opens 160 tall and scrolls its rows, and `flex-grow: 1` then lets
+     it take the slack when the dialog is dragged taller (proportion 1 in
+     `sbFields->Add( m_fieldsGrid, 1, wxEXPAND … )`).
 
-         sbFields->Add( m_fieldsGrid, 1, wxEXPAND|wxBOTTOM|wxRIGHT|wxLEFT, 5 );
-             (dialog_symbol_properties_base.cpp:82)
-
-     — so the grid absorbs every pixel the dialog has beyond its fitting size.
-     `height: 160px; flex: 0 0 auto` pinned it AT the minimum instead, so
-     making the dialog taller grew the empty space below the grid rather than
-     the grid. It is the only proportion-1 child of that box, which is why the
-     whole dialog reads as shorter than KiCad's. */
+     Stating this as `min-height` instead made the basis `auto`, i.e. the
+     CONTENT height: a symbol with seven fields opened a grid seven rows tall
+     with no scrollbar, where KiCad shows five and scrolls. A wxGrid never sizes
+     itself to its row count. */
   /* [data] `m_fieldsGrid->SetMinSize( wxSize( -1, 160 ) )`. */
-  min-height: 160px;
+  height: 160px;
   flex: 1 1 auto;
 }
 /* `SetColLabelSize( 22 )` (dialog_symbol_properties_base.cpp:70). The shared
