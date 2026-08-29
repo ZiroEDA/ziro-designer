@@ -122,6 +122,9 @@ export interface PcbSpecialColors {
   padHoleWall: string;
   ratsnest: string;
   anchor: string;
+  /** `LAYER_AUX_ITEMS` ("board.aux_items"), which the ruler and the edit
+   *  points draw in. */
+  auxItems: string;
   drawingSheet: string;
   pageLimits: string;
   netName: string;
@@ -147,6 +150,7 @@ const specialFor = (colors: ThemeColors): PcbSpecialColors => ({
   padHoleWall: at(colors, 'LAYER_VIA_HOLES'),
   ratsnest: at(colors, 'LAYER_RATSNEST'),
   anchor: at(colors, 'LAYER_ANCHOR'),
+  auxItems: at(colors, 'LAYER_AUX_ITEMS'),
   drawingSheet: at(colors, 'LAYER_DRAWINGSHEET'),
   // LAYER_PAGE_LIMITS: the paper edge, outside the sheet's own frame and in
   // its own grey. Not the schematic's page-limits grey, which is a different
@@ -189,6 +193,9 @@ export interface PcbColorTheme {
   name: string;
   background: string;
   grid: string;
+  /** `LAYER_GRID_AXES`, which `PCB_DRAW_PANEL_GAL::updateColors` hands to
+   *  `GAL::SetAxesColor` (`pcbnew/pcb_draw_panel_gal.cpp:495`). */
+  gridAxes: string;
   layerColors: Record<string, string>;
   special: PcbSpecialColors;
 }
@@ -199,6 +206,7 @@ export const PCB_THEMES: PcbColorTheme[] = [
     name: 'KiCad Default',
     background: PCB_BACKGROUND,
     grid: PCB_GRID,
+    gridAxes: PCB_GRID_AXES,
     layerColors: PCB_LAYER_COLORS,
     special: PCB_SPECIAL,
   },
@@ -207,6 +215,7 @@ export const PCB_THEMES: PcbColorTheme[] = [
     name: 'KiCad Classic',
     background: at(BUILTIN_CLASSIC_THEME, 'LAYER_PCB_BACKGROUND'),
     grid: at(BUILTIN_CLASSIC_THEME, 'LAYER_GRID'),
+    gridAxes: at(BUILTIN_CLASSIC_THEME, 'LAYER_GRID_AXES'),
     layerColors: layerColorsFor(BUILTIN_CLASSIC_THEME),
     special: specialFor(BUILTIN_CLASSIC_THEME),
   },
@@ -226,6 +235,7 @@ export const PCB_BW_PRINT_THEME: PcbColorTheme = {
   name: 'Black and white',
   background: WHITE,
   grid: BLACK,
+  gridAxes: BLACK,
   layerColors: Object.fromEntries(Object.keys(PCB_LAYER_COLORS).map((k) => [k, BLACK])),
   special: {
     padPlatedHole: WHITE,
@@ -235,6 +245,7 @@ export const PCB_BW_PRINT_THEME: PcbColorTheme = {
     padHoleWall: BLACK,
     ratsnest: BLACK,
     anchor: BLACK,
+    auxItems: BLACK,
     drawingSheet: BLACK,
     pageLimits: BLACK,
     netName: WHITE,

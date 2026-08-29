@@ -36,6 +36,12 @@ import {
   zoomAreaTarget,
   type ZoomArea,
 } from '../../ui/zoom_tool.js';
+import {
+  rulerDimensionStrings,
+  rulerEnd,
+  type RulerPoint,
+  type RulerUnits,
+} from '../../ui/ruler_item.js';
 import { hitTestFootprint } from '@ziroeda/pcbnew';
 import { itemsInBox, fpItemBBox, type PcbFootprint } from '@ziroeda/pcbnew';
 import {
@@ -45,7 +51,7 @@ import {
   type BoardScene,
   type PcbDrawOptions,
 } from '../pcb/renderBoard.js';
-import { PCB_BACKGROUND, PCB_CURSOR } from '../pcb/pcbTheme.js';
+import { PCB_BACKGROUND, PCB_CURSOR, PCB_GRID_AXES, PCB_SPECIAL } from '../pcb/pcbTheme.js';
 import { footprintToBoard } from './footprintBoard.js';
 import { pcbGridOptions, PCB_DEFAULT_GRID_IU } from '../pcb/renderBoard.js';
 import { snapToGridSize } from '../pcb/pcb_grid.js';
@@ -90,6 +96,11 @@ export interface FootprintCanvasProps {
    * radio items that changed nothing.
    */
   crosshairMode?: CrosshairMode;
+  /**
+   * The frame's distance units, for the Measure Tool's labels.
+   * `RULER_ITEM` is constructed with `frame()->GetUserUnits()`.
+   */
+  measureUnits?: RulerUnits;
   /** Grid size in IU (GAL m_gridSize). A library footprint has no board, so
    *  there is no grid origin: FOOTPRINT_EDIT_FRAME leaves it at (0, 0). */
   gridIU?: number;
@@ -144,6 +155,7 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
       activeTool = 'selectSetRect',
       showGrid = true,
       crosshairMode = 'small',
+      measureUnits = 'mm',
       gridIU = PCB_DEFAULT_GRID_IU,
       onCursorMove,
       onScaleChange,
@@ -174,6 +186,16 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
      *  box above: `KIGFX::PREVIEW::SELECTION_AREA` in its default (non-additive)
      *  colours, not the marquee's blue/green. */
     const zoomBoxRef = useRef<ZoomArea | null>(null);
+    /**
+     * `TWO_POINT_GEOMETRY_MANAGER` + the RULER_ITEM's visibility.
+     *
+     * `originSet` is upstream's own flag: the FIRST click sets the origin, the
+     * SECOND ends the drag, and the ruler stays on screen after it -- nothing
+     * hides it until Esc or the next measurement (`pcb_viewer_tools.cpp:364-382`).
+     */
+    const rulerRef = useRef<{ origin: RulerPoint; end: RulerPoint; originSet: boolean } | null>(
+      null,
+    );
     const fpForDrawRef = useRef<PcbFootprint | null>(footprint);
     fpForDrawRef.current = footprint;
     const selForDrawRef = useRef<ReadonlySet<string>>(selection);
@@ -185,6 +207,8 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
     showGridRef.current = showGrid;
     const crosshairModeRef = useRef(crosshairMode);
     crosshairModeRef.current = crosshairMode;
+    const measureUnitsRef = useRef(measureUnits);
+    measureUnitsRef.current = measureUnits;
     const gridIURef = useRef(gridIU);
     gridIURef.current = gridIU;
     const activeToolRef = useRef(activeTool);
@@ -291,6 +315,11 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
           sizeIU: gridIURef.current,
           color: drawOpts.theme?.grid,
           devicePixelRatio: dpr,
+          // Both frames this canvas serves enable the origin axes:
+          // FOOTPRINT_EDIT_FRAME and CVPCB's DISPLAY_FOOTPRINTS_FRAME. The
+          // board editor does not, which is why this is stated here rather
+          // than in pcbGridOptions' defaults.
+          axes: { color: drawOpts.theme?.gridAxes ?? PCB_GRID_AXES },
         }),
       );
       const c = cacheRef.current;
@@ -363,6 +392,58 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
           h = Math.abs(p1.y - p0.y);
         ctx.fillRect(x, y, w, h);
         ctx.strokeRect(x, y, w, h);
+      }
+      // `KIGFX::PREVIEW::RULER_ITEM`: the main line origin→end, a tick at each
+      // end, and the four dimension strings beside the cursor. It is painted in
+      // device space because upstream draws it at a constant glyph height and a
+      // constant tick length — `GetConstantGlyphHeight` divides by the world
+      // scale precisely so the ruler does not grow when you zoom.
+      const rl = rulerRef.current;
+      if (rl) {
+        const a = toPx(rl.origin);
+        const b = toPx(rl.end);
+        ctx.save();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        // LAYER_AUX_ITEMS, which is what RULER_ITEM strokes with when it
+        // carries no colour of its own (ruler_item.cpp:320-323).
+        const aux = drawOpts.theme?.special?.auxItems ?? PCB_SPECIAL.auxItems;
+        ctx.strokeStyle = aux;
+        ctx.fillStyle = aux;
+        ctx.lineWidth = dpr;
+        ctx.setLineDash([]);
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(b.x, b.y);
+        ctx.stroke();
+        // An end tick perpendicular to the line at each end.
+        const len = Math.hypot(b.x - a.x, b.y - a.y);
+        if (len > 0) {
+          const nx = (-(b.y - a.y) / len) * 5 * dpr;
+          const ny = ((b.x - a.x) / len) * 5 * dpr;
+          ctx.beginPath();
+          ctx.moveTo(a.x - nx, a.y - ny);
+          ctx.lineTo(a.x + nx, a.y + ny);
+          ctx.moveTo(b.x - nx, b.y - ny);
+          ctx.lineTo(b.x + nx, b.y + ny);
+          ctx.stroke();
+        }
+        const lines = rulerDimensionStrings(rl.origin, rl.end, MM, measureUnitsRef.current);
+        // `DrawTextNextToCursor`'s 15 px offset, and the quadrant it prefers:
+        // away from the origin, so the labels never sit on the ruler
+        // (ruler_item.cpp:342-343, 363).
+        const offX = 15 * dpr;
+        const pitch = 13 * dpr;
+        const sx = rl.end.y < rl.origin.y ? -1 : 1;
+        const sy = rl.end.x < rl.origin.x ? 1 : -1;
+        ctx.font = `${11 * dpr}px ui-monospace, monospace`;
+        ctx.textAlign = sx < 0 ? 'right' : 'left';
+        ctx.textBaseline = 'middle';
+        const x0 = b.x + sx * offX;
+        const y0 = b.y + sy * offX;
+        for (let i = 0; i < lines.length; i++) {
+          ctx.fillText(lines[i]!, x0, y0 + sy * i * pitch);
+        }
+        ctx.restore();
       }
       // Rubber-band preview for a graphic being drawn (start → cursor).
       const pv = previewRef.current;
@@ -639,6 +720,18 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
       // (`zoom_tool.cpp:84`) — and branches only at the end, where a right
       // drag zooms OUT by the same ratio. So this runs before the
       // left-button-only guard below.
+      // `ACTIONS::measureTool`. The first left click sets the origin, the
+      // second ends it (`pcb_viewer_tools.cpp:364-382`). Both are clicks, not a
+      // press-drag-release, so this is all in pointerdown.
+      if (activeToolRef.current === 'measureTool' && e.button === 0) {
+        const world = worldAt(e.clientX, e.clientY);
+        const r = rulerRef.current;
+        if (r?.originSet) r.originSet = false;
+        else rulerRef.current = { origin: world, end: world, originSet: true };
+        gestureRef.current = null;
+        requestDraw();
+        return;
+      }
       if (activeToolRef.current === 'zoomTool' && (e.button === 0 || e.button === 2)) {
         const world = worldAt(e.clientX, e.clientY);
         gestureRef.current = { mode: 'zoom' };
@@ -672,6 +765,12 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
         cursorWorldRef.current = w;
         onCursorMove?.(w);
         // The crosshair and the rubber band both follow the pointer.
+        requestDraw();
+      }
+      const r = rulerRef.current;
+      if (r?.originSet) {
+        // Shift constrains to 45 degree increments; otherwise a direct line.
+        r.end = rulerEnd(r.origin, worldAt(e.clientX, e.clientY), e.shiftKey ? 'deg45' : 'direct');
         requestDraw();
       }
       const g = gestureRef.current;

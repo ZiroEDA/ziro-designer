@@ -1875,6 +1875,17 @@ export function pcbGridOptions(o: {
   style?: GridStyle;
   lineWidthPx?: number;
   minSpacingPx?: number;
+  /**
+   * `GAL_DISPLAY_OPTIONS::m_axesEnabled` + `SetAxesColor`.
+   *
+   * OFF for the board editor, which never enables them, and ON for the three
+   * frames that do: `footprint_edit_frame.cpp:157`,
+   * `footprint_viewer_frame.cpp:202` and `cvpcb/display_footprints_frame.cpp:144`.
+   * GAL draws them inside `drawGrid` -- a line at y=0 across the viewport and
+   * one at x=0 down it, at minorLineWidth (`opengl_gal.cpp:1921-1928`) -- which
+   * is why they are a grid option and not a scene item.
+   */
+  axes?: { color: string } | null;
 }): GridOptions {
   return {
     show: o.show,
@@ -1885,6 +1896,7 @@ export function pcbGridOptions(o: {
     lineWidthPx: o.lineWidthPx ?? DEFAULT_GRID_APPEARANCE.lineWidthPx,
     minSpacingPx: o.minSpacingPx ?? DEFAULT_GRID_APPEARANCE.minSpacingPx,
     devicePixelRatio: o.devicePixelRatio,
+    axes: o.axes ?? null,
   };
 }
 

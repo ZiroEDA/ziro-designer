@@ -465,7 +465,16 @@ export function DisplayFootprintsFrame({
             // from the drag SHAPE, which ours conflates; that naming gap is
             // noted on FootprintCanvasProps.activeTool and is not this frame's
             // to fix.
-            activeTool={activeTool === 'zoomTool' ? 'zoomTool' : 'selectSetRect'}
+            activeTool={
+              activeTool === 'zoomTool' || activeTool === 'measureTool'
+                ? activeTool
+                : 'selectSetRect'
+            }
+            // `RULER_ITEM` is built with `frame()->GetUserUnits()`, so the
+            // Units radio group drives its labels too.
+            measureUnits={
+              toggles.has('unitsInches') ? 'in' : toggles.has('unitsMils') ? 'mils' : 'mm'
+            }
             // `if( selectRegion() ) break;` then PopTool: a committed zoom
             // ends the tool and the frame goes back to selecting.
             onZoomAreaApplied={() => setActiveTool('selectionTool')}
