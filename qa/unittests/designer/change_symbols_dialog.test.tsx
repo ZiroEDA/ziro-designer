@@ -38,7 +38,9 @@ const SUBJECT = {
   isSelected: true,
 };
 
-function open(subject?: typeof SUBJECT) {
+type Message = { text: string; severity: 'action' | 'error' };
+
+function open(subject?: typeof SUBJECT, messages: readonly Message[] = []) {
   render(
     <DialogChangeSymbols
       mode="update"
@@ -47,12 +49,22 @@ function open(subject?: typeof SUBJECT) {
       fieldNamesFor={() => ['Reference', 'Value', 'Footprint', 'Datasheet', 'Description']}
       hasSelection
       {...(subject ? { subject } : {})}
-      messages={[]}
+      messages={messages}
       onApply={() => {}}
       onClose={() => {}}
     />,
   );
 }
+
+/** The message view WX_HTML_REPORT_PANEL's m_htmlView stands in for. */
+const view = (): HTMLElement => screen.getByTestId('report-panel-view');
+/** Its visible lines, prefix included, in report order. */
+const lines = (): string[] =>
+  [...view().querySelectorAll('.ze-report-line')].map((n) => n.textContent ?? '');
+/** m_errorsBadge then m_warningsBadge, the order bSizerBottom adds them in. */
+const badges = (): HTMLElement[] => [
+  ...document.querySelectorAll<HTMLElement>('.ze-report-filters .ze-badge'),
+];
 
 const entry = (name: string): HTMLInputElement =>
   screen.getByLabelText(name, { selector: 'input.ze-search' }) as HTMLInputElement;
@@ -127,5 +139,82 @@ describe('the report panel is always present', () => {
     // `m_messagePanel` is added unconditionally with SetMinSize( -1, 200 ).
     open(SUBJECT);
     expect(screen.getByText('Output Messages')).toBeTruthy();
+  });
+});
+
+/**
+ * `m_messagePanel` is a WX_HTML_REPORT_PANEL, not a list of lines this dialog
+ * draws itself, so it brings WX_HTML_REPORT_PANEL_BASE's bottom row with it:
+ *
+ *     Show:  [x] All  [x] Errors (0)  [x] Warnings (0)  [x] Actions  [x] Infos   [ Save... ]
+ *
+ * The dialog had none of it. Each `it` below fails if the panel is hand-rolled
+ * again, because none of these controls exist unless the shared widget is the
+ * thing mounted.
+ */
+describe('the Show: strip, which comes with WX_HTML_REPORT_PANEL', () => {
+  it('carries the label, all five severity boxes and Save...', () => {
+    open(SUBJECT);
+    expect(screen.getByText('Show:')).toBeTruthy();
+    // WX_HTML_REPORT_PANEL_BASE creates exactly these five, in this order,
+    // every one `SetValue( true )`.
+    for (const name of ['All', 'Errors', 'Warnings', 'Actions', 'Infos']) {
+      const box = screen.getByLabelText(name) as HTMLInputElement;
+      expect(box.type).toBe('checkbox');
+      expect(box.checked).toBe(true);
+    }
+    expect(screen.getByRole('button', { name: 'Save...' })).toBeTruthy();
+  });
+
+  it('and the two NUMBER_BADGEs count errors and warnings, not lines', () => {
+    // updateBadges(): Count( RPT_SEVERITY_ERROR ) and Count( RPT_SEVERITY_WARNING ).
+    // Three lines here, two of them errors and none a warning.
+    open(SUBJECT, [
+      { text: 'R1: *** symbol not found ***', severity: 'error' },
+      { text: 'C1: *** symbol not found ***', severity: 'error' },
+      { text: 'J1: updated', severity: 'action' },
+    ]);
+    expect(badges().map((b) => b.textContent)).toStrictEqual(['2', '0']);
+  });
+
+  it('unticking Errors drops the error lines and leaves the actions', () => {
+    // generateHtml returns nothing for a line outside GetVisibleSeverities().
+    open(SUBJECT, [
+      { text: 'R1: *** symbol not found ***', severity: 'error' },
+      { text: 'J1: updated', severity: 'action' },
+    ]);
+    expect(lines()).toStrictEqual(['Error: R1: *** symbol not found ***', 'J1: updated']);
+    fireEvent.click(screen.getByLabelText('Errors'));
+    expect(lines()).toStrictEqual(['J1: updated']);
+    // The badge still counts what the report HOLDS, not what is on screen:
+    // Count() walks m_report, and only generateHtml consults the mask.
+    expect(badges().map((b) => b.textContent)).toStrictEqual(['1', '0']);
+  });
+
+  it('unticking All clears the rest but forces Errors back on', () => {
+    // onCheckBox: m_checkBoxShowErrors->SetValue( true ) unconditionally, then
+    // the other three follow event.IsChecked().
+    open(SUBJECT, [
+      { text: 'R1: *** symbol not found ***', severity: 'error' },
+      { text: 'J1: updated', severity: 'action' },
+    ]);
+    fireEvent.click(screen.getByLabelText('All'));
+    expect((screen.getByLabelText('Errors') as HTMLInputElement).checked).toBe(true);
+    for (const name of ['All', 'Warnings', 'Actions', 'Infos'])
+      expect((screen.getByLabelText(name) as HTMLInputElement).checked).toBe(false);
+    expect(lines()).toStrictEqual(['Error: R1: *** symbol not found ***']);
+  });
+
+  it('prefixes an error line with "Error:" and an action line with nothing', () => {
+    // generateHtml: only RPT_SEVERITY_ERROR and _WARNING take a prefix;
+    // an ACTION line is the message alone, coloured.
+    open(SUBJECT, [
+      { text: 'R1: *** symbol not found ***', severity: 'error' },
+      { text: 'J1: updated', severity: 'action' },
+    ]);
+    const rendered = view().querySelectorAll('.ze-report-line');
+    expect(rendered[0]?.querySelector('.tag')?.textContent).toBe('Error: ');
+    expect(rendered[1]?.querySelector('.tag')).toBe(null);
+    expect(rendered[1]?.className).toContain('action');
   });
 });

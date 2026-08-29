@@ -10156,11 +10156,17 @@ textarea.ze-ds-textedit {
    minimum, and a wxCheckBox's minimum is its whole label — that is what makes
    the option columns wide, and through the 2:4 proportions the dialog. Setting
    it to 0 let the columns collapse and the labels overlapped each other. */
+/* m_mainSizer is a plain vertical wxBoxSizer: it puts NOTHING between its
+   children and adds no inset of its own — every gap in this dialog is a border
+   one child states. So the shared `.ze-label-dialog-body` padding and gap are
+   both zeroed here and each block below carries its own margin; a blanket
+   14/16 padding would sit outside the boxes' own 10 and push the dialog 32 px
+   wider than wx makes it. */
 .ze-chsym-body {
   display: flex;
   flex-direction: column;
-  /* [data] `m_mainSizer->Add( 0, 8, 0, wxEXPAND, 5 )`, base.cpp:71. */
-  gap: 8px;
+  gap: 0;
+  padding: 0;
   max-height: 78vh;
   overflow-y: auto;
 }
@@ -10171,26 +10177,42 @@ textarea.ze-ds-textedit {
 .ze-chsym-match {
   display: grid;
   grid-template-columns: auto 1fr;
-  /* [data] wxGridBagSizer( 3, 0 ) — vgap 3, hgap 0. The 5 px each item carries
-     as wxBOTTOM is folded into the row gap. */
-  /* [data] wxGridBagSizer( 3, 0 ) plus each item's wxBOTTOM 5. */
-  row-gap: 5px;
+  /* The row pitch is NOT uniform, and folding the bottom borders into the gap
+     is what made ours uneven. Only the two top rows carry `wxBOTTOM 5`; rows
+     2-4 carry no vertical border at all (their 2 / 5 / 6 are passed with
+     `wxALIGN_CENTER_VERTICAL` and no direction flag, so wx ignores them). The
+     gap is the grid's vgap alone.
+     [data] `new wxGridBagSizer( 3, 0 )` — vgap 3, hgap 0. */
+  row-gap: 3px;
   column-gap: 0;
   align-items: center;
-  /* [data] matchSizerMargins, wxEXPAND|wxTOP|wxRIGHT|wxLEFT 5. */
-  padding: 5px 5px 0;
+  /* matchSizerMargins is wxEXPAND|wxTOP|wxLEFT 5 and m_matchSizer inside it is
+     wxEXPAND|wxTOP|wxRIGHT|wxLEFT 5, so the two add up; the 8 is
+     `m_mainSizer->Add( 0, 8, 0, wxEXPAND, 5 )` (:71), which sits between this
+     block and the rule and nowhere else.
+     [data] 5+5 top, 5 right, 8 bottom, 5+5 left. */
+  margin: 10px 5px 8px 10px;
 }
 .ze-chsym-mrad {
   display: flex;
   align-items: center;
-  /* [data] wxRIGHT 5 between a radio and the entry beside it. */
-  gap: 5px;
-  /* [data] the same wxRIGHT 5. */
-  padding-right: 5px;
+  /* --check-inset is the measured indicator-to-label gap (Gtk.CheckButton's
+     own style properties). The sizer states no border here: hgap is 0 and the
+     2 / 5 / 6 on the radios go with wxALIGN_CENTER_VERTICAL and no direction
+     flag, so wx never applies them. */
+  gap: var(--check-inset);
+  /* A wxRadioButton's own height, so a radio-only row is 22 and an entry row
+     is --ctl-height (34) — which is what makes wx's pitch 30, 36, 37, 37 down
+     the five rows rather than one number. `qa/probes/change_symbols_probe.cpp`
+     builds m_matchSizer and reports exactly that. */
+  min-height: var(--check-row);
 }
-/* `m_matchAll` is added with `wxGBSpan( 1, 2 )` — across both columns. */
+/* `m_matchAll` is added with `wxGBSpan( 1, 2 )` — across both columns — and it
+   and `m_matchBySelection` are the only two rows with a vertical border. */
 .ze-chsym-mspan {
   grid-column: 1 / -1;
+  /* [data] `wxALIGN_CENTER_VERTICAL|wxBOTTOM, 5` on both (:29, :32). */
+  margin-bottom: 5px;
 }
 /* bSizer10: the entry at proportion 1 with the browse button beside it. */
 .ze-chsym-mentry {
@@ -10201,8 +10223,9 @@ textarea.ze-ds-textedit {
   flex: 1;
 }
 .ze-chsym-rule {
-  /* [data] `m_mainSizer->Add( m_staticline1, 0, wxEXPAND|wxALL, 4 )`, :74. */
-  margin: 4px 0;
+  /* [data] `m_mainSizer->Add( m_staticline1, 0, wxEXPAND|wxALL, 4 )`, :74 —
+     wxALL, so the 4 is on the sides too. */
+  margin: 4px;
   border: none;
   border-top: 1px solid var(--chrome-border);
 }
@@ -10211,13 +10234,34 @@ textarea.ze-ds-textedit {
   align-items: center;
   /* [data] wxLEFT 5 on both the label and the entry. */
   gap: 5px;
+  /* [data] `m_mainSizer->Add( m_newIdSizer, 0, wxEXPAND|wxTOP|wxRIGHT|wxLEFT, 5 )`,
+     :90. Its own children's wxLEFT/wxRIGHT 5 are the gap above. */
+  margin: 5px 5px 0;
 }
 .ze-chsym-newid .ze-search {
   flex: 1;
 }
 
 /* `bSizerUpdate`, horizontal: the fields box at proportion 2 and the options
-   box at 4 (:116, :197), both wxEXPAND so they share a height. */
+   box at 4 (:116, :197), both wxEXPAND so they share a height.
+
+   THIS ROW IS WHAT SETS THE DIALOG'S WIDTH. `qa/probes/change_symbols_probe.cpp`
+   builds the tree with real wxWidgets on this desktop and reports:
+
+     m_updateFieldsSizer CalcMin      246
+     m_updateOptionsSizer CalcMin     624
+     bSizerUpdate CalcMin             956   <- and the dialog's client width
+     dialog GetClientSize             956 x 753
+
+   wxBoxSizer::CalcMin divides each proportional child's bordered minimum by
+   its proportion and scales the largest back up:
+     fields  (246 + 20) * 6/2 = 798
+     options (624 + 10) * 6/4 = 951   <- the winner
+     + the 5 px spacer                = 956
+   so the FIELDS box is never sized by its own contents: it is whatever half
+   the options box comes to. CSS flexbox sizes a max-content flex container by
+   the same flex-fraction rule (css-flexbox-1 §9.9.3), which is why the
+   proportions below are `flex: 2` / `flex: 4` and not a width. */
 .ze-chsym-update {
   display: flex;
   align-items: stretch;
@@ -10229,6 +10273,8 @@ textarea.ze-ds-textedit {
   min-width: max-content;
   display: flex;
   flex-direction: column;
+  /* [data] `bSizerUpdate->Add( m_updateFieldsSizer, 2, wxEXPAND|wxTOP|wxRIGHT|wxLEFT, 10 )`. */
+  margin: 10px 10px 0;
 }
 .ze-chsym-options {
   flex: 4;
@@ -10244,6 +10290,11 @@ textarea.ze-ds-textedit {
      overlapped. `max-content` is the CSS spelling of "the minimum wx would
      compute": the widest checkbox in each column, side by side. */
   min-width: max-content;
+  /* `bSizerUpdate->Add( m_updateOptionsSizer, 4, wxEXPAND|wxTOP|wxRIGHT, 10 )`
+     — no wxLEFT, because the 5 px spacer is what separates it from the fields
+     box.
+     [data] wxTOP 10, wxRIGHT 10, no wxBOTTOM, no wxLEFT. */
+  margin: 10px 10px 0 0;
 }
 /* bSizer8 and bSizer9, each added with proportion 1 — equal columns. */
 .ze-chsym-optcol {
@@ -10257,8 +10308,30 @@ textarea.ze-ds-textedit {
   flex-direction: column;
   /* [data] every option carries wxBOTTOM 5. */
   gap: 5px;
-  /* [data] and wxRIGHT 10 between the two columns (:53). */
+}
+/* `m_updateOptionsSizer->Add( bSizer8, 1, wxEXPAND|wxRIGHT, 10 )` — the LEFT
+   column only. bSizer9 is added with no border, so restating this on both put
+   10 px of nothing against the box's right edge. `legend` is the fieldset's
+   first child but a different element type, so the first `div` is
+   nth-of-type(1). */
+.ze-chsym-optcol:nth-of-type(1) {
+  /* [data] bSizer8's wxRIGHT 10. */
   padding-right: 10px;
+}
+/* Every checkbox in both columns carries wxRIGHT 5, which is part of what
+   makes each column's minimum — and through the 2:4 proportions, the dialog's
+   width. */
+.ze-chsym-optcol > .ze-chsym-opt {
+  /* [data] `bSizer8->Add( m_removeExtraBox, 0, wxBOTTOM|wxRIGHT, 5 )` and the
+     eleven others like it. */
+  margin-right: 5px;
+}
+/* The last option above each button takes wxBOTTOM 10, not 5 (:150, :189),
+   and the button's own wxTOP 5 sits under it — so the column's 5 px gap plus
+   this makes the 10, and the button's margin makes the rest. */
+.ze-chsym-optcol > .ze-chsym-opt:last-of-type {
+  /* [data] wxBOTTOM 10 rather than 5, on top of the 5 px column gap. */
+  margin-bottom: 5px;
 }
 /* `bSizer8->Add( 0, 10, 1, wxEXPAND, 5 )`: a spacer with PROPORTION 1, so it
    absorbs the column's slack and pushes the group below it down. bSizer9 has
@@ -10271,8 +10344,13 @@ textarea.ze-ds-textedit {
 .ze-chsym-opt {
   display: flex;
   align-items: center;
-  /* [data] wxRIGHT 5 between a checkbox and its label. */
-  gap: 5px;
+  /* --check-inset, the measured indicator-to-label gap; the wxRIGHT 5 these
+     carry is on the OUTSIDE of the control, and is stated as a margin above. */
+  gap: var(--check-inset);
+  /* A wxCheckBox's own height, so a column of them keeps wx's row pitch.
+     [px] --check-row, and `qa/probes/change_symbols_probe.cpp` reports
+     wxCheckBox::GetBestSize as 180 x 22 on this desktop. */
+  min-height: var(--check-row);
 }
 /* A wxCheckBox is ONE control whose best size is its indicator plus its label,
    and a sizer never shrinks a control below its minimum — so the label never
@@ -10289,12 +10367,25 @@ textarea.ze-ds-textedit {
   text-overflow: ellipsis;
 }
 /* `m_fieldsBox` is a wxCheckListBox: a bordered scrolling list, added at
-   proportion 1 so it takes the box's height. */
+   proportion 1 so it takes the box's height.
+
+   Its fill is wxSYS_COLOUR_LISTBOX, which is --chrome-bg2. It said --ctl-face
+   (#373737), the BUTTON face, which is 16 levels too light and made the list
+   read as raised where KiCad's is inset. Two independent measurements agree:
+   `qa/probes/change_symbols_probe.cpp` reports wxSYS_COLOUR_LISTBOX as
+   #272727 and the real wxTextCtrl beside it as the same #272727, and in
+   Akshay's side-by-side capture the list interior and an entry interior are
+   the same value while the dialog face is lighter than both.
+   (wxWindow::GetBackgroundColour on the wxCheckListBox itself answers with the
+   inherited dialog face, #2C2C2C — it reports what wx was told, not what GTK
+   paints, so it is not the number to take.) */
 .ze-chsym-fieldbox {
   flex: 1;
   overflow-y: auto;
   border: 1px solid var(--chrome-border);
-  background: var(--ctl-face);
+  background: var(--chrome-bg2);
+  /* [data] `m_fieldsBox->SetMinSize( wxSize( -1, 120 ) )`, :99. */
+  min-height: 120px;
 }
 .ze-chsym-selbtns {
   display: flex;
@@ -10319,26 +10410,26 @@ textarea.ze-ds-textedit {
   /* [data] wxTOP|wxBOTTOM 5. */
   margin: 5px 0;
 }
-/* `m_messagePanel->SetMinSize( wxSize( -1, 200 ) )` (:206), and its sizer is
-   the ONE proportion-1 child of m_mainSizer — it takes every spare pixel. */
+/* `m_messagePanel` is a WX_HTML_REPORT_PANEL — the same widget ERC, DRC,
+   Annotate, Plot, Export Netlist and Update PCB from Schematic embed, so it is
+   `.ze-report-panel` and states nothing of its own here. This block used to
+   hand-roll the list: a bare div with `--ctl-face` behind it, its own #f04040
+   for the "Error:" prefix, a monospace face wx never asks for, and no "Show:"
+   strip at all.
+
+   bSizer2 adds it wxEXPAND|wxTOP|wxRIGHT|wxLEFT 5 and the panel inside is
+   wxALL 5, so the two add up to 10; it is the ONE proportion-1 child of
+   m_mainSizer, so it takes every spare pixel. */
 .ze-chsym-msgs {
   flex: 1;
+  display: flex;
+  /* [data] 5 + 5 on three sides, 5 on the bottom (bSizer2 states no wxBOTTOM). */
+  margin: 10px 10px 5px;
 }
-.ze-chsym-msgbody {
+.ze-chsym-msgs > .ze-report-panel {
   flex: 1;
-  /* [data] `SetMinSize( wxSize( -1, 200 ) )`. */
+  /* The constraint is on the PANEL, not on the message view — the view is
+     what is left once the Show: strip has taken its 44.
+     [data] `m_messagePanel->SetMinSize( wxSize( -1, 200 ) )`, :206. */
   min-height: 200px;
-  overflow: auto;
-  border: 1px solid var(--chrome-border);
-  background: var(--ctl-face);
-  /* [data] `bSizer2->Add( m_messagePanel, 1, wxEXPAND | wxALL, 5 )`. */
-  padding: 5px;
-  font-family: var(--mono-font-family, monospace);
-}
-.ze-chsym-err {
-  /* [data] `<font color=#F04040 size=3>` — `WX_HTML_REPORT_PANEL::generateHtml`
-     (wx_html_report_panel.cpp:181) on a dark theme. Not the ERC marker red:
-     that is a different table, for a different widget. Only the "Error:"
-     prefix takes it; the message keeps the default ink. */
-  color: #f04040;
 }

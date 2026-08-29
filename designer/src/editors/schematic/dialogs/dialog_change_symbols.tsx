@@ -43,7 +43,9 @@ import {
   type SymbolMatch,
   type SymbolMatchMode,
 } from '@ziroeda/eeschema';
+import { RPT_SEVERITY_ACTION, RPT_SEVERITY_ERROR, type ReportLine } from '@ziroeda/common';
 import { useModalEscape } from '../../../ui/useModalEscape.js';
+import { HtmlReportPanel, RPT_SEVERITY_ALL } from '../../../widgets/wx_html_report_panel.js';
 import { Icon } from '../../../ui/icons.js';
 
 /**
@@ -120,6 +122,23 @@ export function DialogChangeSymbols({
   // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
   // ui/modal_escape.ts.
   useModalEscape(onClose);
+
+  /* The panel filters on REPORTER's severity mask, so the engine's messages
+     become REPORT_LINEs on the way in. `DIALOG_CHANGE_SYMBOLS` only ever
+     reports two of the eight severities — RPT_SEVERITY_ERROR (:565, :599,
+     :610, :621) and RPT_SEVERITY_ACTION (:832) — which is why
+     `ChangeSymbolsMessage.severity` is a two-value union. Every line is a body
+     line: upstream calls plain `Report()`, never ReportHead/ReportTail. */
+  const reportLines: readonly ReportLine[] = messages.map((m) => ({
+    message: m.text,
+    severity: m.severity === 'error' ? RPT_SEVERITY_ERROR : RPT_SEVERITY_ACTION,
+    location: 'body',
+  }));
+
+  /* The five checkboxes start ticked, as WX_HTML_REPORT_PANEL_BASE sets them
+     (`SetValue( true )` on all five). Upstream persists this per facility;
+     this dialog has no such setting, so it resets with the dialog. */
+  const [severities, setSeverities] = useState<number>(RPT_SEVERITY_ALL);
 
   const [opts, setOpts] = useState<ChangeSymbolsOptions>(() => {
     const base = defaultChangeSymbolsOptions(mode);
@@ -388,33 +407,26 @@ export function DialogChangeSymbols({
             </fieldset>
           </div>
 
-          {/* m_messagePanel: always present, `SetMinSize( wxSize( -1, 200 ) )`.
-              It is not conditional upstream — an empty report panel is what the
-              dialog opens with. */}
-          <fieldset className="ze-props-group ze-chsym-msgs">
-            <legend>Output Messages</legend>
-            <div className="ze-chsym-msgbody">
-              {/* `WX_HTML_REPORT_PANEL::generateHtml` (wx_html_report_panel.cpp:175-186)
-                  on a dark theme. Only the SEVERITY PREFIX is coloured, and the
-                  message after it is left in the default ink:
-
-                    Error:    <font color=#F04040 size=3>Error: </font> + message
-                    Warning:  <font size=3>Warning: message</font>   — no colour
-
-                  A warning line is prefixed and otherwise plain — our
-                  `ChangeSymbolsMessage.severity` is only 'action' | 'error',
-                  so that branch has nothing to render yet. */}
-              {messages.map((m, i) => (
-                <div
-                  // biome-ignore lint/suspicious/noArrayIndexKey: report lines have no id
-                  key={i}
-                >
-                  {m.severity === 'error' ? <span className="ze-chsym-err">Error: </span> : null}
-                  {m.text}
-                </div>
-              ))}
-            </div>
-          </fieldset>
+          {/* m_messagePanel is a WX_HTML_REPORT_PANEL, the same widget ERC,
+              Annotate, Plot, Export Netlist and Update PCB from Schematic
+              embed — so it brings the "Show:" severity strip, the two
+              NUMBER_BADGEs and Save... with it. This was a bare list of divs
+              with no filters at all. It is not conditional upstream: an empty
+              report panel is what the dialog opens with. */}
+          <div className="ze-chsym-msgs">
+            <HtmlReportPanel
+              label="Output Messages"
+              lines={reportLines}
+              fileName="report.txt"
+              visibleSeverities={severities}
+              onVisibleSeveritiesChange={setSeverities}
+              // The 200 px minimum upstream states is on the PANEL
+              // (`SetMinSize( wxSize( -1, 200 ) )`, :206), not on the message
+              // view; the view is whatever is left once the Show: strip has
+              // taken its 44. `.ze-chsym-msgs > .ze-report-panel` carries it.
+              minHeight={0}
+            />
+          </div>
         </div>
         <div className="ze-modal-footer">
           <button className="ze-btn" onClick={onClose}>
