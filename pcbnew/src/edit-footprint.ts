@@ -503,17 +503,63 @@ function patchTextValue(src: SList, value: string): SList {
   return patchArg(src, 2, value);
 }
 
-const setRefOrVal = (
-  fp: PcbFootprint,
-  kind: 'reference' | 'value',
-  value: string,
-): PcbFootprint => ({
-  ...fp,
-  ...(kind === 'reference' ? { reference: value } : { value }),
-  texts: fp.texts.map((t) =>
-    t.kind === kind ? { ...t, text: value, source: patchTextValue(t.source, value) } : t,
-  ),
-});
+/**
+ * The text as the FILE holds it, before the reader substituted `${REFERENCE}`
+ * and `${VALUE}` into it.
+ *
+ * KiCad never stores a resolved string: `FOOTPRINT::ResolveTextVar` runs inside
+ * `EDA_TEXT::GetShownText` every time the item is drawn (`pcbnew/footprint.cpp`),
+ * so the F.Fab `${REFERENCE}` follows the reference the instant it changes. Our
+ * reader bakes the substitution once, at parse time (`read-board.ts`, the loop
+ * after `parseFOOTPRINT`), which is cheaper but leaves `text` stale the moment
+ * something edits the reference or the value. The literal survives in `source`,
+ * so it can be recovered and re-run — that is what this pair is for.
+ *
+ * The value is the 3rd positional in both spellings a footprint text takes,
+ * `(property "Reference" "REF**" …)` and `(fp_text user "${REFERENCE}" …)`;
+ * board text, `(gr_text "…")`, keeps it at the 2nd and is never substituted.
+ */
+export function footprintTextRaw(t: PcbTextItem): string {
+  if (t.source.items.length === 0) return t.text; // built from scratch: nothing to recover
+  const name = head(t.source) ?? '';
+  const node = t.source.items[name === 'gr_text' ? 1 : 2];
+  return node && node.kind !== 'list' ? node.value : t.text;
+}
+
+/**
+ * Re-run the reader's `${REFERENCE}` / `${VALUE}` substitution over a BOARD
+ * footprint, so a text that quotes one of them follows the field it quotes.
+ *
+ * Not for a library footprint: `FOOTPRINT::ResolveTextVar` returns false on an
+ * FPHOLDER board (`footprint.cpp:1185-1188`), which is why the footprint editor
+ * and the chooser's preview paint the literal `${REFERENCE}`.
+ */
+export function resolveFootprintTextVars(fp: PcbFootprint): PcbFootprint {
+  let changed = false;
+  const texts = fp.texts.map((t) => {
+    const raw = footprintTextRaw(t);
+    if (!raw.includes('${')) return t;
+    const shown = raw
+      .replaceAll('${REFERENCE}', fp.reference ?? '')
+      .replaceAll('${VALUE}', fp.value ?? '');
+    if (shown === t.text) return t;
+    changed = true;
+    return { ...t, text: shown };
+  });
+  return changed ? { ...fp, texts } : fp;
+}
+
+const setRefOrVal = (fp: PcbFootprint, kind: 'reference' | 'value', value: string): PcbFootprint =>
+  // The re-resolve is the whole point of routing every reference and value edit
+  // through here: without it a netlist update renamed the silkscreen "REF**" to
+  // "D1" and left the F.Fab `${REFERENCE}` reading "REF**" for ever.
+  resolveFootprintTextVars({
+    ...fp,
+    ...(kind === 'reference' ? { reference: value } : { value }),
+    texts: fp.texts.map((t) =>
+      t.kind === kind ? { ...t, text: value, source: patchTextValue(t.source, value) } : t,
+    ),
+  });
 
 export const setFootprintReference = (fp: PcbFootprint, value: string): PcbFootprint =>
   setRefOrVal(fp, 'reference', value);

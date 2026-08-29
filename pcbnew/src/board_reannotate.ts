@@ -74,6 +74,7 @@
  */
 import { strNumCmp, wildCompareString } from '@ziroeda/common/src/string_utils.js';
 import { getRefDesPrefix } from './spread_footprints.js';
+import { setFootprintReference } from './edit-footprint.js';
 import type { SList, SNode } from '@ziroeda/sexpr/src/types.js';
 import type { Board, PcbFootprint } from './types.js';
 
@@ -631,38 +632,12 @@ export function planBoardReannotate(
 // Applying
 // ---------------------------------------------------------------------------
 
-const str = (value: string): SNode => ({ kind: 'string', value });
-const isList = (n: SNode): n is SList => n.kind === 'list';
-
-/**
- * Rewrite the text of `(property "Reference" "R1" …)` or
- * `(fp_text reference "R1" …)`: in both spellings the designator is the second
- * scalar after the head.
+/*
+ * `FOOTPRINT::SetReference` is `setFootprintReference` in `edit-footprint.ts`,
+ * imported above. This file used to carry its own copy, which patched the model
+ * and the source but did NOT re-resolve a `${REFERENCE}` text — so reannotating
+ * renamed the silkscreen and left the F.Fab designator on the old number.
  */
-function setSourceText(src: SList, value: string): SList {
-  let seen = -1;
-  return {
-    kind: 'list',
-    items: src.items.map((it) => {
-      if (isList(it)) return it;
-      seen++;
-      return seen === 2 ? str(value) : it;
-    }),
-  };
-}
-
-/** `FOOTPRINT::SetReference`, model and source together. */
-function setFootprintReference(fp: PcbFootprint, reference: string): PcbFootprint {
-  return {
-    ...fp,
-    reference,
-    texts: fp.texts.map((t) =>
-      t.kind === 'reference'
-        ? { ...t, text: reference, source: setSourceText(t.source, reference) }
-        : t,
-    ),
-  };
-}
 
 /**
  * `ReannotateBoard`'s apply loop. Every footprint is visited, but the plan gives
