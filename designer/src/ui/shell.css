@@ -6583,11 +6583,14 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   border: 1px solid var(--chrome-border);
   border-radius: 3px;
 }
+/* `formattingSizer` adds every button with `wxALIGN_CENTER_VERTICAL` alone —
+   no wxLEFT/wxRIGHT — so wx puts NO space between them, and its CalcMin is
+   just 10 x 36 + 5 x 2 = 370. A 2px flex gap here added 28px the real row does
+   not have. */
 .ze-lp-iconbar {
   grid-column: 1 / -1;
   display: flex;
   align-items: center;
-  gap: 2px;
   padding: 0 5px;
 }
 .ze-lp-sep {
@@ -6606,8 +6609,19 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   align-items: center;
   gap: 3px;
 }
+/* `m_textSizeCtrl` and the position ctrls are plain wxTextCtrls at
+   wxSize( -1, -1 ), so GTK's own best size is the answer -- measured by
+   qa/probes/field_props_width_probe.cpp:
+
+     wxTextCtrl best size (size/pos)      98 x 34
+
+   Ours were 70 wide and shorter, which is why Akshay's side-by-side showed our
+   entry boxes about half the width of KiCad's. */
 .ze-lp-size {
-  width: 70px;
+  /* [px] wxTextCtrl GetBestSize().x, field_props_width_probe. */
+  width: 98px;
+  /* [px] the same measurement's height. */
+  min-height: 34px;
   font: inherit;
   padding: 3px 4px;
   background: var(--chrome-bg2);

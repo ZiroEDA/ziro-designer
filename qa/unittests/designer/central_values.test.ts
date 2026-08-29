@@ -370,13 +370,14 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // table now and carry [data] on their own lines, so none of the eight
   // counts; the sixth is `.show-label`'s #9a9ca0, which dimmed a plain
   // wxStaticText and is --chrome-fg.
-  // 755 -> 753. The text/label/field dialogs' format bar took its sizes from
+  // 755 -> 752. The text/label/field dialogs took their sizes from
   // qa/probes/field_props_width_probe.cpp instead of holding them: the button
-  // was 24 square where a BITMAP_BUTTON measures 36 x 34, and the separator
-  // 1px with a 4px margin either side where wxLI_VERTICAL measures 2 and the
-  // sizer gives it no border. Four literals became three that carry [px] and
-  // one that went away with the margin.
-  ui: { colours: 245, metrics: 753 },
+  // was 24 square where a BITMAP_BUTTON measures 36 x 34, the separator 1px
+  // with a 4px margin either side where wxLI_VERTICAL measures 2 and the sizer
+  // gives it no border, and the entry 70 wide where a wxTextCtrl measures
+  // 98 x 34. The survivors carry [px]; the separator margin, the icon bar's
+  // invented 2px gap and the dialog's 440px width went away entirely.
+  ui: { colours: 245, metrics: 752 },
   // colours 6 -> 7: the opacity slider's #55585d track arrived here with
   // APPEARANCE_CONTROLS; it is the same literal `editors/pcb` lost, not a new
   // one. The panel's own stylesheet adds none: every length in
@@ -718,10 +719,10 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // DIALOG_CHANGE_SYMBOLS replaced four inline `style={{ ... }}` metrics with
     // rules in shell.css whose numbers are the sizer borders `_base.cpp`
     // states. One row moves and 1558 - 4 agrees with it.
-    // 1554 -> 1552: `ui` 755 -> 753, the format bar's button and separator
-    // sizes replaced by the wx measurements they should always have been. See
-    // that row for the arithmetic.
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1552);
+    // 1554 -> 1551: `ui` 755 -> 752, the dialogs' button, separator, entry and
+    // width literals replaced by the wx measurements they should always have
+    // been, or removed. See that row for the arithmetic.
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1551);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {

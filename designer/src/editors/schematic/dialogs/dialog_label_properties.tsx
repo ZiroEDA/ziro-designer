@@ -43,6 +43,8 @@ import {
 import { toolbarIconUrl } from '../../../ui/toolbarIcons.js';
 import { ColorSwatch } from '../../../ui/ColorSwatch.js';
 import { color4dToItemColor, type ItemColor, itemColorToColor4d } from './item_color.js';
+import { FontChoice } from '../../../ui/TextFormatBar.js';
+import { Combo } from '../../../ui/Combo.js';
 import { useModalEscape } from '../../../ui/useModalEscape.js';
 
 /** A flag shape: a label's electrical one, or a directive label's outline. */
@@ -506,25 +508,23 @@ export function DialogLabelProperties({
                             onChange={(e) => patchField(i, { ...f, nameShown: e.target.checked })}
                           />
                         </td>
+                        {/* A grid choice cell is a `wxGridCellChoiceEditor`,
+                            which is wx's own control and not the platform's
+                            dropdown; `Combo` is ours, and the two below were
+                            the last native `<select>`s in this dialog. */}
                         <td>
-                          <select
+                          <Combo
                             value={justifyOf(f, 'h')}
-                            onChange={(e) => patchField(i, withJustify(f, 'h', e.target.value))}
-                          >
-                            {H_ALIGNS.map((a) => (
-                              <option key={a}>{a}</option>
-                            ))}
-                          </select>
+                            options={H_ALIGNS.map((a) => ({ value: a, label: a }))}
+                            onChange={(v) => patchField(i, withJustify(f, 'h', v))}
+                          />
                         </td>
                         <td>
-                          <select
+                          <Combo
                             value={justifyOf(f, 'v')}
-                            onChange={(e) => patchField(i, withJustify(f, 'v', e.target.value))}
-                          >
-                            {V_ALIGNS.map((a) => (
-                              <option key={a}>{a}</option>
-                            ))}
-                          </select>
+                            options={V_ALIGNS.map((a) => ({ value: a, label: a }))}
+                            onChange={(v) => patchField(i, withJustify(f, 'v', v))}
+                          />
                         </td>
                         <td className="c">
                           <input
@@ -603,26 +603,11 @@ export function DialogLabelProperties({
               <legend>Formatting</legend>
               <div className="ze-lp-fmt-grid">
                 <span className="ze-lp-fmt-label">{isDirective ? 'Orientation:' : 'Font:'}</span>
-                {isDirective ? (
-                  <span />
-                ) : (
-                  <select
-                    className="ze-lp-font"
-                    // FONT_CHOICE lists the installed outline fonts too; this
-                    // build draws every face with KiCad's own stroke font, so
-                    // only upstream's two entries — which render identically
-                    // there as well — are offered. The choice is stored, and
-                    // outline fonts are issue #154.
-                    title="Text is drawn with KiCad's own font in the browser build."
-                    value={face === '' ? 'Default Font' : face}
-                    onChange={(e) =>
-                      setFace(e.target.value === 'Default Font' ? '' : e.target.value)
-                    }
-                  >
-                    <option>Default Font</option>
-                    <option>KiCad Font</option>
-                  </select>
-                )}
+                {/* The shared FontChoice — `Combo`, our owner-drawn one, as
+                    FONT_CHOICE is a wxOwnerDrawnComboBox. Outline fonts are
+                    still issue #154; this build draws every face with KiCad's
+                    stroke font, so only upstream's two entries are offered. */}
+                {isDirective ? <span /> : <FontChoice face={face} onChange={setFace} />}
                 <div className="ze-lp-iconbar">
                   <span className="ze-lp-sep" />
                   {!isDirective && (

@@ -39,6 +39,8 @@ import {
   lineStyleComboValue,
   type LineStyleToken,
 } from '@ziroeda/common/src/stroke_params.js';
+import { FontChoice } from '../../../ui/TextFormatBar.js';
+import { Combo } from '../../../ui/Combo.js';
 import { useModalEscape } from '../../../ui/useModalEscape.js';
 
 export type HAlign = 'left' | 'center' | 'right';
@@ -276,17 +278,10 @@ export function DialogTextProperties({
 
           <div className="ze-tp-grid">
             <span className="ze-lp-fmt-label">Font:</span>
-            <select
-              className="ze-lp-font"
-              // As in the label dialog: FONT_CHOICE's two built-in entries,
-              // both drawn with KiCad's stroke font here, and stored.
-              title="Text is drawn with KiCad's own font in the browser build."
-              value={face === '' ? 'Default Font' : face}
-              onChange={(e) => setFace(e.target.value === 'Default Font' ? '' : e.target.value)}
-            >
-              <option>Default Font</option>
-              <option>KiCad Font</option>
-            </select>
+            {/* The shared FontChoice, which is `Combo` — our owner-drawn
+                combo, as FONT_CHOICE is wxOwnerDrawnComboBox. This was a
+                hand-rolled `<select>` saying the same thing in its own words. */}
+            <FontChoice face={face} onChange={setFace} />
             <div className="ze-lp-iconbar">
               <span className="ze-lp-sep" />
               <IconButton
@@ -386,18 +381,13 @@ export function DialogTextProperties({
                 </div>
 
                 <span className="ze-lp-fmt-label">Style:</span>
-                <select
+                <Combo
                   className="ze-lp-font"
                   value={borderStyle}
                   disabled={!border}
-                  onChange={(e) => setBorderStyle(e.target.value as LineStyleToken)}
-                >
-                  {LINE_STYLE_NAMES.map((s) => (
-                    <option key={s.value} value={s.value}>
-                      {s.label}
-                    </option>
-                  ))}
-                </select>
+                  options={LINE_STYLE_NAMES.map((s) => ({ value: s.value, label: s.label }))}
+                  onChange={(v) => setBorderStyle(v as LineStyleToken)}
+                />
               </>
             )}
 

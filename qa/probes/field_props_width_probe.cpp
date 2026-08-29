@@ -112,13 +112,78 @@ public:
 
         wxPrintf( "%-38s %d\n", "gbSizer1 row 0 CalcMin().x", gb->CalcMin().x );
 
+        // ---- the entry controls -------------------------------------------
+        // `m_textSizeCtrl` and the position ctrls are plain wxTextCtrls at
+        // wxSize( -1, -1 ), so they take GTK's own best size.
+        wxTextCtrl* small = new wxTextCtrl( dlg, wxID_ANY, wxEmptyString, wxDefaultPosition,
+                                            wxSize( -1, -1 ), 0 );
+        wxPrintf( "%-38s %d x %d\n", "wxTextCtrl best size (size/pos)",
+                  small->GetBestSize().x, small->GetBestSize().y );
+
+        // ---- rows 1..4 and the checkbox row, so the whole thing fits -------
+        wxStaticText* sizeLabel = new wxStaticText( dlg, wxID_ANY, "Text size:" );
+        gb->Add( sizeLabel, wxGBPosition( 1, 0 ), wxGBSpan( 1, 1 ),
+                 wxALIGN_CENTER_VERTICAL | wxRIGHT | wxLEFT, 5 );
+        wxBoxSizer* b71 = new wxBoxSizer( wxHORIZONTAL );
+        b71->Add( small, 0, wxALIGN_CENTER_VERTICAL, 5 );
+        b71->Add( new wxStaticText( dlg, wxID_ANY, "mils" ), 0,
+                  wxALIGN_CENTER_VERTICAL | wxLEFT, 3 );
+        b71->Add( new wxStaticText( dlg, wxID_ANY, "Color:" ), 0,
+                  wxALIGN_CENTER_VERTICAL | wxLEFT, 15 );
+        b71->Add( 5, 0, 0, 0, 5 );
+        gb->Add( b71, wxGBPosition( 1, 1 ), wxGBSpan( 1, 2 ), wxEXPAND, 5 );
+
+        for( int r = 3; r <= 4; ++r )
+        {
+            gb->Add( new wxStaticText( dlg, wxID_ANY, r == 3 ? "Position X:" : "Position Y:" ),
+                     wxGBPosition( r, 0 ), wxGBSpan( 1, 1 ),
+                     wxRIGHT | wxLEFT | wxALIGN_CENTER_VERTICAL, 5 );
+            gb->Add( new wxTextCtrl( dlg, wxID_ANY, wxEmptyString, wxDefaultPosition,
+                                     wxSize( -1, -1 ), 0 ),
+                     wxGBPosition( r, 1 ), wxGBSpan( 1, 1 ),
+                     wxALIGN_CENTER_VERTICAL | wxEXPAND, 5 );
+            gb->Add( new wxStaticText( dlg, wxID_ANY, "mils" ), wxGBPosition( r, 2 ),
+                     wxGBSpan( 1, 1 ), wxALIGN_CENTER_VERTICAL | wxLEFT, 3 );
+        }
+
+        // bSizer9: the three checkboxes with stretch spacers between them.
+        wxBoxSizer* b9 = new wxBoxSizer( wxHORIZONTAL );
+        b9->Add( new wxCheckBox( dlg, wxID_ANY, "Visible" ), 0, wxALIGN_LEFT | wxBOTTOM, 5 );
+        b9->Add( 0, 0, 1, wxEXPAND, 5 );
+        b9->Add( new wxCheckBox( dlg, wxID_ANY, "Show field name" ), 0, wxRIGHT | wxLEFT, 20 );
+        b9->Add( 0, 0, 1, wxEXPAND, 5 );
+        b9->Add( new wxCheckBox( dlg, wxID_ANY, "Allow automatic placement" ), 0,
+                 wxFIXED_MINSIZE | wxRIGHT, 37 );
+        wxPrintf( "%-38s %d\n", "bSizer9 (checkbox row) CalcMin().x", b9->CalcMin().x );
+
+        // bTextValueBoxSizer: the Value label and its entry, which takes
+        // proportion 1 so its MIN is the text ctrl's best width.
+        wxBoxSizer* bVal = new wxBoxSizer( wxHORIZONTAL );
+        bVal->Add( new wxStaticText( dlg, wxID_ANY, "Value:" ), 0,
+                   wxALIGN_CENTER_VERTICAL | wxRIGHT | wxLEFT, 5 );
+        bVal->Add( new wxTextCtrl( dlg, wxID_ANY, wxEmptyString ), 1,
+                   wxALIGN_CENTER_VERTICAL | wxLEFT, 5 );
+        wxPrintf( "%-38s %d\n", "bTextValueBoxSizer CalcMin().x", bVal->CalcMin().x );
+
         // ---- and what the dialog fits to -----------------------------------
+        wxBoxSizer* props = new wxBoxSizer( wxVERTICAL );
+        props->Add( bVal, 0, wxBOTTOM | wxRIGHT | wxLEFT | wxEXPAND, 5 );
+        props->Add( b9, 0, wxEXPAND | wxBOTTOM | wxRIGHT | wxLEFT, 10 );
+        props->Add( gb, 1, wxEXPAND | wxRIGHT | wxLEFT, 5 );
+
         wxBoxSizer* main = new wxBoxSizer( wxVERTICAL );
-        main->Add( gb, 1, wxEXPAND | wxRIGHT | wxLEFT, 5 );
+        main->Add( props, 1, wxEXPAND | wxTOP | wxRIGHT | wxLEFT, 5 );
+        wxStdDialogButtonSizer* sdb = new wxStdDialogButtonSizer();
+        sdb->AddButton( new wxButton( dlg, wxID_OK ) );
+        sdb->AddButton( new wxButton( dlg, wxID_CANCEL ) );
+        sdb->Realize();
+        main->Add( sdb, 0, wxEXPAND | wxALL, 5 );
+
         dlg->SetSizer( main );
         dlg->Layout();
         main->Fit( dlg );
-        wxPrintf( "%-38s %d\n", "dialog width after Fit", dlg->GetSize().x );
+        wxPrintf( "%-38s %d x %d\n", "WHOLE DIALOG after Fit",
+                  dlg->GetSize().x, dlg->GetSize().y );
 
         dlg->Destroy();
         return false;
