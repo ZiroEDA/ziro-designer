@@ -3,31 +3,52 @@
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Field properties. Counterpart: `eeschema/dialogs/dialog_field_properties.cpp`
- * (DIALOG_FIELD_PROPERTIES), opened by E on a single symbol field.
+ * (DIALOG_FIELD_PROPERTIES) over `dialog_field_properties_base.cpp`, opened by
+ * E, by the U/V/F keys and by a double-click on a symbol field.
  *
- * A field is a piece of text with a position of its own, so this is the text
- * attributes (visible, name shown, font, size, bold, italic, colour,
- * orientation, both justifications) plus its position, which is shown
- * symbol-relative the way the symbol properties grid shows it.
+ *     Value:  [ entry                                              ]
+ *     [ ] Visible      [ ] Show field name     [ ] Allow automatic placement
+ *     Font:      [Default Font] | B I | ⇤ ⇔ ⇥ | ⤒ ⇕ ⤓ | ⇉ ⇊ |
+ *     Text size: [    ] mils   Color: [swatch]
+ *     Position X:[    ] mils
+ *     Position Y:[    ] mils
+ *                                              [ Cancel ] [ OK ]
  *
- * Two rules come from upstream rather than from the controls:
+ * Three things about it are easy to get wrong, and were:
  *
- *  - a mandatory field cannot be renamed. Reference, Value, Footprint and
- *    Datasheet are addressed by name everywhere, so the name is read-only and
- *    only the value is editable.
- *  - Sheetfile is refused outright, with upstream's own wording: it names the
- *    file the sheet points at, and changing it here would leave the sheet
- *    pointing somewhere the project does not know about.
+ *  - **there is no Name box.** The field's name is the LABEL of the value
+ *    entry: `m_textLabel->SetLabel( aField->GetName() + wxS( ":" ) )`
+ *    (dialog_field_properties.cpp:281). A field is renamed in the Symbol
+ *    Properties grid, never here, so a Name row is a control upstream does not
+ *    have — and with it goes the "mandatory fields cannot be renamed" rule,
+ *    which was our own answer to our own extra control.
+ *  - **the alignment controls are bitmap toggle buttons, not dropdowns.** They
+ *    are `BITMAP_BUTTON`s with `SetIsRadioButton()`
+ *    (dialog_field_properties.cpp:100-131) in the same formatting bar every
+ *    other text dialog builds, which is `ui/TextFormatBar.tsx` here.
+ *  - **the three numeric fields carry the frame's units, not "mm".** Each is a
+ *    `UNIT_BINDER( aParent, label, ctrl, units, true )`
+ *    (dialog_field_properties.cpp:52-54), so the suffix and the precision are
+ *    whatever the editor's units are set to — "mils" on an imperial board.
+ *
+ * `m_commonToAllUnits` and `m_commonToAllBodyStyles` are built by the base and
+ * then hidden by `init()` (dialog_field_properties.cpp:317-319); the unit
+ * chooser and the footprint browse button are shown only for the Reference
+ * field of a multi-unit symbol and for the Footprint field respectively
+ * (`:345-357`), neither of which this dialog reaches yet.
  */
 import { useState, type JSX } from 'react';
-import { iuToMM, mmToIU } from '@ziroeda/common';
+import { schIUScale } from '@ziroeda/common';
 import type { TextEffects } from '@ziroeda/eeschema';
 import { ColorSwatch } from '../../../ui/ColorSwatch.js';
+import { FontChoice, TextFormatBar, type HAlign, type VAlign } from '../../../ui/TextFormatBar.js';
+import { parseUnitValue, stringFromValue, unitLabel } from '../../../ui/unit_binder.js';
+import type { StatusUnits } from '../../../ui/status_format.js';
 import { color4dToItemColor, type ItemColor, itemColorToColor4d } from './item_color.js';
 import { useModalEscape } from '../../../ui/useModalEscape.js';
 
 /** DEFAULT_SIZE_TEXT, 50 mil, the size a field falls back to. */
-const DEFAULT_TEXT_SIZE = mmToIU(1.27);
+const DEFAULT_TEXT_SIZE = schIUScale.mmToIU(1.27);
 
 export interface FieldPropsResult {
   key: string;
@@ -52,24 +73,28 @@ interface Props {
    * `fieldEditCaption`.
    */
   caption: string;
-  /** Reference / Value / Footprint / Datasheet cannot be renamed. */
-  mandatory: boolean;
+  /**
+   * The frame's display units, which every `UNIT_BINDER` in the dialog reads
+   * off its `aParent`. Defaults to millimetres so a caller that has not been
+   * given the frame's units still gets a working dialog, not a blank suffix.
+   */
+  units?: StatusUnits;
   onOk: (r: FieldPropsResult) => void;
   onCancel: () => void;
 }
 
-const H_ALIGN = ['left', 'center', 'right'] as const;
-const V_ALIGN = ['top', 'center', 'bottom'] as const;
+const H_ALIGN: readonly string[] = ['left', 'center', 'right'];
+const V_ALIGN: readonly string[] = ['top', 'center', 'bottom'];
 
-const alignOf = (fx: TextEffects, axis: 'h' | 'v'): string => {
-  const set = axis === 'h' ? H_ALIGN : V_ALIGN;
-  return (fx.justify ?? []).find((t) => (set as readonly string[]).includes(t)) ?? 'center';
-};
+const hAlignOf = (fx: TextEffects): HAlign =>
+  ((fx.justify ?? []).find((t) => H_ALIGN.includes(t)) as HAlign | undefined) ?? 'center';
+const vAlignOf = (fx: TextEffects): VAlign =>
+  ((fx.justify ?? []).find((t) => V_ALIGN.includes(t)) as VAlign | undefined) ?? 'center';
 
 export function DialogFieldProperties({
   initial,
   caption,
-  mandatory,
+  units = 'mm',
   onOk,
   onCancel,
 }: Props): JSX.Element {
@@ -77,45 +102,52 @@ export function DialogFieldProperties({
   // ui/modal_escape.ts.
   useModalEscape(onCancel);
 
-  const [key, setKey] = useState(initial.key);
+  // `UNIT_BINDER::SetValue` writes `StringFromValue( aValue, false )` into the
+  // entry and puts the unit WORD in the static text beside it
+  // (unit_binder.cpp:109-110, :215-230), so the entry holds a bare number;
+  // `GetIntValue` reads it back through DoubleValueFromString + FromUserUnit.
+  // Both halves are `ui/unit_binder.ts`, the shared port of that class — not
+  // the properties grid's `distanceToString`, which appends the unit because a
+  // grid cell has no separate label to carry it.
+  const fmt = (iu: number): string =>
+    stringFromValue(schIUScale.iuToMM(iu), units, false, schIUScale);
+  const parse = (text: string): number =>
+    Math.round(schIUScale.mmToIU(parseUnitValue(text, units, schIUScale)));
+
   const [value, setValue] = useState(initial.value);
-  const [x, setX] = useState(String(iuToMM(initial.at.x)));
-  const [y, setY] = useState(String(iuToMM(initial.at.y)));
-  const [vertical, setVertical] = useState(initial.angle === 90);
+  const [x, setX] = useState(() => fmt(initial.at.x));
+  const [y, setY] = useState(() => fmt(initial.at.y));
+  const [angle, setAngle] = useState(initial.angle === 90 ? 90 : 0);
   const [visible, setVisible] = useState(!initial.effects.hidden);
   const [nameShown, setNameShown] = useState(initial.nameShown);
   const [autoplace, setAutoplace] = useState(!initial.doNotAutoplace);
   const [bold, setBold] = useState(!!initial.effects.bold);
   const [italic, setItalic] = useState(!!initial.effects.italic);
-  const [size, setSize] = useState(
-    String(iuToMM(initial.effects.fontSize?.[0] ?? DEFAULT_TEXT_SIZE)),
-  );
+  const [face, setFace] = useState(initial.effects.face ?? '');
+  const [size, setSize] = useState(() => fmt(initial.effects.fontSize?.[0] ?? DEFAULT_TEXT_SIZE));
   const [color, setColor] = useState<ItemColor | undefined>(initial.effects.color);
-  const [hAlign, setHAlign] = useState(alignOf(initial.effects, 'h'));
-  const [vAlign, setVAlign] = useState(alignOf(initial.effects, 'v'));
-  const [error, setError] = useState<string | null>(null);
+  const [hAlign, setHAlign] = useState<HAlign>(hAlignOf(initial.effects));
+  const [vAlign, setVAlign] = useState<VAlign>(vAlignOf(initial.effects));
 
   const submit = (): void => {
-    const name = key.trim();
-    if (!name) {
-      setError('Fields must have a name');
-      return;
-    }
-    const sizeIU = mmToIU(Number(size) || 0) || DEFAULT_TEXT_SIZE;
+    const sizeIU = parse(size) || DEFAULT_TEXT_SIZE;
     const justify = [hAlign, vAlign].filter((t) => t !== 'center');
     const effects: TextEffects = {
       hidden: !visible,
       fontSize: [sizeIU, sizeIU],
+      ...(face ? { face } : {}),
       ...(bold ? { bold: true } : {}),
       ...(italic ? { italic: true } : {}),
       ...(color ? { color } : {}),
       ...(justify.length ? { justify } : {}),
     };
     onOk({
-      key: name,
+      // `TransferDataFromWindow` never touches the field's NAME: there is no
+      // control for it here.
+      key: initial.key,
       value,
-      at: { x: mmToIU(Number(x) || 0), y: mmToIU(Number(y) || 0) },
-      angle: vertical ? 90 : 0,
+      at: { x: parse(x), y: parse(y) },
+      angle,
       effects,
       nameShown,
       doNotAutoplace: !autoplace,
@@ -131,36 +163,13 @@ export function DialogFieldProperties({
             ✕
           </span>
         </div>
-        <div
-          className="ze-label-dialog-body"
-          style={{ display: 'flex', flexDirection: 'column', gap: 6 }}
-        >
-          {error && (
-            <div className="ze-props-error" onClick={() => setError(null)}>
-              {error}, click to dismiss
-            </div>
-          )}
-
+        <div className="ze-label-dialog-body">
+          {/* bTextValueBoxSizer: m_textLabel wears the field's own name. */}
           <label className="row">
-            <span>Name:</span>
-            {mandatory ? (
-              // A mandatory field is addressed by name everywhere; renaming it
-              // would orphan every reference to it.
-              <span className="ze-cell-ro">{key}</span>
-            ) : (
-              <input
-                className="ze-search"
-                value={key}
-                onChange={(e) => setKey(e.target.value)}
-                onKeyDown={(e) => e.stopPropagation()}
-              />
-            )}
-          </label>
-          <label className="row">
-            <span>Text:</span>
+            <span>{`${initial.key}:`}</span>
             <input
               className="ze-search"
-              // biome-ignore lint/a11y/noAutofocus: matches m_delayedFocusCtrl
+              // biome-ignore lint/a11y/noAutofocus: SetInitialFocus( m_TextCtrl )
               autoFocus
               value={value}
               onChange={(e) => setValue(e.target.value)}
@@ -171,119 +180,105 @@ export function DialogFieldProperties({
             />
           </label>
 
-          <label className="row">
-            <input
-              type="checkbox"
-              checked={visible}
-              onChange={(e) => setVisible(e.target.checked)}
-            />
-            <span>Visible</span>
-          </label>
-          <label className="row" title="Show the field name in addition to its value">
-            <input
-              type="checkbox"
-              checked={nameShown}
-              onChange={(e) => setNameShown(e.target.checked)}
-            />
-            <span>Show field name</span>
-          </label>
-          <label className="row" title="Allow automatic placement of this field in the schematic">
-            <input
-              type="checkbox"
-              checked={autoplace}
-              onChange={(e) => setAutoplace(e.target.checked)}
-            />
-            <span>Allow automatic placement</span>
-          </label>
+          {/* bSizer9: the three checkboxes on ONE row, spaced apart. */}
+          <div className="ze-fieldprops-checks">
+            <label className="chk">
+              <input
+                type="checkbox"
+                checked={visible}
+                onChange={(e) => setVisible(e.target.checked)}
+              />
+              Visible
+            </label>
+            <label className="chk" title="Show the field name in addition to its value">
+              <input
+                type="checkbox"
+                checked={nameShown}
+                onChange={(e) => setNameShown(e.target.checked)}
+              />
+              Show field name
+            </label>
+            <label className="chk" title="Allow automatic placement of this field in the schematic">
+              <input
+                type="checkbox"
+                checked={autoplace}
+                onChange={(e) => setAutoplace(e.target.checked)}
+              />
+              Allow automatic placement
+            </label>
+          </div>
 
-          <label className="row">
-            <span>Text size:</span>
-            <input
-              className="ze-search"
-              style={{ width: 80 }}
-              value={size}
-              onChange={(e) => setSize(e.target.value)}
-              onKeyDown={(e) => e.stopPropagation()}
-            />
-            <span className="ze-muted">mm</span>
-            <input type="checkbox" checked={bold} onChange={(e) => setBold(e.target.checked)} />
-            <span>Bold</span>
-            <input type="checkbox" checked={italic} onChange={(e) => setItalic(e.target.checked)} />
-            <span>Italic</span>
-          </label>
+          {/* gbSizer1 row 0: m_fontLabel at (0,0), m_fontCtrl at (0,1) and the
+              formatting bar at (0,3) — one row, not three. */}
+          <div className="ze-lp-fmt-grid">
+            <span className="ze-lp-fmt-label">Font:</span>
+            <div className="ze-lp-sizerow">
+              <FontChoice face={face} onChange={setFace} />
+              <TextFormatBar
+                bold={bold}
+                onBold={setBold}
+                italic={italic}
+                onItalic={setItalic}
+                hAlign={hAlign}
+                onHAlign={setHAlign}
+                vAlign={vAlign}
+                onVAlign={setVAlign}
+                angle={angle}
+                onAngle={setAngle}
+              />
+            </div>
 
-          <label className="row">
-            <span>Color:</span>
-            {/* COLOR_SWATCH: it draws the colour and opens DIALOG_COLOR_PICKER
-            (color_swatch.cpp:301-328), where an <input type="color"> handed
-            the job to the desktop's own popup - anchored to the control, so
-            off-screen near the window edge, and unable to carry alpha. */}
-            <ColorSwatch
-              label="Color"
-              color={itemColorToColor4d(color)}
-              onChange={(c) => setColor(color4dToItemColor(c))}
-            />
-          </label>
+            {/* gbSizer1 row 1: bSizer71 — size, its units, Color: and the swatch. */}
+            <span className="ze-lp-fmt-label">Text size:</span>
+            <div className="ze-lp-sizerow">
+              <input
+                className="ze-lp-size"
+                value={size}
+                onChange={(e) => setSize(e.target.value)}
+                onKeyDown={(e) => e.stopPropagation()}
+              />
+              <span className="ze-lp-units">{unitLabel(units)}</span>
+              <span className="ze-lp-colorlabel">Color:</span>
+              {/* m_panelBorderColor1, the wxBORDER_SIMPLE panel COLOR_SWATCH
+                  sits in; the swatch itself draws with wxTRANSPARENT_PEN. */}
+              <span className="ze-lp-swatch-frame">
+                <ColorSwatch
+                  className="ze-lp-swatch"
+                  label="Color"
+                  color={itemColorToColor4d(color)}
+                  onChange={(c) => setColor(color4dToItemColor(c))}
+                />
+              </span>
+            </div>
 
-          <label className="row">
-            <span>Orientation:</span>
-            <select
-              className="ze-select"
-              value={vertical ? 'vertical' : 'horizontal'}
-              onChange={(e) => setVertical(e.target.value === 'vertical')}
-            >
-              <option value="horizontal">Horizontal text</option>
-              <option value="vertical">Vertical text</option>
-            </select>
-          </label>
-          <label className="row">
-            <span>Align:</span>
-            <select
-              className="ze-select"
-              value={hAlign}
-              onChange={(e) => setHAlign(e.target.value)}
-            >
-              <option value="left">Align left</option>
-              <option value="center">Align horizontal center</option>
-              <option value="right">Align right</option>
-            </select>
-            <select
-              className="ze-select"
-              value={vAlign}
-              onChange={(e) => setVAlign(e.target.value)}
-            >
-              <option value="top">Align top</option>
-              <option value="center">Align vertical center</option>
-              <option value="bottom">Align bottom</option>
-            </select>
-          </label>
+            {/* gbSizer1 rows 3 and 4. */}
+            <span className="ze-lp-fmt-label">Position X:</span>
+            <div className="ze-lp-sizerow">
+              <input
+                className="ze-lp-size"
+                value={x}
+                onChange={(e) => setX(e.target.value)}
+                onKeyDown={(e) => e.stopPropagation()}
+              />
+              <span className="ze-lp-units">{unitLabel(units)}</span>
+            </div>
 
-          <label className="row">
-            <span>Position X:</span>
-            <input
-              className="ze-search"
-              style={{ width: 90 }}
-              value={x}
-              onChange={(e) => setX(e.target.value)}
-              onKeyDown={(e) => e.stopPropagation()}
-            />
-            <span className="ze-muted">mm</span>
-          </label>
-          <label className="row">
-            <span>Position Y:</span>
-            <input
-              className="ze-search"
-              style={{ width: 90 }}
-              value={y}
-              onChange={(e) => setY(e.target.value)}
-              onKeyDown={(e) => {
-                e.stopPropagation();
-                if (e.key === 'Enter') submit();
-              }}
-            />
-            <span className="ze-muted">mm</span>
-          </label>
+            <span className="ze-lp-fmt-label">Position Y:</span>
+            <div className="ze-lp-sizerow">
+              <input
+                className="ze-lp-size"
+                value={y}
+                onChange={(e) => setY(e.target.value)}
+                onKeyDown={(e) => {
+                  e.stopPropagation();
+                  if (e.key === 'Enter') submit();
+                }}
+              />
+              <span className="ze-lp-units">{unitLabel(units)}</span>
+            </div>
+          </div>
         </div>
+        {/* m_sdbSizerButtons: GTK orders the standard sizer Cancel then OK. */}
         <div className="ze-modal-footer">
           <button className="ze-btn" onClick={onCancel}>
             Cancel

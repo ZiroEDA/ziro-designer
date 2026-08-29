@@ -36,7 +36,6 @@ const renderFor = (key: string, value: string): void => {
     <DialogFieldProperties
       initial={initialFor(key, value)}
       caption={fieldEditCaption(key)}
-      mandatory={key === 'Value' || key === 'Reference'}
       onOk={() => {}}
       onCancel={() => {}}
     />,
