@@ -281,55 +281,64 @@ export function DialogTextProperties({
             {/* The shared FontChoice, which is `Combo` — our owner-drawn
                 combo, as FONT_CHOICE is wxOwnerDrawnComboBox. This was a
                 hand-rolled `<select>` saying the same thing in its own words. */}
-            <FontChoice face={face} onChange={setFace} />
-            <div className="ze-lp-iconbar">
-              <span className="ze-lp-sep" />
-              <IconButton
-                icon="text_bold"
-                title="Bold"
-                checked={bold}
-                onClick={() => setBold(!bold)}
-              />
-              <IconButton
-                icon="text_italic"
-                title="Italic"
-                checked={italic}
-                onClick={() => setItalic(!italic)}
-              />
-              <span className="ze-lp-sep" />
-              {H_BUTTONS.map((b) => (
+            {/* Row 3 of m_textEntrySizer holds BOTH: the font control at
+                (3,1) spanning two columns and `bSizeCtrlSizer` at (3,3)
+                spanning three (`dialog_text_properties_base.cpp:97,178`). The
+                bar was a direct grid child here, so `.ze-lp-iconbar`'s
+                `grid-column: 1 / -1` threw it onto a row of its own; nesting
+                it beside the font in one flex row is what the field dialog
+                already does. */}
+            <div className="ze-lp-sizerow">
+              <FontChoice face={face} onChange={setFace} />
+              <div className="ze-lp-iconbar">
+                <span className="ze-lp-sep" />
                 <IconButton
-                  key={b.value}
-                  icon={b.icon}
-                  title={b.title}
-                  checked={hAlign === b.value}
-                  onClick={() => setHAlign(b.value)}
+                  icon="text_bold"
+                  title="Bold"
+                  checked={bold}
+                  onClick={() => setBold(!bold)}
                 />
-              ))}
-              <span className="ze-lp-sep" />
-              {V_BUTTONS.map((b) => (
                 <IconButton
-                  key={b.value}
-                  icon={b.icon}
-                  title={b.title}
-                  checked={vAlign === b.value}
-                  onClick={() => setVAlign(b.value)}
+                  icon="text_italic"
+                  title="Italic"
+                  checked={italic}
+                  onClick={() => setItalic(!italic)}
                 />
-              ))}
-              <span className="ze-lp-sep" />
-              <IconButton
-                icon="text_horizontal"
-                title="Horizontal"
-                checked={angle === 0}
-                onClick={() => setAngle(0)}
-              />
-              <IconButton
-                icon="text_vertical"
-                title="Vertical"
-                checked={angle === 90}
-                onClick={() => setAngle(90)}
-              />
-              <span className="ze-lp-sep" />
+                <span className="ze-lp-sep" />
+                {H_BUTTONS.map((b) => (
+                  <IconButton
+                    key={b.value}
+                    icon={b.icon}
+                    title={b.title}
+                    checked={hAlign === b.value}
+                    onClick={() => setHAlign(b.value)}
+                  />
+                ))}
+                <span className="ze-lp-sep" />
+                {V_BUTTONS.map((b) => (
+                  <IconButton
+                    key={b.value}
+                    icon={b.icon}
+                    title={b.title}
+                    checked={vAlign === b.value}
+                    onClick={() => setVAlign(b.value)}
+                  />
+                ))}
+                <span className="ze-lp-sep" />
+                <IconButton
+                  icon="text_horizontal"
+                  title="Horizontal"
+                  checked={angle === 0}
+                  onClick={() => setAngle(0)}
+                />
+                <IconButton
+                  icon="text_vertical"
+                  title="Vertical"
+                  checked={angle === 90}
+                  onClick={() => setAngle(90)}
+                />
+                <span className="ze-lp-sep" />
+              </div>
             </div>
 
             <span className="ze-lp-fmt-label">Text size:</span>

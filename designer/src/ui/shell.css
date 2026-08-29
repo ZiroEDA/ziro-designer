@@ -6708,16 +6708,26 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   gap: 5px;
   margin-bottom: 5px;
 }
+/* `m_textCtrl->SetMinSize( wxSize( 500, 140 ) )`
+   (`dialog_text_properties_base.cpp:71`) -- the one control in this dialog that
+   states its own size, and the reason KiCad's Text box is so much taller than
+   the 96px we had guessed. */
 .ze-tp-text {
-  min-height: 96px;
+  /* [data] SetMinSize( wxSize( 500, 140 ) ).x */
+  min-width: 500px;
+  /* [data] the same call's height. */
+  min-height: 140px;
   resize: vertical;
   font-family: inherit;
 }
+/* `m_textEntrySizer = new wxGridBagSizer( 2, 3 )` (`:32`): 2px between rows,
+   3px between columns. It was a uniform 5. */
 .ze-tp-grid {
   display: grid;
   grid-template-columns: auto 1fr;
   align-items: center;
-  gap: 5px;
+  /* [data] wxGridBagSizer( 2, 3 ) -- vgap, hgap. */
+  gap: 2px 3px;
 }
 .ze-tp-span {
   grid-column: 1 / -1;
