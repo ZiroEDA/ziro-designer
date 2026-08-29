@@ -59,6 +59,26 @@ public:
         wxPrintf( "%-34s %gpt  best %d x %d\n", "libid (small, borderless)",
                   small.GetFractionalPointSize(), lb.x, lb.y );
 
+        // The four right-hand buttons of DIALOG_SYMBOL_PROPERTIES, whose
+        // natural widths are what set that column — the base file gives no
+        // explicit size to any of them.
+        for( const wxString& lbl : { wxString( "Update Symbol from Library..." ),
+                                     wxString( "Change Symbol..." ),
+                                     wxString( "Edit Symbol..." ),
+                                     wxString( "Edit Library Symbol..." ),
+                                     wxString( "Simulation Model..." ) } )
+        {
+            wxButton* b = new wxButton( dlg, wxID_ANY, lbl );
+            wxPrintf( "%-34s %d x %d\n", ( "btn: " + lbl ).mb_str().data(),
+                      b->GetBestSize().x, b->GetBestSize().y );
+            b->Destroy();
+        }
+        {
+            wxStaticText* t = new wxStaticText( dlg, wxID_ANY, "Exclude from bill of materials" );
+            wxPrintf( "%-34s %d\n", "label: Exclude from BOM", t->GetBestSize().x );
+            t->Destroy();
+        }
+
         wxSize es = entry->GetSize(), bs = ok->GetSize(), ls = label->GetSize();
         wxPrintf( "%-34s %d x %d\n", "wxTextCtrl size", es.x, es.y );
         wxPrintf( "%-34s %d x %d\n", "wxButton  size", bs.x, bs.y );
