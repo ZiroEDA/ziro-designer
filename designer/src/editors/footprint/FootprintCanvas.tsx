@@ -786,6 +786,20 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
       };
     };
 
+    /**
+     * The measure tool's cursor: `grid.BestSnapAnchor`, unless Shift is held.
+     *
+     * `snapRef` is this canvas's grid helper, the same one EDIT_TOOL's move
+     * goes through, so a measurement lands on the grid the status bar reports.
+     * Upstream also snaps to magnetic ITEMS (`PCB_GRID_HELPER` is built with
+     * `GetMagneticItemsSettings()`), which we do not have here yet -- pad-to-pad
+     * measuring is therefore grid-accurate but not pad-exact.
+     */
+    const measurePoint = (e: React.PointerEvent): Vec2 => {
+      const w = worldAt(e.clientX, e.clientY);
+      return e.shiftKey ? w : snapRef.current(w);
+    };
+
     // A gesture in flight: pan (middle button), or, with the select tool,
     // click-select + box-select on empty space, and drag-move over a selection.
     const gestureRef = useRef<
@@ -849,7 +863,13 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
       // second ends it (`pcb_viewer_tools.cpp:364-382`). Both are clicks, not a
       // press-drag-release, so this is all in pointerdown.
       if (activeToolRef.current === 'measureTool' && e.button === 0) {
-        const world = worldAt(e.clientX, e.clientY);
+        // `cursorPos = grid.BestSnapAnchor( cursorPos, nullptr );` runs on
+        // every event of MeasureTool's loop (`pcb_viewer_tools.cpp:318-326`),
+        // with `grid.SetSnap( !evt->Modifier( MD_SHIFT ) )` above it. That is
+        // why upstream's readings are whole multiples of the grid and ours
+        // were not. Shift turns snapping off -- the same modifier that turns
+        // the 45 degree angle constraint on.
+        const world = measurePoint(e);
         const r = rulerRef.current;
         if (r?.originSet) r.originSet = false;
         else rulerRef.current = { origin: world, end: world, originSet: true };
@@ -895,7 +915,7 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
       const r = rulerRef.current;
       if (r?.originSet) {
         // Shift constrains to 45 degree increments; otherwise a direct line.
-        r.end = rulerEnd(r.origin, worldAt(e.clientX, e.clientY), e.shiftKey ? 'deg45' : 'direct');
+        r.end = rulerEnd(r.origin, measurePoint(e), e.shiftKey ? 'deg45' : 'direct');
         requestDraw();
       }
       const g = gestureRef.current;
