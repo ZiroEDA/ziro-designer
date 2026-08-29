@@ -40,10 +40,14 @@ const SUBJECT = {
 
 type Message = { text: string; severity: 'action' | 'error' };
 
-function open(subject?: typeof SUBJECT, messages: readonly Message[] = []) {
+function open(
+  subject?: typeof SUBJECT,
+  messages: readonly Message[] = [],
+  mode: 'update' | 'change' = 'update',
+) {
   render(
     <DialogChangeSymbols
-      mode="update"
+      mode={mode}
       // `updateFieldsList()` is a function of the match, because upstream
       // rebuilds the list from the symbols the match selects.
       fieldNamesFor={() => ['Reference', 'Value', 'Footprint', 'Datasheet', 'Description']}
@@ -215,6 +219,59 @@ describe('the library-identifier browse button is a STD_BITMAP_BUTTON', () => {
     open(SUBJECT);
     // The reference and value rows have no browse button; only m_specifiedId.
     expect(screen.getAllByRole('button', { name: 'Browse for symbol' })).toHaveLength(1);
+  });
+
+  /**
+   * It was rendered `disabled` while the chooser was unwired. It is not a new
+   * dialog: `launchMatchIdSymbolBrowser` (:245) does
+   * `Kiway().Player( FRAME_SYMBOL_CHOOSER, true, this )`, and
+   * SYMBOL_CHOOSER_FRAME is a shell around the SAME PANEL_SYMBOL_CHOOSER that
+   * DIALOG_SYMBOL_CHOOSER (Place Symbol) wraps — one panel, two hosts.
+   */
+  it('is enabled, and opens the chooser', () => {
+    open(SUBJECT);
+    const btn = screen.getByRole('button', { name: 'Browse for symbol' });
+    expect((btn as HTMLButtonElement).disabled).toBe(false);
+
+    expect(document.querySelector('.ze-symbol-chooser')).toBeNull();
+    fireEvent.click(btn);
+    expect(document.querySelector('.ze-symbol-chooser')).not.toBeNull();
+  });
+
+  it('the chooser it opens is the FRAME, not the Place Symbol dialog', () => {
+    open(SUBJECT);
+    fireEvent.click(screen.getByRole('button', { name: 'Browse for symbol' }));
+
+    // `SetTitle( GetTitle() + " (%d items loaded)" )` on a frame titled
+    // "Symbol Chooser" (:72, :117) — DIALOG_SYMBOL_CHOOSER's is "Choose Symbol".
+    const header = document.querySelector('.ze-symbol-chooser .ze-modal-header');
+    expect(header?.textContent).toContain('Symbol Chooser');
+    expect(header?.textContent).not.toContain('Choose Symbol');
+
+    // The frame's bottom panel is a bare wxStdDialogButtonSizer: the two
+    // placement checkboxes belong to the dialog and must not appear here.
+    expect(screen.queryByText('Place repeated copies')).toBeNull();
+    expect(screen.queryByText('Place all units')).toBeNull();
+  });
+
+  it('the Change mode’s new-id row has its own button, m_newIdBrowserButton', () => {
+    // _base.cpp:97 builds a second STD_BITMAP_BUTTON beside m_newId. That row
+    // had no button at all, so only one of upstream's two was reachable.
+    open(SUBJECT, [], 'change');
+    expect(screen.getByRole('button', { name: 'Browse for new symbol' })).not.toBeNull();
+  });
+
+  it('closing the chooser leaves the dialog that opened it standing', () => {
+    // The chooser is a SIBLING of this dialog's backdrop. Nested, a click on
+    // the chooser's backdrop would bubble into `onMouseDown={onClose}` and
+    // dismiss Change Symbols along with it.
+    open(SUBJECT);
+    fireEvent.click(screen.getByRole('button', { name: 'Browse for symbol' }));
+    const chooserBackdrop = document.querySelector('.ze-symbol-chooser')
+      ?.parentElement as HTMLElement;
+    fireEvent.mouseDown(chooserBackdrop);
+    expect(document.querySelector('.ze-symbol-chooser')).toBeNull();
+    expect(document.querySelector('.ze-chsym')).not.toBeNull();
   });
 });
 

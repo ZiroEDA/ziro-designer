@@ -8910,6 +8910,12 @@ export function SchematicEditor({
                 messages={changeSymbolsMessages}
                 onApply={runChangeSymbols}
                 onClose={() => setChangeSymbolsMode(null)}
+                /* The browse buttons open SYMBOL_CHOOSER_FRAME, which is handed
+                   `s_SymbolHistoryList` — the same global the Place Symbol
+                   chooser uses (symbol_chooser_frame.cpp:86), never the power
+                   one, since this frame passes no filter. */
+                chooserHistory={sSymbolHistoryList}
+                showFootprints={es.appearance.footprint_preview}
               />
             )}
             {globalEditOpen && (

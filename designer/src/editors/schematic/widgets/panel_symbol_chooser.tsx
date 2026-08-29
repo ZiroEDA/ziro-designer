@@ -68,6 +68,14 @@ export interface PanelSymbolChooserProps {
   onAccept: () => void;
   /** Lazy-load handler: item count changed (updates the dialog title). */
   onItemCountChanged?: (count: number) => void;
+  /**
+   * `PANEL_SYMBOL_CHOOSER::SetPreselect( const LIB_ID& )` (:486), the LIB_ID to
+   * open sitting on. SYMBOL_CHOOSER_FRAME::ShowModal calls it with whatever the
+   * caller's entry already held, so browsing from a filled-in field starts at
+   * that symbol rather than at the top of the tree. Upstream does
+   * `m_adapter->SetPreselectNode( aPreselect, 0 )` — unit 0, the symbol itself.
+   */
+  preselect?: string;
 }
 
 export interface PanelSymbolChooserHandle {
@@ -212,6 +220,7 @@ export const PanelSymbolChooser = forwardRef<PanelSymbolChooserHandle, PanelSymb
       getPlacedLibSymbol,
       onAccept,
       onItemCountChanged,
+      preselect,
     },
     ref,
   ): JSX.Element {
@@ -287,6 +296,11 @@ export const PanelSymbolChooser = forwardRef<PanelSymbolChooserHandle, PanelSymb
       a.finishLibrary(recent, true);
 
       if (historyList.length > 0) a.setPreselectNode(historyList[0]!.libId, historyList[0]!.unit);
+
+      // ...and an explicit preselect wins over the history's, which is the
+      // order upstream gets for free: the constructor sets the history node
+      // (:177) and SetPreselect is a later call on the built panel (:486).
+      if (preselect) a.setPreselectNode(preselect, 0);
 
       const placedGroup = a.addGroup('-- Already Placed --');
       placedGroup.isAlreadyPlacedGroup = true;
