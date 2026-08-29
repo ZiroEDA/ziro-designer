@@ -772,45 +772,48 @@ export function SymbolPropertiesDialog({
 
           {/* m_notebook1. Three pages, the third only when the symbol has a
               library part to carry embedded files. */}
-          <div className="ze-nb-tabs" role="tablist">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={tab === 'general'}
-              className={tab === 'general' ? 'active' : ''}
-              onClick={() => setTab('general')}
-            >
-              General
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={tab === 'pins'}
-              className={tab === 'pins' ? 'active' : ''}
-              disabled={pinsDisabled}
-              title={
-                pinsDisabled
-                  ? 'Alternate pin assignments are not available for symbols with multiple body styles.'
-                  : undefined
-              }
-              onClick={() => setTab('pins')}
-            >
-              Pin Functions
-            </button>
-            {embedded && (
+          {/* A wxNotebook is a FRAMED control: the border runs round the tab
+              strip and the page together, not just under the tabs. */}
+          <div className="ze-nb-frame">
+            <div className="ze-nb-tabs" role="tablist">
               <button
                 type="button"
                 role="tab"
-                aria-selected={tab === 'files'}
-                className={tab === 'files' ? 'active' : ''}
-                onClick={() => setTab('files')}
+                aria-selected={tab === 'general'}
+                className={tab === 'general' ? 'active' : ''}
+                onClick={() => setTab('general')}
               >
-                Embedded Files
+                General
               </button>
-            )}
-          </div>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={tab === 'pins'}
+                className={tab === 'pins' ? 'active' : ''}
+                disabled={pinsDisabled}
+                title={
+                  pinsDisabled
+                    ? 'Alternate pin assignments are not available for symbols with multiple body styles.'
+                    : undefined
+                }
+                onClick={() => setTab('pins')}
+              >
+                Pin Functions
+              </button>
+              {embedded && (
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={tab === 'files'}
+                  className={tab === 'files' ? 'active' : ''}
+                  onClick={() => setTab('files')}
+                >
+                  Embedded Files
+                </button>
+              )}
+            </div>
 
-          {/* A wxNotebook keeps every page and reports the MAX of them as its
+            {/* A wxNotebook keeps every page and reports the MAX of them as its
               best size, so the dialog it sits in is fitted once and never
               changes size when you switch tabs. These were rendered with
               `tab === … ? … : null`, which takes the other pages out of the
@@ -819,15 +822,15 @@ export function SymbolPropertiesDialog({
               see `.ze-nb-body` — with the inactive ones made invisible rather
               than removed, which is what keeps them counting towards the
               size. */}
-          <div className="ze-nb-body">
-            <div
-              className="ze-symprops-page"
-              aria-hidden={tab !== 'pins'}
-              data-nbhide={tab !== 'pins' ? '' : undefined}
-            >
-              <div className="ze-grid-pane ze-symprops-pin-pane">
-                <table className="ze-grid ze-symprops-pin-grid">
-                  {/* `SetColSize` (base.cpp:279-283) then
+            <div className="ze-nb-body">
+              <div
+                className="ze-symprops-page"
+                aria-hidden={tab !== 'pins'}
+                data-nbhide={tab !== 'pins' ? '' : undefined}
+              >
+                <div className="ze-grid-pane ze-symprops-pin-pane">
+                  <table className="ze-grid ze-symprops-pin-grid">
+                    {/* `SetColSize` (base.cpp:279-283) then
                       `AdjustPinsGridColumns` (dialog_symbol_properties.cpp:1066):
                       Number, Electrical Type and Graphic Style keep their stated
                       widths and Base Name / Alternate Assignment split what is
@@ -835,31 +838,31 @@ export function SymbolPropertiesDialog({
                       where a `table-layout: fixed` table reads them — stated on
                       the `<th>` they were only a hint, and the browser sized
                       every column from its content instead. */}
-                  <colgroup>
-                    <col className="num" />
-                    <col className="flex" />
-                    <col className="flex" />
-                    <col className="fixed" />
-                    <col className="fixed" />
-                  </colgroup>
-                  <thead>
-                    <tr>
-                      {PIN_GRID_COLUMNS.map((c) => (
-                        <th key={c}>{c}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {pinGridRows(pinUnitSym, lib).map((r) => (
-                      <tr key={r.number}>
-                        <td>
-                          <span className="ze-grid-text">{r.number}</span>
-                        </td>
-                        <td>
-                          <span className="ze-grid-text">{r.baseName}</span>
-                        </td>
-                        <td className={r.choices.length === 0 ? 'ze-pin-noalt' : undefined}>
-                          {/* "Don't accept random values; must use the popup to
+                    <colgroup>
+                      <col className="num" />
+                      <col className="flex" />
+                      <col className="flex" />
+                      <col className="fixed" />
+                      <col className="fixed" />
+                    </colgroup>
+                    <thead>
+                      <tr>
+                        {PIN_GRID_COLUMNS.map((c) => (
+                          <th key={c}>{c}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pinGridRows(pinUnitSym, lib).map((r) => (
+                        <tr key={r.number}>
+                          <td>
+                            <span className="ze-grid-text">{r.number}</span>
+                          </td>
+                          <td>
+                            <span className="ze-grid-text">{r.baseName}</span>
+                          </td>
+                          <td className={r.choices.length === 0 ? 'ze-pin-noalt' : undefined}>
+                            {/* "Don't accept random values; must use the popup to
                               change to a known alternate." A pin with no
                               alternates has an empty, uneditable cell — and it
                               is painted, not just empty: BuildAttrs gives it
@@ -868,501 +871,510 @@ export function SymbolPropertiesDialog({
                               what makes "this pin has nothing to choose" read at
                               a glance instead of looking like a blank you could
                               type in. */}
-                          {r.choices.length === 0 ? (
-                            <span className="ze-grid-text" />
-                          ) : (
-                            <select
-                              className="ze-grid-input ze-bare"
-                              value={r.alternate}
-                              onChange={(e) =>
-                                setPinSym((sym) => ({
-                                  ...sym,
-                                  // The row's pin is found in the unit the
-                                  // CHOICE is on, not the one the placement
-                                  // was opened as; `sym.unit` itself is left
-                                  // alone, since OK writes the unit from the
-                                  // combo and not from this working copy.
-                                  pins: setPinAlternate(
-                                    { ...sym, unit, bodyStyle },
-                                    lib,
-                                    r.number,
-                                    e.target.value,
-                                  ).pins,
-                                }))
-                              }
-                            >
-                              {r.choices.map((c) => (
-                                <option key={c} value={c}>
-                                  {c}
-                                </option>
-                              ))}
-                            </select>
-                          )}
-                        </td>
-                        {/* Type and Style follow the selection: GetType/GetShape
+                            {r.choices.length === 0 ? (
+                              <span className="ze-grid-text" />
+                            ) : (
+                              <select
+                                className="ze-grid-input ze-bare"
+                                value={r.alternate}
+                                onChange={(e) =>
+                                  setPinSym((sym) => ({
+                                    ...sym,
+                                    // The row's pin is found in the unit the
+                                    // CHOICE is on, not the one the placement
+                                    // was opened as; `sym.unit` itself is left
+                                    // alone, since OK writes the unit from the
+                                    // combo and not from this working copy.
+                                    pins: setPinAlternate(
+                                      { ...sym, unit, bodyStyle },
+                                      lib,
+                                      r.number,
+                                      e.target.value,
+                                    ).pins,
+                                  }))
+                                }
+                              >
+                                {r.choices.map((c) => (
+                                  <option key={c} value={c}>
+                                    {c}
+                                  </option>
+                                ))}
+                              </select>
+                            )}
+                          </td>
+                          {/* Type and Style follow the selection: GetType/GetShape
                             consult the alternate, so picking a function changes
                             what the pin is, not just what it is called. */}
-                        {/* GRID_CELL_ICON_TEXT_RENDERER: both cells draw
+                          {/* GRID_CELL_ICON_TEXT_RENDERER: both cells draw
                             KiCad's own 16px icon before the text
                             (dialog_symbol_properties.cpp:131-142). */}
-                        <td>
-                          <span className="ze-grid-text ze-icon-text">
-                            <PinIcon bitmap={PIN_TYPE_BITMAPS[r.electricalType]} />
-                            {PIN_TYPE_NAMES[r.electricalType] ?? r.electricalType}
-                          </span>
-                        </td>
-                        <td>
-                          <span className="ze-grid-text ze-icon-text">
-                            <PinIcon bitmap={PIN_SHAPE_BITMAPS[r.shape]} />
-                            {PIN_SHAPE_NAMES[r.shape] ?? r.shape}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                          <td>
+                            <span className="ze-grid-text ze-icon-text">
+                              <PinIcon bitmap={PIN_TYPE_BITMAPS[r.electricalType]} />
+                              {PIN_TYPE_NAMES[r.electricalType] ?? r.electricalType}
+                            </span>
+                          </td>
+                          <td>
+                            <span className="ze-grid-text ze-icon-text">
+                              <PinIcon bitmap={PIN_SHAPE_BITMAPS[r.shape]} />
+                              {PIN_SHAPE_NAMES[r.shape] ?? r.shape}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            </div>
 
-            {embedded ? (
-              // PANEL_EMBEDDED_FILES (common/dialogs/panel_embedded_files_base.cpp):
-              // a two-column grid, an add/remove button pair, "Embed fonts" and
-              // Export. Read-only here — see the header comment.
-              // The page EXISTS whenever the symbol carries embedded files —
-              // that is the upstream condition for adding it to the notebook —
-              // and is merely invisible when another tab is selected.
+              {embedded ? (
+                // PANEL_EMBEDDED_FILES (common/dialogs/panel_embedded_files_base.cpp):
+                // a two-column grid, an add/remove button pair, "Embed fonts" and
+                // Export. Read-only here — see the header comment.
+                // The page EXISTS whenever the symbol carries embedded files —
+                // that is the upstream condition for adding it to the notebook —
+                // and is merely invisible when another tab is selected.
+                <div
+                  className="ze-symprops-page"
+                  aria-hidden={tab !== 'files'}
+                  data-nbhide={tab !== 'files' ? '' : undefined}
+                >
+                  <div className="ze-grid-pane ze-symprops-files-pane">
+                    <table className="ze-grid">
+                      <thead>
+                        <tr>
+                          <th>Filename</th>
+                          <th>Embedded Reference</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {embedded.files.map((f) => (
+                          <tr key={f.name}>
+                            <td>
+                              <span className="ze-grid-text">{f.name}</span>
+                            </td>
+                            <td>
+                              <span className="ze-grid-text">{f.reference}</span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="ze-grid-btns">
+                    <StdBitmapButton
+                      bitmap="small_folder"
+                      title="Add embedded file"
+                      disabled
+                      onClick={() => {}}
+                    />
+                    <StdBitmapButton
+                      bitmap="small_trash"
+                      title="Remove embedded file"
+                      disabled
+                      onClick={() => {}}
+                    />
+                    <label className="ze-check ze-symprops-embedfonts">
+                      <input type="checkbox" checked={embedded.embedFonts} disabled readOnly />
+                      Embed fonts
+                    </label>
+                    <button type="button" className="ze-btn" disabled>
+                      Export...
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+
               <div
                 className="ze-symprops-page"
-                aria-hidden={tab !== 'files'}
-                data-nbhide={tab !== 'files' ? '' : undefined}
+                aria-hidden={tab !== 'general'}
+                data-nbhide={tab !== 'general' ? '' : undefined}
               >
-                <div className="ze-grid-pane ze-symprops-files-pane">
-                  <table className="ze-grid">
-                    <thead>
-                      <tr>
-                        <th>Filename</th>
-                        <th>Embedded Reference</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {embedded.files.map((f) => (
-                        <tr key={f.name}>
-                          <td>
-                            <span className="ze-grid-text">{f.name}</span>
-                          </td>
-                          <td>
-                            <span className="ze-grid-text">{f.reference}</span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                <div className="ze-grid-btns">
-                  <StdBitmapButton
-                    bitmap="small_folder"
-                    title="Add embedded file"
-                    disabled
-                    onClick={() => {}}
-                  />
-                  <StdBitmapButton
-                    bitmap="small_trash"
-                    title="Remove embedded file"
-                    disabled
-                    onClick={() => {}}
-                  />
-                  <label className="ze-check ze-symprops-embedfonts">
-                    <input type="checkbox" checked={embedded.embedFonts} disabled readOnly />
-                    Embed fonts
-                  </label>
-                  <button type="button" className="ze-btn" disabled>
-                    Export...
-                  </button>
-                </div>
-              </div>
-            ) : null}
-
-            <div
-              className="ze-symprops-page"
-              aria-hidden={tab !== 'general'}
-              data-nbhide={tab !== 'general' ? '' : undefined}
-            >
-              {/* sbFields */}
-              <fieldset className="ze-ds-group ze-symprops-fields">
-                <legend>Fields</legend>
-                <div className="ze-grid-pane ze-symprops-grid-pane">
-                  <table className="ze-grid ze-symprops-grid">
-                    <thead>
-                      <tr
-                        onContextMenu={(e) => {
-                          // GRID_TRICKS::onGridLabelRightClick: a checkable item
-                          // per column, whatever its shown state.
-                          e.preventDefault();
-                          setColMenu({ x: e.clientX, y: e.clientY });
-                        }}
-                      >
-                        {cols.map((c) => (
-                          <th
-                            key={c.id}
-                            // `RecomputeGridWidths` floors each autosized
-                            // column at its `_base.cpp` width and lets content
-                            // widen it; only FDC_VALUE is given the slack.
-                            style={c.index === 1 ? undefined : { minWidth: c.width }}
-                            className={c.center ? 'c' : undefined}
-                          >
-                            {c.label}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {view.map((rowIndex, viewRow) => (
+                {/* sbFields */}
+                <fieldset className="ze-ds-group ze-symprops-fields">
+                  <legend>Fields</legend>
+                  <div className="ze-grid-pane ze-symprops-grid-pane">
+                    <table className="ze-grid ze-symprops-grid">
+                      <thead>
                         <tr
-                          key={rowIndex}
-                          // The row fill is not drawn over the row that holds
-                          // the active editor. The SELECTION itself survives —
-                          // `qa/probes/grid_edit_selection_probe.cpp` selects a
-                          // row, enables the cell editor and asks the grid:
-                          //   after SelectRow(2)               rows=1 inSel=1
-                          //   after EnableCellEditControl(true) rows=1 inSel=1
-                          //   after DisableCellEditControl()    rows=1 inSel=1
-                          // so this is a painting rule, not a selection one, and
-                          // the row is still selected for Delete Field etc.
-                          className={
-                            cursor.selected && cursor.row === viewRow && !cursor.editing
-                              ? 'selected'
-                              : ''
-                          }
+                          onContextMenu={(e) => {
+                            // GRID_TRICKS::onGridLabelRightClick: a checkable item
+                            // per column, whatever its shown state.
+                            e.preventDefault();
+                            setColMenu({ x: e.clientX, y: e.clientY });
+                          }}
                         >
                           {cols.map((c) => (
-                            <td
+                            <th
                               key={c.id}
-                              className={[
-                                c.center ? 'c' : '',
-                                cursor.row === viewRow && cursor.col === c.index ? 'cursor' : '',
-                                // FDC_VALUE, the one `SetupColumnAutosizer`
-                                // marks flexible: it takes the slack, so its
-                                // text must not reach the column's width.
-                                c.index === 1 ? 'ze-grid-flexcol' : '',
-                              ]
-                                .filter(Boolean)
-                                .join(' ')}
-                              onMouseDown={(e) => {
-                                // `GRID_TRICKS::onGridCellLeftClick`
-                                // (grid_tricks.cpp:218-231) — "Don't make users
-                                // click twice to toggle a checkbox or edit a text
-                                // cell". ONE click opens the editor, and
-                                // `m_enableSingleClickEdit` is true by default
-                                // (:48). This wanted two.
-                                //
-                                // `showEditor` (:/^bool GRID_TRICKS::showEditor)
-                                // moves the cursor, and if the cell is NOT
-                                // read-only it calls `ClearSelection()`, re-selects
-                                // the row, and then `ShowEditorOnMouseUp()`. A
-                                // read-only cell returns false and the click falls
-                                // through to plain row selection — which is why
-                                // clicking a mandatory field's NAME only
-                                // highlights the row.
-                                //
-                                // The editor really does open on mouse UP, and
-                                // that is load-bearing rather than pedantic: the
-                                // browser moves focus while handling mousedown, so
-                                // an editor mounted here is focused and then blurred
-                                // straight back out by the same click. Upstream
-                                // hit the same class of problem —
-                                //   "There's the whole SetInSetFocus() issue/hack
-                                //    in wxWidgets, and there's also wxGrid's MouseUp
-                                //    handler which doesn't notice it's processing a
-                                //    MouseUp until after it has disabled the editor
-                                //    yet again."
-                                // Suppressing the default here also stops the drag
-                                // selecting cell text, which a wxGrid never does.
-                                // A click INSIDE the editor that is already open
-                                // on this cell is not a grid click at all: the
-                                // editor control has the mouse, and wxGrid never
-                                // sees it. It places the caret, and that is the
-                                // whole of it — no cursor move, no re-selection,
-                                // no re-opening. Handling it here made the row
-                                // highlight flash back on and re-selected the
-                                // whole string, so you could never put the caret
-                                // in the middle of a long value.
-                                if (inOpenEditor(viewRow, c.index)) return;
-                                e.preventDefault();
-                                setCursor({
-                                  row: viewRow,
-                                  col: c.index,
-                                  // wxGridSelectRows: clicking selects the row.
-                                  selected: true,
-                                  editing: false,
-                                });
-                              }}
-                              onMouseUp={() => {
-                                // `ShowEditorOnMouseUp()`. Nothing to do if the
-                                // editor is already up on this cell.
-                                //
-                                // This guard is NOT observable and no test kills
-                                // removing it: `{ ...prev, editing: true }` when
-                                // `editing` is already true carries identical
-                                // values, React keeps the same input element, and
-                                // the caret survives — `onFocus` does not re-fire,
-                                // so the select-all does not re-run either. It
-                                // stays because it says what the mouseup means,
-                                // and because it costs a render per click inside
-                                // the editor otherwise. Recorded rather than
-                                // pinned with a test that could not fail.
-                                if (inOpenEditor(viewRow, c.index)) return;
-                                if (!cellIsEditable(rowAt(viewRow)!, c)) return;
-                                setCursor((prev) => ({ ...prev, editing: true }));
-                              }}
-                              onDoubleClick={() => {
-                                if (!cellIsEditable(rowAt(viewRow)!, c)) return;
-                                setCursor({
-                                  row: viewRow,
-                                  col: c.index,
-                                  editing: true,
-                                  selected: true,
-                                });
-                              }}
+                              // `RecomputeGridWidths` floors each autosized
+                              // column at its `_base.cpp` width and lets content
+                              // widen it; only FDC_VALUE is given the slack.
+                              style={c.index === 1 ? undefined : { minWidth: c.width }}
+                              className={c.center ? 'c' : undefined}
                             >
-                              {cell(viewRow, c.index)}
-                            </td>
+                              {c.label}
+                            </th>
                           ))}
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody>
+                        {view.map((rowIndex, viewRow) => (
+                          <tr
+                            key={rowIndex}
+                            // The row fill is not drawn over the row that holds
+                            // the active editor. The SELECTION itself survives —
+                            // `qa/probes/grid_edit_selection_probe.cpp` selects a
+                            // row, enables the cell editor and asks the grid:
+                            //   after SelectRow(2)               rows=1 inSel=1
+                            //   after EnableCellEditControl(true) rows=1 inSel=1
+                            //   after DisableCellEditControl()    rows=1 inSel=1
+                            // so this is a painting rule, not a selection one, and
+                            // the row is still selected for Delete Field etc.
+                            className={
+                              cursor.selected && cursor.row === viewRow && !cursor.editing
+                                ? 'selected'
+                                : ''
+                            }
+                          >
+                            {cols.map((c) => (
+                              <td
+                                key={c.id}
+                                className={[
+                                  c.center ? 'c' : '',
+                                  cursor.row === viewRow && cursor.col === c.index ? 'cursor' : '',
+                                  // FDC_VALUE, the one `SetupColumnAutosizer`
+                                  // marks flexible: it takes the slack, so its
+                                  // text must not reach the column's width.
+                                  c.index === 1 ? 'ze-grid-flexcol' : '',
+                                ]
+                                  .filter(Boolean)
+                                  .join(' ')}
+                                onMouseDown={(e) => {
+                                  // `GRID_TRICKS::onGridCellLeftClick`
+                                  // (grid_tricks.cpp:218-231) — "Don't make users
+                                  // click twice to toggle a checkbox or edit a text
+                                  // cell". ONE click opens the editor, and
+                                  // `m_enableSingleClickEdit` is true by default
+                                  // (:48). This wanted two.
+                                  //
+                                  // `showEditor` (:/^bool GRID_TRICKS::showEditor)
+                                  // moves the cursor, and if the cell is NOT
+                                  // read-only it calls `ClearSelection()`, re-selects
+                                  // the row, and then `ShowEditorOnMouseUp()`. A
+                                  // read-only cell returns false and the click falls
+                                  // through to plain row selection — which is why
+                                  // clicking a mandatory field's NAME only
+                                  // highlights the row.
+                                  //
+                                  // The editor really does open on mouse UP, and
+                                  // that is load-bearing rather than pedantic: the
+                                  // browser moves focus while handling mousedown, so
+                                  // an editor mounted here is focused and then blurred
+                                  // straight back out by the same click. Upstream
+                                  // hit the same class of problem —
+                                  //   "There's the whole SetInSetFocus() issue/hack
+                                  //    in wxWidgets, and there's also wxGrid's MouseUp
+                                  //    handler which doesn't notice it's processing a
+                                  //    MouseUp until after it has disabled the editor
+                                  //    yet again."
+                                  // Suppressing the default here also stops the drag
+                                  // selecting cell text, which a wxGrid never does.
+                                  // A click INSIDE the editor that is already open
+                                  // on this cell is not a grid click at all: the
+                                  // editor control has the mouse, and wxGrid never
+                                  // sees it. It places the caret, and that is the
+                                  // whole of it — no cursor move, no re-selection,
+                                  // no re-opening. Handling it here made the row
+                                  // highlight flash back on and re-selected the
+                                  // whole string, so you could never put the caret
+                                  // in the middle of a long value.
+                                  if (inOpenEditor(viewRow, c.index)) return;
+                                  e.preventDefault();
+                                  setCursor({
+                                    row: viewRow,
+                                    col: c.index,
+                                    // wxGridSelectRows: clicking selects the row.
+                                    selected: true,
+                                    editing: false,
+                                  });
+                                }}
+                                onMouseUp={() => {
+                                  // `ShowEditorOnMouseUp()`. Nothing to do if the
+                                  // editor is already up on this cell.
+                                  //
+                                  // This guard is NOT observable and no test kills
+                                  // removing it: `{ ...prev, editing: true }` when
+                                  // `editing` is already true carries identical
+                                  // values, React keeps the same input element, and
+                                  // the caret survives — `onFocus` does not re-fire,
+                                  // so the select-all does not re-run either. It
+                                  // stays because it says what the mouseup means,
+                                  // and because it costs a render per click inside
+                                  // the editor otherwise. Recorded rather than
+                                  // pinned with a test that could not fail.
+                                  if (inOpenEditor(viewRow, c.index)) return;
+                                  if (!cellIsEditable(rowAt(viewRow)!, c)) return;
+                                  setCursor((prev) => ({ ...prev, editing: true }));
+                                }}
+                                onDoubleClick={() => {
+                                  if (!cellIsEditable(rowAt(viewRow)!, c)) return;
+                                  setCursor({
+                                    row: viewRow,
+                                    col: c.index,
+                                    editing: true,
+                                    selected: true,
+                                  });
+                                }}
+                              >
+                                {cell(viewRow, c.index)}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
 
-                {/* bButtonSize: add, up, down, a 20px spacer, delete. */}
-                <div className="ze-grid-btns">
-                  <StdBitmapButton bitmap="small_plus" title="Add field" onClick={addRow} />
-                  <StdBitmapButton bitmap="small_up" title="Move up" onClick={() => moveRow(-1)} />
-                  <StdBitmapButton
-                    bitmap="small_down"
-                    title="Move down"
-                    onClick={() => moveRow(1)}
-                  />
-                  <span className="ze-symprops-btngap" />
-                  <StdBitmapButton bitmap="small_trash" title="Delete field" onClick={deleteRow} />
-                </div>
-              </fieldset>
+                  {/* bButtonSize: add, up, down, a 20px spacer, delete. */}
+                  <div className="ze-grid-btns">
+                    <StdBitmapButton bitmap="small_plus" title="Add field" onClick={addRow} />
+                    <StdBitmapButton
+                      bitmap="small_up"
+                      title="Move up"
+                      onClick={() => moveRow(-1)}
+                    />
+                    <StdBitmapButton
+                      bitmap="small_down"
+                      title="Move down"
+                      onClick={() => moveRow(1)}
+                    />
+                    <span className="ze-symprops-btngap" />
+                    <StdBitmapButton
+                      bitmap="small_trash"
+                      title="Delete field"
+                      onClick={deleteRow}
+                    />
+                  </div>
+                </fieldset>
 
-              {/* bLowerSizer: General (4) | Attributes (3) | buttons (3). */}
-              <div className="ze-symprops-lower">
-                <fieldset className="ze-ds-group ze-symprops-general">
-                  <legend>General</legend>
-                  <div className="ze-symprops-gb">
-                    {/* `m_unitLabel->Enable( false )` as well as the choice
+                {/* bLowerSizer: General (4) | Attributes (3) | buttons (3). */}
+                <div className="ze-symprops-lower">
+                  <fieldset className="ze-ds-group ze-symprops-general">
+                    <legend>General</legend>
+                    <div className="ze-symprops-gb">
+                      {/* `m_unitLabel->Enable( false )` as well as the choice
                       (dialog_symbol_properties.cpp:504): a wxStaticText greys
                       with its control, so the word "Unit:" is grey too on a
                       single-unit part. */}
-                    <label
-                      className={multiUnit ? 'ze-symprops-lbl' : 'ze-symprops-lbl disabled'}
-                      htmlFor="ze-symprops-unit"
-                    >
-                      Unit:
-                    </label>
-                    <Combo
-                      id="ze-symprops-unit"
-                      ariaLabel="Unit"
-                      disabled={!multiUnit}
-                      value={String(unit)}
-                      onChange={(v) => setUnit(Number(v))}
-                      options={
-                        multiUnit
-                          ? Array.from({ length: unitCount }, (_, k) => ({
-                              value: String(k + 1),
-                              label: unitDisplayName(lib, k + 1),
-                            }))
-                          : []
-                      }
-                    />
+                      <label
+                        className={multiUnit ? 'ze-symprops-lbl' : 'ze-symprops-lbl disabled'}
+                        htmlFor="ze-symprops-unit"
+                      >
+                        Unit:
+                      </label>
+                      <Combo
+                        id="ze-symprops-unit"
+                        ariaLabel="Unit"
+                        disabled={!multiUnit}
+                        value={String(unit)}
+                        onChange={(v) => setUnit(Number(v))}
+                        options={
+                          multiUnit
+                            ? Array.from({ length: unitCount }, (_, k) => ({
+                                value: String(k + 1),
+                                label: unitDisplayName(lib, k + 1),
+                              }))
+                            : []
+                        }
+                      />
 
-                    {/* `m_bodyStyle->Enable( false )` (:537), the same rule for
+                      {/* `m_bodyStyle->Enable( false )` (:537), the same rule for
                       the label of a part with only one body style. */}
-                    <label
-                      className={multiBodyStyle ? 'ze-symprops-lbl' : 'ze-symprops-lbl disabled'}
-                      htmlFor="ze-symprops-bodystyle"
-                    >
-                      Body style:
-                    </label>
-                    <Combo
-                      id="ze-symprops-bodystyle"
-                      ariaLabel="Body style"
-                      disabled={!multiBodyStyle}
-                      value={String(bodyStyle)}
-                      onChange={(v) => setBodyStyle(Number(v))}
-                      options={
-                        multiBodyStyle
-                          ? [
-                              { value: '1', label: 'Standard' },
-                              { value: '2', label: 'Alternate' },
-                            ]
-                          : []
-                      }
-                    />
-
-                    {/* gbSizer1 leaves row 2 empty at SetEmptyCellSize( -1, 12 ). */}
-                    <span className="ze-symprops-gbgap" />
-
-                    <label className="ze-symprops-lbl" htmlFor="ze-symprops-angle">
-                      Angle:
-                    </label>
-                    <Combo
-                      id="ze-symprops-angle"
-                      ariaLabel="Angle"
-                      value={String(orient)}
-                      onChange={(v) => setOrient(Number(v))}
-                      options={[
-                        { value: '0', label: '0' },
-                        { value: '90', label: '+90' },
-                        { value: '270', label: '-90' },
-                        { value: '180', label: '180' },
-                      ]}
-                    />
-
-                    <label className="ze-symprops-lbl" htmlFor="ze-symprops-mirror">
-                      Mirror:
-                    </label>
-                    <Combo
-                      id="ze-symprops-mirror"
-                      ariaLabel="Mirror"
-                      value={mirror}
-                      onChange={(v) => setMirror(v as '' | 'x' | 'y')}
-                      options={[
-                        { value: '', label: 'Not mirrored' },
-                        { value: 'x', label: 'Around X axis' },
-                        { value: 'y', label: 'Around Y axis' },
-                      ]}
-                    />
-                  </div>
-
-                  {/* bSizer11, inside the General box and not Attributes. */}
-                  <div className="ze-symprops-pinchecks">
-                    <label className="ze-check" title="Show or hide pin numbers">
-                      <input
-                        type="checkbox"
-                        checked={showPinNumbers}
-                        onChange={(e) => setShowPinNumbers(e.target.checked)}
+                      <label
+                        className={multiBodyStyle ? 'ze-symprops-lbl' : 'ze-symprops-lbl disabled'}
+                        htmlFor="ze-symprops-bodystyle"
+                      >
+                        Body style:
+                      </label>
+                      <Combo
+                        id="ze-symprops-bodystyle"
+                        ariaLabel="Body style"
+                        disabled={!multiBodyStyle}
+                        value={String(bodyStyle)}
+                        onChange={(v) => setBodyStyle(Number(v))}
+                        options={
+                          multiBodyStyle
+                            ? [
+                                { value: '1', label: 'Standard' },
+                                { value: '2', label: 'Alternate' },
+                              ]
+                            : []
+                        }
                       />
-                      Show pin numbers
-                    </label>
-                    <label className="ze-check" title="Show or hide pin names">
-                      <input
-                        type="checkbox"
-                        checked={showPinNames}
-                        onChange={(e) => setShowPinNames(e.target.checked)}
-                      />
-                      Show pin names
-                    </label>
-                  </div>
-                </fieldset>
 
-                {/* sbAttributes, in the base file's order: simulation, a 10px
+                      {/* gbSizer1 leaves row 2 empty at SetEmptyCellSize( -1, 12 ). */}
+                      <span className="ze-symprops-gbgap" />
+
+                      <label className="ze-symprops-lbl" htmlFor="ze-symprops-angle">
+                        Angle:
+                      </label>
+                      <Combo
+                        id="ze-symprops-angle"
+                        ariaLabel="Angle"
+                        value={String(orient)}
+                        onChange={(v) => setOrient(Number(v))}
+                        options={[
+                          { value: '0', label: '0' },
+                          { value: '90', label: '+90' },
+                          { value: '270', label: '-90' },
+                          { value: '180', label: '180' },
+                        ]}
+                      />
+
+                      <label className="ze-symprops-lbl" htmlFor="ze-symprops-mirror">
+                        Mirror:
+                      </label>
+                      <Combo
+                        id="ze-symprops-mirror"
+                        ariaLabel="Mirror"
+                        value={mirror}
+                        onChange={(v) => setMirror(v as '' | 'x' | 'y')}
+                        options={[
+                          { value: '', label: 'Not mirrored' },
+                          { value: 'x', label: 'Around X axis' },
+                          { value: 'y', label: 'Around Y axis' },
+                        ]}
+                      />
+                    </div>
+
+                    {/* bSizer11, inside the General box and not Attributes. */}
+                    <div className="ze-symprops-pinchecks">
+                      <label className="ze-check" title="Show or hide pin numbers">
+                        <input
+                          type="checkbox"
+                          checked={showPinNumbers}
+                          onChange={(e) => setShowPinNumbers(e.target.checked)}
+                        />
+                        Show pin numbers
+                      </label>
+                      <label className="ze-check" title="Show or hide pin names">
+                        <input
+                          type="checkbox"
+                          checked={showPinNames}
+                          onChange={(e) => setShowPinNames(e.target.checked)}
+                        />
+                        Show pin names
+                      </label>
+                    </div>
+                  </fieldset>
+
+                  {/* sbAttributes, in the base file's order: simulation, a 10px
                   spacer, bill of materials, board, position files, DNP. */}
-                <fieldset className="ze-ds-group ze-symprops-attrs">
-                  <legend>Attributes</legend>
-                  <label className="ze-check">
-                    <input
-                      type="checkbox"
-                      checked={excludeSim}
-                      onChange={(e) => setExcludeSim(e.target.checked)}
-                    />
-                    Exclude from simulation
-                  </label>
-                  <span className="ze-symprops-attrgap" />
-                  <label
-                    className="ze-check"
-                    title={
-                      'This is useful for adding symbols for board footprints such as fiducials\n' +
-                      'and logos that you do not want to appear in the bill of materials export'
-                    }
-                  >
-                    <input
-                      type="checkbox"
-                      checked={excludeBom}
-                      onChange={(e) => setExcludeBom(e.target.checked)}
-                    />
-                    Exclude from bill of materials
-                  </label>
-                  <label
-                    className="ze-check"
-                    title={
-                      'This is useful for adding symbols that only get exported to the bill of materials but\n' +
-                      'not required to layout the board such as mechanical fasteners and enclosures'
-                    }
-                  >
-                    <input
-                      type="checkbox"
-                      checked={excludeBoard}
-                      onChange={(e) => setExcludeBoard(e.target.checked)}
-                    />
-                    Exclude from board
-                  </label>
-                  <label
-                    className="ze-check"
-                    title={
-                      'This is useful for adding symbols that should not be included in the \n' +
-                      'exported position files used for pick and place machines'
-                    }
-                  >
-                    <input
-                      type="checkbox"
-                      checked={excludePosFiles}
-                      onChange={(e) => setExcludePosFiles(e.target.checked)}
-                    />
-                    Exclude from position files
-                  </label>
-                  <label className="ze-check">
-                    <input
-                      type="checkbox"
-                      checked={dnp}
-                      onChange={(e) => setDnp(e.target.checked)}
-                    />
-                    Do not populate
-                  </label>
-                </fieldset>
+                  <fieldset className="ze-ds-group ze-symprops-attrs">
+                    <legend>Attributes</legend>
+                    <label className="ze-check">
+                      <input
+                        type="checkbox"
+                        checked={excludeSim}
+                        onChange={(e) => setExcludeSim(e.target.checked)}
+                      />
+                      Exclude from simulation
+                    </label>
+                    <span className="ze-symprops-attrgap" />
+                    <label
+                      className="ze-check"
+                      title={
+                        'This is useful for adding symbols for board footprints such as fiducials\n' +
+                        'and logos that you do not want to appear in the bill of materials export'
+                      }
+                    >
+                      <input
+                        type="checkbox"
+                        checked={excludeBom}
+                        onChange={(e) => setExcludeBom(e.target.checked)}
+                      />
+                      Exclude from bill of materials
+                    </label>
+                    <label
+                      className="ze-check"
+                      title={
+                        'This is useful for adding symbols that only get exported to the bill of materials but\n' +
+                        'not required to layout the board such as mechanical fasteners and enclosures'
+                      }
+                    >
+                      <input
+                        type="checkbox"
+                        checked={excludeBoard}
+                        onChange={(e) => setExcludeBoard(e.target.checked)}
+                      />
+                      Exclude from board
+                    </label>
+                    <label
+                      className="ze-check"
+                      title={
+                        'This is useful for adding symbols that should not be included in the \n' +
+                        'exported position files used for pick and place machines'
+                      }
+                    >
+                      <input
+                        type="checkbox"
+                        checked={excludePosFiles}
+                        onChange={(e) => setExcludePosFiles(e.target.checked)}
+                      />
+                      Exclude from position files
+                    </label>
+                    <label className="ze-check">
+                      <input
+                        type="checkbox"
+                        checked={dnp}
+                        onChange={(e) => setDnp(e.target.checked)}
+                      />
+                      Do not populate
+                    </label>
+                  </fieldset>
 
-                {/* buttonsSizer: a vertical column, with a 20px gap before the
+                  {/* buttonsSizer: a vertical column, with a 20px gap before the
                   last one — it acts on the LIBRARY part rather than this
                   placement, which is what the gap says. */}
-                <div className="ze-symprops-buttons">
-                  <button
-                    type="button"
-                    className="ze-btn"
-                    disabled={!onUpdateSymbol}
-                    onClick={onUpdateSymbol}
-                  >
-                    Update Symbol from Library...
-                  </button>
-                  <button
-                    type="button"
-                    className="ze-btn"
-                    disabled={!onChangeSymbol}
-                    onClick={onChangeSymbol}
-                  >
-                    Change Symbol...
-                  </button>
-                  {/* onUpdateEditSymbol: `event.Enable( m_symbol &&
+                  <div className="ze-symprops-buttons">
+                    <button
+                      type="button"
+                      className="ze-btn"
+                      disabled={!onUpdateSymbol}
+                      onClick={onUpdateSymbol}
+                    >
+                      Update Symbol from Library...
+                    </button>
+                    <button
+                      type="button"
+                      className="ze-btn"
+                      disabled={!onChangeSymbol}
+                      onClick={onChangeSymbol}
+                    >
+                      Change Symbol...
+                    </button>
+                    {/* onUpdateEditSymbol: `event.Enable( m_symbol &&
                     m_symbol->GetLibSymbolRef() )` — a placement whose cached
                     library symbol is missing has nothing to open. */}
-                  <button
-                    type="button"
-                    className="ze-btn"
-                    disabled={!lib || !onEditSymbol}
-                    onClick={onEditSymbol}
-                  >
-                    Edit Symbol...
-                  </button>
-                  <span className="ze-symprops-btnsgap" />
-                  <button
-                    type="button"
-                    className="ze-btn"
-                    disabled={!lib || !onEditLibrarySymbol}
-                    onClick={onEditLibrarySymbol}
-                  >
-                    Edit Library Symbol...
-                  </button>
+                    <button
+                      type="button"
+                      className="ze-btn"
+                      disabled={!lib || !onEditSymbol}
+                      onClick={onEditSymbol}
+                    >
+                      Edit Symbol...
+                    </button>
+                    <span className="ze-symprops-btnsgap" />
+                    <button
+                      type="button"
+                      className="ze-btn"
+                      disabled={!lib || !onEditLibrarySymbol}
+                      onClick={onEditLibrarySymbol}
+                    >
+                      Edit Library Symbol...
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>

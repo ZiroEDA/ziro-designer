@@ -1414,3 +1414,46 @@ describe('a pin row draws its type and shape icon, not just the name', () => {
     expect(PIN_TYPE_BITMAPS.not_a_pin_type).toBeUndefined();
   });
 });
+
+/**
+ * The notebook is a framed control.
+ *
+ * A wxNotebook's border runs across the top ABOVE the tab strip and down both
+ * sides, enclosing the strip and the page as one box. Ours drew only the line
+ * under the tabs, so it read as a row of labels with a panel below it — the
+ * difference Akshay pointed at three times before it was measured properly.
+ *
+ * [px] a live KiCad 10.0.5, down x=531: rgb(28,28,28) at y=401, ten pixels
+ * above the tabs, and again at y=438 under them; across at y=420, inside the
+ * strip, the same at x=527 and x=1519.
+ */
+describe('the notebook draws a frame around the tabs and the page', () => {
+  it('wraps both in one bordered element', () => {
+    open(SHEET);
+    const frame = document.querySelector('.ze-nb-frame');
+    expect(frame).toBeTruthy();
+    // The strip and the body are INSIDE it — a frame drawn around the body
+    // alone is the border we already had.
+    expect(frame!.querySelector(':scope > .ze-nb-tabs')).toBeTruthy();
+    expect(frame!.querySelector(':scope > .ze-nb-body')).toBeTruthy();
+    expect(decl('.ze-nb-frame', 'border')).toBe('1px solid var(--chrome-border)');
+  });
+
+  it('and the page inside it no longer draws its own', () => {
+    // Two borders along the same edge is a 2px line where KiCad has 1.
+    expect(decl('.ze-symprops-page', 'border')).toBeUndefined();
+    // the line UNDER the tabs is the strip's own and stays
+    expect(decl('.ze-nb-tabs', 'border-bottom')).toContain('var(--chrome-border');
+  });
+});
+
+describe('the icon/text gap is the renderer’s, not MIN_GRIDCELL_MARGIN', () => {
+  it('is 4 either side of the bitmap', () => {
+    // `leftCut = FromDIP( 4 )`, draw, `leftCut += width`, `leftCut += FromDIP( 4 )`
+    // (grid_icon_text_helpers.cpp). This was 2 — MIN_GRIDCELL_MARGIN, which is
+    // a different constant for a different renderer — and the row read as
+    // "|-Passive" with the glyph welded to the word.
+    expect(decl('.ze-icon-text', 'gap')).toBe('4px');
+    expect(decl('.ze-icon-text', 'padding-left')).toBe('4px');
+  });
+});

@@ -6997,12 +6997,36 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   visibility: hidden;
   pointer-events: none;
 }
+/* A wxNotebook draws a FRAME, and the tab strip sits inside it — the border
+   runs across the top ABOVE the tabs and down both sides, enclosing the strip
+   and the page as one control. Ours drew only the line under the tabs, so the
+   notebook read as a row of labels with a panel below rather than as a box.
+
+   [px] a live KiCad 10.0.5, scanning down x=531 (inside the dialog, left of the
+   page): the title bar's border at y=390, then the dialog face to y=400, then
+   rgb(28,28,28) at y=401 — the frame's top edge, ten pixels above the tabs —
+   the strip's own face to y=437, and rgb(28,28,28) again at y=438 under the
+   tabs. Across at y=420, inside the strip, the same rgb(28,28,28) at x=527 and
+   x=1519, eleven pixels inside each dialog edge, which is mainSizer's wxALL 10
+   plus the dialog's own border. That is --chrome-border.
+
+   The three other `.ze-nb-tabs` call sites (appearance controls, GerbView's
+   layer manager, the colour picker) are docked panes rather than dialogs and
+   were not measured, so they are left alone rather than given a frame on the
+   strength of this one. */
+.ze-nb-frame {
+  border: 1px solid var(--chrome-border);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+}
 .ze-symprops-page {
   display: flex;
   flex-direction: column;
   background: var(--chrome-bg2);
-  border: 1px solid var(--chrome-border);
-  border-top: none;
+  /* The frame belongs to `.ze-nb-frame` now: the page inside it paints only its
+     own background, or the two borders double up along the sides. */
   /* [data] generalPageSizer's items each carry a 5 px border. */
   padding: 5px;
   min-height: 0;
@@ -7399,9 +7423,14 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-icon-text {
   display: flex;
   align-items: center;
-  /* [data] `GRID_CELL_ICON_TEXT_RENDERER::Draw` offsets the text by the
-     bitmap's width plus MIN_GRIDCELL_MARGIN, which is FromDIP( 2 ). */
-  gap: 2px;
+  /* [data] `GRID_CELL_ICON_TEXT_RENDERER::Draw` (grid_icon_text_helpers.cpp)
+     starts at `leftCut = FromDIP( 4 )`, draws the bitmap there, then does
+     `leftCut += bitmap width` and `leftCut += FromDIP( 4 )` before the text —
+     so it is FOUR either side of the icon, not MIN_GRIDCELL_MARGIN's two,
+     which is what this said and is what made the row read as "|-Passive". */
+  gap: 4px;
+  /* [data] the same `leftCut = FromDIP( 4 )`, the lead-in before the bitmap. */
+  padding-left: 4px;
 }
 .ze-pin-icon {
   /* [data] KiBitmapBundle resolves the 16 px variant for a grid cell, which is
