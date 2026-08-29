@@ -75,7 +75,21 @@ const CONVERTED = [
  * The list is asserted whole rather than as a floor: a *new* frame cannot be
  * added to the app without landing in one list or the other.
  */
-const PENDING: readonly string[] = [];
+const PENDING: readonly string[] = [
+  // `EDA_3D_VIEWER_FRAME`. Its keys are `EDA_3D_ACTIONS`' own `.DefaultHotkey()`
+  // -- z/x/y for the six axis views, r, f, Home, F5, the arrows -- and upstream
+  // it is a separate top-level window, so pcbnew's accelerators cannot reach
+  // the board while it has focus. Ours is an overlay sharing the document with
+  // that canvas, so it swallows every unmodified key in the capture phase
+  // rather than asking the shared dispatcher. Converting it means giving the
+  // dispatcher a notion of window focus, which is the same change the canvas
+  // frames above are waiting on.
+  //
+  // It arrived here by extraction, not by being new: this listener lived in
+  // `PcbEditor.tsx` until the frame became one shared component so CVPCB's
+  // footprint viewer could open the same window KiCad's does.
+  'editors/pcb/Viewer3DFrame.tsx',
+];
 
 /**
  * The only modifier reads a converted frame may keep, per file, line for line.
@@ -124,10 +138,9 @@ const MODIFIER_EXCEPTIONS: Readonly<Record<string, readonly string[]>> = {
     // pointer's, one the keyboard's.
     'ctrlDownRef.current = e.ctrlKey || e.metaKey;',
     'const ctrl = e.ctrlKey || e.metaKey;',
-    // The 3D viewer overlay declining to treat a modified key as one of its
-    // view keys - upstream the viewer is a separate top-level window, so
-    // pcbnew's hotkeys cannot reach the board while it has focus.
-    'if (e.ctrlKey || e.metaKey || e.altKey) return;',
+    // (The 3D viewer overlay's own "not a modified key" guard used to be here.
+    // It left with the viewer when EDA_3D_VIEWER_FRAME became one shared
+    // component, and is now covered by that file's PENDING entry above.)
     // Ctrl+Enter inside the place-text dialog's own textarea, which is that
     // dialog's OK and reaches nothing outside it.
     "} else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {",

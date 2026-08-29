@@ -27,7 +27,7 @@ import {
   zoomFitView,
   type FitFrame,
 } from '../../ui/view_controls.js';
-import { drawCrosshair, drawGrid } from '../../ui/grid_cursor.js';
+import { type CrosshairMode, drawCrosshair, drawGrid } from '../../ui/grid_cursor.js';
 import { kiCursor } from '../../ui/kicursors.js';
 import { clampViewScale } from '../../ui/zoom_settings.js';
 import {
@@ -83,6 +83,13 @@ export interface FootprintCanvasProps {
   activeTool?: string;
   /** ACTIONS::toggleGrid. */
   showGrid?: boolean;
+  /**
+   * `ACTIONS::cursorSmallCrosshairs` / `cursorFullCrosshairs` /
+   * `cursor45Crosshairs` — the radio group every EDA_DRAW_FRAME's left toolbar
+   * carries. It was hardcoded `'small'` here, so the other two buttons were
+   * radio items that changed nothing.
+   */
+  crosshairMode?: CrosshairMode;
   /** Grid size in IU (GAL m_gridSize). A library footprint has no board, so
    *  there is no grid origin: FOOTPRINT_EDIT_FRAME leaves it at (0, 0). */
   gridIU?: number;
@@ -136,6 +143,7 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
       selection = EMPTY_SEL,
       activeTool = 'selectSetRect',
       showGrid = true,
+      crosshairMode = 'small',
       gridIU = PCB_DEFAULT_GRID_IU,
       onCursorMove,
       onScaleChange,
@@ -175,6 +183,8 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
     const cursorWorldRef = useRef<Vec2 | null>(null);
     const showGridRef = useRef(showGrid);
     showGridRef.current = showGrid;
+    const crosshairModeRef = useRef(crosshairMode);
+    crosshairModeRef.current = crosshairMode;
     const gridIURef = useRef(gridIU);
     gridIURef.current = gridIU;
     const activeToolRef = useRef(activeTool);
@@ -389,7 +399,7 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
       if (cw) {
         const at = snapRef.current(cw);
         drawCrosshair(ctx, toPx(at), canvas.width, canvas.height, {
-          mode: 'small',
+          mode: crosshairModeRef.current,
           color: PCB_CURSOR,
           // FOOTPRINT_EDIT_FRAME's drawing tools call ShowCursor(true) through
           // PCB_TOOL_BASE; the selection tool does not, so there the crosshair

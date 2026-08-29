@@ -71,6 +71,7 @@ import {
   deltasMsg,
   gridMsg,
   messageTextFromValue,
+  polarMsg,
   scaleForZoomFactor,
   unitsMsg,
   zoomFactorForScale,
@@ -435,6 +436,13 @@ export function DisplayFootprintsFrame({
             visible={ALL_LAYERS}
             drawOpts={drawOpts}
             showGrid={toggles.has('toggleGrid')}
+            // The Crosshair radio group, which was three buttons that lit and
+            // drew nothing: the canvas hardcoded 'small'. The ids are this
+            // toolbar's; the modes are `grid_cursor.ts`'s, shared with
+            // gerbview and pl_editor.
+            crosshairMode={
+              toggles.has('crosshairFull') ? 'full' : toggles.has('crosshair45') ? '45' : 'small'
+            }
             gridIU={gridIU}
             // The armed tool has to reach the canvas or `ACTIONS::zoomTool` is
             // a button that lights and does nothing: ZOOM_TOOL's whole body is
@@ -467,9 +475,22 @@ export function DisplayFootprintsFrame({
           message: displayFootprintsLibStatus(libNickname),
           zoom: zoomMsg(zoomFactor),
           coords: cursor ? coordsMsg(fmt(cursor.x), fmt(cursor.y)) : coordsMsg(null),
+          // `ACTIONS::togglePolarCoords` — `GetShowPolarCoords()` swaps field 3
+          // from dx/dy/dist to r/theta, and only field 3
+          // (`EDA_DRAW_FRAME::DisplayUnitsMsg` / `UpdateStatusBar`). The button
+          // was a toggle nothing read. Theta is measured with the Y axis
+          // negated because pcbnew's Y grows downward while the reported angle
+          // is the mathematical one, which is what PcbEditor does too.
           deltas: cursor
-            ? deltasMsg(fmt(cursor.x), fmt(cursor.y), fmt(Math.hypot(cursor.x, cursor.y)))
-            : deltasMsg(null),
+            ? toggles.has('togglePolarCoords')
+              ? polarMsg(
+                  fmt(Math.hypot(cursor.x, cursor.y)),
+                  (Math.atan2(-cursor.y, cursor.x) * 180) / Math.PI,
+                )
+              : deltasMsg(fmt(cursor.x), fmt(cursor.y), fmt(Math.hypot(cursor.x, cursor.y)))
+            : toggles.has('togglePolarCoords')
+              ? polarMsg(null)
+              : deltasMsg(null),
           grid: gridMsg(fmt(gridIU)),
           units: unitsMsg(unitLabel),
         }}
