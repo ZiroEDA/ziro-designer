@@ -101,6 +101,16 @@ export const BITMAP: Record<string, string> = {
   placeBarcode: 'add_barcode',
   gridSetOrigin: 'grid_select_axis',
   measureTool: 'measurement',
+  // `ACTIONS::selectionTool` — `.Icon( BITMAPS::cursor )`
+  // (`common/tool/actions.cpp:1227-1233`). The same glyph `selectSetRect` and
+  // eeschema's `select` already wear, because upstream is the same bitmap.
+  selectionTool: 'cursor',
+  // `PCB_ACTIONS::showPadNumbers` — `.Icon( BITMAPS::pad_number )`
+  // (`pcbnew/tools/pcb_actions.cpp:1765-1770`).
+  showPadNumbers: 'pad_number',
+  // `PCB_ACTIONS::fpAutoZoom` — `.Icon( BITMAPS::zoom_auto_fit_in_page )`
+  // (`pcbnew/tools/pcb_actions.cpp:1810-1816`).
+  fpAutoZoom: 'zoom_auto_fit_in_page',
   // top toolbar
   new: 'new_generic',
   open: 'directory_open',

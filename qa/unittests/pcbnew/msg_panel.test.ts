@@ -229,6 +229,41 @@ describe('FOOTPRINT::GetMsgPanelInfo (pcbnew/footprint.cpp:2131)', () => {
     expect(rows[2]).toEqual({ upper: 'Rotation', lower: '33.33' });
   });
 
+  it('gives CVPCB’s viewer the BOARD EDITOR’s rows, not the viewer list', () => {
+    // FRAME_CVPCB_DISPLAY is not one of the three the early return names
+    // (footprint.cpp:2143-2146: FRAME_FOOTPRINT_VIEWER / _CHOOSER / _EDITOR),
+    // so DISPLAY_FOOTPRINTS_FRAME falls through to Rotation / Status /
+    // Attributes / Footprint / 3D-Shape. A real cvpcb viewer shows exactly
+    // that, and reading the branch as "not the board editor means a viewer"
+    // gave this one frame Library / Footprint Name / Pads instead.
+    const f = fp({ angle: 0 });
+    const rows = footprintMsgPanelInfo(ctx({ frame: 'cvpcb_display' }), f);
+    expect(rows.map((r) => r.upper)).toEqual([
+      'R1',
+      'Rotation',
+      'Status: ',
+      'Footprint: Resistor_SMD:R_0805_2012Metric',
+      'Doc: Resistor SMD 0805',
+    ]);
+    expect(rows.map((r) => r.upper)).not.toContain('Library');
+    expect(rows.map((r) => r.upper)).not.toContain('Pads');
+  });
+
+  it('and still no Board Side row: its board is a footprint holder', () => {
+    // `FOOTPRINT::GetSide` returns UNDEFINED_LAYER for any FPHOLDER board
+    // (footprint.cpp:2219-2223), and DISPLAY_FOOTPRINTS_FRAME sets
+    // `BOARD_USE::FPHOLDER` on its own board (display_footprints_frame.cpp:83).
+    // The same footprint DOES get the row in the board editor, which is what
+    // makes this a property of the frame and not of the footprint.
+    const f = fp({ layer: 'F.Cu', pads: [pad({ layers: ['F.Cu', 'F.Mask'] })] });
+    expect(footprintMsgPanelInfo(ctx({ frame: 'pcb_edit' }), f).map((r) => r.upper)).toContain(
+      'Board Side',
+    );
+    expect(
+      footprintMsgPanelInfo(ctx({ frame: 'cvpcb_display' }), f).map((r) => r.upper),
+    ).not.toContain('Board Side');
+  });
+
   it('shows the footprint editor list instead, ending at Doc/Keywords', () => {
     const f = fp({
       pads: [pad(), pad({ type: 'np_thru_hole' }), pad({ type: 'np_thru_hole' })],

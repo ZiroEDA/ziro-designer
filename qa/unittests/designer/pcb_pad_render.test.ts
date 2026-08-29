@@ -317,6 +317,44 @@ describe('pad numbers', () => {
     expect(withNumbers).toBeGreaterThan(without);
   });
 
+  it('is gated by m_DisplayPadNumbers, the Show Pad Numbers toggle', () => {
+    // `draw( const PAD*, aLayer )`'s netname branch reads the flag FIRST and
+    // leaves `padNumber` empty when it is off (`pcb_painter.cpp:1393-1398`).
+    // Nothing in this port could express that: every frame that draws a pad
+    // drew its number, so cvpcb's viewer and the footprint editor both carried
+    // a Show Pad Numbers button that painted nothing when pressed.
+    expect(strokeCount(lonePad(), 20 / MM)).toBeGreaterThan(0);
+    expect(
+      strokeCount(lonePad(), 20 / MM, {
+        ...DEFAULT_DRAW_OPTIONS,
+        drawingSheet: false,
+        padNumbers: false,
+      }),
+    ).toBe(0);
+  });
+
+  it('and the flag takes the NUMBER only: a net name on the same pad survives', () => {
+    // Two independent gates on one label — `m_DisplayPadNumbers` for the number
+    // and `m_Display.m_NetNames` for the net name — which is why the scene
+    // tags each item rather than the pass gating the whole label.
+    const netted = boardWith(
+      '(net 1 "GND")',
+      `(footprint "T" (layer "F.Cu") (at 0 0)
+    (pad "1" thru_hole circle (at 0 0) (size 2.2 2.2) (drill 1.1) (layers "*.Cu") (net 1 "GND")))`,
+    );
+    const scene = buildScene(netted, {}, RECORDING_FACTORY);
+    expect(scene.padLabels[0]!.items.map((i) => i.padText).sort()).toEqual(['net', 'number']);
+
+    const both = strokeCount(netted, 20 / MM);
+    const netOnly = strokeCount(netted, 20 / MM, {
+      ...DEFAULT_DRAW_OPTIONS,
+      drawingSheet: false,
+      padNumbers: false,
+    });
+    expect(netOnly).toBeGreaterThan(0);
+    expect(netOnly).toBeLessThan(both);
+  });
+
   it('needs the pad to be flashed to a visible layer, as PAD::ViewGetLOD says', () => {
     // "Hide netnames unless pad is flashed to a visible layer" — hiding every
     // copper layer takes the numbers with it instead of leaving them floating

@@ -26,6 +26,39 @@ import {
 
 beforeAll(() => {
   vi.stubGlobal('fetch', async () => new Response('', { status: 404 }));
+  // The frame's canvas is the PCB draw panel; it compiles geometry into Path2D
+  // on mount, and happy-dom has neither Path2D nor DOMMatrix. The methods are
+  // the ones `renderBoard`'s DOM_PATH_FACTORY calls: the geometry itself is not
+  // under test here, only that the window mounts and is assembled correctly.
+  class StubPath {
+    addPath(): void {}
+    arc(): void {}
+    arcTo(): void {}
+    bezierCurveTo(): void {}
+    closePath(): void {}
+    ellipse(): void {}
+    lineTo(): void {}
+    moveTo(): void {}
+    quadraticCurveTo(): void {}
+    rect(): void {}
+    roundRect(): void {}
+  }
+  class StubMatrix {
+    translate(): StubMatrix {
+      return this;
+    }
+    rotate(): StubMatrix {
+      return this;
+    }
+    scale(): StubMatrix {
+      return this;
+    }
+    multiply(): StubMatrix {
+      return this;
+    }
+  }
+  vi.stubGlobal('Path2D', StubPath);
+  vi.stubGlobal('DOMMatrix', StubMatrix);
 });
 afterEach(() => cleanup());
 
@@ -232,7 +265,11 @@ describe('the right button is bound to the two panes setupEventHandlers binds', 
 });
 
 describe('View Selected Footprint shows the viewer and never hides it', () => {
-  const viewer = (root: HTMLElement): Element | null => root.querySelector('.ze-fpassign-viewer');
+  // `ShowFootprintViewer` opens a DISPLAY_FOOTPRINTS_FRAME — a window of its
+  // own, which is why this is a testid on the frame and not a class on a pane
+  // of the dialog.
+  const viewer = (root: HTMLElement): Element | null =>
+    root.querySelector('[data-testid="cvpcb-footprint-viewer"]');
 
   it('from the symbols pane’s menu', () => {
     const root = open_();
@@ -289,11 +326,13 @@ describe('View Selected Footprint shows the viewer and never hides it', () => {
     expect(viewer(root)).not.toBeNull();
   });
 
-  it('and the panel’s own ✕ is what closes it — the frame’s close button', () => {
+  it('and the frame’s own ✕ is what closes it — EVT_CLOSE', () => {
     const root = open_();
     fireEvent.contextMenu(paneRows(root, SYMBOLS)[0] as Element);
     clickMenuRow(root, 'View Selected Footprint');
-    fireEvent.click(root.querySelector('.ze-fpassign-viewer .x') as Element);
+    fireEvent.click(
+      root.querySelector('[data-testid="cvpcb-footprint-viewer"] .ze-modal-header .x') as Element,
+    );
     expect(viewer(root)).toBeNull();
   });
 });

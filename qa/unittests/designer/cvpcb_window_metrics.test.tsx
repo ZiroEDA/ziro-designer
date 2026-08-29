@@ -222,8 +222,14 @@ describe('the wxAUI caption band over each pane', () => {
     for (const c of captions) expect(c.querySelector('.x')).toBeNull();
   });
 
-  it('lets the footprint viewer start where the caption ends', () => {
-    expect(decl('.ze-fpassign-viewer', 'inset')).toBe('var(--fpassign-caption-h) 0 0 0');
+  it('does not put the footprint viewer inside a pane', () => {
+    // `CVPCB_CONTROL::ShowFootprintViewer` creates a DISPLAY_FOOTPRINTS_FRAME,
+    // a top-level PCB_BASE_FRAME window — not a pane of this dialog. Ours was
+    // an absolutely-positioned overlay inset under the Filtered Footprints
+    // caption, which is why it had no toolbars, no message panel and no status
+    // bar to put anywhere. The rule is gone and must not come back.
+    expect(CSS).not.toMatch(/\.ze-fpassign-viewer\b/);
+    expect(decl('.ze-fpview-frame', 'position')).toBe('fixed');
   });
 });
 

@@ -235,6 +235,17 @@ export interface PcbDrawOptions {
    *  (pcbnew_settings.cpp ships m_NetNames = 3, pads *and* tracks). */
   netNames: boolean;
   zoneOpacity: number;
+  /**
+   * `PCB_VIEWERS_SETTINGS_BASE::m_ViewersDisplay.m_DisplayPadNumbers`, the
+   * `PCB_ACTIONS::showPadNumbers` toggle. Default true
+   * (`pcbnew/pcbnew_settings.h:132`).
+   *
+   * `PCB_PAINTER::draw( const PAD*, aLayer )`'s netname branch reads it FIRST
+   * and leaves `padNumber` empty when it is off (`pcb_painter.cpp:1393-1398`),
+   * so the pad's number disappears while its net name stays — two independent
+   * gates on one label, which is why this is separate from `netNames`.
+   */
+  padNumbers: boolean;
   /** Zone display mode: false = filled (default), true = outline sketch. */
   zoneOutline: boolean;
   /** Show pad clearance outlines (m_Display.m_PadClearance, default on). */
@@ -283,6 +294,7 @@ export const DEFAULT_DRAW_OPTIONS: PcbDrawOptions = {
   viaOpacity: 1.0,
   padOpacity: 1.0,
   netNames: true,
+  padNumbers: true,
   zoneOpacity: 0.6,
   zoneOutline: false,
   padClearance: true,
@@ -338,6 +350,13 @@ export interface SceneImage {
 export interface PadTextItem extends PcbTextItem {
   /** `GetGlyphSize().y` as the painter set it, before any compensation. */
   glyph: number;
+  /**
+   * Which of `draw( const PAD* )`'s two strings this is. They are laid out
+   * together but gated apart — the number by `m_DisplayPadNumbers` and the net
+   * name by `m_Display.m_NetNames` — so the pass that draws them has to be
+   * able to tell them apart.
+   */
+  padText: 'number' | 'net';
 }
 
 /** One pad's laid-out text, ready for the zoom-dependent pass to gate. */
@@ -1054,8 +1073,8 @@ function addPadLabels(
   const anchor = (dy: number): Vec2 =>
     angle === 90 ? { x: pad.at.x + dy, y: pad.at.y } : { x: pad.at.x, y: pad.at.y + dy };
   const items: PadTextItem[] = [];
-  const label = (text: string, at: Vec2, glyph: number): void => {
-    items.push(mkItem(text, at, glyph));
+  const label = (text: string, at: Vec2, glyph: number, padText: 'number' | 'net'): void => {
+    items.push({ ...mkItem(text, at, glyph), padText });
   };
   const mkItem = (text: string, at: Vec2, glyph: number): PadTextItem =>
     ({
@@ -1091,12 +1110,12 @@ function addPadLabels(
     tsize *= 0.85;
     if (round) tsize *= 0.9;
     const ty = Math.min(tsize * 1.4, yOffNet);
-    label(netLabel, anchor(ty), tsize);
+    label(netLabel, anchor(ty), tsize, 'net');
   }
   if (padNumber !== '') {
     let tsize = Math.min((1.5 * along) / Math.max(padNumber.length, 3), size);
     tsize = Math.min(tsize * 0.85, size);
-    label(padNumber, anchor(-yOffNum), tsize);
+    label(padNumber, anchor(-yOffNum), tsize, 'number');
   }
   if (items.length > 0)
     scene.padLabels.push({ owner, at: pad.at, minSide: Math.min(px, py), layers, items });
@@ -2266,6 +2285,10 @@ export function drawNetNames(
         attenuate(emphasize(netnameColorFor(shownOn, opts.theme, true), emphasis, true)),
       );
       for (const item of label.items) {
+        // `m_DisplayPadNumbers` off empties `padNumber` before anything is
+        // measured (`pcb_painter.cpp:1393`), so the number goes and the net
+        // name stays where it was.
+        if (item.padText === 'number' && !opts.padNumbers) continue;
         if (!atlas && item.size.y * view.scale < GLYPH_LEGIBLE_PX * dpr) continue;
         const at = moving ? { x: item.at.x + ldx, y: item.at.y + ldy } : item.at;
         runs.push({ text: item.text, at, angle: item.angle, glyph: item.glyph, item });

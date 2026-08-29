@@ -104,7 +104,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type JSX } from 
 import type { Schematic } from '@ziroeda/eeschema';
 import { ContextMenu, MenuBar, type Menu, type MenuItem } from '../../../ui/MenuBar.js';
 import { Toolbar, type ToolEntry } from '../../../ui/Toolbar.js';
-import { FootprintPreviewWidget } from '../../../widgets/footprint_preview_widget.js';
+import { DisplayFootprintsFrame } from './display_footprints_frame.js';
 import { LibraryLoadingPanel } from '../../../widgets/library_loading_panel.js';
 import type { PcbFootprint } from '@ziroeda/pcbnew';
 import {
@@ -777,6 +777,26 @@ export function DialogAssignFootprints({
   }, [catalog, filterFlags, component, selectedLibrary, filterText]);
 
   const selectedFootprint = curFp >= 0 ? (filtered[curFp] ?? '') : '';
+  /**
+   * What `DISPLAY_FOOTPRINTS_FRAME::InitDisplay` displays
+   * (`display_footprints_frame.cpp:339-347`): the footprint pane's selection,
+   * and when that is empty the SELECTED SYMBOL's own assignment.
+   *
+   *     wxString footprintName = parentframe->GetSelectedFootprint();
+   *     if( footprintName.IsEmpty() && comp )
+   *         footprintName = comp->GetFPID().Format().wx_str();
+   *
+   * Without the fallback, opening the viewer from the symbols pane — which is
+   * where the toolbar button and the symbols context menu both live — showed
+   * nothing at all.
+   */
+  const viewerFootprint = selectedFootprint || (component ? footprintOf(component) : '');
+  /** `m_FootprintsList->GetFootprintInfo( name )` for the "Lib: %s" pane; null
+   *  when the list has no entry, which writes the pane empty. */
+  const viewerLibNickname =
+    viewerFootprint && hasFootprintInfo(knownFootprints, viewerFootprint)
+      ? (viewerFootprint.split(':')[0] ?? null)
+      : null;
 
   /** FOOTPRINTS_LISTBOX::SetFootprints' rows, `"%3d Lib:Footprint"`. */
   const footprintRows = useMemo(
@@ -1541,23 +1561,6 @@ export function DialogAssignFootprints({
             {!indexLoaded && (
               <LibraryLoadingPanel kind="footprints" label="Loading footprint libraries..." />
             )}
-            {viewerOpen && (
-              <div className="ze-fpassign-viewer">
-                <div className="ze-fpassign-caption">
-                  {selectedFootprint || 'No footprint specified'}
-                  <span className="x" title="Close" onClick={() => setViewerOpen(false)}>
-                    ✕
-                  </span>
-                </div>
-                <div style={{ flex: 1, minHeight: 0 }}>
-                  <FootprintPreviewWidget
-                    footprint={selectedFootprint}
-                    statusText="No footprint specified"
-                    resolve={resolveFootprint}
-                  />
-                </div>
-              </div>
-            )}
           </section>
         </div>
 
@@ -1567,6 +1570,19 @@ export function DialogAssignFootprints({
           <div>{statusLine2}</div>
           <div>{statusLine3}</div>
         </div>
+
+        {/* `ShowFootprintViewer` (cvpcb_control.cpp:156-214) opens a SEPARATE
+            top-level window, DISPLAY_FOOTPRINTS_FRAME — not a pane of this
+            dialog. It is assembled from the PCB canvas, toolbars, message
+            panel and status bar we already have; see the file it lives in. */}
+        {viewerOpen && (
+          <DisplayFootprintsFrame
+            footprint={viewerFootprint}
+            libNickname={viewerLibNickname}
+            resolve={resolveFootprint}
+            onClose={() => setViewerOpen(false)}
+          />
+        )}
 
         {contextMenu && (
           <ContextMenu

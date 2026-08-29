@@ -20,7 +20,12 @@ import {
   useRef,
   useState,
 } from 'react';
-import { commonInputPrefs, wheelAction, zoomFitView } from '../../ui/view_controls.js';
+import {
+  commonInputPrefs,
+  wheelAction,
+  zoomFitView,
+  type FitFrame,
+} from '../../ui/view_controls.js';
 import { drawCrosshair, drawGrid } from '../../ui/grid_cursor.js';
 import { hitTestFootprint } from '@ziroeda/pcbnew';
 import { itemsInBox, fpItemBBox, type PcbFootprint } from '@ziroeda/pcbnew';
@@ -43,6 +48,13 @@ export interface FootprintCanvasController {
   zoomIn: () => void;
   zoomOut: () => void;
   redraw: () => void;
+  /** `VIEW::SetScale`, keeping the viewport centre — what the zoom selector
+   *  box dispatches (`COMMON_TOOLS::doZoomToPreset`). */
+  setScale: (scale: number) => void;
+  /** `VIEW::SetCenter( bBox.Centre() )` with the scale left alone —
+   *  `ACTIONS::centerContents`, the branch `updateView` takes when automatic
+   *  zoom is off (`cvpcb/display_footprints_frame.cpp:430-433`). */
+  centerContents: () => void;
 }
 
 export interface FootprintCanvasProps {
@@ -78,6 +90,21 @@ export interface FootprintCanvasProps {
   onEditItem?: (id: string) => void;
   /** Rubber-band preview for a 2-click graphic being drawn (from `start` to cursor). */
   preview?: { tool: string; start: Vec2 } | null;
+  /**
+   * Which frame is fitting, for `doZoomFit`'s `margin_scale_factor`
+   * (`common/tool/common_tools.cpp:381-401`). The footprint EDITOR gets the
+   * library-editor margin of 1.48; CVPCB's viewer, which draws through this
+   * same panel, is not one of the four frame types that branch names and gets
+   * the default 1.04. Hardcoding 'footprint_editor' here is what made this
+   * canvas unusable for any other frame.
+   */
+  fitFrame?: FitFrame;
+  /**
+   * What to run when a different footprint is loaded. Default: zoom to fit,
+   * which is `FOOTPRINT_EDIT_FRAME`'s behaviour. CVPCB's viewer passes its
+   * own so it can honour `footprint_viewer.autozoom`.
+   */
+  onFootprintChange?: () => void;
 }
 
 const EMPTY_SEL: ReadonlySet<string> = new Set();
@@ -100,6 +127,8 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
       onPlace,
       onEditItem,
       preview = null,
+      fitFrame = 'footprint_editor',
+      onFootprintChange,
     },
     ref,
   ) {
@@ -355,17 +384,15 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
       if (!canvas) return;
       // A footprint with no geometry (a brand-new one): centre on the origin.
       const bbox = scn?.bbox ?? { minX: -5 * MM, minY: -5 * MM, maxX: 5 * MM, maxY: 5 * MM };
-      // FRAME_FOOTPRINT_EDITOR's margin, 1.48 (common_tools.cpp:396-400):
-      // upstream leaves the library editors more slack than the board editor,
-      // which is the one fit difference that is genuinely per-editor upstream.
-      const v = zoomFitView(
-        bbox,
-        { width: canvas.width, height: canvas.height },
-        'footprint_editor',
-      );
+      // `margin_scale_factor` is per FRAME TYPE (common_tools.cpp:381-401):
+      // 1.48 for FRAME_FOOTPRINT_EDITOR, which leaves the library editors more
+      // slack than the board editor, and the default 1.04 for CVPCB's viewer,
+      // which that branch does not name. That is why the frame says which it
+      // is instead of this canvas assuming.
+      const v = zoomFitView(bbox, { width: canvas.width, height: canvas.height }, fitFrame);
       viewRef.current = v ?? { scale: 0.02, tx: canvas.width / 2, ty: canvas.height / 2 };
       requestDraw();
-    }, [requestDraw]);
+    }, [requestDraw, fitFrame]);
 
     const zoomStep = useCallback(
       (factor: number) => {
@@ -392,6 +419,24 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
         zoomOut: () => zoomStep(1 / 1.3),
         redraw: () => {
           cacheRef.current = null;
+          requestDraw();
+        },
+        setScale: (scale: number) => {
+          const canvas = canvasRef.current;
+          if (!canvas || !(scale > 0)) return;
+          zoomStep(scale / viewRef.current.scale);
+        },
+        centerContents: () => {
+          const canvas = canvasRef.current;
+          const scn = sceneRef.current;
+          if (!canvas || !scn) return;
+          const bbox = scn.bbox;
+          if (!bbox) return;
+          const v = viewRef.current;
+          const cx = (bbox.minX + bbox.maxX) / 2;
+          const cy = (bbox.minY + bbox.maxY) / 2;
+          v.tx = canvas.width / 2 - cx * v.scale;
+          v.ty = canvas.height / 2 - cy * v.scale;
           requestDraw();
         },
       }),
@@ -423,11 +468,20 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
     }, [dpr, requestDraw, zoomToFit]);
 
     // Re-fit when a different footprint is loaded.
+    //
+    // `onFootprintChange` is the hook CVPCB's viewer needs: `updateView`
+    // (`display_footprints_frame.cpp:427-433`) runs zoomFitScreen OR
+    // centerContents on every reload, chosen by `m_FootprintViewerAutoZoomOnSelect`,
+    // and only the frame knows which. A canvas that always fits cannot express
+    // the second branch.
     const fpRef = useRef(footprint);
+    const onFpChangeRef = useRef(onFootprintChange);
+    onFpChangeRef.current = onFootprintChange;
     useEffect(() => {
       if (fpRef.current !== footprint) {
         fpRef.current = footprint;
-        requestAnimationFrame(zoomToFit);
+        const handler = onFpChangeRef.current;
+        requestAnimationFrame(handler ?? zoomToFit);
       }
     }, [footprint, zoomToFit]);
 
