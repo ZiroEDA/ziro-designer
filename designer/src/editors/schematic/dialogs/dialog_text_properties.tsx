@@ -29,6 +29,8 @@
 
 import { useEffect, useRef, useState, type JSX } from 'react';
 import { iuToMM, mmToIU } from '@ziroeda/common';
+import type { StatusUnits } from '../../../ui/status_format.js';
+import { parseUnitValueDouble, stringFromValue, unitLabel } from '../../../ui/unit_binder.js';
 import { toolbarIconUrl } from '../../../ui/toolbarIcons.js';
 import { ColorSwatch } from '../../../ui/ColorSwatch.js';
 import { color4dToItemColor, type ItemColor, itemColorToColor4d } from './item_color.js';
@@ -87,14 +89,20 @@ interface Props {
   initial: TextPropsInitial;
   /** The hierarchy's pages, for the link combo ("#3" — Page 3 (Power)). */
   pages?: readonly { value: string; label: string }[];
+  /**
+   * The frame's display units, `EDA_DRAW_FRAME::GetUserUnits()`. Both size
+   * fields are `UNIT_BINDER`s upstream, so they format and parse in the frame's
+   * units and the label beside each carries the unit name. These printed "mm"
+   * whatever the frame was set to.
+   */
+  units: StatusUnits;
   onOk: (result: TextPropsResult) => void;
   onCancel: () => void;
 }
 
-const mmText = (iu: number): string =>
-  String(Number(iuToMM(iu).toFixed(4)))
-    .replace(/(\.\d*?)0+$/, '$1')
-    .replace(/\.$/, '');
+/** `UNIT_BINDER::SetValue`: the frame's units, with the label carrying the name. */
+const sizeToText = (iu: number, units: StatusUnits): string =>
+  stringFromValue(iuToMM(iu), units, false);
 
 function IconButton({
   icon,
@@ -148,7 +156,14 @@ function Swatch({
   );
 }
 
-export function DialogTextProperties({ kind, initial, pages, onOk, onCancel }: Props): JSX.Element {
+export function DialogTextProperties({
+  kind,
+  initial,
+  pages,
+  units,
+  onOk,
+  onCancel,
+}: Props): JSX.Element {
   // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
   // ui/modal_escape.ts.
   useModalEscape(onCancel);
@@ -159,14 +174,16 @@ export function DialogTextProperties({ kind, initial, pages, onOk, onCancel }: P
   const [hAlign, setHAlign] = useState<HAlign>(initial.hAlign);
   const [vAlign, setVAlign] = useState<VAlign>(initial.vAlign);
   const [angle, setAngle] = useState(initial.angle);
-  const [sizeText, setSizeText] = useState(mmText(initial.sizeIU));
+  const [sizeText, setSizeText] = useState(() => sizeToText(initial.sizeIU, units));
   const [color, setColor] = useState<ItemColor | undefined>(initial.color);
   const [excludeFromSim, setExcludeFromSim] = useState(initial.excludeFromSim);
   const [face, setFace] = useState(initial.face ?? '');
   const [linkOn, setLinkOn] = useState(!!initial.hyperlink);
   const [link, setLink] = useState(initial.hyperlink ?? '');
   const [border, setBorder] = useState(initial.border ?? false);
-  const [borderWidth, setBorderWidth] = useState(mmText(initial.borderWidthIU ?? 0));
+  const [borderWidth, setBorderWidth] = useState(() =>
+    sizeToText(initial.borderWidthIU ?? 0, units),
+  );
   const [borderColor, setBorderColor] = useState<ItemColor | undefined>(initial.borderColor);
   // Like DIALOG_SHAPE_PROPERTIES, the text-box border combo is filled from
   // `lineTypeNames` alone (dialog_text_properties.cpp:66), so a border with no
@@ -186,8 +203,10 @@ export function DialogTextProperties({ kind, initial, pages, onOk, onCancel }: P
 
   const submit = (): void => {
     if (!text.trim()) return;
-    const n = Number(sizeText.trim());
-    const w = Number(borderWidth.trim());
+    // `UNIT_BINDER::GetValue` — parsed in the frame's units, and a value that
+    // carries its own suffix is honoured.
+    const n = parseUnitValueDouble(sizeText, units);
+    const w = parseUnitValueDouble(borderWidth, units);
     onOk({
       text,
       face,
@@ -326,7 +345,7 @@ export function DialogTextProperties({ kind, initial, pages, onOk, onCancel }: P
                 onChange={(e) => setSizeText(e.target.value)}
                 onKeyDown={(e) => e.stopPropagation()}
               />
-              <span className="ze-lp-units">mm</span>
+              <span className="ze-lp-units">{unitLabel(units)}</span>
               <span className="ze-lp-colorlabel">Color:</span>
               <Swatch color={color} onChange={setColor} title="Text color" />
             </div>
@@ -359,7 +378,7 @@ export function DialogTextProperties({ kind, initial, pages, onOk, onCancel }: P
                     onChange={(e) => setBorderWidth(e.target.value)}
                     onKeyDown={(e) => e.stopPropagation()}
                   />
-                  <span className="ze-lp-units">mm</span>
+                  <span className="ze-lp-units">{unitLabel(units)}</span>
                   <span className="ze-lp-colorlabel">Color:</span>
                   <Swatch color={borderColor} onChange={setBorderColor} title="Border color" />
                   <span className="ze-lp-colorlabel">Fill color:</span>

@@ -225,7 +225,6 @@ import {
   type SheetPinRef,
   fieldEditCaption,
   fieldEditTarget,
-  isMandatoryField,
   imagePPI,
   imagePixelSize,
   replaceTextBox,
@@ -9340,6 +9339,7 @@ export function SchematicEditor({
           text is attached to the cursor, seeded from the last one placed. */}
       {activeTool === 'placeText' && labelPrompt && !pendingLabel && !labelEdit && (
         <DialogTextProperties
+          units={units}
           kind="text"
           pages={linkPages}
           initial={{
@@ -9365,6 +9365,7 @@ export function SchematicEditor({
           sets its shape/formatting, then it follows the cursor to be placed. */}
       {LABEL_DIALOG_KINDS[activeTool] && labelPrompt && !pendingLabel && !labelEdit && (
         <DialogLabelProperties
+          units={units}
           kind={LABEL_DIALOG_KINDS[activeTool]!}
           isNew
           initial={{
@@ -9391,6 +9392,7 @@ export function SchematicEditor({
           the Netclass field. */}
       {activeTool === 'placeClassLabel' && labelPrompt && !pendingDirective && !labelEdit && (
         <DialogLabelProperties
+          units={units}
           kind="directive"
           netclasses={netclassNames}
           isNew
@@ -9435,6 +9437,7 @@ export function SchematicEditor({
       {/* Editing a netclass flag (Properties): the same dialog, pre-filled. */}
       {directiveEdit && (doc.directiveLabels ?? [])[directiveEdit.index] && (
         <DialogLabelProperties
+          units={units}
           kind="directive"
           netclasses={netclassNames}
           isNew={false}
@@ -9458,6 +9461,7 @@ export function SchematicEditor({
       {/* Editing existing free text (Properties): the same dialog, pre-filled. */}
       {labelEdit && labelEdit.kind === 'text' && doc?.labels[labelEdit.index] && (
         <DialogTextProperties
+          units={units}
           kind="text"
           pages={linkPages}
           initial={{
@@ -9483,6 +9487,7 @@ export function SchematicEditor({
       {/* Editing an existing label (Properties): the same dialog, pre-filled. */}
       {labelEdit && labelEdit.kind !== 'text' && doc?.labels[labelEdit.index] && (
         <DialogLabelProperties
+          units={units}
           kind={labelEdit.kind as LabelPropsKind}
           isNew={false}
           initial={{
@@ -9692,7 +9697,8 @@ export function SchematicEditor({
         <DialogFieldProperties
           initial={fieldPropsOf(fieldEdit)!}
           caption={fieldEditCaption(doc.symbols[fieldEdit.symbol]!.fields[fieldEdit.index]!.key)}
-          mandatory={isMandatoryField(doc.symbols[fieldEdit.symbol]!.fields[fieldEdit.index]!.key)}
+          // Every UNIT_BINDER in the dialog reads its units off the frame.
+          units={units}
           onOk={commitFieldEdit}
           onCancel={() => setFieldEdit(null)}
         />
@@ -9801,6 +9807,7 @@ export function SchematicEditor({
           fill rows join the text and formatting ones. */}
       {textBoxDraw && (
         <DialogTextProperties
+          units={units}
           kind="textbox"
           pages={linkPages}
           initial={{
@@ -9835,6 +9842,7 @@ export function SchematicEditor({
           Properties"): the pin's name, its flag shape and which side it sits on. */}
       {sheetPinDraw && (
         <DialogLabelProperties
+          units={units}
           kind="sheet_pin"
           isNew
           initial={{

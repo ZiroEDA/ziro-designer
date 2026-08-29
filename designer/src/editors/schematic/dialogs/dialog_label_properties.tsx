@@ -31,6 +31,8 @@
 
 import { useEffect, useRef, useState, type JSX } from 'react';
 import { iuToMM, mmToIU } from '@ziroeda/common';
+import type { StatusUnits } from '../../../ui/status_format.js';
+import { parseUnitValueDouble, stringFromValue, unitLabel } from '../../../ui/unit_binder.js';
 import {
   cleanLabelFields,
   type DirectiveShape,
@@ -157,6 +159,16 @@ interface Props {
    * nothing tying what you type to a class the project actually has.
    */
   netclasses?: readonly string[];
+  /**
+   * The frame's display units, `EDA_DRAW_FRAME::GetUserUnits()`.
+   *
+   * `m_textSize` is a `UNIT_BINDER` (dialog_label_properties.cpp:53), which
+   * formats and parses in the FRAME's units and writes the unit name into the
+   * label beside the field. This dialog printed "mm" and formatted in mm
+   * whatever the frame was set to, so a schematic in mils showed 1.27 mm where
+   * KiCad shows 50 mils.
+   */
+  units: StatusUnits;
   onOk: (result: LabelPropsResult) => void;
   onCancel: () => void;
 }
@@ -179,11 +191,12 @@ const withJustify = (f: EditedLabelField, axis: 'h' | 'v', value: string): Edite
   return { ...f, effects: { hidden: false, ...f.effects, justify } };
 };
 
-/** Text size shown in mm, trimmed the way KiCad's unit binder prints it. */
-const mmText = (iu: number): string =>
-  String(Number(iuToMM(iu).toFixed(4)))
-    .replace(/(\.\d*?)0+$/, '$1')
-    .replace(/\.$/, '');
+/**
+ * `UNIT_BINDER::SetValue` for the text-size field: the FRAME's units, not mm.
+ * `StringFromValue` with no unit text, since the label carries it separately.
+ */
+const sizeToText = (iu: number, units: StatusUnits): string =>
+  stringFromValue(iuToMM(iu), units, false);
 
 function IconButton({
   icon,
@@ -218,6 +231,7 @@ export function DialogLabelProperties({
   initial,
   suggestions,
   netclasses,
+  units,
   onOk,
   onCancel,
 }: Props): JSX.Element {
@@ -232,7 +246,7 @@ export function DialogLabelProperties({
   const [italic, setItalic] = useState(initial.italic);
   const [spin, setSpin] = useState<LabelSpin>(initial.spin);
   const [autoRotate, setAutoRotate] = useState(initial.autoRotate);
-  const [sizeText, setSizeText] = useState(mmText(initial.sizeIU));
+  const [sizeText, setSizeText] = useState(() => sizeToText(initial.sizeIU, units));
   const [color, setColor] = useState<ItemColor | undefined>(initial.color);
   const [face, setFace] = useState(initial.face ?? '');
   const [fields, setFields] = useState<EditedLabelField[]>([...initial.fields]);
@@ -263,8 +277,11 @@ export function DialogLabelProperties({
   const hasText = !isDirective;
 
   const sizeIU = (): number => {
-    const n = Number(sizeText.trim());
-    return Number.isFinite(n) && n > 0 ? Math.round(mmToIU(n)) : initial.sizeIU;
+    // `UNIT_BINDER::GetValue`: parsed in the frame's units, and a value with
+    // its own suffix ("50mil" typed into a mm field) is honoured, which is why
+    // this goes through the binder rather than Number().
+    const mm = parseUnitValueDouble(sizeText, units);
+    return Number.isFinite(mm) && mm > 0 ? Math.round(mmToIU(mm)) : initial.sizeIU;
   };
 
   const submit = (): void => {
@@ -640,7 +657,7 @@ export function DialogLabelProperties({
                     onChange={(e) => setSizeText(e.target.value)}
                     onKeyDown={onKey}
                   />
-                  <span className="ze-lp-units">mm</span>
+                  <span className="ze-lp-units">{unitLabel(units)}</span>
                   <span className="ze-lp-colorlabel">Color:</span>
                   {/* COLOR_SWATCH: it draws the colour and opens DIALOG_COLOR_PICKER
             (color_swatch.cpp:301-328), where an <input type="color"> handed
