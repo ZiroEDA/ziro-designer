@@ -252,6 +252,10 @@ export function DialogFieldProperties({
             </div>
 
             {/* gbSizer1 rows 3 and 4. */}
+            {/* gbSizer1 leaves row 2 empty at SetEmptyCellSize's 10 px: the
+                size row is row 1 and Position X is row 3. */}
+            <div className="ze-fieldprops-gap" />
+
             <span className="ze-lp-fmt-label">Position X:</span>
             <div className="ze-lp-sizerow">
               <input

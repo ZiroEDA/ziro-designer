@@ -1662,7 +1662,8 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   border-color: transparent;
 }
 /* "Checked items need a lighter hover rectangle" — bitmap_button.cpp:300-302. */
-.ze-tbtn.active:not(.disabled):not(:disabled):hover {
+.ze-tbtn.active:not(.disabled):not(:disabled):hover,
+.ze-lp-iconbtn.checked:not(:disabled):hover {
   background: var(--accent-fill-hover-checked);
 }
 /* wxCONTROL_PRESSED, the darkest of the three. */
@@ -1686,8 +1687,16 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 
    The same rectangle, from the same wx code, is already derived for the
    project manager's launcher hover (`.ze-launcher .ico:hover`) — this is that
-   value shared rather than a second one, which is why it is a token. */
-.ze-tbtn.active {
+   value shared rather than a second one, which is why it is a token.
+
+   `.ze-lp-iconbtn` is the bold/italic/alignment bar the text, label and field
+   dialogs carry. Upstream those are `BITMAP_BUTTON`s too, so they are painted
+   by the same `OnPaint` and get the same rectangle. It had its own rule
+   filling the button with `--chrome-active` outright — the raw #e95420, not
+   the checked fill — which read as a solid orange block beside every other
+   toggle in the app. */
+.ze-tbtn.active,
+.ze-lp-iconbtn.checked {
   background: var(--accent-fill-checked);
   box-shadow: inset 0 0 0 1px var(--chrome-active);
   border-color: transparent;
@@ -6491,10 +6500,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   background: var(--chrome-bg2);
   border-color: var(--chrome-border);
 }
-.ze-lp-iconbtn.checked {
-  background: var(--chrome-active);
-  border-color: var(--chrome-active-border);
-}
 .ze-lp-iconbtn:disabled {
   opacity: 0.4;
   cursor: default;
@@ -6530,6 +6535,13 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-lp-fmt-label {
   white-space: nowrap;
 }
+/* The font picker. `m_fontCtrl` is added with **wxEXPAND** in every dialog
+   that carries one — `dialog_field_properties_base.cpp:146`,
+   `dialog_label_properties_base.cpp:221`, `dialog_text_properties_base.cpp:97`
+   — each spanning two grid-bag columns, so it takes whatever width the row
+   gives it. A `max-width` here was a local literal that upstream never wrote,
+   and it is a large part of why these dialogs open narrower than KiCad's: the
+   control that should be pushing the row out was capped at 150px. */
 .ze-lp-font {
   font: inherit;
   padding: 3px 4px;
@@ -6537,7 +6549,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   color: var(--chrome-fg);
   border: 1px solid var(--chrome-border);
   border-radius: 3px;
-  max-width: 150px;
 }
 .ze-lp-iconbar {
   grid-column: 1 / -1;
@@ -6572,6 +6583,16 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 }
 .ze-lp-colorlabel {
   margin-left: 15px;
+}
+/* `gbSizer1->SetEmptyCellSize( wxSize( -1, 10 ) )`
+   (`dialog_field_properties_base.cpp:136`), and the grid-bag skips row 2: the
+   Text size row is row 1 and Position X is row **3**. That empty row is a real
+   10 px band between them, which ours ran together. */
+.ze-fieldprops-gap {
+  grid-column: 1 / -1;
+  /* [data] `SetEmptyCellSize( wxSize( -1, 10 ) )`, a number the base file
+     hardcodes rather than asking the theme for. */
+  height: 10px;
 }
 /* COLOR_SWATCH inside its wxBORDER_SIMPLE panel. */
 .ze-lp-swatch-frame {
