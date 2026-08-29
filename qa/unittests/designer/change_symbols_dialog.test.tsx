@@ -261,6 +261,28 @@ describe('the library-identifier browse button is a STD_BITMAP_BUTTON', () => {
     expect(screen.getByRole('button', { name: 'Browse for new symbol' })).not.toBeNull();
   });
 
+  /**
+   * Both backdrops are `.ze-modal-backdrop`, which is `position: fixed;
+   * z-index: 200` — the same stacking level, so DOCUMENT ORDER is the only
+   * thing deciding which one paints on top. The chooser was rendered before
+   * the dialog and was therefore painted over by the very dialog that opened
+   * it: mounted, findable in the DOM, and invisible on screen. Every
+   * assertion above still passed, because none of them looks at order.
+   */
+  it('paints above the dialog that opened it, which only document order decides', () => {
+    open(SUBJECT);
+    fireEvent.click(screen.getByRole('button', { name: 'Browse for symbol' }));
+
+    const backdrops = [...document.querySelectorAll('.ze-modal-backdrop')];
+    const dialogAt = backdrops.findIndex((b) => b.querySelector('.ze-chsym'));
+    const chooserAt = backdrops.findIndex((b) => b.querySelector('.ze-symbol-chooser'));
+
+    expect(dialogAt).toBeGreaterThanOrEqual(0);
+    expect(chooserAt).toBeGreaterThanOrEqual(0);
+    // Later sibling wins at equal z-index, so the chooser must come second.
+    expect(chooserAt).toBeGreaterThan(dialogAt);
+  });
+
   it('closing the chooser leaves the dialog that opened it standing', () => {
     // The chooser is a SIBLING of this dialog's backdrop. Nested, a click on
     // the chooser's backdrop would bubble into `onMouseDown={onClose}` and

@@ -280,21 +280,6 @@ export function DialogChangeSymbols({
 
   return (
     <>
-      {/* A SIBLING of this dialog's backdrop, not a child of it: the chooser
-          brings its own backdrop, and a click on that one must not also reach
-          this dialog's `onMouseDown={onClose}` and close the thing that opened
-          it. Escape is already safe — modal_escape.ts is a stack and the
-          chooser mounts on top. Upstream gets both for free from a modal
-          KIWAY_PLAYER. */}
-      {browsing !== null && (
-        <SymbolChooserFrame
-          preselect={browserSeed}
-          showFootprints={showFootprints}
-          historyList={chooserHistory}
-          onOk={acceptBrowsed}
-          onCancel={() => setBrowsing(null)}
-        />
-      )}
       <div className="ze-modal-backdrop" onMouseDown={onClose}>
         <div className="ze-modal ze-chsym" onMouseDown={(e) => e.stopPropagation()}>
           <div className="ze-modal-header">
@@ -508,6 +493,28 @@ export function DialogChangeSymbols({
           </div>
         </div>
       </div>
+
+      {/* A SIBLING of this dialog's backdrop, and AFTER it: the chooser
+          brings its own backdrop, and a click on that one must not also reach
+          this dialog's `onMouseDown={onClose}` and close the thing that opened
+          it. Escape is already safe — modal_escape.ts is a stack and the
+          chooser mounts on top. Upstream gets both for free from a modal
+          KIWAY_PLAYER.
+
+          AFTER, because both backdrops are `position: fixed; z-index: 200` and
+          nothing separates them but document order. Rendered first, the
+          chooser was painted over by the very dialog that opened it: it WAS
+          mounted, and invisible. Akshay clicked the button and nothing
+          appeared. */}
+      {browsing !== null && (
+        <SymbolChooserFrame
+          preselect={browserSeed}
+          showFootprints={showFootprints}
+          historyList={chooserHistory}
+          onOk={acceptBrowsed}
+          onCancel={() => setBrowsing(null)}
+        />
+      )}
     </>
   );
 }
