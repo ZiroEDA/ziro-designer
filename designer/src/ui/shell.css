@@ -6479,12 +6479,24 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-lp-gap {
   width: 20px;
 }
+/* The bold/italic/alignment row. Upstream these are `BITMAP_BUTTON`s carrying
+   a 16px bitmap with wxBU_AUTODRAW, and wx sizes them itself -- measured with
+   qa/probes/field_props_width_probe.cpp on this desktop:
+
+     one BITMAP_BUTTON best size          36 x 34
+     one wxLI_VERTICAL best width         2
+     formattingSizer CalcMin().x          370
+
+   Ours were 24 square with 9px separators, which is 285 -- and that shortfall
+   is part of why these dialogs opened narrower than KiCad's. */
 .ze-lp-iconbtn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  /* [px] BITMAP_BUTTON GetBestSize() = 36 x 34, field_props_width_probe. */
+  width: 36px;
+  /* [px] the same measurement's height. */
+  height: 34px;
   padding: 0;
   background: transparent;
   border: 1px solid transparent;
@@ -6541,8 +6553,23 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
    — each spanning two grid-bag columns, so it takes whatever width the row
    gives it. A `max-width` here was a local literal that upstream never wrote,
    and it is a large part of why these dialogs open narrower than KiCad's: the
-   control that should be pushing the row out was capped at 150px. */
+   control that should be pushing the row out was capped at 150px.
+
+   Its width is not in KiCad's source either: FONT_CHOICE is a
+   wxOwnerDrawnComboBox built with ZERO items (`font_choice.cpp:179-191`) and
+   then filled by `RefreshFonts()` with every installed face, so its best size
+   is a property of the machine. Measured here by
+   qa/probes/field_props_width_probe.cpp:
+
+     installed faces                      248
+     FONT_CHOICE GetBestSize().x          275
+       ...with only the 2 static items    119
+
+   and 275 is what carries the row to the 685 that fits a 695px dialog -- the
+   width Akshay measured off a real one. */
 .ze-lp-font {
+  /* [px] FONT_CHOICE GetBestSize().x = 275, field_props_width_probe. */
+  min-width: 275px;
   font: inherit;
   padding: 3px 4px;
   background: var(--chrome-bg2);
@@ -6558,9 +6585,11 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   padding: 0 5px;
 }
 .ze-lp-sep {
-  width: 1px;
+  /* [px] wxLI_VERTICAL GetBestSize().x = 2, and the sizer adds no border of
+     its own to the separators, field_props_width_probe. */
+  width: 2px;
   height: 18px;
-  margin: 0 4px;
+  margin: 0;
   background: var(--chrome-border);
 }
 .ze-lp-auto {
