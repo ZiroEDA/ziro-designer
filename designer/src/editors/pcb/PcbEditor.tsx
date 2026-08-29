@@ -204,6 +204,7 @@ import {
 import { DialogPcbFind, DEFAULT_PCB_FIND, type PcbFindOptions } from './dialogs/dialog_find.js';
 import { DialogPageSettings } from '../../dialogs/dialog_page_settings.js';
 import { pageSettingsValue, toPaperToken } from '../../dialogs/page_settings_model.js';
+import { pcbZoomFitBox } from './document_extents.js';
 import { DialogPcbPrint } from './dialogs/dialog_print_pcb.js';
 import { DialogPcbPlot } from './dialogs/dialog_plot_pcb.js';
 import {
@@ -3209,30 +3210,21 @@ export function PcbEditor({
   // ACTIONS::zoomFitScreen (Home): fit the page frame + objects.
   // ACTIONS::zoomFitObjects (Ctrl+Home): fit the objects only, ignoring the
   // drawing sheet.
+  //
+  // Which box that is — and, on a board with nothing in it, the fact that there
+  // is a box at all — is `pcbZoomFitBox`; see `document_extents.ts` for the
+  // `GetBoardBoundingBox` fallback it ports. Before it, an empty board's null
+  // scene box returned here and the button did nothing.
   const zoomToFitImpl = useCallback(
     (includeSheet: boolean) => {
-      const scene = sceneRef.current;
-      if (!scene?.bbox) return;
-      let { minX, minY, maxX, maxY } = scene.bbox;
-      const paper = boardRef.current?.paper?.split(/\s+/)[0];
-      const PAGE: Record<string, [number, number]> = {
-        A5: [210, 148],
-        A4: [297, 210],
-        A3: [420, 297],
-        A2: [594, 420],
-        A1: [841, 594],
-        A0: [1189, 841],
-      };
-      if (includeSheet && paper && PAGE[paper] && objects.drawingSheet) {
-        const [pw, ph] = PAGE[paper]!;
-        minX = Math.min(minX, 0);
-        minY = Math.min(minY, 0);
-        maxX = Math.max(maxX, pw * MM);
-        maxY = Math.max(maxY, ph * MM);
-      }
-      fitWorldBox(minX, minY, maxX, maxY, includeSheet ? 'all' : 'objects');
+      const box = pcbZoomFitBox(sceneRef.current?.bbox ?? null, {
+        paper: boardRef.current?.paper,
+        drawingSheetVisible: objects.drawingSheet,
+        includeSheet,
+      });
+      if (!box) return;
+      fitWorldBox(box.minX, box.minY, box.maxX, box.maxY, includeSheet ? 'all' : 'objects');
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [fitWorldBox, objects.drawingSheet],
   );
   const zoomToFit = useCallback(() => zoomToFitImpl(true), [zoomToFitImpl]);
