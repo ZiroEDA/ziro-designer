@@ -80,7 +80,23 @@ export function defaultChangeSymbolsOptions(mode: ChangeSymbolsMode): ChangeSymb
   return {
     mode,
     match: { mode: 'all' },
-    updateFields: new Set(['Reference', 'Value', 'Footprint', 'Datasheet']),
+    /* The checklist's opening state, which is NOT "all but the last one".
+       DIALOG_CHANGE_SYMBOLS' constructor (:97-111) walks MANDATORY_FIELDS —
+       REFERENCE, VALUE, FOOTPRINT, DATASHEET, DESCRIPTION
+       (template_fieldnames.h:59) — and checks each one:
+
+           if( fieldId == REFERENCE ) Check( listIdx, selectReference );
+           else if( fieldId == VALUE ) Check( listIdx, selectValue );
+           else                        Check( listIdx, true );
+
+       where selectReference/selectValue come from EESCHEMA_SETTINGS'
+       m_ChangeSymbols.updateReferences / .updateValues, BOTH default false
+       (eeschema_settings.cpp:636,639). So the reference and the value are the
+       two a fresh install leaves alone — renaming every symbol from the
+       library is the destructive one — and the other three are on.
+       This said Reference + Value + Footprint + Datasheet: the two that should
+       be off were on, and Description, which should be on, was off. */
+    updateFields: new Set(['Footprint', 'Datasheet', 'Description']),
     removeExtraFields: false,
     resetEmptyFields: false,
     resetFieldText: true,

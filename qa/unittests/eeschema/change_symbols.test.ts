@@ -48,8 +48,27 @@ const SCH = `(kicad_sch (version 20231120) (generator "test") (paper "A4")
 
 const doc = (): Schematic => readSchematic(parse(SCH));
 const libs = (): Map<string, LibSymbol> => new Map(doc().libSymbols.map((l) => [l.libId, l]));
+/**
+ * Options for an ENGINE test, which is not the same thing as the dialog's
+ * opening state.
+ *
+ * `defaultChangeSymbolsOptions` answers "what does DIALOG_CHANGE_SYMBOLS open
+ * with", and upstream opens with the reference and the value UNCHECKED —
+ * `m_ChangeSymbols.updateReferences` / `.updateValues` both default false
+ * (eeschema_settings.cpp:636,639), because rewriting every reference from the
+ * library is the destructive one. That opening state is pinned in
+ * `designer/change_symbols_dialog.test.ts`, where it belongs.
+ *
+ * The tests below are about what the engine DOES to a field once it has been
+ * selected, so they select all five mandatory fields and say so, rather than
+ * leaning on whatever the dialog happens to offer. Every expectation in this
+ * file is unchanged; only the setup stopped being implicit.
+ */
+const MANDATORY = ['Reference', 'Value', 'Footprint', 'Datasheet', 'Description'];
+
 const opts = (over: Partial<ChangeSymbolsOptions>): ChangeSymbolsOptions => ({
   ...defaultChangeSymbolsOptions(over.mode ?? 'update'),
+  updateFields: new Set(MANDATORY),
   ...over,
 });
 const field = (d: Schematic, i: number, key: string) =>

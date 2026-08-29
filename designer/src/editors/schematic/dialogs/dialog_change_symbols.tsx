@@ -307,7 +307,7 @@ export function DialogChangeSymbols({
                       {m.needs === 'libId' && (
                         <button
                           type="button"
-                          className="ze-grid-cellbtn"
+                          className="ze-gridbtn"
                           disabled
                           title="Browse for symbol"
                           aria-label="Browse for symbol"

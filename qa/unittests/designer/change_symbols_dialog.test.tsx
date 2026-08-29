@@ -163,6 +163,63 @@ describe('the report panel is always present', () => {
  * take 5 (:150, :189). A positional selector that quietly matches the wrong
  * element — or both — is a number nothing reads, so the match is pinned here.
  */
+/**
+ * Which fields the checklist opens with. DIALOG_CHANGE_SYMBOLS' constructor
+ * (:97-111) walks MANDATORY_FIELDS — REFERENCE, VALUE, FOOTPRINT, DATASHEET,
+ * DESCRIPTION (template_fieldnames.h:59) — and checks each:
+ *
+ *     if( fieldId == REFERENCE )   Check( listIdx, selectReference );
+ *     else if( fieldId == VALUE )  Check( listIdx, selectValue );
+ *     else                         Check( listIdx, true );
+ *
+ * with selectReference/selectValue out of EESCHEMA_SETTINGS'
+ * m_ChangeSymbols.updateReferences / .updateValues, both defaulting to FALSE
+ * (eeschema_settings.cpp:636,639).
+ *
+ * Ours opened with Reference + Value + Footprint + Datasheet — the two that
+ * should be off were on, and Description, which should be on, was off. Akshay
+ * caught it opening the dialog on the same symbol in both builds.
+ */
+describe('the Update/Reset Fields checklist opens the way upstream leaves it', () => {
+  const ticked = (): string[] =>
+    [...document.querySelectorAll('.ze-chsym-fieldbox label')]
+      .filter((l) => (l.querySelector('input') as HTMLInputElement | null)?.checked)
+      .map((l) => l.textContent?.trim() ?? '');
+
+  it('the three non-identity mandatory fields are on', () => {
+    open(SUBJECT);
+    expect(ticked()).toStrictEqual(['Footprint', 'Datasheet', 'Description']);
+  });
+
+  it('and Reference and Value are off, because renaming from the library is the destructive one', () => {
+    open(SUBJECT);
+    for (const name of ['Reference', 'Value'])
+      expect(ticked()).not.toContain(name);
+  });
+});
+
+/**
+ * `m_matchIdBrowserButton` is a STD_BITMAP_BUTTON — an ordinary bordered
+ * button beside the library-id entry. It carried `.ze-grid-cellbtn`, which is
+ * GRID_CELL_TEXT_BUTTON's in-cell button: transparent and borderless by
+ * design, because that one sits inside a grid cell. Beside an entry it read as
+ * a bare icon with no button around it.
+ */
+describe('the library-identifier browse button is a STD_BITMAP_BUTTON', () => {
+  it('it takes that widget’s shared chrome, not the in-cell button’s', () => {
+    open(SUBJECT);
+    const btn = screen.getByRole('button', { name: 'Browse for symbol' });
+    expect(btn.className).toContain('ze-gridbtn');
+    expect(btn.className).not.toContain('ze-grid-cellbtn');
+  });
+
+  it('and sits beside the library-id entry only, as bSizer10 puts it', () => {
+    open(SUBJECT);
+    // The reference and value rows have no browse button; only m_specifiedId.
+    expect(screen.getAllByRole('button', { name: 'Browse for symbol' })).toHaveLength(1);
+  });
+});
+
 describe('the positional selectors reach the elements the sizer distinguishes', () => {
   it('nth-of-type(1) is bSizer8 alone, not both columns', () => {
     open(SUBJECT);
