@@ -358,7 +358,15 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   //     26 metrics in them. The replacement states neither: every colour in
   //     widgets/properties_panel.css is a shared token, which that widget's
   //     own test asserts.
-  ui: { colours: 257, metrics: 755 },
+  // colours 257 -> 251: the ERC dialog's severity badges. NUMBER_BADGE picks
+  // both the pill and the text colour from the severity it is handed
+  // (number_badge.cpp:43-92) and `.ze-erc-footer .badge*` had invented all of
+  // them - #5a5d61/#fff base, #e6090d for wxRED-or-(240,64,64), #d19200 for
+  // wxYELLOW, #2e8b2e for COLOR4D( GREEN ). The four pairs are upstream's own
+  // table now and carry [data] on their own lines, so none of the eight
+  // counts; the sixth is `.show-label`'s #9a9ca0, which dimmed a plain
+  // wxStaticText and is --chrome-fg.
+  ui: { colours: 251, metrics: 755 },
   // colours 6 -> 7: the opacity slider's #55585d track arrived here with
   // APPEARANCE_CONTROLS; it is the same literal `editors/pcb` lost, not a new
   // one. The panel's own stylesheet adds none: every length in
@@ -642,7 +650,7 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // directions: `ui` 281 -> 261 (of which 1 was already gone at HEAD, with
     // 7ebff497) and `editors/schematic` 61 -> 63, which arrived at HEAD with
     // e3b79196 and is not this pass's. 660 - 20 + 2 agrees.
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(636);
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(630);
     // 1657 -> 1649: the same sweep. A native colour input has no useful
     // default size, so eight of the sixteen sites gave theirs an inline
     // width and height; the shared swatch takes --swatch-*-w/h. Rescanned.

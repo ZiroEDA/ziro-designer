@@ -13,7 +13,7 @@ import {
 } from '@ziroeda/eeschema';
 import { ContextMenu, type MenuItem } from '../../../ui/MenuBar.js';
 import { ERC_PHASES } from '@ziroeda/eeschema';
-import { toolbarIconUrl } from '../../../ui/toolbarIcons.js';
+import { bitmapUrl } from '../../../ui/toolbarIcons.js';
 import { useModalEscape } from '../../../ui/useModalEscape.js';
 
 /**
@@ -35,6 +35,68 @@ export interface ErcFilters {
   exclusions: boolean;
 }
 
+/**
+ * The "Show:" row's opening state.
+ *
+ * Upstream these are four plain `wxCheckBox`es built by the generated base
+ * (`dialog_erc_base.cpp:143-176`) and read back only through
+ * `DIALOG_ERC::getSeverities` (`dialog_erc.cpp:221-235`). Nothing persists
+ * them: `EESCHEMA_SETTINGS m_Appearance.show_erc_*` is a DIFFERENT thing — the
+ * canvas layer visibility the View menu toggles, `LAYER_ERC_ERR` /
+ * `LAYER_ERC_WARN` / `LAYER_ERC_EXCLUSION` (`sch_edit_frame.cpp:2005-2007`) —
+ * so the row is dialog state and starts here on every open.
+ *
+ * `dialog_erc_base.fbp` leaves all four `checked=0`, where the sibling
+ * severity row in `dialog_drc_base.cpp:197,204` sets Errors and Warnings true;
+ * taking the ERC generator output literally would open the dialog showing
+ * nothing at all. The manual settles it: "Any warnings or errors are reported
+ * in the Violations tab" and "Excluded violations are hidden unless the
+ * Exclusions checkbox is enabled" (eeschema manual 4.6, Electrical rules
+ * checking).
+ */
+export const ERC_DEFAULT_FILTERS: ErcFilters = {
+  errors: true,
+  warnings: true,
+  exclusions: false,
+};
+
+/**
+ * `NUMBER_BADGE::SetMaximumNumber( 999 )` (`dialog_erc.cpp:137-139`): a count
+ * above the maximum reads "999+" (`number_badge.cpp:177-180`).
+ */
+export const ERC_BADGE_MAX = 999;
+
+/** What a NUMBER_BADGE paints for one count, or null when it paints nothing. */
+export interface ErcBadge {
+  /** The label, capped with a "+" past the maximum. */
+  text: string;
+  /** The severity class the colour comes from. */
+  kind: 'err' | 'warn' | 'excl' | 'zero';
+}
+
+/**
+ * `NUMBER_BADGE::UpdateNumber` (`number_badge.cpp:43-92`). A negative number
+ * hides the badge outright; zero hides it for every severity but error and
+ * warning, where it turns green; anything else takes its severity's colour.
+ *
+ * `DIALOG_ERC::updateDisplayedCounts` passes -1 for the error and warning
+ * counts when ERC has not been run and the count is zero
+ * (`dialog_erc.cpp:391-396`), which is the only way the badge is hidden with
+ * markers absent rather than shown green.
+ */
+export function ercBadge(n: number, severity: 'error' | 'warning' | 'exclusion'): ErcBadge | null {
+  if (n < 0) return null;
+  if (n === 0) {
+    if (severity === 'exclusion') return null;
+    return { text: '0', kind: 'zero' };
+  }
+  const text = n > ERC_BADGE_MAX ? `${ERC_BADGE_MAX}+` : `${n}`;
+  return {
+    text,
+    kind: severity === 'error' ? 'err' : severity === 'warning' ? 'warn' : 'excl',
+  };
+}
+
 /** EESCHEMA_SETTINGS m_ERCDialog, the config (gear) menu's three toggles. */
 export interface ErcDialogOptions {
   crossprobe: boolean;
@@ -54,9 +116,6 @@ interface Props {
   running: readonly string[] | null;
   /** Rules whose severity is set to 'ignore' (the Ignored Tests tab). */
   ignoredTests: readonly string[];
-  /** Severity display filters (EESCHEMA_SETTINGS m_Appearance.show_erc_*). */
-  filters: ErcFilters;
-  onFilterChange: (f: ErcFilters) => void;
   /** The config menu's toggles and their persistence. */
   options: ErcDialogOptions;
   onOptionsChange: (o: ErcDialogOptions) => void;
@@ -133,8 +192,6 @@ export function ErcDialog({
   violations,
   running,
   ignoredTests,
-  filters,
-  onFilterChange,
   options,
   onOptionsChange,
   unannotated,
@@ -156,6 +213,11 @@ export function ErcDialog({
   onClose,
 }: Props): JSX.Element {
   const [tab, setTab] = useState<'violations' | 'ignored'>('violations');
+  const [filters, setFilters] = useState<ErcFilters>(ERC_DEFAULT_FILTERS);
+  // m_showAll is a checkbox in its own right. DIALOG_ERC drives the other
+  // three FROM it and never the other way round, so it stays wherever the user
+  // left it even once all three below are on.
+  const [showAll, setShowAll] = useState(false);
   // RC_TREE_MODEL's selection: a marker row, or one of its item child rows.
   const [selected, setSelected] = useState<{ index: number; item: number | null } | null>(null);
   const selectedRowRef = useRef<HTMLDivElement | null>(null);
@@ -171,11 +233,18 @@ export function ErcDialog({
     [excluded],
   );
   // Badges tally by category, excluding the excluded ones (as KiCad does).
+  // SHEETLIST_ERC_ITEMS_PROVIDER::GetCount( severity ) counts every marker of
+  // that severity whether or not the filters are showing it, which is why the
+  // badges disagree with the tab count (erc_settings.cpp:445-462).
   const active = markers.filter((v) => !isExcl(v));
   const errors = active.filter((v) => v.severity === 'error').length;
   const warnings = active.length - errors;
   const exclusionCount = markers.length - active.length;
-  const all = filters.errors && filters.warnings && filters.exclusions;
+  // updateDisplayedCounts hides the error and warning badges, rather than
+  // showing them green, only while ERC has not been run.
+  const errorsBadge = ercBadge(notRun && errors === 0 ? -1 : errors, 'error');
+  const warningsBadge = ercBadge(notRun && warnings === 0 ? -1 : warnings, 'warning');
+  const exclusionsBadge = ercBadge(exclusionCount, 'exclusion');
 
   // An excluded marker shows only under the Exclusions filter; an active one
   // shows per its severity filter (DIALOG_ERC::OnSeverity display rules).
@@ -490,7 +559,9 @@ export function ErcDialog({
             setConfigOpen({ x: r.left, y: r.bottom });
           }}
         >
-          {toolbarIconUrl('boardSetup') ? <img src={toolbarIconUrl('boardSetup')} alt="" /> : '⚙'}
+          {/* m_bMenu->SetBitmap( KiBitmapBundle( BITMAPS::config ) ),
+              dialog_erc.cpp:98 — the gear, not options_board. */}
+          {bitmapUrl('config') ? <img src={bitmapUrl('config')} alt="" /> : '⚙'}
         </button>
       </div>
 
@@ -559,14 +630,11 @@ export function ErcDialog({
                   {v.message}
                 </span>
               </div>
-              {/* RC_TREE_NODE::COMMENT: an excluded marker's comment, when it has one. */}
-              {isExcl(v) && exclusionComments?.get(ercExclusionKey(v)) && (
-                <div className="ze-erc-subrow excluded">
-                  {exclusionComments.get(ercExclusionKey(v))}
-                </div>
-              )}
-              {/* RC_TREE_NODE::MAIN_ITEM / AUX_ITEM child rows. */}
-              {v.items.slice(0, 3).map((id, k) => (
+              {/* RC_TREE_MODEL::rebuildModel (rc_item.cpp:363-383) gives a
+                  marker one child per non-null item id — MAIN_ITEM, AUX_ITEM,
+                  AUX_ITEM2, AUX_ITEM3, so four and not three — and appends the
+                  COMMENT node AFTER them, not before. */}
+              {v.items.slice(0, 4).map((id, k) => (
                 <div
                   key={id}
                   className={`ze-erc-subrow${isExcl(v) ? ' excluded' : ''}${
@@ -586,6 +654,13 @@ export function ErcDialog({
                   {describeItem?.(id, v.file) ?? id}
                 </div>
               ))}
+              {/* RC_TREE_NODE::COMMENT: an excluded marker's comment, when it
+                  has one, last of the marker's children. */}
+              {isExcl(v) && exclusionComments?.get(ercExclusionKey(v)) && (
+                <div className="ze-erc-subrow excluded">
+                  {exclusionComments.get(ercExclusionKey(v))}
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -609,13 +684,19 @@ export function ErcDialog({
         <label className="chk">
           <input
             type="checkbox"
-            checked={all}
+            checked={showAll}
             onChange={(e) =>
-              onFilterChange({
-                errors: e.target.checked,
-                warnings: e.target.checked,
-                exclusions: e.target.checked,
-              })
+              // DIALOG_ERC::OnSeverity (dialog_erc.cpp:1118-1129): the All box
+              // turns Errors on whichever way it is moved, and hands only
+              // Warnings and Exclusions its own new state.
+              {
+                setShowAll(e.target.checked);
+                setFilters({
+                  errors: true,
+                  warnings: e.target.checked,
+                  exclusions: e.target.checked,
+                });
+              }
             }
           />
           All
@@ -625,35 +706,35 @@ export function ErcDialog({
           <input
             type="checkbox"
             checked={filters.errors}
-            onChange={(e) => onFilterChange({ ...filters, errors: e.target.checked })}
+            onChange={(e) => setFilters({ ...filters, errors: e.target.checked })}
           />
           Errors
         </label>
-        {!(notRun && errors === 0) && (
-          <span className={`badge${errors > 0 ? ' err' : ' zero'}`}>{errors}</span>
-        )}
+        {errorsBadge && <span className={`badge ${errorsBadge.kind}`}>{errorsBadge.text}</span>}
         <span className="gap-25" />
         <label className="chk">
           <input
             type="checkbox"
             checked={filters.warnings}
-            onChange={(e) => onFilterChange({ ...filters, warnings: e.target.checked })}
+            onChange={(e) => setFilters({ ...filters, warnings: e.target.checked })}
           />
           Warnings
         </label>
-        {!(notRun && warnings === 0) && (
-          <span className={`badge${warnings > 0 ? ' warn' : ' zero'}`}>{warnings}</span>
+        {warningsBadge && (
+          <span className={`badge ${warningsBadge.kind}`}>{warningsBadge.text}</span>
         )}
         <span className="gap-25" />
         <label className="chk">
           <input
             type="checkbox"
             checked={filters.exclusions}
-            onChange={(e) => onFilterChange({ ...filters, exclusions: e.target.checked })}
+            onChange={(e) => setFilters({ ...filters, exclusions: e.target.checked })}
           />
           Exclusions
         </label>
-        <span className="badge">{exclusionCount}</span>
+        {exclusionsBadge && (
+          <span className={`badge ${exclusionsBadge.kind}`}>{exclusionsBadge.text}</span>
+        )}
         <span className="grow" />
         <button
           className="ze-btn"
@@ -667,10 +748,15 @@ export function ErcDialog({
         </button>
       </div>
 
+      {/* Both delete buttons are live except while a run is in flight, which is
+          the only place DIALOG_ERC disables them (dialog_erc.cpp:523-525 and
+          565-568). Neither is gated on a selection or on the list being
+          non-empty: RC_TREE_MODEL::DeleteItems answers Delete Marker with no
+          current item by ringing the bell and returning (rc_item.cpp:664-668). */}
       <div className="ze-erc-buttons">
         <button
           className="ze-btn"
-          disabled={selected === null || !!running}
+          disabled={!!running}
           onClick={() => {
             if (selected) {
               onDelete(selected.index);
@@ -680,11 +766,7 @@ export function ErcDialog({
         >
           Delete Marker
         </button>
-        <button
-          className="ze-btn"
-          disabled={markers.length === 0 || !!running}
-          onClick={onDeleteAll}
-        >
+        <button className="ze-btn" disabled={!!running} onClick={onDeleteAll}>
           Delete All Markers
         </button>
         <span className="grow" />

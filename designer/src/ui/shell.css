@@ -6987,10 +6987,9 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   flex: 0 0 auto;
 }
 .ze-erc-footer .show-label {
-  color: #9a9ca0;
-}
-.ze-erc-footer .badge.zero {
-  background: #2e8b2e;
+  /* m_showLabel is a plain wxStaticText: it takes the dialog's own foreground,
+     and there is no dimmed variant anywhere in dialog_erc_base.cpp:141-143. */
+  color: var(--chrome-fg);
 }
 .ze-erc-buttons {
   display: flex;
@@ -7058,20 +7057,33 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   gap: 4px;
   cursor: default;
 }
+/* NUMBER_BADGE paints its own pill and picks both colours from the severity it
+   is handed (number_badge.cpp:43-92). Every pair below is that table, so each
+   carries [data] on its own line; the base rule states neither, so a badge with
+   no severity class paints nothing. */
 .ze-erc-footer .badge {
   min-width: 20px;
   padding: 1px 6px;
   border-radius: 9px;
   text-align: center;
   font-size: 11px;
-  background: #5a5d61;
-  color: #fff;
 }
 .ze-erc-footer .badge.err {
-  background: #e6090d;
+  background: #f04040; /* [data] IsDarkTheme() ? wxColour( 240, 64, 64 ) : *wxRED */
+  color: #ffffff; /* [data] *wxWHITE */
 }
 .ze-erc-footer .badge.warn {
-  background: #d19200;
+  background: #ffff00; /* [data] *wxYELLOW */
+  color: #000000; /* [data] *wxBLACK */
+}
+/* aNumber == 0 with an error or warning severity: the "all clear" badge. */
+.ze-erc-footer .badge.zero {
+  background: #008400; /* [data] KIGFX::COLOR4D( GREEN ), color4d.cpp:59 */
+  color: #ffffff; /* [data] *wxWHITE */
+}
+.ze-erc-footer .badge.excl {
+  background: #c0c0c0; /* [data] *wxLIGHT_GREY */
+  color: #000000; /* [data] *wxBLACK */
 }
 /* Violations / Ignored Tests notebook tabs (DIALOG_ERC m_notebook) */
 .ze-erc-tabs {

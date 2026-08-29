@@ -8632,18 +8632,6 @@ export function SchematicEditor({
                 ignoredTests={ERC_ITEMS.filter(
                   (it) => setup.erc.severities[it.code] === 'ignore',
                 ).map((it) => it.title)}
-                filters={{
-                  errors: es.appearance.show_erc_errors,
-                  warnings: es.appearance.show_erc_warnings,
-                  exclusions: es.appearance.show_erc_exclusions,
-                }}
-                onFilterChange={(f) =>
-                  settings.updateEeschema((s) => {
-                    s.appearance.show_erc_errors = f.errors;
-                    s.appearance.show_erc_warnings = f.warnings;
-                    s.appearance.show_erc_exclusions = f.exclusions;
-                  })
-                }
                 unannotated={doc?.symbols.some((s) =>
                   (s.fields.find((f) => f.key === 'Reference')?.value ?? '').endsWith('?'),
                 )}
