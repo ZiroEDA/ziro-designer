@@ -40,6 +40,7 @@ import {
   unescapeString,
 } from '@ziroeda/common/src/string_utils.js';
 import { compareLibSymbolsForErc } from '../lib_symbol_compare.js';
+import { flattenLibSymbol } from '../lib_symbol.js';
 import { checkSimModel } from '../sim/sim_model.js';
 import { isNetclassFieldName } from '../sch_field.js';
 import { computeNetlist, enumeratePins, onSegment, type PinNode } from './nets.js';
@@ -1498,7 +1499,14 @@ export function* runErcSteps(
         const cached = libById.get(schSymbolLibraryName(sym));
         const library = opts.librarySymbols?.get(schSymbolLibraryName(sym));
         if (!cached || !library) return;
-        if (compareLibSymbolsForErc(cached, library) === null) return;
+        // `std::unique_ptr<LIB_SYMBOL> flattenedSymbol = libSymbol->Flatten();`
+        // (erc.cpp:1774) — the LIBRARY side is flattened before the compare,
+        // because the schematic's cached copy always is: `SCH_SCREEN` stores
+        // `Flatten()`ed symbols (sch_screen.cpp:262, :844) so a placement is
+        // never derived. Comparing a flattened cache against a raw `extends`
+        // definition says "doesn't match" for every derived symbol on the
+        // sheet, whatever the user did — four 1N4007s reported it here.
+        if (compareLibSymbolsForErc(cached, flattenLibSymbol(library)) === null) return;
         const [libName, symbolName] = splitLibId(sym.libId);
         out.push(
           violation(
