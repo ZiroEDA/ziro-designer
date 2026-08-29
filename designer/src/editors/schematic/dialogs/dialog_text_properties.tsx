@@ -277,6 +277,9 @@ export function DialogTextProperties({
           </div>
 
           <div className="ze-tp-grid">
+            {/* m_textEntrySizer row 2, left empty at SetEmptyCellSize's 6px. */}
+            <div className="ze-tp-gap" />
+
             <span className="ze-lp-fmt-label">Font:</span>
             {/* The shared FontChoice, which is `Combo` — our owner-drawn
                 combo, as FONT_CHOICE is wxOwnerDrawnComboBox. This was a
@@ -356,6 +359,8 @@ export function DialogTextProperties({
 
             {isBox && (
               <>
+                {/* row 5, empty. */}
+                <div className="ze-tp-gap" />
                 <label className="ze-lp-check ze-tp-span">
                   <input
                     type="checkbox"
@@ -399,6 +404,9 @@ export function DialogTextProperties({
                 />
               </>
             )}
+
+            {/* row 9, empty — the band above the Link row. */}
+            <div className="ze-tp-gap" />
 
             {/* m_hyperlinkCb + m_hyperlinkCombo: a sheet page or a URL. */}
             <label className="ze-lp-check">

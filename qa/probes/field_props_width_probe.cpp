@@ -112,6 +112,33 @@ public:
 
         wxPrintf( "%-38s %d\n", "gbSizer1 row 0 CalcMin().x", gb->CalcMin().x );
 
+        // ---- BITMAP_BUTTON's own arithmetic --------------------------------
+        // `DoGetBestSize` (`common/widgets/bitmap_button.cpp:101-107`):
+        //   separator -> ( dipSize.x + padding*2, wxButton::GetDefaultSize().y )
+        //   button    ->   dipSize + ( padding*2, padding*2 )
+        // with m_padding = 5 for the bitmap ctor, and m_dipSize the bundle's
+        // default size -- 16 for these icons, which ship at 16 and 32.
+        wxPrintf( "\n-- BITMAP_BUTTON --\n" );
+        wxPrintf( "%-38s %d x %d\n", "wxButton::GetDefaultSize()",
+                  wxButton::GetDefaultSize().x, wxButton::GetDefaultSize().y );
+        wxPrintf( "%-38s %d x %d\n", "  => a 16px BITMAP_BUTTON", 16 + 10, 16 + 10 );
+        wxPrintf( "%-38s %d x %d\n", "  => a separator", 0 + 10,
+                  wxButton::GetDefaultSize().y );
+        wxColour grey = wxSystemSettings::GetColour( wxSYS_COLOUR_GRAYTEXT );
+        wxPrintf( "%-38s rgb(%d,%d,%d) %s\n", "  separator line, wxSYS_COLOUR_GRAYTEXT",
+                  grey.Red(), grey.Green(), grey.Blue(),
+                  (const char*) grey.GetAsString( wxC2S_HTML_SYNTAX ).utf8_str() );
+
+        // ---- the dialog's own font ----------------------------------------
+        wxFont gui = wxSystemSettings::GetFont( wxSYS_DEFAULT_GUI_FONT );
+        wxPrintf( "\n-- font --\n" );
+        wxPrintf( "%-38s %s %g pt (%d px)\n", "wxSYS_DEFAULT_GUI_FONT",
+                  (const char*) gui.GetFaceName().utf8_str(), gui.GetFractionalPointSize(),
+                  gui.GetPixelSize().y );
+        wxStaticText* probeText = new wxStaticText( dlg, wxID_ANY, "Exclude from simulation" );
+        wxPrintf( "%-38s %d x %d\n", "  a dialog wxStaticText best size",
+                  probeText->GetBestSize().x, probeText->GetBestSize().y );
+
         // ---- the entry controls -------------------------------------------
         // `m_textSizeCtrl` and the position ctrls are plain wxTextCtrls at
         // wxSize( -1, -1 ), so they take GTK's own best size.

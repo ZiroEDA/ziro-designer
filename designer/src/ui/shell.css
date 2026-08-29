@@ -6351,9 +6351,13 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-lp-caption {
   flex: 0 0 auto;
 }
+/* No `min-width: 0`. A wx sizer never lets a control fall below its own best
+   size -- that is the guarantee CLAUDE.md names -- and `bSizer11` puts the
+   hyperlink combo at `wxGBPosition( 10, 1 )` spanning FIVE columns with
+   wxEXPAND (`dialog_text_properties_base.cpp:305`), so it is the widest thing
+   on its row, not the narrowest. `min-width: 0` let it collapse instead. */
 .ze-lp-value {
   flex: 1;
-  min-width: 0;
   padding: 4px 6px;
   font: inherit;
   background: var(--chrome-bg2);
@@ -6485,24 +6489,36 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-lp-gap {
   width: 20px;
 }
-/* The bold/italic/alignment row. Upstream these are `BITMAP_BUTTON`s carrying
-   a 16px bitmap with wxBU_AUTODRAW, and wx sizes them itself -- measured with
-   qa/probes/field_props_width_probe.cpp on this desktop:
+/* The bold/italic/alignment row. These are KiCad's own `BITMAP_BUTTON`, not a
+   wxBitmapButton, and it sizes itself rather than asking GTK
+   (`common/widgets/bitmap_button.cpp:101-107`):
 
-     one BITMAP_BUTTON best size          36 x 34
-     one wxLI_VERTICAL best width         2
-     formattingSizer CalcMin().x          370
+     if( hasFlag( wxCONTROL_SEPARATOR ) )
+         return wxSize( FromDIP( m_dipSize.x + m_padding * 2 ),
+                        wxButton::GetDefaultSize().y );
+     return FromDIP( m_dipSize + wxSize( m_padding * 2, m_padding * 2 ) );
 
-   Ours were 24 square with 9px separators, which is 285 -- and that shortfall
-   is part of why these dialogs opened narrower than KiCad's. */
+   `m_padding` is 5 for the bitmap constructor these are built with (`:56-64`),
+   and `m_dipSize` is the bundle's default size -- 16, since these icons ship at
+   16 and 32 only. So a button is 16 + 10 square.
+
+   Measured against that formula by qa/probes/field_props_width_probe.cpp:
+
+     wxButton::GetDefaultSize()           85 x 27
+       => a 16px BITMAP_BUTTON            26 x 26
+       => a separator                     10 x 27
+
+   An earlier pass here measured a plain wxBitmapButton and got 36 x 34, which
+   is GTK's button and not this control; that made ours visibly larger than
+   KiCad's. */
 .ze-lp-iconbtn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  /* [px] BITMAP_BUTTON GetBestSize() = 36 x 34, field_props_width_probe. */
-  width: 36px;
-  /* [px] the same measurement's height. */
-  height: 34px;
+  /* [data] m_dipSize 16 + m_padding 5 * 2. */
+  width: 26px;
+  /* [data] the same, DoGetBestSize being square for a non-separator. */
+  height: 26px;
   padding: 0;
   background: transparent;
   border: 1px solid transparent;
@@ -6593,13 +6609,20 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   align-items: center;
   padding: 0 5px;
 }
+/* A separator is the same BITMAP_BUTTON with `SetIsSeparator()`, so it is
+   `m_dipSize.x (0) + m_padding * 2` wide by `wxButton::GetDefaultSize().y`
+   tall, and `OnPaint` draws ONE line down the middle of it in
+   `wxSYS_COLOUR_GRAYTEXT` (`bitmap_button.cpp:279-284`). It is the width that
+   spaces the groups apart, not a margin. */
 .ze-lp-sep {
-  /* [px] wxLI_VERTICAL GetBestSize().x = 2, and the sizer adds no border of
-     its own to the separators, field_props_width_probe. */
-  width: 2px;
-  height: 18px;
+  /* [data] 0 + m_padding 5 * 2. */
+  width: 10px;
+  /* [px] wxButton::GetDefaultSize().y, field_props_width_probe. */
+  height: 27px;
   margin: 0;
-  background: var(--chrome-border);
+  /* [px] wxSYS_COLOUR_GRAYTEXT #929292, drawn 1px wide at GetSize().x / 2. */
+  background:
+    linear-gradient(var(--ctl-fg-disabled), var(--ctl-fg-disabled)) center / 1px 100% no-repeat;
 }
 .ze-lp-auto {
   margin-left: 5px;
@@ -6728,6 +6751,15 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   align-items: center;
   /* [data] wxGridBagSizer( 2, 3 ) -- vgap, hgap. */
   gap: 2px 3px;
+}
+/* `m_textEntrySizer->SetEmptyCellSize( wxSize( 0, 6 ) )` (`:35`), and the
+   grid-bag deliberately skips rows 2, 5 and 9: the font row is 3, the border
+   checkbox 6 and the hyperlink 10. Those three gaps are real 6px bands, and
+   the last of them is the space above the Link row. */
+.ze-tp-gap {
+  grid-column: 1 / -1;
+  /* [data] SetEmptyCellSize( wxSize( 0, 6 ) ).y */
+  height: 6px;
 }
 .ze-tp-span {
   grid-column: 1 / -1;
