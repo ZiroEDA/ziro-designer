@@ -1799,6 +1799,11 @@ export function PcbEditor({
     // pours, the silkscreen and the footprint text, so a whole-board view was
     // covered in crosses that pcbnew does not show.
     if (objects.anchors) {
+      // A GPU drag moves the item's recorded vertices and stops there, so this
+      // screen-space pass has to be handed the same delta or the cross stays
+      // behind. Only the in-place path needs it: the overlay path takes the
+      // moving items out of `scene` altogether and draws their own copy.
+      const applied = inPlaceMoveRef.current;
       drawAnchors(
         bctx,
         scene,
@@ -1809,6 +1814,7 @@ export function PcbEditor({
         drawOpts,
         dimmedRef.current ? 'dimmed' : 'none',
         dpr,
+        applied ? { ids: dragAffectedRef.current, dx: applied.x, dy: applied.y } : null,
       );
       bctx.setTransform(1, 0, 0, 1, 0, 0);
     }
@@ -4574,6 +4580,31 @@ export function PcbEditor({
       requestDraw();
       return;
     }
+    startOverlayMove(brd, sel, affected);
+  };
+
+  /**
+   * Set the drag up the slow way: the moving items as an overlay that follows
+   * the cursor, and the board rebuilt without them underneath.
+   *
+   * Its own function because there are TWO ways in. `beginMove` takes it when
+   * the GPU cannot address the selection, and `updateMove` has to take it when
+   * `moveItems` fails PART WAY THROUGH a gesture that started in place — which
+   * it did not, and that is the bug this became. `beginMove`'s in-place branch
+   * returns before any of this, quite correctly: the GPU is moving the item's
+   * own vertices, so there is nothing to hide and nothing to preview. But when
+   * the GPU then refused, the drag was left with neither — the original still
+   * in the retained scene at its old position and never translated, and no
+   * overlay of its own. All that followed the cursor was the selection copy,
+   * while the part itself (its pink courtyard, its silkscreen, all of it) sat
+   * still until the drop committed the board and it "respawned" at the new
+   * place.
+   */
+  const startOverlayMove = (
+    brd: Board,
+    sel: ReadonlySet<string>,
+    affected: ReadonlySet<string>,
+  ): void => {
     // The moving items first, because they are the cheap half and the drag
     // cannot start without them: one footprint compiles in about 2 ms.
     moveSceneRef.current = dragModeRef.current
@@ -5030,7 +5061,14 @@ export function PcbEditor({
         return;
       }
       // The GPU could not take it after all; fall back for the rest of the drag.
+      //
+      // Falling back is not just clearing the flag. The gesture started in
+      // place, so it has no overlay and the board still holds the originals —
+      // set both up now, exactly as `beginMove` would have. Whatever the GPU
+      // did manage before it refused goes away with the rebuild, which is why
+      // the base has to be rebuilt rather than merely left alone.
       inPlaceMoveRef.current = null;
+      startOverlayMove(brd, movingSelRef.current, dragAffectedRef.current);
     }
     if (trackDragRef.current) {
       // The line is re-cut from scratch against the cursor each frame: a router

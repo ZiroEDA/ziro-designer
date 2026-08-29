@@ -406,8 +406,13 @@ export interface BoardScene {
    * Footprint origins for the LAYER_ANCHOR crosses, with the layer each
    * footprint sits on: FOOTPRINT::ViewGetLOD shows an anchor only while that
    * layer is visible.
+   *
+   * `owner` is the footprint's board-item id. A cross is screen-space, so it
+   * can never live in the retained buffer a GPU drag translates — which means
+   * an in-place move has to be told to shift it, and needs to know which
+   * crosses belong to what is moving. See {@link ScenePerFrameShift}.
    */
-  anchors: { x: number; y: number; layer: string }[];
+  anchors: { x: number; y: number; layer: string; owner: string }[];
   /**
    * Pad number / net-name text, as data for the per-frame pass: whether a
    * pad's text shows depends on the zoom (PAD::ViewGetLOD, 0.5 mm against the
@@ -1083,6 +1088,24 @@ function addPadLabels(scene: BoardScene, pad: PcbPad, netName: string, layers: s
     scene.padLabels.push({ at: pad.at, minSide: Math.min(px, py), layers, items });
 }
 
+/**
+ * How far the items of an in-flight drag have moved, for the passes that are
+ * drawn per frame from world coordinates rather than from the retained buffer.
+ *
+ * KiCad needs no equivalent because it has no such split: `VIEW::Update`
+ * re-caches the whole item and its anchor goes with it. Our GPU drag
+ * translates the item's recorded vertices in place and never touches the
+ * screen-space passes, so those have to be told. Without it a dragged
+ * footprint left its magenta LAYER_ANCHOR cross — rgb(255, 38, 226) — sitting
+ * at the position it started from until the drop.
+ */
+export interface ScenePerFrameShift {
+  /** Board-item ids currently being dragged. */
+  ids: ReadonlySet<string>;
+  dx: number;
+  dy: number;
+}
+
 export interface SceneFilter {
   /** Appearance>Objects "Footprints Front/Back": hide whole footprints per side. */
   hideFrontFootprints?: boolean;
@@ -1380,7 +1403,7 @@ function compileScene(board: Board, filter: SceneFilter): BoardScene {
     // After the hide checks, not before: FOOTPRINT::ViewGetLOD resolves the
     // anchor against LAYER_FOOTPRINTS_FR/BK, so hiding Footprints Front or
     // Back takes their anchors with them.
-    scene.anchors.push({ x: fp.at.x, y: fp.at.y, layer: fp.layer });
+    scene.anchors.push({ x: fp.at.x, y: fp.at.y, layer: fp.layer, owner: `footprint:${fi}` });
     for (const s of fp.shapes) addShape(scene, s);
     for (const t of fp.texts) {
       if (t.hide) continue;
@@ -2391,6 +2414,7 @@ export function drawAnchors(
   opts: PcbDrawOptions = DEFAULT_DRAW_OPTIONS,
   emphasis: Emphasis = 'none',
   dpr = 1,
+  shift: ScenePerFrameShift | null = null,
 ): void {
   if (scene.anchors.length === 0) return;
   // FOOTPRINT::ViewGetLOD returns MINIMAL_ZOOM_LEVEL_FOR_VISIBILITY for the
@@ -2412,8 +2436,11 @@ export function drawAnchors(
   for (const a of scene.anchors) {
     // "Only show anchors if the layer the footprint is on is visible."
     if (!visible.has(a.layer)) continue;
-    const x = snapPx(a.x * sx + view.tx, pen);
-    const y = snapPx(a.y * view.scale + view.ty, pen);
+    const moving = shift !== null && shift.ids.has(a.owner);
+    const ax = moving ? a.x + shift.dx : a.x;
+    const ay = moving ? a.y + shift.dy : a.y;
+    const x = snapPx(ax * sx + view.tx, pen);
+    const y = snapPx(ay * view.scale + view.ty, pen);
     if (x < -arm || x > widthPx + arm || y < -arm || y > heightPx + arm) continue;
     ctx.moveTo(x - arm, y);
     ctx.lineTo(x + arm, y);
