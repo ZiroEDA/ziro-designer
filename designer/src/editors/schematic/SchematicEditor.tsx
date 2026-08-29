@@ -2982,6 +2982,43 @@ export function SchematicEditor({
    * in library form: the fields come back out of schematic space, and the unit
    * and body style the editor opens on are the placement's.
    */
+  /**
+   * `SCH_ACTIONS::editLibSymbolWithLibEdit`. Both Edit Symbol and Edit Library
+   * Symbol run ONE handler upstream — `SCH_EDITOR_CONTROL::EditWithSymbolEditor`
+   * (sch_editor_control.cpp:2886, both actions bound at :3553) — and open the
+   * same SYMBOL_EDIT_FRAME. They differ only in what they seed it with:
+   *
+   *     editWithLibEdit          LoadSymbolFromSchematic( symbol )
+   *     editLibSymbolWithLibEdit LoadSymbol( symbol->GetLibId(),
+   *                                          symbol->GetUnit(),
+   *                                          symbol->GetBodyStyle() )
+   *
+   * The first opens this placement's own copy, the second the LIBRARY part, so
+   * an edit there reaches every use of it. This one used to call
+   * `onShowSymbolEditor()` with no arguments at all, which opened an empty
+   * editor — the symbol was never seeded.
+   */
+  const editLibrarySymbolInEditor = useCallback(
+    (id: string): void => {
+      const d = docRef.current;
+      if (!d || !onEditSymbolInEditor) return;
+      const si = d.symbols.findIndex((sy, i) => refId('symbol', sy.uuid, i) === id);
+      const sym = si === -1 ? undefined : d.symbols[si];
+      const lib = sym && libById.get(schSymbolLibraryName(sym));
+      if (!sym || !lib) {
+        // `"Symbols with broken library symbol links cannot be edited."`
+        // (sch_editor_control.cpp:2870) — the same guard, on the same footing.
+        setInfoBar('That symbol is not in any loaded library.');
+        return;
+      }
+      // The library part as it stands, NOT libSymbolFromPlacement: that one
+      // folds this instance's field edits in, which is exactly the difference
+      // between the two actions.
+      onEditSymbolInEditor({ symbol: lib, ...editorUnitFor(sym), targetId: id });
+    },
+    [libById, onEditSymbolInEditor],
+  );
+
   const editSymbolInEditor = useCallback(
     (id: string): void => {
       const d = docRef.current;
@@ -8910,6 +8947,11 @@ export function SchematicEditor({
                 messages={changeSymbolsMessages}
                 onApply={runChangeSymbols}
                 onClose={() => setChangeSymbolsMode(null)}
+                /* The browse buttons open SYMBOL_CHOOSER_FRAME, which is handed
+                   `s_SymbolHistoryList` — the same global the Place Symbol
+                   chooser uses (symbol_chooser_frame.cpp:86), never the power
+                   one, since this frame passes no filter. */
+                chooserHistory={sSymbolHistoryList}
               />
             )}
             {globalEditOpen && (
@@ -9435,13 +9477,13 @@ export function SchematicEditor({
           }
           // "Edit Library Symbol...": upstream opens the *library* part rather
           // than this sheet's cached copy, so an edit there reaches every use
-          // of it. Same hand-off as Edit Symbol until the editor can be told
-          // which of the two to open.
+          // of it. `LoadSymbol( GetLibId(), GetUnit(), GetBodyStyle() )`.
           onEditLibrarySymbol={
-            onShowSymbolEditor
+            onEditSymbolInEditor && propsTarget !== null
               ? () => {
+                  const id = propsTarget;
                   setPropsTarget(null);
-                  onShowSymbolEditor();
+                  editLibrarySymbolInEditor(id);
                 }
               : undefined
           }

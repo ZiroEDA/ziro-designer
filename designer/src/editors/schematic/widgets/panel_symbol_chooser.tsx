@@ -68,6 +68,14 @@ export interface PanelSymbolChooserProps {
   onAccept: () => void;
   /** Lazy-load handler: item count changed (updates the dialog title). */
   onItemCountChanged?: (count: number) => void;
+  /**
+   * `PANEL_SYMBOL_CHOOSER::SetPreselect( const LIB_ID& )` (:486), the LIB_ID to
+   * open sitting on. SYMBOL_CHOOSER_FRAME::ShowModal calls it with whatever the
+   * caller's entry already held, so browsing from a filled-in field starts at
+   * that symbol rather than at the top of the tree. Upstream does
+   * `m_adapter->SetPreselectNode( aPreselect, 0 )` — unit 0, the symbol itself.
+   */
+  preselect?: string;
 }
 
 export interface PanelSymbolChooserHandle {
@@ -212,11 +220,28 @@ export const PanelSymbolChooser = forwardRef<PanelSymbolChooserHandle, PanelSymb
       getPlacedLibSymbol,
       onAccept,
       onItemCountChanged,
+      preselect,
     },
     ref,
   ): JSX.Element {
     // aFilter && GetFilterPowerSymbols() forces the footprint panes off.
     const showFp = showFootprints && !powerFilter;
+
+    /* The node the tree opens on. The adapter is given a preselect from TWO
+       places upstream and the tree shows whichever it holds:
+
+         - the constructor, from the history list —
+           `if( !aHistoryList.empty() ) adapter->SetPreselectNode( aHistoryList[0].LibId, … )`
+           (panel_symbol_chooser.cpp:176-177), and SYMBOL_CHOOSER_FRAME::OnOK
+           calls AddSymbolToHistory before dismissing (:183), so browsing once
+           puts that symbol at the head for the next opening;
+         - `SetPreselect` (:486), from the caller's own field.
+
+       The explicit one wins, matching the call order: the constructor runs
+       first and SetPreselect is a later call on the built panel. Passing only
+       the explicit one left the New-library-identifier browser — whose field
+       starts empty — opening on nothing at all. */
+    const effectivePreselect = preselect ?? historyList[0]?.libId;
 
     const [regenerateNonce, setRegenerateNonce] = useState(0);
     const [selectedNode, setSelectedNode] = useState<LibTreeNode | null>(null);
@@ -287,6 +312,11 @@ export const PanelSymbolChooser = forwardRef<PanelSymbolChooserHandle, PanelSymb
       a.finishLibrary(recent, true);
 
       if (historyList.length > 0) a.setPreselectNode(historyList[0]!.libId, historyList[0]!.unit);
+
+      // ...and an explicit preselect wins over the history's, which is the
+      // order upstream gets for free: the constructor sets the history node
+      // (:177) and SetPreselect is a later call on the built panel (:486).
+      if (preselect) a.setPreselectNode(preselect, 0);
 
       const placedGroup = a.addGroup('-- Already Placed --');
       placedGroup.isAlreadyPlacedGroup = true;
@@ -700,6 +730,17 @@ export const PanelSymbolChooser = forwardRef<PanelSymbolChooserHandle, PanelSymb
           }
           hasExternalDetails={!showFp}
           openLibs={settings.eeschema.lib_tree.open_libs}
+          /* The other half of `PANEL_SYMBOL_CHOOSER::SetPreselect` (:486):
+               m_adapter->SetPreselectNode( aPreselect, 0 );
+               if( m_tree && aPreselect.IsValid() ) m_tree->SelectLibId( … );
+             The adapter call above only decides what to SHOW when a search
+             finds nothing; it never selects a row. Without this the chooser
+             opened at the top of the tree with nothing selected and an empty
+             preview, where KiCad opens on the symbol itself.
+             `selectLibId` re-runs on regenerateNonce too, which this needs:
+             the libraries load lazily, so the row usually does not exist yet
+             at first mount and only appears once the tree regenerates. */
+          {...(effectivePreselect ? { selectLibId: effectivePreselect } : {})}
         />
       </div>
     );

@@ -158,6 +158,49 @@ describe('update from library', () => {
   });
 });
 
+/**
+ * The report line's wording, which is a whole sentence upstream and was three
+ * colon-separated fragments here.
+ *
+ * `getSymbolReferences` (dialog_change_symbols.cpp:838-905) builds it and the
+ * success site appends ": OK" (:830-831):
+ *
+ *     UPDATE  "Update symbol %s from '%s' to '%s'"    one instance
+ *             "Update symbols %s from '%s' to '%s'"   more than one
+ *     CHANGE  "Change symbol[s] %s from '%s' to '%s'"
+ *
+ * with %s = the space-joined instance references, the OLD lib link name and the
+ * new one. Ours said `J1: Connector:Screw_Terminal_01x02: OK`, which matched
+ * nothing upstream — Akshay put the two dialogs side by side.
+ *
+ * Nothing pinned this text before, which is why it could be invented and stay
+ * invented.
+ */
+describe('the report line reads the way KiCad writes it', () => {
+  const actions = (r: { messages: readonly { text: string; severity: string }[] }) =>
+    r.messages.filter((m) => m.severity === 'action').map((m) => m.text);
+
+  it('Update names the verb, the reference and both library ids', () => {
+    const r = changeSymbols(doc(), libs(), opts({ mode: 'update' }));
+    // In Update mode the id does not change, so the sentence names it twice —
+    // it reads oddly and it is exactly what the real dialog prints.
+    expect(actions(r)[0]).toBe("Update symbol R7 from 'Device:R' to 'Device:R': OK");
+  });
+
+  it('Change names the new id as the destination', () => {
+    const r = changeSymbols(doc(), libs(), opts({ mode: 'change', newLibId: 'Device:R_Small' }));
+    expect(actions(r)[0]).toBe("Change symbol R7 from 'Device:R' to 'Device:R_Small': OK");
+  });
+
+  it('never the old fragment form', () => {
+    const r = changeSymbols(doc(), libs(), opts({ mode: 'update' }));
+    for (const text of actions(r)) {
+      expect(text).not.toMatch(/^R\d+: /);
+      expect(text).toMatch(/^(Update|Change) symbols? /);
+    }
+  });
+});
+
 describe('the field switches', () => {
   it('takes text sizes only when field effects are reset', () => {
     const off = changeSymbols(

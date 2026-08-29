@@ -26,7 +26,7 @@
  * boxes.
  */
 import { describe, expect, it, afterEach } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { DialogChangeSymbols } from '@ziroeda/designer/src/editors/schematic/dialogs/dialog_change_symbols.js';
 
 afterEach(cleanup);
@@ -40,10 +40,14 @@ const SUBJECT = {
 
 type Message = { text: string; severity: 'action' | 'error' };
 
-function open(subject?: typeof SUBJECT, messages: readonly Message[] = []) {
+function open(
+  subject?: typeof SUBJECT,
+  messages: readonly Message[] = [],
+  mode: 'update' | 'change' = 'update',
+) {
   render(
     <DialogChangeSymbols
-      mode="update"
+      mode={mode}
       // `updateFieldsList()` is a function of the match, because upstream
       // rebuilds the list from the symbols the match selects.
       fieldNamesFor={() => ['Reference', 'Value', 'Footprint', 'Datasheet', 'Description']}
@@ -215,6 +219,165 @@ describe('the library-identifier browse button is a STD_BITMAP_BUTTON', () => {
     open(SUBJECT);
     // The reference and value rows have no browse button; only m_specifiedId.
     expect(screen.getAllByRole('button', { name: 'Browse for symbol' })).toHaveLength(1);
+  });
+
+  /**
+   * It was rendered `disabled` while the chooser was unwired. It is not a new
+   * dialog: `launchMatchIdSymbolBrowser` (:245) does
+   * `Kiway().Player( FRAME_SYMBOL_CHOOSER, true, this )`, and
+   * SYMBOL_CHOOSER_FRAME is a shell around the SAME PANEL_SYMBOL_CHOOSER that
+   * DIALOG_SYMBOL_CHOOSER (Place Symbol) wraps — one panel, two hosts.
+   */
+  it('is enabled, and opens the chooser', () => {
+    open(SUBJECT);
+    const btn = screen.getByRole('button', { name: 'Browse for symbol' });
+    expect((btn as HTMLButtonElement).disabled).toBe(false);
+
+    expect(document.querySelector('.ze-symbol-chooser')).toBeNull();
+    fireEvent.click(btn);
+    expect(document.querySelector('.ze-symbol-chooser')).not.toBeNull();
+  });
+
+  it('the chooser it opens is the FRAME, not the Place Symbol dialog', () => {
+    open(SUBJECT);
+    fireEvent.click(screen.getByRole('button', { name: 'Browse for symbol' }));
+
+    // `SetTitle( GetTitle() + " (%d items loaded)" )` on a frame titled
+    // "Symbol Chooser" (:72, :117) — DIALOG_SYMBOL_CHOOSER's is "Choose Symbol".
+    const header = document.querySelector('.ze-symbol-chooser .ze-modal-header');
+    expect(header?.textContent).toContain('Symbol Chooser');
+    expect(header?.textContent).not.toContain('Choose Symbol');
+
+    // The frame's bottom panel is a bare wxStdDialogButtonSizer: the two
+    // placement checkboxes belong to the dialog and must not appear here.
+    expect(screen.queryByText('Place repeated copies')).toBeNull();
+    expect(screen.queryByText('Place all units')).toBeNull();
+  });
+
+  it('the Change mode’s new-id row has its own button, m_newIdBrowserButton', () => {
+    // _base.cpp:97 builds a second STD_BITMAP_BUTTON beside m_newId. That row
+    // had no button at all, so only one of upstream's two was reachable.
+    open(SUBJECT, [], 'change');
+    expect(screen.getByRole('button', { name: 'Browse for new symbol' })).not.toBeNull();
+  });
+
+  /**
+   * Both backdrops are `.ze-modal-backdrop`, which is `position: fixed;
+   * z-index: 200` — the same stacking level, so DOCUMENT ORDER is the only
+   * thing deciding which one paints on top. The chooser was rendered before
+   * the dialog and was therefore painted over by the very dialog that opened
+   * it: mounted, findable in the DOM, and invisible on screen. Every
+   * assertion above still passed, because none of them looks at order.
+   */
+  it('paints above the dialog that opened it, which only document order decides', () => {
+    open(SUBJECT);
+    fireEvent.click(screen.getByRole('button', { name: 'Browse for symbol' }));
+
+    const backdrops = Array.from(document.querySelectorAll('.ze-modal-backdrop'));
+    const dialogAt = backdrops.findIndex((b) => b.querySelector('.ze-chsym'));
+    const chooserAt = backdrops.findIndex((b) => b.querySelector('.ze-symbol-chooser'));
+
+    expect(dialogAt).toBeGreaterThanOrEqual(0);
+    expect(chooserAt).toBeGreaterThanOrEqual(0);
+    // Later sibling wins at equal z-index, so the chooser must come second.
+    expect(chooserAt).toBeGreaterThan(dialogAt);
+  });
+
+  /**
+   * The panel's signature is
+   *   `(…, bool aAllowFieldEdits, bool aShowFootprints, bool& aCancelled, …)`
+   * and SYMBOL_CHOOSER_FRAME hardcodes `false, false` (symbol_chooser_frame.cpp
+   * :87). DIALOG_SYMBOL_CHOOSER forwards both from ITS caller, which is where
+   * the "Show footprint previews in Symbol Chooser" preference gets in — the
+   * frame consults no preference at all. The header: "if false, all footprint
+   * preview and selection features are disabled. This forces aAllowFieldEdits
+   * false too."
+   *
+   * This shipped reading the preference, so it showed the footprint preview and
+   * the footprint selector where the real dialog shows one symbol pane and
+   * nothing else. Akshay caught it against a live KiCad.
+   */
+  it('shows no footprint preview and no footprint selector', () => {
+    open(SUBJECT);
+    fireEvent.click(screen.getByRole('button', { name: 'Browse for symbol' }));
+
+    const chooser = document.querySelector('.ze-symbol-chooser') as HTMLElement;
+    expect(chooser.querySelector('.ze-chooser-fppreview')).toBeNull();
+    expect(within(chooser).queryByLabelText('Footprint')).toBeNull();
+  });
+
+  it('closing the chooser leaves the dialog that opened it standing', () => {
+    // The chooser is a SIBLING of this dialog's backdrop. Nested, a click on
+    // the chooser's backdrop would bubble into `onMouseDown={onClose}` and
+    // dismiss Change Symbols along with it.
+    open(SUBJECT);
+    fireEvent.click(screen.getByRole('button', { name: 'Browse for symbol' }));
+    const chooserBackdrop = document.querySelector('.ze-symbol-chooser')
+      ?.parentElement as HTMLElement;
+    fireEvent.mouseDown(chooserBackdrop);
+    expect(document.querySelector('.ze-symbol-chooser')).toBeNull();
+    expect(document.querySelector('.ze-chsym')).not.toBeNull();
+  });
+});
+
+/**
+ * The CHANGE-mode constructor branch (:55-78) is a block of SetLabel calls and
+ * one visibility change, and the visibility change was missed:
+ *
+ *     m_matchAll->SetLabel( _( "Change all symbols in schematic" ) );
+ *     SetTitle( _( "Change Symbols" ) );
+ *     m_matchSizer->FindItem( m_matchAll )->Show( false );
+ *
+ * It labels the row and then hides it — changing every symbol in the schematic
+ * to one new library id is not an operation the dialog offers. Only Update
+ * sweeps the whole schematic. Akshay put the two dialogs side by side.
+ */
+describe('Change mode hides the all-symbols row that Update offers', () => {
+  const rowLabels = (): string[] =>
+    [...document.querySelectorAll('.ze-chsym-match label.ze-chsym-mrad')].map(
+      (l) => l.textContent?.trim() ?? '',
+    );
+
+  it('Update offers it', () => {
+    open(SUBJECT);
+    expect(rowLabels()).toContain('Update all symbols in schematic');
+  });
+
+  it('Change does not', () => {
+    open(SUBJECT, [], 'change');
+    expect(rowLabels().some((l) => l.includes('all symbols in schematic'))).toBe(false);
+  });
+
+  it('and the rows it does keep are the other four, relabelled', () => {
+    open(SUBJECT, [], 'change');
+    expect(rowLabels()).toStrictEqual([
+      'Change selected symbol(s)',
+      'Change symbols matching reference designator:',
+      'Change symbols matching value:',
+      'Change symbols matching library identifier:',
+    ]);
+  });
+});
+
+/**
+ * `m_newIdSizer` is a plain horizontal wxBoxSizer — wxStaticText, wxTextCtrl,
+ * STD_BITMAP_BUTTON (_base.cpp:88-98). It carried `.row`, which opts into
+ * `.ze-label-dialog-body .row > span:first-child`: a 56 px label COLUMN at
+ * 13px. "New library identifier:" wrapped onto three lines and rendered below
+ * the dialog's font, both of which Akshay saw.
+ */
+describe('the New library identifier row is not a label-column row', () => {
+  it('states no .row, so it takes neither the 56px column nor the 13px', () => {
+    open(SUBJECT, [], 'change');
+    const row = document.querySelector('.ze-chsym-newid') as HTMLElement;
+    expect(row).not.toBeNull();
+    expect(row.classList.contains('row')).toBe(false);
+  });
+
+  it('and its label is one whole string, not three wrapped words', () => {
+    open(SUBJECT, [], 'change');
+    const span = document.querySelector('.ze-chsym-newid > span');
+    expect(span?.textContent).toBe('New library identifier:');
   });
 });
 

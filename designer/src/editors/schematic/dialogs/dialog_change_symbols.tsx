@@ -47,6 +47,8 @@ import { RPT_SEVERITY_ACTION, RPT_SEVERITY_ERROR, type ReportLine } from '@ziroe
 import { useModalEscape } from '../../../ui/useModalEscape.js';
 import { HtmlReportPanel, RPT_SEVERITY_ALL } from '../../../widgets/wx_html_report_panel.js';
 import { Icon } from '../../../ui/icons.js';
+import { SymbolChooserFrame } from './symbol_chooser_frame.js';
+import type { PickedSymbol } from '../widgets/panel_symbol_chooser.js';
 
 /**
  * The symbol the dialog was opened ON, when it was opened from one — Symbol
@@ -86,6 +88,13 @@ interface Props {
   messages: readonly ChangeSymbolsMessage[];
   onApply: (o: ChangeSymbolsOptions) => void;
   onClose: () => void;
+  /**
+   * `s_SymbolHistoryList`, for the chooser the two browse buttons open.
+   * SYMBOL_CHOOSER_FRAME passes the same global list the Place Symbol chooser
+   * uses (symbol_chooser_frame.cpp:86), so a symbol placed a moment ago is
+   * under "Recently Used" here too.
+   */
+  chooserHistory?: readonly PickedSymbol[];
 }
 
 /** The five match rows, in `_base.cpp` order. `needs` names the entry beside
@@ -118,6 +127,7 @@ export function DialogChangeSymbols({
   messages,
   onApply,
   onClose,
+  chooserHistory = [],
 }: Props): JSX.Element {
   // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
   // ui/modal_escape.ts.
@@ -163,6 +173,13 @@ export function DialogChangeSymbols({
     libId: subject?.libId ?? '',
   });
   const [newLibId, setNewLibId] = useState('');
+  /**
+   * Which browse button is up, or null. Upstream has two — `m_matchIdBrowserButton`
+   * beside the match's library identifier and `m_newIdBrowserButton` beside the
+   * new one — and `launchMatchIdSymbolBrowser` / `launchNewIdSymbolBrowser`
+   * (:245, :262) differ only in the field they seed from and write back to.
+   */
+  const [browsing, setBrowsing] = useState<'match' | 'new' | null>(null);
 
   const set = <K extends keyof ChangeSymbolsOptions>(k: K, v: ChangeSymbolsOptions[K]): void =>
     setOpts((o) => ({ ...o, [k]: v }));
@@ -246,20 +263,33 @@ export function DialogChangeSymbols({
 
   const title = mode === 'change' ? 'Change Symbols' : 'Update Symbols from Library';
 
+  /* `launchMatchIdSymbolBrowser` / `launchNewIdSymbolBrowser` (:245-259, :262):
+     open SYMBOL_CHOOSER_FRAME seeded with whatever the field holds, and on a
+     valid pick write `UnescapeString( newName )` back and re-run
+     updateFieldsList(). The re-run is free here — `fieldNames` is derived on
+     render, so writing the field re-derives it. */
+  const browserSeed = browsing === 'new' ? newLibId : matchText.libId;
+  const acceptBrowsed = (libId: string): void => {
+    if (browsing === 'new') setNewLibId(libId);
+    else setMatchText((t) => ({ ...t, libId }));
+    setBrowsing(null);
+  };
+
   return (
-    <div className="ze-modal-backdrop" onMouseDown={onClose}>
-      <div className="ze-modal ze-chsym" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="ze-modal-header">
-          {title}
-          <span className="x" title="Close" onClick={onClose}>
-            ✕
-          </span>
-        </div>
-        <div className="ze-label-dialog-body ze-chsym-body">
-          {/* matchSizerMargins. No group box: upstream puts these five rows
+    <>
+      <div className="ze-modal-backdrop" onMouseDown={onClose}>
+        <div className="ze-modal ze-chsym" onMouseDown={(e) => e.stopPropagation()}>
+          <div className="ze-modal-header">
+            {title}
+            <span className="x" title="Close" onClick={onClose}>
+              ✕
+            </span>
+          </div>
+          <div className="ze-label-dialog-body ze-chsym-body">
+            {/* matchSizerMargins. No group box: upstream puts these five rows
               straight into the main sizer, each radio and its own entry on one
               line. */}
-          {/* `m_matchSizer` is a `wxGridBagSizer( 3, 0 )` — TWO columns, five
+            {/* `m_matchSizer` is a `wxGridBagSizer( 3, 0 )` — TWO columns, five
               rows, `AddGrowableCol( 1 )`:
 
                 (0,0) m_matchAll         span 1x2   — across both columns
@@ -272,182 +302,232 @@ export function DialogChangeSymbols({
               so the radios share one column and every entry starts at the same
               x. Five independent flex rows cannot do that — each was as wide as
               its own label. */}
-          <div className="ze-chsym-match">
-            {MATCH_ROWS.map((m) => {
-              // `if( !m_symbol ) ... m_matchBySelection ... Show( false )`.
-              if (m.mode === 'selected' && !subject) return null;
-              const label = mode === 'change' ? m.label.replace('Update', 'Change') : m.label;
-              return (
-                <Fragment key={m.mode}>
-                  <label className={m.needs ? 'ze-chsym-mrad' : 'ze-chsym-mrad ze-chsym-mspan'}>
-                    <input
-                      type="radio"
-                      name="ze-change-symbols-scope"
-                      checked={opts.match.mode === m.mode}
-                      disabled={m.mode === 'selected' && !hasSelection}
-                      onChange={() => set('match', { mode: m.mode })}
-                    />
-                    <span>{label}</span>
-                  </label>
-                  {m.needs && (
-                    <div className="ze-chsym-mentry">
+            <div className="ze-chsym-match">
+              {MATCH_ROWS.map((m) => {
+                // `if( !m_symbol ) ... m_matchBySelection ... Show( false )`.
+                if (m.mode === 'selected' && !subject) return null;
+                /* `m_matchSizer->FindItem( m_matchAll )->Show( false )` — the
+                   CHANGE branch of the constructor (:58) hides "all symbols"
+                   outright. Changing every symbol in the schematic to one new
+                   library id is not an operation the dialog offers; only
+                   Update does. It sets the label on the line above first,
+                   which is why the string exists at all and why this reads as
+                   an oversight in the source rather than in the port.
+                   `defaultChangeSymbolsOptions` already never starts Change
+                   mode on 'all', so nothing can select the hidden row. */
+                if (m.mode === 'all' && mode === 'change') return null;
+                const label = mode === 'change' ? m.label.replace('Update', 'Change') : m.label;
+                return (
+                  <Fragment key={m.mode}>
+                    <label className={m.needs ? 'ze-chsym-mrad' : 'ze-chsym-mrad ze-chsym-mspan'}>
                       <input
-                        className="ze-search"
-                        aria-label={label}
-                        value={matchText[m.needs]}
-                        onChange={(e) =>
-                          setMatchText((t) => ({ ...t, [m.needs as string]: e.target.value }))
-                        }
-                        onKeyDown={(e) => e.stopPropagation()}
+                        type="radio"
+                        name="ze-change-symbols-scope"
+                        checked={opts.match.mode === m.mode}
+                        disabled={m.mode === 'selected' && !hasSelection}
+                        onChange={() => set('match', { mode: m.mode })}
                       />
-                      {/* `m_matchIdBrowserButton`, beside the library-id entry
+                      <span>{label}</span>
+                    </label>
+                    {m.needs && (
+                      <div className="ze-chsym-mentry">
+                        <input
+                          className="ze-search"
+                          aria-label={label}
+                          value={matchText[m.needs]}
+                          onChange={(e) =>
+                            setMatchText((t) => ({ ...t, [m.needs as string]: e.target.value }))
+                          }
+                          onKeyDown={(e) => e.stopPropagation()}
+                        />
+                        {/* `m_matchIdBrowserButton`, beside the library-id entry
                           only (bSizer10). It opens the symbol chooser, which
                           this app has — wiring it is a separate change; it is
                           here in its position and greyed rather than absent. */}
-                      {m.needs === 'libId' && (
-                        <button
-                          type="button"
-                          className="ze-gridbtn"
-                          disabled
-                          title="Browse for symbol"
-                          aria-label="Browse for symbol"
-                        >
-                          <Icon name="smallLibrary" size={14} />
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </Fragment>
-              );
-            })}
-          </div>
+                        {m.needs === 'libId' && (
+                          <button
+                            type="button"
+                            className="ze-gridbtn"
+                            title="Browse for symbol"
+                            aria-label="Browse for symbol"
+                            onClick={() => setBrowsing('match')}
+                          >
+                            <Icon name="smallLibrary" size={14} />
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </Fragment>
+                );
+              })}
+            </div>
 
-          {/* m_staticline1 */}
-          <hr className="ze-chsym-rule" />
+            {/* m_staticline1 */}
+            <hr className="ze-chsym-rule" />
 
-          {mode === 'change' && (
-            <label className="row ze-chsym-newid">
-              <span>New library identifier:</span>
-              <input
-                className="ze-search"
-                value={newLibId}
-                onChange={(e) => setNewLibId(e.target.value)}
-                onKeyDown={(e) => e.stopPropagation()}
-              />
-            </label>
-          )}
+            {/* NOT `.row`: that opts into
+                `.ze-label-dialog-body .row > span:first-child`, a 56 px label
+                COLUMN at 13px. It wrapped "New library identifier:" onto three
+                lines and shrank it below the dialog's font. `m_newIdSizer` is a
+                plain horizontal wxBoxSizer holding a wxStaticText, a wxTextCtrl
+                and a STD_BITMAP_BUTTON (_base.cpp:88-98) — no label column, so
+                it states nothing and takes the dialog's own font. */}
+            {mode === 'change' && (
+              <label className="ze-chsym-newid">
+                <span>New library identifier:</span>
+                <input
+                  className="ze-search"
+                  value={newLibId}
+                  onChange={(e) => setNewLibId(e.target.value)}
+                  onKeyDown={(e) => e.stopPropagation()}
+                />
+                {/* `m_newIdBrowserButton` (_base.cpp:97), the twin of the match
+                  row's. This row had no button at all. */}
+                <button
+                  type="button"
+                  className="ze-gridbtn"
+                  title="Browse for new symbol"
+                  aria-label="Browse for new symbol"
+                  onClick={() => setBrowsing('new')}
+                >
+                  <Icon name="smallLibrary" size={14} />
+                </button>
+              </label>
+            )}
 
-          {/* bSizerUpdate: the fields box at proportion 2, the options box at 4. */}
-          <div className="ze-chsym-update">
-            <fieldset className="ze-props-group ze-chsym-fields">
-              <legend>{mode === 'change' ? 'Update Fields' : 'Update/Reset Fields'}</legend>
-              {/* m_fieldsBox is a wxCheckListBox: a bordered, scrolling list
+            {/* bSizerUpdate: the fields box at proportion 2, the options box at 4. */}
+            <div className="ze-chsym-update">
+              <fieldset className="ze-props-group ze-chsym-fields">
+                <legend>{mode === 'change' ? 'Update Fields' : 'Update/Reset Fields'}</legend>
+                {/* m_fieldsBox is a wxCheckListBox: a bordered, scrolling list
                   with a checkbox per row, which is why it reads as a box and
                   not as a run of loose checkboxes. */}
-              <div className="ze-chsym-fieldbox">
-                {fieldNames.map((name) => (
-                  <label className="row" key={name}>
-                    <input
-                      type="checkbox"
-                      checked={opts.updateFields.has(name)}
-                      onChange={() => toggleField(name)}
-                    />
-                    <span>{name}</span>
-                  </label>
-                ))}
-              </div>
-              <div className="ze-chsym-selbtns">
-                <button
-                  className="ze-btn"
-                  onClick={() => set('updateFields', new Set(fieldNames))}
-                  type="button"
-                >
-                  Select All
-                </button>
-                <button
-                  className="ze-btn"
-                  onClick={() => set('updateFields', new Set())}
-                  type="button"
-                >
-                  Select None
-                </button>
-              </div>
-            </fieldset>
+                <div className="ze-chsym-fieldbox">
+                  {fieldNames.map((name) => (
+                    <label className="row" key={name}>
+                      <input
+                        type="checkbox"
+                        checked={opts.updateFields.has(name)}
+                        onChange={() => toggleField(name)}
+                      />
+                      <span>{name}</span>
+                    </label>
+                  ))}
+                </div>
+                <div className="ze-chsym-selbtns">
+                  <button
+                    className="ze-btn"
+                    onClick={() => set('updateFields', new Set(fieldNames))}
+                    type="button"
+                  >
+                    Select All
+                  </button>
+                  <button
+                    className="ze-btn"
+                    onClick={() => set('updateFields', new Set())}
+                    type="button"
+                  >
+                    Select None
+                  </button>
+                </div>
+              </fieldset>
 
-            <fieldset className="ze-props-group ze-chsym-options">
-              <legend>Update Options</legend>
-              {/* m_updateOptionsSizer is wxHORIZONTAL — bSizer8 then bSizer9. */}
-              <div className="ze-chsym-optcol">
-                {check(`Remove fields if not in ${part}`, 'removeExtraFields', {
-                  title: 'Removes fields that do not occur in the original library symbols',
-                })}
-                {check(`Reset fields if empty in ${part}`, 'resetEmptyFields')}
-                {/* `bSizer8->Add( 0, 10, 1, wxEXPAND, 5 )` — a spacer with
+              <fieldset className="ze-props-group ze-chsym-options">
+                <legend>Update Options</legend>
+                {/* m_updateOptionsSizer is wxHORIZONTAL — bSizer8 then bSizer9. */}
+                <div className="ze-chsym-optcol">
+                  {check(`Remove fields if not in ${part}`, 'removeExtraFields', {
+                    title: 'Removes fields that do not occur in the original library symbols',
+                  })}
+                  {check(`Reset fields if empty in ${part}`, 'resetEmptyFields')}
+                  {/* `bSizer8->Add( 0, 10, 1, wxEXPAND, 5 )` — a spacer with
                     PROPORTION 1, so it takes the column's slack and pushes the
                     lower group down. */}
-                <div className="ze-chsym-optgap" />
-                {check(`${upd} field text`, 'resetFieldText')}
-                {check(`${upd} field visibilities`, 'resetFieldVisibilities')}
-                {check(`${upd} field text sizes and styles`, 'resetFieldEffects')}
-                {check(`${upd} field positions`, 'resetFieldPositions')}
-                <button className="ze-btn" type="button" onClick={() => setAllOptions(true)}>
-                  Check All Update Options
-                </button>
-              </div>
-              <div className="ze-chsym-optcol">
-                {fixedOn('Update symbol shape and pins')}
-                {fixedOn('Update keywords and footprint filters')}
-                <div className="ze-chsym-optgap" />
-                {check(`${upd} pin name/number visibilities`, 'resetPinTextVisibility', {
-                  title: 'Not applied yet',
-                })}
-                {check('Reset alternate pin functions', 'resetAlternatePin')}
-                {/* bSizer9 has TWO proportion-1 spacers, not one (:61, :64). */}
-                <div className="ze-chsym-optgap" />
-                {check(`${upd} symbol attributes`, 'resetAttributes')}
-                {check('Reset custom power symbols', 'resetCustomPower')}
-                <button className="ze-btn" type="button" onClick={() => setAllOptions(false)}>
-                  Uncheck All Update Options
-                </button>
-              </div>
-            </fieldset>
-          </div>
+                  <div className="ze-chsym-optgap" />
+                  {check(`${upd} field text`, 'resetFieldText')}
+                  {check(`${upd} field visibilities`, 'resetFieldVisibilities')}
+                  {check(`${upd} field text sizes and styles`, 'resetFieldEffects')}
+                  {check(`${upd} field positions`, 'resetFieldPositions')}
+                  <button className="ze-btn" type="button" onClick={() => setAllOptions(true)}>
+                    Check All Update Options
+                  </button>
+                </div>
+                <div className="ze-chsym-optcol">
+                  {fixedOn('Update symbol shape and pins')}
+                  {fixedOn('Update keywords and footprint filters')}
+                  <div className="ze-chsym-optgap" />
+                  {check(`${upd} pin name/number visibilities`, 'resetPinTextVisibility', {
+                    title: 'Not applied yet',
+                  })}
+                  {check('Reset alternate pin functions', 'resetAlternatePin')}
+                  {/* bSizer9 has TWO proportion-1 spacers, not one (:61, :64). */}
+                  <div className="ze-chsym-optgap" />
+                  {check(`${upd} symbol attributes`, 'resetAttributes')}
+                  {check('Reset custom power symbols', 'resetCustomPower')}
+                  <button className="ze-btn" type="button" onClick={() => setAllOptions(false)}>
+                    Uncheck All Update Options
+                  </button>
+                </div>
+              </fieldset>
+            </div>
 
-          {/* m_messagePanel is a WX_HTML_REPORT_PANEL, the same widget ERC,
+            {/* m_messagePanel is a WX_HTML_REPORT_PANEL, the same widget ERC,
               Annotate, Plot, Export Netlist and Update PCB from Schematic
               embed — so it brings the "Show:" severity strip, the two
               NUMBER_BADGEs and Save... with it. This was a bare list of divs
               with no filters at all. It is not conditional upstream: an empty
               report panel is what the dialog opens with. */}
-          <div className="ze-chsym-msgs">
-            <HtmlReportPanel
-              label="Output Messages"
-              lines={reportLines}
-              fileName="report.txt"
-              visibleSeverities={severities}
-              onVisibleSeveritiesChange={setSeverities}
-              // The 200 px minimum upstream states is on the PANEL
-              // (`SetMinSize( wxSize( -1, 200 ) )`, :206), not on the message
-              // view: the view is whatever is left once the Show: strip has
-              // taken its 44. `.ze-chsym-msgs` carries it, so the view asks
-              // for nothing of its own and simply grows into what is left.
-              minHeight={0}
-            />
+            <div className="ze-chsym-msgs">
+              <HtmlReportPanel
+                label="Output Messages"
+                lines={reportLines}
+                fileName="report.txt"
+                visibleSeverities={severities}
+                onVisibleSeveritiesChange={setSeverities}
+                // The 200 px minimum upstream states is on the PANEL
+                // (`SetMinSize( wxSize( -1, 200 ) )`, :206), not on the message
+                // view: the view is whatever is left once the Show: strip has
+                // taken its 44. `.ze-chsym-msgs` carries it, so the view asks
+                // for nothing of its own and simply grows into what is left.
+                minHeight={0}
+              />
+            </div>
+          </div>
+          <div className="ze-modal-footer">
+            <button className="ze-btn" onClick={onClose}>
+              Close
+            </button>
+            <button
+              className="ze-btn primary"
+              onClick={apply}
+              disabled={mode === 'change' && newLibId.trim() === ''}
+            >
+              {mode === 'change' ? 'Change' : 'Update'}
+            </button>
           </div>
         </div>
-        <div className="ze-modal-footer">
-          <button className="ze-btn" onClick={onClose}>
-            Close
-          </button>
-          <button
-            className="ze-btn primary"
-            onClick={apply}
-            disabled={mode === 'change' && newLibId.trim() === ''}
-          >
-            {mode === 'change' ? 'Change' : 'Update'}
-          </button>
-        </div>
       </div>
-    </div>
+
+      {/* A SIBLING of this dialog's backdrop, and AFTER it: the chooser
+          brings its own backdrop, and a click on that one must not also reach
+          this dialog's `onMouseDown={onClose}` and close the thing that opened
+          it. Escape is already safe — modal_escape.ts is a stack and the
+          chooser mounts on top. Upstream gets both for free from a modal
+          KIWAY_PLAYER.
+
+          AFTER, because both backdrops are `position: fixed; z-index: 200` and
+          nothing separates them but document order. Rendered first, the
+          chooser was painted over by the very dialog that opened it: it WAS
+          mounted, and invisible. Akshay clicked the button and nothing
+          appeared. */}
+      {browsing !== null && (
+        <SymbolChooserFrame
+          preselect={browserSeed}
+          historyList={chooserHistory}
+          onOk={acceptBrowsed}
+          onCancel={() => setBrowsing(null)}
+        />
+      )}
+    </>
   );
 }

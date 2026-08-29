@@ -24,7 +24,7 @@
  * Footprint set should not wipe the footprint you assigned.
  */
 
-import { wildCompareString } from '@ziroeda/common/src/string_utils.js';
+import { unescapeString, wildCompareString } from '@ziroeda/common/src/string_utils.js';
 import { Reporter } from '@ziroeda/common/src/reporter.js';
 import type { LibPin, LibSymbol, Schematic, SchField, SchSymbol } from '../types.js';
 import { flattenLibSymbol } from '../lib_symbol.js';
@@ -72,6 +72,31 @@ export interface ChangeSymbolsOptions {
   resetPinMapOverrides: boolean;
   /** Let a power symbol's Value be overwritten from the library. */
   resetCustomPower: boolean;
+}
+
+/**
+ * `DIALOG_CHANGE_SYMBOLS::getSymbolReferences`' first half — the verb, the
+ * plurality and the reference list, i.e. everything before " from '…'".
+ *
+ * `references` is built from the symbol's INSTANCES, space-joined:
+ *
+ *     for( const SCH_SYMBOL_INSTANCE& instance : aSymbol.GetInstances() )
+ *         references += ( references.IsEmpty() ? "" : " " ) + instance.m_Reference;
+ *
+ * and the plural is chosen on `aSymbol.GetInstances().size()`, not on how many
+ * references survived the current-project filter — a subtlety worth keeping,
+ * since a symbol shared with another project can report one reference in the
+ * plural sentence. A symbol with no instance records at all falls back to its
+ * Reference field, which is what the caller already resolved.
+ */
+function symbolReportName(sym: SchSymbol, ref: string, mode: ChangeSymbolsMode): string {
+  const instances = sym.instances ?? [];
+  const references = instances.length > 0 ? instances.map((i) => i.reference).join(' ') : ref;
+  const verb = mode === 'change' ? 'Change' : 'Update';
+  // size() == 1 is the singular; zero instances is the fallback above, and a
+  // lone symbol is the overwhelmingly common case, so it reads as singular too.
+  const plural = instances.length > 1 ? 'symbols' : 'symbol';
+  return `${verb} ${plural} ${references}`;
 }
 
 /** The dialog's default option set for each mode (TransferDataToWindow). */
@@ -372,10 +397,21 @@ export function changeSymbols(
     changed = true;
     processed++;
     messages.push({
-      text:
-        opts.mode === 'change'
-          ? `${ref}: ${sym.libId} -> ${targetId}: OK`
-          : `${ref}: ${sym.libId}: OK`,
+      // `getSymbolReferences` (dialog_change_symbols.cpp:838-905) then
+      // `msg += wxS( ": OK" )` at the success site (:830-831). The whole
+      // sentence is upstream's, including the singular/plural split:
+      //
+      //   UPDATE  "Update symbol %s from '%s' to '%s'"   (one instance)
+      //           "Update symbols %s from '%s' to '%s'"  (more than one)
+      //   CHANGE  "Change symbol[s] %s from '%s' to '%s'"
+      //
+      // with %s = the space-joined instance references, the OLD lib link name
+      // and the new one. In Update mode the two ids are the same, which is why
+      // the real dialog says "from 'Connector:Screw_Terminal_01x02' to
+      // 'Connector:Screw_Terminal_01x02'" — it reads oddly and it is correct.
+      //
+      // Ours said `J1: Connector:Screw_Terminal_01x02: OK`, which was invented.
+      text: `${symbolReportName(sym, ref, opts.mode)} from '${unescapeString(sym.libId)}' to '${unescapeString(targetId)}': OK`,
       severity: 'action',
     });
     return next;

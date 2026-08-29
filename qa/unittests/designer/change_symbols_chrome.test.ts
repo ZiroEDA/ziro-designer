@@ -263,21 +263,38 @@ describe('the 2:4 proportion is a grid track, because flexbox cannot express it'
  * view, 12px on the Show: strip and 11px on the badges, against a dialog of
  * 14.67. Only two of those have a citation, and both are a POINT size:
  *
- *     m_htmlView->SetFont( KIUI::GetInfoFont( m_htmlView ) )  wx_html_report_panel.cpp:47
- *     KIUI::GetInfoFont = getGUIFont( win, -1 )               ui_common.cpp:156
  *     NUMBER_BADGE::m_textSize( 10 )                          number_badge.cpp:33
  *
- * so the view and the badge are --ui-font-size-info and everything else
- * inherits.
+ * so the badge is --ui-font-size-info and EVERYTHING else inherits, the
+ * message view included.
+ *
+ * The view was the second exception here, on the strength of
+ *
+ *     m_htmlView->SetFont( KIUI::GetInfoFont( m_htmlView ) )  wx_html_report_panel.cpp:47
+ *     KIUI::GetInfoFont = getGUIFont( win, -1 )               ui_common.cpp:156
+ *
+ * and that reading is wrong. SetFont sets the WINDOW's font; a wxHtmlWindow
+ * lays its content out through the parser's standard font sizes, which this
+ * panel never sets — it calls no SetStandardFonts — and generateHtml emits
+ * every line at `<font size=3>`, the parser's "normal". The rendered size is
+ * the default GUI font.
+ *
+ * [px] Akshay's capture of the real dialog inks a 15 px band on that line;
+ * ours inked 13 at 10pt. Ubuntu Sans 11pt is 14.67 px and its
+ * ascender-to-descender lands at 15. The build does not render what the C++
+ * appeared to promise, so the measurement wins.
  */
-describe('the report panel has one font size, and names its two exceptions', () => {
+describe('the report panel has one font size, and names its one exception', () => {
   it('the Show: strip and the box label state no size of their own', () => {
     expect(decl('.ze-report-filters', 'font-size')).toBeUndefined();
     expect(decl('.ze-report-panel > legend', 'font-size')).toBeUndefined();
   });
 
-  it('the message view is GetInfoFont, one point down', () => {
-    expect(decl('.ze-report-view', 'font-size')).toBe('var(--ui-font-size-info)');
+  it("the message view states no size either, so it takes the dialog's", () => {
+    // Not --ui-font-size-info: see the note above. A wxHtmlWindow's content
+    // size does not follow SetFont, and the real dialog renders this line at
+    // the GUI font.
+    expect(decl('.ze-report-view', 'font-size')).toBeUndefined();
   });
 
   it("and the badge is NUMBER_BADGE's own 10 point", () => {
