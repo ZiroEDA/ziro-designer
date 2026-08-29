@@ -4347,13 +4347,23 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   border: 1px solid var(--chrome-border);
   border-radius: 2px;
   padding: 4px 6px;
-  /* The ONE control in this panel that is not the GUI font, and it is named:
+  /* No font-size: the message view takes the dialog's, like everything else in
+     the panel.
+
      `m_htmlView->SetFont( KIUI::GetInfoFont( m_htmlView ) )`
-     (wx_html_report_panel.cpp:47), and GetInfoFont is `getGUIFont( win, -1 )`
-     (ui_common.cpp:156) — one point down, which is --ui-font-size-info.
-     Everything else here is 11pt, so this said 12px against a dialog of
-     14.67 and the whole box read as small print. */
-  font-size: var(--ui-font-size-info);
+     (wx_html_report_panel.cpp:47) says otherwise and I followed it, setting
+     --ui-font-size-info (10pt) here. That reading is wrong: SetFont sets the
+     WINDOW's font, while a wxHtmlWindow lays its content out through the
+     parser's standard font sizes — which this panel never sets, since it calls
+     no SetStandardFonts — and generateHtml emits every line at `<font size=3>`,
+     the parser's "normal". So the rendered size is the default GUI font, not
+     the info font.
+
+     [px] measured against Akshay's capture of the real dialog: KiCad's line
+     inks a 15 px band, ours inked 13 at 10pt. Ubuntu Sans 11pt = 14.67 px, and
+     ascender-to-descender on that face lands at 15. The C++ predicted a size
+     the build does not render, so the measurement wins — and it agrees with the
+     rule the rest of this file already follows: a dialog has ONE font size. */
   line-height: 1.45;
 }
 /* generateHtml's dark-theme colours. */

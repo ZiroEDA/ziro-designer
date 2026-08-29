@@ -321,11 +321,17 @@ const BASELINE: Record<string, number> = {
   // 123 -> 119: WX_HTML_REPORT_PANEL stated four of its own — 12px on the
   // "Output Messages" legend, 12px on the message view, 12px on the "Show:"
   // strip and 11px on the NUMBER_BADGEs — inside a dialog of 14.67. Only two
-  // of the four have a citation and both name a POINT size, so they became
-  // --ui-font-size-info: `m_htmlView->SetFont( KIUI::GetInfoFont( m_htmlView ) )`
-  // (wx_html_report_panel.cpp:47, and GetInfoFont is getGUIFont( win, -1 )) and
-  // `NUMBER_BADGE::m_textSize( 10 )` (number_badge.cpp:33). The legend and the
-  // Show: strip are ordinary wxStaticText/wxCheckBox and now state nothing.
+  // of the four looked like it had a citation naming a POINT size, and only ONE
+  // of those two survived: `NUMBER_BADGE::m_textSize( 10 )` (number_badge.cpp:33)
+  // is --ui-font-size-info. The legend, the Show: strip AND the message view
+  // now state nothing at all.
+  // The view briefly stated --ui-font-size-info on the strength of
+  // `m_htmlView->SetFont( KIUI::GetInfoFont( m_htmlView ) )`
+  // (wx_html_report_panel.cpp:47), which is a wrong reading: a wxHtmlWindow's
+  // content size comes from the parser's standard fonts, which that panel never
+  // sets, not from the window's SetFont. Measured against the real dialog it
+  // renders at the GUI font — so it inherits, and the count is unaffected
+  // either way because a var() is not a hardcoded size.
   ui: 119,
   widgets: 6,
 };
