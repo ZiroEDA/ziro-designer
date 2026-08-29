@@ -227,6 +227,22 @@ export const PanelSymbolChooser = forwardRef<PanelSymbolChooserHandle, PanelSymb
     // aFilter && GetFilterPowerSymbols() forces the footprint panes off.
     const showFp = showFootprints && !powerFilter;
 
+    /* The node the tree opens on. The adapter is given a preselect from TWO
+       places upstream and the tree shows whichever it holds:
+
+         - the constructor, from the history list —
+           `if( !aHistoryList.empty() ) adapter->SetPreselectNode( aHistoryList[0].LibId, … )`
+           (panel_symbol_chooser.cpp:176-177), and SYMBOL_CHOOSER_FRAME::OnOK
+           calls AddSymbolToHistory before dismissing (:183), so browsing once
+           puts that symbol at the head for the next opening;
+         - `SetPreselect` (:486), from the caller's own field.
+
+       The explicit one wins, matching the call order: the constructor runs
+       first and SetPreselect is a later call on the built panel. Passing only
+       the explicit one left the New-library-identifier browser — whose field
+       starts empty — opening on nothing at all. */
+    const effectivePreselect = preselect ?? historyList[0]?.libId;
+
     const [regenerateNonce, setRegenerateNonce] = useState(0);
     const [selectedNode, setSelectedNode] = useState<LibTreeNode | null>(null);
     const [previewSymbol, setPreviewSymbol] = useState<LibSymbol | null>(null);
@@ -724,7 +740,7 @@ export const PanelSymbolChooser = forwardRef<PanelSymbolChooserHandle, PanelSymb
              `selectLibId` re-runs on regenerateNonce too, which this needs:
              the libraries load lazily, so the row usually does not exist yet
              at first mount and only appears once the tree regenerates. */
-          {...(preselect ? { selectLibId: preselect } : {})}
+          {...(effectivePreselect ? { selectLibId: effectivePreselect } : {})}
         />
       </div>
     );

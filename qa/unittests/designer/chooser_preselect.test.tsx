@@ -123,7 +123,10 @@ describe('PANEL_SYMBOL_CHOOSER forwards its preselect to the tree', () => {
    * row assertion can see anything. LIB_TREE's props are the observable
    * surface, so the tree is stubbed and its props captured.
    */
-  async function treePropsFor(preselect?: string): Promise<Record<string, unknown>> {
+  async function treePropsFor(
+    preselect?: string,
+    historyList: { libId: string; unit: number; fields: [string, string][] }[] = [],
+  ): Promise<Record<string, unknown>> {
     const captured: Record<string, unknown>[] = [];
     vi.resetModules();
     vi.doMock('@ziroeda/designer/src/widgets/lib_tree.js', () => ({
@@ -138,7 +141,7 @@ describe('PANEL_SYMBOL_CHOOSER forwards its preselect to the tree', () => {
     render(
       <PanelSymbolChooser
         showFootprints={false}
-        historyList={[]}
+        historyList={historyList}
         alreadyPlaced={[]}
         {...(preselect ? { preselect } : {})}
         onAccept={() => {}}
@@ -157,5 +160,33 @@ describe('PANEL_SYMBOL_CHOOSER forwards its preselect to the tree', () => {
   it('and passes none when there is nothing to preselect', async () => {
     const props = await treePropsFor();
     expect(props.selectLibId).toBeUndefined();
+  }, 20000);
+
+  /**
+   * The adapter takes a preselect from two places and the tree shows whichever
+   * it holds: the constructor sets one from the history list
+   * (`if( !aHistoryList.empty() ) adapter->SetPreselectNode( aHistoryList[0].LibId, … )`,
+   * panel_symbol_chooser.cpp:176-177) and `SetPreselect` (:486) sets one from
+   * the caller's field. SYMBOL_CHOOSER_FRAME::OnOK calls AddSymbolToHistory
+   * before dismissing (:183), so browsing once puts that symbol at the head for
+   * the next opening.
+   *
+   * Only the explicit one was forwarded, so the New-library-identifier browser
+   * — whose field starts empty — opened on nothing, where the match-id one
+   * opened on the symbol. Akshay asked for the two icons to behave alike.
+   */
+  it('falls back to the history head, which is what the empty-field browser gets', async () => {
+    const props = await treePropsFor(undefined, [
+      { libId: 'Connector:Screw_Terminal_01x02', unit: 1, fields: [] },
+    ]);
+    expect(props.selectLibId).toBe('Connector:Screw_Terminal_01x02');
+  }, 20000);
+
+  it('and the explicit preselect still wins over the history head', async () => {
+    // The call order upstream: the constructor first, SetPreselect after.
+    const props = await treePropsFor('Device:R', [
+      { libId: 'Connector:Screw_Terminal_01x02', unit: 1, fields: [] },
+    ]);
+    expect(props.selectLibId).toBe('Device:R');
   }, 20000);
 });

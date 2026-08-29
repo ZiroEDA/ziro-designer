@@ -306,6 +306,16 @@ export function DialogChangeSymbols({
               {MATCH_ROWS.map((m) => {
                 // `if( !m_symbol ) ... m_matchBySelection ... Show( false )`.
                 if (m.mode === 'selected' && !subject) return null;
+                /* `m_matchSizer->FindItem( m_matchAll )->Show( false )` — the
+                   CHANGE branch of the constructor (:58) hides "all symbols"
+                   outright. Changing every symbol in the schematic to one new
+                   library id is not an operation the dialog offers; only
+                   Update does. It sets the label on the line above first,
+                   which is why the string exists at all and why this reads as
+                   an oversight in the source rather than in the port.
+                   `defaultChangeSymbolsOptions` already never starts Change
+                   mode on 'all', so nothing can select the hidden row. */
+                if (m.mode === 'all' && mode === 'change') return null;
                 const label = mode === 'change' ? m.label.replace('Update', 'Change') : m.label;
                 return (
                   <Fragment key={m.mode}>
@@ -355,8 +365,15 @@ export function DialogChangeSymbols({
             {/* m_staticline1 */}
             <hr className="ze-chsym-rule" />
 
+            {/* NOT `.row`: that opts into
+                `.ze-label-dialog-body .row > span:first-child`, a 56 px label
+                COLUMN at 13px. It wrapped "New library identifier:" onto three
+                lines and shrank it below the dialog's font. `m_newIdSizer` is a
+                plain horizontal wxBoxSizer holding a wxStaticText, a wxTextCtrl
+                and a STD_BITMAP_BUTTON (_base.cpp:88-98) — no label column, so
+                it states nothing and takes the dialog's own font. */}
             {mode === 'change' && (
-              <label className="row ze-chsym-newid">
+              <label className="ze-chsym-newid">
                 <span>New library identifier:</span>
                 <input
                   className="ze-search"

@@ -320,6 +320,67 @@ describe('the library-identifier browse button is a STD_BITMAP_BUTTON', () => {
   });
 });
 
+/**
+ * The CHANGE-mode constructor branch (:55-78) is a block of SetLabel calls and
+ * one visibility change, and the visibility change was missed:
+ *
+ *     m_matchAll->SetLabel( _( "Change all symbols in schematic" ) );
+ *     SetTitle( _( "Change Symbols" ) );
+ *     m_matchSizer->FindItem( m_matchAll )->Show( false );
+ *
+ * It labels the row and then hides it — changing every symbol in the schematic
+ * to one new library id is not an operation the dialog offers. Only Update
+ * sweeps the whole schematic. Akshay put the two dialogs side by side.
+ */
+describe('Change mode hides the all-symbols row that Update offers', () => {
+  const rowLabels = (): string[] =>
+    [...document.querySelectorAll('.ze-chsym-match label.ze-chsym-mrad')].map(
+      (l) => l.textContent?.trim() ?? '',
+    );
+
+  it('Update offers it', () => {
+    open(SUBJECT);
+    expect(rowLabels()).toContain('Update all symbols in schematic');
+  });
+
+  it('Change does not', () => {
+    open(SUBJECT, [], 'change');
+    expect(rowLabels().some((l) => l.includes('all symbols in schematic'))).toBe(false);
+  });
+
+  it('and the rows it does keep are the other four, relabelled', () => {
+    open(SUBJECT, [], 'change');
+    expect(rowLabels()).toStrictEqual([
+      'Change selected symbol(s)',
+      'Change symbols matching reference designator:',
+      'Change symbols matching value:',
+      'Change symbols matching library identifier:',
+    ]);
+  });
+});
+
+/**
+ * `m_newIdSizer` is a plain horizontal wxBoxSizer — wxStaticText, wxTextCtrl,
+ * STD_BITMAP_BUTTON (_base.cpp:88-98). It carried `.row`, which opts into
+ * `.ze-label-dialog-body .row > span:first-child`: a 56 px label COLUMN at
+ * 13px. "New library identifier:" wrapped onto three lines and rendered below
+ * the dialog's font, both of which Akshay saw.
+ */
+describe('the New library identifier row is not a label-column row', () => {
+  it('states no .row, so it takes neither the 56px column nor the 13px', () => {
+    open(SUBJECT, [], 'change');
+    const row = document.querySelector('.ze-chsym-newid') as HTMLElement;
+    expect(row).not.toBeNull();
+    expect(row.classList.contains('row')).toBe(false);
+  });
+
+  it('and its label is one whole string, not three wrapped words', () => {
+    open(SUBJECT, [], 'change');
+    const span = document.querySelector('.ze-chsym-newid > span');
+    expect(span?.textContent).toBe('New library identifier:');
+  });
+});
+
 describe('the positional selectors reach the elements the sizer distinguishes', () => {
   it('nth-of-type(1) is bSizer8 alone, not both columns', () => {
     open(SUBJECT);
