@@ -66,6 +66,7 @@ describe('LIB_TREE::SelectLibId, the half that actually selects', () => {
       <LibTree
         adapter={connectorTree()}
         onSelect={() => {}}
+        onChoose={() => {}}
         selectLibId="Connector:Screw_Terminal_01x02"
       />,
     );
@@ -79,6 +80,7 @@ describe('LIB_TREE::SelectLibId, the half that actually selects', () => {
       <LibTree
         adapter={connectorTree()}
         onSelect={() => {}}
+        onChoose={() => {}}
         selectLibId="Connector:Screw_Terminal_01x02"
       />,
     );
@@ -96,6 +98,7 @@ describe('LIB_TREE::SelectLibId, the half that actually selects', () => {
       <LibTree
         adapter={connectorTree()}
         onSelect={() => {}}
+        onChoose={() => {}}
         selectLibId="Connector:Does_Not_Exist"
       />,
     );
@@ -105,7 +108,7 @@ describe('LIB_TREE::SelectLibId, the half that actually selects', () => {
   it('and does not land on that symbol by itself, with no preselect given', () => {
     // The state the browse button used to open in: a default selection, not
     // the symbol the field named.
-    render(<LibTree adapter={connectorTree()} onSelect={() => {}} />);
+    render(<LibTree adapter={connectorTree()} onSelect={() => {}} onChoose={() => {}} />);
     expect(activeRow()).not.toBe('Screw_Terminal_01x02');
   });
 });
