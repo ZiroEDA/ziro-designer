@@ -2489,7 +2489,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   padding: 5px;
   font-size: var(--ui-font-size);
   /* The dialog's own label colour, measured at 243, not the shell's pure white. */
-  color: #f3f4f5;
+  color: var(--chrome-fg);
 }
 /* m_scrolledMRU is wxVSCROLL with SetScrollRate( 0, 25 ) too. */
 .ze-tplsel-mru-list {
@@ -2744,7 +2744,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   border-bottom: 1px solid var(--ctl-border);
   padding: 5px 8px;
   font-size: var(--ui-font-size);
-  color: #f3f4f5;
+  color: var(--chrome-fg);
 }
 /* AppendColumn's widths, verbatim: 450 / 120 / 120 / 900. A wxTreeListCtrl
    keeps its column widths and scrolls sideways when the window is narrower than
@@ -2788,7 +2788,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   padding: 6px 8px 4px;
   font-size: var(--ui-font-size);
   font-weight: 700;
-  color: #f3f4f5;
+  color: var(--chrome-fg);
 }
 .ze-hotkeys-row {
   display: flex;
@@ -4660,7 +4660,18 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
    DEFAULT correct so the pile stops growing, and gives them something to
    collapse onto. A dialog that states nothing now gets Fit(). */
 .ze-modal {
-  color: #f3f4f5;
+  /* A dialog's own text, which GTK paints `wxSYS_COLOUR_BTNTEXT` — the same
+     colour a wxStaticText in a wxDialog reports. `qa/probes/dialog_chrome_probe.cpp`
+     builds that dialog and asks it, on this desktop, under this theme:
+
+       dialog GetBackgroundColour       rgb( 44, 44, 44)  #2C2C2C
+       staticText GetForegroundColour   rgb(247,247,247)  #F7F7F7
+       wxSYS_COLOUR_BTNTEXT             rgb(247,247,247)  #F7F7F7
+
+     which is what --chrome-fg already holds. This said #f3f4f5, four shades
+     off and stated as a literal in the one rule every dialog in the app
+     inherits from. */
+  color: var(--chrome-fg);
   width: max-content;
   height: max-content;
   max-width: 92vw;
@@ -6161,10 +6172,33 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   width: 100%;
   table-layout: fixed;
 }
+/* FIELDS_GRID's columns: every one keeps the width its `_base.cpp` sets, and
+   exactly ONE absorbs the slack.
+
+     `dialog_label_properties_base.cpp:93-100`
+       SetColSize( 0, 72 )  Name        SetColSize( 4, 70 )  H Align
+       SetColSize( 1, 84 )  Value       SetColSize( 5, 70 )  V Align
+       SetColSize( 2, 48 )  Show        SetColSize( 6, 48 )  Italic
+       SetColSize( 3, 48 )  Show Name   SetColSize( 7, 48 )  Bold
+
+     `fields_grid_table.cpp:422`
+       aGrid->SetupColumnAutosizer( FDC_VALUE );
+
+   `SetupColumnAutosizer` remembers every column's size and then, on every
+   resize, gives the leftover to that ONE flexible column (wx_grid.cpp:1081).
+   So Value grows and the other seven never do.
+
+   The widths were already correct in `COLUMNS` and were set on each `<th>` —
+   but `table-layout: fixed` on a `width: 100%` table spreads the surplus over
+   ALL columns equally, so "Show" ended up as wide as "Name" and "Show Name"
+   wrapped to two lines. The `<colgroup>` states them where the table layout
+   actually reads them, and Value alone is `auto`. */
 .ze-lp-grid th {
   height: 22px;
   text-align: center;
   font-weight: 500;
+  /* [px] wxGrid's column-label ink. Not --chrome-fg: a label is dimmer than a
+     cell's own text, and this is the value a live grid reports. */
   color: #c7c9cc;
   background: var(--chrome-bg);
   border: 1px solid var(--chrome-border);
@@ -6324,6 +6358,20 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   padding: 0;
   border: none;
   background: none;
+}
+
+/* DIALOG_FIELD_PROPERTIES' bSizer9: m_visible, m_nameVisible and
+   m_cbAllowAutoPlace on ONE horizontal sizer with `Add( 0, 0, 1, wxEXPAND )`
+   stretch spacers between them (dialog_field_properties_base.cpp:110-134), not
+   three stacked rows. The spacers are equal, which is space-between. */
+.ze-fieldprops-checks {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.ze-fieldprops-checks label {
+  display: flex;
+  align-items: center;
 }
 
 /* `m_helpLabel2` — the static wxStaticText under a page's colour swatches
@@ -8691,7 +8739,7 @@ textarea.ze-ds-textedit {
   flex: 0 0 auto;
   width: 44px;
   height: 44px;
-  color: #f3f4f5;
+  color: var(--chrome-fg);
 }
 .ze-msgdlg-text {
   flex: 1;

@@ -202,7 +202,11 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // because the row has to match the tree and the totals below have to match
   // the sum; the two colours and nine metrics are that commit's to answer for,
   // not this one's.
-  'editors/schematic': { colours: 61, metrics: 211 },
+  // metrics 211 -> 210: DIALOG_FIELD_PROPERTIES' body wrote its own
+  // `gap: 6` inline. The dialog is `.ze-label-dialog-body` now, which is the
+  // rule every other schematic dialog's body already takes, so the number is
+  // stated once rather than restated here.
+  'editors/schematic': { colours: 61, metrics: 210 },
   // colours 12 -> 7: the Symbol Editor parity pass. Four were
   // SYMBOL_EDITOR_COLORS, a private copy of LAYER_SCHEMATIC_ANCHOR /
   // LAYER_HIDDEN / LAYER_PRIVATE_NOTES / LAYER_FIELDS that matched the Default
@@ -366,7 +370,7 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // table now and carry [data] on their own lines, so none of the eight
   // counts; the sixth is `.show-label`'s #9a9ca0, which dimmed a plain
   // wxStaticText and is --chrome-fg.
-  ui: { colours: 251, metrics: 755 },
+  ui: { colours: 245, metrics: 755 },
   // colours 6 -> 7: the opacity slider's #55585d track arrived here with
   // APPEARANCE_CONTROLS; it is the same literal `editors/pcb` lost, not a new
   // one. The panel's own stylesheet adds none: every length in
@@ -650,7 +654,13 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // directions: `ui` 281 -> 261 (of which 1 was already gone at HEAD, with
     // 7ebff497) and `editors/schematic` 61 -> 63, which arrived at HEAD with
     // e3b79196 and is not this pass's. 660 - 20 + 2 agrees.
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(630);
+    // 630 -> 624: `ui` 251 -> 245, the dialog foreground. `.ze-modal` — the
+    // rule every dialog inherits from — stated `color: #f3f4f5` as a literal,
+    // and four other dialog rules repeated it. `qa/probes/dialog_chrome_probe.cpp`
+    // builds a wxDialog and asks it: a static text in one reports #F7F7F7,
+    // which is what --chrome-fg already held. One row moves and 630 - 6 agrees
+    // with it, which is the two derivations this table asks for.
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(624);
     // 1657 -> 1649: the same sweep. A native colour input has no useful
     // default size, so eight of the sixteen sites gave theirs an inline
     // width and height; the shared swatch takes --swatch-*-w/h. Rescanned.
@@ -693,7 +703,7 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // 50 -> 46 as its four literals took their markers, and
     // `editors/schematic` 210 -> 219, which arrived at HEAD with e3b79196.
     // 1606 - 29 - 4 + 9 agrees.
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1559);
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1558);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {

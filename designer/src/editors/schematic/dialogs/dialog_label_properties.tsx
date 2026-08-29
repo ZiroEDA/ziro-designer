@@ -423,6 +423,23 @@ export function DialogLabelProperties({
               <legend>Fields</legend>
               <div className="ze-lp-grid-wrap">
                 <table className="ze-lp-grid">
+                  {/* `SetupColumnAutosizer( FDC_VALUE )` (fields_grid_table.cpp:422):
+                      every column keeps the width its _base.cpp sets and Value
+                      alone takes the slack. Stated here, where `table-layout:
+                      fixed` reads it — on the `<th>` alone the surplus was
+                      spread over all eight columns instead. */}
+                  <colgroup>
+                    {COLUMNS.map((c) => (
+                      <col
+                        key={c.key}
+                        style={
+                          c.key === 'value'
+                            ? { width: 'auto', minWidth: c.width }
+                            : { width: c.width }
+                        }
+                      />
+                    ))}
+                  </colgroup>
                   <thead>
                     <tr>
                       {COLUMNS.map((c) => (
