@@ -318,7 +318,15 @@ const BASELINE: Record<string, number> = {
   // change's files overlaid gives 134 -> 131, and grepping the two deleted
   // blocks out of HEAD's shell.css finds exactly three `font-size:` lines in
   // them.
-  ui: 123,
+  // 123 -> 119: WX_HTML_REPORT_PANEL stated four of its own — 12px on the
+  // "Output Messages" legend, 12px on the message view, 12px on the "Show:"
+  // strip and 11px on the NUMBER_BADGEs — inside a dialog of 14.67. Only two
+  // of the four have a citation and both name a POINT size, so they became
+  // --ui-font-size-info: `m_htmlView->SetFont( KIUI::GetInfoFont( m_htmlView ) )`
+  // (wx_html_report_panel.cpp:47, and GetInfoFont is getGUIFont( win, -1 )) and
+  // `NUMBER_BADGE::m_textSize( 10 )` (number_badge.cpp:33). The legend and the
+  // Show: strip are ordinary wxStaticText/wxCheckBox and now state nothing.
+  ui: 119,
   widgets: 6,
 };
 
@@ -501,7 +509,12 @@ describe('hardcoded font sizes do not grow', () => {
     // down. `.ze-props-group`'s legend and its two label rules stated 12.5px
     // and 13px against that 14.67px, so every group box in the app read smaller
     // than KiCad's. `ui` is the only row that moves and 330 - 3 agrees with it.
-    expect(sites.length).toBe(327);
+    // 327 -> 323: `ui` 123 -> 119, the four WX_HTML_REPORT_PANEL sizes above.
+    // Six dialogs embed that panel, so the same four literals were making the
+    // Output Messages box read as small print in every one of them. `ui` is
+    // the only row that moves, the per-area check names it and nothing else,
+    // and 327 - 4 agrees with the table.
+    expect(sites.length).toBe(323);
   });
 });
 

@@ -152,6 +152,38 @@ describe('the report panel is always present', () => {
  * again, because none of these controls exist unless the shared widget is the
  * thing mounted.
  */
+/**
+ * Two rules in the CSS block are addressed by position rather than by a class,
+ * because the sizer treats the two option columns differently:
+ *
+ *   `m_updateOptionsSizer->Add( bSizer8, 1, wxEXPAND|wxRIGHT, 10 )`  <- border
+ *   `m_updateOptionsSizer->Add( bSizer9, 1, wxEXPAND, 5 )`           <- none
+ *
+ * and the last checkbox above each button takes wxBOTTOM 10 where the rest
+ * take 5 (:150, :189). A positional selector that quietly matches the wrong
+ * element — or both — is a number nothing reads, so the match is pinned here.
+ */
+describe('the positional selectors reach the elements the sizer distinguishes', () => {
+  it('nth-of-type(1) is bSizer8 alone, not both columns', () => {
+    open(SUBJECT);
+    const both = [...document.querySelectorAll('.ze-chsym-optcol')];
+    expect(both).toHaveLength(2);
+    const bordered = [...document.querySelectorAll('.ze-chsym-optcol:nth-of-type(1)')];
+    expect(bordered).toHaveLength(1);
+    expect(bordered[0]).toBe(both[0]);
+    expect(bordered[0]?.textContent).toContain('Remove fields if not in library symbol');
+  });
+
+  it('and last-of-type is the option each button sits under, in both columns', () => {
+    open(SUBJECT);
+    const last = [...document.querySelectorAll('.ze-chsym-optcol')].map(
+      (c) => c.querySelector('.ze-chsym-opt:last-of-type')?.textContent,
+    );
+    // m_resetFieldPositions and m_resetCustomPower — the two with wxBOTTOM 10.
+    expect(last).toStrictEqual(['Update/reset field positions', 'Reset custom power symbols']);
+  });
+});
+
 describe('the Show: strip, which comes with WX_HTML_REPORT_PANEL', () => {
   it('carries the label, all five severity boxes and Save...', () => {
     open(SUBJECT);

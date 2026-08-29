@@ -4299,7 +4299,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-report-panel > legend {
   padding: 0 4px;
   color: #8a8c90;
-  font-size: 12px;
 }
 .ze-report-view {
   flex: 1;
@@ -4308,7 +4307,13 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   border: 1px solid var(--chrome-border);
   border-radius: 2px;
   padding: 4px 6px;
-  font-size: 12px;
+  /* The ONE control in this panel that is not the GUI font, and it is named:
+     `m_htmlView->SetFont( KIUI::GetInfoFont( m_htmlView ) )`
+     (wx_html_report_panel.cpp:47), and GetInfoFont is `getGUIFont( win, -1 )`
+     (ui_common.cpp:156) — one point down, which is --ui-font-size-info.
+     Everything else here is 11pt, so this said 12px against a dialog of
+     14.67 and the whole box read as small print. */
+  font-size: var(--ui-font-size-info);
   line-height: 1.45;
 }
 /* generateHtml's dark-theme colours. */
@@ -4328,11 +4333,14 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-report-line.action {
   color: #60d060;
 }
+/* bSizerBottom: a wxStaticText and five wxCheckBoxes, every one of them the
+   ordinary GUI font. It stated 12px, which is why "Show: All Errors Warnings
+   Actions Infos" came out visibly smaller than the dialog around it. A dialog
+   has ONE font size unless upstream asks for another by name. */
 .ze-report-filters {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
   flex-wrap: wrap;
 }
 .ze-report-filters label {
@@ -4354,7 +4362,9 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   height: 16px;
   padding: 0 4px;
   border-radius: 8px;
-  font-size: 11px;
+  /* [data] `NUMBER_BADGE::m_textSize( 10 )` (number_badge.cpp:33) — a point
+     size, so it is --ui-font-size-info, not 11 of anything. */
+  font-size: var(--ui-font-size-info);
   font-weight: 600;
   background: #2e8b2e;
   color: #fff;
@@ -6766,9 +6776,31 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-props-group label {
   display: flex;
   align-items: center;
-  gap: 8px;
+  /* Nearly every label in a group box is a checkbox or a radio carrying its
+     own text, and the space between an indicator and its label is GTK's, not
+     ours to pick: --check-inset is Gtk.CheckButton's own style properties,
+     asked directly. This said 8px, which is 4 too wide on every such row and
+     as many pixels onto the width of every dialog that groups them. */
+  gap: var(--check-inset);
 }
-.ze-props-group label.row > span {
+/* The label COLUMN of a row, exactly as `.ze-label-dialog-body .row > span`
+   above — and it needs the same `:first-child`, for the same reason. That one
+   was fixed; this SECOND copy was not, and it is the one that applies inside a
+   group box, so it went on crushing every control that carries its own label
+   into a 56 px column.
+
+   It is what kept DIALOG_CHANGE_SYMBOLS narrow. `.ze-chsym-opt > span` states
+   `white-space: nowrap` at (0,1,1); this sits at (0,2,2) and beats it, so the
+   labels could not wrap and could not have their width either — they overflowed
+   their column and printed on top of the box beside them. With the width freed
+   the dialog goes from 728 px to the 956 wx computes (see the DIALOG_CHANGE_SYMBOLS
+   block below). Restating the width at the call site would have been the
+   specificity trap; stating nothing there and scoping this rule is the fix.
+
+   A span that is NOT first is never a caption: a wxCheckBox or wxRadioButton
+   carries its label as part of the one control, and a trailing note like
+   "(not applied yet)" is a wxStaticText after the control, not before it. */
+.ze-props-group label.row > span:first-child {
   width: 56px;
   flex: 0 0 auto;
   color: #c7c9cc;
@@ -10262,14 +10294,25 @@ textarea.ze-ds-textedit {
    the options box comes to. CSS flexbox sizes a max-content flex container by
    the same flex-fraction rule (css-flexbox-1 §9.9.3), which is why the
    proportions below are `flex: 2` / `flex: 4` and not a width. */
+/* A GRID rather than a flex row, because CSS Grid's `fr` is wxBoxSizer's
+   proportion and flexbox is not. A flex item's automatic minimum size is its
+   min-content, and every label in these boxes is `nowrap`, so both boxes were
+   floored at their own text and the 2:4 never got a chance — the fields box
+   came out 236 against wx's 297, and the row was the sum of two minimums
+   instead of six equal shares. Grid resolves `fr` by finding the largest
+   base-size-over-flex-factor and scaling every track back up by it
+   (css-grid-1 §12.7), which is the same arithmetic wxBoxSizer::CalcMin does,
+   so the two agree: measured against a real build, the fields box is 0.476 of
+   the options box in both.
+   [data] `Add( m_updateFieldsSizer, 2, ... )` and `Add( m_updateOptionsSizer, 4, ... )`. */
 .ze-chsym-update {
-  display: flex;
+  display: grid;
+  grid-template-columns: 2fr 4fr;
   align-items: stretch;
   /* [data] `bSizerUpdate->Add( 5, 0, 0, wxEXPAND, 5 )` between the boxes. */
   gap: 5px;
 }
 .ze-chsym-fields {
-  flex: 2;
   min-width: max-content;
   display: flex;
   flex-direction: column;
@@ -10277,7 +10320,6 @@ textarea.ze-ds-textedit {
   margin: 10px 10px 0;
 }
 .ze-chsym-options {
-  flex: 4;
   /* `m_updateOptionsSizer` is wxHORIZONTAL — bSizer8 BESIDE bSizer9.
      `.ze-props-group` is a flex COLUMN at the same specificity, so the
      direction has to be restated or the two columns stack. */
@@ -10341,6 +10383,15 @@ textarea.ze-ds-textedit {
   /* [data] the spacer's own 10 px, its minimum. */
   min-height: 10px;
 }
+/* `.ze-label-dialog-body .row` states `gap: 10px` at (0,2,0) and beats both
+   `.ze-chsym-opt` (0,1,0) and `.ze-props-group label` (0,1,1), so the
+   indicator-to-label gap on every option was 10 where GTK's is 4 — six pixels
+   on each row, and through the 4-of-6 proportion, straight onto the dialog's
+   width. Matching its specificity is the fix; restating a number here is not,
+   which is why this still consumes the token. */
+.ze-label-dialog-body .ze-chsym-opt {
+  gap: var(--check-inset);
+}
 .ze-chsym-opt {
   display: flex;
   align-items: center;
@@ -10359,12 +10410,6 @@ textarea.ze-ds-textedit {
 .ze-chsym-fieldbox .row > span,
 .ze-chsym-mrad > span {
   white-space: nowrap;
-}
-/* Ours, not upstream's: a trailing note has no wx counterpart, so it is the
-   thing that gives way if the row cannot hold both. */
-.ze-chsym-opt > .ze-muted {
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 /* `m_fieldsBox` is a wxCheckListBox: a bordered scrolling list, added at
    proportion 1 so it takes the box's height.
@@ -10420,16 +10465,26 @@ textarea.ze-ds-textedit {
    bSizer2 adds it wxEXPAND|wxTOP|wxRIGHT|wxLEFT 5 and the panel inside is
    wxALL 5, so the two add up to 10; it is the ONE proportion-1 child of
    m_mainSizer, so it takes every spare pixel. */
+/* The 200 px minimum lives on THIS div and not on the panel, because the panel
+   is a <fieldset>: a fieldset lays its children out in an anonymous box, and
+   `min-height` on the fieldset never reaches it. Measured — the panel was 200
+   tall with the message view 10 tall and 130 px of dead space under the Show:
+   strip, which is the "collapsed output box". A plain div takes the minimum,
+   and `height: 100%` then gives the fieldset a DEFINITE height, which is what
+   its flex children need in order to grow.
+   [data] `m_messagePanel->SetMinSize( wxSize( -1, 200 ) )`, :206. */
 .ze-chsym-msgs {
   flex: 1;
-  display: flex;
+  /* GRID, not flex, and that is the whole fix. A <fieldset> lays its children
+     out in an anonymous box, and a flex item's stretched height is not
+     definite enough to reach it — the panel stretched to 200 while the message
+     view inside stayed 10 px tall with 130 px of dead space under the Show:
+     strip. A grid item's stretch IS definite, so the fieldset's own flex
+     column can finally divide it. `height: 100%` does not work either: the
+     wrapper's height comes from min-height, which a percentage cannot
+     resolve against. */
+  display: grid;
+  min-height: 200px;
   /* [data] 5 + 5 on three sides, 5 on the bottom (bSizer2 states no wxBOTTOM). */
   margin: 10px 10px 5px;
-}
-.ze-chsym-msgs > .ze-report-panel {
-  flex: 1;
-  /* The constraint is on the PANEL, not on the message view — the view is
-     what is left once the Show: strip has taken its 44.
-     [data] `m_messagePanel->SetMinSize( wxSize( -1, 200 ) )`, :206. */
-  min-height: 200px;
 }

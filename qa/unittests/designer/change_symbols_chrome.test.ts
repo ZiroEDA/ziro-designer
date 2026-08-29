@@ -128,8 +128,9 @@ describe('the width is bSizerUpdate’s minimum, so its borders must be exact', 
   });
 
   it('the two boxes carry the proportions 2 and 4, not a width', () => {
-    expect(decl('.ze-chsym-fields', 'flex')).toBe('2');
-    expect(decl('.ze-chsym-options', 'flex')).toBe('4');
+    // As grid tracks — see the grid block at the foot of this file for why
+    // flexbox could not hold them.
+    expect(decl('.ze-chsym-update', 'grid-template-columns')).toBe('2fr 4fr');
     for (const sel of ['.ze-chsym-fields', '.ze-chsym-options', '.ze-chsym-update'])
       expect(decl(sel, 'width')).toBeUndefined();
   });
@@ -164,5 +165,158 @@ describe('the width is bSizerUpdate’s minimum, so its borders must be exact', 
     );
     const offenders = [...block.matchAll(/(\.ze-chsym-[\w-]+)[^{}]*\{[^}]*min-width:\s*0/g)];
     expect(offenders.map((m) => m[1])).toStrictEqual([]);
+  });
+});
+
+/**
+ * The bug that actually kept this dialog narrow, and the reason it survived a
+ * fix: there are TWO copies of the label-column rule.
+ *
+ *     .ze-label-dialog-body .row > span   { width: 56px; flex: 0 0 auto }
+ *     .ze-props-group label.row > span    { width: 56px; flex: 0 0 auto }
+ *
+ * The first was scoped to `:first-child` when the match radios came out one
+ * word per line. The second was not — and it is the one that applies inside a
+ * group box, so every checkbox in Update Options was still being crushed into
+ * a 56 px column. At (0,2,2) it beat `.ze-chsym-opt > span`'s `nowrap` at
+ * (0,1,1), so the labels could neither wrap nor size, and they printed on top
+ * of the box beside them.
+ *
+ * Measured against the real build with the label column freed, the dialog goes
+ * from 728 px to 977 against the 956 wx reports.
+ *
+ * A caption span is the one BEFORE the control. A checkbox or radio carries
+ * its label inside the one control, so a span that is not `:first-child` is
+ * never a caption — and that is per-rule, not per-file, so every copy is
+ * checked rather than just the first.
+ */
+describe('a control that carries its own label is never given a label column', () => {
+  const labelColumnRules = (): string[] => {
+    const hits: string[] = [];
+    // Every selector whose body fixes a span at the 56 px caption width.
+    const re = /\n([^\n{}]*>\s*span[^\n{}]*)\{([^}]*)\}/g;
+    for (const m of SHELL.matchAll(re))
+      if (/width:\s*56px/.test(m[2] ?? '')) hits.push((m[1] ?? '').trim());
+    return hits;
+  };
+
+  it('both copies of the rule exist and both are :first-child scoped', () => {
+    const rules = labelColumnRules();
+    // If a third copy is ever added, it is caught here rather than by a user.
+    expect(rules.length).toBeGreaterThanOrEqual(2);
+    for (const sel of rules) expect(sel).toContain(':first-child');
+  });
+
+  it('and the option labels state nowrap, so a column is as wide as its widest', () => {
+    expect(decl('.ze-chsym-opt > span,\n.ze-chsym-fieldbox .row > span,\n.ze-chsym-mrad > span', 'white-space')).toBe(
+      'nowrap',
+    );
+  });
+
+  it('the indicator-to-label gap beats the shared .row rule that states 10px', () => {
+    // `.ze-label-dialog-body .row { gap: 10px }` is (0,2,0) and outranks both
+    // `.ze-chsym-opt` (0,1,0) and `.ze-props-group label` (0,1,1), so the fix
+    // has to match its specificity — and still consume the token, not restate
+    // a number.
+    expect(decl('.ze-label-dialog-body .ze-chsym-opt', 'gap')).toBe('var(--check-inset)');
+    expect(decl('.ze-props-group label', 'gap')).toBe('var(--check-inset)');
+  });
+});
+
+/**
+ * wxBoxSizer's proportion is CSS Grid's `fr`, not flexbox's `flex-grow`.
+ *
+ * A flex item's automatic minimum size is its min-content, and every label in
+ * these boxes is `nowrap`, so with `display: flex` both boxes were floored at
+ * their own text: the row came out as the SUM of two minimums and the 2:4 was
+ * never applied. The fields box measured 236 px against wx's 297.
+ *
+ * Grid resolves `fr` by taking the largest base-size-over-flex-factor and
+ * scaling every track back up by it (css-grid-1 §12.7) — the same arithmetic
+ * as wxBoxSizer::CalcMin. Measured, the two now agree: the fields box is
+ * 0.476 of the options box in ours and in wx alike.
+ */
+describe('the 2:4 proportion is a grid track, because flexbox cannot express it', () => {
+  it('the update row is a grid of 2fr and 4fr', () => {
+    expect(decl('.ze-chsym-update', 'display')).toBe('grid');
+    expect(decl('.ze-chsym-update', 'grid-template-columns')).toBe('2fr 4fr');
+  });
+
+  it('and the boxes state no flex-grow of their own, which would re-introduce it', () => {
+    // `flex: 2` / `flex: 4` on a grid item does nothing, and leaving them in
+    // would say the proportion lives somewhere it does not.
+    expect(decl('.ze-chsym-fields', 'flex')).toBeUndefined();
+    expect(decl('.ze-chsym-options', 'flex')).toBeUndefined();
+  });
+});
+
+/**
+ * WX_HTML_REPORT_PANEL's own chrome. It is a shared widget, so these six
+ * dialogs get the same answer — ERC, DRC, Annotate, Plot, Export Netlist and
+ * Update PCB from Schematic.
+ *
+ * A dialog has ONE font size, the GUI font, unless upstream asks for another
+ * BY NAME. This panel restated three: 12px on the legend, 12px on the message
+ * view, 12px on the Show: strip and 11px on the badges, against a dialog of
+ * 14.67. Only two of those have a citation, and both are a POINT size:
+ *
+ *     m_htmlView->SetFont( KIUI::GetInfoFont( m_htmlView ) )  wx_html_report_panel.cpp:47
+ *     KIUI::GetInfoFont = getGUIFont( win, -1 )               ui_common.cpp:156
+ *     NUMBER_BADGE::m_textSize( 10 )                          number_badge.cpp:33
+ *
+ * so the view and the badge are --ui-font-size-info and everything else
+ * inherits.
+ */
+describe('the report panel has one font size, and names its two exceptions', () => {
+  it('the Show: strip and the box label state no size of their own', () => {
+    expect(decl('.ze-report-filters', 'font-size')).toBeUndefined();
+    expect(decl('.ze-report-panel > legend', 'font-size')).toBeUndefined();
+  });
+
+  it('the message view is GetInfoFont, one point down', () => {
+    expect(decl('.ze-report-view', 'font-size')).toBe('var(--ui-font-size-info)');
+  });
+
+  it('and the badge is NUMBER_BADGE\'s own 10 point', () => {
+    expect(decl('.ze-badge', 'font-size')).toBe('var(--ui-font-size-info)');
+  });
+
+  it('with the token holding the point size, not a pixel count', () => {
+    expect(token('--ui-font-size-info')).toBe('10pt');
+    expect(token('--ui-font-size')).toBe('11pt');
+  });
+
+  it('no rule in the panel states a px font size at all', () => {
+    // Per-rule, so a fourth one added later is caught rather than averaged out.
+    const from = SHELL.indexOf('/* WX_HTML_REPORT_PANEL:');
+    const block = SHELL.slice(from, SHELL.indexOf('.ze-mitem', from)).replace(
+      /\/\*[\s\S]*?\*\//g,
+      '',
+    );
+    expect([...block.matchAll(/font-size:\s*(\d+px)/g)].map((m) => m[1])).toStrictEqual([]);
+  });
+});
+
+/**
+ * The output box was 200 px tall with the message view 10 px tall inside it —
+ * the Show: strip sitting under a sliver, and 130 px of dead space below.
+ *
+ * `.ze-report-panel` is a <fieldset>, and a fieldset lays its children out in
+ * an anonymous box that a flex item's stretched height does not reach. Nor can
+ * `height: 100%` help: the wrapper's height comes from `min-height`, which a
+ * percentage cannot resolve against. A GRID item's stretch is definite, so the
+ * wrapper is a grid and the fieldset's own flex column can divide it.
+ */
+describe('the output box fills the 200 px upstream reserves for it', () => {
+  it('the wrapper is a grid and carries the panel’s minimum', () => {
+    expect(decl('.ze-chsym-msgs', 'display')).toBe('grid');
+    expect(decl('.ze-chsym-msgs', 'min-height')).toBe('200px');
+  });
+
+  it('and nothing sizes the fieldset directly, which is what collapsed it', () => {
+    // Both attempts are gone: `min-height: 200px` on the fieldset never
+    // reached its anonymous content box, and `height: 100%` resolved against
+    // a min-height-derived height, i.e. to the content's own 82 px.
+    expect(SHELL).not.toContain('.ze-chsym-msgs > .ze-report-panel');
   });
 });

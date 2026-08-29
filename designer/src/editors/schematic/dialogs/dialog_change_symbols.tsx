@@ -202,10 +202,17 @@ export function DialogChangeSymbols({
       return next;
     });
 
+  /* A caveat of ours goes in the TOOLTIP, never beside the label. Upstream's
+     row is one wxCheckBox and nothing else, and a trailing wxStaticText has no
+     counterpart in the sizer — but it still offers its own width to the
+     column, and through `m_updateOptionsSizer`'s 4-of-6 proportion straight to
+     the dialog. "(not applied yet)" beside this one checkbox was 109 px of it.
+     `m_removeExtraBox` already carries its explanation this way, because
+     upstream gives it a SetToolTip and no second label. */
   const check = (
     label: string,
     k: keyof ChangeSymbolsOptions,
-    extra?: { note?: string; title?: string },
+    extra?: { title?: string },
   ): JSX.Element => (
     <label className="row ze-chsym-opt" title={extra?.title}>
       <input
@@ -214,7 +221,6 @@ export function DialogChangeSymbols({
         onChange={(e) => set(k, e.target.checked as never)}
       />
       <span>{label}</span>
-      {extra?.note && <span className="ze-muted">{extra.note}</span>}
     </label>
   );
 
@@ -393,7 +399,7 @@ export function DialogChangeSymbols({
                 {fixedOn('Update keywords and footprint filters')}
                 <div className="ze-chsym-optgap" />
                 {check(`${upd} pin name/number visibilities`, 'resetPinTextVisibility', {
-                  note: '(not applied yet)',
+                  title: 'Not applied yet',
                 })}
                 {check('Reset alternate pin functions', 'resetAlternatePin')}
                 {/* bSizer9 has TWO proportion-1 spacers, not one (:61, :64). */}
@@ -422,8 +428,9 @@ export function DialogChangeSymbols({
               onVisibleSeveritiesChange={setSeverities}
               // The 200 px minimum upstream states is on the PANEL
               // (`SetMinSize( wxSize( -1, 200 ) )`, :206), not on the message
-              // view; the view is whatever is left once the Show: strip has
-              // taken its 44. `.ze-chsym-msgs > .ze-report-panel` carries it.
+              // view: the view is whatever is left once the Show: strip has
+              // taken its 44. `.ze-chsym-msgs` carries it, so the view asks
+              // for nothing of its own and simply grows into what is left.
               minHeight={0}
             />
           </div>
