@@ -29,6 +29,15 @@
  *   - `dummyAlreadyPlaced` is a local empty vector (:86), so there is no
  *     "-- Already Placed --" group, but `s_SymbolHistoryList` IS passed, so
  *     "-- Recently Used --" is shared with Place Symbol;
+ *   - NO footprint preview and no footprint selector. The panel's signature is
+ *     `(…, bool aAllowFieldEdits, bool aShowFootprints, bool& aCancelled, …)`
+ *     and this frame hardcodes `false, false` (:87). DIALOG_SYMBOL_CHOOSER
+ *     forwards both from its caller, which is where the "Show footprint
+ *     previews in Symbol Chooser" preference gets in; the frame consults no
+ *     preference at all. The header is explicit: "if false, all footprint
+ *     preview and selection features are disabled. This forces aAllowFieldEdits
+ *     false too." Akshay caught this against the real dialog — one preview
+ *     pane, no footprint anything;
  *   - `ShowModal` seeds the selection from the caller's current text (:131),
  *     so browsing a filled-in field starts on that symbol.
  */
@@ -47,8 +56,6 @@ export interface SymbolChooserFrameProps {
    * { libid.Parse( *aSymbol, true ); if( libid.IsValid() ) SetPreselect(…) }`.
    */
   preselect?: string;
-  /** "Show footprint previews in Symbol Chooser" (Preferences > Editing). */
-  showFootprints?: boolean;
   /** `s_SymbolHistoryList`, shared with the Place Symbol chooser. */
   historyList?: readonly PickedSymbol[];
   /**
@@ -63,7 +70,6 @@ export interface SymbolChooserFrameProps {
 
 export function SymbolChooserFrame({
   preselect,
-  showFootprints = true,
   historyList = [],
   onOk,
   onCancel,
@@ -94,7 +100,10 @@ export function SymbolChooserFrame({
         <div className="ze-modal-body">
           <PanelSymbolChooser
             ref={panelRef}
-            showFootprints={showFootprints}
+            // `false` for aShowFootprints, hardcoded at the call site (:87) —
+            // NOT the Preferences value. This is the whole difference in the
+            // panel's look between the two hosts.
+            showFootprints={false}
             historyList={historyList}
             // `std::vector<PICKED_SYMBOL> dummyAlreadyPlaced;` — the frame
             // never shows an "Already Placed" group.

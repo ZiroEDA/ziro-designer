@@ -95,8 +95,6 @@ interface Props {
    * under "Recently Used" here too.
    */
   chooserHistory?: readonly PickedSymbol[];
-  /** "Show footprint previews in Symbol Chooser" (Preferences > Editing). */
-  showFootprints?: boolean;
 }
 
 /** The five match rows, in `_base.cpp` order. `needs` names the entry beside
@@ -130,7 +128,6 @@ export function DialogChangeSymbols({
   onApply,
   onClose,
   chooserHistory = [],
-  showFootprints = true,
 }: Props): JSX.Element {
   // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
   // ui/modal_escape.ts.
@@ -509,7 +506,6 @@ export function DialogChangeSymbols({
       {browsing !== null && (
         <SymbolChooserFrame
           preselect={browserSeed}
-          showFootprints={showFootprints}
           historyList={chooserHistory}
           onOk={acceptBrowsed}
           onCancel={() => setBrowsing(null)}

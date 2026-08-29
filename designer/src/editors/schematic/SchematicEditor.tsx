@@ -8915,7 +8915,6 @@ export function SchematicEditor({
                    chooser uses (symbol_chooser_frame.cpp:86), never the power
                    one, since this frame passes no filter. */
                 chooserHistory={sSymbolHistoryList}
-                showFootprints={es.appearance.footprint_preview}
               />
             )}
             {globalEditOpen && (
