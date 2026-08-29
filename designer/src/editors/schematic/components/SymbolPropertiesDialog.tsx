@@ -811,7 +811,22 @@ export function SymbolPropertiesDialog({
               data-nbhide={tab !== 'pins' ? '' : undefined}
             >
               <div className="ze-grid-pane ze-symprops-pin-pane">
-                <table className="ze-grid">
+                <table className="ze-grid ze-symprops-pin-grid">
+                  {/* `SetColSize` (base.cpp:279-283) then
+                      `AdjustPinsGridColumns` (dialog_symbol_properties.cpp:1066):
+                      Number, Electrical Type and Graphic Style keep their stated
+                      widths and Base Name / Alternate Assignment split what is
+                      left. The widths live in a `<colgroup>` because that is
+                      where a `table-layout: fixed` table reads them — stated on
+                      the `<th>` they were only a hint, and the browser sized
+                      every column from its content instead. */}
+                  <colgroup>
+                    <col className="num" />
+                    <col className="flex" />
+                    <col className="flex" />
+                    <col className="fixed" />
+                    <col className="fixed" />
+                  </colgroup>
                   <thead>
                     <tr>
                       {PIN_GRID_COLUMNS.map((c) => (
@@ -828,10 +843,16 @@ export function SymbolPropertiesDialog({
                         <td>
                           <span className="ze-grid-text">{r.baseName}</span>
                         </td>
-                        <td>
+                        <td className={r.choices.length === 0 ? 'ze-pin-noalt' : undefined}>
                           {/* "Don't accept random values; must use the popup to
                               change to a known alternate." A pin with no
-                              alternates has an empty, uneditable cell. */}
+                              alternates has an empty, uneditable cell — and it
+                              is painted, not just empty: BuildAttrs gives it
+                              `SetBackgroundColour( GetDialogBGColour() )`
+                              (dialog_symbol_properties.cpp:110-112), which is
+                              what makes "this pin has nothing to choose" read at
+                              a glance instead of looking like a blank you could
+                              type in. */}
                           {r.choices.length === 0 ? (
                             <span className="ze-grid-text" />
                           ) : (
@@ -963,7 +984,10 @@ export function SymbolPropertiesDialog({
                         {cols.map((c) => (
                           <th
                             key={c.id}
-                            style={c.index === 1 ? undefined : { width: c.width }}
+                            // `RecomputeGridWidths` floors each autosized
+                            // column at its `_base.cpp` width and lets content
+                            // widen it; only FDC_VALUE is given the slack.
+                            style={c.index === 1 ? undefined : { width: '1px', minWidth: c.width }}
                             className={c.center ? 'c' : undefined}
                           >
                             {c.label}
@@ -996,6 +1020,10 @@ export function SymbolPropertiesDialog({
                               className={[
                                 c.center ? 'c' : '',
                                 cursor.row === viewRow && cursor.col === c.index ? 'cursor' : '',
+                                // FDC_VALUE, the one `SetupColumnAutosizer`
+                                // marks flexible: it takes the slack, so its
+                                // text must not reach the column's width.
+                                c.index === 1 ? 'ze-grid-flexcol' : '',
                               ]
                                 .filter(Boolean)
                                 .join(' ')}

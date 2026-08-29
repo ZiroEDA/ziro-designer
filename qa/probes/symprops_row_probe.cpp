@@ -8,6 +8,7 @@
 #include <wx/notebook.h>
 #include <wx/grid.h>
 #include <wx/gbsizer.h>
+#include <wx/artprov.h>
 #include <vector>
 #include <functional>
 
@@ -122,6 +123,28 @@ public:
         grid->HideRowLabels();
         grid->SetMinSize( wxSize( -1, 160 ) );                     // dialog_symbol_properties.cpp:342
         sbFields->Add( grid, 1, wxEXPAND|wxBOTTOM|wxRIGHT|wxLEFT, 5 );
+
+        // bButtonSize (base.cpp:83-113): four STD_BITMAP_BUTTONs and a 20px
+        // spacer under the grid. It was missing, which made sbFields' CalcMin
+        // 36px short and any HEIGHT comparison against it wrong.
+        wxBoxSizer* bButtonSize = new wxBoxSizer( wxHORIZONTAL );
+        for( int i = 0; i < 3; ++i )
+        {
+            wxButton* b = new wxButton( sbFields->GetStaticBox(), wxID_ANY, wxEmptyString,
+                                        wxDefaultPosition, wxDefaultSize, wxBU_AUTODRAW|0 );
+            b->SetBitmap( wxArtProvider::GetBitmap( wxART_PLUS, wxART_BUTTON ) );
+            bButtonSize->Add( b, 0, wxALIGN_CENTER_VERTICAL|wxRIGHT, 5 );
+        }
+        bButtonSize->Add( 20, 0, 0, wxEXPAND, 10 );
+        {
+            wxButton* b = new wxButton( sbFields->GetStaticBox(), wxID_ANY, wxEmptyString,
+                                        wxDefaultPosition, wxDefaultSize, wxBU_AUTODRAW|0 );
+            b->SetBitmap( wxArtProvider::GetBitmap( wxART_DELETE, wxART_BUTTON ) );
+            bButtonSize->Add( b, 0, wxALIGN_CENTER_VERTICAL|wxRIGHT, 5 );
+        }
+        bButtonSize->Add( 0, 0, 1, wxEXPAND, 5 );
+        sbFields->Add( bButtonSize, 0, wxEXPAND|wxBOTTOM|wxRIGHT|wxLEFT, 5 );
+
         pageSizer->Add( sbFields, 1, wxEXPAND|wxBOTTOM|wxRIGHT|wxLEFT, 5 );
 
         // reparent the lower row onto the page
@@ -209,6 +232,34 @@ public:
         wxPrintf( "%-26s %d\n", "bottom row CalcMin", bottom->CalcMin().x );
         wxPrintf( "%-26s %d\n", "mainSizer CalcMin", mainSizer->CalcMin().x );
         wxPrintf( "%-26s %d\n", "dialog after Fit", dlg->GetSize().x );
+
+        // ---- heights. The width came out of bLowerSizer; the height is a
+        // different question and has a different answer, so every band of the
+        // dialog is reported separately rather than inferred from the total.
+        wxPrintf( "\n-- heights --\n" );
+        wxPrintf( "%-26s %d\n", "fields grid min", grid->GetEffectiveMinSize().y );
+        wxPrintf( "%-26s %d\n", "sbFields CalcMin", sbFields->CalcMin().y );
+        wxPrintf( "%-26s %d\n", "  bButtonSize", bButtonSize->CalcMin().y );
+        wxPrintf( "%-26s %d\n", "General  min", gen->CalcMin().y );
+        wxPrintf( "%-26s %d\n", "Attributes min", att->CalcMin().y );
+        wxPrintf( "%-26s %d\n", "Buttons  min", btns->CalcMin().y );
+        wxPrintf( "%-26s %d\n", "bLowerSizer CalcMin", lower->CalcMin().y );
+        wxPrintf( "%-26s %d\n", "general page CalcMin", pageSizer->CalcMin().y );
+        wxPrintf( "%-26s %d\n", "pin page CalcMin", bMargins->CalcMin().y );
+        wxPrintf( "%-26s %d\n", "emb page CalcMin", embSizer->CalcMin().y );
+        wxPrintf( "%-26s %d\n", "notebook best", nb->GetBestSize().y );
+        wxPrintf( "%-26s %d\n", "bottom row CalcMin", bottom->CalcMin().y );
+        // The four hand-off buttons' own height, which is what decides whether
+        // buttonsSizer's 186 is our --ctl-height 34 or something shorter.
+        for( wxSizerItem* it : btns->GetChildren() )
+            if( it->GetWindow() )
+                wxPrintf( "%-26s %d  \"%s\"\n", "  button best height",
+                          it->GetWindow()->GetBestSize().y,
+                          it->GetWindow()->GetLabel() );
+        wxPrintf( "%-26s %d\n", "  a wxTextCtrl for scale", lid->GetBestSize().y );
+        wxPrintf( "%-26s %d\n", "mainSizer CalcMin", mainSizer->CalcMin().y );
+        wxPrintf( "%-26s %d\n", "dialog after Fit", dlg->GetSize().y );
+        wxPrintf( "%-26s %d\n", "  (client area)", dlg->GetClientSize().y );
 
         // Per-control minimums, so a gap against the live dialog can be
         // localised to a widget instead of guessed at from the total.

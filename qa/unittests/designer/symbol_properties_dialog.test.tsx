@@ -36,6 +36,28 @@ import { readSchematic } from '@ziroeda/eeschema';
 import type { LibSymbol, SchSymbol, SymbolEdit } from '@ziroeda/eeschema';
 import { SymbolPropertiesDialog } from '@ziroeda/designer/src/editors/schematic/components/SymbolPropertiesDialog.js';
 
+/**
+ * One declaration of one rule in `shell.css`, by exact selector.
+ *
+ * Comments are stripped from the WHOLE stylesheet before anything is indexed,
+ * not from the extracted rule body. Several of these rules carry a comment that
+ * quotes C++ — `.ze-grid th` quotes `WX_GRID::SetLabelFont`, braces and all — and
+ * slicing to the first `}` in the raw text lands inside that comment and returns
+ * a body missing everything after it.
+ */
+const SHELL = readFileSync(join(__dirname, '../../../designer/src/ui/shell.css'), 'utf8').replace(
+  /\/\*[\s\S]*?\*\//g,
+  '',
+);
+
+const decl = (selector: string, prop: string): string | undefined => {
+  const at = SHELL.indexOf(`\n${selector} {`);
+  if (at < 0) throw new Error(`no rule for ${selector}`);
+  const open = SHELL.indexOf('{', at);
+  const body = SHELL.slice(open + 1, SHELL.indexOf('}', open));
+  return new RegExp(`(?:^|;)\\s*${prop}\\s*:\\s*([^;]+)`).exec(body)?.[1]?.trim();
+};
+
 afterEach(cleanup);
 
 /**
@@ -1041,17 +1063,6 @@ describe('the library link is never writeable', () => {
  * spacer really is the second child.
  */
 describe('the Attributes checkboxes are spaced by their own borders', () => {
-  const SHELL = readFileSync(join(__dirname, '../../../designer/src/ui/shell.css'), 'utf8');
-
-  /** One declaration of one rule, by exact selector, comments stripped. */
-  const decl = (selector: string, prop: string): string | undefined => {
-    const at = SHELL.indexOf(`\n${selector} {`);
-    if (at < 0) throw new Error(`no rule for ${selector}`);
-    const open = SHELL.indexOf('{', at);
-    const body = SHELL.slice(open + 1, SHELL.indexOf('}', open)).replace(/\/\*[\s\S]*?\*\//g, '');
-    return new RegExp(`(?:^|;)\\s*${prop}\\s*:\\s*([^;]+)`).exec(body)?.[1]?.trim();
-  };
-
   it('renders the five in upstream’s order, with the spacer after the first', () => {
     open(SHEET);
     const box = groupBox('Attributes');
@@ -1114,12 +1125,17 @@ describe('the Value column is the flexible one, and only it', () => {
     expect(value.style.width).toBe('');
   });
 
-  it('and every other shown column carries the base file’s SetColSize', () => {
+  it('and every other shown column carries the base file’s SetColSize as a FLOOR', () => {
     open(SHEET);
     const heads = Array.from(
       document.querySelectorAll<HTMLElement>('.ze-symprops-grid thead th'),
-    ).map((th) => [th.textContent, th.style.width] as const);
+    ).map((th) => [th.textContent, th.style.minWidth || th.style.width] as const);
     // base.cpp:39-46 for the eight ShowHideColumns( "0 1 2 3 4 5 6 7" ) shows.
+    // `min-width`, not `width`: RecomputeGridWidths AutoSizeColumns each of
+    // these and then takes max( SetColSize, content ), so the number is a floor
+    // the content may exceed — a live KiCad's Name column measures 92 against
+    // the 72 stated here, because "Description" needs 88. Stated as a hard
+    // width it clipped to "Descriptic" in the one column KiCad widens to fit.
     expect(heads).toStrictEqual([
       ['Name', '72px'],
       ['Value', ''],
@@ -1129,6 +1145,167 @@ describe('the Value column is the flexible one, and only it', () => {
       ['V Align', '66px'],
       ['Italic', '48px'],
       ['Bold', '48px'],
+    ]);
+  });
+
+  it('states them as a floor, never as a hard width', () => {
+    open(SHEET);
+    // The mutant this kills is the one that shipped: `width: c.width`, which
+    // caps the column at the base file's number instead of flooring it.
+    const name = document.querySelectorAll<HTMLElement>('.ze-symprops-grid thead th')[0]!;
+    expect(name.style.minWidth).toBe('72px');
+    expect(name.style.width).toBe('1px');
+  });
+
+  it('clips only the flexible column, which is the one that takes the slack', () => {
+    open(SHEET);
+    const tds = Array.from(
+      document.querySelectorAll<HTMLElement>('.ze-symprops-grid tbody tr:first-child td'),
+    );
+    // `width: 0; min-width: 100%` keeps a cell's text out of its column's
+    // intrinsic width. That belongs to FDC_VALUE alone; on every column it made
+    // each one sit at exactly its floor.
+    expect(tds.map((td) => td.classList.contains('ze-grid-flexcol'))).toStrictEqual([
+      false,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+    ]);
+  });
+});
+
+/**
+ * The Pin Functions grid, and the one thing this suite cannot see.
+ *
+ * happy-dom has no layout engine, so everything below is an assertion on the
+ * stated declaration. That is a real limit and it is what let a 1000000px
+ * max-content ship through a green suite once already: `table-layout: fixed`
+ * inherits `width: 100%` from `.ze-grid`, a percentage has nothing to resolve
+ * against inside `.ze-modal`'s `width: max-content`, and the dialog opened 1780
+ * wide instead of 884 on every tab. `qa/harness/symprops_layout.md` says how to
+ * measure that in a browser; these pin the values it settled on.
+ *
+ *   `SetColSize` 0..4 = 160, 160, 160, 140, 140   (base.cpp:279-283)
+ *   `SetColLabelSize( 24 )`                        (base.cpp:291)
+ *   `bMargins->Add( m_pinGrid, 1, wxEXPAND|wxALL|wxFIXED_MINSIZE, 5 )` (:303)
+ *   `AdjustPinsGridColumns`      (dialog_symbol_properties.cpp:1066-1085)
+ *   `SetDefaultRowSize( + FromDIP( 4 ) )`          (wx_grid.cpp:211)
+ */
+describe('the Pin Functions grid', () => {
+  it('states its columns in a colgroup, where a fixed layout reads them', () => {
+    open(PINS);
+    const cols = Array.from(
+      document.querySelectorAll<HTMLElement>('.ze-symprops-pin-grid colgroup col'),
+    ).map((c) => c.className);
+    // Number fixed, Base Name and Alternate Assignment flexible, Electrical
+    // Type and Graphic Style fixed — the split AdjustPinsGridColumns makes.
+    expect(cols).toStrictEqual(['num', 'flex', 'flex', 'fixed', 'fixed']);
+  });
+
+  it('fixes the three columns AdjustPinsGridColumns never touches', () => {
+    expect(decl('.ze-symprops-pin-grid', 'table-layout')).toBe('fixed');
+    expect(decl('.ze-symprops-pin-grid col.num', 'width')).toBe('160px');
+    expect(decl('.ze-symprops-pin-grid col.fixed', 'width')).toBe('140px');
+  });
+
+  it('and leaves the two it stretches auto, never a percentage', () => {
+    // `width: auto` in a fixed-layout table IS `pinTblWidth / 2`. A percentage
+    // is what produced the 1000000px; the regression test for that is the
+    // browser harness, so this states the shape the fix has to keep.
+    expect(decl('.ze-symprops-pin-grid col.flex', 'width')).toBe('auto');
+    expect(decl('.ze-symprops-pin-grid col.flex', 'width')).not.toMatch(/%/);
+  });
+
+  it('models wxFIXED_MINSIZE: the grid contributes its minimum, not its content', () => {
+    // Without this the pin page reaches the dialog's width and every tab opens
+    // at `max-width: 92vw`.
+    expect(decl('.ze-symprops-pin-pane', 'contain')).toBe('inline-size');
+    // 160 + 160 + 160 + 140 + 140, the five SetColSize calls.
+    expect(decl('.ze-symprops-pin-pane', 'min-width')).toBe('760px');
+  });
+
+  it('gives its rows WX_GRID’s default row size and its header the stated 24', () => {
+    expect(decl('.ze-symprops-pin-grid td', 'height')).toBe('30px');
+    expect(decl('.ze-symprops-pin-pane th', 'height')).toBe('24px');
+  });
+
+  it('paints a pin with no alternates the button face, as BuildAttrs does', () => {
+    open(PINS);
+    // None of Device:Conn's three pins carries an alternate, so all three cells
+    // are the read-only, painted kind.
+    const marked = document.querySelectorAll('.ze-symprops-pin-grid td.ze-pin-noalt');
+    expect(marked).toHaveLength(3);
+    expect(decl('.ze-symprops-pin-grid td.ze-pin-noalt', 'background')).toBe('var(--ctl-face)');
+  });
+
+  it('left-aligns the first column header in every grid, as WX_GRID does', () => {
+    // `if( col == 0 ) hAlign = wxALIGN_LEFT;` — on the shared rule, because
+    // upstream puts it in the shared class rather than in each dialog.
+    expect(decl('.ze-grid th', 'text-align')).toBe('center');
+    expect(decl('.ze-grid th:first-child', 'text-align')).toBe('left');
+    // MIN_GRIDCELL_MARGIN = FromDIP( 2 ), replacing the centred rule's 6.
+    expect(decl('.ze-grid th:first-child', 'padding-left')).toBe('2px');
+  });
+});
+
+/**
+ * The dialog's height, band by band.
+ *
+ * [px] `qa/probes/symprops_row_probe.cpp` asks wx for each one on this machine,
+ * with the same widgets and the same borders the base file gives them:
+ *
+ *     sbFields               222      bLowerSizer           219
+ *     General min            219        General 219 / Attributes 163 / Buttons 186
+ *     general page CalcMin   456      notebook best         495
+ *     bottom row CalcMin      44      mainSizer (client)    559
+ *
+ * Ours measured 599 of client against that 559. The excess was not spread
+ * thinly — it sat in exactly two bands, and both are stated below.
+ */
+describe('the two bands that made the dialog 50px too tall', () => {
+  it('gives the footer row no vertical border, because upstream gives it none', () => {
+    // `mainSizer->Add( bSizerBottom, 0, wxEXPAND|wxLEFT, 12 )` — wxLEFT alone.
+    // `.ze-modal-footer`'s shared `padding: 8px 12px` is right for a dialog
+    // whose button row is added wxALL; it is 16px too tall for this one.
+    expect(decl('.ze-symprops-foot', 'padding-left')).toBe('12px');
+    expect(decl('.ze-symprops-foot', 'padding-top')).toBe('0');
+    expect(decl('.ze-symprops-foot', 'padding-bottom')).toBe('0');
+    // and the shared rule it is overriding still carries its own number, so
+    // this reads as an override rather than as the default having moved.
+    expect(decl('.ze-modal-footer', 'padding')).toBe('8px 12px');
+  });
+
+  it('spaces the four hand-off buttons the way buttonsSizer does, not evenly', () => {
+    // 10, 10, then 5 either side of the 20px spacer: the spacer carries no
+    // border of its own, so only the buttons bracketing it contribute one.
+    // A uniform gap made those last two 10 as well — 10px this column does not
+    // have. wx: buttonsSizer->CalcMin().y = 186 = 4 x 34 + 30 + 20.
+    expect(decl('.ze-symprops-buttons', 'gap')).toBe('0');
+    expect(decl('.ze-symprops-buttons > .ze-btn:nth-child(1)', 'margin-bottom')).toBe('5px');
+    expect(decl('.ze-symprops-buttons > .ze-btn:last-child', 'margin-top')).toBe('5px');
+    expect(decl('.ze-symprops-btnsgap', 'height')).toBe('20px');
+  });
+
+  it('and the spacer really is between Edit Symbol and Edit Library Symbol', () => {
+    // The margins above are keyed on position, so the order has to be pinned:
+    // nth-child(1) is Update, last-child is Edit Library Symbol, and the gap
+    // sits fourth.
+    open(SHEET);
+    const col = document.querySelector('.ze-symprops-buttons')!;
+    expect(
+      Array.from(col.children).map((c) =>
+        c.className.includes('btnsgap') ? '(20px spacer)' : c.textContent,
+      ),
+    ).toStrictEqual([
+      'Update Symbol from Library...',
+      'Change Symbol...',
+      'Edit Symbol...',
+      '(20px spacer)',
+      'Edit Library Symbol...',
     ]);
   });
 });

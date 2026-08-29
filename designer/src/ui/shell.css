@@ -5941,6 +5941,30 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   white-space: nowrap;
   text-align: center;
 }
+/* `WX_GRID::DrawColLabel` (common/widgets/wx_grid.cpp:461-469) reads the grid's
+   alignment and then overrides it for one column:
+
+       int hAlign, vAlign;
+       GetColLabelAlignment( &hAlign, &vAlign );
+       ...
+       if( col == 0 )
+           hAlign = wxALIGN_LEFT;
+
+       if( hAlign == wxALIGN_LEFT )
+           rect.SetLeft( rect.GetLeft() + MIN_GRIDCELL_MARGIN );
+
+   so the first header is left-aligned in EVERY WX_GRID, however the dialog
+   called `SetColLabelAlignment` — both Symbol Properties grids ask for
+   wxALIGN_CENTER and both get a left-aligned "Name" / "Number" anyway. It goes
+   on the shared rule because upstream puts it in the shared class; stating it
+   per dialog is how the same override ends up written five times and missed on
+   the sixth. `MIN_GRIDCELL_MARGIN` is `FromDIP( 2 )` (wx_grid.cpp:76), and it
+   replaces the 6px the centred rule pads with rather than adding to it. */
+.ze-grid th:first-child {
+  text-align: left;
+  /* [data] MIN_GRIDCELL_MARGIN = FromDIP( 2 ). */
+  padding-left: 2px;
+}
 .ze-grid td {
   background: var(--grid-cell-bg);
   border: 1px solid var(--grid-line);
@@ -5948,6 +5972,15 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 }
 /* The row-label gutter is a LABEL, so it takes the label colour rather than the
    cell colour — the same call that paints the column headers. */
+/* The one column `SetupColumnAutosizer` marks flexible. It is the only one that
+   takes the slack, and therefore the only one whose text must not reach its
+   column's intrinsic width — `width: 0` + `min-width: 100%` paints the text
+   across the whole cell while contributing nothing to the column. Every other
+   column is `max( stated, content )`, which is the plain block above. */
+.ze-grid td.ze-grid-flexcol > .ze-grid-text {
+  width: 0;
+  min-width: 100%;
+}
 .ze-grid td.ze-grid-rowlabel,
 .ze-grid th.ze-grid-rowlabel {
   background: var(--grid-label-bg);
@@ -5966,18 +5999,36 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   padding: 3px 6px;
 }
 /* `SetDefaultCellOverflow( false )` (common/widgets/wx_grid.cpp:213): a cell
-   clips, it does not spill into its neighbour. */
+   clips, it does not spill into its neighbour.
+
+   It does NOT follow that a cell's text is invisible to its column's width.
+   This rule used to carry `width: 0; min-width: 100%`, described as
+   `RecomputeGridWidths` — "the column falls back to the width its header
+   states, and the flexible one takes the remainder". That is half of it. The
+   loop (common/widgets/wx_grid.cpp:1121-1136) runs AutoSizeColumn over every
+   autosized column first and floors the result at the `_base.cpp` width:
+
+       AutoSizeColumn( colIndex );
+       const int colSize = GetColSize( colIndex );
+       int minWidthScaled = FromDIP( minWidth );
+       SetColSize( colIndex, std::max( minWidthScaled, colSize ) );
+
+   and only then gives the ONE flexible column the slack. So a stated width is a
+   FLOOR for every column but the flexible one, not a cap: [px] a live KiCad's
+   Name column measures 92 against the 72 `SetColSize( 0, 72 )` states, because
+   "Description" needs 88, and Show Name measures 88 against its stated 84.
+   `width: 0` took the text out of the intrinsic width entirely, so every column
+   sat at exactly its floor and "Description" clipped to "Descriptic" — in the
+   one column KiCad widens to fit it. The clipping belongs to the flexible
+   column alone, which is why it is now stated there (`.ze-grid-flexcol`) rather
+   than on every cell.
+
+   Wherever it is stated, it must sit on the TEXT and not on the `<td>` — a
+   `max-width: 0` cell also collapses the `<input>` the cell swaps in when you
+   click into it, so the editor opened with zero width and the row looked
+   uneditable. */
 .ze-grid td > .ze-grid-text {
   display: block;
-  /* `width: 0` + `min-width: 100%` is what takes the cell's text out of its
-     column's intrinsic width while still painting it across the whole cell:
-     the column falls back to the width its header states, and the flexible one
-     takes the remainder, which is `RecomputeGridWidths`. It must sit on the
-     TEXT, not on the `<td>` — a `max-width: 0` cell also collapses the
-     `<input>` the cell swaps in when you click into it, so the editor opened
-     with zero width and the row looked uneditable. */
-  width: 0;
-  min-width: 100%;
   overflow: hidden;
   white-space: nowrap;
   /* No `text-overflow: ellipsis`. `wxGridCellStringRenderer::Draw` sets a
@@ -7069,10 +7120,37 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   min-width: 245px;
   display: flex;
   flex-direction: column;
-  /* [data] each button is added with a 5 px border, so 10 px between two. */
-  gap: 10px;
+  /* buttonsSizer's four items do NOT carry the same border, so the gaps between
+     them are not one number (dialog_symbol_properties_base.cpp:236-250):
+
+       Update Symbol from Library...  wxEXPAND|wxBOTTOM|wxRIGHT|wxLEFT 5
+       Change Symbol...               wxEXPAND|wxALL 5
+       Edit Symbol...                 wxEXPAND|wxALL 5
+       (the 20 px spacer)             no border
+       Edit Library Symbol...         wxEXPAND|wxTOP|wxRIGHT|wxLEFT 5
+
+     so it goes 10, 10, then 5 either side of the spacer — the two buttons that
+     bracket it each face it with a border and it has none of its own. A uniform
+     `gap: 10px` made those last two 10 as well, which is 10 px this column does
+     not have: [px] wx puts `buttonsSizer->CalcMin().y` at 186, which is
+     4 x 34 + 30 + 20 exactly, and ours measured 206. The margins are stated
+     per item because that is how upstream states them. */
+  gap: 0;
   /* [data] and 5 px around the column itself, wxEXPAND|wxALL 5. */
   padding: 5px;
+}
+.ze-symprops-buttons > .ze-btn:nth-child(1) {
+  /* [data] wxBOTTOM|wxRIGHT|wxLEFT 5 — no top border. */
+  margin-bottom: 5px;
+}
+.ze-symprops-buttons > .ze-btn:nth-child(2),
+.ze-symprops-buttons > .ze-btn:nth-child(3) {
+  /* [data] wxALL 5. */
+  margin: 5px 0;
+}
+.ze-symprops-buttons > .ze-btn:last-child {
+  /* [data] wxTOP|wxRIGHT|wxLEFT 5 — no bottom border. */
+  margin-top: 5px;
 }
 /* buttonsSizer->Add( 0, 20, 0, wxEXPAND, 5 ) before Edit Library Symbol. */
 .ze-symprops-btnsgap {
@@ -7152,8 +7230,16 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 /* bSizerBottom, added with wxEXPAND|wxLEFT 12. It sits outside the notebook,
    so it does not change with the page. */
 .ze-symprops-foot {
-  /* [data] mainSizer->Add( bSizerBottom, 0, wxEXPAND|wxLEFT, 12 ). */
+  /* [data] mainSizer->Add( bSizerBottom, 0, wxEXPAND|wxLEFT, 12 ) — wxLEFT and
+     nothing else, so this row has NO vertical border. `.ze-modal-footer`'s
+     shared `padding: 8px 12px` was adding 8 top and 8 bottom that upstream does
+     not have here, and the row's own children already carry their borders:
+     m_spiceFieldsButton is wxRIGHT|wxLEFT 15 (no vertical at all) and the std
+     OK/Cancel sizer is wxALL 5. [px] wx puts `bSizerBottom->CalcMin().y` at 44
+     — a 34px button plus that 5 above and below — where ours measured 60. */
   padding-left: 12px;
+  padding-top: 0;
+  padding-bottom: 0;
   justify-content: flex-start;
 }
 /* m_libraryIDLabel and m_tcLibraryID both take KIUI::GetSmallInfoFont, which
@@ -7229,19 +7315,71 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
    Alternate Assignment keeps its stated width, and those two SHARE what is
    left, `pinTblWidth / 2` each. Two 50% columns beside three fixed ones is
    that division. */
-.ze-symprops-pin-pane th:nth-child(1) {
+/* These widths were already stated, on the `<th>`, and none of them held: a
+   `<table>` defaults to `table-layout: auto`, where a stated width is a hint the
+   browser overrides from content. [px] a capture measures ours at
+   67 / 271 / 303 / 108 / 99 against KiCad's 160 / 259 / 260 / 140 / 140.
+
+   `table-layout: fixed` fixes the columns and breaks the dialog, which is worth
+   spelling out because it cost a round: a fixed-layout table inherits
+   `width: 100%` from `.ze-grid`, and a percentage width inside `.ze-modal`'s
+   `width: max-content` has nothing to resolve against. Chrome answers that
+   circularity with a max-content of **1000000px**, the modal clamps to its
+   `max-width: 92vw`, and the whole dialog opens 1780 wide instead of 884 — on
+   every tab, since all three pages share one grid cell. Measured, not reasoned:
+   `qa/harness/symprops_layout.md` says how to reproduce it in a browser, which
+   is the only place it shows up at all. happy-dom has no layout engine, so the
+   qa suite called this CSS correct throughout.
+
+   So the pane models `wxFIXED_MINSIZE` instead — the flag the base file puts on
+   this grid and only this grid (`bMargins->Add( m_pinGrid, 1,
+   wxEXPAND|wxALL|wxFIXED_MINSIZE, 5 )`, base.cpp:303), which tells the sizer to
+   take the grid's stated minimum and never ask its content. `contain:
+   inline-size` is that sentence in CSS: the pane still stretches to the page,
+   but nothing inside it reaches the dialog's width. `min-width` is then the
+   minimum wx would have used, the sum of the five `SetColSize` calls. */
+.ze-symprops-pin-pane {
+  /* [data] `wxFIXED_MINSIZE` on m_pinGrid — the grid's content never reaches
+     the dialog's width, only its stated minimum does. */
+  contain: inline-size;
+  /* [data] 160 + 160 + 160 + 140 + 140, the five SetColSize calls at
+     dialog_symbol_properties_base.cpp:279-283. */
+  min-width: 760px;
+}
+/* `SetColSize` (base.cpp:279-283) then `AdjustPinsGridColumns`
+   (dialog_symbol_properties.cpp:1066-1085): every column but Base Name and
+   Alternate Assignment keeps its stated width, and those two split what is left,
+   `pinTblWidth / 2` each. `width: auto` on exactly those two IS that division —
+   in a fixed-layout table the auto columns share the leftover — and it says it
+   without a percentage, which is what the 1000000px above was. */
+.ze-symprops-pin-grid {
+  table-layout: fixed;
+}
+.ze-symprops-pin-grid col.num {
   /* [data] `m_pinGrid->SetColSize( 0, 160 )`. */
   width: 160px;
 }
-.ze-symprops-pin-pane th:nth-child(2),
-.ze-symprops-pin-pane th:nth-child(3) {
-  /* [data] `pinTblWidth / 2` each, after the fixed columns are taken off. */
-  width: 50%;
+.ze-symprops-pin-grid col.flex {
+  /* [data] Base Name and Alternate Assignment, the two AdjustPinsGridColumns
+     stretches: `pinTblWidth / 2` each. */
+  width: auto;
 }
-.ze-symprops-pin-pane th:nth-child(4),
-.ze-symprops-pin-pane th:nth-child(5) {
+.ze-symprops-pin-grid col.fixed {
   /* [data] `m_pinGrid->SetColSize( 3, 140 )` and `( 4, 140 )`. */
   width: 140px;
+}
+/* `WX_GRID::WX_GRID` does `SetDefaultRowSize( GetDefaultRowSize() + FromDIP( 4 ) )`
+   (common/widgets/wx_grid.cpp:211) for every WX_GRID, and the pin grid is one —
+   the same 26 + 4 the fields grid beside it already states, asked of a real
+   wxGrid by `qa/probes/fields_grid_probe.cpp`. Ours had none here, so the rows
+   took their content height: [px] the capture reads our pin rows at a 26 px
+   pitch against KiCad's 30. */
+.ze-symprops-pin-grid td {
+  /* [px] 26 + FromDIP( 4 ); the 26 asked of a real wxGrid by the probe. */
+  height: 30px;
+}
+.ze-symprops-pin-grid td.ze-pin-noalt {
+  background: var(--ctl-face);
 }
 
 /* ERC results panel (KiCad DIALOG_ERC, modeless) */
