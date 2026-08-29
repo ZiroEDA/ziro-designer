@@ -345,10 +345,7 @@ import {
   DialogGlobalEditTextAndGraphics,
   type GlobalEditResult,
 } from './dialogs/dialog_global_edit_text_and_graphics.js';
-import {
-  DialogChangeSymbols,
-  type ChangeSymbolsSubject,
-} from './dialogs/dialog_change_symbols.js';
+import { DialogChangeSymbols, type ChangeSymbolsSubject } from './dialogs/dialog_change_symbols.js';
 import { DialogEditSymbolsLibId } from './dialogs/dialog_edit_symbols_libid.js';
 import { DialogResolveFieldCaseConflicts } from './dialogs/dialog_resolve_field_case_conflicts.js';
 import { DialogAnnotate, type AnnotateRun } from './dialogs/dialog_annotate.js';
@@ -2957,13 +2954,10 @@ export function SchematicEditor({
             return selection.has(refId('symbol', sym.uuid, i));
           case 'reference':
             return (
-              text === '' ||
-              (sym.fields.find((f) => f.key === 'Reference')?.value ?? '') === text
+              text === '' || (sym.fields.find((f) => f.key === 'Reference')?.value ?? '') === text
             );
           case 'value':
-            return (
-              text === '' || (sym.fields.find((f) => f.key === 'Value')?.value ?? '') === text
-            );
+            return text === '' || (sym.fields.find((f) => f.key === 'Value')?.value ?? '') === text;
           case 'libId':
             return text === '' || sym.libId === text;
           default:

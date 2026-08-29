@@ -2129,16 +2129,7 @@ export function buildDrawSteps(
     (scene.netLabels.length > 0 || scene.viaNetLabels.length > 0 || scene.padLabels.length > 0)
   ) {
     steps.push(() => {
-      drawNetNames(
-        ctx,
-        scene,
-        view,
-        visible,
-        widthPx,
-        heightPx,
-        opts,
-        emphasis,
-      );
+      drawNetNames(ctx, scene, view, visible, widthPx, heightPx, opts, emphasis);
     });
   }
   return steps;

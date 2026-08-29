@@ -208,9 +208,12 @@ describe('a control that carries its own label is never given a label column', (
   });
 
   it('and the option labels state nowrap, so a column is as wide as its widest', () => {
-    expect(decl('.ze-chsym-opt > span,\n.ze-chsym-fieldbox .row > span,\n.ze-chsym-mrad > span', 'white-space')).toBe(
-      'nowrap',
-    );
+    expect(
+      decl(
+        '.ze-chsym-opt > span,\n.ze-chsym-fieldbox .row > span,\n.ze-chsym-mrad > span',
+        'white-space',
+      ),
+    ).toBe('nowrap');
   });
 
   it('the indicator-to-label gap beats the shared .row rule that states 10px', () => {
@@ -277,7 +280,7 @@ describe('the report panel has one font size, and names its two exceptions', () 
     expect(decl('.ze-report-view', 'font-size')).toBe('var(--ui-font-size-info)');
   });
 
-  it('and the badge is NUMBER_BADGE\'s own 10 point', () => {
+  it("and the badge is NUMBER_BADGE's own 10 point", () => {
     expect(decl('.ze-badge', 'font-size')).toBe('var(--ui-font-size-info)');
   });
 

@@ -193,8 +193,7 @@ describe('the Update/Reset Fields checklist opens the way upstream leaves it', (
 
   it('and Reference and Value are off, because renaming from the library is the destructive one', () => {
     open(SUBJECT);
-    for (const name of ['Reference', 'Value'])
-      expect(ticked()).not.toContain(name);
+    for (const name of ['Reference', 'Value']) expect(ticked()).not.toContain(name);
   });
 });
 

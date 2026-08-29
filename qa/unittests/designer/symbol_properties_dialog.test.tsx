@@ -644,9 +644,7 @@ describe('the mandatory-field rules the buttons guard', () => {
  */
 function pickCombo(name: string, label: string): void {
   fireEvent.click(screen.getByRole('button', { name }));
-  const option = screen
-    .getAllByRole('option')
-    .find((o) => (o.textContent ?? '').trim() === label);
+  const option = screen.getAllByRole('option').find((o) => (o.textContent ?? '').trim() === label);
   if (!option) throw new Error(`Combo "${name}" offers no option "${label}"`);
   // mouseDown, not click: GTK commits a wxChoice on press, and Combo binds
   // onMouseDown to match (Combo.tsx:200).
