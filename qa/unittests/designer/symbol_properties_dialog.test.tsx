@@ -27,7 +27,7 @@
  *   8. the library link as plain text instead of a read-only wxTextCtrl;
  *   9. the whole row filled on open, where upstream only puts a cursor there.
  */
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { cleanup, createEvent, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr/src/index.js';
 import { readSchematic } from '@ziroeda/eeschema';
@@ -325,13 +325,98 @@ describe('4. a cell is a control only while it is being edited', () => {
     ]);
   });
 
-  it('a second click on the cell under the cursor opens its editor', () => {
+  it('a SINGLE click opens the editor, on mouse up', () => {
+    /**
+     * `GRID_TRICKS::onGridCellLeftClick` (grid_tricks.cpp:218-231), whose own
+     * comment is "Don't make users click twice to toggle a checkbox or edit a
+     * text cell"; `m_enableSingleClickEdit` is true by default (:48). This
+     * dialog wanted two clicks.
+     *
+     * `showEditor` ends with `ShowEditorOnMouseUp()`, so the editor appears on
+     * the UP, not the down — which is also what keeps the browser from blurring
+     * it away while it is still handling the mousedown.
+     */
     open(SHEET);
     const cell = within(fieldRows()[1]!).getAllByRole('cell')[4]!;
     fireEvent.mouseDown(cell);
     expect(cell.querySelector('select')).toBeNull();
-    fireEvent.mouseDown(cell);
+    fireEvent.mouseUp(cell);
     expect(cell.querySelector('select')).toBeTruthy();
+  });
+
+  it('but a read-only cell only selects the row, as showEditor returns false', () => {
+    // `showEditor`'s `isReadOnly( aRow, aCol )` guard: a mandatory field's NAME
+    // is read-only (fields_grid_table.cpp:592-597), so the event is skipped and
+    // the click falls through to plain row selection.
+    open(SHEET);
+    const nameCell = within(fieldRows()[1]!).getAllByRole('cell')[0]!;
+    fireEvent.mouseDown(nameCell);
+    fireEvent.mouseUp(nameCell);
+    expect(nameCell.querySelector('input')).toBeNull();
+    expect(nameCell.closest('tr')?.className).toContain('selected');
+  });
+
+  it('and suppresses that click\u2019s default, or the editor loses focus at once', () => {
+    /**
+     * The editor mounts with `autoFocus`. If the browser is left to finish the
+     * mousedown it moves focus to the element that was clicked, blurring the
+     * editor straight back out; `onBlur` closes it and the cell reads as
+     * permanently uneditable — the row highlights and nothing else ever
+     * happens, however many times you click. Akshay hit exactly that on the
+     * Footprint row.
+     *
+     * Upstream avoids the same class of problem by deferring the editor to
+     * `ShowEditorOnMouseUp()`, noting that "wxGrid\u2019s MouseUp handler ... has
+     * disabled the editor yet again". We do both: open on the up, and stop the
+     * down\u2019s default, which also stops a drag selecting the cell\u2019s text, as
+     * a wxGrid never does.
+     *
+     * This asserts `defaultPrevented` rather than the focus, because happy-dom
+     * does not implement the browser\u2019s default focus-on-mousedown at all: the
+     * test above passes with or without the fix, and so would any test that
+     * only looked at the DOM.
+     */
+    open(SHEET);
+    const cell = within(fieldRows()[1]!).getAllByRole('cell')[1]!;
+
+    const down = createEvent.mouseDown(cell);
+    fireEvent(cell, down);
+    expect(down.defaultPrevented).toBe(true);
+    fireEvent.mouseUp(cell);
+    expect(cell.querySelector('input')).toBeTruthy();
+
+    // Already open: the default must come back, or the caret cannot be placed.
+    const again = createEvent.mouseDown(cell);
+    fireEvent(cell, again);
+    expect(again.defaultPrevented).toBe(false);
+  });
+
+  it('and a click inside the open editor is the editor\u2019s, not the grid\u2019s', () => {
+    /**
+     * The editor control has the mouse once it is up; wxGrid never sees the
+     * click. So the second click places the caret and does nothing else — it
+     * must not move the cursor, re-select the row, or re-open the editor.
+     *
+     * Akshay: "2nd click ... i can place cursor in whole long string anywhere
+     * so no highlight on 2nd click". Handling it as a grid click flashed the
+     * row highlight back on and re-ran `SetSelection( -1, -1 )`, which put the
+     * whole value back under selection and made the middle of a long string
+     * unreachable.
+     */
+    open(SHEET);
+    const cell = within(fieldRows()[1]!).getAllByRole('cell')[1]!;
+    fireEvent.mouseDown(cell);
+    fireEvent.mouseUp(cell);
+    const editor = cell.querySelector('input');
+    expect(editor).toBeTruthy();
+    expect(cell.closest('tr')?.className).not.toContain('selected');
+
+    fireEvent.mouseDown(cell);
+    fireEvent.mouseUp(cell);
+    // Same editor element: not torn down and rebuilt, so the caret survives.
+    expect(cell.querySelector('input')).toBe(editor);
+    // And the row highlight never comes back.
+    expect(cell.closest('tr')?.className).not.toContain('selected');
   });
 
   it('Show / Show Name / Italic / Bold are checkboxes at all times', () => {
@@ -550,30 +635,70 @@ describe('the mandatory-field rules the buttons guard', () => {
   });
 });
 
+/**
+ * Choose an option in a `ui/Combo` by its visible label.
+ *
+ * Combo is the wxChoice port: a button that opens a `role="listbox"`. There is
+ * no `<select>` to `fireEvent.change`, because a native select's option list is
+ * drawn by the OS and cannot be themed — see Combo.tsx's header.
+ */
+function pickCombo(name: string, label: string): void {
+  fireEvent.click(screen.getByRole('button', { name }));
+  const option = screen
+    .getAllByRole('option')
+    .find((o) => (o.textContent ?? '').trim() === label);
+  if (!option) throw new Error(`Combo "${name}" offers no option "${label}"`);
+  // mouseDown, not click: GTK commits a wxChoice on press, and Combo binds
+  // onMouseDown to match (Combo.tsx:200).
+  fireEvent.mouseDown(option);
+}
+
 describe('the Unit and Body style combos', () => {
+  /**
+   * Both are `ui/Combo`, the wxChoice port, not a native `<select>`: a native
+   * one draws its option list with the OS, so its highlight is Chrome's blue
+   * rgb(153,200,255) where GTK paints rgb(62,62,62) (see Combo.tsx's header
+   * for the side-by-side measurement). The control is a button that opens a
+   * `role="listbox"`, so the options are read by opening it rather than off
+   * `HTMLSelectElement.options`.
+   */
+  const combo = (name: string): HTMLButtonElement =>
+    screen.getByRole('button', { name }) as HTMLButtonElement;
+
+  /** The labels the popup offers, in order. */
+  const optionsOf = (name: string): string[] => {
+    const btn = combo(name);
+    fireEvent.click(btn);
+    if (!screen.queryByRole('listbox')) fireEvent.mouseDown(btn);
+    const list = screen.queryByRole('listbox');
+    const labels = list
+      ? Array.from(list.querySelectorAll('[role="option"]')).map((o) => o.textContent ?? '')
+      : [];
+    if (list) fireEvent.click(btn);
+    return labels;
+  };
+
   it('are empty and disabled for a part that is neither', () => {
     // TransferDataToWindow appends nothing and calls Enable( false ) on both.
     open(SHEET);
-    const unit = document.querySelector<HTMLSelectElement>('#ze-symprops-unit')!;
-    const body = document.querySelector<HTMLSelectElement>('#ze-symprops-bodystyle')!;
-    expect(unit.disabled).toBe(true);
-    expect(unit.options).toHaveLength(0);
-    expect(body.disabled).toBe(true);
-    expect(body.options).toHaveLength(0);
+    expect(combo('Unit').disabled).toBe(true);
+    expect(combo('Body style').disabled).toBe(true);
+    // A disabled Combo does not open, so the emptiness is asserted on the
+    // options it was given rather than on a popup that cannot appear.
+    expect(optionsOf('Unit')).toStrictEqual([]);
+    expect(optionsOf('Body style')).toStrictEqual([]);
   });
 
   it('list GetUnitDisplayName( ii, false ) — the bare letter — when multi-unit', () => {
     open(MULTI);
-    const unit = document.querySelector<HTMLSelectElement>('#ze-symprops-unit')!;
-    expect(unit.disabled).toBe(false);
-    expect(Array.from(unit.options).map((o) => o.text)).toStrictEqual(['A', 'B']);
+    expect(combo('Unit').disabled).toBe(false);
+    expect(optionsOf('Unit')).toStrictEqual(['A', 'B']);
   });
 
   it('list Standard and Alternate when the part has a second body style', () => {
     open(MULTI);
-    const body = document.querySelector<HTMLSelectElement>('#ze-symprops-bodystyle')!;
-    expect(body.disabled).toBe(false);
-    expect(Array.from(body.options).map((o) => o.text)).toStrictEqual(['Standard', 'Alternate']);
+    expect(combo('Body style').disabled).toBe(false);
+    expect(optionsOf('Body style')).toStrictEqual(['Standard', 'Alternate']);
   });
 
   it('the Pin Functions page is disabled for a multi-body-style part', () => {
@@ -601,10 +726,8 @@ describe('the Unit and Body style combos', () => {
 
   it('and keeps the selection when the part really does have them', () => {
     const { edits } = open(MULTI);
-    fireEvent.change(document.querySelector('#ze-symprops-unit')!, { target: { value: '2' } });
-    fireEvent.change(document.querySelector('#ze-symprops-bodystyle')!, {
-      target: { value: '2' },
-    });
+    pickCombo('Unit', 'B');
+    pickCombo('Body style', 'Alternate');
     fireEvent.click(screen.getByRole('button', { name: 'OK' }));
     expect(edits[0]?.unit).toBe(2);
     expect(edits[0]?.bodyStyle).toBe(2);
@@ -693,8 +816,8 @@ describe('the Unit and Body style LABELS grey with their combos', () => {
     // would pass. `DUAL_UNIT_ONLY` is multi-unit with a single body style,
     // which is the case that separates them.
     open(DUAL_UNIT_ONLY);
-    expect(document.querySelector<HTMLSelectElement>('#ze-symprops-unit')!.disabled).toBe(false);
-    expect(document.querySelector<HTMLSelectElement>('#ze-symprops-bodystyle')!.disabled).toBe(
+    expect(document.querySelector<HTMLButtonElement>('#ze-symprops-unit')!.disabled).toBe(false);
+    expect(document.querySelector<HTMLButtonElement>('#ze-symprops-bodystyle')!.disabled).toBe(
       true,
     );
     expect(labelOf('ze-symprops-unit').className).not.toContain('disabled');
@@ -869,7 +992,14 @@ describe('the Pin Functions grid', () => {
         (td) => td.textContent,
       );
     expect(numbers()).toStrictEqual(['1']);
-    fireEvent.change(document.querySelector('#ze-symprops-unit')!, { target: { value: '2' } });
+    // The Unit combo lives on the General page, and an unselected notebook
+    // page is `aria-hidden` — as a wxNotebook's is — so it is reached the way
+    // a user reaches it: switch back, change it, switch forward. The control
+    // is `ui/Combo`, not a `<select>`; see pickCombo. TWO_UNIT_PINS names its
+    // units A and B.
+    fireEvent.click(screen.getByRole('tab', { name: 'General' }));
+    pickCombo('Unit', 'B');
+    fireEvent.click(screen.getByRole('tab', { name: 'Pin Functions' }));
     expect(numbers()).toStrictEqual(['2']);
   });
 });

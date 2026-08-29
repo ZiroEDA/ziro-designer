@@ -73,6 +73,20 @@ public:
                       b->GetBestSize().x, b->GetBestSize().y );
             b->Destroy();
         }
+        // bLowerSizer's three children and their proportions (4:3:3,
+        // dialog_symbol_properties_base.cpp:195,231,252). wxBoxSizer::CalcMin
+        // sizes a proportional row at max( child_min / proportion ) * total.
+        {
+            wxCheckBox* cb = new wxCheckBox( dlg, wxID_ANY, "Exclude from bill of materials" );
+            wxStaticText* bs = new wxStaticText( dlg, wxID_ANY, "Body style:" );
+            wxChoice* ch = new wxChoice( dlg, wxID_ANY );
+            ch->Append( "Not mirrored" );
+            ch->SetSelection( 0 );
+            wxPrintf( "%-34s %d\n", "checkbox: Exclude from BOM", cb->GetBestSize().x );
+            wxPrintf( "%-34s %d\n", "label: Body style:", bs->GetBestSize().x );
+            wxPrintf( "%-34s %d\n", "choice: Not mirrored", ch->GetBestSize().x );
+            cb->Destroy(); bs->Destroy(); ch->Destroy();
+        }
         {
             wxStaticText* t = new wxStaticText( dlg, wxID_ANY, "Exclude from bill of materials" );
             wxPrintf( "%-34s %d\n", "label: Exclude from BOM", t->GetBestSize().x );

@@ -5864,7 +5864,21 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
      (`dialog_design_inspector_base.cpp:41`), unlike the data rows, which wx
      sizes from their content. */
   height: 30px;
-  font-weight: 600;
+  /* A grid's column label is the PLAIN GUI font. `WX_GRID`'s constructor sets
+     `SetLabelFont( KIUI::GetControlFont( this ) )` (wx_grid.cpp:218), and the
+     class then overrides the setter so it cannot be changed —
+
+         void WX_GRID::SetLabelFont( const wxFont& aFont )
+         { wxGrid::SetLabelFont( KIUI::GetControlFont( this ) ); }   // :297-300
+
+     — it discards the font it is handed. `GetControlFont` is
+     `getGUIFont( win, 0 )`, which never bolds. So `font-weight: 600` made
+     every grid header in the app heavier than any grid header in KiCad. */
+  font-weight: normal;
+  /* `AutoSizeColumn` measures the column LABEL as well as the cells, so a
+     header never wraps — the column widens to fit it instead. "Show Name" was
+     wrapping to two lines inside its 84 px and doubling the header's height. */
+  white-space: nowrap;
   text-align: center;
 }
 .ze-grid td {
@@ -5895,10 +5909,41 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
    clips, it does not spill into its neighbour. */
 .ze-grid td > .ze-grid-text {
   display: block;
+  /* `width: 0` + `min-width: 100%` is what takes the cell's text out of its
+     column's intrinsic width while still painting it across the whole cell:
+     the column falls back to the width its header states, and the flexible one
+     takes the remainder, which is `RecomputeGridWidths`. It must sit on the
+     TEXT, not on the `<td>` — a `max-width: 0` cell also collapses the
+     `<input>` the cell swaps in when you click into it, so the editor opened
+     with zero width and the row looked uneditable. */
+  width: 0;
+  min-width: 100%;
   overflow: hidden;
   white-space: nowrap;
-  text-overflow: ellipsis;
+  /* No `text-overflow: ellipsis`. `wxGridCellStringRenderer::Draw` sets a
+     clipping region and paints the string into it — an over-long value is cut
+     off mid-glyph, with no ellipsis. KiCad's own Description row reads
+     "...script generated (kicad-library-uti" and simply stops. */
 }
+/* A wxGrid column is the width `SetColSize` gave it, then redistributed by
+   `WX_GRID::RecomputeGridWidths` (wx_grid.cpp:1081) — WITHIN the grid's
+   existing width. A cell never widens its column, and the dialog's width is
+   settled by `Fit()` BEFORE any of that runs, which is why KiCad's dialog is
+   the same width for a diode and for a screw terminal.
+
+   `overflow: hidden` alone does not do this: with `white-space: nowrap` the
+   cell still reports its full text width as its max-content contribution, so
+   the column — and, through `.ze-modal`'s `width: max-content`, the whole
+   dialog — tracked whichever field value was longest. `max-width: 0` is what
+   takes the cell out of that calculation; the column then falls back to the
+   width its header states and the flexible one takes the remainder.
+
+   This is SHARED, not per-dialog, because upstream shares it:
+   `SetDefaultCellOverflow( false )` is in `WX_GRID`'s own constructor
+   (wx_grid.cpp:213), the base class every KiCad grid inherits, so no wxGrid
+   anywhere lets a cell widen its column. Stating it on one dialog would be the
+   per-editor copy of a base-class behaviour. */
+
 /* wxALIGN_CENTER on the attr, which is what FIELDS_GRID_TABLE gives its bool
    and choice columns (fields_grid_table.cpp:341, 349, 357, 364). */
 .ze-grid td.c,
@@ -5921,6 +5966,44 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   background: var(--grid-label-bg);
   color: var(--chrome-fg);
 }
+/* `GRID_CELL_TEXT_BUTTON`: the editor is a text field with a button beside it,
+   both inside the cell, and the field takes the space the button leaves
+   (grid_text_button_helpers.cpp). */
+.ze-grid-editwrap {
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+.ze-grid-editwrap .ze-grid-input {
+  flex: 1;
+  min-width: 0;
+}
+.ze-grid-cellbtn:disabled {
+  cursor: default;
+}
+.ze-grid-cellbtn {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Square, on the CELL's height — a `GRID_CELL_TEXT_BUTTON`'s button fills the
+     cell it lives in, so there is no number to state here. `--ctl-height` is a
+     full-size control and this is not one. */
+  align-self: stretch;
+  aspect-ratio: 1;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--chrome-fg);
+  cursor: pointer;
+}
+/* The in-cell editor carries `.ze-bare` in the markup, which is the shared
+   entry rule's own opt-out. Without it that rule —
+   `.ze-app input:not(...)x5` at (0,6,1) against this selector's (0,2,1) —
+   wins, and its border lands INSIDE the cell's own cursor box, so an open
+   editor drew two nested rectangles where KiCad draws one. A wxGrid editor has
+   no frame of its own: `wxGridCellTextEditor` creates a borderless control and
+   the cell's highlight is the only outline. */
 .ze-grid td input[type="text"],
 .ze-grid td .ze-grid-input {
   width: 100%;
@@ -6028,7 +6111,12 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   background: var(--ctl-face);
   border-color: var(--ctl-border);
 }
-.ze-btn:disabled {
+/* A disabled wxBitmapButton inside a grid cell dims the same way, and takes
+   this rule rather than restating the colour: one disabled ink, not two. It
+   has no face of its own, so `background` below lands on `transparent` from
+   `.ze-grid-cellbtn`. */
+.ze-btn:disabled,
+.ze-grid-cellbtn:disabled {
   /* A disabled wxButton faces #2a2a2a with its label dimmed, rather than the
      whole control being made translucent. */
   background: var(--ctl-face-disabled);
@@ -6066,7 +6154,19 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   align-items: center;
   gap: 10px;
 }
-.ze-label-dialog-body .row > span {
+/* The label COLUMN of a row — the caption to the LEFT of a control, which is a
+   wxStaticText in its own sizer cell and so a fixed column. `:first-child` is
+   what makes it the label column; any other span in the row is something else
+   and must size to its own text.
+      - a `wxRadioButton`/`wxCheckBox` carries its own label as part of the one
+        control, and never wraps: "Update all symbols in schematic" was being
+        crushed into 56 px and broken one word per line, which hid most of
+        DIALOG_CHANGE_SYMBOLS' options behind five-line rows;
+      - a trailing note like "(not applied yet)" is a wxStaticText after the
+        control, not before it.
+   Twenty-one dialogs share this body class, so the fix is by position rather
+   than by adding a class to every call site. */
+.ze-label-dialog-body .row > span:first-child {
   width: 56px;
   flex: 0 0 auto;
   color: #c7c9cc;
@@ -6705,6 +6805,30 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
    background — [px] the page reads rgb(39,39,39) against rgb(44,44,44) either
    side of the notebook on the capture above, which is --chrome-bg2 against
    --chrome-bg. generalPageSizer's items each carry a 5 px border. */
+/* A wxNotebook's client area is the size of its LARGEST page, not of the
+   selected one: `wxNotebook::DoGetBestSize` walks every page and takes the
+   maximum, and the dialog around it is then fitted ONCE by
+   `GetSizer()->SetSizeHints( this )`. That is why switching from General to
+   Pin Functions in KiCad does not move the window by a pixel.
+
+   Ours rendered the unselected pages as `tab === … ? … : null` — out of the
+   DOM — so the dialog re-fitted itself to whichever tab was showing and jumped
+   size on every tab click. All the pages are in the DOM now and share ONE grid
+   cell, so the cell is as large as the largest of them; the unselected ones are
+   made invisible rather than removed, because `display: none` would take them
+   back out of the measurement and undo the whole point. */
+.ze-nb-body {
+  display: grid;
+  min-height: 0;
+}
+.ze-nb-body > .ze-symprops-page {
+  grid-area: 1 / 1;
+}
+/* NOT `[hidden]`: the shell's reset makes that `display: none !important`. */
+.ze-nb-body > [data-nbhide] {
+  visibility: hidden;
+  pointer-events: none;
+}
 .ze-symprops-page {
   display: flex;
   flex-direction: column;
@@ -6775,20 +6899,50 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-symprops-lower {
   display: flex;
   align-items: stretch;
+  /* [px] `bLowerSizer->CalcMin().x` = 850, asked of wx by
+     qa/probes/symprops_row_probe.cpp. This row is what sets the dialog's
+     width upstream, and it is a CONSTANT — it does not depend on the symbol,
+     which is why KiCad's dialog is the same width for a diode and a
+     connector while ours tracked whichever field value was longest. */
+  min-width: 850px;
 }
+/* bLowerSizer's three children, proportions 4:3:3
+   (dialog_symbol_properties_base.cpp:195, 231, 252).
+
+   `wxBoxSizer::CalcMin` sizes a proportional row at
+   `max( child_min / proportion ) * total_proportion`, and a sizer NEVER shrinks
+   a child below its own minimum. All three said `min-width: 0`, which is the
+   opposite: the row collapsed to whatever was left and the dialog came out
+   narrower than KiCad's however the grid was tuned.
+
+   `qa/probes/symprops_row_probe.cpp` builds this exact row — the four
+   label+choice pairs and two checkboxes, the five "Exclude from …" checkboxes,
+   the four buttons — with the same proportions and borders, and asks wx:
+
+       General  min (prop 4)      303
+       Attributes min (prop 3)    234
+       Buttons  min (prop 3)      245
+       bLowerSizer CalcMin        850
+       dialog after Fit           902
+
+   Buttons is what drives it: (245 + 10 border) / 3 = 85, times 10 = 850. */
 .ze-symprops-general {
   flex: 4;
-  min-width: 0;
+  /* [px] `gen->CalcMin().x` = 303, asked of wx by symprops_row_probe.cpp. */
+  min-width: 303px;
 }
 .ze-symprops-attrs {
   flex: 3;
-  min-width: 0;
+  /* [px] `att->CalcMin().x` = 234, same probe. */
+  min-width: 234px;
   display: flex;
   flex-direction: column;
 }
 .ze-symprops-buttons {
   flex: 3;
-  min-width: 0;
+  /* [px] `btns->CalcMin().x` = 245 — "Update Symbol from Library..." is the
+     widest of the four, and a wxButton is never shrunk below its label. */
+  min-width: 245px;
   display: flex;
   flex-direction: column;
   /* [data] each button is added with a 5 px border, so 10 px between two. */

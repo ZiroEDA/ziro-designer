@@ -15,6 +15,7 @@ import {
   gridRowIndices,
   isNameReadOnly,
   isValueReadOnly,
+  type FieldsGridCellKind,
   mandatoryRowCount,
   rowsFromSymbol,
   validateRows,
@@ -51,6 +52,11 @@ import { DEFAULT_FONT_NAME, measureText } from '@ziroeda/common/src/font/stroke_
 import { parseUnitValueDouble, stringFromValue, type EdaUnits } from '../../../ui/unit_binder.js';
 import { useModalEscape } from '../../../ui/useModalEscape.js';
 import { ColorSwatch } from '../../../ui/ColorSwatch.js';
+import { Icon } from '../../../ui/icons.js';
+// The wxChoice port. A native <select> draws its option list with the OS,
+// so its highlight is Chrome's blue rgb(153,200,255) where GTK paints
+// rgb(62,62,62) — see the header of ui/Combo.tsx for the measurements.
+import { Combo } from '../../../ui/Combo.js';
 import { StdBitmapButton } from '../../../ui/StdBitmapButton.js';
 import { color4dToItemColor, itemColorToColor4d } from '../dialogs/item_color.js';
 
@@ -301,6 +307,29 @@ export function SymbolPropertiesDialog({
   const view = useMemo(() => gridRowIndices(rows), [rows]);
   const rowAt = (viewRow: number): Row | undefined => rows[view[viewRow] ?? -1];
 
+  /**
+   * `GRID_TRICKS::showEditor`'s `isReadOnly( aRow, aCol )` guard: a single click
+   * opens the editor only where the cell is editable. Everywhere else it
+   * returns false, the event is skipped, and the click just selects the row.
+   *
+   * The two read-only cases are `FIELDS_GRID_TABLE::GetAttr`'s: a mandatory
+   * field's NAME (fields_grid_table.cpp:592-597), and a POWER symbol's Footprint
+   * value — "Power symbols do not appear in the board, so don't allow a
+   * footprint" (:617-631). A bool cell has no editor at all; it toggles, which
+   * is `toggleCell` above `showEditor` in the same handler.
+   */
+  /** Is the editor already open on this exact cell? Then the mouse is the
+   *  editor's, not the grid's. */
+  const inOpenEditor = (viewRow: number, colIndex: number): boolean =>
+    cursor.editing && cursor.row === viewRow && cursor.col === colIndex;
+
+  const cellIsEditable = (row: Row, col: { index: number; kind: FieldsGridCellKind }): boolean => {
+    if (col.kind !== 'text' && col.kind !== 'choice') return false;
+    if (col.index === 0) return !isNameReadOnly(row);
+    if (col.index === 1) return !isValueReadOnly(row, isPower);
+    return true;
+  };
+
   const patchRow = (viewRow: number, patch: Partial<Row>): void => {
     const i = view[viewRow];
     if (i === undefined) return;
@@ -447,7 +476,7 @@ export function SymbolPropertiesDialog({
           <input
             // biome-ignore lint/a11y/noAutofocus: EnableCellEditControl( true )
             autoFocus
-            className="ze-grid-input"
+            className="ze-grid-input ze-bare"
             // A wxGrid editor holds a string of its own and writes the table
             // only on commit, which is what lets `OnGridCellChanging` refuse
             // the write. Typing straight into the row would leave nothing to
@@ -481,18 +510,50 @@ export function SymbolPropertiesDialog({
         // FDC_VALUE. A power symbol's Footprint is read-only.
         if (isValueReadOnly(row, isPower)) return <span className="ze-grid-text">{row.value}</span>;
         return editing ? (
-          <input
-            // biome-ignore lint/a11y/noAutofocus: EnableCellEditControl( true )
-            autoFocus
-            className="ze-grid-input"
-            value={row.value}
-            onChange={(e) => patchRow(viewRow, { value: e.target.value })}
-            onBlur={() => setCursor((c) => ({ ...c, editing: false }))}
-            onKeyDown={(e) => {
-              e.stopPropagation();
-              if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-            }}
-          />
+          <span className="ze-grid-editwrap">
+            <input
+              // biome-ignore lint/a11y/noAutofocus: EnableCellEditControl( true )
+              autoFocus
+              // `wxGridCellTextEditor::BeginEdit` ends with
+              // `SetSelection( -1, -1 )` — the whole value is selected when the
+              // editor opens, so typing replaces it.
+              onFocus={(e) => e.currentTarget.select()}
+              className="ze-grid-input ze-bare"
+              value={row.value}
+              onChange={(e) => patchRow(viewRow, { value: e.target.value })}
+              onBlur={() => setCursor((c) => ({ ...c, editing: false }))}
+              onKeyDown={(e) => {
+                e.stopPropagation();
+                if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+              }}
+            />
+            {/* The Footprint row's editor is a GRID_CELL_FPID_EDITOR
+                (fields_grid_table.cpp:309), which is a GRID_CELL_TEXT_BUTTON:
+                a text field with a button carrying `BITMAPS::small_library`
+                (grid_text_button_helpers.cpp:62) that opens
+                FRAME_FOOTPRINT_CHOOSER.
+
+                GREYED, deliberately. The chooser frame does not exist in this
+                app yet, and a button that silently does nothing is worse than
+                one that says so — the same call this repo made for the Edit
+                File button in Manage Footprint Association Files. It sits in
+                its upstream position so the cell is the right shape now and
+                wiring it is the only step left. */}
+            {row.key === 'Footprint' ? (
+              <button
+                type="button"
+                className="ze-grid-cellbtn"
+                disabled
+                title="Browse for footprint — needs the Footprint Chooser"
+                aria-label="Browse for footprint"
+                // The cell's mousedown must not treat this as a click on the
+                // cell and re-enter the editor.
+                onMouseDown={(e) => e.stopPropagation()}
+              >
+                <Icon name="smallLibrary" size={14} />
+              </button>
+            ) : null}
+          </span>
         ) : (
           <span className="ze-grid-text">{row.value}</span>
         );
@@ -522,7 +583,7 @@ export function SymbolPropertiesDialog({
           <select
             // biome-ignore lint/a11y/noAutofocus: EnableCellEditControl( true )
             autoFocus
-            className="ze-grid-input"
+            className="ze-grid-input ze-bare"
             value={effH}
             onBlur={() => setCursor((c) => ({ ...c, editing: false }))}
             onChange={(e) => {
@@ -550,7 +611,7 @@ export function SymbolPropertiesDialog({
           <select
             // biome-ignore lint/a11y/noAutofocus: EnableCellEditControl( true )
             autoFocus
-            className="ze-grid-input"
+            className="ze-grid-input ze-bare"
             value={effV}
             onBlur={() => setCursor((c) => ({ ...c, editing: false }))}
             onChange={(e) => {
@@ -603,7 +664,7 @@ export function SymbolPropertiesDialog({
           <select
             // biome-ignore lint/a11y/noAutofocus: EnableCellEditControl( true )
             autoFocus
-            className="ze-grid-input"
+            className="ze-grid-input ze-bare"
             value={label.toLowerCase()}
             onBlur={() => setCursor((c) => ({ ...c, editing: false }))}
             onChange={(e) => {
@@ -734,8 +795,17 @@ export function SymbolPropertiesDialog({
             )}
           </div>
 
-          {tab === 'pins' ? (
-            <div className="ze-symprops-page">
+          {/* A wxNotebook keeps every page and reports the MAX of them as its
+              best size, so the dialog it sits in is fitted once and never
+              changes size when you switch tabs. These were rendered with
+              `tab === … ? … : null`, which takes the other pages out of the
+              DOM entirely, so the dialog resized itself to whichever tab was
+              showing. They are all present now and stacked in one grid cell —
+              see `.ze-nb-body` — with the inactive ones made invisible rather
+              than removed, which is what keeps them counting towards the
+              size. */}
+          <div className="ze-nb-body">
+          <div className="ze-symprops-page" aria-hidden={tab !== 'pins'} data-nbhide={tab !== 'pins' ? '' : undefined}>
               <div className="ze-grid-pane ze-symprops-pin-pane">
                 <table className="ze-grid">
                   <thead>
@@ -762,7 +832,7 @@ export function SymbolPropertiesDialog({
                             <span className="ze-grid-text" />
                           ) : (
                             <select
-                              className="ze-grid-input"
+                              className="ze-grid-input ze-bare"
                               value={r.alternate}
                               onChange={(e) =>
                                 setPinSym((sym) => ({
@@ -808,13 +878,16 @@ export function SymbolPropertiesDialog({
                 </table>
               </div>
             </div>
-          ) : null}
 
-          {tab === 'files' && embedded ? (
+
+          {embedded ? (
             // PANEL_EMBEDDED_FILES (common/dialogs/panel_embedded_files_base.cpp):
             // a two-column grid, an add/remove button pair, "Embed fonts" and
             // Export. Read-only here — see the header comment.
-            <div className="ze-symprops-page">
+            // The page EXISTS whenever the symbol carries embedded files —
+            // that is the upstream condition for adding it to the notebook —
+            // and is merely invisible when another tab is selected.
+            <div className="ze-symprops-page" aria-hidden={tab !== 'files'} data-nbhide={tab !== 'files' ? '' : undefined}>
               <div className="ze-grid-pane ze-symprops-files-pane">
                 <table className="ze-grid">
                   <thead>
@@ -861,7 +934,7 @@ export function SymbolPropertiesDialog({
             </div>
           ) : null}
 
-          <div className="ze-symprops-page" hidden={tab !== 'general'}>
+          <div className="ze-symprops-page" aria-hidden={tab !== 'general'} data-nbhide={tab !== 'general' ? '' : undefined}>
             {/* sbFields */}
             <fieldset className="ze-ds-group ze-symprops-fields">
               <legend>Fields</legend>
@@ -891,7 +964,20 @@ export function SymbolPropertiesDialog({
                     {view.map((rowIndex, viewRow) => (
                       <tr
                         key={rowIndex}
-                        className={cursor.selected && cursor.row === viewRow ? 'selected' : ''}
+                        // The row fill is not drawn over the row that holds
+                        // the active editor. The SELECTION itself survives —
+                        // `qa/probes/grid_edit_selection_probe.cpp` selects a
+                        // row, enables the cell editor and asks the grid:
+                        //   after SelectRow(2)               rows=1 inSel=1
+                        //   after EnableCellEditControl(true) rows=1 inSel=1
+                        //   after DisableCellEditControl()    rows=1 inSel=1
+                        // so this is a painting rule, not a selection one, and
+                        // the row is still selected for Delete Field etc.
+                        className={
+                          cursor.selected && cursor.row === viewRow && !cursor.editing
+                            ? 'selected'
+                            : ''
+                        }
                       >
                         {cols.map((c) => (
                           <td
@@ -902,28 +988,82 @@ export function SymbolPropertiesDialog({
                             ]
                               .filter(Boolean)
                               .join(' ')}
-                            onMouseDown={() =>
-                              setCursor((prev) => ({
-                                row: viewRow,
-                                col: c.index,
-                                // A second click on the cell already under the
-                                // cursor opens its editor, as wxGrid does.
-                                editing:
-                                  (c.kind === 'text' || c.kind === 'choice') &&
-                                  prev.row === viewRow &&
-                                  prev.col === c.index,
-                                // wxGridSelectRows: clicking selects the row.
-                                selected: true,
-                              }))
-                            }
-                            onDoubleClick={() =>
+                            onMouseDown={(e) => {
+                              // `GRID_TRICKS::onGridCellLeftClick`
+                              // (grid_tricks.cpp:218-231) — "Don't make users
+                              // click twice to toggle a checkbox or edit a text
+                              // cell". ONE click opens the editor, and
+                              // `m_enableSingleClickEdit` is true by default
+                              // (:48). This wanted two.
+                              //
+                              // `showEditor` (:/^bool GRID_TRICKS::showEditor)
+                              // moves the cursor, and if the cell is NOT
+                              // read-only it calls `ClearSelection()`, re-selects
+                              // the row, and then `ShowEditorOnMouseUp()`. A
+                              // read-only cell returns false and the click falls
+                              // through to plain row selection — which is why
+                              // clicking a mandatory field's NAME only
+                              // highlights the row.
+                              //
+                              // The editor really does open on mouse UP, and
+                              // that is load-bearing rather than pedantic: the
+                              // browser moves focus while handling mousedown, so
+                              // an editor mounted here is focused and then blurred
+                              // straight back out by the same click. Upstream
+                              // hit the same class of problem —
+                              //   "There's the whole SetInSetFocus() issue/hack
+                              //    in wxWidgets, and there's also wxGrid's MouseUp
+                              //    handler which doesn't notice it's processing a
+                              //    MouseUp until after it has disabled the editor
+                              //    yet again."
+                              // Suppressing the default here also stops the drag
+                              // selecting cell text, which a wxGrid never does.
+                              // A click INSIDE the editor that is already open
+                              // on this cell is not a grid click at all: the
+                              // editor control has the mouse, and wxGrid never
+                              // sees it. It places the caret, and that is the
+                              // whole of it — no cursor move, no re-selection,
+                              // no re-opening. Handling it here made the row
+                              // highlight flash back on and re-selected the
+                              // whole string, so you could never put the caret
+                              // in the middle of a long value.
+                              if (inOpenEditor(viewRow, c.index)) return;
+                              e.preventDefault();
                               setCursor({
                                 row: viewRow,
                                 col: c.index,
-                                editing: c.kind === 'text' || c.kind === 'choice',
+                                // wxGridSelectRows: clicking selects the row.
                                 selected: true,
-                              })
-                            }
+                                editing: false,
+                              });
+                            }}
+                            onMouseUp={() => {
+                              // `ShowEditorOnMouseUp()`. Nothing to do if the
+                              // editor is already up on this cell.
+                              //
+                              // This guard is NOT observable and no test kills
+                              // removing it: `{ ...prev, editing: true }` when
+                              // `editing` is already true carries identical
+                              // values, React keeps the same input element, and
+                              // the caret survives — `onFocus` does not re-fire,
+                              // so the select-all does not re-run either. It
+                              // stays because it says what the mouseup means,
+                              // and because it costs a render per click inside
+                              // the editor otherwise. Recorded rather than
+                              // pinned with a test that could not fail.
+                              if (inOpenEditor(viewRow, c.index)) return;
+                              if (!cellIsEditable(rowAt(viewRow)!, c)) return;
+                              setCursor((prev) => ({ ...prev, editing: true }));
+                            }}
+                            onDoubleClick={() => {
+                              if (!cellIsEditable(rowAt(viewRow)!, c)) return;
+                              setCursor({
+                                row: viewRow,
+                                col: c.index,
+                                editing: true,
+                                selected: true,
+                              });
+                            }}
                           >
                             {cell(viewRow, c.index)}
                           </td>
@@ -959,26 +1099,21 @@ export function SymbolPropertiesDialog({
                   >
                     Unit:
                   </label>
-                  <select
+                  <Combo
                     id="ze-symprops-unit"
-                    className="ze-select"
+                    ariaLabel="Unit"
                     disabled={!multiUnit}
-                    value={unit}
-                    onChange={(e) => setUnit(Number(e.target.value))}
-                  >
-                    {/* `for( ii = 1; ii <= GetUnitCount(); ii++ ) Append(
-                        GetUnitDisplayName( ii, false ) )` — the bare letter, or
-                        the library's own name for the unit. Appended only when
-                        the symbol IS multi-unit; otherwise the choice is left
-                        empty and disabled. */}
-                    {multiUnit
-                      ? Array.from({ length: unitCount }, (_, k) => (
-                          <option key={k + 1} value={k + 1}>
-                            {unitDisplayName(lib, k + 1)}
-                          </option>
-                        ))
-                      : null}
-                  </select>
+                    value={String(unit)}
+                    onChange={(v) => setUnit(Number(v))}
+                    options={
+                      multiUnit
+                        ? Array.from({ length: unitCount }, (_, k) => ({
+                            value: String(k + 1),
+                            label: unitDisplayName(lib, k + 1),
+                          }))
+                        : []
+                    }
+                  />
 
                   {/* `m_bodyStyle->Enable( false )` (:537), the same rule for
                       the label of a part with only one body style. */}
@@ -988,19 +1123,21 @@ export function SymbolPropertiesDialog({
                   >
                     Body style:
                   </label>
-                  <select
+                  <Combo
                     id="ze-symprops-bodystyle"
-                    className="ze-select"
+                    ariaLabel="Body style"
                     disabled={!multiBodyStyle}
-                    value={bodyStyle}
-                    onChange={(e) => setBodyStyle(Number(e.target.value))}
-                  >
-                    {/* Standard / Alternate is the De Morgan pair. A part with
-                        named body styles lists those instead; we do not model
-                        `(body_style_names …)` yet. */}
-                    {multiBodyStyle ? <option value={1}>Standard</option> : null}
-                    {multiBodyStyle ? <option value={2}>Alternate</option> : null}
-                  </select>
+                    value={String(bodyStyle)}
+                    onChange={(v) => setBodyStyle(Number(v))}
+                    options={
+                      multiBodyStyle
+                        ? [
+                            { value: '1', label: 'Standard' },
+                            { value: '2', label: 'Alternate' },
+                          ]
+                        : []
+                    }
+                  />
 
                   {/* gbSizer1 leaves row 2 empty at SetEmptyCellSize( -1, 12 ). */}
                   <span className="ze-symprops-gbgap" />
@@ -1008,31 +1145,33 @@ export function SymbolPropertiesDialog({
                   <label className="ze-symprops-lbl" htmlFor="ze-symprops-angle">
                     Angle:
                   </label>
-                  <select
+                  <Combo
                     id="ze-symprops-angle"
-                    className="ze-select"
-                    value={orient}
-                    onChange={(e) => setOrient(Number(e.target.value))}
-                  >
-                    <option value={0}>0</option>
-                    <option value={90}>+90</option>
-                    <option value={270}>-90</option>
-                    <option value={180}>180</option>
-                  </select>
+                    ariaLabel="Angle"
+                    value={String(orient)}
+                    onChange={(v) => setOrient(Number(v))}
+                    options={[
+                      { value: '0', label: '0' },
+                      { value: '90', label: '+90' },
+                      { value: '270', label: '-90' },
+                      { value: '180', label: '180' },
+                    ]}
+                  />
 
                   <label className="ze-symprops-lbl" htmlFor="ze-symprops-mirror">
                     Mirror:
                   </label>
-                  <select
+                  <Combo
                     id="ze-symprops-mirror"
-                    className="ze-select"
+                    ariaLabel="Mirror"
                     value={mirror}
-                    onChange={(e) => setMirror(e.target.value as '' | 'x' | 'y')}
-                  >
-                    <option value="">Not mirrored</option>
-                    <option value="x">Around X axis</option>
-                    <option value="y">Around Y axis</option>
-                  </select>
+                    onChange={(v) => setMirror(v as '' | 'x' | 'y')}
+                    options={[
+                      { value: '', label: 'Not mirrored' },
+                      { value: 'x', label: 'Around X axis' },
+                      { value: 'y', label: 'Around Y axis' },
+                    ]}
+                  />
                 </div>
 
                 {/* bSizer11, inside the General box and not Attributes. */}
@@ -1159,6 +1298,7 @@ export function SymbolPropertiesDialog({
                 </button>
               </div>
             </div>
+          </div>
           </div>
         </div>
 
