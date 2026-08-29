@@ -1176,6 +1176,32 @@ describe('the Value column is the flexible one, and only it', () => {
       false,
     ]);
   });
+
+  it('and the marker actually carries the rule that keeps it out of the width', () => {
+    // A surviving mutant: the class can be on the right cell while the rule it
+    // names says nothing, and every other assertion here still passes. It is
+    // `width: 0` + `min-width: 100%` that paints the text across the cell while
+    // contributing nothing to the column, which is what lets the flexible
+    // column take the slack instead of being pushed out by its own content.
+    expect(decl('.ze-grid td.ze-grid-flexcol > .ze-grid-text', 'width')).toBe('0');
+    expect(decl('.ze-grid td.ze-grid-flexcol > .ze-grid-text', 'min-width')).toBe('100%');
+    // and the shared rule must NOT still carry them, or every column is capped
+    // again and "Description" clips in the Name column.
+    //
+    // `decl` cannot ask this one: the selector `.ze-grid td > .ze-grid-text`
+    // appears TWICE — once for the padding it shares with `td.ze-grid-text`,
+    // once for the clipping — and `decl` finds the first. Asserting through it
+    // reads the padding rule, which never had a width, so the assertion passed
+    // whatever the clipping rule said. This reads the rule that actually
+    // declares `display: block`.
+    const blockRule = (() => {
+      const at = SHELL.indexOf('display: block;', SHELL.indexOf('.ze-grid td > .ze-grid-text {'));
+      return SHELL.slice(SHELL.lastIndexOf('{', at), SHELL.indexOf('}', at));
+    })();
+    expect(blockRule).toContain('display: block');
+    expect(blockRule).not.toContain('width: 0');
+    expect(blockRule).not.toContain('min-width: 100%');
+  });
 });
 
 /**
