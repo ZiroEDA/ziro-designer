@@ -40,6 +40,7 @@ import {
   type ChangeSymbolsMessage,
   type ChangeSymbolsMode,
   type ChangeSymbolsOptions,
+  type SymbolMatch,
   type SymbolMatchMode,
 } from '@ziroeda/eeschema';
 import { useModalEscape } from '../../../ui/useModalEscape.js';
@@ -64,9 +65,13 @@ export interface ChangeSymbolsSubject {
 
 interface Props {
   mode: ChangeSymbolsMode;
-  /** Field names offered in the checklist (every field in use, plus the
-   *  mandatory ones), in the order the dialog lists them. */
-  fieldNames: readonly string[];
+  /**
+   * The checklist's contents FOR A GIVEN MATCH. `updateFieldsList()` is re-run
+   * from every match handler upstream (`onMatchByAll`, `onMatchBySelected`, …),
+   * because the list is built from the symbols the match selects — choosing a
+   * different scope offers a different set of fields.
+   */
+  fieldNamesFor: (match: SymbolMatch) => readonly string[];
   hasSelection: boolean;
   /**
    * The symbol this was opened on, if any. Absent when the dialog is opened
@@ -105,7 +110,7 @@ const MATCH_ROWS: {
 
 export function DialogChangeSymbols({
   mode,
-  fieldNames,
+  fieldNamesFor,
   hasSelection,
   subject,
   messages,
@@ -142,6 +147,9 @@ export function DialogChangeSymbols({
 
   const set = <K extends keyof ChangeSymbolsOptions>(k: K, v: ChangeSymbolsOptions[K]): void =>
     setOpts((o) => ({ ...o, [k]: v }));
+
+  /** `updateFieldsList()`, re-run whenever the match changes. */
+  const fieldNames = fieldNamesFor(opts.match);
 
   const toggleField = (name: string): void =>
     setOpts((o) => {

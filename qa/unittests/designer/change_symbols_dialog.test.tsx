@@ -42,7 +42,9 @@ function open(subject?: typeof SUBJECT) {
   render(
     <DialogChangeSymbols
       mode="update"
-      fieldNames={['Reference', 'Value', 'Footprint', 'Datasheet']}
+      // `updateFieldsList()` is a function of the match, because upstream
+      // rebuilds the list from the symbols the match selects.
+      fieldNamesFor={() => ['Reference', 'Value', 'Footprint', 'Datasheet', 'Description']}
       hasSelection
       {...(subject ? { subject } : {})}
       messages={[]}

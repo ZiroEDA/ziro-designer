@@ -148,6 +148,7 @@ import {
   type ChangeSymbolsMessage,
   type ChangeSymbolsMode,
   type ChangeSymbolsOptions,
+  type SymbolMatch,
   annotationReport,
   checkAnnotation,
   clearAnnotationCommand,
@@ -2915,27 +2916,72 @@ export function SchematicEditor({
 
   /** Every field name in use on this sheet, with the mandatory ones first —
    *  the dialog's checklist (DIALOG_CHANGE_SYMBOLS::updateFieldsList). */
-  const changeSymbolsFieldNames = useMemo(() => {
-    const names = ['Reference', 'Value', 'Footprint', 'Datasheet'];
-    const seen = new Set(names);
-    for (const sym of doc?.symbols ?? []) {
-      for (const f of sym.fields) {
-        if (!seen.has(f.key)) {
-          seen.add(f.key);
-          names.push(f.key);
+  /**
+   * `DIALOG_CHANGE_SYMBOLS::updateFieldsList`. Two things it does that this
+   * did not:
+   *
+   * 1. It walks only the symbols the current match SELECTS —
+   *    `if( !isMatch( symbol, &instance ) ) continue;` — and their library
+   *    symbols. This walked every symbol and every `lib_symbols` entry in the
+   *    document, so choosing "Update selected symbol(s)" on a screw terminal
+   *    still offered `Sim.Device` and `Sim.Pins` because some diode elsewhere
+   *    on the sheet had them. The dialog re-runs it whenever the match changes,
+   *    which is why this is a function and not a memo.
+   *
+   * 2. `ki_keywords`, `ki_description` and `ki_fp_filters` are NOT fields. The
+   *    parser consumes each into the symbol itself and returns nullptr —
+   *    "Not a SCH_FIELD object yet" (sch_io_kicad_sexpr_parser.cpp:1169-1184) —
+   *    so they can never appear in a field list.
+   *
+   * The five mandatory fields are always listed, `Description` included
+   * (`SCH_FIELD::IsMandatory`, sch_field.cpp:1447-1452); it was missing.
+   */
+  const changeSymbolsFieldNames = useCallback(
+    (match: SymbolMatch): readonly string[] => {
+      const names = ['Reference', 'Value', 'Footprint', 'Datasheet', 'Description'];
+      const seen = new Set(names);
+      /** Consumed by the parser into the symbol, never a field. */
+      const NOT_A_FIELD = new Set(['ki_keywords', 'ki_description', 'ki_fp_filters']);
+      const add = (key: string): void => {
+        if (seen.has(key) || NOT_A_FIELD.has(key)) return;
+        seen.add(key);
+        names.push(key);
+      };
+
+      const text = (match.text ?? '').trim();
+      const matches = (sym: SchSymbol, i: number): boolean => {
+        switch (match.mode) {
+          case 'all':
+            return true;
+          case 'selected':
+            return selection.has(refId('symbol', sym.uuid, i));
+          case 'reference':
+            return (
+              text === '' ||
+              (sym.fields.find((f) => f.key === 'Reference')?.value ?? '') === text
+            );
+          case 'value':
+            return (
+              text === '' || (sym.fields.find((f) => f.key === 'Value')?.value ?? '') === text
+            );
+          case 'libId':
+            return text === '' || sym.libId === text;
+          default:
+            return true;
         }
-      }
-    }
-    for (const lib of doc?.libSymbols ?? []) {
-      for (const f of lib.properties) {
-        if (!seen.has(f.key)) {
-          seen.add(f.key);
-          names.push(f.key);
-        }
-      }
-    }
-    return names;
-  }, [doc]);
+      };
+
+      (doc?.symbols ?? []).forEach((sym, i) => {
+        if (!matches(sym, i)) return;
+        for (const f of sym.fields) add(f.key);
+        // ...and the library symbol it came from.
+        const lib = libById.get(schSymbolLibraryName(sym));
+        for (const f of lib?.properties ?? []) add(f.key);
+      });
+      return names;
+    },
+    [doc, libById, selection],
+  );
 
   /**
    * SCH_EDIT_TOOL's Edit with Symbol Editor. Hands the placement's symbol over
@@ -8864,7 +8910,7 @@ export function SchematicEditor({
             {changeSymbolsMode !== null && (
               <DialogChangeSymbols
                 mode={changeSymbolsMode}
-                fieldNames={changeSymbolsFieldNames}
+                fieldNamesFor={changeSymbolsFieldNames}
                 hasSelection={selection.size > 0}
                 {...(changeSymbolsSubject ? { subject: changeSymbolsSubject } : {})}
                 messages={changeSymbolsMessages}

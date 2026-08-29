@@ -6748,22 +6748,30 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   gap: 7px;
   min-width: 0;
 }
+/* ONE font size in a dialog. A wxStaticBox's label, a wxCheckBox's label and a
+   wxStaticText all take the dialog's own font — KiCad calls SetFont on none of
+   them, and `qa/probes/dialog_chrome_probe.cpp` measures that font as Ubuntu
+   Sans 11 pt, which is `--ui-font-size` and what `.ze-app` already hands down.
+   The only smaller font in a KiCad dialog is where one is asked for by name,
+   `KIUI::GetSmallInfoFont` = `getGUIFont( win, -2 )`, as the Symbol Properties
+   library link does.
+
+   These three said 12.5 px and 13 px against that 14.67 px, so every group box
+   in the app — this is a shared rule — read smaller than KiCad's. Stating
+   nothing is the fix; the size then comes from the one place that holds it. */
 .ze-props-group legend {
   padding: 0 6px;
-  font-size: 12.5px;
   color: #c7c9cc;
 }
 .ze-props-group label {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 13px;
 }
 .ze-props-group label.row > span {
   width: 56px;
   flex: 0 0 auto;
   color: #c7c9cc;
-  font-size: 13px;
 }
 /* ---------------------------------------------------------------------------
    Symbol Properties (DIALOG_SYMBOL_PROPERTIES over
@@ -10218,6 +10226,7 @@ textarea.ze-ds-textedit {
 }
 .ze-chsym-fields {
   flex: 2;
+  min-width: max-content;
   display: flex;
   flex-direction: column;
 }
@@ -10229,10 +10238,21 @@ textarea.ze-ds-textedit {
   display: flex;
   flex-direction: row;
   align-items: stretch;
+  /* And `.ze-props-group` also sets `min-width: 0`, which is the one thing a
+     wxSizer never does — it does not shrink a child below its minimum. Leaving
+     it in force let both columns collapse under their labels until the two
+     overlapped. `max-content` is the CSS spelling of "the minimum wx would
+     compute": the widest checkbox in each column, side by side. */
+  min-width: max-content;
 }
 /* bSizer8 and bSizer9, each added with proportion 1 — equal columns. */
 .ze-chsym-optcol {
-  flex: 1;
+  /* `Add( bSizer8, 1, wxEXPAND )` — proportion 1 shares the EXTRA space; it
+     never takes a column below its own minimum. `flex: 1` alone is
+     `flex-basis: 0`, i.e. size from the share only, so the basis is the
+     content. */
+  flex: 1 1 auto;
+  min-width: max-content;
   display: flex;
   flex-direction: column;
   /* [data] every option carries wxBOTTOM 5. */
@@ -10287,7 +10307,13 @@ textarea.ze-ds-textedit {
 .ze-chsym-selbtns .ze-btn {
   flex: 1;
 }
-/* `m_checkAll` / `m_uncheckAll`: wxEXPAND, so full width of their column. */
+/* `m_checkAll` / `m_uncheckAll`: wxEXPAND, so full width of their column —
+   and, like every wxButton, never narrower than its own label, which is what
+   made "Uncheck All Update Options" spill out of its box. */
+.ze-chsym-optcol > .ze-btn,
+.ze-chsym-selbtns .ze-btn {
+  white-space: nowrap;
+}
 .ze-chsym-optcol > .ze-btn {
   width: 100%;
   /* [data] wxTOP|wxBOTTOM 5. */
