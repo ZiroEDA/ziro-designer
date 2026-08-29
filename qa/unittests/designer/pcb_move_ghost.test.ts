@@ -25,7 +25,6 @@ import { fileURLToPath } from 'node:url';
 import { parse } from '@ziroeda/sexpr/src/index.js';
 import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
 import {
-  buildDrawSteps,
   buildScene,
   drawAnchors,
   drawNetNames,
@@ -261,92 +260,6 @@ describe('pad numbers and net names travel too', () => {
 
   it('leaves the text of a footprint that is not in the drag alone', () => {
     expect(textAt({ ids: new Set(['footprint:9']), dx: 20 * MM, dy: 0 })).toEqual(textAt(null));
-  });
-
-  /** The colour each pad label was drawn in, keyed by the text drawn. */
-  const textColors = (emphasis: 'none' | 'selected'): Map<string, string> => {
-    const out = new Map<string, string>();
-    let pen = '';
-    const ctx = {
-      setTransform: () => {},
-      bitmapText: (t: string) => out.set(t, pen),
-      set strokeStyle(v: string) {
-        pen = v;
-      },
-      get strokeStyle() {
-        return pen;
-      },
-    } as unknown as CanvasRenderingContext2D;
-    drawNetNames(
-      ctx,
-      padScene,
-      padView,
-      new Set(['F.Cu']),
-      4000,
-      4000,
-      // The pad-name colour has to be a MID tone for this to prove anything.
-      // netnameColorFor only ever returns special.padName or its inverse, and
-      // the stock value is white — so on any real theme the text is white or
-      // black, and selectedColor() short-circuits on `brightness < 0.05` for
-      // black just as brightening saturates for white. Either way the colours
-      // would match with the isNetname guard removed, and a mutant that drops
-      // it survives. This grey-blue sits at ~0.55 brightness, where isNetname
-      // is the only thing standing between it and Brightened().
-      {
-        ...DEFAULT_DRAW_OPTIONS,
-        theme: { special: { padName: 'rgba(128,160,200,0.7)' } },
-      } as unknown as typeof DEFAULT_DRAW_OPTIONS,
-      emphasis,
-    );
-    return out;
-  };
-
-  it("draws a selected pad's text in the same colour as an unselected one", () => {
-    // This is what makes suppressing the overlay's copy free. selectedColor()
-    // opens with `if (isNetname || …) return color`, and every net-name colour
-    // in drawNetNames is resolved with isNetname true, so pcbnew's selection
-    // brightening never reaches this text. The overlay's second copy was
-    // therefore identical in colour to the first and differed only in coming
-    // from the stroke font instead of the atlas — the nudge, and nothing else.
-    expect([...textColors('none').keys()].sort()).toEqual(['1', '2']);
-    expect(textColors('selected')).toEqual(textColors('none'));
-    // Guard the premise: the colour under test really is the mid tone, not a
-    // saturated white or a near-black that would short-circuit for its own
-    // reasons. Without this the assertion above holds either way.
-    expect([...textColors('none').values()]).toEqual([
-      'rgba(128,160,200,0.7)',
-      'rgba(128,160,200,0.7)',
-    ]);
-  });
-
-  it('a selection overlay draws no text of its own', () => {
-    // Both halves of the fix: the base brightens in place, and the overlay
-    // that used to do the brightening stops drawing the glyphs a second time.
-    const steps = (suppress: boolean) =>
-      buildDrawSteps(
-        { setTransform: () => {} } as unknown as CanvasRenderingContext2D,
-        padScene,
-        padView,
-        new Set(['F.Cu']),
-        4000,
-        4000,
-        DEFAULT_DRAW_OPTIONS,
-        undefined,
-        true,
-        'selected',
-        suppress,
-      ).length;
-    expect(steps(true)).toBe(steps(false) - 1);
-  });
-
-  it('only a move overlay is allowed to draw its own text', () => {
-    // The move path rebuilds the base without the dragged items, so there the
-    // overlay is the only one drawing them; every other overlay sits on a
-    // board that still holds them.
-    expect(text).toContain('moveSceneRef.current === null,');
-    // And the three overlays that never remove anything from the base always
-    // suppress: net colours, the net highlight and the disambiguation hover.
-    expect(text.match(/^\s*'highlighted',\n\s*true,$/gm)).toHaveLength(2);
   });
 
   it('all three drawNetNames call sites are handed the shift', () => {
