@@ -1099,6 +1099,31 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   background-repeat: no-repeat;
   background-position: center;
 }
+/* A DISABLED tick is not an orange one. Yaru states this outright, for the
+   checkbox and the radio in one rule:
+
+     check:checked:disabled,
+     radio:checked:disabled {
+       box-shadow: none;
+       color: #929292;                      <- the mark
+       border-color: #181818;               <- --ctl-border
+       background-image: image(#2a2a2a); }  <- --ctl-face-disabled
+
+   so every value here is a token we already hold, and none is chosen. Ours had
+   no `:disabled` override at all, so `updateShapeAndPins` and
+   `updateKeywordsAndFootprintFilters` — the two DIALOG_CHANGE_SYMBOLS ticks
+   that are SetValue(true) then Enable(false) — stayed full accent orange while
+   KiCad greys them. Akshay's capture of the real dialog reads rgb(42,42,42)
+   there against rgb(233,84,32) on an enabled one.
+
+   The mark colour is spelled out rather than interpolated for the same reason
+   the enabled one is — CSS cannot put a custom property inside a url() — and
+   `checkbox_and_swatch.test.ts` asserts it still equals --ctl-fg-disabled. */
+.ze-app input[type="checkbox"]:checked:disabled {
+  border-color: var(--ctl-border);
+  background-color: var(--ctl-face-disabled);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M12 5 L6.5 11.5 L4 9' fill='none' stroke='%23929292' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
 
 /* A wxSlider, drawn rather than accented: GTK's thumb is a WHITE disc, not a
    coloured one, and its trough is a flat grey with no filled portion.
@@ -1400,6 +1425,21 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 
 .ze-app input[type="radio"]:disabled {
   background: var(--ctl-face-disabled, var(--check-face));
+}
+/* The same Yaru rule, which names the radio alongside the check. The dot stays
+   — it is what says "checked" — but it is --ctl-fg-disabled, not white on
+   orange. Without this the rule above flattened a checked disabled radio to a
+   plain grey disc and the dot vanished entirely. */
+.ze-app input[type="radio"]:checked:disabled {
+  border-color: var(--ctl-border);
+  background:
+    radial-gradient(
+      circle at 50% 50%,
+      var(--ctl-fg-disabled) 0,
+      var(--ctl-fg-disabled) calc(var(--radio-dot) / 2),
+      transparent calc(var(--radio-dot) / 2 + 0.5px)
+    ),
+    var(--ctl-face-disabled);
 }
 /* The list a <select> opens is a native popup: `color-scheme` handles most
    engines, and these keep the rows on KiCad's grey where it does not. */
