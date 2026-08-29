@@ -30,6 +30,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { parse } from '@ziroeda/sexpr/src/index.js';
 import { serialize } from '@ziroeda/sexpr/src/serializer.js';
 import { readSymbolLib } from '@ziroeda/eeschema/src/sch_io/sexpr/read-schematic.js';
@@ -37,9 +38,14 @@ import { makeSymbol } from '@ziroeda/eeschema/src/tools/build.js';
 import { mmToIU } from '@ziroeda/common/src/eda_units.js';
 import type { LibSymbol } from '@ziroeda/eeschema/src/types.js';
 
-/** The stock power library, which is where the hidden-Reference case lives. */
+/**
+ * Stock `power:GND`, copied verbatim from /usr/share/kicad/symbols/power.kicad_sym
+ * (KiCad 10.0.5), which is where the hidden-Reference case lives. It is a
+ * fixture rather than a read of the installed library because CI has no KiCad
+ * installed -- the absolute path passed here and failed on the runner.
+ */
 const POWER = readSymbolLib(
-  parse(readFileSync('/usr/share/kicad/symbols/power.kicad_sym', 'utf8')),
+  parse(readFileSync(fileURLToPath(new URL('../../data/GND.kicad_sym', import.meta.url)), 'utf8')),
 );
 const gnd = (): LibSymbol => POWER.find((s) => s.libId === 'GND')!;
 
@@ -100,8 +106,11 @@ describe('the style comes from the library field, not from a default', () => {
   // An ordinary part must be unaffected: its Reference is visible upstream, and
   // a fix that hid everything would pass every assertion above.
   it('leaves an ordinary symbol’s Reference visible', () => {
+    // Stock `Device:R`, the fixture qa/data already carries.
     const dev = readSymbolLib(
-      parse(readFileSync('/usr/share/kicad/symbols/Device.kicad_sym', 'utf8')),
+      parse(
+        readFileSync(fileURLToPath(new URL('../../data/R.kicad_sym', import.meta.url)), 'utf8'),
+      ),
     ).find((s) => s.libId === 'R')!;
     expect(field(dev, 'Reference').effects?.hidden).toBeFalsy();
   });
