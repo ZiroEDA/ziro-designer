@@ -24,10 +24,25 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { parse } from '@ziroeda/sexpr/src/index.js';
 import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import { buildScene, drawAnchors } from '@ziroeda/designer/src/editors/pcb/renderBoard.js';
+import {
+  buildScene,
+  drawAnchors,
+  drawNetNames,
+  DEFAULT_DRAW_OPTIONS,
+} from '@ziroeda/designer/src/editors/pcb/renderBoard.js';
 import { GL_PATH_FACTORY } from '@ziroeda/designer/src/render/gl/gl_path.js';
 
 const MM = 1e6;
+
+/**
+ * PcbEditor.tsx as text. The wiring that decides whether these passes are ever
+ * told about a drag lives in a .tsx, which qa's tsconfig cannot compile, so it
+ * is read the way view_controls_coverage.test.ts reads its call sites.
+ */
+const text = readFileSync(
+  fileURLToPath(new URL('../../../designer/src/editors/pcb/PcbEditor.tsx', import.meta.url)),
+  'utf8',
+);
 
 const board = () =>
   readBoard(
@@ -134,11 +149,6 @@ describe('the overlay fallback is wired for a drag that started in place', () =>
   // returns before building one) AND the originals still in the retained scene
   // (it returns before scheduling the rebuild too), so the part sat still while
   // the selection copy followed the cursor.
-  const text = readFileSync(
-    fileURLToPath(new URL('../../../designer/src/editors/pcb/PcbEditor.tsx', import.meta.url)),
-    'utf8',
-  );
-
   it('both entries into the slow path call the one function', () => {
     // Declared once...
     expect(text).toContain('const startOverlayMove = (');
@@ -155,21 +165,105 @@ describe('the overlay fallback is wired for a drag that started in place', () =>
     expect(after).toContain('startOverlayMove(');
   });
 
-  it('the frame hands drawAnchors the delta the GPU applied', () => {
-    // The unit tests above exercise `drawAnchors`; this is the wiring that
-    // decides whether it is ever told anything, and it cannot be reached
-    // without mounting the editor. Read as text for the same reason
-    // view_controls_coverage.test.ts reads its call sites.
-    const i = text.indexOf('drawAnchors(');
+  it('the frame builds the shift from the delta the GPU applied', () => {
+    // The unit tests above exercise the passes; this is the wiring that decides
+    // whether they are ever told anything.
+    const i = text.indexOf('const inPlaceShift = inPlaceMoveRef.current');
     expect(i).toBeGreaterThan(-1);
-    const call = text.slice(i, text.indexOf(');', i));
-    expect(call).toContain('dragAffectedRef.current');
-    expect(call).toMatch(/applied\.x/);
-    expect(call).toMatch(/applied\.y/);
-    // And `applied` is the in-place delta, not the raw pointer delta: the GPU
-    // may have taken fewer frames than the cursor moved.
-    expect(text.slice(Math.max(0, i - 400), i)).toContain(
-      'const applied = inPlaceMoveRef.current;',
+    const decl = text.slice(i, i + 320);
+    expect(decl).toContain('ids: dragAffectedRef.current');
+    expect(decl).toContain('dx: inPlaceMoveRef.current.x');
+    expect(decl).toContain('dy: inPlaceMoveRef.current.y');
+    // `inPlaceMoveRef`, not `moveDeltaRef`: the buffer may be a frame behind
+    // the cursor, and the passes must agree with the buffer, not the pointer.
+    expect(decl).not.toContain('moveDeltaRef');
+  });
+});
+
+describe('pad numbers and net names travel too', () => {
+  // The other per-frame pass, and the one in Akshay's capture: J1 moved and
+  // left its pad numbers "1" and "2" behind. Same debt as the anchors — text
+  // laid out once in world coordinates and drawn every frame, so the buffer
+  // the GPU translated never touches it.
+  //
+  // The `(layers …)` block is load-bearing: `expandLayers` resolves a pad's
+  // `*.Cu` against the board's copper names, and without it every label comes
+  // out with an empty layer list and PAD::ViewGetLOD's "hide netnames unless
+  // the pad is flashed to a visible layer" drops the lot.
+  const padBoard = () =>
+    readBoard(
+      parse(`(kicad_pcb (version 20241229) (generator "test")
+  (layers (0 "F.Cu" signal) (31 "B.Cu" signal))
+  (net 0 "")
+  (footprint "J" (layer "F.Cu") (at 100 100)
+    (pad "1" thru_hole circle (at -2.5 0) (size 2 2) (drill 1) (layers "*.Cu"))
+    (pad "2" thru_hole circle (at 2.5 0) (size 2 2) (drill 1) (layers "*.Cu"))
+  )
+)`),
     );
+
+  const padScene = buildScene(padBoard(), {}, GL_PATH_FACTORY);
+  /** 20 px per mm keeps the footprint at 100 mm inside a 4000 px viewport. */
+  const padView = { scale: 20 / MM, tx: 0, ty: 0 };
+
+  it('records the owning footprint with each pad label', () => {
+    expect(padScene.padLabels).toHaveLength(2);
+    expect(padScene.padLabels.every((l) => l.owner === 'footprint:0')).toBe(true);
+  });
+
+  /**
+   * Where the pad text was placed, in world units.
+   *
+   * The target carries a `bitmapText` method, which is how `drawNetNames`
+   * decides it is drawing to the atlas — that is the path the GPU frame takes,
+   * and the one whose anchors are worth measuring.
+   */
+  const textAt = (
+    shift: { ids: ReadonlySet<string>; dx: number; dy: number } | null,
+  ): { x: number; y: number }[] => {
+    const at: { x: number; y: number }[] = [];
+    const ctx = {
+      setTransform: () => {},
+      bitmapText: (_t: string, p: { x: number; y: number }) => {
+        at.push({ x: p.x, y: p.y });
+      },
+      strokeStyle: '',
+    } as unknown as CanvasRenderingContext2D;
+    drawNetNames(
+      ctx,
+      padScene,
+      padView,
+      new Set(['F.Cu']),
+      4000,
+      4000,
+      DEFAULT_DRAW_OPTIONS,
+      'none',
+      1,
+      'over',
+      shift,
+    );
+    return at;
+  };
+
+  it('places the text on the pads when nothing is moving', () => {
+    const at = textAt(null);
+    expect(at).toHaveLength(2);
+    // Pads at 100 mm ± 2.5 mm.
+    expect(at.map((p) => p.x).sort((a, b) => a - b)).toEqual([97.5 * MM, 102.5 * MM]);
+  });
+
+  it('shifts the text by the delta the GPU applied', () => {
+    const moved = textAt({ ids: new Set(['footprint:0']), dx: 20 * MM, dy: -7 * MM });
+    expect(moved.map((p) => p.x).sort((a, b) => a - b)).toEqual([117.5 * MM, 122.5 * MM]);
+    expect(moved.every((p) => p.y === 93 * MM)).toBe(true);
+  });
+
+  it('leaves the text of a footprint that is not in the drag alone', () => {
+    expect(textAt({ ids: new Set(['footprint:9']), dx: 20 * MM, dy: 0 })).toEqual(textAt(null));
+  });
+
+  it('all three drawNetNames call sites are handed the shift', () => {
+    // Two GPU passes (under and over) and the Canvas2D fallback.
+    expect(text.match(/^\s*inPlaceShift,$/gm)).toHaveLength(4); // + drawAnchors
   });
 });

@@ -1798,12 +1798,19 @@ export function PcbEditor({
     // the moment the pours are hidden. Drawn on the overlay they sat above the
     // pours, the silkscreen and the footprint text, so a whole-board view was
     // covered in crosses that pcbnew does not show.
+    // What an in-place GPU drag has shifted so far, for the passes drawn per
+    // frame from `scene` rather than from the buffer the GPU translated: the
+    // anchor crosses and the pad numbers / net names. Null unless such a drag
+    // is in flight — the overlay path takes the moving items out of `scene`
+    // altogether and draws their own copy, so it needs no offset here.
+    const inPlaceShift = inPlaceMoveRef.current
+      ? {
+          ids: dragAffectedRef.current,
+          dx: inPlaceMoveRef.current.x,
+          dy: inPlaceMoveRef.current.y,
+        }
+      : null;
     if (objects.anchors) {
-      // A GPU drag moves the item's recorded vertices and stops there, so this
-      // screen-space pass has to be handed the same delta or the cross stays
-      // behind. Only the in-place path needs it: the overlay path takes the
-      // moving items out of `scene` altogether and draws their own copy.
-      const applied = inPlaceMoveRef.current;
       drawAnchors(
         bctx,
         scene,
@@ -1814,7 +1821,7 @@ export function PcbEditor({
         drawOpts,
         dimmedRef.current ? 'dimmed' : 'none',
         dpr,
-        applied ? { ids: dragAffectedRef.current, dx: applied.x, dy: applied.y } : null,
+        inPlaceShift,
       );
       bctx.setTransform(1, 0, 0, 1, 0, 0);
     }
@@ -1843,6 +1850,7 @@ export function PcbEditor({
           dimmedRef.current ? 'dimmed' : 'none',
           dpr,
           'under',
+          inPlaceShift,
         );
       }, v.scale);
       // And the pass drawn over it — track and via names and through-hole pad
@@ -1861,6 +1869,7 @@ export function PcbEditor({
           dimmedRef.current ? 'dimmed' : 'none',
           dpr,
           'over',
+          inPlaceShift,
         );
       }, v.scale);
       gl.render(
@@ -1922,6 +1931,7 @@ export function PcbEditor({
         dimmedRef.current ? 'dimmed' : 'none',
         dpr,
         'under',
+        inPlaceShift,
       );
       ctx.setTransform(1, 0, 0, 1, 0, 0);
     }

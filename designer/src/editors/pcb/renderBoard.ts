@@ -342,6 +342,14 @@ export interface PadTextItem extends PcbTextItem {
 
 /** One pad's laid-out text, ready for the zoom-dependent pass to gate. */
 export interface PadTextLabel {
+  /**
+   * The board-item id of the footprint this pad belongs to.
+   *
+   * Same reason the anchors carry one: this pass is per-frame and world-space,
+   * so a GPU drag that translates the footprint's recorded vertices leaves the
+   * numbers behind unless it is told. See {@link ScenePerFrameShift}.
+   */
+  owner: string;
   /** The pad centre, for viewport culling. */
   at: { x: number; y: number };
   /** The pad bounding box's shorter side, PAD::ViewGetLOD's subject. */
@@ -986,7 +994,13 @@ const MAX_PAD_FONT = 10 * MM;
  * shown). Kept as data for the per-frame pass, not baked: whether a pad's
  * text shows at all depends on the zoom (PAD::ViewGetLOD).
  */
-function addPadLabels(scene: BoardScene, pad: PcbPad, netName: string, layers: string[]): void {
+function addPadLabels(
+  scene: BoardScene,
+  pad: PcbPad,
+  netName: string,
+  layers: string[],
+  owner: string,
+): void {
   const padNumber = pad.number ?? '';
   // Net label per PCB_PAINTER::draw(PAD): the display netname is the SHORT net
   // name (NETINFO's part after the last '/'); a no-connect pad overrides it
@@ -1085,7 +1099,7 @@ function addPadLabels(scene: BoardScene, pad: PcbPad, netName: string, layers: s
     label(padNumber, anchor(-yOffNum), tsize);
   }
   if (items.length > 0)
-    scene.padLabels.push({ at: pad.at, minSide: Math.min(px, py), layers, items });
+    scene.padLabels.push({ owner, at: pad.at, minSide: Math.min(px, py), layers, items });
 }
 
 /**
@@ -1462,6 +1476,7 @@ function compileScene(board: Board, filter: SceneFilter): BoardScene {
         pad,
         board.nets.get(pad.net ?? 0) ?? '',
         expandLayers(pad.layers, copperNames).filter((l) => copperNames.includes(l)),
+        `footprint:${fi}`,
       );
       grow(pad.at.x, pad.at.y, Math.max(pad.size.x, pad.size.y) / 2);
     }
@@ -2136,6 +2151,7 @@ export function drawNetNames(
   emphasis: Emphasis = 'none',
   dpr = 1,
   where: NetNamePass = 'over',
+  shift: ScenePerFrameShift | null = null,
 ): void {
   const special = opts.theme?.special ?? PCB_SPECIAL;
   const minPen = opts.minPenWidth ?? (view.scale > 0 ? 1 / view.scale : 0);
@@ -2212,6 +2228,12 @@ export function drawNetNames(
     const pad = (v: number): boolean => v * view.scale >= PAD_TEXT_MIN_PX * dpr;
     for (const label of scene.padLabels) {
       if (!pad(label.minSide)) continue;
+      // The same debt as the anchors: this pass is world-space and per-frame,
+      // so a GPU drag that translated the footprint's recorded vertices left
+      // its pad numbers and net names sitting at the old position.
+      const moving = shift !== null && shift.ids.has(label.owner);
+      const ldx = moving ? shift.dx : 0;
+      const ldy = moving ? shift.dy : 0;
       // PAD::ViewGetLOD: "Hide netnames unless pad is flashed to a visible
       // layer." Without this the numbers and net names survived hiding every
       // copper layer, floating over an otherwise empty board.
@@ -2225,8 +2247,10 @@ export function drawNetNames(
       // the front.
       if (label.layers.includes('F.Cu') !== (where === 'over')) continue;
       const m = label.minSide;
-      if (label.at.x + m < viewport.minX || label.at.x - m > viewport.maxX) continue;
-      if (label.at.y + m < viewport.minY || label.at.y - m > viewport.maxY) continue;
+      const lx = label.at.x + ldx;
+      const ly = label.at.y + ldy;
+      if (lx + m < viewport.minX || lx - m > viewport.maxX) continue;
+      if (ly + m < viewport.minY || ly - m > viewport.maxY) continue;
       // draw(PAD)'s netname branch resolves LAYER_PAD_FR_NETNAMES and
       // LAYER_PAD_BK_NETNAMES to `GetNetnameLayer( F_Cu / B_Cu )`, so an SMD
       // pad's text follows the same per-layer light/dark rule as a track's:
@@ -2236,7 +2260,8 @@ export function drawNetNames(
       );
       for (const item of label.items) {
         if (!atlas && item.size.y * view.scale < GLYPH_LEGIBLE_PX * dpr) continue;
-        runs.push({ text: item.text, at: item.at, angle: item.angle, glyph: item.glyph, item });
+        const at = moving ? { x: item.at.x + ldx, y: item.at.y + ldy } : item.at;
+        runs.push({ text: item.text, at, angle: item.angle, glyph: item.glyph, item });
       }
     }
   }
