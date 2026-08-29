@@ -76,21 +76,29 @@ function projectFiles(
   return files;
 }
 
+interface Saved {
+  files: readonly string[];
+  newFiles: readonly { name: string; text: string }[];
+}
+
 function open_(opts: { equFiles?: string[]; equText?: string | null } = {}): {
   root: HTMLElement;
   applied: { edits: unknown; save: boolean }[];
+  saved: Saved[];
 } {
   const docs = new Map([['a.kicad_sch', readSchematic(parse(SHEET))]]);
   const applied: { edits: unknown; save: boolean }[] = [];
+  const saved: Saved[] = [];
   const { container } = render(
     <DialogAssignFootprints
       docs={docs}
       projectFootprints={projectFiles(opts)}
       onApply={(edits, o) => applied.push({ edits, save: o.save })}
+      onSaveEquFiles={(files, newFiles) => saved.push({ files, newFiles })}
       onClose={() => {}}
     />,
   );
-  return { root: container, applied };
+  return { root: container, applied, saved };
 }
 
 /** Every toolbar button, in order, by the name a screen reader gets — which is
@@ -219,5 +227,227 @@ describe('pressing it runs AutomaticFootprintMatching', () => {
     expect(dlg?.textContent).toContain(
       'Component R2: footprint MyFp:R_9999 not found in any of the project footprint libraries.',
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Manage Footprint Association Files (DIALOG_CONFIG_EQUFILES)
+// ---------------------------------------------------------------------------
+
+/** Open one menu of the window's menu bar and read its rows back. */
+function menuRows(root: HTMLElement, label: string): string[] {
+  const menu = Array.from(root.querySelectorAll('.ze-menubar > .ze-menu')).find((m) =>
+    m.textContent?.trim().startsWith(label),
+  );
+  if (!menu) throw new Error(`no ${label} menu`);
+  fireEvent.click(menu);
+  const drop = menu.querySelector('.ze-dropdown');
+  if (!drop) throw new Error(`${label} did not open`);
+  return Array.from(drop.children).map((row) =>
+    row.classList.contains('ze-msep') ? '---' : (row.querySelector('.lbl')?.textContent ?? ''),
+  );
+}
+
+/** Open Preferences > Manage Footprint Association Files... */
+function openEquDialog(root: HTMLElement): HTMLElement {
+  const menu = Array.from(root.querySelectorAll('.ze-menubar > .ze-menu')).find((m) =>
+    m.textContent?.trim().startsWith('Preferences'),
+  );
+  if (!menu) throw new Error('no Preferences menu');
+  fireEvent.click(menu);
+  const row = Array.from(menu.querySelectorAll('.ze-mitem')).find(
+    (m) => m.querySelector('.lbl')?.textContent === 'Manage Footprint Association Files...',
+  );
+  if (!row) throw new Error('no Manage Footprint Association Files row');
+  fireEvent.click(row);
+  const dlg = root.ownerDocument.querySelector('.ze-modal.ze-equfiles');
+  if (!dlg) throw new Error('the dialog did not open');
+  return dlg as HTMLElement;
+}
+
+const equRows = (dlg: HTMLElement): string[] =>
+  Array.from(dlg.querySelectorAll('.ze-equfiles-row')).map((r) => r.textContent ?? '');
+
+const equSelected = (dlg: HTMLElement): string[] =>
+  Array.from(dlg.querySelectorAll('.ze-equfiles-row.selected')).map((r) => r.textContent ?? '');
+
+const equButton = (dlg: HTMLElement, title: string): HTMLButtonElement => {
+  const b = Array.from(dlg.querySelectorAll('.ze-equfiles-buttons .ze-gridbtn')).find(
+    (x) => x.getAttribute('title') === title,
+  );
+  if (!b) throw new Error(`no "${title}" button`);
+  return b as HTMLButtonElement;
+};
+
+const footerButton = (dlg: HTMLElement, label: string): HTMLButtonElement => {
+  const b = Array.from(dlg.querySelectorAll('.ze-modal-footer .ze-btn')).find(
+    (x) => x.textContent === label,
+  );
+  if (!b) throw new Error(`no ${label} button`);
+  return b as HTMLButtonElement;
+};
+
+const THREE = ['${KIPRJMOD}/a.equ', '${KIPRJMOD}/b.equ', '${KIPRJMOD}/c.equ'];
+
+describe('Preferences > Manage Footprint Association Files (menubar.cpp:66-75)', () => {
+  it('sits between the library table and Preferences...', () => {
+    //     prefsMenu->Add( ACTIONS::configurePaths );
+    //     prefsMenu->Add( ACTIONS::showFootprintLibTable );
+    //     prefsMenu->Add( CVPCB_ACTIONS::showEquFileTable );
+    //     prefsMenu->Add( ACTIONS::openPreferences );
+    //     prefsMenu->AppendSeparator();
+    //     AddMenuLanguageList( prefsMenu, tool );
+    expect(menuRows(open_().root, 'Preferences').slice(0, 5)).toEqual([
+      'Configure Paths...',
+      'Manage Footprint Libraries...',
+      'Manage Footprint Association Files...',
+      'Preferences...',
+      '---',
+    ]);
+  });
+
+  it('titles itself with the project file, not with the dialog’s own name', () => {
+    // `SetTitle( wxString::Format( _( "Project file: '%s'" ),
+    // Prj().GetProjectFullName() ) )` (dialog_config_equfiles.cpp:47).
+    const dlg = openEquDialog(open_().root);
+    expect(dlg.querySelector('.ze-modal-header')?.textContent).toContain(
+      "Project file: 'Proj/Proj.kicad_pro'",
+    );
+  });
+
+  it('lists the project’s association files in order', () => {
+    const dlg = openEquDialog(open_({ equFiles: THREE }).root);
+    expect(equRows(dlg)).toEqual(THREE);
+  });
+});
+
+describe('its buttons are DIALOG_CONFIG_EQUFILES_BASE’s, in order', () => {
+  it('is Add, Move Up, Move Down, Edit, then Remove', () => {
+    // dialog_config_equfiles_base.cpp:36-64, with the 20px spacer between the
+    // fourth and the fifth. The tooltips are the base class's strings.
+    const dlg = openEquDialog(open_({ equFiles: THREE }).root);
+    expect(
+      Array.from(dlg.querySelectorAll('.ze-equfiles-buttons .ze-gridbtn')).map((b) =>
+        b.getAttribute('title'),
+      ),
+    ).toEqual([
+      'Add association file',
+      'Move up',
+      'Move down',
+      'Edit association file',
+      'Remove association file',
+    ]);
+  });
+
+  it('none of the four working buttons is ever disabled, not even with no selection', () => {
+    // `DIALOG_CONFIG_EQUFILES` has no wxUpdateUIEvent handler and no Enable()
+    // call: the guards are inside the handlers and say nothing to the user.
+    // The dialog opens with nothing selected, which is the state an invented
+    // `disabled` would show up in.
+    const dlg = openEquDialog(open_({ equFiles: THREE }).root);
+    expect(equSelected(dlg)).toEqual([]);
+    for (const t of ['Add association file', 'Move up', 'Move down', 'Remove association file'])
+      expect(equButton(dlg, t).disabled).toBe(false);
+  });
+
+  it('Edit association file IS disabled: it launches an external text editor', () => {
+    // `ExecuteFile( Pgm().GetTextEditor(), … )` (`:87-101`) starts a process.
+    const dlg = openEquDialog(open_({ equFiles: THREE }).root);
+    expect(equButton(dlg, 'Edit association file').disabled).toBe(true);
+  });
+});
+
+describe('what the buttons do to the list', () => {
+  const openWith = (files: string[]): HTMLElement => openEquDialog(open_({ equFiles: files }).root);
+
+  it('Move Up swaps the selected row with the one above and keeps it selected', () => {
+    const dlg = openWith(THREE);
+    fireEvent.click(dlg.querySelectorAll('.ze-equfiles-row')[1] as Element);
+    fireEvent.click(equButton(dlg, 'Move up'));
+    expect(equRows(dlg)).toEqual([THREE[1], THREE[0], THREE[2]]);
+    expect(equSelected(dlg)).toEqual([THREE[1]]);
+  });
+
+  it('Move Up on the FIRST row does nothing at all (:132-133)', () => {
+    const dlg = openWith(THREE);
+    fireEvent.click(dlg.querySelectorAll('.ze-equfiles-row')[0] as Element);
+    fireEvent.click(equButton(dlg, 'Move up'));
+    expect(equRows(dlg)).toEqual(THREE);
+  });
+
+  it('Move Down swaps with the row below', () => {
+    const dlg = openWith(THREE);
+    fireEvent.click(dlg.querySelectorAll('.ze-equfiles-row')[1] as Element);
+    fireEvent.click(equButton(dlg, 'Move down'));
+    expect(equRows(dlg)).toEqual([THREE[0], THREE[2], THREE[1]]);
+    expect(equSelected(dlg)).toEqual([THREE[1]]);
+  });
+
+  it('Move Down on the LAST row does nothing at all (:159-161)', () => {
+    const dlg = openWith(THREE);
+    fireEvent.click(dlg.querySelectorAll('.ze-equfiles-row')[2] as Element);
+    fireEvent.click(equButton(dlg, 'Move down'));
+    expect(equRows(dlg)).toEqual(THREE);
+  });
+
+  it('Remove deletes the selected row, and does nothing with no selection', () => {
+    const dlg = openWith(THREE);
+    fireEvent.click(equButton(dlg, 'Remove association file'));
+    expect(equRows(dlg)).toEqual(THREE);
+    fireEvent.click(dlg.querySelectorAll('.ze-equfiles-row')[1] as Element);
+    fireEvent.click(equButton(dlg, 'Remove association file'));
+    expect(equRows(dlg)).toEqual([THREE[0], THREE[2]]);
+    expect(equSelected(dlg)).toEqual([]);
+  });
+});
+
+describe('OK writes the project, Cancel discards', () => {
+  it('OK hands the caller the new list', () => {
+    const app = open_({ equFiles: THREE });
+    const dlg = openEquDialog(app.root);
+    fireEvent.click(dlg.querySelectorAll('.ze-equfiles-row')[0] as Element);
+    fireEvent.click(equButton(dlg, 'Remove association file'));
+    fireEvent.click(footerButton(dlg, 'OK'));
+    expect(app.saved).toEqual([{ files: [THREE[1], THREE[2]], newFiles: [] }]);
+  });
+
+  it('Cancel writes nothing, and the next open shows the project’s list again', () => {
+    const app = open_({ equFiles: THREE });
+    const dlg = openEquDialog(app.root);
+    fireEvent.click(dlg.querySelectorAll('.ze-equfiles-row')[0] as Element);
+    fireEvent.click(equButton(dlg, 'Remove association file'));
+    fireEvent.click(footerButton(dlg, 'Cancel'));
+    expect(app.saved).toEqual([]);
+    expect(equRows(openEquDialog(app.root))).toEqual(THREE);
+  });
+
+  it('and the list OK left behind is what the next auto-association reads', () => {
+    // End to end, which is the only thing that says the two halves are joined:
+    // take the file out of the list, press the button, and nothing is assigned.
+    const app = open_();
+    const dlg = openEquDialog(app.root);
+    fireEvent.click(dlg.querySelectorAll('.ze-equfiles-row')[0] as Element);
+    fireEvent.click(equButton(dlg, 'Remove association file'));
+    fireEvent.click(footerButton(dlg, 'OK'));
+    fireEvent.click(button(app.root, 'Automatically Assign Footprints'));
+    expect(statusLines(app.root)[0]).toBe('0 footprint/symbol equivalences found.');
+    expect(assignmentRows(app.root)[1]).not.toContain('MyFp:R_0805');
+  });
+});
+
+describe('Add reaches a file chooser, not a bare <input type="file">', () => {
+  it('opens the account tree with the .equ wildcard and a way to the local disk', () => {
+    // `wxFileDialog( this, _( "Footprint Association File" ), libpath, "",
+    // FILEEXT::EquFileWildcard(), wxFD_DEFAULT_STYLE | wxFD_MULTIPLE )`
+    // (dialog_config_equfiles.cpp:216-217). Upstream's is the local disk; the
+    // account's project tree is this app's filesystem, so that is what it
+    // opens on, with "Add from Computer..." beside it for a file that is not in
+    // the account yet.
+    const dlg = openEquDialog(open_({ equFiles: THREE }).root);
+    fireEvent.click(equButton(dlg, 'Add association file'));
+    const chooser = dlg.ownerDocument.querySelector('.ze-chooser');
+    expect(chooser).not.toBeNull();
+    expect(chooser?.textContent).toContain('Symbol footprint association files');
+    expect(chooser?.textContent).toContain('Add from Computer...');
   });
 });

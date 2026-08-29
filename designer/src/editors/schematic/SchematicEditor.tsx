@@ -374,7 +374,12 @@ import {
   DialogCreateNetChain,
   type CreateChainFocusHint,
 } from './dialogs/dialog_create_net_chain.js';
-import { findProjectPro, readSchematicSetup, writeSchematicSetupText } from './project_settings.js';
+import {
+  findProjectPro,
+  readSchematicSetup,
+  writeEquivalenceFilesText,
+  writeSchematicSetupText,
+} from './project_settings.js';
 import {
   IU_PER_MILS,
   hopOverArcRadiusIU,
@@ -2414,6 +2419,32 @@ export function SchematicEditor({
           : [...prev, { name, text }];
       });
       onPersistFiles?.([{ name, text }]);
+    },
+    [rawFiles, onPersistFiles],
+  );
+  // Manage Footprint Association Files' OK: `cvpcb.equivalence_files` into the
+  // project's `.kicad_pro` (upstream's `SaveProject()`,
+  // dialog_config_equfiles.cpp:116), plus any `.equ` file Add brought in from
+  // outside the project — which has to be written too, because
+  // `buildEquivalenceList` re-reads the reference on every press.
+  const saveProjectEquFiles = useCallback(
+    (files: readonly string[], newFiles: readonly { name: string; text: string }[]) => {
+      const pro = findProjectPro(rawFiles);
+      const written: { name: string; text: string }[] = [...newFiles];
+      if (pro) {
+        const text = writeEquivalenceFilesText(pro.text, files);
+        if (text !== null) written.push({ name: pro.name, text });
+      }
+      if (written.length === 0) return;
+      setRawFiles((prev) => {
+        const byName = new Map(written.map((f) => [f.name, f.text]));
+        const updated = prev.map((f) =>
+          byName.has(f.name) ? { ...f, text: byName.get(f.name) as string } : f,
+        );
+        const known = new Set(prev.map((f) => f.name));
+        return [...updated, ...written.filter((f) => !known.has(f.name))];
+      });
+      onPersistFiles?.(written);
     },
     [rawFiles, onPersistFiles],
   );
@@ -9167,6 +9198,7 @@ export function SchematicEditor({
                   if (close) setAssignFpOpen(false);
                 }}
                 onSaveLibTable={saveProjectFpLibTable}
+                onSaveEquFiles={saveProjectEquFiles}
                 onClose={() => setAssignFpOpen(false)}
               />
             )}

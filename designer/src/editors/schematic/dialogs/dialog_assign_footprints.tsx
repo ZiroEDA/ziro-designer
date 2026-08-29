@@ -181,6 +181,8 @@ import {
   EQU_LOAD_ERROR_TITLE,
 } from '../cvpcb_auto_associate.js';
 import { readEquFile } from '../cvpcb_equ_files.js';
+import { DialogConfigEquFiles } from './dialog_config_equfiles.js';
+import type { ProjectFile } from '../../../fs/project_paths.js';
 import { readEquivalenceFiles } from '../project_settings.js';
 import './dialog_assign_footprints.css';
 
@@ -264,6 +266,14 @@ interface Props {
   /** Save the project's footprint library table (Manage Footprint Libraries).
    *  Absent when there is no project to write it into. */
   onSaveLibTable?: (rows: FpLibRow[]) => void;
+  /**
+   * Manage Footprint Association Files' OK: write `cvpcb.equivalence_files`
+   * into the project's `.kicad_pro` (upstream's `SaveProject()`), together with
+   * any `.equ` files Add brought in from outside the project. Absent when there
+   * is no project to write into, in which case the list is still edited and
+   * still used, it just does not outlive the window.
+   */
+  onSaveEquFiles?: (files: readonly string[], newFiles: readonly ProjectFile[]) => void;
   onClose: () => void;
 }
 
@@ -455,6 +465,7 @@ export function DialogAssignFootprints({
   projectFootprints,
   onApply,
   onSaveLibTable,
+  onSaveEquFiles,
   onClose,
 }: Props): JSX.Element {
   const components = useMemo(() => collectCvpcbComponents(docs, files), [docs, files]);
@@ -609,6 +620,7 @@ export function DialogAssignFootprints({
   const [fpPaneWidth, setFpPaneWidth] = useDialogControl(WINDOW_TITLE, 'footprints_pane_width', 0);
   const [viewerOpen, setViewerOpen] = useState(false);
   const [libTableOpen, setLibTableOpen] = useState(false);
+  const [equFilesOpen, setEquFilesOpen] = useState(false);
   const [prefsOpen, setPrefsOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
   // Focused pane, the third status line names the library of the focused
@@ -1096,6 +1108,12 @@ export function DialogAssignFootprints({
           disabled: !onSaveLibTable,
           action: () => setLibTableOpen(true),
         },
+        // `CVPCB_ACTIONS::showEquFileTable` (cvpcb_actions.cpp:53-59), between
+        // the library table and Preferences.
+        {
+          label: 'Manage Footprint Association Files...',
+          action: () => setEquFilesOpen(true),
+        },
         { label: 'Preferences...', shortcut: 'Ctrl+,', action: () => setPrefsOpen(true) },
         { sep: true },
         setLanguageMenuItem({
@@ -1517,6 +1535,20 @@ export function DialogAssignFootprints({
               setLibTableOpen(false);
             }}
             onClose={() => setLibTableOpen(false)}
+          />
+        )}
+        {/* `CVPCB_CONTROL::ShowEquFileTable` (cvpcb_control.cpp:345) — the
+            dialog is modal on cvpcb and its OK is what writes the project. */}
+        {equFilesOpen && (
+          <DialogConfigEquFiles
+            projectFiles={projectFootprints ?? []}
+            equFiles={equFiles}
+            onSave={(next, newFiles) => {
+              setEquFiles(next);
+              onSaveEquFiles?.(next, newFiles);
+              setEquFilesOpen(false);
+            }}
+            onClose={() => setEquFilesOpen(false)}
           />
         )}
         {/* canCloseWindow's HandleUnsavedChanges. Rendered inside the window so

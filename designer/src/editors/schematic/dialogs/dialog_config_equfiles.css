@@ -1,0 +1,89 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later
+   Copyright (C) 2026 ZiroEDA and contributors.
+   Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
+
+   Manage Footprint Association Files (DIALOG_CONFIG_EQUFILES).
+
+   Every number here is one of wxFormBuilder's own, out of
+   `cvpcb/dialogs/dialog_config_equfiles_base.cpp`, and each carries the line it
+   came from. Everything the theme decides - face, ink, border, selection,
+   font - is a token from ui/shell.css, because that is where wxSystemSettings'
+   answers live. Nothing states a colour.
+   --------------------------------------------------------------------------- */
+
+.ze-equfiles-body {
+  flex-direction: column;
+  /* [data] `bMainSizer->Add( bUpperSizer, 1, wxEXPAND|wxTOP|wxRIGHT|wxLEFT, 10 )`
+     (dialog_config_equfiles_base.cpp:105) - ten on three sides, none at the
+     bottom, where the wxStdDialogButtonSizer's own border takes over. */
+  padding: 10px 10px 0;
+  overflow: auto;
+}
+
+.ze-equfiles-label {
+  /* [data] `bUpperSizer->Add( listLabel, 0, wxBOTTOM, 2 )` (`:28`). */
+  margin-bottom: 2px;
+}
+
+.ze-equfiles-vars-label {
+  /* [data] `bUpperSizer->Add( 0, 25, 0, wxEXPAND, 5 )` (`:69`) - the fixed
+     spacer between the button row and the substitutions label. */
+  margin-top: 25px;
+}
+
+.ze-equfiles-list {
+  /* [data] `m_filesListBox->SetMinSize( wxSize( 500, 100 ) )` (`:30`). */
+  min-width: 500px;
+  /* [data] the same SetMinSize, its height. */
+  min-height: 100px;
+  /* [data] `bUpperSizer->Add( m_filesListBox, 2, wxEXPAND|wxBOTTOM, 3 )` (`:32`). */
+  margin-bottom: 3px;
+  flex: 2;
+  overflow: auto;
+  /* wxSYS_COLOUR_LISTBOX, and the control border a wxListBox draws itself. */
+  background: var(--chrome-bg2);
+  border: 1px solid var(--chrome-border);
+  white-space: pre;
+}
+
+.ze-equfiles-row {
+  /* The listbox row is one line of the GUI font; wxListBox adds no padding of
+     its own beyond the horizontal inset every GTK cell renderer has. */
+  line-height: var(--ui-line-height);
+  padding: 0 var(--wx-border);
+  cursor: default;
+}
+
+.ze-equfiles-row.selected {
+  /* wxSYS_COLOUR_HIGHLIGHT / _HIGHLIGHTTEXT, as any selected wxListBox row. */
+  background: var(--selection-bg);
+  color: var(--selection-fg);
+}
+
+.ze-equfiles-buttons {
+  display: flex;
+  align-items: center;
+  /* Each of the four left buttons is added `wxRIGHT, 5` (`:39`, `:44`, `:49`,
+     `:55`), and 5 is wxFormBuilder's default border - the same
+     --wx-border every other ported sizer uses. */
+  gap: var(--wx-border);
+}
+
+.ze-equfiles-gap {
+  /* [data] `bButtonsSizer->Add( 20, 0, 0, wxEXPAND, 5 )` (`:58`) - the fixed
+     spacer that separates Remove from the other four. */
+  width: 20px;
+  flex: 0 0 auto;
+}
+
+.ze-equfiles-buttons > .ze-gridbtn:last-child {
+  /* [data] `bButtonsSizer->Add( m_bpDelete, 0, wxRIGHT|wxLEFT, 10 )` (`:63`) -
+     Remove is the one button with a border of its own, and it is 10, not 5. */
+  margin-left: 10px;
+}
+
+.ze-equfiles-vars {
+  /* `SetColLabelSize( 0 )` and `SetRowLabelSize( 0 )` (`:88`, `:97`): the grid
+     shows neither header, only the two cells. */
+  width: 100%;
+}

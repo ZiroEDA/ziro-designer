@@ -110,6 +110,11 @@ export const kicadFootprintLibWildcard = (): ChooserFilter =>
 export const drawingSheetWildcard = (): ChooserFilter =>
   fileFilter('Drawing sheet files', ['kicad_wks']);
 
+/** `FILEEXT::EquFileWildcard` (`:515-518`) — what
+ *  `DIALOG_CONFIG_EQUFILES::OnAddFiles` opens its wxFileDialog with. */
+export const equFileWildcard = (): ChooserFilter =>
+  fileFilter('Symbol footprint association files', ['equ']);
+
 /** `FILEEXT::ZipFileWildcard` (`:521-524`). */
 export const zipFileWildcard = (): ChooserFilter => fileFilter('Zip file', ['zip']);
 
