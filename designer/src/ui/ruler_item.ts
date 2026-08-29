@@ -168,20 +168,23 @@ export function rulerTicks(
 ): RulerTick[] {
   if (!(lengthIU > 0) || !(pxPerIU > 0)) return [];
 
-  // `aTickSpace = 1;` then `*= 2.54` for imperial — "convert to a round
-  // (mod-10) number of mils for imperial units".
-  let tickSpaceMM = units === 'mm' ? 1 : 2.54;
+  // `aTickSpace = 1;` then `*= 2.54` for imperial. The 1 is ONE INTERNAL
+  // UNIT, not one millimetre — the comment above it says so: "could start at a
+  // set number of MM, but that's not available in common". Seeding this at 1 mm
+  // instead started the 1/2/5 climb a hundred steps too coarse and labelled
+  // every 5 mm where KiCad labels every 1 mm.
+  let tickSpaceIU = units === 'mm' ? 1 : 2.54;
   let fmt = 0;
   // Bounded: each turn multiplies the spacing by at least 2, so it reaches any
   // reachable density in a few dozen steps. Upstream's `while( true )` cannot
   // spin because GetWorldScale is never zero; ours is guarded above.
-  for (let guard = 0; guard < 64; guard++) {
-    if (tickSpaceMM * iuPerMM * pxPerIU >= MAX_TICK_DENSITY) break;
+  for (let guard = 0; guard < 200; guard++) {
+    // `const auto pixelSpace = aTickSpace * aScale; if( pixelSpace >= maxTickDensity ) break;`
+    if (tickSpaceIU * pxPerIU >= MAX_TICK_DENSITY) break;
     fmt = (fmt + 1) % TICK_FORMATS.length;
-    tickSpaceMM *= TICK_FORMATS[fmt]!.divisionBase;
+    tickSpaceIU *= TICK_FORMATS[fmt]!.divisionBase;
   }
   const format = TICK_FORMATS[fmt]!;
-  const tickSpaceIU = tickSpaceMM * iuPerMM;
 
   // `int numTicks = (int) std::ceil( aLine.EuclideanNorm() / tickSpace );`
   const numTicks = Math.ceil(lengthIU / tickSpaceIU);
@@ -226,6 +229,32 @@ export function constantGlyphHeightPx(devicePixelRatio: number, relativeSize = 0
   const std = [8, 10, 12, 14, 15, 16, 18];
   const i = 3 + relativeSize;
   return devicePixelRatio > 1 ? hdpi[i]! : std[i]!;
+}
+
+/**
+ * `StrokeWidth = height * thicknessFactor` — 0.15 HiDPI, else 0.20
+ * (`preview_utils.cpp:88-99`). It is what makes preview text read bold: a
+ * 14-unit glyph is stroked 2.8 wide.
+ */
+export function constantStrokeWidthPx(devicePixelRatio: number, relativeSize = 0): number {
+  const f = devicePixelRatio > 1 ? 0.15 : 0.2;
+  return constantGlyphHeightPx(devicePixelRatio, relativeSize) * f;
+}
+
+/**
+ * `getTickLineWidth` (`ruler_item.cpp:55-63`): `textDims.StrokeWidth * 0.8`,
+ * with the cursor-label dims. The ruler's own line, and the backside ticks.
+ */
+export function rulerLineWidthPx(devicePixelRatio: number): number {
+  return constantStrokeWidthPx(devicePixelRatio) * 0.8;
+}
+
+/**
+ * The graduation ticks: `gal->SetLineWidth( labelAttrs.m_StrokeWidth / 2 )`
+ * (`ruler_item.cpp:218`), and those attrs are the rel=-1 tick-label dims.
+ */
+export function tickLineWidthPx(devicePixelRatio: number): number {
+  return constantStrokeWidthPx(devicePixelRatio, -1) / 2;
 }
 
 /** `linePitchFactor`, the other half of the same branch: 1.7 HiDPI, else 1.9. */

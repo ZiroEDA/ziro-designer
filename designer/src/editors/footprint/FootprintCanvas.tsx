@@ -39,6 +39,9 @@ import {
 import {
   constantGlyphHeightPx,
   constantLinePitchPx,
+  constantStrokeWidthPx,
+  rulerLineWidthPx,
+  tickLineWidthPx,
   rulerDimensionStrings,
   rulerEnd,
   rulerTicks,
@@ -438,7 +441,8 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
         const aux = drawOpts.theme?.special?.auxItems ?? PCB_SPECIAL.auxItems;
         ctx.strokeStyle = aux;
         ctx.fillStyle = aux;
-        ctx.lineWidth = dpr;
+        // `getTickLineWidth( textDims )` = StrokeWidth * 0.8, not a hairline.
+        ctx.lineWidth = rulerLineWidthPx(dpr) * dpr;
         ctx.setLineDash([]);
         ctx.beginPath();
         ctx.moveTo(a.x, a.y);
@@ -474,7 +478,11 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
           const px = -uy;
           const py = ux;
           const ticks = rulerTicks(lenIU, v.scale, PCB_IU_PER_MM, measureUnitsRef.current);
-          const tickFont = constantGlyphHeightPx(dpr, -1) * dpr;
+          // KiCad's GlyphSize is the stroke font's glyph HEIGHT; CSS
+          // font-size is the em box, which is larger. Measure the face's own
+          // cap height once and solve for the size that yields the height
+          // upstream asks for, rather than guessing a ratio.
+          const tickFont = cssSizeForGlyphHeight(ctx, constantGlyphHeightPx(dpr, -1) * dpr);
           // `labelOffset = tickLine.Resize( majorTickLen )`, where
           // drawTicksAlongLine's majorTickLen is minor * (2.5 + 1).
           const labelOff = 5 * 3.5 * dpr;
@@ -485,7 +493,8 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
           const angle = Math.atan2(dyw, dxw);
           const flip = !(-angle > 0);
           ctx.textAlign = flip ? 'right' : 'left';
-          ctx.lineWidth = Math.max(1, dpr);
+          // `SetLineWidth( labelAttrs.m_StrokeWidth / 2 )`.
+          ctx.lineWidth = tickLineWidthPx(dpr) * dpr;
           for (const t of ticks) {
             const wx = rl.origin.x + ux * t.distIU;
             const wy = rl.origin.y + uy * t.distIU;
@@ -521,7 +530,7 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
         const pitch = constantLinePitchPx(dpr) * dpr;
         const sx = rl.end.y < rl.origin.y ? -1 : 1;
         const sy = rl.end.x < rl.origin.x ? 1 : -1;
-        ctx.font = `${constantGlyphHeightPx(dpr) * dpr}px ui-monospace, monospace`;
+        ctx.font = `${cssSizeForGlyphHeight(ctx, constantGlyphHeightPx(dpr) * dpr)}px ui-monospace, monospace`;
         ctx.textAlign = sx < 0 ? 'right' : 'left';
         ctx.textBaseline = 'middle';
         // The quadrant only decides where the BLOCK sits; the lines inside it
@@ -529,8 +538,13 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
         // Stacking them along `sy` reversed them whenever the block went up.
         const x0 = b.x + sx * offX;
         const top = sy < 0 ? b.y - offX - (lines.length - 1) * pitch : b.y + offX;
+        // A stroke font at thicknessFactor 0.2 reads bold; fill plus a stroke
+        // of the same width is that weight on a 2D context.
+        ctx.lineWidth = constantStrokeWidthPx(dpr) * dpr * 0.5;
+        ctx.lineJoin = 'round';
         for (let i = 0; i < lines.length; i++) {
           ctx.fillText(lines[i]!, x0, top + i * pitch);
+          ctx.strokeText(lines[i]!, x0, top + i * pitch);
         }
         ctx.restore();
       }
@@ -990,3 +1004,32 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
     );
   },
 );
+
+/**
+ * The CSS `font-size` whose cap height is `targetPx`.
+ *
+ * KiCad's `TEXT_DIMS::GlyphSize` is the stroke font's glyph HEIGHT — the height
+ * of a capital — while CSS `font-size` is the em box, which is always larger.
+ * Setting one as the other draws the preview text about a third too small,
+ * which is what made ours look thin and undersized beside a real ruler.
+ *
+ * Measured rather than assumed: the ratio differs per face, and the fallback
+ * chain here can resolve to whatever the platform has. `actualBoundingBoxAscent`
+ * of a digit is that cap height.
+ */
+const capRatioCache = new Map<string, number>();
+function cssSizeForGlyphHeight(ctx: CanvasRenderingContext2D, targetPx: number): number {
+  const face = 'ui-monospace, monospace';
+  let ratio = capRatioCache.get(face);
+  if (ratio === undefined) {
+    const probe = 100;
+    const saved = ctx.font;
+    ctx.font = `${probe}px ${face}`;
+    const m = ctx.measureText('0');
+    const asc = m.actualBoundingBoxAscent;
+    ratio = asc > 0 ? asc / probe : 0.72;
+    ctx.font = saved;
+    capRatioCache.set(face, ratio);
+  }
+  return targetPx / ratio;
+}
