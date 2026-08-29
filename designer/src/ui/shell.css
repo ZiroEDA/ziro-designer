@@ -7086,6 +7086,35 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   height: 10px;
   flex: 0 0 auto;
 }
+/* sbAttributes' five checkboxes do NOT share one border
+   (dialog_symbol_properties_base.cpp:204-224):
+
+     Exclude from simulation         wxRIGHT|wxLEFT 5           no vertical
+     (the 10 px spacer above)
+     Exclude from bill of materials  wxALL 5                    5 top, 5 bottom
+     Exclude from board              wxBOTTOM|wxRIGHT|wxLEFT 5  5 bottom
+     Exclude from position files     wxBOTTOM|wxRIGHT|wxLEFT 5  5 bottom
+     Do not populate                 wxBOTTOM|wxLEFT|wxRIGHT 5  5 bottom
+
+   so the rows repeat every --check-row + 5 = 27, and the gap under the first
+   is --check-row + 10 + 5 = 37. Ours stated no vertical border at all, so the
+   five packed at the bare 22 and 32: [px] a live KiCad 10.0.5 beside ours at
+   the same screen size reads its label rows at y = 691, 727, 754, 781, 808 —
+   a pitch of 36/27/27/27 — against ours at 700, 732, 754, 776, 798, which is
+   32/22/22/22. Twenty pixels short over five rows, and the box reads visibly
+   tighter than KiCad's. */
+.ze-symprops-attrs > .ze-check {
+  /* [data] wxBOTTOM 5, on all but the first. */
+  margin-bottom: 5px;
+}
+.ze-symprops-attrs > .ze-check:first-of-type {
+  /* [data] Exclude from simulation is wxRIGHT|wxLEFT only. */
+  margin-bottom: 0;
+}
+.ze-symprops-attrs > .ze-symprops-attrgap + .ze-check {
+  /* [data] Exclude from bill of materials is the one wxALL 5. */
+  margin-top: 5px;
+}
 /* bSizerBottom, added with wxEXPAND|wxLEFT 12. It sits outside the notebook,
    so it does not change with the page. */
 .ze-symprops-foot {

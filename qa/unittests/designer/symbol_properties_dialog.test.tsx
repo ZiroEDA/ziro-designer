@@ -29,6 +29,8 @@
  */
 import { cleanup, createEvent, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { parse } from '@ziroeda/sexpr/src/index.js';
 import { readSchematic } from '@ziroeda/eeschema';
 import type { LibSymbol, SchSymbol, SymbolEdit } from '@ziroeda/eeschema';
@@ -1011,5 +1013,76 @@ describe('the library link is never writeable', () => {
     const entry = document.querySelector<HTMLInputElement>('.ze-symprops-libid')!;
     expect(entry.readOnly).toBe(true);
     expect(entry.getAttribute('aria-readonly')).toBe('true');
+  });
+});
+
+/**
+ * sbAttributes' five checkboxes, and the borders that space them.
+ *
+ * They are NOT one repeated row (dialog_symbol_properties_base.cpp:204-224):
+ *
+ *   Exclude from simulation         wxRIGHT|wxLEFT 5           no vertical
+ *   sbAttributes->Add( 0, 10, … )                              a 10 px spacer
+ *   Exclude from bill of materials  wxALL 5                    5 top, 5 bottom
+ *   Exclude from board              wxBOTTOM|wxRIGHT|wxLEFT 5  5 bottom
+ *   Exclude from position files     wxBOTTOM|wxRIGHT|wxLEFT 5  5 bottom
+ *   Do not populate                 wxBOTTOM|wxLEFT|wxRIGHT 5  5 bottom
+ *
+ * so the rows repeat every `--check-row` + 5 = 27 and the first gap is
+ * `--check-row` + 10 + 5 = 37. [px] a live KiCad 10.0.5 beside ours at the same
+ * screen size reads its label rows at y = 691, 727, 754, 781, 808 — 36/27/27/27
+ * — where ours read 700, 732, 754, 776, 798, a flat 32/22/22/22. Ours stated no
+ * vertical border at all, so every gap was 5 short and the box was 20 px tighter
+ * than KiCad's over five rows.
+ *
+ * happy-dom implements no layout, so the borders are asserted on the stated
+ * declaration; the ORDER they apply to is asserted on the rendered dialog,
+ * because a `:first-of-type` / adjacent-sibling rule is only correct if the
+ * spacer really is the second child.
+ */
+describe('the Attributes checkboxes are spaced by their own borders', () => {
+  const SHELL = readFileSync(join(__dirname, '../../../designer/src/ui/shell.css'), 'utf8');
+
+  /** One declaration of one rule, by exact selector, comments stripped. */
+  const decl = (selector: string, prop: string): string | undefined => {
+    const at = SHELL.indexOf(`\n${selector} {`);
+    if (at < 0) throw new Error(`no rule for ${selector}`);
+    const open = SHELL.indexOf('{', at);
+    const body = SHELL.slice(open + 1, SHELL.indexOf('}', open)).replace(/\/\*[\s\S]*?\*\//g, '');
+    return new RegExp(`(?:^|;)\\s*${prop}\\s*:\\s*([^;]+)`).exec(body)?.[1]?.trim();
+  };
+
+  it('renders the five in upstream’s order, with the spacer after the first', () => {
+    open(SHEET);
+    const box = groupBox('Attributes');
+    // The children the CSS selectors depend on: the spacer is child 2, so
+    // `.ze-symprops-attrgap + .ze-check` is "Exclude from bill of materials".
+    expect(
+      Array.from(box.children)
+        .filter((c) => c.tagName !== 'LEGEND')
+        .map((c) => (c.className.includes('attrgap') ? '(spacer)' : c.textContent)),
+    ).toStrictEqual([
+      'Exclude from simulation',
+      '(spacer)',
+      'Exclude from bill of materials',
+      'Exclude from board',
+      'Exclude from position files',
+      'Do not populate',
+    ]);
+  });
+
+  it('gives every row but the first a 5 px bottom border', () => {
+    expect(decl('.ze-symprops-attrs > .ze-check', 'margin-bottom')).toBe('5px');
+    expect(decl('.ze-symprops-attrs > .ze-check:first-of-type', 'margin-bottom')).toBe('0');
+  });
+
+  it('and the one wxALL 5 a 5 px top border as well', () => {
+    expect(decl('.ze-symprops-attrs > .ze-symprops-attrgap + .ze-check', 'margin-top')).toBe('5px');
+  });
+
+  it('leaves the 10 px spacer as the spacer, not as a row border', () => {
+    // `sbAttributes->Add( 0, 10, 0, wxEXPAND, 5 )` — folding it into the rows
+    // would give the same first gap and the wrong one everywhere else.
+    expect(decl('.ze-symprops-attrgap', 'height')).toBe('10px');
   });
 });
