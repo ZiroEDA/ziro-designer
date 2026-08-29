@@ -313,6 +313,10 @@ export const BITMAP: Record<string, string> = {
   // beside each other on that toolbar are different bitmaps.
   cvpcbAutoAssociate: 'auto_associate',
   cvpcbDeleteAll: 'delete_association',
+  // CVPCB_ACTIONS::deleteAssoc — `.Icon( BITMAPS::delete_association )`
+  // (cvpcb_actions.cpp:133), the same bitmap deleteAll wears. It is on the
+  // symbols pane's context menu, not on any toolbar.
+  cvpcbDeleteAssoc: 'delete_association',
   cvpcbFilterFp: 'module_filtered_list',
   cvpcbFilterPin: 'module_pin_filtered_list',
   cvpcbFilterLib: 'module_library_list',

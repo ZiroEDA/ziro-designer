@@ -9,7 +9,7 @@
  * (`common/string_utils.cpp:803-816`).
  *
  * An equivalence file is a lookup table from a symbol **value** to a footprint
- * LIB_ID. The manual (eeschema.txt:4433-4460) gives the syntax:
+ * LIB_ID. The manual (eeschema.txt:4467-4476) gives the syntax:
  *
  *     '<symbol value>' '<footprint library>:<footprint name>'
  *
@@ -51,7 +51,7 @@
  *
  * ## The order rule, where the manual and the source disagree
  *
- * The manual says (eeschema.txt:4446-4449) that Move Up / Move Down set a
+ * The manual says (eeschema.txt:4444-4449) that Move Up / Move Down set a
  * priority and that "the footprint from the last matching equivalence file will
  * override earlier equivalence files". **10.0.5 does not do that**, and the
  * loop that would have to is right there at `auto_associate.cpp:211-273`:

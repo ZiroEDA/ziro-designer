@@ -80,13 +80,20 @@
  * nothing else, and 0 — upstream's own "nothing saved", the `> 0` its restore
  * is guarded by (`:204-208`) — keeps the 20% / 30% BestSize share.
  *
- * ## Still not ported, and named so it is not mistaken for a delta
+ * ## The two context menus
  *
- * The two CONTEXT menus `setupEventHandlers` binds to the right button
- * (cvpcb_mainframe.cpp:271-283): the symbols pane's showFootprintViewer / cut /
- * copy / paste / deleteAssoc, and the footprint pane's showFootprintViewer. All
- * five commands exist and are reachable — from the Edit menu, the toolbar and
- * the keyboard — but the right button opens nothing.
+ * `setupTools` builds one for the symbols pane and one for the footprint pane
+ * (cvpcb_mainframe.cpp:271-285) and `setupEventHandlers` binds each to
+ * `wxEVT_RIGHT_DOWN` (`:333-344`). Both are here, as `cvpcb_context_menus.ts`.
+ *
+ * This paragraph used to say they were ported while nothing in this file
+ * handled a right-click at all, so what a user got was the BROWSER's menu. Two
+ * details from the C++ went in with them: the handler never calls
+ * `event.Skip()`, so the right button does not move the selection and every
+ * row acts on the row that was already selected; and
+ * `CVPCB_CONTROL::ShowFootprintViewer` (cvpcb_control.cpp:156-214) has no
+ * branch that closes the viewer, so View Selected Footprint shows it and the
+ * panel's own ✕ is what closes it. The toolbar button toggled.
  *
  * Chrome lives in `dialog_assign_footprints.css` beside this file, not in
  * ui/shell.css, so that every metric in it can name the token or the
@@ -95,7 +102,7 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type JSX } from 'react';
 import type { Schematic } from '@ziroeda/eeschema';
-import { MenuBar, type Menu } from '../../../ui/MenuBar.js';
+import { ContextMenu, MenuBar, type Menu, type MenuItem } from '../../../ui/MenuBar.js';
 import { Toolbar, type ToolEntry } from '../../../ui/Toolbar.js';
 import { FootprintPreviewWidget } from '../../../widgets/footprint_preview_widget.js';
 import { LibraryLoadingPanel } from '../../../widgets/library_loading_panel.js';
@@ -181,6 +188,11 @@ import {
   EQU_LOAD_ERROR_TITLE,
 } from '../cvpcb_auto_associate.js';
 import { readEquFile } from '../cvpcb_equ_files.js';
+import {
+  cvpcbFootprintsContextMenu,
+  cvpcbSymbolsContextMenu,
+  type CvpcbContextMenuActions,
+} from '../cvpcb_context_menus.js';
 import { DialogConfigEquFiles } from './dialog_config_equfiles.js';
 import type { ProjectFile } from '../../../fs/project_paths.js';
 import { readEquivalenceFiles } from '../project_settings.js';
@@ -302,6 +314,7 @@ function VirtualList({
   onActivate,
   listRef,
   onFocus,
+  onContextMenu,
 }: {
   /** Every row's text — the list's contents, `m_SymbolList` and friends. */
   rows: readonly string[];
@@ -316,6 +329,12 @@ function VirtualList({
   /** The pane's scroller, so `SetFocusedControl` can focus it. */
   listRef?: React.RefObject<HTMLDivElement>;
   onFocus?: () => void;
+  /**
+   * `Bind( wxEVT_RIGHT_DOWN, … )` on the LIST CONTROL, not on a row
+   * (cvpcb_mainframe.cpp:333-344) — so the empty space under the last row
+   * opens the menu too, and the row under the pointer is never consulted.
+   */
+  onContextMenu?: (e: React.MouseEvent) => void;
 }): JSX.Element {
   const count = text.length;
   // ITEMS_LISTBOX_BASE::UpdateWidth — the longest row sizes the virtual list,
@@ -439,6 +458,7 @@ function VirtualList({
       tabIndex={0}
       onFocus={onFocus}
       onKeyDown={onKeyDown}
+      onContextMenu={onContextMenu}
       // Read the offset during dispatch: `currentTarget` is null by the time a
       // lazy state updater runs.
       onScroll={(e) => {
@@ -619,6 +639,13 @@ export function DialogAssignFootprints({
   const [libPaneWidth, setLibPaneWidth] = useDialogControl(WINDOW_TITLE, 'libraries_pane_width', 0);
   const [fpPaneWidth, setFpPaneWidth] = useDialogControl(WINDOW_TITLE, 'footprints_pane_width', 0);
   const [viewerOpen, setViewerOpen] = useState(false);
+  /** `PopupMenu( m_symbolsContextMenu )` / `( m_footprintContextMenu )` — the
+   *  menu that is up, and where the right button went down. */
+  const [contextMenu, setContextMenu] = useState<{
+    items: MenuItem[];
+    x: number;
+    y: number;
+  } | null>(null);
   const [libTableOpen, setLibTableOpen] = useState(false);
   const [equFilesOpen, setEquFilesOpen] = useState(false);
   const [prefsOpen, setPrefsOpen] = useState(false);
@@ -855,6 +882,35 @@ export function DialogAssignFootprints({
 
   /** gotoNextNA / gotoPreviousNA, the next symbol with no assignment. */
   const gotoNA = (dir: 1 | -1): void => setModel((m) => gotoNACommand(m, components, dir));
+
+  // ----- the two context menus (cvpcb_mainframe.cpp:271-285) ----------------
+
+  /**
+   * What both menus' rows run. One object, because upstream builds both menus
+   * out of the same TOOL_ACTIONs and the tool manager dispatches them the same
+   * way whichever menu they were picked from.
+   */
+  const contextMenuActions: CvpcbContextMenuActions = {
+    // `ShowFootprintViewer` creates the frame or raises it; there is no branch
+    // that closes it, so this SHOWS rather than toggling.
+    showFootprintViewer: () => setViewerOpen(true),
+    cut: cutAssoc,
+    copy: copyAssoc,
+    paste: () => void pasteAssoc(),
+    deleteAssoc,
+  };
+
+  /**
+   * `[this]( wxMouseEvent& ) { PopupMenu( … ); }` — and nothing else. The
+   * handler does not `event.Skip()`, so the list control never sees the click
+   * and the selection stays where it was.
+   */
+  const openContextMenu =
+    (build: (a: CvpcbContextMenuActions) => MenuItem[]) =>
+    (e: React.MouseEvent): void => {
+      e.preventDefault();
+      setContextMenu({ items: build(contextMenuActions), x: e.clientX, y: e.clientY });
+    };
 
   /** The Footprint field edits the assignments amount to, one per unit. */
   const buildEdits = (): FieldsEdits => {
@@ -1178,7 +1234,14 @@ export function DialogAssignFootprints({
   if (!changed) disabledIds.add('cvpcbSaveToSchematic');
   if (undoStack.length === 0) disabledIds.add('cvpcbUndo');
   if (redoStack.length === 0) disabledIds.add('cvpcbRedo');
-  if (!selectedFootprint) disabledIds.add('cvpcbViewFootprint');
+  // `cvpcbViewFootprint` used to be greyed when the footprint pane had no
+  // selection, and that is an invention: `setupUIConditions`
+  // (cvpcb_mainframe.cpp:288-330) names saveAssociations, undo, redo and the
+  // three filter toggles and nothing else, so showFootprintViewer is always
+  // live — `ShowFootprintViewer` opens the DISPLAY_FOOTPRINTS_FRAME whether or
+  // not a footprint is selected and lets it say "No footprint specified", which
+  // is the string the panel already draws. The greyed button also made the
+  // context menu's row unreachable in exactly the state it is most useful in.
   if (!onSaveLibTable) disabledIds.add('cvpcbLibTable');
 
   const onToolbar = (id: string): void => {
@@ -1190,7 +1253,11 @@ export function DialogAssignFootprints({
         setLibTableOpen(true);
         break;
       case 'cvpcbViewFootprint':
-        setViewerOpen((v) => !v);
+        // `ShowFootprintViewer` (cvpcb_control.cpp:156-214) creates the frame
+        // or raises it and re-runs InitDisplay. It never closes it, and this
+        // was `setViewerOpen( v => !v )`, so a second press hid the viewer
+        // where KiCad brings it forward. The panel's ✕ is the frame's close.
+        setViewerOpen(true);
         break;
       case 'cvpcbPrevNA':
         gotoNA(-1);
@@ -1427,6 +1494,7 @@ export function DialogAssignFootprints({
               multi
               listRef={symbolListRef}
               onFocus={() => setFocus('symbol')}
+              onContextMenu={openContextMenu(cvpcbSymbolsContextMenu)}
               onSelectRows={setSymbolSelection}
               render={(i) => {
                 const c = components[i]!;
@@ -1462,6 +1530,7 @@ export function DialogAssignFootprints({
               focused={curFp}
               listRef={footprintListRef}
               onFocus={() => setFocus('footprint')}
+              onContextMenu={openContextMenu(cvpcbFootprintsContextMenu)}
               onSelectRows={(rows) => setCurFp(rows[0] ?? -1)}
               onActivate={(i) => {
                 const id = filtered[i];
@@ -1499,6 +1568,14 @@ export function DialogAssignFootprints({
           <div>{statusLine3}</div>
         </div>
 
+        {contextMenu && (
+          <ContextMenu
+            items={contextMenu.items}
+            x={contextMenu.x}
+            y={contextMenu.y}
+            onClose={() => setContextMenu(null)}
+          />
+        )}
         {prefsOpen && <PreferencesDialog onClose={() => setPrefsOpen(false)} />}
         {/* The two boxes AutomaticFootprintMatching raises, both
             `wxOK | wxICON_WARNING` with a caption of their own

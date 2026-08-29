@@ -8,7 +8,7 @@
  * `sortListbyCmpValue` :73-76, `buildEquivalenceList` :79-167,
  * `AutomaticFootprintMatching` :170-304) and `common/string_utils.cpp:803-816`
  * (`GetLine`, which is where the comment and blank-line rules live), against
- * the manual's statement of the syntax at eeschema.txt:4433-4460.
+ * the manual's statement of the syntax at eeschema.txt:4467-4476.
  *
  * The fixtures are chosen so each one can REACH the branch it is about, which
  * is the shape of test that keeps failing to fail here. In particular:
@@ -83,7 +83,7 @@ describe('GetQuotedText (auto_associate.cpp:53-68)', () => {
 
 describe('the .equ line reader (GetLine + the parse at :139-161)', () => {
   it('reads the manual’s own example file', () => {
-    // eeschema.txt:4483-4501, verbatim, comments and blank line included.
+    // eeschema.txt:4485-4503, verbatim, comments and blank line included.
     const list = parseEquivalenceFile(
       [
         '#integrated circuits (smd):',
@@ -337,7 +337,7 @@ describe('AutomaticFootprintMatching (auto_associate.cpp:170-304)', () => {
   // a filter test written against that fixture can never fail.
 
   it('with duplicates and NO footprint filters, the FIRST entry wins', () => {
-    // The manual (eeschema.txt:4446-4449) says the LAST matching file
+    // The manual (eeschema.txt:4444-4449) says the LAST matching file
     // overrides; 10.0.5 does not. `found = ( filtercount == 0 )` at :250 is
     // true straight away, so the first duplicate reached is associated and the
     // loop breaks at :271. Order in the sorted list is file order (stable),

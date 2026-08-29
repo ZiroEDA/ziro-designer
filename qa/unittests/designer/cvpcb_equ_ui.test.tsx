@@ -21,6 +21,7 @@ import { cleanup, fireEvent, render } from '@testing-library/react';
 import { parse } from '@ziroeda/sexpr';
 import { readSchematic } from '@ziroeda/eeschema';
 import { DialogAssignFootprints } from '@ziroeda/designer/src/editors/schematic/dialogs/dialog_assign_footprints.js';
+import { BITMAP } from '@ziroeda/designer/src/ui/toolbar_bitmaps.js';
 
 beforeAll(() => {
   vi.stubGlobal('fetch', async () => new Response('', { status: 404 }));
@@ -159,6 +160,16 @@ describe('the top toolbar is toolbars_cvpcb.cpp’s, button for button', () => {
       'Filter by pin count',
       'Filter by library',
     ]);
+  });
+
+  it('wears BITMAPS::auto_associate, which is NOT the bitmap deleteAll wears', () => {
+    // `.Icon( BITMAPS::auto_associate )` (cvpcb_actions.cpp:127) against
+    // `.Icon( BITMAPS::delete_association )` for deleteAll (`:139`). The two
+    // sit next to each other and both read as a red X at a glance, which is
+    // exactly why one wearing the other's artwork would go unnoticed.
+    expect(BITMAP.cvpcbAutoAssociate).toBe('auto_associate');
+    expect(BITMAP.cvpcbDeleteAll).toBe('delete_association');
+    expect(BITMAP.cvpcbAutoAssociate).not.toBe(BITMAP.cvpcbDeleteAll);
   });
 
   it('is never disabled: setupUIConditions gives it no condition', () => {
@@ -449,5 +460,55 @@ describe('Add reaches a file chooser, not a bare <input type="file">', () => {
     expect(chooser).not.toBeNull();
     expect(chooser?.textContent).toContain('Symbol footprint association files');
     expect(chooser?.textContent).toContain('Add from Computer...');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The sort, which is only visible through the ambiguity it creates
+// ---------------------------------------------------------------------------
+
+describe('the equivalence list is sorted before the match (auto_associate.cpp:184)', () => {
+  /**
+   * A sheet whose symbol carries `ki_fp_filters`, which is the only thing that
+   * can tell a sorted list from an unsorted one.
+   *
+   * Sorting exists so `equ_is_unique` (`:220-228`) can see a duplicate by
+   * looking at its two NEIGHBOURS and nothing else. With the two `2k2` entries
+   * separated in file order by a `4k7`, an unsorted list calls the first of
+   * them unique, takes the `:231` branch and associates it on the spot — the
+   * footprint filters are never consulted. Sorted, they are adjacent, the
+   * filter runs, and the second one wins.
+   *
+   * Nothing simpler distinguishes the two: with no footprint filters the first
+   * existing entry of a value wins either way, and so does fpid_candidate.
+   */
+  const FILTERED_SHEET = `(kicad_sch (version 20231120) (generator "test") (paper "A4")
+    (lib_symbols
+      (symbol "Device:R" (property "Reference" "R" (at 0 0 0))
+        (property "ki_fp_filters" "R_04*" (at 0 0 0))
+        (symbol "R_1_1"
+          (pin passive line (at 0 3.81 270) (length 1.27) (name "~") (number "1"))
+          (pin passive line (at 0 -3.81 90) (length 1.27) (name "~") (number "2")))))
+    (symbol (lib_id "Device:R") (at 60 50 0) (unit 1) (uuid "r2")
+      (property "Reference" "R2" (at 0 0 0)) (property "Value" "2k2" (at 0 0 0))))`;
+
+  const SPLIT_EQU = ["'2k2' 'MyFp:R_0805'", "'4k7' 'MyFp:R_0603'", "'2k2' 'MyFp:R_0402'", ''].join(
+    '\n',
+  );
+
+  it('so a duplicate split by another value is still resolved by the filters', () => {
+    const docs = new Map([['a.kicad_sch', readSchematic(parse(FILTERED_SHEET))]]);
+    const { container } = render(
+      <DialogAssignFootprints
+        docs={docs}
+        projectFootprints={projectFiles({ equText: SPLIT_EQU })}
+        onApply={() => {}}
+        onClose={() => {}}
+      />,
+    );
+    fireEvent.click(button(container, 'Automatically Assign Footprints'));
+    // R_0402 is the one the symbol's `R_04*` filter matches; R_0805 is what an
+    // unsorted list assigns.
+    expect(assignmentRows(container)[0]).toContain('MyFp:R_0402');
   });
 });
