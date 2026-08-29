@@ -474,9 +474,12 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
         if (lenIU > 0) {
           const ux = dxw / lenIU;
           const uy = dyw / lenIU;
-          // `RotatePoint( tickLine, ANGLE_90 )` — the tick direction.
-          const px = -uy;
-          const py = ux;
+          // `VECTOR2D tickLine = aLine; RotatePoint( tickLine, ANGLE_90 );`
+          // KiCad's ANGLE_90 turns (x, y) into (y, -x), which on a Y-down
+          // canvas points to the side the graduations and their numbers sit on.
+          // Negating it instead put both on the wrong side of the line.
+          const px = uy;
+          const py = -ux;
           const ticks = rulerTicks(lenIU, v.scale, PCB_IU_PER_MM, measureUnitsRef.current);
           // KiCad's GlyphSize is the stroke font's glyph HEIGHT; CSS
           // font-size is the em box, which is larger. Measure the face's own
@@ -488,11 +491,22 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
           const labelOff = 5 * 3.5 * dpr;
           ctx.font = `${tickFont}px ui-monospace, monospace`;
           ctx.textBaseline = 'middle';
-          // `EDA_ANGLE( aLine ) > ANGLE_0 ? LEFT : RIGHT`, with the text turned
-          // to run along the line either way.
-          const angle = Math.atan2(dyw, dxw);
-          const flip = !(-angle > 0);
-          ctx.textAlign = flip ? 'right' : 'left';
+          // `labelAngle = -EDA_ANGLE( tickLine )`: the numbers run along the
+          // TICK, not along the ruler — which is why upstream's read
+          // bottom-to-top beside a roughly horizontal measurement. Rotating
+          // them along the line instead is what drew ours mirrored.
+          //
+          // The two `m_Halign` branches are the same rule stated in KiCad's
+          // angle convention: keep the text right-reading. A baseline pointing
+          // into the left half-plane is upside down, so it turns through 180
+          // and anchors from the other end.
+          let textAngle = Math.atan2(py, px);
+          let alignRight = false;
+          if (textAngle > Math.PI / 2 || textAngle < -Math.PI / 2) {
+            textAngle += Math.PI;
+            alignRight = true;
+          }
+          ctx.textAlign = alignRight ? 'right' : 'left';
           // `SetLineWidth( labelAttrs.m_StrokeWidth / 2 )`.
           ctx.lineWidth = tickLineWidthPx(dpr) * dpr;
           for (const t of ticks) {
@@ -509,7 +523,7 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
             if (t.label !== null) {
               ctx.save();
               ctx.translate(p.x + px * labelOff, p.y + py * labelOff);
-              ctx.rotate(flip ? angle + Math.PI : angle);
+              ctx.rotate(textAngle);
               ctx.fillText(t.label, 0, 0);
               ctx.restore();
             }
