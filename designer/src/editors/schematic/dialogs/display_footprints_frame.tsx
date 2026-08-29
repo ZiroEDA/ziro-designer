@@ -78,6 +78,8 @@ import {
   type StatusUnits,
 } from '../../../ui/status_format.js';
 import { EDA_FRAME_DEFAULT_SIZE, EDA_FRAME_MIN_SIZE } from '../../../ui/frame_size.js';
+import { useModalEscape } from '../../../ui/useModalEscape.js';
+import { Viewer3DFrame } from '../../pcb/Viewer3DFrame.js';
 import {
   DISPLAY_FP_CONTROL,
   DISPLAY_FP_LEFT_TOOLBAR,
@@ -162,6 +164,34 @@ export function DisplayFootprintsFrame({
   );
   /** `cond.CurrentTool( … )` — selection, measure or the zoom-area tool. */
   const [activeTool, setActiveTool] = useState('selectionTool');
+  /**
+   * `Get3DViewerFrame()`: the 3D window is created on first use and raised
+   * afterwards, so this is the flag, not a second component.
+   */
+  const [show3D, setShow3D] = useState(false);
+
+  /**
+   * Esc cancels the TOOL, and only closes the frame when nothing is armed.
+   *
+   * `ZOOM_TOOL::Main` (`common/tool/zoom_tool.cpp:82-86`) is
+   *
+   *     if( evt->IsCancelInteractive() || evt->IsActivate() ) break;
+   *
+   * and the break falls through to `PopTool`, which restores whatever was
+   * running before — the selection tool. Esc never reaches the frame while a
+   * tool holds it, and it certainly never reaches the dialog that opened this
+   * one.
+   *
+   * That is what was wrong: this frame registered nothing on the modal-cancel
+   * stack, so Esc fell through to Assign Footprints' own `useModalEscape` and
+   * closed the whole dialog out from under the viewer. Registering here also
+   * puts this frame ON TOP of that stack, which is correct — it is the window
+   * in front.
+   */
+  useModalEscape(() => {
+    if (activeTool !== 'selectionTool') setActiveTool('selectionTool');
+    else onClose();
+  });
 
   // `InitDisplay`: load the footprint named by the parent frame. An empty name
   // clears the board rather than leaving the last footprint on screen.
@@ -267,6 +297,15 @@ export function DisplayFootprintsFrame({
         break;
       case 'zoomTool':
         setActiveTool((t) => (t === 'zoomTool' ? 'selectionTool' : 'zoomTool'));
+        break;
+      // `PCB_VIEWER_TOOLS::Show3DViewer` (`pcbnew/tools/pcb_viewer_tools.cpp:79`)
+      // — this frame registers PCB_VIEWER_TOOLS
+      // (`cvpcb/display_footprints_frame.cpp:113`) precisely so it gets this
+      // action, and the tool calls the SHARED `CreateAndShow3D_Frame()` on
+      // PCB_BASE_FRAME. It was falling through to `default: break` here, so the
+      // button did nothing at all.
+      case 'threeDViewer':
+        setShow3D(true);
         break;
       case 'fpAutoZoom':
         setToggles((prev) => {
@@ -397,6 +436,17 @@ export function DisplayFootprintsFrame({
             drawOpts={drawOpts}
             showGrid={toggles.has('toggleGrid')}
             gridIU={gridIU}
+            // The armed tool has to reach the canvas or `ACTIONS::zoomTool` is
+            // a button that lights and does nothing: ZOOM_TOOL's whole body is
+            // the drag, and the drag is the canvas's. `selectionTool` is the
+            // canvas's `selectSetRect` — upstream splits picking (always on)
+            // from the drag SHAPE, which ours conflates; that naming gap is
+            // noted on FootprintCanvasProps.activeTool and is not this frame's
+            // to fix.
+            activeTool={activeTool === 'zoomTool' ? 'zoomTool' : 'selectSetRect'}
+            // `if( selectRegion() ) break;` then PopTool: a committed zoom
+            // ends the tool and the frame goes back to selecting.
+            onZoomAreaApplied={() => setActiveTool('selectionTool')}
             // FRAME_CVPCB_DISPLAY: the DEFAULT fit margin, not the footprint
             // editor's 1.48. See the file header.
             fitFrame="cvpcb_display"
@@ -424,6 +474,28 @@ export function DisplayFootprintsFrame({
           units: unitsMsg(unitLabel),
         }}
       />
+
+      {/* The SAME `EDA_3D_VIEWER_FRAME` the PCB editor opens — upstream this
+          frame reaches it through `PCB_BASE_FRAME::CreateAndShow3D_Frame()`,
+          which every PCB frame inherits. The board it ships is this frame's
+          own one-footprint BOARD, which is what `Update3DView( true, true )`
+          does at `display_footprints_frame.cpp:417`. */}
+      {show3D && fp && (
+        <Viewer3DFrame
+          board={footprintToBoard(fp)}
+          backLabel="← Footprint Viewer"
+          // `LIB_ID`'s "Lib:Name" is not a filename; the part after the colon
+          // is what a 3D snapshot of one footprint should be called.
+          imageBaseName={footprint.split(':').pop() || 'footprint'}
+          title={
+            <>
+              <b>{displayFootprintsTitle(footprint)}</b>
+              &nbsp;-&nbsp;3D Viewer
+            </>
+          }
+          onClose={() => setShow3D(false)}
+        />
+      )}
     </div>
   );
 }

@@ -29,6 +29,7 @@ import type {
   Move3DDir,
   Grid3D,
   Viewer3DStatus,
+  Viewer3D,
 } from './viewer3d_types.js';
 
 const MM = PCB_IU_PER_MM; // pcbnew IU is 1 nm (base_units.h)
@@ -80,42 +81,13 @@ function edgeBBox(board: Board, fallback: BBox): BBox {
 // The plain data types live in viewer3d_types.ts so the menu inventory can
 // reach them without resolving this module's three.js / occt-import-js chain.
 // Re-exported here so every existing importer keeps working.
-export type { View3DDir, Rotate3DAxis, Move3DDir, Grid3D, Viewer3DStatus };
-
-export interface Viewer3D {
-  dispose: () => void;
-
-  // -- View menu / top toolbar commands ------------------------------------
-  /** `ACTIONS::zoomInCenter` — 1.26x, three steps per doubling. */
-  zoomIn: () => void;
-  /** `ACTIONS::zoomOutCenter`. */
-  zoomOut: () => void;
-  /** `ACTIONS::zoomFitScreen` — back to the initial framing. */
-  zoomFit: () => void;
-  /** `ACTIONS::zoomRedraw`. */
-  redraw: () => void;
-  /** One of the six axis-aligned views. */
-  setView: (dir: View3DDir) => void;
-  /** `EDA_3D_ACTIONS::flipView` — 180 deg about Y. */
-  flip: () => void;
-  /** `EDA_3D_ACTIONS::homeView` — reset the camera. */
-  home: () => void;
-  /** `EDA_3D_ACTIONS::rotate{X,Y,Z}{CW,CCW}`, `rotation_increment` degrees. */
-  rotate: (axis: Rotate3DAxis, cw: boolean) => void;
-  /** `VIEW3D_PAN_*`. */
-  move: (dir: Move3DDir) => void;
-  /** `EDA_3D_ACTIONS::toggleOrtho`. */
-  setOrtho: (on: boolean) => void;
-  /** The 3D Grid submenu. */
-  setGrid: (grid: Grid3D) => void;
-
-  // -- File / Edit menu ----------------------------------------------------
-  /** `EDA_3D_ACTIONS::exportImage` — the current view as a PNG blob. */
-  snapshot: () => Promise<Blob | null>;
-
-  /** Called on pointer move / camera change to feed the status bar. */
-  onStatus?: (s: Viewer3DStatus) => void;
-}
+// `Viewer3D` moved there too: it is a plain method interface with no three.js
+// in it, and leaving it here forced anything that merely holds a handle to the
+// viewer to typecheck this module's occt-import-js chain. qa cannot -- there
+// are no types for occt-import-js and `?url` is a Vite import -- so the CVPCB
+// viewer's test broke the workspace typecheck the moment it reached a file
+// that named the type.
+export type { View3DDir, Rotate3DAxis, Move3DDir, Grid3D, Viewer3DStatus, Viewer3D };
 
 // A geometry group: interleaved [x,y,z, nx,ny,nz] verts + triangle indices.
 interface Group {

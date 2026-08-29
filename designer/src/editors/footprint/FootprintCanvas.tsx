@@ -11,6 +11,7 @@
  */
 
 import type { Vec2 } from '@ziroeda/kimath';
+import { PCB_IU_PER_MM } from '@ziroeda/common';
 import {
   forwardRef,
   useCallback,
@@ -27,6 +28,14 @@ import {
   type FitFrame,
 } from '../../ui/view_controls.js';
 import { drawCrosshair, drawGrid } from '../../ui/grid_cursor.js';
+import { kiCursor } from '../../ui/kicursors.js';
+import { clampViewScale } from '../../ui/zoom_settings.js';
+import {
+  SELECTION_AREA_FILL,
+  SELECTION_AREA_STROKE,
+  zoomAreaTarget,
+  type ZoomArea,
+} from '../../ui/zoom_tool.js';
 import { hitTestFootprint } from '@ziroeda/pcbnew';
 import { itemsInBox, fpItemBBox, type PcbFootprint } from '@ziroeda/pcbnew';
 import {
@@ -86,6 +95,15 @@ export interface FootprintCanvasProps {
   onMoveItems?: (delta: Vec2) => void;
   /** A click while a placement tool is active (e.g. Add Pad), in world units. */
   onPlace?: (pos: Vec2) => void;
+  /**
+   * A zoom-area drag committed, so `ZOOM_TOOL` is finished.
+   *
+   * `ZOOM_TOOL::Main` is `if( selectRegion() ) break;` (`zoom_tool.cpp:84-88`)
+   * followed by `PopTool` — the tool is ONE-SHOT: framing a rectangle ends it
+   * and the frame returns to the tool that was running before. The canvas owns
+   * the drag but not the frame's tool state, so it reports the commit here.
+   */
+  onZoomAreaApplied?: () => void;
   /** Double-click an item (open its properties). */
   onEditItem?: (id: string) => void;
   /** Rubber-band preview for a 2-click graphic being drawn (from `start` to cursor). */
@@ -125,6 +143,7 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
       onSelectBox,
       onMoveItems,
       onPlace,
+      onZoomAreaApplied,
       onEditItem,
       preview = null,
       fitFrame = 'footprint_editor',
@@ -143,6 +162,10 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
     // Live-gesture state (mutable, read by draw()'s overlay pass; no re-render).
     const moveDeltaRef = useRef<Vec2 | null>(null);
     const boxRef = useRef<{ a: Vec2; b: Vec2 } | null>(null);
+    /** `ZOOM_TOOL`'s rubber band, which is a different item from the selection
+     *  box above: `KIGFX::PREVIEW::SELECTION_AREA` in its default (non-additive)
+     *  colours, not the marquee's blue/green. */
+    const zoomBoxRef = useRef<ZoomArea | null>(null);
     const fpForDrawRef = useRef<PcbFootprint | null>(footprint);
     fpForDrawRef.current = footprint;
     const selForDrawRef = useRef<ReadonlySet<string>>(selection);
@@ -304,6 +327,25 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
         const rightward = box.b.x >= box.a.x;
         ctx.strokeStyle = rightward ? 'rgba(120,170,255,0.9)' : 'rgba(120,255,150,0.9)';
         ctx.fillStyle = rightward ? 'rgba(120,170,255,0.12)' : 'rgba(120,255,150,0.12)';
+        ctx.lineWidth = dpr;
+        const x = Math.min(p0.x, p1.x),
+          y = Math.min(p0.y, p1.y);
+        const w = Math.abs(p1.x - p0.x),
+          h = Math.abs(p1.y - p0.y);
+        ctx.fillRect(x, y, w, h);
+        ctx.strokeRect(x, y, w, h);
+      }
+      // `ZOOM_TOOL::selectRegion` puts a SELECTION_AREA on the view while the
+      // drag is live (`common/tool/zoom_tool.cpp:106-107`). A default-constructed
+      // one carries no additive/subtractive flag, so it is `normal` over
+      // `outline_l2r` — the blue/yellow pair in ui/zoom_tool.ts, not the
+      // marquee's colours above.
+      const zb = zoomBoxRef.current;
+      if (zb) {
+        const p0 = toPx(zb.a),
+          p1 = toPx(zb.b);
+        ctx.fillStyle = SELECTION_AREA_FILL;
+        ctx.strokeStyle = SELECTION_AREA_STROKE;
         ctx.lineWidth = dpr;
         const x = Math.min(p0.x, p1.x),
           y = Math.min(p0.y, p1.y);
@@ -535,14 +577,62 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
       | { mode: 'box'; start: Vec2; additive: boolean }
       | { mode: 'move'; start: Vec2; moved: boolean }
       | { mode: 'place'; start: { x: number; y: number }; moved: boolean }
+      | { mode: 'zoom' }
       | null
     >(null);
+
+    /**
+     * `ZOOM_TOOL::selectRegion`'s tail, applied to this canvas's viewport.
+     *
+     * The arithmetic is `zoomAreaTarget`'s and is not restated here — this is
+     * only the part that is per-canvas, because each of ours owns its own
+     * transform. `VIEW::SetCenter( selectionBox.Centre() )` puts that world
+     * point at the middle of the canvas, which for `x*scale + tx` is
+     * `tx = width/2 - centre.x*scale`.
+     */
+    const applyZoomArea = (area: ZoomArea): void => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const v = viewRef.current;
+      const target = zoomAreaTarget(area, {
+        scale: v.scale,
+        width: canvas.width,
+        height: canvas.height,
+      });
+      // `selectRegion` returns false for a degenerate box, and `Main` then
+      // keeps waiting rather than popping the tool — so no commit is reported.
+      if (!target) return;
+      // `VIEW::SetScale` pins to m_minScale/m_maxScale, so a one-pixel drag
+      // cannot send the scale to infinity. This canvas draws a footprint at
+      // pcbnew's IU, so it takes pcbnew's row of ZOOM_LIMITS.
+      const scale = clampViewScale(target.scale, 'pcbnew', dpr, PCB_IU_PER_MM);
+      v.scale = scale;
+      v.tx = canvas.width / 2 - target.centre.x * scale;
+      v.ty = canvas.height / 2 - target.centre.y * scale;
+      viewChangedRef.current = true;
+      setScale(scale);
+      onScaleChange?.(scale);
+      requestDraw();
+      onZoomAreaApplied?.();
+    };
 
     const onPointerDown = (e: React.PointerEvent): void => {
       (e.target as HTMLElement).setPointerCapture(e.pointerId);
       // Middle button always pans (right button reserved for context menu later).
       if (e.button === 1) {
         gestureRef.current = { mode: 'pan', last: { x: e.clientX, y: e.clientY } };
+        return;
+      }
+      // `ACTIONS::zoomTool` is AF_ACTIVATE: the button ARMS ZOOM_TOOL, and the
+      // drag that follows does the work. Upstream accepts either button —
+      // `evt->IsDrag( BUT_LEFT ) || evt->IsDrag( BUT_RIGHT )`
+      // (`zoom_tool.cpp:84`) — and branches only at the end, where a right
+      // drag zooms OUT by the same ratio. So this runs before the
+      // left-button-only guard below.
+      if (activeToolRef.current === 'zoomTool' && (e.button === 0 || e.button === 2)) {
+        const world = worldAt(e.clientX, e.clientY);
+        gestureRef.current = { mode: 'zoom' };
+        zoomBoxRef.current = { a: world, b: world, out: e.button === 2 };
         return;
       }
       if (e.button !== 0) return;
@@ -585,6 +675,10 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
       } else if (g.mode === 'box') {
         boxRef.current = { a: g.start, b: worldAt(e.clientX, e.clientY) };
         requestDraw();
+      } else if (g.mode === 'zoom') {
+        const zb = zoomBoxRef.current;
+        if (zb) zoomBoxRef.current = { ...zb, b: worldAt(e.clientX, e.clientY) };
+        requestDraw();
       } else if (g.mode === 'place') {
         if (Math.hypot(e.clientX - g.start.x, e.clientY - g.start.y) > 3) g.moved = true;
       } else {
@@ -604,6 +698,16 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
       if (!g) return;
       if (g.mode === 'place') {
         if (!g.moved) onPlace?.(snapRef.current(worldAt(e.clientX, e.clientY)));
+        return;
+      }
+      if (g.mode === 'zoom') {
+        const zb = zoomBoxRef.current;
+        zoomBoxRef.current = null;
+        // A zero-width or zero-height box leaves the view alone
+        // (`zoom_tool.cpp:138-142`) — that is what a click rather than a drag
+        // does, and `zoomAreaTarget` returns null for it.
+        if (zb) applyZoomArea({ ...zb, b: worldAt(e.clientX, e.clientY) });
+        else requestDraw();
         return;
       }
       if (g.mode === 'box') {
@@ -638,11 +742,24 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
           style={{
             position: 'absolute',
             inset: 0,
-            cursor: activeTool === 'selectSetRect' ? 'default' : 'crosshair',
+            // `ZOOM_TOOL::Main`'s setCursor is
+            // `SetCurrentCursor( KICURSOR::ZOOM_IN )` (`zoom_tool.cpp:65-69`)
+            // — KiCad's own art, not the browser's `zoom-in`.
+            cursor:
+              activeTool === 'zoomTool'
+                ? kiCursor('ZOOM_IN')
+                : activeTool === 'selectSetRect'
+                  ? 'default'
+                  : 'crosshair',
           }}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
+          onContextMenu={(e) => {
+            // BUT_RIGHT is the zoom-OUT drag while ZOOM_TOOL is armed
+            // (`zoom_tool.cpp:82`), so that button does not mean "menu" here.
+            if (activeToolRef.current === 'zoomTool') e.preventDefault();
+          }}
           onDoubleClick={(e) => {
             const fp = fpForDrawRef.current;
             if (!fp || !onEditItem) return;

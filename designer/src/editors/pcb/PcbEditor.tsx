@@ -150,6 +150,7 @@ import { hasLockedItems, hasUnlockedItems } from '@ziroeda/pcbnew/src/pcb_select
 import { Icon } from '../../ui/icons.js';
 import { posturePath, routedPath as routeDecision } from './route_tool.js';
 import { ReferenceImageCache } from './image_cache.js';
+import { Viewer3DFrame } from './Viewer3DFrame.js';
 import { dimensionDefaultsFrom, dimensionToolKind } from './dimension_tools.js';
 import { DialogDimensionProperties } from './dialogs/dialog_dimension_properties.js';
 import { DialogTextBoxProperties } from './dialogs/dialog_textbox_properties.js';
@@ -356,9 +357,6 @@ import {
 } from './renderBoard.js';
 import { PcbGl } from '../../render/gl/pcb_gl.js';
 import { GL_PATH_FACTORY } from '../../render/gl/gl_path.js';
-import type { Viewer3D, Viewer3DStatus, Grid3D, View3DDir } from './pcb3d.js';
-import { VIEWER3D_TOP_TOOLBAR } from './viewer3dToolbars.js';
-import { buildViewer3DMenus } from './viewer3dMenus.js';
 import { applyToggle, DEFAULT_TOGGLES } from './toggles.js';
 import {
   layerColor,
@@ -881,7 +879,6 @@ export function PcbEditor({
   // narrows an existing selection once, and is kept across openings as
   // PCB_SELECTION_TOOL keeps its OPTIONS on the tool.
   const [filterOpts, setFilterOpts] = useState<SelectionFilter>(DEFAULT_SELECTION_FILTER);
-  const viewer3dRef = useRef<HTMLDivElement>(null);
   const [cursor, setCursor] = useState<{ x: number; y: number } | null>(null);
   // Live (world) cursor position read by draw()'s crosshair pass without
   // re-creating the callback; null when the pointer is off the canvas.
@@ -5818,255 +5815,6 @@ export function PcbEditor({
     };
   }, []);
 
-  const [viewer3dReady, setViewer3dReady] = useState(false);
-  // The mounted viewer, so the 3D menu bar / toolbar / hotkeys can drive it.
-  const viewer3dApi = useRef<Viewer3D | null>(null);
-  // EDA_3D_VIEWER_STATUSBAR's X_POS / Y_POS / ZOOM_LEVEL panes.
-  const [view3dStatus, setView3dStatus] = useState<Viewer3DStatus>({ x: null, y: null, zoom: 1 });
-  // Check-item state for the View / Preferences menus.
-  const [grid3d, setGrid3d] = useState<Grid3D>('none');
-  const [ortho3d, setOrtho3d] = useState(false);
-  const [showMissing3d, setShowMissing3d] = useState(true);
-  // Reload counter: bumping it remounts the viewer (EDA_3D_ACTIONS::reloadBoard).
-  const [reload3d, setReload3d] = useState(0);
-
-  // Mount the three.js 3D viewer while the overlay is open. Lazy-imported so
-  // three.js only downloads when the user actually opens the 3D view.
-  useEffect(() => {
-    if (!show3D || !viewer3dRef.current || !boardRef.current) return;
-    let viewer: Viewer3D | null = null;
-    let cancelled = false;
-    setViewer3dReady(false);
-    const el = viewer3dRef.current,
-      brd = boardRef.current;
-    void import('./pcb3d.js').then(({ mount3DViewer }) => {
-      if (cancelled) return;
-      try {
-        viewer = mount3DViewer(el, brd, projectFiles);
-      } catch {
-        viewer = null;
-      }
-      if (viewer) {
-        viewer.onStatus = setView3dStatus;
-        // Re-apply the sticky view settings across a remount/reload.
-        viewer.setGrid(grid3d);
-        viewer.setOrtho(ortho3d);
-      }
-      viewer3dApi.current = viewer;
-      setViewer3dReady(true);
-    });
-    return () => {
-      cancelled = true;
-      viewer?.dispose();
-      viewer3dApi.current = null;
-    };
-    // grid3d/ortho3d are applied live by their own handlers; re-reading them
-    // here would remount the whole scene on every toggle.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [show3D, projectFiles, reload3d]);
-
-  // ----- 3D viewer commands ---------------------------------------------------
-  // EDA_3D_ACTIONS::exportImage — "Export the Current View as an image file".
-  const export3dImage = useCallback((): void => {
-    void viewer3dApi.current?.snapshot().then((blob) => {
-      if (!blob) return;
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${projectName || fileName.replace(/\.kicad_pcb$/i, '') || 'board'}-3d.png`;
-      a.click();
-      URL.revokeObjectURL(url);
-    });
-  }, [projectName, fileName]);
-
-  // EDA_3D_ACTIONS::copyToClipboard.
-  const copy3dToClipboard = useCallback((): void => {
-    void viewer3dApi.current?.snapshot().then((blob) => {
-      if (!blob || !navigator.clipboard?.write) return;
-      void navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]).catch(() => {});
-    });
-  }, []);
-
-  const apply3dGrid = useCallback((g: Grid3D): void => {
-    setGrid3d(g);
-    viewer3dApi.current?.setGrid(g);
-  }, []);
-
-  const toggle3dOrtho = useCallback((): void => {
-    setOrtho3d((on) => {
-      viewer3dApi.current?.setOrtho(!on);
-      return !on;
-    });
-  }, []);
-
-  /** Dispatch for both the 3D top toolbar and its menu bar. */
-  const on3dAction = useCallback(
-    (id: string): void => {
-      const v = viewer3dApi.current;
-      switch (id) {
-        case 'reloadBoard3d':
-          setReload3d((n) => n + 1);
-          return;
-        case 'copyToClipboard3d':
-          copy3dToClipboard();
-          return;
-        case 'zoomRedraw':
-          v?.redraw();
-          return;
-        case 'zoomIn':
-          v?.zoomIn();
-          return;
-        case 'zoomOut':
-          v?.zoomOut();
-          return;
-        case 'zoomFit':
-          v?.zoomFit();
-          return;
-        case 'rotateXCW':
-          v?.rotate('x', true);
-          return;
-        case 'rotateXCCW':
-          v?.rotate('x', false);
-          return;
-        case 'rotateYCW':
-          v?.rotate('y', true);
-          return;
-        case 'rotateYCCW':
-          v?.rotate('y', false);
-          return;
-        case 'rotateZCW':
-          v?.rotate('z', true);
-          return;
-        case 'rotateZCCW':
-          v?.rotate('z', false);
-          return;
-        case 'flipView3d':
-          v?.flip();
-          return;
-        case 'moveLeft3d':
-          v?.move('left');
-          return;
-        case 'moveRight3d':
-          v?.move('right');
-          return;
-        case 'moveUp3d':
-          v?.move('up');
-          return;
-        case 'moveDown3d':
-          v?.move('down');
-          return;
-        case 'toggleOrtho':
-          toggle3dOrtho();
-          return;
-        default:
-          return; // greyed/unported entries
-      }
-    },
-    [copy3dToClipboard, toggle3dOrtho],
-  );
-
-  const menus3d = useMemo(
-    () =>
-      buildViewer3DMenus(
-        {
-          grid: grid3d,
-          ortho: ortho3d,
-          showMissingModels: showMissing3d,
-          raytracing: false,
-          showAppearanceManager: false,
-        },
-        {
-          exportImage: export3dImage,
-          close: () => setShow3D(false),
-          copyToClipboard: copy3dToClipboard,
-          zoomIn: () => viewer3dApi.current?.zoomIn(),
-          zoomOut: () => viewer3dApi.current?.zoomOut(),
-          zoomFit: () => viewer3dApi.current?.zoomFit(),
-          redraw: () => viewer3dApi.current?.redraw(),
-          setGrid: apply3dGrid,
-          setView: (d) => viewer3dApi.current?.setView(d),
-          rotate: (axis, cw) => viewer3dApi.current?.rotate(axis, cw),
-          flip: () => viewer3dApi.current?.flip(),
-          move: (d) => viewer3dApi.current?.move(d),
-          toggleShowMissingModels: () => setShowMissing3d((s) => !s),
-          openPreferences: () => setShow3D(false),
-          resetToDefaults: () => {
-            apply3dGrid('none');
-            setOrtho3d(false);
-            viewer3dApi.current?.setOrtho(false);
-            viewer3dApi.current?.home();
-          },
-        },
-      ),
-    [grid3d, ortho3d, showMissing3d, export3dImage, copy3dToClipboard, apply3dGrid],
-  );
-
-  /**
-   * 3D viewer hotkeys (the `.DefaultHotkey()` of each EDA_3D_ACTIONS entry).
-   * Bound on the overlay rather than the document so they never reach the
-   * board canvas underneath.
-   */
-  useEffect(() => {
-    if (!show3D) return;
-    const onKey = (e: KeyboardEvent): void => {
-      if (e.ctrlKey || e.metaKey || e.altKey) return;
-      const v = viewer3dApi.current;
-      const views: Record<string, View3DDir> = { z: 'top', x: 'right', y: 'front' };
-      const shifted: Record<string, View3DDir> = { z: 'bottom', x: 'left', y: 'back' };
-      const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
-      switch (k) {
-        case 'Escape':
-          setShow3D(false);
-          break;
-        case 'z':
-        case 'x':
-        case 'y':
-          v?.setView((e.shiftKey ? shifted : views)[k]!);
-          break;
-        case 'r':
-          v?.rotate('z', e.shiftKey);
-          break;
-        case 'f':
-          v?.flip();
-          break;
-        case ' ':
-          break; // pivotCenter: needs the picking ray, not ported — swallow it
-        case 'Home':
-          v?.home();
-          break;
-        case 'F5':
-          v?.redraw();
-          break;
-        case 'ArrowLeft':
-          v?.move('left');
-          break;
-        case 'ArrowRight':
-          v?.move('right');
-          break;
-        case 'ArrowUp':
-          v?.move('up');
-          break;
-        case 'ArrowDown':
-          v?.move('down');
-          break;
-        default:
-          break; // fall through to the swallow below
-      }
-      // Swallow *every* unmodified key, not only the ones bound above.
-      // Upstream the 3D viewer is a separate top-level window, so pcbnew's
-      // hotkeys cannot reach the board while it has focus. Our overlay shares
-      // the document with the board canvas, whose own window-level keydown
-      // handlers would otherwise still fire — Delete would delete the selected
-      // footprint behind a viewer that shows no selection at all.
-      e.preventDefault();
-      e.stopPropagation();
-    };
-    // Capture phase on window runs before the board canvas's bubble-phase
-    // handlers on the same target, so stopPropagation() there is enough.
-    window.addEventListener('keydown', onKey, true);
-    return () => window.removeEventListener('keydown', onKey, true);
-  }, [show3D]);
-
   // ----- appearance data ------------------------------------------------------
 
   /**
@@ -7641,66 +7389,20 @@ export function PcbEditor({
           full-viewport overlay, but it carries the frame's own chrome: menu
           bar, the single TOP_MAIN toolbar (3d-viewer has no side toolbars) and
           the 5-pane status bar. */}
-      {show3D && (
-        <div className="ze-frame ze-frame-3d" role="dialog" aria-label="3D Viewer">
-          <MenuBar
-            menus={menus3d}
-            leftSlot={
-              <div
-                className="ze-home-link"
-                onClick={() => setShow3D(false)}
-                title="Close 3D Viewer"
-              >
-                ← PCB Editor
-              </div>
-            }
-            title={
-              <>
-                <b>{projectName || fileName.replace(/\.kicad_pcb$/i, '') || 'No project'}</b>
-                &nbsp;-&nbsp;3D Viewer
-              </>
-            }
-          />
-          <Toolbar
-            entries={VIEWER3D_TOP_TOOLBAR}
-            orientation="horizontal"
-            toggled={ortho3d ? ORTHO_ON : EMPTY_IDS}
-            onActivate={on3dAction}
-          />
-          <div
-            ref={viewer3dRef}
-            className="ze-frame-canvas"
-            style={{
-              flex: 1,
-              minHeight: 0,
-              position: 'relative',
-              background: 'linear-gradient(180deg, rgb(204,204,230) 0%, rgb(102,102,128) 100%)',
-            }}
-          >
-            {!viewer3dReady && (
-              <div className="ze-canvas-loading">
-                <span className="ze-spinner" />
-                <span>Loading 3D viewer...</span>
-              </div>
-            )}
-          </div>
-          {/* EDA_3D_VIEWER_STATUSBAR: ACTIVITY, HOVERED_ITEM, X_POS, Y_POS,
-              ZOOM_LEVEL, at the widths eda_3d_viewer_frame.cpp:112 states
-              ({ -1, 170, 130, 130, 130 }). */}
-          <KiStatusBar>
-            <span className="cell msg" data-testid="view3d-activity" />
-            <span className="cell pane" style={{ width: 170 }} data-testid="view3d-hovered" />
-            <span className="cell pane" style={{ width: 130 }} data-testid="view3d-x">
-              {view3dStatus.x === null ? '' : `X ${view3dStatus.x.toFixed(4)}`}
-            </span>
-            <span className="cell pane" style={{ width: 130 }} data-testid="view3d-y">
-              {view3dStatus.y === null ? '' : `Y ${view3dStatus.y.toFixed(4)}`}
-            </span>
-            <span className="cell pane" style={{ width: 130 }} data-testid="view3d-zoom">
-              Z {view3dStatus.zoom.toFixed(2)}
-            </span>
-          </KiStatusBar>
-        </div>
+      {show3D && board && (
+        <Viewer3DFrame
+          board={board}
+          projectFiles={projectFiles}
+          backLabel="← PCB Editor"
+          imageBaseName={projectName || fileName.replace(/\.kicad_pcb$/i, '') || 'board'}
+          title={
+            <>
+              <b>{projectName || fileName.replace(/\.kicad_pcb$/i, '') || 'No project'}</b>
+              &nbsp;-&nbsp;3D Viewer
+            </>
+          }
+          onClose={() => setShow3D(false)}
+        />
       )}
 
       {/* Disambiguation menu (SELECTION_TOOL::doSelectionMenu): which of several
