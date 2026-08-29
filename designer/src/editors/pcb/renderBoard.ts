@@ -1850,6 +1850,11 @@ export function buildDrawSteps(
   // items take m_layerColorsSel, a highlighted net brightens and the rest of the
   // board darkens. 'none' paints the layer colors as-is.
   emphasis: Emphasis = 'none',
+  // Drop the net-name and pad-text pass. Set by a *selection* overlay, whose
+  // items are still in the board underneath it: the base frame has already
+  // drawn their text, and drawing it a second time here means two font engines
+  // painting the same glyphs a hair apart. See the note in drawNetNames.
+  suppressNetNames = false,
 ): (() => void)[] {
   const steps: (() => void)[] = [];
   // Per-layer color from the active theme, under this pass's emphasis.
@@ -2120,10 +2125,20 @@ export function buildDrawSteps(
   const retained = (ctx as { hairlines?: unknown }).hairlines !== undefined;
   if (
     !retained &&
+    !suppressNetNames &&
     (scene.netLabels.length > 0 || scene.viaNetLabels.length > 0 || scene.padLabels.length > 0)
   ) {
     steps.push(() => {
-      drawNetNames(ctx, scene, view, visible, widthPx, heightPx, opts, emphasis);
+      drawNetNames(
+        ctx,
+        scene,
+        view,
+        visible,
+        widthPx,
+        heightPx,
+        opts,
+        emphasis,
+      );
     });
   }
   return steps;
@@ -2255,6 +2270,13 @@ export function drawNetNames(
       // LAYER_PAD_BK_NETNAMES to `GetNetnameLayer( F_Cu / B_Cu )`, so an SMD
       // pad's text follows the same per-layer light/dark rule as a track's:
       // dark over a copper colour bright enough to need it.
+      // Note the `true`: selectedColor() returns net-name colours untouched, so
+      // a selected pad's text is drawn in exactly the colour an unselected
+      // one's is. That is why the selection overlay can stop redrawing this
+      // text with nothing lost — its second copy differed from the first only
+      // in coming out of the stroke font instead of the atlas, which put the
+      // same glyphs a metric apart and made selecting a footprint nudge its
+      // pad numbers.
       const runs = runsFor(
         attenuate(emphasize(netnameColorFor(shownOn, opts.theme, true), emphasis, true)),
       );
@@ -2749,6 +2771,11 @@ export function drawBoard(
   sheet?: SheetInfo,
   overlay = false,
   emphasis: Emphasis = 'none',
+  // Drop the net-name and pad-text pass. Set by a *selection* overlay, whose
+  // items are still in the board underneath it: the base frame has already
+  // drawn their text, and drawing it a second time here means two font engines
+  // painting the same glyphs a hair apart. See the note in drawNetNames.
+  suppressNetNames = false,
 ): void {
   for (const step of buildDrawSteps(
     ctx,
@@ -2761,6 +2788,7 @@ export function drawBoard(
     sheet,
     overlay,
     emphasis,
+    suppressNetNames,
   ))
     step();
 }

@@ -1949,6 +1949,10 @@ export function PcbEditor({
         { ...drawOpts, colorOverride: cs.color },
         undefined,
         true,
+        'none',
+        // The board underneath still holds these items and has already drawn
+        // their text; a second pass here is the same glyphs from a second font.
+        true,
       );
       ctx.restore();
       ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -2079,6 +2083,7 @@ export function PcbEditor({
           undefined,
           true,
           'highlighted',
+          true,
         );
         ctx.restore();
         ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -2117,6 +2122,11 @@ export function PcbEditor({
           // highlight is what lifts the rest of the net (DisplayItem passes no
           // flags for a drag, so getLayerColor returns the layer color as-is).
           trackDragRef.current ? 'none' : 'selected',
+          // Only a *move* overlay owns its text: that path rebuilds the base
+          // without the items being dragged, so nothing else is drawing them.
+          // A selection overlay sits on top of a board that still holds them,
+          // and the base pass brightens them in place (see `selected` there).
+          moveSceneRef.current === null,
         );
         ctx.restore();
         ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -2393,6 +2403,7 @@ export function PcbEditor({
         undefined,
         true,
         'highlighted',
+        true,
       );
       ctx.restore();
       ctx.setTransform(1, 0, 0, 1, 0, 0);
