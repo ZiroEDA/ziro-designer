@@ -47,6 +47,18 @@ public:
         say( "wxSYS_COLOUR_3DFACE", wxSystemSettings::GetColour( wxSYS_COLOUR_3DFACE ) );
         say( "entry GetBackgroundColour", entry->GetBackgroundColour() );
 
+        // DIALOG_SYMBOL_PROPERTIES' library-link field: wxTE_READONLY |
+        // wxBORDER_NONE with KIUI::GetSmallInfoFont, which is getGUIFont(-2).
+        wxFont small = dlg->GetFont();
+        small.SetFractionalPointSize( small.GetFractionalPointSize() - 2 );
+        wxTextCtrl* libid = new wxTextCtrl( dlg, wxID_ANY, "Device:R", wxDefaultPosition,
+                                            wxDefaultSize, wxTE_READONLY | wxBORDER_NONE );
+        libid->SetFont( small );
+        libid->InvalidateBestSize();
+        wxSize lb = libid->GetBestSize();
+        wxPrintf( "%-34s %gpt  best %d x %d\n", "libid (small, borderless)",
+                  small.GetFractionalPointSize(), lb.x, lb.y );
+
         wxSize es = entry->GetSize(), bs = ok->GetSize(), ls = label->GetSize();
         wxPrintf( "%-34s %d x %d\n", "wxTextCtrl size", es.x, es.y );
         wxPrintf( "%-34s %d x %d\n", "wxButton  size", bs.x, bs.y );

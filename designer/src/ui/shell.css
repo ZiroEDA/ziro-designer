@@ -6007,9 +6007,26 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-btn:hover:not(:disabled) {
   background: var(--chrome-hover);
 }
+/* The affirmative button of a dialog is an ORDINARY button.
+   `DIALOG_SHIM` calls `sdbSizer->GetAffirmativeButton()->SetDefault()`
+   (dialog_shim.cpp:1882), and on GTK that only makes Enter activate it — it
+   does not restyle it. An accent fill would need GTK's `.suggested-action`
+   class, and two things say it never arrives:
+
+     - KiCad never asks for it. `grep -rn suggested-action` over the whole
+       10.0.5 tree finds nothing.
+     - Yaru would have to define it for a default button anyway, and it does
+       not: the extracted theme (gtk.gresource -> Yaru-dark/3.0/gtk.css) has
+       `.suggested-action` rules but NO `button.default` rule at all.
+
+   So this filled every dialog's OK with the accent where KiCad leaves it the
+   same grey as Cancel — Akshay spotted it on Symbol Properties, and it was
+   wrong on all sixty dialogs that use the class. The class is kept so the
+   affirmative button is still NAMED, which is what carries the Enter binding
+   and the a11y default, but it paints like any other button. */
 .ze-btn.primary {
-  background: var(--chrome-active);
-  border-color: var(--chrome-active-border);
+  background: var(--ctl-face);
+  border-color: var(--ctl-border);
 }
 .ze-btn:disabled {
   /* A disabled wxButton faces #2a2a2a with its label dimmed, rather than the

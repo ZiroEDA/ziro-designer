@@ -83,3 +83,28 @@ describe('a control in a dialog is the height wx makes it', () => {
     expect(token('--ctl-height')).toBe('34px');
   });
 });
+
+describe('a dialog\u2019s affirmative button is an ordinary button', () => {
+  /**
+   * `DIALOG_SHIM` makes OK the default (`sdbSizer->GetAffirmativeButton()->SetDefault()`,
+   * dialog_shim.cpp:1882), and on GTK that binds Enter — it does not restyle
+   * the button. An accent fill needs GTK's `.suggested-action`, and it never
+   * arrives: KiCad asks for it nowhere in 10.0.5 (`grep -rn suggested-action`
+   * is empty), and Yaru defines no `button.default` rule at all — checked in
+   * the extracted theme, `gtk.gresource` -> `Yaru-dark/3.0/gtk.css`, which has
+   * `.suggested-action` rules and no `button.default`.
+   *
+   * So every dialog's OK was accent-orange where KiCad leaves it the same grey
+   * as Cancel. The class stays — it is what names the affirmative button for
+   * Enter and for a11y — but it must not paint.
+   */
+  it('does not fill itself with the accent', () => {
+    const body = ruleBody('.ze-btn.primary');
+    expect(body).not.toMatch(/background:\s*var\(--chrome-active\)/);
+    expect(body).not.toMatch(/background:\s*var\(--accent/);
+  });
+
+  it('and takes the same face as any other button', () => {
+    expect(ruleBody('.ze-btn.primary')).toMatch(/background:\s*var\(--ctl-face\)/);
+  });
+});
