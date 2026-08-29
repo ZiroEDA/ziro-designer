@@ -344,7 +344,10 @@ import {
   DialogGlobalEditTextAndGraphics,
   type GlobalEditResult,
 } from './dialogs/dialog_global_edit_text_and_graphics.js';
-import { DialogChangeSymbols } from './dialogs/dialog_change_symbols.js';
+import {
+  DialogChangeSymbols,
+  type ChangeSymbolsSubject,
+} from './dialogs/dialog_change_symbols.js';
 import { DialogEditSymbolsLibId } from './dialogs/dialog_edit_symbols_libid.js';
 import { DialogResolveFieldCaseConflicts } from './dialogs/dialog_resolve_field_case_conflicts.js';
 import { DialogAnnotate, type AnnotateRun } from './dialogs/dialog_annotate.js';
@@ -2278,6 +2281,26 @@ export function SchematicEditor({
   const [libIdErrors, setLibIdErrors] = useState<readonly string[]>([]);
   // DIALOG_CHANGE_SYMBOLS, in whichever of its two modes was asked for.
   const [changeSymbolsMode, setChangeSymbolsMode] = useState<ChangeSymbolsMode | null>(null);
+  /**
+   * The symbol DIALOG_CHANGE_SYMBOLS was opened ON, which it seeds all three
+   * match entries from — `m_symbol` is its second constructor argument and
+   * `TransferDataToWindow` (:146-152) fills reference, value and library id
+   * from it. Null when it is opened from the Tools menu, and then upstream
+   * hides the "selected symbol(s)" radio outright.
+   */
+  const [changeSymbolsSubject, setChangeSymbolsSubject] = useState<
+    ChangeSymbolsSubject | undefined
+  >(undefined);
+  /** `m_symbol->GetRef()` / VALUE / `GetLibId().Format()`, plus IsSelected(). */
+  const changeSymbolsSubjectOf = (
+    sym: { properties?: readonly { key: string; value: string }[]; libId: string },
+    selected: boolean,
+  ): ChangeSymbolsSubject => ({
+    reference: sym.properties?.find((p) => p.key === 'Reference')?.value ?? '',
+    value: sym.properties?.find((p) => p.key === 'Value')?.value ?? '',
+    libId: sym.libId,
+    isSelected: selected,
+  });
   const [changeSymbolsMessages, setChangeSymbolsMessages] = useState<
     readonly ChangeSymbolsMessage[]
   >([]);
@@ -6290,6 +6313,9 @@ export function SchematicEditor({
         setLibIdsOpen(true);
       } else if (id === 'changeSymbols' || id === 'updateSymbolsFromLibrary') {
         setChangeSymbolsMessages([]);
+        // From the Tools menu there is no `m_symbol`: nothing to seed, and the
+        // "selected symbol(s)" radio is hidden.
+        setChangeSymbolsSubject(undefined);
         setChangeSymbolsMode(id === 'changeSymbols' ? 'change' : 'update');
       } else if (id === 'schematicSetup') {
         // The Embedded Files page lists the sheet's embedded_files section
@@ -6841,6 +6867,7 @@ export function SchematicEditor({
               label: 'Change Symbol...',
               action: () => {
                 setChangeSymbolsMessages([]);
+                setChangeSymbolsSubject(changeSymbolsSubjectOf(sym, true));
                 setChangeSymbolsMode('change');
               },
             },
@@ -6848,6 +6875,7 @@ export function SchematicEditor({
               label: 'Update Symbol...',
               action: () => {
                 setChangeSymbolsMessages([]);
+                setChangeSymbolsSubject(changeSymbolsSubjectOf(sym, true));
                 setChangeSymbolsMode('update');
               },
             },
@@ -8833,6 +8861,7 @@ export function SchematicEditor({
                 mode={changeSymbolsMode}
                 fieldNames={changeSymbolsFieldNames}
                 hasSelection={selection.size > 0}
+                {...(changeSymbolsSubject ? { subject: changeSymbolsSubject } : {})}
                 messages={changeSymbolsMessages}
                 onApply={runChangeSymbols}
                 onClose={() => setChangeSymbolsMode(null)}
@@ -9341,11 +9370,14 @@ export function SchematicEditor({
           onChangeSymbol={() => {
             setPropsTarget(null);
             setChangeSymbolsMessages([]);
+            // Opened ON this symbol, so it is `m_symbol` and seeds the entries.
+            setChangeSymbolsSubject(changeSymbolsSubjectOf(propsSymbol, true));
             setChangeSymbolsMode('change');
           }}
           onUpdateSymbol={() => {
             setPropsTarget(null);
             setChangeSymbolsMessages([]);
+            setChangeSymbolsSubject(changeSymbolsSubjectOf(propsSymbol, true));
             setChangeSymbolsMode('update');
           }}
           onEditSymbol={

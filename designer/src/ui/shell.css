@@ -10128,3 +10128,122 @@ textarea.ze-ds-textedit {
   background: var(--selection-bg);
   color: var(--selection-fg);
 }
+
+/* DIALOG_CHANGE_SYMBOLS. Every number here is a border from
+   `dialog_change_symbols_base.cpp`'s sizers; the two proportions are the whole
+   shape of the dialog. */
+.ze-chsym-body {
+  display: flex;
+  flex-direction: column;
+  /* [data] `m_mainSizer->Add( 0, 8, 0, wxEXPAND, 5 )`, base.cpp:71. */
+  gap: 8px;
+  max-height: 78vh;
+  overflow-y: auto;
+}
+.ze-chsym-match {
+  display: flex;
+  flex-direction: column;
+  /* [data] matchSizerMargins, wxEXPAND|wxTOP|wxLEFT 5 (base.cpp:68). */
+  gap: 5px;
+}
+/* Each radio and its own entry on ONE line, the entry taking the slack. */
+.ze-chsym-matchrow {
+  display: flex;
+  align-items: center;
+  /* [data] the entry beside each radio carries wxLEFT 5 in the .fbp; the extra
+     pixel is the radio's own trailing space, not a number of ours. */
+  gap: 5px;
+}
+.ze-chsym-matchrow .ze-search {
+  flex: 1;
+  min-width: 0;
+}
+.ze-chsym-rule {
+  /* [data] `m_mainSizer->Add( m_staticline1, 0, wxEXPAND|wxALL, 4 )`, :74. */
+  margin: 4px 0;
+  border: none;
+  border-top: 1px solid var(--chrome-border);
+}
+/* `bSizerUpdate`, horizontal: the fields box at proportion 2 and the options
+   box at 4 (:116, :197). */
+.ze-chsym-update {
+  display: flex;
+  align-items: stretch;
+  /* [data] `bSizerUpdate->Add( 5, 0, 0, wxEXPAND, 5 )`, the spacer between the
+     two boxes (:119). */
+  gap: 5px;
+}
+.ze-chsym-fields {
+  flex: 2;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.ze-chsym-options {
+  flex: 4;
+  min-width: 0;
+  /* `m_updateOptionsSizer` is wxHORIZONTAL — bSizer8 beside bSizer9. */
+  display: flex;
+  align-items: flex-start;
+}
+.ze-chsym-optcol {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  /* [data] every option is added with wxBOTTOM|wxRIGHT 5. */
+  gap: 5px;
+  /* [data] the same wxRIGHT 5. */
+  padding-right: 5px;
+}
+.ze-chsym-optgap {
+  /* [data] wxBOTTOM 10 on the last item of each option group, which is what
+     separates the pair at the top from the rest (:131 vs :137). */
+  height: 10px;
+}
+.ze-chsym-opt {
+  display: flex;
+  align-items: center;
+  /* [data] wxRIGHT 5 between a checkbox and its label. */
+  gap: 5px;
+}
+/* `m_fieldsBox` is a wxCheckListBox: a bordered scrolling list, not loose
+   checkboxes on the group's own background. */
+.ze-chsym-fieldbox {
+  flex: 1;
+  /* A wxCheckListBox has no stated height here: it is added with proportion 1
+     and takes what the box gives it, which is why no number is written. */
+  overflow-y: auto;
+  border: 1px solid var(--chrome-border);
+  background: var(--ctl-face);
+}
+.ze-chsym-selbtns {
+  display: flex;
+  /* [data] the two buttons carry wxRIGHT 5 between them. */
+  gap: 5px;
+  /* [data] `m_updateFieldsSizer->Add( m_selBtnSizer, 0, wxEXPAND, 5 )`. */
+  padding-top: 5px;
+}
+.ze-chsym-selbtns .ze-btn {
+  flex: 1;
+}
+/* `m_messagePanel->SetMinSize( wxSize( -1, 200 ) )` (:206). Present whether or
+   not there is anything in it — the dialog opens showing an empty report. */
+.ze-chsym-msgbody {
+  /* [data] `m_messagePanel->SetMinSize( wxSize( -1, 200 ) )`, base.cpp:206. */
+  min-height: 200px;
+  overflow: auto;
+  border: 1px solid var(--chrome-border);
+  background: var(--ctl-face);
+  /* [data] `bSizer2->Add( m_messagePanel, 1, wxEXPAND | wxALL, 5 )`. */
+  padding: 5px;
+  font-family: var(--mono-font-family, monospace);
+}
+.ze-chsym-err {
+  /* [data] `<font color=#F04040 size=3>` — `WX_HTML_REPORT_PANEL::generateHtml`
+     (wx_html_report_panel.cpp:181) on a dark theme. Not the ERC marker red:
+     that is a different table, for a different widget. Only the "Error:"
+     prefix takes it; the message keeps the default ink, and a warning takes
+     no colour at all. */
+  color: #f04040;
+}

@@ -206,7 +206,7 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // `gap: 6` inline. The dialog is `.ze-label-dialog-body` now, which is the
   // rule every other schematic dialog's body already takes, so the number is
   // stated once rather than restated here.
-  'editors/schematic': { colours: 61, metrics: 210 },
+  'editors/schematic': { colours: 60, metrics: 206 },
   // colours 12 -> 7: the Symbol Editor parity pass. Four were
   // SYMBOL_EDITOR_COLORS, a private copy of LAYER_SCHEMATIC_ANCHOR /
   // LAYER_HIDDEN / LAYER_PRIVATE_NOTES / LAYER_FIELDS that matched the Default
@@ -660,7 +660,12 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // builds a wxDialog and asks it: a static text in one reports #F7F7F7,
     // which is what --chrome-fg already held. One row moves and 630 - 6 agrees
     // with it, which is the two derivations this table asks for.
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(624);
+    // 624 -> 623: `editors/schematic` 61 -> 60. The rebuilt
+    // DIALOG_CHANGE_SYMBOLS dropped an inline `var(--ze-error, #c33)` — a
+    // fallback to a colour that appears nowhere in KiCad — for the report
+    // panel's own `#F04040` (wx_html_report_panel.cpp:181), which is [data]
+    // and lives in shell.css. One row moves and 624 - 1 agrees with it.
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(623);
     // 1657 -> 1649: the same sweep. A native colour input has no useful
     // default size, so eight of the sixteen sites gave theirs an inline
     // width and height; the shared swatch takes --swatch-*-w/h. Rescanned.
@@ -703,7 +708,11 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // 50 -> 46 as its four literals took their markers, and
     // `editors/schematic` 210 -> 219, which arrived at HEAD with e3b79196.
     // 1606 - 29 - 4 + 9 agrees.
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1558);
+    // 1558 -> 1554: `editors/schematic` 210 -> 206. The rebuilt
+    // DIALOG_CHANGE_SYMBOLS replaced four inline `style={{ ... }}` metrics with
+    // rules in shell.css whose numbers are the sizer borders `_base.cpp`
+    // states. One row moves and 1558 - 4 agrees with it.
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1554);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {
