@@ -27,7 +27,7 @@
  */
 import { describe, expect, it, afterEach } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { DialogChangeSymbols } from '../../../designer/src/editors/schematic/dialogs/dialog_change_symbols.js';
+import { DialogChangeSymbols } from '@ziroeda/designer/src/editors/schematic/dialogs/dialog_change_symbols.js';
 
 afterEach(cleanup);
 
@@ -60,11 +60,10 @@ function open(subject?: typeof SUBJECT, messages: readonly Message[] = []) {
 const view = (): HTMLElement => screen.getByTestId('report-panel-view');
 /** Its visible lines, prefix included, in report order. */
 const lines = (): string[] =>
-  [...view().querySelectorAll('.ze-report-line')].map((n) => n.textContent ?? '');
+  Array.from(view().querySelectorAll('.ze-report-line')).map((n) => n.textContent ?? '');
 /** m_errorsBadge then m_warningsBadge, the order bSizerBottom adds them in. */
-const badges = (): HTMLElement[] => [
-  ...document.querySelectorAll<HTMLElement>('.ze-report-filters .ze-badge'),
-];
+const badges = (): HTMLElement[] =>
+  Array.from(document.querySelectorAll<HTMLElement>('.ze-report-filters .ze-badge'));
 
 const entry = (name: string): HTMLInputElement =>
   screen.getByLabelText(name, { selector: 'input.ze-search' }) as HTMLInputElement;
@@ -182,7 +181,7 @@ describe('the report panel is always present', () => {
  */
 describe('the Update/Reset Fields checklist opens the way upstream leaves it', () => {
   const ticked = (): string[] =>
-    [...document.querySelectorAll('.ze-chsym-fieldbox label')]
+    Array.from(document.querySelectorAll('.ze-chsym-fieldbox label'))
       .filter((l) => (l.querySelector('input') as HTMLInputElement | null)?.checked)
       .map((l) => l.textContent?.trim() ?? '');
 
@@ -222,9 +221,9 @@ describe('the library-identifier browse button is a STD_BITMAP_BUTTON', () => {
 describe('the positional selectors reach the elements the sizer distinguishes', () => {
   it('nth-of-type(1) is bSizer8 alone, not both columns', () => {
     open(SUBJECT);
-    const both = [...document.querySelectorAll('.ze-chsym-optcol')];
+    const both = Array.from(document.querySelectorAll('.ze-chsym-optcol'));
     expect(both).toHaveLength(2);
-    const bordered = [...document.querySelectorAll('.ze-chsym-optcol:nth-of-type(1)')];
+    const bordered = Array.from(document.querySelectorAll('.ze-chsym-optcol:nth-of-type(1)'));
     expect(bordered).toHaveLength(1);
     expect(bordered[0]).toBe(both[0]);
     expect(bordered[0]?.textContent).toContain('Remove fields if not in library symbol');
@@ -232,7 +231,7 @@ describe('the positional selectors reach the elements the sizer distinguishes', 
 
   it('and last-of-type is the option each button sits under, in both columns', () => {
     open(SUBJECT);
-    const last = [...document.querySelectorAll('.ze-chsym-optcol')].map(
+    const last = Array.from(document.querySelectorAll('.ze-chsym-optcol')).map(
       (c) => c.querySelector('.ze-chsym-opt:last-of-type')?.textContent,
     );
     // m_resetFieldPositions and m_resetCustomPower — the two with wxBOTTOM 10.
