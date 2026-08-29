@@ -184,20 +184,12 @@ describe('the report line reads the way KiCad writes it', () => {
     const r = changeSymbols(doc(), libs(), opts({ mode: 'update' }));
     // In Update mode the id does not change, so the sentence names it twice —
     // it reads oddly and it is exactly what the real dialog prints.
-    expect(actions(r)[0]).toBe(
-      "Update symbol R7 from 'Device:R' to 'Device:R': OK",
-    );
+    expect(actions(r)[0]).toBe("Update symbol R7 from 'Device:R' to 'Device:R': OK");
   });
 
   it('Change names the new id as the destination', () => {
-    const r = changeSymbols(
-      doc(),
-      libs(),
-      opts({ mode: 'change', newLibId: 'Device:R_Small' }),
-    );
-    expect(actions(r)[0]).toBe(
-      "Change symbol R7 from 'Device:R' to 'Device:R_Small': OK",
-    );
+    const r = changeSymbols(doc(), libs(), opts({ mode: 'change', newLibId: 'Device:R_Small' }));
+    expect(actions(r)[0]).toBe("Change symbol R7 from 'Device:R' to 'Device:R_Small': OK");
   });
 
   it('never the old fragment form', () => {

@@ -290,7 +290,7 @@ describe('the report panel has one font size, and names its one exception', () =
     expect(decl('.ze-report-panel > legend', 'font-size')).toBeUndefined();
   });
 
-  it('the message view states no size either, so it takes the dialog\'s', () => {
+  it("the message view states no size either, so it takes the dialog's", () => {
     // Not --ui-font-size-info: see the note above. A wxHtmlWindow's content
     // size does not follow SetFont, and the real dialog renders this line at
     // the GUI font.
