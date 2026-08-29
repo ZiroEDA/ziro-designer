@@ -714,6 +714,17 @@ export const PanelSymbolChooser = forwardRef<PanelSymbolChooserHandle, PanelSymb
           }
           hasExternalDetails={!showFp}
           openLibs={settings.eeschema.lib_tree.open_libs}
+          /* The other half of `PANEL_SYMBOL_CHOOSER::SetPreselect` (:486):
+               m_adapter->SetPreselectNode( aPreselect, 0 );
+               if( m_tree && aPreselect.IsValid() ) m_tree->SelectLibId( … );
+             The adapter call above only decides what to SHOW when a search
+             finds nothing; it never selects a row. Without this the chooser
+             opened at the top of the tree with nothing selected and an empty
+             preview, where KiCad opens on the symbol itself.
+             `selectLibId` re-runs on regenerateNonce too, which this needs:
+             the libraries load lazily, so the row usually does not exist yet
+             at first mount and only appears once the tree regenerates. */
+          {...(preselect ? { selectLibId: preselect } : {})}
         />
       </div>
     );
