@@ -43,6 +43,7 @@ import { arg } from '@ziroeda/sexpr/src/query.js';
 import { exchangeFootprint, placeFootprint } from '../board_exchange_footprint.js';
 import { newKiid } from '@ziroeda/common/src/kiid.js';
 import { boardItemBBox } from '../edit-board.js';
+import { setFootprintReference, setFootprintValue } from '../edit-footprint.js';
 import { appendNet, findNet, removeUnusedNets, UNCONNECTED_NET } from '../netinfo.js';
 import {
   RESERVED_FOOTPRINT_PROPERTIES,
@@ -445,8 +446,7 @@ export class BOARD_NETLIST_UPDATER {
           : `Changed ${reference} reference designator to ${component.GetReference()}.`,
         RPT_SEVERITY_ACTION,
       );
-      if (!this.dryRun)
-        footprint = setFootprintText(footprint, 'reference', component.GetReference());
+      if (!this.dryRun) footprint = setFootprintReference(footprint, component.GetReference());
     }
 
     // Test for value field change.
@@ -458,7 +458,7 @@ export class BOARD_NETLIST_UPDATER {
           : `Changed ${reference} value from ${escapeHtml(footprint.value ?? '')} to ${escapeHtml(netlistValue)}.`,
         RPT_SEVERITY_ACTION,
       );
-      if (!this.dryRun) footprint = setFootprintText(footprint, 'value', netlistValue);
+      if (!this.dryRun) footprint = setFootprintValue(footprint, netlistValue);
     }
 
     // Test for symbol link (time stamp) change.
@@ -1294,21 +1294,6 @@ function insertUnique(set: Set<string>, value: string): boolean {
 /** ZONE::IsOnCopperLayer, and not a rule area. */
 const zoneIsOnCopperLayer = (zone: PcbZone): boolean =>
   zone.layers.some((l) => l === '*.Cu' || l.endsWith('.Cu'));
-
-/** Set a footprint's Reference or Value text, patching the model and its source. */
-function setFootprintText(
-  fp: PcbFootprint,
-  kind: 'reference' | 'value',
-  value: string,
-): PcbFootprint {
-  return {
-    ...fp,
-    ...(kind === 'reference' ? { reference: value } : { value }),
-    texts: fp.texts.map((t) =>
-      t.kind === kind ? { ...t, text: value, source: replaceArg(t.source, 1, value) } : t,
-    ),
-  };
-}
 
 /**
  * Set a footprint's sheet name or file. A board written before PCB fields keeps these

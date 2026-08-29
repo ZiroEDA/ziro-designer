@@ -386,12 +386,31 @@ describe('field anchor and umbilical', () => {
     });
   });
 
-  it('suppresses both when the symbol itself is the thing selected', () => {
-    // parentMoving / parent selected: the field travels with the symbol, so a
-    // line between them would just be a stray.
+  it('draws an anchor on EVERY field when the symbol itself is selected', () => {
+    // This used to expect none, on the reasoning "parentMoving / parent
+    // selected" -- but those are two different conditions and only the second
+    // suppresses anything. Selecting a symbol selects its fields:
+    // `SCH_SELECTION_TOOL::highlight`, under its own comment "Highlight pins
+    // and fields", walks the children of whatever was selected and calls
+    // `aChild->SetSelected()` on each (sch_selection_tool.cpp:3771-3792). So
+    // `aField->IsSelected()` holds for every field, `parentMoving` is false,
+    // and the second arm of sch_painter.cpp:3086-3089 gives each one a cross.
     const { doc, lib } = sheetWithResistor();
     const symId = refId('symbol', doc.symbols[0]!.uuid, 0);
-    expect(anchorLines(doc, lib, new Set([symId]), false)).toHaveLength(0);
+    // Two strokes per drawn field, horizontal and vertical, as the single-field
+    // case above already pins.
+    const drawn = collectFieldBoxes(doc, lib).length;
+    expect(drawn).toBeGreaterThan(0);
+    expect(anchorLines(doc, lib, new Set([symId]), false)).toHaveLength(2 * drawn);
+  });
+
+  it('but suppresses both while the symbol is MOVING, which is parentMoving', () => {
+    // The condition upstream actually tests, with upstream's own reason: the
+    // umbilical "shows independent motion of a field relative to its parent;
+    // suppress it when the parent is also moving" (sch_painter.cpp:3072-3075).
+    // A cross is suppressed there too -- both arms are gated on !parentMoving.
+    const { doc, lib } = sheetWithResistor();
+    const symId = refId('symbol', doc.symbols[0]!.uuid, 0);
     expect(anchorLines(doc, lib, new Set([symId]), true)).toHaveLength(0);
   });
 });

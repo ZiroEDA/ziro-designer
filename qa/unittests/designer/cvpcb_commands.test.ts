@@ -21,6 +21,8 @@ import {
   associate,
   changeFocus,
   closeWindow,
+  copyAssoc,
+  cutAssoc,
   deleteAll,
   deleteAssoc,
   emptyAssociations,
@@ -28,6 +30,7 @@ import {
   gotoNA,
   markSaved,
   okCommand,
+  pasteAssoc,
   redoAssociation,
   resolveUnsavedChanges,
   saveAndContinueCommand,
@@ -390,5 +393,191 @@ describe('ChangeFocus', () => {
     // through their default label.
     expect(changeFocus(null, 'right')).toBe(null);
     expect(changeFocus(null, 'left')).toBe(null);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// A6: cut / copy / paste (CVPCB_ASSOCIATION_TOOL::CopyAssoc / CutAssoc /
+//     PasteAssoc, cvpcb_association_tool.cpp:50-165)
+// ---------------------------------------------------------------------------
+
+/** R1 assigned, R2 assigned to something else, R3 not assigned. */
+const PASTE_SHEET: CvpcbComponent[] = [
+  comp('R1', 'Resistor:R_0805'),
+  comp('R2', 'Capacitor:C_0603'),
+  comp('R3'),
+];
+
+describe('CopyAssoc: what Copy puts on the clipboard', () => {
+  it('is the FPID as plain text, which is GetUniStringLibId()', () => {
+    // `wxTheClipboard->SetData( new wxTextDataObject( fpid.GetUniStringLibId() ) )`,
+    // and GetUniStringLibId is `Format().wx_str()` — nickname, colon, item
+    // name. Written out in full rather than read back off the component, so a
+    // payload that grew a prefix or lost the nickname would fail here.
+    expect(copyAssoc(at(0), PASTE_SHEET, 'symbol', '')).toBe('Resistor:R_0805');
+  });
+
+  it('takes the FOOTPRINT PANE’s row when that pane has the focus', () => {
+    // `if( GetFocusedControl() == CONTROL_FOOTPRINT ) fpid.Parse( GetSelectedFootprint() )`
+    // — the row the pane points at, which need not be assigned to anything.
+    expect(copyAssoc(at(0), PASTE_SHEET, 'footprint', 'Package_SO:SOIC-8')).toBe(
+      'Package_SO:SOIC-8',
+    );
+  });
+
+  it('takes the SYMBOL’s FPID from every other focus, including none', () => {
+    // The `else if( GetSelectedComponent() )` branch: the library pane, the
+    // filter box and CONTROL_NONE all land in it, so the selected footprint
+    // is ignored there even when there is one.
+    for (const focus of ['symbol', 'library', null] as const)
+      expect(copyAssoc(at(0), PASTE_SHEET, focus, 'Package_SO:SOIC-8')).toBe('Resistor:R_0805');
+  });
+
+  it('copies the LOWEST selected row of a multi-row selection', () => {
+    // GetSelectedComponent() is GetSelection(), i.e. GetFirstSelected().
+    expect(copyAssoc(at(1, 2), PASTE_SHEET, 'symbol', '')).toBe('Capacitor:C_0603');
+  });
+
+  it('copies nothing from an unassigned symbol, rather than an empty string', () => {
+    // `if( !fpid.IsValid() ) return 0;` — both halves must be non-empty, so
+    // the clipboard keeps whatever was already on it.
+    expect(copyAssoc(at(2), PASTE_SHEET, 'symbol', '')).toBe(null);
+  });
+
+  it('copies nothing with no symbol selected', () => {
+    // The bare `else return 0;`.
+    expect(copyAssoc(at(), PASTE_SHEET, 'symbol', '')).toBe(null);
+  });
+
+  it('copies nothing from an unparseable footprint row', () => {
+    // Parse trips on the second colon, leaving the item name unset.
+    expect(copyAssoc(at(0), PASTE_SHEET, 'footprint', 'a:b:c')).toBe(null);
+  });
+
+  it('copies the PENDING assignment, not the one the schematic still holds', () => {
+    const assigned = associate(at(2), PASTE_SHEET, 'Package_SO:SOIC-8');
+    expect(copyAssoc({ ...assigned, selection: [2] }, PASTE_SHEET, 'symbol', '')).toBe(
+      'Package_SO:SOIC-8',
+    );
+  });
+});
+
+describe('CutAssoc: copy, then clear ONE association', () => {
+  it('puts the same text on the clipboard that Copy would', () => {
+    expect(cutAssoc(at(0), PASTE_SHEET, 'symbol').clipboard).toBe('Resistor:R_0805');
+  });
+
+  it('clears idx.front() ONLY, leaving the rest of the selection assigned', () => {
+    // `AssociateFootprint( CVPCB_ASSOCIATION( idx.front(), "" ) )` — one call,
+    // no loop, unlike Copy and Associate and DeleteAssoc.
+    const { state } = cutAssoc(at(0, 1), PASTE_SHEET, 'symbol');
+    expect(fpids(state, PASTE_SHEET)).toEqual(['', 'Capacitor:C_0603', '']);
+  });
+
+  it('does nothing at all when the focus is another pane', () => {
+    // "If using the keyboard, only cut in the component frame": a truthy focus
+    // that is not CONTROL_COMPONENT bails before the clipboard is touched.
+    for (const focus of ['footprint', 'library'] as const) {
+      const cut = cutAssoc(at(0), PASTE_SHEET, focus);
+      expect(cut.clipboard).toBe(null);
+      expect(fpids(cut.state, PASTE_SHEET)).toEqual(['Resistor:R_0805', 'Capacitor:C_0603', '']);
+    }
+  });
+
+  it('still cuts with the focus NOWHERE, because CONTROL_NONE is falsy', () => {
+    // `if( GetFocusedControl() && GetFocusedControl() != CONTROL_COMPONENT )`
+    // — CONTROL_NONE is 0 and fails the first half of the &&.
+    expect(cutAssoc(at(0), PASTE_SHEET, null).clipboard).toBe('Resistor:R_0805');
+  });
+
+  it('leaves an unassigned symbol alone rather than clearing it', () => {
+    // The IsValid guard comes BEFORE the clear, so Cut on an unassigned symbol
+    // is a no-op and not a clear-and-lose.
+    const cut = cutAssoc(at(2), PASTE_SHEET, 'symbol');
+    expect(cut.clipboard).toBe(null);
+    expect(cut.state.undoStack).toEqual([]);
+    expect(cut.state.modified).toBe(false);
+  });
+
+  it('does nothing with no selection', () => {
+    expect(cutAssoc(at(), PASTE_SHEET, 'symbol').clipboard).toBe(null);
+  });
+
+  it('is one undo step, and undo puts the footprint back', () => {
+    const { state } = cutAssoc(at(0), PASTE_SHEET, 'symbol');
+    expect(state.undoStack).toHaveLength(1);
+    expect(fpids(undoAssociation(state, PASTE_SHEET), PASTE_SHEET)).toEqual([
+      'Resistor:R_0805',
+      'Capacitor:C_0603',
+      '',
+    ]);
+  });
+});
+
+describe('PasteAssoc: assign the clipboard onto the whole selection', () => {
+  it('assigns to every selected symbol, as ONE undo entry', () => {
+    const state = pasteAssoc(at(1, 2), PASTE_SHEET, 'Package_SO:SOIC-8');
+    expect(fpids(state, PASTE_SHEET)).toEqual([
+      'Resistor:R_0805',
+      'Package_SO:SOIC-8',
+      'Package_SO:SOIC-8',
+    ]);
+    expect(state.undoStack).toHaveLength(1);
+  });
+
+  it('does nothing with no symbol selected', () => {
+    // `if( idx.empty() ) return 0;` runs before the clipboard is even read.
+    expect(pasteAssoc(at(), PASTE_SHEET, 'Package_SO:SOIC-8').modified).toBe(false);
+  });
+
+  it('drops text that is not a parseable LIB_ID, without touching anything', () => {
+    // `if( fpid.Parse( data.GetText() ) >= 0 ) return 0;` — a tab, a newline, a
+    // second colon or one of \ < > " in the item name is a parse error.
+    for (const junk of [
+      'Lib:foot print\tname',
+      'Lib:two\nlines',
+      'Lib:a:b',
+      'Lib:back\\slash',
+      'Lib:ang<le',
+      'Lib:ang>le',
+      'Lib:quo"te',
+    ]) {
+      const state = pasteAssoc(at(2), PASTE_SHEET, junk);
+      expect(fpids(state, PASTE_SHEET)[2]).toBe('');
+      expect(state.modified).toBe(false);
+    }
+  });
+
+  it('accepts a bare item name with no nickname, which Copy would never make', () => {
+    // Parse leaves partNdx at 0 and the whole string is the item name, so this
+    // is IsLegacy(), not invalid — and Paste asks Parse, not IsValid.
+    expect(fpids(pasteAssoc(at(2), PASTE_SHEET, 'R_0805'), PASTE_SHEET)[2]).toBe('R_0805');
+  });
+
+  it('drops the leading colon of ":R", because Format() writes it only for a nickname', () => {
+    expect(fpids(pasteAssoc(at(2), PASTE_SHEET, ':R_0805'), PASTE_SHEET)[2]).toBe('R_0805');
+  });
+
+  it('CLEARS the selection when the clipboard is empty, because "" parses', () => {
+    // HasIllegalChars( "" ) is -1 and SetLibItemName cannot fail, so Parse("")
+    // succeeds with an empty LIB_ID and the loop assigns it. Surprising, and
+    // upstream: the asymmetry with Copy's IsValid guard is the code.
+    const state = pasteAssoc(at(0, 1), PASTE_SHEET, '');
+    expect(fpids(state, PASTE_SHEET)).toEqual(['', '', '']);
+    expect(state.undoStack).toHaveLength(1);
+  });
+
+  it('a space is a legal character, so "Lib:foot print" is assigned', () => {
+    // `bool const space_allowed = true;` in isLegalChar, beside the
+    // illegal_filename_chars_allowed = false that rejects \ < > ".
+    expect(fpids(pasteAssoc(at(2), PASTE_SHEET, 'Lib:foot print'), PASTE_SHEET)[2]).toBe(
+      'Lib:foot print',
+    );
+  });
+
+  it('round-trips what Copy produced', () => {
+    const payload = copyAssoc(at(0), PASTE_SHEET, 'symbol', '');
+    const state = pasteAssoc(at(2), PASTE_SHEET, payload!);
+    expect(fpids(state, PASTE_SHEET)[2]).toBe('Resistor:R_0805');
   });
 });

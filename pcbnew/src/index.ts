@@ -23,6 +23,7 @@ export {
   fpItemId,
   parseFpItemId,
   footprintBBox,
+  footprintTextOnly,
   fpItemBBox,
   hitTestFootprint,
   itemsInBox,

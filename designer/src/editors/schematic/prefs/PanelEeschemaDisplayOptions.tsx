@@ -14,6 +14,7 @@
 import type { JSX } from 'react';
 import { Check, Group, Num, Sel } from '../../../dialogs/prefs/widgets.js';
 import { CrossProbingGroup } from '../../../dialogs/prefs/CrossProbingGroup.js';
+import { PanelGalOptions } from '../../../dialogs/prefs/PanelGalOptions.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
 
 export function PanelEeschemaDisplayOptions({ ctx }: { ctx: PrefsContext }): JSX.Element {
@@ -21,85 +22,19 @@ export function PanelEeschemaDisplayOptions({ ctx }: { ctx: PrefsContext }): JSX
   return (
     <div className="ze-pref-columns">
       <div>
-        <Group title="Grid Display">
-          <Sel
-            label="Style:"
-            value={eeschema.window.grid.style}
-            options={[
-              ['dots', 'Dots'],
-              ['lines', 'Lines'],
-              ['crosses', 'Small crosses'],
-            ]}
-            onChange={(v) =>
-              upE((s) => {
-                s.window.grid.style = v;
-              })
-            }
-          />
-          <Num
-            label="Grid thickness:"
-            value={eeschema.window.grid.line_width}
-            unit="pixels"
-            min={1}
-            max={5}
-            onChange={(v) =>
-              upE((s) => {
-                s.window.grid.line_width = v;
-              })
-            }
-          />
-          <Num
-            label="Minimum grid spacing:"
-            value={eeschema.window.grid.min_spacing}
-            unit="pixels"
-            min={2}
-            max={50}
-            onChange={(v) =>
-              upE((s) => {
-                s.window.grid.min_spacing = v;
-              })
-            }
-          />
-          <Sel
-            label="Snap to grid:"
-            value={eeschema.window.grid.snap}
-            options={[
-              [0, 'Always'],
-              [1, 'When grid shown'],
-              [2, 'Never'],
-            ]}
-            onChange={(v) =>
-              upE((s) => {
-                s.window.grid.snap = v as 0 | 1 | 2;
-              })
-            }
-          />
-        </Group>
-        <Group title="Cursor">
-          <Sel
-            label="Crosshair:"
-            value={eeschema.window.cursor.crosshair}
-            options={[
-              ['small', 'Small crosshairs'],
-              ['full', 'Full window crosshairs'],
-              ['45', '45° full window crosshairs'],
-            ]}
-            onChange={(v) =>
-              upE((s) => {
-                s.window.cursor.crosshair = v;
-              })
-            }
-          />
-          <Check
-            label="Always show crosshairs"
-            checked={eeschema.window.cursor.always_show_cursor}
-            onChange={(v) =>
-              upE((s) => {
-                s.window.cursor.always_show_cursor = v;
-              })
-            }
-          />
-        </Group>
+        {/*
+          `m_galOptsPanel = new PANEL_GAL_OPTIONS( this, aAppSettings )`, the
+          shared panel embedded rather than restated
+          (eeschema/dialogs/panel_eeschema_display_options.cpp). The Grid
+          Display and Cursor groups used to be written out here, and had drifted
+          from it in four places — a choice where upstream has radio buttons, a
+          crosshair label of our own, and both numeric ranges invented.
+        */}
+        <PanelGalOptions
+          win={eeschema.window}
+          update={(fn) => upE((s) => fn(s.window))}
+          idPrefix="sch"
+        />
         <CrossProbingGroup
           peer="pcb"
           value={eeschema.cross_probing}

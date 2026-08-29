@@ -76,6 +76,76 @@ export const DS_BG_COLOR = 'rgb(245, 244, 239)';
 export const DS_PAGE_BORDER_COLOR = 'rgb(181, 181, 181)';
 
 /**
+ * The three `COLOR_SETTINGS` layers `DS_RENDER_SETTINGS::LoadColors` reads,
+ * named the way our `COLOR_SETTINGS` projection names them.
+ *
+ * This is deliberately a *structural* type rather than an import of the
+ * schematic's `Theme`: `common/` is below every editor, and upstream's
+ * `LoadColors` likewise takes a bare `const COLOR_SETTINGS*` and knows nothing
+ * about which frame handed it over.
+ */
+export interface DsColorSettings {
+  /** `LAYER_SCHEMATIC_BACKGROUND` */
+  background: string;
+  /** `LAYER_SCHEMATIC_GRID` */
+  grid: string;
+  /** `LAYER_SCHEMATIC_DRAWINGSHEET` */
+  pageFrame: string;
+}
+
+/**
+ * `DS_RENDER_SETTINGS`' three painted colours, after `LoadColors`.
+ *
+ * `m_selectedColor`, `m_brightenedColor`, `m_gridColor` and `m_cursorColor` are
+ * NOT here for the reason `DS_SELECTED_COLOR` records below: `LoadColors`
+ * overwrites exactly three members, and the other four keep either the
+ * constructor's value or their luma-derived one.
+ */
+export interface DsRenderColors {
+  /** `m_backgroundColor` — what `EDA_DRAW_PANEL_GAL::onPaint` clears to. */
+  background: string;
+  /** `m_pageBorderColor` — the page rectangle and its coord-origin marker. */
+  pageBorder: string;
+  /** `m_normalColor` — every sheet item that is not selected or brightened. */
+  normal: string;
+}
+
+/**
+ * `DS_RENDER_SETTINGS::LoadColors( const COLOR_SETTINGS* aSettings )`
+ * (`common/drawing_sheet/ds_painter.cpp:58-69`):
+ *
+ *     m_backgroundColor = aSettings->GetColor( LAYER_SCHEMATIC_BACKGROUND );  // :66
+ *     m_pageBorderColor = aSettings->GetColor( LAYER_SCHEMATIC_GRID );        // :67
+ *     m_normalColor     = aSettings->GetColor( LAYER_SCHEMATIC_DRAWINGSHEET );// :68
+ *
+ * The per-layer `m_layerColors` copy at :60-64 has no consumer in the drawing
+ * sheet — `DS_RENDER_SETTINGS::GetColor` (:71-93) only ever returns one of the
+ * four members — so it is not mirrored.
+ *
+ * Note which layer feeds which: the page BORDER is `LAYER_SCHEMATIC_GRID`, and
+ * the canvas grid is not a theme layer at all (`GetGridColor`, `ds_painter.h:71-75`,
+ * picks DARKGRAY/LIGHTGRAY off the background's luma).
+ */
+export function dsLoadColors(aSettings: DsColorSettings): DsRenderColors {
+  return {
+    background: aSettings.background,
+    pageBorder: aSettings.grid,
+    normal: aSettings.pageFrame,
+  };
+}
+
+/**
+ * `LoadColors` applied to "KiCad Default" — `::GetColorSettings( DEFAULT_THEME )`,
+ * which is what `PL_DRAW_PANEL_GAL`'s constructor falls back to when there is no
+ * `PL_EDITOR_SETTINGS` to read a theme name out of (`pl_draw_panel_gal.cpp:57-59`).
+ */
+export const DS_DEFAULT_RENDER_COLORS: DsRenderColors = dsLoadColors({
+  background: DS_BG_COLOR,
+  grid: DS_PAGE_BORDER_COLOR,
+  pageFrame: DS_ITEM_COLOR,
+});
+
+/**
  * Radius of the coord-origin marker DS_PAINTER draws on the page item.
  *
  *     constexpr double markerSize = drawSheetIUScale.mmToIU( 5 );
@@ -218,6 +288,17 @@ export interface RenderOpts {
   minWidth?: number;
   /** Item index brightened by the interactive-delete picker (green). */
   brightened?: number | null;
+  /**
+   * `GRForceBlackPen( true )` (common/gr_basic.cpp), which pl_editor wraps the
+   * whole printed page in (`dialogs_for_printing.cpp:184`, cleared again at
+   * :213).
+   *
+   * It is not the same as passing `color: '#000'`: the flag makes every GR
+   * drawing call use BLACK regardless of the colour it was asked for, so a
+   * `(tbtext … (color …))` prints black too. Setting only the base colour
+   * leaves a coloured text item coloured, which is what ours did.
+   */
+  forceBlackPen?: boolean;
 }
 
 /** Line-pitch factor for multi-line outline text (FONT_METRICS m_InterlinePitch). */
@@ -439,7 +520,9 @@ export function drawDrawingSheetItems(
   selected: ReadonlySet<number>,
   opts: RenderOpts = {},
 ): void {
-  const baseColor = opts.color ?? DS_ITEM_COLOR;
+  // `GRForceBlackPen`: the pen is black whatever the item asked for.
+  const forceBlack = opts.forceBlackPen === true;
+  const baseColor = forceBlack ? '#000000' : (opts.color ?? DS_ITEM_COLOR);
   const minWidth = opts.minWidth ?? 1;
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
@@ -451,8 +534,18 @@ export function drawDrawingSheetItems(
       d.kind === 'text' && d.color
         ? `rgba(${d.color.r},${d.color.g},${d.color.b},${d.color.a})`
         : baseColor;
-    const color =
-      opts.brightened === d.src ? DS_BRIGHTENED_COLOR : sel ? DS_SELECTED_COLOR : itemColor;
+    // `GRForceBlackPen` is consulted by `GRSetColorPen` on every call, so it
+    // wins over all four of those and there is exactly one place to say so.
+    // The item's own colour is deliberately NOT guarded a second time above:
+    // a mutation sweep showed the guard was unreachable, which means the rule
+    // was written twice and only one of the two could ever be wrong.
+    const color = forceBlack
+      ? baseColor
+      : opts.brightened === d.src
+        ? DS_BRIGHTENED_COLOR
+        : sel
+          ? DS_SELECTED_COLOR
+          : itemColor;
     switch (d.kind) {
       case 'line': {
         const w = Math.max(d.width, minWidth);

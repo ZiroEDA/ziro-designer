@@ -19,12 +19,24 @@
  * part that vanished.
  */
 
+import { Reporter } from '@ziroeda/common/src/reporter.js';
 import type { LibSymbol, Schematic, SchField, SchSymbol } from '../types.js';
+import { flattenLibSymbol } from '../lib_symbol.js';
 import type { EditCommand } from './command.js';
 import { refId } from './hittest.js';
 import { schSymbolLibraryName } from '../lib_symbol_compare.js';
 
-/** `GetLibIdForbiddenChars`. A library id may not contain any of these. */
+/**
+ * The characters `LIB_ID::isLegalChar` (common/lib_id.cpp) answers false for:
+ * `:`, tab, newline and carriage return outright, and `\`, `<`, `>`, `"`
+ * because `illegal_filename_chars_allowed` is a `bool const … = false` beside
+ * the `space_allowed = true` that lets a space through.
+ *
+ * One table, read by both {@link isValidLibId} and {@link libIdParseOffset}.
+ * LIB_ID itself is `common/`, and both of these belong in `common/src` the day
+ * it is ported; until then the point of the rule is served by there being a
+ * single copy of the set rather than one per caller.
+ */
 const FORBIDDEN = '<>"\\:\t\n\r';
 
 /** One row of the grid: every symbol sharing a library id. */
@@ -67,6 +79,43 @@ export function isValidLibId(id: string): boolean {
   const name = id.slice(at + 1);
   const clean = (s: string): boolean => ![...s].some((c) => FORBIDDEN.includes(c));
   return clean(nickname) && clean(name);
+}
+
+/**
+ * `LIB_ID::Parse( aId, aFix = false )` on its own, without the `IsValid` that
+ * {@link isValidLibId} folds in: **the offset of the first character that stops
+ * the id being parseable, or -1 when it parses.**
+ *
+ * The odd return value is upstream's, and every call site tests its sign —
+ * `if( fpid.Parse( data.GetText() ) >= 0 ) return 0;` in
+ * `CVPCB_ASSOCIATION_TOOL::PasteAssoc`. Keeping the shape rather than returning
+ * a boolean is what makes that line transcribable instead of re-derived.
+ *
+ * Two things it deliberately accepts that `isValidLibId` rejects, because
+ * `Parse` and `IsValid` are separate questions upstream and the paste path asks
+ * only the first:
+ *
+ *  - **no colon at all.** `Parse` leaves `partNdx` at 0 and the whole string is
+ *    the item name, which is `IsLegacy()`, not invalid.
+ *  - **the empty string**, for the same reason: `HasIllegalChars( "" )` returns
+ *    -1, `SetLibItemName( "" )` cannot fail, so `Parse( "" )` succeeds and
+ *    leaves an empty LIB_ID behind.
+ *
+ * Only the item name is checked, which is also upstream: the nickname goes
+ * through `checkLibNickname`, and that is `aField.find_first_of( ":" )` alone —
+ * a test the substring before the *first* colon can never fail.
+ *
+ * The offset counts UTF-16 code units where upstream counts UTF-8 bytes; the
+ * two agree on -1, which is all any caller reads.
+ */
+export function libIdParseOffset(id: string): number {
+  const at = id.indexOf(':');
+  const name = at === -1 ? id : id.slice(at + 1);
+  const chars = [...name];
+  for (let i = 0; i < chars.length; i++) {
+    if (FORBIDDEN.includes(chars[i]!)) return i;
+  }
+  return -1;
 }
 
 /**
@@ -143,11 +192,20 @@ export interface LibIdChangeResult {
  */
 export function applyLibIdChanges(
   doc: Schematic,
-  libById: ReadonlyMap<string, LibSymbol>,
+  librarySymbols: ReadonlyMap<string, LibSymbol>,
   changes: ReadonlyMap<string, string>,
 ): LibIdChangeResult {
   const errors: string[] = [];
   let changed = 0;
+
+  // `candidate.m_Symbol->SetLibSymbol( symbol->Flatten().release() )`
+  // (dialog_edit_symbols_libid.cpp:766): re-pointing a placement caches the
+  // flattened part, never the derived one — the schematic has nowhere to put
+  // the parent it would otherwise need.
+  const reporter = new Reporter();
+  const libById = new Map<string, LibSymbol>();
+  for (const [id, lib] of librarySymbols) libById.set(id, flattenLibSymbol(lib, reporter));
+  for (const line of reporter.lines) if (!errors.includes(line.message)) errors.push(line.message);
 
   const symbols = doc.symbols.map((sym) => {
     const next = changes.get(schSymbolLibraryName(sym));

@@ -13,12 +13,14 @@
 import type {
   LibSymbol,
   SchLabel,
+  SchSheet,
   SchSymbol,
   Schematic,
   Stroke,
   TextEffects,
   Vec2,
 } from '../types.js';
+import { parseColor4d, rgb8ToCss } from '@ziroeda/common';
 import type { EditCommand } from './command.js';
 import { refId, type ItemRef } from './hittest.js';
 import {
@@ -31,12 +33,12 @@ import {
   replaceSheet,
   replaceTable,
   replaceTextBox,
-  setSymbolsLockedCommand,
 } from './mutate.js';
 import { moveItems } from './move.js';
 import { parseSheetPinId } from './sch_sheet_pin_tool.js';
 import { transformItems } from './transform.js';
 import { bulkEditFieldsCommand } from './properties.js';
+import { isGeneratedField } from './fields_data_model.js';
 import { schSymbolLibraryName } from '../lib_symbol_compare.js';
 
 /** One grid row: `coord`/`dist` are IU numbers the panel renders in the
@@ -45,8 +47,12 @@ import { schSymbolLibraryName } from '../lib_symbol_compare.js';
 export interface PropRow {
   group: string;
   name: string;
-  kind: 'coord' | 'dist' | 'string' | 'bool' | 'int' | 'choice';
+  kind: 'coord' | 'dist' | 'string' | 'bool' | 'int' | 'choice' | 'color';
   choices?: readonly string[];
+  /** `PGPROPERTY_COLOR4D`'s colour cell (pg_cell_renderer.cpp:38-58), which
+   *  `SCH_PROPERTIES_PANEL::createPGProperty` builds for every COLOR4D
+   *  property (sch_properties_panel.cpp:472-476). */
+  swatch?: string;
   value: string | number | boolean;
   set?: (v: string | number | boolean) => EditCommand | null;
 }
@@ -106,12 +112,76 @@ const chain = (label: string, cmds: EditCommand[]): EditCommand => ({
   },
 });
 
+/**
+ * `SYMBOL::SetShowPinNumbers` / `SetShowPinNames`.
+ *
+ * SCH_SYMBOL does not store either flag: both getters and both setters forward
+ * to the LIB_SYMBOL it owns a copy of (sch_symbol.cpp:3529-3552), so the write
+ * lands on the sheet's cached definition and only on the one this placement
+ * uses — hiding one symbol's pin numbers must not change every other use of the
+ * same part. The same write the Symbol Properties dialog makes.
+ */
+function setPinTextHidden(
+  libId: string,
+  which: 'pinNumbersHidden' | 'pinNamesHidden',
+  hidden: boolean,
+): EditCommand {
+  return {
+    label: which === 'pinNumbersHidden' ? 'Show Pin Numbers' : 'Show Pin Names',
+    apply: (doc) => ({
+      ...doc,
+      libSymbols: doc.libSymbols.map((l) => (l.libId === libId ? { ...l, [which]: hidden } : l)),
+    }),
+    invert: (before) => {
+      const prev = before.libSymbols.find((l) => l.libId === libId);
+      return setPinTextHidden(libId, which, prev ? prev[which] : false);
+    },
+  };
+}
+
+/**
+ * The property names SCH_SYMBOL registers itself, in the "Fields" group
+ * (sch_symbol.cpp SCH_SYMBOL_DESC). `SCH_PROPERTIES_PANEL::rebuildProperties`
+ * adds a SCH_SYMBOL_FIELD_PROPERTY for a field only when the property manager
+ * does not already have one under that name, so a field called "Value" is
+ * served by the static row and never doubled.
+ */
+const SYMBOL_STATIC_FIELD_ROWS = ['Reference', 'Value'];
+
+/**
+ * The field names `SCH_PROPERTIES_PANEL::rebuildProperties` turns into rows
+ * (sch_properties_panel.cpp:407-436), for either arm of its loop.
+ *
+ * Two facts about it, both load-bearing and both from the C++:
+ *
+ *  - `if( field.IsPrivate() ) continue;` — a private field gets no row;
+ *  - the names go into a `std::set<wxString>`, so they come back **sorted**,
+ *    not in the order the file wrote them, and a repeat is collapsed.
+ *
+ * On a MULTI-selection the loop runs over the whole `aSelection` and inserts
+ * into that one set, which makes the set a **union**, not an intersection: a
+ * field on any selected item earns a row. The per-property availability
+ * callback then asks only `m_currentSymbolFieldNames.count( name )` (:446) —
+ * the set, not the item — so the row stays available for every item in the
+ * selection, and an item that lacks the field answers with
+ * MISSING_FIELD_SENTINEL (:127) rather than failing, which
+ * `extractValueAndWritability` turns into the "<...>" differing-value cell.
+ */
+export function dynamicFieldNames(
+  fields: readonly { readonly key: string; readonly isPrivate?: boolean }[],
+): string[] {
+  const names = new Set<string>();
+  for (const f of fields) if (!f.isPrivate) names.add(f.key);
+  return [...names].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+}
+
 function symbolRows(sch: Schematic, libById: Map<string, LibSymbol>, index: number): PropRow[] {
   const s = sch.symbols[index]!;
   const id = refId('symbol', s.uuid, index);
   const ids = new Set([id]);
   const field = (key: string): string => s.fields.find((f) => f.key === key)?.value ?? '';
-  const lib = libById.get(schSymbolLibraryName(s));
+  const libName = schSymbolLibraryName(s);
+  const lib = libById.get(libName);
   const patch = (label: string, p: Partial<SchSymbol>): EditCommand => ({
     label,
     apply: (doc) => ({
@@ -126,7 +196,37 @@ function symbolRows(sch: Schematic, libById: Map<string, LibSymbol>, index: numb
     },
   });
 
-  const rows: PropRow[] = [
+  const rows: PropRow[] = [];
+
+  // "Pin numbers" and "Pin names" come FIRST, and they are not SCH_SYMBOL's own
+  // properties: they are registered on the SYMBOL base class, and
+  // CLASS_DESC::collectPropsRecur gives a base class's properties display
+  // indices BELOW the subclass's (`displayOrderStart = firstSoFar -
+  // m_ownProperties.size()`, property_mgr.cpp:369), so an inherited property
+  // sorts ahead of an own one inside the same group.
+  //
+  // Both carry `.SetAvailableFunc( hasLibPart )`, so they are absent — not
+  // greyed — when the placement resolves to no cached definition.
+  if (lib) {
+    rows.push(
+      {
+        group: '',
+        name: 'Pin numbers',
+        kind: 'bool',
+        value: !lib.pinNumbersHidden,
+        set: (v) => setPinTextHidden(libName, 'pinNumbersHidden', !v),
+      },
+      {
+        group: '',
+        name: 'Pin names',
+        kind: 'bool',
+        value: !lib.pinNamesHidden,
+        set: (v) => setPinTextHidden(libName, 'pinNamesHidden', !v),
+      },
+    );
+  }
+
+  rows.push(
     ...positionRows(id, s.at),
     {
       group: '',
@@ -160,13 +260,27 @@ function symbolRows(sch: Schematic, libById: Map<string, LibSymbol>, index: numb
       value: s.mirror === 'y',
       set: () => transformItems(ids, 'mirrorY'),
     },
-    {
+  );
+
+  // "Unit" is registered after the Fields group's properties but without a
+  // group of its own, so it lands at the END of Basic Properties rather than
+  // beside Mirror Y. Multi-unit symbols only (`.SetAvailableFunc( multiUnit )`).
+  const units = lib ? new Set(lib.units.map((u) => u.unit).filter((u) => u > 0)).size : 1;
+  if (units > 1) {
+    rows.push({
       group: '',
-      name: 'Locked',
-      kind: 'bool',
-      value: !!s.locked,
-      set: () => setSymbolsLockedCommand(ids, 'toggle'),
-    },
+      name: 'Unit',
+      kind: 'int',
+      value: s.unit,
+      set: (v) => {
+        const n = num(v);
+        if (n === null || n < 1 || n > units || n === s.unit) return null;
+        return patch('Change Unit', { unit: n });
+      },
+    });
+  }
+
+  rows.push(
     {
       group: 'Fields',
       name: 'Reference',
@@ -181,6 +295,7 @@ function symbolRows(sch: Schematic, libById: Map<string, LibSymbol>, index: numb
       value: field('Value'),
       set: (v) => bulkEditFieldsCommand(new Map([[id, { Value: String(v) }]])),
     },
+    // NO_SETTER on all three (sch_symbol.cpp), so read-only.
     { group: 'Fields', name: 'Library Link', kind: 'string', value: s.libId },
     {
       group: 'Fields',
@@ -194,20 +309,23 @@ function symbolRows(sch: Schematic, libById: Map<string, LibSymbol>, index: numb
       kind: 'string',
       value: lib?.properties.find((f) => f.key === 'ki_keywords')?.value ?? '',
     },
-  ];
+  );
 
-  const units = lib ? new Set(lib.units.map((u) => u.unit).filter((u) => u > 0)).size : 1;
-  if (units > 1) {
+  // The symbol's own fields, as SCH_SYMBOL_FIELD_PROPERTY
+  // (sch_properties_panel.cpp:57-128). Private fields are skipped
+  // (`if( field.IsPrivate() ) continue;`), and the names are collected into a
+  // std::set, so they are registered — and so ordered — alphabetically, after
+  // every property SCH_SYMBOL declares statically.
+  for (const key of dynamicFieldNames(s.fields)) {
+    if (SYMBOL_STATIC_FIELD_ROWS.includes(key)) continue;
+    const value = s.fields.find((f) => f.key === key)?.value ?? '';
     rows.push({
-      group: '',
-      name: 'Unit',
-      kind: 'int',
-      value: s.unit,
-      set: (v) => {
-        const n = num(v);
-        if (n === null || n < 1 || n > units || n === s.unit) return null;
-        return patch('Change Unit', { unit: n });
-      },
+      group: 'Fields',
+      name: key,
+      kind: 'string',
+      value,
+      set: (v) =>
+        String(v) === value ? null : bulkEditFieldsCommand(new Map([[id, { [key]: String(v) }]])),
     });
   }
 
@@ -235,13 +353,105 @@ function symbolRows(sch: Schematic, libById: Map<string, LibSymbol>, index: numb
     },
     {
       group: 'Attributes',
+      name: 'Exclude From Position Files',
+      kind: 'bool',
+      value: !!s.excludedFromPosFiles,
+      set: (v) => patch('Toggle Exclude From Position Files', { excludedFromPosFiles: !!v }),
+    },
+    {
+      group: 'Attributes',
       name: 'Do not Populate',
       kind: 'bool',
       value: s.dnp,
       set: (v) => patch('Toggle Do not Populate', { dnp: !!v }),
     },
   );
+
+  // ── "Pin Display" (lib_symbol.cpp:2676-2690) ──────────────────────────────
+  //
+  // The group is declared in LIB_SYMBOL_DESC, but three of its four rows are
+  // `PROPERTY<SYMBOL, …>` — and SYMBOL is the base of BOTH LIB_SYMBOL and
+  // SCH_SYMBOL (symbol.h:62, `class SYMBOL : public SCH_ITEM`), so a PLACED
+  // symbol inherits them and the group with them. The fourth, "Place Pin Names
+  // Inside", is `PROPERTY<LIB_SYMBOL, bool>` (:2684) and so belongs to the
+  // Symbol Editor alone; it must never appear here.
+  //
+  // The group sorts LAST. `CLASS_DESC::rebuild` collects a class's OWN groups
+  // before recursing into its bases (property_mgr.cpp:317-343), so
+  // SCH_SYMBOL's own "", "Fields" and "Attributes" come first and SYMBOL's
+  // "Pin Display" is appended after them.
+  //
+  // Note the deliberate duplication upstream: "Pin numbers" / "Pin names"
+  // above (sch_symbol.cpp:3930-3936) are SEPARATE properties with the same
+  // setters, so two rows drive one value. `AddProperty` de-duplicates by name
+  // (property_mgr.cpp:140), and these names differ, so both survive.
+  rows.push(
+    {
+      group: 'Pin Display',
+      name: 'Show Pin Number',
+      kind: 'bool',
+      // `SCH_SYMBOL::GetShowPinNumbers` is `m_part && m_part->GetShowPinNumbers()`
+      // (sch_symbol.cpp:3542-3545): false, not absent, without a cached
+      // definition — this pair carries NO `SetAvailableFunc`, unlike the
+      // "Pin numbers"/"Pin names" pair.
+      value: !!lib && !lib.pinNumbersHidden,
+      // `SCH_SYMBOL::SetShowPinNumbers` is `if( m_part ) …` (:3548-3552), so
+      // with no definition to write to the edit is a no-op.
+      set: (v) => (lib ? setPinTextHidden(libName, 'pinNumbersHidden', !v) : null),
+    },
+    {
+      group: 'Pin Display',
+      name: 'Show Pin Name',
+      kind: 'bool',
+      value: !!lib && !lib.pinNamesHidden,
+      set: (v) => (lib ? setPinTextHidden(libName, 'pinNamesHidden', !v) : null),
+    },
+    {
+      group: 'Pin Display',
+      name: 'Pin Name Position Offset',
+      // `PROPERTY_DISPLAY::PT_SIZE` (:2689) → `PGPROPERTY_SIZE`, whose
+      // `DistanceToString` prints `StringFromValue( …, true )` — a distance
+      // with its unit, `0 mils`.
+      kind: 'dist',
+      // The SCH_SYMBOL's OWN offset, which is 0 for a placement and is not the
+      // cached definition's `lib.pinNameOffset`. See `SchSymbol.pinNameOffset`.
+      value: s.pinNameOffset ?? 0,
+      set: (v) => {
+        const n = num(v);
+        return n === null || n === (s.pinNameOffset ?? 0)
+          ? null
+          : patch('Change Pin Name Position Offset', { pinNameOffset: n });
+      },
+    },
+  );
   return rows;
+}
+
+/**
+ * SCH_SHEET_FIELD_PROPERTY, one per non-private sheet field
+ * (sch_properties_panel.cpp:135-212, registered at :451-462).
+ *
+ * Its setter writes the field's text, and creates the field when the sheet has
+ * none under that name (:154-165); ours only rewrites an existing one, because
+ * every name it is asked about came from `sh.fields` in the first place.
+ */
+function sheetFieldRows(sh: SchSheet, index: number): PropRow[] {
+  return dynamicFieldNames(sh.fields).map((key) => {
+    const value = sh.fields.find((f) => f.key === key)?.value ?? '';
+    return {
+      group: 'Fields',
+      name: key,
+      kind: 'string',
+      value,
+      set: (v: string | number | boolean) =>
+        String(v) === value
+          ? null
+          : replaceSheet(index, {
+              ...sh,
+              fields: sh.fields.map((f) => (f.key === key ? { ...f, value: String(v) } : f)),
+            }),
+    };
+  });
 }
 
 function lineRows(sch: Schematic, index: number): PropRow[] {
@@ -391,9 +601,73 @@ function labelRows(sch: Schematic, index: number): PropRow[] {
  */
 
 /**
- * A symbol field selected on its own (SCH_FIELD): its text and where it sits.
- * Position goes through moveItems on the field id, so only the text moves,
- * the symbol stays put, matching SCH_FIELD being independently movable.
+ * `GR_TEXT_H_ALIGN_T` / `GR_TEXT_V_ALIGN_T`, whose labels SCH_FIELD_DESC maps
+ * verbatim (sch_field.cpp:1745-1757 — the same table EDA_TEXT_DESC declares,
+ * built in whichever of the two runs first).
+ */
+const H_JUSTIFY_LABELS = ['Left', 'Center', 'Right'] as const;
+const V_JUSTIFY_LABELS = ['Top', 'Center', 'Bottom'] as const;
+/** The `(justify …)` tokens those map onto, in the same order. */
+const H_JUSTIFY_TOKENS = ['left', 'center', 'right'] as const;
+const V_JUSTIFY_TOKENS = ['top', 'center', 'bottom'] as const;
+
+/**
+ * `FONT_CHOICE` (common/widgets/font_choice.cpp:240-258): "Default Font" for
+ * no `(font (face …))` at all, plus the stroke font by name. We ship no
+ * outline faces, so the fontconfig list `EDA_TEXT_DESC`'s `SetChoicesFunc`
+ * enumerates (common/eda_text.cpp:1357-1379) is these two here — the same pair
+ * the Text and Label Properties dialogs offer.
+ */
+const FONT_CHOICES = ['Default Font', 'KiCad Font'] as const;
+
+const justifyOf = (fx: TextEffects | undefined, tokens: readonly string[]): number => {
+  const found = (fx?.justify ?? []).find((t) => tokens.includes(t));
+  // `center` is the default on both axes, and KiCad writes no token for it.
+  return found === undefined ? tokens.indexOf('center') : tokens.indexOf(found);
+};
+
+/** Replace the justification token on one axis, leaving the other alone. */
+const withJustify = (
+  fx: TextEffects | undefined,
+  tokens: readonly string[],
+  token: string,
+): readonly string[] => {
+  const kept = (fx?.justify ?? []).filter((t) => !tokens.includes(t));
+  return token === 'center' ? kept : [...kept, token];
+};
+
+/**
+ * A symbol field selected on its own (SCH_FIELD).
+ *
+ * The row set is `SCH_FIELD_DESC` (eeschema/sch_field.cpp:1739-1814) resolved
+ * against what it inherits, and the omissions are as load-bearing as the rows:
+ *
+ *  - **no Position X / Position Y.** Neither EDA_ITEM, SCH_ITEM nor EDA_TEXT
+ *    registers a position; every item that shows those rows registers them
+ *    itself (SCH_SYMBOL at sch_symbol.cpp:3908, SCH_PIN at sch_pin.cpp:2043,
+ *    SCH_BITMAP at sch_bitmap.cpp:308). SCH_FIELD registers none, so it has
+ *    none — even though a field is independently movable.
+ *  - **no Orientation.** `propMgr.Mask( TYPE_HASH( SCH_FIELD ),
+ *    TYPE_HASH( EDA_TEXT ), _HKI( "Orientation" ) )` (:1791) hides the one row
+ *    EDA_TEXT contributes to the unnamed group.
+ *  - **no Thickness, Mirrored, Width, Height or Hyperlink** — masked together
+ *    at :1780-1784. Width and Height go because SCH_FIELD replaces them with a
+ *    single `Text Size` (:1787): `SetSchTextSize` writes both axes at once.
+ *  - **no Unit, Body Style or Private rows**: SCH_ITEM registers all three
+ *    `.SetIsHiddenFromDesignEditors()` (sch_item.cpp SCH_ITEM_DESC), which is
+ *    what keeps them out of this panel. `Private` additionally carries
+ *    `OverrideAvailability( …, isNonMandatoryField )` (:1813), a lambda that
+ *    returns false for anything that is not a SCH_FIELD.
+ *
+ * `Show Field Name` (:1774) and `Allow Autoplacement` (:1777) take no group
+ * argument, so they land in the unnamed group the panel captions "Basic
+ * Properties"; every other row is `_HKI( "Text Properties" )`, in the order
+ * EDA_TEXT declares them, then the two `ReplaceProperty` justifications, then
+ * `Text Size`.
+ *
+ * This used to show Position X, Position Y and Orientation — three rows
+ * upstream masks or never had — inside a "Field" group that exists nowhere in
+ * the C++, and none of the ten rows above.
  */
 function fieldRows(sch: Schematic, id: string): PropRow[] {
   const at = id.lastIndexOf(':field');
@@ -419,31 +693,176 @@ function fieldRows(sch: Schematic, id: string): PropRow[] {
     invert: () => replaceField(label, f),
   });
 
+  const fx = f.effects;
+  const setEffects = (label: string, p: Partial<TextEffects>): EditCommand =>
+    replaceField(label, { ...f, effects: { hidden: false, ...fx, ...p } });
+
+  // `GetSchTextSize() { return GetTextWidth(); }` (sch_field.h:180) — the
+  // WIDTH, which is `(size <height> <width>)`'s second number; the setter
+  // writes both axes to it (`SetTextSize( VECTOR2I( aSize, aSize ) )`, :181).
+  const textSize = fx?.fontSize?.[1] ?? fx?.fontSize?.[0] ?? 0;
+
+  // `GetTextColor()`. COLOR4D::UNSPECIFIED is fully transparent, and its cell
+  // is empty rather than black.
+  const c = fx?.color;
+  const colorCss = c && c[3] > 0 ? rgb8ToCss([c[0], c[1], c[2]]) : '';
+
+  const hIdx = justifyOf(fx, H_JUSTIFY_TOKENS);
+  const vIdx = justifyOf(fx, V_JUSTIFY_TOKENS);
+
   return [
-    ...positionRows(id, f.at),
     {
       group: '',
-      name: 'Orientation',
-      kind: 'choice',
-      choices: ORIENTATIONS,
-      value: String(((f.angle % 360) + 360) % 360),
-      set: (v) => replaceField('Change Orientation', { ...f, angle: Number(v) }),
+      name: 'Show Field Name',
+      kind: 'bool',
+      value: !!f.nameShown,
+      set: (v) => replaceField('Show Field Name', { ...f, nameShown: !!v }),
     },
-    { group: 'Field', name: 'Name', kind: 'string', value: f.key },
     {
-      group: 'Field',
-      name: 'Value',
+      group: '',
+      name: 'Allow Autoplacement',
+      kind: 'bool',
+      // `CanAutoplace()` is the positive sense; the file stores the negative
+      // (`(do_not_autoplace)`).
+      value: !f.doNotAutoplace,
+      set: (v) => replaceField('Allow Autoplacement', { ...f, doNotAutoplace: !v }),
+    },
+    {
+      group: 'Text Properties',
+      name: 'Text',
       kind: 'string',
       value: f.value,
-      set: (v) =>
-        String(v) === f.value ? null : replaceField('Edit Field', { ...f, value: String(v) }),
+      // `OverrideWriteability( …, "Text", isNotGeneratedField )` (:1801): a
+      // generated field's text is computed from its name, and SCH_FIELD::
+      // SetText refuses to change it (sch_field.cpp:1077-1082), so the cell is
+      // read-only. `::IsGeneratedField` is a name that is exactly one text
+      // variable, like `${QUANTITY}`.
+      ...(isGeneratedField(f.key)
+        ? {}
+        : {
+            set: (v: string | number | boolean) =>
+              String(v) === f.value ? null : replaceField('Edit Field', { ...f, value: String(v) }),
+          }),
     },
     {
-      group: 'Field',
-      name: 'Show',
+      group: 'Text Properties',
+      name: 'Font',
+      kind: 'choice',
+      choices: FONT_CHOICES,
+      // `GetFontProp()` answers "Default Font" for an eeschema item with no
+      // font set (common/eda_text.cpp:1023-1032).
+      value: fx?.face ? fx.face : 'Default Font',
+      // `SetFontProp`: "Default Font" clears the face (:1035-1043).
+      set: (v) =>
+        setEffects('Change Font', {
+          face: String(v) === 'Default Font' ? undefined : String(v),
+        }),
+    },
+    {
+      group: 'Text Properties',
+      name: 'Auto Thickness',
       kind: 'bool',
-      value: !f.effects?.hidden,
-      set: (v) => replaceField('Show Field', { ...f, effects: { ...f.effects, hidden: !v } }),
+      // `GetAutoThickness() { return GetTextThickness() == 0; }`
+      // (include/eda_text.h:150); an absent `(thickness …)` token is auto.
+      value: !fx?.thickness,
+      // `SetAutoThickness( aAuto )` writes 0 for auto and the *effective* pen
+      // otherwise (common/eda_text.cpp:276-280). We resolve that pen at draw
+      // time from the size and the bold flag, so only the auto direction is
+      // expressible from a checkbox; unticking is refused rather than guessed.
+      set: (v) => (v ? setEffects('Auto Thickness', { thickness: undefined }) : null),
+    },
+    {
+      group: 'Text Properties',
+      name: 'Italic',
+      kind: 'bool',
+      value: !!fx?.italic,
+      set: (v) => setEffects('Toggle Italic', { italic: !!v || undefined }),
+    },
+    {
+      group: 'Text Properties',
+      name: 'Bold',
+      kind: 'bool',
+      value: !!fx?.bold,
+      set: (v) => setEffects('Toggle Bold', { bold: !!v || undefined }),
+    },
+    {
+      group: 'Text Properties',
+      name: 'Visible',
+      // EDA_TEXT's Visible row carries `.SetAvailableFunc( isField )`
+      // (common/eda_text.cpp:1391-1400), so a FIELD is the only schematic item
+      // that shows it — a label or a text box does not.
+      kind: 'bool',
+      value: !fx?.hidden,
+      set: (v) => setEffects('Show Field', { hidden: !v }),
+    },
+    {
+      group: 'Text Properties',
+      name: 'Color',
+      // `PGPROPERTY_COLOR4D` (sch_properties_panel.cpp:472-476), a COLOR_SWATCH
+      // that opens DIALOG_COLOR_PICKER -- not a cell you type a colour into.
+      kind: 'color',
+      value: colorCss,
+      set: (v) => {
+        const css = String(v).trim();
+        if (css === '') return setEffects('Change Color', { color: undefined });
+        const parsed = parseColor4d(css);
+        return parsed.a <= 0
+          ? null
+          : setEffects('Change Color', {
+              color: [
+                Math.round(parsed.r * 255),
+                Math.round(parsed.g * 255),
+                Math.round(parsed.b * 255),
+                parsed.a,
+              ] as const,
+            });
+      },
+    },
+    {
+      group: 'Text Properties',
+      name: 'Horizontal Justification',
+      kind: 'choice',
+      choices: H_JUSTIFY_LABELS,
+      // `GetEffectiveHorizJustify` swaps Left and Right when the parent
+      // symbol's transform flips the field (sch_field.cpp:543-551); that flip
+      // lives in our renderer, so the stored token is what the row reports.
+      value: H_JUSTIFY_LABELS[hIdx]!,
+      set: (v) => {
+        const i = (H_JUSTIFY_LABELS as readonly string[]).indexOf(String(v));
+        return i < 0
+          ? null
+          : setEffects('Change Horizontal Justification', {
+              justify: withJustify(fx, H_JUSTIFY_TOKENS, H_JUSTIFY_TOKENS[i]!),
+            });
+      },
+    },
+    {
+      group: 'Text Properties',
+      name: 'Vertical Justification',
+      kind: 'choice',
+      choices: V_JUSTIFY_LABELS,
+      value: V_JUSTIFY_LABELS[vIdx]!,
+      set: (v) => {
+        const i = (V_JUSTIFY_LABELS as readonly string[]).indexOf(String(v));
+        return i < 0
+          ? null
+          : setEffects('Change Vertical Justification', {
+              justify: withJustify(fx, V_JUSTIFY_TOKENS, V_JUSTIFY_TOKENS[i]!),
+            });
+      },
+    },
+    {
+      group: 'Text Properties',
+      name: 'Text Size',
+      // `PROPERTY_DISPLAY::PT_SIZE` (:1788): rendered as a distance in the
+      // frame's units, which is why his screenshot reads "50 mils".
+      kind: 'dist',
+      value: textSize,
+      set: (v) => {
+        const n = num(v);
+        // `SetSchTextSize` writes the one value to both axes.
+        return n === null || n <= 0 ? null : setEffects('Change Text Size', { fontSize: [n, n] });
+      },
     },
   ];
 }
@@ -537,6 +956,84 @@ function pinRows(sch: Schematic, libById: Map<string, LibSymbol>, id: string): P
     }
   }
   return [];
+}
+
+/**
+ * `EDA_ITEM::GetFriendlyName()` — the item's TYPE, which
+ * `PROPERTIES_PANEL::rebuildProperties` puts in the panel's caption when
+ * exactly one item is selected (properties_panel.cpp:201).
+ *
+ * The default (`EDA_ITEM::GetFriendlyName` -> `GetTypeDesc`) reads the string
+ * out of `ENUM_MAP<KICAD_T>` in `EDA_ITEM_DESC` (common/eda_item.cpp:474-495),
+ * which is why a shape is "Graphic" and a no-connect is "No-Connect Flag" and
+ * not what either class is called. The overrides are per-class:
+ * SCH_LINE picks by layer (sch_line.cpp), and the four label classes, SCH_FIELD,
+ * SCH_PIN, SCH_TEXT and SCH_SHEET_PIN each return a literal.
+ */
+export function schItemFriendlyName(sch: Schematic, ref: ItemRef): string {
+  const indexOf = <T>(arr: readonly T[], uuid: (t: T, i: number) => string): number => {
+    for (let i = 0; i < arr.length; i++) if (uuid(arr[i]!, i) === ref.id) return i;
+    return -1;
+  };
+  switch (ref.kind) {
+    case 'symbol':
+      return 'Symbol';
+    case 'field':
+      return 'Field';
+    case 'pin':
+      return 'Pin';
+    case 'sheet':
+      return 'Sheet';
+    case 'sheetpin':
+      return 'Sheet Pin';
+    case 'junction':
+      return 'Junction';
+    case 'noconnect':
+      return 'No-Connect Flag';
+    case 'image':
+      return 'Bitmap';
+    case 'textbox':
+      return 'Text Box';
+    case 'table':
+      return 'Table';
+    case 'tablecell':
+      return 'Table Cell';
+    case 'directive':
+      return 'Directive Label';
+    case 'busentry': {
+      // SCH_BUS_WIRE_ENTRY_T -> "Wire Entry", SCH_BUS_BUS_ENTRY_T -> "Bus
+      // Entry". We model both as one item, so the bus case is not
+      // distinguishable here and takes the wire name.
+      return 'Wire Entry';
+    }
+    case 'line': {
+      const i = indexOf(sch.lines, (t, k) => refId('line', t.uuid, k));
+      const kind = i < 0 ? undefined : sch.lines[i]!.kind;
+      return kind === 'wire' ? 'Wire' : kind === 'bus' ? 'Bus' : 'Graphic Line';
+    }
+    case 'label': {
+      const i = indexOf(sch.labels, (t, k) => refId('label', t.uuid, k));
+      switch (i < 0 ? undefined : sch.labels[i]!.kind) {
+        case 'global_label':
+          return 'Global Label';
+        case 'hierarchical_label':
+          return 'Hierarchical Label';
+        // SCH_TEXT, whose GetFriendlyName is _( "Text" ) (sch_text.h:57).
+        case 'text':
+          return 'Text';
+        default:
+          return 'Label';
+      }
+    }
+    case 'graphic': {
+      const i = indexOf(sch.graphics, (_t, k) => refId('graphic', undefined, k));
+      const g = i < 0 ? undefined : sch.graphics[i]!;
+      // A rule area is SCH_RULE_AREA, whose GetFriendlyName overrides
+      // "Graphic" (sch_rule_area.cpp:63).
+      if (g && g.kind === 'rectangle' && g.ruleArea) return 'Rule Area';
+      return g?.kind === 'text' ? 'Text' : 'Graphic';
+    }
+  }
 }
 
 export function schPropertiesFor(
@@ -711,23 +1208,21 @@ export function schPropertiesFor(
       const i = indexOf(sch.sheets, (t, k) => refId('sheet', t.uuid, k));
       if (i < 0) return [];
       const sh = sch.sheets[i]!;
-      const fieldVal = (key: string): string => sh.fields.find((f) => f.key === key)?.value ?? '';
       return [
         ...positionRows(refId('sheet', sh.uuid, i), sh.at),
-        {
-          group: 'Fields',
-          name: 'Sheetname',
-          kind: 'string',
-          value: fieldVal('Sheetname'),
-          set: (v) =>
-            replaceSheet(i, {
-              ...sh,
-              fields: sh.fields.map((f) =>
-                f.key === 'Sheetname' ? { ...f, value: String(v) } : f,
-              ),
-            }),
-        },
-        { group: 'Fields', name: 'Sheetfile', kind: 'string', value: fieldVal('Sheetfile') },
+        // The SCH_SHEET_T arm of `SCH_PROPERTIES_PANEL::rebuildProperties`
+        // (sch_properties_panel.cpp:426-433): every non-private field of the
+        // sheet becomes a SCH_SHEET_FIELD_PROPERTY in the "Fields" group.
+        // SCH_SHEET_DESC (sch_sheet.cpp:2122-2173) declares no "Fields" group
+        // of its own, so EVERY row here is one of these — including the two
+        // mandatory ones, whose canonical names are "Sheetname" and
+        // "Sheetfile". The names come out of a `std::set<wxString>`, so they
+        // are alphabetical: Sheetfile before Sheetname, and a user field
+        // sorts in among them rather than after them.
+        //
+        // Both are writeable: SCH_SHEET_FIELD_PROPERTY has a real setter
+        // (:145-171) and SCH_SHEET_DESC declares no NO_SETTER row.
+        ...sheetFieldRows(sh, i),
       ];
     }
     // SCH_TABLE's registered properties: the border and separator toggles, and

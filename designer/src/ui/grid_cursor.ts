@@ -43,6 +43,32 @@ export type GridStyle = 'dots' | 'lines' | 'crosses';
 export type CrosshairMode = 'small' | 'full' | '45';
 
 /**
+ * The three radio buttons `PANEL_GAL_OPTIONS` offers for that enum, in its
+ * order, with its labels verbatim
+ * (common/dialogs/panel_gal_options_base.cpp:102-108, read back off the
+ * running Preferences dialog).
+ *
+ * Here rather than in a panel because the panel is shared upstream: one
+ * `PANEL_GAL_OPTIONS` is embedded by eeschema, pcbnew, the symbol and footprint
+ * editors, gerbview and pl_editor, so the labels have exactly one home. Note
+ * the third: "45 degree crosshairs", spelled out — not a degree sign, and not
+ * "full window".
+ */
+export const CROSSHAIR_MODE_CHOICES: readonly (readonly [CrosshairMode, string])[] = [
+  ['small', 'Small crosshairs'],
+  ['full', 'Full window crosshairs'],
+  ['45', '45 degree crosshairs'],
+];
+
+/**
+ * `m_checkBoxCursorFullscreen`'s neighbour, the separate checkbox
+ * (panel_gal_options_base.cpp:114). It is NOT part of the shape radio, and
+ * running the two together into one checkbox — as the Drawing Sheet Editor's
+ * Preferences once did — makes the 45-degree mode unreachable.
+ */
+export const ALWAYS_SHOW_CROSSHAIRS_LABEL = 'Always show crosshairs';
+
+/**
  * `GAL::SetCoarseGrid( 10 )` from the GAL constructor
  * (`graphics_abstraction_layer.cpp:76`): every tenth line/dot/cross is drawn at
  * double width, and it is also the factor the spacing steps up by when the grid

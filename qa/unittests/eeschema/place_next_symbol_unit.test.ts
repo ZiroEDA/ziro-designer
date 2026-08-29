@@ -172,15 +172,23 @@ describe('the symbol the placement carries', () => {
       y: plan.symbol.fields[0]!.at!.y + dy,
     });
 
-    // R turns the copy about its own position, so `SCH_SYMBOL::Rotate`'s move
-    // vector for the fields is zero (sch_symbol.cpp:2837) — the body turns and
-    // the fields hold their offset. This used to assert the opposite, that the
-    // fields orbit the anchor, which threw the reference to a different side of
-    // the symbol on every press before it was even placed.
+    // R turns the copy about its own position. `SCH_SYMBOL::Rotate`'s explicit
+    // field loop is therefore a no-op (sch_symbol.cpp:2837), but the field still
+    // swings round the body: its stored position is symbol-local and the drawn
+    // one is that mapped through the new transform (SCH_FIELD::GetPosition,
+    // sch_field.cpp:1425-1438). Measured in KiCad 10.0.5: a diode's reference
+    // 2.54 mm above the body sits 2.54 mm to its left after one R.
+    //
+    // Here the offset is (+25400, -12700), and CCW in +Y-down screen space is
+    // (x, y) -> (y, -x), so it becomes (-12700, -25400).
     const turned = transformSymbol(moved, 'rotateCCW', moved.at);
     expect(turned.at).toEqual(at);
     expect(turned.angle).toBe(90);
-    expect(turned.fields[0]!.at).toEqual(moved.fields[0]!.at);
+    expect(turned.fields[0]!.at).toEqual({
+      x: at.x + (moved.fields[0]!.at!.y - at.y),
+      y: at.y - (moved.fields[0]!.at!.x - at.x),
+    });
+    expect(turned.fields[0]!.at).toEqual({ x: mmToIU(49.53), y: mmToIU(35.56) });
   });
 
   it('is added undoably, leaving the original untouched', () => {

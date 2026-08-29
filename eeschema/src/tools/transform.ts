@@ -15,8 +15,9 @@
  *    (for a wire) the endpoint that is not selected. With more than one it is
  *    `GetNearestHalfGridPosition( selection.GetCenter() )`. See `transformCenter`;
  *  - **what each type does** with that point differs. Most move every geometric
- *    point that defines them; a symbol advances its orientation instead and
- *    translates its fields by its own delta; a label turns in place when it is
+ *    point that defines them; a symbol advances its orientation instead, which
+ *    carries its fields round with it because their stored position is read
+ *    back through that orientation; a label turns in place when it is
  *    alone and moves as well when it is not; a sheet turns its size vector; a
  *    table turns its cells and re-lays itself out; a table's mirror is
  *    deliberately nothing at all.
@@ -47,6 +48,7 @@ import type {
   Vec2,
 } from '../types.js';
 import { rotateOrientation, mirrorOrientation } from '@ziroeda/common/src/transform.js';
+import { reanchorFields } from '../fieldbox.js';
 import { nearestHalfGridPosition } from '@ziroeda/common/src/eda_draw_frame.js';
 import { CalcArcCenter } from '@ziroeda/kimath/src/trigo.js';
 import { fieldId, refId, sheetPinId } from './hittest.js';
@@ -54,7 +56,14 @@ import { alignBoxes, type ItemBox } from './sch_align_tool.js';
 import { normalizeTable } from './table_layout.js';
 import { angleOfSide, constrainOnEdge, sideOfAngle, type SheetEdge } from './sch_sheet_pin_tool.js';
 import { hasCellSelection, promoteCellSelection } from './table_cells.js';
-import type { EditCommand } from './command.js';
+import {
+  autoplacedFields,
+  type AutoplaceOptions,
+  type AutoplaceSheet,
+} from './autoplace_fields.js';
+import { schSymbolLibraryName } from '../lib_symbol_compare.js';
+import type { BBox } from './bbox.js';
+import { composeCommands, type EditCommand } from './command.js';
 
 /**
  * The schematic's default grid step, 50 mil — what `GetNearestHalfGridPosition`
@@ -99,7 +108,13 @@ function movePoint(p: Vec2, op: TransformOp, center: Vec2): Vec2 {
  * X / Y during that placement must spin the copy's fields with it rather than
  * reset it to a library-default orientation.
  */
-export function transformSymbol(s: SchSymbol, op: TransformOp, center: Vec2): SchSymbol {
+export function transformSymbol(
+  s: SchSymbol,
+  op: TransformOp,
+  center: Vec2,
+  /** `selection.GetSize() == 1`: the single-item arm of the upstream switch. */
+  single = false,
+): SchSymbol {
   const at = movePoint(s.at, op, center);
   const orient =
     op === 'rotateCW'
@@ -113,19 +128,33 @@ export function transformSymbol(s: SchSymbol, op: TransformOp, center: Vec2): Sc
   // `SCH_SYMBOL::Rotate` (sch_symbol.cpp:2837), `::MirrorHorizontally` (:2801) and
   // `::MirrorVertically` (:2819) all transform `m_pos` alone and then *translate*
   // each field by the symbol's own delta ("move the fields to the new position
-  // because the symbol itself has moved"). The fields do not orbit the centre.
+  // because the symbol itself has moved"). Read on its own that says the fields
+  // never orbit anything — and that reading is what put a rotated symbol's
+  // reference on top of its body.
   //
-  // The consequence upstream intends: rotating a single symbol turns it about its
-  // own position, so the delta is zero and the fields do not move at all — the
-  // reference stays on the side of the body the user put it on, turn after turn.
-  const dx = at.x - s.at.x;
-  const dy = at.y - s.at.y;
-  const fields =
-    dx === 0 && dy === 0
-      ? s.fields
-      : s.fields.map((f: SchField) =>
-          f.at ? { ...f, at: { x: f.at.x + dx, y: f.at.y + dy } } : f,
-        );
+  // What it misses is that the position those three lines translate is
+  // `GetTextPos()`, which for a symbol's field is **symbol-local and
+  // un-transformed**. The position that gets drawn (and written to file) is
+  // `SCH_FIELD::GetPosition()`, sch_field.cpp:1425-1438:
+  //
+  //     relativePos = GetTextPos() - parentSymbol->GetPosition();
+  //     relativePos = parentSymbol->GetTransform().TransformCoordinate( relativePos );
+  //     return relativePos + parentSymbol->GetPosition();
+  //
+  // so changing `m_transform` moves every field implicitly, without any code
+  // touching them. `SCH_FIELD::SetPosition` (:1405-1422) is the inverse, and
+  // `saveField` writes `GetPosition()` (sch_io_kicad_sexpr.cpp:1016-1019) —
+  // which is why our model, and `fieldBoundingBox`, hold the transformed one.
+  //
+  // Holding the transformed position means we have to do explicitly what
+  // upstream gets for free — `reanchorFields`. Measured against KiCad 10.0.5 on
+  // a diode at (63.5, 63.5) with its reference at (63.5, 60.96) and no
+  // `fields_autoplaced`: after R the file it writes reads
+  // `(at 63.5 63.5 90)` / `(at 60.96 63.5 0)` — offset (0, -2.54) turned to
+  // (-2.54, 0), exactly this composition. The translation of the symbol itself
+  // falls out of the same expression, so it also covers the multi-item arm where
+  // the symbol orbits a distant centre.
+  const fields = reanchorFields(s.fields, s, { ...orient, at });
   const next: { -readonly [K in keyof SchSymbol]: SchSymbol[K] } = {
     ...s,
     at,
@@ -134,7 +163,118 @@ export function transformSymbol(s: SchSymbol, op: TransformOp, center: Vec2): Sc
   };
   if (orient.mirror) next.mirror = orient.mirror;
   else delete next.mirror;
+  // The single-item mirror is the one arm that clears the flag
+  // (sch_edit_tool.cpp:1323-1331):
+  //
+  //     if( vertical ) symbol->SetOrientation( SYM_MIRROR_X );
+  //     else           symbol->SetOrientation( SYM_MIRROR_Y );
+  //     symbol->SetFieldsAutoplaced( AUTOPLACE_NONE );
+  //
+  // so a mirror never re-autoplaces, and it stops any *later* rotate from
+  // autoplacing either. Rotate leaves the flag alone; the multi-item arms of
+  // both tools go through `SCH_SYMBOL::Rotate` / `::MirrorHorizontally`, which
+  // touch neither the flag nor the field angles.
+  if (single && (op === 'mirrorX' || op === 'mirrorY')) delete next.fieldsAutoplaced;
   return next;
+}
+
+/**
+ * What `SCH_EDIT_TOOL::Rotate` needs to re-run the autoplacer on the symbol it
+ * just turned (sch_edit_tool.cpp:1022-1029).
+ *
+ * Without this the fields stay exactly where they were — which is what
+ * `SCH_SYMBOL::Rotate` does on its own, and correct as far as it goes — but
+ * their *drawn* angle flips, because `SCH_FIELD::GetDrawRotation`
+ * (sch_field.cpp:446-465) turns a horizontal field vertical whenever the parent
+ * symbol's transform has `y1 != 0`. The autoplacer is what puts it back: it
+ * stores `ANGLE_VERTICAL` for a 90°/270° symbol precisely "to counteract the
+ * transform and produce horizontal display" (autoplace_fields.cpp:119-121). So
+ * the reference reading vertically up the side of a rotated symbol is not a
+ * rotate bug at all — it is this step not running.
+ */
+export interface TransformAutoplace {
+  /** `m_frame->eeconfig()->m_AutoplaceFields.enable`. */
+  readonly enable: boolean;
+  readonly libById: Map<string, LibSymbol>;
+  readonly opts: AutoplaceOptions;
+  /** `getDrawableArea()`, when the caller knows it. */
+  readonly drawableArea?: BBox;
+}
+
+/**
+ * The `if( … m_AutoplaceFields.enable )` block, run against the document the
+ * transform has already produced — upstream calls it after `symbol->Rotate()`,
+ * so the autoplacer sees the new orientation and the new position.
+ *
+ * The flag test is upstream's and it is not redundant: a symbol whose fields
+ * the user dragged into place has `AUTOPLACE_NONE` and must keep them.
+ */
+function autoplaceAfterRotate(
+  doc: Schematic,
+  ids: ReadonlySet<string>,
+  op: TransformOp,
+  single: string | undefined,
+  autoplace: TransformAutoplace | undefined,
+): Schematic {
+  if (!autoplace?.enable || single === undefined) return doc;
+  if (op !== 'rotateCW' && op !== 'rotateCCW') return doc;
+  const sheet: AutoplaceSheet = {
+    doc,
+    libById: autoplace.libById,
+    ...(autoplace.drawableArea ? { drawableArea: autoplace.drawableArea } : {}),
+  };
+  let changed = false;
+  const symbols = doc.symbols.map((s, i) => {
+    if (!ids.has(refId('symbol', s.uuid, i))) return s;
+    // AUTOPLACE_NONE: the fields are the user's, so they stay put.
+    if (s.fieldsAutoplaced === undefined) return s;
+    changed = true;
+    return {
+      ...s,
+      fields: autoplacedFields(
+        s,
+        autoplace.libById.get(schSymbolLibraryName(s)),
+        autoplace.opts,
+        sheet,
+      ),
+    };
+  });
+  return changed ? { ...doc, symbols } : doc;
+}
+
+/**
+ * Put the transformed symbols' fields — and their autoplace flag — back exactly
+ * as `before` had them.
+ *
+ * The autoplacer is not invertible: asking it where the fields go for the old
+ * orientation is not the same question as "where were they". Undo has to answer
+ * the second one, so the inverse transform is followed by this.
+ */
+function restoreSymbolFields(before: Schematic, ids: ReadonlySet<string>): EditCommand | null {
+  const saved = new Map<string, SchSymbol>();
+  before.symbols.forEach((s, i) => {
+    const id = refId('symbol', s.uuid, i);
+    if (ids.has(id)) saved.set(id, s);
+  });
+  if (saved.size === 0) return null;
+  return {
+    label: 'Autoplace Fields',
+    apply: (doc: Schematic): Schematic => ({
+      ...doc,
+      symbols: doc.symbols.map((s, i) => {
+        const was = saved.get(refId('symbol', s.uuid, i));
+        if (!was) return s;
+        const next: { -readonly [K in keyof SchSymbol]: SchSymbol[K] } = {
+          ...s,
+          fields: was.fields,
+        };
+        if (was.fieldsAutoplaced) next.fieldsAutoplaced = was.fieldsAutoplaced;
+        else delete next.fieldsAutoplaced;
+        return next;
+      }),
+    }),
+    invert: () => restoreSymbolFields(before, ids) as EditCommand,
+  };
 }
 
 /**
@@ -823,6 +963,8 @@ export function transformItems(
   op: TransformOp,
   center?: Vec2,
   grid: number = DEFAULT_GRID_IU,
+  /** What the rotate arm needs to re-place an autoplaced symbol's fields. */
+  autoplace?: TransformAutoplace,
 ): EditCommand {
   // sch_edit_tool's rotatable/mirrorable type list is annotated
   // "will be promoted to parent table(s)". A cell cannot leave its table, so a
@@ -841,128 +983,138 @@ export function transformItems(
       // has to be derived; undo and redo replay a centre that is already known.
       const c = center ?? transformCenter(doc, op, boxesOf(doc, ids), single, grid);
       const snapHalf = (p: Vec2): Vec2 => nearestHalfGridPosition(p, grid);
-      return {
-        ...doc,
-        symbols: doc.symbols.map((s, i) => {
-          const id = refId('symbol', s.uuid, i);
-          const turned = ids.has(id) ? transformSymbol(s, op, c) : s;
-          // A field selected on its own is an item in its own right, and
-          // upstream skips it when its parent is selected too ("parent will
-          // rotate us").
-          if (ids.has(id)) return turned;
-          const fields = turned.fields.map((f, k) =>
-            ids.has(fieldId(id, k)) ? transformField(f, op) : f,
-          );
-          return fields.some((f, k) => f !== turned.fields[k]) ? { ...turned, fields } : turned;
-        }),
-        // Alone, a label turns where it stands (`Rotate90` / `MirrorSpinStyle`,
-        // the SCH_TEXT_T … SCH_DIRECTIVE_LABEL_T arm of the single-item
-        // switch). In a group it goes through `item->Rotate( rotPoint, … )`
-        // instead, which moves it as well — and it never did.
-        labels: doc.labels.map((l, i) =>
-          ids.has(refId('label', l.uuid, i))
-            ? single !== undefined
-              ? transformTextItem(l, op)
-              : transformLabelAbout(l, op, c)
-            : l,
-        ),
-        directiveLabels: doc.directiveLabels?.map((d, i) =>
-          ids.has(refId('directive', d.uuid, i))
-            ? single !== undefined
-              ? transformDirectiveLabel(d, op)
-              : transformDirectiveLabelAbout(d, op, c)
-            : d,
-        ),
-        // The geometric kinds share one rule: move every point that defines
-        // them (`head->Rotate( rotPoint, !clockwise )` and its mirror pair).
-        lines: doc.lines.map((l, i) =>
-          ids.has(refId('line', l.uuid, i))
-            ? { ...l, start: movePoint(l.start, op, c), end: movePoint(l.end, op, c) }
-            : l,
-        ),
-        junctions: doc.junctions.map((j, i) =>
-          ids.has(refId('junction', j.uuid, i)) ? { ...j, at: movePoint(j.at, op, c) } : j,
-        ),
-        noConnects: doc.noConnects.map((n, i) =>
-          ids.has(refId('noconnect', n.uuid, i)) ? { ...n, at: movePoint(n.at, op, c) } : n,
-        ),
-        // A bus entry is an anchor plus a signed extent, and the extent is the
-        // stub's direction — so both ends move and the size is re-derived,
-        // rather than the anchor moving and the stub still pointing its old way.
-        busEntries: doc.busEntries.map((b, i) => {
-          if (!ids.has(refId('busentry', b.uuid, i))) return b;
-          const at = movePoint(b.at, op, c);
-          const far = movePoint({ x: b.at.x + b.size.x, y: b.at.y + b.size.y }, op, c);
-          return { ...b, at, size: { x: far.x - at.x, y: far.y - at.y } };
-        }),
-        textBoxes: doc.textBoxes.map((t, i) => {
-          if (!ids.has(refId('textbox', t.uuid, i))) return t;
-          const a = movePoint(t.start, op, c);
-          const b = movePoint(t.end, op, c);
-          // The corners may swap under a rotation or mirror; start is top-left.
-          const start = { x: Math.min(a.x, b.x), y: Math.min(a.y, b.y) };
-          const end = { x: Math.max(a.x, b.x), y: Math.max(a.y, b.y) };
-          const angle = op.startsWith('rotate') ? (t.angle === 90 ? 0 : 90) : t.angle;
-          // `SCH_TEXTBOX::MirrorHorizontally` / `::MirrorVertically`
-          // (sch_textbox.cpp:109/124) mirror the shape and then note that "text is
-          // NOT really mirrored; it just has its justification flipped" — but only
-          // when the text reads *along* the mirror axis: H flips a horizontal box,
-          // V flips a vertical one. Until now the corners moved and the text stayed
-          // hard against the same edge, so a left-justified box mirrored into a box
-          // whose text sat on the wrong side of it.
-          const flipsText = op === 'mirrorY' ? t.angle === 0 : op === 'mirrorX' && t.angle === 90;
-          const box = { ...t, start, end, angle };
-          return flipsText ? flipEffectsHJustify(box) : box;
-        }),
-        graphics: doc.graphics.map((g, i) =>
-          ids.has(refId('graphic', undefined, i)) ? transformGraphic(g, op, c) : g,
-        ),
-        // A sheet, an image and a table were all selectable and all silently
-        // ignored: R, X and Y did nothing whatever to them.
-        sheets: doc.sheets.map((sh, i) => {
-          const id = refId('sheet', sh.uuid, i);
-          if (ids.has(id)) return transformSheet(sh, op, c);
-          // A sheet pin selected without its parent turns within the sheet,
-          // about the sheet's own body centre rather than about the selection
-          // ("rotate within parent", sch_edit_tool.cpp:1200 / :1425).
-          const own = sheetBodyCenter(sh);
-          const pins = sh.pins.map((p, k) =>
-            ids.has(sheetPinId(id, k)) ? transformSheetPin(p, sh, op, own) : p,
-          );
-          return pins.some((p, k) => p !== sh.pins[k]) ? { ...sh, pins } : sh;
-        }),
-        images: doc.images.map((im, i) =>
-          ids.has(refId('image', im.uuid, i))
-            ? // `head->Rotate( rotPoint, clockwise )` — the one type in the
-              // single-item switch whose direction is *not* negated
-              // (sch_edit_tool.cpp:1140).
-              transformImage(im, single !== undefined ? INVERSE[op] : op, c)
-            : im,
-        ),
-        tables: doc.tables.map((t, i) =>
-          ids.has(refId('table', t.uuid, i))
-            ? transformTable(t, op, c, (before, after) =>
-                single !== undefined
-                  ? { x: c.x - snapHalf(after).x, y: c.y - snapHalf(after).y }
-                  : (() => {
-                      const want = movePoint(before, op, c);
-                      return { x: want.x - after.x, y: want.y - after.y };
-                    })(),
-              )
-            : t,
-        ),
-      };
+      // `symbol->Rotate()` first, then the autoplace block — upstream's order,
+      // so the autoplacer sees the orientation the rotate just set.
+      const transformed = ((): Schematic => {
+        return {
+          ...doc,
+          symbols: doc.symbols.map((s, i) => {
+            const id = refId('symbol', s.uuid, i);
+            const turned = ids.has(id) ? transformSymbol(s, op, c, single !== undefined) : s;
+            // A field selected on its own is an item in its own right, and
+            // upstream skips it when its parent is selected too ("parent will
+            // rotate us").
+            if (ids.has(id)) return turned;
+            const fields = turned.fields.map((f, k) =>
+              ids.has(fieldId(id, k)) ? transformField(f, op) : f,
+            );
+            return fields.some((f, k) => f !== turned.fields[k]) ? { ...turned, fields } : turned;
+          }),
+          // Alone, a label turns where it stands (`Rotate90` / `MirrorSpinStyle`,
+          // the SCH_TEXT_T … SCH_DIRECTIVE_LABEL_T arm of the single-item
+          // switch). In a group it goes through `item->Rotate( rotPoint, … )`
+          // instead, which moves it as well — and it never did.
+          labels: doc.labels.map((l, i) =>
+            ids.has(refId('label', l.uuid, i))
+              ? single !== undefined
+                ? transformTextItem(l, op)
+                : transformLabelAbout(l, op, c)
+              : l,
+          ),
+          directiveLabels: doc.directiveLabels?.map((d, i) =>
+            ids.has(refId('directive', d.uuid, i))
+              ? single !== undefined
+                ? transformDirectiveLabel(d, op)
+                : transformDirectiveLabelAbout(d, op, c)
+              : d,
+          ),
+          // The geometric kinds share one rule: move every point that defines
+          // them (`head->Rotate( rotPoint, !clockwise )` and its mirror pair).
+          lines: doc.lines.map((l, i) =>
+            ids.has(refId('line', l.uuid, i))
+              ? { ...l, start: movePoint(l.start, op, c), end: movePoint(l.end, op, c) }
+              : l,
+          ),
+          junctions: doc.junctions.map((j, i) =>
+            ids.has(refId('junction', j.uuid, i)) ? { ...j, at: movePoint(j.at, op, c) } : j,
+          ),
+          noConnects: doc.noConnects.map((n, i) =>
+            ids.has(refId('noconnect', n.uuid, i)) ? { ...n, at: movePoint(n.at, op, c) } : n,
+          ),
+          // A bus entry is an anchor plus a signed extent, and the extent is the
+          // stub's direction — so both ends move and the size is re-derived,
+          // rather than the anchor moving and the stub still pointing its old way.
+          busEntries: doc.busEntries.map((b, i) => {
+            if (!ids.has(refId('busentry', b.uuid, i))) return b;
+            const at = movePoint(b.at, op, c);
+            const far = movePoint({ x: b.at.x + b.size.x, y: b.at.y + b.size.y }, op, c);
+            return { ...b, at, size: { x: far.x - at.x, y: far.y - at.y } };
+          }),
+          textBoxes: doc.textBoxes.map((t, i) => {
+            if (!ids.has(refId('textbox', t.uuid, i))) return t;
+            const a = movePoint(t.start, op, c);
+            const b = movePoint(t.end, op, c);
+            // The corners may swap under a rotation or mirror; start is top-left.
+            const start = { x: Math.min(a.x, b.x), y: Math.min(a.y, b.y) };
+            const end = { x: Math.max(a.x, b.x), y: Math.max(a.y, b.y) };
+            const angle = op.startsWith('rotate') ? (t.angle === 90 ? 0 : 90) : t.angle;
+            // `SCH_TEXTBOX::MirrorHorizontally` / `::MirrorVertically`
+            // (sch_textbox.cpp:109/124) mirror the shape and then note that "text is
+            // NOT really mirrored; it just has its justification flipped" — but only
+            // when the text reads *along* the mirror axis: H flips a horizontal box,
+            // V flips a vertical one. Until now the corners moved and the text stayed
+            // hard against the same edge, so a left-justified box mirrored into a box
+            // whose text sat on the wrong side of it.
+            const flipsText = op === 'mirrorY' ? t.angle === 0 : op === 'mirrorX' && t.angle === 90;
+            const box = { ...t, start, end, angle };
+            return flipsText ? flipEffectsHJustify(box) : box;
+          }),
+          graphics: doc.graphics.map((g, i) =>
+            ids.has(refId('graphic', undefined, i)) ? transformGraphic(g, op, c) : g,
+          ),
+          // A sheet, an image and a table were all selectable and all silently
+          // ignored: R, X and Y did nothing whatever to them.
+          sheets: doc.sheets.map((sh, i) => {
+            const id = refId('sheet', sh.uuid, i);
+            if (ids.has(id)) return transformSheet(sh, op, c);
+            // A sheet pin selected without its parent turns within the sheet,
+            // about the sheet's own body centre rather than about the selection
+            // ("rotate within parent", sch_edit_tool.cpp:1200 / :1425).
+            const own = sheetBodyCenter(sh);
+            const pins = sh.pins.map((p, k) =>
+              ids.has(sheetPinId(id, k)) ? transformSheetPin(p, sh, op, own) : p,
+            );
+            return pins.some((p, k) => p !== sh.pins[k]) ? { ...sh, pins } : sh;
+          }),
+          images: doc.images.map((im, i) =>
+            ids.has(refId('image', im.uuid, i))
+              ? // `head->Rotate( rotPoint, clockwise )` — the one type in the
+                // single-item switch whose direction is *not* negated
+                // (sch_edit_tool.cpp:1140).
+                transformImage(im, single !== undefined ? INVERSE[op] : op, c)
+              : im,
+          ),
+          tables: doc.tables.map((t, i) =>
+            ids.has(refId('table', t.uuid, i))
+              ? transformTable(t, op, c, (before, after) =>
+                  single !== undefined
+                    ? { x: c.x - snapHalf(after).x, y: c.y - snapHalf(after).y }
+                    : (() => {
+                        const want = movePoint(before, op, c);
+                        return { x: want.x - after.x, y: want.y - after.y };
+                      })(),
+                )
+              : t,
+          ),
+        };
+      })();
+      return autoplaceAfterRotate(transformed, ids, op, single, autoplace);
     },
     invert(before: Schematic): EditCommand {
-      // Reuse the same center so the inverse exactly retraces the positions.
-      if (center) return transformItems(ids, INVERSE[op], center, grid);
       const single = ids.size === 1 ? [...ids][0] : undefined;
-      return transformItems(
+      // Reuse the same center so the inverse exactly retraces the positions.
+      const back = transformItems(
         ids,
         INVERSE[op],
-        transformCenter(before, op, boxesOf(before, ids), single, grid),
+        center ?? transformCenter(before, op, boxesOf(before, ids), single, grid),
         grid,
       );
+      // The single-item arms rewrite the fields and the autoplace flag by rules
+      // that do not invert — the autoplacer is not a function of the new
+      // orientation alone, and clearing a flag has no opposite — so undo puts
+      // both back from the document as it was.
+      const fields = single !== undefined ? restoreSymbolFields(before, ids) : null;
+      return fields ? composeCommands(back.label, [back, fields]) : back;
     },
   };
 }

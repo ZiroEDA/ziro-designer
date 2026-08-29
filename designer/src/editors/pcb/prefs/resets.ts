@@ -10,6 +10,7 @@
 import { PCBNEW_DEFAULTS } from '../../../prefs/settings.js';
 import { resetKeys } from '../../../dialogs/prefs/reset.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
+import { resetToolbarsPanel } from '../../../dialogs/prefs/toolbar_reset.js';
 
 /**
  * `PANEL_DISPLAY_OPTIONS::ResetPanel` (`pcbnew/dialogs/panel_display_options.cpp`)
@@ -24,5 +25,18 @@ import type { PrefsContext } from '../../../dialogs/prefs/types.js';
 export function resetPcbDisplayOptions(ctx: PrefsContext): void {
   ctx.upP((s) => {
     resetKeys(s, PCBNEW_DEFAULTS, ['cross_probing']);
+  });
+}
+
+/**
+ * `PANEL_TOOLBAR_CUSTOMIZATION::ResetPanel`
+ * (`common/dialogs/panel_toolbar_customization.cpp:243-267`) over this app's
+ * toolbars, through the shared implementation. It does not touch
+ * `appearance.custom_toolbars`: upstream's ResetPanel refills `m_toolbars` and
+ * leaves `m_CustomToolbars` exactly as the user left it.
+ */
+export function resetPcbToolbars(ctx: PrefsContext): void {
+  ctx.upTb('pcbnew', (s) => {
+    resetToolbarsPanel(s);
   });
 }

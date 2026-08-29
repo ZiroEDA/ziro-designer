@@ -39,7 +39,9 @@ import {
   setAttribute,
   alignItems,
   alignToGridCommand,
+  autoplaceAfterFieldEdit,
   autoplaceFields,
+  autoplacePlacedSymbol,
   autoplaceSheetFields,
   ALIGN_LABELS,
   type AlignMode,
@@ -108,6 +110,16 @@ import {
   clickTarget,
   defaultSelectionFilter,
   type SelectionFilterOptions,
+  // SCH_SELECTION_TOOL::RequestSelection's aScanTypes tables: what each command
+  // will pick up from under the cursor, and what it trims a selection down to.
+  AnyItems,
+  AttributeItems,
+  DeletableItems,
+  MovableItems,
+  RotatableItems,
+  SheetItems,
+  SymbolItems,
+  type ScanTypes,
   getSelectedItemsAsText,
   type PasteMode,
   type PasteOptions,
@@ -136,6 +148,7 @@ import {
   type ChangeSymbolsMessage,
   type ChangeSymbolsMode,
   type ChangeSymbolsOptions,
+  type SymbolMatch,
   annotationReport,
   checkAnnotation,
   clearAnnotationCommand,
@@ -211,7 +224,8 @@ import {
   hierarchicalLabelNames,
   deleteSheetPin,
   type SheetPinRef,
-  isMandatoryField,
+  fieldEditCaption,
+  fieldEditTarget,
   imagePPI,
   imagePixelSize,
   replaceTextBox,
@@ -244,6 +258,7 @@ import {
   describeItem,
   itemRefById,
   schPropertiesFor,
+  schItemFriendlyName,
   type PropRow,
   getMsgPanelItems,
   type MsgPanelItem,
@@ -277,6 +292,7 @@ import {
 import { SymbolLibraryBrowser } from './components/SymbolLibraryBrowser.js';
 import { loadFootprint, loadFootprintIndex } from '../../widgets/footprint_list.js';
 import { libraryUri, loadIndex, loadSymbol, symbolsBase } from './symbols/index.js';
+import { repairSourceLibs } from './symbols/repair_source.js';
 import { preloadSchematicLibraries } from './preload.js';
 import {
   projectSymbolLibraries,
@@ -293,15 +309,17 @@ import { Toolbar } from '../../ui/Toolbar.js';
 import { OpenFileDialog } from '../../fs/OpenFileDialog.js';
 import { SaveAsDialog } from '../../fs/SaveAsDialog.js';
 import { kicadSchematicWildcard } from '../../fs/wildcards.js';
-import {
-  TOP_TOOLBAR,
-  LEFT_TOOLBAR,
-  RIGHT_TOOLBAR,
-  RIGHT_TOOLBAR_COMMANDS,
-} from './toolbars_sch_editor.js';
+import { RIGHT_TOOLBAR_COMMANDS, SCH_DEFAULT_TOOLBARS } from './toolbars_sch_editor.js';
+import { useToolbarEntries } from '../../ui/useToolbarEntries.js';
 import { MenuBar, ContextMenu, type Menu, type MenuItem } from '../../ui/MenuBar.js';
 import { assembleMenu, type RankedItem } from '../../ui/menu_rank.js';
-import { isHoverSelection, rightClickSelection } from './hover_selection.js';
+import {
+  clearHoverSelection,
+  isHoverSelection,
+  requestSelection,
+  rightClickSelection,
+  type HoverSelection,
+} from './hover_selection.js';
 import { buildMenus } from './menubar.js';
 import { CONFIRMATION_CAPTION, revertPromptMessage, savedFileMessage } from './files_io.js';
 import { MessageDialogYesNo } from '../../ui/dialog_message.js';
@@ -318,7 +336,7 @@ import {
   parentPath,
   type SheetRef,
 } from './sch_navigate_tool.js';
-import { DialogSchematicFind } from './dialogs/dialog_schematic_find.js';
+import { DialogSchFind } from '../../widgets/dialog_sch_find.js';
 import {
   DialogIncrementAnnotations,
   type IncrementAnnotationsResult,
@@ -327,7 +345,7 @@ import {
   DialogGlobalEditTextAndGraphics,
   type GlobalEditResult,
 } from './dialogs/dialog_global_edit_text_and_graphics.js';
-import { DialogChangeSymbols } from './dialogs/dialog_change_symbols.js';
+import { DialogChangeSymbols, type ChangeSymbolsSubject } from './dialogs/dialog_change_symbols.js';
 import { DialogEditSymbolsLibId } from './dialogs/dialog_edit_symbols_libid.js';
 import { DialogResolveFieldCaseConflicts } from './dialogs/dialog_resolve_field_case_conflicts.js';
 import { DialogAnnotate, type AnnotateRun } from './dialogs/dialog_annotate.js';
@@ -357,7 +375,12 @@ import {
   DialogCreateNetChain,
   type CreateChainFocusHint,
 } from './dialogs/dialog_create_net_chain.js';
-import { findProjectPro, readSchematicSetup, writeSchematicSetupText } from './project_settings.js';
+import {
+  findProjectPro,
+  readSchematicSetup,
+  writeEquivalenceFilesText,
+  writeSchematicSetupText,
+} from './project_settings.js';
 import {
   IU_PER_MILS,
   hopOverArcRadiusIU,
@@ -417,6 +440,8 @@ import type { ProgressSnapshot } from '../../ui/progress_reporter.js';
 import { PreferencesDialog } from '../../dialogs/PreferencesDialog.js';
 import type { PrefsPageId } from '../../dialogs/prefs/types.js';
 import { settings, gridSizeToIU } from '../../prefs/settings.js';
+import { gridChoiceLabel, gridFeedback } from '../../ui/grid_settings.js';
+import { useHotkeyCyclePopup } from '../../widgets/HotkeyCyclePopup.js';
 import {
   useCommonSettings,
   useEeschemaSettings,
@@ -450,9 +475,12 @@ import { formatTitle, useDocumentTitle } from '../../ui/useDocumentTitle.js';
 import { fileBaseName, pathHumanReadable, SCH_FRAME_NAME, schFrameTitle } from './frame_title.js';
 import {
   SCH_BOTTOM_DOCK,
-  SCH_LEFT_GROW_PANES,
-  SCH_LEFT_PANE_ORDER,
+  SCH_LEFT_PANE_ADD_ORDER,
+  schDockPosFrom,
+  schLeftDockLayout,
+  schPaneGrows,
   schSelectionFilterShown,
+  type SchDockPos,
   type SchLeftPane,
 } from './panes.js';
 import { SelectionFilterPanel } from '../../ui/SelectionFilterPanel.js';
@@ -872,6 +900,21 @@ export function SchematicEditor({
   const setPlaceLib = useCallback((lib: LibSymbol | null) => {
     setPlaceLibOnly(lib);
     setPlaceInstance(null);
+    // `addSymbol`'s first line, when the symbol goes ON the cursor:
+    //
+    //     m_toolMgr->RunAction( ACTIONS::selectionClear );
+    //     m_selectionTool->AddItemToSel( aSymbol );
+    //
+    // This is NOT what unhighlights the previous symbol when you open the
+    // chooser — the click branch already cleared it before the dialog went up
+    // (see `chooserOpen` below), so by the time a pick gets here there is
+    // nothing left to clear. It is the operative one on the paths that attach
+    // a symbol WITHOUT a chooser: Place Next Symbol Unit, and the repeated
+    // copies of "Place all units" / KeepSymbol.
+    //
+    // Only on attach: `setPlaceLib( null )` is the abandon path, and Escape's
+    // own cleanup() clears the selection there.
+    if (lib) setSelection(new Set());
   }, []);
   // Unit attached to the cursor, and the chooser's checkbox state driving the
   // after-placement continuation (KeepSymbol / PlaceAllUnits stepping).
@@ -1084,6 +1127,39 @@ export function SchematicEditor({
   // perspective) never grows, so it's excluded from panelHeights.
   const [leftDockWidth, setLeftDockWidth] = useState(300);
   const [panelHeights, setPanelHeights] = useState<Record<string, number>>({});
+  // `dock_pos` for the left column, which is state and not a table: wxAUI
+  // renumbers the SHOWN panes on every Update, so the pane opened first ends
+  // up at 0 and the next one keeps its (larger) `Position()` and docks below
+  // it. See `schLeftDockLayout` and `qa/probes/aui_dock_pos_probe.cpp`. It
+  // starts at what `AddPane` leaves behind, so a frame that opens with several
+  // panes already shown gets them in `Position()` order.
+  //
+  // A ref rather than state: it is written during the render that lays the
+  // column out, and every write is accompanied by the toggle change that
+  // caused it, so there is nothing extra to re-render for.
+  //
+  // It starts from the stored perspective, not from the `Position()` table:
+  // `RestoreAuiLayout()` runs before any pane is shown, so upstream's column
+  // resumes wherever the last session left it. See `schDockPosFrom`.
+  const dockPosRef = useRef<SchDockPos>(schDockPosFrom(settings.eeschema.window.left_dock_pos));
+  // The numbers the last laid-out render produced, persisted after it.
+  const dockPosSaveRef = useRef<SchDockPos>(dockPosRef.current);
+  // `SCH_EDIT_FRAME::SaveSettings` writes `m_auimgr.SavePerspective()`, which
+  // carries every pane's `dock_pos`, so the renumbering wxAUI did during the
+  // session outlives it. Ours is written after the render that produced it
+  // rather than during, because a settings commit notifies subscribers.
+  //
+  // No dependency array: the value is a ref, so there is nothing React could
+  // key on, and the comparison below makes the pass a no-op whenever the column
+  // did not move.
+  useEffect(() => {
+    const next = dockPosSaveRef.current;
+    const stored = settings.eeschema.window.left_dock_pos;
+    if (SCH_LEFT_PANE_ADD_ORDER.every((pane) => stored[pane] === next[pane])) return;
+    settings.updateEeschema((s) => {
+      s.window.left_dock_pos = { ...next };
+    });
+  });
   const startLeftDockResize = (e: React.MouseEvent): void => {
     e.preventDefault();
     const startX = e.clientX;
@@ -1164,6 +1240,15 @@ export function SchematicEditor({
   }, []);
   const common = useCommonSettings();
   const es = useEeschemaSettings();
+  /**
+   * `EDA_BASE_FRAME::RecreateToolbars` (`common/eda_base_frame.cpp:1728-1843`):
+   * the frame asks `GetToolbarConfig( loc, m_CustomToolbars )` for each bar and
+   * never reads `DefaultToolbarConfig` itself, which is what lets Preferences >
+   * Toolbars change what is drawn.
+   */
+  const schTopBar = useToolbarEntries('eeschema', 'TOP_MAIN', SCH_DEFAULT_TOOLBARS);
+  const schLeftBar = useToolbarEntries('eeschema', 'LEFT', SCH_DEFAULT_TOOLBARS);
+  const schRightBar = useToolbarEntries('eeschema', 'RIGHT', SCH_DEFAULT_TOOLBARS);
   const theme = useSchematicTheme();
 
   // The displayed toggle set: local toggles plus the settings-derived ones
@@ -1219,6 +1304,37 @@ export function SchematicEditor({
       ? 'mils'
       : 'mm';
   const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+
+  // HOTKEY_CYCLE_POPUP, this frame's one instance (EDA_DRAW_FRAME::m_hotkeyPopup).
+  // Its expiry hands the keyboard back with `m_drawFrame->GetCanvas()->SetFocus()`
+  // (common/dialogs/hotkey_cycle_popup.cpp:48).
+  const appRef = useRef<HTMLDivElement>(null);
+  const hotkeyPopup = useHotkeyCyclePopup(() => appRef.current?.querySelector('canvas')?.focus());
+  /**
+   * `SCH_EDITOR_CONTROL::GridFeedback`
+   * (eeschema/tools/sch_editor_control.cpp:3360-3382), bound to
+   * `EVENTS::GridChangedByKeyEvent` (`:3550`) - which `COMMON_TOOLS::
+   * OnGridChanged` posts only for the HOTKEY paths, never for the grid combo
+   * or the menu (common/tool/common_tools.cpp:562-564).
+   *
+   * Held in a ref because the keydown listener is installed once, while the
+   * labels depend on the frame's live units.
+   */
+  const gridFeedbackRef = useRef<() => void>(() => {});
+  gridFeedbackRef.current = () => {
+    // The settings manager is read here rather than the render-time `es`,
+    // because this runs immediately after `updateEeschema` has moved the index
+    // and must see the grid the keystroke just chose - as upstream does, where
+    // `OnGridChanged` assigns `last_size_idx` before posting the event.
+    const grid = settings.eeschema.window.grid;
+    gridFeedback(hotkeyPopup, {
+      hotkeyFeedback: settings.common.input.hotkey_feedback,
+      grids: grid.sizes,
+      lastSizeIdx: grid.last_size_idx,
+      units,
+      iuPerMM: SCH_IU_PER_MM,
+    });
+  };
   const statusReadout = useStatusReadout({
     units,
     localOrigin,
@@ -1245,7 +1361,32 @@ export function SchematicEditor({
   // The symbol whose properties dialog is open (its refId), or null.
   const [propsTarget, setPropsTarget] = useState<string | null>(null);
   // Items parsed from the clipboard, attached to the cursor until dropped.
-  const [pastePending, setPastePending] = useState<PastePayload | null>(null);
+  const [pastePending, setPastePendingOnly] = useState<PastePayload | null>(null);
+  /**
+   * Attaching a paste clears the selection, so the items it came from go dark.
+   *
+   * Ctrl+D is not its own operation upstream — it IS a paste:
+   *
+   *     int SCH_EDITOR_CONTROL::Duplicate( const TOOL_EVENT& aEvent )
+   *     {
+   *         doCopy( true ); // Use the local clipboard
+   *         Paste( aEvent );
+   *     }
+   *
+   * (sch_editor_control.cpp:1797-1803), and the paste path clears the selection
+   * before it takes the pasted items into it. So the moment you duplicate, the
+   * original stops being selected and the new copy is what is highlighted.
+   * Ours left the original lit and only moved the selection across on the drop.
+   *
+   * Every paste path goes through this one setter — Ctrl+V, Duplicate, the
+   * repeat-item and drag-drop paths — so the rule is stated once here rather
+   * than at seven call sites. `null` is the abandon/finish path and leaves the
+   * selection alone: `onPasteDone` sets it to the items just dropped.
+   */
+  const setPastePending = useCallback((payload: PastePayload | null) => {
+    setPastePendingOnly(payload);
+    if (payload) setSelection(new Set());
+  }, []);
   /** File > Import > Graphics (Ctrl+Shift+F): the open DIALOG_IMPORT_GFX_SCH. */
   const [importGfxOpen, setImportGfxOpen] = useState(false);
   // ERC markers: null until a run has happened. They live on past the dialog
@@ -1577,6 +1718,84 @@ export function SchematicEditor({
     [],
   );
 
+  /** Push a resolved selection state into both the state and its refs, so a
+   *  second command in the same tick reads what the first one left. */
+  const applySelectionState = useCallback((next: HoverSelection): void => {
+    if (next.selection !== selectionRef.current) {
+      selectionRef.current = next.selection;
+      setSelection(next.selection);
+    }
+    if (next.hover !== hoverSelectionRef.current) {
+      hoverSelectionRef.current = next.hover;
+      setHoverSelection(next.hover);
+    }
+  }, []);
+
+  /**
+   * `SCH_SELECTION_TOOL::RequestSelection` — the one place an editing command
+   * gets its target (sch_selection_tool.cpp:1945-1994).
+   *
+   * Every editor command that upstream routes through `RequestSelection` routes
+   * through here, which is why hovering an unselected symbol and pressing R
+   * rotates it, hovering one and pressing Delete deletes it, and so on: none of
+   * those is a per-command feature, they are all this function.
+   *
+   * `SelectPoint`'s own two follow-ups are supplied here because they need the
+   * editor's live settings: the Selection Filter (`clickTarget`) and group
+   * promotion.
+   */
+  const requestTarget = useCallback(
+    (scanTypes: ScanTypes): ReadonlySet<string> => {
+      const d = docRef.current;
+      if (!d) return new Set();
+      const before: HoverSelection = {
+        selection: selectionRef.current,
+        hover: hoverSelectionRef.current,
+      };
+      const req = requestSelection(
+        d,
+        before,
+        scanTypes,
+        // `GetCursorPosition( true )` + the collector, both of which are the
+        // canvas's: the editor knows neither the zoom nor the snapped cursor.
+        controller.current?.candidatesAtCursor() ?? [],
+        (id) => {
+          const target = clickTarget(d, id, selFilterRef.current);
+          return target === null ? [] : promote(new Set([target]));
+        },
+      );
+      applySelectionState(req.state);
+      return req.target;
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [applySelectionState],
+  );
+
+  /** `if( selection.IsHover() ) RunAction( ACTIONS::selectionClear )`: the
+   *  disposable selection a command picked up is thrown away when it finishes. */
+  const finishCommand = useCallback((): void => {
+    applySelectionState(
+      clearHoverSelection({
+        selection: selectionRef.current,
+        hover: hoverSelectionRef.current,
+      }),
+    );
+  }, [applySelectionState]);
+
+  /**
+   * Request → act → clear-if-hover: the shape every `SCH_EDIT_TOOL` handler
+   * has, so each command states only its scan types and its body.
+   */
+  const withSelection = useCallback(
+    (scanTypes: ScanTypes, act: (ids: ReadonlySet<string>) => void): void => {
+      const ids = requestTarget(scanTypes);
+      if (ids.size === 0) return;
+      act(ids);
+      finishCommand();
+    },
+    [requestTarget, finishCommand],
+  );
+
   // Every edit runs through KiCad's post-commit cleanup (colinear wire merge),
   // as part of the same undoable step (SCHEMATIC::CleanUp / RecalculateConnections).
   const runCommand = useCallback(
@@ -1694,7 +1913,77 @@ export function SchematicEditor({
   }, [toggles, doc, liveDocs, sheetInstanceRefs, busAliases]);
 
   // ----- Choose Symbol dialog (DIALOG_SYMBOL_CHOOSER) ----------------------------
-  const chooserOpen = (activeTool === 'placeSymbol' || activeTool === 'placePower') && !placeLib;
+  /**
+   * Dismissed by Cancel, and reopened by the next click.
+   *
+   * `PickSymbolFromLibrary` returning an invalid LIB_ID is a `continue`
+   * (sch_drawing_tools.cpp:416-419): back to the top of `Wait()` with no
+   * `PopTool` and no `break`, so the TOOL STAYS ACTIVE and the chooser comes
+   * back on the next click, which is the click branch that opened it in the
+   * first place (:371-375). Ours called `setActiveTool('select')`, dropping the
+   * tool the moment the dialog closed.
+   *
+   * It cannot simply be derived from "the tool is active and nothing is on the
+   * cursor", because that is true again the instant Cancel returns and the
+   * dialog would reopen forever. Upstream is event-driven and so is this.
+   */
+  /**
+   * The Selection Filter's close box, which holds only until its visibility is
+   * derived again.
+   *
+   * The pane has no visibility control of its own - upstream's own comment,
+   * "Don't give the selection filter its own visibility controls; instead show
+   * it if anything else is visible" - but its pane info still asks for
+   * `.CloseButton( true )` (eeschema_settings.cpp:120). Closing it hides the
+   * pane, and the next `updateSelectionFilterVisbility` writes the derived
+   * answer back over it (sch_edit_frame.cpp:2817-2831). That runs whenever a
+   * pane opens or closes, which is what clears the latch here.
+   */
+  const [selectionFilterClosed, setSelectionFilterClosed] = useState(false);
+
+  const [chooserDismissed, setChooserDismissed] = useState(false);
+  const chooserOpen =
+    (activeTool === 'placeSymbol' || activeTool === 'placePower') && !placeLib && !chooserDismissed;
+
+  /**
+   * The selection goes dark as the chooser OPENS, not when you pick from it.
+   *
+   * `selectionClear` is the first statement inside the click branch's
+   * `if( !symbol )`, ahead of the whole already-placed scan and of
+   * `PickSymbolFromLibrary` itself (sch_drawing_tools.cpp:375-377):
+   *
+   *     if( !symbol )
+   *     {
+   *         m_toolMgr->RunAction( ACTIONS::selectionClear );
+   *         ...
+   *         PICKED_SYMBOL sel = m_frame->PickSymbolFromLibrary( ... );
+   *
+   * so the symbol placed a moment ago is unhighlighted the instant the dialog
+   * appears — which is also the instant `A` primes the tool, since the prime
+   * IS that click. Ours held the highlight through the whole chooser session.
+   */
+  useEffect(() => {
+    if (chooserOpen) setSelection(new Set());
+  }, [chooserOpen]);
+
+  /**
+   * Activating the tool primes it, and a primed event IS a click here.
+   * `PrimeTool` posts `TOOL_EVENT( TC_MOUSE, TA_PRIME, BUT_LEFT )`
+   * (tool_manager.cpp:414-430); `TA_PRIME` is 0x800001 and carries
+   * `TA_MOUSE_CLICK`'s 0x0001 bit, and `IsClick()` tests exactly that bit
+   * (tool_event.cpp:212-215). With `input.immediate_actions` set, which is its
+   * default (common_settings.cpp:251-252), the tool therefore opens its chooser
+   * on activation without the user clicking anything.
+   */
+  useEffect(() => {
+    setChooserDismissed(false);
+  }, [activeTool]);
+
+  /** `updateSelectionFilterVisbility` runs on every pane show/hide. */
+  const selFilterInputs = `${toggles.has('showNetNavigator')}|${toggles.has('showHierarchy')}|${toggles.has('showProperties')}`;
+  useEffect(() => {
+    setSelectionFilterClosed(false);
+  }, [selFilterInputs]);
 
   // The chooser's "-- Already Placed --" group: every distinct library symbol
   // used anywhere in the hierarchy, filtered to the tool's power-symbol flavour
@@ -1816,19 +2105,41 @@ export function SchematicEditor({
           : placeUnit + 1;
       if (next > 1) {
         setPlaceUnit(next);
+        // `addSymbol` opens with `ACTIONS::selectionClear` before it selects the
+        // symbol it is attaching (sch_drawing_tools.cpp:218-232), so the one just
+        // dropped stops being the selection the moment a next one rides the
+        // cursor. Only the path below, where nothing more attaches, leaves it lit.
+        setSelection(new Set());
         return;
       }
       // Wrapped: every unit is placed. Upstream keeps cycling from 1 only when
       // the symbol is staying on the cursor.
       if (keepSymbol) {
         setPlaceUnit(1);
+        // selectionClear, as above: another unit is going on the cursor.
+        setSelection(new Set());
         return;
       }
     } else if (keepSymbol) {
+      // selectionClear, as above: the same symbol stays on the cursor, so the
+      // copy just dropped hands the selection over to it.
+      setSelection(new Set());
       return; // same symbol stays on the cursor
     }
     setPlaceLib(null);
     setPlaceUnit(1);
+    // ...and the chooser does NOT come straight back. After `commit.Push` the
+    // tool sets `symbol = nextSymbol` (nullptr here) and falls to the bottom of
+    // the loop; nothing opens the chooser there. It reopens only where it
+    // opened the first time — inside the CLICK branch, under `if( !symbol )`
+    // (sch_drawing_tools.cpp:371-375) — so KiCad leaves the tool armed with an
+    // empty cursor and waits for you to click the sheet again.
+    //
+    // Ours derives `chooserOpen` from "tool active and nothing on the cursor",
+    // which is true the instant the symbol is dropped, so the dialog flew back
+    // up on its own. This is the same latch a Cancel uses; the canvas clears it
+    // through `onRequestChooser` on the next click.
+    setChooserDismissed(true);
   }, [placeUnit, placeInstance, setPlaceLib, referenceForPlacement]);
 
   /**
@@ -1968,6 +2279,31 @@ export function SchematicEditor({
   const [libIdErrors, setLibIdErrors] = useState<readonly string[]>([]);
   // DIALOG_CHANGE_SYMBOLS, in whichever of its two modes was asked for.
   const [changeSymbolsMode, setChangeSymbolsMode] = useState<ChangeSymbolsMode | null>(null);
+  /**
+   * The symbol DIALOG_CHANGE_SYMBOLS was opened ON, which it seeds all three
+   * match entries from — `m_symbol` is its second constructor argument and
+   * `TransferDataToWindow` (:146-152) fills reference, value and library id
+   * from it. Null when it is opened from the Tools menu, and then upstream
+   * hides the "selected symbol(s)" radio outright.
+   */
+  const [changeSymbolsSubject, setChangeSymbolsSubject] = useState<
+    ChangeSymbolsSubject | undefined
+  >(undefined);
+  /**
+   * `m_symbol->GetRef()` / VALUE / `GetLibId().Format()`, plus IsSelected().
+   *
+   * Off `fields`, which is where a PLACEMENT keeps its Reference and Value.
+   * `properties` is the LIBRARY symbol's list — reaching for it here found
+   * nothing and seeded two empty boxes, and the parameter had been typed
+   * loosely enough (`properties?:`) that tsc had nothing to object to. Taking
+   * `SchSymbol` is what makes the wrong member a compile error.
+   */
+  const changeSymbolsSubjectOf = (sym: SchSymbol, selected: boolean): ChangeSymbolsSubject => ({
+    reference: sym.fields.find((f) => f.key === 'Reference')?.value ?? '',
+    value: sym.fields.find((f) => f.key === 'Value')?.value ?? '',
+    libId: sym.libId,
+    isSelected: selected,
+  });
   const [changeSymbolsMessages, setChangeSymbolsMessages] = useState<
     readonly ChangeSymbolsMessage[]
   >([]);
@@ -2086,6 +2422,10 @@ export function SchematicEditor({
           (f) =>
             /\.kicad_mod$/i.test(f.name) ||
             /(^|\/)fp-lib-table$/i.test(f.name) ||
+            // The `.equ` footprint association files, which automatic
+            // association reads, and the `.kicad_pro` that lists them at
+            // `cvpcb.equivalence_files`.
+            /\.equ$/i.test(f.name) ||
             /\.kicad_pro$/i.test(f.name),
         )
         .map((f) => ({ name: f.name, text: f.text })),
@@ -2105,6 +2445,32 @@ export function SchematicEditor({
           : [...prev, { name, text }];
       });
       onPersistFiles?.([{ name, text }]);
+    },
+    [rawFiles, onPersistFiles],
+  );
+  // Manage Footprint Association Files' OK: `cvpcb.equivalence_files` into the
+  // project's `.kicad_pro` (upstream's `SaveProject()`,
+  // dialog_config_equfiles.cpp:116), plus any `.equ` file Add brought in from
+  // outside the project — which has to be written too, because
+  // `buildEquivalenceList` re-reads the reference on every press.
+  const saveProjectEquFiles = useCallback(
+    (files: readonly string[], newFiles: readonly { name: string; text: string }[]) => {
+      const pro = findProjectPro(rawFiles);
+      const written: { name: string; text: string }[] = [...newFiles];
+      if (pro) {
+        const text = writeEquivalenceFilesText(pro.text, files);
+        if (text !== null) written.push({ name: pro.name, text });
+      }
+      if (written.length === 0) return;
+      setRawFiles((prev) => {
+        const byName = new Map(written.map((f) => [f.name, f.text]));
+        const updated = prev.map((f) =>
+          byName.has(f.name) ? { ...f, text: byName.get(f.name) as string } : f,
+        );
+        const known = new Set(prev.map((f) => f.name));
+        return [...updated, ...written.filter((f) => !known.has(f.name))];
+      });
+      onPersistFiles?.(written);
     },
     [rawFiles, onPersistFiles],
   );
@@ -2547,27 +2913,69 @@ export function SchematicEditor({
 
   /** Every field name in use on this sheet, with the mandatory ones first —
    *  the dialog's checklist (DIALOG_CHANGE_SYMBOLS::updateFieldsList). */
-  const changeSymbolsFieldNames = useMemo(() => {
-    const names = ['Reference', 'Value', 'Footprint', 'Datasheet'];
-    const seen = new Set(names);
-    for (const sym of doc?.symbols ?? []) {
-      for (const f of sym.fields) {
-        if (!seen.has(f.key)) {
-          seen.add(f.key);
-          names.push(f.key);
+  /**
+   * `DIALOG_CHANGE_SYMBOLS::updateFieldsList`. Two things it does that this
+   * did not:
+   *
+   * 1. It walks only the symbols the current match SELECTS —
+   *    `if( !isMatch( symbol, &instance ) ) continue;` — and their library
+   *    symbols. This walked every symbol and every `lib_symbols` entry in the
+   *    document, so choosing "Update selected symbol(s)" on a screw terminal
+   *    still offered `Sim.Device` and `Sim.Pins` because some diode elsewhere
+   *    on the sheet had them. The dialog re-runs it whenever the match changes,
+   *    which is why this is a function and not a memo.
+   *
+   * 2. `ki_keywords`, `ki_description` and `ki_fp_filters` are NOT fields. The
+   *    parser consumes each into the symbol itself and returns nullptr —
+   *    "Not a SCH_FIELD object yet" (sch_io_kicad_sexpr_parser.cpp:1169-1184) —
+   *    so they can never appear in a field list.
+   *
+   * The five mandatory fields are always listed, `Description` included
+   * (`SCH_FIELD::IsMandatory`, sch_field.cpp:1447-1452); it was missing.
+   */
+  const changeSymbolsFieldNames = useCallback(
+    (match: SymbolMatch): readonly string[] => {
+      const names = ['Reference', 'Value', 'Footprint', 'Datasheet', 'Description'];
+      const seen = new Set(names);
+      /** Consumed by the parser into the symbol, never a field. */
+      const NOT_A_FIELD = new Set(['ki_keywords', 'ki_description', 'ki_fp_filters']);
+      const add = (key: string): void => {
+        if (seen.has(key) || NOT_A_FIELD.has(key)) return;
+        seen.add(key);
+        names.push(key);
+      };
+
+      const text = (match.text ?? '').trim();
+      const matches = (sym: SchSymbol, i: number): boolean => {
+        switch (match.mode) {
+          case 'all':
+            return true;
+          case 'selected':
+            return selection.has(refId('symbol', sym.uuid, i));
+          case 'reference':
+            return (
+              text === '' || (sym.fields.find((f) => f.key === 'Reference')?.value ?? '') === text
+            );
+          case 'value':
+            return text === '' || (sym.fields.find((f) => f.key === 'Value')?.value ?? '') === text;
+          case 'libId':
+            return text === '' || sym.libId === text;
+          default:
+            return true;
         }
-      }
-    }
-    for (const lib of doc?.libSymbols ?? []) {
-      for (const f of lib.properties) {
-        if (!seen.has(f.key)) {
-          seen.add(f.key);
-          names.push(f.key);
-        }
-      }
-    }
-    return names;
-  }, [doc]);
+      };
+
+      (doc?.symbols ?? []).forEach((sym, i) => {
+        if (!matches(sym, i)) return;
+        for (const f of sym.fields) add(f.key);
+        // ...and the library symbol it came from.
+        const lib = libById.get(schSymbolLibraryName(sym));
+        for (const f of lib?.properties ?? []) add(f.key);
+      });
+      return names;
+    },
+    [doc, libById, selection],
+  );
 
   /**
    * SCH_EDIT_TOOL's Edit with Symbol Editor. Hands the placement's symbol over
@@ -2614,9 +3022,28 @@ export function SchematicEditor({
   // Change Symbols / Update Symbols from Library (DIALOG_CHANGE_SYMBOLS). The
   // dialog stays open on its report, as upstream's does.
   const runChangeSymbols = useCallback(
-    (o: ChangeSymbolsOptions) => {
+    async (o: ChangeSymbolsOptions) => {
       const sheets = annotateSheets('all', false);
-      const libs = hierarchyLibs(sheets);
+      // The repair source is the LIBRARY, not the document's own cache.
+      //
+      // `DIALOG_CHANGE_SYMBOLS::processSymbols` resolves every lib_id through
+      // the symbol library table (`SCH_SYMBOL::ResolveLibSymbol`), which is the
+      // whole point of the command: the schematic's `lib_symbols` block is the
+      // thing being brought back into line, so it cannot also be the thing that
+      // says what "correct" is. Ours passed `hierarchyLibs`, whose first term
+      // `libById` is built from `doc.libSymbols` -- the cache itself -- so
+      // Update Symbols from Library compared each symbol against a copy of
+      // itself and could only ever report "no changes".
+      //
+      // It showed up on a schematic written before placements were flattened
+      // (fb9a40b1): its cached `Diode:1N4007` carries `extends` and no body,
+      // the library has the real one, and the command that exists to repair
+      // exactly that repaired nothing.
+      const libs = await repairSourceLibs(
+        sheets.flatMap((s) => s.doc.symbols.map((sym) => sym.libId)),
+        loadSymbol,
+        hierarchyLibs(sheets),
+      );
       const changedFiles: PickedFile[] = [];
       const messages: ChangeSymbolsMessage[] = [];
       for (const sheet of sheets) {
@@ -2753,6 +3180,44 @@ export function SchematicEditor({
       return annotated[index] ?? sym;
     },
     [setup, es.annotation.automatic, hierarchyLibs, currentFile],
+  );
+
+  /**
+   * `SCH_DRAWING_TOOLS::PlaceSymbol` autoplaces the fields of the symbol it is
+   * placing whenever `m_AutoplaceFields.enable` is set, which it is by default
+   * (`eeschema_settings.cpp:328`), at both of its two placement points
+   * (sch_drawing_tools.cpp:484-499).
+   *
+   * Without this the fields keep the positions the library gave them, and for
+   * most parts that is not where KiCad shows them: Screw_Terminal_01x02 stores
+   * its Reference at (0, 2.54) and its Value at (0, -5.08), above and below the
+   * body, while KiCad draws both beside it because the autoplacer moved them
+   * off the pins.
+   *
+   * `dropped` is upstream's screen argument. False is the null screen used
+   * while the symbol is still on the cursor, and true is the real one, which
+   * lets the algorithm see the rest of the sheet and avoid it.
+   */
+  const autoplacePlacement = useCallback(
+    (sym: SchSymbol, lib: LibSymbol, dropped: boolean): SchSymbol => {
+      const d = docRef.current;
+      return autoplacePlacedSymbol(
+        sym,
+        lib,
+        es.autoplace_fields.enable,
+        {
+          allowRejustify: es.autoplace_fields.allow_rejustify,
+          alignToGrid: es.autoplace_fields.align_to_grid,
+        },
+        dropped && d ? { doc: d, libById, drawableArea: drawableArea(d) } : undefined,
+      );
+    },
+    [
+      es.autoplace_fields.enable,
+      es.autoplace_fields.allow_rejustify,
+      es.autoplace_fields.align_to_grid,
+      libById,
+    ],
   );
 
   // Annotate (SCH_EDIT_FRAME::AnnotateSymbols): one numbering pass across the
@@ -3569,6 +4034,16 @@ export function SchematicEditor({
   const onEditItem = useCallback(
     (id: string, kind: ItemRef['kind']) => {
       if (kind === 'symbol') setPropsTarget(id);
+      // `Properties`' `case SCH_FIELD_T` (sch_edit_tool.cpp:2880-2890): a
+      // field is an item in its own right, so double-clicking a symbol's
+      // Reference / Value / Footprint / user field opens DIALOG_FIELD_
+      // PROPERTIES for THAT field, not the whole symbol's dialog. The
+      // hit-test already ranks the field's small text box over the body
+      // (`collectAndGuess`), so this arm is what the click was picking out.
+      if (kind === 'field' && doc) {
+        const target = fieldEditTarget(doc, id);
+        if (target) setFieldEdit(target);
+      }
       if (kind === 'label' && doc) {
         const idx = doc.labels.findIndex((l, i) => refId('label', l.uuid, i) === id);
         if (idx !== -1) {
@@ -3625,11 +4100,9 @@ export function SchematicEditor({
           setSheetPinEdit(spRef);
           return d;
         }
-        const field = /^(.*):field(\d+)$/.exec(id);
+        const field = fieldEditTarget(d, id);
         if (field) {
-          const si = d.symbols.findIndex((s, i) => refId('symbol', s.uuid, i) === field[1]);
-          const fi = Number(field[2]);
-          if (si !== -1 && d.symbols[si]!.fields[fi]) setFieldEdit({ symbol: si, index: fi });
+          setFieldEdit(field);
         } else if (d.symbols.some((s, i) => refId('symbol', s.uuid, i) === id)) setPropsTarget(id);
         else if (d.labels.some((l, i) => refId('label', l.uuid, i) === id)) onEditItem(id, 'label');
         else if (d.textBoxes.some((tb, i) => refId('textbox', tb.uuid, i) === id))
@@ -4036,7 +4509,13 @@ export function SchematicEditor({
   // Duplicate (Ctrl+D): copy to a local buffer and paste from it. KiCad anchors
   // the copy at the connection point closest to the cursor so it doesn't jump.
   const duplicateSelection = useCallback(() => {
-    if (!doc || selection.size === 0) return;
+    // `SCH_EDITOR_CONTROL::doCopy( true )` (sch_editor_control.cpp:1654-1661):
+    // Duplicate copies `RequestSelection()` — unfiltered — and remembers
+    // whether that was a hover, so the original is dropped from the selection
+    // once the copy is on the cursor (:1772).
+    const ids = requestTarget(AnyItems);
+    const doc = docRef.current;
+    if (!doc || ids.size === 0) return;
     // sch_edit_tool.cpp, DUPLICATE: the copy is re-annotated only when the
     // toggle is on —
     //
@@ -4047,7 +4526,7 @@ export function SchematicEditor({
     // which is the state the annotate check is there to report. This always
     // re-annotated, so the toggle made no difference here either.
     const payload = parsePastedText(
-      copySelectionText(doc, selection),
+      copySelectionText(doc, ids),
       doc,
       pasteOptions(es.annotation.automatic ? 'unique' : 'keep'),
     );
@@ -4081,7 +4560,10 @@ export function SchematicEditor({
     }
     setActiveTool('select');
     setPastePending({ ...payload, refPoint });
-  }, [doc, selection, es.annotation.automatic, pasteOptions]);
+    // `m_duplicateIsHoverSelection`: the hover the copy was taken from is
+    // dropped now that the duplicate is the thing on the cursor.
+    finishCommand();
+  }, [es.annotation.automatic, pasteOptions, requestTarget, finishCommand]);
 
   // The paste was dropped: keep the pasted items selected, as KiCad does.
   const onPasteDone = useCallback((ids: ReadonlySet<string>) => {
@@ -4616,6 +5098,10 @@ export function SchematicEditor({
       showHiddenPins: es.appearance.show_hidden_pins,
       showHiddenFields: es.appearance.show_hidden_fields,
       showPageLimits: es.appearance.show_page_limits,
+      // `eeconfig()->m_Appearance.mark_sim_exclusions` — the painter reads it
+      // per symbol (sch_painter.cpp:2696), so the marker disappears the moment
+      // Display Options turns it off.
+      markSimExclusions: es.appearance.mark_sim_exclusions,
       ...(activeSheet ? { drawingSheet: activeSheet } : {}),
       // The on-screen title block shows the current instance's real page
       // number, sheet count and path (SCH_EDIT_FRAME::SetSheetNumberAndCount).
@@ -4656,7 +5142,7 @@ export function SchematicEditor({
       highlightThicknessMils: es.selection.highlight_thickness,
       grid: {
         show: es.window.grid.show,
-        sizeIU: gridSizeToIU(es.window.grid.sizes[es.window.grid.last_size_idx] ?? '50 mil'),
+        sizeIU: gridSizeToIU(es.window.grid.sizes[es.window.grid.last_size_idx]?.x ?? '50 mil'),
         style: es.window.grid.style,
         lineWidthPx: es.window.grid.line_width,
         minSpacingPx: es.window.grid.min_spacing,
@@ -4833,7 +5319,7 @@ export function SchematicEditor({
 
   /** The active grid step, which the table's cell size is snapped to. */
   const gridSizeIU = useMemo(
-    () => gridSizeToIU(es.window.grid.sizes[es.window.grid.last_size_idx] ?? '50 mil'),
+    () => gridSizeToIU(es.window.grid.sizes[es.window.grid.last_size_idx]?.x ?? '50 mil'),
     [es.window.grid.sizes, es.window.grid.last_size_idx],
   );
 
@@ -5471,16 +5957,37 @@ export function SchematicEditor({
           nameShown: r.nameShown,
           doNotAutoplace: r.doNotAutoplace,
         };
-        runCommand(
-          replaceSymbol(fe.symbol, {
-            ...sym,
-            fields: sym.fields.map((f, i) => (i === fe.index ? next : f)),
-          }),
+        const edited: SchSymbol = {
+          ...sym,
+          fields: sym.fields.map((f, i) => (i === fe.index ? next : f)),
+        };
+        // `editFieldText`'s tail (sch_edit_tool.cpp:2357-2365): with
+        // `m_AutoplaceFields.enable` set, a parent whose fields the autoplacer
+        // already owns has them re-placed, INSIDE the same commit — which is
+        // why making a Value longer nudges the Reference along.
+        const replaced = autoplaceAfterFieldEdit(
+          edited,
+          libById.get(schSymbolLibraryName(edited)),
+          es.autoplace_fields.enable,
+          {
+            allowRejustify: es.autoplace_fields.allow_rejustify,
+            alignToGrid: es.autoplace_fields.align_to_grid,
+          },
+          { doc, libById, drawableArea: drawableArea(doc) },
         );
+        // `commit.Push( caption )`: the undo entry is named after the dialog,
+        // not "Edit Symbol".
+        runCommand(
+          composeCommands(fieldEditCaption(orig.key), [replaceSymbol(fe.symbol, replaced)]),
+        );
+        // "if( !field->IsVisible() ) m_toolMgr->RunAction( ACTIONS::selectionClear )"
+        // (sch_edit_tool.cpp:2886-2887): unticking Visible in the dialog leaves
+        // the selection pointing at something no longer drawn, so it goes.
+        if (next.effects?.hidden) setSelection(new Set());
         return null;
       });
     },
-    [doc, runCommand],
+    [doc, runCommand, libById, es.autoplace_fields],
   );
 
   /** Apply DIALOG_IMAGE_PROPERTIES: position, scale, and the payload when
@@ -5710,11 +6217,15 @@ export function SchematicEditor({
         // every sheet of the open screen. Both need the sub-sheet's document,
         // which only a loaded project has.
         const d = docRef.current;
+        // The single-sheet form is `RequestSelection( { SCH_SHEET_T } )`, the
+        // list every other sheet command uses (sch_edit_tool.cpp:3403, :3430),
+        // so hovering a sheet is enough to open its Sync Sheet Pins.
+        const target = id === 'syncSheetPins' ? requestTarget(SheetItems) : new Set<string>();
         const wanted =
           id === 'syncSheetPins'
             ? (d?.sheets
                 .map((sh, i) => ({ sh, i }))
-                .filter(({ sh, i }) => selection.has(refId('sheet', sh.uuid, i))) ?? [])
+                .filter(({ sh, i }) => target.has(refId('sheet', sh.uuid, i))) ?? [])
             : (d?.sheets.map((sh, i) => ({ sh, i })) ?? []);
         const entries: SyncSheetEntry[] = [];
         for (const { sh, i } of wanted) {
@@ -5740,7 +6251,7 @@ export function SchematicEditor({
           // pre-selects (`SCH_SHEET* selectedSheet = … GetSelection().Front()`).
           syncParentFile.current = currentFile;
           const sel = entries.findIndex(({ sheetIndex }) =>
-            selection.has(refId('sheet', d?.sheets[sheetIndex]?.uuid, sheetIndex)),
+            target.has(refId('sheet', d?.sheets[sheetIndex]?.uuid, sheetIndex)),
           );
           syncPage.current = sel >= 0 ? sel : 0;
           setSyncPinsOpen(entries);
@@ -5817,18 +6328,19 @@ export function SchematicEditor({
           if (d && canRemoveFromGroup(d, sel)) runCommand(removeFromGroupCommand(sel));
           return sel;
         });
-      // Lock / Unlock / Toggle Lock (SCH_EDIT_TOOL): protect symbols from edits.
+      // Lock / Unlock / Toggle Lock: `SCH_EDIT_TOOL::SetAttribute`
+      // (sch_edit_tool.cpp:3530-3616), whose target is
+      // `RequestSelection( { SCH_SYMBOL_T, SCH_SHEET_T, SCH_RULE_AREA_T } )`
+      // and which clears a hover selection at :3614.
       else if (id === 'lock' || id === 'unlock' || id === 'toggleLock')
-        setSelection((sel) => {
-          if (sel.size > 0)
-            runCommand(
-              setSymbolsLockedCommand(
-                sel,
-                id === 'lock' ? 'lock' : id === 'unlock' ? 'unlock' : 'toggle',
-              ),
-            );
-          return sel;
-        });
+        withSelection(AttributeItems, (ids) =>
+          runCommand(
+            setSymbolsLockedCommand(
+              ids,
+              id === 'lock' ? 'lock' : id === 'unlock' ? 'unlock' : 'toggle',
+            ),
+          ),
+        );
       else if (id === 'openPreferences') setPrefsOpen(true);
       else if (id === 'close') onExitToHome();
       // ACTIONS::help — "Open product documentation in a web browser".
@@ -5846,6 +6358,9 @@ export function SchematicEditor({
         setLibIdsOpen(true);
       } else if (id === 'changeSymbols' || id === 'updateSymbolsFromLibrary') {
         setChangeSymbolsMessages([]);
+        // From the Tools menu there is no `m_symbol`: nothing to seed, and the
+        // "selected symbol(s)" radio is hidden.
+        setChangeSymbolsSubject(undefined);
         setChangeSymbolsMode(id === 'changeSymbols' ? 'change' : 'update');
       } else if (id === 'schematicSetup') {
         // The Embedded Files page lists the sheet's embedded_files section
@@ -5909,14 +6424,16 @@ export function SchematicEditor({
       // clicks can't synthesize a trusted paste event).
       else if (id === 'cut') document.execCommand('cut');
       else if (id === 'copy') document.execCommand('copy');
-      // ACTIONS::copyAsText (SCH_EDITOR_CONTROL::CopyAsText): the selected
-      // items' shown texts, newline-joined, to the system clipboard.
-      else if (id === 'copyAsText') {
-        if (doc && selection.size > 0) {
-          const text = getSelectedItemsAsText(doc, selection);
+      // ACTIONS::copyAsText (SCH_EDITOR_CONTROL::CopyAsText,
+      // sch_editor_control.cpp:1840-1852): `RequestSelection()` with no filter,
+      // and `if( selection.IsHover() ) selectionClear` at :1849.
+      else if (id === 'copyAsText')
+        withSelection(AnyItems, (ids) => {
+          const d = docRef.current;
+          const text = d ? getSelectedItemsAsText(d, ids) : '';
           if (text) void navigator.clipboard?.writeText(text);
-        }
-      } else if (id === 'pasteSpecial') setPasteSpecialOpen(true);
+        });
+      else if (id === 'pasteSpecial') setPasteSpecialOpen(true);
       else if (id === 'paste')
         void navigator.clipboard?.readText().then((text) => {
           setDoc((d) => {
@@ -5928,15 +6445,44 @@ export function SchematicEditor({
             return d;
           });
         });
+      // `SCH_EDIT_TOOL::DoDelete` (sch_edit_tool.cpp:2224-2235): the target is
+      // `RequestSelection( DeletableItems )`, and the selection is cleared
+      // unconditionally afterwards ("Don't leave a freed pointer in the
+      // selection"), hover or not.
       else if (id === 'delete')
-        setSelection((sel) => {
-          if (sel.size > 0 && doc) runCommand(deleteItems(doc, sel));
-          return new Set();
+        withSelection(DeletableItems, (ids) => {
+          const d = docRef.current;
+          if (d) runCommand(deleteItems(d, ids));
+          applySelectionState({ selection: new Set(), hover: null });
         });
+      // `SCH_EDIT_TOOL::Rotate` / `::Mirror` (sch_edit_tool.cpp:967, :1297),
+      // both over `RotatableItems`.
       else if (TX[id])
-        setSelection((sel) => {
-          if (sel.size > 0) runCommand(transformItems(sel, TX[id]!));
-          return sel;
+        withSelection(RotatableItems, (ids) => {
+          const d = docRef.current;
+          runCommand(
+            transformItems(
+              ids,
+              TX[id]!,
+              // No centre and no grid override: both keep their defaults, and
+              // threading the window's live grid through is a separate change
+              // (see `DEFAULT_GRID_IU`).
+              undefined,
+              undefined,
+              // `if( m_frame->eeconfig()->m_AutoplaceFields.enable )` — the
+              // block that keeps a rotated symbol's reference reading
+              // horizontally (sch_edit_tool.cpp:1022-1029).
+              {
+                enable: es.autoplace_fields.enable,
+                libById,
+                opts: {
+                  allowRejustify: es.autoplace_fields.allow_rejustify,
+                  alignToGrid: es.autoplace_fields.align_to_grid,
+                },
+                ...(d ? { drawableArea: drawableArea(d) } : {}),
+              },
+            ),
+          );
         });
     },
     [
@@ -5963,6 +6509,9 @@ export function SchematicEditor({
       libById,
       pageNumberOf,
       pasteOptions,
+      withSelection,
+      requestTarget,
+      applySelectionState,
     ],
   );
 
@@ -6363,6 +6912,7 @@ export function SchematicEditor({
               label: 'Change Symbol...',
               action: () => {
                 setChangeSymbolsMessages([]);
+                setChangeSymbolsSubject(changeSymbolsSubjectOf(sym, true));
                 setChangeSymbolsMode('change');
               },
             },
@@ -6370,6 +6920,7 @@ export function SchematicEditor({
               label: 'Update Symbol...',
               action: () => {
                 setChangeSymbolsMessages([]);
+                setChangeSymbolsSubject(changeSymbolsSubjectOf(sym, true));
                 setChangeSymbolsMode('update');
               },
             },
@@ -6442,7 +6993,7 @@ export function SchematicEditor({
           label: 'Align Items to Grid',
           action: () => {
             const grid = gridSizeToIU(
-              es.window.grid.sizes[es.window.grid.last_size_idx] ?? '50 mil',
+              es.window.grid.sizes[es.window.grid.last_size_idx]?.x ?? '50 mil',
             );
             const cmd = alignToGridCommand(doc, selection, libById, grid);
             if (cmd) runCommand(cmd);
@@ -6460,7 +7011,7 @@ export function SchematicEditor({
               action: () => {
                 if (!doc) return;
                 const grid = gridSizeToIU(
-                  es.window.grid.sizes[es.window.grid.last_size_idx] ?? '50 mil',
+                  es.window.grid.sizes[es.window.grid.last_size_idx]?.x ?? '50 mil',
                 );
                 const cmd = alignItems(
                   doc,
@@ -6524,7 +7075,14 @@ export function SchematicEditor({
           label: 'Properties...',
           icon: 'properties',
           shortcut: 'E',
-          action: () => openProperties([...selection][0]!),
+          // Same handler as E: the right-click's hover selection is thrown away
+          // once the dialog is up (`clearSelection = selection.IsHover()`).
+          action: () => {
+            const ids = requestTarget(AnyItems);
+            if (ids.size !== 1) return;
+            openProperties([...ids][0]!);
+            finishCommand();
+          },
         });
       // SCH_ACTIONS::unfoldBus (C): BUS_UNFOLD_MENU lists the bus's members and
       // picking one drops an entry plus a label for it.
@@ -6733,8 +7291,13 @@ export function SchematicEditor({
       {
         label: 'Grid',
         items: [
+          // `GRID_MENU::update` (common/tool/grid_menu.cpp:52-104) labels each
+          // row with `BuildChoiceList`'s `"%s%s (%s)"` — the optional name, the
+          // size in the frame's unit, and the same size in the other one. The
+          // raw stored string stood here, which cannot show a grid's name and
+          // shows only its X.
           ...es.window.grid.sizes.map((size, i) => ({
-            label: size,
+            label: gridChoiceLabel(size, units, SCH_IU_PER_MM, size.name),
             checked: es.window.grid.last_size_idx === i,
             action: () =>
               settings.updateEeschema((st) => {
@@ -7081,6 +7644,9 @@ export function SchematicEditor({
                   ? g2
                   : g1;
         });
+        // GridFast1/2/Cycle all reach `GridPreset( idx, true )`, so they post
+        // GridChangedByKeyEvent too (common/tool/common_tools.cpp:569-592).
+        gridFeedbackRef.current();
       } else if (e.altKey && e.key === '3') {
         // SCH_ACTIONS::selectNode (Alt+3): select the connection item under the
         // cursor. The pick is GetNode's, connectable types only at growing
@@ -7090,7 +7656,7 @@ export function SchematicEditor({
           // GetNode's widest threshold is max(HITTEST_THRESHOLD, grid size);
           // with no pointer scale to hand here the grid is the threshold.
           const grid = gridSizeToIU(
-            settings.eeschema.window.grid.sizes[settings.eeschema.window.grid.last_size_idx] ??
+            settings.eeschema.window.grid.sizes[settings.eeschema.window.grid.last_size_idx]?.x ??
               '50 mil',
           );
           const node = getNode(doc, libById, cursorRef.current, grid);
@@ -7128,13 +7694,52 @@ export function SchematicEditor({
         } else if (pendingLabel) {
           setPendingLabel(null);
           setActiveTool('select');
-        } else if (activeTool !== 'select') {
-          setActiveTool('select');
+        } else if (placeLib || placeInstance) {
+          // `PlaceSymbol`'s cancel is TWO states, not one
+          // (sch_drawing_tools.cpp:324-344):
+          //
+          //     if( symbol ) { cleanup();
+          //                    if( keepSymbol ) PostAction( cursorClick ); }
+          //     else         { m_frame->PopTool( aEvent ); break; }
+          //
+          // The first Escape runs `cleanup()` — drop the symbol, clear the
+          // selection — and LEAVES THE TOOL RUNNING; only a second one, with
+          // nothing on the cursor, pops it. Ours collapsed both into a single
+          // press, which put the tool away while KiCad keeps it armed for the
+          // next symbol. Two presses to leave the tool is upstream's answer,
+          // not a wrong count.
           setPlaceLib(null);
-        } else if (selection.size > 0) setSelection(new Set());
-        // "<ESC> clears net highlighting": with nothing else pending, the next
-        // Escape clears the highlighted net (eeschema input.esc_clears_net_highlight).
-        else if (settings.eeschema.input.esc_clears_net_highlight) clearHighlight();
+          // cleanup()'s own first line, ACTIONS::selectionClear.
+          setSelection(new Set());
+          // `if( keepSymbol ) PostAction( ACTIONS::cursorClick )` re-enters the
+          // chooser straight away; without it the tool waits, and it is the
+          // next click that reopens it (the click branch at :371-375).
+          setChooserDismissed(!placeFlags.current.keepSymbol);
+        } else {
+          // Popping the tool and clearing the selection are NOT alternatives.
+          // TWO tools see this one cancel event, because SCH_SELECTION_TOOL is
+          // not "the tool you go back to" — it runs the whole time, alongside
+          // whatever drawing tool is active:
+          //
+          //   PlaceSymbol, nothing on the cursor:
+          //       m_frame->PopTool( aEvent ); break;      (:341-343)
+          //     — pops the tool and never touches the selection.
+          //   SCH_SELECTION_TOOL::Main, same event:
+          //       if( !GetSelection().Empty() ) ClearSelection();
+          //                                              (sch_selection_tool.cpp:1093-1096)
+          //
+          // So one Escape after a drop both puts the tool away AND unhighlights
+          // the symbol you just placed. Ours had these as `else if` arms of one
+          // chain, which made it take two presses to get back to a clean sheet.
+          if (activeTool !== 'select') setActiveTool('select');
+
+          // The selection tool's own arms, in its order: it clears the
+          // selection, and only when there was nothing to clear does the
+          // Escape fall through to the net highlight.
+          if (selection.size > 0) setSelection(new Set());
+          // "<ESC> clears net highlighting" (eeschema input.esc_clears_net_highlight).
+          else if (settings.eeschema.input.esc_clears_net_highlight) clearHighlight();
+        }
       } else if (!e.ctrlKey && !e.metaKey && !e.altKey) {
         // KiCad single-key tool hotkeys (A=symbol, W=wire, …). Skip while
         // typing, but a focused checkbox/radio isn't typing.
@@ -7166,11 +7771,22 @@ export function SchematicEditor({
         }
         // M = Move (leaves connected wires behind), G = Drag (keeps them
         // attached), SCH_ACTIONS::move / drag. Grabs the current selection.
-        if ((e.key.toLowerCase() === 'm' || e.key.toLowerCase() === 'g') && selection.size > 0) {
-          e.preventDefault();
-          const kind = e.key.toLowerCase() === 'm' ? 'move' : 'drag';
-          setGrabRequest((prev) => ({ kind, nonce: (prev?.nonce ?? 0) + 1 }));
-          return;
+        if (e.key.toLowerCase() === 'm' || e.key.toLowerCase() === 'g') {
+          // `SCH_MOVE_TOOL::Main` (sch_move_tool.cpp:1109-1110):
+          //
+          //     SCH_SELECTION& selection =
+          //             m_selectionTool->RequestSelection( SCH_COLLECTOR::MovableItems, true );
+          //     aUnselect = selection.IsHover();
+          //
+          // so M or G over an unselected symbol picks it up and moves it. The
+          // hover is dropped when the move ends rather than now, which is what
+          // `aUnselect` is carried through the move for.
+          if (requestTarget(MovableItems).size > 0) {
+            e.preventDefault();
+            const kind = e.key.toLowerCase() === 'm' ? 'move' : 'drag';
+            setGrabRequest((prev) => ({ kind, nonce: (prev?.nonce ?? 0) + 1 }));
+            return;
+          }
         }
         // ` = Highlight Net tool, ~ = clear highlighting
         // (SCH_ACTIONS::highlightNet / clearHighlight).
@@ -7209,6 +7825,8 @@ export function SchematicEditor({
               s.window.grid.last_size_idx =
                 (s.window.grid.last_size_idx + (e.shiftKey ? n - 1 : 1)) % n;
           });
+          // `OnGridChanged( true )` ends by posting GridChangedByKeyEvent.
+          gridFeedbackRef.current();
           return;
         }
         // C = Unfold from Bus (SCH_ACTIONS::unfoldBus) on the bus under the
@@ -7260,43 +7878,72 @@ export function SchematicEditor({
             }
           }
         }
-        // D = Show Datasheet (ACTIONS::showDatasheet) for the selected symbol.
-        if (e.key.toLowerCase() === 'd' && doc && selection.size === 1) {
-          const id = [...selection][0]!;
-          const sym = doc.symbols.find((sy, i) => refId('symbol', sy.uuid, i) === id);
+        // D = Show Datasheet (ACTIONS::showDatasheet), whose target is
+        // `RequestSelection( { SCH_SYMBOL_T } )` and which clears a hover
+        // selection afterwards (sch_editor_control.cpp:2845-2852).
+        if (e.key.toLowerCase() === 'd' && doc) {
+          const ids = requestTarget(SymbolItems);
+          const id = ids.size === 1 ? [...ids][0]! : null;
+          const sym =
+            id === null
+              ? undefined
+              : doc.symbols.find((sy, i) => refId('symbol', sy.uuid, i) === id);
           if (sym) {
             e.preventDefault();
             const url = (sym.fields.find((f) => f.key === 'Datasheet')?.value ?? '').trim();
             // "~" is KiCad's "no datasheet", not a URL.
             if (url === '' || url === '~') setError('No datasheet defined.');
             else window.open(url, '_blank', 'noopener,noreferrer');
+            finishCommand();
             return;
           }
         }
-        // O = Autoplace Fields (SCH_ACTIONS::autoplaceFields) on the selection.
-        if (e.key.toLowerCase() === 'o' && selection.size > 0) {
-          e.preventDefault();
-          if (doc) {
-            const cmd = autoplaceFields(
-              doc,
-              selection,
-              libById,
-              {
-                allowRejustify: es.autoplace_fields.allow_rejustify,
-                alignToGrid: es.autoplace_fields.align_to_grid,
-              },
-              drawableArea(doc),
-            );
-            if (cmd) runCommand(cmd);
+        // O = Autoplace Fields (SCH_ACTIONS::autoplaceFields). Its target is
+        // `RequestSelection( RotatableItems )` (sch_edit_tool.cpp:2463) and it
+        // clears a hover selection at :2502.
+        if (e.key.toLowerCase() === 'o') {
+          // `withSelection` inlined rather than called, because O has to fall
+          // through to the menu accelerators when the request comes back empty
+          // — and asking the seam twice, once to decide that and once inside,
+          // would leave the outer scan types free to drift from the inner ones.
+          const ids = requestTarget(RotatableItems);
+          if (ids.size > 0) {
+            e.preventDefault();
+            const d = docRef.current;
+            if (d) {
+              const cmd = autoplaceFields(
+                d,
+                ids,
+                libById,
+                {
+                  allowRejustify: es.autoplace_fields.allow_rejustify,
+                  alignToGrid: es.autoplace_fields.align_to_grid,
+                },
+                drawableArea(d),
+              );
+              if (cmd) runCommand(cmd);
+            }
+            finishCommand();
+            return;
           }
-          return;
         }
         // E = Properties (KiCad SCH_ACTIONS::properties) on a single selected
         // item (openProperties routes by item kind).
-        if (e.key.toLowerCase() === 'e' && selection.size === 1) {
-          e.preventDefault();
-          openProperties([...selection][0]!);
-          return;
+        if (e.key.toLowerCase() === 'e') {
+          // `SCH_EDIT_TOOL::Properties` (sch_edit_tool.cpp:2569-2571):
+          //
+          //     SCH_SELECTION& selection = m_selectionTool->RequestSelection();
+          //     bool           clearSelection = selection.IsHover();
+          //
+          // Unfiltered, and the hover it may have picked up is cleared once the
+          // dialog returns.
+          const ids = requestTarget(AnyItems);
+          if (ids.size === 1) {
+            e.preventDefault();
+            openProperties([...ids][0]!);
+            finishCommand();
+            return;
+          }
         }
         // A, P, W, B, Z, Q, J, L, H, S, T and I used to be dispatched here
         // out of TOOL_HOTKEYS, and every one of them is also a Place menu row
@@ -7327,6 +7974,9 @@ export function SchematicEditor({
     onLeftToggle,
     libById,
     pendingLabel,
+    pendingImage,
+    placeLib,
+    placeInstance,
     propsTarget,
     pastePending,
     duplicateSelection,
@@ -7337,6 +7987,9 @@ export function SchematicEditor({
     openProperties,
     toggles,
     endSyncPlacement,
+    requestTarget,
+    withSelection,
+    finishCommand,
   ]);
 
   const fmt = (iu: number): string => {
@@ -7354,6 +8007,14 @@ export function SchematicEditor({
     const ref = itemRefById(doc, [...selection][0]!);
     return ref ? schPropertiesFor(doc, libById, ref) : [];
   }, [doc, selection, libById]);
+
+  // `PROPERTIES_PANEL::rebuildProperties` captions a single selection with
+  // `aSelection.Front()->GetFriendlyName()` — the item's TYPE.
+  const propFriendlyName = useMemo<string | undefined>(() => {
+    if (!doc || selection.size !== 1) return undefined;
+    const ref = itemRefById(doc, [...selection][0]!);
+    return ref ? schItemFriendlyName(doc, ref) : undefined;
+  }, [doc, selection]);
 
   // Existing net/label names for the label dialog's completion list
   // (DIALOG_LABEL_PROPERTIES pre-loads its combo with the sheet's net names).
@@ -7384,14 +8045,6 @@ export function SchematicEditor({
     const ncName = net ? resolveEffectiveNetClass(net.name, setup.netClasses).name : null;
     return getMsgPanelItems(doc, libById, ref, fmt, net?.name ?? null, ncName);
   }, [doc, selection, libById, netlist, fmt, setup.netClasses]);
-
-  // Parse a distance typed into the grid, in the current units, back to IU.
-  const parseDist = (text: string): number | null => {
-    const n = Number(text.trim());
-    if (!Number.isFinite(n)) return null;
-    const mm = units === 'mm' ? n : units === 'mils' ? n * 0.0254 : n * 25.4;
-    return Math.round(mmToIU(mm));
-  };
 
   /**
    * The frame title, `SCH_EDIT_FRAME::updateTitle`
@@ -7461,7 +8114,14 @@ export function SchematicEditor({
   };
 
   return (
-    <div className="ze-app sch-theme" onDrop={onDrop} onDragOver={(e) => e.preventDefault()}>
+    <div
+      ref={appRef}
+      className="ze-app sch-theme"
+      onDrop={onDrop}
+      onDragOver={(e) => e.preventDefault()}
+    >
+      {/* HOTKEY_CYCLE_POPUP: a wxSTAY_ON_TOP window over the whole frame. */}
+      {hotkeyPopup.node}
       {copyAsOpen && (
         <SaveAsDialog
           title="Save Current Sheet Copy As"
@@ -7563,7 +8223,7 @@ export function SchematicEditor({
       />
 
       <Toolbar
-        entries={TOP_TOOLBAR}
+        entries={schTopBar}
         app="eeschema"
         orientation="horizontal"
         disabledIds={dirty ? navDisabled : new Set([...(navDisabled ?? []), 'save'])}
@@ -7581,10 +8241,8 @@ export function SchematicEditor({
 
       <div className="ze-body">
         {(() => {
-          // Which panes are on screen, in the dock order wxAUI sorts them
-          // into — `SCH_LEFT_PANE_ORDER`, the upstream `Position()` numbers.
-          // Ours used to hardcode the order here, and had Properties above the
-          // hierarchy where upstream has it below.
+          // Which panes are on screen. The ORDER they are drawn in is not a
+          // table: it is `schLeftDockLayout`, one wxAUI Update, run below.
           const growShown = {
             netNavigator: toggles.has('showNetNavigator') && !!doc,
             hierarchy: toggles.has('showHierarchy'),
@@ -7594,14 +8252,28 @@ export function SchematicEditor({
             ...growShown,
             // Not a toggle of its own: `updateSelectionFilterVisbility` ORs the
             // other three panes. See `schSelectionFilterShown`.
-            selectionFilter: schSelectionFilterShown(growShown),
+            // `updateSelectionFilterVisbility` ORs the other three and writes
+            // the answer every time it runs, so a close only holds until the
+            // next recompute — which is exactly what the latch below does.
+            selectionFilter: schSelectionFilterShown(growShown) && !selectionFilterClosed,
           };
+          // One `wxAuiManager::Update()`: sort the shown panes by `dock_pos`,
+          // draw them in that order, and renumber them for the next time. The
+          // pane opened FIRST holds the top of the column, which is what
+          // upstream does and what a fixed order table could not express.
+          //
+          // Writing the ref here is safe because the pass is idempotent: a
+          // second render with the same panes shown produces the same order
+          // and the same numbers.
+          const dockLayout = schLeftDockLayout(dockPosRef.current, paneShown);
+          dockPosRef.current = dockLayout.dockPos;
+          dockPosSaveRef.current = dockLayout.dockPos;
           // Adjacent visible grow panes get a drag sash between them, top pane
           // resizes (KiCad's wxAUI sash chain); Selection Filter (prop=0 in
           // KiCad's perspective) never grows, so it's never in this list.
           // Search is not here either — it is the BOTTOM dock, below the
           // canvas, and its sash is its own (`SCH_BOTTOM_DOCK`).
-          const visibleGrowKeys: string[] = SCH_LEFT_GROW_PANES.filter((k) => paneShown[k]);
+          const visibleGrowKeys: string[] = dockLayout.order.filter(schPaneGrows);
           const sashAfter = (key: string): JSX.Element | null =>
             visibleGrowKeys.indexOf(key) < visibleGrowKeys.length - 1 ? (
               <div
@@ -7617,15 +8289,29 @@ export function SchematicEditor({
             (paneShown.properties || paneShown.hierarchy || paneShown.netNavigator) && (
               <>
                 <div className="ze-leftdock sch-leftdock" style={{ width: leftDockWidth }}>
-                  {/* The four docked panes, rendered in the order wxAUI sorts
-                      them into from their `Position()` — see `panes.ts`. Only
-                      the ORDER is data; each pane's contents stay inline. */}
-                  {SCH_LEFT_PANE_ORDER.map((paneKey) => (
+                  {/* The docked panes, in the order the wxAUI Update above
+                      sorted them into — see `panes.ts`. Only the ORDER is
+                      data; each pane's contents stay inline. */}
+                  {dockLayout.order.map((paneKey) => (
                     <Fragment key={paneKey}>
                       {paneKey === 'netNavigator' && paneShown.netNavigator && (
                         <>
                           <div className="ze-panel grow" style={heightStyle('netNavigator')}>
-                            <div className="ze-panel-header">Net Navigator</div>
+                            <div className="ze-panel-header">
+                              <span>Net Navigator</span>
+                              {/* `.CloseButton( true )` on every one of these
+                                  palettes. Closing a pane is the same state the
+                                  View > Panels check item drives, which is why it
+                                  goes through the same toggle. */}
+                              <button
+                                type="button"
+                                className="ze-pane-close"
+                                onClick={() => onLeftToggle('showNetNavigator')}
+                                title="Close"
+                              >
+                                ⊠
+                              </button>
+                            </div>
                             <div className="ze-panel-body">
                               <NetNavigatorPanel
                                 doc={doc}
@@ -7658,7 +8344,21 @@ export function SchematicEditor({
                       {paneKey === 'hierarchy' && paneShown.hierarchy && (
                         <>
                           <div className="ze-panel grow" style={heightStyle('hierarchy')}>
-                            <div className="ze-panel-header">Schematic Hierarchy</div>
+                            <div className="ze-panel-header">
+                              <span>Schematic Hierarchy</span>
+                              {/* `.CloseButton( true )` on every one of these
+                                  palettes. Closing a pane is the same state the
+                                  View > Panels check item drives, which is why it
+                                  goes through the same toggle. */}
+                              <button
+                                type="button"
+                                className="ze-pane-close"
+                                onClick={() => onLeftToggle('showHierarchy')}
+                                title="Close"
+                              >
+                                ⊠
+                              </button>
+                            </div>
                             <div className="ze-panel-body">
                               {sheetTree &&
                                 renderSheetNode(
@@ -7677,22 +8377,33 @@ export function SchematicEditor({
                       {paneKey === 'properties' && paneShown.properties && (
                         <>
                           <div className="ze-panel grow" style={heightStyle('properties')}>
-                            <div className="ze-panel-header">Properties</div>
+                            <div className="ze-panel-header">
+                              <span>Properties</span>
+                              {/* `.CloseButton( true )` on every one of these
+                                  palettes. Closing a pane is the same state the
+                                  View > Panels check item drives, which is why it
+                                  goes through the same toggle. */}
+                              <button
+                                type="button"
+                                className="ze-pane-close"
+                                onClick={() => onLeftToggle('showProperties')}
+                                title="Close"
+                              >
+                                ⊠
+                              </button>
+                            </div>
                             <div className="ze-panel-body">
-                              {propRows.length > 0 ? (
-                                <SchPropertiesPanel
-                                  rows={propRows}
-                                  fmt={(iu) => fmt(iu)}
-                                  parse={parseDist}
-                                  onCommand={runCommand}
-                                />
-                              ) : (
-                                <div className="ze-muted">
-                                  {selection.size === 0
-                                    ? 'No objects selected'
-                                    : `${selection.size} item(s) selected`}
-                                </div>
-                              )}
+                              {/* The empty and multi-selection captions are
+                                  PROPERTIES_PANEL's own (properties_panel.cpp:
+                                  196-210), so the panel renders them rather
+                                  than the frame swapping in a placeholder. */}
+                              <SchPropertiesPanel
+                                rows={propRows}
+                                selectionCount={selection.size}
+                                friendlyName={propFriendlyName}
+                                units={units}
+                                onCommand={runCommand}
+                              />
                             </div>
                           </div>
                           {sashAfter('properties')}
@@ -7711,6 +8422,7 @@ export function SchematicEditor({
                           frame="FRAME_SCH"
                           filter={selFilter}
                           onChange={setSelFilter}
+                          onClose={() => setSelectionFilterClosed(true)}
                         />
                       )}
                     </Fragment>
@@ -7727,7 +8439,7 @@ export function SchematicEditor({
         })()}
 
         <Toolbar
-          entries={LEFT_TOOLBAR}
+          entries={schLeftBar}
           app="eeschema"
           orientation="vertical"
           side="left"
@@ -7854,6 +8566,8 @@ export function SchematicEditor({
               }}
               onCommand={runCommand}
               onAnnotatePlacement={annotatePlacement}
+              onAutoplacePlacement={autoplacePlacement}
+              onRequestChooser={() => setChooserDismissed(false)}
               onEditDrawingSheet={() => setPageSettingsOpen(true)}
               onCursorMove={onCursorMove}
               onScaleChange={onScaleChange}
@@ -8025,18 +8739,6 @@ export function SchematicEditor({
                 ignoredTests={ERC_ITEMS.filter(
                   (it) => setup.erc.severities[it.code] === 'ignore',
                 ).map((it) => it.title)}
-                filters={{
-                  errors: es.appearance.show_erc_errors,
-                  warnings: es.appearance.show_erc_warnings,
-                  exclusions: es.appearance.show_erc_exclusions,
-                }}
-                onFilterChange={(f) =>
-                  settings.updateEeschema((s) => {
-                    s.appearance.show_erc_errors = f.errors;
-                    s.appearance.show_erc_warnings = f.warnings;
-                    s.appearance.show_erc_exclusions = f.exclusions;
-                  })
-                }
                 unannotated={doc?.symbols.some((s) =>
                   (s.fields.find((f) => f.key === 'Reference')?.value ?? '').endsWith('?'),
                 )}
@@ -8110,7 +8812,11 @@ export function SchematicEditor({
               />
             )}
             {findOpen && (
-              <DialogSchematicFind
+              <DialogSchFind
+                // `SCH_BASE_FRAME::ShowFindReplaceDialog` builds the same
+                // DIALOG_SCH_FIND in both frames; the dialog branches on the
+                // frame type itself, so this is the whole of the difference.
+                frame="FRAME_SCH"
                 data={searchData}
                 onChange={setSearchData}
                 onFindNext={() => doFind(1)}
@@ -8198,8 +8904,9 @@ export function SchematicEditor({
             {changeSymbolsMode !== null && (
               <DialogChangeSymbols
                 mode={changeSymbolsMode}
-                fieldNames={changeSymbolsFieldNames}
+                fieldNamesFor={changeSymbolsFieldNames}
                 hasSelection={selection.size > 0}
+                {...(changeSymbolsSubject ? { subject: changeSymbolsSubject } : {})}
                 messages={changeSymbolsMessages}
                 onApply={runChangeSymbols}
                 onClose={() => setChangeSymbolsMode(null)}
@@ -8565,6 +9272,7 @@ export function SchematicEditor({
                   if (close) setAssignFpOpen(false);
                 }}
                 onSaveLibTable={saveProjectFpLibTable}
+                onSaveEquFiles={saveProjectEquFiles}
                 onClose={() => setAssignFpOpen(false)}
               />
             )}
@@ -8626,7 +9334,7 @@ export function SchematicEditor({
         </div>
 
         <Toolbar
-          entries={RIGHT_TOOLBAR}
+          entries={schRightBar}
           app="eeschema"
           orientation="vertical"
           side="right"
@@ -8678,7 +9386,7 @@ export function SchematicEditor({
           alreadyPlaced={alreadyPlaced}
           getPlacedLibSymbol={getPlacedLibSymbol}
           onOk={onChooserOk}
-          onCancel={() => setActiveTool('select')}
+          onCancel={() => setChooserDismissed(true)}
         />
       )}
 
@@ -8694,6 +9402,9 @@ export function SchematicEditor({
           lib={libById.get(schSymbolLibraryName(propsSymbol))}
           fieldTemplates={setup.fieldTemplates}
           subpart={subpartSettings(setup.annotation)}
+          // `m_frame->GetUserUnits()` — the grid's Text Size / X / Y cells are
+          // formatted and parsed in the frame's display unit, not in mm.
+          units={units}
           onOk={(edit: SymbolEdit) => {
             runCommand(editSymbolProperties(propsTarget, edit));
             setPropsTarget(null);
@@ -8704,11 +9415,14 @@ export function SchematicEditor({
           onChangeSymbol={() => {
             setPropsTarget(null);
             setChangeSymbolsMessages([]);
+            // Opened ON this symbol, so it is `m_symbol` and seeds the entries.
+            setChangeSymbolsSubject(changeSymbolsSubjectOf(propsSymbol, true));
             setChangeSymbolsMode('change');
           }}
           onUpdateSymbol={() => {
             setPropsTarget(null);
             setChangeSymbolsMessages([]);
+            setChangeSymbolsSubject(changeSymbolsSubjectOf(propsSymbol, true));
             setChangeSymbolsMode('update');
           }}
           onEditSymbol={
@@ -8738,6 +9452,7 @@ export function SchematicEditor({
           text is attached to the cursor, seeded from the last one placed. */}
       {activeTool === 'placeText' && labelPrompt && !pendingLabel && !labelEdit && (
         <DialogTextProperties
+          units={units}
           kind="text"
           pages={linkPages}
           initial={{
@@ -8763,6 +9478,7 @@ export function SchematicEditor({
           sets its shape/formatting, then it follows the cursor to be placed. */}
       {LABEL_DIALOG_KINDS[activeTool] && labelPrompt && !pendingLabel && !labelEdit && (
         <DialogLabelProperties
+          units={units}
           kind={LABEL_DIALOG_KINDS[activeTool]!}
           isNew
           initial={{
@@ -8789,6 +9505,7 @@ export function SchematicEditor({
           the Netclass field. */}
       {activeTool === 'placeClassLabel' && labelPrompt && !pendingDirective && !labelEdit && (
         <DialogLabelProperties
+          units={units}
           kind="directive"
           netclasses={netclassNames}
           isNew
@@ -8833,6 +9550,7 @@ export function SchematicEditor({
       {/* Editing a netclass flag (Properties): the same dialog, pre-filled. */}
       {directiveEdit && (doc.directiveLabels ?? [])[directiveEdit.index] && (
         <DialogLabelProperties
+          units={units}
           kind="directive"
           netclasses={netclassNames}
           isNew={false}
@@ -8856,6 +9574,7 @@ export function SchematicEditor({
       {/* Editing existing free text (Properties): the same dialog, pre-filled. */}
       {labelEdit && labelEdit.kind === 'text' && doc?.labels[labelEdit.index] && (
         <DialogTextProperties
+          units={units}
           kind="text"
           pages={linkPages}
           initial={{
@@ -8881,6 +9600,7 @@ export function SchematicEditor({
       {/* Editing an existing label (Properties): the same dialog, pre-filled. */}
       {labelEdit && labelEdit.kind !== 'text' && doc?.labels[labelEdit.index] && (
         <DialogLabelProperties
+          units={units}
           kind={labelEdit.kind as LabelPropsKind}
           isNew={false}
           initial={{
@@ -9089,7 +9809,9 @@ export function SchematicEditor({
       {fieldEdit && fieldPropsOf(fieldEdit) && (
         <DialogFieldProperties
           initial={fieldPropsOf(fieldEdit)!}
-          mandatory={isMandatoryField(doc.symbols[fieldEdit.symbol]!.fields[fieldEdit.index]!.key)}
+          caption={fieldEditCaption(doc.symbols[fieldEdit.symbol]!.fields[fieldEdit.index]!.key)}
+          // Every UNIT_BINDER in the dialog reads its units off the frame.
+          units={units}
           onOk={commitFieldEdit}
           onCancel={() => setFieldEdit(null)}
         />
@@ -9198,6 +9920,7 @@ export function SchematicEditor({
           fill rows join the text and formatting ones. */}
       {textBoxDraw && (
         <DialogTextProperties
+          units={units}
           kind="textbox"
           pages={linkPages}
           initial={{
@@ -9232,6 +9955,7 @@ export function SchematicEditor({
           Properties"): the pin's name, its flag shape and which side it sits on. */}
       {sheetPinDraw && (
         <DialogLabelProperties
+          units={units}
           kind="sheet_pin"
           isNew
           initial={{

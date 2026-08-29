@@ -19,6 +19,11 @@
 import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
 import { readSchematic, refId } from '@ziroeda/eeschema';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { readSymbolLib } from '@ziroeda/eeschema/src/sch_io/sexpr/read-schematic.js';
+import { fieldId } from '@ziroeda/eeschema/src/tools/hittest.js';
+import { placeSymbol } from '@ziroeda/eeschema/src/tools/index.js';
 import {
   DEFAULT_RENDER_OPTS,
   renderSchematic,
@@ -235,7 +240,15 @@ describe('a sheet whose stored fill is all zeroes', () => {
   });
 
   it('and dims it when the sheet is selected', () => {
-    expect(body(paint(doc, new Set([SH]), {}, themed))[0]?.colour).toBe('rgba(200, 220, 255, 0.5)');
+    // Re-derived from the probe, not from what the renderer now prints: a
+    // selected background-layer fill composites as clamp( 0.5*c + 0.75*dst ),
+    // drawn as colour c/0.5 at alpha 1 - 0.75. Every channel of (200,220,255)
+    // doubles past 255, so the CSS colour saturates - as KiCad's own pixels do
+    // for a fill this bright. See `backgroundLayerFill` and
+    // qa/probes/sch_selected_background/.
+    expect(body(paint(doc, new Set([SH]), {}, themed))[0]?.colour).toBe(
+      'rgba(255, 255, 255, 0.25)',
+    );
   });
 
   it('still draws nothing when the theme leaves it transparent, as both builtins do', () => {
@@ -247,18 +260,25 @@ describe('a sheet whose stored fill is all zeroes', () => {
   });
 });
 
-describe("a selected sheet keeps its own colour's hue", () => {
+describe("a selected sheet keeps its own colour's hue where it can", () => {
   /**
-   * Selection does not recolour a sheet. `getRenderColor` takes the sheet's own
-   * background (falling back to the theme only when it is UNSPECIFIED) and then
-   * forces the alpha:
+   * Selection does not *recolour* a sheet. `getRenderColor` takes the sheet's
+   * own background (falling back to the theme only when it is UNSPECIFIED) and
+   * then forces the alpha:
    *
    *     else if( aItem->IsSelected() && isBackgroundLayer( aLayer ) )
    *         color = color.WithAlpha( 0.5 );
    *
-   * `WithAlpha` *replaces* the alpha. Scaling it instead — which is what this
-   * did — agrees only for a fully opaque colour, and makes a translucent one
+   * `WithAlpha` *replaces* the alpha. Scaling it instead - which is what this
+   * did - agrees only for a fully opaque colour, and makes a translucent one
    * fade when upstream makes it firmer.
+   *
+   * What reaches the glass is not that alpha, though. KiCad's canvas composites
+   * a selected background fill as clamp( 0.5*c + 0.75*dst ) - measured, see
+   * `backgroundLayerFill` - which we draw as colour c/0.5 at alpha 1 - 0.75.
+   * The hue survives that doubling only while every channel stays under 128;
+   * above it the colour saturates, and so does KiCad's, which is why the stock
+   * light-yellow body comes out white in both.
    */
   const sheet = (fill: string): Schematic =>
     readSchematic(
@@ -276,16 +296,27 @@ describe("a selected sheet keeps its own colour's hue", () => {
     expect(body(paint(doc, undefined))[0]?.colour).toBe('rgb(170, 230, 255)');
   });
 
-  it('and at half alpha — same hue — when it is', () => {
+  it('keeps the hue when the colour is dark enough to survive the doubling', () => {
+    // (40,60,100) doubles to (80,120,200): the 2:3:5 ratio is untouched.
+    const doc = sheet('(fill (color 40 60 100 1))');
+    expect(body(paint(doc, new Set([SH])))[0]?.colour).toBe('rgba(80, 120, 200, 0.25)');
+  });
+
+  it('and saturates when it is not, exactly as KiCad does', () => {
+    // KiCad measured for this fill over the stock sheet:
+    //   0.5*(170,230,255) + 0.75*(245,244,239) = (268, 298, 306) -> pure white.
+    // So the hue genuinely goes on a bright fill; keeping it would be *our*
+    // invention, not KiCad's behaviour.
     const doc = sheet('(fill (color 170 230 255 1))');
-    expect(body(paint(doc, new Set([SH])))[0]?.colour).toBe('rgba(170, 230, 255, 0.5)');
+    expect(body(paint(doc, new Set([SH])))[0]?.colour).toBe('rgba(255, 255, 255, 0.25)');
   });
 
   it('selecting a translucent one makes it firmer, not fainter', () => {
-    const doc = sheet('(fill (color 170 230 255 0.25))');
-    expect(body(paint(doc, undefined))[0]?.colour).toBe('rgba(170, 230, 255, 0.25)');
-    // Scaling would have given 0.125.
-    expect(body(paint(doc, new Set([SH])))[0]?.colour).toBe('rgba(170, 230, 255, 0.5)');
+    const doc = sheet('(fill (color 40 60 100 0.25))');
+    expect(body(paint(doc, undefined))[0]?.colour).toBe('rgba(40, 60, 100, 0.25)');
+    // `WithAlpha` replaces: the fill's own 0.25 is discarded, so this is
+    // identical to the opaque case above. Scaling would have compounded them.
+    expect(body(paint(doc, new Set([SH])))[0]?.colour).toBe('rgba(80, 120, 200, 0.25)');
   });
 });
 
@@ -313,5 +344,67 @@ describe('what counts as selected while a drag runs', () => {
     // The symbol is what the user grabbed; the label came along for the ride.
     expect(crossAt(paint(doc, new Set(['some-symbol'])), at(60, 60))).toBe(false);
     expect(crossAt(paint(doc, new Set(['some-symbol', 'l1'])), at(60, 60))).toBe(true);
+  });
+});
+
+/**
+ * The same cross, on a SYMBOL's fields.
+ *
+ * `SCH_PAINTER::draw( SCH_FIELD )` ends with the pair (sch_painter.cpp:3072-3089):
+ *
+ *     bool parentMoving = fieldParent && fieldParent->IsMoving();
+ *
+ *     if( aField->IsMoving() && !parentMoving )        -> umbilical line
+ *     else if( aField->IsSelected() && !parentMoving ) -> drawAnchor
+ *
+ * and the thing that makes it visible on a whole-symbol selection is
+ * `SCH_SELECTION_TOOL::highlight`, which under the comment "Highlight pins and
+ * fields" walks the children of whatever was just selected and calls
+ * `aChild->SetSelected()` on each (sch_selection_tool.cpp:3771-3792). So the
+ * fields of a selected symbol ARE selected, and every one of them gets a cross.
+ *
+ * Ours read the parent's selection as upstream's `parentMoving` and returned on
+ * it, so selecting a symbol showed no anchors at all. Only the parent MOVING
+ * suppresses them -- then the fields ride along with the body and neither the
+ * line nor the cross means anything.
+ */
+describe("a selected symbol's field anchors", () => {
+  const R = readSymbolLib(
+    parse(readFileSync(fileURLToPath(new URL('../../data/R.kicad_sym', import.meta.url)), 'utf8')),
+  )[0]!;
+  const doc: Schematic = placeSymbol(R, { x: mmToIU(100), y: mmToIU(100) }, { angle: 0 }, 1).apply(
+    readSchematic(parse('(kicad_sch (version 1) (lib_symbols))')),
+  );
+
+  const sym = doc.symbols[0]!;
+  const symId = refId('symbol', sym.uuid, 0);
+  // Reference and Value, the two a placed symbol shows.
+  const refAt = sym.fields[0]!.at!;
+  const valAt = sym.fields[1]!.at!;
+
+  it('are absent when nothing is selected', () => {
+    const s = paint(doc, undefined);
+    expect(crossAt(s, refAt)).toBe(false);
+    expect(crossAt(s, valAt)).toBe(false);
+  });
+
+  it('appear on a field selected on its own', () => {
+    // `aField->IsSelected()` directly.
+    const s = paint(doc, new Set([fieldId(symId, 0)]));
+    expect(crossAt(s, refAt)).toBe(true);
+  });
+
+  it('and on EVERY field when the symbol itself is selected', () => {
+    // The child walk in highlight(): selecting the parent selects the fields,
+    // so both crosses appear, not neither.
+    const s = paint(doc, new Set([symId]));
+    expect(crossAt(s, refAt)).toBe(true);
+    expect(crossAt(s, valAt)).toBe(true);
+  });
+
+  it('but not while the symbol is being moved, which is upstream’s parentMoving', () => {
+    const s = paint(doc, new Set([symId]), { movingSelection: true });
+    expect(crossAt(s, refAt)).toBe(false);
+    expect(crossAt(s, valAt)).toBe(false);
   });
 });

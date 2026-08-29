@@ -9,6 +9,7 @@ export * from './kiid.js';
 export * from './reporter.js';
 export * from './common.js';
 export * from './string_utils.js';
+export * from './pin_numbers.js';
 export * from './transform.js';
 export * from './eda_shape.js';
 export * from './eda_text.js';

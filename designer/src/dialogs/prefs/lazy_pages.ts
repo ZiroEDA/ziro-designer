@@ -25,6 +25,8 @@ const OWNERS: Record<PrefsPageOwner, () => Promise<PrefsPanelFactory>> = {
   generic: async () => (await import('./panels/index.js')).createPrefsPanel,
   schematic: async () => (await import('../../editors/schematic/prefs/index.js')).createPrefsPanel,
   pcb: async () => (await import('../../editors/pcb/prefs/index.js')).createPrefsPanel,
+  drawingsheet: async () =>
+    (await import('../../editors/drawingsheet/prefs/index.js')).createPrefsPanel,
 };
 
 /** Panels already constructed, so reopening a page does not re-import (wx keeps the page). */

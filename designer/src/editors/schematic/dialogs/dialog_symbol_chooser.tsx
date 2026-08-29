@@ -15,6 +15,7 @@ import {
   type PanelSymbolChooserHandle,
   type PickedSymbol,
 } from '../widgets/panel_symbol_chooser.js';
+import { useDialogControl } from '../../../ui/useDialogControl.js';
 import { useModalEscape } from '../../../ui/useModalEscape.js';
 
 export type { PickedSymbol } from '../widgets/panel_symbol_chooser.js';
@@ -61,13 +62,21 @@ export function DialogSymbolChooser({
 
   const panelRef = useRef<PanelSymbolChooserHandle>(null);
   const [itemCount, setItemCount] = useState(0);
-  const [keepSymbol, setKeepSymbol] = useState(false);
-  const [placeAllUnits, setPlaceAllUnits] = useState(true);
 
   // onLazyLoadUpdate runs once in the constructor, so the count is in the title
   // from the outset, including the "(0 items loaded)" of an empty tree.
   const originalTitle = powerFilter ? 'Choose Power Symbol' : 'Choose Symbol';
   const title = `${originalTitle} (${itemCount} items loaded)`;
+
+  // The defaults are the constructor's: m_keepSymbol is created with no
+  // SetValue and so starts unchecked, m_useUnits gets SetValue( true )
+  // (eeschema/dialogs/dialog_symbol_chooser.cpp:79, :83). Nothing in that file
+  // remembers either one — DIALOG_SHIM does, for every dialog, and this hook is
+  // that. Keyed off the *displayed* title, item count and all: stripping the
+  // "(1234 items loaded)" suffix is `getDialogKeyFromTitle`'s whole purpose,
+  // and Choose Symbol and Choose Power Symbol key apart on their own.
+  const [keepSymbol, setKeepSymbol] = useDialogControl(title, 'keepSymbol', false);
+  const [placeAllUnits, setPlaceAllUnits] = useDialogControl(title, 'placeAllUnits', true);
 
   const accept = useCallback(() => {
     const selected = panelRef.current?.getSelected() ?? null;
@@ -121,11 +130,14 @@ export function DialogSymbolChooser({
             Place all units
           </label>
           <span className="ze-chooser-footer-spacer" />
-          <button className="ze-btn primary" onClick={accept}>
-            OK
-          </button>
+          {/* Cancel then OK, the order wxStdDialogButtonSizer lays out on GTK
+              and the order every other dialog here already uses. This one had
+              them the other way round. */}
           <button className="ze-btn" onClick={onCancel}>
             Cancel
+          </button>
+          <button className="ze-btn primary" onClick={accept}>
+            OK
           </button>
         </div>
       </div>

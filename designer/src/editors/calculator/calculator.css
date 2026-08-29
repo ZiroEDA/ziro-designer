@@ -1178,7 +1178,6 @@ input.calc-input:disabled:not([type="checkbox"]):not([type="radio"]):not([type="
 .cs-slider input[type="range"] {
   width: 100%;
   margin: 0;
-  accent-color: var(--chrome-active);
 }
 
 .cs-slider-value,

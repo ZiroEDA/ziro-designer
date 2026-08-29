@@ -472,6 +472,68 @@ export function readSchematicSetup(files: readonly RawFile[], proBase?: string):
 }
 
 // ---------------------------------------------------------------------------
+// cvpcb.equivalence_files.
+//
+// `PROJECT_FILE::m_EquivalenceFiles` (project_file.h:207), registered as
+// `PARAM_PATH_LIST( "cvpcb.equivalence_files", … )`
+// (common/project/project_file.cpp:72-73) — the footprint association files
+// the Assign Footprints window's automatic association reads, in the order
+// Manage Footprint Association Files put them in.
+//
+// It lives in the PROJECT file, not in `CVPCB_SETTINGS` and not in
+// `prefs/settings.ts`: upstream reads it as `Prj().GetProjectFile()` from both
+// ends (`auto_associate.cpp:87`, `dialog_config_equfiles.cpp:56` and `:108`),
+// and it is a property of the design rather than of the user. Our project
+// template already writes the key (`home/new_project.ts:76`).
+
+/** The `cvpcb.equivalence_files` list of a `.kicad_pro`, in file order. */
+export function readEquivalenceFilesText(proText: string): string[] {
+  let j: unknown;
+  try {
+    j = JSON.parse(proText);
+  } catch {
+    return [];
+  }
+  const arr = getPath(j, 'cvpcb.equivalence_files');
+  if (!Array.isArray(arr)) return [];
+  return arr.filter((e): e is string => typeof e === 'string');
+}
+
+/** The same, from the project's raw files. */
+export function readEquivalenceFiles(files: readonly RawFile[], proBase?: string): string[] {
+  const pro = findProjectPro(files, proBase);
+  return pro ? readEquivalenceFilesText(pro.text) : [];
+}
+
+/**
+ * `proText` with `cvpcb.equivalence_files` replaced, every other key
+ * preserved; null when the JSON cannot be parsed.
+ *
+ * Backslashes become forward slashes because `PARAM_PATH_LIST::Store` writes
+ * `toFileFormat`, which is exactly that substitution (parameters.h:207-212) —
+ * the same normalization `DIALOG_CONFIG_EQUFILES::OnAddFiles` applies to a
+ * newly added path ("Use unix separators only.").
+ */
+export function writeEquivalenceFilesText(
+  proText: string,
+  equFiles: readonly string[],
+): string | null {
+  let j: unknown;
+  try {
+    j = JSON.parse(proText);
+  } catch {
+    return null;
+  }
+  if (!isObj(j)) return null;
+  setPath(
+    j,
+    'cvpcb.equivalence_files',
+    equFiles.map((f) => f.replace(/\\/g, '/')),
+  );
+  return `${JSON.stringify(j, null, 2)}\n`;
+}
+
+// ---------------------------------------------------------------------------
 // Write.
 
 /** Net-class keys owned by the panel grid: cleared when the cell is blank,

@@ -287,6 +287,22 @@ const ICONS: Record<string, JSX.Element> = {
       <path d="M11.5 10.2v.1 M11.5 11.6v1.6" />
     </g>
   ),
+  /**
+   * `BITMAPS::small_library` — the button bitmap of `GRID_CELL_FPID_EDITOR`
+   * (grid_text_button_helpers.cpp:62). Three books on a shelf; the geometry is
+   * KiCad's own artwork verbatim, from
+   * `resources/bitmaps_png/sources/light/small_library.svg`, which is already a
+   * 16x16 viewBox of three stroked lines:
+   *     2.5,2.5 -> 2.5,13.5     13.5,13.5 -> 10.5,2.5     6.5,2.5 -> 6.5,13.5
+   * [art] stroke-width 3 is stated there too, against this set's default 1.2.
+   */
+  smallLibrary: (
+    <g strokeWidth="3">
+      <line x1="2.5" y1="2.5" x2="2.5" y2="13.5" />
+      <line x1="13.5" y1="13.5" x2="10.5" y2="2.5" />
+      <line x1="6.5" y1="2.5" x2="6.5" y2="13.5" />
+    </g>
+  ),
   optionsGeneric: (
     <g>
       <path d="M3.1 3.1a2.6 2.6 0 0 0 3.3 3.3l6 6a1.3 1.3 0 0 1-1.9 1.9l-6-6A2.6 2.6 0 0 0 1.2 5z" />

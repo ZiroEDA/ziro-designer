@@ -1,0 +1,102 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later
+   Copyright (C) 2026 ZiroEDA and contributors.
+   Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
+
+   APPEARANCE_CONTROLS' own chrome — the metrics that live in
+   `pcbnew/widgets/appearance_controls.cpp`'s createControls() and in
+   `appearance_controls_base.cpp`'s sizers, rather than in the GTK theme.
+
+   The widget owns this file so the numbers sit beside the component that draws
+   them. It states ONLY what is this widget's own; every colour, font and
+   control metric still comes from the shared tokens in `ui/shell.css`, which
+   also carries the row rules (.ze-layer-row, .ze-object-row, .ze-collapsepane,
+   .ze-appearance-bottom …) these selectors sit on top of. Nothing here
+   restates a property those rules already set — a local restatement at higher
+   specificity is how a shared fix stops arriving.
+
+   Every rule below is a sizer flag, which is a number KiCad writes itself, so
+   each is cited to the Add() call it comes from. */
+
+/* m_sizerOuter is a vertical box: the notebook takes proportion 1 and the
+   presets/viewports block proportion 0 (appearance_controls_base.cpp:174-192).
+   The pane's height is the AUI dock's; the notebook body is what scrolls. */
+.ze-appearance {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.ze-appearance > .ze-panel-body {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.ze-appearance > .ze-collapsepane,
+.ze-appearance > .ze-appearance-bottom {
+  flex: 0 0 auto;
+}
+
+/* The three-radio rows: "Inactive layers", "Net colors" and "Ratsnest
+   display". Each is a horizontal wxBoxSizer built the same way
+   (appearance_controls.cpp:648-674, :726-792):
+
+       sizer->Add( first,  0, wxRIGHT, 5 );  sizer->AddStretchSpacer();
+       sizer->Add( second, 0, wxRIGHT, 5 );  sizer->AddStretchSpacer();
+       sizer->Add( third,  0, 0,       5 );  sizer->AddStretchSpacer();
+
+   Note the THIRD stretch spacer, after the last radio. The free space is split
+   three ways, one third of it trailing "Hide"/"None" — so this is not
+   `space-between` over three items, which leaves nothing after the last. The
+   ::after below is that trailing spacer; with it, space-between divides the
+   free space into the three equal gaps the sizer does. Ours was a bare
+   `justifyContent: space-between` written inline, which pushed the last radio
+   hard against the right edge. */
+.ze-appearance .ze-radio-row {
+  display: flex;
+  justify-content: space-between;
+}
+
+.ze-appearance .ze-radio-row::after {
+  content: "";
+  flex: 0 0 auto;
+}
+
+/* The third radio adds no border of its own. */
+.ze-appearance .ze-radio-row > label:not(:last-of-type) {
+  /* [data] wxRIGHT, 5 (appearance_controls.cpp:657, :667). */
+  margin-right: 5px;
+}
+
+/* The two net rows are added with wxBOTTOM (:750, :792); the contrast row is
+   added `wxEXPAND, 5` with no wxBOTTOM at all (:674), so it gets none. */
+.ze-appearance .ze-radio-gap {
+  /* [data] wxBOTTOM, 5 (appearance_controls.cpp:750, :792). */
+  margin-bottom: 5px;
+}
+
+/* wxLEFT, 2 on the captions that carry it: m_txtNetDisplayTitle and
+   m_txtRatsnestVisibility (appearance_controls.cpp:723, :765) and
+   m_presetsLabel / m_viewportsLabel (appearance_controls_base.cpp:150, :168).
+   m_inactiveLayersLabel is added wxEXPAND|wxBOTTOM only (:646) and so is left
+   alone — which is why this is a class and not a descendant rule. */
+.ze-appearance .ze-inset {
+  /* [data] wxLEFT, 2 (appearance_controls.cpp:723, :765;
+     appearance_controls_base.cpp:150, :168). */
+  margin-left: 2px;
+}
+
+/* The spacer between the presets group and the viewports group. */
+.ze-appearance .ze-appearance-bottom > .ze-viewports-label {
+  /* [data] bBottomMargin->Add( 0, 2, 0, wxEXPAND, 5 )
+     (appearance_controls_base.cpp:157). */
+  margin-top: 2px;
+}
+
+/* The wxStaticLine above the checkbox carries its own wxTOP of 4 through
+   .ze-hr, so only the checkbox's border is stated here. */
+.ze-appearance .ze-collapse-body > label {
+  /* [data] layerDisplayOptionsSizer->Add( m_cbFlipBoard, 0,
+     wxTOP | wxBOTTOM, 3 ) (appearance_controls.cpp:682). */
+  margin: 3px 0;
+}

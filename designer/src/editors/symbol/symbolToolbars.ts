@@ -101,6 +101,10 @@ export const SYM_TOOL_MSGS: Record<string, string> = {
   drawPolygon: 'Draw Polygons',
   placeAnchor: 'Move Symbol Anchor',
   deleteTool: 'Interactive Delete Tool',
+  // `ACTIONS::zoomTool`'s FriendlyName (`common/tool/actions.cpp:822`).
+  // `ZOOM_TOOL::Main` opens with `m_frame->PushTool( aEvent )`, so the field
+  // fills in for it exactly as it does for a drawing tool.
+  zoomTool: 'Zoom to Selection Area',
 };
 
 /** Top horizontal toolbar (ReCreateHToolbar). */
@@ -119,15 +123,37 @@ export const SYM_TOP_TOOLBAR: ToolEntry[] = [
   { id: 'redo', icon: 'redo', title: 'Redo' },
   sep,
   // Its own separator group upstream (`toolbars_symbol_editor.cpp:122-124`),
-  // between undo/redo and the zooms. Ours had neither action.
-  { id: 'find', icon: 'find', title: 'Find', disabled: true },
-  { id: 'findReplace', icon: 'findAndReplace', title: 'Find and Replace', disabled: true },
+  // between undo/redo and the zooms.
+  //
+  // `ACTIONS::find` and `ACTIONS::findAndReplace` get no `ENABLE` anywhere in
+  // `SYMBOL_EDIT_FRAME::setupUIConditions`, so both keep
+  // `ACTION_CONDITIONS()`'s default `ShowAlways` and are LIVE on a cold frame
+  // — the two buttons whose state differed from KiCad's on an empty Symbol
+  // Editor. They carried a static `disabled: true` whose reason was ours, not
+  // upstream's: the Find dialog had been built under `editors/schematic/` and
+  // wired only into `SchematicEditor.tsx`, where this frame could not reach
+  // it. Upstream `ShowFindReplaceDialog`, `GetFindReplaceDialog` and
+  // `m_findReplaceDialog` are all `SCH_BASE_FRAME` members
+  // (`eeschema/sch_base_frame.h:246-248, :318`) that `SYMBOL_EDIT_FRAME`
+  // inherits, and `SYMBOL_EDIT_FRAME::setupTools` registers the same
+  // `SCH_FIND_REPLACE_TOOL` (`symbol_edit_frame.cpp:432`). The dialog now
+  // lives in `widgets/dialog_sch_find.tsx` and the walk over
+  // `LIB_SYMBOL::GetDrawItems()` is `findMatchesInSymbol`, beside the
+  // schematic's `findMatches` in the module that mirrors the same C++ file.
+  { id: 'find', icon: 'find', title: 'Find' },
+  { id: 'findReplace', icon: 'findAndReplace', title: 'Find and Replace' },
   sep,
   { id: 'zoomRedraw', icon: 'zoomRedraw', title: 'Redraw view' },
   { id: 'zoomIn', icon: 'zoomIn', title: 'Zoom in' },
   { id: 'zoomOut', icon: 'zoomOut', title: 'Zoom out' },
   { id: 'zoomFit', icon: 'zoomFit', title: 'Zoom to fit symbol' },
-  { id: 'zoomTool', icon: 'zoomTool', title: 'Zoom to Selection Area', disabled: true },
+  // `ACTIONS::zoomTool` gets no `ENABLE` in `setupUIConditions` at all — only
+  // `CHECK( cond.CurrentTool( ACTIONS::zoomTool ) )` (`symbol_edit_frame.cpp:561`)
+  // — so it is live on a cold frame, and `SYMBOL_EDIT_FRAME` registers the tool
+  // itself (`RegisterTool( new ZOOM_TOOL )`, :425). This button carried a static
+  // `disabled: true`; the drag now runs off `ui/zoom_tool.ts`, the shared module
+  // the drawing sheet and GerbView canvases already use.
+  { id: 'zoomTool', icon: 'zoomTool', title: 'Zoom to Selection Area' },
   sep,
   { id: 'rotateCCW', icon: 'rotateCCW', title: 'Rotate counterclockwise' },
   { id: 'rotateCW', icon: 'rotateCW', title: 'Rotate clockwise' },

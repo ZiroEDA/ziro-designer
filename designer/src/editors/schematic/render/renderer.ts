@@ -66,8 +66,7 @@ import {
 } from '@ziroeda/eeschema';
 import type { Theme } from '../theme.js';
 import {
-  backgroundLayerAlpha,
-  backgroundLayerAlphaOverride,
+  backgroundLayerFill,
   brightened,
   cssWithAlpha,
   inverted,
@@ -87,6 +86,16 @@ import { contentBBox } from '@ziroeda/eeschema/src/tools/scene_bbox.js';
 import { tableCellId } from '@ziroeda/eeschema/src/tools/table_cells.js';
 import { schSymbolLibraryName } from '@ziroeda/eeschema';
 import { imageDataUrl } from '@ziroeda/eeschema/src/import_gfx/image_format.js';
+import { libPreviewFields } from '@ziroeda/eeschema/src/tools/autoplace_fields.js';
+import { drawField } from '../../symbol/render/symbolRenderer.js';
+import {
+  DNP_MARKER_STROKE_WIDTH,
+  SIM_EXCLUSION_BADGE_ALPHA,
+  SIM_EXCLUSION_STROKE_WIDTH,
+  dnpMarkerSegments,
+  simExclusionMarker,
+} from './symbol_markers.js';
+import { dimmedColor } from './render_color.js';
 
 /**
  * Which items this render is allowed to draw (`hiddenItems` / `onlyItems`).
@@ -212,6 +221,49 @@ function bodyBoxesFor(sch: Schematic, libById: Map<string, LibSymbol>): BBox[] {
     g_bboxBySymbol.set(sym, { lib, box });
     return box;
   });
+}
+
+/**
+ * `SCH_SYMBOL::GetBodyBoundingBox()` (`sch_symbol.cpp:2646`), which is
+ * `doGetBoundingBox( false, false )` — pins and fields both excluded.
+ *
+ * `bodyBoxesFor` above is `GetBodyAndPinsBoundingBox()`
+ * (`doGetBoundingBox( true, false )`). The DNP cross needs BOTH, because the
+ * distance between them on each side is the margin it grows into; the
+ * simulation marker needs only this one. Cached and computed lazily, since
+ * only a marked symbol ever asks: on a sheet with no DNP and no exclusions
+ * this map stays empty.
+ */
+const g_bodyOnlyBySymbol = new WeakMap<object, { lib: LibSymbol | undefined; box: BBox }>();
+
+function bodyOnlyBox(sym: Schematic['symbols'][number], lib: LibSymbol | undefined): BBox {
+  const hit = g_bodyOnlyBySymbol.get(sym);
+  if (hit && hit.lib === lib) return hit.box;
+  const box = symbolBodyBBox(sym, lib, { includePins: false });
+  g_bodyOnlyBySymbol.set(sym, { lib, box });
+  return box;
+}
+
+/**
+ * `getRenderColor`'s `aDimmed` branch, memoised.
+ *
+ * The arithmetic is `dimmedColor`; this only keeps the answers, because a DNP
+ * symbol asks for the same handful of layer colours once per shape, per pin and
+ * per pin label, and each answer costs two colour parses.
+ */
+const g_dimmed = new Map<string, string>();
+
+function dimmer(dimmed: boolean, background: string): (color: string) => string {
+  if (!dimmed) return (color) => color;
+  return (color) => {
+    const key = `${color}|${background}`;
+    let hit = g_dimmed.get(key);
+    if (hit === undefined) {
+      hit = dimmedColor(color, background);
+      g_dimmed.set(key, hit);
+    }
+    return hit;
+  };
 }
 
 /**
@@ -503,6 +555,18 @@ export interface RenderOpts {
    * items are moving, not by how large the sheet is.
    */
   onlyItems?: ReadonlySet<string>;
+  /**
+   * `eeconfig()->m_Appearance.mark_sim_exclusions` (`sch_painter.cpp:2696`),
+   * the Display Options checkbox that suppresses the excluded-from-simulation
+   * marker. Its default is `true` (`eeschema/eeschema_settings.cpp:222-223`),
+   * which is why the frame passes the setting rather than leaving this unset.
+   *
+   * Unset is OFF, and that is the plot/print path rather than a fallback:
+   * `SCH_SYMBOL::Plot` emits `PlotDNP` (`sch_symbol.cpp:3348-3349`) and no
+   * simulation marker at all, so a plotted sheet never shows one and has no
+   * setting to consult.
+   */
+  markSimExclusions?: boolean;
   /** selection.thickness (mils). */
   selectionThicknessMils: number;
   /** selection.highlight_thickness (mils). */
@@ -1045,14 +1109,22 @@ export function renderSchematic(
   // Sheet-level graphic shapes (rectangle/circle/arc on the notes layer): the
   // item's own stroke colour/dash, else LAYER_NOTES; colour fills honoured.
   sch.graphics.forEach((g, i) => {
-    if (!drawable(refId('graphic', undefined, i))) return;
-    drawSheetGraphic(ctx, g, theme);
+    const gid = refId('graphic', undefined, i);
+    if (!drawable(gid)) return;
+    // `isBackgroundLayer` in getRenderColor covers LAYER_NOTES_BACKGROUND and
+    // LAYER_SHAPES_BACKGROUND, which is the layer draw( SCH_SHAPE ) fills a
+    // FILLED_WITH_COLOR / FILLED_WITH_BG_BODYCOLOR shape on — so a selected
+    // rectangle washes out exactly the way a selected symbol body does.
+    drawSheetGraphic(ctx, g, theme, selection?.has(gid) ?? false, hl(gid));
   });
 
   // Text boxes (SCH_TEXTBOX): bordered box with word-wrapped text inside.
   sch.textBoxes.forEach((tb, i) => {
-    if (!drawable(refId('textbox', tb.uuid, i))) return;
-    drawTextBox(ctx, tb, theme);
+    const tid = refId('textbox', tb.uuid, i);
+    if (!drawable(tid)) return;
+    // draw( SCH_TEXTBOX ) fills on the same background layers, through the same
+    // getRenderColor, so it takes the same alpha.
+    drawTextBox(ctx, tb, theme, selection?.has(tid) ?? false, hl(tid));
   });
 
   // Tables (SCH_TABLE): cell text, then border + row/column separators.
@@ -1174,6 +1246,23 @@ export function renderSchematic(
     const lib = libById.get(schSymbolLibraryName(sym));
     const bb: BBox = bodyBoxes[si]!;
     const bodyVisible = symDrawable && inView(bb.minX, bb.minY, bb.maxX, bb.maxY);
+    /**
+     * `bool DNP = aSymbol->GetDNP( sheetPath, variantName )`
+     * (`sch_painter.cpp:2695`) and the exclusion on the line after it.
+     *
+     * The two arguments are inert for us and would be inert for KiCad too on
+     * this document: `SCH_SYMBOL::GetDNP` (`sch_symbol.cpp:976-992`) returns
+     * the symbol's own `m_DNP` unless a NON-EMPTY variant name selects a
+     * per-instance override, and we have no design variants at all — nothing
+     * writes `instance.m_Variants`, so there is no second answer to give.
+     * `GetExcludedFromSim` (`:1089-1106`) is the same shape.
+     */
+    const dnp = sym.dnp === true;
+    const markExclusion = opts.markSimExclusions === true && sym.excludedFromSim === true;
+    // `aDimmed` is DNP, and only DNP: it is what `draw()` passes for the
+    // fields (`:2705`) and for the body (`:2790`). The exclusion flag gates
+    // its marker and nothing else.
+    const dim = dimmer(dnp, theme.background);
     if (lib && bodyVisible) {
       const t = symbolTransform(sym.angle, sym.mirror);
       const pins = {
@@ -1200,10 +1289,9 @@ export function renderSchematic(
             shadowWidth,
             opts.showHiddenPins,
             'bg',
-            backgroundLayerAlphaOverride(
-              selection?.has(symId) ?? false,
-              highlight?.has(symId) ?? false,
-            ),
+            selection?.has(symId) ?? false,
+            highlight?.has(symId) ?? false,
+            dim,
           );
       }
       for (const unit of lib.units) {
@@ -1221,6 +1309,9 @@ export function renderSchematic(
             shadowWidth,
             opts.showHiddenPins,
             'fg',
+            false,
+            false,
+            dim,
           );
       }
     }
@@ -1252,7 +1343,9 @@ export function renderSchematic(
         fd.shown,
         fd.centre,
         fd.h,
-        color,
+        // `draw( &field, aLayer, DNP )` (sch_painter.cpp:2705): a DNP symbol's
+        // fields fade with its body.
+        dim(color),
         undefined,
         fd.rot,
         fd.bold,
@@ -1263,6 +1356,24 @@ export function renderSchematic(
     // Locked symbols show a small padlock at the body's top-left corner
     // (SCH_PAINTER draws a lock overlay for SCH_ITEM::IsLocked items).
     if (sym.locked && bodyVisible) drawLockBadge(ctx, bb.minX, bb.minY, theme);
+
+    // The DNP and EXCLUDE-from-SIM markers, sch_painter.cpp:2807-2870. Both are
+    // guarded on `aLayer == LAYER_DEVICE` upstream -- "these drawings are
+    // associated to the symbol body, so draw them only when the LAYER_DEVICE is
+    // drawn (to avoid draw artifacts)" -- which is once per SYMBOL and not once
+    // per unit, so they sit outside the unit loop above.
+    if ((dnp || markExclusion) && bodyVisible) {
+      const body = bodyOnlyBox(sym, lib);
+      // `m_gal->AdvanceDepth()`: the markers go over the body, never under it.
+      const capsBefore = ctx.lineCap;
+      ctx.setLineDash([]);
+      ctx.lineCap = 'round';
+
+      if (dnp) drawDnpMarker(ctx, body, bb, theme);
+      if (markExclusion) drawSimExclusionMarker(ctx, body, theme);
+
+      ctx.lineCap = capsBefore;
+    }
   });
 
   // Labels and free text (culled). A label on the highlighted net draws in the
@@ -1321,13 +1432,10 @@ export function renderSchematic(
       // The gate above is `backgroundColor.a > 0.0` on the *unselected* colour,
       // exactly as draw( SCH_SHEET ) has it: a sheet left on the theme's
       // transparent default stays unfilled even while it is selected.
-      ctx.fillStyle = cssWithAlpha(
+      ctx.fillStyle = backgroundLayerFill(
         sheetFill,
-        backgroundLayerAlpha(
-          parseColor4d(sheetFill).a,
-          sheetSelected,
-          hl(refId('sheet', sh.uuid, si)),
-        ),
+        sheetSelected,
+        hl(refId('sheet', sh.uuid, si)),
       );
       ctx.fillRect(sh.at.x, sh.at.y, sh.size.w, sh.size.h);
     }
@@ -1454,10 +1562,30 @@ export function renderSchematic(
     ctx.strokeStyle = theme.anchor;
     sch.symbols.forEach((sym, si) => {
       const symId = refId('symbol', sym.uuid, si);
-      if (selection.has(symId)) return; // parentMoving / parent selected
+      // Selecting a SYMBOL selects its fields too, so the anchors appear on all
+      // of them and not only on a field picked out on its own. That is
+      // `SCH_SELECTION_TOOL::highlight` under its own comment "Highlight pins
+      // and fields", which walks the item's children the moment the parent is
+      // selected (sch_selection_tool.cpp:3771-3792):
+      //
+      //     sch_item->RunOnChildren(
+      //             [&]( SCH_ITEM* aChild )
+      //             {
+      //                 if( aMode == SELECTED )
+      //                 {
+      //                     aChild->SetSelected();
+      //
+      // so `aField->IsSelected()` below is true for every field of a selected
+      // symbol. This used to `return` on exactly that case, reading the
+      // parent's selection as upstream's `parentMoving` -- but those are two
+      // different conditions, and only the second one suppresses anything.
+      const parentSelected = selection.has(symId);
       for (const fd of fieldDraws[si] ?? []) {
         const fid = fieldId(symId, fd.index);
-        if (!selection.has(fid)) continue;
+        // `aField->IsSelected()`: its own selection, or the parent's by way of
+        // the child walk above.
+        const fieldSelected = parentSelected || selection.has(fid);
+        if (!fieldSelected) continue;
         // The anchor belongs to the field, so it goes wherever the field goes:
         // the base must not draw it for a field a drag has taken, and the
         // preview must draw it at the position the drag has moved it to. This
@@ -1466,7 +1594,17 @@ export function renderSchematic(
         if (!drawableChild(symId, fid)) continue;
         const at = sym.fields[fd.index]?.at;
         if (!at) continue;
-        if (opts.movingSelection) {
+        //     bool parentMoving = fieldParent && fieldParent->IsMoving();
+        //
+        //     if( aField->IsMoving() && !parentMoving )   -> umbilical line
+        //     else if( aField->IsSelected() && !parentMoving ) -> drawAnchor
+        //
+        // Both arms are gated on the PARENT not moving: when the symbol is the
+        // thing being dragged its fields ride along, and neither a line nor a
+        // cross means anything (sch_painter.cpp:3072-3089).
+        const parentMoving = opts.movingSelection && parentSelected;
+        if (parentMoving) continue;
+        if (opts.movingSelection && selection.has(fid)) {
           // GetOutlineWidth() is 1 IU (render_settings.cpp), a hairline, so
           // floor it at one device pixel rather than letting it vanish.
           ctx.lineWidth = Math.max(1, g_scale > 0 ? 1 / g_scale : 1);
@@ -1527,8 +1665,30 @@ export function renderSchematic(
   }
 }
 
-/** Draw one sheet-level graphic shape (notes layer). */
-function drawSheetGraphic(ctx: CanvasRenderingContext2D, g: LibGraphic, theme: Theme): void {
+/**
+ * Draw one sheet-level graphic shape (notes layer).
+ *
+ * `selected` / `brightened` are the item's state, which decides the alpha its
+ * *fill* is drawn at — the fill goes on a background layer, and
+ * `SCH_PAINTER::getRenderColor` ends:
+ *
+ *     else if( aItem->IsSelected() && isBackgroundLayer( aLayer ) )
+ *         // Selected items will be painted over all other items, so make backgrounds
+ *         // translucent so that non-selected overlapping objects are visible
+ *         color = color.WithAlpha( 0.5 );
+ *
+ * with the brightened arm just above forcing 0.2. The stroke is on the
+ * foreground layer and keeps its own alpha.
+ */
+function drawSheetGraphic(
+  ctx: CanvasRenderingContext2D,
+  g: LibGraphic,
+  theme: Theme,
+  /** Required, not defaulted: a caller that forgot it would silently draw an
+   *  opaque fill for a selected shape, which is the bug this argument fixes. */
+  selected: boolean,
+  brightened: boolean,
+): void {
   if (g.kind === 'text') return; // free text arrives via labels, not graphics
   const stroke = g.stroke;
   const width = stroke && stroke.width > 0 ? stroke.width : g_defaultPen;
@@ -1538,7 +1698,8 @@ function drawSheetGraphic(ctx: CanvasRenderingContext2D, g: LibGraphic, theme: T
   // as it does for any shape.
   const layerColor = g.ruleArea ? theme.ruleArea : theme.noteLine;
   const color = stroke?.color ? cssColor(stroke.color) : layerColor;
-  const fill = g.fill?.type === 'color' && g.fill.color ? cssColor(g.fill.color) : null;
+  const ownFill = g.fill?.type === 'color' && g.fill.color ? cssColor(g.fill.color) : null;
+  const fill = ownFill === null ? null : backgroundLayerFill(ownFill, selected, brightened);
 
   // Cheap culling per shape.
   let minX = Infinity,
@@ -1655,6 +1816,11 @@ function drawTextBox(
   ctx: CanvasRenderingContext2D,
   tbIn: Schematic['textBoxes'][number],
   theme: Theme,
+  /** See `drawSheetGraphic`: the box's fill is on a background layer, so a
+   *  selected one is forced to alpha 0.5 and a brightened one to 0.2. Required
+   *  for the same reason. */
+  selected: boolean,
+  brightened: boolean,
 ): void {
   // GetShownText: expand `${VAR}` before wrapping (substitution changes widths).
   const tb =
@@ -1669,12 +1835,13 @@ function drawTextBox(
   const width = stroke && stroke.width > 0 ? stroke.width : g_defaultPen;
   const borderColor = stroke?.color ? cssColor(stroke.color) : theme.noteLine;
   const textColor = tb.effects?.color ? cssColor(tb.effects.color) : theme.noteLine;
-  const fill =
+  const ownFill =
     tb.fill?.type === 'color' && tb.fill.color
       ? cssColor(tb.fill.color)
       : tb.fill?.type === 'background'
         ? theme.background
         : null;
+  const fill = ownFill === null ? null : backgroundLayerFill(ownFill, selected, brightened);
 
   // Border + fill. A width-0 default border still draws (KiCad draws the outline).
   ctx.beginPath();
@@ -3320,6 +3487,76 @@ function drawLibUnitShadow(
   }
 }
 
+/**
+ * The DNP cross, `SCH_PAINTER::draw( SCH_SYMBOL )` at `sch_painter.cpp:2809-2835`.
+ *
+ * `GAL::DrawSegment( pt1, pt2, width )` is a capped segment, which is why the
+ * caller sets a round line cap: the GL backend's segment shader is a distance
+ * test round the axis and gives the same ends.
+ */
+function drawDnpMarker(
+  ctx: CanvasRenderingContext2D,
+  body: BBox,
+  bodyAndPins: BBox,
+  theme: Theme,
+): void {
+  ctx.strokeStyle = theme.dnpMarker;
+  ctx.lineWidth = DNP_MARKER_STROKE_WIDTH;
+  for (const seg of dnpMarkerSegments(body, bodyAndPins)) strokeLine(ctx, seg.a, seg.b);
+}
+
+/**
+ * The excluded-from-simulation marker, `sch_painter.cpp:2837-2870`: a box round
+ * the body, then a disc with the tilde that means "simulation" across it.
+ *
+ * The block sets `SetIsStroke( true )` AND `SetIsFill( true )` once, at the
+ * top, and never turns either off — so every shape in it is both filled and
+ * stroked, and the stroke colour stays the full marker colour throughout. Only
+ * the FILL colour is changed, to a tenth alpha for the disc and back for the
+ * curve. Filling the disc without stroking it loses the ring that makes the
+ * badge readable, which is the whole of it at a normal zoom.
+ *
+ * The stroke WIDTH is `strokeWidth` and it gets there by a side effect:
+ * `OPENGL_GAL::drawSegment` does `SetLineWidth( aWidth )` on its fill path
+ * (`common/gal/opengl/opengl_gal.cpp`), so the four box segments leave
+ * `m_lineWidth` at `strokeWidth` for the circle and the curve that follow.
+ */
+function drawSimExclusionMarker(ctx: CanvasRenderingContext2D, body: BBox, theme: Theme): void {
+  const m = simExclusionMarker(body);
+
+  ctx.strokeStyle = theme.excludedFromSim;
+  ctx.lineWidth = SIM_EXCLUSION_STROKE_WIDTH;
+  for (const seg of m.box) strokeLine(ctx, seg.a, seg.b);
+
+  // `SetFillColor( marker_color.WithAlpha( 0.1 ) ); DrawCircle( center, offset )`
+  // — WithAlpha REPLACES the theme's alpha rather than scaling it. The stroke
+  // colour is untouched, so the ring is the full-strength marker colour.
+  ctx.fillStyle = cssWithAlpha(theme.excludedFromSim, SIM_EXCLUSION_BADGE_ALPHA);
+  ctx.beginPath();
+  ctx.arc(m.circle.center.x, m.circle.center.y, m.circle.radius, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+
+  // `SetFillColor( marker_color ); DrawCurve( left, top, bottom, right, 1 )`.
+  // `OPENGL_GAL::DrawCurve` flattens the bezier and hands it to `DrawPolygon`,
+  // which with both flags on FILLS the closed contour and then strokes the
+  // open polyline — so the tilde is a filled S with a `strokeWidth` outline,
+  // not a hairline.
+  ctx.fillStyle = theme.excludedFromSim;
+  ctx.beginPath();
+  ctx.moveTo(m.curve.start.x, m.curve.start.y);
+  ctx.bezierCurveTo(
+    m.curve.control1.x,
+    m.curve.control1.y,
+    m.curve.control2.x,
+    m.curve.control2.y,
+    m.curve.end.x,
+    m.curve.end.y,
+  );
+  ctx.fill();
+  ctx.stroke();
+}
+
 function drawLibUnit(
   ctx: CanvasRenderingContext2D,
   unit: LibSymbolUnit,
@@ -3338,13 +3575,19 @@ function drawLibUnit(
   // 'bg' phase across all units first, then the 'fg' phase.
   phase: 'bg' | 'fg' | 'all' = 'all',
   /**
-   * getRenderColor's alpha for LAYER_DEVICE_BACKGROUND: a selected symbol's
-   * body fill goes translucent, "so that non-selected overlapping objects are
-   * visible". `WithAlpha` replaces the alpha rather than scaling it, so this is
-   * the value each background shape is forced to; null leaves every shape the
-   * alpha of its own colour.
+   * The symbol's state, which decides how LAYER_DEVICE_BACKGROUND is composited:
+   * a selected symbol's body fill goes translucent, "so that non-selected
+   * overlapping objects are visible". `backgroundLayerFill` owns the arithmetic
+   * — and, importantly, owns the fact that what KiCad's canvas actually puts on
+   * the glass is not the `WithAlpha( 0.5 )` its painter states.
    */
-  bgAlpha: number | null = null,
+  bgSelected = false,
+  bgBrightened = false,
+  /**
+   * `getRenderColor`'s `aDimmed` tail (`sch_painter.cpp:482-486`), already
+   * bound to the sheet background. Identity when the symbol is not DNP.
+   */
+  dim: (color: string) => string = (color) => color,
 ): number {
   // Two passes matching SCH_PAINTER's layer order: background/custom fills
   // first (LAYER_DEVICE_BACKGROUND), then outlines and outline-colour fills
@@ -3397,9 +3640,10 @@ function drawLibUnit(
       if (g.kind === 'text') continue;
       const fillType = g.fill?.type;
       if (fillType !== 'background' && fillType !== 'color') continue;
-      const bodyFill =
-        fillType === 'color' && g.fill?.color ? cssColor(g.fill.color) : theme.symbolFill;
-      ctx.fillStyle = bgAlpha === null ? bodyFill : cssWithAlpha(bodyFill, bgAlpha);
+      const bodyFill = dim(
+        fillType === 'color' && g.fill?.color ? cssColor(g.fill.color) : theme.symbolFill,
+      );
+      ctx.fillStyle = backgroundLayerFill(bodyFill, bgSelected, bgBrightened);
       if (g.kind === 'arc') {
         drawArc(
           ctx,
@@ -3420,8 +3664,8 @@ function drawLibUnit(
   for (const g of unit.graphics) {
     const lw = g.kind !== 'text' && g.stroke && g.stroke.width > 0 ? g.stroke.width : g_defaultPen;
     ctx.lineWidth = lw;
-    ctx.strokeStyle = theme.symbolOutline;
-    ctx.fillStyle = theme.symbolOutline;
+    ctx.strokeStyle = dim(theme.symbolOutline);
+    ctx.fillStyle = dim(theme.symbolOutline);
 
     if (g.kind === 'text') {
       const p = localToWorld(origin, t, g.at);
@@ -3430,7 +3674,7 @@ function drawLibUnit(
         g.text,
         p,
         g.effects?.fontSize?.[0] ?? 1.27 * MM,
-        theme.symbolOutline,
+        dim(theme.symbolOutline),
         g.effects?.justify,
         g.angle,
         g.effects?.bold,
@@ -3517,7 +3761,7 @@ function drawLibUnit(
       ctx.lineWidth = g_defaultPen + shadowWidth;
       strokePinBody();
     }
-    ctx.strokeStyle = brightened ? '#ff00ff' : hiddenGhost ? theme.hidden : theme.pin;
+    ctx.strokeStyle = dim(brightened ? '#ff00ff' : hiddenGhost ? theme.hidden : theme.pin);
     ctx.lineWidth = g_defaultPen;
     strokePinBody();
 
@@ -3529,7 +3773,7 @@ function drawLibUnit(
         run.text,
         run.at,
         run.size,
-        hiddenGhost ? theme.hidden : run.kind === 'name' ? theme.pinName : theme.pinNumber,
+        dim(hiddenGhost ? theme.hidden : run.kind === 'name' ? theme.pinName : theme.pinNumber),
         run.justify,
         run.angle,
       );
@@ -4013,6 +4257,24 @@ export function renderSymbolPreview(
       inc(pinBodyEnd(pin.at, pin.angle, pin.length));
     }
   }
+  // The preview autoplaces the symbol's fields and then measures a bounding box
+  // that includes them (`DisplaySymbol` autoplaces at
+  // symbol_preview_widget.cpp:229-233, then takes `GetUnitBoundingBox`), which
+  // is why KiCad's preview shows the reference and value beside the body and at
+  // a scale that leaves room for them. Measuring the body alone made the same
+  // symbol fill the pane.
+  const preview = libPreviewFields(lib, true, {
+    allowRejustify: true,
+    alignToGrid: true,
+  });
+  const previewFields = preview.fields;
+  // Each field's DRAWN box, not its anchor: `GetUnitBoundingBox` takes the text
+  // extent, and fitting to anchors alone left a long value string hanging off
+  // the side of the pane.
+  for (const b of preview.boxes) {
+    inc({ x: b.box.x, y: b.box.y });
+    inc({ x: b.box.x + b.box.w, y: b.box.y + b.box.h });
+  }
   if (!Number.isFinite(minX)) {
     ctx.fillStyle = '#888';
     ctx.font = '14px system-ui';
@@ -4071,6 +4333,10 @@ export function renderSymbolPreview(
       false,
       'fg',
     );
+  // The fields themselves, at the positions measured above. Hidden ones stay
+  // hidden: the preview is not the symbol editor and has no "show hidden
+  // fields" mode to reveal them.
+  for (const f of previewFields) drawField(ctx, f, theme, false);
   return used;
 }
 

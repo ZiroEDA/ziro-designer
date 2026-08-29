@@ -25,7 +25,9 @@
  */
 
 import { wildCompareString } from '@ziroeda/common/src/string_utils.js';
+import { Reporter } from '@ziroeda/common/src/reporter.js';
 import type { LibPin, LibSymbol, Schematic, SchField, SchSymbol } from '../types.js';
+import { flattenLibSymbol } from '../lib_symbol.js';
 import type { EditCommand } from './command.js';
 import { refId } from './hittest.js';
 import { clearAlternates } from './pin_alternates.js';
@@ -78,7 +80,23 @@ export function defaultChangeSymbolsOptions(mode: ChangeSymbolsMode): ChangeSymb
   return {
     mode,
     match: { mode: 'all' },
-    updateFields: new Set(['Reference', 'Value', 'Footprint', 'Datasheet']),
+    /* The checklist's opening state, which is NOT "all but the last one".
+       DIALOG_CHANGE_SYMBOLS' constructor (:97-111) walks MANDATORY_FIELDS —
+       REFERENCE, VALUE, FOOTPRINT, DATASHEET, DESCRIPTION
+       (template_fieldnames.h:59) — and checks each one:
+
+           if( fieldId == REFERENCE ) Check( listIdx, selectReference );
+           else if( fieldId == VALUE ) Check( listIdx, selectValue );
+           else                        Check( listIdx, true );
+
+       where selectReference/selectValue come from EESCHEMA_SETTINGS'
+       m_ChangeSymbols.updateReferences / .updateValues, BOTH default false
+       (eeschema_settings.cpp:636,639). So the reference and the value are the
+       two a fresh install leaves alone — renaming every symbol from the
+       library is the destructive one — and the other three are on.
+       This said Reference + Value + Footprint + Datasheet: the two that should
+       be off were on, and Description, which should be on, was off. */
+    updateFields: new Set(['Footprint', 'Datasheet', 'Description']),
     removeExtraFields: false,
     resetEmptyFields: false,
     resetFieldText: true,
@@ -225,12 +243,25 @@ function updateField(
  */
 export function changeSymbols(
   doc: Schematic,
-  libById: ReadonlyMap<string, LibSymbol>,
+  librarySymbols: ReadonlyMap<string, LibSymbol>,
   opts: ChangeSymbolsOptions,
 ): ChangeSymbolsResult {
   const messages: ChangeSymbolsMessage[] = [];
   let processed = 0;
   let changed = false;
+
+  // DIALOG_CHANGE_SYMBOLS::processSymbol (:615, :657): every library symbol it
+  // touches goes through `libSymbol->Flatten()` before it becomes the
+  // placement's part or the screen's cached definition. This is also the way
+  // back for a schematic whose cache already holds a bodyless derived symbol:
+  // "Update Symbols from Library" re-caches the flattened part.
+  const reporter = new Reporter();
+  const libById = new Map<string, LibSymbol>();
+  for (const [id, lib] of librarySymbols) libById.set(id, flattenLibSymbol(lib, reporter));
+  for (const line of reporter.lines) messages.push({ text: line.message, severity: 'error' });
+
+  /** The library ids the run actually touched, whether or not a field moved. */
+  const matched = new Set<string>();
 
   const symbols = doc.symbols.map((sym, i) => {
     const id = refId('symbol', sym.uuid, i);
@@ -251,6 +282,7 @@ export function changeSymbols(
       messages.push({ text: `${ref}: *** new symbol has too few units ***`, severity: 'error' });
       return sym;
     }
+    matched.add(targetId);
 
     let next: SchSymbol = sym;
     if (targetId !== sym.libId) next = { ...next, libId: targetId };
@@ -349,7 +381,24 @@ export function changeSymbols(
     return next;
   });
 
-  if (!changed) {
+  // A cached definition that is still derived cannot have come from KiCad: the
+  // schematic's library cache holds flattened symbols only ("no derived symbols
+  // are allowed in the library cache", parser :2865), and the parent it names is
+  // not in the file. Its body therefore exists nowhere on disk, so re-caching
+  // the flattened part is a repair, and it has to happen even when not one field
+  // moved — which is the usual case, since only the *definition* is broken.
+  const orphanedCache = doc.libSymbols.filter(
+    (l) => l.extends !== undefined && matched.has(l.libId) && libById.has(l.libId),
+  );
+
+  for (const l of orphanedCache) {
+    messages.push({
+      text: `${l.libId}: derived symbol in the schematic's cache replaced with the flattened part`,
+      severity: 'action',
+    });
+  }
+
+  if (!changed && orphanedCache.length === 0) {
     if (messages.length === 0)
       messages.push({ text: '*** No symbols matching criteria found ***', severity: 'error' });
     return { doc, messages, processed };

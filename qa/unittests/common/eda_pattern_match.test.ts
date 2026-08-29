@@ -23,11 +23,45 @@ function deviceR(): SearchTerm[] {
 }
 
 describe('EdaCombinedMatcher', () => {
-  it('finds plain substrings case-insensitively', () => {
+  /**
+   * `EDA_PATTERN_MATCH_SUBSTR::Find` (eda_pattern_match.cpp:49-57) is
+   *
+   *     int loc = aCandidate.Find( m_pattern );
+   *
+   * and `SetPattern` (:36-40) stores the pattern verbatim. Neither side is
+   * folded, so `Find` is case-SENSITIVE and `EDA_COMBINED_MATCHER( "resist" )`
+   * does not find "Resistor". A library search feels case-insensitive because
+   * both sides are lower-cased before they reach here — `ScoreTerms` normalises
+   * the term (:485-495), and every CTX_LIBITEM caller lower-cases the query
+   * token it constructs the matcher from.
+   *
+   * We folded the candidate inside the matcher instead. That is what made
+   * `find( 'Resistor' )` return 0, and it allocated a lower-cased copy of every
+   * search term on every keystroke — 219 176 of them in the symbol chooser.
+   */
+  it('finds plain substrings without folding case, as wxString::Find does', () => {
     const m = new EdaCombinedMatcher('resist');
-    expect(m.find('Resistor')).toBe(0);
+    expect(m.find('resistor')).toBe(0);
     expect(m.find('photoresistor')).toBe(5);
     expect(m.find('capacitor')).toBe(-1);
+    // The candidate is the caller's to normalise, and an unfolded one misses.
+    expect(m.find('Resistor')).toBe(-1);
+  });
+
+  /**
+   * The same rule where the chooser's hot loop actually depends on it.
+   * `ScoreTerms` normalises a term once and records that with
+   * `term.Normalized = true` (:485-495); a term arriving already flagged is
+   * taken at its word and scored as-is. So a flagged term whose text is not
+   * lower-case must score zero — folding again inside the matcher would score
+   * it, and would be doing the fold on every term of every pass.
+   */
+  it('does not re-fold a term already marked normalized', () => {
+    const m = new EdaCombinedMatcher('resist');
+    const flagged: SearchTerm = { text: 'Resistor', score: 8, isName: true, normalized: true };
+    expect(m.scoreTerms([flagged]).score).toBe(0);
+    // The same term unflagged is normalised here, and then does score.
+    expect(m.scoreTerms([{ text: 'Resistor', score: 8, isName: true }]).score).toBeGreaterThan(0);
   });
 
   it('matches wildcard patterns', () => {
@@ -65,6 +99,59 @@ describe('EdaCombinedMatcher', () => {
   it('returns zero when nothing matches', () => {
     const m = new EdaCombinedMatcher('zzz');
     expect(m.scoreTerms(deviceR()).score).toBe(0);
+  });
+});
+
+/**
+ * WHICH patterns get a regex matcher at all.
+ *
+ * `EDA_PATTERN_MATCH_REGEX::SetPattern` (common/eda_pattern_match.cpp:80-104)
+ * accepts a pattern only if it is fully anchored (`^…$`) or slash-delimited
+ * (`/…/`, trailing slash optional) — "for now regular expressions must be
+ * explicit". Everything else returns false and `AddMatcher` drops the matcher,
+ * leaving CTX_LIBITEM with the escaped wildcard and the plain substring, both
+ * of which look for the pattern LITERALLY.
+ *
+ * So a metacharacter typed into the search box is a character, not syntax. The
+ * counts below are KiCad 10.0.5's own, measured over the whole of
+ * /usr/share/kicad/symbols/Device.kicad_sym with qa/probes/chooser_score:
+ *
+ *     r+   0 rows      c.   0 rows      (R)   0 rows
+ *     r*Var  18 rows   /^R_Var/  2 rows   r_var  2 rows
+ *
+ * We used to compile any pattern holding a metacharacter, so `r+` became /r+/
+ * and matched every symbol with an r in it.
+ */
+describe('EdaCombinedMatcher treats an unanchored metacharacter as a literal', () => {
+  it('does not read `r+` as a regex', () => {
+    const m = new EdaCombinedMatcher('r+');
+    expect(m.find('r_variable')).toBe(-1);
+    expect(m.find('resistor')).toBe(-1);
+    // ...but it still finds the literal two characters.
+    expect(m.find('r+5v rail')).toBe(0);
+  });
+
+  it('does not read `c.` or `(R)` as a regex', () => {
+    expect(new EdaCombinedMatcher('c.').find('capacitor')).toBe(-1);
+    expect(new EdaCombinedMatcher('c.').find('c.1 net')).toBe(0);
+    expect(new EdaCombinedMatcher('(r)').find('resistor')).toBe(-1);
+    expect(new EdaCombinedMatcher('(r)').find('net (r) here')).toBe(4);
+  });
+
+  it('still reads an anchored or slash-delimited pattern as a regex', () => {
+    expect(new EdaCombinedMatcher('^r$').find('r')).toBe(0);
+    expect(new EdaCombinedMatcher('^r$').find('r_variable')).toBe(-1);
+    expect(new EdaCombinedMatcher('/^r_/').find('r_variable')).toBe(0);
+    expect(new EdaCombinedMatcher('/^r_/').find('thermistor')).toBe(-1);
+    // The trailing slash is optional: "requiring a '/' on the end means they
+    // get no feedback while they type."
+    expect(new EdaCombinedMatcher('/^r_').find('r_variable')).toBe(0);
+  });
+
+  it('still reads `*` and `?` as wildcards', () => {
+    expect(new EdaCombinedMatcher('r*var').find('r_variable')).toBe(0);
+    expect(new EdaCombinedMatcher('r?var').find('r_variable')).toBe(0);
+    expect(new EdaCombinedMatcher('r?var').find('r__variable')).toBe(-1);
   });
 });
 

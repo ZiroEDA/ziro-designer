@@ -34,6 +34,7 @@ import {
   applyToggle,
   DEFAULT_TOGGLES,
   RADIO_GROUPS,
+  syncPinEditOnLoad,
 } from '@ziroeda/designer/src/editors/symbol/toggles.js';
 import {
   renderSymbolScene,
@@ -95,15 +96,29 @@ describe("SYMBOL_EDIT_FRAME's opening toggle state", () => {
    * Whole-set and in one expectation, because "contains unitsMils" would pass
    * with `unitsMm` still in the set beside it.
    */
-  it('is the six buttons upstream leaves on, with mils among them', () => {
+  it('is the five buttons upstream leaves on, with mils among them', () => {
     expect([...DEFAULT_TOGGLES].sort()).toEqual([
       'crosshairSmall',
       'showLibraryTree',
       'showProperties',
       'toggleGrid',
-      'toggleSyncedPinsMode',
       'unitsMils',
     ]);
+  });
+
+  /**
+   * `toggleSyncedPinsMode` is NOT in that set, and this is the re-derivation
+   * rather than a re-baseline: `SYMBOL_EDIT_FRAME`'s constructor writes
+   * `m_SyncPinEdit = false;` (`symbol_edit_frame.cpp:128`) and nothing puts it
+   * back until a symbol is loaded (:968). It sat in `DEFAULT_TOGGLES`, which
+   * painted the Synchronized Pins button lit — and lit *while disabled*, since
+   * `multiUnitModeCond` (:609-613) is false with no symbol. A captured KiCad
+   * cold frame shows that button flat: measured, its cell background is the
+   * toolbar face rgb(55,55,55), where ours was the checked fill rgb(68,48,41).
+   */
+  it('does not light Synchronized Pins mode on a cold frame', () => {
+    expect(DEFAULT_TOGGLES.has('toggleSyncedPinsMode')).toBe(false);
+    expect(syncPinEditOnLoad(null)).toBe(false);
   });
 
   /** Exactly one member of each radio group is on at boot. */

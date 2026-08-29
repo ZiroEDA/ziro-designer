@@ -23,6 +23,7 @@ export {
 } from './sch_io/sexpr/write-symbol-lib.js';
 export * from './project.js';
 export * from './fieldbox.js';
+export * from './lib_symbol.js';
 export * from './lib_symbol_compare.js';
 export * from './sim/sim_model.js';
 export * from './sim/sim_model_types.js';

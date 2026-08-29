@@ -49,10 +49,112 @@ export const PAGES: readonly PrefsPageEntry[] = [
   { id: 'sch-editing', label: 'Editing Options', indent: true, owner: 'schematic' },
   { id: 'sch-annotation', label: 'Annotation Options', indent: true, owner: 'schematic' },
   { id: 'sch-colors', label: 'Colors', indent: true, owner: 'schematic' },
+  { id: 'sch-toolbars', label: 'Toolbars', indent: true, owner: 'schematic' },
   { id: 'sch-fields', label: 'Field Name Templates', indent: true, owner: 'schematic' },
   { id: null, label: 'PCB Editor' },
   { id: 'pcb-display', label: 'Display Options', indent: true, owner: 'pcb' },
+  { id: 'pcb-toolbars', label: 'Toolbars', indent: true, owner: 'pcb' },
+  // pl_editor's KIFACE is added last of the four, after gerbview's
+  // (`common/eda_base_frame.cpp:1726-1737`).
+  { id: null, label: 'Drawing Sheet Editor' },
+  { id: 'ds-display', label: 'Display Options', indent: true, owner: 'drawingsheet' },
+  { id: 'ds-grids', label: 'Grids', indent: true, owner: 'drawingsheet' },
+  { id: 'ds-colors', label: 'Colors', indent: true, owner: 'drawingsheet' },
+  { id: 'ds-toolbars', label: 'Toolbars', indent: true, owner: 'drawingsheet' },
 ];
+
+/**
+ * The sub-pages each heading carries **upstream**, in `ShowPreferences`' own add
+ * order — `common/eda_base_frame.cpp:1631-1737`, transcribed from the
+ * `AddLazySubPage` runs.
+ *
+ * A missing page is invisible: the tree simply has one fewer row, and nothing
+ * that reads only {@link PAGES} can tell a page that was never ported from a
+ * page that was dropped. That is how the Drawing Sheet Editor came to be called
+ * complete while its entire heading was absent. So the book is stated from
+ * KiCad's side as well as ours, and
+ * `qa/unittests/designer/prefs_page_book.test.ts` requires, per heading, that
+ * shipped + {@link OMITTED_PAGES} is exactly this list in exactly this order,
+ * and that anything shipped which is not on it is declared in
+ * {@link EXTRA_PAGES}.
+ *
+ * Headings upstream has that we ship no rows for at all — Symbol Editor,
+ * Footprint Editor, 3D Viewer, Gerber Viewer — are not here: they are absent
+ * headings, not absent pages, and are tracked with their editors.
+ */
+export const UPSTREAM_BOOK: Readonly<Record<string, readonly string[]>> = {
+  'Schematic Editor': [
+    'Display Options',
+    'Grids',
+    'Editing Options',
+    'Colors',
+    'Toolbars',
+    'Field Name Templates',
+    'Data Sources',
+    'Simulator',
+  ],
+  'PCB Editor': [
+    'Display Options',
+    'Grids',
+    'Origins & Axes',
+    'Editing Options',
+    'Colors',
+    'Toolbars',
+    'Plugins',
+  ],
+  'Drawing Sheet Editor': ['Display Options', 'Grids', 'Colors', 'Toolbars'],
+};
+
+/** A page upstream has under a heading that we do not ship, and why not. */
+export interface DeclaredPage {
+  /** The label the row would carry, exactly as upstream spells it. */
+  label: string;
+  /** Why. Not a TODO: a decision, with its reason. */
+  reason: string;
+}
+
+/**
+ * Pages of {@link UPSTREAM_BOOK} this port does not ship.
+ *
+ * Every one of these is a row a user comparing the two dialogs side by side
+ * will notice is absent. Naming it here is the difference between a decision
+ * and an oversight.
+ */
+export const OMITTED_PAGES: Readonly<Record<string, readonly DeclaredPage[]>> = {
+  'Schematic Editor': [
+    { label: 'Data Sources', reason: 'Schematic Editor tracker 195.' },
+    { label: 'Simulator', reason: 'No ngspice in the browser; tracker 195.' },
+  ],
+  'PCB Editor': [
+    { label: 'Grids', reason: 'PCB Editor tracker 200.' },
+    { label: 'Origins & Axes', reason: 'PCB Editor tracker 200.' },
+    { label: 'Editing Options', reason: 'PCB Editor tracker 200.' },
+    { label: 'Colors', reason: 'PCB Editor tracker 200.' },
+    {
+      label: 'Plugins',
+      reason:
+        'PANEL_PCBNEW_ACTION_PLUGINS lists Python action plugins, which have no browser form.',
+    },
+  ],
+};
+
+/**
+ * Rows we show that upstream's tree does not have under that heading, and why.
+ *
+ * There is exactly one, and it is a known defect rather than a choice, so it is
+ * recorded as such: a reason here is not a justification, it is a pointer.
+ */
+export const EXTRA_PAGES: Readonly<Record<string, readonly DeclaredPage[]>> = {
+  'Schematic Editor': [
+    {
+      label: 'Annotation Options',
+      reason:
+        'Upstream has no such page: `PANEL_EESCHEMA_ANNOTATION_OPTIONS` is a page of ' +
+        'DIALOG_SCHEMATIC_SETUP, not of Preferences. Ours puts it in the wrong dialog. ' +
+        'Tracked with the schematic, 195.',
+    },
+  ],
+};
 
 /** The first selectable page — what the dialog opens on. */
 export const FIRST_PAGE: PrefsPageId = 'common';
@@ -65,4 +167,20 @@ export function ownerOf(id: PrefsPageId): PrefsPageOwner | undefined {
 /** The page's tree label, as the dialog shows it. */
 export function labelOf(id: PrefsPageId): string | undefined {
   return PAGES.find((p) => p.id === id)?.label;
+}
+
+/**
+ * The sub-page labels {@link PAGES} ships under one heading, in tree order.
+ * A heading is every row with `id === null`; its sub-pages are the indented
+ * rows that follow it, up to the next heading.
+ */
+export function shippedUnder(heading: string): string[] {
+  const start = PAGES.findIndex((p) => p.id === null && p.label === heading);
+  if (start < 0) return [];
+  const out: string[] = [];
+  for (const p of PAGES.slice(start + 1)) {
+    if (p.id === null) break;
+    out.push(p.label);
+  }
+  return out;
 }

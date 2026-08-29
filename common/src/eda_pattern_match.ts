@@ -40,38 +40,101 @@ export function searchTerm(text: string, score: number, isName = false): SearchT
 const NOT_FOUND = -1;
 
 interface PatternMatcher {
-  /** Position of the first match of the pattern in `candidate`, or -1. */
+  /**
+   * `EDA_PATTERN_MATCH::Find( aCandidate )` — position of the first match, or
+   * -1, on a candidate that is **already normalised**.
+   *
+   * Upstream's matchers are all case-SENSITIVE: `wxString::Find` for SUBSTR,
+   * and `wxRegEx::Compile( …, wxRE_ADVANCED )` — no `wxRE_ICASE` — for the
+   * other two. What makes a library search feel case-insensitive is the caller
+   * folding both sides first: `EDA_COMBINED_MATCHER::ScoreTerms` lower-cases
+   * `term.Text` (eda_pattern_match.cpp:485-495) and every CTX_LIBITEM caller
+   * lower-cases the query token before constructing the matcher.
+   *
+   * This is therefore the hot entry point, and it must not fold anything.
+   *
+   * (The two unanchored regex/wildcard matchers below still carry the `i` flag,
+   * which upstream does not. That is a separate divergence and costs nothing at
+   * run time — a flag, not an allocation — so it is left as it is rather than
+   * changed under a performance fix.)
+   */
   find(candidate: string): number;
 }
 
-/** EDA_PATTERN_MATCH_SUBSTR: plain case-insensitive substring. */
+/**
+ * `EDA_PATTERN_MATCH_SUBSTR::Find` (eda_pattern_match.cpp:49-57), verbatim:
+ *
+ *     int loc = aCandidate.Find( m_pattern );
+ *
+ * A plain substring search that folds neither side, because `ScoreTerms` has
+ * already lower-cased the candidate and the caller the pattern.
+ *
+ * Ours folded the candidate here instead, allocating a fresh lower-cased copy
+ * of every search term on every keystroke. The symbol chooser's tree holds
+ * 219 176 of them, and the same scan measured 35.1 ms with the fold against
+ * 18.2 ms without — the largest single item in a 48 ms debounced keystroke.
+ */
 function substrMatcher(pattern: string): PatternMatcher {
-  const p = pattern.toLowerCase();
-  return { find: (candidate) => candidate.toLowerCase().indexOf(p) };
+  return { find: (candidate) => candidate.indexOf(pattern) };
 }
 
-/** EDA_PATTERN_MATCH_WILDCARD: `?` = any char, `*` = any run; null without wildcards. */
+/**
+ * EDA_PATTERN_MATCH_WILDCARD: `?` = any char, `*` = any run, everything else
+ * escaped to a literal.
+ *
+ * `SetPattern` (common/eda_pattern_match.cpp:157-193) always succeeds, so this
+ * matcher is built for EVERY pattern, wildcards in it or not — with none it
+ * degenerates to the literal the substring matcher already finds, which is
+ * exactly why upstream can lean on it as the fallback that "will try its best".
+ */
 function wildcardMatcher(pattern: string): PatternMatcher | null {
-  if (!/[?*]/.test(pattern)) return null;
-  const escaped = pattern
-    .replace(/[.+^${}()|[\]\\]/g, '\\$&')
-    .replace(/\?/g, '.')
-    .replace(/\*/g, '.*');
   try {
-    const re = new RegExp(escaped, 'i');
+    // No `i`. `EDA_PATTERN_MATCH_WILDCARD::SetPattern` compiles through
+    // `EDA_PATTERN_MATCH_REGEX` with `wxRE_ADVANCED` alone
+    // (common/eda_pattern_match.cpp:105) - no `wxRE_ICASE` - because the case
+    // fold happens once, in `ScoreTerms`, on the term and on the query. Two
+    // separate passes here each flagged this as harmless on its own; together
+    // they are not, because the wildcard matcher is now built unconditionally
+    // and an `i` on it puts the folding straight back.
+    const re = new RegExp(wildcardToRegex(pattern));
     return { find: (candidate) => candidate.search(re) };
   } catch {
     return null;
   }
 }
 
-/** EDA_PATTERN_MATCH_REGEX: the query as a regex, when it compiles. */
+/**
+ * EDA_PATTERN_MATCH_REGEX: the query as a regular expression — but only when
+ * the query SAYS it is one.
+ *
+ * `SetPattern` (common/eda_pattern_match.cpp:80-104) takes the pattern whole if
+ * it is `^…$`, strips the delimiters if it is `/…/` (the trailing slash is
+ * optional, "requiring a '/' on the end means they get no feedback while they
+ * type"), and otherwise returns false with the comment "for now regular
+ * expressions must be explicit" — whereupon `AddMatcher` drops the matcher
+ * entirely.
+ *
+ * We used to compile any pattern containing a metacharacter, which is a much
+ * larger claim: KiCad finds NOTHING for `r+` or `c.` or `(R)` in Device,
+ * because the only two matchers left are the escaped wildcard and the plain
+ * substring and no symbol contains that literal text. Ours turned `r+` into
+ * /r+/ and matched half the library. Measured with qa/probes/chooser_score.
+ */
 function regexMatcher(pattern: string): PatternMatcher | null {
-  // A pattern without any regex syntax is already covered by the substring
-  // matcher; compiling it here would only duplicate hits.
-  if (!/[.^$*+?()[\]{}|\\]/.test(pattern)) return null;
+  let source: string;
+
+  if (pattern.startsWith('^') && pattern.endsWith('$')) {
+    source = pattern;
+  } else if (pattern.startsWith('/')) {
+    source = pattern.slice(1);
+    if (source.endsWith('/')) source = source.slice(0, -1);
+  } else {
+    return null;
+  }
+
   try {
-    const re = new RegExp(pattern, 'i');
+    // `wxRE_ADVANCED` and nothing else; see the wildcard matcher above.
+    const re = new RegExp(source);
     return { find: (candidate) => candidate.search(re) };
   } catch {
     return null;
@@ -170,7 +233,16 @@ export class EdaCombinedMatcher {
     return this.pattern;
   }
 
-  /** Earliest match position across all matchers, or -1 when nothing fires. */
+  /**
+   * `EDA_COMBINED_MATCHER::Find`, earliest match position across the matchers,
+   * or -1, over a candidate **that has already been normalised**.
+   *
+   * Every caller has one: `scoreTerms` normalises the term itself, and the
+   * library browser passes `lib.name.toLowerCase()`. Both also lower-case the
+   * pattern before constructing the matcher, which is the other half of what
+   * makes a search case-insensitive; neither half happens in here, exactly as
+   * upstream's `Find` does neither.
+   */
   find(candidate: string): number {
     let position = NOT_FOUND;
     for (const matcher of this.matchers) {
@@ -213,6 +285,9 @@ export class EdaCombinedMatcher {
         score += 8 * term.score;
         if (term.isName) exact = true;
       } else {
+        // `Find( term.Text, ... )` — the term was normalised just above (or on
+        // an earlier pass), so this is upstream's case-sensitive search and
+        // must not fold again.
         const at = this.find(term.text);
         if (at === 0) score += 2 * term.score;
         else if (at > 0) score += term.score;

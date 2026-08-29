@@ -61,17 +61,355 @@ not the whole editor, and "complete" was read as though it were. **A completenes
 claim is only as wide as what was actually opened.** That is why the table above
 names the kind of evidence, and why #619 names the files.
 
+A fourth pass has now driven it end to end - see below. That is E4 evidence and
+it found more, including four things all three earlier read-only passes had
+looked straight past. It also settles the question the table is for: the editor
+is **still not complete**, and the reason is one named page group, not a fog.
+
+A fifth pass closed three of that group's four pages, and named the fourth as an
+**app-wide** item rather than this editor's: no launcher here had Toolbars,
+because none had the `TOOLBAR_SETTINGS` store it edits, and building it for
+pl_editor alone would have been the per-launcher copy the Preferences dialog was
+split up to stop.
+
+A sixth pass has since built it **as app-wide work**, which is the only way it
+was ever going to be built. The store went in first
+(`designer/src/ui/toolbar_config.ts`), then one `PANEL_TOOLBAR_CUSTOMIZATION`
+(`designer/src/dialogs/prefs/`), and the page now ships under all three headings
+this port has - Schematic Editor, PCB Editor and Drawing Sheet Editor - with
+ten toolbars across the three frames reading the store rather than their module
+constants. So the distinction this table exists to make held: the row was
+app-wide, it was fixed app-wide, and pl_editor got it for free along with two
+editors that were never the ones being audited.
+
+A seventh pass has closed the two gaps that sat *inside* the three pages the
+fifth one shipped. The Colors page's theme now reaches the canvas, and the Grids
+page has all five of `PANEL_GRID_SETTINGS`' buttons with `DIALOG_GRID_SETTINGS`
+behind two of them. Both are described below, with what each cost.
+
+The entry stays in **Not complete** all the same, and the reason has moved: what
+is left is the list under "Still open, and named" - the infobar palette, the
+stale status-bar templates, and the rest - rather than a Preferences page.
+
 ### Not complete
 
 | editor | state |
 |---|---|
-| **Drawing Sheet Editor** (pl_editor) | frame and tools closed (PRs #604 #607 #614 #618). Grid dot and axis skip were both **measured** off a live pl_editor. Issue #619 lists 15 remaining gaps, headed by Preferences: upstream has four pages, we have one modal with two checkboxes. |
+| **Drawing Sheet Editor** (pl_editor) | E1 + E2 + E3 + **E4 everywhere except one Preferences page**. Frame, tools, menubar, status bar, print and **all the file commands** are closed and were compared against the running program (PRs #604 #607 #614 #618, plus the E4 pass below). Grid dot, axis skip, the status-bar field widths and the grid origin were all **measured** off a live pl_editor. Preferences is now the shared dialog with three of upstream's four pages under it - Display Options, Grids and Colors, two of them the shared `common/` panels rather than copies. **Toolbars has since landed**, as the app-wide work it always was: a `TOOLBAR_SETTINGS` store, one shared `PANEL_TOOLBAR_CUSTOMIZATION`, and the page under all three headings this port ships - so all four of upstream's pl_editor pages are now in. The **two items inside the pages that did ship** are closed too: the canvas reads `GetColorSettings()` the way `PL_DRAW_PANEL_GAL`'s constructor loads it, and the Grids page has all five buttons plus `DIALOG_GRID_SETTINGS`. So all four Preferences pages are in and none of them is a control nothing reads. #619 is closed apart from the items below, which are chrome and measurement rather than pages. |
 | **Symbol Editor** | audited, PR #606. The enable/disable rules are now closed: all 53 `setupUIConditions` registrations ported per entry (PR #620) and the four the first mutation sweep could not tell apart pinned (PR #622). Open: LIB_TREE chrome, three missing dialogs. |
 | **Footprint Editor** | audited, PR #608. Open: seven items, headed by the dialog wall. `dialog_pad_properties.cpp` alone is 2492 lines against our 297 total. |
 | **GerbView** | exporter is a real port of `GBR_TO_PCB_EXPORTER` (PR #605). No mapping dialog, and aperture-macro holes export solid. |
 | **Schematic Editor** | tracker #195 |
 | **PCB Editor** | tracker #200 |
 | **3D Viewer**, **Project Manager** | not audited as units |
+
+## Driving the Drawing Sheet Editor end to end
+
+The first E4 pass over pl_editor. `qa/probes/pl_e2e` launches the installed
+`/usr/bin/pl_editor` on a private profile, clicks its menus over AT-SPI, types
+into its dialogs over XTEST and photographs its status bar, and every file
+command was run through it: New, Open, Open Recent, Append, Save, Save As,
+Print, Preferences, the page selector, a file that fails to parse and a file in
+an out-of-date format.
+
+It ran twice, on two profiles. The second was launched with `corner_origin = 1`
+and a 5 mm grid specifically to answer the grid-origin question below, and it
+also read the whole menubar back and photographed the Preferences tree. Close a
+driven pl_editor **by pid**; `xkill` once took out this desktop's
+`mutter-x11-frames`.
+
+What that found, on top of #619's list:
+
+- **Every status string was invented, and there were more of them than #619
+  counted.** pl_editor writes the message pane in exactly five places, all in
+  `files.cpp`, and the sentences are `File '%s' saved.` (after an **Open**, which
+  is upstream's own slip, and after both saves), `File '%s' inserted`,
+  `File '%s' loaded`, and - for New - nothing at all. It names the **full path**.
+  Ours wrote its own sentence for each of those and for seven more events
+  upstream leaves the pane alone for: placing an item, copying, resizing,
+  pasting, the page dialog, a failed load and About.
+- **Save added a row to Open Recent.** `UpdateFileHistory` is called by
+  `LoadDrawingSheetFile` and by nothing else; a driven pl_editor's Open Recent
+  after a Save As does not list the file it just wrote. Ours listed every save.
+- **The status bar is not the shared one.** `PL_EDITOR_FRAME` builds its own
+  `dims[]` and calls `SetFieldsCount` with it after the base constructor has set
+  the shared widths (`pl_editor_frame.cpp:150-181`). Five of the eight panes
+  differ, and one of them matters: pane 5 carries
+  `coord origin: Right Bottom page corner` and is sized for it, where the shared
+  table sizes pane 5 for the word `Inches`. Measured off the captured bar as
+  well as read: field starts at 773, 858, 1034, 1224, 1340 and 1628 px on an
+  1854 px bar.
+- **Append does not update the title.** It pokes
+  `GetScreen()->SetContentModified()` rather than going through `OnModify()`
+  (`files.cpp:150`), so the `*` does not appear until the next real edit. A
+  driven pl_editor shows `probe - Drawing Sheet Editor` straight after an
+  Append, not `*probe`.
+- **The page selector does not number the title block.** `DS_DRAW_ITEM_LIST`
+  starts at page `"1"` of `1` (`ds_draw_item.h:409-410`) and
+  `PL_DRAW_PANEL_GAL::DisplayDrawingSheet` sets only the paper format, the title
+  block and the project on its `dummy` list (`pl_draw_panel_gal.cpp:100-103`),
+  so `OnSelectPage` toggles `LAYER_DRAWINGSHEET_PAGE1` and `_PAGEn` visibility
+  and leaves `${#}` and `${##}` alone (`pl_editor_frame.cpp:461-467`). A driven
+  pl_editor reads `Id: 1/1` on `Page 1` **and** on `Other pages`, while 6266
+  canvas pixels change between the two - so the layers did toggle and the
+  numbering did not. Ours read `2/2` on the second. The printout is the one
+  place a number moves and only the numerator moves: `PrintDrawingSheet` is
+  handed `aScreen->GetPageCount()`, which is `BASE_SCREEN`'s 1 because pl_editor
+  never calls `SetPageCount`, so the second sheet prints as page **2 of 1**
+  (`eda_draw_frame.cpp:1236-1239`, `base_screen.cpp:39,70-80`). This one was
+  found by driving the program, not by reading it: four passes over the C++ had
+  gone past it.
+
+- **`dx -0  dy -0`, and the shared `%g` was dropping the sign.** #619's G11 said
+  the `X, Y -` placeholder had no upstream equivalent, which is right; what it
+  could not say is what stands there instead. `UpdateStatusBar` multiplies each
+  axis by the origin corner's sign, so a pl_editor on `Right Bottom page corner`
+  with A3 paper and no pointer over its canvas reads `X 410  Y 287` -
+  (0, 0) through that transform, `410 = 420 - 10` - and `dx -0  dy -0`, minus
+  zeros included, because `%.4g` of `0 * -1` is `-0` in C. Both photographed.
+  Ours printed `dx 0  dy 0`: `formatG` in `common/src/string_utils.ts` returned
+  `'0'` for any zero. That is a shared function every `%g` in the app goes
+  through, so it was fixed there rather than worked around in the status bar.
+
+Three items in #619 were **misstated** and are corrected rather than
+implemented:
+
+- The print **preview** is dead code. `ToPrinter( true )` is the only path to
+  `wxPreviewFrame` and `SetZoom( 70 )`, and `PL_EDITOR_CONTROL::Print` passes
+  `false` (`tools/pl_editor_control.cpp:116`). Nothing else calls it, so there
+  is no preview command to be missing - the same finding as
+  `DIALOG_NEW_DATAITEM`.
+- The status-bar pane comment was backwards in the direction #619 said, but the
+  fault was larger than a comment: the widths were wrong too.
+- `RollbackFromUndo`'s non-PLUS branch calls `Refresh()` only, not
+  `HardRedraw()`. Our restore path re-derives the properties panel and the
+  message panel from state on every render, so the re-sync the PLUS branch does
+  explicitly happens here by construction. No change was needed.
+
+### Two of #619's "unaudited, report as unknown" items, settled
+
+#619 ended with a list of things it had not opened and asked for them to be
+reported as unknown rather than clean. Two of them are answers, not gaps:
+
+- **The grid origin does not follow the origin selector, and it does not follow
+  the setting either.** `PL_EDITOR_FRAME`'s constructor calls
+  `SetGridOrigin( ReturnCoordOriginCorner() )` (`pl_editor_frame.cpp:218-219`)
+  and `OnSelectCoordOriginCorner` pointedly does not repeat it (`:470-476`), so
+  #619 read this as ours possibly re-anchoring the grid on every render. It is
+  the other way round and both are (0, 0): at that point in the constructor
+  `DS_DATA_MODEL::SetupDrawEnvironment` has not run, so `m_RB_Corner` and
+  `m_LT_Corner` are still zero and `ReturnCoordOriginCorner()` returns the
+  origin whatever `corner_origin` says. **Measured**: a pl_editor launched on a
+  profile with `corner_origin = 1` and a 5 mm grid draws its lattice through the
+  paper's top-left corner, 2.0 mm clear of the coordinate-origin marker it puts
+  at the page's right-bottom - 287 mm mod 5 mm, exactly. Our grid is anchored at
+  (0, 0) and `originIU` reaches the marker rather than the lattice, which is the
+  same picture. `ACTIONS::gridResetOrigin` therefore has nothing to move in
+  either program.
+- **`GetPageNumberOption()` is dead code.** It is declared, defined, and called
+  from nowhere in 10.0.5 - the third such find in this editor after
+  `ToPrinter( true )` and `DIALOG_NEW_DATAITEM`. There is nothing to port.
+
+### Decisions taken rather than omissions
+
+- **The temp file** (`SaveDrawingSheetFile` writes to
+  `wxFileName::CreateTempFileName`, copies permissions, renames over the target)
+  buys the property that a serialiser which throws cannot truncate the file that
+  was already there. `serializeDrawingSheet` returns the whole string or throws
+  before anything reaches the store, so the call order gives the same guarantee
+  and a rename would add nothing. `DuplicatePermissions` has no counterpart -
+  the project store has no file modes. Worth knowing: upstream's own rename
+  *loses* the mode on a new file, and a driven Save As really does leave 0600
+  behind.
+- **`Layout file is read only.`** is the other half of the load infobar and has
+  no browser analogue; the outdated-format half is ported.
+- **The print-failure sentence** (`An error occurred attempting to print the
+  drawing sheet.`) reports a printer that refused the job. A blocked popup is a
+  different event, so ours says so in its own words rather than pointing the
+  user at a printer.
+- **`Could not load image from '%s'.`** is reproduced *with* the `%s`, because
+  `wxMessageBox`'s second argument is the caption and upstream is passing the
+  file name there. That is what a user sees.
+- **The image chooser is the browser's.** `AddDrawingSheetItem`'s bitmap arm
+  opens a `wxFileDialog` captioned `Choose Image`, starting in `m_mruImagePath`
+  and remembering it afterwards (`pl_editor_frame.cpp:863-871`). Place > Image
+  here is an `<input type="file">`, which the browser titles and positions
+  itself; neither the caption nor a most-recently-used directory is reachable
+  from a page. The failure message on the far side of it is ported.
+
+### Still open, and named
+
+- **Preferences: all four pages are in.** Three landed in the fifth pass; the
+  fourth, Toolbars, landed in the sixth as app-wide work - see below.
+  The dialog was opened on a running pl_editor and photographed: under
+  `Drawing Sheet Editor` the tree carries exactly four pages - Display Options
+  (`PANEL_GAL_OPTIONS`), Grids (`PANEL_GRID_SETTINGS`), Colors, Toolbars
+  (`PANEL_TOOLBAR_CUSTOMIZATION`), registered at
+  `pagelayout_editor/pl_editor.cpp:68, 71, 82, 85`.
+
+  The local modal is gone. pl_editor now opens the shared `PreferencesDialog`
+  every other launcher opens, and Display Options, Grids and Colors are pages
+  of it. **Two of the three are shared code rather than new files**, which is
+  the point: `PANEL_PL_EDITOR_DISPLAY_OPTIONS` is upstream nothing but an
+  embedded `PANEL_GAL_OPTIONS`, and the Grids page *is* `PANEL_GRID_SETTINGS`
+  - one class every KIFACE constructs with its own `FRAME_T`, which is the
+  whole difference between one editor's page and another's. Both now exist once
+  in `designer/src/dialogs/prefs/`, and eeschema's Display Options and Grids
+  pages are the same two components. `ACTIONS::gridProperties` lands on the
+  Grids page, which is the whole of what that action is.
+
+  Folding eeschema's private copy in found that it had **drifted from KiCad in
+  four places** nobody had looked at: a `wxChoice` where upstream has radio
+  buttons, `45 degree crosshairs` spelled `45 full window crosshairs`, and both
+  numeric ranges invented - grid thickness 1..5 against upstream's 0.5..10.0 by
+  0.5, minimum grid spacing 2..50 against 5..200 by 5. Those are fixed for both
+  editors at once, which is what having one copy is for.
+
+  **Toolbars was declared absent rather than left to be noticed, and that is
+  how it got built.** `OMITTED_PAGES` in
+  `designer/src/dialogs/prefs/registry.ts` named it with its reason, next to
+  `UPSTREAM_BOOK` - upstream's own page list per heading, transcribed from
+  `EDA_BASE_FRAME::ShowPreferences` - and a test required that shipped +
+  declared-absent equal upstream's list, in upstream's order, per heading. The
+  declaration is what made the gap addressable instead of invisible.
+
+  **It now ships, app-wide.** Nothing about `PANEL_TOOLBAR_CUSTOMIZATION` is
+  browser-hostile; the reason it was absent is that it edits a
+  `TOOLBAR_SETTINGS` file this port did not have, every launcher's toolbars
+  being module constants (`editors/*/…Toolbars.ts`), so the page would have had
+  nothing to write to. That was fixed in the order the dependency runs:
+
+  - `designer/src/ui/toolbar_config.ts` is the store, keyed as KiCad keys it -
+    a `toolbars` list of `{ name, contents }`, `TOOLBAR_ITEM_TYPE` and
+    `TOOLBAR_LOC` spelled as `magic_enum` spells them - loaded free-form,
+    because a stored toolbar *replaces* its default and merging the two would
+    produce a toolbar neither side asked for. Each editor's existing
+    `…Toolbars.ts` gained a `DefaultToolbarConfig` map, so no toolbar is
+    transcribed twice.
+  - `designer/src/dialogs/prefs/PanelToolbarCustomization.tsx` is the page,
+    **once**, the way `PANEL_GRID_SETTINGS` is - three ten-line wrappers pass
+    their app's settings, store and defaults, which is all the seven KIFACEs
+    pass upstream.
+  - the frames **read it**. `EDA_BASE_FRAME::RecreateToolbars` asks
+    `GetToolbarConfig( loc, m_CustomToolbars )` and never touches
+    `DefaultToolbarConfig`; `ui/useToolbarEntries.ts` is that call, and all ten
+    toolbars across the drawing sheet, schematic and board editors go through
+    it. This is the half a customisation page is worthless without, so it is
+    pinned twice: a rendered test that drives a real `<Toolbar>` and asserts on
+    the buttons in the DOM, and a per-occurrence call-site test - one bar left
+    wired to its constant is exactly the bug, and it would survive a check that
+    the editor merely mentions the hook somewhere.
+
+  Toolbars therefore moved out of `OMITTED_PAGES` under all three headings this
+  port ships, and the page-book test gained an arm that requires every heading
+  whose upstream list has a Toolbars row to **ship** one. Symbol Editor,
+  Footprint Editor, 3D Viewer and Gerber Viewer have Toolbars pages upstream and
+  no Preferences heading here at all, so theirs arrive with those headings.
+
+  **Two divergences are deliberate and stated at the seam.** Upstream's
+  `TransferDataFromWindow` writes all four toolbars back on OK, changed or not,
+  so merely opening the page and pressing OK freezes that app's toolbars at
+  today's defaults for ever; ours stores a toolbar only once it is edited.
+  And `ResetPanel` empties the store instead of refilling it with the defaults -
+  same drawn result, since `GetToolbarConfig` falls through to
+  `DefaultToolbarConfig` when nothing is stored. Neither is visible on screen;
+  a `<app>-toolbars.json` written by the two would differ.
+
+  **What is genuinely reduced**, and is said on the page's own module rather
+  than only here: upstream's action list is `ACTION_MANAGER`'s whole registry
+  filtered by `isActionSupported`, and ours is the union of that app's default
+  toolbars. A button's icon and tooltip live on the `ToolButton` literal in the
+  editor's toolbar module, so an action on no default toolbar has no literal to
+  take them from. Closing that needs an action registry, not a bigger page.
+
+  The same mechanism caught two things nobody was looking for. Our *Schematic
+  Editor* heading carries an **Annotation Options** page upstream does not have
+  there at all - `PANEL_EESCHEMA_ANNOTATION_OPTIONS` is a page of
+  `DIALOG_SCHEMATIC_SETUP`, not of Preferences - now declared in `EXTRA_PAGES`
+  and tracked with #195. And the PCB Editor heading ships one of its seven
+  pages, which is #200's, but is now stated rather than implied.
+
+  What was already closed stays closed: the invented "black background"
+  checkbox is gone (the capture confirms pl_editor has no such control
+  anywhere) and does not come back with the new pages - the test now checks all
+  four pl_editor sources for it, not just the editor - and the crosshair is the
+  three-way radio, `Small crosshairs` / `Full window crosshairs` /
+  `45 degree crosshairs`, plus a separate `Always show crosshairs`.
+
+  **The two things inside those pages are closed.** Both were pl_editor's own
+  rather than app-wide, and both were recorded before they were fixed:
+
+  - **The Colors page changes what is drawn.** It stored `appearance.color_theme`
+    and nothing read it. The colours enter in `PL_DRAW_PANEL_GAL`'s own
+    constructor - `m_painter->GetSettings()->LoadColors( ::GetColorSettings(
+    cfg->m_ColorTheme ) )` (`pl_draw_panel_gal.cpp:57-59`) - and
+    `DS_RENDER_SETTINGS::LoadColors` takes exactly three layers of it
+    (`ds_painter.cpp:66-68`): background, page border and sheet ink. The canvas
+    calls that as a hook, because upstream it is the DRAW PANEL that asks and
+    not the frame.
+
+    It also settled `black_background`, which our canvas had been painting from.
+    Upstream that never reaches the GAL: it sets `m_drawBgColor`
+    (`pl_editor_frame.cpp:541`) while `onPaint` clears to
+    `settings->GetBackgroundColor()` (`draw_panel_gal.cpp:364`). Its readers are
+    the printer, the properties frame's swatch and DIALOG_PAGES_SETTINGS'
+    preview, and it now goes to that preview.
+  - **The Grids page has all five buttons.** Add, Edit, Move Up, Move Down and
+    Remove (`panel_grid_settings_base.cpp:34-56`), each acting on
+    `m_currentGridCtrl`'s selection - which is a `wxListBox` whose selection is
+    *also* the current grid (`:194`), so the radio-per-row and the per-row
+    Remove went with it. `DIALOG_GRID_SETTINGS` is
+    `designer/src/dialogs/dialog_grid_settings.tsx`, in `dialogs/` rather than
+    `dialogs/prefs/` because upstream it is `common/dialogs/` and owned by no
+    app. `Grid size '%s' already exists.` and `Grid size X out of range.` are
+    both in.
+
+    The stored shape had to change with it: `window.grid.sizes` held one string
+    per grid where `GRID_SETTINGS::grids` holds `GRID{ name, x, y }`
+    (`grid_settings.h:33-54`), so there was nowhere to put a name or a
+    non-square Y. Stored files upgrade at load, and every row now renders
+    through `RebuildGridSizes`' `_( "%s%s (%s)" )`, which is also what gives
+    eeschema's View > Grid menu its second unit.
+
+  Two bugs fell out of reading that C++ rather than watching the behaviour: a
+  **unitless** grid string is millimetres and not mils (`GRID::ToDouble` passes
+  `EDA_UNITS::MM`, `grid_settings.cpp:53-57`), and the dialog reads
+  `GetDoubleValue()` rather than `GetValue()` (`dialog_grid_settings.cpp:80`),
+  so a typed grid is stored unquantised.
+
+  **`PANEL_GRID_SETTINGS` is shared, and one launcher is still missing.**
+  Upstream pcbnew and the footprint editor mount it too, and `OVERRIDE_ROWS`
+  already carries their rows; we have `sch-grids` and `ds-grids` only, because
+  `PcbnewSettings` has no `window.grid` for the page to write. That is a pcbnew
+  gap rather than a pl_editor one, and it is the next thing this panel wants.
+
+  The grid list is now a *setting* rather than a read of
+  `DefaultGridSizeList()`, because a page that edits a list nothing reads is
+  the failure this whole audit exists to catch. The canvas and the grid context
+  menu both index `window.grid.sizes`, which `PL_EDITOR_DEFAULTS` seeds from
+  the shared table.
+- **The infobar's palette.** The strip uses the shared `.ze-infobar` the
+  schematic raises. Its colours were ported for that editor and have **not**
+  been measured against a live pl_editor's `wxInfoBar`, which is a dark bar with
+  a red round icon rather than the amber one we draw.
+- **The shared status-bar templates are out of date.** `STATUS_FIELD_TEMPLATES`
+  says `X 00000.0000  Y 00000.0000` where 10.0.5 says `X 1234.1234  Y 1234.1234`
+  (`eda_draw_frame.cpp:809-819`), and the same for the delta and grid panes.
+  That is every draw frame except pl_editor, which now states its own, so it is
+  an app-wide item and not this editor's.
+- **One character in one menu label.** The whole menubar was read back over
+  AT-SPI and compared item by item against ours: File, Edit, View, Place,
+  Inspect, Preferences and Help match in order and in wording, Append and Reset
+  Grid Origin included, and Append really is under **Place** rather than File.
+  The single difference is that the running program's fifth File item is
+  `Save As…` with a one-character ellipsis, where `ACTIONS::saveAs`'
+  `FriendlyName` is `Save As...` with three dots
+  (`common/tool/actions.cpp:102`) and ours follows the source. The literal is
+  not in the installed `libkicommon`, so it is not settled whether the program,
+  wx, GTK or the accessibility layer produced it, and the three-dot form is
+  repo-wide here (`qa/unittests/designer/menu_ellipsis.test.ts`). Recorded
+  rather than changed: one ambiguous observation is not enough to move a rule
+  every launcher follows.
 
 ## Library loading is an application-wide behaviour, not an editor's
 

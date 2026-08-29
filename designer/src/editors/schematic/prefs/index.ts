@@ -22,7 +22,9 @@ import {
   resetEeschemaDisplayOptions,
   resetEeschemaEditingOptions,
   resetEeschemaGrids,
+  resetEeschemaToolbars,
 } from './resets.js';
+import { PanelEeschemaToolbars } from './PanelEeschemaToolbars.js';
 import type {
   PrefsPageId,
   PrefsPanelFactory,
@@ -61,6 +63,12 @@ export const createPrefsPanel: PrefsPanelFactory = (id: PrefsPageId): PrefsPanel
         reset: resetEeschemaColorSettings,
         // PANEL_COLOR_SETTINGS::GetResetTooltip (include/dialogs/panel_color_settings.h:48).
         resetTooltip: 'Reset all colors in this theme to the KiCad defaults',
+      };
+
+    case 'sch-toolbars':
+      return {
+        Panel: PanelEeschemaToolbars,
+        reset: resetEeschemaToolbars,
       };
 
     case 'sch-fields':

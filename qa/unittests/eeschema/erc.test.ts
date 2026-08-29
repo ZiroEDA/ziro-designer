@@ -13,6 +13,7 @@ import { runErc } from '@ziroeda/eeschema/src/connectivity/erc.js';
 import { computeNetlist } from '@ziroeda/eeschema/src/connectivity/nets.js';
 import { defaultErcSettings } from '@ziroeda/eeschema/src/erc/erc_settings.js';
 import { makeNoConnect } from '@ziroeda/eeschema/src/tools/build.js';
+import { flattenLibSymbol } from '@ziroeda/eeschema/src/lib_symbol.js';
 import { addItems } from '@ziroeda/eeschema/src/tools/mutate.js';
 import { mmToIU } from '@ziroeda/common/src/eda_units.js';
 
@@ -50,6 +51,12 @@ function sch(body: string) {
     ${body})`;
   const doc = readSchematic(parse(text));
   return { doc, libById: new Map(doc.libSymbols.map((l) => [l.libId, l])) };
+}
+
+/** One of the shared LIBS fixtures, by its bare name, for building a parent. */
+function libById0(name: string) {
+  const { libById } = sch(place(name, 'X1', 0, 0, 'zz'));
+  return libById.get(`T:${name}`)!;
 }
 
 const wire = (x1: number, y1: number, x2: number, y2: number, id: string): string =>
@@ -562,6 +569,53 @@ describe('runErc, schematic-wide tests', () => {
       librarySymbols: new Map([['T:PAS', cached]]),
     });
     expect(same.map((x) => x.code)).not.toContain('lib_symbol_mismatch');
+  });
+
+  it('does not flag a DERIVED symbol, whose library copy has to be flattened first', () => {
+    // `std::unique_ptr<LIB_SYMBOL> flattenedSymbol = libSymbol->Flatten();`
+    // (erc.cpp:1774). The library side is flattened before the compare because
+    // the schematic's cached copy always is — `SCH_SCREEN` stores `Flatten()`ed
+    // symbols (sch_screen.cpp:262, :844), so a placement is never derived.
+    //
+    // Skip that and every derived symbol on the sheet reports a mismatch the
+    // user cannot act on: the cache carries units and no `extends`, the library
+    // definition carries `extends` and no units, so they differ by
+    // construction. Akshay hit it on four untouched 1N4007s the moment
+    // placements began flattening (fb9a40b1) — the two sides used to agree only
+    // because BOTH were wrong.
+    const parent = {
+      ...libById0('PAS'),
+      libId: 'BASE',
+    };
+    const derived = {
+      ...parent,
+      libId: 'CHILD',
+      extends: 'BASE',
+      units: [],
+      parent,
+    } as unknown as typeof parent;
+
+    // What the schematic caches: flattened, as `makeSymbol`/`placeCmd` produce.
+    const cached = flattenLibSymbol(derived);
+    expect(cached.extends).toBeUndefined();
+    expect(cached.units.length).toBeGreaterThan(0);
+
+    const { doc } = sch(place('PAS', 'D1', 10, 10, 'u1'));
+    const placedDoc = {
+      ...doc,
+      symbols: doc.symbols.map((sy) => ({ ...sy, libId: 'T:CHILD' })),
+      libSymbols: [{ ...cached, libId: 'T:CHILD' }],
+    };
+    const v = runErc(
+      placedDoc,
+      new Map([['T:CHILD', { ...cached, libId: 'T:CHILD' }]]),
+      defaultErcSettings(),
+      {
+        // The LIBRARY still holds the raw derived definition, `extends` and all.
+        librarySymbols: new Map([['T:CHILD', { ...derived, libId: 'T:CHILD' }]]),
+      },
+    );
+    expect(v.map((x) => x.code)).not.toContain('lib_symbol_mismatch');
   });
 
   it('flags an unconfigured symbol library, and a symbol its library lost', () => {

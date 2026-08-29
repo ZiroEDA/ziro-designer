@@ -34,6 +34,7 @@ import {
 import { definedColorGrid } from './defined_colors.js';
 import { Slider } from './Slider.js';
 import { useModalEscape } from './useModalEscape.js';
+import { loadColorPickerTab, saveColorPickerTab, type ColorPickerTab } from './color_picker_tab.js';
 
 /**
  * `m_RgbBitmap`/`m_HsvBitmap` are both built `wxSize( 264, 264 )` with a
@@ -249,8 +250,20 @@ export function DialogColorPicker({
   const [hsv, setHsv] = useState(initialHsv);
   const [hexText, setHexText] = useState(() => toHexString(value));
 
-  /** `m_notebook`: "Color Picker" and "Defined Colors", the first selected. */
-  const [tab, setTab] = useState<'free' | 'defined'>('free');
+  /**
+   * `m_notebook`: "Color Picker" then "Defined Colors". Which one is showing
+   * is not a constant — the constructor selects
+   * `cfg->m_ColorPicker.default_tab` and the destructor writes
+   * `m_notebook->GetSelection()` back into it
+   * (dialog_color_picker.cpp:89, :114), so the picker reopens where it was
+   * left. Only a fresh profile opens on page 0. See `ui/color_picker_tab.ts`.
+   */
+  const [tab, setTab] = useState<ColorPickerTab>(loadColorPickerTab);
+  // The destructor's write runs on close whatever closed it, so this is an
+  // unmount effect and not part of onDone: Cancel and Esc remember the page too.
+  const tabRef = useRef(tab);
+  tabRef.current = tab;
+  useEffect(() => () => saveColorPickerTab(tabRef.current), []);
 
   const rgbRef = useRef<HTMLCanvasElement>(null);
   const hsvRef = useRef<HTMLCanvasElement>(null);

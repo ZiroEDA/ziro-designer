@@ -32,8 +32,11 @@ import type {
   CommonSettings,
   EeschemaSettings,
   PcbnewSettings,
+  PlEditorSettings,
   PrivacySettings,
+  ToolbarApp,
 } from '../../prefs/settings.js';
+import type { ToolbarSettings } from '../../ui/toolbar_config.js';
 
 /** One page in the book. The web mirror of KiCad's `PANEL_*` ids. */
 export type PrefsPageId =
@@ -45,11 +48,17 @@ export type PrefsPageId =
   | 'sch-editing'
   | 'sch-annotation'
   | 'sch-colors'
+  | 'sch-toolbars'
   | 'sch-fields'
-  | 'pcb-display';
+  | 'pcb-display'
+  | 'pcb-toolbars'
+  | 'ds-display'
+  | 'ds-grids'
+  | 'ds-colors'
+  | 'ds-toolbars';
 
 /** Which module owns a page, and therefore which bundle it is lazily pulled from. */
-export type PrefsPageOwner = 'generic' | 'schematic' | 'pcb';
+export type PrefsPageOwner = 'generic' | 'schematic' | 'pcb' | 'drawingsheet';
 
 /**
  * The working copy the dialog edits, plus its setters. Handed to every panel;
@@ -59,16 +68,33 @@ export interface PrefsContext {
   common: CommonSettings;
   eeschema: EeschemaSettings;
   pcbnew: PcbnewSettings;
+  plEditor: PlEditorSettings;
   privacy: PrivacySettings;
   userColors: Record<string, string>;
   hotkeys: HotkeyOverrides;
+  /**
+   * Each app's `TOOLBAR_SETTINGS`, which upstream is a second object the KIFACE
+   * hands the Toolbars page beside `APP_SETTINGS_BASE`:
+   *
+   *     PANEL_TOOLBAR_CUSTOMIZATION( aParent, cfg, tb, FRAME_PL_EDITOR, … )
+   *     (pagelayout_editor/pl_editor.cpp:85-100)
+   *
+   * It is not part of any app's settings object because upstream it is not part
+   * of any app's settings FILE — `pl_editor-toolbars.json` sits beside
+   * `pl_editor.json`.
+   */
+  toolbars: Record<ToolbarApp, ToolbarSettings>;
   /** Mutate a clone of the common settings (KiCad edits `COMMON_SETTINGS` in place). */
   upC: (fn: (s: CommonSettings) => void) => void;
   upE: (fn: (s: EeschemaSettings) => void) => void;
   upP: (fn: (s: PcbnewSettings) => void) => void;
+  upPl: (fn: (s: PlEditorSettings) => void) => void;
+  /** Mutate a clone of one app's stored toolbars. */
+  upTb: (app: ToolbarApp, fn: (s: ToolbarSettings) => void) => void;
   setCommon: Dispatch<SetStateAction<CommonSettings>>;
   setEeschema: Dispatch<SetStateAction<EeschemaSettings>>;
   setPcbnew: Dispatch<SetStateAction<PcbnewSettings>>;
+  setPlEditor: Dispatch<SetStateAction<PlEditorSettings>>;
   setPrivacy: Dispatch<SetStateAction<PrivacySettings>>;
   setUserColors: Dispatch<SetStateAction<Record<string, string>>>;
   setHotkeys: Dispatch<SetStateAction<HotkeyOverrides>>;

@@ -106,6 +106,21 @@ const TEMPLATE: Partial<Record<KiStatusBarField, string>> = {
 export interface KiStatusBarProps {
   /** The eight `EDA_DRAW_FRAME` panes. Mutually exclusive with `children`. */
   fields?: KiStatusBarFields;
+  /**
+   * A frame's own field widths, overriding the shared table pane by pane.
+   *
+   * `updateStatusBarWidths` is what every draw frame gets, but a frame may
+   * state its own afterwards and one does: `PL_EDITOR_FRAME` builds a `dims[]`
+   * of its own and calls `SetFieldsCount` with it
+   * (pagelayout_editor/pl_editor_frame.cpp:150-181), which is why its
+   * coordinate origin pane is wide enough for "coord origin: Right Bottom page
+   * corner" and its units and constraint panes do not stretch.
+   *
+   * Naming a pane here makes it fixed at that template's width; a pane left
+   * out keeps whatever the shared table says, stretch included. See
+   * `editors/drawingsheet/pl_status_bar.ts` for the one caller.
+   */
+  templates?: Partial<Record<KiStatusBarField, string>>;
   /** Per-pane `data-testid`, for the frames whose tests address a pane. */
   testIds?: Partial<Record<KiStatusBarField, string>>;
   /** Panes for a frame that is not an `EDA_DRAW_FRAME`. */
@@ -179,12 +194,21 @@ function BackgroundJobFields(): JSX.Element | null {
   );
 }
 
-export function KiStatusBar({ fields, testIds, children, testId }: KiStatusBarProps): JSX.Element {
+export function KiStatusBar({
+  fields,
+  testIds,
+  children,
+  testId,
+  templates,
+}: KiStatusBarProps): JSX.Element {
+  // The frame's own `dims[]` wins pane by pane, exactly as `SetFieldsCount`
+  // wins over the widths the base constructor had already set.
+  const table = templates ? { ...TEMPLATE, ...templates } : TEMPLATE;
   return (
     <div className="ze-statusbar" data-testid={testId}>
       {fields
         ? KISTATUSBAR_FIELDS.map((name) => {
-            const template = TEMPLATE[name];
+            const template = table[name];
 
             if (template !== undefined) {
               return (

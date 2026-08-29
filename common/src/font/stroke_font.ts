@@ -25,6 +25,20 @@ import { metricsInterline, OVERBAR_HEIGHT, STROKE_LEGACY_FACTOR } from './font_m
  */
 export const KICAD_FONT_NAME = 'KiCad Font';
 
+/**
+ * The OTHER name a font control can show: `_( "Default Font" )`, the entry that
+ * means "no `(face …)` at all" rather than a face called that.
+ *
+ * `EDA_TEXT::GetFontProp` (common/eda_text.cpp:1022-1032) picks between the two
+ * by item type — an eeschema item with no font reads "Default Font", a pcbnew
+ * one reads KICAD_FONT_NAME — and every font combo in the tree lists both
+ * (`#define DEFAULT_FONT_NAME` in fields_grid_table.cpp:60, and the literal
+ * pair in six `*_base.cpp` files). It is stated once here for the same reason
+ * KICAD_FONT_NAME is: a control that spells it differently silently stops
+ * matching the value the model hands it.
+ */
+export const DEFAULT_FONT_NAME = 'Default Font';
+
 const STROKE_FONT_SCALE = 1 / 21; // stroke_font.cpp
 const FONT_OFFSET = -8; // historical Y offset baked into the glyph coordinates
 

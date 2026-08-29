@@ -245,8 +245,20 @@ export function symbolEditorMenus(
         stub('Select All', 'selectAll', { shortcut: 'Ctrl+A' }),
         stub('Unselect All', 'unselectAll', { shortcut: 'Ctrl+Shift+A' }),
         SEP,
-        stub('Find', 'find', { shortcut: 'Ctrl+F' }),
-        stub('Find and Replace', 'findAndReplace', { shortcut: 'Ctrl+Alt+F' }),
+        // `ACTIONS::find` and `ACTIONS::findAndReplace`, neither of which
+        // `setupUIConditions` names — so both are `ShowAlways`, live even on a
+        // cold frame. They were `stub`s here because the Find dialog was built
+        // under `editors/schematic/`, where this frame could not reach it;
+        // upstream it is a `SCH_BASE_FRAME` member both frames inherit
+        // (`sch_base_frame.h:246-248, :318`) and it now lives in
+        // `widgets/dialog_sch_find.tsx`.
+        //
+        // The id is `findReplace`, not `ACTIONS::findAndReplace`'s own name:
+        // that is the id `ui/toolbar_actions.ts`, both top toolbars and the
+        // schematic's menu bar already key on, and a second spelling here would
+        // be a row that dispatches to nothing.
+        act('Find', 'find', { shortcut: 'Ctrl+F' }),
+        act('Find and Replace', 'findReplace', { shortcut: 'Ctrl+Alt+F' }),
         SEP,
         // ENABLE( isEditableCond && haveSymbolCond ) (:636) — `isEditableCond`
         // excludes an alias, so Pin Table is dead on a derived symbol.
@@ -270,7 +282,10 @@ export function symbolEditorMenus(
         act('Zoom Out', 'zoomOutCenter'),
         // actions.cpp:717 — WXK_HOME. (Ctrl+0 is nowhere in this action.)
         act('Zoom to Fit', 'zoomFitScreen', { shortcut: 'Home' }),
-        stub('Zoom to Selection Area', 'zoomTool', { shortcut: 'Ctrl+F5' }),
+        // `ACTIONS::zoomTool` gets no SetConditions either, and the tool it
+        // arms is now wired (`ZOOM_TOOL`, registered at :425 upstream and run
+        // out of `ui/zoom_tool.ts` here), so the row is live like Refresh below.
+        act('Zoom to Selection Area', 'zoomTool', { shortcut: 'Ctrl+F5' }),
         // actions.cpp:705 — WXK_F5, not Ctrl+R. `ACTIONS::zoomRedraw` gets no
         // SetConditions, so the row is live; it was a `stub` here while the
         // top toolbar's Redraw View button — the same action, the same id —

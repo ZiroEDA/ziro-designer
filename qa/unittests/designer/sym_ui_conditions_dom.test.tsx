@@ -50,6 +50,28 @@ const LIB = `(kicad_symbol_lib (version 20241209) (generator "qa")
     (property "Datasheet" "http://example/ds.pdf" (at 0 0 0)
       (effects (font (size 1.27 1.27))))
   )
+  (symbol "U_dual" (pin_names (offset 0))
+    (property "Reference" "U" (at 0 0 0) (effects (font (size 1.27 1.27))))
+    (property "Value" "U_dual" (at 0 0 0) (effects (font (size 1.27 1.27))))
+    (property "Datasheet" "" (at 0 0 0) (effects (font (size 1.27 1.27)) (hide yes)))
+    (symbol "U_dual_1_1" (rectangle (start -1 2.54) (end 1 -2.54)
+      (stroke (width 0.254) (type default)) (fill (type none))))
+    (symbol "U_dual_2_1" (rectangle (start -1 2.54) (end 1 -2.54)
+      (stroke (width 0.254) (type default)) (fill (type none))))
+  )
+  (symbol "U_derived" (extends "U_dual")
+    (property "Value" "U_derived" (at 0 0 0) (effects (font (size 1.27 1.27))))
+  )
+  (symbol "U_locked" (pin_names (offset 0))
+    (property "Reference" "U" (at 0 0 0) (effects (font (size 1.27 1.27))))
+    (property "Value" "U_locked" (at 0 0 0) (effects (font (size 1.27 1.27))))
+    (property "Datasheet" "" (at 0 0 0) (effects (font (size 1.27 1.27)) (hide yes)))
+    (property "ki_locked" "" (at 0 0 0) (effects (font (size 1.27 1.27)) (hide yes)))
+    (symbol "U_locked_1_1" (rectangle (start -1 2.54) (end 1 -2.54)
+      (stroke (width 0.254) (type default)) (fill (type none))))
+    (symbol "U_locked_2_1" (rectangle (start -1 2.54) (end 1 -2.54)
+      (stroke (width 0.254) (type default)) (fill (type none))))
+  )
 )`;
 const SYMS = new Map(readSymbolLib(parse(LIB)).map((s) => [s.libId, s]));
 const sym = (name: string): LibSymbol => {
@@ -285,7 +307,16 @@ const PROJECT = [
   { name: 'Device.kicad_sym', text: LIB },
 ];
 
-/** Mount on the project and expand the one library, returning its tree rows. */
+/**
+ * Mount on the project and expand the one library, returning its tree rows.
+ *
+ * The rows are `LIB_TREE`'s (`.ze-libtree-row`), because the Libraries pane is
+ * now the shared widget — `SYMBOL_TREE_PANE` mounts `LIB_TREE` and nothing
+ * else. Two consequences the old selector hid: a row's text is its Item cell
+ * PLUS the Description and Value cells, so a row is addressed by `.col-item`;
+ * and a click SELECTS rather than expanding, since the expander is the twisty
+ * (`wxDataViewCtrl` behaviour, and `LIB_TREE` inherits it).
+ */
 const openProject = async (): Promise<{
   container: HTMLElement;
   rows: () => HTMLElement[];
@@ -295,12 +326,21 @@ const openProject = async (): Promise<{
     <SymbolEditor onExitToHome={() => {}} initialProject={PROJECT} />,
   );
   const rows = (): HTMLElement[] =>
-    Array.from(container.querySelectorAll('.ze-tree-item')) as HTMLElement[];
+    Array.from(container.querySelectorAll('.ze-libtree-row')) as HTMLElement[];
   await waitFor(() => expect(rows().length).toBeGreaterThan(0));
-  fireEvent.click(rows().find((r) => r.textContent?.includes('Device'))!);
-  await waitFor(() => expect(rows().some((r) => r.textContent?.trim() === 'R')).toBe(true));
+  const device = rows().find((r) => itemText(r) === 'Device')!;
+  // `showResults`' last fallback expands a lone library on its own
+  // (`LIB_TREE_MODEL_ADAPTER::UpdateSearchString`), so clicking unconditionally
+  // would COLLAPSE it.
+  const twisty = device.querySelector('.twisty')!;
+  if (!twisty.classList.contains('open')) fireEvent.click(twisty);
+  await waitFor(() => expect(rows().some((r) => itemText(r) === 'R')).toBe(true));
   return { container, rows, unmount };
 };
+
+/** A tree row's Item cell, which is `GetValue( …, NAME_COL )`. */
+const itemText = (row: HTMLElement): string =>
+  row.querySelector('.col-item')?.textContent?.trim() ?? '';
 
 describe('with a tree row selected and nothing loaded', () => {
   /**
@@ -313,7 +353,7 @@ describe('with a tree row selected and nothing loaded', () => {
    */
   it('lights Symbol Properties and nothing that needs m_symbol', async () => {
     const { container, rows, unmount } = await openProject();
-    fireEvent.click(rows().find((r) => r.textContent?.trim() === 'R')!);
+    fireEvent.click(rows().find((r) => itemText(r) === 'R')!);
     const b = buttons(container);
     unmount();
     expect({
@@ -341,7 +381,7 @@ describe('with a symbol opened from a LIBRARY, not the schematic', () => {
    */
   it('lights every editing tool', async () => {
     const { container, rows, unmount } = await openProject();
-    fireEvent.doubleClick(rows().find((r) => r.textContent?.trim() === 'R')!);
+    fireEvent.doubleClick(rows().find((r) => itemText(r) === 'R')!);
     await waitFor(() => expect(buttons(container)['Add a rectangle']).toBe(false));
     const b = buttons(container);
     unmount();
@@ -362,6 +402,399 @@ describe('with a symbol opened from a LIBRARY, not the schematic', () => {
       'Edit pins in a table': false,
       Undo: true,
       'Show associated datasheet or document': true,
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The top bar, WHOLE, in both states
+// ---------------------------------------------------------------------------
+
+/**
+ * The top toolbar's every button in declaration order, with the state it
+ * actually renders in — `title` -> disabled.
+ *
+ * Scoped to `.ze-toolbar.horizontal`, which is the one `orientation="horizontal"`
+ * `<Toolbar>` this frame mounts, so the left and right bars and the library
+ * tree's own buttons stay out of the picture.
+ */
+const topBar = (root: HTMLElement): Record<string, boolean> => {
+  const bar = root.querySelector('.ze-toolbar.horizontal');
+  if (!bar) throw new Error('no horizontal toolbar rendered');
+  const out: Record<string, boolean> = {};
+  // Buttons AND the two `AppendControl` combos: upstream gates those with
+  // `wxUpdateUIEvent` handlers of their own — `OnUpdateUnitNumber` is
+  // `event.Enable( m_symbol && m_symbol->GetUnitCount() > 1 )` and
+  // `OnUpdateBodyStyle` the same for `GetBodyStyleCount()`
+  // (`symbol_edit_frame.cpp:861-880`) — so leaving them out would be leaving
+  // two of this bar's twenty-two controls unclaimed.
+  for (const b of Array.from(bar.querySelectorAll('button, select'))) {
+    const title = b.getAttribute('title');
+    if (title) out[title] = b.hasAttribute('disabled');
+  }
+  return out;
+};
+
+describe('the whole top bar, against a captured KiCad', () => {
+  /**
+   * Every button on the bar in ONE expectation, not a hand-picked subset.
+   *
+   * The subsets above cannot see the bug this pins. `Toolbar` renders a button
+   * disabled when EITHER input says so —
+   *
+   *     const isDisabled = (b: ToolButton): boolean =>
+   *       !!b.disabled || !!disabledIds?.has(b.id);      — `ui/Toolbar.tsx`
+   *
+   * — and `symbolToolbarDisabledIds` only ever produces the second. Three
+   * buttons carried the first, a static `disabled: true` meaning "we have not
+   * built this yet", and `sym_ui_conditions.test.ts` next door is blind to it
+   * by construction. A capture of KiCad 10.0.5's Symbol Editor with no symbol
+   * loaded, measured icon by icon (enabled icons peak at luminance 215, the
+   * disabled ones at 128 — `wxColour::MakeDisabled` is `0.4*channel + 0.6*70`,
+   * `action_toolbar.cpp:708`), says Find, Find and Replace and Zoom to
+   * Selection Area are all LIVE there, and ours greyed all three.
+   *
+   * The `false` entries are as load-bearing as the `true` ones: this is the
+   * cold frame, so every `true` has a named condition behind it and every
+   * `false` is an action `setupUIConditions` (`symbol_edit_frame.cpp:448-660`)
+   * either never names or names as `ENABLE( ShowAlways )`.
+   */
+  it('greys exactly what a cold KiCad greys', () => {
+    const { container, unmount } = render(<SymbolEditor onExitToHome={() => {}} />);
+    const b = topBar(container);
+    unmount();
+    expect(b).toEqual({
+      // SCH_ACTIONS::newSymbol — ENABLE( ShowAlways ) (:533)
+      'New symbol': false,
+      // ACTIONS::saveAll — ENABLE( ShowAlways ) (:528)
+      'Save All': false,
+      // ACTIONS::save — ENABLE( ShowAlways ) (:529)
+      'Save changes': false,
+      // haveSymbolCond && cond.UndoAvailable() / RedoAvailable() (:537-538)
+      Undo: true,
+      Redo: true,
+      // ACTIONS::find / findAndReplace get NO SetConditions anywhere in
+      // eeschema, and SYMBOL_EDIT_FRAME registers SCH_FIND_REPLACE_TOOL (:432),
+      // so both are live upstream on a cold frame.
+      //
+      // These two used to read `true` here, written out as the last deliberate
+      // deviation on this bar so that building the tool would move an
+      // expectation. It did. `ShowFindReplaceDialog`, `GetFindReplaceDialog`
+      // and `m_findReplaceDialog` are SCH_BASE_FRAME members
+      // (`sch_base_frame.h:246-248, :318`) that SYMBOL_EDIT_FRAME inherits,
+      // and the dialog we had built only for the schematic now lives in
+      // `widgets/dialog_sch_find.tsx` with the LIB_SYMBOL walk beside the
+      // schematic's in the same engine module. Re-derived from the C++, not
+      // re-baselined: ShowAlways is `ACTION_CONDITIONS()`'s constructed
+      // default (`include/tool/action_manager.h:50-55`), so an unnamed action
+      // is live, and neither of these is named.
+      Find: false,
+      'Find and Replace': false,
+      // The zooms: no ENABLE on any of them (`eda_draw_frame.cpp:1363-1374`
+      // registers only the three unit CHECKs), and zoomTool is CHECK-only
+      // (:561), so all five are live with an empty canvas.
+      'Redraw view': false,
+      'Zoom in': false,
+      'Zoom out': false,
+      'Zoom to fit symbol': false,
+      'Zoom to Selection Area': false,
+      // isEditableInAliasCond (:555-556) / isEditableCond (:558-559)
+      'Rotate counterclockwise': true,
+      'Rotate clockwise': true,
+      'Mirror vertically': true,
+      'Mirror horizontally': true,
+      // symbolSelectedInTreeCondition || (canEditProperties && haveSymbolCond) (:634)
+      'Edit symbol properties': true,
+      // isEditableCond && haveSymbolCond (:636)
+      'Edit pins in a table': true,
+      // haveDatasheetCond (:633)
+      'Show associated datasheet or document': true,
+      // SCH_ACTIONS::checkSymbol gets no condition at all.
+      'Check duplicate and off-grid pins': false,
+      // multiUnitModeCond (:640)
+      'Synchronized pins mode': true,
+      // SCH_ACTIONS::addSymbolToSchematic gets no condition either.
+      'Add symbol to schematic': false,
+      // OnUpdateBodyStyle / OnUpdateUnitNumber (:861-880): both need a symbol.
+      'Select body style': true,
+      'Select unit to edit': true,
+    });
+  });
+
+  /**
+   * The contrasting state, so the test above cannot pass by greying everything
+   * — or by greying nothing. `R` is a single-unit root symbol with an empty
+   * Datasheet field, which is why three entries stay `true` here.
+   */
+  it('lights the editing half once a root symbol is loaded', async () => {
+    const { container, unmount } = render(
+      <SymbolEditor
+        onExitToHome={() => {}}
+        schematicSymbol={{ symbol: sym('R'), unit: 1, bodyStyle: 1, nonce: 1 }}
+      />,
+    );
+    await waitFor(() => expect(topBar(container)['Rotate clockwise']).toBe(false));
+    const b = topBar(container);
+    unmount();
+    expect(b).toEqual({
+      'New symbol': false,
+      'Save All': false,
+      'Save changes': false,
+      // GetUndoCommandCount() is 0 on a freshly loaded symbol.
+      Undo: true,
+      Redo: true,
+      // Unnamed by setupUIConditions, so live here as well — the pair does not
+      // depend on m_symbol in either direction.
+      Find: false,
+      'Find and Replace': false,
+      'Redraw view': false,
+      'Zoom in': false,
+      'Zoom out': false,
+      'Zoom to fit symbol': false,
+      'Zoom to Selection Area': false,
+      'Rotate counterclockwise': false,
+      'Rotate clockwise': false,
+      'Mirror vertically': false,
+      'Mirror horizontally': false,
+      'Edit symbol properties': false,
+      'Edit pins in a table': false,
+      // `R`'s Datasheet field is empty: haveDatasheetCond reads the FIELD.
+      'Show associated datasheet or document': true,
+      'Check duplicate and off-grid pins': false,
+      // Single-unit: IsMultiUnit() false, so still dead.
+      'Synchronized pins mode': true,
+      'Add symbol to schematic': false,
+      // `R` has one unit and one body style, so both combos stay dead even
+      // with the symbol on the canvas — the half of :861-880 the cold frame
+      // cannot see, where `m_symbol` alone is already false.
+      'Select body style': true,
+      'Select unit to edit': true,
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Synchronized Pins mode: a CHECK, not only an ENABLE
+// ---------------------------------------------------------------------------
+
+/** `aria-pressed` on one top-bar button, which is `Toolbar`'s `isActive`. */
+const pressed = (root: HTMLElement, title: string): string | null => {
+  const bar = root.querySelector('.ze-toolbar.horizontal');
+  const btn = Array.from(bar?.querySelectorAll('button') ?? []).find(
+    (b) => b.getAttribute('title') === title,
+  );
+  if (!btn) throw new Error(`no button titled ${title}`);
+  return btn.getAttribute('aria-pressed');
+};
+
+const SYNC = 'Synchronized pins mode';
+
+describe('m_SyncPinEdit', () => {
+  /**
+   * `SYMBOL_EDIT_FRAME`'s constructor writes `m_SyncPinEdit = false`
+   * (`symbol_edit_frame.cpp:128`), and `toggleSyncedPinsMode` is
+   * `ACTION_CONDITIONS().Enable( multiUnitModeCond ).Check( syncedPinsModeCond )`
+   * (:640) — so a cold frame paints that button grey AND flat.
+   *
+   * Ours painted it grey and CHECKED: `toggleSyncedPinsMode` was a member of
+   * `DEFAULT_TOGGLES`, i.e. treated as a sticky user preference that defaults
+   * on. In a capture of a real cold Symbol Editor the button's cell is the
+   * plain toolbar face rgb(55,55,55); ours was the checked fill rgb(68,48,41).
+   * Enabled-ness alone cannot see this, which is why it is `aria-pressed`.
+   */
+  it('is off, and unlit, on a cold frame', () => {
+    const { container, unmount } = render(<SymbolEditor onExitToHome={() => {}} />);
+    const state = { pressed: pressed(container, SYNC), disabled: topBar(container)[SYNC] };
+    unmount();
+    expect(state).toEqual({ pressed: 'false', disabled: true });
+  });
+
+  /**
+   * `SetCurSymbol` (:968): `m_SyncPinEdit = aSymbol && aSymbol->IsRoot() &&
+   * aSymbol->IsMultiUnit() && !aSymbol->UnitsLocked()`. A two-unit root with no
+   * `ki_locked` field satisfies all three, so LOADING it turns the mode on —
+   * upstream derives the flag from the symbol, it is not remembered.
+   */
+  it('comes on by itself for a multi-unit symbol with interchangeable units', async () => {
+    const { container, unmount } = render(
+      <SymbolEditor
+        onExitToHome={() => {}}
+        schematicSymbol={{ symbol: sym('U_dual'), unit: 1, bodyStyle: 1, nonce: 1 }}
+      />,
+    );
+    await waitFor(() => expect(topBar(container)[SYNC]).toBe(false));
+    const state = { pressed: pressed(container, SYNC), disabled: topBar(container)[SYNC] };
+    unmount();
+    expect(state).toEqual({ pressed: 'true', disabled: false });
+  });
+
+  /**
+   * The same symbol with `ki_locked` — `LIB_SYMBOL::UnitsLocked()`, serialised
+   * as that user field (`sch_io_kicad_sexpr_lib_cache.cpp:466-474`). Both
+   * `multiUnitModeCond` and the `SetCurSymbol` assignment carry the same
+   * `!UnitsLocked()`, so the button goes back to grey and flat. Without this
+   * case a rule that ignored `ki_locked` entirely would still pass above.
+   */
+  /**
+   * `IsMultiUnit()`. `R` is a single-unit root, so the second conjunct of :968
+   * is what says no here — without this case a rule that dropped the unit count
+   * would still pass every other test in this file, since `U_dual` satisfies
+   * every conjunct at once.
+   */
+  it('stays off for a single-unit symbol', async () => {
+    const { container, unmount } = render(
+      <SymbolEditor
+        onExitToHome={() => {}}
+        schematicSymbol={{ symbol: sym('R'), unit: 1, bodyStyle: 1, nonce: 1 }}
+      />,
+    );
+    await waitFor(() => expect(topBar(container)['Rotate clockwise']).toBe(false));
+    const state = { pressed: pressed(container, SYNC), disabled: topBar(container)[SYNC] };
+    unmount();
+    expect(state).toEqual({ pressed: 'false', disabled: true });
+  });
+
+  /**
+   * `IsRoot()`. `U_derived` extends `U_dual`, so it is multi-unit AND unlocked
+   * and only the first conjunct of :968 rules it out. Note the asymmetry with
+   * the ENABLE beside it: `multiUnitModeCond` (:609-613) has no `IsRoot()`
+   * test, so upstream leaves this button LIVE on a derived multi-unit symbol
+   * while `SetCurSymbol` leaves the mode itself off.
+   */
+  it('stays off for a DERIVED multi-unit symbol, which is still enabled', async () => {
+    const { container, unmount } = render(
+      <SymbolEditor
+        onExitToHome={() => {}}
+        schematicSymbol={{ symbol: sym('U_derived'), unit: 1, bodyStyle: 1, nonce: 1 }}
+      />,
+    );
+    await waitFor(() => expect(topBar(container)['Rotate clockwise']).toBe(false));
+    const state = { pressed: pressed(container, SYNC), disabled: topBar(container)[SYNC] };
+    unmount();
+    expect(state).toEqual({ pressed: 'false', disabled: false });
+  });
+
+  /**
+   * The clearing half of :968. `m_SyncPinEdit` is an ASSIGNMENT on every
+   * `SetCurSymbol`, not an "if this symbol qualifies, switch it on" — so
+   * opening a plain resistor after a two-unit part turns the mode back off.
+   *
+   * It takes two loads in one frame to see, and without it a `withSyncPinEdit`
+   * that only ever `add`s survives every other case in this file: each of them
+   * mounts a fresh frame, where the flag starts off anyway.
+   */
+  it('goes back off when the next symbol loaded does not qualify', async () => {
+    const { container, rerender, unmount } = render(
+      <SymbolEditor
+        onExitToHome={() => {}}
+        schematicSymbol={{ symbol: sym('U_dual'), unit: 1, bodyStyle: 1, nonce: 1 }}
+      />,
+    );
+    await waitFor(() => expect(pressed(container, SYNC)).toBe('true'));
+    rerender(
+      <SymbolEditor
+        onExitToHome={() => {}}
+        schematicSymbol={{ symbol: sym('R'), unit: 1, bodyStyle: 1, nonce: 2 }}
+      />,
+    );
+    await waitFor(() => expect(topBar(container)['Edit pins in a table']).toBe(false));
+    const state = { pressed: pressed(container, SYNC), disabled: topBar(container)[SYNC] };
+    unmount();
+    expect(state).toEqual({ pressed: 'false', disabled: true });
+  });
+
+  it('stays off for a multi-unit symbol whose units are locked', async () => {
+    const { container, unmount } = render(
+      <SymbolEditor
+        onExitToHome={() => {}}
+        schematicSymbol={{ symbol: sym('U_locked'), unit: 1, bodyStyle: 1, nonce: 1 }}
+      />,
+    );
+    await waitFor(() => expect(topBar(container)['Rotate clockwise']).toBe(false));
+    const state = { pressed: pressed(container, SYNC), disabled: topBar(container)[SYNC] };
+    unmount();
+    expect(state).toEqual({ pressed: 'false', disabled: true });
+  });
+});
+
+describe('the Zoom to Selection Area button', () => {
+  /**
+   * `ACTIONS::zoomTool` is `AF_ACTIVATE` (`common/tool/actions.cpp:826`): the
+   * click ARMS `ZOOM_TOOL`, whose `Main` opens with `m_frame->PushTool( aEvent )`
+   * — and `TOOLS_HOLDER::SetTool` puts the action's `GetFriendlyName()` into
+   * status-bar field 6 (`common/tool/tools_holder.cpp:72`). So the field
+   * reading "Zoom to Selection Area" is what says the button reached the tool,
+   * rather than being a live button wired to nothing, which is the failure the
+   * static `disabled: true` was hiding.
+   */
+  it('arms the tool rather than zooming, and says so in field 6', () => {
+    const { container, getByTestId, unmount } = render(<SymbolEditor onExitToHome={() => {}} />);
+    const before = getByTestId('sym-tool-msg').textContent;
+    const bar = container.querySelector('.ze-toolbar.horizontal');
+    const btn = Array.from(bar?.querySelectorAll('button') ?? []).find(
+      (b) => b.getAttribute('title') === 'Zoom to Selection Area',
+    );
+    if (!btn) throw new Error('no Zoom to Selection Area button');
+    fireEvent.click(btn);
+    const after = getByTestId('sym-tool-msg').textContent;
+    const lit = btn.getAttribute('aria-pressed');
+    unmount();
+    // Field 6 starts EMPTY: `DisplayToolMsg` is only ever called from
+    // `TOOLS_HOLDER::PushTool` / `PopTool` (`common/tool/tools_holder.cpp:72,
+    // :113`), and the selection tool is started with `InvokeTool`
+    // (`symbol_edit_frame.cpp:440`), which pushes nothing. A captured cold
+    // KiCad shows that pane blank while the selection button is checked.
+    expect({ before, after, lit }).toEqual({
+      before: '',
+      after: 'Zoom to Selection Area',
+      // TOOLBAR_STATE::TOGGLE + CurrentTool( zoomTool ) (:561): armed = checked.
+      lit: 'true',
+    });
+  });
+});
+
+describe('status-bar field 6, the Current Tool pane', () => {
+  /**
+   * `DisplayToolMsg` has exactly two callers, and both are in `TOOLS_HOLDER`:
+   *
+   *     PushTool  DisplayToolMsg( action->GetFriendlyName() )      (:72-76)
+   *     PopTool   DisplayToolMsg( ACTIONS::selectionTool
+   *                                 .GetFriendlyName() )           (:112-113)
+   *                 -- only when the stack has emptied
+   *
+   * The selection tool never reaches either: `SYMBOL_EDIT_FRAME` starts it with
+   * `m_toolManager->InvokeTool( "common.InteractiveSelection" )` (:440). So the
+   * pane is blank on a cold frame and says "Select item(s)" only after a tool
+   * has been armed and dropped. Ours read the field straight off `activeTool`,
+   * which opens at `'select'`, so it said "Select item(s)" from the first
+   * paint — the one thing in that status bar a capture of KiCad does not show.
+   *
+   * All three states in one test, because "blank at the start" alone would
+   * pass against a field that is blank forever.
+   */
+  it('is blank until a tool is armed, then names it, then names Select', () => {
+    const { container, getByTestId, unmount } = render(<SymbolEditor onExitToHome={() => {}} />);
+    const field = (): string => getByTestId('sym-tool-msg').textContent ?? '';
+    const press = (title: string): void => {
+      const bar = container.querySelector('.ze-toolbar.horizontal');
+      const right = container.querySelector('.ze-toolbar.vertical.right');
+      const btn = [
+        ...Array.from(bar?.querySelectorAll('button') ?? []),
+        ...Array.from(right?.querySelectorAll('button') ?? []),
+      ].find((b) => b.getAttribute('title') === title);
+      if (!btn) throw new Error(`no button titled ${title}`);
+      fireEvent.click(btn);
+    };
+    const cold = field();
+    press('Zoom to Selection Area');
+    const armed = field();
+    press('Select item(s)');
+    const back = field();
+    unmount();
+    expect({ cold, armed, back }).toEqual({
+      cold: '',
+      armed: 'Zoom to Selection Area',
+      back: 'Select item(s)',
     });
   });
 });

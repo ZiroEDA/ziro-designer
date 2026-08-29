@@ -16,6 +16,7 @@
  * implemented yet are `disabled` (greyed in place, like the menu bar).
  */
 
+import type { ToolbarDefaults } from '../../ui/toolbar_config.js';
 import type { ToolEntry } from '../../ui/toolbar_types.js';
 
 const sep: ToolEntry = 'sep';
@@ -82,22 +83,29 @@ export const LEFT_TOOLBAR: ToolEntry[] = [
   },
   // TOOLBAR_GROUP_CONFIG entries render as one button + long-press palette
   // (ACTION_TOOLBAR); group titles as in SCH_EDIT_TOOLBAR_SETTINGS.
+  //
+  // No `toggle` on a group member, here or anywhere: whether a group button can
+  // paint checked is `isToggleEntry` in `ACTION_TOOLBAR::AddGroup`, an OR over
+  // the ACTIONS' own `TOOLBAR_STATE::TOGGLE`, and that lives once in
+  // `ui/toolbar_action_state.ts`. These nine rows carried `toggle: true` while
+  // the seven other editors' copies of the SAME actions did not, which is how
+  // the schematic editor alone drew a permanently lit "mil" button.
   {
     group: 'Units',
     cycleOnClick: true,
     actions: [
-      { id: 'unitsInches', icon: 'unitIn', toggle: true },
-      { id: 'unitsMils', icon: 'unitMils', toggle: true },
-      { id: 'unitsMm', icon: 'unitMm', toggle: true },
+      { id: 'unitsInches', icon: 'unitIn' },
+      { id: 'unitsMils', icon: 'unitMils' },
+      { id: 'unitsMm', icon: 'unitMm' },
     ],
   },
   {
     group: 'Crosshair modes',
     cycleOnClick: true,
     actions: [
-      { id: 'crosshairSmall', icon: 'crosshairSmall', toggle: true },
-      { id: 'crosshairFull', icon: 'crosshairFull', toggle: true },
-      { id: 'crosshair45', icon: 'crosshair45', toggle: true },
+      { id: 'crosshairSmall', icon: 'crosshairSmall' },
+      { id: 'crosshairFull', icon: 'crosshairFull' },
+      { id: 'crosshair45', icon: 'crosshair45' },
     ],
   },
   sep,
@@ -107,21 +115,9 @@ export const LEFT_TOOLBAR: ToolEntry[] = [
     group: 'Line modes',
     cycleOnClick: true,
     actions: [
-      {
-        id: 'lineModeFree',
-        icon: 'lineFree',
-        toggle: true,
-      },
-      {
-        id: 'lineMode90',
-        icon: 'line90',
-        toggle: true,
-      },
-      {
-        id: 'lineMode45',
-        icon: 'line45',
-        toggle: true,
-      },
+      { id: 'lineModeFree', icon: 'lineFree' },
+      { id: 'lineMode90', icon: 'line90' },
+      { id: 'lineMode45', icon: 'line45' },
     ],
   },
   sep,
@@ -203,3 +199,16 @@ export const RIGHT_TOOLBAR: ToolEntry[] = [
   { id: 'image', icon: 'image' },
   { id: 'delete', icon: 'delete' },
 ];
+
+/**
+ * `SCH_EDIT_TOOLBAR_SETTINGS::DefaultToolbarConfig`
+ * (`eeschema/toolbars_sch_editor.cpp:60-200`), keyed by `TOOLBAR_LOC`.
+ *
+ * `TOP_AUX` is absent because upstream's first case is `return std::nullopt`
+ * (`:67-68`).
+ */
+export const SCH_DEFAULT_TOOLBARS: ToolbarDefaults = {
+  LEFT: LEFT_TOOLBAR,
+  RIGHT: RIGHT_TOOLBAR,
+  TOP_MAIN: TOP_TOOLBAR,
+};

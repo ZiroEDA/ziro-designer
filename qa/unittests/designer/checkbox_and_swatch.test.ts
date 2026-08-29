@@ -88,6 +88,54 @@ describe('the check box is drawn, not accented', () => {
     );
   });
 
+  /**
+   * Yaru states the disabled tick in one rule that names both controls:
+   *
+   *     check:checked:disabled,
+   *     radio:checked:disabled {
+   *       box-shadow: none;
+   *       color: #929292;
+   *       border-color: #181818;
+   *       background-image: image(#2a2a2a); }
+   *
+   * so all three values are tokens we already held. There was no `:disabled`
+   * override at all, which is why DIALOG_CHANGE_SYMBOLS' two permanently-on
+   * ticks — SetValue(true) then Enable(false) — stayed full accent orange
+   * where KiCad greys them. Akshay's capture of the real dialog reads
+   * rgb(42,42,42) on those two against rgb(233,84,32) on an enabled one.
+   */
+  describe('and a disabled tick is greyed, not accented', () => {
+    const off = rule('.ze-app input[type="checkbox"]:checked:disabled');
+
+    it('takes the disabled face and the ordinary control border', () => {
+      expect(off['background-color']).toBe('var(--ctl-face-disabled)');
+      expect(off['border-color']).toBe('var(--ctl-border)');
+      expect(token('--ctl-face-disabled')).toBe('#2a2a2a');
+      expect(token('--ctl-border')).toBe('#181818');
+    });
+
+    it('and never the accent, which is the whole point', () => {
+      expect(off['background-color']).not.toBe('var(--chrome-active)');
+    });
+
+    it('strokes the mark in --ctl-fg-disabled, checked against the token', () => {
+      expect(token('--ctl-fg-disabled')).toBe('#929292');
+      expect(off['background-image']).toContain(
+        `stroke='%23${token('--ctl-fg-disabled').replace('#', '')}'`,
+      );
+      // and NOT the enabled white, which is what it was inheriting.
+      expect(off['background-image']).not.toContain("stroke='%23ffffff'");
+    });
+
+    it('the radio keeps its dot rather than flattening to a grey disc', () => {
+      // `input[type="radio"]:disabled` sets a flat background at the same
+      // specificity, so without this the dot disappeared on a checked one.
+      const r = rule('.ze-app input[type="radio"]:checked:disabled');
+      expect(r.background).toContain('var(--ctl-fg-disabled)');
+      expect(r.background).toContain('var(--ctl-face-disabled)');
+    });
+  });
+
   it('unchecked is the face and ring tokens that already existed', () => {
     // Both predate this fix and both were right: --check-face is Yaru's
     // `background-image: image(#393939)` and the probe reads the same

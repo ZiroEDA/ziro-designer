@@ -4,25 +4,49 @@
 /**
  * The order of the docked panes in the Schematic Editor's left column.
  *
- * wxAUI sorts the panes of one dock by their `Position()`, and eeschema sets
- * that number in two places — the pane infos in `eeschema/eeschema_settings.cpp`
- * and the one inline `AddPane` in `eeschema/sch_edit_frame.cpp`:
+ * eeschema sets each pane's `Position()` in two places — the pane infos in
+ * `eeschema/eeschema_settings.cpp` and the one inline `AddPane` in
+ * `eeschema/sch_edit_frame.cpp`:
  *
- *   | pane                | Position | where                            |
- *   |---------------------|----------|----------------------------------|
- *   | Net Navigator       |    0     | eeschema_settings.cpp:74         |
- *   | Schematic Hierarchy |    1     | sch_edit_frame.cpp:262           |
- *   | Properties          |    2     | eeschema_settings.cpp:95         |
- *   | Selection Filter    |    4     | eeschema_settings.cpp:117        |
+ *   | pane                | Position | AddPane | where                     |
+ *   |---------------------|----------|---------|---------------------------|
+ *   | Net Navigator       |    0     |    4th  | eeschema_settings.cpp:74  |
+ *   | Schematic Hierarchy |    1     |    1st  | sch_edit_frame.cpp:262    |
+ *   | Properties          |    2     |    2nd  | eeschema_settings.cpp:95  |
+ *   | Selection Filter    |    4     |    3rd  | eeschema_settings.cpp:117 |
  *
- * All four are `.Left().Layer( 3 )`, so this is one column and the numbers
- * above are its top-to-bottom order. Position 3 is deliberately unused
- * upstream — the numbers are sparse, which is why this table mirrors them
- * rather than renumbering 0..3.
+ * All four are `.Left().Layer( 3 )`, so this is one column. Position 3 is
+ * deliberately unused upstream — the numbers are sparse, which is why this
+ * table mirrors them rather than renumbering 0..3.
+ *
+ * **`Position()` is not the order.** It is only the STARTING `dock_pos`, and
+ * wxAuiManager rewrites `dock_pos` on every `Update()`. `qa/probes/aui_dock_pos_probe.cpp`
+ * builds these four panes with wx 3.2.4 and toggles them the way
+ * `SCH_EDIT_FRAME::ToggleSchematicHierarchy` (sch_edit_frame.cpp:2910) and
+ * `ToggleProperties` (:2886) do — both of which only call `.Show()` and never
+ * touch Position — and measures each pane's on-screen y. Two rules explain
+ * every line of its output:
+ *
+ *   1. Each `Update()` renumbers the SHOWN panes of the dock: it sorts them by
+ *      their current `dock_pos` and writes back 0, 1, 2 ... in that order. A
+ *      HIDDEN pane is not touched and keeps the number it had.
+ *   2. Ties are broken by `AddPane` order, the third column above.
+ *
+ * So the pane opened FIRST is alone in the dock and is compacted to 0, while
+ * the one opened next still carries its original `Position()` — 1, 2 or 4,
+ * all greater — and lands BELOW it. Open the hierarchy first and it is on
+ * top; open Properties first and IT is on top. That is what the user sees,
+ * and it is why a fixed order table was the wrong model, not merely a wrong
+ * pair of numbers. The table still decides one case: panes that become
+ * visible in the SAME `Update()`, which is a frame restoring its layout.
+ *
+ * {@link schLeftDockLayout} is those two rules; the editor keeps the resulting
+ * `dock_pos` and feeds it back in, exactly as the pane infos do upstream.
  *
  * This is a data module and not a comment in the JSX because a JSX block's
  * order cannot be asserted from a Node test, and the order is exactly the
- * thing that was wrong: ours rendered Properties above the hierarchy.
+ * thing that was wrong: ours rendered Properties above the hierarchy, and
+ * then — after that was "fixed" — rigidly the other way round.
  *
  * The Search pane is NOT in this list. Upstream docks it at the BOTTOM —
  * `EDA_PANE().Name( SearchPaneName() ).Bottom()` (sch_edit_frame.cpp:290-292)
@@ -35,6 +59,9 @@ export type SchLeftPane = 'netNavigator' | 'hierarchy' | 'properties' | 'selecti
 /**
  * `Position()` for each pane of the left dock, verbatim from the two files
  * above. Sparse on purpose: upstream skips 3.
+ *
+ * This is the value `AddPane` leaves in `dock_pos`, i.e. the state the column
+ * starts in — not the order it stays in. See {@link schLeftDockLayout}.
  */
 export const SCH_LEFT_PANE_POSITION: Readonly<Record<SchLeftPane, number>> = {
   netNavigator: 0,
@@ -44,25 +71,149 @@ export const SCH_LEFT_PANE_POSITION: Readonly<Record<SchLeftPane, number>> = {
 };
 
 /**
- * The left column top to bottom — {@link SCH_LEFT_PANE_POSITION} sorted, so the
- * two cannot disagree.
+ * The order the four `AddPane` calls run in: the hierarchy inline at
+ * `sch_edit_frame.cpp:260`, then Properties (:272), the Selection Filter
+ * (:273) and the Net Navigator (:279). Note the Net Navigator is added LAST
+ * despite being `Position( 0 )`.
+ *
+ * It is here because it breaks ties: two panes can hold the same `dock_pos`
+ * once one of them has been compacted, and then this decides. Measured in the
+ * probe's "re-open Properties" scenario, where Properties ties the hierarchy
+ * at 0 and the hierarchy — added first — keeps the top slot.
  */
-export const SCH_LEFT_PANE_ORDER: readonly SchLeftPane[] = (
-  Object.keys(SCH_LEFT_PANE_POSITION) as SchLeftPane[]
-).sort((a, b) => SCH_LEFT_PANE_POSITION[a] - SCH_LEFT_PANE_POSITION[b]);
+export const SCH_LEFT_PANE_ADD_ORDER: readonly SchLeftPane[] = [
+  'hierarchy',
+  'properties',
+  'selectionFilter',
+  'netNavigator',
+];
+
+/** `dock_pos` for every pane of the column, the state wxAUI carries forward. */
+export type SchDockPos = Readonly<Record<SchLeftPane, number>>;
 
 /**
- * The panes that can GROW, in dock order.
+ * The column's starting `dock_pos`, from a stored perspective or from
+ * `AddPane`.
  *
- * The Selection Filter cannot: `selectionFilterPane.dock_proportion = 0`
+ * `RestoreAuiLayout()` (sch_edit_frame.cpp:304) loads `window.perspective`
+ * before a single pane is shown, so the numbers a previous session was left
+ * with — not {@link SCH_LEFT_PANE_POSITION} — are what the next one starts
+ * from. That matters because wxAUI's renumbering pass is not reversible: it
+ * compacts whatever was shown, and a pane hidden at that moment keeps the
+ * number it had. Measured with `qa/probes/aui_dock_pos_probe.cpp` on this
+ * machine's own saved perspective (Properties `pos=0`, hierarchy `pos=1`),
+ * closing both palettes and re-opening Properties and then the hierarchy leaves
+ * **Properties on top**; run from `AddPane`'s numbers the very same sequence
+ * leaves the **hierarchy** on top, because the two tie at 0 and `AddPane` order
+ * breaks the tie. So an editor that forgets the numbers between sessions
+ * answers a question KiCad answers from memory.
+ *
+ * A missing or non-numeric entry falls back to `AddPane`'s value, which is what
+ * a pane absent from the perspective string gets upstream.
+ */
+export function schDockPosFrom(stored: Readonly<Record<string, number>> | undefined): SchDockPos {
+  const out = { ...SCH_LEFT_PANE_POSITION } as Record<SchLeftPane, number>;
+  for (const pane of SCH_LEFT_PANE_ADD_ORDER) {
+    const v = stored?.[pane];
+    if (typeof v === 'number' && Number.isFinite(v)) out[pane] = v;
+  }
+  return out;
+}
+
+/** What one `wxAuiManager::Update()` leaves behind. */
+export interface SchLeftDockLayout {
+  /** The panes on screen, TOP TO BOTTOM. */
+  readonly order: readonly SchLeftPane[];
+  /** `dock_pos` after the renumbering pass, to be fed into the next Update. */
+  readonly dockPos: SchDockPos;
+}
+
+/**
+ * One `Update()` of the left dock: sort, draw, renumber.
+ *
+ * Both rules are the probe's, measured rather than read (there is no wx source
+ * on this machine): the shown panes are ordered by `dock_pos` with `AddPane`
+ * order breaking ties, and then the shown ones — only those — are renumbered
+ * 0, 1, 2 ... A hidden pane keeps its number, which is what makes closing and
+ * re-opening a pane put it back where it was instead of at the bottom.
+ *
+ * Idempotent: running it again with the same `shown` set returns the same
+ * order and the same numbers, because compacting an already-compacted dock
+ * changes nothing. That is what lets the editor call it once per render.
+ */
+export function schLeftDockLayout(
+  dockPos: SchDockPos,
+  shown: Readonly<Record<SchLeftPane, boolean>>,
+): SchLeftDockLayout {
+  // The comparator states the tie-break instead of leaning on Array.sort being
+  // stable over an array that happens to be in AddPane order: the tie is a
+  // measured rule and deserves to be written down.
+  const bySlot = (a: SchLeftPane, b: SchLeftPane): number =>
+    dockPos[a] - dockPos[b] ||
+    SCH_LEFT_PANE_ADD_ORDER.indexOf(a) - SCH_LEFT_PANE_ADD_ORDER.indexOf(b);
+
+  // The Selection Filter is not one of the panes that contend for a slot. It is
+  // the LAST row of the column, always, and the three facts that say so all
+  // agree: `Position( 4 )` where the others are 0, 1 and 2 and 3 is deliberately
+  // skipped; `dock_proportion = 0`, so it alone never grows; and no visibility
+  // control of its own. Read back out of a real eeschema's saved perspective on
+  // this machine (`~/.config/kicad/10.0/eeschema.json`):
+  //
+  //     PropertiesManager    pos=0 prop=100000
+  //     SchematicHierarchy   pos=1 prop=100000
+  //     SelectionFilter      pos=2 prop=0
+  //
+  // -- highest position of the three, and the only one with no proportion, which
+  // is why it sits flush against the message panel as part of the same band
+  // rather than floating between two palettes.
+  const CONTENDERS = SCH_LEFT_PANE_ADD_ORDER.filter((p) => p !== 'selectionFilter');
+
+  const shownContenders = CONTENDERS.filter((p) => shown[p]).sort(bySlot);
+  const next: Record<SchLeftPane, number> = { ...dockPos };
+  shownContenders.forEach((pane, i) => {
+    next[pane] = i;
+  });
+
+  // A HIDDEN contender is left alone, which is what wxAUI does and what
+  // `qa/probes/aui_dock_pos_probe.cpp` measures -- including the tie that
+  // follows when a shown pane later compacts onto the number a hidden one still
+  // holds. The probe drives the same path the frame does, `Show()` then
+  // `SetAuiPaneSize`'s MinSize/Fixed/Update/Resizable/Update (its lines
+  // 406-422), so that tie is real and is deliberately NOT smoothed away here.
+
+  // The filter goes immediately after the SHOWN panes, so nothing can renumber
+  // it into the middle of the column. `shownContenders.length` and not
+  // `CONTENDERS.length`, because that is the number a real perspective holds:
+  // with Properties and the hierarchy shown and the Net Navigator hidden, this
+  // machine's eeschema.json has `SelectionFilter … pos=2`, one past the two
+  // panes above it — not one past every pane that could exist.
+  // Only when it is on screen: a hidden pane keeps the number it had, which is
+  // the rule the probe measured for every other pane and there is no reason the
+  // filter should differ. It also keeps an empty column a no-op.
+  if (shown.selectionFilter) next.selectionFilter = shownContenders.length;
+
+  const order: SchLeftPane[] = shown.selectionFilter
+    ? [...shownContenders, 'selectionFilter']
+    : shownContenders;
+
+  return { order, dockPos: next };
+}
+
+/**
+ * Whether a pane can GROW to fill the column.
+ *
+ * Only the Selection Filter cannot: `selectionFilterPane.dock_proportion = 0`
  * (sch_edit_frame.cpp:325), with the comment "The selection filter doesn't need
  * to grow in the vertical direction when docked", and its pane info asks for a
  * `-1` height (eeschema_settings.cpp:123-125). Every other pane in the column
- * takes a share of the leftover height, so only these get a drag sash.
+ * takes a share of the leftover height, so only those get a drag sash.
+ *
+ * This is a per-pane predicate and no longer a list, because a list would have
+ * to carry an order, and the order is {@link schLeftDockLayout}'s answer now.
  */
-export const SCH_LEFT_GROW_PANES: readonly SchLeftPane[] = SCH_LEFT_PANE_ORDER.filter(
-  (p) => p !== 'selectionFilter',
-);
+export function schPaneGrows(pane: SchLeftPane): boolean {
+  return pane !== 'selectionFilter';
+}
 
 /**
  * Whether the Selection Filter is on screen.

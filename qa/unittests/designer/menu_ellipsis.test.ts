@@ -44,7 +44,8 @@ const SOURCE_DIRS = [
 const ALLOWED = new Map<string, string>([
   ['eeschema/src/tools/sch_collectors.ts', 'ellipsize() truncates a long name'],
   ['designer/src/ui/hotkeys_inventory.ts', 'a regex that must keep matching BOTH forms'],
-  ['designer/src/editors/pcb/PcbEditor.tsx', 'a leading "…N more" truncation marker'],
+  // The marker moved with the Nets list into the shared APPEARANCE_CONTROLS.
+  ['designer/src/widgets/appearance_controls.tsx', 'a leading "…N more" truncation marker'],
   ['designer/src/telemetry/scrub.ts', '"…[truncated]" in a scrubbed report'],
   ['common/src/drawing_sheet/read.ts', 'an elided s-expression in a parser error'],
 ]);

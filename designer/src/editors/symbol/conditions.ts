@@ -55,7 +55,7 @@
  */
 
 import type { LibSymbol } from '@ziroeda/eeschema/src/types.js';
-import { hasAlternateBodyStyle, unitCount } from './edits.js';
+import { hasAlternateBodyStyle, unitCount, unitsLocked } from './edits.js';
 import type { ToolEntry } from '../../ui/toolbar_types.js';
 
 /** The two halves of a `LIB_ID`, as `GetLibNickname()` / `GetLibItemName()`. */
@@ -149,12 +149,6 @@ export interface SymbolConditions {
   haveDatasheet: boolean;
 }
 
-/** `LIB_SYMBOL::UnitsLocked()`. Serialised as the `ki_locked` user field
- *  (`sch_io_kicad_sexpr_lib_cache.cpp:466-474`), which is where we read it. */
-function unitsLocked(sym: LibSymbol): boolean {
-  return sym.properties.some((f) => f.key === 'ki_locked');
-}
-
 /** `LIB_SYMBOL::GetDatasheetField().GetText()`. */
 function datasheetText(sym: LibSymbol): string {
   return sym.properties.find((f) => f.key === 'Datasheet')?.value ?? '';
@@ -193,7 +187,18 @@ function haveTargetSymbol(state: SymbolFrameState): boolean {
 /** Every lambda of `setupUIConditions`, evaluated against one frame state. */
 export function symbolConditions(state: SymbolFrameState): SymbolConditions {
   const sym = state.symbol;
-  const haveSymbol = sym !== null;
+  // `haveSymbolCond` (:460-464) is `m_symbol != nullptr`, and a null pointer is
+  // the only "no symbol" C++ has. TypeScript has two, so this asks `!= null`
+  // rather than `!== null`: `undefined` has to read as "no symbol" as well.
+  //
+  // Not defensive padding. Every rule below is an AND of `haveSymbol`, so an
+  // `undefined` slipping through a `!== null` would flip the whole table live
+  // on a cold frame — the exact bug this module exists to stop — and the very
+  // next line would then throw on `sym.extends`. The type says `LibSymbol |
+  // null` and `SymbolEditor.tsx` passes `workSymbol ?? null` off a
+  // `useState<LibSymbol | null>`, so the two agree today; this is what keeps
+  // them agreeing when they stop, including for a caller that is not typed.
+  const haveSymbol = sym != null;
   // `IsSymbolEditable()` (:2231-2234).
   const editable = haveSymbol && (!state.fromLegacyLibrary || state.fromSchematic);
   // `IsSymbolAlias()` (:2225-2228) — `m_symbol && !m_symbol->IsRoot()`.

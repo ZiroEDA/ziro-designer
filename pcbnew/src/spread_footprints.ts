@@ -156,11 +156,32 @@ export function spreadFootprints(
   if (footprints.length === 0) return [];
 
   // Where each footprint currently is, so the result can be expressed as a delta.
+  //
+  // `GetBoundingBox( FALSE )` — WITHOUT text — at all four of upstream's call
+  // sites (spread_footprints.cpp:137, 210, 213, 245).
+  //
+  // Not a detail. Measured on the installed 10.0.5 libraries, box with text
+  // against box without, in mm:
+  //
+  //     D_DO-41_SOD81_P10.16mm_Horizontal      12.86 x 3.20  ->  30.01 x 6.64
+  //     R_Axial_DIN0207_..._P10.16mm_Horiz.    12.26 x 3.00  ->  43.25 x 6.44
+  //     PhoenixContact_MSTBVA_2,5_2-G_1x02     13.00 x 10.01 ->  43.87 x 12.70
+  //
+  // The height roughly doubles because the reference sits above the part and
+  // the value below it, and the WIDTH is worse still — a value string like
+  // "R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal" is three times wider
+  // than the part it names. Per cell that is 37 mm² of resistor becoming
+  // 279 mm², so the block was laid out with seven times the area it needed and
+  // the result reads as one big airy grid instead of pcbnew's tight cluster.
+  //
+  // The proof of the reading is in a pcbnew capture rather than in the source:
+  // KiCad's own output has the value text of one part overlapping the outline
+  // of the next. A box that included the text could not produce that overlap.
   const startBox = new Map<PcbFootprint, Box>();
   const boxOf = (fp: PcbFootprint): Box => {
     const cached = startBox.get(fp);
     if (cached) return cached;
-    const bbox = footprintBBox(fp) ?? {
+    const bbox = footprintBBox(fp, false) ?? {
       minX: fp.at.x,
       minY: fp.at.y,
       maxX: fp.at.x,

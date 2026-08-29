@@ -227,21 +227,39 @@ const BASELINE: Record<string, number> = {
   // shared `.ze-grid` skin, which carries the size so the call site does not.
   // 6 until Preview Settings was rebuilt as DIALOG_PAGES_SETTINGS: its five
   // inline `fontSize: 12`/`11` literals went with the hand-rolled layout, and
-  // its labels are `.ze-pgs-label` off --ui-font-size now. The one left is the
-  // canvas, which sizes text in world units, not chrome units.
-  'editors/drawingsheet': 1,
+  // its labels are `.ze-pgs-label` off --ui-font-size now. The one left was
+  // the editor's own Preferences modal, whose body declared `fontSize: 12`.
+  // 1 -> 0: that modal is gone. pl_editor's Preferences is the shared
+  // `PreferencesDialog` now — `EDA_BASE_FRAME::ShowPreferences` lives on the
+  // base frame precisely so no editor writes its own — and the shared dialog
+  // sets no font, as KiCad's panels set none. RESCANNED in a tree built from
+  // `git archive HEAD`, because three other agents have uncommitted work in
+  // this checkout: this area does not appear in that scan at all.
+  //
+  // This area is now the second at zero, after `editors/calculator`. Zero is
+  // not vacuous — the scanner still walks the directory, so the next literal
+  // added anywhere under it fails `no area gains one`.
+  'editors/drawingsheet': 0,
   'editors/footprint': 1,
   'editors/gerbview': 0,
   // 124 until the Appearance panel took the tab strip's inline `fontSize: 12`
   // out: those tabs are the shared .ze-nb-tabs wxNotebook and state nothing.
   // 123 until the toolbars pass: the hand-rolled TOP_AUX div's `fontSize: 12`
   // went with the div, and a real Toolbar's controls take the shared skin.
-  'editors/pcb': 122,
+  // 122 -> 121: the Selection Filter's "Only <category>" popup was a bespoke
+  // <div> with its own fontSize: 12; PANEL_SELECTION_FILTER's menu is an
+  // ordinary wxMenu, so it is now the shared ContextMenu and states nothing.
+  'editors/pcb': 121,
   // 55 -> 50: the COLOR_SWATCH sweep's second half. Seven Clear buttons and
   // one `(using Schematic Editor colors)` hint each carried an inline
   // `fontSize: 11`, and none of them exists upstream - the swatch clears
   // itself through the picker.
-  'editors/schematic': 50,
+  // 50 -> 49: NOT this branch. A pristine checkout of `cvpcb: the window's own
+  // measured metrics, and the menus it was missing` (e3b79196) already scans
+  // 49 here; that pass took the literal and left this row at 50. Lowered here
+  // because the row has to match the tree and the total below has to match it
+  // too.
+  'editors/schematic': 49,
   // 2 until the Symbol Editor parity pass deleted the invented
   // "Double-click a symbol..." hint that an empty SYMBOL_EDIT_FRAME does not
   // have; it carried an inline `fontSize: 14` and a `color: '#888'`.
@@ -266,7 +284,49 @@ const BASELINE: Record<string, number> = {
   // 146 -> 145: `.ze-lp-clearcolor`'s own `font-size: 11px` went with the
   // buttons it styled; `.ze-help-label` that replaces it takes
   // var(--ui-font-size), which is what a wxStaticText gets.
-  ui: 145,
+  // 145 -> 143: the symbol chooser's two. `.ze-libtree-row` wrote
+  // `font-size: 13px`, which is why Akshay read the chooser's tree as smaller
+  // than KiCad's, and `.ze-chooser-footer .ze-check` wrote 12px for two plain
+  // wxCheckBoxes that get KIUI::GetControlFont. Both take --ui-font-size now.
+  // Derived twice: rescanning this tree gives 143, and the diff removes
+  // exactly two `font-size:` lines and adds none, so 145 - 2 agrees.
+  // 143 -> 136: the rest of the symbol chooser, seven rules that each invented
+  // a size for a widget KiCad never gives one. LIB_TREE and
+  // FOOTPRINT_PREVIEW_WIDGET are common/ widgets that call SetFont nowhere, and
+  // the details pane is an HTML_WINDOW whose template
+  // (generate_alias_info.cpp:28-46) carries no size either, so every string in
+  // that dialog is the 11pt window font: the tree's context menu, its column
+  // headers, the details pane, the footprint preview's status text, the symbol
+  // preview's status text, the preview info name, and the footprint combo.
+  // Derived twice: rescanning gives 136, and the diff removes exactly seven
+  // `font-size:` lines and adds none, so 143 - 7 agrees.
+  // 136 -> 135: `.ze-pane-close` wrote `font-size: 11px` to match its 11x11
+  // box, but U+22A0 draws about 0.73 em of ink so the glyph came out 8px and
+  // read small beside a real pane caption's. --ui-font-size puts it at ~11px.
+  // 135 -> 134: the Symbol Properties rebuild took `.ze-props-libid`'s
+  // `font-size: 12.5px`. Upstream's library link is a wxStaticText and a
+  // wxTextCtrl both carrying KIUI::GetSmallInfoFont == getGUIFont( win, -2 ),
+  // so the replacement asks --ui-font-size-small.
+  // 134 -> 131: pcbnew stopped keeping a private copy of PROPERTIES_PANEL, so
+  // `.ze-pg*` and `.ze-propgrid*` left ui/shell.css and took three
+  // `font-size: 12px` with them — the PCB grid's, the schematic grid's, and
+  // the one on the schematic grid's cell editors. The shared widget states
+  // none: KIUI::GetDockedPaneFont is the plain wxSYS_DEFAULT_GUI_FONT, which
+  // --ui-font-size already carries, and widgets/properties_panel.css says so
+  // in a comment and has a test that no `font-size:` appears in it at all.
+  // Derived twice: rescanning a tree of `git archive HEAD` with only this
+  // change's files overlaid gives 134 -> 131, and grepping the two deleted
+  // blocks out of HEAD's shell.css finds exactly three `font-size:` lines in
+  // them.
+  // 123 -> 119: WX_HTML_REPORT_PANEL stated four of its own — 12px on the
+  // "Output Messages" legend, 12px on the message view, 12px on the "Show:"
+  // strip and 11px on the NUMBER_BADGEs — inside a dialog of 14.67. Only two
+  // of the four have a citation and both name a POINT size, so they became
+  // --ui-font-size-info: `m_htmlView->SetFont( KIUI::GetInfoFont( m_htmlView ) )`
+  // (wx_html_report_panel.cpp:47, and GetInfoFont is getGUIFont( win, -1 )) and
+  // `NUMBER_BADGE::m_textSize( 10 )` (number_badge.cpp:33). The legend and the
+  // Show: strip are ordinary wxStaticText/wxCheckBox and now state nothing.
+  ui: 119,
   widgets: 6,
 };
 
@@ -410,7 +470,51 @@ describe('hardcoded font sizes do not grow', () => {
     // before the two copies of that dialog were merged into one. RESCANNED
     // from this tree, and derived a second time from the per-area table —
     // `dialogs` 13 -> 5 is the only row that moved, and 360 - 8 agrees.
-    expect(sites.length).toBe(352);
+    // 352 -> 350: the symbol chooser's tree row and its two footer checkboxes;
+    // see the `ui` row. RESCANNED from this tree, and derived a second time
+    // from the per-area table — `ui` 145 -> 143 is the only row that moved,
+    // and 352 - 2 agrees.
+    // 350 -> 343: the seven above; see the `ui` row. RESCANNED from this tree,
+    // and derived a second time from the per-area table -- `ui` 143 -> 136 is
+    // the only row that moved, and 350 - 7 agrees.
+    // 343 -> 342: the close box's own size; see the `ui` row. RESCANNED from
+    // this tree, and the per-area table agrees -- `ui` 136 -> 135 is the only
+    // row that moved.
+    // 342 -> 341: the `ui` row above. RESCANNED from this tree.
+    // 341 -> 340: the `editors/pcb` row above — the Selection Filter's "Only"
+    // popup became the shared ContextMenu when PANEL_SELECTION_FILTER was
+    // extracted. RESCANNED from this tree, and derived a second time from the
+    // per-area table: `editors/pcb` 122 -> 121 is the only row that moved, and
+    // 341 - 1 agrees.
+    // 340 -> 336. RESCANNED in a tree built from `git archive HEAD` with only
+    // this change's files overlaid, because three other agents had uncommitted
+    // work in this checkout. Two rows move: `ui` 134 -> 131, which is this
+    // pass, and `editors/schematic` 50 -> 49, which arrived at HEAD with
+    // e3b79196 and is not. 340 - 3 - 1 agrees.
+    // 336 -> 335: the `editors/drawingsheet` row above, 1 -> 0, when
+    // pl_editor's own Preferences modal was replaced by the shared dialog.
+    // RESCANNED from `git archive HEAD`, where that area does not appear;
+    // `editors/drawingsheet` is the only row this pass moves, and 336 - 1
+    // agrees.
+    // 335 -> 330: `ui` 131 -> 126, the accumulated removals of a night that
+    // moved the shared widgets onto tokens -- the properties panel's distance
+    // cells onto `pg_properties`, the field rows onto the shared grid, and the
+    // dead `.ze-cvpcb-*` block out of shell.css. `ui` is the only row that
+    // moves, the per-area check names it and nothing else, and 335 - 5 agrees
+    // with the table: two derivations of the same number, which is what this
+    // file has always required before a baseline comes down.
+    // 330 -> 327: `ui` 126 -> 123. A dialog has ONE font size — a wxStaticBox's
+    // label, a wxCheckBox's label and a wxStaticText all take the dialog's own,
+    // which the probe measures as Ubuntu Sans 11pt and `.ze-app` already hands
+    // down. `.ze-props-group`'s legend and its two label rules stated 12.5px
+    // and 13px against that 14.67px, so every group box in the app read smaller
+    // than KiCad's. `ui` is the only row that moves and 330 - 3 agrees with it.
+    // 327 -> 323: `ui` 123 -> 119, the four WX_HTML_REPORT_PANEL sizes above.
+    // Six dialogs embed that panel, so the same four literals were making the
+    // Output Messages box read as small print in every one of them. `ui` is
+    // the only row that moves, the per-area check names it and nothing else,
+    // and 327 - 4 agrees with the table.
+    expect(sites.length).toBe(323);
   });
 });
 

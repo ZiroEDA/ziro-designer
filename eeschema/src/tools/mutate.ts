@@ -32,6 +32,7 @@ import type { Orientation } from '@ziroeda/common/src/transform.js';
 import { refId, sheetPinId } from './hittest.js';
 import { hasCellSelection, tableCellId } from './table_cells.js';
 import { makeSymbol } from './build.js';
+import { flattenLibSymbol } from '../lib_symbol.js';
 import type { EditCommand } from './command.js';
 import { isExplicitJunctionNeeded } from './junction_helpers.js';
 
@@ -322,7 +323,18 @@ export function placeSymbolInstance(lib: LibSymbol, sym: SchSymbol): EditCommand
   return placeCmd(lib, sym);
 }
 
-function placeCmd(lib: LibSymbol, sym: SchSymbol): EditCommand {
+/**
+ * `SCH_SCREEN::Append` (sch_screen.cpp:164): the definition the screen caches is
+ * `new LIB_SYMBOL( *symbol->GetLibSymbolRef() )` — the placement's own library
+ * symbol, which the SCH_SYMBOL constructor already flattened. Flattening here is
+ * therefore not belt-and-braces, it is where the schematic's `lib_symbols` cache
+ * gets its content, and it is the reason KiCad's parser can say "no derived
+ * symbols are allowed in the library cache": a schematic never writes the parent
+ * next to the child, so a derived symbol cached as-is is a body that no longer
+ * exists in the file. It came back on reload as bare Reference and Value text.
+ */
+function placeCmd(libSymbol: LibSymbol, sym: SchSymbol): EditCommand {
+  const lib = flattenLibSymbol(libSymbol);
   return {
     label: 'Place symbol',
     apply(doc: Schematic): Schematic {

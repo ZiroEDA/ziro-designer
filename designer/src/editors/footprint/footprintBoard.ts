@@ -55,9 +55,16 @@ import {
  */
 export const FOOTPRINT_LAYERS: PcbLayerDef[] = [
   { id: 0, name: 'F.Cu', kind: 'signal' },
-  // `board.SetLayerName( In1_Cu, _( "Inner layers" ) )` — a board-set name, so
-  // it arrives through `GetLayerName` like any other overridden layer name.
-  { id: 4, name: 'In1.Cu', kind: 'signal', userName: 'Inner layers' },
+  // `updateEnabledLayers` calls `board.SetLayerName( In1_Cu, _( "Inner layers" ) )`
+  // (`footprint_edit_frame.cpp:560`) — and the call FAILS, so the row keeps its
+  // standard name. `BOARD::SetLayerName` stores nothing unless
+  // `IsLayerEnabled( aLayer )` already holds (`board.cpp:755-778`), and at that
+  // point in the lambda the board's enabled set has just been cleared of all
+  // copper by `SetCopperLayerCount( cuLayers.count() )` with a count of 0
+  // (`board_design_settings.cpp:1607-1616`); `board.SetEnabledLayers(
+  // enabledLayers )` only runs 55 lines later. A live KiCad 10.0.5 footprint
+  // editor with no footprint loaded agrees: the row reads "In1.Cu".
+  { id: 4, name: 'In1.Cu', kind: 'signal' },
   { id: 2, name: 'B.Cu', kind: 'signal' },
   { id: 9, name: 'F.Adhes', kind: 'user', userName: 'F.Adhesive' },
   { id: 11, name: 'B.Adhes', kind: 'user', userName: 'B.Adhesive' },

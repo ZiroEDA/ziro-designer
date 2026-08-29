@@ -68,6 +68,7 @@ export function SaveAsDialog({
   initialName,
   filters,
   initialPath,
+  initialPlace,
   kind,
   projectDir,
   onDone,
@@ -102,6 +103,7 @@ export function SaveAsDialog({
       places={places}
       initialName={initialName}
       {...(initialPath === undefined ? {} : { initialPath })}
+      {...(initialPlace === undefined ? {} : { initialPlace })}
       {...(filters === undefined ? {} : { filters })}
       onAccept={(path) => onDone(path)}
       onCancel={() => onDone(null)}

@@ -26,16 +26,39 @@ export function SelectionFilterPanel({
   frame,
   filter,
   onChange,
+  onClose,
 }: {
   /** `EDA_BASE_FRAME::GetFrameType()`, which is what upstream branches on. */
   frame: SelectionFilterFrame;
   filter: SelectionFilterOptions;
   onChange: (next: SelectionFilterOptions) => void;
+  /**
+   * The caption's close box. `defaultSchSelectionFilterPaneInfo` asks for
+   * `.CloseButton( true )` like every other palette
+   * (eeschema/eeschema_settings.cpp:120), so the caption carries one even
+   * though this pane has no visibility control of its own: closing it hides the
+   * pane until `updateSelectionFilterVisbility` next runs and derives it back
+   * from the other three (sch_edit_frame.cpp:2817-2831).
+   */
+  onClose?: () => void;
 }): JSX.Element {
   const all = selectionFilterAll(filter);
   return (
-    <div className="ze-panel">
-      <div className="ze-panel-header">Selection Filter</div>
+    // `.fixed` is `dock_proportion = 0`. Both frames that build this panel say
+    // so outright — `selectionFilterPane.dock_proportion = 0` at
+    // sch_edit_frame.cpp:325 under the comment "The selection filter doesn't
+    // need to grow in the vertical direction when docked", and again at
+    // symbol_edit_frame.cpp:245. A docked pane grows by default, so this is the
+    // one pane in the column that has to declare that it does not.
+    <div className="ze-panel fixed">
+      <div className="ze-panel-header">
+        <span>Selection Filter</span>
+        {onClose && (
+          <button type="button" className="ze-pane-close" onClick={onClose} title="Close">
+            ⊠
+          </button>
+        )}
+      </div>
       <div className="ze-panel-body">
         <div className="ze-selfilter">
           {selectionFilterGrid(frame).map((row, r) =>

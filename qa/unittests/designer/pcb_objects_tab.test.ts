@@ -13,7 +13,7 @@ import {
   OBJECT_ROWS,
   type ObjectRow,
   type ObjectState,
-} from '@ziroeda/designer/src/editors/pcb/pcb_objects.js';
+} from '@ziroeda/designer/src/widgets/appearance_objects.js';
 import { PCB_OBJECT_COLORS } from '@ziroeda/designer/src/editors/pcb/pcbTheme.js';
 
 /** s_objectSettings in order; `null` is a bare `RR()` spacer. */

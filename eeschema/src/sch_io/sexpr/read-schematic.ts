@@ -12,6 +12,7 @@
 
 import { head, isList, type SList } from '@ziroeda/sexpr/src/types.js';
 import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { type Reporter, RPT_SEVERITY_ERROR } from '@ziroeda/common/src/reporter.js';
 import {
   arg,
   args,
@@ -511,8 +512,16 @@ interface InheritedBase {
  * and name offset from the parent chain, keeping only its own text properties
  * (Reference/Value/Footprint/…). Parent and child live in the same library, and a
  * parent may itself be derived, so resolution walks the chain to the root.
+ *
+ * The last pass is `SCH_IO_KICAD_SEXPR_LIB_CACHE::updateParentSymbolLinks` (lib
+ * cache :850): every derived symbol is pointed at its parent *object*, which is
+ * what `flattenLibSymbol` then walks. Upstream throws an IO_ERROR when the
+ * parent is missing; we report it and leave the symbol derived-but-unlinked,
+ * because the one file that reaches this with a dangling `extends` is a
+ * schematic we ourselves wrote wrong, and refusing to open it would be a worse
+ * outcome than opening it with one body missing.
  */
-function resolveExtends(symbols: LibSymbol[]): LibSymbol[] {
+function resolveExtends(symbols: LibSymbol[], reporter?: Reporter): LibSymbol[] {
   const byName = new Map<string, LibSymbol>();
   for (const s of symbols) byName.set(s.libId, s);
 
@@ -543,7 +552,7 @@ function resolveExtends(symbols: LibSymbol[]): LibSymbol[] {
     };
   };
 
-  return symbols.map((s) => {
+  const resolved = symbols.map((s) => {
     if (!s.extends) return s;
     const r = resolveBase(s, new Set());
     return {
@@ -564,6 +573,47 @@ function resolveExtends(symbols: LibSymbol[]): LibSymbol[] {
         : {}),
     };
   });
+
+  // updateParentSymbolLinks. Done over the resolved symbols, and after all of
+  // them exist, so a three-deep chain links parent-to-parent as well.
+  const resolvedByName = new Map<string, LibSymbol>();
+  for (const s of resolved) resolvedByName.set(s.libId, s);
+
+  for (const s of resolved) {
+    if (s.extends === undefined) continue;
+    const parent = resolvedByName.get(s.extends);
+
+    if (!parent) {
+      const nickname = s.libId.includes(':') ? s.libId.slice(0, s.libId.indexOf(':')) : '';
+      reporter?.report(
+        `No parent for extended symbol ${s.libId} found in library '${nickname}'`,
+        RPT_SEVERITY_ERROR,
+      );
+      continue;
+    }
+
+    // LIB_SYMBOL::SetParent's guard (lib_symbol.cpp :505-527): a parent that
+    // already has this symbol among its ancestors is refused rather than linked,
+    // so nothing downstream can loop.
+    let ancestor: LibSymbol | undefined = parent;
+    const seen = new Set<string>();
+    let circular = false;
+    while (ancestor && !seen.has(ancestor.libId)) {
+      if (ancestor.libId === s.libId) {
+        circular = true;
+        break;
+      }
+      seen.add(ancestor.libId);
+      ancestor = ancestor.extends === undefined ? undefined : resolvedByName.get(ancestor.extends);
+    }
+    if (circular) continue;
+
+    // `m_parent` is a link, not file content; the objects here were built by
+    // this call, so setting it now is the two-phase link upstream does.
+    (s as { -readonly [K in keyof LibSymbol]: LibSymbol[K] }).parent = parent;
+  }
+
+  return resolved;
 }
 
 // ----- instance items -------------------------------------------------------
@@ -621,6 +671,10 @@ function readSymbol(node: SList): SchSymbol {
     source: node,
   };
   if (mirror === 'x' || mirror === 'y') sym.mirror = mirror;
+  // `(fields_autoplaced yes)`. The parser defaults to AUTOPLACE_NONE and the
+  // token can only ever raise it to AUTOPLACE_AUTO — MANUAL is never written,
+  // so it is never read back either (sch_io_kicad_sexpr_parser.cpp:3112, :3247).
+  if (boolField(node, 'fields_autoplaced', false)) sym.fieldsAutoplaced = 'auto';
   // (pin_map_override (mode …) (map "…") (edit "<pin>" "<pad>") …)
   const overrideNode = childNamed(node, 'pin_map_override');
   if (overrideNode) {
@@ -1074,12 +1128,16 @@ const LINE_KINDS: Record<string, LineKind> = {
  * Read a symbol library: the `(symbol ...)` definitions inside a standalone
  * `(kicad_symbol_lib ...)` file (or a schematic's `(lib_symbols ...)` block).
  * These use the same definition format as embedded library symbols.
+ *
+ * `reporter` collects what upstream reports while linking derived symbols to
+ * their parents; a caller that passes none reads the library the way it always
+ * did (SCH_SCREEN::UpdateSymbolLinks' own `REPORTER*` is likewise optional).
  */
-export function readSymbolLib(root: SList): LibSymbol[] {
-  return resolveExtends(childrenNamed(root, 'symbol').map(readLibSymbol));
+export function readSymbolLib(root: SList, reporter?: Reporter): LibSymbol[] {
+  return resolveExtends(childrenNamed(root, 'symbol').map(readLibSymbol), reporter);
 }
 
-export function readSchematic(root: SList): Schematic {
+export function readSchematic(root: SList, reporter?: Reporter): Schematic {
   if (head(root) !== 'kicad_sch') {
     throw new Error(`Expected a (kicad_sch ...) root, got (${head(root) ?? '?'} ...)`);
   }
@@ -1101,7 +1159,10 @@ export function readSchematic(root: SList): Schematic {
 
   const libSymbolsNode = childNamed(root, 'lib_symbols');
   if (libSymbolsNode) {
-    for (const sym of resolveExtends(childrenNamed(libSymbolsNode, 'symbol').map(readLibSymbol)))
+    for (const sym of resolveExtends(
+      childrenNamed(libSymbolsNode, 'symbol').map(readLibSymbol),
+      reporter,
+    ))
       libSymbols.push(sym);
   }
 

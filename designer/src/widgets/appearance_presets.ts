@@ -129,3 +129,22 @@ export function matchPresetName(input: PresetMatchInput): string {
   }
   return PRESET_SEPARATOR;
 }
+
+/**
+ * The viewports combo's entries, in order
+ * (`APPEARANCE_CONTROLS::rebuildViewportsWidget`).
+ *
+ * The user's viewports first — `m_viewports` is a `std::map<wxString,
+ * VIEWPORT>`, so alphabetical for the same reason the presets are — then the
+ * separator and the two commands. `SetSelection( GetCount() - 3 )` puts the
+ * opening selection on the separator, which is why a fresh frame shows "---".
+ */
+export function viewportComboItems(userViewportNames: readonly string[] = []): string[] {
+  const cmp = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
+  return [
+    ...[...userViewportNames].sort(cmp),
+    PRESET_SEPARATOR,
+    'Save viewport...',
+    'Delete viewport...',
+  ];
+}

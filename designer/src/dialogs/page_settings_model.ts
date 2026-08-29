@@ -390,8 +390,16 @@ export function previewThumbSize(
     : { width: MAX_PAGE_EXAMPLE_SIZE, height: Math.round(MAX_PAGE_EXAMPLE_SIZE / ratio) };
 }
 
-/** Resolved page size in mm for a value, with the orientation applied. */
-export function pageSizeMM(value: PageSettingsValue): [number, number] {
+/**
+ * Resolved page size in mm for a value, with the orientation applied.
+ *
+ * Typed on the four page fields rather than the whole dialog value: the same
+ * resolution is what `PCB_BASE_FRAME::GetPageSizeIU()` needs, and a frame has a
+ * `(paper …)` token, not a title block.
+ */
+export function pageSizeMM(
+  value: Pick<PageSettingsValue, 'paper' | 'portrait' | 'customWidthMM' | 'customHeightMM'>,
+): [number, number] {
   if (customSizeEnabled(value.paper)) return [value.customWidthMM, value.customHeightMM];
   const base = PAPER_MM[value.paper] ?? PAPER_MM.A4!;
   return value.portrait ? [base[1], base[0]] : [base[0], base[1]];

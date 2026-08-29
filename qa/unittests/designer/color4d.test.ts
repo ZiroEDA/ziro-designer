@@ -12,8 +12,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import {
-  backgroundLayerAlpha,
-  backgroundLayerAlphaOverride,
+  backgroundLayerFill,
   brightened,
   brightness,
   cssWithAlpha,
@@ -114,37 +113,48 @@ describe('editPointColors (EDIT_POINTS::ViewDraw)', () => {
   });
 });
 
-describe('backgroundLayerAlpha (getRenderColor)', () => {
-  it('leaves an unselected background at the alpha of its own colour', () => {
-    expect(backgroundLayerAlpha(1, false, false)).toBe(1);
-    expect(backgroundLayerAlpha(0.35, false, false)).toBe(0.35);
+describe('backgroundLayerFill (getRenderColor, as KiCad actually composites it)', () => {
+  it('leaves an unselected background exactly as it came, only normalised', () => {
+    expect(backgroundLayerFill('rgb(40, 60, 100)', false, false)).toBe('rgb(40, 60, 100)');
+    expect(backgroundLayerFill('#284364', false, false)).toBe('rgb(40, 67, 100)');
+    expect(backgroundLayerFill('rgba(40, 60, 100, 0.35)', false, false)).toBe(
+      'rgba(40, 60, 100, 0.35)',
+    );
   });
 
-  it('sets a selected one to 0.5, so what is underneath stays visible', () => {
-    expect(backgroundLayerAlpha(1, true, false)).toBe(0.5);
+  it('draws a selected one as the measured overlay composite, not WithAlpha(0.5)', () => {
+    // Real eeschema 10.0.5 composites a selected background-layer fill as
+    // clamp( 0.5·c + 0.75·dst ) — see qa/probes/sch_selected_background/. The
+    // only single source-over draw with those weights is colour c/0.5 at alpha
+    // 1 - 0.75, because 0.25·(2c) is the same 0.5·c.
+    expect(backgroundLayerFill('rgb(40, 60, 100)', true, false)).toBe('rgba(80, 120, 200, 0.25)');
+    // Explicitly not the alpha the C++ states.
+    expect(backgroundLayerFill('rgb(40, 60, 100)', true, false)).not.toBe('rgba(40, 60, 100, 0.5)');
   });
 
-  it('and a brightened one goes further, whether or not it is selected', () => {
-    // IsBrightened() is tested before IsSelected() upstream.
-    expect(backgroundLayerAlpha(1, false, true)).toBe(0.2);
-    expect(backgroundLayerAlpha(1, true, true)).toBe(0.2);
+  it('clamps the doubled colour, which is where the residual lives', () => {
+    // LAYER_DEVICE_BACKGROUND. 2·194 = 388, so blue saturates as a CSS colour
+    // while KiCad's clamp falls on the sum instead and reaches pure white.
+    expect(backgroundLayerFill('rgb(255, 255, 194)', true, false)).toBe(
+      'rgba(255, 255, 255, 0.25)',
+    );
   });
 
-  it('*replaces* the alpha rather than scaling it', () => {
+  it('*replaces* the fill alpha rather than scaling it', () => {
     // `COLOR4D WithAlpha( double aAlpha ) const { return COLOR4D( r, g, b, aAlpha ); }`
     //
-    // Selecting a half-transparent background makes it *more* opaque, not less.
-    // Scaling — 0.35 * 0.5 — is the same number only for a fully opaque colour,
-    // which is why this went unnoticed: every theme background is alpha 1 or
-    // alpha 0, and alpha 0 never gets drawn at all.
-    expect(backgroundLayerAlpha(0.35, true, false)).toBe(0.5);
-    expect(backgroundLayerAlpha(0.35, true, false)).not.toBe(0.35 * 0.5);
-    expect(backgroundLayerAlpha(0.1, false, true)).toBe(0.2);
+    // Selecting a half-transparent background must not compound its own alpha
+    // with the selection's: a 0.35 fill and an opaque one are drawn the same.
+    expect(backgroundLayerFill('rgba(40, 60, 100, 0.35)', true, false)).toBe(
+      backgroundLayerFill('rgb(40, 60, 100)', true, false),
+    );
   });
 
-  it('and the override form tells a caller when there is nothing to force', () => {
-    expect(backgroundLayerAlphaOverride(false, false)).toBeNull();
-    expect(backgroundLayerAlphaOverride(true, false)).toBe(0.5);
-    expect(backgroundLayerAlphaOverride(false, true)).toBe(0.2);
+  it('keeps the brightened arm at the stated 0.2, because it was not measured', () => {
+    // IsBrightened() is tested before IsSelected() upstream, and the probe never
+    // reached this arm: UpdateNetHighlighting brightens a symbol's pins and a
+    // power symbol's fields, never a symbol, shape or text box itself.
+    expect(backgroundLayerFill('rgb(40, 60, 100)', false, true)).toBe('rgba(40, 60, 100, 0.2)');
+    expect(backgroundLayerFill('rgb(40, 60, 100)', true, true)).toBe('rgba(40, 60, 100, 0.2)');
   });
 });

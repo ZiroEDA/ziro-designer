@@ -15,9 +15,10 @@
  */
 
 import type { Vec2 } from '@ziroeda/kimath';
-import type { LibSymbol, SchField, Schematic } from '../types.js';
+import type { LibPin, LibSymbol, SchField, Schematic } from '../types.js';
 import type { EditCommand } from './command.js';
 import { EdaCombinedMatcher } from '@ziroeda/common/src/eda_pattern_match.js';
+import { unescapeString } from '@ziroeda/common/src/string_utils.js';
 import { refId } from './hittest.js';
 import { schSymbolLibraryName } from '../lib_symbol_compare.js';
 
@@ -361,4 +362,273 @@ function restoreTextItems(before: Schematic): EditCommand {
       return restoreTextItems(b);
     },
   };
+}
+
+// ---------------------------------------------------------------------------
+// The LIB_SYMBOL branch — SYMBOL_EDIT_FRAME's half of the same tool
+// ---------------------------------------------------------------------------
+//
+// `SCH_FIND_REPLACE_TOOL` is one tool serving two frames, because
+// `ShowFindReplaceDialog`, `GetFindReplaceDialog` and `m_findReplaceDialog`
+// are all on `SCH_BASE_FRAME` (`eeschema/sch_base_frame.h:246-248, :318`), the
+// class `SCH_EDIT_FRAME` and `SYMBOL_EDIT_FRAME` both inherit. The tool then
+// branches on the frame in exactly two places, and they are the whole of the
+// difference:
+//
+//     // UpdateFind's visitAll (sch_find_replace_tool.cpp:73-84)
+//     if( SYMBOL_EDIT_FRAME* symbolEditor = dynamic_cast<SYMBOL_EDIT_FRAME*>( m_frame ) )
+//     {
+//         if( LIB_SYMBOL* symbol = symbolEditor->GetCurSymbol() )
+//         {
+//             for( SCH_ITEM& item : symbol->GetDrawItems() )
+//                 visit( &item, nullptr );
+//         }
+//     }
+//
+//     // nextMatch (sch_find_replace_tool.cpp:190-198), the same walk
+//
+// so the searched set is `LIB_SYMBOL::GetDrawItems()` — `m_drawings`, which
+// holds the FIELDS too (`lib_symbol.cpp:243`, `:1511-1513`), across every unit
+// and body style, not just the one on the canvas. Both walks pass
+// `aSheet = nullptr`, which is what turns the net-name half of every
+// `Matches()` off in this frame.
+//
+// Which of those items can actually match is decided by the per-type
+// `Matches()` overrides, and they do NOT come out the same as the schematic's:
+//
+//   * SCH_SHAPE has no `Matches` override at all, so it takes
+//     `EDA_ITEM::Matches`'s default `return false` (`include/eda_item.h:419`).
+//     Rectangles, circles, arcs, polylines and beziers are unsearchable.
+//   * SCH_TEXT (`sch_text.h:129-131`) is `SCH_ITEM::Matches( GetText(), … )`,
+//     with no UnescapeString — unlike the field below.
+//   * SCH_FIELD (`sch_field.cpp:612-667`) searches `UnescapeString( GetText() )`,
+//     skips an invisible field unless `searchAllFields`, and — the rule that
+//     only bites in THIS frame — returns false outright for the Reference
+//     field, because `dyn_cast<SCH_SYMBOL*>( m_parent )` is null when the
+//     parent is a LIB_SYMBOL (:637-641). A symbol's Reference is never found
+//     in the Symbol Editor.
+//   * SCH_PIN (`sch_pin.cpp:502-527`) matches its name or its number, and only
+//     when `searchAllPins` — which `DIALOG_SCH_FIND`'s constructor FORCES on
+//     for this frame and then hides the checkbox for
+//     (`dialog_sch_find.cpp:57-67`). Its other arm needs a sheet path for the
+//     connection, and this walk passes nullptr, so net names never apply.
+//
+// and `EDA_ITEM::Matches( text, … )` gates all of them on
+// `if( aSearchData.searchAndReplace && !IsReplaceable() ) return false`
+// (`common/eda_item.cpp:192-194`). SCH_TEXT and SCH_FIELD override
+// `IsReplaceable()` to true; **SCH_PIN does not**, so it keeps EDA_ITEM's
+// `false` and drops out of the match list whenever `searchAndReplace` is set.
+
+/** Which of a LIB_SYMBOL's draw items a hit is, in our storage's terms. */
+export type SymbolItemKind = 'pin' | 'gfx' | 'field';
+
+/**
+ * One draw item of a LIB_SYMBOL, addressed the way this port stores them:
+ * `sym.units[unitIdx].pins[itemIdx]`, `sym.units[unitIdx].graphics[itemIdx]`,
+ * or `sym.properties[itemIdx]` with `unitIdx` 0 for a field.
+ *
+ * A structural ref rather than a joined string so nothing here has to know the
+ * Symbol Editor's id format; the frame joins it with its own `symItemId`.
+ */
+export interface SymbolItemRef {
+  kind: SymbolItemKind;
+  unitIdx: number;
+  itemIdx: number;
+}
+
+/** One hit inside a LIB_SYMBOL: which item, where to centre, and the text. */
+export interface SymbolFindMatch extends SymbolItemRef {
+  pos: Vec2;
+  text: string;
+}
+
+const sameRef = (a: SymbolItemRef, b: SymbolItemRef): boolean =>
+  a.kind === b.kind && a.unitIdx === b.unitIdx && a.itemIdx === b.itemIdx;
+
+/**
+ * `EDA_ITEM::Matches( aText, aSearchData )` including the guard the plain
+ * `matchesText` above leaves out, because for the schematic every caller is
+ * already replaceable and here two of the three types are not:
+ *
+ *     if( aSearchData.searchAndReplace && !IsReplaceable() )
+ *         return false;
+ */
+function matchesReplaceable(text: string, d: SchSearchData, replaceable: boolean): boolean {
+  if (d.searchAndReplace && !replaceable) return false;
+  return matchesText(text, d);
+}
+
+/** `SCH_FIELD::IsReplaceable()` (`sch_field.cpp:801-807`) — false only for the
+ *  Sheetfile and Intersheet References fields, neither of which a LIB_SYMBOL
+ *  has, so every field of a symbol is replaceable. */
+const FIELD_IS_REPLACEABLE = true;
+
+/**
+ * `SCH_TEXT::IsReplaceable()` (`sch_text.h:139`) and `SCH_TEXTBOX::IsReplaceable()`
+ * (`sch_textbox.h:140`), both `return true`.
+ */
+const TEXT_IS_REPLACEABLE = true;
+
+/**
+ * `SCH_PIN` declares no `IsReplaceable()` override, so it inherits
+ * `EDA_ITEM::IsReplaceable()`'s `return false` (`include/eda_item.h:457`).
+ *
+ * That is not a slip to be tidied: it is why `SCH_PIN::Replace`'s LIB_SYMBOL
+ * arm (`sch_pin.cpp:528-546`) only ever runs while `searchAndReplace` is
+ * clear. Nothing in `DIALOG_SCH_FIND` sets that flag — it is read and written
+ * only by `EDA_DRAW_FRAME`'s config load/save (`common/eda_draw_frame.cpp:892`,
+ * `:915`, `common/settings/app_settings.cpp:61-62`) — so opening Find and
+ * Replace does not set it, and a pin name IS replaceable in a stock KiCad.
+ */
+const PIN_IS_REPLACEABLE = false;
+
+/** `SCH_FIELD::Matches` for a field whose parent is a LIB_SYMBOL. */
+function fieldMatches(f: SchField, d: SchSearchData): boolean {
+  // `if( !IsVisible() && !searchHiddenFields ) return false;` (:630-631)
+  if (f.effects?.hidden === true && !d.searchAllFields) return false;
+  // `if( m_id == FIELD_T::REFERENCE ) { … if( !parentSymbol ) return false; }`
+  // (:633-641). In the Symbol Editor the parent is a LIB_SYMBOL, never a
+  // SCH_SYMBOL, so the Reference field falls out before the text is compared.
+  if (f.key === 'Reference') return false;
+  return matchesReplaceable(unescapeString(f.value), d, FIELD_IS_REPLACEABLE);
+}
+
+/** `SCH_PIN::Matches` with `aAuxData` null, as both symbol walks pass it. */
+function pinMatches(p: LibPin, d: SchSearchData): boolean {
+  if (!d.searchAllPins) return false;
+  return (
+    matchesReplaceable(p.name, d, PIN_IS_REPLACEABLE) ||
+    matchesReplaceable(p.number, d, PIN_IS_REPLACEABLE)
+  );
+}
+
+/**
+ * Every match in one LIB_SYMBOL, in `SCH_FIND_REPLACE_TOOL::nextMatch`'s order
+ * (`sch_find_replace_tool.cpp:203-216`):
+ *
+ *     if( a->GetPosition().x == b->GetPosition().x )
+ *     {
+ *         if( a->GetPosition().y == b->GetPosition().y )
+ *             return a->m_Uuid < b->m_Uuid;
+ *         return a->GetPosition().y < b->GetPosition().y;
+ *     }
+ *     return a->GetPosition().x < b->GetPosition().x;
+ *
+ * X first, then Y — not the reading order `findMatches` above sorts the
+ * schematic into. A LIB_SYMBOL's draw items carry no UUID in this port, so the
+ * last tiebreak is the item's own address in the symbol, which is stable for
+ * the same reason `m_Uuid` is: it does not move while the list is walked.
+ *
+ * `only` is `searchSelectedOnly` (`nextMatch:185-189`), the one scope box
+ * `DIALOG_SCH_FIND` leaves visible in this frame.
+ */
+export function findMatchesInSymbol(
+  sym: LibSymbol,
+  d: SchSearchData,
+  only?: readonly SymbolItemRef[],
+): SymbolFindMatch[] {
+  const out: SymbolFindMatch[] = [];
+  if (!d.findString) return out;
+
+  // The fields, which live in `m_drawings[SCH_FIELD_T]` upstream and so are
+  // walked by the same loop as everything else.
+  sym.properties.forEach((f, itemIdx) => {
+    if (fieldMatches(f, d))
+      out.push({
+        kind: 'field',
+        unitIdx: 0,
+        itemIdx,
+        pos: f.at ?? { x: 0, y: 0 },
+        text: f.value,
+      });
+  });
+
+  // Every unit and every body style: `GetDrawItems()` is not filtered by the
+  // unit on the canvas.
+  sym.units.forEach((u, unitIdx) => {
+    u.pins.forEach((p, itemIdx) => {
+      if (pinMatches(p, d)) out.push({ kind: 'pin', unitIdx, itemIdx, pos: p.at, text: p.name });
+    });
+    u.graphics.forEach((g, itemIdx) => {
+      // SCH_SHAPE has no Matches override; only SCH_TEXT does.
+      if (g.kind !== 'text') return;
+      if (matchesReplaceable(g.text, d, TEXT_IS_REPLACEABLE))
+        out.push({ kind: 'gfx', unitIdx, itemIdx, pos: g.at, text: g.text });
+    });
+  });
+
+  const scoped = only ? out.filter((m) => only.some((r) => sameRef(r, m))) : out;
+  scoped.sort(
+    (a, b) =>
+      a.pos.x - b.pos.x ||
+      a.pos.y - b.pos.y ||
+      a.unitIdx - b.unitIdx ||
+      a.itemIdx - b.itemIdx ||
+      a.kind.localeCompare(b.kind),
+  );
+  return scoped;
+}
+
+/**
+ * `SCH_FIND_REPLACE_TOOL::ReplaceAndFindNext` / `ReplaceAll` over a LIB_SYMBOL:
+ * substitute in every item that both matches and can be replaced, or only in
+ * the items `only` names (Replace = just the current match).
+ *
+ * Returns the new symbol, or null when nothing changed — the frame needs that
+ * to decide whether to push an undo entry, as upstream's `commit.Empty()` does.
+ *
+ * The per-type `Replace` implementations, all of which reduce to
+ * `EDA_ITEM::Replace( aSearchData, aText )` = our `replaceText`:
+ *   * `SCH_FIELD::Replace` (`sch_field.cpp:810-853`) — the Reference arm needs
+ *     `m_parent->Type() == SCH_SYMBOL_T`, so on a LIB_SYMBOL field it always
+ *     takes the `else`, `EDA_TEXT::Replace` (`common/eda_text.cpp:470-480`).
+ *   * `SCH_TEXT::Replace` (`sch_text.h:134-137`) — `EDA_TEXT::Replace`.
+ *   * `SCH_PIN::Replace` (`sch_pin.cpp:528-546`) — for a LIB_SYMBOL parent,
+ *     BOTH the name and the number, `isReplaced` OR'd across the two. (The
+ *     schematic arm is an empty `TODO` upstream.)
+ */
+export function replaceInSymbol(
+  sym: LibSymbol,
+  d: SchSearchData,
+  only?: readonly SymbolItemRef[],
+): LibSymbol | null {
+  if (!d.findString) return null;
+  const wanted = (r: SymbolItemRef): boolean => !only || only.some((o) => sameRef(o, r));
+  let changed = false;
+
+  const properties = sym.properties.map((f, itemIdx) => {
+    const ref: SymbolItemRef = { kind: 'field', unitIdx: 0, itemIdx };
+    if (!wanted(ref) || !fieldMatches(f, d)) return f;
+    const t = replaceText(f.value, d);
+    if (t === null) return f;
+    changed = true;
+    return { ...f, value: t };
+  });
+
+  const units = sym.units.map((u, unitIdx) => {
+    let unitChanged = false;
+    const pins = u.pins.map((p, itemIdx) => {
+      const ref: SymbolItemRef = { kind: 'pin', unitIdx, itemIdx };
+      if (!wanted(ref) || !pinMatches(p, d)) return p;
+      const name = replaceText(p.name, d);
+      const number = replaceText(p.number, d);
+      if (name === null && number === null) return p;
+      unitChanged = true;
+      return { ...p, name: name ?? p.name, number: number ?? p.number };
+    });
+    const graphics = u.graphics.map((g, itemIdx) => {
+      const ref: SymbolItemRef = { kind: 'gfx', unitIdx, itemIdx };
+      if (g.kind !== 'text' || !wanted(ref)) return g;
+      if (!matchesReplaceable(g.text, d, TEXT_IS_REPLACEABLE)) return g;
+      const t = replaceText(g.text, d);
+      if (t === null) return g;
+      unitChanged = true;
+      return { ...g, text: t };
+    });
+    if (!unitChanged) return u;
+    changed = true;
+    return { ...u, pins, graphics };
+  });
+
+  return changed ? { ...sym, properties, units } : null;
 }

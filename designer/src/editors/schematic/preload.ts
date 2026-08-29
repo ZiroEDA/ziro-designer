@@ -31,6 +31,7 @@
 import type { Schematic } from '@ziroeda/eeschema';
 import { preloadLibraries, workQueueAdapter } from '../../libraryPreload.js';
 import { symbolPreloadWork } from './symbols/index.js';
+import { terminatePreloadPool } from './symbols/preload_pool.js';
 import { footprintPreloadWork } from '../../widgets/footprint_list.js';
 
 /** Every symbol LIB_ID placed anywhere in the hierarchy. */
@@ -68,10 +69,17 @@ export function assignedFootprintIds(docs: Iterable<Schematic>): string[] {
  */
 export function preloadSchematicLibraries(docs: Iterable<Schematic>): void {
   const all = [...docs];
-  const symbols = symbolPreloadWork(placedSymbolIds(all));
   const footprints = footprintPreloadWork(assignedFootprintIds(all));
   setTimeout(() => {
-    void preloadLibraries('symbols', workQueueAdapter(symbols));
+    // Symbols: every library, which needs the index first because the index is
+    // our library table. Awaiting it here rather than making it a work item
+    // keeps the gauge counting libraries, as `m_loadTotal = rows.size()` does.
+    void symbolPreloadWork()
+      .then((symbols) => preloadLibraries('symbols', workQueueAdapter(symbols)))
+      // `GetKiCadThreadPool().purge(); .wait();` (common/single_top.cpp:93-94).
+      // Each parse worker is a whole JS realm with our parser instantiated in
+      // it, and nothing else uses the pool once the preload has drained.
+      .finally(terminatePreloadPool);
     void preloadLibraries('footprints', workQueueAdapter(footprints));
   }, 0);
 }

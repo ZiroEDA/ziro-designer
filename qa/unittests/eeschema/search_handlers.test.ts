@@ -96,8 +96,23 @@ describe('the query is permissive', () => {
     expect(searchSchematic(sheet(LABELS), LIB, 'CL?')).toHaveLength(1);
   });
 
-  it('matches a regex', () => {
-    expect(searchSchematic(sheet(LABELS), LIB, '^VB')).toHaveLength(1);
+  /**
+   * PERMISSIVE is `EDA_COMBINED_MATCHER( searchText, CTX_SEARCH )`
+   * (common/eda_item.cpp:206-210), so a regex has to be one KiCad recognises AS
+   * a regex: `EDA_PATTERN_MATCH_REGEX::SetPattern`
+   * (common/eda_pattern_match.cpp:80-104) takes `^…$` or `/…/` and returns
+   * false for anything else - "for now regular expressions must be explicit".
+   * A bare `^VB` is therefore not a pattern, it is the two characters `^V`
+   * followed by `B`, and the wildcard matcher escapes the caret to prove it.
+   */
+  it('matches a regex, when the query says it is one', () => {
+    expect(searchSchematic(sheet(LABELS), LIB, '^VBUS$')).toHaveLength(1);
+    expect(searchSchematic(sheet(LABELS), LIB, '/^VB/')).toHaveLength(1);
+    expect(searchSchematic(sheet(LABELS), LIB, '/^VB')).toHaveLength(1);
+  });
+
+  it('reads a half-anchored `^VB` as literal text, and finds none', () => {
+    expect(searchSchematic(sheet(LABELS), LIB, '^VB')).toEqual([]);
   });
 
   it('falls back to substring when the pattern is not valid regex', () => {
@@ -153,7 +168,9 @@ describe('a hit carries what the panel needs to act on it', () => {
 
   it('gives every kind as many cells as its tab has columns', () => {
     // A short row would silently shift every column after the gap.
-    const hits = searchSchematic(sheet(SYM + '\n' + LABELS), LIB, 'R1|CLK|VBUS|note');
+    // One query, not an alternation: `|` is not syntax here either, so `*` is
+    // how you ask for everything (the wildcard matcher turns it into `.*`).
+    const hits = searchSchematic(sheet(SYM + '\n' + LABELS), LIB, '*');
     expect(hits.length).toBeGreaterThan(0);
     for (const h of hits) expect(h.cells).toHaveLength(SEARCH_COLUMNS[h.kind].length);
   });

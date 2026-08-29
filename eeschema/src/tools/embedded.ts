@@ -45,9 +45,26 @@ export function listEmbeddedFiles(sch: Schematic): {
   files: EmbeddedFileInfo[];
   embedFonts: boolean;
 } {
+  return embeddedFilesIn(sch.source);
+}
+
+/**
+ * The same, over any node that can carry an `(embedded_files …)` section.
+ *
+ * `EMBEDDED_FILES` is a mix-in (`common/embedded_files.h`), not a schematic
+ * member: `SCHEMATIC`, `LIB_SYMBOL` and `FOOTPRINT` all inherit it, and
+ * `PANEL_EMBEDDED_FILES` is handed whichever one owns the files it is showing.
+ * `DIALOG_SYMBOL_PROPERTIES` hands it `m_symbol->GetEmbeddedFiles()`, which is
+ * the *library* symbol's collection (sch_symbol.cpp:2790-2798) — so listing a
+ * symbol's embedded files means reading the lib symbol's node, not the sheet's.
+ */
+export function embeddedFilesIn(source: SList): {
+  files: EmbeddedFileInfo[];
+  embedFonts: boolean;
+} {
   const files: EmbeddedFileInfo[] = [];
   let embedFonts = false;
-  for (const node of sch.source.items) {
+  for (const node of source.items) {
     if (!isList(node)) continue;
     const kind = head(node);
     if (kind === 'embedded_fonts') {

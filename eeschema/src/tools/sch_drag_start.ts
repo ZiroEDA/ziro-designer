@@ -27,6 +27,7 @@ import type { LibSymbol, Schematic, Vec2 } from '../types.js';
 import { contains, inflate, sheetPinBBox, type BBox } from './bbox.js';
 import { collectFieldBoxes, refId, type ItemRef } from './hittest.js';
 import { alignBoxes } from './sch_align_tool.js';
+import { MovableItems } from './sch_request_selection.js';
 
 /**
  * `SCH_SELECTION_TOOL::selectionContains`' grip margin, in screen pixels: you
@@ -35,12 +36,12 @@ import { alignBoxes } from './sch_align_tool.js';
 export const GRIP_MARGIN_PX = 20;
 
 /**
- * The kinds `SCH_COLLECTOR::MovableItems` lists. It is every selectable kind
- * except `SCH_PIN_T` — a pin is selectable but cannot be moved, so
- * `RequestSelection( MovableItems )` drops it and the move tool is left with
- * nothing to move.
+ * The kinds `SCH_COLLECTOR::MovableItems` lists — the one transcription of that
+ * table, in `sch_request_selection.ts`, rather than a second copy of the rule
+ * here. A pin is selectable but cannot be moved, so `RequestSelection(
+ * MovableItems )` drops it and the move tool is left with nothing to move.
  */
-export const isMovableKind = (kind: ItemRef['kind']): boolean => kind !== 'pin';
+export const isMovableKind = (kind: ItemRef['kind']): boolean => MovableItems.has(kind);
 
 /** A movable id: the kinds above, addressed by id rather than by ref. */
 const idIsMovable = (id: string): boolean => id.lastIndexOf(':pin') <= 0;

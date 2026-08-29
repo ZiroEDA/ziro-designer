@@ -33,6 +33,7 @@ import {
   isZoomPresetChecked,
 } from '@ziroeda/designer/src/ui/zoom_settings.js';
 import type { MenuItem } from '@ziroeda/designer/src/ui/menu_types.js';
+import { PL_EDITOR_DEFAULTS } from '@ziroeda/designer/src/prefs/settings.js';
 
 const noop = (): void => {};
 const actions = (over: Partial<DsContextMenuActions> = {}): DsContextMenuActions => ({
@@ -55,7 +56,15 @@ const actions = (over: Partial<DsContextMenuActions> = {}): DsContextMenuActions
 const shape = (items: MenuItem[]): string[] =>
   items.map((it) => (it.sep ? '—' : `${it.label}${it.submenu ? ' ▸' : ''}`));
 
-const state = { zoom: 1, gridIndex: 4, primaryUnits: 'mils' as const };
+/**
+ * The grid list the menu is handed. `GRID_MENU` reads `GRID_SETTINGS::grids`
+ * off the settings object, not `DefaultGridSizeList()`, which is what makes
+ * Preferences > Drawing Sheet Editor > Grids able to change these rows. The
+ * default the editor seeds that setting with is the pl_editor row of the table.
+ */
+const PL_GRIDS = PL_EDITOR_DEFAULTS.window.grid.sizes;
+
+const state = { zoom: 1, gridIndex: 4, gridSizes: PL_GRIDS, primaryUnits: 'mils' as const };
 
 describe('buildDsContextMenu', () => {
   it('with a selection, matches pl_editor row for row', () => {
@@ -145,7 +154,7 @@ describe('the Zoom submenu (ZOOM_MENU)', () => {
 
 describe('the Grid submenu (GRID_MENU)', () => {
   it('opens with Grid Origin and a rule, then the eight pl_editor grids', () => {
-    const rows = dsGridSubmenu(4, 'mils', noop, noop);
+    const rows = dsGridSubmenu(4, PL_GRIDS, 'mils', noop, noop);
     expect(rows[0]?.label).toBe('Grid Origin...');
     expect(rows[1]?.sep).toBe(true);
     expect(rows).toHaveLength(10);
@@ -154,7 +163,7 @@ describe('the Grid submenu (GRID_MENU)', () => {
   it('spells a row in both unit systems, as the audit read them off KiCad', () => {
     // Preferences ▸ Drawing Sheet Editor ▸ Grids, captured:
     //   196.85 mils (5.0000 mm) … 19.69 mils (0.5000 mm) … 3.94 mils (0.1000 mm)
-    const rows = dsGridSubmenu(4, 'mils', noop, noop).slice(2);
+    const rows = dsGridSubmenu(4, PL_GRIDS, 'mils', noop, noop).slice(2);
     expect(rows[0]?.label).toBe('196.85 mils (5.0000 mm)');
     expect(rows[4]?.label).toBe('19.69 mils (0.5000 mm)');
     expect(rows[7]?.label).toBe('3.94 mils (0.1000 mm)');
@@ -180,7 +189,7 @@ describe('the Grid submenu (GRID_MENU)', () => {
   });
 
   it('ticks grid.last_size_idx and nothing else', () => {
-    const rows = dsGridSubmenu(4, 'mils', noop, noop);
+    const rows = dsGridSubmenu(4, PL_GRIDS, 'mils', noop, noop);
     expect(rows.filter((r) => r.checked).map((r) => r.label)).toEqual(['19.69 mils (0.5000 mm)']);
   });
 });

@@ -40,6 +40,7 @@ import {
   textBoxBBox,
   textBoxCorners,
   tessellateArc,
+  footprintBBox,
   type Board,
   type PcbDimension,
   type PcbImage,
@@ -341,6 +342,14 @@ export interface PadTextItem extends PcbTextItem {
 
 /** One pad's laid-out text, ready for the zoom-dependent pass to gate. */
 export interface PadTextLabel {
+  /**
+   * The board-item id of the footprint this pad belongs to.
+   *
+   * Same reason the anchors carry one: this pass is per-frame and world-space,
+   * so a GPU drag that translates the footprint's recorded vertices leaves the
+   * numbers behind unless it is told. See {@link ScenePerFrameShift}.
+   */
+  owner: string;
   /** The pad centre, for viewport culling. */
   at: { x: number; y: number };
   /** The pad bounding box's shorter side, PAD::ViewGetLOD's subject. */
@@ -405,8 +414,13 @@ export interface BoardScene {
    * Footprint origins for the LAYER_ANCHOR crosses, with the layer each
    * footprint sits on: FOOTPRINT::ViewGetLOD shows an anchor only while that
    * layer is visible.
+   *
+   * `owner` is the footprint's board-item id. A cross is screen-space, so it
+   * can never live in the retained buffer a GPU drag translates — which means
+   * an in-place move has to be told to shift it, and needs to know which
+   * crosses belong to what is moving. See {@link ScenePerFrameShift}.
    */
-  anchors: { x: number; y: number; layer: string }[];
+  anchors: { x: number; y: number; layer: string; owner: string }[];
   /**
    * Pad number / net-name text, as data for the per-frame pass: whether a
    * pad's text shows depends on the zoom (PAD::ViewGetLOD, 0.5 mm against the
@@ -980,7 +994,13 @@ const MAX_PAD_FONT = 10 * MM;
  * shown). Kept as data for the per-frame pass, not baked: whether a pad's
  * text shows at all depends on the zoom (PAD::ViewGetLOD).
  */
-function addPadLabels(scene: BoardScene, pad: PcbPad, netName: string, layers: string[]): void {
+function addPadLabels(
+  scene: BoardScene,
+  pad: PcbPad,
+  netName: string,
+  layers: string[],
+  owner: string,
+): void {
   const padNumber = pad.number ?? '';
   // Net label per PCB_PAINTER::draw(PAD): the display netname is the SHORT net
   // name (NETINFO's part after the last '/'); a no-connect pad overrides it
@@ -1079,7 +1099,25 @@ function addPadLabels(scene: BoardScene, pad: PcbPad, netName: string, layers: s
     label(padNumber, anchor(-yOffNum), tsize);
   }
   if (items.length > 0)
-    scene.padLabels.push({ at: pad.at, minSide: Math.min(px, py), layers, items });
+    scene.padLabels.push({ owner, at: pad.at, minSide: Math.min(px, py), layers, items });
+}
+
+/**
+ * How far the items of an in-flight drag have moved, for the passes that are
+ * drawn per frame from world coordinates rather than from the retained buffer.
+ *
+ * KiCad needs no equivalent because it has no such split: `VIEW::Update`
+ * re-caches the whole item and its anchor goes with it. Our GPU drag
+ * translates the item's recorded vertices in place and never touches the
+ * screen-space passes, so those have to be told. Without it a dragged
+ * footprint left its magenta LAYER_ANCHOR cross — rgb(255, 38, 226) — sitting
+ * at the position it started from until the drop.
+ */
+export interface ScenePerFrameShift {
+  /** Board-item ids currently being dragged. */
+  ids: ReadonlySet<string>;
+  dx: number;
+  dy: number;
 }
 
 export interface SceneFilter {
@@ -1379,7 +1417,7 @@ function compileScene(board: Board, filter: SceneFilter): BoardScene {
     // After the hide checks, not before: FOOTPRINT::ViewGetLOD resolves the
     // anchor against LAYER_FOOTPRINTS_FR/BK, so hiding Footprints Front or
     // Back takes their anchors with them.
-    scene.anchors.push({ x: fp.at.x, y: fp.at.y, layer: fp.layer });
+    scene.anchors.push({ x: fp.at.x, y: fp.at.y, layer: fp.layer, owner: `footprint:${fi}` });
     for (const s of fp.shapes) addShape(scene, s);
     for (const t of fp.texts) {
       if (t.hide) continue;
@@ -1402,8 +1440,16 @@ function compileScene(board: Board, filter: SceneFilter): BoardScene {
         addPadShape(b.pads, pad);
         b.hasPads = true;
         // Pad clearance outline is drawn per copper layer the pad flashes on
-        // (not the mask layers), in that layer's color.
-        if (copperNames.includes(layer)) {
+        // (not the mask layers), in that layer's color — and only when the
+        // clearance the rules resolve to is greater than zero
+        // (`draw( const PAD* )`: `if( aPad->FlashLayer( … ) && clearance > 0 )`,
+        // pcb_painter.cpp:1974). A board with no design rules answers 0 from
+        // `BOARD_CONNECTED_ITEM::GetOwnClearance`, whose whole body is "if this
+        // board has a DRC engine, ask it; otherwise 0"
+        // (board_connected_item.cpp:121-130) — which is the case for the
+        // footprint preview's dummy BOARD, and why upstream draws no ring there
+        // while a ring exactly on the pad edge is all a zero clearance can be.
+        if (copperNames.includes(layer) && padClr > 0) {
           addPadClearanceShape(b.clearance, pad, padClr);
           b.hasClearance = true;
         }
@@ -1430,10 +1476,22 @@ function compileScene(board: Board, filter: SceneFilter): BoardScene {
         pad,
         board.nets.get(pad.net ?? 0) ?? '',
         expandLayers(pad.layers, copperNames).filter((l) => copperNames.includes(l)),
+        `footprint:${fi}`,
       );
       grow(pad.at.x, pad.at.y, Math.max(pad.size.x, pad.size.y) / 2);
     }
     grow(fp.at.x, fp.at.y);
+    // `BOARD::ComputeBoundingBox` merges `footprint->GetBoundingBox( true )`
+    // (`pcbnew/board.cpp:2255`) — the whole footprint, not just its pads. This
+    // loop grew the box by the pads and the anchor only, so a footprint's
+    // silkscreen, courtyard, fabrication outline and text were drawn but never
+    // measured: zoom-to-fit in the PCB and footprint editors cropped exactly
+    // the ink that sits outside the pads.
+    const fpBox = footprintBBox(fp);
+    if (fpBox) {
+      grow(fpBox.minX, fpBox.minY);
+      grow(fpBox.maxX, fpBox.maxY);
+    }
   }
   pathFactory.setOwner?.(undefined);
   for (const t of board.texts) {
@@ -2051,8 +2109,19 @@ export function buildDrawSteps(
   // label fails its LOD, and zooming in never re-records. The GL caller draws
   // this pass itself, per frame, on the overlay canvas (`drawNetNames`); the
   // recorder is recognised by the `hairlines` switch only it carries.
+  //
+  // `padLabels` belongs in this test, and its absence is why no pad ever showed
+  // its number in the footprint editor or in the chooser's footprint preview:
+  // a board holding one footprint has no tracks and no vias, so the whole pass
+  // — the pass that draws pad numbers as well — was never scheduled. In
+  // pcb_painter.cpp the three are independent draw() branches on independent
+  // layers (LAYER_PAD_NETNAMES vs the track and via netname layers), so one
+  // being empty says nothing about the others.
   const retained = (ctx as { hairlines?: unknown }).hairlines !== undefined;
-  if (!retained && (scene.netLabels.length > 0 || scene.viaNetLabels.length > 0)) {
+  if (
+    !retained &&
+    (scene.netLabels.length > 0 || scene.viaNetLabels.length > 0 || scene.padLabels.length > 0)
+  ) {
     steps.push(() => {
       drawNetNames(ctx, scene, view, visible, widthPx, heightPx, opts, emphasis);
     });
@@ -2082,6 +2151,7 @@ export function drawNetNames(
   emphasis: Emphasis = 'none',
   dpr = 1,
   where: NetNamePass = 'over',
+  shift: ScenePerFrameShift | null = null,
 ): void {
   const special = opts.theme?.special ?? PCB_SPECIAL;
   const minPen = opts.minPenWidth ?? (view.scale > 0 ? 1 / view.scale : 0);
@@ -2158,6 +2228,12 @@ export function drawNetNames(
     const pad = (v: number): boolean => v * view.scale >= PAD_TEXT_MIN_PX * dpr;
     for (const label of scene.padLabels) {
       if (!pad(label.minSide)) continue;
+      // The same debt as the anchors: this pass is world-space and per-frame,
+      // so a GPU drag that translated the footprint's recorded vertices left
+      // its pad numbers and net names sitting at the old position.
+      const moving = shift !== null && shift.ids.has(label.owner);
+      const ldx = moving ? shift.dx : 0;
+      const ldy = moving ? shift.dy : 0;
       // PAD::ViewGetLOD: "Hide netnames unless pad is flashed to a visible
       // layer." Without this the numbers and net names survived hiding every
       // copper layer, floating over an otherwise empty board.
@@ -2171,8 +2247,10 @@ export function drawNetNames(
       // the front.
       if (label.layers.includes('F.Cu') !== (where === 'over')) continue;
       const m = label.minSide;
-      if (label.at.x + m < viewport.minX || label.at.x - m > viewport.maxX) continue;
-      if (label.at.y + m < viewport.minY || label.at.y - m > viewport.maxY) continue;
+      const lx = label.at.x + ldx;
+      const ly = label.at.y + ldy;
+      if (lx + m < viewport.minX || lx - m > viewport.maxX) continue;
+      if (ly + m < viewport.minY || ly - m > viewport.maxY) continue;
       // draw(PAD)'s netname branch resolves LAYER_PAD_FR_NETNAMES and
       // LAYER_PAD_BK_NETNAMES to `GetNetnameLayer( F_Cu / B_Cu )`, so an SMD
       // pad's text follows the same per-layer light/dark rule as a track's:
@@ -2182,7 +2260,8 @@ export function drawNetNames(
       );
       for (const item of label.items) {
         if (!atlas && item.size.y * view.scale < GLYPH_LEGIBLE_PX * dpr) continue;
-        runs.push({ text: item.text, at: item.at, angle: item.angle, glyph: item.glyph, item });
+        const at = moving ? { x: item.at.x + ldx, y: item.at.y + ldy } : item.at;
+        runs.push({ text: item.text, at, angle: item.angle, glyph: item.glyph, item });
       }
     }
   }
@@ -2360,6 +2439,7 @@ export function drawAnchors(
   opts: PcbDrawOptions = DEFAULT_DRAW_OPTIONS,
   emphasis: Emphasis = 'none',
   dpr = 1,
+  shift: ScenePerFrameShift | null = null,
 ): void {
   if (scene.anchors.length === 0) return;
   // FOOTPRINT::ViewGetLOD returns MINIMAL_ZOOM_LEVEL_FOR_VISIBILITY for the
@@ -2381,8 +2461,11 @@ export function drawAnchors(
   for (const a of scene.anchors) {
     // "Only show anchors if the layer the footprint is on is visible."
     if (!visible.has(a.layer)) continue;
-    const x = snapPx(a.x * sx + view.tx, pen);
-    const y = snapPx(a.y * view.scale + view.ty, pen);
+    const moving = shift !== null && shift.ids.has(a.owner);
+    const ax = moving ? a.x + shift.dx : a.x;
+    const ay = moving ? a.y + shift.dy : a.y;
+    const x = snapPx(ax * sx + view.tx, pen);
+    const y = snapPx(ay * view.scale + view.ty, pen);
     if (x < -arm || x > widthPx + arm || y < -arm || y > heightPx + arm) continue;
     ctx.moveTo(x - arm, y);
     ctx.lineTo(x + arm, y);

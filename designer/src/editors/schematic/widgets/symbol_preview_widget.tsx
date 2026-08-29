@@ -11,7 +11,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import type { LibSymbol } from '@ziroeda/eeschema';
 import { renderSymbolPreview } from '../render/renderer.js';
-import { KICAD_CLASSIC } from '../theme.js';
+import { useSchematicTheme } from '../../../prefs/useSettings.js';
 import {
   usePreviewViewControls,
   type PreviewView,
@@ -53,6 +53,19 @@ export function SymbolPreviewWidget({
 
   const viewRef = useRef<PreviewView | null>(null);
 
+  /**
+   * The colour theme the user picked, not a fixed one.
+   * `SYMBOL_PREVIEW_WIDGET`'s constructor loads
+   * `::GetColorSettings( app_settings->m_ColorTheme )`
+   * (symbol_preview_widget.cpp:77-78), falling back to DEFAULT_THEME. This
+   * pane was pinned to KiCad Classic, whose schematic background is
+   * `legacy('WHITE')`, so the preview stayed pure white while the editor
+   * behind it drew the default theme's rgb(245, 244, 239).
+   */
+  const theme = useSchematicTheme();
+  const themeRef = useRef(theme);
+  themeRef.current = theme;
+
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
     const sym = symbolRef.current;
@@ -68,7 +81,7 @@ export function SymbolPreviewWidget({
       sym,
       canvas.width,
       canvas.height,
-      KICAD_CLASSIC,
+      themeRef.current,
       unitRef.current,
       viewRef.current ?? undefined,
     );

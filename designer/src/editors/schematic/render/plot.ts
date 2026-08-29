@@ -135,6 +135,12 @@ function monochromeTheme(): Theme {
     noText: black,
     privateNote: black,
     noConnect: black,
+    // `SCH_SYMBOL::PlotDNP` takes `GetLayerColor( LAYER_DNP_MARKER )` from the
+    // render settings, which a monochrome plot has already blacked out.
+    dnpMarker: black,
+    // Never reached on a plot: `SCH_SYMBOL::Plot` emits `PlotDNP` and no
+    // simulation marker, and `RenderOpts.markSimExclusions` is off here.
+    excludedFromSim: black,
     ercError: black,
     ercWarning: black,
     ercExclusion: black,

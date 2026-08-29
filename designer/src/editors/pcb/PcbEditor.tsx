@@ -11,7 +11,6 @@
  */
 
 import { PCB_IU_PER_MM } from '@ziroeda/common/src/eda_units.js';
-import { LINE_STYLE_CHOICES } from '@ziroeda/common/src/stroke_params.js';
 import { commonInputPrefs, wheelAction, zoomFitScale } from '../../ui/view_controls.js';
 import { DockSash } from '../../ui/DockSash.js';
 import { appearanceLayerRows, layerTooltip } from '../../widgets/appearance_layers.js';
@@ -23,7 +22,7 @@ import {
 } from '../../ui/zoom_settings.js';
 
 import type { FitType } from '../../ui/view_controls.js';
-import { pcbIuToMM as iuToMM, pcbMmToIU as mmToIU } from '@ziroeda/common';
+import { pcbIUScale, pcbIuToMM as iuToMM, pcbMmToIU as mmToIU } from '@ziroeda/common';
 import {
   useCallback,
   useEffect,
@@ -32,7 +31,6 @@ import {
   useState,
   type CSSProperties,
   type JSX,
-  type ReactNode,
 } from 'react';
 import { parse } from '@ziroeda/sexpr';
 import {
@@ -45,9 +43,6 @@ import {
   pcbMsgPanelInfo,
   moveBoardItems,
   dragBoardItems,
-  setFootprintField,
-  setFootprintLocked,
-  setFootprintOrientation,
   connectedTrackEnds,
   boardItemId,
   subsetBoardItems,
@@ -209,6 +204,7 @@ import {
 import { DialogPcbFind, DEFAULT_PCB_FIND, type PcbFindOptions } from './dialogs/dialog_find.js';
 import { DialogPageSettings } from '../../dialogs/dialog_page_settings.js';
 import { pageSettingsValue, toPaperToken } from '../../dialogs/page_settings_model.js';
+import { pcbZoomFitBox } from './document_extents.js';
 import { DialogPcbPrint } from './dialogs/dialog_print_pcb.js';
 import { DialogPcbPlot } from './dialogs/dialog_plot_pcb.js';
 import {
@@ -248,13 +244,31 @@ import {
 import { DialogInspectConstraints } from './dialogs/dialog_inspect_constraints.js';
 import { inspectSelection, describeSelected } from './inspect_selection.js';
 import { netClassFor, netclassesForNet } from './netclass_resolve.js';
-import { OBJECT_ROWS, toggleObject, type ObjectState } from './pcb_objects.js';
+// APPEARANCE_CONTROLS is ONE widget that PCB_EDIT_FRAME and
+// FOOTPRINT_EDIT_FRAME both construct, so the panel, its Objects table and its
+// presets live in `widgets/` and this frame supplies only its own data.
+import { AppearanceControls, type AppearanceTab } from '../../widgets/appearance_controls.js';
+import {
+  DEFAULT_OBJECTS,
+  DEFAULT_OPACITY,
+  OBJECT_ROWS,
+  toggleObject,
+  type ObjectOpacity,
+  type ObjectState,
+} from '../../widgets/appearance_objects.js';
 import {
   BUILTIN_PRESETS,
   matchPresetName,
   presetComboItems,
   PRESET_SEPARATOR,
-} from './pcb_presets.js';
+  viewportComboItems,
+} from '../../widgets/appearance_presets.js';
+import {
+  DEFAULT_SELECTION_FILTER_OPTIONS,
+  SelectionFilterOnlyMenu,
+  SelectionFilterPanel,
+  type SelectionFilterItem,
+} from '../../widgets/panel_selection_filter.js';
 import { align, type PcbGridState } from '@ziroeda/pcbnew/src/pcb_grid_helper.js';
 import { bestSnapAnchor, snapToBoardCopper } from '@ziroeda/pcbnew/src/pcb_cursor_snap.js';
 import { parseDrcRules } from '@ziroeda/pcbnew/src/drc/drc_rule.js';
@@ -280,7 +294,6 @@ import {
   collectShapeValues,
   collectTextValues,
   shapeAt,
-  shapePointsUsed,
   textAt,
   type ShapeValues,
   type TextValues,
@@ -354,16 +367,16 @@ import {
   PCB_OBJECT_COLORS,
   PCB_SPECIAL,
 } from './pcbTheme.js';
+import { PcbPropertiesPanel } from './PcbPropertiesPanel.js';
+import {
+  pcbItemFriendlyName,
+  pcbPropertiesFor,
+  type PcbPropRow,
+} from '@ziroeda/pcbnew/src/properties_panel.js';
 import { drawGrid, drawCrosshair } from '../../ui/grid_cursor.js';
 import { gridSizesIU } from '../../ui/grid_settings.js';
-import {
-  PCB_TOP_TOOLBAR,
-  PCB_AUX_TOOLBAR,
-  PCB_LEFT_TOOLBAR,
-  PCB_RIGHT_TOOLBAR,
-  PCB_CONTROL,
-  PCB_FILTER_CATS,
-} from './pcbToolbars.js';
+import { PCB_CONTROL, PCB_DEFAULT_TOOLBARS } from './pcbToolbars.js';
+import { useToolbarEntries } from '../../ui/useToolbarEntries.js';
 import '../../ui/shell.css';
 import { AboutDialog } from '../../home/dialogs/dialog_about.js';
 import { PreferencesDialog } from '../../dialogs/PreferencesDialog.js';
@@ -475,32 +488,6 @@ const PCB_GRIDS: number[] = gridSizesIU('pcbnew', MM);
  * that pcbnew calls `Z 2.10`.
  */
 
-// Visibility (eye) toggle, drawn inline so it always renders (no asset-URL
-// resolution) and reads as KiCad's light-grey eye on the dark panel. `on`
-// draws the open eye; off draws it struck through and dimmed
-// (APPEARANCE_CONTROLS' BITMAP_TOGGLE visible/not-visible bitmaps).
-function EyeIcon({ on }: { on: boolean }): JSX.Element {
-  return (
-    <svg
-      className="ze-eye"
-      viewBox="0 0 24 24"
-      width="16"
-      height="16"
-      aria-hidden="true"
-      style={{ opacity: on ? 1 : 0.4 }}
-    >
-      <path
-        d="M12 5c-5 0-9 4.5-10 7 1 2.5 5 7 10 7s9-4.5 10-7c-1-2.5-5-7-10-7z"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.6"
-      />
-      <circle cx="12" cy="12" r="3" fill="currentColor" />
-      {!on && <line x1="4" y1="20" x2="20" y2="4" stroke="currentColor" strokeWidth="1.6" />}
-    </svg>
-  );
-}
-
 // The graphic-shape drawing tools (DRAWING_TOOL) and the PcbShape kind each
 // one creates.
 const DRAW_SHAPE_TOOLS: Record<string, PcbShape['kind']> = {
@@ -611,41 +598,6 @@ const traceArc3 = (
 // `toggles.ts` rather than here, because `qa`'s tsconfig compiles `.ts` only:
 // a default written in a `.tsx` is one no test can read, and two of the seven
 // were on the wrong arm of pcbnew's own settings.
-
-const DEFAULT_OBJECTS: ObjectState = {
-  tracks: true,
-  vias: true,
-  pads: true,
-  zones: true,
-  filledShapes: true,
-  images: true,
-  footprintsFront: true,
-  footprintsBack: true,
-  fpValues: true,
-  fpReferences: true,
-  fpText: true,
-  ratsnest: true,
-  drcWarnings: true,
-  drcErrors: true,
-  drcExclusions: true,
-  anchors: true,
-  points: true,
-  lockedShadow: true,
-  collidingCourtyards: true,
-  boardAreaShadow: true,
-  drawingSheet: true,
-  grid: true,
-};
-// project_local_settings.cpp defaults.
-
-const DEFAULT_OPACITY = {
-  tracks: 1.0,
-  vias: 1.0,
-  pads: 1.0,
-  zones: 0.6,
-  filledShapes: 1.0,
-  images: 0.6,
-};
 
 // `rebuildLayers()`'s non_cu_seq order and its tooltips now live in
 // `widgets/appearance_layers.ts`, because APPEARANCE_CONTROLS is ONE widget
@@ -776,6 +728,16 @@ export function PcbEditor({
    *  (KiCad's SCH_EDIT_FRAME::doUpdatePcb hands off to pcbnew the same way). */
   updateFromSchematic?: number | null;
 }): JSX.Element {
+  /**
+   * `EDA_BASE_FRAME::RecreateToolbars` (`common/eda_base_frame.cpp:1728-1843`):
+   * the frame asks `GetToolbarConfig( loc, m_CustomToolbars )` for each bar and
+   * never reads `DefaultToolbarConfig` itself, which is what lets Preferences >
+   * Toolbars change what is drawn.
+   */
+  const pcbTopBar = useToolbarEntries('pcbnew', 'TOP_MAIN', PCB_DEFAULT_TOOLBARS);
+  const pcbAuxBar = useToolbarEntries('pcbnew', 'TOP_AUX', PCB_DEFAULT_TOOLBARS);
+  const pcbLeftBar = useToolbarEntries('pcbnew', 'LEFT', PCB_DEFAULT_TOOLBARS);
+  const pcbRightBar = useToolbarEntries('pcbnew', 'RIGHT', PCB_DEFAULT_TOOLBARS);
   const [board, setBoard] = useState<Board | null>(null);
   // Unsaved-changes flag: '*' in the title while modified, Save greys when
   // clean (KiCad's IsContentModified / m_infoBar save affordance).
@@ -833,16 +795,19 @@ export function PcbEditor({
   // PAD level (BOARD_INSPECTION_TOOL::LocalRatsnestTool toggles
   // PAD::SetLocalRatsnestVisible; a footprint click sets all its pads).
   const [localRats, setLocalRats] = useState<ReadonlySet<string>>(new Set());
+  // PROJECT_LOCAL_SETTINGS' `board.selection_filter` defaults, which are the
+  // shared table's: everything but "Locked items"
+  // (common/project/project_local_settings.cpp:160-172). Ours ticked all
+  // twelve, so a fresh board would select locked items.
   const [selFilter, setSelFilter] = useState<Set<string>>(
-    new Set(PCB_FILTER_CATS.map((c) => c.key)),
+    new Set(DEFAULT_SELECTION_FILTER_OPTIONS),
   );
   // Right-click "Only <category>" popup of the Selection Filter panel
   // (PANEL_SELECTION_FILTER::onRightClick).
   const [filterMenu, setFilterMenu] = useState<{
     x: number;
     y: number;
-    key: string;
-    label: string;
+    item: SelectionFilterItem;
   } | null>(null);
   // Net highlight (BOARD_INSPECTION_TOOL): the set of net codes currently
   // highlighted. When non-empty the whole board dims and these nets' copper
@@ -1833,6 +1798,18 @@ export function PcbEditor({
     // the moment the pours are hidden. Drawn on the overlay they sat above the
     // pours, the silkscreen and the footprint text, so a whole-board view was
     // covered in crosses that pcbnew does not show.
+    // What an in-place GPU drag has shifted so far, for the passes drawn per
+    // frame from `scene` rather than from the buffer the GPU translated: the
+    // anchor crosses and the pad numbers / net names. Null unless such a drag
+    // is in flight — the overlay path takes the moving items out of `scene`
+    // altogether and draws their own copy, so it needs no offset here.
+    const inPlaceShift = inPlaceMoveRef.current
+      ? {
+          ids: dragAffectedRef.current,
+          dx: inPlaceMoveRef.current.x,
+          dy: inPlaceMoveRef.current.y,
+        }
+      : null;
     if (objects.anchors) {
       drawAnchors(
         bctx,
@@ -1844,6 +1821,7 @@ export function PcbEditor({
         drawOpts,
         dimmedRef.current ? 'dimmed' : 'none',
         dpr,
+        inPlaceShift,
       );
       bctx.setTransform(1, 0, 0, 1, 0, 0);
     }
@@ -1872,6 +1850,7 @@ export function PcbEditor({
           dimmedRef.current ? 'dimmed' : 'none',
           dpr,
           'under',
+          inPlaceShift,
         );
       }, v.scale);
       // And the pass drawn over it — track and via names and through-hole pad
@@ -1890,6 +1869,7 @@ export function PcbEditor({
           dimmedRef.current ? 'dimmed' : 'none',
           dpr,
           'over',
+          inPlaceShift,
         );
       }, v.scale);
       gl.render(
@@ -1951,6 +1931,7 @@ export function PcbEditor({
         dimmedRef.current ? 'dimmed' : 'none',
         dpr,
         'under',
+        inPlaceShift,
       );
       ctx.setTransform(1, 0, 0, 1, 0, 0);
     }
@@ -2823,32 +2804,6 @@ export function PcbEditor({
     [updatePcb, commitBoard],
   );
 
-  // Apply a footprint edit from the Properties grid, committing to the board
-  // (children + undo follow). Mirrors the PCB_PROPERTIES_PANEL edits.
-  const editFootprint = useCallback(
-    (index: number, e: FpEdit): void => {
-      const brd = boardRef.current;
-      const fp = brd?.footprints[index];
-      if (!brd || !fp) return;
-      if (e.kind === 'pos') {
-        if (!Number.isFinite(e.valueMM)) return;
-        const target = Math.round(e.valueMM * MM);
-        const delta =
-          e.axis === 'x' ? { x: target - fp.at.x, y: 0 } : { x: 0, y: target - fp.at.y };
-        if (delta.x === 0 && delta.y === 0) return;
-        commitBoard(moveBoardItems(brd, new Set([boardItemId('footprint', index)]), delta));
-      } else if (e.kind === 'orient') {
-        if (!Number.isFinite(e.deg)) return;
-        commitBoard(setFootprintOrientation(brd, index, e.deg));
-      } else if (e.kind === 'field') {
-        commitBoard(setFootprintField(brd, index, e.field, e.value));
-      } else if (e.kind === 'locked') {
-        commitBoard(setFootprintLocked(brd, index, e.locked));
-      }
-    },
-    [commitBoard],
-  );
-
   const undo = useCallback(() => {
     const prev = undoRef.current.pop();
     if (!prev || !boardRef.current) return;
@@ -3271,30 +3226,21 @@ export function PcbEditor({
   // ACTIONS::zoomFitScreen (Home): fit the page frame + objects.
   // ACTIONS::zoomFitObjects (Ctrl+Home): fit the objects only, ignoring the
   // drawing sheet.
+  //
+  // Which box that is — and, on a board with nothing in it, the fact that there
+  // is a box at all — is `pcbZoomFitBox`; see `document_extents.ts` for the
+  // `GetBoardBoundingBox` fallback it ports. Before it, an empty board's null
+  // scene box returned here and the button did nothing.
   const zoomToFitImpl = useCallback(
     (includeSheet: boolean) => {
-      const scene = sceneRef.current;
-      if (!scene?.bbox) return;
-      let { minX, minY, maxX, maxY } = scene.bbox;
-      const paper = boardRef.current?.paper?.split(/\s+/)[0];
-      const PAGE: Record<string, [number, number]> = {
-        A5: [210, 148],
-        A4: [297, 210],
-        A3: [420, 297],
-        A2: [594, 420],
-        A1: [841, 594],
-        A0: [1189, 841],
-      };
-      if (includeSheet && paper && PAGE[paper] && objects.drawingSheet) {
-        const [pw, ph] = PAGE[paper]!;
-        minX = Math.min(minX, 0);
-        minY = Math.min(minY, 0);
-        maxX = Math.max(maxX, pw * MM);
-        maxY = Math.max(maxY, ph * MM);
-      }
-      fitWorldBox(minX, minY, maxX, maxY, includeSheet ? 'all' : 'objects');
+      const box = pcbZoomFitBox(sceneRef.current?.bbox ?? null, {
+        paper: boardRef.current?.paper,
+        drawingSheetVisible: objects.drawingSheet,
+        includeSheet,
+      });
+      if (!box) return;
+      fitWorldBox(box.minX, box.minY, box.maxX, box.maxY, includeSheet ? 'all' : 'objects');
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [fitWorldBox, objects.drawingSheet],
   );
   const zoomToFit = useCallback(() => zoomToFitImpl(true), [zoomToFitImpl]);
@@ -4644,6 +4590,31 @@ export function PcbEditor({
       requestDraw();
       return;
     }
+    startOverlayMove(brd, sel, affected);
+  };
+
+  /**
+   * Set the drag up the slow way: the moving items as an overlay that follows
+   * the cursor, and the board rebuilt without them underneath.
+   *
+   * Its own function because there are TWO ways in. `beginMove` takes it when
+   * the GPU cannot address the selection, and `updateMove` has to take it when
+   * `moveItems` fails PART WAY THROUGH a gesture that started in place — which
+   * it did not, and that is the bug this became. `beginMove`'s in-place branch
+   * returns before any of this, quite correctly: the GPU is moving the item's
+   * own vertices, so there is nothing to hide and nothing to preview. But when
+   * the GPU then refused, the drag was left with neither — the original still
+   * in the retained scene at its old position and never translated, and no
+   * overlay of its own. All that followed the cursor was the selection copy,
+   * while the part itself (its pink courtyard, its silkscreen, all of it) sat
+   * still until the drop committed the board and it "respawned" at the new
+   * place.
+   */
+  const startOverlayMove = (
+    brd: Board,
+    sel: ReadonlySet<string>,
+    affected: ReadonlySet<string>,
+  ): void => {
     // The moving items first, because they are the cheap half and the drag
     // cannot start without them: one footprint compiles in about 2 ms.
     moveSceneRef.current = dragModeRef.current
@@ -5100,7 +5071,14 @@ export function PcbEditor({
         return;
       }
       // The GPU could not take it after all; fall back for the rest of the drag.
+      //
+      // Falling back is not just clearing the flag. The gesture started in
+      // place, so it has no overlay and the board still holds the originals —
+      // set both up now, exactly as `beginMove` would have. Whatever the GPU
+      // did manage before it refused goes away with the rebuild, which is why
+      // the base has to be rebuilt rather than merely left alone.
       inPlaceMoveRef.current = null;
+      startOverlayMove(brd, movingSelRef.current, dragAffectedRef.current);
     }
     if (trackDragRef.current) {
       // The line is re-cut from scratch against the cursor each frame: a router
@@ -6382,6 +6360,44 @@ export function PcbEditor({
     [classColors, netclassInfo],
   );
 
+  // ----- what APPEARANCE_CONTROLS is handed ------------------------------------
+  //
+  // The widget draws; this frame supplies. Each of these is one of the model
+  // structs the C++ builds inside the panel because there it *is* the frame's
+  // neighbour: NET_GRID_TABLE's rows, m_netclassSettings, and the two combos.
+
+  /** NET_GRID_TABLE's rows (appearance_controls.h:48-62). */
+  const netRows = useMemo(
+    () =>
+      nets.map(([code, name]) => ({
+        code,
+        name,
+        color: netColors.get(code),
+        visible: !hiddenNets.has(code),
+      })),
+    [nets, netColors, hiddenNets],
+  );
+
+  /** m_netclassSettings, in Board Setup order. */
+  const netclassRows = useMemo(
+    () =>
+      netclassInfo.classes.map((name) => ({
+        name,
+        color: classColorOf(name),
+        visible: !hiddenClasses.has(name),
+      })),
+    [netclassInfo, classColorOf, hiddenClasses],
+  );
+
+  const presetItems = useMemo(
+    () => presetComboItems(userPresets.map((u) => u.name)),
+    [userPresets],
+  );
+  const viewportItems = useMemo(
+    () => viewportComboItems(viewports.map((v) => v.name)),
+    [viewports],
+  );
+
   // The airwires (CONNECTIVITY_DATA::GetRatsnest), recomputed on every edit.
   const ratsnestEdges = useMemo(() => (board ? buildRatsnest(board) : []), [board]);
   const ratsnestEdgesRef = useRef<RatsnestEdge[]>(ratsnestEdges);
@@ -7092,6 +7108,20 @@ export function PcbEditor({
   // long form: mm %.4f, mils %.2f, inches %.4f.
   const fmtCoord = (iu: number): string =>
     messageTextFromValue(iuToMM(iu), unitLabel, PCB_IU_PER_MM);
+
+  // ----- PCB_PROPERTIES_PANEL -------------------------------------------------
+
+  const propRows = useMemo<PcbPropRow[]>(
+    () => (board ? pcbPropertiesFor(board, selection, { layerColor }) : []),
+    [board, selection],
+  );
+
+  // `PROPERTIES_PANEL::rebuildProperties` captions a single selection with
+  // `aSelection.Front()->GetFriendlyName()` — the item's TYPE.
+  const propFriendlyName = useMemo<string | undefined>(() => {
+    if (!board || selection.size !== 1) return undefined;
+    return pcbItemFriendlyName(board, [...selection][0] as string);
+  }, [board, selection]);
   const statusCoordText = cursor
     ? coordsMsg(fmtCoord(cursor.x), fmtCoord(cursor.y))
     : coordsMsg(null);
@@ -7213,7 +7243,7 @@ export function PcbEditor({
         }
       />
       <Toolbar
-        entries={PCB_TOP_TOOLBAR}
+        entries={pcbTopBar}
         orientation="horizontal"
         disabledIds={topDisabled}
         onActivate={onTopAction}
@@ -7248,7 +7278,7 @@ export function PcbEditor({
           supplied through `controls`, as KiCad supplies them through
           RegisterCustomToolbarControlFactory. */}
       <Toolbar
-        entries={PCB_AUX_TOOLBAR}
+        entries={pcbAuxBar}
         orientation="horizontal"
         onActivate={onTopAction}
         controls={{
@@ -7375,16 +7405,16 @@ export function PcbEditor({
             <div className="ze-panel grow">
               <div className="ze-panel-header">Properties</div>
               <div className="ze-panel-body">
-                {selection.size === 0 ? (
-                  <div className="ze-muted">No objects selected</div>
-                ) : (
-                  <PcbSelectionInfo
-                    board={board}
-                    selection={selection}
-                    onEditFootprint={editFootprint}
-                    onEdit={commitBoard}
-                  />
-                )}
+                {/* The empty and multi-selection captions are PROPERTIES_PANEL's
+                    own (properties_panel.cpp:196-210), so the panel renders them
+                    rather than the frame swapping in a placeholder. */}
+                <PcbPropertiesPanel
+                  rows={propRows}
+                  selectionCount={selection.size}
+                  friendlyName={propFriendlyName}
+                  units={unitLabel}
+                  onCommand={commitBoard}
+                />
               </div>
             </div>
             {/* Clamps unchanged: KiCad's PCB_PROPERTIES_PANEL MinSize 240,
@@ -7394,7 +7424,7 @@ export function PcbEditor({
         )}
 
         <Toolbar
-          entries={PCB_LEFT_TOOLBAR}
+          entries={pcbLeftBar}
           app="pcbnew"
           orientation="vertical"
           side="left"
@@ -7501,7 +7531,7 @@ export function PcbEditor({
         </div>
 
         <Toolbar
-          entries={PCB_RIGHT_TOOLBAR}
+          entries={pcbRightBar}
           orientation="vertical"
           side="right"
           activeTool={activeTool}
@@ -7519,475 +7549,87 @@ export function PcbEditor({
             <DockSash edge="left" width={appWidth} min={200} max={500} onResize={setAppWidth} />
             <div className="ze-panel grow">
               <div className="ze-panel-header">Appearance</div>
-              {/* APPEARANCE_CONTROLS' wxNotebook (appearance_controls_base.cpp:22).
-                  The same widget pl_editor and GerbView draw, so it takes the
-                  shared .ze-nb-tabs rule and states nothing of its own: the
-                  inline styles here painted a selected-tab background GTK does
-                  not paint and a 2px #4d7fc4 underline where the marker is the
-                  desktop accent. */}
-              <div className="ze-nb-tabs">
-                {(['Layers', 'Objects', 'Nets'] as const).map((t) => (
-                  <button
-                    key={t}
-                    type="button"
-                    className={tab === t ? 'active' : undefined}
-                    onClick={() => setTab(t)}
-                  >
-                    {t}
-                  </button>
-                ))}
-              </div>
-
-              <div className="ze-panel-body" style={{ overflow: 'auto' }}>
-                {tab === 'Layers' &&
-                  layerRows.map((name) => {
-                    const on = visible.has(name);
-                    return (
-                      // appendLayer row: [indicator][color swatch][eye][name]
-                      <div
-                        key={name}
-                        className={`ze-layer-row${name === activeLayer ? ' active' : ''}`}
-                        onClick={() => setActiveLayer(name)}
-                        onContextMenu={(e) => {
-                          e.preventDefault();
-                          setLayerMenu({ x: e.clientX, y: e.clientY });
-                        }}
-                        title={layerTooltip(name)}
-                      >
-                        <span
-                          className={`ze-layer-indicator${name === activeLayer ? ' on' : ''}`}
-                        />
-                        <span
-                          className="ze-layer-swatch"
-                          style={{ background: layerColor(name) }}
-                        />
-                        <button
-                          type="button"
-                          className="ze-eye-btn"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleLayer(name);
-                          }}
-                          title="Show or hide this layer"
-                        >
-                          <EyeIcon on={on} />
-                        </button>
-                        <span className="ze-ellipsis">{layerName(name)}</span>
-                      </div>
-                    );
-                  })}
-
-                {tab === 'Objects' &&
-                  OBJECT_ROWS.map((row, i) => {
-                    // m_objectsOuterSizer->AddSpacer( m_pointSize / 2 ): half the
-                    // GUI font's point size, 11/2 = 5 (appearance_controls.cpp:2461).
-                    if (row === 'sep') return <div key={`sep${i}`} className="ze-object-sep" />;
-                    const { key, label, tooltip, slider, noVisibility } = row;
-                    const on = objects[key];
-                    const swatchColor = PCB_OBJECT_COLORS[key];
-                    return (
-                      // appendObject row: [swatch][eye|spacer][label][slider]
-                      <div key={key} className="ze-object-row" title={tooltip}>
-                        {/* Every row carries a swatch. A row with no theme
-                            colour gets COLOR_SWATCH's checkerboard rather than
-                            a gap, because GetDefaultColor never answers
-                            UNSPECIFIED (color_settings.cpp:411). */}
-                        <span
-                          className={`ze-layer-swatch${swatchColor ? '' : ' unset'}`}
-                          style={swatchColor ? { background: swatchColor } : undefined}
-                        />
-                        {noVisibility ? (
-                          <span style={{ width: 16, flex: '0 0 auto' }} />
-                        ) : (
-                          <button
-                            type="button"
-                            className="ze-eye-btn"
-                            onClick={() => setObjects((p) => toggleObject(p, key))}
-                            title={`Show or hide ${label.toLowerCase()}`}
-                          >
-                            <EyeIcon on={on} />
-                          </button>
-                        )}
-                        {/* Opacity rows fix the label width so all sliders line
-                            up (KiCad's label->SetMinSize(labelWidth)); other
-                            rows let the label fill the row. */}
-                        <span className={`ze-obj-label${slider ? ' fixed' : ''}`}>{label}</span>
-                        {slider &&
-                          key in opacity &&
-                          (() => {
-                            const pct = Math.round(opacity[key as keyof typeof opacity] * 100);
-                            return (
-                              <input
-                                type="range"
-                                className="ze-opacity"
-                                min={0}
-                                max={100}
-                                value={pct}
-                                // Fill the track left of the thumb (KiCad's slider
-                                // shows the set portion), the rest neutral grey.
-                                style={{
-                                  background: `linear-gradient(to right, var(--slider-fill) 0 ${pct}%, #55585d ${pct}% 100%)`,
-                                }}
-                                title={`Set opacity of ${label.toLowerCase()}`}
-                                onChange={(e) =>
-                                  setOpacity((p) => ({
-                                    ...p,
-                                    [key]: Number(e.target.value) / 100,
-                                  }))
-                                }
-                              />
-                            );
-                          })()}
-                      </div>
-                    );
-                  })}
-
-                {tab === 'Nets' && (
-                  <>
-                    {/* Nets box: header + filter + the scrollable net list, its
-                        own panel like KiCad's nets/netclasses splitter. */}
-                    <div className="ze-nets-box">
-                      {/* m_txtNetFilter is constructed and then Hide()n
-                          (appearance_controls_base.cpp:67); what sits at the
-                          right of this header is the Net Inspector button. */}
-                      <div className="ze-nets-header">
-                        <span>Nets</span>
-                        {/* PCB_ACTIONS::showNetInspector. The panel it opens
-                            is not ported, so the button is genuinely
-                            unavailable and says so — unlike the Objects rows,
-                            which were greyed while KiCad had them working. */}
-                        <button
-                          type="button"
-                          className="ze-bitmap-btn"
-                          title="Show the Net Inspector"
-                          disabled
-                        >
-                          <Icon name="listNets" />
-                        </button>
-                      </div>
-                      <div className="ze-nets-list">
-                        {/* Net rows: [color swatch][visibility][name]; the swatch
-                            opens a color picker, the eye hides the net's ratsnest. */}
-                        {nets.slice(0, 400).map(([code, name]) => {
-                          const color = netColors.get(code);
-                          const on = !hiddenNets.has(code);
-                          return (
-                            <div key={code} className="ze-object-row" title={`Net ${code}`}>
-                              {/* COLOR_SWATCH (color_swatch.cpp:301-328) -
-                                  the same control APPEARANCE_CONTROLS builds
-                                  for a net row. It was an <input type="color">,
-                                  i.e. the desktop's popup anchored to a control
-                                  in the far-right pane, where it opened
-                                  off-screen. */}
-                              <ColorSwatch
-                                size="small"
-                                label={`Set color for net ${name}`}
-                                color={color ? parseColor4d(color) : COLOR4D_UNSPECIFIED}
-                                onChange={(picked) =>
-                                  setNetColors((p) =>
-                                    new Map(p).set(code, toCssColor(picked, ', ')),
-                                  )
-                                }
-                              />
-                              <button
-                                type="button"
-                                className="ze-eye-btn"
-                                title={`Show or hide ratsnest for ${name}`}
-                                onClick={() =>
-                                  setHiddenNets((p) => {
-                                    const next = new Set(p);
-                                    if (next.has(code)) next.delete(code);
-                                    else next.add(code);
-                                    return next;
-                                  })
-                                }
-                              >
-                                <EyeIcon on={on} />
-                              </button>
-                              <span className="ze-ellipsis">{name || `(unnamed ${code})`}</span>
-                            </div>
-                          );
-                        })}
-                        {nets.length > 400 && (
-                          <div className="ze-muted">…{nets.length - 400} more</div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Net Classes box: the lower panel of KiCad's nets splitter. */}
-                    <div className="ze-nets-box">
-                      <div className="ze-nets-header">
-                        <span>Net Classes</span>
-                        <button
-                          type="button"
-                          className="ze-bitmap-btn"
-                          title="Configure net classes"
-                          onClick={() => {
-                            setBoardSetupPage('netclasses');
-                            setBoardSetupOpen(true);
-                          }}
-                        >
-                          <Icon name="optionsGeneric" />
-                        </button>
-                      </div>
-                      {netclassInfo.classes.map((cls) => {
-                        const color = classColorOf(cls);
-                        const on = !hiddenClasses.has(cls);
-                        // "Default netclass can't have an override color", so
-                        // its swatch is Hide()n — but added with
-                        // wxRESERVE_SPACE_EVEN_IF_HIDDEN, so the row still
-                        // indents by a swatch (appearance_controls.cpp:2607).
-                        const isDefault = cls === 'Default';
-                        return (
-                          <div key={cls} className="ze-object-row">
-                            {isDefault ? (
-                              <span className="ze-layer-swatch" aria-hidden="true" />
-                            ) : (
-                              // The same COLOR_SWATCH as the net row above.
-                              <ColorSwatch
-                                size="small"
-                                label={`Set color for the ${cls} netclass`}
-                                color={color ? parseColor4d(color) : COLOR4D_UNSPECIFIED}
-                                onChange={(picked) =>
-                                  setClassColors((p) =>
-                                    new Map(p).set(cls, toCssColor(picked, ', ')),
-                                  )
-                                }
-                              />
-                            )}
-                            <button
-                              type="button"
-                              className="ze-eye-btn"
-                              title={`Show or hide ratsnest for the ${cls} class`}
-                              onClick={() =>
-                                setHiddenClasses((p) => {
-                                  const next = new Set(p);
-                                  if (next.has(cls)) next.delete(cls);
-                                  else next.add(cls);
-                                  return next;
-                                })
-                              }
-                            >
-                              <EyeIcon on={on} />
-                            </button>
-                            <span className="ze-ellipsis">{cls}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </>
-                )}
-              </div>
-
-              {/* "Net Display Options" collapsible pane on the Nets tab. */}
-              {tab === 'Nets' && (
-                <div className="ze-collapsepane">
-                  <button className="ze-collapse-toggle" onClick={() => setNetOptsOpen((o) => !o)}>
-                    <span className={`ze-collapse-arrow${netOptsOpen ? ' open' : ''}`} />
-                    Net Display Options
-                  </button>
-                  {netOptsOpen && (
-                    <div className="ze-collapse-body">
-                      <div className="ze-info" title="Choose when to show net and netclass colors">
-                        Net colors:
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <label title="Net and netclass colors are shown on all copper items">
-                          <input
-                            type="radio"
-                            name="ze-netcolor"
-                            checked={netColorMode === 'all'}
-                            onChange={() => setNetColorMode('all')}
-                          />
-                          All
-                        </label>
-                        <label title="Net and netclass colors are shown on the ratsnest only">
-                          <input
-                            type="radio"
-                            name="ze-netcolor"
-                            checked={netColorMode === 'ratsnest'}
-                            onChange={() => setNetColorMode('ratsnest')}
-                          />
-                          Ratsnest
-                        </label>
-                        <label title="Net and netclass colors are not shown">
-                          <input
-                            type="radio"
-                            name="ze-netcolor"
-                            checked={netColorMode === 'off'}
-                            onChange={() => setNetColorMode('off')}
-                          />
-                          None
-                        </label>
-                      </div>
-                      <div className="ze-info" style={{ marginTop: 6 }}>
-                        Ratsnest display:
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <label title="Show ratsnest lines to items on all layers">
-                          <input
-                            type="radio"
-                            name="ze-ratsmode"
-                            checked={ratsnestMode === 'all'}
-                            onChange={() => setRatsnestMode('all')}
-                          />
-                          All
-                        </label>
-                        <label title="Show ratsnest lines to items on visible layers">
-                          <input
-                            type="radio"
-                            name="ze-ratsmode"
-                            checked={ratsnestMode === 'visible'}
-                            onChange={() => setRatsnestMode('visible')}
-                          />
-                          Visible layers
-                        </label>
-                        <label title="Hide all ratsnest lines">
-                          <input
-                            type="radio"
-                            name="ze-ratsmode"
-                            checked={ratsnestMode === 'off'}
-                            onChange={() => setRatsnestMode('off')}
-                          />
-                          None
-                        </label>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* "Layer Display Options" collapsible pane at the bottom of the
-                  Layers tab (createControls). */}
-              {tab === 'Layers' && (
-                <div className="ze-collapsepane">
-                  <button
-                    className="ze-collapse-toggle"
-                    onClick={() => setLayerOptsOpen((o) => !o)}
-                  >
-                    <span className={`ze-collapse-arrow${layerOptsOpen ? ' open' : ''}`} />
-                    Layer Display Options
-                  </button>
-                  {layerOptsOpen && (
-                    <div className="ze-collapse-body">
-                      <div className="ze-info">Inactive layers (H):</div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <label title="Inactive layers will be shown in full color">
-                          <input
-                            type="radio"
-                            name="ze-hc"
-                            checked={contrast === 'normal'}
-                            onChange={() => setContrast('normal')}
-                          />
-                          Normal
-                        </label>
-                        <label title="Inactive layers will be dimmed">
-                          <input
-                            type="radio"
-                            name="ze-hc"
-                            checked={contrast === 'dim'}
-                            onChange={() => setContrast('dim')}
-                          />
-                          Dim
-                        </label>
-                        <label title="Inactive layers will be hidden">
-                          <input
-                            type="radio"
-                            name="ze-hc"
-                            checked={contrast === 'hide'}
-                            onChange={() => setContrast('hide')}
-                          />
-                          Hide
-                        </label>
-                      </div>
-                      <hr className="ze-hr" />
-                      <label>
-                        <input type="checkbox" checked={flipView} onChange={toggleFlip} />
-                        Flip board view
-                      </label>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Presets / Viewports below the notebook (appearance_controls_base). */}
-              <div className="ze-appearance-bottom">
-                <div className="ze-info">Presets (Ctrl+Tab):</div>
-                <select value={preset} onChange={(e) => onPresetChoice(e.target.value)}>
-                  {presetComboItems(userPresets.map((u) => u.name)).map((name, i) => (
-                    <option
-                      key={`${name}:${i}`}
-                      value={name}
-                      disabled={name === 'Delete preset...' && userPresets.length === 0}
-                    >
-                      {name}
-                    </option>
-                  ))}
-                </select>
-                <div className="ze-info" style={{ marginTop: 4 }}>
-                  Viewports (Shift+Tab):
-                </div>
-                <select value={viewportSel} onChange={(e) => onViewportChoice(e.target.value)}>
-                  {viewports.map((v) => (
-                    <option key={v.name} value={v.name}>
-                      {v.name}
-                    </option>
-                  ))}
-                  <option value="---">---</option>
-                  <option>Save viewport...</option>
-                  <option disabled={viewports.length === 0}>Delete viewport...</option>
-                </select>
-              </div>
+              {/* APPEARANCE_CONTROLS. The identical widget the footprint editor
+                  builds; everything below is data this frame supplies. */}
+              <AppearanceControls
+                tab={tab}
+                onTab={setTab}
+                layerRows={layerRows}
+                layerName={layerName}
+                layerColor={layerColor}
+                activeLayer={activeLayer}
+                onActiveLayer={setActiveLayer}
+                visibleLayers={visible}
+                onToggleLayer={toggleLayer}
+                onLayerContextMenu={(x, y) => setLayerMenu({ x, y })}
+                objects={objects}
+                onToggleObject={(key) => setObjects((p) => toggleObject(p, key))}
+                objectColor={(key) => PCB_OBJECT_COLORS[key]}
+                opacity={opacity}
+                onOpacity={(key, value) => setOpacity((p) => ({ ...p, [key]: value }))}
+                contrast={contrast}
+                onContrast={setContrast}
+                flipBoard={flipView}
+                onFlipBoard={toggleFlip}
+                layerOptionsOpen={layerOptsOpen}
+                onLayerOptionsOpen={setLayerOptsOpen}
+                nets={{
+                  nets: netRows,
+                  onNetColor: (code, picked) =>
+                    setNetColors((p) => new Map(p).set(code, toCssColor(picked, ', '))),
+                  onNetVisibility: (code) =>
+                    setHiddenNets((p) => {
+                      const next = new Set(p);
+                      if (next.has(code)) next.delete(code);
+                      else next.add(code);
+                      return next;
+                    }),
+                  netclasses: netclassRows,
+                  onNetclassColor: (cls, picked) =>
+                    setClassColors((p) => new Map(p).set(cls, toCssColor(picked, ', '))),
+                  onNetclassVisibility: (cls) =>
+                    setHiddenClasses((p) => {
+                      const next = new Set(p);
+                      if (next.has(cls)) next.delete(cls);
+                      else next.add(cls);
+                      return next;
+                    }),
+                  onConfigureNetclasses: () => {
+                    setBoardSetupPage('netclasses');
+                    setBoardSetupOpen(true);
+                  },
+                  netColorMode,
+                  onNetColorMode: setNetColorMode,
+                  ratsnestMode,
+                  onRatsnestMode: setRatsnestMode,
+                  optionsOpen: netOptsOpen,
+                  onOptionsOpen: setNetOptsOpen,
+                }}
+                presetItems={presetItems}
+                preset={preset}
+                onPreset={onPresetChoice}
+                deletePresetDisabled={userPresets.length === 0}
+                viewportItems={viewportItems}
+                viewport={viewportSel}
+                onViewport={onViewportChoice}
+                deleteViewportDisabled={viewports.length === 0}
+              />
             </div>
 
-            <div className="ze-panel">
+            {/* `.fixed` is `dock_proportion = 0` —
+                `m_auimgr.GetPane( "SelectionFilter" ).dock_proportion = 0`
+                (pcbnew/pcb_edit_frame.cpp:422). A docked pane grows by default;
+                this is the pane that declares it does not. */}
+            <div className="ze-panel fixed">
               <div className="ze-panel-header">Selection Filter</div>
               <div className="ze-panel-body">
-                {/* PANEL_SELECTION_FILTER_BASE's wxGridBagSizer: "All items"
-                    at (0,0), then the categories two per row in upstream
-                    order. Right-clicking a category pops "Only <label>". */}
-                <div className="ze-selfilter">
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={selFilter.size === PCB_FILTER_CATS.length}
-                      onChange={() =>
-                        // OnFilterChanged on m_cbAllItems: drive every
-                        // category to the new state.
-                        setSelFilter((p) =>
-                          p.size === PCB_FILTER_CATS.length
-                            ? new Set()
-                            : new Set(PCB_FILTER_CATS.map((c) => c.key)),
-                        )
-                      }
-                    />
-                    All items
-                  </label>
-                  {PCB_FILTER_CATS.map(({ key, label, tooltip }) => (
-                    <label
-                      key={key}
-                      title={tooltip}
-                      onContextMenu={(e) => {
-                        e.preventDefault();
-                        setFilterMenu({ x: e.clientX, y: e.clientY, key, label });
-                      }}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selFilter.has(key)}
-                        onChange={() =>
-                          setSelFilter((p) => {
-                            const n = new Set(p);
-                            if (n.has(key)) n.delete(key);
-                            else n.add(key);
-                            return n;
-                          })
-                        }
-                      />
-                      {label}
-                    </label>
-                  ))}
-                </div>
+                {/* PANEL_SELECTION_FILTER — the same widget the footprint
+                    editor docks. Right-clicking a category pops "Only <label>". */}
+                <SelectionFilterPanel
+                  filter={selFilter}
+                  onChange={setSelFilter}
+                  onContextMenu={(x, y, item) => setFilterMenu({ x, y, item })}
+                />
               </div>
             </div>
           </div>
@@ -8105,46 +7747,13 @@ export function PcbEditor({
         />
       )}
 
-      {/* Selection Filter right-click menu (PANEL_SELECTION_FILTER::onRightClick):
-          a single "Only <category>" entry that unchecks everything else. */}
+      {/* PANEL_SELECTION_FILTER::onRightClick's one-item wxMenu. */}
       {filterMenu && (
-        <>
-          <div
-            style={{ position: 'fixed', inset: 0, zIndex: 60 }}
-            onMouseDown={() => setFilterMenu(null)}
-            onContextMenu={(e) => {
-              e.preventDefault();
-              setFilterMenu(null);
-            }}
-          />
-          <div
-            style={{
-              position: 'fixed',
-              left: Math.min(filterMenu.x, window.innerWidth - 200),
-              top: filterMenu.y,
-              zIndex: 61,
-              background: '#26262b',
-              border: '1px solid #444',
-              borderRadius: 4,
-              minWidth: 160,
-              padding: '4px 0',
-              fontSize: 12,
-              boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
-            }}
-            onMouseDown={(e) => e.stopPropagation()}
-          >
-            <div
-              className="ze-tree-item"
-              style={{ padding: '3px 12px', cursor: 'default' }}
-              onClick={() => {
-                setSelFilter(new Set([filterMenu.key]));
-                setFilterMenu(null);
-              }}
-            >
-              Only {filterMenu.label.toLowerCase()}
-            </div>
-          </div>
-        </>
+        <SelectionFilterOnlyMenu
+          at={filterMenu}
+          onOnly={(key) => setSelFilter(new Set([key]))}
+          onClose={() => setFilterMenu(null)}
+        />
       )}
 
       {/* Layer right-click menu (APPEARANCE_CONTROLS::rightClickHandler /
@@ -8943,1231 +8552,4 @@ function describeBoardItem(board: Board, id: string): string {
         : `Anonymous Group with ${g.members.length} members`;
     }
   }
-}
-
-// ---- KiCad property-grid components (PCB_PROPERTIES_PANEL wxPropertyGrid) -----
-// White name/value text, grey read-only, category bars with the GTK disclosure
-// chevron reused from the project tree, styled by .ze-pg* in shell.css.
-
-/** A collapsible category header (wxPropertyCategory). */
-const PgCat = ({
-  label,
-  open,
-  onToggle,
-}: {
-  label: string;
-  open: boolean;
-  onToggle: () => void;
-}): JSX.Element => (
-  <div className="ze-pg-cat" onClick={onToggle}>
-    <span className={`twisty expandable${open ? ' open' : ''}`} />
-    <span>{label}</span>
-  </div>
-);
-/** Name | value row. */
-const PgRow = ({ label, children }: { label: string; children: ReactNode }): JSX.Element => (
-  <div className="ze-pg-row">
-    <div className="k" title={label}>
-      {label}
-    </div>
-    <div className="v">{children}</div>
-  </div>
-);
-/** Read-only value (greyed). */
-const PgRO = ({ label, value }: { label: string; value: string }): JSX.Element => (
-  <div className="ze-pg-row">
-    <div className="k" title={label}>
-      {label}
-    </div>
-    <div className="v ro" title={value}>
-      {value}
-    </div>
-  </div>
-);
-/** A checkbox value; editable when `onChange` is supplied. */
-const PgCheck = ({
-  label,
-  checked,
-  onChange,
-}: {
-  label: string;
-  checked: boolean;
-  onChange?: (v: boolean) => void;
-}): JSX.Element => (
-  <PgRow label={label}>
-    <input
-      type="checkbox"
-      checked={checked}
-      readOnly={!onChange}
-      onChange={onChange ? (e) => onChange(e.target.checked) : undefined}
-      style={{ margin: 0 }}
-    />
-  </PgRow>
-);
-/** A layer value: color swatch + name. */
-const PgLayer = ({
-  label,
-  layer,
-  color,
-}: {
-  label: string;
-  layer: string;
-  color: string;
-}): JSX.Element => (
-  <PgRow label={label}>
-    <span className="ze-pg-swatch" style={{ background: color }} />
-    <span>{layer}</span>
-  </PgRow>
-);
-/** An editable value cell: shows text; click to edit; Enter/blur commits. */
-function PgEdit({
-  label,
-  value,
-  suffix,
-  onCommit,
-}: {
-  label: string;
-  value: string;
-  suffix?: string;
-  onCommit?: (v: string) => void;
-}): JSX.Element {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(value);
-  const commit = (): void => {
-    setEditing(false);
-    if (onCommit && draft !== value) onCommit(draft);
-  };
-  return (
-    <PgRow label={label}>
-      {editing && onCommit ? (
-        <input
-          className="pg-edit"
-          value={draft}
-          // biome-ignore lint/a11y/noAutofocus: focus the just-opened cell editor
-          autoFocus
-          onChange={(e) => setDraft(e.target.value)}
-          onBlur={commit}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') commit();
-            else if (e.key === 'Escape') setEditing(false);
-          }}
-        />
-      ) : (
-        <span
-          style={{ cursor: onCommit ? 'text' : 'default', width: '100%' }}
-          onClick={() => {
-            if (onCommit) {
-              setDraft(value);
-              setEditing(true);
-            }
-          }}
-        >
-          {value}
-          {suffix ? ` ${suffix}` : ''}
-        </span>
-      )}
-    </PgRow>
-  );
-}
-
-/** Footprint orientation the KiCad way: normalized to (-180°, 180°], trimmed. */
-const fmtOrient = (deg: number): string => {
-  let a = ((deg % 360) + 360) % 360;
-  if (a > 180) a -= 360;
-  return String(Number.parseFloat(a.toFixed(4)));
-};
-
-/** A footprint edit from the Properties grid (PCB_PROPERTIES_PANEL fields). */
-type FpEdit =
-  | { kind: 'pos'; axis: 'x' | 'y'; valueMM: number }
-  | { kind: 'orient'; deg: number }
-  | { kind: 'field'; field: 'reference' | 'value'; value: string }
-  | { kind: 'locked'; locked: boolean };
-
-/** The FOOTPRINT property grid (collapsible categories; editable fields). */
-function FootprintProps({
-  fp,
-  index,
-  onEdit,
-}: {
-  fp: PcbFootprint;
-  index: number;
-  onEdit?: (index: number, e: FpEdit) => void;
-}): JSX.Element {
-  const [open, setOpen] = useState<Record<string, boolean>>({
-    Basic: true,
-    Fields: true,
-    Attributes: true,
-    Overrides: true,
-  });
-  const toggle = (g: string): void => setOpen((o) => ({ ...o, [g]: !o[g] }));
-  const mm = (iu: number): string => iuToMM(iu).toFixed(4);
-  const attrs = fp.attributes ?? [];
-  const has = (a: string): boolean => attrs.includes(a);
-  return (
-    <div className="ze-pg">
-      <div className="ze-pg-title">Footprint</div>
-      <PgCat label="Basic Properties" open={open.Basic ?? true} onToggle={() => toggle('Basic')} />
-      {(open.Basic ?? true) && (
-        <>
-          <PgEdit
-            label="Position X"
-            value={mm(fp.at.x)}
-            suffix="mm"
-            onCommit={
-              onEdit
-                ? (v) => onEdit(index, { kind: 'pos', axis: 'x', valueMM: Number(v) })
-                : undefined
-            }
-          />
-          <PgEdit
-            label="Position Y"
-            value={mm(fp.at.y)}
-            suffix="mm"
-            onCommit={
-              onEdit
-                ? (v) => onEdit(index, { kind: 'pos', axis: 'y', valueMM: Number(v) })
-                : undefined
-            }
-          />
-          <PgCheck
-            label="Locked"
-            checked={!!fp.locked}
-            onChange={onEdit ? (c) => onEdit(index, { kind: 'locked', locked: c }) : undefined}
-          />
-          <PgLayer label="Layer" layer={fp.layer} color={layerColor(fp.layer)} />
-          <PgEdit
-            label="Orientation"
-            value={fmtOrient(fp.angle)}
-            suffix="°"
-            onCommit={onEdit ? (v) => onEdit(index, { kind: 'orient', deg: Number(v) }) : undefined}
-          />
-        </>
-      )}
-      <PgCat label="Fields" open={open.Fields ?? true} onToggle={() => toggle('Fields')} />
-      {(open.Fields ?? true) && (
-        <>
-          <PgEdit
-            label="Reference"
-            value={fp.reference ?? ''}
-            onCommit={
-              onEdit
-                ? (v) => onEdit(index, { kind: 'field', field: 'reference', value: v })
-                : undefined
-            }
-          />
-          <PgEdit
-            label="Value"
-            value={fp.value ?? ''}
-            onCommit={
-              onEdit ? (v) => onEdit(index, { kind: 'field', field: 'value', value: v }) : undefined
-            }
-          />
-          <PgRO label="Library Link" value={fp.lib} />
-          <PgRO label="Library Description" value={fp.descr ?? ''} />
-          <PgRO label="Keywords" value={fp.tags ?? ''} />
-          <PgRO label="Component Class" value="" />
-        </>
-      )}
-      <PgCat
-        label="Attributes"
-        open={open.Attributes ?? true}
-        onToggle={() => toggle('Attributes')}
-      />
-      {(open.Attributes ?? true) && (
-        <>
-          <PgCheck label="Not in Schematic" checked={has('board_only')} />
-          <PgCheck label="Exclude From Position Files" checked={has('exclude_from_pos_files')} />
-          <PgCheck label="Exclude From Bill of Materials" checked={has('exclude_from_bom')} />
-          <PgCheck label="Do not Populate" checked={has('dnp')} />
-        </>
-      )}
-      <PgCat label="Overrides" open={open.Overrides ?? true} onToggle={() => toggle('Overrides')} />
-      {(open.Overrides ?? true) && (
-        <>
-          <PgCheck
-            label="Exempt From Courtyard Requirement"
-            checked={has('allow_missing_courtyard')}
-          />
-          <PgRO label="Clearance Override" value="" />
-          <PgRO label="Solderpaste Margin Override" value="" />
-          <PgRO label="Solderpaste Margin Ratio Override" value="" />
-          <PgRO label="Zone Connection Style" value="Inherited" />
-        </>
-      )}
-    </div>
-  );
-}
-
-/** Read-only summary of the current selection for the Properties panel, the
- *  first slice of pcbnew's PCB_PROPERTIES_PANEL (editable fields come later). */
-// Property-grid mm formatter (KiCad's PCB_PROPERTIES_PANEL shows 2 decimals).
-const pgMM = (iu: number): string => `${iuToMM(iu).toFixed(2)} mm`;
-/** The bare number a PgEdit cell shows for an IU length (no unit suffix). */
-const pgNum = (iu: number): string => iuToMM(iu).toFixed(4).replace(/0+$/, '').replace(/\.$/, '');
-/** Parse a millimetre cell back to IU, or undefined if it is not a number. */
-const pgIU = (text: string): number | undefined => {
-  const n = Number(text);
-  return Number.isFinite(n) ? mmToIU(n) : undefined;
-};
-
-/**
- * An editable millimetre row: shows `1.23 mm`, commits IU.
- *
- * The panel edits live, one field at a time, so each commit runs the same
- * collect/apply pair the matching dialog uses — the property grid is a second
- * face on those modules, not a second implementation.
- */
-const PgMM = ({
-  label,
-  iu,
-  onCommit,
-}: {
-  label: string;
-  iu: number;
-  onCommit?: (iu: number) => void;
-}): JSX.Element => (
-  <PgEdit
-    label={label}
-    value={pgNum(iu)}
-    suffix="mm"
-    onCommit={
-      onCommit
-        ? (text) => {
-            const v = pgIU(text);
-            if (v !== undefined) onCommit(v);
-          }
-        : undefined
-    }
-  />
-);
-
-/** A choice row (wxEnumProperty). */
-const PgChoice = <T extends string>({
-  label,
-  value,
-  options,
-  onCommit,
-}: {
-  label: string;
-  value: T;
-  options: readonly (readonly [T, string])[];
-  onCommit?: (v: T) => void;
-}): JSX.Element => (
-  <PgRow label={label}>
-    {onCommit ? (
-      <select
-        className="pg-edit"
-        value={value}
-        onChange={(e) => onCommit(e.target.value as T)}
-        style={{ width: '100%' }}
-      >
-        {options.map(([v, l]) => (
-          <option key={v} value={v}>
-            {l}
-          </option>
-        ))}
-      </select>
-    ) : (
-      <span>{options.find(([v]) => v === value)?.[1] ?? value}</span>
-    )}
-  </PgRow>
-);
-
-/**
- * An override cell: blank means inherit, which is not the same as zero.
- * Clearing the box drops the override rather than writing 0.
- */
-const PgOverride = ({
-  label,
-  iu,
-  onCommit,
-}: {
-  label: string;
-  iu: number | null;
-  onCommit?: (v: number | null) => void;
-}): JSX.Element => (
-  <PgEdit
-    label={label}
-    value={iu === null ? '' : pgNum(iu)}
-    suffix={iu === null ? '' : 'mm'}
-    onCommit={
-      onCommit
-        ? (text) => {
-            if (text.trim() === '') {
-              onCommit(null);
-              return;
-            }
-            const v = pgIU(text);
-            if (v !== undefined) onCommit(v);
-          }
-        : undefined
-    }
-  />
-);
-
-/** The PAD property grid (PCB_PROPERTIES_PANEL: PAD reflected properties). */
-function PadProps({
-  board,
-  padRef,
-  netName,
-  onEdit,
-}: {
-  board: Board;
-  padRef: PadRef;
-  netName: (c: number) => string;
-  onEdit?: (next: Board) => void;
-}): JSX.Element | null {
-  const [open, setOpen] = useState<Record<string, boolean>>({
-    Basic: true,
-    Pad: true,
-    Overrides: true,
-  });
-  const toggle = (g: string): void => setOpen((o) => ({ ...o, [g]: !o[g] }));
-
-  const pad = board.footprints[padRef.footprint]?.pads[padRef.pad];
-  if (!pad) return null;
-  const v = collectPadValues(pad);
-
-  const commit = onEdit
-    ? (patch: Partial<PadValues>): void => onEdit(applyPadValues(board, padRef, { ...v, ...patch }))
-    : undefined;
-
-  // A through pad spans all copper (KiCad "All copper layers"); an SMD pad
-  // names its single copper layer.
-  const copperLayers = pad.layers.some((l) => l === '*.Cu')
-    ? 'All copper layers'
-    : pad.layers.filter((l) => /\.Cu$/.test(l)).join(', ') || pad.layers.join(', ');
-
-  return (
-    <div className="ze-pg">
-      <div className="ze-pg-title">Pad</div>
-      <PgCat label="Basic Properties" open={open.Basic ?? true} onToggle={() => toggle('Basic')} />
-      {(open.Basic ?? true) && (
-        <>
-          <PgMM label="Position X" iu={v.x} onCommit={commit ? (x) => commit({ x }) : undefined} />
-          <PgMM label="Position Y" iu={v.y} onCommit={commit ? (y) => commit({ y }) : undefined} />
-          <PgChoice
-            label="Net"
-            value={String(v.net)}
-            options={[...board.nets.entries()].map(
-              ([code, name]) => [String(code), name === '' ? '<no net>' : name] as const,
-            )}
-            onCommit={commit ? (n) => commit({ net: Number(n) }) : undefined}
-          />
-          <PgEdit
-            label="Orientation"
-            value={String(v.orientation)}
-            suffix="°"
-            onCommit={
-              commit
-                ? (t) => {
-                    const n = Number(t);
-                    if (Number.isFinite(n)) commit({ orientation: n });
-                  }
-                : undefined
-            }
-          />
-        </>
-      )}
-      <PgCat label="Pad Properties" open={open.Pad ?? true} onToggle={() => toggle('Pad')} />
-      {(open.Pad ?? true) && (
-        <>
-          <PgChoice
-            label="Pad Type"
-            value={v.type}
-            options={
-              [
-                ['thru_hole', 'Through-hole'],
-                ['smd', 'SMD'],
-                ['connect', 'Edge connector'],
-                ['np_thru_hole', 'NPTH, mechanical'],
-              ] as const
-            }
-            onCommit={
-              commit
-                ? (type) =>
-                    commit({ type, hasHole: type === 'thru_hole' || type === 'np_thru_hole' })
-                : undefined
-            }
-          />
-          <PgChoice
-            label="Pad Shape"
-            value={v.shape}
-            options={
-              [
-                ['circle', 'Circle'],
-                ['rect', 'Rectangle'],
-                ['roundrect', 'Rounded rectangle'],
-                ['oval', 'Oval'],
-                ['trapezoid', 'Trapezoidal'],
-                ['custom', 'Custom'],
-              ] as const
-            }
-            onCommit={commit ? (shape) => commit({ shape }) : undefined}
-          />
-          <PgEdit
-            label="Pad Number"
-            value={v.number}
-            onCommit={commit ? (number) => commit({ number }) : undefined}
-          />
-          <PgRO label="Pin Name" value={pad.pinFunction ?? ''} />
-          <PgRO label="Pin Type" value={pad.pinType ?? ''} />
-          <PgMM
-            label="Size X"
-            iu={v.sizeX}
-            onCommit={commit ? (sizeX) => commit({ sizeX }) : undefined}
-          />
-          {v.shape !== 'circle' && (
-            <PgMM
-              label="Size Y"
-              iu={v.sizeY}
-              onCommit={commit ? (sizeY) => commit({ sizeY }) : undefined}
-            />
-          )}
-          {v.hasHole && (
-            <PgChoice
-              label="Hole Shape"
-              value={v.holeOblong ? 'oval' : 'round'}
-              options={
-                [
-                  ['round', 'Round'],
-                  ['oval', 'Oval'],
-                ] as const
-              }
-              onCommit={commit ? (k) => commit({ holeOblong: k === 'oval' }) : undefined}
-            />
-          )}
-          {v.hasHole && (
-            <PgMM
-              label="Hole Size X"
-              iu={v.holeW}
-              onCommit={commit ? (holeW) => commit({ holeW }) : undefined}
-            />
-          )}
-          {v.hasHole && v.holeOblong && (
-            <PgMM
-              label="Hole Size Y"
-              iu={v.holeH}
-              onCommit={commit ? (holeH) => commit({ holeH }) : undefined}
-            />
-          )}
-          <PgRO label="Copper Layers" value={copperLayers} />
-          <PgOverride
-            label="Pad To Die Length"
-            iu={v.padToDieLength}
-            onCommit={commit ? (padToDieLength) => commit({ padToDieLength }) : undefined}
-          />
-        </>
-      )}
-      <PgCat label="Overrides" open={open.Overrides ?? true} onToggle={() => toggle('Overrides')} />
-      {(open.Overrides ?? true) && (
-        <>
-          <PgOverride
-            label="Clearance Override"
-            iu={v.localClearance}
-            onCommit={commit ? (localClearance) => commit({ localClearance }) : undefined}
-          />
-          <PgOverride
-            label="Soldermask Margin Override"
-            iu={v.localSolderMaskMargin}
-            onCommit={
-              commit ? (localSolderMaskMargin) => commit({ localSolderMaskMargin }) : undefined
-            }
-          />
-          <PgOverride
-            label="Solderpaste Margin Override"
-            iu={v.localSolderPasteMargin}
-            onCommit={
-              commit ? (localSolderPasteMargin) => commit({ localSolderPasteMargin }) : undefined
-            }
-          />
-          <PgEdit
-            label="Solderpaste Margin Ratio Override"
-            value={
-              v.localSolderPasteMarginRatio === null ? '' : String(v.localSolderPasteMarginRatio)
-            }
-            onCommit={
-              commit
-                ? (t) => {
-                    if (t.trim() === '') {
-                      commit({ localSolderPasteMarginRatio: null });
-                      return;
-                    }
-                    const n = Number(t);
-                    if (Number.isFinite(n)) commit({ localSolderPasteMarginRatio: n });
-                  }
-                : undefined
-            }
-          />
-          <PgChoice
-            label="Zone Connection Style"
-            value={v.zoneConnection}
-            options={
-              [
-                ['inherited', 'Inherited'],
-                ['full', 'Solid'],
-                ['thermal', 'Thermal reliefs'],
-                ['none', 'None'],
-              ] as const
-            }
-            onCommit={commit ? (zoneConnection) => commit({ zoneConnection }) : undefined}
-          />
-          <PgOverride
-            label="Thermal Relief Gap"
-            iu={v.thermalGap}
-            onCommit={commit ? (thermalGap) => commit({ thermalGap }) : undefined}
-          />
-          <PgOverride
-            label="Thermal Spoke Width"
-            iu={v.thermalBridgeWidth}
-            onCommit={commit ? (thermalBridgeWidth) => commit({ thermalBridgeWidth }) : undefined}
-          />
-        </>
-      )}
-    </div>
-  );
-}
-
-/** The TRACK / ARC property grid (PCB_TRACK reflected properties). */
-function TrackProps({
-  board,
-  id,
-  netName,
-  layers,
-  onEdit,
-}: {
-  board: Board;
-  id: string;
-  netName: (c: number) => string;
-  layers: readonly string[];
-  onEdit?: (next: Board) => void;
-}): JSX.Element | null {
-  const [open, setOpen] = useState<Record<string, boolean>>({ Basic: true, Track: true });
-  const toggle = (g: string): void => setOpen((o) => ({ ...o, [g]: !o[g] }));
-
-  const sel = trackViaSelection(board, [id]);
-  const t = sel.tracks[0]?.item ?? sel.arcs[0]?.item;
-  if (!t) return null;
-  const isArc = sel.arcs.length > 0;
-
-  // One field at a time, through the same collect/apply pair the dialog uses.
-  const commit = onEdit
-    ? (patch: Partial<TrackViaValues>): void => onEdit(applyTrackViaValues(board, sel, patch))
-    : undefined;
-
-  return (
-    <div className="ze-pg">
-      <div className="ze-pg-title">{isArc ? 'Track (Arc)' : 'Track'}</div>
-      <PgCat label="Basic Properties" open={open.Basic ?? true} onToggle={() => toggle('Basic')} />
-      {(open.Basic ?? true) && (
-        <>
-          {/* An arc's endpoints follow its mid point, so they stay read-only. */}
-          <PgMM
-            label="Start X"
-            iu={t.start.x}
-            onCommit={!isArc && commit ? (v) => commit({ startX: v }) : undefined}
-          />
-          <PgMM
-            label="Start Y"
-            iu={t.start.y}
-            onCommit={!isArc && commit ? (v) => commit({ startY: v }) : undefined}
-          />
-          <PgMM
-            label="End X"
-            iu={t.end.x}
-            onCommit={!isArc && commit ? (v) => commit({ endX: v }) : undefined}
-          />
-          <PgMM
-            label="End Y"
-            iu={t.end.y}
-            onCommit={!isArc && commit ? (v) => commit({ endY: v }) : undefined}
-          />
-          <PgChoice
-            label="Net"
-            value={String(t.net)}
-            options={[...board.nets.entries()].map(
-              ([code, name]) => [String(code), name === '' ? '<no net>' : name] as const,
-            )}
-            onCommit={commit ? (v) => commit({ net: Number(v) }) : undefined}
-          />
-        </>
-      )}
-      <PgCat label="Track Properties" open={open.Track ?? true} onToggle={() => toggle('Track')} />
-      {(open.Track ?? true) && (
-        <>
-          <PgChoice
-            label="Layer"
-            value={t.layer}
-            options={layers.map((l) => [l, l] as const)}
-            onCommit={commit ? (v) => commit({ layer: v }) : undefined}
-          />
-          <PgMM
-            label="Width"
-            iu={t.width}
-            onCommit={commit ? (v) => commit({ trackWidth: v }) : undefined}
-          />
-          <PgCheck
-            label="Locked"
-            checked={t.locked ?? false}
-            onChange={commit ? (v) => commit({ locked: v }) : undefined}
-          />
-        </>
-      )}
-    </div>
-  );
-}
-
-/** The VIA property grid (PCB_VIA reflected properties). */
-function ViaProps({
-  board,
-  id,
-  layers,
-  onEdit,
-}: {
-  board: Board;
-  id: string;
-  layers: readonly string[];
-  onEdit?: (next: Board) => void;
-}): JSX.Element | null {
-  const [open, setOpen] = useState<Record<string, boolean>>({ Basic: true, Via: true });
-  const toggle = (g: string): void => setOpen((o) => ({ ...o, [g]: !o[g] }));
-
-  const sel = trackViaSelection(board, [id]);
-  const via = sel.vias[0]?.item;
-  if (!via) return null;
-
-  const commit = onEdit
-    ? (patch: Partial<TrackViaValues>): void => onEdit(applyTrackViaValues(board, sel, patch))
-    : undefined;
-
-  return (
-    <div className="ze-pg">
-      <div className="ze-pg-title">Via</div>
-      <PgCat label="Basic Properties" open={open.Basic ?? true} onToggle={() => toggle('Basic')} />
-      {(open.Basic ?? true) && (
-        <>
-          <PgMM
-            label="Position X"
-            iu={via.at.x}
-            onCommit={commit ? (v) => commit({ viaX: v }) : undefined}
-          />
-          <PgMM
-            label="Position Y"
-            iu={via.at.y}
-            onCommit={commit ? (v) => commit({ viaY: v }) : undefined}
-          />
-          <PgChoice
-            label="Net"
-            value={String(via.net)}
-            options={[...board.nets.entries()].map(
-              ([code, name]) => [String(code), name === '' ? '<no net>' : name] as const,
-            )}
-            onCommit={commit ? (v) => commit({ net: Number(v) }) : undefined}
-          />
-        </>
-      )}
-      <PgCat label="Via Properties" open={open.Via ?? true} onToggle={() => toggle('Via')} />
-      {(open.Via ?? true) && (
-        <>
-          <PgChoice
-            label="Via Type"
-            value={via.kind}
-            options={
-              [
-                ['through', 'Through'],
-                ['blind', 'Blind/buried'],
-                ['micro', 'Microvia'],
-              ] as const
-            }
-            onCommit={commit ? (v) => commit({ viaType: v }) : undefined}
-          />
-          <PgMM
-            label="Diameter"
-            iu={via.size}
-            onCommit={commit ? (v) => commit({ viaDiameter: v }) : undefined}
-          />
-          <PgMM
-            label="Hole"
-            iu={via.drill}
-            onCommit={commit ? (v) => commit({ viaDrill: v }) : undefined}
-          />
-          <PgChoice
-            label="Layer Top"
-            value={via.layers[0]}
-            options={layers.map((l) => [l, l] as const)}
-            onCommit={commit ? (v) => commit({ startLayer: v }) : undefined}
-          />
-          <PgChoice
-            label="Layer Bottom"
-            value={via.layers[1]}
-            options={layers.map((l) => [l, l] as const)}
-            onCommit={commit ? (v) => commit({ endLayer: v }) : undefined}
-          />
-          <PgCheck
-            label="Locked"
-            checked={via.locked ?? false}
-            onChange={commit ? (v) => commit({ locked: v }) : undefined}
-          />
-        </>
-      )}
-      <PgCat label="Teardrops" open={open.Td ?? false} onToggle={() => toggle('Td')} />
-      {open.Td && (
-        <>
-          <PgCheck
-            label="Enabled"
-            checked={via.teardrops?.enabled ?? false}
-            onChange={commit ? (v) => commit({ tdEnabled: v }) : undefined}
-          />
-          <PgCheck
-            label="Curved Edges"
-            checked={via.teardrops?.curvedEdges ?? false}
-            onChange={commit ? (v) => commit({ tdCurvedEdges: v }) : undefined}
-          />
-        </>
-      )}
-    </div>
-  );
-}
-
-/** The ZONE property grid (ZONE reflected properties). */
-function ZoneProps({
-  board,
-  index,
-  netName,
-  onEdit,
-}: {
-  board: Board;
-  index: number;
-  netName: (c: number) => string;
-  onEdit?: (next: Board) => void;
-}): JSX.Element | null {
-  const [open, setOpen] = useState<Record<string, boolean>>({ Basic: true, Fill: true });
-  const toggle = (g: string): void => setOpen((o) => ({ ...o, [g]: !o[g] }));
-
-  const zone = board.zones[index];
-  if (!zone) return null;
-  const v = collectZoneValues(zone);
-
-  // A zone edit changes the pour, so the fill is rebuilt with it — the same
-  // thing the dialog does on OK.
-  const commit = onEdit
-    ? (patch: Partial<ZoneValues>): void =>
-        onEdit(fillZones(applyZoneValues(board, index, { ...v, ...patch })))
-    : undefined;
-
-  return (
-    <div className="ze-pg">
-      <div className="ze-pg-title">Copper Zone</div>
-      <PgCat label="Basic Properties" open={open.Basic ?? true} onToggle={() => toggle('Basic')} />
-      {(open.Basic ?? true) && (
-        <>
-          <PgEdit
-            label="Name"
-            value={v.name}
-            onCommit={commit ? (name) => commit({ name }) : undefined}
-          />
-          <PgChoice
-            label="Net"
-            value={String(v.net)}
-            options={[...board.nets.entries()].map(
-              ([code, name]) => [String(code), name === '' ? '<no net>' : name] as const,
-            )}
-            onCommit={commit ? (n) => commit({ net: Number(n) }) : undefined}
-          />
-          <PgRO label="Layers" value={zone.layers.join(', ')} />
-          <PgEdit
-            label="Priority"
-            value={String(v.priority)}
-            onCommit={
-              commit
-                ? (t) => {
-                    const n = Number(t);
-                    if (Number.isFinite(n)) commit({ priority: n });
-                  }
-                : undefined
-            }
-          />
-          <PgCheck
-            label="Locked"
-            checked={v.locked}
-            onChange={commit ? (locked) => commit({ locked }) : undefined}
-          />
-        </>
-      )}
-      <PgCat label="Fill Style" open={open.Fill ?? true} onToggle={() => toggle('Fill')} />
-      {(open.Fill ?? true) && (
-        <>
-          <PgChoice
-            label="Border Display"
-            value={v.hatchStyle}
-            options={
-              [
-                ['none', 'Line'],
-                ['edge', 'Hatched'],
-                ['full', 'Fully hatched'],
-                ['invisible', 'Invisible'],
-              ] as const
-            }
-            onCommit={commit ? (hatchStyle) => commit({ hatchStyle }) : undefined}
-          />
-          <PgCheck
-            label="Filled"
-            checked={v.filled}
-            onChange={commit ? (filled) => commit({ filled }) : undefined}
-          />
-          <PgChoice
-            label="Fill Type"
-            value={v.fillMode}
-            options={
-              [
-                ['solid', 'Solid fill'],
-                ['hatch', 'Hatch pattern'],
-                ['thieving', 'Copper thieving'],
-              ] as const
-            }
-            onCommit={commit ? (fillMode) => commit({ fillMode }) : undefined}
-          />
-          <PgMM
-            label="Clearance"
-            iu={v.clearance}
-            onCommit={commit ? (clearance) => commit({ clearance }) : undefined}
-          />
-          <PgMM
-            label="Min Width"
-            iu={v.minThickness}
-            onCommit={commit ? (minThickness) => commit({ minThickness }) : undefined}
-          />
-          <PgChoice
-            label="Pad Connections"
-            value={v.padConnection}
-            options={
-              [
-                ['full', 'Solid'],
-                ['thermal', 'Thermal reliefs'],
-                ['thru_hole_only', 'Reliefs for PTH'],
-                ['none', 'None'],
-              ] as const
-            }
-            onCommit={commit ? (padConnection) => commit({ padConnection }) : undefined}
-          />
-          <PgMM
-            label="Thermal Gap"
-            iu={v.thermalGap}
-            onCommit={commit ? (thermalGap) => commit({ thermalGap }) : undefined}
-          />
-          <PgMM
-            label="Thermal Spoke Width"
-            iu={v.thermalBridgeWidth}
-            onCommit={commit ? (thermalBridgeWidth) => commit({ thermalBridgeWidth }) : undefined}
-          />
-          <PgChoice
-            label="Remove Islands"
-            value={v.islandRemovalMode}
-            options={
-              [
-                ['always', 'Always'],
-                ['never', 'Never'],
-                ['area', 'Below area limit'],
-              ] as const
-            }
-            onCommit={commit ? (islandRemovalMode) => commit({ islandRemovalMode }) : undefined}
-          />
-        </>
-      )}
-    </div>
-  );
-}
-
-function PcbSelectionInfo({
-  board,
-  selection,
-  onEditFootprint,
-  onEdit,
-}: {
-  board: Board | null;
-  selection: ReadonlySet<string>;
-  onEditFootprint?: (index: number, e: FpEdit) => void;
-  /** Commit a whole new board; the panel edits live, one field at a time. */
-  onEdit?: (next: Board) => void;
-}): JSX.Element {
-  const ids = [...selection];
-
-  if (!board) return <div className="ze-muted">...</div>;
-
-  const layerNames = board.layers.map((l) => l.name);
-  const copperLayers = layerNames.filter((l) => /\.Cu$/.test(l));
-
-  if (ids.length === 1) {
-    const id = ids[0]!;
-    const ref = parseBoardItemId(id);
-    const netName = (code: number): string => board.nets.get(code) || `(net ${code})`;
-
-    if (ref) {
-      switch (ref.kind) {
-        case 'track':
-        case 'arc':
-          return (
-            <TrackProps
-              board={board}
-              id={id}
-              netName={netName}
-              layers={copperLayers}
-              onEdit={onEdit}
-            />
-          );
-        case 'via':
-          return <ViaProps board={board} id={id} layers={copperLayers} onEdit={onEdit} />;
-        case 'pad':
-          return (
-            <PadProps
-              board={board}
-              padRef={{ footprint: ref.index, pad: ref.sub ?? 0 }}
-              netName={netName}
-              onEdit={onEdit}
-            />
-          );
-        case 'footprint': {
-          const f = board.footprints[ref.index];
-          if (f) return <FootprintProps fp={f} index={ref.index} onEdit={onEditFootprint} />;
-          break;
-        }
-        case 'zone':
-          return <ZoneProps board={board} index={ref.index} netName={netName} onEdit={onEdit} />;
-        case 'shape':
-          return (
-            <GraphicShapeProps
-              board={board}
-              index={ref.index}
-              layers={layerNames}
-              onEdit={onEdit}
-            />
-          );
-        case 'text':
-          return (
-            <GraphicTextProps board={board} index={ref.index} layers={layerNames} onEdit={onEdit} />
-          );
-      }
-    }
-  }
-
-  // Multiple items: a per-kind tally (pcbnew's status "N items selected").
-  const counts = new Map<string, number>();
-  for (const id of ids) {
-    const r = parseBoardItemId(id);
-    if (r) counts.set(r.kind, (counts.get(r.kind) ?? 0) + 1);
-  }
-  return (
-    <div>
-      <b>{ids.length} items selected</b>
-      {[...counts].map(([k, n]) => (
-        <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '1px 0' }}>
-          <span className="ze-muted">{k}</span>
-          <span>{n}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-/** The board-text property grid (PCB_TEXT reflected properties). */
-function GraphicTextProps({
-  board,
-  index,
-  layers,
-  onEdit,
-}: {
-  board: Board;
-  index: number;
-  layers: readonly string[];
-  onEdit?: (next: Board) => void;
-}): JSX.Element | null {
-  const [open, setOpen] = useState<Record<string, boolean>>({ Basic: true, Font: true });
-  const toggle = (g: string): void => setOpen((o) => ({ ...o, [g]: !o[g] }));
-
-  const t = board.texts[index];
-  if (!t) return null;
-  const v = collectTextValues(t);
-
-  const commit = onEdit
-    ? (patch: Partial<TextValues>): void =>
-        onEdit(applyTextValues(board, index, { ...v, ...patch }))
-    : undefined;
-
-  return (
-    <div className="ze-pg">
-      <div className="ze-pg-title">Text</div>
-      <PgCat label="Basic Properties" open={open.Basic ?? true} onToggle={() => toggle('Basic')} />
-      {(open.Basic ?? true) && (
-        <>
-          <PgEdit
-            label="Text"
-            value={v.text}
-            onCommit={commit ? (text) => commit({ text }) : undefined}
-          />
-          <PgMM label="Position X" iu={v.x} onCommit={commit ? (x) => commit({ x }) : undefined} />
-          <PgMM label="Position Y" iu={v.y} onCommit={commit ? (y) => commit({ y }) : undefined} />
-          <PgEdit
-            label="Orientation"
-            value={String(v.orientation)}
-            suffix="°"
-            onCommit={
-              commit
-                ? (s) => {
-                    const n = Number(s);
-                    if (Number.isFinite(n)) commit({ orientation: n });
-                  }
-                : undefined
-            }
-          />
-          <PgChoice
-            label="Layer"
-            value={v.layer}
-            options={layers.map((l) => [l, l] as const)}
-            onCommit={commit ? (layer) => commit({ layer }) : undefined}
-          />
-          <PgCheck
-            label="Locked"
-            checked={v.locked}
-            onChange={commit ? (locked) => commit({ locked }) : undefined}
-          />
-        </>
-      )}
-      <PgCat label="Text Properties" open={open.Font ?? true} onToggle={() => toggle('Font')} />
-      {(open.Font ?? true) && (
-        <>
-          <PgMM
-            label="Width"
-            iu={v.width}
-            onCommit={commit ? (width) => commit({ width }) : undefined}
-          />
-          <PgMM
-            label="Height"
-            iu={v.height}
-            onCommit={commit ? (height) => commit({ height }) : undefined}
-          />
-          <PgMM
-            label="Thickness"
-            iu={v.thickness}
-            onCommit={commit ? (thickness) => commit({ thickness }) : undefined}
-          />
-          <PgCheck
-            label="Bold"
-            checked={v.bold}
-            onChange={commit ? (bold) => commit({ bold }) : undefined}
-          />
-          <PgCheck
-            label="Italic"
-            checked={v.italic}
-            onChange={commit ? (italic) => commit({ italic }) : undefined}
-          />
-          <PgCheck
-            label="Mirrored"
-            checked={v.mirrored}
-            onChange={commit ? (mirrored) => commit({ mirrored }) : undefined}
-          />
-          <PgCheck
-            label="Knockout"
-            checked={v.knockout}
-            onChange={commit ? (knockout) => commit({ knockout }) : undefined}
-          />
-          <PgCheck
-            label="Hidden"
-            checked={v.hidden}
-            onChange={commit ? (hidden) => commit({ hidden }) : undefined}
-          />
-        </>
-      )}
-    </div>
-  );
-}
-
-/** The board-graphic property grid (PCB_SHAPE reflected properties). */
-function GraphicShapeProps({
-  board,
-  index,
-  layers,
-  onEdit,
-}: {
-  board: Board;
-  index: number;
-  layers: readonly string[];
-  onEdit?: (next: Board) => void;
-}): JSX.Element | null {
-  const [open, setOpen] = useState<Record<string, boolean>>({ Basic: true, Stroke: true });
-  const toggle = (g: string): void => setOpen((o) => ({ ...o, [g]: !o[g] }));
-
-  const shape = board.shapes[index];
-  if (!shape) return null;
-  const v = collectShapeValues(shape);
-  const used = shapePointsUsed(shape.kind);
-
-  const commit = onEdit
-    ? (patch: Partial<ShapeValues>): void =>
-        onEdit(applyShapeValues(board, index, { ...v, ...patch }))
-    : undefined;
-
-  const pt = (label: string, key: 'start' | 'end' | 'mid' | 'center'): JSX.Element => (
-    <>
-      <PgMM
-        label={`${label} X`}
-        iu={v[key].x}
-        onCommit={commit ? (x) => commit({ [key]: { ...v[key], x } }) : undefined}
-      />
-      <PgMM
-        label={`${label} Y`}
-        iu={v[key].y}
-        onCommit={commit ? (y) => commit({ [key]: { ...v[key], y } }) : undefined}
-      />
-    </>
-  );
-
-  return (
-    <div className="ze-pg">
-      <div className="ze-pg-title">Graphic ({shape.kind})</div>
-      <PgCat label="Basic Properties" open={open.Basic ?? true} onToggle={() => toggle('Basic')} />
-      {(open.Basic ?? true) && (
-        <>
-          {used.center && pt('Center', 'center')}
-          {used.start && pt('Start', 'start')}
-          {used.mid && pt('Mid', 'mid')}
-          {used.end && pt(shape.kind === 'circle' ? 'Radius' : 'End', 'end')}
-          <PgChoice
-            label="Layer"
-            value={v.layer}
-            options={layers.map((l) => [l, l] as const)}
-            onCommit={commit ? (layer) => commit({ layer }) : undefined}
-          />
-          <PgCheck
-            label="Locked"
-            checked={v.locked}
-            onChange={commit ? (locked) => commit({ locked }) : undefined}
-          />
-        </>
-      )}
-      <PgCat label="Stroke" open={open.Stroke ?? true} onToggle={() => toggle('Stroke')} />
-      {(open.Stroke ?? true) && (
-        <>
-          <PgMM
-            label="Line Width"
-            iu={v.lineWidth}
-            onCommit={commit ? (lineWidth) => commit({ lineWidth }) : undefined}
-          />
-          <PgChoice
-            label="Line Style"
-            value={v.strokeType}
-            // ENUM_MAP<LINE_STYLE> (common/eda_shape.cpp:2833) is what the
-            // properties manager offers: the five lineTypeNames, no DEFAULT.
-            options={LINE_STYLE_CHOICES}
-            onCommit={commit ? (strokeType) => commit({ strokeType }) : undefined}
-          />
-          <PgCheck
-            label="Filled"
-            checked={v.filled}
-            onChange={commit ? (filled) => commit({ filled }) : undefined}
-          />
-        </>
-      )}
-    </div>
-  );
 }

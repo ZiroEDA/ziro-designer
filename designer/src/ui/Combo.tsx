@@ -50,6 +50,7 @@ export interface ComboOption {
 }
 
 export function Combo({
+  id,
   value,
   options,
   onChange,
@@ -60,6 +61,12 @@ export function Combo({
   ariaLabel,
   autoFocus,
 }: {
+  /**
+   * Forwarded to the button, so a `<label htmlFor>` beside it still points at
+   * its control. A wxChoice is always paired with a wxStaticText upstream and
+   * the two grey together; without this the association silently dangles.
+   */
+  id?: string;
   value: string;
   options: readonly ComboOption[];
   onChange: (value: string) => void;
@@ -136,6 +143,7 @@ export function Combo({
   return (
     <>
       <button
+        id={id}
         ref={btnRef}
         type="button"
         className={`ze-combo${className ? ` ${className}` : ''}`}

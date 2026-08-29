@@ -12,7 +12,7 @@ import { toolbarContextMenu } from './toolbar_context_menu_registry.js';
 // The data types live in toolbar_types.ts so toolbar inventory modules stay
 // reachable from qa's tsconfig, which compiles .ts only. Re-exported here so
 // every existing importer keeps working.
-import { groupIsCheckItem, nextInGroup } from './toolbar_types.js';
+import { groupIsCheckItem, nextInGroup, toolbarButtonDisabled } from './toolbar_types.js';
 import type { ToolButton, ToolGroup, ToolControl, ToolSpacer, ToolEntry } from './toolbar_types.js';
 export type { ToolButton, ToolGroup, ToolControl, ToolSpacer, ToolEntry };
 
@@ -111,7 +111,7 @@ export function Toolbar({
     };
   }, [palette]);
 
-  const isDisabled = (b: ToolButton): boolean => !!b.disabled || !!disabledIds?.has(b.id);
+  const isDisabled = (b: ToolButton): boolean => toolbarButtonDisabled(b, disabledIds);
 
   /** The action a group button currently displays and activates. */
   const displayedAction = (g: ToolGroup): ToolButton => {

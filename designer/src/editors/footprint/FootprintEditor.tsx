@@ -39,7 +39,9 @@ import { formatTitle, useDocumentTitle } from '../../ui/useDocumentTitle.js';
 import { FP_FRAME_NAME, fpFrameTitle } from './frame_title.js';
 import { useUnsavedGuard } from '../../ui/useUnsavedGuard.js';
 import { LibraryLoadingPanel } from '../../widgets/library_loading_panel.js';
-import { toolbarIconUrl } from '../../ui/toolbarIcons.js';
+import { LibTree } from '../../widgets/lib_tree.js';
+import { LibTreeNode, LibTreeNodeType } from '../../widgets/lib_tree_model.js';
+import { FpTreeSynchronizingAdapter } from './fp_tree_synchronizing_adapter.js';
 import { KiStatusBar } from '../../ui/KiStatusBar.js';
 import { MsgPanel, type MsgPanelItem } from '../../ui/MsgPanel.js';
 import {
@@ -69,8 +71,33 @@ import {
   FOOTPRINT_LAYERS,
   FP_DEFAULT_ACTIVE_LAYER,
 } from './footprintBoard.js';
-import { layerColor } from '../pcb/pcbTheme.js';
-import { appearanceLayerRows, layerTooltip } from '../../widgets/appearance_layers.js';
+import { layerColor, PCB_OBJECT_COLORS } from '../pcb/pcbTheme.js';
+import { appearanceLayerRows } from '../../widgets/appearance_layers.js';
+// APPEARANCE_CONTROLS and PANEL_SELECTION_FILTER are the same two widgets
+// pcbnew docks; FOOTPRINT_EDIT_FRAME passes `aFpEditor = true` and its own
+// board's data, and that is the whole of the difference
+// (footprint_edit_frame.cpp:177-178).
+import { AppearanceControls, type AppearanceTab } from '../../widgets/appearance_controls.js';
+import {
+  DEFAULT_OBJECTS,
+  DEFAULT_OPACITY,
+  OBJECT_ROWS,
+  toggleObject,
+  type ObjectState,
+} from '../../widgets/appearance_objects.js';
+import {
+  BUILTIN_PRESETS,
+  matchPresetName,
+  presetComboItems,
+  PRESET_SEPARATOR,
+  viewportComboItems,
+} from '../../widgets/appearance_presets.js';
+import {
+  DEFAULT_SELECTION_FILTER_OPTIONS,
+  SelectionFilterOnlyMenu,
+  SelectionFilterPanel,
+  type SelectionFilterItem,
+} from '../../widgets/panel_selection_filter.js';
 import { GetLayerName } from '@ziroeda/pcbnew/src/layer_ids.js';
 import { DEFAULT_DRAW_OPTIONS, type PcbDrawOptions } from '../pcb/renderBoard.js';
 import '../../ui/shell.css';
@@ -134,6 +161,18 @@ const FP_DEFAULT_GRID = defaultGridIU('pcbnew', PCB_IU_PER_MM);
 const basename = (p: string): string => p.split('/').pop()!.split('\\').pop()!;
 
 const ALL_FP_LAYERS = FOOTPRINT_LAYERS.map((l) => l.name);
+
+/**
+ * The two combos under the notebook.
+ *
+ * `loadDefaultLayerPresets` and `rebuildViewportsWidget` are called from the
+ * one `APPEARANCE_CONTROLS` constructor with no `m_isFpEditor` branch, so this
+ * frame gets the same eight built-in presets pcbnew does. Neither list can grow
+ * here yet: this frame has no project to save a user preset or a viewport into,
+ * which is why both "Delete …" rows are handed in disabled.
+ */
+const PRESET_ITEMS = presetComboItems();
+const VIEWPORT_ITEMS = viewportComboItems();
 
 // The left toolbar's radio groups, its opening state and its reducer are in
 // `toggles.ts` rather than here, because `qa`'s tsconfig compiles `.ts` only:
@@ -238,6 +277,33 @@ export function FootprintEditor({
   const [visible, setVisible] = useState<ReadonlySet<string>>(new Set(ALL_FP_LAYERS));
   // `SetActiveLayer( F_SilkS )` — see `FP_DEFAULT_ACTIVE_LAYER`.
   const [activeLayer, setActiveLayer] = useState(FP_DEFAULT_ACTIVE_LAYER);
+  // ----- APPEARANCE_CONTROLS' state -------------------------------------------
+  //
+  // Held by the frame, exactly as upstream holds it on the BOARD/VIEW and the
+  // panel reads it back through `getVisibleLayers()` / `getVisibleObjects()`.
+  // Every one of these had no counterpart here at all: the panel was a list of
+  // coloured squares with no tabs, no objects, no display options and no
+  // presets.
+  const [tab, setTab] = useState<AppearanceTab>('Layers');
+  const [objects, setObjects] = useState<ObjectState>(DEFAULT_OBJECTS);
+  const [opacity, setOpacity] = useState(DEFAULT_OPACITY);
+  /** HIGH_CONTRAST_MODE, `m_ContrastModeDisplay` (NORMAL by default). */
+  const [contrast, setContrast] = useState<'normal' | 'dim' | 'hide'>('normal');
+  /** `PCB_DISPLAY_OPTIONS::m_FlipBoardView`. */
+  const [flipBoard, setFlipBoard] = useState(false);
+  /** `m_paneLayerDisplayOptions->Collapse()` (appearance_controls.cpp:628). */
+  const [layerOptsOpen, setLayerOptsOpen] = useState(false);
+  /** `m_tool->GetFilter()`, PANEL_SELECTION_FILTER's options. */
+  const [selFilter, setSelFilter] = useState<Set<string>>(
+    new Set(DEFAULT_SELECTION_FILTER_OPTIONS),
+  );
+  const [filterMenu, setFilterMenu] = useState<{
+    x: number;
+    y: number;
+    item: SelectionFilterItem;
+  } | null>(null);
+  /** `m_cbViewports->SetSelection( GetCount() - 3 )` — the separator. */
+  const [viewportSel, setViewportSel] = useState(PRESET_SEPARATOR);
   const [toggles, setToggles] = useState<Set<string>>(new Set(DEFAULT_TOGGLES));
   const [activeTool, setActiveTool] = useState('selectSetRect');
   /** Whether any tool has been pushed since the frame opened — see `selectTool`. */
@@ -251,11 +317,38 @@ export function FootprintEditor({
   const [status, setStatus] = useState('');
   const [loading, setLoading] = useState<string | null>(null);
 
-  // Library tree state (LIB_TREE: search box + expandable libraries).
-  const [query, setQuery] = useState('');
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  /**
+   * `GetLibTree()->GetSelectedLibId()`, the tree's selection as this frame
+   * reads it back — the four conditions in `FOOTPRINT_EDITOR_CONTROL::Init`
+   * and `GetTargetFPID`.
+   *
+   * The search string and the expansion state are NOT here any more: they
+   * belong to `LIB_TREE`, and a frame that kept its own copies is what made
+   * the shared widget unmountable in this pane.
+   */
   const [treeSel, setTreeSel] = useState<{ lib: string; name: string | null } | null>(null);
-  const [panelWidth, setPanelWidth] = useState(LIBRARY_TREE_WIDTH);
+  /**
+   * The Footprints pane's width, `m_editorSettings->m_LibWidth`.
+   *
+   * `FOOTPRINT_EDIT_FRAME` restores it with `SetAuiPaneSize( m_auimgr, treePane,
+   * libWidth, -1 )` while the frame is being built (`:279-280`) and writes
+   * `m_treePane->GetSize().x` back in `SaveSettings` (`:837`) and whenever the
+   * pane is hidden (`:414`). We never persisted it, so every session opened at
+   * the default however the user had left it.
+   *
+   * `LIBRARY_TREE_WIDTH` is still the fallback: it is `PARAM<int>(
+   * "window.lib_width", &m_LibWidth, 250 )`'s default and the pane's own
+   * `BestSize`, which is the same number twice upstream.
+   */
+  const [panelWidth, setPanelWidth] = useState(
+    () => settings.fpEdit.window.lib_width || LIBRARY_TREE_WIDTH,
+  );
+  /** Read by `onLeftToggle`, which must not be rebuilt on every drag frame. */
+  const panelWidthRef = useRef(panelWidth);
+  panelWidthRef.current = panelWidth;
+  /** The same, for the toggle set it is about to change. */
+  const togglesRef = useRef<ReadonlySet<string>>(toggles);
+  togglesRef.current = toggles;
   const [newLibName, setNewLibName] = useState<string | null>(null);
   const [newFpName, setNewFpName] = useState<string | null>(null);
   const [propsOpen, setPropsOpen] = useState(false);
@@ -319,12 +412,35 @@ export function FootprintEditor({
 
   const targetLib = treeSel?.lib ?? curLib;
 
+  /**
+   * Draw options from the Appearance panel's Objects tab and its Layer Display
+   * Options, the way pcbnew derives them — the controls are the same widget's,
+   * so what they mean has to be the same too. Before the panel was shared this
+   * frame had no Objects tab at all, and the only line here was the pad sketch
+   * mode.
+   */
   const drawOpts = useMemo<PcbDrawOptions>(
     () => ({
       ...DEFAULT_DRAW_OPTIONS,
-      padOpacity: toggles.has('padDisplayMode') ? 0.5 : 1,
+      tracks: objects.tracks,
+      vias: objects.vias,
+      pads: objects.pads,
+      zones: objects.zones,
+      fpValues: objects.fpValues,
+      fpReferences: objects.fpReferences,
+      fpText: objects.fpText,
+      drawingSheet: objects.drawingSheet,
+      trackOpacity: opacity.tracks,
+      viaOpacity: opacity.vias,
+      padOpacity: opacity.pads,
+      zoneOpacity: opacity.zones,
+      filledShapeOpacity: opacity.filledShapes,
+      // Display-mode toggle: on = sketch (outline) = fill off (m_DisplayPadFill).
+      padFill: !toggles.has('padDisplayMode'),
+      contrastMode: contrast,
+      activeLayer,
     }),
-    [toggles],
+    [toggles, objects, opacity, contrast, activeLayer],
   );
 
   // ----- load / save ------------------------------------------------------------
@@ -366,7 +482,9 @@ export function FootprintEditor({
     const names = manager.current.footprintNames(lib);
     const target = names.find((n) => n.toLowerCase() === name.toLowerCase()) ?? names[0];
     if (!target) return;
-    setExpanded((s) => new Set(s).add(lib));
+    // `LIB_TREE::SelectLibId`, which expands the ancestors and selects — the
+    // frame no longer owns an expansion set to add to.
+    setSelectLibId(`${lib}:${target}`);
     setTreeSel({ lib, name: target });
     void loadFootprint(lib, target);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -650,7 +768,7 @@ export function FootprintEditor({
       if (!libName || !name.trim()) return;
       const fp = newFootprint(name.trim());
       manager.current.updateFootprint(libName, name.trim(), fp);
-      setExpanded((p) => new Set([...p, libName]));
+      setSelectLibId(`${libName}:${name.trim()}`);
       bump();
       void loadFootprint(libName, name.trim());
     },
@@ -663,7 +781,7 @@ export function FootprintEditor({
       if (entries.length === 0) return;
       const name = 'Imported';
       manager.current.addProjectLibrary(name, `${name}.pretty`, entries);
-      setExpanded((p) => new Set([...p, name]));
+      setSelectLibId(name);
       bump();
     },
     [bump],
@@ -716,7 +834,17 @@ export function FootprintEditor({
       setPrefsOpen(true);
       return;
     }
+    // `FOOTPRINT_EDIT_FRAME::ToggleLibraryTree` (`:402-419`): hiding the pane
+    // writes its width out first, because once it is hidden `GetSize().x` is no
+    // longer the width to come back to. Outside the `setToggles` updater, which
+    // runs during the render pass — see `startResize`.
+    if (id === 'showLibraryTree' && togglesRef.current.has(id)) {
+      settings.updateFpEdit((s) => {
+        s.window.lib_width = panelWidthRef.current;
+      });
+    }
     setToggles((prev) => applyToggle(prev, id));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const showDatasheet = useCallback(() => {
@@ -775,54 +903,188 @@ export function FootprintEditor({
 
   // ----- library tree (footprint_tree_pane / LIB_TREE) --------------------------
   const libNames = manager.current.libraryNames();
-  const q = query.trim().toLowerCase();
   void revision;
 
-  const treeRows = useMemo(() => {
-    interface Row {
-      lib: string;
-      fp?: string;
-      modified?: boolean;
-    }
-    const rows: Row[] = [];
-    const mgr = manager.current;
-    for (const libName of libNames) {
-      const names = mgr.footprintNames(libName);
-      if (q) {
-        const matches = names.filter(
-          (n) => n.toLowerCase().includes(q) || `${libName}:${n}`.toLowerCase().includes(q),
-        );
-        if (matches.length === 0 && !libName.toLowerCase().includes(q)) continue;
-        rows.push({ lib: libName, modified: mgr.isLibraryModified(libName) });
-        for (const n of (matches.length > 0 ? matches : names).slice(0, 200)) {
-          rows.push({ lib: libName, fp: n, modified: mgr.isFootprintModified(libName, n) });
-        }
-      } else {
-        rows.push({ lib: libName, modified: mgr.isLibraryModified(libName) });
-        if (expanded.has(libName)) {
-          for (const n of names)
-            rows.push({ lib: libName, fp: n, modified: mgr.isFootprintModified(libName, n) });
-        }
-      }
-    }
-    return rows;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [libNames, q, expanded, revision]);
+  /**
+   * `m_frame->GetLibTreeAdapter()` — the ONE adapter this frame's tree is built
+   * on (`footprint_tree_pane.cpp:37-38`). It is an
+   * `FP_TREE_SYNCHRONIZING_ADAPTER`, so every row face is re-derived from the
+   * frame on each paint and none of it is cached: see
+   * `fp_tree_synchronizing_adapter.ts`.
+   *
+   * Built once, like the manager it wraps. Its three questions read refs rather
+   * than state so the memo never has to be rebuilt to see a fresh answer —
+   * upstream holds a `FOOTPRINT_EDIT_FRAME*` for the same reason.
+   */
+  const loadedFpIdRef = useRef('');
+  loadedFpIdRef.current = curLib && curName ? `${curLib}:${curName}` : '';
+  const contentModifiedRef = useRef(false);
+  contentModifiedRef.current =
+    !!curLib && !!curName && manager.current.isFootprintModified(curLib, curName);
+  const treeAdapter = useMemo(() => {
+    const adapter = new FpTreeSynchronizingAdapter({
+      loadedFpId: () => loadedFpIdRef.current,
+      isContentModified: () => contentModifiedRef.current,
+      // `IsCurrentFPFromBoard()`. Always false here for the reason
+      // `frame_title.ts` gives: nothing in this port can load a footprint off
+      // a board yet — `loadFpFromBoard` is a disabled Tools row.
+      isCurrentFpFromBoard: () => false,
+    });
+    // `loadColumnConfig`, which the adapter's constructor calls on the settings
+    // struct it was handed (`common/lib_tree_model_adapter.cpp:184-197`). Ours
+    // is `fpedit.json`'s `lib_tree` block, because `FP_TREE_MODEL_ADAPTER` is
+    // built on `GetViewerSettingsBase()->m_LibTree`
+    // (`pcbnew/fp_tree_model_adapter.cpp:43-44`).
+    adapter.loadColumnConfig({
+      columns: settings.fpEdit.lib_tree.columns,
+      widths: settings.fpEdit.lib_tree.column_widths,
+    });
+    return adapter;
+  }, []);
 
-  const toggleLib = useCallback(
-    (libName: string) => {
-      setExpanded((prev) => {
-        const next = new Set(prev);
-        if (next.has(libName)) next.delete(libName);
-        else {
-          next.add(libName);
-          void manager.current.ensureLoaded(libName).then(bump);
-        }
-        return next;
+  /**
+   * `m_cfg.open_libs = GetOpenLibs()` (`lib_tree_model_adapter.cpp:246`) and
+   * `OpenLibs( … )` on the way back in (`:220-232`).
+   *
+   * `LIB_TREE` owns the expansion state, so the frame cannot read it back the
+   * way `GetOpenLibs` walks the dataview; it hears every change through
+   * `onToggleLibrary` instead and keeps the set for the settings file alone.
+   */
+  const openLibs = useRef<readonly string[]>(settings.fpEdit.lib_tree.open_libs);
+  const openLibSet = useRef(new Set(settings.fpEdit.lib_tree.open_libs));
+
+  /**
+   * `FP_TREE_SYNCHRONIZING_ADAPTER::Sync` — rebuild the node tree when the SET
+   * of libraries or footprints changed, and only then.
+   *
+   * Modified-ness is deliberately not in the signature: that is the adapter's
+   * to answer live, and putting it here would rebuild the whole tree on every
+   * keystroke of an edit.
+   */
+  const treeSignature = libNames
+    .map(
+      (n) =>
+        `${n}\u0000${manager.current.isPinned(n) ? 1 : 0}\u0000${manager.current
+          .footprintNames(n)
+          .join('\u0001')}`,
+    )
+    .join('\u0002');
+  const [treeNonce, setTreeNonce] = useState(0);
+  useEffect(() => {
+    const mgr = manager.current;
+    treeAdapter.tree.children.length = 0;
+    for (const libName of mgr.libraryNames()) {
+      // The Description column of a LIBRARY row is the fp-lib-table row's
+      // `Description()` (`fp_tree_synchronizing_adapter.cpp:265-272`), not the
+      // directory name. `ManagedFpLibrary` does not carry the table's descr, so
+      // the cell is empty rather than filled with something else.
+      const libNode = treeAdapter.addLibrary(libName, '', mgr.isPinned(libName));
+      for (const name of mgr.footprintNames(libName)) {
+        const fp = mgr.getFootprint(libName, name);
+        const item = new LibTreeNode();
+        item.type = LibTreeNodeType.ITEM;
+        item.parent = libNode;
+        item.name = name;
+        item.libNickname = libName;
+        item.libItemName = name;
+        item.desc = fp?.descr ?? '';
+        // `FOOTPRINT::GetSearchTerms` (`pcbnew/footprint.cpp:1707-1725`): the
+        // nickname at 4, the name at 8 and the LIB_ID at 16 — the last two
+        // flagged as names, which is what an exact match is scored against —
+        // then each keyword token at 4, the whole keyword string at 1 and the
+        // description at 1. The last four need a file that may not be fetched
+        // yet, so they appear as the library loads.
+        const keywords = fp?.tags ?? '';
+        item.sourceSearchTerms = [
+          { text: libName.toLowerCase(), score: 4 },
+          { text: name.toLowerCase(), score: 8, isName: true },
+          { text: `${libName}:${name}`.toLowerCase(), score: 16, isName: true },
+          ...keywords
+            .split(/[ \t\r\n]+/)
+            .filter(Boolean)
+            .map((k) => ({ text: k.toLowerCase(), score: 4 })),
+          { text: keywords.toLowerCase(), score: 1 },
+          { text: (fp?.descr ?? '').toLowerCase(), score: 1 },
+        ];
+        item.rebuildSearchTerms(treeAdapter.getShownColumns());
+        libNode.children.push(item);
+      }
+      treeAdapter.finishLibrary(libNode);
+    }
+    treeAdapter.tree.assignIntrinsicRanks();
+    setTreeNonce((n) => n + 1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [treeSignature, treeAdapter]);
+
+  /**
+   * `LIB_TREE::SelectLibId`, which `FOOTPRINT_EDIT_FRAME::FocusOnLibID` and
+   * `SyncLibraryTree` call to make the tree follow the frame
+   * (`footprint_edit_frame.cpp:1186-1211`). One piece of state, because
+   * upstream is one call either way.
+   */
+  const [selectLibId, setSelectLibId] = useState('');
+  /**
+   * `LIB_TREE::Unselect()`, which `FOOTPRINT_TREE_PANE::onComponentSelected`
+   * calls right after the double-click has loaded the footprint (`:88-93`).
+   */
+  const [unselectNonce, setUnselectNonce] = useState(0);
+
+  /** `EVT_LIBITEM_SELECTED` — the tree's selection, which is what
+   *  `GetTargetFPID` and the four `Init` conditions read. */
+  const onTreeSelect = useCallback((node: LibTreeNode | null) => {
+    if (!node) {
+      setTreeSel(null);
+      return;
+    }
+    if (node.type === LibTreeNodeType.LIBRARY) setTreeSel({ lib: node.name, name: null });
+    else setTreeSel({ lib: node.libNickname, name: node.libItemName });
+  }, []);
+
+  /**
+   * `FOOTPRINT_TREE_PANE::onComponentSelected`, bound to `EVT_LIBITEM_CHOSEN`
+   * (`footprint_tree_pane.cpp:48`):
+   *
+   *     m_frame->LoadFootprintFromLibrary( GetLibTree()->GetSelectedLibId() );
+   *     // Make sure current-part highlighting doesn't get lost in seleciton highlighting
+   *     m_tree->Unselect();
+   */
+  const onTreeChoose = useCallback(
+    (node: LibTreeNode) => {
+      if (node.type === LibTreeNodeType.LIBRARY) return;
+      void loadFootprint(node.libNickname, node.libItemName);
+      setUnselectNonce((n) => n + 1);
+    },
+    [loadFootprint],
+  );
+
+  /** Expanding a library fetches it — our lazy stand-in for upstream's
+   *  preloaded `FOOTPRINT_LIBRARY_ADAPTER`. Collapsing needs nothing. */
+  const onTreeToggleLibrary = useCallback(
+    (node: LibTreeNode, open: boolean) => {
+      if (open) openLibSet.current.add(node.name);
+      else openLibSet.current.delete(node.name);
+      settings.updateFpEdit((s) => {
+        s.lib_tree.open_libs = [...openLibSet.current];
       });
+      if (!open) return;
+      void manager.current.ensureLoaded(node.name).then(bump);
     },
     [bump],
   );
+
+  /**
+   * `m_adapter->GetContextMenuTool()` returning `FOOTPRINT_EDITOR_CONTROL`
+   * (`fp_tree_synchronizing_adapter.cpp:62-65`), which is why this tree gets
+   * the fifteen-row menu in `tree_context_menu.ts` and not `LIB_TREE`'s
+   * Pin/Unpin fallback. The widget has already selected the row.
+   */
+  const onTreeItemContextMenu = useCallback((node: LibTreeNode, x: number, y: number) => {
+    setTreeMenu(
+      node.type === LibTreeNodeType.LIBRARY
+        ? { x, y, lib: node.name, name: '' }
+        : { x, y, lib: node.libNickname, name: node.libItemName },
+    );
+  }, []);
 
   const startResize = (e: React.MouseEvent): void => {
     e.preventDefault();
@@ -834,6 +1096,14 @@ export function FootprintEditor({
       document.removeEventListener('mousemove', onMove);
       document.removeEventListener('mouseup', onUp);
       document.body.style.cursor = '';
+      // `cfg->m_LibWidth = m_treePane->GetSize().x` — the pane has stopped
+      // moving, so its width is what the next session opens at. Read off the
+      // ref rather than out of a `setPanelWidth` updater: that updater runs
+      // during React's render pass, and notifying the settings store from
+      // there updates one component while another is rendering.
+      settings.updateFpEdit((s) => {
+        s.window.lib_width = panelWidthRef.current;
+      });
     };
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
@@ -1186,6 +1456,40 @@ export function FootprintEditor({
   const layerRows = useMemo(() => appearanceLayerRows(FOOTPRINT_COPPER_STACK, ALL_FP_LAYERS), []);
 
   /**
+   * Which preset the combo shows — `syncLayerPresetSelection`, derived from the
+   * view rather than stored, exactly as in pcbnew. The two frames run the same
+   * function; only the layer set it compares against differs.
+   */
+  const preset = useMemo(
+    () =>
+      matchPresetName({
+        visibleLayers: visible,
+        objectsAtDefault: OBJECT_ROWS.every(
+          (r) => r === 'sep' || objects[r.key] === DEFAULT_OBJECTS[r.key],
+        ),
+        flipBoard,
+        allLayers: ALL_FP_LAYERS,
+        copperLayers: FOOTPRINT_COPPER_STACK,
+      }),
+    [visible, objects, flipBoard],
+  );
+
+  /** `doApplyLayerPreset` — the layers, the flip and the preset's active layer. */
+  const applyPreset = useCallback((name: string): void => {
+    const p = BUILTIN_PRESETS.find((x) => x.name === name);
+    if (!p) return;
+    setVisible(
+      new Set(
+        p
+          .layers([...ALL_FP_LAYERS], [...FOOTPRINT_COPPER_STACK])
+          .filter((l) => ALL_FP_LAYERS.includes(l)),
+      ),
+    );
+    setFlipBoard(p.flipBoard);
+    if (p.activeLayer && ALL_FP_LAYERS.includes(p.activeLayer)) setActiveLayer(p.activeLayer);
+  }, []);
+
+  /**
    * `board->GetLayerName( layer )` (:1876, and :1902's fp-editor branch, which
    * falls back to `GetStandardLayerName`). Every place a layer is put in front
    * of the user goes through it: the Appearance rows, the layer selector and
@@ -1311,83 +1615,60 @@ export function FootprintEditor({
             <div className="ze-leftdock" style={{ width: panelWidth, minWidth: panelWidth }}>
               <div className="ze-panel grow">
                 <div className="ze-panel-header">Libraries</div>
-                <div style={{ padding: 4 }}>
-                  <input
-                    className="ze-search"
-                    placeholder="Filter"
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    onKeyDown={(e) => e.stopPropagation()}
-                    style={{ width: '100%' }}
+                {/*
+                 * `FOOTPRINT_TREE_PANE` (`pcbnew/footprint_tree_pane.cpp:30-52`)
+                 * is a panel whose entire body is ONE `LIB_TREE`:
+                 *
+                 *     m_tree = new LIB_TREE( this, wxT( "footprints" ),
+                 *                            m_frame->GetLibTreeAdapter(),
+                 *                            LIB_TREE::SEARCH );
+                 *
+                 * SEARCH alone — no `MULTISELECT` and no `DETAILS`, hence
+                 * `hasExternalDetails`, which keeps the HTML info pane the
+                 * chooser has out of this dock.
+                 *
+                 * What stood here was a third tree: a `treeRows` memo and about
+                 * a hundred lines of JSX. That is why this pane had no "Item"
+                 * header, a bare `<input>` instead of the `wxSearchCtrl` with
+                 * its magnifier and its recent-search menu, no sort/expand
+                 * menu, a library glyph KiCad does not draw, no Description
+                 * column, no virtual scrolling and none of the row faces — and
+                 * why every fix made in `widgets/lib_tree.tsx` reached the
+                 * chooser and not this pane.
+                 */}
+                {libNames.length === 0 && (
+                  <LibraryLoadingPanel
+                    kind="footprints"
+                    fallback={<div className="ze-muted">No footprint libraries loaded.</div>}
+                    label="Loading footprint libraries..."
                   />
-                </div>
-                <div className="ze-panel-body">
-                  {treeRows.length === 0 && (
-                    <LibraryLoadingPanel
-                      kind="footprints"
-                      fallback={<div className="ze-muted">No footprint libraries loaded.</div>}
-                      label="Loading footprint libraries..."
-                    />
-                  )}
-                  {treeRows.map((row) =>
-                    row.fp === undefined ? (
-                      <div
-                        key={row.lib}
-                        className={`ze-tree-item root${treeSel?.lib === row.lib && !treeSel.name ? ' active' : ''}`}
-                        onClick={() => {
-                          setTreeSel({ lib: row.lib, name: null });
-                          if (!q) toggleLib(row.lib);
-                        }}
-                        // `LIB_TREE::onItemContextMenu` selects the row under
-                        // the pointer before popping the menu, so the menu is
-                        // always evaluated against what was right-clicked.
-                        onContextMenu={(e) => {
-                          e.preventDefault();
-                          setTreeSel({ lib: row.lib, name: null });
-                          setTreeMenu({ x: e.clientX, y: e.clientY, lib: row.lib, name: '' });
-                        }}
-                        title={manager.current.library(row.lib)?.fileName}
-                      >
-                        <span
-                          className={`twisty expandable${expanded.has(row.lib) || q ? ' open' : ''}`}
-                        />
-                        {toolbarIconUrl('library') && (
-                          <img
-                            src={toolbarIconUrl('library')}
-                            alt=""
-                            style={{ width: 16, height: 16 }}
-                          />
-                        )}
-                        <span>
-                          {row.lib}
-                          {row.modified ? ' *' : ''}
-                        </span>
-                      </div>
-                    ) : (
-                      <div
-                        key={`${row.lib}:${row.fp}`}
-                        className={`ze-tree-item${curLib === row.lib && curName === row.fp ? ' active' : ''}`}
-                        style={{
-                          paddingLeft: 26,
-                          fontWeight: curLib === row.lib && curName === row.fp ? 600 : 400,
-                        }}
-                        onClick={() => setTreeSel({ lib: row.lib, name: row.fp! })}
-                        onContextMenu={(e) => {
-                          e.preventDefault();
-                          setTreeSel({ lib: row.lib, name: row.fp! });
-                          setTreeMenu({ x: e.clientX, y: e.clientY, lib: row.lib, name: row.fp! });
-                        }}
-                        onDoubleClick={() => void loadFootprint(row.lib, row.fp!)}
-                        title={`${row.fp}, double-click to edit`}
-                      >
-                        <span>
-                          {row.fp}
-                          {row.modified ? ' *' : ''}
-                        </span>
-                      </div>
-                    ),
-                  )}
-                </div>
+                )}
+                <LibTree
+                  adapter={treeAdapter}
+                  // `LIB_TREE( this, wxT( "footprints" ), … )` — the recent
+                  // searches key upstream gives this tree, which is the one
+                  // CvPcb's footprint tree shares and NOT the symbols' list.
+                  recentSearchesKey="footprints"
+                  regenerateNonce={treeNonce}
+                  selectLibId={selectLibId}
+                  unselectNonce={unselectNonce}
+                  onSelect={onTreeSelect}
+                  onChoose={onTreeChoose}
+                  onToggleLibrary={onTreeToggleLibrary}
+                  onItemContextMenu={onTreeItemContextMenu}
+                  openLibs={openLibs.current}
+                  onColumnWidthsChanged={(widths) =>
+                    settings.updateFpEdit((s) => {
+                      s.lib_tree.column_widths = widths;
+                    })
+                  }
+                  onShownColumnsChanged={(columns) =>
+                    settings.updateFpEdit((s) => {
+                      s.lib_tree.columns = [...columns];
+                    })
+                  }
+                  hasExternalDetails
+                />
               </div>
             </div>
             <div className="ze-splitter" onMouseDown={startResize} title="Drag to resize" />
@@ -1412,7 +1693,7 @@ export function FootprintEditor({
             drawOpts={drawOpts}
             selection={selection}
             activeTool={activeTool}
-            showGrid={toggles.has('toggleGrid')}
+            showGrid={objects.grid && toggles.has('toggleGrid')}
             gridIU={gridIU}
             onCursorMove={setCursor}
             onScaleChange={setScale}
@@ -1453,42 +1734,62 @@ export function FootprintEditor({
           onActivate={selectTool}
         />
 
+        {/* LayersManager and SelectionFilter are both `.Right().Layer( 3 )`,
+            outside the `.Layer( 2 )` right toolbar
+            (footprint_edit_frame.cpp:243-254) — the same dock pcbnew builds, so
+            the same `.ze-rightdock` construct rather than the left dock flipped
+            over. `MinSize( FromDIP( 180 ), … )` on both panes. */}
         {toggles.has('showLayersManager') && (
-          <div className="ze-leftdock on-right" style={{ width: LAYERS_MANAGER_WIDTH }}>
+          <div className="ze-rightdock" style={{ width: LAYERS_MANAGER_WIDTH }}>
             <div className="ze-panel grow">
               <div className="ze-panel-header">Appearance</div>
-              <div className="ze-panel-body" style={{ overflow: 'auto' }}>
-                {layerRows.map((name) => {
-                  const on = visible.has(name);
-                  return (
-                    <div
-                      key={name}
-                      className={`ze-tree-item ${name === activeLayer ? 'active' : ''}`}
-                      style={{ display: 'flex', alignItems: 'center', gap: 7, cursor: 'default' }}
-                      onClick={() => setActiveLayer(name)}
-                      // `setting->tooltip` (appearance_controls.cpp:1868, :1912)
-                      // — non_cu_seq's own text, shared with the PCB editor.
-                      title={layerTooltip(name)}
-                    >
-                      <span
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleLayer(name);
-                        }}
-                        style={{
-                          width: 14,
-                          height: 14,
-                          borderRadius: 2,
-                          flex: '0 0 auto',
-                          background: layerColor(name),
-                          border: '1px solid #444',
-                          opacity: on ? 1 : 0.25,
-                        }}
-                      />
-                      <span style={{ opacity: on ? 1 : 0.5 }}>{layerName(name)}</span>
-                    </div>
-                  );
-                })}
+              {/* `new APPEARANCE_CONTROLS( this, GetCanvas(), true )`
+                  (footprint_edit_frame.cpp:178). `fpEditor` removes the Nets
+                  page and trims the Objects rows to `s_allowedInFpEditor`;
+                  everything else is the identical widget pcbnew docks. */}
+              <AppearanceControls
+                fpEditor
+                tab={tab}
+                onTab={setTab}
+                layerRows={layerRows}
+                layerName={layerName}
+                layerColor={layerColor}
+                activeLayer={activeLayer}
+                onActiveLayer={setActiveLayer}
+                visibleLayers={visible}
+                onToggleLayer={toggleLayer}
+                objects={objects}
+                onToggleObject={(key) => setObjects((p) => toggleObject(p, key))}
+                objectColor={(key) => PCB_OBJECT_COLORS[key]}
+                opacity={opacity}
+                onOpacity={(key, value) => setOpacity((p) => ({ ...p, [key]: value }))}
+                contrast={contrast}
+                onContrast={setContrast}
+                flipBoard={flipBoard}
+                onFlipBoard={() => setFlipBoard((f) => !f)}
+                layerOptionsOpen={layerOptsOpen}
+                onLayerOptionsOpen={setLayerOptsOpen}
+                presetItems={PRESET_ITEMS}
+                preset={preset}
+                onPreset={applyPreset}
+                deletePresetDisabled
+                viewportItems={VIEWPORT_ITEMS}
+                viewport={viewportSel}
+                onViewport={setViewportSel}
+                deleteViewportDisabled
+              />
+            </div>
+
+            {/* `m_auimgr.GetPane( "SelectionFilter" ).dock_proportion = 0`
+                (footprint_edit_frame.cpp:267) — a fixed-height pane. */}
+            <div className="ze-panel fixed">
+              <div className="ze-panel-header">Selection Filter</div>
+              <div className="ze-panel-body">
+                <SelectionFilterPanel
+                  filter={selFilter}
+                  onChange={setSelFilter}
+                  onContextMenu={(x, y, item) => setFilterMenu({ x, y, item })}
+                />
               </div>
             </div>
           </div>
@@ -1527,6 +1828,15 @@ export function FootprintEditor({
         }}
       />
 
+      {/* PANEL_SELECTION_FILTER::onRightClick's one-item wxMenu. */}
+      {filterMenu && (
+        <SelectionFilterOnlyMenu
+          at={filterMenu}
+          onOnly={(key) => setSelFilter(new Set([key]))}
+          onClose={() => setFilterMenu(null)}
+        />
+      )}
+
       {/* New Library dialog. */}
       {newLibName !== null && (
         <SimplePrompt
@@ -1540,7 +1850,7 @@ export function FootprintEditor({
             const n = newLibName.trim();
             if (n) {
               manager.current.createLibrary(n);
-              setExpanded((p) => new Set([...p, n]));
+              setSelectLibId(n);
               setTreeSel({ lib: n, name: null });
               setNewLibName(null);
               bump();

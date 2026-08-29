@@ -4,6 +4,20 @@ Ziro Designer is a port of KiCad 10.0.5 to the browser. The reference source is
 pinned at `/home/akshay/kicad-reference` — read that, never KiCad master, because
 the parity target is the installed build.
 
+**The manual is on disk too**, at the same version, and it is the second half of
+the answer whenever the source is ambiguous about *intent*:
+
+| | |
+|---|---|
+| `/home/akshay/kicad-docs` | the installed `kicad-doc-en` 10.0.5 HTML, images included |
+| `/home/akshay/kicad-docs-text` | the same, tags stripped, for `grep` |
+
+`eeschema.txt` and `pcbnew.txt` are ~500 kB and ~660 kB of prose. Reach for them
+when a reading of the C++ could go two ways — what a control is *for*, which of
+two behaviours is the documented one, what a warning actually means. Several
+things have been implemented backwards here from a defensible but wrong reading
+of the source; the manual usually settles those in one grep.
+
 The goal is that a user cannot tell whether they are in KiCad or in ours.
 
 ## The central-value rule

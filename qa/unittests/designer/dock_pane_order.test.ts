@@ -63,7 +63,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { PL_EDITOR_DEFAULTS } from '@ziroeda/designer/src/prefs/settings.js';
+import { FPEDIT_DEFAULTS, PL_EDITOR_DEFAULTS } from '@ziroeda/designer/src/prefs/settings.js';
 
 const read = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
@@ -94,11 +94,11 @@ describe('a vertical toolbar touches the canvas; a palette docks outside it', ()
     // `<DrawingSheetCanvas` alone also matches inside
     // `useRef<DrawingSheetCanvasController>`, so anchor on the JSX open tag.
     const canvas = '<DrawingSheetCanvas\n';
-    before(DS, 'entries={DS_LEFT_TOOLBAR}', canvas, 'pl_editor left');
-    before(DS, canvas, 'entries={DS_RIGHT_TOOLBAR}', 'pl_editor canvas');
+    before(DS, 'entries={dsLeftBar}', canvas, 'pl_editor left');
+    before(DS, canvas, 'entries={dsRightBar}', 'pl_editor canvas');
     // The one this branch fixed: Props used to render between the canvas and
     // the toolbar, i.e. as though it were Layer 1.
-    before(DS, 'entries={DS_RIGHT_TOOLBAR}', 'className="ze-leftdock on-right"', 'pl_editor right');
+    before(DS, 'entries={dsRightBar}', 'className="ze-leftdock on-right"', 'pl_editor right');
   });
 
   it('footprint editor: Footprints tree L4 and Properties L3 outside LeftToolbar L2', () => {
@@ -110,11 +110,20 @@ describe('a vertical toolbar touches the canvas; a palette docks outside it', ()
     );
   });
 
-  it('footprint editor: LayersManager L3 outside RightToolbar L2', () => {
+  it('footprint editor: LayersManager + SelectionFilter L3 outside RightToolbar L2', () => {
     // The second one this branch fixed, and it is why the rule is asserted per
     // launcher rather than once: pl_editor and the footprint editor had the
     // same bug, and three other launchers did not.
-    before(FP, 'entries={FP_RIGHT_TOOLBAR}', 'className="ze-leftdock on-right"', 'fp right');
+    //
+    // The dock is `.ze-rightdock`, the same construct pcbnew uses, since
+    // `footprint_edit_frame.cpp:243-254` docks LayersManager and SelectionFilter
+    // exactly the way `pcb_edit_frame.cpp:345-365` does: two panes in one
+    // `.Right().Layer( 3 )` stack, the filter at `.Position( 2 )`. It used to be
+    // the LEFT dock rule with the border flipped over, which is why the filter
+    // pane could not be stacked under it at all.
+    before(FP, 'entries={FP_RIGHT_TOOLBAR}', 'className="ze-rightdock"', 'fp right');
+    before(FP, 'className="ze-rightdock"', 'ze-panel-header">Appearance', 'fp appearance');
+    before(FP, 'ze-panel-header">Appearance', 'ze-panel-header">Selection Filter', 'fp filter');
   });
 
   it('symbol editor: LibraryTree L3 outside LeftToolbar L2', () => {
@@ -122,12 +131,12 @@ describe('a vertical toolbar touches the canvas; a palette docks outside it', ()
   });
 
   it('eeschema: the Properties / Hierarchy column L3 outside LeftToolbar L2', () => {
-    before(SCH, 'className="ze-leftdock sch-leftdock"', 'entries={LEFT_TOOLBAR}', 'sch left');
+    before(SCH, 'className="ze-leftdock sch-leftdock"', 'entries={schLeftBar}', 'sch left');
   });
 
   it('pcbnew: Properties L5 outside LeftToolbar L3, LayersManager L4 outside RightToolbar L3', () => {
-    before(PCB, 'className="ze-leftdock"', 'entries={PCB_LEFT_TOOLBAR}', 'pcb left');
-    before(PCB, 'entries={PCB_RIGHT_TOOLBAR}', 'className="ze-rightdock"', 'pcb right');
+    before(PCB, 'className="ze-leftdock"', 'entries={pcbLeftBar}', 'pcb left');
+    before(PCB, 'entries={pcbRightBar}', 'className="ze-rightdock"', 'pcb right');
   });
 });
 
@@ -182,7 +191,15 @@ describe('a docked pane is sized by the numbers upstream states, not at the call
     expect(SYM).toMatch(/const LIBRARY_TREE_WIDTH = 250;/);
     expect(FP).toMatch(/const LIBRARY_TREE_WIDTH = 250;/);
     expect(SYM).toContain('useState(LIBRARY_TREE_WIDTH)');
-    expect(FP).toContain('useState(LIBRARY_TREE_WIDTH)');
+    // The Footprint Editor's pane is a PERSISTED width now —
+    // `PARAM<int>( "window.lib_width", &m_LibWidth, 250 )`
+    // (footprint_editor_settings.cpp:69-70), restored with `SetAuiPaneSize` at
+    // :279-280 — so it opens at the stored number and the constant is only the
+    // fallback for a profile that has never dragged it. The same shape the
+    // pl_editor Props pane above took, and the 250 is still upstream's, stated
+    // once in the settings defaults.
+    expect(FPEDIT_DEFAULTS.window.lib_width).toBe(250);
+    expect(FP).toContain('settings.fpEdit.window.lib_width || LIBRARY_TREE_WIDTH');
     // Both were 260, which is neither frame's number.
     expect(SYM).not.toContain('useState(260)');
     expect(FP).not.toContain('useState(260)');

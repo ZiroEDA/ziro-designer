@@ -186,3 +186,68 @@ export function mirrorOrientation(o: Orientation, axis: 'x' | 'y'): Orientation 
   const incr = axis === 'x' ? MIRROR_X_INCR : MIRROR_Y_INCR;
   return orientationFromTransform(composeTransform(symbolTransform(o.angle, o.mirror), incr));
 }
+
+/**
+ * `SCH_SYMBOL::GetOrientation` (sch_symbol.cpp:2546-2588), whose own comment
+ * calls it "a bizarre algorithm".
+ *
+ * It does **not** report the mirror token the file stored. It builds twelve
+ * candidate orientations in a fixed order and returns the first whose transform
+ * matches the symbol's, so a given placement is reported as whichever candidate
+ * comes first — and the header says so outright: "SYM_MIRROR_Y is returned as a
+ * SYM_MIRROR_X with an orientation 180" (sch_symbol.h:282-284).
+ *
+ * The consequence, which is why this exists: `(mirror y)` at 180° has the
+ * transform (1,0,0,-1) and is reported as MIRROR_X + ORIENT_0, while
+ * `(mirror x)` at 180° has (-1,0,0,1) and is reported as MIRROR_Y + ORIENT_0.
+ * Reading `mirror === 'x'` off the model gets both backwards.
+ *
+ * `SYM_MIRROR_X = 0x100`, `SYM_MIRROR_Y = 0x200`, and the angle enumerators are
+ * `SYM_NORMAL = 0 … SYM_ORIENT_0 = 3, _90 = 4, _180 = 5, _270 = 6`
+ * (symbol.h:34-45) — note ORIENT_0 is **3**, not 0, which is why callers test
+ * `(orient & 0xff) === SYM_ORIENT_0` rather than `=== 0`.
+ */
+export const SYM_ORIENT_0 = 3;
+export const SYM_ORIENT_90 = 4;
+export const SYM_ORIENT_180 = 5;
+export const SYM_ORIENT_270 = 6;
+export const SYM_MIRROR_X = 0x100;
+export const SYM_MIRROR_Y = 0x200;
+
+/** The candidate list of `rotate_values`, in the order the C++ tries them. */
+const ORIENTATION_CANDIDATES: readonly { code: number; t: Transform }[] = (() => {
+  const abs = (angle: number, mirror?: 'x' | 'y'): Transform => symbolTransform(angle, mirror);
+  // The first seven and the last four reset to identity before composing, because
+  // every one of those `case`s begins `SetOrientation( SYM_ORIENT_0 )`.
+  const list: { code: number; t: Transform }[] = [
+    { code: SYM_ORIENT_0, t: abs(0) },
+    { code: SYM_ORIENT_90, t: abs(90) },
+    { code: SYM_ORIENT_180, t: abs(180) },
+    { code: SYM_ORIENT_270, t: abs(270) },
+    { code: SYM_MIRROR_X + SYM_ORIENT_0, t: abs(0, 'x') },
+    { code: SYM_MIRROR_X + SYM_ORIENT_90, t: abs(90, 'x') },
+    { code: SYM_MIRROR_X + SYM_ORIENT_270, t: abs(270, 'x') },
+  ];
+  // `case SYM_MIRROR_Y:` is the bare incremental one: it does NOT reset, so it
+  // composes mirror-Y onto whatever the previous candidate left in the scratch
+  // symbol — the MIRROR_X + ORIENT_270 transform. That makes it (0,1,-1,0),
+  // which is plain ORIENT_90 and was already matched at candidate 2, so this
+  // entry is unreachable. It is kept so the order below is the C++'s order.
+  list.push({ code: SYM_MIRROR_Y, t: composeMirror(abs(270, 'x'), 'y') });
+  list.push({ code: SYM_MIRROR_Y + SYM_ORIENT_0, t: abs(0, 'y') });
+  list.push({ code: SYM_MIRROR_Y + SYM_ORIENT_90, t: abs(90, 'y') });
+  list.push({ code: SYM_MIRROR_Y + SYM_ORIENT_180, t: abs(180, 'y') });
+  list.push({ code: SYM_MIRROR_Y + SYM_ORIENT_270, t: abs(270, 'y') });
+  return list;
+})();
+
+/**
+ * The `int` `GetOrientation()` returns for a placement: a mirror bit or'd with
+ * an angle enumerator. `SYM_NORMAL` (0) when nothing matches, as the C++ does
+ * after its `wxFAIL_MSG`.
+ */
+export function symbolOrientation(angleDeg: number, mirror?: 'x' | 'y'): number {
+  const t = symbolTransform(angleDeg, mirror);
+  for (const c of ORIENTATION_CANDIDATES) if (sameTransform(c.t, t)) return c.code;
+  return 0;
+}

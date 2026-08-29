@@ -25,6 +25,7 @@
  * not just what it is called.
  */
 
+import { pinNumbersCompare } from '@ziroeda/common';
 import type { LibPin, LibSymbol, SchSymbol, SchSymbolPin } from '../types.js';
 import { isUsableAlternate, resolvePin, symbolPin } from './pin_alternates.js';
 
@@ -63,22 +64,37 @@ export function unitPins(sym: SchSymbol, lib: LibSymbol | undefined): readonly L
     .flatMap((u) => u.pins);
 }
 
-/** The rows the grid shows for a placement. */
+/**
+ * The rows the grid shows for a placement, in the order it shows them.
+ *
+ * `m_dataModel->SortRows( COL_NUMBER, true )` runs once as the dialog is built
+ * (dialog_symbol_properties.cpp:369) and again after every unit change (:1192),
+ * so the table is never in library order — it is in ascending pin-number order,
+ * by `PIN_NUMBERS::Compare` rather than by string, which is why pin 10 follows
+ * pin 9 and not pin 1.
+ *
+ * `SCH_PIN_TABLE_DATA_MODEL::compare` falls back to COL_NUMBER as the secondary
+ * key; sorting on COL_NUMBER itself makes that fallback a no-op, so the initial
+ * sort is exactly this one comparison.
+ */
 export function pinGridRows(sym: SchSymbol, lib: LibSymbol | undefined): PinGridRow[] {
-  return unitPins(sym, lib).map((pin) => {
-    const resolved = resolvePin(sym, pin);
-    const alts = pin.alternates ?? [];
-    return {
-      number: pin.number,
-      baseName: pin.name,
-      // Empty for a pin with nothing to choose; otherwise the function in force,
-      // which for an unset pin is its base name.
-      alternate: alts.length === 0 ? '' : (resolved.alternate ?? pin.name),
-      choices: alts.length === 0 ? [] : [pin.name, ...alts.map((a) => a.name)],
-      electricalType: resolved.electricalType,
-      shape: resolved.shape,
-    };
-  });
+  return unitPins(sym, lib)
+    .slice()
+    .sort((a, b) => pinNumbersCompare(a.number, b.number))
+    .map((pin) => {
+      const resolved = resolvePin(sym, pin);
+      const alts = pin.alternates ?? [];
+      return {
+        number: pin.number,
+        baseName: pin.name,
+        // Empty for a pin with nothing to choose; otherwise the function in force,
+        // which for an unset pin is its base name.
+        alternate: alts.length === 0 ? '' : (resolved.alternate ?? pin.name),
+        choices: alts.length === 0 ? [] : [pin.name, ...alts.map((a) => a.name)],
+        electricalType: resolved.electricalType,
+        shape: resolved.shape,
+      };
+    });
 }
 
 /**

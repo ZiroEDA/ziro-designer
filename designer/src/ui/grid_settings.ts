@@ -50,6 +50,37 @@ export interface GridSize {
   readonly y: string;
 }
 
+/**
+ * `GRID` (`include/settings/grid_settings.h:33-54`) as `GRID_SETTINGS::grids`
+ * stores it — the row `PANEL_GRID_SETTINGS` edits and `DIALOG_GRID_SETTINGS`
+ * fills its three fields from.
+ *
+ * Mutable, and named, where {@link GridSize} is neither: that one is a row of
+ * `DefaultGridSizeList()`, a constant table nobody edits, and the built-in
+ * grids all have an empty name (`grid_menu.cpp:83-104` prints `name` followed
+ * by `": "` only when it is non-empty). This is the stored, user-editable one.
+ *
+ * The settings used to hold one string per grid — X only, no name and no Y —
+ * which is what made a Name field impossible and left `DIALOG_GRID_SETTINGS`
+ * unportable.
+ */
+export interface GridEntry {
+  /** `GRID::name`, the optional label. Empty for every built-in. */
+  name: string;
+  /** `GRID::x`, **always stored in millimetres** — `dialog_grid_settings.cpp:98-99`. */
+  x: string;
+  /** `GRID::y`. */
+  y: string;
+}
+
+/** `GRID::operator==` (`common/settings/grid_settings.cpp:60-63`) — all three fields. */
+export function gridEquals(a: GridEntry, b: GridEntry): boolean {
+  return a.x === b.x && a.y === b.y && a.name === b.name;
+}
+
+/** One row of {@link GRID_SIZE_LIST} as a stored, nameless {@link GridEntry}. */
+export const gridEntryOf = (size: GridSize): GridEntry => ({ name: '', x: size.x, y: size.y });
+
 /** A square grid, which is all but four rows of the whole table. */
 const sq = (size: string): GridSize => ({ x: size, y: size });
 
@@ -136,16 +167,26 @@ export const DEFAULT_GRID_INDEX: Record<GridApp, number> = {
 const MILS_PER_MM = 1000 / 25.4;
 
 /**
- * `GRID::ToDouble` for one entry, in millimetres. An unrecognised or unitless
- * entry is read as mils, which is what `EDA_UNIT_UTILS::UI::ValueFromString`
- * falls back to for a bare number in an imperial frame.
+ * `GRID::ToDouble` for one entry, in millimetres.
+ *
+ * A unitless entry is **millimetres**, not mils, because `GRID::ToDouble` names
+ * the unit itself:
+ *
+ *     DoubleValueFromString( aScale, EDA_UNITS::MM, x )
+ *                                   common/settings/grid_settings.cpp:53-57
+ *
+ * and `DIALOG_GRID_SETTINGS` writes a grid back through
+ * `StringFromValue( scale, EDA_UNITS::MM, gridX )` (`dialog_grid_settings.cpp:97-100`),
+ * whose `aAddUnitsText` defaults to false — so every grid a user creates is
+ * stored as a bare number and MUST read as millimetres. This fell back to mils,
+ * which turned a `0.5` typed into that dialog into a 0.0127 mm grid.
  */
 export function gridSizeToMM(size: string): number | null {
   const m = /^\s*([\d.]+)\s*(mil|mils|mm|in|inch|")?\s*$/i.exec(size);
   if (!m) return null;
   const v = Number(m[1]);
   if (!Number.isFinite(v) || v <= 0) return null;
-  const unit = (m[2] ?? 'mil').toLowerCase();
+  const unit = (m[2] ?? 'mm').toLowerCase();
   if (unit.startsWith('mm')) return v;
   if (unit.startsWith('in') || unit === '"') return v * 25.4;
   return v / MILS_PER_MM;
@@ -204,6 +245,43 @@ export function secondaryUnits(primary: StatusUnits): StatusUnits {
 }
 
 /**
+ * `GRID::MessageText` (`common/settings/grid_settings.cpp:27-45`) — one grid as
+ * ONE number in ONE unit, which is not the same string as a grid menu row.
+ *
+ *     wxString xStr = MessageTextFromValue( aScale, aUnits, x, aDisplayUnits );
+ *     wxString yStr = ...
+ *     if( xStr == yStr ) return xStr;
+ *     return wxString::Format( wxS( "%s x %s" ), xStr, yStr );
+ *
+ * `GRID::UserUnitsMessageText( aProvider, aDisplayUnits )` (`:47-50`) is this
+ * same call with the frame's own IU scale and units, so it is what a caller
+ * holding `units` already has: `SCH_EDITOR_CONTROL::GridFeedback` builds the
+ * hotkey popup's list out of it (`eeschema/tools/sch_editor_control.cpp:3371`)
+ * and `EDA_DRAW_FRAME::DisplayGridMsg` the status bar's
+ * (`common/eda_draw_frame.cpp:757`).
+ *
+ * The collapse at `xStr == yStr` compares the FORMATTED strings, not the
+ * values, so two sizes that round to the same display print once.
+ */
+export function gridMessageText(
+  size: GridSize,
+  units: StatusUnits,
+  iuPerMM: number,
+  displayUnits = true,
+): string {
+  const x = gridSizeToMM(size.x);
+  // A zero Y is a real entry in gerbview's defaults, so `null` from the parser
+  // means "unparseable", not "absent" — those fall back to X alone.
+  const y = gridAxisMM(size.y);
+  if (x === null) return size.x;
+  const suffix = displayUnits ? unitText(units) : '';
+  const xs = messageTextFromValue(x, units, iuPerMM) + suffix;
+  if (y === null) return xs;
+  const ys = messageTextFromValue(y, units, iuPerMM) + suffix;
+  return xs === ys ? xs : `${xs} x ${ys}`;
+}
+
+/**
  * One row of a `gridSelect` toolbar control, per
  * `GRID_MENU::BuildChoiceList` (`common/tool/grid_menu.cpp:83-104`):
  *
@@ -224,25 +302,64 @@ export function gridChoiceLabel(
   iuPerMM: number,
   name = '',
 ): string {
-  const x = gridSizeToMM(size.x);
-  const y = gridAxisMM(size.y);
-  if (x === null) return size.x;
+  if (gridSizeToMM(size.x) === null) return size.x;
   const secondary = secondaryUnits(primary);
-  /**
-   * `GRID::MessageText`: format each axis, and collapse to one number only
-   * when the two FORMATTED strings match — not when the values do. Two sizes
-   * that round to the same display therefore print once, which is upstream's
-   * rule and not the same as comparing the numbers.
-   */
-  const axis = (u: StatusUnits): string => {
-    const xs = messageTextFromValue(x, u, iuPerMM) + unitText(u);
-    // A zero Y is a real entry in gerbview's defaults, so `null` from the
-    // parser means "unparseable", not "absent" — those fall back to X alone.
-    if (y === null) return xs;
-    const ys = messageTextFromValue(y, u, iuPerMM) + unitText(u);
-    return xs === ys ? xs : `${xs} x ${ys}`;
-  };
+  // Both halves are `GRID::MessageText` with `aDisplayUnits` true, which is
+  // exactly what `BuildChoiceList` calls twice.
+  const axis = (u: StatusUnits): string => gridMessageText(size, u, iuPerMM);
   return `${name ? `${name}: ` : ''}${axis(primary)} (${axis(secondary)})`;
+}
+
+/** `_( "Grid" )`, the hotkey popup's title (`sch_editor_control.cpp:3379`). */
+export const GRID_FEEDBACK_TITLE = 'Grid';
+
+/**
+ * `SCH_EDITOR_CONTROL::GridFeedback`
+ * (`eeschema/tools/sch_editor_control.cpp:3360-3382`) — everything that call
+ * does apart from finding the popup:
+ *
+ *     if( !Pgm().GetCommonSettings()->m_Input.hotkey_feedback ) return 0;   :3362
+ *     for( const GRID& grid : gridSettings.grids )
+ *         gridsLabels.Add( grid.UserUnitsMessageText( m_frame ) );          :3370-3371
+ *     popup->Popup( _( "Grid" ), gridsLabels, currentIdx );                 :3379
+ *
+ * where `currentIdx` is `m_Window.grid.last_size_idx` (`:3367`).
+ *
+ * The gate is upstream's own first line and belongs to the CALLER, not to the
+ * popup: `PCB_CONTROL`'s three feedback handlers each repeat it
+ * (`pcbnew/tools/pcb_control.cpp:403`, `:715`, `:2355`), so a popup that
+ * enforced it internally would be enforcing someone else's rule.
+ *
+ * It is one function here, rather than a copy per frame, because the rows it
+ * builds are `GRID_SETTINGS::grids` — which every editor has — and because the
+ * only thing an editor supplies is its own units and IU scale. Upstream has
+ * exactly one caller today; eeschema is the only frame that posts
+ * `GridChangedByKeyEvent`.
+ */
+export function gridFeedback(
+  /** The frame's `HOTKEY_CYCLE_POPUP`. Structural, so the widget stays unaware of grids. */
+  popup: { popup: (title: string, items: readonly string[], selection: number) => void },
+  cfg: {
+    /** `Pgm().GetCommonSettings()->m_Input.hotkey_feedback`. */
+    hotkeyFeedback: boolean;
+    /** `GRID_SETTINGS::grids`. */
+    grids: readonly GridEntry[];
+    /** `GRID_SETTINGS::last_size_idx`. */
+    lastSizeIdx: number;
+    /** The frame's `GetUserUnits()`. */
+    units: StatusUnits;
+    /** The frame's `GetIuScale().IU_PER_MM`. */
+    iuPerMM: number;
+  },
+): void {
+  if (!cfg.hotkeyFeedback) return;
+
+  popup.popup(
+    GRID_FEEDBACK_TITLE,
+    // `UserUnitsMessageText` — ONE unit, and no name. Not `gridChoiceLabel`.
+    cfg.grids.map((grid) => gridMessageText(grid, cfg.units, cfg.iuPerMM)),
+    cfg.lastSizeIdx,
+  );
 }
 
 /**

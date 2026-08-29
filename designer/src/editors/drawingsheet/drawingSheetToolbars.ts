@@ -14,6 +14,7 @@
  *            interactive delete tool.
  */
 
+import type { ToolbarDefaults } from '../../ui/toolbar_config.js';
 import type { ToolEntry } from '../../ui/toolbar_types.js';
 
 const sep: ToolEntry = 'sep';
@@ -132,3 +133,18 @@ export const DS_RIGHT_TOOLBAR: ToolEntry[] = [
   sep,
   { id: 'dsDelete', icon: 'dsDelete', title: 'Delete items' },
 ];
+
+/**
+ * `PL_EDITOR_TOOLBAR_SETTINGS::DefaultToolbarConfig`
+ * (`pagelayout_editor/toolbars_pl_editor.cpp:35-113`), keyed by `TOOLBAR_LOC`.
+ *
+ * The three lists above are the toolbars themselves; this is the switch that
+ * answers "which toolbar is which", and it is what both the frame and
+ * Preferences > Drawing Sheet Editor > Toolbars ask. `TOP_AUX` is absent
+ * because upstream's first case is `return std::nullopt` (`:42-43`).
+ */
+export const DS_DEFAULT_TOOLBARS: ToolbarDefaults = {
+  LEFT: DS_LEFT_TOOLBAR,
+  RIGHT: DS_RIGHT_TOOLBAR,
+  TOP_MAIN: DS_TOP_TOOLBAR,
+};

@@ -29,6 +29,9 @@ import type {
   Vec2,
 } from '../types.js';
 import type { Orientation } from '@ziroeda/common/src/transform.js';
+import { buildPropertyNode as writeFieldNode } from '../sch_io/sexpr/write-schematic.js';
+import { flattenLibSymbol } from '../lib_symbol.js';
+import { MANDATORY_FIELDS, isMandatoryField } from './properties.js';
 
 /**
  * Set (or insert) the `(uuid ...)` child of an item node.
@@ -408,6 +411,41 @@ function buildPropertyNode(key: string, value: string, at: Vec2, angle: number):
   );
 }
 
+/**
+ * The library properties that are LIB_SYMBOL members upstream, not fields.
+ * See `SCH_IO_KICAD_SEXPR_PARSER::parseProperty` (:1168-1201).
+ */
+const LIB_ONLY_PROPERTIES = new Set([
+  'ki_keywords',
+  'ki_description',
+  'ki_fp_filters',
+  'ki_locked',
+]);
+
+/**
+ * One library field copied onto a placement: `ImportValues` plus
+ * `SetTextPos( m_pos + libField->GetTextPos() )` (sch_symbol.cpp:1440-1441).
+ *
+ * The whole of the library field's presentation comes along — its visibility
+ * above all, since these are the fields the library hides — so this goes
+ * through the writer's `buildPropertyNode`, which emits `(hide yes)` and the
+ * rest of the effects block. The local one a few lines up cannot: it writes the
+ * default font and nothing else, which is all Reference and Value need.
+ */
+function copyLibField(key: string, tmpl: SchField, at: Vec2): SchField {
+  const base: Omit<SchField, 'source'> = {
+    key,
+    value: tmpl.value,
+    at: tmpl.at ? { x: at.x + tmpl.at.x, y: at.y + tmpl.at.y } : { ...at },
+    angle: tmpl.angle,
+    ...(tmpl.effects ? { effects: tmpl.effects } : {}),
+    ...(tmpl.nameShown ? { nameShown: tmpl.nameShown } : {}),
+    ...(tmpl.doNotAutoplace ? { doNotAutoplace: tmpl.doNotAutoplace } : {}),
+    ...(tmpl.showInChooser ? { showInChooser: tmpl.showInChooser } : {}),
+  };
+  return { ...base, source: writeFieldNode(base) };
+}
+
 function buildSymbolNode(
   libId: string,
   at: Vec2,
@@ -440,11 +478,17 @@ function buildSymbolNode(
  * visible Reference/Value fields are offset using the library's field templates.
  */
 export function makeSymbol(
-  lib: LibSymbol,
+  libSymbol: LibSymbol,
   at: Vec2,
   orient: Orientation = { angle: 0 },
   unit = 1,
 ): SchSymbol {
+  // `SCH_SYMBOL::SCH_SYMBOL( const LIB_SYMBOL& … )` (sch_symbol.cpp:92):
+  // `part = aSymbol.Flatten(); part->SetParent();` before it copies a single
+  // field. A placement is never derived, so the fields it inherits — Sim.Device,
+  // Sim.Pins and any other the parent defines — have to come from the flattened
+  // symbol, not from the two or three properties the derived one lists.
+  const lib = flattenLibSymbol(libSymbol);
   const uuid = newKiid();
   const refProp = lib.properties.find((p) => p.key === 'Reference');
   const valProp = lib.properties.find((p) => p.key === 'Value');
@@ -455,20 +499,76 @@ export function makeSymbol(
   const mkField = (key: string, val: string, tmpl: SchField | undefined): SchField => {
     const fat: Vec2 = tmpl?.at ? { x: at.x + tmpl.at.x, y: at.y + tmpl.at.y } : at;
     const angle = tmpl?.angle ?? 0;
-    return {
+    // `SCH_FIELD::ImportValues` (sch_field.cpp), which `UpdateFields` calls for
+    // every library field when `aUpdateStyle` is set -- and the SCH_SYMBOL
+    // constructor sets it (sch_symbol.cpp:97-101):
+    //
+    //     SetAttributes( aSource );          // the whole TEXT_ATTRIBUTES
+    //     SetVisible( aSource.IsVisible() );
+    //     SetNameShown( aSource.IsNameShown() );
+    //     SetCanAutoplace( aSource.CanAutoplace() );
+    //
+    // So a placement takes the library field's STYLE, not a fresh one. This
+    // invented `{ hidden: false, fontSize: [12700, 12700] }`, which threw away
+    // the size, the bold/italic/justify/colour and -- the visible symptom --
+    // the visibility: `power.kicad_sym`'s every symbol hides its Reference
+    // (`#PWR`), so a placed GND drew "#PWR1" above "GND" where KiCad draws
+    // "GND" alone.
+    //
+    // The source node has to come from the real serializer for the same
+    // reason: the local `buildPropertyNode` below emits only `at` and a default
+    // font, so it cannot express `hide` even once the model carries it.
+    const base: Omit<SchField, 'source'> = {
       key,
       value: val,
       at: fat,
       angle,
-      effects: { hidden: false, fontSize: [12700, 12700] },
-      source: buildPropertyNode(key, val, fat, angle),
+      effects: tmpl?.effects ?? { hidden: false, fontSize: [12700, 12700] },
+      ...(tmpl?.nameShown ? { nameShown: tmpl.nameShown } : {}),
+      ...(tmpl?.doNotAutoplace ? { doNotAutoplace: tmpl.doNotAutoplace } : {}),
     };
+    return { ...base, source: writeFieldNode(base) };
   };
 
   const fields: SchField[] = [
     mkField('Reference', reference, refProp),
     mkField('Value', value, valProp),
   ];
+
+  // `SCH_SYMBOL::UpdateFields`, which the constructor calls with
+  // `aUpdateStyle = true` (sch_symbol.cpp:97-101): for EVERY field the library
+  // defines, `schField->SetTextPos( m_pos + libField->GetTextPos() )`
+  // (:1438-1442). Mandatory and hidden ones included — a placement carries its
+  // Footprint, Datasheet and Description fields from the moment it is made.
+  //
+  // Reference and Value are already above because their *text* is not the
+  // library's: the reference is the prefix plus `?` and the value is the
+  // symbol name. The other three take the library's text as they stand.
+  //
+  // It matters because these fields are hidden, and where a hidden field sits
+  // is not visible until the user shows one. Device:C puts its Footprint at
+  // (0.9652, -3.81), i.e. below the body — which is where KiCad draws the
+  // footprint string. Ours had no such field until something created one, and
+  // what created it put it at the symbol's own anchor, straight through the
+  // body.
+  for (const key of MANDATORY_FIELDS) {
+    if (key === 'Reference' || key === 'Value') continue;
+    const tmpl = lib.properties.find((p) => p.key === key);
+    if (tmpl) fields.push(copyLibField(key, tmpl, at));
+  }
+
+  // ...then the library's own user fields, in the order it lists them.
+  // `ki_keywords`, `ki_description`, `ki_fp_filters` and `ki_locked` are not
+  // fields at all: the parser turns each into a LIB_SYMBOL member and returns
+  // nullptr rather than a SCH_FIELD (sch_io_kicad_sexpr_parser.cpp:1168-1201),
+  // so they never reach a placement. We keep them on `LibSymbol.properties`
+  // because that is where the library file put them, which is why they have to
+  // be skipped by name here.
+  for (const tmpl of lib.properties) {
+    if (isMandatoryField(tmpl.key) || LIB_ONLY_PROPERTIES.has(tmpl.key)) continue;
+    fields.push(copyLibField(tmpl.key, tmpl, at));
+  }
+
   const sym: { -readonly [K in keyof SchSymbol]: SchSymbol[K] } = {
     libId: lib.libId,
     at,

@@ -99,10 +99,20 @@ describe('a symbol field on its own', () => {
     const before = d();
     const both = new Set([refId('symbol', 'r-1', 0), fieldId(refId('symbol', 'r-1', 0), 0)]);
     const after = run(before, both, 'rotateCW').symbols[0]!;
-    // SCH_SYMBOL::Rotate translates its fields by the symbol's own delta, which
-    // for a lone symbol is zero, and never touches their angle.
+    // The parent turns the field exactly once. `SCH_SYMBOL::Rotate` never
+    // touches a field's angle, and the position it draws swings round the body
+    // because it is the local one mapped through the new transform
+    // (SCH_FIELD::GetPosition, sch_field.cpp:1425-1438) — measured in KiCad
+    // 10.0.5, a reference 2.54 mm above a diode sits 2.54 mm beside it after R.
+    //
+    // Here the offset from the anchor is (+22000, -8000) and CW in +Y-down
+    // screen space is (x, y) -> (-y, x), so once is (+8000, +22000):
     expect(after.fields[0]!.angle).toBe(0);
-    expect(after.fields[0]!.at).toEqual(before.symbols[0]!.fields[0]!.at);
+    expect(after.fields[0]!.at).toEqual({ x: mm(51.6), y: mm(53) });
+    // ...and once is not twice, which would be (-22000, +8000).
+    expect(after.fields[0]!.at).toEqual(
+      run(before, new Set([refId('symbol', 'r-1', 0)]), 'rotateCW').symbols[0]!.fields[0]!.at,
+    );
   });
 });
 

@@ -307,6 +307,17 @@ export interface LibSymbol {
   readonly libId: string;
   /** Parent symbol name if this is a derived symbol (`extends`); units come from it. */
   readonly extends?: string;
+  /**
+   * The parent *symbol*, `LIB_SYMBOL::m_parent`. Linked once every symbol of a
+   * file has been read (`SCH_IO_KICAD_SEXPR_LIB_CACHE::updateParentSymbolLinks`),
+   * which is what lets `flattenLibSymbol` walk the chain to the root the way
+   * `LIB_SYMBOL::Flatten()` walks `m_parent.lock()`.
+   *
+   * Not part of the file format and never serialized: `extends` is the name on
+   * disk, this is the resolved link. Absent on a root symbol, and on a derived
+   * one whose parent was not in the file (which `Flatten` reports).
+   */
+  readonly parent?: LibSymbol;
   readonly isPower: boolean;
   /** `(power local)`, a local power symbol drives only its own sheet
    *  (SYMBOL::IsLocalPower); `(power)` / `(power global)` is global. */
@@ -419,6 +430,21 @@ export interface SchSymbol {
   readonly dnp: boolean;
   /** `(locked yes)`, the symbol is protected from moves/edits (SCH_ITEM::IsLocked). */
   readonly locked?: boolean;
+  /**
+   * `SCH_ITEM::GetFieldsAutoplaced` (`AUTOPLACE_ALGO`): whether the fields are
+   * where the autoplacer put them, and which pass put them there.
+   *
+   * It is what decides whether rotating the symbol re-runs the autoplacer
+   * (`SCH_EDIT_TOOL::Rotate`, sch_edit_tool.cpp:1022-1029) — a hand-placed
+   * reference must stay where the user dragged it, and an autoplaced one has
+   * to move so it keeps reading horizontally beside the turned body.
+   *
+   * The file carries only a bool: `(fields_autoplaced yes)` is written for
+   * AUTOPLACE_AUTO *and* AUTOPLACE_MANUAL (sch_io_kicad_sexpr.cpp:782) and read
+   * back as AUTOPLACE_AUTO (…parser.cpp:3247), so the manual/auto distinction
+   * lives only in memory. `undefined` is AUTOPLACE_NONE.
+   */
+  readonly fieldsAutoplaced?: 'auto' | 'manual';
   /** `(passthrough block|force)`, net-chain bridge participation
    *  (SCH_SYMBOL::PASSTHROUGH_MODE); undefined = DEFAULT (omitted in files). */
   readonly passthrough?: 'block' | 'force';
@@ -427,6 +453,22 @@ export interface SchSymbol {
   /** `(in_pos_files no)`, SCH_SYMBOL::GetExcludedFromPosFiles (stored inverted
    *  in the file); undefined when the token is absent (pre-10.0 files). */
   readonly excludedFromPosFiles?: boolean;
+  /**
+   * `SYMBOL::m_pinNameOffset` (`eeschema/symbol.h:269`) as a SCH_SYMBOL carries
+   * it — the "Pin Name Position Offset" property registered on the SYMBOL base
+   * (`eeschema/lib_symbol.cpp:2688`).
+   *
+   * It is deliberately NOT the placement's cached definition's offset. SYMBOL
+   * declares the member, SCH_SYMBOL never overrides the accessors and never
+   * copies the value out of `m_part` — neither `SetLibSymbol`
+   * (`sch_symbol.cpp:254-266`) nor the from-LIB_SYMBOL constructor
+   * (`:80-114`, which copies only the four exclusion flags) touches it — and
+   * no schematic file token writes it. So a placed symbol's offset is the
+   * `0` of SYMBOL's constructor (`symbol.h:71`) until this row sets it, which
+   * is why KiCad's schematic Properties panel reads `0 mils` on a symbol whose
+   * library definition has a non-zero offset. Undefined is that 0.
+   */
+  readonly pinNameOffset?: number;
   readonly uuid?: string;
   readonly fields: readonly SchField[];
   /** `(pin_map_override …)`, this instance's pin-map resolution. */

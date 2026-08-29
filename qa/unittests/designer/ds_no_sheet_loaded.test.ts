@@ -142,7 +142,14 @@ describe('File > New clears the sheet rather than reloading the default', () => 
     // leave both enabled over an empty history.
     expect(newSheetBody).toContain('syncHistoryDepth()');
     expect(newSheetBody).toContain('setSelection(new Set())');
-    expect(newSheetBody).toContain('setDirty(false)');
+    // `SetContentModified( false )` AND `UpdateTitleAndInfo()`, which upstream
+    // does together in `OnNewDrawingSheet` (:909, :914) and which the frame
+    // now spells `clearModified()`. The pair exists because Append is the one
+    // command that sets the flag WITHOUT retitling (files.cpp:150), so the
+    // two halves had to become separable; New still does both, and this is
+    // the same expectation in the new spelling rather than a new one.
+    expect(newSheetBody).toContain('clearModified()');
+    expect(newSheetBody).not.toContain('setDirty(true)');
   });
 });
 

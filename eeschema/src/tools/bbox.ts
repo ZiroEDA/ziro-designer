@@ -4,9 +4,10 @@
 /**
  * Axis-aligned bounding boxes in world (internal-unit) space.
  *
- * Used for hit-testing and drawing selection highlights. The symbol body box
- * mirrors KiCad's `SCH_SYMBOL::GetBodyBoundingBox`: the extent of the unit's
- * graphics and pins, mapped through the placement transform (fields excluded).
+ * Used for hit-testing and drawing selection highlights. The symbol box mirrors
+ * KiCad's `SCH_SYMBOL::GetBodyAndPinsBoundingBox` — the extent of the unit's
+ * graphics and pins, mapped through the placement transform, fields excluded —
+ * and, on request, its `GetBodyBoundingBox()` sibling, which stops at the body.
  */
 
 import { localToWorld, type Transform } from '@ziroeda/common/src/transform.js';
@@ -14,7 +15,15 @@ import { symbolTransform } from '@ziroeda/common/src/transform.js';
 import { mmToIU } from '@ziroeda/common/src/eda_units.js';
 import type { TextStyle } from '@ziroeda/common/src/font/font_provider.js';
 import { stringBoundaryLimits } from '@ziroeda/common/src/font/text_box.js';
-import type { LibSymbol, LibSymbolUnit, SchLabel, SchSymbol, SheetPin, Vec2 } from '../types.js';
+import type {
+  LibPin,
+  LibSymbol,
+  LibSymbolUnit,
+  SchLabel,
+  SchSymbol,
+  SheetPin,
+  Vec2,
+} from '../types.js';
 
 export interface BBox {
   minX: number;
@@ -46,8 +55,61 @@ export function contains(b: BBox, p: Vec2): boolean {
   return p.x >= b.minX && p.x <= b.maxX && p.y >= b.minY && p.y <= b.maxY;
 }
 
-function includeUnit(b: BBox, unit: LibSymbolUnit, origin: Vec2, t: Transform): void {
+/**
+ * `SCH_PIN::GetPinRoot`: the end of the pin line that touches the body.
+ *
+ * The pin's `at` is its *connection* point — the far, electrical end — and its
+ * angle is the direction the line runs from there back to the body, which is
+ * why the root is `at + length · direction` and not `at - …`
+ * (sch_pin.cpp:709-729; the four arms there are exactly these four vectors,
+ * with PIN_UP's `-length` on Y because a library's +Y is already flipped by the
+ * time we hold it).
+ */
+function pinRoot(pin: LibPin): Vec2 {
+  switch (((pin.angle % 360) + 360) % 360) {
+    case 90:
+      return { x: pin.at.x, y: pin.at.y - pin.length };
+    case 180:
+      return { x: pin.at.x - pin.length, y: pin.at.y };
+    case 270:
+      return { x: pin.at.x, y: pin.at.y + pin.length };
+    default:
+      return { x: pin.at.x + pin.length, y: pin.at.y };
+  }
+}
+
+function includeUnit(
+  b: BBox,
+  unit: LibSymbolUnit,
+  origin: Vec2,
+  t: Transform,
+  includePins: boolean,
+): void {
   for (const g of unit.graphics) {
+    /**
+     * `EDA_SHAPE::getBoundingBox` ends with
+     *
+     *     bbox.Inflate( std::max( 0, GetWidth() ) / 2 );
+     *
+     * (`common/eda_shape.cpp`), so a shape's box is its geometry plus half its
+     * own pen — the ink, not the centreline. We measured the centreline, which
+     * made every symbol's box narrower than KiCad's by the body outline's
+     * stroke: on `Connector:Screw_Terminal_01x02`, whose rectangle is 0.254 mm
+     * wide, 0.254 mm short in each dimension.
+     *
+     * It shows up in the DNP cross, which is sized off both boxes, but it is
+     * not the cross's bug — selection, hit-testing and the field autoplacer all
+     * read these boxes too.
+     *
+     * `GetWidth()` is the STORED width, and a shape left on the default stores
+     * 0; `std::max( 0, … )` then contributes nothing. It is not resolved to the
+     * effective 6 mils first, so a zero-width shape inflates by nothing here.
+     */
+    const pen = g.kind !== 'text' && g.stroke && g.stroke.width > 0 ? g.stroke.width / 2 : 0;
+    const inc = (p: Vec2): void => {
+      includePoint(b, { x: p.x - pen, y: p.y - pen });
+      includePoint(b, { x: p.x + pen, y: p.y + pen });
+    };
     switch (g.kind) {
       case 'rectangle':
         for (const c of [
@@ -56,11 +118,11 @@ function includeUnit(b: BBox, unit: LibSymbolUnit, origin: Vec2, t: Transform): 
           g.end,
           { x: g.start.x, y: g.end.y },
         ])
-          includePoint(b, localToWorld(origin, t, c));
+          inc(localToWorld(origin, t, c));
         break;
       case 'polyline':
       case 'bezier': // control-point hull is a conservative bound
-        for (const p of g.points) includePoint(b, localToWorld(origin, t, p));
+        for (const p of g.points) inc(localToWorld(origin, t, p));
         break;
       case 'circle':
         for (const c of [
@@ -69,19 +131,30 @@ function includeUnit(b: BBox, unit: LibSymbolUnit, origin: Vec2, t: Transform): 
           { x: g.center.x, y: g.center.y - g.radius },
           { x: g.center.x, y: g.center.y + g.radius },
         ])
-          includePoint(b, localToWorld(origin, t, c));
+          inc(localToWorld(origin, t, c));
         break;
       case 'arc':
-        includePoint(b, localToWorld(origin, t, g.start));
-        includePoint(b, localToWorld(origin, t, g.mid));
-        includePoint(b, localToWorld(origin, t, g.end));
+        inc(localToWorld(origin, t, g.start));
+        inc(localToWorld(origin, t, g.mid));
+        inc(localToWorld(origin, t, g.end));
         break;
       case 'text':
         includePoint(b, localToWorld(origin, t, g.at));
         break;
     }
   }
-  for (const pin of unit.pins) includePoint(b, localToWorld(origin, t, pin.at));
+  // `LIB_SYMBOL::GetBodyBoundingBox` (lib_symbol.cpp:1442-1455) takes a pin two
+  // different ways, and the difference is the whole pin line: with pins it
+  // merges the pin's own bounding box, without them it still merges
+  // `GetPinRoot()` — "the roots of the pins are always included for symbols
+  // that don't have a well-defined body". So a body-only box stops at the body
+  // edge; a body-and-pins box reaches the connection point.
+  //
+  // A pin gets NO pen inflation, unlike a shape: `PIN_LAYOUT_CACHE` does
+  // `pinBox.Inflate( m_pin.GetPenWidth() / 2 )` (`pin_layout_cache.cpp`) and
+  // `SCH_PIN::GetPenWidth()` is `{ return 0; }` (`sch_pin.h:251`).
+  for (const pin of unit.pins)
+    includePoint(b, localToWorld(origin, t, includePins ? pin.at : pinRoot(pin)));
 }
 
 function unitMatches(u: LibSymbolUnit, unit: number, bodyStyle: number): boolean {
@@ -265,7 +338,7 @@ export function labelTextBox(
   const fudge = Math.round(extentsY * 0.17);
   let sizeY = extentsY + fudge;
   // `text.Contains( "~{" )`: an overbar climbs above the nominal ascent.
-  if (text.includes('~{')) sizeY += Math.round(extentsY / 6);
+  if (text.includes('~{')) sizeY += Math.trunc(extentsY / 6);
 
   // GetTextBox's horizontal switch, unmirrored:
   //
@@ -449,8 +522,27 @@ export function sheetPinBBox(pin: SheetPin): BBox {
   };
 }
 
-/** Body bounding box of a placed symbol (graphics + pins through the transform). */
-export function symbolBodyBBox(sym: SchSymbol, lib: LibSymbol | undefined): BBox {
+/**
+ * Bounding box of a placed symbol's drawing, through the placement transform.
+ *
+ * KiCad has two of these and they are not interchangeable
+ * (sch_symbol.cpp:2646-2663): `GetBodyAndPinsBoundingBox()` — the default here,
+ * and what selection, hit-testing and collision want — reaches out to the pins'
+ * connection points, while `GetBodyBoundingBox()` stops at the body and keeps
+ * only the pin *roots*.
+ *
+ * The autoplacer is the caller that needs the second one: `m_symbol_bbox` is
+ * `GetBodyBoundingBox()` (autoplace_fields.cpp:124), and it decides both how far
+ * out the field box sits (`fieldBoxPlacement`) and whether a symbol counts as
+ * "very long" for the preferred-side swap. Measured on a symbol with a pin on
+ * every side, taking the pins in put the fields 2.54 mm further out than
+ * eeschema puts them.
+ */
+export function symbolBodyBBox(
+  sym: SchSymbol,
+  lib: LibSymbol | undefined,
+  { includePins = true }: { includePins?: boolean } = {},
+): BBox {
   const b = emptyBBox();
   if (!lib) {
     // Fallback: a small box around the origin so the symbol is still selectable.
@@ -460,7 +552,7 @@ export function symbolBodyBBox(sym: SchSymbol, lib: LibSymbol | undefined): BBox
   }
   const t = symbolTransform(sym.angle, sym.mirror);
   for (const u of lib.units) {
-    if (unitMatches(u, sym.unit, sym.bodyStyle)) includeUnit(b, u, sym.at, t);
+    if (unitMatches(u, sym.unit, sym.bodyStyle)) includeUnit(b, u, sym.at, t, includePins);
   }
   if (isEmpty(b)) includePoint(b, sym.at);
   return b;

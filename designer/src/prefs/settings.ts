@@ -31,7 +31,13 @@ import {
 import type { EdaUnits } from '@ziroeda/common/src/eda_units.js';
 import type { RegulatorData } from '@ziroeda/pcb_calculator';
 import { defaultUnits } from '../ui/app_settings_units.js';
-import { DEFAULT_GRID_INDEX } from '../ui/grid_settings.js';
+import {
+  DEFAULT_GRID_INDEX,
+  GRID_SIZE_LIST,
+  type GridEntry,
+  gridEntryOf,
+} from '../ui/grid_settings.js';
+import { normalizeToolbarSettings, type ToolbarSettings } from '../ui/toolbar_config.js';
 import {
   DEFAULT_ROUTING_SETTINGS,
   writeRoutingSettings,
@@ -103,6 +109,24 @@ export interface CommonSettings {
     min_interval: number; // seconds
     limit_total_size: number; // bytes
   };
+  /**
+   * `APP_SETTINGS_BASE::m_ColorPicker`, whose single parameter is
+   * `color_picker.default_tab` (common/settings/app_settings.cpp:137-138).
+   * `DIALOG_COLOR_PICKER` reads it into `m_notebook->SetSelection`
+   * (dialog_color_picker.cpp:89) and writes `m_notebook->GetSelection()` back
+   * in its destructor (`:114`), so the picker reopens on whichever page was
+   * last used. The shipped default is 0 — "Color Picker", the page the base
+   * adds first (dialog_color_picker_base.cpp:140).
+   *
+   * Upstream this lives in each app's OWN settings file, because the dialog
+   * asks `Kiface().KifaceSettings()`. Ours is one shared component with no
+   * kiface to ask and the same dialog wherever it opens, so it is keyed once
+   * here, beside `search_pane` — the other APP_SETTINGS_BASE slice a shared
+   * widget reads.
+   */
+  color_picker: {
+    default_tab: number;
+  };
   /** APP_SETTINGS_BASE::SEARCH_PANE, the docked Search pane's own options. */
   search_pane: {
     /**
@@ -113,7 +137,50 @@ export interface CommonSettings {
      */
     selection_zoom: 'none' | 'pan' | 'zoom';
   };
+  /**
+   * `dialog.controls` — every dialog's remembered control values.
+   *
+   * COMMON_SETTINGS registers this as a `PARAM_LAMBDA<nlohmann::json>` named
+   * exactly `"dialog.controls"` (common/settings/common_settings.cpp:478-505),
+   * fed from `COMMON_SETTINGS_INTERNALS::m_dialogControlValues`, a
+   * `map<dialog key, map<control key, json>>`
+   * (include/settings/common_settings_internals.h:29). So this is a *user*
+   * setting living in `common.json`, not session state: it outlives the
+   * process, which is why KiCad's "Place repeated copies" is still ticked after
+   * the placer tool has been closed and reopened.
+   *
+   * Written by `DIALOG_SHIM::SaveControlState` and read back by
+   * `DIALOG_SHIM::LoadControlState` (common/dialog_shim.cpp:654, :765); see
+   * `ui/dialog_control_state.ts` for the port of that half.
+   */
+  dialog: {
+    controls: DialogControls;
+  };
 }
+
+/**
+ * One remembered control value.
+ *
+ * `SaveControlState` stores a `nlohmann::json` per control, and the branches it
+ * writes are exhaustively: a UNIT_BINDER's int, a `wxComboBox`'s string, a
+ * `wxOwnerDrawnComboBox`/`wxChoice`/`wxRadioBox`'s selection index, a
+ * `wxTextEntry`'s string, a `wxCheckBox`/`wxRadioButton`'s bool, a
+ * `wxSpinCtrl`'s int, a splitter's sash position, a scrolled window's scroll
+ * position, a notebook's *page title*, and a WX_GRID's shown-columns string
+ * (dialog_shim.cpp:678-745). Every one of those is a JSON scalar, so this is
+ * the whole value domain for a *control*.
+ *
+ * The one non-scalar upstream writes into the same map is the dialog's own
+ * geometry, an `{x,y,w,h}` object under the reserved key `"__geometry"`
+ * (dialog_shim.cpp:664-671, read back in `DIALOG_SHIM::Show`, :455-468). That
+ * is not ported: a wxDialog is a top-level window the user drags and resizes
+ * and ours are centred `.ze-modal` divs, so there is no position to remember.
+ * When one becomes movable, geometry belongs here under that same key.
+ */
+export type DialogControlValue = boolean | number | string;
+
+/** dialog key -> control key -> value; `m_dialogControlValues`. */
+export type DialogControls = Record<string, Record<string, DialogControlValue>>;
 
 export const COMMON_DEFAULTS: CommonSettings = {
   appearance: {
@@ -157,10 +224,16 @@ export const COMMON_DEFAULTS: CommonSettings = {
     min_interval: 300,
     limit_total_size: 104857600,
   },
+  // `PARAM<int>( "color_picker.default_tab", …, 0 )` — page 0 is "Color
+  // Picker", which is the page the notebook adds first and adds selected.
+  color_picker: { default_tab: 0 },
   // KiCad's default is PAN (app_settings.cpp: search_pane.selection_zoom).
   search_pane: {
     selection_zoom: 'pan',
   },
+  // `nlohmann::json::object()` is the param's default (common_settings.cpp:505):
+  // no dialog has been opened yet, so every control takes its own default.
+  dialog: { controls: {} },
 };
 
 // ----- EESCHEMA_SETTINGS --------------------------------------------------------
@@ -195,6 +268,18 @@ export interface EeschemaSettings {
     show_pin_alt_icons: boolean;
     show_page_limits: boolean;
     footprint_preview: boolean;
+    /**
+     * `APP_SETTINGS_BASE::m_CustomToolbars` -> `appearance.custom_toolbars`
+     * (`common/settings/app_settings.cpp:285-286`), default false.
+     *
+     * The "Customize toolbars" checkbox at the top of Preferences > Toolbars,
+     * and the `aAllowCustom` argument every `GetToolbarConfig` call passes
+     * (`common/eda_base_frame.cpp:784`, `:800`, `:815`, `:831`): with it off the
+     * frame draws `DefaultToolbarConfig` even when a stored configuration
+     * exists, so switching it off restores the stock toolbars without
+     * discarding the customisation.
+     */
+    custom_toolbars: boolean;
   };
   /**
    * APP_SETTINGS_BASE `cross_probing.*` (app_settings.cpp:290-303), edited by
@@ -302,8 +387,36 @@ export interface EeschemaSettings {
     title_block: boolean;
   };
   window: {
+    /**
+     * `dock_pos` for the panes of the left column, the part of
+     * `window.perspective` our column can express.
+     *
+     * KiCad persists its whole wxAUI layout as one string
+     * (`SCH_EDIT_FRAME::SaveSettings` -> `m_auimgr.SavePerspective()`, restored
+     * by `RestoreAuiLayout()` at sch_edit_frame.cpp:304 BEFORE any pane is
+     * shown), and each pane's entry carries a `pos=` field. Those numbers are
+     * not `AddPane`'s `Position()`: wxAUI renumbers the shown panes of a dock on
+     * every `Update()`, so they are wherever the last session left them.
+     *
+     * Measured with `qa/probes/aui_dock_pos_probe.cpp`: seeded with this
+     * machine's own saved perspective (PropertiesManager `pos=0`,
+     * SchematicHierarchy `pos=1`), closing both palettes and re-opening
+     * Properties then the hierarchy leaves Properties on top — while the same
+     * sequence from `AddPane`'s numbers leaves the hierarchy on top. Restarting
+     * every session from the `Position()` table, as we did, therefore made the
+     * column forget an order KiCad remembers.
+     */
+    left_dock_pos: Record<string, number>;
     grid: {
-      sizes: string[]; // "50 mil", "25 mil", ...
+      /**
+       * `GRID_SETTINGS::grids` — `GRID{ name, x, y }` per row
+       * (`include/settings/grid_settings.h:33-54`), which is what
+       * `PANEL_GRID_SETTINGS` writes back (`panel_grid_settings.cpp:190`) and
+       * what `DIALOG_GRID_SETTINGS` edits. It held one string per grid until
+       * that dialog was ported, which could carry neither a name nor a
+       * non-square Y.
+       */
+      sizes: GridEntry[];
       last_size_idx: number;
       fast_grid_1: number;
       fast_grid_2: number;
@@ -367,6 +480,7 @@ export const EESCHEMA_DEFAULTS: EeschemaSettings = {
     show_pin_alt_icons: true,
     show_page_limits: true,
     footprint_preview: true,
+    custom_toolbars: false,
   },
   cross_probing: { ...CROSS_PROBING_DEFAULTS },
   autoplace_fields: {
@@ -431,9 +545,19 @@ export const EESCHEMA_DEFAULTS: EeschemaSettings = {
     cmp_list_width: 150,
     show_pin_electrical_type: true,
   },
+  // PANEL_SYMBOL_CHOOSER::FinishSetup (panel_symbol_chooser.cpp:436-446) seeds
+  // both from dialog units: sash_pos_h = horizPixelsFromDU( 220 ) and
+  // sash_pos_v = horizPixelsFromDU( 230 ), which [px] measure 440 and 460 here
+  // (qa/probes/chooser_shell_probe.cpp). Those are wxSplitterWindow sash
+  // positions, so they size the FIRST pane; ours store the second, so each is
+  // the container minus the sash minus upstream's number:
+  //   880 dialog wide   - 440 - 5 sash          = 435 for the preview column
+  //   631 splitter tall - 460 - 5 sash          = 166 for the details pane
+  // (631 is the 680px client height less the 5px wxBOTTOM under the splitter
+  // and the 44px button row - a 34px wxButton in a wxALL 5 border.)
   sym_chooser: {
-    sash_pos_h: 360,
-    sash_pos_v: 150,
+    sash_pos_h: 435,
+    sash_pos_v: 166,
     sort_mode: 0,
   },
   printing: {
@@ -444,9 +568,17 @@ export const EESCHEMA_DEFAULTS: EeschemaSettings = {
     title_block: false,
   },
   window: {
+    // The state `AddPane` leaves behind, i.e. a profile with no saved
+    // perspective: `SCH_LEFT_PANE_POSITION` in
+    // `editors/schematic/panes.ts`, which is where the numbers are documented
+    // against their `Position()` call sites.
+    left_dock_pos: { netNavigator: 0, hierarchy: 1, properties: 2, selectionFilter: 4 },
     grid: {
-      sizes: ['100 mil', '50 mil', '25 mil', '10 mil'],
-      last_size_idx: 1,
+      // `DefaultGridSizeList()`'s eeschema row, asked rather than restated —
+      // the same table the grid selector reads. It was written out by hand here
+      // and agreed with the table by coincidence.
+      sizes: GRID_SIZE_LIST.eeschema.map(gridEntryOf),
+      last_size_idx: DEFAULT_GRID_INDEX.eeschema,
       fast_grid_1: 1,
       fast_grid_2: 2,
       style: 'dots',
@@ -454,7 +586,19 @@ export const EESCHEMA_DEFAULTS: EeschemaSettings = {
       min_spacing: 10,
       snap: 0,
       show: true,
-      overrides_enabled: false,
+      // `true`, and in BOTH arms of the per-editor split: APP_SETTINGS_BASE
+      // gives eeschema/symbol_editor and everything else the same default for
+      // this one (app_settings.cpp:497-498 and :523-524), and only
+      // `override_connected` and `override_graphics_idx` differ between them.
+      // So it is editor-independent, which is why it can live in this one
+      // shared grid block.
+      //
+      // Ours defaulted it false, which is why the schematic's grid-overrides
+      // toolbar button opened unlit where a real eeschema shows it lit — the
+      // button is one of the two that genuinely IS a toggle
+      // (ACTIONS::toggleGridOverrides declares TOOLBAR_STATE::TOGGLE), so the
+      // wrong default reads as the wrong button state.
+      overrides_enabled: true,
       overrides: {
         connected: { enabled: false, size: '50 mil' },
         wires: { enabled: false, size: '50 mil' },
@@ -521,6 +665,18 @@ export interface PcbnewSettings {
   appearance: {
     /** The editor's active color theme (APP_SETTINGS_BASE m_ColorTheme). */
     color_theme: string;
+    /**
+     * `APP_SETTINGS_BASE::m_CustomToolbars` -> `appearance.custom_toolbars`
+     * (`common/settings/app_settings.cpp:285-286`), default false.
+     *
+     * The "Customize toolbars" checkbox at the top of Preferences > Toolbars,
+     * and the `aAllowCustom` argument every `GetToolbarConfig` call passes
+     * (`common/eda_base_frame.cpp:784`, `:800`, `:815`, `:831`): with it off the
+     * frame draws `DefaultToolbarConfig` even when a stored configuration
+     * exists, so switching it off restores the stock toolbars without
+     * discarding the customisation.
+     */
+    custom_toolbars: boolean;
   };
   /**
    * APP_SETTINGS_BASE `cross_probing.*` (app_settings.cpp:290-303), edited by
@@ -545,6 +701,7 @@ export interface PcbnewSettings {
 export const PCBNEW_DEFAULTS: PcbnewSettings = {
   appearance: {
     color_theme: '_builtin_default',
+    custom_toolbars: false,
   },
   cross_probing: { ...CROSS_PROBING_DEFAULTS },
   tools: {
@@ -607,8 +764,44 @@ export interface PlEditorSettings {
      */
     last_imperial_units: EdaUnits;
   };
+  /**
+   * `appearance.color_theme` -> `APP_SETTINGS_BASE::m_ColorTheme`
+   * (app_settings.cpp:282-283), default `COLOR_SETTINGS::COLOR_BUILTIN_DEFAULT`.
+   * The one control on Preferences > Drawing Sheet Editor > Colors, which is
+   * `Color theme:` and nothing else
+   * (pagelayout_editor/dialogs/panel_pl_editor_color_settings_base.cpp:19-27).
+   */
+  appearance: {
+    color_theme: string;
+    /**
+     * `APP_SETTINGS_BASE::m_CustomToolbars` -> `appearance.custom_toolbars`
+     * (`common/settings/app_settings.cpp:285-286`), default false.
+     *
+     * The "Customize toolbars" checkbox at the top of Preferences > Toolbars,
+     * and the `aAllowCustom` argument every `GetToolbarConfig` call passes
+     * (`common/eda_base_frame.cpp:784`, `:800`, `:815`, `:831`): with it off the
+     * frame draws `DefaultToolbarConfig` even when a stored configuration
+     * exists, so switching it off restores the stock toolbars without
+     * discarding the customisation.
+     */
+    custom_toolbars: boolean;
+  };
   window: {
     grid: {
+      /**
+       * `window.grid.sizes` -> `GRID_SETTINGS::grids`
+       * (app_settings.cpp:476-477), seeded from `DefaultGridSizeList()`'s
+       * pl_editor row. Stored rather than read straight off the table because
+       * `PANEL_GRID_SETTINGS` edits it: add, edit, remove and reorder all write
+       * `m_grids` back into `gridCfg.grids`
+       * (common/dialogs/panel_grid_settings.cpp:190-192).
+       *
+       * The row is `GRID{ name, x, y }`, as upstream's is: every DEFAULT of
+       * pl_editor's row is square and nameless, but the Grids page can now add
+       * a named, non-square one through `DIALOG_GRID_SETTINGS`, so the stored
+       * shape has to be able to hold it.
+       */
+      sizes: GridEntry[];
       /**
        * `window.grid.last_size` -> `GRID_SETTINGS::last_size_idx`
        * (app_settings.cpp:480-481), default `defaultGridIdx` = 4 for
@@ -617,6 +810,24 @@ export interface PlEditorSettings {
        */
       last_size_idx: number;
       /**
+       * `window.grid.fast_grid_1` (app_settings.cpp:483-484), default
+       * `defaultGridIdx`, i.e. the same grid `last_size` starts on.
+       */
+      fast_grid_1: number;
+      /**
+       * `window.grid.fast_grid_2` (app_settings.cpp:486-487), default
+       * `defaultGridIdx + 1`.
+       */
+      fast_grid_2: number;
+      /** `window.grid.style` (app_settings.cpp:558-559), 0 = DOTS. */
+      style: 'dots' | 'lines' | 'crosses';
+      /** `window.grid.line_width` (app_settings.cpp:549-550), 1.0 px. */
+      line_width: number;
+      /** `window.grid.min_spacing` (app_settings.cpp:552-553), 10 px. */
+      min_spacing: number;
+      /** `window.grid.snap` (app_settings.cpp:561-562), 0 = ALWAYS. */
+      snap: 0 | 1 | 2;
+      /**
        * `window.grid.show` (app_settings.cpp:555-556), default true. Not
        * written by `SaveSettings`: `ACTIONS::toggleGrid` mutates the settings
        * object in place through `EDA_DRAW_FRAME::SetGridVisibility`
@@ -624,6 +835,26 @@ export interface PlEditorSettings {
        * restart.
        */
       show: boolean;
+      /**
+       * `window.grid.overrides_enabled` (app_settings.cpp:522-523), true for
+       * pl_editor as for everything else — the `else` arm gives it the same
+       * default the eeschema arm does.
+       */
+      overrides_enabled: boolean;
+      /**
+       * The two per-item overrides `PANEL_GRID_SETTINGS` leaves visible for
+       * `FRAME_PL_EDITOR`. Its constructor hides the vias row for every frame
+       * outside pcbnew, and hides the connected and wires rows for every frame
+       * that is not one of the four schematic ones
+       * (common/dialogs/panel_grid_settings.cpp:62-82), which leaves Text and
+       * Graphics. Both default off, at grid indices 18 and 15 of the *pcbnew*
+       * row upstream — indices into a 22-entry list pl_editor does not have, so
+       * ours name the grid by its string instead.
+       */
+      overrides: {
+        text: GridOverride;
+        graphics: GridOverride;
+      };
     };
     cursor: {
       /** `window.cursor.cross_hair_mode` (app_settings.cpp:567-568), SMALL_CROSS. */
@@ -657,10 +888,35 @@ export const PL_EDITOR_DEFAULTS: PlEditorSettings = {
     last_metric_units: 'mm',
     last_imperial_units: 'mils',
   },
+  appearance: {
+    color_theme: '_builtin_default',
+    custom_toolbars: false,
+  },
   window: {
     grid: {
+      // `DefaultGridSizeList()`'s pl_editor row, asked rather than restated —
+      // the same table the grid selector and the canvas already read. All eight
+      // are square, so the X column says the whole grid.
+      sizes: GRID_SIZE_LIST.pl_editor.map(gridEntryOf),
       last_size_idx: DEFAULT_GRID_INDEX.pl_editor,
+      // `fast_grid_1 = defaultGridIdx`, `fast_grid_2 = defaultGridIdx + 1`
+      // (app_settings.cpp:483-487) — not two literals.
+      fast_grid_1: DEFAULT_GRID_INDEX.pl_editor,
+      fast_grid_2: DEFAULT_GRID_INDEX.pl_editor + 1,
+      style: 'dots',
+      line_width: 1,
+      min_spacing: 10,
+      snap: 0,
       show: true,
+      overrides_enabled: true,
+      // The `else` arm of app_settings.cpp:520-546: both off. Upstream's
+      // indices (18, 15) point into pcbnew's grid list; the nearest thing
+      // pl_editor's own row has is its finest grid, which is what a text or
+      // graphics override would be for.
+      overrides: {
+        text: { enabled: false, size: '0.10 mm' },
+        graphics: { enabled: false, size: '0.10 mm' },
+      },
     },
     cursor: {
       crosshair: 'small',
@@ -675,6 +931,89 @@ export const PL_EDITOR_DEFAULTS: PlEditorSettings = {
   last_custom_height: 11000,
   last_was_portrait: false,
 };
+
+// ----- FOOTPRINT_EDITOR_SETTINGS ("fpedit.json") -------------------------------
+
+/**
+ * The Footprint Editor's own settings file — `PCB_VIEWERS_SETTINGS_BASE( "fpedit", … )`
+ * (`pcbnew/footprint_editor_settings.cpp:46`).
+ *
+ * Only the two things the library tree needs are here. The rest of
+ * FOOTPRINT_EDITOR_SETTINGS (design settings, magnetic items, layer presets)
+ * either lives elsewhere in this port already or is not persisted yet, and a
+ * key that nothing reads is a key that can drift.
+ */
+export interface FpEditSettings {
+  window: {
+    /**
+     * `PARAM<int>( "window.lib_width", &m_LibWidth, 250 )`
+     * (`footprint_editor_settings.cpp:69-70`).
+     *
+     * `FOOTPRINT_EDIT_FRAME` writes `m_treePane->GetSize().x` into it from
+     * `SaveSettings` (`:837`) and whenever the pane is hidden (`:414`), and
+     * restores it with `SetAuiPaneSize` on open (`:279-280`) and whenever the
+     * pane is shown again (`:410`). The 250 is the same number the pane's
+     * `.MinSize( FromDIP( 250 ), … ).BestSize( FromDIP( 250 ), -1 )` declares,
+     * which is why a fresh install opens at exactly the default.
+     */
+    lib_width: number;
+  };
+  /**
+   * `APP_SETTINGS_BASE::m_LibTree`, the `lib_tree.*` params every app settings
+   * file carries (`common/settings/app_settings.cpp:140-171`). The Footprint
+   * Editor's tree reads and writes this one, the symbol editor's reads
+   * `eeschema.json`'s.
+   */
+  lib_tree: {
+    /** `lib_tree.columns` — the shown columns, "Item" always first. */
+    columns: string[];
+    /**
+     * `lib_tree.column_widths`, a free-form `{ column: px }` object written by
+     * a `PARAM_LAMBDA<nlohmann::json>` (`:142-168`). Free-form, so it is
+     * normalised rather than `deepMerge`d — see {@link normalizeColumnWidths}.
+     */
+    column_widths: Record<string, number>;
+    /** `lib_tree.open_libs` — the libraries expanded when the frame closed. */
+    open_libs: string[];
+  };
+}
+
+export const FPEDIT_DEFAULTS: FpEditSettings = {
+  window: { lib_width: 250 },
+  lib_tree: { columns: [], column_widths: {}, open_libs: [] },
+};
+
+/**
+ * `lib_tree.column_widths` on the way in — the getter/setter pair at
+ * `app_settings.cpp:142-168`, which reads the JSON object back a key at a time
+ * and takes only integer values.
+ *
+ * Free-form, so not `deepMerge`d: the defaults are `{}` and `deepMerge` keeps
+ * only keys the defaults already have, so every stored width would be dropped
+ * on the way back in. That is the trap the note above `normalizeHotkeys`
+ * describes.
+ */
+export function normalizeColumnWidths(parsed: unknown): Record<string, number> {
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return {};
+  const out: Record<string, number> = {};
+  for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
+    if (typeof v === 'number' && Number.isFinite(v)) out[k] = v;
+  }
+  return out;
+}
+
+/**
+ * `fpedit.json` on the way in: the fixed tree merged as usual, with the one
+ * free-form subtree inside it normalised instead — the same shape as
+ * {@link mergeCommon}, and for the same reason.
+ */
+export function mergeFpEdit(stored: unknown): FpEditSettings {
+  const out = deepMerge(structuredClone(FPEDIT_DEFAULTS), stored);
+  const widths = (stored as { lib_tree?: { column_widths?: unknown } } | undefined)?.lib_tree
+    ?.column_widths;
+  out.lib_tree.column_widths = normalizeColumnWidths(widths);
+  return out;
+}
 
 /** Parse a grid size string ("50 mil", "1.27 mm") into IU (100 nm). */
 export function gridSizeToIU(size: string): number {
@@ -1231,14 +1570,41 @@ export const SETTINGS_SLICES = [
   'eeschema',
   'pcbnew',
   'pl_editor',
+  'fpedit',
   'pcb_calculator',
   'bitmap2component',
   'privacy',
   'colors.user',
   'hotkeys',
+  // `TOOLBAR_SETTINGS` is a file of its own per app, not a key inside the app's
+  // settings: `GetToolbarSettings<…>( "pl_editor-toolbars" )`
+  // (`pagelayout_editor/pl_editor.cpp:88`, `eeschema/eeschema.cpp:346`,
+  // `pcbnew/pcbnew.cpp:455`). One slice each, spelled as upstream spells the
+  // file, so a synced account carries `eeschema-toolbars.json` and not a
+  // sub-object of `eeschema.json`.
+  'eeschema-toolbars',
+  'pcbnew-toolbars',
+  'pl_editor-toolbars',
 ] as const;
 
 export type SettingsSlice = (typeof SETTINGS_SLICES)[number];
+
+/**
+ * An app that has a `TOOLBAR_SETTINGS` file, and therefore a Preferences >
+ * Toolbars page.
+ *
+ * Upstream seven frames do (`common/eda_base_frame.cpp:1637`, `:1647`, `:1672`,
+ * `:1686`, `:1694`, `:1715`, `:1737`). These three are the ones whose heading
+ * this port ships at all; Symbol Editor, Footprint Editor, 3D Viewer and Gerber
+ * Viewer have no Preferences heading here yet, and their toolbar stores arrive
+ * with those headings rather than sitting unread in the meantime.
+ */
+export const TOOLBAR_APPS = ['eeschema', 'pcbnew', 'pl_editor'] as const;
+
+export type ToolbarApp = (typeof TOOLBAR_APPS)[number];
+
+/** `GetToolbarSettings<…>( "<app>-toolbars" )` — the file name, spelled once. */
+export const toolbarSlice = (app: ToolbarApp): SettingsSlice => `${app}-toolbars` as SettingsSlice;
 
 /** Where a slice lives in localStorage. The one place the prefix is written. */
 export const sliceStorageKey = (slice: SettingsSlice): string => `ziroeda.${slice}`;
@@ -1408,6 +1774,50 @@ function load<T>(key: string, defaults: T): T {
   }
 }
 
+/**
+ * Upgrade a stored grid list to `GRID{ name, x, y }`.
+ *
+ * `window.grid.sizes` held one unit-bearing string per grid before
+ * `DIALOG_GRID_SETTINGS` was ported, and `deepMerge` adopts a stored array
+ * whole (it only checks that an array default got an array), so a settings file
+ * written by an older build arrives here as `string[]` and would reach the grid
+ * menu as a list of rows with no `.x`.
+ *
+ * Done at load rather than as a `SETTINGS_VERSION` step because it has to hold
+ * for a hand-edited file too, and because the next `commit()` writes the new
+ * shape back anyway. A row that is neither a string nor an object with an `x`
+ * is dropped; if that empties the list the defaults stand, since a frame with
+ * no grids has no grid to snap to.
+ */
+export function normalizeGrids<T extends { window: { grid: { sizes: GridEntry[] } } }>(
+  settings: T,
+  defaults: readonly GridEntry[],
+): T {
+  const stored: unknown = settings.window.grid.sizes;
+  if (!Array.isArray(stored)) {
+    settings.window.grid.sizes = defaults.map((g) => ({ ...g }));
+    return settings;
+  }
+  const rows: GridEntry[] = [];
+  for (const row of stored as unknown[]) {
+    if (typeof row === 'string') {
+      // The old shape: X only, square, unnamed.
+      if (row !== '') rows.push({ name: '', x: row, y: row });
+    } else if (typeof row === 'object' && row !== null) {
+      const g = row as Partial<GridEntry>;
+      if (typeof g.x === 'string' && g.x !== '') {
+        rows.push({
+          name: typeof g.name === 'string' ? g.name : '',
+          x: g.x,
+          y: typeof g.y === 'string' && g.y !== '' ? g.y : g.x,
+        });
+      }
+    }
+  }
+  settings.window.grid.sizes = rows.length > 0 ? rows : defaults.map((g) => ({ ...g }));
+  return settings;
+}
+
 function store(key: string, value: unknown): void {
   try {
     localStorage.setItem(key, JSON.stringify(value));
@@ -1450,6 +1860,56 @@ export function normalizeHotkeys(parsed: unknown): Record<string, string | null>
     // been the schematic's.
     out[k.includes('.') ? k : `eeschema.${k}`] = v;
   }
+  return out;
+}
+
+/**
+ * `dialog.controls` on the way in — the port of the PARAM_LAMBDA *setter* at
+ * common_settings.cpp:488-503.
+ *
+ * Upstream reads it defensively for the same reason ours must: the file is on
+ * disk and hand-editable, so it checks `aVal.is_object()` and then
+ * `dlgVal.is_object()` per dialog before copying, and silently skips anything
+ * else. Ours adds the leaf check upstream gets for free from `nlohmann::json`
+ * being able to hold anything: a leaf that is not a scalar is dropped, because
+ * {@link DialogControlValue} is the whole domain `SaveControlState` writes.
+ *
+ * Free-form, so not `deepMerge`d — see the note above `normalizeHotkeys`: the
+ * defaults are `{}` and `deepMerge` keeps only keys the defaults already have,
+ * so every stored dialog would be dropped on the way back in.
+ */
+export function normalizeDialogControls(parsed: unknown): DialogControls {
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return {};
+  const out: DialogControls = {};
+  for (const [dlgKey, dlgVal] of Object.entries(parsed as Record<string, unknown>)) {
+    if (typeof dlgVal !== 'object' || dlgVal === null || Array.isArray(dlgVal)) continue;
+    const controls: Record<string, DialogControlValue> = {};
+    for (const [ctrlKey, ctrlVal] of Object.entries(dlgVal as Record<string, unknown>)) {
+      if (
+        typeof ctrlVal === 'boolean' ||
+        typeof ctrlVal === 'number' ||
+        typeof ctrlVal === 'string'
+      )
+        controls[ctrlKey] = ctrlVal;
+    }
+    out[dlgKey] = controls;
+  }
+  return out;
+}
+
+/**
+ * `common.json` on the way in: the fixed settings tree merged as usual, with
+ * the one free-form subtree inside it normalised instead.
+ *
+ * One function rather than two because the same value arrives by two routes —
+ * localStorage at startup and the account at sign-in — and a subtree repaired
+ * on only one of them is the `colors.user` bug again, where every change was
+ * written and silently discarded on reload.
+ */
+export function mergeCommon(stored: unknown): CommonSettings {
+  const out = deepMerge(structuredClone(COMMON_DEFAULTS), stored);
+  const dialog = (stored as { dialog?: { controls?: unknown } } | undefined)?.dialog;
+  out.dialog = { controls: normalizeDialogControls(dialog?.controls) };
   return out;
 }
 
@@ -1536,8 +1996,9 @@ interface SliceIO {
 const SLICE_IO: Record<SettingsSlice, SliceIO> = {
   common: {
     read: (m) => m.common,
+    // Not `deepMerge` alone: `dialog.controls` is free-form. See `mergeCommon`.
     adopt: (m, v) => {
-      m.common = deepMerge(structuredClone(COMMON_DEFAULTS), v);
+      m.common = mergeCommon(v);
     },
   },
   eeschema: {
@@ -1556,6 +2017,13 @@ const SLICE_IO: Record<SettingsSlice, SliceIO> = {
     read: (m) => m.plEditor,
     adopt: (m, v) => {
       m.plEditor = deepMerge(structuredClone(PL_EDITOR_DEFAULTS), v);
+    },
+  },
+  fpedit: {
+    read: (m) => m.fpEdit,
+    // Not `deepMerge` alone: `lib_tree.column_widths` is free-form.
+    adopt: (m, v) => {
+      m.fpEdit = mergeFpEdit(v);
     },
   },
   pcb_calculator: {
@@ -1589,6 +2057,28 @@ const SLICE_IO: Record<SettingsSlice, SliceIO> = {
       m.hotkeys = normalizeHotkeys(v);
     },
   },
+  // One entry per `TOOLBAR_SETTINGS` file. Not `deepMerge`: a stored toolbar
+  // *replaces* its default rather than being merged over it, and merging two
+  // item lists would produce a toolbar neither side asked for. See
+  // `normalizeToolbarSettings`.
+  'eeschema-toolbars': {
+    read: (m) => m.toolbars.eeschema,
+    adopt: (m, v) => {
+      m.toolbars = { ...m.toolbars, eeschema: normalizeToolbarSettings(v) };
+    },
+  },
+  'pcbnew-toolbars': {
+    read: (m) => m.toolbars.pcbnew,
+    adopt: (m, v) => {
+      m.toolbars = { ...m.toolbars, pcbnew: normalizeToolbarSettings(v) };
+    },
+  },
+  'pl_editor-toolbars': {
+    read: (m) => m.toolbars.pl_editor,
+    adopt: (m, v) => {
+      m.toolbars = { ...m.toolbars, pl_editor: normalizeToolbarSettings(v) };
+    },
+  },
 };
 
 /**
@@ -1597,11 +2087,21 @@ const SLICE_IO: Record<SettingsSlice, SliceIO> = {
  * editors re-render through useSyncExternalStore).
  */
 export class SettingsManager {
-  common: CommonSettings = load(sliceStorageKey('common'), COMMON_DEFAULTS);
-  eeschema: EeschemaSettings = load(sliceStorageKey('eeschema'), EESCHEMA_DEFAULTS);
+  // Not `load()`: `common.json` carries one free-form subtree. See `mergeCommon`.
+  common: CommonSettings = loadFreeForm(sliceStorageKey('common'), mergeCommon);
+  eeschema: EeschemaSettings = normalizeGrids(
+    load(sliceStorageKey('eeschema'), EESCHEMA_DEFAULTS),
+    EESCHEMA_DEFAULTS.window.grid.sizes,
+  );
   pcbnew: PcbnewSettings = load(sliceStorageKey('pcbnew'), PCBNEW_DEFAULTS);
   /** `pl_editor.json`, the Drawing Sheet Editor's own settings file. */
-  plEditor: PlEditorSettings = load(sliceStorageKey('pl_editor'), PL_EDITOR_DEFAULTS);
+  plEditor: PlEditorSettings = normalizeGrids(
+    load(sliceStorageKey('pl_editor'), PL_EDITOR_DEFAULTS),
+    PL_EDITOR_DEFAULTS.window.grid.sizes,
+  );
+  /** `fpedit.json`, the Footprint Editor's own settings file. Not `load()`:
+   *  `lib_tree.column_widths` is free-form. See `mergeFpEdit`. */
+  fpEdit: FpEditSettings = loadFreeForm(sliceStorageKey('fpedit'), mergeFpEdit);
   /** `pcb_calculator.json` — the Calculator Tools frame's last inputs. */
   pcbCalculator: PcbCalculatorSettings = loadFreeForm(
     sliceStorageKey('pcb_calculator'),
@@ -1620,6 +2120,21 @@ export class SettingsManager {
     sliceStorageKey('hotkeys'),
     normalizeHotkeys,
   );
+  /**
+   * `<app>-toolbars.json`, one per app with a Preferences > Toolbars page.
+   *
+   * Upstream these are separate `TOOLBAR_SETTINGS` objects the settings manager
+   * hands out by file name, never a member of the app's own settings — a frame
+   * holds `m_toolbarSettings` beside `config()`, and the customisation panel is
+   * given both (`PANEL_TOOLBAR_CUSTOMIZATION`'s `aCfg` and `aTbSettings`). One
+   * field holding all three keeps that separation without three near-identical
+   * members and three near-identical updaters.
+   */
+  toolbars: Record<ToolbarApp, ToolbarSettings> = {
+    eeschema: loadFreeForm(sliceStorageKey('eeschema-toolbars'), normalizeToolbarSettings),
+    pcbnew: loadFreeForm(sliceStorageKey('pcbnew-toolbars'), normalizeToolbarSettings),
+    pl_editor: loadFreeForm(sliceStorageKey('pl_editor-toolbars'), normalizeToolbarSettings),
+  };
   /** Per-slice modification and agreement stamps; see {@link SliceStamp}. */
   stamps: Record<string, SliceStamp> = loadStamps();
   /**
@@ -1716,6 +2231,28 @@ export class SettingsManager {
     this.commit('common', next);
   }
 
+  /**
+   * Remember one control's value for one dialog — `dlgMap[ key ] = value` in
+   * `DIALOG_SHIM::SaveControlState` (common/dialog_shim.cpp:678-745).
+   *
+   * The early return is not upstream's, and is deliberate. Upstream's
+   * assignment is free — it writes an in-memory `std::map`, and the file is
+   * written once at exit by `SETTINGS_MANAGER::Save` — so it re-stores every
+   * control on every close without paying for it. A browser has no exit hook to
+   * flush at, so ours must persist as it goes; and `commit` stamps the slice
+   * dirty and wakes the account sync, so re-storing a value that is already
+   * stored would push `common.json` to the server every time any dialog is
+   * opened and closed unchanged. Storing the same bytes is what is skipped, not
+   * a change.
+   */
+  setDialogControl(dialogKey: string, controlKey: string, value: DialogControlValue): void {
+    if (this.common.dialog.controls[dialogKey]?.[controlKey] === value) return;
+    this.updateCommon((s) => {
+      s.dialog.controls[dialogKey] ??= {};
+      s.dialog.controls[dialogKey][controlKey] = value;
+    });
+  }
+
   updateEeschema(mutate: (s: EeschemaSettings) => void): void {
     const next = structuredClone(this.eeschema);
     mutate(next);
@@ -1735,6 +2272,26 @@ export class SettingsManager {
     mutate(next);
     this.plEditor = next;
     this.commit('pl_editor', next);
+  }
+
+  /**
+   * One app's `TOOLBAR_SETTINGS`, which is what
+   * `PANEL_TOOLBAR_CUSTOMIZATION::TransferDataFromWindow` writes through
+   * `SetStoredToolbarConfig` (`panel_toolbar_customization.cpp:352-354`).
+   */
+  updateToolbars(app: ToolbarApp, mutate: (s: ToolbarSettings) => void): void {
+    const next = structuredClone(this.toolbars[app]);
+    mutate(next);
+    this.toolbars = { ...this.toolbars, [app]: next };
+    this.commit(toolbarSlice(app), next);
+  }
+
+  /** `FOOTPRINT_EDIT_FRAME::SaveSettings` (`footprint_edit_frame.cpp:823-860`). */
+  updateFpEdit(mutate: (s: FpEditSettings) => void): void {
+    const next = structuredClone(this.fpEdit);
+    mutate(next);
+    this.fpEdit = next;
+    this.commit('fpedit', next);
   }
 
   /**

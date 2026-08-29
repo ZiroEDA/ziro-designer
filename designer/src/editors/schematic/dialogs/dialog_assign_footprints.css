@@ -1,0 +1,231 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later
+   Copyright (C) 2026 ZiroEDA and contributors.
+   Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
+
+   Assign Footprints (CVPCB_MAINFRAME): the three list panes with their wxAUI
+   captions, the bottom status lines and the footprint viewer panel.
+
+   Everything the theme decides is taken from the tokens in ui/shell.css, the
+   same way CVPCB_MAINFRAME takes it from wxSystemSettings; the few literals
+   left are wxWidgets' OWN constants (wxAuiDefaultDockArt's caption size and
+   caption point size) or a number measured off the real widget by
+   `qa/probes/cvpcb_listbox_probe.cpp`, and each says which it is.
+
+   This file replaced a `.ze-cvpcb-*` block in ui/shell.css that had drifted
+   into invented chrome - 12.5px list text against the 11pt KiCad asks GTK for,
+   an 18px row against a measured 24, and #c8cacd / #b6b8bb ink where wx hands
+   out wxSYS_COLOUR_BTNTEXT. The classes are renamed rather than restated so
+   that no rule states the same property twice; see CLAUDE.md on specificity.
+   --------------------------------------------------------------------------- */
+
+.ze-fpassign {
+  display: flex;
+  flex-direction: column;
+
+  /* [data] wxAuiDefaultDockArt::wxAuiDefaultDockArt sets `m_captionSize =
+     wxWindow::FromDIP( 17 )` and `m_captionFont = wxFont( 8, wxDEFAULT, ... )`,
+     and WX_AUI_DOCK_ART (common/widgets/wx_aui_art_providers.cpp:307-325) only
+     overrides those two inside `#if defined( _WIN32 )`. So on Linux the caption
+     band is wx's own 17 px at wx's own 8 pt: wx's constants, not the theme's.
+     Confirmed by asking the art provider itself
+     (qa/probes/cvpcb_listbox_probe.cpp: "aui caption size 17", font pt=8).
+
+     STILL A PRIVATE COPY, and named so: `.ze-panel-header` in ui/shell.css is
+     the same wxAuiDefaultDockArt caption and states the same two constants as
+     its own literals (`min-height: 18px`, i.e. the 17 plus its rule, and
+     `font-size: 8pt`). The pair wants one `--aui-caption-*` token beside
+     `--aui-sash`, consumed from both. Not done here because
+     `qa/unittests/designer/ui_font_tokens.test.ts` pins the exact COUNT of
+     font-size literals in `ui` (`sites.length` is 335), so moving
+     `.ze-panel-header`'s 8pt is a change to that test's numbers and belongs in
+     a commit that is about them — not smuggled into a cvpcb one while another
+     agent is working in that area. */
+  --fpassign-caption-h: 17px;
+  --fpassign-caption-size: 8pt;
+
+  /* CHROME. KIUI::GetMonospacedUIFont() is `wxFont( guiFontSize,
+     wxFONTFAMILY_MODERN, ... )` with no face name, so fontconfig answers it:
+     `fc-match Monospace` -> DejaVu Sans Mono, and the probe confirms wx
+     resolves the face to "Monospace" at 9.000 px per character cell. The size
+     is deliberately absent - it is the GUI font's point size, which every
+     descendant of .ze-app already inherits from --ui-font-size. */
+  --fpassign-mono: ui-monospace, "DejaVu Sans Mono", Menlo, Consolas, monospace;
+}
+
+/* The TOP_MAIN dock's edge. */
+.ze-fpassign .ze-toolbar.horizontal {
+  /* [px] wxAUI_DOCKART_PANE_BORDER_SIZE = 1, read off the art provider by
+     qa/probes/cvpcb_listbox_probe.cpp ("aui pane border size 1"). */
+  border-bottom: 1px solid var(--chrome-border);
+}
+
+/* `text->SetFont( m_tbTopMain->GetFont().Bold() )` (toolbars_cvpcb.cpp:88-95):
+   the toolbar's own font, bold. Stating a size here is what made it 12px. */
+.ze-fpassign-filters-label {
+  font-weight: 700;
+  /* [data] `config.AppendSpacer( 15 )` immediately before the label
+     (toolbars_cvpcb.cpp:69-71) - KiCad's own number, not the theme's. The 10
+     and 6 that stood here were neither. */
+  padding: 0 0 0 15px;
+  white-space: nowrap;
+}
+
+.ze-fpassign-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+/* EDA_PANE().Palette(): CaptionVisible(true), PaneBorder(true), and from the
+   EDA_PANE constructor Gripper(false) and CloseButton(false) - the three panes
+   carry no close box. */
+.ze-fpassign-pane {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  /* [px] wxAUI_DOCKART_PANE_BORDER_SIZE = 1, read off the art provider by
+     qa/probes/cvpcb_listbox_probe.cpp ("aui pane border size 1"). */
+  border-right: 1px solid var(--chrome-border);
+}
+.ze-fpassign-pane.last {
+  border-right: none;
+}
+
+.ze-fpassign-caption {
+  display: flex;
+  align-items: center;
+  height: var(--fpassign-caption-h);
+  /* [px] where wxAuiDefaultDockArt::DrawCaption actually puts the string: the
+     probe paints the caption twice, once with the text and once empty, and the
+     first column where the two bitmaps differ is 4. */
+  padding: 0 4px;
+  box-sizing: border-box;
+  font-size: var(--fpassign-caption-size);
+  /* WX_AUI_DOCK_ART sets both caption text colours to wxSYS_COLOUR_BTNTEXT
+     (wx_aui_art_providers.cpp:318-321), which is --chrome-fg. */
+  color: var(--chrome-fg);
+  /* wxAUI's inactive caption fill, which is the only one CVPCB shows:
+     WX_AUI_DOCK_ART turns the gradient off (`m_gradientType =
+     wxAUI_GRADIENT_NONE`) and KiCad does not pass wxAUI_MGR_ALLOW_ACTIVE_PANE,
+     so every pane paints wxAUI_DOCKART_INACTIVE_CAPTION_COLOUR flat.
+
+     --panel-header, the token every other docked caption in the app already
+     uses, and NOT a #2e2e2e of ours — which is what stood here, as a private
+     `--fpassign-caption-bg`. The two agree, and they are independent readings:
+     the token was sampled off a live KiCad pane, while
+     qa/probes/cvpcb_listbox_probe.cpp asks the art provider for
+     wxAUI_DOCKART_INACTIVE_CAPTION_COLOUR directly. A per-dialog custom
+     property is still a launcher-local copy — one the central-value ratchet
+     cannot see, because it skips custom-property declarations. */
+  background: var(--panel-header);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ze-fpassign-caption .x {
+  margin-left: auto;
+  cursor: default;
+}
+
+/* ITEMS_LISTBOX_BASE is a wxListView over wxSYS_COLOUR_LISTBOX. It states no
+   font SIZE: KIUI::GetMonospacedUIFont() keeps the GUI font's point size, which
+   .ze-app already sets from --ui-font-size. */
+.ze-fpassign-list {
+  flex: 1;
+  overflow: auto;
+  background: var(--chrome-bg2);
+  font-family: var(--fpassign-mono);
+}
+/* The three panes are focusable (Tab / Shift+Tab / left / right cycle between
+   them, CVPCB_CONTROL::ChangeFocus), so the focused one says so the way a
+   focused wxListView does. */
+.ze-fpassign-list:focus-visible {
+  outline: 1px solid var(--chrome-active-border);
+  outline-offset: -1px;
+}
+
+/* Row height is set inline from ROW_H in the component, because the virtual
+   list needs the same number in JS; see the constant's comment. What is left
+   here is the text's own line box, --ui-text-height, i.e. the 18 px wx reports
+   for GetTextExtent( "pdI" ).y - the row is that plus GTK's 6 px. */
+.ze-fpassign-row {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  /* No inset: `GetItemRect( 0, r, wxLIST_RECT_LABEL )` reports x == the item's
+     own x, so a wxListView row's text starts flush against the column. The
+     columns are spaced by the padding formatSymbolDesc writes into the STRING,
+     which is why the pane has to be monospaced at all. Ours added 6 px here and
+     pushed every row off KiCad's grid. */
+  line-height: var(--ui-text-height);
+  white-space: pre;
+  cursor: default;
+}
+.ze-fpassign-row:hover {
+  background: var(--chrome-hover);
+}
+.ze-fpassign-row.selected {
+  background: var(--chrome-active);
+  color: var(--selection-fg);
+}
+/* SYMBOLS_LISTBOX's warning attribute, `wxColour( 112, 96, 32 )` on a dark
+   theme. */
+.ze-fpassign-row .ze-fpassign-warn {
+  display: block;
+  width: 100%;
+}
+.ze-fpassign-row:has(.ze-fpassign-warn) {
+  /* [data] symbols_listbox.cpp:40-42 writes the two colours itself. */
+  background: rgb(112, 96, 32);
+}
+.ze-fpassign-row.selected:has(.ze-fpassign-warn) {
+  background: var(--chrome-active);
+}
+
+/* Not upstream: cvpcb leaves the pane blank when the netlist is empty. Flush
+   left like the rows above it, and in the same ink every other static text in
+   the window uses. */
+.ze-fpassign-empty {
+  color: var(--chrome-fg);
+}
+
+/* The bottom panel's three wxStaticText lines. They carry
+   KIUI::GetStatusFont(), which on GTK is getGUIFont( aWindow, 0 ) - the
+   window's own font, unscaled - so this states no size either. The sizer adds
+   two pixels on the left and nothing anywhere else
+   (`panelSizer->Add( fgSizerStatus, 1, wxEXPAND|wxLEFT, 2 )`,
+   cvpcb_mainframe.cpp:148). */
+.ze-fpassign-status {
+  display: flex;
+  flex-direction: column;
+  /* [data] `panelSizer->Add( fgSizerStatus, 1, wxEXPAND|wxLEFT, 2 )` -
+     wxLEFT only, and a border of 2 (cvpcb_mainframe.cpp:148). */
+  padding: 0 0 0 2px;
+  /* [px] wxAUI_DOCKART_PANE_BORDER_SIZE = 1, read off the art provider by
+     qa/probes/cvpcb_listbox_probe.cpp ("aui pane border size 1"). */
+  border-top: 1px solid var(--chrome-border);
+  color: var(--chrome-fg);
+}
+.ze-fpassign-status > div {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  /* A wxStaticText's height at the GUI font: GetBestSize().y == 18, measured. */
+  min-height: var(--ui-line-height);
+}
+
+/* DISPLAY_FOOTPRINTS_FRAME's stand-in, over the footprint pane and under its
+   caption. */
+.ze-fpassign-viewer {
+  position: absolute;
+  inset: var(--fpassign-caption-h) 0 0 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--chrome-bg);
+  /* [px] wxAUI_DOCKART_PANE_BORDER_SIZE = 1, read off the art provider by
+     qa/probes/cvpcb_listbox_probe.cpp ("aui pane border size 1"). */
+  border-left: 1px solid var(--chrome-border);
+}

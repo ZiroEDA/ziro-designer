@@ -12,14 +12,54 @@
  */
 import { parse } from '@ziroeda/sexpr';
 import { readSymbolLib, type LibSymbol } from '@ziroeda/eeschema';
+import { Reporter } from '@ziroeda/common/src/reporter.js';
 import { searchTerm, type SearchTerm } from '@ziroeda/common';
 import { fetchLibraryIndex, libraryBase } from '../../../libraryHosts.js';
 import { trackLibraryLoad } from '../../../widgets/library_loading.js';
+import { libTreeItem, symbolProperty, type LibTreeItem } from './lib_tree_item.js';
+import { loadLibraryItemsPooled } from './preload_pool.js';
+
+export type { LibTreeItem } from './lib_tree_item.js';
+/** Re-exported so callers keep one import site for symbol access. */
+export { symbolProperty, libSymbolPinCount, libSymbolUnitCount } from './lib_tree_item.js';
+
+/**
+ * Read a library, saying so when a derived symbol's parent is not in the file.
+ *
+ * `SCH_IO_KICAD_SEXPR_LIB_CACHE::updateParentSymbolLinks` throws an IO_ERROR
+ * there, because a symbol whose `extends` names nothing has no body: every
+ * draw item it renders belongs to the parent. We do not refuse the whole
+ * library over one bad entry — the other few thousand symbols in it are fine —
+ * but it must not pass in silence, because the symptom (a part that draws as
+ * its field text and nothing else) says nothing about the cause.
+ */
+function readLibraryText(name: string, text: string): LibSymbol[] {
+  const reporter = new Reporter();
+  const symbols = readSymbolLib(parse(text), reporter);
+  for (const line of reporter.lines) console.warn(`symbol library "${name}": ${line.message}`);
+  return symbols;
+}
+
+/** `GetSymbols( lib )`'s map, keyed by the bare item name AddLibraries looks up. */
+function itemsByName(items: readonly LibTreeItem[]): Map<string, LibTreeItem> {
+  return new Map(items.map((i) => [i.name, i]));
+}
 
 export interface LibIndexEntry {
   name: string;
   count: number;
   symbols: string[];
+  /**
+   * The library's own description, shown against its row in the tree.
+   *
+   * It is the library TABLE row's, not anything inside the `.kicad_sym`:
+   * `libDescription = ( *rowResult )->Description()`
+   * (eeschema/symbol_tree_model_adapter.cpp:146), and KiCad ships the 223
+   * strings in `template/sym-lib-table`. Optional, because an index generated
+   * before the field existed simply has no descriptions and the column stays
+   * empty, which is what it did for every library until now.
+   */
+  descr?: string;
   /**
    * Names of the power symbols in this library, when the index carries them.
    *
@@ -121,6 +161,42 @@ export function loadIndex(): Promise<LibIndexEntry[]> {
 }
 
 const libCache = new Map<string, Promise<Map<string, LibSymbol>>>();
+
+/**
+ * The libraries that have finished loading — `LOAD_STATUS::LOADED`.
+ *
+ * `SYMBOL_TREE_MODEL_ADAPTER::AddLibraries` asks
+ * `m_adapter->GetLibraryStatus( lib )` for every row and adds only the ones
+ * that are LOADED (eeschema/symbol_tree_model_adapter.cpp:130-139); the rest go
+ * to `m_pending_load_libraries` and are retried. That test is synchronous, so a
+ * pending promise is not enough to answer it and a resolved map is kept beside
+ * the cache.
+ *
+ * What is kept is one {@link LibTreeItem} per symbol, `LIB_TREE_ITEM` being the
+ * whole of what the tree asks a symbol for. Upstream keeps the `LIB_SYMBOL`
+ * itself; we cannot, because the parsed form retains 21.1x its source text and
+ * the hosted set would be ~4.9 GB (see lib_tree_item.ts). Anything that needs
+ * the real symbol — the preview, a placement — goes through `loadSymbol`, which
+ * fetches that one symbol's own file.
+ */
+const loadedLibraries = new Map<string, Map<string, LibTreeItem>>();
+
+/** `GetLibraryStatus( lib )->load_status == LOAD_STATUS::LOADED`. */
+export function libraryLoaded(name: string): boolean {
+  return loadedLibraries.has(name);
+}
+
+/**
+ * `m_adapter->GetSymbols( lib )` at the point AddLibraries calls it
+ * (eeschema/symbol_tree_model_adapter.cpp:148) — synchronous, because the
+ * library is already LOADED by the time that line runs. Undefined for a library
+ * that is not, which is the same thing as it not being in the tree yet.
+ */
+export function loadedLibraryItems(name: string): LibTreeItem[] | undefined {
+  const map = loadedLibraries.get(name);
+  return map ? [...map.values()] : undefined;
+}
+
 function loadLibrary(name: string): Promise<Map<string, LibSymbol>> {
   let p = libCache.get(name);
   if (!p) {
@@ -142,13 +218,19 @@ function loadLibrary(name: string): Promise<Map<string, LibSymbol>> {
         })
         .then((text) => {
           const map = new Map<string, LibSymbol>();
-          for (const sym of readSymbolLib(parse(text))) {
+          for (const sym of readLibraryText(name, text)) {
             // Give it a KiCad-style Library:Name id.
             map.set(sym.libId, { ...sym, libId: `${name}:${sym.libId}` });
           }
           return map;
         }),
-    );
+    ).then((map) => {
+      // A library read whole — by the library browser, or by `loadSymbol`
+      // falling back — is LOADED for the tree too, so record its items. This is
+      // the main-thread path; the preload's is `loadLibraryItemsPooled`.
+      loadedLibraries.set(name, itemsByName([...map.values()].map(libTreeItem)));
+      return map;
+    });
     libCache.set(name, p);
   }
   return p;
@@ -182,7 +264,7 @@ async function fetchOneSymbol(library: string, symbolName: string): Promise<LibS
   const text = await res.text();
   // The file holds the parent chain too, so pick out the one that was asked
   // for; `readSymbolLib` has already flattened it against those parents.
-  for (const sym of readSymbolLib(parse(text))) {
+  for (const sym of readLibraryText(library, text)) {
     if (sym.libId === symbolName) return { ...sym, libId: `${library}:${sym.libId}` };
   }
   return undefined;
@@ -232,33 +314,59 @@ export async function loadSymbol(
  * (eeschema/eeschema.cpp:487) — the work list the "Loading Symbol Libraries"
  * background job runs.
  *
- * Upstream's adapter loads every row of the symbol library table. Ours cannot:
- * the hosted set is 223 libraries totalling 219.7 MB, or 22 778 individual
- * symbol files, both measured against the bucket. What it loads instead is the
- * name index plus the library copy of every symbol the open design places —
- * the set upstream's chooser reads synchronously when it builds its "Recently
- * Used" and "Already Placed" groups, and the set ERC's symbol comparison walks.
- * See libraryPreload.ts for why that substitution is the faithful answer.
+ * **Every library, as upstream's adapter loads every row of the symbol library
+ * table.** This used to load only the index plus the symbols the open design
+ * already placed, on the measurement that the hosted set was "223 libraries
+ * totalling 219.7 MB". That number was the *uncompressed* size, and it was
+ * large only because the bucket stored those objects with no
+ * `content-encoding`. Stored gzipped, which they now are, the same 223
+ * libraries are **9.7 MB** — Connector_Generic alone goes from 6.6 MB to
+ * 214 kB. The objection was to our own headers, not to the data, and the
+ * bounded substitution it justified is what made the chooser's search return
+ * different results from KiCad's: `LIB_TREE_NODE`'s scoring gives an unloaded
+ * library only its own name to match on (lib_tree_model.ts), so a query hit
+ * every resident symbol upstream and only the library names here.
  *
- * The index counts as one work item so the gauge moves for a design with few
- * symbols, and because it genuinely is the largest single fetch of the set.
+ * One work item per library, so the gauge counts what upstream's counts:
+ * `m_loadTotal = rows.size()` (library_manager.cpp:1798-1800) is libraries, not
+ * bytes. The index is awaited before the list is built rather than being an
+ * item in it, because it *is* our library table — upstream knows its row count
+ * before the load starts, and so must we.
  *
- * A `libId` with no library part cannot be answered by any hosted library, so
- * it is dropped rather than turned into a certain 404.
+ * **Each item runs on a worker, as `AsyncLoad` submits each row to the thread
+ * pool.** It used to call `loadLibrarySymbols`, which fetches and parses inline:
+ * 35 434 ms of main-thread CPU over the hosted set, in 92 tasks longer than
+ * 50 ms, worst 2 030 ms (qa/perf/parse_all.bench.ts). That is what made typing
+ * and scrolling stall while a project opened.
  */
-export function symbolPreloadWork(libIds: Iterable<string>): (() => Promise<unknown>)[] {
-  const work: (() => Promise<unknown>)[] = [() => loadIndex()];
-  const seen = new Set<string>();
-  for (const libId of libIds) {
-    const sep = libId.indexOf(':');
-    if (sep <= 0 || sep === libId.length - 1) continue;
-    if (seen.has(libId)) continue;
-    seen.add(libId);
-    const library = libId.slice(0, sep);
-    const name = libId.slice(sep + 1);
-    work.push(() => loadSymbol(library, name));
+export async function symbolPreloadWork(): Promise<(() => Promise<unknown>)[]> {
+  const index = await loadIndex();
+  return index.map((lib) => () => preloadLibraryItems(lib.name));
+}
+
+/**
+ * One library's worth of `LIB_TREE_ITEM`s, parsed off the main thread, recorded
+ * as LOADED.
+ *
+ * Memoised on `itemsPromises` the way `loadLibrary` is on `libCache`: the
+ * preload and a chooser opening over the top of it must not fetch twice.
+ */
+const itemsPromises = new Map<string, Promise<LibTreeItem[]>>();
+
+export function preloadLibraryItems(library: string): Promise<LibTreeItem[]> {
+  let p = itemsPromises.get(library);
+  if (!p) {
+    p = trackLibraryLoad(
+      'symbols',
+      `Loading ${library}...`,
+      loadLibraryItemsPooled(library, libraryUri(library)),
+    ).then((items) => {
+      loadedLibraries.set(library, itemsByName(items));
+      return items;
+    });
+    itemsPromises.set(library, p);
   }
-  return work;
+  return p;
 }
 
 /**
@@ -273,11 +381,6 @@ export async function loadLibrarySymbols(library: string): Promise<LibSymbol[]> 
 /** LIBRARY_MANAGER::GetFullURI, where a library nickname's file actually lives. */
 export function libraryUri(library: string): string {
   return `${symbolsBase()}/${library}.kicad_sym`;
-}
-
-/** A symbol's `(property ...)` value, or '', LIB_SYMBOL::GetDescription/GetKeyWords. */
-export function symbolProperty(sym: LibSymbol, key: string): string {
-  return sym.properties.find((p) => p.key === key)?.value ?? '';
 }
 
 /**

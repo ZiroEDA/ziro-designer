@@ -229,8 +229,24 @@ describe('every File menu ends the way its C++ frame ends', () => {
     const src = read(frame.file);
     // The calls, in the order they appear, filtered to this frame's app name
     // so an unrelated builder call elsewhere in the file cannot stand in.
-    const calls = [...src.matchAll(/\b(addClose|addQuit|addQuitOrClose)\('([^']+)'/g)]
-      .filter((m) => m[2] === frame.app)
+    //
+    // The argument may be a string literal OR a same-file `const` holding one.
+    // A frame that uses its title for more than this row — cvpcb's is also the
+    // window caption and, through `dialogKeyFromTitle`, the key its saved
+    // settings live under — has to name it once or the three drift apart and
+    // the settings silently stop loading. Resolving the constant keeps this
+    // check's guarantee (the builder is called with THIS frame's app name)
+    // without forcing the string to be repeated to satisfy a regex.
+    const consts = new Map(
+      [...src.matchAll(/\bconst\s+([A-Za-z_$][\w$]*)\s*=\s*'([^']*)'\s*;/g)].map((m) => [
+        m[1] as string,
+        m[2] as string,
+      ]),
+    );
+    const calls = [
+      ...src.matchAll(/\b(addClose|addQuit|addQuitOrClose)\(\s*(?:'([^']+)'|([A-Za-z_$][\w$]*))/g),
+    ]
+      .filter((m) => (m[2] ?? consts.get(m[3] as string)) === frame.app)
       .map((m) => m[1]);
     expect(calls, `${frame.file} vs ${frame.upstream}`).toEqual(frame.rows.map((r) => BUILDER[r]));
   });

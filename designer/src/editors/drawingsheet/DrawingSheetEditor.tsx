@@ -37,6 +37,7 @@ import {
   type WksRect,
   type WksResolveContext,
   pageSizeDisplayMM,
+  WKS_FILE_VERSION,
 } from '@ziroeda/common';
 import type { Vec2 } from '@ziroeda/kimath';
 import { Combo, type ComboOption } from '../../ui/Combo.js';
@@ -66,7 +67,8 @@ import {
   zoomFactorForScale,
   zoomMsg,
 } from '../../ui/status_format.js';
-import { DS_TOP_TOOLBAR, DS_LEFT_TOOLBAR, DS_RIGHT_TOOLBAR } from './drawingSheetToolbars.js';
+import { DS_DEFAULT_TOOLBARS } from './drawingSheetToolbars.js';
+import { useToolbarEntries } from '../../ui/useToolbarEntries.js';
 import { buildDsContextMenu } from './ds_context_menu.js';
 import { DEFAULT_GRID_INDEX, GRID_SIZE_LIST, gridSizeToMM } from '../../ui/grid_settings.js';
 import { DrawingSheetCanvas, type DrawingSheetCanvasController } from './DrawingSheetCanvas.js';
@@ -78,7 +80,23 @@ import { leafOf, savePathWithExtension } from '../../fs/save_path.js';
 import { OpenFileDialog } from '../../fs/OpenFileDialog.js';
 import { drawingSheetWildcard } from '../../fs/wildcards.js';
 import { DesignInspector } from './DesignInspector.js';
-import { MessageDialogError } from '../../ui/dialog_message.js';
+import { MessageDialogError, MessageDialogOk } from '../../ui/dialog_message.js';
+import { AboutDialog } from '../../home/dialogs/dialog_about.js';
+import { ABOUT_TITLES } from '../../ui/about_titles.js';
+import {
+  DS_APPEND_DIALOG_TITLE,
+  DS_OPEN_DIALOG_TITLE,
+  DS_OUTDATED_FORMAT_INFOBAR,
+  DS_SAVE_AS_DIALOG_TITLE,
+  dsErrorLoadingMsg,
+  dsFileInsertedMsg,
+  dsFileLoadedMsg,
+  dsFileSavedMsg,
+  dsUnableToLoadMsg,
+} from './file_commands.js';
+import { PL_EDITOR_STATUS_TEMPLATES, plCoordFields } from './pl_status_bar.js';
+import { PL_EDITOR_PRINT_PAGES, printDocumentHtml } from './print_document.js';
+import { DS_CANVAS_PAGE_NUMBERING, dsPrintPageNumbering } from './page_numbering.js';
 import { UnsavedChangesDialog } from '../../ui/dialog_unsaved_changes.js';
 import { handleUnsavedChanges, type UnsavedChangesResult } from '../../ui/confirm.js';
 import { dsInspectorTitle } from './design_inspector.js';
@@ -108,7 +126,11 @@ import { drawDrawingSheetItems, DS_PRINT_PAPER_COLOR } from '@ziroeda/common';
 import '../../ui/shell.css';
 import { standardHelpMenu } from '../../ui/help_menu.js';
 import { showHotkeyList } from '../../ui/hotkey_list_action.js';
-import { useModalEscape } from '../../ui/useModalEscape.js';
+// The shared Preferences dialog, the one every other launcher opens.
+// `EDA_BASE_FRAME::ShowPreferences` is on the base frame precisely so that no
+// editor writes its own (common/eda_base_frame.cpp:1573).
+import { PreferencesDialog } from '../../dialogs/PreferencesDialog.js';
+import type { PrefsPageId } from '../../dialogs/prefs/types.js';
 import {
   FileHistory,
   MISSING_FILE_EXTENDED,
@@ -136,6 +158,15 @@ export interface DrawingSheetEditorFile {
   name: string;
   text: string;
 }
+
+/**
+ * A queued modal. `DisplayErrorMessage( parent, msg, extended )` and
+ * `wxMessageBox( msg, caption )` are two different dialogs upstream and both
+ * are raised from this frame, so the queue carries which one.
+ */
+type MessageBoxRequest =
+  | { kind: 'error'; message: string; extendedMessage?: string }
+  | { kind: 'message'; message: string; caption: string };
 
 /**
  * PL_EDITOR_SETTINGS `properties_frame_width` (pl_editor_settings.cpp:46).
@@ -282,6 +313,29 @@ export function DrawingSheetEditor({
   const [fileName, setFileName] = useState('');
   const [dirty, setDirty] = useState(false);
   /**
+   * What the TITLE BAR thinks "modified" means, which upstream is not the same
+   * flag as `IsContentModified()`.
+   *
+   * `PL_EDITOR_FRAME::OnModify` sets the screen's flag and then calls
+   * `UpdateTitleAndInfo()` (pl_editor_frame.cpp:384-398), so the `*` appears
+   * with the change. Append does not go through it: it pokes
+   * `GetScreen()->SetContentModified()` directly (files.cpp:150) and the title
+   * keeps the name it had until the next real edit. A driven pl_editor shows
+   * `probe — Drawing Sheet Editor` right after an Append, not `*probe`, and
+   * this pair is what reproduces that without pretending the sheet is clean.
+   */
+  const [titleModified, setTitleModified] = useState(false);
+  /** `OnModify()`: the flag and the title together. */
+  const onModify = useCallback(() => {
+    setDirty(true);
+    setTitleModified(true);
+  }, []);
+  /** `SetContentModified( false )` followed by `UpdateTitleAndInfo()`. */
+  const clearModified = useCallback(() => {
+    setDirty(false);
+    setTitleModified(false);
+  }, []);
+  /**
    * `m_undoList` / `m_redoList`. The rules live in `undo_stack.ts`; what is
    * here is only the React plumbing.
    *
@@ -406,27 +460,83 @@ export function DrawingSheetEditor({
   }, []);
   /** Where the canvas context menu was opened, or null when it is closed. */
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number } | null>(null);
-  /** DisplayErrorMessage's text when Print cannot open its preview window. */
-  const [printError, setPrintError] = useState<string | null>(null);
+  /** `standardHelpMenu`'s About, the shared dialog every other launcher opens. */
+  const [aboutOpen, setAboutOpen] = useState(false);
   /**
-   * `black_background` -> `SetDrawBgColor( cfg->m_BlackBackground ? BLACK : WHITE )`
-   * (pl_editor_frame.cpp:541), written back at :562.
+   * `WX_INFOBAR::MESSAGE_TYPE::OUTDATED_SAVE`, the half of `LoadDrawingSheetFile`'s
+   * infobar block a browser can have (files.cpp:267-274).
+   *
+   * The other half — `fn.FileExists() && !fn.IsFileWritable()` raising
+   * `Layout file is read only.` (:276-282) — has no counterpart and is left
+   * out on purpose rather than by omission: the project store has no file
+   * modes, so there is no state in which that sentence could become true.
+   * Dismissed again by a successful save (:329-330) and by the next load
+   * (`m_infoBar->Dismiss()`, :265).
    */
-  const [blackBackground, setBlackBackgroundRaw] = useState(settings.plEditor.black_background);
-  const setBlackBackground = useCallback((on: boolean) => {
-    setBlackBackgroundRaw(on);
-    settings.updatePlEditor((s) => {
-      s.black_background = on;
-    });
+  const [outdatedFormat, setOutdatedFormat] = useState(false);
+  /**
+   * `DisplayErrorMessage( this, msg[, extended] )` — the queue, because
+   * `Files_io` raises **two** in a row on a bad file: `LoadDrawingSheetFile`
+   * shows `Error loading drawing sheet '%s'.` with the parser message as
+   * extended text (files.cpp:253-256) and returns false, and the `if( !… )`
+   * that called it then shows `Unable to load %s file` (:173-174). Both were
+   * seen, in that order, driving the installed pl_editor. A single slot would
+   * have shown the second only.
+   */
+  const [errorDialogs, setErrorDialogs] = useState<readonly MessageBoxRequest[]>([]);
+  const displayErrorMessage = useCallback((message: string, extendedMessage?: string) => {
+    setErrorDialogs((q) => [
+      ...q,
+      extendedMessage === undefined
+        ? { kind: 'error' as const, message }
+        : { kind: 'error' as const, message, extendedMessage },
+    ]);
+  }, []);
+  /** `wxMessageBox( aMessage, aCaption )`, the plain information box. */
+  const messageBox = useCallback((message: string, caption: string) => {
+    setErrorDialogs((q) => [...q, { kind: 'message' as const, message, caption }]);
   }, []);
   const [showInspector, setShowInspector] = useState(false);
   const [showPageDialog, setShowPageDialog] = useState(false);
   const [showSyntaxHelp, setShowSyntaxHelp] = useState(false);
-  const [showPrefs, setShowPrefs] = useState(false);
+  /**
+   * `ShowPreferences( aStartPage, aStartParentPage )`'s first argument, held as
+   * state: `null` while the dialog is closed, `'default'` for the menu item —
+   * upstream passes `wxEmptyString` and the tree opens on its first page — and a
+   * page id for the one command that names a page, `ACTIONS::gridProperties`.
+   */
+  const [showPrefs, setShowPrefs] = useState<PrefsPageId | 'default' | null>(null);
   const recent = useFileHistory(recentFiles);
   const common = useCommonSettings();
   /** The live `pl_editor.json`, for the values the canvas reads every frame. */
   const plCfg = usePlEditorSettings();
+  /**
+   * `EDA_BASE_FRAME::RecreateToolbars` (`common/eda_base_frame.cpp:1728-1843`):
+   * the frame asks `GetToolbarConfig( loc, m_CustomToolbars )` for each bar and
+   * never reads `DefaultToolbarConfig` itself, which is what lets Preferences >
+   * Toolbars change what is drawn.
+   */
+  const dsTopBar = useToolbarEntries('pl_editor', 'TOP_MAIN', DS_DEFAULT_TOOLBARS);
+  const dsLeftBar = useToolbarEntries('pl_editor', 'LEFT', DS_DEFAULT_TOOLBARS);
+  const dsRightBar = useToolbarEntries('pl_editor', 'RIGHT', DS_DEFAULT_TOOLBARS);
+  /**
+   * `black_background` -> `SetDrawBgColor( cfg->m_BlackBackground ? BLACK : WHITE )`
+   * (pl_editor_frame.cpp:541), written back from the live canvas colour at
+   * :562.
+   *
+   * READ-ONLY, as upstream. Nothing in pl_editor 10.0.5 calls `SetDrawBgColor`
+   * except that load — no menu item, no action, no Preferences control — so the
+   * only way to change it is editing `pl_editor.json` by hand. The checkbox we
+   * had for it was an invention; see `PreferencesDialog` below.
+   *
+   * It does NOT reach the canvas. `m_drawBgColor` is the device-context
+   * background; the GAL canvas clears to `settings->GetBackgroundColor()`
+   * (`common/draw_panel_gal.cpp:364`), which `LoadColors` takes from the chosen
+   * colour theme. Ours painted the canvas from it, which is why picking a theme
+   * changed nothing. It goes to DIALOG_PAGES_SETTINGS' preview instead, which
+   * is what reads `GetDrawBgColor()` upstream.
+   */
+  const blackBackground = plCfg.black_background;
 
   const controller = useRef<DrawingSheetCanvasController>(null);
   const bitmapInputRef = useRef<HTMLInputElement>(null);
@@ -449,8 +559,16 @@ export function DrawingSheetEditor({
   // ---- title-block resolve context (fed by the Page Settings preview data) ----
   const resolveCtx = useMemo<WksResolveContext>(
     () => ({
+      // The ordinal drives which items are drawn — `page1only` on 1,
+      // `notonpage1` on the rest — which is what `OnSelectPage`'s
+      // LAYER_DRAWINGSHEET_PAGE1 / _PAGEn toggle does upstream
+      // (pl_editor_frame.cpp:461-467).
       pageNumber,
-      sheetCount: pageNumber > 1 ? 2 : 1,
+      // ...and it must NOT reach the title block. `DS_DRAW_ITEM_LIST` starts at
+      // page "1" of 1 and the canvas never overrides either, so a real
+      // pl_editor reads `Id: 1/1` on `Other pages` too. See page_numbering.ts;
+      // ours used to read `2/2` there.
+      ...DS_CANVAS_PAGE_NUMBERING,
       title: preview.title,
       rev: preview.rev,
       date: preview.date,
@@ -507,24 +625,42 @@ export function DrawingSheetEditor({
   );
 
   const commit = useCallback(
-    (next: WksSheet, description: string) => {
+    (next: WksSheet) => {
       saveCopy();
       // The ref is written here as well as in the effect above: two commits
       // inside one event would otherwise both capture the pre-first-commit
       // sheet, because the effect has not run between them.
       sheetRef.current = next;
       setSheet(next);
-      setDirty(true);
-      setStatus(description);
+      onModify();
     },
-    [saveCopy],
+    [saveCopy, onModify],
   );
 
   /** Push the current sheet on the undo stack without changing it (in-flight edits). */
   const pushUndo = useCallback(() => {
     saveCopy();
-    setDirty(true);
-  }, [saveCopy]);
+    onModify();
+  }, [saveCopy, onModify]);
+
+  /**
+   * `InsertDrawingSheetFile` (files.cpp:291-302) followed by the Append arm's
+   * `GetScreen()->SetContentModified(); HardRedraw();` (:150-151).
+   *
+   * Deliberately not `commit`: `commit` is `OnModify`, and Append is the one
+   * command that sets the modified flag without touching the title. See
+   * `titleModified`.
+   */
+  const insertDrawingSheetFile = useCallback(
+    (items: WksItem[]) => {
+      saveCopy();
+      const next = { ...sheetRef.current, items };
+      sheetRef.current = next;
+      setSheet(next);
+      setDirty(true);
+    },
+    [saveCopy],
+  );
 
   /** Silent update used while dragging (no extra undo entries). */
   const updateSheet = useCallback((fn: (cur: WksSheet) => WksSheet) => {
@@ -552,7 +688,7 @@ export function DrawingSheetEditor({
       syncHistoryDepth();
       // Both pop paths end in `OnModify()`; `RollbackFromUndo` deliberately
       // does not, because a cancelled dialog changed nothing.
-      if (aModify) setDirty(true);
+      if (aModify) onModify();
       // `RollbackFromUndo`'s PLUS branch, and only it, re-fits the view
       // (pl_editor_undo_redo.cpp:143-147).
       if (!aModify && r.hardRedraw) requestAnimationFrame(() => controller.current?.zoomToFit());
@@ -654,30 +790,59 @@ export function DrawingSheetEditor({
     syncHistoryDepth();
     setSheet((s) => ({ ...s, items: [] }));
     setSelection(new Set());
-    setDirty(false);
+    clearModified();
     setFileName('');
-    setStatus('New drawing sheet');
+    // `wxID_NEW` writes NO status text (files.cpp:123-128): the message pane
+    // keeps whatever the last file command put there. Driving the installed
+    // pl_editor, New after a Save As still read `File '…' saved.`. Ours said
+    // "New drawing sheet", a sentence upstream has nowhere.
     requestAnimationFrame(() => controller.current?.zoomToFit());
   }, []);
 
+  /**
+   * `LoadDrawingSheetFile` plus the `wxID_OPEN` / `OnFileHistory` arm that
+   * called it. `aStatus` is the difference between the two: `Files_io` prints
+   * `File '%s' saved.` (files.cpp:179) and `OnFileHistory` prints
+   * `File '%s' loaded` (:82).
+   *
+   * `aPath` is the full path the dialog returned, because that is what both
+   * `SetCurrentFileName` and the status line get upstream.
+   */
   const openText = useCallback(
-    async (name: string, text: string) => {
+    async (name: string, text: string, aStatus: (path: string) => string = dsFileSavedMsg) => {
+      let parsed: WksSheet;
       try {
-        const parsed = await backfillBitmapMeta(parseDrawingSheet(text));
-        clearUndoRedoList(history.current);
-        syncHistoryDepth();
-        setSheet(parsed);
-        setSelection(new Set());
-        setDirty(false);
-        setFileName(name);
-        setStatus(`Opened ${name} (${parsed.items.length} items)`);
-        addRecent(name, text);
-        requestAnimationFrame(() => controller.current?.zoomToFit());
+        parsed = await backfillBitmapMeta(parseDrawingSheet(text));
       } catch (err) {
-        setStatus(`Failed to open ${name}: ${(err as Error).message}`);
+        // `DisplayErrorMessage( this, Format( _( "Error loading drawing sheet
+        // '%s'." ), … ), msg )` then, because the loader returned false,
+        // `_( "Unable to load %s file" )` (files.cpp:253-256, :173-174). The
+        // status line is NOT touched: the failed load leaves the previous
+        // message standing, which is what the running program does.
+        displayErrorMessage(dsErrorLoadingMsg(name), (err as Error).message);
+        displayErrorMessage(dsUnableToLoadMsg(name));
+        return;
       }
+      clearUndoRedoList(history.current);
+      syncHistoryDepth();
+      setSheet(parsed);
+      setSelection(new Set());
+      clearModified();
+      setFileName(name);
+      setStatus(aStatus(name));
+      // `m_infoBar->Dismiss()` and then the outdated-format bar
+      // (files.cpp:265-274). The read-only half of that block has no browser
+      // analogue — see the infobar below.
+      setOutdatedFormat(parsed.version < WKS_FILE_VERSION);
+      // `UpdateFileHistory( aFullFileName )` (files.cpp:261) — the history is
+      // written by the LOADER, and only by it. Saving does not add a row:
+      // `SaveDrawingSheetFile` never calls it (files.cpp:305-338), and a real
+      // pl_editor's Open Recent after a Save As really does not list the file
+      // it just wrote.
+      addRecent(name, text);
+      requestAnimationFrame(() => controller.current?.zoomToFit());
     },
-    [addRecent],
+    [addRecent, displayErrorMessage, syncHistoryDepth],
   );
 
   /**
@@ -694,7 +859,9 @@ export function DrawingSheetEditor({
         confirmRemove: (e) =>
           window.confirm(`${missingFileMessage(e.name)}\n${MISSING_FILE_EXTENDED}`),
       });
-      if (r) await openText(r.name, r.text);
+      // `OnFileHistory`'s own sentence, which is not `Files_io`'s:
+      // `File '%s' loaded` (files.cpp:82) against `File '%s' saved.` (:179).
+      if (r) await openText(r.name, r.text, dsFileLoadedMsg);
     },
     [openText],
   );
@@ -709,19 +876,34 @@ export function DrawingSheetEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openReqNonce]);
 
+  /**
+   * `ID_APPEND_DESCR_FILE` (files.cpp:130-156): `InsertDrawingSheetFile`, and
+   * then either the modal `Unable to load %s file` or
+   * `SetContentModified(); HardRedraw(); SetStatusText( "File '%s' inserted" )`.
+   *
+   * Note what is NOT there: `UpdateFileHistory`, and `OnModify`. Append pokes
+   * `GetScreen()->SetContentModified()` directly, so the title bar keeps the
+   * name it had and only picks up its `*` at the next real modification. That
+   * is reproduced: a driven pl_editor really does show `probe — Drawing Sheet
+   * Editor`, not `*probe`, immediately after an Append.
+   */
   const appendText = useCallback(
     async (name: string, text: string) => {
+      let parsed: WksSheet;
       try {
-        const parsed = await backfillBitmapMeta(parseDrawingSheet(text));
-        commit(
-          { ...sheet, items: [...sheet.items, ...parsed.items] },
-          `Appended ${parsed.items.length} items from ${name}`,
-        );
+        parsed = await backfillBitmapMeta(parseDrawingSheet(text));
       } catch (err) {
-        setStatus(`Failed to append ${name}: ${(err as Error).message}`);
+        // `InsertDrawingSheetFile` swallows the parser message (it passes
+        // `nullptr` for it, files.cpp:297), so Append gets the one-line modal
+        // and no extended text.
+        void err;
+        displayErrorMessage(dsUnableToLoadMsg(name));
+        return;
       }
+      insertDrawingSheetFile([...sheet.items, ...parsed.items]);
+      setStatus(dsFileInsertedMsg(name));
     },
-    [sheet, commit],
+    [sheet, insertDrawingSheetFile, displayErrorMessage],
   );
 
   /**
@@ -736,15 +918,44 @@ export function DrawingSheetEditor({
    * away one line after the chooser handed it over.
    */
   const writeSheet = useCallback(
-    (aPath: string, note = 'Saved') => {
+    (aPath: string) => {
       const text = serializeDrawingSheet(sheet);
       if (onSaveToProject) onSaveToProject(aPath, text);
       else download(leafOf(aPath), text);
-      addRecent(aPath, text);
-      setDirty(false);
-      setStatus(`${note} ${aPath}`);
+      // NO `UpdateFileHistory` here. `SaveDrawingSheetFile` is
+      // `Save( tempFile )`, permissions, rename, dismiss the infobar,
+      // `SetContentModified( false )`, `UpdateTitleAndInfo()` — and that is the
+      // whole function (files.cpp:305-338). Ours used to add every save to Open
+      // Recent, which a real pl_editor does not: after a Save As its Open
+      // Recent still lists only what was opened.
+      //
+      // The temp file is a DECISION, not an omission. Upstream serialises to
+      // `wxFileName::CreateTempFileName( "pledit" )`, removes it on IO_ERROR,
+      // copies the target's permissions onto it and only then renames it over
+      // the target (files.cpp:309-327). The property that buys is that a
+      // serialiser which throws part-way cannot truncate the file that was
+      // already there.
+      //
+      // We get that property from the call order instead:
+      // `serializeDrawingSheet` returns the complete string or throws, and
+      // nothing is handed to the store until it has returned, so there is no
+      // moment at which a half-written sheet exists. A rename would add
+      // nothing over that.
+      //
+      // What has no counterpart is `KIPLATFORM::IO::DuplicatePermissions`: the
+      // project store has no file modes to duplicate. It is worth knowing that
+      // upstream's own rename LOSES the permissions on a brand-new file —
+      // `DuplicatePermissions` is given a target that does not exist yet, so a
+      // Save As leaves the temp file's 0600 in place, which a driven pl_editor
+      // confirms (`probe.kicad_wks` 0664 rewritten in place, `saved2.kicad_wks`
+      // 0600 created by Save As).
+      clearModified();
+      // `SetStatusText( Format( _( "File '%s' saved." ), filename ) )` — the
+      // FULL path the dialog returned, not the leaf (files.cpp:194, :229).
+      setStatus(dsFileSavedMsg(aPath));
+      setOutdatedFormat(false);
     },
-    [sheet, addRecent, onSaveToProject],
+    [sheet, onSaveToProject, clearModified],
   );
 
   // `if( filename.IsEmpty() && id == wxID_SAVE ) id = wxID_SAVEAS;`
@@ -911,39 +1122,84 @@ export function DrawingSheetEditor({
   };
 
   /** Print the sheet: render the page alone to a bitmap and print that. */
+  /**
+   * `PL_EDITOR_FRAME::ToPrinter( false )` -> `InvokeDialogPrint`
+   * (pagelayout_editor/dialogs_for_printing.cpp:224-250).
+   *
+   * **Two pages, not one.** `PLEDITOR_PRINTOUT::HasPage` is
+   * `return ( aPageNum <= 2 )` and `GetPageInfo` sets `*maxPage = *selPageTo =
+   * 2` (:62, :152-157), and `PrintPage` calls
+   * `screen->SetVirtualPageNumber( aPageNum )` before rendering (:189). That is
+   * the entire point of the editor: an item may be marked page-1-only or
+   * subsequent-pages-only, and a one-page print can never show both. Ours
+   * rasterised the page that happened to be selected in the toolbar.
+   *
+   * **Black.** `GRForceBlackPen( true )` wraps the render (:184, cleared :213)
+   * and the background is forced to `WHITE` (:187), so a printed sheet is black
+   * on white whatever the screen colours are.
+   *
+   * `ToPrinter( true )` — the `wxPreviewFrame` at `SetZoom( 70 )` — has **no
+   * caller** in 10.0.5: `PL_EDITOR_CONTROL::Print` passes `false`
+   * (tools/pl_editor_control.cpp:116) and nothing else calls it. It is dead
+   * code, like `DIALOG_NEW_DATAITEM`, so there is no preview command to be
+   * missing.
+   */
   const printSheet = useCallback(() => {
     const scalePx = 2480 / pageW; // ~300 DPI for an A4-wide page
-    const cv = document.createElement('canvas');
-    cv.width = Math.round(pageW * scalePx);
-    cv.height = Math.round(pageH * scalePx);
-    const ctx = cv.getContext('2d');
-    if (!ctx) return;
-    ctx.fillStyle = DS_PRINT_PAPER_COLOR;
-    ctx.fillRect(0, 0, cv.width, cv.height);
-    ctx.setTransform(scalePx, 0, 0, scalePx, 0, 0);
-    drawDrawingSheetItems(ctx, draws, new Set(), { minWidth: 1 / scalePx });
+    const pageImage = (aPageNum: number): string | null => {
+      const cv = document.createElement('canvas');
+      cv.width = Math.round(pageW * scalePx);
+      cv.height = Math.round(pageH * scalePx);
+      const ctx = cv.getContext('2d');
+      if (!ctx) return null;
+      // `m_parent->SetDrawBgColor( WHITE )` for the duration of the page.
+      ctx.fillStyle = DS_PRINT_PAPER_COLOR;
+      ctx.fillRect(0, 0, cv.width, cv.height);
+      ctx.setTransform(scalePx, 0, 0, scalePx, 0, 0);
+      // `screen->SetVirtualPageNumber( aPageNum )`: this is what makes a
+      // page1only item vanish from page 2 and a notonpage1 item appear on it.
+      const pageDraws = layoutDrawingSheet(
+        sheet,
+        { widthMM: pageMM[0], heightMM: pageMM[1] },
+        // `screen->SetVirtualPageNumber( aPageNum )` (dialogs_for_printing.cpp:189)
+        // and then `PrintDrawingSheet( …, aScreen->GetPageCount(),
+        // aScreen->GetPageNumber(), … )` (eda_draw_frame.cpp:1236-1239). The
+        // count stays 1 — pl_editor never calls `SetPageCount` — so the second
+        // sheet really does print as page 2 of 1.
+        { ...resolveCtx, pageNumber: aPageNum, ...dsPrintPageNumbering(aPageNum) },
+      );
+      drawDrawingSheetItems(ctx, pageDraws, new Set(), {
+        minWidth: 1 / scalePx,
+        forceBlackPen: true,
+      });
+      return cv.toDataURL('image/png');
+    };
+
+    const pages = PL_EDITOR_PRINT_PAGES.map(pageImage);
+    if (pages.some((p) => p === null)) return;
+
     const w = window.open('', '_blank', 'width=900,height=700');
     if (!w) {
       // `window.open` returns null when the popup is blocked, and this used to
       // `return` on it: Print then did nothing and reported nothing, which is
       // the worst of the three outcomes. The system print dialog KiCad opens
-      // (DIALOG_PRINT_GENERIC via PL_EDITOR_FRAME's ACTIONS::print) is
-      // genuinely out of reach in a browser; failing silently is not.
+      // is genuinely out of reach in a browser; failing silently is not.
       //
-      // DisplayErrorMessage (common/confirm.cpp) is what upstream raises when
-      // a command cannot proceed, and it is the shared ui/dialog_message.tsx
-      // component here.
-      setPrintError(
+      // Upstream's own print-failure sentence is `An error occurred attempting
+      // to print the drawing sheet.` with the caption `Printing`
+      // (dialogs_for_printing.cpp:241-242), and it is deliberately NOT used
+      // here: it reports a printer that refused the job, which is a different
+      // event from a browser that refused a window, and copying it would tell
+      // the user to look at the wrong thing.
+      displayErrorMessage(
         'Print could not open the preview window.\n\n' +
           'Your browser blocked the pop-up. Allow pop-ups for this site and try again.',
       );
       return;
     }
-    w.document.write(
-      `<title>${fileName}</title><img src="${cv.toDataURL('image/png')}" style="width:100%" onload="window.print()">`,
-    );
+    w.document.write(printDocumentHtml(fileName, pages as string[]));
     w.document.close();
-  }, [draws, pageW, pageH, fileName]);
+  }, [sheet, pageMM, resolveCtx, pageW, pageH, fileName, displayErrorMessage]);
 
   // ---- placement: page-space IU point → anchored mm point ----
   const anchoredPoint = useCallback(
@@ -1037,8 +1293,7 @@ export function DrawingSheetEditor({
       onDrawMove(at);
       drawingIndex.current = null;
       setSelection(new Set([idx]));
-      setDirty(true);
-      setStatus('Item placed');
+      onModify();
       // The tool stays active for the next placement, as upstream does.
     },
     [onDrawMove],
@@ -1060,9 +1315,9 @@ export function DrawingSheetEditor({
 
   // ---- one-click tools ----
   const addItem = useCallback(
-    (item: WksItem, description: string) => {
+    (item: WksItem) => {
       const next = { ...sheet, items: [...sheet.items, item] };
-      commit(next, description);
+      commit(next);
       setSelection(new Set([next.items.length - 1]));
     },
     [sheet, commit],
@@ -1072,25 +1327,22 @@ export function DrawingSheetEditor({
     (tool: string, at: Vec2) => {
       const pos = anchoredPoint(at, 'rbcorner');
       if (tool === 'dsAddText') {
-        addItem(
-          {
-            type: 'text',
-            ...NEW_BASE,
-            text: 'Text',
-            pos,
-            fontW: 0,
-            fontH: 0,
-            bold: false,
-            italic: false,
-            lineWidth: 0,
-            hjustify: 'left',
-            vjustify: 'center',
-            rotate: 0,
-            maxlen: 0,
-            maxheight: 0,
-          },
-          'Add text',
-        );
+        addItem({
+          type: 'text',
+          ...NEW_BASE,
+          text: 'Text',
+          pos,
+          fontW: 0,
+          fontH: 0,
+          bold: false,
+          italic: false,
+          lineWidth: 0,
+          hjustify: 'left',
+          vjustify: 'center',
+          rotate: 0,
+          maxlen: 0,
+          maxheight: 0,
+        });
       } else if (tool === 'dsAddBitmap') {
         // Place → Image opens a file dialog; capture the anchor and prompt.
         pendingBitmapPos.current = pos;
@@ -1106,15 +1358,20 @@ export function DrawingSheetEditor({
     async (file: File, pos: WksPoint) => {
       try {
         const { b64, pxW, pxH, ppi } = await imageFileToPng(file);
-        addItem(
-          { type: 'bitmap', ...NEW_BASE, pos, scale: 1, pngB64: b64, ppi, pxW, pxH },
-          `Add image (${file.name || 'pasted image'})`,
-        );
+        addItem({ type: 'bitmap', ...NEW_BASE, pos, scale: 1, pngB64: b64, ppi, pxW, pxH });
       } catch (err) {
-        setStatus(`Failed to load image: ${(err as Error).message}`);
+        // `wxMessageBox( _( "Could not load image from '%s'." ), fullFilename )`
+        // (pl_editor_frame.cpp:875, :884). The `%s` is not a mistake HERE: it
+        // is upstream's — `wxMessageBox`'s second argument is the CAPTION, not
+        // a format argument, so the running program shows that sentence with
+        // the placeholder still in it and puts the file name in the title bar.
+        // Reproduced rather than corrected, for the same reason `File '%s'
+        // saved.` after an Open is.
+        void err;
+        messageBox("Could not load image from '%s'.", file.name || 'pasted image');
       }
     },
-    [addItem],
+    [addItem, messageBox],
   );
 
   const centreOrCursorPoint = useCallback(
@@ -1166,7 +1423,7 @@ export function DrawingSheetEditor({
     (delta: Vec2) => {
       if (selection.size === 0) return;
       const items = sheet.items.map((it, i) => (selection.has(i) ? translateItem(it, delta) : it));
-      commit({ ...sheet, items }, 'Move');
+      commit({ ...sheet, items });
     },
     [sheet, selection, commit],
   );
@@ -1174,14 +1431,14 @@ export function DrawingSheetEditor({
   const deleteSelection = useCallback(() => {
     if (selection.size === 0) return;
     const items = sheet.items.filter((_, i) => !selection.has(i));
-    commit({ ...sheet, items }, `Deleted ${selection.size} item${selection.size === 1 ? '' : 's'}`);
+    commit({ ...sheet, items });
     setSelection(new Set());
   }, [sheet, selection, commit]);
 
   const onDeleteClick = useCallback(
     (src: number) => {
       const items = sheet.items.filter((_, i) => i !== src);
-      commit({ ...sheet, items }, 'Deleted 1 item');
+      commit({ ...sheet, items });
       setSelection(new Set());
     },
     [sheet, commit],
@@ -1199,17 +1456,18 @@ export function DrawingSheetEditor({
     } catch {
       /* clipboard unavailable */
     }
-    setStatus(`Copied ${items.length} item${items.length === 1 ? '' : 's'}`);
+    // No status text: `PL_EDITOR_CONTROL` has no Copy handler that writes pane
+    // 0, and pane 0 in pl_editor belongs to the five file commands.
   }, [sheet, selection]);
 
   // Append items to the sheet (used by clipboard paste of items / a whole sheet).
   const appendItems = useCallback(
-    (incoming: WksItem[], description: string) => {
+    (incoming: WksItem[]) => {
       if (incoming.length === 0) return;
       const off = { x: mmToIU(2), y: mmToIU(2) };
       const shifted = incoming.map((it) => translateItem(structuredClone(it), off));
       const start = sheet.items.length;
-      commit({ ...sheet, items: [...sheet.items, ...shifted] }, description);
+      commit({ ...sheet, items: [...sheet.items, ...shifted] });
       setSelection(new Set(shifted.map((_, k) => start + k)));
     },
     [sheet, commit],
@@ -1217,10 +1475,7 @@ export function DrawingSheetEditor({
 
   const pasteClipboard = useCallback(() => {
     if (clipboard.current.length === 0) return;
-    appendItems(
-      clipboard.current,
-      `Pasted ${clipboard.current.length} item${clipboard.current.length === 1 ? '' : 's'}`,
-    );
+    appendItems(clipboard.current);
   }, [appendItems]);
 
   // Parse `.kicad_wks` text from the clipboard and paste its items. Returns true
@@ -1234,10 +1489,7 @@ export function DrawingSheetEditor({
         return false;
       }
       if (parsed.items.length === 0) return false;
-      appendItems(
-        parsed.items,
-        `Pasted ${parsed.items.length} item${parsed.items.length === 1 ? '' : 's'} from clipboard`,
-      );
+      appendItems(parsed.items);
       return true;
     },
     [appendItems],
@@ -1286,14 +1538,14 @@ export function DrawingSheetEditor({
       if (selectedIndex < 0) return;
       const items = sheet.items.slice();
       items[selectedIndex] = { ...items[selectedIndex]!, ...patch } as WksItem;
-      commit({ ...sheet, items }, 'Edit properties');
+      commit({ ...sheet, items });
     },
     [sheet, selectedIndex, commit],
   );
 
   const updateSetup = useCallback(
     (patch: Partial<WksSheet['setup']>) => {
-      commit({ ...sheet, setup: { ...sheet.setup, ...patch } }, 'Edit general options');
+      commit({ ...sheet, setup: { ...sheet.setup, ...patch } });
     },
     [sheet, commit],
   );
@@ -1368,7 +1620,8 @@ export function DrawingSheetEditor({
 
   const onPointDragEnd = useCallback(() => {
     pointDragUndoPushed.current = false;
-    setStatus('Resize');
+    // No status text: `PL_POINT_EDITOR` writes none, and pane 0 in pl_editor
+    // belongs to the five file commands.
   }, []);
 
   // ---- toolbars ----
@@ -1397,16 +1650,14 @@ export function DrawingSheetEditor({
    * `ACTIONS::gridProperties` is `COMMON_TOOLS::GridProperties`
    * (`common/tool/common_tools.cpp:609-634`), a switch on the frame type that
    * for `FRAME_PL_EDITOR` calls `ShowPreferences( "Grids", "Drawing Sheet
-   * Editor" )` — Preferences, opened on that frame's Grids page. We have the
-   * dialog but not that page: pl_editor's preferences are still the two display
-   * options, where upstream's KIFACE offers Display Options, Grids, Colors and
-   * Toolbars (`pagelayout_editor/pl_editor.cpp:68-100`). Opening the dialog is
-   * the half of the action we can honour today; the page is tracked separately.
+   * Editor" )` — Preferences, opened on that frame's Grids page. It now lands
+   * there: the action is nothing but that argument, so an "Edit Grids..." that
+   * opened the book at Common would not be the action at all.
    */
   const onLeftAction = useCallback(
     (id: string) => {
       if (id === 'gridProperties') {
-        setShowPrefs(true);
+        setShowPrefs('ds-grids');
         return;
       }
       onLeftToggle(id);
@@ -1821,7 +2072,7 @@ export function DrawingSheetEditor({
         // menubar.cpp:142-149 — openPreferences then AddMenuLanguageList, and
         // unlike bitmap2cmp and cvpcb pl_editor puts no separator between them.
         items: [
-          { label: 'Preferences...', action: () => setShowPrefs(true), shortcut: 'Ctrl+,' },
+          { label: 'Preferences...', action: () => setShowPrefs('default'), shortcut: 'Ctrl+,' },
           setLanguageMenuItem({
             current: common.system.language,
             onSelect: (label) =>
@@ -1836,7 +2087,7 @@ export function DrawingSheetEditor({
       // m_syntaxHelpLink), which is where ours lives now too.
       standardHelpMenu({
         showHotkeys: showHotkeyList,
-        showAbout: () => setStatus('ZiroEDA Drawing Sheet Editor'),
+        showAbout: () => setAboutOpen(true),
       }),
     ],
     [
@@ -1884,7 +2135,16 @@ export function DrawingSheetEditor({
    */
   const titleName = frameTitleName(fileName, '[no drawing sheet loaded]');
 
-  useDocumentTitle('drawingsheet', formatTitle('Drawing Sheet Editor', fileName, dirty));
+  // The TAB title takes the same name the frame's own title bar shows — the
+  // `wxFileName::GetName()` half, not the whole path. `GetCurrentFileName()`
+  // is a full path upstream and every other editor here hands `formatTitle` a
+  // display name already, so this is the one that had to be told.
+  useDocumentTitle(
+    'drawingsheet',
+    // Empty placeholder, not the frame's: `formatTitle` drops the document
+    // half when there is none, which is what every other editor's tab does.
+    formatTitle('Drawing Sheet Editor', frameTitleName(fileName, ''), titleModified),
+  );
 
   // This editor has no autosave: a sheet reaches the project only when Save is
   // pressed. So unlike the schematic and the board there is nothing to flush on
@@ -1932,16 +2192,19 @@ export function DrawingSheetEditor({
     }
   }, [sheet.setup, pageMM, originChoice]);
 
-  const absCoord = cursor
-    ? `X ${fmt4(toUser((cursor.x - originInfo.origin.x) * originInfo.xs))}  Y ${fmt4(
-        toUser((cursor.y - originInfo.origin.y) * originInfo.ys),
-      )}`
-    : 'X, Y -';
-  const relCoord = cursor
-    ? `dx ${fmt4(toUser((cursor.x - localOrigin.x) * originInfo.xs))}  dy ${fmt4(
-        toUser((cursor.y - localOrigin.y) * originInfo.ys),
-      )}`
-    : 'dx, dy -';
+  /**
+   * `UpdateStatusBar` has no empty state, and what it shows before the pointer
+   * has ever entered depends on the origin corner. The rule and the measurement
+   * are in `plCoordFields`; this is only the call.
+   */
+  const { coords: absCoord, deltas: relCoord } = plCoordFields(
+    cursor,
+    originInfo.origin,
+    originInfo,
+    localOrigin,
+    toUser,
+    fmt4,
+  );
 
   /*
    * The grid is a WINDOW setting, not a unit-derived one: pl_editor's default
@@ -1956,7 +2219,13 @@ export function DrawingSheetEditor({
    * upstream list and its index keeps the two independent, as they are
    * upstream; `gridIndex` starts at DEFAULT_GRID_INDEX.pl_editor = 4.
    */
-  const gridIU = mmToIU(gridSizeToMM(GRID_SIZE_LIST.pl_editor[gridIndex]?.x ?? '0.50 mm') ?? 0.5);
+  // The list is `window.grid.sizes`, not `DefaultGridSizeList()` read straight
+  // off the table: `PANEL_GRID_SETTINGS` edits it (Preferences > Drawing Sheet
+  // Editor > Grids), and a canvas that kept reading the table would make every
+  // row on that page a control nothing obeys. The table is still where the
+  // stored list is seeded from (`PL_EDITOR_DEFAULTS`).
+  const gridSizes = plCfg.window.grid.sizes;
+  const gridIU = mmToIU(gridSizeToMM(gridSizes[gridIndex]?.x ?? '0.50 mm') ?? 0.5);
   // PL_EDITOR_FRAME::DisplayGridMsg (pagelayout_editor/pl_editor_frame.cpp:710)
   // formats the grid itself - "grid %.4f" in mm, "grid %.3f" in inch - rather
   // than going through GRID::MessageText, which is what MessageTextFromValue's
@@ -2077,7 +2346,7 @@ export function DrawingSheetEditor({
           this replaces painted --chrome-bg behind a --content-bg toolbar, so
           the strip showed the menu-bar grey either side of the buttons. */}
       <Toolbar
-        entries={DS_TOP_TOOLBAR}
+        entries={dsTopBar}
         orientation="horizontal"
         toggled={activeTool === 'zoomTool' ? new Set([...toggles, 'zoomTool']) : toggles}
         // An ACTION_TOOLBAR button and a menu row share one ACTION_CONDITIONS,
@@ -2113,9 +2382,33 @@ export function DrawingSheetEditor({
         }}
       />
 
+      {/* `CreateInfoBar()` puts the WX_INFOBAR pane at AUI layer 1, above the
+          canvas and below the toolbars (pl_editor_frame.cpp:183). Raised by
+          `LoadDrawingSheetFile` when the file's format version is older than
+          SEXPR_WORKSHEET_FILE_VERSION, with a close button and nothing else
+          (files.cpp:267-274); dismissed by the next load and by a successful
+          save (:265, :329-330).
+
+          The strip is the shared `.ze-infobar`, the same one the schematic
+          raises. Its palette has NOT been measured against a live pl_editor's
+          wxInfoBar — see docs/editor-status.md. */}
+      {outdatedFormat && (
+        <div className="ze-infobar">
+          {DS_OUTDATED_FORMAT_INFOBAR}
+          <span
+            className="x"
+            title="Close"
+            onClick={() => setOutdatedFormat(false)}
+            style={{ marginLeft: 'auto', cursor: 'default' }}
+          >
+            ✕
+          </span>
+        </div>
+      )}
+
       <div className="ze-body" ref={bodyRef}>
         <Toolbar
-          entries={DS_LEFT_TOOLBAR}
+          entries={dsLeftBar}
           app="pl_editor"
           orientation="vertical"
           side="left"
@@ -2133,9 +2426,8 @@ export function DrawingSheetEditor({
           showGrid={toggles.has('toggleGrid')}
           gridIU={gridIU}
           originIU={originInfo.origin}
-          fullCrosshair={toggles.has('crosshairFull')}
+          crosshairMode={plCfg.window.cursor.crosshair}
           alwaysShowCursor={plCfg.window.cursor.always_show_cursor}
-          blackBackground={blackBackground}
           editPoints={editPoints}
           moveMode={moveMode}
           onCursorMove={setCursor}
@@ -2164,7 +2456,7 @@ export function DrawingSheetEditor({
             so the toolbar touches the canvas and the palette sits outside it.
             The toolbar therefore comes FIRST in this row. */}
         <Toolbar
-          entries={DS_RIGHT_TOOLBAR}
+          entries={dsRightBar}
           orientation="vertical"
           side="right"
           activeTool={moveMode ? '' : activeTool}
@@ -2216,16 +2508,28 @@ export function DrawingSheetEditor({
           // Reading is not gated: a sheet opens from any project, with or
           // without one open, and from Templates.
           kind="templates"
-          title={openDlg === 'append' ? 'Append Existing Drawing Sheet' : 'Open'}
+          // `_( "Open Drawing Sheet" )` (files.cpp:161) and
+          // `_( "Append Existing Drawing Sheet" )` (:132). Ours said plain
+          // "Open" for the first, which is the wxFileDialog DEFAULT caption and
+          // therefore the one string upstream took the trouble to replace.
+          title={openDlg === 'append' ? DS_APPEND_DIALOG_TITLE : DS_OPEN_DIALOG_TITLE}
           accept={openDlg === 'append' ? 'Append' : 'Open'}
           filters={[drawingSheetWildcard()]}
           onDone={(file) => {
             const mode = openDlg;
             setOpenDlg(null);
             if (!file) return; // wxID_CANCEL
-            const leaf = file.path.split('/').filter(Boolean).pop() ?? file.path;
-            if (mode === 'append') void appendText(leaf, file.text);
-            else void openText(leaf, file.text);
+            // `filename = openFileDialog.GetPath()` — the WHOLE path, which is
+            // what `SetCurrentFileName` stores and what the status line names
+            // (files.cpp:169, :179, :260). Only the title strips it down, and
+            // `frameTitleName` already does that.
+            //
+            // This used to hand over the leaf, and Save then wrote it back to
+            // the leaf: `onSaveToProject` treats a path with no leading slash
+            // as project-relative, so a sheet opened from Templates and saved
+            // landed in the open project instead of where it came from.
+            if (mode === 'append') void appendText(file.path, file.text);
+            else void openText(file.path, file.text);
           }}
         />
       )}
@@ -2249,6 +2553,13 @@ export function DrawingSheetEditor({
           // the dialog offers exactly those: this project, or Templates. No
           // other project is reachable — see `chooserPlacesFor`.
           kind="templates"
+          title={DS_SAVE_AS_DIALOG_TITLE}
+          // `defaultDir` is that folder, so the chooser OPENS there. With a
+          // project open our places list puts the project first and the dialog
+          // started on it, which is the wrong one of the two answers: a driven
+          // pl_editor with a sheet already loaded still opens Save As on
+          // ~/.local/share/kicad/10.0/template.
+          initialPlace="templates"
           {...(projectName ? { projectDir: `/${projectName}` } : {})}
           filters={[drawingSheetWildcard()]}
           onDone={onSaveAsDone}
@@ -2273,6 +2584,7 @@ export function DrawingSheetEditor({
               hasSelection: selection.size > 0,
               zoom: zoomFactorForScale(scale, dpr, SCH_IU_PER_MM),
               gridIndex,
+              gridSizes,
               primaryUnits: unit === 'inches' ? 'in' : unit,
             },
             {
@@ -2300,12 +2612,20 @@ export function DrawingSheetEditor({
       <MsgPanel items={dsMsgPanelItems} testId="ds-message-panel" panelRef={msgPanelRef} />
 
       {/* PL_EDITOR_FRAME::UpdateStatusBar (pl_editor_frame.cpp:730) keeps
-          EDA_DRAW_FRAME's eight panes and their widths but writes two of them
-          differently: pane 5, the one sized by the "Inches" template, carries
-          "coord origin: <corner>" (:803), and the units land in pane 6, the
-          stretch pane the other frames use for the current tool (:776). */}
+          EDA_DRAW_FRAME's eight panes but writes two of them differently AND
+          sizes them itself: pane 5 carries "coord origin: <corner>" (:805) and
+          is sized by the longest of those sentences (:171), and the units land
+          in pane 6 (:776-779), which pl_editor sizes by "Inches" (:174) rather
+          than letting it stretch as the current-tool pane does elsewhere.
+          This comment used to have the two panes' templates the wrong way
+          round, and so did the widths. */}
       <KiStatusBar
         testIds={{ message: 'ds-status-msg', coords: 'ds-coords' }}
+        // `stsbar->SetFieldsCount( arrayDim( dims ), dims )`
+        // (pl_editor_frame.cpp:180-181): pl_editor states its own widths after
+        // the base frame has set the shared ones, and five of the eight differ.
+        // See pl_status_bar.ts.
+        templates={PL_EDITOR_STATUS_TEMPLATES}
         fields={{
           message: status,
           zoom: zoomMsg(zoomFactorForScale(scale, dpr, SCH_IU_PER_MM)),
@@ -2324,6 +2644,15 @@ export function DrawingSheetEditor({
           // that re-labels the title, the Paper heading and the Title Block
           // heading, and the one caller that disables the file picker.
           frame="pl_editor"
+          // `COLOR4D bgColor = m_parent->GetDrawBgColor()`
+          // (`common/dialogs/dialog_page_settings.cpp:598`) — the preview's
+          // paper. This is the ONE place in pl_editor 10.0.5 that a browser can
+          // show `black_background`: the other two readers of `GetDrawBgColor()`
+          // are the printer, which overwrites it with WHITE for the duration
+          // (`dialogs_for_printing.cpp:187`), and the properties frame's colour
+          // swatch background (`properties_frame.cpp:125`). The CANVAS is not
+          // one of them — see DrawingSheetCanvas.
+          blackBackground={blackBackground}
           // The dialog's custom-size fields are UNIT_BINDERs over the FRAME
           // (dialog_page_settings.cpp:65-66), so they read in the frame's unit.
           units={unit === 'inches' ? 'in' : unit}
@@ -2347,11 +2676,11 @@ export function DrawingSheetEditor({
             // them has no parameter and opens blank every time.
             settings.updatePlEditor((s) => writePageToConfig(s, next));
             setShowPageDialog(false);
-            setStatus(`Page: ${paperDescription(next)}`);
             // `m_frame->OnModify(); m_frame->HardRedraw();`
             // (pl_editor_control.cpp:106-108). No zoom-fit: only the CANCEL
             // path re-fits the view, and that comes from `RollbackFromUndo`.
-            setDirty(true);
+            // And no status text: pane 0 belongs to the file commands.
+            onModify();
           }}
         />
       )}
@@ -2379,95 +2708,48 @@ export function DrawingSheetEditor({
         />
       )}
 
-      {printError && (
-        <MessageDialogError message={printError} onClose={() => setPrintError(null)} />
+      {/* One at a time and in order, which is what two modal
+          `DisplayErrorMessage` calls on the same stack frame look like. */}
+      {errorDialogs[0]?.kind === 'error' && (
+        <MessageDialogError
+          message={errorDialogs[0].message}
+          {...(errorDialogs[0].extendedMessage === undefined
+            ? {}
+            : { extendedMessage: errorDialogs[0].extendedMessage })}
+          onClose={() => setErrorDialogs((q) => q.slice(1))}
+        />
+      )}
+      {errorDialogs[0]?.kind === 'message' && (
+        <MessageDialogOk
+          message={errorDialogs[0].message}
+          caption={errorDialogs[0].caption}
+          onClose={() => setErrorDialogs((q) => q.slice(1))}
+        />
       )}
 
       {showSyntaxHelp && <SyntaxHelpDialog onClose={() => setShowSyntaxHelp(false)} />}
 
-      {showPrefs && (
+      {/* `Help > About KiCad`, the shared dialog. It used to write
+          "ZiroEDA Drawing Sheet Editor" into status pane 0, which is both the
+          wrong widget and a pane pl_editor reserves for its file commands. */}
+      {aboutOpen && (
+        <AboutDialog title={ABOUT_TITLES.drawingSheet} onClose={() => setAboutOpen(false)} />
+      )}
+
+      {/*
+        `EDA_BASE_FRAME::ShowPreferences` — the one `PAGED_DIALOG` every launcher
+        opens, not a modal of this editor's own. `showPrefs` carries the page it
+        opens on, which is `ShowPreferences( aStartPage, aStartParentPage )`'s
+        first argument: null for the Preferences menu item (upstream passes
+        `wxEmptyString` and the book opens on Common), 'ds-grids' for
+        `ACTIONS::gridProperties`.
+      */}
+      {showPrefs !== null && (
         <PreferencesDialog
-          blackBackground={blackBackground}
-          fullCrosshair={toggles.has('crosshairFull')}
-          onBlackBackground={setBlackBackground}
-          // The checkbox is a checkbox, so it can only ever ask for the value
-          // it is not already on — which is exactly what `onLeftToggle` does,
-          // and routing it through there is what keeps
-          // `window.cursor.cross_hair_mode` written.
-          onFullCrosshair={() => onLeftToggle('crosshairFull')}
-          onClose={() => setShowPrefs(false)}
+          {...(showPrefs === 'default' ? {} : { initialPage: showPrefs })}
+          onClose={() => setShowPrefs(null)}
         />
       )}
-    </div>
-  );
-}
-
-/**
- * Preferences, the display options `pl_editor` keeps in its settings
- * (pl_editor_settings.cpp `black_background`; common display options'
- * always-show-crosshairs).
- */
-function PreferencesDialog({
-  blackBackground,
-  fullCrosshair,
-  onBlackBackground,
-  onFullCrosshair,
-  onClose,
-}: {
-  blackBackground: boolean;
-  fullCrosshair: boolean;
-  onBlackBackground: (v: boolean) => void;
-  onFullCrosshair: (v: boolean) => void;
-  onClose: () => void;
-}): JSX.Element {
-  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
-  // ui/modal_escape.ts.
-  useModalEscape(onClose);
-
-  return (
-    <div className="ze-modal-backdrop" onMouseDown={onClose}>
-      <div className="ze-modal ze-label-dialog" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="ze-modal-header">
-          Preferences
-          <span className="x" onClick={onClose}>
-            ✕
-          </span>
-        </div>
-        {/* Spacing is the wxFormBuilder unit, --wx-border, not a number picked
-            here: KiCad's dialogs are laid out with `wxALL, 5` throughout, so
-            every inset in one is a multiple of 5 and they line up because of
-            it. */}
-        <div
-          style={{
-            padding: 'calc(var(--wx-border) * 2) calc(var(--wx-border) * 3)',
-            fontSize: 12,
-            display: 'grid',
-            gap: 'calc(var(--wx-border) * 2)',
-          }}
-        >
-          <label>
-            <input
-              type="checkbox"
-              checked={blackBackground}
-              onChange={(e) => onBlackBackground(e.target.checked)}
-            />{' '}
-            Use a black background
-          </label>
-          <label>
-            <input
-              type="checkbox"
-              checked={fullCrosshair}
-              onChange={(e) => onFullCrosshair(e.target.checked)}
-            />{' '}
-            Always show full-window crosshairs
-          </label>
-        </div>
-        <div className="ze-modal-footer">
-          <button className="ze-btn primary" onClick={onClose}>
-            Close
-          </button>
-        </div>
-      </div>
     </div>
   );
 }

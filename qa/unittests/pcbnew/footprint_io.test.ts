@@ -5,7 +5,7 @@ import { describe, it, expect } from 'vitest';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readFootprintFile } from '@ziroeda/pcbnew/src/read-board.js';
+import { readBoard, readFootprintFile } from '@ziroeda/pcbnew/src/read-board.js';
 import { serializeFootprint } from '@ziroeda/pcbnew/src/write-footprint.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 import type { PcbFootprint } from '@ziroeda/pcbnew/src/types.js';
@@ -168,5 +168,51 @@ describe.skipIf(!existsSync(BUNDLED))('bundled footprint library (CM5IO.pretty)'
       const fp2 = readFootprintFile(parse(serializeFootprint(fp1)))!;
       expect(strip(fp2), f).toEqual(strip(fp1));
     }
+  });
+});
+
+/**
+ * `${REFERENCE}` on F.Fab is on essentially every KiCad library footprint, and
+ * whether it is substituted depends on the board the footprint sits on:
+ *
+ *     bool FOOTPRINT::ResolveTextVar( wxString* token, int aDepth ) const
+ *     {
+ *         if( GetBoard() && GetBoard()->GetBoardUse() == BOARD_USE::FPHOLDER )
+ *             return false;
+ *
+ * (`pcbnew/footprint.cpp:1185-1188`). `PCB_TEXT::GetShownText`'s resolver then
+ * asks the board, which knows no such token either, so the literal survives —
+ * which is why the footprint editor and the chooser's footprint preview, both
+ * of which hold their footprint on a `BOARD_USE::FPHOLDER` board
+ * (`footprint_preview_panel.cpp`), paint `${REFERENCE}` and pcbnew paints `R1`.
+ *
+ * Ours resolved it in the reader, so the preview showed `REF**` where KiCad
+ * shows the variable.
+ */
+describe('text variables and the footprint-holder board', () => {
+  const WITH_VAR = `(footprint "T" (version 20241229) (generator "t") (layer "F.Cu")
+	(property "Reference" "REF**" (at 0 -1 0) (layer "F.SilkS")
+		(effects (font (size 1 1) (thickness 0.15))))
+	(property "Value" "T" (at 0 1 0) (layer "F.Fab")
+		(effects (font (size 1 1) (thickness 0.15))))
+	(fp_text user "\${REFERENCE}" (at 0 0 0) (layer "F.Fab")
+		(effects (font (size 1 1) (thickness 0.15)))))`;
+
+  const fabText = (fp: PcbFootprint): string =>
+    fp.texts.find((t) => t.kind === 'user' && t.layer === 'F.Fab')!.text;
+
+  it('leaves the literal alone on the library load path', () => {
+    expect(fabText(readFootprintFile(parse(WITH_VAR))!)).toBe('${REFERENCE}');
+  });
+
+  it('substitutes it on a board, where ResolveTextVar answers', () => {
+    const board = readBoard(
+      parse(`(kicad_pcb (version 20241229) (generator "t")
+  (layers (0 "F.Cu" signal) (35 "F.Fab" user))
+  (net 0 "")
+  ${WITH_VAR.replace('(property "Reference" "REF**"', '(property "Reference" "D7"')})`),
+    );
+
+    expect(fabText(board.footprints[0]!)).toBe('D7');
   });
 });

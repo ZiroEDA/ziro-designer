@@ -513,6 +513,47 @@ describe('IsSymbolEditable / IsSymbolAlias (:2225-2234)', () => {
   });
 });
 
+describe('"no symbol" is null OR undefined', () => {
+  /**
+   * `haveSymbolCond` (:460-464) is `m_symbol != nullptr`, and C++ has one way
+   * to say "no symbol". TypeScript has two, and every rule in the table is an
+   * AND of `haveSymbol`: an `undefined` read as "a symbol is loaded" would
+   * flip the WHOLE toolbar live on a cold frame, and `sym.extends` on the next
+   * line would throw.
+   *
+   * The declared type is `LibSymbol | null` and `SymbolEditor.tsx` passes
+   * `workSymbol ?? null` off a `useState<LibSymbol | null>`, so no typed caller
+   * can do it today. The cast is the point: this pins the behaviour for a
+   * caller the type does not reach — a test, a JS consumer, a future field
+   * that becomes optional — which is the only way a `!== null` here can be
+   * told apart from a `!= null`.
+   */
+  const undefinedSymbol: SymbolFrameState = {
+    ...COLD,
+    symbol: undefined as unknown as null,
+  };
+
+  it('reads an undefined symbol as a cold frame, not a loaded one', () => {
+    const c = symbolConditions(undefinedSymbol);
+    expect(c.haveSymbol).toBe(false);
+    // The whole table, not just the flag: this is what "the toolbar lights up"
+    // would look like.
+    expect(c.isEditable).toBe(false);
+    expect(c.isEditableInAlias).toBe(false);
+    expect(c.canUpdateFields).toBe(false);
+    expect(c.canEditProperties).toBe(false);
+    expect(c.multiUnitMode).toBe(false);
+    expect(c.multiBodyStyle).toBe(false);
+    expect(c.haveDatasheet).toBe(false);
+  });
+
+  it('greys the same buttons it greys for a null symbol', () => {
+    expect(
+      [...symbolToolbarDisabledIds(SYM_TOP_TOOLBAR, symbolConditions(undefinedSymbol))].sort(),
+    ).toEqual([...symbolToolbarDisabledIds(SYM_TOP_TOOLBAR, symbolConditions(COLD))].sort());
+  });
+});
+
 describe('GetTargetLibId (:1359-1370)', () => {
   /** The second `if` is not an `else`: an empty tree nickname falls through. */
   it('an empty tree row falls through to the loaded symbol', () => {
@@ -707,6 +748,7 @@ describe('the menu bar reads the table', () => {
       'Save',
       'Symbol Checker',
       'Refresh',
+      'Zoom to Selection Area',
       'Revert',
       'Undo',
       'Delete',
@@ -730,6 +772,12 @@ describe('the menu bar reads the table', () => {
       // View button beside it was already live and working while this row was
       // a permanently greyed stub.
       Refresh: true,
+      // `ACTIONS::zoomTool`: CHECK-only at :561, no ENABLE, and
+      // `SYMBOL_EDIT_FRAME` registers `ZOOM_TOOL` itself (:425). Same shape as
+      // Refresh above — a permanently greyed stub here while its own toolbar
+      // button sat greyed too, so BOTH surfaces were wrong and neither one
+      // could point at the other.
+      'Zoom to Selection Area': true,
       // Everything else is gated and the frame is cold.
       Revert: false,
       Undo: false,

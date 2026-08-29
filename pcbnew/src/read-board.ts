@@ -903,11 +903,26 @@ function readFootprint(item: SList, local = false): PcbFootprint | null {
   }
   // KiCad resolves text variables when rendering; ${REFERENCE}/${VALUE} are
   // by far the common ones on Fab layers.
-  for (const tx of fp.texts) {
-    if (tx.text.includes('${')) {
-      tx.text = tx.text
-        .replaceAll('${REFERENCE}', fp.reference ?? '')
-        .replaceAll('${VALUE}', fp.value ?? '');
+  //
+  // But NOT on a footprint-holder board. `FOOTPRINT::ResolveTextVar` opens with
+  //
+  //     if( GetBoard() && GetBoard()->GetBoardUse() == BOARD_USE::FPHOLDER )
+  //         return false;
+  //
+  // (`pcbnew/footprint.cpp:1185-1188`), and the resolver `PCB_TEXT::GetShownText`
+  // then falls through to the board's, which knows no such token either — so
+  // the footprint editor and the chooser's footprint preview, whose boards are
+  // both FPHOLDER (`footprint_preview_panel.cpp`: `SetBoardUse( FPHOLDER )`),
+  // paint the literal `${REFERENCE}`. `local` is exactly that distinction here:
+  // it is set by `readFootprintFile`, the library load, and clear by the board
+  // reader.
+  if (!local) {
+    for (const tx of fp.texts) {
+      if (tx.text.includes('${')) {
+        tx.text = tx.text
+          .replaceAll('${REFERENCE}', fp.reference ?? '')
+          .replaceAll('${VALUE}', fp.value ?? '');
+      }
     }
   }
   return fp;

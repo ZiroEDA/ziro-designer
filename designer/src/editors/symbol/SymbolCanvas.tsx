@@ -16,6 +16,15 @@ import { EMPTY_SOURCE } from '@ziroeda/eeschema';
 import { KICAD_DEFAULT, type Theme } from '../schematic/theme.js';
 import { commonInputPrefs, wheelAction } from '../../ui/view_controls.js';
 import { drawCrosshair } from '../../ui/grid_cursor.js';
+import { kiCursor } from '../../ui/kicursors.js';
+import { clampViewScale } from '../../ui/zoom_settings.js';
+import { SCH_IU_PER_MM } from '@ziroeda/common';
+import {
+  SELECTION_AREA_FILL,
+  SELECTION_AREA_STROKE,
+  zoomAreaTarget,
+  type ZoomArea,
+} from '../../ui/zoom_tool.js';
 import { SYM_SHAPE_TOOLS } from './symbolToolbars.js';
 import { settings } from '../../prefs/settings.js';
 import {
@@ -49,6 +58,13 @@ export interface SymbolCanvasController {
   zoomToFit: () => void;
   zoomIn: () => void;
   zoomOut: () => void;
+  /**
+   * `EDA_DRAW_FRAME::FocusOnLocation` (`common/eda_draw_frame.cpp`), which is
+   * `GetCanvas()->GetView()->SetCenter( aPos )` once the point is off-screen:
+   * the scale is kept and the world point goes to the middle of the canvas.
+   * `SCH_FIND_REPLACE_TOOL::FindNext` ends on it for every hit.
+   */
+  centerOn: (pos: Vec2) => void;
 }
 
 /** In-progress shape state, mirroring EDA_SHAPE::m_editState. */
@@ -89,7 +105,7 @@ interface Props {
   onScaleChange?: (scale: number) => void;
 }
 
-type Mode = 'idle' | 'pan' | 'move' | 'box';
+type Mode = 'idle' | 'pan' | 'move' | 'box' | 'zoom';
 
 /** GAL::GetScaleFactor. Module scope so it is stable across renders. */
 const dpr = (): number => window.devicePixelRatio || 1;
@@ -172,6 +188,13 @@ export const SymbolCanvas = forwardRef<SymbolCanvasController, Props>(function S
   const boxOriginRef = useRef<Vec2 | null>(null);
   const boxEndRef = useRef<Vec2 | null>(null);
   const boxModifiersRef = useRef({ additive: false, subtractive: false });
+  /**
+   * `ZOOM_TOOL`'s right-button drag zooms OUT: upstream accepts
+   * `IsDrag( BUT_LEFT ) || IsDrag( BUT_RIGHT )` throughout and branches only at
+   * the end (`common/tool/zoom_tool.cpp:150-153`). Which button started the
+   * drag is the whole of the difference, so it is kept for the pointer-up.
+   */
+  const zoomOutRef = useRef(false);
   const cursorRef = useRef<Vec2 | null>(null);
   const drawStateRef = useRef<DrawState | null>(null);
 
@@ -242,6 +265,20 @@ export const SymbolCanvas = forwardRef<SymbolCanvasController, Props>(function S
     // Box-selection rubber band.
     const bo = boxOriginRef.current;
     const be = boxEndRef.current;
+    // `ZOOM_TOOL::selectRegion` adds a `KIGFX::PREVIEW::SELECTION_AREA` to the
+    // view and live-updates it (`zoom_tool.cpp:104-124`). A default-constructed
+    // one takes the `normal` fill and the `outline_l2r` stroke, which is why
+    // this band is blue/yellow and not the selection box's purple — the colours
+    // are `ui/zoom_tool.ts`', shared with every other canvas that arms the tool.
+    if (modeRef.current === 'zoom' && bo && be) {
+      ctx.fillStyle = SELECTION_AREA_FILL;
+      ctx.strokeStyle = SELECTION_AREA_STROKE;
+      ctx.lineWidth = 1 / vp.scale;
+      const x = Math.min(bo.x, be.x),
+        y = Math.min(bo.y, be.y);
+      ctx.fillRect(x, y, Math.abs(be.x - bo.x), Math.abs(be.y - bo.y));
+      ctx.strokeRect(x, y, Math.abs(be.x - bo.x), Math.abs(be.y - bo.y));
+    }
     if (modeRef.current === 'box' && bo && be) {
       const greedy = be.x < bo.x;
       const { additive, subtractive } = boxModifiersRef.current;
@@ -275,8 +312,10 @@ export const SymbolCanvas = forwardRef<SymbolCanvasController, Props>(function S
           color: theme.cursor,
           // SYMBOL_EDITOR_DRAWING_TOOLS and the move tool call ShowCursor(true);
           // the selection tool does not, so there the crosshair is the dimmed
-          // forced one.
-          toolWantsCursor: activeTool !== 'select',
+          // forced one. `ZOOM_TOOL` does not either — `grep ShowCursor
+          // common/tool/zoom_tool.cpp` is empty; all it sets is the pointer
+          // bitmap (`KICURSOR::ZOOM_IN`, :65-69).
+          toolWantsCursor: activeTool !== 'select' && activeTool !== 'zoomTool',
           alwaysShow: cursorPrefs.always_show_cursor,
           devicePixelRatio: dpr(),
         },
@@ -294,6 +333,40 @@ export const SymbolCanvas = forwardRef<SymbolCanvasController, Props>(function S
       const wy = (py - vp.offsetY) / vp.scale;
       const scale = vp.scale * factor;
       viewportRef.current = { scale, offsetX: px - wx * scale, offsetY: py - wy * scale };
+      draw();
+    },
+    [draw],
+  );
+
+  /**
+   * `ZOOM_TOOL::selectRegion`'s tail (`common/tool/zoom_tool.cpp:134-160`). The
+   * arithmetic is `ui/zoom_tool.ts`', shared with the ten frames that upstream
+   * gives the same 174-line tool; only putting the result into this canvas's
+   * own transform is local.
+   */
+  const applyZoomArea = useCallback(
+    (area: ZoomArea) => {
+      const canvas = canvasRef.current;
+      const vp = viewportRef.current;
+      if (!canvas || !vp) return;
+      const target = zoomAreaTarget(area, {
+        scale: vp.scale,
+        width: canvas.width,
+        height: canvas.height,
+      });
+      if (!target) return;
+      // `VIEW::SetScale` pins to `m_minScale`/`m_maxScale`, so a one-pixel drag
+      // does not send the scale to infinity. The pair is `ZOOM_LIMITS`', the
+      // shared transcription of `zoom_defines.h`, and the Symbol Editor's row
+      // there is eeschema's because upstream reuses it.
+      const scale = clampViewScale(target.scale, 'symbol_editor', dpr(), SCH_IU_PER_MM);
+      // `view->SetCenter( selectionBox.Centre() )`: that world point goes to
+      // the middle of the canvas.
+      viewportRef.current = {
+        scale,
+        offsetX: canvas.width / 2 - target.centre.x * scale,
+        offsetY: canvas.height / 2 - target.centre.y * scale,
+      };
       draw();
     },
     [draw],
@@ -321,6 +394,17 @@ export const SymbolCanvas = forwardRef<SymbolCanvasController, Props>(function S
       zoomOut: () => {
         const c = canvasRef.current;
         if (c) zoomAbout(c.width / 2, c.height / 2, 0.8);
+      },
+      centerOn: (pos: Vec2) => {
+        const c = canvasRef.current;
+        const vp = viewportRef.current;
+        if (!c || !vp) return;
+        viewportRef.current = {
+          scale: vp.scale,
+          offsetX: c.width / 2 - pos.x * vp.scale,
+          offsetY: c.height / 2 - pos.y * vp.scale,
+        };
+        draw();
       },
     }),
     [symbol, opts.unit, opts.bodyStyle, draw, zoomAbout],
@@ -445,6 +529,27 @@ export const SymbolCanvas = forwardRef<SymbolCanvasController, Props>(function S
         e.preventDefault();
         return;
       }
+      /*
+       * `ZOOM_TOOL::Main` (`common/tool/zoom_tool.cpp:61-101`) waits for a DRAG
+       * and takes either button:
+       *
+       *     else if( evt->IsDrag( BUT_LEFT ) || evt->IsDrag( BUT_RIGHT ) )
+       *         if( selectRegion() ) break;
+       *
+       * Nothing has to be selected for it to work — it frames a rectangle, it
+       * does not zoom to the selection — which is why `ACTIONS::zoomTool` is one
+       * of the actions `setupUIConditions` gives no ENABLE at all and it stays
+       * live on a cold frame.
+       */
+      if (activeTool === 'zoomTool' && (e.button === 0 || e.button === 2)) {
+        (e.target as Element).setPointerCapture(e.pointerId);
+        modeRef.current = 'zoom';
+        boxOriginRef.current = world;
+        boxEndRef.current = world;
+        zoomOutRef.current = e.button === 2;
+        return;
+      }
+
       if (e.button !== 0) return;
 
       const gridPos = snap(world);
@@ -590,7 +695,7 @@ export const SymbolCanvas = forwardRef<SymbolCanvasController, Props>(function S
         draw();
         return;
       }
-      if (modeRef.current === 'box') {
+      if (modeRef.current === 'box' || modeRef.current === 'zoom') {
         boxEndRef.current = world;
         draw();
         return;
@@ -628,6 +733,21 @@ export const SymbolCanvas = forwardRef<SymbolCanvasController, Props>(function S
         panLastRef.current = null;
         return;
       }
+      if (modeRef.current === 'zoom') {
+        (e.target as Element).releasePointerCapture(e.pointerId);
+        const bo = boxOriginRef.current;
+        const be = boxEndRef.current;
+        modeRef.current = 'idle';
+        boxOriginRef.current = null;
+        boxEndRef.current = null;
+        // The tool STAYS ARMED. `selectRegion()` returns `cancelled`, which a
+        // completed zoom leaves false, so `if( selectRegion() ) break;` in
+        // `Main` breaks only on Esc or on another tool being picked
+        // (`zoom_tool.cpp:104-165`) — you can frame one rectangle after another.
+        if (bo && be) applyZoomArea({ a: bo, b: be, out: zoomOutRef.current });
+        else draw();
+        return;
+      }
       if (activeTool !== 'select') return;
       (e.target as Element).releasePointerCapture(e.pointerId);
       let committed = false;
@@ -661,7 +781,7 @@ export const SymbolCanvas = forwardRef<SymbolCanvasController, Props>(function S
       moveDeltaRef.current = null;
       if (!committed) draw();
     },
-    [activeTool, symbol, opts, selection, onCommit, onSelect, onSelectBox, draw],
+    [activeTool, symbol, opts, selection, onCommit, onSelect, onSelectBox, draw, applyZoomArea],
   );
 
   const onDoubleClick = useCallback(
@@ -707,7 +827,14 @@ export const SymbolCanvas = forwardRef<SymbolCanvasController, Props>(function S
     return () => window.removeEventListener('keydown', onKey);
   }, [draw, finishPoly]);
 
-  const cursor = activeTool === 'select' ? 'default' : 'crosshair';
+  // `ZOOM_TOOL::Main`'s `setCursor` is `SetCurrentCursor( KICURSOR::ZOOM_IN )`
+  // (`zoom_tool.cpp:65-69`) — KiCad's own art, not the browser's `zoom-in`.
+  const cursor =
+    activeTool === 'zoomTool'
+      ? kiCursor('ZOOM_IN')
+      : activeTool === 'select'
+        ? 'default'
+        : 'crosshair';
 
   return (
     <div
@@ -723,6 +850,9 @@ export const SymbolCanvas = forwardRef<SymbolCanvasController, Props>(function S
         onDoubleClick={onDoubleClick}
         onContextMenu={(e) => {
           e.preventDefault();
+          // BUT_RIGHT is the zoom-OUT drag while ZOOM_TOOL is armed
+          // (`zoom_tool.cpp:82`), so that button does not mean "menu" here.
+          if (activeTool === 'zoomTool') return;
           const ds = drawStateRef.current;
           if (ds && (ds.tool === 'lines' || ds.tool === 'polygon'))
             finishPoly(ds.tool === 'polygon');

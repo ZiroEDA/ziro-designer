@@ -22,7 +22,10 @@ import { LoadingOverlay } from '../../ui/LoadingOverlay.js';
 import { formatTitle, useDocumentTitle } from '../../ui/useDocumentTitle.js';
 import { useUnsavedGuard } from '../../ui/useUnsavedGuard.js';
 import { LibraryLoadingPanel } from '../../widgets/library_loading_panel.js';
-import { toolbarIconUrl } from '../../ui/toolbarIcons.js';
+// The ONE tree widget, as `SYMBOL_TREE_PANE` mounts the ONE `LIB_TREE`.
+import { LibTree } from '../../widgets/lib_tree.js';
+import { LibTreeNode, LibTreeNodeType } from '../../widgets/lib_tree_model.js';
+import { SymbolTreeSynchronizingAdapter } from './symbol_tree_synchronizing_adapter.js';
 import { KiStatusBar } from '../../ui/KiStatusBar.js';
 import { MsgPanel, type MsgPanelItem } from '../../ui/MsgPanel.js';
 import {
@@ -71,7 +74,7 @@ import {
   setUnitCount,
   unitCount,
 } from './edits.js';
-import { GRID, MM, type SymbolViewOptions } from './render/symbolRenderer.js';
+import { GRID, MM, symItemId, type SymbolViewOptions } from './render/symbolRenderer.js';
 import { settings } from '../../prefs/settings.js';
 import type { SymbolHit } from './edits.js';
 import {
@@ -89,6 +92,15 @@ import '../../ui/shell.css';
 import { AboutDialog } from '../../home/dialogs/dialog_about.js';
 import { PreferencesDialog } from '../../dialogs/PreferencesDialog.js';
 import { symbolEditorMenus } from './menubar.js';
+import { DialogSchFind } from '../../widgets/dialog_sch_find.js';
+import {
+  defaultSearchData,
+  findMatchesInSymbol,
+  replaceInSymbol,
+  type SchSearchData,
+  type SymbolFindMatch,
+  type SymbolItemRef,
+} from '@ziroeda/eeschema/src/tools/sch_find_replace_tool.js';
 import { type SymbolConditions, symbolConditions, symbolToolbarDisabledIds } from './conditions.js';
 import { showHotkeyList } from '../../ui/hotkey_list_action.js';
 import { ABOUT_TITLES } from '../../ui/about_titles.js';
@@ -97,7 +109,7 @@ import { dispatchMenuHotkey, focusBlocksHotkey } from '../../ui/menu_hotkeys.js'
 import { wasBrowserSuppressed, type FocusLike } from '../../ui/browser_hotkeys.js';
 import { OpenFileDialog } from '../../fs/OpenFileDialog.js';
 import { kicadSymbolLibWildcard } from '../../fs/wildcards.js';
-import { applyToggle, DEFAULT_TOGGLES } from './toggles.js';
+import { applyToggle, DEFAULT_TOGGLES, withSyncPinEdit } from './toggles.js';
 import { deleteSymbolPrompts } from './delete_symbol_prompt.js';
 import { SelectionFilterPanel } from '../../ui/SelectionFilterPanel.js';
 import { symSelectionFilterShown } from '../../ui/selection_filter_panel.js';
@@ -228,6 +240,26 @@ export function SymbolEditor({
 
   const [selection, setSelection] = useState<ReadonlySet<string>>(new Set());
   const [activeTool, setActiveTool] = useState('select');
+  /**
+   * Status-bar field 6, the "Current Tool" pane, which is written by
+   * `TOOLS_HOLDER` and by nothing else:
+   *
+   *   PushTool  DisplayToolMsg( action->GetFriendlyName() )   (:72-76)
+   *   PopTool   DisplayToolMsg( ACTIONS::selectionTool.GetFriendlyName() )
+   *             when the stack empties                        (:112-113)
+   *
+   * So it is EMPTY on a cold frame and reads "Select item(s)" only after a
+   * tool has been armed and left. `SCH_SELECTION_TOOL` never gets there: the
+   * frame starts it with `InvokeTool( "common.InteractiveSelection" )`
+   * (`symbol_edit_frame.cpp:440`), which does not push. The button still
+   * paints checked, because `IsCurrentTool` answers
+   * `&aAction == &ACTIONS::selectionTool` for an EMPTY stack (:129-135) —
+   * checked and unnamed at the same time, which is exactly what a captured
+   * cold KiCad shows and what ours did not: we derived the field from
+   * `activeTool`, whose opening value is `'select'`, so field 6 read
+   * "Select item(s)" from the first paint.
+   */
+  const [toolMsg, setToolMsg] = useState('');
   const [toggles, setToggles] = useState<Set<string>>(new Set(DEFAULT_TOGGLES));
   const [cursor, setCursor] = useState<Vec2 | null>(null);
   const [scale, setScale] = useState(1);
@@ -235,8 +267,10 @@ export function SymbolEditor({
   const [loading, setLoading] = useState<string | null>(null);
 
   // Library tree state (LIB_TREE: search box + expandable libraries).
-  const [query, setQuery] = useState('');
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  // `query` and `expanded` used to live here. Both belong to `LIB_TREE` —
+  // upstream's frame owns neither the filter text nor the expansion state, it
+  // owns a pointer to the widget — and keeping ours meant the pane could not
+  // use the shared one. What the frame DOES have is `SelectLibId`, below.
   const [treeSel, setTreeSel] = useState<{ lib: string; name: string | null } | null>(null);
   /** The symbol currently on loan from the schematic, by name; null otherwise.
    *  While set, Save routes back to the placement rather than to a library. */
@@ -245,6 +279,16 @@ export function SymbolEditor({
   /** `SCH_SELECTION_TOOL::GetFilter()`, seeded from
    *  `SYMBOL_EDITOR_SETTINGS::m_SelectionFilter` (`symbol_edit_frame.cpp:254`). */
   const [selFilter, setSelFilter] = useState<SelectionFilterOptions>(defaultSelectionFilter);
+  /**
+   * The Selection Filter's caption close box was clicked.
+   *
+   * The pane has no visibility control of its own — `updateSelectionFilterVisbility`
+   * (`symbol_edit_frame.cpp:2249-2261`) derives it from the other two — but
+   * `defaultSchSelectionFilterPaneInfo` still asks for `.CloseButton( true )`,
+   * so it can be closed and stays closed until that function next runs, which
+   * is when one of the other two panes is shown or hidden.
+   */
+  const [selFilterClosed, setSelFilterClosed] = useState(false);
 
   // Dialogs / pending placements.
   const [pinDialog, setPinDialog] = useState<{
@@ -347,6 +391,21 @@ export function SymbolEditor({
     [unit, bodyStyle, toggles],
   );
 
+  /**
+   * `SYMBOL_EDIT_FRAME::SetCurSymbol` (`symbol_edit_frame.cpp:940-985`): adopt a
+   * newly *loaded* symbol (or none) and re-derive the frame state that hangs off
+   * it. Only `m_SyncPinEdit` (:968) does so for us today.
+   *
+   * The distinction this funnel exists to keep is upstream's own: an **edit**
+   * goes through `commit`, which does not call `SetCurSymbol` and so must not
+   * disturb Synchronized Pins mode — `SYMBOL_EDITOR_EDIT_TOOL` recomputes it
+   * only when `UnitsLocked()` itself changed (:1104-1108).
+   */
+  const setCurSymbol = useCallback((next: LibSymbol | null) => {
+    setWorkSymbol(next);
+    setToggles((t) => withSyncPinEdit(t, next));
+  }, []);
+
   /** Commit one undoable edit (SaveCopyInUndoList + OnModify + buffer to the manager). */
   const commit = useCallback(
     (next: LibSymbol, description: string) => {
@@ -407,7 +466,7 @@ export function SymbolEditor({
         const flat = flattenAgainst(sym, lib);
         setCurLib(libName);
         setCurName(symName);
-        setWorkSymbol(flat);
+        setCurSymbol(flat);
         setUnit(1);
         setBodyStyle(1);
         undoStack.current = [];
@@ -427,7 +486,7 @@ export function SymbolEditor({
         setLoading(null);
       }
     },
-    [bump],
+    [bump, setCurSymbol],
   );
 
   // Open the specific library the project manager launched us on, KiCad's
@@ -464,7 +523,6 @@ export function SymbolEditor({
     void (async () => {
       const loaded = await manager.current.ensureLoaded(lib);
       if (!loaded) return;
-      setExpanded((s) => new Set(s).add(lib));
       const first = manager.current.symbolNames(lib)[0];
       setTreeSel({ lib, name: first ?? null });
       if (first) void loadSymbol(lib, first);
@@ -486,7 +544,6 @@ export function SymbolEditor({
     const sym: LibSymbol = { ...req.symbol, libId: name };
     if (!manager.current.libraryExists(SCHEMATIC_LIB)) manager.current.createLibrary(SCHEMATIC_LIB);
     manager.current.updateSymbol(SCHEMATIC_LIB, sym);
-    setExpanded((e) => new Set(e).add(SCHEMATIC_LIB));
     setTreeSel({ lib: SCHEMATIC_LIB, name });
     setFromSchematic(name);
     void loadSymbol(SCHEMATIC_LIB, name).then(() => {
@@ -553,7 +610,7 @@ export function SymbolEditor({
     const orig = manager.current.revertSymbol(curLib, curName);
     if (orig) {
       const lib = manager.current.library(curLib)!;
-      setWorkSymbol(flattenAgainst(orig, lib));
+      setCurSymbol(flattenAgainst(orig, lib));
       // `return LIB_ID( aLibrary, original.GetName() )` — reverting a RENAMED
       // symbol puts the name back, and the frame follows it.
       setCurName(orig.libId);
@@ -561,11 +618,11 @@ export function SymbolEditor({
       redoStack.current = [];
       setSelection(new Set());
     } else {
-      setWorkSymbol(null);
+      setCurSymbol(null);
       setCurName(null);
     }
     bump();
-  }, [curLib, curName, workSymbol, bump]);
+  }, [curLib, curName, workSymbol, bump, setCurSymbol]);
 
   // ----- symbol management (symbol_editor.cpp) --------------------------------------
   const targetLib = treeSel?.lib ?? curLib;
@@ -682,12 +739,12 @@ export function SymbolEditor({
       }
       manager.current.removeSymbol(libName, symName);
       if (curLib === libName && curName === symName) {
-        setWorkSymbol(null);
+        setCurSymbol(null);
         setCurName(null);
       }
       bump();
     },
-    [curLib, curName, bump],
+    [curLib, curName, bump, setCurSymbol],
   );
 
   /** DuplicateSymbol: insert a copy with a unique name next to the source. */
@@ -752,7 +809,9 @@ export function SymbolEditor({
     (fileName: string, text: string) => {
       const name = basename(fileName).replace(/\.kicad_sym$/i, '');
       manager.current.addProjectLibrary(name, fileName, text);
-      setExpanded((p) => new Set([...p, name]));
+      // `SYMBOL_EDIT_FRAME::AddLibraryFile`'s tail:
+      // `m_treePane->GetLibTree()->SelectLibId( LIB_ID( libNickname, "" ) )`.
+      setSelectLibId(name);
       bump();
     },
     [bump],
@@ -761,6 +820,9 @@ export function SymbolEditor({
   // ----- tool / toolbar dispatch -----------------------------------------------------
   const onToolSelect = useCallback((id: string) => {
     setActiveTool(id);
+    // `TOOLS_HOLDER::PushTool` — the ONLY caller of `DisplayToolMsg` besides
+    // `PopTool` (`common/tool/tools_holder.cpp:57-77, :113`). See `toolMsg`.
+    setToolMsg(SYM_TOOL_MSGS[id] ?? '');
     setPendingPin(null);
     setPendingText(null);
   }, []);
@@ -803,11 +865,123 @@ export function SymbolEditor({
     else setStatus(url ? `Datasheet: ${url}` : 'No datasheet defined');
   }, [workSymbol]);
 
+  // ----- Find / Find and Replace (SCH_FIND_REPLACE_TOOL) ------------------------------
+  //
+  // `SYMBOL_EDIT_FRAME::setupTools` does `RegisterTool( new SCH_FIND_REPLACE_TOOL )`
+  // (`symbol_edit_frame.cpp:432`) — the SAME tool the schematic registers,
+  // because `ShowFindReplaceDialog` and `m_findReplaceDialog` are on
+  // `SCH_BASE_FRAME`. The dialog is therefore `widgets/dialog_sch_find.tsx`
+  // and the walk is `findMatchesInSymbol` in the same engine module as the
+  // schematic's `findMatches`, which is where the C++ keeps both branches too.
+  const [findOpen, setFindOpen] = useState<false | 'find' | 'replace'>(false);
+  const [searchData, setSearchData] = useState<SchSearchData>(defaultSearchData);
+  const [findStatus, setFindStatus] = useState('');
+  const findCursor = useRef(-1);
+  const lastMatch = useRef<SymbolItemRef | null>(null);
+
+  const openFindDialog = useCallback((mode: 'find' | 'replace') => {
+    setFindOpen(mode);
+    findCursor.current = -1;
+    lastMatch.current = null;
+    setFindStatus('');
+  }, []);
+
+  /** The selection ids for one hit — `symItemId`'s format, so the canvas and
+   *  `parseItemId` both read it. */
+  const matchId = (m: SymbolItemRef): string => symItemId(m.kind, m.unitIdx, m.itemIdx);
+
+  /** `searchSelectedOnly` — the one scope box the dialog leaves visible in
+   *  this frame, read back out of our id-keyed selection. */
+  const selectedRefs = useCallback((): SymbolItemRef[] => {
+    const out: SymbolItemRef[] = [];
+    for (const id of selection) {
+      const ref = parseItemId(id);
+      if (ref) out.push({ kind: ref.kind, unitIdx: ref.unitIdx, itemIdx: ref.itemIdx });
+    }
+    return out;
+  }, [selection]);
+
+  /**
+   * `SCH_FIND_REPLACE_TOOL::FindNext` / `FindPrevious` for this frame: walk the
+   * symbol, advance the cursor with wrap-around, select and focus.
+   *
+   * No unit switch, deliberately. `FindNext` ends on
+   * `m_frame->FocusOnLocation( … )` and nothing else — the schematic arm calls
+   * `SCH_ACTIONS::changeSheet` when a hit is on another sheet, and the symbol
+   * arm has no counterpart, so a hit in another unit is selected and centred
+   * exactly as upstream leaves it.
+   */
+  const doFind = useCallback(
+    (dir: 1 | -1) => {
+      if (!workSymbol) return;
+      const only = searchData.searchSelectedOnly ? selectedRefs() : undefined;
+      const all: SymbolFindMatch[] = findMatchesInSymbol(workSymbol, searchData, only);
+      if (all.length === 0) {
+        findCursor.current = -1;
+        lastMatch.current = null;
+        // `ShowFindReplaceStatus( _( "No matches found." ), 2000 )`.
+        setFindStatus(searchData.findString ? 'No matches found.' : '');
+        return;
+      }
+      findCursor.current =
+        findCursor.current === -1
+          ? dir === 1
+            ? 0
+            : all.length - 1
+          : (findCursor.current + dir + all.length) % all.length;
+      const m = all[findCursor.current]!;
+      lastMatch.current = { kind: m.kind, unitIdx: m.unitIdx, itemIdx: m.itemIdx };
+      setSelection(new Set([matchId(m)]));
+      controller.current?.centerOn(m.pos);
+      setFindStatus(`${findCursor.current + 1} of ${all.length}`);
+    },
+    [workSymbol, searchData, selectedRefs],
+  );
+
+  const doFindRef = useRef(doFind);
+  doFindRef.current = doFind;
+
+  /** `ReplaceAndFindNext`: replace inside the current match, then find the next. */
+  const doReplaceNext = useCallback(() => {
+    if (!workSymbol || !searchData.findString) return;
+    if (findCursor.current === -1 || !lastMatch.current) {
+      doFind(1);
+      return;
+    }
+    const next = replaceInSymbol(workSymbol, searchData, [lastMatch.current]);
+    // `if( !commit.Empty() ) commit.Push( … )` — no undo entry for a no-op.
+    if (next) commit(next, 'Find and Replace');
+    // The replaced item usually drops out of the list; step back so the
+    // follow-up FindNext lands on the item after it.
+    findCursor.current = Math.max(-1, findCursor.current - 1);
+    lastMatch.current = null;
+    requestAnimationFrame(() => doFindRef.current(1));
+  }, [workSymbol, searchData, commit, doFind]);
+
+  /** `ReplaceAll`, over the whole symbol (or the selection, when scoped). */
+  const doReplaceAll = useCallback(() => {
+    if (!workSymbol || !searchData.findString) return;
+    const only = searchData.searchSelectedOnly ? selectedRefs() : undefined;
+    const next = replaceInSymbol(workSymbol, searchData, only);
+    if (next) commit(next, 'Find and Replace All');
+    findCursor.current = -1;
+    lastMatch.current = null;
+    setFindStatus('');
+  }, [workSymbol, searchData, commit, selectedRefs]);
+
   const onTopAction = useCallback(
     (id: string) => {
       switch (id) {
         case 'newSymbol':
           setNewSymbolOpen(true);
+          break;
+        // `SCH_FIND_REPLACE_TOOL::FindAndReplace` —
+        // `m_frame->ShowFindReplaceDialog( aEvent.IsAction( &ACTIONS::findAndReplace ) )`.
+        case 'find':
+          openFindDialog('find');
+          break;
+        case 'findReplace':
+          openFindDialog('replace');
           break;
         case 'save':
           save();
@@ -832,6 +1006,12 @@ export function SymbolEditor({
           break;
         case 'zoomFit':
           controller.current?.zoomToFit();
+          break;
+        // `ACTIONS::zoomTool` is AF_ACTIVATE: the button ARMS `ZOOM_TOOL`, it
+        // does not zoom on click. The drag that follows is the tool
+        // (`common/tool/zoom_tool.cpp`), and it stays armed afterwards.
+        case 'zoomTool':
+          onToolSelect('zoomTool');
           break;
         case 'rotateCCW':
           rotateSel(true);
@@ -881,6 +1061,8 @@ export function SymbolEditor({
       curLib,
       onAddSymbolToSchematic,
       showDatasheet,
+      onToolSelect,
+      openFindDialog,
     ],
   );
 
@@ -902,6 +1084,10 @@ export function SymbolEditor({
       setPrefsOpen(true);
       return;
     }
+    // Showing or hiding either of the other two left-dock panes is exactly when
+    // `updateSelectionFilterVisbility` runs, so a filter pane the user closed
+    // comes back with the next one of those.
+    if (id === 'showLibraryTree' || id === 'showProperties') setSelFilterClosed(false);
     setToggles((prev) => applyToggle(prev, id));
   }, []);
 
@@ -1377,63 +1563,133 @@ export function SymbolEditor({
 
   // ----- library tree (symbol_tree_pane / LIB_TREE) -----------------------------------------
   const libNames = manager.current.libraryNames();
-  const q = query.trim().toLowerCase();
   void revision;
 
-  const treeRows = useMemo(() => {
-    interface Row {
-      lib: string;
-      sym?: string;
-      desc?: string;
-      modified?: boolean;
-    }
-    const rows: Row[] = [];
-    const mgr = manager.current;
-    for (const libName of libNames) {
-      const lib = mgr.library(libName)!;
-      const names = mgr.symbolNames(libName);
-      if (q) {
-        const matches = names.filter(
-          (n) => n.toLowerCase().includes(q) || `${libName}:${n}`.toLowerCase().includes(q),
-        );
-        if (matches.length === 0 && !libName.toLowerCase().includes(q)) continue;
-        rows.push({ lib: libName, modified: mgr.isLibraryModified(libName) });
-        for (const n of (matches.length > 0 ? matches : names).slice(0, 100)) {
-          rows.push({ lib: libName, sym: n, modified: mgr.isSymbolModified(libName, n) });
-        }
-      } else {
-        rows.push({ lib: libName, modified: mgr.isLibraryModified(libName) });
-        if (expanded.has(libName)) {
-          for (const n of names) {
-            const sym = lib.symbols.get(n);
-            const desc = sym?.properties.find(
-              (f) => f.key === 'Description' || f.key === 'ki_description',
-            )?.value;
-            rows.push({
-              lib: libName,
-              sym: n,
-              ...(desc ? { desc } : {}),
-              modified: mgr.isSymbolModified(libName, n),
-            });
-          }
-        }
-      }
-    }
-    return rows;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [libNames, q, expanded, revision]);
+  /**
+   * `m_libMgr->GetAdapter()` — the ONE adapter this frame's tree is built on
+   * (`symbol_tree_pane.cpp:42`). It is a `SYMBOL_TREE_SYNCHRONIZING_ADAPTER`,
+   * so every row face is re-derived from the manager on each paint and none of
+   * it is cached: see `symbol_tree_synchronizing_adapter.ts`.
+   *
+   * Built once, like the manager it wraps. The callbacks read refs rather than
+   * state so the memo never has to be rebuilt to see a fresh answer — which is
+   * the same reason upstream's adapter holds a `LIB_SYMBOL_LIBRARY_MANAGER*`
+   * and a `SYMBOL_EDIT_FRAME*` instead of copies.
+   */
+  const curLibIdRef = useRef('');
+  curLibIdRef.current = curLib && curName ? `${curLib}:${curName}` : '';
+  const treeAdapter = useMemo(
+    () =>
+      new SymbolTreeSynchronizingAdapter({
+        isLibraryModified: (lib) => manager.current.isLibraryModified(lib),
+        isSymbolModified: (lib, sym) => manager.current.isSymbolModified(lib, sym),
+        // `IsLibraryLoaded` upstream is "the file parsed", not "the file has
+        // been fetched" — our libraries are fetched lazily and that is not a
+        // failure, so the only thing that can grey a row here is a library
+        // that has left the manager while its node is still in the tree.
+        isLibraryLoaded: (lib) => manager.current.libraryExists(lib),
+        currentLibId: () => curLibIdRef.current,
+      }),
+    [],
+  );
 
-  const toggleLib = useCallback(
-    (libName: string) => {
-      setExpanded((prev) => {
-        const next = new Set(prev);
-        if (next.has(libName)) next.delete(libName);
-        else {
-          next.add(libName);
-          void manager.current.ensureLoaded(libName).then(bump);
-        }
-        return next;
-      });
+  /**
+   * `SYMBOL_TREE_SYNCHRONIZING_ADAPTER::Sync` — rebuild the node tree when the
+   * SET of libraries or symbols changed, and only then.
+   *
+   * The signature is what upstream's Sync walks to decide: a library's name,
+   * whether it is loaded, and its symbol names. Modified-ness is deliberately
+   * NOT in it — that is the adapter's job to answer live, and putting it here
+   * would rebuild the whole tree on every keystroke of an edit.
+   */
+  const treeSignature = libNames
+    .map(
+      (n) =>
+        `${n}\u0000${manager.current.library(n)?.loaded ? 1 : 0}\u0000${manager.current.symbolNames(n).join('\u0001')}`,
+    )
+    .join('\u0002');
+  const [treeNonce, setTreeNonce] = useState(0);
+  useEffect(() => {
+    const mgr = manager.current;
+    treeAdapter.tree.children.length = 0;
+    for (const libName of mgr.libraryNames()) {
+      const lib = mgr.library(libName);
+      if (!lib) continue;
+      // The Description column of a LIBRARY row is the sym-lib-table row's
+      // `Description()` (`symbol_tree_synchronizing_adapter.cpp:290-294`), not
+      // the file name. Our `ManagedLibrary` does not carry the table's descr,
+      // so the cell is empty rather than filled with something else.
+      const libNode = treeAdapter.addLibrary(libName, '', false);
+      for (const name of mgr.symbolNames(libName)) {
+        const sym = lib.symbols.get(name);
+        const item = new LibTreeNode();
+        item.type = LibTreeNodeType.ITEM;
+        item.parent = libNode;
+        item.name = name;
+        item.libNickname = libName;
+        item.libItemName = name;
+        // `LIB_SYMBOL::IsRoot`, which is what GetAttr italicises on (:381).
+        item.isRoot = sym ? sym.extends === undefined : true;
+        item.isPower = sym?.isPower ?? false;
+        item.desc =
+          sym?.properties.find((f) => f.key === 'Description' || f.key === 'ki_description')
+            ?.value ?? '';
+        // `LIB_SYMBOL::cacheSearchTerms`' first three terms; the rest need
+        // keywords the manager does not carry for an unfetched library.
+        item.sourceSearchTerms = [
+          { text: libName.toLowerCase(), score: 4 },
+          { text: name.toLowerCase(), score: 8 },
+          { text: `${libName}:${name}`.toLowerCase(), score: 16 },
+        ];
+        item.rebuildSearchTerms(treeAdapter.getShownColumns());
+        libNode.children.push(item);
+      }
+      treeAdapter.finishLibrary(libNode);
+    }
+    treeAdapter.tree.assignIntrinsicRanks();
+    setTreeNonce((n) => n + 1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [treeSignature, treeAdapter]);
+
+  /**
+   * `LIB_TREE::SelectLibId`, which `SYMBOL_EDIT_FRAME` calls to make the tree
+   * follow the frame: after a load (the symbol on the canvas), and after
+   * `AddLibraryFile` (the library just added). One piece of state, because
+   * upstream is one call either way.
+   */
+  const [selectLibId, setSelectLibId] = useState('');
+  useEffect(() => {
+    if (curLib && curName) setSelectLibId(`${curLib}:${curName}`);
+  }, [curLib, curName]);
+
+  /** `EVT_LIBITEM_SELECTED` — the tree's selection, which is `GetTargetLibId`'s
+   *  first source (`symbol_edit_frame.cpp:1359-1370`). */
+  const onTreeSelect = useCallback((node: LibTreeNode | null) => {
+    if (!node) {
+      setTreeSel(null);
+      return;
+    }
+    if (node.type === LibTreeNodeType.LIBRARY) setTreeSel({ lib: node.name, name: null });
+    else setTreeSel({ lib: node.libNickname, name: node.libItemName });
+  }, []);
+
+  /** `SYMBOL_TREE_PANE::onSymbolSelected`, bound to `EVT_LIBITEM_CHOSEN`
+   *  (`symbol_tree_pane.cpp:53`): a double-click or Enter LOADS the symbol. */
+  const onTreeChoose = useCallback(
+    (node: LibTreeNode) => {
+      if (node.type === LibTreeNodeType.LIBRARY) return;
+      void loadSymbol(node.libNickname, node.libItemName);
+    },
+    [loadSymbol],
+  );
+
+  /** Expanding a library fetches it — our lazy stand-in for upstream's
+   *  `PreloadLibraries`, which has every library resident before the tree
+   *  appears. Collapsing needs nothing. */
+  const onTreeToggleLibrary = useCallback(
+    (node: LibTreeNode, open: boolean) => {
+      if (!open) return;
+      void manager.current.ensureLoaded(node.name).then(bump);
     },
     [bump],
   );
@@ -1471,6 +1727,14 @@ export function SymbolEditor({
           break;
         case 'newSymbol':
           setNewSymbolOpen(true);
+          break;
+        // Edit > Find / Find and Replace, the same two actions the top toolbar
+        // dispatches (`SCH_FIND_REPLACE_TOOL::FindAndReplace`).
+        case 'find':
+          openFindDialog('find');
+          break;
+        case 'findReplace':
+          openFindDialog('replace');
           break;
         case 'save':
           save();
@@ -1534,6 +1798,9 @@ export function SymbolEditor({
         case 'zoomRedraw':
           controller.current?.zoomToFit();
           break;
+        case 'zoomTool':
+          onToolSelect('zoomTool');
+          break;
         case 'showDatasheet':
           showDatasheet();
           break;
@@ -1561,6 +1828,8 @@ export function SymbolEditor({
       isAlias,
       commit,
       showDatasheet,
+      onToolSelect,
+      openFindDialog,
     ],
   );
 
@@ -1814,6 +2083,14 @@ export function SymbolEditor({
         entries={SYM_TOP_TOOLBAR}
         orientation="horizontal"
         toggled={toggles}
+        // `CHECK( cond.CurrentTool( ACTIONS::zoomTool ) )`
+        // (`symbol_edit_frame.cpp:561`), which is the ONE check on this bar
+        // that is about the armed tool rather than a frame flag — Zoom to
+        // Selection Area stays lit while `ZOOM_TOOL` is running. `Toolbar`
+        // already reads `activeTool` for exactly this; the bar was simply not
+        // being handed it, so the button armed the tool and painted flat.
+        // No other top-bar id can collide: the drawing tools are on the right.
+        activeTool={activeTool}
         onActivate={onTopAction}
         disabledIds={topDisabled}
         controls={{
@@ -1888,88 +2165,68 @@ export function SymbolEditor({
               {toggles.has('showLibraryTree') && (
                 <div className="ze-panel grow">
                   <div className="ze-panel-header">Libraries</div>
-                  <div style={{ padding: 4 }}>
-                    <input
-                      className="ze-search"
-                      placeholder="Filter"
-                      value={query}
-                      onChange={(e) => setQuery(e.target.value)}
-                      onKeyDown={(e) => e.stopPropagation()}
-                      style={{ width: '100%' }}
+                  {/*
+                   * `SYMBOL_TREE_PANE` (`eeschema/widgets/symbol_tree_pane.cpp:40-44`)
+                   * is a panel whose entire body is ONE `LIB_TREE`:
+                   *
+                   *     m_tree = new LIB_TREE( this, wxT( "symbols" ),
+                   *                            m_libMgr->GetAdapter(),
+                   *                            LIB_TREE::SEARCH | LIB_TREE::MULTISELECT );
+                   *
+                   * SEARCH and MULTISELECT, and NOT `DETAILS` — hence
+                   * `hasExternalDetails`, which is what keeps the HTML info
+                   * pane the chooser has out of this dock.
+                   *
+                   * What stood here was a second tree: a `treeRows` memo and
+                   * eighty lines of JSX. That is why this pane had no "Item"
+                   * header, a bare `<input>` instead of the `wxSearchCtrl` with
+                   * its magnifier and its recent-search menu, no sort/expand
+                   * menu, a library glyph KiCad does not draw, no virtual
+                   * scrolling and none of the row faces — and why the scroll
+                   * fix made in `widgets/lib_tree.tsx` helped the chooser and
+                   * not this pane.
+                   */}
+                  {libNames.length === 0 && (
+                    <LibraryLoadingPanel
+                      kind="symbols"
+                      fallback={<div className="ze-muted">No libraries</div>}
+                      label="Loading symbol libraries..."
                     />
-                  </div>
-                  <div className="ze-panel-body">
-                    {treeRows.length === 0 && (
-                      <LibraryLoadingPanel
-                        kind="symbols"
-                        fallback={<div className="ze-muted">No libraries</div>}
-                        label="Loading symbol libraries..."
-                      />
-                    )}
-                    {treeRows.map((row) =>
-                      row.sym === undefined ? (
-                        <div
-                          key={row.lib}
-                          className={`ze-tree-item root${treeSel?.lib === row.lib && !treeSel.name ? ' active' : ''}`}
-                          onClick={() => {
-                            setTreeSel({ lib: row.lib, name: null });
-                            if (!q) toggleLib(row.lib);
-                          }}
-                          title={manager.current.library(row.lib)?.fileName}
-                        >
-                          <span
-                            className={`twisty expandable${expanded.has(row.lib) || q ? ' open' : ''}`}
-                          />
-                          {toolbarIconUrl('library') && (
-                            <img
-                              src={toolbarIconUrl('library')}
-                              alt=""
-                              style={{ width: 16, height: 16 }}
-                            />
-                          )}
-                          <span>
-                            {row.lib}
-                            {row.modified ? ' *' : ''}
-                          </span>
-                        </div>
-                      ) : (
-                        <div
-                          key={`${row.lib}:${row.sym}`}
-                          className={`ze-tree-item${curLib === row.lib && curName === row.sym ? ' active' : ''}`}
-                          style={{
-                            paddingLeft: 26,
-                            fontWeight: curLib === row.lib && curName === row.sym ? 600 : 400,
-                          }}
-                          onClick={() => setTreeSel({ lib: row.lib, name: row.sym! })}
-                          onDoubleClick={() => void loadSymbol(row.lib, row.sym!)}
-                          title={row.desc ? `${row.sym}, ${row.desc}` : row.sym}
-                        >
-                          <span>
-                            {row.sym}
-                            {row.modified ? ' *' : ''}
-                          </span>
-                          {row.desc && (
-                            <span
-                              style={{
-                                opacity: 0.55,
-                                marginLeft: 8,
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap',
-                              }}
-                            >
-                              {row.desc}
-                            </span>
-                          )}
-                        </div>
-                      ),
-                    )}
-                  </div>
+                  )}
+                  <LibTree
+                    adapter={treeAdapter}
+                    // `LIB_TREE( this, wxT( "symbols" ), … )` — the Symbol
+                    // Editor shares `g_recentSearches["symbols"]` with the
+                    // chooser, which is upstream's own key.
+                    recentSearchesKey="symbols"
+                    regenerateNonce={treeNonce}
+                    selectLibId={selectLibId}
+                    onSelect={onTreeSelect}
+                    onChoose={onTreeChoose}
+                    onToggleLibrary={onTreeToggleLibrary}
+                    hasExternalDetails
+                  />
                 </div>
               )}
               {toggles.has('showProperties') && (
                 <div className="ze-panel">
-                  <div className="ze-panel-header">Properties</div>
+                  {/* `defaultPropertiesPaneInfo` asks for `.CloseButton( true )`
+                      (`eeschema/eeschema_settings.cpp:99`), unlike the
+                      LibraryTree pane beside it, which is an `EDA_PANE` and so
+                      carries the base class's `CloseButton( false )`
+                      (`include/eda_base_frame.h:927-932`). Closing it is the
+                      same state View > Show Properties Manager drives. */}
+                  <div className="ze-panel-header">
+                    <span>Properties</span>
+                    <button
+                      type="button"
+                      className="ze-pane-close"
+                      onClick={() => onLeftToggle('showProperties')}
+                      title="Close"
+                    >
+                      ⊠
+                    </button>
+                  </div>
                   <div className="ze-panel-body">
                     <div className="ze-muted">
                       {selection.size === 0
@@ -1984,16 +2241,18 @@ export function SymbolEditor({
                   builds, which lays itself out differently for
                   FRAME_SCH_SYMBOL_EDITOR. It has no toggle of its own; see
                   `symSelectionFilterShown`. */}
-              {symSelectionFilterShown({
-                libraryTree: toggles.has('showLibraryTree'),
-                properties: toggles.has('showProperties'),
-              }) && (
-                <SelectionFilterPanel
-                  frame="FRAME_SCH_SYMBOL_EDITOR"
-                  filter={selFilter}
-                  onChange={setSelFilter}
-                />
-              )}
+              {!selFilterClosed &&
+                symSelectionFilterShown({
+                  libraryTree: toggles.has('showLibraryTree'),
+                  properties: toggles.has('showProperties'),
+                }) && (
+                  <SelectionFilterPanel
+                    frame="FRAME_SCH_SYMBOL_EDITOR"
+                    filter={selFilter}
+                    onChange={setSelFilter}
+                    onClose={() => setSelFilterClosed(true)}
+                  />
+                )}
             </div>
             <div className="ze-splitter" onMouseDown={startResize} title="Drag to resize" />
           </>
@@ -2071,7 +2330,7 @@ export function SymbolEditor({
             : deltasMsg(null),
           grid: gridMsg(fmt(GRID)),
           units: unitsMsg(unitsLabel),
-          tool: SYM_TOOL_MSGS[activeTool] ?? '',
+          tool: toolMsg,
         }}
       />
 
@@ -2124,6 +2383,23 @@ export function SymbolEditor({
             />
           );
         })()}
+      {/* `SCH_BASE_FRAME::ShowFindReplaceDialog` — the same DIALOG_SCH_FIND the
+          schematic opens, told which frame it is in so it takes the
+          `FRAME_SCH_SYMBOL_EDITOR` branch of its own constructor. */}
+      {findOpen && (
+        <DialogSchFind
+          frame="FRAME_SCH_SYMBOL_EDITOR"
+          data={searchData}
+          onChange={setSearchData}
+          onFindNext={() => doFind(1)}
+          onFindPrevious={() => doFind(-1)}
+          onClose={() => setFindOpen(false)}
+          status={findStatus}
+          replace={findOpen === 'replace'}
+          onReplace={doReplaceNext}
+          onReplaceAll={doReplaceAll}
+        />
+      )}
       {aboutOpen && <AboutDialog title={ABOUT_TITLES.symbol} onClose={() => setAboutOpen(false)} />}
       {prefsOpen && <PreferencesDialog onClose={() => setPrefsOpen(false)} />}
       {newSymbolOpen && (
@@ -2199,7 +2475,7 @@ export function SymbolEditor({
                     e.stopPropagation();
                     if (e.key === 'Enter' && newLibName.trim()) {
                       manager.current.createLibrary(newLibName.trim());
-                      setExpanded((p) => new Set([...p, newLibName.trim()]));
+                      setSelectLibId(newLibName.trim());
                       setNewLibName(null);
                       bump();
                     }
@@ -2216,7 +2492,7 @@ export function SymbolEditor({
                 disabled={!newLibName.trim()}
                 onClick={() => {
                   manager.current.createLibrary(newLibName.trim());
-                  setExpanded((p) => new Set([...p, newLibName.trim()]));
+                  setSelectLibId(newLibName.trim());
                   setNewLibName(null);
                   bump();
                 }}

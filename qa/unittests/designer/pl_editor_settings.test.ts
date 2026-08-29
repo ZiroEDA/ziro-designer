@@ -422,6 +422,30 @@ const EDITOR = readFileSync(
 );
 
 /**
+ * The two cursor controls moved out of the editor and into `PANEL_GAL_OPTIONS`,
+ * where upstream has always had them — the Drawing Sheet Editor's Preferences
+ * is now the shared `PAGED_DIALOG` with pl_editor's own pages under it, not a
+ * modal of this editor's own. The writes still have to reach `pl_editor.json`,
+ * so the expectation is re-scoped to where they landed rather than dropped: the
+ * panel mutates the dialog's working copy, and OK commits that copy to the
+ * `plEditor` slice.
+ *
+ * `ds_preferences.test.ts` proves the whole chain link by link, including that
+ * the editor no longer holds a second copy of either control.
+ */
+const GAL_PANEL = readFileSync(
+  fileURLToPath(
+    new URL('../../../designer/src/dialogs/prefs/PanelGalOptions.tsx', import.meta.url),
+  ),
+  'utf8',
+);
+
+const PREFS_SHELL = readFileSync(
+  fileURLToPath(new URL('../../../designer/src/dialogs/PreferencesDialog.tsx', import.meta.url)),
+  'utf8',
+);
+
+/**
  * The wiring itself. Every rule above is a pure function, and a pure function
  * that nothing calls passes its tests forever — the editor lives in a `.tsx`
  * and `qa` has no DOM, so reading it as text is the only way to see that the
@@ -441,10 +465,33 @@ describe('the editor reads and writes the store', () => {
       'settings.plEditor.corner_origin',
       'settings.plEditor.properties_frame_width',
       'settings.plEditor.window.grid.last_size_idx',
-      'settings.plEditor.black_background',
     ]) {
       expect(EDITOR, `${seed} must seed a control`).toContain(seed);
     }
+  });
+
+  it('reads black_background, but no control writes it — as upstream', () => {
+    /*
+     * `black_background` is the one setting in this file with no user interface
+     * at all. `LoadSettings` turns it into the canvas colour
+     * (`SetDrawBgColor( cfg->m_BlackBackground ? BLACK : WHITE )`,
+     * pl_editor_frame.cpp:541) and `SaveSettings` writes back whatever colour
+     * the canvas has (:562) — and nothing else in `pagelayout_editor` ever
+     * calls `SetDrawBgColor`, so no action, menu item or Preferences control
+     * can move it. Grep the reference tree: the only other hits are the two
+     * lines of the printout that force white paper.
+     *
+     * We had invented a checkbox for it. This expectation moved from "a
+     * control is seeded from it and writes it back" to "it is read and never
+     * written", and the derivation for the new one is the paragraph above, not
+     * what the code now happens to print.
+     */
+    expect(EDITOR).toContain('plCfg.black_background');
+    expect(EDITOR).not.toContain('s.black_background =');
+    // The checkbox's prop. The LABEL is asserted in ds_preferences.test.ts,
+    // which filters comments out first — this file does not, and the comment
+    // recording why the control was removed names it.
+    expect(EDITOR).not.toContain('onBlackBackground');
   });
 
   it('takes the always-show crosshair from the settings, not a literal', () => {
@@ -464,10 +511,21 @@ describe('the editor reads and writes the store', () => {
       's.corner_origin = idx',
       's.properties_frame_width = w',
       's.window.grid.last_size_idx = idx',
-      's.black_background = on',
+      // `s.black_background = on` is deliberately absent — see above.
       'writePageToConfig(s, next)',
     ]) {
       expect(EDITOR, `${write} must reach updatePlEditor`).toContain(write);
     }
+  });
+
+  it('writes the two cursor settings back through the shared Preferences panel', () => {
+    // `PANEL_GAL_OPTIONS::TransferDataFromWindow` (panel_gal_options.cpp:
+    // 110-124) is where these two land upstream, so it is where they land here.
+    for (const write of ['w.cursor.crosshair = v', 'w.cursor.always_show_cursor = v'])
+      expect(GAL_PANEL, `${write} must be written by PANEL_GAL_OPTIONS`).toContain(write);
+    // And the dialog's OK is what carries that working copy into the store —
+    // without this line the panel would edit a clone and throw it away, which is
+    // precisely the "displays a value and then discards it" failure.
+    expect(PREFS_SHELL).toContain('settings.updatePlEditor((s) => Object.assign(s, plEditor));');
   });
 });
