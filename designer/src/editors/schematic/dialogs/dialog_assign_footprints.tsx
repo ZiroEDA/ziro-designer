@@ -27,17 +27,30 @@
  * is missing from the libraries gets SYMBOLS_LISTBOX's warning background.
  *
  * Web deltas: KiCad's footprint viewer is a second frame, here it is a panel
- * over the footprint pane using the shared FOOTPRINT_PREVIEW_WIDGET. The
- * ".equ"-file features are left out rather than shown dead, because the browser
- * build has no association files: Manage Footprint Association Files
- * (`CVPCB_ACTIONS::showEquFileTable`) and, with it,
- * **`CVPCB_ACTIONS::autoAssociate`** — the toolbar's second red X, which
- * `toolbars_cvpcb.cpp:59-64` puts between redo and deleteAll. It is not a
- * missing port: `AutomaticFootprintMatching` (auto_associate.cpp:170-260) is
- * nothing but `buildEquivalenceList` over those files followed by a match on
- * symbol VALUE, so with no `.equ` file it reports "0 footprint/symbol
- * equivalences found." and assigns nothing. The seam is marked at the toolbar
- * entry it would sit in, not left as a dead button.
+ * over the footprint pane using the shared FOOTPRINT_PREVIEW_WIDGET.
+ *
+ * ## The `.equ` features
+ *
+ * Both are here. `CVPCB_ACTIONS::autoAssociate` is the toolbar button between
+ * redo and deleteAll (`toolbars_cvpcb.cpp:59-64`) and runs
+ * `AutomaticFootprintMatching`; `CVPCB_ACTIONS::showEquFileTable` is
+ * Preferences > Manage Footprint Association Files... (`menubar.cpp:71`) and
+ * opens `DialogConfigEquFiles`. The engine is `cvpcb_auto_associate.ts` and the
+ * list is `cvpcb_equ_files.ts`, both beside this file.
+ *
+ * An earlier pass left both out on the reasoning that with no `.equ` file the
+ * button reports "0 footprint/symbol equivalences found." and assigns nothing,
+ * so it was dead. That reasoning applies equally to a freshly installed KiCad:
+ * the manual says equivalence files "must be created by the user using a text
+ * editor" (eeschema.txt:4435), KiCad ships none, and the button is there. The
+ * button is not dead, it is *empty until the user fills it* — and leaving out
+ * the dialog that fills it is what made it dead here.
+ *
+ * The one genuinely new question is where a `.equ` file lives when there is no
+ * local disk to `fopen`. It lives in the project, referenced from the
+ * `.kicad_pro` as `${KIPRJMOD}/name.equ` — which is the spelling upstream's own
+ * Add builds for a file under the project directory. See `cvpcb_equ_files.ts`
+ * for that seam and what it costs.
  *
  * ## PERSISTED
  *
@@ -159,6 +172,16 @@ import { setLanguageMenuItem } from '../../../ui/language_menu.js';
 import { ABOUT_TITLES } from '../../../ui/about_titles.js';
 import { AboutDialog } from '../../../home/dialogs/dialog_about.js';
 import { PreferencesDialog } from '../../../dialogs/PreferencesDialog.js';
+import { MessageDialogOk } from '../../../ui/dialog_message.js';
+import {
+  automaticFootprintMatching,
+  buildEquivalenceList,
+  sortEquivalences,
+  CVPCB_WARNING_TITLE,
+  EQU_LOAD_ERROR_TITLE,
+} from '../cvpcb_auto_associate.js';
+import { readEquFile } from '../cvpcb_equ_files.js';
+import { readEquivalenceFiles } from '../project_settings.js';
 import './dialog_assign_footprints.css';
 
 /**
@@ -534,6 +557,23 @@ export function DialogAssignFootprints({
     setModel((m) => ({ ...m, selection: rows }));
   /** Set by a save, cleared the next time DisplayStatus would run. */
   const [savedStatus, setSavedStatus] = useState<string | null>(null);
+  /**
+   * `PROJECT_FILE::m_EquivalenceFiles` — the footprint association files, read
+   * from the project's `.kicad_pro` and rewritten by Manage Footprint
+   * Association Files. Held here, not re-read per press, because the OK of that
+   * dialog is what changes it and upstream's `SaveProject` is the same moment.
+   */
+  const [equFiles, setEquFiles] = useState<readonly string[]>(() =>
+    readEquivalenceFiles(projectFootprints ?? []),
+  );
+  /** `_( "Equivalence File Load Error" )`, raised by buildEquivalenceList. */
+  const [loadError, setLoadError] = useState<string | null>(null);
+  /** `_( "CvPcb Warning" )`, the footprints an equivalence named and no library
+   *  has. */
+  const [autoAssocWarning, setAutoAssocWarning] = useState<string | null>(null);
+  /** The `"%lu footprint/symbol equivalences found."` line, while it survives —
+   *  see AutoAssociateResult.status. */
+  const [autoAssocStatus, setAutoAssocStatus] = useState<string | null>(null);
   /** HandleUnsavedChanges is on screen (canCloseWindow is waiting for it). */
   const [unsavedPrompt, setUnsavedPrompt] = useState(false);
   const [curLib, setCurLib] = useState<number>(-1);
@@ -741,6 +781,36 @@ export function DialogAssignFootprints({
   /** Delete the selected symbol's assignment (CVPCB_ACTIONS::deleteAssoc). */
   const deleteAssoc = (): void => setModel((m) => deleteAssocCommand(m, components));
 
+  // ----- automatic association (CVPCB_ACTIONS::autoAssociate) ---------------
+
+  /**
+   * `CVPCB_MAINFRAME::AutomaticFootprintMatching` — one press of the toolbar's
+   * second red X, whole. The engine is `cvpcb_auto_associate.ts`; what is here
+   * is the two message boxes and the status line it writes.
+   *
+   * The list is re-read from the project on every press, exactly as upstream
+   * re-opens every file on every press (`buildEquivalenceList` fopens them at
+   * `:120`): a `.equ` edited between two presses takes effect on the second.
+   */
+  const autoAssociate = (): void => {
+    const { list, errors } = buildEquivalenceList(equFiles, (name) =>
+      readEquFile(projectFootprints ?? [], name),
+    );
+    // `if( buildEquivalenceList( … ) ) wxMessageBox( error_msg, … )` — raised
+    // BEFORE the match runs, and the match then runs on what did load.
+    setLoadError(errors.length > 0 ? errors.join('\n\n') : null);
+
+    const result = automaticFootprintMatching(
+      model,
+      components,
+      sortEquivalences(list),
+      knownFootprints,
+    );
+    setModel(result.state);
+    setAutoAssocStatus(result.status);
+    setAutoAssocWarning(result.warning || null);
+  };
+
   // ----- cut / copy / paste ------------------------------------------------
   //
   // The three commands are in cvpcb_commands.ts; what is left here is the
@@ -845,7 +915,7 @@ export function DialogAssignFootprints({
     };
   }, [selectedFootprint]);
 
-  const statusLine1 = useMemo(() => {
+  const filterStatus = useMemo(() => {
     const parts: string[] = [];
     if (filterFlags & FILTER_BY_FP_FILTERS) {
       const kw = component?.fpFilters.join(', ') ?? '';
@@ -866,12 +936,21 @@ export function DialogAssignFootprints({
     return `${head}: ${filtered.length} matching footprints`;
   }, [filterFlags, component, selectedLibrary, filterText, filtered.length]);
 
+  /**
+   * Field 0. `AutomaticFootprintMatching` writes the equivalence count over it
+   * (auto_associate.cpp:188) and every `AssociateFootprint` puts DisplayStatus
+   * back (cvpcb_mainframe.cpp:674), which is the same "written once, replaced
+   * by the next DisplayStatus" shape `savedStatus` has on field 1.
+   */
+  const statusLine1 = autoAssocStatus ?? filterStatus;
+
   // SetStatusText( _( "Schematic saved" ), 1 ) writes over the description
   // line, and the next DisplayStatus puts the description back. DisplayStatus
   // runs on every selection and filter change, so those are what clear it.
   // biome-ignore lint/correctness/useExhaustiveDependencies: the deps are the DisplayStatus triggers, not values the effect reads
   useEffect(() => {
     setSavedStatus(null);
+    setAutoAssocStatus(null);
   }, [curComp, selectedFootprint, filterFlags, filterText]);
 
   const statusLine2 =
@@ -1048,13 +1127,15 @@ export function DialogAssignFootprints({
     'sep',
     { id: 'cvpcbUndo', icon: 'cvpcbUndo', title: 'Undo' },
     { id: 'cvpcbRedo', icon: 'cvpcbRedo', title: 'Redo' },
-    // `CVPCB_ACTIONS::autoAssociate` sits HERE, between redo and deleteAll
-    // (toolbars_cvpcb.cpp:59-64), and is deliberately absent: see the header's
-    // note on the `.equ` features. It is not a button we have not got round to
-    // — it is `AutomaticFootprintMatching`, which is `buildEquivalenceList`
-    // over the project's footprint association files (auto_associate.cpp:170)
-    // and does nothing whatever when there are none. Shipping it would be a
-    // second red X that always reports "0 footprint/symbol equivalences found."
+    // `CVPCB_ACTIONS::autoAssociate` sits between redo and deleteAll
+    // (toolbars_cvpcb.cpp:59-64), which is why this row is HERE and not at
+    // either end of the group. Its FriendlyName is the title
+    // (cvpcb_actions.cpp:122-127) and it wears BITMAPS::auto_associate.
+    {
+      id: 'cvpcbAutoAssociate',
+      icon: 'cvpcbAutoAssociate',
+      title: 'Automatically Assign Footprints',
+    },
     { id: 'cvpcbDeleteAll', icon: 'cvpcbDeleteAll', title: 'Delete All Footprint Assignments' },
     'sep',
     { control: 'filtersLabel' },
@@ -1104,6 +1185,9 @@ export function DialogAssignFootprints({
         break;
       case 'cvpcbRedo':
         redo();
+        break;
+      case 'cvpcbAutoAssociate':
+        autoAssociate();
         break;
       case 'cvpcbDeleteAll':
         deleteAll();
@@ -1398,6 +1482,25 @@ export function DialogAssignFootprints({
         </div>
 
         {prefsOpen && <PreferencesDialog onClose={() => setPrefsOpen(false)} />}
+        {/* The two boxes AutomaticFootprintMatching raises, both
+            `wxOK | wxICON_WARNING` with a caption of their own
+            (auto_associate.cpp:180 and :300). */}
+        {loadError !== null && (
+          <MessageDialogOk
+            caption={EQU_LOAD_ERROR_TITLE}
+            icon="warning"
+            message={loadError}
+            onClose={() => setLoadError(null)}
+          />
+        )}
+        {autoAssocWarning !== null && (
+          <MessageDialogOk
+            caption={CVPCB_WARNING_TITLE}
+            icon="warning"
+            message={autoAssocWarning}
+            onClose={() => setAutoAssocWarning(null)}
+          />
+        )}
         {/* DIALOG_ABOUT titles itself from EDA_BASE_FRAME::GetAboutTitle, and
             cvpcb_mainframe.cpp:88 sets that to the bare "Assign Footprints". */}
         {aboutOpen && (

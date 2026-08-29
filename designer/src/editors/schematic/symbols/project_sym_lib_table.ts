@@ -23,6 +23,7 @@ import { parse } from '@ziroeda/sexpr';
 import { readSymbolLib } from '@ziroeda/eeschema/src/sch_io/sexpr/read-schematic.js';
 import type { LibSymbol } from '@ziroeda/eeschema/src/types.js';
 import { parseFpLibTable, type FpLibRow } from '../../footprint/fp_lib_table.js';
+import { findProjectFile as findProjectFileByUri } from '../../../fs/project_paths.js';
 
 /** A project file as the editor holds it. */
 export interface ProjectFile {
@@ -181,35 +182,13 @@ export function projectSymbolFiles(
 }
 
 /**
- * What `${KIPRJMOD}` stands for: the folder the project's own files sit in.
- * The table lives next to the `.kicad_pro`, so either one anchors it. A project
- * opened as a flat file list has no prefix at all, and the root is ''.
+ * The `sym-lib-table` also anchors `${KIPRJMOD}`, for a "project" that is only
+ * a library folder with no `.kicad_pro` in it. The expansion itself is
+ * `fs/project_paths.ts` - one module, because upstream has one
+ * `ExpandEnvVarSubstitutions`.
  */
-function projectRoot(files: readonly ProjectFile[]): string {
-  const norm = (n: string): string => n.replace(/\\/g, '/');
-  const anchor =
-    files.find((f) => /(^|\/)sym-lib-table$/i.test(norm(f.name)))?.name ??
-    files.find((f) => /\.kicad_pro$/i.test(norm(f.name)))?.name;
-  const path = anchor ? norm(anchor) : '';
-  return path.includes('/') ? path.slice(0, path.lastIndexOf('/') + 1) : '';
-}
+const SYM_LIB_TABLE_ANCHOR = /(^|\/)sym-lib-table$/i;
 
-/**
- * The project file a `${KIPRJMOD}`-relative URI points at, resolved exactly.
- *
- * `${KIPRJMOD}` is a real path, so the row's URI names one file and only that
- * file: `${KIPRJMOD}/foo.kicad_sym` is the `foo.kicad_sym` at the project root,
- * never a same-named file in a subfolder. Matching loosely would let a row
- * silently resolve to a library the engineer never registered, which is the
- * whole thing the table exists to prevent.
- */
 function findProjectFile(files: readonly ProjectFile[], uri: string): ProjectFile | undefined {
-  const rel = uri
-    .replace(/\\/g, '/')
-    .replace(/^\$\{KIPRJMOD\}\/?/i, '')
-    .replace(/^\$\(KIPRJMOD\)\/?/i, '')
-    .replace(/^\.\//, '');
-  if (!rel) return undefined;
-  const wanted = `${projectRoot(files)}${rel}`.toLowerCase();
-  return files.find((f) => f.name.replace(/\\/g, '/').toLowerCase() === wanted);
+  return findProjectFileByUri(files, uri, SYM_LIB_TABLE_ANCHOR);
 }

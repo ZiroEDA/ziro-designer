@@ -308,6 +308,10 @@ export const BITMAP: Record<string, string> = {
   cvpcbNextNA: 'right',
   cvpcbUndo: 'undo',
   cvpcbRedo: 'redo',
+  // CVPCB_ACTIONS::autoAssociate — `.Icon( BITMAPS::auto_associate )`
+  // (cvpcb_actions.cpp:127). NOT `delete_association`: the two red-X buttons
+  // beside each other on that toolbar are different bitmaps.
+  cvpcbAutoAssociate: 'auto_associate',
   cvpcbDeleteAll: 'delete_association',
   cvpcbFilterFp: 'module_filtered_list',
   cvpcbFilterPin: 'module_pin_filtered_list',

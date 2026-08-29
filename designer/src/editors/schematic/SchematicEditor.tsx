@@ -2391,6 +2391,10 @@ export function SchematicEditor({
           (f) =>
             /\.kicad_mod$/i.test(f.name) ||
             /(^|\/)fp-lib-table$/i.test(f.name) ||
+            // The `.equ` footprint association files, which automatic
+            // association reads, and the `.kicad_pro` that lists them at
+            // `cvpcb.equivalence_files`.
+            /\.equ$/i.test(f.name) ||
             /\.kicad_pro$/i.test(f.name),
         )
         .map((f) => ({ name: f.name, text: f.text })),

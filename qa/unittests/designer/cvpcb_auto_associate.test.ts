@@ -363,6 +363,23 @@ describe('AutomaticFootprintMatching (auto_associate.cpp:170-304)', () => {
     expect(footprintOf(res.state, components[0])).toBe('Lib:R_0603');
   });
 
+  it('"no filters" is a MATCH that breaks the loop, not a fall-through to the candidate', () => {
+    // `found = ( filtercount == 0 )` at :250 is the whole difference between
+    // this and `found = false`, and the ASSIGNMENT cannot tell them apart:
+    // fpid_candidate (:241) is the same first-existing footprint either way.
+    // The break at :271 is what differs — it stops the loop before the second
+    // duplicate is examined, so its missing footprint is never reported.
+    const components = [comp('R1', '10k')];
+    const res = automaticFootprintMatching(
+      emptyAssociations([0]),
+      components,
+      sortEquivalences([equ('10k', 'Lib:R_0805'), equ('10k', 'Lib:R_9999')]),
+      known,
+    );
+    expect(footprintOf(res.state, components[0])).toBe('Lib:R_0805');
+    expect(res.warning).toBe('');
+  });
+
   it('a footprint filter picks between duplicates (:247-254)', () => {
     const components = [comp('R1', '10k', { fpFilters: ['R_06*'] })];
     const res = automaticFootprintMatching(
