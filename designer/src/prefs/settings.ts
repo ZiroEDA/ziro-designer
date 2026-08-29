@@ -109,6 +109,24 @@ export interface CommonSettings {
     min_interval: number; // seconds
     limit_total_size: number; // bytes
   };
+  /**
+   * `APP_SETTINGS_BASE::m_ColorPicker`, whose single parameter is
+   * `color_picker.default_tab` (common/settings/app_settings.cpp:137-138).
+   * `DIALOG_COLOR_PICKER` reads it into `m_notebook->SetSelection`
+   * (dialog_color_picker.cpp:89) and writes `m_notebook->GetSelection()` back
+   * in its destructor (`:114`), so the picker reopens on whichever page was
+   * last used. The shipped default is 0 — "Color Picker", the page the base
+   * adds first (dialog_color_picker_base.cpp:140).
+   *
+   * Upstream this lives in each app's OWN settings file, because the dialog
+   * asks `Kiface().KifaceSettings()`. Ours is one shared component with no
+   * kiface to ask and the same dialog wherever it opens, so it is keyed once
+   * here, beside `search_pane` — the other APP_SETTINGS_BASE slice a shared
+   * widget reads.
+   */
+  color_picker: {
+    default_tab: number;
+  };
   /** APP_SETTINGS_BASE::SEARCH_PANE, the docked Search pane's own options. */
   search_pane: {
     /**
@@ -206,6 +224,9 @@ export const COMMON_DEFAULTS: CommonSettings = {
     min_interval: 300,
     limit_total_size: 104857600,
   },
+  // `PARAM<int>( "color_picker.default_tab", …, 0 )` — page 0 is "Color
+  // Picker", which is the page the notebook adds first and adds selected.
+  color_picker: { default_tab: 0 },
   // KiCad's default is PAN (app_settings.cpp: search_pane.selection_zoom).
   search_pane: {
     selection_zoom: 'pan',

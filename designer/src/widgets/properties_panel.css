@@ -215,6 +215,21 @@
   margin-right: var(--pgrid-text-inset);
 }
 
+/* PG_COLOR_EDITOR's swatch (pg_editors.cpp:336-351). Two things about it:
+   it is built SWATCH_LARGE, and it is then given the editor rectangle with
+   `SetSize( aSize )`, so it spans the whole value cell rather than sitting in
+   it at a fixed size. And it is a BARE COLOR_SWATCH — none of the
+   wxBORDER_SIMPLE wrapper panels the item dialogs put one in
+   (dialog_field_properties_base.cpp:277-286), and RenderToDC itself draws with
+   *wxTRANSPARENT_PEN (color_swatch.cpp:72) — which `.ze-swatch.large` already
+   states, so there is no border rule to write here either. */
+.ze-pgrid-colorcell {
+  flex: 1 1 auto;
+  width: auto;
+  align-self: stretch;
+  height: auto;
+}
+
 /* PG_CELL_RENDERER::Render (common/properties/pg_cell_renderer.cpp:60-70):
    a read-only property's VALUE is drawn in GetCellDisabledTextColour(), which
    properties_panel.cpp:118 sets to wxSYS_COLOUR_GRAYTEXT. */

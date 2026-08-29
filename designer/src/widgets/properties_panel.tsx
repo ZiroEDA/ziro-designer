@@ -229,9 +229,16 @@ function ValueCell<C>({
   if (row.kind === 'color') {
     const css = typeof row.value === 'string' ? row.value : '';
     return cell(
+      // `PG_COLOR_EDITOR::CreateControls` (pg_editors.cpp:336-351) builds it at
+      // SWATCH_LARGE and then does `SetPosition( aPos ); SetSize( aSize )` with
+      // the editor rectangle the grid hands it — so the cell's swatch is not a
+      // fixed-size swatch beside the value, it IS the value cell, filled edge
+      // to edge. `.ze-pgrid-colorcell` is that SetSize; the size class is only
+      // what it falls back to where the cell has no size to give.
       <ColorSwatch
         color={css === '' ? COLOR4D_UNSPECIFIED : parseColor4d(css)}
-        size="small"
+        size="large"
+        className="ze-pgrid-colorcell"
         label={row.name}
         disabled={!row.set}
         onChange={(c) => commitValue(colorCellValue(c))}
