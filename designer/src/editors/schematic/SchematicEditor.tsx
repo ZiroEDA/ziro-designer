@@ -178,8 +178,8 @@ import {
   rowColCommand,
   tableCellsCommand,
   type RowColOp,
-  editorUnitFor,
-  libSymbolFromPlacement,
+  symbolEditorRequest,
+  type SymbolEditorTarget,
   saveSymbolToSchematic,
   buildNetNavigator,
   buildNetNavigatorHierarchy,
@@ -2998,45 +2998,48 @@ export function SchematicEditor({
    * `onShowSymbolEditor()` with no arguments at all, which opened an empty
    * editor — the symbol was never seeded.
    */
-  const editLibrarySymbolInEditor = useCallback(
-    (id: string): void => {
+  const openSymbolEditorOn = useCallback(
+    (id: string, target: SymbolEditorTarget): void => {
       const d = docRef.current;
       if (!d || !onEditSymbolInEditor) return;
-      const si = d.symbols.findIndex((sy, i) => refId('symbol', sy.uuid, i) === id);
-      const sym = si === -1 ? undefined : d.symbols[si];
-      const lib = sym && libById.get(schSymbolLibraryName(sym));
-      if (!sym || !lib) {
+      const req = symbolEditorRequest(d.symbols, libById, id, target);
+      if (!req) {
         // `"Symbols with broken library symbol links cannot be edited."`
         // (sch_editor_control.cpp:2870) — the same guard, on the same footing.
+        // The editor is NOT opened: an empty SYMBOL_EDIT_FRAME is not what
+        // upstream does with a symbol it refuses.
         setInfoBar('That symbol is not in any loaded library.');
         return;
       }
-      // The library part as it stands, NOT libSymbolFromPlacement: that one
-      // folds this instance's field edits in, which is exactly the difference
-      // between the two actions.
-      onEditSymbolInEditor({ symbol: lib, ...editorUnitFor(sym), targetId: id });
+      onEditSymbolInEditor(req);
     },
     [libById, onEditSymbolInEditor],
   );
 
+  const editLibrarySymbolInEditor = useCallback(
+    (id: string): void => openSymbolEditorOn(id, 'library'),
+    [openSymbolEditorOn],
+  );
+
   const editSymbolInEditor = useCallback(
-    (id: string): void => {
-      const d = docRef.current;
-      if (!d || !onEditSymbolInEditor) return;
-      const si = d.symbols.findIndex((sy, i) => refId('symbol', sy.uuid, i) === id);
-      const sym = si === -1 ? undefined : d.symbols[si];
-      const lib = sym && libById.get(schSymbolLibraryName(sym));
-      if (!sym || !lib) {
-        setInfoBar('That symbol is not in any loaded library.');
-        return;
-      }
-      onEditSymbolInEditor({
-        symbol: libSymbolFromPlacement(sym, lib),
-        ...editorUnitFor(sym),
-        targetId: id,
-      });
+    (id: string): void => openSymbolEditorOn(id, 'schematic'),
+    [openSymbolEditorOn],
+  );
+
+  /**
+   * DIALOG_SYMBOL_PROPERTIES' "Edit Symbol..." / "Edit Library Symbol...".
+   * Upstream's dialog does not open anything itself: it ends quasi-modal with
+   * a return code and SCH_EDIT_TOOL opens the editor
+   * (`sch_edit_tool.cpp:2727-2760`). Ours closes the dialog and seeds the
+   * editor, and the two buttons share this one handler so neither can drift
+   * onto a different path than the other.
+   */
+  const symbolPropsHandoff = useCallback(
+    (id: string, target: SymbolEditorTarget) => (): void => {
+      setPropsTarget(null);
+      openSymbolEditorOn(id, target);
     },
-    [libById, onEditSymbolInEditor],
+    [openSymbolEditorOn],
   );
 
   // The edited symbol coming back from the editor. A nonce rather than the
@@ -9467,24 +9470,21 @@ export function SchematicEditor({
             setChangeSymbolsSubject(changeSymbolsSubjectOf(propsSymbol, true));
             setChangeSymbolsMode('update');
           }}
+          // The two hand-off buttons are ONE handler with one literal
+          // different, because that is all that separates them upstream
+          // (sch_edit_tool.cpp:2727-2760). "Edit Symbol..." used to call
+          // `onShowSymbolEditor()` — a bare view switch with no symbol — so it
+          // opened on `[no symbol loaded]`; "Edit Library Symbol..." opens the
+          // *library* part rather than this sheet's cached copy, so an edit
+          // there reaches every use of it.
           onEditSymbol={
-            onShowSymbolEditor
-              ? () => {
-                  setPropsTarget(null);
-                  onShowSymbolEditor();
-                }
+            onEditSymbolInEditor && propsTarget !== null
+              ? symbolPropsHandoff(propsTarget, 'schematic')
               : undefined
           }
-          // "Edit Library Symbol...": upstream opens the *library* part rather
-          // than this sheet's cached copy, so an edit there reaches every use
-          // of it. `LoadSymbol( GetLibId(), GetUnit(), GetBodyStyle() )`.
           onEditLibrarySymbol={
             onEditSymbolInEditor && propsTarget !== null
-              ? () => {
-                  const id = propsTarget;
-                  setPropsTarget(null);
-                  editLibrarySymbolInEditor(id);
-                }
+              ? symbolPropsHandoff(propsTarget, 'library')
               : undefined
           }
         />

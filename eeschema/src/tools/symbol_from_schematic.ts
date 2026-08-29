@@ -52,7 +52,9 @@
  */
 
 import { applyTransform, invertTransform, symbolTransform } from '@ziroeda/common/src/transform.js';
+import { schSymbolLibraryName } from '../lib_symbol_compare.js';
 import type { LibSymbol, SchField, SchSymbol } from '../types.js';
+import { refId } from './hittest.js';
 
 /**
  * The library symbol to open in the editor for a placement.
@@ -87,4 +89,60 @@ export function libSymbolFromPlacement(sym: SchSymbol, lib: LibSymbol): LibSymbo
  */
 export function editorUnitFor(sym: SchSymbol): { unit: number; bodyStyle: number } {
   return { unit: Math.max(1, sym.unit), bodyStyle: Math.max(1, sym.bodyStyle) };
+}
+
+/**
+ * Which of the two symbols the editor is seeded with.
+ *
+ * Both of DIALOG_SYMBOL_PROPERTIES' hand-off buttons run the same upstream
+ * handler and open the same SYMBOL_EDIT_FRAME; they differ only here
+ * (`sch_edit_tool.cpp:2727-2760`):
+ *
+ *     'schematic'  SYMBOL_PROPS_EDIT_SCHEMATIC_SYMBOL
+ *                  editor->LoadSymbolFromSchematic( symbol )
+ *     'library'    SYMBOL_PROPS_EDIT_LIBRARY_SYMBOL
+ *                  editor->LoadSymbol( symbol->GetLibId(), symbol->GetUnit(),
+ *                                      symbol->GetBodyStyle() )
+ */
+export type SymbolEditorTarget = 'schematic' | 'library';
+
+/** What the symbol editor has to be handed for it to open on a symbol. */
+export interface SymbolEditorRequest {
+  symbol: LibSymbol;
+  unit: number;
+  bodyStyle: number;
+  /** The placement the edit comes back to (`refId('symbol', …)`). */
+  targetId: string;
+}
+
+/**
+ * The seed for "Edit Symbol..." / "Edit Library Symbol..." / Ctrl+E.
+ *
+ * `null` is upstream's refusal, not an empty editor: the schematic-symbol leg
+ * bails on `symbol->IsMissingLibSymbol()` (`sch_edit_tool.cpp:2735`) and
+ * `EditWithSymbolEditor` says so out loud — "Symbols with broken library symbol
+ * links cannot be edited." (`sch_editor_control.cpp:2870`). A caller that gets
+ * `null` must report that, and must NOT open the editor on nothing.
+ *
+ * This is the whole decision both buttons make, kept out of the React
+ * component so it can be tested: the component's job is to call it and hand
+ * the result over.
+ */
+export function symbolEditorRequest(
+  symbols: readonly SchSymbol[],
+  libById: ReadonlyMap<string, LibSymbol>,
+  targetId: string,
+  target: SymbolEditorTarget,
+): SymbolEditorRequest | null {
+  const sym = symbols.find((sy, i) => refId('symbol', sy.uuid, i) === targetId);
+  const lib = sym && libById.get(schSymbolLibraryName(sym));
+  if (!sym || !lib) return null;
+  return {
+    // 'library' is the library part as it stands. 'schematic' folds this
+    // instance's field placement in — which is exactly, and only, what
+    // separates the two buttons.
+    symbol: target === 'library' ? lib : libSymbolFromPlacement(sym, lib),
+    ...editorUnitFor(sym),
+    targetId,
+  };
 }
