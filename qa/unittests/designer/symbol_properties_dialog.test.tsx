@@ -1086,3 +1086,49 @@ describe('the Attributes checkboxes are spaced by their own borders', () => {
     expect(decl('.ze-symprops-attrgap', 'height')).toBe('10px');
   });
 });
+
+/**
+ * Which fields-grid column absorbs the dialog's slack.
+ *
+ * `RecomputeGridWidths` (common/widgets/wx_grid.cpp:1114-1155) ends with
+ *
+ *     SetColSize( m_flexibleCol,
+ *                 std::max( flexibleMinWidth, width - nonFlexibleWidth ) );
+ *
+ * where `width` is the grid's ALREADY-ALLOCATED width. So `SetupColumnAutosizer(
+ * FDC_VALUE )` (fields_grid_table.cpp:422) does not make the dialog as wide as
+ * the longest value — Value takes whatever is left, and a value longer than that
+ * clips. A capture of a live KiCad 10.0.5 confirms it: its Description cell
+ * clips at the same place ours does, and its dialog is the same width for a
+ * Device:C as for a Screw_Terminal_01x02.
+ *
+ * Every other shown column states one of the base file's `SetColSize` values
+ * (dialog_symbol_properties_base.cpp:39-46), so a stated width on Value — or a
+ * missing one anywhere else — is the bug this pins.
+ */
+describe('the Value column is the flexible one, and only it', () => {
+  it('states no width, so it takes the slack', () => {
+    open(SHEET);
+    const value = document.querySelectorAll('.ze-symprops-grid thead th')[1] as HTMLElement;
+    expect(value.textContent).toBe('Value');
+    expect(value.style.width).toBe('');
+  });
+
+  it('and every other shown column carries the base file’s SetColSize', () => {
+    open(SHEET);
+    const heads = Array.from(
+      document.querySelectorAll<HTMLElement>('.ze-symprops-grid thead th'),
+    ).map((th) => [th.textContent, th.style.width] as const);
+    // base.cpp:39-46 for the eight ShowHideColumns( "0 1 2 3 4 5 6 7" ) shows.
+    expect(heads).toStrictEqual([
+      ['Name', '72px'],
+      ['Value', ''],
+      ['Show', '48px'],
+      ['Show Name', '84px'],
+      ['H Align', '66px'],
+      ['V Align', '66px'],
+      ['Italic', '48px'],
+      ['Bold', '48px'],
+    ]);
+  });
+});

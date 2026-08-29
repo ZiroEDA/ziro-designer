@@ -6862,13 +6862,40 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 
    The dialog states NO size, because upstream states none: `mainSizer->Fit(
    this )` plus `finishDialogSettings()`, which is what `.ze-modal`'s
-   `max-content` already gives it. The width it lands on is the fields grid's,
-   and the grid's is the Value column's — `SetupColumnAutosizer( FDC_VALUE )`
-   (fields_grid_table.cpp:423) makes that one column as wide as its widest
-   value, so a symbol with a long footprint string opens a wider dialog than a
-   symbol without. [px] a live KiCad 10.0.5 on this machine measures 1015 x 588
-   for a Device:C whose footprint is Capacitor_THT:C_Radial_D8.0mm_H11.5mm_
-   P3.50mm, frame edges read off the capture at x=545..1559 and y=331..918. */
+   `max-content` already gives it.
+
+   The width it lands on is `bLowerSizer`'s minimum and nothing else. An earlier
+   note here said it was the fields grid's, and the grid's the Value column's —
+   that `SetupColumnAutosizer( FDC_VALUE )` sizes that column to its widest
+   value, so a long footprint string opens a wider dialog. Both halves are
+   wrong, and a capture of a live KiCad settles it: its Description cell clips
+   at exactly the same place ours does. `RecomputeGridWidths`
+   (wx_grid.cpp:1114-1155) ends with
+
+       SetColSize( m_flexibleCol,
+                   std::max( flexibleMinWidth, width - nonFlexibleWidth ) );
+
+   where `width` is the grid's ALREADY-ALLOCATED width, so the flexible column
+   absorbs the slack rather than creating it. `AutoSizeColumn` does run over the
+   others first, which is why Name and Show Name come out at 92 and 88 against
+   the 72 and 84 the base file sets — but the Value column is overwritten by
+   that last line, and the grid's own minimum is frozen at
+   `OverrideMinSize( 1.0, 1.0 )` before any of it, at 512.
+
+   So no page of the notebook sets the width; `qa/probes/symprops_row_probe.cpp`
+   asks wx for all three and for the row:
+
+       Embedded Files page       290
+       Pin Functions page        770   (its grid's best width is 760)
+       General page              850   <- bLowerSizer, the widest
+       whole dialog after Fit    872
+
+   [px] a live KiCad 10.0.5 on this machine measures 1015 x 588 instead, for two
+   different symbols in two different sessions. That is 143 px above what wx
+   computes, and it is `DIALOG_SHIM::Show` (dialog_shim.cpp:471-484) taking
+   `max( computed, restoredSize )` from the dialog's remembered `__geometry` —
+   this dialog carries `wxRESIZE_BORDER`, so a size dragged once is kept. It is
+   NOT a width to copy: ours renders 888 against the computed 872. */
 .ze-modal.ze-symprops {
   max-width: 96vw;
   /* `wxRESIZE_BORDER` (dialog_symbol_properties_base.h:110). Almost every
@@ -6993,7 +7020,14 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
      qa/probes/symprops_row_probe.cpp. This row is what sets the dialog's
      width upstream, and it is a CONSTANT — it does not depend on the symbol,
      which is why KiCad's dialog is the same width for a diode and a
-     connector while ours tracked whichever field value was longest. */
+     connector while ours tracked whichever field value was longest.
+
+     Still 850 after the probe was rebuilt against the base file: it had used a
+     wxFlexGridSizer where sbGeneralProps is a wxGridBagSizer, both pin
+     checkboxes at proportion 0 where the base gives them 1, and no bMiddleCol
+     around sbAttributes. All three were wrong and none of them moved the
+     answer — General 310, MiddleCol 244, buttons 245, and it is
+     ( 245 + 10 ) / 3 x 10 that decides it. */
   min-width: 850px;
 }
 /* bLowerSizer's three children, proportions 4:3:3
