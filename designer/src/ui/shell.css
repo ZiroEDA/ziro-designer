@@ -10129,9 +10129,25 @@ textarea.ze-ds-textedit {
   color: var(--selection-fg);
 }
 
-/* DIALOG_CHANGE_SYMBOLS. Every number here is a border from
-   `dialog_change_symbols_base.cpp`'s sizers; the two proportions are the whole
-   shape of the dialog. */
+/* DIALOG_CHANGE_SYMBOLS, from `dialog_change_symbols_base.cpp`'s sizer tree.
+   Every number is a border it states; the proportions are the whole shape.
+
+     m_mainSizer (vertical)
+       matchSizerMargins        0, wxEXPAND|wxTOP|wxLEFT 5          (:68)
+       spacer 0,8                                                   (:71)
+       m_staticline1            0, wxEXPAND|wxALL 4                 (:74)
+       m_newIdSizer             0, wxEXPAND|wxTOP|wxRIGHT|wxLEFT 5  (:90)
+       bSizerUpdate             0, wxEXPAND         <- proportion 0 (:200)
+       bSizer2 [ m_messagePanel prop 1 ]  1, wxEXPAND  <- grows     (:211)
+       m_sdbSizer               0, wxEXPAND|wxALL 5                 (:220)
+
+   `bSizerUpdate` is proportion ZERO and the message panel is proportion ONE:
+   the boxes take their natural height and the report takes every spare pixel.
+
+   NO `min-width: 0` in here. A wxSizer never shrinks a child below its
+   minimum, and a wxCheckBox's minimum is its whole label — that is what makes
+   the option columns wide, and through the 2:4 proportions the dialog. Setting
+   it to 0 let the columns collapse and the labels overlapped each other. */
 .ze-chsym-body {
   display: flex;
   flex-direction: column;
@@ -10140,23 +10156,41 @@ textarea.ze-ds-textedit {
   max-height: 78vh;
   overflow-y: auto;
 }
+
+/* `m_matchSizer` is a wxGridBagSizer( vgap 3, hgap 0 ) of TWO columns with
+   `AddGrowableCol( 1 )`: the radios share column 0, so every entry starts at
+   the same x, and column 1 takes the slack. */
 .ze-chsym-match {
-  display: flex;
-  flex-direction: column;
-  /* [data] matchSizerMargins, wxEXPAND|wxTOP|wxLEFT 5 (base.cpp:68). */
-  gap: 5px;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  /* [data] wxGridBagSizer( 3, 0 ) — vgap 3, hgap 0. The 5 px each item carries
+     as wxBOTTOM is folded into the row gap. */
+  /* [data] wxGridBagSizer( 3, 0 ) plus each item's wxBOTTOM 5. */
+  row-gap: 5px;
+  column-gap: 0;
+  align-items: center;
+  /* [data] matchSizerMargins, wxEXPAND|wxTOP|wxRIGHT|wxLEFT 5. */
+  padding: 5px 5px 0;
 }
-/* Each radio and its own entry on ONE line, the entry taking the slack. */
-.ze-chsym-matchrow {
+.ze-chsym-mrad {
   display: flex;
   align-items: center;
-  /* [data] the entry beside each radio carries wxLEFT 5 in the .fbp; the extra
-     pixel is the radio's own trailing space, not a number of ours. */
+  /* [data] wxRIGHT 5 between a radio and the entry beside it. */
   gap: 5px;
+  /* [data] the same wxRIGHT 5. */
+  padding-right: 5px;
 }
-.ze-chsym-matchrow .ze-search {
+/* `m_matchAll` is added with `wxGBSpan( 1, 2 )` — across both columns. */
+.ze-chsym-mspan {
+  grid-column: 1 / -1;
+}
+/* bSizer10: the entry at proportion 1 with the browse button beside it. */
+.ze-chsym-mentry {
+  display: flex;
+  align-items: center;
+}
+.ze-chsym-mentry .ze-search {
   flex: 1;
-  min-width: 0;
 }
 .ze-chsym-rule {
   /* [data] `m_mainSizer->Add( m_staticline1, 0, wxEXPAND|wxALL, 4 )`, :74. */
@@ -10164,42 +10198,55 @@ textarea.ze-ds-textedit {
   border: none;
   border-top: 1px solid var(--chrome-border);
 }
+.ze-chsym-newid {
+  display: flex;
+  align-items: center;
+  /* [data] wxLEFT 5 on both the label and the entry. */
+  gap: 5px;
+}
+.ze-chsym-newid .ze-search {
+  flex: 1;
+}
+
 /* `bSizerUpdate`, horizontal: the fields box at proportion 2 and the options
-   box at 4 (:116, :197). */
+   box at 4 (:116, :197), both wxEXPAND so they share a height. */
 .ze-chsym-update {
   display: flex;
   align-items: stretch;
-  /* [data] `bSizerUpdate->Add( 5, 0, 0, wxEXPAND, 5 )`, the spacer between the
-     two boxes (:119). */
+  /* [data] `bSizerUpdate->Add( 5, 0, 0, wxEXPAND, 5 )` between the boxes. */
   gap: 5px;
 }
 .ze-chsym-fields {
   flex: 2;
-  min-width: 0;
   display: flex;
   flex-direction: column;
 }
 .ze-chsym-options {
   flex: 4;
-  min-width: 0;
-  /* `m_updateOptionsSizer` is wxHORIZONTAL — bSizer8 beside bSizer9. */
+  /* `m_updateOptionsSizer` is wxHORIZONTAL — bSizer8 BESIDE bSizer9.
+     `.ze-props-group` is a flex COLUMN at the same specificity, so the
+     direction has to be restated or the two columns stack. */
   display: flex;
-  align-items: flex-start;
+  flex-direction: row;
+  align-items: stretch;
 }
+/* bSizer8 and bSizer9, each added with proportion 1 — equal columns. */
 .ze-chsym-optcol {
   flex: 1;
-  min-width: 0;
   display: flex;
   flex-direction: column;
-  /* [data] every option is added with wxBOTTOM|wxRIGHT 5. */
+  /* [data] every option carries wxBOTTOM 5. */
   gap: 5px;
-  /* [data] the same wxRIGHT 5. */
-  padding-right: 5px;
+  /* [data] and wxRIGHT 10 between the two columns (:53). */
+  padding-right: 10px;
 }
+/* `bSizer8->Add( 0, 10, 1, wxEXPAND, 5 )`: a spacer with PROPORTION 1, so it
+   absorbs the column's slack and pushes the group below it down. bSizer9 has
+   two of them, which is what lines its three groups up against bSizer8's two. */
 .ze-chsym-optgap {
-  /* [data] wxBOTTOM 10 on the last item of each option group, which is what
-     separates the pair at the top from the rest (:131 vs :137). */
-  height: 10px;
+  flex: 1 1 auto;
+  /* [data] the spacer's own 10 px, its minimum. */
+  min-height: 10px;
 }
 .ze-chsym-opt {
   display: flex;
@@ -10207,30 +10254,53 @@ textarea.ze-ds-textedit {
   /* [data] wxRIGHT 5 between a checkbox and its label. */
   gap: 5px;
 }
-/* `m_fieldsBox` is a wxCheckListBox: a bordered scrolling list, not loose
-   checkboxes on the group's own background. */
+/* A wxCheckBox is ONE control whose best size is its indicator plus its label,
+   and a sizer never shrinks a control below its minimum — so the label never
+   wraps, and the column is as wide as its widest option. */
+.ze-chsym-opt > span,
+.ze-chsym-fieldbox .row > span,
+.ze-chsym-mrad > span {
+  white-space: nowrap;
+}
+/* Ours, not upstream's: a trailing note has no wx counterpart, so it is the
+   thing that gives way if the row cannot hold both. */
+.ze-chsym-opt > .ze-muted {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* `m_fieldsBox` is a wxCheckListBox: a bordered scrolling list, added at
+   proportion 1 so it takes the box's height. */
 .ze-chsym-fieldbox {
   flex: 1;
-  /* A wxCheckListBox has no stated height here: it is added with proportion 1
-     and takes what the box gives it, which is why no number is written. */
   overflow-y: auto;
   border: 1px solid var(--chrome-border);
   background: var(--ctl-face);
 }
 .ze-chsym-selbtns {
   display: flex;
-  /* [data] the two buttons carry wxRIGHT 5 between them. */
-  gap: 5px;
+  /* [data] each button carries wxBOTTOM|wxRIGHT|wxLEFT 5, so 10 between them. */
+  gap: 10px;
   /* [data] `m_updateFieldsSizer->Add( m_selBtnSizer, 0, wxEXPAND, 5 )`. */
   padding-top: 5px;
 }
+/* Both are added at proportion 1 with wxEXPAND: equal halves. */
 .ze-chsym-selbtns .ze-btn {
   flex: 1;
 }
-/* `m_messagePanel->SetMinSize( wxSize( -1, 200 ) )` (:206). Present whether or
-   not there is anything in it — the dialog opens showing an empty report. */
+/* `m_checkAll` / `m_uncheckAll`: wxEXPAND, so full width of their column. */
+.ze-chsym-optcol > .ze-btn {
+  width: 100%;
+  /* [data] wxTOP|wxBOTTOM 5. */
+  margin: 5px 0;
+}
+/* `m_messagePanel->SetMinSize( wxSize( -1, 200 ) )` (:206), and its sizer is
+   the ONE proportion-1 child of m_mainSizer — it takes every spare pixel. */
+.ze-chsym-msgs {
+  flex: 1;
+}
 .ze-chsym-msgbody {
-  /* [data] `m_messagePanel->SetMinSize( wxSize( -1, 200 ) )`, base.cpp:206. */
+  flex: 1;
+  /* [data] `SetMinSize( wxSize( -1, 200 ) )`. */
   min-height: 200px;
   overflow: auto;
   border: 1px solid var(--chrome-border);
@@ -10243,7 +10313,6 @@ textarea.ze-ds-textedit {
   /* [data] `<font color=#F04040 size=3>` — `WX_HTML_REPORT_PANEL::generateHtml`
      (wx_html_report_panel.cpp:181) on a dark theme. Not the ERC marker red:
      that is a different table, for a different widget. Only the "Error:"
-     prefix takes it; the message keeps the default ink, and a warning takes
-     no colour at all. */
+     prefix takes it; the message keeps the default ink. */
   color: #f04040;
 }

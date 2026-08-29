@@ -34,7 +34,7 @@
  * This was one long single column with no report panel, no Update Options box
  * and no seeding, inside a "Scope" group that upstream does not have.
  */
-import { useState, type JSX } from 'react';
+import { Fragment, useState, type JSX } from 'react';
 import {
   defaultChangeSymbolsOptions,
   type ChangeSymbolsMessage,
@@ -43,6 +43,7 @@ import {
   type SymbolMatchMode,
 } from '@ziroeda/eeschema';
 import { useModalEscape } from '../../../ui/useModalEscape.js';
+import { Icon } from '../../../ui/icons.js';
 
 /**
  * The symbol the dialog was opened ON, when it was opened from one — Symbol
@@ -225,32 +226,65 @@ export function DialogChangeSymbols({
           {/* matchSizerMargins. No group box: upstream puts these five rows
               straight into the main sizer, each radio and its own entry on one
               line. */}
+          {/* `m_matchSizer` is a `wxGridBagSizer( 3, 0 )` — TWO columns, five
+              rows, `AddGrowableCol( 1 )`:
+
+                (0,0) m_matchAll         span 1x2   — across both columns
+                (1,0) m_matchBySelection span 1x1
+                (2,0) m_matchByReference | (2,1) m_specifiedReference  wxEXPAND
+                (3,0) m_matchByValue     | (3,1) m_specifiedValue      wxEXPAND
+                (4,0) m_matchById        | (4,1) bSizer10 [ m_specifiedId,
+                                                m_matchIdBrowserButton ]
+
+              so the radios share one column and every entry starts at the same
+              x. Five independent flex rows cannot do that — each was as wide as
+              its own label. */}
           <div className="ze-chsym-match">
             {MATCH_ROWS.map((m) => {
               // `if( !m_symbol ) ... m_matchBySelection ... Show( false )`.
               if (m.mode === 'selected' && !subject) return null;
+              const label = mode === 'change' ? m.label.replace('Update', 'Change') : m.label;
               return (
-                <label className="row ze-chsym-matchrow" key={m.mode}>
-                  <input
-                    type="radio"
-                    name="ze-change-symbols-scope"
-                    checked={opts.match.mode === m.mode}
-                    disabled={m.mode === 'selected' && !hasSelection}
-                    onChange={() => set('match', { mode: m.mode })}
-                  />
-                  <span>{mode === 'change' ? m.label.replace('Update', 'Change') : m.label}</span>
-                  {m.needs && (
+                <Fragment key={m.mode}>
+                  <label className={m.needs ? 'ze-chsym-mrad' : 'ze-chsym-mrad ze-chsym-mspan'}>
                     <input
-                      className="ze-search"
-                      aria-label={m.label}
-                      value={matchText[m.needs]}
-                      onChange={(e) =>
-                        setMatchText((t) => ({ ...t, [m.needs as string]: e.target.value }))
-                      }
-                      onKeyDown={(e) => e.stopPropagation()}
+                      type="radio"
+                      name="ze-change-symbols-scope"
+                      checked={opts.match.mode === m.mode}
+                      disabled={m.mode === 'selected' && !hasSelection}
+                      onChange={() => set('match', { mode: m.mode })}
                     />
+                    <span>{label}</span>
+                  </label>
+                  {m.needs && (
+                    <div className="ze-chsym-mentry">
+                      <input
+                        className="ze-search"
+                        aria-label={label}
+                        value={matchText[m.needs]}
+                        onChange={(e) =>
+                          setMatchText((t) => ({ ...t, [m.needs as string]: e.target.value }))
+                        }
+                        onKeyDown={(e) => e.stopPropagation()}
+                      />
+                      {/* `m_matchIdBrowserButton`, beside the library-id entry
+                          only (bSizer10). It opens the symbol chooser, which
+                          this app has — wiring it is a separate change; it is
+                          here in its position and greyed rather than absent. */}
+                      {m.needs === 'libId' && (
+                        <button
+                          type="button"
+                          className="ze-grid-cellbtn"
+                          disabled
+                          title="Browse for symbol"
+                          aria-label="Browse for symbol"
+                        >
+                          <Icon name="smallLibrary" size={14} />
+                        </button>
+                      )}
+                    </div>
                   )}
-                </label>
+                </Fragment>
               );
             })}
           </div>
@@ -315,6 +349,9 @@ export function DialogChangeSymbols({
                   title: 'Removes fields that do not occur in the original library symbols',
                 })}
                 {check(`Reset fields if empty in ${part}`, 'resetEmptyFields')}
+                {/* `bSizer8->Add( 0, 10, 1, wxEXPAND, 5 )` — a spacer with
+                    PROPORTION 1, so it takes the column's slack and pushes the
+                    lower group down. */}
                 <div className="ze-chsym-optgap" />
                 {check(`${upd} field text`, 'resetFieldText')}
                 {check(`${upd} field visibilities`, 'resetFieldVisibilities')}
@@ -332,6 +369,8 @@ export function DialogChangeSymbols({
                   note: '(not applied yet)',
                 })}
                 {check('Reset alternate pin functions', 'resetAlternatePin')}
+                {/* bSizer9 has TWO proportion-1 spacers, not one (:61, :64). */}
+                <div className="ze-chsym-optgap" />
                 {check(`${upd} symbol attributes`, 'resetAttributes')}
                 {check('Reset custom power symbols', 'resetCustomPower')}
                 <button className="ze-btn" type="button" onClick={() => setAllOptions(false)}>

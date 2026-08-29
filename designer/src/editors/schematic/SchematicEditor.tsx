@@ -2291,13 +2291,18 @@ export function SchematicEditor({
   const [changeSymbolsSubject, setChangeSymbolsSubject] = useState<
     ChangeSymbolsSubject | undefined
   >(undefined);
-  /** `m_symbol->GetRef()` / VALUE / `GetLibId().Format()`, plus IsSelected(). */
-  const changeSymbolsSubjectOf = (
-    sym: { properties?: readonly { key: string; value: string }[]; libId: string },
-    selected: boolean,
-  ): ChangeSymbolsSubject => ({
-    reference: sym.properties?.find((p) => p.key === 'Reference')?.value ?? '',
-    value: sym.properties?.find((p) => p.key === 'Value')?.value ?? '',
+  /**
+   * `m_symbol->GetRef()` / VALUE / `GetLibId().Format()`, plus IsSelected().
+   *
+   * Off `fields`, which is where a PLACEMENT keeps its Reference and Value.
+   * `properties` is the LIBRARY symbol's list — reaching for it here found
+   * nothing and seeded two empty boxes, and the parameter had been typed
+   * loosely enough (`properties?:`) that tsc had nothing to object to. Taking
+   * `SchSymbol` is what makes the wrong member a compile error.
+   */
+  const changeSymbolsSubjectOf = (sym: SchSymbol, selected: boolean): ChangeSymbolsSubject => ({
+    reference: sym.fields.find((f) => f.key === 'Reference')?.value ?? '',
+    value: sym.fields.find((f) => f.key === 'Value')?.value ?? '',
     libId: sym.libId,
     isSelected: selected,
   });
