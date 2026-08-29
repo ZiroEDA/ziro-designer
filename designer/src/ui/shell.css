@@ -6590,8 +6590,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
    and 275 is what carries the row to the 685 that fits a 695px dialog -- the
    width Akshay measured off a real one. */
 .ze-lp-font {
-  /* [px] FONT_CHOICE GetBestSize().x = 275, field_props_width_probe. */
-  min-width: 275px;
   font: inherit;
   padding: 3px 4px;
   background: var(--chrome-bg2);
@@ -6736,6 +6734,10 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
    states its own size, and the reason KiCad's Text box is so much taller than
    the 96px we had guessed. */
 .ze-tp-text {
+  /* `m_textEntrySizer->Add( m_textCtrl, wxGBPosition( 0, 1 ), wxGBSpan( 1, 5 ),
+     wxEXPAND )` (`:73`) -- it spans every remaining column and fills them, so
+     the 500 below is a floor and not the width. */
+  width: 100%;
   /* [data] SetMinSize( wxSize( 500, 140 ) ).x */
   min-width: 500px;
   /* [data] the same call's height. */
@@ -9528,6 +9530,16 @@ textarea.ze-ds-textedit {
    Placement: GTK opens the list OVER the closed box with the selected row on
    top of it, so the value does not jump. A native select drops below the box.
    Combo.tsx computes that; the row height here must match its ROW_H. */
+/* The font picker's own minimum. It has to be stated here, on both classes,
+   because `.ze-combo` below is declared AFTER `.ze-lp-font` and the two are
+   equally specific -- so a `min-width` on `.ze-lp-font` alone silently loses to
+   `.ze-combo`'s 121px floor, which is what held our font control at 115px
+   against KiCad's 275. Specificity is the trap CLAUDE.md names: the fix is to
+   state it once, where it wins, not to restate the value locally. */
+.ze-combo.ze-lp-font {
+  /* [px] FONT_CHOICE GetBestSize().x = 275, field_props_width_probe. */
+  min-width: 275px;
+}
 .ze-combo {
   display: flex;
   align-items: center;
