@@ -239,6 +239,20 @@ export function DisplayFootprintsFrame({
       // Display-mode toggle: on = sketch (outline) = fill off.
       padFill: !toggles.has('padDisplayMode'),
       padNumbers: toggles.has('showPadNumbers'),
+      // `PCB_ACTIONS::textOutlines` / `graphicsOutlines`, which upstream flip
+      // `m_ViewersDisplay.m_DisplayTextFill` / `m_DisplayGraphicsFill`
+      // (`pcb_viewer_tools.cpp:190-240`). The painter reads them as
+      // `outline_mode = !fill` and then swaps the item's own width for
+      // `m_outlineWidth` (`pcb_painter.cpp:2014, 2521`). Both buttons were
+      // toggles nothing consumed.
+      textFill: !toggles.has('textOutlines'),
+      graphicFill: !toggles.has('graphicsOutlines'),
+      // Clearance rings are drawn only on a dedicated clearance layer
+      // (`IsClearanceLayer( aLayer )`, pcb_painter.cpp:1958), which this frame
+      // never enables — it makes no LSET call at all, and those layers are
+      // opt-in through the board editor's display options. We were defaulting
+      // it on and drawing a ring around every pad that real cvpcb does not.
+      padClearance: false,
     }),
     [toggles],
   );

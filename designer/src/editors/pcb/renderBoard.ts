@@ -255,6 +255,21 @@ export interface PcbDrawOptions {
   trackFill: boolean;
   viaFill: boolean;
   padFill: boolean;
+  /**
+   * `m_ViewersDisplay.m_DisplayGraphicsFill` / `m_DisplayTextFill`, flipped by
+   * `PCB_ACTIONS::graphicsOutlines` / `textOutlines`.
+   *
+   * The painter reads them as `outline_mode = !fill` and then uses
+   * `m_pcbSettings.m_outlineWidth` in place of the item's own width
+   * (`pcb_painter.cpp:2014` for shapes, `:2521` for text, where it is
+   * `attrs.m_StrokeWidth = m_outlineWidth`). `m_outlineWidth` is `1`
+   * (`common/render_settings.cpp:43`) — one internal unit, which the min-pen
+   * floor lifts to a single device pixel, so outline mode is the thinnest
+   * stroke the view can draw. That is why `minPen` is the right width here and
+   * why it matches the sketch convention the three flags above already use.
+   */
+  graphicFill: boolean;
+  textFill: boolean;
   /** Opacity of filled graphic shapes (s_objectSettings "Filled Shapes"). */
   filledShapeOpacity: number;
   /** High-contrast mode for inactive layers (HIGH_CONTRAST_MODE): 'dim' fades
@@ -301,6 +316,8 @@ export const DEFAULT_DRAW_OPTIONS: PcbDrawOptions = {
   trackFill: true,
   viaFill: true,
   padFill: true,
+  graphicFill: true,
+  textFill: true,
   filledShapeOpacity: 1.0,
   contrastMode: 'normal',
 };
@@ -1603,6 +1620,22 @@ export interface PcbViewTransform {
 // KiCad renders every stroke at a minimum on-screen width so thin tracks stay
 // crisp and visible when zoomed out (GAL's minimum pen), instead of fading to a
 // sub-pixel blur. `minPen` is 1 device pixel expressed in world (IU) units.
+/**
+ * Stroke every path at ONE width, ignoring the width each was bucketed under.
+ *
+ * This is outline mode: `m_gal->SetLineWidth( m_pcbSettings.m_outlineWidth )`
+ * for shapes and `attrs.m_StrokeWidth = m_outlineWidth` for text, in place of
+ * the item's own thickness.
+ */
+const strokeAllAt = (
+  ctx: CanvasRenderingContext2D,
+  map: Map<number, Path2D>,
+  pen: number,
+): void => {
+  ctx.lineWidth = pen;
+  for (const path of map.values()) ctx.stroke(path);
+};
+
 const strokeAll = (ctx: CanvasRenderingContext2D, map: Map<number, Path2D>, minPen = 0): void => {
   for (const [width, path] of map) {
     ctx.lineWidth = Math.max(width, minPen);
@@ -1956,14 +1989,17 @@ export function buildDrawSteps(
     const b = scene.layers.get(layer);
     if (!b) return;
     const color = col(layer);
-    if (b.hasGfxFill) {
+    // `outline_mode = !m_DisplayGraphicsFill`: a sketched shape is not filled,
+    // and its stroke drops to m_outlineWidth rather than its own width.
+    if (b.hasGfxFill && opts.graphicFill) {
       ctx.globalAlpha = opts.filledShapeOpacity * la;
       ctx.fillStyle = color;
       ctx.fill(b.gfxFill, 'nonzero');
     }
     ctx.globalAlpha = la;
     ctx.strokeStyle = color;
-    strokeAll(ctx, b.gfxStrokes, minPen);
+    if (opts.graphicFill) strokeAll(ctx, b.gfxStrokes, minPen);
+    else strokeAllAt(ctx, b.gfxStrokes, minPen);
     if (opts.tracks && b.tracks.size > 0) {
       ctx.globalAlpha = opts.trackOpacity * la;
       if (opts.trackFill) {
@@ -2024,10 +2060,16 @@ export function buildDrawSteps(
     if (!b) return;
     ctx.globalAlpha = la;
     ctx.strokeStyle = col(layer);
-    if (opts.fpReferences) strokeAll(ctx, b.textRef);
-    if (opts.fpValues) strokeAll(ctx, b.textVal);
-    if (opts.fpText) strokeAll(ctx, b.textFp);
-    strokeAll(ctx, b.textBoard);
+    // `outline_mode = !m_DisplayTextFill` sets attrs.m_StrokeWidth to
+    // m_outlineWidth, so every glyph is stroked at the thin pen instead of the
+    // text's own pen width.
+    const strokeText = opts.textFill
+      ? (m: Map<number, Path2D>): void => strokeAll(ctx, m)
+      : (m: Map<number, Path2D>): void => strokeAllAt(ctx, m, minPen);
+    if (opts.fpReferences) strokeText(b.textRef);
+    if (opts.fpValues) strokeText(b.textVal);
+    if (opts.fpText) strokeText(b.textFp);
+    strokeText(b.textBoard);
     ctx.globalAlpha = 1;
   };
   const pushLayer = (layer: string): void => {

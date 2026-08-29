@@ -248,7 +248,12 @@ export const BITMAP: Record<string, string> = {
   loadFpFromBoard: 'import',
   saveFpToBoard: 'export_file',
   setAnchor: 'anchor',
-  graphicsOutlines: 'pad_sketch',
+  // `PCB_ACTIONS::graphicsOutlines` — `.Icon( BITMAPS::show_mod_edge )`
+  // (pcb_actions.cpp:1749-1755). It said `pad_sketch`, which is
+  // `padDisplayMode`'s icon two rows above: Sketch Graphic Items and Sketch
+  // Pads were drawing the same button.
+  graphicsOutlines: 'show_mod_edge',
+  // `PCB_ACTIONS::textOutlines` — `.Icon( BITMAPS::text_sketch )` (:1757-1763).
   textOutlines: 'text_sketch',
   // drawing sheet editor (icons per PL_ACTIONS .Icon() in pl_actions.cpp)
   dsAddLine: 'add_graphical_segments',
