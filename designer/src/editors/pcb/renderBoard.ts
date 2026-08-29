@@ -1403,7 +1403,14 @@ function compileScene(board: Board, filter: SceneFilter): BoardScene {
       for (const pt of z.outline) grow(pt.x, pt.y);
     }
   }
-  for (const s of board.shapes) {
+  for (const [si, s] of board.shapes.entries()) {
+    // Its own owner, as tracks, arcs and vias get above. Without this the loop
+    // inherits whatever the via loop left open, so every board graphic was
+    // attributed to the LAST via on the board and would translate with it in an
+    // in-place drag. That went unseen only because the one shape kind common on
+    // these layers -- the rectangle -- reached the buffer untagged and so moved
+    // with nothing at all; tagging it correctly is what exposed the leak.
+    pathFactory.setOwner?.(`shape:${si}`);
     addShape(scene, s);
     if (s.start) grow(s.start.x, s.start.y, s.width);
     if (s.end) grow(s.end.x, s.end.y, s.width);

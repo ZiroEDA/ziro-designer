@@ -223,6 +223,15 @@ export class GlPath {
         { x, y: y + h },
       ],
       closed: true,
+      // As `startNew` does. A subpath built here bypasses it, and the emit-time
+      // `sp.owner ?? currentOwner` cannot cover for that: a bucket path is
+      // appended to directly rather than copied through `addPath`, so by the
+      // time it is emitted `buildScene` has already reset the owner to
+      // undefined. An untagged subpath has no entry in `Scene.itemRanges`, so
+      // `moveItems` cannot find it -- which is why a dragged footprint left its
+      // courtyard behind: the courtyard is an `fp_rect`, and it was the only
+      // part of the footprint that did not reach the buffer through `startNew`.
+      owner: currentOwner,
     });
     this.cur = null;
     this.moveTo(x, y);
@@ -254,7 +263,8 @@ export class GlPath {
     corner(x + w - r, y + h - r, 0); // bottom-right
     corner(x + r, y + h - r, HALF_PI); // bottom-left
     corner(x + r, y + r, Math.PI); // top-left
-    this.subpaths.push({ pts, closed: true });
+    // Owned for the same reason as `rect` above.
+    this.subpaths.push({ pts, closed: true, owner: currentOwner });
     this.cur = null;
   }
 
