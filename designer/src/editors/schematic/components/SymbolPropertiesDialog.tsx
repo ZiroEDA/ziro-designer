@@ -48,6 +48,8 @@ import {
   embeddedFilesIn,
 } from '@ziroeda/eeschema';
 import { PIN_SHAPE_NAMES, PIN_TYPE_NAMES } from '../../symbol/render/symbolRenderer.js';
+import { PIN_SHAPE_BITMAPS, PIN_TYPE_BITMAPS } from '../pin_icons.js';
+import { bitmapUrl } from '../../../ui/toolbarIcons.js';
 import { DEFAULT_FONT_NAME, measureText } from '@ziroeda/common/src/font/stroke_font.js';
 import { parseUnitValueDouble, stringFromValue, type EdaUnits } from '../../../ui/unit_binder.js';
 import { useModalEscape } from '../../../ui/useModalEscape.js';
@@ -217,6 +219,19 @@ interface Cursor {
    * on the Reference row without the row being filled.
    */
   selected: boolean;
+}
+
+/**
+ * One `GRID_CELL_ICON_TEXT_RENDERER` icon. A token with no entry draws nothing
+ * rather than a broken image — upstream's `wxCHECK_MSG` returns
+ * `BITMAPS::INVALID_BITMAP` for an unknown type and the renderer skips it
+ * (`pin_type.cpp:118-127`). The icon is decorative: the cell's text already
+ * names the type, so a second announcement would only repeat it.
+ */
+function PinIcon({ bitmap }: { bitmap: string | undefined }): JSX.Element | null {
+  const src = bitmap ? bitmapUrl(bitmap) : undefined;
+  if (!src) return null;
+  return <img className="ze-pin-icon" src={src} alt="" aria-hidden="true" />;
 }
 
 export function SymbolPropertiesDialog({
@@ -887,13 +902,18 @@ export function SymbolPropertiesDialog({
                         {/* Type and Style follow the selection: GetType/GetShape
                             consult the alternate, so picking a function changes
                             what the pin is, not just what it is called. */}
+                        {/* GRID_CELL_ICON_TEXT_RENDERER: both cells draw
+                            KiCad's own 16px icon before the text
+                            (dialog_symbol_properties.cpp:131-142). */}
                         <td>
-                          <span className="ze-grid-text">
+                          <span className="ze-grid-text ze-icon-text">
+                            <PinIcon bitmap={PIN_TYPE_BITMAPS[r.electricalType]} />
                             {PIN_TYPE_NAMES[r.electricalType] ?? r.electricalType}
                           </span>
                         </td>
                         <td>
-                          <span className="ze-grid-text">
+                          <span className="ze-grid-text ze-icon-text">
+                            <PinIcon bitmap={PIN_SHAPE_BITMAPS[r.shape]} />
                             {PIN_SHAPE_NAMES[r.shape] ?? r.shape}
                           </span>
                         </td>
@@ -987,7 +1007,7 @@ export function SymbolPropertiesDialog({
                             // `RecomputeGridWidths` floors each autosized
                             // column at its `_base.cpp` width and lets content
                             // widen it; only FDC_VALUE is given the slack.
-                            style={c.index === 1 ? undefined : { width: '1px', minWidth: c.width }}
+                            style={c.index === 1 ? undefined : { minWidth: c.width }}
                             className={c.center ? 'c' : undefined}
                           >
                             {c.label}

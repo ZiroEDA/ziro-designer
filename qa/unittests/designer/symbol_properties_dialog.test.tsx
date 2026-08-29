@@ -29,12 +29,20 @@
  */
 import { cleanup, createEvent, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parse } from '@ziroeda/sexpr/src/index.js';
 import { readSchematic } from '@ziroeda/eeschema';
 import type { LibSymbol, SchSymbol, SymbolEdit } from '@ziroeda/eeschema';
 import { SymbolPropertiesDialog } from '@ziroeda/designer/src/editors/schematic/components/SymbolPropertiesDialog.js';
+import {
+  PIN_SHAPE_BITMAPS,
+  PIN_TYPE_BITMAPS,
+} from '@ziroeda/designer/src/editors/schematic/pin_icons.js';
+import {
+  PIN_SHAPE_NAMES,
+  PIN_TYPE_NAMES,
+} from '@ziroeda/designer/src/editors/symbol/render/symbolRenderer.js';
 
 /**
  * One declaration of one rule in `shell.css`, by exact selector.
@@ -1154,7 +1162,10 @@ describe('the Value column is the flexible one, and only it', () => {
     // caps the column at the base file's number instead of flooring it.
     const name = document.querySelectorAll<HTMLElement>('.ze-symprops-grid thead th')[0]!;
     expect(name.style.minWidth).toBe('72px');
-    expect(name.style.width).toBe('1px');
+    // and NOT as a width, which would cap it. The shrink-to-fit half is the
+    // stylesheet's, because it carries no KiCad number.
+    expect(name.style.width).toBe('');
+    expect(decl('.ze-symprops-grid thead th', 'width')).toBe('min-content');
   });
 
   it('clips only the flexible column, which is the one that takes the slack', () => {
@@ -1333,5 +1344,73 @@ describe('the two bands that made the dialog 50px too tall', () => {
       '(20px spacer)',
       'Edit Library Symbol...',
     ]);
+  });
+});
+
+/**
+ * The icons the Electrical Type and Graphic Style cells draw.
+ *
+ * `m_typeAttr->SetRenderer( new GRID_CELL_ICON_TEXT_RENDERER( PinTypeIcons(),
+ * PinTypeNames() ) )` and the same for shapes
+ * (`dialog_symbol_properties.cpp:131-142`). We drew the name and no icon.
+ *
+ * They are KiCad's own 16 px dark PNGs rather than redrawn glyphs — DATA in
+ * CLAUDE.md's sense, a table upstream hardcodes, so the rule is to mirror it.
+ */
+describe('a pin row draws its type and shape icon, not just the name', () => {
+  it('has an icon for every type and every shape the names table lists', () => {
+    // The tables are built by one loop over the enum (`pin_type.cpp:41-56`), so
+    // a token with a name and no icon is a hole upstream cannot have. Checked
+    // per token rather than by count, which would pass with the wrong keys.
+    for (const token of Object.keys(PIN_TYPE_NAMES)) {
+      expect(PIN_TYPE_BITMAPS[token], `no icon for pin type ${token}`).toBeTruthy();
+    }
+    for (const token of Object.keys(PIN_SHAPE_NAMES)) {
+      expect(PIN_SHAPE_BITMAPS[token], `no icon for pin shape ${token}`).toBeTruthy();
+    }
+    // ...and nothing extra, which would mean a token we invented.
+    expect(Object.keys(PIN_TYPE_BITMAPS).sort()).toStrictEqual(Object.keys(PIN_TYPE_NAMES).sort());
+    expect(Object.keys(PIN_SHAPE_BITMAPS).sort()).toStrictEqual(
+      Object.keys(PIN_SHAPE_NAMES).sort(),
+    );
+  });
+
+  it('names a DIFFERENT bitmap for each, and one that is actually vendored', () => {
+    // Two mutants: the cheap port that pastes one name under all twelve keys,
+    // and a name that does not exist on disk, which resolves to undefined and
+    // silently draws nothing.
+    const all = [...Object.values(PIN_TYPE_BITMAPS), ...Object.values(PIN_SHAPE_BITMAPS)];
+    expect(new Set(all).size).toBe(all.length);
+    const dir = join(__dirname, '../../../designer/src/assets/toolbar');
+    for (const name of all) {
+      expect(existsSync(join(dir, `${name}.svg`)), `${name}.svg is not vendored`).toBe(true);
+    }
+  });
+
+  it('draws the icon before the text in both cells', () => {
+    open(PINS);
+    const row = document.querySelectorAll('.ze-symprops-pin-grid tbody tr')[0]!;
+    const cells = row.querySelectorAll('td');
+    for (const i of [3, 4]) {
+      const img = cells[i]!.querySelector('img.ze-pin-icon');
+      expect(img, `no icon in column ${i}`).toBeTruthy();
+      // Decorative: the cell's text already names the type, so the icon must
+      // not be announced a second time.
+      expect(img!.getAttribute('alt')).toBe('');
+      expect(img!.getAttribute('aria-hidden')).toBe('true');
+      // and it comes FIRST, which is where the renderer puts it.
+      expect(cells[i]!.querySelector('.ze-icon-text')!.firstElementChild).toBe(img);
+    }
+    // Device:Conn's pins are passive lines, so those are the two icons drawn.
+    // The src is whatever the bundler resolved the vendored SVG to, so the
+    // assertion is on the FILE it names rather than on a URL shape.
+    expect(cells[3]!.querySelector('img')!.getAttribute('src')).toContain(PIN_TYPE_BITMAPS.passive);
+    expect(cells[4]!.querySelector('img')!.getAttribute('src')).toContain(PIN_SHAPE_BITMAPS.line);
+  });
+
+  it('draws no icon at all for a token it does not know', () => {
+    // `wxCHECK_MSG` returns INVALID_BITMAP and the renderer skips it, rather
+    // than drawing a broken image where KiCad draws nothing.
+    expect(PIN_TYPE_BITMAPS.not_a_pin_type).toBeUndefined();
   });
 });

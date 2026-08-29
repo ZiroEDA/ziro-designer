@@ -7034,6 +7034,20 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   height: 160px;
   flex: 1 1 auto;
 }
+/* Shrink-to-fit, so each column takes `max( its stated minimum, its content )`
+   — `AutoSizeColumn` then `std::max( minWidthScaled, colSize )`. This is the
+   CSS idiom for that and carries no KiCad number: the numbers are the
+   per-column `min-width` the component states from the base file's SetColSize.
+   `min-content` rather than the usual `width: 1px`, because the cell text is
+   `white-space: nowrap` — so its min-content IS its full width — and a keyword
+   states the intent instead of leaving a bare length for the next reader (and
+   for central_values' scanner) to wonder about.
+   A `width` here instead would cap the column, which is the bug that clipped
+   "Description" to "Descriptic". The flexible column states no minimum and is
+   left out. */
+.ze-symprops-grid thead th {
+  width: min-content;
+}
 /* `SetColLabelSize( 22 )` (dialog_symbol_properties_base.cpp:70). The shared
    .ze-grid rule carries the Design Inspector's 30; this grid states its own,
    because the number is per-dialog upstream too. */
@@ -7377,6 +7391,26 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-symprops-pin-grid td {
   /* [px] 26 + FromDIP( 4 ); the 26 asked of a real wxGrid by the probe. */
   height: 30px;
+}
+/* GRID_CELL_ICON_TEXT_RENDERER (`common/widgets/grid_icon_text_helpers.cpp`):
+   the icon is drawn at the cell's left, the text after it. Both Symbol
+   Properties' Electrical Type / Graphic Style cells and DIALOG_PIN_PROPERTIES
+   use it, so the rule is not scoped to this dialog. */
+.ze-icon-text {
+  display: flex;
+  align-items: center;
+  /* [data] `GRID_CELL_ICON_TEXT_RENDERER::Draw` offsets the text by the
+     bitmap's width plus MIN_GRIDCELL_MARGIN, which is FromDIP( 2 ). */
+  gap: 2px;
+}
+.ze-pin-icon {
+  /* [data] KiBitmapBundle resolves the 16 px variant for a grid cell, which is
+     the size KiCad's own vendored SVG draws at. Stated so a cell's line-height
+     cannot stretch it. */
+  width: 16px;
+  /* [data] the same 16, square, for the same reason. */
+  height: 16px;
+  flex: 0 0 auto;
 }
 .ze-symprops-pin-grid td.ze-pin-noalt {
   background: var(--ctl-face);
