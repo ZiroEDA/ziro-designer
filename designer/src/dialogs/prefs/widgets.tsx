@@ -150,6 +150,8 @@ export function Radio<T extends string | number>({
   options,
   onChange,
   row,
+  disabled,
+  title,
 }: {
   label?: string;
   name: string;
@@ -157,9 +159,13 @@ export function Radio<T extends string | number>({
   options: readonly (readonly [T, string])[];
   onChange: (v: T) => void;
   row?: boolean;
+  /** Shown, but not answerable here — the same treatment a control KiCad has
+   *  and this app cannot back gets everywhere else. `title` says why. */
+  disabled?: boolean;
+  title?: string;
 }): JSX.Element {
   return (
-    <div className={row ? 'ze-pref-row' : 'ze-pref-radios'}>
+    <div className={row ? 'ze-pref-row' : 'ze-pref-radios'} title={title}>
       {label !== undefined && <span className="lbl">{label}</span>}
       {options.map(([v, l]) => (
         <label key={String(v)} className="ze-pref-radio">
@@ -167,6 +173,7 @@ export function Radio<T extends string | number>({
             type="radio"
             name={name}
             checked={value === v}
+            disabled={disabled}
             onChange={() => {
               onChange(v);
             }}

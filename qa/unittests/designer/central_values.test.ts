@@ -384,7 +384,7 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // `DoGetBestSize`, so the button is 16 + 5*2 square and the separator
   // 0 + 5*2 wide, both [data] against that formula, and the separator's own
   // margin and the Link box's `min-width: 0` went away.
-  ui: { colours: 237, metrics: 741 },
+  ui: { colours: 236, metrics: 741 },
   // colours 6 -> 7: the opacity slider's #55585d track arrived here with
   // APPEARANCE_CONTROLS; it is the same literal `editors/pcb` lost, not a new
   // one. The panel's own stylesheet adds none: every length in
@@ -704,7 +704,10 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     //
     // Seven, and 244 - 7 = 237 agrees with the total moving 622 - 7 = 615. Two
     // derivations, one from the per-area row and one from the tree-wide scan.
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(615);
+    // 615 -> 614: `.ze-pref-group-title`'s #c7c9cc, alongside the 12.5px and
+    // the `font-weight: 600` that went with it. Upstream sets no font and no
+    // colour on any of the seven headings on that page.
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(614);
     // 1657 -> 1649: the same sweep. A native colour input has no useful
     // default size, so eight of the sixteen sites gave theirs an inline
     // width and height; the shared swatch takes --swatch-*-w/h. Rescanned.

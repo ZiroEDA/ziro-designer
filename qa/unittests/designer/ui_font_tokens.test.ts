@@ -332,7 +332,7 @@ const BASELINE: Record<string, number> = {
   // sets, not from the window's SetFont. Measured against the real dialog it
   // renders at the GUI font — so it inherits, and the count is unaffected
   // either way because a var() is not a hardcoded size.
-  ui: 101,
+  ui: 100,
   widgets: 6,
 };
 
@@ -551,7 +551,11 @@ describe('hardcoded font sizes do not grow', () => {
     // legend (12px) and its checkbox labels (13px), and the Label Properties
     // group labels (12px). KiCad calls SetFont on none of them. `ui` is the
     // only row that moves and 308 - 3 agrees with it.
-    expect(sites.length).toBe(305);
+    // 305 -> 304: `.ze-pref-group-title`'s 12.5px. A Preferences group heading
+    // is a `wxStaticText` with a `wxStaticLine` under it, and neither
+    // `panel_common_settings_base.cpp` nor its hand-written `.cpp` calls
+    // SetFont anywhere - so it is the dialog's own font. One rule, one row.
+    expect(sites.length).toBe(304);
   });
 });
 

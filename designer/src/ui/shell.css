@@ -8404,13 +8404,41 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-pref-group {
   margin-bottom: 14px;
 }
+/* A group heading on a preferences page is a `wxStaticText` with a
+   `wxStaticLine` under it, not a wxStaticBox:
+
+       bLeftSizer->Add( m_staticText20, 0, wxTOP|wxRIGHT|wxLEFT|wxEXPAND, 13 );
+       bLeftSizer->Add( m_staticline3,  0, wxEXPAND|wxTOP|wxBOTTOM, 2 );
+       (common/dialogs/panel_common_settings_base.cpp:21-26, and the same shape
+        six more times on that page alone)
+
+   NEITHER `panel_common_settings_base.cpp` NOR its hand-written `.cpp` calls
+   SetFont anywhere, so the heading is the dialog's own font at its own weight
+   and its own foreground. The 12.5px, the 600 and the #c7c9cc were all ours,
+   which is why these read smaller, heavier and dimmer than KiCad's. */
 .ze-pref-group-title {
-  font-size: 12.5px;
-  font-weight: 600;
-  color: #c7c9cc;
+  /* [data] `wxTOP|wxRIGHT|wxLEFT, 13` on the label and `wxTOP|wxBOTTOM, 2` on
+     the rule under it. */
   border-bottom: 1px solid var(--chrome-border);
   padding: 4px 0;
   margin-bottom: 6px;
+}
+
+/* `bPanelSizer`, horizontal, with the left column added
+   `bPanelSizer->Add( bLeftSizer, 0, wxRIGHT, 35 )` (:325) - so the page is two
+   columns with a 35px gutter, not one long scroll. */
+.ze-pref-columns {
+  display: flex;
+  align-items: flex-start;
+}
+.ze-pref-columns > .ze-pref-col {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.ze-pref-columns > .ze-pref-col:first-child {
+  /* [data] the 35 of `wxRIGHT, 35`. */
+  margin-right: 35px;
 }
 .ze-pref-group-body {
   display: flex;
