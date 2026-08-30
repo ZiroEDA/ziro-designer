@@ -186,12 +186,16 @@ describe('a value cell is a grid cell, not a permanently-rendered control', () =
       (r) => r.querySelector('.ze-pgrid-name')!.textContent === 'Orientation',
     )!;
     expect(cell.querySelector('.ze-pgrid-value')!.textContent).toBe('180');
-    expect(cell.querySelectorAll('select')).toHaveLength(0);
+    // Neither a native select nor our Combo, which is a button: at rest a
+    // wxPropertyGrid cell is painted text, with no control in it at all.
+    expect(cell.querySelectorAll('select, button')).toHaveLength(0);
   });
 
   it('has no control anywhere in the grid except the bool row', () => {
     const { container } = panel();
-    const controls = Array.from(container.querySelectorAll('.ze-pgrid input, .ze-pgrid select'));
+    const controls = Array.from(
+      container.querySelectorAll('.ze-pgrid input, .ze-pgrid select, .ze-pgrid button'),
+    );
     expect(controls.map((c) => (c as HTMLInputElement).type)).toEqual(['checkbox', 'checkbox']);
   });
 
@@ -212,9 +216,17 @@ describe('a value cell is a grid cell, not a permanently-rendered control', () =
       (r) => r.querySelector('.ze-pgrid-name')!.textContent === 'Orientation',
     )!;
     fireEvent.click(cell.querySelector('.ze-pgrid-text')!);
-    const editor = cell.querySelector('select.ze-pgrid-editor') as HTMLSelectElement;
+    // `PG_CHOICE_EDITOR` is a wxChoice, and `ui/Combo` is that port — a button
+    // that opens a `role="listbox"`, not a native select whose list the OS
+    // draws in its own colours.
+    const editor = cell.querySelector('button.ze-pgrid-editor') as HTMLButtonElement;
     expect(editor).not.toBeNull();
-    expect(Array.from(editor.options).map((o) => o.value)).toEqual(['0', '90', '180', '270']);
+    // A Combo has no `.options`: its choices are a `role="listbox"` it opens.
+    fireEvent.click(editor);
+    const listbox = container.querySelector('[role="listbox"]')!;
+    expect(
+      Array.from(listbox.querySelectorAll('[role="option"]')).map((o) => o.textContent),
+    ).toEqual(['0', '90', '180', '270']);
   });
 
   /**
@@ -450,8 +462,17 @@ describe('a layer row carries PGPROPERTY_COLORENUM’s colour image', () => {
     const cell = rowNamed(container, 'Layer');
     expect(cell.querySelectorAll('button')).toHaveLength(0);
     fireEvent.click(cell.querySelector('.ze-pgrid-text')!);
-    const editor = cell.querySelector('select.ze-pgrid-editor') as HTMLSelectElement;
-    expect(Array.from(editor.options).map((o) => o.value)).toEqual(['F.Cu', 'B.Cu']);
+    // `PG_CHOICE_EDITOR` is a wxChoice, and `ui/Combo` is that port — a button
+    // that opens a `role="listbox"`, not a native select whose list the OS
+    // draws in its own colours.
+    const editor = cell.querySelector('button.ze-pgrid-editor') as HTMLButtonElement;
+    // A Combo's choices are a `role="listbox"` it opens, not `.options`.
+    fireEvent.click(editor);
+    expect(
+      Array.from(document.querySelectorAll('[role="listbox"] [role="option"]')).map(
+        (o) => o.textContent,
+      ),
+    ).toEqual(['F.Cu', 'B.Cu']);
   });
 });
 

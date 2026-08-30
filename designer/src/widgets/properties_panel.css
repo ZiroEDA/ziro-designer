@@ -228,6 +228,14 @@
   width: auto;
   align-self: stretch;
   height: auto;
+  /* The editor gets the grid's EDITOR rect, not the whole row:
+     `editor->SetPosition( aPos ); editor->SetSize( aSize )`
+     (pg_editors.cpp:350-351), and wxPropertyGrid insets that rect by
+     `wxPG_CUSTOM_IMAGE_SPACINGY` top and bottom — the same one pixel the
+     painted swatch beside it already leaves (`.ze-pgrid-swatch`). Without it
+     `align-self: stretch` ran the swatch over the row's own separator, so it
+     read as taller than every other cell and spilled past its place. */
+  margin: 1px 0;
 }
 
 /* PG_CELL_RENDERER::Render (common/properties/pg_cell_renderer.cpp:60-70):

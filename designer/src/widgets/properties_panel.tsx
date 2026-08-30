@@ -58,6 +58,7 @@ import { Fragment, useEffect, useState } from 'react';
 import type { JSX } from 'react';
 import { COLOR4D_UNSPECIFIED, parseColor4d, toHexString } from '@ziroeda/common';
 import { ColorSwatch } from '../ui/ColorSwatch.js';
+import { Combo } from '../ui/Combo.js';
 import './properties_panel.css';
 
 /**
@@ -267,25 +268,34 @@ function ValueCell<C>({
     );
 
   if (row.kind === 'choice') {
+    // `PG_CHOICE_EDITOR` is a wxChoice, and `ui/Combo` is that port: a native
+    // `<select>` has its option list drawn by the OS, so its highlight is
+    // Chrome's blue rgb(153,200,255) where GTK paints rgb(62,62,62) — the
+    // measurements are in Combo.tsx's header. Every other dropdown in the app
+    // is already ours; this one was the browser's.
     return cell(
-      <select
-        className="ze-pgrid-editor"
-        // biome-ignore lint/a11y/noAutofocus: the just-activated cell's editor
-        autoFocus
-        value={String(row.value)}
-        onChange={(e) => {
-          commitValue(e.target.value);
-          setEditing(false);
-        }}
-        onBlur={() => setEditing(false)}
+      // An active cell editor takes the keyboard: `wxPropertyGrid` gives it
+      // focus and the canvas never sees the key. The `<select>` this replaced
+      // stopped propagation itself; a Combo has its own key handling, so the
+      // swallow sits on the wrapper — and it must stay, or typing in a cell
+      // fires the editor's hotkeys behind it.
+      <span
+        className="ze-pgrid-editorwrap"
         onKeyDown={(e) => e.stopPropagation()}
+        onKeyUp={(e) => e.stopPropagation()}
       >
-        {row.choices?.map((c) => (
-          <option key={c} value={c}>
-            {c}
-          </option>
-        ))}
-      </select>,
+        <Combo
+          className="ze-pgrid-editor"
+          autoFocus
+          ariaLabel={row.name}
+          value={String(row.value)}
+          options={(row.choices ?? []).map((c) => ({ value: c, label: c }))}
+          onChange={(v) => {
+            commitValue(v);
+            setEditing(false);
+          }}
+        />
+      </span>,
     );
   }
 
