@@ -6709,8 +6709,15 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 
 /* Text / Text Box Properties (dialog_text_properties_base.cpp): the entry grows
    with the dialog, then a label | control grid for the formatting rows. */
+/* No width. `dialog_text_properties_base.cpp:20` is
+   `SetSizeHints( wxDefaultSize, wxDefaultSize )` and `:280` ends
+   `bMainSizer->Fit( this )`: the dialog is exactly as wide as its content
+   wants, and the content's floor is the text control's own
+   `SetMinSize( wxSize( 500, 140 ) )` (:71), which `.ze-tp-text` states. A
+   `width: 560px` here was a number nobody in KiCad wrote, and it was what
+   clipped the dialog and forced the body to scroll sideways. `.ze-modal` is
+   already `width: max-content`. */
 .ze-modal.ze-text-props {
-  width: 560px;
   height: auto;
   max-height: 92vh;
 }
@@ -6720,8 +6727,16 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   display: flex;
   flex-direction: column;
   padding: 10px;
-  overflow: auto;
-  font-size: 12.5px;
+  /* `overflow-y` only. `overflow: auto` on both axes made the BODY scroll
+     sideways instead of letting the dialog grow, so the dialog stayed at its
+     stated width and hid the right-hand end of every row. A wxDialog has no
+     horizontal scrollbar; it is fitted to its content and that is the end of
+     it. */
+  overflow-x: visible;
+  overflow-y: auto;
+  /* No `font-size`. This said 12.5px against the dialog's own 11pt / 14.67px —
+     KiCad calls SetFont on nothing in this dialog, so every control takes the
+     GUI font, which `.ze-app` already hands down. */
 }
 .ze-tp-entry {
   display: flex;

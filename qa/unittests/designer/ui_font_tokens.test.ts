@@ -332,7 +332,7 @@ const BASELINE: Record<string, number> = {
   // sets, not from the window's SetFont. Measured against the real dialog it
   // renders at the GUI font — so it inherits, and the count is unaffected
   // either way because a var() is not a hardcoded size.
-  ui: 119,
+  ui: 118,
   widgets: 6,
 };
 
@@ -520,7 +520,11 @@ describe('hardcoded font sizes do not grow', () => {
     // Output Messages box read as small print in every one of them. `ui` is
     // the only row that moves, the per-area check names it and nothing else,
     // and 327 - 4 agrees with the table.
-    expect(sites.length).toBe(323);
+    // 323 -> 322: `ui` 119 -> 118. `.ze-tp-body` stated 12.5px against the
+    // dialog's own 11pt / 14.67px. KiCad calls SetFont on nothing in
+    // DIALOG_TEXT_PROPERTIES, so every control takes the GUI font that
+    // `.ze-app` already hands down. One row moves and 323 - 1 agrees with it.
+    expect(sites.length).toBe(322);
   });
 });
 

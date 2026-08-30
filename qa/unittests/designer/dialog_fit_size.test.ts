@@ -129,7 +129,7 @@ describe('the pile of hand-picked dialog sizes does not grow', () => {
     expect(inlineSized()).toHaveLength(29);
   });
 
-  it('14 shell.css variants still name their own size', () => {
+  it('12 shell.css variants still name their own size', () => {
     // 15 until `.ze-pgs` stopped restating what `.ze-modal` now gets right, and
     // 14 until Open Project became the shared file chooser: `.ze-open-project`
     // named a 920x620 and the window that replaced it is sized by the chooser,
@@ -142,7 +142,23 @@ describe('the pile of hand-picked dialog sizes does not grow', () => {
     // (`common/dialogs/dialog_display_html_text_base.cpp:19`) — so the number
     // is KiCad's rather than a pick of ours. That is the bar for adding to this
     // list, and the reason the list is a ratchet and not a ban.
-    expect(cssSized()).toHaveLength(14);
+    // Down to 12, in two steps that landed separately.
+    //
+    // 14 -> 13 was already true at HEAD before this change: an earlier pass on
+    // the field dialog removed a size and did not lower the number here. That
+    // is the failure mode this ratchet warns about in its own header — a
+    // ceiling nobody is under — so it is being recorded rather than quietly
+    // absorbed into the next edit.
+    //
+    // 13 -> 12: `.ze-text-props` named a 560 px width that appears nowhere
+    // upstream. `dialog_text_properties_base.cpp:20` is
+    // `SetSizeHints( wxDefaultSize, wxDefaultSize )` and its main sizer ends
+    // `Fit( this )`, so the dialog is as wide as its content — whose floor is
+    // the text control's own `SetMinSize( wxSize( 500, 140 ) )` (:71). The 560
+    // was below what the content needed, so the body scrolled sideways instead
+    // of the dialog growing. That is the bar named above, inverted: a size may
+    // stay only when upstream names one too.
+    expect(cssSized()).toHaveLength(12);
   });
 
   it('and every one of them is a dialog, so the scan is really finding them', () => {
