@@ -549,6 +549,23 @@ export function itemRefById(sch: Schematic, id: string): ItemRef | null {
       return { kind: 'sheetpin', id };
     return null;
   }
+  // `<tableRefId>:cell<k>`, built by the hit test above when a table is
+  // clicked. Same shape as the sheet-pin case and same consequence without it:
+  // a selected CELL resolved to null, so the properties panel and the message
+  // panel both went blank - which is what an empty Properties pane on a table
+  // cell was, not a missing arm in schPropertiesFor.
+  //
+  // Checked before `:pin`, which `:cell` does not collide with, and before the
+  // plain scans, which compare the whole id and so can never match a composite.
+  const cellAtIdx = id.lastIndexOf(':cell');
+  if (cellAtIdx > 0) {
+    const tId = id.slice(0, cellAtIdx);
+    const k = Number(id.slice(cellAtIdx + ':cell'.length));
+    const ti = sch.tables.findIndex((t, i) => refId('table', t.uuid, i) === tId);
+    if (ti >= 0 && Number.isInteger(k) && k >= 0 && k < sch.tables[ti]!.cells.length)
+      return { kind: 'tablecell', id };
+    return null;
+  }
   // `<symbolRefId>:pin<k>`, a composite id, like fields below.
   const pinAt = id.lastIndexOf(':pin');
   if (pinAt > 0) {

@@ -23,7 +23,7 @@ import {
   schItemFriendlyName,
   schPropertiesFor,
 } from '@ziroeda/eeschema/src/tools/sch_properties_panel.js';
-import { refId } from '@ziroeda/eeschema/src/tools/hittest.js';
+import { itemRefById, refId } from '@ziroeda/eeschema/src/tools/hittest.js';
 import { tableCellId } from '@ziroeda/eeschema/src/tools/table_cells.js';
 import type { LibSymbol, Schematic } from '@ziroeda/eeschema/src/types.js';
 
@@ -53,12 +53,43 @@ const doc = (): Schematic =>
 const cellRef = (d: Schematic, k: number): string =>
   tableCellId(refId('table', d.tables[0]!.uuid, 0), k);
 
-// A cell ref is built by the hit test (hittest.ts:492), not by itemRefById,
-// which only resolves top-level items.
-const cellItemRef = (d: Schematic, k: number) =>
-  ({ kind: 'tablecell', id: cellRef(d, k) }) as const;
+/**
+ * Through `itemRefById`, which is the call the editor makes
+ * (SchematicEditor.tsx:8111) - NOT a hand-built ref.
+ *
+ * That distinction is the whole reason this file exists twice over. The first
+ * version of it constructed `{ kind: 'tablecell', id }` itself, which made
+ * every case below pass while the panel was still blank in the app: the arm in
+ * `schPropertiesFor` was fine and `itemRefById` returned null for a `:cell`
+ * id, so nothing ever reached the arm. A test that skips the lookup cannot see
+ * that, which is the first of CLAUDE.md's shapes of test that cannot fail -
+ * an expectation that does not exercise the path under test.
+ */
+const cellItemRef = (d: Schematic, k: number) => itemRefById(d, cellRef(d, k));
 
-const rows = (d: Schematic, k = 0) => schPropertiesFor(d, LIB, cellItemRef(d, k));
+const rows = (d: Schematic, k = 0) => schPropertiesFor(d, LIB, cellItemRef(d, k)!);
+
+describe('a cell id resolves to a ref at all', () => {
+  it('itemRefById knows a :cell id', () => {
+    // The editor turns the selected id into a ref with this call and renders
+    // nothing when it answers null. `:cell` was missing from it, alongside the
+    // `:sheetpin`, `:pin` and `:field` cases that were already there - so a
+    // selected cell showed no caption and no rows however complete the arm was.
+    const d = doc();
+    expect(itemRefById(d, cellRef(d, 0))).toEqual({ kind: 'tablecell', id: cellRef(d, 0) });
+  });
+
+  it('answers null for a cell index the table does not have', () => {
+    const d = doc();
+    expect(itemRefById(d, `${refId('table', d.tables[0]!.uuid, 0)}:cell99`)).toBeNull();
+  });
+
+  it('still resolves the table itself', () => {
+    const d = doc();
+    const id = refId('table', d.tables[0]!.uuid, 0);
+    expect(itemRefById(d, id)).toEqual({ kind: 'table', id });
+  });
+});
 
 describe('a table cell has properties, and they are the masked set', () => {
   it('is not empty, which is what the missing arm made it', () => {
@@ -67,7 +98,7 @@ describe('a table cell has properties, and they are the masked set', () => {
 
   it('names itself Table Cell', () => {
     const d = doc();
-    expect(schItemFriendlyName(d, cellItemRef(d, 0))).toBe('Table Cell');
+    expect(schItemFriendlyName(d, cellItemRef(d, 0)!)).toBe('Table Cell');
   });
 
   it('offers what survives the masks, in the order a real panel shows', () => {
