@@ -267,8 +267,23 @@ describe('a sheet pin has properties', () => {
   const pinId = (d: Schematic) => sheetPinId(refId('sheet', d.sheets[0]!.uuid, 0), 0);
   const pRows = (d: Schematic) => schPropertiesFor(d, LIB, itemRefById(d, pinId(d))!);
 
-  it('offers name and shape', () => {
-    expect(pRows(doc()).map((r) => r.name)).toEqual(['Name', 'Shape']);
+  it("offers a hierarchical label's set, which is what it inherits", () => {
+    // SCH_SHEET_PIN inherits SCH_HIERLABEL -> SCH_LABEL_BASE -> SCH_TEXT ->
+    // EDA_TEXT and registers nothing of its own. `Name` was never a registered
+    // property: EDA_TEXT's `Text` is the row that edits a sheet pin's name.
+    expect(pRows(doc()).map((r) => r.name)).toEqual([
+      'Shape',
+      'Text',
+      'Font',
+      'Auto Thickness',
+      'Italic',
+      'Bold',
+      'Horizontal Justification',
+      'Vertical Justification',
+      'Color',
+      'Hyperlink',
+      'Text Size',
+    ]);
   });
 
   it('omits position, which is constrained to the sheet border', () => {
@@ -279,13 +294,13 @@ describe('a sheet pin has properties', () => {
 
   it('renames through the parent sheet', () => {
     const d = doc();
-    const after = pRows(d).find((r) => r.name === 'Name')!.set!('CLK')!.apply(d);
+    const after = pRows(d).find((r) => r.name === 'Text')!.set!('CLK')!.apply(d);
     expect(after.sheets[0]!.pins[0]!.name).toBe('CLK');
   });
 
   it('refuses an empty name', () => {
     // An unnamed sheet pin has no hierarchical label to match.
-    expect(pRows(doc()).find((r) => r.name === 'Name')!.set!('   ')).toBeNull();
+    expect(pRows(doc()).find((r) => r.name === 'Text')!.set!('   ')).toBeNull();
   });
 
   it('changes the shape through the token list', () => {
@@ -302,7 +317,7 @@ describe('a sheet pin has properties', () => {
        (pin "A" input (at 10 14 180) (effects (font (size 1.27 1.27))))
        (pin "B" output (at 10 18 180) (effects (font (size 1.27 1.27)))))`);
     const after = schPropertiesFor(d, LIB, itemRefById(d, pinId(d))!).find(
-      (r) => r.name === 'Name',
+      (r) => r.name === 'Text',
     )!.set!('CLK')!.apply(d);
     expect(after.sheets[0]!.pins[1]!.name).toBe('B');
     expect(after.sheets[0]!.pins[1]!.shape).toBe('output');

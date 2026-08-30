@@ -92,14 +92,13 @@ describe('SCH_LINE registers a Color, and a wire has one', () => {
 describe('SCH_JUNCTION registers two properties, and we render both', () => {
   const doc = (): Schematic => sheet(`(junction (at 10 10) (diameter 0) (uuid "j-1"))`);
 
-  it('offers Diameter and Color, after the shared position rows', () => {
+  it('offers Diameter and Color, and nothing else', () => {
+    // SCH_JUNCTION_DESC registers exactly two properties. The Position X/Y we
+    // used to prepend were ours - a capture of a selected Text in 10.0.5 shows
+    // no position rows either, and SCH_BITMAP is the one schematic item that
+    // registers its own.
     const d = doc();
-    expect(rowsFor(d, junctionId(d)).map((r) => r.name)).toEqual([
-      'Position X',
-      'Position Y',
-      'Diameter',
-      'Color',
-    ]);
+    expect(rowsFor(d, junctionId(d)).map((r) => r.name)).toEqual(['Diameter', 'Color']);
   });
 
   it('writes a picked colour onto the junction', () => {

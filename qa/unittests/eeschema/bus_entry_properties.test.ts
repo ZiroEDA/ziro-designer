@@ -126,13 +126,9 @@ describe('the properties panel row', () => {
    * is read off the DESC block rather than off our own output.
    */
   it('offers what SCH_BUS_ENTRY_DESC registers, in that order', () => {
-    expect(rows(withStroke()).map((r) => r.name)).toEqual([
-      'Position X',
-      'Position Y',
-      'Wire Style',
-      'Line Width',
-      'Color',
-    ]);
+    // No Position rows: neither SCH_ITEM nor EDA_ITEM registers a position,
+    // and SCH_BUS_ENTRY_DESC adds none. The two we used to emit here were ours.
+    expect(rows(withStroke()).map((r) => r.name)).toEqual(['Wire Style', 'Line Width', 'Color']);
   });
 
   it('writes a width change through replaceBusEntry', () => {

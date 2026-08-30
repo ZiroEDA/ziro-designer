@@ -539,7 +539,11 @@ interface EdaTextOpts {
    */
   readonly showMirrored?: boolean;
   /** EDA_TEXT's `Hyperlink`, likewise masked by a cell and not by a text box. */
-  readonly hyperlink?: { readonly value: string; readonly set: (v: string) => EditCommand | null };
+  readonly hyperlink?: {
+    readonly value: string;
+    /** Absent where the model cannot back one: shown, read-only. */
+    readonly set?: (v: string) => EditCommand | null;
+  };
 }
 
 function edaTextRows(
@@ -645,7 +649,9 @@ function edaTextRows(
             name: 'Hyperlink',
             kind: 'string',
             value: opts.hyperlink.value,
-            set: (v: string | number | boolean) => opts.hyperlink!.set(String(v)),
+            ...(opts.hyperlink.set
+              ? { set: (v: string | number | boolean) => opts.hyperlink!.set!(String(v)) }
+              : {}),
           } as PropRow,
         ]
       : []),
@@ -741,71 +747,37 @@ function lineRows(sch: Schematic, index: number): PropRow[] {
   ];
 }
 
+/**
+ * SCH_TEXT and the three SCH_LABEL_BASE kinds.
+ *
+ * Verified against a capture of a selected Text in 10.0.5: ONE category, ten
+ * rows, and NO Position X/Y and NO Orientation. That is what the registrations
+ * say too - `SCH_TEXT_DESC` adds only `Text Size`, EDA_TEXT supplies the rest,
+ * and neither SCH_ITEM nor EDA_ITEM registers a position at all. The generic
+ * position rows we put on a label were ours; the only schematic item that
+ * really has them is SCH_BITMAP, which registers its own.
+ *
+ * SCH_TEXT masks Orientation, Thickness, Mirrored, Width and Height out of
+ * EDA_TEXT, which is why the capture shows neither an angle nor a separate
+ * text width - our `Height` and `Width` rows were that mask read backwards.
+ *
+ * A label additionally carries `Shape`, `SetAvailableFunc( hasLabelShape )` -
+ * true for a global or hierarchical label, false for a plain one.
+ */
 function labelRows(sch: Schematic, index: number): PropRow[] {
   const l = sch.labels[index]!;
-  const id = refId('label', l.uuid, index);
   const patch = (label: string, p: Partial<SchLabel>): EditCommand =>
     replaceLabel(index, { ...l, ...p });
   const eff = l.effects;
-  const size = eff?.fontSize?.[0] ?? 12700;
   const setEffects = (label: string, p: Partial<TextEffects>): EditCommand =>
     patch(label, { effects: { hidden: false, ...eff, ...p } });
-  const rows: PropRow[] = [
-    ...positionRows(id, l.at),
-    {
-      group: '',
-      name: 'Orientation',
-      kind: 'choice',
-      choices: ORIENTATIONS,
-      value: String(l.angle),
-      set: (v) => patch('Change Orientation', { angle: Number(v) }),
-    },
-    {
-      group: 'Text Properties',
-      name: 'Text',
-      kind: 'string',
-      value: l.text,
-      set: (v) => (String(v) === l.text ? null : patch('Edit Text', { text: String(v) })),
-    },
-    {
-      group: 'Text Properties',
-      name: 'Italic',
-      kind: 'bool',
-      value: !!eff?.italic,
-      set: (v) => setEffects('Toggle Italic', { italic: !!v || undefined }),
-    },
-    {
-      group: 'Text Properties',
-      name: 'Bold',
-      kind: 'bool',
-      value: !!eff?.bold,
-      set: (v) => setEffects('Toggle Bold', { bold: !!v || undefined }),
-    },
-    {
-      group: 'Text Properties',
-      name: 'Height',
-      kind: 'dist',
-      value: size,
-      set: (v) => {
-        const n = num(v);
-        return n === null || n <= 0
-          ? null
-          : setEffects('Change Text Size', { fontSize: [n, eff?.fontSize?.[1] ?? n] });
-      },
-    },
-    {
-      group: 'Text Properties',
-      name: 'Width',
-      kind: 'dist',
-      value: eff?.fontSize?.[1] ?? size,
-      set: (v) => {
-        const n = num(v);
-        return n === null || n <= 0
-          ? null
-          : setEffects('Change Text Size', { fontSize: [eff?.fontSize?.[0] ?? n, n] });
-      },
-    },
-  ];
+  // `GetSchTextSize()` is the text WIDTH, as it is for a field.
+  const textSize = eff?.fontSize?.[1] ?? eff?.fontSize?.[0] ?? 0;
+
+  const rows: PropRow[] = [];
+
+  // `hasLabelShape`: SCH_LABEL_DESC registers Shape ungrouped, so it lands in
+  // the unnamed group ABOVE Text Properties rather than after it.
   if (l.kind === 'global_label' || l.kind === 'hierarchical_label') {
     const cur = SHAPE_TOKENS.indexOf((l.shape ?? 'input') as (typeof SHAPE_TOKENS)[number]);
     rows.push({
@@ -820,6 +792,39 @@ function labelRows(sch: Schematic, index: number): PropRow[] {
       },
     });
   }
+
+  rows.push(
+    ...edaTextRows(eff, setEffects, {
+      text: {
+        group: 'Text Properties',
+        name: 'Text',
+        kind: 'string',
+        value: l.text,
+        set: (v) => (String(v) === l.text ? null : patch('Edit Text', { text: String(v) })),
+      },
+      // A plain SCH_LABEL masks Hyperlink; SCH_TEXT, a global and a
+      // hierarchical label all keep it (sch_label.cpp).
+      ...(l.kind === 'label'
+        ? {}
+        : {
+            hyperlink: {
+              value: l.hyperlink ?? '',
+              set: (v: string) =>
+                patch('Change Hyperlink', { hyperlink: v === '' ? undefined : v }),
+            },
+          }),
+    }),
+    {
+      group: 'Text Properties',
+      name: 'Text Size',
+      kind: 'dist',
+      value: textSize,
+      set: (v) => {
+        const n = num(v);
+        return n === null || n <= 0 ? null : setEffects('Change Text Size', { fontSize: [n, n] });
+      },
+    },
+  );
   return rows;
 }
 
@@ -1270,8 +1275,11 @@ export function schPropertiesFor(
       const i = indexOf(sch.junctions, (t, k) => refId('junction', t.uuid, k));
       if (i < 0) return [];
       const j = sch.junctions[i]!;
+      // SCH_JUNCTION_DESC registers Diameter and Color and nothing else. The
+      // Position X/Y rows here were ours: neither SCH_ITEM nor EDA_ITEM
+      // registers a position, and a capture of a selected Text in 10.0.5 shows
+      // none either. SCH_BITMAP is the one schematic item with real ones.
       return [
-        ...positionRows(refId('junction', j.uuid, i), j.at),
         {
           group: '',
           name: 'Diameter',
@@ -1288,11 +1296,11 @@ export function schPropertiesFor(
         colorRow('', 'Color', j.color, (c) => replaceJunction(i, { ...j, color: c })),
       ];
     }
-    case 'noconnect': {
-      const i = indexOf(sch.noConnects, (t, k) => refId('noconnect', t.uuid, k));
-      if (i < 0) return [];
-      return positionRows(refId('noconnect', sch.noConnects[i]!.uuid, i), sch.noConnects[i]!.at);
-    }
+    // There is no SCH_NO_CONNECT_DESC: a no-connect flag registers no
+    // properties, so its pane is the caption and nothing under it. The
+    // Position X/Y we showed were ours.
+    case 'noconnect':
+      return [];
     // #307 made a bus entry's stroke editable through the wire/bus dialog; the
     // properties panel is the other place upstream exposes it, since
     // SCH_EDIT_TOOL::Properties groups SCH_BUS_WIRE_ENTRY_T with SCH_LINE_T.
@@ -1307,7 +1315,6 @@ export function schPropertiesFor(
       // and a wxPropertyGrid renders a group in registration order - so ours
       // had the first two the wrong way round and was missing the third.
       return [
-        ...positionRows(refId('busentry', be.uuid, i), be.at),
         {
           group: '',
           name: 'Wire Style',
@@ -1611,8 +1618,74 @@ export function schPropertiesFor(
       const i = indexOf(sch.sheets, (t, k) => refId('sheet', t.uuid, k));
       if (i < 0) return [];
       const sh = sch.sheets[i]!;
+      const putStroke = (p: Partial<Stroke>): EditCommand =>
+        replaceSheet(i, { ...sh, stroke: { width: 0, type: 'default', ...sh.stroke, ...p } });
+      const A = 'Attributes';
+      const nameField = sh.fields.find((f) => f.key === 'Sheetname');
       return [
-        ...positionRows(refId('sheet', sh.uuid, i), sh.at),
+        // SCH_SHEET_DESC's own eight (sch_sheet.cpp), which we showed none of:
+        // four ungrouped, then four in `_( "Attributes" )`. No position rows -
+        // SCH_SHEET_DESC registers none, and nothing in the base chain does.
+        {
+          group: '',
+          name: 'Sheet Name',
+          kind: 'string',
+          value: nameField?.value ?? '',
+          set: (v) => {
+            const name = String(v);
+            return !nameField || name === nameField.value
+              ? null
+              : replaceSheet(i, {
+                  ...sh,
+                  fields: sh.fields.map((f) => (f.key === 'Sheetname' ? { ...f, value: name } : f)),
+                });
+          },
+        },
+        {
+          group: '',
+          name: 'Border Width',
+          kind: 'dist',
+          value: sh.stroke?.width ?? 0,
+          set: (v) => {
+            const n = num(v);
+            return n === null || n < 0 ? null : putStroke({ width: n });
+          },
+        },
+        colorRow('', 'Border Color', sh.stroke?.color, (c) => putStroke({ color: c })),
+        // `SetBackgroundColor`, which is the sheet's `(fill (color …))`.
+        colorRow('', 'Background Color', sh.fillColor, (c) =>
+          replaceSheet(i, { ...sh, fillColor: c }),
+        ),
+        // The file stores the positive sense for two of these and KiCad shows
+        // the negative, so each row is the inverse of what we hold.
+        {
+          group: A,
+          name: 'Exclude From Board',
+          kind: 'bool',
+          value: !sh.onBoard,
+          set: (v) => replaceSheet(i, { ...sh, onBoard: !v }),
+        },
+        {
+          group: A,
+          name: 'Exclude From Simulation',
+          kind: 'bool',
+          value: !!sh.excludedFromSim,
+          set: (v) => replaceSheet(i, { ...sh, excludedFromSim: !!v }),
+        },
+        {
+          group: A,
+          name: 'Exclude From Bill of Materials',
+          kind: 'bool',
+          value: !sh.inBom,
+          set: (v) => replaceSheet(i, { ...sh, inBom: !v }),
+        },
+        {
+          group: A,
+          name: 'Do not Populate',
+          kind: 'bool',
+          value: !!sh.dnp,
+          set: (v) => replaceSheet(i, { ...sh, dnp: !!v }),
+        },
         // The SCH_SHEET_T arm of `SCH_PROPERTIES_PANEL::rebuildProperties`
         // (sch_properties_panel.cpp:426-433): every non-private field of the
         // sheet becomes a SCH_SHEET_FIELD_PROPERTY in the "Fields" group.
@@ -1759,19 +1832,16 @@ export function schPropertiesFor(
           pins: sheet.pins.map((x, k) => (k === sp.pin ? { ...x, ...p } : x)),
         });
       const cur = SHAPE_TOKENS.indexOf(pin.shape as (typeof SHAPE_TOKENS)[number]);
+      const fx = pin.effects;
+      const setEffects = (_label: string, p: Partial<TextEffects>): EditCommand =>
+        patchPin({ effects: { hidden: false, ...fx, ...p } });
+      const textSize = fx?.fontSize?.[1] ?? fx?.fontSize?.[0] ?? 0;
+      // SCH_SHEET_PIN inherits SCH_HIERLABEL -> SCH_LABEL_BASE -> SCH_TEXT ->
+      // EDA_TEXT and registers nothing of its own, so its pane is a
+      // hierarchical label's: Shape, then the whole text half. We showed
+      // `Name` and `Shape` - and `Name` is not a registered property at all;
+      // EDA_TEXT's `Text` is the row that edits it.
       return [
-        {
-          group: '',
-          name: 'Name',
-          kind: 'string',
-          value: pin.name,
-          set: (v) => {
-            const name = String(v).trim();
-            // An unnamed sheet pin has no hierarchical label to match, so an
-            // empty name is rejected rather than written.
-            return name === '' ? null : patchPin({ name });
-          },
-        },
         {
           group: '',
           name: 'Shape',
@@ -1781,6 +1851,35 @@ export function schPropertiesFor(
           set: (v) => {
             const k = (LABEL_SHAPES as readonly string[]).indexOf(String(v));
             return k < 0 ? null : patchPin({ shape: SHAPE_TOKENS[k]! });
+          },
+        },
+        ...edaTextRows(fx, setEffects, {
+          text: {
+            group: 'Text Properties',
+            name: 'Text',
+            kind: 'string',
+            value: pin.name,
+            set: (v) => {
+              const name = String(v).trim();
+              // An unnamed sheet pin has no hierarchical label to match, so an
+              // empty name is rejected rather than written.
+              return name === '' || name === pin.name ? null : patchPin({ name });
+            },
+          },
+          // A hierarchical label keeps Hyperlink; our SheetPin has nowhere to
+          // store one, so it is shown read-only rather than dropped.
+          hyperlink: { value: '' },
+        }),
+        {
+          group: 'Text Properties',
+          name: 'Text Size',
+          kind: 'dist',
+          value: textSize,
+          set: (v) => {
+            const n = num(v);
+            return n === null || n <= 0
+              ? null
+              : setEffects('Change Text Size', { fontSize: [n, n] });
           },
         },
       ];
