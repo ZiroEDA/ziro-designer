@@ -308,3 +308,17 @@
   margin-left: calc(-1 * var(--pgrid-text-inset));
   font: inherit;
 }
+
+/* `PG_FPID_EDITOR::CreateControls` (common/properties/pg_editors.cpp:541-553)
+   builds a `wxPGMultiButton` beside the text control and then generates the
+   text control at `buttons->GetPrimarySize()` - so the entry gives up exactly
+   the button's width and both sit inside the cell.
+
+   The wrapper and the button are `.ze-grid-editwrap` / `.ze-grid-cellbtn` from
+   ui/shell.css, which already state that shape for GRID_CELL_TEXT_BUTTON - the
+   same editor, reached through a wxGrid instead of a wxPropertyGrid. Only the
+   entry's class differs here, so only that is restated. */
+.ze-grid-editwrap > .ze-pgrid-editor {
+  flex: 1 1 auto;
+  min-width: 0;
+}

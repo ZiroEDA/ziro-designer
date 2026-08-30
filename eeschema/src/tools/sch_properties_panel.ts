@@ -380,6 +380,12 @@ function symbolRows(sch: Schematic, libById: Map<string, LibSymbol>, index: numb
       name: key,
       kind: 'string',
       value,
+      // `SCH_PROPERTIES_PANEL::createPGProperty` swaps the editor for exactly
+      // one field name (sch_properties_panel.cpp:478-479): the Footprint
+      // field's becomes PG_FPID_EDITOR, an entry plus a `small_library` button
+      // onto FRAME_FOOTPRINT_CHOOSER. Every other field keeps the plain text
+      // control, so this is a name test and not a heuristic.
+      ...(key === 'Footprint' ? { browse: 'footprint' as const } : {}),
       set: (v) =>
         String(v) === value ? null : bulkEditFieldsCommand(new Map([[id, { [key]: String(v) }]])),
     });

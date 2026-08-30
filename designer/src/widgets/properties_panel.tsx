@@ -59,6 +59,7 @@ import type { JSX } from 'react';
 import { COLOR4D_UNSPECIFIED, parseColor4d, toHexString } from '@ziroeda/common';
 import { ColorSwatch } from '../ui/ColorSwatch.js';
 import { Combo } from '../ui/Combo.js';
+import { Icon } from '../ui/icons.js';
 import './properties_panel.css';
 
 /**
@@ -93,6 +94,23 @@ export interface PropertyGridRow<C> {
    * (`PG_UNIT_EDITOR::GetValueFromControl`, pg_editors.cpp:262-286).
    */
   readonly optional?: boolean;
+  /**
+   * The cell's EDITOR, where it is not the plain text control.
+   * `SCH_PROPERTIES_PANEL::createPGProperty` (sch_properties_panel.cpp:478-482)
+   * swaps it for two field names and no others:
+   *
+   *   Footprint  -> PG_FPID_EDITOR, a text control plus a wxPGMultiButton
+   *                 carrying `BITMAPS::small_library`, which opens
+   *                 FRAME_FOOTPRINT_CHOOSER (pg_editors.cpp:541-586);
+   *   Datasheet  -> PG_URL_EDITOR, the same shape with `BITMAPS::www` when the
+   *                 field holds a URL and `small_folder` when it does not.
+   *                 NOT done here: neither bitmap is vendored yet, and putting
+   *                 the library glyph on it would be the wrong icon.
+   *
+   * The button exists only while the cell is ACTIVATED, because that is when
+   * `CreateControls` runs - which is why it appears on click and not at rest.
+   */
+  readonly browse?: 'footprint';
   /** Absent for a read-only property. Returns the edit to commit, or null to
    *  reject the input and put the cell back. */
   readonly set?: (v: string | number | boolean) => C | null;
@@ -327,7 +345,7 @@ function ValueCell<C>({
     if (!commitValue(v)) setText(display);
   };
 
-  return cell(
+  const input = (
     <input
       className="ze-pgrid-editor"
       type="text"
@@ -345,7 +363,38 @@ function ValueCell<C>({
         // The canvas listens for bare keys; a cell editor must swallow them.
         e.stopPropagation();
       }}
-    />,
+    />
+  );
+
+  if (!row.browse) return cell(input);
+
+  // `PG_FPID_EDITOR::CreateControls` builds a wxPGMultiButton beside the text
+  // control and hands the text control what is left: `buttons->Finalize(...)`
+  // then `GenerateEditorTextCtrl( aPos, buttons->GetPrimarySize(), ... )`
+  // (pg_editors.cpp:541-553). So the button is inside the cell, at its right,
+  // and the entry gives up exactly that much width.
+  //
+  // DISABLED, deliberately, and for the same reason the identical button in
+  // Symbol Properties is: FRAME_FOOTPRINT_CHOOSER does not exist in this app
+  // yet, and a button that silently does nothing is worse than one that says
+  // so. Its position, size and bitmap are upstream's, so wiring it is the only
+  // step left.
+  return cell(
+    <span className="ze-grid-editwrap">
+      {input}
+      <button
+        type="button"
+        className="ze-grid-cellbtn"
+        disabled
+        title="Browse for footprint — needs the Footprint Chooser"
+        aria-label="Browse for footprint"
+        // The cell's mousedown must not be taken for a click on the cell and
+        // re-enter the editor.
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        <Icon name="smallLibrary" size={14} />
+      </button>
+    </span>,
   );
 }
 
