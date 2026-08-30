@@ -199,22 +199,42 @@ describe('a table has properties too', () => {
     expect(tRows(d).length).toBeGreaterThan(0);
   });
 
-  it('reports the shape and offers the border toggles', () => {
+  /**
+   * The twelve properties SCH_TABLE_DESC registers (sch_table.cpp), in
+   * registration order, which is the order a wxPropertyGrid draws a group in.
+   * Read off the DESC block, not off our own output.
+   */
+  it('offers exactly what SCH_TABLE_DESC registers, in that order', () => {
     expect(tRows(doc()).map((r) => r.name)).toEqual([
-      'Columns',
-      'Rows',
+      'Start X',
+      'Start Y',
       'External Border',
       'Header Border',
+      'Border Width',
+      'Border Style',
+      'Border Color',
       'Row Separators',
-      'Column Separators',
+      'Cell Separators',
+      'Separators Width',
+      'Separators Style',
+      'Separators Color',
     ]);
   });
 
-  it('leaves the column count read-only', () => {
-    // Changing it would add or drop cells, which is SCH_EDIT_TABLE_TOOL's job.
-    const cols = tRows(doc()).find((r) => r.name === 'Columns')!;
-    expect(cols.value).toBe(2);
-    expect(cols.set).toBeUndefined();
+  it('offers no row for the column or row COUNT', () => {
+    // `Columns` and `Rows` were ours, not KiCad's - SCH_TABLE_DESC registers
+    // neither, and a wxPropertyGrid shows what the property manager registered
+    // and nothing else. The counts are changed by SCH_EDIT_TABLE_TOOL.
+    const names = tRows(doc()).map((r) => r.name);
+    expect(names).not.toContain('Columns');
+    expect(names).not.toContain('Rows');
+  });
+
+  /** `_HKI( "Cell Separators" )` - upstream's name for the column separators. */
+  it('names the column separators the way upstream does', () => {
+    const names = tRows(doc()).map((r) => r.name);
+    expect(names).toContain('Cell Separators');
+    expect(names).not.toContain('Column Separators');
   });
 
   it('writes a border toggle through replaceTable', () => {

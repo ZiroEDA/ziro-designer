@@ -73,6 +73,56 @@ const num = (v: string | number | boolean): number | null => {
   return Number.isFinite(n) ? n : null;
 };
 
+/**
+ * A COLOR4D property, as `PGPROPERTY_COLOR4D` renders it: a swatch, and
+ * UNSPECIFIED - alpha 0 - reads as "no colour of its own, use the theme's".
+ * `SCH_LINE`, `SCH_JUNCTION`, `SCH_BUS_ENTRY_BASE`, `SCH_SHAPE`, `SCH_SHEET`
+ * and `SCH_TABLE` all register one, so the conversion lives here once rather
+ * than inside whichever arm needed it first.
+ */
+type ColorTuple = readonly [number, number, number, number];
+
+/** A stored colour as the swatch wants it; UNSPECIFIED reads empty. */
+const cssOf = (c: ColorTuple | undefined): string =>
+  c && c[3] > 0 ? rgb8ToCss([c[0], c[1], c[2]]) : '';
+
+/**
+ * The reverse. Two things this got wrong, both caught by round-tripping a
+ * picked colour rather than by reading the setter:
+ *
+ *  - `Color4d` carries r/g/b as 0..1 floats, and the MODEL carries the file's
+ *    own numbers, which for `(color 255 0 0 1)` are 0..255 bytes - `cssOf`
+ *    above reads them that way through `rgb8ToCss`. Writing the float straight
+ *    through stored `(color 0.2 0.4 0.8 1)`, which KiCad reads back as very
+ *    nearly black. Read and write have to agree on the unit; they did not.
+ *  - the empty string is the swatch cleared, and `parseColor4d('')` is opaque
+ *    BLACK rather than UNSPECIFIED, so `a <= 0` never fired and clearing a
+ *    colour pinned the item to black instead of returning it to the theme's.
+ */
+const tupleOf = (css: string): ColorTuple | undefined => {
+  if (css.trim() === '') return undefined;
+  const c = parseColor4d(css);
+  if (c.a <= 0) return undefined;
+  return [Math.round(c.r * 255), Math.round(c.g * 255), Math.round(c.b * 255), c.a];
+};
+
+/**
+ * One COLOR4D row. `set` is handed the tuple, or undefined for "clear it",
+ * which is what an empty swatch means everywhere upstream.
+ */
+const colorRow = (
+  group: string,
+  name: string,
+  current: ColorTuple | undefined,
+  set: (c: ColorTuple | undefined) => EditCommand | null,
+): PropRow => ({
+  group,
+  name,
+  kind: 'color',
+  value: cssOf(current),
+  set: (v) => set(tupleOf(String(v).trim())),
+});
+
 /** Position setters go through moveItems so attached fields follow. */
 const positionRows = (id: string, at: Vec2): PropRow[] => [
   {
@@ -510,6 +560,11 @@ function lineRows(sch: Schematic, index: number): PropRow[] {
         return n === null || n < 0 ? null : setStroke('Change Line Width', { width: n });
       },
     },
+    // `_HKI( "Color" )`, SCH_LINE::SetLineColor / GetLineColor
+    // (sch_line.cpp, last in SCH_LINE_DESC). A wire has one too - it is not a
+    // graphic-line-only property, and it was the one row of SCH_LINE_DESC we
+    // did not render.
+    colorRow('', 'Color', l.stroke?.color, (c) => setStroke('Change Line Color', { color: c })),
   ];
 }
 
@@ -1054,6 +1109,10 @@ export function schPropertiesFor(
             return n === null || n < 0 ? null : replaceJunction(i, { ...j, diameter: n });
           },
         },
+        // `_HKI( "Color" )`, SCH_JUNCTION::SetColor / GetColor
+        // (sch_junction.cpp): SCH_JUNCTION_DESC registers exactly two
+        // properties and we rendered one of them.
+        colorRow('', 'Color', j.color, (c) => replaceJunction(i, { ...j, color: c })),
       ];
     }
     case 'noconnect': {
@@ -1071,18 +1130,11 @@ export function schPropertiesFor(
       const withStroke = (p: Partial<Stroke>): EditCommand =>
         replaceBusEntry(i, { ...be, stroke: { width: 0, type: 'default', ...be.stroke, ...p } });
       const cur = be.stroke?.type ?? 'default';
+      // SCH_BUS_ENTRY_DESC registers Wire Style, then Line Width, then Color,
+      // and a wxPropertyGrid renders a group in registration order - so ours
+      // had the first two the wrong way round and was missing the third.
       return [
         ...positionRows(refId('busentry', be.uuid, i), be.at),
-        {
-          group: '',
-          name: 'Line Width',
-          kind: 'dist',
-          value: be.stroke?.width ?? 0,
-          set: (v) => {
-            const n = num(v);
-            return n === null || n < 0 ? null : withStroke({ width: n });
-          },
-        },
         {
           group: '',
           name: 'Wire Style',
@@ -1095,6 +1147,18 @@ export function schPropertiesFor(
             return k < 0 ? null : withStroke({ type: STROKE_TYPES[k]! });
           },
         },
+        {
+          group: '',
+          name: 'Line Width',
+          kind: 'dist',
+          value: be.stroke?.width ?? 0,
+          set: (v) => {
+            const n = num(v);
+            return n === null || n < 0 ? null : withStroke({ width: n });
+          },
+        },
+        // `_HKI( "Color" )`, SCH_BUS_ENTRY_BASE::SetBusEntryColor.
+        colorRow('', 'Color', be.stroke?.color, (c) => withStroke({ color: c })),
       ];
     }
     // SCH_BITMAP's editable property is its scale; the position comes from the
@@ -1155,14 +1219,6 @@ export function schPropertiesFor(
        * schematic shape gets `Fill` — the FILL_T enum — instead.
        */
       const G = 'Shape Properties';
-      /** A stored colour as the swatch wants it; UNSPECIFIED reads empty. */
-      const cssOf = (c: readonly [number, number, number, number] | undefined): string =>
-        c && c[3] > 0 ? rgb8ToCss([c[0], c[1], c[2]]) : '';
-      /** `parseColor4d` gives a Color4d; the model stores the tuple. */
-      const tupleOf = (css: string): readonly [number, number, number, number] | undefined => {
-        const c = parseColor4d(css);
-        return c.a <= 0 ? undefined : [c.r, c.g, c.b, c.a];
-      };
       const isRect = g.kind === 'rectangle';
       const isCircle = g.kind === 'circle';
       const isNotPolygonOrCircle = !isCircle && g.kind !== 'polyline' && g.kind !== 'bezier';
@@ -1357,9 +1413,18 @@ export function schPropertiesFor(
         ...sheetFieldRows(sh, i),
       ];
     }
-    // SCH_TABLE's registered properties: the border and separator toggles, and
-    // the column count as a read-only fact (changing it would add or drop cells,
-    // which is SCH_EDIT_TABLE_TOOL's job rather than a grid row's).
+    /**
+     * SCH_TABLE_DESC (sch_table.cpp) registers twelve properties, in this
+     * order: Start X, Start Y, External Border, Header Border, Border Width,
+     * Border Style, Border Color, Row Separators, Cell Separators, Separators
+     * Width, Separators Style, Separators Color.
+     *
+     * Ours had four of them plus two rows that are not properties at all -
+     * `Columns` and `Rows`, invented here. A wxPropertyGrid shows what the
+     * property manager registered and nothing else, so they are gone: the
+     * column and row counts are changed by SCH_EDIT_TABLE_TOOL, never typed
+     * into a grid cell.
+     */
     case 'table': {
       const i = indexOf(sch.tables, (t, k) => refId('table', t.uuid, k));
       if (i < 0) return [];
@@ -1375,13 +1440,83 @@ export function schPropertiesFor(
         value,
         set: (v) => replaceTable(i, { ...t, ...set(!!v) }),
       });
+      /** The table's own origin is its first cell's start (SCH_TABLE::GetPosition). */
+      const origin = t.cells[0]?.start ?? { x: 0, y: 0 };
+      const coord = (name: string, axis: 'x' | 'y'): PropRow => ({
+        group: '',
+        name,
+        kind: 'coord',
+        value: origin[axis],
+        set: (v) => {
+          const n = num(v);
+          if (n === null) return null;
+          const d = n - origin[axis];
+          return d === 0
+            ? null
+            : moveItems(new Set([refId('table', t.uuid, i)]), {
+                x: axis === 'x' ? d : 0,
+                y: axis === 'y' ? d : 0,
+              });
+        },
+      });
+      /** Both strokes are edited the same way, so say it once. */
+      const strokeRows = (
+        label: 'Border' | 'Separators',
+        stroke: Stroke | undefined,
+        put: (p: Partial<Stroke>) => EditCommand,
+      ): PropRow[] => {
+        const cur = stroke?.type ?? 'default';
+        return [
+          {
+            group: '',
+            name: `${label} Width`,
+            kind: 'dist',
+            value: stroke?.width ?? 0,
+            set: (v) => {
+              const n = num(v);
+              return n === null || n < 0 ? null : put({ width: n });
+            },
+          },
+          {
+            group: '',
+            name: `${label} Style`,
+            kind: 'choice',
+            // A table's borders take LINE_STYLE, not WIRE_STYLE - there is no
+            // "Default" entry on either of these two.
+            choices: LINE_STYLES,
+            value:
+              LINE_STYLES[
+                Math.max(0, STROKE_TYPES.slice(1).indexOf(cur as (typeof STROKE_TYPES)[number]))
+              ]!,
+            set: (v) => {
+              const k = (LINE_STYLES as readonly string[]).indexOf(String(v));
+              return k < 0 ? null : put({ type: STROKE_TYPES.slice(1)[k]! });
+            },
+          },
+          colorRow('', `${label} Color`, stroke?.color, (c) => put({ color: c })),
+        ];
+      };
+      const putBorder = (p: Partial<Stroke>): EditCommand =>
+        replaceTable(i, {
+          ...t,
+          borderStroke: { width: 0, type: 'default', ...t.borderStroke, ...p },
+        });
+      const putSeparators = (p: Partial<Stroke>): EditCommand =>
+        replaceTable(i, {
+          ...t,
+          separatorsStroke: { width: 0, type: 'default', ...t.separatorsStroke, ...p },
+        });
       return [
-        { group: '', name: 'Columns', kind: 'int', value: t.columnCount },
-        { group: '', name: 'Rows', kind: 'int', value: t.rowHeights.length },
+        coord('Start X', 'x'),
+        coord('Start Y', 'y'),
         flag('External Border', t.borderExternal, (v) => ({ borderExternal: v })),
         flag('Header Border', t.borderHeader, (v) => ({ borderHeader: v })),
+        ...strokeRows('Border', t.borderStroke, putBorder),
         flag('Row Separators', t.separatorRows, (v) => ({ separatorRows: v })),
-        flag('Column Separators', t.separatorCols, (v) => ({ separatorCols: v })),
+        // `_HKI( "Cell Separators" )` - upstream's name for the column ones,
+        // which we had as "Column Separators".
+        flag('Cell Separators', t.separatorCols, (v) => ({ separatorCols: v })),
+        ...strokeRows('Separators', t.separatorsStroke, putSeparators),
       ];
     }
     // A sheet pin is a SCH_HIERLABEL living on a sheet, so it offers the same
