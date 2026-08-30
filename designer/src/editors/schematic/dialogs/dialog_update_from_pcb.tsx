@@ -103,7 +103,7 @@ export function DialogUpdateFromPcb({
     <div className="ze-modal-backdrop" onMouseDown={onClose}>
       <div
         className="ze-modal"
-        style={{ width: 620, maxWidth: '95vw' }}
+        
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="ze-modal-header">

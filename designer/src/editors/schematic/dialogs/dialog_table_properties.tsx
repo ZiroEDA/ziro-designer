@@ -206,7 +206,7 @@ export function DialogTableProperties({
           squeezed into it. The grid is the only thing that scrolls. */}
       <div
         className="ze-modal ze-label-dialog"
-        style={{ width: 1080, maxWidth: '96vw', height: 'auto', maxHeight: '88vh' }}
+        
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="ze-modal-header">

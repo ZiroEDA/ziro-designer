@@ -128,7 +128,7 @@ export function DialogCreateNetChain({
     <div className="ze-modal-backdrop" onMouseDown={onClose}>
       <div
         className="ze-modal"
-        style={{ width: 640, maxWidth: '94vw' }}
+        
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="ze-modal-header">

@@ -38,7 +38,7 @@ export function DialogAssignNetclass({ patterns, netClasses, onOk, onCancel }: P
     <div className="ze-modal-backdrop" onMouseDown={onCancel}>
       <div
         className="ze-modal"
-        style={{ width: 420, maxWidth: '94vw' }}
+        
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="ze-modal-header">

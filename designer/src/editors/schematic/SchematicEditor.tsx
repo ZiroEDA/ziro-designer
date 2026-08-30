@@ -9107,7 +9107,7 @@ export function SchematicEditor({
               <div className="ze-modal-backdrop" onMouseDown={() => setChainRename(null)}>
                 <div
                   className="ze-modal"
-                  style={{ width: 360 }}
+                  
                   onMouseDown={(e) => e.stopPropagation()}
                 >
                   <div className="ze-modal-header">

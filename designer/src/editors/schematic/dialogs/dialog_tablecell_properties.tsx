@@ -147,7 +147,7 @@ export function DialogTableCellProperties({
     <div className="ze-modal-backdrop" onMouseDown={onCancel}>
       <div
         className="ze-modal"
-        style={{ width: 460, maxWidth: '96vw' }}
+        
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="ze-modal-header">

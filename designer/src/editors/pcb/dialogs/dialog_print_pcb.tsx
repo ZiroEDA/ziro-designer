@@ -355,7 +355,7 @@ export function DialogPcbPrint({ board, drawOpts, onClose }: Props): JSX.Element
     <div className="ze-modal-backdrop" onMouseDown={saveAndClose}>
       <div
         className="ze-modal"
-        style={{ width: 720, maxWidth: '96vw', height: 'auto' }}
+        
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="ze-modal-header">

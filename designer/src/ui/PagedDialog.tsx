@@ -147,16 +147,6 @@ export function PagedDialog({
     <div className="ze-modal-backdrop" onMouseDown={onCancel}>
       <div
         className="ze-modal ze-paged-dialog"
-        style={{
-          width: size.width,
-          height: size.height,
-          minWidth: 600,
-          minHeight: 500,
-          maxWidth: '96vw',
-          maxHeight: '92vh',
-          resize: 'both',
-          overflow: 'hidden',
-        }}
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="ze-modal-header">

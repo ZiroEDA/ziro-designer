@@ -667,7 +667,7 @@ export function PanelPcbStackup({ value, onChange, finish }: Props): JSX.Element
         >
           <div
             className="ze-modal"
-            style={{ width: 340, height: 'auto' }}
+            
             onMouseDown={(e) => e.stopPropagation()}
           >
             <div className="ze-modal-header">
@@ -724,7 +724,7 @@ export function PanelPcbStackup({ value, onChange, finish }: Props): JSX.Element
         >
           <div
             className="ze-modal"
-            style={{ width: 380, height: 'auto' }}
+            
             onMouseDown={(e) => e.stopPropagation()}
           >
             <div className="ze-modal-header">

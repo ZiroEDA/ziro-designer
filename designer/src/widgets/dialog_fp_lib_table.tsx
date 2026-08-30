@@ -95,7 +95,7 @@ export function DialogFpLibTable({
     <div className="ze-modal-backdrop" onMouseDown={onClose}>
       <div
         className="ze-modal"
-        style={{ width: 900, maxWidth: '94vw', height: 560, maxHeight: '90vh' }}
+        
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="ze-modal-header">

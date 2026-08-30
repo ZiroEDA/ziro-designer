@@ -384,7 +384,7 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // `DoGetBestSize`, so the button is 16 + 5*2 square and the separator
   // 0 + 5*2 wide, both [data] against that formula, and the separator's own
   // margin and the Link box's `min-width: 0` went away.
-  ui: { colours: 245, metrics: 749 },
+  ui: { colours: 245, metrics: 742 },
   // colours 6 -> 7: the opacity slider's #55585d track arrived here with
   // APPEARANCE_CONTROLS; it is the same literal `editors/pcb` lost, not a new
   // one. The panel's own stylesheet adds none: every length in
@@ -412,7 +412,7 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // The swatch the pcbnew adoption added states no unmarked length either:
   // --pgrid-swatch-width is a token declaration, and the one `margin: 1px 0`
   // is a 1px the scanner does not count.
-  widgets: { colours: 7, metrics: 46 },
+  widgets: { colours: 7, metrics: 44 },
 };
 
 /** Properties whose value the GTK theme decides, so a px in one is drift. */
@@ -729,7 +729,12 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // 1554 -> 1548: `ui` 755 -> 749, the dialogs' button, separator, entry,
     // width, text-box and link literals replaced by the wx measurements or the
     // base file's own numbers, or removed. See that row for the arithmetic.
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1548);
+    // 1548 -> 1539: `ui` 749 -> 742 and `widgets` 46 -> 44, the whole-app sweep
+    // of picked dialog sizes. Twenty-five call sites stated a width or a height
+    // on a `.ze-modal` that no base file names, and several restated the
+    // `max-width`/`max-height` caps `.ze-modal` already carries. The two rows
+    // move by 7 and 2, and 1548 - 9 agrees with them.
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1539);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {

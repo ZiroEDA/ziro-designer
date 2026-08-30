@@ -83,7 +83,7 @@ export function PanelPcbLayers({ value, onChange }: Props): JSX.Element {
         >
           <div
             className="ze-modal"
-            style={{ width: 280, height: 'auto' }}
+            
             onMouseDown={(e) => e.stopPropagation()}
           >
             <div className="ze-modal-header">

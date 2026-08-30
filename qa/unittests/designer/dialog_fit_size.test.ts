@@ -125,8 +125,22 @@ describe('the pile of hand-picked dialog sizes does not grow', () => {
   // merged component states no size, exactly as `bMainSizer->Fit( this )` and
   // `GetSizer()->SetSizeHints( this )` leave it (dialog_page_settings_base.cpp:
   // 403-405, dialog_page_settings.cpp:192).
-  it('29 call sites still name their own size', () => {
-    expect(inlineSized()).toHaveLength(29);
+  it('1 call site still names its own size', () => {
+    // 29 -> 1. The same sweep as the shell.css block below, at the call sites:
+    // twenty-five files stated a width or a height inline on a `.ze-modal`,
+    // and several also restated the `max-width` / `max-height` caps that
+    // `.ze-modal` already carries centrally — which is the duplication, not
+    // just the number.
+    //
+    // Two were real and were NOT removed. `dialog_assign_footprints` takes its
+    // size from `FRAME_SIZE`, which is `EDA_BASE_FRAME::defaultSize`'s
+    // `FromDIP( wxSize( 1280, 720 ) )` for a cvpcb frame — a cited constant,
+    // not a pick, and `cvpcb_window_metrics` catches its loss. And PAGED_DIALOG
+    // states a RANGE upstream (paged_dialog.cpp:427-443): floored at 600 x 500,
+    // capped at 1500 x 900. That moved out of the call site into
+    // `.ze-modal.ze-paged-dialog`, where the ceiling — which we did not have at
+    // all — now sits beside the floor.
+    expect(inlineSized()).toHaveLength(1);
   });
 
   it('4 shell.css variants still name their own size', () => {

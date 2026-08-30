@@ -6795,6 +6795,31 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   margin-left: 80px;
 }
 
+/* PAGED_DIALOG — the shell Preferences, Schematic Setup and Board Setup all
+   sit in. Its size really is stated upstream, and as a RANGE rather than a
+   pick (`common/widgets/paged_dialog.cpp:427-443`):
+
+       SetMinSize( wxDefaultSize );
+       minSize.IncTo( FromDIP( wxSize(  600, 500 ) ) );
+       minSize.DecTo( FromDIP( wxSize( 1500, 900 ) ) );   // Failsafe
+       SetMinSize( minSize );
+
+   so the dialog is fitted to its content, floored at 600 x 500 and capped at
+   1500 x 900. The floor was inline at the call site with no citation and the
+   ceiling was missing entirely. */
+.ze-modal.ze-paged-dialog {
+  /* [data] `minSize.IncTo( FromDIP( wxSize( 600, 500 ) ) )`. */
+  min-width: 600px;
+  /* [data] the same call. */
+  min-height: 500px;
+  /* [data] `minSize.DecTo( FromDIP( wxSize( 1500, 900 ) ) )`, the failsafe. */
+  max-width: 1500px;
+  /* [data] the same call. */
+  max-height: 900px;
+  resize: both;
+  overflow: hidden;
+}
+
 /* Symbol Properties dialog (KiCad DIALOG_SYMBOL_PROPERTIES).
    No width: its base file is `SetSizeHints( wxDefaultSize, wxDefaultSize )`,
    so the dialog is as wide as its content. */

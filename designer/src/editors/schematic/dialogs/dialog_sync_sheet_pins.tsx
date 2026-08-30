@@ -229,7 +229,7 @@ export function DialogSyncSheetPins({
     <div className="ze-modal-backdrop" onMouseDown={onClose}>
       <div
         className="ze-modal"
-        style={{ width: 960, maxWidth: '96vw' }}
+        
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="ze-modal-header">

@@ -41,7 +41,7 @@ export function DialogPasteSpecial({ annotateAutomatic, onOk, onCancel }: Props)
     <div className="ze-modal-backdrop" onMouseDown={onCancel}>
       <div
         className="ze-modal"
-        style={{ width: 440, maxWidth: '94vw' }}
+        
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="ze-modal-header">

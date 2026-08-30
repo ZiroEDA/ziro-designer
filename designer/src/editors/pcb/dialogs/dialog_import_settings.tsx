@@ -123,7 +123,7 @@ export function DialogImportSettings({ onImport, onClose }: Props): JSX.Element 
     <div className="ze-modal-backdrop" onMouseDown={onClose} style={{ zIndex: 60 }}>
       <div
         className="ze-modal"
-        style={{ width: 460, maxWidth: '94vw', height: 'auto' }}
+        
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="ze-modal-header">

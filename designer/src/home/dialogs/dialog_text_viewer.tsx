@@ -25,7 +25,6 @@ export function TextViewerDialog({
     <div className="ze-modal-backdrop" onMouseDown={onClose}>
       <div
         className="ze-modal"
-        style={{ width: 'min(760px, 92vw)' }}
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="ze-modal-header">

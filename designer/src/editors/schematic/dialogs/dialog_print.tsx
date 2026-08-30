@@ -96,7 +96,7 @@ export function DialogPrint({ onPrint, onPreview, themeId, onClose }: Props): JS
     <div className="ze-modal-backdrop" onMouseDown={saveAndClose}>
       <div
         className="ze-modal"
-        style={{ width: 430, maxWidth: '92vw', height: 'auto' }}
+        
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="ze-modal-header">

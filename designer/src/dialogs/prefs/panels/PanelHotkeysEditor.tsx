@@ -105,7 +105,7 @@ function HotkeyPrompt({
     <div className="ze-modal-backdrop" onMouseDown={onCancel}>
       <div
         className="ze-modal"
-        style={{ width: 380, maxWidth: '92vw' }}
+        
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="ze-modal-header">Set Hotkey</div>
@@ -392,7 +392,7 @@ export function PanelHotkeysEditor({
         <div className="ze-modal-backdrop" onMouseDown={() => setError(null)}>
           <div
             className="ze-modal"
-            style={{ width: 400, maxWidth: '92vw' }}
+            
             onMouseDown={(e) => e.stopPropagation()}
           >
             <div className="ze-modal-header">Hotkeys</div>
@@ -409,7 +409,7 @@ export function PanelHotkeysEditor({
         <div className="ze-modal-backdrop" onMouseDown={() => setConflict(null)}>
           <div
             className="ze-modal"
-            style={{ width: 420, maxWidth: '92vw' }}
+            
             onMouseDown={(e) => e.stopPropagation()}
           >
             <div className="ze-modal-header">Hotkey conflict</div>
