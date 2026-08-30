@@ -169,6 +169,10 @@ import {
   runErcSteps,
   ERC_ITEMS,
   ercExclusionKey,
+  type LibPin,
+  ercParentId,
+  electricalPinTypeGetText,
+  pinShapeGetText,
   canMerge,
   canUnmerge,
   resolveCell,
@@ -5080,7 +5084,9 @@ export function SchematicEditor({
       }
       if (itemId) {
         setErcFocusedMarker(null);
-        setSelection(new Set([itemId]));
+        // A marker's item may be a PIN (`<symId>:pin<k>`); the editor selects
+        // its parent symbol, which is what upstream highlights too.
+        setSelection(new Set([ercParentId(itemId)]));
       } else {
         setSelection(new Set());
         setErcFocusedMarker(ercExclusionKey(v));
@@ -5113,6 +5119,58 @@ export function SchematicEditor({
         target.sheets,
         target.busEntries,
       ];
+      // A marker's item may be a PIN, `<symId>:pin<k>`, and upstream names the
+      // pin rather than the symbol it is on:
+      //
+      //   SCH_PIN::GetItemDescription   "Symbol %s %s"  (sch_pin.cpp:1721)
+      //   SCH_PIN::getItemDescription   "Pin %s [%s, %s, %s]" with a name,
+      //                                 "Pin %s [%s, %s]" without   (:1729-1750)
+      //
+      // so KiCad reads `Symbol #PWR01 Pin 1 [Power input, Line]` where this
+      // fell through to the parent symbol and read `Symbol #PWR1 [GND]`.
+      const pinAt = id.lastIndexOf(':pin');
+      if (pinAt !== -1) {
+        const symId = id.slice(0, pinAt);
+        const pinIdx = Number(id.slice(pinAt + 4));
+        for (let i = 0; i < target.symbols.length; i++) {
+          const sym = target.symbols[i]!;
+          if (refId('symbol', sym.uuid, i) !== symId) continue;
+          const lib = target.libSymbols.find((l) => l.libId === schSymbolLibraryName(sym));
+          const ref = sym.fields.find((f) => f.key === 'Reference')?.value ?? '';
+          // The same walk `enumeratePins` uses (nets.ts:345-352) — the unit and
+          // body-style filter included — so `k` here is the k that built the id.
+          let pin: LibPin | undefined;
+          if (lib) {
+            let k = 0;
+            outer: for (const u of lib.units) {
+              if (
+                (u.unit !== 0 && u.unit !== sym.unit) ||
+                (u.bodyStyle !== 0 && u.bodyStyle !== sym.bodyStyle)
+              )
+                continue;
+              for (const q of u.pins) {
+                if (k === pinIdx) {
+                  pin = q;
+                  break outer;
+                }
+                k++;
+              }
+            }
+          }
+          if (!pin) return `Symbol ${ref}`;
+          // `UnescapeString( GetShownName() )` — an empty name is "~" upstream
+          // and prints as nothing.
+          const name = pin.name === '~' ? '' : pin.name;
+          const type = electricalPinTypeGetText(pin.electricalType);
+          const shape = pinShapeGetText(pin.shape);
+          const desc = name
+            ? `Pin ${pin.number} [${name}, ${type}, ${shape}]`
+            : `Pin ${pin.number} [${type}, ${shape}]`;
+          return `Symbol ${ref} ${desc}`;
+        }
+        return id;
+      }
+
       for (let k = 0; k < kinds.length; k++) {
         const kind = kinds[k]!;
         const arr = arrays[k]!;
