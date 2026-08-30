@@ -223,6 +223,12 @@
    (dialog_field_properties_base.cpp:277-286), and RenderToDC itself draws with
    *wxTRANSPARENT_PEN (color_swatch.cpp:72) — which `.ze-swatch.large` already
    states, so there is no border rule to write here either. */
+/* Beats `.ze-swatch.large`, which is (0,2,0) and states a 48 x 36 — a size for
+   a DIALOG's swatch, and 36 px inside a row `--pgrid-row-height` tall is what
+   made this spill over its neighbours. `.ze-pgrid-colorcell` alone is (0,1,0)
+   and lost the tie regardless of which stylesheet loaded last, which is why
+   insetting it by a pixel changed nothing. */
+.ze-pgrid-value .ze-swatch.ze-pgrid-colorcell,
 .ze-pgrid-colorcell {
   flex: 1 1 auto;
   width: auto;

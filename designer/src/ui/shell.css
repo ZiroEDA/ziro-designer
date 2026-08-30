@@ -11026,6 +11026,14 @@ textarea.ze-ds-textedit {
   /* [data] wxLEFT 3 between the entry and its units. */
   gap: 3px;
 }
+/* `bSizer7->Add( m_panelBorderColor, 0, wxALIGN_CENTER_VERTICAL, 5 )` —
+   proportion ZERO, so the swatch keeps its own size and the row's slack goes
+   nowhere. As a bare flex child it stretched to fill the line, which is why the
+   border colour spread while the fill colour — in a grid cell, not a flex row —
+   stayed the right size. */
+.ze-shapeprops-widthrow > .ze-swatch {
+  flex: 0 0 auto;
+}
 .ze-shapeprops-colorlbl {
   white-space: nowrap;
   /* [data] `bSizer7->Add( m_borderColorLabel, 0, ...|wxLEFT, 15 )`. */
