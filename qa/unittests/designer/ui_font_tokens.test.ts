@@ -332,7 +332,7 @@ const BASELINE: Record<string, number> = {
   // sets, not from the window's SetFont. Measured against the real dialog it
   // renders at the GUI font — so it inherits, and the count is unaffected
   // either way because a var() is not a hardcoded size.
-  ui: 116,
+  ui: 106,
   widgets: 6,
 };
 
@@ -527,7 +527,18 @@ describe('hardcoded font sizes do not grow', () => {
     // 322 -> 320: `ui` 118 -> 116, the Annotate dialog's legend (12px) and its
     // label rows (13px). A wxStaticBox label and a wxCheckBox label take the
     // dialog's own font; KiCad sets none here.
-    expect(sites.length).toBe(320);
+    // 320 -> 310: `ui` 116 -> 106, the ERC dialog. Twelve rules there stated
+    // their own size — the rows, the sub-rows, the footer, the tabs, the link,
+    // the progress line, the empty-state text, the position and the exclusion
+    // note — all between 10 and 13 px against the dialog's own 11 pt / 14.67 px,
+    // which is why the whole dialog read smaller than KiCad's.
+    //
+    // Two survive because upstream really does state them, and both are now
+    // cited rather than bare: the severity badge is a NUMBER_BADGE, which draws
+    // with `wxFont( m_textSize, ... )` at its default `m_textSize( 10 )` — a
+    // POINT size, and DIALOG_ERC never calls SetTextSize — and the tree's
+    // expander is a glyph the theme sizes, not the row's font.
+    expect(sites.length).toBe(310);
   });
 });
 

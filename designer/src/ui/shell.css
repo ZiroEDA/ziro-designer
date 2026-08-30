@@ -4607,7 +4607,11 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   min-width: 0;
 }
 .ze-loading-detail {
-  font-size: 11px;
+  /* [data] `NUMBER_BADGE`'s `m_textSize( 10 )` (number_badge.cpp:33) — a POINT
+     size, drawn with `wxFont( m_textSize, ... )` at :141. DIALOG_ERC never
+     calls SetTextSize, so it keeps the default. This said 11px, which is
+     smaller than the 10pt it is meant to be. */
+  font-size: 10pt;
   color: #aaa;
 }
 .ze-progress-track {
@@ -7664,7 +7668,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 }
 .ze-erc-subrow {
   padding: 1px 12px 1px 34px;
-  font-size: 12px;
   color: #b6b8bb;
   white-space: nowrap;
   overflow: hidden;
@@ -7686,7 +7689,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
    (m_messages + m_gauge). */
 .ze-erc-progress-line {
   padding: 2px 12px;
-  font-size: 12px;
   color: #b6b8bb;
 }
 .ze-erc-gauge {
@@ -7707,6 +7709,9 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   flex: 0 0 auto;
   width: 12px;
   color: #9a9ca0;
+  /* The tree's expander glyph, not text: wxDataViewCtrl draws it at a size the
+     theme gives, independent of the row's font. [art] ours is a character, so
+     this is the glyph's size and not a font choice of the dialog's. */
   font-size: 10px;
 }
 .ze-erc-row .msg {
@@ -7749,14 +7754,12 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-erc-empty {
   padding: 14px;
   color: #9a9ca0;
-  font-size: 13px;
 }
 .ze-erc-row {
   display: flex;
   gap: 8px;
   align-items: baseline;
   padding: 4px 12px;
-  font-size: 12.5px;
   cursor: default;
   line-height: 1.35;
 }
@@ -7778,7 +7781,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   align-items: center;
   padding: 8px 12px;
   border-top: 1px solid var(--chrome-border);
-  font-size: 12.5px;
 }
 .ze-erc-footer .tally.err {
   color: #e6090d;
@@ -7804,7 +7806,11 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   padding: 1px 6px;
   border-radius: 9px;
   text-align: center;
-  font-size: 11px;
+  /* [data] `NUMBER_BADGE`'s `m_textSize( 10 )` (number_badge.cpp:33), a POINT
+     size — it draws with `wxFont( m_textSize, ... )` (:141) and DIALOG_ERC never
+     calls SetTextSize, so it keeps the default. This said 11px, which is
+     smaller than the 10pt it should be. */
+  font-size: 10pt;
 }
 .ze-erc-footer .badge.err {
   background: #f04040; /* [data] IsDarkTheme() ? wxColour( 240, 64, 64 ) : *wxRED */
@@ -7832,7 +7838,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 }
 .ze-erc-tabs .tab {
   padding: 5px 12px;
-  font-size: 12.5px;
   cursor: default;
   border: 1px solid transparent;
   border-bottom: none;
@@ -7867,7 +7872,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 }
 .ze-erc-tabs.compact .tab {
   padding: 4px 8px;
-  font-size: 12px;
 }
 
 .ze-erc-tabs .tab.active {
@@ -7886,7 +7890,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 }
 .ze-erc-row .ze-erc-exclude {
   flex: 0 0 auto;
-  font-size: 10.5px;
   padding: 1px 6px;
   border: 1px solid var(--chrome-border);
   border-radius: 3px;
@@ -7905,7 +7908,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-erc-row .pos {
   margin-left: 8px;
   color: #9a9ca0;
-  font-size: 11.5px;
 }
 .ze-erc-row.selected .pos {
   color: #d9dbde;
@@ -7913,7 +7915,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-erc-link {
   display: block;
   padding: 6px 12px;
-  font-size: 12.5px;
   color: #6ea8fe;
   cursor: default;
   text-decoration: underline;
