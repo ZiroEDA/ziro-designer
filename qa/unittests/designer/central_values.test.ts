@@ -384,7 +384,7 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // `DoGetBestSize`, so the button is 16 + 5*2 square and the separator
   // 0 + 5*2 wide, both [data] against that formula, and the separator's own
   // margin and the Link box's `min-width: 0` went away.
-  ui: { colours: 245, metrics: 742 },
+  ui: { colours: 244, metrics: 741 },
   // colours 6 -> 7: the opacity slider's #55585d track arrived here with
   // APPEARANCE_CONTROLS; it is the same literal `editors/pcb` lost, not a new
   // one. The panel's own stylesheet adds none: every length in
@@ -679,7 +679,12 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // fallback to a colour that appears nowhere in KiCad — for the report
     // panel's own `#F04040` (wx_html_report_panel.cpp:181), which is [data]
     // and lives in shell.css. One row moves and 624 - 1 agrees with it.
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(623);
+    // 623 -> 622: `ui` 245 -> 244. The ERC marker tree drew its own expander —
+    // a raw "⌄" glyph in a `.tri` span with its own colour — where `.twisty`,
+    // the shared disclosure chevron, already exists precisely so "every
+    // tree-ish expander in the app is the same mark". The local rule and its
+    // colour are gone.
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(622);
     // 1657 -> 1649: the same sweep. A native colour input has no useful
     // default size, so eight of the sixteen sites gave theirs an inline
     // width and height; the shared swatch takes --swatch-*-w/h. Rescanned.
@@ -734,7 +739,13 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // on a `.ze-modal` that no base file names, and several restated the
     // `max-width`/`max-height` caps `.ze-modal` already carries. The two rows
     // move by 7 and 2, and 1548 - 9 agrees with them.
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1539);
+    // 1539 -> 1538: `ui` 742 -> 741. The ERC panel's picked 700 x 520 and the
+    // 480 x 320 floor beneath it are gone — `dialog_erc_base.cpp:18` is
+    // `SetSizeHints( wxDefaultSize, wxDefaultSize )` — and the one minimum its
+    // content really states, the marker tree's `SetMinSize( wxSize( 640, 260 ) )`,
+    // now carries BOTH halves where we had only the height. Four literals out,
+    // one in.
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1538);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {

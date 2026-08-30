@@ -332,7 +332,7 @@ const BASELINE: Record<string, number> = {
   // sets, not from the window's SetFont. Measured against the real dialog it
   // renders at the GUI font — so it inherits, and the count is unaffected
   // either way because a var() is not a hardcoded size.
-  ui: 106,
+  ui: 105,
   widgets: 6,
 };
 
@@ -538,7 +538,10 @@ describe('hardcoded font sizes do not grow', () => {
     // with `wxFont( m_textSize, ... )` at its default `m_textSize( 10 )` — a
     // POINT size, and DIALOG_ERC never calls SetTextSize — and the tree's
     // expander is a glyph the theme sizes, not the row's font.
-    expect(sites.length).toBe(310);
+    // 310 -> 309: the ERC marker tree's expander glyph. It drew a raw "⌄" in a
+    // span sized by a font, where `.twisty` — the shared disclosure chevron —
+    // draws GTK's expander from measured borders and needs no font at all.
+    expect(sites.length).toBe(309);
   });
 });
 

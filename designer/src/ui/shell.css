@@ -7704,16 +7704,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   background: var(--chrome-active);
   transition: width 80ms linear;
 }
-/* The marker tree's expander glyph on a heading row. */
-.ze-erc-row .tri {
-  flex: 0 0 auto;
-  width: 12px;
-  color: #9a9ca0;
-  /* The tree's expander glyph, not text: wxDataViewCtrl draws it at a size the
-     theme gives, independent of the row's font. [art] ours is a character, so
-     this is the glyph's size and not a font choice of the dialog's. */
-  font-size: 10px;
-}
 .ze-erc-row .msg {
   font-weight: 600;
 }
@@ -7748,8 +7738,12 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   flex: 1;
   overflow: auto;
   padding: 6px 0;
-  /* m_markerDataView->SetMinSize( wxSize( 640, 260 ) ) */
+  /* [data] `m_markerDataView->SetMinSize( wxSize( 640, 260 ) )`,
+     dialog_erc_base.cpp:95. */
   min-height: 260px;
+  /* [data] the same call — the WIDTH half, which we did not have, and which is
+     what should set the dialog's width rather than a number on the panel. */
+  min-width: 640px;
 }
 .ze-erc-empty {
   padding: 14px;
