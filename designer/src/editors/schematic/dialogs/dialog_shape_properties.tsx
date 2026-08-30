@@ -16,7 +16,7 @@
  * "use the schematic default width".
  */
 import { useState, type JSX } from 'react';
-import { iuToMM, mmToIU } from '@ziroeda/common';
+import { FILL_MODE_NAMES, FILL_MODE_TOKENS, iuToMM, mmToIU } from '@ziroeda/common';
 import { ColorSwatch } from '../../../ui/ColorSwatch.js';
 import { color4dToItemColor, type ItemColor, itemColorToColor4d } from './item_color.js';
 import {
@@ -40,23 +40,11 @@ import { Combo } from '../../../ui/Combo.js';
  */
 /**
  * `m_fillCtrlChoices` on the SCHEMATIC page of `m_fillBook`
- * (dialog_shape_properties_base.cpp:149):
- *
- *     { _("None"), _("Solid"), _("Hatch"), _("Reverse Hatch"), _("Cross-hatch") }
- *
- * `m_fillBook` is a wxSimplebook with two pages, and the other one — the symbol
- * editor's — is a column of RADIO buttons labelled "Do not fill", "Fill with
- * body outline color", "Fill with body background color", "Fill with:". This
- * list had those labels in a schematic dropdown: the wrong page's words in the
- * right page's control.
+ * (dialog_shape_properties_base.cpp:149) — the same five `FILL_T` entries the
+ * properties panel's `_HKI( "Fill" )` enum offers, so they live in
+ * `common/eda_shape.ts` and both read them from there.
  */
-const FILL_MODES: { value: string; label: string }[] = [
-  { value: 'none', label: 'None' },
-  { value: 'color', label: 'Solid' },
-  { value: 'hatch', label: 'Hatch' },
-  { value: 'reverse_hatch', label: 'Reverse Hatch' },
-  { value: 'cross_hatch', label: 'Cross-hatch' },
-];
+const FILL_MODES = FILL_MODE_TOKENS.map((value, k) => ({ value, label: FILL_MODE_NAMES[k]! }));
 
 export interface ShapePropsResult {
   /** false = no border at all (KiCad stores width -1). */

@@ -21,7 +21,7 @@ import type {
   TextEffects,
   Vec2,
 } from '../types.js';
-import { parseColor4d, rgb8ToCss } from '@ziroeda/common';
+import { FILL_MODE_NAMES, FILL_MODE_TOKENS, parseColor4d, rgb8ToCss } from '@ziroeda/common';
 import type { EditCommand } from './command.js';
 import { refId, type ItemRef } from './hittest.js';
 import {
@@ -1132,9 +1132,149 @@ export function schPropertiesFor(
       const cur = g.stroke?.type ?? 'solid';
       const setStroke = (p: Partial<Stroke>): EditCommand =>
         replaceGraphic(i, { ...g, stroke: { width: 0, type: 'solid', ...g.stroke, ...p } });
+      /**
+       * `EDA_SHAPE`'s own properties, in its order and under its group
+       * (common/eda_shape.cpp:2884-2960):
+       *
+       *   Shape, Start X, Start Y, Center X, Center Y, Radius, End X, End Y,
+       *   Width, Height, Corner Radius, Line Width, Line Style, Line Color,
+       *   Angle, Fill, Fill Color        — group _HKI( "Shape Properties" )
+       *
+       * with three availability functions deciding which a given shape shows:
+       *
+       *   Start/End X,Y      isNotPolygonOrCircle
+       *   Center X,Y Radius  isCircle
+       *   W, H, Corner Rad   isRectangle
+       *
+       * We showed three rows — Line Width, Line Style and a "Filled" checkbox —
+       * under the default group, so a rectangle offered nothing about where it
+       * is or how big, and its group read "Basic Properties".
+       *
+       * `Filled` is not one of these: `SCH_SHAPE` overrides it to be available
+       * only on a LIBRARY shape (`isSchematicItem`, sch_shape.cpp:604-610). A
+       * schematic shape gets `Fill` — the FILL_T enum — instead.
+       */
+      const G = 'Shape Properties';
+      /** A stored colour as the swatch wants it; UNSPECIFIED reads empty. */
+      const cssOf = (c: readonly [number, number, number, number] | undefined): string =>
+        c && c[3] > 0 ? rgb8ToCss([c[0], c[1], c[2]]) : '';
+      /** `parseColor4d` gives a Color4d; the model stores the tuple. */
+      const tupleOf = (css: string): readonly [number, number, number, number] | undefined => {
+        const c = parseColor4d(css);
+        return c.a <= 0 ? undefined : [c.r, c.g, c.b, c.a];
+      };
+      const isRect = g.kind === 'rectangle';
+      const isCircle = g.kind === 'circle';
+      const isNotPolygonOrCircle = !isCircle && g.kind !== 'polyline' && g.kind !== 'bezier';
+      const fillType = g.fill?.type ?? 'none';
+      const setFill = (p: Partial<NonNullable<typeof g.fill>>): EditCommand =>
+        replaceGraphic(i, { ...g, fill: { type: 'none', ...g.fill, ...p } });
+      /** `_HKI( "Shape" )`, read-only: the shape's own name. */
+      const shapeName = g.kind.charAt(0).toUpperCase() + g.kind.slice(1);
+
       const rows: PropRow[] = [
+        { group: G, name: 'Shape', kind: 'string', value: shapeName },
+      ];
+
+      if (isNotPolygonOrCircle && 'start' in g && 'end' in g) {
+        const gs = g as typeof g & { start: Vec2; end: Vec2 };
+        const move = (nx: Partial<Vec2>, ny: Partial<Vec2>): EditCommand =>
+          replaceGraphic(i, { ...gs, start: { ...gs.start, ...nx }, end: { ...gs.end, ...ny } });
+        rows.push(
+          {
+            group: G,
+            name: 'Start X',
+            kind: 'dist',
+            value: gs.start.x,
+            set: (v) => (num(v) === null ? null : move({ x: num(v)! }, {})),
+          },
+          {
+            group: G,
+            name: 'Start Y',
+            kind: 'dist',
+            value: gs.start.y,
+            set: (v) => (num(v) === null ? null : move({ y: num(v)! }, {})),
+          },
+          {
+            group: G,
+            name: 'End X',
+            kind: 'dist',
+            value: gs.end.x,
+            set: (v) => (num(v) === null ? null : move({}, { x: num(v)! })),
+          },
+          {
+            group: G,
+            name: 'End Y',
+            kind: 'dist',
+            value: gs.end.y,
+            set: (v) => (num(v) === null ? null : move({}, { y: num(v)! })),
+          },
+        );
+        if (isRect) {
+          // Width and Height are DERIVED — `GetRectangleWidth()` is
+          // `end.x - start.x` — so setting one moves the far corner.
+          rows.push(
+            {
+              group: G,
+              name: 'Width',
+              kind: 'dist',
+              value: gs.end.x - gs.start.x,
+              set: (v) => (num(v) === null ? null : move({}, { x: gs.start.x + num(v)! })),
+            },
+            {
+              group: G,
+              name: 'Height',
+              kind: 'dist',
+              value: gs.end.y - gs.start.y,
+              set: (v) => (num(v) === null ? null : move({}, { y: gs.start.y + num(v)! })),
+            },
+            // `_HKI( "Corner Radius" )`, isRectangle. Our model has no rounded
+            // rectangle, so it reads 0 and is not editable — shown rather than
+            // hidden, because upstream shows it for every rectangle.
+            { group: G, name: 'Corner Radius', kind: 'dist', value: 0 },
+          );
+        }
+      }
+
+      if (isCircle) {
+        const gc = g as typeof g & { center: Vec2; radius: number };
+        rows.push(
+          {
+            group: G,
+            name: 'Center X',
+            kind: 'dist',
+            value: gc.center.x,
+            set: (v) =>
+              num(v) === null
+                ? null
+                : replaceGraphic(i, { ...gc, center: { ...gc.center, x: num(v)! } }),
+          },
+          {
+            group: G,
+            name: 'Center Y',
+            kind: 'dist',
+            value: gc.center.y,
+            set: (v) =>
+              num(v) === null
+                ? null
+                : replaceGraphic(i, { ...gc, center: { ...gc.center, y: num(v)! } }),
+          },
+          {
+            group: G,
+            name: 'Radius',
+            kind: 'dist',
+            value: gc.radius,
+            set: (v) => {
+              const n = num(v);
+              return n === null || n <= 0 ? null : replaceGraphic(i, { ...gc, radius: n });
+            },
+          },
+        );
+      }
+
+      rows.push(
         {
-          group: '',
+          group: G,
           name: 'Line Width',
           kind: 'dist',
           value: g.stroke?.width ?? 0,
@@ -1144,7 +1284,7 @@ export function schPropertiesFor(
           },
         },
         {
-          group: '',
+          group: G,
           name: 'Line Style',
           kind: 'choice',
           choices: LINE_STYLES,
@@ -1158,26 +1298,41 @@ export function schPropertiesFor(
           },
         },
         {
-          group: '',
-          name: 'Filled',
-          kind: 'bool',
-          value: (g.fill?.type ?? 'none') !== 'none',
-          set: (v) =>
-            replaceGraphic(i, { ...g, fill: { ...g.fill, type: v ? 'outline' : 'none' } }),
-        },
-      ];
-      if (g.kind === 'circle') {
-        rows.unshift({
-          group: '',
-          name: 'Radius',
-          kind: 'dist',
-          value: g.radius,
+          group: G,
+          name: 'Line Color',
+          kind: 'color',
+          value: cssOf(g.stroke?.color),
           set: (v) => {
-            const n = num(v);
-            return n === null || n <= 0 ? null : replaceGraphic(i, { ...g, radius: n });
+            const css = String(v).trim();
+            if (css === '') return setStroke({ color: undefined });
+            return setStroke({ color: tupleOf(css) });
           },
-        });
-      }
+        },
+        {
+          group: G,
+          // `_HKI( "Fill" )` — the FILL_T enum, not a checkbox. `Filled` is
+          // available only on a LIBRARY shape (sch_shape.cpp:604-610).
+          name: 'Fill',
+          kind: 'choice',
+          choices: [...FILL_MODE_NAMES],
+          value: FILL_MODE_NAMES[Math.max(0, FILL_MODE_TOKENS.indexOf(fillType as (typeof FILL_MODE_TOKENS)[number]))]!,
+          set: (v) => {
+            const k = (FILL_MODE_NAMES as readonly string[]).indexOf(String(v));
+            return k < 0 ? null : setFill({ type: FILL_MODE_TOKENS[k]! });
+          },
+        },
+        {
+          group: G,
+          name: 'Fill Color',
+          kind: 'color',
+          value: cssOf(g.fill?.color),
+          set: (v) => {
+            const css = String(v).trim();
+            if (css === '') return setFill({ color: undefined });
+            return setFill({ color: tupleOf(css) });
+          },
+        },
+      );
       return rows;
     }
     case 'sheet': {

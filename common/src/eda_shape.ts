@@ -41,6 +41,35 @@ function circumcenter(a: VECTOR2I, b: VECTOR2I, c: VECTOR2I): VECTOR2I {
   };
 }
 
+/**
+ * `FILL_T`, and the names the UI shows for it.
+ *
+ * `eda_shape.cpp:2884-2960` registers `_HKI( "Fill" )` as an enum property over
+ * these five, and the same five are `m_fillCtrlChoices` on the schematic page
+ * of DIALOG_SHAPE_PROPERTIES' fill book
+ * (dialog_shape_properties_base.cpp:149). One list, two consumers — which is
+ * why it lives here rather than in either of them.
+ *
+ * The tokens are the file format's; `color` is what the s-expression calls
+ * FILLED_WITH_COLOR, whose UI name is "Solid".
+ */
+export const FILL_MODE_TOKENS = [
+  'none',
+  'color',
+  'hatch',
+  'reverse_hatch',
+  'cross_hatch',
+] as const;
+
+/** `_HKI` names, in FILL_T order. */
+export const FILL_MODE_NAMES = [
+  'None',
+  'Solid',
+  'Hatch',
+  'Reverse Hatch',
+  'Cross-hatch',
+] as const;
+
 export class EDA_SHAPE {
   protected m_shape: SHAPE_T;
   protected m_start: VECTOR2I;

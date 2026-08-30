@@ -82,16 +82,60 @@ describe('a graphic shape has properties too', () => {
   const CIRCLE = `(circle (center 10 10) (radius 5)
      (stroke (width 0) (type solid)) (fill (type none)) (uuid "c-1"))`;
 
-  it('offers stroke and fill rows', () => {
+  it('offers every EDA_SHAPE property a rectangle has', () => {
+    /**
+     * `EDA_SHAPE` registers seventeen properties under `_HKI( "Shape
+     * Properties" )` (common/eda_shape.cpp:2884-2960), and three availability
+     * functions decide which a given shape shows:
+     *
+     *     Start/End X,Y       isNotPolygonOrCircle
+     *     Center X,Y, Radius  isCircle
+     *     W, H, Corner Radius isRectangle
+     *
+     * so a rectangle shows these thirteen, in this order. We used to offer
+     * three — Line Width, Line Style and a "Filled" checkbox — under the
+     * default group, so a rectangle said nothing about where it was or how big.
+     */
     expect(gRows(shapeDoc(RECT)).map((r) => r.name)).toEqual([
+      'Shape',
+      'Start X',
+      'Start Y',
+      'End X',
+      'End Y',
+      'Width',
+      'Height',
+      'Corner Radius',
       'Line Width',
       'Line Style',
-      'Filled',
+      'Line Color',
+      'Fill',
+      'Fill Color',
     ]);
   });
 
-  it('a circle gains a radius row ahead of them', () => {
-    expect(gRows(shapeDoc(CIRCLE)).map((r) => r.name)[0]).toBe('Radius');
+  it('under the group EDA_SHAPE names, not the default one', () => {
+    for (const r of gRows(shapeDoc(RECT))) expect(r.group).toBe('Shape Properties');
+  });
+
+  it('and a Fill CHOICE, since Filled is library-only', () => {
+    // `SCH_SHAPE` overrides `_HKI( "Filled" )` to `isSchematicItem`
+    // (sch_shape.cpp:604-610) — it is available on a LIBRARY shape. A schematic
+    // shape gets the FILL_T enum instead, which is why this is a choice.
+    const row = gRows(shapeDoc(RECT)).find((r) => r.name === 'Fill')!;
+    expect(row.kind).toBe('choice');
+    expect(row.choices).toEqual(['None', 'Solid', 'Hatch', 'Reverse Hatch', 'Cross-hatch']);
+    expect(gRows(shapeDoc(RECT)).some((r) => r.name === 'Filled')).toBe(false);
+  });
+
+  it('a circle gets Center X, Center Y and Radius instead of Start/End', () => {
+    // `SetAvailableFunc( isCircle )` on those three, and
+    // `isNotPolygonOrCircle` on Start/End.
+    const names = gRows(shapeDoc(CIRCLE)).map((r) => r.name);
+    expect(names).toContain('Center X');
+    expect(names).toContain('Center Y');
+    expect(names).toContain('Radius');
+    expect(names).not.toContain('Start X');
+    expect(names).not.toContain('Width');
   });
 
   it('drops the Default style choice a wire keeps', () => {
@@ -103,12 +147,14 @@ describe('a graphic shape has properties too', () => {
 
   it('toggles the fill through replaceGraphic', () => {
     const d = shapeDoc(RECT);
-    const row = gRows(d).find((r) => r.name === 'Filled')!;
-    expect(row.value).toBe(false);
-    const after = row.set!(true)!.apply(d);
+    const row = gRows(d).find((r) => r.name === 'Fill')!;
+    expect(row.value).toBe('None');
+    // A choice takes its LABEL, not a boolean: `_HKI( "Fill" )` is the FILL_T
+    // enum, and "Solid" is FILLED_WITH_COLOR, whose token is `color`.
+    const after = row.set!('Solid')!.apply(d);
     const g = after.graphics[0]!;
     if (g.kind !== 'rectangle') throw new Error('expected a rectangle');
-    expect(g.fill?.type).toBe('outline');
+    expect(g.fill?.type).toBe('color');
   });
 
   it('refuses a non-positive radius', () => {
