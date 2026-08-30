@@ -5312,10 +5312,17 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   min-width: 0;
   min-height: 0;
 }
-/* m_vsplitter's lower pane: what the 460 above leaves. */
+/* m_vsplitter's lower pane: what the 460 above leaves.
+
+   `flex-basis: 0`, not `auto`. With `auto` the pane's hypothetical size is its
+   CONTENT height, so a long description grew the pane instead of scrolling
+   inside it - and `overflow: auto` never fired, because the element was never
+   smaller than what was in it. A splitter pane is given a height and scrolls;
+   it does not size itself to its text. */
 .ze-fpchooser-details {
-  flex: 1 1 auto;
-  /* [data] the 80 the vertical splitter will not shrink a pane below. */
+  flex: 1 1 0;
+  /* [data] `m_vsplitter->SetMinimumPaneSize( 80 )` - a floor on the SASH, so
+     the pane may shrink to it and then scroll, never below it. */
   min-height: 80px;
   overflow: auto;
 }

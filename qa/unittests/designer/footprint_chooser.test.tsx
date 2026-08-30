@@ -144,26 +144,76 @@ describe('GenerateFootprintInfo', () => {
     expect(html).toContain('<hr><table border=0>');
   });
 
-  it('adds a Keywords row only when there are keywords', () => {
-    expect(generateFootprintInfo({ libId: 'L:N', keywords: 'smd' })).toContain('<b>Keywords</b>');
-    expect(generateFootprintInfo({ libId: 'L:N' })).not.toContain('<b>Keywords</b>');
-  });
-
-  it('links a datasheet URL out of the description', () => {
+  it('LINKIFIES the description in place rather than stripping its URL', () => {
+    // `esc_desc = LinkifyHTML( esc_desc )` (:118) — the description keeps every
+    // URL it has, as an anchor. We used to pull the trailing one out and delete
+    // it, which is why the pane showed one link where a real chooser shows
+    // three: the description's own links had been removed.
     const html = generateFootprintInfo({
       libId: 'L:N',
       description: 'terminal block https://x.example/ds.pdf',
     });
+    expect(html).toContain('<br>terminal block <a href="https://x.example/ds.pdf"');
+  });
+
+  it('linkifies every URL in the description, not just the last', () => {
+    const html = generateFootprintInfo({
+      libId: 'L:N',
+      description: 'see http://a.example/1.pdf and https://b.example/2.pdf',
+    });
+    expect(html.match(/<a href="http/g) ?? []).toHaveLength(3); // two + the Documentation row
+  });
+
+  it('emits BOTH rows even when there is nothing to put in them', () => {
+    // `m_html.Replace( "__FIELDS__", keywordsHtml + docHtml )` — unconditional.
+    const html = generateFootprintInfo({ libId: 'L:N' });
+    expect(html).toContain('<b>Keywords</b>');
     expect(html).toContain('<b>Documentation</b>');
-    expect(html).toContain('href="https://x.example/ds.pdf"');
-    // ...and it does not also trail the description text.
-    expect(html).toContain('<br>terminal block<');
+  });
+
+  it('elides a long documentation href at 72, over 75', () => {
+    // `if( doc.Length() > 75 ) doc = doc.Left( 72 ) + "..."`.
+    const long = `https://x.example/${'a'.repeat(80)}.pdf`;
+    const html = generateFootprintInfo({ libId: 'L:N', description: long });
+    expect(html).toContain(`${long.slice(0, 72)}...`);
+    // ...in the TEXT only; the href is whole.
+    expect(html).toContain(`href="${long}"`);
+  });
+
+  it('does not elide one that is exactly at the threshold', () => {
+    const url = `https://x.example/${'a'.repeat(75 - 'https://x.example/'.length)}`;
+    expect(url.length).toBe(75);
+    const html = generateFootprintInfo({ libId: 'L:N', description: url });
+    expect(html).not.toContain('...');
+  });
+
+  it('stops the URL at a closing bracket it did not open', () => {
+    // "(Body style from: https://this.url/part.pdf)" — the nesting check.
+    const html = generateFootprintInfo({
+      libId: 'L:N',
+      description: '(from: https://x.example/p.pdf)',
+    });
+    expect(html).toContain('href="https://x.example/p.pdf"');
+    expect(html).not.toContain('p.pdf)"');
+  });
+
+  it('trims trailing punctuation off the documentation href', () => {
+    const html = generateFootprintInfo({
+      libId: 'L:N',
+      description: 'see https://x.example/p.pdf.',
+    });
+    expect(html).toContain('href="https://x.example/p.pdf"');
   });
 
   it('escapes library data rather than trusting it as markup', () => {
     const html = generateFootprintInfo({ libId: 'L:N', description: '<script>x</script>' });
     expect(html).not.toContain('<script>');
     expect(html).toContain('&lt;script&gt;');
+  });
+
+  it('turns newlines in the description into breaks', () => {
+    const html = generateFootprintInfo({ libId: 'L:N', description: 'one\ntwo' });
+    expect(html).toContain('one<br>two');
   });
 });
 
