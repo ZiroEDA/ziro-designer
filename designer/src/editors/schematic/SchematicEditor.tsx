@@ -8628,7 +8628,23 @@ export function SchematicEditor({
               onSelect={onSelect}
               onHighlight={onHighlight}
               onRequestTool={onToolSelect}
-              onEditItem={onEditItem}
+              // `SCH_SELECTION_TOOL` (sch_selection_tool.cpp:676-694) has ONE
+              // rule for a left double-click: a sheet enters the sheet, a
+              // group enters the group, and everything else does
+              //
+              //     m_toolMgr->PostAction( SCH_ACTIONS::properties );
+              //
+              // which is the same action E is bound to. We had grown two
+              // routers instead — `onEditItem` knew symbol, field, label, text
+              // box, table, directive and sheet, while `openProperties` knew
+              // those AND graphics, lines, images, junctions and bus entries.
+              // So double-clicking a rectangle did nothing at all: it was not
+              // on the shorter list. `openProperties` is the complete one, and
+              // `onEditItem` remains what it calls to open a particular kind.
+              onEditItem={(id, kind) => {
+                if (kind === 'sheet' || kind === 'directive') onEditItem(id, kind);
+                else openProperties(id);
+              }}
               onSelectBox={onSelectBox}
               pastePending={pastePending}
               onPasteDone={onPasteDone}
