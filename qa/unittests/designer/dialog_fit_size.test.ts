@@ -143,7 +143,7 @@ describe('the pile of hand-picked dialog sizes does not grow', () => {
     expect(inlineSized()).toHaveLength(1);
   });
 
-  it('4 shell.css variants still name their own size', () => {
+  it('5 shell.css variants still name their own size', () => {
     // 15 until `.ze-pgs` stopped restating what `.ze-modal` now gets right, and
     // 14 until Open Project became the shared file chooser: `.ze-open-project`
     // named a 920x620 and the window that replaced it is sized by the chooser,
@@ -192,7 +192,27 @@ describe('the pile of hand-picked dialog sizes does not grow', () => {
     // above survive as `min-*`. What remains is the four that cite a real
     // number: HTML_MESSAGE_BOX, the message dialog, the symbol chooser's saved
     // default, and the library viewer, which is a FRAME and not a dialog.
-    expect(cssSized()).toHaveLength(4);
+    //
+    // 4 -> 5: `.ze-fpchooser-frame`, FOOTPRINT_CHOOSER_FRAME. It clears the bar
+    // named above - the number is KiCad's, not a pick of ours. The frame itself
+    // states no size; its PANEL does, and only when the saved config holds
+    // nothing usable (panel_footprint_chooser.cpp:257-272):
+    //
+    //     auto horizPixelsFromDU = [&]( int x ) { wxSize sz( x, 0 );
+    //                                return ConvertDialogToPixels( sz ).x; };
+    //     int w = cfg.width  > 40 ? FromDIP( cfg.width )  : horizPixelsFromDU( 440 );
+    //     int h = cfg.height > 40 ? FromDIP( cfg.height ) : horizPixelsFromDU( 340 );
+    //
+    // Note `.x` twice: the HORIZONTAL conversion is used for both axes, so both
+    // go through `du * charWidth / 4`. `qa/probes/swatch_probe.cpp` measures
+    // GetCharWidth() = 8 on this machine, so the factor is 2 and the default is
+    // 880 x 680 - derived from the source through a measurement, not sampled
+    // off a screenshot and not borrowed from the symbol chooser, whose
+    // identical 880 x 680 comes from a different default entirely.
+    //
+    // This entry is what the ratchet is FOR: it went up deliberately, in the
+    // commit that added the rule, with the citation beside it.
+    expect(cssSized()).toHaveLength(5);
   });
 
   it('and every one of them is a dialog, so the scan is really finding them', () => {
