@@ -178,6 +178,23 @@
 .ze-pgrid-value {
   flex: 1 1 auto;
   min-width: 0;
+  /* A CELL is `GetRowHeight()` tall - the row's own 25, not its content's.
+     The row centres its children, which is right for the value TEXT and wrong
+     for the cell holding it: an editor is given the grid's editor rectangle,
+     `editor->SetPosition( aPos ); editor->SetSize( aSize )`
+     (pg_editors.cpp:350-351), and that rectangle is the row's height.
+
+     Left centred, the cell took the height of what was in it - and the colour
+     editor is a COLOR_SWATCH with no content of its own, so the two sized each
+     other: the cell from the swatch, the swatch from the cell, both to zero.
+     A Line Color row rendered a 164 x 0 swatch inside a 170 x 2 cell, which is
+     why the colour rectangle was missing from the panel altogether while the
+     same swatch drew correctly in DIALOG_SHAPE_PROPERTIES.
+
+     It is also what draws the splitter: the 1px border below runs the full
+     height of every row, so the line down the grid is unbroken. Centred, it
+     was a dash per row and nothing at all on a colour row. */
+  align-self: stretch;
   display: flex;
   align-items: center;
   padding-left: var(--pgrid-text-inset);
@@ -223,25 +240,41 @@
    (dialog_field_properties_base.cpp:277-286), and RenderToDC itself draws with
    *wxTRANSPARENT_PEN (color_swatch.cpp:72) — which `.ze-swatch.large` already
    states, so there is no border rule to write here either. */
-/* Beats `.ze-swatch.large`, which is (0,2,0) and states a 48 x 36 — a size for
-   a DIALOG's swatch, and 36 px inside a row `--pgrid-row-height` tall is what
-   made this spill over its neighbours. `.ze-pgrid-colorcell` alone is (0,1,0)
-   and lost the tie regardless of which stylesheet loaded last, which is why
-   insetting it by a pixel changed nothing. */
+/* Beats `.ze-swatch.large`, which is (0,2,0). `.ze-pgrid-colorcell` alone is
+   (0,1,0) and loses the tie regardless of which stylesheet loaded last, which
+   is why insetting it by a pixel changed nothing.
+
+   MEASURED, not derived. The paint path for the resting rectangle is not in
+   the class declarations — `PGPROPERTY_COLOR4D` is a plain wxStringProperty
+   with no `OnCustomPaint`, no `OnMeasureImage` and no CustomImage flag — and
+   two readings of the source got this cell wrong in opposite directions, once
+   as a filled cell and once as plain text. So it is taken off a live 10.0.5
+   instead, and corroborated by asking wx:
+
+     screenshot   x 219..266 -> 48 wide, y 454..477 -> 24 tall,
+                  checkerboard squares 6 px
+     swatch_probe ConvertDialogToPixels( SWATCH_SIZE_LARGE_DU (24,16) )
+                  = 48 x 36, CHECKERBOARD_SIZE_DU (3,3) = 6 x 7
+
+   The two agree on the WIDTH and on the checker, and they are independent: one
+   is a capture, the other is the same `ConvertDialogToPixels` call
+   color_swatch.cpp:166-172 makes, on this machine with this font. So the width
+   is the swatch's OWN — `--swatch-large-w`, not restated here — and the
+   rectangle does not fill the cell.
+
+   The HEIGHT cannot be the swatch's: 36 does not fit a row that is 25 tall,
+   and what a real panel draws is 24 — the row's height less its separator
+   line, i.e. the cell. That is the one thing the earlier "fills the cell"
+   reading had right, and it needs `.ze-pgrid-value` to be full height, which
+   is what `align-self: stretch` up there is for. */
 .ze-pgrid-value .ze-swatch.ze-pgrid-colorcell,
 .ze-pgrid-colorcell {
-  flex: 1 1 auto;
-  width: auto;
   align-self: stretch;
   height: auto;
-  /* The editor gets the grid's EDITOR rect, not the whole row:
-     `editor->SetPosition( aPos ); editor->SetSize( aSize )`
-     (pg_editors.cpp:350-351), and wxPropertyGrid insets that rect by
-     `wxPG_CUSTOM_IMAGE_SPACINGY` top and bottom — the same one pixel the
-     painted swatch beside it already leaves (`.ze-pgrid-swatch`). Without it
-     `align-self: stretch` ran the swatch over the row's own separator, so it
-     read as taller than every other cell and spilled past its place. */
-  margin: 1px 0;
+  /* It starts at the cell's EDGE, not at its text inset: every other row's
+     value ink begins at x=224 in the capture and this begins at 219. The
+     activated editor does the same, by the same negative margin. */
+  margin-left: calc(-1 * var(--pgrid-text-inset));
 }
 
 /* PG_CELL_RENDERER::Render (common/properties/pg_cell_renderer.cpp:60-70):

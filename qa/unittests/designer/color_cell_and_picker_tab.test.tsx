@@ -73,14 +73,31 @@ describe("PG_COLOR_EDITOR's swatch", () => {
     expect(Array.from(swatch?.classList ?? [])).not.toContain('small');
   });
 
-  /** `editor->SetSize( aSize )`: the swatch takes the whole editor rectangle. */
-  it('fills the value cell rather than sitting in it', () => {
+  /**
+   * The rectangle is 48 wide and does NOT fill the cell.
+   *
+   * This assertion has now been wrong twice in opposite directions, because the
+   * paint path is not in the class declarations: `PGPROPERTY_COLOR4D` is a
+   * plain wxStringProperty with no `OnCustomPaint`, no `OnMeasureImage` and no
+   * CustomImage flag, so reading the headers gives you either "plain text" or,
+   * via `PG_COLOR_EDITOR::CreateControls`, "the whole editor rectangle" — and
+   * a live 10.0.5 does neither. It is MEASURED, and corroborated by asking wx:
+   *
+   *   capture       x 219..266 -> 48 wide, y 454..477 -> 24 tall, checker 6
+   *   swatch_probe  ConvertDialogToPixels( SWATCH_SIZE_LARGE_DU (24,16) )
+   *                 = 48 x 36, CHECKERBOARD_SIZE_DU (3,3) = 6 x 7
+   *
+   * The width is the swatch's own, so the rule must NOT restate it — it comes
+   * from `.ze-swatch.large`'s `--swatch-large-w`. Only the height is the
+   * cell's, because 36 does not fit a 25px row.
+   */
+  it("is the swatch's own width, and the cell's height", () => {
     const { container } = panel();
     const swatch = container.querySelector('.ze-pgrid-value .ze-swatch');
     expect(Array.from(swatch?.classList ?? [])).toContain('ze-pgrid-colorcell');
 
     // happy-dom computes no var() and paints nothing, so the rule itself is
-    // what says the cell is filled: a fixed width and height would not be.
+    // what says this.
     const css = readFileSync(
       resolve(process.cwd(), '../designer/src/widgets/properties_panel.css'),
       'utf8',
@@ -88,10 +105,15 @@ describe("PG_COLOR_EDITOR's swatch", () => {
     const start = css.indexOf('.ze-pgrid-colorcell {');
     expect(start).toBeGreaterThan(-1);
     const rule = css.slice(start, css.indexOf('}', start));
-    expect(rule).toContain('flex: 1 1 auto');
+    // The height is the cell's...
     expect(rule).toContain('align-self: stretch');
-    expect(rule).toContain('width: auto');
     expect(rule).toContain('height: auto');
+    // ...and the width is not touched at all, in either direction. `width:
+    // auto` here is the filled-cell reading coming back; a pixel width is the
+    // probed 48 copied out of the token that already holds it.
+    expect(rule).not.toMatch(/(^|[;\s])width\s*:/);
+    // It sits at the cell's edge, ahead of where the value text would start.
+    expect(rule).toContain('margin-left: calc(-1 * var(--pgrid-text-inset))');
   });
 
   /**
