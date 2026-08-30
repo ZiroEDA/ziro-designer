@@ -19,6 +19,7 @@ import type {
   Schematic,
   Stroke,
   SchTableCell,
+  SchTextBox,
   TextBoxMargins,
   TextEffects,
   Vec2,
@@ -38,6 +39,7 @@ import {
   replaceTable,
   replaceTextBox,
 } from './mutate.js';
+import { imageSizeIU } from './image_size.js';
 import { moveItems } from './move.js';
 import { parseSheetPinId } from './sch_sheet_pin_tool.js';
 import { transformItems } from './transform.js';
@@ -529,6 +531,15 @@ interface EdaTextOpts {
   readonly text: PropRow;
   /** EDA_TEXT's `Visible`, which only a SCH_FIELD shows. */
   readonly showVisible?: boolean;
+  /**
+   * EDA_TEXT's `Mirrored`. SCH_TABLECELL masks it; a text box does not, so a
+   * text box shows it. Our TextEffects has nowhere to store it, so the row is
+   * shown READ-ONLY rather than dropped - "whatever KiCad does" for a property
+   * the model cannot back yet.
+   */
+  readonly showMirrored?: boolean;
+  /** EDA_TEXT's `Hyperlink`, likewise masked by a cell and not by a text box. */
+  readonly hyperlink?: { readonly value: string; readonly set: (v: string) => EditCommand | null };
 }
 
 function edaTextRows(
@@ -580,6 +591,10 @@ function edaTextRows(
       value: !!fx?.bold,
       set: (v) => setEffects('Toggle Bold', { bold: !!v || undefined }),
     },
+    // `Mirrored` sits between Bold and Visible in EDA_TEXT_DESC.
+    ...(opts.showMirrored
+      ? [{ group: G, name: 'Mirrored', kind: 'bool', value: false } as PropRow]
+      : []),
     ...(opts.showVisible
       ? [
           {
@@ -622,6 +637,18 @@ function edaTextRows(
       },
     },
     colorRow(G, 'Color', fx?.color, (c) => setEffects('Change Color', { color: c })),
+    // `Hyperlink` is the last row EDA_TEXT_DESC registers.
+    ...(opts.hyperlink
+      ? [
+          {
+            group: G,
+            name: 'Hyperlink',
+            kind: 'string',
+            value: opts.hyperlink.value,
+            set: (v: string | number | boolean) => opts.hyperlink!.set(String(v)),
+          } as PropRow,
+        ]
+      : []),
   ];
 }
 
@@ -1313,10 +1340,16 @@ export function schPropertiesFor(
       const i = indexOf(sch.images, (t, k) => refId('image', t.uuid, k));
       if (i < 0) return [];
       const im = sch.images[i]!;
+      // SCH_BITMAP_DESC (sch_bitmap.cpp) registers Position X/Y ungrouped and
+      // then five rows in `_( "Image Properties" )`: Scale, Transform Offset
+      // X/Y, Width and Height. We showed Scale alone, in the wrong group.
+      const IP = 'Image Properties';
+      const size = imageSizeIU(im);
       return [
         ...positionRows(refId('image', im.uuid, i), im.at),
         {
-          group: '',
+          group: IP,
+          // `PROPERTY<SCH_BITMAP, double>`, not a distance: it is a ratio.
           name: 'Scale',
           kind: 'dist',
           value: im.scale,
@@ -1325,6 +1358,42 @@ export function schPropertiesFor(
             // A zero or negative scale would collapse or invert the image;
             // PANEL_IMAGE_EDITOR clamps rather than accepting it.
             return n === null || n <= 0 ? null : replaceImage(i, { ...im, scale: n });
+          },
+        },
+        // REFERENCE_IMAGE's transform origin offset. Our model has no
+        // transform, so it is always the untransformed 0 - which is the value
+        // KiCad shows for an image nobody has moved the origin of, so the row
+        // is truthful rather than a placeholder. Read-only until the model
+        // carries one.
+        { group: IP, name: 'Transform Offset X', kind: 'coord', value: 0 },
+        { group: IP, name: 'Transform Offset Y', kind: 'coord', value: 0 },
+        // `SetWidth`/`SetHeight` scale the image about its centre, so both are
+        // the natural pixel size times the scale. `imageSizeIU` reads that
+        // size out of the PNG's IHDR, which is what the hit test and the align
+        // tool already measure the image with - so these are real numbers, not
+        // zeroes standing in for a row we cannot fill.
+        {
+          group: IP,
+          name: 'Width',
+          kind: 'dist',
+          value: size.w,
+          set: (v) => {
+            const n = num(v);
+            return n === null || n <= 0 || size.w <= 0
+              ? null
+              : replaceImage(i, { ...im, scale: (im.scale * n) / size.w });
+          },
+        },
+        {
+          group: IP,
+          name: 'Height',
+          kind: 'dist',
+          value: size.h,
+          set: (v) => {
+            const n = num(v);
+            return n === null || n <= 0 || size.h <= 0
+              ? null
+              : replaceImage(i, { ...im, scale: (im.scale * n) / size.h });
           },
         },
       ];
@@ -1834,17 +1903,138 @@ export function schPropertiesFor(
         },
       ];
     }
+    /**
+     * SCH_TEXTBOX. It had ONE row - Text - against the twenty-six a real panel
+     * shows, because it inherits nearly all of them: EDA_SHAPE's geometry and
+     * stroke, SCH_TEXTBOX's own margins and text size, and EDA_TEXT's text
+     * half. It masks only Shape and Corner Radius out of the shape side and
+     * Width, Height, Thickness and Orientation out of the text side
+     * (sch_textbox.cpp), so - unlike a table cell - it DOES show Mirrored and
+     * Hyperlink.
+     *
+     * Group order is `collectGroups`': the class's own groups first, then its
+     * bases' - Shape Properties comes from EDA_SHAPE and so lands after
+     * Margins and Text Properties in the group list but is emitted wherever
+     * its first row falls. Within a group the order is base-first, which is
+     * what a live capture of a table cell shows (EDA_TEXT's rows ahead of
+     * SCH_TEXTBOX's own Text Size).
+     */
     case 'textbox': {
       const i = indexOf(sch.textBoxes, (t, k) => refId('textbox', t.uuid, k));
       if (i < 0) return [];
       const tb = sch.textBoxes[i]!;
+      const S = 'Shape Properties';
+      const put = (p: Partial<SchTextBox>): EditCommand => replaceTextBox(i, { ...tb, ...p });
+      const putStroke = (p: Partial<Stroke>): EditCommand =>
+        put({ stroke: { width: 0, type: 'default', ...tb.stroke, ...p } });
+      const putFill = (p: Partial<NonNullable<SchTextBox['fill']>>): EditCommand =>
+        put({ fill: { type: 'none', ...tb.fill, ...p } });
+      const fx = tb.effects;
+      const setEffects = (_label: string, p: Partial<TextEffects>): EditCommand =>
+        put({ effects: { hidden: false, ...fx, ...p } });
+
+      const corner = (name: string, key: 'start' | 'end', axis: 'x' | 'y'): PropRow => ({
+        group: S,
+        name,
+        kind: 'coord',
+        value: tb[key][axis],
+        set: (v) => {
+          const n = num(v);
+          return n === null ? null : put({ [key]: { ...tb[key], [axis]: n } });
+        },
+      });
+      /** `SetWidth`/`SetHeight` move the END corner, keeping the start put. */
+      const extent = (name: string, axis: 'x' | 'y'): PropRow => ({
+        group: S,
+        name,
+        kind: 'dist',
+        value: Math.abs(tb.end[axis] - tb.start[axis]),
+        set: (v) => {
+          const n = num(v);
+          return n === null || n < 0
+            ? null
+            : put({ end: { ...tb.end, [axis]: tb.start[axis] + n } });
+        },
+      });
+      const curStyle = tb.stroke?.type ?? 'default';
+      const fillType = tb.fill?.type ?? 'none';
+      const textSize = fx?.fontSize?.[1] ?? fx?.fontSize?.[0] ?? 0;
+
       return [
+        corner('Start X', 'start', 'x'),
+        corner('Start Y', 'start', 'y'),
+        corner('End X', 'end', 'x'),
+        corner('End Y', 'end', 'y'),
+        extent('Width', 'x'),
+        extent('Height', 'y'),
+        {
+          group: S,
+          name: 'Line Width',
+          kind: 'dist',
+          value: tb.stroke?.width ?? 0,
+          set: (v) => {
+            const n = num(v);
+            return n === null || n < 0 ? null : putStroke({ width: n });
+          },
+        },
+        {
+          group: S,
+          name: 'Line Style',
+          kind: 'choice',
+          choices: LINE_STYLES,
+          value:
+            LINE_STYLES[
+              Math.max(0, STROKE_TYPES.slice(1).indexOf(curStyle as (typeof STROKE_TYPES)[number]))
+            ]!,
+          set: (v) => {
+            const k = (LINE_STYLES as readonly string[]).indexOf(String(v));
+            return k < 0 ? null : putStroke({ type: STROKE_TYPES.slice(1)[k]! });
+          },
+        },
+        colorRow(S, 'Line Color', tb.stroke?.color, (c) => putStroke({ color: c })),
+        {
+          group: S,
+          name: 'Fill',
+          kind: 'choice',
+          choices: [...FILL_MODE_NAMES],
+          value:
+            FILL_MODE_NAMES[
+              Math.max(0, FILL_MODE_TOKENS.indexOf(fillType as (typeof FILL_MODE_TOKENS)[number]))
+            ]!,
+          set: (v) => {
+            const k = (FILL_MODE_NAMES as readonly string[]).indexOf(String(v));
+            return k < 0 ? null : putFill({ type: FILL_MODE_TOKENS[k]! });
+          },
+        },
+        colorRow(S, 'Fill Color', tb.fill?.color, (c) => putFill({ color: c })),
+        ...marginRows(tb.margins, (p) =>
+          put({ margins: { left: 0, top: 0, right: 0, bottom: 0, ...tb.margins, ...p } }),
+        ),
+        ...edaTextRows(fx, setEffects, {
+          text: {
+            group: 'Text Properties',
+            name: 'Text',
+            kind: 'string',
+            value: tb.text,
+            set: (v) => (String(v) === tb.text ? null : put({ text: String(v) })),
+          },
+          showMirrored: true,
+          hyperlink: {
+            value: tb.hyperlink ?? '',
+            set: (v) => put({ hyperlink: v === '' ? undefined : v }),
+          },
+        }),
         {
           group: 'Text Properties',
-          name: 'Text',
-          kind: 'string',
-          value: tb.text,
-          set: (v) => replaceTextBox(i, { ...tb, text: String(v) }),
+          name: 'Text Size',
+          kind: 'dist',
+          value: textSize,
+          set: (v) => {
+            const n = num(v);
+            return n === null || n <= 0
+              ? null
+              : setEffects('Change Text Size', { fontSize: [n, n] });
+          },
         },
       ];
     }

@@ -28,7 +28,17 @@ describe('an image has properties rows at all', () => {
   });
 
   it('offers position and scale', () => {
-    expect(rows(doc()).map((r) => r.name)).toEqual(['Position X', 'Position Y', 'Scale']);
+    // SCH_BITMAP_DESC (sch_bitmap.cpp): Position X/Y ungrouped, then five rows
+    // in `_( "Image Properties" )`. Read off the DESC block, not off our output.
+    expect(rows(doc()).map((r) => r.name)).toEqual([
+      'Position X',
+      'Position Y',
+      'Scale',
+      'Transform Offset X',
+      'Transform Offset Y',
+      'Width',
+      'Height',
+    ]);
   });
 });
 
