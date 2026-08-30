@@ -177,7 +177,7 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // ordinary wxMenu upstream and is now the shared ContextMenu — it carried
   // #26262b, #444, rgba(0,0,0,0.5), a borderRadius, a minWidth, a boxShadow
   // and two paddings of its own.
-  'editors/pcb': { colours: 63, metrics: 381 },
+  'editors/pcb': { colours: 63, metrics: 380 },
   // 68/215 -> 60/210: the COLOR_SWATCH sweep. Eight `<input type="color">`s
   // across the item dialogs, the net-chain table and the colour-settings
   // panel each carried a '#000000' or '#ffffff' fallback the native control
@@ -206,7 +206,7 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // `gap: 6` inline. The dialog is `.ze-label-dialog-body` now, which is the
   // rule every other schematic dialog's body already takes, so the number is
   // stated once rather than restated here.
-  'editors/schematic': { colours: 60, metrics: 205 },
+  'editors/schematic': { colours: 60, metrics: 204 },
   // colours 12 -> 7: the Symbol Editor parity pass. Four were
   // SYMBOL_EDITOR_COLORS, a private copy of LAYER_SCHEMATIC_ANCHOR /
   // LAYER_HIDDEN / LAYER_PRIVATE_NOTES / LAYER_FIELDS that matched the Default
@@ -384,7 +384,7 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // `DoGetBestSize`, so the button is 16 + 5*2 square and the separator
   // 0 + 5*2 wide, both [data] against that formula, and the separator's own
   // margin and the Link box's `min-width: 0` went away.
-  ui: { colours: 236, metrics: 741 },
+  ui: { colours: 236, metrics: 739 },
   // colours 6 -> 7: the opacity slider's #55585d track arrived here with
   // APPEARANCE_CONTROLS; it is the same literal `editors/pcb` lost, not a new
   // one. The panel's own stylesheet adds none: every length in
@@ -772,7 +772,33 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // inline `style={{ width: 90 }}` on the border-width entry and its
     // `gap: 6` column are gone; the dialog is the two-column grid its base file
     // states, and the numbers in it are that file's borders.
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1537);
+    // 1537 -> 1536, and the accounting is three moves that net to one:
+    //
+    //   -1  `.ze-prefs-dialog`'s `height: min(640px, 90vh)`. Preferences IS a
+    //       PAGED_DIALOG, whose size is the RANGE `.ze-modal.ze-paged-dialog`
+    //       already states from paged_dialog.cpp:427-443 - fitted to content,
+    //       floored 600x500, capped 1500x900. The pick was under what the
+    //       two-column Common page needs, so the dialog came out short.
+    //   -1  `.ze-pref-columns`' `gap: 24px`, replaced by the number upstream
+    //       actually states.
+    //   +1  that number: `margin-right: 35px`, the left column's own
+    //       `wxRIGHT, 35` (panel_common_settings_base.cpp:325).
+    //
+    // (`width` and `min-width` are not CHROME_PROPS, so the width half of the
+    // same two rules does not appear in this count.) `ui` 741 -> 740 agrees.
+    // 1536 -> 1533: three dead heights, one per area, all of them the
+    // `initialSize` mechanism that never reached the DOM.
+    //
+    //   ui                 PagedDialog's `initialSize ?? { width: 920, height: 460 }`
+    //   editors/schematic  Schematic Setup passing { 920, 600 } into it
+    //   editors/pcb        Board Setup passing { 1150, 620 }
+    //
+    // `size` was computed at PagedDialog.tsx:141 and never read, so all three
+    // were picked numbers that did nothing. The real rule is
+    // `usePagedDialogSize`: `newSize.IncTo( minSize )` (paged_dialog.cpp:
+    // 446-450), which grows the dialog to fit a page and never shrinks it
+    // back. Each area's row moves by one and 1536 - 3 agrees.
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1533);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {

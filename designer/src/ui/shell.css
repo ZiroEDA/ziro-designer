@@ -8336,10 +8336,22 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   background: var(--chrome-hover);
 }
 
-/* ---- Preferences dialog (KiCad PAGED_DIALOG) -------------------------------- */
+/* ---- Preferences dialog (KiCad PAGED_DIALOG) --------------------------------
+
+   NO FONT SIZES ANYWHERE BELOW. Ten rules here stated 12px or 13px - the tree's
+   parent rows, the page body, the radio and row labels, the units, the hotkey
+   and mouse tables, the hint line and the colour rows - against the dialog's
+   own 11 pt / 14.67 px. Not one of the panels upstream calls SetFont: a
+   PAGED_DIALOG's pages take the GUI font like every other dialog, which is why
+   KiCad's Preferences reads at the same size as the rest of the app and ours
+   read smaller everywhere at once. */
+/* Preferences IS a PAGED_DIALOG (`common/dialogs/dialog_preferences.cpp`
+   derives from it), so its size is the RANGE `.ze-modal.ze-paged-dialog`
+   already states from `paged_dialog.cpp:427-443` - fitted to content, floored
+   at 600x500 and capped at 1500x900. The `min(980px, 94vw)` / `min(640px, 90vh)`
+   here was a pick, and it was UNDER what the two-column Common page needs,
+   which is why the dialog came out narrower and shorter than KiCad's. */
 .ze-prefs-dialog {
-  width: min(980px, 94vw);
-  height: min(640px, 90vh);
   display: flex;
   flex-direction: column;
 }
@@ -8357,14 +8369,12 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 }
 .ze-prefs-parent {
   padding: 8px 10px 2px;
-  font-size: 12px;
   color: #9aa0a6;
   text-transform: none;
   font-weight: 600;
 }
 .ze-prefs-page {
   padding: 5px 10px;
-  font-size: 13px;
   cursor: default;
   border-left: 2px solid transparent;
 }
@@ -8391,15 +8401,24 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-prefs-panel > .ze-hotkeys-panel {
   height: 100%;
 }
+/* `bPanelSizer`, the horizontal sizer a two-column preferences page is built
+   on. The gutter is the LEFT column's own border - `bPanelSizer->Add(
+   bLeftSizer, 0, wxRIGHT, 35 )` (panel_common_settings_base.cpp:325) - and its
+   proportion is ZERO, so the left column takes the width it needs and the right
+   takes the rest. Neither wraps: a wx sizer has no wrapping.
+
+   This said `gap: 24px`, `flex-wrap: wrap` and `flex: 1` on both children,
+   which is three guesses in place of one number. */
 .ze-pref-columns {
   display: flex;
-  gap: 24px;
   align-items: flex-start;
-  flex-wrap: wrap;
 }
 .ze-pref-columns > div {
-  flex: 1;
-  min-width: 280px;
+  min-width: 0;
+}
+/* [data] the 35 of `wxRIGHT, 35`. */
+.ze-pref-columns > div:first-child {
+  margin-right: 35px;
 }
 .ze-pref-group {
   margin-bottom: 14px;
@@ -8424,22 +8443,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   margin-bottom: 6px;
 }
 
-/* `bPanelSizer`, horizontal, with the left column added
-   `bPanelSizer->Add( bLeftSizer, 0, wxRIGHT, 35 )` (:325) - so the page is two
-   columns with a 35px gutter, not one long scroll. */
-.ze-pref-columns {
-  display: flex;
-  align-items: flex-start;
-}
-.ze-pref-columns > .ze-pref-col {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-.ze-pref-columns > .ze-pref-col:first-child {
-  /* [data] the 35 of `wxRIGHT, 35`. */
-  margin-right: 35px;
-}
 .ze-pref-group-body {
   display: flex;
   flex-direction: column;
@@ -8456,7 +8459,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 13px;
 }
 /* A `wxRB_GROUP` stacked vertically: the crosshair shape's
    `wxFlexGridSizer( 0, 1, 3, 0 )` (`panel_gal_options_base.cpp:100`). The 3 is
@@ -8472,7 +8474,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 13px;
 }
 .ze-pref-row .lbl {
   min-width: 150px;
@@ -8480,7 +8481,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 }
 .ze-pref-row .unit {
   color: #9aa0a6;
-  font-size: 12px;
 }
 .ze-pref-row input[type="range"] {
   width: 140px;
@@ -8490,7 +8490,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 }
 .ze-pref-scrolltable {
   border-collapse: collapse;
-  font-size: 13px;
 }
 .ze-pref-scrolltable th,
 .ze-pref-scrolltable td {
@@ -8503,7 +8502,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 }
 .ze-pref-hotkeys {
   border-collapse: collapse;
-  font-size: 13px;
   width: 100%;
 }
 .ze-pref-hotkeys th,
@@ -8522,13 +8520,11 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   gap: 4px 16px;
 }
 .ze-pref-hint {
-  font-size: 12px;
   color: #9aa0a6;
   margin-bottom: 4px;
 }
 .ze-pref-mouse {
   border-collapse: collapse;
-  font-size: 13px;
 }
 .ze-pref-mouse td {
   padding: 3px 12px 3px 0;
@@ -8541,7 +8537,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 13px;
 }
 .ze-pref-colorrow input[type="color"] {
   width: 34px;

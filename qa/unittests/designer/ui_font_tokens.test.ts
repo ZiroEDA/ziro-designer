@@ -332,7 +332,7 @@ const BASELINE: Record<string, number> = {
   // sets, not from the window's SetFont. Measured against the real dialog it
   // renders at the GUI font — so it inherits, and the count is unaffected
   // either way because a var() is not a hardcoded size.
-  ui: 100,
+  ui: 90,
   widgets: 6,
 };
 
@@ -555,7 +555,14 @@ describe('hardcoded font sizes do not grow', () => {
     // is a `wxStaticText` with a `wxStaticLine` under it, and neither
     // `panel_common_settings_base.cpp` nor its hand-written `.cpp` calls
     // SetFont anywhere - so it is the dialog's own font. One rule, one row.
-    expect(sites.length).toBe(304);
+    // 304 -> 294: the whole Preferences dialog. TEN rules there stated 12px or
+    // 13px - the tree's parent rows, the page body, the radio and row labels,
+    // the units, the hotkey and mouse tables, the hint line and the colour rows
+    // - against the dialog's own 11 pt / 14.67 px. Not one of the panels
+    // upstream calls SetFont; a PAGED_DIALOG's pages take the GUI font like
+    // every other dialog. `ui` is the only row that moves, 100 -> 90, and
+    // 304 - 10 agrees with it.
+    expect(sites.length).toBe(294);
   });
 });
 

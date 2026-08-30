@@ -21,6 +21,7 @@
 
 import { useEffect, useRef, useState, type JSX } from 'react';
 import { useModalEscape } from './useModalEscape.js';
+import { usePagedDialogSize } from './paged_dialog_size.js';
 
 export interface PagedDialogPage {
   /** Stable page id (also the selection key). */
@@ -55,8 +56,6 @@ interface Props {
   onAuxiliaryAction?: () => void;
   /** Auxiliary action label, e.g. "Import Settings from Another Project..."; omitted = no button. */
   auxiliaryAction?: string;
-  /** Initial dialog size (aInitialSize); defaults to KiCad's 920x460. */
-  initialSize?: { width: number; height: number };
   /** Message shown in the top info bar (e.g. project read-only). */
   infoBar?: string;
   onOk: () => void;
@@ -79,7 +78,6 @@ export function PagedDialog({
   showReset,
   auxiliaryAction,
   onAuxiliaryAction,
-  initialSize,
   infoBar,
   onOk,
   onCancel,
@@ -138,14 +136,28 @@ export function PagedDialog({
       return next;
     });
 
-  const size = initialSize ?? { width: 920, height: 460 };
+  // Was `const size = initialSize ?? { width: 920, height: 460 }` - computed
+  // and never read, while the two callers passed 920x600 and 1150x620 into it.
+  // Three picked sizes, none of which reached the DOM. The real rule is the
+  // shared one below.
+  const dlgSize = usePagedDialogSize(page);
 
   const resetLabel =
     active?.resettable && active.label ? `Reset ${active.label} to Defaults` : 'Reset to Defaults';
 
   return (
     <div className="ze-modal-backdrop" onMouseDown={onCancel}>
-      <div className="ze-modal ze-paged-dialog" onMouseDown={(e) => e.stopPropagation()}>
+      {/* `newSize.IncTo( minSize )` (paged_dialog.cpp:446-450): the dialog
+          grows to fit a page and never shrinks back, so changing page does not
+          resize it under the user. Board Setup, Schematic Setup and Preferences
+          all take it from `usePagedDialogSize`, because upstream states it once
+          in PAGED_DIALOG and all three derive from that. */}
+      <div
+        className="ze-modal ze-paged-dialog"
+        ref={dlgSize.ref}
+        style={dlgSize.style}
+        onMouseDown={(e) => e.stopPropagation()}
+      >
         <div className="ze-modal-header">
           {title}
           <span className="x" title="Cancel" onClick={onCancel}>

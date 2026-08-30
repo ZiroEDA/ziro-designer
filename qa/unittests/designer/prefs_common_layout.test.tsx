@@ -59,7 +59,7 @@ describe('the page is two columns, as bPanelSizer makes it', () => {
   it('the container is a flex row and the gutter is the sizer border', () => {
     expect(rule('.ze-pref-columns')).toMatch(/display:\s*flex/);
     // [data] `wxRIGHT, 35` on the left column.
-    expect(rule('.ze-pref-columns > .ze-pref-col:first-child')).toMatch(/margin-right:\s*35px/);
+    expect(rule('.ze-pref-columns > div:first-child')).toMatch(/margin-right:\s*35px/);
   });
 
   it('splits the groups the way upstream splits them', () => {

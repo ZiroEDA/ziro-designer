@@ -13,6 +13,7 @@ import {
   type ToolbarApp,
 } from '../prefs/settings.js';
 import type { ToolbarSettings } from '../ui/toolbar_config.js';
+import { usePagedDialogSize } from '../ui/paged_dialog_size.js';
 import { FIRST_PAGE, PAGES, labelOf, ownerOf } from './prefs/registry.js';
 import { loadPrefsPanel, peekPrefsPanel } from './prefs/lazy_pages.js';
 import {
@@ -68,6 +69,8 @@ export function PreferencesDialog({
   useModalEscape(onClose);
 
   const [page, setPage] = useState<PrefsPageId>(initialPage ?? FIRST_PAGE);
+  // The one place a PAGED_DIALOG's size is decided, shared rather than restated.
+  const size = usePagedDialogSize(page);
   const [common, setCommon] = useState<CommonSettings>(() => structuredClone(settings.common));
   const [eeschema, setEeschema] = useState<EeschemaSettings>(() =>
     structuredClone(settings.eeschema),
@@ -213,7 +216,16 @@ export function PreferencesDialog({
 
   return (
     <div className="ze-modal-backdrop" onMouseDown={onClose}>
-      <div className="ze-modal ze-prefs-dialog" onMouseDown={(e) => e.stopPropagation()}>
+      {/* `newSize.IncTo( minSize )` (paged_dialog.cpp:446-450): the dialog grows
+          to fit a page and never shrinks back, so changing page does not resize
+          it under the user. `.ze-modal` is `width: max-content` and would do
+          the opposite - track the current page and shrink on a smaller one. */}
+      <div
+        className="ze-modal ze-paged-dialog ze-prefs-dialog"
+        ref={size.ref}
+        style={size.style}
+        onMouseDown={(e) => e.stopPropagation()}
+      >
         <div className="ze-modal-header">
           Preferences
           <span className="x" onClick={onClose}>
@@ -248,6 +260,22 @@ export function PreferencesDialog({
             onClick={resetPage}
           >
             {resetLabel}
+          </button>
+          {/* `m_openPrefsDirButton`, added straight after the reset button and
+              before the stretch spacer (`common/widgets/paged_dialog.cpp:90-99`,
+              under `aShowOpenFolder`, which the Preferences dialog passes).
+
+              Disabled: our settings live in the browser's localStorage, so
+              there is no directory to open - the same treatment every other
+              control KiCad has and this app cannot back already gets, rather
+              than a button that silently does nothing or a gap where KiCad has
+              a control. */}
+          <button
+            className="ze-btn"
+            disabled
+            title="Settings are stored in the browser, not in a preferences directory."
+          >
+            Open Preferences Directory
           </button>
           <span style={{ flex: 1 }} />
           <button className="ze-btn" onClick={onClose}>

@@ -294,7 +294,6 @@ export function DialogSchematicSetup({
         showReset
         auxiliaryAction="Import Settings from Another Project..."
         onAuxiliaryAction={() => setImportOpen(true)}
-        initialSize={{ width: 920, height: 600 }}
         onOk={() => onOk(s)}
         onCancel={onCancel}
       />
