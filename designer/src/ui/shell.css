@@ -10287,9 +10287,21 @@ textarea.ze-ds-textedit {
 .ze-cp-panels[hidden] {
   display: none;
 }
+/* `bSizerPanels->Add( sbSizerViewRGB, 1, ... )` and the same for HSV
+   (dialog_color_picker_base.cpp:74, :131) — proportion 1 each.
+   
+   A wx proportion shares out the EXTRA space; the base is the item's own
+   minimum, which here is the palette's `SetMinSize( wxSize( 264, 264 ) )`.
+   `flex: 1 1 0` is not that: basis ZERO means the item has no size of its own,
+   and inside `.ze-modal`'s `width: max-content` the container then resolves to
+   TWICE the larger box's content — the dialog opened about 1670 px wide around
+   two 264 px palettes swimming in space. `min-width: 0` removed the floor that
+   would have shown it up.
+   
+   `flex-basis: auto` is proportion 1: content first, then an equal share of
+   what is left. */
 .ze-cp-panels > fieldset {
-  flex: 1 1 0;
-  min-width: 0;
+  flex: 1 1 auto;
 }
 .ze-cp-palette {
   position: relative;
