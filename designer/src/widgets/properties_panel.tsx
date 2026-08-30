@@ -382,11 +382,9 @@ function ValueCell<C>({
   // (pg_editors.cpp:541-553). So the button is inside the cell, at its right,
   // and the entry gives up exactly that much width.
   //
-  // DISABLED, deliberately, and for the same reason the identical button in
-  // Symbol Properties is: FRAME_FOOTPRINT_CHOOSER does not exist in this app
-  // yet, and a button that silently does nothing is worse than one that says
-  // so. Its position, size and bitmap are upstream's, so wiring it is the only
-  // step left.
+  // It is disabled only when the host supplies no `onBrowse` - the editor is
+  // the frame's opener, and a grid that cannot open one says so rather than
+  // offering a button that does nothing.
   return cell(
     <span className="ze-grid-editwrap">
       {input}
@@ -407,9 +405,29 @@ function ValueCell<C>({
             setEditing(false);
           })
         }
-        // The cell's mousedown must not be taken for a click on the cell and
-        // re-enter the editor.
-        onMouseDown={(e) => e.stopPropagation()}
+        /**
+         * `preventDefault` is what makes this button work at all, and its
+         * absence is why the first version of it did nothing on click.
+         *
+         * A mousedown on a button moves focus to it. That blurs the entry
+         * beside it, whose `onBlur` is `commitText`, whose first statement is
+         * `setEditing( false )` — so the editor unmounted and took the button
+         * with it, and the click that follows the mousedown had nothing left to
+         * land on. The cell just closed.
+         *
+         * Preventing the default keeps focus in the entry, which is also what
+         * wx does: a wxPGMultiButton does not take focus off the editor's text
+         * control, and `PG_FPID_EDITOR::OnEvent` reads `aProperty->GetValue()`
+         * on the button event with that control still live.
+         *
+         * `stopPropagation` is a separate job and still needed: without it the
+         * cell takes the mousedown as a click on itself and re-enters the
+         * editor.
+         */
+        onMouseDown={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        }}
       >
         <Icon name="smallLibrary" size={14} />
       </button>

@@ -45,7 +45,7 @@ const ROWS: PropertyGridRow<Cmd>[] = [
   },
 ];
 
-const panel = () =>
+const panel = (onBrowse?: (current: string, commit: (picked: string) => void) => void) =>
   render(
     <PropertiesPanel<Cmd>
       selectionCount={1}
@@ -54,6 +54,7 @@ const panel = () =>
       fmt={(iu) => `${iu}`}
       parse={() => null}
       onCommand={() => {}}
+      onBrowse={onBrowse}
     />,
   );
 
@@ -95,11 +96,96 @@ describe('the Footprint cell carries the library button', () => {
     expect(container.querySelector('input.ze-pgrid-editor')).not.toBeNull();
   });
 
-  it('is disabled, and says why', () => {
+  /**
+   * The bug this exists for, and it shipped once: clicking the button did
+   * nothing at all.
+   *
+   * A mousedown on a button moves focus to it, which blurs the entry beside
+   * it, whose `onBlur` is the cell's commit, whose first statement is
+   * `setEditing( false )`. The editor unmounted and took the button with it, so
+   * the click that follows the mousedown had nothing to land on. Firing
+   * `click` in a test never sees this, because a synthetic click is not
+   * preceded by a real mousedown - which is exactly how it got through.
+   *
+   * So the assertion is on the mechanism: the handler must prevent the default,
+   * which is what keeps focus in the entry. `fireEvent` returns false when a
+   * handler called `preventDefault`.
+   */
+  it('does not steal focus from the entry, or it unmounts before the click', () => {
+    const { container } = panel(() => {});
+    activate(container, 'Footprint');
+    const btn = container.querySelector('.ze-grid-cellbtn') as HTMLButtonElement;
+    expect(fireEvent.mouseDown(btn)).toBe(false);
+    // ...and the editor is still there for the click to reach.
+    expect(container.querySelector('input.ze-pgrid-editor')).not.toBeNull();
+  });
+
+  it('still swallows the mousedown, so the cell does not re-enter the editor', () => {
+    // Both halves matter: preventDefault keeps focus, stopPropagation keeps the
+    // cell from treating it as a click on itself.
+    const { container } = panel(() => {});
+    activate(container, 'Footprint');
+    const cell = container.querySelector('.ze-pgrid-value')!;
+    let sawIt = false;
+    cell.addEventListener('mousedown', () => {
+      sawIt = true;
+    });
+    fireEvent.mouseDown(container.querySelector('.ze-grid-cellbtn')!);
+    expect(sawIt).toBe(false);
+  });
+
+  it('is disabled only where the host cannot open the frame', () => {
+    // The editor is the frame's opener; a grid with nowhere to open one says so
+    // rather than offering a button that does nothing.
     const { container } = panel();
     activate(container, 'Footprint');
     const btn = container.querySelector('.ze-grid-cellbtn') as HTMLButtonElement;
     expect(btn.disabled).toBe(true);
     expect(btn.title).toContain('Footprint Chooser');
+  });
+
+  it('is live when the host supplies one, and opens it on the cell text', () => {
+    const opened: string[] = [];
+    const { container } = panel((current) => opened.push(current));
+    activate(container, 'Footprint');
+    const btn = container.querySelector('.ze-grid-cellbtn') as HTMLButtonElement;
+    expect(btn.disabled).toBe(false);
+    fireEvent.click(btn);
+    // `wxString fpid = aProperty->GetValue().GetString()` — the frame opens on
+    // what the cell currently holds, not on an empty string.
+    expect(opened).toEqual(['TerminalBlock:TB_01x02']);
+  });
+
+  it('commits the picked fpid through the cell', () => {
+    // `aGrid->ChangePropertyValue( aProperty, fpid )` — the picked value goes
+    // back through the property, so it is one commit and not two.
+    const commits: string[] = [];
+    const rows: PropertyGridRow<Cmd>[] = [
+      {
+        group: 'Fields',
+        name: 'Footprint',
+        kind: 'string',
+        value: 'Old:One',
+        browse: 'footprint',
+        set: (v) => {
+          commits.push(String(v));
+          return { what: 'f' };
+        },
+      },
+    ];
+    const { container } = render(
+      <PropertiesPanel<Cmd>
+        selectionCount={1}
+        friendlyName="Symbol"
+        rows={rows}
+        fmt={(iu) => `${iu}`}
+        parse={() => null}
+        onCommand={() => {}}
+        onBrowse={(_current, commit) => commit('New:Two')}
+      />,
+    );
+    activate(container, 'Footprint');
+    fireEvent.click(container.querySelector('.ze-grid-cellbtn')!);
+    expect(commits).toEqual(['New:Two']);
   });
 });
