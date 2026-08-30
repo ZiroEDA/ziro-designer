@@ -206,7 +206,7 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // `gap: 6` inline. The dialog is `.ze-label-dialog-body` now, which is the
   // rule every other schematic dialog's body already takes, so the number is
   // stated once rather than restated here.
-  'editors/schematic': { colours: 60, metrics: 206 },
+  'editors/schematic': { colours: 60, metrics: 205 },
   // colours 12 -> 7: the Symbol Editor parity pass. Four were
   // SYMBOL_EDITOR_COLORS, a private copy of LAYER_SCHEMATIC_ANCHOR /
   // LAYER_HIDDEN / LAYER_PRIVATE_NOTES / LAYER_FIELDS that matched the Default
@@ -745,7 +745,11 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // content really states, the marker tree's `SetMinSize( wxSize( 640, 260 ) )`,
     // now carries BOTH halves where we had only the height. Four literals out,
     // one in.
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1538);
+    // 1538 -> 1537: `editors/schematic` 206 -> 205. DIALOG_SHAPE_PROPERTIES'
+    // inline `style={{ width: 90 }}` on the border-width entry and its
+    // `gap: 6` column are gone; the dialog is the two-column grid its base file
+    // states, and the numbers in it are that file's borders.
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1537);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {

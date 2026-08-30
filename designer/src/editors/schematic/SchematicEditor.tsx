@@ -5969,12 +5969,18 @@ export function SchematicEditor({
   );
 
   /** KiCad titles the dialog after the shape ("Rectangle Properties"). */
+  /**
+   * The dialog's title is `_( "%s Properties" )` formatted with
+   * `aShape->GetFriendlyName()` (dialog_shape_properties.cpp:44). That is
+   * `EDA_ITEM::GetFriendlyName` → `GetTypeDesc()`, and every schematic shape is
+   * one type: `.Map( SCH_SHAPE_T, _HKI( "Graphic" ) )` (eda_item.cpp:480).
+   *
+   * So it is "Graphic Properties" for a rectangle, a circle and an arc alike —
+   * not "Rectangle Properties". This built the word from our own shape token.
+   */
   const shapeEditName = useCallback(
-    (se: { kind: 'graphic' | 'line'; index: number }): string => {
-      const kind = se.kind === 'line' ? 'polyline' : (shapeEditItem(se)?.kind ?? 'shape');
-      return kind.charAt(0).toUpperCase() + kind.slice(1);
-    },
-    [shapeEditItem],
+    (_se: { kind: 'graphic' | 'line'; index: number }): string => 'Graphic',
+    [],
   );
 
   /** The shape's border and fill as the dialog wants them. A stored width below
@@ -9948,6 +9954,7 @@ export function SchematicEditor({
       {shapeEdit && (
         <DialogShapeProperties
           shapeName={shapeEditName(shapeEdit)}
+          units={units}
           initial={shapePropsOf(shapeEdit)}
           onOk={commitShapeEdit}
           onCancel={() => setShapeEdit(null)}

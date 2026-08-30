@@ -68,7 +68,6 @@ const KNOWN_HARDCODED = new Set([
   'dialog_image_properties.tsx',
   'dialog_line_properties.tsx',
   'dialog_plot.tsx',
-  'dialog_shape_properties.tsx',
   'dialog_sheet_pin_properties.tsx',
   'dialog_sheet_properties.tsx',
   'dialog_table_properties.tsx',

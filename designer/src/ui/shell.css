@@ -10964,3 +10964,65 @@ textarea.ze-ds-textedit {
   /* [data] 5 + 5 on three sides, 5 on the bottom (bSizer2 states no wxBOTTOM). */
   margin: 10px 10px 5px;
 }
+
+/* DIALOG_SHAPE_PROPERTIES. `bColumns` is horizontal
+   (dialog_shape_properties_base.cpp:69):
+
+     bColumns->Add( m_borderSizer, 9, wxEXPAND|wxTOP|wxRIGHT|wxLEFT, 10 );  :130
+     bColumns->Add( 15, 0, 0, wxEXPAND, 5 );                                :133
+     bColumns->Add( m_fillBook, ... );
+
+   and each column is a `wxGridBagSizer( 3, 3 )` of a label beside its control,
+   with the checkbox and the help text spanning both cells. This was one
+   stacked list of six rows. */
+.ze-shapeprops {
+  display: flex;
+  align-items: flex-start;
+  /* [data] `bColumns->Add( 15, 0, 0, wxEXPAND, 5 )`, the spacer between the
+     two columns. */
+  gap: 15px;
+  /* [data] wxTOP|wxRIGHT|wxLEFT 10 on the border column. */
+  padding: 10px;
+}
+.ze-shapeprops-border {
+  /* [data] `bColumns->Add( m_borderSizer, 9, ... )` — proportion 9 against the
+     fill book's default, so the border column takes the slack. */
+  flex: 9;
+  min-width: max-content;
+}
+.ze-shapeprops-fill {
+  flex: 0 0 auto;
+  min-width: max-content;
+}
+/* Both columns are a wxGridBagSizer( 3, 3 ): a label column and a control
+   column, 3 px apart both ways. */
+.ze-shapeprops-border,
+.ze-shapeprops-fill {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  /* [data] wxGridBagSizer( 3, 3 ). */
+  gap: 3px;
+  align-items: center;
+}
+/* `wxGBSpan( 1, 2 )` — the Border checkbox and both help labels. */
+.ze-shapeprops-span {
+  grid-column: 1 / -1;
+}
+.ze-shapeprops-lbl {
+  white-space: nowrap;
+}
+/* bSizer7: the width entry, its unit label, then the Color label and swatch,
+   all on one row — which is why Color sits beside Width and not below it. */
+.ze-shapeprops-widthrow {
+  display: flex;
+  align-items: center;
+  /* [data] wxLEFT 3 between the entry and its units. */
+  gap: 3px;
+}
+.ze-shapeprops-colorlbl {
+  white-space: nowrap;
+  /* [data] `bSizer7->Add( m_borderColorLabel, 0, ...|wxLEFT, 15 )`. */
+  margin-left: 15px;
+  /* [data] and the 5 px spacer after it, before the swatch. */
+  margin-right: 5px;
+}
