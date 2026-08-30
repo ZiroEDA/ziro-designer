@@ -84,6 +84,23 @@ describe('both notebook pages are built, and stay built', () => {
     expect(q('.ze-cp-defined')?.hasAttribute('hidden')).toBe(false);
   });
 
+  it('neither page is taken out of layout by a style of its own', () => {
+    // The stylesheet guards below read the stylesheet, so an inline `display`
+    // would slip past them and cost the book its size just as surely.
+    // Explicitly, because the picker reopens on the page it was left on and
+    // the test before this one leaves it on the second: without this the free
+    // page is the one showing and the hidden page is never looked at.
+    saveColorPickerTab('free');
+    const { q, getByRole } = picker();
+    const displays = (): (string | undefined)[] => [
+      q('.ze-cp-panels')?.style.display,
+      q('.ze-cp-defined')?.style.display,
+    ];
+    expect(displays()).toEqual(['', '']);
+    fireEvent.click(getByRole('button', { name: 'Defined Colors' }));
+    expect(displays()).toEqual(['', '']);
+  });
+
   it('the two pages are siblings in one book, which is what stacks them', () => {
     const { q } = picker();
     const book = q('.ze-cp-book');
