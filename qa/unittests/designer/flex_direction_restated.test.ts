@@ -70,6 +70,11 @@ describe('a rule that turns one of them into a row states the direction', () => 
   it('every element carrying a container class AND another says its direction', () => {
     const containerClasses = COLUMN_CONTAINERS.map((c) => c.slice(1));
     const offenders: string[] = [];
+    // Walk the markup ONCE. This used to sit inside the loop below, so the
+    // whole of designer/src was re-read for every candidate rule - a few
+    // hundred full tree walks, five seconds, and a test that timed out under
+    // any parallel load rather than failing on anything real.
+    const co = coOccurring();
 
     for (const { sel, body } of rules()) {
       // one class, no combinator: the shape that ties with the container
@@ -79,7 +84,6 @@ describe('a rule that turns one of them into a row states the direction', () => 
       const cls = sel.slice(1);
       if (containerClasses.includes(cls)) continue;
       // Does any markup put this class on the same element as a container?
-      const co = coOccurring();
       if (co.has(cls)) offenders.push(sel);
     }
 
