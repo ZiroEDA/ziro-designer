@@ -6302,11 +6302,14 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
         control, not before it.
    Twenty-one dialogs share this body class, so the fix is by position rather
    than by adding a class to every call site. */
+/* No `font-size`. A wxStaticText takes the dialog's own font, and this is the
+   label column of twenty-one dialogs — the last survivor of the family that
+   also had it on `.ze-props-group`'s legend and label rules. 13px against the
+   dialog's 11pt / 14.67px is why they all read smaller than KiCad's. */
 .ze-label-dialog-body .row > span:first-child {
   width: 56px;
   flex: 0 0 auto;
   color: #c7c9cc;
-  font-size: 13px;
 }
 .ze-label-dialog-body .row .ze-search {
   flex: 1;
@@ -10977,6 +10980,10 @@ textarea.ze-ds-textedit {
    stacked list of six rows. */
 .ze-shapeprops {
   display: flex;
+  /* `bColumns` is wxHORIZONTAL. `.ze-label-dialog-body` is a flex COLUMN at the
+     same specificity, so the direction has to be stated or the two columns
+     stack — which is exactly what they did. */
+  flex-direction: row;
   align-items: flex-start;
   /* [data] `bColumns->Add( 15, 0, 0, wxEXPAND, 5 )`, the spacer between the
      two columns. */

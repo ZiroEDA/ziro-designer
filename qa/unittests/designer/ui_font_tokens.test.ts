@@ -332,7 +332,7 @@ const BASELINE: Record<string, number> = {
   // sets, not from the window's SetFont. Measured against the real dialog it
   // renders at the GUI font — so it inherits, and the count is unaffected
   // either way because a var() is not a hardcoded size.
-  ui: 105,
+  ui: 104,
   widgets: 6,
 };
 
@@ -541,7 +541,12 @@ describe('hardcoded font sizes do not grow', () => {
     // 310 -> 309: the ERC marker tree's expander glyph. It drew a raw "⌄" in a
     // span sized by a font, where `.twisty` — the shared disclosure chevron —
     // draws GTK's expander from measured borders and needs no font at all.
-    expect(sites.length).toBe(309);
+    // 309 -> 308: `.ze-label-dialog-body .row > span:first-child`, the label
+    // column of twenty-one dialogs and the last survivor of the family that
+    // also had a size on `.ze-props-group`'s legend and label rules. A
+    // wxStaticText takes the dialog's own font; 13px against 11pt / 14.67px is
+    // why every one of those dialogs read smaller than KiCad's.
+    expect(sites.length).toBe(308);
   });
 });
 
