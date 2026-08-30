@@ -190,11 +190,19 @@ function ValueCell<C>({
   fmt,
   parse,
   onCommand,
+  onBrowse,
 }: {
   row: PropertyGridRow<C>;
   fmt: (iu: number) => string;
   parse: (text: string) => number | null;
   onCommand: (cmd: C) => void;
+  /**
+   * `PG_FPID_EDITOR::OnEvent`'s wxEVT_BUTTON branch: open
+   * FRAME_FOOTPRINT_CHOOSER on the cell's current text, and on OK
+   * `aGrid->ChangePropertyValue( aProperty, fpid )` - which is the cell's own
+   * commit, not a separate write. Absent leaves the button disabled.
+   */
+  onBrowse?: (current: string, commit: (picked: string) => void) => void;
 }): JSX.Element {
   const isDist = row.kind === 'coord' || row.kind === 'dist';
   const display = row.value === null ? '' : isDist ? fmt(row.value as number) : String(row.value);
@@ -385,9 +393,20 @@ function ValueCell<C>({
       <button
         type="button"
         className="ze-grid-cellbtn"
-        disabled
-        title="Browse for footprint — needs the Footprint Chooser"
+        disabled={!onBrowse}
+        title={
+          onBrowse ? 'Browse for footprint' : 'Browse for footprint — needs the Footprint Chooser'
+        }
         aria-label="Browse for footprint"
+        onClick={() =>
+          onBrowse?.(text, (picked) => {
+            setText(picked);
+            // `ChangePropertyValue` commits through the property, so the cell
+            // closes on the picked value rather than on what was typed.
+            if (!commitValue(picked)) setText(display);
+            setEditing(false);
+          })
+        }
         // The cell's mousedown must not be taken for a click on the cell and
         // re-enter the editor.
         onMouseDown={(e) => e.stopPropagation()}
@@ -410,6 +429,7 @@ export function PropertiesPanel<C>({
   fmt,
   parse,
   onCommand,
+  onBrowse,
 }: {
   selectionCount: number;
   friendlyName?: string;
@@ -417,6 +437,8 @@ export function PropertiesPanel<C>({
   fmt: (iu: number) => string;
   parse: (text: string) => number | null;
   onCommand: (cmd: C) => void;
+  /** See ValueCell: the host opens FRAME_FOOTPRINT_CHOOSER. */
+  onBrowse?: (current: string, commit: (picked: string) => void) => void;
 }): JSX.Element {
   const [collapsed, setCollapsed] = useState<readonly string[]>([]);
   // `reset()` (:186-194) clears the grid whenever nothing is selected, so an
@@ -463,6 +485,7 @@ export function PropertiesPanel<C>({
                       fmt={fmt}
                       parse={parse}
                       onCommand={onCommand}
+                      onBrowse={onBrowse}
                     />
                   </div>
                 ))}

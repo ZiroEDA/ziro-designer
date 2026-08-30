@@ -37,6 +37,7 @@ export function SchPropertiesPanel({
   friendlyName,
   units,
   onCommand,
+  onBrowseFootprint,
 }: {
   rows: PropRow[];
   /** `SELECTION::Size()`; the caption counts anything but one. */
@@ -46,6 +47,13 @@ export function SchPropertiesPanel({
   /** The frame's display units, `EDA_DRAW_FRAME::GetUserUnits()`. */
   units: StatusUnits;
   onCommand: (cmd: EditCommand) => void;
+  /**
+   * `SCH_PROPERTIES_PANEL::createPGProperty` gives the Footprint field
+   * PG_FPID_EDITOR, whose button opens FRAME_FOOTPRINT_CHOOSER
+   * (pg_editors.cpp:556-586). The frame is the EDITOR's to open, so the host
+   * supplies it rather than the grid knowing about footprints.
+   */
+  onBrowseFootprint?: (current: string, commit: (picked: string) => void) => void;
 }): JSX.Element {
   return (
     <PropertiesPanel<EditCommand>
@@ -61,6 +69,7 @@ export function SchPropertiesPanel({
       fmt={(iu) => distanceToString(iu, units, schIUScale)}
       parse={(text) => stringToDistance(text, units, schIUScale)}
       onCommand={onCommand}
+      onBrowse={onBrowseFootprint}
     />
   );
 }

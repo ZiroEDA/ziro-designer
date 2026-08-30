@@ -455,6 +455,7 @@ import {
 import type { RenderOpts } from './render/renderer.js';
 import type { InputPrefs } from '../../ui/view_controls.js';
 import { SchPropertiesPanel } from './components/SchPropertiesPanel.js';
+import { FootprintChooserFrame } from '../pcb/dialogs/footprint_chooser_frame.js';
 import { SearchPanel } from './components/SearchPanel.js';
 import { NetNavigatorPanel } from './components/NetNavigatorPanel.js';
 import { DialogUpdateFromPcb } from './dialogs/dialog_update_from_pcb.js';
@@ -8112,6 +8113,18 @@ export function SchematicEditor({
     return ref ? schPropertiesFor(doc, libById, ref) : [];
   }, [doc, selection, libById]);
 
+  /**
+   * FRAME_FOOTPRINT_CHOOSER, opened by the Footprint field's PG_FPID_EDITOR
+   * button. `OnEvent`'s wxEVT_BUTTON branch shows it modally on the cell's
+   * current text and, on OK, writes the picked fpid back through the property
+   * (pg_editors.cpp:556-586) - so the commit callback is the CELL's, not a
+   * separate edit path.
+   */
+  const [fpChooser, setFpChooser] = useState<{
+    current: string;
+    commit: (picked: string) => void;
+  } | null>(null);
+
   // `PROPERTIES_PANEL::rebuildProperties` captions a single selection with
   // `aSelection.Front()->GetFriendlyName()` — the item's TYPE.
   const propFriendlyName = useMemo<string | undefined>(() => {
@@ -8507,6 +8520,9 @@ export function SchematicEditor({
                                 friendlyName={propFriendlyName}
                                 units={units}
                                 onCommand={runCommand}
+                                onBrowseFootprint={(current, commit) =>
+                                  setFpChooser({ current, commit })
+                                }
                               />
                             </div>
                           </div>
@@ -9907,6 +9923,21 @@ export function SchematicEditor({
           hierarchicalPath={sheetPathLabel(doc.sheets[sheetEdit.index]!)}
           onOk={commitSheetEdit}
           onCancel={() => setSheetEdit(null)}
+        />
+      )}
+
+      {/* FRAME_FOOTPRINT_CHOOSER. Upstream reaches it through
+          `Kiway().Player( FRAME_FOOTPRINT_CHOOSER, true, m_frame )` from
+          PG_FPID_EDITOR, and the same frame is what Symbol Properties'
+          GRID_CELL_FPID_EDITOR opens - one chooser, two callers. */}
+      {fpChooser && (
+        <FootprintChooserFrame
+          preselect={fpChooser.current}
+          onOk={(libId) => {
+            fpChooser.commit(libId);
+            setFpChooser(null);
+          }}
+          onCancel={() => setFpChooser(null)}
         />
       )}
 

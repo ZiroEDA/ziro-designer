@@ -5231,6 +5231,69 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   min-height: 0;
   min-width: 0;
 }
+
+/* ---- FOOTPRINT_CHOOSER_FRAME (pcbnew/footprint_chooser_frame.cpp) -------- */
+
+/* The frame states no size of its own; the PANEL does, and only when the saved
+   config has nothing usable (panel_footprint_chooser.cpp:257-272):
+
+       auto horizPixelsFromDU = [&]( int x ) { wxSize sz( x, 0 );
+                                  return ConvertDialogToPixels( sz ).x; };
+       int w = cfg.width  > 40 ? FromDIP( cfg.width )  : horizPixelsFromDU( 440 );
+       int h = cfg.height > 40 ? FromDIP( cfg.height ) : horizPixelsFromDU( 340 );
+
+   Note the HORIZONTAL conversion is used for both axes - `.x` twice - so both
+   go through `du * charWidth / 4`. `qa/probes/swatch_probe.cpp` measures
+   GetCharWidth() = 8 on this machine, so the factor is 2 and the default is
+   440x340 DU = 880 x 680 px. That it matches the symbol chooser's 880 x 680 is
+   a coincidence of two separate defaults, not a shared number, so it is
+   derived here rather than borrowed from that rule.
+
+   [data] 440 DU x 2. */
+.ze-modal.ze-fpchooser-frame {
+  width: 880px;
+  /* [data] 340 DU x 2, plus our own title bar, as .ze-symbol-chooser does. */
+  height: calc(680px + 37px);
+}
+.ze-fpchooser {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+}
+/* m_hsplitter: the tree, then the preview. `SetSashGravity( 0.8 )` gives the
+   tree four fifths of the extra width. */
+.ze-fpchooser-top {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  min-width: 0;
+}
+.ze-fpchooser-tree {
+  flex: 4;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.ze-fpchooser-preview {
+  flex: 1;
+  /* [data] `m_hsplitter->SetMinimumPaneSize( 20 )`. */
+  min-width: 20px;
+  display: flex;
+  flex-direction: column;
+}
+/* m_vsplitter: `SetSashGravity( 0.5 )`, `SetMinimumPaneSize( 80 )`. */
+.ze-fpchooser-details {
+  flex: 0 0 auto;
+  /* [data] the 80 the vertical splitter will not shrink a pane below. */
+  min-height: 80px;
+  overflow: auto;
+}
+/* The bottom panel: the 3D checkbox at the left, the std button sizer right. */
+.ze-fpchooser-foot {
+  justify-content: space-between;
+}
 .ze-chooser-panel.column {
   flex-direction: column;
 }
