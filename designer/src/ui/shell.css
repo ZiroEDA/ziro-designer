@@ -11033,3 +11033,41 @@ textarea.ze-ds-textedit {
   /* [data] and the 5 px spacer after it, before the swatch. */
   margin-right: 5px;
 }
+
+/* `m_borderStyleCombo->Append( name, KiBitmapBundle( bitmap ) )` — the stroke
+   beside its name in a wxBitmapComboBox. Sized like the colour swatch it sits
+   in place of, since both are the second argument of the same Append. */
+.ze-combo-bitmap {
+  flex: 0 0 auto;
+  /* The stroke bitmaps are WIDE: `viewBox="0 0 64 16"`, a 4:1 sample of the
+     line drawn across the cell. Squashing one into a square is what made ours
+     a short grey dash where KiCad shows a long stroke. Height comes from the
+     row and the width follows the ratio, so nothing here is a pixel count. */
+  aspect-ratio: 64 / 16;
+  height: 1em;
+  object-fit: contain;
+}
+/* `m_helpLabel1->SetFont( KIUI::GetInfoFont( this ).Italic() )` and the same
+   for m_helpLabel2 (dialog_shape_properties.cpp:51-52). `GetInfoFont` is
+   `getGUIFont( aWindow, -1 )` (ui_common.cpp:156-159) — the GUI font one point
+   down — and it is ITALIC. These read at the dialog's own size, upright. */
+.ze-help-label {
+  /* `getGUIFont( win, -1 )` is the info font, and `--ui-font-size-info` is
+     that token — no need to restate its value here. */
+  font-size: var(--ui-font-size-info);
+  font-style: italic;
+}
+/* `m_helpLabel1->Wrap( 320 )` (base.cpp:126): the first one wraps, the second
+   is `Wrap( -1 )` and does not. */
+.ze-shapeprops-border > .ze-help-label {
+  /* [data] `m_helpLabel1->Wrap( 320 )`. */
+  max-width: 320px;
+}
+/* `m_borderWidthCtrl` is `new wxTextCtrl( ..., wxSize( -1, -1 ), 0 )` — its
+   natural width, not the column's. It was stretching to fill the grid cell,
+   which is what made our boxes wider than KiCad's. */
+.ze-shapeprops-widthrow .ze-search {
+  flex: 0 0 auto;
+  width: max-content;
+  min-width: 6ch;
+}

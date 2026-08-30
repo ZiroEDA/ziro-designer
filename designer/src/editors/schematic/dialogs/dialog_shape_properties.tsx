@@ -191,7 +191,16 @@ export function DialogShapeProperties({
               disabled={!border}
               value={style}
               onChange={(v) => setStyle(v as LineStyleToken)}
-              options={LINE_STYLE_NAMES.map((x) => ({ value: x.value, label: x.label }))}
+              // `m_borderStyleCombo` is a wxBitmapComboBox, and each row is
+              // `Append( lineStyleDesc.name, KiBitmapBundle( lineStyleDesc.bitmap ) )`
+              // (dialog_shape_properties.cpp:61) — the stroke drawn beside its
+              // name. The bitmap is half of `lineTypeNames`; we were using only
+              // the other half.
+              options={LINE_STYLE_NAMES.map((x) => ({
+                value: x.value,
+                label: x.label,
+                ...(x.bitmap ? { bitmap: x.bitmap } : {}),
+              }))}
             />
 
             {/* m_helpLabel1 (base.cpp:125), at (3,0) span 1x2. We did not have
