@@ -2491,31 +2491,20 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
    border on everything inside the right panel. Colours sampled off the real
    window: the dialog is #2c2c2c, the card list and the cards themselves
    #373737, ruled #181818, and the search field #272727. */
-/* Measured off the real dialog: 650 wide by 399 tall overall, of which the
-   title bar is 37. (900x600 is the wxFormBuilder default in the base class;
-   finishDialogSettings and the persisted m_TemplateWindowSize is what the
-   window actually opens at.) SetSizeHints( 500, 400 ) is the floor. */
+/* `dialog_template_selector_base.cpp:14` states a MINIMUM and nothing else —
+   `SetSizeHints( wxSize( 500, 400 ), wxDefaultSize )` — and the dialog is then
+   fitted to its content. The 652 x 440 that stood here was that minimum with
+   our own border and project-name row added back by hand; the row is real, but
+   it should push the dialog out by existing, not by being counted into a
+   number. */
 .ze-modal.ze-tplsel {
-  /* +2 on each axis for our own 1px border, which the window manager draws
-     outside the client area upstream. */
-  width: 652px;
-  /* 401 is upstream's opening height, plus 39 for the project-name row - a 34px
-     entry over its 5px bottom border. That row is ours: upstream asks for the
-     name in a second window, so the height it needs has to be added here rather
-     than taken out of the template list, which has a 200px floor of its own and
-     was being overrun by it. */
-  height: 440px;
-  /* SetSizeHints( wxSize( 500, 400 ), wxDefaultSize ) - the floor, carrying the
-     same 39px, for the same reason. */
+  /* [data] `SetSizeHints( wxSize( 500, 400 ), wxDefaultSize )`. */
   min-width: 500px;
-  min-height: 439px;
-  /* The dialog's style is wxDEFAULT_DIALOG_STYLE|wxRESIZE_BORDER, and the size
-     it is dragged to is kept in settings->m_TemplateWindowSize. Without this
-     the dialog was stuck at its opening size, and at that size the template
-     list is narrow enough to clip a card - which upstream answers by letting
-     you widen the window. */
-  resize: both;
-  overflow: hidden;
+  /* [data] the same call. It said 439, which was 400 plus the project-name row
+     measured once and frozen. */
+  min-height: 400px;
+  max-width: 94vw;
+  max-height: 90vh;
 }
 /* No padding of its own: bmainSizer->Add( m_mainContent, 1, wxEXPAND, 5 ) has
    no wxALL, so wx ignores that border. The 5px belongs to m_mainContent's
@@ -2732,22 +2721,19 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   font-size: 10pt;
   margin-top: 6px;
 }
-/* ---------------------------------------------------------------------------
-   Hotkey List (DIALOG_LIST_HOTKEYS + PANEL_HOTKEYS_EDITOR).
-
-   `main_sizer->SetMinSize( 600, 400 )` is the only size upstream states, and
-   DIALOG_SHIM is resizable, so 600x400 is both the opening size and the floor.
-   ------------------------------------------------------------------------- */
+/* No width or height. `dialog_hotkey_list.cpp:79` states a MINIMUM and nothing
+   else — `main_sizer->SetMinSize( 600, 400 )` — and the dialog is then fitted
+   to its content, whose width is the four columns the hotkey list declares.
+   The 1000 x 560 here was derived from those column totals rather than stated
+   by anyone, so it is the list that should set the width, not a number. */
 .ze-modal.ze-hotkeys {
-  /* main_sizer->SetMinSize( 600, 400 ) is the floor; the four columns upstream
-     declares total 1590 (450+120+120+900), so the window opens wide enough to
-     show Command, Hotkey and Alternate with the description running on. */
-  width: 1000px;
-  height: 560px;
+  /* [data] `main_sizer->SetMinSize( 600, 400 )`, dialog_hotkey_list.cpp:79. */
   min-width: 600px;
+  /* [data] the same call. */
   min-height: 400px;
   resize: both;
-  overflow: hidden;
+  max-width: 96vw;
+  max-height: 92vh;
 }
 .ze-hotkeys-body {
   flex-direction: column;
@@ -3030,8 +3016,9 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 }
 
 /* The name step, upstream's wxFileDialog( "New Project Folder" ). */
+/* No width: the folder-name row is a label and an entry, and the dialog is as
+   wide as they need. */
 .ze-modal.ze-newprjfolder {
-  width: 460px;
   height: auto;
 }
 .ze-newprjfolder-body {
@@ -4819,9 +4806,11 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
    rows 4 px shorter than default; the Include / Group By columns are 46 / 56 px
    and the rest splits between Field and BOM Name; the filter is 240 px wide;
    the table grid is at least 400 x 200; delimiter fields are 60 px. */
+/* No width or height. `dialog_symbol_fields_table_base.cpp` opens
+   `SetSizeHints( wxSize( -1,-1 ), wxDefaultSize )` — a minimum of "no
+   minimum" — and the sizes inside it are the ones that count: the grid's
+   `SetMinSize( wxSize( -1, 250 ) )` and the filter's `wxSize( 240, -1 )`. */
 .ze-modal.ze-fields-table {
-  width: 1050px;
-  height: 640px;
   max-width: 96vw;
   max-height: 92vh;
 }
@@ -6344,8 +6333,10 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
    and the Shape / Formatting boxes sit side by side above the buttons. The
    dialog itself has no fixed size upstream (wxDialog size -1,-1), it fits
    its content, which the grid pins to ~530 px. */
+/* No width. `dialog_label_properties_base.cpp:21` is
+   `SetSizeHints( wxDefaultSize, wxDefaultSize )`; the only size it states is
+   the fields grid's `SetMinSize( wxSize( -1, 100 ) )`, which is a height. */
 .ze-modal.ze-label-props {
-  width: 552px;
   height: auto;
   max-height: 92vh;
 }
@@ -6804,20 +6795,14 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   margin-left: 80px;
 }
 
-/* Symbol Properties dialog (KiCad DIALOG_SYMBOL_PROPERTIES) */
+/* Symbol Properties dialog (KiCad DIALOG_SYMBOL_PROPERTIES).
+   No width: its base file is `SetSizeHints( wxDefaultSize, wxDefaultSize )`,
+   so the dialog is as wide as its content. */
 .ze-modal.ze-props-dialog {
-  width: 1060px;
   height: auto;
   max-height: 90vh;
 }
 
-/* New Project from Template selector (KiCad's DIALOG_TEMPLATE_SELECTOR). */
-.ze-modal.ze-template-dialog {
-  width: 720px;
-  height: 520px;
-  max-width: 94vw;
-  max-height: 88vh;
-}
 .ze-template-dialog .ze-tpl-list {
   width: 240px;
   flex: 0 0 auto;
@@ -8872,8 +8857,9 @@ textarea.ze-ds-textedit {
 
 /* EDA_REORDERABLE_LIST_DIALOG (the tree header's "Select Columns..."): an
    Available list, > / < between it and the Enabled list, then Move up/down. */
+/* No width: a checklist of column names, sized by the longest of them. */
 .ze-modal.ze-select-columns {
-  width: 520px;
+  max-width: 92vw;
 }
 .ze-modal-body.ze-reorderable {
   display: flex;

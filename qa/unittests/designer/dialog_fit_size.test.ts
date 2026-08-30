@@ -129,7 +129,7 @@ describe('the pile of hand-picked dialog sizes does not grow', () => {
     expect(inlineSized()).toHaveLength(29);
   });
 
-  it('12 shell.css variants still name their own size', () => {
+  it('4 shell.css variants still name their own size', () => {
     // 15 until `.ze-pgs` stopped restating what `.ze-modal` now gets right, and
     // 14 until Open Project became the shared file chooser: `.ze-open-project`
     // named a 920x620 and the window that replaced it is sized by the chooser,
@@ -158,7 +158,27 @@ describe('the pile of hand-picked dialog sizes does not grow', () => {
     // was below what the content needed, so the body scrolled sideways instead
     // of the dialog growing. That is the bar named above, inverted: a size may
     // stay only when upstream names one too.
-    expect(cssSized()).toHaveLength(12);
+    // 12 -> 4, a sweep of every dialog rather than one at a time. Eight rules
+    // stated a size no one upstream wrote, and each is now either gone or
+    // reduced to the MINIMUM its base file really states:
+    //
+    //   .ze-template-dialog   dead - no component carries the class
+    //   .ze-props-dialog      SetSizeHints( wxDefaultSize, wxDefaultSize )
+    //   .ze-label-props       the same
+    //   .ze-fields-table      SetSizeHints( wxSize( -1,-1 ), ... )
+    //   .ze-newprjfolder      no size named anywhere
+    //   .ze-select-columns    the same
+    //   .ze-hotkeys           kept min 600x400 (dialog_hotkey_list.cpp:79),
+    //                         dropped a 1000x560 derived from column totals
+    //   .ze-tplsel            kept min 500x400 (base.cpp:14), dropped a
+    //                         652x440 that was that minimum with our border
+    //                         and an extra row added back by hand
+    //
+    // A minimum a base file states is not a picked size, which is why the two
+    // above survive as `min-*`. What remains is the four that cite a real
+    // number: HTML_MESSAGE_BOX, the message dialog, the symbol chooser's saved
+    // default, and the library viewer, which is a FRAME and not a dialog.
+    expect(cssSized()).toHaveLength(4);
   });
 
   it('and every one of them is a dialog, so the scan is really finding them', () => {
