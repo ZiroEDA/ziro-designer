@@ -65,15 +65,25 @@ export function FootprintChooserFrame({
   useModalEscape(onCancel);
 
   const [index, setIndex] = useState<readonly FpIndexEntry[]>([]);
-  const [itemCount, setItemCount] = useState(0);
+  /**
+   * `SetTitle( GetTitle() + " (%d items loaded)" )` runs ONCE, in the
+   * constructor, before any `Regenerate()` - so the count is the whole library
+   * and ticking a filter never moves it. Ours recomputed it per filter and
+   * dropped to 59.
+   */
+  const itemCount = useMemo(() => index.reduce((n, lib) => n + lib.footprints.length, 0), [index]);
   const [selected, setSelected] = useState<string | null>(preselect ?? null);
 
-  // `cfg->m_FootprintChooser.use_fp_filters` / `.filter_on_pin_count` seed
-  // these upstream and are written back in the destructor (:302-306). Ours
-  // start ticked, which is what a fresh profile does, and the settings round
-  // trip is left for when the frame has somewhere to persist it.
-  const [useFpFilters, setUseFpFilters] = useState(true);
-  const [filterByPins, setFilterByPins] = useState(true);
+  /**
+   * `cfg->m_FootprintChooser.use_fp_filters` / `.filter_on_pin_count` seed
+   * these and are written back in the destructor (:302-306). BOTH DEFAULT TO
+   * FALSE - `pcbnew_settings.cpp:146-150` registers each `PARAM<bool>( …,
+   * false )` - so a chooser opens with the boxes present and UNTICKED, showing
+   * the whole library. Ours opened ticked, which filtered the tree before the
+   * user asked for it. The settings round trip is still to do.
+   */
+  const [useFpFilters, setUseFpFilters] = useState(false);
+  const [filterByPins, setFilterByPins] = useState(false);
 
   useEffect(() => {
     let live = true;
@@ -154,7 +164,6 @@ export function FootprintChooserFrame({
             preselect={preselect}
             onSelect={setSelected}
             onChoose={(id) => onOk(id)}
-            onItemCountChanged={setItemCount}
           />
         </div>
         <div className="ze-cp-buttons ze-fpchooser-foot">

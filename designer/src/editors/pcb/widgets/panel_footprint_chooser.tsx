@@ -62,7 +62,11 @@ export interface PanelFootprintChooserProps {
   onSelect: (libId: string | null) => void;
   /** EVT_LIBITEM_CHOSEN — a double-click, which accepts. */
   onChoose: (libId: string) => void;
-  /** `m_adapter->GetItemCount()`, for the frame's title. */
+  /**
+   * `m_adapter->GetItemCount()` AFTER the current filter. Not the frame's
+   * title: that is set once in the constructor from the unfiltered tree and
+   * never moves, so a caller wanting "items loaded" must not take it from here.
+   */
   onItemCountChanged?: (n: number) => void;
 }
 

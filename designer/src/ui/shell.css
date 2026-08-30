@@ -5262,10 +5262,23 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   min-height: 0;
   min-width: 0;
 }
-/* m_hsplitter: the tree, then the preview. `SetSashGravity( 0.8 )` gives the
-   tree four fifths of the extra width. */
+/* m_hsplitter: the tree, then the preview, at the sash position the panel
+   restores - NOT at the gravity.
+   
+       if( cfg.sash_h < 0 ) cfg.sash_h = horizPixelsFromDU( 220 );
+       m_hsplitter->SetSashPosition( cfg.sash_h );
+       (panel_footprint_chooser.cpp:286-290)
+
+   220 DU x 2 = 440, half of the 880 the same block defaults the window to, so
+   the tree and the preview open FIFTY-FIFTY. `SetSashGravity( 0.8 )` is a
+   different thing entirely: it distributes space added by a RESIZE, four
+   fifths to the tree. Reading it as the split ratio is what left the preview a
+   fifth of the width. */
 .ze-fpchooser-top {
-  flex: 1;
+  /* [data] `SetSashPosition( horizPixelsFromDU( 230 ) )` on the VERTICAL
+     splitter - 230 DU x 2 - which is the height of this pane, the details
+     pane taking what is left (:293-296). */
+  flex: 0 0 460px;
   display: flex;
   min-height: 0;
   min-width: 0;
@@ -5276,7 +5289,8 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
      will not shrink below its CONTENT without it, and a tree whose Description
      column is 15 000 footprints wide has a very large content width. That is
      what put the preview on top of the rows. */
-  flex: 4 4 0;
+  /* [data] half of `horizPixelsFromDU( 220 )` x 2 = 440 in an 880 window. */
+  flex: 1 1 0;
   min-width: 0;
   overflow: hidden;
   display: flex;
@@ -5298,9 +5312,9 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   min-width: 0;
   min-height: 0;
 }
-/* m_vsplitter: `SetSashGravity( 0.5 )`, `SetMinimumPaneSize( 80 )`. */
+/* m_vsplitter's lower pane: what the 460 above leaves. */
 .ze-fpchooser-details {
-  flex: 0 0 auto;
+  flex: 1 1 auto;
   /* [data] the 80 the vertical splitter will not shrink a pane below. */
   min-height: 80px;
   overflow: auto;

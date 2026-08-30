@@ -20,8 +20,8 @@
  * matches", which is the same graceful shape the rest of the footprint list
  * uses.
  */
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import {
   addFootprintLibraries,
   footprintPassesFilter,
@@ -33,6 +33,22 @@ import { PanelFootprintChooser } from '@ziroeda/designer/src/editors/pcb/widgets
 import type { FpIndexEntry } from '@ziroeda/designer/src/widgets/footprint_list.js';
 
 afterEach(cleanup);
+
+/**
+ * The frame fetches the index itself, so a test that does not stand one up
+ * gets an empty tree — and every assertion about counting or filtering then
+ * holds trivially. Both the "title does not follow the filter" and the
+ * "unticked by default" cases passed with their fixes removed for exactly that
+ * reason. Mocked here so the frame has 4 footprints to be wrong about.
+ */
+vi.mock('@ziroeda/designer/src/widgets/footprint_list.js', async (orig) => ({
+  ...(await orig<typeof import('@ziroeda/designer/src/widgets/footprint_list.js')>()),
+  loadFootprintIndex: () => Promise.resolve(INDEX),
+}));
+
+beforeEach(() => {
+  vi.clearAllMocks();
+});
 
 const INDEX: FpIndexEntry[] = [
   {
@@ -259,14 +275,50 @@ describe('the frame builds a checkbox only when it can filter on something', () 
     expect(container.querySelectorAll('.ze-libtree-filters .ze-check')).toHaveLength(2);
   });
 
-  it('starts ticked, and untickable', () => {
+  it('starts UNTICKED, which is what the setting defaults to', () => {
+    // `pcbnew_settings.cpp:146-150` registers both as `PARAM<bool>( …, false )`,
+    // so the chooser opens with the boxes present and off, showing the whole
+    // library. Ours opened ticked and filtered the tree before being asked.
     const { container } = frame({ pinCount: 2 });
     const box = container.querySelector('.ze-libtree-filters input') as HTMLInputElement;
-    expect(box.checked).toBe(true);
+    expect(box.checked).toBe(false);
     fireEvent.click(box);
     expect((container.querySelector('.ze-libtree-filters input') as HTMLInputElement).checked).toBe(
-      false,
+      true,
     );
+  });
+
+  it('counts the whole library in the title, not what the filter left', async () => {
+    // `SetTitle( … " (%d items loaded)" )` runs once in the constructor, before
+    // any `Regenerate()`, so ticking a filter never moves the number. Ours
+    // recomputed it per filter and dropped from 15 447 to 59.
+    //
+    // The index has to have ARRIVED for this to mean anything: with an empty
+    // one the count is 0 before and after, and the case passes with the fix
+    // removed. That is what the mock at the top of this file is for.
+    const { container } = frame({ pinCount: 3, fpFilters: ['tb_*'] });
+    const header = () => container.querySelector('.ze-modal-header')!.textContent;
+    await waitFor(() => expect(header()).toContain('(4 items loaded)'));
+
+    // Tick both filters; between them they leave one footprint of the four.
+    for (const box of container.querySelectorAll('.ze-libtree-filters input')) {
+      fireEvent.click(box);
+    }
+    await waitFor(() =>
+      expect(container.querySelectorAll('.ze-libtree-filters input:checked')).toHaveLength(2),
+    );
+    expect(header()).toContain('(4 items loaded)');
+  });
+
+  it('leaves the fp-filter box unticked too, not just the pin-count one', async () => {
+    // Two separate settings, two separate defaults - asserting only the
+    // pin-count box left `use_fp_filters` free to default the other way.
+    const { container } = frame({ fpFilters: ['tb_*'] });
+    await waitFor(() =>
+      expect(container.querySelectorAll('.ze-libtree-filters input')).toHaveLength(1),
+    );
+    const box = container.querySelector('.ze-libtree-filters input') as HTMLInputElement;
+    expect(box.checked).toBe(false);
   });
 
   it('titles itself the way the frame does, with the loaded count', () => {
