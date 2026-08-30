@@ -10403,7 +10403,27 @@ textarea.ze-ds-textedit {
      the next (dialog_color_picker_base.cpp:41-46). fgSizerHSV is the same with
      two. */
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  /* THE SPIN ROW DOES NOT SET THE BOX'S WIDTH. Upstream adds it with
+     proportion ZERO and wxEXPAND:
+
+         sbSizerViewRGB->Add( m_RgbBitmap, 0, ...|wxEXPAND|wxSHAPED, 5 );
+         sbSizerViewRGB->Add( 0, 0, 1, wxEXPAND, 5 );
+         sbSizerViewRGB->Add( fgSizerRGB,  0, wxEXPAND, 5 );
+
+     — it takes the width the box gives it and never asks for more. The box's
+     width is the palette's, `m_RgbBitmap` at `SetMinSize( wxSize( 264, 264 ) )`.
+
+     A CSS grid does the opposite by default: `1fr` is `minmax(auto, 1fr)`, so
+     each column's min-content — a label plus a spin box plus two buttons —
+     pushes the box outward, the box pushes the notebook, and `.ze-modal`'s
+     `width: max-content` hands the dialog whatever comes out. That is what
+     opened the picker at its `max-width: 92vw` cap, 1766 px on a 1920 px
+     screen, around two 264 px palettes swimming in space.
+
+     `minmax(0, 1fr)` is proportion 0 + wxEXPAND: share the width, contribute
+     none of it. */
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  min-width: 0;
 }
 .ze-cp-spins.two {
   grid-template-columns: repeat(2, 1fr);
@@ -10423,6 +10443,10 @@ textarea.ze-ds-textedit {
 .ze-cp-hsvrow {
   display: flex;
   align-items: stretch;
+  /* Its palette states the width; the slider column beside it does not add to
+     it (`m_SizerTransparency` and the Value column are proportion 0 columns of
+     a wxEXPAND row). */
+  min-width: 0;
 }
 .ze-cp-hsvcol {
   display: flex;
