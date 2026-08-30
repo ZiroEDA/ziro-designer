@@ -4272,8 +4272,13 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 /* Annotate Schematic dialog (DIALOG_ANNOTATE). */
 /* Annotate Schematic (dialog_annotate_base.cpp): a 2x2 grid of static boxes,
    Scope | Order over Options | Numbering, above the messages report panel. */
+/* No width. `dialog_annotate_base.cpp:17` is
+   `SetSizeHints( wxDefaultSize, wxDefaultSize )` and `bmainSizer` ends
+   `Fit( this )`: the dialog is as wide as its content wants. The content is
+   `fgSizer1`, a `wxFlexGridSizer( 2, 2, 0, 0 )` with BOTH columns growable
+   (:33-35), so the four boxes are two equal columns and the dialog is twice
+   the widest box. A `width: 720px` was a number nobody upstream wrote. */
 .ze-annotate-dialog {
-  width: 720px;
   height: auto;
   max-height: 92vh;
 }
@@ -4282,7 +4287,11 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   flex-direction: column;
   gap: 10px;
   padding: 6px;
-  overflow: auto;
+  /* `overflow-y` only: a wxDialog has no horizontal scrollbar, it is fitted to
+     its content. On both axes the body scrolls sideways instead of the dialog
+     growing, which hides the right of every row. */
+  overflow-x: visible;
+  overflow-y: auto;
 }
 .ze-annotate-grid {
   display: grid;
@@ -4317,22 +4326,30 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   flex-direction: column;
   gap: 4px;
 }
+/* No `font-size` on either. A wxStaticBox's label and a wxCheckBox's label take
+   the dialog's own font — KiCad calls SetFont on nothing here — and that is the
+   11 pt / 14.67 px `.ze-app` already hands down. These said 12 px and 13 px. */
 .ze-annotate-body legend {
   padding: 0 4px;
   color: #8a8c90;
-  font-size: 12px;
 }
 .ze-annotate-body label {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 13px;
 }
 .ze-annotate-body label.disabled {
   opacity: 0.4;
 }
+/* `m_buttonsSizer->Add( 0, 0, 1, wxEXPAND, 5 )` — the proportion-1 spacer that
+   pushes the standard buttons to the right, base.cpp:150. */
+.ze-annotate-footgap {
+  flex: 1;
+}
 .ze-annotate-body .start-num {
-  width: 70px;
+  /* [data] `m_textNumberAfter = new wxTextCtrl( ..., wxSize( 60, -1 ), 0 )`,
+     dialog_annotate_base.cpp:117. This said 70. */
+  width: 60px;
   margin-left: 6px;
 }
 /* WX_HTML_REPORT_PANEL: the message list, the "Show:" severity filters with

@@ -266,19 +266,28 @@ export function DialogAnnotate({
             fileName="report.txt"
             visibleSeverities={severities}
             onVisibleSeveritiesChange={setSeverities}
-            minHeight={160}
+            // [data] `m_MessageWindow->SetMinSize( wxSize( -1, 120 ) )`,
+            // dialog_annotate_base.cpp:136. This said 160, which is why the
+            // message box was taller than KiCad's.
+            minHeight={120}
             sorted
           />
         </div>
+        {/* `m_buttonsSizer`, horizontal (base.cpp:143-160): m_btnClear, then a
+            proportion-1 spacer, then the wxStdDialogButtonSizer. All three are
+            wxButtons, so all three take `.ze-btn` — these carried no class at
+            all and were rendering as bare user-agent buttons, which is why they
+            did not match while the report panel's Save (which does wear it)
+            did. */}
         <div className="ze-modal-footer">
-          <button type="button" onClick={() => onClear(scope, recursive)}>
+          <button type="button" className="ze-btn" onClick={() => onClear(scope, recursive)}>
             Clear Annotation
           </button>
-          <span style={{ flex: 1 }} />
-          <button type="button" onClick={close}>
+          <span className="ze-annotate-footgap" />
+          <button type="button" className="ze-btn" onClick={close}>
             Close
           </button>
-          <button type="button" className="primary" onClick={() => onAnnotate(run)}>
+          <button type="button" className="ze-btn primary" onClick={() => onAnnotate(run)}>
             Annotate
           </button>
         </div>

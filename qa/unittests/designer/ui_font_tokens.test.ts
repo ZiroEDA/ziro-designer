@@ -332,7 +332,7 @@ const BASELINE: Record<string, number> = {
   // sets, not from the window's SetFont. Measured against the real dialog it
   // renders at the GUI font — so it inherits, and the count is unaffected
   // either way because a var() is not a hardcoded size.
-  ui: 118,
+  ui: 116,
   widgets: 6,
 };
 
@@ -524,7 +524,10 @@ describe('hardcoded font sizes do not grow', () => {
     // dialog's own 11pt / 14.67px. KiCad calls SetFont on nothing in
     // DIALOG_TEXT_PROPERTIES, so every control takes the GUI font that
     // `.ze-app` already hands down. One row moves and 323 - 1 agrees with it.
-    expect(sites.length).toBe(322);
+    // 322 -> 320: `ui` 118 -> 116, the Annotate dialog's legend (12px) and its
+    // label rows (13px). A wxStaticBox label and a wxCheckBox label take the
+    // dialog's own font; KiCad sets none here.
+    expect(sites.length).toBe(320);
   });
 });
 
