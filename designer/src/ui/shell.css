@@ -10272,6 +10272,31 @@ textarea.ze-ds-textedit {
   display: flex;
   align-items: stretch;
 }
+/* m_notebook's page area. A wxNotebook is ONE size whatever page is showing:
+   `wxBookCtrlBase::DoGetBestSize` walks EVERY page and `IncTo`s the largest,
+   and only takes the current page's size when `SetFitToCurrentPage( true )`
+   has been called - which in all of KiCad is `PAGED_DIALOG`'s treebook and
+   nothing else (common/widgets/paged_dialog.cpp:73). So the picker is as wide
+   as its widest page and as tall as its tallest, and clicking Defined Colors
+   does not resize the dialog.
+
+   Stacking both pages in one grid cell is that rule: every page contributes
+   its size, the unselected one is hidden by VISIBILITY, and the cell is the
+   maximum of the two. Hiding by `display: none` instead is what let the two
+   pages come out different sizes - it takes the hidden page out of sizing
+   altogether, which is what wx does only in the fit-to-current-page case. */
+.ze-cp-book {
+  display: grid;
+}
+.ze-cp-book > * {
+  grid-area: 1 / 1;
+}
+/* The unselected page still SIZES the book, so it may not be display:none —
+   and being `visibility: hidden` it is out of the tab order and untouchable,
+   which is the rest of what a wxNotebook page that is not showing is. */
+.ze-cp-book > [hidden] {
+  visibility: hidden;
+}
 .ze-cp-panels {
   /* bSizerPanels, horizontal: the RGB box beside the HSV box. Each goes in
      with proportion 1, so the two share the notebook evenly - and the
@@ -10283,9 +10308,10 @@ textarea.ze-ds-textedit {
 /* `display` here beats the UA's `[hidden] { display: none }`, which is why
    selecting Defined Colors underlined the tab and changed nothing on the page
    beneath it. The page stays MOUNTED - unmounting it would throw away the two
-   palette bitmaps and repaint them on every tab click. */
+   palette bitmaps and repaint them on every tab click - and it stays LAID OUT,
+   because a wxNotebook is sized by its pages including the ones not showing. */
 .ze-cp-panels[hidden] {
-  display: none;
+  display: flex;
 }
 /* `bSizerPanels->Add( sbSizerViewRGB, 1, ... )` and the same for HSV
    (dialog_color_picker_base.cpp:74, :131) — proportion 1 each.
@@ -10352,11 +10378,11 @@ textarea.ze-ds-textedit {
 /* m_panelDefinedColors' grid: the 35 colours of colorRefs() as a swatch and a
    name apiece, in the 7 x 5 matrix `initDefinedColors` reorders them into. */
 .ze-cp-defined {
-  flex: 1;
-  /* [data] the palettes are 264 px (dialog_color_picker_base.cpp:32), and a
-     wxNotebook does not shrink when a page with less in it is selected - the
-     book keeps the height of its largest page. */
-  min-height: 264px;
+  /* No height floor. It used to carry `min-height: 264px` — the palettes' size,
+     copied here so that selecting this page did not shrink the dialog. That was
+     the wxNotebook rule written out by hand for one page and one axis;
+     `.ze-cp-book` now states it once for both pages and both axes, so the floor
+     is the free page itself rather than a number repeated from it. */
   /* [data] `m_SizerDefinedColors->Add( m_fgridColor, 1, wxALL|wxEXPAND, 10 )`
      (dialog_color_picker_base.cpp:154). */
   padding: 10px;
