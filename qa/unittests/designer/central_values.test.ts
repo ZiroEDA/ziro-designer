@@ -384,7 +384,7 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // `DoGetBestSize`, so the button is 16 + 5*2 square and the separator
   // 0 + 5*2 wide, both [data] against that formula, and the separator's own
   // margin and the Link box's `min-width: 0` went away.
-  ui: { colours: 244, metrics: 741 },
+  ui: { colours: 237, metrics: 741 },
   // colours 6 -> 7: the opacity slider's #55585d track arrived here with
   // APPEARANCE_CONTROLS; it is the same literal `editors/pcb` lost, not a new
   // one. The panel's own stylesheet adds none: every length in
@@ -684,7 +684,27 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // the shared disclosure chevron, already exists precisely so "every
     // tree-ish expander in the app is the same mark". The local rule and its
     // colour are gone.
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(622);
+    // 622 -> 615: `ui` 244 -> 237, the group-label family and two more in
+    // WX_HTML_REPORT_PANEL. A wxStaticBox label takes the DIALOG's foreground -
+    // KiCad states no colour on any of them - and measured off a capture of
+    // Update PCB from Schematic, its "Changes to Be Applied" and "Update
+    // Fields" labels both ink 241-247, which is --chrome-fg. Ours dimmed them
+    // five different ways:
+    //
+    //   .ze-report-panel > legend      #8a8c90   <- "Changes to Be Applied"
+    //   .ze-annotate-body legend       #8a8c90
+    //   .ze-lp-{fields,shape,formatting} legend  #8a8c90
+    //   .ze-props-group legend         #c7c9cc
+    //   .ze-update-pcb-body legend     #8a8c90
+    //
+    // plus `.ze-report-show`'s #8a8c90 - "Show:" is a wxStaticText on the
+    // dialog - and `.ze-report-line.info`'s #909090, which the shipped build
+    // does not apply (the colour in `<font color=#909090>` is unquoted, so an
+    // INFO line takes the view's own foreground; measured 255 against our 144).
+    //
+    // Seven, and 244 - 7 = 237 agrees with the total moving 622 - 7 = 615. Two
+    // derivations, one from the per-area row and one from the tree-wide scan.
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(615);
     // 1657 -> 1649: the same sweep. A native colour input has no useful
     // default size, so eight of the sixteen sites gave theirs an inline
     // width and height; the shared swatch takes --swatch-*-w/h. Rescanned.

@@ -332,7 +332,7 @@ const BASELINE: Record<string, number> = {
   // sets, not from the window's SetFont. Measured against the real dialog it
   // renders at the GUI font — so it inherits, and the count is unaffected
   // either way because a var() is not a hardcoded size.
-  ui: 104,
+  ui: 101,
   widgets: 6,
 };
 
@@ -546,7 +546,12 @@ describe('hardcoded font sizes do not grow', () => {
     // also had a size on `.ze-props-group`'s legend and label rules. A
     // wxStaticText takes the dialog's own font; 13px against 11pt / 14.67px is
     // why every one of those dialogs read smaller than KiCad's.
-    expect(sites.length).toBe(308);
+    // 308 -> 305: three more wxStaticBox / wxCheckBox labels that stated their
+    // own size against the dialog's 11 pt / 14.67 px - `.ze-update-pcb-body`'s
+    // legend (12px) and its checkbox labels (13px), and the Label Properties
+    // group labels (12px). KiCad calls SetFont on none of them. `ui` is the
+    // only row that moves and 308 - 3 agrees with it.
+    expect(sites.length).toBe(305);
   });
 });
 

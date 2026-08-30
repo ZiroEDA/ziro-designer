@@ -65,9 +65,40 @@ function inlineSized(): string[] {
   return hits.sort();
 }
 
-/** Every `.ze-modal.<variant>` rule in shell.css that names a width or height. */
+/**
+ * Every class this tree ever puts on a `.ze-modal` element, so a rule written
+ * `.ze-foo-dialog` is scanned as well as one written `.ze-modal.ze-foo-dialog`.
+ *
+ * That distinction hid NINE dialogs from this census - update-pcb, pns,
+ * message, teardrops, tvp, zone, fpprops, padprops and graphic - every one of
+ * them applied as `className="ze-modal ze-x-dialog"` and every one of them
+ * styled with a bare `.ze-x-dialog { width: … }`. The count read 4 while the
+ * real pile was 13, which is a ratchet that was not ratcheting.
+ */
+let modalVariantsCache: Set<string> | undefined;
+
+function modalVariants(): Set<string> {
+  // Memoised: this walks every .tsx in the tree, and `cssSized()` asks for it
+  // once per CSS rule. Called fresh each time it took 26 s and timed out - the
+  // same shape as the flex-direction guard, which had the same bug.
+  if (modalVariantsCache) return modalVariantsCache;
+  const out = new Set<string>();
+  for (const file of walk(SRC)) {
+    const text = readFileSync(file, 'utf8');
+    for (const m of text.matchAll(/className=(?:"([^"]*)"|\{`([^`]*)`\})/g)) {
+      const names = (m[1] ?? m[2] ?? '').split(/[\s${}]+/).filter((c) => c && !c.startsWith('$'));
+      if (!names.includes('ze-modal')) continue;
+      for (const c of names) if (c !== 'ze-modal') out.add(c);
+    }
+  }
+  modalVariantsCache = out;
+  return out;
+}
+
+/** Every rule in shell.css naming a width or height on a modal or a variant. */
 function cssSized(): string[] {
   const css = readFileSync(SHELL, 'utf8');
+  const variants = modalVariants();
   const hits: string[] = [];
   for (const m of css.matchAll(/([^{}]*)\{([^{}]*)\}/g)) {
     const selector = (m[1] ?? '').trim().split('\n').pop()?.trim() ?? '';
@@ -76,7 +107,12 @@ function cssSized(): string[] {
     // `.ze-modal` or `.ze-modal.<variant>` — the modal element itself. NOT
     // `.ze-modal-header` / `.ze-modal-body`, which are hyphenated siblings
     // inside it and have their own heights for their own reasons.
-    if (!/(^|\s)\.ze-modal(\.[\w-]+)*$/.test(first)) continue;
+    // `.ze-modal`, `.ze-modal.<variant>`, or a bare `.<variant>` that the tree
+    // puts on a modal element.
+    const isModalSelector =
+      /(^|\s)\.ze-modal(\.[\w-]+)*$/.test(first) ||
+      (/^\.[\w-]+$/.test(first) && variants.has(first.slice(1)));
+    if (!isModalSelector) continue;
     if (first === '.ze-modal') continue; // the default, checked separately
     if (/(^|[^-])(width|height)\s*:\s*[0-9]/.test(m[2] ?? '')) hits.push(first);
   }
@@ -143,7 +179,7 @@ describe('the pile of hand-picked dialog sizes does not grow', () => {
     expect(inlineSized()).toHaveLength(1);
   });
 
-  it('5 shell.css variants still name their own size', () => {
+  it('13 shell.css variants still name their own size', () => {
     // 15 until `.ze-pgs` stopped restating what `.ze-modal` now gets right, and
     // 14 until Open Project became the shared file chooser: `.ze-open-project`
     // named a 920x620 and the window that replaced it is sized by the chooser,
@@ -212,12 +248,37 @@ describe('the pile of hand-picked dialog sizes does not grow', () => {
     //
     // This entry is what the ratchet is FOR: it went up deliberately, in the
     // commit that added the rule, with the citation beside it.
-    expect(cssSized()).toHaveLength(5);
+    // 5 -> 13, and NOT because anything was added: the scan was blind.
+    //
+    // It only matched selectors written `.ze-modal` or `.ze-modal.<variant>`,
+    // and nine dialogs style themselves with a BARE `.ze-x-dialog { width: … }`
+    // while rendering `className="ze-modal ze-x-dialog"`. So update-pcb, pns,
+    // message, teardrops, tvp, zone, fpprops, padprops and graphic each named a
+    // width that this census reported as 4. A ratchet that was not ratcheting.
+    //
+    // `modalVariants()` now reads the class names the tree actually puts on a
+    // modal, so a bare variant is scanned too. One of the nine is already gone
+    // - `.ze-update-pcb-dialog`'s 700px, which `dialog_update_pcb_base.cpp:16`
+    // and `:107` contradict: `SetSizeHints( wxSize( -1,-1 ), … )` then
+    // `bMainSizer->Fit( this )`, so the dialog is as wide as its longest
+    // checkbox label. 9 - 1 = 8 remain, plus the 5 already counted.
+    //
+    // The eight are the sweep still to do, each to be checked against its own
+    // base file the way this one was.
+    expect(cssSized()).toHaveLength(13);
   });
 
   it('and every one of them is a dialog, so the scan is really finding them', () => {
+    // A hit is either an inline site (`path.tsx:line`), a `.ze-modal…`
+    // selector, or a bare variant class the tree puts on a modal - which is
+    // what the widened scan added and what this check has to allow, or it
+    // rejects the very rules it was extended to find.
+    const variants = modalVariants();
     for (const where of [...inlineSized(), ...cssSized()]) {
-      expect(where).toMatch(/ze-modal|\.tsx:\d+/);
+      const ok =
+        /ze-modal|\.tsx:\d+/.test(where) ||
+        (/^\.[\w-]+$/.test(where) && variants.has(where.slice(1)));
+      expect(ok, `${where} is neither a call site nor a modal selector`).toBe(true);
     }
     expect(inlineSized().length + cssSized().length).toBeGreaterThan(0);
   });

@@ -4316,9 +4316,9 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 /* No `font-size` on either. A wxStaticBox's label and a wxCheckBox's label take
    the dialog's own font — KiCad calls SetFont on nothing here — and that is the
    11 pt / 14.67 px `.ze-app` already hands down. These said 12 px and 13 px. */
+/* As `.ze-report-panel > legend`: no colour, so it inherits the dialog's. */
 .ze-annotate-body legend {
   padding: 0 4px;
-  color: #8a8c90;
 }
 .ze-annotate-body label {
   display: flex;
@@ -4349,9 +4349,13 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   padding: 6px 8px 8px;
   min-width: 0;
 }
+/* A wxStaticBox label takes the DIALOG's foreground - KiCad states no colour
+   on any of these. Measured off a capture of Update PCB from Schematic, whose
+   "Changes to Be Applied" and "Update Fields" labels both ink 241-247, which is
+   --chrome-fg; ours stated #8a8c90 and read visibly darker. Stating nothing is
+   the fix: the colour then comes from the one place that holds it. */
 .ze-report-panel > legend {
   padding: 0 4px;
-  color: #8a8c90;
 }
 .ze-report-view {
   flex: 1;
@@ -4360,6 +4364,12 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   border: 1px solid var(--chrome-border);
   border-radius: 2px;
   padding: 4px 6px;
+  /* A wxHtmlWindow is a VIEW, so its text is wxSYS_COLOUR_WINDOWTEXT and not
+     the dialog's wxSYS_COLOUR_BTNTEXT. Inheriting the dialog's left it at
+     --chrome-fg, #F7F7F7: measured against a capture of Update PCB from
+     Schematic, KiCad's report ink is 255 and ours was 247. Eight levels, and
+     the reason the box still read slightly darker after the severity fix. */
+  color: var(--view-fg);
   /* No font-size: the message view takes the dialog's, like everything else in
      the panel.
 
@@ -4390,9 +4400,11 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-report-line.warning .tag {
   color: inherit;
 }
-.ze-report-line.info {
-  color: #909090;
-}
+/* No `.info` rule. `generateHtml` writes `<font color=#909090 …>` for
+   RPT_SEVERITY_INFO, but the value is UNQUOTED and the shipped build does not
+   apply it: measured off a capture of Update PCB from Schematic, whose lines
+   are all INFO, every text pixel is 255 where ours was 144. An INFO line takes
+   the panel's own foreground. */
 .ze-report-line.action {
   color: #60d060;
 }
@@ -4411,8 +4423,11 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   align-items: center;
   gap: 4px;
 }
+/* "Show:" is a wxStaticText on the dialog, so it takes the dialog's own
+   foreground. The #8a8c90 here was ours, and it is why the word read dimmer
+   than the checkbox labels beside it. */
 .ze-report-show {
-  color: #8a8c90;
+  color: var(--chrome-fg);
 }
 .ze-report-spacer {
   flex: 1;
@@ -4462,8 +4477,18 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 /* Update PCB from Schematic (dialog_update_pcb_base.cpp): Options / Update
    Footprints / Update Fields stacked above the report panel, whose lower sizer
    sets a 660x300 minimum. */
+/* `DIALOG_UPDATE_PCB` states no width. `dialog_update_pcb_base.cpp:16` is
+   `SetSizeHints( wxSize( -1,-1 ), wxDefaultSize )` and `:107` ends
+   `bMainSizer->Fit( this )`, so the dialog is as wide as its content - and its
+   content is the option CHECKBOXES, whose minimum is the whole of their labels
+   ("Re-link footprints to schematic symbols based on their reference
+   designators" is the longest). That is why a real one measures 813 px and our
+   700 clipped: the number was a pick, and it was under what the labels need.
+
+   The one real number is the report area's floor, `bLowerSizer->SetMinSize(
+   wxSize( 660, 300 ) )` (:88), which belongs on the report pane rather than on
+   the dialog. */
 .ze-update-pcb-dialog {
-  width: 700px;
   height: auto;
   max-height: 92vh;
 }
@@ -4481,16 +4506,19 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   flex-direction: column;
   gap: 4px;
 }
+/* A wxStaticBox label takes the dialog's own font and foreground; KiCad calls
+   SetFont on none of these. The 12px and the grey were ours, and they are why
+   every group label in this dialog read smaller and dimmer than KiCad's. */
 .ze-update-pcb-body legend {
   padding: 0 4px;
-  color: #8a8c90;
-  font-size: 12px;
 }
 .ze-update-pcb-body label {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 13px;
+  /* A wxCheckBox's minimum IS its whole label, so it never wraps - and it is
+     the widest of these that sets the dialog's width. */
+  white-space: nowrap;
 }
 .ze-update-pcb-body label.disabled {
   opacity: 0.4;
@@ -6527,12 +6555,11 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   margin: 5px;
   padding: 5px;
 }
+/* Neither a colour nor a size: a wxStaticBox label takes both from the dialog. */
 .ze-lp-fields legend,
 .ze-lp-shape legend,
 .ze-lp-formatting legend {
   padding: 0 4px;
-  color: #8a8c90;
-  font-size: 12px;
 }
 .ze-lp-grid-wrap {
   min-height: 100px;
@@ -7145,9 +7172,9 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
    These three said 12.5 px and 13 px against that 14.67 px, so every group box
    in the app — this is a shared rule — read smaller than KiCad's. Stating
    nothing is the fix; the size then comes from the one place that holds it. */
+/* No colour either, for the same reason the size went: #c7c9cc was ours. */
 .ze-props-group legend {
   padding: 0 6px;
-  color: #c7c9cc;
 }
 .ze-props-group label {
   display: flex;
@@ -8597,7 +8624,9 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   /* A wxStaticBox label is the ordinary control font, not an info font. */
   font-size: var(--ui-font-size);
   padding: 0 4px;
-  opacity: 0.8;
+  /* No dimming either. The 0.8 that was here was the same guess the four
+     `color` literals on the other group labels were, in another form - and it
+     took the label BELOW --chrome-fg, where a real one inks 241-247. */
 }
 .ze-ds-row {
   display: flex;
