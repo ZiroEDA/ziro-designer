@@ -5325,6 +5325,19 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-libtree-sortbtn-wrap {
   position: relative;
 }
+/* `m_filtersSizer`, a wxVERTICAL box added between the search control and the
+   tree with `wxEXPAND | wxLEFT, 4` (common/widgets/lib_tree.cpp:167-168). The
+   4 px inset is that border; the column direction is the sizer's own, and the
+   gap between two checkboxes is each child's `wxBOTTOM, 4` at the call site
+   (footprint_chooser_frame.cpp:590). */
+.ze-libtree-filters {
+  display: flex;
+  flex-direction: column;
+  /* [data] `wxEXPAND | wxLEFT, 4` */
+  padding-left: 4px;
+  /* [data] `wxBOTTOM, 4` on each child the frame adds */
+  gap: 4px;
+}
 /* The wxSearchCtrl. `search_sizer->Add( m_query_ctrl, 1, ..., wxRIGHT, 4 )`. */
 .ze-libtree-entry {
   position: relative;
