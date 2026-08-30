@@ -31,7 +31,7 @@
  * what puts checkboxes in it: only the frame knows the symbol's fp_filters and
  * pin count. That is the whole reason the slot exists.
  */
-import { useCallback, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { JSX } from 'react';
 import { LibTree } from '../../../widgets/lib_tree.js';
 import { LibTreeModelAdapter } from '../../../widgets/lib_tree_model_adapter.js';
@@ -82,6 +82,14 @@ export function PanelFootprintChooser({
   onItemCountChanged,
 }: PanelFootprintChooserProps): JSX.Element {
   const [selected, setSelected] = useState<string | null>(preselect ?? null);
+  /**
+   * `LIB_TREE::SelectLibId` only takes effect once the node it names EXISTS,
+   * which is why LibTree keys that effect on this nonce as well as on the id.
+   * The index arrives after mount, so without bumping it here the preselection
+   * silently never happened: the chooser opened on nothing even when the field
+   * already named a footprint.
+   */
+  const [regenerateNonce, setRegenerateNonce] = useState(0);
 
   /**
    * What the details pane draws. `FP_TREE_MODEL_ADAPTER::GenerateInfo` calls
@@ -111,6 +119,12 @@ export function PanelFootprintChooser({
     return a;
   }, [index, filter, onItemCountChanged]);
 
+  // A new tree is a new chance for the preselection to find its node.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: keyed on the adapter identity
+  useEffect(() => {
+    setRegenerateNonce((n) => n + 1);
+  }, [adapter]);
+
   const select = useCallback(
     (node: LibTreeNode | null) => {
       const id = libIdOf(node);
@@ -138,6 +152,7 @@ export function PanelFootprintChooser({
             recentSearchesKey="footprints"
             filters={filters}
             selectLibId={preselect}
+            regenerateNonce={regenerateNonce}
             // The tree owns the details pane upstream; ours renders it below
             // rather than inside, so it is told not to draw its own.
             hasExternalDetails

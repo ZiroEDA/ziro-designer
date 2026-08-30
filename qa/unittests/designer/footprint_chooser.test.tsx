@@ -29,6 +29,7 @@ import {
 import { generateFootprintInfo } from '@ziroeda/designer/src/editors/pcb/widgets/generate_footprint_info.js';
 import { LibTreeModelAdapter } from '@ziroeda/designer/src/widgets/lib_tree_model_adapter.js';
 import { FootprintChooserFrame } from '@ziroeda/designer/src/editors/pcb/dialogs/footprint_chooser_frame.js';
+import { PanelFootprintChooser } from '@ziroeda/designer/src/editors/pcb/widgets/panel_footprint_chooser.js';
 import type { FpIndexEntry } from '@ziroeda/designer/src/widgets/footprint_list.js';
 
 afterEach(cleanup);
@@ -147,6 +148,86 @@ describe('GenerateFootprintInfo', () => {
     const html = generateFootprintInfo({ libId: 'L:N', description: '<script>x</script>' });
     expect(html).not.toContain('<script>');
     expect(html).toContain('&lt;script&gt;');
+  });
+});
+
+describe('the chooser opens on the footprint the field already names', () => {
+  /**
+   * `ShowModal( wxString* aFootprint, … )` seeds the preselection, and
+   * `LIB_TREE::SelectLibId` only takes effect once the node it names EXISTS.
+   * The library index arrives AFTER mount, so the tree has to be told to try
+   * again when it does - which is what LibTree's `regenerateNonce` is for. The
+   * first version of this panel never bumped it, so the chooser opened on
+   * nothing even when the field already named a footprint.
+   */
+  it('selects the preselected footprint once the tree holds it', () => {
+    const picked: (string | null)[] = [];
+    render(
+      <PanelFootprintChooser
+        index={INDEX}
+        preselect="Resistor_SMD:R_0805"
+        onSelect={(id) => picked.push(id)}
+        onChoose={() => {}}
+      />,
+    );
+    expect(picked).toContain('Resistor_SMD:R_0805');
+  });
+
+  it('selects it when the index arrives AFTER mount, which is the real order', () => {
+    // The frame fetches the index; the panel mounts with nothing. A test that
+    // hands the index in synchronously proves nothing about that, because the
+    // node already exists when `SelectLibId`'s effect first runs - which is why
+    // the first version of this case passed with the nonce removed. Here the
+    // tree is empty at mount and the preselection can only land if the panel
+    // asks the tree to try again once the adapter has been rebuilt.
+    const picked: (string | null)[] = [];
+    const { rerender } = render(
+      <PanelFootprintChooser
+        index={[]}
+        preselect="Resistor_SMD:R_0805"
+        onSelect={(id) => picked.push(id)}
+        onChoose={() => {}}
+      />,
+    );
+    expect(picked.filter(Boolean)).toEqual([]);
+
+    rerender(
+      <PanelFootprintChooser
+        index={INDEX}
+        preselect="Resistor_SMD:R_0805"
+        onSelect={(id) => picked.push(id)}
+        onChoose={() => {}}
+      />,
+    );
+    expect(picked).toContain('Resistor_SMD:R_0805');
+  });
+
+  it('leaves nothing selected when the field names no footprint', () => {
+    const picked: (string | null)[] = [];
+    render(
+      <PanelFootprintChooser
+        index={INDEX}
+        onSelect={(id) => picked.push(id)}
+        onChoose={() => {}}
+      />,
+    );
+    expect(picked.filter(Boolean)).toEqual([]);
+  });
+
+  it('does not select a footprint the filter has removed from the tree', () => {
+    // The preselection is a node lookup, not a string: a footprint filtered out
+    // is not in the tree, so nothing is selected and OK will not write it back.
+    const picked: (string | null)[] = [];
+    render(
+      <PanelFootprintChooser
+        index={INDEX}
+        preselect="Resistor_SMD:R_0805"
+        filter={{ pinCount: 3 }}
+        onSelect={(id) => picked.push(id)}
+        onChoose={() => {}}
+      />,
+    );
+    expect(picked.filter(Boolean)).toEqual([]);
   });
 });
 

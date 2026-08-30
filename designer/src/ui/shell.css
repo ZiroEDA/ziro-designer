@@ -5271,17 +5271,32 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   min-width: 0;
 }
 .ze-fpchooser-tree {
-  flex: 4;
+  /* `SetSashGravity( 0.8 )`: the tree takes four fifths of the extra width.
+     `min-width: 0` is what keeps it from overlapping the preview - a flex item
+     will not shrink below its CONTENT without it, and a tree whose Description
+     column is 15 000 footprints wide has a very large content width. That is
+     what put the preview on top of the rows. */
+  flex: 4 4 0;
   min-width: 0;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
 }
 .ze-fpchooser-preview {
-  flex: 1;
-  /* [data] `m_hsplitter->SetMinimumPaneSize( 20 )`. */
+  flex: 1 1 0;
+  /* [data] `m_hsplitter->SetMinimumPaneSize( 20 )` — the sash will not shrink
+     a pane below it, which is a FLOOR and not a width. */
   min-width: 20px;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
+}
+/* The preview canvas fills its pane rather than sizing itself: a
+   FOOTPRINT_PREVIEW_WIDGET is given the pane by the splitter. */
+.ze-fpchooser-preview > * {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
 }
 /* m_vsplitter: `SetSashGravity( 0.5 )`, `SetMinimumPaneSize( 80 )`. */
 .ze-fpchooser-details {

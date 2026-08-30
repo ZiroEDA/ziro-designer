@@ -8123,7 +8123,49 @@ export function SchematicEditor({
   const [fpChooser, setFpChooser] = useState<{
     current: string;
     commit: (picked: string) => void;
+    /** The symbol's `ki_fp_filters`, split — MAIL_SYMBOL_NETLIST's half. */
+    fpFilters: readonly string[];
+    /** Its pin count, the other half. */
+    pinCount?: number;
   } | null>(null);
+
+  /**
+   * What upstream mails the chooser as MAIL_SYMBOL_NETLIST: the symbol's
+   * footprint filters and its pin count. Both are the FRAME's knowledge and
+   * neither is derivable inside the chooser, which is why the two filter
+   * checkboxes live there and not in the tree.
+   *
+   * `PG_FPID_EDITOR::OnEvent` builds the netlist through `m_netlistCallback`
+   * and mails it before showing the frame; an empty one simply means no
+   * checkboxes, which is the same `if( !m_fpFilters.empty() )` branch.
+   */
+  const selectedSymbolFpContext = useCallback((): {
+    fpFilters: readonly string[];
+    pinCount?: number;
+  } => {
+    if (!doc || selection.size !== 1) return { fpFilters: [] };
+    const ref = itemRefById(doc, [...selection][0]!);
+    if (ref?.kind !== 'symbol') return { fpFilters: [] };
+    const sym = doc.symbols.find((t, i) => refId('symbol', t.uuid, i) === ref.id);
+    if (!sym) return { fpFilters: [] };
+    const lib = libById.get(sym.libId);
+    const filters = (
+      lib?.properties.find((pr) => pr.key === 'ki_fp_filters')?.value ??
+      sym.fields.find((f) => f.key === 'ki_fp_filters')?.value ??
+      ''
+    )
+      .split(/\s+/)
+      .filter(Boolean);
+    // `FOOTPRINT_CHOOSER_FRAME` counts the pins in the mailed netlist, which is
+    // the symbol's whole pin list - every unit's, across body styles, counted
+    // once per pin NUMBER the way `GetUniquePadCount` counts pads. A power
+    // symbol's hidden pin counts too, because the netlist carries it.
+    const numbers = new Set<string>();
+    for (const unit of lib?.units ?? []) {
+      for (const pin of unit.pins) if (pin.number) numbers.add(pin.number);
+    }
+    return { fpFilters: filters, ...(numbers.size > 0 ? { pinCount: numbers.size } : {}) };
+  }, [doc, selection, libById]);
 
   // `PROPERTIES_PANEL::rebuildProperties` captions a single selection with
   // `aSelection.Front()->GetFriendlyName()` — the item's TYPE.
@@ -8521,7 +8563,7 @@ export function SchematicEditor({
                                 units={units}
                                 onCommand={runCommand}
                                 onBrowseFootprint={(current, commit) =>
-                                  setFpChooser({ current, commit })
+                                  setFpChooser({ current, commit, ...selectedSymbolFpContext() })
                                 }
                               />
                             </div>
@@ -9933,6 +9975,8 @@ export function SchematicEditor({
       {fpChooser && (
         <FootprintChooserFrame
           preselect={fpChooser.current}
+          fpFilters={fpChooser.fpFilters}
+          {...(fpChooser.pinCount === undefined ? {} : { pinCount: fpChooser.pinCount })}
           onOk={(libId) => {
             fpChooser.commit(libId);
             setFpChooser(null);
