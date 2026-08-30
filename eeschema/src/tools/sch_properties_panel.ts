@@ -18,12 +18,15 @@ import type {
   SchSymbol,
   Schematic,
   Stroke,
+  SchTableCell,
+  TextBoxMargins,
   TextEffects,
   Vec2,
 } from '../types.js';
 import { FILL_MODE_NAMES, FILL_MODE_TOKENS, parseColor4d, rgb8ToCss } from '@ziroeda/common';
 import type { EditCommand } from './command.js';
 import { refId, type ItemRef } from './hittest.js';
+import { cellIndexOfId, tableOfCellId } from './table_cells.js';
 import {
   replaceBusEntry,
   replaceGraphic,
@@ -503,6 +506,149 @@ function sheetFieldRows(sh: SchSheet, index: number): PropRow[] {
             }),
     };
   });
+}
+
+/**
+ * `EDA_TEXT_DESC`'s rows (common/eda_text.cpp), which every text-bearing
+ * schematic item inherits: a field, a text box, a table cell, a label.
+ *
+ * Registration order is Orientation, Text, Font, Auto Thickness, Thickness,
+ * Italic, Bold, Mirrored, Visible, Width, Height, Horizontal Justification,
+ * Vertical Justification, Color, Hyperlink. Which of those an item actually
+ * shows depends on what it MASKS: SCH_TEXTBOX masks Width, Height, Thickness
+ * and Orientation, and SCH_TABLECELL masks those plus Mirrored, Visible and
+ * Hyperlink. `Visible` also carries `SetAvailableFunc( isField )` upstream, so
+ * a field is the only schematic item that ever shows it.
+ *
+ * The caller supplies its own `Text` row because the text lives in a different
+ * place on each item, and it goes first - which is where EDA_TEXT registers it
+ * once Orientation is masked.
+ */
+interface EdaTextOpts {
+  /** The item's own Text row, placed first. */
+  readonly text: PropRow;
+  /** EDA_TEXT's `Visible`, which only a SCH_FIELD shows. */
+  readonly showVisible?: boolean;
+}
+
+function edaTextRows(
+  fx: TextEffects | undefined,
+  setEffects: (label: string, p: Partial<TextEffects>) => EditCommand,
+  opts: EdaTextOpts,
+): PropRow[] {
+  const G = 'Text Properties';
+  const hIdx = justifyOf(fx, H_JUSTIFY_TOKENS);
+  const vIdx = justifyOf(fx, V_JUSTIFY_TOKENS);
+  return [
+    opts.text,
+    {
+      group: G,
+      name: 'Font',
+      kind: 'choice',
+      choices: FONT_CHOICES,
+      // `GetFontProp()` answers "Default Font" when no face is set
+      // (common/eda_text.cpp:1023-1032); `SetFontProp` clears it again.
+      value: fx?.face ? fx.face : 'Default Font',
+      set: (v) =>
+        setEffects('Change Font', {
+          face: String(v) === 'Default Font' ? undefined : String(v),
+        }),
+    },
+    {
+      group: G,
+      name: 'Auto Thickness',
+      kind: 'bool',
+      // `GetAutoThickness() { return GetTextThickness() == 0; }`
+      // (include/eda_text.h:150): an absent `(thickness ...)` token is auto.
+      value: !fx?.thickness,
+      // Only the auto direction is expressible - the effective pen is resolved
+      // at draw time from the size and the bold flag, so unticking is refused
+      // rather than guessed.
+      set: (v) => (v ? setEffects('Auto Thickness', { thickness: undefined }) : null),
+    },
+    {
+      group: G,
+      name: 'Italic',
+      kind: 'bool',
+      value: !!fx?.italic,
+      set: (v) => setEffects('Toggle Italic', { italic: !!v || undefined }),
+    },
+    {
+      group: G,
+      name: 'Bold',
+      kind: 'bool',
+      value: !!fx?.bold,
+      set: (v) => setEffects('Toggle Bold', { bold: !!v || undefined }),
+    },
+    ...(opts.showVisible
+      ? [
+          {
+            group: G,
+            name: 'Visible',
+            kind: 'bool',
+            value: !fx?.hidden,
+            set: (v: string | number | boolean) => setEffects('Show Field', { hidden: !v }),
+          } as PropRow,
+        ]
+      : []),
+    {
+      group: G,
+      name: 'Horizontal Justification',
+      kind: 'choice',
+      choices: H_JUSTIFY_LABELS,
+      value: H_JUSTIFY_LABELS[hIdx]!,
+      set: (v) => {
+        const k = (H_JUSTIFY_LABELS as readonly string[]).indexOf(String(v));
+        return k < 0
+          ? null
+          : setEffects('Change Horizontal Justification', {
+              justify: withJustify(fx, H_JUSTIFY_TOKENS, H_JUSTIFY_TOKENS[k]!),
+            });
+      },
+    },
+    {
+      group: G,
+      name: 'Vertical Justification',
+      kind: 'choice',
+      choices: V_JUSTIFY_LABELS,
+      value: V_JUSTIFY_LABELS[vIdx]!,
+      set: (v) => {
+        const k = (V_JUSTIFY_LABELS as readonly string[]).indexOf(String(v));
+        return k < 0
+          ? null
+          : setEffects('Change Vertical Justification', {
+              justify: withJustify(fx, V_JUSTIFY_TOKENS, V_JUSTIFY_TOKENS[k]!),
+            });
+      },
+    },
+    colorRow(G, 'Color', fx?.color, (c) => setEffects('Change Color', { color: c })),
+  ];
+}
+
+/**
+ * `SCH_TEXTBOX_DESC`'s four margins, group `_( "Margins" )`. A table cell
+ * inherits them from SCH_TEXTBOX, so both callers take them from here.
+ */
+function marginRows(
+  m: TextBoxMargins | undefined,
+  put: (p: Partial<TextBoxMargins>) => EditCommand,
+): PropRow[] {
+  const side = (name: string, key: keyof TextBoxMargins): PropRow => ({
+    group: 'Margins',
+    name,
+    kind: 'dist',
+    value: m?.[key] ?? 0,
+    set: (v) => {
+      const n = num(v);
+      return n === null ? null : put({ [key]: n });
+    },
+  });
+  return [
+    side('Margin Left', 'left'),
+    side('Margin Top', 'top'),
+    side('Margin Right', 'right'),
+    side('Margin Bottom', 'bottom'),
+  ];
 }
 
 function lineRows(sch: Schematic, index: number): PropRow[] {
@@ -1429,12 +1575,18 @@ export function schPropertiesFor(
       const i = indexOf(sch.tables, (t, k) => refId('table', t.uuid, k));
       if (i < 0) return [];
       const t = sch.tables[i]!;
+      // `const wxString tableProps = _( "Table Properties" )` - Start X and
+      // Start Y are ungrouped and land under "Basic Properties"; the other ten
+      // carry that group and get a category of their own. We had all twelve in
+      // the unnamed group, so the panel showed one flat list where KiCad shows
+      // two headings.
+      const TP = 'Table Properties';
       const flag = (
         name: string,
         value: boolean,
         set: (v: boolean) => Partial<typeof t>,
       ): PropRow => ({
-        group: '',
+        group: TP,
         name,
         kind: 'bool',
         value,
@@ -1468,7 +1620,7 @@ export function schPropertiesFor(
         const cur = stroke?.type ?? 'default';
         return [
           {
-            group: '',
+            group: TP,
             name: `${label} Width`,
             kind: 'dist',
             value: stroke?.width ?? 0,
@@ -1478,7 +1630,7 @@ export function schPropertiesFor(
             },
           },
           {
-            group: '',
+            group: TP,
             name: `${label} Style`,
             kind: 'choice',
             // A table's borders take LINE_STYLE, not WIRE_STYLE - there is no
@@ -1493,7 +1645,7 @@ export function schPropertiesFor(
               return k < 0 ? null : put({ type: STROKE_TYPES.slice(1)[k]! });
             },
           },
-          colorRow('', `${label} Color`, stroke?.color, (c) => put({ color: c })),
+          colorRow(TP, `${label} Color`, stroke?.color, (c) => put({ color: c })),
         ];
       };
       const putBorder = (p: Partial<Stroke>): EditCommand =>
@@ -1560,6 +1712,124 @@ export function schPropertiesFor(
           set: (v) => {
             const k = (LABEL_SHAPES as readonly string[]).indexOf(String(v));
             return k < 0 ? null : patchPin({ shape: SHAPE_TOKENS[k]! });
+          },
+        },
+      ];
+    }
+    /**
+     * SCH_TABLECELL - what clicking a cell in a table actually selects, and
+     * the arm this switch did not have at all: the panel came up empty.
+     *
+     * It inherits SCH_TEXTBOX -> SCH_SHAPE -> EDA_SHAPE and EDA_TEXT, then
+     * MASKS almost all of the shape half (Start/End X/Y, Shape, Width, Height,
+     * Fill, Fill Color, Line Width, Line Style, Line Color, Corner Radius) and
+     * part of the text half (Width, Height, Thickness, Orientation, Mirrored,
+     * Visible, Hyperlink) - sch_tablecell.cpp. What survives is:
+     *
+     *   Table            Column Width, Row Height
+     *   Cell Properties  Background Fill, Background Fill Color
+     *   Margins          Margin Left, Top, Right, Bottom   (from SCH_TEXTBOX)
+     *   Text Properties  Text, Font, Auto Thickness, Italic, Bold,
+     *                    Horizontal/Vertical Justification, Color, Text Size
+     *
+     * The two `Cell Properties` rows are EDA_SHAPE's fill reached through a
+     * different name: `SetFilled`/`IsSolidFill` and `SetFillColor`, registered
+     * on SCH_TABLECELL after the EDA_SHAPE originals are masked.
+     */
+    case 'tablecell': {
+      const tableRef = tableOfCellId(ref.id);
+      const k = cellIndexOfId(ref.id);
+      if (tableRef === null || k === null) return [];
+      const tIndex = sch.tables.findIndex((x, j) => refId('table', x.uuid, j) === tableRef);
+      const t = tIndex < 0 ? undefined : sch.tables[tIndex];
+      const cell = t?.cells[k];
+      if (!t || !cell) return [];
+
+      /** A cell's column and row, which is where its width and height live. */
+      const col = t.columnCount > 0 ? k % t.columnCount : 0;
+      const row = t.columnCount > 0 ? Math.floor(k / t.columnCount) : 0;
+
+      const putCell = (p: Partial<SchTableCell>): EditCommand =>
+        replaceTable(tIndex, {
+          ...t,
+          cells: t.cells.map((c, j) => (j === k ? { ...c, ...p } : c)),
+        });
+      const fx = cell.effects;
+      const setEffects = (_label: string, p: Partial<TextEffects>): EditCommand =>
+        putCell({ effects: { hidden: false, ...fx, ...p } });
+      const putFill = (p: Partial<NonNullable<SchTableCell['fill']>>): EditCommand =>
+        putCell({ fill: { type: 'none', ...cell.fill, ...p } });
+
+      // `GetSchTextSize()` is the text WIDTH, as it is for a field.
+      const textSize = fx?.fontSize?.[1] ?? fx?.fontSize?.[0] ?? 0;
+
+      return [
+        {
+          group: 'Table',
+          name: 'Column Width',
+          kind: 'dist',
+          value: t.colWidths[col] ?? 0,
+          set: (v) => {
+            const n = num(v);
+            return n === null || n < 0
+              ? null
+              : replaceTable(tIndex, {
+                  ...t,
+                  colWidths: t.colWidths.map((w, j) => (j === col ? n : w)),
+                });
+          },
+        },
+        {
+          group: 'Table',
+          name: 'Row Height',
+          kind: 'dist',
+          value: t.rowHeights[row] ?? 0,
+          set: (v) => {
+            const n = num(v);
+            return n === null || n < 0
+              ? null
+              : replaceTable(tIndex, {
+                  ...t,
+                  rowHeights: t.rowHeights.map((h, j) => (j === row ? n : h)),
+                });
+          },
+        },
+        {
+          group: 'Cell Properties',
+          name: 'Background Fill',
+          kind: 'bool',
+          // `IsSolidFill()` - FILL_T::FILLED_WITH_COLOR, which our model spells
+          // `color`. Anything else, including a hatch, is not a solid fill.
+          value: cell.fill?.type === 'color',
+          set: (v) => putFill({ type: v ? 'color' : 'none' }),
+        },
+        colorRow('Cell Properties', 'Background Fill Color', cell.fill?.color, (c) =>
+          putFill({ color: c }),
+        ),
+        ...marginRows(cell.margins, (p) =>
+          putCell({
+            margins: { left: 0, top: 0, right: 0, bottom: 0, ...cell.margins, ...p },
+          }),
+        ),
+        ...edaTextRows(fx, setEffects, {
+          text: {
+            group: 'Text Properties',
+            name: 'Text',
+            kind: 'string',
+            value: cell.text,
+            set: (v) => (String(v) === cell.text ? null : putCell({ text: String(v) })),
+          },
+        }),
+        {
+          group: 'Text Properties',
+          name: 'Text Size',
+          kind: 'dist',
+          value: textSize,
+          set: (v) => {
+            const n = num(v);
+            return n === null || n <= 0
+              ? null
+              : setEffects('Change Text Size', { fontSize: [n, n] });
           },
         },
       ];
