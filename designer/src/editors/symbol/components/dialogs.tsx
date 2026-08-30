@@ -1,6 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
+import {
+  PIN_SHAPE_ENTRIES,
+  PIN_TYPE_ENTRIES,
+  electricalPinTypeGetText,
+  pinShapeGetText,
+} from '@ziroeda/eeschema';
 import { iuToMM } from '@ziroeda/common';
 import type { Vec2 } from '@ziroeda/kimath';
 import { mmToIU } from '@ziroeda/common';
@@ -8,8 +14,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { EMPTY_SOURCE, type LibPin, type LibSymbol, type SchField } from '@ziroeda/eeschema';
 import {
   PIN_ORIENTATION_NAMES,
-  PIN_SHAPE_NAMES,
-  PIN_TYPE_NAMES,
   drawPin,
   MM,
 } from '../render/symbolRenderer.js';
@@ -227,7 +231,7 @@ export function PinPropertiesDialog({
                 value={etype}
                 onChange={(e) => setEtype(e.target.value)}
               >
-                {Object.entries(PIN_TYPE_NAMES).map(([tok, label]) => (
+                {PIN_TYPE_ENTRIES.map(([tok, label]) => (
                   <option key={tok} value={tok}>
                     {label}
                   </option>
@@ -241,7 +245,7 @@ export function PinPropertiesDialog({
                 value={shape}
                 onChange={(e) => setShape(e.target.value)}
               >
-                {Object.entries(PIN_SHAPE_NAMES).map(([tok, label]) => (
+                {PIN_SHAPE_ENTRIES.map(([tok, label]) => (
                   <option key={tok} value={tok}>
                     {label}
                   </option>
@@ -1089,7 +1093,7 @@ export function PinTableDialog({
                         value={r.pin.electricalType}
                         onChange={(e) => patch(i, { electricalType: e.target.value })}
                       >
-                        {Object.entries(PIN_TYPE_NAMES).map(([tok, label]) => (
+                        {PIN_TYPE_ENTRIES.map(([tok, label]) => (
                           <option key={tok} value={tok}>
                             {label}
                           </option>
@@ -1102,7 +1106,7 @@ export function PinTableDialog({
                         value={r.pin.shape}
                         onChange={(e) => patch(i, { shape: e.target.value })}
                       >
-                        {Object.entries(PIN_SHAPE_NAMES).map(([tok, label]) => (
+                        {PIN_SHAPE_ENTRIES.map(([tok, label]) => (
                           <option key={tok} value={tok}>
                             {label}
                           </option>

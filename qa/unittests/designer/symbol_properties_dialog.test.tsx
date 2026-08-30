@@ -27,6 +27,8 @@
  *   8. the library link as plain text instead of a read-only wxTextCtrl;
  *   9. the whole row filled on open, where upstream only puts a cursor there.
  */
+// The two tables live once, in eeschema's pin_type.ts — KiCad's pin_type.cpp.
+import { PIN_SHAPE_ENTRIES, PIN_TYPE_ENTRIES } from '@ziroeda/eeschema';
 import { cleanup, createEvent, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { existsSync, readFileSync } from 'node:fs';
@@ -40,8 +42,6 @@ import {
   PIN_TYPE_BITMAPS,
 } from '@ziroeda/designer/src/editors/schematic/pin_icons.js';
 import {
-  PIN_SHAPE_NAMES,
-  PIN_TYPE_NAMES,
 } from '@ziroeda/designer/src/editors/symbol/render/symbolRenderer.js';
 
 /**
@@ -1362,16 +1362,18 @@ describe('a pin row draws its type and shape icon, not just the name', () => {
     // The tables are built by one loop over the enum (`pin_type.cpp:41-56`), so
     // a token with a name and no icon is a hole upstream cannot have. Checked
     // per token rather than by count, which would pass with the wrong keys.
-    for (const token of Object.keys(PIN_TYPE_NAMES)) {
+    for (const [token] of PIN_TYPE_ENTRIES) {
       expect(PIN_TYPE_BITMAPS[token], `no icon for pin type ${token}`).toBeTruthy();
     }
-    for (const token of Object.keys(PIN_SHAPE_NAMES)) {
+    for (const [token] of PIN_SHAPE_ENTRIES) {
       expect(PIN_SHAPE_BITMAPS[token], `no icon for pin shape ${token}`).toBeTruthy();
     }
     // ...and nothing extra, which would mean a token we invented.
-    expect(Object.keys(PIN_TYPE_BITMAPS).sort()).toStrictEqual(Object.keys(PIN_TYPE_NAMES).sort());
+    expect(Object.keys(PIN_TYPE_BITMAPS).sort()).toStrictEqual(
+      PIN_TYPE_ENTRIES.map(([t]) => t).sort(),
+    );
     expect(Object.keys(PIN_SHAPE_BITMAPS).sort()).toStrictEqual(
-      Object.keys(PIN_SHAPE_NAMES).sort(),
+      PIN_SHAPE_ENTRIES.map(([t]) => t).sort(),
     );
   });
 

@@ -33,21 +33,6 @@ export function typeIndex(token: string): number {
   return i === -1 ? 6 : i;
 }
 
-/** Human names, as ElectricalPinTypeGetText produces them. */
-export const TYPE_NAMES: Record<string, string> = {
-  input: 'Input',
-  output: 'Output',
-  bidirectional: 'Bidirectional',
-  tri_state: 'Tri-state',
-  passive: 'Passive',
-  free: 'Free',
-  unspecified: 'Unspecified',
-  power_in: 'Power input',
-  power_out: 'Power output',
-  open_collector: 'Open collector',
-  open_emitter: 'Open emitter',
-  no_connect: 'Unconnected',
-};
 
 /** Short column headers for the Pin Conflicts Map grid (KiCad's abbreviations). */
 export const TYPE_ABBREV: readonly string[] = [

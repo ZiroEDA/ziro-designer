@@ -17,6 +17,7 @@
  * Geometry is the typed model's +Y-down space (the same space sch_painter draws in).
  */
 
+import { electricalPinTypeGetText, pinShapeGetText } from '@ziroeda/eeschema';
 import type { Vec2 } from '@ziroeda/kimath';
 import { zoomFitView } from '../../../ui/view_controls.js';
 import { iuToMM, mmToIU } from '@ziroeda/common';
@@ -95,34 +96,6 @@ export function pinBodyEnd(pin: Pick<LibPin, 'at' | 'angle' | 'length'>): Vec2 {
   }
 }
 
-/** ElectricalPinTypeGetText (pin_type.cpp): UI names for the type tokens. */
-export const PIN_TYPE_NAMES: Record<string, string> = {
-  input: 'Input',
-  output: 'Output',
-  bidirectional: 'Bidirectional',
-  tri_state: 'Tri-state',
-  passive: 'Passive',
-  free: 'Free',
-  unspecified: 'Unspecified',
-  power_in: 'Power input',
-  power_out: 'Power output',
-  open_collector: 'Open collector',
-  open_emitter: 'Open emitter',
-  no_connect: 'Unconnected',
-};
-
-/** PinShapeGetText (pin_type.cpp): UI names for the graphic-style tokens. */
-export const PIN_SHAPE_NAMES: Record<string, string> = {
-  line: 'Line',
-  inverted: 'Inverted',
-  clock: 'Clock',
-  inverted_clock: 'Inverted clock',
-  input_low: 'Input low',
-  clock_low: 'Clock low',
-  output_low: 'Output low',
-  falling_edge_clock: 'Falling edge clock',
-  non_logic: 'NonLogic',
-};
 
 /** PinOrientationName: angle token -> UI name (0=Right 90=Up 180=Left 270=Down). */
 export const PIN_ORIENTATION_NAMES: [number, string][] = [
@@ -315,7 +288,7 @@ export function pinElectricalTypeInfo(pin: LibPin): TextInfo {
   const size = Math.max(((pin.nameSize ?? DEFAULT_TEXT) * 3) / 4, 0.7 * MM);
   const thickness = size / 8;
   const info: TextInfo = {
-    text: PIN_TYPE_NAMES[pin.electricalType] ?? pin.electricalType,
+    text: electricalPinTypeGetText(pin.electricalType),
     size,
     thickness,
     // The editor's pins are always "dangling", so the extra half-radius applies.
@@ -454,7 +427,8 @@ export function drawPin(
         line(ctx, { x: p0.x + dir.x * diam, y: p0.y + dir.y * diam }, pos);
         break;
       case 'clock_low':
-      case 'falling_edge_clock':
+      // The file token, not the enum name — see pin_icons.ts.
+      case 'edge_clock_high':
         triLine(
           ctx,
           { x: p0.x + dir.y * clockSize, y: p0.y - dir.x * clockSize },

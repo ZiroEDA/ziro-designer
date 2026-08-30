@@ -1,6 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
+import {
+  PIN_SHAPE_ENTRIES,
+  PIN_TYPE_ENTRIES,
+  electricalPinTypeGetText,
+  pinShapeGetText,
+} from '@ziroeda/eeschema';
 import { iuToMM, schIUScale } from '@ziroeda/common';
 import { mmToIU, symbolTransform, composeMirror, orientationFromTransform } from '@ziroeda/common';
 import type { FieldTemplate } from '../schematic_settings.js';
@@ -47,7 +53,6 @@ import {
   hasAlternateBodyStyle,
   embeddedFilesIn,
 } from '@ziroeda/eeschema';
-import { PIN_SHAPE_NAMES, PIN_TYPE_NAMES } from '../../symbol/render/symbolRenderer.js';
 import { PIN_SHAPE_BITMAPS, PIN_TYPE_BITMAPS } from '../pin_icons.js';
 import { bitmapUrl } from '../../../ui/toolbarIcons.js';
 import { DEFAULT_FONT_NAME, measureText } from '@ziroeda/common/src/font/stroke_font.js';
@@ -911,13 +916,13 @@ export function SymbolPropertiesDialog({
                           <td>
                             <span className="ze-grid-text ze-icon-text">
                               <PinIcon bitmap={PIN_TYPE_BITMAPS[r.electricalType]} />
-                              {PIN_TYPE_NAMES[r.electricalType] ?? r.electricalType}
+                              {electricalPinTypeGetText(r.electricalType)}
                             </span>
                           </td>
                           <td>
                             <span className="ze-grid-text ze-icon-text">
                               <PinIcon bitmap={PIN_SHAPE_BITMAPS[r.shape]} />
-                              {PIN_SHAPE_NAMES[r.shape] ?? r.shape}
+                              {pinShapeGetText(r.shape)}
                             </span>
                           </td>
                         </tr>

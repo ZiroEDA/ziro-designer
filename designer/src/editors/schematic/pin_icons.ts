@@ -47,6 +47,11 @@ export const PIN_SHAPE_BITMAPS: Record<string, string> = {
   input_low: 'pinshape_active_low_input',
   clock_low: 'pinshape_clock_active_low',
   output_low: 'pinshape_active_low_output',
-  falling_edge_clock: 'pinshape_clock_fall',
+  /* The FILE token is `edge_clock_high`, which the parser maps to
+     GRAPHIC_PINSHAPE::FALLING_EDGE_CLOCK
+     (sch_io_kicad_sexpr_parser.cpp:1625). This said `falling_edge_clock` — the
+     enum's name rather than the token — so a real falling-edge-clock pin never
+     matched and drew no icon. `pin_box.ts` had it right all along. */
+  edge_clock_high: 'pinshape_clock_fall',
   non_logic: 'pinshape_nonlogic',
 };

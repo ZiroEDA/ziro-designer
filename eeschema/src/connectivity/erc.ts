@@ -31,6 +31,7 @@
  * pin-to-pin warnings, the no-connect checks, and the single-pin label check.
  */
 
+import { electricalPinTypeGetText } from '../pin_type.js';
 import type { Schematic, LibSymbol, Vec2 } from '../types.js';
 import { refId } from '../tools/hittest.js';
 import {
@@ -52,7 +53,6 @@ import {
   ERR,
   ERC_ITEMS,
   typeIndex,
-  TYPE_NAMES,
   defaultErcSettings,
   type PinError,
   type ErcCode,
@@ -65,7 +65,6 @@ import { schSymbolLibraryName } from '../lib_symbol_compare.js';
 // importing these names from the ERC module (the Schematic Setup panels do).
 export {
   PIN_TYPES,
-  TYPE_NAMES,
   TYPE_ABBREV,
   ERC_ITEMS,
   DEFAULT_PIN_MAP,
@@ -1177,7 +1176,7 @@ export function* runErcSteps(
           out.push(
             violation(
               code,
-              `Pins of type ${TYPE_NAMES[pin.electricalType]} and ${TYPE_NAMES[other.electricalType]} are connected`,
+              `Pins of type ${electricalPinTypeGetText(pin.electricalType)} and ${electricalPinTypeGetText(other.electricalType)} are connected`,
               pin.at,
               [selectableId(pin.id), selectableId(other.id)],
             ),
@@ -1193,7 +1192,7 @@ export function* runErcSteps(
           out.push(
             violation(
               code,
-              `Pins of type ${TYPE_NAMES[pin.electricalType]} and ${TYPE_NAMES[other.electricalType]} are connected`,
+              `Pins of type ${electricalPinTypeGetText(pin.electricalType)} and ${electricalPinTypeGetText(other.electricalType)} are connected`,
               pin.at,
               [selectableId(pin.id)],
             ),

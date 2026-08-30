@@ -10,6 +10,7 @@
  * undoable command.
  */
 
+import { electricalPinTypeGetText, pinShapeGetText } from '../pin_type.js';
 import type {
   LibSymbol,
   SchLabel,
@@ -868,31 +869,6 @@ function fieldRows(sch: Schematic, id: string): PropRow[] {
 }
 
 /** ELECTRICAL_PINTYPE / GRAPHIC_PINSHAPE / PIN_ORIENTATION labels (sch_pin.cpp ENUM_MAPs). */
-const PIN_TYPE_LABELS: Record<string, string> = {
-  input: 'Input',
-  output: 'Output',
-  bidirectional: 'Bidirectional',
-  tri_state: 'Tri-state',
-  passive: 'Passive',
-  free: 'Free',
-  unspecified: 'Unspecified',
-  power_in: 'Power input',
-  power_out: 'Power output',
-  open_collector: 'Open collector',
-  open_emitter: 'Open emitter',
-  no_connect: 'Unconnected',
-};
-const PIN_SHAPE_LABELS: Record<string, string> = {
-  line: 'Line',
-  inverted: 'Inverted',
-  clock: 'Clock',
-  inverted_clock: 'Inverted clock',
-  input_low: 'Input low',
-  clock_low: 'Clock low',
-  output_low: 'Output low',
-  edge_clock_high: 'Falling edge clock',
-  non_logic: 'NonLogic',
-};
 const PIN_ORIENTATION_LABELS: Record<number, string> = {
   0: 'Right',
   90: 'Up',
@@ -948,8 +924,8 @@ function pinRows(sch: Schematic, libById: Map<string, LibSymbol>, id: string): P
       return [
         row('Pin Name', alt || pin.name),
         row('Pin Number', pin.number),
-        row('Electrical Type', PIN_TYPE_LABELS[type] ?? type),
-        row('Graphic Style', PIN_SHAPE_LABELS[shape] ?? shape),
+        row('Electrical Type', electricalPinTypeGetText(type)),
+        row('Graphic Style', pinShapeGetText(shape)),
         row('Orientation', PIN_ORIENTATION_LABELS[((pin.angle % 360) + 360) % 360] ?? 'Right'),
         { group: '', name: 'Length', kind: 'dist', value: pin.length },
       ];
