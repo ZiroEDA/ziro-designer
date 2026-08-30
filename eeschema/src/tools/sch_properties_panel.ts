@@ -1172,9 +1172,7 @@ export function schPropertiesFor(
       /** `_HKI( "Shape" )`, read-only: the shape's own name. */
       const shapeName = g.kind.charAt(0).toUpperCase() + g.kind.slice(1);
 
-      const rows: PropRow[] = [
-        { group: G, name: 'Shape', kind: 'string', value: shapeName },
-      ];
+      const rows: PropRow[] = [{ group: G, name: 'Shape', kind: 'string', value: shapeName }];
 
       if (isNotPolygonOrCircle && 'start' in g && 'end' in g) {
         const gs = g as typeof g & { start: Vec2; end: Vec2 };
@@ -1315,7 +1313,10 @@ export function schPropertiesFor(
           name: 'Fill',
           kind: 'choice',
           choices: [...FILL_MODE_NAMES],
-          value: FILL_MODE_NAMES[Math.max(0, FILL_MODE_TOKENS.indexOf(fillType as (typeof FILL_MODE_TOKENS)[number]))]!,
+          value:
+            FILL_MODE_NAMES[
+              Math.max(0, FILL_MODE_TOKENS.indexOf(fillType as (typeof FILL_MODE_TOKENS)[number]))
+            ]!,
           set: (v) => {
             const k = (FILL_MODE_NAMES as readonly string[]).indexOf(String(v));
             return k < 0 ? null : setFill({ type: FILL_MODE_TOKENS[k]! });

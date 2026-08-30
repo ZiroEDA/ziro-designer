@@ -12,11 +12,7 @@ import type { Vec2 } from '@ziroeda/kimath';
 import { mmToIU } from '@ziroeda/common';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { EMPTY_SOURCE, type LibPin, type LibSymbol, type SchField } from '@ziroeda/eeschema';
-import {
-  PIN_ORIENTATION_NAMES,
-  drawPin,
-  MM,
-} from '../render/symbolRenderer.js';
+import { PIN_ORIENTATION_NAMES, drawPin, MM } from '../render/symbolRenderer.js';
 import { allPins, unitCount, hasAlternateBodyStyle } from '../edits.js';
 import { KICAD_CLASSIC } from '../../schematic/theme.js';
 import { LINE_STYLE_NAMES, lineStyleComboValue } from '@ziroeda/common/src/stroke_params.js';

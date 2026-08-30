@@ -204,11 +204,7 @@ export function DialogTableProperties({
       {/* Wide, and only as tall as it needs to be: `.ze-modal` is 860x580 by
           default, which for this dialog meant a narrow box with the cell grid
           squeezed into it. The grid is the only thing that scrolls. */}
-      <div
-        className="ze-modal ze-label-dialog"
-        
-        onMouseDown={(e) => e.stopPropagation()}
-      >
+      <div className="ze-modal ze-label-dialog" onMouseDown={(e) => e.stopPropagation()}>
         <div className="ze-modal-header">
           Table Properties
           <span className="x" title="Cancel" onClick={onCancel}>

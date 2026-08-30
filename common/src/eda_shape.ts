@@ -53,22 +53,10 @@ function circumcenter(a: VECTOR2I, b: VECTOR2I, c: VECTOR2I): VECTOR2I {
  * The tokens are the file format's; `color` is what the s-expression calls
  * FILLED_WITH_COLOR, whose UI name is "Solid".
  */
-export const FILL_MODE_TOKENS = [
-  'none',
-  'color',
-  'hatch',
-  'reverse_hatch',
-  'cross_hatch',
-] as const;
+export const FILL_MODE_TOKENS = ['none', 'color', 'hatch', 'reverse_hatch', 'cross_hatch'] as const;
 
 /** `_HKI` names, in FILL_T order. */
-export const FILL_MODE_NAMES = [
-  'None',
-  'Solid',
-  'Hatch',
-  'Reverse Hatch',
-  'Cross-hatch',
-] as const;
+export const FILL_MODE_NAMES = ['None', 'Solid', 'Hatch', 'Reverse Hatch', 'Cross-hatch'] as const;
 
 export class EDA_SHAPE {
   protected m_shape: SHAPE_T;

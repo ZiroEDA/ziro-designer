@@ -26,11 +26,7 @@ import {
 } from '@ziroeda/common/src/stroke_params.js';
 import { useModalEscape } from '../../../ui/useModalEscape.js';
 import type { StatusUnits } from '../../../ui/status_format.js';
-import {
-  parseUnitValueDouble,
-  stringFromValue,
-  unitLabel,
-} from '../../../ui/unit_binder.js';
+import { parseUnitValueDouble, stringFromValue, unitLabel } from '../../../ui/unit_binder.js';
 import { Combo } from '../../../ui/Combo.js';
 
 /**

@@ -145,10 +145,7 @@ export function PagedDialog({
 
   return (
     <div className="ze-modal-backdrop" onMouseDown={onCancel}>
-      <div
-        className="ze-modal ze-paged-dialog"
-        onMouseDown={(e) => e.stopPropagation()}
-      >
+      <div className="ze-modal ze-paged-dialog" onMouseDown={(e) => e.stopPropagation()}>
         <div className="ze-modal-header">
           {title}
           <span className="x" title="Cancel" onClick={onCancel}>

@@ -189,11 +189,7 @@ export function DialogPlot({ themeId, projectFolders = [], onPlot, onClose }: Pr
 
   return (
     <div className="ze-modal-backdrop" onMouseDown={onClose}>
-      <div
-        className="ze-modal"
-        
-        onMouseDown={(e) => e.stopPropagation()}
-      >
+      <div className="ze-modal" onMouseDown={(e) => e.stopPropagation()}>
         <div className="ze-modal-header">
           Plot Schematic Options
           <span className="x" title="Cancel" onClick={onClose}>

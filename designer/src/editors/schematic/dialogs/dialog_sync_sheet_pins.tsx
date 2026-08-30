@@ -227,11 +227,7 @@ export function DialogSyncSheetPins({
 
   return (
     <div className="ze-modal-backdrop" onMouseDown={onClose}>
-      <div
-        className="ze-modal"
-        
-        onMouseDown={(e) => e.stopPropagation()}
-      >
+      <div className="ze-modal" onMouseDown={(e) => e.stopPropagation()}>
         <div className="ze-modal-header">
           Sync Sheet Pins
           <span className="x" title="Cancel" onClick={onClose}>

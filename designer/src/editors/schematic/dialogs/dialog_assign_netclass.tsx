@@ -36,11 +36,7 @@ export function DialogAssignNetclass({ patterns, netClasses, onOk, onCancel }: P
 
   return (
     <div className="ze-modal-backdrop" onMouseDown={onCancel}>
-      <div
-        className="ze-modal"
-        
-        onMouseDown={(e) => e.stopPropagation()}
-      >
+      <div className="ze-modal" onMouseDown={(e) => e.stopPropagation()}>
         <div className="ze-modal-header">
           Assign Netclass
           <span className="x" title="Cancel" onClick={onCancel}>

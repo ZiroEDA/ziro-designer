@@ -145,11 +145,7 @@ export function DialogTableCellProperties({
 
   return (
     <div className="ze-modal-backdrop" onMouseDown={onCancel}>
-      <div
-        className="ze-modal"
-        
-        onMouseDown={(e) => e.stopPropagation()}
-      >
+      <div className="ze-modal" onMouseDown={(e) => e.stopPropagation()}>
         <div className="ze-modal-header">
           Table Cell Properties
           <span className="x" title="Cancel" onClick={onCancel}>

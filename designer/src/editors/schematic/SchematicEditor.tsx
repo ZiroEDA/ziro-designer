@@ -9185,11 +9185,7 @@ export function SchematicEditor({
             )}
             {chainRename && doc && (
               <div className="ze-modal-backdrop" onMouseDown={() => setChainRename(null)}>
-                <div
-                  className="ze-modal"
-                  
-                  onMouseDown={(e) => e.stopPropagation()}
-                >
+                <div className="ze-modal" onMouseDown={(e) => e.stopPropagation()}>
                   <div className="ze-modal-header">
                     Name Net Chain
                     <span className="x" title="Cancel" onClick={() => setChainRename(null)}>

@@ -81,11 +81,7 @@ export function PanelPcbLayers({ value, onChange }: Props): JSX.Element {
           onMouseDown={() => setAddOpen(false)}
           style={{ zIndex: 60 }}
         >
-          <div
-            className="ze-modal"
-            
-            onMouseDown={(e) => e.stopPropagation()}
-          >
+          <div className="ze-modal" onMouseDown={(e) => e.stopPropagation()}>
             <div className="ze-modal-header">
               Add User-defined Layer
               <span className="x" title="Close" onClick={() => setAddOpen(false)}>

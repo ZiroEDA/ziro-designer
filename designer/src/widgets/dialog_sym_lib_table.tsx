@@ -96,11 +96,7 @@ export function DialogSymLibTable({
 
   return (
     <div className="ze-modal-backdrop" onMouseDown={onClose}>
-      <div
-        className="ze-modal"
-        
-        onMouseDown={(e) => e.stopPropagation()}
-      >
+      <div className="ze-modal" onMouseDown={(e) => e.stopPropagation()}>
         <div className="ze-modal-header">
           Symbol Libraries
           <span className="x" title="Close" onClick={onClose}>

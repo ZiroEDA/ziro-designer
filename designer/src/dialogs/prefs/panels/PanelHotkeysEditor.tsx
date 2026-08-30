@@ -103,11 +103,7 @@ function HotkeyPrompt({
 
   return (
     <div className="ze-modal-backdrop" onMouseDown={onCancel}>
-      <div
-        className="ze-modal"
-        
-        onMouseDown={(e) => e.stopPropagation()}
-      >
+      <div className="ze-modal" onMouseDown={(e) => e.stopPropagation()}>
         <div className="ze-modal-header">Set Hotkey</div>
         <div style={{ padding: '12px 16px' }}>
           <div style={{ textAlign: 'center', marginBottom: 10 }}>
@@ -390,11 +386,7 @@ export function PanelHotkeysEditor({
       {prompt && <HotkeyPrompt prompt={prompt} onPick={pick} onCancel={() => setPrompt(null)} />}
       {error && (
         <div className="ze-modal-backdrop" onMouseDown={() => setError(null)}>
-          <div
-            className="ze-modal"
-            
-            onMouseDown={(e) => e.stopPropagation()}
-          >
+          <div className="ze-modal" onMouseDown={(e) => e.stopPropagation()}>
             <div className="ze-modal-header">Hotkeys</div>
             <div style={{ padding: '12px 16px' }}>{error}</div>
             <div className="ze-modal-footer">
@@ -407,11 +399,7 @@ export function PanelHotkeysEditor({
       )}
       {conflict && (
         <div className="ze-modal-backdrop" onMouseDown={() => setConflict(null)}>
-          <div
-            className="ze-modal"
-            
-            onMouseDown={(e) => e.stopPropagation()}
-          >
+          <div className="ze-modal" onMouseDown={(e) => e.stopPropagation()}>
             <div className="ze-modal-header">Hotkey conflict</div>
             <div style={{ padding: '12px 16px' }}>{conflict.message}</div>
             <div className="ze-modal-footer">

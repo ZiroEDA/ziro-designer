@@ -93,11 +93,7 @@ export function DialogFpLibTable({
 
   return (
     <div className="ze-modal-backdrop" onMouseDown={onClose}>
-      <div
-        className="ze-modal"
-        
-        onMouseDown={(e) => e.stopPropagation()}
-      >
+      <div className="ze-modal" onMouseDown={(e) => e.stopPropagation()}>
         <div className="ze-modal-header">
           Footprint Libraries
           <span className="x" title="Close" onClick={onClose}>

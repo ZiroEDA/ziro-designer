@@ -96,7 +96,6 @@ export function pinBodyEnd(pin: Pick<LibPin, 'at' | 'angle' | 'length'>): Vec2 {
   }
 }
 
-
 /** PinOrientationName: angle token -> UI name (0=Right 90=Up 180=Left 270=Down). */
 export const PIN_ORIENTATION_NAMES: [number, string][] = [
   [0, 'Right'],

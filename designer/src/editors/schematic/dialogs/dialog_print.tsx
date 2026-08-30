@@ -94,11 +94,7 @@ export function DialogPrint({ onPrint, onPreview, themeId, onClose }: Props): JS
 
   return (
     <div className="ze-modal-backdrop" onMouseDown={saveAndClose}>
-      <div
-        className="ze-modal"
-        
-        onMouseDown={(e) => e.stopPropagation()}
-      >
+      <div className="ze-modal" onMouseDown={(e) => e.stopPropagation()}>
         <div className="ze-modal-header">
           Print
           <span className="x" title="Cancel" onClick={saveAndClose}>

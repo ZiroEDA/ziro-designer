@@ -199,11 +199,7 @@ export function DialogPcbPlot({
 
   return (
     <div className="ze-modal-backdrop" onMouseDown={onClose}>
-      <div
-        className="ze-modal"
-        
-        onMouseDown={(e) => e.stopPropagation()}
-      >
+      <div className="ze-modal" onMouseDown={(e) => e.stopPropagation()}>
         <div className="ze-modal-header">
           Plot
           <span className="x" title="Close" onClick={onClose}>

@@ -33,7 +33,6 @@ export function typeIndex(token: string): number {
   return i === -1 ? 6 : i;
 }
 
-
 /** Short column headers for the Pin Conflicts Map grid (KiCad's abbreviations). */
 export const TYPE_ABBREV: readonly string[] = [
   'I',
