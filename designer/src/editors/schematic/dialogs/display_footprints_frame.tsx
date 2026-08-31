@@ -531,12 +531,6 @@ export function DisplayFootprintsFrame({
           // `LIB_ID`'s "Lib:Name" is not a filename; the part after the colon
           // is what a 3D snapshot of one footprint should be called.
           imageBaseName={footprint.split(':').pop() || 'footprint'}
-          title={
-            <>
-              <b>{displayFootprintsTitle(footprint)}</b>
-              &nbsp;-&nbsp;3D Viewer
-            </>
-          }
           onClose={() => setShow3D(false)}
         />
       )}

@@ -39,6 +39,9 @@ export interface SliderProps {
   title?: string;
   ariaLabel?: string;
   className?: string;
+  /** `wxWindow::Enable( false )` — `m_zoomSpeed->Enable( !automatic )` is this
+   *  (`panel_mouse_settings.cpp:56`). */
+  disabled?: boolean;
 }
 
 export function Slider({
@@ -51,6 +54,7 @@ export function Slider({
   title,
   ariaLabel,
   className,
+  disabled,
 }: SliderProps): JSX.Element {
   // Where the thumb actually stands, 0..1. The CSS needs it because a range
   // input's thumb centre travels only between half a thumb in from each end,
@@ -67,8 +71,8 @@ export function Slider({
   return (
     <div
       className={`ze-slider${vertical ? ' vertical' : ''}${labels ? ' labelled' : ''}${
-        className ? ` ${className}` : ''
-      }`}
+        disabled ? ' ze-disabled' : ''
+      }${className ? ` ${className}` : ''}`}
       style={
         {
           '--slider-frac': frac,
@@ -83,6 +87,7 @@ export function Slider({
         max={max}
         value={value}
         title={title}
+        disabled={disabled}
         aria-label={ariaLabel}
         onChange={(e) => onChange(Number(e.target.value))}
       />

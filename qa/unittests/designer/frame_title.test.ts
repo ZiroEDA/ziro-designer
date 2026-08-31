@@ -234,59 +234,49 @@ function hyphenTitleCounts(): Record<string, number> {
   return counts;
 }
 
-describe('the hyphen titles still to migrate', () => {
+describe('the hyphen titles', () => {
   /**
-   * Six call sites wrote `&nbsp;-&nbsp;<Frame Name>` where upstream writes an
-   * em dash. GerbView's went first, the Schematic Editor's followed when
-   * `SCH_EDIT_FRAME::updateTitle` was rebuilt on the shared rule
-   * (`editors/schematic/frame_title.ts`), and the Symbol and Footprint
-   * Editors' went together with `editors/{symbol,footprint}/frame_title.ts`.
-   * This map is the checklist for what is left. It fails on a NEW one and on a
-   * STALE one, so removing a site means lowering this in the same commit.
+   * Six call sites wrote the separator as an ASCII hyphen between two
+   * non-breaking-space entities, where upstream writes an em dash. GerbView's
+   * went first, the Schematic Editor's followed when `SCH_EDIT_FRAME::
+   * updateTitle` was rebuilt on the shared rule
+   * (`editors/schematic/frame_title.ts`), the Symbol and Footprint Editors'
+   * went together with `editors/{symbol,footprint}/frame_title.ts`, and the
+   * PCB Editor's — rows 1 and 12 of `docs/frame-titles.md`, its own title and
+   * the 3D viewer child frame's — went with `editors/pcb/frame_title.ts`.
+   * A third site had appeared meanwhile in the schematic's footprint viewer
+   * (`editors/schematic/dialogs/display_footprints_frame.tsx`), which is the
+   * same 3D viewer child frame reached from CVPCB, and went with them.
    *
-   * The two survivors are both in the PCB editor and are rows 1 and 12 of
-   * `docs/frame-titles.md` — `PCB_EDIT_FRAME`'s own title and the 3D viewer
-   * child frame's, the one frame of the thirteen that puts its NAME first.
-   * Re-derived by counting the tree, not by copying what the run printed.
+   * The migration is finished, so this is now a floor rather than a checklist:
+   * it fails on a NEW one anywhere. Derived twice — the run that was failing
+   * reported three, in `editors/pcb/PcbEditor.tsx` (2) and
+   * `editors/schematic/dialogs/display_footprints_frame.tsx` (1), and a
+   * `grep -ro` over `designer/src` counted the same three before the change
+   * and none after.
    */
-  it('are exactly these two, in one file', () => {
-    expect(hyphenTitleCounts()).toEqual({
-      'editors/pcb/PcbEditor.tsx': 2,
-    });
+  it('are all gone, so a new one anywhere fails', () => {
+    expect(hyphenTitleCounts()).toEqual({});
   });
 
-  it('total two, so a third anywhere fails', () => {
+  it('total zero, counted rather than merely absent from a list', () => {
     const total = Object.values(hyphenTitleCounts()).reduce((a, b) => a + b, 0);
-    expect(total).toBe(2);
-  });
-
-  /** The Schematic Editor's is gone, the same way GerbView's is. */
-  it('does not include any schematic file', () => {
-    expect(
-      Object.keys(hyphenTitleCounts()).filter((f) => f.startsWith('editors/schematic/')),
-    ).toEqual([]);
-  });
-
-  it('does not include any gerbview file', () => {
-    expect(
-      Object.keys(hyphenTitleCounts()).filter((f) => f.startsWith('editors/gerbview/')),
-    ).toEqual([]);
+    expect(total).toBe(0);
   });
 
   /**
-   * Named one file at a time rather than as a single "no editor outside pcb"
-   * rule, because a removal is per-occurrence: a check that the SET shrank
-   * passes while a sibling still carries one.
+   * Named one editor at a time as well as in total, because a removal is
+   * per-occurrence: a check that the SET shrank passes while a sibling still
+   * carries one. These stay after the total went to zero so that a regression
+   * says WHICH editor regressed.
    */
-  it('does not include the symbol editor', () => {
-    expect(Object.keys(hyphenTitleCounts()).filter((f) => f.startsWith('editors/symbol/'))).toEqual(
-      [],
-    );
-  });
-
-  it('does not include the footprint editor', () => {
-    expect(
-      Object.keys(hyphenTitleCounts()).filter((f) => f.startsWith('editors/footprint/')),
-    ).toEqual([]);
+  it.each([
+    ['schematic', 'editors/schematic/'],
+    ['gerbview', 'editors/gerbview/'],
+    ['symbol', 'editors/symbol/'],
+    ['footprint', 'editors/footprint/'],
+    ['pcb', 'editors/pcb/'],
+  ])('does not include the %s editor', (_name, prefix) => {
+    expect(Object.keys(hyphenTitleCounts()).filter((f) => f.startsWith(prefix))).toEqual([]);
   });
 });

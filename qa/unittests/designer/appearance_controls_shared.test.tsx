@@ -20,6 +20,8 @@
  * layer rows) and `pcbnew/widgets/panel_selection_filter.cpp` (`:121-146`).
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { cleanup, fireEvent, render, within } from '@testing-library/react';
 import {
   AppearanceControls,
@@ -222,6 +224,44 @@ describe('the Layers page, per frame, out of the one widget', () => {
     expect(marked[0]?.querySelector('.ze-layer-indicator.on')).not.toBeNull();
   });
 
+  /**
+   * ...and the row it marks is a LIGHTER GREY, not the selection accent.
+   *
+   *     setting->ctl_panel->SetBackgroundColour( m_layerPanelColour );
+   *     …
+   *     if( r < 240 || g < 240 || b < 240 )
+   *         r = min( r + 15, 255 );  g = …;  b = …;
+   *     (pcbnew/widgets/appearance_controls.cpp:1269-1288)
+   *
+   * `m_layerPanelColour` is --panel-list-bg, so the active row is that plus 15
+   * per channel and nothing else. Ours painted it --chrome-active, the Yaru
+   * orange every other list in the app uses for a SELECTED item — which made
+   * the active layer shout where KiCad whispers, and hid the indicator icon
+   * that is doing the real work.
+   */
+  it('paints the active row m_layerPanelColour + 15, not the accent', () => {
+    const css = readFileSync(resolve(process.cwd(), '../designer/src/ui/shell.css'), 'utf8');
+    const body = (selector: string): string => {
+      const at = css.indexOf(`\n${selector} {`);
+      expect(at, selector).toBeGreaterThan(-1);
+      return css.slice(at, css.indexOf('}', at));
+    };
+    const token = (name: string): string => {
+      const m = new RegExp(`--${name}:\\s*([^;]+);`).exec(css);
+      expect(m, name).not.toBeNull();
+      return (m?.[1] ?? '').trim();
+    };
+    expect(body('.ze-layer-row.active')).toContain('var(--panel-list-row-active)');
+    expect(body('.ze-layer-row.active')).not.toContain('--chrome-active');
+
+    // 75 + 15 = 90 on every channel.
+    const chan = (hex: string): number[] =>
+      [1, 3, 5].map((i) => Number.parseInt(hex.slice(i, i + 2), 16));
+    expect(chan(token('panel-list-row-active'))).toEqual(
+      chan(token('panel-list-bg')).map((c) => c + 15),
+    );
+  });
+
   /** `onLayerLeftClick` — clicking the row makes it the active layer. */
   it.each([
     ['pcbnew', pcbProps, 'In1.Cu', 'In1.Cu'],
@@ -270,17 +310,44 @@ describe('the visibility toggle every row carries', () => {
     expect(onActiveLayer).not.toHaveBeenCalled();
   });
 
-  /** A hidden layer's eye is the struck-through bitmap, not the open one. */
+  /**
+   * `BITMAP_TOGGLE` swaps between two of KiCad's OWN bitmaps:
+   *
+   *     m_visibleBitmapBundle     = KiBitmapBundle( BITMAPS::visibility );
+   *     m_notVisibileBitmapBundle = KiBitmapBundle( BITMAPS::visibility_off );
+   *         (appearance_controls.cpp:427-428)
+   *
+   * so the two states are two FILES, not one glyph drawn differently. This
+   * used to assert that the hidden eye contained an SVG `<line>` — the strike
+   * through a hand-drawn stand-in that has since been replaced by the vendored
+   * bitmaps. Re-derived from those two lines rather than from whatever the new
+   * markup happens to render: each state must name its own upstream bitmap,
+   * and the pair must differ.
+   */
   it.each([
     ['pcbnew', pcbProps],
     ['the footprint editor', fpProps],
   ] as const)('%s draws the hidden state when the layer is not visible', (_n, make) => {
-    const { container } = render(
-      <AppearanceControls {...make({ visibleLayers: new Set<string>() })} />,
-    );
-    const eyes = Array.from(container.querySelectorAll('.ze-layer-row .ze-eye'));
-    expect(eyes.length).toBeGreaterThan(0);
-    for (const e of eyes) expect(e.querySelector('line')).not.toBeNull();
+    const hidden = render(<AppearanceControls {...make({ visibleLayers: new Set<string>() })} />);
+    const hiddenEyes = Array.from(
+      hidden.container.querySelectorAll('.ze-layer-row .ze-eye'),
+    ) as HTMLImageElement[];
+    expect(hiddenEyes.length).toBeGreaterThan(0);
+    for (const e of hiddenEyes) {
+      expect(e.getAttribute('src')).toContain('visibility_off');
+    }
+
+    // And the shown state is the OTHER file — checked in the same test so that
+    // a swatch stuck on one bitmap cannot pass by matching a substring of it.
+    const shown = render(<AppearanceControls {...make({})} />);
+    const shownEyes = Array.from(
+      shown.container.querySelectorAll('.ze-layer-row .ze-eye'),
+    ) as HTMLImageElement[];
+    const visibleSrc = shownEyes
+      .map((e) => e.getAttribute('src') ?? '')
+      .filter((src) => !src.includes('visibility_off'));
+    expect(visibleSrc.length).toBeGreaterThan(0);
+    for (const src of visibleSrc) expect(src).toContain('visibility');
   });
 });
 

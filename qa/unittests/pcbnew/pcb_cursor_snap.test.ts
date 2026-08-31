@@ -13,7 +13,12 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr/src/index.js';
 import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import { bestSnapAnchor, snapToBoardCopper } from '@ziroeda/pcbnew/src/pcb_cursor_snap.js';
+import {
+  bestDragOrigin,
+  bestSnapAnchor,
+  computeDragAnchors,
+  snapToBoardCopper,
+} from '@ziroeda/pcbnew/src/pcb_cursor_snap.js';
 import { align, computeNearest, type PcbGridState } from '@ziroeda/pcbnew/src/pcb_grid_helper.js';
 
 const MM = 1e6;
@@ -307,5 +312,125 @@ describe('Ctrl disables the grid (TOOL_EVENT::DisableGridSnapping)', () => {
     const raw = { x: 10_123_456, y: 9_876_543 };
     expect(align(raw, grid({ enableGrid: false }))).toEqual(raw);
     expect(align(raw, grid())).toEqual({ x: 10 * MM, y: 10 * MM });
+  });
+});
+
+describe("bestDragOrigin — EDIT_TOOL::Move's reference point", () => {
+  /**
+   * `BestDragOrigin` is the half of a move that decides whether two parts can
+   * ever be lined up. A move does not translate the selection by the pointer's
+   * travel: it takes an anchor **on the selection**, warps the pointer onto it
+   * ("Warp mouse to origin of moved object", `warp_mouse_on_move`, default
+   * true), and then writes `movement = BestSnapAnchor( mousePos ) - prevPos`
+   * with `prevPos` seeded to that anchor — so the anchor is placed absolutely.
+   *
+   * Every footprint on this board sits off the 0.5 mm grid, each by a different
+   * fraction, which is what makes the distinction visible: quantising the
+   * *travel* preserves those fractions for ever.
+   */
+  const R1 = board.footprints[5]!;
+  const U1 = board.footprints[12]!;
+  const opts = { gridSize: 0.5 * MM };
+
+  it('the board really is off-grid, or none of this matters', () => {
+    expect(R1.reference).toBe('R1');
+    expect(R1.at).toEqual({ x: 136.271 * MM, y: 107.95 * MM });
+    // Neither coordinate is a multiple of the grid, and R1's fractions differ
+    // from C2's — so no grid-multiple delta can ever bring the two into line.
+    const C2 = board.footprints[1]!;
+    expect(C2.reference).toBe('C2');
+    expect(R1.at.x % (0.5 * MM)).not.toBe(0);
+    expect(R1.at.x % (0.5 * MM)).not.toBe(C2.at.x % (0.5 * MM));
+  });
+
+  it('a footprint grabbed by its body measures itself from its own origin', () => {
+    // Inside R1's outline, inside neither pad, nearer the origin than the
+    // bounding-box centre.
+    const grab = { x: 136.5 * MM, y: 109 * MM };
+    expect(bestDragOrigin(board, ['footprint:5'], grab, opts)).toEqual(R1.at);
+  });
+
+  it('a pad the cursor is inside becomes the pick-up point', () => {
+    // "pad->GetBoundingBox().Contains( aRefPos )" (pcb_grid_helper.cpp:1592).
+    const inPad2 = { x: 136.6 * MM, y: 115.2 * MM };
+    expect(bestDragOrigin(board, ['footprint:5'], inPad2, opts)).toEqual({
+      x: 136.271 * MM,
+      y: 115.57 * MM,
+    });
+  });
+
+  it('a pad the cursor is not inside offers nothing', () => {
+    const anchors = computeDragAnchors(
+      board,
+      ['footprint:5'],
+      { x: 136.5 * MM, y: 109 * MM },
+      opts,
+    );
+    // The origin and the bounding-box centre, and neither pad.
+    expect(anchors.map((a) => a.pos)).toEqual([R1.at, { x: 136.271 * MM, y: 111.76 * MM }]);
+  });
+
+  it('the bounding-box centre is offered only when it is off the origin', () => {
+    // "if( ( center - position ).SquaredEuclideanNorm() > grid.SquaredEuclideanNorm() )"
+    // (cpp:1645). U1's box is centred 0.05 mm from its origin — well inside one
+    // 0.5 mm step — so a second anchor there would be noise.
+    expect(U1.reference).toBe('U1');
+    const away = { x: 149.225 * MM, y: 113.6 * MM };
+    expect(computeDragAnchors(board, ['footprint:12'], away, opts).map((a) => a.pos)).toEqual([
+      U1.at,
+    ]);
+    // R1's is 3.81 mm away and survives — until the grid is coarser than that.
+    expect(computeDragAnchors(board, ['footprint:5'], away, opts)).toHaveLength(2);
+    expect(computeDragAnchors(board, ['footprint:5'], away, { gridSize: 10 * MM })).toHaveLength(1);
+  });
+
+  it("takes a track's midpoint, which BestSnapAnchor never would", () => {
+    // The midpoint is `ORIGIN` without `SNAPPABLE` (cpp:1779), and
+    // `BestDragOrigin` asks `nearestAnchor( pos, ORIGIN )` — no SNAPPABLE in the
+    // mask — so it is a legal place to pick a track up by even though the
+    // hovering cursor is never pulled onto it.
+    const oneTrack = readBoard(
+      parse(`(kicad_pcb (version 20241229) (generator "test")
+  (layers (0 "F.Cu" signal))
+  (net 0 "") (net 1 "a")
+  (segment (start 10 10) (end 20 10) (width 0.25) (layer "F.Cu") (net 1))
+)`),
+    );
+    const mid = { x: 15.1 * MM, y: 10.1 * MM };
+    expect(bestDragOrigin(oneTrack, ['track:0'], mid, opts)).toEqual({ x: 15 * MM, y: 10 * MM });
+    // The same cursor, for the tool that only weighs snappable anchors: the
+    // grid, because the ends are too far and the midpoint is not eligible.
+    expect(
+      bestSnapAnchor(oneTrack, mid, grid(), { snapScale: 1 * MM, visibleGrid: 0.5 * MM }),
+    ).toEqual({ x: 15 * MM, y: 10 * MM });
+    // …and near an end it is the end, not the midpoint.
+    expect(bestDragOrigin(oneTrack, ['track:0'], { x: 10.4 * MM, y: 10.2 * MM }, opts)).toEqual({
+      x: 10 * MM,
+      y: 10 * MM,
+    });
+  });
+
+  it('falls back to the cursor when the selection contributes no anchor', () => {
+    // Upstream's `best ? best->pos : aMousePos`. Zones, graphics, dimensions
+    // and text are anchor sources this port does not collect, and an empty
+    // selection has none by definition — all of them land here.
+    const where = { x: 123.456 * MM, y: 78.9 * MM };
+    expect(bestDragOrigin(board, [], where, opts)).toEqual(where);
+    expect(bestDragOrigin(board, ['zone:0'], where, opts)).toEqual(where);
+    // A footprint index that is not on the board must not invent one either.
+    expect(bestDragOrigin(board, ['footprint:9999'], where, opts)).toEqual(where);
+  });
+
+  it('has no snap radius, unlike BestSnapAnchor', () => {
+    // The selection is being grabbed, so it must always yield a reference
+    // point however far the pointer is from it: `computeAnchors` adds a
+    // footprint's origin with no range test at all.
+    const miles = { x: 300 * MM, y: 300 * MM };
+    // R1's bounding-box centre, which is the nearer of its two anchors from
+    // down there — the point being that it answers with an anchor at all.
+    expect(bestDragOrigin(board, ['footprint:5'], miles, opts)).toEqual({
+      x: 136.271 * MM,
+      y: 111.76 * MM,
+    });
   });
 });

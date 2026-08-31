@@ -55,7 +55,6 @@ const EXPECTED: PrefsPageEntry[] = [
   { id: 'sch-display', label: 'Display Options', indent: true, owner: 'schematic' },
   { id: 'sch-grids', label: 'Grids', indent: true, owner: 'schematic' },
   { id: 'sch-editing', label: 'Editing Options', indent: true, owner: 'schematic' },
-  { id: 'sch-annotation', label: 'Annotation Options', indent: true, owner: 'schematic' },
   { id: 'sch-colors', label: 'Colors', indent: true, owner: 'schematic' },
   { id: 'sch-toolbars', label: 'Toolbars', indent: true, owner: 'schematic' },
   { id: 'sch-fields', label: 'Field Name Templates', indent: true, owner: 'schematic' },

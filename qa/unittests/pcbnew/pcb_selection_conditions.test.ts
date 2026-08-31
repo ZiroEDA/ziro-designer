@@ -8,6 +8,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
+  boardIsEmpty,
   hasLockedItems,
   hasUnlockedItems,
   itemIsLocked,
@@ -119,5 +120,46 @@ describe('the two conditions the toolbar reads', () => {
   it('lights both when a mixed selection has one of each', () => {
     expect(hasLockedItems(b, ['track:0', 'track:1'])).toBe(true);
     expect(hasUnlockedItems(b, ['track:0', 'track:1'])).toBe(true);
+  });
+});
+
+/**
+ * `BOARD::IsEmpty()` (`board.cpp:606-609`), which is what `EDIT_TOOL::Init`'s
+ * `noItemsCondition` (`edit_tool.cpp:732-735`) asks before it shows Select All
+ * and Unselect All in the canvas context menu.
+ */
+describe('BOARD::IsEmpty', () => {
+  it('is true for a board with nothing on it', () => {
+    expect(boardIsEmpty(board({}))).toBe(true);
+  });
+
+  /**
+   * One case per container, because the rule is per-container: a check that
+   * "a board with a footprint is not empty" passes while the zone arm is
+   * missing entirely.
+   */
+  it.each([
+    ['footprints', 'footprints'],
+    ['tracks', 'tracks'],
+    ['arcs', 'arcs'],
+    ['vias', 'vias'],
+    ['zones', 'zones'],
+    ['shapes', 'shapes'],
+    ['texts', 'texts'],
+    ['text boxes', 'textBoxes'],
+    ['tables', 'tables'],
+    ['images', 'images'],
+    ['dimensions', 'dimensions'],
+  ])('is false for a board holding only %s', (_name, key) => {
+    expect(boardIsEmpty(board({ [key]: [{}] } as Partial<Board>))).toBe(false);
+  });
+
+  /**
+   * `m_groups` is NOT one of the containers `BOARD::IsEmpty` tests, so a board
+   * whose only content is an empty group is empty. Pinned because adding it to
+   * the list would look like a tidy-up.
+   */
+  it('ignores groups, which upstream does not test', () => {
+    expect(boardIsEmpty(board({ groups: [{}] as never }))).toBe(true);
   });
 });

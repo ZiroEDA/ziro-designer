@@ -325,7 +325,14 @@ describe('there is one implementation of each, and both consumers use it', () =>
     for (const i of GAL_GROUP_TITLES.keys())
       expect(gal, `GAL_GROUP_TITLES[${i}]`).toContain(`<Group title={GAL_GROUP_TITLES[${i}]}>`);
     const grid = read('dialogs/prefs/PanelGridSettings.tsx');
-    for (const i of GRID_GROUP_TITLES.keys())
+    // ...except the Grids heading itself, which is NOT a headed group: it is
+    // `bSizerLeftCol->Add( m_gridsLabel, 0, wxTOP|wxRIGHT|wxLEFT, 5 )`
+    // (`panel_grid_settings_base.cpp:27`) with no `wxStaticLine` after it — the
+    // one group label on that page without a rule under it. It still comes from
+    // the shared table, which is what this test is for.
+    expect(grid, 'GRID_GROUP_TITLES[0]').toContain('{GRID_GROUP_TITLES[0]}');
+    expect(grid, 'GRID_GROUP_TITLES[0] draws a rule').toContain('ze-noline');
+    for (const i of [...GRID_GROUP_TITLES.keys()].slice(1))
       expect(grid, `GRID_GROUP_TITLES[${i}]`).toContain(`<Group title={GRID_GROUP_TITLES[${i}]}>`);
   });
 

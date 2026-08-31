@@ -10,14 +10,12 @@
  * exists beyond the dynamic import in `dialogs/prefs/registry.ts`, and nothing
  * here may reach into another editor.
  */
-import { PanelEeschemaAnnotationOptions } from './PanelEeschemaAnnotationOptions.js';
 import { PanelEeschemaColorSettings } from './PanelEeschemaColorSettings.js';
 import { PanelEeschemaDisplayOptions } from './PanelEeschemaDisplayOptions.js';
 import { PanelEeschemaEditingOptions } from './PanelEeschemaEditingOptions.js';
 import { PanelEeschemaGrids } from './PanelEeschemaGrids.js';
 import { PanelTemplateFieldnames } from './PanelTemplateFieldnames.js';
 import {
-  resetEeschemaAnnotationOptions,
   resetEeschemaColorSettings,
   resetEeschemaDisplayOptions,
   resetEeschemaEditingOptions,
@@ -49,12 +47,6 @@ export const createPrefsPanel: PrefsPanelFactory = (id: PrefsPageId): PrefsPanel
       return {
         Panel: PanelEeschemaEditingOptions,
         reset: resetEeschemaEditingOptions,
-      };
-
-    case 'sch-annotation':
-      return {
-        Panel: PanelEeschemaAnnotationOptions,
-        reset: resetEeschemaAnnotationOptions,
       };
 
     case 'sch-colors':

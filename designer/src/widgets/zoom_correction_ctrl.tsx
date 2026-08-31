@@ -34,8 +34,9 @@
  * as a ratio to the reference pixel, and the page is never told the physical
  * size of anything. So Detect is the best guess and the ruler is the answer.
  */
-import { useId, type JSX } from 'react';
+import { useEffect, useId, useRef, useState, type JSX } from 'react';
 import { Combo } from '../ui/Combo.js';
+import { SpinCtrl } from '../ui/SpinCtrl.js';
 
 /**
  * `ADVANCED_CFG::m_ScreenDPI`, whose default is 91
@@ -86,18 +87,46 @@ export function rulerTicks(
   widthPx: number,
   factor: number,
   units: ZoomCorrectionUnits,
+  /** `GetTextExtent( "000_" ).x`, the ruler's own minimum label spacing. */
+  labelSpacingPx = 28,
 ): readonly Tick[] {
   const pxPerUnit = (BASE_SCREEN_DPI / UNITS_PER_INCH[units]) * factor;
   if (!(pxPerUnit > 0) || !Number.isFinite(pxPerUnit)) return [];
 
-  // `int majorTickEvery = 10` -- ten minor ticks to a major one.
-  const MAJOR_EVERY = 10;
+  // `int majorTickEvery = 10` -- ten minor ticks to a major one. For mm
+  // `tickLabelDiv` is 1, so a major tick is labelled with its own minor-tick
+  // count: 10, 20, 30 ...
+  let majorEvery = 10;
+  let pxPerMinorTick = pxPerUnit;
+
+  // `if( pxPerMinorTick < 3 )` (`:104-109`) -- when a millimetre is under three
+  // pixels the ruler halves its resolution rather than drawing mush.
+  if (pxPerMinorTick < 3) {
+    pxPerMinorTick *= 2;
+    majorEvery /= 2;
+  }
+
+  // `int minLabelSpacing = GetTextExtent( "000_" ).x` (`:73`) -- the label is
+  // dropped, not the tick, when two would collide.
+  const minLabelSpacing = labelSpacingPx;
+  let lastLabelX = -minLabelSpacing;
+
   const out: Tick[] = [];
-  for (let i = 0; ; i++) {
-    const x = i * pxPerUnit;
-    if (x > widthPx) break;
-    const major = i % MAJOR_EVERY === 0;
-    out.push(major ? { x, major, label: String(i) } : { x, major });
+  for (let x = 0, i = 0; x <= widthPx; i++, x = i * pxPerMinorTick) {
+    const major = i % majorEvery === 0;
+    if (!major) {
+      out.push({ x, major });
+    } else {
+      const labelNum = Math.round(i / (10 / majorEvery));
+      // `if( labelNum > 0 && x < size.x - 10 && ( x - lastLabelX ) >= minLabelSpacing )`
+      // -- so there is no "0" at the left end, and none crowding the right.
+      if (labelNum > 0 && x < widthPx - 10 && x - lastLabelX >= minLabelSpacing) {
+        out.push({ x, major, label: String(labelNum) });
+        lastLabelX = x;
+      } else {
+        out.push({ x, major });
+      }
+    }
     // A ruler drawn at one tick per fraction of a pixel is a grey bar; stop
     // rather than emit thousands of them.
     if (out.length > 4000) break;
@@ -105,10 +134,21 @@ export function rulerTicks(
   return out;
 }
 
-/** [px] the ruler's drawn height, and how far a major tick stands proud. */
-const RULER_H = 34;
-const MAJOR_TICK = 14;
-const MINOR_TICK = 7;
+/**
+ * The ruler panel's own size and its tick lengths, all upstream's:
+ *
+ *     ZOOM_CORRECTION_RULER( … aParent->FromDIP( wxSize( 200, 30 ) ) … )   :40
+ *     dc.DrawLine( x, size.y - 1, x, size.y - 16 );   // major             :113
+ *     dc.DrawLine( x, size.y - 1, x, size.y - 8 );    // minor             :130
+ *
+ * The 200 is a MINIMUM: `rulerSizer->Add( m_ruler, 1, wxEXPAND )` then gives
+ * it every pixel the units choice leaves, which is why KiCad's ruler is as
+ * wide as the Scaling group and ours -- fixed at 300 -- was not. [data]
+ */
+const RULER_H = 30;
+const RULER_MIN_W = 200;
+const MAJOR_TICK = 16;
+const MINOR_TICK = 8;
 
 export function ZoomCorrectionCtrl({
   /** `zoom_correction_factor` — the stored ratio, not the PPI. */
@@ -116,13 +156,14 @@ export function ZoomCorrectionCtrl({
   onChange,
   units,
   onUnitsChange,
-  width = 300,
+  disabled,
 }: {
   readonly value: number;
   readonly onChange: (v: number) => void;
   readonly units: ZoomCorrectionUnits;
   readonly onUnitsChange: (u: ZoomCorrectionUnits) => void;
-  readonly width?: number;
+  /** `wxWindow::Enable( false )` on the whole panel — drawn, not answerable. */
+  readonly disabled?: boolean;
 }): JSX.Element {
   const id = useId();
   // `m_spinner->SetValue( (int)( aValue * m_baseValue ) )` -- truncation, as
@@ -131,35 +172,74 @@ export function ZoomCorrectionCtrl({
   // `*m_value = m_spinner->GetValue() / m_baseValue`
   const setPpi = (p: number): void => onChange(p / BASE_SCREEN_DPI);
 
+  /**
+   * The ruler's width, asked of the layout rather than declared.
+   *
+   * `rulerSizer->Add( m_ruler, 1, wxEXPAND )` gives the ruler every pixel the
+   * units choice leaves, and its ticks are laid out in the width it ENDS UP
+   * with -- `OnPaint` reads `GetClientSize()`. A component that states its own
+   * width instead draws a ruler that is right about millimetres and wrong
+   * about how many of them fit, which is what a fixed 300 did here.
+   */
+  const ruler = useRef<SVGSVGElement>(null);
+  const [width, setWidth] = useState(RULER_MIN_W);
+
+  useEffect(() => {
+    const el = ruler.current;
+    if (!el) return;
+    // The RULER's own box, not its row's: the units choice sits in that row and
+    // takes part of it, and ticks laid out to the row's width would run under
+    // the choice and be clipped.
+    const measure = (): void =>
+      setWidth(Math.max(RULER_MIN_W, Math.round(el.getBoundingClientRect().width)));
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    measure();
+    return () => ro.disconnect();
+  }, []);
+
   const ticks = rulerTicks(width, value, units);
 
   return (
-    <div className="ze-zoomcorrection">
+    <div className={`ze-zoomcorrection${disabled ? ' ze-disabled' : ''}`}>
+      {/* `controlsSizer` (`:146-159`): the label, the spin control and Detect. */}
       <div className="ze-pref-row">
         {/* `_( "Display PPI: " )` -- the trailing space is upstream's. */}
         <span className="lbl">Display PPI:</span>
-        <input
+        {/* `m_spinner` is a wxSpinCtrl (`:150`), so it carries GTK's two
+            stepper buttons; it was drawn here as a bare number field, which
+            has none until the pointer is over it. */}
+        <SpinCtrl
           id={id}
-          className="ze-search num"
-          type="number"
+          ariaLabel="Display PPI"
           value={ppi}
-          /* [data] `PARAM<double>` clamps the FACTOR to 0.1..10.0, so the PPI
-             the spinner may hold is that range times the base. */
-          min={Math.round(0.1 * BASE_SCREEN_DPI)}
-          max={Math.round(10 * BASE_SCREEN_DPI)}
-          onChange={(e) => {
-            const v = Number(e.target.value);
-            if (Number.isFinite(v) && v > 0) setPpi(v);
-          }}
-          onKeyDown={(e) => e.stopPropagation()}
+          disabled={disabled}
+          /* [data] `wxSpinCtrl( …, 10, 1000, … )` (`:150-151`) — upstream's own
+             range, not the PARAM's. */
+          min={10}
+          max={1000}
+          onChange={setPpi}
         />
-        <button type="button" className="ze-btn" onClick={() => setPpi(detectScreenPpi())}>
+        <button
+          type="button"
+          className="ze-btn"
+          disabled={disabled}
+          onClick={() => setPpi(detectScreenPpi())}
+        >
           Detect
         </button>
       </div>
 
+      {/* `rulerSizer` (`:161-176`): the ruler, then the units choice at its
+          right — a wxBoxSizer( wxHORIZONTAL ), not a stack. */}
       <div className="ze-zoomcorrection-ruler">
-        <svg width={width} height={RULER_H} role="img" aria-label="Scaling ruler">
+        {/* `width="100%"`, never the measured number: an <svg> with a width
+            attribute is laid out at that width, so writing the measured value
+            back would make the ruler its own minimum size and the dialog would
+            grow to fit it, then hand it more room. The CSS above states the
+            200 px minimum and the proportion; this only has to fill it, and an
+            SVG with no viewBox draws in CSS pixels either way. */}
+        <svg ref={ruler} width="100%" height={RULER_H} role="img" aria-label="Scaling ruler">
           {/* "Draw baseline" (`:55`) -- along the BOTTOM, with the ticks
               standing up from it. */}
           <line
@@ -180,8 +260,12 @@ export function ZoomCorrectionCtrl({
                 stroke="currentColor"
                 strokeWidth={1}
               />
-              {t.label !== undefined && t.x + 12 < width && (
-                <text x={t.x + 2} y={RULER_H - MAJOR_TICK - 3} fill="currentColor" fontSize="10">
+              {t.label !== undefined && (
+                // `dc.DrawText( label, x - textSize.x / 2, 0 )` (`:124`): the
+                // number is CENTRED on its tick and sits at the top of the
+                // panel. No font is stated -- upstream draws with the panel's,
+                // and so does this.
+                <text x={t.x} y={RULER_H - MAJOR_TICK - 2} fill="currentColor" textAnchor="middle">
                   {t.label}
                 </text>
               )}
@@ -192,6 +276,7 @@ export function ZoomCorrectionCtrl({
             the browser's -- the one widget, everywhere. */}
         <Combo
           value={units}
+          disabled={disabled}
           onChange={(v) => onUnitsChange(v as ZoomCorrectionUnits)}
           ariaLabel="Ruler units"
           /* ZOOM_CORRECTION_UNITS, in its own order, MM first. [data] */

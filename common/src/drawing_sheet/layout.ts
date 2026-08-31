@@ -150,6 +150,19 @@ function insidePage(p: { x: number; y: number }, m: Margins): boolean {
   return p.x >= m.left && p.x <= m.right && p.y >= m.top && p.y <= m.bottom;
 }
 
+/**
+ * `${PAPER}` is the page TYPE, not the page.
+ *
+ *     m_paperFormat = aPageInfo.GetTypeAsString();   (ds_draw_item.cpp:552)
+ *
+ * `PAGE_INFO::GetTypeAsString()` is "A4", "USLetter", "User" — the name alone.
+ * A document's `(paper …)` node carries the width and height after it whenever
+ * the type is User, and passing that whole string through printed
+ * "Size: User 152.4000 127.0000" across the Date cell beside it.
+ */
+export const paperTypeName = (paper: string | undefined): string =>
+  (paper ?? '').trim().split(/\s+/)[0] ?? '';
+
 /** Expand `${…}` variables in a template string (title-block text variables). */
 export function resolveDrawingSheetText(text: string, ctx: WksResolveContext): string {
   const page = ctx.pageNumber ?? 1;

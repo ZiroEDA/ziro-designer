@@ -302,7 +302,11 @@ export function PanelHotkeysEditor({
                           e.keys !== e.defaultKeys ? ' changed' : ''
                         }`}
                         key={rowKey}
-                        title={editable ? 'Double-click to edit' : undefined}
+                        /* No tooltip. `WIDGET_HOTKEY_LIST` calls SetToolTip on
+                           nothing at all: the instruction lives in the COLUMN
+                           HEADER, "Command (double-click to edit)"
+                           (`widget_hotkey_list.cpp:534-541`), which is where a
+                           reader meets it once instead of on every row. */
                         onMouseDown={() => setSelected(rowKey)}
                         onDoubleClick={
                           editable

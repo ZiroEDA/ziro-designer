@@ -17,10 +17,14 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import {
   buildDsContextMenu,
-  dsGridSubmenu,
-  dsZoomSubmenu,
   type DsContextMenuActions,
 } from '@ziroeda/designer/src/editors/drawingsheet/ds_context_menu.js';
+// `ZOOM_MENU` and `GRID_MENU` were a third copy inside ds_context_menu.ts.
+// Upstream they are installed by ONE base-frame method,
+// `EDA_DRAW_FRAME::AddStandardSubMenus`, so they live in one shared module and
+// the test reads them from there — the same rows the PCB editor's menu ends
+// with.
+import { gridSubMenu, zoomSubMenu } from '@ziroeda/designer/src/ui/standard_submenus.js';
 // Both of these used to be a second copy inside ds_context_menu.ts. They are
 // `common/` helpers upstream, so there is one copy now and the test reads it
 // from where it lives.
@@ -131,7 +135,7 @@ describe('buildDsContextMenu', () => {
 
 describe('the Zoom submenu (ZOOM_MENU)', () => {
   it('is pl_editor’s twenty-entry table, in order', () => {
-    const rows = dsZoomSubmenu(1, noop);
+    const rows = zoomSubMenu('pl_editor', 1, noop);
     expect(rows).toHaveLength(20);
     expect(rows[0]?.label).toBe('Zoom: 0.02');
     expect(rows[rows.length - 1]?.label).toBe('Zoom: 220.00');
@@ -140,21 +144,28 @@ describe('the Zoom submenu (ZOOM_MENU)', () => {
 
   it('ticks the row nearest the current zoom, within 10 %', () => {
     // zoom_menu.cpp:71-80 — fabs( zoomList[jj] - zoom ) / zoom < 0.1.
-    const rows = dsZoomSubmenu(1.05, noop);
+    const rows = zoomSubMenu('pl_editor', 1.05, noop);
     expect(rows.filter((r) => r.checked).map((r) => r.label)).toEqual(['Zoom: 1.00']);
     expect(isZoomPresetChecked(1.0, 1.2)).toBe(false);
   });
 
   it('jumps straight to the picked preset', () => {
     const setZoom = vi.fn();
-    dsZoomSubmenu(1, setZoom)[9]?.action?.();
+    zoomSubMenu('pl_editor', 1, setZoom)[9]?.action?.();
     expect(setZoom).toHaveBeenCalledWith(2.2);
   });
 });
 
 describe('the Grid submenu (GRID_MENU)', () => {
   it('opens with Grid Origin and a rule, then the eight pl_editor grids', () => {
-    const rows = dsGridSubmenu(4, PL_GRIDS, 'mils', noop, noop);
+    const rows = gridSubMenu({
+      gridSizes: PL_GRIDS,
+      gridIndex: 4,
+      primaryUnits: 'mils',
+      iuPerMM: PL_IU_PER_MM,
+      gridOrigin: noop,
+      setGrid: noop,
+    });
     expect(rows[0]?.label).toBe('Grid Origin...');
     expect(rows[1]?.sep).toBe(true);
     expect(rows).toHaveLength(10);
@@ -163,7 +174,14 @@ describe('the Grid submenu (GRID_MENU)', () => {
   it('spells a row in both unit systems, as the audit read them off KiCad', () => {
     // Preferences ▸ Drawing Sheet Editor ▸ Grids, captured:
     //   196.85 mils (5.0000 mm) … 19.69 mils (0.5000 mm) … 3.94 mils (0.1000 mm)
-    const rows = dsGridSubmenu(4, PL_GRIDS, 'mils', noop, noop).slice(2);
+    const rows = gridSubMenu({
+      gridSizes: PL_GRIDS,
+      gridIndex: 4,
+      primaryUnits: 'mils',
+      iuPerMM: PL_IU_PER_MM,
+      gridOrigin: noop,
+      setGrid: noop,
+    }).slice(2);
     expect(rows[0]?.label).toBe('196.85 mils (5.0000 mm)');
     expect(rows[4]?.label).toBe('19.69 mils (0.5000 mm)');
     expect(rows[7]?.label).toBe('3.94 mils (0.1000 mm)');
@@ -189,7 +207,14 @@ describe('the Grid submenu (GRID_MENU)', () => {
   });
 
   it('ticks grid.last_size_idx and nothing else', () => {
-    const rows = dsGridSubmenu(4, PL_GRIDS, 'mils', noop, noop);
+    const rows = gridSubMenu({
+      gridSizes: PL_GRIDS,
+      gridIndex: 4,
+      primaryUnits: 'mils',
+      iuPerMM: PL_IU_PER_MM,
+      gridOrigin: noop,
+      setGrid: noop,
+    });
     expect(rows.filter((r) => r.checked).map((r) => r.label)).toEqual(['19.69 mils (0.5000 mm)']);
   });
 });

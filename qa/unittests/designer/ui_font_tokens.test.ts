@@ -341,7 +341,13 @@ const BASELINE: Record<string, number> = {
   // sets, not from the window's SetFont. Measured against the real dialog it
   // renders at the GUI font — so it inherits, and the count is unaffected
   // either way because a var() is not a hardcoded size.
-  ui: 89,
+  // 89 -> 86: Preferences > Hotkeys stopped stating its own type. A
+  // `wxTreeListCtrl` calls SetFont nowhere, so the list draws in the GUI font
+  // — this said `font-size: 10pt` on a row, 10 pt on the empty line and 9 pt on
+  // the import note, which is why the whole table read a size smaller than
+  // KiCad's. The column header's `var(--ui-font-size)` went with them: it was
+  // a token, never a literal, and only existed to restate the inherited size.
+  ui: 86,
   widgets: 6,
 };
 
@@ -582,7 +588,10 @@ describe('hardcoded font sizes do not grow', () => {
     // went at the same time are not sites here, and `.ze-projecttree
     // .ze-tree-item`'s `var(--ui-font-size)` was a token, never a literal - it
     // only existed to escape the 13px, and went with it.
-    expect(sites.length).toBe(290);
+    // 290 -> 287: the three the Hotkeys list stated; see the `ui` row. RESCANNED
+    // from this tree, and the per-area table agrees — `ui` 89 -> 86 is the only
+    // row that moves, and 290 - 3 agrees with it.
+    expect(sites.length).toBe(287);
   });
 });
 

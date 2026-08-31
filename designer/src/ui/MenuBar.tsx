@@ -230,6 +230,67 @@ export function ContextMenu({
   useModalEscape(onClose);
 
   useEffect(() => {
+    /**
+     * The click that dismisses a popup menu is EATEN by the menu, and the
+     * canvas under it never sees it.
+     *
+     * That is not a nicety, it is how the toolkit works.
+     * `TOOL_MANAGER::DispatchContextMenu` (tool_manager.cpp:978-980) shows the
+     * menu with `frame->PopupMenu( menu.get(), ... )` — a blocking call that
+     * runs a nested modal loop with a pointer grab. Every button event from
+     * the moment the menu is up belongs to the menu shell; the first click
+     * outside dismisses it and stops there, and only the NEXT click reaches
+     * the canvas, where `PCB_SELECTION_TOOL::Main` (pcb_selection_tool.cpp:326-347)
+     * runs `selectPoint()` and clears the selection because nothing was hit.
+     *
+     * So: right-click a footprint, click empty canvas — the menu goes and the
+     * footprint stays selected. Click again and the selection goes. Ours ran
+     * the canvas handler and the dismissal off the same click, so opening a
+     * menu and clicking away lost the selection in one go.
+     *
+     * The listener is `pointerdown` in the CAPTURE phase because that is the
+     * only place early enough: the canvas is wired with `onPointerDown`, and
+     * `pointerdown` precedes `mousedown`, so a bubble-phase `mousedown`
+     * listener (what this was) closes the menu strictly AFTER the canvas has
+     * already acted on the same gesture. `window` is the first node in the
+     * capture path, so stopping here stops it everywhere.
+     */
+    const grabRestOfGesture = (): void => {
+      // The grab is the whole press-release cycle, not just the press: the
+      // compatibility mouse events and the click that follow this pointerdown
+      // are the menu's too, or a frame listening on `click` rather than
+      // `pointerdown` would still act on the dismissal. Released on the next
+      // pointerdown — the second click, the one that IS the canvas's.
+      const swallowed = [
+        'pointerup',
+        'pointercancel',
+        'mousedown',
+        'mouseup',
+        'click',
+        'auxclick',
+        'contextmenu',
+      ];
+      const swallow = (ev: Event): void => {
+        ev.preventDefault();
+        ev.stopPropagation();
+      };
+      const release = (): void => {
+        for (const type of swallowed) window.removeEventListener(type, swallow, true);
+        window.removeEventListener('pointerdown', release, true);
+      };
+      for (const type of swallowed) window.addEventListener(type, swallow, true);
+      // Added while this pointerdown is still being dispatched, so it cannot
+      // fire for this one — only for the next.
+      window.addEventListener('pointerdown', release, true);
+    };
+
+    const onPointerDown = (e: PointerEvent): void => {
+      if (!ref.current || ref.current.contains(e.target as Node)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      grabRestOfGesture();
+      onClose();
+    };
     const onDown = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) onClose();
     };
@@ -248,9 +309,13 @@ export function ContextMenu({
       onClose();
       hit.action?.();
     };
+    window.addEventListener('pointerdown', onPointerDown, true);
+    // Kept as the fallback for anything that reaches the frame as a plain
+    // mouse event with no pointer event ahead of it.
     window.addEventListener('mousedown', onDown);
     window.addEventListener('keydown', onKey, true);
     return () => {
+      window.removeEventListener('pointerdown', onPointerDown, true);
       window.removeEventListener('mousedown', onDown);
       window.removeEventListener('keydown', onKey, true);
     };

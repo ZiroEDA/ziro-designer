@@ -78,6 +78,47 @@ export function resetCommonPanel(ctx: PrefsContext): void {
 }
 
 /**
+ * `PANEL_GIT_REPOS::ResetPanel` (`common/dialogs/git/panel_git_repos.cpp:48`):
+ *
+ *     m_cbDefault->SetValue( true );
+ *     m_author->SetValue( wxEmptyString );
+ *     m_authorEmail->SetValue( wxEmptyString );
+ *
+ * Three of the five, and the other two are left alone — `m_enableGit` and the
+ * update interval are NOT reset upstream. The slice is what the panel's own
+ * ResetPanel touches, not everything the page shows.
+ */
+export function resetGitPanel(ctx: PrefsContext): void {
+  ctx.upC((s) => {
+    resetKeys(s.git, COMMON_DEFAULTS.git, ['useDefaultAuthor', 'authorName', 'authorEmail']);
+  });
+}
+
+/**
+ * `PANEL_SPACEMOUSE::ResetPanel` (`common/dialogs/panel_spacemouse.cpp:61`).
+ *
+ * The panel is a `RESETTABLE_PANEL` upstream — which is what makes the dialog's
+ * footer button read "Reset SpaceMouse to Defaults" rather than greying out
+ * (`common/widgets/paged_dialog.cpp:329-350`) — and its slice is the whole of
+ * `m_SpaceMouse`, since every one of the six parameters is on this page.
+ *
+ * That the controls are disabled here changes nothing about that: a reset
+ * restores what the page SHOWS, and the page shows six stored values.
+ */
+export function resetSpacemousePanel(ctx: PrefsContext): void {
+  ctx.upC((s) => {
+    resetKeys(s.spacemouse, COMMON_DEFAULTS.spacemouse, [
+      'rotate_speed',
+      'pan_speed',
+      'reverse_rotate',
+      'reverse_pan_x',
+      'reverse_pan_y',
+      'reverse_zoom',
+    ]);
+  });
+}
+
+/**
  * `PANEL_MOUSE_SETTINGS::ResetPanel` (`common/dialogs/panel_mouse_settings.cpp`):
  *
  *     COMMON_SETTINGS defaultSettings;
@@ -109,6 +150,8 @@ export function resetMousePanel(ctx: PrefsContext): void {
       'mouse_left',
       'mouse_middle',
       'mouse_right',
+      // `m_choicePanMoveKey`, the fourth row of Drag Gestures.
+      'motion_pan_modifier',
       // "Scroll Gestures"
       'scroll_modifier_zoom',
       'scroll_modifier_pan_h',

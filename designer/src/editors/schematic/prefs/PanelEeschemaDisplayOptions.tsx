@@ -20,7 +20,10 @@ import type { PrefsContext } from '../../../dialogs/prefs/types.js';
 export function PanelEeschemaDisplayOptions({ ctx }: { ctx: PrefsContext }): JSX.Element {
   const { eeschema, upE } = ctx;
   return (
-    <div className="ze-pref-columns">
+    /* `bPanelSizer->Add( bSizer9, 0, wxEXPAND|wxRIGHT, 5 )` then
+       `Add( 20, 0, 0, 0, 5 )` (`:76-79`) — this page's gutter is 25, not the
+       35 Common and Editing Options carry. */
+    <div className="ze-pref-columns ze-gutter-25">
       <div>
         {/*
           `m_galOptsPanel = new PANEL_GAL_OPTIONS( this, aAppSettings )`, the
@@ -35,22 +38,30 @@ export function PanelEeschemaDisplayOptions({ ctx }: { ctx: PrefsContext }): JSX
           update={(fn) => upE((s) => fn(s.window))}
           idPrefix="sch"
         />
+        {/* Dead, all five. These govern probes arriving in the SCHEMATIC from
+            the board — Select on Schematic, and PCB net highlight — and that
+            direction is not built: nothing reads `eeschema.cross_probing`. The
+            board's own copy is live (`editors/pcb/PcbEditor.tsx:3302`,
+            `pcbnew/src/cross_probe.ts:205`, `:287`), which is why the same
+            group is enabled under PCB Editor > Display Options. */}
         <CrossProbingGroup
           peer="pcb"
+          disabled
           value={eeschema.cross_probing}
           onChange={(fn) => upE((s) => fn(s.cross_probing))}
-          note="(These govern probes arriving in the schematic from the board — Select on
-                Schematic and PCB net highlight. That direction is not implemented yet, so
-                they are stored but inert; the board's own copy, which governs Select on
-                PCB, is under PCB Editor > Display Options.)"
         />
       </div>
       <div>
         <Group title="Appearance">
+          {/* Dead: nothing reads `appearance.default_font`. Every string in
+              this port is drawn with KiCad's own stroke font or its MSDF
+              atlas, so there is no second face to pick — upstream lists the
+              installed fonts here. */}
           <Sel
             label="Default font:"
             value={eeschema.appearance.default_font}
             options={[['KiCad Font', 'KiCad Font']]}
+            disabled
             onChange={(v) =>
               upE((s) => {
                 s.appearance.default_font = v;
@@ -72,6 +83,19 @@ export function PanelEeschemaDisplayOptions({ ctx }: { ctx: PrefsContext }): JSX
             onChange={(v) =>
               upE((s) => {
                 s.appearance.show_hidden_fields = v;
+              })
+            }
+          />
+          {/* `m_checkShowDirectiveLabels` (`:116`) — between the hidden fields
+              and the ERC rows, and missing from this page entirely. Dead:
+              nothing reads it; a directive label is drawn whatever it says. */}
+          <Check
+            label="Show directive labels"
+            checked={eeschema.appearance.show_directive_labels}
+            disabled
+            onChange={(v) =>
+              upE((s) => {
+                s.appearance.show_directive_labels = v;
               })
             }
           />
@@ -111,9 +135,12 @@ export function PanelEeschemaDisplayOptions({ ctx }: { ctx: PrefsContext }): JSX
               })
             }
           />
+          {/* Dead, both: the operating-point overlays are the simulator's, and
+              nothing reads `show_op_voltages` / `show_op_currents`. */}
           <Check
             label="Show OP voltages"
             checked={eeschema.appearance.show_op_voltages}
+            disabled
             onChange={(v) =>
               upE((s) => {
                 s.appearance.show_op_voltages = v;
@@ -123,15 +150,18 @@ export function PanelEeschemaDisplayOptions({ ctx }: { ctx: PrefsContext }): JSX
           <Check
             label="Show OP currents"
             checked={eeschema.appearance.show_op_currents}
+            disabled
             onChange={(v) =>
               upE((s) => {
                 s.appearance.show_op_currents = v;
               })
             }
           />
+          {/* Dead: the painter draws no alternate-mode indicator yet. */}
           <Check
             label="Show pin alternate mode indicator icons"
             checked={eeschema.appearance.show_pin_alt_icons}
+            disabled
             onChange={(v) =>
               upE((s) => {
                 s.appearance.show_pin_alt_icons = v;
@@ -149,9 +179,13 @@ export function PanelEeschemaDisplayOptions({ ctx }: { ctx: PrefsContext }): JSX
           />
         </Group>
         <Group title="Selection & Highlighting">
+          {/* Dead: the selection painter draws the parent's own outline, and
+              nothing reads `selection.draw_selected_children` or
+              `selection.fill_shapes`. */}
           <Check
             label="Draw selected child items"
             checked={eeschema.selection.draw_selected_children}
+            disabled
             onChange={(v) =>
               upE((s) => {
                 s.selection.draw_selected_children = v;
@@ -161,6 +195,7 @@ export function PanelEeschemaDisplayOptions({ ctx }: { ctx: PrefsContext }): JSX
           <Check
             label="Fill selected shapes"
             checked={eeschema.selection.fill_shapes}
+            disabled
             onChange={(v) =>
               upE((s) => {
                 s.selection.fill_shapes = v;
@@ -179,7 +214,28 @@ export function PanelEeschemaDisplayOptions({ ctx }: { ctx: PrefsContext }): JSX
               })
             }
           />
-          <div className="ze-muted">(selection color can be edited in the "Colors" page)</div>
+          {/* `m_highlightColorNote` (`:263`) — a wxStaticText upstream really
+              does draw here, unlike the paragraph we had under Cross-probing.
+              It was already on the page as a `.ze-muted` div, which states a
+              #9a9ca0 of its own; a wxStaticText takes the dialog's foreground,
+              so this is the label class and the dimmed copy is gone. */}
+          <div className="ze-pref-note">(selection color can be edited in the "Colors" page)</div>
+          {/* `m_collisionMarkerWidthCtrl` (`:271`), missing from this page.
+              Dead: dragging a wire past another net draws no collision marker
+              here, so nothing reads `selection.drag_net_collision_width`. */}
+          <Num
+            label="Net collision marker width:"
+            value={eeschema.selection.drag_net_collision_width}
+            /* [data] `wxSpinCtrlDouble( …, 1, 50, 4.000000, 1 )`. */
+            min={1}
+            max={50}
+            disabled
+            onChange={(v) =>
+              upE((s) => {
+                s.selection.drag_net_collision_width = v;
+              })
+            }
+          />
           <Num
             label="Highlight thickness:"
             value={eeschema.selection.highlight_thickness}
@@ -192,9 +248,12 @@ export function PanelEeschemaDisplayOptions({ ctx }: { ctx: PrefsContext }): JSX
               })
             }
           />
+          {/* Dead, all three: netclass colours are not drawn on a selection
+              here, so nothing reads the flag or either of its numbers. */}
           <Check
             label="Highlight netclass colors"
             checked={eeschema.selection.highlight_netclass_colors}
+            disabled
             onChange={(v) =>
               upE((s) => {
                 s.selection.highlight_netclass_colors = v;
@@ -204,6 +263,7 @@ export function PanelEeschemaDisplayOptions({ ctx }: { ctx: PrefsContext }): JSX
           <Num
             label="Color highlight thickness:"
             value={eeschema.selection.highlight_netclass_colors_thickness}
+            disabled
             min={0}
             max={50}
             onChange={(v) =>
@@ -215,6 +275,7 @@ export function PanelEeschemaDisplayOptions({ ctx }: { ctx: PrefsContext }): JSX
           <Num
             label="Color highlight opacity:"
             value={eeschema.selection.highlight_netclass_colors_alpha}
+            disabled
             unit="%"
             min={0}
             max={100}

@@ -23,10 +23,12 @@
  */
 
 import { PCB_IU_PER_MM } from '@ziroeda/common/src/eda_units.js';
-import { drawDrawingSheetItems } from '@ziroeda/common';
+import { drawDrawingSheetItems, hitTestDrawingSheet } from '@ziroeda/common';
 import {
   defaultDrawingSheet,
+  type DsDrawItem,
   layoutDrawingSheet,
+  paperTypeName,
   SCH_IU_PER_MM,
   type WksSheet,
 } from '@ziroeda/common';
@@ -1783,6 +1785,74 @@ export function drawPageLimits(
 }
 
 /**
+ * The board's drawing sheet as `DS_DRAW_ITEM`s — `DS_PROXY_VIEW_ITEM::buildDrawList`.
+ *
+ * Its own function because two things need the same list and they must not
+ * build it differently: the painter below, and `hitTestBoardDrawingSheet`, which
+ * is how a double-click on the frame or the title block finds its way to Page
+ * Settings. Upstream that identity is structural — `HitTestDrawingSheetItems`
+ * calls `buildDrawList` itself (ds_proxy_view_item.cpp:161-174).
+ *
+ * The list comes back in **schematic** internal units, because that is what the
+ * shared drawing-sheet engine works in. Everything on this side of the boundary
+ * has to convert; {@link DS_IU_TO_PCB} is the one factor to do it with.
+ */
+export function boardDrawingSheetItems(info: SheetInfo, sheet?: WksSheet): DsDrawItem[] {
+  const page = paperSizeIU(info.paper);
+  if (!page) return [];
+  const tb = info.titleBlock ?? {};
+
+  return layoutDrawingSheet(
+    sheet ?? defaultDrawingSheet(),
+    { widthMM: page.w / PCB_IU_PER_MM, heightMM: page.h / PCB_IU_PER_MM },
+    {
+      // A board is one page: pcbnew has no sheet hierarchy to number.
+      pageNumber: 1,
+      sheetCount: 1,
+      title: tb.title ?? '',
+      rev: tb.rev ?? '',
+      date: tb.date ?? '',
+      company: tb.company ?? '',
+      comments: [...(tb.comments ?? [])],
+      // `m_paperFormat = aPageInfo.GetTypeAsString()` (ds_draw_item.cpp:552).
+      paper: paperTypeName(info.paper),
+      fileName: info.fileName ?? '',
+      sheetPath: '/',
+      appVersion: 'ZiroEDA',
+    },
+  );
+}
+
+/** Schematic internal units to board ones — the drawing sheet's whole boundary. */
+export const DS_IU_TO_PCB = PCB_IU_PER_MM / SCH_IU_PER_MM;
+
+/**
+ * `DS_PROXY_VIEW_ITEM::HitTestDrawingSheetItems` (ds_proxy_view_item.cpp:161):
+ * is `p` on one of the drawing sheet's items?
+ *
+ *     int accuracy = (int) aView->ToWorld( 5.0 );   // five pixels at current zoom
+ *     …
+ *     if( item->HitTest( aPosition, accuracy ) ) return true;
+ *
+ * This is what makes a double-click on the page frame or anywhere in the title
+ * block open Page Settings (`EDIT_TOOL::Properties`, edit_tool.cpp:2153-2161,
+ * and the same test gates the Properties menu row at :616-631). `p` and
+ * `accuracy` are in board units, as upstream's are.
+ */
+export function hitTestBoardDrawingSheet(
+  info: SheetInfo,
+  sheet: WksSheet | undefined,
+  p: Vec2,
+  accuracy: number,
+): boolean {
+  return hitTestDrawingSheet(
+    boardDrawingSheetItems(info, sheet),
+    { x: p.x / DS_IU_TO_PCB, y: p.y / DS_IU_TO_PCB },
+    accuracy / DS_IU_TO_PCB,
+  );
+}
+
+/**
  * The page frame and title block, through the same engine eeschema and
  * pl_editor use.
  *
@@ -1807,39 +1877,19 @@ export function drawDrawingSheet(
   // World width of one device pixel, so hairlines stay visible when zoomed out.
   minWidth = 0,
 ): void {
-  const page = paperSizeIU(info.paper);
-  if (!page) return;
-  const tb = info.titleBlock ?? {};
   // Page size in millimetres, from *this* file's internal units.
   //
   // `iuToMM` is the schematic scale (1e4/mm) and `page` is in board units
   // (1e6/mm), so putting one through the other asked for a page a hundred times
   // too large: a 297 mm sheet became a 29.7 metre one, laid out so far outside
   // the board that nothing was visible on screen at all.
-  const items = layoutDrawingSheet(
-    sheet ?? defaultDrawingSheet(),
-    { widthMM: page.w / PCB_IU_PER_MM, heightMM: page.h / PCB_IU_PER_MM },
-    {
-      // A board is one page: pcbnew has no sheet hierarchy to number.
-      pageNumber: 1,
-      sheetCount: 1,
-      title: tb.title ?? '',
-      rev: tb.rev ?? '',
-      date: tb.date ?? '',
-      company: tb.company ?? '',
-      comments: [...(tb.comments ?? [])],
-      paper: info.paper ?? '',
-      fileName: info.fileName ?? '',
-      sheetPath: '/',
-      appVersion: 'ZiroEDA',
-    },
-  );
+  const items = boardDrawingSheetItems(info, sheet);
   if (items.length === 0) return;
   // The layout comes back in schematic internal units, because that is what the
   // shared engine works in; this canvas is in board units. Scaling the context
   // rather than every coordinate also scales the pen widths, which are in the
   // same units and would otherwise be a hundred times too fine.
-  const toPcb = PCB_IU_PER_MM / SCH_IU_PER_MM;
+  const toPcb = DS_IU_TO_PCB;
   ctx.save();
   ctx.scale(toPcb, toPcb);
   drawDrawingSheetItems(ctx, items, NO_DS_SELECTION, { color, minWidth: minWidth / toPcb });

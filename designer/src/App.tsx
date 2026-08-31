@@ -1100,6 +1100,7 @@ export function App(): JSX.Element {
               syncSelection={pcbSyncSelection}
               updateFromSchematic={updatePcbNonce}
               readOnlyNotice={demoNotice}
+              readOnly={!!demoProject}
             />
           </Suspense>
         </div>

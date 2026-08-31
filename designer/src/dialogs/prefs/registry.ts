@@ -51,7 +51,6 @@ export const PAGES: readonly PrefsPageEntry[] = [
   { id: 'sch-display', label: 'Display Options', indent: true, owner: 'schematic' },
   { id: 'sch-grids', label: 'Grids', indent: true, owner: 'schematic' },
   { id: 'sch-editing', label: 'Editing Options', indent: true, owner: 'schematic' },
-  { id: 'sch-annotation', label: 'Annotation Options', indent: true, owner: 'schematic' },
   { id: 'sch-colors', label: 'Colors', indent: true, owner: 'schematic' },
   { id: 'sch-toolbars', label: 'Toolbars', indent: true, owner: 'schematic' },
   { id: 'sch-fields', label: 'Field Name Templates', indent: true, owner: 'schematic' },
@@ -250,20 +249,20 @@ export const OMITTED_PAGES: Readonly<Record<string, readonly DeclaredPage[]>> = 
 /**
  * Rows we show that upstream's tree does not have under that heading, and why.
  *
- * There is exactly one, and it is a known defect rather than a choice, so it is
- * recorded as such: a reason here is not a justification, it is a pointer.
+ * EMPTY, and that is the point. The one entry was "Annotation Options", and it
+ * is gone: `PANEL_EESCHEMA_ANNOTATION_OPTIONS` is a page of
+ * DIALOG_SCHEMATIC_SETUP (`eeschema/dialogs/dialog_schematic_setup.cpp:66-71`),
+ * never of Preferences, and it writes `SCHEMATIC_SETTINGS` — the PROJECT's
+ * annotation fields (`panel_eeschema_annotation_options.cpp:103-129`), which
+ * our Schematic Setup > Annotation page already edits and
+ * `project_settings.ts:242` already round-trips. The Preferences copy was a
+ * second set of controls over `eeschema.annotation.*`, an app-settings slice
+ * upstream's panel never touches.
+ *
+ * A row here is a known defect rather than a choice: a reason is not a
+ * justification, it is a pointer.
  */
-export const EXTRA_PAGES: Readonly<Record<string, readonly DeclaredPage[]>> = {
-  'Schematic Editor': [
-    {
-      label: 'Annotation Options',
-      reason:
-        'Upstream has no such page: `PANEL_EESCHEMA_ANNOTATION_OPTIONS` is a page of ' +
-        'DIALOG_SCHEMATIC_SETUP, not of Preferences. Ours puts it in the wrong dialog. ' +
-        'Tracked with the schematic, 195.',
-    },
-  ],
-};
+export const EXTRA_PAGES: Readonly<Record<string, readonly DeclaredPage[]>> = {};
 
 /** The first selectable page — what the dialog opens on. */
 export const FIRST_PAGE: PrefsPageId = 'common';

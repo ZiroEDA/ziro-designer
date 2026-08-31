@@ -13,19 +13,27 @@ import { Check, Group } from './widgets.js';
  *
  * Only the wording of three of them differs, because each panel names the *other*
  * editor — "corresponding to PCB selection" in eeschema, "corresponding to
- * schematic selection" in pcbnew — so that is all this takes as a parameter.
+ * schematic selection" in pcbnew — so that is all this takes as a parameter,
+ * along with whether the side that owns them reads them.
+ *
+ * It took a `note` too: a paragraph of ours under the checkboxes saying that
+ * the schematic's copy is inert. KiCad has no such text, the sentence was one
+ * long line that gave the page a horizontal scrollbar and pushed the Appearance
+ * column off the edge of it, and "this control does nothing" is what `disabled`
+ * says. The reason belongs in the call site's source, and it is there.
  */
 export function CrossProbingGroup({
   value,
   onChange,
   peer,
-  note,
+  disabled,
 }: {
   value: CrossProbingSettings;
   onChange: (fn: (s: CrossProbingSettings) => void) => void;
   /** The editor on the far end of the probe, as this panel's labels name it. */
   peer: 'pcb' | 'schematic';
-  note?: string;
+  /** `wxWindow::Enable( false )` on all five — drawn, but nothing reads them. */
+  disabled?: boolean;
 }): JSX.Element {
   const sch = peer === 'schematic';
   return (
@@ -36,6 +44,7 @@ export function CrossProbingGroup({
           sch ? 'symbols' : 'footprints'
         }`}
         checked={value.on_selection}
+        disabled={disabled}
         onChange={(v) =>
           onChange((s) => {
             s.on_selection = v;
@@ -48,6 +57,7 @@ export function CrossProbingGroup({
           sch ? 'footprints' : 'symbols'
         } are visible in the current view`}
         checked={value.center_on_items}
+        disabled={disabled}
         onChange={(v) =>
           onChange((s) => {
             s.center_on_items = v;
@@ -57,6 +67,7 @@ export function CrossProbingGroup({
       <Check
         label="Zoom to fit cross-probed items"
         checked={value.zoom_to_fit}
+        disabled={disabled}
         onChange={(v) =>
           onChange((s) => {
             s.zoom_to_fit = v;
@@ -69,6 +80,7 @@ export function CrossProbingGroup({
           sch ? 'schematic' : 'PCB'
         } editor`}
         checked={value.auto_highlight}
+        disabled={disabled}
         onChange={(v) =>
           onChange((s) => {
             s.auto_highlight = v;
@@ -79,13 +91,13 @@ export function CrossProbingGroup({
         label="Flash cross-probed selection"
         title="Temporarily flash the newly cross-probed selection 3 times"
         checked={value.flash_selection}
+        disabled={disabled}
         onChange={(v) =>
           onChange((s) => {
             s.flash_selection = v;
           })
         }
       />
-      {note ? <div className="ze-muted">{note}</div> : null}
     </Group>
   );
 }

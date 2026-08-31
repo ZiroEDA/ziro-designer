@@ -17,7 +17,12 @@ import { PanelHotkeys } from './PanelHotkeys.js';
 import { PanelSpacemouse } from './PanelSpacemouse.js';
 import { PanelGitRepos } from './PanelGitRepos.js';
 import { PanelMaintenance } from './PanelMaintenance.js';
-import { resetCommonPanel, resetMousePanel } from './resets.js';
+import {
+  resetCommonPanel,
+  resetGitPanel,
+  resetMousePanel,
+  resetSpacemousePanel,
+} from './resets.js';
 import type { PrefsPageId, PrefsPanelFactory, PrefsPanelModule } from '../types.js';
 
 export const createPrefsPanel: PrefsPanelFactory = (id: PrefsPageId): PrefsPanelModule | null => {
@@ -40,15 +45,22 @@ export const createPrefsPanel: PrefsPanelFactory = (id: PrefsPageId): PrefsPanel
         resetTooltip: 'Reset all hotkeys to the built-in KiCad defaults',
       };
 
-    // The pages upstream draws that nothing here can back. They are not
-    // resettable: `RESETTABLE_PANEL::ResetPanel` restores a panel's own
-    // settings, and these have none, so the Reset button greys out exactly as
-    // it does for a page with nothing of its own.
+    // `PANEL_SPACEMOUSE` is a RESETTABLE_PANEL upstream
+    // (`panel_spacemouse_base.cpp:12`, `panel_spacemouse.cpp:61`), so the
+    // footer button reads "Reset SpaceMouse to Defaults" and is live. Its six
+    // controls are disabled — no browser API reaches the device — but they
+    // hold stored values, and a reset is what restores them.
     case 'spacemouse':
-      return { Panel: PanelSpacemouse };
+      return { Panel: PanelSpacemouse, reset: resetSpacemousePanel };
 
+    // `PANEL_GIT_REPOS` is a RESETTABLE_PANEL too
+    // (`panel_git_repos_base.cpp:12`, `panel_git_repos.cpp:48`), so the footer
+    // button reads "Reset Version Control to Defaults" and is live. Its
+    // controls are disabled — the cloud store versions a project, there is no
+    // local repository — and they hold stored values, which is what a reset
+    // restores.
     case 'version-control':
-      return { Panel: PanelGitRepos };
+      return { Panel: PanelGitRepos, reset: resetGitPanel };
 
     case 'maintenance':
       return { Panel: PanelMaintenance };

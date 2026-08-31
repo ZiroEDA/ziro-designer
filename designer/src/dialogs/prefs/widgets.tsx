@@ -14,6 +14,7 @@
 import type { JSX, ReactNode } from 'react';
 import { Combo } from '../../ui/Combo.js';
 import { ColorSwatch } from '../../ui/ColorSwatch.js';
+import { SpinCtrl } from '../../ui/SpinCtrl.js';
 import { parseColor4d, toCssColor } from '@ziroeda/common/src/color4d.js';
 
 /**
@@ -64,6 +65,7 @@ export function Num({
   max,
   step,
   width,
+  spin,
   disabled,
   title,
   borders,
@@ -72,6 +74,16 @@ export function Num({
   value: number;
   onChange: (v: number) => void;
   unit?: string;
+  /**
+   * Whether the control is a `wxSpinCtrl` (the default here) or a plain
+   * `wxTextCtrl`. KiCad picks one or the other per row and they do not look
+   * alike: a spin control carries GTK's two stepper buttons and a text control
+   * has none. "High-contrast mode dimming factor" is
+   * `m_highContrastCtrl`, a `wxTextCtrl`
+   * (`panel_common_settings_base.cpp:283`), and drawing it with arrows put a
+   * widget on the page that upstream does not have there.
+   */
+  spin?: boolean;
   /** This row's own `Add()` border flags. See {@link sizerBorders}. */
   borders?: readonly ('top' | 'bottom')[];
   /** `wxWindow::Enable( false )` — greyed and unreachable, but still drawn. */
@@ -87,21 +99,34 @@ export function Num({
   return (
     <label className={`ze-pref-row${sizerBorders(borders)}`} title={title}>
       <span className="lbl">{label}</span>
-      <input
-        type="number"
-        className="ze-search num"
-        value={value}
-        disabled={disabled}
-        {...(min !== undefined ? { min } : {})}
-        {...(max !== undefined ? { max } : {})}
-        {...(step !== undefined ? { step } : {})}
-        style={{ width: width ?? 80 }}
-        onChange={(e) => {
-          const v = Number(e.target.value);
-          if (Number.isFinite(v)) onChange(v);
-        }}
-        onKeyDown={(e) => e.stopPropagation()}
-      />
+      {spin === false ? (
+        // A `wxTextCtrl`: no stepper buttons, and the entry's own alignment.
+        <input
+          type="text"
+          className="ze-search"
+          value={value}
+          disabled={disabled}
+          style={{ width: width ?? 80 }}
+          onChange={(e) => {
+            const v = Number(e.target.value);
+            if (Number.isFinite(v)) onChange(v);
+          }}
+          onKeyDown={(e) => e.stopPropagation()}
+        />
+      ) : (
+        // A `wxSpinCtrl`, which is the shared widget and not a number input:
+        // the browser hides its steppers until hovered, and KiCad's are always
+        // drawn.
+        <SpinCtrl
+          value={value}
+          onChange={onChange}
+          disabled={disabled}
+          {...(min !== undefined ? { min } : {})}
+          {...(max !== undefined ? { max } : {})}
+          {...(step !== undefined ? { step } : {})}
+          {...(width !== undefined ? { width } : {})}
+        />
+      )}
       {unit && <span className="unit">{unit}</span>}
     </label>
   );
@@ -172,6 +197,16 @@ export function Group({ title, children }: { title: string; children: ReactNode 
  * `row` lays the buttons out horizontally after the label, as the grid style's
  * `wxBoxSizer( wxHORIZONTAL )` does; without it they stack, as the crosshair
  * shape's `wxFlexGridSizer( 0, 1, 3, 0 )` does.
+ *
+ * A row is `.ze-pref-radiorow`, NOT `.ze-pref-row`. The two are laid out by
+ * different sizers upstream and so are spaced differently: a `.ze-pref-row` is
+ * a gbSizer cell, whose labels line up in a column, while every radio row in
+ * these panels is a bare `wxBoxSizer( wxHORIZONTAL )` whose label takes its own
+ * width and whose children each carry `wxALL, 5` -- Icon theme
+ * (`panel_common_settings_base.cpp:202-226`), Toolbar icon size (`:228-251`)
+ * and PANEL_GAL_OPTIONS' grid Style (`panel_gal_options_base.cpp:23-41`) are
+ * all that shape. Drawing them in the label column pushed the radios a fixed
+ * 150 px right, which is why ours lined up with each other and KiCad's do not.
  */
 export function Radio<T extends string | number>({
   label,
@@ -187,7 +222,13 @@ export function Radio<T extends string | number>({
   label?: string;
   name: string;
   value: T;
-  options: readonly (readonly [T, string])[];
+  /**
+   * `[value, label]`, or `[value, label, tooltip]` where the BUTTON carries a
+   * `SetToolTip` of its own — every radio in Icon theme and Toolbar icon size
+   * does (`panel_common_settings_base.cpp:206-251`), and wx puts the tip on
+   * the button, not on the row.
+   */
+  options: readonly (readonly [T, string, string?])[];
   onChange: (v: T) => void;
   row?: boolean;
   /**
@@ -210,10 +251,10 @@ export function Radio<T extends string | number>({
 }): JSX.Element {
   const borderClass = sizerBorders(borders);
   return (
-    <div className={`${row ? 'ze-pref-row' : 'ze-pref-radios'}${borderClass}`} title={title}>
+    <div className={`${row ? 'ze-pref-radiorow' : 'ze-pref-radios'}${borderClass}`} title={title}>
       {label !== undefined && <span className="lbl">{label}</span>}
-      {options.map(([v, l]) => (
-        <label key={String(v)} className="ze-pref-radio">
+      {options.map(([v, l, tip]) => (
+        <label key={String(v)} className="ze-pref-radio" title={tip}>
           <input
             type="radio"
             name={name}
@@ -230,19 +271,36 @@ export function Radio<T extends string | number>({
   );
 }
 
-/** A label + colour swatch row (KiCad's COLOR_SWATCH). Empty value means "unset". */
+/**
+ * A label + colour swatch row (KiCad's COLOR_SWATCH).
+ *
+ * An empty value is `COLOR4D::UNSPECIFIED`, which is a fully transparent
+ * colour — and `COLOR_SWATCH::MakeBitmap` lays a checkerboard down and paints
+ * the colour over it at its own alpha (`color_swatch.cpp:78-133`), so unset
+ * draws as the bare checkerboard. That is what a fresh KiCad shows for
+ * eeschema's Sheet border and Sheet background, whose PARAMs default to
+ * UNSPECIFIED (`eeschema_settings.cpp:396-400`).
+ *
+ * `fallback` is therefore only for the rows whose setting has a real default:
+ * pass none and unset stays unset. Substituting a colour for every empty value
+ * is what painted those two swatches solid red and cream.
+ */
 export function ColorRow({
   label,
   value,
   fallback,
   onChange,
+  disabled,
 }: {
   label: string;
   value: string;
-  fallback: string;
+  /** A real default, where the setting has one. Omit for `UNSPECIFIED`. */
+  fallback?: string;
   onChange: (css: string) => void;
+  /** `wxWindow::Enable( false )` — drawn, but not answerable here. */
+  disabled?: boolean;
 }): JSX.Element {
-  const hex = splitCss(value || fallback).hex;
+  const hex = splitCss(value || fallback || '').hex;
   return (
     <label className="ze-pref-row">
       <span className="lbl">{label}</span>
@@ -250,8 +308,12 @@ export function ColorRow({
           KiCad is picked through - not the browser's popup, which opens
           off-screen on a control near the window edge. */}
       <ColorSwatch
+        disabled={disabled}
         label={label}
-        color={parseColor4d(value || fallback)}
+        // [data] `COLOR4D::UNSPECIFIED` is `COLOR4D( 0, 0, 0, 0 )`
+        // (`include/gal/color4d.h`) — fully transparent, which is what the
+        // swatch draws as the bare checkerboard.
+        color={parseColor4d(value || fallback || 'rgba(0, 0, 0, 0)')}
         onChange={(picked) => onChange(toCssColor(picked, ', '))}
       />
     </label>

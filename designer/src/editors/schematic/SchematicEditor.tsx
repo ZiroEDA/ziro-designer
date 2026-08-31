@@ -76,6 +76,8 @@ import {
   emptyBBox,
   type BBox,
   isEmpty,
+  inflate,
+  contains,
   includePoint,
   instanceKey,
   getSheetPageNumber,
@@ -361,7 +363,11 @@ import {
   type PageExportFlags,
   type PageSettingsValue,
 } from '../../dialogs/page_settings_model.js';
-import { DialogPasteSpecial } from './dialogs/dialog_paste_special.js';
+// `DIALOG_PASTE_SPECIAL` is a `common/dialogs/` dialog upstream, built by
+// eeschema AND pcbnew, so it is one module here too rather than a copy under
+// this editor's own `dialogs/`. `SCH_EDITOR_CONTROL::Paste` supplies the two
+// things that differ: the mode it opens on, and no `aDefaultRef`.
+import { DialogPasteSpecial, type PasteSpecialMode } from '../../dialogs/dialog_paste_special.js';
 import { DialogSheetProperties, type SheetPropsResult } from './dialogs/dialog_sheet_properties.js';
 import { DialogShapeProperties, type ShapePropsResult } from './dialogs/dialog_shape_properties.js';
 import { DialogImageProperties, type ImagePropsResult } from './dialogs/dialog_image_properties.js';
@@ -477,6 +483,7 @@ import {
   unitsMsg,
 } from '../../ui/status_format.js';
 import { formatTitle, useDocumentTitle } from '../../ui/useDocumentTitle.js';
+import { withSaveEnablement } from '../../ui/save_enablement.js';
 import { fileBaseName, pathHumanReadable, SCH_FRAME_NAME, schFrameTitle } from './frame_title.js';
 import {
   SCH_BOTTOM_DOCK,
@@ -1447,6 +1454,10 @@ export function SchematicEditor({
     () => new Map((doc?.libSymbols ?? []).map((l) => [l.libId, l])),
     [doc?.libSymbols],
   );
+  // The same map for the stable callbacks, which are built once and would
+  // otherwise capture the first render's.
+  const libByIdRef = useRef(libById);
+  libByIdRef.current = libById;
 
   // Connectivity: compute the netlist, then brighten the net the Highlight-Net tool
   // picked (not the selection, KiCad keeps those separate). The renderer matches
@@ -1575,6 +1586,12 @@ export function SchematicEditor({
   // The live document for stable callbacks (selection promotion needs groups).
   const docRef = useRef(doc);
   docRef.current = doc;
+  /**
+   * `grid.GetGrid().x` for the rules that measure in grid squares — right now
+   * only `SCH_SELECTION_TOOL::Main`'s right-click test. A ref because
+   * `gridSizeIU` is derived far below and these callbacks are built once.
+   */
+  const gridSizeIURef = useRef(0);
   // Group promotion (SCH_SELECTION_TOOL): clicking a member selects its whole
   // group, so every selection result expands through the document's groups.
   const promote = (ids: ReadonlySet<string>): ReadonlySet<string> =>
@@ -1696,10 +1713,14 @@ export function SchematicEditor({
     [],
   );
 
-  // Right-click with the select tool (SCH_SELECTION_TOOL): an unselected item
-  // under the cursor becomes the selection before the menu opens; over a
-  // selected item or empty canvas the selection is kept and the menu applies
-  // to it (KiCad selects the item, then pops the TOOL_MENU).
+  // Right-click with the select tool (SCH_SELECTION_TOOL::Main,
+  // sch_selection_tool.cpp:643-675). With nothing selected the item under the
+  // cursor is picked up as a hover selection; with something selected the
+  // selection is kept and the menu applies to it, *unless* the click has left
+  // the selection's bounding box by more than a grid square and there is
+  // something else there — "the user likely meant to get the context menu for
+  // that item". Inside the box nothing is re-picked, which is what stops a
+  // selected symbol's own fields and pins from stealing its menu.
   const onContextMenuRequest = useCallback(
     (
       x: number,
@@ -1712,7 +1733,19 @@ export function SchematicEditor({
       // selection exactly as it was, hover flag included — which is what keeps
       // the point editor's handles on screen in that case and not in the other.
       const before = { selection: selectionRef.current, hover: hoverSelectionRef.current };
-      const after = rightClickSelection(before, hit?.id ?? null, (id) => promote(new Set([id])));
+      // `!m_selection.GetBoundingBox().Inflate( grid.x, grid.y ).Contains( pos )`.
+      // A selection with no extent at all has no box to be inside of, which is
+      // upstream's empty `BOX2I` failing `Contains` for every point.
+      const d = docRef.current;
+      const box = d ? selectionBBox(d, before.selection, libByIdRef.current) : emptyBBox();
+      const beyond =
+        isEmpty(box) || !contains(inflate(box, gridSizeIURef.current), pointEdit.world);
+      const after = rightClickSelection(
+        before,
+        hit?.id ?? null,
+        (id) => promote(new Set([id])),
+        beyond,
+      );
       if (after !== before) {
         setSelection(after.selection);
         setHoverSelection(after.hover);
@@ -5421,6 +5454,7 @@ export function SchematicEditor({
     () => gridSizeToIU(es.window.grid.sizes[es.window.grid.last_size_idx]?.x ?? '50 mil'),
     [es.window.grid.sizes, es.window.grid.last_size_idx],
   );
+  gridSizeIURef.current = gridSizeIU;
 
   const onTextBoxDrawn = useCallback((start: Vec2, end: Vec2) => {
     setTextBoxDraw({ start, end, text: '' });
@@ -8385,7 +8419,7 @@ export function SchematicEditor({
         entries={schTopBar}
         app="eeschema"
         orientation="horizontal"
-        disabledIds={dirty ? navDisabled : new Set([...(navDisabled ?? []), 'save'])}
+        disabledIds={withSaveEnablement(navDisabled, dirty)}
         // Almost everything up here is a plain action, but the zoom tool is not:
         // it is an AF_ACTIVATE tool that keeps running, and its button stays
         // checked for as long as it does.
@@ -9180,8 +9214,20 @@ export function SchematicEditor({
             )}
             {pasteSpecialOpen && (
               <DialogPasteSpecial
-                annotateAutomatic={es.annotation.automatic}
-                onOk={(mode: PasteMode) => {
+                /* `PASTE_MODE pasteMode = annotateAutomatic ?
+                   UNIQUE_ANNOTATIONS : REMOVE_ANNOTATIONS`
+                   (sch_editor_control.cpp:2203) — the schematic never opens on
+                   "keep". */
+                mode={es.annotation.automatic ? 'UNIQUE_ANNOTATIONS' : 'REMOVE_ANNOTATIONS'}
+                /* `SCH_EDITOR_CONTROL::Paste` never calls `HideClearNets()`, so
+                   the box is shown here as well — it just never reads it. */
+                onOk={(chosen: PasteSpecialMode) => {
+                  const mode: PasteMode =
+                    chosen === 'UNIQUE_ANNOTATIONS'
+                      ? 'unique'
+                      : chosen === 'KEEP_ANNOTATIONS'
+                        ? 'keep'
+                        : 'remove';
                   setPasteSpecialOpen(false);
                   void navigator.clipboard?.readText().then((text) => {
                     setDoc((d) => {

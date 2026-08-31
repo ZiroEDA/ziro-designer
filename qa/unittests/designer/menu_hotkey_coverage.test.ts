@@ -1025,6 +1025,55 @@ const DECLARED: Readonly<Record<string, readonly string[]>> = {
     'Ctrl+F',
     'E',
     'F',
+    // ---- the canvas context menu (PCB_SELECTION_TOOL's TOOL_MENU) ---------
+    // Every row below is one KiCad prints in that menu. Three groups, and the
+    // group a key is in is the whole reason it is listed:
+    //
+    //  1. Already bound, and the menu row is new. `PCB_ACTIONS::move` (M),
+    //     `dragFreeAngle` (G), `drag45Degree` (D) and `rotateCcw`/`rotateCw`
+    //     (R / Shift+R) were all live in this frame's canvas key chain with a
+    //     comment saying "no row"; the context menu is now that row, and the
+    //     key and the row run the same thing.
+    'M',
+    'G',
+    'D',
+    'R',
+    'Shift+R',
+    //  2. Rows whose command is not wired yet, listed for the same reason X
+    //     and Ctrl+Shift+M above are: the row PRINTS the key, and a row that
+    //     grows an action must not silently grow a binding too. Get and Move
+    //     Footprint, the five router rows, and Open in Footprint Editor's
+    //     Ctrl+E, which reaches the frame but not through the dispatcher.
+    'T',
+    'Shift+X',
+    'Shift+E',
+    'Backspace',
+    'Shift+F',
+    'Ctrl+E',
+    //     Move Individually (Ctrl+M, pcb_actions.cpp:604), Swap (Alt+S,
+    //     :707) and Pack and Move Footprints (P, :730) joined them when the
+    //     multi-selection rows were brought up to the installed build: KiCad
+    //     prints all three, and ours printed the rows bare or not at all.
+    'Ctrl+M',
+    'Alt+S',
+    'P',
+    //     Clear Net Highlighting's `~` (pcb_actions.cpp:1575) came with the
+    //     Net Inspection Tools submenu (board_inspection_tool.cpp:68-82) - it
+    //     was already live in the canvas key chain, and the row is now the row
+    //     for it.
+    '~',
+    //  3. The clipboard group (edit_tool.cpp:822-827). pcbnew has no cut,
+    //     copy or paste in this app yet, so these five are group 2 as well —
+    //     they are separated only because they land together when the
+    //     clipboard does.
+    'Ctrl+X',
+    'Ctrl+C',
+    'Ctrl+V',
+    'Shift+Ctrl+V',
+    //  and Select All / Unselect All, whose rows exist but whose keys the
+    //  dispatcher does not carry in this frame.
+    'Ctrl+A',
+    'Shift+Ctrl+A',
     // View > Zoom In / Zoom Out declare NO accelerator: those rows are
     // `ACTIONS::zoomInCenter` / `zoomOutCenter` (`menubar_pcb_editor.cpp:234`),
     // which carry no DefaultHotkey on any platform. Zoom to Fit is Home, the

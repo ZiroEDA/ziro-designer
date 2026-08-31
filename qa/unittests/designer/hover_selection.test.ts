@@ -129,3 +129,46 @@ describe('the other two things that hide the handles', () => {
     expect(editHandlesVisible(leftClick('sheet-1'), true)).toBe(false);
   });
 });
+
+describe("right-clicking inside a selection's own box", () => {
+  /**
+   * `SCH_SELECTION_TOOL::Main` re-picks a non-empty selection only when the
+   * click has left its bounding box by more than a grid square
+   * (sch_selection_tool.cpp:654-672). The reported symptom: with a symbol
+   * selected, right-clicking its reference field opened the *field's* menu,
+   * because the field is a different item id and that was the whole of the old
+   * test. A field is inside its symbol's box, so upstream never re-picks there.
+   */
+  const symbol = leftClick('sym-1');
+
+  it('keeps the selection whatever is under the pointer', () => {
+    expect(rightClickSelection(symbol, 'field-1', alone, false)).toBe(symbol);
+    expect(rightClickSelection(symbol, 'pin-3', alone, false)).toBe(symbol);
+    // Even a wholly unrelated item that happens to overlap the box.
+    expect(rightClickSelection(symbol, 'wire-9', alone, false)).toBe(symbol);
+  });
+
+  it('re-picks once the click is a grid square outside the box', () => {
+    const after = rightClickSelection(symbol, 'wire-9', alone, true);
+    expect([...after.selection]).toEqual(['wire-9']);
+    expect(isHoverSelection(after)).toBe(true);
+  });
+
+  it('does not re-pick outside the box when nothing was hit', () => {
+    // `if( CollectHits( … ) )` — with nothing there the original selection and
+    // its menu survive.
+    expect(rightClickSelection(symbol, null, alone, true)).toBe(symbol);
+  });
+
+  it('still picks up an item cold, wherever the click landed', () => {
+    // The empty branch runs first and does not consult the box at all.
+    expect([...rightClickSelection(EMPTY, 'field-1', alone, false).selection]).toEqual(['field-1']);
+    expect([...rightClickSelection(EMPTY, 'field-1', alone, true).selection]).toEqual(['field-1']);
+  });
+
+  it('defaults to keeping the selection', () => {
+    // The parameter is optional, and the safe default is upstream's common
+    // case: a click inside the box changes nothing.
+    expect(rightClickSelection(symbol, 'field-1', alone)).toBe(symbol);
+  });
+});

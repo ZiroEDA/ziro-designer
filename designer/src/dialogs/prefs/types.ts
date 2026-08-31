@@ -51,7 +51,6 @@ export type PrefsPageId =
   | 'sch-display'
   | 'sch-grids'
   | 'sch-editing'
-  | 'sch-annotation'
   | 'sch-colors'
   | 'sch-toolbars'
   | 'sch-fields'

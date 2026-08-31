@@ -265,7 +265,21 @@ describe('the pile of hand-picked dialog sizes does not grow', () => {
     //
     // The eight are the sweep still to do, each to be checked against its own
     // base file the way this one was.
-    expect(cssSized()).toHaveLength(13);
+    // 13 -> 14: `.ze-prefs-dialog`, and it is the second entry the ratchet is
+    // FOR. `PAGED_DIALOG` really does set its own size — `SetMinSize( minSize );
+    // … SetSize( newSize )` (`common/widgets/paged_dialog.cpp:443-450`) — from
+    // `wxBookCtrlBase::DoGetBestSize`, the maximum over EVERY page. Every page
+    // is constructed up front there, so the answer never depends on which one
+    // is showing: KiCad's Preferences is the same size on Common as on Grids.
+    // Ours mounts one page at a time and cannot ask that question, so a
+    // content-sized dialog re-sized itself as the user walked the tree.
+    //
+    // Stated as [px] 1095 x 713, the installed build's own Preferences measured
+    // off a capture. A `min-width` was tried instead and reverted: `.ze-modal`
+    // is `width: max-content`, so a page running past 1095 pushed the dialog
+    // wider and the jumping came back. A page that does not fit KiCad's own
+    // dialog is a parity bug in that page.
+    expect(cssSized()).toHaveLength(14);
   });
 
   it('and every one of them is a dialog, so the scan is really finding them', () => {

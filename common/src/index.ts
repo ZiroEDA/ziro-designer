@@ -38,6 +38,7 @@ export {
   replaceItem as replaceWksItem,
   bitmapDisplayPPI,
   bitmapScaleForPPI,
+  paperTypeName,
   DEFAULT_SETUP,
   WKS_FILE_VERSION,
   wksItemMsgPanelInfo,

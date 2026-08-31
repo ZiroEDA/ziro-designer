@@ -1837,6 +1837,135 @@ export function boardSelectionBBox(board: Board, ids: ReadonlySet<string>): Boar
   return isEmpty(b) ? null : b;
 }
 
+/**
+ * `BOARD_ITEM::GetPosition()` — each item's own anchor, which is a different
+ * point per type and is *not* the centre of its bounding box.
+ *
+ * A footprint's is its origin (`FOOTPRINT::GetPosition()` → `m_pos`,
+ * footprint.h:347), a track's is its start (pcb_track.h:87), an arc's is its
+ * derived centre (`PCB_ARC::GetPosition`, pcb_track.cpp:2660), a zone's is the
+ * first corner of its outline (zone.cpp:509), a group's is its bounding-box
+ * centre (pcb_group.cpp:163), and a graphic's is `EDA_SHAPE::getPosition`
+ * (eda_shape.cpp:432) — the centre for an arc, the first vertex for a polygon,
+ * and the start point for everything else.
+ *
+ * Returns null for an id the board does not hold, and for the item types whose
+ * position we have no field for.
+ */
+export function boardItemPosition(board: Board, id: string): Vec2 | null {
+  const ref = parseBoardItemId(id);
+  if (!ref) return null;
+
+  switch (ref.kind) {
+    case 'track':
+      return board.tracks[ref.index]?.start ?? null;
+    case 'arc': {
+      const a = board.arcs[ref.index];
+      return a ? arcCenter(a.start, a.mid, a.end) : null;
+    }
+    case 'via':
+      return board.vias[ref.index]?.at ?? null;
+    case 'footprint':
+      return board.footprints[ref.index]?.at ?? null;
+    case 'pad':
+      return board.footprints[ref.index]?.pads[ref.sub ?? 0]?.at ?? null;
+    case 'text':
+      return board.texts[ref.index]?.at ?? null;
+    case 'fptext':
+      return board.footprints[ref.index]?.texts[ref.sub ?? 0]?.at ?? null;
+    case 'dimension':
+      return board.dimensions[ref.index]?.start ?? null;
+    case 'image':
+      // `PCB_REFERENCE_IMAGE::GetPosition` is "the center of the image"
+      // (pcb_reference_image.h:93), which is what `(at …)` holds here.
+      return board.images[ref.index]?.at ?? null;
+    case 'zone': {
+      const z = board.zones[ref.index];
+      // `GetCornerPosition( 0 )`, and (0, 0) for a zone with no outline at all.
+      if (!z) return null;
+      return z.outline?.[0] ?? z.fills[0]?.polys[0]?.[0] ?? { x: 0, y: 0 };
+    }
+    case 'shape': {
+      const sh = board.shapes[ref.index];
+      if (!sh) return null;
+      if (sh.kind === 'arc') return sh.center ?? shapeCentre(sh);
+      if (sh.kind === 'poly') return sh.pts?.[0] ?? null;
+      return sh.start ?? null;
+    }
+    default: {
+      // Group, textbox and table: the bounding-box centre, which is a group's
+      // own `GetPosition` and the point `EDIT_TOOL::Rotate` overrides the
+      // other two to anyway.
+      const b = boardItemBBox(board, id);
+      return b && !isEmpty(b) ? { x: (b.minX + b.maxX) / 2, y: (b.minY + b.maxY) / 2 } : null;
+    }
+  }
+}
+
+/** The centre of a graphic's bounding box, for the shapes rotated about it. */
+const shapeCentre = (s: PcbShape): Vec2 | null => {
+  const b = shapeBBox(s);
+  return isEmpty(b) ? null : { x: (b.minX + b.maxX) / 2, y: (b.minY + b.maxY) / 2 };
+};
+
+/**
+ * `EDIT_TOOL::updateModificationPoint` (edit_tool.cpp:3375-3417) with the two
+ * overrides `Rotate` applies before calling it (:2290-2317) — the point Rotate
+ * and Mirror turn the selection about.
+ *
+ *     // When there is only one item selected, the reference point is its position...
+ *     if( aSelection.Size() == 1 && aSelection.Front()->Type() != PCB_TABLE_T )
+ *         aSelection.SetReferencePoint( item->GetPosition() );
+ *     // ...otherwise modify items with regard to the grid-snapped center position
+ *     else
+ *         aSelection.SetReferencePoint( grid.BestSnapAnchor( aSelection.GetCenter(), nullptr ) );
+ *
+ * **One item turns about its own anchor, not about the middle of its box.** For
+ * a footprint that is the origin cross KiCad draws on it, so rotating a part
+ * leaves that point exactly where it was and the part swings around it — which
+ * is what makes R repeatable and what keeps a part on the pad it was placed on.
+ * Turning it about the bounding-box centre instead translates the part by half
+ * the difference between the two, every time, and a footprint's box depends on
+ * its silkscreen and its courtyard: the same rotation moves visually identical
+ * parts by different amounts.
+ *
+ * The exceptions are upstream's own: a lone text box, a lone table, and a lone
+ * rectangle or polygon graphic turn about their centre, "in order to stay to
+ * the same place" — those are stored as two corners or a vertex list, so their
+ * `GetPosition` is a corner rather than anything central.
+ *
+ * `snapCentre` is `grid.BestSnapAnchor`, which only the multi-item branch uses.
+ * The caller supplies it because it needs the view scale; without one the
+ * unsnapped centre is used.
+ */
+export function modificationPoint(
+  board: Board,
+  ids: ReadonlySet<string>,
+  snapCentre?: (p: Vec2) => Vec2,
+): Vec2 | null {
+  if (ids.size === 0) return null;
+
+  if (ids.size === 1) {
+    const id = [...ids][0]!;
+    const ref = parseBoardItemId(id);
+    const kind = ref?.kind;
+    const lone =
+      kind === 'table' ||
+      kind === 'textbox' ||
+      (kind === 'shape' &&
+        ref !== null &&
+        (board.shapes[ref.index]?.kind === 'rect' || board.shapes[ref.index]?.kind === 'poly'));
+
+    if (!lone) return boardItemPosition(board, id);
+  }
+
+  const b = boardSelectionBBox(board, ids);
+  if (!b) return null;
+  const centre = { x: (b.minX + b.maxX) / 2, y: (b.minY + b.maxY) / 2 };
+
+  return snapCentre ? snapCentre(centre) : centre;
+}
+
 const rotShapeCoords = <
   T extends { center?: Vec2; start?: Vec2; end?: Vec2; mid?: Vec2; pts?: Vec2[] },
 >(

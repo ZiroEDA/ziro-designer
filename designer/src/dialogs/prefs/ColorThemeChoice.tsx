@@ -26,16 +26,45 @@ import { BUILTIN_THEMES } from '../../editors/schematic/theme.js';
 import { pcm, usePcmVersion } from '../../pcm/pcmStore.js';
 
 /**
+ * `PANEL_COLOR_SETTINGS::GetSettingsDropdownName`
+ * (`common/dialogs/panel_color_settings.cpp:391-398`):
+ *
+ *     wxString name = aSettings->GetName();
+ *     if( aSettings->IsReadOnly() )
+ *         name += wxS( " " ) + _( "(read-only)" );
+ *
+ * and `IsReadOnly()` is `!m_writeFile` (`json_settings.h:105`). The two
+ * built-ins set `m_writeFile = false` in `CreateBuiltinColorSettings`
+ * (`color_settings.cpp:445-455`) and everything under the system and
+ * third-party colour directories gets `SetReadOnly( true )`
+ * (`settings_manager.cpp:434-438`) — so every theme a user cannot save into
+ * says so in the choice itself. Only the writable one, ours, does not.
+ */
+const dropdownName = (name: string, readOnly: boolean): string =>
+  readOnly ? `${name} (read-only)` : name;
+
+/**
  * `GetColorSettingsList()`: the built-in themes, then whatever is installed,
  * then ours — the "User" row, which is where a per-layer override lands.
+ *
+ * `aMarkReadOnly` is not a preference: `PANEL_COLOR_SETTINGS` fills its choice
+ * through `GetSettingsDropdownName` (`panel_color_settings.cpp:340`) while
+ * `PANEL_PL_EDITOR_COLOR_SETTINGS` appends `settings->GetName()` raw
+ * (`panel_pl_editor_color_settings.cpp:46`). One list, named two ways, and the
+ * difference is upstream's.
  */
 export function colorThemeOptions(
   installed: readonly { id: string; name: string }[],
+  markReadOnly = false,
 ): [string, string][] {
+  const name = (n: string, readOnly: boolean): string =>
+    markReadOnly ? dropdownName(n, readOnly) : n;
   return [
-    ...Object.entries(BUILTIN_THEMES).map(([id, t]): [string, string] => [id, t.name]),
-    ...installed.map((t): [string, string] => [t.id, t.name]),
-    ['user', 'User'],
+    ...Object.entries(BUILTIN_THEMES).map(([id, t]): [string, string] => [id, name(t.name, true)]),
+    // A PCM theme lands in the third-party colours directory, which
+    // `registerColorSettings( …, true )` marks read-only.
+    ...installed.map((t): [string, string] => [t.id, name(t.name, true)]),
+    ['user', name('User', false)],
   ];
 }
 
@@ -43,17 +72,20 @@ export function ColorThemeChoice({
   label,
   value,
   onChange,
+  markReadOnly,
 }: {
   label: string;
   value: string;
   onChange: (id: string) => void;
+  /** See `colorThemeOptions`: only `PANEL_COLOR_SETTINGS` names them that way. */
+  markReadOnly?: boolean;
 }): JSX.Element {
   usePcmVersion();
   return (
     <Sel
       label={label}
       value={value}
-      options={colorThemeOptions(pcm.installedThemes())}
+      options={colorThemeOptions(pcm.installedThemes(), markReadOnly)}
       onChange={onChange}
     />
   );

@@ -41,6 +41,7 @@ import { KiStatusBar } from '../../ui/KiStatusBar.js';
 import type { Viewer3D, Viewer3DStatus, Grid3D, View3DDir } from './viewer3d_types.js';
 import { VIEWER3D_TOP_TOOLBAR } from './viewer3dToolbars.js';
 import { buildViewer3DMenus } from './viewer3dMenus.js';
+import { VIEWER_3D_FRAME_NAME } from './frame_title.js';
 
 const EMPTY_IDS: ReadonlySet<string> = new Set();
 const ORTHO_ON: ReadonlySet<string> = new Set(['toggleOrtho']);
@@ -50,8 +51,17 @@ export interface Viewer3DFrameProps {
   board: Board | null;
   /** The open project's own files, so ${KIPRJMOD} model paths resolve. */
   projectFiles?: { name: string; text: string }[];
-  /** The MenuBar title, which upstream is "<document> - 3D Viewer". */
-  title: ReactNode;
+  /**
+   * `PCB_BASE_FRAME::Update3DView`'s `aTitle` (pcb_base_frame.cpp:161): a
+   * parent may override the child frame's title, and exactly two do — the
+   * Footprint Library Browser (`footprint_viewer_frame.cpp:966`) and the
+   * Footprint Chooser (`footprint_chooser_frame.cpp:392-398`), which both
+   * build `_( "3D Viewer" ) + " — " + <footprint name>`, the frame name FIRST.
+   * Left out, the frame keeps the name it gives itself,
+   * `SetTitle( _( "3D Viewer" ) )` (eda_3d_viewer_frame.cpp:634), which is
+   * what both of our call sites' upstream frames show.
+   */
+  title?: ReactNode;
   /** The back link at the left of the menu bar, e.g. "← PCB Editor". */
   backLabel: string;
   /** Basename for `EDA_3D_ACTIONS::exportImage`'s download. */
@@ -62,7 +72,7 @@ export interface Viewer3DFrameProps {
 export function Viewer3DFrame({
   board,
   projectFiles,
-  title,
+  title = VIEWER_3D_FRAME_NAME,
   backLabel,
   imageBaseName,
   onClose,

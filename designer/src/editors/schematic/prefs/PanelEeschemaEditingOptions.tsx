@@ -12,6 +12,7 @@
  */
 import type { JSX } from 'react';
 import { Check, ColorRow, Group, Num, Sel } from '../../../dialogs/prefs/widgets.js';
+import { Combo } from '../../../ui/Combo.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
 
 export function PanelEeschemaEditingOptions({ ctx }: { ctx: PrefsContext }): JSX.Element {
@@ -34,20 +35,30 @@ export function PanelEeschemaEditingOptions({ ctx }: { ctx: PrefsContext }): JSX
               })
             }
           />
-          <Sel
-            label="Arc editing mode:"
-            value={eeschema.drawing.arc_edit_mode}
-            options={[
-              [0, 'Keep center, adjust radius'],
-              [1, 'Keep endpoints or direction of starting point'],
-              [2, 'Keep center and radius, adjust endpoints'],
-            ]}
-            onChange={(v) =>
-              upE((s) => {
-                s.drawing.arc_edit_mode = v as 0 | 1 | 2;
-              })
-            }
-          />
+          {/* `m_staticTextArcEdit` is added on its own line
+              (`panel_eeschema_editing_options_base.cpp:48`) and `m_choiceArcMode`
+              on the next with `wxEXPAND` (`:54`), so the choice is as wide as
+              the column — its longest entry, "Keep endpoints or direction of
+              starting point", does not fit beside a label. Ours put the two on
+              one row, which made the left column wide enough to push the right
+              one off the edge of the dialog. */}
+          <div className="ze-pref-stacked">
+            <span className="lbl">Arc editing mode:</span>
+            <Combo
+              value={String(eeschema.drawing.arc_edit_mode)}
+              ariaLabel="Arc editing mode"
+              options={[
+                { value: '0', label: 'Keep center, adjust radius' },
+                { value: '1', label: 'Keep endpoints or direction of starting point' },
+                { value: '2', label: 'Keep center and radius, adjust endpoints' },
+              ]}
+              onChange={(v) =>
+                upE((s) => {
+                  s.drawing.arc_edit_mode = Number(v) as 0 | 1 | 2;
+                })
+              }
+            />
+          </div>
           <Check
             label="Mouse drag performs Drag (G) operation"
             checked={!eeschema.input.drag_is_move}
@@ -90,6 +101,8 @@ export function PanelEeschemaEditingOptions({ ctx }: { ctx: PrefsContext }): JSX
           <Check
             label="Allow unconstrained pin swaps"
             checked={eeschema.input.allow_unconstrained_pin_swaps}
+            /* Dead: pin swapping is not implemented, so nothing reads this. */
+            disabled
             title="Allows swapping symbol pins' positions. May cause invalid design changes; use with caution."
             onChange={(v) =>
               upE((s) => {
@@ -102,7 +115,10 @@ export function PanelEeschemaEditingOptions({ ctx }: { ctx: PrefsContext }): JSX
           <ColorRow
             label="Sheet border:"
             value={eeschema.drawing.default_sheet_border_color}
-            fallback="rgb(132, 0, 0)"
+            /* Dead, both swatches: a new sheet takes the theme's colours here,
+               and nothing reads `drawing.default_sheet_border_color` or
+               `default_sheet_background_color`. */
+            disabled
             onChange={(css) =>
               upE((s) => {
                 s.drawing.default_sheet_border_color = css;
@@ -112,7 +128,8 @@ export function PanelEeschemaEditingOptions({ ctx }: { ctx: PrefsContext }): JSX
           <ColorRow
             label="Sheet background:"
             value={eeschema.drawing.default_sheet_background_color}
-            fallback="rgb(255, 255, 194)"
+            /* Dead with the border above it. */
+            disabled
             onChange={(css) =>
               upE((s) => {
                 s.drawing.default_sheet_background_color = css;
@@ -122,6 +139,9 @@ export function PanelEeschemaEditingOptions({ ctx }: { ctx: PrefsContext }): JSX
           <Sel
             label="Power Symbols:"
             value={eeschema.drawing.new_power_symbols}
+            /* Dead: a placed power symbol keeps the library's own type; nothing
+               reads `drawing.new_power_symbols`. */
+            disabled
             options={[
               [0, 'Default'],
               [1, 'Global'],
@@ -135,8 +155,17 @@ export function PanelEeschemaEditingOptions({ ctx }: { ctx: PrefsContext }): JSX
           />
         </Group>
         <Group title="Left Click Mouse Commands">
+          {/* `m_hint1`'s string carries a newline —
+              "…2 modifier keys:\nShift and Ctrl"
+              (`panel_eeschema_editing_options_base.cpp:162`) — and the panel
+              gives it `KIUI::GetSmallInfoFont( this ).Italic()` (`:79-81`),
+              which is the GUI font two points down. It sets no colour: ours
+              dimmed it to #9aa0a6, and drawing it on ONE line is what made this
+              column wide enough to push the right-hand one off the dialog. */}
           <div className="ze-pref-hint">
-            Left click (and drag) actions depend on 2 modifier keys: Shift and Ctrl
+            Left click (and drag) actions depend on 2 modifier keys:
+            <br />
+            Shift and Ctrl
           </div>
           <table className="ze-pref-mouse">
             <tbody>
@@ -191,6 +220,10 @@ export function PanelEeschemaEditingOptions({ ctx }: { ctx: PrefsContext }): JSX
             label="Horizontal pitch:"
             value={eeschema.drawing.default_repeat_offset_x}
             unit="mils"
+            /* `m_hPitchCtrl` is a `wxTextCtrl` (`:325`) — a UNIT_BINDER's
+               entry, with no stepper buttons. Only the label increment below
+               is a wxSpinCtrl (`:347`). */
+            spin={false}
             onChange={(v) =>
               upE((s) => {
                 s.drawing.default_repeat_offset_x = v;
@@ -201,6 +234,8 @@ export function PanelEeschemaEditingOptions({ ctx }: { ctx: PrefsContext }): JSX
             label="Vertical pitch:"
             value={eeschema.drawing.default_repeat_offset_y}
             unit="mils"
+            /* `m_vPitchCtrl`, likewise a wxTextCtrl (`:336`). */
+            spin={false}
             onChange={(v) =>
               upE((s) => {
                 s.drawing.default_repeat_offset_y = v;
@@ -232,6 +267,8 @@ export function PanelEeschemaEditingOptions({ ctx }: { ctx: PrefsContext }): JSX
           <Check
             label="Never show Rescue Symbols tool"
             checked={eeschema.system.never_show_rescue_dialog}
+            /* Dead: there is no Rescue Symbols tool to suppress. */
+            disabled
             onChange={(v) =>
               upE((s) => {
                 s.system.never_show_rescue_dialog = v;

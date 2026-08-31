@@ -19,6 +19,7 @@ import {
   localToWorld,
   iuToMM,
   layoutDrawingSheet,
+  paperTypeName,
   defaultDrawingSheet,
   setOverbarHeightRatio,
   type WksResolveContext,
@@ -356,6 +357,9 @@ interface DanglingSets {
 // sheet and cached by document identity, exactly like the dangling sets below.
 let g_busSch: Schematic | null = null;
 let g_onBus: (p: Vec2) => boolean = () => false;
+/** `RenderOpts.connectivity` — see there; an item outside a SCH_SCREEN has
+ *  no SCH_CONNECTION, so no label of it can be drawn as a bus. */
+let g_connectivity = true;
 
 function onBusTest(sch: Schematic): (p: Vec2) => boolean {
   if (g_busSch !== sch) {
@@ -619,6 +623,19 @@ export interface RenderOpts {
       graphics?: number;
     };
   };
+  /**
+   * Whether the document has a connectivity graph at all.
+   *
+   * `SCH_PAINTER::draw( const SCH_TEXT* )` recolours a label to the bus layer
+   * only `if( conn && conn->IsBus() )` — `conn` being
+   * `aText->Connection( &m_schematic->CurrentSheet() )`, which is null for an
+   * item that belongs to no SCH_SCREEN. The Colors preview is exactly that: a
+   * bag of items added straight to a KIGFX::VIEW
+   * (`panel_eeschema_color_settings.cpp:266-270`), so its `GLOBAL[0..3]` draws
+   * in LAYER_GLOBLABEL's dark red and not the bus blue, however bus-shaped its
+   * name is. Unset = the ordinary editor case, where there is a graph.
+   */
+  connectivity?: boolean;
 }
 
 export const DEFAULT_RENDER_OPTS: RenderOpts = {
@@ -795,6 +812,7 @@ export function renderSchematic(
   g_defaultWire =
     opts.defaultWireIU && opts.defaultWireIU > 0 ? opts.defaultWireIU : DEFAULT_WIRE_WIDTH;
   g_defaultBus = opts.defaultBusIU && opts.defaultBusIU > 0 ? opts.defaultBusIU : DEFAULT_BUS_WIDTH;
+  g_connectivity = opts.connectivity ?? true;
   g_junctionDiam =
     opts.junctionDiameterIU && opts.junctionDiameterIU > 0
       ? opts.junctionDiameterIU
@@ -2468,7 +2486,7 @@ function drawLabel(
   //
   // which is what makes a `USB_PI{USB}` sheet pin blue among teal ones. Plain
   // free text has no connection and is left alone.
-  const busColored = l.kind !== 'text' && labelDrawsAsBus(l.text, l.at, g_onBus);
+  const busColored = g_connectivity && l.kind !== 'text' && labelDrawsAsBus(l.text, l.at, g_onBus);
   const color = shadow
     ? shadow.color
     : brightened
@@ -2703,12 +2721,22 @@ function drawLabel(
 
   // Free text (SCH_TEXT): drawn exactly at its anchor with its stored
   // justification and angle, KiCad applies no wire offset to plain text.
+  //
+  // The default is CENTRED, both ways. `EDA_TEXT::Format` writes `(justify …)`
+  // only when the item is mirrored or a justification is NOT
+  // `GR_TEXT_H_ALIGN_CENTER` / `GR_TEXT_V_ALIGN_CENTER`
+  // (`common/eda_text.cpp:1100-1112`), so a `(text …)` with no justify token is
+  // an EDA_TEXT still holding EDA_TEXT's own defaults — which are centre.
+  // Reading the absence as left/bottom hung every unjustified plain text off
+  // the wrong corner: the Colors preview's "PLAIN TEXT", centred by KiCad
+  // inside its notes rectangle, started at the rectangle's middle and ran out
+  // the right-hand side.
   if (l.kind === 'text') {
     paintText(
       l.text,
       l.at,
       h,
-      l.effects?.justify ?? ['left', 'bottom'],
+      l.effects?.justify ?? ['center'],
       l.angle % 180 === 90 ? 90 : 0,
       l.effects?.bold ?? false,
       l.effects?.italic ?? false,
@@ -4136,7 +4164,8 @@ export function drawingSheetItems(
     date: ps.date,
     company: ps.company,
     comments: [...ps.comments],
-    paper: ps.paper,
+    // `m_paperFormat = aPageInfo.GetTypeAsString()` — the type name alone.
+    paper: paperTypeName(ps.paper),
     fileName: sch.fileName ?? '',
     ...(opts.sheetName !== undefined ? { sheetName: opts.sheetName } : {}),
     sheetPath: opts.sheetPath ?? '/',

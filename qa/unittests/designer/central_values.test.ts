@@ -217,7 +217,13 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // literals now, baseline still says 204", and restoring the deleted file
   // alone put this test back to green at 204 — so all nine came from it and
   // nothing else in the pass moved the count.
-  'editors/schematic': { colours: 60, metrics: 195 },
+  // 60 -> 58: eeschema's Editing Options passed a `fallback` colour to the
+  // Sheet border and Sheet background swatches, so an UNSET value drew solid
+  // red and cream. Both PARAMs default to `COLOR4D::UNSPECIFIED`
+  // (`eeschema_settings.cpp:396-400`), and `COLOR_SWATCH::MakeBitmap` paints
+  // the colour over a checkerboard at its own alpha — so unset is the bare
+  // checkerboard, which is what a fresh KiCad shows. RESCANNED.
+  'editors/schematic': { colours: 58, metrics: 195 },
   // colours 12 -> 7: the Symbol Editor parity pass. Four were
   // SYMBOL_EDITOR_COLORS, a private copy of LAYER_SCHEMATIC_ANCHOR /
   // LAYER_HIDDEN / LAYER_PRIVATE_NOTES / LAYER_FIELDS that matched the Default
@@ -395,7 +401,31 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // `DoGetBestSize`, so the button is 16 + 5*2 square and the separator
   // 0 + 5*2 wide, both [data] against that formula, and the separator's own
   // margin and the Link box's `min-width: 0` went away.
-  ui: { colours: 231, metrics: 729 },
+  // 231 -> 220 colours and 729 -> 721 metrics: Preferences > Hotkeys stopped
+  // stating its own type. `wxTreeListCtrl` calls SetFont nowhere, so the list
+  // draws in the GUI font — this said `font-size: 10pt` on a row, 9 pt on the
+  // import note and 10 pt on the empty line, which is why the whole table read
+  // a size smaller than KiCad's (those three are font sites, counted by
+  // ui_font_tokens). The colours that went with them are the theme's own:
+  // `.view { color: white }` for a row, `treeview.view header button
+  // { color: #8f8f8f; font-weight: bold }` for the header — a new
+  // `--tree-header-fg` token — `treeview.view:selected { color: #FFFFFF }` for
+  // a selected one, and `treeview.view:disabled { color: #929292 }` for a key
+  // the browser holds. The #9a9a9a on the whole Description column, the
+  // #ffe6d9 on a selected one, the #7a7a7a strike and the two #9a9a9a
+  // footnotes are gone; only `#f4aa90` arrives, and it is the stylesheet's
+  // disabled-and-selected ink. RESCANNED from this tree.
+  // 721 -> 720: the Grids page's numbers took their citations — the list's
+  // `wxEXPAND|wxBOTTOM|wxLEFT, 3`, the overrides sizer's own 6/4 gaps, the
+  // heading's border of 5 — while the orphan `.ze-pref-row input[type="range"]`
+  // and the grid buttons' picked metrics went with the rebuild. RESCANNED.
+  // 220 -> 218 colours: eeschema's Editing Options stopped dimming two runs of
+  // text that upstream leaves alone — `m_hint1`'s note, which takes
+  // `KIUI::GetSmallInfoFont( this ).Italic()` and no foreground at all
+  // (`panel_eeschema_editing_options.cpp:79`), and the first column of the
+  // Left Click Mouse Commands table, which is plain wxStaticTexts. Both said
+  // #9aa0a6. RESCANNED.
+  ui: { colours: 218, metrics: 720 },
   // colours 6 -> 7: the opacity slider's #55585d track arrived here with
   // APPEARANCE_CONTROLS; it is the same literal `editors/pcb` lost, not a new
   // one. The panel's own stylesheet adds none: every length in
@@ -741,7 +771,16 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // that made the whole tree read smaller than KiCad's; those are font sites,
     // counted by ui_font_tokens, and they move that census by one - the size
     // only, since weight is not a site there.)
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(609);
+    // 609 -> 598: the Hotkeys list took the theme's colours; see the `ui` row.
+    // RESCANNED from this tree, and the per-area table agrees — `ui` 231 -> 220
+    // is the only row that moves, and 609 - 11 agrees with it.
+    // 598 -> 594: eeschema's Editing Options; see the `ui` and
+    // `editors/schematic` rows. Four literals go — the hint's #9aa0a6, the
+    // mouse table's #9aa0a6, and the two `fallback` colours that painted an
+    // UNSET swatch red and cream — and the one that arrives, the
+    // `rgba(0, 0, 0, 0)` that IS `COLOR4D::UNSPECIFIED`, carries its citation
+    // on its own line and so is not counted. RESCANNED from this tree.
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(594);
     // 1657 -> 1649: the same sweep. A native colour input has no useful
     // default size, so eight of the sixteen sites gave theirs an inline
     // width and height; the shared swatch takes --swatch-*-w/h. Rescanned.
@@ -859,7 +898,16 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // KiCad puts it flush. The three values that replace it are the borders
     // themselves and carry [data]. `ui` 730 -> 729 is the second derivation,
     // and the diff of the file agrees: one unmarked literal out, none in.
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1514);
+    // 1514 -> 1506: the Mouse and Touchpad, SpaceMouse and Hotkeys pages took
+    // their sizer borders as MARKED numbers — every one of them is a `wxALL`,
+    // a vgap or a probe reading, and each now carries its citation on its own
+    // line — while the picked ones went: the hotkey row's 10 pt geometry, the
+    // orphaned `.ze-pref-row input[type="range"] { width: 140px }`, and the
+    // header's invented 5 px 8 px padding. RESCANNED from this tree, and the
+    // per-area table agrees — `ui` 729 -> 721 is the only row that moves, and
+    // 1514 - 8 agrees with it.
+    // 1506 -> 1505: see the `ui` row; that one row is the only one that moves.
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1505);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {

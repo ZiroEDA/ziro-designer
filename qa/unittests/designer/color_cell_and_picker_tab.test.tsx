@@ -117,16 +117,26 @@ describe("PG_COLOR_EDITOR's swatch", () => {
   });
 
   /**
-   * `RenderToDC` draws with `*wxTRANSPARENT_PEN` (color_swatch.cpp:72), and
-   * `PG_COLOR_EDITOR` puts no wxBORDER_SIMPLE panel round it the way the item
-   * dialogs do (dialog_field_properties_base.cpp:277-286). So the cell's
-   * swatch has no border, which is what `.ze-swatch.large` states.
+   * `RenderToDC` draws with `*wxTRANSPARENT_PEN` (color_swatch.cpp:72) and
+   * `COLOR_SWATCH` is a plain `wxPanel( aParent, aID )` (`:152`), so NO swatch
+   * anywhere has a border — not this cell's and not the colour pages'. The
+   * rule used to live on `.ze-swatch.large` alone because `.ze-swatch` itself
+   * carried a 1px --chrome-fg frame; a live 10.0.5 Preferences > Colors shows
+   * the list background touching every swatch on all four sides, so the base
+   * rule is where "none" belongs and `.large` must not put one back.
    */
   it('draws no border, because nothing upstream draws one there', () => {
     const css = readFileSync(resolve(process.cwd(), '../designer/src/ui/shell.css'), 'utf8');
-    const start = css.indexOf('.ze-swatch.large {');
-    expect(start).toBeGreaterThan(-1);
-    expect(css.slice(start, css.indexOf('}', start))).toContain('border: none');
+    // Anchored at a line start: `.ze-swatch {` is a substring of
+    // `.ze-colorgrid > .ze-swatch {`, and matching that one would test the
+    // colour list's margin rule instead.
+    const body = (selector: string): string => {
+      const start = css.indexOf(`\n${selector} {`);
+      expect(start, selector).toBeGreaterThan(-1);
+      return css.slice(start, css.indexOf('}', start));
+    };
+    expect(body('.ze-swatch')).toContain('border: none');
+    expect(body('.ze-swatch.large')).not.toContain('border:');
   });
 });
 

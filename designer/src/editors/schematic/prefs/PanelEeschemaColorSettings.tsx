@@ -8,62 +8,124 @@
  * eeschema constructs it for `PANEL_SCH_COLORS`. Splitting the shared base out
  * of it is follow-up work -- there is only one subclass here to share with.
  *
- * Moved verbatim out of the Preferences dialog's `switch (page)` (as it stood no
- * behaviour change. The theme derivation came with it: `usePcmVersion`, the
- * installed-theme list and `activeColors` were declared in the dialog but read
- * only by this page, so they belong to it. Nothing else re-rendered on them.
+ * The page is `m_mainSizer`, vertical (`panel_color_settings_base.cpp:16-83`):
+ *
+ *     bControlSizer               0, wxEXPAND|wxALL, 5     the theme row
+ *     m_panel1                    1, wxEXPAND              a WX_PANEL, top border
+ *         m_colorsListWindow      0, wxEXPAND|wxLEFT|wxRIGHT, 5
+ *         m_preview               1, wxTOP|wxEXPAND, 1
+ *
+ * The list is proportion ZERO — it is exactly as wide as its widest row plus a
+ * 20 px margin (`panel_eeschema_color_settings.cpp:212-215`) — and the preview
+ * takes every remaining pixel. Ours had the swatches spread across the whole
+ * page in a two-across grid, in an order of our own, with no preview at all.
  */
-import { useMemo, type JSX } from 'react';
-import { Group, splitCss } from '../../../dialogs/prefs/widgets.js';
+import { Fragment, useMemo, type JSX } from 'react';
+import { Check } from '../../../dialogs/prefs/widgets.js';
 import { ColorThemeChoice } from '../../../dialogs/prefs/ColorThemeChoice.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
 import { pcm, usePcmVersion } from '../../../pcm/pcmStore.js';
 import { BUILTIN_THEMES, KICAD_DEFAULT, type Theme } from '../theme.js';
 import { ColorSwatch } from '../../../ui/ColorSwatch.js';
-import { parseColor4d, toCssColor } from '@ziroeda/common/src/color4d.js';
+import { ColorPreviewPanel } from './ColorPreviewPanel.js';
+import { BUILTIN_CLASSIC_THEME, BUILTIN_DEFAULT_THEME, type Color4d } from '@ziroeda/common';
+import { COLOR4D_UNSPECIFIED, parseColor4d, toCssColor } from '@ziroeda/common/src/color4d.js';
 
-/** The Colors page rows: KiCad layer display names (common/layer_id.cpp) -> Theme keys. */
-const COLOR_LAYERS: [keyof Theme, string][] = [
-  ['anchor', 'Anchors'],
-  ['background', 'Background'],
-  ['netHighlight', 'Highlighted items'],
-  ['bus', 'Buses'],
-  ['busJunction', 'Bus junctions'],
-  ['symbolFill', 'Symbol body fills'],
-  ['symbolOutline', 'Symbol body outlines'],
-  ['cursor', 'Cursor'],
-  // `createSwatches` sorts m_validLayers by LayerName (panel_eeschema_color_
-  // settings.cpp:197-201), so these two land here and not at the end.
-  ['dnpMarker', 'DNP markers'],
-  ['ercError', 'ERC errors'],
-  ['ercWarning', 'ERC warnings'],
-  ['excludedFromSim', 'Excluded-from-simulation markers'],
-  ['fields', 'Symbol fields'],
-  ['grid', 'Grid'],
-  ['hidden', 'Hidden items'],
-  ['junction', 'Junctions'],
-  ['globalLabel', 'Global labels'],
-  ['hierLabel', 'Hierarchical labels'],
-  ['label', 'Labels'],
-  ['noConnect', 'No-connect symbols'],
-  ['noteLine', 'Schematic text & graphics'],
-  ['privateNote', 'Symbol private text & graphics'],
-  ['pin', 'Pins'],
-  ['pinName', 'Pin names'],
-  ['pinNumber', 'Pin numbers'],
-  ['reference', 'Symbol references'],
-  ['value', 'Symbol values'],
-  ['selectionShadow', 'Selection highlight'],
-  ['sheetBorder', 'Sheet borders'],
-  ['sheetBackground', 'Sheet backgrounds'],
-  ['sheetName', 'Sheet names'],
-  ['sheetFields', 'Sheet fields'],
-  ['sheetFile', 'Sheet file names'],
-  ['sheetLabel', 'Sheet pins'],
-  ['wire', 'Wires'],
-  ['pageFrame', 'Drawing sheet'],
-  ['pageLimits', 'Page limits'],
+/** One row of `m_colorsGridSizer`: a swatch and the layer's name. */
+export interface ColorRowSpec {
+  /** The `SCH_LAYER_ID` enumerator, which is also the key of a theme's table. */
+  layer: string;
+  /** `LayerName( layer )` (`common/layer_id.cpp:71-120`). */
+  name: string;
+  /**
+   * The `Theme` field our painter reads that layer through, or null where it
+   * reads none — those rows are drawn from the theme's own table and disabled,
+   * for the same reason every other unread control on this dialog is.
+   */
+  key: keyof Theme | null;
+}
+
+/**
+ * `createSwatches` (`panel_eeschema_color_settings.cpp:184-215`): every
+ * `SCH_LAYER_ID` from `SCH_LAYER_ID_START` to `SCH_LAYER_ID_END` except the
+ * four in `g_excludedLayers` (`:52-58`), sorted by `LayerName`, with
+ * `LAYER_SCHEMATIC_GRID_AXES` alone getting " (symbol editor only)" appended
+ * (`:206-207`).
+ *
+ * The sort is `wxString::operator<`, a plain byte comparison, which is why
+ * "Bus junctions" precedes "Buses" (space < 'e') and "Pin names" precedes
+ * "Pins". The order below is that comparison applied to the names, not an
+ * alphabetisation of our own.
+ */
+export const COLOR_LAYERS: readonly ColorRowSpec[] = [
+  { layer: 'LAYER_SCHEMATIC_ANCHOR', name: 'Anchors', key: 'anchor' },
+  { layer: 'LAYER_SCHEMATIC_GRID_AXES', name: 'Axes (symbol editor only)', key: 'gridAxes' },
+  { layer: 'LAYER_SCHEMATIC_BACKGROUND', name: 'Background', key: 'background' },
+  { layer: 'LAYER_BUS_JUNCTION', name: 'Bus junctions', key: 'busJunction' },
+  { layer: 'LAYER_BUS', name: 'Buses', key: 'bus' },
+  { layer: 'LAYER_SCHEMATIC_CURSOR', name: 'Cursor', key: 'cursor' },
+  { layer: 'LAYER_DNP_MARKER', name: 'DNP markers', key: 'dnpMarker' },
+  { layer: 'LAYER_DRAG_NET_COLLISION', name: 'Drag net collisions', key: null },
+  { layer: 'LAYER_SCHEMATIC_DRAWINGSHEET', name: 'Drawing sheet', key: 'pageFrame' },
+  { layer: 'LAYER_ERC_ERR', name: 'ERC errors', key: 'ercError' },
+  { layer: 'LAYER_ERC_EXCLUSION', name: 'ERC exclusions', key: 'ercExclusion' },
+  { layer: 'LAYER_ERC_WARN', name: 'ERC warnings', key: 'ercWarning' },
+  {
+    layer: 'LAYER_EXCLUDED_FROM_SIM',
+    name: 'Excluded-from-simulation markers',
+    key: 'excludedFromSim',
+  },
+  { layer: 'LAYER_GLOBLABEL', name: 'Global labels', key: 'globalLabel' },
+  { layer: 'LAYER_SCHEMATIC_GRID', name: 'Grid', key: 'grid' },
+  { layer: 'LAYER_SCHEMATIC_AUX_ITEMS', name: 'Helper items', key: 'auxItems' },
+  { layer: 'LAYER_HIDDEN', name: 'Hidden items', key: 'hidden' },
+  { layer: 'LAYER_HIERLABEL', name: 'Hierarchical labels', key: 'hierLabel' },
+  { layer: 'LAYER_BRIGHTENED', name: 'Highlighted items', key: 'netHighlight' },
+  { layer: 'LAYER_HOVERED', name: 'Hovered items', key: null },
+  { layer: 'LAYER_JUNCTION', name: 'Junctions', key: 'junction' },
+  { layer: 'LAYER_LOCLABEL', name: 'Labels', key: 'label' },
+  { layer: 'LAYER_NETCLASS_REFS', name: 'Net class references', key: 'netclassFlag' },
+  { layer: 'LAYER_NOCONNECT', name: 'No-connect symbols', key: 'noConnect' },
+  { layer: 'LAYER_OP_CURRENTS', name: 'Operating point currents', key: null },
+  { layer: 'LAYER_OP_VOLTAGES', name: 'Operating point voltages', key: null },
+  { layer: 'LAYER_SCHEMATIC_PAGE_LIMITS', name: 'Page limits', key: 'pageLimits' },
+  { layer: 'LAYER_PINNAM', name: 'Pin names', key: 'pinName' },
+  { layer: 'LAYER_PINNUM', name: 'Pin numbers', key: 'pinNumber' },
+  { layer: 'LAYER_PIN', name: 'Pins', key: 'pin' },
+  { layer: 'LAYER_RULE_AREAS', name: 'Rule areas', key: 'ruleArea' },
+  // `_( "Schematic text && graphics" )` — a wxStaticText label escapes the
+  // mnemonic, so what a user reads is one ampersand.
+  { layer: 'LAYER_NOTES', name: 'Schematic text & graphics', key: 'noteLine' },
+  { layer: 'LAYER_SELECTION_SHADOWS', name: 'Selection highlight', key: 'selectionShadow' },
+  { layer: 'LAYER_SHAPES_BACKGROUND', name: 'Shape fills', key: null },
+  { layer: 'LAYER_SHEET_BACKGROUND', name: 'Sheet backgrounds', key: 'sheetBackground' },
+  { layer: 'LAYER_SHEET', name: 'Sheet borders', key: 'sheetBorder' },
+  { layer: 'LAYER_SHEETFIELDS', name: 'Sheet fields', key: 'sheetFields' },
+  { layer: 'LAYER_SHEETFILENAME', name: 'Sheet file names', key: 'sheetFile' },
+  { layer: 'LAYER_SHEETNAME', name: 'Sheet names', key: 'sheetName' },
+  { layer: 'LAYER_SHEETLABEL', name: 'Sheet pins', key: 'sheetLabel' },
+  { layer: 'LAYER_INTERSHEET_REFS', name: 'Sheet references', key: null },
+  { layer: 'LAYER_DEVICE_BACKGROUND', name: 'Symbol body fills', key: 'symbolFill' },
+  { layer: 'LAYER_DEVICE', name: 'Symbol body outlines', key: 'symbolOutline' },
+  { layer: 'LAYER_FIELDS', name: 'Symbol fields', key: 'fields' },
+  { layer: 'LAYER_PRIVATE_NOTES', name: 'Symbol private text & graphics', key: 'privateNote' },
+  { layer: 'LAYER_REFERENCEPART', name: 'Symbol references', key: 'reference' },
+  { layer: 'LAYER_VALUEPART', name: 'Symbol values', key: 'value' },
+  { layer: 'LAYER_WIRE', name: 'Wires', key: 'wire' },
 ];
+
+/**
+ * The theme's own layer table, which is what `COLOR_SETTINGS::GetColor( aLayer )`
+ * reads. `Theme` is our painter's PROJECTION of it and has no field for six of
+ * the layers above; those rows read the table directly.
+ *
+ * A layer the table never sets — `LAYER_INTERSHEET_REFS` and
+ * `LAYER_SHAPES_BACKGROUND` are in neither `s_defaultTheme` nor
+ * `s_classicTheme` — is `COLOR4D::UNSPECIFIED`, which `COLOR_SWATCH::MakeBitmap`
+ * draws as the bare checkerboard.
+ */
+const rawTable = (themeId: string): Partial<Record<string, Color4d>> =>
+  themeId === '_builtin_classic' ? BUILTIN_CLASSIC_THEME : BUILTIN_DEFAULT_THEME;
 
 export function PanelEeschemaColorSettings({ ctx }: { ctx: PrefsContext }): JSX.Element {
   const { eeschema, upE, userColors, setUserColors } = ctx;
@@ -81,17 +143,23 @@ export function PanelEeschemaColorSettings({ ctx }: { ctx: PrefsContext }): JSX.
     return { ...KICAD_DEFAULT, ...userColors } as Theme;
   }, [themeId, userColors]);
 
+  const raw = rawTable(themeId);
+
   return (
-    <>
-      <Group title="Theme">
-        {/*
-          `PANEL_COLOR_SETTINGS_BASE`'s `Theme:` choice, filled from
-          `GetColorSettingsList()`. The list is app-wide upstream and the
-          Drawing Sheet Editor's Colors page is that one control and no other,
-          so it is one component here rather than a copy per page.
-        */}
+    <div className="ze-colorpage">
+      {/* `bControlSizer` (`panel_color_settings_base.cpp:19-49`), horizontal
+          and in NO group: the Theme choice, a proportion-1 spacer, the override
+          checkbox, another spacer, and Open Theme Folder. Ours drew a "Theme"
+          heading with a rule, and a note of its own saying built-in themes are
+          read-only — KiCad says that by disabling the swatches, which is what
+          the disabled swatches below already do. */}
+      <div className="ze-colorpage-controls">
         <ColorThemeChoice
           label="Theme:"
+          /* `m_cbTheme->Append( GetSettingsDropdownName( settings ), … )`
+             (`panel_color_settings.cpp:340`) — " (read-only)" on every theme
+             whose file cannot be written. */
+          markReadOnly
           value={themeId}
           onChange={(v) =>
             upE((s) => {
@@ -99,37 +167,72 @@ export function PanelEeschemaColorSettings({ ctx }: { ctx: PrefsContext }): JSX.
             })
           }
         />
-        {themeId !== 'user' && (
-          <div className="ze-muted">
-            Built-in themes are read-only. Select the "User" theme to edit colors.
-          </div>
-        )}
-      </Group>
-      <Group title="Colors">
-        <div className="ze-pref-colorgrid">
-          {COLOR_LAYERS.map(([key, label]) => {
-            const css = activeColors[key];
-            const { hex, alpha } = splitCss(css);
-            return (
-              <label key={key} className="ze-pref-colorrow">
-                {/* COLOR_SWATCH (color_swatch.cpp:301-328). The split into
-                    hex-plus-alpha existed only because <input type="color">
-                    could not carry the alpha; the picker can, so the whole
-                    colour goes in and comes back. */}
+        <span className="ze-spacer" />
+        {/* `m_optOverrideColors`. Dead, and with no setting behind it on
+            purpose: the flag is `override_schematic_item_colors`, a field of
+            the COLOR_SETTINGS file itself (`color_settings.cpp:49`), read by
+            `SCH_RENDER_SETTINGS::m_OverrideItemColors`
+            (`sch_render_settings.cpp:75`). We model a theme as a colour map and
+            no painter reads such a flag, so inventing a home for it in
+            eeschema's own settings would put it in a store upstream never
+            uses. */}
+        <Check
+          label="Override individual item colors"
+          title="Show all items in their default color even if they have specific colors set in their properties."
+          checked={false}
+          disabled
+          onChange={() => {}}
+        />
+        <span className="ze-spacer" />
+        {/* `m_btnOpenFolder`. A directory in the file manager, which a page
+            cannot open — the same reason the dialog's own "Open Preferences
+            Directory" button is drawn and disabled. */}
+        <button
+          type="button"
+          className="ze-btn"
+          disabled
+          title="Open the folder containing color themes"
+        >
+          Open Theme Folder
+        </button>
+      </div>
+      {/* `m_panel1`, the WX_PANEL carrying `m_colorsMainSizer`. */}
+      <div className="ze-colorpage-body">
+        {/* `m_colorsListWindow`, a wxScrolledWindow around
+            `m_colorsGridSizer = new wxFlexGridSizer( 0, 2, 0, 0 )` (`:54-69`):
+            two columns, a swatch and its label, one row per layer. */}
+        <div className="ze-colorlist">
+          <div className="ze-colorgrid">
+            {COLOR_LAYERS.map(({ layer, name, key }) => (
+              <Fragment key={layer}>
+                {/* COLOR_SWATCH (color_swatch.cpp:301-328), SWATCH_MEDIUM. The
+                    split into hex-plus-alpha existed only because
+                    <input type="color"> could not carry the alpha; the picker
+                    can, so the whole colour goes in and comes back. */}
                 <ColorSwatch
-                  label={label}
-                  disabled={themeId !== 'user'}
-                  color={parseColor4d(css)}
-                  onChange={(picked) =>
-                    setUserColors((c) => ({ ...c, [key]: toCssColor(picked, ', ') }))
+                  label={name}
+                  /* `COLOR_SWATCH( …, backgroundColor, … )` with
+                     `backgroundColor = m_currentSettings->GetColor( m_backgroundLayer )`
+                     (`panel_color_settings.cpp:262`) — the theme's own
+                     schematic background, which is what a half-transparent
+                     colour is checkerboarded against. */
+                  background={parseColor4d(activeColors.background)}
+                  disabled={themeId !== 'user' || key === null}
+                  color={
+                    key ? parseColor4d(activeColors[key]) : (raw[layer] ?? COLOR4D_UNSPECIFIED)
                   }
+                  onChange={(picked) => {
+                    if (key) setUserColors((c) => ({ ...c, [key]: toCssColor(picked, ', ') }));
+                  }}
                 />
-                <span>{label}</span>
-              </label>
-            );
-          })}
+                <span>{name}</span>
+              </Fragment>
+            ))}
+          </div>
         </div>
-      </Group>
-    </>
+        {/* `m_preview`, the SCH_PREVIEW_PANEL (`:218-227`). */}
+        <ColorPreviewPanel theme={activeColors} />
+      </div>
+    </div>
   );
 }
