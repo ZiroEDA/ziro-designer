@@ -12,8 +12,22 @@
  * Moved verbatim out of `prefs/PreferencesDialog.tsx`; no behaviour change.
  */
 import type { JSX, ReactNode } from 'react';
+import { Combo } from '../../ui/Combo.js';
 import { ColorSwatch } from '../../ui/ColorSwatch.js';
 import { parseColor4d, toCssColor } from '@ziroeda/common/src/color4d.js';
+
+/**
+ * wx border flags -> the classes `.ze-pref-group-body` reads.
+ *
+ * One helper rather than one per widget: the flags mean the same thing on every
+ * control, exactly as `wxTOP` does, and a second copy is how two widgets in the
+ * same group end up spaced differently for no reason.
+ */
+export function sizerBorders(flags: readonly ('top' | 'bottom')[] | undefined): string {
+  // The default: `wxBOTTOM|wxLEFT|wxRIGHT, 5`, which is most Add() calls here.
+  const f = flags ?? ['bottom'];
+  return `${f.includes('top') ? ' ze-border-top' : ''}${f.includes('bottom') ? '' : ' ze-border-none'}`;
+}
 
 export function Check({
   label,
@@ -50,11 +64,20 @@ export function Num({
   max,
   step,
   width,
+  disabled,
+  title,
+  borders,
 }: {
   label: string;
   value: number;
   onChange: (v: number) => void;
   unit?: string;
+  /** This row's own `Add()` border flags. See {@link sizerBorders}. */
+  borders?: readonly ('top' | 'bottom')[];
+  /** `wxWindow::Enable( false )` — greyed and unreachable, but still drawn. */
+  disabled?: boolean;
+  /** The control's `SetToolTip`. Carries the reason when `disabled` is set. */
+  title?: string;
   min?: number;
   max?: number;
   /** `wxSpinCtrl::SetIncrement` — how far one arrow click moves the value. */
@@ -62,12 +85,13 @@ export function Num({
   width?: number;
 }): JSX.Element {
   return (
-    <label className="ze-pref-row">
+    <label className={`ze-pref-row${sizerBorders(borders)}`} title={title}>
       <span className="lbl">{label}</span>
       <input
         type="number"
         className="ze-search num"
         value={value}
+        disabled={disabled}
         {...(min !== undefined ? { min } : {})}
         {...(max !== undefined ? { max } : {})}
         {...(step !== undefined ? { step } : {})}
@@ -89,6 +113,8 @@ export function Sel<T extends string | number>({
   options,
   onChange,
   unit,
+  disabled,
+  title,
 }: {
   label: string;
   value: T;
@@ -96,26 +122,30 @@ export function Sel<T extends string | number>({
   onChange: (v: T) => void;
   /** A trailing `wxStaticText`, as `l_gridLineWidthUnits`' "pixels" is. */
   unit?: string;
+  /** `wxWindow::Enable( false )` — greyed and unreachable, but still drawn. */
+  disabled?: boolean;
+  /** The control's `SetToolTip`. Carries the reason when `disabled` is set. */
+  title?: string;
 }): JSX.Element {
   return (
-    <label className="ze-pref-row">
+    // Not a <label>: `Combo` is a button, and wrapping a button in a label
+    // makes every click on the text toggle it open and shut again.
+    <div className="ze-pref-row" title={title}>
       <span className="lbl">{label}</span>
-      <select
-        className="ze-select"
+      {/* The app's own combo, never the browser's. A wxChoice is owner-drawn --
+          it takes the GTK theme, and its entries can carry a swatch or a KiCad
+          bitmap (`Append( name, KiBitmapBundle( … ) )`), which a native
+          <select> cannot draw at all. One widget for every dropdown in the app
+          is also the only way they stay identical; a native one here would be
+          the single control on the page that is not ours. */}
+      <Combo
         value={String(value)}
-        onChange={(e) => {
-          const raw = e.target.value;
-          onChange((typeof value === 'number' ? Number(raw) : raw) as T);
-        }}
-      >
-        {options.map(([v, l]) => (
-          <option key={String(v)} value={String(v)}>
-            {l}
-          </option>
-        ))}
-      </select>
+        disabled={disabled}
+        options={options.map(([v, l]) => ({ value: String(v), label: l }))}
+        onChange={(raw) => onChange((typeof value === 'number' ? Number(raw) : raw) as T)}
+      />
       {unit && <span className="unit">{unit}</span>}
-    </label>
+    </div>
   );
 }
 
@@ -150,6 +180,7 @@ export function Radio<T extends string | number>({
   options,
   onChange,
   row,
+  borders,
   disabled,
   title,
 }: {
@@ -159,13 +190,27 @@ export function Radio<T extends string | number>({
   options: readonly (readonly [T, string])[];
   onChange: (v: T) => void;
   row?: boolean;
+  /**
+   * The border flags this row's own `Add()` states — the wx ones, spelled the
+   * same way, because they are independent and combine:
+   *
+   *     Add( bSizerIconsTheme,   0, wxEXPAND|wxTOP, 5 )        ['top']
+   *     Add( bSizerToolbarSize,  0, wxEXPAND, 5 )              []
+   *     Add( bSizerHighContrast, 0, wxEXPAND|wxTOP|wxBOTTOM, 5 ) ['top','bottom']
+   *
+   * Left out entirely, the row takes `['bottom']`, which is what nearly every
+   * Add() in these panels carries and what every other page already looks
+   * like. See `.ze-pref-group-body`.
+   */
+  borders?: readonly ('top' | 'bottom')[];
   /** Shown, but not answerable here — the same treatment a control KiCad has
    *  and this app cannot back gets everywhere else. `title` says why. */
   disabled?: boolean;
   title?: string;
 }): JSX.Element {
+  const borderClass = sizerBorders(borders);
   return (
-    <div className={row ? 'ze-pref-row' : 'ze-pref-radios'} title={title}>
+    <div className={`${row ? 'ze-pref-row' : 'ze-pref-radios'}${borderClass}`} title={title}>
       {label !== undefined && <span className="lbl">{label}</span>}
       {options.map(([v, l]) => (
         <label key={String(v)} className="ze-pref-radio">

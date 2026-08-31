@@ -42,7 +42,12 @@ import type { ToolbarSettings } from '../../ui/toolbar_config.js';
 export type PrefsPageId =
   | 'common'
   | 'mouse'
+  // Upstream this one is `#if defined(__linux__) || defined(__FreeBSD__)`
+  // (`common/eda_base_frame.cpp:1590`). The parity target is a Linux build, so
+  // it is in the tree.
+  | 'spacemouse'
   | 'hotkeys'
+  | 'version-control'
   | 'sch-display'
   | 'sch-grids'
   | 'sch-editing'
@@ -55,7 +60,8 @@ export type PrefsPageId =
   | 'ds-display'
   | 'ds-grids'
   | 'ds-colors'
-  | 'ds-toolbars';
+  | 'ds-toolbars'
+  | 'maintenance';
 
 /** Which module owns a page, and therefore which bundle it is lazily pulled from. */
 export type PrefsPageOwner = 'generic' | 'schematic' | 'pcb' | 'drawingsheet';
@@ -98,6 +104,17 @@ export interface PrefsContext {
   setPrivacy: Dispatch<SetStateAction<PrivacySettings>>;
   setUserColors: Dispatch<SetStateAction<Record<string, string>>>;
   setHotkeys: Dispatch<SetStateAction<HotkeyOverrides>>;
+  /**
+   * `wxQueueEvent( m_parent, new wxCommandEvent( …, wxID_CANCEL ) )` — close
+   * the dialog DISCARDING the working copy.
+   *
+   * Only `PANEL_MAINTENANCE::onResetAll` needs it
+   * (`common/dialogs/panel_maintenance.cpp:138-148`), and it is not cosmetic
+   * there: the panels edit a copy the shell commits on OK, so a Reset All that
+   * left the dialog open would write the pre-reset copy back over the defaults
+   * it had just restored.
+   */
+  cancelDialog: () => void;
 }
 
 /** A constructed page: its body, and its "Reset to Defaults" (`RESETTABLE_PANEL::ResetPanel`). */

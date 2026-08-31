@@ -60,6 +60,22 @@ export interface CommonSettings {
     show_scrollbars: boolean;
     use_icons_in_menus: boolean;
     hicontrast_dimming_factor: number;
+    /** `appearance.grid_striping` — "Use alternating row colors in tables". */
+    grid_striping: boolean;
+    /**
+     * `appearance.use_custom_cursors`. The checkbox is "Disable custom
+     * cursors", so the control is the NEGATION of this — as upstream's
+     * `m_disableCustomCursors->SetValue( !cfg->m_Appearance.use_custom_cursors )`.
+     */
+    use_custom_cursors: boolean;
+    /**
+     * `appearance.zoom_correction_factor`, PARAM<double> default 1.0, range
+     * 0.1..10.0. ZOOM_CORRECTION_CTRL's whole output: the Scaling group asks
+     * the user to measure a drawn ruler so a millimetre on screen is a
+     * millimetre. A browser needs this MORE than a desktop app, since a CSS
+     * pixel has no fixed physical size at all.
+     */
+    zoom_correction_factor: number;
   };
   input: {
     auto_pan: boolean;
@@ -67,6 +83,8 @@ export interface CommonSettings {
     center_on_zoom: boolean;
     warp_mouse_on_move: boolean;
     hotkey_feedback: boolean;
+    /** `input.focus_follow_sch_pcb`, default false. */
+    focus_follow_sch_pcb: boolean;
     immediate_actions: boolean; // !("First hotkey selects tool")
     zoom_acceleration: boolean;
     zoom_speed: number; // 1..10
@@ -101,12 +119,23 @@ export interface CommonSettings {
       pinned_fp_libs: string[];
     };
   };
+  /**
+   * `auto_backup.*`. 10.0.5 reshaped this: `PANEL_COMMON_SETTINGS` now offers
+   * Automatically backup projects, Format, Location and Maximum total backup
+   * size, and `common_settings.cpp:128-138` registers exactly those four.
+   * The count/interval params ours carried — backup_on_autosave,
+   * limit_total_files, limit_daily_files, min_interval — are gone from both.
+   */
   backup: {
     enabled: boolean;
-    backup_on_autosave: boolean;
-    limit_total_files: number;
-    limit_daily_files: number;
-    min_interval: number; // seconds
+    /**
+     * `PARAM_ENUM<BACKUP_FORMAT>( "auto_backup.format", …, INCREMENTAL )`.
+     * INCREMENTAL = 0 keeps a hidden .history git repository of continuous
+     * changes; ZIP = 1 writes timestamped archives on save.
+     */
+    format: 'incremental' | 'zip';
+    /** `PARAM_ENUM<BACKUP_LOCATION>( "auto_backup.location", …, PROJECT_DIR )`. */
+    location: 'project' | 'user';
     limit_total_size: number; // bytes
   };
   /**
@@ -189,6 +218,9 @@ export const COMMON_DEFAULTS: CommonSettings = {
     show_scrollbars: true,
     use_icons_in_menus: true,
     hicontrast_dimming_factor: 80,
+    grid_striping: false,
+    use_custom_cursors: true,
+    zoom_correction_factor: 1.0,
   },
   input: {
     auto_pan: false,
@@ -196,6 +228,7 @@ export const COMMON_DEFAULTS: CommonSettings = {
     center_on_zoom: true,
     warp_mouse_on_move: true,
     hotkey_feedback: true,
+    focus_follow_sch_pcb: false,
     immediate_actions: true,
     zoom_acceleration: false,
     zoom_speed: 1,
@@ -218,10 +251,9 @@ export const COMMON_DEFAULTS: CommonSettings = {
   },
   backup: {
     enabled: true,
-    backup_on_autosave: false,
-    limit_total_files: 25,
-    limit_daily_files: 5,
-    min_interval: 300,
+    format: 'incremental',
+    location: 'project',
+    // `PARAM<unsigned long long>( "auto_backup.limit_total_size", …, 104857600 )`
     limit_total_size: 104857600,
   },
   // `PARAM<int>( "color_picker.default_tab", …, 0 )` — page 0 is "Color

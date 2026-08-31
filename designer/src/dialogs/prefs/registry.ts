@@ -42,7 +42,11 @@ export interface PrefsPageEntry {
 export const PAGES: readonly PrefsPageEntry[] = [
   { id: 'common', label: 'Common', owner: 'generic' },
   { id: 'mouse', label: 'Mouse and Touchpad', owner: 'generic' },
+  // `#if defined(__linux__) || defined(__FreeBSD__)` (:1590). Linux is the
+  // parity target, so the row is here.
+  { id: 'spacemouse', label: 'SpaceMouse', owner: 'generic' },
   { id: 'hotkeys', label: 'Hotkeys', owner: 'generic' },
+  { id: 'version-control', label: 'Version Control', owner: 'generic' },
   { id: null, label: 'Schematic Editor' },
   { id: 'sch-display', label: 'Display Options', indent: true, owner: 'schematic' },
   { id: 'sch-grids', label: 'Grids', indent: true, owner: 'schematic' },
@@ -61,6 +65,11 @@ export const PAGES: readonly PrefsPageEntry[] = [
   { id: 'ds-grids', label: 'Grids', indent: true, owner: 'drawingsheet' },
   { id: 'ds-colors', label: 'Colors', indent: true, owner: 'drawingsheet' },
   { id: 'ds-toolbars', label: 'Toolbars', indent: true, owner: 'drawingsheet' },
+  // The tail of the book, after the last KIFACE's heading: `AddLazyPage(
+  // PANEL_PACKAGES_AND_UPDATES )` closes the try block, then `AddPage(
+  // PANEL_PLUGIN_SETTINGS )` under `#ifdef KICAD_IPC_API` and `AddPage(
+  // PANEL_MAINTENANCE )`. All three are top-level, not sub-pages.
+  { id: 'maintenance', label: 'Maintenance', owner: 'generic' },
 ];
 
 /**
@@ -119,7 +128,7 @@ export const UPSTREAM_BOOK: Readonly<Record<string, readonly string[]>> = {
  * panel's own end. The parity target is the installed build, so the capture
  * wins. [data]
  *
- * Fifteen rows. We ship six. The nine we do not are in
+ * Fifteen rows. We ship nine. The six we do not are in
  * {@link OMITTED_TOP_LEVEL}, each with its reason, and
  * `qa/unittests/designer/prefs_page_book.test.ts` requires that shipped +
  * omitted is exactly this list in exactly this order — so a heading cannot go
@@ -152,30 +161,42 @@ export interface DeclaredPage {
 }
 
 /**
- * The nine top-level rows of {@link UPSTREAM_TOP_LEVEL} this port does not
- * draw, and why.
+ * The top-level rows of {@link UPSTREAM_TOP_LEVEL} this port does not draw, and
+ * why.
  *
- * Four of them are headings for editors we DO ship — Symbol Editor, Footprint
- * Editor, 3D Viewer, Gerber Viewer — and those are the ones that are simply
- * unfinished rather than impossible. Upstream their sub-pages are mostly the
+ * Four are headings for editors we DO ship — Symbol Editor, Footprint Editor,
+ * 3D Viewer, Gerber Viewer — so those four are unfinished rather than
+ * impossible. Upstream their sub-pages are mostly the
  * shared widgets we already have: `PANEL_SYM_EDIT_GRIDS` is `PANEL_GRID_SETTINGS`,
  * `PANEL_SYM_COLORS` is `PANEL_COLOR_SETTINGS`, `PANEL_SYM_TOOLBARS` is
  * `PANEL_TOOLBAR_CUSTOMIZATION`, and `PANEL_SYM_DISP_OPTIONS` wraps
  * `PANEL_GAL_DISPLAY_OPTIONS`. So they are bindings to a settings store, not
  * new panels.
  *
- * The other five have no browser form at all, and are decisions.
+ * The other two were built and then taken out again, which is the useful part
+ * of their entries: a page whose every control is a desktop concept has nothing
+ * to show once the controls are disabled, and a row that exists only to explain
+ * its own emptiness is worse than an absent row. Maintenance stayed and is
+ * live, because it manipulates the settings store rather than a device, a path
+ * or a socket. SpaceMouse and Version Control are still drawn — they are
+ * equally un-portable and should probably follow, but that is Akshay's call
+ * and he named these two.
  */
 export const OMITTED_TOP_LEVEL: readonly DeclaredPage[] = [
   {
-    label: 'SpaceMouse',
+    label: 'Packages and Updates',
     reason:
-      'PANEL_NAVLIB drives a 3Dconnexion device through their desktop driver. No browser API reaches it.',
+      'Built, then removed. Every control on it is about the desktop: whether to check for a ' +
+      'KiCad release, and how the PCM writes installed libraries into the global library table ' +
+      'on disk. A web app updates when the page reloads and has no library table to write. ' +
+      'A row that only explains why it is empty is worse than no row.',
   },
   {
-    label: 'Version Control',
+    label: 'Plugins',
     reason:
-      'PANEL_GIT_REPOS manages on-disk git remotes for local libraries; we have no local disk.',
+      'Built, then removed. PANEL_PLUGIN_SETTINGS enables a local IPC socket for other programs ' +
+      'on the same machine and points at a native Python interpreter. A browser tab has neither, ' +
+      'and there is no partial version of "let other software on this computer connect".',
   },
   {
     label: 'Symbol Editor',
@@ -198,24 +219,6 @@ export const OMITTED_TOP_LEVEL: readonly DeclaredPage[] = [
   {
     label: 'Gerber Viewer',
     reason: 'Unfinished, not impossible: we ship gerbview. Five sub-pages. Tracker 195.',
-  },
-  {
-    label: 'Packages and Updates',
-    reason:
-      'PANEL_PACKAGES_AND_UPDATES configures the Plugin and Content Manager, which installs ' +
-      'to the user profile on disk. Nothing to configure here.',
-  },
-  {
-    label: 'Plugins',
-    reason:
-      'PANEL_PLUGIN_SETTINGS configures the IPC API for external Python plugins ' +
-      '(`#ifdef KICAD_IPC_API`). No out-of-process plugins in the browser.',
-  },
-  {
-    label: 'Maintenance',
-    reason:
-      'PANEL_MAINTENANCE clears the on-disk 3D-model and library caches. Ours are the ' +
-      "browser's, and it owns their eviction.",
   },
 ];
 
@@ -285,7 +288,11 @@ export function shippedUnder(heading: string): string[] {
   if (start < 0) return [];
   const out: string[] = [];
   for (const p of PAGES.slice(start + 1)) {
-    if (p.id === null) break;
+    // The next heading ends the run -- and so does a top-level page, which is
+    // what `AddPage` rather than `AddLazySubPage` means. Stopping only at a
+    // heading swept the book's tail (Packages and Updates, Plugins,
+    // Maintenance) into the Drawing Sheet Editor, the last heading before it.
+    if (p.id === null || p.indent !== true) break;
     out.push(p.label);
   }
   return out;

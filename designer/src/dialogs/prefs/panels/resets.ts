@@ -39,35 +39,42 @@ export function resetCommonPanel(ctx: PrefsContext): void {
     resetKeys(s.appearance, COMMON_DEFAULTS.appearance, [
       'use_icons_in_menus',
       'show_scrollbars',
+      'grid_striping',
+      'use_custom_cursors',
       'icon_theme',
       'toolbar_icon_size',
       'hicontrast_dimming_factor',
+      // "Scaling" is one control and one setting, and it sits on this page, so
+      // Reset Common to Defaults puts the display back to the assumed PPI.
+      'zoom_correction_factor',
     ]);
-    // "Editing". The rest of `input` belongs to Mouse and Touchpad.
+    // "Editing", plus the two `input` fields User Interface shows.
+    // `hotkey_feedback` is drawn under User Interface upstream, not Editing --
+    // which changes nothing here, since the slice is the fields this PAGE binds
+    // to and both groups are on it.
     resetKeys(s.input, COMMON_DEFAULTS.input, [
       'warp_mouse_on_move',
       'immediate_actions',
       'hotkey_feedback',
+      'focus_follow_sch_pcb',
     ]);
-    // "Session".
-    resetKeys(s.system, COMMON_DEFAULTS.system, ['autosave_interval', 'file_history_size']);
+    // "Session". `autosave_interval` is NOT here any more: 10.0.5 dropped the
+    // `Auto save:` row from this page, and a reset may only touch what the page
+    // shows -- that is the whole point of a per-panel slice.
+    resetKeys(s.system, COMMON_DEFAULTS.system, ['file_history_size']);
     resetKeys(s.system.session, COMMON_DEFAULTS.system.session, ['remember_open_files']);
     // "Project Backup" — every field of `backup` is on this page.
     resetKeys(s.backup, COMMON_DEFAULTS.backup, [
       'enabled',
-      'backup_on_autosave',
-      'limit_total_files',
-      'limit_daily_files',
-      'min_interval',
+      'format',
+      'location',
       'limit_total_size',
     ]);
   });
-  // "Privacy", ours rather than KiCad's, and the only page that shows it.
-  ctx.setPrivacy((s) => {
-    const n = structuredClone(s);
-    resetKeys(n, PRIVACY_DEFAULTS, ['crash_reports']);
-    return n;
-  });
+  // No `privacy` here any more. The Privacy group was ours rather than KiCad's
+  // and has been taken off the page, and a panel's reset slice is exactly the
+  // fields its controls bind to -- resetting one the user cannot see would put
+  // crash reporting back on from a button labelled "Reset Common to Defaults".
 }
 
 /**

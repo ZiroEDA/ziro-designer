@@ -24,6 +24,8 @@
  * hotspot is always the 32x32 one, whichever file the browser picks. [data]
  */
 
+import { settings } from '../prefs/settings.js';
+
 const URLS = import.meta.glob('../assets/cursors/*.png', {
   query: '?url',
   import: 'default',
@@ -86,6 +88,14 @@ const SUPPORTS_IMAGE_SET =
  */
 export function kiCursor(name: KiCursor): string {
   const spec: CursorSpec = STORE[name];
+  // Preferences > Common > "Disable custom cursors", which is the NEGATION of
+  // `appearance.use_custom_cursors` (`common_settings.cpp:121`, default true).
+  // Upstream the setting reaches the canvas through the GAL panel, which asks
+  // CURSOR_STORE for a stock cursor instead of the custom one. Here
+  // `spec.fallback` IS that stock cursor -- every entry already names one,
+  // because a `cursor` value must end in a keyword -- so the switch is this one
+  // line and no call site changes. A canvas picks it up on its next render.
+  if (!settings.common.appearance.use_custom_cursors) return spec.fallback;
   const one = URLS[`../assets/cursors/${spec.file}.png`];
   const two = URLS[`../assets/cursors/${spec.file}64.png`];
   if (!one) return spec.fallback;

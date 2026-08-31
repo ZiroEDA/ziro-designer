@@ -395,7 +395,7 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // `DoGetBestSize`, so the button is 16 + 5*2 square and the separator
   // 0 + 5*2 wide, both [data] against that formula, and the separator's own
   // margin and the Link box's `min-width: 0` went away.
-  ui: { colours: 231, metrics: 730 },
+  ui: { colours: 231, metrics: 729 },
   // colours 6 -> 7: the opacity slider's #55585d track arrived here with
   // APPEARANCE_CONTROLS; it is the same literal `editors/pcb` lost, not a new
   // one. The panel's own stylesheet adds none: every length in
@@ -850,7 +850,16 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // Same cause as the four colours above: Preferences stopped drawing a page
     // tree of its own. What the shared `.ze-tree-item` states is now the only
     // statement of it. `ui` 738 -> 730 agrees with the tree-wide 1523 - 8.
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1515);
+    // 1515 -> 1514: `.ze-pref-group-body`'s `gap: 5px`. A wxSizer does not have
+    // a gap — the space between two stacked children is the BOTTOM border of
+    // the upper plus the TOP border of the lower, and each `Add()` states its
+    // own, which is why a KiCad group is unevenly spaced on purpose. Ours was
+    // one uniform number, so "Icon theme:" sat 5 px below the checkbox run
+    // where KiCad puts it 10, and "Toolbar icon size:" sat 5 below that where
+    // KiCad puts it flush. The three values that replace it are the borders
+    // themselves and carry [data]. `ui` 730 -> 729 is the second derivation,
+    // and the diff of the file agrees: one unmarked literal out, none in.
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1514);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {

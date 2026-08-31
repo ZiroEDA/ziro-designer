@@ -63,7 +63,12 @@ function expectedRows(expanded: readonly string[]): string[] {
     if (p.id === null) {
       section = p.label;
       out.push(p.label);
-    } else if (!p.indent) {
+    } else if (p.indent !== true) {
+      // A top-level page. `AddPage` rather than `AddLazySubPage`, so it does
+      // not belong to the heading above it and is never hidden by collapsing
+      // that heading -- which matters at the tail of the book, where Packages
+      // and Updates, Plugins and Maintenance follow the last KIFACE's section.
+      section = '';
       out.push(p.label);
     } else if (expanded.includes(section)) {
       out.push(p.label);

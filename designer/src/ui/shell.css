@@ -8422,11 +8422,46 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   margin-bottom: 6px;
 }
 
+/* A group's rows, spaced the way its sizer spaces them.
+   
+   Not a uniform `gap`. In wx the space between two stacked children is the
+   BOTTOM border of the upper plus the TOP border of the lower, and each Add()
+   states its own, so a KiCad group is unevenly spaced on purpose. The User
+   Interface group is the clearest case
+   (panel_common_settings_base.cpp:170-293):
+
+     bSizer14->Add( m_checkBoxIconsInMenus, 0, wxALL, 5 );             5 / 5
+     bSizer14->Add( m_showScrollbars, 0, wxBOTTOM|wxRIGHT|wxLEFT, 5 ); 0 / 5
+     ... three more the same ...
+     bUserInterfaceSizer->Add( m_disableCustomCursors, 0, wxBOTTOM|wxLEFT|wxRIGHT, 5 );
+     bUserInterfaceSizer->Add( bSizerIconsTheme,   0, wxEXPAND|wxTOP, 5 );  5 / 0
+     bUserInterfaceSizer->Add( bSizerToolbarSize,  0, wxEXPAND, 5 );        0 / 0
+     bUserInterfaceSizer->Add( bSizerHighContrast, 0, wxEXPAND|wxTOP|wxBOTTOM, 5 );
+
+   which gives 5 px through the checkbox run, 10 px before "Icon theme:", NONE
+   between it and "Toolbar icon size:", and 5 before "High-contrast". Measured
+   on the capture, the checkbox rows repeat every 27 px and the two radio rows
+   every 24 -- the three px being exactly that missing border.
+
+   So: `gap: 0`, every row carrying the wxBOTTOM 5 that nearly all of them
+   have, and the exceptions saying so. The default reproduces the old uniform
+   5 px for every other page, which is what those pages' sizers do anyway. */
 .ze-pref-group-body {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 0;
   padding-left: 4px;
+}
+.ze-pref-group-body > * {
+  margin-bottom: 5px; /* [data] the wxBOTTOM nearly every Add() in these groups carries. */
+}
+/* `wxTOP, 5` — a row that asks for space above it as well. */
+.ze-pref-group-body > .ze-border-top {
+  margin-top: 5px; /* [data] */
+}
+/* An Add() with neither wxTOP nor wxBOTTOM: the next row sits against it. */
+.ze-pref-group-body > .ze-border-none {
+  margin-bottom: 0;
 }
 /* A `wxCheckBox` row and a `wxRadioButton` row. One rule, because these panels
    lay the two out with the same sizer flags -- `PANEL_GAL_OPTIONS` adds its
@@ -8497,6 +8532,34 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
   gap: 4px 16px;
+}
+/* PANEL_MAINTENANCE's button column, `bResetStateSizer`
+   (panel_maintenance_base.cpp:43-58):
+
+     bResetStateSizer->Add( m_clearFileHistory,   0, wxALL|wxEXPAND, 5 );
+     bResetStateSizer->Add( 0, 10, 1, wxEXPAND, 5 );
+     bResetStateSizer->Add( m_clearDontShowAgain, 0, wxALL|wxEXPAND, 5 );
+     bResetStateSizer->Add( m_clearDialogState,   0, wxALL|wxEXPAND, 5 );
+     bResetStateSizer->Add( m_resetAll,           0, wxALL|wxEXPAND, 5 );
+     margins->Add( bResetStateSizer, 1, wxEXPAND|wxTOP, 10 );
+
+   wxEXPAND on every button, so they STRETCH to the column rather than each
+   taking its own width - which is the flex default, and why no `align-items`
+   is stated. Two adjacent `wxALL, 5` borders make the gap between buttons; the
+   sizer's own wxTOP puts the block below the spin control. */
+.ze-pref-buttoncol {
+  display: flex;
+  flex-direction: column;
+  /* [data] two adjoining wxALL borders of 5. */
+  gap: 10px;
+  /* [data] `wxEXPAND|wxTOP, 10` on bResetStateSizer. */
+  margin-top: 10px;
+}
+/* `Add( 0, 10, 1, wxEXPAND )` — the one spacer in the run, after the first
+   button. Its proportion of 1 also lets it absorb slack, which a page this
+   short never has. */
+.ze-pref-buttoncol > button:first-child {
+  margin-bottom: 10px; /* [data] the spacer's own height. */
 }
 .ze-pref-hint {
   color: #9aa0a6;

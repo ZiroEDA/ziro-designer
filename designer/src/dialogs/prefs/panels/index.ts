@@ -14,6 +14,9 @@
 import { PanelCommonSettings } from './PanelCommonSettings.js';
 import { PanelMouseSettings } from './PanelMouseSettings.js';
 import { PanelHotkeys } from './PanelHotkeys.js';
+import { PanelSpacemouse } from './PanelSpacemouse.js';
+import { PanelGitRepos } from './PanelGitRepos.js';
+import { PanelMaintenance } from './PanelMaintenance.js';
 import { resetCommonPanel, resetMousePanel } from './resets.js';
 import type { PrefsPageId, PrefsPanelFactory, PrefsPanelModule } from '../types.js';
 
@@ -36,6 +39,19 @@ export const createPrefsPanel: PrefsPanelFactory = (id: PrefsPageId): PrefsPanel
         // PANEL_HOTKEYS_EDITOR::GetResetTooltip (include/panel_hotkeys_editor.h:55).
         resetTooltip: 'Reset all hotkeys to the built-in KiCad defaults',
       };
+
+    // The pages upstream draws that nothing here can back. They are not
+    // resettable: `RESETTABLE_PANEL::ResetPanel` restores a panel's own
+    // settings, and these have none, so the Reset button greys out exactly as
+    // it does for a page with nothing of its own.
+    case 'spacemouse':
+      return { Panel: PanelSpacemouse };
+
+    case 'version-control':
+      return { Panel: PanelGitRepos };
+
+    case 'maintenance':
+      return { Panel: PanelMaintenance };
 
     default:
       return null;

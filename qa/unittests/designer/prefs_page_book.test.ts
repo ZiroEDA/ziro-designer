@@ -46,7 +46,11 @@ const read = (rel: string): string => readFileSync(join(SRC, rel), 'utf8');
 const EXPECTED: PrefsPageEntry[] = [
   { id: 'common', label: 'Common', owner: 'generic' },
   { id: 'mouse', label: 'Mouse and Touchpad', owner: 'generic' },
+  // Upstream inside `#if defined(__linux__) || defined(__FreeBSD__)`
+  // (`common/eda_base_frame.cpp:1590-1596`). Linux is the parity target.
+  { id: 'spacemouse', label: 'SpaceMouse', owner: 'generic' },
   { id: 'hotkeys', label: 'Hotkeys', owner: 'generic' },
+  { id: 'version-control', label: 'Version Control', owner: 'generic' },
   { id: null, label: 'Schematic Editor' },
   { id: 'sch-display', label: 'Display Options', indent: true, owner: 'schematic' },
   { id: 'sch-grids', label: 'Grids', indent: true, owner: 'schematic' },
@@ -65,6 +69,14 @@ const EXPECTED: PrefsPageEntry[] = [
   { id: 'ds-grids', label: 'Grids', indent: true, owner: 'drawingsheet' },
   { id: 'ds-colors', label: 'Colors', indent: true, owner: 'drawingsheet' },
   { id: 'ds-toolbars', label: 'Toolbars', indent: true, owner: 'drawingsheet' },
+  // The tail: a TOP-LEVEL page after the last KIFACE's heading, added with
+  // `AddPage` rather than `AddLazySubPage`. It is not the Drawing Sheet
+  // Editor's, and `indent` is what says so — grouping by position put it
+  // inside. Upstream there are three; Packages and Updates and Plugins were
+  // built and then removed, since every control on either is a desktop concept
+  // (see OMITTED_TOP_LEVEL). Maintenance stayed because it edits the settings
+  // store, which we have.
+  { id: 'maintenance', label: 'Maintenance', owner: 'generic' },
 ];
 
 describe('the Preferences page book', () => {

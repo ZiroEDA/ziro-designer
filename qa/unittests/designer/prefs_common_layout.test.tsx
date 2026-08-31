@@ -65,8 +65,20 @@ describe('the page is two columns, as bPanelSizer makes it', () => {
   it('splits the groups the way upstream splits them', () => {
     const left = PANEL.slice(PANEL.indexOf('ze-pref-col'), PANEL.lastIndexOf('ze-pref-col'));
     const right = PANEL.slice(PANEL.lastIndexOf('ze-pref-col'));
-    for (const g of ['Rendering Engine', 'User Interface']) expect(left).toContain(g);
-    for (const g of ['Editing', 'Session', 'Project Backup']) expect(right).toContain(g);
+    // Of upstream's seven, three survive: Rendering Engine and Helper
+    // Applications describe a GAL backend and native program paths, and
+    // Session and Project Backup describe relaunching processes and writing
+    // archives into directories. None of the four has anything behind it here.
+    expect(left).toContain('User Interface');
+    for (const g of ['Scaling', 'Editing']) expect(right).toContain(g);
+  });
+
+  it('does not draw the four groups that describe a desktop', () => {
+    for (const g of ['Rendering Engine', 'Helper Applications', 'Session', 'Project Backup']) {
+      expect(PANEL, g).not.toContain(`title="${g}"`);
+    }
+    // Nor the Privacy group, which was ours rather than KiCad's.
+    expect(PANEL).not.toContain('title="Privacy"');
   });
 });
 
@@ -108,25 +120,24 @@ describe('the small choices are radio runs, not combos', () => {
   });
 });
 
-describe('Rendering Engine is a group, and it is the one KiCad has', () => {
-  it('offers the accelerated / fallback pair', () => {
-    expect(PANEL).toContain('Rendering Engine');
-    expect(PANEL).toContain('Accelerated Graphics');
-    expect(PANEL).toContain('Fallback Graphics');
+/**
+ * Scaling is `ZOOM_CORRECTION_CTRL` and nothing else:
+ *
+ *     m_scalingSizer->Add( m_zoomCorrectionCtrl, 1, wxEXPAND );
+ *     (panel_common_settings.cpp:120)
+ *
+ * A browser needs it MORE than a desktop app: `wxDisplay` can at least ask the
+ * OS what the panel reports, while a CSS pixel is defined only as a ratio and
+ * the page is never told the physical size of anything. So the ruler is the
+ * answer and Detect is a guess.
+ */
+describe('Scaling is the zoom-correction control', () => {
+  it('is the widget, not a hand-rolled copy of it', () => {
+    expect(PANEL).toContain('ZoomCorrectionCtrl');
+    expect(PANEL).toContain('Scaling');
   });
 
-  it('has ONE antialiasing choice, not one per engine', () => {
-    // `m_antialiasing` is a single wxChoice at gbSizer11(2,1). We had two,
-    // "Accelerated graphics:" and "Fallback graphics:", and no engine radio.
-    expect(PANEL).toContain('Antialiasing:');
-    expect(PANEL).not.toContain('Fallback graphics:');
-    expect(PANEL).not.toContain('Accelerated graphics:');
-  });
-
-  it('says why the engine cannot be chosen rather than pretending', () => {
-    const at = PANEL.indexOf('pref-rendering-engine');
-    const block = PANEL.slice(at, at + 500);
-    expect(block).toContain('disabled');
-    expect(block).toMatch(/title="[^"]*browser/i);
+  it('binds it to the setting the C++ binds it to', () => {
+    expect(PANEL).toContain('zoom_correction_factor');
   });
 });

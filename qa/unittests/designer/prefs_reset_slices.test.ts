@@ -97,22 +97,31 @@ const SLICES: Partial<Record<PrefsPageId, readonly string[]>> = {
   common: [
     'common.appearance.use_icons_in_menus',
     'common.appearance.show_scrollbars',
+    'common.appearance.grid_striping',
+    'common.appearance.use_custom_cursors',
     'common.appearance.icon_theme',
     'common.appearance.toolbar_icon_size',
     'common.appearance.hicontrast_dimming_factor',
+    // "Scaling" — ZOOM_CORRECTION_CTRL is one control and one setting.
+    'common.appearance.zoom_correction_factor',
     'common.input.warp_mouse_on_move',
     'common.input.immediate_actions',
     'common.input.hotkey_feedback',
+    'common.input.focus_follow_sch_pcb',
     'common.system.session.remember_open_files',
-    'common.system.autosave_interval',
     'common.system.file_history_size',
+    // Gone with the groups this page no longer draws. A panel's reset slice is
+    // exactly the fields its controls bind to, so a control that is not on the
+    // page may not be reset by its button — `common.system.autosave_interval`
+    // (10.0.5 dropped the `Auto save:` row), the four Project Backup fields,
+    // and `privacy.crash_reports`, which was ours rather than KiCad's. That
+    // last one matters most: resetting a setting the user cannot see would
+    // turn crash reporting back on from a button labelled "Reset Common to
+    // Defaults".
     'common.backup.enabled',
-    'common.backup.backup_on_autosave',
-    'common.backup.limit_total_files',
-    'common.backup.limit_daily_files',
-    'common.backup.min_interval',
+    'common.backup.format',
+    'common.backup.location',
     'common.backup.limit_total_size',
-    'privacy.crash_reports',
   ],
   // PanelMouseSettings.tsx — Pan and Zoom, Drag Gestures, Scroll Gestures.
   mouse: [
@@ -545,7 +554,11 @@ describe('the other pages survive, page by page', () => {
     expect(bag.common.input.zoom_speed).toBe(9);
     expect(bag.common.input.mouse_middle).toBe('zoom');
     expect(bag.common.appearance.icon_theme).toBe(COMMON_DEFAULTS.appearance.icon_theme);
-    expect(bag.privacy.crash_reports).toBe(PRIVACY_DEFAULTS.crash_reports);
+    // ...and crash reporting is NOT reset, because the Privacy group is no
+    // longer on the page. Turning telemetry back on from a button that says
+    // "Reset Common to Defaults" would be the wrong kind of surprise, and the
+    // per-panel slice is what prevents it.
+    expect(bag.privacy.crash_reports).toBe(false);
   });
 
   it('no reset touches a setting no Preferences page shows', () => {

@@ -165,8 +165,28 @@ export function PreferencesDialog({
       { label: '', pages: [] },
     ];
     for (const p of PAGES) {
-      if (p.id === null) out.push({ label: p.label, pages: [] });
-      else out[out.length - 1]!.pages.push({ id: p.id, label: p.label });
+      if (p.id === null) {
+        // `AddPage( new wxPanel )` — a heading, and the start of a section.
+        out.push({ label: p.label, pages: [] });
+        continue;
+      }
+      // `AddLazySubPage` goes under the heading above it; `AddPage` does NOT.
+      // Grouping by position alone -- "every page since the last heading" --
+      // is wrong at the tail of the book, where Packages and Updates, Plugins
+      // and Maintenance are top-level pages added AFTER the last KIFACE's
+      // heading. That put all three inside Drawing Sheet Editor, indented
+      // under it and hidden whenever it was collapsed.
+      const current = out[out.length - 1]!;
+      if (p.indent === true && current.label !== '') {
+        current.pages.push({ id: p.id, label: p.label });
+      } else if (current.label === '') {
+        current.pages.push({ id: p.id, label: p.label });
+      } else {
+        // A parentless run reopening after a section: its own empty-label
+        // group, in place, so it draws after that section rather than being
+        // folded back into the one at the top.
+        out.push({ label: '', pages: [{ id: p.id, label: p.label }] });
+      }
     }
     return out.filter((s) => s.pages.length > 0 || s.label !== '');
   }, []);
@@ -270,6 +290,10 @@ export function PreferencesDialog({
     setPrivacy,
     setUserColors,
     setHotkeys,
+    // Cancel, not close: `onClose` is the shell's discard path, so the working
+    // copy is dropped rather than committed. Which is the whole point of the
+    // call site — see `PrefsContext.cancelDialog`.
+    cancelDialog: onClose,
   };
 
   // `AddLazySubPage`: the page is constructed the first time it is opened, and
