@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
-import { useEffect, useState, type JSX } from 'react';
+import { useEffect, useMemo, useState, type JSX } from 'react';
 import {
   settings,
   TOOLBAR_APPS,
@@ -14,6 +14,7 @@ import {
 } from '../prefs/settings.js';
 import type { ToolbarSettings } from '../ui/toolbar_config.js';
 import { usePagedDialogSize } from '../ui/paged_dialog_size.js';
+import { PagedDialogTree } from '../ui/PagedDialogTree.js';
 import { FIRST_PAGE, PAGES, labelOf, ownerOf } from './prefs/registry.js';
 import { loadPrefsPanel, peekPrefsPanel } from './prefs/lazy_pages.js';
 import {
@@ -71,6 +72,33 @@ export function PreferencesDialog({
   const [page, setPage] = useState<PrefsPageId>(initialPage ?? FIRST_PAGE);
   // The one place a PAGED_DIALOG's size is decided, shared rather than restated.
   const size = usePagedDialogSize(page);
+  // All expanded by default, as `ExpandNode` on every node leaves it.
+  const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
+  const toggleSection = (label: string): void =>
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(label)) next.delete(label);
+      else next.add(label);
+      return next;
+    });
+
+  /**
+   * `PAGES` is the book in add-order, mirroring `InstallPreferences`: a row
+   * with `id === null` is a heading (`AddPage( new wxPanel )`) and the indented
+   * rows after it are its `AddLazySubPage`s. The shared tree wants that grouped,
+   * with the leading parentless run - Common, Mouse and Touchpad, Hotkeys -
+   * under an EMPTY label, which is how a treebook's top-level pages sit.
+   */
+  const treeSections = useMemo(() => {
+    const out: { label: string; pages: { id: string; label: string }[] }[] = [
+      { label: '', pages: [] },
+    ];
+    for (const p of PAGES) {
+      if (p.id === null) out.push({ label: p.label, pages: [] });
+      else out[out.length - 1]!.pages.push({ id: p.id, label: p.label });
+    }
+    return out.filter((s) => s.pages.length > 0 || s.label !== '');
+  }, []);
   const [common, setCommon] = useState<CommonSettings>(() => structuredClone(settings.common));
   const [eeschema, setEeschema] = useState<EeschemaSettings>(() =>
     structuredClone(settings.eeschema),
@@ -233,23 +261,17 @@ export function PreferencesDialog({
           </span>
         </div>
         <div className="ze-prefs-body">
-          <div className="ze-prefs-tree">
-            {PAGES.map((p) =>
-              p.id === null ? (
-                <div key={p.label} className="ze-prefs-parent">
-                  {p.label}
-                </div>
-              ) : (
-                <div
-                  key={p.id}
-                  className={`ze-prefs-page${page === p.id ? ' active' : ''}${p.indent ? ' indent' : ''}`}
-                  onClick={() => setPage(p.id!)}
-                >
-                  {p.label}
-                </div>
-              ),
-            )}
-          </div>
+          {/* The SAME tree Board Setup and Schematic Setup draw. Upstream all
+              three are PAGED_DIALOGs over one wxTreebook, so none of them can
+              have a different tree; ours had two, and this one's parents were
+              dead headings with no expander and nothing to collapse. */}
+          <PagedDialogTree
+            sections={treeSections}
+            page={page}
+            collapsed={collapsed}
+            onToggleSection={toggleSection}
+            onSelect={(id) => setPage(id as PrefsPageId)}
+          />
           <div className="ze-prefs-panel">{panel ? <panel.Panel ctx={ctx} /> : null}</div>
         </div>
         <div className="ze-modal-footer">

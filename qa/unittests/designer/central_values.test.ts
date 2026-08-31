@@ -206,7 +206,18 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // `gap: 6` inline. The dialog is `.ze-label-dialog-body` now, which is the
   // rule every other schematic dialog's body already takes, so the number is
   // stated once rather than restated here.
-  'editors/schematic': { colours: 60, metrics: 204 },
+  // 204 -> 195: DIALOG_PASTE_SPECIAL is a `common/dialogs/` dialog upstream,
+  // built by BOTH SCH_EDITOR_CONTROL::Paste and PCB_CONTROL::Paste, and this
+  // area held a per-editor copy of it. Promoting it to `dialogs/` took its nine
+  // inline-style metrics with it — a border, two paddings, two margins, a
+  // radius, two font sizes and an opacity, none of which the shared dialog
+  // restates: it takes `.ze-props-group` and `.ze-modal-body` instead.
+  //
+  // Derived twice. The scan's own report said "editors/schematic: 195 chrome px
+  // literals now, baseline still says 204", and restoring the deleted file
+  // alone put this test back to green at 204 — so all nine came from it and
+  // nothing else in the pass moved the count.
+  'editors/schematic': { colours: 60, metrics: 195 },
   // colours 12 -> 7: the Symbol Editor parity pass. Four were
   // SYMBOL_EDITOR_COLORS, a private copy of LAYER_SCHEMATIC_ANCHOR /
   // LAYER_HIDDEN / LAYER_PRIVATE_NOTES / LAYER_FIELDS that matched the Default
@@ -384,7 +395,7 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // `DoGetBestSize`, so the button is 16 + 5*2 square and the separator
   // 0 + 5*2 wide, both [data] against that formula, and the separator's own
   // margin and the Link box's `min-width: 0` went away.
-  ui: { colours: 236, metrics: 739 },
+  ui: { colours: 232, metrics: 730 },
   // colours 6 -> 7: the opacity slider's #55585d track arrived here with
   // APPEARANCE_CONTROLS; it is the same literal `editors/pcb` lost, not a new
   // one. The panel's own stylesheet adds none: every length in
@@ -707,7 +718,20 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // 615 -> 614: `.ze-pref-group-title`'s #c7c9cc, alongside the 12.5px and
     // the `font-weight: 600` that went with it. Upstream sets no font and no
     // colour on any of the seven headings on that page.
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(614);
+    // 614 -> 610: the four colours in the Preferences dialog's OWN page tree,
+    // deleted with it. `.ze-prefs-parent`'s #9aa0a6, `.ze-prefs-page:hover`'s
+    // rgba(255,255,255,.06), and `.ze-prefs-page.active`'s
+    // rgba(64,128,255,.18) plus #4d90fe - a blue that appears nowhere in the
+    // GTK theme and nowhere else in this app.
+    //
+    // They went because the tree did: Preferences now draws the SAME
+    // `PagedDialogTree` as Board Setup and Schematic Setup, which takes its
+    // selection and hover from the shared `.ze-tree-item` rules. Upstream all
+    // three are PAGED_DIALOGs over one wxTreebook, so none of them can have a
+    // tree of its own to colour differently. Derived twice: the scan reports
+    // `ui` 236 -> 232, and the diff of the six deleted rules carries exactly
+    // these four colour values and no others.
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(610);
     // 1657 -> 1649: the same sweep. A native colour input has no useful
     // default size, so eight of the sixteen sites gave theirs an inline
     // width and height; the shared swatch takes --swatch-*-w/h. Rescanned.
@@ -798,7 +822,25 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // `usePagedDialogSize`: `newSize.IncTo( minSize )` (paged_dialog.cpp:
     // 446-450), which grows the dialog to fit a page and never shrinks it
     // back. Each area's row moves by one and 1536 - 3 agrees.
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1533);
+    //
+    // 1533 -> 1524: the nine that left `editors/schematic` with the per-editor
+    // copy of DIALOG_PASTE_SPECIAL — see that row's note above for both
+    // derivations. Only one area moved, so the tree-wide delta and the
+    // per-area delta are the same nine.
+    // 1524 -> 1523: PagedDialog's inline `paddingLeft: 26` on a tree row.
+    // The tree moved into the shared `PagedDialogTree`, where the same 26 is a
+    // named constant with the reason beside it rather than a bare number in a
+    // style object - so the scanner stops counting it, correctly. `ui` is the
+    // only row that moves, 739 -> 738.
+    // 1523 -> 1515: the eight px values in the same six deleted rules - the
+    // tree's own width and paddings, its 2px selection bar and its 24px child
+    // indent, counted per VALUE so a `padding: 8px 10px 2px` is three. The 1px
+    // borders among them the scanner skips.
+    //
+    // Same cause as the four colours above: Preferences stopped drawing a page
+    // tree of its own. What the shared `.ze-tree-item` states is now the only
+    // statement of it. `ui` 738 -> 730 agrees with the tree-wide 1523 - 8.
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1515);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {

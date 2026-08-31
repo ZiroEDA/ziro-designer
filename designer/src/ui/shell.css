@@ -8360,34 +8360,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   display: flex;
   min-height: 0;
 }
-.ze-prefs-tree {
-  width: 200px;
-  flex: 0 0 auto;
-  overflow-y: auto;
-  padding: 6px 0;
-  border-right: 1px solid var(--chrome-border);
-}
-.ze-prefs-parent {
-  padding: 8px 10px 2px;
-  color: #9aa0a6;
-  text-transform: none;
-  font-weight: 600;
-}
-.ze-prefs-page {
-  padding: 5px 10px;
-  cursor: default;
-  border-left: 2px solid transparent;
-}
-.ze-prefs-page.indent {
-  padding-left: 24px;
-}
-.ze-prefs-page:hover {
-  background: rgba(255, 255, 255, 0.06);
-}
-.ze-prefs-page.active {
-  background: rgba(64, 128, 255, 0.18);
-  border-left-color: #4d90fe;
-}
 .ze-prefs-panel {
   flex: 1;
   overflow-y: auto;
@@ -10777,7 +10749,9 @@ textarea.ze-ds-textedit {
 }
 /* A group's children sit one level in, under the wxTR_HIDE_ROOT root. */
 .ze-tbcust-row.child {
-  padding-left: 24px; /* [data] `.ze-prefs-page.indent`, this dialog's own tree indent */
+  /* [data] the child indent a treebook row carries under its parent, which
+     PagedDialogTree states as CHILD_INDENT. */
+  padding-left: 24px;
 }
 .ze-tbcust-row img,
 .ze-tbcust-noicon {

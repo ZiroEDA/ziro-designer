@@ -22,6 +22,7 @@
 import { useEffect, useRef, useState, type JSX } from 'react';
 import { useModalEscape } from './useModalEscape.js';
 import { usePagedDialogSize } from './paged_dialog_size.js';
+import { PagedDialogTree } from './PagedDialogTree.js';
 
 export interface PagedDialogPage {
   /** Stable page id (also the selection key). */
@@ -168,39 +169,14 @@ export function PagedDialog({
         {infoBar && <div className="ze-paged-infobar">{infoBar}</div>}
 
         <div className="ze-modal-body">
-          <div className="ze-paged-tree" ref={treeRef} tabIndex={0}>
-            {sections.map((section) => {
-              const open = !collapsed.has(section.label);
-              return (
-                <div key={section.label}>
-                  <div
-                    className="ze-tree-item root"
-                    onClick={() => toggleSection(section.label)}
-                    title={section.label}
-                  >
-                    <span className={`twisty expandable${open ? ' open' : ''}`} />
-                    {section.label}
-                  </div>
-                  {open &&
-                    section.pages.map((p) => (
-                      <div
-                        key={p.id}
-                        className={`ze-tree-item${p.id === page ? ' active' : ''}`}
-                        style={{
-                          paddingLeft: 26,
-                          opacity: p.disabled ? 0.45 : 1,
-                          cursor: 'default',
-                        }}
-                        onClick={() => !p.disabled && setPage(p.id)}
-                        title={p.disabled ? 'Not implemented yet' : p.label}
-                      >
-                        {p.label}
-                      </div>
-                    ))}
-                </div>
-              );
-            })}
-          </div>
+          <PagedDialogTree
+            sections={sections}
+            page={page}
+            collapsed={collapsed}
+            onToggleSection={toggleSection}
+            onSelect={setPage}
+            treeRef={treeRef}
+          />
 
           <div className="ze-paged-panel">
             {active && !active.disabled ? (
