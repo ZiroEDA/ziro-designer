@@ -22,7 +22,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { isScrollModSetValid } from '../../../designer/src/dialogs/prefs/panels/PanelMouseSettings.js';
+import { isScrollModSetValid } from '@ziroeda/designer/src/dialogs/prefs/panels/PanelMouseSettings.js';
 
 const PANEL = readFileSync(
   resolve(process.cwd(), '../designer/src/dialogs/prefs/panels/PanelMouseSettings.tsx'),

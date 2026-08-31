@@ -31,10 +31,21 @@ const CSS = readFileSync(
 /** Comments stripped: prose about a value must not read as the value. */
 const CODE = CSS.replace(/\/\*[\s\S]*?\*\//g, '');
 
+/**
+ * A rule body by exact selector, which may be one of several on the rule.
+ *
+ * `.ze-tbtn.active` shares its declaration with `.ze-lp-iconbtn.checked` — the
+ * launcher's icon buttons are BITMAP_BUTTONs too, so upstream paints them from
+ * the same `ChangeLightness` and one rule is the right shape here. Matching
+ * `"\n" + selector + " {"` found only a rule that stands alone, so sharing it
+ * read as deleting it.
+ */
 const rule = (selector: string): string => {
-  const at = CODE.indexOf(`\n${selector} {`);
-  expect(at, `shell.css has no ${selector} rule`).toBeGreaterThanOrEqual(0);
-  return CODE.slice(at, CODE.indexOf('}', at));
+  for (const m of CODE.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    const sel = (m[1] ?? '').trim().replace(/\s+/g, ' ');
+    if (sel.split(',').some((s) => s.trim() === selector)) return m[2] ?? '';
+  }
+  expect.fail(`shell.css has no ${selector} rule`);
 };
 
 describe('a checked tool is ChangeLightness(40), not the raw accent', () => {
