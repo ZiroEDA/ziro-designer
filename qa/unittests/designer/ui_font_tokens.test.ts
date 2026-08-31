@@ -259,7 +259,16 @@ const BASELINE: Record<string, number> = {
   // 49 here; that pass took the literal and left this row at 50. Lowered here
   // because the row has to match the tree and the total below has to match it
   // too.
-  'editors/schematic': 49,
+  // 49 -> 46: the per-editor copy of DIALOG_PASTE_SPECIAL, a `common/dialogs/`
+  // dialog upstream, went to `dialogs/` and took its three inline `fontSize`
+  // literals with it — 11.5 on the group's legend and 12.5 on each of the two
+  // label rows. The shared dialog states no font size at all; the modal body
+  // and `.ze-props-group` already carry the dialog's own font.
+  //
+  // Derived twice: the scan reports "editors/schematic: 46 now, baseline still
+  // says 49", and `git show HEAD:` of the deleted file lists exactly three
+  // `fontSize` occurrences.
+  'editors/schematic': 46,
   // 2 until the Symbol Editor parity pass deleted the invented
   // "Double-click a symbol..." hint that an empty SYMBOL_EDIT_FRAME does not
   // have; it carried an inline `fontSize: 14` and a `color: '#888'`.
@@ -332,7 +341,7 @@ const BASELINE: Record<string, number> = {
   // sets, not from the window's SetFont. Measured against the real dialog it
   // renders at the GUI font — so it inherits, and the count is unaffected
   // either way because a var() is not a hardcoded size.
-  ui: 90,
+  ui: 89,
   widgets: 6,
 };
 
@@ -562,7 +571,18 @@ describe('hardcoded font sizes do not grow', () => {
     // upstream calls SetFont; a PAGED_DIALOG's pages take the GUI font like
     // every other dialog. `ui` is the only row that moves, 100 -> 90, and
     // 304 - 10 agrees with it.
-    expect(sites.length).toBe(294);
+    // 294 -> 291: the three that left `editors/schematic` with the per-editor
+    // copy of DIALOG_PASTE_SPECIAL. One area moved, so the tree-wide delta and
+    // the per-area delta are the same three.
+    // 291 -> 290: `.ze-tree-item`'s `font-size: 13px`. A wxTreeCtrl row takes
+    // the CONTROL font - `m_treebook->SetFont( KIUI::GetControlFont( this ) )`
+    // (paged_dialog.cpp:72), 11 pt / 14.67 px - so our whole page tree read
+    // smaller than KiCad's, which was the bug. `ui` 90 -> 89 is the second
+    // derivation, and it agrees exactly: the two `font-weight: 700` rules that
+    // went at the same time are not sites here, and `.ze-projecttree
+    // .ze-tree-item`'s `var(--ui-font-size)` was a token, never a literal - it
+    // only existed to escape the 13px, and went with it.
+    expect(sites.length).toBe(290);
   });
 });
 

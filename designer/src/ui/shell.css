@@ -1937,6 +1937,18 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   min-height: 0;
 }
 
+/* A row in a wxTreeCtrl takes the CONTROL font and nothing else.
+   `m_treebook->SetFont( KIUI::GetControlFont( this ) )`
+   (common/widgets/paged_dialog.cpp:72) is `getGUIFont( win, 0 )` - 11 pt /
+   14.67 px, the same font as everything else in the dialog - and that file has
+   no `SetItemBold`, no per-item font and no per-item colour. Parent rows, child
+   rows and the selected row are all one font at one weight.
+
+   This stated `font-size: 13px`, which is why our whole tree read smaller than
+   KiCad's, and `.root` / `.active` below each added a `font-weight: 700` that
+   upstream does not have. Measured on Akshay's capture, the selected row is
+   17.2% ink against 19.7-20.8% for the unselected ones - bold cannot cover
+   LESS, so the selection is not emboldened. */
 .ze-tree-item {
   display: flex;
   align-items: center;
@@ -1944,7 +1956,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   padding: 3px 5px;
   border-radius: 3px;
   cursor: default;
-  font-size: 13px;
   color: var(--view-fg);
   white-space: nowrap;
 }
@@ -1959,12 +1970,9 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-tree-item.active {
   background: var(--chrome-active);
   color: #fff;
-  /* KiCad's native wxTreeCtrl bolds whichever row is selected. */
-  font-weight: 700;
 }
 .ze-tree-item.root {
-  font-weight: 700;
-  color: #fff;
+  font-weight: inherit;
 }
 /* KiCad's native GTK/Adwaita disclosure arrow: a thin chevron outline (not a
    filled triangle) that rotates from pointing right (collapsed) to down. */
@@ -3079,7 +3087,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   padding: 0 0 0 9px;
 }
 .ze-projecttree .ze-tree-item {
-  font-size: var(--ui-font-size);
   /* A 24px row holding a 22px icon: the icon centres with a pixel either side,
      and the highlight - which is the full row height in the real tree - can
      stretch to all 24 rather than to the 22 a padded row would leave it. */
@@ -3108,12 +3115,12 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 }
 .ze-projecttree .ze-tree-item.active .ze-tree-name {
   background: var(--chrome-active);
-  /* Not bold. The shared .ze-tree-item.active rule claims "KiCad's native
-     wxTreeCtrl bolds whichever row is selected"; measured against a real
-     selected row that is simply untrue - "…kicad_sym" selected is 246px and
-     "…kicad_sch" unselected is 242px, and the 4px is 'm' against 'h'. Bold
-     would have cost about ten. (Trees elsewhere really do bold a row, but via
-     SetItemBold on the *active* item, which is a different thing to
+  /* Not bold, and nothing here has to say so any more: `.ze-tree-item.active`
+     used to carry a `font-weight: 700` this rule existed to escape. The
+     measurement that disproved it stands - "…kicad_sym" selected is 246px
+     against "…kicad_sch" unselected at 242px, and that 4px is 'm' against 'h';
+     bold would have cost about ten. (Trees elsewhere really do bold a row, but
+     via SetItemBold on the *active* item, which is a different thing to
      selection.) */
   font-weight: 400;
   /* 2px of highlight.ChangeLightness( 120 ) - each channel to 80% toward

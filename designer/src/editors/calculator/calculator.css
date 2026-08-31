@@ -50,8 +50,9 @@
 
 /* A tree row. Both levels are the same height and the same weight — [px] the
    selected row's "Regulators" ink measures 69 px and the unselected 68 px, so
-   the selection is NOT bolded here (unlike the project tree, whose shared
-   `.ze-tree-item.active` rule does bold), and "General system design" measures
+   the selection is NOT bolded here - as it is not anywhere; the shared
+   `.ze-tree-item.active` rule used to bold it and no longer does - and
+   "General system design" measures
    147 px, exactly Ubuntu Sans 11 regular. */
 .calc-tree-group,
 .calc-tree-item {

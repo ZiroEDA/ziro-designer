@@ -395,7 +395,7 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // `DoGetBestSize`, so the button is 16 + 5*2 square and the separator
   // 0 + 5*2 wide, both [data] against that formula, and the separator's own
   // margin and the Link box's `min-width: 0` went away.
-  ui: { colours: 232, metrics: 730 },
+  ui: { colours: 231, metrics: 730 },
   // colours 6 -> 7: the opacity slider's #55585d track arrived here with
   // APPEARANCE_CONTROLS; it is the same literal `editors/pcb` lost, not a new
   // one. The panel's own stylesheet adds none: every length in
@@ -731,7 +731,17 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // tree of its own to colour differently. Derived twice: the scan reports
     // `ui` 236 -> 232, and the diff of the six deleted rules carries exactly
     // these four colour values and no others.
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(610);
+    // 610 -> 609: `.ze-tree-item.root`'s #fff. A parent row in a wxTreeCtrl is
+    // a row - `paged_dialog.cpp:72` sets the treebook's font once and nothing
+    // in that file sets a per-item font, weight or colour - so ours had no
+    // business drawing parents brighter than their children. Derived twice:
+    // the per-area scan reports `ui` 232 -> 231, and the diff of that rule
+    // carries exactly one colour, `#fff`. (Its `font-weight: 700` went at the
+    // same time, along with `.ze-tree-item.active`'s and the `font-size: 13px`
+    // that made the whole tree read smaller than KiCad's; those are font sites,
+    // counted by ui_font_tokens, and they move that census by one - the size
+    // only, since weight is not a site there.)
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(609);
     // 1657 -> 1649: the same sweep. A native colour input has no useful
     // default size, so eight of the sixteen sites gave theirs an inline
     // width and height; the shared swatch takes --swatch-*-w/h. Rescanned.
