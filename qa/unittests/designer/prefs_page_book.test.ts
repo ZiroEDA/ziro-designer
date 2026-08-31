@@ -25,8 +25,11 @@ import {
   EXTRA_PAGES,
   FIRST_PAGE,
   OMITTED_PAGES,
+  OMITTED_TOP_LEVEL,
   PAGES,
   UPSTREAM_BOOK,
+  UPSTREAM_TOP_LEVEL,
+  shippedTopLevel,
   labelOf,
   ownerOf,
   shippedUnder,
@@ -241,5 +244,46 @@ describe('each editor heading against KiCad’s own list', () => {
     for (const [heading, rows] of Object.entries(EXTRA_PAGES))
       for (const row of rows)
         expect(UPSTREAM_BOOK[heading], `${heading} > ${row.label}`).not.toContain(row.label);
+  });
+});
+
+/**
+ * The same idea one level up, and the level that actually shows: at most one
+ * section is expanded when Preferences opens, so the top-level rows ARE the
+ * tree the user is looking at. Fifteen upstream, six here.
+ *
+ * `UPSTREAM_BOOK` is keyed by heading and so cannot describe a heading that is
+ * absent altogether — an entry that is not there has nothing to be missing
+ * from. Four of KiCad's headings were in exactly that blind spot, for editors
+ * we ship: Symbol Editor, Footprint Editor, 3D Viewer, Gerber Viewer. The
+ * registry's own doc named them and no test could see them.
+ */
+describe('the top-level tree', () => {
+  it("is upstream's list, once the declared omissions are put back", () => {
+    const restored = [...shippedTopLevel(), ...OMITTED_TOP_LEVEL.map((r) => r.label)];
+    // Order is not asserted here because the omissions are declared in
+    // upstream order rather than interleaved into ours; the set is.
+    expect([...restored].sort()).toStrictEqual([...UPSTREAM_TOP_LEVEL].sort());
+  });
+
+  it("keeps the rows it does ship in upstream's relative order", () => {
+    const shipped = shippedTopLevel();
+    const upstreamOrder = UPSTREAM_TOP_LEVEL.filter((l) => shipped.includes(l));
+    expect(shipped).toStrictEqual(upstreamOrder);
+  });
+
+  it('omits nothing upstream does not have, and nothing twice', () => {
+    const labels = OMITTED_TOP_LEVEL.map((r) => r.label);
+    expect(new Set(labels).size).toBe(labels.length);
+    for (const row of OMITTED_TOP_LEVEL) {
+      expect(UPSTREAM_TOP_LEVEL, row.label).toContain(row.label);
+      // A row we actually draw must not also be declared absent.
+      expect(shippedTopLevel(), row.label).not.toContain(row.label);
+      expect(row.reason.length, row.label).toBeGreaterThan(20);
+    }
+  });
+
+  it('has not quietly gained a row KiCad does not show', () => {
+    for (const label of shippedTopLevel()) expect(UPSTREAM_TOP_LEVEL).toContain(label);
   });
 });

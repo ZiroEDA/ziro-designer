@@ -21,6 +21,7 @@ import {
   DEFAULT_RESET_TOOLTIP,
   type PrefsContext,
   type PrefsPageId,
+  type PrefsPageOwner,
   type PrefsPanelModule,
 } from './prefs/types.js';
 import type { HotkeyOverrides } from '../editors/schematic/hotkey_bindings.js';
@@ -44,9 +45,25 @@ import { useModalEscape } from '../ui/useModalEscape.js';
  * asking that page for its own reset — the shell never learns which settings a
  * page owns, and a page with no reset greys the button out.
  */
+
+/**
+ * `GetFrameType()` -> the heading that frame's KIFACE adds, which is the one
+ * `expand` names. Upstream the two are tied by the guard sitting immediately
+ * above the `AddPage` for that heading, so this table is that adjacency written
+ * out; a heading with no frame of its own (the generic pages) is not in it.
+ *
+ * [data] the labels are `ShowPreferences`' own `_( "..." )` strings.
+ */
+const EXPANDED_SECTIONS: Readonly<Record<string, string | undefined>> = {
+  schematic: 'Schematic Editor',
+  pcb: 'PCB Editor',
+  drawingsheet: 'Drawing Sheet Editor',
+};
+
 export function PreferencesDialog({
   onClose,
   initialPage,
+  frameOwner,
 }: {
   onClose: () => void;
   /**
@@ -64,6 +81,16 @@ export function PreferencesDialog({
    * "Grids".
    */
   initialPage?: PrefsPageId;
+  /**
+   * `GetFrameType()` — the window Preferences was opened FROM. Its section is
+   * the one the tree opens expanded; see the `collapsed` state below.
+   *
+   * Optional because it is optional upstream in effect: a frame whose type
+   * matches none of the seven guards (the project manager) pushes nothing onto
+   * `expand`, and the tree opens fully collapsed. Omitting it here is that
+   * case, not a missing argument.
+   */
+  frameOwner?: PrefsPageOwner;
 }): JSX.Element {
   // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
   // ui/modal_escape.ts.
@@ -72,8 +99,52 @@ export function PreferencesDialog({
   const [page, setPage] = useState<PrefsPageId>(initialPage ?? FIRST_PAGE);
   // The one place a PAGED_DIALOG's size is decided, shared rather than restated.
   const size = usePagedDialogSize(page);
-  // All expanded by default, as `ExpandNode` on every node leaves it.
-  const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
+  /**
+   * Which sections start open. Exactly ONE can, and often none does.
+   *
+   * `ShowPreferences` collects an `expand` vector and every push into it is
+   * guarded by the same shape (`common/eda_base_frame.cpp`):
+   *
+   *     if( GetFrameType() == FRAME_SCH )
+   *         expand.push_back( (int) book->GetPageCount() );
+   *     book->AddPage( new wxPanel( book ), _( "Schematic Editor" ) );
+   *     ...
+   *     for( int page : expand )
+   *         book->ExpandNode( page );
+   *
+   * Seven such guards, on mutually exclusive frame types, so `expand` holds one
+   * entry or zero — the section belonging to the window you opened Preferences
+   * from. Everything else is collapsed, and opening it from the project manager
+   * (whose frame type matches no guard) leaves the whole tree shut.
+   *
+   * This said "All expanded by default, as `ExpandNode` on every node leaves
+   * it", which read the loop as running over every node rather than over the
+   * one-or-zero `expand` holds. The visible result was our tree showing its
+   * sub-pages when KiCad's shows fifteen closed rows.
+   */
+  const [collapsed, setCollapsed] = useState<Set<string>>(() => {
+    const open = new Set<string>();
+    const forFrame = EXPANDED_SECTIONS[frameOwner ?? ''];
+    if (forFrame !== undefined) open.add(forFrame);
+    // ...and whichever section holds the start page, because selecting a
+    // sub-page has to reveal it: `SetInitialPage` only records the page, and
+    // `PAGED_DIALOG`'s ctor then runs `m_treebook->SetSelection( lastPageIndex )`
+    // (paged_dialog.cpp:251) over a hierarchy search for it. A wxTreebook
+    // selection ensures the item is visible, so its ancestors open. Without
+    // this, "Edit Grids..." would select a row inside a shut node and show a
+    // tree with nothing highlighted in it.
+    if (initialPage !== undefined) {
+      const at = PAGES.findIndex((p) => p.id === initialPage);
+      for (let i = at; i >= 0; i--) {
+        const row = PAGES[i];
+        if (row?.id === null) {
+          open.add(row.label);
+          break;
+        }
+      }
+    }
+    return new Set(PAGES.filter((p) => p.id === null && !open.has(p.label)).map((p) => p.label));
+  });
   const toggleSection = (label: string): void =>
     setCollapsed((prev) => {
       const next = new Set(prev);
