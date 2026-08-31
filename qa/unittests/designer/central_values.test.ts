@@ -177,7 +177,7 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // ordinary wxMenu upstream and is now the shared ContextMenu — it carried
   // #26262b, #444, rgba(0,0,0,0.5), a borderRadius, a minWidth, a boxShadow
   // and two paddings of its own.
-  'editors/pcb': { colours: 63, metrics: 381 },
+  'editors/pcb': { colours: 63, metrics: 380 },
   // 68/215 -> 60/210: the COLOR_SWATCH sweep. Eight `<input type="color">`s
   // across the item dialogs, the net-chain table and the colour-settings
   // panel each carried a '#000000' or '#ffffff' fallback the native control
@@ -206,7 +206,24 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // `gap: 6` inline. The dialog is `.ze-label-dialog-body` now, which is the
   // rule every other schematic dialog's body already takes, so the number is
   // stated once rather than restated here.
-  'editors/schematic': { colours: 60, metrics: 206 },
+  // 204 -> 195: DIALOG_PASTE_SPECIAL is a `common/dialogs/` dialog upstream,
+  // built by BOTH SCH_EDITOR_CONTROL::Paste and PCB_CONTROL::Paste, and this
+  // area held a per-editor copy of it. Promoting it to `dialogs/` took its nine
+  // inline-style metrics with it — a border, two paddings, two margins, a
+  // radius, two font sizes and an opacity, none of which the shared dialog
+  // restates: it takes `.ze-props-group` and `.ze-modal-body` instead.
+  //
+  // Derived twice. The scan's own report said "editors/schematic: 195 chrome px
+  // literals now, baseline still says 204", and restoring the deleted file
+  // alone put this test back to green at 204 — so all nine came from it and
+  // nothing else in the pass moved the count.
+  // 60 -> 58: eeschema's Editing Options passed a `fallback` colour to the
+  // Sheet border and Sheet background swatches, so an UNSET value drew solid
+  // red and cream. Both PARAMs default to `COLOR4D::UNSPECIFIED`
+  // (`eeschema_settings.cpp:396-400`), and `COLOR_SWATCH::MakeBitmap` paints
+  // the colour over a checkerboard at its own alpha — so unset is the bare
+  // checkerboard, which is what a fresh KiCad shows. RESCANNED.
+  'editors/schematic': { colours: 58, metrics: 195 },
   // colours 12 -> 7: the Symbol Editor parity pass. Four were
   // SYMBOL_EDITOR_COLORS, a private copy of LAYER_SCHEMATIC_ANCHOR /
   // LAYER_HIDDEN / LAYER_PRIVATE_NOTES / LAYER_FIELDS that matched the Default
@@ -370,7 +387,45 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // table now and carry [data] on their own lines, so none of the eight
   // counts; the sixth is `.show-label`'s #9a9ca0, which dimmed a plain
   // wxStaticText and is --chrome-fg.
-  ui: { colours: 245, metrics: 755 },
+  // 755 -> 749. The text/label/field dialogs took their sizes from
+  // qa/probes/field_props_width_probe.cpp instead of holding them: the button
+  // was 24 square where a BITMAP_BUTTON measures 36 x 34, the separator 1px
+  // with a 4px margin either side where wxLI_VERTICAL measures 2 and the sizer
+  // gives it no border, and the entry 70 wide where a wxTextCtrl measures
+  // 98 x 34. The survivors carry [px]; the separator margin, the icon bar's
+  // invented 2px gap and the dialog's 440px width went away entirely.
+  // Then Text Properties' own two: the Text box's 96px guess became the
+  // `SetMinSize( wxSize( 500, 140 ) )` the base file states, and its uniform
+  // 5px grid gap became `wxGridBagSizer( 2, 3 )`. Both carry [data].
+  // Then the formatting row again, properly: BITMAP_BUTTON sizes itself in
+  // `DoGetBestSize`, so the button is 16 + 5*2 square and the separator
+  // 0 + 5*2 wide, both [data] against that formula, and the separator's own
+  // margin and the Link box's `min-width: 0` went away.
+  // 231 -> 220 colours and 729 -> 721 metrics: Preferences > Hotkeys stopped
+  // stating its own type. `wxTreeListCtrl` calls SetFont nowhere, so the list
+  // draws in the GUI font — this said `font-size: 10pt` on a row, 9 pt on the
+  // import note and 10 pt on the empty line, which is why the whole table read
+  // a size smaller than KiCad's (those three are font sites, counted by
+  // ui_font_tokens). The colours that went with them are the theme's own:
+  // `.view { color: white }` for a row, `treeview.view header button
+  // { color: #8f8f8f; font-weight: bold }` for the header — a new
+  // `--tree-header-fg` token — `treeview.view:selected { color: #FFFFFF }` for
+  // a selected one, and `treeview.view:disabled { color: #929292 }` for a key
+  // the browser holds. The #9a9a9a on the whole Description column, the
+  // #ffe6d9 on a selected one, the #7a7a7a strike and the two #9a9a9a
+  // footnotes are gone; only `#f4aa90` arrives, and it is the stylesheet's
+  // disabled-and-selected ink. RESCANNED from this tree.
+  // 721 -> 720: the Grids page's numbers took their citations — the list's
+  // `wxEXPAND|wxBOTTOM|wxLEFT, 3`, the overrides sizer's own 6/4 gaps, the
+  // heading's border of 5 — while the orphan `.ze-pref-row input[type="range"]`
+  // and the grid buttons' picked metrics went with the rebuild. RESCANNED.
+  // 220 -> 218 colours: eeschema's Editing Options stopped dimming two runs of
+  // text that upstream leaves alone — `m_hint1`'s note, which takes
+  // `KIUI::GetSmallInfoFont( this ).Italic()` and no foreground at all
+  // (`panel_eeschema_editing_options.cpp:79`), and the first column of the
+  // Left Click Mouse Commands table, which is plain wxStaticTexts. Both said
+  // #9aa0a6. RESCANNED.
+  ui: { colours: 218, metrics: 720 },
   // colours 6 -> 7: the opacity slider's #55585d track arrived here with
   // APPEARANCE_CONTROLS; it is the same literal `editors/pcb` lost, not a new
   // one. The panel's own stylesheet adds none: every length in
@@ -398,7 +453,7 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // The swatch the pcbnew adoption added states no unmarked length either:
   // --pgrid-swatch-width is a token declaration, and the one `margin: 1px 0`
   // is a 1px the scanner does not count.
-  widgets: { colours: 7, metrics: 46 },
+  widgets: { colours: 7, metrics: 44 },
 };
 
 /** Properties whose value the GTK theme decides, so a px in one is drift. */
@@ -665,7 +720,67 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // fallback to a colour that appears nowhere in KiCad — for the report
     // panel's own `#F04040` (wx_html_report_panel.cpp:181), which is [data]
     // and lives in shell.css. One row moves and 624 - 1 agrees with it.
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(623);
+    // 623 -> 622: `ui` 245 -> 244. The ERC marker tree drew its own expander —
+    // a raw "⌄" glyph in a `.tri` span with its own colour — where `.twisty`,
+    // the shared disclosure chevron, already exists precisely so "every
+    // tree-ish expander in the app is the same mark". The local rule and its
+    // colour are gone.
+    // 622 -> 615: `ui` 244 -> 237, the group-label family and two more in
+    // WX_HTML_REPORT_PANEL. A wxStaticBox label takes the DIALOG's foreground -
+    // KiCad states no colour on any of them - and measured off a capture of
+    // Update PCB from Schematic, its "Changes to Be Applied" and "Update
+    // Fields" labels both ink 241-247, which is --chrome-fg. Ours dimmed them
+    // five different ways:
+    //
+    //   .ze-report-panel > legend      #8a8c90   <- "Changes to Be Applied"
+    //   .ze-annotate-body legend       #8a8c90
+    //   .ze-lp-{fields,shape,formatting} legend  #8a8c90
+    //   .ze-props-group legend         #c7c9cc
+    //   .ze-update-pcb-body legend     #8a8c90
+    //
+    // plus `.ze-report-show`'s #8a8c90 - "Show:" is a wxStaticText on the
+    // dialog - and `.ze-report-line.info`'s #909090, which the shipped build
+    // does not apply (the colour in `<font color=#909090>` is unquoted, so an
+    // INFO line takes the view's own foreground; measured 255 against our 144).
+    //
+    // Seven, and 244 - 7 = 237 agrees with the total moving 622 - 7 = 615. Two
+    // derivations, one from the per-area row and one from the tree-wide scan.
+    // 615 -> 614: `.ze-pref-group-title`'s #c7c9cc, alongside the 12.5px and
+    // the `font-weight: 600` that went with it. Upstream sets no font and no
+    // colour on any of the seven headings on that page.
+    // 614 -> 610: the four colours in the Preferences dialog's OWN page tree,
+    // deleted with it. `.ze-prefs-parent`'s #9aa0a6, `.ze-prefs-page:hover`'s
+    // rgba(255,255,255,.06), and `.ze-prefs-page.active`'s
+    // rgba(64,128,255,.18) plus #4d90fe - a blue that appears nowhere in the
+    // GTK theme and nowhere else in this app.
+    //
+    // They went because the tree did: Preferences now draws the SAME
+    // `PagedDialogTree` as Board Setup and Schematic Setup, which takes its
+    // selection and hover from the shared `.ze-tree-item` rules. Upstream all
+    // three are PAGED_DIALOGs over one wxTreebook, so none of them can have a
+    // tree of its own to colour differently. Derived twice: the scan reports
+    // `ui` 236 -> 232, and the diff of the six deleted rules carries exactly
+    // these four colour values and no others.
+    // 610 -> 609: `.ze-tree-item.root`'s #fff. A parent row in a wxTreeCtrl is
+    // a row - `paged_dialog.cpp:72` sets the treebook's font once and nothing
+    // in that file sets a per-item font, weight or colour - so ours had no
+    // business drawing parents brighter than their children. Derived twice:
+    // the per-area scan reports `ui` 232 -> 231, and the diff of that rule
+    // carries exactly one colour, `#fff`. (Its `font-weight: 700` went at the
+    // same time, along with `.ze-tree-item.active`'s and the `font-size: 13px`
+    // that made the whole tree read smaller than KiCad's; those are font sites,
+    // counted by ui_font_tokens, and they move that census by one - the size
+    // only, since weight is not a site there.)
+    // 609 -> 598: the Hotkeys list took the theme's colours; see the `ui` row.
+    // RESCANNED from this tree, and the per-area table agrees — `ui` 231 -> 220
+    // is the only row that moves, and 609 - 11 agrees with it.
+    // 598 -> 594: eeschema's Editing Options; see the `ui` and
+    // `editors/schematic` rows. Four literals go — the hint's #9aa0a6, the
+    // mouse table's #9aa0a6, and the two `fallback` colours that painted an
+    // UNSET swatch red and cream — and the one that arrives, the
+    // `rgba(0, 0, 0, 0)` that IS `COLOR4D::UNSPECIFIED`, carries its citation
+    // on its own line and so is not counted. RESCANNED from this tree.
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(594);
     // 1657 -> 1649: the same sweep. A native colour input has no useful
     // default size, so eight of the sixteen sites gave theirs an inline
     // width and height; the shared swatch takes --swatch-*-w/h. Rescanned.
@@ -712,7 +827,87 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // DIALOG_CHANGE_SYMBOLS replaced four inline `style={{ ... }}` metrics with
     // rules in shell.css whose numbers are the sizer borders `_base.cpp`
     // states. One row moves and 1558 - 4 agrees with it.
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1554);
+    // 1554 -> 1548: `ui` 755 -> 749, the dialogs' button, separator, entry,
+    // width, text-box and link literals replaced by the wx measurements or the
+    // base file's own numbers, or removed. See that row for the arithmetic.
+    // 1548 -> 1539: `ui` 749 -> 742 and `widgets` 46 -> 44, the whole-app sweep
+    // of picked dialog sizes. Twenty-five call sites stated a width or a height
+    // on a `.ze-modal` that no base file names, and several restated the
+    // `max-width`/`max-height` caps `.ze-modal` already carries. The two rows
+    // move by 7 and 2, and 1548 - 9 agrees with them.
+    // 1539 -> 1538: `ui` 742 -> 741. The ERC panel's picked 700 x 520 and the
+    // 480 x 320 floor beneath it are gone — `dialog_erc_base.cpp:18` is
+    // `SetSizeHints( wxDefaultSize, wxDefaultSize )` — and the one minimum its
+    // content really states, the marker tree's `SetMinSize( wxSize( 640, 260 ) )`,
+    // now carries BOTH halves where we had only the height. Four literals out,
+    // one in.
+    // 1538 -> 1537: `editors/schematic` 206 -> 205. DIALOG_SHAPE_PROPERTIES'
+    // inline `style={{ width: 90 }}` on the border-width entry and its
+    // `gap: 6` column are gone; the dialog is the two-column grid its base file
+    // states, and the numbers in it are that file's borders.
+    // 1537 -> 1536, and the accounting is three moves that net to one:
+    //
+    //   -1  `.ze-prefs-dialog`'s `height: min(640px, 90vh)`. Preferences IS a
+    //       PAGED_DIALOG, whose size is the RANGE `.ze-modal.ze-paged-dialog`
+    //       already states from paged_dialog.cpp:427-443 - fitted to content,
+    //       floored 600x500, capped 1500x900. The pick was under what the
+    //       two-column Common page needs, so the dialog came out short.
+    //   -1  `.ze-pref-columns`' `gap: 24px`, replaced by the number upstream
+    //       actually states.
+    //   +1  that number: `margin-right: 35px`, the left column's own
+    //       `wxRIGHT, 35` (panel_common_settings_base.cpp:325).
+    //
+    // (`width` and `min-width` are not CHROME_PROPS, so the width half of the
+    // same two rules does not appear in this count.) `ui` 741 -> 740 agrees.
+    // 1536 -> 1533: three dead heights, one per area, all of them the
+    // `initialSize` mechanism that never reached the DOM.
+    //
+    //   ui                 PagedDialog's `initialSize ?? { width: 920, height: 460 }`
+    //   editors/schematic  Schematic Setup passing { 920, 600 } into it
+    //   editors/pcb        Board Setup passing { 1150, 620 }
+    //
+    // `size` was computed at PagedDialog.tsx:141 and never read, so all three
+    // were picked numbers that did nothing. The real rule is
+    // `usePagedDialogSize`: `newSize.IncTo( minSize )` (paged_dialog.cpp:
+    // 446-450), which grows the dialog to fit a page and never shrinks it
+    // back. Each area's row moves by one and 1536 - 3 agrees.
+    //
+    // 1533 -> 1524: the nine that left `editors/schematic` with the per-editor
+    // copy of DIALOG_PASTE_SPECIAL — see that row's note above for both
+    // derivations. Only one area moved, so the tree-wide delta and the
+    // per-area delta are the same nine.
+    // 1524 -> 1523: PagedDialog's inline `paddingLeft: 26` on a tree row.
+    // The tree moved into the shared `PagedDialogTree`, where the same 26 is a
+    // named constant with the reason beside it rather than a bare number in a
+    // style object - so the scanner stops counting it, correctly. `ui` is the
+    // only row that moves, 739 -> 738.
+    // 1523 -> 1515: the eight px values in the same six deleted rules - the
+    // tree's own width and paddings, its 2px selection bar and its 24px child
+    // indent, counted per VALUE so a `padding: 8px 10px 2px` is three. The 1px
+    // borders among them the scanner skips.
+    //
+    // Same cause as the four colours above: Preferences stopped drawing a page
+    // tree of its own. What the shared `.ze-tree-item` states is now the only
+    // statement of it. `ui` 738 -> 730 agrees with the tree-wide 1523 - 8.
+    // 1515 -> 1514: `.ze-pref-group-body`'s `gap: 5px`. A wxSizer does not have
+    // a gap — the space between two stacked children is the BOTTOM border of
+    // the upper plus the TOP border of the lower, and each `Add()` states its
+    // own, which is why a KiCad group is unevenly spaced on purpose. Ours was
+    // one uniform number, so "Icon theme:" sat 5 px below the checkbox run
+    // where KiCad puts it 10, and "Toolbar icon size:" sat 5 below that where
+    // KiCad puts it flush. The three values that replace it are the borders
+    // themselves and carry [data]. `ui` 730 -> 729 is the second derivation,
+    // and the diff of the file agrees: one unmarked literal out, none in.
+    // 1514 -> 1506: the Mouse and Touchpad, SpaceMouse and Hotkeys pages took
+    // their sizer borders as MARKED numbers — every one of them is a `wxALL`,
+    // a vgap or a probe reading, and each now carries its citation on its own
+    // line — while the picked ones went: the hotkey row's 10 pt geometry, the
+    // orphaned `.ze-pref-row input[type="range"] { width: 140px }`, and the
+    // header's invented 5 px 8 px padding. RESCANNED from this tree, and the
+    // per-area table agrees — `ui` 729 -> 721 is the only row that moves, and
+    // 1514 - 8 agrees with it.
+    // 1506 -> 1505: see the `ui` row; that one row is the only one that moves.
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1505);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {

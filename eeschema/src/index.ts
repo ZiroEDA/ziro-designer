@@ -33,6 +33,7 @@ export * from './connectivity/index.js';
 export * from './erc/marker_nav.js';
 export * from './exporters/bom.js';
 export * from './exporters/netlist.js';
+export * from './pin_type.js';
 export * from './exporters/netlist_exporter_kicad.js';
 export * from './exporters/spice.js';
 

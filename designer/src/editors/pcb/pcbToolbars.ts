@@ -100,13 +100,16 @@ export const PCB_TOP_TOOLBAR: ToolEntry[] = [
  */
 export const PCB_AUX_TOOLBAR: ToolEntry[] = [
   { control: PCB_CONTROL.trackWidth },
+  // `.ToolbarState( TOOLBAR_STATE::TOGGLE )` (pcb_actions.cpp:1412) — a check
+  // button, whose state is `GetDesignSettings().m_UseConnectedTrackWidth`
+  // (pcb_edit_frame.cpp:1250). It was `disabled` here, so the one control on
+  // this bar that KiCad shows *checked* rendered greyed out.
   {
     id: 'autoTrackWidth',
     icon: 'autoTrackWidth',
     title:
       'Automatically select track width\nWhen routing from an existing track use its width instead of the current width setting',
     toggle: true,
-    ...todo,
   },
   sep,
   { control: PCB_CONTROL.viaDiameter },

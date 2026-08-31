@@ -25,6 +25,7 @@
  */
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type JSX } from 'react';
 import { popupTop } from './combo_popup.js';
+import { bitmapUrl } from './toolbarIcons.js';
 
 export interface ComboOption {
   /** Value handed back to `onChange`. */
@@ -47,6 +48,19 @@ export interface ComboOption {
    * is what blending it over the background would produce anyway.
    */
   swatch?: string;
+  /**
+   * A KiCad bitmap drawn before the label — the same second argument of
+   * `Append( name, KiBitmapBundle( ... ) )` that `swatch` models, for the
+   * combos whose entries carry an icon rather than a colour. A
+   * `wxBitmapComboBox` is exactly a wxChoice that draws one:
+   * `m_borderStyleCombo->Append( lineStyleDesc.name, KiBitmapBundle( lineStyleDesc.bitmap ) )`
+   * (dialog_shape_properties.cpp:61) over `lineTypeNames`
+   * (common/stroke_params.cpp:39-45).
+   *
+   * The value is a bitmap NAME, resolved through `bitmapUrl` like every other
+   * KiCad bitmap we ship, so a call site never spells a path.
+   */
+  bitmap?: string;
 }
 
 export function Combo({
@@ -180,6 +194,9 @@ export function Combo({
         {selected?.swatch !== undefined && (
           <span className="ze-combo-swatch" style={{ background: selected.swatch }} />
         )}
+        {selected?.bitmap !== undefined && (
+          <img className="ze-combo-bitmap" src={bitmapUrl(selected.bitmap)} alt="" />
+        )}
         <span className="ze-combo-value">
           <span className="ze-combo-shown">{selected?.label ?? ''}</span>
           {options.map((o) => (
@@ -215,6 +232,9 @@ export function Combo({
             >
               {o.swatch !== undefined && (
                 <span className="ze-combo-swatch" style={{ background: o.swatch }} />
+              )}
+              {o.bitmap !== undefined && (
+                <img className="ze-combo-bitmap" src={bitmapUrl(o.bitmap)} alt="" />
               )}
               {o.label}
             </div>

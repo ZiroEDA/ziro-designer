@@ -36,7 +36,7 @@ export function FootprintPropertiesDialog({
 
   return (
     <div className="ze-modal-backdrop" onMouseDown={onCancel}>
-      <div className="ze-modal" style={{ width: 460 }} onMouseDown={(e) => e.stopPropagation()}>
+      <div className="ze-modal" onMouseDown={(e) => e.stopPropagation()}>
         <div className="ze-modal-header">
           Footprint Properties
           <span className="x" title="Cancel" onClick={onCancel}>
@@ -181,7 +181,7 @@ export function PadPropertiesDialog({
 
   return (
     <div className="ze-modal-backdrop" onMouseDown={onCancel}>
-      <div className="ze-modal" style={{ width: 420 }} onMouseDown={(e) => e.stopPropagation()}>
+      <div className="ze-modal" onMouseDown={(e) => e.stopPropagation()}>
         <div className="ze-modal-header">
           Pad Properties
           <span className="x" title="Cancel" onClick={onCancel}>

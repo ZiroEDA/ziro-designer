@@ -624,7 +624,14 @@ export function ErcDialog({
                   setMenu({ x: e.clientX, y: e.clientY, index: i });
                 }}
               >
-                <span className="tri">⌄</span>
+                {/* The shared disclosure chevron, `.twisty` — "declared without
+                    an ancestor so every tree-ish expander in the app is the
+                    same mark". This drew a raw "⌄" character in a span of its
+                    own instead, which is why it read smaller and thinner than
+                    KiCad's: a glyph at a font size rather than GTK's expander,
+                    whose arms the shared rule measures at 11 x 6. A marker row
+                    always has children and is always expanded here. */}
+                <span className="twisty expandable open" />
                 <span className="msg">
                   {rowPrefix(v)}
                   {v.message}

@@ -76,6 +76,8 @@ import {
   emptyBBox,
   type BBox,
   isEmpty,
+  inflate,
+  contains,
   includePoint,
   instanceKey,
   getSheetPageNumber,
@@ -169,6 +171,10 @@ import {
   runErcSteps,
   ERC_ITEMS,
   ercExclusionKey,
+  type LibPin,
+  ercParentId,
+  electricalPinTypeGetText,
+  pinShapeGetText,
   canMerge,
   canUnmerge,
   resolveCell,
@@ -178,8 +184,8 @@ import {
   rowColCommand,
   tableCellsCommand,
   type RowColOp,
-  editorUnitFor,
-  libSymbolFromPlacement,
+  symbolEditorRequest,
+  type SymbolEditorTarget,
   saveSymbolToSchematic,
   buildNetNavigator,
   buildNetNavigatorHierarchy,
@@ -357,7 +363,11 @@ import {
   type PageExportFlags,
   type PageSettingsValue,
 } from '../../dialogs/page_settings_model.js';
-import { DialogPasteSpecial } from './dialogs/dialog_paste_special.js';
+// `DIALOG_PASTE_SPECIAL` is a `common/dialogs/` dialog upstream, built by
+// eeschema AND pcbnew, so it is one module here too rather than a copy under
+// this editor's own `dialogs/`. `SCH_EDITOR_CONTROL::Paste` supplies the two
+// things that differ: the mode it opens on, and no `aDefaultRef`.
+import { DialogPasteSpecial, type PasteSpecialMode } from '../../dialogs/dialog_paste_special.js';
 import { DialogSheetProperties, type SheetPropsResult } from './dialogs/dialog_sheet_properties.js';
 import { DialogShapeProperties, type ShapePropsResult } from './dialogs/dialog_shape_properties.js';
 import { DialogImageProperties, type ImagePropsResult } from './dialogs/dialog_image_properties.js';
@@ -451,6 +461,7 @@ import {
 import type { RenderOpts } from './render/renderer.js';
 import type { InputPrefs } from '../../ui/view_controls.js';
 import { SchPropertiesPanel } from './components/SchPropertiesPanel.js';
+import { FootprintChooserFrame } from '../pcb/dialogs/footprint_chooser_frame.js';
 import { SearchPanel } from './components/SearchPanel.js';
 import { NetNavigatorPanel } from './components/NetNavigatorPanel.js';
 import { DialogUpdateFromPcb } from './dialogs/dialog_update_from_pcb.js';
@@ -472,6 +483,7 @@ import {
   unitsMsg,
 } from '../../ui/status_format.js';
 import { formatTitle, useDocumentTitle } from '../../ui/useDocumentTitle.js';
+import { withSaveEnablement } from '../../ui/save_enablement.js';
 import { fileBaseName, pathHumanReadable, SCH_FRAME_NAME, schFrameTitle } from './frame_title.js';
 import {
   SCH_BOTTOM_DOCK,
@@ -1442,6 +1454,10 @@ export function SchematicEditor({
     () => new Map((doc?.libSymbols ?? []).map((l) => [l.libId, l])),
     [doc?.libSymbols],
   );
+  // The same map for the stable callbacks, which are built once and would
+  // otherwise capture the first render's.
+  const libByIdRef = useRef(libById);
+  libByIdRef.current = libById;
 
   // Connectivity: compute the netlist, then brighten the net the Highlight-Net tool
   // picked (not the selection, KiCad keeps those separate). The renderer matches
@@ -1570,6 +1586,12 @@ export function SchematicEditor({
   // The live document for stable callbacks (selection promotion needs groups).
   const docRef = useRef(doc);
   docRef.current = doc;
+  /**
+   * `grid.GetGrid().x` for the rules that measure in grid squares — right now
+   * only `SCH_SELECTION_TOOL::Main`'s right-click test. A ref because
+   * `gridSizeIU` is derived far below and these callbacks are built once.
+   */
+  const gridSizeIURef = useRef(0);
   // Group promotion (SCH_SELECTION_TOOL): clicking a member selects its whole
   // group, so every selection result expands through the document's groups.
   const promote = (ids: ReadonlySet<string>): ReadonlySet<string> =>
@@ -1691,10 +1713,14 @@ export function SchematicEditor({
     [],
   );
 
-  // Right-click with the select tool (SCH_SELECTION_TOOL): an unselected item
-  // under the cursor becomes the selection before the menu opens; over a
-  // selected item or empty canvas the selection is kept and the menu applies
-  // to it (KiCad selects the item, then pops the TOOL_MENU).
+  // Right-click with the select tool (SCH_SELECTION_TOOL::Main,
+  // sch_selection_tool.cpp:643-675). With nothing selected the item under the
+  // cursor is picked up as a hover selection; with something selected the
+  // selection is kept and the menu applies to it, *unless* the click has left
+  // the selection's bounding box by more than a grid square and there is
+  // something else there — "the user likely meant to get the context menu for
+  // that item". Inside the box nothing is re-picked, which is what stops a
+  // selected symbol's own fields and pins from stealing its menu.
   const onContextMenuRequest = useCallback(
     (
       x: number,
@@ -1707,7 +1733,19 @@ export function SchematicEditor({
       // selection exactly as it was, hover flag included — which is what keeps
       // the point editor's handles on screen in that case and not in the other.
       const before = { selection: selectionRef.current, hover: hoverSelectionRef.current };
-      const after = rightClickSelection(before, hit?.id ?? null, (id) => promote(new Set([id])));
+      // `!m_selection.GetBoundingBox().Inflate( grid.x, grid.y ).Contains( pos )`.
+      // A selection with no extent at all has no box to be inside of, which is
+      // upstream's empty `BOX2I` failing `Contains` for every point.
+      const d = docRef.current;
+      const box = d ? selectionBBox(d, before.selection, libByIdRef.current) : emptyBBox();
+      const beyond =
+        isEmpty(box) || !contains(inflate(box, gridSizeIURef.current), pointEdit.world);
+      const after = rightClickSelection(
+        before,
+        hit?.id ?? null,
+        (id) => promote(new Set([id])),
+        beyond,
+      );
       if (after !== before) {
         setSelection(after.selection);
         setHoverSelection(after.hover);
@@ -2998,45 +3036,48 @@ export function SchematicEditor({
    * `onShowSymbolEditor()` with no arguments at all, which opened an empty
    * editor — the symbol was never seeded.
    */
-  const editLibrarySymbolInEditor = useCallback(
-    (id: string): void => {
+  const openSymbolEditorOn = useCallback(
+    (id: string, target: SymbolEditorTarget): void => {
       const d = docRef.current;
       if (!d || !onEditSymbolInEditor) return;
-      const si = d.symbols.findIndex((sy, i) => refId('symbol', sy.uuid, i) === id);
-      const sym = si === -1 ? undefined : d.symbols[si];
-      const lib = sym && libById.get(schSymbolLibraryName(sym));
-      if (!sym || !lib) {
+      const req = symbolEditorRequest(d.symbols, libById, id, target);
+      if (!req) {
         // `"Symbols with broken library symbol links cannot be edited."`
         // (sch_editor_control.cpp:2870) — the same guard, on the same footing.
+        // The editor is NOT opened: an empty SYMBOL_EDIT_FRAME is not what
+        // upstream does with a symbol it refuses.
         setInfoBar('That symbol is not in any loaded library.');
         return;
       }
-      // The library part as it stands, NOT libSymbolFromPlacement: that one
-      // folds this instance's field edits in, which is exactly the difference
-      // between the two actions.
-      onEditSymbolInEditor({ symbol: lib, ...editorUnitFor(sym), targetId: id });
+      onEditSymbolInEditor(req);
     },
     [libById, onEditSymbolInEditor],
   );
 
+  const editLibrarySymbolInEditor = useCallback(
+    (id: string): void => openSymbolEditorOn(id, 'library'),
+    [openSymbolEditorOn],
+  );
+
   const editSymbolInEditor = useCallback(
-    (id: string): void => {
-      const d = docRef.current;
-      if (!d || !onEditSymbolInEditor) return;
-      const si = d.symbols.findIndex((sy, i) => refId('symbol', sy.uuid, i) === id);
-      const sym = si === -1 ? undefined : d.symbols[si];
-      const lib = sym && libById.get(schSymbolLibraryName(sym));
-      if (!sym || !lib) {
-        setInfoBar('That symbol is not in any loaded library.');
-        return;
-      }
-      onEditSymbolInEditor({
-        symbol: libSymbolFromPlacement(sym, lib),
-        ...editorUnitFor(sym),
-        targetId: id,
-      });
+    (id: string): void => openSymbolEditorOn(id, 'schematic'),
+    [openSymbolEditorOn],
+  );
+
+  /**
+   * DIALOG_SYMBOL_PROPERTIES' "Edit Symbol..." / "Edit Library Symbol...".
+   * Upstream's dialog does not open anything itself: it ends quasi-modal with
+   * a return code and SCH_EDIT_TOOL opens the editor
+   * (`sch_edit_tool.cpp:2727-2760`). Ours closes the dialog and seeds the
+   * editor, and the two buttons share this one handler so neither can drift
+   * onto a different path than the other.
+   */
+  const symbolPropsHandoff = useCallback(
+    (id: string, target: SymbolEditorTarget) => (): void => {
+      setPropsTarget(null);
+      openSymbolEditorOn(id, target);
     },
-    [libById, onEditSymbolInEditor],
+    [openSymbolEditorOn],
   );
 
   // The edited symbol coming back from the editor. A nonce rather than the
@@ -5077,7 +5118,9 @@ export function SchematicEditor({
       }
       if (itemId) {
         setErcFocusedMarker(null);
-        setSelection(new Set([itemId]));
+        // A marker's item may be a PIN (`<symId>:pin<k>`); the editor selects
+        // its parent symbol, which is what upstream highlights too.
+        setSelection(new Set([ercParentId(itemId)]));
       } else {
         setSelection(new Set());
         setErcFocusedMarker(ercExclusionKey(v));
@@ -5110,6 +5153,58 @@ export function SchematicEditor({
         target.sheets,
         target.busEntries,
       ];
+      // A marker's item may be a PIN, `<symId>:pin<k>`, and upstream names the
+      // pin rather than the symbol it is on:
+      //
+      //   SCH_PIN::GetItemDescription   "Symbol %s %s"  (sch_pin.cpp:1721)
+      //   SCH_PIN::getItemDescription   "Pin %s [%s, %s, %s]" with a name,
+      //                                 "Pin %s [%s, %s]" without   (:1729-1750)
+      //
+      // so KiCad reads `Symbol #PWR01 Pin 1 [Power input, Line]` where this
+      // fell through to the parent symbol and read `Symbol #PWR1 [GND]`.
+      const pinAt = id.lastIndexOf(':pin');
+      if (pinAt !== -1) {
+        const symId = id.slice(0, pinAt);
+        const pinIdx = Number(id.slice(pinAt + 4));
+        for (let i = 0; i < target.symbols.length; i++) {
+          const sym = target.symbols[i]!;
+          if (refId('symbol', sym.uuid, i) !== symId) continue;
+          const lib = target.libSymbols.find((l) => l.libId === schSymbolLibraryName(sym));
+          const ref = sym.fields.find((f) => f.key === 'Reference')?.value ?? '';
+          // The same walk `enumeratePins` uses (nets.ts:345-352) — the unit and
+          // body-style filter included — so `k` here is the k that built the id.
+          let pin: LibPin | undefined;
+          if (lib) {
+            let k = 0;
+            outer: for (const u of lib.units) {
+              if (
+                (u.unit !== 0 && u.unit !== sym.unit) ||
+                (u.bodyStyle !== 0 && u.bodyStyle !== sym.bodyStyle)
+              )
+                continue;
+              for (const q of u.pins) {
+                if (k === pinIdx) {
+                  pin = q;
+                  break outer;
+                }
+                k++;
+              }
+            }
+          }
+          if (!pin) return `Symbol ${ref}`;
+          // `UnescapeString( GetShownName() )` — an empty name is "~" upstream
+          // and prints as nothing.
+          const name = pin.name === '~' ? '' : pin.name;
+          const type = electricalPinTypeGetText(pin.electricalType);
+          const shape = pinShapeGetText(pin.shape);
+          const desc = name
+            ? `Pin ${pin.number} [${name}, ${type}, ${shape}]`
+            : `Pin ${pin.number} [${type}, ${shape}]`;
+          return `Symbol ${ref} ${desc}`;
+        }
+        return id;
+      }
+
       for (let k = 0; k < kinds.length; k++) {
         const kind = kinds[k]!;
         const arr = arrays[k]!;
@@ -5359,6 +5454,7 @@ export function SchematicEditor({
     () => gridSizeToIU(es.window.grid.sizes[es.window.grid.last_size_idx]?.x ?? '50 mil'),
     [es.window.grid.sizes, es.window.grid.last_size_idx],
   );
+  gridSizeIURef.current = gridSizeIU;
 
   const onTextBoxDrawn = useCallback((start: Vec2, end: Vec2) => {
     setTextBoxDraw({ start, end, text: '' });
@@ -5908,12 +6004,18 @@ export function SchematicEditor({
   );
 
   /** KiCad titles the dialog after the shape ("Rectangle Properties"). */
+  /**
+   * The dialog's title is `_( "%s Properties" )` formatted with
+   * `aShape->GetFriendlyName()` (dialog_shape_properties.cpp:44). That is
+   * `EDA_ITEM::GetFriendlyName` → `GetTypeDesc()`, and every schematic shape is
+   * one type: `.Map( SCH_SHAPE_T, _HKI( "Graphic" ) )` (eda_item.cpp:480).
+   *
+   * So it is "Graphic Properties" for a rectangle, a circle and an arc alike —
+   * not "Rectangle Properties". This built the word from our own shape token.
+   */
   const shapeEditName = useCallback(
-    (se: { kind: 'graphic' | 'line'; index: number }): string => {
-      const kind = se.kind === 'line' ? 'polyline' : (shapeEditItem(se)?.kind ?? 'shape');
-      return kind.charAt(0).toUpperCase() + kind.slice(1);
-    },
-    [shapeEditItem],
+    (_se: { kind: 'graphic' | 'line'; index: number }): string => 'Graphic',
+    [],
   );
 
   /** The shape's border and fill as the dialog wants them. A stored width below
@@ -8045,6 +8147,60 @@ export function SchematicEditor({
     return ref ? schPropertiesFor(doc, libById, ref) : [];
   }, [doc, selection, libById]);
 
+  /**
+   * FRAME_FOOTPRINT_CHOOSER, opened by the Footprint field's PG_FPID_EDITOR
+   * button. `OnEvent`'s wxEVT_BUTTON branch shows it modally on the cell's
+   * current text and, on OK, writes the picked fpid back through the property
+   * (pg_editors.cpp:556-586) - so the commit callback is the CELL's, not a
+   * separate edit path.
+   */
+  const [fpChooser, setFpChooser] = useState<{
+    current: string;
+    commit: (picked: string) => void;
+    /** The symbol's `ki_fp_filters`, split — MAIL_SYMBOL_NETLIST's half. */
+    fpFilters: readonly string[];
+    /** Its pin count, the other half. */
+    pinCount?: number;
+  } | null>(null);
+
+  /**
+   * What upstream mails the chooser as MAIL_SYMBOL_NETLIST: the symbol's
+   * footprint filters and its pin count. Both are the FRAME's knowledge and
+   * neither is derivable inside the chooser, which is why the two filter
+   * checkboxes live there and not in the tree.
+   *
+   * `PG_FPID_EDITOR::OnEvent` builds the netlist through `m_netlistCallback`
+   * and mails it before showing the frame; an empty one simply means no
+   * checkboxes, which is the same `if( !m_fpFilters.empty() )` branch.
+   */
+  const selectedSymbolFpContext = useCallback((): {
+    fpFilters: readonly string[];
+    pinCount?: number;
+  } => {
+    if (!doc || selection.size !== 1) return { fpFilters: [] };
+    const ref = itemRefById(doc, [...selection][0]!);
+    if (ref?.kind !== 'symbol') return { fpFilters: [] };
+    const sym = doc.symbols.find((t, i) => refId('symbol', t.uuid, i) === ref.id);
+    if (!sym) return { fpFilters: [] };
+    const lib = libById.get(sym.libId);
+    const filters = (
+      lib?.properties.find((pr) => pr.key === 'ki_fp_filters')?.value ??
+      sym.fields.find((f) => f.key === 'ki_fp_filters')?.value ??
+      ''
+    )
+      .split(/\s+/)
+      .filter(Boolean);
+    // `FOOTPRINT_CHOOSER_FRAME` counts the pins in the mailed netlist, which is
+    // the symbol's whole pin list - every unit's, across body styles, counted
+    // once per pin NUMBER the way `GetUniquePadCount` counts pads. A power
+    // symbol's hidden pin counts too, because the netlist carries it.
+    const numbers = new Set<string>();
+    for (const unit of lib?.units ?? []) {
+      for (const pin of unit.pins) if (pin.number) numbers.add(pin.number);
+    }
+    return { fpFilters: filters, ...(numbers.size > 0 ? { pinCount: numbers.size } : {}) };
+  }, [doc, selection, libById]);
+
   // `PROPERTIES_PANEL::rebuildProperties` captions a single selection with
   // `aSelection.Front()->GetFriendlyName()` — the item's TYPE.
   const propFriendlyName = useMemo<string | undefined>(() => {
@@ -8263,7 +8419,7 @@ export function SchematicEditor({
         entries={schTopBar}
         app="eeschema"
         orientation="horizontal"
-        disabledIds={dirty ? navDisabled : new Set([...(navDisabled ?? []), 'save'])}
+        disabledIds={withSaveEnablement(navDisabled, dirty)}
         // Almost everything up here is a plain action, but the zoom tool is not:
         // it is an AF_ACTIVATE tool that keeps running, and its button stays
         // checked for as long as it does.
@@ -8440,6 +8596,9 @@ export function SchematicEditor({
                                 friendlyName={propFriendlyName}
                                 units={units}
                                 onCommand={runCommand}
+                                onBrowseFootprint={(current, commit) =>
+                                  setFpChooser({ current, commit, ...selectedSymbolFpContext() })
+                                }
                               />
                             </div>
                           </div>
@@ -8567,7 +8726,23 @@ export function SchematicEditor({
               onSelect={onSelect}
               onHighlight={onHighlight}
               onRequestTool={onToolSelect}
-              onEditItem={onEditItem}
+              // `SCH_SELECTION_TOOL` (sch_selection_tool.cpp:676-694) has ONE
+              // rule for a left double-click: a sheet enters the sheet, a
+              // group enters the group, and everything else does
+              //
+              //     m_toolMgr->PostAction( SCH_ACTIONS::properties );
+              //
+              // which is the same action E is bound to. We had grown two
+              // routers instead — `onEditItem` knew symbol, field, label, text
+              // box, table, directive and sheet, while `openProperties` knew
+              // those AND graphics, lines, images, junctions and bus entries.
+              // So double-clicking a rectangle did nothing at all: it was not
+              // on the shorter list. `openProperties` is the complete one, and
+              // `onEditItem` remains what it calls to open a particular kind.
+              onEditItem={(id, kind) => {
+                if (kind === 'sheet' || kind === 'directive') onEditItem(id, kind);
+                else openProperties(id);
+              }}
               onSelectBox={onSelectBox}
               pastePending={pastePending}
               onPasteDone={onPasteDone}
@@ -9039,8 +9214,20 @@ export function SchematicEditor({
             )}
             {pasteSpecialOpen && (
               <DialogPasteSpecial
-                annotateAutomatic={es.annotation.automatic}
-                onOk={(mode: PasteMode) => {
+                /* `PASTE_MODE pasteMode = annotateAutomatic ?
+                   UNIQUE_ANNOTATIONS : REMOVE_ANNOTATIONS`
+                   (sch_editor_control.cpp:2203) — the schematic never opens on
+                   "keep". */
+                mode={es.annotation.automatic ? 'UNIQUE_ANNOTATIONS' : 'REMOVE_ANNOTATIONS'}
+                /* `SCH_EDITOR_CONTROL::Paste` never calls `HideClearNets()`, so
+                   the box is shown here as well — it just never reads it. */
+                onOk={(chosen: PasteSpecialMode) => {
+                  const mode: PasteMode =
+                    chosen === 'UNIQUE_ANNOTATIONS'
+                      ? 'unique'
+                      : chosen === 'KEEP_ANNOTATIONS'
+                        ? 'keep'
+                        : 'remove';
                   setPasteSpecialOpen(false);
                   void navigator.clipboard?.readText().then((text) => {
                     setDoc((d) => {
@@ -9102,11 +9289,7 @@ export function SchematicEditor({
             )}
             {chainRename && doc && (
               <div className="ze-modal-backdrop" onMouseDown={() => setChainRename(null)}>
-                <div
-                  className="ze-modal"
-                  style={{ width: 360 }}
-                  onMouseDown={(e) => e.stopPropagation()}
-                >
+                <div className="ze-modal" onMouseDown={(e) => e.stopPropagation()}>
                   <div className="ze-modal-header">
                     Name Net Chain
                     <span className="x" title="Cancel" onClick={() => setChainRename(null)}>
@@ -9467,24 +9650,21 @@ export function SchematicEditor({
             setChangeSymbolsSubject(changeSymbolsSubjectOf(propsSymbol, true));
             setChangeSymbolsMode('update');
           }}
+          // The two hand-off buttons are ONE handler with one literal
+          // different, because that is all that separates them upstream
+          // (sch_edit_tool.cpp:2727-2760). "Edit Symbol..." used to call
+          // `onShowSymbolEditor()` — a bare view switch with no symbol — so it
+          // opened on `[no symbol loaded]`; "Edit Library Symbol..." opens the
+          // *library* part rather than this sheet's cached copy, so an edit
+          // there reaches every use of it.
           onEditSymbol={
-            onShowSymbolEditor
-              ? () => {
-                  setPropsTarget(null);
-                  onShowSymbolEditor();
-                }
+            onEditSymbolInEditor && propsTarget !== null
+              ? symbolPropsHandoff(propsTarget, 'schematic')
               : undefined
           }
-          // "Edit Library Symbol...": upstream opens the *library* part rather
-          // than this sheet's cached copy, so an edit there reaches every use
-          // of it. `LoadSymbol( GetLibId(), GetUnit(), GetBodyStyle() )`.
           onEditLibrarySymbol={
             onEditSymbolInEditor && propsTarget !== null
-              ? () => {
-                  const id = propsTarget;
-                  setPropsTarget(null);
-                  editLibrarySymbolInEditor(id);
-                }
+              ? symbolPropsHandoff(propsTarget, 'library')
               : undefined
           }
         />
@@ -9834,6 +10014,23 @@ export function SchematicEditor({
         />
       )}
 
+      {/* FRAME_FOOTPRINT_CHOOSER. Upstream reaches it through
+          `Kiway().Player( FRAME_FOOTPRINT_CHOOSER, true, m_frame )` from
+          PG_FPID_EDITOR, and the same frame is what Symbol Properties'
+          GRID_CELL_FPID_EDITOR opens - one chooser, two callers. */}
+      {fpChooser && (
+        <FootprintChooserFrame
+          preselect={fpChooser.current}
+          fpFilters={fpChooser.fpFilters}
+          {...(fpChooser.pinCount === undefined ? {} : { pinCount: fpChooser.pinCount })}
+          onOk={(libId) => {
+            fpChooser.commit(libId);
+            setFpChooser(null);
+          }}
+          onCancel={() => setFpChooser(null)}
+        />
+      )}
+
       {sheetPinEdit && doc.sheets[sheetPinEdit.sheet]?.pins[sheetPinEdit.pin] && (
         <DialogSheetPinProperties
           initial={{
@@ -9874,6 +10071,7 @@ export function SchematicEditor({
       {shapeEdit && (
         <DialogShapeProperties
           shapeName={shapeEditName(shapeEdit)}
+          units={units}
           initial={shapePropsOf(shapeEdit)}
           onOk={commitShapeEdit}
           onCancel={() => setShapeEdit(null)}

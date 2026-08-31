@@ -78,7 +78,7 @@ export function DialogSchImportSettings({ onImport, onCancel }: Props): JSX.Elem
 
   return (
     <div className="ze-modal-backdrop" onMouseDown={onCancel}>
-      <div className="ze-modal" style={{ width: 420 }} onMouseDown={(e) => e.stopPropagation()}>
+      <div className="ze-modal" onMouseDown={(e) => e.stopPropagation()}>
         <div className="ze-modal-header">
           Import Settings from a Project
           <span className="x" onClick={onCancel}>

@@ -190,7 +190,10 @@ describe('no dialog keeps a Clear button the picker replaced', () => {
       'editors/schematic/dialogs/dialog_line_properties.tsx',
     ]) {
       const src = readFileSync(join(SRC, rel), 'utf8');
-      expect(src, `${rel} lost m_helpLabel2`).toContain('className="ze-help-label"');
+      // The class among any others on the element, not the whole attribute:
+      // `ze-help-label` is what carries the style, and a layout class beside it
+      // does not make the label any less present.
+      expect(src, `${rel} lost m_helpLabel2`).toMatch(/className="[^"]*\bze-help-label\b/);
       expect(src).toContain('to use Schematic Editor colors.');
     }
   });

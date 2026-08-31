@@ -31,7 +31,13 @@
 
 import type { CSSProperties, JSX } from 'react';
 import { useState } from 'react';
-import { type Color4d, COLOR4D_UNSPECIFIED, toCssColor } from '@ziroeda/common/src/color4d.js';
+import {
+  brightness,
+  type Color4d,
+  COLOR4D_UNSPECIFIED,
+  darkened,
+  toCssColor,
+} from '@ziroeda/common/src/color4d.js';
 import { DialogColorPicker } from './DialogColorPicker.js';
 
 /**
@@ -64,6 +70,20 @@ export interface ColorSwatchProps {
   size?: SwatchSize;
   /** `sendSwatchChangeEvent`, raised only on wxID_OK. */
   onChange: (color: Color4d) => void;
+  /**
+   * `aBackground` — the colour the swatch is understood to sit ON, which
+   * `RenderToDC` builds the checkerboard from (`color_swatch.cpp:94-107`):
+   * a bright background gives a checkerboard of itself and a 15 %-darker
+   * version of itself, so a half-transparent colour reads against the surface
+   * it will really be drawn on. The colour pages pass the theme's own
+   * `LAYER_*_BACKGROUND` (`panel_color_settings.cpp:262`).
+   *
+   * Omitted, or dark, and the checkerboard is the `else` branch's black and
+   * 15 %-brightened black — which is also what an UNSPECIFIED colour always
+   * gets here, because that branch reads `m_checkerboardBg`, the parent
+   * window's background, and every list of ours sits on --chrome-bg2.
+   */
+  background?: Color4d;
   /** A11y only — a wxStaticBitmap has no label, but a bare button must. */
   label: string;
   disabled?: boolean;
@@ -79,6 +99,7 @@ export const isUnspecified = (c: Color4d): boolean =>
 
 export function ColorSwatch({
   color,
+  background,
   defaultColor = COLOR4D_UNSPECIFIED,
   supportsOpacity = true,
   size = 'medium',
@@ -88,6 +109,17 @@ export function ColorSwatch({
   className,
 }: ColorSwatchProps): JSX.Element {
   const [open, setOpen] = useState(false);
+
+  // `RenderToDC`'s two branches, chosen by `GetBrightness() > 0.4`. The dark
+  // one is the CSS default, so only the bright one is stated here.
+  const checkerBase = isUnspecified(color) ? undefined : background;
+  const bright = checkerBase !== undefined && brightness(checkerBase) > 0.4;
+  const checker: Record<string, string> = bright
+    ? {
+        '--checker-hi': toCssColor(checkerBase, ', '),
+        '--checker-lo': toCssColor(darkened(checkerBase, 0.15), ', '),
+      }
+    : {};
 
   return (
     <>
@@ -102,7 +134,7 @@ export function ColorSwatch({
         className={`ze-swatch unspecified${size === 'medium' ? '' : ` ${size}`}${
           className ? ` ${className}` : ''
         }`}
-        style={{ '--swatch-color': toCssColor(color, ', ') } as CSSProperties}
+        style={{ '--swatch-color': toCssColor(color, ', '), ...checker } as CSSProperties}
         aria-label={label}
         disabled={disabled}
         onClick={() => setOpen(true)}

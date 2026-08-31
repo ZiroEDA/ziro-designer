@@ -31,6 +31,7 @@
  * pin-to-pin warnings, the no-connect checks, and the single-pin label check.
  */
 
+import { electricalPinTypeGetText } from '../pin_type.js';
 import type { Schematic, LibSymbol, Vec2 } from '../types.js';
 import { refId } from '../tools/hittest.js';
 import {
@@ -52,7 +53,6 @@ import {
   ERR,
   ERC_ITEMS,
   typeIndex,
-  TYPE_NAMES,
   defaultErcSettings,
   type PinError,
   type ErcCode,
@@ -65,7 +65,6 @@ import { schSymbolLibraryName } from '../lib_symbol_compare.js';
 // importing these names from the ERC module (the Schematic Setup panels do).
 export {
   PIN_TYPES,
-  TYPE_NAMES,
   TYPE_ABBREV,
   ERC_ITEMS,
   DEFAULT_PIN_MAP,
@@ -112,7 +111,10 @@ export interface ErcViolation {
  * same marker on a later run so its exclusion persists across ERC runs.
  */
 export function ercExclusionKey(v: Pick<ErcViolation, 'code' | 'at' | 'items' | 'file'>): string {
-  return `${v.file ?? ''}|${v.code}|${v.at.x}|${v.at.y}|${v.items[0] ?? ''}|${v.items[1] ?? ''}`;
+  // The PARENT of each item, not the item: see `ercParentId`. A stored
+  // exclusion must keep matching across the change that made markers carry
+  // pin ids rather than their symbols.
+  return `${v.file ?? ''}|${v.code}|${v.at.x}|${v.at.y}|${ercParentId(v.items[0] ?? '')}|${ercParentId(v.items[1] ?? '')}`;
 }
 
 // The active ERC configuration for the current run (set at the top of runErc).
@@ -130,8 +132,31 @@ const violation = (code: ErcCode, message: string, at: Vec2, items: string[]): E
   ...(g_file === undefined ? {} : { file: g_file }),
 });
 
-/** A pin id `<symId>:pin<k>` selects its parent symbol in the editor. */
-const selectableId = (id: string): string => {
+/**
+ * A pin id is `<symId>:pin<k>`, and the marker keeps it WHOLE.
+ *
+ * `ERC_ITEM::SetItems` stores the offending items themselves, and a pin's
+ * `GetItemDescription` is `Symbol <ref> Pin <n> [<type>, <shape>]`
+ * (sch_pin.cpp:1702-1723) — so the tree can only name the pin if the marker
+ * still knows which pin it was. This used to strip `:pin<k>` here so that
+ * clicking a row selected the parent symbol, and the description could then
+ * only ever say "Symbol <ref>" and the net.
+ *
+ * Selection strips it instead, at the point of selecting — `locateViolation`
+ * in SchematicEditor — which is where upstream resolves a pin to the symbol it
+ * highlights.
+ */
+const selectableId = (id: string): string => id;
+
+/**
+ * The parent of a pin id, for anything that must address the SYMBOL: the
+ * editor's selection, and the exclusion key.
+ *
+ * The key has to keep using the parent. It is a synthetic string of ours
+ * (`file|code|x|y|item0|item1`) that a project stores, so changing what goes
+ * into it would orphan every exclusion a user has already saved.
+ */
+export const ercParentId = (id: string): string => {
   const i = id.lastIndexOf(':pin');
   return i === -1 ? id : id.slice(0, i);
 };
@@ -1177,7 +1202,7 @@ export function* runErcSteps(
           out.push(
             violation(
               code,
-              `Pins of type ${TYPE_NAMES[pin.electricalType]} and ${TYPE_NAMES[other.electricalType]} are connected`,
+              `Pins of type ${electricalPinTypeGetText(pin.electricalType)} and ${electricalPinTypeGetText(other.electricalType)} are connected`,
               pin.at,
               [selectableId(pin.id), selectableId(other.id)],
             ),
@@ -1193,7 +1218,7 @@ export function* runErcSteps(
           out.push(
             violation(
               code,
-              `Pins of type ${TYPE_NAMES[pin.electricalType]} and ${TYPE_NAMES[other.electricalType]} are connected`,
+              `Pins of type ${electricalPinTypeGetText(pin.electricalType)} and ${electricalPinTypeGetText(other.electricalType)} are connected`,
               pin.at,
               [selectableId(pin.id)],
             ),

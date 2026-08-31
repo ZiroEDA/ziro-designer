@@ -7,7 +7,8 @@
  * (`pcbnew/tools/pcb_selection_conditions.cpp`).
  *
  * Only the two lock conditions are ported here, because they are the two the
- * toolbar reads on every selection change.
+ * toolbar reads on every selection change — plus `BOARD::IsEmpty()`, which is
+ * what `EDIT_TOOL::Init`'s `noItemsCondition` asks.
  */
 import { parseBoardItemId } from './edit-board.js';
 import type { Board } from './types.js';
@@ -93,4 +94,41 @@ export function hasUnlockedItems(board: Board, selection: Iterable<string>): boo
     if (!itemIsLocked(board, id)) return true;
   }
   return false;
+}
+
+/**
+ * `BOARD::IsEmpty()` (`pcbnew/board.cpp:606-609`).
+ *
+ *     return m_drawings.empty() && m_footprints.empty() && m_tracks.empty()
+ *            && m_zones.empty() && m_points.empty();
+ *
+ * `m_drawings` is the board-scope graphics container, so it covers the shapes,
+ * texts, text boxes, tables, images and dimensions our `Board` keeps in six
+ * separate arrays; `m_tracks` covers tracks, arcs and vias. `m_groups` is NOT
+ * in the list upstream and so is not here — a board holding nothing but an
+ * empty group counts as empty either way. We have no `m_points` counterpart.
+ *
+ * The one caller is `EDIT_TOOL::Init`'s `noItemsCondition`
+ * (`edit_tool.cpp:732-735`), which gates Select All and Unselect All in the
+ * canvas context menu:
+ *
+ *     return frame()->GetBoard() && !frame()->GetBoard()->IsEmpty();
+ *
+ * Note what it does not look at: the SELECTION. Both rows are live whenever the
+ * board has anything on it, whether or not something is selected.
+ */
+export function boardIsEmpty(board: Board): boolean {
+  return (
+    board.footprints.length === 0 &&
+    board.tracks.length === 0 &&
+    board.arcs.length === 0 &&
+    board.vias.length === 0 &&
+    board.zones.length === 0 &&
+    board.shapes.length === 0 &&
+    board.texts.length === 0 &&
+    board.textBoxes.length === 0 &&
+    board.tables.length === 0 &&
+    board.images.length === 0 &&
+    board.dimensions.length === 0
+  );
 }

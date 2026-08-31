@@ -7,6 +7,10 @@
 #include <wx/statbox.h>
 #include <wx/notebook.h>
 #include <wx/grid.h>
+#include <wx/gbsizer.h>
+#include <wx/artprov.h>
+#include <vector>
+#include <functional>
 
 class App : public wxApp
 {
@@ -15,39 +19,89 @@ public:
     {
         wxDialog* dlg = new wxDialog( nullptr, wxID_ANY, "probe" );
 
-        // sbGeneralProps: Unit / Body style / Angle / Mirror + two checkboxes.
+        // sbGeneralProps: a wxGridBagSizer( 3, 3 ), NOT a FlexGrid - rows 0, 1,
+        // 3, 4 with row 2 left empty at SetEmptyCellSize( -1, 12 ), and
+        // AddGrowableCol( 1 ). base.cpp:122-173.
         wxStaticBoxSizer* gen = new wxStaticBoxSizer( wxVERTICAL, dlg, "General" );
-        wxFlexGridSizer* fg = new wxFlexGridSizer( 4, 2, 0, 0 );
-        for( const char* l : { "Unit:", "Body style:", "Angle:", "Mirror:" } )
+        wxGridBagSizer* gb = new wxGridBagSizer( 3, 3 );
+        gb->SetFlexibleDirection( wxBOTH );
+        gb->SetNonFlexibleGrowMode( wxFLEX_GROWMODE_SPECIFIED );
+        gb->SetEmptyCellSize( wxSize( -1, 12 ) );
+
+        // Each label carries its own border flags; only "Body style:" is wxLEFT
+        // alone. The choices carry the CONTENTS wx measures them by, which the
+        // old probe replaced with one string for all four.
+        struct GBRow { int row; const char* label; int labelFlags; int ctrlFlags;
+                       std::vector<const char*> items; bool minWidth; };
+        const std::vector<GBRow> rows = {
+            { 0, "Unit:",       wxALIGN_CENTER_VERTICAL|wxLEFT|wxRIGHT,
+                                wxEXPAND|wxRIGHT, {}, true },
+            { 1, "Body style:", wxALIGN_CENTER_VERTICAL|wxLEFT,
+                                wxEXPAND|wxALIGN_CENTER_VERTICAL|wxRIGHT, {}, false },
+            { 3, "Angle:",      wxALIGN_CENTER_VERTICAL|wxLEFT|wxRIGHT,
+                                wxALIGN_CENTER_VERTICAL|wxEXPAND|wxRIGHT,
+                                { "0", "+90", "-90", "180" }, false },
+            { 4, "Mirror:",     wxALIGN_CENTER_VERTICAL|wxLEFT|wxRIGHT,
+                                wxEXPAND|wxRIGHT,
+                                { "Not mirrored", "Around X axis", "Around Y axis" }, false },
+        };
+        for( const GBRow& r : rows )
         {
-            fg->Add( new wxStaticText( gen->GetStaticBox(), wxID_ANY, l ), 0, wxALL, 5 );
+            wxStaticText* t = new wxStaticText( gen->GetStaticBox(), wxID_ANY, r.label );
+            t->Wrap( -1 );
+            gb->Add( t, wxGBPosition( r.row, 0 ), wxGBSpan( 1, 1 ), r.labelFlags, 5 );
             wxChoice* c = new wxChoice( gen->GetStaticBox(), wxID_ANY );
-            c->Append( "Not mirrored" );
-            c->SetMinSize( wxSize( 100, -1 ) );   // base.cpp:138
-            fg->Add( c, 0, wxALL, 5 );
+            for( const char* it : r.items ) c->Append( it );
+            c->SetSelection( 0 );
+            if( r.minWidth ) c->SetMinSize( wxSize( 100, -1 ) );   // base.cpp:138
+            gb->Add( c, wxGBPosition( r.row, 1 ), wxGBSpan( 1, 1 ), r.ctrlFlags, 5 );
         }
-        gen->Add( fg, 1, wxEXPAND, 5 );
+        gb->AddGrowableCol( 1 );
+        gen->Add( gb, 1, wxEXPAND, 5 );
+
+        // bSizer11: BOTH checkboxes at proportion 1, border 3 - not proportion 0
+        // at 5. A proportional row's CalcMin is max( child/prop ) * total_prop,
+        // so two equal proportions make this 2 x the WIDER checkbox, which the
+        // old probe's proportion 0 turned into a plain sum.  base.cpp:180-190.
         wxBoxSizer* pins = new wxBoxSizer( wxHORIZONTAL );
-        pins->Add( new wxCheckBox( gen->GetStaticBox(), wxID_ANY, "Show pin numbers" ), 0, wxALL, 5 );
-        pins->Add( new wxCheckBox( gen->GetStaticBox(), wxID_ANY, "Show pin names" ), 0, wxALL, 5 );
+        pins->Add( new wxCheckBox( gen->GetStaticBox(), wxID_ANY, "Show pin numbers" ), 1, wxALL, 3 );
+        pins->Add( new wxCheckBox( gen->GetStaticBox(), wxID_ANY, "Show pin names" ), 1, wxALL, 3 );
         gen->Add( pins, 0, wxEXPAND|wxTOP, 13 );
 
-        // sbAttributes: the five "Exclude from …" checkboxes.
+        // sbAttributes: the five "Exclude from …" checkboxes, each with its own
+        // border flags (base.cpp:204-224). Horizontally they are all 5+5 except
+        // "Exclude from simulation", which is also 5+5 - so this does not move
+        // the width, but it is what the row heights come from.
         wxStaticBoxSizer* att = new wxStaticBoxSizer( wxVERTICAL, dlg, "Attributes" );
-        for( const char* l : { "Exclude from simulation", "Exclude from bill of materials",
-                               "Exclude from board", "Exclude from position files",
+        att->Add( new wxCheckBox( att->GetStaticBox(), wxID_ANY, "Exclude from simulation" ),
+                  0, wxRIGHT|wxLEFT, 5 );
+        att->Add( 0, 10, 0, wxEXPAND, 5 );
+        att->Add( new wxCheckBox( att->GetStaticBox(), wxID_ANY, "Exclude from bill of materials" ),
+                  0, wxALL, 5 );
+        for( const char* l : { "Exclude from board", "Exclude from position files",
                                "Do not populate" } )
-            att->Add( new wxCheckBox( att->GetStaticBox(), wxID_ANY, l ), 0, wxALL, 5 );
+            att->Add( new wxCheckBox( att->GetStaticBox(), wxID_ANY, l ),
+                      0, wxBOTTOM|wxRIGHT|wxLEFT, 5 );
 
         // buttonsSizer: the four right-hand buttons.
         wxBoxSizer* btns = new wxBoxSizer( wxVERTICAL );
-        for( const char* l : { "Update Symbol from Library...", "Change Symbol...",
-                               "Edit Symbol...", "Edit Library Symbol..." } )
-            btns->Add( new wxButton( dlg, wxID_ANY, l ), 0, wxEXPAND|wxALL, 5 );
+        btns->Add( new wxButton( dlg, wxID_ANY, "Update Symbol from Library..." ), 0,
+                   wxEXPAND|wxBOTTOM|wxRIGHT|wxLEFT, 5 );
+        btns->Add( new wxButton( dlg, wxID_ANY, "Change Symbol..." ), 0, wxEXPAND|wxALL, 5 );
+        btns->Add( new wxButton( dlg, wxID_ANY, "Edit Symbol..." ), 0, wxEXPAND|wxALL, 5 );
+        btns->Add( 0, 20, 0, wxEXPAND, 5 );
+        btns->Add( new wxButton( dlg, wxID_ANY, "Edit Library Symbol..." ), 0,
+                   wxEXPAND|wxTOP|wxRIGHT|wxLEFT, 5 );
+
+        // bMiddleCol wraps sbAttributes (base.cpp:228-231), so that column pays
+        // a 5px left/right border TWICE. The old probe added `att` straight to
+        // the row and lost 10px of it.
+        wxBoxSizer* mid = new wxBoxSizer( wxVERTICAL );
+        mid->Add( att, 1, wxEXPAND|wxRIGHT|wxLEFT, 5 );
 
         wxBoxSizer* lower = new wxBoxSizer( wxHORIZONTAL );
         lower->Add( gen, 4, wxEXPAND|wxRIGHT|wxLEFT, 5 );
-        lower->Add( att, 3, wxEXPAND|wxRIGHT|wxLEFT, 5 );
+        lower->Add( mid, 3, wxEXPAND|wxRIGHT|wxLEFT, 5 );
         lower->Add( btns, 3, wxEXPAND|wxALL, 5 );
         const int lowerMin = lower->CalcMin().x;
 
@@ -69,6 +123,28 @@ public:
         grid->HideRowLabels();
         grid->SetMinSize( wxSize( -1, 160 ) );                     // dialog_symbol_properties.cpp:342
         sbFields->Add( grid, 1, wxEXPAND|wxBOTTOM|wxRIGHT|wxLEFT, 5 );
+
+        // bButtonSize (base.cpp:83-113): four STD_BITMAP_BUTTONs and a 20px
+        // spacer under the grid. It was missing, which made sbFields' CalcMin
+        // 36px short and any HEIGHT comparison against it wrong.
+        wxBoxSizer* bButtonSize = new wxBoxSizer( wxHORIZONTAL );
+        for( int i = 0; i < 3; ++i )
+        {
+            wxButton* b = new wxButton( sbFields->GetStaticBox(), wxID_ANY, wxEmptyString,
+                                        wxDefaultPosition, wxDefaultSize, wxBU_AUTODRAW|0 );
+            b->SetBitmap( wxArtProvider::GetBitmap( wxART_PLUS, wxART_BUTTON ) );
+            bButtonSize->Add( b, 0, wxALIGN_CENTER_VERTICAL|wxRIGHT, 5 );
+        }
+        bButtonSize->Add( 20, 0, 0, wxEXPAND, 10 );
+        {
+            wxButton* b = new wxButton( sbFields->GetStaticBox(), wxID_ANY, wxEmptyString,
+                                        wxDefaultPosition, wxDefaultSize, wxBU_AUTODRAW|0 );
+            b->SetBitmap( wxArtProvider::GetBitmap( wxART_DELETE, wxART_BUTTON ) );
+            bButtonSize->Add( b, 0, wxALIGN_CENTER_VERTICAL|wxRIGHT, 5 );
+        }
+        bButtonSize->Add( 0, 0, 1, wxEXPAND, 5 );
+        sbFields->Add( bButtonSize, 0, wxEXPAND|wxBOTTOM|wxRIGHT|wxLEFT, 5 );
+
         pageSizer->Add( sbFields, 1, wxEXPAND|wxBOTTOM|wxRIGHT|wxLEFT, 5 );
 
         // reparent the lower row onto the page
@@ -95,6 +171,23 @@ public:
         bMargins->Add( pinGrid, 1, wxEXPAND|wxALL|wxFIXED_MINSIZE, 5 );
         pinPage->SetSizer( bMargins );
         nb->AddPage( pinPage, "Pin Functions", false );
+
+        // The THIRD page, present whenever the symbol has embedded files
+        // (dialog_symbol_properties.cpp:347-351). PANEL_EMBEDDED_FILES' grid is
+        // two columns, 100 + 180 (panel_embedded_files_base.cpp:32-33), so it
+        // is the narrowest page of the three and cannot be what sets the width.
+        wxPanel* embPage = new wxPanel( nb );
+        wxBoxSizer* embSizer = new wxBoxSizer( wxVERTICAL );
+        wxGrid* embGrid = new wxGrid( embPage, wxID_ANY );
+        embGrid->CreateGrid( 1, 2 );
+        embGrid->SetColSize( 0, 100 );
+        embGrid->SetColSize( 1, 180 );
+        embGrid->HideRowLabels();
+        embSizer->Add( embGrid, 1, wxEXPAND|wxALL, 5 );
+        embPage->SetSizer( embSizer );
+        nb->AddPage( embPage, "Embedded Files", false );
+        wxPrintf( "%-26s %d\n", "emb grid best width", embGrid->GetBestSize().x );
+        wxPrintf( "%-26s %d\n", "emb page CalcMin", embSizer->CalcMin().x );
         wxPrintf( "%-26s %d\n", "pin grid best width", pinGrid->GetBestSize().x );
         wxPrintf( "%-26s %d\n", "pin page CalcMin", bMargins->CalcMin().x );
 
@@ -128,13 +221,65 @@ public:
         wxPrintf( "%-26s %d\n", "General  min (prop 4)", gen->CalcMin().x );
         wxPrintf( "%-26s %d\n", "Attributes min (prop 3)", att->CalcMin().x );
         wxPrintf( "%-26s %d\n", "Buttons  min (prop 3)", btns->CalcMin().x );
+        wxPrintf( "%-26s %d\n", "MiddleCol min (prop 3)", mid->CalcMin().x );
         wxPrintf( "%-26s %d\n", "bLowerSizer CalcMin", lowerMin );
+        wxPrintf( "%-26s %.1f\n", "  gen/4", ( gen->CalcMin().x + 10 ) / 4.0 );
+        wxPrintf( "%-26s %.1f\n", "  mid/3", ( mid->CalcMin().x + 10 ) / 3.0 );
+        wxPrintf( "%-26s %.1f\n", "  btns/3", ( btns->CalcMin().x + 10 ) / 3.0 );
         wxPrintf( "%-26s %d\n", "grid best width", grid->GetBestSize().x );
         wxPrintf( "%-26s %d\n", "page CalcMin", pageSizer->CalcMin().x );
         wxPrintf( "%-26s %d\n", "notebook best", nb->GetBestSize().x );
         wxPrintf( "%-26s %d\n", "bottom row CalcMin", bottom->CalcMin().x );
         wxPrintf( "%-26s %d\n", "mainSizer CalcMin", mainSizer->CalcMin().x );
         wxPrintf( "%-26s %d\n", "dialog after Fit", dlg->GetSize().x );
+
+        // ---- heights. The width came out of bLowerSizer; the height is a
+        // different question and has a different answer, so every band of the
+        // dialog is reported separately rather than inferred from the total.
+        wxPrintf( "\n-- heights --\n" );
+        wxPrintf( "%-26s %d\n", "fields grid min", grid->GetEffectiveMinSize().y );
+        wxPrintf( "%-26s %d\n", "sbFields CalcMin", sbFields->CalcMin().y );
+        wxPrintf( "%-26s %d\n", "  bButtonSize", bButtonSize->CalcMin().y );
+        wxPrintf( "%-26s %d\n", "General  min", gen->CalcMin().y );
+        wxPrintf( "%-26s %d\n", "Attributes min", att->CalcMin().y );
+        wxPrintf( "%-26s %d\n", "Buttons  min", btns->CalcMin().y );
+        wxPrintf( "%-26s %d\n", "bLowerSizer CalcMin", lower->CalcMin().y );
+        wxPrintf( "%-26s %d\n", "general page CalcMin", pageSizer->CalcMin().y );
+        wxPrintf( "%-26s %d\n", "pin page CalcMin", bMargins->CalcMin().y );
+        wxPrintf( "%-26s %d\n", "emb page CalcMin", embSizer->CalcMin().y );
+        wxPrintf( "%-26s %d\n", "notebook best", nb->GetBestSize().y );
+        wxPrintf( "%-26s %d\n", "bottom row CalcMin", bottom->CalcMin().y );
+        // The four hand-off buttons' own height, which is what decides whether
+        // buttonsSizer's 186 is our --ctl-height 34 or something shorter.
+        for( wxSizerItem* it : btns->GetChildren() )
+            if( it->GetWindow() )
+                wxPrintf( "%-26s %d  \"%s\"\n", "  button best height",
+                          it->GetWindow()->GetBestSize().y,
+                          it->GetWindow()->GetLabel() );
+        wxPrintf( "%-26s %d\n", "  a wxTextCtrl for scale", lid->GetBestSize().y );
+        wxPrintf( "%-26s %d\n", "mainSizer CalcMin", mainSizer->CalcMin().y );
+        wxPrintf( "%-26s %d\n", "dialog after Fit", dlg->GetSize().y );
+        wxPrintf( "%-26s %d\n", "  (client area)", dlg->GetClientSize().y );
+
+        // Per-control minimums, so a gap against the live dialog can be
+        // localised to a widget instead of guessed at from the total.
+        dlg->Layout();
+        wxPrintf( "\n-- allocated after Fit --\n" );
+        wxPrintf( "%-26s %d\n", "General box", gen->GetStaticBox()->GetSize().x );
+        wxPrintf( "%-26s %d\n", "Attributes box", att->GetStaticBox()->GetSize().x );
+        std::function<void( wxWindow*, int )> dump =
+            [&]( wxWindow* w, int depth )
+            {
+                wxString kind = w->GetClassInfo()->GetClassName();
+                if( kind == "wxCheckBox" || kind == "wxButton" || kind == "wxChoice"
+                    || kind == "wxStaticText" )
+                {
+                    wxPrintf( "%-30s best %4d  alloc %4d  \"%s\"\n", kind,
+                              w->GetBestSize().x, w->GetSize().x, w->GetLabel() );
+                }
+                for( wxWindow* c : w->GetChildren() ) dump( c, depth + 1 );
+            };
+        dump( page, 0 );
         dlg->Destroy();
         return false;
     }

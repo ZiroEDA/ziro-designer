@@ -116,7 +116,11 @@ const UNBUILT: Readonly<Record<string, readonly string[]>> = {
   // `SCH_ACTIONS::drawSymbolTextBox` and `drawBezier`: no tool behind either.
   'symbol right': ['drawSymbolTextBox', 'bezier'],
   'pcb top': [],
-  'pcb aux': ['autoTrackWidth', 'selectLayerPair'],
+  // `autoTrackWidth` came off this list when it was built: the toggle is
+  // `BOARD_DESIGN_SETTINGS::m_UseConnectedTrackWidth` and the width rule behind
+  // it is `pcbnew/src/inherit_track_width.ts`. `selectLayerPair` still needs
+  // DIALOG_SET_LAYER_PAIR, so it stays.
+  'pcb aux': ['selectLayerPair'],
   'pcb left': [],
   'pcb right': [
     'selectSetLasso',

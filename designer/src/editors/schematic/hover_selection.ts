@@ -6,7 +6,7 @@
  *
  * A right-click that lands on something not already selected picks it up only
  * so the context menu has something to aim at, and marks what it picked as
- * disposable. `SCH_SELECTION_TOOL::Main` (sch_selection_tool.cpp:992):
+ * disposable. `SCH_SELECTION_TOOL::Main` (sch_selection_tool.cpp:643-675):
  *
  *     if( m_selection.Empty() )
  *     {
@@ -14,9 +14,37 @@
  *         SelectPoint( evt->Position(), { SCH_LOCATE_ANY_T }, nullptr, &selCancelled );
  *         m_selection.SetIsHover( true );
  *     }
- *     …
+ *     // If the cursor has moved off the bounding box of the selection by more than
+ *     // a grid square, check to see if there is another item available for selection
+ *     // under the cursor.  If there is, the user likely meant to get the context menu
+ *     // for that item.  If there is no new item, then keep the original selection and
+ *     // show the context menu for it.
+ *     else if( !m_selection.GetBoundingBox().Inflate( grid.GetGrid().x, grid.GetGrid().y )
+ *                 .Contains( evt->Position() ) )
+ *     {
+ *         SCH_COLLECTOR collector;
+ *
+ *         if( CollectHits( collector, evt->Position(), { SCH_LOCATE_ANY_T } ) )
+ *         {
+ *             ClearSelection();
+ *             SelectPoint( evt->Position(), { SCH_LOCATE_ANY_T }, nullptr, &selCancelled );
+ *             m_selection.SetIsHover( true );
+ *         }
+ *     }
+ *
  *     if( !selCancelled )
  *         m_menu->ShowContextMenu( m_selection );
+ *
+ * The second branch is the one that had been dropped here, and dropping it made
+ * the rule "re-pick anything not already selected" — so a right-click on a
+ * selected symbol's *field*, or on one of its pins, took the selection away from
+ * the symbol and opened that child's menu instead. Inside the selection's box
+ * nothing is re-picked at all, whatever is under the pointer.
+ *
+ * pcbnew has only the first branch (`PCB_SELECTION_TOOL::Main`,
+ * pcb_selection_tool.cpp:359-379): with anything selected, a right-click never
+ * re-picks. That editor's copy of this rule is
+ * `editors/pcb/pcb_context_selection.ts`, and the two differ on purpose.
  *
  * Two things follow, and both are visible. Every action that runs off a hover
  * selection throws it away when it finishes (`if( selection.IsHover() ) …
@@ -56,6 +84,14 @@ export const isHoverSelection = (state: HoverSelection): boolean =>
 /**
  * The selection after a right-click on `hitId` (null for empty canvas).
  *
+ * `beyondSelection` is upstream's
+ * `!m_selection.GetBoundingBox().Inflate( grid.x, grid.y ).Contains( pos )` —
+ * the click is more than a grid square outside the current selection's extent.
+ * It is only consulted when something is selected, and it is the *whole* of
+ * when a non-empty selection is allowed to be replaced: a click inside the box
+ * keeps what is selected however unrelated the item beneath it is, which is what
+ * stops a symbol's own fields and pins from stealing its context menu.
+ *
  * An item that is already selected is not re-picked and its flag is not
  * touched, so right-clicking the same thing twice does not turn a hover
  * selection into a real one.
@@ -67,8 +103,12 @@ export function rightClickSelection(
   state: HoverSelection,
   hitId: string | null,
   promote: (id: string) => Iterable<string>,
+  beyondSelection = false,
 ): HoverSelection {
   if (hitId === null || state.selection.has(hitId)) return state;
+  // `CollectHits` found something, but only an empty selection or a click that
+  // has left the selection's box may act on it.
+  if (state.selection.size > 0 && !beyondSelection) return state;
   const hover: ReadonlySet<string> = new Set(promote(hitId));
   return { selection: hover, hover };
 }

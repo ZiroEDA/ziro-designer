@@ -25,8 +25,11 @@ import {
   EXTRA_PAGES,
   FIRST_PAGE,
   OMITTED_PAGES,
+  OMITTED_TOP_LEVEL,
   PAGES,
   UPSTREAM_BOOK,
+  UPSTREAM_TOP_LEVEL,
+  shippedTopLevel,
   labelOf,
   ownerOf,
   shippedUnder,
@@ -43,12 +46,15 @@ const read = (rel: string): string => readFileSync(join(SRC, rel), 'utf8');
 const EXPECTED: PrefsPageEntry[] = [
   { id: 'common', label: 'Common', owner: 'generic' },
   { id: 'mouse', label: 'Mouse and Touchpad', owner: 'generic' },
+  // Upstream inside `#if defined(__linux__) || defined(__FreeBSD__)`
+  // (`common/eda_base_frame.cpp:1590-1596`). Linux is the parity target.
+  { id: 'spacemouse', label: 'SpaceMouse', owner: 'generic' },
   { id: 'hotkeys', label: 'Hotkeys', owner: 'generic' },
+  { id: 'version-control', label: 'Version Control', owner: 'generic' },
   { id: null, label: 'Schematic Editor' },
   { id: 'sch-display', label: 'Display Options', indent: true, owner: 'schematic' },
   { id: 'sch-grids', label: 'Grids', indent: true, owner: 'schematic' },
   { id: 'sch-editing', label: 'Editing Options', indent: true, owner: 'schematic' },
-  { id: 'sch-annotation', label: 'Annotation Options', indent: true, owner: 'schematic' },
   { id: 'sch-colors', label: 'Colors', indent: true, owner: 'schematic' },
   { id: 'sch-toolbars', label: 'Toolbars', indent: true, owner: 'schematic' },
   { id: 'sch-fields', label: 'Field Name Templates', indent: true, owner: 'schematic' },
@@ -62,6 +68,14 @@ const EXPECTED: PrefsPageEntry[] = [
   { id: 'ds-grids', label: 'Grids', indent: true, owner: 'drawingsheet' },
   { id: 'ds-colors', label: 'Colors', indent: true, owner: 'drawingsheet' },
   { id: 'ds-toolbars', label: 'Toolbars', indent: true, owner: 'drawingsheet' },
+  // The tail: a TOP-LEVEL page after the last KIFACE's heading, added with
+  // `AddPage` rather than `AddLazySubPage`. It is not the Drawing Sheet
+  // Editor's, and `indent` is what says so — grouping by position put it
+  // inside. Upstream there are three; Packages and Updates and Plugins were
+  // built and then removed, since every control on either is a desktop concept
+  // (see OMITTED_TOP_LEVEL). Maintenance stayed because it edits the settings
+  // store, which we have.
+  { id: 'maintenance', label: 'Maintenance', owner: 'generic' },
 ];
 
 describe('the Preferences page book', () => {
@@ -241,5 +255,46 @@ describe('each editor heading against KiCad’s own list', () => {
     for (const [heading, rows] of Object.entries(EXTRA_PAGES))
       for (const row of rows)
         expect(UPSTREAM_BOOK[heading], `${heading} > ${row.label}`).not.toContain(row.label);
+  });
+});
+
+/**
+ * The same idea one level up, and the level that actually shows: at most one
+ * section is expanded when Preferences opens, so the top-level rows ARE the
+ * tree the user is looking at. Fifteen upstream, six here.
+ *
+ * `UPSTREAM_BOOK` is keyed by heading and so cannot describe a heading that is
+ * absent altogether — an entry that is not there has nothing to be missing
+ * from. Four of KiCad's headings were in exactly that blind spot, for editors
+ * we ship: Symbol Editor, Footprint Editor, 3D Viewer, Gerber Viewer. The
+ * registry's own doc named them and no test could see them.
+ */
+describe('the top-level tree', () => {
+  it("is upstream's list, once the declared omissions are put back", () => {
+    const restored = [...shippedTopLevel(), ...OMITTED_TOP_LEVEL.map((r) => r.label)];
+    // Order is not asserted here because the omissions are declared in
+    // upstream order rather than interleaved into ours; the set is.
+    expect([...restored].sort()).toStrictEqual([...UPSTREAM_TOP_LEVEL].sort());
+  });
+
+  it("keeps the rows it does ship in upstream's relative order", () => {
+    const shipped = shippedTopLevel();
+    const upstreamOrder = UPSTREAM_TOP_LEVEL.filter((l) => shipped.includes(l));
+    expect(shipped).toStrictEqual(upstreamOrder);
+  });
+
+  it('omits nothing upstream does not have, and nothing twice', () => {
+    const labels = OMITTED_TOP_LEVEL.map((r) => r.label);
+    expect(new Set(labels).size).toBe(labels.length);
+    for (const row of OMITTED_TOP_LEVEL) {
+      expect(UPSTREAM_TOP_LEVEL, row.label).toContain(row.label);
+      // A row we actually draw must not also be declared absent.
+      expect(shippedTopLevel(), row.label).not.toContain(row.label);
+      expect(row.reason.length, row.label).toBeGreaterThan(20);
+    }
+  });
+
+  it('has not quietly gained a row KiCad does not show', () => {
+    for (const label of shippedTopLevel()) expect(UPSTREAM_TOP_LEVEL).toContain(label);
   });
 });

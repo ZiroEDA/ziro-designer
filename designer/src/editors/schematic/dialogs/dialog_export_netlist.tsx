@@ -185,11 +185,7 @@ export function DialogExportNetlist({
 
   return (
     <div className="ze-modal-backdrop" onMouseDown={onClose}>
-      <div
-        className="ze-modal"
-        style={{ width: 440, maxWidth: '94vw' }}
-        onMouseDown={(e) => e.stopPropagation()}
-      >
+      <div className="ze-modal" onMouseDown={(e) => e.stopPropagation()}>
         <div className="ze-modal-header">
           Export Netlist
           <span className="x" title="Cancel" onClick={onClose}>

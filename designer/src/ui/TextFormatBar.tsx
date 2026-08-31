@@ -29,6 +29,7 @@
  */
 import type { JSX } from 'react';
 import { toolbarIconUrl } from './toolbarIcons.js';
+import { Combo } from './Combo.js';
 
 /** `GR_TEXT_H_ALIGN_T` minus INDETERMINATE, which no button stands for. */
 export type HAlign = 'left' | 'center' | 'right';
@@ -82,6 +83,14 @@ export function IconButton({
  * `FONT_CHOICE` (`common/widgets/font_choice.cpp`), whose two built-in entries
  * the generated bases spell "Default Font" and "KiCad Font".
  */
+/** `wxString m_fontCtrlChoices[] = { _( "Default Font" ), _( "KiCad Font" ) };`
+ *  (`dialog_field_properties_base.cpp:142`). Upstream appends the installed
+ *  faces after these two; a browser cannot enumerate them. */
+const FONT_OPTIONS = [
+  { value: 'Default Font', label: 'Default Font' },
+  { value: 'KiCad Font', label: 'KiCad Font' },
+];
+
 export function FontChoice({
   face,
   onChange,
@@ -90,16 +99,20 @@ export function FontChoice({
   face: string;
   onChange: (face: string) => void;
 }): JSX.Element {
+  // `FONT_CHOICE` is a **wxOwnerDrawnComboBox** (`font_choice.h:28`), not a
+  // wxChoice and certainly not a native dropdown: it draws its own rows so it
+  // can render each face in that face. `Combo` is our owner-drawn one, the
+  // same widget the toolbars' grid and zoom selectors use, so this asks for it
+  // rather than falling back to the browser's `<select>` chrome — which is the
+  // one control in these dialogs that was not ours.
   return (
-    <select
+    <Combo
       className="ze-lp-font"
       title="Text is drawn with KiCad's own font in the browser build."
       value={face === '' ? 'Default Font' : face}
-      onChange={(e) => onChange(e.target.value === 'Default Font' ? '' : e.target.value)}
-    >
-      <option>Default Font</option>
-      <option>KiCad Font</option>
-    </select>
+      options={FONT_OPTIONS}
+      onChange={(v) => onChange(v === 'Default Font' ? '' : v)}
+    />
   );
 }
 

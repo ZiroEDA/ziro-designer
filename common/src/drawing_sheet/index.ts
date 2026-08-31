@@ -14,6 +14,7 @@ export {
   layoutDrawingSheet,
   hitTestDrawingSheet,
   resolveDrawingSheetText,
+  paperTypeName,
   incrementLabel,
   expandTextEscapes,
   constrainedTextSize,

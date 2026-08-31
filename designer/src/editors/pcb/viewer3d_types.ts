@@ -73,3 +73,38 @@ export interface Viewer3DStatus {
   /** ZOOM_LEVEL, expressed like KiCad's camera zoom (1.0 == zoom-to-fit). */
   zoom: number;
 }
+
+export interface Viewer3D {
+  dispose: () => void;
+
+  // -- View menu / top toolbar commands ------------------------------------
+  /** `ACTIONS::zoomInCenter` — 1.26x, three steps per doubling. */
+  zoomIn: () => void;
+  /** `ACTIONS::zoomOutCenter`. */
+  zoomOut: () => void;
+  /** `ACTIONS::zoomFitScreen` — back to the initial framing. */
+  zoomFit: () => void;
+  /** `ACTIONS::zoomRedraw`. */
+  redraw: () => void;
+  /** One of the six axis-aligned views. */
+  setView: (dir: View3DDir) => void;
+  /** `EDA_3D_ACTIONS::flipView` — 180 deg about Y. */
+  flip: () => void;
+  /** `EDA_3D_ACTIONS::homeView` — reset the camera. */
+  home: () => void;
+  /** `EDA_3D_ACTIONS::rotate{X,Y,Z}{CW,CCW}`, `rotation_increment` degrees. */
+  rotate: (axis: Rotate3DAxis, cw: boolean) => void;
+  /** `VIEW3D_PAN_*`. */
+  move: (dir: Move3DDir) => void;
+  /** `EDA_3D_ACTIONS::toggleOrtho`. */
+  setOrtho: (on: boolean) => void;
+  /** The 3D Grid submenu. */
+  setGrid: (grid: Grid3D) => void;
+
+  // -- File / Edit menu ----------------------------------------------------
+  /** `EDA_3D_ACTIONS::exportImage` — the current view as a PNG blob. */
+  snapshot: () => Promise<Blob | null>;
+
+  /** Called on pointer move / camera change to feed the status bar. */
+  onStatus?: (s: Viewer3DStatus) => void;
+}

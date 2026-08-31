@@ -222,11 +222,7 @@ export function DialogImportGfx({ onOk, onCancel }: Props): JSX.Element {
 
   return (
     <div className="ze-modal-backdrop" onMouseDown={onCancel}>
-      <div
-        className="ze-modal ze-label-dialog"
-        style={{ width: 560, maxWidth: '96vw', height: 'auto', maxHeight: '88vh' }}
-        onMouseDown={(e) => e.stopPropagation()}
-      >
+      <div className="ze-modal ze-label-dialog" onMouseDown={(e) => e.stopPropagation()}>
         <div className="ze-modal-header">
           Import Vector Graphics
           <span className="x" title="Cancel" onClick={onCancel}>

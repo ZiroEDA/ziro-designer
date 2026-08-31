@@ -32,6 +32,12 @@ export interface LineStyleDesc {
   readonly value: LineStyleToken;
   /** `LINE_STYLE_DESC::name`, the string the combo shows. */
   readonly label: string;
+  /**
+   * `LINE_STYLE_DESC::bitmap` — the stroke drawn beside the name. Optional
+   * because `DEFAULT` is ours: it is a wire-style entry KiCad's own table has
+   * no row for, and so no bitmap either.
+   */
+  readonly bitmap?: string;
 }
 
 /**
@@ -44,12 +50,30 @@ export interface LineStyleDesc {
  * style by one. A stroke that *is* `DEFAULT` shows `DEFAULT_LINE_STYLE_LABEL`
  * instead (`dialog_shape_properties.cpp:147`).
  */
+/**
+ * `lineTypeNames` (common/stroke_params.cpp:39-45) is a map of
+ * `LINE_STYLE -> { name, bitmap }`, and the BITMAP is half of it:
+ *
+ *     { LINE_STYLE::SOLID,      { _( "Solid" ),        BITMAPS::stroke_solid      } },
+ *     { LINE_STYLE::DASH,       { _( "Dashed" ),       BITMAPS::stroke_dash       } },
+ *     { LINE_STYLE::DOT,        { _( "Dotted" ),       BITMAPS::stroke_dot        } },
+ *     { LINE_STYLE::DASHDOT,    { _( "Dash-Dot" ),     BITMAPS::stroke_dashdot    } },
+ *     { LINE_STYLE::DASHDOTDOT, { _( "Dash-Dot-Dot" ), BITMAPS::stroke_dashdotdot } }
+ *
+ * which is why every style combo upstream is a `wxBitmapComboBox` showing the
+ * stroke itself beside its name. This table carried only the names.
+ */
 export const LINE_STYLE_NAMES: readonly LineStyleDesc[] = [
-  { style: LINE_STYLE.SOLID, value: 'solid', label: 'Solid' },
-  { style: LINE_STYLE.DASH, value: 'dash', label: 'Dashed' },
-  { style: LINE_STYLE.DOT, value: 'dot', label: 'Dotted' },
-  { style: LINE_STYLE.DASHDOT, value: 'dash_dot', label: 'Dash-Dot' },
-  { style: LINE_STYLE.DASHDOTDOT, value: 'dash_dot_dot', label: 'Dash-Dot-Dot' },
+  { style: LINE_STYLE.SOLID, value: 'solid', label: 'Solid', bitmap: 'stroke_solid' },
+  { style: LINE_STYLE.DASH, value: 'dash', label: 'Dashed', bitmap: 'stroke_dash' },
+  { style: LINE_STYLE.DOT, value: 'dot', label: 'Dotted', bitmap: 'stroke_dot' },
+  { style: LINE_STYLE.DASHDOT, value: 'dash_dot', label: 'Dash-Dot', bitmap: 'stroke_dashdot' },
+  {
+    style: LINE_STYLE.DASHDOTDOT,
+    value: 'dash_dot_dot',
+    label: 'Dash-Dot-Dot',
+    bitmap: 'stroke_dashdotdot',
+  },
 ];
 
 /** `DEFAULT_LINE_STYLE_LABEL` (include/stroke_params.h:85). What a combo that

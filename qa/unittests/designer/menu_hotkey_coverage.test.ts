@@ -75,7 +75,21 @@ const CONVERTED = [
  * The list is asserted whole rather than as a floor: a *new* frame cannot be
  * added to the app without landing in one list or the other.
  */
-const PENDING: readonly string[] = [];
+const PENDING: readonly string[] = [
+  // `EDA_3D_VIEWER_FRAME`. Its keys are `EDA_3D_ACTIONS`' own `.DefaultHotkey()`
+  // -- z/x/y for the six axis views, r, f, Home, F5, the arrows -- and upstream
+  // it is a separate top-level window, so pcbnew's accelerators cannot reach
+  // the board while it has focus. Ours is an overlay sharing the document with
+  // that canvas, so it swallows every unmodified key in the capture phase
+  // rather than asking the shared dispatcher. Converting it means giving the
+  // dispatcher a notion of window focus, which is the same change the canvas
+  // frames above are waiting on.
+  //
+  // It arrived here by extraction, not by being new: this listener lived in
+  // `PcbEditor.tsx` until the frame became one shared component so CVPCB's
+  // footprint viewer could open the same window KiCad's does.
+  'editors/pcb/Viewer3DFrame.tsx',
+];
 
 /**
  * The only modifier reads a converted frame may keep, per file, line for line.
@@ -124,10 +138,9 @@ const MODIFIER_EXCEPTIONS: Readonly<Record<string, readonly string[]>> = {
     // pointer's, one the keyboard's.
     'ctrlDownRef.current = e.ctrlKey || e.metaKey;',
     'const ctrl = e.ctrlKey || e.metaKey;',
-    // The 3D viewer overlay declining to treat a modified key as one of its
-    // view keys - upstream the viewer is a separate top-level window, so
-    // pcbnew's hotkeys cannot reach the board while it has focus.
-    'if (e.ctrlKey || e.metaKey || e.altKey) return;',
+    // (The 3D viewer overlay's own "not a modified key" guard used to be here.
+    // It left with the viewer when EDA_3D_VIEWER_FRAME became one shared
+    // component, and is now covered by that file's PENDING entry above.)
     // Ctrl+Enter inside the place-text dialog's own textarea, which is that
     // dialog's OK and reaches nothing outside it.
     "} else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {",
@@ -1012,6 +1025,55 @@ const DECLARED: Readonly<Record<string, readonly string[]>> = {
     'Ctrl+F',
     'E',
     'F',
+    // ---- the canvas context menu (PCB_SELECTION_TOOL's TOOL_MENU) ---------
+    // Every row below is one KiCad prints in that menu. Three groups, and the
+    // group a key is in is the whole reason it is listed:
+    //
+    //  1. Already bound, and the menu row is new. `PCB_ACTIONS::move` (M),
+    //     `dragFreeAngle` (G), `drag45Degree` (D) and `rotateCcw`/`rotateCw`
+    //     (R / Shift+R) were all live in this frame's canvas key chain with a
+    //     comment saying "no row"; the context menu is now that row, and the
+    //     key and the row run the same thing.
+    'M',
+    'G',
+    'D',
+    'R',
+    'Shift+R',
+    //  2. Rows whose command is not wired yet, listed for the same reason X
+    //     and Ctrl+Shift+M above are: the row PRINTS the key, and a row that
+    //     grows an action must not silently grow a binding too. Get and Move
+    //     Footprint, the five router rows, and Open in Footprint Editor's
+    //     Ctrl+E, which reaches the frame but not through the dispatcher.
+    'T',
+    'Shift+X',
+    'Shift+E',
+    'Backspace',
+    'Shift+F',
+    'Ctrl+E',
+    //     Move Individually (Ctrl+M, pcb_actions.cpp:604), Swap (Alt+S,
+    //     :707) and Pack and Move Footprints (P, :730) joined them when the
+    //     multi-selection rows were brought up to the installed build: KiCad
+    //     prints all three, and ours printed the rows bare or not at all.
+    'Ctrl+M',
+    'Alt+S',
+    'P',
+    //     Clear Net Highlighting's `~` (pcb_actions.cpp:1575) came with the
+    //     Net Inspection Tools submenu (board_inspection_tool.cpp:68-82) - it
+    //     was already live in the canvas key chain, and the row is now the row
+    //     for it.
+    '~',
+    //  3. The clipboard group (edit_tool.cpp:822-827). pcbnew has no cut,
+    //     copy or paste in this app yet, so these five are group 2 as well —
+    //     they are separated only because they land together when the
+    //     clipboard does.
+    'Ctrl+X',
+    'Ctrl+C',
+    'Ctrl+V',
+    'Shift+Ctrl+V',
+    //  and Select All / Unselect All, whose rows exist but whose keys the
+    //  dispatcher does not carry in this frame.
+    'Ctrl+A',
+    'Shift+Ctrl+A',
     // View > Zoom In / Zoom Out declare NO accelerator: those rows are
     // `ACTIONS::zoomInCenter` / `zoomOutCenter` (`menubar_pcb_editor.cpp:234`),
     // which carry no DefaultHotkey on any platform. Zoom to Fit is Home, the

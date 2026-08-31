@@ -28,7 +28,17 @@ describe('an image has properties rows at all', () => {
   });
 
   it('offers position and scale', () => {
-    expect(rows(doc()).map((r) => r.name)).toEqual(['Position X', 'Position Y', 'Scale']);
+    // SCH_BITMAP_DESC (sch_bitmap.cpp): Position X/Y ungrouped, then five rows
+    // in `_( "Image Properties" )`. Read off the DESC block, not off our output.
+    expect(rows(doc()).map((r) => r.name)).toEqual([
+      'Position X',
+      'Position Y',
+      'Scale',
+      'Transform Offset X',
+      'Transform Offset Y',
+      'Width',
+      'Height',
+    ]);
   });
 });
 
@@ -82,16 +92,60 @@ describe('a graphic shape has properties too', () => {
   const CIRCLE = `(circle (center 10 10) (radius 5)
      (stroke (width 0) (type solid)) (fill (type none)) (uuid "c-1"))`;
 
-  it('offers stroke and fill rows', () => {
+  it('offers every EDA_SHAPE property a rectangle has', () => {
+    /**
+     * `EDA_SHAPE` registers seventeen properties under `_HKI( "Shape
+     * Properties" )` (common/eda_shape.cpp:2884-2960), and three availability
+     * functions decide which a given shape shows:
+     *
+     *     Start/End X,Y       isNotPolygonOrCircle
+     *     Center X,Y, Radius  isCircle
+     *     W, H, Corner Radius isRectangle
+     *
+     * so a rectangle shows these thirteen, in this order. We used to offer
+     * three — Line Width, Line Style and a "Filled" checkbox — under the
+     * default group, so a rectangle said nothing about where it was or how big.
+     */
     expect(gRows(shapeDoc(RECT)).map((r) => r.name)).toEqual([
+      'Shape',
+      'Start X',
+      'Start Y',
+      'End X',
+      'End Y',
+      'Width',
+      'Height',
+      'Corner Radius',
       'Line Width',
       'Line Style',
-      'Filled',
+      'Line Color',
+      'Fill',
+      'Fill Color',
     ]);
   });
 
-  it('a circle gains a radius row ahead of them', () => {
-    expect(gRows(shapeDoc(CIRCLE)).map((r) => r.name)[0]).toBe('Radius');
+  it('under the group EDA_SHAPE names, not the default one', () => {
+    for (const r of gRows(shapeDoc(RECT))) expect(r.group).toBe('Shape Properties');
+  });
+
+  it('and a Fill CHOICE, since Filled is library-only', () => {
+    // `SCH_SHAPE` overrides `_HKI( "Filled" )` to `isSchematicItem`
+    // (sch_shape.cpp:604-610) — it is available on a LIBRARY shape. A schematic
+    // shape gets the FILL_T enum instead, which is why this is a choice.
+    const row = gRows(shapeDoc(RECT)).find((r) => r.name === 'Fill')!;
+    expect(row.kind).toBe('choice');
+    expect(row.choices).toEqual(['None', 'Solid', 'Hatch', 'Reverse Hatch', 'Cross-hatch']);
+    expect(gRows(shapeDoc(RECT)).some((r) => r.name === 'Filled')).toBe(false);
+  });
+
+  it('a circle gets Center X, Center Y and Radius instead of Start/End', () => {
+    // `SetAvailableFunc( isCircle )` on those three, and
+    // `isNotPolygonOrCircle` on Start/End.
+    const names = gRows(shapeDoc(CIRCLE)).map((r) => r.name);
+    expect(names).toContain('Center X');
+    expect(names).toContain('Center Y');
+    expect(names).toContain('Radius');
+    expect(names).not.toContain('Start X');
+    expect(names).not.toContain('Width');
   });
 
   it('drops the Default style choice a wire keeps', () => {
@@ -103,12 +157,14 @@ describe('a graphic shape has properties too', () => {
 
   it('toggles the fill through replaceGraphic', () => {
     const d = shapeDoc(RECT);
-    const row = gRows(d).find((r) => r.name === 'Filled')!;
-    expect(row.value).toBe(false);
-    const after = row.set!(true)!.apply(d);
+    const row = gRows(d).find((r) => r.name === 'Fill')!;
+    expect(row.value).toBe('None');
+    // A choice takes its LABEL, not a boolean: `_HKI( "Fill" )` is the FILL_T
+    // enum, and "Solid" is FILLED_WITH_COLOR, whose token is `color`.
+    const after = row.set!('Solid')!.apply(d);
     const g = after.graphics[0]!;
     if (g.kind !== 'rectangle') throw new Error('expected a rectangle');
-    expect(g.fill?.type).toBe('outline');
+    expect(g.fill?.type).toBe('color');
   });
 
   it('refuses a non-positive radius', () => {
@@ -153,22 +209,42 @@ describe('a table has properties too', () => {
     expect(tRows(d).length).toBeGreaterThan(0);
   });
 
-  it('reports the shape and offers the border toggles', () => {
+  /**
+   * The twelve properties SCH_TABLE_DESC registers (sch_table.cpp), in
+   * registration order, which is the order a wxPropertyGrid draws a group in.
+   * Read off the DESC block, not off our own output.
+   */
+  it('offers exactly what SCH_TABLE_DESC registers, in that order', () => {
     expect(tRows(doc()).map((r) => r.name)).toEqual([
-      'Columns',
-      'Rows',
+      'Start X',
+      'Start Y',
       'External Border',
       'Header Border',
+      'Border Width',
+      'Border Style',
+      'Border Color',
       'Row Separators',
-      'Column Separators',
+      'Cell Separators',
+      'Separators Width',
+      'Separators Style',
+      'Separators Color',
     ]);
   });
 
-  it('leaves the column count read-only', () => {
-    // Changing it would add or drop cells, which is SCH_EDIT_TABLE_TOOL's job.
-    const cols = tRows(doc()).find((r) => r.name === 'Columns')!;
-    expect(cols.value).toBe(2);
-    expect(cols.set).toBeUndefined();
+  it('offers no row for the column or row COUNT', () => {
+    // `Columns` and `Rows` were ours, not KiCad's - SCH_TABLE_DESC registers
+    // neither, and a wxPropertyGrid shows what the property manager registered
+    // and nothing else. The counts are changed by SCH_EDIT_TABLE_TOOL.
+    const names = tRows(doc()).map((r) => r.name);
+    expect(names).not.toContain('Columns');
+    expect(names).not.toContain('Rows');
+  });
+
+  /** `_HKI( "Cell Separators" )` - upstream's name for the column separators. */
+  it('names the column separators the way upstream does', () => {
+    const names = tRows(doc()).map((r) => r.name);
+    expect(names).toContain('Cell Separators');
+    expect(names).not.toContain('Column Separators');
   });
 
   it('writes a border toggle through replaceTable', () => {
@@ -191,8 +267,23 @@ describe('a sheet pin has properties', () => {
   const pinId = (d: Schematic) => sheetPinId(refId('sheet', d.sheets[0]!.uuid, 0), 0);
   const pRows = (d: Schematic) => schPropertiesFor(d, LIB, itemRefById(d, pinId(d))!);
 
-  it('offers name and shape', () => {
-    expect(pRows(doc()).map((r) => r.name)).toEqual(['Name', 'Shape']);
+  it("offers a hierarchical label's set, which is what it inherits", () => {
+    // SCH_SHEET_PIN inherits SCH_HIERLABEL -> SCH_LABEL_BASE -> SCH_TEXT ->
+    // EDA_TEXT and registers nothing of its own. `Name` was never a registered
+    // property: EDA_TEXT's `Text` is the row that edits a sheet pin's name.
+    expect(pRows(doc()).map((r) => r.name)).toEqual([
+      'Shape',
+      'Text',
+      'Font',
+      'Auto Thickness',
+      'Italic',
+      'Bold',
+      'Horizontal Justification',
+      'Vertical Justification',
+      'Color',
+      'Hyperlink',
+      'Text Size',
+    ]);
   });
 
   it('omits position, which is constrained to the sheet border', () => {
@@ -203,13 +294,13 @@ describe('a sheet pin has properties', () => {
 
   it('renames through the parent sheet', () => {
     const d = doc();
-    const after = pRows(d).find((r) => r.name === 'Name')!.set!('CLK')!.apply(d);
+    const after = pRows(d).find((r) => r.name === 'Text')!.set!('CLK')!.apply(d);
     expect(after.sheets[0]!.pins[0]!.name).toBe('CLK');
   });
 
   it('refuses an empty name', () => {
     // An unnamed sheet pin has no hierarchical label to match.
-    expect(pRows(doc()).find((r) => r.name === 'Name')!.set!('   ')).toBeNull();
+    expect(pRows(doc()).find((r) => r.name === 'Text')!.set!('   ')).toBeNull();
   });
 
   it('changes the shape through the token list', () => {
@@ -226,7 +317,7 @@ describe('a sheet pin has properties', () => {
        (pin "A" input (at 10 14 180) (effects (font (size 1.27 1.27))))
        (pin "B" output (at 10 18 180) (effects (font (size 1.27 1.27)))))`);
     const after = schPropertiesFor(d, LIB, itemRefById(d, pinId(d))!).find(
-      (r) => r.name === 'Name',
+      (r) => r.name === 'Text',
     )!.set!('CLK')!.apply(d);
     expect(after.sheets[0]!.pins[1]!.name).toBe('B');
     expect(after.sheets[0]!.pins[1]!.shape).toBe('output');

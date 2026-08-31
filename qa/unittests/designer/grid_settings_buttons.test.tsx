@@ -132,20 +132,29 @@ const slice = (grids: GridEntry[], last = 0): GridSettingsSlice => ({
 
 /** The list box's rows, in order. */
 const rowLabels = (): string[] =>
-  Array.from(document.querySelectorAll('select.ze-gridlist option')).map(
+  Array.from(document.querySelectorAll('.ze-gridlist .ze-gridlist-row')).map(
     (o) => o.textContent ?? '',
   );
 
-/** `m_currentGridCtrl->GetSelection()`. */
+/**
+ * `m_currentGridCtrl->GetSelection()`.
+ *
+ * The list is a `role="listbox"` of `role="option"` rows, not a native
+ * `<select size>`: a native one paints its selected row in the BROWSER's
+ * highlight once it has focus, which beats any `option:checked` rule, so the
+ * row came up in KiCad's orange and turned blue on the first click.
+ */
 const selectedRow = (): number =>
-  Number((document.querySelector('select.ze-gridlist') as HTMLSelectElement).value);
+  Array.from(document.querySelectorAll('.ze-gridlist .ze-gridlist-row')).findIndex(
+    (o) => o.getAttribute('aria-selected') === 'true',
+  );
 
 const button = (title: string): HTMLButtonElement => screen.getByTitle(title) as HTMLButtonElement;
 
 /** Select a row, which is what every handler reads. */
 function selectRow(i: number): void {
-  const list = document.querySelector('select.ze-gridlist') as HTMLSelectElement;
-  fireEvent.change(list, { target: { value: String(i) } });
+  const rows = document.querySelectorAll('.ze-gridlist .ze-gridlist-row');
+  fireEvent.mouseDown(rows[i] as Element);
 }
 
 /** Fill the open `DIALOG_GRID_SETTINGS` and press OK. */

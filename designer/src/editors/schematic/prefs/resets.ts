@@ -37,6 +37,7 @@ export function resetEeschemaDisplayOptions(ctx: PrefsContext): void {
       'default_font',
       'show_hidden_pins',
       'show_hidden_fields',
+      'show_directive_labels',
       'show_erc_errors',
       'show_erc_warnings',
       'show_erc_exclusions',
@@ -49,6 +50,7 @@ export function resetEeschemaDisplayOptions(ctx: PrefsContext): void {
     // "Selection & Highlighting" -- every field of `selection` is on this page.
     resetKeys(s.selection, EESCHEMA_DEFAULTS.selection, [
       'thickness',
+      'drag_net_collision_width',
       'highlight_thickness',
       'draw_selected_children',
       'fill_shapes',
@@ -142,22 +144,6 @@ export function resetEeschemaEditingOptions(ctx: PrefsContext): void {
     resetKeys(s.annotation, EESCHEMA_DEFAULTS.annotation, ['automatic']);
     resetKeys(s.appearance, EESCHEMA_DEFAULTS.appearance, ['footprint_preview']);
     resetKeys(s.system, EESCHEMA_DEFAULTS.system, ['never_show_rescue_dialog']);
-  });
-}
-
-/**
- * `PANEL_EESCHEMA_ANNOTATION_OPTIONS::ResetPanel`
- * (`eeschema/dialogs/panel_eeschema_annotation_options.cpp`), which builds a
- * default `SCHEMATIC_SETTINGS` and calls `loadEEschemaSettings` on it — setting
- * this panel's three controls and no others.
- */
-export function resetEeschemaAnnotationOptions(ctx: PrefsContext): void {
-  ctx.upE((s) => {
-    // PANEL_EESCHEMA_ANNOTATION_OPTIONS::ResetPanel
-    // (eeschema/dialogs/panel_eeschema_annotation_options.cpp) builds a default
-    // SCHEMATIC_SETTINGS and calls loadEEschemaSettings on it, which sets this
-    // panel's three controls and no others.
-    resetKeys(s.annotation, EESCHEMA_DEFAULTS.annotation, ['automatic', 'method', 'sort_order']);
   });
 }
 

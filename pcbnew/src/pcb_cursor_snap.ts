@@ -23,6 +23,7 @@
 import type { Board } from './types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { boardHitCandidates, parseBoardItemId } from './edit-board.js';
+import { footprintBBox, padBBox } from './edit-footprint.js';
 import { segNearestPoint } from '@ziroeda/kimath/src/geometry/seg.js';
 import {
   align,
@@ -38,6 +39,13 @@ export interface BoardCursorSnap {
   snap: Vec2;
   /** Which kind of item won, for callers that highlight it. */
   kind: 'pad' | 'via' | 'track' | 'arc';
+  /**
+   * The item's own width, for a track or an arc — `PNS::SEGMENT::Width()` /
+   * `PNS::ARC::Width()`, which is `inheritTrackWidth`'s first and commonest
+   * branch (pns_kicad_iface.cpp:989-1006). Absent for a pad or a via, which
+   * have no width of their own and send that function to the joint instead.
+   */
+  width?: number;
 }
 
 /** The knobs `updateEndItem` reads off the frame. */
@@ -162,6 +170,7 @@ function pickOnLayer(
         net: t.net,
         snap: { ...(distASq < distBSq ? t.start : t.end) },
         kind: r.kind,
+        width: t.width,
       };
     }
 
@@ -170,13 +179,15 @@ function pickOnLayer(
     if (curved) {
       const arc = gridArcFromPoints(curved.start, curved.mid, curved.end);
 
-      if (arc) return { net: t.net, snap: alignToArc(aWhere, arc, aGrid), kind: 'arc' };
+      if (arc)
+        return { net: t.net, snap: alignToArc(aWhere, arc, aGrid), kind: 'arc', width: t.width };
     }
 
     return {
       net: t.net,
       snap: alignToSegment(aWhere, { a: t.start, b: t.end }, aGrid),
       kind: r.kind,
+      width: t.width,
     };
   }
 
@@ -339,7 +350,13 @@ export function nearestAnchor(
   aFlags: number,
 ): SnapAnchor | null {
   let best: SnapAnchor | null = null;
-  let minDist = Number.MAX_SAFE_INTEGER;
+  // Upstream's is `std::numeric_limits<double>::max()`. `MAX_SAFE_INTEGER` is
+  // not the same seed here: these are *squared* distances in internal units, so
+  // it silently rejects every anchor further than ~95 mm from the cursor. That
+  // never showed while the only caller pre-filtered its anchors by a screen
+  // radius; `bestDragOrigin` does not, because a grabbed selection must always
+  // yield a reference point however far away it is.
+  let minDist = Number.POSITIVE_INFINITY;
 
   for (const anchor of aAnchors) {
     if ((aFlags & anchor.flags) !== aFlags) continue;
@@ -413,4 +430,216 @@ export function bestSnapAnchor(
   }
 
   return nearestGrid;
+}
+
+// ---------------------------------------------------------------------------
+// `PCB_GRID_HELPER::BestDragOrigin` — where a move measures itself *from*.
+//
+// This is the half of a move that decides whether two parts can ever be lined
+// up with each other, and it is not obvious from the name. A move does not
+// translate the selection by the cursor's travel; it picks an anchor **on the
+// selection** (`aFrom = true`, so a footprint offers its own origin), warps the
+// pointer onto it — "Warp mouse to origin of moved object", `warp_mouse_on_move`,
+// which `common_settings.cpp:255` defaults to **true** — and from then on
+// `EDIT_TOOL::Move` only ever writes
+//
+//     movement = BestSnapAnchor( mousePos ) - prevPos
+//
+// with `prevPos` starting at that anchor (edit_tool_move_fct.cpp:1311-1351).
+// The anchor therefore lands *absolutely* on whatever `BestSnapAnchor` returns
+// — a grid node, another footprint's pad — rather than being carried along at
+// whatever sub-grid offset it happened to have. Two footprints dragged in the
+// same session both end up on grid nodes, which is the whole of "it aligns
+// itself" that KiCad feels like and a delta-based move can never reproduce:
+// quantising the *travel* preserves the original offset exactly.
+//
+// A browser cannot warp the pointer, and it does not have to. With the warp,
+// upstream's mouse position for the rest of the gesture is the anchor plus the
+// motion since the grab, so adding that motion to the anchor and snapping the
+// result is the same number by construction.
+//
+// Note there is no snap radius here: unlike `BestSnapAnchor` this takes the
+// nearest anchor however far away it is, because the selection is being grabbed
+// and must always have a reference point (upstream falls back to the mouse
+// position only when the selection contributes no anchors at all).
+// ---------------------------------------------------------------------------
+
+/** `computeAnchors`'s `aFrom = true` inputs that the editor has to supply. */
+export interface DragOriginOptions {
+  /**
+   * `GetGrid()` in internal units — read only by the footprint rule that adds
+   * the bounding-box centre as a second anchor when it is more than a grid step
+   * away from the footprint's own origin (pcb_grid_helper.cpp:1645-1646).
+   */
+  gridSize: number;
+  /**
+   * `view->ToWorld( 50 )`, upstream's `lineSnapMinCornerDistance` (cpp:518).
+   * An OUTLINE anchor may only beat a corner/origin one that is further away
+   * than this. No item type collects OUTLINE anchors with `aFrom = true`, so
+   * this changes nothing today and is here because it is the rule.
+   */
+  lineSnapMinCornerDistance?: number;
+}
+
+/**
+ * `PCB_GRID_HELPER::computeAnchors( aItems, aRefPos, aFrom = true )` over the
+ * selection, as board item ids.
+ *
+ * `aFrom = true` is a different anchor set from the one {@link
+ * computeCopperAnchors} builds, not merely a filtered one:
+ *
+ * - a pad contributes **only** its centre — "if we are getting a drag point, we
+ *   don't want to center the edge of pads" (cpp:1374-1376), so none of the
+ *   outline key points are collected;
+ * - a footprint contributes its own origin unconditionally, plus the centre of
+ *   its bounding box when that is more than a grid step away, plus the centres
+ *   of the pads whose bounding box the cursor is actually inside (cpp:1576-1648);
+ * - an arc offers its stored midpoint but *not* its derived geometric centre,
+ *   which is rarely on the grid (cpp:1315-1323).
+ *
+ * Not ported, all for the same reason `computeCopperAnchors` leaves them out —
+ * they are anchor sources we have no geometry for here: graphic shapes, zone
+ * outlines, dimensions, text, and the construction-geometry intersections.
+ * A selection made only of those falls back to the cursor, which is upstream's
+ * own answer when nothing contributes an anchor.
+ */
+export function computeDragAnchors(
+  aBoard: Board,
+  aItems: Iterable<string>,
+  aWhere: Vec2,
+  aOpts: DragOriginOptions,
+): SnapAnchor[] {
+  const anchors: SnapAnchor[] = [];
+  // `VECTOR2I grid( GetGrid() ); … > grid.SquaredEuclideanNorm()`, and a GAL
+  // grid is square here, so the threshold is both axes together.
+  const gridSq = 2 * aOpts.gridSize * aOpts.gridSize;
+
+  const pad = (p: { at: Vec2 }): void => {
+    anchors.push({ pos: p.at, flags: ANCHOR_ORIGIN | ANCHOR_SNAPPABLE });
+  };
+
+  for (const id of aItems) {
+    const ref = parseBoardItemId(id);
+    if (!ref) continue;
+
+    switch (ref.kind) {
+      case 'footprint': {
+        const fp = aBoard.footprints[ref.index];
+        if (!fp) break;
+
+        // "pad->GetBoundingBox().Contains( aRefPos )" (cpp:1592): only a pad the
+        // cursor is genuinely over is a pick-up point, which is what makes
+        // grabbing a part by one of its pads drag it by that pad.
+        for (const p of fp.pads) {
+          const bb = padBBox(p);
+          if (
+            bb &&
+            aWhere.x >= bb.minX &&
+            aWhere.x <= bb.maxX &&
+            aWhere.y >= bb.minY &&
+            aWhere.y <= bb.maxY
+          )
+            pad(p);
+        }
+
+        anchors.push({ pos: fp.at, flags: ANCHOR_ORIGIN | ANCHOR_SNAPPABLE });
+
+        // `footprint->GetBoundingBox( false )` — the box without the text, so a
+        // long reference cannot drag the centre off the part.
+        const bb = footprintBBox(fp, false);
+        if (bb) {
+          const centre = { x: (bb.minX + bb.maxX) / 2, y: (bb.minY + bb.maxY) / 2 };
+          if (sqDist(centre, fp.at) > gridSq)
+            anchors.push({ pos: centre, flags: ANCHOR_ORIGIN | ANCHOR_SNAPPABLE });
+        }
+
+        break;
+      }
+
+      case 'pad': {
+        const p = aBoard.footprints[ref.index]?.pads[ref.sub ?? 0];
+        if (p) pad(p);
+        break;
+      }
+
+      case 'via': {
+        const v = aBoard.vias[ref.index];
+        if (v) anchors.push({ pos: v.at, flags: ANCHOR_ORIGIN | ANCHOR_CORNER | ANCHOR_SNAPPABLE });
+        break;
+      }
+
+      case 'track': {
+        const t = aBoard.tracks[ref.index];
+        if (!t) break;
+        anchors.push({ pos: t.start, flags: ANCHOR_CORNER | ANCHOR_SNAPPABLE });
+        anchors.push({ pos: t.end, flags: ANCHOR_CORNER | ANCHOR_SNAPPABLE });
+        anchors.push({
+          pos: { x: (t.start.x + t.end.x) / 2, y: (t.start.y + t.end.y) / 2 },
+          flags: ANCHOR_ORIGIN,
+        });
+        break;
+      }
+
+      case 'arc': {
+        const a = aBoard.arcs[ref.index];
+        if (!a) break;
+        anchors.push({ pos: a.start, flags: ANCHOR_CORNER | ANCHOR_SNAPPABLE });
+        anchors.push({ pos: a.end, flags: ANCHOR_CORNER | ANCHOR_SNAPPABLE });
+        // The stored midpoint, which is grid-aligned when the arc is. The
+        // derived centre is deliberately *not* offered as the arc's own origin.
+        anchors.push({ pos: a.mid, flags: ANCHOR_CORNER | ANCHOR_SNAPPABLE });
+        break;
+      }
+
+      default:
+        break;
+    }
+  }
+
+  return anchors;
+}
+
+/**
+ * `PCB_GRID_HELPER::BestDragOrigin` (cpp:507-565) — the point a move measures
+ * itself from, given the selection and the raw mouse position.
+ *
+ * Origin beats corner beats outline, each only when it is nearer; the outline
+ * anchor additionally may not win unless the best of the other two is further
+ * away than `lineSnapMinCornerDistance`. With no anchors at all the cursor
+ * itself is the answer.
+ */
+export function bestDragOrigin(
+  aBoard: Board,
+  aItems: Iterable<string>,
+  aWhere: Vec2,
+  aOpts: DragOriginOptions,
+): Vec2 {
+  const anchors = computeDragAnchors(aBoard, aItems, aWhere, aOpts);
+
+  const nearestOutline = nearestAnchor(anchors, aWhere, ANCHOR_OUTLINE);
+  const nearestCorner = nearestAnchor(anchors, aWhere, ANCHOR_CORNER);
+  const nearestOrigin = nearestAnchor(anchors, aWhere, ANCHOR_ORIGIN);
+
+  let best: SnapAnchor | null = null;
+  let minDist = Number.MAX_VALUE;
+
+  if (nearestOrigin) {
+    minDist = Math.sqrt(sqDist(nearestOrigin.pos, aWhere));
+    best = nearestOrigin;
+  }
+
+  if (nearestCorner) {
+    const d = Math.sqrt(sqDist(nearestCorner.pos, aWhere));
+    if (d < minDist) {
+      minDist = d;
+      best = nearestCorner;
+    }
+  }
+
+  if (nearestOutline) {
+    const d = Math.sqrt(sqDist(nearestOutline.pos, aWhere));
+    if (minDist > (aOpts.lineSnapMinCornerDistance ?? 0) && d < minDist) best = nearestOutline;
+  }
+
+  return best ? { x: best.pos.x, y: best.pos.y } : { x: aWhere.x, y: aWhere.y };
 }

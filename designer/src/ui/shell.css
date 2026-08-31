@@ -328,6 +328,14 @@
      on a NEUTRAL grey stays neutral, and #3a3d42 is blue-tinted (58, 61, 66).
      It was our own chrome tint, not KiCad's derivation. */
   --panel-list-bg: #4b4b4b;
+  /* The ACTIVE layer's row. `APPEARANCE_CONTROLS::OnLayerChanged` repaints
+     every row `m_layerPanelColour` and then lightens the current one by adding
+     15 to each channel below 240 (appearance_controls.cpp:1273-1288) — so from
+     --panel-list-bg's 75 it is exactly 90, #5a5a5a. It is NOT the selection
+     accent: KiCad marks the active layer with a slightly lighter grey plus an
+     INDICATOR_ICON, and ours painted the row Yaru orange, which is the one
+     colour on that panel that means "selected item" everywhere else. */
+  --panel-list-row-active: #5a5a5a;
   /* Filled portion of an opacity slider, left of the thumb. */
   --slider-fill: #e8912b;
 
@@ -485,6 +493,11 @@
      GTK dims by colour, never by opacity: an opacity fade also washes out the
      control's background and border, which ours did. */
   --ctl-fg-disabled: #929292;
+  /* [css] `treeview.view header button { color: #8f8f8f; font-weight: bold }`
+     in the Yaru dark stylesheet. A column header is DIMMER than the rows under
+     it and heavier — it is a button, not a row — and neither is a shade anyone
+     here picked. */
+  --tree-header-fg: #8f8f8f;
   /* [px] the interior of a wxTextCtrl, asked of wx itself rather than sampled:
      a program compiled against the installed libwxgtk3.2 creates the control
      and reports #272727 three ways over — GetBackgroundColour(), the style
@@ -1038,8 +1051,19 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
    drop-down in KiCad shows no orange at all, and that is handled on `.ze-combo`
    below. `select` is dropped from this rule for the same reason. */
 .ze-app
-input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="range"]):focus,
+input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="range"]):not(
+  .ze-bare
+):focus,
 .ze-app textarea:focus {
+  border-color: var(--field-focus-border);
+  box-shadow: inset 0 0 0 1px var(--field-focus-border);
+}
+/* `.ze-bare` is an entry that sits INSIDE a frame its wrapper draws, and GTK
+   draws the focus ring on the frame — a GtkSearchEntry's ring goes round the
+   whole box, magnifier and all, not round the text area inside it. Without the
+   `:not()` above, a bare entry drew a second ring inset within the wrapper's,
+   which is the doubled box on Preferences > Hotkeys' filter. */
+.ze-tplsel-searchwrap:focus-within {
   border-color: var(--field-focus-border);
   box-shadow: inset 0 0 0 1px var(--field-focus-border);
 }
@@ -1662,7 +1686,8 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   border-color: transparent;
 }
 /* "Checked items need a lighter hover rectangle" — bitmap_button.cpp:300-302. */
-.ze-tbtn.active:not(.disabled):not(:disabled):hover {
+.ze-tbtn.active:not(.disabled):not(:disabled):hover,
+.ze-lp-iconbtn.checked:not(:disabled):hover {
   background: var(--accent-fill-hover-checked);
 }
 /* wxCONTROL_PRESSED, the darkest of the three. */
@@ -1686,8 +1711,16 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 
    The same rectangle, from the same wx code, is already derived for the
    project manager's launcher hover (`.ze-launcher .ico:hover`) — this is that
-   value shared rather than a second one, which is why it is a token. */
-.ze-tbtn.active {
+   value shared rather than a second one, which is why it is a token.
+
+   `.ze-lp-iconbtn` is the bold/italic/alignment bar the text, label and field
+   dialogs carry. Upstream those are `BITMAP_BUTTON`s too, so they are painted
+   by the same `OnPaint` and get the same rectangle. It had its own rule
+   filling the button with `--chrome-active` outright — the raw #e95420, not
+   the checked fill — which read as a solid orange block beside every other
+   toggle in the app. */
+.ze-tbtn.active,
+.ze-lp-iconbtn.checked {
   background: var(--accent-fill-checked);
   box-shadow: inset 0 0 0 1px var(--chrome-active);
   border-color: transparent;
@@ -1928,6 +1961,18 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   min-height: 0;
 }
 
+/* A row in a wxTreeCtrl takes the CONTROL font and nothing else.
+   `m_treebook->SetFont( KIUI::GetControlFont( this ) )`
+   (common/widgets/paged_dialog.cpp:72) is `getGUIFont( win, 0 )` - 11 pt /
+   14.67 px, the same font as everything else in the dialog - and that file has
+   no `SetItemBold`, no per-item font and no per-item colour. Parent rows, child
+   rows and the selected row are all one font at one weight.
+
+   This stated `font-size: 13px`, which is why our whole tree read smaller than
+   KiCad's, and `.root` / `.active` below each added a `font-weight: 700` that
+   upstream does not have. Measured on Akshay's capture, the selected row is
+   17.2% ink against 19.7-20.8% for the unselected ones - bold cannot cover
+   LESS, so the selection is not emboldened. */
 .ze-tree-item {
   display: flex;
   align-items: center;
@@ -1935,7 +1980,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   padding: 3px 5px;
   border-radius: 3px;
   cursor: default;
-  font-size: 13px;
   color: var(--view-fg);
   white-space: nowrap;
 }
@@ -1950,12 +1994,9 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-tree-item.active {
   background: var(--chrome-active);
   color: #fff;
-  /* KiCad's native wxTreeCtrl bolds whichever row is selected. */
-  font-weight: 700;
 }
 .ze-tree-item.root {
-  font-weight: 700;
-  color: #fff;
+  font-weight: inherit;
 }
 /* KiCad's native GTK/Adwaita disclosure arrow: a thin chevron outline (not a
    filled triangle) that rotates from pointing right (collapsed) to down. */
@@ -2482,31 +2523,20 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
    border on everything inside the right panel. Colours sampled off the real
    window: the dialog is #2c2c2c, the card list and the cards themselves
    #373737, ruled #181818, and the search field #272727. */
-/* Measured off the real dialog: 650 wide by 399 tall overall, of which the
-   title bar is 37. (900x600 is the wxFormBuilder default in the base class;
-   finishDialogSettings and the persisted m_TemplateWindowSize is what the
-   window actually opens at.) SetSizeHints( 500, 400 ) is the floor. */
+/* `dialog_template_selector_base.cpp:14` states a MINIMUM and nothing else —
+   `SetSizeHints( wxSize( 500, 400 ), wxDefaultSize )` — and the dialog is then
+   fitted to its content. The 652 x 440 that stood here was that minimum with
+   our own border and project-name row added back by hand; the row is real, but
+   it should push the dialog out by existing, not by being counted into a
+   number. */
 .ze-modal.ze-tplsel {
-  /* +2 on each axis for our own 1px border, which the window manager draws
-     outside the client area upstream. */
-  width: 652px;
-  /* 401 is upstream's opening height, plus 39 for the project-name row - a 34px
-     entry over its 5px bottom border. That row is ours: upstream asks for the
-     name in a second window, so the height it needs has to be added here rather
-     than taken out of the template list, which has a 200px floor of its own and
-     was being overrun by it. */
-  height: 440px;
-  /* SetSizeHints( wxSize( 500, 400 ), wxDefaultSize ) - the floor, carrying the
-     same 39px, for the same reason. */
+  /* [data] `SetSizeHints( wxSize( 500, 400 ), wxDefaultSize )`. */
   min-width: 500px;
-  min-height: 439px;
-  /* The dialog's style is wxDEFAULT_DIALOG_STYLE|wxRESIZE_BORDER, and the size
-     it is dragged to is kept in settings->m_TemplateWindowSize. Without this
-     the dialog was stuck at its opening size, and at that size the template
-     list is narrow enough to clip a card - which upstream answers by letting
-     you widen the window. */
-  resize: both;
-  overflow: hidden;
+  /* [data] the same call. It said 439, which was 400 plus the project-name row
+     measured once and frozen. */
+  min-height: 400px;
+  max-width: 94vw;
+  max-height: 90vh;
 }
 /* No padding of its own: bmainSizer->Add( m_mainContent, 1, wxEXPAND, 5 ) has
    no wxALL, so wx ignores that border. The 5px belongs to m_mainContent's
@@ -2723,22 +2753,19 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   font-size: 10pt;
   margin-top: 6px;
 }
-/* ---------------------------------------------------------------------------
-   Hotkey List (DIALOG_LIST_HOTKEYS + PANEL_HOTKEYS_EDITOR).
-
-   `main_sizer->SetMinSize( 600, 400 )` is the only size upstream states, and
-   DIALOG_SHIM is resizable, so 600x400 is both the opening size and the floor.
-   ------------------------------------------------------------------------- */
+/* No width or height. `dialog_hotkey_list.cpp:79` states a MINIMUM and nothing
+   else — `main_sizer->SetMinSize( 600, 400 )` — and the dialog is then fitted
+   to its content, whose width is the four columns the hotkey list declares.
+   The 1000 x 560 here was derived from those column totals rather than stated
+   by anyone, so it is the list that should set the width, not a number. */
 .ze-modal.ze-hotkeys {
-  /* main_sizer->SetMinSize( 600, 400 ) is the floor; the four columns upstream
-     declares total 1590 (450+120+120+900), so the window opens wide enough to
-     show Command, Hotkey and Alternate with the description running on. */
-  width: 1000px;
-  height: 560px;
+  /* [data] `main_sizer->SetMinSize( 600, 400 )`, dialog_hotkey_list.cpp:79. */
   min-width: 600px;
+  /* [data] the same call. */
   min-height: 400px;
   resize: both;
-  overflow: hidden;
+  max-width: 96vw;
+  max-height: 92vh;
 }
 .ze-hotkeys-body {
   flex-direction: column;
@@ -2763,10 +2790,30 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   margin: 0;
   width: auto;
 }
-/* Scrolls both ways: the columns total 1590 and the window opens narrower. */
+/* Scrolls BOTH ways, and its own size is neither of its content's.
+
+   The columns total 1590 and the list is ~200 rows long; a wxTreeListCtrl is a
+   scrolled control whose best size is its own, which is the whole point of
+   giving column 3 a width of 900 and of a list this long having a scrollbar.
+   `PAGED_DIALOG` therefore comes out ~1095 x 713 on this theme whichever page
+   is showing, because `GetBestSize()` never sees those 1590 px or those rows.
+
+   A CSS scroll container is the opposite by default: it offers its content's
+   max-content size to its parent's intrinsic sizing in both axes, so this page
+   pushed the dialog to BOTH of its caps — 1500 px wide from the columns, 900 px
+   tall from the rows.
+
+   `contain: size` says the size is the control's own. The two pairs beside it
+   are what every engine acts on: a definite `width: 0` contributes nothing and
+   `min-width: 100%` stretches the control back over the page, and a flex basis
+   of 0 does the same job on the block axis, where `flex: 1 1 auto` had handed
+   the whole list's height up as the item's hypothetical main size. */
 .ze-hotkeys-list {
-  flex: 1 1 auto;
+  flex: 1 1 0;
   min-height: 0;
+  contain: size;
+  width: 0;
+  min-width: 100%;
   overflow: auto;
   background: var(--panel-bg);
   border: 1px solid var(--ctl-border);
@@ -2780,11 +2827,20 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   position: sticky;
   top: 0;
   z-index: 1;
-  background: var(--content-bg);
-  border-bottom: 1px solid var(--ctl-border);
-  padding: 5px 8px;
-  font-size: var(--ui-font-size);
-  color: var(--chrome-fg);
+  /* [css] `treeview.view header button`: `background-color: #272727` (the same
+     ground as the rows — `--panel-bg`), `color: #8f8f8f`, `font-weight: bold`,
+     `padding: 0 6px`, and `border-style: none solid solid none` in `#2c2c2c`,
+     which is the dialog's own ground. This said `--content-bg` (#373737) and
+     `--chrome-fg` at normal weight, so the header read lighter and flatter than
+     the rows instead of dimmer and heavier. No font-size: a treeview takes the
+     GUI font, and stating one is what made this list smaller than KiCad's. */
+  background: var(--panel-bg);
+  border-bottom: 1px solid var(--chrome-bg);
+  /* [css] `treeview.view header button { padding: 0 6px }`; the 2 above and
+     below is [px] the 24 px header the capture shows, against a 20 px line. */
+  padding: 2px 6px;
+  font-weight: bold;
+  color: var(--tree-header-fg);
 }
 /* AppendColumn's widths, verbatim: 450 / 120 / 120 / 900. A wxTreeListCtrl
    keeps its column widths and scrolls sideways when the window is narrower than
@@ -2809,6 +2865,11 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   overflow: hidden;
   white-space: nowrap;
 }
+/* No colour of its own. Every cell of a wxTreeListCtrl is drawn in the view's
+   foreground — `.view { color: white }` — and `WIDGET_HOTKEY_LIST` sets an
+   attribute on exactly one thing, the bold on a rebound key. This dimmed the
+   whole Description column to #9a9a9a, which is a shade nothing in the theme
+   states. */
 .ze-hotkeys-head .desc,
 .ze-hotkeys-row .desc {
   flex: 0 0 900px;
@@ -2816,7 +2877,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: #9a9a9a;
 }
 /* A section is a top-level tree row: bold, and its children indented under it. */
 /* A top-level tree row: the twisty, then the section name. */
@@ -2830,13 +2890,21 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   font-weight: 700;
   color: var(--chrome-fg);
 }
+/* A row of the tree. NO font-size: `wxTreeListCtrl` calls SetFont nowhere, so
+   it draws in the GUI font — 11 pt / 14.67 px — and this said 10 pt, which is
+   why every row of the list read a size smaller than KiCad's. The ink is the
+   VIEW's, `.view { color: white }` = `--view-fg`, not the dialog chrome's
+   #F7F7F7; and [px] the 2 px above and below is GtkCellRendererText's `ypad`,
+   which puts the rows 24 px apart as the capture shows. */
 .ze-hotkeys-row {
   display: flex;
   width: max-content;
   min-width: 100%;
-  padding: 3px 8px 3px 24px;
-  font-size: 10pt;
-  color: var(--chrome-fg);
+  /* [px] GtkCellRendererText's `ypad` of 2 above and below, which puts the rows
+     the 24 px apart the capture measures; the 24 px indent is the expander
+     column a child row sits after. */
+  padding: 2px 8px 2px 24px;
+  color: var(--view-fg);
 }
 .ze-hotkeys-row:hover {
   background: var(--chrome-hover);
@@ -2845,11 +2913,12 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
    orange the project tree and the template cards select with. */
 .ze-hotkeys-row.selected,
 .ze-hotkeys-row.selected:hover {
+  /* [css] `treeview.view:selected { background-color: #E95420 }` and, in the
+     rule under it, `color: #FFFFFF` — which is --chrome-active and --view-fg.
+     A selected row has ONE foreground; the #ffe6d9 that was here for the
+     Description column is not in the stylesheet at all. */
   background: var(--chrome-active);
-  color: #fff;
-}
-.ze-hotkeys-row.selected .desc {
-  color: #ffe6d9;
+  color: var(--view-fg);
 }
 /* updateFromClientData paints a rebound row's key in bold:
 
@@ -2866,12 +2935,17 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
    command with no key at all. */
 .ze-hotkeys-row .key.taken {
   text-decoration: line-through;
-  text-decoration-color: #7a7a7a;
-  color: #9a9a9a;
+  /* The ink GTK gives text that cannot be acted on:
+     `treeview.view:disabled { color: #929292 }`, which --ctl-fg-disabled
+     already carries. This stated #9a9a9a and #7a7a7a, neither of them a colour
+     the theme names. */
+  color: var(--ctl-fg-disabled);
+  text-decoration-color: var(--ctl-fg-disabled);
 }
 .ze-hotkeys-row.selected .key.taken {
-  color: #ffd9c6;
-  text-decoration-color: #ffd9c6;
+  /* [css] `treeview.view:disabled:selected { color: #f4aa90 }`. */
+  color: #f4aa90;
+  text-decoration-color: #f4aa90;
 }
 /* Double-click to rebind is the editable panel's gesture, so the rows say so
    with the cursor; the read-only list keeps the arrow. */
@@ -2899,13 +2973,11 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
    from a real KiCad names actions we do not have, and a button that quietly
    changes nothing reads as a broken one. */
 .ze-hotkeys-imported {
-  font-size: 9pt;
-  color: #9a9a9a;
+  color: var(--ctl-fg-disabled);
 }
 .ze-hotkeys-empty {
   padding: 14px;
-  font-size: 10pt;
-  color: #9a9a9a;
+  color: var(--ctl-fg-disabled);
 }
 /* A wxMenu takes the pointer grab, so a click anywhere else dismisses it. */
 .ze-tplsel-ctxscrim {
@@ -3021,8 +3093,9 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 }
 
 /* The name step, upstream's wxFileDialog( "New Project Folder" ). */
+/* No width: the folder-name row is a label and an entry, and the dialog is as
+   wide as they need. */
 .ze-modal.ze-newprjfolder {
-  width: 460px;
   height: auto;
 }
 .ze-newprjfolder-body {
@@ -3083,7 +3156,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   padding: 0 0 0 9px;
 }
 .ze-projecttree .ze-tree-item {
-  font-size: var(--ui-font-size);
   /* A 24px row holding a 22px icon: the icon centres with a pixel either side,
      and the highlight - which is the full row height in the real tree - can
      stretch to all 24 rather than to the 22 a padded row would leave it. */
@@ -3112,12 +3184,12 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 }
 .ze-projecttree .ze-tree-item.active .ze-tree-name {
   background: var(--chrome-active);
-  /* Not bold. The shared .ze-tree-item.active rule claims "KiCad's native
-     wxTreeCtrl bolds whichever row is selected"; measured against a real
-     selected row that is simply untrue - "…kicad_sym" selected is 246px and
-     "…kicad_sch" unselected is 242px, and the 4px is 'm' against 'h'. Bold
-     would have cost about ten. (Trees elsewhere really do bold a row, but via
-     SetItemBold on the *active* item, which is a different thing to
+  /* Not bold, and nothing here has to say so any more: `.ze-tree-item.active`
+     used to carry a `font-weight: 700` this rule existed to escape. The
+     measurement that disproved it stands - "…kicad_sym" selected is 246px
+     against "…kicad_sch" unselected at 242px, and that 4px is 'm' against 'h';
+     bold would have cost about ten. (Trees elsewhere really do bold a row, but
+     via SetItemBold on the *active* item, which is a different thing to
      selection.) */
   font-weight: 400;
   /* 2px of highlight.ChangeLightness( 120 ) - each channel to 80% toward
@@ -3330,7 +3402,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   background: var(--chrome-hover);
 }
 .ze-layer-row.active {
-  background: var(--chrome-active);
+  background: var(--panel-list-row-active);
 }
 .ze-ellipsis {
   overflow: hidden;
@@ -4099,9 +4171,37 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   color: #8a8c90;
   font-size: var(--ui-font-size);
   padding-left: 20px;
+  /* Flush RIGHT, against the same edge the submenu arrow sits on. The column is
+     as wide as the widest accelerator in the whole menu (that is how GTK sizes
+     it), so a stretched span left-aligns every SHORT accelerator against the
+     widest one's left edge: "M" and "D" ended up in the middle of the popup
+     with a ragged left column, which is not what a menu looks like anywhere.
+
+     [px] measured on the installed pcbnew's selection menu (2026-08-31 capture,
+     PCB editor, one footprint selected): the popup's right border is x=910, and
+     "M", "Shift+X" and "Backspace" all end at x=899-900 - one right edge, the
+     12px row padding less the glyph's own side bearing. Ours had every one of
+     them starting at x=1749, the column's left edge. */
+  justify-self: end;
 }
-/* A separator costs its own line plus both margins, so on a menu with five of
-   them the margins alone were most of two rows. GTK's are thin. */
+/* A separator costs its own line plus both margins, so on a menu with six of
+   them the margins alone were most of a row. GTK's are not thin - they are ONE
+   PIXEL, margins included.
+
+   [px] measured twice, independently, on the same 2026-08-31 capture:
+
+   - the rendered menu. Text tops inside a group run at a 26px pitch (830, 856,
+     882...); across a drawn separator the next text top is 27, not 31. So the
+     rule's whole vertical footprint is 1px. The installed pcbnew's selection
+     menu comes to 32 rows + 7 rules = 31*26 + 7*1 = 813px, and its first and
+     last text tops measure y=365 and y=1178. Ours came to 33*26-26 + 6*5 =
+     862px against KiCad's 813 - most of the gap the user was looking at.
+   - the theme. `menu separator` in yaru_dark_gtk.css:5947 sets background-color
+     only; it inherits the generic `separator { min-height: 1px }` and declares
+     no margin or padding anywhere.
+
+   Two derivations, one from pixels and one from the stylesheet, so they
+   corroborate. The row's own 26px height is what gives a rule its air. */
 /* Spans every column, or it would be laid into the icon column alone.
 
    #4b4b4b, the same grey as the popup's own frame - sampled off a real menu,
@@ -4113,7 +4213,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   grid-column: 1 / -1;
   height: 1px;
   background: var(--menu-separator);
-  margin: 2px 0;
+  margin: 0;
 }
 
 /* Modeless Find dialog (DIALOG_SCH_FIND): floats over the canvas, top-right. */
@@ -4263,8 +4363,13 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 /* Annotate Schematic dialog (DIALOG_ANNOTATE). */
 /* Annotate Schematic (dialog_annotate_base.cpp): a 2x2 grid of static boxes,
    Scope | Order over Options | Numbering, above the messages report panel. */
+/* No width. `dialog_annotate_base.cpp:17` is
+   `SetSizeHints( wxDefaultSize, wxDefaultSize )` and `bmainSizer` ends
+   `Fit( this )`: the dialog is as wide as its content wants. The content is
+   `fgSizer1`, a `wxFlexGridSizer( 2, 2, 0, 0 )` with BOTH columns growable
+   (:33-35), so the four boxes are two equal columns and the dialog is twice
+   the widest box. A `width: 720px` was a number nobody upstream wrote. */
 .ze-annotate-dialog {
-  width: 720px;
   height: auto;
   max-height: 92vh;
 }
@@ -4273,7 +4378,11 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   flex-direction: column;
   gap: 10px;
   padding: 6px;
-  overflow: auto;
+  /* `overflow-y` only: a wxDialog has no horizontal scrollbar, it is fitted to
+     its content. On both axes the body scrolls sideways instead of the dialog
+     growing, which hides the right of every row. */
+  overflow-x: visible;
+  overflow-y: auto;
 }
 .ze-annotate-grid {
   display: grid;
@@ -4308,22 +4417,30 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   flex-direction: column;
   gap: 4px;
 }
+/* No `font-size` on either. A wxStaticBox's label and a wxCheckBox's label take
+   the dialog's own font — KiCad calls SetFont on nothing here — and that is the
+   11 pt / 14.67 px `.ze-app` already hands down. These said 12 px and 13 px. */
+/* As `.ze-report-panel > legend`: no colour, so it inherits the dialog's. */
 .ze-annotate-body legend {
   padding: 0 4px;
-  color: #8a8c90;
-  font-size: 12px;
 }
 .ze-annotate-body label {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 13px;
 }
 .ze-annotate-body label.disabled {
   opacity: 0.4;
 }
+/* `m_buttonsSizer->Add( 0, 0, 1, wxEXPAND, 5 )` — the proportion-1 spacer that
+   pushes the standard buttons to the right, base.cpp:150. */
+.ze-annotate-footgap {
+  flex: 1;
+}
 .ze-annotate-body .start-num {
-  width: 70px;
+  /* [data] `m_textNumberAfter = new wxTextCtrl( ..., wxSize( 60, -1 ), 0 )`,
+     dialog_annotate_base.cpp:117. This said 70. */
+  width: 60px;
   margin-left: 6px;
 }
 /* WX_HTML_REPORT_PANEL: the message list, the "Show:" severity filters with
@@ -4336,9 +4453,13 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   padding: 6px 8px 8px;
   min-width: 0;
 }
+/* A wxStaticBox label takes the DIALOG's foreground - KiCad states no colour
+   on any of these. Measured off a capture of Update PCB from Schematic, whose
+   "Changes to Be Applied" and "Update Fields" labels both ink 241-247, which is
+   --chrome-fg; ours stated #8a8c90 and read visibly darker. Stating nothing is
+   the fix: the colour then comes from the one place that holds it. */
 .ze-report-panel > legend {
   padding: 0 4px;
-  color: #8a8c90;
 }
 .ze-report-view {
   flex: 1;
@@ -4347,6 +4468,12 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   border: 1px solid var(--chrome-border);
   border-radius: 2px;
   padding: 4px 6px;
+  /* A wxHtmlWindow is a VIEW, so its text is wxSYS_COLOUR_WINDOWTEXT and not
+     the dialog's wxSYS_COLOUR_BTNTEXT. Inheriting the dialog's left it at
+     --chrome-fg, #F7F7F7: measured against a capture of Update PCB from
+     Schematic, KiCad's report ink is 255 and ours was 247. Eight levels, and
+     the reason the box still read slightly darker after the severity fix. */
+  color: var(--view-fg);
   /* No font-size: the message view takes the dialog's, like everything else in
      the panel.
 
@@ -4377,9 +4504,11 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-report-line.warning .tag {
   color: inherit;
 }
-.ze-report-line.info {
-  color: #909090;
-}
+/* No `.info` rule. `generateHtml` writes `<font color=#909090 …>` for
+   RPT_SEVERITY_INFO, but the value is UNQUOTED and the shipped build does not
+   apply it: measured off a capture of Update PCB from Schematic, whose lines
+   are all INFO, every text pixel is 255 where ours was 144. An INFO line takes
+   the panel's own foreground. */
 .ze-report-line.action {
   color: #60d060;
 }
@@ -4398,8 +4527,11 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   align-items: center;
   gap: 4px;
 }
+/* "Show:" is a wxStaticText on the dialog, so it takes the dialog's own
+   foreground. The #8a8c90 here was ours, and it is why the word read dimmer
+   than the checkbox labels beside it. */
 .ze-report-show {
-  color: #8a8c90;
+  color: var(--chrome-fg);
 }
 .ze-report-spacer {
   flex: 1;
@@ -4449,8 +4581,18 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 /* Update PCB from Schematic (dialog_update_pcb_base.cpp): Options / Update
    Footprints / Update Fields stacked above the report panel, whose lower sizer
    sets a 660x300 minimum. */
+/* `DIALOG_UPDATE_PCB` states no width. `dialog_update_pcb_base.cpp:16` is
+   `SetSizeHints( wxSize( -1,-1 ), wxDefaultSize )` and `:107` ends
+   `bMainSizer->Fit( this )`, so the dialog is as wide as its content - and its
+   content is the option CHECKBOXES, whose minimum is the whole of their labels
+   ("Re-link footprints to schematic symbols based on their reference
+   designators" is the longest). That is why a real one measures 813 px and our
+   700 clipped: the number was a pick, and it was under what the labels need.
+
+   The one real number is the report area's floor, `bLowerSizer->SetMinSize(
+   wxSize( 660, 300 ) )` (:88), which belongs on the report pane rather than on
+   the dialog. */
 .ze-update-pcb-dialog {
-  width: 700px;
   height: auto;
   max-height: 92vh;
 }
@@ -4468,16 +4610,19 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   flex-direction: column;
   gap: 4px;
 }
+/* A wxStaticBox label takes the dialog's own font and foreground; KiCad calls
+   SetFont on none of these. The 12px and the grey were ours, and they are why
+   every group label in this dialog read smaller and dimmer than KiCad's. */
 .ze-update-pcb-body legend {
   padding: 0 4px;
-  color: #8a8c90;
-  font-size: 12px;
 }
 .ze-update-pcb-body label {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 13px;
+  /* A wxCheckBox's minimum IS its whole label, so it never wraps - and it is
+     the widest of these that sets the dialog's width. */
+  white-space: nowrap;
 }
 .ze-update-pcb-body label.disabled {
   opacity: 0.4;
@@ -4594,7 +4739,11 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   min-width: 0;
 }
 .ze-loading-detail {
-  font-size: 11px;
+  /* [data] `NUMBER_BADGE`'s `m_textSize( 10 )` (number_badge.cpp:33) — a POINT
+     size, drawn with `wxFont( m_textSize, ... )` at :141. DIALOG_ERC never
+     calls SetTextSize, so it keeps the default. This said 11px, which is
+     smaller than the 10pt it is meant to be. */
+  font-size: 10pt;
   color: #aaa;
 }
 .ze-progress-track {
@@ -4793,9 +4942,11 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
    rows 4 px shorter than default; the Include / Group By columns are 46 / 56 px
    and the rest splits between Field and BOM Name; the filter is 240 px wide;
    the table grid is at least 400 x 200; delimiter fields are 60 px. */
+/* No width or height. `dialog_symbol_fields_table_base.cpp` opens
+   `SetSizeHints( wxSize( -1,-1 ), wxDefaultSize )` — a minimum of "no
+   minimum" — and the sizes inside it are the ones that count: the grid's
+   `SetMinSize( wxSize( -1, 250 ) )` and the filter's `wxSize( 240, -1 )`. */
 .ze-modal.ze-fields-table {
-  width: 1050px;
-  height: 640px;
   max-width: 96vw;
   max-height: 92vh;
 }
@@ -5212,6 +5363,105 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   min-height: 0;
   min-width: 0;
 }
+
+/* ---- FOOTPRINT_CHOOSER_FRAME (pcbnew/footprint_chooser_frame.cpp) -------- */
+
+/* The frame states no size of its own; the PANEL does, and only when the saved
+   config has nothing usable (panel_footprint_chooser.cpp:257-272):
+
+       auto horizPixelsFromDU = [&]( int x ) { wxSize sz( x, 0 );
+                                  return ConvertDialogToPixels( sz ).x; };
+       int w = cfg.width  > 40 ? FromDIP( cfg.width )  : horizPixelsFromDU( 440 );
+       int h = cfg.height > 40 ? FromDIP( cfg.height ) : horizPixelsFromDU( 340 );
+
+   Note the HORIZONTAL conversion is used for both axes - `.x` twice - so both
+   go through `du * charWidth / 4`. `qa/probes/swatch_probe.cpp` measures
+   GetCharWidth() = 8 on this machine, so the factor is 2 and the default is
+   440x340 DU = 880 x 680 px. That it matches the symbol chooser's 880 x 680 is
+   a coincidence of two separate defaults, not a shared number, so it is
+   derived here rather than borrowed from that rule.
+
+   [data] 440 DU x 2. */
+.ze-modal.ze-fpchooser-frame {
+  width: 880px;
+  /* [data] 340 DU x 2, plus our own title bar, as .ze-symbol-chooser does. */
+  height: calc(680px + 37px);
+}
+.ze-fpchooser {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+}
+/* m_hsplitter: the tree, then the preview, at the sash position the panel
+   restores - NOT at the gravity.
+   
+       if( cfg.sash_h < 0 ) cfg.sash_h = horizPixelsFromDU( 220 );
+       m_hsplitter->SetSashPosition( cfg.sash_h );
+       (panel_footprint_chooser.cpp:286-290)
+
+   220 DU x 2 = 440, half of the 880 the same block defaults the window to, so
+   the tree and the preview open FIFTY-FIFTY. `SetSashGravity( 0.8 )` is a
+   different thing entirely: it distributes space added by a RESIZE, four
+   fifths to the tree. Reading it as the split ratio is what left the preview a
+   fifth of the width. */
+.ze-fpchooser-top {
+  /* [data] `SetSashPosition( horizPixelsFromDU( 230 ) )` on the VERTICAL
+     splitter - 230 DU x 2 - which is the height of this pane, the details
+     pane taking what is left (:293-296). */
+  flex: 0 0 460px;
+  display: flex;
+  min-height: 0;
+  min-width: 0;
+}
+.ze-fpchooser-tree {
+  /* `SetSashGravity( 0.8 )`: the tree takes four fifths of the extra width.
+     `min-width: 0` is what keeps it from overlapping the preview - a flex item
+     will not shrink below its CONTENT without it, and a tree whose Description
+     column is 15 000 footprints wide has a very large content width. That is
+     what put the preview on top of the rows. */
+  /* [data] half of `horizPixelsFromDU( 220 )` x 2 = 440 in an 880 window. */
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.ze-fpchooser-preview {
+  flex: 1 1 0;
+  /* [data] `m_hsplitter->SetMinimumPaneSize( 20 )` — the sash will not shrink
+     a pane below it, which is a FLOOR and not a width. */
+  min-width: 20px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+/* The preview canvas fills its pane rather than sizing itself: a
+   FOOTPRINT_PREVIEW_WIDGET is given the pane by the splitter. */
+.ze-fpchooser-preview > * {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+/* m_vsplitter's lower pane: what the 460 above leaves.
+
+   `flex-basis: 0`, not `auto`. With `auto` the pane's hypothetical size is its
+   CONTENT height, so a long description grew the pane instead of scrolling
+   inside it - and `overflow: auto` never fired, because the element was never
+   smaller than what was in it. A splitter pane is given a height and scrolls;
+   it does not size itself to its text. */
+.ze-fpchooser-details {
+  flex: 1 1 0;
+  /* [data] `m_vsplitter->SetMinimumPaneSize( 80 )` - a floor on the SASH, so
+     the pane may shrink to it and then scroll, never below it. */
+  min-height: 80px;
+  overflow: auto;
+}
+/* The bottom panel: the 3D checkbox at the left, the std button sizer right. */
+.ze-fpchooser-foot {
+  justify-content: space-between;
+}
 .ze-chooser-panel.column {
   flex-direction: column;
 }
@@ -5305,6 +5555,19 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 }
 .ze-libtree-sortbtn-wrap {
   position: relative;
+}
+/* `m_filtersSizer`, a wxVERTICAL box added between the search control and the
+   tree with `wxEXPAND | wxLEFT, 4` (common/widgets/lib_tree.cpp:167-168). The
+   4 px inset is that border; the column direction is the sizer's own, and the
+   gap between two checkboxes is each child's `wxBOTTOM, 4` at the call site
+   (footprint_chooser_frame.cpp:590). */
+.ze-libtree-filters {
+  display: flex;
+  flex-direction: column;
+  /* [data] `wxEXPAND | wxLEFT, 4` */
+  padding-left: 4px;
+  /* [data] `wxBOTTOM, 4` on each child the frame adds */
+  gap: 4px;
 }
 /* The wxSearchCtrl. `search_sizer->Add( m_query_ctrl, 1, ..., wxRIGHT, 4 )`. */
 .ze-libtree-entry {
@@ -5941,6 +6204,30 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   white-space: nowrap;
   text-align: center;
 }
+/* `WX_GRID::DrawColLabel` (common/widgets/wx_grid.cpp:461-469) reads the grid's
+   alignment and then overrides it for one column:
+
+       int hAlign, vAlign;
+       GetColLabelAlignment( &hAlign, &vAlign );
+       ...
+       if( col == 0 )
+           hAlign = wxALIGN_LEFT;
+
+       if( hAlign == wxALIGN_LEFT )
+           rect.SetLeft( rect.GetLeft() + MIN_GRIDCELL_MARGIN );
+
+   so the first header is left-aligned in EVERY WX_GRID, however the dialog
+   called `SetColLabelAlignment` — both Symbol Properties grids ask for
+   wxALIGN_CENTER and both get a left-aligned "Name" / "Number" anyway. It goes
+   on the shared rule because upstream puts it in the shared class; stating it
+   per dialog is how the same override ends up written five times and missed on
+   the sixth. `MIN_GRIDCELL_MARGIN` is `FromDIP( 2 )` (wx_grid.cpp:76), and it
+   replaces the 6px the centred rule pads with rather than adding to it. */
+.ze-grid th:first-child {
+  text-align: left;
+  /* [data] MIN_GRIDCELL_MARGIN = FromDIP( 2 ). */
+  padding-left: 2px;
+}
 .ze-grid td {
   background: var(--grid-cell-bg);
   border: 1px solid var(--grid-line);
@@ -5948,6 +6235,15 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 }
 /* The row-label gutter is a LABEL, so it takes the label colour rather than the
    cell colour — the same call that paints the column headers. */
+/* The one column `SetupColumnAutosizer` marks flexible. It is the only one that
+   takes the slack, and therefore the only one whose text must not reach its
+   column's intrinsic width — `width: 0` + `min-width: 100%` paints the text
+   across the whole cell while contributing nothing to the column. Every other
+   column is `max( stated, content )`, which is the plain block above. */
+.ze-grid td.ze-grid-flexcol > .ze-grid-text {
+  width: 0;
+  min-width: 100%;
+}
 .ze-grid td.ze-grid-rowlabel,
 .ze-grid th.ze-grid-rowlabel {
   background: var(--grid-label-bg);
@@ -5966,18 +6262,36 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   padding: 3px 6px;
 }
 /* `SetDefaultCellOverflow( false )` (common/widgets/wx_grid.cpp:213): a cell
-   clips, it does not spill into its neighbour. */
+   clips, it does not spill into its neighbour.
+
+   It does NOT follow that a cell's text is invisible to its column's width.
+   This rule used to carry `width: 0; min-width: 100%`, described as
+   `RecomputeGridWidths` — "the column falls back to the width its header
+   states, and the flexible one takes the remainder". That is half of it. The
+   loop (common/widgets/wx_grid.cpp:1121-1136) runs AutoSizeColumn over every
+   autosized column first and floors the result at the `_base.cpp` width:
+
+       AutoSizeColumn( colIndex );
+       const int colSize = GetColSize( colIndex );
+       int minWidthScaled = FromDIP( minWidth );
+       SetColSize( colIndex, std::max( minWidthScaled, colSize ) );
+
+   and only then gives the ONE flexible column the slack. So a stated width is a
+   FLOOR for every column but the flexible one, not a cap: [px] a live KiCad's
+   Name column measures 92 against the 72 `SetColSize( 0, 72 )` states, because
+   "Description" needs 88, and Show Name measures 88 against its stated 84.
+   `width: 0` took the text out of the intrinsic width entirely, so every column
+   sat at exactly its floor and "Description" clipped to "Descriptic" — in the
+   one column KiCad widens to fit it. The clipping belongs to the flexible
+   column alone, which is why it is now stated there (`.ze-grid-flexcol`) rather
+   than on every cell.
+
+   Wherever it is stated, it must sit on the TEXT and not on the `<td>` — a
+   `max-width: 0` cell also collapses the `<input>` the cell swaps in when you
+   click into it, so the editor opened with zero width and the row looked
+   uneditable. */
 .ze-grid td > .ze-grid-text {
   display: block;
-  /* `width: 0` + `min-width: 100%` is what takes the cell's text out of its
-     column's intrinsic width while still painting it across the whole cell:
-     the column falls back to the width its header states, and the flexible one
-     takes the remainder, which is `RecomputeGridWidths`. It must sit on the
-     TEXT, not on the `<td>` — a `max-width: 0` cell also collapses the
-     `<input>` the cell swaps in when you click into it, so the editor opened
-     with zero width and the row looked uneditable. */
-  width: 0;
-  min-width: 100%;
   overflow: hidden;
   white-space: nowrap;
   /* No `text-overflow: ellipsis`. `wxGridCellStringRenderer::Draw` sets a
@@ -6106,6 +6420,17 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   color: var(--chrome-fg);
   cursor: default;
 }
+/* `KiBitmapBundle` renders every one of these into the same small button, so
+   they are all one size on screen. Our SVGs are KiCad's own files and their
+   headers differ — the `small_*` family is 16 x 16, but `edit.svg` is 24 x 24
+   with a nominal width of 1920 — so an unsized <img> drew the pencil at a
+   different size from the plus beside it. [px] 16, the small_* family's own
+   box, which is what the capture measures across every glyph in the row. */
+.ze-gridbtn img {
+  width: 16px;
+  /* [px] the same 16 — a bitmap button's icon is square. */
+  height: 16px;
+}
 .ze-gridbtn:hover:not(:disabled) {
   background: var(--chrome-hover);
 }
@@ -6198,9 +6523,15 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   box-shadow: 0 1px 6px rgba(0, 0, 0, 0.4);
 }
 
-/* Label properties dialog */
+/* Label properties dialog.
+   No width. `dialog_field_properties_base.cpp:19` is
+   `SetSizeHints( wxDefaultSize, wxDefaultSize )` -- no minimum at all -- so the
+   dialog is whatever `Fit()` makes it, which is its sizer's own minimum. The
+   `440px` that used to be here was an invented number, and once the formatting
+   row took wx's real button sizes the buttons ran straight out of the dialog
+   instead of widening it. `.ze-modal` already states `width: max-content`,
+   which is `Fit()`; this rule only has to stop overriding it. */
 .ze-modal.ze-label-dialog {
-  width: 440px;
   height: auto;
 }
 .ze-label-dialog-body {
@@ -6226,11 +6557,14 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
         control, not before it.
    Twenty-one dialogs share this body class, so the fix is by position rather
    than by adding a class to every call site. */
+/* No `font-size`. A wxStaticText takes the dialog's own font, and this is the
+   label column of twenty-one dialogs — the last survivor of the family that
+   also had it on `.ze-props-group`'s legend and label rules. 13px against the
+   dialog's 11pt / 14.67px is why they all read smaller than KiCad's. */
 .ze-label-dialog-body .row > span:first-child {
   width: 56px;
   flex: 0 0 auto;
   color: #c7c9cc;
-  font-size: 13px;
 }
 .ze-label-dialog-body .row .ze-search {
   flex: 1;
@@ -6261,8 +6595,10 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
    and the Shape / Formatting boxes sit side by side above the buttons. The
    dialog itself has no fixed size upstream (wxDialog size -1,-1), it fits
    its content, which the grid pins to ~530 px. */
+/* No width. `dialog_label_properties_base.cpp:21` is
+   `SetSizeHints( wxDefaultSize, wxDefaultSize )`; the only size it states is
+   the fields grid's `SetMinSize( wxSize( -1, 100 ) )`, which is a height. */
 .ze-modal.ze-label-props {
-  width: 552px;
   height: auto;
   max-height: 92vh;
 }
@@ -6285,9 +6621,13 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-lp-caption {
   flex: 0 0 auto;
 }
+/* No `min-width: 0`. A wx sizer never lets a control fall below its own best
+   size -- that is the guarantee CLAUDE.md names -- and `bSizer11` puts the
+   hyperlink combo at `wxGBPosition( 10, 1 )` spanning FIVE columns with
+   wxEXPAND (`dialog_text_properties_base.cpp:305`), so it is the widest thing
+   on its row, not the narrowest. `min-width: 0` let it collapse instead. */
 .ze-lp-value {
   flex: 1;
-  min-width: 0;
   padding: 4px 6px;
   font: inherit;
   background: var(--chrome-bg2);
@@ -6330,12 +6670,11 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   margin: 5px;
   padding: 5px;
 }
+/* Neither a colour nor a size: a wxStaticBox label takes both from the dialog. */
 .ze-lp-fields legend,
 .ze-lp-shape legend,
 .ze-lp-formatting legend {
   padding: 0 4px;
-  color: #8a8c90;
-  font-size: 12px;
 }
 .ze-lp-grid-wrap {
   min-height: 100px;
@@ -6419,12 +6758,36 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-lp-gap {
   width: 20px;
 }
+/* The bold/italic/alignment row. These are KiCad's own `BITMAP_BUTTON`, not a
+   wxBitmapButton, and it sizes itself rather than asking GTK
+   (`common/widgets/bitmap_button.cpp:101-107`):
+
+     if( hasFlag( wxCONTROL_SEPARATOR ) )
+         return wxSize( FromDIP( m_dipSize.x + m_padding * 2 ),
+                        wxButton::GetDefaultSize().y );
+     return FromDIP( m_dipSize + wxSize( m_padding * 2, m_padding * 2 ) );
+
+   `m_padding` is 5 for the bitmap constructor these are built with (`:56-64`),
+   and `m_dipSize` is the bundle's default size -- 16, since these icons ship at
+   16 and 32 only. So a button is 16 + 10 square.
+
+   Measured against that formula by qa/probes/field_props_width_probe.cpp:
+
+     wxButton::GetDefaultSize()           85 x 27
+       => a 16px BITMAP_BUTTON            26 x 26
+       => a separator                     10 x 27
+
+   An earlier pass here measured a plain wxBitmapButton and got 36 x 34, which
+   is GTK's button and not this control; that made ours visibly larger than
+   KiCad's. */
 .ze-lp-iconbtn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  /* [data] m_dipSize 16 + m_padding 5 * 2. */
+  width: 26px;
+  /* [data] the same, DoGetBestSize being square for a non-separator. */
+  height: 26px;
   padding: 0;
   background: transparent;
   border: 1px solid transparent;
@@ -6439,10 +6802,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-lp-iconbtn:hover:not(:disabled) {
   background: var(--chrome-bg2);
   border-color: var(--chrome-border);
-}
-.ze-lp-iconbtn.checked {
-  background: var(--chrome-active);
-  border-color: var(--chrome-active-border);
 }
 .ze-lp-iconbtn:disabled {
   opacity: 0.4;
@@ -6479,6 +6838,26 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-lp-fmt-label {
   white-space: nowrap;
 }
+/* The font picker. `m_fontCtrl` is added with **wxEXPAND** in every dialog
+   that carries one — `dialog_field_properties_base.cpp:146`,
+   `dialog_label_properties_base.cpp:221`, `dialog_text_properties_base.cpp:97`
+   — each spanning two grid-bag columns, so it takes whatever width the row
+   gives it. A `max-width` here was a local literal that upstream never wrote,
+   and it is a large part of why these dialogs open narrower than KiCad's: the
+   control that should be pushing the row out was capped at 150px.
+
+   Its width is not in KiCad's source either: FONT_CHOICE is a
+   wxOwnerDrawnComboBox built with ZERO items (`font_choice.cpp:179-191`) and
+   then filled by `RefreshFonts()` with every installed face, so its best size
+   is a property of the machine. Measured here by
+   qa/probes/field_props_width_probe.cpp:
+
+     installed faces                      248
+     FONT_CHOICE GetBestSize().x          275
+       ...with only the 2 static items    119
+
+   and 275 is what carries the row to the 685 that fits a 695px dialog -- the
+   width Akshay measured off a real one. */
 .ze-lp-font {
   font: inherit;
   padding: 3px 4px;
@@ -6486,20 +6865,31 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   color: var(--chrome-fg);
   border: 1px solid var(--chrome-border);
   border-radius: 3px;
-  max-width: 150px;
 }
+/* `formattingSizer` adds every button with `wxALIGN_CENTER_VERTICAL` alone —
+   no wxLEFT/wxRIGHT — so wx puts NO space between them, and its CalcMin is
+   just 10 x 36 + 5 x 2 = 370. A 2px flex gap here added 28px the real row does
+   not have. */
 .ze-lp-iconbar {
   grid-column: 1 / -1;
   display: flex;
   align-items: center;
-  gap: 2px;
   padding: 0 5px;
 }
+/* A separator is the same BITMAP_BUTTON with `SetIsSeparator()`, so it is
+   `m_dipSize.x (0) + m_padding * 2` wide by `wxButton::GetDefaultSize().y`
+   tall, and `OnPaint` draws ONE line down the middle of it in
+   `wxSYS_COLOUR_GRAYTEXT` (`bitmap_button.cpp:279-284`). It is the width that
+   spaces the groups apart, not a margin. */
 .ze-lp-sep {
-  width: 1px;
-  height: 18px;
-  margin: 0 4px;
-  background: var(--chrome-border);
+  /* [data] 0 + m_padding 5 * 2. */
+  width: 10px;
+  /* [px] wxButton::GetDefaultSize().y, field_props_width_probe. */
+  height: 27px;
+  margin: 0;
+  /* [px] wxSYS_COLOUR_GRAYTEXT #929292, drawn 1px wide at GetSize().x / 2. */
+  background:
+    linear-gradient(var(--ctl-fg-disabled), var(--ctl-fg-disabled)) center / 1px 100% no-repeat;
 }
 .ze-lp-auto {
   margin-left: 5px;
@@ -6509,8 +6899,19 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   align-items: center;
   gap: 3px;
 }
+/* `m_textSizeCtrl` and the position ctrls are plain wxTextCtrls at
+   wxSize( -1, -1 ), so GTK's own best size is the answer -- measured by
+   qa/probes/field_props_width_probe.cpp:
+
+     wxTextCtrl best size (size/pos)      98 x 34
+
+   Ours were 70 wide and shorter, which is why Akshay's side-by-side showed our
+   entry boxes about half the width of KiCad's. */
 .ze-lp-size {
-  width: 70px;
+  /* [px] wxTextCtrl GetBestSize().x, field_props_width_probe. */
+  width: 98px;
+  /* [px] the same measurement's height. */
+  min-height: 34px;
   font: inherit;
   padding: 3px 4px;
   background: var(--chrome-bg2);
@@ -6521,6 +6922,16 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 }
 .ze-lp-colorlabel {
   margin-left: 15px;
+}
+/* `gbSizer1->SetEmptyCellSize( wxSize( -1, 10 ) )`
+   (`dialog_field_properties_base.cpp:136`), and the grid-bag skips row 2: the
+   Text size row is row 1 and Position X is row **3**. That empty row is a real
+   10 px band between them, which ours ran together. */
+.ze-fieldprops-gap {
+  grid-column: 1 / -1;
+  /* [data] `SetEmptyCellSize( wxSize( -1, 10 ) )`, a number the base file
+     hardcodes rather than asking the theme for. */
+  height: 10px;
 }
 /* COLOR_SWATCH inside its wxBORDER_SIMPLE panel. */
 .ze-lp-swatch-frame {
@@ -6567,8 +6978,15 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 
 /* Text / Text Box Properties (dialog_text_properties_base.cpp): the entry grows
    with the dialog, then a label | control grid for the formatting rows. */
+/* No width. `dialog_text_properties_base.cpp:20` is
+   `SetSizeHints( wxDefaultSize, wxDefaultSize )` and `:280` ends
+   `bMainSizer->Fit( this )`: the dialog is exactly as wide as its content
+   wants, and the content's floor is the text control's own
+   `SetMinSize( wxSize( 500, 140 ) )` (:71), which `.ze-tp-text` states. A
+   `width: 560px` here was a number nobody in KiCad wrote, and it was what
+   clipped the dialog and forced the body to scroll sideways. `.ze-modal` is
+   already `width: max-content`. */
 .ze-modal.ze-text-props {
-  width: 560px;
   height: auto;
   max-height: 92vh;
 }
@@ -6578,8 +6996,16 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   display: flex;
   flex-direction: column;
   padding: 10px;
-  overflow: auto;
-  font-size: 12.5px;
+  /* `overflow-y` only. `overflow: auto` on both axes made the BODY scroll
+     sideways instead of letting the dialog grow, so the dialog stayed at its
+     stated width and hid the right-hand end of every row. A wxDialog has no
+     horizontal scrollbar; it is fitted to its content and that is the end of
+     it. */
+  overflow-x: visible;
+  overflow-y: auto;
+  /* No `font-size`. This said 12.5px against the dialog's own 11pt / 14.67px —
+     KiCad calls SetFont on nothing in this dialog, so every control takes the
+     GUI font, which `.ze-app` already hands down. */
 }
 .ze-tp-entry {
   display: flex;
@@ -6587,16 +7013,39 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   gap: 5px;
   margin-bottom: 5px;
 }
+/* `m_textCtrl->SetMinSize( wxSize( 500, 140 ) )`
+   (`dialog_text_properties_base.cpp:71`) -- the one control in this dialog that
+   states its own size, and the reason KiCad's Text box is so much taller than
+   the 96px we had guessed. */
 .ze-tp-text {
-  min-height: 96px;
+  /* `m_textEntrySizer->Add( m_textCtrl, wxGBPosition( 0, 1 ), wxGBSpan( 1, 5 ),
+     wxEXPAND )` (`:73`) -- it spans every remaining column and fills them, so
+     the 500 below is a floor and not the width. */
+  width: 100%;
+  /* [data] SetMinSize( wxSize( 500, 140 ) ).x */
+  min-width: 500px;
+  /* [data] the same call's height. */
+  min-height: 140px;
   resize: vertical;
   font-family: inherit;
 }
+/* `m_textEntrySizer = new wxGridBagSizer( 2, 3 )` (`:32`): 2px between rows,
+   3px between columns. It was a uniform 5. */
 .ze-tp-grid {
   display: grid;
   grid-template-columns: auto 1fr;
   align-items: center;
-  gap: 5px;
+  /* [data] wxGridBagSizer( 2, 3 ) -- vgap, hgap. */
+  gap: 2px 3px;
+}
+/* `m_textEntrySizer->SetEmptyCellSize( wxSize( 0, 6 ) )` (`:35`), and the
+   grid-bag deliberately skips rows 2, 5 and 9: the font row is 3, the border
+   checkbox 6 and the hyperlink 10. Those three gaps are real 6px bands, and
+   the last of them is the space above the Link row. */
+.ze-tp-gap {
+  grid-column: 1 / -1;
+  /* [data] SetEmptyCellSize( wxSize( 0, 6 ) ).y */
+  height: 6px;
 }
 .ze-tp-span {
   grid-column: 1 / -1;
@@ -6607,20 +7056,39 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   margin-left: 80px;
 }
 
-/* Symbol Properties dialog (KiCad DIALOG_SYMBOL_PROPERTIES) */
+/* PAGED_DIALOG — the shell Preferences, Schematic Setup and Board Setup all
+   sit in. Its size really is stated upstream, and as a RANGE rather than a
+   pick (`common/widgets/paged_dialog.cpp:427-443`):
+
+       SetMinSize( wxDefaultSize );
+       minSize.IncTo( FromDIP( wxSize(  600, 500 ) ) );
+       minSize.DecTo( FromDIP( wxSize( 1500, 900 ) ) );   // Failsafe
+       SetMinSize( minSize );
+
+   so the dialog is fitted to its content, floored at 600 x 500 and capped at
+   1500 x 900. The floor was inline at the call site with no citation and the
+   ceiling was missing entirely. */
+.ze-modal.ze-paged-dialog {
+  /* [data] `minSize.IncTo( FromDIP( wxSize( 600, 500 ) ) )`. */
+  min-width: 600px;
+  /* [data] the same call. */
+  min-height: 500px;
+  /* [data] `minSize.DecTo( FromDIP( wxSize( 1500, 900 ) ) )`, the failsafe. */
+  max-width: 1500px;
+  /* [data] the same call. */
+  max-height: 900px;
+  resize: both;
+  overflow: hidden;
+}
+
+/* Symbol Properties dialog (KiCad DIALOG_SYMBOL_PROPERTIES).
+   No width: its base file is `SetSizeHints( wxDefaultSize, wxDefaultSize )`,
+   so the dialog is as wide as its content. */
 .ze-modal.ze-props-dialog {
-  width: 1060px;
   height: auto;
   max-height: 90vh;
 }
 
-/* New Project from Template selector (KiCad's DIALOG_TEMPLATE_SELECTOR). */
-.ze-modal.ze-template-dialog {
-  width: 720px;
-  height: 520px;
-  max-width: 94vw;
-  max-height: 88vh;
-}
 .ze-template-dialog .ze-tpl-list {
   width: 240px;
   flex: 0 0 auto;
@@ -6819,9 +7287,9 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
    These three said 12.5 px and 13 px against that 14.67 px, so every group box
    in the app — this is a shared rule — read smaller than KiCad's. Stating
    nothing is the fix; the size then comes from the one place that holds it. */
+/* No colour either, for the same reason the size went: #c7c9cc was ours. */
 .ze-props-group legend {
   padding: 0 6px;
-  color: #c7c9cc;
 }
 .ze-props-group label {
   display: flex;
@@ -6862,13 +7330,40 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 
    The dialog states NO size, because upstream states none: `mainSizer->Fit(
    this )` plus `finishDialogSettings()`, which is what `.ze-modal`'s
-   `max-content` already gives it. The width it lands on is the fields grid's,
-   and the grid's is the Value column's — `SetupColumnAutosizer( FDC_VALUE )`
-   (fields_grid_table.cpp:423) makes that one column as wide as its widest
-   value, so a symbol with a long footprint string opens a wider dialog than a
-   symbol without. [px] a live KiCad 10.0.5 on this machine measures 1015 x 588
-   for a Device:C whose footprint is Capacitor_THT:C_Radial_D8.0mm_H11.5mm_
-   P3.50mm, frame edges read off the capture at x=545..1559 and y=331..918. */
+   `max-content` already gives it.
+
+   The width it lands on is `bLowerSizer`'s minimum and nothing else. An earlier
+   note here said it was the fields grid's, and the grid's the Value column's —
+   that `SetupColumnAutosizer( FDC_VALUE )` sizes that column to its widest
+   value, so a long footprint string opens a wider dialog. Both halves are
+   wrong, and a capture of a live KiCad settles it: its Description cell clips
+   at exactly the same place ours does. `RecomputeGridWidths`
+   (wx_grid.cpp:1114-1155) ends with
+
+       SetColSize( m_flexibleCol,
+                   std::max( flexibleMinWidth, width - nonFlexibleWidth ) );
+
+   where `width` is the grid's ALREADY-ALLOCATED width, so the flexible column
+   absorbs the slack rather than creating it. `AutoSizeColumn` does run over the
+   others first, which is why Name and Show Name come out at 92 and 88 against
+   the 72 and 84 the base file sets — but the Value column is overwritten by
+   that last line, and the grid's own minimum is frozen at
+   `OverrideMinSize( 1.0, 1.0 )` before any of it, at 512.
+
+   So no page of the notebook sets the width; `qa/probes/symprops_row_probe.cpp`
+   asks wx for all three and for the row:
+
+       Embedded Files page       290
+       Pin Functions page        770   (its grid's best width is 760)
+       General page              850   <- bLowerSizer, the widest
+       whole dialog after Fit    872
+
+   [px] a live KiCad 10.0.5 on this machine measures 1015 x 588 instead, for two
+   different symbols in two different sessions. That is 143 px above what wx
+   computes, and it is `DIALOG_SHIM::Show` (dialog_shim.cpp:471-484) taking
+   `max( computed, restoredSize )` from the dialog's remembered `__geometry` —
+   this dialog carries `wxRESIZE_BORDER`, so a size dragged once is kept. It is
+   NOT a width to copy: ours renders 888 against the computed 872. */
 .ze-modal.ze-symprops {
   max-width: 96vw;
   /* `wxRESIZE_BORDER` (dialog_symbol_properties_base.h:110). Almost every
@@ -6919,12 +7414,36 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   visibility: hidden;
   pointer-events: none;
 }
+/* A wxNotebook draws a FRAME, and the tab strip sits inside it — the border
+   runs across the top ABOVE the tabs and down both sides, enclosing the strip
+   and the page as one control. Ours drew only the line under the tabs, so the
+   notebook read as a row of labels with a panel below rather than as a box.
+
+   [px] a live KiCad 10.0.5, scanning down x=531 (inside the dialog, left of the
+   page): the title bar's border at y=390, then the dialog face to y=400, then
+   rgb(28,28,28) at y=401 — the frame's top edge, ten pixels above the tabs —
+   the strip's own face to y=437, and rgb(28,28,28) again at y=438 under the
+   tabs. Across at y=420, inside the strip, the same rgb(28,28,28) at x=527 and
+   x=1519, eleven pixels inside each dialog edge, which is mainSizer's wxALL 10
+   plus the dialog's own border. That is --chrome-border.
+
+   The three other `.ze-nb-tabs` call sites (appearance controls, GerbView's
+   layer manager, the colour picker) are docked panes rather than dialogs and
+   were not measured, so they are left alone rather than given a frame on the
+   strength of this one. */
+.ze-nb-frame {
+  border: 1px solid var(--chrome-border);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+}
 .ze-symprops-page {
   display: flex;
   flex-direction: column;
   background: var(--chrome-bg2);
-  border: 1px solid var(--chrome-border);
-  border-top: none;
+  /* The frame belongs to `.ze-nb-frame` now: the page inside it paints only its
+     own background, or the two borders double up along the sides. */
   /* [data] generalPageSizer's items each carry a 5 px border. */
   padding: 5px;
   min-height: 0;
@@ -6955,6 +7474,20 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   /* [data] `m_fieldsGrid->SetMinSize( wxSize( -1, 160 ) )`. */
   height: 160px;
   flex: 1 1 auto;
+}
+/* Shrink-to-fit, so each column takes `max( its stated minimum, its content )`
+   — `AutoSizeColumn` then `std::max( minWidthScaled, colSize )`. This is the
+   CSS idiom for that and carries no KiCad number: the numbers are the
+   per-column `min-width` the component states from the base file's SetColSize.
+   `min-content` rather than the usual `width: 1px`, because the cell text is
+   `white-space: nowrap` — so its min-content IS its full width — and a keyword
+   states the intent instead of leaving a bare length for the next reader (and
+   for central_values' scanner) to wonder about.
+   A `width` here instead would cap the column, which is the bug that clipped
+   "Description" to "Descriptic". The flexible column states no minimum and is
+   left out. */
+.ze-symprops-grid thead th {
+  width: min-content;
 }
 /* `SetColLabelSize( 22 )` (dialog_symbol_properties_base.cpp:70). The shared
    .ze-grid rule carries the Design Inspector's 30; this grid states its own,
@@ -6993,7 +7526,14 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
      qa/probes/symprops_row_probe.cpp. This row is what sets the dialog's
      width upstream, and it is a CONSTANT — it does not depend on the symbol,
      which is why KiCad's dialog is the same width for a diode and a
-     connector while ours tracked whichever field value was longest. */
+     connector while ours tracked whichever field value was longest.
+
+     Still 850 after the probe was rebuilt against the base file: it had used a
+     wxFlexGridSizer where sbGeneralProps is a wxGridBagSizer, both pin
+     checkboxes at proportion 0 where the base gives them 1, and no bMiddleCol
+     around sbAttributes. All three were wrong and none of them moved the
+     answer — General 310, MiddleCol 244, buttons 245, and it is
+     ( 245 + 10 ) / 3 x 10 that decides it. */
   min-width: 850px;
 }
 /* bLowerSizer's three children, proportions 4:3:3
@@ -7035,10 +7575,37 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   min-width: 245px;
   display: flex;
   flex-direction: column;
-  /* [data] each button is added with a 5 px border, so 10 px between two. */
-  gap: 10px;
+  /* buttonsSizer's four items do NOT carry the same border, so the gaps between
+     them are not one number (dialog_symbol_properties_base.cpp:236-250):
+
+       Update Symbol from Library...  wxEXPAND|wxBOTTOM|wxRIGHT|wxLEFT 5
+       Change Symbol...               wxEXPAND|wxALL 5
+       Edit Symbol...                 wxEXPAND|wxALL 5
+       (the 20 px spacer)             no border
+       Edit Library Symbol...         wxEXPAND|wxTOP|wxRIGHT|wxLEFT 5
+
+     so it goes 10, 10, then 5 either side of the spacer — the two buttons that
+     bracket it each face it with a border and it has none of its own. A uniform
+     `gap: 10px` made those last two 10 as well, which is 10 px this column does
+     not have: [px] wx puts `buttonsSizer->CalcMin().y` at 186, which is
+     4 x 34 + 30 + 20 exactly, and ours measured 206. The margins are stated
+     per item because that is how upstream states them. */
+  gap: 0;
   /* [data] and 5 px around the column itself, wxEXPAND|wxALL 5. */
   padding: 5px;
+}
+.ze-symprops-buttons > .ze-btn:nth-child(1) {
+  /* [data] wxBOTTOM|wxRIGHT|wxLEFT 5 — no top border. */
+  margin-bottom: 5px;
+}
+.ze-symprops-buttons > .ze-btn:nth-child(2),
+.ze-symprops-buttons > .ze-btn:nth-child(3) {
+  /* [data] wxALL 5. */
+  margin: 5px 0;
+}
+.ze-symprops-buttons > .ze-btn:last-child {
+  /* [data] wxTOP|wxRIGHT|wxLEFT 5 — no bottom border. */
+  margin-top: 5px;
 }
 /* buttonsSizer->Add( 0, 20, 0, wxEXPAND, 5 ) before Edit Library Symbol. */
 .ze-symprops-btnsgap {
@@ -7086,11 +7653,48 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   height: 10px;
   flex: 0 0 auto;
 }
+/* sbAttributes' five checkboxes do NOT share one border
+   (dialog_symbol_properties_base.cpp:204-224):
+
+     Exclude from simulation         wxRIGHT|wxLEFT 5           no vertical
+     (the 10 px spacer above)
+     Exclude from bill of materials  wxALL 5                    5 top, 5 bottom
+     Exclude from board              wxBOTTOM|wxRIGHT|wxLEFT 5  5 bottom
+     Exclude from position files     wxBOTTOM|wxRIGHT|wxLEFT 5  5 bottom
+     Do not populate                 wxBOTTOM|wxLEFT|wxRIGHT 5  5 bottom
+
+   so the rows repeat every --check-row + 5 = 27, and the gap under the first
+   is --check-row + 10 + 5 = 37. Ours stated no vertical border at all, so the
+   five packed at the bare 22 and 32: [px] a live KiCad 10.0.5 beside ours at
+   the same screen size reads its label rows at y = 691, 727, 754, 781, 808 —
+   a pitch of 36/27/27/27 — against ours at 700, 732, 754, 776, 798, which is
+   32/22/22/22. Twenty pixels short over five rows, and the box reads visibly
+   tighter than KiCad's. */
+.ze-symprops-attrs > .ze-check {
+  /* [data] wxBOTTOM 5, on all but the first. */
+  margin-bottom: 5px;
+}
+.ze-symprops-attrs > .ze-check:first-of-type {
+  /* [data] Exclude from simulation is wxRIGHT|wxLEFT only. */
+  margin-bottom: 0;
+}
+.ze-symprops-attrs > .ze-symprops-attrgap + .ze-check {
+  /* [data] Exclude from bill of materials is the one wxALL 5. */
+  margin-top: 5px;
+}
 /* bSizerBottom, added with wxEXPAND|wxLEFT 12. It sits outside the notebook,
    so it does not change with the page. */
 .ze-symprops-foot {
-  /* [data] mainSizer->Add( bSizerBottom, 0, wxEXPAND|wxLEFT, 12 ). */
+  /* [data] mainSizer->Add( bSizerBottom, 0, wxEXPAND|wxLEFT, 12 ) — wxLEFT and
+     nothing else, so this row has NO vertical border. `.ze-modal-footer`'s
+     shared `padding: 8px 12px` was adding 8 top and 8 bottom that upstream does
+     not have here, and the row's own children already carry their borders:
+     m_spiceFieldsButton is wxRIGHT|wxLEFT 15 (no vertical at all) and the std
+     OK/Cancel sizer is wxALL 5. [px] wx puts `bSizerBottom->CalcMin().y` at 44
+     — a 34px button plus that 5 above and below — where ours measured 60. */
   padding-left: 12px;
+  padding-top: 0;
+  padding-bottom: 0;
   justify-content: flex-start;
 }
 /* m_libraryIDLabel and m_tcLibraryID both take KIUI::GetSmallInfoFont, which
@@ -7166,19 +7770,96 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
    Alternate Assignment keeps its stated width, and those two SHARE what is
    left, `pinTblWidth / 2` each. Two 50% columns beside three fixed ones is
    that division. */
-.ze-symprops-pin-pane th:nth-child(1) {
+/* These widths were already stated, on the `<th>`, and none of them held: a
+   `<table>` defaults to `table-layout: auto`, where a stated width is a hint the
+   browser overrides from content. [px] a capture measures ours at
+   67 / 271 / 303 / 108 / 99 against KiCad's 160 / 259 / 260 / 140 / 140.
+
+   `table-layout: fixed` fixes the columns and breaks the dialog, which is worth
+   spelling out because it cost a round: a fixed-layout table inherits
+   `width: 100%` from `.ze-grid`, and a percentage width inside `.ze-modal`'s
+   `width: max-content` has nothing to resolve against. Chrome answers that
+   circularity with a max-content of **1000000px**, the modal clamps to its
+   `max-width: 92vw`, and the whole dialog opens 1780 wide instead of 884 — on
+   every tab, since all three pages share one grid cell. Measured, not reasoned:
+   `qa/harness/symprops_layout.md` says how to reproduce it in a browser, which
+   is the only place it shows up at all. happy-dom has no layout engine, so the
+   qa suite called this CSS correct throughout.
+
+   So the pane models `wxFIXED_MINSIZE` instead — the flag the base file puts on
+   this grid and only this grid (`bMargins->Add( m_pinGrid, 1,
+   wxEXPAND|wxALL|wxFIXED_MINSIZE, 5 )`, base.cpp:303), which tells the sizer to
+   take the grid's stated minimum and never ask its content. `contain:
+   inline-size` is that sentence in CSS: the pane still stretches to the page,
+   but nothing inside it reaches the dialog's width. `min-width` is then the
+   minimum wx would have used, the sum of the five `SetColSize` calls. */
+.ze-symprops-pin-pane {
+  /* [data] `wxFIXED_MINSIZE` on m_pinGrid — the grid's content never reaches
+     the dialog's width, only its stated minimum does. */
+  contain: inline-size;
+  /* [data] 160 + 160 + 160 + 140 + 140, the five SetColSize calls at
+     dialog_symbol_properties_base.cpp:279-283. */
+  min-width: 760px;
+}
+/* `SetColSize` (base.cpp:279-283) then `AdjustPinsGridColumns`
+   (dialog_symbol_properties.cpp:1066-1085): every column but Base Name and
+   Alternate Assignment keeps its stated width, and those two split what is left,
+   `pinTblWidth / 2` each. `width: auto` on exactly those two IS that division —
+   in a fixed-layout table the auto columns share the leftover — and it says it
+   without a percentage, which is what the 1000000px above was. */
+.ze-symprops-pin-grid {
+  table-layout: fixed;
+}
+.ze-symprops-pin-grid col.num {
   /* [data] `m_pinGrid->SetColSize( 0, 160 )`. */
   width: 160px;
 }
-.ze-symprops-pin-pane th:nth-child(2),
-.ze-symprops-pin-pane th:nth-child(3) {
-  /* [data] `pinTblWidth / 2` each, after the fixed columns are taken off. */
-  width: 50%;
+.ze-symprops-pin-grid col.flex {
+  /* [data] Base Name and Alternate Assignment, the two AdjustPinsGridColumns
+     stretches: `pinTblWidth / 2` each. */
+  width: auto;
 }
-.ze-symprops-pin-pane th:nth-child(4),
-.ze-symprops-pin-pane th:nth-child(5) {
+.ze-symprops-pin-grid col.fixed {
   /* [data] `m_pinGrid->SetColSize( 3, 140 )` and `( 4, 140 )`. */
   width: 140px;
+}
+/* `WX_GRID::WX_GRID` does `SetDefaultRowSize( GetDefaultRowSize() + FromDIP( 4 ) )`
+   (common/widgets/wx_grid.cpp:211) for every WX_GRID, and the pin grid is one —
+   the same 26 + 4 the fields grid beside it already states, asked of a real
+   wxGrid by `qa/probes/fields_grid_probe.cpp`. Ours had none here, so the rows
+   took their content height: [px] the capture reads our pin rows at a 26 px
+   pitch against KiCad's 30. */
+.ze-symprops-pin-grid td {
+  /* [px] 26 + FromDIP( 4 ); the 26 asked of a real wxGrid by the probe. */
+  height: 30px;
+}
+/* GRID_CELL_ICON_TEXT_RENDERER (`common/widgets/grid_icon_text_helpers.cpp`):
+   the icon is drawn at the cell's left, the text after it. Both Symbol
+   Properties' Electrical Type / Graphic Style cells and DIALOG_PIN_PROPERTIES
+   use it, so the rule is not scoped to this dialog. */
+.ze-icon-text {
+  display: flex;
+  align-items: center;
+  /* [data] `GRID_CELL_ICON_TEXT_RENDERER::Draw` (grid_icon_text_helpers.cpp)
+     starts at `leftCut = FromDIP( 4 )`, draws the bitmap there, then does
+     `leftCut += bitmap width` and `leftCut += FromDIP( 4 )` before the text —
+     so it is FOUR either side of the icon, not MIN_GRIDCELL_MARGIN's two,
+     which is what this said and is what made the row read as "|-Passive". */
+  gap: 4px;
+  /* [data] the same `leftCut = FromDIP( 4 )`, the lead-in before the bitmap. */
+  padding-left: 4px;
+}
+.ze-pin-icon {
+  /* [data] KiBitmapBundle resolves the 16 px variant for a grid cell, which is
+     the size KiCad's own vendored SVG draws at. Stated so a cell's line-height
+     cannot stretch it. */
+  width: 16px;
+  /* [data] the same 16, square, for the same reason. */
+  height: 16px;
+  flex: 0 0 auto;
+}
+.ze-symprops-pin-grid td.ze-pin-noalt {
+  background: var(--ctl-face);
 }
 
 /* ERC results panel (KiCad DIALOG_ERC, modeless) */
@@ -7244,7 +7925,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 }
 .ze-erc-subrow {
   padding: 1px 12px 1px 34px;
-  font-size: 12px;
   color: #b6b8bb;
   white-space: nowrap;
   overflow: hidden;
@@ -7266,7 +7946,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
    (m_messages + m_gauge). */
 .ze-erc-progress-line {
   padding: 2px 12px;
-  font-size: 12px;
   color: #b6b8bb;
 }
 .ze-erc-gauge {
@@ -7281,13 +7960,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   height: 100%;
   background: var(--chrome-active);
   transition: width 80ms linear;
-}
-/* The marker tree's expander glyph on a heading row. */
-.ze-erc-row .tri {
-  flex: 0 0 auto;
-  width: 12px;
-  color: #9a9ca0;
-  font-size: 10px;
 }
 .ze-erc-row .msg {
   font-weight: 600;
@@ -7323,20 +7995,22 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   flex: 1;
   overflow: auto;
   padding: 6px 0;
-  /* m_markerDataView->SetMinSize( wxSize( 640, 260 ) ) */
+  /* [data] `m_markerDataView->SetMinSize( wxSize( 640, 260 ) )`,
+     dialog_erc_base.cpp:95. */
   min-height: 260px;
+  /* [data] the same call — the WIDTH half, which we did not have, and which is
+     what should set the dialog's width rather than a number on the panel. */
+  min-width: 640px;
 }
 .ze-erc-empty {
   padding: 14px;
   color: #9a9ca0;
-  font-size: 13px;
 }
 .ze-erc-row {
   display: flex;
   gap: 8px;
   align-items: baseline;
   padding: 4px 12px;
-  font-size: 12.5px;
   cursor: default;
   line-height: 1.35;
 }
@@ -7358,7 +8032,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   align-items: center;
   padding: 8px 12px;
   border-top: 1px solid var(--chrome-border);
-  font-size: 12.5px;
 }
 .ze-erc-footer .tally.err {
   color: #e6090d;
@@ -7384,7 +8057,11 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   padding: 1px 6px;
   border-radius: 9px;
   text-align: center;
-  font-size: 11px;
+  /* [data] `NUMBER_BADGE`'s `m_textSize( 10 )` (number_badge.cpp:33), a POINT
+     size — it draws with `wxFont( m_textSize, ... )` (:141) and DIALOG_ERC never
+     calls SetTextSize, so it keeps the default. This said 11px, which is
+     smaller than the 10pt it should be. */
+  font-size: 10pt;
 }
 .ze-erc-footer .badge.err {
   background: #f04040; /* [data] IsDarkTheme() ? wxColour( 240, 64, 64 ) : *wxRED */
@@ -7412,7 +8089,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 }
 .ze-erc-tabs .tab {
   padding: 5px 12px;
-  font-size: 12.5px;
   cursor: default;
   border: 1px solid transparent;
   border-bottom: none;
@@ -7447,7 +8123,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 }
 .ze-erc-tabs.compact .tab {
   padding: 4px 8px;
-  font-size: 12px;
 }
 
 .ze-erc-tabs .tab.active {
@@ -7466,7 +8141,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 }
 .ze-erc-row .ze-erc-exclude {
   flex: 0 0 auto;
-  font-size: 10.5px;
   padding: 1px 6px;
   border: 1px solid var(--chrome-border);
   border-radius: 3px;
@@ -7485,7 +8159,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-erc-row .pos {
   margin-left: 8px;
   color: #9a9ca0;
-  font-size: 11.5px;
 }
 .ze-erc-row.selected .pos {
   color: #d9dbde;
@@ -7493,7 +8166,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-erc-link {
   display: block;
   padding: 6px 12px;
-  font-size: 12.5px;
   color: #6ea8fe;
   cursor: default;
   text-decoration: underline;
@@ -7779,47 +8451,59 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   background: var(--chrome-hover);
 }
 
-/* ---- Preferences dialog (KiCad PAGED_DIALOG) -------------------------------- */
+/* ---- Preferences dialog (KiCad PAGED_DIALOG) --------------------------------
+
+   NO FONT SIZES ANYWHERE BELOW. Ten rules here stated 12px or 13px - the tree's
+   parent rows, the page body, the radio and row labels, the units, the hotkey
+   and mouse tables, the hint line and the colour rows - against the dialog's
+   own 11 pt / 14.67 px. Not one of the panels upstream calls SetFont: a
+   PAGED_DIALOG's pages take the GUI font like every other dialog, which is why
+   KiCad's Preferences reads at the same size as the rest of the app and ours
+   read smaller everywhere at once. */
+/* Preferences IS a PAGED_DIALOG (`common/dialogs/dialog_preferences.cpp`
+   derives from it), so its size is the RANGE `.ze-modal.ze-paged-dialog`
+   already states from `paged_dialog.cpp:427-443` - fitted to content, floored
+   at 600x500 and capped at 1500x900. The `min(980px, 94vw)` / `min(640px, 90vh)`
+   here was a pick, and it was UNDER what the two-column Common page needs,
+   which is why the dialog came out narrower and shorter than KiCad's. */
 .ze-prefs-dialog {
-  width: min(980px, 94vw);
-  height: min(640px, 90vh);
   display: flex;
   flex-direction: column;
+  /* ONE size, for every page.
+
+     `PAGED_DIALOG::finishInitialization` sizes the dialog from
+     `GetBestSize()` on the TREEBOOK (`paged_dialog.cpp:425-443`), and
+     `wxBookCtrlBase::DoGetBestSize` is the maximum over EVERY page — each one
+     is constructed up front, so the answer does not depend on which page is
+     showing. That is why KiCad's Preferences is the same size on Common as it
+     is on Grids.
+
+     Ours cannot ask that question: one page is mounted at a time, so a
+     content-sized dialog re-sizes itself as you walk the tree, which is what
+     `.ze-modal`'s `width: max-content` was doing here. So the size is stated
+     once — [px] 1095 x 713, the installed KiCad's own Preferences on this
+     desktop, measured off a capture of it — and `usePagedDialogSize` still
+     grows it if one of our pages needs more, which is upstream's
+     `newSize.IncTo( minSize )`. The 600 x 500 floor and the 1500 x 900 cap
+     `.ze-paged-dialog` states still bound it.
+
+     A SIZE, not a floor. A floor was tried and reverted: `.ze-modal` is
+     `width: max-content`, so any page whose content ran past 1095 pushed the
+     dialog wider and the thing being fixed — the dialog changing size as you
+     walk the tree — came straight back. A page that does not fit in KiCad's
+     own dialog is a parity bug in that PAGE (eeschema's Editing Options was
+     one: its Arc editing mode row was side-by-side where upstream stacks it,
+     and the left column swelled by 120 px). Until such a page is fixed the
+     page area scrolls — `.ze-prefs-panel` is a scroll container — which is
+     visible and local, where a jumping dialog is neither. */
+  width: 1095px;
+  /* [px] the same capture's height. */
+  height: 713px;
 }
 .ze-prefs-body {
   flex: 1;
   display: flex;
   min-height: 0;
-}
-.ze-prefs-tree {
-  width: 200px;
-  flex: 0 0 auto;
-  overflow-y: auto;
-  padding: 6px 0;
-  border-right: 1px solid var(--chrome-border);
-}
-.ze-prefs-parent {
-  padding: 8px 10px 2px;
-  font-size: 12px;
-  color: #9aa0a6;
-  text-transform: none;
-  font-weight: 600;
-}
-.ze-prefs-page {
-  padding: 5px 10px;
-  font-size: 13px;
-  cursor: default;
-  border-left: 2px solid transparent;
-}
-.ze-prefs-page.indent {
-  padding-left: 24px;
-}
-.ze-prefs-page:hover {
-  background: rgba(255, 255, 255, 0.06);
-}
-.ze-prefs-page.active {
-  background: rgba(64, 128, 255, 0.18);
-  border-left-color: #4d90fe;
 }
 .ze-prefs-panel {
   flex: 1;
@@ -7834,32 +8518,237 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-prefs-panel > .ze-hotkeys-panel {
   height: 100%;
 }
+/* `bPanelSizer`, the horizontal sizer a two-column preferences page is built
+   on. The gutter is the LEFT column's own border - `bPanelSizer->Add(
+   bLeftSizer, 0, wxRIGHT, 35 )` (panel_common_settings_base.cpp:325) - and its
+   proportion is ZERO, so the left column takes the width it needs and the right
+   takes the rest. Neither wraps: a wx sizer has no wrapping.
+
+   This said `gap: 24px`, `flex-wrap: wrap` and `flex: 1` on both children,
+   which is three guesses in place of one number. */
 .ze-pref-columns {
   display: flex;
-  gap: 24px;
   align-items: flex-start;
-  flex-wrap: wrap;
 }
+/* A column of a two-column preferences page takes the width its widest row
+   needs and never gives any of it back. That is proportion ZERO, which is what
+   nearly every one of these Add()s carries:
+
+     bPanelSizer->Add( bLeftSizer,  0, wxRIGHT, 35 );      common     :325
+     bPanelSizer->Add( bLeftColumn, 0, wxEXPAND|wxRIGHT, 35 );  eeschema editing
+     bPanelSizer->Add( bRightColumn, 0, wxEXPAND|wxRIGHT|wxLEFT, 5 );  the same
+
+   This said `min-width: 0` instead, which is the one thing a wx sizer never
+   does: a control's minimum size is what a dialog's width is DERIVED from, and
+   a column that may shrink past it wraps its labels — which is what put "Focus
+   follows mouse between schematic and PCB editors" on two lines. */
 .ze-pref-columns > div {
+  flex: none;
+}
+/* [data] the 35 of `wxRIGHT, 35`, which is what Common
+   (`panel_common_settings_base.cpp:325`) and eeschema's Editing Options
+   (`panel_eeschema_editing_options_base.cpp:276`) both carry. */
+.ze-pref-columns > div:first-child {
+  margin-right: 35px;
+}
+/* `PANEL_GRID_SETTINGS`' two columns: `Add( bSizerLeftCol, 0, wxEXPAND|wxRIGHT|
+   wxLEFT, 5 )`, then `Add( 16, 0 )`, then the right column's own wxLEFT 5
+   (`panel_grid_settings_base.cpp:59-65`). */
+.ze-pref-columns.ze-gutter-26 > div:first-child {
+  /* [data] 5 + the 16 px spacer + 5. */
+  margin-right: 26px;
+}
+/* `bSizerLeftCol` (`panel_grid_settings_base.cpp:23-56`): the heading, the list
+   at PROPORTION 1, and the button row under it. The list is the thing that
+   grows — `Add( m_currentGridCtrl, 1, wxEXPAND|wxBOTTOM|wxLEFT, 3 )` — so the
+   buttons sit at the bottom of the column however tall the page is. Ours drew a
+   four-row box with the buttons immediately beneath it. */
+/* `bSizerColumns->Add( bSizerLeftCol, 0, wxEXPAND|… )` and the same for the
+   right column, inside `bSizerMain->Add( bSizerColumns, 1, wxEXPAND|wxTOP, 8 )`
+   (`panel_grid_settings_base.cpp:59-65`, `:190`): wxEXPAND on a HORIZONTAL
+   sizer stretches vertically, and the row itself takes the page. So both
+   columns are as tall as the page, which is what lets the list grow.
+   `.ze-pref-columns` aligns to flex-start for the pages whose columns are
+   stacks of groups; this page says otherwise. */
+.ze-prefs-panel > .ze-pref-columns.ze-stretch {
+  height: 100%;
+  align-items: stretch;
+}
+.ze-gridlist-col {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.ze-gridlist-col > .ze-gridlist {
   flex: 1;
-  min-width: 280px;
+  /* [data] `wxEXPAND|wxBOTTOM|wxLEFT, 3` on that Add(). */
+  margin: 0 0 3px 3px;
+}
+/* `m_currentGridCtrl` is a `wxListBox`, which on GTK is a treeview inside a
+   scrolled window — NOT an entry. Two things follow, and ours had both wrong:
+
+   * no orange focus ring. The Yaru rule that paints one is `entry:focus`
+     (`entry { border-color: #E95420 }` at 70% alpha); a treeview declares no
+     focus border at all, which is the same reason a combo has none. Ours took
+     the shell's blanket entry-focus rule and drew a two-pixel orange rectangle
+     round the list the moment it was clicked.
+   * the selected row is the SELECTION colour, not the browser's blue:
+     [css] `treeview.view:selected { background-color: #E95420 }` with
+     `color: #FFFFFF` in the rule under it — `--chrome-active` and `--view-fg`,
+     the same pair the tree and the hotkey list already use. */
+/* The list itself. [css] `.frame { box-shadow: none; border-radius: 0;
+   border: 1px solid #181818 }` — the frame a wxListBox's scrolled window
+   wears: square corners, no shadow, and #181818 is `--ctl-border`. The ground
+   and the ink are the view's, `.view { color: white; background: #272727 }`.
+
+   And no focus ring: the Yaru rule that paints one is `entry:focus`, and a
+   treeview declares no focus border at all — the same reason a combo has
+   none. */
+.ze-gridlist {
+  overflow: auto;
+  outline: none;
+  background: var(--panel-bg);
+  border: 1px solid var(--ctl-border);
+  border-radius: 0;
+  color: var(--view-fg);
+}
+/* A row of the list. */
+.ze-gridlist-row {
+  /* [px] GtkCellRendererText's `ypad` of 2 above and below, and half of
+     `-GtkTreeView-horizontal-separator: 4` either side. */
+  padding: 2px;
+  cursor: default;
+  white-space: nowrap;
+}
+/* [css] `treeview.view:selected { background-color: #E95420 }`, and
+   `color: #FFFFFF` in the rule under it — `--chrome-active` on `--view-fg`,
+   the pair the page tree and the hotkey list already use. A native
+   `<select size>` could not be made to say this: the browser paints its own
+   highlight over `option:checked` as soon as the list has focus, which is why
+   the row came up orange and turned blue on the first click. */
+.ze-gridlist-row.selected {
+  background: var(--chrome-active);
+  color: var(--view-fg);
+}
+/* A heading with no rule under it. `m_gridsLabel` is added on its own
+   (`:27`) — the only group label on this page without a `wxStaticLine` — and at
+   a border of 5 rather than the 13 a headed group carries. */
+.ze-pref-group-title.ze-noline {
+  border-bottom: none;
+  /* [data] the `wxTOP|wxRIGHT|wxLEFT, 5` of that Add(). */
+  padding: 5px 5px 0;
+  margin-bottom: 0;
+}
+/* `fgGridOverrides = new wxFlexGridSizer( 0, 2, 6, 4 )` (`:117`): ONE grid of
+   checkbox / choice pairs, so every choice starts where the widest label ends.
+   Ours made a flex row per pair, which is why each combo sat at its own x. */
+.ze-gridoverrides {
+  display: grid;
+  grid-template-columns: max-content max-content;
+  align-items: center;
+  /* [data] the sizer's own vgap 6 and hgap 4. */
+  gap: 6px 4px;
+  /* [data] `wxALIGN_CENTER_VERTICAL|wxALIGN_LEFT|wxLEFT, 8` on each checkbox. */
+  padding-left: 8px;
+}
+/* `bSizerGridButtons` (`panel_grid_settings_base.cpp:34-56`): five
+   STD_BITMAP_BUTTONs in a row, each sized by its bitmap. This row was a
+   `.ze-pref-row` of standard-width text buttons drawing `+ ✎ ▲ ▼ −`. */
+.ze-gridbtns {
+  display: flex;
+  align-items: center;
+  /* [data] the `wxRIGHT, 5` each of the first four carries. */
+  gap: 5px;
+  /* [data] `Add( bSizerGridButtons, 0, wxEXPAND|wxBOTTOM|wxRIGHT, 5 )`. */
+  padding: 0 5px 5px;
+}
+/* ...but not every page. `PANEL_EESCHEMA_DISPLAY_OPTIONS` adds its left column
+   with `wxEXPAND|wxRIGHT, 5` and then a `Add( 20, 0 )` spacer
+   (`panel_eeschema_display_options_base.cpp:76-79`), which is 25. A gutter
+   belongs to the Add(), so the page that has a different one says so. */
+.ze-pref-columns.ze-gutter-25 > div:first-child {
+  /* [data] the 5 of that wxRIGHT plus the 20 of that spacer. */
+  margin-right: 25px;
+}
+/* The one column upstream gives a proportion to: `bPanelSizer->Add( rightSizer,
+   1, wxLEFT|wxRIGHT, 5 )` on Common (`panel_common_settings_base.cpp:479`),
+   which is why its ruler stretches and eeschema's columns do not. A proportion
+   belongs to an Add(), so it is stated by the page that makes it. */
+.ze-pref-columns > .ze-grow {
+  flex: 1;
+}
+/* A `wxCheckBox` / `wxRadioButton` / `wxStaticText` is one line. wx measures a
+   label's extent and gives the sizer that width; nothing in a dialog wraps
+   unless `Wrap( n )` was called on it, and none of these panels calls it. */
+.ze-pref-check,
+.ze-pref-radio,
+.ze-pref-row > .lbl,
+.ze-pref-radiorow > .lbl {
+  white-space: nowrap;
 }
 .ze-pref-group {
   margin-bottom: 14px;
 }
+/* A group heading on a preferences page is a `wxStaticText` with a
+   `wxStaticLine` under it, not a wxStaticBox:
+
+       bLeftSizer->Add( m_staticText20, 0, wxTOP|wxRIGHT|wxLEFT|wxEXPAND, 13 );
+       bLeftSizer->Add( m_staticline3,  0, wxEXPAND|wxTOP|wxBOTTOM, 2 );
+       (common/dialogs/panel_common_settings_base.cpp:21-26, and the same shape
+        six more times on that page alone)
+
+   NEITHER `panel_common_settings_base.cpp` NOR its hand-written `.cpp` calls
+   SetFont anywhere, so the heading is the dialog's own font at its own weight
+   and its own foreground. The 12.5px, the 600 and the #c7c9cc were all ours,
+   which is why these read smaller, heavier and dimmer than KiCad's. */
 .ze-pref-group-title {
-  font-size: 12.5px;
-  font-weight: 600;
-  color: #c7c9cc;
+  /* [data] `wxTOP|wxRIGHT|wxLEFT, 13` on the label and `wxTOP|wxBOTTOM, 2` on
+     the rule under it. */
   border-bottom: 1px solid var(--chrome-border);
   padding: 4px 0;
   margin-bottom: 6px;
 }
+
+/* A group's rows, spaced the way its sizer spaces them.
+   
+   Not a uniform `gap`. In wx the space between two stacked children is the
+   BOTTOM border of the upper plus the TOP border of the lower, and each Add()
+   states its own, so a KiCad group is unevenly spaced on purpose. The User
+   Interface group is the clearest case
+   (panel_common_settings_base.cpp:170-293):
+
+     bSizer14->Add( m_checkBoxIconsInMenus, 0, wxALL, 5 );             5 / 5
+     bSizer14->Add( m_showScrollbars, 0, wxBOTTOM|wxRIGHT|wxLEFT, 5 ); 0 / 5
+     ... three more the same ...
+     bUserInterfaceSizer->Add( m_disableCustomCursors, 0, wxBOTTOM|wxLEFT|wxRIGHT, 5 );
+     bUserInterfaceSizer->Add( bSizerIconsTheme,   0, wxEXPAND|wxTOP, 5 );  5 / 0
+     bUserInterfaceSizer->Add( bSizerToolbarSize,  0, wxEXPAND, 5 );        0 / 0
+     bUserInterfaceSizer->Add( bSizerHighContrast, 0, wxEXPAND|wxTOP|wxBOTTOM, 5 );
+
+   which gives 5 px through the checkbox run, 10 px before "Icon theme:", NONE
+   between it and "Toolbar icon size:", and 5 before "High-contrast". Measured
+   on the capture, the checkbox rows repeat every 27 px and the two radio rows
+   every 24 -- the three px being exactly that missing border.
+
+   So: `gap: 0`, every row carrying the wxBOTTOM 5 that nearly all of them
+   have, and the exceptions saying so. The default reproduces the old uniform
+   5 px for every other page, which is what those pages' sizers do anyway. */
 .ze-pref-group-body {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 0;
   padding-left: 4px;
+}
+.ze-pref-group-body > * {
+  margin-bottom: 5px; /* [data] the wxBOTTOM nearly every Add() in these groups carries. */
+}
+/* `wxTOP, 5` — a row that asks for space above it as well. */
+.ze-pref-group-body > .ze-border-top {
+  margin-top: 5px; /* [data] */
+}
+/* An Add() with neither wxTOP nor wxBOTTOM: the next row sits against it. */
+.ze-pref-group-body > .ze-border-none {
+  margin-bottom: 0;
 }
 /* A `wxCheckBox` row and a `wxRadioButton` row. One rule, because these panels
    lay the two out with the same sizer flags -- `PANEL_GAL_OPTIONS` adds its
@@ -7871,7 +8760,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 13px;
 }
 /* A `wxRB_GROUP` stacked vertically: the crosshair shape's
    `wxFlexGridSizer( 0, 1, 3, 0 )` (`panel_gal_options_base.cpp:100`). The 3 is
@@ -7887,38 +8775,318 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 13px;
 }
+/* `wxWindow::Enable( false )` — what a greyed row LOOKS like.
+   GTK dims the label as well as the control (`label:disabled` in the Yaru
+   stylesheet takes the same ink as `entry:disabled` and `button:disabled`,
+   which is what `--ctl-fg-disabled` carries), and it dims by COLOUR, never by
+   opacity. Ours dimmed only the box the browser draws, so a row nothing reads
+   looked exactly like a row that works. */
+.ze-pref-check:has(input:disabled),
+.ze-pref-radio:has(input:disabled),
+.ze-pref-radiorow:has(input:disabled),
+.ze-pref-path:has(input:disabled),
+.ze-pref-row:has(input:disabled) > .lbl,
+.ze-pref-row:has(input:disabled) > .unit,
+.ze-zoomcorrection.ze-disabled {
+  color: var(--ctl-fg-disabled);
+}
+/* A `wxRB_GROUP` laid out in a ROW: a bare `wxBoxSizer( wxHORIZONTAL )` with
+   `Add( child, 0, wxALL, 5 )` for the label and every button -- Icon theme
+   (`panel_common_settings_base.cpp:202-226`), Toolbar icon size (`:228-251`),
+   PANEL_GAL_OPTIONS' grid Style (`panel_gal_options_base.cpp:23-41`).
+
+   Not `.ze-pref-row`: that rule gives the label a 150 px column, which is what
+   a gbSizer cell wants and what this sizer never had. [px] `qa/probes/
+   prefs_ui_group_probe.cpp` builds this exact sizer with wxWidgets on this
+   machine and this theme and reads the widgets back: the label starts at the
+   same x=5 as the checkboxes above it, the first radio follows it by 10, and
+   the radios are 10 apart -- so the two rows do NOT line up with each other,
+   because their labels are different widths. */
+.ze-pref-radiorow {
+  display: flex;
+  align-items: center;
+  /* [px] two adjoining wxALL borders of 5, measured back as 10. */
+  gap: 10px;
+  /* [px] the wxALL 5 each child carries above and below, which a checkbox row
+     (`wxBOTTOM|wxRIGHT|wxLEFT, 5`) does not: the probe reads a 27 px pitch
+     through the checkbox run, 37 from the last checkbox to Icon theme, and 32
+     from Icon theme to Toolbar icon size. Ours had all three at 27, 30 and 20. */
+  padding: 5px 0;
+}
+/* No `color` here. A row's label and its trailing units are `wxStaticText`,
+   and not one panel in `common/dialogs/` calls SetForegroundColour on one — a
+   label is the dialog's own foreground, the same ink as the checkbox labels
+   beside it. This stated #c7c9cc for the label and #9aa0a6 for the units,
+   which made every labelled row read dimmer than the checkbox above it and
+   made a DISABLED row indistinguishable from an enabled one. */
 .ze-pref-row .lbl {
   min-width: 150px;
-  color: #c7c9cc;
-}
-.ze-pref-row .unit {
-  color: #9aa0a6;
-  font-size: 12px;
-}
-.ze-pref-row input[type="range"] {
-  width: 140px;
 }
 .ze-search.num {
   text-align: right;
 }
-.ze-pref-scrolltable {
-  border-collapse: collapse;
-  font-size: 13px;
+/* `bSizer10->Add( bSizer1, 1, 0, 5 )` — proportion 1, flags ZERO. Without
+   wxEXPAND a sizer item is not stretched to the width of its parent: it takes
+   its own best size and sits at the left, so the page's content ends where its
+   widest row ends and the space to the right stays empty. That is why KiCad's
+   two Reset buttons stop level with the Drag Gestures combos above them, and
+   why the SpaceMouse group's rule does not run to the edge of the dialog.
+
+   Both pages that are built this way share the class, because it is the same
+   line of C++ in both: `panel_mouse_settings_base.cpp:340` and
+   `panel_spacemouse_base.cpp:80`. Ours stretched, because a block element
+   fills its parent. */
+.ze-pref-page-natural {
+  width: max-content;
 }
-.ze-pref-scrolltable th,
-.ze-pref-scrolltable td {
-  padding: 4px 10px;
+/* A label on its own line with its control stretched under it — what a sizer
+   does when the label and the choice are two `Add()`s of a VERTICAL sizer
+   rather than one horizontal one. eeschema's Arc editing mode is that:
+   `Add( m_staticTextArcEdit, 0, wxALL, 5 )` then
+   `Add( m_choiceArcMode, 0, wxALL|wxEXPAND, 5 )`
+   (`panel_eeschema_editing_options_base.cpp:48-54`), because the longest entry
+   does not fit beside a label. */
+.ze-pref-stacked {
+  display: flex;
+  flex-direction: column;
+  /* [data] the `wxALL, 5` both children carry. */
+  gap: 5px;
+  /* [data] the same wxALL 5, on the sides. */
+  padding: 0 5px;
+}
+.ze-pref-stacked > .ze-combo {
+  /* [data] the wxEXPAND on the choice's Add(). */
+  width: 100%;
+}
+/* A `wxStaticText` a panel draws BETWEEN its controls — eeschema's Display
+   Options has one, "(selection color can be edited in the "Colors" page)"
+   (`panel_eeschema_display_options_base.cpp:263`), added to the same gridbag
+   sizer as the spin controls around it. It is an ordinary label: the dialog's
+   own font and foreground, no colour of its own. `.ze-pref-hint`, which some of
+   our pages used for text KiCad does not have at all, states both. */
+.ze-pref-note {
+  /* [data] `wxRIGHT|wxLEFT, 5` on that Add(). */
+  padding: 0 5px;
+}
+/* PANEL_GIT_REPOS. `bLeftSizer->Add( m_enableGit, 0, wxEXPAND|wxALL, 10 )` —
+   the one control on the page that is in no group. */
+.ze-git-enable {
+  /* [data] the wxALL 10 of that Add(). */
+  padding: 10px;
+}
+/* `gbUpdate = new wxGridBagSizer( 4, 5 )` (`panel_git_repos_base.cpp:36`): the
+   label, the spin control and "minutes", each in its own cell. */
+.ze-git-update {
+  display: grid;
+  grid-template-columns: max-content max-content max-content;
+  align-items: center;
+  /* [data] the sizer's own vgap 4 / hgap 5. */
+  gap: 4px 5px;
+  /* [data] the label's and the units' `wxLEFT|wxRIGHT, 5`. */
+  padding: 0 5px;
+}
+/* `fgSizer1 = new wxFlexGridSizer( 0, 2, 0, 0 )` (`:73`), whose first cell is
+   the "Use default values" checkbox and whose second is an empty spacer — so
+   the label column is as wide as that checkbox, and the two entries start
+   where it ends. */
+.ze-git-commit {
+  display: grid;
+  grid-template-columns: max-content max-content;
+  align-items: center;
+  /* [data] `wxALL, 5` on the checkbox and `wxTOP|wxLEFT, 5` on the labels; the
+     sizer itself declares no gap at all. */
+  gap: 5px;
+  /* [data] `bSizerCommitData->Add( fgSizer1, 0, wxEXPAND|wxALL, 5 )`. */
+  padding: 5px;
+}
+/* [px] a wxTextCtrl built with `wxDefaultSize` takes its own best width, which
+   is 100 on this theme and measures 97 in the capture. `AddGrowableCol( 1 )`
+   only stretches it when the sizer is stretched, and `bPanelSizer->Add(
+   bLeftSizer, 0, … )` never stretches this one. Ours ran the whole width of
+   the page. */
+.ze-git-commit > input[type="text"] {
+  width: 100px;
+}
+/* `m_gbSizer = new wxGridBagSizer( 1, 10 )` (`panel_spacemouse_base.cpp:30`) —
+   vgap 1, hgap 10, a label column and a slider column, with every checkbox
+   spanning both. Added with `wxEXPAND|wxTOP|wxRIGHT|wxLEFT, 10`.
+
+   [px] `qa/probes/spacemouse_panel_probe.cpp` builds it with wxWidgets here:
+   the slider rows are 34 tall and the checkbox rows 22, one pixel of vgap
+   between them, and the two EMPTY rows (2 and 6) come out 20 px tall — which
+   is the whole of the space above "Pan speed:" and above "Reverse zoom
+   direction". */
+.ze-spacemouse-grid {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  /* [data] the sizer's vgap of 1 and hgap of 10. */
+  gap: 1px 10px;
+  align-items: center;
+  /* [data] `Add( m_gbSizer, 1, wxEXPAND|wxTOP|wxRIGHT|wxLEFT, 10 )`. */
+  padding: 10px 10px 0;
+}
+/* [data] `wxGBSpan( 1, 2 )` on all four checkboxes. */
+.ze-spacemouse-grid > .gb-span {
+  grid-column: 1 / -1;
+}
+.ze-spacemouse-grid > .gb-top3 {
+  /* [data] `wxALIGN_CENTER_VERTICAL|wxTOP, 3` — the only row with a border. */
+  margin-top: 3px;
+}
+/* Rows 2 and 6, which hold nothing. */
+.ze-spacemouse-grid > .gb-empty {
+  grid-column: 1 / -1;
+  /* [px] 20 tall — what an empty wxGridBagSizer row comes out as here,
+     measured by `qa/probes/spacemouse_panel_probe.cpp`. */
+  height: 20px;
+}
+/* [px] `Add( m_rotationSpeed, …, wxEXPAND|wxALIGN_BOTTOM|wxRIGHT|wxLEFT, 5 )`
+   in a grid whose column 1 is growable (`AddGrowableCol( 1 )`), so the slider
+   stretches — the probe reads 126 px in a fitted panel — and carries 5 either
+   side. */
+.ze-spacemouse-grid > .ze-slider {
+  /* [data] the slider's own `wxRIGHT|wxLEFT, 5`. */
+  margin: 0 5px;
+}
+/* PANEL_MOUSE_SETTINGS' three sizers.
+
+   `gbSizer1` (`panel_mouse_settings_base.cpp:31-88`) is a wxGridBagSizer two
+   columns of controls wide, with `Add( 30, 0, wxGBPosition( 0, 1 ) )` between
+   them: "Center and warp cursor on zoom" at (0,0) and "Automatically pan while
+   moving object" at (0,2) share a row, "Use zoom acceleration" spans all three
+   at (1,0), and the two slider sizers sit side by side at (2,0) and (2,2). */
+.ze-mouse-panzoom {
+  display: grid;
+  /* [data] the two content columns and the 30 px spacer between them. */
+  grid-template-columns: max-content 30px max-content;
+  align-items: center;
+}
+/* Each cell's own Add() border. Row 0 is `wxALL, 5` and row 2 is
+   `wxBOTTOM|wxEXPAND|wxTOP, 5`, so both carry 5 above and below; row 1 is
+   `wxBOTTOM|wxRIGHT|wxLEFT, 5` and carries none above.
+
+   [px] `qa/probes/mouse_panel_probe.cpp` builds this sizer with wxWidgets here
+   and reads the rows back at 27 px and 40 px apart. Ours were 22 and 25: the
+   grid had no gap of any kind, because the 5 px `.ze-pref-group-body > *` hands
+   a row lands on the grid CONTAINER, not on the cells inside it. */
+.ze-mouse-panzoom > * {
+  /* [data] `wxALL, 5` on row 0 and `wxBOTTOM|wxEXPAND|wxTOP, 5` on row 2. */
+  margin: 5px 0;
+}
+
+.ze-mouse-panzoom > .gb-col3 {
+  grid-column: 3;
+}
+/* [data] `wxGBSpan( 1, 3 )` on "Use zoom acceleration", and the one cell whose
+   Add() has no wxTOP: `wxBOTTOM|wxRIGHT|wxLEFT, 5`. */
+.ze-mouse-panzoom > .gb-span {
+  grid-column: 1 / -1;
+  margin-top: 0;
+}
+/* `m_zoomSizer` / `m_panSizer`: label, slider, and (for zoom) the Automatic
+   checkbox. [data] the label's `wxRIGHT|wxLEFT, 8` and the checkbox's
+   `wxLEFT|wxRIGHT, 10` (`:57`, `:70`). */
+.ze-mouse-slider {
+  display: flex;
+  align-items: center;
+  /* [data] the label's `wxRIGHT|wxLEFT, 8` (`panel_mouse_settings_base.cpp:57`). */
+  gap: 8px;
+}
+.ze-mouse-slider > .ze-pref-check {
+  margin-left: 2px; /* [data] 10 against the label's 8. */
+}
+/* `new wxSlider( this, wxID_ANY, 5, 1, 10 )` — no size, so it takes wx's own
+   default for the control. [px] 100 x 34 on this theme, measured by building
+   this sizer with wxWidgets (`qa/probes/mouse_panel_probe.cpp`). A `.ze-slider`
+   fills its container, and in a flex row with no width that is nothing. */
+.ze-mouse-slider > .ze-slider {
+  width: 100px;
+}
+/* `fgSizer1 = new wxFlexGridSizer( 0, 3, 5, 5 )` (`:117`): label, choice, and a
+   proportion-1 spacer. Every choice carries `wxEXPAND`, so the column is as
+   wide as the widest of them and all four match — a combo sized to its own
+   text instead is what made three of ours short and one long. */
+.ze-mouse-drag {
+  display: grid;
+  grid-template-columns: max-content max-content 1fr;
+  /* [data] the sizer's own vgap/hgap of 5. */
+  gap: 5px;
+  align-items: center;
+}
+/* ...on top of which every cell carries `wxBOTTOM, 5` of its own, so the rows
+   are 10 apart and not 5. [px] the probe reads a 44 px pitch — a 34 px choice
+   plus both — where ours was 39. */
+.ze-mouse-drag > * {
+  /* [data] the `wxBOTTOM, 5` every cell of fgSizer1 carries. */
+  margin-bottom: 5px;
+}
+.ze-mouse-drag > .ze-combo {
+  width: 100%;
+}
+/* `bMargins` (`:191`): the settings column at proportion 1, the button column
+   at 0, side by side. [data] `Add( bSizerLeft, 1, wxEXPAND|wxLEFT, 5 )` and
+   `Add( bSizerRight, 0, wxEXPAND|wxLEFT, 5 )`. */
+.ze-mouse-scroll {
+  display: flex;
+  align-items: flex-start;
+  /* [data] `Add( bSizerLeft, 1, wxEXPAND|wxLEFT, 5 )`. */
+  gap: 5px;
+}
+.ze-mouse-scroll > div:first-child {
+  flex: 1;
+}
+/* `bSizer4`: the label and the warning bitmap, which is hidden until two rows
+   claim one modifier. */
+.ze-mouse-scroll-head {
+  display: flex;
+  align-items: center;
+  /* [data] two adjoining `wxLEFT|wxRIGHT, 5` borders. */
+  gap: 10px;
+  /* [data] the label's own `wxLEFT|wxRIGHT, 5`. */
+  padding: 0 5px;
+}
+/* `fgSizer2 = new wxFlexGridSizer( 0, 6, 8, 0 )` (`:212`) — six columns and a
+   vgap of 8, added with `wxRIGHT|wxLEFT, 24`. */
+.ze-mouse-scrollgrid {
+  display: grid;
+  grid-template-columns: max-content repeat(4, max-content) max-content;
+  /* [data] the sizer's vgap 8 and hgap 0; the cells carry their own 5. */
+  row-gap: 8px;
+  align-items: center;
+  /* [data] `bSizerLeft->Add( fgSizer2, 0, wxRIGHT|wxLEFT, 24 )`. */
+  padding: 0 24px;
+}
+.ze-mouse-scrollgrid > * {
+  /* [data] `wxRIGHT|wxLEFT, 5` — what every cell in this grid carries. */
+  padding: 0 5px;
+}
+/* A radio cell has no label of its own: the column heading is the text
+   (`m_rbZoomNone` and the eleven like it are built with `wxEmptyString`).
+
+   [px] the row is 25 px tall — the probe reads the three radio rows 33 apart
+   with the sizer's vgap of 8 between them, and 26 from the headings, whose own
+   row is the 18 px of a wxStaticText. A browser's radio is smaller than the
+   button GTK draws, so without this the rows close up to 22. */
+.ze-mouse-scrollgrid > .ze-pref-radio {
+  justify-content: center;
+  /* [px] 25 — the probe reads the radio rows 33 apart with the sizer's vgap of
+     8 between them. */
+  min-height: 25px;
+}
+.ze-mouse-scrollgrid > .col-head {
   text-align: center;
 }
-.ze-pref-scrolltable td:first-child {
-  text-align: left;
-  color: #c7c9cc;
+/* `fgSizer2->Add( 0, 10, 1, wxEXPAND )` and the four `Add( 42, 0, 1, wxEXPAND )`
+   that close the grid (`:300-312`) — an empty last row that holds the
+   horizontal-pan checkbox off the modifier rows. */
+.ze-mouse-scrollgrid::after {
+  content: "";
+  grid-column: 1 / -1;
+  height: 10px; /* [data] the spacer's own height. */
 }
 .ze-pref-hotkeys {
   border-collapse: collapse;
-  font-size: 13px;
   width: 100%;
 }
 .ze-pref-hotkeys th,
@@ -7931,41 +9099,177 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   color: #9aa0a6;
   font-weight: 600;
 }
+/* PANEL_COLOR_SETTINGS. `bControlSizer` (`panel_color_settings_base.cpp:19-49`)
+   is horizontal, in no group, with a proportion-1 spacer either side of the
+   override checkbox — which is what puts the Theme choice hard left and Open
+   Theme Folder hard right. */
+.ze-colorpage-controls {
+  display: flex;
+  align-items: center;
+  /* [data] the `wxLEFT|wxRIGHT, 5` its children carry. */
+  gap: 5px;
+  /* [data] `m_mainSizer->Add( bControlSizer, 0, wxEXPAND|wxALL, 5 )`. */
+  padding: 5px;
+}
+/* `Add( 0, 0, 1, wxEXPAND )` — twice, and a proportion of 1 makes each take
+   half the slack. */
+.ze-colorpage-controls > .ze-spacer {
+  flex: 1;
+}
+/* `bControlSizer` is a wxBoxSizer, not a flex grid: "Theme:" is one item with
+   `wxLEFT|wxRIGHT, 5` and `m_cbTheme` the next with no wxLEFT of its own, so
+   the two are five pixels apart. The 150 px label column `.ze-pref-row .lbl`
+   reserves is for the pages built on a wxFlexGridSizer, where a column of
+   labels has to line up; here there is no column, and it opened half an inch
+   of nothing between the word and the choice. */
+.ze-colorpage-controls .ze-pref-row {
+  /* [data] the label's own wxRIGHT border. */
+  gap: 5px;
+}
+.ze-colorpage-controls .ze-pref-row > .lbl {
+  min-width: auto;
+}
+/* [data] `m_cbTheme->SetMinSize( wxSize( 150, -1 ) )`
+   (panel_color_settings_base.cpp:28). */
+.ze-colorpage-controls .ze-combo {
+  min-width: 150px;
+}
+/* `m_colorsListWindow`, a wxScrolledWindow holding
+   `m_colorsGridSizer = new wxFlexGridSizer( 0, 2, 0, 0 )` (`:54-69`): two
+   columns — a swatch and its label — scrolling in a column of their own beside
+   the preview. Ours was a three-column grid across the whole page, which is
+   neither the shape nor the place. */
+.ze-colorlist {
+  /* `Add( m_colorsListWindow, 0, wxEXPAND|wxLEFT|wxRIGHT, 5 )` — proportion
+     ZERO. The list is exactly as wide as its widest row; the preview takes
+     every remaining pixel. */
+  flex: 0 0 auto;
+  overflow-y: auto;
+  /* [data] the Add()'s own wxLEFT|wxRIGHT border. */
+  margin: 0 5px;
+  /* `m_colorsListWindow->SetBackgroundColour( wxSYS_COLOUR_WINDOW )`
+     (panel_color_settings_base.cpp:58) — the view background, not the page's. */
+  background: var(--chrome-bg2);
+  color: var(--view-fg);
+}
+/* `m_colorsGridSizer = new wxFlexGridSizer( 0, 2, 0, 0 )` (`:60`): two columns,
+   a swatch and its label, and NO gap of its own — the rows are spaced by the
+   swatch's `wxALL, 3` (panel_color_settings.cpp:271) alone, which is why the
+   pitch is the swatch height plus six. */
+.ze-colorgrid {
+  display: grid;
+  grid-template-columns: max-content max-content;
+  align-items: center;
+  gap: 0;
+  /* [data] `SetMinSize( min_width + margin )` with `const int margin = 20`
+     (panel_eeschema_color_settings.cpp:212-215). */
+  padding-right: 20px;
+}
+/* `Add( swatch, 0, wxALIGN_CENTER_VERTICAL|wxALL, 3 )`. */
+.ze-colorgrid > .ze-swatch {
+  margin: 3px;
+}
+/* `Add( label, 0, wxALIGN_CENTER_VERTICAL|wxALIGN_LEFT|wxLEFT, 5 )`. A label
+   truncated by the column is upstream's own note (`:267-269`); ours must not
+   wrap instead, which would change the row pitch. */
+.ze-colorgrid > span {
+  padding-left: 5px;
+  white-space: nowrap;
+}
+/* `PANEL_COLOR_SETTINGS` is a full-bleed page: `m_mainSizer` gives the control
+   row its own `wxALL, 5` and adds `m_panel1` with no border at all, so the list
+   and the preview reach the notebook page's edges. `.ze-prefs-panel`'s padding
+   is the border the OTHER pages' sizers state; this page states its own. */
+.ze-prefs-panel:has(> .ze-colorpage) {
+  padding: 0;
+}
+.ze-colorpage {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  /* [px] the notebook page's own inset, measured off a live 10.0.5 Colors page:
+     its WX_PANEL border runs from x=660 where the page background starts at
+     655, and the list starts 5 further in again at 665. */
+  padding-left: 5px;
+}
+/* `m_panel1`, added `1, wxEXPAND`, holding the horizontal `m_colorsMainSizer`. */
+.ze-colorpage-body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  /* `m_panel1->SetBorders( false, false, true, false )`
+     (panel_color_settings.cpp:61) — a TOP border only, painted by
+     `WX_PANEL::OnPaint` as `wxSYS_COLOUR_ACTIVEBORDER` mixed 18 % into
+     `wxSYS_COLOUR_FRAMEBK` (wx_panel.cpp:52-58). Both are 3DFACE in this
+     theme, so the mix is --content-bg exactly. */
+  border-top: 1px solid var(--content-bg);
+}
+/* `m_colorsMainSizer->Add( m_preview, 1, wxTOP|wxEXPAND, 1 )`
+   (panel_eeschema_color_settings.cpp:227) — proportion 1, so it takes the rest
+   of the row, one pixel below the panel's border. */
+.ze-colorpreview {
+  flex: 1;
+  min-width: 0;
+  margin-top: 1px;
+}
+.ze-colorpreview > canvas {
+  display: block;
+}
 .ze-pref-colorgrid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
   gap: 4px 16px;
 }
+/* PANEL_MAINTENANCE's button column, `bResetStateSizer`
+   (panel_maintenance_base.cpp:43-58):
+
+     bResetStateSizer->Add( m_clearFileHistory,   0, wxALL|wxEXPAND, 5 );
+     bResetStateSizer->Add( 0, 10, 1, wxEXPAND, 5 );
+     bResetStateSizer->Add( m_clearDontShowAgain, 0, wxALL|wxEXPAND, 5 );
+     bResetStateSizer->Add( m_clearDialogState,   0, wxALL|wxEXPAND, 5 );
+     bResetStateSizer->Add( m_resetAll,           0, wxALL|wxEXPAND, 5 );
+     margins->Add( bResetStateSizer, 1, wxEXPAND|wxTOP, 10 );
+
+   wxEXPAND on every button, so they STRETCH to the column rather than each
+   taking its own width - which is the flex default, and why no `align-items`
+   is stated. Two adjacent `wxALL, 5` borders make the gap between buttons; the
+   sizer's own wxTOP puts the block below the spin control. */
+.ze-pref-buttoncol {
+  display: flex;
+  flex-direction: column;
+  /* [data] two adjoining wxALL borders of 5. */
+  gap: 10px;
+  /* [data] `wxEXPAND|wxTOP, 10` on bResetStateSizer. */
+  margin-top: 10px;
+}
+/* `Add( 0, 10, 1, wxEXPAND )` — the one spacer in the run, after the first
+   button. Its proportion of 1 also lets it absorb slack, which a page this
+   short never has. */
+.ze-pref-buttoncol > button:first-child {
+  margin-bottom: 10px; /* [data] the spacer's own height. */
+}
+/* `m_hint1` / `m_hint2`, the two-line note under Left Click Mouse Commands:
+   `KIUI::GetSmallInfoFont( this ).Italic()` (`panel_eeschema_editing_options.cpp:79`),
+   which is `getGUIFont( aWindow, -2 )` — the GUI font two points down — and no
+   `SetForegroundColour` anywhere near it. This said #9aa0a6, a shade nothing in
+   the theme names, at the full size and upright. */
 .ze-pref-hint {
-  font-size: 12px;
-  color: #9aa0a6;
+  font-size: var(--ui-font-size-small);
+  font-style: italic;
   margin-bottom: 4px;
 }
 .ze-pref-mouse {
   border-collapse: collapse;
-  font-size: 13px;
 }
 .ze-pref-mouse td {
   padding: 3px 12px 3px 0;
 }
+/* No colour. Every cell of `fgSizerCmdsWinLin` is a plain `wxStaticText`
+   (`panel_eeschema_editing_options_base.cpp:164-190`) in the dialog's own
+   foreground; this dimmed the whole first column. */
 .ze-pref-mouse td:first-child {
-  color: #9aa0a6;
   white-space: nowrap;
 }
-.ze-pref-colorrow {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-}
-.ze-pref-colorrow input[type="color"] {
-  width: 34px;
-  height: 20px;
-  padding: 0;
-  border: 1px solid var(--chrome-border);
-  background: none;
-}
-
 /* ---- Drawing Sheet Editor properties panel (PROPERTIES_FRAME) ----
 
    DSP-21. Every text size in this block used to be a literal, and all of them
@@ -8067,7 +9371,9 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   /* A wxStaticBox label is the ordinary control font, not an info font. */
   font-size: var(--ui-font-size);
   padding: 0 4px;
-  opacity: 0.8;
+  /* No dimming either. The 0.8 that was here was the same guess the four
+     `color` literals on the other group labels were, in another form - and it
+     took the label BELOW --chrome-fg, where a real one inks 241-247. */
 }
 .ze-ds-row {
   display: flex;
@@ -8298,19 +9604,23 @@ textarea.ze-ds-textedit {
   height: var(--swatch-medium-h);
   flex: 0 0 auto;
   display: block;
-  /* The wxBORDER_SIMPLE panel the swatch sits in. Sampled off the live
-     pl_editor capture the frame is rgb(247,247,247), which is
-     wxSYS_COLOUR_BTNTEXT - the token that already holds it. */
-  border: 1px solid var(--chrome-fg);
+  /* NO border. `RenderToDC` opens with `aDC->SetPen( *wxTRANSPARENT_PEN )`
+     (color_swatch.cpp:72) and `COLOR_SWATCH` is a plain `wxPanel( aParent,
+     aID )` (`:152`) — no wxBORDER_SIMPLE anywhere in it. This carried a 1px
+     --chrome-fg frame on a reading of a pl_editor capture that had to be
+     something else: in a live 10.0.5 Preferences > Colors the swatch is a
+     flat 48 x 23 rectangle of colour with the list background rgb(39,39,39)
+     touching it on all four sides, sampled row by row. A <button> takes the
+     UA's own border unless a rule says otherwise, so saying none is not the
+     same as saying nothing. */
+  border: none;
+  padding: 0;
 }
-/* SWATCH_SIZE_LARGE_DU, and no border: `addSwatch` puts the bitmap straight
-   into a wxStaticBitmap (dialog_color_picker.cpp:185-210) rather than into the
-   bordered COLOR_SWATCH panel the rule above is written for. */
+/* SWATCH_SIZE_LARGE_DU — the size `addSwatch` builds the colour picker's
+   Defined Colors page at (dialog_color_picker.cpp:181-210). */
 .ze-swatch.large {
   width: var(--swatch-large-w);
   height: var(--swatch-large-h);
-  border: none;
-  padding: 0;
 }
 /* SWATCH_SIZE_SMALL — `SWATCH_SMALL` at color_swatch.cpp:167. The layer rows
    already take these two tokens through `.ze-layer-swatch`; this is the same
@@ -8350,17 +9660,26 @@ textarea.ze-ds-textedit {
   /* `--swatch-color` is the foreground, painted OVER the squares at its own
      alpha; unset it and the layer is transparent and the checkerboard shows
      through whole, which is COLOR4D::UNSPECIFIED. */
-  background-color: black;
+  /* The two squares. `RenderToDC` picks them by the brightness of the surface
+     the swatch is understood to sit on (`color_swatch.cpp:94-107`): dark, and
+     they are `COLOR4D::BLACK` and `black.Brightened( 0.15 )` — the defaults
+     here, which every list of ours takes because a list window is --chrome-bg2.
+     Bright, and they are that surface and `Darkened( 0.15 )` of it, which only
+     the caller knows: `ColorSwatch` sets the pair from its `background` prop.
+     A live Colors page's ERC-exclusions swatch reads rgb(204,204,203), which is
+     194 at alpha 0.8 over the schematic background rgb(245,244,239) — not over
+     black, which is what a fixed dark checkerboard would have given. */
+  background-color: var(--checker-lo, black);
   background-image:
     linear-gradient(
       var(--swatch-color, transparent) 0 100%,
       var(--swatch-color, transparent) 0 100%
     ),
     conic-gradient(
-      color-mix(in srgb, white 15%, black) 0deg 90deg,
-      black 90deg 180deg,
-      color-mix(in srgb, white 15%, black) 180deg 270deg,
-      black 270deg 360deg
+      var(--checker-hi, color-mix(in srgb, white 15%, black)) 0deg 90deg,
+      var(--checker-lo, black) 90deg 180deg,
+      var(--checker-hi, color-mix(in srgb, white 15%, black)) 180deg 270deg,
+      var(--checker-lo, black) 270deg 360deg
     );
   background-size:
     100% 100%,
@@ -8462,8 +9781,9 @@ textarea.ze-ds-textedit {
 
 /* EDA_REORDERABLE_LIST_DIALOG (the tree header's "Select Columns..."): an
    Available list, > / < between it and the Enabled list, then Move up/down. */
+/* No width: a checklist of column names, sized by the longest of them. */
 .ze-modal.ze-select-columns {
-  width: 520px;
+  max-width: 92vw;
 }
 .ze-modal-body.ze-reorderable {
   display: flex;
@@ -9152,6 +10472,16 @@ textarea.ze-ds-textedit {
    Placement: GTK opens the list OVER the closed box with the selected row on
    top of it, so the value does not jump. A native select drops below the box.
    Combo.tsx computes that; the row height here must match its ROW_H. */
+/* The font picker's own minimum. It has to be stated here, on both classes,
+   because `.ze-combo` below is declared AFTER `.ze-lp-font` and the two are
+   equally specific -- so a `min-width` on `.ze-lp-font` alone silently loses to
+   `.ze-combo`'s 121px floor, which is what held our font control at 115px
+   against KiCad's 275. Specificity is the trap CLAUDE.md names: the fix is to
+   state it once, where it wins, not to restate the value locally. */
+.ze-combo.ze-lp-font {
+  /* [px] FONT_CHOICE GetBestSize().x = 275, field_props_width_probe. */
+  min-width: 275px;
+}
 .ze-combo {
   display: flex;
   align-items: center;
@@ -9843,6 +11173,31 @@ textarea.ze-ds-textedit {
   display: flex;
   align-items: stretch;
 }
+/* m_notebook's page area. A wxNotebook is ONE size whatever page is showing:
+   `wxBookCtrlBase::DoGetBestSize` walks EVERY page and `IncTo`s the largest,
+   and only takes the current page's size when `SetFitToCurrentPage( true )`
+   has been called - which in all of KiCad is `PAGED_DIALOG`'s treebook and
+   nothing else (common/widgets/paged_dialog.cpp:73). So the picker is as wide
+   as its widest page and as tall as its tallest, and clicking Defined Colors
+   does not resize the dialog.
+
+   Stacking both pages in one grid cell is that rule: every page contributes
+   its size, the unselected one is hidden by VISIBILITY, and the cell is the
+   maximum of the two. Hiding by `display: none` instead is what let the two
+   pages come out different sizes - it takes the hidden page out of sizing
+   altogether, which is what wx does only in the fit-to-current-page case. */
+.ze-cp-book {
+  display: grid;
+}
+.ze-cp-book > * {
+  grid-area: 1 / 1;
+}
+/* The unselected page still SIZES the book, so it may not be display:none —
+   and being `visibility: hidden` it is out of the tab order and untouchable,
+   which is the rest of what a wxNotebook page that is not showing is. */
+.ze-cp-book > [hidden] {
+  visibility: hidden;
+}
 .ze-cp-panels {
   /* bSizerPanels, horizontal: the RGB box beside the HSV box. Each goes in
      with proportion 1, so the two share the notebook evenly - and the
@@ -9854,13 +11209,26 @@ textarea.ze-ds-textedit {
 /* `display` here beats the UA's `[hidden] { display: none }`, which is why
    selecting Defined Colors underlined the tab and changed nothing on the page
    beneath it. The page stays MOUNTED - unmounting it would throw away the two
-   palette bitmaps and repaint them on every tab click. */
+   palette bitmaps and repaint them on every tab click - and it stays LAID OUT,
+   because a wxNotebook is sized by its pages including the ones not showing. */
 .ze-cp-panels[hidden] {
-  display: none;
+  display: flex;
 }
+/* `bSizerPanels->Add( sbSizerViewRGB, 1, ... )` and the same for HSV
+   (dialog_color_picker_base.cpp:74, :131) — proportion 1 each.
+   
+   A wx proportion shares out the EXTRA space; the base is the item's own
+   minimum, which here is the palette's `SetMinSize( wxSize( 264, 264 ) )`.
+   `flex: 1 1 0` is not that: basis ZERO means the item has no size of its own,
+   and inside `.ze-modal`'s `width: max-content` the container then resolves to
+   TWICE the larger box's content — the dialog opened about 1670 px wide around
+   two 264 px palettes swimming in space. `min-width: 0` removed the floor that
+   would have shown it up.
+   
+   `flex-basis: auto` is proportion 1: content first, then an equal share of
+   what is left. */
 .ze-cp-panels > fieldset {
-  flex: 1 1 0;
-  min-width: 0;
+  flex: 1 1 auto;
 }
 .ze-cp-palette {
   position: relative;
@@ -9911,11 +11279,11 @@ textarea.ze-ds-textedit {
 /* m_panelDefinedColors' grid: the 35 colours of colorRefs() as a swatch and a
    name apiece, in the 7 x 5 matrix `initDefinedColors` reorders them into. */
 .ze-cp-defined {
-  flex: 1;
-  /* [data] the palettes are 264 px (dialog_color_picker_base.cpp:32), and a
-     wxNotebook does not shrink when a page with less in it is selected - the
-     book keeps the height of its largest page. */
-  min-height: 264px;
+  /* No height floor. It used to carry `min-height: 264px` — the palettes' size,
+     copied here so that selecting this page did not shrink the dialog. That was
+     the wxNotebook rule written out by hand for one page and one axis;
+     `.ze-cp-book` now states it once for both pages and both axes, so the floor
+     is the free page itself rather than a number repeated from it. */
   /* [data] `m_SizerDefinedColors->Add( m_fgridColor, 1, wxALL|wxEXPAND, 10 )`
      (dialog_color_picker_base.cpp:154). */
   padding: 10px;
@@ -9962,7 +11330,27 @@ textarea.ze-ds-textedit {
      the next (dialog_color_picker_base.cpp:41-46). fgSizerHSV is the same with
      two. */
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  /* THE SPIN ROW DOES NOT SET THE BOX'S WIDTH. Upstream adds it with
+     proportion ZERO and wxEXPAND:
+
+         sbSizerViewRGB->Add( m_RgbBitmap, 0, ...|wxEXPAND|wxSHAPED, 5 );
+         sbSizerViewRGB->Add( 0, 0, 1, wxEXPAND, 5 );
+         sbSizerViewRGB->Add( fgSizerRGB,  0, wxEXPAND, 5 );
+
+     — it takes the width the box gives it and never asks for more. The box's
+     width is the palette's, `m_RgbBitmap` at `SetMinSize( wxSize( 264, 264 ) )`.
+
+     A CSS grid does the opposite by default: `1fr` is `minmax(auto, 1fr)`, so
+     each column's min-content — a label plus a spin box plus two buttons —
+     pushes the box outward, the box pushes the notebook, and `.ze-modal`'s
+     `width: max-content` hands the dialog whatever comes out. That is what
+     opened the picker at its `max-width: 92vw` cap, 1766 px on a 1920 px
+     screen, around two 264 px palettes swimming in space.
+
+     `minmax(0, 1fr)` is proportion 0 + wxEXPAND: share the width, contribute
+     none of it. */
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  min-width: 0;
 }
 .ze-cp-spins.two {
   grid-template-columns: repeat(2, 1fr);
@@ -9982,6 +11370,10 @@ textarea.ze-ds-textedit {
 .ze-cp-hsvrow {
   display: flex;
   align-items: stretch;
+  /* Its palette states the width; the slider column beside it does not add to
+     it (`m_SizerTransparency` and the Value column are proportion 0 columns of
+     a wxEXPAND row). */
+  min-width: 0;
 }
 .ze-cp-hsvcol {
   display: flex;
@@ -10122,7 +11514,9 @@ textarea.ze-ds-textedit {
 }
 /* A group's children sit one level in, under the wxTR_HIDE_ROOT root. */
 .ze-tbcust-row.child {
-  padding-left: 24px; /* [data] `.ze-prefs-page.indent`, this dialog's own tree indent */
+  /* [data] the child indent a treebook row carries under its parent, which
+     PagedDialogTree states as CHILD_INDENT. */
+  padding-left: 24px;
 }
 .ze-tbcust-row img,
 .ze-tbcust-noicon {
@@ -10537,4 +11931,200 @@ textarea.ze-ds-textedit {
   min-height: 200px;
   /* [data] 5 + 5 on three sides, 5 on the bottom (bSizer2 states no wxBOTTOM). */
   margin: 10px 10px 5px;
+}
+
+/* DIALOG_SHAPE_PROPERTIES. `bColumns` is horizontal
+   (dialog_shape_properties_base.cpp:69):
+
+     bColumns->Add( m_borderSizer, 9, wxEXPAND|wxTOP|wxRIGHT|wxLEFT, 10 );  :130
+     bColumns->Add( 15, 0, 0, wxEXPAND, 5 );                                :133
+     bColumns->Add( m_fillBook, ... );
+
+   and each column is a `wxGridBagSizer( 3, 3 )` of a label beside its control,
+   with the checkbox and the help text spanning both cells. This was one
+   stacked list of six rows. */
+.ze-shapeprops {
+  display: flex;
+  /* `bColumns` is wxHORIZONTAL. `.ze-label-dialog-body` is a flex COLUMN at the
+     same specificity, so the direction has to be stated or the two columns
+     stack — which is exactly what they did. */
+  flex-direction: row;
+  align-items: flex-start;
+  /* [data] `bColumns->Add( 15, 0, 0, wxEXPAND, 5 )`, the spacer between the
+     two columns. */
+  gap: 15px;
+  /* [data] wxTOP|wxRIGHT|wxLEFT 10 on the border column. */
+  padding: 10px;
+}
+.ze-shapeprops-border {
+  /* [data] `bColumns->Add( m_borderSizer, 9, ... )` — proportion 9 against the
+     fill book's default, so the border column takes the slack. */
+  flex: 9;
+  min-width: max-content;
+}
+.ze-shapeprops-fill {
+  flex: 0 0 auto;
+  min-width: max-content;
+}
+/* Both columns are a wxGridBagSizer( 3, 3 ): a label column and a control
+   column, 3 px apart both ways. */
+.ze-shapeprops-border,
+.ze-shapeprops-fill {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  /* [data] wxGridBagSizer( 3, 3 ). */
+  gap: 3px;
+  align-items: center;
+}
+/* `wxGBSpan( 1, 2 )` — the Border checkbox and both help labels. */
+.ze-shapeprops-span {
+  grid-column: 1 / -1;
+}
+.ze-shapeprops-lbl {
+  white-space: nowrap;
+}
+/* bSizer7: the width entry, its unit label, then the Color label and swatch,
+   all on one row — which is why Color sits beside Width and not below it. */
+.ze-shapeprops-widthrow {
+  display: flex;
+  align-items: center;
+  /* [data] wxLEFT 3 between the entry and its units. */
+  gap: 3px;
+}
+/* `bSizer7->Add( m_panelBorderColor, 0, wxALIGN_CENTER_VERTICAL, 5 )` —
+   proportion ZERO, so the swatch keeps its own size and the row's slack goes
+   nowhere. As a bare flex child it stretched to fill the line, which is why the
+   border colour spread while the fill colour — in a grid cell, not a flex row —
+   stayed the right size. */
+.ze-shapeprops-widthrow > .ze-swatch {
+  flex: 0 0 auto;
+}
+.ze-shapeprops-colorlbl {
+  white-space: nowrap;
+  /* [data] `bSizer7->Add( m_borderColorLabel, 0, ...|wxLEFT, 15 )`. */
+  margin-left: 15px;
+  /* [data] and the 5 px spacer after it, before the swatch. */
+  margin-right: 5px;
+}
+
+/* `m_borderStyleCombo->Append( name, KiBitmapBundle( bitmap ) )` — the stroke
+   beside its name in a wxBitmapComboBox. Sized like the colour swatch it sits
+   in place of, since both are the second argument of the same Append. */
+.ze-combo-bitmap {
+  flex: 0 0 auto;
+  /* The stroke bitmaps are WIDE: `viewBox="0 0 64 16"`, a 4:1 sample of the
+     line drawn across the cell. Squashing one into a square is what made ours
+     a short grey dash where KiCad shows a long stroke. Height comes from the
+     row and the width follows the ratio, so nothing here is a pixel count. */
+  aspect-ratio: 64 / 16;
+  height: 1em;
+  object-fit: contain;
+}
+/* `m_helpLabel1->SetFont( KIUI::GetInfoFont( this ).Italic() )` and the same
+   for m_helpLabel2 (dialog_shape_properties.cpp:51-52). `GetInfoFont` is
+   `getGUIFont( aWindow, -1 )` (ui_common.cpp:156-159) — the GUI font one point
+   down — and it is ITALIC. These read at the dialog's own size, upright. */
+.ze-help-label {
+  /* `getGUIFont( win, -1 )` is the info font, and `--ui-font-size-info` is
+     that token — no need to restate its value here. */
+  font-size: var(--ui-font-size-info);
+  font-style: italic;
+}
+/* `m_helpLabel1->Wrap( 320 )` (base.cpp:126): the first one wraps, the second
+   is `Wrap( -1 )` and does not. */
+.ze-shapeprops-border > .ze-help-label {
+  /* [data] `m_helpLabel1->Wrap( 320 )`. */
+  max-width: 320px;
+}
+/* `m_borderWidthCtrl` is `new wxTextCtrl( ..., wxSize( -1, -1 ), 0 )` — its
+   natural width, not the column's. It was stretching to fill the grid cell,
+   which is what made our boxes wider than KiCad's. */
+.ze-shapeprops-widthrow .ze-search {
+  flex: 0 0 auto;
+  width: max-content;
+  min-width: 6ch;
+}
+/* `ZOOM_CORRECTION_CTRL` (`common/widgets/zoom_correction_ctrl.cpp:138-180`),
+   which is the whole of Preferences > Common's Scaling group. Two stacked
+   sizers, and the second is a HORIZONTAL one:
+
+     rulerSizer->Add( m_ruler, 1, wxEXPAND|wxLEFT|wxRIGHT|wxTOP, GetStdMargin() );
+     rulerSizer->Add( m_unitsChoice, 0, wxALIGN_CENTER_VERTICAL|…, GetStdMargin() );
+
+   so the ruler takes every pixel the units choice does not, and the choice
+   sits at its RIGHT. There was no rule here at all: the two children stacked,
+   which put `mm` under the ruler and left the ruler at whatever fixed width
+   the component asked for -- visibly shorter than KiCad's, which is why the
+   scale read smaller. */
+.ze-zoomcorrection {
+  display: flex;
+  flex-direction: column;
+}
+.ze-zoomcorrection-ruler {
+  display: flex;
+  align-items: center;
+  /* [px] `KIUI::GetStdMargin()`, which is 5 on every platform but Mac
+     (`common/widgets/ui_common.cpp`). */
+  gap: 5px;
+  /* [data] the ruler sizer's own `wxTOP, KIUI::GetStdMargin()`. */
+  margin-top: 5px;
+}
+/* `ZOOM_CORRECTION_RULER( … FromDIP( wxSize( 200, 30 ) ) … )` then
+   `Add( m_ruler, 1, wxEXPAND )`: 200 px is the ruler's MINIMUM, and proportion
+   1 lets it grow into whatever the group has spare. The two are different
+   numbers and both matter — a ruler that reports its grown width as its own
+   size makes the dialog grow to fit it, which then gives it more width, which
+   is how this page reached the 1500 px cap with a 190 mm ruler on it. */
+.ze-zoomcorrection-ruler > svg {
+  flex: 1 1 200px;
+  min-width: 200px;
+}
+/* `wxSpinCtrl`, which on GTK is a GtkSpinButton: the entry and its two stepper
+   buttons in one frame. [px] `qa/probes/spin_ctrl_probe.py` asks GTK for the
+   natural sizes -- 34 tall, and the pair of buttons 70 wide, so 35 each. */
+.ze-spinctrl {
+  display: flex;
+  align-items: center;
+}
+/* The entry gives up its right-hand corners to the buttons, as the frame is
+   continuous in GTK — and it does NOT take `.ze-search`'s `width: 100%`, which
+   in a flex row would push the buttons off the end.
+
+   [px] 46: a GtkSpinButton's natural width is 116 with the two buttons taking
+   70 of it (`qa/probes/spin_ctrl_probe.py`), so 46 is the entry the theme
+   itself asks for. A caller that needs more says so, as the row it sits in
+   does. */
+.ze-spinctrl > input {
+  width: 46px;
+  flex: none;
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+.ze-spinbtn {
+  box-sizing: border-box;
+  /* [px] 35 wide, measured; the height is the control height every entry and
+     button on the page already takes. */
+  width: 35px;
+  height: var(--ctl-height);
+  padding: 0;
+  background: var(--ctl-face);
+  border: 1px solid var(--ctl-border);
+  /* One continuous frame: the middle button shares its edges with both sides. */
+  border-left-width: 0;
+  color: inherit;
+  cursor: default;
+  font: inherit;
+}
+.ze-spinbtn:last-child {
+  border-top-right-radius: var(--ctl-radius);
+  border-bottom-right-radius: var(--ctl-radius);
+}
+/* The same hover face every other button on the page takes; a second value
+   here is how two buttons in one dialog end up hovering differently. */
+.ze-spinbtn:hover:not(:disabled) {
+  background: var(--chrome-hover);
+}
+.ze-spinbtn:disabled {
+  background: var(--ctl-face-disabled);
+  color: var(--ctl-fg-disabled);
 }

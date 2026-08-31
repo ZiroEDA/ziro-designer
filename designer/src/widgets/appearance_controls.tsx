@@ -45,7 +45,11 @@ import { useMemo, type JSX } from 'react';
 import { COLOR4D_UNSPECIFIED, parseColor4d } from '@ziroeda/common/src/color4d.js';
 import type { Color4d } from '@ziroeda/common/src/color4d.js';
 import { ColorSwatch } from '../ui/ColorSwatch.js';
-import { Icon } from '../ui/icons.js';
+// KiCad's own bitmaps, vendored under `assets/toolbar/`. Nothing in this panel
+// reaches for `ui/icons.tsx` any more: that module's own header calls its
+// glyphs "recognisable stand-ins, not KiCad's exact bitmaps", and every icon
+// this panel needs exists upstream.
+import { bitmapUrl } from '../ui/toolbarIcons.js';
 import { layerTooltip } from './appearance_layers.js';
 import {
   appearanceObjectRows,
@@ -79,29 +83,29 @@ export function appearanceTabs(aFpEditor: boolean): readonly AppearanceTab[] {
  * `APPEARANCE_SETTING::ctl_visibility`, a `BITMAP_TOGGLE` built with
  * `BITMAPS::visibility` / `BITMAPS::visibility_off` (`:1560-1580`, `:2380`).
  *
- * Drawn inline so it always renders (no asset-URL resolution) and reads as
- * KiCad's light-grey eye on the dark panel. `on` draws the open eye; off draws
- * it struck through and dimmed.
+ * `BITMAP_TOGGLE` swaps between TWO of KiCad's own bitmaps — it does not draw
+ * one glyph at two opacities:
+ *
+ *     m_visibleBitmapBundle    = KiBitmapBundle( BITMAPS::visibility );
+ *     m_notVisibileBitmapBundle = KiBitmapBundle( BITMAPS::visibility_off );
+ *         (appearance_controls.cpp:427-428)
+ *
+ * This was a hand-drawn inline `<svg>` — an eye path, a pupil, and a diagonal
+ * stroke added when off, dimmed to `opacity: 0.4`. Both files are vendored
+ * under `assets/toolbar/`, and are byte-identical to KiCad's own
+ * `sources/dark/visibility{,_off}.svg`, so the invented glyph was standing
+ * beside the real one it was imitating. It is the most repeated icon in the
+ * whole panel: every layer, object and net row carries one.
  */
 export function EyeIcon({ on }: { on: boolean }): JSX.Element {
   return (
-    <svg
+    <img
       className="ze-eye"
-      viewBox="0 0 24 24"
+      src={bitmapUrl(on ? 'visibility' : 'visibility_off')}
       width="16"
       height="16"
-      aria-hidden="true"
-      style={{ opacity: on ? 1 : 0.4 }}
-    >
-      <path
-        d="M12 5c-5 0-9 4.5-10 7 1 2.5 5 7 10 7s9-4.5 10-7c-1-2.5-5-7-10-7z"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.6"
-      />
-      <circle cx="12" cy="12" r="3" fill="currentColor" />
-      {!on && <line x1="4" y1="20" x2="20" y2="4" stroke="currentColor" strokeWidth="1.6" />}
-    </svg>
+      alt=""
+    />
   );
 }
 
@@ -393,7 +397,12 @@ export function AppearanceControls(props: AppearanceControlsProps): JSX.Element 
                   onClick={nets.onShowNetInspector}
                   disabled={!nets.onShowNetInspector}
                 >
-                  <Icon name="listNets" />
+                  {/* `m_btnNetInspector->SetBitmap( KiBitmapBundle(
+                      BITMAPS::list_nets_16 ) )` (appearance_controls.cpp:471).
+                      Vendored from KiCad's own `sources/dark/list_nets_16.svg`;
+                      what stood here was a hand-drawn stand-in out of
+                      `icons.tsx`, whose header says as much. */}
+                  <img src={bitmapUrl('list_nets_16')} width="16" height="16" alt="" />
                 </button>
               </div>
               <div className="ze-nets-list">
@@ -436,7 +445,9 @@ export function AppearanceControls(props: AppearanceControlsProps): JSX.Element 
                   title="Configure net classes"
                   onClick={nets.onConfigureNetclasses}
                 >
-                  <Icon name="optionsGeneric" />
+                  {/* `m_btnConfigureNetClasses->SetBitmap( KiBitmapBundle(
+                      BITMAPS::options_generic_16 ) )` (:474). */}
+                  <img src={bitmapUrl('options_generic_16')} width="16" height="16" alt="" />
                 </button>
               </div>
               {nets.netclasses.map((cls) => {

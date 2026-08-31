@@ -82,6 +82,25 @@ export function HtmlReportPanel({
     URL.revokeObjectURL(url);
   };
 
+  /**
+   * `generateHtml`'s dark-theme branch (wx_html_report_panel.cpp:176-196) reads
+   *
+   *     RPT_SEVERITY_INFO   -> <font color=#909090 size=3>
+   *     RPT_SEVERITY_ACTION -> <font color=#60D060 size=3>
+   *
+   * and INFO does NOT come out grey in the shipped build. Measured off a
+   * capture of this very dialog, whose "Processing symbol '…'" lines are
+   * `Report( msg, RPT_SEVERITY_INFO )` (board_netlist_updater.cpp:2091): every
+   * text pixel in KiCad's report box is 255, against 144 - exactly #909090 -
+   * in ours. That is what "the KiCad text is more whiter" was.
+   *
+   * The likely cause is in the markup: `color=#909090` is written UNQUOTED, and
+   * a `#`-prefixed value without quotes is not a colour wxHTML will parse, so
+   * the tag contributes nothing and the line falls back to the window's own
+   * foreground. `ACTION`'s `#60D060` is written the same way and presumably
+   * fails the same way, but no capture here shows an ACTION line, so it is left
+   * alone rather than changed on a theory.
+   */
   const severityClass = (s: Severity): string =>
     s === RPT_SEVERITY_ERROR
       ? 'error'
@@ -89,9 +108,7 @@ export function HtmlReportPanel({
         ? 'warning'
         : s === RPT_SEVERITY_ACTION
           ? 'action'
-          : s === RPT_SEVERITY_INFO
-            ? 'info'
-            : '';
+          : '';
 
   return (
     <fieldset className="ze-report-panel">

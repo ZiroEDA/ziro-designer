@@ -34,6 +34,10 @@ const CURSORS_CPP: Record<string, { file: string; x: number; y: number }> = {
   TEXT: { file: 'cursor-text', x: 7, y: 7 },
   MOVING: { file: 'cursor-select-m-black', x: 1, y: 1 },
   ZOOM_IN: { file: 'cursor-zoom-in', x: 7, y: 7 },
+  // `{ cursor_measure_xpm, { 4, 4 } }` (cursors.cpp:199-205) — the Measure
+  // Tool's, which arrived with the PCB ruler. The 64x64 entry's { 8, 8 } is
+  // the same hotspot doubled, so only the 32x32 pair is stored, as above.
+  MEASURE: { file: 'cursor-measure', x: 4, y: 4 },
 };
 
 /** What `kicursors.ts` declares, parsed out of its STORE literal. */

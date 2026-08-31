@@ -119,13 +119,16 @@ describe('the properties panel row', () => {
     expect(rows(withStroke()).length).toBeGreaterThan(0);
   });
 
-  it('offers position, width and style', () => {
-    expect(rows(withStroke()).map((r) => r.name)).toEqual([
-      'Position X',
-      'Position Y',
-      'Line Width',
-      'Wire Style',
-    ]);
+  /**
+   * SCH_BUS_ENTRY_DESC (sch_bus_entry.cpp) registers Wire Style, then Line
+   * Width, then Color - and a wxPropertyGrid draws a group in registration
+   * order. Ours had the first two swapped and no Color row at all; this list
+   * is read off the DESC block rather than off our own output.
+   */
+  it('offers what SCH_BUS_ENTRY_DESC registers, in that order', () => {
+    // No Position rows: neither SCH_ITEM nor EDA_ITEM registers a position,
+    // and SCH_BUS_ENTRY_DESC adds none. The two we used to emit here were ours.
+    expect(rows(withStroke()).map((r) => r.name)).toEqual(['Wire Style', 'Line Width', 'Color']);
   });
 
   it('writes a width change through replaceBusEntry', () => {

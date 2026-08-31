@@ -65,6 +65,7 @@ import {
   groupContaining,
   setBoardItemsLocked,
   isBoardItemLocked,
+  isCopperLayerName,
   setBoardPageSettings,
   serializeBoard,
   buildRatsnest,
@@ -146,10 +147,15 @@ import {
   CROSS_PROBE_FLASH_LAST_PHASE,
 } from '@ziroeda/pcbnew';
 import { GetLayerName } from '@ziroeda/pcbnew/src/layer_ids.js';
-import { hasLockedItems, hasUnlockedItems } from '@ziroeda/pcbnew/src/pcb_selection_conditions.js';
+import {
+  boardIsEmpty,
+  hasLockedItems,
+  hasUnlockedItems,
+} from '@ziroeda/pcbnew/src/pcb_selection_conditions.js';
 import { Icon } from '../../ui/icons.js';
 import { posturePath, routedPath as routeDecision } from './route_tool.js';
 import { ReferenceImageCache } from './image_cache.js';
+import { Viewer3DFrame } from './Viewer3DFrame.js';
 import { dimensionDefaultsFrom, dimensionToolKind } from './dimension_tools.js';
 import { DialogDimensionProperties } from './dialogs/dialog_dimension_properties.js';
 import { DialogTextBoxProperties } from './dialogs/dialog_textbox_properties.js';
@@ -184,8 +190,20 @@ import {
 } from '@ziroeda/pcbnew/src/dimension_properties.js';
 import { Reporter, type ReportLine } from '@ziroeda/common';
 import { MenuBar, ContextMenu, type Menu, type MenuItem } from '../../ui/MenuBar.js';
+import { Combo } from '../../ui/Combo.js';
+import { layerBoxLabel, layerForHotkey } from './layer_box_label.js';
 import { Toolbar } from '../../ui/Toolbar.js';
 import { formatTitle, useDocumentTitle } from '../../ui/useDocumentTitle.js';
+import { PCB_FRAME_NAME, pcbFrameTitle } from './frame_title.js';
+import { withSaveEnablement } from '../../ui/save_enablement.js';
+import {
+  copySelectionToClipboardText,
+  cutSelectionToClipboardText,
+  parseClipboardText,
+  pasteIntoBoard,
+  type PasteMode,
+} from '@ziroeda/pcbnew/src/pcb_clipboard.js';
+import { DialogPasteSpecial, type PasteSpecialMode } from '../../dialogs/dialog_paste_special.js';
 import { KiStatusBar } from '../../ui/KiStatusBar.js';
 import { MsgPanel, type MsgPanelItem } from '../../ui/MsgPanel.js';
 import {
@@ -270,7 +288,15 @@ import {
   type SelectionFilterItem,
 } from '../../widgets/panel_selection_filter.js';
 import { align, type PcbGridState } from '@ziroeda/pcbnew/src/pcb_grid_helper.js';
-import { bestSnapAnchor, snapToBoardCopper } from '@ziroeda/pcbnew/src/pcb_cursor_snap.js';
+import {
+  bestDragOrigin,
+  bestSnapAnchor,
+  type BoardCursorSnap,
+  snapToBoardCopper,
+} from '@ziroeda/pcbnew/src/pcb_cursor_snap.js';
+import { inheritTrackWidth } from '@ziroeda/pcbnew/src/inherit_track_width.js';
+import { moveDelta } from './pcb_grid.js';
+import { contextMenuPick } from './pcb_context_selection.js';
 import { parseDrcRules } from '@ziroeda/pcbnew/src/drc/drc_rule.js';
 import { DialogTrackViaProperties } from './dialogs/dialog_track_via_properties.js';
 import { DialogCopperZones } from './dialogs/dialog_copper_zones.js';
@@ -281,7 +307,7 @@ import {
   footprintAt,
   type FootprintValues,
 } from '@ziroeda/pcbnew/src/footprint_properties.js';
-import { flipBoardItems } from '@ziroeda/pcbnew/src/edit-board.js';
+import { flipBoardItems, modificationPoint } from '@ziroeda/pcbnew/src/edit-board.js';
 import { zoneItemDescription } from '@ziroeda/pcbnew/src/item_description.js';
 import { DialogPadProperties } from './dialogs/dialog_pad_properties.js';
 import {
@@ -339,6 +365,7 @@ import {
   drawAnchors,
   drawBoard,
   drawDrawingSheet,
+  hitTestBoardDrawingSheet,
   drawPageLimits,
   drawNetNames,
   drawOriginMarker,
@@ -356,9 +383,6 @@ import {
 } from './renderBoard.js';
 import { PcbGl } from '../../render/gl/pcb_gl.js';
 import { GL_PATH_FACTORY } from '../../render/gl/gl_path.js';
-import type { Viewer3D, Viewer3DStatus, Grid3D, View3DDir } from './pcb3d.js';
-import { VIEWER3D_TOP_TOOLBAR } from './viewer3dToolbars.js';
-import { buildViewer3DMenus } from './viewer3dMenus.js';
 import { applyToggle, DEFAULT_TOGGLES } from './toggles.js';
 import {
   layerColor,
@@ -374,7 +398,14 @@ import {
   type PcbPropRow,
 } from '@ziroeda/pcbnew/src/properties_panel.js';
 import { drawGrid, drawCrosshair } from '../../ui/grid_cursor.js';
-import { gridSizesIU } from '../../ui/grid_settings.js';
+import { GRID_SIZE_LIST, gridEntryOf, gridSizesIU } from '../../ui/grid_settings.js';
+import {
+  type ConditionalEntry,
+  evaluateConditionalMenu,
+  menuEntry,
+  menuSeparator,
+} from '../../ui/conditional_menu.js';
+import { standardSubMenuEntries } from '../../ui/standard_submenus.js';
 import { PCB_CONTROL, PCB_DEFAULT_TOOLBARS } from './pcbToolbars.js';
 import { useToolbarEntries } from '../../ui/useToolbarEntries.js';
 import '../../ui/shell.css';
@@ -386,7 +417,7 @@ import { ABOUT_TITLES } from '../../ui/about_titles.js';
 import { useModalEscape } from '../../ui/useModalEscape.js';
 import { addQuitOrClose } from '../../ui/action_menu.js';
 import { dispatchMenuHotkey, focusBlocksHotkey } from '../../ui/menu_hotkeys.js';
-import { wasBrowserSuppressed, type FocusLike } from '../../ui/browser_hotkeys.js';
+import { isTypingTarget, wasBrowserSuppressed, type FocusLike } from '../../ui/browser_hotkeys.js';
 import { settings } from '../../prefs/settings.js';
 import { ColorSwatch } from '../../ui/ColorSwatch.js';
 import { COLOR4D_UNSPECIFIED, parseColor4d, toCssColor } from '@ziroeda/common/src/color4d.js';
@@ -466,6 +497,11 @@ function notePcbPaint(path: 'gl' | 'raster', t0: number): void {
 // eeschema row, which the footprint editor shares. The table lives in
 // ui/grid_settings.ts because it is common/ code upstream.
 const PCB_GRIDS: number[] = gridSizesIU('pcbnew', MM);
+
+/** The aux bar's `toggled` sets, hoisted so a render does not build a new one
+ *  each time and re-run the toolbar's memo. */
+const EMPTY_TOGGLED: ReadonlySet<string> = new Set();
+const AUTO_TRACK_WIDTH_ON: ReadonlySet<string> = new Set(['autoTrackWidth']);
 
 /**
  * A GAL zoom factor turned into our view scale, and back.
@@ -687,6 +723,7 @@ export function PcbEditor({
   syncSelection,
   updateFromSchematic,
   readOnlyNotice,
+  readOnly,
 }: {
   fileName: string;
   text: string;
@@ -723,6 +760,15 @@ export function PcbEditor({
   syncSelection?: { parts: readonly string[]; nonce: number } | null;
   /** A strip to show above the canvas, e.g. "this demo is not being saved". */
   readOnlyNotice?: JSX.Element | null;
+  /**
+   * `!fn.IsFileWritable()` — the `[Read Only]` half of the frame title
+   * (pcb_edit_frame.cpp:2186-2187). A browser has no per-file writable bit;
+   * the condition that stands in for one here is the demo project, which is
+   * exactly what {@link readOnlyNotice} already announces above the canvas.
+   * The schematic editor has taken the same prop, from the same call site in
+   * `App.tsx`, since its title was rebuilt on the shared rule.
+   */
+  readOnly?: boolean;
   /** Bumped by the schematic editor's Tools > Update PCB from Schematic (F8),
    *  which switches here and then runs the same dialog this frame's own F8 does
    *  (KiCad's SCH_EDIT_FRAME::doUpdatePcb hands off to pcbnew the same way). */
@@ -852,6 +898,8 @@ export function PcbEditor({
   } | null>(null);
   const [show3D, setShow3D] = useState(false);
   const [inspectOpen, setInspectOpen] = useState(false);
+  /** DIALOG_PASTE_SPECIAL, opened only by `ACTIONS::pasteSpecial`. */
+  const [pasteSpecialOpen, setPasteSpecialOpen] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
   const [moveExactOpen, setMoveExactOpen] = useState(false);
   const [posRelOpen, setPosRelOpen] = useState(false);
@@ -881,7 +929,6 @@ export function PcbEditor({
   // narrows an existing selection once, and is kept across openings as
   // PCB_SELECTION_TOOL keeps its OPTIONS on the tool.
   const [filterOpts, setFilterOpts] = useState<SelectionFilter>(DEFAULT_SELECTION_FILTER);
-  const viewer3dRef = useRef<HTMLDivElement>(null);
   const [cursor, setCursor] = useState<{ x: number; y: number } | null>(null);
   // Live (world) cursor position read by draw()'s crosshair pass without
   // re-creating the callback; null when the pointer is off the canvas.
@@ -937,6 +984,22 @@ export function PcbEditor({
     enableSnap: !shiftDownRef.current,
     auxAxis: auxAxisRef.current,
   });
+  /**
+   * What the drawing sheet is drawn from — `DS_PROXY_VIEW_ITEM`'s properties.
+   *
+   * One function because two callers must not disagree: the painter, and the
+   * double-click hit test that opens Page Settings. A hit test built from a
+   * different title block than the one on screen answers about a sheet the user
+   * cannot see.
+   */
+  const sheetInfoOf = (
+    brd: Board,
+  ): { paper?: string; titleBlock?: Board['titleBlock']; fileName: string } => ({
+    paper: brd.paper,
+    titleBlock: brd.titleBlock,
+    fileName,
+  });
+
   // Every grid snap in the editor, through the one function upstream uses.
   // Calling `computeNearest` directly anywhere would bypass the auxiliary axis
   // and quantise the gesture's origin away again — which is the bug this is
@@ -986,6 +1049,16 @@ export function PcbEditor({
   // m_ViasDimensionsList; ours come from the project's netclasses).
   const [trackSel, setTrackSel] = useState(0);
   const [viaSel, setViaSel] = useState(0);
+  /**
+   * `BOARD_DESIGN_SETTINGS::m_UseConnectedTrackWidth` — the TOP_AUX
+   * "Automatically select track width" toggle, `false` in the constructor
+   * (board_design_settings.cpp:71). The button's checked state is this value
+   * (pcb_edit_frame.cpp:1250), and the router reads it through
+   * `inheritTrackWidth`.
+   */
+  const [autoTrackWidth, setAutoTrackWidth] = useState(false);
+  const autoTrackWidthRef = useRef(autoTrackWidth);
+  autoTrackWidthRef.current = autoTrackWidth;
   const trackSelRef = useRef(trackSel);
   trackSelRef.current = trackSel;
   const viaSelRef = useRef(viaSel);
@@ -1036,6 +1109,32 @@ export function PcbEditor({
   /** The reshaped board while a handle drag is in flight, committed on release. */
   const pointEditPreviewRef = useRef<Board | null>(null);
   const moveOriginRef = useRef<{ x: number; y: number } | null>(null);
+  /**
+   * `grid.BestDragOrigin( originalMousePos, sel_items, … )` — the anchor **on
+   * the selection** that a move measures itself from, and the whole reason
+   * dragging a part in KiCad lines it up with the next one.
+   *
+   * `EDIT_TOOL::Move` warps the pointer onto this point ("Warp mouse to origin
+   * of moved object", on by default) and then only ever moves the selection by
+   * `BestSnapAnchor( mousePos ) - prevPos` with `prevPos` starting here — so the
+   * anchor lands *absolutely* on a grid node or another item's anchor. A
+   * delta-based move cannot do that: quantising the travel keeps whatever
+   * sub-grid offset the part already had, forever.
+   *
+   * We cannot warp a browser pointer, and do not need to: with the warp,
+   * upstream's mouse position is this anchor plus the motion since the grab, so
+   * {@link updateMove} adds that motion here and snaps the result instead.
+   */
+  const moveAnchorRef = useRef<{ x: number; y: number } | null>(null);
+  /**
+   * `controls->ForceCursorPosition( true, m_cursor )` (edit_tool_move_fct.cpp:1174):
+   * while a move is in flight the drawn crosshair is the *move's* cursor — the
+   * point the drag anchor has been snapped to — and not the pointer's own grid
+   * round. Upstream the two are the same point because the pointer was warped
+   * onto the anchor; here they differ by the grab offset, so the crosshair has
+   * to be told which one to draw or it marks a place nothing is going.
+   */
+  const forcedCursorRef = useRef<{ x: number; y: number } | null>(null);
   // Keyboard grab (M/G): the selection follows the cursor until a click commits
   // or Esc cancels, SCH/PCB move tool. Distinct from a left-button drag.
   const grabbingRef = useRef(false);
@@ -1085,7 +1184,7 @@ export function PcbEditor({
   useDocumentTitle(
     'pcb',
     formatTitle(
-      'PCB Editor',
+      PCB_FRAME_NAME,
       projectName ? `${fileName.split('/').pop()!} [${projectName}]` : fileName,
       dirty,
     ),
@@ -1757,11 +1856,7 @@ export function PcbEditor({
       // The sheet keeps its colour under a net highlight: DS_PROXY_VIEW_ITEM
       // reads GetLayerColor(LAYER_DRAWINGSHEET), the raw layer colour, not the
       // item-aware GetColor that does the brighten/darken.
-      const sheetInfo = {
-        paper: boardRef.current.paper,
-        titleBlock: boardRef.current.titleBlock,
-        fileName,
-      };
+      const sheetInfo = sheetInfoOf(boardRef.current);
       // The paper edge first, in its own colour, the way DrawBorder runs after
       // the sheet's items in DS_PROXY_VIEW_ITEM::ViewDraw. This is the call the
       // board actually makes: the GL recorder disables the sheet
@@ -2432,7 +2527,7 @@ export function PcbEditor({
     // grid-snapped cursor, drawn topmost, by the shared painter.
     const cur = cursorRef.current;
     if (cur && activeToolRef.current !== 'localRatsnestTool') {
-      const snapped = cursorSnapRef.current(cur);
+      const snapped = forcedCursorRef.current ?? cursorSnapRef.current(cur);
       drawCrosshair(
         ctx,
         { x: snapped.x * sx + v.tx, y: snapped.y * v.scale + v.ty },
@@ -2852,8 +2947,35 @@ export function PcbEditor({
   }, []);
   const unselectAllSel = useCallback(() => setSelection(new Set()), []);
 
-  // Rotate the selection ±90° about its centre (EDIT_TOOL::Rotate). Keeps the
-  // selection so it can be rotated repeatedly. Groups rotate as their members.
+  /**
+   * `EDIT_TOOL::updateModificationPoint` — what Rotate and Mirror turn the
+   * selection about. **One item turns about its own anchor**
+   * (`BOARD_ITEM::GetPosition`, a footprint's origin cross), and only a
+   * multi-item selection turns about the grid-snapped centre of its box.
+   *
+   * We passed no centre at all, so both commands fell back to the bounding-box
+   * centre for every selection. On a footprint that is not the same point: the
+   * box is grown by the silkscreen and the courtyard, so rotating a part
+   * translated it by half the offset between its origin and its box centre —
+   * a different amount for every part, and it drifted further on every R.
+   */
+  const modPoint = useCallback((brd: Board, items: ReadonlySet<string>) => {
+    // `grid.BestSnapAnchor( refPt, nullptr )`, the multi-item branch's snap.
+    return (
+      modificationPoint(brd, items, (p) =>
+        bestSnapAnchor(brd, p, gridState(), {
+          snapScale: 25 / viewRef.current.scale,
+          hysteresis: 5 / viewRef.current.scale,
+          visibleGrid: gridIURef.current,
+          layer: activeLayerRef.current,
+        }),
+      ) ?? undefined
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Rotate the selection ±90° (EDIT_TOOL::Rotate). Keeps the selection so it
+  // can be rotated repeatedly. Groups rotate as their members.
   const rotateSel = useCallback(
     (ccw: boolean) => {
       const brd = boardRef.current;
@@ -2861,13 +2983,14 @@ export function PcbEditor({
       if (!brd || sel.size === 0) return;
       const { items, selection } = promotePadsForCommand(brd, sel);
       if (selection) setSelection(selection);
-      commitBoard(rotateBoardItems(brd, items, ccw));
+      commitBoard(rotateBoardItems(brd, items, ccw, modPoint(brd, items)));
     },
-    [commitBoard],
+    [commitBoard, modPoint],
   );
 
-  // Mirror the selection about its centre (EDIT_TOOL::Mirror; mirrorV = flip
-  // top/bottom, mirrorH = left/right). Footprints are skipped, like KiCad.
+  // Mirror the selection (EDIT_TOOL::Mirror; mirrorV = flip top/bottom,
+  // mirrorH = left/right), about the same modification point as Rotate
+  // (edit_tool.cpp:2451). Footprints are skipped, like KiCad.
   const mirrorSel = useCallback(
     (direction: 'v' | 'h') => {
       const brd = boardRef.current;
@@ -2875,9 +2998,9 @@ export function PcbEditor({
       if (!brd || sel.size === 0) return;
       const { items, selection } = promotePadsForCommand(brd, sel);
       if (selection) setSelection(selection);
-      commitBoard(mirrorBoardItems(brd, items, direction));
+      commitBoard(mirrorBoardItems(brd, items, direction, modPoint(brd, items)));
     },
-    [commitBoard],
+    [commitBoard, modPoint],
   );
 
   // Group / ungroup the selection (ACTIONS::group / ungroup).
@@ -3196,6 +3319,53 @@ export function PcbEditor({
     },
     [commitBoard],
   );
+
+  /**
+   * `ALIGN_DISTRIBUTE_TOOL`'s submenu (align_distribute_tool.cpp:66-88), built
+   * ONCE.
+   *
+   * It had been written out by hand in the Edit menu, and left out of the
+   * selection context menu, which is the one place upstream actually hangs it
+   * (`selToolMenu.AddMenu( m_placementMenu, MoreThan( 1 ), 100 )`, :87-88;
+   * `menubar_pcb_editor.cpp` has no align rows at all). The hand-written copy
+   * had drifted too: "Distribute Horizontally by Gaps" against the action's own
+   * "Distribute Horizontally with Even Gaps" (pcb_actions.cpp:2304-2307). One
+   * builder is how that stops happening - the editor fills in the data, it does
+   * not re-lay the menu.
+   *
+   * `canAlign` is `MoreThan( 1 )`; `canDistribute` is `MoreThan( 2 )` and the
+   * rule above the distribute group carries `canDistribute` itself (:78), so at
+   * two items the submenu ends after Align to Bottom rather than on a rule with
+   * four dead rows beneath it.
+   */
+  const alignDistributeSubmenu = (): MenuItem[] => {
+    const align = (label: string, action: AlignAction): MenuItem => ({
+      label,
+      action: () => alignSelection(action),
+    });
+    const distribute = (label: string, action: DistributeAction): MenuItem => ({
+      label,
+      action: () => distributeSelection(action),
+    });
+    return [
+      align('Align to Left', 'left'),
+      align('Align to Horizontal Center', 'centerX'),
+      align('Align to Right', 'right'),
+      { sep: true },
+      align('Align to Top', 'top'),
+      align('Align to Vertical Center', 'centerY'),
+      align('Align to Bottom', 'bottom'),
+      ...(selection.size > 2
+        ? [
+            { sep: true } as MenuItem,
+            distribute('Distribute Horizontally by Centers', 'horizontallyCenters'),
+            distribute('Distribute Horizontally with Even Gaps', 'horizontallyGaps'),
+            distribute('Distribute Vertically by Centers', 'verticallyCenters'),
+            distribute('Distribute Vertically with Even Gaps', 'verticallyGaps'),
+          ]
+        : []),
+    ];
+  };
 
   // Fit the view to a world-space box (shared by Zoom-to-Fit variants and the
   // interactive zoom tool).
@@ -3806,13 +3976,68 @@ export function PcbEditor({
       setFpPropsIndex(r.index);
     } else if (!top) {
       setEnteredGroup(null);
+      /**
+       * `EDIT_TOOL::Properties`'s last branch (edit_tool.cpp:2153-2161):
+       *
+       *     else if( selection.Size() == 0 && getView()->IsLayerVisible( LAYER_DRAWINGSHEET ) )
+       *     {
+       *         DS_PROXY_VIEW_ITEM* ds = editFrame->GetCanvas()->GetDrawingSheet();
+       *         VECTOR2D cursorPos = getViewControls()->GetCursorPosition( false );
+       *
+       *         if( ds && ds->HitTestDrawingSheetItems( getView(), cursorPos ) )
+       *             m_toolMgr->PostAction( ACTIONS::pageSettings );
+       *
+       * The board editor has this and eeschema has the same thing
+       * (sch_edit_tool.cpp:2580); only ours was missing it, so double-clicking
+       * the page frame or the title block did nothing here while it opened Page
+       * Settings in the schematic. Empty paper *inside* the frame hits no item,
+       * so this cannot fire from a double-click on blank canvas.
+       */
+      if (objects.drawingSheet) {
+        const hit = hitTestBoardDrawingSheet(
+          sheetInfoOf(brd),
+          // The painter passes no project `.kicad_wks` either; the two must
+          // agree or the hit test answers for a sheet nobody can see.
+          undefined,
+          w,
+          // `aView->ToWorld( 5.0 )` — five screen pixels at this zoom.
+          (5 * dpr) / viewRef.current.scale,
+        );
+        if (hit) setPageDlgOpen(true);
+      }
     }
     requestDraw();
   };
 
-  // Right-click opens the selection context menu (PCB_SELECTION_TOOL TOOL_MENU).
-  // An unselected item under the cursor becomes the selection first, exactly as
-  // KiCad selects before popping the menu.
+  /**
+   * Right-click opens the context menu for **the selection**
+   * (`PCB_SELECTION_TOOL::Main`, pcb_selection_tool.cpp:359-379):
+   *
+   *     else if( evt->IsClick( BUT_RIGHT ) )
+   *     {
+   *         …
+   *         if( m_selection.Empty() )
+   *         {
+   *             selectPoint( evt->Position(), false, &selectionCancelled );
+   *             m_selection.SetIsHover( true );
+   *         }
+   *         …
+   *         m_menu->ShowContextMenu( m_selection );
+   *     }
+   *
+   * The re-pick is gated on an **empty** selection and on nothing else. With
+   * something selected the item under the cursor is irrelevant: right-clicking
+   * a footprint's reference text while the footprint is selected gives the
+   * footprint's menu, because the selection was never touched.
+   *
+   * Ours re-picked whenever the top hit was not itself in the selection, which
+   * is a different rule and the one the user hits: every field, pad and silk
+   * line inside a selected footprint stole the selection on right-click and
+   * opened its own menu. Note this is deliberately *not* eeschema's rule —
+   * `SCH_SELECTION_TOOL` (sch_selection_tool.cpp:643-672) additionally re-picks
+   * when the click is more than a grid square outside the selection's bounding
+   * box, and pcbnew has no such branch.
+   */
   const onCanvasContextMenu = (e: React.MouseEvent): void => {
     e.preventDefault();
     const w = worldAt(e.clientX, e.clientY);
@@ -3821,19 +4046,161 @@ export function PcbEditor({
       setCtxMenu(null);
       return;
     }
-    const hit = hitCandidates(w)[0] ?? null;
-    if (hit && !selForDrawRef.current.has(hit)) applySelect(hit, false);
+    const pick = contextMenuPick(selForDrawRef.current, hitCandidates(w)[0] ?? null);
+    if (pick) applySelect(pick, false);
     // The menu always opens on a non-empty board (Select All is shown even with
     // nothing selected, per noItemsCondition = board && !IsEmpty).
     setCtxMenu({ x: e.clientX, y: e.clientY });
   };
 
-  // The selection context menu, in the upstream PCB_SELECTION_TOOL TOOL_MENU
-  // order for the actions we support: Select All / Unselect All, then the
-  // priority-100 submenus (Mirror / Rotate, GROUP_CONTEXT_MENU "Grouping",
-  // LOCK_CONTEXT_MENU "Locking"), then the priority-150 Duplicate / Delete.
-  // Each item's enabled state follows its upstream SELECTION_CONDITION. Entries
-  // gated by an empty selection are hidden, matching CONDITIONAL_MENU.
+  /**
+   * The canvas context menu. Four `Init()`s feed one `CONDITIONAL_MENU`
+   * upstream, and this states their rows with the same order numbers and
+   * conditions rather than with the evaluated shape, so
+   * `evaluateConditionalMenu` decides which rows and which rules survive:
+   *
+   *   BOARD_EDITOR_CONTROL::Init (board_editor_control.cpp:430-440), into the
+   *       SELECTION tool's menu: getAndPlace (inactiveStateCondition) and a
+   *       separator at the default order, then LOCK_CONTEXT_MENU @100 and
+   *       ZONE_CONTEXT_MENU @100
+   *   EDIT_TOOL::Init (edit_tool.cpp:750-832): properties, the rotate/mirror
+   *       rows and the footprint rows at the default order; separator @100 and
+   *       the shape-modification / positioning submenus @100; separator @150
+   *       with cut / copy / paste / pasteSpecial / duplicate / doDelete; then
+   *       separator @150 with selectAll / unselectAll
+   *   PCB_SELECTION_TOOL::Init (pcb_selection_tool.cpp:214-235): separator @1
+   *       and the @1/@2 rows, then AddStandardSubMenus
+   *   EDA_DRAW_FRAME::AddStandardSubMenus (eda_draw_frame.cpp:709-726):
+   *       separator @1000 and the Zoom and Grid submenus @1000
+   *
+   * `CONDITIONAL_MENU::ANY_ORDER` is **-1** (conditional_menu.h:45), so the
+   * un-numbered rows sort BEFORE the numbered ones — which is why upstream's
+   * empty-canvas menu opens on Get and Move Footprint and not on Paste.
+   *
+   * What ours had: Select All and Unselect All and nothing else on an empty
+   * canvas, with no Zoom or Grid submenu anywhere, and Unselect All greyed on
+   * an empty selection. That last one is not upstream's condition —
+   * `noItemsCondition` (edit_tool.cpp:732-735) is
+   * `frame()->GetBoard() && !frame()->GetBoard()->IsEmpty()`, about the BOARD
+   * and not about the selection, and it gates both rows identically.
+   */
+  /**
+   * `PCB_CONTROL::CopyToClipboard` / `CutToClipboard` / `Paste`
+   * (`pcbnew/tools/pcb_control.cpp`). The payload itself is built and parsed by
+   * `pcbnew/src/pcb_clipboard.ts`; only the system-clipboard I/O and the drop
+   * point are here, because those are the two things a pure function cannot do.
+   *
+   * The reference point is upstream's `grid.BestDragOrigin` — the anchor the
+   * payload is written relative to. We use the selection's bounding-box origin,
+   * so a paste with no offset lands the items exactly where they were copied
+   * from, which is what `placeBoardItems` does before its interactive move.
+   */
+  const clipboardRef = (): { x: number; y: number } => {
+    const brd = boardRef.current;
+    const bb = brd ? boardSelectionBBox(brd, selForDrawRef.current) : null;
+    return bb ? { x: bb.minX, y: bb.minY } : { x: 0, y: 0 };
+  };
+
+  const copySel = useCallback(() => {
+    const brd = boardRef.current;
+    if (!brd) return;
+    const text = copySelectionToClipboardText(brd, selForDrawRef.current, clipboardRef());
+    // "dont even start if the selection is empty" — leave whatever is on the
+    // system clipboard alone rather than blanking it.
+    if (text === '') return;
+    void navigator.clipboard?.writeText(text);
+  }, []);
+
+  const cutSel = useCallback(() => {
+    const brd = boardRef.current;
+    if (!brd) return;
+    const res = cutSelectionToClipboardText(brd, selForDrawRef.current, clipboardRef());
+    if (res.text === '') return;
+    void navigator.clipboard?.writeText(res.text);
+    commitBoard(res.board);
+    setSelection(new Set());
+  }, [commitBoard]);
+
+  /**
+   * The paste half. `mode` and `clearNets` come from DIALOG_PASTE_SPECIAL for
+   * `ACTIONS::pasteSpecial`; a plain `ACTIONS::paste` never opens it and takes
+   * `KEEP_ANNOTATIONS` with nets mapped (`pcb_control.cpp:1208-1209`).
+   */
+  const pasteText = useCallback(
+    (text: string, mode: PasteMode = 'keep_annotations', clearNets = false) => {
+      const brd = boardRef.current;
+      if (!brd) return;
+      const parsed = parseClipboardText(text);
+      // Not a board or footprint payload: upstream falls through to its
+      // bitmap/plain-text branches, which we have not ported. Do nothing
+      // rather than clobber the board.
+      if (!parsed) return;
+      const res = pasteIntoBoard(brd, parsed, { mode, clearNets });
+      commitBoard(res.board);
+      setSelection(new Set(res.newIds));
+    },
+    [commitBoard],
+  );
+
+  /**
+   * The system clipboard's own events, so Ctrl+X / Ctrl+C / Ctrl+V work and not
+   * only the menu rows. Same shape as the schematic editor's, for the same
+   * reason: the browser will only hand a page the clipboard from inside one of
+   * these three events.
+   *
+   * The editors all stay mounted behind `display: none`, so only the visible
+   * frame may own them — `App` stamps the active view on `document.body` and
+   * every frame checks it. Without that, the PCB editor would answer a copy
+   * pressed in the schematic.
+   */
+  useEffect(() => {
+    const hidden = (): boolean => document.body.dataset.activeView !== 'pcb';
+    // `isTypingTarget` is the shared predicate, and its own doc comment names
+    // Ctrl+C / Ctrl+X / Ctrl+V as the reason it exists: while a field has
+    // focus the FIELD's copy must win, not the board's. Building a synthetic
+    // Ctrl+C to ask `focusBlocksHotkey` instead put a hand-written modifier
+    // comparison in a converted frame, which is the one thing
+    // `menu_hotkey_coverage.test.ts` forbids — and it caught it.
+    const typing = (): boolean => isTypingTarget(document.activeElement as FocusLike | null);
+
+    const onCopy = (e: ClipboardEvent): void => {
+      if (hidden() || typing() || selForDrawRef.current.size === 0) return;
+      const brd = boardRef.current;
+      if (!brd) return;
+      const text = copySelectionToClipboardText(brd, selForDrawRef.current, clipboardRef());
+      if (text === '') return;
+      e.clipboardData?.setData('text/plain', text);
+      e.preventDefault();
+    };
+    const onCut = (e: ClipboardEvent): void => {
+      if (hidden() || typing() || selForDrawRef.current.size === 0) return;
+      const brd = boardRef.current;
+      if (!brd) return;
+      const res = cutSelectionToClipboardText(brd, selForDrawRef.current, clipboardRef());
+      if (res.text === '') return;
+      e.clipboardData?.setData('text/plain', res.text);
+      e.preventDefault();
+      commitBoard(res.board);
+      setSelection(new Set());
+    };
+    const onPaste = (e: ClipboardEvent): void => {
+      if (hidden() || typing()) return;
+      const text = e.clipboardData?.getData('text/plain') ?? '';
+      if (!parseClipboardText(text)) return;
+      e.preventDefault();
+      pasteText(text);
+    };
+
+    document.addEventListener('copy', onCopy);
+    document.addEventListener('cut', onCut);
+    document.addEventListener('paste', onPaste);
+    return () => {
+      document.removeEventListener('copy', onCopy);
+      document.removeEventListener('cut', onCut);
+      document.removeEventListener('paste', onPaste);
+    };
+  }, [commitBoard, pasteText]);
+
   const buildPcbContextMenu = (): MenuItem[] => {
     const brd = board;
     let groupCount = 0;
@@ -3841,7 +4208,6 @@ export function PcbEditor({
     let hasMember = false;
     let anyLocked = false;
     let anyUnlocked = false;
-    let hasNonPad = false;
     for (const id of selection) {
       const r = parseBoardItemId(id);
       if (!r) continue;
@@ -3851,12 +4217,10 @@ export function PcbEditor({
       }
       if (r.kind === 'group') {
         groupCount++;
-        hasNonPad = true;
         if (brd && groupContaining(brd, id)) hasMember = true;
       } else if (r.kind === 'pad' || r.kind === 'fptext') {
-        // children: not groupable and not mirrorable on their own
+        // children: not groupable on their own
       } else {
-        hasNonPad = true;
         if (brd && groupContaining(brd, id)) hasMember = true;
         else hasUngrouped = true;
       }
@@ -3867,28 +4231,258 @@ export function PcbEditor({
       disabled,
       action: () => onTopAction(actionId),
     });
-    const items: MenuItem[] = [
-      { label: 'Select All', action: selectAllSel },
-      { label: 'Unselect All', action: unselectAllSel, disabled: selection.size === 0 },
-    ];
-    if (selection.size > 0) {
-      const zoneIdx = brd ? zoneAt(brd, selection) : null;
-      const fpIdx = brd ? footprintAt(brd, selection) : null;
-      const padIdx = brd ? selectedPadAt(brd, selection) : null;
-      const textIdx = brd ? textAt(brd, selection) : null;
-      const shapeIdx = brd ? shapeAt(brd, selection) : null;
-      const copper = brd ? hasTrackOrVia(trackViaSelection(brd, selection)) : false;
-      const editable =
-        copper ||
-        zoneIdx !== null ||
-        fpIdx !== null ||
-        padIdx !== null ||
-        textIdx !== null ||
-        shapeIdx !== null;
-      items.push(
-        { sep: true },
+
+    // ---- the conditions the upstream rows are gated on -------------------
+    const notEmpty = selection.size > 0;
+    const moreThanOne = selection.size > 1;
+    // `noItemsCondition` (edit_tool.cpp:732-735): the BOARD has items. It is
+    // not about the selection, and it gates Select All and Unselect All alike.
+    const boardHasItems = brd !== null && !boardIsEmpty(brd);
+    const zoneIdx = brd ? zoneAt(brd, selection) : null;
+    const fpIdx = brd ? footprintAt(brd, selection) : null;
+    const padIdx = brd ? selectedPadAt(brd, selection) : null;
+    const textIdx = brd ? textAt(brd, selection) : null;
+    const shapeIdx = brd ? shapeAt(brd, selection) : null;
+    const copper = brd ? hasTrackOrVia(trackViaSelection(brd, selection)) : false;
+    // `propertiesCondition` — something the properties dialog can open on.
+    const editable =
+      copper ||
+      zoneIdx !== null ||
+      fpIdx !== null ||
+      padIdx !== null ||
+      textIdx !== null ||
+      shapeIdx !== null;
+    // `singleFootprintCondition` / `multipleFootprintsCondition`
+    // (edit_tool.cpp), which gate the whole footprint block.
+    let footprintCount = 0;
+    for (const id of selection) if (parseBoardItemId(id)?.kind === 'footprint') footprintCount++;
+    const oneFootprint = footprintCount === 1;
+    const anyFootprint = footprintCount > 0;
+    // `frame()->ToolStackIsEmpty()` — no tool has been pushed, so the
+    // selection tool is all that is running. Ours spells the idle state as the
+    // `selectSetRect` tool id, NOT `select`: every other id here is a pushed
+    // tool. This gates Paste, Paste Special and Get and Move Footprint, and
+    // comparing against the wrong id hides all three at once.
+    const toolStackIsEmpty = activeTool === 'selectSetRect';
+    /**
+     * `isRoutable` (edit_tool.cpp:742-743):
+     * `NotEmpty && HasTypes( routableTypes ) && notMoving && !inFootprintEditor`,
+     * where `routableTypes` (edit_tool.cpp:130) is
+     * `{ PCB_TRACE_T, PCB_ARC_T, PCB_VIA_T, PCB_PAD_T, PCB_FOOTPRINT_T }`.
+     *
+     * `HasTypes` is ANY, not ONLY — and a FOOTPRINT is in the list, which is
+     * why KiCad offers Route Selected on a footprint. Reading this as "copper
+     * is selected" would have hidden all five router rows on the one selection
+     * a user reaches for most.
+     */
+    const routableKinds = new Set(['track', 'arc', 'via', 'pad', 'footprint']);
+    let routable = false;
+    /**
+     * `canMirror` (edit_tool.cpp:649-655): false when the selection is ONLY
+     * pads, else `selectionMirrorable` — at least one item whose type is in
+     * `EDIT_TOOL::MirrorableItems` (edit_tool.cpp:2417-2420):
+     *
+     *     PCB_SHAPE_T, PCB_FIELD_T, PCB_TEXT_T, PCB_TEXTBOX_T, PCB_ZONE_T,
+     *     PCB_PAD_T, PCB_TRACE_T, PCB_ARC_T, PCB_VIA_T, PCB_GROUP_T,
+     *     PCB_GENERATOR_T, PCB_POINT_T, PCB_TABLE_T
+     *
+     * A FOOTPRINT is deliberately not in it — `nonMirrorableTypes`
+     * (edit_tool.cpp:135-137) names it — so KiCad shows no Mirror row on a
+     * selected footprint. Ours used a `hasNonPad` flag that was true for a
+     * footprint and so offered both.
+     */
+    const mirrorableKinds = new Set([
+      'shape',
+      'fptext',
+      'text',
+      'textbox',
+      'zone',
+      'pad',
+      'track',
+      'arc',
+      'via',
+      'group',
+      'table',
+    ]);
+    /**
+     * `GENERAL_COLLECTOR::DraggableItems` (collectors.cpp:145-150), exactly:
+     * `{ PCB_TRACE_T, PCB_VIA_T, PCB_FOOTPRINT_T, PCB_ARC_T }`. A pad, a zone,
+     * a text or a shape is not draggable, so neither drag row belongs on one.
+     */
+    const draggableKinds = new Set(['track', 'via', 'footprint', 'arc']);
+    /**
+     * `propertiesCondition` (edit_tool.cpp:616-642) reads a good deal narrower
+     * than "something is selected": one item always qualifies, but a MULTI
+     * selection qualifies only when every item is a `PCB_TRACK` — and PCB_ARC
+     * and PCB_VIA both derive from it, which is why the `dynamic_cast` there
+     * takes all three. Anything else and the row is GONE, not greyed; KiCad
+     * draws no Properties row over seven footprints, and ours drew a dead one.
+     */
+    const trackKinds = new Set(['track', 'arc', 'via']);
+    /**
+     * Two conditions that both mean "connectable", and are NOT the same list.
+     *
+     * `connectedTypes` (edit_tool.cpp:128) — `{ PCB_TRACE_T, PCB_ARC_T,
+     * PCB_VIA_T, PCB_PAD_T, PCB_ZONE_T }` — gates Assign Netclass.
+     * `showNetMenuFunc` (board_inspection_tool.cpp:101-131) takes those five
+     * AND a `PCB_SHAPE` that `IsOnCopperLayer()`, and gates the Net Inspection
+     * Tools submenu. A pad satisfies both, which is why KiCad's menu over a pad
+     * carries two rows ours had neither of.
+     */
+    const connectedKinds = new Set(['track', 'arc', 'via', 'pad', 'zone']);
+    const shapeOnCopper = (id: string): boolean => {
+      const idx = parseBoardItemId(id)?.index;
+      const shape = idx === undefined ? undefined : brd?.shapes[idx];
+      return !!shape && isCopperLayerName(shape.layer);
+    };
+    let anyMirrorable = false;
+    let onlyPads = selection.size > 0;
+    let onlyDraggable = selection.size > 0;
+    let onlyTracks = selection.size > 0;
+    let onlyConnected = selection.size > 0;
+    let netInspectable = selection.size > 0;
+    for (const id of selection) {
+      const kind = parseBoardItemId(id)?.kind;
+      if (kind === undefined) continue;
+      if (!connectedKinds.has(kind)) {
+        onlyConnected = false;
+        if (!(kind === 'shape' && shapeOnCopper(id))) netInspectable = false;
+      }
+      if (routableKinds.has(kind)) routable = true;
+      if (mirrorableKinds.has(kind)) anyMirrorable = true;
+      if (kind !== 'pad') onlyPads = false;
+      if (!draggableKinds.has(kind)) onlyDraggable = false;
+      if (!trackKinds.has(kind)) onlyTracks = false;
+    }
+    // The empty case is upstream's drawing-sheet hit test, which we have no
+    // properties dialog for, so it stays false here.
+    const propertiesCondition = selection.size === 1 || (moreThanOne && onlyTracks);
+    const canMirror = !onlyPads && anyMirrorable;
+    /**
+     * `drag45Degree` (edit_tool.cpp:776-777) is `Count( 1 ) && OnlyTypes(
+     * DraggableItems )`. `dragFreeAngle` (edit_tool.cpp:778-780) is that AND
+     * `!OnlyTypes( footprintTypes )` (edit_tool.cpp:120) — a footprint drags on
+     * 45s only, so over one KiCad offers Drag 45 Degree Mode and no Drag Free
+     * Angle. Both rows were gated on `notEmpty` here, which is [px] the extra
+     * row our menu carried against the installed build's over a footprint, and
+     * two rows that should not appear at all over a pad or a zone.
+     */
+    const canDrag45 = selection.size === 1 && onlyDraggable;
+    const canDragFree = canDrag45 && footprintCount === 0;
+
+    /**
+     * Shown in its upstream position, greyed until the command exists — the
+     * same thing this frame does with Grid Origin and Route > Single Track.
+     *
+     * The accelerator is deliberately NOT a parameter here. It has to stay a
+     * literal at the row, because `menu_hotkey_coverage.test.ts` scrapes this
+     * file as TEXT for the accelerator field, and a key funnelled through a
+     * parameter is one that ratchet cannot see — which is the silent drift it
+     * exists to catch. It caught this helper's first draft, and then caught
+     * the field name written out inside this very comment.
+     */
+    const TODO = (label: string): MenuItem => ({ label, disabled: true });
+
+    return evaluateConditionalMenu([
+      // ---- PCB_SELECTION_TOOL::Init (pcb_selection_tool.cpp:214) ---------
+      menuEntry(
+        {
+          label: 'Select',
+          submenu: [
+            TODO('Filter Selected Items...'),
+            { sep: true },
+            TODO('Items in Same Hierarchical Sheet'),
+            TODO('Items with Same Component Class'),
+            TODO('All Tracks in Net'),
+          ],
+        },
+        -1,
+        notEmpty,
+      ),
+
+      // ---- BOARD_EDITOR_CONTROL::Init (board_editor_control.cpp:431-432) -
+      // `inactiveStateCondition`: the tool stack is empty AND nothing is
+      // selected, which is why this heads the empty-canvas menu and vanishes
+      // the moment something is picked.
+      menuEntry(
+        { label: 'Get and Move Footprint', shortcut: 'T', disabled: true },
+        -1,
+        toolStackIsEmpty && !notEmpty,
+      ),
+      menuSeparator(-1),
+
+      // ---- EDIT_TOOL::Init (edit_tool.cpp:763-810) -----------------------
+      menuEntry(
+        { label: 'Move', shortcut: 'M', action: () => grabStartRef.current('move') },
+        -1,
+        notEmpty,
+      ),
+      menuEntry(TODO('Move with Reference...'), -1, notEmpty),
+      // `PCB_ACTIONS::moveIndividually` (pcb_actions.cpp:601-605): the friendly
+      // name carries NO ellipsis - it starts an interactive move, it does not
+      // open a dialog - and it does carry Ctrl+M.
+      menuEntry(
+        { label: 'Move Individually', shortcut: 'Ctrl+M', disabled: true },
+        -1,
+        moreThanOne,
+      ),
+
+      menuEntry({ label: 'Route Selected', shortcut: 'Shift+X', disabled: true }, -1, routable),
+      menuEntry(
+        { label: 'Route Selected From Other End', shortcut: 'Shift+E', disabled: true },
+        -1,
+        routable,
+      ),
+      menuEntry(TODO('Unroute Selected'), -1, routable),
+      menuEntry({ label: 'Unroute Segment', shortcut: 'Backspace', disabled: true }, -1, routable),
+      menuEntry(
+        { label: 'Attempt Finish Selected (Autoroute)', shortcut: 'Shift+F', disabled: true },
+        -1,
+        routable,
+      ),
+
+      menuEntry(
+        {
+          label: 'Drag 45 Degree Mode',
+          shortcut: 'D',
+          action: () => grabStartRef.current('drag45'),
+        },
+        -1,
+        canDrag45,
+      ),
+      menuEntry(
+        { label: 'Drag Free Angle', shortcut: 'G', action: () => grabStartRef.current('drag') },
+        -1,
+        canDragFree,
+      ),
+
+      menuEntry({ ...A('Rotate Counterclockwise', 'rotateCCW'), shortcut: 'R' }, -1, notEmpty),
+      menuEntry({ ...A('Rotate Clockwise', 'rotateCW'), shortcut: 'Shift+R' }, -1, notEmpty),
+      menuEntry(
+        { label: 'Change Side / Flip', shortcut: 'F', action: () => flipSelection() },
+        -1,
+        notEmpty,
+      ),
+      menuEntry(A('Mirror Horizontally', 'mirrorH'), -1, canMirror),
+      menuEntry(A('Mirror Vertically', 'mirrorV'), -1, canMirror),
+      // `PCB_ACTIONS::swap` carries Alt+S (pcb_actions.cpp:704-708).
+      menuEntry({ label: 'Swap', shortcut: 'Alt+S', disabled: true }, -1, moreThanOne),
+      // `packAndMoveFootprints` (edit_tool.cpp:794-795), on
+      // `MoreThan( 1 ) && HasType( PCB_FOOTPRINT_T )` — ANY footprint in the
+      // selection, not only footprints. P (pcb_actions.cpp:727-731). Shown in
+      // its upstream position and greyed, like Grid Origin and Single Track:
+      // the row was missing outright, which is a row of the height difference.
+      menuEntry(
+        { label: 'Pack and Move Footprints', shortcut: 'P', disabled: true },
+        -1,
+        moreThanOne && anyFootprint,
+      ),
+
+      menuEntry(
         {
           label: 'Properties...',
+          shortcut: 'E',
+          disabled: !editable,
           action: () => {
             if (copper) setTrackViaOpen(true);
             else if (zoneIdx !== null) setZonePropsIndex(zoneIdx);
@@ -3897,49 +4491,285 @@ export function PcbEditor({
             else if (shapeIdx !== null) setShapePropsIndex(shapeIdx);
             else setFpPropsIndex(fpIdx);
           },
-          disabled: !editable,
         },
-        { sep: true },
+        -1,
+        propertiesCondition,
+      ),
+      // `assignNetClass` (edit_tool.cpp:799-800), between Properties and the
+      // clearance inspector, on `OnlyTypes( connectedTypes ) &&
+      // !inFootprintEditor`. It opens DIALOG_ASSIGN_NETCLASS, which we do not
+      // have, so it is greyed in position rather than missing: over a pad or a
+      // track KiCad prints this row and ours printed nothing.
+      menuEntry(TODO('Assign Netclass...'), -1, onlyConnected),
+      menuEntry(
         {
-          label: 'Mirror / Rotate',
-          items: [
-            A('Rotate Counterclockwise', 'rotateCCW'),
-            A('Rotate Clockwise', 'rotateCW'),
-            A('Mirror Horizontally', 'mirrorH', !hasNonPad),
-            A('Mirror Vertically', 'mirrorV', !hasNonPad),
-            { sep: true },
+          label: selection.size === 2 ? 'Clearance Resolution...' : 'Constraints Resolution...',
+          action: () => setInspectOpen(true),
+        },
+        -1,
+        selection.size === 2,
+      ),
+
+      // The footprint block (edit_tool.cpp:803-809), after its own separator.
+      menuSeparator(-1),
+      menuEntry(
+        { ...A('Open in Footprint Editor', 'footprintEditor'), shortcut: 'Ctrl+E' },
+        -1,
+        oneFootprint,
+      ),
+      menuEntry(TODO('Update Footprint...'), -1, oneFootprint),
+      // `PCB_ACTIONS::updateFootprints` (pcb_actions.cpp:998-1002) is
+      // "Update Footprints from Library...", not the plural of the single-item
+      // row above it — the two rows are different commands with different
+      // names, and only the singular one is "Update Footprint...".
+      menuEntry(TODO('Update Footprints from Library...'), -1, anyFootprint && !oneFootprint),
+      menuEntry(TODO('Change Footprint...'), -1, oneFootprint),
+      menuEntry(TODO('Change Footprints...'), -1, anyFootprint && !oneFootprint),
+      menuEntry(
+        {
+          label: 'Attributes',
+          submenu: [TODO('Exclude from Bill of Materials'), TODO('Exclude from Position Files')],
+        },
+        -1,
+        anyFootprint,
+      ),
+
+      // ---- the @100 band ------------------------------------------------
+      // Nobody owns this band. Seven different tools drop a submenu into it
+      // from their own Init(), and because ties keep their insertion order
+      // (conditional_menu.cpp:210-221, and our own evaluateConditionalMenu),
+      // the on-screen order is the order those tools are REGISTERED in
+      // `PCB_EDIT_FRAME::setupTools` (pcb_edit_frame.cpp:947-979):
+      //
+      //   EDIT_TOOL (:953)             separator, [Shape Modification],
+      //                                Position          (edit_tool.cpp:812-814)
+      //   PCB_EDIT_TABLE_TOOL (:954)   seven separators with the table-cell rows
+      //                                between them  (edit_table_tool_base.h:94-115)
+      //   BOARD_EDITOR_CONTROL (:961)  Locking, [Zone]
+      //                                       (board_editor_control.cpp:437-439)
+      //   BOARD_INSPECTION_TOOL (:962) Net Inspection Tools
+      //   ALIGN_DISTRIBUTE_TOOL (:964) [Align/Distribute], on MoreThan( 1 )
+      //   CONVERT_TOOL (:972)          Create from Selection (convert_tool.cpp:333)
+      //   PCB_GROUP_TOOL (:973)        Grouping           (group_tool.cpp:138)
+      //
+      // So it reads Position | Locking, Create from Selection, Grouping — not
+      // the tidier grouping ours had invented (Create from Selection, Position,
+      // Grouping, Locking), which put the two footprint-placement submenus on
+      // opposite sides of the band. [px] confirmed against the installed
+      // pcbnew, one footprint selected (2026-08-31).
+      menuSeparator(100),
+      menuEntry(
+        {
+          label: 'Position',
+          submenu: [
+            { label: 'Move Exactly...', shortcut: 'Shift+M', action: () => setMoveExactOpen(true) },
             {
-              label: 'Change Side / Flip',
-              action: () => flipSelection(),
-              disabled: selection.size === 0,
+              label: 'Position Relative To...',
+              shortcut: 'Shift+P',
+              action: () => setPosRelOpen(true),
+            },
+            { label: 'Outset Items...', action: () => setOutsetOpen(true) },
+          ],
+        },
+        100,
+        notEmpty,
+      ),
+      // EDIT_TABLE_TOOL_BASE::addMenus (edit_table_tool_base.h:94-115) opens
+      // and closes each of its five groups with its own `AddSeparator( 100 )`.
+      // We have no table-cell editing in the PCB editor, so all its ROWS
+      // condition away and separator elision collapses the whole band to the
+      // single rule this stands for — which is exactly what the installed
+      // build draws between Position and Locking over a footprint. It is a
+      // real KiCad rule, not decoration: when the table rows land they go
+      // here, between these separators.
+      menuSeparator(100),
+      // LOCK_CONTEXT_MENU (board_editor_control.cpp:303), @100 on NotEmpty.
+      menuEntry(
+        {
+          label: 'Locking',
+          icon: 'lock',
+          submenu: [
+            A('Lock', 'lock', !anyUnlocked),
+            A('Unlock', 'unlock', !anyLocked),
+            A('Toggle Lock', 'toggleLock'),
+          ],
+        },
+        100,
+        notEmpty,
+      ),
+      // ALIGN_DISTRIBUTE_TOOL::Init (align_distribute_tool.cpp:66-88). Its own
+      // rows split into three groups: align X, align Y, and distribute — and
+      // the two rules between them are conditional, `AddSeparator( canAlign )`
+      // and `AddSeparator( canDistribute )`, so the distribute group and the
+      // rule above it appear only from THREE items up (`MoreThan( 2 )`) while
+      // the submenu itself opens from two (`MoreThan( 1 )`).
+      //
+      // NET_CONTEXT_MENU (board_inspection_tool.cpp:68-82), @100 on
+      // `showNetMenuFunc` — every selected item connectable. Four rows around
+      // one rule; Clear Net Highlighting carries `~` (pcb_actions.cpp:1575).
+      menuEntry(
+        {
+          label: 'Net Inspection Tools',
+          submenu: [
+            {
+              label: 'Show Net in Ratsnest',
+              action: () =>
+                setHiddenNets((prev) => {
+                  const next = new Set(prev);
+                  for (const net of selectedNetsRef.current) next.delete(net);
+                  return next;
+                }),
+            },
+            {
+              label: 'Hide Net in Ratsnest',
+              action: () =>
+                setHiddenNets((prev) => {
+                  const next = new Set(prev);
+                  for (const net of selectedNetsRef.current) next.add(net);
+                  return next;
+                }),
+            },
+            { sep: true },
+            // `highlightNetSelection` — "highlight all copper items on the
+            // selected net(s)". The SELECTION's nets, not the item under the
+            // cursor, which is what the backtick row does; and it is not the
+            // toolbar button's toggle either.
+            {
+              label: 'Highlight Net',
+              action: () => setHighlightNets(new Set(selectedNetsRef.current)),
+            },
+            {
+              label: 'Clear Net Highlighting',
+              shortcut: '~',
+              action: () => clearHighlightRef.current(),
             },
           ],
         },
+        100,
+        netInspectable,
+      ),
+      // The rows are the real ones: the engine has been here all along, wired
+      // to an Edit-menu submenu that upstream does not have. See
+      // `alignDistributeSubmenu`.
+      menuEntry({ label: 'Align/Distribute', submenu: alignDistributeSubmenu() }, 100, moreThanOne),
+      menuEntry(
+        {
+          label: 'Create from Selection',
+          submenu: [
+            { label: 'Create Polygon from Selection...', action: () => convertSelection('poly') },
+            { label: 'Create Zone from Selection...', action: () => convertSelection('zone') },
+            {
+              label: 'Create Rule Area from Selection...',
+              action: () => convertSelection('ruleArea'),
+            },
+            { label: 'Create Lines from Selection...', action: () => convertSelection('lines') },
+            { label: 'Outset Items...', action: () => setOutsetOpen(true) },
+            { sep: true },
+            { label: 'Create Tracks from Selection...', action: () => convertSelection('tracks') },
+            { label: 'Create Arc from Selection...', action: () => convertSelection('arc') },
+            { sep: true },
+            { label: 'Create Array...', action: () => setArrayOpen(true) },
+          ],
+        },
+        100,
+        notEmpty,
+      ),
+      menuEntry(
         {
           label: 'Grouping',
           icon: 'group',
-          items: [
+          submenu: [
             A('Group Items', 'group', selection.size < 2),
             A('Ungroup Items', 'ungroup', groupCount === 0),
             A('Add Items', 'addToGroup', !(groupCount === 1 && hasUngrouped)),
             A('Remove Items', 'removeFromGroup', !hasMember),
           ],
         },
+        100,
+        notEmpty,
+      ),
+
+      // ---- EDIT_TOOL's @150 clipboard group (edit_tool.cpp:817-827) ------
+      menuSeparator(150),
+      menuEntry({ label: 'Cut', icon: 'cut', shortcut: 'Ctrl+X', action: cutSel }, 150, notEmpty),
+      menuEntry(
+        { label: 'Copy', icon: 'copy', shortcut: 'Ctrl+C', action: copySel },
+        150,
+        notEmpty,
+      ),
+      menuEntry(TODO('Copy with Reference...'), 150, notEmpty),
+      // `noActiveToolCondition` — Paste is offered whatever is selected, and
+      // only hidden while another tool is running.
+      menuEntry(
         {
-          label: 'Locking',
-          icon: 'lock',
-          items: [
-            A('Lock', 'lock', !anyUnlocked),
-            A('Unlock', 'unlock', !anyLocked),
-            A('Toggle Lock', 'toggleLock'),
-          ],
+          label: 'Paste',
+          icon: 'paste',
+          shortcut: 'Ctrl+V',
+          // Ctrl+V itself is the browser's own paste event, not ours — see
+          // MenuItem.nativeShortcut, the same as the drawing sheet's row.
+          nativeShortcut: true,
+          action: () => {
+            void navigator.clipboard?.readText().then((text) => pasteText(text));
+          },
         },
-        { sep: true },
-        { label: 'Duplicate', icon: 'duplicate', action: duplicateSel },
-        { label: 'Delete', icon: 'delete', action: deleteSel },
-      );
-    }
-    return items;
+        150,
+        toolStackIsEmpty,
+      ),
+      menuEntry(
+        {
+          label: 'Paste Special...',
+          shortcut: 'Shift+Ctrl+V',
+          action: () => setPasteSpecialOpen(true),
+        },
+        150,
+        toolStackIsEmpty,
+      ),
+      menuEntry(
+        { ...A('Duplicate', 'duplicate'), shortcut: 'Ctrl+D', action: duplicateSel },
+        150,
+        notEmpty,
+      ),
+      menuEntry(
+        { label: 'Delete', icon: 'delete', shortcut: 'Delete', action: deleteSel },
+        150,
+        notEmpty,
+      ),
+
+      // ---- EDIT_TOOL::Init (edit_tool.cpp:829-831) -----------------------
+      menuSeparator(150),
+      menuEntry(
+        { label: 'Select All', shortcut: 'Ctrl+A', action: selectAllSel },
+        150,
+        boardHasItems,
+      ),
+      menuEntry(
+        { label: 'Unselect All', shortcut: 'Shift+Ctrl+A', action: unselectAllSel },
+        150,
+        boardHasItems,
+      ),
+
+      // ---- EDA_DRAW_FRAME::AddStandardSubMenus, from the shared module ---
+      ...standardSubMenuEntries({
+        zoomApp: 'pcbnew',
+        zoom: zoomNow,
+        setZoom: setZoomPreset,
+        gridSizes: GRID_SIZE_LIST.pcbnew.map(gridEntryOf),
+        gridIndex: PCB_GRIDS.indexOf(gridIU),
+        primaryUnits: unitLabel,
+        iuPerMM: MM,
+        // `COMMON_TOOLS::GridOrigin` is a WX_PT_ENTRY_DIALOG we do not have;
+        // shown in its upstream position and greyed, which is what the Place
+        // menu's own Grid Origin row and the Show Grid button's menu do.
+        gridOrigin: () => {},
+        setGrid: (i) => {
+          const iu = PCB_GRIDS[i];
+          if (iu !== undefined) {
+            setGridIU(iu);
+            requestDraw();
+          }
+        },
+      }),
+    ]);
   };
 
   // ----- graphic shape drawing (DRAWING_TOOL) ---------------------------------
@@ -4061,10 +4891,7 @@ export function PcbEditor({
   // `TOOL_BASE::updateStartItem` / `updateEndItem`. The decision itself lives
   // in pcbnew so it can be tested against a real board; this is only the
   // component's view of the world handed to it.
-  const copperAt = (w: {
-    x: number;
-    y: number;
-  }): { net: number; snap: { x: number; y: number } } | null => {
+  const copperAt = (w: { x: number; y: number }): BoardCursorSnap | null => {
     const brd = boardRef.current;
     if (!brd) return null;
     return snapToBoardCopper(brd, w, gridState(), {
@@ -4126,12 +4953,36 @@ export function PcbEditor({
   // Routing dimensions for a net: its net class dims, overridden by the
   // TOP_AUX track-width / via-size selections when they're not "use netclass"
   // (BOARD_DESIGN_SETTINGS::GetCurrentTrackWidth / GetCurrentViaSize).
-  const routeDims = (net: number): ClassDims => {
+  const routeDims = (
+    net: number,
+    // `ImportSizes`'s `aStartItem` and `aStartPosition`: what the route is
+    // starting on, and where the pointer was. Absent for a route that is not
+    // starting from an existing item, where inheritance cannot apply.
+    startItem?: BoardCursorSnap | null,
+    startLayer?: string,
+    cursor?: { x: number; y: number },
+  ): ClassDims => {
     const base = netclassInfo.classDims.get(netClassOf.get(net) ?? 'Default') ?? DEFAULT_CLASS_DIMS;
     const tw = trackWidthListRef.current[trackSelRef.current - 1];
     const vs = viaSizeListRef.current[viaSelRef.current - 1];
+    // `PNS_KICAD_IFACE_BASE::ImportSizes` (pns_kicad_iface.cpp:1146-1152): the
+    // existing item's width wins over both the toolbar choice and the netclass,
+    // and only under the toggle.
+    //
+    //     if( bds.m_UseConnectedTrackWidth && … && aStartItem != nullptr )
+    //         found = inheritTrackWidth( aStartItem, &trackWidth, startPosInt );
+    const brd = boardRef.current;
+    const inherited =
+      autoTrackWidthRef.current && startItem && brd
+        ? inheritTrackWidth(
+            brd,
+            { kind: startItem.kind, width: startItem.width, at: startItem.snap },
+            startLayer ?? activeLayerRef.current,
+            cursor ?? null,
+          )
+        : null;
     return {
-      trackWidth: tw ?? base.trackWidth,
+      trackWidth: inherited ?? tw ?? base.trackWidth,
       viaDiameter: vs?.diameter ?? base.viaDiameter,
       viaDrill: vs?.drill ?? base.viaDrill,
     };
@@ -4152,7 +5003,7 @@ export function PcbEditor({
         net: c?.net ?? 0,
         layer,
         last: c?.snap ?? snapToGrid(world),
-        dims: routeDims(c?.net ?? 0),
+        dims: routeDims(c?.net ?? 0, c, layer, world),
       };
     } else {
       const target = copperAt(world);
@@ -4538,11 +5389,20 @@ export function PcbEditor({
     if (selection) setSelection(selection);
     moveKindRef.current = kind;
     moveOriginRef.current = origin;
-    // `EDIT_TOOL` sets the axis to `dragOrigin` (edit_tool_move_fct.cpp:1401).
-    // The move path is delta-based and was already reversible, but the axis
-    // also makes the *zero* delta land exactly rather than merely nearly.
+    // `m_cursor = grid.BestDragOrigin( originalMousePos, sel_items, … )`
+    // (edit_tool_move_fct.cpp:1311) — "use the mouse position over cursor, as
+    // otherwise large grids will allow only snapping to items that are closest
+    // to grid points", so the *raw* grab point, not the snapped one.
+    //
+    // Cleared first so the anchor is chosen without a stale axis biasing it,
+    // then installed as the axis for the rest of the gesture, which is
+    // upstream's `grid.SetAuxAxes( true, dragOrigin )` (:1335). The axis is what
+    // keeps the part's *original* off-grid position reachable, so a move that
+    // changes its mind can put it back exactly.
     auxAxisRef.current = null;
-    auxAxisRef.current = snapToGrid(origin);
+    const dragOrigin = bestDragOrigin(brd, sel, origin, { gridSize: gridIURef.current });
+    moveAnchorRef.current = dragOrigin;
+    auxAxisRef.current = dragOrigin;
     const fpIdx = new Set<number>();
     for (const id of sel) {
       const r = parseBoardItemId(id);
@@ -4664,6 +5524,9 @@ export function PcbEditor({
     trackDragRef.current = drag;
     moveKindRef.current = 'drag';
     moveOriginRef.current = origin;
+    // A router drag re-cuts the line against the cursor rather than translating
+    // a selection, so it has no `BestDragOrigin` anchor of its own.
+    moveAnchorRef.current = null;
     dragModeRef.current = false;
     // ROUTER_TOOL::performDragging highlights the dragged item's net for the
     // duration of the drag (router_tool.cpp → TOOL_BASE::highlightNets), so the
@@ -5041,16 +5904,47 @@ export function PcbEditor({
     return r?.kind === 'track' ? r.index : null;
   };
 
-  // Track the in-flight gesture to the grid-snapped cursor. A drag rebuilds the
+  /**
+   * `EDIT_TOOL::Move`'s per-frame cursor, as a delta for the selection.
+   *
+   * Upstream (edit_tool_move_fct.cpp:1144-1177):
+   *
+   *     m_cursor = grid.BestSnapAnchor( mousePos, layers, selectionGrid, sel_items );
+   *     movement = m_cursor - prevPos;
+   *     …
+   *     prevPos = m_cursor;
+   *
+   * with `prevPos` seeded to the drag origin. Summed over the gesture that is
+   * `anchor + Σmovement = BestSnapAnchor( mousePos )`: the anchor's new position
+   * is **absolute**, which is what puts a part on the grid however far off it
+   * started. `sel_items` is `aSkip`, so the gesture cannot snap to itself.
+   *
+   * The pointer warp we cannot perform is why the anchor and the raw grab point
+   * are both kept: upstream's `mousePos` is the anchor plus the motion since the
+   * grab, and that is exactly what is reconstructed here.
+   */
+  const moveSnap = (raw: { x: number; y: number }): { x: number; y: number } => {
+    const brd = boardRef.current;
+    if (!brd) return snapToGrid(raw);
+    return bestSnapAnchor(brd, raw, gridState(), {
+      snapScale: 25 / viewRef.current.scale,
+      hysteresis: 5 / viewRef.current.scale,
+      visibleGrid: gridIURef.current,
+      layer: activeLayerRef.current,
+      avoid: dragAffectedRef.current,
+    });
+  };
+
+  // Track the in-flight gesture to the snapped cursor. A drag rebuilds the
   // stretched geometry each frame (traces don't translate uniformly).
   const updateMove = (cur: { x: number; y: number }): void => {
     const brd = boardRef.current;
     const origin = moveOriginRef.current;
     if (!brd || !origin) return;
-    const from = snapToGrid(origin);
-    const to = snapToGrid(cur);
-    const delta = { x: to.x - from.x, y: to.y - from.y };
+    const anchor = moveAnchorRef.current ?? origin;
+    const delta = moveDelta(anchor, origin, cur, moveSnap);
     moveDeltaRef.current = delta;
+    forcedCursorRef.current = { x: anchor.x + delta.x, y: anchor.y + delta.y };
     const applied = inPlaceMoveRef.current;
     if (applied) {
       // Only the change since the last frame: the buffer already holds the rest.
@@ -5090,7 +5984,11 @@ export function PcbEditor({
       // own collinear neighbours is what lets a trace go back exactly where it
       // came from, which a grid-only cursor cannot do for off-grid copper.
       const seed = dragSeedIdRef.current;
-      const chain = updateTrackDrag(drag, dragSnap(cur, seed ? new Set([seed]) : null));
+      const at = dragSnap(cur, seed ? new Set([seed]) : null);
+      // The router forces the cursor to its own snap point too
+      // (`ROUTER_TOOL`: `controls->ForceCursorPosition( true, m_endSnapPoint )`).
+      forcedCursorRef.current = at;
+      const chain = updateTrackDrag(drag, at);
       const line = trackDragSegments(brd, drag, chain);
       moveSceneRef.current = buildScene({ ...emptyBoardLike(brd), tracks: line }, sceneFilter());
       if (liveRatsRef.current) {
@@ -5137,6 +6035,9 @@ export function PcbEditor({
     moveDeltaRef.current = null;
     moveSceneRef.current = null;
     moveOriginRef.current = null;
+    moveAnchorRef.current = null;
+    // `ForceCursorPosition( false )` — the crosshair goes back to the pointer.
+    forcedCursorRef.current = null;
     // The gesture is over: `SetAuxAxes( false )`.
     auxAxisRef.current = null;
     if (trackDrag) {
@@ -5181,6 +6082,9 @@ export function PcbEditor({
     moveDeltaRef.current = null;
     moveSceneRef.current = null;
     moveOriginRef.current = null;
+    moveAnchorRef.current = null;
+    // `ForceCursorPosition( false )` — the crosshair goes back to the pointer.
+    forcedCursorRef.current = null;
     // The gesture is over: `SetAuxAxes( false )`.
     auxAxisRef.current = null;
     // Undo the live-ratsnest preview (the board didn't change). Back at rest,
@@ -5698,6 +6602,20 @@ export function PcbEditor({
         grabStartRef.current('drag45');
         return;
       }
+      // PgUp / PgDn: `PCB_ACTIONS::layerTop` and `layerBottom`
+      // (pcb_actions.cpp:1873, :2129). These are the two hotkeys the aux bar's
+      // layer selector advertises in its own entries — "F.Cu (PgUp)" — so the
+      // selector was naming keys that did nothing here.
+      if (!mod) {
+        const toLayer = layerForHotkey(e.key);
+        // Only a layer the board actually has: `SetActiveLayer` on a layer that
+        // is not enabled is not a thing upstream can do either.
+        if (toLayer && (boardRef.current?.layers ?? []).some((l) => l.name === toLayer)) {
+          e.preventDefault();
+          setActiveLayer(toLayer);
+          return;
+        }
+      }
       // B = Fill All Zones (PCB_ACTIONS::zoneFillAll), no row.
       if (!mod && (e.key === 'b' || e.key === 'B')) {
         e.preventDefault();
@@ -5817,255 +6735,6 @@ export function PcbEditor({
       window.removeEventListener('blur', clear);
     };
   }, []);
-
-  const [viewer3dReady, setViewer3dReady] = useState(false);
-  // The mounted viewer, so the 3D menu bar / toolbar / hotkeys can drive it.
-  const viewer3dApi = useRef<Viewer3D | null>(null);
-  // EDA_3D_VIEWER_STATUSBAR's X_POS / Y_POS / ZOOM_LEVEL panes.
-  const [view3dStatus, setView3dStatus] = useState<Viewer3DStatus>({ x: null, y: null, zoom: 1 });
-  // Check-item state for the View / Preferences menus.
-  const [grid3d, setGrid3d] = useState<Grid3D>('none');
-  const [ortho3d, setOrtho3d] = useState(false);
-  const [showMissing3d, setShowMissing3d] = useState(true);
-  // Reload counter: bumping it remounts the viewer (EDA_3D_ACTIONS::reloadBoard).
-  const [reload3d, setReload3d] = useState(0);
-
-  // Mount the three.js 3D viewer while the overlay is open. Lazy-imported so
-  // three.js only downloads when the user actually opens the 3D view.
-  useEffect(() => {
-    if (!show3D || !viewer3dRef.current || !boardRef.current) return;
-    let viewer: Viewer3D | null = null;
-    let cancelled = false;
-    setViewer3dReady(false);
-    const el = viewer3dRef.current,
-      brd = boardRef.current;
-    void import('./pcb3d.js').then(({ mount3DViewer }) => {
-      if (cancelled) return;
-      try {
-        viewer = mount3DViewer(el, brd, projectFiles);
-      } catch {
-        viewer = null;
-      }
-      if (viewer) {
-        viewer.onStatus = setView3dStatus;
-        // Re-apply the sticky view settings across a remount/reload.
-        viewer.setGrid(grid3d);
-        viewer.setOrtho(ortho3d);
-      }
-      viewer3dApi.current = viewer;
-      setViewer3dReady(true);
-    });
-    return () => {
-      cancelled = true;
-      viewer?.dispose();
-      viewer3dApi.current = null;
-    };
-    // grid3d/ortho3d are applied live by their own handlers; re-reading them
-    // here would remount the whole scene on every toggle.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [show3D, projectFiles, reload3d]);
-
-  // ----- 3D viewer commands ---------------------------------------------------
-  // EDA_3D_ACTIONS::exportImage — "Export the Current View as an image file".
-  const export3dImage = useCallback((): void => {
-    void viewer3dApi.current?.snapshot().then((blob) => {
-      if (!blob) return;
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${projectName || fileName.replace(/\.kicad_pcb$/i, '') || 'board'}-3d.png`;
-      a.click();
-      URL.revokeObjectURL(url);
-    });
-  }, [projectName, fileName]);
-
-  // EDA_3D_ACTIONS::copyToClipboard.
-  const copy3dToClipboard = useCallback((): void => {
-    void viewer3dApi.current?.snapshot().then((blob) => {
-      if (!blob || !navigator.clipboard?.write) return;
-      void navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]).catch(() => {});
-    });
-  }, []);
-
-  const apply3dGrid = useCallback((g: Grid3D): void => {
-    setGrid3d(g);
-    viewer3dApi.current?.setGrid(g);
-  }, []);
-
-  const toggle3dOrtho = useCallback((): void => {
-    setOrtho3d((on) => {
-      viewer3dApi.current?.setOrtho(!on);
-      return !on;
-    });
-  }, []);
-
-  /** Dispatch for both the 3D top toolbar and its menu bar. */
-  const on3dAction = useCallback(
-    (id: string): void => {
-      const v = viewer3dApi.current;
-      switch (id) {
-        case 'reloadBoard3d':
-          setReload3d((n) => n + 1);
-          return;
-        case 'copyToClipboard3d':
-          copy3dToClipboard();
-          return;
-        case 'zoomRedraw':
-          v?.redraw();
-          return;
-        case 'zoomIn':
-          v?.zoomIn();
-          return;
-        case 'zoomOut':
-          v?.zoomOut();
-          return;
-        case 'zoomFit':
-          v?.zoomFit();
-          return;
-        case 'rotateXCW':
-          v?.rotate('x', true);
-          return;
-        case 'rotateXCCW':
-          v?.rotate('x', false);
-          return;
-        case 'rotateYCW':
-          v?.rotate('y', true);
-          return;
-        case 'rotateYCCW':
-          v?.rotate('y', false);
-          return;
-        case 'rotateZCW':
-          v?.rotate('z', true);
-          return;
-        case 'rotateZCCW':
-          v?.rotate('z', false);
-          return;
-        case 'flipView3d':
-          v?.flip();
-          return;
-        case 'moveLeft3d':
-          v?.move('left');
-          return;
-        case 'moveRight3d':
-          v?.move('right');
-          return;
-        case 'moveUp3d':
-          v?.move('up');
-          return;
-        case 'moveDown3d':
-          v?.move('down');
-          return;
-        case 'toggleOrtho':
-          toggle3dOrtho();
-          return;
-        default:
-          return; // greyed/unported entries
-      }
-    },
-    [copy3dToClipboard, toggle3dOrtho],
-  );
-
-  const menus3d = useMemo(
-    () =>
-      buildViewer3DMenus(
-        {
-          grid: grid3d,
-          ortho: ortho3d,
-          showMissingModels: showMissing3d,
-          raytracing: false,
-          showAppearanceManager: false,
-        },
-        {
-          exportImage: export3dImage,
-          close: () => setShow3D(false),
-          copyToClipboard: copy3dToClipboard,
-          zoomIn: () => viewer3dApi.current?.zoomIn(),
-          zoomOut: () => viewer3dApi.current?.zoomOut(),
-          zoomFit: () => viewer3dApi.current?.zoomFit(),
-          redraw: () => viewer3dApi.current?.redraw(),
-          setGrid: apply3dGrid,
-          setView: (d) => viewer3dApi.current?.setView(d),
-          rotate: (axis, cw) => viewer3dApi.current?.rotate(axis, cw),
-          flip: () => viewer3dApi.current?.flip(),
-          move: (d) => viewer3dApi.current?.move(d),
-          toggleShowMissingModels: () => setShowMissing3d((s) => !s),
-          openPreferences: () => setShow3D(false),
-          resetToDefaults: () => {
-            apply3dGrid('none');
-            setOrtho3d(false);
-            viewer3dApi.current?.setOrtho(false);
-            viewer3dApi.current?.home();
-          },
-        },
-      ),
-    [grid3d, ortho3d, showMissing3d, export3dImage, copy3dToClipboard, apply3dGrid],
-  );
-
-  /**
-   * 3D viewer hotkeys (the `.DefaultHotkey()` of each EDA_3D_ACTIONS entry).
-   * Bound on the overlay rather than the document so they never reach the
-   * board canvas underneath.
-   */
-  useEffect(() => {
-    if (!show3D) return;
-    const onKey = (e: KeyboardEvent): void => {
-      if (e.ctrlKey || e.metaKey || e.altKey) return;
-      const v = viewer3dApi.current;
-      const views: Record<string, View3DDir> = { z: 'top', x: 'right', y: 'front' };
-      const shifted: Record<string, View3DDir> = { z: 'bottom', x: 'left', y: 'back' };
-      const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
-      switch (k) {
-        case 'Escape':
-          setShow3D(false);
-          break;
-        case 'z':
-        case 'x':
-        case 'y':
-          v?.setView((e.shiftKey ? shifted : views)[k]!);
-          break;
-        case 'r':
-          v?.rotate('z', e.shiftKey);
-          break;
-        case 'f':
-          v?.flip();
-          break;
-        case ' ':
-          break; // pivotCenter: needs the picking ray, not ported — swallow it
-        case 'Home':
-          v?.home();
-          break;
-        case 'F5':
-          v?.redraw();
-          break;
-        case 'ArrowLeft':
-          v?.move('left');
-          break;
-        case 'ArrowRight':
-          v?.move('right');
-          break;
-        case 'ArrowUp':
-          v?.move('up');
-          break;
-        case 'ArrowDown':
-          v?.move('down');
-          break;
-        default:
-          break; // fall through to the swallow below
-      }
-      // Swallow *every* unmodified key, not only the ones bound above.
-      // Upstream the 3D viewer is a separate top-level window, so pcbnew's
-      // hotkeys cannot reach the board while it has focus. Our overlay shares
-      // the document with the board canvas, whose own window-level keydown
-      // handlers would otherwise still fire — Delete would delete the selected
-      // footprint behind a viewer that shows no selection at all.
-      e.preventDefault();
-      e.stopPropagation();
-    };
-    // Capture phase on window runs before the board canvas's bubble-phase
-    // handlers on the same target, so stopPropagation() there is enough.
-    window.addEventListener('keydown', onKey, true);
-    return () => window.removeEventListener('keydown', onKey, true);
-  }, [show3D]);
 
   // ----- appearance data ------------------------------------------------------
 
@@ -6672,6 +7341,33 @@ export function PcbEditor({
       case 'rotateCW':
         rotateSel(false);
         break;
+      /**
+       * `BOARD_EDITOR_CONTROL::AutoTrackWidth` (board_editor_control.cpp:1332-1344):
+       *
+       *     if( bds.UseCustomTrackViaSize() )
+       *     {
+       *         bds.UseCustomTrackViaSize( false );
+       *         bds.m_UseConnectedTrackWidth = true;
+       *     }
+       *     else
+       *     {
+       *         bds.m_UseConnectedTrackWidth = !bds.m_UseConnectedTrackWidth;
+       *     }
+       *
+       * The first branch is not a flourish: a custom track/via size and
+       * inheriting an existing one are mutually exclusive, so turning this on
+       * while a custom size is in force clears that size rather than toggling.
+       * Our equivalent of `UseCustomTrackViaSize()` is a non-zero selection in
+       * the track-width combo, which is what `GetCurrentTrackWidth` reads.
+       */
+      case 'autoTrackWidth':
+        if (trackSelRef.current !== 0) {
+          setTrackSel(0);
+          setAutoTrackWidth(true);
+        } else {
+          setAutoTrackWidth((v) => !v);
+        }
+        break;
       case 'pageSettings':
         setPageDlgOpen(true);
         break;
@@ -6759,11 +7455,6 @@ export function PcbEditor({
   // ----- menus (menubar_pcb_editor.cpp structure, working subset active) ------
 
   const dis = true;
-  const alignDisabled = selection.size < 2;
-  // Distribution needs one item at each end and at least one to move between
-  // them, so it wants three where align wants two (SELECTION_CONDITIONS::
-  // MoreThan( 2 )).
-  const distributeDisabled = selection.size < 3;
   // The corner operations work on pairs of straight graphics, so the count that
   // matters is how many of the selection actually are ones — a selection of two
   // rectangles has nothing to fillet.
@@ -6801,63 +7492,10 @@ export function PcbEditor({
         { label: 'Duplicate', action: duplicateSel, shortcut: 'Ctrl+D' },
         { label: 'Delete', action: deleteSel, shortcut: 'Delete' },
         { sep: true },
-        {
-          label: 'Align/Distribute',
-          submenu: [
-            {
-              label: 'Align to Left',
-              action: () => alignSelection('left'),
-              disabled: alignDisabled,
-            },
-            {
-              label: 'Align to Horizontal Center',
-              action: () => alignSelection('centerX'),
-              disabled: alignDisabled,
-            },
-            {
-              label: 'Align to Right',
-              action: () => alignSelection('right'),
-              disabled: alignDisabled,
-            },
-            { sep: true },
-            {
-              label: 'Align to Top',
-              action: () => alignSelection('top'),
-              disabled: alignDisabled,
-            },
-            {
-              label: 'Align to Vertical Center',
-              action: () => alignSelection('centerY'),
-              disabled: alignDisabled,
-            },
-            {
-              label: 'Align to Bottom',
-              action: () => alignSelection('bottom'),
-              disabled: alignDisabled,
-            },
-            { sep: true },
-            {
-              label: 'Distribute Horizontally by Centers',
-              action: () => distributeSelection('horizontallyCenters'),
-              disabled: distributeDisabled,
-            },
-            {
-              label: 'Distribute Horizontally by Gaps',
-              action: () => distributeSelection('horizontallyGaps'),
-              disabled: distributeDisabled,
-            },
-            {
-              label: 'Distribute Vertically by Centers',
-              action: () => distributeSelection('verticallyCenters'),
-              disabled: distributeDisabled,
-            },
-            {
-              label: 'Distribute Vertically by Gaps',
-              action: () => distributeSelection('verticallyGaps'),
-              disabled: distributeDisabled,
-            },
-          ],
-        },
+        // No Align/Distribute here. `menubar_pcb_editor.cpp` has no align rows
+        // at all - ALIGN_DISTRIBUTE_TOOL hangs its one submenu off the
+        // selection context menu and nowhere else (align_distribute_tool.cpp:87-88),
+        // which is where ours now is, built by `alignDistributeSubmenu`.
         {
           label: 'Convert',
           submenu: [
@@ -7201,11 +7839,21 @@ export function PcbEditor({
    * `PCB_EDIT_FRAME::setupUIConditions` (`pcb_edit_frame.cpp:1036-1058`), the
    * four the top toolbar reads.
    *
-   * Save is NOT among them: pcbnew declares
-   * `ENABLE( SELECTION_CONDITIONS::ShowAlways )` for it, so it stays lit on a
-   * clean board. We greyed it whenever `!dirty`, which meant our Save was dead
-   * on open beside KiCad's live one.
+   * Save is not one of them upstream — pcbnew declares
+   * `ENABLE( SELECTION_CONDITIONS::ShowAlways )` — and it is not one of them
+   * here either: it is added afterwards by `withSaveEnablement`, the one place
+   * this app's autosave divergence from that is written down, so the Schematic
+   * and PCB editors cannot drift apart on it again.
    */
+  /**
+   * `PCB_EDIT_FRAME::UpdateTitle` (pcb_edit_frame.cpp:2168-2194), built by the
+   * shared rule rather than restated here — see `frame_title.ts`.
+   */
+  const pcbTitle = useMemo(
+    () => pcbFrameTitle({ fileName, modified: dirty, readOnly }),
+    [fileName, dirty, readOnly],
+  );
+
   const topDisabled = useMemo(() => {
     const s = new Set<string>();
     let groupCount = 0;
@@ -7235,17 +7883,18 @@ export function PcbEditor({
         title={
           <>
             <b>
-              {dirty ? '*' : ''}
-              {projectName || fileName.replace(/\.kicad_pcb$/i, '') || 'No project'}
+              {pcbTitle.modified}
+              {pcbTitle.document}
             </b>
-            &nbsp;-&nbsp;PCB Editor
+            {pcbTitle.separator}
+            {pcbTitle.frameName}
           </>
         }
       />
       <Toolbar
         entries={pcbTopBar}
         orientation="horizontal"
-        disabledIds={topDisabled}
+        disabledIds={withSaveEnablement(topDisabled, dirty)}
         onActivate={onTopAction}
         controls={{
           /**
@@ -7260,10 +7909,21 @@ export function PcbEditor({
            * what a live pcbnew on the ecc83 demo shows. Design variants are
            * not ported, so the control does not pretend to switch anything.
            */
+          /* A wxChoice like the five on the bar below, so it takes the same
+             GTK metrics — the border, the radius, the chevron and the face.
+             As a bare `<select>` it was drawing the browser's widget: no
+             border at all, a heavier chevron and a lighter fill.
+
+             Only `< Default >`, because design variants are not modelled here
+             yet; that is a missing *list*, not a missing control, so the
+             control is present and shows the one variant every board has. */
           [PCB_CONTROL.currentVariant]: (
-            <select title="Select the current variant to display and edit." disabled>
-              <option>&lt; Default &gt;</option>
-            </select>
+            <Combo
+              title="Select the current variant to display and edit."
+              value="default"
+              options={[{ value: 'default', label: '< Default >' }]}
+              onChange={() => {}}
+            />
           ),
         }}
       />
@@ -7281,112 +7941,131 @@ export function PcbEditor({
         entries={pcbAuxBar}
         orientation="horizontal"
         onActivate={onTopAction}
+        /* `PCB_EDIT_FRAME`'s check for `PCB_ACTIONS::autoTrackWidth`:
+           `return GetDesignSettings().m_UseConnectedTrackWidth;`
+           (pcb_edit_frame.cpp:1250). */
+        toggled={autoTrackWidth ? AUTO_TRACK_WIDTH_ON : EMPTY_TOGGLED}
         controls={{
+          /* Every one of these five was a bare `<select>`, so GTK's wxChoice
+             metrics — the height, the padding, the chevron and its gutter, the
+             font — were the *browser's* instead of ours, and the whole bar sat
+             visibly narrower and shorter than pcbnew's. `Combo` is the widget
+             that carries those tokens, and GerbView's identical TOP_AUX has
+             used it all along; this bar was the one that never got it. */
           [PCB_CONTROL.trackWidth]: (
-            <select
+            <Combo
               title="Select the default width for new tracks. Note that this width can be overridden by the board minimum width, or by the width of an existing track if the 'Use Existing Track Width' feature is enabled."
-              value={trackSel}
-              onChange={(e) => setTrackSel(Number(e.target.value))}
-            >
-              <option value={0}>Track: use netclass width</option>
-              {trackWidthList.map((w, i) => (
-                <option key={`${w}:${i}`} value={i + 1}>
-                  Track: {auxMM(w)} mm ({auxMils(w)} mils)
-                </option>
-              ))}
-            </select>
+              value={String(trackSel)}
+              options={[
+                { value: '0', label: 'Track: use netclass width' },
+                ...trackWidthList.map((w, i) => ({
+                  value: String(i + 1),
+                  label: `Track: ${auxMM(w)} mm (${auxMils(w)} mils)`,
+                })),
+              ]}
+              onChange={(v) => setTrackSel(Number(v))}
+            />
           ),
           [PCB_CONTROL.viaDiameter]: (
-            <select
+            <Combo
               title="Via size"
-              value={viaSel}
-              onChange={(e) => setViaSel(Number(e.target.value))}
-            >
-              <option value={0}>Via: use netclass sizes</option>
-              {viaSizeList.map((v, i) => (
-                <option key={`${v.diameter}:${v.drill}:${i}`} value={i + 1}>
-                  {v.drill > 0
-                    ? `Via: ${auxMM(v.diameter)} / ${auxMM(v.drill)} mm (${auxMils(v.diameter)} / ${auxMils(v.drill)} mils)`
-                    : `Via: ${auxMM(v.diameter)} mm (${auxMils(v.diameter)} mils)`}
-                </option>
-              ))}
-            </select>
+              value={String(viaSel)}
+              options={[
+                { value: '0', label: 'Via: use netclass sizes' },
+                ...viaSizeList.map((v, i) => ({
+                  value: String(i + 1),
+                  label:
+                    v.drill > 0
+                      ? `Via: ${auxMM(v.diameter)} / ${auxMM(v.drill)} mm (${auxMils(v.diameter)} / ${auxMils(v.drill)} mils)`
+                      : `Via: ${auxMM(v.diameter)} mm (${auxMils(v.diameter)} mils)`,
+                })),
+              ]}
+              onChange={(v) => setViaSel(Number(v))}
+            />
           ),
-          /* PCB_LAYER_BOX_SELECTOR: a colour swatch and the layer's name. The
-             swatch is a COLOR_SWATCH like every other, so it takes the shared
-             class rather than restating a size, a 2px radius and a #444 border
-             that color_swatch.cpp's RenderToDC does not draw. */
+          /* `PCB_LAYER_BOX_SELECTOR::Resync` (pcb_layer_box_selector.cpp:90-101):
+             the layer's colour swatch, its name, and — through
+             `AddHotkeyName( layername, action->GetHotKey(), IS_COMMENT )` — the
+             hotkey of the action that switches to it, in parentheses. Only
+             `layerTop` and `layerBottom` carry a default hotkey
+             (pcb_actions.cpp:1873, :2129), so F.Cu and B.Cu read "(PgUp)" and
+             "(PgDn)" and every inner layer reads as its bare name, which is
+             `AddHotkeyName`'s own empty-keyname branch.
+
+             The swatch is `Combo`'s, not a span of ours: its `swatch` option is
+             modelled on this very call (see ComboOption). */
           [PCB_CONTROL.layerSelector]: (
-            <span className="ze-tb-layerbox">
-              <span className="ze-layer-swatch" style={{ background: layerColor(activeLayer) }} />
-              <select
-                value={activeLayer}
-                onChange={(e) => setActiveLayer(e.target.value)}
-                title="Active layer"
-              >
-                {(board?.layers ?? []).map((l) => (
-                  <option key={l.name} value={l.name}>
-                    {layerName(l.name)}
-                  </option>
-                ))}
-              </select>
-            </span>
+            <Combo
+              ariaLabel="Active layer"
+              value={activeLayer}
+              options={(board?.layers ?? []).map((l) => ({
+                value: l.name,
+                label: layerBoxLabel(layerName(l.name), l.name),
+                swatch: layerColor(l.name),
+              }))}
+              onChange={(v) => setActiveLayer(v)}
+            />
           ),
           /* GRID_MENU::BuildChoiceList: `"%s%s (%s)"`, both halves formatted by
              GRID::MessageText with aDisplayUnits true, so both carry the unit
              suffix EDA_UNIT_UTILS::GetText gives — which is "mils", plural.
              This wrote a singular "mil". */
           [PCB_CONTROL.gridSelect]: (
-            <select
+            <Combo
               title="Grid"
-              value={gridIU}
-              onChange={(e) => {
-                setGridIU(Number(e.target.value));
+              value={String(gridIU)}
+              options={[
+                ...PCB_GRIDS.map((g) => ({
+                  value: String(g),
+                  label: `${fmtCoord(g)}${unitText(unitLabel)} (${
+                    toggles.has('unitsMils')
+                      ? `${auxMM(g)}${unitText('mm')}`
+                      : `${auxMils(g)}${unitText('mils')}`
+                  })`,
+                })),
+                ...(PCB_GRIDS.includes(gridIU)
+                  ? []
+                  : [
+                      { value: String(gridIU), label: `${fmtCoord(gridIU)}${unitText(unitLabel)}` },
+                    ]),
+              ]}
+              onChange={(v) => {
+                setGridIU(Number(v));
                 requestDraw();
               }}
-            >
-              {PCB_GRIDS.map((g) => (
-                <option key={g} value={g}>
-                  {fmtCoord(g)}
-                  {unitText(unitLabel)} (
-                  {toggles.has('unitsMils')
-                    ? `${auxMM(g)}${unitText('mm')}`
-                    : `${auxMils(g)}${unitText('mils')}`}
-                  )
-                </option>
-              ))}
-              {!PCB_GRIDS.includes(gridIU) && (
-                <option value={gridIU}>
-                  {fmtCoord(gridIU)}
-                  {unitText(unitLabel)}
-                </option>
-              )}
-            </select>
+            />
           ),
           [PCB_CONTROL.zoomSelect]: (
-            <select
+            <Combo
               title="Zoom"
-              value={zoomSelValue}
-              onChange={(e) => {
-                if (e.target.value === 'auto') zoomToFit();
-                else setZoomPreset(Number(e.target.value));
+              value={String(zoomSelValue)}
+              options={[
+                { value: 'auto', label: ZOOM_AUTO_LABEL },
+                ...(zoomCustom !== null
+                  ? [{ value: String(zoomCustom), label: zoomSelectLabel(zoomCustom) }]
+                  : []),
+                ...ZOOM_LIST.pcbnew.map((z) => ({
+                  value: String(z),
+                  label: zoomSelectLabel(z),
+                })),
+              ]}
+              onChange={(v) => {
+                if (v === 'auto') zoomToFit();
+                else setZoomPreset(Number(v));
               }}
-            >
-              <option value="auto">{ZOOM_AUTO_LABEL}</option>
-              {zoomCustom !== null && (
-                <option value={zoomCustom}>{zoomSelectLabel(zoomCustom)}</option>
-              )}
-              {ZOOM_LIST.pcbnew.map((z) => (
-                <option key={z} value={z}>
-                  {zoomSelectLabel(z)}
-                </option>
-              ))}
-            </select>
+            />
           ),
           /* A wxCheckBox labelled "Override locks" (eda_draw_frame.cpp:240),
-             not a button. Its command is not ported, so it is disabled. */
+             not a button. Its command is not ported, so it is disabled.
+
+             `.ze-check` is the shared wxCheckBox row — it centres the indicator
+             against its label and sets the gap between them from
+             --check-margin, both of which GTK does for a real one. Stating
+             nothing, this was an inline `<input>` sitting on the text baseline,
+             so the box rode visibly high beside the words and the gap was the
+             browser's, not the theme's. */
           [PCB_CONTROL.overrideLocks]: (
-            <label>
+            <label className="ze-check">
               <input type="checkbox" disabled />
               Override locks
             </label>
@@ -7641,66 +8320,14 @@ export function PcbEditor({
           full-viewport overlay, but it carries the frame's own chrome: menu
           bar, the single TOP_MAIN toolbar (3d-viewer has no side toolbars) and
           the 5-pane status bar. */}
-      {show3D && (
-        <div className="ze-frame ze-frame-3d" role="dialog" aria-label="3D Viewer">
-          <MenuBar
-            menus={menus3d}
-            leftSlot={
-              <div
-                className="ze-home-link"
-                onClick={() => setShow3D(false)}
-                title="Close 3D Viewer"
-              >
-                ← PCB Editor
-              </div>
-            }
-            title={
-              <>
-                <b>{projectName || fileName.replace(/\.kicad_pcb$/i, '') || 'No project'}</b>
-                &nbsp;-&nbsp;3D Viewer
-              </>
-            }
-          />
-          <Toolbar
-            entries={VIEWER3D_TOP_TOOLBAR}
-            orientation="horizontal"
-            toggled={ortho3d ? ORTHO_ON : EMPTY_IDS}
-            onActivate={on3dAction}
-          />
-          <div
-            ref={viewer3dRef}
-            className="ze-frame-canvas"
-            style={{
-              flex: 1,
-              minHeight: 0,
-              position: 'relative',
-              background: 'linear-gradient(180deg, rgb(204,204,230) 0%, rgb(102,102,128) 100%)',
-            }}
-          >
-            {!viewer3dReady && (
-              <div className="ze-canvas-loading">
-                <span className="ze-spinner" />
-                <span>Loading 3D viewer...</span>
-              </div>
-            )}
-          </div>
-          {/* EDA_3D_VIEWER_STATUSBAR: ACTIVITY, HOVERED_ITEM, X_POS, Y_POS,
-              ZOOM_LEVEL, at the widths eda_3d_viewer_frame.cpp:112 states
-              ({ -1, 170, 130, 130, 130 }). */}
-          <KiStatusBar>
-            <span className="cell msg" data-testid="view3d-activity" />
-            <span className="cell pane" style={{ width: 170 }} data-testid="view3d-hovered" />
-            <span className="cell pane" style={{ width: 130 }} data-testid="view3d-x">
-              {view3dStatus.x === null ? '' : `X ${view3dStatus.x.toFixed(4)}`}
-            </span>
-            <span className="cell pane" style={{ width: 130 }} data-testid="view3d-y">
-              {view3dStatus.y === null ? '' : `Y ${view3dStatus.y.toFixed(4)}`}
-            </span>
-            <span className="cell pane" style={{ width: 130 }} data-testid="view3d-zoom">
-              Z {view3dStatus.zoom.toFixed(2)}
-            </span>
-          </KiStatusBar>
-        </div>
+      {show3D && board && (
+        <Viewer3DFrame
+          board={board}
+          projectFiles={projectFiles}
+          backLabel="← PCB Editor"
+          imageBaseName={projectName || fileName.replace(/\.kicad_pcb$/i, '') || 'board'}
+          onClose={() => setShow3D(false)}
+        />
       )}
 
       {/* Disambiguation menu (SELECTION_TOOL::doSelectionMenu): which of several
@@ -8053,6 +8680,28 @@ export function PcbEditor({
       {/* Update PCB from Schematic: the netlist fetch, then DIALOG_UPDATE_PCB.
           A failed fetch shows the same message upstream puts in a
           DisplayErrorMessage box (a missing schematic, or one not annotated). */}
+      {pasteSpecialOpen && (
+        <DialogPasteSpecial
+          /* `PASTE_MODE mode = PASTE_MODE::KEEP_ANNOTATIONS` before the dialog
+             is shown (pcb_control.cpp:1208), so pcbnew always opens on "keep"
+             — where the schematic never does. */
+          mode="KEEP_ANNOTATIONS"
+          /* `const wxString defaultRef = wxT( "REF**" )` (:1211), which is the
+             string the third row's tooltip names. */
+          defaultRef="REF**"
+          onOk={(chosen: PasteSpecialMode, clearNets: boolean) => {
+            setPasteSpecialOpen(false);
+            const mode: PasteMode =
+              chosen === 'UNIQUE_ANNOTATIONS'
+                ? 'unique_annotations'
+                : chosen === 'KEEP_ANNOTATIONS'
+                  ? 'keep_annotations'
+                  : 'remove_annotations';
+            void navigator.clipboard?.readText().then((text) => pasteText(text, mode, clearNets));
+          }}
+          onCancel={() => setPasteSpecialOpen(false)}
+        />
+      )}
       {aboutOpen && <AboutDialog title={ABOUT_TITLES.pcb} onClose={() => setAboutOpen(false)} />}
       {prefsOpen && <PreferencesDialog onClose={() => setPrefsOpen(false)} />}
       {updatePcbBusy && (

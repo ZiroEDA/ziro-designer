@@ -199,11 +199,7 @@ export function DialogPcbPlot({
 
   return (
     <div className="ze-modal-backdrop" onMouseDown={onClose}>
-      <div
-        className="ze-modal"
-        style={{ width: 760, maxWidth: '96vw', height: 'auto' }}
-        onMouseDown={(e) => e.stopPropagation()}
-      >
+      <div className="ze-modal" onMouseDown={(e) => e.stopPropagation()}>
         <div className="ze-modal-header">
           Plot
           <span className="x" title="Close" onClick={onClose}>
@@ -212,7 +208,7 @@ export function DialogPcbPlot({
         </div>
         <div
           className="ze-modal-body"
-          style={{ display: 'block', padding: '10px 14px', maxHeight: '80vh', overflow: 'auto' }}
+          style={{ display: 'block', padding: '10px 14px', overflow: 'auto' }}
         >
           {/* Plot format + output directory (upstream's top rows). */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>

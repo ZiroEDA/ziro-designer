@@ -58,6 +58,8 @@ import { Fragment, useEffect, useState } from 'react';
 import type { JSX } from 'react';
 import { COLOR4D_UNSPECIFIED, parseColor4d, toHexString } from '@ziroeda/common';
 import { ColorSwatch } from '../ui/ColorSwatch.js';
+import { Combo } from '../ui/Combo.js';
+import { Icon } from '../ui/icons.js';
 import './properties_panel.css';
 
 /**
@@ -92,6 +94,23 @@ export interface PropertyGridRow<C> {
    * (`PG_UNIT_EDITOR::GetValueFromControl`, pg_editors.cpp:262-286).
    */
   readonly optional?: boolean;
+  /**
+   * The cell's EDITOR, where it is not the plain text control.
+   * `SCH_PROPERTIES_PANEL::createPGProperty` (sch_properties_panel.cpp:478-482)
+   * swaps it for two field names and no others:
+   *
+   *   Footprint  -> PG_FPID_EDITOR, a text control plus a wxPGMultiButton
+   *                 carrying `BITMAPS::small_library`, which opens
+   *                 FRAME_FOOTPRINT_CHOOSER (pg_editors.cpp:541-586);
+   *   Datasheet  -> PG_URL_EDITOR, the same shape with `BITMAPS::www` when the
+   *                 field holds a URL and `small_folder` when it does not.
+   *                 NOT done here: neither bitmap is vendored yet, and putting
+   *                 the library glyph on it would be the wrong icon.
+   *
+   * The button exists only while the cell is ACTIVATED, because that is when
+   * `CreateControls` runs - which is why it appears on click and not at rest.
+   */
+  readonly browse?: 'footprint';
   /** Absent for a read-only property. Returns the edit to commit, or null to
    *  reject the input and put the cell back. */
   readonly set?: (v: string | number | boolean) => C | null;
@@ -171,11 +190,19 @@ function ValueCell<C>({
   fmt,
   parse,
   onCommand,
+  onBrowse,
 }: {
   row: PropertyGridRow<C>;
   fmt: (iu: number) => string;
   parse: (text: string) => number | null;
   onCommand: (cmd: C) => void;
+  /**
+   * `PG_FPID_EDITOR::OnEvent`'s wxEVT_BUTTON branch: open
+   * FRAME_FOOTPRINT_CHOOSER on the cell's current text, and on OK
+   * `aGrid->ChangePropertyValue( aProperty, fpid )` - which is the cell's own
+   * commit, not a separate write. Absent leaves the button disabled.
+   */
+  onBrowse?: (current: string, commit: (picked: string) => void) => void;
 }): JSX.Element {
   const isDist = row.kind === 'coord' || row.kind === 'dist';
   const display = row.value === null ? '' : isDist ? fmt(row.value as number) : String(row.value);
@@ -267,25 +294,34 @@ function ValueCell<C>({
     );
 
   if (row.kind === 'choice') {
+    // `PG_CHOICE_EDITOR` is a wxChoice, and `ui/Combo` is that port: a native
+    // `<select>` has its option list drawn by the OS, so its highlight is
+    // Chrome's blue rgb(153,200,255) where GTK paints rgb(62,62,62) — the
+    // measurements are in Combo.tsx's header. Every other dropdown in the app
+    // is already ours; this one was the browser's.
     return cell(
-      <select
-        className="ze-pgrid-editor"
-        // biome-ignore lint/a11y/noAutofocus: the just-activated cell's editor
-        autoFocus
-        value={String(row.value)}
-        onChange={(e) => {
-          commitValue(e.target.value);
-          setEditing(false);
-        }}
-        onBlur={() => setEditing(false)}
+      // An active cell editor takes the keyboard: `wxPropertyGrid` gives it
+      // focus and the canvas never sees the key. The `<select>` this replaced
+      // stopped propagation itself; a Combo has its own key handling, so the
+      // swallow sits on the wrapper — and it must stay, or typing in a cell
+      // fires the editor's hotkeys behind it.
+      <span
+        className="ze-pgrid-editorwrap"
         onKeyDown={(e) => e.stopPropagation()}
+        onKeyUp={(e) => e.stopPropagation()}
       >
-        {row.choices?.map((c) => (
-          <option key={c} value={c}>
-            {c}
-          </option>
-        ))}
-      </select>,
+        <Combo
+          className="ze-pgrid-editor"
+          autoFocus
+          ariaLabel={row.name}
+          value={String(row.value)}
+          options={(row.choices ?? []).map((c) => ({ value: c, label: c }))}
+          onChange={(v) => {
+            commitValue(v);
+            setEditing(false);
+          }}
+        />
+      </span>,
     );
   }
 
@@ -317,7 +353,7 @@ function ValueCell<C>({
     if (!commitValue(v)) setText(display);
   };
 
-  return cell(
+  const input = (
     <input
       className="ze-pgrid-editor"
       type="text"
@@ -335,7 +371,67 @@ function ValueCell<C>({
         // The canvas listens for bare keys; a cell editor must swallow them.
         e.stopPropagation();
       }}
-    />,
+    />
+  );
+
+  if (!row.browse) return cell(input);
+
+  // `PG_FPID_EDITOR::CreateControls` builds a wxPGMultiButton beside the text
+  // control and hands the text control what is left: `buttons->Finalize(...)`
+  // then `GenerateEditorTextCtrl( aPos, buttons->GetPrimarySize(), ... )`
+  // (pg_editors.cpp:541-553). So the button is inside the cell, at its right,
+  // and the entry gives up exactly that much width.
+  //
+  // It is disabled only when the host supplies no `onBrowse` - the editor is
+  // the frame's opener, and a grid that cannot open one says so rather than
+  // offering a button that does nothing.
+  return cell(
+    <span className="ze-grid-editwrap">
+      {input}
+      <button
+        type="button"
+        className="ze-grid-cellbtn"
+        disabled={!onBrowse}
+        title={
+          onBrowse ? 'Browse for footprint' : 'Browse for footprint — needs the Footprint Chooser'
+        }
+        aria-label="Browse for footprint"
+        onClick={() =>
+          onBrowse?.(text, (picked) => {
+            setText(picked);
+            // `ChangePropertyValue` commits through the property, so the cell
+            // closes on the picked value rather than on what was typed.
+            if (!commitValue(picked)) setText(display);
+            setEditing(false);
+          })
+        }
+        /**
+         * `preventDefault` is what makes this button work at all, and its
+         * absence is why the first version of it did nothing on click.
+         *
+         * A mousedown on a button moves focus to it. That blurs the entry
+         * beside it, whose `onBlur` is `commitText`, whose first statement is
+         * `setEditing( false )` — so the editor unmounted and took the button
+         * with it, and the click that follows the mousedown had nothing left to
+         * land on. The cell just closed.
+         *
+         * Preventing the default keeps focus in the entry, which is also what
+         * wx does: a wxPGMultiButton does not take focus off the editor's text
+         * control, and `PG_FPID_EDITOR::OnEvent` reads `aProperty->GetValue()`
+         * on the button event with that control still live.
+         *
+         * `stopPropagation` is a separate job and still needed: without it the
+         * cell takes the mousedown as a click on itself and re-enters the
+         * editor.
+         */
+        onMouseDown={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        }}
+      >
+        <Icon name="smallLibrary" size={14} />
+      </button>
+    </span>,
   );
 }
 
@@ -351,6 +447,7 @@ export function PropertiesPanel<C>({
   fmt,
   parse,
   onCommand,
+  onBrowse,
 }: {
   selectionCount: number;
   friendlyName?: string;
@@ -358,6 +455,8 @@ export function PropertiesPanel<C>({
   fmt: (iu: number) => string;
   parse: (text: string) => number | null;
   onCommand: (cmd: C) => void;
+  /** See ValueCell: the host opens FRAME_FOOTPRINT_CHOOSER. */
+  onBrowse?: (current: string, commit: (picked: string) => void) => void;
 }): JSX.Element {
   const [collapsed, setCollapsed] = useState<readonly string[]>([]);
   // `reset()` (:186-194) clears the grid whenever nothing is selected, so an
@@ -404,6 +503,7 @@ export function PropertiesPanel<C>({
                       fmt={fmt}
                       parse={parse}
                       onCommand={onCommand}
+                      onBrowse={onBrowse}
                     />
                   </div>
                 ))}

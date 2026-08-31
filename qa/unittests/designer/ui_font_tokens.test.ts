@@ -259,7 +259,16 @@ const BASELINE: Record<string, number> = {
   // 49 here; that pass took the literal and left this row at 50. Lowered here
   // because the row has to match the tree and the total below has to match it
   // too.
-  'editors/schematic': 49,
+  // 49 -> 46: the per-editor copy of DIALOG_PASTE_SPECIAL, a `common/dialogs/`
+  // dialog upstream, went to `dialogs/` and took its three inline `fontSize`
+  // literals with it — 11.5 on the group's legend and 12.5 on each of the two
+  // label rows. The shared dialog states no font size at all; the modal body
+  // and `.ze-props-group` already carry the dialog's own font.
+  //
+  // Derived twice: the scan reports "editors/schematic: 46 now, baseline still
+  // says 49", and `git show HEAD:` of the deleted file lists exactly three
+  // `fontSize` occurrences.
+  'editors/schematic': 46,
   // 2 until the Symbol Editor parity pass deleted the invented
   // "Double-click a symbol..." hint that an empty SYMBOL_EDIT_FRAME does not
   // have; it carried an inline `fontSize: 14` and a `color: '#888'`.
@@ -332,7 +341,13 @@ const BASELINE: Record<string, number> = {
   // sets, not from the window's SetFont. Measured against the real dialog it
   // renders at the GUI font — so it inherits, and the count is unaffected
   // either way because a var() is not a hardcoded size.
-  ui: 119,
+  // 89 -> 86: Preferences > Hotkeys stopped stating its own type. A
+  // `wxTreeListCtrl` calls SetFont nowhere, so the list draws in the GUI font
+  // — this said `font-size: 10pt` on a row, 10 pt on the empty line and 9 pt on
+  // the import note, which is why the whole table read a size smaller than
+  // KiCad's. The column header's `var(--ui-font-size)` went with them: it was
+  // a token, never a literal, and only existed to restate the inherited size.
+  ui: 86,
   widgets: 6,
 };
 
@@ -520,7 +535,63 @@ describe('hardcoded font sizes do not grow', () => {
     // Output Messages box read as small print in every one of them. `ui` is
     // the only row that moves, the per-area check names it and nothing else,
     // and 327 - 4 agrees with the table.
-    expect(sites.length).toBe(323);
+    // 323 -> 322: `ui` 119 -> 118. `.ze-tp-body` stated 12.5px against the
+    // dialog's own 11pt / 14.67px. KiCad calls SetFont on nothing in
+    // DIALOG_TEXT_PROPERTIES, so every control takes the GUI font that
+    // `.ze-app` already hands down. One row moves and 323 - 1 agrees with it.
+    // 322 -> 320: `ui` 118 -> 116, the Annotate dialog's legend (12px) and its
+    // label rows (13px). A wxStaticBox label and a wxCheckBox label take the
+    // dialog's own font; KiCad sets none here.
+    // 320 -> 310: `ui` 116 -> 106, the ERC dialog. Twelve rules there stated
+    // their own size — the rows, the sub-rows, the footer, the tabs, the link,
+    // the progress line, the empty-state text, the position and the exclusion
+    // note — all between 10 and 13 px against the dialog's own 11 pt / 14.67 px,
+    // which is why the whole dialog read smaller than KiCad's.
+    //
+    // Two survive because upstream really does state them, and both are now
+    // cited rather than bare: the severity badge is a NUMBER_BADGE, which draws
+    // with `wxFont( m_textSize, ... )` at its default `m_textSize( 10 )` — a
+    // POINT size, and DIALOG_ERC never calls SetTextSize — and the tree's
+    // expander is a glyph the theme sizes, not the row's font.
+    // 310 -> 309: the ERC marker tree's expander glyph. It drew a raw "⌄" in a
+    // span sized by a font, where `.twisty` — the shared disclosure chevron —
+    // draws GTK's expander from measured borders and needs no font at all.
+    // 309 -> 308: `.ze-label-dialog-body .row > span:first-child`, the label
+    // column of twenty-one dialogs and the last survivor of the family that
+    // also had a size on `.ze-props-group`'s legend and label rules. A
+    // wxStaticText takes the dialog's own font; 13px against 11pt / 14.67px is
+    // why every one of those dialogs read smaller than KiCad's.
+    // 308 -> 305: three more wxStaticBox / wxCheckBox labels that stated their
+    // own size against the dialog's 11 pt / 14.67 px - `.ze-update-pcb-body`'s
+    // legend (12px) and its checkbox labels (13px), and the Label Properties
+    // group labels (12px). KiCad calls SetFont on none of them. `ui` is the
+    // only row that moves and 308 - 3 agrees with it.
+    // 305 -> 304: `.ze-pref-group-title`'s 12.5px. A Preferences group heading
+    // is a `wxStaticText` with a `wxStaticLine` under it, and neither
+    // `panel_common_settings_base.cpp` nor its hand-written `.cpp` calls
+    // SetFont anywhere - so it is the dialog's own font. One rule, one row.
+    // 304 -> 294: the whole Preferences dialog. TEN rules there stated 12px or
+    // 13px - the tree's parent rows, the page body, the radio and row labels,
+    // the units, the hotkey and mouse tables, the hint line and the colour rows
+    // - against the dialog's own 11 pt / 14.67 px. Not one of the panels
+    // upstream calls SetFont; a PAGED_DIALOG's pages take the GUI font like
+    // every other dialog. `ui` is the only row that moves, 100 -> 90, and
+    // 304 - 10 agrees with it.
+    // 294 -> 291: the three that left `editors/schematic` with the per-editor
+    // copy of DIALOG_PASTE_SPECIAL. One area moved, so the tree-wide delta and
+    // the per-area delta are the same three.
+    // 291 -> 290: `.ze-tree-item`'s `font-size: 13px`. A wxTreeCtrl row takes
+    // the CONTROL font - `m_treebook->SetFont( KIUI::GetControlFont( this ) )`
+    // (paged_dialog.cpp:72), 11 pt / 14.67 px - so our whole page tree read
+    // smaller than KiCad's, which was the bug. `ui` 90 -> 89 is the second
+    // derivation, and it agrees exactly: the two `font-weight: 700` rules that
+    // went at the same time are not sites here, and `.ze-projecttree
+    // .ze-tree-item`'s `var(--ui-font-size)` was a token, never a literal - it
+    // only existed to escape the 13px, and went with it.
+    // 290 -> 287: the three the Hotkeys list stated; see the `ui` row. RESCANNED
+    // from this tree, and the per-area table agrees — `ui` 89 -> 86 is the only
+    // row that moves, and 290 - 3 agrees with it.
+    expect(sites.length).toBe(287);
   });
 });
 

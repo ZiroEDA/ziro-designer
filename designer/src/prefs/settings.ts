@@ -60,6 +60,71 @@ export interface CommonSettings {
     show_scrollbars: boolean;
     use_icons_in_menus: boolean;
     hicontrast_dimming_factor: number;
+    /** `appearance.grid_striping` — "Use alternating row colors in tables". */
+    grid_striping: boolean;
+    /**
+     * `appearance.use_custom_cursors`. The checkbox is "Disable custom
+     * cursors", so the control is the NEGATION of this — as upstream's
+     * `m_disableCustomCursors->SetValue( !cfg->m_Appearance.use_custom_cursors )`.
+     */
+    use_custom_cursors: boolean;
+    /**
+     * `appearance.zoom_correction_factor`, PARAM<double> default 1.0, range
+     * 0.1..10.0. ZOOM_CORRECTION_CTRL's whole output: the Scaling group asks
+     * the user to measure a drawn ruler so a millimetre on screen is a
+     * millimetre. A browser needs this MORE than a desktop app, since a CSS
+     * pixel has no fixed physical size at all.
+     */
+    zoom_correction_factor: number;
+  };
+  /**
+   * `git.*` — COMMON_SETTINGS `m_Git`
+   * (`common/settings/common_settings.cpp:459-472`), the five parameters
+   * `PANEL_GIT_REPOS` edits. `git.repositories`, the sixth, is a
+   * `PARAM_LAMBDA<nlohmann::json>` the page does not touch.
+   *
+   * Nothing reads them here: upstream drives libgit2 against a project checked
+   * out on disk, polling a remote and stamping commits with an author. Ours
+   * live in the cloud store and are versioned by it. The page is still drawn,
+   * disabled, because KiCad has it — and holding the stored values is what
+   * makes "Reset Version Control to Defaults" a real button, as upstream's is.
+   */
+  git: {
+    authorName: string;
+    authorEmail: string;
+    /** `PARAM<bool>( "git.useDefaultAuthor", …, true )`. */
+    useDefaultAuthor: boolean;
+    /** `PARAM<bool>( "git.enableGit", …, true )`. */
+    enableGit: boolean;
+    /**
+     * `PARAM<int>( "git.updatInterval", …, 5 )` — minutes between remote
+     * checks. The missing `e` is upstream's own: the key is spelled that way in
+     * every `common.json` KiCad has written, so it is spelled that way here.
+     */
+    updatInterval: number;
+  };
+  /**
+   * `spacemouse.*` — COMMON_SETTINGS `m_SpaceMouse`
+   * (`include/settings/common_settings.h:124-132`,
+   * `common/settings/common_settings.cpp:308-324`), the six parameters
+   * `PANEL_SPACEMOUSE` edits.
+   *
+   * Nothing reads them here: a SpaceMouse reaches KiCad through 3Dconnexion's
+   * own daemon and the 3dxware SDK, and no browser API exposes the device. The
+   * page is still drawn, disabled, because it is a page KiCad has — and its
+   * controls show STORED values rather than literals, so "Reset SpaceMouse to
+   * Defaults" has something to reset and the page is a `RESETTABLE_PANEL` the
+   * way upstream's is.
+   */
+  spacemouse: {
+    /** `PARAM<int>( "spacemouse.rotate_speed", …, 5, 1, 10 )`. */
+    rotate_speed: number;
+    /** `PARAM<int>( "spacemouse.pan_speed", …, 5, 1, 10 )`. */
+    pan_speed: number;
+    reverse_rotate: boolean;
+    reverse_pan_x: boolean;
+    reverse_pan_y: boolean;
+    reverse_zoom: boolean;
   };
   input: {
     auto_pan: boolean;
@@ -67,11 +132,25 @@ export interface CommonSettings {
     center_on_zoom: boolean;
     warp_mouse_on_move: boolean;
     hotkey_feedback: boolean;
+    /** `input.focus_follow_sch_pcb`, default false. */
+    focus_follow_sch_pcb: boolean;
     immediate_actions: boolean; // !("First hotkey selects tool")
     zoom_acceleration: boolean;
     zoom_speed: number; // 1..10
     zoom_speed_auto: boolean;
     horizontal_pan: boolean;
+    /**
+     * `input.motion_pan_modifier`, `PARAM<int>( …, 0 )`
+     * (`common/settings/common_settings.cpp:287`) — "Pan on mouse movement
+     * with key", read by `WX_VIEW_CONTROLS::LoadSettings`
+     * (`wx_view_controls.cpp:193`) and `EDA_DRAW_PANEL_GAL`
+     * (`draw_panel_gal.cpp:832`).
+     *
+     * Upstream stores a `WXK_*` key code and the panel maps it to the four
+     * choices (`panel_mouse_settings.cpp:113-119`); ours stores the choice, as
+     * the other three modifier settings beside it do.
+     */
+    motion_pan_modifier: ScrollModifier;
     scroll_modifier_zoom: ScrollModifier;
     scroll_modifier_pan_h: ScrollModifier;
     scroll_modifier_pan_v: ScrollModifier;
@@ -101,12 +180,23 @@ export interface CommonSettings {
       pinned_fp_libs: string[];
     };
   };
+  /**
+   * `auto_backup.*`. 10.0.5 reshaped this: `PANEL_COMMON_SETTINGS` now offers
+   * Automatically backup projects, Format, Location and Maximum total backup
+   * size, and `common_settings.cpp:128-138` registers exactly those four.
+   * The count/interval params ours carried — backup_on_autosave,
+   * limit_total_files, limit_daily_files, min_interval — are gone from both.
+   */
   backup: {
     enabled: boolean;
-    backup_on_autosave: boolean;
-    limit_total_files: number;
-    limit_daily_files: number;
-    min_interval: number; // seconds
+    /**
+     * `PARAM_ENUM<BACKUP_FORMAT>( "auto_backup.format", …, INCREMENTAL )`.
+     * INCREMENTAL = 0 keeps a hidden .history git repository of continuous
+     * changes; ZIP = 1 writes timestamped archives on save.
+     */
+    format: 'incremental' | 'zip';
+    /** `PARAM_ENUM<BACKUP_LOCATION>( "auto_backup.location", …, PROJECT_DIR )`. */
+    location: 'project' | 'user';
     limit_total_size: number; // bytes
   };
   /**
@@ -189,6 +279,26 @@ export const COMMON_DEFAULTS: CommonSettings = {
     show_scrollbars: true,
     use_icons_in_menus: true,
     hicontrast_dimming_factor: 80,
+    grid_striping: false,
+    use_custom_cursors: true,
+    zoom_correction_factor: 1.0,
+  },
+  // `m_Git` — the five PARAM defaults.
+  git: {
+    authorName: '',
+    authorEmail: '',
+    useDefaultAuthor: true,
+    enableGit: true,
+    updatInterval: 5,
+  },
+  // `m_SpaceMouse` — the six PARAM defaults (5, 5, and four falses).
+  spacemouse: {
+    rotate_speed: 5,
+    pan_speed: 5,
+    reverse_rotate: false,
+    reverse_pan_x: false,
+    reverse_pan_y: false,
+    reverse_zoom: false,
   },
   input: {
     auto_pan: false,
@@ -196,11 +306,14 @@ export const COMMON_DEFAULTS: CommonSettings = {
     center_on_zoom: true,
     warp_mouse_on_move: true,
     hotkey_feedback: true,
+    focus_follow_sch_pcb: false,
     immediate_actions: true,
     zoom_acceleration: false,
     zoom_speed: 1,
     zoom_speed_auto: true,
     horizontal_pan: false,
+    // `PARAM<int>( "input.motion_pan_modifier", …, 0 )` — 0 is no key.
+    motion_pan_modifier: 'none',
     scroll_modifier_zoom: 'none',
     scroll_modifier_pan_h: 'ctrl',
     scroll_modifier_pan_v: 'shift',
@@ -218,10 +331,9 @@ export const COMMON_DEFAULTS: CommonSettings = {
   },
   backup: {
     enabled: true,
-    backup_on_autosave: false,
-    limit_total_files: 25,
-    limit_daily_files: 5,
-    min_interval: 300,
+    format: 'incremental',
+    location: 'project',
+    // `PARAM<unsigned long long>( "auto_backup.limit_total_size", …, 104857600 )`
     limit_total_size: 104857600,
   },
   // `PARAM<int>( "color_picker.default_tab", …, 0 )` — page 0 is "Color
@@ -259,6 +371,13 @@ export interface EeschemaSettings {
     default_font: string;
     show_hidden_pins: boolean;
     show_hidden_fields: boolean;
+    /**
+     * `PARAM<bool>( "appearance.show_directive_labels", …, true )`
+     * (`eeschema/eeschema_settings.cpp:210`), the checkbox between the hidden
+     * fields and the ERC rows on Display Options. Nothing reads it here: a
+     * directive label is drawn whatever it says.
+     */
+    show_directive_labels: boolean;
     show_erc_errors: boolean;
     show_erc_warnings: boolean;
     show_erc_exclusions: boolean;
@@ -323,6 +442,14 @@ export interface EeschemaSettings {
   selection: {
     thickness: number; // mils
     highlight_thickness: number; // mils
+    /**
+     * `PARAM<int>( "selection.drag_net_collision_width", …, 4, 1, 50 )`
+     * (`eeschema/eeschema_settings.cpp:453`) — "Net collision marker width:",
+     * the row between the selection thickness and the highlight thickness on
+     * Display Options. Nothing reads it: dragging a wire past another net
+     * draws no collision marker here yet.
+     */
+    drag_net_collision_width: number;
     draw_selected_children: boolean;
     fill_shapes: boolean;
     highlight_netclass_colors: boolean;
@@ -471,6 +598,8 @@ export const EESCHEMA_DEFAULTS: EeschemaSettings = {
     default_font: 'KiCad Font',
     show_hidden_pins: false,
     show_hidden_fields: false,
+    // `PARAM<bool>( …, true )` — upstream's default.
+    show_directive_labels: true,
     show_erc_errors: true,
     show_erc_warnings: true,
     show_erc_exclusions: false,
@@ -515,6 +644,8 @@ export const EESCHEMA_DEFAULTS: EeschemaSettings = {
   selection: {
     thickness: 3,
     highlight_thickness: 2,
+    // `PARAM<int>( …, 4, 1, 50 )` — upstream's default.
+    drag_net_collision_width: 4,
     draw_selected_children: true,
     fill_shapes: false,
     highlight_netclass_colors: false,

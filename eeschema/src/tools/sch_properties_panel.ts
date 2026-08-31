@@ -10,6 +10,7 @@
  * undoable command.
  */
 
+import { electricalPinTypeGetText, pinShapeGetText } from '../pin_type.js';
 import type {
   LibSymbol,
   SchLabel,
@@ -17,12 +18,16 @@ import type {
   SchSymbol,
   Schematic,
   Stroke,
+  SchTableCell,
+  SchTextBox,
+  TextBoxMargins,
   TextEffects,
   Vec2,
 } from '../types.js';
-import { parseColor4d, rgb8ToCss } from '@ziroeda/common';
+import { FILL_MODE_NAMES, FILL_MODE_TOKENS, parseColor4d, rgb8ToCss } from '@ziroeda/common';
 import type { EditCommand } from './command.js';
 import { refId, type ItemRef } from './hittest.js';
+import { cellIndexOfId, tableOfCellId } from './table_cells.js';
 import {
   replaceBusEntry,
   replaceGraphic,
@@ -34,6 +39,7 @@ import {
   replaceTable,
   replaceTextBox,
 } from './mutate.js';
+import { imageSizeIU } from './image_size.js';
 import { moveItems } from './move.js';
 import { parseSheetPinId } from './sch_sheet_pin_tool.js';
 import { transformItems } from './transform.js';
@@ -71,6 +77,56 @@ const num = (v: string | number | boolean): number | null => {
   const n = typeof v === 'number' ? v : Number(v);
   return Number.isFinite(n) ? n : null;
 };
+
+/**
+ * A COLOR4D property, as `PGPROPERTY_COLOR4D` renders it: a swatch, and
+ * UNSPECIFIED - alpha 0 - reads as "no colour of its own, use the theme's".
+ * `SCH_LINE`, `SCH_JUNCTION`, `SCH_BUS_ENTRY_BASE`, `SCH_SHAPE`, `SCH_SHEET`
+ * and `SCH_TABLE` all register one, so the conversion lives here once rather
+ * than inside whichever arm needed it first.
+ */
+type ColorTuple = readonly [number, number, number, number];
+
+/** A stored colour as the swatch wants it; UNSPECIFIED reads empty. */
+const cssOf = (c: ColorTuple | undefined): string =>
+  c && c[3] > 0 ? rgb8ToCss([c[0], c[1], c[2]]) : '';
+
+/**
+ * The reverse. Two things this got wrong, both caught by round-tripping a
+ * picked colour rather than by reading the setter:
+ *
+ *  - `Color4d` carries r/g/b as 0..1 floats, and the MODEL carries the file's
+ *    own numbers, which for `(color 255 0 0 1)` are 0..255 bytes - `cssOf`
+ *    above reads them that way through `rgb8ToCss`. Writing the float straight
+ *    through stored `(color 0.2 0.4 0.8 1)`, which KiCad reads back as very
+ *    nearly black. Read and write have to agree on the unit; they did not.
+ *  - the empty string is the swatch cleared, and `parseColor4d('')` is opaque
+ *    BLACK rather than UNSPECIFIED, so `a <= 0` never fired and clearing a
+ *    colour pinned the item to black instead of returning it to the theme's.
+ */
+const tupleOf = (css: string): ColorTuple | undefined => {
+  if (css.trim() === '') return undefined;
+  const c = parseColor4d(css);
+  if (c.a <= 0) return undefined;
+  return [Math.round(c.r * 255), Math.round(c.g * 255), Math.round(c.b * 255), c.a];
+};
+
+/**
+ * One COLOR4D row. `set` is handed the tuple, or undefined for "clear it",
+ * which is what an empty swatch means everywhere upstream.
+ */
+const colorRow = (
+  group: string,
+  name: string,
+  current: ColorTuple | undefined,
+  set: (c: ColorTuple | undefined) => EditCommand | null,
+): PropRow => ({
+  group,
+  name,
+  kind: 'color',
+  value: cssOf(current),
+  set: (v) => set(tupleOf(String(v).trim())),
+});
 
 /** Position setters go through moveItems so attached fields follow. */
 const positionRows = (id: string, at: Vec2): PropRow[] => [
@@ -324,6 +380,12 @@ function symbolRows(sch: Schematic, libById: Map<string, LibSymbol>, index: numb
       name: key,
       kind: 'string',
       value,
+      // `SCH_PROPERTIES_PANEL::createPGProperty` swaps the editor for exactly
+      // one field name (sch_properties_panel.cpp:478-479): the Footprint
+      // field's becomes PG_FPID_EDITOR, an entry plus a `small_library` button
+      // onto FRAME_FOOTPRINT_CHOOSER. Every other field keeps the plain text
+      // control, so this is a name test and not a heuristic.
+      ...(key === 'Footprint' ? { browse: 'footprint' as const } : {}),
       set: (v) =>
         String(v) === value ? null : bulkEditFieldsCommand(new Map([[id, { [key]: String(v) }]])),
     });
@@ -454,6 +516,180 @@ function sheetFieldRows(sh: SchSheet, index: number): PropRow[] {
   });
 }
 
+/**
+ * `EDA_TEXT_DESC`'s rows (common/eda_text.cpp), which every text-bearing
+ * schematic item inherits: a field, a text box, a table cell, a label.
+ *
+ * Registration order is Orientation, Text, Font, Auto Thickness, Thickness,
+ * Italic, Bold, Mirrored, Visible, Width, Height, Horizontal Justification,
+ * Vertical Justification, Color, Hyperlink. Which of those an item actually
+ * shows depends on what it MASKS: SCH_TEXTBOX masks Width, Height, Thickness
+ * and Orientation, and SCH_TABLECELL masks those plus Mirrored, Visible and
+ * Hyperlink. `Visible` also carries `SetAvailableFunc( isField )` upstream, so
+ * a field is the only schematic item that ever shows it.
+ *
+ * The caller supplies its own `Text` row because the text lives in a different
+ * place on each item, and it goes first - which is where EDA_TEXT registers it
+ * once Orientation is masked.
+ */
+interface EdaTextOpts {
+  /** The item's own Text row, placed first. */
+  readonly text: PropRow;
+  /** EDA_TEXT's `Visible`, which only a SCH_FIELD shows. */
+  readonly showVisible?: boolean;
+  /**
+   * EDA_TEXT's `Mirrored`. SCH_TABLECELL masks it; a text box does not, so a
+   * text box shows it. Our TextEffects has nowhere to store it, so the row is
+   * shown READ-ONLY rather than dropped - "whatever KiCad does" for a property
+   * the model cannot back yet.
+   */
+  readonly showMirrored?: boolean;
+  /** EDA_TEXT's `Hyperlink`, likewise masked by a cell and not by a text box. */
+  readonly hyperlink?: {
+    readonly value: string;
+    /** Absent where the model cannot back one: shown, read-only. */
+    readonly set?: (v: string) => EditCommand | null;
+  };
+}
+
+function edaTextRows(
+  fx: TextEffects | undefined,
+  setEffects: (label: string, p: Partial<TextEffects>) => EditCommand,
+  opts: EdaTextOpts,
+): PropRow[] {
+  const G = 'Text Properties';
+  const hIdx = justifyOf(fx, H_JUSTIFY_TOKENS);
+  const vIdx = justifyOf(fx, V_JUSTIFY_TOKENS);
+  return [
+    opts.text,
+    {
+      group: G,
+      name: 'Font',
+      kind: 'choice',
+      choices: FONT_CHOICES,
+      // `GetFontProp()` answers "Default Font" when no face is set
+      // (common/eda_text.cpp:1023-1032); `SetFontProp` clears it again.
+      value: fx?.face ? fx.face : 'Default Font',
+      set: (v) =>
+        setEffects('Change Font', {
+          face: String(v) === 'Default Font' ? undefined : String(v),
+        }),
+    },
+    {
+      group: G,
+      name: 'Auto Thickness',
+      kind: 'bool',
+      // `GetAutoThickness() { return GetTextThickness() == 0; }`
+      // (include/eda_text.h:150): an absent `(thickness ...)` token is auto.
+      value: !fx?.thickness,
+      // Only the auto direction is expressible - the effective pen is resolved
+      // at draw time from the size and the bold flag, so unticking is refused
+      // rather than guessed.
+      set: (v) => (v ? setEffects('Auto Thickness', { thickness: undefined }) : null),
+    },
+    {
+      group: G,
+      name: 'Italic',
+      kind: 'bool',
+      value: !!fx?.italic,
+      set: (v) => setEffects('Toggle Italic', { italic: !!v || undefined }),
+    },
+    {
+      group: G,
+      name: 'Bold',
+      kind: 'bool',
+      value: !!fx?.bold,
+      set: (v) => setEffects('Toggle Bold', { bold: !!v || undefined }),
+    },
+    // `Mirrored` sits between Bold and Visible in EDA_TEXT_DESC.
+    ...(opts.showMirrored
+      ? [{ group: G, name: 'Mirrored', kind: 'bool', value: false } as PropRow]
+      : []),
+    ...(opts.showVisible
+      ? [
+          {
+            group: G,
+            name: 'Visible',
+            kind: 'bool',
+            value: !fx?.hidden,
+            set: (v: string | number | boolean) => setEffects('Show Field', { hidden: !v }),
+          } as PropRow,
+        ]
+      : []),
+    {
+      group: G,
+      name: 'Horizontal Justification',
+      kind: 'choice',
+      choices: H_JUSTIFY_LABELS,
+      value: H_JUSTIFY_LABELS[hIdx]!,
+      set: (v) => {
+        const k = (H_JUSTIFY_LABELS as readonly string[]).indexOf(String(v));
+        return k < 0
+          ? null
+          : setEffects('Change Horizontal Justification', {
+              justify: withJustify(fx, H_JUSTIFY_TOKENS, H_JUSTIFY_TOKENS[k]!),
+            });
+      },
+    },
+    {
+      group: G,
+      name: 'Vertical Justification',
+      kind: 'choice',
+      choices: V_JUSTIFY_LABELS,
+      value: V_JUSTIFY_LABELS[vIdx]!,
+      set: (v) => {
+        const k = (V_JUSTIFY_LABELS as readonly string[]).indexOf(String(v));
+        return k < 0
+          ? null
+          : setEffects('Change Vertical Justification', {
+              justify: withJustify(fx, V_JUSTIFY_TOKENS, V_JUSTIFY_TOKENS[k]!),
+            });
+      },
+    },
+    colorRow(G, 'Color', fx?.color, (c) => setEffects('Change Color', { color: c })),
+    // `Hyperlink` is the last row EDA_TEXT_DESC registers.
+    ...(opts.hyperlink
+      ? [
+          {
+            group: G,
+            name: 'Hyperlink',
+            kind: 'string',
+            value: opts.hyperlink.value,
+            ...(opts.hyperlink.set
+              ? { set: (v: string | number | boolean) => opts.hyperlink!.set!(String(v)) }
+              : {}),
+          } as PropRow,
+        ]
+      : []),
+  ];
+}
+
+/**
+ * `SCH_TEXTBOX_DESC`'s four margins, group `_( "Margins" )`. A table cell
+ * inherits them from SCH_TEXTBOX, so both callers take them from here.
+ */
+function marginRows(
+  m: TextBoxMargins | undefined,
+  put: (p: Partial<TextBoxMargins>) => EditCommand,
+): PropRow[] {
+  const side = (name: string, key: keyof TextBoxMargins): PropRow => ({
+    group: 'Margins',
+    name,
+    kind: 'dist',
+    value: m?.[key] ?? 0,
+    set: (v) => {
+      const n = num(v);
+      return n === null ? null : put({ [key]: n });
+    },
+  });
+  return [
+    side('Margin Left', 'left'),
+    side('Margin Top', 'top'),
+    side('Margin Right', 'right'),
+    side('Margin Bottom', 'bottom'),
+  ];
+}
+
 function lineRows(sch: Schematic, index: number): PropRow[] {
   const l = sch.lines[index]!;
   const isGraphic = l.kind !== 'wire' && l.kind !== 'bus';
@@ -509,74 +745,45 @@ function lineRows(sch: Schematic, index: number): PropRow[] {
         return n === null || n < 0 ? null : setStroke('Change Line Width', { width: n });
       },
     },
+    // `_HKI( "Color" )`, SCH_LINE::SetLineColor / GetLineColor
+    // (sch_line.cpp, last in SCH_LINE_DESC). A wire has one too - it is not a
+    // graphic-line-only property, and it was the one row of SCH_LINE_DESC we
+    // did not render.
+    colorRow('', 'Color', l.stroke?.color, (c) => setStroke('Change Line Color', { color: c })),
   ];
 }
 
+/**
+ * SCH_TEXT and the three SCH_LABEL_BASE kinds.
+ *
+ * Verified against a capture of a selected Text in 10.0.5: ONE category, ten
+ * rows, and NO Position X/Y and NO Orientation. That is what the registrations
+ * say too - `SCH_TEXT_DESC` adds only `Text Size`, EDA_TEXT supplies the rest,
+ * and neither SCH_ITEM nor EDA_ITEM registers a position at all. The generic
+ * position rows we put on a label were ours; the only schematic item that
+ * really has them is SCH_BITMAP, which registers its own.
+ *
+ * SCH_TEXT masks Orientation, Thickness, Mirrored, Width and Height out of
+ * EDA_TEXT, which is why the capture shows neither an angle nor a separate
+ * text width - our `Height` and `Width` rows were that mask read backwards.
+ *
+ * A label additionally carries `Shape`, `SetAvailableFunc( hasLabelShape )` -
+ * true for a global or hierarchical label, false for a plain one.
+ */
 function labelRows(sch: Schematic, index: number): PropRow[] {
   const l = sch.labels[index]!;
-  const id = refId('label', l.uuid, index);
   const patch = (label: string, p: Partial<SchLabel>): EditCommand =>
     replaceLabel(index, { ...l, ...p });
   const eff = l.effects;
-  const size = eff?.fontSize?.[0] ?? 12700;
   const setEffects = (label: string, p: Partial<TextEffects>): EditCommand =>
     patch(label, { effects: { hidden: false, ...eff, ...p } });
-  const rows: PropRow[] = [
-    ...positionRows(id, l.at),
-    {
-      group: '',
-      name: 'Orientation',
-      kind: 'choice',
-      choices: ORIENTATIONS,
-      value: String(l.angle),
-      set: (v) => patch('Change Orientation', { angle: Number(v) }),
-    },
-    {
-      group: 'Text Properties',
-      name: 'Text',
-      kind: 'string',
-      value: l.text,
-      set: (v) => (String(v) === l.text ? null : patch('Edit Text', { text: String(v) })),
-    },
-    {
-      group: 'Text Properties',
-      name: 'Italic',
-      kind: 'bool',
-      value: !!eff?.italic,
-      set: (v) => setEffects('Toggle Italic', { italic: !!v || undefined }),
-    },
-    {
-      group: 'Text Properties',
-      name: 'Bold',
-      kind: 'bool',
-      value: !!eff?.bold,
-      set: (v) => setEffects('Toggle Bold', { bold: !!v || undefined }),
-    },
-    {
-      group: 'Text Properties',
-      name: 'Height',
-      kind: 'dist',
-      value: size,
-      set: (v) => {
-        const n = num(v);
-        return n === null || n <= 0
-          ? null
-          : setEffects('Change Text Size', { fontSize: [n, eff?.fontSize?.[1] ?? n] });
-      },
-    },
-    {
-      group: 'Text Properties',
-      name: 'Width',
-      kind: 'dist',
-      value: eff?.fontSize?.[1] ?? size,
-      set: (v) => {
-        const n = num(v);
-        return n === null || n <= 0
-          ? null
-          : setEffects('Change Text Size', { fontSize: [eff?.fontSize?.[0] ?? n, n] });
-      },
-    },
-  ];
+  // `GetSchTextSize()` is the text WIDTH, as it is for a field.
+  const textSize = eff?.fontSize?.[1] ?? eff?.fontSize?.[0] ?? 0;
+
+  const rows: PropRow[] = [];
+
+  // `hasLabelShape`: SCH_LABEL_DESC registers Shape ungrouped, so it lands in
+  // the unnamed group ABOVE Text Properties rather than after it.
   if (l.kind === 'global_label' || l.kind === 'hierarchical_label') {
     const cur = SHAPE_TOKENS.indexOf((l.shape ?? 'input') as (typeof SHAPE_TOKENS)[number]);
     rows.push({
@@ -591,6 +798,39 @@ function labelRows(sch: Schematic, index: number): PropRow[] {
       },
     });
   }
+
+  rows.push(
+    ...edaTextRows(eff, setEffects, {
+      text: {
+        group: 'Text Properties',
+        name: 'Text',
+        kind: 'string',
+        value: l.text,
+        set: (v) => (String(v) === l.text ? null : patch('Edit Text', { text: String(v) })),
+      },
+      // A plain SCH_LABEL masks Hyperlink; SCH_TEXT, a global and a
+      // hierarchical label all keep it (sch_label.cpp).
+      ...(l.kind === 'label'
+        ? {}
+        : {
+            hyperlink: {
+              value: l.hyperlink ?? '',
+              set: (v: string) =>
+                patch('Change Hyperlink', { hyperlink: v === '' ? undefined : v }),
+            },
+          }),
+    }),
+    {
+      group: 'Text Properties',
+      name: 'Text Size',
+      kind: 'dist',
+      value: textSize,
+      set: (v) => {
+        const n = num(v);
+        return n === null || n <= 0 ? null : setEffects('Change Text Size', { fontSize: [n, n] });
+      },
+    },
+  );
   return rows;
 }
 
@@ -868,31 +1108,6 @@ function fieldRows(sch: Schematic, id: string): PropRow[] {
 }
 
 /** ELECTRICAL_PINTYPE / GRAPHIC_PINSHAPE / PIN_ORIENTATION labels (sch_pin.cpp ENUM_MAPs). */
-const PIN_TYPE_LABELS: Record<string, string> = {
-  input: 'Input',
-  output: 'Output',
-  bidirectional: 'Bidirectional',
-  tri_state: 'Tri-state',
-  passive: 'Passive',
-  free: 'Free',
-  unspecified: 'Unspecified',
-  power_in: 'Power input',
-  power_out: 'Power output',
-  open_collector: 'Open collector',
-  open_emitter: 'Open emitter',
-  no_connect: 'Unconnected',
-};
-const PIN_SHAPE_LABELS: Record<string, string> = {
-  line: 'Line',
-  inverted: 'Inverted',
-  clock: 'Clock',
-  inverted_clock: 'Inverted clock',
-  input_low: 'Input low',
-  clock_low: 'Clock low',
-  output_low: 'Output low',
-  edge_clock_high: 'Falling edge clock',
-  non_logic: 'NonLogic',
-};
 const PIN_ORIENTATION_LABELS: Record<number, string> = {
   0: 'Right',
   90: 'Up',
@@ -948,8 +1163,8 @@ function pinRows(sch: Schematic, libById: Map<string, LibSymbol>, id: string): P
       return [
         row('Pin Name', alt || pin.name),
         row('Pin Number', pin.number),
-        row('Electrical Type', PIN_TYPE_LABELS[type] ?? type),
-        row('Graphic Style', PIN_SHAPE_LABELS[shape] ?? shape),
+        row('Electrical Type', electricalPinTypeGetText(type)),
+        row('Graphic Style', pinShapeGetText(shape)),
         row('Orientation', PIN_ORIENTATION_LABELS[((pin.angle % 360) + 360) % 360] ?? 'Right'),
         { group: '', name: 'Length', kind: 'dist', value: pin.length },
       ];
@@ -1066,8 +1281,11 @@ export function schPropertiesFor(
       const i = indexOf(sch.junctions, (t, k) => refId('junction', t.uuid, k));
       if (i < 0) return [];
       const j = sch.junctions[i]!;
+      // SCH_JUNCTION_DESC registers Diameter and Color and nothing else. The
+      // Position X/Y rows here were ours: neither SCH_ITEM nor EDA_ITEM
+      // registers a position, and a capture of a selected Text in 10.0.5 shows
+      // none either. SCH_BITMAP is the one schematic item with real ones.
       return [
-        ...positionRows(refId('junction', j.uuid, i), j.at),
         {
           group: '',
           name: 'Diameter',
@@ -1078,13 +1296,17 @@ export function schPropertiesFor(
             return n === null || n < 0 ? null : replaceJunction(i, { ...j, diameter: n });
           },
         },
+        // `_HKI( "Color" )`, SCH_JUNCTION::SetColor / GetColor
+        // (sch_junction.cpp): SCH_JUNCTION_DESC registers exactly two
+        // properties and we rendered one of them.
+        colorRow('', 'Color', j.color, (c) => replaceJunction(i, { ...j, color: c })),
       ];
     }
-    case 'noconnect': {
-      const i = indexOf(sch.noConnects, (t, k) => refId('noconnect', t.uuid, k));
-      if (i < 0) return [];
-      return positionRows(refId('noconnect', sch.noConnects[i]!.uuid, i), sch.noConnects[i]!.at);
-    }
+    // There is no SCH_NO_CONNECT_DESC: a no-connect flag registers no
+    // properties, so its pane is the caption and nothing under it. The
+    // Position X/Y we showed were ours.
+    case 'noconnect':
+      return [];
     // #307 made a bus entry's stroke editable through the wire/bus dialog; the
     // properties panel is the other place upstream exposes it, since
     // SCH_EDIT_TOOL::Properties groups SCH_BUS_WIRE_ENTRY_T with SCH_LINE_T.
@@ -1095,18 +1317,10 @@ export function schPropertiesFor(
       const withStroke = (p: Partial<Stroke>): EditCommand =>
         replaceBusEntry(i, { ...be, stroke: { width: 0, type: 'default', ...be.stroke, ...p } });
       const cur = be.stroke?.type ?? 'default';
+      // SCH_BUS_ENTRY_DESC registers Wire Style, then Line Width, then Color,
+      // and a wxPropertyGrid renders a group in registration order - so ours
+      // had the first two the wrong way round and was missing the third.
       return [
-        ...positionRows(refId('busentry', be.uuid, i), be.at),
-        {
-          group: '',
-          name: 'Line Width',
-          kind: 'dist',
-          value: be.stroke?.width ?? 0,
-          set: (v) => {
-            const n = num(v);
-            return n === null || n < 0 ? null : withStroke({ width: n });
-          },
-        },
         {
           group: '',
           name: 'Wire Style',
@@ -1119,6 +1333,18 @@ export function schPropertiesFor(
             return k < 0 ? null : withStroke({ type: STROKE_TYPES[k]! });
           },
         },
+        {
+          group: '',
+          name: 'Line Width',
+          kind: 'dist',
+          value: be.stroke?.width ?? 0,
+          set: (v) => {
+            const n = num(v);
+            return n === null || n < 0 ? null : withStroke({ width: n });
+          },
+        },
+        // `_HKI( "Color" )`, SCH_BUS_ENTRY_BASE::SetBusEntryColor.
+        colorRow('', 'Color', be.stroke?.color, (c) => withStroke({ color: c })),
       ];
     }
     // SCH_BITMAP's editable property is its scale; the position comes from the
@@ -1127,10 +1353,16 @@ export function schPropertiesFor(
       const i = indexOf(sch.images, (t, k) => refId('image', t.uuid, k));
       if (i < 0) return [];
       const im = sch.images[i]!;
+      // SCH_BITMAP_DESC (sch_bitmap.cpp) registers Position X/Y ungrouped and
+      // then five rows in `_( "Image Properties" )`: Scale, Transform Offset
+      // X/Y, Width and Height. We showed Scale alone, in the wrong group.
+      const IP = 'Image Properties';
+      const size = imageSizeIU(im);
       return [
         ...positionRows(refId('image', im.uuid, i), im.at),
         {
-          group: '',
+          group: IP,
+          // `PROPERTY<SCH_BITMAP, double>`, not a distance: it is a ratio.
           name: 'Scale',
           kind: 'dist',
           value: im.scale,
@@ -1139,6 +1371,42 @@ export function schPropertiesFor(
             // A zero or negative scale would collapse or invert the image;
             // PANEL_IMAGE_EDITOR clamps rather than accepting it.
             return n === null || n <= 0 ? null : replaceImage(i, { ...im, scale: n });
+          },
+        },
+        // REFERENCE_IMAGE's transform origin offset. Our model has no
+        // transform, so it is always the untransformed 0 - which is the value
+        // KiCad shows for an image nobody has moved the origin of, so the row
+        // is truthful rather than a placeholder. Read-only until the model
+        // carries one.
+        { group: IP, name: 'Transform Offset X', kind: 'coord', value: 0 },
+        { group: IP, name: 'Transform Offset Y', kind: 'coord', value: 0 },
+        // `SetWidth`/`SetHeight` scale the image about its centre, so both are
+        // the natural pixel size times the scale. `imageSizeIU` reads that
+        // size out of the PNG's IHDR, which is what the hit test and the align
+        // tool already measure the image with - so these are real numbers, not
+        // zeroes standing in for a row we cannot fill.
+        {
+          group: IP,
+          name: 'Width',
+          kind: 'dist',
+          value: size.w,
+          set: (v) => {
+            const n = num(v);
+            return n === null || n <= 0 || size.w <= 0
+              ? null
+              : replaceImage(i, { ...im, scale: (im.scale * n) / size.w });
+          },
+        },
+        {
+          group: IP,
+          name: 'Height',
+          kind: 'dist',
+          value: size.h,
+          set: (v) => {
+            const n = num(v);
+            return n === null || n <= 0 || size.h <= 0
+              ? null
+              : replaceImage(i, { ...im, scale: (im.scale * n) / size.h });
           },
         },
       ];
@@ -1156,9 +1424,139 @@ export function schPropertiesFor(
       const cur = g.stroke?.type ?? 'solid';
       const setStroke = (p: Partial<Stroke>): EditCommand =>
         replaceGraphic(i, { ...g, stroke: { width: 0, type: 'solid', ...g.stroke, ...p } });
-      const rows: PropRow[] = [
+      /**
+       * `EDA_SHAPE`'s own properties, in its order and under its group
+       * (common/eda_shape.cpp:2884-2960):
+       *
+       *   Shape, Start X, Start Y, Center X, Center Y, Radius, End X, End Y,
+       *   Width, Height, Corner Radius, Line Width, Line Style, Line Color,
+       *   Angle, Fill, Fill Color        — group _HKI( "Shape Properties" )
+       *
+       * with three availability functions deciding which a given shape shows:
+       *
+       *   Start/End X,Y      isNotPolygonOrCircle
+       *   Center X,Y Radius  isCircle
+       *   W, H, Corner Rad   isRectangle
+       *
+       * We showed three rows — Line Width, Line Style and a "Filled" checkbox —
+       * under the default group, so a rectangle offered nothing about where it
+       * is or how big, and its group read "Basic Properties".
+       *
+       * `Filled` is not one of these: `SCH_SHAPE` overrides it to be available
+       * only on a LIBRARY shape (`isSchematicItem`, sch_shape.cpp:604-610). A
+       * schematic shape gets `Fill` — the FILL_T enum — instead.
+       */
+      const G = 'Shape Properties';
+      const isRect = g.kind === 'rectangle';
+      const isCircle = g.kind === 'circle';
+      const isNotPolygonOrCircle = !isCircle && g.kind !== 'polyline' && g.kind !== 'bezier';
+      const fillType = g.fill?.type ?? 'none';
+      const setFill = (p: Partial<NonNullable<typeof g.fill>>): EditCommand =>
+        replaceGraphic(i, { ...g, fill: { type: 'none', ...g.fill, ...p } });
+      /** `_HKI( "Shape" )`, read-only: the shape's own name. */
+      const shapeName = g.kind.charAt(0).toUpperCase() + g.kind.slice(1);
+
+      const rows: PropRow[] = [{ group: G, name: 'Shape', kind: 'string', value: shapeName }];
+
+      if (isNotPolygonOrCircle && 'start' in g && 'end' in g) {
+        const gs = g as typeof g & { start: Vec2; end: Vec2 };
+        const move = (nx: Partial<Vec2>, ny: Partial<Vec2>): EditCommand =>
+          replaceGraphic(i, { ...gs, start: { ...gs.start, ...nx }, end: { ...gs.end, ...ny } });
+        rows.push(
+          {
+            group: G,
+            name: 'Start X',
+            kind: 'dist',
+            value: gs.start.x,
+            set: (v) => (num(v) === null ? null : move({ x: num(v)! }, {})),
+          },
+          {
+            group: G,
+            name: 'Start Y',
+            kind: 'dist',
+            value: gs.start.y,
+            set: (v) => (num(v) === null ? null : move({ y: num(v)! }, {})),
+          },
+          {
+            group: G,
+            name: 'End X',
+            kind: 'dist',
+            value: gs.end.x,
+            set: (v) => (num(v) === null ? null : move({}, { x: num(v)! })),
+          },
+          {
+            group: G,
+            name: 'End Y',
+            kind: 'dist',
+            value: gs.end.y,
+            set: (v) => (num(v) === null ? null : move({}, { y: num(v)! })),
+          },
+        );
+        if (isRect) {
+          // Width and Height are DERIVED — `GetRectangleWidth()` is
+          // `end.x - start.x` — so setting one moves the far corner.
+          rows.push(
+            {
+              group: G,
+              name: 'Width',
+              kind: 'dist',
+              value: gs.end.x - gs.start.x,
+              set: (v) => (num(v) === null ? null : move({}, { x: gs.start.x + num(v)! })),
+            },
+            {
+              group: G,
+              name: 'Height',
+              kind: 'dist',
+              value: gs.end.y - gs.start.y,
+              set: (v) => (num(v) === null ? null : move({}, { y: gs.start.y + num(v)! })),
+            },
+            // `_HKI( "Corner Radius" )`, isRectangle. Our model has no rounded
+            // rectangle, so it reads 0 and is not editable — shown rather than
+            // hidden, because upstream shows it for every rectangle.
+            { group: G, name: 'Corner Radius', kind: 'dist', value: 0 },
+          );
+        }
+      }
+
+      if (isCircle) {
+        const gc = g as typeof g & { center: Vec2; radius: number };
+        rows.push(
+          {
+            group: G,
+            name: 'Center X',
+            kind: 'dist',
+            value: gc.center.x,
+            set: (v) =>
+              num(v) === null
+                ? null
+                : replaceGraphic(i, { ...gc, center: { ...gc.center, x: num(v)! } }),
+          },
+          {
+            group: G,
+            name: 'Center Y',
+            kind: 'dist',
+            value: gc.center.y,
+            set: (v) =>
+              num(v) === null
+                ? null
+                : replaceGraphic(i, { ...gc, center: { ...gc.center, y: num(v)! } }),
+          },
+          {
+            group: G,
+            name: 'Radius',
+            kind: 'dist',
+            value: gc.radius,
+            set: (v) => {
+              const n = num(v);
+              return n === null || n <= 0 ? null : replaceGraphic(i, { ...gc, radius: n });
+            },
+          },
+        );
+      }
+
+      rows.push(
         {
-          group: '',
+          group: G,
           name: 'Line Width',
           kind: 'dist',
           value: g.stroke?.width ?? 0,
@@ -1168,7 +1566,7 @@ export function schPropertiesFor(
           },
         },
         {
-          group: '',
+          group: G,
           name: 'Line Style',
           kind: 'choice',
           choices: LINE_STYLES,
@@ -1182,34 +1580,118 @@ export function schPropertiesFor(
           },
         },
         {
-          group: '',
-          name: 'Filled',
-          kind: 'bool',
-          value: (g.fill?.type ?? 'none') !== 'none',
-          set: (v) =>
-            replaceGraphic(i, { ...g, fill: { ...g.fill, type: v ? 'outline' : 'none' } }),
-        },
-      ];
-      if (g.kind === 'circle') {
-        rows.unshift({
-          group: '',
-          name: 'Radius',
-          kind: 'dist',
-          value: g.radius,
+          group: G,
+          name: 'Line Color',
+          kind: 'color',
+          value: cssOf(g.stroke?.color),
           set: (v) => {
-            const n = num(v);
-            return n === null || n <= 0 ? null : replaceGraphic(i, { ...g, radius: n });
+            const css = String(v).trim();
+            if (css === '') return setStroke({ color: undefined });
+            return setStroke({ color: tupleOf(css) });
           },
-        });
-      }
+        },
+        {
+          group: G,
+          // `_HKI( "Fill" )` — the FILL_T enum, not a checkbox. `Filled` is
+          // available only on a LIBRARY shape (sch_shape.cpp:604-610).
+          name: 'Fill',
+          kind: 'choice',
+          choices: [...FILL_MODE_NAMES],
+          value:
+            FILL_MODE_NAMES[
+              Math.max(0, FILL_MODE_TOKENS.indexOf(fillType as (typeof FILL_MODE_TOKENS)[number]))
+            ]!,
+          set: (v) => {
+            const k = (FILL_MODE_NAMES as readonly string[]).indexOf(String(v));
+            return k < 0 ? null : setFill({ type: FILL_MODE_TOKENS[k]! });
+          },
+        },
+        {
+          group: G,
+          name: 'Fill Color',
+          kind: 'color',
+          value: cssOf(g.fill?.color),
+          set: (v) => {
+            const css = String(v).trim();
+            if (css === '') return setFill({ color: undefined });
+            return setFill({ color: tupleOf(css) });
+          },
+        },
+      );
       return rows;
     }
     case 'sheet': {
       const i = indexOf(sch.sheets, (t, k) => refId('sheet', t.uuid, k));
       if (i < 0) return [];
       const sh = sch.sheets[i]!;
+      const putStroke = (p: Partial<Stroke>): EditCommand =>
+        replaceSheet(i, { ...sh, stroke: { width: 0, type: 'default', ...sh.stroke, ...p } });
+      const A = 'Attributes';
+      const nameField = sh.fields.find((f) => f.key === 'Sheetname');
       return [
-        ...positionRows(refId('sheet', sh.uuid, i), sh.at),
+        // SCH_SHEET_DESC's own eight (sch_sheet.cpp), which we showed none of:
+        // four ungrouped, then four in `_( "Attributes" )`. No position rows -
+        // SCH_SHEET_DESC registers none, and nothing in the base chain does.
+        {
+          group: '',
+          name: 'Sheet Name',
+          kind: 'string',
+          value: nameField?.value ?? '',
+          set: (v) => {
+            const name = String(v);
+            return !nameField || name === nameField.value
+              ? null
+              : replaceSheet(i, {
+                  ...sh,
+                  fields: sh.fields.map((f) => (f.key === 'Sheetname' ? { ...f, value: name } : f)),
+                });
+          },
+        },
+        {
+          group: '',
+          name: 'Border Width',
+          kind: 'dist',
+          value: sh.stroke?.width ?? 0,
+          set: (v) => {
+            const n = num(v);
+            return n === null || n < 0 ? null : putStroke({ width: n });
+          },
+        },
+        colorRow('', 'Border Color', sh.stroke?.color, (c) => putStroke({ color: c })),
+        // `SetBackgroundColor`, which is the sheet's `(fill (color …))`.
+        colorRow('', 'Background Color', sh.fillColor, (c) =>
+          replaceSheet(i, { ...sh, fillColor: c }),
+        ),
+        // The file stores the positive sense for two of these and KiCad shows
+        // the negative, so each row is the inverse of what we hold.
+        {
+          group: A,
+          name: 'Exclude From Board',
+          kind: 'bool',
+          value: !sh.onBoard,
+          set: (v) => replaceSheet(i, { ...sh, onBoard: !v }),
+        },
+        {
+          group: A,
+          name: 'Exclude From Simulation',
+          kind: 'bool',
+          value: !!sh.excludedFromSim,
+          set: (v) => replaceSheet(i, { ...sh, excludedFromSim: !!v }),
+        },
+        {
+          group: A,
+          name: 'Exclude From Bill of Materials',
+          kind: 'bool',
+          value: !sh.inBom,
+          set: (v) => replaceSheet(i, { ...sh, inBom: !v }),
+        },
+        {
+          group: A,
+          name: 'Do not Populate',
+          kind: 'bool',
+          value: !!sh.dnp,
+          set: (v) => replaceSheet(i, { ...sh, dnp: !!v }),
+        },
         // The SCH_SHEET_T arm of `SCH_PROPERTIES_PANEL::rebuildProperties`
         // (sch_properties_panel.cpp:426-433): every non-private field of the
         // sheet becomes a SCH_SHEET_FIELD_PROPERTY in the "Fields" group.
@@ -1225,31 +1707,116 @@ export function schPropertiesFor(
         ...sheetFieldRows(sh, i),
       ];
     }
-    // SCH_TABLE's registered properties: the border and separator toggles, and
-    // the column count as a read-only fact (changing it would add or drop cells,
-    // which is SCH_EDIT_TABLE_TOOL's job rather than a grid row's).
+    /**
+     * SCH_TABLE_DESC (sch_table.cpp) registers twelve properties, in this
+     * order: Start X, Start Y, External Border, Header Border, Border Width,
+     * Border Style, Border Color, Row Separators, Cell Separators, Separators
+     * Width, Separators Style, Separators Color.
+     *
+     * Ours had four of them plus two rows that are not properties at all -
+     * `Columns` and `Rows`, invented here. A wxPropertyGrid shows what the
+     * property manager registered and nothing else, so they are gone: the
+     * column and row counts are changed by SCH_EDIT_TABLE_TOOL, never typed
+     * into a grid cell.
+     */
     case 'table': {
       const i = indexOf(sch.tables, (t, k) => refId('table', t.uuid, k));
       if (i < 0) return [];
       const t = sch.tables[i]!;
+      // `const wxString tableProps = _( "Table Properties" )` - Start X and
+      // Start Y are ungrouped and land under "Basic Properties"; the other ten
+      // carry that group and get a category of their own. We had all twelve in
+      // the unnamed group, so the panel showed one flat list where KiCad shows
+      // two headings.
+      const TP = 'Table Properties';
       const flag = (
         name: string,
         value: boolean,
         set: (v: boolean) => Partial<typeof t>,
       ): PropRow => ({
-        group: '',
+        group: TP,
         name,
         kind: 'bool',
         value,
         set: (v) => replaceTable(i, { ...t, ...set(!!v) }),
       });
+      /** The table's own origin is its first cell's start (SCH_TABLE::GetPosition). */
+      const origin = t.cells[0]?.start ?? { x: 0, y: 0 };
+      const coord = (name: string, axis: 'x' | 'y'): PropRow => ({
+        group: '',
+        name,
+        kind: 'coord',
+        value: origin[axis],
+        set: (v) => {
+          const n = num(v);
+          if (n === null) return null;
+          const d = n - origin[axis];
+          return d === 0
+            ? null
+            : moveItems(new Set([refId('table', t.uuid, i)]), {
+                x: axis === 'x' ? d : 0,
+                y: axis === 'y' ? d : 0,
+              });
+        },
+      });
+      /** Both strokes are edited the same way, so say it once. */
+      const strokeRows = (
+        label: 'Border' | 'Separators',
+        stroke: Stroke | undefined,
+        put: (p: Partial<Stroke>) => EditCommand,
+      ): PropRow[] => {
+        const cur = stroke?.type ?? 'default';
+        return [
+          {
+            group: TP,
+            name: `${label} Width`,
+            kind: 'dist',
+            value: stroke?.width ?? 0,
+            set: (v) => {
+              const n = num(v);
+              return n === null || n < 0 ? null : put({ width: n });
+            },
+          },
+          {
+            group: TP,
+            name: `${label} Style`,
+            kind: 'choice',
+            // A table's borders take LINE_STYLE, not WIRE_STYLE - there is no
+            // "Default" entry on either of these two.
+            choices: LINE_STYLES,
+            value:
+              LINE_STYLES[
+                Math.max(0, STROKE_TYPES.slice(1).indexOf(cur as (typeof STROKE_TYPES)[number]))
+              ]!,
+            set: (v) => {
+              const k = (LINE_STYLES as readonly string[]).indexOf(String(v));
+              return k < 0 ? null : put({ type: STROKE_TYPES.slice(1)[k]! });
+            },
+          },
+          colorRow(TP, `${label} Color`, stroke?.color, (c) => put({ color: c })),
+        ];
+      };
+      const putBorder = (p: Partial<Stroke>): EditCommand =>
+        replaceTable(i, {
+          ...t,
+          borderStroke: { width: 0, type: 'default', ...t.borderStroke, ...p },
+        });
+      const putSeparators = (p: Partial<Stroke>): EditCommand =>
+        replaceTable(i, {
+          ...t,
+          separatorsStroke: { width: 0, type: 'default', ...t.separatorsStroke, ...p },
+        });
       return [
-        { group: '', name: 'Columns', kind: 'int', value: t.columnCount },
-        { group: '', name: 'Rows', kind: 'int', value: t.rowHeights.length },
+        coord('Start X', 'x'),
+        coord('Start Y', 'y'),
         flag('External Border', t.borderExternal, (v) => ({ borderExternal: v })),
         flag('Header Border', t.borderHeader, (v) => ({ borderHeader: v })),
+        ...strokeRows('Border', t.borderStroke, putBorder),
         flag('Row Separators', t.separatorRows, (v) => ({ separatorRows: v })),
-        flag('Column Separators', t.separatorCols, (v) => ({ separatorCols: v })),
+        // `_HKI( "Cell Separators" )` - upstream's name for the column ones,
+        // which we had as "Column Separators".
+        flag('Cell Separators', t.separatorCols, (v) => ({ separatorCols: v })),
+        ...strokeRows('Separators', t.separatorsStroke, putSeparators),
       ];
     }
     // A sheet pin is a SCH_HIERLABEL living on a sheet, so it offers the same
@@ -1271,19 +1838,16 @@ export function schPropertiesFor(
           pins: sheet.pins.map((x, k) => (k === sp.pin ? { ...x, ...p } : x)),
         });
       const cur = SHAPE_TOKENS.indexOf(pin.shape as (typeof SHAPE_TOKENS)[number]);
+      const fx = pin.effects;
+      const setEffects = (_label: string, p: Partial<TextEffects>): EditCommand =>
+        patchPin({ effects: { hidden: false, ...fx, ...p } });
+      const textSize = fx?.fontSize?.[1] ?? fx?.fontSize?.[0] ?? 0;
+      // SCH_SHEET_PIN inherits SCH_HIERLABEL -> SCH_LABEL_BASE -> SCH_TEXT ->
+      // EDA_TEXT and registers nothing of its own, so its pane is a
+      // hierarchical label's: Shape, then the whole text half. We showed
+      // `Name` and `Shape` - and `Name` is not a registered property at all;
+      // EDA_TEXT's `Text` is the row that edits it.
       return [
-        {
-          group: '',
-          name: 'Name',
-          kind: 'string',
-          value: pin.name,
-          set: (v) => {
-            const name = String(v).trim();
-            // An unnamed sheet pin has no hierarchical label to match, so an
-            // empty name is rejected rather than written.
-            return name === '' ? null : patchPin({ name });
-          },
-        },
         {
           group: '',
           name: 'Shape',
@@ -1295,19 +1859,287 @@ export function schPropertiesFor(
             return k < 0 ? null : patchPin({ shape: SHAPE_TOKENS[k]! });
           },
         },
+        ...edaTextRows(fx, setEffects, {
+          text: {
+            group: 'Text Properties',
+            name: 'Text',
+            kind: 'string',
+            value: pin.name,
+            set: (v) => {
+              const name = String(v).trim();
+              // An unnamed sheet pin has no hierarchical label to match, so an
+              // empty name is rejected rather than written.
+              return name === '' || name === pin.name ? null : patchPin({ name });
+            },
+          },
+          // A hierarchical label keeps Hyperlink; our SheetPin has nowhere to
+          // store one, so it is shown read-only rather than dropped.
+          hyperlink: { value: '' },
+        }),
+        {
+          group: 'Text Properties',
+          name: 'Text Size',
+          kind: 'dist',
+          value: textSize,
+          set: (v) => {
+            const n = num(v);
+            return n === null || n <= 0
+              ? null
+              : setEffects('Change Text Size', { fontSize: [n, n] });
+          },
+        },
       ];
     }
+    /**
+     * SCH_TABLECELL - what clicking a cell in a table actually selects, and
+     * the arm this switch did not have at all: the panel came up empty.
+     *
+     * It inherits SCH_TEXTBOX -> SCH_SHAPE -> EDA_SHAPE and EDA_TEXT, then
+     * MASKS almost all of the shape half (Start/End X/Y, Shape, Width, Height,
+     * Fill, Fill Color, Line Width, Line Style, Line Color, Corner Radius) and
+     * part of the text half (Width, Height, Thickness, Orientation, Mirrored,
+     * Visible, Hyperlink) - sch_tablecell.cpp. What survives is:
+     *
+     *   Table            Column Width, Row Height
+     *   Cell Properties  Background Fill, Background Fill Color
+     *   Margins          Margin Left, Top, Right, Bottom   (from SCH_TEXTBOX)
+     *   Text Properties  Text, Font, Auto Thickness, Italic, Bold,
+     *                    Horizontal/Vertical Justification, Color, Text Size
+     *
+     * The two `Cell Properties` rows are EDA_SHAPE's fill reached through a
+     * different name: `SetFilled`/`IsSolidFill` and `SetFillColor`, registered
+     * on SCH_TABLECELL after the EDA_SHAPE originals are masked.
+     */
+    case 'tablecell': {
+      const tableRef = tableOfCellId(ref.id);
+      const k = cellIndexOfId(ref.id);
+      if (tableRef === null || k === null) return [];
+      const tIndex = sch.tables.findIndex((x, j) => refId('table', x.uuid, j) === tableRef);
+      const t = tIndex < 0 ? undefined : sch.tables[tIndex];
+      const cell = t?.cells[k];
+      if (!t || !cell) return [];
+
+      /** A cell's column and row, which is where its width and height live. */
+      const col = t.columnCount > 0 ? k % t.columnCount : 0;
+      const row = t.columnCount > 0 ? Math.floor(k / t.columnCount) : 0;
+
+      const putCell = (p: Partial<SchTableCell>): EditCommand =>
+        replaceTable(tIndex, {
+          ...t,
+          cells: t.cells.map((c, j) => (j === k ? { ...c, ...p } : c)),
+        });
+      const fx = cell.effects;
+      const setEffects = (_label: string, p: Partial<TextEffects>): EditCommand =>
+        putCell({ effects: { hidden: false, ...fx, ...p } });
+      const putFill = (p: Partial<NonNullable<SchTableCell['fill']>>): EditCommand =>
+        putCell({ fill: { type: 'none', ...cell.fill, ...p } });
+
+      // `GetSchTextSize()` is the text WIDTH, as it is for a field.
+      const textSize = fx?.fontSize?.[1] ?? fx?.fontSize?.[0] ?? 0;
+
+      return [
+        {
+          group: 'Table',
+          name: 'Column Width',
+          kind: 'dist',
+          value: t.colWidths[col] ?? 0,
+          set: (v) => {
+            const n = num(v);
+            return n === null || n < 0
+              ? null
+              : replaceTable(tIndex, {
+                  ...t,
+                  colWidths: t.colWidths.map((w, j) => (j === col ? n : w)),
+                });
+          },
+        },
+        {
+          group: 'Table',
+          name: 'Row Height',
+          kind: 'dist',
+          value: t.rowHeights[row] ?? 0,
+          set: (v) => {
+            const n = num(v);
+            return n === null || n < 0
+              ? null
+              : replaceTable(tIndex, {
+                  ...t,
+                  rowHeights: t.rowHeights.map((h, j) => (j === row ? n : h)),
+                });
+          },
+        },
+        {
+          group: 'Cell Properties',
+          name: 'Background Fill',
+          kind: 'bool',
+          // `IsSolidFill()` - FILL_T::FILLED_WITH_COLOR, which our model spells
+          // `color`. Anything else, including a hatch, is not a solid fill.
+          value: cell.fill?.type === 'color',
+          set: (v) => putFill({ type: v ? 'color' : 'none' }),
+        },
+        colorRow('Cell Properties', 'Background Fill Color', cell.fill?.color, (c) =>
+          putFill({ color: c }),
+        ),
+        ...marginRows(cell.margins, (p) =>
+          putCell({
+            margins: { left: 0, top: 0, right: 0, bottom: 0, ...cell.margins, ...p },
+          }),
+        ),
+        ...edaTextRows(fx, setEffects, {
+          text: {
+            group: 'Text Properties',
+            name: 'Text',
+            kind: 'string',
+            value: cell.text,
+            set: (v) => (String(v) === cell.text ? null : putCell({ text: String(v) })),
+          },
+        }),
+        {
+          group: 'Text Properties',
+          name: 'Text Size',
+          kind: 'dist',
+          value: textSize,
+          set: (v) => {
+            const n = num(v);
+            return n === null || n <= 0
+              ? null
+              : setEffects('Change Text Size', { fontSize: [n, n] });
+          },
+        },
+      ];
+    }
+    /**
+     * SCH_TEXTBOX. It had ONE row - Text - against the twenty-six a real panel
+     * shows, because it inherits nearly all of them: EDA_SHAPE's geometry and
+     * stroke, SCH_TEXTBOX's own margins and text size, and EDA_TEXT's text
+     * half. It masks only Shape and Corner Radius out of the shape side and
+     * Width, Height, Thickness and Orientation out of the text side
+     * (sch_textbox.cpp), so - unlike a table cell - it DOES show Mirrored and
+     * Hyperlink.
+     *
+     * Group order is `collectGroups`': the class's own groups first, then its
+     * bases' - Shape Properties comes from EDA_SHAPE and so lands after
+     * Margins and Text Properties in the group list but is emitted wherever
+     * its first row falls. Within a group the order is base-first, which is
+     * what a live capture of a table cell shows (EDA_TEXT's rows ahead of
+     * SCH_TEXTBOX's own Text Size).
+     */
     case 'textbox': {
       const i = indexOf(sch.textBoxes, (t, k) => refId('textbox', t.uuid, k));
       if (i < 0) return [];
       const tb = sch.textBoxes[i]!;
+      const S = 'Shape Properties';
+      const put = (p: Partial<SchTextBox>): EditCommand => replaceTextBox(i, { ...tb, ...p });
+      const putStroke = (p: Partial<Stroke>): EditCommand =>
+        put({ stroke: { width: 0, type: 'default', ...tb.stroke, ...p } });
+      const putFill = (p: Partial<NonNullable<SchTextBox['fill']>>): EditCommand =>
+        put({ fill: { type: 'none', ...tb.fill, ...p } });
+      const fx = tb.effects;
+      const setEffects = (_label: string, p: Partial<TextEffects>): EditCommand =>
+        put({ effects: { hidden: false, ...fx, ...p } });
+
+      const corner = (name: string, key: 'start' | 'end', axis: 'x' | 'y'): PropRow => ({
+        group: S,
+        name,
+        kind: 'coord',
+        value: tb[key][axis],
+        set: (v) => {
+          const n = num(v);
+          return n === null ? null : put({ [key]: { ...tb[key], [axis]: n } });
+        },
+      });
+      /** `SetWidth`/`SetHeight` move the END corner, keeping the start put. */
+      const extent = (name: string, axis: 'x' | 'y'): PropRow => ({
+        group: S,
+        name,
+        kind: 'dist',
+        value: Math.abs(tb.end[axis] - tb.start[axis]),
+        set: (v) => {
+          const n = num(v);
+          return n === null || n < 0
+            ? null
+            : put({ end: { ...tb.end, [axis]: tb.start[axis] + n } });
+        },
+      });
+      const curStyle = tb.stroke?.type ?? 'default';
+      const fillType = tb.fill?.type ?? 'none';
+      const textSize = fx?.fontSize?.[1] ?? fx?.fontSize?.[0] ?? 0;
+
       return [
+        corner('Start X', 'start', 'x'),
+        corner('Start Y', 'start', 'y'),
+        corner('End X', 'end', 'x'),
+        corner('End Y', 'end', 'y'),
+        extent('Width', 'x'),
+        extent('Height', 'y'),
+        {
+          group: S,
+          name: 'Line Width',
+          kind: 'dist',
+          value: tb.stroke?.width ?? 0,
+          set: (v) => {
+            const n = num(v);
+            return n === null || n < 0 ? null : putStroke({ width: n });
+          },
+        },
+        {
+          group: S,
+          name: 'Line Style',
+          kind: 'choice',
+          choices: LINE_STYLES,
+          value:
+            LINE_STYLES[
+              Math.max(0, STROKE_TYPES.slice(1).indexOf(curStyle as (typeof STROKE_TYPES)[number]))
+            ]!,
+          set: (v) => {
+            const k = (LINE_STYLES as readonly string[]).indexOf(String(v));
+            return k < 0 ? null : putStroke({ type: STROKE_TYPES.slice(1)[k]! });
+          },
+        },
+        colorRow(S, 'Line Color', tb.stroke?.color, (c) => putStroke({ color: c })),
+        {
+          group: S,
+          name: 'Fill',
+          kind: 'choice',
+          choices: [...FILL_MODE_NAMES],
+          value:
+            FILL_MODE_NAMES[
+              Math.max(0, FILL_MODE_TOKENS.indexOf(fillType as (typeof FILL_MODE_TOKENS)[number]))
+            ]!,
+          set: (v) => {
+            const k = (FILL_MODE_NAMES as readonly string[]).indexOf(String(v));
+            return k < 0 ? null : putFill({ type: FILL_MODE_TOKENS[k]! });
+          },
+        },
+        colorRow(S, 'Fill Color', tb.fill?.color, (c) => putFill({ color: c })),
+        ...marginRows(tb.margins, (p) =>
+          put({ margins: { left: 0, top: 0, right: 0, bottom: 0, ...tb.margins, ...p } }),
+        ),
+        ...edaTextRows(fx, setEffects, {
+          text: {
+            group: 'Text Properties',
+            name: 'Text',
+            kind: 'string',
+            value: tb.text,
+            set: (v) => (String(v) === tb.text ? null : put({ text: String(v) })),
+          },
+          showMirrored: true,
+          hyperlink: {
+            value: tb.hyperlink ?? '',
+            set: (v) => put({ hyperlink: v === '' ? undefined : v }),
+          },
+        }),
         {
           group: 'Text Properties',
-          name: 'Text',
-          kind: 'string',
-          value: tb.text,
-          set: (v) => replaceTextBox(i, { ...tb, text: String(v) }),
+          name: 'Text Size',
+          kind: 'dist',
+          value: textSize,
+          set: (v) => {
+            const n = num(v);
+            return n === null || n <= 0
+              ? null
+              : setEffects('Change Text Size', { fontSize: [n, n] });
+          },
         },
       ];
     }

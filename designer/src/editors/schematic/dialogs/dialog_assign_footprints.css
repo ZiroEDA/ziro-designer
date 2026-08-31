@@ -217,15 +217,43 @@
   min-height: var(--ui-line-height);
 }
 
-/* DISPLAY_FOOTPRINTS_FRAME's stand-in, over the footprint pane and under its
-   caption. */
-.ze-fpassign-viewer {
-  position: absolute;
-  inset: var(--fpassign-caption-h) 0 0 0;
+/* DISPLAY_FOOTPRINTS_FRAME (cvpcb/display_footprints_frame.cpp).
+   A separate top-level window, not a pane of this dialog: `ShowFootprintViewer`
+   creates a frame, and its size is EDA_BASE_FRAME's default for every frame but
+   the project manager (ui/frame_size.ts). Same window chrome as the ERC panel,
+   which is a real window upstream for the same reason. */
+.ze-fpview-frame {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  resize: both;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
+  /* Above .ze-modal (100) so the frame the dialog opened is in front of it,
+     as a child window is of its parent. */
+  z-index: 130;
   background: var(--chrome-bg);
   /* [px] wxAUI_DOCKART_PANE_BORDER_SIZE = 1, read off the art provider by
      qa/probes/cvpcb_listbox_probe.cpp ("aui pane border size 1"). */
-  border-left: 1px solid var(--chrome-border);
+  border: 1px solid var(--chrome-border);
+  /* A window's frame and its drop shadow are the window manager's, not the
+     app's: the same two tokens `.ze-modal` reads, so every ZiroEDA window is
+     decorated once. A local shadow here is drift by definition. */
+  border-radius: var(--window-radius) var(--window-radius) 0 0;
+  box-shadow: var(--window-shadow);
+}
+/* The canvas pane, `EDA_PANE().Canvas().Center()`, between the left toolbar and
+   the message panel. */
+.ze-fpview-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+.ze-fpview-canvas {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
 }

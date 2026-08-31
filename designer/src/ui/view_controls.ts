@@ -259,6 +259,16 @@ export type FitFrame =
   | 'pcb' // FRAME_PCB_EDITOR
   | 'footprint_editor' // FRAME_FOOTPRINT_EDITOR
   | 'footprint_viewer' // FRAME_FOOTPRINT_VIEWER
+  /**
+   * FRAME_CVPCB_DISPLAY — CVPCB's footprint viewer (DISPLAY_FOOTPRINTS_FRAME).
+   *
+   * It is NOT `footprint_viewer`. `doZoomFit` names four frame types for the
+   * bigger library-editor margin (`common_tools.cpp:387-399`) and this is not
+   * one of them, so it fits on the default 1.04 like the board editor. A
+   * window that reads as a viewer therefore frames its footprint *tighter*
+   * than pcbnew's own footprint viewer does; that is upstream's choice.
+   */
+  | 'cvpcb_display'
   | 'gerber' // FRAME_GERBER
   | 'pl_editor'; // FRAME_PL_EDITOR
 

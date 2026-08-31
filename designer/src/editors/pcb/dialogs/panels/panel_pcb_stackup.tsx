@@ -665,11 +665,7 @@ export function PanelPcbStackup({ value, onChange, finish }: Props): JSX.Element
           onMouseDown={() => setListPick(null)}
           style={{ zIndex: 60 }}
         >
-          <div
-            className="ze-modal"
-            style={{ width: 340, height: 'auto' }}
-            onMouseDown={(e) => e.stopPropagation()}
-          >
+          <div className="ze-modal" onMouseDown={(e) => e.stopPropagation()}>
             <div className="ze-modal-header">
               {listPick.title}
               <span className="x" title="Close" onClick={() => setListPick(null)}>
@@ -722,11 +718,7 @@ export function PanelPcbStackup({ value, onChange, finish }: Props): JSX.Element
           onMouseDown={() => setMatTarget(null)}
           style={{ zIndex: 60 }}
         >
-          <div
-            className="ze-modal"
-            style={{ width: 380, height: 'auto' }}
-            onMouseDown={(e) => e.stopPropagation()}
-          >
+          <div className="ze-modal" onMouseDown={(e) => e.stopPropagation()}>
             <div className="ze-modal-header">
               Dielectric Material Characteristics
               <span className="x" title="Close" onClick={() => setMatTarget(null)}>

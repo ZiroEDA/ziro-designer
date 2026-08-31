@@ -33,8 +33,12 @@ import { FIRST_PAGE, PAGES, labelOf } from '@ziroeda/designer/src/dialogs/prefs/
 afterEach(cleanup);
 
 /** The tree row the dialog has selected, by the class the shell marks it with. */
+// `.ze-tree-item`, not a Preferences-only class: the dialog draws the SAME
+// tree Board Setup and Schematic Setup do, because upstream all three are
+// PAGED_DIALOGs over one wxTreebook. The old `.ze-prefs-page` was the second
+// copy's markup.
 const selectedRow = (): string | null =>
-  document.querySelector('.ze-prefs-page.active')?.textContent ?? null;
+  document.querySelector('.ze-tree-item.active')?.textContent ?? null;
 
 describe('PreferencesDialog initialPage', () => {
   it('opens where the caller asked', () => {
@@ -52,7 +56,7 @@ describe('PreferencesDialog initialPage', () => {
 
   it('selects exactly one row', () => {
     render(<PreferencesDialog onClose={() => {}} initialPage="sch-grids" />);
-    expect(document.querySelectorAll('.ze-prefs-page.active')).toHaveLength(1);
+    expect(document.querySelectorAll('.ze-tree-item.active')).toHaveLength(1);
     // Two pages are labelled "Display Options" in the book already, which is why
     // ours names a page by id where upstream names it by label and parent label.
     const labels = PAGES.map((p) => p.label);

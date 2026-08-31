@@ -101,6 +101,12 @@ function EditClearSymbolic(): JSX.Element {
 
 export interface LibTreeProps {
   adapter: LibTreeModelAdapter;
+  /**
+   * `LIB_TREE::FLAGS::FILTERS` and the `m_filtersSizer` it builds
+   * (common/widgets/lib_tree.cpp:165-169): a slot between the search control
+   * and the tree that the tree's OWNER fills. Undefined is the flag unset.
+   */
+  filters?: ReactNode;
   /** m_recentSearchesKey, which recent-search list this tree shares. */
   recentSearchesKey?: string;
   /** Bumped by the owner whenever it mutates the adapter (lazy library loads). */
@@ -267,6 +273,7 @@ function rowPitchFromTokens(): number {
 
 export function LibTree({
   adapter,
+  filters,
   recentSearchesKey = 'symbols',
   regenerateNonce = 0,
   initialSearch = '',
@@ -960,6 +967,26 @@ export function LibTree({
           {sortMenu}
         </div>
       </div>
+
+      {/* `LIB_TREE::m_filtersSizer`, built only under the FILTERS flag and added
+          between the search control and the tree:
+
+              if( aFlags & FILTERS )
+              {
+                  m_filtersSizer = new wxBoxSizer( wxVERTICAL );
+                  sizer->Add( m_filtersSizer, 0, wxEXPAND | wxLEFT, 4 );
+              }
+          (common/widgets/lib_tree.cpp:165-169)
+
+          The tree owns the SLOT and nothing else; what goes in it belongs to
+          whoever built the tree. `PANEL_FOOTPRINT_CHOOSER::GetFiltersSizer()`
+          is a one-line forward to this, and FOOTPRINT_CHOOSER_FRAME is what
+          puts the two checkboxes in - because only the frame knows the symbol's
+          fp_filters and pin count, which reach it by KIWAY mail. That is the
+          whole reason the slot exists rather than the checkboxes living here.
+
+          Absent prop = absent flag: no sizer, no gap. */}
+      {filters === undefined ? null : <div className="ze-libtree-filters">{filters}</div>}
 
       {/* The wxDataViewCtrl is ONE control: its column header and its rows share
           a frame, and the header is a button drawn inside it. */}

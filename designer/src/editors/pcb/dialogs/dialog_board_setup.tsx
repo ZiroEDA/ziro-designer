@@ -634,7 +634,6 @@ export function DialogBoardSetup({ value, initialPage, onOk, onClose }: Props): 
         initialPage={initialPage}
         auxiliaryAction="Import Settings from Another Board..."
         onAuxiliaryAction={() => setImportOpen(true)}
-        initialSize={{ width: 1150, height: 620 }}
         onOk={() => onOk(v)}
         onCancel={onClose}
       />

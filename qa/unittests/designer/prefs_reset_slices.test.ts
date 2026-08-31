@@ -62,7 +62,6 @@ import {
   resetMousePanel,
 } from '@ziroeda/designer/src/dialogs/prefs/panels/resets.js';
 import {
-  resetEeschemaAnnotationOptions,
   resetEeschemaColorSettings,
   resetEeschemaDisplayOptions,
   resetEeschemaEditingOptions,
@@ -97,23 +96,46 @@ const SLICES: Partial<Record<PrefsPageId, readonly string[]>> = {
   common: [
     'common.appearance.use_icons_in_menus',
     'common.appearance.show_scrollbars',
+    'common.appearance.grid_striping',
+    'common.appearance.use_custom_cursors',
     'common.appearance.icon_theme',
     'common.appearance.toolbar_icon_size',
     'common.appearance.hicontrast_dimming_factor',
+    // "Scaling" — ZOOM_CORRECTION_CTRL is one control and one setting.
+    'common.appearance.zoom_correction_factor',
     'common.input.warp_mouse_on_move',
     'common.input.immediate_actions',
     'common.input.hotkey_feedback',
+    'common.input.focus_follow_sch_pcb',
     'common.system.session.remember_open_files',
-    'common.system.autosave_interval',
     'common.system.file_history_size',
+    // Gone with the groups this page no longer draws. A panel's reset slice is
+    // exactly the fields its controls bind to, so a control that is not on the
+    // page may not be reset by its button — `common.system.autosave_interval`
+    // (10.0.5 dropped the `Auto save:` row), the four Project Backup fields,
+    // and `privacy.crash_reports`, which was ours rather than KiCad's. That
+    // last one matters most: resetting a setting the user cannot see would
+    // turn crash reporting back on from a button labelled "Reset Common to
+    // Defaults".
     'common.backup.enabled',
-    'common.backup.backup_on_autosave',
-    'common.backup.limit_total_files',
-    'common.backup.limit_daily_files',
-    'common.backup.min_interval',
+    'common.backup.format',
+    'common.backup.location',
     'common.backup.limit_total_size',
-    'privacy.crash_reports',
   ],
+  // PanelGitRepos.tsx — but only the three `PANEL_GIT_REPOS::ResetPanel`
+  // touches (`panel_git_repos.cpp:48-53`). `git.enableGit` and
+  // `git.updatInterval` are on the page and are NOT reset upstream, so they are
+  // not in the slice: a reset restores what its ResetPanel restores.
+  'version-control': [
+    'common.git.useDefaultAuthor',
+    'common.git.authorName',
+    'common.git.authorEmail',
+  ],
+  // PanelSpacemouse.tsx — `m_SpaceMouse` entire, every one of the six
+  // parameters being on that page (`panel_spacemouse_base.cpp:30-67`). The
+  // controls are disabled — no browser API reaches a SpaceMouse — but the page
+  // is a RESETTABLE_PANEL upstream and its values are stored, not literals.
+  spacemouse: ['common.spacemouse'],
   // PanelMouseSettings.tsx — Pan and Zoom, Drag Gestures, Scroll Gestures.
   mouse: [
     'common.input.center_on_zoom',
@@ -125,6 +147,9 @@ const SLICES: Partial<Record<PrefsPageId, readonly string[]>> = {
     'common.input.mouse_left',
     'common.input.mouse_middle',
     'common.input.mouse_right',
+    // `m_choicePanMoveKey` — Drag Gestures' fourth row
+    // (`panel_mouse_settings_base.cpp:161-169`).
+    'common.input.motion_pan_modifier',
     'common.input.scroll_modifier_zoom',
     'common.input.scroll_modifier_pan_h',
     'common.input.scroll_modifier_pan_v',
@@ -138,6 +163,9 @@ const SLICES: Partial<Record<PrefsPageId, readonly string[]>> = {
     'eeschema.appearance.default_font',
     'eeschema.appearance.show_hidden_pins',
     'eeschema.appearance.show_hidden_fields',
+    // `m_checkShowDirectiveLabels` (`panel_eeschema_display_options_base.cpp:116`),
+    // which this page was missing altogether.
+    'eeschema.appearance.show_directive_labels',
     'eeschema.appearance.show_erc_errors',
     'eeschema.appearance.show_erc_warnings',
     'eeschema.appearance.show_erc_exclusions',
@@ -147,6 +175,8 @@ const SLICES: Partial<Record<PrefsPageId, readonly string[]>> = {
     'eeschema.appearance.show_pin_alt_icons',
     'eeschema.appearance.show_page_limits',
     'eeschema.selection.thickness',
+    // `m_collisionMarkerWidthCtrl` (`:271`), missing with it.
+    'eeschema.selection.drag_net_collision_width',
     'eeschema.selection.highlight_thickness',
     'eeschema.selection.draw_selected_children',
     'eeschema.selection.fill_shapes',
@@ -191,12 +221,6 @@ const SLICES: Partial<Record<PrefsPageId, readonly string[]>> = {
     'eeschema.annotation.automatic',
     'eeschema.appearance.footprint_preview',
     'eeschema.system.never_show_rescue_dialog',
-  ],
-  // PanelEeschemaAnnotationOptions.tsx.
-  'sch-annotation': [
-    'eeschema.annotation.automatic',
-    'eeschema.annotation.method',
-    'eeschema.annotation.sort_order',
   ],
   // PanelEeschemaColorSettings.tsx — the theme choice and the per-layer overrides.
   'sch-colors': ['eeschema.appearance.color_theme', 'userColors'],
@@ -243,7 +267,6 @@ const RESETS: Partial<Record<PrefsPageId, (ctx: PrefsContext) => void>> = {
   'sch-display': resetEeschemaDisplayOptions,
   'sch-grids': resetEeschemaGrids,
   'sch-editing': resetEeschemaEditingOptions,
-  'sch-annotation': resetEeschemaAnnotationOptions,
   'sch-colors': resetEeschemaColorSettings,
   'pcb-display': resetPcbDisplayOptions,
   'sch-toolbars': resetEeschemaToolbars,
@@ -477,20 +500,13 @@ describe('the other pages survive, page by page', () => {
   // The same guarantee stated the way a user meets it: a value set on every
   // schematic page, one page reset, the other five still holding their values.
   // `sch-fields` has no reset of its own, so it appears only as a survivor.
-  const SCHEMATIC: PrefsPageId[] = [
-    'sch-display',
-    'sch-grids',
-    'sch-editing',
-    'sch-annotation',
-    'sch-colors',
-  ];
+  const SCHEMATIC: PrefsPageId[] = ['sch-display', 'sch-grids', 'sch-editing', 'sch-colors'];
 
   /** One representative field per page, and a value nobody would default to. */
   const MARKS: Partial<Record<PrefsPageId, [string, Json]>> = {
     'sch-display': ['eeschema.appearance.show_hidden_pins', true],
     'sch-grids': ['eeschema.window.grid.sizes', ['1 mm', '0.5 mm']],
     'sch-editing': ['eeschema.drawing.default_repeat_offset_y', 250],
-    'sch-annotation': ['eeschema.annotation.sort_order', 1],
     'sch-colors': ['userColors', { wire: '#ff00ff' }],
     'sch-fields': ['eeschema.drawing.field_names', [{ name: 'MPN', value: '', visible: true }]],
   };
@@ -545,7 +561,11 @@ describe('the other pages survive, page by page', () => {
     expect(bag.common.input.zoom_speed).toBe(9);
     expect(bag.common.input.mouse_middle).toBe('zoom');
     expect(bag.common.appearance.icon_theme).toBe(COMMON_DEFAULTS.appearance.icon_theme);
-    expect(bag.privacy.crash_reports).toBe(PRIVACY_DEFAULTS.crash_reports);
+    // ...and crash reporting is NOT reset, because the Privacy group is no
+    // longer on the page. Turning telemetry back on from a button that says
+    // "Reset Common to Defaults" would be the wrong kind of surprise, and the
+    // per-panel slice is what prevents it.
+    expect(bag.privacy.crash_reports).toBe(false);
   });
 
   it('no reset touches a setting no Preferences page shows', () => {
@@ -605,11 +625,11 @@ describe('a page that is not resettable has no reset', () => {
 
 describe('every resettable page is wired to its own reset', () => {
   it.each([
-    ['dialogs/prefs/panels/index.ts', ['common', 'mouse', 'hotkeys']],
     [
-      'editors/schematic/prefs/index.ts',
-      ['sch-display', 'sch-grids', 'sch-editing', 'sch-annotation', 'sch-colors'],
+      'dialogs/prefs/panels/index.ts',
+      ['common', 'mouse', 'hotkeys', 'spacemouse', 'version-control'],
     ],
+    ['editors/schematic/prefs/index.ts', ['sch-display', 'sch-grids', 'sch-editing', 'sch-colors']],
     ['editors/pcb/prefs/index.ts', ['pcb-display']],
   ] as [string, string[]][])('%s', (rel, ids) => {
     const src = read(rel);

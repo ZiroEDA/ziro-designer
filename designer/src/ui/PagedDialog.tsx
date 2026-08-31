@@ -21,6 +21,8 @@
 
 import { useEffect, useRef, useState, type JSX } from 'react';
 import { useModalEscape } from './useModalEscape.js';
+import { usePagedDialogSize } from './paged_dialog_size.js';
+import { PagedDialogTree } from './PagedDialogTree.js';
 
 export interface PagedDialogPage {
   /** Stable page id (also the selection key). */
@@ -55,8 +57,6 @@ interface Props {
   onAuxiliaryAction?: () => void;
   /** Auxiliary action label, e.g. "Import Settings from Another Project..."; omitted = no button. */
   auxiliaryAction?: string;
-  /** Initial dialog size (aInitialSize); defaults to KiCad's 920x460. */
-  initialSize?: { width: number; height: number };
   /** Message shown in the top info bar (e.g. project read-only). */
   infoBar?: string;
   onOk: () => void;
@@ -79,7 +79,6 @@ export function PagedDialog({
   showReset,
   auxiliaryAction,
   onAuxiliaryAction,
-  initialSize,
   infoBar,
   onOk,
   onCancel,
@@ -138,25 +137,26 @@ export function PagedDialog({
       return next;
     });
 
-  const size = initialSize ?? { width: 920, height: 460 };
+  // Was `const size = initialSize ?? { width: 920, height: 460 }` - computed
+  // and never read, while the two callers passed 920x600 and 1150x620 into it.
+  // Three picked sizes, none of which reached the DOM. The real rule is the
+  // shared one below.
+  const dlgSize = usePagedDialogSize(page);
 
   const resetLabel =
     active?.resettable && active.label ? `Reset ${active.label} to Defaults` : 'Reset to Defaults';
 
   return (
     <div className="ze-modal-backdrop" onMouseDown={onCancel}>
+      {/* `newSize.IncTo( minSize )` (paged_dialog.cpp:446-450): the dialog
+          grows to fit a page and never shrinks back, so changing page does not
+          resize it under the user. Board Setup, Schematic Setup and Preferences
+          all take it from `usePagedDialogSize`, because upstream states it once
+          in PAGED_DIALOG and all three derive from that. */}
       <div
         className="ze-modal ze-paged-dialog"
-        style={{
-          width: size.width,
-          height: size.height,
-          minWidth: 600,
-          minHeight: 500,
-          maxWidth: '96vw',
-          maxHeight: '92vh',
-          resize: 'both',
-          overflow: 'hidden',
-        }}
+        ref={dlgSize.ref}
+        style={dlgSize.style}
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="ze-modal-header">
@@ -169,39 +169,14 @@ export function PagedDialog({
         {infoBar && <div className="ze-paged-infobar">{infoBar}</div>}
 
         <div className="ze-modal-body">
-          <div className="ze-paged-tree" ref={treeRef} tabIndex={0}>
-            {sections.map((section) => {
-              const open = !collapsed.has(section.label);
-              return (
-                <div key={section.label}>
-                  <div
-                    className="ze-tree-item root"
-                    onClick={() => toggleSection(section.label)}
-                    title={section.label}
-                  >
-                    <span className={`twisty expandable${open ? ' open' : ''}`} />
-                    {section.label}
-                  </div>
-                  {open &&
-                    section.pages.map((p) => (
-                      <div
-                        key={p.id}
-                        className={`ze-tree-item${p.id === page ? ' active' : ''}`}
-                        style={{
-                          paddingLeft: 26,
-                          opacity: p.disabled ? 0.45 : 1,
-                          cursor: 'default',
-                        }}
-                        onClick={() => !p.disabled && setPage(p.id)}
-                        title={p.disabled ? 'Not implemented yet' : p.label}
-                      >
-                        {p.label}
-                      </div>
-                    ))}
-                </div>
-              );
-            })}
-          </div>
+          <PagedDialogTree
+            sections={sections}
+            page={page}
+            collapsed={collapsed}
+            onToggleSection={toggleSection}
+            onSelect={setPage}
+            treeRef={treeRef}
+          />
 
           <div className="ze-paged-panel">
             {active && !active.disabled ? (

@@ -37,8 +37,11 @@
  * and `OnUpdateRemove` (`:352-381`) — wxUpdateUIEvent handlers, so they are
  * evaluated every idle and are properties of the state, not of the last click.
  */
-import { type JSX, useState } from 'react';
-import { Check, Group, Sel } from './widgets.js';
+import { Fragment, type JSX, useState } from 'react';
+import { Group, Sel } from './widgets.js';
+import { Check } from './widgets.js';
+import { Combo } from '../../ui/Combo.js';
+import { StdBitmapButton } from '../../ui/StdBitmapButton.js';
 import {
   GRID_GROUP_TITLES,
   OVERRIDE_ROWS,
@@ -46,6 +49,7 @@ import {
   type GridOverrideKey,
 } from './grid_settings_rows.js';
 import { DialogGridSettings } from '../dialog_grid_settings.js';
+import { HOTKEYS } from '../../editors/schematic/hotkeys.js';
 import { MessageDialogError } from '../../ui/dialog_message.js';
 import { gridChoiceLabel, gridEquals, type GridEntry } from '../../ui/grid_settings.js';
 import type { EdaUnits } from '../../ui/unit_binder.js';
@@ -142,6 +146,38 @@ export function PanelGridSettings({
 
   /** `GRID::UserUnitsMessageText`, and the `"%s%s (%s)"` of `RebuildGridSizes`. */
   const label = (g: GridEntry): string => gridChoiceLabel(g, units, iuScale.IU_PER_MM, g.name);
+
+  /**
+   * `m_grid1HotKey` / `m_grid2HotKey`, filled in from the actions themselves:
+   *
+   *     int hk1 = ACTIONS::gridFast1.GetHotKey();
+   *     m_grid1HotKey->SetLabel( wxString::Format( "(%s)", KeyNameFromKeyCode( hk1 ) ) );
+   *     (`panel_grid_settings.cpp:94-98`)
+   *
+   * So the label is whatever the binding IS, not a string typed here — ours had
+   * no third column at all. `HOTKEYS` is the same registry the Hotkeys page
+   * lists, so a rebinding shows up on both pages.
+   */
+  const keyOf = (id: string): string => HOTKEYS.find((h) => h.id === id)?.keys ?? '';
+  const fastGrid1Key = keyOf('gridFast1');
+  const fastGrid2Key = keyOf('gridFast2');
+
+  /**
+   * The grid list, as a `wxChoice`'s options — plus, at the head, whatever the
+   * override currently holds if that is not one of the grids. Upstream cannot
+   * be in that state (it stores an INDEX into the list, and `safeGrid` clamps
+   * it, `panel_grid_settings.cpp:232-243`); ours stores the size string, and a
+   * list the stored value is missing from would otherwise show blank.
+   */
+  const overrideChoices = (current: string): { value: string; label: string }[] => {
+    // A grid's X is millimetres with the unit implied (`GridEntry.x`), and an
+    // override's size is parsed by `gridSizeToMM`, which reads a bare number as
+    // millimetres — so the row's own X IS the value to store.
+    const opts = grid.sizes.map((sz) => ({ value: sz.x, label: label(sz) }));
+    return opts.some((o) => o.value === current)
+      ? opts
+      : [{ value: current, label: current }, ...opts];
+  };
 
   /**
    * `RebuildGridSizes` (`:117-181`) for the two Fast Grid choices.
@@ -284,142 +320,170 @@ export function PanelGridSettings({
       {open?.kind === 'error' && (
         <MessageDialogError message={open.message} onClose={() => setOpen(null)} />
       )}
-      <Group title={GRID_GROUP_TITLES[0]}>
-        {/*
-          `m_currentGridCtrl`, a `wxListBox` (`panel_grid_settings_base.cpp:29`).
-          A list box, not a radio group: its selection is BOTH the current grid
-          — `gridCfg.last_size_idx = m_currentGridCtrl->GetSelection()` (`:194`)
-          — and the row the five buttons act on. `size` makes it a list rather
-          than a drop-down, and `multiple` is what makes Safari and Firefox
-          honour that; a single selection is still enforced here because
-          nothing ever selects two.
-        */}
-        <select
-          // `.ze-search` is the shared entry chrome, so this states no colour
-          // and no metric of its own; `.ze-gridlist` is only a handle.
-          id={`${idPrefix}-cur-grid`}
-          className="ze-search ze-gridlist"
-          size={Math.max(4, Math.min(grid.sizes.length, 12))}
-          value={String(grid.last_size_idx)}
-          onChange={(e) =>
-            update((g) => {
-              g.last_size_idx = Number(e.target.value);
-            })
-          }
-          onKeyDown={(e) => e.stopPropagation()}
-        >
-          {grid.sizes.map((size, i) => (
-            // The index is the identity here, as it is upstream: two grids can
-            // print the same string and `SetSelection` still names one row.
-            // biome-ignore lint/suspicious/noArrayIndexKey: the row IS its index
-            <option key={i} value={String(i)}>
-              {label(size)}
-            </option>
-          ))}
-        </select>
-        {/*
+      {/* `bSizerColumns` (`panel_grid_settings_base.cpp:20-62`), horizontal:
+          the grid list and its buttons on the left, Fast Grid Switching and
+          Grid Overrides on the right, with a 16 px spacer between the two
+          columns' own 5 px borders. Ours stacked all three groups. */}
+      <div className="ze-pref-columns ze-gutter-26 ze-stretch">
+        <div>
+          {/* `bSizerLeftCol->Add( m_gridsLabel, 0, wxTOP|wxRIGHT|wxLEFT, 5 )`
+              (`:27`) and NOTHING after it: this column's heading has no
+              `wxStaticLine`, where every other heading on the page does. Ours
+              drew one, and at the heading border of 13 rather than 5. */}
+          <div className="ze-gridlist-col">
+            <div className="ze-pref-group-title ze-noline">{GRID_GROUP_TITLES[0]}</div>
+            {/*
+              `m_currentGridCtrl`, a `wxListBox` (`panel_grid_settings_base.cpp:29`).
+              Its selection is BOTH the current grid —
+              `gridCfg.last_size_idx = m_currentGridCtrl->GetSelection()` (`:194`)
+              — and the row the five buttons act on.
+
+              NOT a `<select size>`, which is what this was. A native listbox
+              paints its selected row in the BROWSER's highlight the moment it
+              has focus, and that beats any `option:checked` rule: the row came
+              up in KiCad's orange and turned blue on the first click. On GTK a
+              wxListBox is a treeview in a scrolled frame, and the Hotkeys page
+              already draws one of those as a list of rows; this is the same,
+              so the selection is `treeview.view:selected` and the frame is
+              `.frame`, both from the theme.
+            */}
+            <div
+              id={`${idPrefix}-cur-grid`}
+              className="ze-gridlist"
+              role="listbox"
+              aria-label={GRID_GROUP_TITLES[0]}
+              tabIndex={0}
+              onKeyDown={(e) => {
+                // A wxListBox moves its selection on the arrow keys; nothing
+                // else here is a keystroke the editor behind the dialog should
+                // ever see.
+                e.stopPropagation();
+                if (e.key === 'ArrowDown' && row < numRows - 1) {
+                  e.preventDefault();
+                  update((g) => {
+                    g.last_size_idx = row + 1;
+                  });
+                } else if (e.key === 'ArrowUp' && row > 0) {
+                  e.preventDefault();
+                  update((g) => {
+                    g.last_size_idx = row - 1;
+                  });
+                }
+              }}
+            >
+              {grid.sizes.map((size, i) => (
+                // The index is the identity here, as it is upstream: two grids
+                // can print the same string and `SetSelection` still names one
+                // row.
+                <div
+                  // biome-ignore lint/suspicious/noArrayIndexKey: the row IS its index
+                  key={i}
+                  role="option"
+                  aria-selected={i === row}
+                  className={`ze-gridlist-row${i === row ? ' selected' : ''}`}
+                  onMouseDown={() =>
+                    update((g) => {
+                      g.last_size_idx = i;
+                    })
+                  }
+                  // `OnGridDClick` (`panel_grid_settings.cpp`) opens the editor
+                  // on the row that was double-clicked.
+                  onDoubleClick={() => setOpen({ kind: 'edit', row: i })}
+                >
+                  {label(size)}
+                </div>
+              ))}
+            </div>
+            {/*
           `bSizerGridButtons` (`panel_grid_settings_base.cpp:34-56`): Add, Edit,
           Move Up, Move Down, a 25 px spacer, then Remove. The four enable rules
           are the `OnUpdate*` handlers at `:352-381`; Add has none and is always
           live.
         */}
-        <div className="ze-pref-row ze-gridbtns">
-          <button
-            type="button"
-            className="ze-btn sm"
-            title="Add grid"
-            onClick={() => setOpen({ kind: 'add' })}
-          >
-            +
-          </button>
-          <button
-            type="button"
-            className="ze-btn sm"
-            title="Edit grid"
-            // `OnUpdateEditGrid`: `event.Enable( GetSelection() >= 0 )`.
-            disabled={!(row >= 0 && row < numRows)}
-            onClick={() => setOpen({ kind: 'edit', row })}
-          >
-            ✎
-          </button>
-          <button
-            type="button"
-            className="ze-btn sm"
-            title="Move grid up"
-            // `OnUpdateMoveUp`: `( numRows > 1 ) && ( curRow > 0 )`.
-            disabled={!(numRows > 1 && row > 0)}
-            onClick={moveUp}
-          >
-            ▲
-          </button>
-          <button
-            type="button"
-            className="ze-btn sm"
-            title="Move grid down"
-            // `OnUpdateMoveDown`: `( numRows > 1 ) && ( curRow < numRows - 1 )`.
-            disabled={!(numRows > 1 && row < numRows - 1)}
-            onClick={moveDown}
-          >
-            ▼
-          </button>
-          {/*
+            <div className="ze-gridbtns">
+              {/* `SetBitmap( KiBitmapBundle( BITMAPS::small_plus / edit / small_up /
+              small_down / small_trash ) )` (`panel_grid_settings.cpp:100-104`).
+              These are STD_BITMAP_BUTTONs, sized by their bitmap — ours drew
+              `+ ✎ ▲ ▼ −` as text on standard-width buttons. */}
+              <StdBitmapButton
+                bitmap="small_plus"
+                title="Add grid"
+                onClick={() => setOpen({ kind: 'add' })}
+              />
+              <StdBitmapButton
+                bitmap="edit"
+                title="Edit grid"
+                // `OnUpdateEditGrid`: `event.Enable( GetSelection() >= 0 )`.
+                disabled={!(row >= 0 && row < numRows)}
+                onClick={() => setOpen({ kind: 'edit', row })}
+              />
+              <StdBitmapButton
+                bitmap="small_up"
+                title="Move grid up"
+                // `OnUpdateMoveUp`: `( numRows > 1 ) && ( curRow > 0 )`.
+                disabled={!(numRows > 1 && row > 0)}
+                onClick={moveUp}
+              />
+              <StdBitmapButton
+                bitmap="small_down"
+                title="Move grid down"
+                // `OnUpdateMoveDown`: `( numRows > 1 ) && ( curRow < numRows - 1 )`.
+                disabled={!(numRows > 1 && row < numRows - 1)}
+                onClick={moveDown}
+              />
+              {/*
             `bSizerGridButtons->Add( 25, 0, 0, wxEXPAND, 5 )`
             (`panel_grid_settings_base.cpp:51`) — the gap that pushes Remove
             away from the other four, so a mis-aimed click cannot delete a grid.
           */}
-          {/* [data] the 25 of that Add(), a wxSizer spacer KiCad states itself. */}
-          <span style={{ width: 25 }} />
-          <button
-            type="button"
-            className="ze-btn sm"
-            title="Remove grid"
-            // `OnUpdateRemove`: `event.Enable( m_grids.size() > 1 )`.
-            disabled={!(numRows > 1)}
-            onClick={removeGrid}
-          >
-            −
-          </button>
+              {/* [data] the 25 of that Add(), a wxSizer spacer KiCad states itself. */}
+              <span style={{ width: 25 }} />
+              <StdBitmapButton
+                bitmap="small_trash"
+                title="Remove grid"
+                // `OnUpdateRemove`: `event.Enable( m_grids.size() > 1 )`.
+                disabled={!(numRows > 1)}
+                onClick={removeGrid}
+              />
+            </div>
+          </div>
         </div>
-      </Group>
-      <Group title={GRID_GROUP_TITLES[1]}>
-        <Sel
-          label="Grid 1:"
-          value={grid.fast_grid_1}
-          options={grid.sizes.map((sz, i) => [i, label(sz)] as [number, string])}
-          onChange={(v) =>
-            update((g) => {
-              g.fast_grid_1 = v;
-            })
-          }
-        />
-        <Sel
-          label="Grid 2:"
-          value={grid.fast_grid_2}
-          options={grid.sizes.map((sz, i) => [i, label(sz)] as [number, string])}
-          onChange={(v) =>
-            update((g) => {
-              g.fast_grid_2 = v;
-            })
-          }
-        />
-      </Group>
-      {/*
+        <div>
+          <Group title={GRID_GROUP_TITLES[1]}>
+            {/* `fgSizer3 = new wxFlexGridSizer( 2, 3, 6, 5 )` (`:75`) — three
+            columns, the third being `m_grid1HotKey`, a wxStaticText the panel
+            fills in with the action's own binding (`panel_grid_settings.cpp:94-98`). */}
+            <Sel
+              label="Grid 1:"
+              unit={`(${fastGrid1Key})`}
+              value={grid.fast_grid_1}
+              options={grid.sizes.map((sz, i) => [i, label(sz)] as [number, string])}
+              onChange={(v) =>
+                update((g) => {
+                  g.fast_grid_1 = v;
+                })
+              }
+            />
+            <Sel
+              label="Grid 2:"
+              unit={`(${fastGrid2Key})`}
+              value={grid.fast_grid_2}
+              options={grid.sizes.map((sz, i) => [i, label(sz)] as [number, string])}
+              onChange={(v) =>
+                update((g) => {
+                  g.fast_grid_2 = v;
+                })
+              }
+            />
+          </Group>
+          {/*
         Gerbview has no Grid Overrides group at all — `m_overridesLabel` and
         `m_staticline3` are hidden along with its last two rows
         (`panel_grid_settings.cpp:82-90`). An empty row table is that frame.
       */}
-      {rows.length > 0 && (
-        <Group title={GRID_GROUP_TITLES[2]}>
-          <Check
-            label="Enable grid overrides"
-            checked={grid.overrides_enabled}
-            onChange={(v) =>
-              update((g) => {
-                g.overrides_enabled = v;
-              })
-            }
-          />
-          {/*
+          {rows.length > 0 && (
+            <Group title={GRID_GROUP_TITLES[2]}>
+              {/*
             PANEL_GRID_SETTINGS never disables these rows: the label and the
             five checkbox/choice pairs are always live
             (common/dialogs/panel_grid_settings_base.cpp:109-163, and
@@ -430,38 +494,47 @@ export function PanelGridSettings({
             not KiCad's, and it is what made a fresh install show a page of
             dead controls.
           */}
-          {rows.map(([key, label]) => {
-            const entry = grid.overrides[key];
-            if (!entry) return null;
-            return (
-              <div key={key} className="ze-pref-row">
-                <Check
-                  label={label}
-                  checked={entry.enabled}
-                  onChange={(v) =>
-                    update((g) => {
-                      const e = g.overrides[key];
-                      if (e) e.enabled = v;
-                    })
-                  }
-                />
-                <input
-                  className="ze-search"
-                  value={entry.size}
-                  style={{ width: 100 }}
-                  onChange={(e) =>
-                    update((g) => {
-                      const o = g.overrides[key];
-                      if (o) o.size = e.target.value;
-                    })
-                  }
-                  onKeyDown={(e) => e.stopPropagation()}
-                />
+              <div className="ze-gridoverrides">
+                {rows.map(([key, label]) => {
+                  const entry = grid.overrides[key];
+                  if (!entry) return null;
+                  return (
+                    <Fragment key={key}>
+                      <Check
+                        label={label}
+                        checked={entry.enabled}
+                        onChange={(v) =>
+                          update((g) => {
+                            const e = g.overrides[key];
+                            if (e) e.enabled = v;
+                          })
+                        }
+                      />
+                      {/* `m_gridOverride*Choice` is a wxChoice over the grid list
+                    (`panel_grid_settings_base.cpp:127`, and
+                    `panel_grid_settings.cpp:239-243` selects into it by index).
+                    Ours was a free text field, which is how a page whose whole
+                    point is "pick one of these grids" ended up accepting
+                    anything at all. */}
+                      <Combo
+                        value={entry.size}
+                        ariaLabel={label}
+                        options={overrideChoices(entry.size)}
+                        onChange={(v) =>
+                          update((g) => {
+                            const o = g.overrides[key];
+                            if (o) o.size = v;
+                          })
+                        }
+                      />
+                    </Fragment>
+                  );
+                })}
               </div>
-            );
-          })}
-        </Group>
-      )}
+            </Group>
+          )}
+        </div>
+      </div>
     </>
   );
 }

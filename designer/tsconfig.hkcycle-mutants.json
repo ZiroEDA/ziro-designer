@@ -1,0 +1,8 @@
+{
+  "extends": "./tsconfig.json",
+  "include": [
+    "src/widgets/hotkey_cycle_popup.ts",
+    "src/widgets/HotkeyCyclePopup.tsx",
+    "src/ui/grid_settings.ts"
+  ]
+}

@@ -46,3 +46,43 @@ export function snapToGridSize(p: GridPoint, size: number, origin: GridPoint): G
     y: Math.round((p.y - origin.y) / size) * size + origin.y,
   };
 }
+
+/**
+ * `EDIT_TOOL::Move`'s movement, for one frame (edit_tool_move_fct.cpp:1144-1177).
+ *
+ *     m_cursor = grid.BestSnapAnchor( mousePos, layers, selectionGrid, sel_items );
+ *     movement = m_cursor - prevPos;
+ *     …
+ *     prevPos  = m_cursor;
+ *
+ * `prevPos` is seeded to the drag origin — `grid.BestDragOrigin(…)`, an anchor
+ * *on the selection*, with the pointer warped onto it (:1311-1351). Summed over
+ * the gesture the telescoping leaves `anchor + Σmovement = BestSnapAnchor(…)`,
+ * so what is really being placed is the **anchor**, absolutely, at the snapped
+ * cursor. That is the whole of why two parts dragged in KiCad line up with each
+ * other: each one's anchor lands on a grid node rather than keeping whatever
+ * fraction of a grid step it had.
+ *
+ * `snap` is `BestSnapAnchor`, taken as an argument because it needs the board,
+ * the view scale and the moving items to skip — none of which this arithmetic
+ * has any business knowing.
+ *
+ * The browser cannot warp the pointer. It does not need to: with the warp,
+ * upstream's `mousePos` is the anchor plus the pointer's motion since the grab,
+ * which is what the first line reconstructs. Called with `anchor === grabOrigin`
+ * — a selection that offers no anchor at all, where `BestDragOrigin` returns the
+ * mouse position — it degenerates to exactly upstream's own answer for that case.
+ */
+export function moveDelta(
+  anchor: GridPoint,
+  grabOrigin: GridPoint,
+  cursor: GridPoint,
+  snap: (p: GridPoint) => GridPoint,
+): GridPoint {
+  const to = snap({
+    x: anchor.x + (cursor.x - grabOrigin.x),
+    y: anchor.y + (cursor.y - grabOrigin.y),
+  });
+
+  return { x: to.x - anchor.x, y: to.y - anchor.y };
+}

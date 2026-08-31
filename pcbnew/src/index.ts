@@ -97,6 +97,19 @@ export {
   type BoardBBox,
 } from './edit-board.js';
 export {
+  copySelectionToClipboardText,
+  cutSelectionToClipboardText,
+  parseClipboardText,
+  pasteIntoBoard,
+  PASTE_MODES,
+  PASTE_DEFAULT_REFERENCE,
+  type PasteMode,
+  type PasteOptions,
+  type PasteResult,
+  type ParsedClipboard,
+  type CutResult,
+} from './pcb_clipboard.js';
+export {
   boardMsgPanelInfo,
   boardItemMsgPanelInfo,
   footprintMsgPanelInfo,

@@ -189,11 +189,7 @@ export function DialogPlot({ themeId, projectFolders = [], onPlot, onClose }: Pr
 
   return (
     <div className="ze-modal-backdrop" onMouseDown={onClose}>
-      <div
-        className="ze-modal"
-        style={{ width: 820, maxWidth: '96vw', height: 'auto' }}
-        onMouseDown={(e) => e.stopPropagation()}
-      >
+      <div className="ze-modal" onMouseDown={(e) => e.stopPropagation()}>
         <div className="ze-modal-header">
           Plot Schematic Options
           <span className="x" title="Cancel" onClick={onClose}>
@@ -202,7 +198,7 @@ export function DialogPlot({ themeId, projectFolders = [], onPlot, onClose }: Pr
         </div>
         <div
           className="ze-modal-body"
-          style={{ display: 'block', padding: '10px 14px', maxHeight: '78vh', overflow: 'auto' }}
+          style={{ display: 'block', padding: '10px 14px', overflow: 'auto' }}
         >
           {/* Output directory (upstream bOutputDir): a folder in the project. */}
           <div

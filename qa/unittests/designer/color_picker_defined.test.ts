@@ -198,8 +198,11 @@ describe('the dialog draws that grid', () => {
     const s = shellRule('.ze-swatch.large');
     expect(s.width).toBe('var(--swatch-large-w)');
     expect(s.height).toBe('var(--swatch-large-h)');
-    // A bare wxStaticBitmap, not the bordered COLOR_SWATCH panel.
-    expect(s.border).toBe('none');
+    // Unbordered, and the base `.ze-swatch` is where that is stated: every
+    // COLOR_SWATCH is a bare `wxPanel` drawn with `*wxTRANSPARENT_PEN`
+    // (color_swatch.cpp:72, :152), not this size alone.
+    expect(shellRule('.ze-swatch').border).toBe('none');
+    expect(s.border).toBeUndefined();
   });
 });
 

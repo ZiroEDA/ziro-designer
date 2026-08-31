@@ -51,6 +51,17 @@ const ANCHOR: Record<'ds-display' | 'ds-grids' | 'ds-colors', string> = {
   'ds-colors': 'Color theme:',
 };
 
+/**
+ * The labels a `Combo` offers. Ours is `wxChoice`, and like a wxChoice it is a
+ * BUTTON with a popup, never a native <select> — a native one paints the
+ * browser's own selection colour over `option:checked`, which is blue where
+ * every other selected row in the app is the GTK accent. Every option is in the
+ * DOM all the same: `.ze-combo-ghost` is how the button reserves the width of
+ * its widest entry, the way `wxChoice::GetBestSize` does.
+ */
+const comboOptions = (root: ParentNode = document): string[] =>
+  Array.from(root.querySelectorAll('.ze-combo-ghost')).map((o) => o.textContent ?? '');
+
 /** Open Preferences on a page and wait for its lazily-imported panel. */
 async function openPage(id: 'ds-display' | 'ds-grids' | 'ds-colors'): Promise<void> {
   render(<PreferencesDialog onClose={() => {}} initialPage={id} />);
@@ -99,13 +110,13 @@ describe('Drawing Sheet Editor > Display Options', () => {
 
   it('offers every grid thickness the wxChoice offers', async () => {
     await openPage('ds-display');
-    const options = Array.from(document.querySelectorAll('option')).map((o) => o.textContent);
+    const options = comboOptions();
     for (const [, label] of GRID_THICKNESS_CHOICES) expect(options, label).toContain(label);
   });
 
   it('offers KiCad’s three snap modes', async () => {
     await openPage('ds-display');
-    const options = Array.from(document.querySelectorAll('option')).map((o) => o.textContent);
+    const options = comboOptions();
     for (const [, label] of GRID_SNAP_CHOICES) expect(options, label).toContain(label);
   });
 
@@ -133,8 +144,10 @@ describe('Drawing Sheet Editor > Grids', () => {
   it('lists this editor’s grids, from the settings and not from the unit', async () => {
     await openPage('ds-grids');
     // `m_currentGridCtrl`, a wxListBox (`panel_grid_settings_base.cpp:29`), so
-    // the rows are options and not the text fields they used to be.
-    const options = Array.from(document.querySelectorAll('select.ze-gridlist option')).map(
+    // the rows are a list and not the text fields they used to be. It is a
+    // listbox of our own rather than a native <select size>, which paints the
+    // browser's blue over the selected row as soon as it has focus.
+    const options = Array.from(document.querySelectorAll('.ze-gridlist .ze-gridlist-row')).map(
       (o) => o.textContent,
     );
     expect(options).toHaveLength(PL_EDITOR_DEFAULTS.window.grid.sizes.length);
@@ -170,16 +183,16 @@ describe('Drawing Sheet Editor > Colors', () => {
     // `PANEL_COLOR_SETTINGS`; its base file is a label and a wxChoice and
     // nothing else (`panel_pl_editor_color_settings_base.cpp:14-32`). A swatch
     // grid here would be an invention.
-    expect(document.querySelectorAll('.ze-pref-colorrow')).toHaveLength(0);
-    expect(document.querySelectorAll('select')).toHaveLength(1);
+    expect(document.querySelectorAll('.ze-colorgrid')).toHaveLength(0);
+    expect(document.querySelectorAll('.ze-combo')).toHaveLength(1);
+    expect(document.querySelectorAll('select')).toHaveLength(0);
   });
 
   it('offers the theme KiCad’s ResetPanel selects', async () => {
     await openPage('ds-colors');
     // `m_themes->SetStringSelection( _( "KiCad Default" ) )`
     // (`panel_pl_editor_color_settings.cpp:84`).
-    const options = Array.from(document.querySelectorAll('option')).map((o) => o.textContent);
-    expect(options).toContain('KiCad Default');
+    expect(comboOptions()).toContain('KiCad Default');
   });
 });
 

@@ -95,7 +95,38 @@ export interface MsgPanelItem {
  * the rows a footprint editor shows are genuinely a different list, not a
  * subset.
  */
-export type PcbMsgPanelFrame = 'pcb_edit' | 'footprint_edit' | 'footprint_viewer';
+export type PcbMsgPanelFrame =
+  | 'pcb_edit'
+  | 'footprint_edit'
+  | 'footprint_viewer'
+  /**
+   * FRAME_CVPCB_DISPLAY — CVPCB's footprint viewer.
+   *
+   * It reads the BOARD EDITOR's rows, not the viewer's.
+   * `FOOTPRINT::GetMsgPanelInfo`'s early return names three frame types and
+   * this is not one of them:
+   *
+   *     if( aFrame->IsType( FRAME_FOOTPRINT_VIEWER )
+   *         || aFrame->IsType( FRAME_FOOTPRINT_CHOOSER )
+   *         || aFrame->IsType( FRAME_FOOTPRINT_EDITOR ) )
+   *                                            pcbnew/footprint.cpp:2143-2159
+   *
+   * so DISPLAY_FOOTPRINTS_FRAME falls through to Rotation / Status /
+   * Attributes / Footprint / 3D-Shape, which is what a real cvpcb viewer
+   * shows. Reading the branch as "anything that is not the board editor is a
+   * viewer" gets this one frame backwards.
+   */
+  | 'cvpcb_display';
+
+/**
+ * The frames `FOOTPRINT::GetMsgPanelInfo` returns the short list for
+ * (`pcbnew/footprint.cpp:2143-2146`). Named as a set rather than tested by
+ * negation so a frame added later has to say which side it is on.
+ */
+const FOOTPRINT_ONLY_FRAMES: ReadonlySet<PcbMsgPanelFrame> = new Set<PcbMsgPanelFrame>([
+  'footprint_edit',
+  'footprint_viewer',
+]);
 
 /** What the row builders need from the frame, in the shape upstream reads it. */
 export interface PcbMsgPanelContext {
@@ -302,12 +333,35 @@ export function boardMsgPanelInfo(ctx: PcbMsgPanelContext): MsgPanelItem[] {
 const isSideSpecific = (layer: string): boolean => /^[FB]\./.test(layer);
 
 /**
+ * The frames whose BOARD is a `BOARD_USE::FPHOLDER` — a board that exists only
+ * to hold one footprint for viewing or editing. The footprint editor
+ * (`footprint_edit_frame.cpp`), pcbnew's footprint viewer, the chooser's
+ * preview panel (`footprint_preview_panel.cpp`) and CVPCB's viewer
+ * (`display_footprints_frame.cpp:83`, `SetBoardUse( BOARD_USE::FPHOLDER )`)
+ * all set it. Only the board editor's board is a real board.
+ */
+const FPHOLDER_FRAMES: ReadonlySet<PcbMsgPanelFrame> = new Set<PcbMsgPanelFrame>([
+  'footprint_edit',
+  'footprint_viewer',
+  'cvpcb_display',
+]);
+
+/**
  * `FOOTPRINT::GetSide` (footprint.cpp:2217): the footprint's own layer, but
  * only once something in it actually sits on a side-specific layer. A footprint
  * of user-layer graphics alone is unsided and gets no Board Side row at all.
+ *
+ * A footprint-holder board short-circuits the whole test:
+ *
+ *     if( const BOARD* board = GetBoard() )
+ *         if( board->IsFootprintHolder() )
+ *             return UNDEFINED_LAYER;
+ *
+ * which is why CVPCB's viewer shows no Board Side row even though it takes the
+ * board editor's branch for every other row.
  */
 export function footprintSide(ctx: PcbMsgPanelContext, fp: PcbFootprint): string | null {
-  if (ctx.frame !== 'pcb_edit') return null;
+  if (FPHOLDER_FRAMES.has(ctx.frame)) return null;
 
   const sided =
     fp.pads.some((p) => expandLayers(ctx.board, p.layers).some(isSideSpecific)) ||
@@ -344,7 +398,7 @@ export function footprintMsgPanelInfo(ctx: PcbMsgPanelContext, fp: PcbFootprint)
 
   const [nickname = '', itemName = ''] = splitFpid(fp.lib);
 
-  if (ctx.frame !== 'pcb_edit') {
+  if (FOOTPRINT_ONLY_FRAMES.has(ctx.frame)) {
     list.push(
       { upper: 'Library', lower: nickname },
       { upper: 'Footprint Name', lower: itemName },

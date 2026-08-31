@@ -32,19 +32,15 @@
  */
 import type { MenuItem } from '../../ui/menu_types.js';
 import { evaluateConditionalMenu, menuEntry, menuSeparator } from '../../ui/conditional_menu.js';
-import {
-  isZoomPresetChecked,
-  zoomPresetLabel,
-  type ZoomApp,
-  ZOOM_LIST,
-} from '../../ui/zoom_settings.js';
+import type { ZoomApp } from '../../ui/zoom_settings.js';
+import { standardSubMenuEntries } from '../../ui/standard_submenus.js';
 import { PL_IU_PER_MM } from '@ziroeda/common';
 import {
   // One copy, in the shared module. This file had its own `secondaryUnits` and
   // `gridChoiceLabel`, a per-editor copy of a `common/` helper — and the copy
   // could not print a non-square grid at all, because it took a single size
-  // where `GRID` has an x and a y.
-  gridChoiceLabel,
+  // where `GRID` has an x and a y. The Zoom and Grid submenus themselves went
+  // the same way afterwards, into `ui/standard_submenus.ts`.
   gridSizeToMM,
   secondaryUnits,
   type GridApp,
@@ -90,38 +86,6 @@ export interface DsContextMenuState {
   gridSizes: readonly GridEntry[];
   /** `GetUnitPair`'s primary unit — the frame's display unit. */
   primaryUnits: StatusUnits;
-}
-
-/** `ZOOM_MENU` (common/tool/zoom_menu.cpp) as a submenu. */
-export function dsZoomSubmenu(zoom: number, setZoom: (factor: number) => void): MenuItem[] {
-  return ZOOM_LIST[APP].map((factor) => ({
-    label: zoomPresetLabel(factor),
-    checked: isZoomPresetChecked(factor, zoom),
-    action: () => setZoom(factor),
-  }));
-}
-
-/** `GRID_MENU` (common/tool/grid_menu.cpp) as a submenu. */
-export function dsGridSubmenu(
-  gridIndex: number,
-  gridSizes: readonly GridEntry[],
-  primaryUnits: StatusUnits,
-  gridOrigin: () => void,
-  setGrid: (index: number) => void,
-): MenuItem[] {
-  return [
-    { label: 'Grid Origin...', icon: 'gridOrigin', action: gridOrigin },
-    { sep: true },
-    ...gridSizes.map((sz, i) => ({
-      // pl_editor's own IU scale (`drawSheetIUScale`, base_units.h:113), not
-      // the schematic's. It decides the precision: `short_form` upstream is
-      // `IU_PER_MM == SCH_IU_PER_MM`, which pl_editor is not, so its rows read
-      // `196.85 mils (5.0000 mm)` rather than the shortened `197 mils`.
-      label: gridChoiceLabel(sz, primaryUnits, PL_IU_PER_MM, sz.name),
-      checked: i === gridIndex,
-      action: () => setGrid(i),
-    })),
-  ];
 }
 
 /**
@@ -189,25 +153,21 @@ export function buildDsContextMenu(
       notEmpty,
     ),
 
-    // EDA_DRAW_FRAME::AddStandardSubMenus (eda_draw_frame.cpp:714-725).
-    menuSeparator(1000),
-    menuEntry(
-      { label: 'Zoom', icon: 'zoomTool', submenu: dsZoomSubmenu(state.zoom, actions.setZoom) },
-      1000,
-    ),
-    menuEntry(
-      {
-        label: 'Grid',
-        icon: 'toggleGrid',
-        submenu: dsGridSubmenu(
-          state.gridIndex,
-          state.gridSizes,
-          state.primaryUnits,
-          actions.gridOrigin,
-          actions.setGrid,
-        ),
-      },
-      1000,
-    ),
+    // EDA_DRAW_FRAME::AddStandardSubMenus (eda_draw_frame.cpp:709-726), from
+    // the shared module — the same three entries the PCB editor's menu ends
+    // with, because upstream they are the same method on the base frame.
+    ...standardSubMenuEntries({
+      zoomApp: APP,
+      zoom: state.zoom,
+      setZoom: actions.setZoom,
+      gridSizes: state.gridSizes,
+      gridIndex: state.gridIndex,
+      primaryUnits: state.primaryUnits,
+      // pl_editor's own IU scale (`drawSheetIUScale`, base_units.h:113), not
+      // the schematic's.
+      iuPerMM: PL_IU_PER_MM,
+      gridOrigin: actions.gridOrigin,
+      setGrid: actions.setGrid,
+    }),
   ]);
 }

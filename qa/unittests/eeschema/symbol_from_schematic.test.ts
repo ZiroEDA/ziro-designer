@@ -12,6 +12,7 @@ import { readSchematic } from '@ziroeda/eeschema';
 import {
   editorUnitFor,
   libSymbolFromPlacement,
+  symbolEditorRequest,
 } from '@ziroeda/eeschema/src/tools/symbol_from_schematic.js';
 import { applyTransform, invertTransform, symbolTransform } from '@ziroeda/common/src/transform.js';
 import type { LibSymbol, SchSymbol } from '@ziroeda/eeschema/src/types.js';
@@ -163,5 +164,118 @@ describe('what else comes across', () => {
       bodyStyle: 1,
     });
     expect(editorUnitFor(placement('0', 2)).unit).toBe(2);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The seed both of DIALOG_SYMBOL_PROPERTIES' hand-off buttons build.
+//
+// Upstream runs one handler for both and switches on the dialog's return code
+// (`sch_edit_tool.cpp:2727-2760`):
+//
+//     SYMBOL_PROPS_EDIT_SCHEMATIC_SYMBOL -> LoadSymbolFromSchematic( symbol )
+//     SYMBOL_PROPS_EDIT_LIBRARY_SYMBOL   -> LoadSymbol( GetLibId(), GetUnit(),
+//                                                       GetBodyStyle() )
+//
+// Ours had "Edit Symbol..." wired to a bare view switch with no symbol at all,
+// so the editor opened on `[no symbol loaded]`. These pin that BOTH buttons
+// produce a symbol, and that they produce *different* ones.
+// ---------------------------------------------------------------------------
+
+/** The whole sheet, so the request has both the placement and the cache. */
+const sheet = (orient: string, unit = 1, bodyStyle = 1) =>
+  readSchematic(
+    parse(`(kicad_sch (version 20250114) (paper "A4")
+      (lib_symbols
+        (symbol "L:R" (pin_numbers (hide yes)) (pin_names (offset 0))
+          (property "Reference" "R" (at 0 0 0) (effects (font (size 1.27 1.27))))
+          (symbol "R_0_1" (rectangle (start -1 -2) (end 1 2)
+            (stroke (width 0) (type default)) (fill (type none))))))
+      (symbol (lib_id "L:R") (at 100 100 ${orient}) (unit ${unit})
+        (body_style ${bodyStyle})
+        (exclude_from_sim no) (in_bom yes) (on_board yes) (dnp no) (uuid "s-1")
+        (property "Reference" "R1" (at 110 105 0) (effects (font (size 1.27 1.27))))))`),
+  );
+
+const cacheOf = (d: ReturnType<typeof sheet>): Map<string, LibSymbol> =>
+  new Map(d.libSymbols.map((l) => [l.libId, l]));
+
+// `refId('symbol', uuid, i)` is the uuid when there is one, and the fixture
+// gives it one — written out rather than computed, so a change to how ids are
+// formed shows up here as a failure instead of following along silently.
+const S1 = 's-1';
+
+describe('symbolEditorRequest: what each hand-off button seeds the editor with', () => {
+  it('"Edit Symbol..." hands over a symbol, not nothing', () => {
+    // The bug: this leg used to call the plain "show the symbol editor" action
+    // with no payload, which is the same thing the launcher's menu entry does —
+    // and that legitimately opens on `[no symbol loaded]`.
+    const d = sheet('0');
+    const req = symbolEditorRequest(d.symbols, cacheOf(d), S1, 'schematic');
+    expect(req).not.toBeNull();
+    expect(req?.symbol.libId).toBe('L:R');
+    expect(req?.targetId).toBe(S1);
+  });
+
+  it('"Edit Library Symbol..." hands over a symbol, not nothing', () => {
+    const d = sheet('0');
+    const req = symbolEditorRequest(d.symbols, cacheOf(d), S1, 'library');
+    expect(req).not.toBeNull();
+    expect(req?.symbol.libId).toBe('L:R');
+    expect(req?.targetId).toBe(S1);
+  });
+
+  it('the library leg is the cached part untouched, field positions and all', () => {
+    // `LoadSymbol( GetLibId(), … )`: the library entry as it stands. Its
+    // Reference sits at the origin, where the library put it — 180° of
+    // placement rotation must not have moved it.
+    const d = sheet('180');
+    const req = symbolEditorRequest(d.symbols, cacheOf(d), S1, 'library');
+    expect(fieldAt(req!.symbol)).toEqual({ x: 0, y: 0 });
+  });
+
+  it('the schematic leg folds this placement in', () => {
+    // Same 180° placement, and now the field IS the placement's, carried back
+    // into symbol space: the field is 10 right / 5 below the symbol origin in
+    // the sheet, and 180° maps (x,y) -> (-x,-y), so it came from (-10,-5).
+    const d = sheet('180');
+    const req = symbolEditorRequest(d.symbols, cacheOf(d), S1, 'schematic');
+    expect(fieldAt(req!.symbol)).toEqual({ x: mm(-10), y: mm(-5) });
+  });
+
+  it('opens on the placement’s own unit and body style', () => {
+    const d = sheet('0', 3, 2);
+    expect(symbolEditorRequest(d.symbols, cacheOf(d), S1, 'library')).toMatchObject({
+      unit: 3,
+      bodyStyle: 2,
+    });
+    expect(symbolEditorRequest(d.symbols, cacheOf(d), S1, 'schematic')).toMatchObject({
+      unit: 3,
+      bodyStyle: 2,
+    });
+  });
+
+  it('floors an unset unit at 1 rather than opening on unit 0', () => {
+    const d = sheet('0', 0, 0);
+    expect(symbolEditorRequest(d.symbols, cacheOf(d), S1, 'library')).toMatchObject({
+      unit: 1,
+      bodyStyle: 1,
+    });
+  });
+
+  it('refuses a broken library symbol link on both legs', () => {
+    // `"Symbols with broken library symbol links cannot be edited."`
+    // (sch_editor_control.cpp:2870). Null, so the caller reports it — NOT a
+    // request with no symbol in it, which is how the editor ends up empty.
+    const d = sheet('0');
+    const empty = new Map<string, LibSymbol>();
+    expect(symbolEditorRequest(d.symbols, empty, S1, 'library')).toBeNull();
+    expect(symbolEditorRequest(d.symbols, empty, S1, 'schematic')).toBeNull();
+  });
+
+  it('refuses an id that is not on the sheet', () => {
+    const d = sheet('0');
+    expect(symbolEditorRequest(d.symbols, cacheOf(d), 'nobody', 'library')).toBeNull();
+    expect(symbolEditorRequest(d.symbols, cacheOf(d), 'nobody', 'schematic')).toBeNull();
   });
 });

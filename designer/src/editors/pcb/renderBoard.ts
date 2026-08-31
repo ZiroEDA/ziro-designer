@@ -23,10 +23,12 @@
  */
 
 import { PCB_IU_PER_MM } from '@ziroeda/common/src/eda_units.js';
-import { drawDrawingSheetItems } from '@ziroeda/common';
+import { drawDrawingSheetItems, hitTestDrawingSheet } from '@ziroeda/common';
 import {
   defaultDrawingSheet,
+  type DsDrawItem,
   layoutDrawingSheet,
+  paperTypeName,
   SCH_IU_PER_MM,
   type WksSheet,
 } from '@ziroeda/common';
@@ -235,6 +237,17 @@ export interface PcbDrawOptions {
    *  (pcbnew_settings.cpp ships m_NetNames = 3, pads *and* tracks). */
   netNames: boolean;
   zoneOpacity: number;
+  /**
+   * `PCB_VIEWERS_SETTINGS_BASE::m_ViewersDisplay.m_DisplayPadNumbers`, the
+   * `PCB_ACTIONS::showPadNumbers` toggle. Default true
+   * (`pcbnew/pcbnew_settings.h:132`).
+   *
+   * `PCB_PAINTER::draw( const PAD*, aLayer )`'s netname branch reads it FIRST
+   * and leaves `padNumber` empty when it is off (`pcb_painter.cpp:1393-1398`),
+   * so the pad's number disappears while its net name stays — two independent
+   * gates on one label, which is why this is separate from `netNames`.
+   */
+  padNumbers: boolean;
   /** Zone display mode: false = filled (default), true = outline sketch. */
   zoneOutline: boolean;
   /** Show pad clearance outlines (m_Display.m_PadClearance, default on). */
@@ -244,6 +257,21 @@ export interface PcbDrawOptions {
   trackFill: boolean;
   viaFill: boolean;
   padFill: boolean;
+  /**
+   * `m_ViewersDisplay.m_DisplayGraphicsFill` / `m_DisplayTextFill`, flipped by
+   * `PCB_ACTIONS::graphicsOutlines` / `textOutlines`.
+   *
+   * The painter reads them as `outline_mode = !fill` and then uses
+   * `m_pcbSettings.m_outlineWidth` in place of the item's own width
+   * (`pcb_painter.cpp:2014` for shapes, `:2521` for text, where it is
+   * `attrs.m_StrokeWidth = m_outlineWidth`). `m_outlineWidth` is `1`
+   * (`common/render_settings.cpp:43`) — one internal unit, which the min-pen
+   * floor lifts to a single device pixel, so outline mode is the thinnest
+   * stroke the view can draw. That is why `minPen` is the right width here and
+   * why it matches the sketch convention the three flags above already use.
+   */
+  graphicFill: boolean;
+  textFill: boolean;
   /** Opacity of filled graphic shapes (s_objectSettings "Filled Shapes"). */
   filledShapeOpacity: number;
   /** High-contrast mode for inactive layers (HIGH_CONTRAST_MODE): 'dim' fades
@@ -283,12 +311,15 @@ export const DEFAULT_DRAW_OPTIONS: PcbDrawOptions = {
   viaOpacity: 1.0,
   padOpacity: 1.0,
   netNames: true,
+  padNumbers: true,
   zoneOpacity: 0.6,
   zoneOutline: false,
   padClearance: true,
   trackFill: true,
   viaFill: true,
   padFill: true,
+  graphicFill: true,
+  textFill: true,
   filledShapeOpacity: 1.0,
   contrastMode: 'normal',
 };
@@ -338,6 +369,13 @@ export interface SceneImage {
 export interface PadTextItem extends PcbTextItem {
   /** `GetGlyphSize().y` as the painter set it, before any compensation. */
   glyph: number;
+  /**
+   * Which of `draw( const PAD* )`'s two strings this is. They are laid out
+   * together but gated apart — the number by `m_DisplayPadNumbers` and the net
+   * name by `m_Display.m_NetNames` — so the pass that draws them has to be
+   * able to tell them apart.
+   */
+  padText: 'number' | 'net';
 }
 
 /** One pad's laid-out text, ready for the zoom-dependent pass to gate. */
@@ -1054,8 +1092,8 @@ function addPadLabels(
   const anchor = (dy: number): Vec2 =>
     angle === 90 ? { x: pad.at.x + dy, y: pad.at.y } : { x: pad.at.x, y: pad.at.y + dy };
   const items: PadTextItem[] = [];
-  const label = (text: string, at: Vec2, glyph: number): void => {
-    items.push(mkItem(text, at, glyph));
+  const label = (text: string, at: Vec2, glyph: number, padText: 'number' | 'net'): void => {
+    items.push({ ...mkItem(text, at, glyph), padText });
   };
   const mkItem = (text: string, at: Vec2, glyph: number): PadTextItem =>
     ({
@@ -1091,12 +1129,12 @@ function addPadLabels(
     tsize *= 0.85;
     if (round) tsize *= 0.9;
     const ty = Math.min(tsize * 1.4, yOffNet);
-    label(netLabel, anchor(ty), tsize);
+    label(netLabel, anchor(ty), tsize, 'net');
   }
   if (padNumber !== '') {
     let tsize = Math.min((1.5 * along) / Math.max(padNumber.length, 3), size);
     tsize = Math.min(tsize * 0.85, size);
-    label(padNumber, anchor(-yOffNum), tsize);
+    label(padNumber, anchor(-yOffNum), tsize, 'number');
   }
   if (items.length > 0)
     scene.padLabels.push({ owner, at: pad.at, minSide: Math.min(px, py), layers, items });
@@ -1584,6 +1622,22 @@ export interface PcbViewTransform {
 // KiCad renders every stroke at a minimum on-screen width so thin tracks stay
 // crisp and visible when zoomed out (GAL's minimum pen), instead of fading to a
 // sub-pixel blur. `minPen` is 1 device pixel expressed in world (IU) units.
+/**
+ * Stroke every path at ONE width, ignoring the width each was bucketed under.
+ *
+ * This is outline mode: `m_gal->SetLineWidth( m_pcbSettings.m_outlineWidth )`
+ * for shapes and `attrs.m_StrokeWidth = m_outlineWidth` for text, in place of
+ * the item's own thickness.
+ */
+const strokeAllAt = (
+  ctx: CanvasRenderingContext2D,
+  map: Map<number, Path2D>,
+  pen: number,
+): void => {
+  ctx.lineWidth = pen;
+  for (const path of map.values()) ctx.stroke(path);
+};
+
 const strokeAll = (ctx: CanvasRenderingContext2D, map: Map<number, Path2D>, minPen = 0): void => {
   for (const [width, path] of map) {
     ctx.lineWidth = Math.max(width, minPen);
@@ -1731,6 +1785,74 @@ export function drawPageLimits(
 }
 
 /**
+ * The board's drawing sheet as `DS_DRAW_ITEM`s — `DS_PROXY_VIEW_ITEM::buildDrawList`.
+ *
+ * Its own function because two things need the same list and they must not
+ * build it differently: the painter below, and `hitTestBoardDrawingSheet`, which
+ * is how a double-click on the frame or the title block finds its way to Page
+ * Settings. Upstream that identity is structural — `HitTestDrawingSheetItems`
+ * calls `buildDrawList` itself (ds_proxy_view_item.cpp:161-174).
+ *
+ * The list comes back in **schematic** internal units, because that is what the
+ * shared drawing-sheet engine works in. Everything on this side of the boundary
+ * has to convert; {@link DS_IU_TO_PCB} is the one factor to do it with.
+ */
+export function boardDrawingSheetItems(info: SheetInfo, sheet?: WksSheet): DsDrawItem[] {
+  const page = paperSizeIU(info.paper);
+  if (!page) return [];
+  const tb = info.titleBlock ?? {};
+
+  return layoutDrawingSheet(
+    sheet ?? defaultDrawingSheet(),
+    { widthMM: page.w / PCB_IU_PER_MM, heightMM: page.h / PCB_IU_PER_MM },
+    {
+      // A board is one page: pcbnew has no sheet hierarchy to number.
+      pageNumber: 1,
+      sheetCount: 1,
+      title: tb.title ?? '',
+      rev: tb.rev ?? '',
+      date: tb.date ?? '',
+      company: tb.company ?? '',
+      comments: [...(tb.comments ?? [])],
+      // `m_paperFormat = aPageInfo.GetTypeAsString()` (ds_draw_item.cpp:552).
+      paper: paperTypeName(info.paper),
+      fileName: info.fileName ?? '',
+      sheetPath: '/',
+      appVersion: 'ZiroEDA',
+    },
+  );
+}
+
+/** Schematic internal units to board ones — the drawing sheet's whole boundary. */
+export const DS_IU_TO_PCB = PCB_IU_PER_MM / SCH_IU_PER_MM;
+
+/**
+ * `DS_PROXY_VIEW_ITEM::HitTestDrawingSheetItems` (ds_proxy_view_item.cpp:161):
+ * is `p` on one of the drawing sheet's items?
+ *
+ *     int accuracy = (int) aView->ToWorld( 5.0 );   // five pixels at current zoom
+ *     …
+ *     if( item->HitTest( aPosition, accuracy ) ) return true;
+ *
+ * This is what makes a double-click on the page frame or anywhere in the title
+ * block open Page Settings (`EDIT_TOOL::Properties`, edit_tool.cpp:2153-2161,
+ * and the same test gates the Properties menu row at :616-631). `p` and
+ * `accuracy` are in board units, as upstream's are.
+ */
+export function hitTestBoardDrawingSheet(
+  info: SheetInfo,
+  sheet: WksSheet | undefined,
+  p: Vec2,
+  accuracy: number,
+): boolean {
+  return hitTestDrawingSheet(
+    boardDrawingSheetItems(info, sheet),
+    { x: p.x / DS_IU_TO_PCB, y: p.y / DS_IU_TO_PCB },
+    accuracy / DS_IU_TO_PCB,
+  );
+}
+
+/**
  * The page frame and title block, through the same engine eeschema and
  * pl_editor use.
  *
@@ -1755,39 +1877,19 @@ export function drawDrawingSheet(
   // World width of one device pixel, so hairlines stay visible when zoomed out.
   minWidth = 0,
 ): void {
-  const page = paperSizeIU(info.paper);
-  if (!page) return;
-  const tb = info.titleBlock ?? {};
   // Page size in millimetres, from *this* file's internal units.
   //
   // `iuToMM` is the schematic scale (1e4/mm) and `page` is in board units
   // (1e6/mm), so putting one through the other asked for a page a hundred times
   // too large: a 297 mm sheet became a 29.7 metre one, laid out so far outside
   // the board that nothing was visible on screen at all.
-  const items = layoutDrawingSheet(
-    sheet ?? defaultDrawingSheet(),
-    { widthMM: page.w / PCB_IU_PER_MM, heightMM: page.h / PCB_IU_PER_MM },
-    {
-      // A board is one page: pcbnew has no sheet hierarchy to number.
-      pageNumber: 1,
-      sheetCount: 1,
-      title: tb.title ?? '',
-      rev: tb.rev ?? '',
-      date: tb.date ?? '',
-      company: tb.company ?? '',
-      comments: [...(tb.comments ?? [])],
-      paper: info.paper ?? '',
-      fileName: info.fileName ?? '',
-      sheetPath: '/',
-      appVersion: 'ZiroEDA',
-    },
-  );
+  const items = boardDrawingSheetItems(info, sheet);
   if (items.length === 0) return;
   // The layout comes back in schematic internal units, because that is what the
   // shared engine works in; this canvas is in board units. Scaling the context
   // rather than every coordinate also scales the pen widths, which are in the
   // same units and would otherwise be a hundred times too fine.
-  const toPcb = PCB_IU_PER_MM / SCH_IU_PER_MM;
+  const toPcb = DS_IU_TO_PCB;
   ctx.save();
   ctx.scale(toPcb, toPcb);
   drawDrawingSheetItems(ctx, items, NO_DS_SELECTION, { color, minWidth: minWidth / toPcb });
@@ -1823,6 +1925,17 @@ export function pcbGridOptions(o: {
   style?: GridStyle;
   lineWidthPx?: number;
   minSpacingPx?: number;
+  /**
+   * `GAL_DISPLAY_OPTIONS::m_axesEnabled` + `SetAxesColor`.
+   *
+   * OFF for the board editor, which never enables them, and ON for the three
+   * frames that do: `footprint_edit_frame.cpp:157`,
+   * `footprint_viewer_frame.cpp:202` and `cvpcb/display_footprints_frame.cpp:144`.
+   * GAL draws them inside `drawGrid` -- a line at y=0 across the viewport and
+   * one at x=0 down it, at minorLineWidth (`opengl_gal.cpp:1921-1928`) -- which
+   * is why they are a grid option and not a scene item.
+   */
+  axes?: { color: string } | null;
 }): GridOptions {
   return {
     show: o.show,
@@ -1833,6 +1946,7 @@ export function pcbGridOptions(o: {
     lineWidthPx: o.lineWidthPx ?? DEFAULT_GRID_APPEARANCE.lineWidthPx,
     minSpacingPx: o.minSpacingPx ?? DEFAULT_GRID_APPEARANCE.minSpacingPx,
     devicePixelRatio: o.devicePixelRatio,
+    axes: o.axes ?? null,
   };
 }
 
@@ -1937,14 +2051,17 @@ export function buildDrawSteps(
     const b = scene.layers.get(layer);
     if (!b) return;
     const color = col(layer);
-    if (b.hasGfxFill) {
+    // `outline_mode = !m_DisplayGraphicsFill`: a sketched shape is not filled,
+    // and its stroke drops to m_outlineWidth rather than its own width.
+    if (b.hasGfxFill && opts.graphicFill) {
       ctx.globalAlpha = opts.filledShapeOpacity * la;
       ctx.fillStyle = color;
       ctx.fill(b.gfxFill, 'nonzero');
     }
     ctx.globalAlpha = la;
     ctx.strokeStyle = color;
-    strokeAll(ctx, b.gfxStrokes, minPen);
+    if (opts.graphicFill) strokeAll(ctx, b.gfxStrokes, minPen);
+    else strokeAllAt(ctx, b.gfxStrokes, minPen);
     if (opts.tracks && b.tracks.size > 0) {
       ctx.globalAlpha = opts.trackOpacity * la;
       if (opts.trackFill) {
@@ -2005,10 +2122,16 @@ export function buildDrawSteps(
     if (!b) return;
     ctx.globalAlpha = la;
     ctx.strokeStyle = col(layer);
-    if (opts.fpReferences) strokeAll(ctx, b.textRef);
-    if (opts.fpValues) strokeAll(ctx, b.textVal);
-    if (opts.fpText) strokeAll(ctx, b.textFp);
-    strokeAll(ctx, b.textBoard);
+    // `outline_mode = !m_DisplayTextFill` sets attrs.m_StrokeWidth to
+    // m_outlineWidth, so every glyph is stroked at the thin pen instead of the
+    // text's own pen width.
+    const strokeText = opts.textFill
+      ? (m: Map<number, Path2D>): void => strokeAll(ctx, m)
+      : (m: Map<number, Path2D>): void => strokeAllAt(ctx, m, minPen);
+    if (opts.fpReferences) strokeText(b.textRef);
+    if (opts.fpValues) strokeText(b.textVal);
+    if (opts.fpText) strokeText(b.textFp);
+    strokeText(b.textBoard);
     ctx.globalAlpha = 1;
   };
   const pushLayer = (layer: string): void => {
@@ -2266,6 +2389,10 @@ export function drawNetNames(
         attenuate(emphasize(netnameColorFor(shownOn, opts.theme, true), emphasis, true)),
       );
       for (const item of label.items) {
+        // `m_DisplayPadNumbers` off empties `padNumber` before anything is
+        // measured (`pcb_painter.cpp:1393`), so the number goes and the net
+        // name stays where it was.
+        if (item.padText === 'number' && !opts.padNumbers) continue;
         if (!atlas && item.size.y * view.scale < GLYPH_LEGIBLE_PX * dpr) continue;
         const at = moving ? { x: item.at.x + ldx, y: item.at.y + ldy } : item.at;
         runs.push({ text: item.text, at, angle: item.angle, glyph: item.glyph, item });

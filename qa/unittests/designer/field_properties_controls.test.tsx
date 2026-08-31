@@ -161,10 +161,18 @@ describe('DIALOG_FIELD_PROPERTIES: the formatting bar', () => {
    */
   it('offers the font choice with its two built-in faces', () => {
     open();
-    const sel = document.querySelector('.ze-lp-font');
-    expect(sel).toBeTruthy();
+    // `FONT_CHOICE` is a wxOwnerDrawnComboBox (`font_choice.h:28`), so this is
+    // our `Combo` — the owner-drawn one the toolbars use — and not a native
+    // <select>. Its rows carry role="option", which is what a listbox offers.
+    const combo = document.querySelector('.ze-lp-font') as HTMLElement | null;
+    expect(combo).toBeTruthy();
+    expect(combo?.getAttribute('aria-haspopup')).toBe('listbox');
+    // An owner-drawn combo builds its list when it drops down, so the faces
+    // are asserted through the gesture that shows them rather than by reading
+    // markup a wxChoice would have had sitting there.
+    fireEvent.click(combo!);
     expect(
-      Array.from(sel?.querySelectorAll('option') ?? []).map((o) => o.textContent),
+      Array.from(document.querySelectorAll('[role="option"]')).map((o) => o.textContent),
     ).toStrictEqual(['Default Font', 'KiCad Font']);
     expect(screen.getByText('Font:')).toBeTruthy();
   });
@@ -195,8 +203,13 @@ describe('DIALOG_FIELD_PROPERTIES: the formatting bar', () => {
   /** They are BITMAP_BUTTONs, not a wxChoice: no dropdown in the bar. */
   it('draws no dropdown for either alignment', () => {
     open();
-    // The font choice is the only <select> in the dialog.
-    expect(document.querySelectorAll('select').length).toBe(1);
+    // The alignments are BITMAP_BUTTONs, never a choice: upstream's formatting
+    // row has exactly one combo in it and that is the font. Counting native
+    // <select>s used to say this; the font picker is our owner-drawn `Combo`
+    // now, so the count that carries the claim is of comboboxes, and a native
+    // <select> anywhere in this dialog would itself be the bug.
+    expect(document.querySelectorAll('[aria-haspopup="listbox"]').length).toBe(1);
+    expect(document.querySelectorAll('select').length).toBe(0);
     expect(screen.queryByText('Orientation:')).toBeNull();
     expect(screen.queryByText('Align:')).toBeNull();
   });

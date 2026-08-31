@@ -39,34 +39,82 @@ export function resetCommonPanel(ctx: PrefsContext): void {
     resetKeys(s.appearance, COMMON_DEFAULTS.appearance, [
       'use_icons_in_menus',
       'show_scrollbars',
+      'grid_striping',
+      'use_custom_cursors',
       'icon_theme',
       'toolbar_icon_size',
       'hicontrast_dimming_factor',
+      // "Scaling" is one control and one setting, and it sits on this page, so
+      // Reset Common to Defaults puts the display back to the assumed PPI.
+      'zoom_correction_factor',
     ]);
-    // "Editing". The rest of `input` belongs to Mouse and Touchpad.
+    // "Editing", plus the two `input` fields User Interface shows.
+    // `hotkey_feedback` is drawn under User Interface upstream, not Editing --
+    // which changes nothing here, since the slice is the fields this PAGE binds
+    // to and both groups are on it.
     resetKeys(s.input, COMMON_DEFAULTS.input, [
       'warp_mouse_on_move',
       'immediate_actions',
       'hotkey_feedback',
+      'focus_follow_sch_pcb',
     ]);
-    // "Session".
-    resetKeys(s.system, COMMON_DEFAULTS.system, ['autosave_interval', 'file_history_size']);
+    // "Session". `autosave_interval` is NOT here any more: 10.0.5 dropped the
+    // `Auto save:` row from this page, and a reset may only touch what the page
+    // shows -- that is the whole point of a per-panel slice.
+    resetKeys(s.system, COMMON_DEFAULTS.system, ['file_history_size']);
     resetKeys(s.system.session, COMMON_DEFAULTS.system.session, ['remember_open_files']);
     // "Project Backup" — every field of `backup` is on this page.
     resetKeys(s.backup, COMMON_DEFAULTS.backup, [
       'enabled',
-      'backup_on_autosave',
-      'limit_total_files',
-      'limit_daily_files',
-      'min_interval',
+      'format',
+      'location',
       'limit_total_size',
     ]);
   });
-  // "Privacy", ours rather than KiCad's, and the only page that shows it.
-  ctx.setPrivacy((s) => {
-    const n = structuredClone(s);
-    resetKeys(n, PRIVACY_DEFAULTS, ['crash_reports']);
-    return n;
+  // No `privacy` here any more. The Privacy group was ours rather than KiCad's
+  // and has been taken off the page, and a panel's reset slice is exactly the
+  // fields its controls bind to -- resetting one the user cannot see would put
+  // crash reporting back on from a button labelled "Reset Common to Defaults".
+}
+
+/**
+ * `PANEL_GIT_REPOS::ResetPanel` (`common/dialogs/git/panel_git_repos.cpp:48`):
+ *
+ *     m_cbDefault->SetValue( true );
+ *     m_author->SetValue( wxEmptyString );
+ *     m_authorEmail->SetValue( wxEmptyString );
+ *
+ * Three of the five, and the other two are left alone — `m_enableGit` and the
+ * update interval are NOT reset upstream. The slice is what the panel's own
+ * ResetPanel touches, not everything the page shows.
+ */
+export function resetGitPanel(ctx: PrefsContext): void {
+  ctx.upC((s) => {
+    resetKeys(s.git, COMMON_DEFAULTS.git, ['useDefaultAuthor', 'authorName', 'authorEmail']);
+  });
+}
+
+/**
+ * `PANEL_SPACEMOUSE::ResetPanel` (`common/dialogs/panel_spacemouse.cpp:61`).
+ *
+ * The panel is a `RESETTABLE_PANEL` upstream — which is what makes the dialog's
+ * footer button read "Reset SpaceMouse to Defaults" rather than greying out
+ * (`common/widgets/paged_dialog.cpp:329-350`) — and its slice is the whole of
+ * `m_SpaceMouse`, since every one of the six parameters is on this page.
+ *
+ * That the controls are disabled here changes nothing about that: a reset
+ * restores what the page SHOWS, and the page shows six stored values.
+ */
+export function resetSpacemousePanel(ctx: PrefsContext): void {
+  ctx.upC((s) => {
+    resetKeys(s.spacemouse, COMMON_DEFAULTS.spacemouse, [
+      'rotate_speed',
+      'pan_speed',
+      'reverse_rotate',
+      'reverse_pan_x',
+      'reverse_pan_y',
+      'reverse_zoom',
+    ]);
   });
 }
 
@@ -102,6 +150,8 @@ export function resetMousePanel(ctx: PrefsContext): void {
       'mouse_left',
       'mouse_middle',
       'mouse_right',
+      // `m_choicePanMoveKey`, the fourth row of Drag Gestures.
+      'motion_pan_modifier',
       // "Scroll Gestures"
       'scroll_modifier_zoom',
       'scroll_modifier_pan_h',
