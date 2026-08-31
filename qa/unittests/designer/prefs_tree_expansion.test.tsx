@@ -107,3 +107,45 @@ describe('opened at a named page', () => {
     expect(document.querySelector('.ze-tree-item.active')?.textContent).toBe('Grids');
   });
 });
+
+/**
+ * Every top-level row's LABEL starts at the same x.
+ *
+ * A wxTreeCtrl reserves one expander-button column per level and draws a button
+ * only where the node has children, so a parentless page and a section parent —
+ * both level 0 — put their text in the same place. Measured on the installed
+ * 10.0.5, first ink per row: Common 491 (its selection band, which begins a few
+ * px before the text), Mouse and Touchpad 495, SpaceMouse 494, Hotkeys 495,
+ * Version Control 494, Packages and Updates 495, Plugins 495, Maintenance 495 —
+ * against Symbol Editor 494, Schematic Editor 494, PCB Editor 495. The twistys
+ * sit out at 474, in the gutter.
+ *
+ * Ours gave the parentless rows no gutter at all, so they hung left of every
+ * section name. The fix is the same empty box rather than a padding restating
+ * its width, so this asserts the BOX is there — a padding of the wrong size
+ * would still align by accident at one font size and drift at another.
+ */
+describe('top-level rows all reserve the expander gutter', () => {
+  it('gives a parentless page the same twisty box a section has', () => {
+    render(<PreferencesDialog onClose={() => {}} />);
+    const items = [...document.querySelectorAll('.ze-paged-tree > .ze-tree-item')];
+    // The parentless run is the direct children of the tree; sections wrap
+    // theirs in a div. So these are exactly Common, Mouse and Touchpad, Hotkeys.
+    expect(items.length).toBeGreaterThan(0);
+    for (const el of items) {
+      const twisty = el.querySelector(':scope > .twisty');
+      expect(twisty, el.textContent ?? '').not.toBeNull();
+      // Reserved, not drawn: no chevron on a row with no children.
+      expect(twisty?.classList.contains('expandable'), el.textContent ?? '').toBe(false);
+    }
+  });
+
+  it('and a section still draws its chevron in that gutter', () => {
+    render(<PreferencesDialog onClose={() => {}} />);
+    const headings = [...document.querySelectorAll('.ze-tree-item.root')];
+    expect(headings.length).toBeGreaterThan(0);
+    for (const el of headings) {
+      expect(el.querySelector(':scope > .twisty.expandable'), el.textContent ?? '').not.toBeNull();
+    }
+  });
+});

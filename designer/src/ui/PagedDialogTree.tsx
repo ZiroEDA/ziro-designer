@@ -78,6 +78,23 @@ export function PagedDialogTree({
               onClick={() => !p.disabled && onSelect(p.id)}
               title={p.disabled ? 'Not implemented yet' : p.label}
             >
+              {/* The expander GUTTER, with no expander in it. A wxTreeCtrl
+                  reserves one button column per level and draws a button only
+                  where there are children, so every level-0 row - parentless
+                  page and section parent alike - has its LABEL at the same x.
+                  Measured on the installed 10.0.5: Common, Mouse and Touchpad,
+                  SpaceMouse, Hotkeys, Version Control, Packages and Updates,
+                  Plugins and Maintenance all start their text at x=494/495,
+                  exactly where Symbol Editor's and PCB Editor's do, with the
+                  twisty out at x=474 in the gutter. Ours drew these rows with
+                  no gutter, so they hung left of every section name.
+
+                  A bare `.twisty` is that gutter: the chevron lives on
+                  `.twisty.expandable::before`, so without the modifier this is
+                  an empty box of exactly the right width. Which is the point -
+                  the alignment comes from the same box the arrow uses, not
+                  from a padding restating its size, so it cannot drift. */}
+              <span className="twisty" />
               {p.label}
             </div>
           ));
