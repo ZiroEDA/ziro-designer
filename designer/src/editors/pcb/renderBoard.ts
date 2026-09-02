@@ -23,6 +23,7 @@
  */
 
 import { PCB_IU_PER_MM } from '@ziroeda/common/src/eda_units.js';
+import { printableCharCount, unescapeString } from '@ziroeda/common/src/string_utils.js';
 import { drawDrawingSheetItems, hitTestDrawingSheet } from '@ziroeda/common';
 import {
   defaultDrawingSheet,
@@ -36,7 +37,10 @@ import type { Vec2 } from '@ziroeda/kimath';
 import {
   dimensionBBox,
   dimensionSegments,
+  arcCenter,
+  arcSweepDegrees,
   displayNetname,
+  shortNetname,
   imageBBox,
   tableBBox,
   tableBorderSegments,
@@ -234,9 +238,28 @@ export interface PcbDrawOptions {
    */
   minPenWidth?: number;
   padOpacity: number;
-  /** PCB_DISPLAY_OPTIONS::m_NetNames >= 2, net names on tracks. Default on
-   *  (pcbnew_settings.cpp ships m_NetNames = 3, pads *and* tracks). */
+  /** PCB_DISPLAY_OPTIONS::m_NetNames >= 2, net names on tracks, arcs and
+   *  copper shapes. Default on (pcbnew_settings.cpp ships m_NetNames = 3,
+   *  pads *and* tracks). */
   netNames: boolean;
+  /**
+   * `PCB_DISPLAY_OPTIONS::m_NetNames == 1 || == 3`, net names on **pads**
+   * (`pcb_painter.cpp:1403`).
+   *
+   * A separate field because the setting is one 4-valued choice — 0 none,
+   * 1 pads, 2 tracks, 3 both — and the two halves gate different items. There
+   * was no field for this at all, so pad net names were drawn unconditionally
+   * and "Show net names: tracks only" still lettered every pad.
+   */
+  padNetNames: boolean;
+  /**
+   * `m_NetNames != 0`, net names on **vias** (`pcb_painter.cpp:1118`).
+   *
+   * A third threshold on the same setting, and not the same as `netNames`: a
+   * via shows its net name when net names are on for *either* pads or tracks,
+   * so "pads only" letters the vias too. Reusing `netNames` here hid them.
+   */
+  viaNetNames: boolean;
   zoneOpacity: number;
   /**
    * `PCB_VIEWERS_SETTINGS_BASE::m_ViewersDisplay.m_DisplayPadNumbers`, the
@@ -312,6 +335,8 @@ export const DEFAULT_DRAW_OPTIONS: PcbDrawOptions = {
   viaOpacity: 1.0,
   padOpacity: 1.0,
   netNames: true,
+  padNetNames: true,
+  viaNetNames: true,
   padNumbers: true,
   zoneOpacity: 0.6,
   zoneOutline: false,
@@ -377,6 +402,23 @@ export interface PadTextItem extends PcbTextItem {
    * able to tell them apart.
    */
   padText: 'number' | 'net';
+  /**
+   * The same item laid out as the pad's *only* string.
+   *
+   * `draw( const PAD* )` sizes and offsets its two strings together: when both
+   * are shown they are drawn at 1/2.5 the size and pushed above and below the
+   * centre, and when only one is shown it sits centred at full size. Which of
+   * them is shown depends on `m_DisplayPadNumbers` and `m_Display.m_NetNames`,
+   * two settings a person toggles from a menu — and the retained scene is not
+   * rebuilt for either, so the gate has to be applied per frame.
+   *
+   * Applying only the *visibility* per frame, as this did, keeps the paired
+   * layout after its partner has gone: turning pad numbers off left the net
+   * name at 40% of its size, still offset below the pad centre, where KiCad
+   * re-centres it at full size. So both layouts are computed here and the pass
+   * picks one. Absent when this item has no partner to begin with.
+   */
+  solo?: { at: Vec2; glyph: number; size: Vec2; thickness: number };
 }
 
 /** One pad's laid-out text, ready for the zoom-dependent pass to gate. */
@@ -391,6 +433,11 @@ export interface PadTextLabel {
   owner: string;
   /** The pad centre, for viewport culling. */
   at: { x: number; y: number };
+  /**
+   * The net string is `x` or `*` (`IsNoConnectPad` / `IsFreePad`) rather than
+   * a net name, so `m_NetNames` does not gate it. See `PadTextItem.solo`.
+   */
+  netIsOverride?: boolean;
   /** The pad bounding box's shorter side, PAD::ViewGetLOD's subject. */
   minSide: number;
   /**
@@ -410,6 +457,29 @@ export interface TrackNetLabel {
   width: number;
   layer: string;
   /** GetDisplayNetname(), the short name, after the last '/'. */
+  text: string;
+}
+
+/**
+ * One arc's net name: `draw( const PCB_ARC* )`'s netname branch.
+ *
+ * Its own type rather than a `TrackNetLabel`, because the painter treats an arc
+ * differently in both of the ways that matter. It places ONE name, at the arc
+ * midpoint, rather than repeating along the run; and its length gate measures
+ * the arc — `radius · angle` — where a segment measures the chord. Reusing the
+ * segment label would put the name at the chord's midpoint, which is off the
+ * copper for anything more than a shallow bend.
+ */
+export interface ArcNetLabel {
+  /** The arc midpoint, `GetMid()`, where the single name is centred. */
+  at: { x: number; y: number };
+  /** Tangent orientation there, degrees, normalised into ]-90°, 90°]. */
+  angle: number;
+  width: number;
+  /** `|radius · angle|`, the gate's length. */
+  arcLength: number;
+  layer: string;
+  /** GetDisplayNetname(), the short name, unescaped. */
   text: string;
 }
 
@@ -447,6 +517,8 @@ export interface BoardScene {
   /** Track net labels, kept as data rather than baked glyphs: where they go and
    *  whether they appear at all depends on the zoom (PCB_TRACK::ViewGetLOD). */
   netLabels: TrackNetLabel[];
+  /** Arc net names; see {@link ArcNetLabel}. */
+  arcNetLabels: ArcNetLabel[];
   /** Via net/layer labels, data for the same reason (PCB_VIA::ViewGetLOD). */
   viaNetLabels: ViaNetLabel[];
   /**
@@ -1040,14 +1112,33 @@ function addPadLabels(
   layers: string[],
   owner: string,
 ): void {
-  const padNumber = pad.number ?? '';
+  // Unescaped, like every other string this painter draws:
+  // `padNumber = UnescapeString( aPad->GetNumber() )` (pcb_painter.cpp:1395,
+  // and BRDITEMS_PLOTTER::PlotPadNumber does the same).
+  const padNumber = unescapeString(pad.number ?? '');
   // Net label per PCB_PAINTER::draw(PAD): the display netname is the SHORT net
-  // name (NETINFO's part after the last '/'); a no-connect pad overrides it
-  // with a big "x" and a "free" pad on an unconnected net with "*"
-  // (IsNoConnectPad / IsFreePad).
+  // name (NETINFO's part after the last '/'), unescaped.
+  //
+  // The two overrides are NOT gated by the net-name setting. Upstream reads
+  // `m_NetNames == 1 || 3` to decide whether to put a *name* here, and then
+  // applies `IsNoConnectPad()` / `IsFreePad()` unconditionally — so a
+  // no-connect pad keeps its "x" and a free pad its "*" even with net names
+  // switched off entirely. Gating them behind the name is why they used to
+  // vanish together with it.
+  //
+  // `IsFreePad()` tests `GetShortNetname()`, the escaped short name, not the
+  // displayed one: the prefix it looks for is `unconnected-(`, and testing the
+  // unescaped string would answer for a name the file does not contain.
+  const shortName = shortNetname(netName);
   let netLabel = (pad.net ?? 0) > 0 ? displayNetname(netName) : '';
-  if (pad.pinType?.includes('no_connect')) netLabel = 'x';
-  else if (pad.pinType === 'free' && netLabel.startsWith('unconnected-(')) netLabel = '*';
+  let netIsOverride = false;
+  if (pad.pinType?.includes('no_connect')) {
+    netLabel = 'x';
+    netIsOverride = true;
+  } else if (pad.pinType === 'free' && shortName.startsWith('unconnected-(')) {
+    netLabel = '*';
+    netIsOverride = true;
+  }
   const showNet = netLabel !== '';
   if (padNumber === '' && !showNet) return;
 
@@ -1079,23 +1170,16 @@ function addPadLabels(
   }
   if (size > MAX_PAD_FONT) size = MAX_PAD_FONT;
   const along = px;
+  // Both strings shown means both are drawn small and offset; one means it is
+  // centred at full size. `size` is left at the full value and the /2.5 is
+  // applied per layout below, so the solo variant can still be computed.
   const both = showNet && padNumber !== '';
-  let yOffNet = 0;
-  let yOffNum = 0;
-  if (both) {
-    size = size / 2.5;
-    yOffNet = size / 1.4; // net name sits below centre
-    yOffNum = size / 1.7; // pad number above centre
-  }
   const Xscale = 0.9; // condense x for the stroke font
   // A local +Y (down) offset in the text frame (upright or the -90° portrait
   // case) maps to world coords about the pad centre.
   const anchor = (dy: number): Vec2 =>
     angle === 90 ? { x: pad.at.x + dy, y: pad.at.y } : { x: pad.at.x, y: pad.at.y + dy };
   const items: PadTextItem[] = [];
-  const label = (text: string, at: Vec2, glyph: number, padText: 'number' | 'net'): void => {
-    items.push({ ...mkItem(text, at, glyph), padText });
-  };
   const mkItem = (text: string, at: Vec2, glyph: number): PadTextItem =>
     ({
       kind: 'user',
@@ -1125,20 +1209,55 @@ function addPadLabels(
       glyph,
     }) as PadTextItem;
 
-  if (showNet) {
-    let tsize = Math.min((1.5 * along) / Math.max(netLabel.length + 1, 5), size);
+  // Each string's geometry for a given `both`, so the per-frame gate can pick
+  // the layout that matches what it is actually going to draw.
+  const netGeom = (paired: boolean): { at: Vec2; glyph: number } => {
+    const cap = paired ? size / 2.5 : size;
+    let tsize = Math.min((1.5 * along) / Math.max(printableCharCount(netLabel) + 1, 5), cap);
     tsize *= 0.85;
     if (round) tsize *= 0.9;
-    const ty = Math.min(tsize * 1.4, yOffNet);
-    label(netLabel, anchor(ty), tsize, 'net');
-  }
-  if (padNumber !== '') {
-    let tsize = Math.min((1.5 * along) / Math.max(padNumber.length, 3), size);
-    tsize = Math.min(tsize * 0.85, size);
-    label(padNumber, anchor(-yOffNum), tsize, 'number');
-  }
+    const ty = paired ? Math.min(tsize * 1.4, size / 2.5 / 1.4) : 0;
+    return { at: anchor(ty), glyph: tsize };
+  };
+  const numGeom = (paired: boolean): { at: Vec2; glyph: number } => {
+    const cap = paired ? size / 2.5 : size;
+    let tsize = Math.min((1.5 * along) / Math.max(printableCharCount(padNumber), 3), cap);
+    tsize = Math.min(tsize * 0.85, cap);
+    return { at: anchor(paired ? -(size / 2.5 / 1.7) : 0), glyph: tsize };
+  };
+  const withSolo = (
+    text: string,
+    padText: 'number' | 'net',
+    geom: (paired: boolean) => { at: Vec2; glyph: number },
+  ): void => {
+    const here = geom(both);
+    const item = { ...mkItem(text, here.at, here.glyph), padText } as PadTextItem;
+    if (both) {
+      const alone = geom(false);
+      const m = mkItem(text, alone.at, alone.glyph);
+      item.solo = {
+        at: alone.at,
+        glyph: alone.glyph,
+        size: m.size,
+        thickness: m.thickness ?? 0,
+      };
+    }
+    items.push(item);
+  };
+
+  if (showNet) withSolo(netLabel, 'net', netGeom);
+  if (padNumber !== '') withSolo(padNumber, 'number', numGeom);
   if (items.length > 0)
-    scene.padLabels.push({ owner, at: pad.at, minSide: Math.min(px, py), layers, items });
+    scene.padLabels.push({
+      owner,
+      at: pad.at,
+      minSide: Math.min(px, py),
+      layers,
+      items,
+      // Whether the net string is `x`/`*` rather than a net name. The name is
+      // hidden by `m_NetNames`; the override never is.
+      ...(netIsOverride ? { netIsOverride: true } : {}),
+    });
 }
 
 /**
@@ -1296,6 +1415,7 @@ function compileScene(board: Board, filter: SceneFilter): BoardScene {
     padHolesNP: pathFactory.path(),
     holesSmall: pathFactory.path(),
     netLabels: [],
+    arcNetLabels: [],
     viaNetLabels: [],
     anchors: [],
     padLabels: [],
@@ -1354,6 +1474,33 @@ function compileScene(board: Board, filter: SceneFilter): BoardScene {
     b.hasTrackOutlines = true;
     grow(a.start.x, a.start.y, a.width);
     grow(a.end.x, a.end.y, a.width);
+    // draw(PCB_ARC)'s netname branch. One name at the arc midpoint, turned to
+    // the tangent there — the radius is perpendicular to it, so rotating the
+    // radial vector by 90° gives the text direction (pcb_painter.cpp:978-981).
+    if (a.net > 0) {
+      const text = displayNetname(board.nets.get(a.net) ?? '');
+      const c = arcCenter(a.start, a.mid, a.end);
+      if (text !== '' && c) {
+        const radius = Math.hypot(a.start.x - c.x, a.start.y - c.y);
+        // `aArc->GetAngle()`, i.e. EDA_SHAPE::GetArcAngle, in radians.
+        const sweep = (arcSweepDegrees(c, a.start, a.end) * Math.PI) / 180;
+        // `EDA_ANGLE( VECTOR2D( -radial.y, radial.x ) )`, negated and
+        // normalised into ]-90°, 90°] so the name never reads upside down.
+        const rx = a.mid.x - c.x;
+        const ry = a.mid.y - c.y;
+        let angle = -(Math.atan2(rx, -ry) * 180) / Math.PI;
+        while (angle > 90) angle -= 180;
+        while (angle <= -90) angle += 180;
+        scene.arcNetLabels.push({
+          at: a.mid,
+          angle,
+          width: a.width,
+          arcLength: Math.abs(radius * sweep),
+          layer: a.layer,
+          text,
+        });
+      }
+    }
   }
   for (const [vi, v] of board.vias.entries()) {
     pathFactory.setOwner?.(`via:${vi}`);
@@ -2338,6 +2485,32 @@ export function drawNetNames(
       const color = attenuate(emphasize(netnameColorFor(label.layer, opts.theme), emphasis, true));
       addTrackNetName(runsFor(color), label, viewport);
     }
+    // Arcs, on the same netname layers and behind the same setting; one name at
+    // the midpoint rather than repeated along the run (draw(PCB_ARC)).
+    for (const label of scene.arcNetLabels) {
+      if (!visible.has(label.layer)) continue;
+      if (!showsArcNetName(label, view, dpr)) continue;
+      if (label.at.x < viewport.minX || label.at.x > viewport.maxX) continue;
+      if (label.at.y < viewport.minY || label.at.y > viewport.maxY) continue;
+      const color = attenuate(emphasize(netnameColorFor(label.layer, opts.theme), emphasis, true));
+      const textSize = label.width;
+      runsFor(color).push({
+        text: label.text,
+        at: label.at,
+        angle: label.angle,
+        glyph: textSize * 0.55,
+        item: {
+          kind: 'user',
+          text: label.text,
+          at: label.at,
+          angle: label.angle,
+          layer: label.layer,
+          size: { x: textSize * 0.55, y: textSize * 0.55 },
+          thickness: textSize / 12,
+          source: { kind: 'list', items: [] },
+        },
+      });
+    }
   }
   // LAYER_VIA_NETNAMES is up with the overlays, above every copper layer.
   if (where === 'over') {
@@ -2347,7 +2520,9 @@ export function drawNetNames(
       if (!label.layers.some((l) => visible.has(l))) continue;
       if (label.at.x < viewport.minX || label.at.x > viewport.maxX) continue;
       if (label.at.y < viewport.minY || label.at.y > viewport.maxY) continue;
-      addViaNetName(runsFor(viaColor), label, opts.netNames);
+      // `m_NetNames != 0`, not `>= 2`: a via letters its net whenever net
+      // names are on for pads *or* tracks (pcb_painter.cpp:1118).
+      addViaNetName(runsFor(viaColor), label, opts.viaNetNames);
     }
   }
   // Pad text, gated like everything else here, and on PAD::ViewGetLOD's own
@@ -2394,9 +2569,27 @@ export function drawNetNames(
         // measured (`pcb_painter.cpp:1393`), so the number goes and the net
         // name stays where it was.
         if (item.padText === 'number' && !opts.padNumbers) continue;
-        if (!atlas && item.size.y * view.scale < GLYPH_LEGIBLE_PX * dpr) continue;
-        const at = moving ? { x: item.at.x + ldx, y: item.at.y + ldy } : item.at;
-        runs.push({ text: item.text, at, angle: item.angle, glyph: item.glyph, item });
+        // `m_NetNames == 1 || 3` decides whether a pad carries a net *name*.
+        // An `x` or `*` is not one — `IsNoConnectPad()` / `IsFreePad()` are
+        // applied after the setting is read and regardless of it — so the
+        // override survives when the names are switched off.
+        if (item.padText === 'net' && !opts.padNetNames && !label.netIsOverride) continue;
+        // Its partner is hidden, so this string is now the pad's only one and
+        // takes the centred, full-size layout the painter would have given it.
+        const partnerHidden =
+          item.solo !== undefined &&
+          (item.padText === 'net' ? !opts.padNumbers : !opts.padNetNames && !label.netIsOverride);
+        const geom = partnerHidden ? item.solo! : item;
+        if (!atlas && geom.size.y * view.scale < GLYPH_LEGIBLE_PX * dpr) continue;
+        const base = geom.at;
+        const at = moving ? { x: base.x + ldx, y: base.y + ldy } : base;
+        runs.push({
+          text: item.text,
+          at,
+          angle: item.angle,
+          glyph: geom.glyph,
+          item: partnerHidden ? ({ ...item, ...item.solo! } as PadTextItem) : item,
+        });
       }
     }
   }
@@ -2713,6 +2906,20 @@ export function showsNetName(label: TrackNetLabel, view: PcbViewTransform, dpr =
   const nameSize = label.text.length * label.width;
   if (dx * dx + dy * dy < nameSize * nameSize) return false;
 
+  return label.width * view.scale >= NETNAME_MIN_PX * dpr;
+}
+
+/**
+ * `draw( const PCB_ARC* )`'s own length gate, plus PCB_TRACK::ViewGetLOD.
+ *
+ * The length rule is the arc's, not the chord's: `arcLen < width · chars`
+ * (pcb_painter.cpp:972-975). Both the C++ and this compare a length against
+ * `width · character count`, but the segment squares both sides and the arc
+ * does not; the comparison is the same either way.
+ */
+export function showsArcNetName(label: ArcNetLabel, view: PcbViewTransform, dpr = 1): boolean {
+  if (label.width <= 0) return false;
+  if (label.arcLength < label.width * label.text.length) return false;
   return label.width * view.scale >= NETNAME_MIN_PX * dpr;
 }
 
