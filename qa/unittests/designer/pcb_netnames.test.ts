@@ -56,6 +56,26 @@ describe('scene net-label data', () => {
     expect(scene.netLabels[0]!.width).toBe(2 * MM);
   });
 
+  it('draws a slash in a label name as a slash, not as {slash} (issue #626)', () => {
+    // The reported bug, at the surface it was reported on. A net the schematic
+    // calls `SDA/A4` is stored `SDA{slash}A4`, because `/` already separates
+    // hierarchy in a net name; the painter drew that verbatim.
+    const b = readBoard(
+      parse(`(kicad_pcb (version 20241229) (generator "test")
+  (layers (0 "F.Cu" signal) (31 "B.Cu" signal))
+  (net 0 "")
+  (net 1 "/uart/SDA{slash}A4")
+  (segment (start 100 100) (end 180 100) (width 2) (layer "F.Cu") (net 1))
+  (via (at 120 100) (size 1.6) (drill 0.8) (layers "F.Cu" "B.Cu") (net 1))
+)`),
+    );
+    const scene = buildScene(b, {}, GL_PATH_FACTORY);
+    // Short name for the painter, and the escape resolved: `SDA/A4`, not `A4`
+    // (which is what unescaping before the split would have produced).
+    expect(scene.netLabels.map((l) => l.text)).toEqual(['SDA/A4']);
+    expect(scene.viaNetLabels.map((l) => l.text)).toEqual(['SDA/A4']);
+  });
+
   it('gives a via its net name, and layer numbers only when not through', () => {
     expect(scene.viaNetLabels).toHaveLength(2);
     const through = scene.viaNetLabels.find((l) => l.at.x === 120 * MM)!;
