@@ -619,13 +619,23 @@ describe('the selection colours, derived rather than transcribed', () => {
     // selection_area.cpp:44-62, the two SELECTION_COLORS; :105-106 picks by
     // IsBackgroundDark(); :116-121 fills with `normal` either way and strokes
     // outline_l2r left-to-right, outline_r2l right-to-left.
-    expect(DS_MARQUEE.onDark.fill).toBe(`rgba(${ch(0.3)}, ${ch(0.3)}, ${ch(0.7)}, 0.3)`);
+    // The field names are `struct SELECTION_COLORS`' own now (`normal`, not
+    // `fill`): this is a projection of the shared table, and a projection that
+    // renames its fields is a copy waiting to drift.
+    expect(DS_MARQUEE.onDark.normal).toBe(`rgba(${ch(0.3)}, ${ch(0.3)}, ${ch(0.7)}, 0.3)`);
     expect(DS_MARQUEE.onDark.outlineL2R).toBe(`rgb(${ch(1.0)}, ${ch(1.0)}, ${ch(0.4)})`);
     expect(DS_MARQUEE.onDark.outlineR2L).toBe(`rgb(${ch(0.4)}, ${ch(0.4)}, ${ch(1.0)})`);
-    expect(DS_MARQUEE.onLight.fill).toBe(`rgba(${ch(0.5)}, ${ch(0.3)}, ${ch(1.0)}, 0.5)`);
+    expect(DS_MARQUEE.onLight.normal).toBe(`rgba(${ch(0.5)}, ${ch(0.3)}, ${ch(1.0)}, 0.5)`);
     expect(DS_MARQUEE.onLight.outlineL2R).toBe(`rgb(${ch(0.7)}, ${ch(0.7)}, ${ch(0.0)})`);
     expect(DS_MARQUEE.onLight.outlineR2L).toBe(`rgb(${ch(0.1)}, ${ch(0.1)}, ${ch(1.0)})`);
-    // One fill, not one per direction - the bug this replaced.
+    // One fill per MODE, not one per direction - the bug this replaced. The
+    // three the old table lacked entirely are the modifier states, and their
+    // absence is why a modifier-held drag painted the plain colour.
+    expect(DS_MARQUEE.onDark.additive).toBe(`rgba(${ch(0.3)}, ${ch(0.7)}, ${ch(0.3)}, 0.3)`);
+    expect(DS_MARQUEE.onDark.subtract).toBe(`rgba(${ch(0.7)}, ${ch(0.3)}, ${ch(0.3)}, 0.3)`);
+    // `exclusiveOr` is upstream's duplicate of `subtract`, not an omission
+    // here: `selection_area.cpp:49-50` gives both the same "Slight red".
+    expect(DS_MARQUEE.onDark.exclusiveOr).toBe(DS_MARQUEE.onDark.subtract);
     expect(DS_MARQUEE.onDark.outlineL2R).not.toBe(DS_MARQUEE.onDark.outlineR2L);
   });
 
@@ -648,7 +658,10 @@ describe('the selection colours, derived rather than transcribed', () => {
   it('the canvas asks for the pair that matches the background it just cleared to', () => {
     // Both are per-background, so reading the wrong one is a live bug that no
     // colour value can show. `darkBg` is what dsBackgroundIsDark returned.
-    expect(CANVAS).toContain('darkBg ? DS_MARQUEE.onDark : DS_MARQUEE.onLight');
+    // The marquee's scheme is now chosen inside the shared preview item, so
+    // what this canvas must get right is the ARGUMENT it hands over — `darkBg`,
+    // which is `DS_RENDER_SETTINGS::IsBackgroundDark`, and not a constant.
+    expect(CANVAS).toContain('backgroundDark: darkBg');
     expect(CANVAS).toContain('darkBg ? DS_EDIT_POINT_ON_DARK : DS_EDIT_POINT_ON_LIGHT');
   });
 });

@@ -28,6 +28,7 @@
  * before calling; everything here is in schematic internal units.
  */
 
+import { SELECTION_COLOR_SCHEME } from '../preview_items/selection_area.js';
 import { bitmapSizeIu, schIUScale } from '../index.js';
 import { mmToIU } from '../index.js';
 import type { DsDrawItem, DsTextItem, DsBitmapItem } from '../index.js';
@@ -238,26 +239,21 @@ export const DS_SELECTED_COLOR = 'rgb(194, 128, 128)';
 export const DS_BRIGHTENED_COLOR = 'rgba(0, 255, 0, 0.9)';
 
 /**
- * [data] The box-select marquee, `common/preview_items/selection_area.cpp:44-62`.
- * One `SELECTION_COLORS` per background luma, chosen at :105-106 by
- * `settings->IsBackgroundDark()`; the FILL is one colour for both drag
- * directions and only the OUTLINE differs — left-to-right yellow, right-to-left
- * blue (:116-121). Ours had two fills, blue and green, and neither outline.
- * COLOR4D channels are 0..1, so each is `round( c * 255 )`.
+ * The box-select marquee's colours now live in one place for every editor —
+ * `preview_items/selection_area.ts`' `SELECTION_COLOR_SCHEME`, which is
+ * `selectionColorScheme[2]` complete, all six colours per scheme.
+ *
+ * This name is kept because it is the one the Drawing Sheet Editor's palette
+ * audit refers to, but it must stay a PROJECTION of that table rather than a
+ * second copy: it held three of the six, so a marquee dragged with a modifier
+ * held painted the plain colour instead of the additive green or the
+ * subtractive red.
  */
 export const DS_MARQUEE = {
-  /** selectionColorScheme[0], the dark-background scheme. */
-  onDark: {
-    fill: 'rgba(77, 77, 179, 0.3)', // [data] COLOR4D( 0.3, 0.3, 0.7, 0.3 )
-    outlineL2R: 'rgb(255, 255, 102)', // [data] COLOR4D( 1.0, 1.0, 0.4, 1.0 ) yellow
-    outlineR2L: 'rgb(102, 102, 255)', // [data] COLOR4D( 0.4, 0.4, 1.0, 1.0 ) blue
-  },
-  /** selectionColorScheme[1], the light-background scheme. */
-  onLight: {
-    fill: 'rgba(128, 77, 255, 0.5)', // [data] COLOR4D( 0.5, 0.3, 1.0, 0.5 )
-    outlineL2R: 'rgb(179, 179, 0)', // [data] COLOR4D( 0.7, 0.7, 0.0, 1.0 ) yellow
-    outlineR2L: 'rgb(26, 26, 255)', // [data] COLOR4D( 0.1, 0.1, 1.0, 1.0 ) blue
-  },
+  /** selectionColorScheme[0]. */
+  onDark: SELECTION_COLOR_SCHEME[0],
+  /** selectionColorScheme[1]. */
+  onLight: SELECTION_COLOR_SCHEME[1],
 } as const;
 
 /**

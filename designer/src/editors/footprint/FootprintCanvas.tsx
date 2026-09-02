@@ -35,12 +35,7 @@ import {
 import { type CrosshairMode, drawCrosshair, drawGrid } from '../../ui/grid_cursor.js';
 import { kiCursor } from '../../ui/kicursors.js';
 import { clampViewScale } from '../../ui/zoom_settings.js';
-import {
-  SELECTION_AREA_FILL,
-  SELECTION_AREA_STROKE,
-  zoomAreaTarget,
-  type ZoomArea,
-} from '../../ui/zoom_tool.js';
+import { zoomAreaTarget, type ZoomArea } from '../../ui/zoom_tool.js';
 import {
   constantGlyphHeightPx,
   constantLinePitchPx,
@@ -64,6 +59,7 @@ import {
   type PcbDrawOptions,
 } from '../pcb/renderBoard.js';
 import { PCB_BACKGROUND, PCB_CURSOR, PCB_GRID_AXES, PCB_SPECIAL } from '../pcb/pcbTheme.js';
+import { drawSelectionArea, isBackgroundDark, selectionAreaColors } from '@ziroeda/common';
 import { footprintToBoard } from './footprintBoard.js';
 import { pcbGridOptions, PCB_DEFAULT_GRID_IU } from '../pcb/renderBoard.js';
 import { snapToGridSize } from '../pcb/pcb_grid.js';
@@ -431,17 +427,22 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
       if (box) {
         const p0 = toPx(box.a),
           p1 = toPx(box.b);
-        // KiCad tints the marquee blue (l→r) or green (r→l window select).
-        const rightward = box.b.x >= box.a.x;
-        ctx.strokeStyle = rightward ? 'rgba(120,170,255,0.9)' : 'rgba(120,255,150,0.9)';
-        ctx.fillStyle = rightward ? 'rgba(120,170,255,0.12)' : 'rgba(120,255,150,0.12)';
-        ctx.lineWidth = dpr;
-        const x = Math.min(p0.x, p1.x),
-          y = Math.min(p0.y, p1.y);
-        const w = Math.abs(p1.x - p0.x),
-          h = Math.abs(p1.y - p0.y);
-        ctx.fillRect(x, y, w, h);
-        ctx.strokeRect(x, y, w, h);
+        // These four colours were invented, and so was the sentence that used
+        // to sit here claiming KiCad tints the marquee "blue (l→r) or green
+        // (r→l)". It does neither: the OUTLINE is yellow left-to-right and
+        // blue right-to-left (`selection_area.cpp:116-121`), and green is the
+        // ADDITIVE fill, a modifier state and not a drag direction.
+        drawSelectionArea(
+          ctx,
+          p0.x,
+          p0.y,
+          p1.x,
+          p1.y,
+          selectionAreaColors({
+            backgroundDark: isBackgroundDark(PCB_BACKGROUND),
+            inside: box.b.x >= box.a.x,
+          }),
+        );
       }
       // `ZOOM_TOOL::selectRegion` puts a SELECTION_AREA on the view while the
       // drag is live (`common/tool/zoom_tool.cpp:106-107`). A default-constructed
@@ -452,15 +453,16 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
       if (zb) {
         const p0 = toPx(zb.a),
           p1 = toPx(zb.b);
-        ctx.fillStyle = SELECTION_AREA_FILL;
-        ctx.strokeStyle = SELECTION_AREA_STROKE;
-        ctx.lineWidth = dpr;
-        const x = Math.min(p0.x, p1.x),
-          y = Math.min(p0.y, p1.y);
-        const w = Math.abs(p1.x - p0.x),
-          h = Math.abs(p1.y - p0.y);
-        ctx.fillRect(x, y, w, h);
-        ctx.strokeRect(x, y, w, h);
+        drawSelectionArea(
+          ctx,
+          p0.x,
+          p0.y,
+          p1.x,
+          p1.y,
+          // `PCB_RENDER_SETTINGS::IsBackgroundDark` is LAYER_PCB_BACKGROUND's
+          // luma (`pcb_painter.h:112-120`).
+          selectionAreaColors({ backgroundDark: isBackgroundDark(PCB_BACKGROUND), inside: true }),
+        );
       }
       // `KIGFX::PREVIEW::RULER_ITEM`: the main line origin→end, a tick at each
       // end, and the four dimension strings beside the cursor. It is painted in

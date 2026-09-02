@@ -41,9 +41,14 @@ import {
   PAGE_MARKER_SIZE_IU,
   DS_EDIT_POINT_ON_DARK,
   DS_EDIT_POINT_ON_LIGHT,
-  DS_MARQUEE,
 } from '@ziroeda/common';
 import { setBitmapInvalidate } from '@ziroeda/common';
+import {
+  EDIT_POINT_BORDER_SIZE,
+  EDIT_POINT_SIZE,
+  drawSelectionArea,
+  selectionAreaColors,
+} from '@ziroeda/common';
 import { usePlEditorColors, usePlEditorSettings } from '../../prefs/useSettings.js';
 import { DrawingSheetGl } from '../../render/gl/drawingsheet_gl.js';
 import {
@@ -543,15 +548,23 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
       // Point-editor handles (filled squares, EDIT_POINTS style).
       const pts = editPointsRef.current;
       if (pts && pts.length > 0 && !md) {
-        // EDIT_POINT::POINT_SIZE is 8 (include/tool/edit_points.h:194) and
-        // edit_points.cpp:290 halves it, so the square is 8 across. [data]
-        const r = 4 * dpr;
+        // `EDIT_POINT::POINT_SIZE` halved (`edit_points.cpp:290`), and the
+        // border at `BORDER_SIZE` rather than the flat one pixel this drew.
+        // Both are SCREEN sizes that `ViewDraw` puts through `ToWorld`, and the
+        // VIEW is sized in logical pixels, so both scale by `dpr` here — unlike
+        // the selection band's pen, which is one DEVICE pixel and does not.
+        //
+        // `HOVER_SIZE` has no use yet: this canvas tracks no hover or active
+        // state for a handle, so every one draws idle. That is a missing
+        // behaviour, not a wrong constant, and inventing a hover here would be
+        // worse than leaving it.
+        const r = (EDIT_POINT_SIZE / 2) * dpr;
         const handle = darkBg ? DS_EDIT_POINT_ON_DARK : DS_EDIT_POINT_ON_LIGHT;
         for (const p of pts) {
           const c = toPx(p);
           octx.fillStyle = handle.fill;
           octx.strokeStyle = handle.border;
-          octx.lineWidth = Math.max(1, dpr);
+          octx.lineWidth = EDIT_POINT_BORDER_SIZE * dpr;
           octx.fillRect(c.x - r, c.y - r, r * 2, r * 2);
           octx.strokeRect(c.x - r, c.y - r, r * 2, r * 2);
         }
@@ -562,15 +575,18 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
       if (box) {
         const p0 = toPx(box.a),
           p1 = toPx(box.b);
-        const rightward = box.b.x >= box.a.x;
-        const scheme = darkBg ? DS_MARQUEE.onDark : DS_MARQUEE.onLight;
-        octx.strokeStyle = rightward ? scheme.outlineL2R : scheme.outlineR2L;
-        octx.fillStyle = scheme.fill;
-        octx.lineWidth = dpr;
-        const x = Math.min(p0.x, p1.x),
-          y = Math.min(p0.y, p1.y);
-        octx.fillRect(x, y, Math.abs(p1.x - p0.x), Math.abs(p1.y - p0.y));
-        octx.strokeRect(x, y, Math.abs(p1.x - p0.x), Math.abs(p1.y - p0.y));
+        // `DS_RENDER_SETTINGS::IsBackgroundDark` is `m_backgroundColor`'s
+        // luma (`ds_painter.h:57-61`), which is what `darkBg` already is. A
+        // left-to-right drag is the INSIDE (window) select and takes the
+        // yellow outline; right-to-left is TOUCHING and takes blue.
+        drawSelectionArea(
+          octx,
+          p0.x,
+          p0.y,
+          p1.x,
+          p1.y,
+          selectionAreaColors({ backgroundDark: darkBg, inside: box.b.x >= box.a.x }),
+        );
       }
 
       // GAL::blitCursor, in DS_RENDER_SETTINGS::GetCursorColor

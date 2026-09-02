@@ -158,6 +158,18 @@ export const GERBER_PAGE_LIMITS_COLOR = 'rgb(132, 132, 132)';
 export const GERBER_CURSOR_COLOR = 'rgb(255, 255, 255)';
 
 /**
+ * LAYER_AUX_ITEMS, which the measure tool strokes in — `RULER_ITEM::ViewDraw`
+ * asks `rs->GetLayerColor( LAYER_AUX_ITEMS )` (`ruler_item.cpp:323`).
+ *
+ * GerbView's own theme block defines no aux-items layer
+ * (`builtin_color_themes.h:83-89`), so this falls through to the COLOR_SETTINGS
+ * default, `board.aux_items` = white (`:159`). It is therefore not a row on the
+ * Gerber Viewer's Colors page and must not become one.
+ */
+// [data] COLOR4D( WHITE ), builtin_color_themes.h:159.
+export const GERBER_AUX_ITEMS_COLOR = 'rgb(255, 255, 255)';
+
+/**
  * `m_OpacityModeAlphaValue`, the alpha a layer takes **only** while
  * `toggleForceOpacityMode` is on (`gerbview/gbr_display_options.h:61`, applied
  * at `gerbview_painter.cpp:65-66`).

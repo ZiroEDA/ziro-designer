@@ -151,8 +151,8 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // `.ze-libtree-search` now — and a footprint row's `paddingLeft: 26`, which
   // was not even a spacing value: it was one level of tree indent, and
   // `kDataViewIndent` is 20 (`lib_tree_model_adapter.cpp:40`).
-  'editors/footprint': { colours: 8, metrics: 14 },
-  'editors/gerbview': { colours: 3, metrics: 4 },
+  'editors/footprint': { colours: 4, metrics: 14 },
+  'editors/gerbview': { colours: 1, metrics: 4 },
   // 1 -> 0. Its last metric was the slider's `height: 7px` NOT-PROVEN fudge,
   // and the slider itself moved to ui/Slider.tsx + shell.css when it stopped
   // being this launcher's private copy of a control wx has one of. The number
@@ -242,7 +242,7 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   //
   // Lowered rather than left high: a baseline a pass no longer needs is a
   // ceiling nobody is under. RESCANNED against the merged tree.
-  'editors/schematic': { colours: 38, metrics: 191 },
+  'editors/schematic': { colours: 33, metrics: 191 },
   // colours 12 -> 7: the Symbol Editor parity pass. Four were
   // SYMBOL_EDITOR_COLORS, a private copy of LAYER_SCHEMATIC_ANCHOR /
   // LAYER_HIDDEN / LAYER_PRIVATE_NOTES / LAYER_FIELDS that matched the Default
@@ -254,7 +254,7 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // four went out with the JSX when `SYMBOL_TREE_PANE`'s one `LIB_TREE` took
   // over. None was re-sourced from a token; there is simply no local row to
   // size any more, which is what the shared-widget rule is for.
-  'editors/symbol': { colours: 7, metrics: 15 },
+  'editors/symbol': { colours: 2, metrics: 15 },
   home: { colours: 7, metrics: 7 },
   mobile: { colours: 15, metrics: 23 },
   // 193 colours is the worst in the tree and 176 of them are rgba(): pcm.css
@@ -805,7 +805,7 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // became one (-19) and Field Name Templates stopped being two panels (-1),
     // and `editors/schematic` is the only row either moved. RESCANNED from the
     // merged tree.
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(574);
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(558);
     // 1657 -> 1649: the same sweep. A native colour input has no useful
     // default size, so eight of the sixteen sites gave theirs an inline
     // width and height; the shared swatch takes --swatch-*-w/h. Rescanned.

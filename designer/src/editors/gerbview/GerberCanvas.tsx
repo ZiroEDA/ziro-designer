@@ -27,6 +27,7 @@ import {
 import {
   GERBER_AXES_COLOR,
   GERBER_BG_COLOR,
+  GERBER_AUX_ITEMS_COLOR,
   GERBER_CURSOR_COLOR,
   GERBER_DRAWINGSHEET_COLOR,
   GERBER_GRID_COLOR,
@@ -54,12 +55,8 @@ import {
 import { useGerbviewSettings } from '../../prefs/useSettings.js';
 import { clampViewScale, nextZoomPreset, ZOOM_LIST } from '../../ui/zoom_settings.js';
 import { scaleForZoomFactor, zoomFactorForScale } from '../../ui/status_format.js';
-import {
-  SELECTION_AREA_FILL,
-  SELECTION_AREA_STROKE,
-  zoomAreaTarget,
-  type ZoomArea,
-} from '../../ui/zoom_tool.js';
+import { zoomAreaTarget, type ZoomArea } from '../../ui/zoom_tool.js';
+import { drawSelectionArea, selectionAreaColors } from '@ziroeda/common';
 
 /**
  * On by default, with `?renderer=canvas` to opt out - the same shape
@@ -381,12 +378,19 @@ export const GerberCanvas = forwardRef<GerberCanvasController, GerberCanvasProps
       if (za) {
         const q0 = worldToPx(za.a);
         const q1 = worldToPx(za.b);
-        octx.fillStyle = SELECTION_AREA_FILL;
-        octx.strokeStyle = SELECTION_AREA_STROKE;
-        octx.lineWidth = Math.max(1, dpr);
         octx.setLineDash([]);
-        octx.fillRect(q0.x, q0.y, q1.x - q0.x, q1.y - q0.y);
-        octx.strokeRect(q0.x, q0.y, q1.x - q0.x, q1.y - q0.y);
+        drawSelectionArea(
+          octx,
+          q0.x,
+          q0.y,
+          q1.x,
+          q1.y,
+          // `ZOOM_TOOL` never calls `SetMode` (`zoom_tool.cpp:115-129`), so the
+          // band is the default INSIDE_RECTANGLE and takes `outline_l2r`
+          // whichever way the drag went. The SCHEME still follows the
+          // background, which gerbview's Colors page can make light.
+          selectionAreaColors({ backgroundDark: false, inside: true }),
+        );
       }
 
       // Measure overlay.
@@ -394,8 +398,13 @@ export const GerberCanvas = forwardRef<GerberCanvasController, GerberCanvasProps
       if (m) {
         const p0 = worldToPx(m.a);
         const p1 = worldToPx(m.b);
-        octx.strokeStyle = '#ffd54a';
-        octx.fillStyle = '#ffd54a';
+        // `KIGFX::PREVIEW::RULER_ITEM` strokes in
+        // `rs->GetLayerColor( LAYER_AUX_ITEMS )` (`ruler_item.cpp:323`), which
+        // gerbview leaves at the COLOR_SETTINGS default of white
+        // (`builtin_color_themes.h:159`) — its own theme block defines no
+        // aux-items layer. The `#ffd54a` amber here was an invention.
+        octx.strokeStyle = GERBER_AUX_ITEMS_COLOR;
+        octx.fillStyle = GERBER_AUX_ITEMS_COLOR;
         octx.lineWidth = Math.max(1, dpr);
         octx.setLineDash([6 * dpr, 4 * dpr]);
         octx.beginPath();

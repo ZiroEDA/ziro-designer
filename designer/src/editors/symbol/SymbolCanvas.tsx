@@ -14,6 +14,7 @@ import {
 import type { LibGraphic, LibPin, LibSymbol } from '@ziroeda/eeschema';
 import { EMPTY_SOURCE } from '@ziroeda/eeschema';
 import { KICAD_DEFAULT, type Theme } from '../schematic/theme.js';
+import { drawSelectionArea, isBackgroundDark, selectionAreaColors } from '@ziroeda/common';
 import {
   commonInputPrefs,
   dragGesture,
@@ -27,12 +28,7 @@ import { drawCrosshair } from '../../ui/grid_cursor.js';
 import { kiCursor } from '../../ui/kicursors.js';
 import { clampViewScale } from '../../ui/zoom_settings.js';
 import { SCH_IU_PER_MM } from '@ziroeda/common';
-import {
-  SELECTION_AREA_FILL,
-  SELECTION_AREA_STROKE,
-  zoomAreaTarget,
-  type ZoomArea,
-} from '../../ui/zoom_tool.js';
+import { zoomAreaTarget, type ZoomArea } from '../../ui/zoom_tool.js';
 import { SYM_SHAPE_TOOLS } from './symbolToolbars.js';
 import { settings } from '../../prefs/settings.js';
 import { useSymbolEditorSettings } from '../../prefs/useSettings.js';
@@ -117,12 +113,6 @@ type Mode = 'idle' | 'pan' | 'dragzoom' | 'move' | 'box' | 'zoom';
 
 /** GAL::GetScaleFactor. Module scope so it is stable across renders. */
 const dpr = (): number => window.devicePixelRatio || 1;
-
-const BOX_FILL_NORMAL = 'rgba(128, 77, 255, 0.5)';
-const BOX_FILL_ADDITIVE = 'rgba(128, 255, 128, 0.5)';
-const BOX_FILL_SUBTRACT = 'rgba(255, 128, 128, 0.5)';
-const BOX_OUTLINE_L2R = 'rgb(179, 179, 0)';
-const BOX_OUTLINE_R2L = 'rgb(26, 26, 255)';
 
 /** KiCad's 2-click arc (EDA_SHAPE::calcEdit state 1): quarter-circle through start/end. */
 export function arcFromTwoPoints(
@@ -332,31 +322,42 @@ export const SymbolCanvas = forwardRef<SymbolCanvasController, Props>(function S
     // one takes the `normal` fill and the `outline_l2r` stroke, which is why
     // this band is blue/yellow and not the selection box's purple — the colours
     // are `ui/zoom_tool.ts`', shared with every other canvas that arms the tool.
-    if (modeRef.current === 'zoom' && bo && be) {
-      ctx.fillStyle = SELECTION_AREA_FILL;
-      ctx.strokeStyle = SELECTION_AREA_STROKE;
-      ctx.lineWidth = 1 / vp.scale;
-      const x = Math.min(bo.x, be.x),
-        y = Math.min(bo.y, be.y);
-      ctx.fillRect(x, y, Math.abs(be.x - bo.x), Math.abs(be.y - bo.y));
-      ctx.strokeRect(x, y, Math.abs(be.x - bo.x), Math.abs(be.y - bo.y));
-    }
-    if (modeRef.current === 'box' && bo && be) {
-      const greedy = be.x < bo.x;
-      const { additive, subtractive } = boxModifiersRef.current;
-      ctx.fillStyle = subtractive
-        ? BOX_FILL_SUBTRACT
-        : additive
-          ? BOX_FILL_ADDITIVE
-          : BOX_FILL_NORMAL;
-      ctx.strokeStyle = greedy ? BOX_OUTLINE_R2L : BOX_OUTLINE_L2R;
-      ctx.lineWidth = 1 / vp.scale;
-      const x = Math.min(bo.x, be.x),
-        y = Math.min(bo.y, be.y);
-      const w = Math.abs(be.x - bo.x),
-        h = Math.abs(be.y - bo.y);
-      ctx.fillRect(x, y, w, h);
-      ctx.strokeRect(x, y, w, h);
+    if ((modeRef.current === 'zoom' || modeRef.current === 'box') && bo && be) {
+      // The band is a device-space item: `SetLineWidth( 0.0 )` is one DEVICE
+      // pixel at every zoom, and `1 / vp.scale` — one world unit scaled back to
+      // one logical pixel — is neither that nor stable across displays. So the
+      // world transform comes off for the two passes and goes back after.
+      const toDev = (p: { x: number; y: number }): { x: number; y: number } => ({
+        x: p.x * vp.scale + vp.offsetX,
+        y: p.y * vp.scale + vp.offsetY,
+      });
+      const d0 = toDev(bo);
+      const d1 = toDev(be);
+      const mods = boxModifiersRef.current;
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      drawSelectionArea(
+        ctx,
+        d0.x,
+        d0.y,
+        d1.x,
+        d1.y,
+        selectionAreaColors({
+          // SYMBOL_EDIT_FRAME is an SCH_BASE_FRAME, so this is
+          // `SCH_RENDER_SETTINGS::IsBackgroundDark` — LAYER_SCHEMATIC_BACKGROUND's
+          // luma (`sch_render_settings.h:48-52`). The five constants that used
+          // to sit here were `selectionColorScheme[1]` verbatim, i.e. the light
+          // scheme unconditionally, on a canvas whose theme can be dark.
+          backgroundDark: isBackgroundDark(theme.background),
+          // `ZOOM_TOOL` never calls `SetMode`, so a zoom band is always the
+          // default INSIDE_RECTANGLE; a box select follows the drag direction.
+          inside: modeRef.current === 'zoom' || be.x >= bo.x,
+          ...(modeRef.current === 'box'
+            ? { additive: mods.additive, subtractive: mods.subtractive }
+            : {}),
+        }),
+      );
+      ctx.restore();
     }
     // GAL::blitCursor at the snapped point, in LAYER_SCHEMATIC_CURSOR: the
     // symbol editor is an SCH_BASE_FRAME and reads eeschema's cursor layer

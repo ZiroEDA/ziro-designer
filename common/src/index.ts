@@ -84,6 +84,15 @@ export {
  */
 export * from './drawing_sheet/ds_painter.js';
 export * from './drawing_sheet/ds_bitmap.js';
+
+/**
+ * `common/preview_items/` — the tool preview items every editor shares.
+ * KiCad keeps them here for the same reason we do: a rubber band belongs to no
+ * one editor, and four canvases each owning a copy of its colour table is how
+ * two of them ended up painting the light scheme on a dark background.
+ */
+export * from './preview_items/selection_area.js';
+export * from './preview_items/edit_points.js';
 export * from './drawing_sheet/project_sheet.js';
 
 /**

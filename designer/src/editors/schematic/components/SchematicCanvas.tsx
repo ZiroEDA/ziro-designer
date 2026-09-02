@@ -222,6 +222,16 @@ const GL_RENDERER =
  */
 import { KICAD_DEFAULT, type Theme } from '../theme.js';
 import { editPointColors } from '@ziroeda/common';
+import {
+  EDIT_POINT_BORDER_SIZE,
+  EDIT_POINT_HOVER_SIZE,
+  EDIT_POINT_SIZE,
+  drawSelectionArea,
+  drawSelectionLasso,
+  isBackgroundDark,
+  lassoIsInside,
+  selectionAreaColors,
+} from '@ziroeda/common';
 import { toolCursor as kiToolCursor } from '../cursors.js';
 import { kiCursor } from '../../../ui/kicursors.js';
 import { remapEvent } from '../hotkey_bindings.js';
@@ -715,23 +725,17 @@ interface Props {
 
 type Mode = 'idle' | 'pan' | 'dragzoom' | 'move' | 'box' | 'lasso';
 
-// KiCad's selection-rectangle colours for a bright background
-// (common/preview_items/selection_area.cpp, selectionColorScheme[1]).
-const BOX_FILL_NORMAL = 'rgba(128, 77, 255, 0.5)'; // COLOR4D(0.5,0.3,1.0,0.5)
-const BOX_FILL_ADDITIVE = 'rgba(128, 255, 128, 0.5)'; // COLOR4D(0.5,1.0,0.5,0.5)
-const BOX_FILL_SUBTRACT = 'rgba(255, 128, 128, 0.5)'; // COLOR4D(1.0,0.5,0.5,0.5)
-const BOX_OUTLINE_L2R = 'rgb(179, 179, 0)'; // window select: dark yellow
-const BOX_OUTLINE_R2L = 'rgb(26, 26, 255)'; // greedy select: blue
-
-// EDIT_POINT's screen sizes (edit_points.h). The *colours* are derived from
-// the theme by `editPointColors`, exactly as EDIT_POINTS::ViewDraw derives them
-// from LAYER_AUX_ITEMS: they used to be hardcoded to a white square with a dark
-// border, which is upside down. LAYER_SCHEMATIC_AUX_ITEMS is black in both
-// builtin themes, so on a light sheet the handle is a black square with a pale
-// grey border, not a white one ringed in charcoal.
-const EDIT_POINT_SIZE = 8;
-const EDIT_POINT_BORDER_SIZE = 3;
-const EDIT_POINT_HOVER_SIZE = 6;
+// EDIT_POINT's screen sizes come from `preview_items/edit_points.ts` now — the
+// three were declared here as 8/3/6, and 3 and 6 are the `__WXMAC__` arm of
+// `edit_points.h:196-202`. A GTK build is 2 and 5, so every handle border was
+// half again too heavy.
+//
+// The *colours* are derived from the theme by `editPointColors`, exactly as
+// EDIT_POINTS::ViewDraw derives them from LAYER_AUX_ITEMS: they used to be
+// hardcoded to a white square with a dark border, which is upside down.
+// LAYER_SCHEMATIC_AUX_ITEMS is black in both builtin themes, so on a light
+// sheet the handle is a black square with a pale grey border, not a white one
+// ringed in charcoal.
 
 /** Undo labels for a completed reshape, as KiCad names the commit. */
 const POINT_EDIT_LABELS: Record<PointEditTarget['kind'], string> = {
@@ -2198,42 +2202,53 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     // dark yellow for a left-to-right "window", blue for right-to-left greedy.
     const bo = boxOriginRef.current;
     const be = boxEndRef.current;
+    // The band is a device-space preview item — `SetLineWidth( 0.0 )` is one
+    // DEVICE pixel at every zoom — so its corners are converted here and the
+    // world transform comes off for the two passes.
+    const worldToDev = (p: { x: number; y: number }): { x: number; y: number } => ({
+      x: p.x * vp.scale + vp.offsetX,
+      y: p.y * vp.scale + vp.offsetY,
+    });
+    // `SCH_RENDER_SETTINGS::IsBackgroundDark` (`sch_render_settings.h:48-52`).
+    const bandBackgroundDark = isBackgroundDark(theme.background);
     if (modeRef.current === 'box' && bo && be) {
-      const greedy = be.x < bo.x;
       const { additive, subtractive } = boxModifiersRef.current;
-      ctx.setTransform(vp.scale, 0, 0, vp.scale, vp.offsetX, vp.offsetY);
-      ctx.fillStyle = subtractive
-        ? BOX_FILL_SUBTRACT
-        : additive
-          ? BOX_FILL_ADDITIVE
-          : BOX_FILL_NORMAL;
-      ctx.strokeStyle = greedy ? BOX_OUTLINE_R2L : BOX_OUTLINE_L2R;
-      ctx.lineWidth = 1 / vp.scale;
-      const x = Math.min(bo.x, be.x),
-        y = Math.min(bo.y, be.y);
-      const w = Math.abs(be.x - bo.x),
-        h = Math.abs(be.y - bo.y);
-      ctx.fillRect(x, y, w, h);
-      ctx.strokeRect(x, y, w, h);
+      const d0 = worldToDev(bo);
+      const d1 = worldToDev(be);
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      drawSelectionArea(
+        ctx,
+        d0.x,
+        d0.y,
+        d1.x,
+        d1.y,
+        selectionAreaColors({
+          backgroundDark: bandBackgroundDark,
+          inside: be.x >= bo.x,
+          additive,
+          subtractive,
+        }),
+      );
     }
 
     // Lasso freehand polygon (KiCad selectLasso): closed, in the box colours.
     const lasso = lassoPointsRef.current;
     if (modeRef.current === 'lasso' && lasso.length >= 2) {
       const { additive, subtractive } = boxModifiersRef.current;
-      ctx.setTransform(vp.scale, 0, 0, vp.scale, vp.offsetX, vp.offsetY);
-      ctx.fillStyle = subtractive
-        ? BOX_FILL_SUBTRACT
-        : additive
-          ? BOX_FILL_ADDITIVE
-          : BOX_FILL_NORMAL;
-      ctx.strokeStyle = BOX_OUTLINE_R2L; // lasso: greedy/touching, blue
-      ctx.lineWidth = 1 / vp.scale;
-      ctx.beginPath();
-      lasso.forEach((p, i) => (i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)));
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      drawSelectionLasso(
+        ctx,
+        lasso.map(worldToDev),
+        selectionAreaColors({
+          backgroundDark: bandBackgroundDark,
+          // Not always the greedy blue: the mode follows the polygon's WINDING
+          // (`sch_selection_tool.cpp:2352-2367`), so a clockwise lasso is a
+          // window select and yellow.
+          inside: lassoIsInside(lasso),
+          additive,
+          subtractive,
+        }),
+      );
     }
 
     // Wire / bus chain preview: every non-null segment of m_wires, with the
