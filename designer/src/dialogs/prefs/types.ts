@@ -54,6 +54,8 @@ export type PrefsPageId =
   | 'sch-colors'
   | 'sch-toolbars'
   | 'sch-fields'
+  | 'sch-datasources'
+  | 'sch-simulator'
   | 'pcb-display'
   | 'pcb-toolbars'
   | 'ds-display'

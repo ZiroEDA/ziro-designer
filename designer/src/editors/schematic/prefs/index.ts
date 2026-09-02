@@ -15,12 +15,15 @@ import { PanelEeschemaDisplayOptions } from './PanelEeschemaDisplayOptions.js';
 import { PanelEeschemaEditingOptions } from './PanelEeschemaEditingOptions.js';
 import { PanelEeschemaGrids } from './PanelEeschemaGrids.js';
 import { PanelTemplateFieldnames } from './PanelTemplateFieldnames.js';
+import { PanelSchDataSources } from './PanelSchDataSources.js';
+import { PanelSimulatorPreferences } from './PanelSimulatorPreferences.js';
 import {
   resetEeschemaColorSettings,
   resetEeschemaDisplayOptions,
   resetEeschemaEditingOptions,
   resetEeschemaGrids,
   resetEeschemaToolbars,
+  resetSimulatorPreferences,
 } from './resets.js';
 import { PanelEeschemaToolbars } from './PanelEeschemaToolbars.js';
 import type {
@@ -69,6 +72,21 @@ export const createPrefsPanel: PrefsPanelFactory = (id: PrefsPageId): PrefsPanel
       // and PANEL_TEMPLATE_FIELDNAMES declares no ResetPanel, so
       // PAGED_DIALOG::UpdateResetButton greys the button out on this page.
       return { Panel: PanelTemplateFieldnames };
+
+    case 'sch-datasources':
+      // PANEL_SCH_DATA_SOURCES IS a RESETTABLE_PANEL
+      // (eeschema/dialogs/panel_sch_data_sources.h:34), and its `ResetPanel`
+      // is `populateInstalledSources()` (`:90-93`) — it re-reads the PCM and
+      // changes no setting, because the page holds none. Ours re-reads on
+      // every render through `usePcmVersion`, so there is nothing for a reset
+      // to do and no `reset` to export.
+      return { Panel: PanelSchDataSources };
+
+    case 'sch-simulator':
+      return {
+        Panel: PanelSimulatorPreferences,
+        reset: resetSimulatorPreferences,
+      };
 
     default:
       return null;

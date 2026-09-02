@@ -11550,6 +11550,127 @@ textarea.ze-ds-textedit {
   flex: 0 0 auto;
 }
 
+/* ---- PANEL_SIMULATOR_PREFERENCES (eeschema/dialogs/panel_simulator_preferences_base.cpp)
+   `bScrollMargins` is horizontal: the two choice tables on the left at
+   proportion 1 with `wxLEFT, 5`, the two reset buttons on the right with
+   `wxLEFT, 50`. Every control on the page is disabled — we ship no simulator,
+   so nothing reads these — and the greying is the shared `:disabled` treatment,
+   not anything stated here. */
+.ze-simprefs {
+  display: flex;
+  /* [data] `Add( bScrollMargins, 1, wxEXPAND|wxTOP|wxRIGHT, 10 )`. */
+  padding: 10px 10px 0 0;
+}
+.ze-simprefs-col {
+  flex: 1;
+  min-width: 0;
+  /* [data] `Add( bScrollSizerLeft, 1, wxEXPAND|wxLEFT, 5 )`. */
+  margin-left: 5px;
+}
+.ze-simprefs-heading {
+  /* [data] `m_lblVScrollMovement`'s `wxBOTTOM|wxRIGHT|wxLEFT, 5`. */
+  padding: 0 5px;
+  /* [data] that label's own wxBOTTOM plus the `Add( 0, 5 )` spacer under it. */
+  margin-bottom: 10px;
+}
+.ze-simprefs-heading2 {
+  /* [data] the `Add( 0, 20 )` spacer above `m_lblHScrollMovement`. */
+  margin-top: 20px;
+  /* [data] its own `wxALL, 5`, where the first heading has three sides. */
+  padding: 5px;
+}
+/* `fgVScroll` / `fgHScroll`: two columns, growable col 0, `Add( …, 0,
+   wxRIGHT|wxLEFT, 24 )`. The vertical one has a 5 px vgap; the horizontal one
+   has none. */
+.ze-simprefs-grid {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  align-items: center;
+  /* [data] `wxFlexGridSizer( 0, 2, 5, 0 )` — a 5 px vgap and no hgap. */
+  row-gap: 5px;
+  /* [data] the sizer's own `wxRIGHT|wxLEFT, 24`. */
+  padding: 0 24px;
+}
+.ze-simprefs-colhead {
+  /* `wxALIGN_BOTTOM` on both column headings. */
+  align-self: end;
+}
+.ze-simprefs-action {
+  /* [data] `wxALIGN_CENTER_HORIZONTAL` on the Action heading alone. */
+  text-align: center;
+  /* [data] the choices' own `wxRIGHT|wxLEFT, 5`, so the heading sits over the
+     control and not over its border. */
+  padding: 0 5px;
+}
+.ze-simprefs-choice {
+  /* [data] `Add( m_choiceVScroll…, 0, wxALIGN_CENTER_VERTICAL|wxRIGHT|wxLEFT, 5 )`. */
+  margin: 0 5px;
+}
+/* `bScrollSizerRight`, `Add( …, 0, wxEXPAND|wxLEFT, 50 )`. Both buttons are
+   wxEXPAND, so they stretch to the wider of the two rather than each taking
+   its own width. */
+.ze-simprefs-btns {
+  display: flex;
+  flex-direction: column;
+  /* [data] the sizer's own wxLEFT. */
+  margin-left: 50px;
+  /* [data] `wxBOTTOM, 5` on the first and `wxTOP|wxBOTTOM, 5` on the second. */
+  gap: 10px;
+}
+
+/* ---- PANEL_SCH_DATA_SOURCES (eeschema/dialogs/panel_sch_data_sources.cpp:39-73)
+   No _base.cpp: the panel builds its own vertical box, and every border in it
+   is `FromDIP( 12 )`. The page holds no settings — it reads the Plugin and
+   Content Manager — so nothing here is disabled. */
+.ze-datasources {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.ze-datasources-desc {
+  /* [data] `Add( m_description, 0, wxALL|wxEXPAND, 12 )`. */
+  margin: 12px;
+  /* [data] `m_description->Wrap( FromDIP( 480 ) )`. */
+  max-width: 480px;
+  /* `SetFont( KIUI::GetInfoFont( this ) )` — the GUI font one point down. */
+  font-size: var(--ui-font-size-info);
+}
+.ze-datasources-list {
+  flex: 1;
+  overflow: auto;
+  /* [data] `Add( m_sourcesList, 1, wxLEFT|wxRIGHT|wxBOTTOM|wxEXPAND, 12 )`. */
+  margin: 0 12px 12px;
+  /* [data] `m_sourcesList->SetMinSize( FromDIP( wxSize( -1, 160 ) ) )`. */
+  min-height: 160px;
+  background: var(--chrome-bg2);
+  color: var(--view-fg);
+  border: 1px solid var(--ctl-border);
+}
+/* A wxListBox row, which GTK draws exactly as it draws a treeview one — so
+   this is `.ze-gridlist-row`'s padding, reached for the same reason and stated
+   once there. */
+.ze-datasources-row {
+  /* [px] GtkCellRendererText's `ypad` of 2 above and below, and half of
+     `-GtkTreeView-horizontal-separator: 4` either side. */
+  padding: 2px;
+  white-space: nowrap;
+}
+.ze-datasources-status {
+  /* [data] `Add( m_status, 0, wxLEFT|wxBOTTOM|wxEXPAND, 12 )`. */
+  margin: 0 0 12px 12px;
+  /* `KIUI::GetSmallInfoFont( this ).Italic()` — two points down, italic, and
+     no foreground of its own. */
+  font-size: var(--ui-font-size-small);
+  font-style: italic;
+}
+.ze-datasources-btnrow {
+  display: flex;
+  /* [data] `wxALIGN_RIGHT` on `m_manageButton`. */
+  justify-content: flex-end;
+  /* [data] its `wxRIGHT, 12`. */
+  margin-right: 12px;
+}
+
 /* ---- PANEL_TEMPLATE_FIELDNAMES (eeschema/dialogs/panel_template_fieldnames_base.cpp)
    The Name / Visible / URL grid, on both the Preferences page and Schematic
    Setup — one panel upstream, so one set of rules here.

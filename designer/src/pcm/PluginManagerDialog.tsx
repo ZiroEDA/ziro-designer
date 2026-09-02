@@ -55,13 +55,24 @@ function ThemeSwatches({ pkg }: { pkg: RepoPackage }): JSX.Element | null {
   );
 }
 
-export function PluginManagerDialog({ onClose }: { onClose: () => void }): JSX.Element {
+export function PluginManagerDialog({
+  onClose,
+  initialTab,
+}: {
+  onClose: () => void;
+  /**
+   * `DIALOG_PCM::SetActivePackageType( aType )` — the caller opens the manager
+   * on one type's tab. Preferences > Data Sources does exactly this
+   * (`panel_sch_data_sources.cpp:141-152`).
+   */
+  initialTab?: Tab;
+}): JSX.Element {
   // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
   // ui/modal_escape.ts.
   useModalEscape(onClose);
 
   usePcmVersion();
-  const [tab, setTab] = useState<Tab>('library');
+  const [tab, setTab] = useState<Tab>(initialTab ?? 'library');
   const [repoUrl, setRepoUrl] = useState<string>('');
   const [addingUrl, setAddingUrl] = useState('');
   const [repoError, setRepoError] = useState<string | null>(null);

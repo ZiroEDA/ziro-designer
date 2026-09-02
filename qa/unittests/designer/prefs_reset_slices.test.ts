@@ -599,7 +599,12 @@ describe('a page that is not resettable has no reset', () => {
     // Read as text: the factory reaches its panels, which are .tsx, and qa's
     // tsconfig sets no --jsx.
     const src = read('editors/schematic/prefs/index.ts');
-    const arm = src.slice(src.indexOf("case 'sch-fields':"), src.indexOf('default:'));
+    // To the NEXT case, not to `default:` — this arm is no longer the last one,
+    // and a slice that runs past it reads the following arm's `reset:` as this
+    // arm's. `sch-datasources` and `sch-simulator` come after it now.
+    const from = src.indexOf("case 'sch-fields':");
+    const to = src.indexOf('case ', from + 1);
+    const arm = src.slice(from, to === -1 ? src.indexOf('default:') : to);
     expect(arm).toContain('PanelTemplateFieldnames');
     expect(arm).not.toMatch(/\breset:/);
     for (const id of NOT_RESETTABLE) expect(RESETS[id]).toBeUndefined();
