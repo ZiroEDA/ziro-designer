@@ -85,6 +85,17 @@ const EXCUSED: Record<string, Record<string, string>> = {
       'nothing had checked was there',
     name: 'the argument: "<name> (local copy, <date>)"',
     syncedAt: 'deliberately absent: the copy has never agreed with the cloud',
+    baseVersion:
+      'deliberately absent, and carrying it would be a false claim. The fork ' +
+      'has a fresh id, so no cloud row exists for it; naming a version would ' +
+      'make its first push a compare-and-swap against a row that is not there, ' +
+      'which the commit refuses. Absent means base 0 — "this project is new" — ' +
+      'which is exactly what it is',
+    syncedHashes:
+      'deliberately absent, for the same reason as syncedAt: divergence is ' +
+      'measured against what the two sides last agreed, and this copy has ' +
+      'never agreed with anything. Carrying the original’s would declare the ' +
+      'fork already in sync with a row it has no relationship to',
     lastOpenedAt: 'never opened; it sorts by updatedAt beside its original',
     templateId:
       'deliberately absent: a fork is a new project, and two projects both ' +

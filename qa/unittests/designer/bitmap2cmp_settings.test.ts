@@ -66,7 +66,9 @@ function fakeBackend(): CloudBackend & { rows: Map<string, SettingsRow> } {
     async getProject() {
       return null;
     },
-    async putProject() {},
+    async commitProject() {
+      return 1;
+    },
     async deleteProject() {},
     async putObject() {},
     async getObject() {

@@ -47,14 +47,18 @@ function fake(): CloudBackend & {
     /** Project id whose commit is refused, to fail exactly one transfer. */
     failCommitFor: '' as string,
     async listProjects() {
-      return [...f.rows.values()].map((r) => ({ id: r.id, updated_at: r.updated_at }));
+      return [...f.rows.values()].map((r) => ({ id: r.id, version: r.version ?? 1 }));
     },
     async getProject(id: string) {
       return f.rows.get(id) ?? null;
     },
-    async putProject(row: ProjectRow & { user_id: string }) {
+    async commitProject(row: ProjectRow & { user_id: string }, base: number) {
       if (row.id === f.failCommitFor) throw new Error('commit refused');
-      f.rows.set(row.id, row);
+      const cur = f.rows.get(row.id);
+      if (base <= 0 ? cur !== undefined : (cur?.version ?? 1) !== base) return null;
+      const version = base <= 0 ? 1 : base + 1;
+      f.rows.set(row.id, { ...row, version });
+      return version;
     },
     async deleteProject(id: string) {
       f.rows.delete(id);
