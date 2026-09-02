@@ -117,6 +117,40 @@ describe('shared view controls', () => {
     expect(read(rel)).toMatch(/action\.kind === 'pan'/);
   });
 
+  /**
+   * The drag gestures, which went the same way the wheel had.
+   *
+   * `WX_VIEW_CONTROLS::onButton` (`wx_view_controls.cpp:546-569`) is one
+   * branch in front of every GAL canvas: the middle button starts
+   * `m_dragMiddle` and the right button `m_dragRight`, each of PAN / ZOOM /
+   * NONE. Six of our seven canvases instead wrote `if (e.button === 1)` and
+   * panned, so Preferences > Mouse and Touchpad > Drag Gestures was honoured
+   * in the schematic editor and nowhere else.
+   *
+   * Per file, not once over the set: a rule checked across the whole list
+   * passes as soon as any single canvas obeys it.
+   */
+  it.each(CANVASES)('%s asks dragGesture what a button press starts', (rel) => {
+    expect(read(rel)).toContain('dragGesture(');
+  });
+
+  it.each(CANVASES)('%s does not restate the drag rule as its own comparison', (rel) => {
+    // The two shapes that were there: a bare middle-button pan, and the
+    // preview panes' `prefs.mouseMiddle === 'pan'` written out by hand.
+    const src = read(rel);
+    expect(src, `${rel} compares mouseMiddle itself`).not.toMatch(/mouseMiddle\s*===/);
+    expect(src, `${rel} compares mouseRight itself`).not.toMatch(/mouseRight\s*===/);
+  });
+
+  it('the drag-zoom step is the shared exp(), not a literal', () => {
+    // `exp( d.y * m_settings.m_zoomSpeed * 0.001 )` (`:383`). The schematic
+    // canvas had `Math.exp((...) * 0.005)`, which is zoom_speed 5 frozen: the
+    // Zoom speed slider moved and the gesture did not change.
+    for (const rel of CANVASES) {
+      expect(read(rel), rel).not.toMatch(/Math\.exp\([^)]*0\.005/);
+    }
+  });
+
   it('no canvas invents its own fit margin any more', () => {
     // The margins that used to disagree, each named where it lived. They are
     // absolute world padding, which is what made the framing depend on the

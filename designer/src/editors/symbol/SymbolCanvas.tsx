@@ -14,7 +14,12 @@ import {
 import type { LibGraphic, LibPin, LibSymbol } from '@ziroeda/eeschema';
 import { EMPTY_SOURCE } from '@ziroeda/eeschema';
 import { KICAD_DEFAULT, type Theme } from '../schematic/theme.js';
-import { commonInputPrefs, wheelAction } from '../../ui/view_controls.js';
+import {
+  commonInputPrefs,
+  dragGesture,
+  dragZoomScale,
+  wheelAction,
+} from '../../ui/view_controls.js';
 import { drawCrosshair } from '../../ui/grid_cursor.js';
 import { kiCursor } from '../../ui/kicursors.js';
 import { clampViewScale } from '../../ui/zoom_settings.js';
@@ -32,7 +37,6 @@ import {
   renderSymbolScene,
   drawPin,
   drawGraphic,
-  GRID,
   type SymbolViewOptions,
   type Viewport,
 } from './render/symbolRenderer.js';
@@ -46,6 +50,7 @@ import {
   snap,
   type SymbolHit,
 } from './edits.js';
+import { symbolGridIU } from './grid.js';
 
 /**
  * The symbol editor's drawing canvas: pan/zoom, selection/move (SCH_SELECTION /
@@ -105,7 +110,7 @@ interface Props {
   onScaleChange?: (scale: number) => void;
 }
 
-type Mode = 'idle' | 'pan' | 'move' | 'box' | 'zoom';
+type Mode = 'idle' | 'pan' | 'dragzoom' | 'move' | 'box' | 'zoom';
 
 /** GAL::GetScaleFactor. Module scope so it is stable across renders. */
 const dpr = (): number => window.devicePixelRatio || 1;
@@ -182,6 +187,8 @@ export const SymbolCanvas = forwardRef<SymbolCanvasController, Props>(function S
 
   const modeRef = useRef<Mode>('idle');
   const panLastRef = useRef<{ x: number; y: number } | null>(null);
+  /** `WX_VIEW_CONTROLS::m_zoomStartPoint` (`wx_view_controls.cpp:562`, `:386`). */
+  const zoomStartRef = useRef<{ x: number; y: number } | null>(null);
   const panMovedRef = useRef(false);
   const moveStartRef = useRef<Vec2 | null>(null);
   const moveDeltaRef = useRef<Vec2 | null>(null);
@@ -301,7 +308,12 @@ export const SymbolCanvas = forwardRef<SymbolCanvasController, Props>(function S
     // (sch_render_settings.h:71). It had none at all before.
     if (cur) {
       const at = snap(cur);
-      const cursorPrefs = settings.eeschema.window.cursor;
+      // `symbol_editor.json`'s `window.cursor`, not eeschema's: SYMBOL_EDIT_FRAME
+      // is given `GetAppSettings<SYMBOL_EDITOR_SETTINGS>( "symbol_editor" )`
+      // (`eeschema/eeschema.cpp:252`), and the Cursor group on Preferences >
+      // Symbol Editor > Display Options writes that file. Reading the
+      // schematic's here made those two radio buttons and the checkbox dead.
+      const cursorPrefs = settings.symbolEditor.window.cursor;
       drawCrosshair(
         ctx,
         { x: at.x * vp.scale + vp.offsetX, y: at.y * vp.scale + vp.offsetY },
@@ -521,13 +533,23 @@ export const SymbolCanvas = forwardRef<SymbolCanvasController, Props>(function S
       if (!vp) return;
       const world = toWorld(e.clientX, e.clientY);
 
+      // `WX_VIEW_CONTROLS::onButton` (`wx_view_controls.cpp:546-569`): the
+      // middle button starts whatever Preferences > Mouse and Touchpad > Drag
+      // Gestures says, and NONE is neither branch -- the press falls through.
       if (e.button === 1) {
-        (e.target as Element).setPointerCapture(e.pointerId);
-        modeRef.current = 'pan';
-        panLastRef.current = { x: e.clientX, y: e.clientY };
-        panMovedRef.current = false;
-        e.preventDefault();
-        return;
+        const gesture = dragGesture(e.button, inputPrefs);
+        if (gesture !== 'none') {
+          (e.target as Element).setPointerCapture(e.pointerId);
+          modeRef.current = gesture === 'zoom' ? 'dragzoom' : 'pan';
+          panLastRef.current = { x: e.clientX, y: e.clientY };
+          const zr = canvasRef.current?.getBoundingClientRect();
+          zoomStartRef.current = zr
+            ? { x: (e.clientX - zr.left) * dpr(), y: (e.clientY - zr.top) * dpr() }
+            : null;
+          panMovedRef.current = false;
+          e.preventDefault();
+          return;
+        }
       }
       /*
        * `ZOOM_TOOL::Main` (`common/tool/zoom_tool.cpp:61-101`) waits for a DRAG
@@ -695,6 +717,19 @@ export const SymbolCanvas = forwardRef<SymbolCanvasController, Props>(function S
         draw();
         return;
       }
+      if (modeRef.current === 'dragzoom' && panLastRef.current) {
+        // DRAG_ZOOMING (`wx_view_controls.cpp:363-405`).
+        panMovedRef.current = true;
+        const anchor = zoomStartRef.current;
+        if (anchor)
+          zoomAbout(
+            anchor.x,
+            anchor.y,
+            dragZoomScale(panLastRef.current.y - e.clientY, inputPrefs),
+          );
+        panLastRef.current = { x: e.clientX, y: e.clientY };
+        return;
+      }
       if (modeRef.current === 'box' || modeRef.current === 'zoom') {
         boxEndRef.current = world;
         draw();
@@ -702,9 +737,13 @@ export const SymbolCanvas = forwardRef<SymbolCanvasController, Props>(function S
       }
       if (modeRef.current === 'move' && moveStartRef.current) {
         const raw = { x: world.x - moveStartRef.current.x, y: world.y - moveStartRef.current.y };
+        // `SYMBOL_EDITOR_MOVE_TOOL` moves by whole grid steps, and the grid is
+        // the frame's — `symbolGridIU()` — not a constant. See
+        // `editors/symbol/grid.ts`.
+        const grid = symbolGridIU();
         moveDeltaRef.current = {
-          x: Math.round(raw.x / GRID) * GRID,
-          y: Math.round(raw.y / GRID) * GRID,
+          x: Math.round(raw.x / grid) * grid,
+          y: Math.round(raw.y / grid) * grid,
         };
         draw();
         return;
@@ -722,15 +761,18 @@ export const SymbolCanvas = forwardRef<SymbolCanvasController, Props>(function S
       // Nothing is in flight, but the crosshair still follows the pointer.
       draw();
     },
-    [draw, pendingPin, pendingText, onCursorMove],
+    [draw, pendingPin, pendingText, onCursorMove, zoomAbout, inputPrefs],
   );
 
   const onPointerUp = useCallback(
     (e: React.PointerEvent) => {
-      if (modeRef.current === 'pan' && e.button === 1) {
+      // `case DRAG_ZOOMING: case DRAG_PANNING:` share one release
+      // (`wx_view_controls.cpp:575-588`).
+      if ((modeRef.current === 'pan' || modeRef.current === 'dragzoom') && e.button === 1) {
         (e.target as Element).releasePointerCapture(e.pointerId);
         modeRef.current = 'idle';
         panLastRef.current = null;
+        zoomStartRef.current = null;
         return;
       }
       if (modeRef.current === 'zoom') {

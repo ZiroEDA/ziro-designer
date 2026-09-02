@@ -18,6 +18,8 @@
 import { describe, it, expect } from 'vitest';
 import {
   DEFAULT_INPUT_PREFS,
+  dragGesture,
+  dragZoomScale,
   fitMarginScaleFactor,
   wheelAction,
   wheelModifier,
@@ -310,5 +312,80 @@ describe('zoomFitView', () => {
   it('returns null for a degenerate box rather than an infinite scale', () => {
     expect(zoomFitView({ minX: 5, minY: 0, maxX: 5, maxY: 10 }, VIEWPORT, 'pcb')).toBeNull();
     expect(zoomFitView({ minX: 0, minY: 0, maxX: 10, maxY: 0 }, VIEWPORT, 'pcb')).toBeNull();
+  });
+});
+
+/**
+ * `WX_VIEW_CONTROLS::onButton` — Preferences > Mouse and Touchpad > Drag
+ * Gestures, for the middle and right buttons.
+ *
+ * Upstream one `WX_VIEW_CONTROLS` sits in front of every GAL canvas and
+ * answers this identically for all of them (`wx_view_controls.cpp:546-569`).
+ * Ours are seven React components, and every one of them but the schematic
+ * canvas hardcoded `button === 1` -> pan: the two combos were live in one
+ * editor out of six, and `Zoom` and `None` did nothing anywhere else.
+ */
+describe('dragGesture — onButton (wx_view_controls.cpp:546-569)', () => {
+  it('the middle button takes m_dragMiddle', () => {
+    expect(dragGesture(1, prefs({ mouseMiddle: 'pan' }))).toBe('pan');
+    expect(dragGesture(1, prefs({ mouseMiddle: 'zoom' }))).toBe('zoom');
+    expect(dragGesture(1, prefs({ mouseMiddle: 'none' }))).toBe('none');
+  });
+
+  it('the right button takes m_dragRight, not m_dragMiddle', () => {
+    // Both branches of onButton name the two buttons separately; a port that
+    // shared one setting between them passes every single-button test.
+    expect(dragGesture(2, prefs({ mouseMiddle: 'none', mouseRight: 'pan' }))).toBe('pan');
+    expect(dragGesture(2, prefs({ mouseMiddle: 'pan', mouseRight: 'zoom' }))).toBe('zoom');
+    expect(dragGesture(2, prefs({ mouseMiddle: 'pan', mouseRight: 'none' }))).toBe('none');
+  });
+
+  it('the LEFT button starts no view gesture, whatever mouseLeft says', () => {
+    // `m_dragLeft` is loaded (`:188`) and onButton never reads it -- a left
+    // drag is the selection tool's, through TOOLS_HOLDER::GetDragAction.
+    for (const mouseLeft of ['select', 'drag_selected', 'drag_any'] as const) {
+      expect(dragGesture(0, prefs({ mouseLeft }))).toBe('none');
+    }
+  });
+});
+
+/**
+ * `WX_VIEW_CONTROLS::onMotion`'s DRAG_ZOOMING step (`:379-388`):
+ *
+ *     double scale = exp( d.y * m_settings.m_zoomSpeed * 0.001 );
+ *
+ * The factor is written out below rather than computed from the function, so
+ * the expectation cannot agree with a wrong implementation by construction.
+ */
+describe('dragZoomScale — DRAG_ZOOMING (wx_view_controls.cpp:379-388)', () => {
+  it('is exp( dy * zoom_speed * 0.001 )', () => {
+    // zoom_speed 1, 40 px of travel: exp( 40 * 1 * 0.001 ) = exp( 0.04 ).
+    expect(dragZoomScale(40, prefs({ zoomSpeed: 1 }))).toBeCloseTo(Math.exp(0.04), 12);
+    // zoom_speed 10 over the same travel: exp( 0.4 ), ten times the exponent.
+    expect(dragZoomScale(40, prefs({ zoomSpeed: 10 }))).toBeCloseTo(Math.exp(0.4), 12);
+  });
+
+  it('the Zoom speed slider really moves it', () => {
+    // The bug this pins: the schematic canvas multiplied by a literal 0.005,
+    // so every speed gave the same factor.
+    const seen = [1, 2, 5, 10].map((zoomSpeed) => dragZoomScale(40, prefs({ zoomSpeed })));
+    expect(new Set(seen).size).toBe(4);
+  });
+
+  it('Automatic does NOT take over the drag', () => {
+    // `zoom_speed_auto` picks a ZOOM_CONTROLLER for the WHEEL (`:196-214`);
+    // DRAG_ZOOMING reads `m_zoomSpeed` raw and never asks for a controller.
+    expect(dragZoomScale(40, prefs({ zoomSpeed: 3, zoomSpeedAuto: true }))).toBeCloseTo(
+      dragZoomScale(40, prefs({ zoomSpeed: 3, zoomSpeedAuto: false })),
+      12,
+    );
+  });
+
+  it('a downward drag zooms out, an upward drag zooms in', () => {
+    // `d = m_dragStartPoint - mousePos`, so dragging DOWN (y increasing) makes
+    // d.y negative and the scale less than 1.
+    expect(dragZoomScale(-40, prefs())).toBeLessThan(1);
+    expect(dragZoomScale(40, prefs())).toBeGreaterThan(1);
+    expect(dragZoomScale(0, prefs())).toBe(1);
   });
 });

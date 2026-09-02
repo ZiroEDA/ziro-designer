@@ -222,12 +222,18 @@ const GL_RENDERER =
  */
 import { KICAD_DEFAULT, type Theme } from '../theme.js';
 import { editPointColors } from '@ziroeda/common';
-import { kiCursor, toolCursor as kiToolCursor } from '../cursors.js';
+import { toolCursor as kiToolCursor } from '../cursors.js';
+import { kiCursor } from '../../../ui/kicursors.js';
 import { remapEvent } from '../hotkey_bindings.js';
 import { settings } from '../../../prefs/settings.js';
 import type { InputPrefs } from '../../../ui/view_controls.js';
 import { drawGrid, drawCrosshair, viewFromOffsets } from '../../../ui/grid_cursor.js';
-import { DEFAULT_INPUT_PREFS, wheelAction } from '../../../ui/view_controls.js';
+import {
+  DEFAULT_INPUT_PREFS,
+  dragGesture,
+  dragZoomScale,
+  wheelAction,
+} from '../../../ui/view_controls.js';
 
 /**
  * Tools that snap to connection anchors (pins, wire ends) rather than plain
@@ -251,8 +257,16 @@ const BULLSEYE_CURSOR = (() => {
   return `url("data:image/svg+xml,${encodeURIComponent(svg)}") 16 16, crosshair`;
 })();
 
-/** The wire cursor, also shown over a dangling pin with the select tool. */
-const WIRE_CURSOR = kiCursor('lineWire');
+/**
+ * The wire cursor, also shown over a dangling pin with the select tool.
+ *
+ * A function and not a module constant: `CURSOR_STORE::GetCursor` reads
+ * `use_custom_cursors` on every call (`common/gal/cursors.cpp:409-411`) and
+ * upstream `SetCurrentCursor` runs per tool change, so a value frozen at
+ * import would ignore Preferences > Common > "Disable custom cursors" for the
+ * life of the tab.
+ */
+const wireCursor = (): string => kiCursor('LINE_WIRE');
 
 /**
  * The cursor a tool shows while it is active (SetCurrentCursor per tool).
@@ -262,7 +276,7 @@ const WIRE_CURSOR = kiCursor('lineWire');
  */
 function toolCursor(tool: string, attached: 'none' | 'moving' | 'place' = 'none'): string {
   if (tool === 'highlightNet') return BULLSEYE_CURSOR;
-  if (attached !== 'none') return kiCursor(attached === 'moving' ? 'moving' : 'place');
+  if (attached !== 'none') return kiCursor(attached === 'moving' ? 'MOVING' : 'PLACE');
   return kiToolCursor(tool);
 }
 
@@ -841,6 +855,14 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
 
   const modeRef = useRef<Mode>('idle');
   const panLastRef = useRef<{ x: number; y: number } | null>(null);
+  /**
+   * `WX_VIEW_CONTROLS::m_zoomStartPoint` — where the drag-zoom's button went
+   * down, in device pixels, held fixed for the whole gesture. `SetScale( ...,
+   * m_view->ToWorld( m_zoomStartPoint ) )` (`wx_view_controls.cpp:386`) anchors
+   * every step of the drag there, not at the moving pointer and not at the
+   * centre of the canvas.
+   */
+  const zoomStartRef = useRef<{ x: number; y: number } | null>(null);
   const panMovedRef = useRef(false);
   const moveStartRef = useRef<Vec2 | null>(null);
   const moveDeltaRef = useRef<Vec2 | null>(null);
@@ -2816,12 +2838,20 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       }
 
       // Middle/right-button drag pans or zooms per the Drag Gestures settings.
+      // `dragGesture` is `WX_VIEW_CONTROLS::onButton`'s branch, shared so that
+      // every canvas answers the combos the same way rather than six of them
+      // hardcoding a pan.
       if (e.button === 1 || e.button === 2) {
-        const action = e.button === 1 ? inputPrefs.mouseMiddle : inputPrefs.mouseRight;
+        const action = dragGesture(e.button, inputPrefs);
         if (action === 'none') return;
         (e.target as Element).setPointerCapture(e.pointerId);
         modeRef.current = action === 'zoom' ? 'dragzoom' : 'pan';
         panLastRef.current = { x: e.clientX, y: e.clientY };
+        // `m_zoomStartPoint = m_dragStartPoint` (`wx_view_controls.cpp:562`).
+        const zr = canvasRef.current?.getBoundingClientRect();
+        zoomStartRef.current = zr
+          ? { x: (e.clientX - zr.left) * dpr(), y: (e.clientY - zr.top) * dpr() }
+          : null;
         panMovedRef.current = false;
         e.preventDefault();
         return;
@@ -3357,7 +3387,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       // the cursor to LINE_WIRE to signal that clicking will start a wire).
       const canvas = canvasRef.current;
       if (canvas && activeTool === 'select' && modeRef.current === 'idle')
-        canvas.style.cursor = danglingPinAt(world) ? WIRE_CURSOR : 'default';
+        canvas.style.cursor = danglingPinAt(world) ? wireCursor() : 'default';
 
       // Shape/sheet drawing preview + bus-entry / image ghosts track the cursor.
       // These ride in the document, so the scene has to be rebuilt.
@@ -3453,14 +3483,18 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
         panLastRef.current = { x: e.clientX, y: e.clientY };
         requestDraw();
       } else if (modeRef.current === 'dragzoom' && panLastRef.current) {
-        // Drag-zoom gesture: vertical travel zooms about the canvas centre.
+        // DRAG_ZOOMING (`wx_view_controls.cpp:363-405`): vertical travel scales
+        // by `exp( d.y * m_zoomSpeed * 0.001 )` about `m_zoomStartPoint`, the
+        // point the button went down on. It used to be a literal 0.005 about
+        // the canvas centre, so the Zoom speed slider did nothing here and the
+        // gesture pulled the drawing away from where the user had grabbed it.
         panMovedRef.current = true;
-        const canvas = canvasRef.current;
-        if (canvas)
+        const anchor = zoomStartRef.current;
+        if (anchor)
           zoomAbout(
-            canvas.width / 2,
-            canvas.height / 2,
-            Math.exp((panLastRef.current.y - e.clientY) * 0.005),
+            anchor.x,
+            anchor.y,
+            dragZoomScale(panLastRef.current.y - e.clientY, inputPrefs),
           );
         panLastRef.current = { x: e.clientX, y: e.clientY };
       } else if (cursorRef.current) {
@@ -3479,6 +3513,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       requestOverlay,
       onCursorMove,
       zoomAbout,
+      inputPrefs,
       handleAt,
       schematic,
       snap,

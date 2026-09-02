@@ -16,7 +16,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import type { InputPrefs } from '../ui/view_controls.js';
-import { commonInputPrefs, wheelAction } from '../ui/view_controls.js';
+import { commonInputPrefs, dragGesture, dragZoomScale, wheelAction } from '../ui/view_controls.js';
 
 /** A canvas transform in device pixels: world -> screen. */
 export interface PreviewView {
@@ -64,7 +64,14 @@ export function usePreviewViewControls(
   const ownViewRef = useRef<PreviewView | null>(null);
   const viewRef = externalViewRef ?? ownViewRef;
   const fitScaleRef = useRef(0);
-  const panRef = useRef<{ pointerId: number; x: number; y: number } | null>(null);
+  const panRef = useRef<{
+    pointerId: number;
+    x: number;
+    y: number;
+    /** 'zoom' is DRAG_ZOOMING; `anchor` is `m_zoomStartPoint` (`:562`). */
+    gesture: 'pan' | 'zoom';
+    anchor: { x: number; y: number };
+  } | null>(null);
 
   // The scale the current fit settled on, tracked so zoom stays bounded around
   // it however large or small the item is.
@@ -120,12 +127,23 @@ export function usePreviewViewControls(
   // preview has no selection tool, so a left drag does nothing.
   const onPointerDown = useCallback(
     (e: React.PointerEvent) => {
-      const wantsPan =
-        (e.button === 1 && prefs.mouseMiddle === 'pan') ||
-        (e.button === 2 && prefs.mouseRight === 'pan');
-      if (!wantsPan || !viewRef.current) return;
+      // The rule is `dragGesture`'s, not restated here: `WX_VIEW_CONTROLS::
+      // onButton` (`wx_view_controls.cpp:546-569`) is one branch in front of
+      // every GAL canvas, and the preview panes are GAL canvases upstream too.
+      const gesture = dragGesture(e.button, prefs);
+      if (gesture === 'none' || !viewRef.current) return;
       e.preventDefault();
-      panRef.current = { pointerId: e.pointerId, x: e.clientX, y: e.clientY };
+      const canvas = canvasRef.current;
+      const r = canvas?.getBoundingClientRect();
+      panRef.current = {
+        pointerId: e.pointerId,
+        x: e.clientX,
+        y: e.clientY,
+        gesture,
+        anchor: r
+          ? { x: (e.clientX - r.left) * dpr(), y: (e.clientY - r.top) * dpr() }
+          : { x: 0, y: 0 },
+      };
       (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
     },
     [prefs, viewRef],
@@ -136,15 +154,20 @@ export function usePreviewViewControls(
       const pan = panRef.current;
       const view = viewRef.current;
       if (!pan || !view || pan.pointerId !== e.pointerId) return;
-      viewRef.current = {
-        ...view,
-        tx: view.tx + (e.clientX - pan.x) * dpr(),
-        ty: view.ty + (e.clientY - pan.y) * dpr(),
-      };
+      if (pan.gesture === 'zoom') {
+        // DRAG_ZOOMING (`wx_view_controls.cpp:363-405`).
+        zoomAbout(pan.anchor.x, pan.anchor.y, dragZoomScale(pan.y - e.clientY, prefs));
+      } else {
+        viewRef.current = {
+          ...view,
+          tx: view.tx + (e.clientX - pan.x) * dpr(),
+          ty: view.ty + (e.clientY - pan.y) * dpr(),
+        };
+        redraw();
+      }
       panRef.current = { ...pan, x: e.clientX, y: e.clientY };
-      redraw();
     },
-    [redraw, viewRef],
+    [redraw, viewRef, zoomAbout, prefs],
   );
 
   const onPointerUp = useCallback((e: React.PointerEvent) => {
@@ -156,7 +179,9 @@ export function usePreviewViewControls(
   // A right-drag pan must not raise the browser menu.
   const onContextMenu = useCallback(
     (e: React.MouseEvent) => {
-      if (prefs.mouseRight === 'pan') e.preventDefault();
+      // Whatever the right button is bound to, it is a canvas gesture and not
+      // a menu; only NONE leaves the press to fall through (`:546-569`).
+      if (dragGesture(2, prefs) !== 'none') e.preventDefault();
     },
     [prefs],
   );

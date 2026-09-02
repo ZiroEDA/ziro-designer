@@ -23,6 +23,8 @@ import {
 } from 'react';
 import {
   commonInputPrefs,
+  dragGesture,
+  dragZoomScale,
   wheelAction,
   zoomFitView,
   type FitFrame,
@@ -804,6 +806,7 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
     // click-select + box-select on empty space, and drag-move over a selection.
     const gestureRef = useRef<
       | { mode: 'pan'; last: { x: number; y: number } }
+      | { mode: 'dragzoom'; last: { x: number; y: number }; anchor: { x: number; y: number } }
       | { mode: 'box'; start: Vec2; additive: boolean }
       | { mode: 'move'; start: Vec2; moved: boolean }
       | { mode: 'place'; start: { x: number; y: number }; moved: boolean }
@@ -848,10 +851,22 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
 
     const onPointerDown = (e: React.PointerEvent): void => {
       (e.target as HTMLElement).setPointerCapture(e.pointerId);
-      // Middle button always pans (right button reserved for context menu later).
+      // `WX_VIEW_CONTROLS::onButton` (`wx_view_controls.cpp:546-569`): the
+      // middle button starts whatever Preferences > Mouse and Touchpad > Drag
+      // Gestures says. NONE is neither branch, so the press falls through to
+      // the tools. (Right button is still the context menu here; see the
+      // report -- upstream it obeys `m_dragRight` as well.)
       if (e.button === 1) {
-        gestureRef.current = { mode: 'pan', last: { x: e.clientX, y: e.clientY } };
-        return;
+        const gesture = dragGesture(e.button, commonInputPrefs());
+        if (gesture !== 'none') {
+          const last = { x: e.clientX, y: e.clientY };
+          const r = canvasRef.current?.getBoundingClientRect() ?? new DOMRect();
+          // `m_zoomStartPoint` (`:562`), fixed for the whole drag.
+          const anchor = { x: (e.clientX - r.left) * dpr, y: (e.clientY - r.top) * dpr };
+          gestureRef.current =
+            gesture === 'zoom' ? { mode: 'dragzoom', last, anchor } : { mode: 'pan', last };
+          return;
+        }
       }
       // `ACTIONS::zoomTool` is AF_ACTIVATE: the button ARMS ZOOM_TOOL, and the
       // drag that follows does the work. Upstream accepts either button —
@@ -924,6 +939,18 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
         const v = viewRef.current;
         v.tx += (e.clientX - g.last.x) * dpr;
         v.ty += (e.clientY - g.last.y) * dpr;
+        g.last = { x: e.clientX, y: e.clientY };
+        requestDraw();
+      } else if (g.mode === 'dragzoom') {
+        // DRAG_ZOOMING (`wx_view_controls.cpp:363-405`): the same zoom-about-a-
+        // point arithmetic the wheel uses, at `m_zoomStartPoint`.
+        const v = viewRef.current;
+        const f = dragZoomScale(g.last.y - e.clientY, commonInputPrefs());
+        const wx = (g.anchor.x - v.tx) / v.scale;
+        const wy = (g.anchor.y - v.ty) / v.scale;
+        v.scale *= f;
+        v.tx = g.anchor.x - wx * v.scale;
+        v.ty = g.anchor.y - wy * v.scale;
         g.last = { x: e.clientX, y: e.clientY };
         requestDraw();
       } else if (g.mode === 'box') {

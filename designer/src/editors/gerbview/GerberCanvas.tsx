@@ -35,7 +35,13 @@ import {
   highlightedLayerColor,
 } from './gerberColors.js';
 import { GerbviewGl, type GerberGlContent } from '../../render/gl/gerbview_gl.js';
-import { commonInputPrefs, wheelAction, zoomFitScale } from '../../ui/view_controls.js';
+import {
+  commonInputPrefs,
+  dragGesture,
+  dragZoomScale,
+  wheelAction,
+  zoomFitScale,
+} from '../../ui/view_controls.js';
 import { type CrosshairMode, drawCrosshair, drawGrid } from '../../ui/grid_cursor.js';
 import { clampViewScale, nextZoomPreset, ZOOM_LIST } from '../../ui/zoom_settings.js';
 import { scaleForZoomFactor, zoomFactorForScale } from '../../ui/status_format.js';
@@ -650,6 +656,11 @@ export const GerberCanvas = forwardRef<GerberCanvasController, GerberCanvasProps
 
     // Pointer interactions: pan, measure, pick.
     const panRef = useRef<{ x: number; y: number; tx: number; ty: number } | null>(null);
+    /** A DRAG_ZOOMING gesture: the last pointer y, and `m_zoomStartPoint`. */
+    const dragZoomRef = useRef<{
+      lastClientY: number;
+      anchor: { x: number; y: number };
+    } | null>(null);
     useEffect(() => {
       const canvas = canvasRef.current;
       if (!canvas) return;
@@ -670,10 +681,22 @@ export const GerberCanvas = forwardRef<GerberCanvasController, GerberCanvasProps
           requestDraw();
           return;
         }
-        // Middle / right button, or space-drag → pan.
+        // `WX_VIEW_CONTROLS::onButton` (`wx_view_controls.cpp:546-569`): the
+        // middle and right buttons each start what Preferences > Mouse and
+        // Touchpad > Drag Gestures says for them. NONE is neither branch and
+        // the press falls through -- which is what leaves the right button to
+        // the context menu when it is set to None.
         if (e.button === 1 || e.button === 2) {
-          panRef.current = { x: p.x, y: p.y, tx: viewRef.current.tx, ty: viewRef.current.ty };
-          return;
+          const gesture = dragGesture(e.button, commonInputPrefs());
+          if (gesture === 'pan') {
+            panRef.current = { x: p.x, y: p.y, tx: viewRef.current.tx, ty: viewRef.current.ty };
+            return;
+          }
+          if (gesture === 'zoom') {
+            // `m_zoomStartPoint = m_dragStartPoint` (`:562`) -- fixed for the drag.
+            dragZoomRef.current = { lastClientY: e.clientY, anchor: { x: p.x, y: p.y } };
+            return;
+          }
         }
         if (e.button !== 0) return;
         const world = toWorld(p.x, p.y);
@@ -723,6 +746,14 @@ export const GerberCanvas = forwardRef<GerberCanvasController, GerberCanvasProps
           requestDraw();
           return;
         }
+        const dz = dragZoomRef.current;
+        if (dz) {
+          // DRAG_ZOOMING (`wx_view_controls.cpp:363-405`), through gerbview's
+          // own scale clamp because `zoomStep` is where that lives.
+          zoomStep(dragZoomScale(dz.lastClientY - e.clientY, commonInputPrefs()), dz.anchor);
+          dz.lastClientY = e.clientY;
+          return;
+        }
         if (zoomAreaRef.current) {
           zoomAreaRef.current = { ...zoomAreaRef.current, b: world };
           requestDraw();
@@ -742,6 +773,8 @@ export const GerberCanvas = forwardRef<GerberCanvasController, GerberCanvasProps
       const onUp = (e: PointerEvent): void => {
         if (canvas.hasPointerCapture(e.pointerId)) canvas.releasePointerCapture(e.pointerId);
         panRef.current = null;
+        // DRAG_ZOOMING and DRAG_PANNING share one release (`:575-588`).
+        dragZoomRef.current = null;
 
         const za = zoomAreaRef.current;
         if (za) {

@@ -244,6 +244,89 @@ export function wheelAction(
 }
 
 // ---------------------------------------------------------------------------
+// Button drags — WX_VIEW_CONTROLS::onButton (wx_view_controls.cpp:540-593)
+// ---------------------------------------------------------------------------
+
+/** `MOUSE_DRAG_ACTION`, restricted to what a middle or right drag can be. */
+export type DragGesture = 'pan' | 'zoom' | 'none';
+
+/**
+ * What pressing a mouse button on the canvas starts — Preferences > Mouse and
+ * Touchpad > Drag Gestures, for the middle and right buttons.
+ *
+ * `WX_VIEW_CONTROLS::onButton`'s IDLE branch, whole:
+ *
+ *     if( ( aEvent.MiddleDown() && m_settings.m_dragMiddle == MOUSE_DRAG_ACTION::PAN )
+ *         || ( aEvent.RightDown() && m_settings.m_dragRight == MOUSE_DRAG_ACTION::PAN ) )
+ *         setState( DRAG_PANNING );                                     :546-556
+ *     else if( ( aEvent.MiddleDown() && m_settings.m_dragMiddle == MOUSE_DRAG_ACTION::ZOOM )
+ *              || ( aEvent.RightDown() && m_settings.m_dragRight == MOUSE_DRAG_ACTION::ZOOM ) )
+ *         setState( DRAG_ZOOMING );                                     :558-569
+ *
+ * so the button chooses the setting and the setting chooses the state, and
+ * `NONE` is neither branch: the press falls through to the tools untouched.
+ *
+ * The LEFT button is deliberately absent. `m_dragLeft` is loaded beside the
+ * other two (`:188`, `draw_panel_gal.cpp:833`) and `onButton` never looks at
+ * it -- a left drag belongs to the selection tool, which reads the same
+ * setting through `TOOLS_HOLDER::GetDragAction()` (`include/tool/tools_holder.h:144`,
+ * `eeschema/tools/sch_selection_tool.cpp:506`). That is `InputPrefs.mouseLeft`
+ * here, and it is a different question with different answers
+ * (select / drag_selected / drag_any), which is why it is not this function's.
+ *
+ * Pure, and given the button number rather than the event, because upstream
+ * one `WX_VIEW_CONTROLS` sits in front of every GAL canvas and answers this
+ * identically for all of them. Ours are seven React components with seven
+ * pointer handlers, and each hardcoded `button === 1` -> pan: the Drag
+ * Gestures combos were honoured in the schematic editor and nowhere else.
+ */
+export function dragGesture(
+  /** `PointerEvent.button`: 1 is the middle button, 2 the right. */
+  button: number,
+  prefs: InputPrefs,
+): DragGesture {
+  if (button === 1) return prefs.mouseMiddle;
+  if (button === 2) return prefs.mouseRight;
+  return 'none';
+}
+
+/**
+ * `WX_VIEW_CONTROLS::onMotion`'s DRAG_ZOOMING step
+ * (`wx_view_controls.cpp:379-388`), whole:
+ *
+ *     VECTOR2D d = m_dragStartPoint - mousePos;
+ *     m_dragStartPoint = mousePos;
+ *     double scale = exp( d.y * m_settings.m_zoomSpeed * 0.001 );
+ *     m_view->SetScale( m_view->GetScale() * scale, m_view->ToWorld( m_zoomStartPoint ) );
+ *
+ * Two things in that are easy to get wrong, and this port had both.
+ *
+ * **The speed is the Zoom speed slider**, `cfg->m_Input.zoom_speed`
+ * (`:184`), so dragging with the middle button set to Zoom is 10x faster at
+ * speed 10 than at speed 1. Ours multiplied by a literal 0.005, which is the
+ * factor for zoom_speed 5 and no other -- the slider moved and nothing
+ * happened. Note it is `m_zoomSpeed` raw, NOT the zoom CONTROLLER: `Automatic`
+ * (`zoom_speed_auto`) chooses a controller for the WHEEL (`:196-214`) and this
+ * gesture never asks for one, so the slider governs the drag even while its
+ * own control is greyed out by the Automatic box beside it.
+ *
+ * **`d.y` is previous minus current**, so dragging the mouse UP (a decreasing
+ * y) gives a negative d.y and scales DOWN. And the anchor is
+ * `m_zoomStartPoint` -- where the button went down, held fixed for the whole
+ * gesture -- not the moving pointer and not the centre of the canvas.
+ */
+export function dragZoomScale(
+  /** `d.y`: the previous pointer y minus the current one, in CSS pixels. */
+  dy: number,
+  prefs: InputPrefs,
+): number {
+  return Math.exp(dy * prefs.zoomSpeed * DRAG_ZOOM_SPEED);
+}
+
+/** The `0.001` of `exp( d.y * m_settings.m_zoomSpeed * 0.001 )` (`:383`). */
+const DRAG_ZOOM_SPEED = 0.001;
+
+// ---------------------------------------------------------------------------
 // Zoom to Fit — COMMON_TOOLS::doZoomFit (common/tool/common_tools.cpp:322-408)
 // ---------------------------------------------------------------------------
 

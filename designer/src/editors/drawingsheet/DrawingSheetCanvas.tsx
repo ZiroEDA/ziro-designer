@@ -46,7 +46,13 @@ import {
 import { setBitmapInvalidate } from '@ziroeda/common';
 import { usePlEditorColors } from '../../prefs/useSettings.js';
 import { DrawingSheetGl } from '../../render/gl/drawingsheet_gl.js';
-import { commonInputPrefs, wheelAction, zoomFitView } from '../../ui/view_controls.js';
+import {
+  commonInputPrefs,
+  dragGesture,
+  dragZoomScale,
+  wheelAction,
+  zoomFitView,
+} from '../../ui/view_controls.js';
 import { clampViewScale } from '../../ui/zoom_settings.js';
 import { drawCrosshair, drawGrid } from '../../ui/grid_cursor.js';
 import { scaleForZoomFactor, zoomFactorForScale } from '../../ui/status_format.js';
@@ -873,6 +879,7 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
 
     const gestureRef = useRef<
       | { mode: 'pan'; last: { x: number; y: number } }
+      | { mode: 'dragzoom'; last: { x: number; y: number }; anchor: { x: number; y: number } }
       | { mode: 'box'; start: Vec2; additive: boolean }
       | { mode: 'move'; start: Vec2; moved: boolean }
       | { mode: 'point'; index: number }
@@ -917,7 +924,18 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
           zoomToFit();
           return;
         }
-        gestureRef.current = { mode: 'pan', last: { x: e.clientX, y: e.clientY } };
+        // `WX_VIEW_CONTROLS::onButton` (`wx_view_controls.cpp:546-569`) — the
+        // middle button starts what Drag Gestures says, and NONE is neither
+        // branch, so the press falls through to the tools.
+        const gesture = dragGesture(e.button, commonInputPrefs());
+        if (gesture !== 'none') {
+          const last = { x: e.clientX, y: e.clientY };
+          const r = canvasRef.current?.getBoundingClientRect() ?? new DOMRect();
+          // `m_zoomStartPoint` (`:562`), fixed for the whole drag.
+          const anchor = { x: (e.clientX - r.left) * dpr, y: (e.clientY - r.top) * dpr };
+          gestureRef.current =
+            gesture === 'zoom' ? { mode: 'dragzoom', last, anchor } : { mode: 'pan', last };
+        }
         return;
       }
 
@@ -1044,6 +1062,18 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
         const v = viewRef.current;
         v.tx += (e.clientX - g.last.x) * dpr;
         v.ty += (e.clientY - g.last.y) * dpr;
+        g.last = { x: e.clientX, y: e.clientY };
+        requestDraw();
+      } else if (g.mode === 'dragzoom') {
+        // DRAG_ZOOMING (`wx_view_controls.cpp:363-405`), through the same
+        // pl_editor scale clamp the wheel goes through.
+        const v = viewRef.current;
+        const f = dragZoomScale(g.last.y - e.clientY, commonInputPrefs());
+        const wx = (g.anchor.x - v.tx) / v.scale;
+        const wy = (g.anchor.y - v.ty) / v.scale;
+        v.scale = clampViewScale(v.scale * f, 'pl_editor', dpr, SCH_IU_PER_MM);
+        v.tx = g.anchor.x - wx * v.scale;
+        v.ty = g.anchor.y - wy * v.scale;
         g.last = { x: e.clientX, y: e.clientY };
         requestDraw();
       } else if (g.mode === 'box' || g.mode === 'zoom') {

@@ -11,7 +11,13 @@
  */
 
 import { PCB_IU_PER_MM } from '@ziroeda/common/src/eda_units.js';
-import { commonInputPrefs, wheelAction, zoomFitScale } from '../../ui/view_controls.js';
+import {
+  commonInputPrefs,
+  dragGesture,
+  dragZoomScale,
+  wheelAction,
+  zoomFitScale,
+} from '../../ui/view_controls.js';
 import { DockSash } from '../../ui/DockSash.js';
 import { appearanceLayerRows, layerTooltip } from '../../widgets/appearance_layers.js';
 import {
@@ -3836,6 +3842,15 @@ export function PcbEditor({
 
   // Middle-button pan (KiCad reserves the left button for select/move).
   const panRef = useRef<{ x: number; y: number } | null>(null);
+  /**
+   * A DRAG_ZOOMING gesture: the last pointer y, and `m_zoomStartPoint` --
+   * where the button went down, held fixed for the whole drag
+   * (`wx_view_controls.cpp:562`, `:386`).
+   */
+  const dragZoomRef = useRef<{
+    lastClientY: number;
+    anchor: { x: number; y: number };
+  } | null>(null);
   // The left press in progress: origin, world origin, the item it landed on (if
   // any), and whether it has moved. Still = click; moved on an item = drag-move;
   // moved on empty = box-select.
@@ -6177,10 +6192,25 @@ export function PcbEditor({
   };
 
   const onPointerDown = (e: React.PointerEvent): void => {
+    // `WX_VIEW_CONTROLS::onButton` (`wx_view_controls.cpp:546-569`): the
+    // middle button starts what Preferences > Mouse and Touchpad > Drag
+    // Gestures says, and NONE is neither branch -- the press falls through to
+    // the tools.
     if (e.button === 1) {
-      panRef.current = { x: e.clientX, y: e.clientY };
-      (e.target as HTMLElement).setPointerCapture(e.pointerId);
-      return;
+      const gesture = dragGesture(e.button, commonInputPrefs());
+      if (gesture !== 'none') {
+        (e.target as HTMLElement).setPointerCapture(e.pointerId);
+        if (gesture === 'zoom') {
+          const r = canvasRef.current?.getBoundingClientRect() ?? new DOMRect();
+          dragZoomRef.current = {
+            lastClientY: e.clientY,
+            anchor: { x: (e.clientX - r.left) * dpr, y: (e.clientY - r.top) * dpr },
+          };
+        } else {
+          panRef.current = { x: e.clientX, y: e.clientY };
+        }
+        return;
+      }
     }
     if (e.button === 0) {
       // A left click during a keyboard grab (M/G) drops the selection there.
@@ -6278,6 +6308,22 @@ export function PcbEditor({
       v.tx += (e.clientX - panRef.current.x) * dpr;
       v.ty += (e.clientY - panRef.current.y) * dpr;
       panRef.current = { x: e.clientX, y: e.clientY };
+      requestDraw();
+      return;
+    }
+    const dz = dragZoomRef.current;
+    if (dz) {
+      // DRAG_ZOOMING (`wx_view_controls.cpp:363-405`) — the wheel's own
+      // zoom-about-a-point arithmetic, flipX included, at `m_zoomStartPoint`.
+      const v = viewRef.current;
+      const f = dragZoomScale(dz.lastClientY - e.clientY, commonInputPrefs());
+      const sx = v.flipX ? -v.scale : v.scale;
+      const wx = (dz.anchor.x - v.tx) / sx;
+      const wy = (dz.anchor.y - v.ty) / v.scale;
+      v.scale *= f;
+      v.tx = dz.anchor.x - wx * (v.flipX ? -v.scale : v.scale);
+      v.ty = dz.anchor.y - wy * v.scale;
+      dz.lastClientY = e.clientY;
       requestDraw();
       return;
     }
@@ -6382,6 +6428,8 @@ export function PcbEditor({
     const box = boxRef.current;
     const moved = movingRef.current;
     panRef.current = null;
+    // DRAG_ZOOMING and DRAG_PANNING share one release (`:575-588`).
+    dragZoomRef.current = null;
     downRef.current = null;
     boxRef.current = null;
     movingRef.current = false;

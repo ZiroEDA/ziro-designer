@@ -309,15 +309,35 @@ describe('DSP-26 — Zoom In / Zoom Out step the table', () => {
    * (`pagelayout_editor/pl_draw_panel_gal.cpp:63`) - 20 and 0.05 out of
    * `include/zoom_defines.h:56-58`. The clamp itself lives inside
    * `VIEW::SetScale`, so EVERY way of zooming is limited by it, which is why
-   * all three of this canvas' zoom paths have to go through it and not just
-   * the wheel.
+   * each of this canvas' zoom paths has to go through it and not just the
+   * wheel.
+   *
+   * The count is the number of ways pl_editor can reach `VIEW::SetScale`, read
+   * off the C++ rather than off this file - a count re-baselined to whatever
+   * the canvas currently prints would pass however many paths went unclamped.
+   * There are FOUR:
+   *
+   *   1. `WX_VIEW_CONTROLS::onWheel`  -> SetScale( scale * factor, anchor )
+   *                                      (`wx_view_controls.cpp:470-480`)
+   *   2. `COMMON_TOOLS::doZoomInOut`  -> SetScale( zoom * ratio )
+   *                                      (`common_tools.cpp:437-465`)
+   *   3. `COMMON_TOOLS::doZoomToPreset` -> SetScale( zoomList[idx] )
+   *                                      (`common_tools.cpp:468-495`)
+   *   4. `WX_VIEW_CONTROLS::onMotion`'s DRAG_ZOOMING
+   *                                   -> SetScale( GetScale() * scale,
+   *                                        ToWorld( m_zoomStartPoint ) )
+   *                                      (`wx_view_controls.cpp:379-388`)
+   *
+   * (4) is the middle/right-button drag-zoom, which arrived with the Drag
+   * Gestures wiring; before it this file had three, and the fourth is a real
+   * fourth path and not a duplicate of one already clamped.
    */
   it('clamps every zoom path, not only the wheel', () => {
     const clamps = [...CANVAS.matchAll(/clampViewScale\(/g)];
-    expect(clamps.length).toBe(3);
+    expect(clamps.length).toBe(4);
     // …and every one of them names pl_editor's row, not another app's.
     expect([...CANVAS.matchAll(/clampViewScale\([\s\S]{0,120}?'(\w+)'/g)].map((m) => m[1])).toEqual(
-      ['pl_editor', 'pl_editor', 'pl_editor'],
+      ['pl_editor', 'pl_editor', 'pl_editor', 'pl_editor'],
     );
   });
 });
