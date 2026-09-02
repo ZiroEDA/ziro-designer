@@ -270,6 +270,7 @@ export {
   appendNet,
   declaredNetCodes,
   displayNetname,
+  displayNetnames,
   findNet,
   netName,
   removeUnusedNets,

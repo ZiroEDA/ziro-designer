@@ -578,6 +578,52 @@ function readPcbText(
   };
 }
 
+/**
+ * The net table of the board currently being read, or null outside one.
+ *
+ * `parseNet` resolves a net *name* against `m_board`, which the parser has at
+ * every call. A `.kicad_mod` read on its own has no board, and a graphic in one
+ * carries no net, so the null case is the honest one rather than a gap.
+ */
+let readingNets: Map<number, string> | null = null;
+
+/**
+ * `PCB_IO_KICAD_SEXPR_PARSER::parseNet`, the copper-graphic case.
+ *
+ * Two spellings, and both are still read. A file written before 10.0 carries a
+ * net **code** — `(net 5)` — which the parser calls authoritative; 10.0 and
+ * later write the net **name**, `(net "/uart/SDA")`. Reading only the number
+ * would silently drop the net on every board KiCad 10 has saved, which is all
+ * the ones that have it.
+ *
+ * The name is resolved against the board's own `(net …)` declarations by the
+ * caller, which is the only place the table is in hand.
+ */
+function shapeNet(item: SList): number | undefined {
+  const node = childNamed(item, 'net');
+  if (!node) return undefined;
+
+  // Legacy files (pre-10.0) carry a net code, and the parser calls it
+  // authoritative. `numArg` answers only for an actual number, so a name never
+  // reaches here as a NaN.
+  const code = numArg(node, 0);
+  if (code !== undefined) return code;
+
+  const name = arg(node, 0);
+  if (name === undefined || readingNets === null) return undefined;
+
+  for (const [c, n] of readingNets) if (n === name) return c;
+
+  // `FindNet` missed, so upstream *creates* the net and adds it to the board
+  // rather than dropping the reference. A code the file never declared is
+  // still a net the copper belongs to, and two shapes naming it must land on
+  // the same one.
+  let free = 1;
+  while (readingNets.has(free)) free++;
+  readingNets.set(free, name);
+  return free;
+}
+
 function readShape(item: SList, t: FpTransform | null): PcbShape | null {
   const h = head(item) ?? '';
   const kind = h.replace(/^(gr_|fp_)/, '');
@@ -588,7 +634,11 @@ function readShape(item: SList, t: FpTransform | null): PcbShape | null {
   };
   const fillNode = childNamed(item, 'fill');
   const fillVal = fillNode ? arg(fillNode, 0) : undefined;
+  const net = shapeNet(item);
   const s: PcbShape = {
+    ...(net !== undefined ? { net } : {}),
+    ...(net !== undefined && readingNets?.has(net) ? { netName: readingNets.get(net)! } : {}),
+
     kind: kind as PcbShape['kind'],
     width: mmToIU(strokeWidth(item)),
     strokeType: strokeType(item),
@@ -1215,6 +1265,10 @@ export function readBoard(root: SList): Board {
       board.layers.push({ id, name: rest[0] ?? '', kind: rest[1] ?? 'user', userName: rest[2] });
     }
   }
+  // From here to the end of the pass, a `(net "name")` on a copper graphic can
+  // be resolved — and, when the name is new, declared. The `(net …)` rows come
+  // first in the file, which is the same order the C++ parser depends on.
+  readingNets = board.nets;
   for (const item of root.items) {
     if (!isList(item)) continue;
     switch (head(item)) {
@@ -1348,5 +1402,8 @@ export function readBoard(root: SList): Board {
         break;
     }
   }
+  // Cleared unconditionally: a `.kicad_mod` read after a board read must not
+  // resolve its graphics against the board that happened to be parsed last.
+  readingNets = null;
   return board;
 }

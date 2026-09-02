@@ -168,6 +168,27 @@ export interface PcbShape {
   /** `(solder_mask_margin …)`, IU. */
   solderMaskMargin?: number;
   locked?: boolean;
+  /**
+   * `(net …)`: the net a copper graphic belongs to.
+   *
+   * `PCB_SHAPE` derives from `BOARD_CONNECTED_ITEM`, so a graphic on a copper
+   * layer can be part of a net exactly as a track is, and the writer emits one
+   * whenever `GetNetCode() > 0` (`pcb_io_kicad_sexpr.cpp:1116`). Dropping it on
+   * load lost the connection entirely — the net name did not paint, and nothing
+   * that reasons about nets could see the copper.
+   *
+   * Absent on every graphic that is not on copper, which is nearly all of them.
+   */
+  net?: number;
+  /**
+   * The net's name, kept beside the code as `PcbZone` keeps it.
+   *
+   * `PCB_SHAPE` holds a `NETINFO_ITEM*` and so has both; our model has the code
+   * and would otherwise need the board to name it. The writer emits the *name*
+   * (`pcb_io_kicad_sexpr.cpp:1116`), and the builder is a pure function of one
+   * shape, so without this a newly drawn copper graphic could not be written.
+   */
+  netName?: string;
   uuid?: string;
   source: SList;
 }
