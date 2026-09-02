@@ -14,6 +14,7 @@
  * The dialog does not know this file exists beyond that dynamic import, and
  * nothing here may reach into another editor.
  */
+import { PanelSymbolEditorColorSettings } from './PanelSymbolEditorColorSettings.js';
 import { PanelSymbolEditorDisplayOptions } from './PanelSymbolEditorDisplayOptions.js';
 import { PanelSymbolEditorEditingOptions } from './PanelSymbolEditorEditingOptions.js';
 import { PanelSymbolEditorGrids } from './PanelSymbolEditorGrids.js';
@@ -49,6 +50,15 @@ export const createPrefsPanel: PrefsPanelFactory = (id: PrefsPageId): PrefsPanel
         Panel: PanelSymbolEditorEditingOptions,
         reset: resetSymbolEditorEditingOptions,
       };
+
+    case 'sym-colors':
+      // No `reset`: PANEL_SYM_COLOR_SETTINGS_BASE is a plain wxPanel, not a
+      // RESETTABLE_PANEL (`eeschema/dialogs/panel_sym_color_settings_base.h`),
+      // and PANEL_SYM_COLOR_SETTINGS declares no ResetPanel — unlike every
+      // other page under this heading. PAGED_DIALOG::UpdateResetButton
+      // therefore greys the button out on it, and omitting `reset` is how that
+      // is said here.
+      return { Panel: PanelSymbolEditorColorSettings };
 
     case 'sym-toolbars':
       return {

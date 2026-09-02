@@ -59,6 +59,7 @@ const EXPECTED: PrefsPageEntry[] = [
   { id: 'sym-display', label: 'Display Options', indent: true, owner: 'symbol' },
   { id: 'sym-grids', label: 'Grids', indent: true, owner: 'symbol' },
   { id: 'sym-editing', label: 'Editing Options', indent: true, owner: 'symbol' },
+  { id: 'sym-colors', label: 'Colors', indent: true, owner: 'symbol' },
   { id: 'sym-toolbars', label: 'Toolbars', indent: true, owner: 'symbol' },
   { id: null, label: 'Schematic Editor' },
   { id: 'sch-display', label: 'Display Options', indent: true, owner: 'schematic' },

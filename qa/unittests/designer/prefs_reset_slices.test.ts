@@ -340,7 +340,9 @@ const SLICES: Partial<Record<PrefsPageId, readonly string[]>> = {
   // test of its own would be a page nobody checks.
   // PanelGerbviewGrids.tsx — the same PANEL_GRID_SETTINGS the schematic's and
   // the Drawing Sheet Editor's Grids pages are, so the same slice over this
-  // editor's settings object.
+  // editor's settings object. `overrides` is in it even though FRAME_GERBER
+  // draws no override row: the panel assigns the whole `m_grids` block back
+  // regardless, and it is empty here, so resetting it is the correct no-op.
   'gbr-grids': [
     'gerbview.window.grid.sizes',
     'gerbview.window.grid.last_size_idx',
@@ -389,7 +391,15 @@ const RESETS: Partial<Record<PrefsPageId, (ctx: PrefsContext) => void>> = {
  * `wxPanel` (`eeschema/dialogs/panel_template_fieldnames_base.h:36`), so
  * `PAGED_DIALOG::UpdateResetButton` greys the button out on it.
  */
-const NOT_RESETTABLE: PrefsPageId[] = ['sch-fields'];
+const NOT_RESETTABLE: PrefsPageId[] = [
+  'sch-fields',
+  // `PANEL_SYM_COLOR_SETTINGS_BASE` is a plain `wxPanel` too
+  // (`eeschema/dialogs/panel_sym_color_settings_base.h`) — the only page under
+  // the Symbol Editor heading that is not a RESETTABLE_PANEL, and the reason
+  // its Reset button is greyed where the other four editors' Colors pages have
+  // a live one.
+  'sym-colors',
+];
 
 // ------------------------------------------------------------- the fake dialog
 
@@ -750,6 +760,25 @@ describe('a page that is not resettable has no reset', () => {
     for (const id of NOT_RESETTABLE) expect(RESETS[id]).toBeUndefined();
   });
 
+  it('the symbol factory gives Colors no reset arm', () => {
+    // `PANEL_SYM_COLOR_SETTINGS_BASE : public wxPanel`
+    // (`eeschema/dialogs/panel_sym_color_settings_base.h`), and
+    // `PANEL_SYM_COLOR_SETTINGS` declares no `ResetPanel`. It is the ONE page
+    // under this heading that is not a RESETTABLE_PANEL, so a `reset:` here
+    // would light a button a real KiCad greys.
+    const src = read('editors/symbol/prefs/index.ts');
+    const from = src.indexOf("case 'sym-colors':");
+    expect(from, 'no arm for sym-colors').toBeGreaterThan(-1);
+    const to = src.indexOf('case ', from + 1);
+    const arm = src.slice(from, to === -1 ? src.indexOf('default:') : to);
+    expect(arm).toContain('PanelSymbolEditorColorSettings');
+    expect(arm).not.toMatch(/\breset:/);
+    // The four that ARE resettable still are, so this is not "the whole
+    // heading lost its reset".
+    for (const id of ['sym-display', 'sym-editing', 'sym-grids', 'sym-toolbars'] as PrefsPageId[])
+      expect(RESETS[id], id).toBeDefined();
+  });
+
   it('the shell disables the button rather than resetting nothing silently', () => {
     // PAGED_DIALOG::UpdateResetButton (common/widgets/paged_dialog.cpp:329-355)
     // enables and renames the button only for a RESETTABLE_PANEL.
@@ -845,5 +874,54 @@ describe('the Colors pages share one file, one namespace each', () => {
     bag.userColors = { wire: '#ff0000', 'gerbview.grid': '#0000ff' };
     resetEeschemaColorSettings(makeCtx(bag));
     expect(bag.userColors).toEqual({ 'gerbview.grid': '#0000ff' });
+  });
+});
+
+/**
+ * `colors/user.json` is ONE file for every app — upstream keyed by
+ * `COLOR_SETTINGS::m_colorNamespace`, here by the key's own prefix — so a
+ * Colors page's reset must clear its own swatches and nobody else's.
+ *
+ * `PANEL_COLOR_SETTINGS::ResetPanel` walks `m_swatches`, and a panel's swatches
+ * are its own; eeschema's page has no gerbview swatch to walk, so upstream
+ * physically cannot take the Gerber Viewer's layers with it. Ours could, and
+ * did: the reset was `setUserColors({})`, which emptied the file. Found when
+ * the Gerber Viewer's Colors page landed beside it and put 128 graphic layers
+ * in the same store.
+ */
+describe('a Colors reset clears its own namespace and no other', () => {
+  const MIXED: Record<string, string> = {
+    // eeschema writes bare `Theme` keys...
+    wire: 'rgb(1, 2, 3)',
+    bus: 'rgb(4, 5, 6)',
+    // ...and every other app namespaces its own.
+    'gerbview.layer0': 'rgb(7, 8, 9)',
+    'gerbview.grid': 'rgb(10, 11, 12)',
+  };
+
+  /** A context whose only live part is the colour store. */
+  const colourCtx = (): { ctx: PrefsContext; get: () => Record<string, string> } => {
+    let colors: Record<string, string> = { ...MIXED };
+    const ctx = {
+      setUserColors: (
+        next: Record<string, string> | ((c: Record<string, string>) => Record<string, string>),
+      ) => {
+        colors = typeof next === 'function' ? next(colors) : next;
+      },
+      upE: () => {},
+    } as unknown as PrefsContext;
+    return { ctx, get: () => colors };
+  };
+
+  it('the schematic page keeps every namespaced key', () => {
+    const { ctx, get } = colourCtx();
+    resetEeschemaColorSettings(ctx);
+    expect(Object.keys(get()).sort()).toEqual(['gerbview.grid', 'gerbview.layer0']);
+  });
+
+  it('the Gerber Viewer page keeps the schematic’s', () => {
+    const { ctx, get } = colourCtx();
+    resetGerbviewColorSettings(ctx);
+    expect(Object.keys(get()).sort()).toEqual(['bus', 'wire']);
   });
 });

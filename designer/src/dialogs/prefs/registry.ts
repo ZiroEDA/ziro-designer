@@ -54,6 +54,7 @@ export const PAGES: readonly PrefsPageEntry[] = [
   { id: 'sym-display', label: 'Display Options', indent: true, owner: 'symbol' },
   { id: 'sym-grids', label: 'Grids', indent: true, owner: 'symbol' },
   { id: 'sym-editing', label: 'Editing Options', indent: true, owner: 'symbol' },
+  { id: 'sym-colors', label: 'Colors', indent: true, owner: 'symbol' },
   { id: 'sym-toolbars', label: 'Toolbars', indent: true, owner: 'symbol' },
   { id: null, label: 'Schematic Editor' },
   { id: 'sch-display', label: 'Display Options', indent: true, owner: 'schematic' },
@@ -252,23 +253,10 @@ export const OMITTED_TOP_LEVEL: readonly DeclaredPage[] = [
  * and an oversight.
  */
 export const OMITTED_PAGES: Readonly<Record<string, readonly DeclaredPage[]>> = {
-  // In progress, one page per commit. Grids landed first because it is the
-  // purest binding — the shared `PANEL_GRID_SETTINGS` with
-  // `FRAME_SCH_SYMBOL_EDITOR` and this editor's settings object — and Toolbars
-  // with it, because `prefs_page_book.test.ts` requires every heading upstream
-  // gives a Toolbars page to have one here. The other three are the same shape.
-  'Symbol Editor': [
-    {
-      label: 'Colors',
-      reason:
-        'Being built. PANEL_SYM_COLOR_SETTINGS is two radio buttons and a theme choice — a plain ' +
-        'wxPanel, not a PANEL_COLOR_SETTINGS.',
-    },
-  ],
-  // In progress, one page per commit, same as the Symbol Editor above. Display
-  // Options landed first because it is the page that forced `gerbview.json`
-  // into existence; Toolbars came with it because `prefs_page_book.test.ts`
-  // requires every heading upstream gives a Toolbars page to have one here.
+  // In progress, one page per commit. Display Options landed first because it
+  // is the page that forced `gerbview.json` into existence; Toolbars came with
+  // it because `prefs_page_book.test.ts` requires every heading upstream gives
+  // a Toolbars page to have one here.
   'Gerber Viewer': [
     {
       label: 'Excellon Options',

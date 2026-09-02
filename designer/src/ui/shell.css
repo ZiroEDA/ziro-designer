@@ -8913,6 +8913,30 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   /* [data] `wxRIGHT|wxLEFT, 5` on that Add(). */
   padding: 0 5px;
 }
+/* A `wxStaticText` a panel sets `KIUI::GetInfoFont( this ).Italic()` on — the
+   italic help line beside or above a control. Preferences > Gerber Viewer >
+   Excellon Options has four of them
+   (`panel_gerbview_excellon_settings.cpp:32-36` sets the font on
+   `m_fileFormatHelp`, `m_coordsFormatHelp`, `m_hint1` and `m_hint2`).
+
+   Not a colour: `GetInfoFont` changes the SIZE and the panel adds the slant.
+   Neither call touches the foreground, so these take the dialog's own ink — the
+   grey some of our hint styles invented is not upstream's. The size is
+   `getGUIFont( win, -1 )`, which is the `--ui-font-size-info` token, not a
+   fourth value picked here. */
+.ze-pref-help {
+  font-size: var(--ui-font-size-info);
+  font-style: italic;
+  /* [data] `wxALL, 5` on `m_fileFormatHelp`'s and `m_coordsFormatHelp`'s Add()s
+     (`panel_gerbview_excellon_settings_base.cpp:29`, `:79`). */
+  padding: 5px;
+}
+/* The same label where its Add() carries no wxTOP — `m_hint1`'s
+   `wxBOTTOM|wxRIGHT|wxLEFT, 5` (`:83`), which sits it against the line above. */
+.ze-pref-help.ze-border-none {
+  padding-top: 0;
+}
+
 /* PANEL_GIT_REPOS. `bLeftSizer->Add( m_enableGit, 0, wxEXPAND|wxALL, 10 )` —
    the one control on the page that is in no group. */
 .ze-git-enable {
@@ -9291,6 +9315,43 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
    short never has. */
 .ze-pref-buttoncol > button:first-child {
   margin-bottom: 10px; /* [data] the spacer's own height. */
+}
+/* `PANEL_SYM_COLOR_SETTINGS`, the whole page
+   (`panel_sym_color_settings_base.cpp:16-45`): a radio button, then a row of a
+   second radio button and a `wxChoice`. No heading and no `wxStaticLine`, so no
+   `.ze-pref-group` — the Drawing Sheet Editor's Colors page is the same shape.
+
+     p1mainSizer->Add( bMargins, 0, wxTOP, 10 );
+     bMargins->Add( m_eeschemaRB, 0, wxBOTTOM|wxRIGHT|wxLEFT, 5 );
+     bMargins->Add( bSizer2, 1, wxEXPAND|wxTOP|wxBOTTOM, 5 ); */
+.ze-sym-colors {
+  /* [data] the wxTOP 10 of `Add( bMargins, … )`. */
+  padding-top: 10px;
+}
+.ze-sym-colors > .ze-pref-radio {
+  /* [data] the wxRIGHT|wxLEFT 5 that first button carries. */
+  padding: 0 5px;
+  /* [data] and the wxBOTTOM of the same Add(). */
+  margin-bottom: 5px;
+}
+/* `bSizer2`, horizontal: the second button and the choice, both
+   `wxALIGN_CENTER_VERTICAL`, and the choice at PROPORTION 1 so it takes the
+   rest of the row. */
+.ze-sym-colors-row {
+  display: flex;
+  align-items: center;
+  /* [data] the wxTOP|wxBOTTOM 5 of that Add(). */
+  margin: 5px 0;
+}
+.ze-sym-colors-row > .ze-pref-radio {
+  /* [data] the wxRIGHT|wxLEFT 5 on `m_themeRB`. */
+  padding: 0 5px;
+}
+.ze-sym-colors-row > .ze-combo {
+  /* The proportion 1 of `bSizer2->Add( m_themes, 1, … )`. */
+  flex: 1;
+  /* [data] the wxRIGHT 5 of that same Add(). */
+  margin-right: 5px;
 }
 /* `gbSizer1` on `PANEL_SYM_EDITING_OPTIONS`
    (`panel_sym_editing_options_base.cpp:33-36`), the one grid-bag sizer in these

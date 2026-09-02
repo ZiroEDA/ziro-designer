@@ -115,6 +115,35 @@ export function usePlEditorColors(): DsRenderColors {
   return useMemo(() => dsLoadColors(resolveThemeById(id)), [id, version]);
 }
 
+/**
+ * `SYMBOL_EDIT_FRAME::GetColorSettings` (`eeschema/symbol_editor/symbol_edit_frame.cpp:402-410`):
+ *
+ *     APP_SETTINGS_BASE* cfg = GetSettings();
+ *     if( cfg && static_cast<SYMBOL_EDITOR_SETTINGS*>( cfg )->m_UseEeschemaColorSettings )
+ *         cfg = GetAppSettings<EESCHEMA_SETTINGS>( "eeschema" );
+ *     return ::GetColorSettings( cfg ? cfg->m_ColorTheme : DEFAULT_THEME );
+ *
+ * — the whole of what the two radio buttons on Preferences > Symbol Editor >
+ * Colors decide, and the reason that page is not simply a second copy of the
+ * schematic's theme choice. It is a *swap of which settings object is asked*,
+ * so with "Use schematic editor color theme" set the symbol editor follows
+ * eeschema and the symbol editor's own `appearance.color_theme` is not read at
+ * all — which is also why the page's `TransferDataFromWindow` writes that key
+ * only on the other branch (`panel_sym_color_settings.cpp:74-86`).
+ *
+ * The Symbol Editor called `useSchematicTheme()` before this, i.e. it took the
+ * first branch unconditionally and the choice could not exist.
+ */
+export function useSymbolEditorTheme(): Theme {
+  useSettingsVersion();
+  const cfg = settings.symbolEditor;
+  return resolveThemeById(
+    cfg.use_eeschema_color_settings
+      ? settings.eeschema.appearance.color_theme
+      : cfg.appearance.color_theme,
+  );
+}
+
 export function useSchematicTheme(): Theme {
   useSettingsVersion();
   return resolveTheme();

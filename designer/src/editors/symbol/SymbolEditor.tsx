@@ -59,7 +59,7 @@ import { SYM_FRAME_NAME, symFrameTitle } from './frame_title.js';
 import { loadIndex } from '../schematic/symbols/index.js';
 import {
   useCommonSettings,
-  useSchematicTheme,
+  useSymbolEditorTheme,
   useSymbolEditorSettings,
 } from '../../prefs/useSettings.js';
 import { pcm } from '../../pcm/pcmStore.js';
@@ -253,7 +253,12 @@ export function SymbolEditor({
   onSaveToSchematic?: (sym: LibSymbol) => void;
 }): JSX.Element {
   const manager = useRef(new SymbolLibraryManager());
-  const theme = useSchematicTheme();
+  // `SYMBOL_EDIT_FRAME::GetColorSettings` (`symbol_edit_frame.cpp:402-410`),
+  // which asks eeschema's settings object or this editor's own depending on
+  // `m_UseEeschemaColorSettings` — the two radio buttons on Preferences >
+  // Symbol Editor > Colors. It was `useSchematicTheme()`, the first branch
+  // taken unconditionally.
+  const theme = useSymbolEditorTheme();
   const common = useCommonSettings();
   /**
    * `symbol_editor.json`, re-read whenever it moves — `EDA_BASE_FRAME::
