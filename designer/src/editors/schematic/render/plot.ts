@@ -185,6 +185,10 @@ function outputRenderOpts(opts: PlotOpts): RenderOpts {
     // (`eeschema_settings.cpp:210-211`), and a plot made with the flags turned
     // off on screen still shows them. Stated rather than silent.
     showDirectiveLabels: true,
+    // A plot has no selection, so the selection shadow never runs and this
+    // cannot show. Present because RenderOpts requires it, at the PARAM's own
+    // default.
+    fillSelectedShapes: false,
     showDrawingSheet: opts.drawingSheet,
     ...(opts.sheet ? { drawingSheet: opts.sheet } : {}),
     pageNumber: opts.pageNumber,

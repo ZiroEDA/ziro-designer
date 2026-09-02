@@ -194,7 +194,6 @@ export function PanelEeschemaDisplayOptions({ ctx }: { ctx: PrefsContext }): JSX
           <Check
             label="Fill selected shapes"
             checked={eeschema.selection.fill_shapes}
-            disabled
             onChange={(v) =>
               upE((s) => {
                 s.selection.fill_shapes = v;

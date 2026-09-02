@@ -121,7 +121,6 @@ describe('the rows nothing reads are disabled', () => {
     ['Show OP currents'],
     ['Show pin alternate mode indicator icons'],
     ['Draw selected child items'],
-    ['Fill selected shapes'],
     ['Net collision marker width:'],
     ['Highlight netclass colors'],
     ['Color highlight thickness:'],
@@ -135,6 +134,9 @@ describe('the rows nothing reads are disabled', () => {
     // of that line — `&& !aLabel->IsSelected()` — is why a selected one stays
     // visible. Pinned in `sch_directive_labels_setting.test.ts`.
     ['Show directive labels', 'show_directive_labels'],
+    // The shadow pass fills a selected shape rather than only outlining it
+    // (`sch_painter.cpp:2068-2080`). Pinned in `sch_selection_fill.test.ts`.
+    ['Fill selected shapes', 'fill_shapes'],
     ['Show hidden pins', 'show_hidden_pins'],
     ['Show ERC errors', 'show_erc_errors'],
     ['Show page limits', 'show_page_limits'],

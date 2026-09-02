@@ -471,6 +471,15 @@ export interface RenderOpts {
    * is what stops one vanishing under the pointer while it is being edited.
    */
   showDirectiveLabels: boolean;
+  /**
+   * `EESCHEMA_SETTINGS::m_Selection.fill_shapes`
+   * (`eeschema_settings.cpp:441-442`, default FALSE — unlike its neighbours).
+   *
+   * A selected shape's shadow is filled rather than only outlined
+   * (`sch_painter.cpp:2068-2080`). See `fillGraphicShadow` for why an arc is
+   * the exception.
+   */
+  fillSelectedShapes: boolean;
   showHiddenFields: boolean;
   showPageLimits: boolean;
   /** Draw the page border + title block (LAYER_DRAWINGSHEET). Defaults to true;
@@ -653,6 +662,9 @@ export interface RenderOpts {
 
 export const DEFAULT_RENDER_OPTS: RenderOpts = {
   showHiddenPins: false,
+  // [data] `PARAM<bool>( "selection.fill_shapes", …, false )` — the one of
+  // these that upstream defaults OFF.
+  fillSelectedShapes: false,
   // [data] `PARAM<bool>( "appearance.show_directive_labels", …, true )`.
   showDirectiveLabels: true,
   showHiddenFields: false,
@@ -941,6 +953,7 @@ export function renderSchematic(
       theme.selectionShadow,
       selShadowWidth,
       opts.showHiddenPins,
+      opts.fillSelectedShapes,
     );
 
   // Net highlighting, ported from SCH_PAINTER: brightened items are drawn twice,
@@ -2818,6 +2831,8 @@ function drawSelectionShadows(
   color: string,
   width: number,
   showHiddenPins = false,
+  /** `m_Selection.fill_shapes` (`eeschema_settings.cpp:441-442`, default false). */
+  fillSelectedShapes = false,
 ): void {
   ctx.strokeStyle = color;
   ctx.fillStyle = color;
@@ -3095,6 +3110,9 @@ function drawSelectionShadows(
     // A graphic text carries no stroke; every other shape may.
     const gw = 'stroke' in g && g.stroke && g.stroke.width > 0 ? g.stroke.width : g_defaultPen;
     ctx.lineWidth = gw + width;
+    // `if( eeconfig()->m_Selection.fill_shapes ) m_gal->SetIsFill( true )` —
+    // the fill goes down first, so the wider outline still reads as a halo.
+    if (fillSelectedShapes) fillGraphicShadow(ctx, g);
     strokeGraphicOutline(ctx, g);
   });
 
@@ -3122,6 +3140,67 @@ function drawSelectionShadows(
 }
 
 /** Stroke a sheet graphic's own outline, for the selection halo. */
+/**
+ * `m_Selection.fill_shapes`: a selected shape's SHADOW is filled, not merely
+ * outlined (`sch_painter.cpp:2068-2080`).
+ *
+ *     if( aShape->GetShape() == SHAPE_T::ARC )
+ *         m_gal->SetIsFill( aShape->IsSolidFill() );
+ *     else
+ *         m_gal->SetIsFill( true );
+ *
+ * The arc is the exception, and the comment above it says why: *"Consider a
+ * NAND gate. We have no idea which side of the arc is 'inside' so we can't
+ * reliably fill."* So an arc is filled only when the shape itself is solid,
+ * where the file has already answered which side is inside.
+ *
+ * A text has no area, and a polyline that is not closed fills to its implied
+ * chord — which is what canvas does and what GAL does, so it is left alone.
+ */
+function fillGraphicShadow(ctx: CanvasRenderingContext2D, g: LibGraphic): void {
+  switch (g.kind) {
+    case 'rectangle':
+      ctx.fillRect(g.start.x, g.start.y, g.end.x - g.start.x, g.end.y - g.start.y);
+      break;
+    case 'circle':
+      ctx.beginPath();
+      ctx.arc(g.center.x, g.center.y, g.radius, 0, Math.PI * 2);
+      ctx.fill();
+      break;
+    case 'arc': {
+      // `SetIsFill( aShape->IsSolidFill() )` — the one shape that is not
+      // filled unconditionally.
+      if (g.fill?.type !== 'color' && g.fill?.type !== 'background') break;
+
+      const c = CalcArcCenter(g.start, g.mid, g.end);
+      const r = Math.hypot(g.start.x - c.x, g.start.y - c.y);
+      ctx.beginPath();
+      ctx.moveTo(c.x, c.y);
+      ctx.arc(
+        c.x,
+        c.y,
+        r,
+        Math.atan2(g.start.y - c.y, g.start.x - c.x),
+        Math.atan2(g.end.y - c.y, g.end.x - c.x),
+      );
+      ctx.closePath();
+      ctx.fill();
+      break;
+    }
+    case 'polyline':
+      if (!g.points.length) break;
+      ctx.beginPath();
+      g.points.forEach((p, n) => (n === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)));
+      ctx.closePath();
+      ctx.fill();
+      break;
+    default:
+      // A bezier and a text have no reliable interior here, as upstream's own
+      // arc comment reasons; they keep the outline alone.
+      break;
+  }
+}
+
 function strokeGraphicOutline(ctx: CanvasRenderingContext2D, g: LibGraphic): void {
   switch (g.kind) {
     case 'rectangle':

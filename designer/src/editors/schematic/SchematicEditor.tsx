@@ -5285,6 +5285,9 @@ export function SchematicEditor({
       // the painter (sch_painter.cpp:3266), so the flags disappear the moment
       // Display Options turns them off, and a selected one stays visible.
       showDirectiveLabels: es.appearance.show_directive_labels,
+      // `eeconfig()->m_Selection.fill_shapes`, read in the shadow pass
+      // (sch_painter.cpp:2068).
+      fillSelectedShapes: es.selection.fill_shapes,
       // `eeconfig()->m_Appearance.mark_sim_exclusions` — the painter reads it
       // per symbol (sch_painter.cpp:2696), so the marker disappears the moment
       // Display Options turns it off.
