@@ -51,6 +51,13 @@ const EXPECTED: PrefsPageEntry[] = [
   { id: 'spacemouse', label: 'SpaceMouse', owner: 'generic' },
   { id: 'hotkeys', label: 'Hotkeys', owner: 'generic' },
   { id: 'version-control', label: 'Version Control', owner: 'generic' },
+  // eeschema's KIFACE adds two headings, and the Symbol Editor's five
+  // sub-pages come first (`common/eda_base_frame.cpp:1632-1637`). Grids and
+  // Toolbars are shipped; the other three are declared in OMITTED_PAGES until
+  // they land.
+  { id: null, label: 'Symbol Editor' },
+  { id: 'sym-grids', label: 'Grids', indent: true, owner: 'symbol' },
+  { id: 'sym-toolbars', label: 'Toolbars', indent: true, owner: 'symbol' },
   { id: null, label: 'Schematic Editor' },
   { id: 'sch-display', label: 'Display Options', indent: true, owner: 'schematic' },
   { id: 'sch-grids', label: 'Grids', indent: true, owner: 'schematic' },
@@ -60,8 +67,17 @@ const EXPECTED: PrefsPageEntry[] = [
   { id: 'sch-fields', label: 'Field Name Templates', indent: true, owner: 'schematic' },
   { id: null, label: 'PCB Editor' },
   { id: 'pcb-display', label: 'Display Options', indent: true, owner: 'pcb' },
+  { id: 'pcb-grids', label: 'Grids', indent: true, owner: 'pcb' },
   { id: 'pcb-toolbars', label: 'Toolbars', indent: true, owner: 'pcb' },
-  // pl_editor's KIFACE is consulted last of the four
+  // gerbview's KIFACE is consulted after pcbnew's
+  // (`common/eda_base_frame.cpp:1702-1721`), and its sub-page order is
+  // `ShowPreferences`' — Display Options, Colors, Toolbars, Grids, Excellon
+  // Options — which is NOT gerbview.cpp's `PANEL_GBR_*` switch order and is
+  // the one heading here where Grids does not come second.
+  { id: null, label: 'Gerber Viewer' },
+  { id: 'gbr-display', label: 'Display Options', indent: true, owner: 'gerbview' },
+  { id: 'gbr-toolbars', label: 'Toolbars', indent: true, owner: 'gerbview' },
+  // pl_editor's KIFACE is consulted last of the five
   // (`common/eda_base_frame.cpp:1726-1737`), so its heading is last.
   { id: null, label: 'Drawing Sheet Editor' },
   { id: 'ds-display', label: 'Display Options', indent: true, owner: 'drawingsheet' },
@@ -123,8 +139,10 @@ describe('the Preferences page book', () => {
  */
 const OWNER_SOURCES: Record<string, string> = {
   generic: 'dialogs/prefs/panels/index.ts',
+  symbol: 'editors/symbol/prefs/index.ts',
   schematic: 'editors/schematic/prefs/index.ts',
   pcb: 'editors/pcb/prefs/index.ts',
+  gerbview: 'editors/gerbview/prefs/index.ts',
   drawingsheet: 'editors/drawingsheet/prefs/index.ts',
 };
 

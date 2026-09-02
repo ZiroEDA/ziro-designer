@@ -19,6 +19,7 @@
  */
 
 import type { ToolEntry } from '../../ui/toolbar_types.js';
+import type { ToolbarDefaults } from '../../ui/toolbar_config.js';
 
 const sep: ToolEntry = 'sep';
 
@@ -215,16 +216,18 @@ export const GBR_LEFT_TOOLBAR: ToolEntry[] = [
   { id: 'showDcodes', icon: 'showDcodes', title: 'Show dcode numbers', toggle: true },
   sep,
   {
-    // GERBVIEW_ACTIONS::toggleForceOpacityMode. Greyed in its upstream
-    // position: the renderer composites every layer at a permanent 0.8 alpha
-    // where GerbView draws opaque and drops to m_OpacityModeAlphaValue = 0.6
-    // only while this is checked (`gbr_display_options.h:55,61`). Making it a
-    // real toggle changes the default look and belongs with the render pass.
+    // GERBVIEW_ACTIONS::toggleForceOpacityMode, live since the renderer
+    // stopped compositing at a permanent 0.8 and started drawing opaque:
+    // `GerberRenderOptions.layerOpacity` is 1 unless this is checked, and then
+    // it is `m_Display.m_OpacityModeAlphaValue`, which is the alpha
+    // `GERBVIEW_RENDER_SETTINGS::LoadColors` pushes into every gerber layer's
+    // COLOR4D (`gerbview_painter.cpp:63-66`). The value itself is the
+    // `Forced opacity:` spin control on Preferences > Gerber Viewer > Display
+    // Options.
     id: 'forceOpacityMode',
     icon: 'forceOpacityMode',
     title: 'Show layers using opacity color forced mode',
     toggle: true,
-    disabled: true,
   },
   {
     id: 'xorMode',
@@ -250,3 +253,19 @@ export const GBR_LEFT_TOOLBAR: ToolEntry[] = [
  * two actions ours put there, selectionTool and measureTool, are the first two
  * buttons of the LEFT bar (`:51-52`).
  */
+
+/**
+ * `GERBVIEW_TOOLBAR_SETTINGS::DefaultToolbarConfig`
+ * (`gerbview/toolbars_gerber.cpp:39-122`), as one switch rather than three
+ * exported lists.
+ *
+ * The three lists above are the toolbars; this is what answers "which toolbar
+ * is which", and it is what both the frame (through `useToolbarEntries`) and
+ * Preferences > Gerber Viewer > Toolbars ask. `RIGHT` is absent because
+ * upstream's first case is `return std::nullopt` — see the note above.
+ */
+export const GBR_DEFAULT_TOOLBARS: ToolbarDefaults = {
+  LEFT: GBR_LEFT_TOOLBAR,
+  TOP_MAIN: GBR_TOP_TOOLBAR,
+  TOP_AUX: GBR_TOP_AUX_TOOLBAR,
+};

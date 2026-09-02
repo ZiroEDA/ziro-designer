@@ -47,6 +47,12 @@ export const PAGES: readonly PrefsPageEntry[] = [
   { id: 'spacemouse', label: 'SpaceMouse', owner: 'generic' },
   { id: 'hotkeys', label: 'Hotkeys', owner: 'generic' },
   { id: 'version-control', label: 'Version Control', owner: 'generic' },
+  // eeschema's KIFACE is consulted first, and it adds TWO headings: the Symbol
+  // Editor's five sub-pages (`common/eda_base_frame.cpp:1632-1637`) come before
+  // the Schematic Editor's (`:1641-1652`).
+  { id: null, label: 'Symbol Editor' },
+  { id: 'sym-grids', label: 'Grids', indent: true, owner: 'symbol' },
+  { id: 'sym-toolbars', label: 'Toolbars', indent: true, owner: 'symbol' },
   { id: null, label: 'Schematic Editor' },
   { id: 'sch-display', label: 'Display Options', indent: true, owner: 'schematic' },
   { id: 'sch-grids', label: 'Grids', indent: true, owner: 'schematic' },
@@ -56,8 +62,23 @@ export const PAGES: readonly PrefsPageEntry[] = [
   { id: 'sch-fields', label: 'Field Name Templates', indent: true, owner: 'schematic' },
   { id: null, label: 'PCB Editor' },
   { id: 'pcb-display', label: 'Display Options', indent: true, owner: 'pcb' },
+  { id: 'pcb-grids', label: 'Grids', indent: true, owner: 'pcb' },
   { id: 'pcb-toolbars', label: 'Toolbars', indent: true, owner: 'pcb' },
-  // pl_editor's KIFACE is added last of the four, after gerbview's
+  // gerbview's KIFACE is consulted after pcbnew's and before pl_editor's
+  // (`common/eda_base_frame.cpp:1702-1721`).
+  //
+  // **This order is `ShowPreferences`', not `gerbview.cpp`'s.** The obvious
+  // place to read the list off is gerbview's own `CreateKiWindow` switch, and
+  // it is the wrong one: that switch is in `PANEL_GBR_*` enum order (display,
+  // excellon, grids, colors, toolbars, `gerbview/gerbview.cpp:76-110`) and
+  // nothing reads it as a sequence. The tree is built by the run of
+  // `AddLazySubPage` calls at `eda_base_frame.cpp:1714-1718`, and that run puts
+  // Colors and Toolbars *before* Grids — which is also unlike every other
+  // editor's heading here, where Grids comes second.
+  { id: null, label: 'Gerber Viewer' },
+  { id: 'gbr-display', label: 'Display Options', indent: true, owner: 'gerbview' },
+  { id: 'gbr-toolbars', label: 'Toolbars', indent: true, owner: 'gerbview' },
+  // pl_editor's KIFACE is added last of the five, after gerbview's
   // (`common/eda_base_frame.cpp:1726-1737`).
   { id: null, label: 'Drawing Sheet Editor' },
   { id: 'ds-display', label: 'Display Options', indent: true, owner: 'drawingsheet' },
@@ -92,6 +113,9 @@ export const PAGES: readonly PrefsPageEntry[] = [
  * {@link OMITTED_TOP_LEVEL}, which is the same idea one level up.
  */
 export const UPSTREAM_BOOK: Readonly<Record<string, readonly string[]>> = {
+  // `common/eda_base_frame.cpp:1633-1637`, the five `AddLazySubPage` calls
+  // under the Symbol Editor heading, in source order.
+  'Symbol Editor': ['Display Options', 'Grids', 'Editing Options', 'Colors', 'Toolbars'],
   'Schematic Editor': [
     'Display Options',
     'Grids',
@@ -111,6 +135,9 @@ export const UPSTREAM_BOOK: Readonly<Record<string, readonly string[]>> = {
     'Toolbars',
     'Plugins',
   ],
+  // `common/eda_base_frame.cpp:1714-1718`. Colors and Toolbars come BEFORE
+  // Grids here, which no other heading does; see the note in {@link PAGES}.
+  'Gerber Viewer': ['Display Options', 'Colors', 'Toolbars', 'Grids', 'Excellon Options'],
   'Drawing Sheet Editor': ['Display Options', 'Grids', 'Colors', 'Toolbars'],
 };
 
@@ -127,7 +154,7 @@ export const UPSTREAM_BOOK: Readonly<Record<string, readonly string[]>> = {
  * panel's own end. The parity target is the installed build, so the capture
  * wins. [data]
  *
- * Fifteen rows. We ship nine. The six we do not are in
+ * Fifteen rows. We ship ten. The five we do not are in
  * {@link OMITTED_TOP_LEVEL}, each with its reason, and
  * `qa/unittests/designer/prefs_page_book.test.ts` requires that shipped +
  * omitted is exactly this list in exactly this order — so a heading cannot go
@@ -163,14 +190,14 @@ export interface DeclaredPage {
  * The top-level rows of {@link UPSTREAM_TOP_LEVEL} this port does not draw, and
  * why.
  *
- * Four are headings for editors we DO ship — Symbol Editor, Footprint Editor,
- * 3D Viewer, Gerber Viewer — so those four are unfinished rather than
- * impossible. Upstream their sub-pages are mostly the
- * shared widgets we already have: `PANEL_SYM_EDIT_GRIDS` is `PANEL_GRID_SETTINGS`,
- * `PANEL_SYM_COLORS` is `PANEL_COLOR_SETTINGS`, `PANEL_SYM_TOOLBARS` is
- * `PANEL_TOOLBAR_CUSTOMIZATION`, and `PANEL_SYM_DISP_OPTIONS` wraps
- * `PANEL_GAL_DISPLAY_OPTIONS`. So they are bindings to a settings store, not
- * new panels.
+ * Two are headings for editors we DO ship — Footprint Editor, 3D Viewer — so
+ * those two are unfinished rather than impossible.
+ * Upstream their sub-pages are mostly the shared widgets we already have:
+ * `PANEL_FP_EDIT_GRIDS` and `PANEL_GBR_GRIDS` are both `PANEL_GRID_SETTINGS`,
+ * every Toolbars page is `PANEL_TOOLBAR_CUSTOMIZATION`, and every Display
+ * Options page wraps `PANEL_GAL_OPTIONS`. So they are bindings to a settings
+ * store, not new panels — which is what the Symbol Editor and Gerber Viewer
+ * headings, two of the four until they shipped, turned out to be.
  *
  * The other two were built and then taken out again, which is the useful part
  * of their entries: a page whose every control is a desktop concept has nothing
@@ -198,12 +225,6 @@ export const OMITTED_TOP_LEVEL: readonly DeclaredPage[] = [
       'and there is no partial version of "let other software on this computer connect".',
   },
   {
-    label: 'Symbol Editor',
-    reason:
-      'Unfinished, not impossible: we ship the editor, and its five sub-pages are the shared ' +
-      'grid/colour/toolbar/GAL panels bound to the symbol editor settings. Tracker 195.',
-  },
-  {
     label: 'Footprint Editor',
     reason:
       'Unfinished, not impossible: we ship the editor. Nine sub-pages, of which Footprint ' +
@@ -215,10 +236,6 @@ export const OMITTED_TOP_LEVEL: readonly DeclaredPage[] = [
       'Unfinished: we ship the viewer as a child frame. General and Toolbars are portable; ' +
       'Realtime Renderer and Raytracing Renderer describe an OpenGL/raytracer we do not have.',
   },
-  {
-    label: 'Gerber Viewer',
-    reason: 'Unfinished, not impossible: we ship gerbview. Five sub-pages. Tracker 195.',
-  },
 ];
 
 /**
@@ -229,12 +246,60 @@ export const OMITTED_TOP_LEVEL: readonly DeclaredPage[] = [
  * and an oversight.
  */
 export const OMITTED_PAGES: Readonly<Record<string, readonly DeclaredPage[]>> = {
+  // In progress, one page per commit. Grids landed first because it is the
+  // purest binding — the shared `PANEL_GRID_SETTINGS` with
+  // `FRAME_SCH_SYMBOL_EDITOR` and this editor's settings object — and Toolbars
+  // with it, because `prefs_page_book.test.ts` requires every heading upstream
+  // gives a Toolbars page to have one here. The other three are the same shape.
+  'Symbol Editor': [
+    {
+      label: 'Display Options',
+      reason:
+        'Being built. PANEL_SYM_DISPLAY_OPTIONS is four Appearance checkboxes beside the shared ' +
+        'PANEL_GAL_OPTIONS, bound to symbol_editor.json.',
+    },
+    {
+      label: 'Editing Options',
+      reason:
+        'Being built. PANEL_SYM_EDITING_OPTIONS is the defaults.* and repeat.* fields plus one ' +
+        'General Editing checkbox.',
+    },
+    {
+      label: 'Colors',
+      reason:
+        'Being built. PANEL_SYM_COLOR_SETTINGS is two radio buttons and a theme choice — a plain ' +
+        'wxPanel, not a PANEL_COLOR_SETTINGS.',
+    },
+  ],
+  // In progress, one page per commit, same as the Symbol Editor above. Display
+  // Options landed first because it is the page that forced `gerbview.json`
+  // into existence; Toolbars came with it because `prefs_page_book.test.ts`
+  // requires every heading upstream gives a Toolbars page to have one here.
+  'Gerber Viewer': [
+    {
+      label: 'Colors',
+      reason:
+        'Being built. PANEL_GERBVIEW_COLOR_SETTINGS is a PANEL_COLOR_SETTINGS subclass over the ' +
+        'GERBVIEW layer set, the same base eeschema’s Colors page uses.',
+    },
+    {
+      label: 'Grids',
+      reason:
+        'Being built. The shared PANEL_GRID_SETTINGS with FRAME_GERBER, which hides the whole ' +
+        'Grid Overrides group (panel_grid_settings.cpp:62-90).',
+    },
+    {
+      label: 'Excellon Options',
+      reason:
+        'Being built. PANEL_GERBVIEW_EXCELLON_SETTINGS is entirely file-format defaults — units, ' +
+        'zero format, integer/mantissa digit counts — with no path control on it, so it ports whole.',
+    },
+  ],
   'Schematic Editor': [
     { label: 'Data Sources', reason: 'Schematic Editor tracker 195.' },
     { label: 'Simulator', reason: 'No ngspice in the browser; tracker 195.' },
   ],
   'PCB Editor': [
-    { label: 'Grids', reason: 'PCB Editor tracker 200.' },
     { label: 'Origins & Axes', reason: 'PCB Editor tracker 200.' },
     { label: 'Editing Options', reason: 'PCB Editor tracker 200.' },
     { label: 'Colors', reason: 'PCB Editor tracker 200.' },

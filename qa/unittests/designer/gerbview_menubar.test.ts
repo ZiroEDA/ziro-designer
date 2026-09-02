@@ -354,22 +354,41 @@ describe('what is greyed, and what is not', () => {
   });
 
   /**
-   * The two that stay greyed, both because upstream does something a browser
-   * tab cannot: Show Source shells out to `Pgm().GetTextEditor()`
-   * (`gerbview_inspection_tool.cpp:154-190`), and forced-opacity mode needs the
-   * renderer to draw opaque first - it composites at a fixed 0.8 alpha today,
-   * where GerbView is opaque and drops to 0.6 only in that mode.
+   * The ONE that stays greyed, because upstream does something a browser tab
+   * cannot: Show Source shells out to `Pgm().GetTextEditor()`
+   * (`gerbview_inspection_tool.cpp:154-190`).
+   *
+   * Forced-opacity mode used to be the second, and is not any more. It was
+   * greyed because the renderer composited every layer at a fixed 0.8 alpha,
+   * so there was no opaque state for the mode to be the exception to; it now
+   * draws opaque and `GerberRenderOptions.layerOpacity` drops to
+   * `m_Display.m_OpacityModeAlphaValue` while the mode is on, which is
+   * `GERBVIEW_RENDER_SETTINGS::LoadColors` (`gerbview_painter.cpp:63-66`). The
+   * value behind it is the `Forced opacity:` spin control on Preferences >
+   * Gerber Viewer > Display Options.
    */
-  it('greys forced-opacity and Show Source, and nothing else', () => {
+  it('greys Show Source, and nothing else', () => {
     const greyMenu = menus()
       .flatMap((m) => m.items)
       .filter((i: MenuItem) => i.disabled && !i.label?.startsWith('Open Recent'))
       .map((i) => i.label);
-    expect(greyMenu).toEqual(['Show with Forced Opacity Mode', 'Show Source...']);
+    expect(greyMenu).toEqual(['Show Source...']);
 
     const greyBar = [...flat(GBR_TOP_TOOLBAR), ...flat(GBR_LEFT_TOOLBAR)]
       .filter((b) => b.disabled)
       .map((b) => b.id);
-    expect(greyBar).toEqual(['forceOpacityMode']);
+    expect(greyBar).toEqual([]);
+  });
+
+  /**
+   * …and the row is a real checkable one now, not a label with an icon: it
+   * must carry the toggle's own checked state and fire the handler, which is
+   * what tells the menu apart from the greyed placeholder it replaced.
+   */
+  it('makes Show with Forced Opacity Mode a live checkable row', () => {
+    const row = menu('View').items.find((i) => i.label === 'Show with Forced Opacity Mode');
+    expect(row?.disabled).toBeUndefined();
+    expect(row?.action).toBeTypeOf('function');
+    expect(row?.checked).toBe(false);
   });
 });

@@ -45,7 +45,9 @@ import {
   SYM_TOP_TOOLBAR,
   SYM_LEFT_TOOLBAR,
   SYM_RIGHT_TOOLBAR,
+  SYM_DEFAULT_TOOLBARS,
 } from './symbolToolbars.js';
+import { useToolbarEntries } from '../../ui/useToolbarEntries.js';
 import { SymbolCanvas, type SymbolCanvasController } from './SymbolCanvas.js';
 import { SymbolLibraryManager, type ManagedLibrary } from './libraryManager.js';
 import {
@@ -55,7 +57,11 @@ import {
 import { unescapeString } from '@ziroeda/common/src/string_utils.js';
 import { SYM_FRAME_NAME, symFrameTitle } from './frame_title.js';
 import { loadIndex } from '../schematic/symbols/index.js';
-import { useCommonSettings, useSchematicTheme } from '../../prefs/useSettings.js';
+import {
+  useCommonSettings,
+  useSchematicTheme,
+  useSymbolEditorSettings,
+} from '../../prefs/useSettings.js';
 import { pcm } from '../../pcm/pcmStore.js';
 import {
   addGraphicToSymbol,
@@ -74,7 +80,8 @@ import {
   setUnitCount,
   unitCount,
 } from './edits.js';
-import { GRID, MM, symItemId, type SymbolViewOptions } from './render/symbolRenderer.js';
+import { MM, symItemId, type SymbolViewOptions } from './render/symbolRenderer.js';
+import { symbolGridIU } from './grid.js';
 import { settings } from '../../prefs/settings.js';
 import type { SymbolHit } from './edits.js';
 import {
@@ -91,6 +98,7 @@ import {
 import '../../ui/shell.css';
 import { AboutDialog } from '../../home/dialogs/dialog_about.js';
 import { PreferencesDialog } from '../../dialogs/PreferencesDialog.js';
+import type { PrefsPageId } from '../../dialogs/prefs/types.js';
 import { symbolEditorMenus } from './menubar.js';
 import { DialogSchFind } from '../../widgets/dialog_sch_find.js';
 import {
@@ -109,7 +117,13 @@ import { dispatchMenuHotkey, focusBlocksHotkey } from '../../ui/menu_hotkeys.js'
 import { wasBrowserSuppressed, type FocusLike } from '../../ui/browser_hotkeys.js';
 import { OpenFileDialog } from '../../fs/OpenFileDialog.js';
 import { kicadSymbolLibWildcard } from '../../fs/wildcards.js';
-import { applyToggle, DEFAULT_TOGGLES, withSyncPinEdit } from './toggles.js';
+import {
+  applyToggle,
+  persistSymbolToggle,
+  SYMBOL_SETTING_TOGGLES,
+  symbolTogglesFromSettings,
+  withSyncPinEdit,
+} from './toggles.js';
 import { deleteSymbolPrompts } from './delete_symbol_prompt.js';
 import { SelectionFilterPanel } from '../../ui/SelectionFilterPanel.js';
 import { symSelectionFilterShown } from '../../ui/selection_filter_panel.js';
@@ -224,6 +238,12 @@ export function SymbolEditor({
   const manager = useRef(new SymbolLibraryManager());
   const theme = useSchematicTheme();
   const common = useCommonSettings();
+  /**
+   * `symbol_editor.json`, re-read whenever it moves — `EDA_BASE_FRAME::
+   * CommonSettingsChanged`, which is what makes an OK in Preferences show up on
+   * the canvas without reopening the editor.
+   */
+  const symCfg = useSymbolEditorSettings();
   const [revision, setRevision] = useState(0);
   const bump = useCallback(() => setRevision(manager.current.revision + Math.random()), []);
 
@@ -260,7 +280,12 @@ export function SymbolEditor({
    * "Select item(s)" from the first paint.
    */
   const [toolMsg, setToolMsg] = useState('');
-  const [toggles, setToggles] = useState<Set<string>>(new Set(DEFAULT_TOGGLES));
+  // The frame boots from `symbol_editor.json`, not from a constant set: Show
+  // Grid and Grid Overrides are settings upstream (see `toggles.ts`), so both
+  // buttons must come up showing the file.
+  const [toggles, setToggles] = useState<Set<string>>(() =>
+    symbolTogglesFromSettings(settings.symbolEditor),
+  );
   const [cursor, setCursor] = useState<Vec2 | null>(null);
   const [scale, setScale] = useState(1);
   const [status, setStatus] = useState('');
@@ -322,7 +347,12 @@ export function SymbolEditor({
   const [symOpenDlg, setSymOpenDlg] = useState<null | 'addLibrary' | 'importSymbol'>(null);
   const [newSymbolOpen, setNewSymbolOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
-  const [prefsOpen, setPrefsOpen] = useState(false);
+  /**
+   * `EDA_BASE_FRAME::ShowPreferences( aStartPage, aStartParentPage )`. Null is
+   * "no page named"; a page id opens the book there, which is the whole of
+   * `COMMON_TOOLS::GridProperties`.
+   */
+  const [prefsOpen, setPrefsOpen] = useState<PrefsPageId | true | null>(null);
   const [symbolPropsOpen, setSymbolPropsOpen] = useState(false);
   const [pinTableOpen, setPinTableOpen] = useState(false);
   const [checkOpen, setCheckOpen] = useState(false);
@@ -385,10 +415,17 @@ export function SymbolEditor({
       // the renderer painted its grid unconditionally, so pressing it did
       // nothing at all.
       showGrid: toggles.has('toggleGrid'),
-      gridStyle: settings.eeschema.window.grid.style,
+      // `symbol_editor.json`'s own `window.grid`, not eeschema's. SYMBOL_EDIT_FRAME
+      // is handed `GetAppSettings<SYMBOL_EDITOR_SETTINGS>( "symbol_editor" )`
+      // (`eeschema/eeschema.cpp:252`), and reading the schematic's file here is
+      // what made Preferences > Symbol Editor > Display Options unreachable.
+      gridStyle: symCfg.window.grid.style,
+      gridSizeIU: symbolGridIU(symCfg),
+      gridLineWidthPx: symCfg.window.grid.line_width,
+      gridMinSpacingPx: symCfg.window.grid.min_spacing,
       devicePixelRatio: typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1,
     }),
-    [unit, bodyStyle, toggles],
+    [unit, bodyStyle, toggles, symCfg],
   );
 
   /**
@@ -1076,18 +1113,26 @@ export function SymbolEditor({
     // arrives here rather than through a menu of its own.
     // `COMMON_TOOLS::GridProperties` for FRAME_SCH_SYMBOL_EDITOR is
     // `ShowPreferences( _( "Grids" ), _( "Symbol Editor" ) )`
-    // (`common/tool/common_tools.cpp:624`). That page does not exist in our
-    // book yet — upstream's Symbol Editor section is Display Options, Grids,
-    // Colors, Editing Options and Toolbars (`eeschema/eeschema.cpp:255-300`)
-    // and ours has none of them — so this opens the dialog without naming one.
+    // (`common/tool/common_tools.cpp:624`) — the action is nothing BUT those
+    // two arguments. It used to open the book at Common, because the Symbol
+    // Editor heading did not exist here.
     if (id === 'gridProperties') {
-      setPrefsOpen(true);
+      setPrefsOpen('sym-grids');
       return;
     }
     // Showing or hiding either of the other two left-dock panes is exactly when
     // `updateSelectionFilterVisbility` runs, so a filter pane the user closed
     // comes back with the next one of those.
     if (id === 'showLibraryTree' || id === 'showProperties') setSelFilterClosed(false);
+    // The two that are settings rather than session state go to the file as
+    // well, which is what `ACTIONS::toggleGrid` and
+    // `ACTIONS::toggleGridOverrides` do upstream. The probe first: `commit`
+    // stamps the slice dirty and wakes the account sync, so calling it for a
+    // pane toggle would push `symbol_editor.json` on every click.
+    if (SYMBOL_SETTING_TOGGLES.has(id))
+      settings.updateSymbolEditor((s) => {
+        persistSymbolToggle(s, id);
+      });
     setToggles((prev) => applyToggle(prev, id));
   }, []);
 
@@ -1884,6 +1929,20 @@ export function SymbolEditor({
   // The same table, for the three toolbars. `Toolbar` ORs this with a button's
   // own static `disabled` (a feature not built yet), so a greyed-because-unbuilt
   // button stays greyed and a live one now follows its ACTION_MANAGER condition.
+  /**
+   * `EDA_BASE_FRAME::RecreateToolbars` (`common/eda_base_frame.cpp:1728-1843`):
+   * every one of its four blocks reads `m_toolbarSettings->GetToolbarConfig(
+   * loc, config()->m_CustomToolbars )` and never `DefaultToolbarConfig`. That
+   * indirection is the whole reason Preferences > Symbol Editor > Toolbars does
+   * anything: three bars drawn from the module constants would have made the
+   * page a set of controls over a file nothing reads.
+   */
+  const symTopBar = useToolbarEntries('symbol_editor', 'TOP_MAIN', SYM_DEFAULT_TOOLBARS);
+  const symLeftBar = useToolbarEntries('symbol_editor', 'LEFT', SYM_DEFAULT_TOOLBARS);
+  const symRightBar = useToolbarEntries('symbol_editor', 'RIGHT', SYM_DEFAULT_TOOLBARS);
+  // The disabled-id tables still read the DEFAULT bars: `symbolToolbarDisabledIds`
+  // answers "which of these actions is unavailable right now", and a
+  // customised bar is the same actions in another order.
   const topDisabled = useMemo(() => symbolToolbarDisabledIds(SYM_TOP_TOOLBAR, conds), [conds]);
   const leftDisabled = useMemo(() => symbolToolbarDisabledIds(SYM_LEFT_TOOLBAR, conds), [conds]);
   const rightDisabled = useMemo(() => symbolToolbarDisabledIds(SYM_RIGHT_TOOLBAR, conds), [conds]);
@@ -2080,7 +2139,7 @@ export function SymbolEditor({
           flex div wrapping the Toolbar, which put it outside the bar's face and
           past its right edge instead of inside the run of tools. */}
       <Toolbar
-        entries={SYM_TOP_TOOLBAR}
+        entries={symTopBar}
         orientation="horizontal"
         toggled={toggles}
         // `CHECK( cond.CurrentTool( ACTIONS::zoomTool ) )`
@@ -2259,7 +2318,7 @@ export function SymbolEditor({
         )}
 
         <Toolbar
-          entries={SYM_LEFT_TOOLBAR}
+          entries={symLeftBar}
           app="symbol_editor"
           orientation="vertical"
           side="left"
@@ -2303,7 +2362,7 @@ export function SymbolEditor({
         </div>
 
         <Toolbar
-          entries={SYM_RIGHT_TOOLBAR}
+          entries={symRightBar}
           orientation="vertical"
           side="right"
           activeTool={activeTool}
@@ -2328,7 +2387,10 @@ export function SymbolEditor({
           deltas: cursor
             ? deltasMsg(fmt(cursor.x), fmt(cursor.y), fmt(Math.hypot(cursor.x, cursor.y)))
             : deltasMsg(null),
-          grid: gridMsg(fmt(GRID)),
+          // `EDA_DRAW_FRAME::DisplayGridMsg` prints `GetCanvas()->GetGAL()->
+          // GetGridSize()`, which is the frame's current grid — the one the
+          // Grids page picks — and not a constant.
+          grid: gridMsg(fmt(symbolGridIU(symCfg))),
           units: unitsMsg(unitsLabel),
           tool: toolMsg,
         }}
@@ -2401,7 +2463,14 @@ export function SymbolEditor({
         />
       )}
       {aboutOpen && <AboutDialog title={ABOUT_TITLES.symbol} onClose={() => setAboutOpen(false)} />}
-      {prefsOpen && <PreferencesDialog onClose={() => setPrefsOpen(false)} />}
+      {prefsOpen && (
+        <PreferencesDialog
+          onClose={() => setPrefsOpen(null)}
+          // `GetFrameType()` — the section the tree opens expanded.
+          frameOwner="symbol"
+          {...(prefsOpen === true ? {} : { initialPage: prefsOpen })}
+        />
+      )}
       {newSymbolOpen && (
         <NewSymbolDialog
           symbolNames={targetLib ? manager.current.symbolNames(targetLib) : []}

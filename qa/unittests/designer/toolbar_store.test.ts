@@ -45,6 +45,7 @@ import {
   EESCHEMA_DEFAULTS,
   PCBNEW_DEFAULTS,
   PL_EDITOR_DEFAULTS,
+  SYMBOL_EDITOR_DEFAULTS,
   TOOLBAR_APPS,
   toolbarSlice,
 } from '@ziroeda/designer/src/prefs/settings.js';
@@ -60,8 +61,15 @@ describe('the store is a file per app, off by default', () => {
     // file and take the rest of it with them.
     expect(TOOLBAR_APPS.map(toolbarSlice)).toEqual([
       'eeschema-toolbars',
+      // `GetToolbarSettings<SYMBOL_EDIT_TOOLBAR_SETTINGS>( "symbol_editor-toolbars" )`
+      // (`eeschema/eeschema.cpp:289`) — one KIFACE, two toolbar files, because
+      // the Symbol Editor is its own frame with its own bars.
+      'symbol_editor-toolbars',
       'pcbnew-toolbars',
       'pl_editor-toolbars',
+      // `GetToolbarSettings<GERBVIEW_TOOLBAR_SETTINGS>( "gerbview-toolbars" )`
+      // (`gerbview/gerbview.cpp:99`).
+      'gerbview-toolbars',
     ]);
   });
 
@@ -74,6 +82,7 @@ describe('the store is a file per app, off by default', () => {
     // everywhere except on the page itself -- where it would open with
     // "Customize toolbars" already ticked, which a live KiCad does not.
     expect(EESCHEMA_DEFAULTS.appearance.custom_toolbars).toBe(false);
+    expect(SYMBOL_EDITOR_DEFAULTS.appearance.custom_toolbars).toBe(false);
     expect(PCBNEW_DEFAULTS.appearance.custom_toolbars).toBe(false);
     expect(PL_EDITOR_DEFAULTS.appearance.custom_toolbars).toBe(false);
   });

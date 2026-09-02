@@ -141,7 +141,13 @@ const UNBUILT: Readonly<Record<string, readonly string[]>> = {
   'footprint right': [],
   'gerbview top': [],
   'gerbview aux': [],
-  'gerbview left': ['forceOpacityMode'],
+  // EMPTY, and `forceOpacityMode` is what left it: the renderer used to
+  // composite every layer at a fixed 0.8 alpha, so there was no opaque state
+  // for the mode to be the exception to. `GerberRenderOptions.layerOpacity`
+  // now drops to `m_Display.m_OpacityModeAlphaValue` only while the mode is on
+  // (`gerbview_painter.cpp:63-66`), and the value is the `Forced opacity:`
+  // control on Preferences > Gerber Viewer > Display Options.
+  'gerbview left': [],
   'drawing sheet top': [],
   'drawing sheet left': [],
   'drawing sheet right': [],

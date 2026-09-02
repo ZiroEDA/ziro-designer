@@ -34,17 +34,30 @@ export function Check({
   label,
   checked,
   onChange,
+  borders,
   disabled,
   title,
 }: {
   label: string;
   checked: boolean;
   onChange: (v: boolean) => void;
+  /**
+   * This checkbox's own `Add()` border flags. See {@link sizerBorders}.
+   *
+   * A checkbox is added with the same flags as any other row and KiCad varies
+   * them per Add() — the first box of a group usually carries `wxTOP` as well
+   * (`wxTOP|wxBOTTOM|wxLEFT, 5` on Show D codes and `wxALL, 5` on Sketch
+   * flashed items, `panel_gerbview_display_options_base.cpp:38`, `:65`) while
+   * the ones under it do not. Left out, the row takes `['bottom']`, which is
+   * what nearly every Add() in these panels carries and what this component
+   * drew before it could be told otherwise.
+   */
+  borders?: readonly ('top' | 'bottom')[];
   disabled?: boolean;
   title?: string;
 }): JSX.Element {
   return (
-    <label className="ze-pref-check" title={title}>
+    <label className={`ze-pref-check${sizerBorders(borders)}`} title={title}>
       <input
         type="checkbox"
         checked={checked}
@@ -64,6 +77,7 @@ export function Num({
   min,
   max,
   step,
+  digits,
   width,
   spin,
   disabled,
@@ -94,6 +108,12 @@ export function Num({
   max?: number;
   /** `wxSpinCtrl::SetIncrement` — how far one arrow click moves the value. */
   step?: number;
+  /**
+   * `wxSpinCtrlDouble::SetDigits` — set it and the row is a FRACTIONAL spin
+   * control rather than an integer one, which is a different wx class and a
+   * visibly different field: `0.60`, not `0.6`. See `ui/SpinCtrl.tsx`.
+   */
+  digits?: number;
   width?: number;
 }): JSX.Element {
   return (
@@ -124,6 +144,7 @@ export function Num({
           {...(min !== undefined ? { min } : {})}
           {...(max !== undefined ? { max } : {})}
           {...(step !== undefined ? { step } : {})}
+          {...(digits !== undefined ? { digits } : {})}
           {...(width !== undefined ? { width } : {})}
         />
       )}
@@ -216,6 +237,7 @@ export function Radio<T extends string | number>({
   onChange,
   row,
   borders,
+  borderSpaced,
   disabled,
   title,
 }: {
@@ -231,6 +253,21 @@ export function Radio<T extends string | number>({
   options: readonly (readonly [T, string, string?])[];
   onChange: (v: T) => void;
   row?: boolean;
+  /**
+   * Where the space BETWEEN stacked buttons comes from.
+   *
+   * Unset, it is the sizer's own vgap — `wxFlexGridSizer( 0, 1, 3, 0 )`, which
+   * is how `PANEL_GAL_OPTIONS` lays its crosshair shapes out
+   * (`panel_gal_options_base.cpp:100`), so 3.
+   *
+   * Set, the sizer is a plain `wxBoxSizer( wxVERTICAL )` with no gap at all and
+   * every button carries its own `wxTOP, 5` — Page Size on Preferences >
+   * Gerber Viewer > Display Options
+   * (`panel_gerbview_display_options_base.cpp:109-133`), so 5. Two different
+   * sizers, two different numbers; a single uniform gap here is what would
+   * lose that.
+   */
+  borderSpaced?: boolean;
   /**
    * The border flags this row's own `Add()` states — the wx ones, spelled the
    * same way, because they are independent and combine:
@@ -251,7 +288,12 @@ export function Radio<T extends string | number>({
 }): JSX.Element {
   const borderClass = sizerBorders(borders);
   return (
-    <div className={`${row ? 'ze-pref-radiorow' : 'ze-pref-radios'}${borderClass}`} title={title}>
+    <div
+      className={`${row ? 'ze-pref-radiorow' : 'ze-pref-radios'}${
+        borderSpaced === true ? ' ze-gap-5' : ''
+      }${borderClass}`}
+      title={title}
+    >
       {label !== undefined && <span className="lbl">{label}</span>}
       {options.map(([v, l, tip]) => (
         <label key={String(v)} className="ze-pref-radio" title={tip}>

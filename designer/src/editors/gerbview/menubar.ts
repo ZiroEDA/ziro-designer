@@ -267,19 +267,18 @@ function viewMenu(h: GerbviewMenuHandlers): Menu {
         icon: 'gerbNegativeObjects',
         tooltip: 'Show negative objects in ghost color',
       }),
-      // GERBVIEW_ACTIONS::toggleForceOpacityMode. Greyed rather than wired,
-      // because the renderer has no such mode to turn on: it composites every
-      // layer at a permanent GERBER_LAYER_ALPHA of 0.8, where GerbView draws
-      // opaque and drops to m_OpacityModeAlphaValue = 0.6 only while this is
-      // checked (`gbr_display_options.h:55,61`). Turning it into a real toggle
-      // means changing the default look, which belongs with the render pass and
-      // not with the menu bar.
-      {
-        label: 'Show with Forced Opacity Mode',
+      // GERBVIEW_ACTIONS::toggleForceOpacityMode, live since the renderer
+      // stopped compositing at a permanent 0.8 and started drawing opaque:
+      // `GerberRenderOptions.layerOpacity` is 1 unless this is checked, and
+      // then it is `m_Display.m_OpacityModeAlphaValue`, the alpha
+      // `GERBVIEW_RENDER_SETTINGS::LoadColors` pushes into every gerber
+      // layer's COLOR4D (`gerbview_painter.cpp:63-66`). The value is the
+      // `Forced opacity:` spin control on Preferences > Gerber Viewer >
+      // Display Options.
+      check(h, 'forceOpacityMode', 'Show with Forced Opacity Mode', {
         icon: 'gerbDiffMode',
-        disabled: true,
         tooltip: 'Show layers using opacity color forced mode',
-      },
+      }),
       check(h, 'xorMode', 'Show in XOR Mode', {
         icon: 'gerbDiffMode',
         tooltip: 'Show layers in exclusive-or compare mode',

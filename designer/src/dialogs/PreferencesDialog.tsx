@@ -7,9 +7,11 @@ import {
   TOOLBAR_APPS,
   type CommonSettings,
   type EeschemaSettings,
+  type GerbviewSettings,
   type PcbnewSettings,
   type PlEditorSettings,
   type PrivacySettings,
+  type SymbolEditorSettings,
   type ToolbarApp,
 } from '../prefs/settings.js';
 import type { ToolbarSettings } from '../ui/toolbar_config.js';
@@ -55,8 +57,12 @@ import { useModalEscape } from '../ui/useModalEscape.js';
  * [data] the labels are `ShowPreferences`' own `_( "..." )` strings.
  */
 const EXPANDED_SECTIONS: Readonly<Record<string, string | undefined>> = {
+  symbol: 'Symbol Editor',
   schematic: 'Schematic Editor',
   pcb: 'PCB Editor',
+  // `if( GetFrameType() == FRAME_GERBER ) expand.push_back( … )`
+  // (`common/eda_base_frame.cpp:1710-1712`).
+  gerbview: 'Gerber Viewer',
   drawingsheet: 'Drawing Sheet Editor',
 };
 
@@ -194,10 +200,16 @@ export function PreferencesDialog({
   const [eeschema, setEeschema] = useState<EeschemaSettings>(() =>
     structuredClone(settings.eeschema),
   );
+  const [symbolEditor, setSymbolEditor] = useState<SymbolEditorSettings>(() =>
+    structuredClone(settings.symbolEditor),
+  );
   const [userColors, setUserColors] = useState<Record<string, string>>(() => ({
     ...settings.userColors,
   }));
   const [pcbnew, setPcbnew] = useState<PcbnewSettings>(() => structuredClone(settings.pcbnew));
+  const [gerbview, setGerbview] = useState<GerbviewSettings>(() =>
+    structuredClone(settings.gerbview),
+  );
   const [plEditor, setPlEditor] = useState<PlEditorSettings>(() =>
     structuredClone(settings.plEditor),
   );
@@ -226,8 +238,22 @@ export function PreferencesDialog({
       return n;
     });
 
+  const upSym = (fn: (s: SymbolEditorSettings) => void): void =>
+    setSymbolEditor((s) => {
+      const n = structuredClone(s);
+      fn(n);
+      return n;
+    });
+
   const upP = (fn: (s: PcbnewSettings) => void): void =>
     setPcbnew((s) => {
+      const n = structuredClone(s);
+      fn(n);
+      return n;
+    });
+
+  const upGbr = (fn: (s: GerbviewSettings) => void): void =>
+    setGerbview((s) => {
       const n = structuredClone(s);
       fn(n);
       return n;
@@ -250,7 +276,9 @@ export function PreferencesDialog({
   const ok = (): void => {
     settings.updateCommon((s) => Object.assign(s, common));
     settings.updateEeschema((s) => Object.assign(s, eeschema));
+    settings.updateSymbolEditor((s) => Object.assign(s, symbolEditor));
     settings.updatePcbnew((s) => Object.assign(s, pcbnew));
+    settings.updateGerbview((s) => Object.assign(s, gerbview));
     settings.updatePlEditor((s) => Object.assign(s, plEditor));
     // `TransferDataFromWindow` writes every toolbar back through
     // `SetStoredToolbarConfig`, changed or not
@@ -272,7 +300,9 @@ export function PreferencesDialog({
   const ctx: PrefsContext = {
     common,
     eeschema,
+    symbolEditor,
     pcbnew,
+    gerbview,
     plEditor,
     privacy,
     userColors,
@@ -280,12 +310,16 @@ export function PreferencesDialog({
     toolbars,
     upC,
     upE,
+    upSym,
     upP,
+    upGbr,
     upPl,
     upTb,
     setCommon,
     setEeschema,
+    setSymbolEditor,
     setPcbnew,
+    setGerbview,
     setPlEditor,
     setPrivacy,
     setUserColors,

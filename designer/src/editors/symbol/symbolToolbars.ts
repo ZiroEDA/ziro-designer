@@ -19,6 +19,7 @@
  */
 
 import type { ToolEntry } from '../../ui/toolbar_types.js';
+import type { ToolbarDefaults } from '../../ui/toolbar_config.js';
 
 const sep: ToolEntry = 'sep';
 
@@ -263,3 +264,22 @@ export const SYM_RIGHT_TOOLBAR: ToolEntry[] = [
   { id: 'placeAnchor', icon: 'placeAnchor', title: 'Move the symbol anchor' },
   { id: 'deleteTool', icon: 'delete', title: 'Interactive delete' },
 ];
+
+/**
+ * `SYMBOL_EDIT_TOOLBAR_SETTINGS::DefaultToolbarConfig( TOOLBAR_LOC )`
+ * (`eeschema/symbol_editor/toolbars_symbol_editor.cpp:50-...`), as the switch
+ * it is: "which toolbar is which".
+ *
+ * Both the frame and Preferences > Symbol Editor > Toolbars ask this. The
+ * frame goes through `useToolbarEntries`, so a customised toolbar replaces the
+ * default without either side knowing the other exists — which is the whole
+ * reason `EDA_BASE_FRAME::RecreateToolbars` never reads `DefaultToolbarConfig`
+ * directly.
+ *
+ * `TOP_AUX` is absent because upstream's first case is `return std::nullopt`.
+ */
+export const SYM_DEFAULT_TOOLBARS: ToolbarDefaults = {
+  LEFT: SYM_LEFT_TOOLBAR,
+  RIGHT: SYM_RIGHT_TOOLBAR,
+  TOP_MAIN: SYM_TOP_TOOLBAR,
+};

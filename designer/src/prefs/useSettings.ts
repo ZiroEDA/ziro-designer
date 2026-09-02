@@ -25,10 +25,22 @@ export function useEeschemaSettings(): typeof settings.eeschema {
   return settings.eeschema;
 }
 
+/** `symbol_editor.json`, so the Symbol Editor re-renders when it changes. */
+export function useSymbolEditorSettings(): typeof settings.symbolEditor {
+  useSettingsVersion();
+  return settings.symbolEditor;
+}
+
 /** `pl_editor.json`, so the Drawing Sheet Editor re-renders when it changes. */
 export function usePlEditorSettings(): typeof settings.plEditor {
   useSettingsVersion();
   return settings.plEditor;
+}
+
+/** `gerbview.json`, so the Gerber Viewer re-renders when it changes. */
+export function useGerbviewSettings(): typeof settings.gerbview {
+  useSettingsVersion();
+  return settings.gerbview;
 }
 
 /** The user's hotkey overrides, so menus relabel the moment one is rebound. */

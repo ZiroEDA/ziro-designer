@@ -9,12 +9,13 @@
  * it; the dialog does not know this file exists beyond the dynamic import in
  * `dialogs/prefs/registry.ts`, and nothing here may reach into another editor.
  *
- * Six more pages belong here (Grids, Origins & Axes, Editing Options, Colors,
- * Toolbars, Plugins) and four more groups belong in Display Options. They were
- * blocked on this split; they are not part of it.
+ * Origins & Axes, Editing Options and Colors still belong here; Plugins does
+ * not, and is declared in `OMITTED_PAGES` — `PANEL_PCBNEW_ACTION_PLUGINS` lists
+ * Python action plugins, which have no browser form.
  */
 import { PanelPcbDisplayOptions } from './PanelPcbDisplayOptions.js';
-import { resetPcbDisplayOptions, resetPcbToolbars } from './resets.js';
+import { PanelPcbGrids } from './PanelPcbGrids.js';
+import { resetPcbDisplayOptions, resetPcbGrids, resetPcbToolbars } from './resets.js';
 import { PanelPcbToolbars } from './PanelPcbToolbars.js';
 import type {
   PrefsPageId,
@@ -28,6 +29,12 @@ export const createPrefsPanel: PrefsPanelFactory = (id: PrefsPageId): PrefsPanel
       return {
         Panel: PanelPcbDisplayOptions,
         reset: resetPcbDisplayOptions,
+      };
+
+    case 'pcb-grids':
+      return {
+        Panel: PanelPcbGrids,
+        reset: resetPcbGrids,
       };
 
     case 'pcb-toolbars':

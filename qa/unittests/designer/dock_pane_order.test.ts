@@ -127,7 +127,11 @@ describe('a vertical toolbar touches the canvas; a palette docks outside it', ()
   });
 
   it('symbol editor: LibraryTree L3 outside LeftToolbar L2', () => {
-    before(SYM, 'className="ze-leftdock"', 'entries={SYM_LEFT_TOOLBAR}', 'symbol left');
+    // `symLeftBar`, not `SYM_LEFT_TOOLBAR`: the frame draws
+    // `GetToolbarConfig( LEFT, m_CustomToolbars )` now, as
+    // `EDA_BASE_FRAME::RecreateToolbars` does, so that Preferences > Symbol
+    // Editor > Toolbars can reach it. The pane order this asserts is unchanged.
+    before(SYM, 'className="ze-leftdock"', 'entries={symLeftBar}', 'symbol left');
   });
 
   it('eeschema: the Properties / Hierarchy column L3 outside LeftToolbar L2', () => {

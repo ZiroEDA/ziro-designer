@@ -71,6 +71,16 @@ const FRAMES: {
     bars: 4,
     banned: ['PCB_TOP_TOOLBAR', 'PCB_AUX_TOOLBAR', 'PCB_LEFT_TOOLBAR', 'PCB_RIGHT_TOOLBAR'],
   },
+  {
+    // Three bars: `GERBVIEW_TOOLBAR_SETTINGS::DefaultToolbarConfig` answers
+    // `TOOLBAR_LOC::RIGHT` with `return std::nullopt`
+    // (`gerbview/toolbars_gerber.cpp:46-48`) and has a TOP_AUX, which is the
+    // opposite way round from eeschema's and pl_editor's.
+    app: 'gerbview',
+    file: 'editors/gerbview/GerberViewer.tsx',
+    bars: 3,
+    banned: ['GBR_TOP_TOOLBAR', 'GBR_TOP_AUX_TOOLBAR', 'GBR_LEFT_TOOLBAR'],
+  },
 ];
 
 describe('every editor with a Toolbars page builds every bar through the hook', () => {

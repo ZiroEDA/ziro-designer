@@ -51,12 +51,8 @@ import { MenuBar, type Menu } from '../../ui/MenuBar.js';
 import { formatTitle, useDocumentTitle } from '../../ui/useDocumentTitle.js';
 import { Toolbar } from '../../ui/Toolbar.js';
 import { ensureTextCtrlWidth, measureTextWidth } from '../../ui/text_ctrl_width.js';
-import {
-  GBR_CONTROL,
-  GBR_TOP_TOOLBAR,
-  GBR_TOP_AUX_TOOLBAR,
-  GBR_LEFT_TOOLBAR,
-} from './gerberToolbars.js';
+import { GBR_CONTROL, GBR_DEFAULT_TOOLBARS } from './gerberToolbars.js';
+import { useToolbarEntries } from '../../ui/useToolbarEntries.js';
 import { Combo, type ComboOption } from '../../ui/Combo.js';
 import {
   apertureAttributeChoices,
@@ -126,10 +122,18 @@ import { AboutDialog } from '../../home/dialogs/dialog_about.js';
 import { ABOUT_TITLES } from '../../ui/about_titles.js';
 import { PreferencesDialog } from '../../dialogs/PreferencesDialog.js';
 import { settings } from '../../prefs/settings.js';
-import { useCommonSettings } from '../../prefs/useSettings.js';
+import { useCommonSettings, useGerbviewSettings } from '../../prefs/useSettings.js';
 import './gerbview.css';
 import '../../ui/shell.css';
-import { applyToggle, CROSSHAIR_GROUP, DEFAULT_TOGGLES, UNIT_GROUP } from './toggles.js';
+import {
+  applyToggle,
+  applyTogglesToSettings,
+  CROSSHAIR_GROUP,
+  DEFAULT_TOGGLES,
+  sameToggles,
+  togglesFromSettings,
+  UNIT_GROUP,
+} from './toggles.js';
 import { OpenFileDialog } from '../../fs/OpenFileDialog.js';
 
 /**
@@ -213,7 +217,47 @@ export function GerberViewer({
     setTitleAndInfoRun(true);
     setActiveLayerState(next);
   }, []);
-  const [toggles, setToggles] = useState<Set<string>>(new Set(DEFAULT_TOGGLES));
+  /**
+   * `gerbview.json`, which is where every one of these toggles actually lives:
+   * upstream a toolbar button flips a member of `gvconfig()` and the button's
+   * checked state is read back off that member, so the settings object is the
+   * switch and the toolbar is a view of it (`gerbview_frame.cpp:1126-1150`).
+   * Preferences > Gerber Viewer > Display Options is a second view of the same
+   * fields, which is what lets the two agree.
+   */
+  const gbrCfg = useGerbviewSettings();
+  const [toggles, setToggles] = useState<Set<string>>(() =>
+    togglesFromSettings(settings.gerbview, DEFAULT_TOGGLES),
+  );
+
+  /**
+   * Settings -> toolbar. `CommonSettingsChanged` is what re-reads `cfg` into
+   * the frame after Preferences commits (`gerbview_frame.cpp:1063-1090`); this
+   * is that, through the settings manager's version counter.
+   *
+   * Returning `prev` unchanged when the set is the same keeps this from
+   * fighting the effect below: a toggle pressed on the toolbar writes the
+   * store, the store wakes this, and this must then decide that nothing moved.
+   */
+  useEffect(() => {
+    setToggles((prev) => {
+      const next = togglesFromSettings(gbrCfg, prev);
+      return sameToggles(prev, next) ? prev : next;
+    });
+  }, [gbrCfg]);
+
+  /**
+   * Toolbar -> settings. The probe on a clone is what stops a freshly opened
+   * viewer committing `gerbview.json`, and waking the account sync, for a set
+   * that came out of that very file on the line above.
+   */
+  useEffect(() => {
+    const probe = structuredClone(settings.gerbview);
+    if (!applyTogglesToSettings(probe, toggles)) return;
+    settings.updateGerbview((s) => {
+      applyTogglesToSettings(s, toggles);
+    });
+  }, [toggles]);
   // Layers Manager pane width, and the live upper bound for its sash. wxAUI
   // stops a sash where the centre pane reaches its own minimum, so the cap is
   // read off the frame each time rather than being a literal.
@@ -735,13 +779,19 @@ export function GerberViewer({
       // gerbview_settings.cpp:45-46 and :58. A fresh GerbView shows neither.
       drawingSheet: showDrawingSheet,
       pageLimits: toggles.has('showPageLimits'),
+      // `GERBVIEW_RENDER_SETTINGS::LoadColors` forces every gerber layer's
+      // alpha to `m_OpacityModeAlphaValue` while forced-opacity mode is on and
+      // leaves it alone otherwise (`gerbview_painter.cpp:63-66`). The 1 is the
+      // COLOR4D alpha every row of `s_defaultTheme` already carries, not a
+      // number chosen here.
+      layerOpacity: toggles.has('forceOpacityMode') ? gbrCfg.appearance.mode_opacity_value : 1,
       // No highlight COLOUR is passed: upstream has none to pass. A highlighted
       // item takes m_layerColorsHi[aLayer], its own layer's colour brightened
       // by 0.5 (`gerbview_painter.cpp:70`), so the renderer derives it per
       // layer. We used to hand it a flat white for every layer at once.
       ...(highlightTest ? { highlightTest } : {}),
     }),
-    [toggles, activeLayer, highlightTest, showDrawingSheet],
+    [toggles, activeLayer, highlightTest, showDrawingSheet, gbrCfg.appearance.mode_opacity_value],
   );
 
   /**
@@ -802,13 +852,33 @@ export function GerberViewer({
     if (showDrawingSheet) {
       // IU_PER_MM is the parser's scale, which is what every other bbox on
       // this canvas is in — see the note on GERB_IU in gerberRender.ts.
-      const [wMM, hMM] = PAPER_MM.GERBER!;
+      // `m_drawingSheet->ViewBBox()` is the page the frame is SET to, which
+      // `pageInfo.SetType( cfg->m_Appearance.page_type )` decides
+      // (`gerbview_frame.cpp:334`) — not a fixed GERBER square. The fallback is
+      // that default, for a stored value naming no page in the table.
+      const [wMM, hMM] = PAPER_MM[gbrCfg.appearance.page_type] ?? PAPER_MM.GERBER!;
       return { minX: 0, minY: 0, maxX: wMM * IU_PER_MM, maxY: hMM * IU_PER_MM };
     }
     return { minX: 0, minY: 0, maxX: 0, maxY: 0 };
-  }, [layers, showDrawingSheet]);
+  }, [layers, showDrawingSheet, gbrCfg.appearance.page_type]);
 
   // ---- toolbars ----------------------------------------------------------
+  /**
+   * `EDA_BASE_FRAME::RecreateToolbars`, which is the only place a frame's
+   * toolbars are filled and never reads `DefaultToolbarConfig` itself:
+   *
+   *     tbConfig = m_toolbarSettings->GetToolbarConfig( TOOLBAR_LOC::LEFT,
+   *                                                     config()->m_CustomToolbars );
+   *
+   * That indirection is the whole reason Preferences > Gerber Viewer >
+   * Toolbars does anything — this used to hand `<Toolbar>` the module constants
+   * straight, so the page could have edited the store all day and the frame
+   * would have gone on drawing the stock bars.
+   */
+  const gbrTopBar = useToolbarEntries('gerbview', 'TOP_MAIN', GBR_DEFAULT_TOOLBARS);
+  const gbrAuxBar = useToolbarEntries('gerbview', 'TOP_AUX', GBR_DEFAULT_TOOLBARS);
+  const gbrLeftBar = useToolbarEntries('gerbview', 'LEFT', GBR_DEFAULT_TOOLBARS);
+
   const onLeftToggle = useCallback((id: string) => {
     setToggles((prev) => applyToggle(prev, id));
   }, []);
@@ -1551,7 +1621,7 @@ export function GerberViewer({
       {/* TOP_MAIN, ending in the layer selector and the read-only text-info
           box (`toolbars_gerber.cpp:99-103`). */}
       <Toolbar
-        entries={GBR_TOP_TOOLBAR}
+        entries={gbrTopBar}
         orientation="horizontal"
         onActivate={onTopAction}
         controls={topControls}
@@ -1560,14 +1630,14 @@ export function GerberViewer({
       {/* TOP_AUX (`toolbars_gerber.cpp:107-115`): the four highlight choices
           parted by 5 px spacers, then the grid and zoom selectors behind
           separators. */}
-      <Toolbar entries={GBR_TOP_AUX_TOOLBAR} orientation="horizontal" controls={auxControls} />
+      <Toolbar entries={gbrAuxBar} orientation="horizontal" controls={auxControls} />
 
       <div className="ze-body" ref={bodyRef}>
         {/* The LEFT bar now heads with selectionTool and measureTool
             (`toolbars_gerber.cpp:51-52`), so it needs the active tool as well
             as the toggle set: those two are a radio pair, the rest are checks. */}
         <Toolbar
-          entries={GBR_LEFT_TOOLBAR}
+          entries={gbrLeftBar}
           orientation="vertical"
           side="left"
           activeTool={activeTool}

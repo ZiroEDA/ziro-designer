@@ -41,6 +41,12 @@ import {
 } from '@ziroeda/designer/src/editors/schematic/toggles.js';
 import { DEFAULT_TOGGLES as GBR_TOGGLES } from '@ziroeda/designer/src/editors/gerbview/toggles.js';
 import { DEFAULT_TOGGLES as DS_TOGGLES } from '@ziroeda/designer/src/editors/drawingsheet/toggles.js';
+import {
+  persistSymbolToggle,
+  SYMBOL_SETTING_TOGGLES,
+  symbolTogglesFromSettings,
+} from '@ziroeda/designer/src/editors/symbol/toggles.js';
+import { SYMBOL_EDITOR_DEFAULTS } from '@ziroeda/designer/src/prefs/settings.js';
 
 const sorted = (s: Iterable<string>): string[] => [...s].sort();
 
@@ -260,8 +266,6 @@ describe.each([
   ['editors/schematic/SchematicEditor.tsx'],
   ['editors/pcb/PcbEditor.tsx'],
   ['editors/footprint/FootprintEditor.tsx'],
-  ['editors/gerbview/GerberViewer.tsx'],
-  ['editors/symbol/SymbolEditor.tsx'],
 ])('%s seeds its toolbar from its toggles module', (rel) => {
   it('takes DEFAULT_TOGGLES from ./toggles.js', () => {
     expect(src(rel)).toMatch(/import \{[^}]*\bDEFAULT_TOGGLES\b[^}]*\} from '\.\/toggles\.js'/);
@@ -274,5 +278,129 @@ describe.each([
     // line above while restating the table. That is exactly how the schematic's
     // wrong unit shipped, so the declaration must not exist here at all.
     expect(s).not.toMatch(/const DEFAULT_TOGGLES\s*(:|=)/);
+  });
+});
+
+/**
+ * The Symbol Editor is the drawing sheet's shape, not the list above's: two of
+ * its toolbar buttons are SETTINGS rather than session state, so the frame
+ * cannot seed itself from a constant set.
+ *
+ * `ACTIONS::toggleGrid` writes `m_Window.grid.show` through
+ * `EDA_DRAW_FRAME::SetGridVisibility` (`eda_draw_frame.cpp:585-598`) and
+ * `ACTIONS::toggleGridOverrides` writes `m_Window.grid.overrides_enabled`, so
+ * both survive a restart and both must come up showing
+ * `symbol_editor.json`. `symbolTogglesFromSettings` is `DEFAULT_TOGGLES` with
+ * those two folded in, which is why the "no local literal" rule above is still
+ * satisfied one level down: the table itself is still `./toggles.js`'.
+ *
+ * Same source-text honesty as the block above — it pins spelling, not
+ * behaviour, and `drawing_sheet_palette.test.ts` guards `pl_editor` this way
+ * for the same reason.
+ */
+describe('editors/symbol/SymbolEditor.tsx seeds its toolbar from the settings file', () => {
+  const SYM = 'editors/symbol/SymbolEditor.tsx';
+
+  it('seeds from symbolTogglesFromSettings, not from a constant set', () => {
+    const s = src(SYM);
+    expect(s).toContain('symbolTogglesFromSettings(settings.symbolEditor)');
+    // The bug this replaces: a `new Set(DEFAULT_TOGGLES)` seed cannot show a
+    // stored Show Grid or Grid Overrides at all.
+    expect(s).not.toContain('useState<Set<string>>(new Set(DEFAULT_TOGGLES))');
+    expect(s).not.toMatch(/const DEFAULT_TOGGLES\s*(:|=)/);
+  });
+
+  it('writes the two settings toggles back, and only those two', () => {
+    const s = src(SYM);
+    expect(s).toMatch(/import \{[^}]*\bpersistSymbolToggle\b[^}]*\} from '\.\/toggles\.js'/);
+    // Guarded by SYMBOL_SETTING_TOGGLES: `updateSymbolEditor` persists and
+    // wakes the account sync, so calling it for a pane toggle would push
+    // `symbol_editor.json` on every click of the left toolbar.
+    expect(s).toContain('SYMBOL_SETTING_TOGGLES.has(id)');
+  });
+
+  it('the toggles module folds exactly the two KiCad stores', () => {
+    // From the module, not the source text: a set that grew a third id would
+    // be a setting the page cannot see being flipped by a button.
+    expect([...SYMBOL_SETTING_TOGGLES].sort()).toEqual(['toggleGrid', 'toggleGridOverrides']);
+  });
+
+  it('opens with both lit, because both default true', () => {
+    // `app_settings.cpp:497-498` (`overrides_enabled`) and `:555-556`
+    // (`grid.show`) — the eeschema/symbol_editor arm and the else arm agree on
+    // both. Confirmed against the installed build's own symbol_editor.json.
+    const on = symbolTogglesFromSettings(SYMBOL_EDITOR_DEFAULTS);
+    expect(on.has('toggleGrid')).toBe(true);
+    expect(on.has('toggleGridOverrides')).toBe(true);
+  });
+
+  it('follows the file when either is off', () => {
+    const cfg = structuredClone(SYMBOL_EDITOR_DEFAULTS);
+    cfg.window.grid.show = false;
+    cfg.window.grid.overrides_enabled = false;
+    const off = symbolTogglesFromSettings(cfg);
+    expect(off.has('toggleGrid')).toBe(false);
+    expect(off.has('toggleGridOverrides')).toBe(false);
+    // and nothing else moved with them
+    expect(off.has('showLibraryTree')).toBe(true);
+  });
+
+  it('persistSymbolToggle inverts the stored value and returns whether it wrote', () => {
+    const cfg = structuredClone(SYMBOL_EDITOR_DEFAULTS);
+    expect(persistSymbolToggle(cfg, 'toggleGrid')).toBe(true);
+    expect(cfg.window.grid.show).toBe(false);
+    expect(persistSymbolToggle(cfg, 'toggleGridOverrides')).toBe(true);
+    expect(cfg.window.grid.overrides_enabled).toBe(false);
+    // A session-state button must not touch the file.
+    const before = structuredClone(cfg);
+    expect(persistSymbolToggle(cfg, 'showProperties')).toBe(false);
+    expect(cfg).toEqual(before);
+  });
+});
+
+/**
+ * `editors/gerbview/GerberViewer.tsx`, which is the same move the symbol
+ * editor's block above describes and goes further: gerbview does not fold two
+ * settings into its toggle set, it takes TWELVE plus the units and crosshair
+ * groups out of `gerbview.json`, because upstream every one of those buttons
+ * is a `gvconfig()` member and the frame's checked state is read straight back
+ * off it (`gerbview/gerbview_frame.cpp:1126-1150`).
+ *
+ * `DEFAULT_TOGGLES` survives as the seed for the three ids that have no `PARAM`
+ * behind them — the Layers manager pane, polar coordinates, the background row
+ * — so the "no local literal" rule is satisfied one level down, exactly as it
+ * is for the symbol editor.
+ *
+ * Source text again, and for the same reason the block at the top of this file
+ * is: the seeding expression cannot be executed from `qa`.
+ */
+describe('editors/gerbview/GerberViewer.tsx seeds its toolbar from the settings file', () => {
+  const GBR = 'editors/gerbview/GerberViewer.tsx';
+
+  it('seeds from togglesFromSettings, not from a constant set', () => {
+    const s = src(GBR);
+    expect(s).toContain('togglesFromSettings(settings.gerbview, DEFAULT_TOGGLES)');
+    // The bug this replaces: a `new Set(DEFAULT_TOGGLES)` seed opens the viewer
+    // with the stock toggles whatever Preferences > Gerber Viewer > Display
+    // Options was last set to, which is the page not working.
+    expect(s).not.toContain('useState<Set<string>>(new Set(DEFAULT_TOGGLES))');
+    expect(s).not.toMatch(/const DEFAULT_TOGGLES\s*(:|=)/);
+  });
+
+  it('takes DEFAULT_TOGGLES and the projection from ./toggles.js', () => {
+    const s = src(GBR);
+    expect(s).toMatch(/import \{[\s\S]*?\bDEFAULT_TOGGLES\b[\s\S]*?\} from '\.\/toggles\.js'/);
+    expect(s).toMatch(/import \{[\s\S]*?\btogglesFromSettings\b[\s\S]*?\} from '\.\/toggles\.js'/);
+    expect(s).toMatch(
+      /import \{[\s\S]*?\bapplyTogglesToSettings\b[\s\S]*?\} from '\.\/toggles\.js'/,
+    );
+  });
+
+  it('writes back through applyTogglesToSettings, guarded so a mount does not commit', () => {
+    const s = src(GBR);
+    // `updateGerbview` persists AND wakes the account sync, so an unguarded
+    // write-back would push `gerbview.json` every time the viewer is opened.
+    expect(s).toContain('if (!applyTogglesToSettings(probe, toggles)) return;');
+    expect(s).toContain('settings.updateGerbview(');
   });
 });

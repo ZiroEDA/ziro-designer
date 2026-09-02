@@ -40,3 +40,22 @@ export function resetPcbToolbars(ctx: PrefsContext): void {
     resetToolbarsPanel(s);
   });
 }
+
+/**
+ * `PANEL_GRID_SETTINGS::ResetPanel`
+ * (`common/dialogs/panel_grid_settings.cpp:110-113`) — the same two lines for
+ * every frame that constructs the panel, so this is the schematic and drawing
+ * sheet pages' slice over pcbnew's settings object.
+ */
+export function resetPcbGrids(ctx: PrefsContext): void {
+  ctx.upP((s) => {
+    resetKeys(s.window.grid, PCBNEW_DEFAULTS.window.grid, [
+      'sizes',
+      'last_size_idx',
+      'fast_grid_1',
+      'fast_grid_2',
+      'overrides_enabled',
+      'overrides',
+    ]);
+  });
+}

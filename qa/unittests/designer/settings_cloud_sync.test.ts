@@ -259,6 +259,9 @@ describe('the same workspace on another device', () => {
       s.threshold = 73;
       s.negative = true;
     });
+    a.updateSymbolEditor((s) => {
+      s.window.grid.last_size_idx = 3;
+    });
     a.updatePrivacy((s) => {
       s.crash_reports = false;
     });
@@ -270,11 +273,20 @@ describe('the same workspace on another device', () => {
     a.updateToolbars('eeschema', (s) => {
       s.toolbars = [{ name: 'TOP_MAIN', contents: [] }];
     });
+    a.updateToolbars('symbol_editor', (s) => {
+      s.toolbars = [{ name: 'LEFT', contents: [] }];
+    });
     a.updateToolbars('pcbnew', (s) => {
       s.toolbars = [{ name: 'LEFT', contents: [] }];
     });
     a.updateToolbars('pl_editor', (s) => {
       s.toolbars = [{ name: 'RIGHT', contents: [] }];
+    });
+    a.updateToolbars('gerbview', (s) => {
+      s.toolbars = [{ name: 'LEFT', contents: [] }];
+    });
+    a.updateGerbview((s) => {
+      s.appearance.page_type = 'A4';
     });
 
     const up = await syncSettings(USER, { manager: a });
@@ -298,6 +310,7 @@ describe('the same workspace on another device', () => {
     expect(b.fpEdit.window.lib_width).toBe(321);
     expect(b.pcbCalculator.track_width.current).toBe('4.5');
     expect(b.bitmap2cmp.threshold).toBe(73);
+    expect(b.symbolEditor.window.grid.last_size_idx).toBe(3);
     expect(b.bitmap2cmp.negative).toBe(true);
     expect(b.privacy.crash_reports).toBe(false);
     expect(b.userColors).toEqual({ wire: 'rgb(1, 2, 3)' });
@@ -840,8 +853,10 @@ describe('the per-slice stamps', () => {
     a.onSliceChanged = (s) => touched.add(s);
     a.updateCommon(() => undefined);
     a.updateEeschema(() => undefined);
+    a.updateSymbolEditor(() => undefined);
     a.updatePcbnew(() => undefined);
     a.updatePlEditor(() => undefined);
+    a.updateGerbview(() => undefined);
     a.updateFpEdit(() => undefined);
     a.updatePcbCalculator(() => undefined);
     a.updateBitmap2Cmp(() => undefined);
@@ -857,8 +872,10 @@ describe('the per-slice stamps', () => {
     // Without these the list below would name three slices the manager never
     // writes — present for the reconcile, never actually synced.
     a.updateToolbars('eeschema', () => undefined);
+    a.updateToolbars('symbol_editor', () => undefined);
     a.updateToolbars('pcbnew', () => undefined);
     a.updateToolbars('pl_editor', () => undefined);
+    a.updateToolbars('gerbview', () => undefined);
 
     // Written out rather than compared against `SETTINGS_SLICES`. Comparing the
     // list to itself is an expectation computed by calling the code under test:
@@ -879,6 +896,12 @@ describe('the per-slice stamps', () => {
       'eeschema',
       'eeschema-toolbars',
       'fpedit',
+      // `gerbview.json` and `gerbview-toolbars.json`, the Gerber Viewer's own
+      // two files — `GetAppSettings<GERBVIEW_SETTINGS>( "gerbview" )` and
+      // `GetToolbarSettings<GERBVIEW_TOOLBAR_SETTINGS>( "gerbview-toolbars" )`
+      // (`gerbview/gerbview.cpp:83`, `:99`).
+      'gerbview',
+      'gerbview-toolbars',
       'hotkeys',
       'pcb_calculator',
       'pcbnew',
@@ -886,6 +909,12 @@ describe('the per-slice stamps', () => {
       'pl_editor',
       'pl_editor-toolbars',
       'privacy',
+      // `symbol_editor.json` and `symbol_editor-toolbars.json`, the Symbol
+      // Editor's own two files — `GetAppSettings<SYMBOL_EDITOR_SETTINGS>(
+      // "symbol_editor" )` and `GetToolbarSettings<SYMBOL_EDIT_TOOLBAR_SETTINGS>(
+      // "symbol_editor-toolbars" )` (`eeschema/eeschema.cpp:252`, `:289`).
+      'symbol_editor',
+      'symbol_editor-toolbars',
     ];
     expect([...touched].sort()).toEqual(expected);
     // And the list the sync iterates is the same set, so nothing the manager

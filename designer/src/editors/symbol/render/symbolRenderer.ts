@@ -69,6 +69,16 @@ export interface SymbolViewOptions {
   showGrid?: boolean;
   /** GAL_DISPLAY_OPTIONS m_gridStyle. */
   gridStyle?: GridStyle;
+  /**
+   * `GAL::GetGridSize()`, in IU — `gridCfg.grids[ last_size_idx ]` for this
+   * frame. Unset falls back to {@link GRID}, the 50 mil this renderer used to
+   * hardcode; `editors/symbol/grid.ts` says why it is a value now.
+   */
+  gridSizeIU?: number;
+  /** GAL_DISPLAY_OPTIONS m_gridLineWidth (`window.grid.line_width`), in px. */
+  gridLineWidthPx?: number;
+  /** GAL_DISPLAY_OPTIONS m_gridMinSpacing (`window.grid.min_spacing`), in px. */
+  gridMinSpacingPx?: number;
   /** GAL::GetScaleFactor. */
   devicePixelRatio?: number;
 }
@@ -796,9 +806,11 @@ export function renderSymbolScene(
   // no toggle could reach, so `toggleGrid` sat pressed and did nothing.
   drawGrid(ctx, viewFromOffsets(viewport), canvasWidth, canvasHeight, {
     show: opts.showGrid !== false,
-    sizeIU: GRID,
+    sizeIU: opts.gridSizeIU ?? GRID,
     color: theme.grid,
     style: opts.gridStyle,
+    lineWidthPx: opts.gridLineWidthPx,
+    minSpacingPx: opts.gridMinSpacingPx,
     devicePixelRatio: opts.devicePixelRatio,
     // `SetAxesEnabled( true )` (symbol_edit_frame.cpp:265) in the colour
     // `SetAxesColor( GetColor( LAYER_SCHEMATIC_GRID_AXES ) )` gives it

@@ -42,14 +42,18 @@ import { join } from 'node:path';
 import {
   COMMON_DEFAULTS,
   EESCHEMA_DEFAULTS,
+  GERBVIEW_DEFAULTS,
   PCBNEW_DEFAULTS,
   PL_EDITOR_DEFAULTS,
   PRIVACY_DEFAULTS,
+  SYMBOL_EDITOR_DEFAULTS,
   type CommonSettings,
   type EeschemaSettings,
+  type GerbviewSettings,
   type PcbnewSettings,
   type PlEditorSettings,
   type PrivacySettings,
+  type SymbolEditorSettings,
 } from '@ziroeda/designer/src/prefs/settings.js';
 import type { PrefsContext, PrefsPageId } from '@ziroeda/designer/src/dialogs/prefs/types.js';
 import { TOOLBAR_APPS, type ToolbarApp } from '@ziroeda/designer/src/prefs/settings.js';
@@ -72,6 +76,14 @@ import {
   resetPcbDisplayOptions,
   resetPcbToolbars,
 } from '@ziroeda/designer/src/editors/pcb/prefs/resets.js';
+import {
+  resetSymbolEditorGrids,
+  resetSymbolEditorToolbars,
+} from '@ziroeda/designer/src/editors/symbol/prefs/resets.js';
+import {
+  resetGerbviewDisplayOptions,
+  resetGerbviewToolbars,
+} from '@ziroeda/designer/src/editors/gerbview/prefs/resets.js';
 import {
   resetPlEditorColorSettings,
   resetPlEditorDisplayOptions,
@@ -232,6 +244,18 @@ const SLICES: Partial<Record<PrefsPageId, readonly string[]>> = {
   // merely edits (`panel_toolbar_customization.cpp:243-267`).
   'sch-toolbars': ['toolbars.eeschema'],
   'pcb-toolbars': ['toolbars.pcbnew'],
+  // PanelSymbolEditorGrids.tsx — the same shared PANEL_GRID_SETTINGS, over
+  // `symbol_editor.json`. `PANEL_GRID_SETTINGS::ResetPanel` is the same two
+  // lines whatever frame constructed it.
+  'sym-grids': [
+    'symbolEditor.window.grid.sizes',
+    'symbolEditor.window.grid.last_size_idx',
+    'symbolEditor.window.grid.fast_grid_1',
+    'symbolEditor.window.grid.fast_grid_2',
+    'symbolEditor.window.grid.overrides_enabled',
+    'symbolEditor.window.grid.overrides',
+  ],
+  'sym-toolbars': ['toolbars.symbol_editor'],
   // PanelPlEditorDisplayOptions.tsx — the embedded PANEL_GAL_OPTIONS and
   // nothing else: that panel IS the whole page
   // (`panel_pl_editor_display_options.cpp:33-46`).
@@ -257,6 +281,29 @@ const SLICES: Partial<Record<PrefsPageId, readonly string[]>> = {
   // so unlike eeschema's Colors page it does NOT own `userColors`.
   'ds-colors': ['plEditor.appearance.color_theme'],
   'ds-toolbars': ['toolbars.pl_editor'],
+  // PanelGerbviewDisplayOptions.tsx. `ResetPanel` is `loadSettings( &cfg )`
+  // plus `m_galOptsPanel->ResetPanel( &cfg )`
+  // (`panel_gerbview_display_options.cpp:110-118`), so the slice is this
+  // page's own three groups plus the embedded PANEL_GAL_OPTIONS'. Pointedly
+  // NOT `appearance.show_border_and_titleblock` or
+  // `appearance.show_negative_objects`: `loadSettings` never reads them back,
+  // because they are the layers manager's rows and not controls on this page.
+  'gbr-display': [
+    'gerbview.appearance.show_dcodes',
+    'gerbview.appearance.show_page_limit',
+    'gerbview.appearance.mode_opacity_value',
+    'gerbview.appearance.page_type',
+    'gerbview.display.flashed_items_fill',
+    'gerbview.display.lines_fill',
+    'gerbview.display.polygons_fill',
+    'gerbview.window.grid.style',
+    'gerbview.window.grid.line_width',
+    'gerbview.window.grid.min_spacing',
+    'gerbview.window.grid.snap',
+    'gerbview.window.cursor.crosshair',
+    'gerbview.window.cursor.always_show_cursor',
+  ],
+  'gbr-toolbars': ['toolbars.gerbview'],
 };
 
 /** Every page's `RESETTABLE_PANEL::ResetPanel`, by id. */
@@ -264,6 +311,8 @@ const RESETS: Partial<Record<PrefsPageId, (ctx: PrefsContext) => void>> = {
   common: resetCommonPanel,
   mouse: resetMousePanel,
   hotkeys: (ctx) => ctx.setHotkeys({}),
+  'sym-grids': resetSymbolEditorGrids,
+  'sym-toolbars': resetSymbolEditorToolbars,
   'sch-display': resetEeschemaDisplayOptions,
   'sch-grids': resetEeschemaGrids,
   'sch-editing': resetEeschemaEditingOptions,
@@ -275,6 +324,8 @@ const RESETS: Partial<Record<PrefsPageId, (ctx: PrefsContext) => void>> = {
   'ds-grids': resetPlEditorGrids,
   'ds-colors': resetPlEditorColorSettings,
   'ds-toolbars': resetPlEditorToolbars,
+  'gbr-display': resetGerbviewDisplayOptions,
+  'gbr-toolbars': resetGerbviewToolbars,
 };
 
 /**
@@ -289,7 +340,9 @@ const NOT_RESETTABLE: PrefsPageId[] = ['sch-fields'];
 interface Bag {
   common: CommonSettings;
   eeschema: EeschemaSettings;
+  symbolEditor: SymbolEditorSettings;
   pcbnew: PcbnewSettings;
+  gerbview: GerbviewSettings;
   plEditor: PlEditorSettings;
   privacy: PrivacySettings;
   userColors: Record<string, string>;
@@ -300,15 +353,19 @@ interface Bag {
 const freshBag = (): Bag => ({
   common: structuredClone(COMMON_DEFAULTS),
   eeschema: structuredClone(EESCHEMA_DEFAULTS),
+  symbolEditor: structuredClone(SYMBOL_EDITOR_DEFAULTS),
   pcbnew: structuredClone(PCBNEW_DEFAULTS),
+  gerbview: structuredClone(GERBVIEW_DEFAULTS),
   plEditor: structuredClone(PL_EDITOR_DEFAULTS),
   privacy: structuredClone(PRIVACY_DEFAULTS),
   userColors: {},
   hotkeys: {},
   toolbars: {
     eeschema: structuredClone(TOOLBAR_SETTINGS_DEFAULTS),
+    symbol_editor: structuredClone(TOOLBAR_SETTINGS_DEFAULTS),
     pcbnew: structuredClone(TOOLBAR_SETTINGS_DEFAULTS),
     pl_editor: structuredClone(TOOLBAR_SETTINGS_DEFAULTS),
+    gerbview: structuredClone(TOOLBAR_SETTINGS_DEFAULTS),
   },
 });
 
@@ -323,7 +380,9 @@ function makeCtx(bag: Bag): PrefsContext {
       bag[key] = typeof v === 'function' ? (v as (p: Bag[K]) => Bag[K])(bag[key]) : v;
     };
   const updater =
-    <K extends 'common' | 'eeschema' | 'pcbnew' | 'plEditor'>(key: K) =>
+    <K extends 'common' | 'eeschema' | 'symbolEditor' | 'pcbnew' | 'gerbview' | 'plEditor'>(
+      key: K,
+    ) =>
     (fn: (s: Bag[K]) => void): void => {
       const next = structuredClone(bag[key]);
       fn(next);
@@ -338,6 +397,9 @@ function makeCtx(bag: Bag): PrefsContext {
     },
     get pcbnew() {
       return bag.pcbnew;
+    },
+    get gerbview() {
+      return bag.gerbview;
     },
     get plEditor() {
       return bag.plEditor;
@@ -361,11 +423,15 @@ function makeCtx(bag: Bag): PrefsContext {
     },
     upC: updater('common'),
     upE: updater('eeschema'),
+    upSym: updater('symbolEditor'),
     upP: updater('pcbnew'),
+    upGbr: updater('gerbview'),
     upPl: updater('plEditor'),
     setCommon: setter('common'),
     setEeschema: setter('eeschema'),
+    setSymbolEditor: setter('symbolEditor'),
     setPcbnew: setter('pcbnew'),
+    setGerbview: setter('gerbview'),
     setPlEditor: setter('plEditor'),
     setPrivacy: setter('privacy'),
     setUserColors: setter('userColors'),
@@ -395,7 +461,15 @@ function leaves(
 
 const bagLeaves = (bag: Bag): Map<string, Json> => {
   const out = new Map<string, Json>();
-  for (const key of ['common', 'eeschema', 'pcbnew', 'plEditor', 'privacy'] as const)
+  for (const key of [
+    'common',
+    'eeschema',
+    'symbolEditor',
+    'pcbnew',
+    'gerbview',
+    'plEditor',
+    'privacy',
+  ] as const)
     leaves(bag[key], key, out);
   // Records with no fixed shape: compared whole.
   out.set('userColors', bag.userColors);
@@ -424,7 +498,9 @@ function dirty(value: Json): Json {
 function dirtyEverything(bag: Bag): void {
   bag.common = dirty(bag.common) as CommonSettings;
   bag.eeschema = dirty(bag.eeschema) as EeschemaSettings;
+  bag.symbolEditor = dirty(bag.symbolEditor) as SymbolEditorSettings;
   bag.pcbnew = dirty(bag.pcbnew) as PcbnewSettings;
+  bag.gerbview = dirty(bag.gerbview) as GerbviewSettings;
   bag.plEditor = dirty(bag.plEditor) as PlEditorSettings;
   bag.privacy = dirty(bag.privacy) as PrivacySettings;
   bag.userColors = { wire: '#ff0000' };
@@ -631,6 +707,7 @@ describe('every resettable page is wired to its own reset', () => {
     ],
     ['editors/schematic/prefs/index.ts', ['sch-display', 'sch-grids', 'sch-editing', 'sch-colors']],
     ['editors/pcb/prefs/index.ts', ['pcb-display']],
+    ['editors/symbol/prefs/index.ts', ['sym-grids', 'sym-toolbars']],
   ] as [string, string[]][])('%s', (rel, ids) => {
     const src = read(rel);
     for (const id of ids) {

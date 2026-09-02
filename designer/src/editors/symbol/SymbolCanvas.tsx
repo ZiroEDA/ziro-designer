@@ -194,7 +194,7 @@ export const SymbolCanvas = forwardRef<SymbolCanvasController, Props>(function S
    * could store a grid and a set of overrides that nothing snapped to.
    */
   const symCfg = useSymbolEditorSettings();
-  const gridIU = symbolGridForTool(symCfg, undefined);
+  const gridIU = symbolGridForTool(symCfg, activeTool);
   const snap = useCallback(
     (p: Vec2): Vec2 => ({
       x: Math.round(p.x / gridIU) * gridIU,

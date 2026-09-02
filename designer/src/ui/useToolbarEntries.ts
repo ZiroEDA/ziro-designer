@@ -37,10 +37,14 @@ export function customToolbarsEnabled(app: ToolbarApp): boolean {
   switch (app) {
     case 'eeschema':
       return settings.eeschema.appearance.custom_toolbars;
+    case 'symbol_editor':
+      return settings.symbolEditor.appearance.custom_toolbars;
     case 'pcbnew':
       return settings.pcbnew.appearance.custom_toolbars;
     case 'pl_editor':
       return settings.plEditor.appearance.custom_toolbars;
+    case 'gerbview':
+      return settings.gerbview.appearance.custom_toolbars;
   }
 }
 

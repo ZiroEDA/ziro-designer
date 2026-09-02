@@ -8558,6 +8558,22 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   /* [data] 5 + the 16 px spacer + 5. */
   margin-right: 26px;
 }
+/* `PANEL_GERBVIEW_DISPLAY_OPTIONS`' two columns, which are spaced by three
+   Add() borders rather than the usual two:
+
+     m_galOptionsSizer->Add( m_galOptsPanel, 0, wxEXPAND|wxRIGHT, 15 );
+       (panel_gerbview_display_options.cpp:35)
+     m_UpperSizer->Add( m_galOptionsSizer, 0, wxEXPAND|wxRIGHT, 20 );
+     m_UpperSizer->Add( bRightSizer, 0, wxEXPAND|wxLEFT, 5 );
+       (panel_gerbview_display_options_base.cpp:23, :139)
+
+   eeschema's page reaches the shared 35 by 5 + a 20 px spacer + 10
+   (panel_eeschema_display_options_base.cpp:76-79, :242), so this really is a
+   different number and not a restatement of that one. */
+.ze-pref-columns.ze-gutter-40 > div:first-child {
+  /* [data] 15 + 20 + 5. */
+  margin-right: 40px;
+}
 /* `bSizerLeftCol` (`panel_grid_settings_base.cpp:23-56`): the heading, the list
    at PROPORTION 1, and the button row under it. The list is the thing that
    grows — `Add( m_currentGridCtrl, 1, wxEXPAND|wxBOTTOM|wxLEFT, 3 )` — so the
@@ -8770,6 +8786,17 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   display: flex;
   flex-direction: column;
   gap: 3px;
+}
+/* The same stack where the sizer is a plain `wxBoxSizer( wxVERTICAL )` and the
+   space between buttons is each Add()'s OWN border rather than the sizer's
+   vgap: Page Size on Preferences > Gerber Viewer > Display Options adds its
+   seven radios `wxTOP|wxRIGHT|wxLEFT, 5`
+   (`panel_gerbview_display_options_base.cpp:109-133`). Five, not the crosshair
+   group's three, and a uniform gap is precisely the thing that would flatten
+   the difference. */
+.ze-pref-radios.ze-gap-5 {
+  /* [data] the 5 of `wxTOP|wxRIGHT|wxLEFT, 5`. */
+  gap: 5px;
 }
 .ze-pref-row {
   display: flex;

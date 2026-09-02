@@ -24,7 +24,7 @@
  * left edge. `.ze-search.num`'s right-aligned digits belong to a grid cell,
  * not to this.
  */
-import type { JSX } from 'react';
+import { useState, type JSX } from 'react';
 
 export interface SpinCtrlProps {
   value: number;
@@ -34,6 +34,22 @@ export interface SpinCtrlProps {
   max?: number;
   /** `SetIncrement` — how far one button press moves the value. */
   step?: number;
+  /**
+   * `wxSpinCtrlDouble::SetDigits` — how many decimal places the entry SHOWS.
+   *
+   * Upstream a fractional spin control is a different class from an integer
+   * one, and the difference a user sees is this call:
+   * `m_spOpacityCtrl->SetDigits( 2 )` on Preferences > Gerber Viewer > Display
+   * Options draws `0.60`, not `0.6`
+   * (`gerbview/dialogs/panel_gerbview_display_options_base.cpp:87`). It is a
+   * property of the widget rather than of the value, so it is here and not at
+   * the call site — and it is also what stops 0.1 steps accumulating binary
+   * error into `0.7000000000000001` in the field.
+   *
+   * Absent, the value is printed as-is, which is `wxSpinCtrl`'s integer
+   * behaviour and what every existing caller wants.
+   */
+  digits?: number;
   /** The entry's width. The buttons are the theme's and are never sized here. */
   width?: number;
   /** `wxWindow::Enable( false )` — greyed and unreachable, but still drawn. */
@@ -48,6 +64,7 @@ export function SpinCtrl({
   min,
   max,
   step = 1,
+  digits,
   width,
   disabled,
   id,
@@ -57,8 +74,23 @@ export function SpinCtrl({
   const clamp = (v: number): number => {
     if (min !== undefined && v < min) return min;
     if (max !== undefined && v > max) return max;
-    return v;
+    const r = digits === undefined ? v : Number(v.toFixed(digits));
+    return r;
   };
+
+  /**
+   * What the entry shows.
+   *
+   * With `digits` set the field is formatted, and a formatted field cannot be
+   * driven straight off `value` while someone is typing into it: `0.` is
+   * `Number` 0, which clamps to the minimum and rewrites the field under the
+   * caret before the user can reach the `5`. wx has the same split — a
+   * `wxSpinCtrlDouble` validates and reformats on commit, not per keystroke —
+   * so the keystrokes are held here until focus leaves. Gated on `digits`
+   * precisely so every existing integer caller is unchanged.
+   */
+  const [draft, setDraft] = useState<string | null>(null);
+  const shown = digits === undefined ? String(value) : (draft ?? value.toFixed(digits));
 
   return (
     <div className="ze-spinctrl">
@@ -68,13 +100,15 @@ export function SpinCtrl({
         className="ze-search"
         type="text"
         inputMode="numeric"
-        value={value}
+        value={shown}
         disabled={disabled}
         style={width === undefined ? undefined : { width }}
         onChange={(e) => {
+          if (digits !== undefined) setDraft(e.target.value);
           const v = Number(e.target.value);
-          if (Number.isFinite(v)) onChange(clamp(v));
+          if (Number.isFinite(v) && e.target.value.trim() !== '') onChange(clamp(v));
         }}
+        onBlur={() => setDraft(null)}
         onKeyDown={(e) => {
           // GTK steps the value on the arrow keys; the entry is text, so this
           // is the only thing that gives it back.

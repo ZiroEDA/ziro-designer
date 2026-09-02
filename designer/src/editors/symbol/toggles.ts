@@ -13,6 +13,7 @@
 
 import type { LibSymbol } from '@ziroeda/eeschema/src/types.js';
 import { defaultUnitsToggle } from '../../ui/app_settings_units.js';
+import type { SymbolEditorSettings } from '../../prefs/settings.js';
 import { unitCount, unitsLocked } from './edits.js';
 
 /**
@@ -97,3 +98,66 @@ export function applyToggle(prev: ReadonlySet<string>, id: string): Set<string> 
   else next.add(id);
   return next;
 }
+
+/**
+ * The two toolbar toggles that are **settings**, not session state, folded into
+ * {@link DEFAULT_TOGGLES}.
+ *
+ * `ACTIONS::toggleGrid` and `ACTIONS::toggleGridOverrides` both go through the
+ * settings object upstream — `EDA_DRAW_FRAME::SetGridVisibility` writes
+ * `m_Window.grid.show` (`eda_draw_frame.cpp:585-598`) and
+ * `COMMON_TOOLS::ToggleGridOverrides` flips
+ * `m_Window.grid.overrides_enabled` — which is why both survive a restart and
+ * why the frame must boot from the file rather than from a constant set.
+ *
+ * It matters for more than persistence here: `overrides_enabled` is what
+ * `grid.ts`' `symbolGridForTool` tests, so a button that only flipped a React
+ * set would leave the four Grid Overrides rows on the Preferences page
+ * unreachable. `SYMBOL_EDITOR_DEFAULTS` has both true, which is
+ * `app_settings.cpp:497-498` and `:555-556`, so a cold frame shows both lit —
+ * ours showed Grid Overrides unlit, the same defect the schematic's default
+ * had.
+ */
+export function symbolTogglesFromSettings(cfg: SymbolEditorSettings): Set<string> {
+  const out = new Set(DEFAULT_TOGGLES);
+  if (cfg.window.grid.show) out.add('toggleGrid');
+  else out.delete('toggleGrid');
+  if (cfg.window.grid.overrides_enabled) out.add('toggleGridOverrides');
+  else out.delete('toggleGridOverrides');
+  return out;
+}
+
+/**
+ * Fold a toolbar activation into `symbol_editor.json`. Returns whether it did.
+ *
+ * Both branches read their own current value and invert it, exactly as
+ * `COMMON_TOOLS::ToggleGrid` does — `SetGridVisibility( !IsGridVisible() )`
+ * (`common/tool/common_tools.cpp:595-598`) — so the file is the state rather
+ * than a copy of it. Anything else on this toolbar is session state upstream
+ * too and is left alone.
+ */
+export function persistSymbolToggle(cfg: SymbolEditorSettings, id: string): boolean {
+  if (id === 'toggleGrid') {
+    cfg.window.grid.show = !cfg.window.grid.show;
+    return true;
+  }
+  if (id === 'toggleGridOverrides') {
+    cfg.window.grid.overrides_enabled = !cfg.window.grid.overrides_enabled;
+    return true;
+  }
+  return false;
+}
+
+/**
+ * The ids {@link persistSymbolToggle} acts on, so a caller can ask without
+ * mutating anything.
+ *
+ * The caller needs it because our settings manager persists and wakes the
+ * account sync on every `update*` call, where upstream writes the file once at
+ * exit — so "does this toggle touch the file at all" has to be answerable
+ * before the write, not after.
+ */
+export const SYMBOL_SETTING_TOGGLES: ReadonlySet<string> = new Set([
+  'toggleGrid',
+  'toggleGridOverrides',
+]);

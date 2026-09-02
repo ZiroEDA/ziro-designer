@@ -827,6 +827,34 @@ export interface PcbnewSettings {
   tools: {
     pns: RoutingSettingsJson;
   };
+  /**
+   * `APP_SETTINGS_BASE::m_Window.grid` for pcbnew — the slice
+   * `PANEL_GRID_SETTINGS` edits and the canvas snaps to
+   * (`common/settings/app_settings.cpp:463-560`). Same shape as the Drawing
+   * Sheet Editor's, because upstream it IS the same struct on the same base
+   * class; only the defaults differ per app.
+   *
+   * `PcbnewSettings` had none, so the PCB editor's grid lived in a React
+   * `useState` seeded from the module's `GRID_SIZE_LIST.pcbnew` — nothing
+   * persisted it, nothing outside the component read it, and Preferences had
+   * nothing to edit. That is why this heading had no Grids page.
+   */
+  window: {
+    grid: {
+      sizes: GridEntry[];
+      last_size_idx: number;
+      fast_grid_1: number;
+      fast_grid_2: number;
+      overrides_enabled: boolean;
+      overrides: {
+        connected: GridOverride;
+        wires: GridOverride;
+        vias: GridOverride;
+        text: GridOverride;
+        graphics: GridOverride;
+      };
+    };
+  };
 }
 
 export const PCBNEW_DEFAULTS: PcbnewSettings = {
@@ -851,6 +879,33 @@ export const PCBNEW_DEFAULTS: PcbnewSettings = {
     pagination: 1,
     edge_cuts_on_all_pages: true,
     as_item_checkboxes: false,
+  },
+  window: {
+    grid: {
+      // `DefaultGridSizeList()`'s pcbnew row and `defaultGridIdx`, asked rather
+      // than restated — the same table the grid selector and the canvas read.
+      sizes: GRID_SIZE_LIST.pcbnew.map(gridEntryOf),
+      last_size_idx: DEFAULT_GRID_INDEX.pcbnew,
+      // `fast_grid_1 = defaultGridIdx`, `fast_grid_2 = defaultGridIdx + 1`
+      // (app_settings.cpp:483-487).
+      fast_grid_1: DEFAULT_GRID_INDEX.pcbnew,
+      fast_grid_2: DEFAULT_GRID_INDEX.pcbnew + 1,
+      // The `else` arm of `app_settings.cpp:522-546` — the one every frame that
+      // is NOT eeschema or the symbol editor takes. Every flag is false, and
+      // the five indices are 16, 19, 18, 18 and 15 into pcbnew's own grid row:
+      // 0.25 mm for footprints and pads, 0.05 mm for tracks, 0.1 mm for vias
+      // and text, 0.5 mm for graphics. Written as the sizes they name rather
+      // than as indices, because `GridOverride` stores the size string and an
+      // index into a list the user can reorder is not a stable value.
+      overrides_enabled: true,
+      overrides: {
+        connected: { enabled: false, size: '0.25 mm' },
+        wires: { enabled: false, size: '0.05 mm' },
+        vias: { enabled: false, size: '0.1 mm' },
+        text: { enabled: false, size: '0.1 mm' },
+        graphics: { enabled: false, size: '0.5 mm' },
+      },
+    },
   },
 };
 
@@ -1061,6 +1116,423 @@ export const PL_EDITOR_DEFAULTS: PlEditorSettings = {
   last_custom_width: 17000,
   last_custom_height: 11000,
   last_was_portrait: false,
+};
+
+// ----- SYMBOL_EDITOR_SETTINGS ("symbol_editor.json") ---------------------------
+
+/**
+ * `SYMBOL_EDITOR_SETTINGS` — `eeschema/symbol_editor/symbol_editor_settings.{h,cpp}`,
+ * declared as `APP_SETTINGS_BASE( "symbol_editor", libeditSchemaVersion )`
+ * (`symbol_editor_settings.cpp:38`).
+ *
+ * It is its **own file**, not a sub-object of `eeschema.json`: eeschema's KIFACE
+ * asks for it by name — `GetAppSettings<SYMBOL_EDITOR_SETTINGS>( "symbol_editor" )`
+ * (`eeschema/eeschema.cpp:252`, `:255`, `:288`) — and the installed 10.0.5 writes
+ * `~/.config/kicad/10.0/symbol_editor.json` beside `eeschema.json`. So the
+ * Symbol Editor's five Preferences pages write here and not into the schematic's
+ * settings, which is what makes "use the schematic editor colour theme" a
+ * *choice* on the Colors page rather than the only possibility.
+ *
+ * Only the keys the five Preferences pages read or write are modelled. A key
+ * nothing reads is a key that can drift, which is the rule
+ * {@link FpEditSettings} states below and the reason this is not a transcript
+ * of all 22 `m_params` entries.
+ */
+export interface SymbolEditorSettings {
+  /**
+   * `APP_SETTINGS_BASE`'s `appearance.*`, the two keys the base class gives
+   * every app (`common/settings/app_settings.cpp:282-286`).
+   */
+  appearance: {
+    /**
+     * `appearance.color_theme` -> `APP_SETTINGS_BASE::m_ColorTheme`. Written by
+     * the Colors page, but only on the "Use theme:" branch — see
+     * {@link SymbolEditorSettings.use_eeschema_color_settings}.
+     */
+    color_theme: string;
+    /** `appearance.custom_toolbars`, the Toolbars page's "Customize toolbars". */
+    custom_toolbars: boolean;
+  };
+  /**
+   * `PARAM<bool>( "use_eeschema_color_settings", &m_UseEeschemaColorSettings, true )`
+   * (`symbol_editor_settings.cpp:100-101`), and the whole of what the Colors
+   * page's two radio buttons decide
+   * (`panel_sym_color_settings.cpp:38-44`, `:74-86`).
+   */
+  use_eeschema_color_settings: boolean;
+  /** `show_hidden_lib_pins` -> `m_ShowHiddenPins` (`:88-89`), default true. */
+  show_hidden_lib_pins: boolean;
+  /** `show_hidden_lib_fields` -> `m_ShowHiddenFields` (`:85-86`), default true. */
+  show_hidden_lib_fields: boolean;
+  /** `show_pin_electrical_type` -> `m_ShowPinElectricalType` (`:79-80`), default true. */
+  show_pin_electrical_type: boolean;
+  /** `show_pin_alt_icons` -> `m_ShowPinAltIcons` (`:82-83`), default true. */
+  show_pin_alt_icons: boolean;
+  /**
+   * `drag_pins_along_with_edges` -> `m_dragPinsAlongWithEdges` (`:91-92`),
+   * default true. The one control in the Editing Options page's General Editing
+   * group.
+   */
+  drag_pins_along_with_edges: boolean;
+  /**
+   * `SYMBOL_EDITOR_SETTINGS::DEFAULTS`, `defaults.*`
+   * (`symbol_editor_settings.cpp:58-73`). Every one is **mils**, as the
+   * Editing Options page's `mils` suffixes say and as
+   * `PANEL_SYM_EDITING_OPTIONS` converts through `schIUScale.MilsToIU`
+   * (`panel_sym_editing_options.cpp:56-62`).
+   */
+  defaults: {
+    /** `defaults.line_width`, 0 — "inherit from schematic". */
+    line_width: number;
+    /** `defaults.text_size`, `DEFAULT_TEXT_SIZE` = 50 (`eeschema/default_values.h:69`). */
+    text_size: number;
+    /** `defaults.pin_length`, `DEFAULT_PIN_LENGTH` = 100 (`default_values.h:39`). */
+    pin_length: number;
+    /** `defaults.pin_name_size`, `DEFAULT_PINNAME_SIZE` = 50 (`default_values.h:45`). */
+    pin_name_size: number;
+    /** `defaults.pin_num_size`, `DEFAULT_PINNUM_SIZE` = 50 (`default_values.h:42`). */
+    pin_num_size: number;
+  };
+  /** `SYMBOL_EDITOR_SETTINGS::REPEAT`, `repeat.*` (`symbol_editor_settings.cpp:75-79`). */
+  repeat: {
+    /** `repeat.label_delta`, 1. The spin control's range is -10..10. */
+    label_delta: number;
+    /** `repeat.pin_step`, 100 **mils**, forced to a multiple of `MIN_GRID` (25). */
+    pin_step: number;
+  };
+  /** `APP_SETTINGS_BASE::m_Window`, the slice the Grids and Display Options pages share. */
+  window: {
+    grid: {
+      /**
+       * `window.grid.sizes`, seeded from `DefaultGridSizeList()`'s
+       * symbol_editor row — the same four grids eeschema gets.
+       */
+      sizes: GridEntry[];
+      /**
+       * `window.grid.last_size`, `defaultGridIdx` = **1** for `symbol_editor`:
+       * the filename is named alongside `eeschema` in the branch at
+       * `common/settings/app_settings.cpp:463-466`, so it is 50 mil and not
+       * pcbnew's 15.
+       */
+      last_size_idx: number;
+      /** `window.grid.fast_grid_1`, `defaultGridIdx`. */
+      fast_grid_1: number;
+      /** `window.grid.fast_grid_2`, `defaultGridIdx + 1`. */
+      fast_grid_2: number;
+      /** `window.grid.style` (`app_settings.cpp:558-559`), 0 = DOTS. */
+      style: 'dots' | 'lines' | 'crosses';
+      /** `window.grid.line_width` (`:549-550`), 1.0 px. */
+      line_width: number;
+      /** `window.grid.min_spacing` (`:552-553`), 10 px. */
+      min_spacing: number;
+      /** `window.grid.snap` (`:561-562`), 0 = ALWAYS. */
+      snap: 0 | 1 | 2;
+      /** `window.grid.show` (`:555-556`), true. `ACTIONS::toggleGrid`, not a page. */
+      show: boolean;
+      /** `window.grid.overrides_enabled` (`:497-498`), true. */
+      overrides_enabled: boolean;
+      /**
+       * The four override rows `PANEL_GRID_SETTINGS` leaves visible for
+       * `FRAME_SCH_SYMBOL_EDITOR` — vias is hidden outside pcbnew
+       * (`common/dialogs/panel_grid_settings.cpp:62-82`), and the symbol editor
+       * is one of the four schematic frames that keep connected and wires.
+       */
+      overrides: {
+        connected: GridOverride;
+        wires: GridOverride;
+        text: GridOverride;
+        graphics: GridOverride;
+      };
+    };
+    cursor: {
+      /** `window.cursor.cross_hair_mode` (`:567-568`), SMALL_CROSS. */
+      crosshair: 'small' | 'full' | '45';
+      /** `window.cursor.always_show_cursor` (`:564-565`), true. */
+      always_show_cursor: boolean;
+    };
+  };
+}
+
+export const SYMBOL_EDITOR_DEFAULTS: SymbolEditorSettings = {
+  appearance: {
+    color_theme: '_builtin_default',
+    custom_toolbars: false,
+  },
+  use_eeschema_color_settings: true,
+  show_hidden_lib_pins: true,
+  show_hidden_lib_fields: true,
+  show_pin_electrical_type: true,
+  show_pin_alt_icons: true,
+  drag_pins_along_with_edges: true,
+  // [data] `eeschema/default_values.h`'s four macros and the `line_width` 0 of
+  // `symbol_editor_settings.cpp:58-59`. Mils, per the page's own unit labels.
+  defaults: {
+    line_width: 0,
+    text_size: 50,
+    pin_length: 100,
+    pin_name_size: 50,
+    pin_num_size: 50,
+  },
+  repeat: {
+    label_delta: 1,
+    pin_step: 100,
+  },
+  window: {
+    grid: {
+      // `DefaultGridSizeList()`'s symbol_editor row, asked rather than restated.
+      sizes: GRID_SIZE_LIST.symbol_editor.map(gridEntryOf),
+      last_size_idx: DEFAULT_GRID_INDEX.symbol_editor,
+      fast_grid_1: DEFAULT_GRID_INDEX.symbol_editor,
+      fast_grid_2: DEFAULT_GRID_INDEX.symbol_editor + 1,
+      style: 'dots',
+      line_width: 1,
+      min_spacing: 10,
+      snap: 0,
+      show: true,
+      overrides_enabled: true,
+      // The eeschema/symbol_editor arm of `app_settings.cpp:495-521`:
+      // connected, wires and text ON, graphics OFF, at grid indices 1, 1, 3
+      // and 2 of the four-entry list above — 50 mil, 50 mil, 10 mil, 25 mil.
+      // Confirmed against the installed build's own
+      // `~/.config/kicad/10.0/symbol_editor.json`, which is the parity target.
+      //
+      // EESCHEMA_DEFAULTS disagrees with its own arm of that same `if`: it has
+      // all four off and text at 25 mil. That is a pre-existing defect in the
+      // schematic's settings, not a difference between the two editors — the
+      // C++ gives them one branch — and it is left alone here rather than
+      // fixed in passing.
+      overrides: {
+        connected: { enabled: true, size: '50 mil' },
+        wires: { enabled: true, size: '50 mil' },
+        text: { enabled: true, size: '10 mil' },
+        graphics: { enabled: false, size: '25 mil' },
+      },
+    },
+    cursor: {
+      crosshair: 'small',
+      always_show_cursor: true,
+    },
+  },
+};
+
+// ----- GERBVIEW_SETTINGS ("gerbview.json") -------------------------------------
+
+/**
+ * `gerbview.json` — `GERBVIEW_SETTINGS` (`gerbview/gerbview_settings.cpp:39-98`)
+ * over its `APP_SETTINGS_BASE` base (`common/settings/app_settings.cpp`).
+ *
+ * Same rule as `PlEditorSettings` above: only the keys the Gerber Viewer puts a
+ * control in front of. The four file histories (`system.drill_file_history`,
+ * `system.zip_file_history`, `system.job_file_history`) and
+ * `gerber_to_pcb_layers` are omitted — the first three are paths on a disk this
+ * app does not have, and the fourth is written by the Map Gerber Layers dialog
+ * rather than by Preferences.
+ *
+ * **One deliberate deviation, and it is the only one.** Three of `Display
+ * Options`' checkboxes — Sketch flashed items / lines / polygons — write
+ * `GBR_DISPLAY_OPTIONS` members that `GERBVIEW_SETTINGS`' constructor never
+ * registers a `PARAM` for (compare `m_Display.m_DisplayPageLimits` at
+ * `gerbview_settings.cpp:57-58`, which it does). Upstream they therefore live
+ * only in the settings object in memory, shared between the Preferences page
+ * and the left toolbar for one run of the program, and are back to
+ * `GBR_DISPLAY_OPTIONS`' constructor defaults on the next launch. There is no
+ * in-memory-only tier here: a browser tab has no exit hook to decide not to
+ * flush at. They are stored, under a `display.` prefix that is ours because
+ * upstream has no key to copy, and the visible difference is that a reload
+ * remembers them. Chosen over the alternative — a preference that silently
+ * forgets itself every time the tab is refreshed, which in a web app reads as a
+ * bug rather than as parity.
+ */
+export interface GerbviewSettings {
+  system: {
+    /**
+     * `system.units` (`app_settings.cpp:228-238`). **MM**: gerbview's filename
+     * is not on the imperial side of that branch.
+     */
+    units: EdaUnits;
+    /** `system.last_metric_units` (`app_settings.cpp:240-241`). */
+    last_metric_units: EdaUnits;
+    /** `system.last_imperial_units` (`app_settings.cpp:243-244`). */
+    last_imperial_units: EdaUnits;
+  };
+  appearance: {
+    /** `appearance.color_theme` (`app_settings.cpp:282-283`). */
+    color_theme: string;
+    /** `appearance.custom_toolbars` (`app_settings.cpp:285-286`), default false. */
+    custom_toolbars: boolean;
+    /**
+     * `appearance.show_border_and_titleblock` (`gerbview_settings.cpp:44-45`),
+     * default false — LAYER_GERBVIEW_DRAWINGSHEET. A fresh GerbView shows no
+     * drawing sheet.
+     */
+    show_border_and_titleblock: boolean;
+    /** `appearance.show_dcodes` (`gerbview_settings.cpp:47-48`), default false. */
+    show_dcodes: boolean;
+    /**
+     * `appearance.show_negative_objects` (`gerbview_settings.cpp:50-51`),
+     * default false.
+     */
+    show_negative_objects: boolean;
+    /**
+     * `appearance.page_type` (`gerbview_settings.cpp:53-55`), default
+     * `"GERBER"` — the seven Page Size radios, and the `PAGE_INFO` type
+     * `GERBVIEW_FRAME` sets from it (`gerbview_frame.cpp:334`, `:1213`).
+     */
+    page_type: string;
+    /**
+     * `appearance.show_page_limit` -> `m_Display.m_DisplayPageLimits`
+     * (`gerbview_settings.cpp:57-58`), default false. The JSON key is under
+     * `appearance.` even though the C++ member is on `m_Display`, and the file
+     * is what this mirrors.
+     */
+    show_page_limit: boolean;
+    /**
+     * `appearance.mode_opacity_value` -> `m_Display.m_OpacityModeAlphaValue`
+     * (`gerbview_settings.cpp:60-61`), default 0.6 — the alpha a layer is drawn
+     * at while forced-opacity mode is on (`gerbview_painter.cpp:65-66`).
+     */
+    mode_opacity_value: number;
+  };
+  /**
+   * The `GBR_DISPLAY_OPTIONS` members with no `PARAM`. See the deviation note
+   * on {@link GerbviewSettings}; every default here is that class's own
+   * constructor (`gerbview/gbr_display_options.h:57-68`).
+   */
+  display: {
+    /** `m_DisplayFlashedItemsFill`, true — so "Sketch flashed items" is off. */
+    flashed_items_fill: boolean;
+    /** `m_DisplayLinesFill`, true. */
+    lines_fill: boolean;
+    /** `m_DisplayPolygonsFill`, true. */
+    polygons_fill: boolean;
+    /** `m_ForceOpacityMode`, false. */
+    force_opacity_mode: boolean;
+    /** `m_XORMode`, false. */
+    xor_mode: boolean;
+    /** `m_HighContrastMode`, false. */
+    high_contrast_mode: boolean;
+    /** `m_FlipGerberView`, false. */
+    flip_gerber_view: boolean;
+  };
+  window: {
+    grid: {
+      /** `window.grid.sizes` (`app_settings.cpp:476-477`), gerbview's row. */
+      sizes: GridEntry[];
+      /** `window.grid.last_size` (`app_settings.cpp:480-481`), index 15. */
+      last_size_idx: number;
+      /** `window.grid.fast_grid_1` (`app_settings.cpp:483-484`). */
+      fast_grid_1: number;
+      /** `window.grid.fast_grid_2` (`app_settings.cpp:486-487`). */
+      fast_grid_2: number;
+      /** `window.grid.style` (`app_settings.cpp:558-559`), 0 = DOTS. */
+      style: 'dots' | 'lines' | 'crosses';
+      /** `window.grid.line_width` (`app_settings.cpp:549-550`), 1.0 px. */
+      line_width: number;
+      /** `window.grid.min_spacing` (`app_settings.cpp:552-553`), 10 px. */
+      min_spacing: number;
+      /** `window.grid.snap` (`app_settings.cpp:561-562`), 0 = ALWAYS. */
+      snap: 0 | 1 | 2;
+      /** `window.grid.show` (`app_settings.cpp:555-556`), default true. */
+      show: boolean;
+      /** `window.grid.overrides_enabled` (`app_settings.cpp:522-523`), true. */
+      overrides_enabled: boolean;
+      /**
+       * EMPTY, and that is upstream's answer rather than an omission:
+       * `PANEL_GRID_SETTINGS`' constructor hides the heading, the rule and
+       * every row of the Grid Overrides group for `FRAME_GERBER`
+       * (`common/dialogs/panel_grid_settings.cpp:62-90`), so gerbview has no
+       * override control at all. `grid_settings_rows.ts`' `FRAME_GERBER: []`
+       * is the same statement from the panel's side.
+       */
+      overrides: Record<string, GridOverride>;
+    };
+    cursor: {
+      /** `window.cursor.cross_hair_mode` (`app_settings.cpp:567-568`). */
+      crosshair: 'small' | 'full' | '45';
+      /** `window.cursor.always_show_cursor` (`app_settings.cpp:564-565`), true. */
+      always_show_cursor: boolean;
+    };
+  };
+  /**
+   * `EXCELLON_DEFAULTS` — the whole of Preferences > Gerber Viewer > Excellon
+   * Options (`gerbview_settings.cpp:81-97`, defaults
+   * `gerbview/excellon_defaults.h:51-58`). Values a drill file is *supposed* to
+   * state and often does not, used by `EXCELLON_IMAGE::LoadFile` and
+   * `SelectUnits` when the header is silent
+   * (`excellon_read_drill_file.cpp:478-480`, `:1130-1160`).
+   */
+  excellon_defaults: {
+    /** `excellon_defaults.unit_mm`, false — inches. */
+    unit_mm: boolean;
+    /** `excellon_defaults.lz_format`, true — LZ (no trailing zeros). */
+    lz_format: boolean;
+    /** `excellon_defaults.mm_integer_len`, FMT_INTEGER_MM = 3, range 2..6. */
+    mm_integer_len: number;
+    /** `excellon_defaults.mm_mantissa_len`, FMT_MANTISSA_MM = 3, range 2..6. */
+    mm_mantissa_len: number;
+    /** `excellon_defaults.inch_integer_len`, FMT_INTEGER_INCH = 2, range 2..6. */
+    inch_integer_len: number;
+    /** `excellon_defaults.inch_mantissa_len`, FMT_MANTISSA_INCH = 4, range 2..6. */
+    inch_mantissa_len: number;
+  };
+  /** `gerber_to_pcb_copperlayers_count` (`gerbview_settings.cpp:76-77`), 2. */
+  gerber_to_pcb_copperlayers_count: number;
+}
+
+export const GERBVIEW_DEFAULTS: GerbviewSettings = {
+  system: {
+    units: defaultUnits('gerbview'),
+    last_metric_units: 'mm',
+    last_imperial_units: 'mils',
+  },
+  appearance: {
+    color_theme: '_builtin_default',
+    custom_toolbars: false,
+    show_border_and_titleblock: false,
+    show_dcodes: false,
+    show_negative_objects: false,
+    page_type: 'GERBER',
+    show_page_limit: false,
+    mode_opacity_value: 0.6,
+  },
+  display: {
+    flashed_items_fill: true,
+    lines_fill: true,
+    polygons_fill: true,
+    force_opacity_mode: false,
+    xor_mode: false,
+    high_contrast_mode: false,
+    flip_gerber_view: false,
+  },
+  window: {
+    grid: {
+      // `DefaultGridSizeList()`'s gerbview row, asked rather than restated.
+      sizes: GRID_SIZE_LIST.gerbview.map(gridEntryOf),
+      last_size_idx: DEFAULT_GRID_INDEX.gerbview,
+      fast_grid_1: DEFAULT_GRID_INDEX.gerbview,
+      fast_grid_2: DEFAULT_GRID_INDEX.gerbview + 1,
+      style: 'dots',
+      line_width: 1,
+      min_spacing: 10,
+      snap: 0,
+      show: true,
+      overrides_enabled: true,
+      overrides: {},
+    },
+    cursor: {
+      crosshair: 'small',
+      always_show_cursor: true,
+    },
+  },
+  excellon_defaults: {
+    unit_mm: false,
+    lz_format: true,
+    mm_integer_len: 3,
+    mm_mantissa_len: 3,
+    inch_integer_len: 2,
+    inch_mantissa_len: 4,
+  },
+  gerber_to_pcb_copperlayers_count: 2,
 };
 
 // ----- FOOTPRINT_EDITOR_SETTINGS ("fpedit.json") -------------------------------
@@ -1699,6 +2171,11 @@ export const LEGACY_BITMAP2CMP_KEY = 'ziroeda.bitmap2cmp';
 export const SETTINGS_SLICES = [
   'common',
   'eeschema',
+  // `symbol_editor.json`, a file of its own beside `eeschema.json` — eeschema's
+  // KIFACE asks the settings manager for it by that name
+  // (`GetAppSettings<SYMBOL_EDITOR_SETTINGS>( "symbol_editor" )`,
+  // `eeschema/eeschema.cpp:252`).
+  'symbol_editor',
   'pcbnew',
   'pl_editor',
   'fpedit',
@@ -1714,8 +2191,15 @@ export const SETTINGS_SLICES = [
   // file, so a synced account carries `eeschema-toolbars.json` and not a
   // sub-object of `eeschema.json`.
   'eeschema-toolbars',
+  // `GetToolbarSettings<SYMBOL_EDIT_TOOLBAR_SETTINGS>( "symbol_editor-toolbars" )`
+  // (`eeschema/eeschema.cpp:289`).
+  'symbol_editor-toolbars',
   'pcbnew-toolbars',
   'pl_editor-toolbars',
+  // `gerbview.json` and `GetToolbarSettings<GERBVIEW_TOOLBAR_SETTINGS>(
+  // "gerbview-toolbars" )` (`gerbview/gerbview.cpp:98-99`).
+  'gerbview',
+  'gerbview-toolbars',
 ] as const;
 
 export type SettingsSlice = (typeof SETTINGS_SLICES)[number];
@@ -1725,12 +2209,18 @@ export type SettingsSlice = (typeof SETTINGS_SLICES)[number];
  * Toolbars page.
  *
  * Upstream seven frames do (`common/eda_base_frame.cpp:1637`, `:1647`, `:1672`,
- * `:1686`, `:1694`, `:1715`, `:1737`). These three are the ones whose heading
- * this port ships at all; Symbol Editor, Footprint Editor, 3D Viewer and Gerber
- * Viewer have no Preferences heading here yet, and their toolbar stores arrive
- * with those headings rather than sitting unread in the meantime.
+ * `:1686`, `:1694`, `:1715`, `:1737`). These five are the ones whose heading
+ * this port ships at all; Footprint Editor and 3D Viewer have no Preferences
+ * heading here yet, and their toolbar stores arrive with those headings rather
+ * than sitting unread in the meantime.
  */
-export const TOOLBAR_APPS = ['eeschema', 'pcbnew', 'pl_editor'] as const;
+export const TOOLBAR_APPS = [
+  'eeschema',
+  'symbol_editor',
+  'pcbnew',
+  'pl_editor',
+  'gerbview',
+] as const;
 
 export type ToolbarApp = (typeof TOOLBAR_APPS)[number];
 
@@ -2138,6 +2628,12 @@ const SLICE_IO: Record<SettingsSlice, SliceIO> = {
       m.eeschema = deepMerge(structuredClone(EESCHEMA_DEFAULTS), v);
     },
   },
+  symbol_editor: {
+    read: (m) => m.symbolEditor,
+    adopt: (m, v) => {
+      m.symbolEditor = deepMerge(structuredClone(SYMBOL_EDITOR_DEFAULTS), v);
+    },
+  },
   pcbnew: {
     read: (m) => m.pcbnew,
     adopt: (m, v) => {
@@ -2198,6 +2694,12 @@ const SLICE_IO: Record<SettingsSlice, SliceIO> = {
       m.toolbars = { ...m.toolbars, eeschema: normalizeToolbarSettings(v) };
     },
   },
+  'symbol_editor-toolbars': {
+    read: (m) => m.toolbars.symbol_editor,
+    adopt: (m, v) => {
+      m.toolbars = { ...m.toolbars, symbol_editor: normalizeToolbarSettings(v) };
+    },
+  },
   'pcbnew-toolbars': {
     read: (m) => m.toolbars.pcbnew,
     adopt: (m, v) => {
@@ -2208,6 +2710,18 @@ const SLICE_IO: Record<SettingsSlice, SliceIO> = {
     read: (m) => m.toolbars.pl_editor,
     adopt: (m, v) => {
       m.toolbars = { ...m.toolbars, pl_editor: normalizeToolbarSettings(v) };
+    },
+  },
+  gerbview: {
+    read: (m) => m.gerbview,
+    adopt: (m, v) => {
+      m.gerbview = deepMerge(structuredClone(GERBVIEW_DEFAULTS), v);
+    },
+  },
+  'gerbview-toolbars': {
+    read: (m) => m.toolbars.gerbview,
+    adopt: (m, v) => {
+      m.toolbars = { ...m.toolbars, gerbview: normalizeToolbarSettings(v) };
     },
   },
 };
@@ -2224,11 +2738,27 @@ export class SettingsManager {
     load(sliceStorageKey('eeschema'), EESCHEMA_DEFAULTS),
     EESCHEMA_DEFAULTS.window.grid.sizes,
   );
+  /**
+   * `symbol_editor.json`, the Symbol Editor's own settings file.
+   *
+   * `normalizeGrids` for the same reason eeschema and pl_editor need it: a
+   * stored `window.grid.sizes` is a LIST, and `deepMerge` would merge it
+   * element-wise against the defaults instead of replacing it.
+   */
+  symbolEditor: SymbolEditorSettings = normalizeGrids(
+    load(sliceStorageKey('symbol_editor'), SYMBOL_EDITOR_DEFAULTS),
+    SYMBOL_EDITOR_DEFAULTS.window.grid.sizes,
+  );
   pcbnew: PcbnewSettings = load(sliceStorageKey('pcbnew'), PCBNEW_DEFAULTS);
   /** `pl_editor.json`, the Drawing Sheet Editor's own settings file. */
   plEditor: PlEditorSettings = normalizeGrids(
     load(sliceStorageKey('pl_editor'), PL_EDITOR_DEFAULTS),
     PL_EDITOR_DEFAULTS.window.grid.sizes,
+  );
+  /** `gerbview.json`, the Gerber Viewer's own settings file. */
+  gerbview: GerbviewSettings = normalizeGrids(
+    load(sliceStorageKey('gerbview'), GERBVIEW_DEFAULTS),
+    GERBVIEW_DEFAULTS.window.grid.sizes,
   );
   /** `fpedit.json`, the Footprint Editor's own settings file. Not `load()`:
    *  `lib_tree.column_widths` is free-form. See `mergeFpEdit`. */
@@ -2263,8 +2793,13 @@ export class SettingsManager {
    */
   toolbars: Record<ToolbarApp, ToolbarSettings> = {
     eeschema: loadFreeForm(sliceStorageKey('eeschema-toolbars'), normalizeToolbarSettings),
+    symbol_editor: loadFreeForm(
+      sliceStorageKey('symbol_editor-toolbars'),
+      normalizeToolbarSettings,
+    ),
     pcbnew: loadFreeForm(sliceStorageKey('pcbnew-toolbars'), normalizeToolbarSettings),
     pl_editor: loadFreeForm(sliceStorageKey('pl_editor-toolbars'), normalizeToolbarSettings),
+    gerbview: loadFreeForm(sliceStorageKey('gerbview-toolbars'), normalizeToolbarSettings),
   };
   /** Per-slice modification and agreement stamps; see {@link SliceStamp}. */
   stamps: Record<string, SliceStamp> = loadStamps();
@@ -2391,6 +2926,14 @@ export class SettingsManager {
     this.commit('eeschema', next);
   }
 
+  /** `SYMBOL_EDIT_FRAME::SaveSettings` / the five Symbol Editor Preferences pages. */
+  updateSymbolEditor(mutate: (s: SymbolEditorSettings) => void): void {
+    const next = structuredClone(this.symbolEditor);
+    mutate(next);
+    this.symbolEditor = next;
+    this.commit('symbol_editor', next);
+  }
+
   updatePcbnew(mutate: (s: PcbnewSettings) => void): void {
     const next = structuredClone(this.pcbnew);
     mutate(next);
@@ -2403,6 +2946,13 @@ export class SettingsManager {
     mutate(next);
     this.plEditor = next;
     this.commit('pl_editor', next);
+  }
+
+  updateGerbview(mutate: (s: GerbviewSettings) => void): void {
+    const next = structuredClone(this.gerbview);
+    mutate(next);
+    this.gerbview = next;
+    this.commit('gerbview', next);
   }
 
   /**

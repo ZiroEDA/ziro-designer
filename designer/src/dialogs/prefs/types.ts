@@ -31,9 +31,11 @@ import type { HotkeyOverrides } from '../../editors/schematic/hotkey_bindings.js
 import type {
   CommonSettings,
   EeschemaSettings,
+  GerbviewSettings,
   PcbnewSettings,
   PlEditorSettings,
   PrivacySettings,
+  SymbolEditorSettings,
   ToolbarApp,
 } from '../../prefs/settings.js';
 import type { ToolbarSettings } from '../../ui/toolbar_config.js';
@@ -48,6 +50,14 @@ export type PrefsPageId =
   | 'spacemouse'
   | 'hotkeys'
   | 'version-control'
+  // `PANEL_SYM_DISP_OPTIONS`, `PANEL_SYM_EDIT_GRIDS`, `PANEL_SYM_EDIT_OPTIONS`,
+  // `PANEL_SYM_COLORS`, `PANEL_SYM_TOOLBARS` (`include/frame_type.h:72-76`),
+  // added in that order at `common/eda_base_frame.cpp:1633-1637`.
+  | 'sym-display'
+  | 'sym-grids'
+  | 'sym-editing'
+  | 'sym-colors'
+  | 'sym-toolbars'
   | 'sch-display'
   | 'sch-grids'
   | 'sch-editing'
@@ -55,7 +65,19 @@ export type PrefsPageId =
   | 'sch-toolbars'
   | 'sch-fields'
   | 'pcb-display'
+  | 'pcb-grids'
   | 'pcb-toolbars'
+  // gerbview's KIFACE is consulted after pcbnew's and before pl_editor's, and
+  // its five ids are `PANEL_GBR_DISPLAY_OPTIONS`, `PANEL_GBR_COLORS`,
+  // `PANEL_GBR_TOOLBARS`, `PANEL_GBR_GRIDS`, `PANEL_GBR_EXCELLON_OPTIONS`
+  // (`common/eda_base_frame.cpp:1714-1718`). `frame_type.h:111` declares a
+  // sixth, `PANEL_GBR_EDIT_OPTIONS`, that `ShowPreferences` never adds and
+  // `gerbview.cpp`'s switch never constructs: a dead enumerator, not a page.
+  | 'gbr-display'
+  | 'gbr-colors'
+  | 'gbr-toolbars'
+  | 'gbr-grids'
+  | 'gbr-excellon'
   | 'ds-display'
   | 'ds-grids'
   | 'ds-colors'
@@ -63,7 +85,13 @@ export type PrefsPageId =
   | 'maintenance';
 
 /** Which module owns a page, and therefore which bundle it is lazily pulled from. */
-export type PrefsPageOwner = 'generic' | 'schematic' | 'pcb' | 'drawingsheet';
+export type PrefsPageOwner =
+  | 'generic'
+  | 'symbol'
+  | 'schematic'
+  | 'pcb'
+  | 'gerbview'
+  | 'drawingsheet';
 
 /**
  * The working copy the dialog edits, plus its setters. Handed to every panel;
@@ -72,7 +100,15 @@ export type PrefsPageOwner = 'generic' | 'schematic' | 'pcb' | 'drawingsheet';
 export interface PrefsContext {
   common: CommonSettings;
   eeschema: EeschemaSettings;
+  /**
+   * `symbol_editor.json`. A settings object of its own, not a slice of
+   * eeschema's — see {@link SymbolEditorSettings}. Upstream the same KIFACE
+   * hands out both, and the panels differ only in which one they are given.
+   */
+  symbolEditor: SymbolEditorSettings;
   pcbnew: PcbnewSettings;
+  /** `gerbview.json` — see {@link GerbviewSettings}. */
+  gerbview: GerbviewSettings;
   plEditor: PlEditorSettings;
   privacy: PrivacySettings;
   userColors: Record<string, string>;
@@ -92,13 +128,19 @@ export interface PrefsContext {
   /** Mutate a clone of the common settings (KiCad edits `COMMON_SETTINGS` in place). */
   upC: (fn: (s: CommonSettings) => void) => void;
   upE: (fn: (s: EeschemaSettings) => void) => void;
+  /** Mutate a clone of `symbol_editor.json`'s working copy. */
+  upSym: (fn: (s: SymbolEditorSettings) => void) => void;
   upP: (fn: (s: PcbnewSettings) => void) => void;
+  /** Mutate a clone of `gerbview.json`'s working copy. */
+  upGbr: (fn: (s: GerbviewSettings) => void) => void;
   upPl: (fn: (s: PlEditorSettings) => void) => void;
   /** Mutate a clone of one app's stored toolbars. */
   upTb: (app: ToolbarApp, fn: (s: ToolbarSettings) => void) => void;
   setCommon: Dispatch<SetStateAction<CommonSettings>>;
   setEeschema: Dispatch<SetStateAction<EeschemaSettings>>;
+  setSymbolEditor: Dispatch<SetStateAction<SymbolEditorSettings>>;
   setPcbnew: Dispatch<SetStateAction<PcbnewSettings>>;
+  setGerbview: Dispatch<SetStateAction<GerbviewSettings>>;
   setPlEditor: Dispatch<SetStateAction<PlEditorSettings>>;
   setPrivacy: Dispatch<SetStateAction<PrivacySettings>>;
   setUserColors: Dispatch<SetStateAction<Record<string, string>>>;

@@ -23,8 +23,17 @@ import type { PrefsPageId, PrefsPageOwner, PrefsPanelFactory, PrefsPanelModule }
  */
 const OWNERS: Record<PrefsPageOwner, () => Promise<PrefsPanelFactory>> = {
   generic: async () => (await import('./panels/index.js')).createPrefsPanel,
+  // Upstream the Symbol Editor's five panels come out of eeschema's KIFACE,
+  // the same `CreateKiWindow` switch the schematic's do
+  // (`eeschema/eeschema.cpp:251-305`). Here they are their own owner because
+  // here the two editors are their own bundles: routing them through the
+  // schematic's factory would pull `editors/schematic` in whenever a symbol
+  // editor user opened Preferences, which is the one thing this seam exists to
+  // prevent.
+  symbol: async () => (await import('../../editors/symbol/prefs/index.js')).createPrefsPanel,
   schematic: async () => (await import('../../editors/schematic/prefs/index.js')).createPrefsPanel,
   pcb: async () => (await import('../../editors/pcb/prefs/index.js')).createPrefsPanel,
+  gerbview: async () => (await import('../../editors/gerbview/prefs/index.js')).createPrefsPanel,
   drawingsheet: async () =>
     (await import('../../editors/drawingsheet/prefs/index.js')).createPrefsPanel,
 };

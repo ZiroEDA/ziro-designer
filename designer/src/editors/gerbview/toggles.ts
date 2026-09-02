@@ -19,6 +19,7 @@
  */
 
 import { defaultUnitsToggle } from '../../ui/app_settings_units.js';
+import type { GerbviewSettings } from '../../prefs/settings.js';
 
 /** `EDA_DRAW_FRAME`'s unit choice — one of three, never none and never two. */
 export const UNIT_GROUP = ['unitsMm', 'unitsInches', 'unitsMils'];
@@ -77,4 +78,200 @@ export function applyToggle(prev: ReadonlySet<string>, id: string): Set<string> 
   }
 
   return next;
+}
+
+// ----- gerbview.json ------------------------------------------------------------
+
+/**
+ * The toggles that are a `GERBVIEW_SETTINGS` field, and which field.
+ *
+ * Upstream every one of these buttons is a `GERBVIEW_ACTIONS` handler that
+ * flips a member of `cfg` — `gvconfig()->m_Display.m_XORMode = !...`
+ * (`gerbview/tools/gerbview_control.cpp`) — and the frame's checked state is
+ * read straight back off the same member
+ * (`GERBVIEW_FRAME::GetGbrVisibleElements` and the `SetConditions` block at
+ * `gerbview_frame.cpp:1126-1150`). So the settings object, not the toolbar, is
+ * where a toggle lives; the toolbar is a view of it, and so is Preferences >
+ * Gerber Viewer > Display Options. That is the whole reason both can move the
+ * same switch.
+ *
+ * The three `*Sketch` entries are INVERTED, because upstream's members are
+ * fill flags and the buttons are sketch ones:
+ * `return !gvconfig()->m_Display.m_DisplayLinesFill` (`:1136`).
+ *
+ * Not here: `showLayerManager`, `togglePolar` and `hideBackground`. The first
+ * two are `wxAUI` pane state and `m_PolarCoords`, neither of which this port
+ * stores yet, and the third has no upstream member at all — see
+ * {@link LOCAL_TOGGLES}.
+ */
+export interface StoredToggle {
+  read: (c: GerbviewSettings) => boolean;
+  write: (c: GerbviewSettings, on: boolean) => void;
+}
+
+export const STORED_TOGGLES: Readonly<Record<string, StoredToggle>> = {
+  toggleGrid: {
+    read: (c) => c.window.grid.show,
+    write: (c, on) => {
+      c.window.grid.show = on;
+    },
+  },
+  showDcodes: {
+    read: (c) => c.appearance.show_dcodes,
+    write: (c, on) => {
+      c.appearance.show_dcodes = on;
+    },
+  },
+  showNegativeObjects: {
+    read: (c) => c.appearance.show_negative_objects,
+    write: (c, on) => {
+      c.appearance.show_negative_objects = on;
+    },
+  },
+  showDrawingSheet: {
+    read: (c) => c.appearance.show_border_and_titleblock,
+    write: (c, on) => {
+      c.appearance.show_border_and_titleblock = on;
+    },
+  },
+  showPageLimits: {
+    read: (c) => c.appearance.show_page_limit,
+    write: (c, on) => {
+      c.appearance.show_page_limit = on;
+    },
+  },
+  flashedSketch: {
+    read: (c) => !c.display.flashed_items_fill,
+    write: (c, on) => {
+      c.display.flashed_items_fill = !on;
+    },
+  },
+  linesSketch: {
+    read: (c) => !c.display.lines_fill,
+    write: (c, on) => {
+      c.display.lines_fill = !on;
+    },
+  },
+  polygonsSketch: {
+    read: (c) => !c.display.polygons_fill,
+    write: (c, on) => {
+      c.display.polygons_fill = !on;
+    },
+  },
+  forceOpacityMode: {
+    read: (c) => c.display.force_opacity_mode,
+    write: (c, on) => {
+      c.display.force_opacity_mode = on;
+    },
+  },
+  xorMode: {
+    read: (c) => c.display.xor_mode,
+    write: (c, on) => {
+      c.display.xor_mode = on;
+    },
+  },
+  highContrast: {
+    read: (c) => c.display.high_contrast_mode,
+    write: (c, on) => {
+      c.display.high_contrast_mode = on;
+    },
+  },
+  flipView: {
+    read: (c) => c.display.flip_gerber_view,
+    write: (c, on) => {
+      c.display.flip_gerber_view = on;
+    },
+  },
+};
+
+/**
+ * The toggles with no field behind them, which therefore keep whatever the
+ * frame has them at.
+ *
+ * `showLayerManager` is `wxAUI` perspective state upstream, `togglePolar` is
+ * `EDA_DRAW_FRAME::m_PolarCoords`, and `hideBackground` has no upstream
+ * counterpart at all — it is `LAYER_GERBVIEW_BACKGROUND`'s row in the layers
+ * manager, whose visibility GerbView keeps in the render settings rather than
+ * in a `PARAM`. None of the three is on a Preferences page, so none of them
+ * needs one.
+ */
+export const LOCAL_TOGGLES: readonly string[] = [
+  'showLayerManager',
+  'togglePolar',
+  'hideBackground',
+];
+
+/** Which ids come from `gerbview.json` rather than from the frame. */
+function isStored(id: string): boolean {
+  return id in STORED_TOGGLES || UNIT_GROUP.includes(id) || CROSSHAIR_GROUP.includes(id);
+}
+
+/**
+ * The toggle set `cfg` describes, keeping `local`'s answer for the three ids
+ * {@link LOCAL_TOGGLES} names.
+ *
+ * This is `GERBVIEW_FRAME::SetConditions`' whole block read as data: every
+ * `.Check( cond )` there resolves against `gvconfig()`, so "which buttons are
+ * lit" is a pure function of the settings object plus the pane state.
+ */
+export function togglesFromSettings(
+  cfg: GerbviewSettings,
+  local: ReadonlySet<string>,
+): Set<string> {
+  const on = new Set<string>();
+  for (const [id, t] of Object.entries(STORED_TOGGLES)) if (t.read(cfg)) on.add(id);
+  // `system.units`, the same three the Units radio group offers.
+  on.add(
+    cfg.system.units === 'in'
+      ? 'unitsInches'
+      : cfg.system.units === 'mils'
+        ? 'unitsMils'
+        : 'unitsMm',
+  );
+  // `window.cursor.cross_hair_mode` — CROSS_HAIR_MODE's three.
+  on.add(
+    cfg.window.cursor.crosshair === '45'
+      ? 'crosshair45'
+      : cfg.window.cursor.crosshair === 'full'
+        ? 'crosshairFull'
+        : 'crosshairSmall',
+  );
+  for (const id of local) if (!isStored(id)) on.add(id);
+  return on;
+}
+
+/**
+ * Write `on` back into `cfg`, and say whether anything actually moved.
+ *
+ * The boolean is what keeps a freshly opened viewer from committing
+ * `gerbview.json` — and waking the account sync — on mount, for a set that
+ * came out of that very file a moment earlier.
+ */
+export function applyTogglesToSettings(cfg: GerbviewSettings, on: ReadonlySet<string>): boolean {
+  let changed = false;
+  for (const [id, t] of Object.entries(STORED_TOGGLES)) {
+    const want = on.has(id);
+    if (t.read(cfg) !== want) {
+      t.write(cfg, want);
+      changed = true;
+    }
+  }
+  const units = on.has('unitsInches') ? 'in' : on.has('unitsMils') ? 'mils' : 'mm';
+  if (cfg.system.units !== units) {
+    cfg.system.units = units;
+    changed = true;
+  }
+  const crosshair = on.has('crosshair45') ? '45' : on.has('crosshairFull') ? 'full' : 'small';
+  if (cfg.window.cursor.crosshair !== crosshair) {
+    cfg.window.cursor.crosshair = crosshair;
+    changed = true;
+  }
+  return changed;
+}
+
+/** Two toggle sets holding the same ids. */
+export function sameToggles(a: ReadonlySet<string>, b: ReadonlySet<string>): boolean {
+  if (a.size !== b.size) return false;
+  for (const id of a) if (!b.has(id)) return false;
+  return true;
 }

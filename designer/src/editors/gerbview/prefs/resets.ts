@@ -1,0 +1,76 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
+/**
+ * `RESETTABLE_PANEL::ResetPanel` for the Gerber Viewer's Preferences pages.
+ *
+ * Split from the `.tsx` panels for the same reason the schematic's and the
+ * Drawing Sheet Editor's are: `qa`'s tsconfig sets no `--jsx`, and "resetting
+ * one page leaves the others alone" is exactly what has to be tested.
+ */
+import { GERBVIEW_DEFAULTS } from '../../../prefs/settings.js';
+import { resetKeys } from '../../../dialogs/prefs/reset.js';
+import type { PrefsContext } from '../../../dialogs/prefs/types.js';
+import { resetToolbarsPanel } from '../../../dialogs/prefs/toolbar_reset.js';
+
+/**
+ * `PANEL_GERBVIEW_DISPLAY_OPTIONS::ResetPanel`
+ * (`gerbview/dialogs/panel_gerbview_display_options.cpp:110-118`):
+ *
+ *     GERBVIEW_SETTINGS cfg;
+ *     cfg.Load();                       // defaults, no file
+ *     loadSettings( &cfg );
+ *     m_galOptsPanel->ResetPanel( &cfg );
+ *
+ * Two calls, so two slices, and both are exactly what those two functions
+ * read back:
+ *
+ *  - `loadSettings` (`:39-66`) touches the three fill flags, `show_dcodes`,
+ *    `m_OpacityModeAlphaValue`, the seven page-size radios and
+ *    `m_DisplayPageLimits` — this page's own controls, and nothing else on
+ *    `m_Appearance` (`show_border_and_titleblock` and `show_negative_objects`
+ *    are the layers manager's, not this page's, and stay put);
+ *  - `PANEL_GAL_OPTIONS::ResetPanel` is the four grid appearance keys and the
+ *    two cursor ones, the same slice every other Display Options page resets.
+ *
+ * The grid LIST, its two fast-switch indices and `overrides_enabled` belong to
+ * the Grids page, and `color_theme` to Colors.
+ */
+export function resetGerbviewDisplayOptions(ctx: PrefsContext): void {
+  ctx.upGbr((s) => {
+    resetKeys(s.appearance, GERBVIEW_DEFAULTS.appearance, [
+      'show_dcodes',
+      'show_page_limit',
+      'mode_opacity_value',
+      'page_type',
+    ]);
+    resetKeys(s.display, GERBVIEW_DEFAULTS.display, [
+      'flashed_items_fill',
+      'lines_fill',
+      'polygons_fill',
+    ]);
+    resetKeys(s.window.grid, GERBVIEW_DEFAULTS.window.grid, [
+      'style',
+      'line_width',
+      'min_spacing',
+      'snap',
+    ]);
+    resetKeys(s.window.cursor, GERBVIEW_DEFAULTS.window.cursor, [
+      'crosshair',
+      'always_show_cursor',
+    ]);
+  });
+}
+
+/**
+ * `PANEL_TOOLBAR_CUSTOMIZATION::ResetPanel`
+ * (`common/dialogs/panel_toolbar_customization.cpp:243-267`) over this app's
+ * toolbars, through the shared implementation. It does not touch
+ * `appearance.custom_toolbars`: upstream's ResetPanel refills `m_toolbars` and
+ * leaves `m_CustomToolbars` exactly as the user left it.
+ */
+export function resetGerbviewToolbars(ctx: PrefsContext): void {
+  ctx.upTb('gerbview', (s) => {
+    resetToolbarsPanel(s);
+  });
+}

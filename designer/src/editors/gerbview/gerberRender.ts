@@ -33,14 +33,42 @@ import {
   type DsDrawItem,
 } from '@ziroeda/common';
 import { drawDrawingSheetItems } from '@ziroeda/common';
+import { settings } from '../../prefs/settings.js';
 
 /**
  * `PAGE_INFO pageInfo( PAGE_SIZE_TYPE::GERBER )` — the page GerbView sets at
  * startup and again on every clear (gerbview_frame.cpp:134-136, 333-335). It is
  * 32000 x 32000 mils (page_info.cpp:61), a square far larger than any drawing
- * a Gerber job puts on it, and GerbView never changes it.
+ * a Gerber job puts on it.
+ *
+ * It is the DEFAULT, not the only value: this said "and GerbView never changes
+ * it", and both of those lines change it —
+ *
+ *     pageInfo.SetType( cfg->m_Appearance.page_type );
+ *     (gerbview_frame.cpp:334, and again at :1213)
+ *
+ * from the seven Page Size radios on Preferences > Gerber Viewer > Display
+ * Options. `"GERBER"` is only what the `PARAM` defaults to
+ * (`gerbview_settings.cpp:53-55`).
  */
 const GERBER_PAPER = 'GERBER';
+
+/**
+ * The page the sheet and the page-limits rectangle are drawn on.
+ *
+ * Asked of the settings manager here rather than threaded down as a prop,
+ * because upstream it is asked of the settings object at the same depth: the
+ * DRAW PANEL, not the frame, is what runs `GetAppSettings<…>( "gerbview" )` and
+ * reads `m_Appearance.page_type` back out of it. `usePlEditorColors` documents
+ * the same shape for pl_editor's palette.
+ *
+ * A caller may still pass one, which is what lets a test state the page it is
+ * asserting about instead of depending on a store.
+ */
+function paperOf(paper?: string): string {
+  const want = paper ?? settings.gerbview.appearance.page_type;
+  return PAPER_MM[want] === undefined ? GERBER_PAPER : want;
+}
 
 /**
  * The world units this canvas draws in, which are the ones the Gerber PARSER
@@ -97,6 +125,24 @@ export interface GerberRenderOptions {
    * sheet: two layers, two colours, two visibilities.
    */
   pageLimits: boolean;
+  /**
+   * The alpha every GERBER DRAW layer's colour is forced to — 1 unless
+   * forced-opacity mode is on, in which case
+   * `m_Display.m_OpacityModeAlphaValue`.
+   *
+   * `GERBVIEW_RENDER_SETTINGS::LoadColors` (`gerbview_painter.cpp:57-71`):
+   *
+   *     COLOR4D baseColor = aSettings->GetColor( i );
+   *     if( gvconfig()->m_Display.m_ForceOpacityMode )
+   *         baseColor.a = gvconfig()->m_Display.m_OpacityModeAlphaValue;
+   *
+   * — and only over `GERBVIEW_LAYER_ID_START .. + GERBER_DRAWLAYERS_COUNT`.
+   * The loop below it re-reads LAYER_DCODES, the grid, the drawing sheet and
+   * the page limits at their own colours, so those are NOT dimmed; here that
+   * falls out of the composite happening per layer buffer, with the D-code
+   * annotations drawn afterwards at alpha 1.
+   */
+  layerOpacity: number;
   /** Optional highlight (by net / component / attribute / DCode). */
   highlightTest?: (item: GERBER_DRAW_ITEM) => boolean;
 }
@@ -452,7 +498,12 @@ export function renderGerberLayers(
       // line used to do, at a 0.3 with no upstream source — composites against
       // whatever is underneath, so two dimmed layers overlapping came out
       // brighter than either.
-      ctx.globalAlpha = 1;
+      //
+      // `layerOpacity` is the ONE thing that does lower it: forced-opacity
+      // mode, which upstream pushes into each gerber layer's COLOR4D alpha
+      // rather than into a composite. A layer buffer is drawn in one colour,
+      // so the two are the same picture. See the note on the option.
+      ctx.globalAlpha = opts.layerOpacity;
     }
     ctx.drawImage(buf, 0, 0);
   }
@@ -523,8 +574,9 @@ export function renderGerberLayers(
  * from `aPageInfo.GetTypeAsString()` (ds_draw_item.cpp:552), which for
  * `PAGE_SIZE_TYPE::GERBER` is the string "GERBER".
  */
-export function gerberDrawingSheetItems(): DsDrawItem[] {
-  const [wMM, hMM] = PAPER_MM[GERBER_PAPER]!;
+export function gerberDrawingSheetItems(paper?: string): DsDrawItem[] {
+  const type = paperOf(paper);
+  const [wMM, hMM] = PAPER_MM[type]!;
   return layoutDrawingSheet(
     defaultDrawingSheet(),
     { widthMM: wMM, heightMM: hMM },
@@ -538,7 +590,7 @@ export function gerberDrawingSheetItems(): DsDrawItem[] {
       date: '',
       company: '',
       comments: ['', '', '', ''],
-      paper: GERBER_PAPER,
+      paper: type,
       fileName: '',
       sheetPath: '',
       appVersion: 'ZiroEDA',
@@ -552,8 +604,9 @@ export function drawGerberDrawingSheet(
   v: ViewTransform,
   flip: boolean,
   color: string,
+  paper?: string,
 ): void {
-  const items = gerberDrawingSheetItems();
+  const items = gerberDrawingSheetItems(paper);
   if (items.length === 0) return;
   // The shared engine lays out in schematic internal units; this canvas is in
   // Gerber ones. Scaling the context rather than each coordinate also scales the
@@ -586,8 +639,9 @@ export function drawGerberPageLimits(
   v: ViewTransform,
   flip: boolean,
   color: string,
+  paper?: string,
 ): void {
-  const [wMM, hMM] = PAPER_MM[GERBER_PAPER]!;
+  const [wMM, hMM] = PAPER_MM[paperOf(paper)]!;
   ctx.save();
   applyWorld(ctx, v, flip);
   ctx.strokeStyle = color;

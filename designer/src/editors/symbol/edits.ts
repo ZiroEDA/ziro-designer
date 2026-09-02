@@ -27,7 +27,6 @@ import {
 import { textWidth } from '@ziroeda/common/src/font/font_provider.js';
 import { measureText } from '@ziroeda/common/src/font/stroke_font.js';
 import {
-  GRID,
   libUnitShown,
   pinBodyEnd,
   pinNameInfo,
@@ -35,6 +34,7 @@ import {
   symItemId,
   type SymItemKind,
 } from './render/symbolRenderer.js';
+import { symbolGridIU } from './grid.js';
 
 export interface SymItemRef {
   kind: SymItemKind;
@@ -48,10 +48,15 @@ export function parseItemId(id: string): SymItemRef | null {
   return { kind: m[1] as SymItemKind, unitIdx: Number(m[2]), itemIdx: Number(m[3]) };
 }
 
-/** GetNearestGridPosition, on the symbol editor's own pin grid. */
-const snap = (p: Vec2): Vec2 => nearestGridPosition(p, GRID);
+/**
+ * `EDA_DRAW_FRAME::GetNearestGridPosition`, on the grid the frame is actually
+ * working on — `symbolGridIU()`, which is `symbol_editor.json`'s
+ * `window.grid.sizes[last_size]`. It was the module constant `GRID`, so the
+ * Grids page could store a grid nothing snapped to.
+ */
+const snap = (p: Vec2): Vec2 => nearestGridPosition(p, symbolGridIU());
 /** GetNearestHalfGridPosition: multi-item rotate/mirror centres snap to grid/2. */
-const snapHalf = (p: Vec2): Vec2 => nearestHalfGridPosition(p, GRID);
+const snapHalf = (p: Vec2): Vec2 => nearestHalfGridPosition(p, symbolGridIU());
 
 // ----- structural helpers ------------------------------------------------------
 
