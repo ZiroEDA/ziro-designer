@@ -16,6 +16,8 @@
  * whole audit exists to catch, and only the store can tell the two apart.
  */
 import { afterEach, describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { useState, type JSX } from 'react';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { PanelToolbarCustomization } from '@ziroeda/designer/src/dialogs/prefs/PanelToolbarCustomization.js';
@@ -84,6 +86,23 @@ const mount = (
 
 const isDisabled = (el: HTMLElement): boolean => el.hasAttribute('disabled');
 
+/**
+ * `m_tbChoice` is a wxChoice, which is our `Combo`: a BUTTON with a popup, never
+ * a native <select>. Its options are all in the DOM as `.ze-combo-ghost` spans —
+ * that is how the button reserves the width of its widest entry, the way
+ * `wxChoice::GetBestSize` does — and its current value is `.ze-combo-shown`.
+ */
+const choice = (): HTMLElement => screen.getByLabelText('Toolbar');
+const choiceOptions = (): string[] =>
+  Array.from(choice().querySelectorAll('.ze-combo-ghost')).map((o) => o.textContent ?? '');
+const choiceValue = (): string => choice().querySelector('.ze-combo-shown')?.textContent ?? '';
+/** Pick an entry by its visible name, the way a user does. */
+const pickToolbar = (label: string): void => {
+  fireEvent.click(choice());
+  // The popup commits on mouseDown, as a wxChoice's list does.
+  fireEvent.mouseDown(screen.getByRole('option', { name: label }));
+};
+
 const tree = (): HTMLElement => screen.getByLabelText('Toolbar items');
 const treeRows = (): string[] =>
   Array.from(tree().querySelectorAll('.ze-tbcust-row')).map((r) => r.textContent ?? '');
@@ -97,29 +116,18 @@ describe('the Toolbar: choice', () => {
     // pl_editor's `DefaultToolbarConfig` returns `std::nullopt` for TOP_AUX, so
     // there is no "Top auxiliary" row to pick.
     mount('pl_editor', DS_DEFAULT_TOOLBARS);
-    const choice = screen.getByRole('combobox');
-    expect(Array.from(choice.querySelectorAll('option')).map((o) => o.textContent)).toEqual([
-      'Left',
-      'Right',
-      'Top main',
-    ]);
+    expect(choiceOptions()).toEqual(['Left', 'Right', 'Top main']);
   });
 
   it('lists all four for the board, which has a TOP_AUX', () => {
     mount('pcbnew', PCB_DEFAULT_TOOLBARS);
-    const choice = screen.getByRole('combobox');
-    expect(Array.from(choice.querySelectorAll('option')).map((o) => o.textContent)).toEqual([
-      'Left',
-      'Right',
-      'Top main',
-      'Top auxiliary',
-    ]);
+    expect(choiceOptions()).toEqual(['Left', 'Right', 'Top main', 'Top auxiliary']);
   });
 
   it('opens on the first toolbar the app has', () => {
     // `m_tbChoice->SetSelection( 0 ); m_currentToolbar = m_toolbarChoices[0];`
     mount('pl_editor', DS_DEFAULT_TOOLBARS);
-    expect((screen.getByRole('combobox') as HTMLSelectElement).value).toBe('LEFT');
+    expect(choiceValue()).toBe('Left');
     expect(treeRows()).toEqual([
       'Show grid',
       'Units',
@@ -142,14 +150,14 @@ describe('the tree shows GetToolbarConfig, not an empty page', () => {
   it('draws a separator as "Separator" and a spacer as "Spacer: n"', () => {
     // `_( "Separator" )` and `wxString::Format( _( "Spacer: %i" ), item.m_Size )`.
     const seen = mount('pl_editor', DS_DEFAULT_TOOLBARS);
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'TOP_MAIN' } });
+    pickToolbar('Top main');
     expect(treeRows()).toContain('Separator');
     expect(seen.store.toolbars).toEqual([]);
   });
 
   it('names a control by ACTION_TOOLBAR_CONTROL::GetUiName, not by its id', () => {
     mount('pl_editor', DS_DEFAULT_TOOLBARS);
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'TOP_MAIN' } });
+    pickToolbar('Top main');
     // `toolbars_pl_editor.cpp:176-183`.
     expect(treeRows()).toContain('Origin selector');
     expect(treeRows()).toContain('Page selector');
@@ -235,7 +243,7 @@ describe('editing writes to the store', () => {
     // one toolbar only.
     const seen = mount('pl_editor', DS_DEFAULT_TOOLBARS);
     // Touch TOP_MAIN first so it is stored and carries the two controls.
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'TOP_MAIN' } });
+    pickToolbar('Top main');
     fireEvent.click(within(tree()).getAllByText('Separator')[0] as HTMLElement);
     fireEvent.click(screen.getByLabelText('Delete'));
     expect(
@@ -244,7 +252,7 @@ describe('editing writes to the store', () => {
       ),
     ).toBe(true);
 
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'LEFT' } });
+    pickToolbar('Left');
     fireEvent.change(screen.getByLabelText('Filter actions'), { target: { value: 'Origin' } });
     fireEvent.click(within(screen.getByLabelText('Actions')).getByText('Origin selector'));
     fireEvent.click(screen.getByLabelText('Add to toolbar'));
@@ -268,7 +276,7 @@ describe('the controls the checkbox governs', () => {
     const seen = mount('pl_editor', DS_DEFAULT_TOOLBARS);
     fireEvent.click(screen.getByLabelText('Customize toolbars'));
     expect(seen.custom).toBe(false);
-    expect(isDisabled(screen.getByRole('combobox'))).toBe(true);
+    expect(isDisabled(choice())).toBe(true);
     expect(isDisabled(screen.getByLabelText('Filter actions'))).toBe(true);
     expect(isDisabled(screen.getByLabelText('Add to toolbar'))).toBe(true);
     expect(isDisabled(screen.getByText('Insert Separator'))).toBe(true);
@@ -291,5 +299,153 @@ describe('ResetPanel', () => {
     store.toolbars.push({ name: 'LEFT', contents: [] });
     resetToolbarsPanel(store);
     expect(store).toEqual(TOOLBAR_SETTINGS_DEFAULTS);
+  });
+});
+
+/**
+ * The page's METRICS, which are the widgets' own. Every number below was read
+ * off the controls `PANEL_TOOLBAR_CUSTOMIZATION` builds by asking wx for them
+ * on this machine and this theme — `qa/probes/toolbar_customization_probe.cpp`
+ * builds the same `UP_DOWN_TREE` and `wxListCtrl` with a 24 px image list and
+ * prints `GetIndent()`, the row heights and the label rects.
+ *
+ * We had the icons at 16 in rows of ~25 against KiCad's 24 in rows of 26 and
+ * 30, and no expander column at all, so a group was told apart from a leaf only
+ * by its missing icon and nothing lined up with anything.
+ */
+const CSS = readFileSync(resolve(process.cwd(), '../designer/src/ui/shell.css'), 'utf8');
+/** A rule body by exact selector, comments stripped. */
+const rule = (selector: string): string => {
+  const bare = CSS.replace(/\/\*[\s\S]*?\*\//g, '');
+  for (const m of bare.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    const sel = (m[1] ?? '').trim().replace(/\s+/g, ' ');
+    if (sel.split(',').some((x) => x.trim() === selector)) return m[2] ?? '';
+  }
+  return '';
+};
+
+describe('the two lists are the size the widgets are', () => {
+  it('draws every icon at c_defSize, which is 24', () => {
+    // `const int c_defSize = 24` (panel_toolbar_customization.cpp:583) — one
+    // bundle vector, handed to both the tree and the list.
+    expect(rule('.ze-tbcust-row img')).toMatch(/width:\s*24px/);
+    expect(rule('.ze-tbcust-row img')).toMatch(/height:\s*24px/);
+  });
+
+  it('gives each list the row height its own control reports', () => {
+    expect(rule('.ze-tbcust-tree .ze-tbcust-row')).toMatch(/height:\s*26px/);
+    expect(rule('.ze-tbcust-list .ze-tbcust-row')).toMatch(/height:\s*30px/);
+  });
+
+  it('reserves the expander gutter on every tree row, and indents by GetIndent', () => {
+    // Probed: a top-level label starts at 33 with no image, the expander is
+    // 16 x 16, and one level in adds GetIndent() = 15.
+    const gutter = rule('.ze-tbcust-tree .ze-tbcust-row > .twisty');
+    expect(gutter).toMatch(/width:\s*16px/);
+    expect(gutter).toMatch(/margin-right:\s*17px/);
+    expect(rule('.ze-tbcust-tree li > ul')).toMatch(/margin-left:\s*15px/);
+  });
+
+  it('has a child list for the indent rule to land on', () => {
+    // The text assertion above cannot tell a live selector from a dead one:
+    // `.ze-tbcust-tree ul ul` read exactly as well and matched nothing, because
+    // `.ze-tbcust-tree` is itself the outer <ul>.
+    mount('pl_editor', DS_DEFAULT_TOOLBARS);
+    expect(tree().querySelectorAll('li > ul').length).toBeGreaterThan(0);
+  });
+
+  it('puts a twisty on every row, so a leaf lines up with a group label', () => {
+    mount('pl_editor', DS_DEFAULT_TOOLBARS);
+    const rows = Array.from(tree().querySelectorAll('.ze-tbcust-row'));
+    expect(rows.length).toBeGreaterThan(2);
+    for (const r of rows) expect(r.querySelector(':scope > .twisty')).not.toBeNull();
+  });
+});
+
+describe('a group is a tree node, not an unmarked row', () => {
+  it('draws an expander on the group and on nothing else', () => {
+    mount('pl_editor', DS_DEFAULT_TOOLBARS);
+    const open = tree().querySelectorAll('.twisty.expandable');
+    // The Drawing Sheet Editor's LEFT toolbar has exactly one group.
+    expect(open.length).toBe(1);
+    expect(open[0]?.classList.contains('open')).toBe(true);
+  });
+
+  it('shuts and reopens the group, as wxTR_HAS_BUTTONS lets it', () => {
+    mount('pl_editor', DS_DEFAULT_TOOLBARS);
+    const before = treeRows().length;
+    const twisty = tree().querySelector('.twisty.expandable') as HTMLElement;
+
+    fireEvent.click(twisty);
+    expect(treeRows().length).toBeLessThan(before);
+    expect(tree().querySelector('.twisty.expandable')?.classList.contains('open')).toBe(false);
+
+    fireEvent.click(tree().querySelector('.twisty.expandable') as HTMLElement);
+    expect(treeRows().length).toBe(before);
+  });
+
+  it('does not move the selection when the expander is clicked', () => {
+    // The expander is a hit region of the row, not the row: `stopPropagation`.
+    mount('pl_editor', DS_DEFAULT_TOOLBARS);
+    fireEvent.click(tree().querySelector('.twisty.expandable') as HTMLElement);
+    expect(tree().querySelectorAll('.ze-tbcust-row.sel')).toHaveLength(0);
+  });
+});
+
+describe('every control on the page is the app’s own', () => {
+  it('has no native <select> and no bare bitmap button', () => {
+    mount('pl_editor', DS_DEFAULT_TOOLBARS);
+    // A wxChoice is our Combo; a native <select> paints the browser's chevron
+    // and its own popup, which is the one control that would not be ours.
+    expect(document.querySelectorAll('select')).toHaveLength(0);
+    expect(document.querySelectorAll('.ze-combo')).toHaveLength(1);
+    // STD_BITMAP_BUTTON: up, down, delete and the add arrow.
+    expect(document.querySelectorAll('.ze-gridbtn')).toHaveLength(4);
+  });
+
+  it('builds Insert Separator as SPLIT_BUTTON’s two halves', () => {
+    // `OnPaint` calls `DrawPushButton` twice, over `[0, width)` and over
+    // `[width - 2, width - 2 + 20)` (split_button.cpp:262-322).
+    mount('pl_editor', DS_DEFAULT_TOOLBARS);
+    const split = document.querySelector('.ze-splitbtn');
+    expect(split).not.toBeNull();
+    expect(split?.querySelectorAll('button')).toHaveLength(2);
+    expect(split?.querySelector('.ze-splitbtn-arrow .twisty')).not.toBeNull();
+  });
+
+  it('takes the arrow half’s width and its two-pixel overlap from the widget', () => {
+    const arrow = rule('.ze-splitbtn-arrow');
+    expect(arrow).toMatch(/width:\s*20px/); // m_arrowButtonWidth = FromDIP( 20 )
+    expect(arrow).toMatch(/margin-left:\s*-2px/); // r2.x -= 2
+    expect(rule('.ze-splitbtn > .ze-btn:first-child')).toMatch(/padding-left:\s*10px/);
+  });
+
+  it('opens the two rows the split menu holds', () => {
+    mount('pl_editor', DS_DEFAULT_TOOLBARS);
+    fireEvent.click(screen.getByLabelText('Insert'));
+    // `insertMenu->Append( ID_SPACER_MENU, … ); Append( ID_GROUP_MENU, … )`.
+    expect(screen.getByText('Insert Spacer')).toBeTruthy();
+    expect(screen.getByText('Insert Group')).toBeTruthy();
+  });
+
+  it('draws the filter as a wxSearchCtrl, magnifier and cancel', () => {
+    // `ShowCancelButton( true )` (`:175`), and GTK draws the magnifier as the
+    // entry's own primary icon.
+    mount('pl_editor', DS_DEFAULT_TOOLBARS);
+    const wrap = document.querySelector('.ze-tbcust-filter');
+    expect(wrap?.querySelector('.mag')).not.toBeNull();
+    // The ✕ appears only once there is something to clear.
+    expect(wrap?.querySelector('.cancel')).toBeNull();
+    fireEvent.change(screen.getByLabelText('Filter actions'), { target: { value: 'grid' } });
+    expect(document.querySelector('.ze-tbcust-filter .cancel')).not.toBeNull();
+  });
+
+  it('clears the filter from the cancel button', () => {
+    mount('pl_editor', DS_DEFAULT_TOOLBARS);
+    fireEvent.change(screen.getByLabelText('Filter actions'), { target: { value: 'grid' } });
+    const before = actionRows().length;
+    fireEvent.click(document.querySelector('.ze-tbcust-filter .cancel') as HTMLElement);
+    expect((screen.getByLabelText('Filter actions') as HTMLInputElement).value).toBe('');
+    expect(actionRows().length).toBeGreaterThan(before);
   });
 });

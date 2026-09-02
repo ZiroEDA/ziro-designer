@@ -36,7 +36,10 @@
  */
 import { useMemo, useState, type JSX } from 'react';
 import { Check } from './widgets.js';
-import { bitmapUrl, toolbarIconUrl } from '../../ui/toolbarIcons.js';
+import { Combo } from '../../ui/Combo.js';
+import { SplitButton } from '../../ui/SplitButton.js';
+import { StdBitmapButton } from '../../ui/StdBitmapButton.js';
+import { toolbarIconUrl } from '../../ui/toolbarIcons.js';
 import { toolbarButtonLabel } from '../../ui/toolbar_actions.js';
 import { toolbarControlDescription, toolbarControlUiName } from '../../ui/toolbar_controls.js';
 import {
@@ -53,7 +56,6 @@ import {
   type ToolbarLoc,
   type ToolbarSettings,
 } from '../../ui/toolbar_config.js';
-import { ContextMenu } from '../../ui/MenuBar.js';
 import type { MenuItem } from '../../ui/menu_types.js';
 
 /** A selected tree node: a top-level index, and a child index inside a group. */
@@ -104,7 +106,13 @@ export function PanelToolbarCustomization({
   const [filter, setFilter] = useState('');
   const [selAction, setSelAction] = useState(0);
   const [editing, setEditing] = useState<number | null>(null);
-  const [insertMenu, setInsertMenu] = useState<{ x: number; y: number } | null>(null);
+  /**
+   * `m_toolbarTree->ExpandAll()` (`:575`) opens every group, and a wxTreeCtrl
+   * with `wxTR_HAS_BUTTONS` — which `wxTR_DEFAULT_STYLE` carries — then lets
+   * the user shut one again. Only the closed ones are tracked, so a group
+   * added later starts open the way `ExpandAll` leaves it.
+   */
+  const [collapsed, setCollapsed] = useState<ReadonlySet<number>>(() => new Set());
 
   /**
    * `TransferDataToWindow` (`panel_toolbar_customization.cpp:270-322`) fills the
@@ -323,8 +331,6 @@ export function PanelToolbarCustomization({
   const enabled = custom;
   const hasToolbar = locs.includes(loc);
 
-  const bmp = (name: string): string | undefined => bitmapUrl(name);
-
   const insertItems: MenuItem[] = [
     // `insertMenu->Append( ID_SPACER_MENU, _( "Insert Spacer" ) )` and
     // `ID_GROUP_MENU, _( "Insert Group" )` (`:158-159`).
@@ -339,25 +345,33 @@ export function PanelToolbarCustomization({
 
       <div className="ze-tbcust-cols">
         <div className="ze-tbcust-col">
-          <label className="ze-pref-row">
-            <span className="lbl">Toolbar:</span>
-            <select
-              className="ze-select"
+          {/* `bToolbarSizer`: the label `wxLEFT, 5` and `m_tbChoice` at
+              proportion ONE, so the choice takes the rest of the column. It is
+              a wxChoice, which is the app's own Combo — never a native
+              <select>, which paints the browser's chevron and its own popup. */}
+          <div className="ze-tbcust-tbrow">
+            <span className="lbl" id="ze-tbcust-tblabel">
+              Toolbar:
+            </span>
+            <Combo
               value={loc}
+              ariaLabel="Toolbar"
+              options={locs.map((l) => ({ value: l, label: TOOLBAR_LOC_NAMES[l] }))}
               disabled={!enabled}
-              onChange={(e) => {
-                setLoc(e.target.value as ToolbarLoc);
+              onChange={(v) => {
+                setLoc(v as ToolbarLoc);
                 setSel(null);
+                setCollapsed(new Set());
               }}
-            >
-              {locs.map((l) => (
-                <option key={l} value={l}>
-                  {TOOLBAR_LOC_NAMES[l]}
-                </option>
-              ))}
-            </select>
-          </label>
+            />
+          </div>
 
+          {/* `UP_DOWN_TREE`, a wxTreeCtrl with `wxTR_DEFAULT_STYLE | wxTR_EDIT_LABELS
+              | wxTR_HIDE_ROOT | wxTR_NO_LINES` (`..._base.cpp:60`).
+              `wxTR_DEFAULT_STYLE` carries `wxTR_HAS_BUTTONS`, so a group row
+              draws an expander and its children indent under it. Ours drew
+              neither: every row started at the same x and a group was told
+              apart only by its lack of an icon. */}
           <ul className="ze-tbcust-tree" aria-label="Toolbar items">
             {hasToolbar &&
               items.map((it, i) => {
@@ -365,6 +379,8 @@ export function PanelToolbarCustomization({
                 if (label === null) return null;
                 const isSel = sel?.i === i && sel.j === null;
                 const icon = it.type === 'TOOL' && it.name ? toolbarIconUrl(it.name) : undefined;
+                const isGroup = it.type === 'TB_GROUP';
+                const open = isGroup && !collapsed.has(i);
                 return (
                   // biome-ignore lint/suspicious/noArrayIndexKey: the index IS
                   // the item's identity here; two separators are equal values.
@@ -377,9 +393,31 @@ export function PanelToolbarCustomization({
                       onDoubleClick={() => {
                         // `onTreeItemActivated` (`:988-1002`): a group, and only
                         // a group, starts a label edit.
-                        if (enabled && it.type === 'TB_GROUP') setEditing(i);
+                        if (enabled && isGroup) setEditing(i);
                       }}
                     >
+                      {/* The expander gutter. Every row reserves it — that is
+                          what lines a leaf up with a group's label — and only a
+                          group draws a button in it. */}
+                      {isGroup ? (
+                        // biome-ignore lint/a11y/useKeyWithClickEvents: the
+                        // expander is a wxTreeCtrl hit region, not a control;
+                        // the keyboard opens a node with Left/Right on the row.
+                        <span
+                          className={`twisty expandable${open ? ' open' : ''}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setCollapsed((prev) => {
+                              const next = new Set(prev);
+                              if (open) next.add(i);
+                              else next.delete(i);
+                              return next;
+                            });
+                          }}
+                        />
+                      ) : (
+                        <span className="twisty" />
+                      )}
                       {icon ? <img src={icon} alt="" /> : <span className="ze-tbcust-noicon" />}
                       {editing === i ? (
                         <input
@@ -397,7 +435,7 @@ export function PanelToolbarCustomization({
                         <span>{label}</span>
                       )}
                     </div>
-                    {it.type === 'TB_GROUP' && (
+                    {isGroup && open && (
                       <ul>
                         {(it.group_items ?? []).map((g, j) => {
                           const childLabel = toolLabel(g.name);
@@ -409,9 +447,10 @@ export function PanelToolbarCustomization({
                             <li key={`${g.name}-${j}`}>
                               {/* biome-ignore lint/a11y/useKeyWithClickEvents: as above. */}
                               <div
-                                className={`ze-tbcust-row child${childSel ? ' sel' : ''}`}
+                                className={`ze-tbcust-row${childSel ? ' sel' : ''}`}
                                 onClick={() => enabled && setSel({ i, j })}
                               >
+                                <span className="twisty" />
                                 {childIcon ? (
                                   <img src={childIcon} alt="" />
                                 ) : (
@@ -430,81 +469,72 @@ export function PanelToolbarCustomization({
           </ul>
 
           <div className="ze-tbcust-btns">
-            {/* SPLIT_BUTTON: the button runs `onSeparatorPress`, the arrow opens
-                a two-row wxMenu (`panel_toolbar_customization.cpp:152-167`). */}
-            <span className="ze-tbcust-split">
-              <button
-                type="button"
-                className="ze-btn"
-                disabled={!enabled}
-                onClick={onInsertSeparator}
-              >
-                Insert Separator
-              </button>
-              <button
-                type="button"
-                className="ze-btn ze-btn-bitmap ze-tbcust-splitarrow"
-                aria-label="Insert"
-                disabled={!enabled}
-                onClick={(e) => {
-                  const r = e.currentTarget.getBoundingClientRect();
-                  setInsertMenu({ x: r.left, y: r.bottom });
-                }}
-              >
-                ▾
-              </button>
-            </span>
+            {/* SPLIT_BUTTON: the wide half runs `onSeparatorPress`, the arrow
+                half drops the two-row wxMenu (`:152-167`). */}
+            <SplitButton
+              label="Insert Separator"
+              menuLabel="Insert"
+              disabled={!enabled}
+              onClick={onInsertSeparator}
+              menu={insertItems}
+            />
             {/* `m_btnToolMoveUp->Enable( false )` / `m_btnToolMoveDown->Enable(
                 false )` in the constructor, above `// TODO (ISM): Enable
                 draging` (`:188-190`). Dead upstream, so dead here. */}
-            <button type="button" className="ze-btn ze-btn-bitmap" aria-label="Move up" disabled>
-              <img src={bmp('small_up')} alt="" />
-            </button>
-            <button type="button" className="ze-btn ze-btn-bitmap" aria-label="Move down" disabled>
-              <img src={bmp('small_down')} alt="" />
-            </button>
+            <StdBitmapButton bitmap="small_up" title="Move up" disabled onClick={() => {}} />
+            <StdBitmapButton bitmap="small_down" title="Move down" disabled onClick={() => {}} />
             {/* `bSizerToolbarBtns->Add( 20, 0, 0, 0, 5 )` — the fixed gap that
                 separates delete from the rest. [px] wxFormBuilder's own 20. */}
             <span className="ze-tbcust-gap" />
-            <button
-              type="button"
-              className="ze-btn ze-btn-bitmap"
-              aria-label="Delete"
+            <StdBitmapButton
+              bitmap="small_trash"
+              title="Delete"
               disabled={!enabled || !sel}
               onClick={onDelete}
-            >
-              <img src={bmp('small_trash')} alt="" />
-            </button>
+            />
           </div>
         </div>
 
         <div className="ze-tbcust-mid">
-          <button
-            type="button"
-            className="ze-btn ze-btn-bitmap"
-            aria-label="Add to toolbar"
+          <StdBitmapButton
+            bitmap="left"
+            title="Add to toolbar"
             disabled={!enabled}
             onClick={onAdd}
-          >
-            <img src={bmp('left')} alt="" />
-          </button>
+          />
         </div>
 
         <div className="ze-tbcust-col">
-          {/* `m_actionFilter->SetDescriptiveText( _( "Filter actions" ) )`. */}
-          <input
-            className="ze-search"
-            type="search"
-            placeholder="Filter actions"
-            aria-label="Filter actions"
-            value={filter}
-            disabled={!enabled}
-            onChange={(e) => {
-              setFilter(e.target.value);
-              setSelAction(0);
-            }}
-            onKeyDown={(e) => e.stopPropagation()}
-          />
+          {/* `m_actionFilter` is a wxSearchCtrl:
+              `ShowCancelButton( true )` and
+              `SetDescriptiveText( _( "Filter actions" ) )` (`:174-176`). GTK
+              draws the magnifier as the entry's own primary icon and the ✕ when
+              there is text, which is the same pair the Hotkeys filter and the
+              template selector already wear — one wxSearchCtrl upstream, one
+              wrapper here. (The class is named after the first call site that
+              needed it, not after this one.) */}
+          <div className="ze-tplsel-searchwrap ze-tbcust-filter">
+            <span className="mag" aria-hidden="true" />
+            <input
+              className="ze-tplsel-nameinput ze-bare"
+              type="text"
+              placeholder="Filter actions"
+              aria-label="Filter actions"
+              value={filter}
+              disabled={!enabled}
+              onChange={(e) => {
+                setFilter(e.target.value);
+                setSelAction(0);
+              }}
+              onKeyDown={(e) => e.stopPropagation()}
+            />
+            {filter !== '' && (
+              // biome-ignore lint/a11y/useKeyWithClickEvents: a wxSearchCtrl's
+              // cancel button is painted inside the entry, which owns the
+              // keyboard — Escape clears it there too.
+              <span className="cancel" title="Clear the filter" onClick={() => setFilter('')} />
+            )}
+          </div>
           <ul className="ze-tbcust-list" aria-label="Actions">
             {shown.map((e, i) => (
               <li key={e.action ?? `control:${e.control}`}>
@@ -534,15 +564,6 @@ export function PanelToolbarCustomization({
           </ul>
         </div>
       </div>
-
-      {insertMenu && (
-        <ContextMenu
-          items={insertItems}
-          x={insertMenu.x}
-          y={insertMenu.y}
-          onClose={() => setInsertMenu(null)}
-        />
-      )}
     </div>
   );
 }
