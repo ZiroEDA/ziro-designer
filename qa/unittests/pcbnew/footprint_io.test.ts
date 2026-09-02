@@ -70,8 +70,30 @@ const R_0603 = `(footprint "R_0603_1608Metric"
 `;
 
 /** Drop `source` (and undefined keys) so two reads compare by value, not AST identity. */
+/**
+ * The typed model, without any of the retained parse trees.
+ *
+ * `source` has to come off the *children* too, not just the footprint: it is the
+ * node the item was read from, and the writer is entitled to emit a different
+ * one for the same model. It does, for a pre-v7 library footprint whose text
+ * carries no angle — KiCad's `format( const PCB_TEXT* )` always prints one
+ * (`(at %s %s)` with `FormatAngle( GetTextAngle() )`,
+ * pcb_io_kicad_sexpr.cpp:2300), which is why every footprint KiCad 10 writes
+ * has the three-argument form: `(at 4.505 -1.28 0)` in `ecc83-pp.kicad_pcb`.
+ * Comparing the ASTs made this a byte-fidelity test wearing a model test's name,
+ * and it failed on the one bundled footprint still written the old way.
+ */
 const strip = (fp: PcbFootprint): unknown =>
-  JSON.parse(JSON.stringify({ ...fp, source: undefined }));
+  JSON.parse(
+    JSON.stringify({
+      ...fp,
+      source: undefined,
+      pads: fp.pads.map((p) => ({ ...p, source: undefined })),
+      texts: fp.texts.map((t) => ({ ...t, source: undefined })),
+      shapes: fp.shapes.map((sh) => ({ ...sh, source: undefined })),
+      fields: fp.fields?.map((f) => ({ ...f, source: undefined })),
+    }),
+  );
 
 describe('readFootprintFile / serializeFootprint (.kicad_mod)', () => {
   it('reads a footprint in its own local frame', () => {

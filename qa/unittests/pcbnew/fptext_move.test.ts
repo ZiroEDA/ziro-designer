@@ -64,8 +64,13 @@ describe('footprint text as an individually movable item', () => {
     const back = readBoard(parse(serializeBoard(moved)));
     expect(back.footprints[0]!.texts[0]!.at.x).toBe(refBefore.x + mmToIU(3));
     expect(back.footprints[0]!.texts[0]!.at.y).toBe(refBefore.y + mmToIU(1));
-    // The file stores the local at: reference was (0,-2) -> (3,-1).
-    expect(serializeBoard(moved)).toContain('(at 3 -1)');
+    // The file stores the local at, and a text always carries its angle even
+    // when it is zero — `format( const PCB_TEXT* )` prints `(at %s %s)` with
+    // `FormatAngle( GetTextAngle() )` unconditionally (pcb_io_kicad_sexpr.cpp:
+    // 2300), which is why every `(property "Reference" …)` KiCad 10 wrote into
+    // `ecc83-pp.kicad_pcb` has three arguments: `(at 4.505 -1.28 0)`.
+    // Reference was (0,-2) -> (3,-1).
+    expect(serializeBoard(moved)).toContain('(at 3 -1 0)');
   });
 
   it('a rotated footprint moves its text in the correct local frame', () => {

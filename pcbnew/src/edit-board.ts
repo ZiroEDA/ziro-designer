@@ -1582,10 +1582,11 @@ const patchAtCoords = (atSrc: SList, xMM: string, yMM: string): SList => {
 };
 
 /**
- * Move only the given texts of a footprint (individual FP_TEXT drag). The
- * board-absolute `at` shifts for hit-test/render; the fp_text source's local
- * `(at)` is rewritten from the new board position: local = rotate(board −
- * fp.at, −fp.angle), the inverse of the reader's toBoard.
+ * Move only the given texts of a footprint (individual FP_TEXT drag).
+ *
+ * The board-absolute `at` is the whole of it: the writer converts it back to
+ * the footprint's frame on the way out (`GetFPRelativePosition`), so this does
+ * not — and must not — write the local coordinates itself.
  */
 const moveFootprintTexts = (
   fp: PcbFootprint,
@@ -1593,16 +1594,7 @@ const moveFootprintTexts = (
   d: Vec2,
 ): PcbFootprint => ({
   ...fp,
-  texts: fp.texts.map((t, i) => {
-    if (!textIdx.has(i)) return t;
-    const at = add(t.at, d);
-    const localIU = rotatePcb({ x: at.x - fp.at.x, y: at.y - fp.at.y }, -fp.angle);
-    const srcAt = childNamed(t.source, 'at');
-    const src = srcAt
-      ? patchChild(t.source, 'at', patchAtCoords(srcAt, mm(localIU.x), mm(localIU.y)))
-      : t.source;
-    return { ...t, at, source: src };
-  }),
+  texts: fp.texts.map((t, i) => (textIdx.has(i) ? { ...t, at: add(t.at, d) } : t)),
 });
 
 /**
@@ -1986,6 +1978,12 @@ const rotShapeCoords = <
 function rotateFootprintAbout(f: PcbFootprint, c: Vec2, deg: number): PcbFootprint {
   const at = rotAbout(f.at, c, deg);
   const angle = norm360(f.angle + deg);
+  // `FOOTPRINT::Rotate`: the anchor and orientation move, and every child moves
+  // with them in board coordinates. Nothing here touches a child's `source` —
+  // the writer derives each child's `(at …)` from the model the way
+  // `PCB_IO_KICAD_SEXPR::format` does, so there is one place that knows a
+  // child's position is stored footprint-relative while its angle is stored
+  // absolute, instead of one per mutation.
   return {
     ...f,
     at,
@@ -2865,11 +2863,17 @@ export function flipBoardItems(board: Board, ids: ReadonlySet<string>, centre?: 
    * negating it (text mirrors as text, it does not rotate), and a side-specific
    * layer toggles the mirrored flag.
    */
-  const flipText = (t: PcbTextItem): PcbTextItem => {
+  /**
+   * `PCB_TEXT::Flip`. `inFootprint` is the one difference between a `gr_text`
+   * and an `fp_text`: a board text's `(at …)` is the board position and this is
+   * the only thing that writes it, while a footprint child's is footprint-
+   * relative and the writer derives it from the model.
+   */
+  const flipText = (t: PcbTextItem, inFootprint = false): PcbTextItem => {
     const at = mirY(t.at);
     const angle = norm360(180 - t.angle);
     const layer = flipLayer(t.layer);
-    let src = patchChild(t.source, 'at', atNode(at, angle));
+    let src = inFootprint ? t.source : patchChild(t.source, 'at', atNode(at, angle));
     src = patchChild(src, 'layer', layerNode(layer));
     return { ...t, at, angle, layer, mirror: !t.mirror, source: src };
   };
@@ -2909,9 +2913,12 @@ export function flipBoardItems(board: Board, ids: ReadonlySet<string>, centre?: 
 
     const pads = f.pads.map((p) => {
       const padAt = mirY(p.at);
-      let src = patchChild(p.source, 'at', atNode(padAt, norm360(-p.angle)));
+      // Only the layers and the trapezoid delta are patched: the pad's `(at …)`
+      // is the writer's to derive (it is footprint-relative, and `padAt` here is
+      // board-absolute — writing it into that slot reloaded the pads a hundred
+      // millimetres away from their own footprint).
       const layers = p.layers.map(flipLayer);
-      src = patchChild(src, 'layers', {
+      let src = patchChild(p.source, 'layers', {
         kind: 'list',
         items: [atom('layers'), ...layers.map((l) => str(l))],
       });
@@ -2927,7 +2934,7 @@ export function flipBoardItems(board: Board, ids: ReadonlySet<string>, centre?: 
       angle,
       layer,
       pads,
-      texts: f.texts.map(flipText),
+      texts: f.texts.map((t) => flipText(t, true)),
       shapes: f.shapes.map(flipShape),
       source: patchChild(patchChild(f.source, 'at', atNode(at, angle)), 'layer', layerNode(layer)),
     };
