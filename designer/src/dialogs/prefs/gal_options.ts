@@ -20,8 +20,14 @@
 /** `GRID_SETTINGS::style` — `KIGFX::GRID_STYLE`, as our settings spell it. */
 export type GridStyle = 'dots' | 'lines' | 'crosses';
 
-/** `KIGFX::GRID_SNAPPING`, stored as the `wxChoice` selection upstream stores. */
-export type GridSnapping = 0 | 1 | 2;
+/**
+ * `KIGFX::GRID_SNAPPING`, re-exported rather than restated: it is a
+ * `GAL_DISPLAY_OPTIONS` member, so it lives beside `GAL::GetGridSnapping` —
+ * the one function that acts on it — in `ui/grid_cursor.ts`, and this module
+ * is only where the CHOICE that writes it is described.
+ */
+export type { GridSnapping } from '../../ui/grid_cursor.js';
+import type { GridSnapping } from '../../ui/grid_cursor.js';
 
 /**
  * `m_staticText1` and `m_stGridLabel` (`panel_gal_options_base.cpp:17` and

@@ -44,7 +44,7 @@ import {
   DS_MARQUEE,
 } from '@ziroeda/common';
 import { setBitmapInvalidate } from '@ziroeda/common';
-import { usePlEditorColors } from '../../prefs/useSettings.js';
+import { usePlEditorColors, usePlEditorSettings } from '../../prefs/useSettings.js';
 import { DrawingSheetGl } from '../../render/gl/drawingsheet_gl.js';
 import {
   commonInputPrefs,
@@ -57,7 +57,7 @@ import {
   zoomFitView,
 } from '../../ui/view_controls.js';
 import { clampViewScale } from '../../ui/zoom_settings.js';
-import { drawCrosshair, drawGrid } from '../../ui/grid_cursor.js';
+import { drawCrosshair, drawGrid, gridSnappingEnabled } from '../../ui/grid_cursor.js';
 import { scaleForZoomFactor, zoomFactorForScale } from '../../ui/status_format.js';
 import { ZOOM_LIST, nextZoomPreset } from '../../ui/zoom_settings.js';
 import { kiCursor } from '../../ui/kicursors.js';
@@ -304,13 +304,25 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
     const cursorWorldRef = useRef<Vec2 | null>(null);
     const moveModeStartRef = useRef<Vec2 | null>(null);
 
-    /** Snap a world point to the grid when the grid is visible. */
+    /**
+     * `GetGAL()->GetGridSnapping()`, asked with PL_EDITOR's own settings object
+     * and its own Show Grid state — the "Snap to grid" choice on Preferences >
+     * Drawing Sheet Editor > Display Options.
+     *
+     * This read `showGrid` ALONE, which is `GRID_SNAPPING::WITH_GRID`
+     * hardcoded, where the setting's default is `ALWAYS`. So hiding the grid
+     * silently turned snapping off, which a real pl_editor does not do; the
+     * choice is what decides it, and only its middle option ties the two
+     * together.
+     */
+    const plCfg = usePlEditorSettings();
+    const snapping = gridSnappingEnabled(plCfg.window.grid.snap, showGrid);
     const snap = useCallback(
       (p: Vec2): Vec2 =>
-        showGrid && gridIU > 0
+        snapping && gridIU > 0
           ? { x: Math.round(p.x / gridIU) * gridIU, y: Math.round(p.y / gridIU) * gridIU }
           : p,
-      [showGrid, gridIU],
+      [snapping, gridIU],
     );
 
     const draw = useCallback(() => {

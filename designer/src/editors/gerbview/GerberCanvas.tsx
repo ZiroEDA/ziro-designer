@@ -45,7 +45,13 @@ import {
   wheelAction,
   zoomFitScale,
 } from '../../ui/view_controls.js';
-import { type CrosshairMode, drawCrosshair, drawGrid } from '../../ui/grid_cursor.js';
+import {
+  type CrosshairMode,
+  drawCrosshair,
+  drawGrid,
+  gridSnappingEnabled,
+} from '../../ui/grid_cursor.js';
+import { useGerbviewSettings } from '../../prefs/useSettings.js';
 import { clampViewScale, nextZoomPreset, ZOOM_LIST } from '../../ui/zoom_settings.js';
 import { scaleForZoomFactor, zoomFactorForScale } from '../../ui/status_format.js';
 import {
@@ -216,8 +222,20 @@ export const GerberCanvas = forwardRef<GerberCanvasController, GerberCanvasProps
     layersRef.current = layers;
     const optionsRef = useRef(options);
     optionsRef.current = options;
-    const gridRef = useRef({ showGrid, gridIU });
-    gridRef.current = { showGrid, gridIU };
+    /**
+     * `GetGAL()->GetGridSnapping()`, asked with GERBVIEW's own settings object
+     * and its own Show Grid state — the "Snap to grid" choice on Preferences >
+     * Gerber Viewer > Display Options.
+     *
+     * The crosshair marked the snapped point whenever the grid was SHOWN,
+     * which is `GRID_SNAPPING::WITH_GRID` hardcoded where the setting's
+     * default is `ALWAYS`; hiding the grid took the snap with it, and neither
+     * of the other two options did anything.
+     */
+    const gbrCfg = useGerbviewSettings();
+    const snapping = gridSnappingEnabled(gbrCfg.window.grid.snap, showGrid);
+    const gridRef = useRef({ snapping, gridIU });
+    gridRef.current = { snapping, gridIU };
     const crosshairRef = useRef(crosshairMode);
     crosshairRef.current = crosshairMode;
 
@@ -289,14 +307,14 @@ export const GerberCanvas = forwardRef<GerberCanvasController, GerberCanvasProps
       // GAL::DrawGrid, in LAYER_GERBVIEW_GRID (gerbview_frame.cpp:934-937).
       // GerbView's canvas is y-up, and mirrors x under "flip view", so the
       // lattice is told about both.
-      const { showGrid: sg, gridIU: g } = gridRef.current;
+      const g = gridRef.current.gridIU;
       drawGrid(
         ctx,
         { scale: v.scale, tx: v.tx, ty: v.ty, flipX: flip, flipY: true },
         canvas.width,
         canvas.height,
         {
-          show: sg,
+          show: showGrid,
           sizeIU: g,
           color: opts.colors.grid,
           devicePixelRatio: dpr,
@@ -791,9 +809,9 @@ export const GerberCanvas = forwardRef<GerberCanvasController, GerberCanvasProps
         const world = toWorld(p.x, p.y);
         // The crosshair marks the snapped point (GAL m_cursorPosition), not the
         // raw pointer.
-        const { showGrid: sg, gridIU: g } = gridRef.current;
+        const { snapping: sn, gridIU: g } = gridRef.current;
         const snapped =
-          sg && g > 0 ? { x: Math.round(world.x / g) * g, y: Math.round(world.y / g) * g } : world;
+          sn && g > 0 ? { x: Math.round(world.x / g) * g, y: Math.round(world.y / g) * g } : world;
         const vt = viewRef.current;
         cursorPxRef.current = worldToDevice(vt, optionsRef.current.flipView, snapped.x, snapped.y);
         onCursorMove?.(world);

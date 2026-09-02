@@ -116,6 +116,39 @@ export const DEFAULT_GRID_APPEARANCE: GridAppearance = {
 };
 
 /**
+ * `KIGFX::GRID_SNAPPING` — `m_gridSnapping`, the other half of
+ * `GAL_DISPLAY_OPTIONS` the "Snap to grid" choice writes. Stored as the
+ * `wxChoice` selection upstream stores: 0 ALWAYS, 1 WITH_GRID, 2 NEVER.
+ */
+export type GridSnapping = 0 | 1 | 2;
+
+/**
+ * `KIGFX::GAL::GetGridSnapping()`
+ * (`include/gal/graphics_abstraction_layer.h:815-819`):
+ *
+ *     return m_options.m_gridSnapping == GRID_SNAPPING::ALWAYS
+ *            || ( m_gridVisibility && m_options.m_gridSnapping == GRID_SNAPPING::WITH_GRID );
+ *
+ * — one method on the GAL, which is why it is one function here and not one per
+ * editor. Every canvas asks it with its OWN app's `window.grid.snap` and its
+ * OWN grid visibility; the two arguments are what keep one editor's answer out
+ * of another's.
+ *
+ * It is also why the middle option reads "When grid shown" and not "When a grid
+ * is set": the term is `m_gridVisibility`, i.e. `ACTIONS::toggleGrid`, and has
+ * nothing to do with the grid LIST.
+ *
+ * `GRID_SNAPPING::NEVER` falls out of both arms and needs no branch.
+ *
+ * @param snapping `window.grid.snap` from the calling app's settings.
+ * @param gridVisible `m_gridVisibility` — the live Show Grid state, not the
+ *   stored one, because that is the term upstream reads.
+ */
+export function gridSnappingEnabled(snapping: GridSnapping, gridVisible: boolean): boolean {
+  return snapping === 0 || (gridVisible && snapping === 1);
+}
+
+/**
  * A canvas' world -> device-pixel transform.
  *
  * `scale` is always positive (device px per world IU); a mirrored axis is a

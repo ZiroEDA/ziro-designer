@@ -227,7 +227,12 @@ import { kiCursor } from '../../../ui/kicursors.js';
 import { remapEvent } from '../hotkey_bindings.js';
 import { settings } from '../../../prefs/settings.js';
 import type { InputPrefs } from '../../../ui/view_controls.js';
-import { drawGrid, drawCrosshair, viewFromOffsets } from '../../../ui/grid_cursor.js';
+import {
+  drawGrid,
+  drawCrosshair,
+  gridSnappingEnabled,
+  viewFromOffsets,
+} from '../../../ui/grid_cursor.js';
 import {
   DEFAULT_INPUT_PREFS,
   dragGesture,
@@ -828,10 +833,22 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       return o.connected;
     return base;
   })();
-  const snap = (p: Vec2): Vec2 => ({
-    x: Math.round(p.x / GRID) * GRID,
-    y: Math.round(p.y / GRID) * GRID,
-  });
+  /**
+   * `GRID_HELPER::canUseGrid()`, whose term we can express is
+   * `GetGAL()->GetGridSnapping()` — the "Snap to grid" choice on Preferences >
+   * Schematic Editor > Display Options, asked with EESCHEMA's own settings
+   * object and eeschema's own Show Grid state.
+   *
+   * This snapped unconditionally, which is `GRID_SNAPPING::ALWAYS` and is the
+   * default — so it was right by accident and the other two options did
+   * nothing at all.
+   */
+  const snapping = gridSnappingEnabled(
+    settings.eeschema.window.grid.snap,
+    renderOpts.grid.show !== false,
+  );
+  const snap = (p: Vec2): Vec2 =>
+    snapping ? { x: Math.round(p.x / GRID) * GRID, y: Math.round(p.y / GRID) * GRID } : p;
   // EDIT_POINTS::ViewDraw's colours, which depend on the theme's aux-items
   // colour *and* on the canvas background it is compared against.
   const editPointColor = useMemo(

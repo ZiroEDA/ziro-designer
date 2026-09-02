@@ -24,6 +24,7 @@
  */
 import { gridSizeToIU, settings, type SymbolEditorSettings } from '../../prefs/settings.js';
 import { SYM_SHAPE_TOOLS } from './symbolToolbars.js';
+import { gridSnappingEnabled } from '../../ui/grid_cursor.js';
 
 /**
  * `gridCfg.grids[ safeGrid( gridCfg.last_size_idx ) ]`, in IU.
@@ -99,19 +100,14 @@ const SHAPE_TOOL_IDS = new Set<string>([
 ]);
 
 /**
- * `KIGFX::GAL::GetGridSnapping()`
- * (`include/gal/graphics_abstraction_layer.h:815-819`):
+ * `KIGFX::GAL::GetGridSnapping()` asked with THIS editor's settings object.
  *
- *     return m_options.m_gridSnapping == GRID_SNAPPING::ALWAYS
- *            || ( m_gridVisibility && m_options.m_gridSnapping == GRID_SNAPPING::WITH_GRID );
- *
- * — which is the whole of what the "Snap to grid" choice on Display Options
- * does, and the reason the middle option is worded "When grid shown": it reads
- * `ACTIONS::toggleGrid`'s state, not the grid list.
- *
- * `GRID_SNAPPING::NEVER` is the third option and falls out of both arms.
+ * The predicate itself is `ui/grid_cursor.ts`' `gridSnappingEnabled`, beside
+ * the rest of `GAL_DISPLAY_OPTIONS`, because upstream it is one method on the
+ * GAL and every canvas calls the same one. This is the call, and naming the
+ * settings object in it is the whole point: reading another app's `snap` here
+ * is the shape of bug that had the symbol editor following `eeschema.json`.
  */
 export function symbolSnappingEnabled(cfg: SymbolEditorSettings): boolean {
-  const { snap, show } = cfg.window.grid;
-  return snap === 0 || (show && snap === 1);
+  return gridSnappingEnabled(cfg.window.grid.snap, cfg.window.grid.show);
 }
