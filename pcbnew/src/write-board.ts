@@ -166,6 +166,14 @@ export function buildBoardShapeNode(s: PcbShape): SList {
   );
   if (s.fill) items.push(list(atom('fill'), atom('solid')));
   items.push(list(atom('layer'), str(s.layer)));
+  // `if( !( m_ctl & CTL_OMIT_PAD_NETS ) && aShape->GetNetCode() > 0 )`
+  // (pcb_io_kicad_sexpr.cpp:1116). Written by NAME, and only for a real net:
+  // code 0 is the unconnected one and upstream omits the token entirely.
+  //
+  // Between the layer and the uuid, where the writer puts it. A builder that
+  // dropped it would round-trip a copper graphic into an unconnected one, which
+  // is the load-side bug of #631 arriving from the other direction.
+  if ((s.net ?? 0) > 0) items.push(list(atom('net'), str(s.netName ?? '')));
   if (s.uuid) items.push(list(atom('uuid'), str(s.uuid)));
   return { kind: 'list', items };
 }

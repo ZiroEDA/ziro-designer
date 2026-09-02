@@ -223,6 +223,54 @@ describe('a pad string left on its own', () => {
   });
 });
 
+describe('a copper graphic', () => {
+  it('is lettered like the track it is (#631)', () => {
+    // `draw( const PCB_SHAPE* )`: a SEGMENT-shaped copper graphic goes through
+    // the very `renderNetNameForSegment` a track uses, so it becomes an
+    // ordinary track label rather than a kind of its own.
+    const s = scene(
+      '  (gr_line (start 100 100) (end 180 100) (stroke (width 2) (type solid)) (layer "F.Cu") (net "/uart/SDA{slash}A4"))',
+    );
+    expect(s.netLabels.map((l) => l.text)).toEqual(['SDA/A4']);
+    expect(s.netLabels[0]!.width / MM).toBeCloseTo(2, 3);
+  });
+
+  it('is not lettered when it has no net', () => {
+    const s = scene(
+      '  (gr_line (start 100 100) (end 180 100) (stroke (width 2) (type solid)) (layer "F.SilkS"))',
+    );
+    expect(s.netLabels).toHaveLength(0);
+  });
+
+  it('is not lettered for a shape upstream draws nothing for', () => {
+    // "TODO: Maybe use some of the pad code?" — only SHAPE_T::SEGMENT is
+    // handled, and a circle gets no name at all.
+    const s = scene(
+      '  (gr_circle (center 100 100) (end 120 100) (stroke (width 2) (type solid)) (layer "F.Cu") (net "/uart/SDA{slash}A4"))',
+    );
+    expect(s.netLabels).toHaveLength(0);
+  });
+});
+
+describe('two nets that share a short name', () => {
+  it('are widened on the board, not just in the list (#629)', () => {
+    // The painter now asks the whole net list, so `RebuildDisplayNetnames`
+    // reaches the copper rather than only the accessor.
+    const b = readBoard(
+      parse(`(kicad_pcb (version 20241229) (generator "test")
+  (layers (0 "F.Cu" signal) (31 "B.Cu" signal))
+  (net 0 "")
+  (net 1 "/Sheet1/SDA")
+  (net 2 "/Sheet2/SDA")
+  (segment (start 100 100) (end 180 100) (width 2) (layer "F.Cu") (net 1))
+  (segment (start 100 120) (end 180 120) (width 2) (layer "F.Cu") (net 2))
+)`),
+    );
+    const s = buildScene(b, {}, GL_PATH_FACTORY);
+    expect(s.netLabels.map((l) => l.text).sort()).toEqual(['Sheet1/SDA', 'Sheet2/SDA']);
+  });
+});
+
 describe('the character count the size is divided by', () => {
   it('does not count overbar markup', () => {
     // `PrintableCharCount`, not `length`: `~{…}` draws an overbar and the
