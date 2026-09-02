@@ -232,6 +232,7 @@ import {
   DEFAULT_INPUT_PREFS,
   dragGesture,
   dragZoomScale,
+  makeMotionPan,
   makeZoomController,
   wheelAction,
 } from '../../../ui/view_controls.js';
@@ -856,6 +857,8 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
 
   const modeRef = useRef<Mode>('idle');
   const panLastRef = useRef<{ x: number; y: number } | null>(null);
+  /** `WX_VIEW_CONTROLS::m_metaPanning` / `m_metaPanStart`, per canvas. */
+  const motionPanRef = useRef(makeMotionPan());
   /**
    * `WX_VIEW_CONTROLS::m_zoomController` — this canvas's own, because upstream
    * each `WX_VIEW_CONTROLS` owns one and the accelerating one has history.
@@ -3354,6 +3357,19 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     (e: React.PointerEvent) => {
       const vp = viewportRef.current;
       if (!vp) return;
+      // `onMotion`'s meta-pan (`wx_view_controls.cpp:288-311`), which comes
+      // FIRST and returns: with the Drag Gestures key held, a bare pointer move
+      // pans and nothing else in this handler runs.
+      const meta = motionPanRef.current.update(e, inputPrefs.motionPanModifier, dpr());
+      if (meta) {
+        viewportRef.current = {
+          ...vp,
+          offsetX: vp.offsetX + meta.dx,
+          offsetY: vp.offsetY + meta.dy,
+        };
+        requestDraw();
+        return;
+      }
       const world = toWorld(e.clientX, e.clientY);
       cursorRef.current = world;
       onCursorMove?.(world, CONNECTION_SNAP_TOOLS.has(activeTool) ? snapConn(world) : snap(world));

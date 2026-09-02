@@ -15,6 +15,7 @@ import {
   commonInputPrefs,
   dragGesture,
   dragZoomScale,
+  makeMotionPan,
   makeZoomController,
   wheelAction,
   zoomFitScale,
@@ -405,12 +406,7 @@ import {
   type PcbPropRow,
 } from '@ziroeda/pcbnew/src/properties_panel.js';
 import { drawGrid, drawCrosshair } from '../../ui/grid_cursor.js';
-import {
-  GRID_SIZE_LIST,
-  gridEntryOf,
-  gridSizeToIU,
-  gridSizesIU,
-} from '../../ui/grid_settings.js';
+import { GRID_SIZE_LIST, gridEntryOf, gridSizeToIU, gridSizesIU } from '../../ui/grid_settings.js';
 import {
   type ConditionalEntry,
   evaluateConditionalMenu,
@@ -3879,6 +3875,8 @@ export function PcbEditor({
 
   // Middle-button pan (KiCad reserves the left button for select/move).
   const panRef = useRef<{ x: number; y: number } | null>(null);
+  /** `WX_VIEW_CONTROLS::m_metaPanning` / `m_metaPanStart`, per canvas. */
+  const motionPanRef = useRef(makeMotionPan());
   /**
    * `WX_VIEW_CONTROLS::m_zoomController` — this canvas's own, because upstream
    * each `WX_VIEW_CONTROLS` owns one and the accelerating one has history.
@@ -6333,6 +6331,17 @@ export function PcbEditor({
   const onPointerMove = (e: React.PointerEvent): void => {
     shiftDownRef.current = e.shiftKey;
     ctrlDownRef.current = e.ctrlKey || e.metaKey;
+    // `onMotion`'s meta-pan (`wx_view_controls.cpp:288-311`), which comes
+    // FIRST and returns: with the Drag Gestures key held, a bare pointer move
+    // pans and nothing else in this handler runs.
+    const meta = motionPanRef.current.update(e, commonInputPrefs().motionPanModifier, dpr);
+    if (meta) {
+      const v = viewRef.current;
+      v.tx += meta.dx;
+      v.ty += meta.dy;
+      requestDraw();
+      return;
+    }
     const canvas = canvasRef.current;
     if (canvas) {
       const rect = canvas.getBoundingClientRect();

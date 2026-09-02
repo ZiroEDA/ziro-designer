@@ -5323,6 +5323,7 @@ export function SchematicEditor({
       scrollModPanV: common.input.scroll_modifier_pan_v,
       reverseScrollPanH: common.input.reverse_scroll_pan_h,
       horizontalPan: common.input.horizontal_pan,
+      motionPanModifier: common.input.motion_pan_modifier,
       mouseLeft: common.input.mouse_left as InputPrefs['mouseLeft'],
       mouseMiddle: common.input.mouse_middle as InputPrefs['mouseMiddle'],
       mouseRight: common.input.mouse_right as InputPrefs['mouseRight'],

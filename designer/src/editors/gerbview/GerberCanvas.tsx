@@ -39,6 +39,7 @@ import {
   commonInputPrefs,
   dragGesture,
   dragZoomScale,
+  makeMotionPan,
   makeZoomController,
   wheelAction,
   zoomFitScale,
@@ -165,6 +166,8 @@ export const GerberCanvas = forwardRef<GerberCanvasController, GerberCanvasProps
      * each `WX_VIEW_CONTROLS` owns one and the accelerating one has history.
      */
     const zoomCtlRef = useRef(makeZoomController());
+    /** `WX_VIEW_CONTROLS::m_metaPanning` / `m_metaPanStart`, per canvas. */
+    const motionPanRef = useRef(makeMotionPan());
     /**
      * The GL canvas sits between the background/grid canvas and the overlay.
      *
@@ -738,6 +741,17 @@ export const GerberCanvas = forwardRef<GerberCanvasController, GerberCanvasProps
       };
 
       const onMove = (e: PointerEvent): void => {
+        // `onMotion`'s meta-pan (`wx_view_controls.cpp:288-311`), which comes
+        // FIRST and returns: with the Drag Gestures key held, a bare pointer
+        // move pans and nothing else in this handler runs.
+        const meta = motionPanRef.current.update(e, commonInputPrefs().motionPanModifier, dpr);
+        if (meta) {
+          const v = viewRef.current;
+          v.tx += meta.dx;
+          v.ty += meta.dy;
+          requestDraw();
+          return;
+        }
         const p = pxOf(e);
         const world = toWorld(p.x, p.y);
         // The crosshair marks the snapped point (GAL m_cursorPosition), not the

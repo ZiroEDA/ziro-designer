@@ -18,6 +18,7 @@ import {
   commonInputPrefs,
   dragGesture,
   dragZoomScale,
+  makeMotionPan,
   makeZoomController,
   wheelAction,
 } from '../../ui/view_controls.js';
@@ -193,7 +194,7 @@ export const SymbolCanvas = forwardRef<SymbolCanvasController, Props>(function S
    * could store a grid and a set of overrides that nothing snapped to.
    */
   const symCfg = useSymbolEditorSettings();
-  const gridIU = symbolGridForTool(symCfg, activeTool);
+  const gridIU = symbolGridForTool(symCfg, undefined);
   const snap = useCallback(
     (p: Vec2): Vec2 => ({
       x: Math.round(p.x / gridIU) * gridIU,
@@ -204,6 +205,8 @@ export const SymbolCanvas = forwardRef<SymbolCanvasController, Props>(function S
 
   const modeRef = useRef<Mode>('idle');
   const panLastRef = useRef<{ x: number; y: number } | null>(null);
+  /** `WX_VIEW_CONTROLS::m_metaPanning` / `m_metaPanStart`, per canvas. */
+  const motionPanRef = useRef(makeMotionPan());
   /**
    * `WX_VIEW_CONTROLS::m_zoomController` — this canvas's own, because upstream
    * each `WX_VIEW_CONTROLS` owns one and the accelerating one has history.
@@ -729,6 +732,19 @@ export const SymbolCanvas = forwardRef<SymbolCanvasController, Props>(function S
     (e: React.PointerEvent) => {
       const vp = viewportRef.current;
       if (!vp) return;
+      // `onMotion`'s meta-pan (`wx_view_controls.cpp:288-311`), which comes
+      // FIRST and returns: with the Drag Gestures key held, a bare pointer move
+      // pans and nothing else in this handler runs.
+      const meta = motionPanRef.current.update(e, inputPrefs.motionPanModifier, dpr());
+      if (meta) {
+        viewportRef.current = {
+          ...vp,
+          offsetX: vp.offsetX + meta.dx,
+          offsetY: vp.offsetY + meta.dy,
+        };
+        draw();
+        return;
+      }
       const world = toWorld(e.clientX, e.clientY);
       cursorRef.current = world;
       onCursorMove?.(world);

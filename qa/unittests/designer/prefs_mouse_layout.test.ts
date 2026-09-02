@@ -187,8 +187,6 @@ describe('the rows nothing reads are disabled', () => {
     // No autopan timer exists here at all.
     ['Automatically pan while moving object'],
     ['Auto pan speed'],
-    // `m_motionPanModifier` has no counterpart in our view controls.
-    ['Pan on mouse movement with key'],
   ])('%s is disabled', (label) => {
     expect(props(label), label).toMatch(/\bdisabled\b/);
   });
@@ -232,6 +230,18 @@ describe('the rows nothing reads are disabled', () => {
    * without consulting the flag (`:55-71`). Greying it on that ground would be
    * the same divergence as greying the horizontal-pan box above.
    */
+  /**
+   * "Pan on mouse movement with key" was dead while our view controls only
+   * panned on a DRAG. `onMotion`'s meta-pan block (`:288-311`) is ported now —
+   * `makeMotionPan` — and every canvas asks it before anything else, which is
+   * where upstream's early `return` puts it.
+   */
+  it('leaves "Pan on mouse movement with key" enabled, now that onMotion reads it', () => {
+    const p = props('Pan on mouse movement with key');
+    expect(p).toContain('motion_pan_modifier');
+    expect(p).not.toMatch(/\bdisabled\b/);
+  });
+
   it('leaves "Use zoom acceleration" enabled, now that a controller reads it', () => {
     const p = props('Use zoom acceleration');
     expect(p).toContain('zoom_acceleration');

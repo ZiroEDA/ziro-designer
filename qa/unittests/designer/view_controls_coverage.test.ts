@@ -162,6 +162,19 @@ describe('shared view controls', () => {
     );
   });
 
+  /**
+   * `m_metaPanning` / `m_metaPanStart`, also members of WX_VIEW_CONTROLS, and
+   * also per canvas. `onMotion` tests the meta-pan FIRST and RETURNS
+   * (`wx_view_controls.cpp:288-311`), so a canvas that does not ask simply
+   * never pans on a bare move — Preferences > "Pan on mouse movement with key"
+   * going half-live, one editor at a time.
+   */
+  it.each(CANVASES)('%s asks makeMotionPan before anything else moves', (rel) => {
+    const src = read(rel);
+    expect(src, `${rel} builds no meta-panner`).toContain('makeMotionPan(');
+    expect(src, `${rel} never calls update`).toContain('motionPanRef.current.update(');
+  });
+
   it('the drag-zoom step is the shared exp(), not a literal', () => {
     // `exp( d.y * m_settings.m_zoomSpeed * 0.001 )` (`:383`). The schematic
     // canvas had `Math.exp((...) * 0.005)`, which is zoom_speed 5 frozen: the

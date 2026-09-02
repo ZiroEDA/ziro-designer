@@ -35,6 +35,8 @@ export interface InputPrefs {
   scrollModPanV: ScrollModifier;
   reverseScrollPanH: boolean;
   horizontalPan: boolean;
+  /** `input.motion_pan_modifier` — the key that pans on a bare pointer move. */
+  motionPanModifier: ScrollModifier;
   mouseLeft: 'select' | 'drag_selected' | 'drag_any';
   mouseMiddle: 'pan' | 'zoom' | 'none';
   mouseRight: 'pan' | 'zoom' | 'none';
@@ -57,6 +59,7 @@ export const DEFAULT_INPUT_PREFS: InputPrefs = {
   scrollModPanV: 'shift',
   reverseScrollPanH: false,
   horizontalPan: false,
+  motionPanModifier: 'none',
   mouseLeft: 'drag_selected',
   mouseMiddle: 'pan',
   mouseRight: 'pan',
@@ -88,6 +91,7 @@ export function commonInputPrefs(): InputPrefs {
     scrollModPanV: input.scroll_modifier_pan_v,
     reverseScrollPanH: input.reverse_scroll_pan_h,
     horizontalPan: input.horizontal_pan,
+    motionPanModifier: input.motion_pan_modifier,
     mouseLeft: input.mouse_left as InputPrefs['mouseLeft'],
     mouseMiddle: input.mouse_middle as InputPrefs['mouseMiddle'],
     mouseRight: input.mouse_right as InputPrefs['mouseRight'],
@@ -411,6 +415,108 @@ export function wheelAction(
 
   // scrollY = -scrollVec.y — the vertical pan has no reverse setting upstream.
   return { kind: 'pan', dx: 0, dy: viewportPx.height * rotation * WHEEL_PAN_SPEED };
+}
+
+// ---------------------------------------------------------------------------
+// Meta-panning — WX_VIEW_CONTROLS::onMotion (wx_view_controls.cpp:288-311)
+// ---------------------------------------------------------------------------
+
+/** The modifier state `wxGetKeyState` would report, off a DOM pointer event. */
+export interface ModifierState {
+  altKey: boolean;
+  ctrlKey: boolean;
+  shiftKey: boolean;
+  /** Cmd on macOS, which wx maps to Control. */
+  metaKey?: boolean;
+}
+
+/** Whether the key Preferences names in `motion_pan_modifier` is down. */
+function motionPanKeyDown(modifier: ScrollModifier, e: ModifierState): boolean {
+  switch (modifier) {
+    case 'alt':
+      return e.altKey;
+    case 'ctrl':
+      return e.ctrlKey || e.metaKey === true;
+    case 'shift':
+      return e.shiftKey;
+    // `m_motionPanModifier != WXK_NONE` — the PARAM's default is 0, WXK_NONE,
+    // and the panel's first choice is "None" (`panel_mouse_settings.cpp`).
+    default:
+      return false;
+  }
+}
+
+/**
+ * Preferences > Mouse and Touchpad > Drag Gestures > "Pan on mouse movement
+ * with key": panning on a BARE pointer move, no button held, while a modifier
+ * is down. `WX_VIEW_CONTROLS::onMotion` (`wx_view_controls.cpp:288-311`):
+ *
+ *     if( m_settings.m_motionPanModifier != WXK_NONE
+ *         && wxGetKeyState( (wxKeyCode) m_settings.m_motionPanModifier ) )
+ *     {
+ *         if( !m_metaPanning ) { m_metaPanning = true; m_metaPanStart = mousePos; }
+ *         else
+ *         {
+ *             VECTOR2D d = m_metaPanStart - mousePos;
+ *             m_metaPanStart = mousePos;
+ *             m_view->SetCenter( m_view->GetCenter() + m_view->ToWorld( d, false ) );
+ *         }
+ *         aEvent.Skip();
+ *         return;                       // <- nothing else in onMotion runs
+ *     }
+ *     else
+ *         m_metaPanning = false;
+ *
+ * The first qualifying move only ARMS it — `m_metaPanStart` has to come from
+ * somewhere — so the view does not jump when the key goes down. And the block
+ * RETURNS: no drag handling, no autopan, no cursor capture. Callers must do
+ * the same, which is why this reports "handled" separately from the delta.
+ *
+ * Stateful for the same reason the zoom controller is: `m_metaPanning` and
+ * `m_metaPanStart` are members of WX_VIEW_CONTROLS, so one per canvas.
+ */
+export function makeMotionPan(): {
+  /**
+   * Null when this move is not a meta-pan and the caller should carry on.
+   * Otherwise the device-pixel delta to ADD to the view's translation —
+   * `{ dx: 0, dy: 0 }` on the arming move — and the caller returns.
+   */
+  update(
+    e: ModifierState & { clientX: number; clientY: number },
+    modifier: ScrollModifier,
+    /** devicePixelRatio: our translations are in device pixels. */
+    dpr: number,
+  ): { dx: number; dy: number } | null;
+} {
+  let panning = false;
+  let startX = 0;
+  let startY = 0;
+
+  return {
+    update(e, modifier, dpr) {
+      if (!motionPanKeyDown(modifier, e)) {
+        panning = false;
+        return null;
+      }
+
+      if (!panning) {
+        panning = true;
+        startX = e.clientX;
+        startY = e.clientY;
+        return { dx: 0, dy: 0 };
+      }
+
+      // `d = m_metaPanStart - mousePos`, then `SetCenter( center + ToWorld( d ) )`
+      // -- the centre moves against the pointer, so the drawing moves WITH it,
+      // the same way a drag-pan does. Our canvases translate rather than
+      // re-centre, so the sign flips once on the way out.
+      const dx = (e.clientX - startX) * dpr;
+      const dy = (e.clientY - startY) * dpr;
+      startX = e.clientX;
+      startY = e.clientY;
+      return { dx, dy };
+    },
+  };
 }
 
 // ---------------------------------------------------------------------------

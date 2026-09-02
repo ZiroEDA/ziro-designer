@@ -20,6 +20,7 @@ import {
   commonInputPrefs,
   dragGesture,
   dragZoomScale,
+  makeMotionPan,
   makeZoomController,
   wheelAction,
 } from '../ui/view_controls.js';
@@ -75,6 +76,8 @@ export function usePreviewViewControls(
    * each `WX_VIEW_CONTROLS` owns one and the accelerating one has history.
    */
   const zoomCtlRef = useRef(makeZoomController());
+  /** `WX_VIEW_CONTROLS::m_metaPanning` / `m_metaPanStart`, per canvas. */
+  const motionPanRef = useRef(makeMotionPan());
   const panRef = useRef<{
     pointerId: number;
     x: number;
@@ -167,6 +170,15 @@ export function usePreviewViewControls(
 
   const onPointerMove = useCallback(
     (e: React.PointerEvent) => {
+      const view0 = viewRef.current;
+      // `onMotion`'s meta-pan (`wx_view_controls.cpp:288-311`) — first, and it
+      // returns. A preview pane is an EDA_DRAW_PANEL_GAL upstream too.
+      const meta = motionPanRef.current.update(e, prefs.motionPanModifier, dpr());
+      if (meta && view0) {
+        viewRef.current = { ...view0, tx: view0.tx + meta.dx, ty: view0.ty + meta.dy };
+        redraw();
+        return;
+      }
       const pan = panRef.current;
       const view = viewRef.current;
       if (!pan || !view || pan.pointerId !== e.pointerId) return;

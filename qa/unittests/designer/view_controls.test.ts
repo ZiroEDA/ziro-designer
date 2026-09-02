@@ -22,8 +22,10 @@ import {
   dragGesture,
   dragZoomScale,
   fitMarginScaleFactor,
+  makeMotionPan,
   makeZoomController,
   zoomControllerFor,
+  type ModifierState,
   wheelAction,
   wheelModifier,
   zoomFitView,
@@ -602,5 +604,97 @@ describe('wheelAction consults m_zoomController', () => {
     if (after.kind !== 'zoom') return;
     expect(after.factor).toBeCloseTo(zoomScaleForRotation(-100, con), 12);
     expect(after.factor).not.toBeCloseTo(1 / 4.1, 6);
+  });
+});
+
+/**
+ * `WX_VIEW_CONTROLS::onMotion`'s meta-pan — Preferences > Mouse and Touchpad >
+ * "Pan on mouse movement with key" (`wx_view_controls.cpp:288-311`).
+ *
+ * A BARE pointer move, no button held, pans the view while the named key is
+ * down. Three things in that block are easy to lose, and each has a test:
+ * the first qualifying move only ARMS the gesture (so the view does not jump
+ * when the key goes down), the block RETURNS so nothing else in onMotion runs,
+ * and letting go of the key clears `m_metaPanning` so the next press starts
+ * fresh rather than jumping by however far the pointer travelled meanwhile.
+ */
+describe('makeMotionPan — onMotion (wx_view_controls.cpp:288-311)', () => {
+  const at = (x: number, y: number, mods: Partial<ModifierState> = {}) => ({
+    clientX: x,
+    clientY: y,
+    altKey: false,
+    ctrlKey: false,
+    shiftKey: false,
+    ...mods,
+  });
+
+  it('does nothing at all when the setting is None', () => {
+    // `m_motionPanModifier != WXK_NONE` is the first half of the condition,
+    // and the PARAM's default is 0 == WXK_NONE (`common_settings.cpp:287-288`).
+    const mp = makeMotionPan();
+    expect(mp.update(at(10, 10, { altKey: true, ctrlKey: true, shiftKey: true }), 'none', 1)).toBe(
+      null,
+    );
+  });
+
+  it('does nothing while the named key is up', () => {
+    const mp = makeMotionPan();
+    expect(mp.update(at(10, 10), 'alt', 1)).toBe(null);
+    expect(mp.update(at(50, 50), 'alt', 1)).toBe(null);
+  });
+
+  it('arms on the first qualifying move without moving the view', () => {
+    // `if( !m_metaPanning ) { m_metaPanning = true; m_metaPanStart = mousePos; }`
+    // — there is no delta yet, so the view must not jump when the key goes down
+    // in the middle of the canvas.
+    const mp = makeMotionPan();
+    expect(mp.update(at(100, 100, { altKey: true }), 'alt', 1)).toEqual({ dx: 0, dy: 0 });
+  });
+
+  it('then pans by the travel since the previous move', () => {
+    const mp = makeMotionPan();
+    mp.update(at(100, 100, { altKey: true }), 'alt', 1);
+    expect(mp.update(at(130, 90, { altKey: true }), 'alt', 1)).toEqual({ dx: 30, dy: -10 });
+    // `m_metaPanStart = mousePos` — each step is measured from the LAST move,
+    // not from where the gesture started, so this is 5 more and not 35.
+    expect(mp.update(at(135, 90, { altKey: true }), 'alt', 1)).toEqual({ dx: 5, dy: 0 });
+  });
+
+  it('scales the delta by the device pixel ratio', () => {
+    // Our canvases translate in device pixels; a DOM client coordinate is CSS.
+    const mp = makeMotionPan();
+    mp.update(at(100, 100, { altKey: true }), 'alt', 2);
+    expect(mp.update(at(110, 100, { altKey: true }), 'alt', 2)).toEqual({ dx: 20, dy: 0 });
+  });
+
+  it('releasing the key disarms it, so the next press does not jump', () => {
+    // `else { m_metaPanning = false; }` — without it, moving the pointer across
+    // the canvas with the key up and pressing it again would pan by the whole
+    // distance travelled in between.
+    const mp = makeMotionPan();
+    mp.update(at(100, 100, { altKey: true }), 'alt', 1);
+    mp.update(at(120, 100, { altKey: true }), 'alt', 1);
+    expect(mp.update(at(400, 400), 'alt', 1)).toBe(null); // key up
+    expect(mp.update(at(400, 400, { altKey: true }), 'alt', 1)).toEqual({ dx: 0, dy: 0 });
+  });
+
+  it('each modifier is its own key', () => {
+    // A port that tested "any modifier" would pass every test above.
+    for (const [modifier, mods] of [
+      ['alt', { altKey: true }],
+      ['ctrl', { ctrlKey: true }],
+      ['shift', { shiftKey: true }],
+    ] as const) {
+      const mp = makeMotionPan();
+      expect(mp.update(at(0, 0, mods), modifier, 1), modifier).not.toBe(null);
+      const wrong = makeMotionPan();
+      const other = modifier === 'alt' ? 'shift' : 'alt';
+      expect(wrong.update(at(0, 0, mods), other, 1), `${modifier} vs ${other}`).toBe(null);
+    }
+  });
+
+  it('treats Cmd as Control, the way wx maps it', () => {
+    const mp = makeMotionPan();
+    expect(mp.update(at(0, 0, { metaKey: true }), 'ctrl', 1)).not.toBe(null);
   });
 });

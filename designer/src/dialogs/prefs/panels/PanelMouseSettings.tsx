@@ -284,14 +284,16 @@ export function PanelMouseSettings({ ctx }: { ctx: PrefsContext }): JSX.Element 
             }
           />
           <span />
-          {/* Dead: `input.motion_pan_modifier` is read by
-              `WX_VIEW_CONTROLS::LoadSettings` (`wx_view_controls.cpp:193`) and
-              nothing here — our view controls pan on a drag, never on a bare
-              move with a key held. */}
+          {/* LIVE. `input.motion_pan_modifier` is `m_motionPanModifier`
+              (`wx_view_controls.cpp:193`), and `onMotion` acts on it at
+              `:288-311`: with that key held, a BARE pointer move — no button
+              down — pans the view, and the rest of onMotion is skipped. It was
+              greyed while our view controls only panned on a drag;
+              `ui/view_controls.ts`'s `makeMotionPan` is that block now, and
+              every canvas asks it first. */}
           <span className="lbl">Pan on mouse movement with key:</span>
           <Combo
             value={input.motion_pan_modifier}
-            disabled
             options={panMoveKeyOpts.map(([v, l]) => ({ value: v, label: l }))}
             ariaLabel="Pan on mouse movement with key"
             onChange={(v) =>
