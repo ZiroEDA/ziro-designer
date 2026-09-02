@@ -21,9 +21,11 @@
  */
 
 import { atom, str, isList, head, type SList, type SNode } from '@ziroeda/sexpr/src/index.js';
-import { arg } from '@ziroeda/sexpr/src/query.js';
+import { arg, childNamed } from '@ziroeda/sexpr/src/query.js';
+import { patchChild } from './edit-board.js';
 import { serialize } from '@ziroeda/sexpr/src/serializer.js';
 import { pcbIuToMM as iuToMM, pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { rotatePcb } from './read-board.js';
 import { formatDouble2Str } from '@ziroeda/common/src/plotters/fmt.js';
 import { GENERATOR, GENERATOR_VERSION } from '@ziroeda/common/src/generator.js';
 import type {
@@ -52,6 +54,76 @@ const atNode = (p: Vec2, angle = 0): SList =>
   angle
     ? list(atom('at'), atom(mm(p.x)), atom(mm(p.y)), atom(String(angle)))
     : list(atom('at'), atom(mm(p.x)), atom(mm(p.y)));
+
+/**
+ * `BOARD_ITEM::GetFPRelativePosition` (pcbnew/board_item.cpp:355-365):
+ *
+ *     VECTOR2I pos = GetPosition();
+ *     if( FOOTPRINT* parentFP = GetParentFootprint() )
+ *     {
+ *         pos -= parentFP->GetPosition();
+ *         RotatePoint( pos, -parentFP->GetOrientation() );
+ *     }
+ *     return pos;
+ *
+ * A footprint's children are held in **board** coordinates and written in the
+ * footprint's own frame, and this is the one conversion between them. In the
+ * footprint editor and in a library `.kicad_mod` the parent sits at the origin
+ * with no orientation, so it is the identity there — the same single code path
+ * upstream uses for both, rather than a board copy and a library copy.
+ */
+const fpRelativePos = (fp: PcbFootprint, p: Vec2): Vec2 =>
+  rotatePcb({ x: p.x - fp.at.x, y: p.y - fp.at.y }, -fp.angle);
+
+/**
+ * The `(at …)` of a footprint child, as `PCB_IO_KICAD_SEXPR::format` writes it.
+ *
+ * Position is footprint-relative and **angle is absolute** — the pair is
+ * genuinely mixed, and that is upstream, not an accident of ours:
+ *
+ *     // format( const PAD* ), pcb_io_kicad_sexpr.cpp:1695-1699
+ *     m_out->Print( "(at %s %s)", formatInternalUnits( aPad->GetFPRelativePosition() ),
+ *                   aPad->GetOrientation().IsZero() ? "" : FormatAngle( aPad->GetOrientation() ) );
+ *
+ *     // format( const PCB_TEXT* ), :2280-2302
+ *     pos -= parentFP->GetPosition();
+ *     RotatePoint( pos, -parentFP->GetOrientation() );
+ *     m_out->Print( "(at %s %s)", formatInternalUnits( pos ),
+ *                   FormatAngle( aText->GetTextAngle() ) );
+ *
+ * The parser is the mirror image: it reads the angle as absolute and says so —
+ * "make PCB_TEXT rotation relative to the parent footprint. It was read as
+ * absolute rotation from file" (pcb_io_kicad_sexpr_parser.cpp:3959-3968), and
+ * `parsePAD` calls `SetOrientation( <file value> )` with no parent term at all
+ * (:5904). (`fp_text_box` is the one exception, and its angle is a separate
+ * `(angle …)` token that really is relative — writer:2369-2377. We do not model
+ * those.)
+ *
+ * `omitZero` is per item type, exactly as above: a pad prints nothing for a zero
+ * orientation, a text always prints its angle.
+ *
+ * Any trailing token of the source's own `(at)` is carried over — that is the
+ * legacy positional `unlocked`, which the parser still accepts inside `(at)`
+ * (:3870-3875) and which is a flag, not a coordinate.
+ */
+const fpChildAtNode = (
+  fp: PcbFootprint,
+  at: Vec2,
+  angle: number,
+  omitZero: boolean,
+  src: SList | undefined,
+): SList => {
+  const p = fpRelativePos(fp, at);
+  const items: SNode[] = [atom('at'), atom(mm(p.x)), atom(mm(p.y))];
+  if (!(omitZero && angle === 0)) items.push(atom(String(angle)));
+  // `(at x y [angle] unlocked)`: everything after the coordinates that is not
+  // the angle itself.
+  for (const extra of src?.items.slice(3) ?? []) {
+    if (extra.kind === 'atom' && extra.value !== '' && !Number.isNaN(Number(extra.value))) continue;
+    items.push(extra);
+  }
+  return { kind: 'list', items };
+};
 
 /** `(yes)`/`(no)` the way KICAD_FORMAT::FormatBool writes it. */
 const boolNode = (name: string, v: boolean): SList => list(atom(name), atom(v ? 'yes' : 'no'));
@@ -105,13 +177,13 @@ export function isDefaultTeardropParams(p: TeardropParams | undefined): boolean 
 // ----- canonical item builders (used only for edited / new items) -------------
 
 /** `(pad "n" <type> <shape> (at ..) (size ..) [(drill ..)] (layers ..) …)`. */
-export function buildPadNode(pad: PcbPad): SList {
+export function buildPadNode(pad: PcbPad, fp?: PcbFootprint): SList {
   const items: SNode[] = [
     atom('pad'),
     str(pad.number),
     atom(pad.type),
     atom(pad.shape),
-    atNode(pad.at, pad.angle),
+    fp ? fpChildAtNode(fp, pad.at, pad.angle, true, undefined) : atNode(pad.at, pad.angle),
     list(atom('size'), atom(mm(pad.size.x)), atom(mm(pad.size.y))),
   ];
   if (pad.delta) items.push(list(atom('rect_delta'), atom(mm(pad.delta.x)), atom(mm(pad.delta.y))));
@@ -189,12 +261,12 @@ export function buildShapeNode(shape: PcbShape): SList {
 }
 
 /** `(fp_text <kind> "text" (at ..) (layer ..) [(hide yes)] (effects (font (size h w) [(thickness t)]))) `. */
-export function buildTextNode(text: PcbTextItem): SList {
+export function buildTextNode(text: PcbTextItem, fp?: PcbFootprint): SList {
   const items: SNode[] = [
     atom('fp_text'),
     atom(text.kind),
     str(text.text),
-    atNode(text.at, text.angle),
+    fp ? fpChildAtNode(fp, text.at, text.angle, false, undefined) : atNode(text.at, text.angle),
     list(atom('layer'), str(text.layer)),
   ];
   if (text.hide) items.push(list(atom('hide'), atom('yes')));
@@ -245,11 +317,34 @@ export function buildFieldNode(field: PcbFootprintField, fp: PcbFootprint): SLis
 // ----- footprint node ---------------------------------------------------------
 
 /** A modelled child node: pass the untouched source through, rebuild when source-less. */
-const padNode = (p: PcbPad): SList => (p.source.items.length > 0 ? p.source : buildPadNode(p));
+/**
+ * A pad's node: its own source, with the `(at …)` rewritten from the model.
+ *
+ * Upstream has no source to keep, so `format( const PAD* )` derives every field
+ * it writes; here only the unmodelled children pass through and the placement
+ * is derived the same way. That is not a detail — it is the difference between
+ * one conversion and twenty. While the writer trusted a patched `(at)`, every
+ * mutation had to remember to convert board coordinates back to the footprint's
+ * frame, and two of them did not: a rotation left the child angles at their old
+ * values (so a rotated part came back with upright text and unrotated pads the
+ * next time the board was opened), and a flip wrote board-*absolute* pad
+ * coordinates into the local slot (so the pads reloaded a hundred millimetres
+ * from their footprint).
+ */
+const padNode = (p: PcbPad, fp: PcbFootprint): SList =>
+  p.source.items.length > 0
+    ? patchChild(p.source, 'at', fpChildAtNode(fp, p.at, p.angle, true, childNamed(p.source, 'at')))
+    : buildPadNode(p, fp);
 const shapeNode = (s: PcbShape): SList =>
   s.source.items.length > 0 ? s.source : buildShapeNode(s);
-const textNode = (t: PcbTextItem): SList =>
-  t.source.items.length > 0 ? t.source : buildTextNode(t);
+const textNode = (t: PcbTextItem, fp: PcbFootprint): SList =>
+  t.source.items.length > 0
+    ? patchChild(
+        t.source,
+        'at',
+        fpChildAtNode(fp, t.at, t.angle, false, childNamed(t.source, 'at')),
+      )
+    : buildTextNode(t, fp);
 const fieldNode = (f: PcbFootprintField, fp: PcbFootprint): SList =>
   f.source.items.length > 0 ? f.source : buildFieldNode(f, fp);
 
@@ -298,13 +393,13 @@ export function writeFootprintNode(fp: PcbFootprint): SList {
       }
       const h = head(it);
       if (h === 'pad') {
-        if (pi < fp.pads.length) out.push(padNode(fp.pads[pi]!));
+        if (pi < fp.pads.length) out.push(padNode(fp.pads[pi]!, fp));
         pi++;
       } else if (GRAPHIC_HEADS.has(h ?? '')) {
         if (si < fp.shapes.length) out.push(shapeNode(fp.shapes[si]!));
         si++;
       } else if (isTextSource(it)) {
-        if (ti < fp.texts.length) out.push(textNode(fp.texts[ti]!));
+        if (ti < fp.texts.length) out.push(textNode(fp.texts[ti]!, fp));
         ti++;
       } else if (isFieldSource(it)) {
         if (di < fields.length) out.push(fieldNode(fields[di]!, fp));
@@ -324,10 +419,10 @@ export function writeFootprintNode(fp: PcbFootprint): SList {
   }
 
   // Append newly added items (model has more than the source held), by group.
-  for (; ti < fp.texts.length; ti++) out.push(textNode(fp.texts[ti]!));
+  for (; ti < fp.texts.length; ti++) out.push(textNode(fp.texts[ti]!, fp));
   for (; di < fields.length; di++) out.push(fieldNode(fields[di]!, fp));
   for (; si < fp.shapes.length; si++) out.push(shapeNode(fp.shapes[si]!));
-  for (; pi < fp.pads.length; pi++) out.push(padNode(fp.pads[pi]!));
+  for (; pi < fp.pads.length; pi++) out.push(padNode(fp.pads[pi]!, fp));
 
   return { kind: 'list', items: out };
 }
