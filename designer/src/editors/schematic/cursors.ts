@@ -17,6 +17,7 @@
  */
 
 import { XPM_CURSORS, type XpmCursor } from './cursors_data.js';
+import { STOCK_CURSOR, customCursorsEnabled } from '../../ui/kicursors.js';
 
 /** KICURSOR, restricted to the ones eeschema's tools ask for. */
 export type KiCursor =
@@ -76,8 +77,16 @@ function cssCursor(name: string, def: XpmCursor, fallback: string): string {
  * the arrow-with-a-cross KiCad paints. The keyword survives only as the
  * fallback for when the bitmap cannot be rasterised, which is the role
  * `CURSOR_STORE::GetStockCursor`'s wxCURSOR_SIZING plays upstream.
+ *
+ * Preferences > Common > "Disable custom cursors" is answered here and not
+ * only in `ui/kicursors.ts`, because upstream there is a single
+ * `CURSOR_STORE::GetCursor` in front of every canvas and this table is the
+ * schematic's half of it. Without the gate the checkbox changed the symbol,
+ * footprint and drawing-sheet canvases and left the schematic -- the editor a
+ * user is actually in -- drawing KiCad's pencils regardless.
  */
 export function kiCursor(cursor: KiCursor): string {
+  if (!customCursorsEnabled()) return STOCK_CURSOR;
   if (cursor === 'arrow') return 'default';
   const fallback = cursor === 'moving' ? 'move' : 'crosshair';
   const def = XPM_CURSORS[cursor];

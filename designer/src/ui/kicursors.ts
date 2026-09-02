@@ -78,6 +78,43 @@ const SUPPORTS_IMAGE_SET =
   CSS.supports('cursor', 'image-set(url(a.png) 1x, url(b.png) 2x) 0 0, auto');
 
 /**
+ * What "Disable custom cursors" leaves on the canvas: the plain arrow.
+ *
+ * `CURSOR_STORE::GetCursor` (`common/gal/cursors.cpp:413-421`) answers a
+ * disabled setting with `GetStockCursor( aCursorType )`, and substitutes
+ * `wxCURSOR_ARROW` whenever that comes back `wxCURSOR_MAX`. On the parity
+ * target it always does, for every cursor either of our tables holds:
+ * `GetStockCursor` names only MOVING, BULLSEYE, HAND and ARROW (`:437-457`),
+ * and it then throws away anything GTK does not vouch for --
+ * `KIPLATFORM::UI::IsStockCursorOk` accepts BULLSEYE, HAND, ARROW and BLANK
+ * and nothing else (`libs/kiplatform/port/wxgtk/ui.cpp:185-196`), so even
+ * MOVING's `wxCURSOR_SIZING` is rejected. Every tool therefore gets
+ * `wxCURSOR_ARROW`, which is CSS `default`.
+ *
+ * This is NOT each cursor's own `fallback`. That field is a CSS obligation --
+ * a `cursor` value has to end in a keyword in case the image cannot be loaded
+ * -- and using it here made the setting hand back a crosshair for the pencil
+ * and a text bar for the text tool, which is the context-specific behaviour
+ * the checkbox exists to switch OFF ("KiCad will use the system cursors
+ * instead of custom context-specific cursors", `kicad.txt:1507`).
+ */
+export const STOCK_CURSOR = 'default';
+
+/**
+ * `commonSettings->m_Appearance.use_custom_cursors` (`cursors.cpp:409-411`),
+ * read at the moment a cursor is asked for, exactly as the static store does.
+ *
+ * Exported because upstream there is ONE `CURSOR_STORE::GetCursor` and every
+ * canvas in every editor goes through it, so the gate is asked once and holds
+ * everywhere. Ours has a second cursor table in the schematic editor (its
+ * XPMs are rasterised rather than vendored as PNG), and that table must ask
+ * the same question rather than restate it.
+ */
+export function customCursorsEnabled(): boolean {
+  return settings.common.appearance.use_custom_cursors;
+}
+
+/**
  * The CSS `cursor` value for a `KICURSOR`.
  *
  * On a HiDPI display KiCad swaps in the 64x64 art so the cursor keeps its
@@ -90,12 +127,8 @@ export function kiCursor(name: KiCursor): string {
   const spec: CursorSpec = STORE[name];
   // Preferences > Common > "Disable custom cursors", which is the NEGATION of
   // `appearance.use_custom_cursors` (`common_settings.cpp:121`, default true).
-  // Upstream the setting reaches the canvas through the GAL panel, which asks
-  // CURSOR_STORE for a stock cursor instead of the custom one. Here
-  // `spec.fallback` IS that stock cursor -- every entry already names one,
-  // because a `cursor` value must end in a keyword -- so the switch is this one
-  // line and no call site changes. A canvas picks it up on its next render.
-  if (!settings.common.appearance.use_custom_cursors) return spec.fallback;
+  // A canvas picks it up on its next render.
+  if (!customCursorsEnabled()) return STOCK_CURSOR;
   const one = URLS[`../assets/cursors/${spec.file}.png`];
   const two = URLS[`../assets/cursors/${spec.file}64.png`];
   if (!one) return spec.fallback;
