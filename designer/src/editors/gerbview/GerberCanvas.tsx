@@ -39,6 +39,7 @@ import {
   commonInputPrefs,
   dragGesture,
   dragZoomScale,
+  makeAutoPan,
   makeMotionPan,
   makeZoomController,
   wheelAction,
@@ -168,6 +169,31 @@ export const GerberCanvas = forwardRef<GerberCanvasController, GerberCanvasProps
     const zoomCtlRef = useRef(makeZoomController());
     /** `WX_VIEW_CONTROLS::m_metaPanning` / `m_metaPanStart`, per canvas. */
     const motionPanRef = useRef(makeMotionPan());
+    /**
+     * `WX_VIEW_CONTROLS::m_panTimer` and the AUTO_PANNING state.
+     *
+     * gerbview has no edit tools, so the only thing that turns
+     * `m_autoPanEnabled` on here is `ZOOM_TOOL::Main`, which brackets its
+     * rubber band with `SetAutoPan( true )` / `( false )`
+     * (`common/tool/zoom_tool.cpp:113`, `:165`) in every editor -- and
+     * GERBVIEW_INSPECTION_TOOL's measure picker does the same
+     * (`gerbview_inspection_tool.cpp:274`, `:283`).
+     */
+    const autoPanRef = useRef(
+      makeAutoPan({
+        viewportPx: () => ({
+          width: canvasRef.current?.width ?? 0,
+          height: canvasRef.current?.height ?? 0,
+        }),
+        enabled: () => zoomAreaRef.current !== null || measuringRef.current,
+        panBy: (dx, dy) => {
+          const v = viewRef.current;
+          v.tx -= dx;
+          v.ty -= dy;
+          requestDraw();
+        },
+      }),
+    );
     /**
      * The GL canvas sits between the background/grid canvas and the overlay.
      *
@@ -312,12 +338,12 @@ export const GerberCanvas = forwardRef<GerberCanvasController, GerberCanvasProps
       // paint over the sheet. That is exactly this position: on the overlay
       // canvas, ahead of the rubber band, the measure line and the crosshair.
       if (opts.drawingSheet) {
-        drawGerberDrawingSheet(octx, v, opts.flipView, GERBER_DRAWINGSHEET_COLOR);
+        drawGerberDrawingSheet(octx, v, opts.flipView, GERBER_DRAWINGSHEET_COLOR, opts.paper);
       }
       // DS_PROXY_VIEW_ITEM::ViewDraw draws the border AFTER the sheet's items
       // (ds_proxy_view_item.cpp:139-147), and on its own visibility flag.
       if (opts.pageLimits) {
-        drawGerberPageLimits(octx, v, opts.flipView, GERBER_PAGE_LIMITS_COLOR);
+        drawGerberPageLimits(octx, v, opts.flipView, GERBER_PAGE_LIMITS_COLOR, opts.paper);
       }
 
       octx.setTransform(1, 0, 0, 1, 0, 0);
@@ -753,6 +779,15 @@ export const GerberCanvas = forwardRef<GerberCanvasController, GerberCanvasProps
           return;
         }
         const p = pxOf(e);
+        // `if( m_autoPanEnabled && m_autoPanSettingEnabled ) isAutoPanning =
+        // handleAutoPanning( aEvent )` (`wx_view_controls.cpp:304-305`).
+        {
+          const cip = commonInputPrefs();
+          autoPanRef.current.motion(p, {
+            settingEnabled: cip.autoPan,
+            acceleration: cip.autoPanAcceleration,
+          });
+        }
         const world = toWorld(p.x, p.y);
         // The crosshair marks the snapped point (GAL m_cursorPosition), not the
         // raw pointer.

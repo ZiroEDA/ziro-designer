@@ -785,13 +785,25 @@ export function GerberViewer({
       // COLOR4D alpha every row of `s_defaultTheme` already carries, not a
       // number chosen here.
       layerOpacity: toggles.has('forceOpacityMode') ? gbrCfg.appearance.mode_opacity_value : 1,
+      // `pageInfo.SetType( cfg->m_Appearance.page_type )`
+      // (`gerbview_frame.cpp:334`). Handed over here rather than fetched by the
+      // painter so that changing it in Preferences moves this object and the
+      // canvas asks for a new frame.
+      paper: gbrCfg.appearance.page_type,
       // No highlight COLOUR is passed: upstream has none to pass. A highlighted
       // item takes m_layerColorsHi[aLayer], its own layer's colour brightened
       // by 0.5 (`gerbview_painter.cpp:70`), so the renderer derives it per
       // layer. We used to hand it a flat white for every layer at once.
       ...(highlightTest ? { highlightTest } : {}),
     }),
-    [toggles, activeLayer, highlightTest, showDrawingSheet, gbrCfg.appearance.mode_opacity_value],
+    [
+      toggles,
+      activeLayer,
+      highlightTest,
+      showDrawingSheet,
+      gbrCfg.appearance.mode_opacity_value,
+      gbrCfg.appearance.page_type,
+    ],
   );
 
   /**

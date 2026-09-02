@@ -143,6 +143,21 @@ export interface GerberRenderOptions {
    * annotations drawn afterwards at alpha 1.
    */
   layerOpacity: number;
+  /**
+   * `PAGE_INFO`'s type — `appearance.page_type`, the seven Page Size radios on
+   * Preferences > Gerber Viewer > Display Options, which the frame pushes into
+   * the page with `pageInfo.SetType( cfg->m_Appearance.page_type )`
+   * (`gerbview_frame.cpp:334`, `:1213`).
+   *
+   * It is on the render options rather than read from the settings manager
+   * inside the painter, and the difference is a repaint: the canvas asks for a
+   * new frame when this object's identity changes
+   * (`GerberCanvas.tsx`'s `[layers, options, …]` effect), so a page size the
+   * painter fetched for itself would be stored, and correct, and invisible
+   * until something else happened to redraw. That is the half-live state a
+   * Preferences control must never be in.
+   */
+  paper: string;
   /** Optional highlight (by net / component / attribute / DCode). */
   highlightTest?: (item: GERBER_DRAW_ITEM) => boolean;
 }

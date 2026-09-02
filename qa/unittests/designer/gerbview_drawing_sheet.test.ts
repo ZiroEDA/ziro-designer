@@ -170,6 +170,101 @@ describe('the canvas actually paints it', () => {
     expect(CANVAS).toMatch(/if\s*\(opts\.pageLimits\)/);
   });
 
+  /**
+   * …and on the page the frame is SET to, not on a fixed GERBER square.
+   *
+   * `pageInfo.SetType( cfg->m_Appearance.page_type )`
+   * (`gerbview_frame.cpp:334`, `:1213`) — the seven Page Size radios on
+   * Preferences > Gerber Viewer > Display Options.
+   *
+   * Per occurrence, and named individually, for the reason the test above is:
+   * one call threading the page and the other not is a sheet drawn at A4
+   * inside a page-limits rectangle still 32 inches across.
+   *
+   * Passing it through `opts` is load-bearing rather than stylistic. The
+   * canvas asks for a frame when `options` changes identity
+   * (its `[layers, options, showGrid, gridIU, crosshairMode, requestDraw]`
+   * effect); a painter that fetched the page size from the settings manager
+   * itself would draw the right page and only whenever something else
+   * happened to trigger a redraw, which is a Preferences control that stores a
+   * value and appears not to work.
+   */
+  it('draws both on the page appearance.page_type names', () => {
+    expect(CANVAS).toContain(
+      'drawGerberDrawingSheet(octx, v, opts.flipView, GERBER_DRAWINGSHEET_COLOR, opts.paper)',
+    );
+    expect(CANVAS).toContain(
+      'drawGerberPageLimits(octx, v, opts.flipView, GERBER_PAGE_LIMITS_COLOR, opts.paper)',
+    );
+    // …and the frame puts the setting on the options object in the first
+    // place. Without this the two lines above thread `undefined`.
+    expect(VIEWER).toContain('paper: gbrCfg.appearance.page_type');
+  });
+
+  /**
+   * The behaviour behind it: the same call on a different page really does lay
+   * out a different rectangle. A source-text check alone would pass against a
+   * `paper` argument the layout function ignored.
+   */
+  it('lays the page-limits rectangle out at the size that page really is', () => {
+    const measure = (paper: string): [number, number] => {
+      const rects: number[][] = [];
+      const ctx = {
+        save() {},
+        restore() {},
+        setTransform() {},
+        scale() {},
+        setLineDash() {},
+        strokeRect: (x: number, y: number, w: number, h: number) => rects.push([x, y, w, h]),
+        strokeStyle: '',
+        lineWidth: 0,
+      } as unknown as CanvasRenderingContext2D;
+      drawGerberPageLimits(ctx, { scale: 1e-4, tx: 0, ty: 0 }, false, '#000', paper);
+      return [rects[0]![2] as number, rects[0]![3] as number];
+    };
+
+    // A4 is 11693 x 8268 MILS — `PAGE_INFO A4( "A4", wxPAPER_A4, 11693, 8268 )`
+    // (page_info.cpp). Landscape, and not the 210 x 297 the combo LABELS it:
+    // KiCad's whole table is landscape and the portrait flag is what swaps the
+    // pair, which GerbView never sets. Re-derived from that row rather than
+    // re-baselined to whatever this printed.
+    expect(PAPER_MM.A4).toEqual([(11693 * 25.4) / 1000, (8268 * 25.4) / 1000]);
+    const [w, h] = measure('A4');
+    expect(w).toBeCloseTo(((11693 * 25.4) / 1000) * IU_PER_MM, 0);
+    expect(h).toBeCloseTo(((8268 * 25.4) / 1000) * IU_PER_MM, 0);
+    // Not square — which the GERBER page is, and is how a page argument
+    // silently falling back to GERBER would be caught.
+    expect(w).not.toBeCloseTo(h, 0);
+
+    // A stored value naming no page in the table falls back to GERBER rather
+    // than throwing on `PAPER_MM[...]!`.
+    expect(measure('not-a-page')).toEqual(measure('GERBER'));
+  });
+
+  /** The sheet itself moves with it too, not only the border. */
+  it('lays the sheet out on that page as well', () => {
+    // The same walk over every arm of the DsDrawItem union the GERBER case
+    // above uses, so the widest point is the real one.
+    const far = (paper: string): number =>
+      Math.max(
+        ...gerberDrawingSheetItems(paper).flatMap((i) => {
+          switch (i.kind) {
+            case 'line':
+            case 'rect':
+              return [i.a.x, i.b.x];
+            case 'poly':
+              return i.pts.map((p) => p.x);
+            default:
+              return [i.at.x];
+          }
+        }),
+      );
+    // Schematic IU, 1e4/mm — the units the shared layout engine emits.
+    expect(far('A4') / 1e4).toBeGreaterThan(280);
+    expect(far('A4') / 1e4).toBeLessThanOrEqual(297.003);
+    expect(far('A4')).toBeLessThan(far('GERBER'));
+  });
+
   it('paints the sheet over the gerbers and under the preview tools', () => {
     // The gerber layers get explicit render orders 0..2N+1
     // (gerbview_draw_panel_gal.cpp:181-183) while LAYER_DRAWINGSHEET keeps its
