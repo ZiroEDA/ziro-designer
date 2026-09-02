@@ -184,6 +184,33 @@ describe('opening a project', () => {
     expect(after).toBe(before);
   });
 
+  it('is not diverged after a re-save that changed nothing, however late its clock', async () => {
+    // The case that separates the two answers, and the reason divergence is
+    // measured from content rather than from `updatedAt`.
+    //
+    // `saveProject` rebuilds the record and stamps `updatedAt: now`
+    // unconditionally — unlike `updateProjectFiles` it has no identical-bytes
+    // shortcut, because a full save is also a rename and a file-set change. So
+    // after re-saving the same content, `updatedAt > syncedAt` is true while
+    // the files are byte-for-byte what the cloud already has. The old test said
+    // "diverged" and forked a copy aside; the hashes say what is actually so.
+    const id = await synced('Amp', 'ORIGINAL');
+    const before = (await listProjects()).find((p) => p.id === id)!.updatedAt;
+
+    const skew = vi.spyOn(Date, 'now').mockReturnValue(realNow() + 3_600_000);
+    await saveProject('Amp', [{ name: 'Amp.kicad_sch', bytes: text('ORIGINAL') }], id);
+    skew.mockRestore();
+
+    // The precondition, asserted rather than assumed: the save did move
+    // `updatedAt` past the point the two sides agreed, so a timestamp rule
+    // reaches "diverged" here and only a content rule reaches the truth.
+    const after = (await listProjects()).find((p) => p.id === id)!.updatedAt;
+    expect(after).toBeGreaterThan(before);
+
+    expect(await hasDivergedLocally(id)).toBe(false);
+    expect((await listSyncMeta()).find((m) => m.id === id)!.diverged).toBe(false);
+  });
+
   it('still records a real edit', async () => {
     // The guard must not be so eager that it drops work. One byte different is
     // a save, and it is a divergence.
