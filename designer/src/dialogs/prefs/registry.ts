@@ -60,6 +60,8 @@ export const PAGES: readonly PrefsPageEntry[] = [
   { id: 'sch-colors', label: 'Colors', indent: true, owner: 'schematic' },
   { id: 'sch-toolbars', label: 'Toolbars', indent: true, owner: 'schematic' },
   { id: 'sch-fields', label: 'Field Name Templates', indent: true, owner: 'schematic' },
+  { id: 'sch-datasources', label: 'Data Sources', indent: true, owner: 'schematic' },
+  { id: 'sch-simulator', label: 'Simulator', indent: true, owner: 'schematic' },
   { id: null, label: 'PCB Editor' },
   { id: 'pcb-display', label: 'Display Options', indent: true, owner: 'pcb' },
   { id: 'pcb-grids', label: 'Grids', indent: true, owner: 'pcb' },
@@ -295,10 +297,14 @@ export const OMITTED_PAGES: Readonly<Record<string, readonly DeclaredPage[]>> = 
         'zero format, integer/mantissa digit counts — with no path control on it, so it ports whole.',
     },
   ],
-  'Schematic Editor': [
-    { label: 'Data Sources', reason: 'Schematic Editor tracker 195.' },
-    { label: 'Simulator', reason: 'No ngspice in the browser; tracker 195.' },
-  ],
+  // Both of this heading's absences are now shipped: Data Sources reads the
+  // Plugin and Content Manager we already have, and Simulator is drawn with
+  // every control greyed, because a simulator is a thing this port can have
+  // and has not built — which is the "not implemented" case, not the
+  // "meaningless in a browser" one. Annotation Options is not listed as
+  // omitted because upstream does not have it here either; it is a Schematic
+  // Setup page, which is where ours lives.
+  'Schematic Editor': [],
   'PCB Editor': [
     { label: 'Origins & Axes', reason: 'PCB Editor tracker 200.' },
     { label: 'Editing Options', reason: 'PCB Editor tracker 200.' },

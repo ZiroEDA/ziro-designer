@@ -492,6 +492,24 @@ export interface EeschemaSettings {
     cmp_list_width: number; // px
     show_pin_electrical_type: boolean;
   };
+  /**
+   * `EESCHEMA_SETTINGS::m_Simulator.preferences` — what a wheel gesture does on
+   * a simulator plot, per modifier (`eeschema/sim/sim_preferences.h:53-61`,
+   * serialised at `eeschema_settings.cpp:587-609`).
+   *
+   * The values are `SIM_MOUSE_WHEEL_ACTION` (`sim_preferences.h:37-50`), which
+   * is a plain enum written as an int, so they are stored as its ordinals and
+   * `SIM_WHEEL_ACTIONS` below names them.
+   */
+  simulator: {
+    mouse_wheel_actions: {
+      vertical_unmodified: number;
+      vertical_with_ctrl: number;
+      vertical_with_shift: number;
+      vertical_with_alt: number;
+      horizontal: number;
+    };
+  };
   /** Symbol Chooser dialog state (EESCHEMA_SETTINGS m_SymChooserPanel). */
   sym_chooser: {
     sash_pos_h: number; // px width of the right (preview) pane
@@ -686,6 +704,19 @@ export const EESCHEMA_DEFAULTS: EeschemaSettings = {
   //   631 splitter tall - 460 - 5 sash          = 166 for the details pane
   // (631 is the 680px client height less the 5px wxBOTTOM under the splitter
   // and the 44px button row - a 34px wxButton in a wxALL 5 border.)
+  // [data] the five PARAM_ENUM defaults at `eeschema_settings.cpp:587-609` —
+  // ZOOM, PAN_LEFT_RIGHT, PAN_UP_DOWN, NONE, NONE. Note these are the PARAMs'
+  // own defaults, which happen to equal `GetMouseDefaults()`; the panel's
+  // "Reset to Mouse Defaults" button goes to that function, not to these.
+  simulator: {
+    mouse_wheel_actions: {
+      vertical_unmodified: 4,
+      vertical_with_ctrl: 1,
+      vertical_with_shift: 3,
+      vertical_with_alt: 0,
+      horizontal: 0,
+    },
+  },
   sym_chooser: {
     sash_pos_h: 435,
     sash_pos_v: 166,

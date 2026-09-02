@@ -19,6 +19,7 @@
  */
 import { EESCHEMA_DEFAULTS } from '../../../prefs/settings.js';
 import { resetKeys } from '../../../dialogs/prefs/reset.js';
+import { MOUSE_DEFAULTS } from './PanelSimulatorPreferences.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
 import { resetToolbarsPanel } from '../../../dialogs/prefs/toolbar_reset.js';
 
@@ -170,5 +171,24 @@ export function resetEeschemaColorSettings(ctx: PrefsContext): void {
 export function resetEeschemaToolbars(ctx: PrefsContext): void {
   ctx.upTb('eeschema', (s) => {
     resetToolbarsPanel(s);
+  });
+}
+
+/**
+ * `PANEL_SIMULATOR_PREFERENCES::ResetPanel`
+ * (`eeschema/dialogs/panel_simulator_preferences.cpp:75-78`):
+ *
+ *     applyMouseScrollActionsToPanel( SIM_MOUSE_WHEEL_ACTION_SET::GetMouseDefaults() );
+ *
+ * Note it resets to `GetMouseDefaults()`, the same set the "Reset to Mouse
+ * Defaults" button writes — NOT to the five PARAM defaults in
+ * `eeschema_settings.cpp:587-609`. Those two happen to agree today, and the
+ * button existing at all is why upstream reaches for the function rather than
+ * the params: they are two answers to the same question and only one of them is
+ * the panel's.
+ */
+export function resetSimulatorPreferences(ctx: PrefsContext): void {
+  ctx.upE((s) => {
+    s.simulator.mouse_wheel_actions = { ...MOUSE_DEFAULTS };
   });
 }

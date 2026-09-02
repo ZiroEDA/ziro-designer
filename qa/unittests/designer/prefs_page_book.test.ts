@@ -65,6 +65,8 @@ const EXPECTED: PrefsPageEntry[] = [
   { id: 'sch-colors', label: 'Colors', indent: true, owner: 'schematic' },
   { id: 'sch-toolbars', label: 'Toolbars', indent: true, owner: 'schematic' },
   { id: 'sch-fields', label: 'Field Name Templates', indent: true, owner: 'schematic' },
+  { id: 'sch-datasources', label: 'Data Sources', indent: true, owner: 'schematic' },
+  { id: 'sch-simulator', label: 'Simulator', indent: true, owner: 'schematic' },
   { id: null, label: 'PCB Editor' },
   { id: 'pcb-display', label: 'Display Options', indent: true, owner: 'pcb' },
   { id: 'pcb-grids', label: 'Grids', indent: true, owner: 'pcb' },
