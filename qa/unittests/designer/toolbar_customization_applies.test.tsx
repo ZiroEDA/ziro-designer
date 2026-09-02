@@ -44,6 +44,7 @@ import {
   DS_DEFAULT_TOOLBARS,
   DS_LEFT_TOOLBAR,
 } from '@ziroeda/designer/src/editors/drawingsheet/drawingSheetToolbars.js';
+import { SCH_DEFAULT_TOOLBARS } from '@ziroeda/designer/src/editors/schematic/toolbars_sch_editor.js';
 
 afterEach(cleanup);
 
@@ -179,5 +180,73 @@ describe('the Drawing Sheet Editor’s left toolbar reads the store', () => {
     });
     render(<LeftBar />);
     expect(drawn()).toEqual(['Show grid', 'Units in millimetres']);
+  });
+});
+
+/**
+ * ...and the same for the SCHEMATIC editor, which is the page a user actually
+ * opens. The hook is one function and `SchematicEditor.tsx:1261-1263` calls it
+ * for all three of its bars, so this is not a second implementation — it is the
+ * assertion that eeschema is wired to the same one, on the editor whose
+ * Preferences > Toolbars page this work was done against.
+ */
+describe('the Schematic Editor’s left toolbar reads the store', () => {
+  let before: { custom: boolean; store: ToolbarSettings };
+
+  beforeEach(() => {
+    before = {
+      custom: settings.eeschema.appearance.custom_toolbars,
+      store: structuredClone(settings.toolbars.eeschema),
+    };
+  });
+
+  afterEach(() => {
+    settings.updateEeschema((s) => {
+      s.appearance.custom_toolbars = before.custom;
+    });
+    settings.updateToolbars('eeschema', (s) => {
+      s.toolbars = structuredClone(before.store).toolbars;
+    });
+  });
+
+  function SchLeftBar(): JSX.Element {
+    const entries = useToolbarEntries('eeschema', 'LEFT', SCH_DEFAULT_TOOLBARS);
+    return <Toolbar entries={entries} app="eeschema" orientation="vertical" side="left" />;
+  }
+
+  /** A LEFT toolbar cut down to the two grid toggles it opens with. */
+  const storeGridsOnly = (): void => {
+    settings.updateToolbars('eeschema', (s) => {
+      setStoredToolbarConfig(s, 'LEFT', [
+        { type: 'TOOL', name: 'toggleGrid' },
+        { type: 'SEPARATOR' },
+        { type: 'TOOL', name: 'toggleGridOverrides' },
+      ]);
+    });
+  };
+
+  it('draws its whole default with nothing stored', () => {
+    render(<SchLeftBar />);
+    // The default has more than the two below; the exact list is
+    // `toolbars_sch_editor.cpp:60-200` and lives in LEFT_TOOLBAR.
+    expect(drawn().length).toBeGreaterThan(3);
+  });
+
+  it('draws exactly the stored configuration once custom_toolbars is on', () => {
+    storeGridsOnly();
+    settings.updateEeschema((s) => {
+      s.appearance.custom_toolbars = true;
+    });
+    render(<SchLeftBar />);
+    expect(drawn()).toHaveLength(2);
+  });
+
+  it('goes back to the default the moment the checkbox is switched off', () => {
+    storeGridsOnly();
+    settings.updateEeschema((s) => {
+      s.appearance.custom_toolbars = false;
+    });
+    render(<SchLeftBar />);
+    expect(drawn().length).toBeGreaterThan(3);
   });
 });

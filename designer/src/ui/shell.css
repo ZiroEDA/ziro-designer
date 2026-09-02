@@ -11526,30 +11526,73 @@ textarea.ze-ds-textedit {
   padding: 0;
   list-style: none;
 }
+/* The two lists' rows. Every number here is the widget's own, read off the
+   controls PANEL_TOOLBAR_CUSTOMIZATION builds by asking wx for them on this
+   machine and this theme (`qa/probes/toolbar_customization_probe.cpp`):
+
+     tree GetIndent()                     15
+     tree row height (24 px image)        26
+     tree label x, top level, no image    33      <- the expander gutter
+     tree label x, top level, with image  61      <- so the image cell is 28
+     tree label x, one level in, image    76      <- 61 + GetIndent()
+     list row height                      30
+     list icon rect                       x=2  w=29
+     list label rect                      x=31
+     wxRendererNative expander size       16 x 16
+
+   The icons are 24, not 16: `populateActions` builds every bundle at
+   `const int c_defSize = 24` (panel_toolbar_customization.cpp:583) and hands
+   the same vector to the tree and the list. Ours drew them at 16 in rows of
+   ~25, against KiCad's 24 in rows of 26 and 30 — the whole page read a size
+   small, which is what Akshay saw. */
 .ze-tbcust-row {
   display: flex;
   align-items: center;
-  gap: var(--msgpanel-space);
-  padding: var(--libtree-row-pad) var(--msgpanel-space);
+  gap: 0;
   font-size: var(--ui-font-size);
   cursor: default;
   white-space: nowrap;
+}
+.ze-tbcust-tree .ze-tbcust-row {
+  height: 26px; /* [px] the tree's own row height at a 24 px image */
+}
+.ze-tbcust-list .ze-tbcust-row {
+  height: 30px; /* [px] the list's */
+  padding-left: 2px; /* [px] the list's icon rect starts at 2 */
 }
 .ze-tbcust-row.sel {
   background: var(--selection-bg);
   color: var(--selection-fg);
 }
-/* A group's children sit one level in, under the wxTR_HIDE_ROOT root. */
-.ze-tbcust-row.child {
-  /* [data] the child indent a treebook row carries under its parent, which
-     PagedDialogTree states as CHILD_INDENT. */
-  padding-left: 24px;
+/* The expander cell. EVERY tree row reserves it — that is what puts a leaf's
+   icon at the same x as a group's label — and only a group draws a button in
+   it. */
+.ze-tbcust-tree .ze-tbcust-row > .twisty {
+  width: 16px; /* [px] `wxRendererNative::GetExpanderSize`, probed */
+  margin-right: 17px; /* [px] the rest of the 33 px gutter the probe reports */
+}
+/* One level in. `.ze-tbcust-tree` IS the outer <ul>, so a group's children are
+   `ul` and not `ul ul` — the doubled selector matched a grandchild list that
+   this tree never builds, and every child sat at its parent's x. */
+.ze-tbcust-tree li > ul {
+  /* [px] `m_toolbarTree->GetIndent()`, applied per level. */
+  margin-left: 15px;
 }
 .ze-tbcust-row img,
 .ze-tbcust-noicon {
-  width: 16px; /* [data] the small-image list a wxTreeCtrl/wxListCtrl row draws */
-  height: 16px; /* [data] as above */
+  width: 24px; /* [data] `c_defSize`, the size every bundle is built at */
+  height: 24px; /* [data] as above */
   flex: 0 0 auto;
+}
+.ze-tbcust-tree .ze-tbcust-row img,
+.ze-tbcust-tree .ze-tbcust-noicon {
+  /* [px] 28 - 24: the tree's image cell less the image inside it. */
+  margin-right: 4px;
+}
+.ze-tbcust-list .ze-tbcust-row img,
+.ze-tbcust-list .ze-tbcust-noicon {
+  /* [px] 29 - 24: the same in the list, whose label starts at 31. */
+  margin-right: 5px;
 }
 .ze-tbcust-btns {
   display: flex;
@@ -11557,20 +11600,55 @@ textarea.ze-ds-textedit {
   gap: 5px; /* [data] `wxTOP|wxBOTTOM, 5` on the buttons of bSizerToolbarBtns */
   padding: 5px; /* [data] `wxEXPAND|wxBOTTOM|wxRIGHT|wxLEFT, 5` on the row */
 }
-.ze-tbcust-split {
-  display: flex;
+/* SPLIT_BUTTON (`common/widgets/split_button.cpp:225-327`). `OnPaint` calls
+   `DrawPushButton` TWICE — once over `[0, width)` and once over
+   `[width - 2, width - 2 + m_arrowButtonWidth)` — so the two halves are two
+   whole buttons that overlap by two pixels, each with its own border, its own
+   rounded corners and its own hover state. We had drawn one slab with the seam
+   flattened out, which is a different control. */
+.ze-splitbtn {
+  display: inline-flex;
   align-items: center;
 }
-/* SPLIT_BUTTON draws one control: the label half and the arrow half share an
-   edge rather than each carrying their own. */
-.ze-tbcust-split > .ze-btn:first-child {
-  border-top-right-radius: 0;
-  border-bottom-right-radius: 0;
-  border-right: 0;
+.ze-splitbtn > .ze-btn:first-child {
+  /* [data] `m_widthPadding = FromDIP( 10 )`, the label's own padding. */
+  padding-left: 10px;
+  padding-right: 10px; /* [data] the same padding, the other side */
 }
-.ze-tbcust-splitarrow {
-  border-top-left-radius: 0;
-  border-bottom-left-radius: 0;
+.ze-splitbtn-arrow {
+  /* [data] `m_arrowButtonWidth = FromDIP( 20 )`. */
+  width: 20px;
+  min-width: 20px; /* [data] the same 20: a sizer minimum, not a preference */
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* [data] `r2.x -= 2` — the arrow half sits two pixels into the label half. */
+  margin-left: -2px;
+}
+/* `bToolbarSizer`: the label with `wxALIGN_CENTER_VERTICAL|wxTOP|wxBOTTOM|wxLEFT, 5`
+   and `m_tbChoice` added at proportion ONE with `wxALL, 5`, so the choice takes
+   the whole width the column has left. */
+.ze-tbcust-tbrow {
+  display: flex;
+  align-items: center;
+  /* [data] the choice's `wxALL, 5`; the label carries the left edge itself. */
+  padding: 5px 5px 5px 0;
+}
+.ze-tbcust-tbrow > .lbl {
+  /* [data] `m_toolbarChoiceLabel`'s `wxLEFT, 5`, and the 5 the choice's own
+     wxALL puts between the two. */
+  padding: 0 5px;
+  white-space: nowrap;
+}
+.ze-tbcust-tbrow > .ze-combo {
+  flex: 1;
+  min-width: 0;
+}
+.ze-tbcust-filter {
+  /* [data] `bSizer9->Add( m_actionFilter, 0, wxALL|wxEXPAND, 5 )`. */
+  margin: 5px;
+  width: auto;
 }
 .ze-tbcust-gap {
   width: 20px; /* [data] `bSizerToolbarBtns->Add( 20, 0, 0, 0, 5 )`, the fixed spacer before Delete */
