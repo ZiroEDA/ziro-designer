@@ -319,10 +319,33 @@ describe('editors/symbol/SymbolEditor.tsx seeds its toolbar from the settings fi
     expect(s).toContain('SYMBOL_SETTING_TOGGLES.has(id)');
   });
 
-  it('the toggles module folds exactly the two KiCad stores', () => {
-    // From the module, not the source text: a set that grew a third id would
-    // be a setting the page cannot see being flipped by a button.
-    expect([...SYMBOL_SETTING_TOGGLES].sort()).toEqual(['toggleGrid', 'toggleGridOverrides']);
+  it('folds exactly the toolbar ids whose lit state IS a stored setting', () => {
+    // From the module, not the source text. This list was two while the only
+    // settings-backed buttons wired up were the grid pair; Preferences >
+    // Symbol Editor > Display Options made the other six live, and every one
+    // of them is a PARAM in a KiCad settings file rather than session state:
+    //
+    //   toggleGrid            window.grid.show              app_settings.cpp:555
+    //   toggleGridOverrides   window.grid.overrides_enabled app_settings.cpp:497
+    //   showHiddenPins        show_hidden_lib_pins          symbol_editor_settings.cpp:90
+    //   showHiddenFields      show_hidden_lib_fields        symbol_editor_settings.cpp:87
+    //   showElectricalTypes   show_pin_electrical_type      symbol_editor_settings.cpp:81
+    //   crosshairSmall/Full/45  window.cursor.cross_hair_mode  app_settings.cpp:567
+    //
+    // The three crosshair ids are ONE setting drawn as a radio group, which is
+    // why they arrive together. An id here that is not a PARAM upstream would
+    // be a button writing a file on every click; an id missing from here is a
+    // button Preferences can move without the toolbar noticing.
+    expect([...SYMBOL_SETTING_TOGGLES].sort()).toEqual([
+      'crosshair45',
+      'crosshairFull',
+      'crosshairSmall',
+      'showElectricalTypes',
+      'showHiddenFields',
+      'showHiddenPins',
+      'toggleGrid',
+      'toggleGridOverrides',
+    ]);
   });
 
   it('opens with both lit, because both default true', () => {

@@ -79,7 +79,6 @@ const EXPECTED: PrefsPageEntry[] = [
   // the one heading here where Grids does not come second.
   { id: null, label: 'Gerber Viewer' },
   { id: 'gbr-display', label: 'Display Options', indent: true, owner: 'gerbview' },
-  { id: 'gbr-colors', label: 'Colors', indent: true, owner: 'gerbview' },
   { id: 'gbr-toolbars', label: 'Toolbars', indent: true, owner: 'gerbview' },
   // pl_editor's KIFACE is consulted last of the five
   // (`common/eda_base_frame.cpp:1726-1737`), so its heading is last.

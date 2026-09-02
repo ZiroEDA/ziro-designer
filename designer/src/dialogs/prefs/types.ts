@@ -76,7 +76,6 @@ export type PrefsPageId =
   // sixth, `PANEL_GBR_EDIT_OPTIONS`, that `ShowPreferences` never adds and
   // `gerbview.cpp`'s switch never constructs: a dead enumerator, not a page.
   | 'gbr-display'
-  | 'gbr-colors'
   | 'gbr-toolbars'
   | 'gbr-grids'
   | 'gbr-excellon'
