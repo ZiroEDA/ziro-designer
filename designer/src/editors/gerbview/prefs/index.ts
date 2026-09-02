@@ -22,11 +22,13 @@
  */
 import { PanelGerbviewColorSettings } from './PanelGerbviewColorSettings.js';
 import { PanelGerbviewDisplayOptions } from './PanelGerbviewDisplayOptions.js';
+import { PanelGerbviewExcellonSettings } from './PanelGerbviewExcellonSettings.js';
 import { PanelGerbviewGrids } from './PanelGerbviewGrids.js';
 import { PanelGerbviewToolbars } from './PanelGerbviewToolbars.js';
 import {
   resetGerbviewColorSettings,
   resetGerbviewDisplayOptions,
+  resetGerbviewExcellonSettings,
   resetGerbviewGrids,
   resetGerbviewToolbars,
 } from './resets.js';
@@ -65,6 +67,12 @@ export const createPrefsPanel: PrefsPanelFactory = (id: PrefsPageId): PrefsPanel
       return {
         Panel: PanelGerbviewToolbars,
         reset: resetGerbviewToolbars,
+      };
+
+    case 'gbr-excellon':
+      return {
+        Panel: PanelGerbviewExcellonSettings,
+        reset: resetGerbviewExcellonSettings,
       };
 
     default:

@@ -119,6 +119,31 @@ export function resetGerbviewColorSettings(ctx: PrefsContext): void {
 }
 
 /**
+ * `PANEL_GERBVIEW_EXCELLON_SETTINGS::ResetPanel`
+ * (`gerbview/dialogs/panel_gerbview_excellon_settings.cpp:72-76`):
+ *
+ *     EXCELLON_DEFAULTS defaults;
+ *     applySettingsToPanel( defaults );
+ *
+ * — a DEFAULT-CONSTRUCTED `EXCELLON_DEFAULTS`, which runs `ResetToDefaults()`
+ * in its constructor (`gerbview/excellon_defaults.h:49`). So the six values go
+ * back to that struct's own, not to whatever is in `gerbview.json`, and they
+ * are the whole slice: this page owns nothing else on the settings object.
+ */
+export function resetGerbviewExcellonSettings(ctx: PrefsContext): void {
+  ctx.upGbr((s) => {
+    resetKeys(s.excellon_defaults, GERBVIEW_DEFAULTS.excellon_defaults, [
+      'unit_mm',
+      'lz_format',
+      'mm_integer_len',
+      'mm_mantissa_len',
+      'inch_integer_len',
+      'inch_mantissa_len',
+    ]);
+  });
+}
+
+/**
  * `PANEL_TOOLBAR_CUSTOMIZATION::ResetPanel`
  * (`common/dialogs/panel_toolbar_customization.cpp:243-267`) over this app's
  * toolbars, through the shared implementation. It does not touch

@@ -8937,6 +8937,44 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   padding-top: 0;
 }
 
+/* `gbSizer1` on PANEL_GERBVIEW_EXCELLON_SETTINGS, a
+   `wxGridBagSizer( 4, 8 )` whose two radio groups sit in rows 0-1 and 3-4
+   (`panel_gerbview_excellon_settings_base.cpp:32-56`). Row 2 is SKIPPED, and
+   `SetEmptyCellSize( wxSize( -1, 10 ) )` (`:34`) is what makes the gap between
+   the groups ten pixels rather than the sizer's own vgap of 4. */
+.ze-excellon-formats {
+  display: flex;
+  flex-direction: column;
+  /* [data] the empty row 2's height. */
+  gap: 10px;
+}
+/* `fgSizerFmt`, a `wxFlexGridSizer( 0, 2 )` whose second cell is a horizontal
+   box of [choice] ":" [choice] (`:88-142`). Four columns here rather than two,
+   because the inner box has no sizer of its own to be. */
+.ze-excellon-fmt {
+  display: grid;
+  grid-template-columns: max-content max-content max-content max-content;
+  align-items: center;
+  /* [data] `wxALL, 5` on each choice and `wxTOP|wxBOTTOM, 5` on the colon, so
+     five between every pair. */
+  gap: 5px;
+}
+/* The label keeps its own width. `.ze-pref-row .lbl`'s 150 px column is for the
+   pages built on a flex grid whose labels must line up; this label is one cell
+   of a two-column sizer and takes the width of its text. */
+.ze-excellon-fmt > .lbl {
+  min-width: auto;
+  white-space: nowrap;
+}
+/* Each choice is a `.ze-pref-row` with an EMPTY label — the wxChoice is the
+   whole cell — so the label column must not open in front of it. */
+.ze-excellon-fmt .ze-pref-row {
+  gap: 0;
+}
+.ze-excellon-fmt .ze-pref-row > .lbl:empty {
+  display: none;
+}
+
 /* PANEL_GIT_REPOS. `bLeftSizer->Add( m_enableGit, 0, wxEXPAND|wxALL, 10 )` —
    the one control on the page that is in no group. */
 .ze-git-enable {

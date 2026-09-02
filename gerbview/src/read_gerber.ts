@@ -11,7 +11,7 @@
 
 import type { GERBER_FILE_IMAGE } from './gerber_file_image.js';
 import { parseGerber } from './gerber_file_image_parse.js';
-import { parseExcellon } from './excellon.js';
+import { parseExcellon, type ExcellonDefaults } from './excellon.js';
 
 /** Heuristic: does this look like an Excellon drill file? */
 export function isExcellonFile(text: string, fileName = ''): boolean {
@@ -28,8 +28,13 @@ export function isExcellonFile(text: string, fileName = ''): boolean {
 }
 
 /** Detect the file type and parse into a GERBER_FILE_IMAGE. */
-export function readGerberOrDrill(text: string, fileName: string): GERBER_FILE_IMAGE {
-  if (isExcellonFile(text, fileName)) return parseExcellon(text, fileName);
+export function readGerberOrDrill(
+  text: string,
+  fileName: string,
+  /** `EXCELLON_DEFAULTS`, for the drill branch. See {@link parseExcellon}. */
+  excellonDefaults?: ExcellonDefaults,
+): GERBER_FILE_IMAGE {
+  if (isExcellonFile(text, fileName)) return parseExcellon(text, fileName, excellonDefaults);
   return parseGerber(text, fileName);
 }
 

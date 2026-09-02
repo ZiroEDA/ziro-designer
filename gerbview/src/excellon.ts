@@ -28,7 +28,52 @@ interface DrillState {
   pos: Vec2;
 }
 
-export function parseExcellon(text: string, fileName: string): GERBER_FILE_IMAGE {
+/**
+ * `EXCELLON_DEFAULTS` (`gerbview/excellon_defaults.h:40-59`) — the values used
+ * when the file's own header does not state them, which is often: "Some
+ * important parameters are not defined in drill files, and some others can be
+ * missing in poor drill files."
+ *
+ * They are a user setting, not a constant: Preferences > Gerber Viewer >
+ * Excellon Options edits all six, and `GERBVIEW_FRAME::Read_EXCELLON_File`
+ * reads them out of `gerbview.json` and hands them to `LoadFile`
+ * (`excellon_read_drill_file.cpp:261-266`). This parser held the struct's
+ * defaults as literals instead, so the page would have had nothing to change.
+ */
+export interface ExcellonDefaults {
+  /** `m_UnitsMM` — false is inches. */
+  unit_mm: boolean;
+  /** `m_LeadingZero` — true is LZ. */
+  lz_format: boolean;
+  m_MmIntegerLen: number;
+  m_MmMantissaLen: number;
+  m_InchIntegerLen: number;
+  m_InchMantissaLen: number;
+}
+
+/** `EXCELLON_DEFAULTS::ResetToDefaults()` (`excellon_defaults.h:51-58`). */
+export const EXCELLON_STRUCT_DEFAULTS: ExcellonDefaults = {
+  unit_mm: false,
+  lz_format: true,
+  // FMT_INTEGER_MM 3, FMT_MANTISSA_MM 3, FMT_INTEGER_INCH 2,
+  // FMT_MANTISSA_INCH 4 (`excellon_defaults.h:26-30`).
+  m_MmIntegerLen: 3,
+  m_MmMantissaLen: 3,
+  m_InchIntegerLen: 2,
+  m_InchMantissaLen: 4,
+};
+
+export function parseExcellon(
+  text: string,
+  fileName: string,
+  /**
+   * `LoadFile( aFullFileName, aDefaults )`'s second argument. Omitted, the
+   * struct's own constructor defaults stand — which is what
+   * `SelectUnits( aMetric, nullptr )`'s else arm does
+   * (`excellon_read_drill_file.cpp:1146-1160`).
+   */
+  defaults: ExcellonDefaults = EXCELLON_STRUCT_DEFAULTS,
+): GERBER_FILE_IMAGE {
   const img = new GERBER_FILE_IMAGE();
   img.fileName = fileName;
   img.rawText = text;
@@ -46,12 +91,16 @@ export function parseExcellon(text: string, fileName: string): GERBER_FILE_IMAGE
   // was handed was not.
   img.fileFunction = 'Other,Drill';
 
+  // `m_NoTrailingZeros = aDefaults->m_LeadingZero;` and
+  // `m_GerbMetric = aDefaults->m_UnitsMM;` — LoadFile's "Initial format
+  // setting, usualy defined in file, but not always..."
+  // (`excellon_read_drill_file.cpp:477-480`).
   const st: DrillState = {
-    unit: 'in',
-    iuScale: IU_PER_MILS * 1000,
-    leadingZerosOmitted: true,
-    intDigits: 2,
-    fracDigits: 4,
+    unit: defaults.unit_mm ? 'mm' : 'in',
+    iuScale: defaults.unit_mm ? IU_PER_MM : IU_PER_MILS * 1000,
+    leadingZerosOmitted: defaults.lz_format,
+    intDigits: defaults.unit_mm ? defaults.m_MmIntegerLen : defaults.m_InchIntegerLen,
+    fracDigits: defaults.unit_mm ? defaults.m_MmMantissaLen : defaults.m_InchMantissaLen,
     incremental: false,
     routing: false,
     penDown: false,
@@ -61,15 +110,19 @@ export function parseExcellon(text: string, fileName: string): GERBER_FILE_IMAGE
 
   const toolDia = new Map<number, number>(); // tool number -> diameter (file units)
 
+  // `EXCELLON_IMAGE::SelectUnits( aMetric, aDefaults )`
+  // (`excellon_read_drill_file.cpp:1113-1170`): once the header has said which
+  // unit the file is in, the coordinate format for THAT unit is taken from the
+  // defaults — the mm pair or the inch pair, never a mixture.
   const setUnit = (u: 'mm' | 'in'): void => {
     st.unit = u;
     st.iuScale = u === 'mm' ? IU_PER_MM : IU_PER_MILS * 1000;
     if (u === 'mm') {
-      st.intDigits = 3;
-      st.fracDigits = 3;
+      st.intDigits = defaults.m_MmIntegerLen;
+      st.fracDigits = defaults.m_MmMantissaLen;
     } else {
-      st.intDigits = 2;
-      st.fracDigits = 4;
+      st.intDigits = defaults.m_InchIntegerLen;
+      st.fracDigits = defaults.m_InchMantissaLen;
     }
   };
 

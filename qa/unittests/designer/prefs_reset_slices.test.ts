@@ -85,6 +85,7 @@ import {
 import {
   resetGerbviewColorSettings,
   resetGerbviewDisplayOptions,
+  resetGerbviewExcellonSettings,
   resetGerbviewGrids,
   resetGerbviewToolbars,
 } from '@ziroeda/designer/src/editors/gerbview/prefs/resets.js';
@@ -358,6 +359,11 @@ const SLICES: Partial<Record<PrefsPageId, readonly string[]>> = {
     // asserting something unobservable.
   ],
   'gbr-toolbars': ['toolbars.gerbview'],
+  // PanelGerbviewExcellonSettings.tsx — all six, and nothing else on the
+  // settings object. `ResetPanel` default-constructs an `EXCELLON_DEFAULTS`,
+  // whose constructor is `ResetToDefaults()`
+  // (`panel_gerbview_excellon_settings.cpp:72-76`, `excellon_defaults.h:49`).
+  'gbr-excellon': ['gerbview.excellon_defaults'],
 };
 
 /** Every page's `RESETTABLE_PANEL::ResetPanel`, by id. */
@@ -383,6 +389,7 @@ const RESETS: Partial<Record<PrefsPageId, (ctx: PrefsContext) => void>> = {
   'gbr-colors': resetGerbviewColorSettings,
   'gbr-display': resetGerbviewDisplayOptions,
   'gbr-grids': resetGerbviewGrids,
+  'gbr-excellon': resetGerbviewExcellonSettings,
   'gbr-toolbars': resetGerbviewToolbars,
 };
 

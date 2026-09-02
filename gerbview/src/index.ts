@@ -14,7 +14,7 @@ export { D_CODE, APERTURE_DEF_HOLE } from './dcode.js';
 export * from './gerber_draw_item.js';
 export { GERBER_FILE_IMAGE, type CoordFormat } from './gerber_file_image.js';
 export { parseGerber } from './gerber_file_image_parse.js';
-export { parseExcellon } from './excellon.js';
+export { parseExcellon, EXCELLON_STRUCT_DEFAULTS, type ExcellonDefaults } from './excellon.js';
 export { GBR_LAYOUT } from './gbr_layout.js';
 export {
   readGerberOrDrill,

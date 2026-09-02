@@ -241,6 +241,35 @@ export function GerberViewer({
    * because the two are the same COLOR_SETTINGS.
    */
   const userColors = useUserColors();
+
+  /**
+   * `EXCELLON_DEFAULTS`, as `GERBVIEW_FRAME::Read_EXCELLON_File` assembles it:
+   *
+   *     EXCELLON_DEFAULTS nc_defaults;
+   *     GERBVIEW_SETTINGS* cfg = static_cast<GERBVIEW_SETTINGS*>( config() );
+   *     cfg->GetExcellonDefaults( nc_defaults );
+   *     bool success = drill_layer_uptr->LoadFile( aFullFileName, &nc_defaults );
+   *     (`gerbview/excellon_read_drill_file.cpp:261-266`)
+   *
+   * These are the six controls on Preferences > Gerber Viewer > Excellon
+   * Options, and they are only consulted where a drill file's own header is
+   * silent — which is the whole reason the page exists ("Some important
+   * parameters are not defined in drill files", `excellon_defaults.h:35-37`).
+   *
+   * The parser held the struct's defaults as literals before this, so the page
+   * would have edited a value nothing read.
+   */
+  const excellonDefaults = useMemo(
+    () => ({
+      unit_mm: gbrCfg.excellon_defaults.unit_mm,
+      lz_format: gbrCfg.excellon_defaults.lz_format,
+      m_MmIntegerLen: gbrCfg.excellon_defaults.mm_integer_len,
+      m_MmMantissaLen: gbrCfg.excellon_defaults.mm_mantissa_len,
+      m_InchIntegerLen: gbrCfg.excellon_defaults.inch_integer_len,
+      m_InchMantissaLen: gbrCfg.excellon_defaults.inch_mantissa_len,
+    }),
+    [gbrCfg.excellon_defaults],
+  );
   const [toggles, setToggles] = useState<Set<string>>(() =>
     togglesFromSettings(settings.gerbview, DEFAULT_TOGGLES),
   );
@@ -491,7 +520,7 @@ export function GerberViewer({
       try {
         const image =
           decision.type === GBR_FILE_TYPE.DRILL
-            ? parseExcellon(text, name)
+            ? parseExcellon(text, name, excellonDefaults)
             : parseGerber(text, name);
         if (image.items.length === 0) {
           setStatus(`No graphic items found in ${name}`);
@@ -1018,7 +1047,7 @@ export function GerberViewer({
       return prev.map((l) => {
         if (!l.image.rawText) return l;
         try {
-          const image = readGerberOrDrill(l.image.rawText, l.image.fileName);
+          const image = readGerberOrDrill(l.image.rawText, l.image.fileName, excellonDefaults);
           return { ...l, image };
         } catch {
           return l;

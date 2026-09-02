@@ -85,6 +85,7 @@ export const PAGES: readonly PrefsPageEntry[] = [
   { id: 'gbr-colors', label: 'Colors', indent: true, owner: 'gerbview' },
   { id: 'gbr-toolbars', label: 'Toolbars', indent: true, owner: 'gerbview' },
   { id: 'gbr-grids', label: 'Grids', indent: true, owner: 'gerbview' },
+  { id: 'gbr-excellon', label: 'Excellon Options', indent: true, owner: 'gerbview' },
   // pl_editor's KIFACE is added last of the five, after gerbview's
   // (`common/eda_base_frame.cpp:1726-1737`).
   { id: null, label: 'Drawing Sheet Editor' },
@@ -253,18 +254,10 @@ export const OMITTED_TOP_LEVEL: readonly DeclaredPage[] = [
  * and an oversight.
  */
 export const OMITTED_PAGES: Readonly<Record<string, readonly DeclaredPage[]>> = {
-  // In progress, one page per commit. Display Options landed first because it
-  // is the page that forced `gerbview.json` into existence; Toolbars came with
-  // it because `prefs_page_book.test.ts` requires every heading upstream gives
-  // a Toolbars page to have one here.
-  'Gerber Viewer': [
-    {
-      label: 'Excellon Options',
-      reason:
-        'Being built. PANEL_GERBVIEW_EXCELLON_SETTINGS is entirely file-format defaults — units, ' +
-        'zero format, integer/mantissa digit counts — with no path control on it, so it ports whole.',
-    },
-  ],
+  // The Gerber Viewer heading has NO entry: all five of its pages ship. It
+  // came closest to needing one on Excellon Options, which is the page most
+  // likely to have been a directory or a helper application — and turned out
+  // to be six file-format controls and no path at all.
   // Both of this heading's absences are now shipped: Data Sources reads the
   // Plugin and Content Manager we already have, and Simulator is drawn with
   // every control greyed, because a simulator is a thing this port can have
