@@ -232,6 +232,7 @@ import {
   DEFAULT_INPUT_PREFS,
   dragGesture,
   dragZoomScale,
+  makeZoomController,
   wheelAction,
 } from '../../../ui/view_controls.js';
 
@@ -855,6 +856,11 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
 
   const modeRef = useRef<Mode>('idle');
   const panLastRef = useRef<{ x: number; y: number } | null>(null);
+  /**
+   * `WX_VIEW_CONTROLS::m_zoomController` — this canvas's own, because upstream
+   * each `WX_VIEW_CONTROLS` owns one and the accelerating one has history.
+   */
+  const zoomCtlRef = useRef(makeZoomController());
   /**
    * `WX_VIEW_CONTROLS::m_zoomStartPoint` — where the drag-zoom's button went
    * down, in device pixels, held fixed for the whole gesture. `SetScale( ...,
@@ -2712,7 +2718,12 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       const vp = viewportRef.current;
       if (!canvas || !vp) return;
       e.preventDefault();
-      const action = wheelAction(e, inputPrefs, { width: canvas.width, height: canvas.height });
+      const action = wheelAction(
+        e,
+        inputPrefs,
+        { width: canvas.width, height: canvas.height },
+        zoomCtlRef.current,
+      );
       if (action.kind === 'none') return;
       if (action.kind === 'pan') {
         viewportRef.current = {

@@ -16,7 +16,13 @@
  */
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import type { InputPrefs } from '../ui/view_controls.js';
-import { commonInputPrefs, dragGesture, dragZoomScale, wheelAction } from '../ui/view_controls.js';
+import {
+  commonInputPrefs,
+  dragGesture,
+  dragZoomScale,
+  makeZoomController,
+  wheelAction,
+} from '../ui/view_controls.js';
 
 /** A canvas transform in device pixels: world -> screen. */
 export interface PreviewView {
@@ -64,6 +70,11 @@ export function usePreviewViewControls(
   const ownViewRef = useRef<PreviewView | null>(null);
   const viewRef = externalViewRef ?? ownViewRef;
   const fitScaleRef = useRef(0);
+  /**
+   * `WX_VIEW_CONTROLS::m_zoomController` — this canvas's own, because upstream
+   * each `WX_VIEW_CONTROLS` owns one and the accelerating one has history.
+   */
+  const zoomCtlRef = useRef(makeZoomController());
   const panRef = useRef<{
     pointerId: number;
     x: number;
@@ -110,7 +121,12 @@ export function usePreviewViewControls(
       const canvas = canvasRef.current;
       const view = viewRef.current;
       if (!canvas || !view) return;
-      const action = wheelAction(e, prefs, { width: canvas.width, height: canvas.height });
+      const action = wheelAction(
+        e,
+        prefs,
+        { width: canvas.width, height: canvas.height },
+        zoomCtlRef.current,
+      );
       if (action.kind === 'none') return;
       if (action.kind === 'pan') {
         viewRef.current = { ...view, tx: view.tx + action.dx, ty: view.ty + action.dy };

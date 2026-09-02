@@ -50,6 +50,7 @@ import {
   commonInputPrefs,
   dragGesture,
   dragZoomScale,
+  makeZoomController,
   wheelAction,
   zoomFitView,
 } from '../../ui/view_controls.js';
@@ -240,6 +241,11 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
     const colors = usePlEditorColors();
 
     const canvasRef = useRef<HTMLCanvasElement>(null);
+    /**
+     * `WX_VIEW_CONTROLS::m_zoomController` — this canvas's own, because upstream
+     * each `WX_VIEW_CONTROLS` owns one and the accelerating one has history.
+     */
+    const zoomCtlRef = useRef(makeZoomController());
     const glCanvasRef = useRef<HTMLCanvasElement>(null);
     const overCanvasRef = useRef<HTMLCanvasElement>(null);
     const glRef = useRef<DrawingSheetGl | null>(null);
@@ -815,10 +821,12 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
       const onWheel = (e: WheelEvent): void => {
         e.preventDefault();
         const v = viewRef.current;
-        const action = wheelAction(e, commonInputPrefs(), {
-          width: canvas.width,
-          height: canvas.height,
-        });
+        const action = wheelAction(
+          e,
+          commonInputPrefs(),
+          { width: canvas.width, height: canvas.height },
+          zoomCtlRef.current,
+        );
         if (action.kind === 'none') return;
         if (action.kind === 'pan') {
           v.tx += action.dx;

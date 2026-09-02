@@ -142,6 +142,26 @@ describe('shared view controls', () => {
     expect(src, `${rel} compares mouseRight itself`).not.toMatch(/mouseRight\s*===/);
   });
 
+  /**
+   * `m_zoomController`, which is a MEMBER of WX_VIEW_CONTROLS
+   * (`wx_view_controls.cpp:194-214`) and therefore one per canvas.
+   *
+   * ACCELERATING_ZOOM_CONTROLLER remembers when and which way the last wheel
+   * event went, so it cannot be a pure function and cannot be shared. A canvas
+   * that calls `wheelAction` without handing it one silently falls back to the
+   * constant controller -- which is to say Preferences > Mouse and Touchpad >
+   * "Use zoom acceleration" does nothing in that editor, with no other
+   * symptom. That is exactly the half-live state this file exists to prevent,
+   * so it is checked per file.
+   */
+  it.each(CANVASES)('%s holds its own m_zoomController', (rel) => {
+    const src = read(rel);
+    expect(src, `${rel} builds no controller`).toContain('makeZoomController(');
+    expect(src, `${rel} does not hand it to wheelAction`).toMatch(
+      /wheelAction\([\s\S]{0,300}?zoomCtlRef\.current/,
+    );
+  });
+
   it('the drag-zoom step is the shared exp(), not a literal', () => {
     // `exp( d.y * m_settings.m_zoomSpeed * 0.001 )` (`:383`). The schematic
     // canvas had `Math.exp((...) * 0.005)`, which is zoom_speed 5 frozen: the

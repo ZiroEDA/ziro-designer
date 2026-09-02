@@ -18,6 +18,7 @@ import {
   commonInputPrefs,
   dragGesture,
   dragZoomScale,
+  makeZoomController,
   wheelAction,
 } from '../../ui/view_controls.js';
 import { drawCrosshair } from '../../ui/grid_cursor.js';
@@ -32,6 +33,7 @@ import {
 } from '../../ui/zoom_tool.js';
 import { SYM_SHAPE_TOOLS } from './symbolToolbars.js';
 import { settings } from '../../prefs/settings.js';
+import { useSymbolEditorSettings } from '../../prefs/useSettings.js';
 import {
   fitSymbol,
   renderSymbolScene,
@@ -47,10 +49,9 @@ import {
   hitTestSymbol,
   moveSymbolItems,
   moveSymbolOrigin,
-  snap,
   type SymbolHit,
 } from './edits.js';
-import { symbolGridIU } from './grid.js';
+import { symbolGridForTool } from './grid.js';
 
 /**
  * The symbol editor's drawing canvas: pan/zoom, selection/move (SCH_SELECTION /
@@ -185,8 +186,29 @@ export const SymbolCanvas = forwardRef<SymbolCanvasController, Props>(function S
   const viewportRef = useRef<Viewport | null>(null);
   const [size, setSize] = useState({ w: 0, h: 0 });
 
+  /**
+   * The active snap grid — `GRID_HELPER::GetGrid` for what this tool lays down,
+   * exactly as `SchematicCanvas` computes it. It was `edits.ts`' module-level
+   * `snap`, on the constant `GRID`, so Preferences > Symbol Editor > Grids
+   * could store a grid and a set of overrides that nothing snapped to.
+   */
+  const symCfg = useSymbolEditorSettings();
+  const gridIU = symbolGridForTool(symCfg, activeTool);
+  const snap = useCallback(
+    (p: Vec2): Vec2 => ({
+      x: Math.round(p.x / gridIU) * gridIU,
+      y: Math.round(p.y / gridIU) * gridIU,
+    }),
+    [gridIU],
+  );
+
   const modeRef = useRef<Mode>('idle');
   const panLastRef = useRef<{ x: number; y: number } | null>(null);
+  /**
+   * `WX_VIEW_CONTROLS::m_zoomController` — this canvas's own, because upstream
+   * each `WX_VIEW_CONTROLS` owns one and the accelerating one has history.
+   */
+  const zoomCtlRef = useRef(makeZoomController());
   /** `WX_VIEW_CONTROLS::m_zoomStartPoint` (`wx_view_controls.cpp:562`, `:386`). */
   const zoomStartRef = useRef<{ x: number; y: number } | null>(null);
   const panMovedRef = useRef(false);
@@ -482,7 +504,12 @@ export const SymbolCanvas = forwardRef<SymbolCanvasController, Props>(function S
       const vp = viewportRef.current;
       if (!canvas || !vp) return;
       e.preventDefault();
-      const action = wheelAction(e, inputPrefs, { width: canvas.width, height: canvas.height });
+      const action = wheelAction(
+        e,
+        inputPrefs,
+        { width: canvas.width, height: canvas.height },
+        zoomCtlRef.current,
+      );
       if (action.kind === 'none') return;
       if (action.kind === 'pan') {
         viewportRef.current = {
@@ -740,7 +767,7 @@ export const SymbolCanvas = forwardRef<SymbolCanvasController, Props>(function S
         // `SYMBOL_EDITOR_MOVE_TOOL` moves by whole grid steps, and the grid is
         // the frame's — `symbolGridIU()` — not a constant. See
         // `editors/symbol/grid.ts`.
-        const grid = symbolGridIU();
+        const grid = gridIU;
         moveDeltaRef.current = {
           x: Math.round(raw.x / grid) * grid,
           y: Math.round(raw.y / grid) * grid,

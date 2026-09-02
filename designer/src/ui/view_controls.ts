@@ -24,6 +24,10 @@ import { type ScrollModifier, settings } from '../prefs/settings.js';
 export interface InputPrefs {
   zoomSpeed: number; // 1..10 (input.zoom_speed)
   zoomSpeedAuto: boolean;
+  /** `input.zoom_acceleration` — ACCELERATING_ZOOM_CONTROLLER instead of the
+   *  constant one. Only consulted when `zoomSpeedAuto` is off; see
+   *  {@link zoomControllerFor}. */
+  zoomAcceleration: boolean;
   centerOnZoom: boolean;
   reverseZoom: boolean;
   scrollModZoom: ScrollModifier;
@@ -45,6 +49,7 @@ export interface InputPrefs {
 export const DEFAULT_INPUT_PREFS: InputPrefs = {
   zoomSpeed: 1,
   zoomSpeedAuto: true,
+  zoomAcceleration: false,
   centerOnZoom: true,
   reverseZoom: false,
   scrollModZoom: 'none',
@@ -75,6 +80,7 @@ export function commonInputPrefs(): InputPrefs {
     ...DEFAULT_INPUT_PREFS,
     zoomSpeed: input.zoom_speed,
     zoomSpeedAuto: input.zoom_speed_auto,
+    zoomAcceleration: input.zoom_acceleration,
     centerOnZoom: input.center_on_zoom,
     reverseZoom: input.reverse_scroll_zoom,
     scrollModZoom: input.scroll_modifier_zoom,
@@ -151,7 +157,7 @@ function toPixels(delta: number, deltaMode: number | undefined): number {
 
 /**
  * `CONSTANT_ZOOM_CONTROLLER::GetScaleForRotation`
- * (common/view/zoom_controller.cpp:120-131), with the scale chosen by
+ * (common/view/zoom_controller.cpp:125-137), with the scale chosen by
  * `WX_VIEW_CONTROLS::LoadSettings` (wx_view_controls.cpp:195-213).
  *
  * `aRotation` is wx's wheel rotation: positive is wheel-up / zoom-in.
@@ -162,6 +168,153 @@ export function zoomScaleForRotation(rotation: number, prefs: InputPrefs): numbe
   const rot = rotation > 0 ? Math.min(rotation, 100) : Math.max(rotation, -100);
   const dscale = rot * scale;
   return rot > 0 ? 1 + dscale : 1 / (1 - dscale);
+}
+
+/** `ACCELERATING_ZOOM_CONTROLLER::DEFAULT_TIMEOUT` (zoom_controller.h:75). */
+const ACC_TIMEOUT_MS = 500;
+
+/** `GetScaleForRotation`'s `minStep` (zoom_controller.cpp:75). */
+const ACC_MIN_STEP = 1.05;
+
+/** `KIGFX::ZOOM_CONTROLLER` — one virtual, `GetScaleForRotation`. */
+export interface ZoomController {
+  getScaleForRotation(rotation: number): number;
+}
+
+/**
+ * `ACCELERATING_ZOOM_CONTROLLER` (`common/view/zoom_controller.cpp:73-108`),
+ * which is what Preferences > Mouse and Touchpad > "Use zoom acceleration"
+ * selects. This port only ever built the constant controller, so the checkbox
+ * had nothing behind it.
+ *
+ * It is a class and not a pure function because it is one upstream, for the
+ * same reason: the scale depends on how long ago the previous wheel event was
+ * and which way it turned, so the controller has to remember. Upstream each
+ * `WX_VIEW_CONTROLS` owns one (`m_zoomController`), so each canvas has its
+ * own; ours do too.
+ *
+ * The timestamp source is injected, exactly as upstream injects
+ * `TIMESTAMP_PROVIDER` -- and for the reason upstream states in the header,
+ * that a controller whose clock cannot be moved cannot be tested.
+ */
+export class AcceleratingZoomController implements ZoomController {
+  private prev: number;
+  private prevRotationPositive = false;
+
+  constructor(
+    /** `m_scale`, "a multiplier for the minimum zoom step size" (zoom_controller.h:134). */
+    private readonly scale: number,
+    /** `m_accTimeout`. */
+    private readonly accTimeout: number = ACC_TIMEOUT_MS,
+    /** `TIMESTAMP_PROVIDER::GetTimestamp`, in milliseconds. */
+    private readonly now: () => number = defaultNow,
+  ) {
+    // `m_prevTimestamp = m_timestampProv->GetTimestamp();` in the ctor body.
+    this.prev = now();
+  }
+
+  getScaleForRotation(rotation: number): number {
+    const timestamp = this.now();
+    // `duration_cast<TIMEOUT>` truncates toward zero into whole milliseconds.
+    const timeDiff = Math.trunc(timestamp - this.prev);
+    this.prev = timestamp;
+
+    let zoomScale: number;
+
+    if (timeDiff < this.accTimeout && rotation > 0 === this.prevRotationPositive) {
+      // `zoomScale = ( 2.05 * m_scale / 5.0 ) - timeDiff / m_accTimeout;`
+      //
+      // That subtrahend is INTEGER division of two `std::chrono::milliseconds`
+      // -- `operator/(duration, duration)` yields the common rep, which is an
+      // integer type -- and this branch has already established
+      // `timeDiff < m_accTimeout`, so it is always 0. Written out rather than
+      // dropped, because it is upstream's expression and a reader who
+      // simplified it away would have no way to tell that from a port that
+      // forgot the term.
+      zoomScale = (2.05 * this.scale) / 5.0 - Math.trunc(timeDiff / this.accTimeout);
+      // "be sure zoomScale value is significant"
+      zoomScale = Math.max(zoomScale, ACC_MIN_STEP);
+
+      if (rotation < 0) zoomScale = 1.0 / zoomScale;
+    } else {
+      zoomScale = rotation > 0 ? ACC_MIN_STEP : 1 / ACC_MIN_STEP;
+    }
+
+    this.prevRotationPositive = rotation > 0;
+    return zoomScale;
+  }
+}
+
+/** `CONSTANT_ZOOM_CONTROLLER`, as an object rather than a bare function. */
+class ConstantZoomController implements ZoomController {
+  constructor(private readonly prefs: InputPrefs) {}
+
+  getScaleForRotation(rotation: number): number {
+    return zoomScaleForRotation(rotation, this.prefs);
+  }
+}
+
+/** `ACCELERATING_ZOOM_CONTROLLER::CLOCK::now()`, a monotonic millisecond clock. */
+function defaultNow(): number {
+  return typeof performance !== 'undefined' ? performance.now() : Date.now();
+}
+
+/**
+ * `WX_VIEW_CONTROLS::LoadSettings`' controller tree
+ * (`wx_view_controls.cpp:196-214`), whole:
+ *
+ *     if( cfg->m_Input.zoom_speed_auto )
+ *         m_zoomController = GetZoomControllerForPlatform( cfg->m_Input.zoom_acceleration );
+ *     else if( cfg->m_Input.zoom_acceleration )
+ *         m_zoomController = make_unique<ACCELERATING_ZOOM_CONTROLLER>( cfg->m_Input.zoom_speed );
+ *     else
+ *         m_zoomController = make_unique<CONSTANT_ZOOM_CONTROLLER>(
+ *                 CONSTANT_ZOOM_CONTROLLER::MANUAL_SCALE_FACTOR * cfg->m_Input.zoom_speed );
+ *
+ * **On this platform the first branch ignores the acceleration flag.**
+ * `GetZoomControllerForPlatform` (`:55-71`) is three `#if`s, and the
+ * `__WXGTK3__` one returns `CONSTANT_ZOOM_CONTROLLER( GTK3_SCALE )` without
+ * looking at `aAcceleration` at all -- only the `#else` (MSW) branch consults
+ * it. So with `Automatic` ticked, "Use zoom acceleration" changes nothing in a
+ * Linux KiCad, and must change nothing here. That is not us declining to
+ * implement it; it is the behaviour of the build we are matching, and a port
+ * that "fixed" it would be wrong in a way no test upstream would catch.
+ */
+export function zoomControllerFor(prefs: InputPrefs, now?: () => number): ZoomController {
+  if (prefs.zoomSpeedAuto) return new ConstantZoomController(prefs);
+  if (prefs.zoomAcceleration)
+    return new AcceleratingZoomController(prefs.zoomSpeed, undefined, now);
+  return new ConstantZoomController(prefs);
+}
+
+/**
+ * A canvas's `m_zoomController` member, rebuilt when the settings that choose
+ * it change — which is the whole of what `LoadSettings` does with it.
+ *
+ * Upstream the rebuild is explicit: the Preferences dialog's OK calls
+ * `LoadSettings` on every canvas. We have no such broadcast, so the object
+ * checks the three values `zoomControllerFor` branches on and rebuilds itself
+ * when they move. Rebuilding DISCARDS the accelerating controller's history,
+ * which is also what upstream's `m_zoomController.reset()` (`:194`) does.
+ */
+export function makeZoomController(now?: () => number): ZoomController & {
+  retune(prefs: InputPrefs): void;
+} {
+  let key = '';
+  let ctl: ZoomController | null = null;
+  return {
+    retune(prefs: InputPrefs): void {
+      const k = `${prefs.zoomSpeedAuto}|${prefs.zoomAcceleration}|${prefs.zoomSpeed}`;
+      if (k !== key || ctl === null) {
+        key = k;
+        ctl = zoomControllerFor(prefs, now);
+      }
+    },
+    getScaleForRotation(rotation: number): number {
+      // `wheelAction` always calls `retune` first, so this cannot be null.
+      return (ctl as ZoomController).getScaleForRotation(rotation);
+    },
+  };
 }
 
 /**
@@ -203,6 +356,15 @@ export function wheelAction(
   e: WheelInput,
   prefs: InputPrefs,
   viewportPx: { width: number; height: number },
+  /**
+   * The canvas's own `m_zoomController` ({@link makeZoomController}).
+   *
+   * Optional only so that a caller which cannot hold state -- and a test that
+   * is asking about the constant controller -- need not invent one. Omitting
+   * it silently disables "Use zoom acceleration" for that canvas, which is why
+   * `view_controls_coverage.test.ts` requires every canvas to pass one.
+   */
+  controller?: ZoomController & { retune(p: InputPrefs): void },
 ): WheelAction {
   const deltaY = toPixels(e.deltaY, e.deltaMode);
   const deltaX = toPixels(e.deltaX, e.deltaMode);
@@ -226,7 +388,15 @@ export function wheelAction(
     // rotation = GetWheelRotation() * ( m_scrollReverseZoom ? -1 : 1 ); wx's
     // rotation is positive for wheel-up, the DOM's deltaY is negative for it.
     const rotation = -deltaY * (prefs.reverseZoom ? -1 : 1);
-    return { kind: 'zoom', factor: zoomScaleForRotation(rotation, prefs) };
+    // `m_zoomController->GetScaleForRotation( rotation )` (`:470`). The
+    // controller is rebuilt from the settings first, which is `LoadSettings`.
+    controller?.retune(prefs);
+    return {
+      kind: 'zoom',
+      factor: controller
+        ? controller.getScaleForRotation(rotation)
+        : zoomScaleForRotation(rotation, prefs),
+    };
   }
 
   // Everything that is not the zoom modifier scrolls: the pan-H modifier pans

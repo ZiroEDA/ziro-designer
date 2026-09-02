@@ -39,6 +39,7 @@ import {
   commonInputPrefs,
   dragGesture,
   dragZoomScale,
+  makeZoomController,
   wheelAction,
   zoomFitScale,
 } from '../../ui/view_controls.js';
@@ -159,6 +160,11 @@ export const GerberCanvas = forwardRef<GerberCanvasController, GerberCanvasProps
     } = props;
 
     const canvasRef = useRef<HTMLCanvasElement>(null);
+    /**
+     * `WX_VIEW_CONTROLS::m_zoomController` — this canvas's own, because upstream
+     * each `WX_VIEW_CONTROLS` owns one and the accelerating one has history.
+     */
+    const zoomCtlRef = useRef(makeZoomController());
     /**
      * The GL canvas sits between the background/grid canvas and the overlay.
      *
@@ -633,10 +639,12 @@ export const GerberCanvas = forwardRef<GerberCanvasController, GerberCanvasProps
       if (!canvas) return;
       const onWheel = (e: WheelEvent): void => {
         e.preventDefault();
-        const action = wheelAction(e, commonInputPrefs(), {
-          width: canvas.width,
-          height: canvas.height,
-        });
+        const action = wheelAction(
+          e,
+          commonInputPrefs(),
+          { width: canvas.width, height: canvas.height },
+          zoomCtlRef.current,
+        );
         if (action.kind === 'none') return;
         if (action.kind === 'pan') {
           const v = viewRef.current;

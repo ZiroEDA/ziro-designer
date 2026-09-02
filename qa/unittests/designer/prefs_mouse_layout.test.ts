@@ -187,8 +187,6 @@ describe('the rows nothing reads are disabled', () => {
     // No autopan timer exists here at all.
     ['Automatically pan while moving object'],
     ['Auto pan speed'],
-    // Only the CONSTANT zoom controller is built; there is no accelerating one.
-    ['Use zoom acceleration'],
     // `m_motionPanModifier` has no counterpart in our view controls.
     ['Pan on mouse movement with key'],
   ])('%s is disabled', (label) => {
@@ -218,6 +216,25 @@ describe('the rows nothing reads are disabled', () => {
   it('leaves the horizontal-pan box enabled, as KiCad does', () => {
     const p = props('Pan left/right with horizontal movement');
     expect(p).toContain('horizontal_pan');
+    expect(p).not.toMatch(/\bdisabled\b/);
+  });
+
+  /**
+   * "Use zoom acceleration" was on the dead list while only
+   * CONSTANT_ZOOM_CONTROLLER existed here. `ACCELERATING_ZOOM_CONTROLLER`
+   * (`common/view/zoom_controller.cpp:73-108`) is ported now and
+   * `zoomControllerFor` is `LoadSettings`' branch (`:196-214`), so the row is
+   * live and `view_controls.test.ts` pins what it does.
+   *
+   * It stays enabled even though it changes nothing while `Automatic` is
+   * ticked, because that is the parity target's behaviour and not ours:
+   * `GetZoomControllerForPlatform` returns a CONSTANT_ZOOM_CONTROLLER on GTK3
+   * without consulting the flag (`:55-71`). Greying it on that ground would be
+   * the same divergence as greying the horizontal-pan box above.
+   */
+  it('leaves "Use zoom acceleration" enabled, now that a controller reads it', () => {
+    const p = props('Use zoom acceleration');
+    expect(p).toContain('zoom_acceleration');
     expect(p).not.toMatch(/\bdisabled\b/);
   });
 

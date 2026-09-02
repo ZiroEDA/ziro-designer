@@ -5315,6 +5315,7 @@ export function SchematicEditor({
     () => ({
       zoomSpeed: common.input.zoom_speed,
       zoomSpeedAuto: common.input.zoom_speed_auto,
+      zoomAcceleration: common.input.zoom_acceleration,
       centerOnZoom: common.input.center_on_zoom,
       reverseZoom: common.input.reverse_scroll_zoom,
       scrollModZoom: common.input.scroll_modifier_zoom,

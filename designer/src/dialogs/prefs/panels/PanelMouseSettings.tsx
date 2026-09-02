@@ -166,16 +166,27 @@ export function PanelMouseSettings({ ctx }: { ctx: PrefsContext }): JSX.Element 
               }
             />
           </div>
-          {/* (1,0) spanning all three: `wxGBSpan( 1, 3 )`. Dead:
-              `input.zoom_acceleration` picks an ACCELERATING_ZOOM_CONTROLLER
-              upstream (`wx_view_controls.cpp`), and ours only ever builds the
-              constant one. */}
+          {/* (1,0) spanning all three: `wxGBSpan( 1, 3 )`.
+
+              LIVE. `input.zoom_acceleration` is the second of the three values
+              `WX_VIEW_CONTROLS::LoadSettings` branches on when it builds
+              `m_zoomController` (`wx_view_controls.cpp:196-214`), and
+              `ui/view_controls.ts`'s `zoomControllerFor` is that branch:
+              ACCELERATING_ZOOM_CONTROLLER instead of the constant one. It was
+              greyed while only the constant controller existed here.
+
+              Ticking it does nothing while `Automatic` above is also ticked,
+              and that is upstream's behaviour on this platform rather than an
+              omission: `GetZoomControllerForPlatform` (`:55-71`) returns a
+              CONSTANT_ZOOM_CONTROLLER on GTK3 without consulting the flag at
+              all. The control stays enabled because KiCad's is — it is the
+              Automatic box that decides whether this one is consulted, not
+              the port. */}
           <div className="gb-span">
             <Check
               label="Use zoom acceleration"
               title="Zoom faster when scrolling quickly"
               checked={input.zoom_acceleration}
-              disabled
               onChange={(v) =>
                 upC((s) => {
                   s.input.zoom_acceleration = v;

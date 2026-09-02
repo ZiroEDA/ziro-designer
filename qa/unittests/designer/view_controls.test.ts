@@ -17,10 +17,13 @@
  */
 import { describe, it, expect } from 'vitest';
 import {
+  AcceleratingZoomController,
   DEFAULT_INPUT_PREFS,
   dragGesture,
   dragZoomScale,
   fitMarginScaleFactor,
+  makeZoomController,
+  zoomControllerFor,
   wheelAction,
   wheelModifier,
   zoomFitView,
@@ -387,5 +390,217 @@ describe('dragZoomScale — DRAG_ZOOMING (wx_view_controls.cpp:379-388)', () => 
     expect(dragZoomScale(-40, prefs())).toBeLessThan(1);
     expect(dragZoomScale(40, prefs())).toBeGreaterThan(1);
     expect(dragZoomScale(0, prefs())).toBe(1);
+  });
+});
+
+/**
+ * `ACCELERATING_ZOOM_CONTROLLER` — Preferences > Mouse and Touchpad > "Use
+ * zoom acceleration", which had nothing behind it until now.
+ *
+ * `common/view/zoom_controller.cpp:73-108`, whole:
+ *
+ *     const double minStep = 1.05;
+ *     auto timeDiff = duration_cast<TIMEOUT>( timestamp - m_prevTimestamp );
+ *     m_prevTimestamp = timestamp;
+ *
+ *     if( timeDiff < m_accTimeout && ( (aRotation > 0) == m_prevRotationPositive ) )
+ *     {
+ *         zoomScale = ( 2.05 * m_scale / 5.0 ) - timeDiff / m_accTimeout;
+ *         zoomScale = std::max( zoomScale, minStep );
+ *         if( aRotation < 0 ) zoomScale = 1.0 / zoomScale;
+ *     }
+ *     else
+ *         zoomScale = ( aRotation > 0 ) ? minStep : 1 / minStep;
+ *
+ *     m_prevRotationPositive = aRotation > 0;
+ *
+ * The expected numbers below are worked out from that expression by hand, not
+ * read back off the implementation. `2.05 * m_scale / 5.0` with m_scale =
+ * zoom_speed gives 0.41 per unit of speed, and `timeDiff / m_accTimeout` is
+ * integer division of two `std::chrono::milliseconds` inside a branch that has
+ * already established timeDiff < accTimeout, so it is always zero.
+ */
+describe('AcceleratingZoomController (zoom_controller.cpp:73-108)', () => {
+  /** A clock the test drives, which is what upstream's TIMESTAMP_PROVIDER is for. */
+  function clock(): { now: () => number; advance: (ms: number) => void } {
+    let t = 1000;
+    return {
+      now: () => t,
+      advance: (ms: number) => {
+        t += ms;
+      },
+    };
+  }
+
+  it('the first event of a gesture is minStep, because there is no history', () => {
+    const c = clock();
+    const ctl = new AcceleratingZoomController(10, undefined, c.now);
+    // `m_prevRotationPositive` starts false, so a wheel-UP takes the else.
+    expect(ctl.getScaleForRotation(1)).toBeCloseTo(1.05, 12);
+  });
+
+  it('a fast repeat in the same direction accelerates to 2.05 * speed / 5', () => {
+    const c = clock();
+    const ctl = new AcceleratingZoomController(10, undefined, c.now);
+    ctl.getScaleForRotation(1); // arms m_prevRotationPositive = true
+    c.advance(50); // < 500 ms
+    // 2.05 * 10 / 5 = 4.1
+    expect(ctl.getScaleForRotation(1)).toBeCloseTo(4.1, 12);
+  });
+
+  it('the Zoom speed slider is that m_scale', () => {
+    for (const [speed, want] of [
+      [10, 4.1],
+      [5, 2.05],
+      // 2.05 * 2 / 5 = 0.82, under minStep, so std::max clamps it to 1.05.
+      [2, 1.05],
+      [1, 1.05],
+    ] as const) {
+      const c = clock();
+      const ctl = new AcceleratingZoomController(speed, undefined, c.now);
+      ctl.getScaleForRotation(1);
+      c.advance(50);
+      expect(ctl.getScaleForRotation(1), `speed ${speed}`).toBeCloseTo(want, 12);
+    }
+  });
+
+  it('waiting longer than the 500 ms timeout drops back to minStep', () => {
+    const c = clock();
+    const ctl = new AcceleratingZoomController(10, undefined, c.now);
+    ctl.getScaleForRotation(1);
+    c.advance(500); // NOT < 500
+    expect(ctl.getScaleForRotation(1)).toBeCloseTo(1.05, 12);
+    c.advance(499);
+    expect(ctl.getScaleForRotation(1)).toBeCloseTo(4.1, 12);
+  });
+
+  it('reversing direction drops back to minStep even when it is fast', () => {
+    // `(aRotation > 0) == m_prevRotationPositive` — the direction has to match
+    // as well as the timing, so a quick flick back does not inherit the speed.
+    const c = clock();
+    const ctl = new AcceleratingZoomController(10, undefined, c.now);
+    ctl.getScaleForRotation(1);
+    c.advance(10);
+    expect(ctl.getScaleForRotation(-1)).toBeCloseTo(1 / 1.05, 12);
+  });
+
+  it('an accelerated wheel-DOWN is the reciprocal', () => {
+    const c = clock();
+    const ctl = new AcceleratingZoomController(10, undefined, c.now);
+    ctl.getScaleForRotation(-1); // m_prevRotationPositive = false
+    c.advance(10);
+    expect(ctl.getScaleForRotation(-1)).toBeCloseTo(1 / 4.1, 12);
+  });
+
+  it('ignores the rotation MAGNITUDE, unlike the constant controller', () => {
+    // CONSTANT_ZOOM_CONTROLLER multiplies by aRotation; this one only reads
+    // its sign. That is the whole difference between the two.
+    const c = clock();
+    const ctl = new AcceleratingZoomController(10, undefined, c.now);
+    ctl.getScaleForRotation(1);
+    c.advance(10);
+    expect(ctl.getScaleForRotation(500)).toBeCloseTo(4.1, 12);
+  });
+});
+
+/**
+ * `WX_VIEW_CONTROLS::LoadSettings`' controller tree (`:196-214`) and the
+ * platform function it delegates to (`:55-71`).
+ */
+describe('zoomControllerFor — which controller LoadSettings builds', () => {
+  const tick = (): (() => number) => {
+    let t = 0;
+    return () => {
+      t += 10;
+      return t;
+    };
+  };
+
+  it('Automatic wins, and on GTK3 it ignores the acceleration flag', () => {
+    // `GetZoomControllerForPlatform`'s __WXGTK3__ branch returns
+    // CONSTANT_ZOOM_CONTROLLER( GTK3_SCALE ) without reading aAcceleration.
+    const on = zoomControllerFor(prefs({ zoomSpeedAuto: true, zoomAcceleration: true }));
+    const off = zoomControllerFor(prefs({ zoomSpeedAuto: true, zoomAcceleration: false }));
+    expect(on.getScaleForRotation(100)).toBeCloseTo(off.getScaleForRotation(100), 12);
+    // …and it is the constant one: 1 + 100 * 0.002.
+    expect(on.getScaleForRotation(100)).toBeCloseTo(1.2, 12);
+  });
+
+  it('with Automatic off, the flag chooses between the two controllers', () => {
+    const acc = zoomControllerFor(
+      prefs({ zoomSpeedAuto: false, zoomAcceleration: true, zoomSpeed: 10 }),
+      tick(),
+    );
+    const con = zoomControllerFor(
+      prefs({ zoomSpeedAuto: false, zoomAcceleration: false, zoomSpeed: 10 }),
+    );
+    // Constant: 1 + 100 * 0.001 * 10 = 2. Accelerating on a repeat: 4.1, and
+    // it does not depend on the magnitude at all.
+    expect(con.getScaleForRotation(100)).toBeCloseTo(2, 12);
+    acc.getScaleForRotation(100);
+    expect(acc.getScaleForRotation(100)).toBeCloseTo(4.1, 12);
+  });
+});
+
+/**
+ * The controller reaches `wheelAction`, which is the seam every canvas uses.
+ */
+describe('wheelAction consults m_zoomController', () => {
+  it('a canvas that passes one gets the accelerating behaviour', () => {
+    const ctl = makeZoomController(() => 0);
+    const p = prefs({
+      zoomSpeedAuto: false,
+      zoomAcceleration: true,
+      zoomSpeed: 10,
+      scrollModZoom: 'none',
+    });
+    // Two notches UP in a row, at the same instant. The first takes the else
+    // branch -- `m_prevRotationPositive` starts false and this rotation is
+    // positive -- and the second is inside the 500 ms window in the same
+    // direction, so it accelerates: minStep, then 2.05 * 10 / 5.
+    const up = wheel({ deltaY: -100 });
+    const first = wheelAction(up, p, VIEWPORT, ctl);
+    const second = wheelAction(up, p, VIEWPORT, ctl);
+    expect(first.kind).toBe('zoom');
+    expect(second.kind).toBe('zoom');
+    if (first.kind !== 'zoom' || second.kind !== 'zoom') return;
+    expect(first.factor).toBeCloseTo(1.05, 12);
+    expect(second.factor).toBeCloseTo(4.1, 12);
+  });
+
+  it('a wheel-DOWN accelerates from the very first event, as upstream does', () => {
+    // Not a quirk of ours. `m_prevRotationPositive` is initialised to FALSE
+    // (`zoom_controller.h:131`) and `m_prevTimestamp` to the construction time
+    // (ctor body), so the first wheel-DOWN inside 500 ms of the controller
+    // being built matches on both conditions and takes the accelerated branch.
+    // Recorded because it looks like an off-by-one until you read the header.
+    const ctl = makeZoomController(() => 0);
+    const p = prefs({
+      zoomSpeedAuto: false,
+      zoomAcceleration: true,
+      zoomSpeed: 10,
+      scrollModZoom: 'none',
+    });
+    const first = wheelAction(wheel(), p, VIEWPORT, ctl);
+    expect(first.kind).toBe('zoom');
+    if (first.kind !== 'zoom') return;
+    expect(first.factor).toBeCloseTo(1 / 4.1, 12);
+  });
+
+  it('and retunes itself when the settings that choose it move', () => {
+    // Upstream the Preferences OK calls LoadSettings on every canvas; ours
+    // notices the change instead. Without this, a canvas built before the
+    // checkbox was ticked would keep the old controller for the tab's life.
+    const ctl = makeZoomController(() => 0);
+    const acc = prefs({ zoomSpeedAuto: false, zoomAcceleration: true, zoomSpeed: 10 });
+    const con = { ...acc, zoomAcceleration: false };
+    wheelAction(wheel(), acc, VIEWPORT, ctl);
+    const after = wheelAction(wheel(), con, VIEWPORT, ctl);
+    expect(after.kind).toBe('zoom');
+    // Constant at speed 10 over one 100 px notch: 1 / ( 1 - (-100 * 0.01) )…
+    // i.e. the constant controller's answer, not 1/4.1.
+    if (after.kind !== 'zoom') return;
+    expect(after.factor).toBeCloseTo(zoomScaleForRotation(-100, con), 12);
+    expect(after.factor).not.toBeCloseTo(1 / 4.1, 6);
   });
 });

@@ -15,6 +15,7 @@ import {
   commonInputPrefs,
   dragGesture,
   dragZoomScale,
+  makeZoomController,
   wheelAction,
   zoomFitScale,
 } from '../../ui/view_controls.js';
@@ -404,7 +405,12 @@ import {
   type PcbPropRow,
 } from '@ziroeda/pcbnew/src/properties_panel.js';
 import { drawGrid, drawCrosshair } from '../../ui/grid_cursor.js';
-import { GRID_SIZE_LIST, gridEntryOf, gridSizesIU } from '../../ui/grid_settings.js';
+import {
+  GRID_SIZE_LIST,
+  gridEntryOf,
+  gridSizeToIU,
+  gridSizesIU,
+} from '../../ui/grid_settings.js';
 import {
   type ConditionalEntry,
   evaluateConditionalMenu,
@@ -499,10 +505,26 @@ function notePcbPaint(path: 'gl' | 'raster', t0: number): void {
 
 // Snapping lives in pcb_grid.ts; see the note there on the board grid origin.
 
-// pcbnew's grid presets: APP_SETTINGS_BASE::DefaultGridSizeList()'s non-
-// eeschema row, which the footprint editor shares. The table lives in
+// pcbnew's grid presets, as the module DEFAULT: `DefaultGridSizeList()`'s
+// non-eeschema row, which the footprint editor shares. The table lives in
 // ui/grid_settings.ts because it is common/ code upstream.
+//
+// It is the seed, not the answer. The live list is `window.grid.sizes`, which
+// `PANEL_GRID_SETTINGS` edits on Preferences > PCB Editor > Grids — a canvas
+// that kept reading the table would make every row on that page a control
+// nothing obeys, which is exactly what it was before that page existed.
 const PCB_GRIDS: number[] = gridSizesIU('pcbnew', MM);
+
+/** The stored grid list, in IU — `window.grid.sizes` rather than the table. */
+function pcbGridSizesIU(cfg: typeof settings.pcbnew): number[] {
+  return cfg.window.grid.sizes.map((g) => gridSizeToIU(g.x, MM) ?? 0).filter((v) => v > 0);
+}
+
+/** The grid the frame opens on: `window.grid.last_size_idx` into that list. */
+function storedPcbGridIU(): number {
+  const cfg = settings.pcbnew;
+  return pcbGridSizesIU(cfg)[cfg.window.grid.last_size_idx] ?? PCB_DEFAULT_GRID_IU;
+}
 
 /** The aux bar's `toggled` sets, hoisted so a render does not build a new one
  *  each time and re-run the toolbar's memo. */
@@ -955,9 +977,22 @@ export function PcbEditor({
   const ctrlDownRef = useRef(false);
   const [scale, setScale] = useState(0);
   // Active grid size (the TOP_AUX grid selector; EDA_DRAW_FRAME's grid list).
-  const [gridIU, setGridIU] = useState(PCB_DEFAULT_GRID_IU);
+  //
+  // Seeded from `window.grid.last_size_idx` and written back on every change,
+  // which is what carries the choice across a reload: `COMMON_TOOLS::GridPreset`
+  // takes an `int&` straight into the settings object and mutates it in place
+  // (`common_tools.cpp:536`), so upstream never writes it explicitly either.
+  const [gridIU, setGridIU] = useState(() => storedPcbGridIU());
   const gridIURef = useRef(gridIU);
   gridIURef.current = gridIU;
+  /** {@link setGridIU}, plus the write-back that makes the choice survive. */
+  const setGridIUStored = useCallback((iu: number) => {
+    setGridIU(iu);
+    settings.updatePcbnew((s) => {
+      const idx = pcbGridSizesIU(s).indexOf(iu);
+      if (idx >= 0) s.window.grid.last_size_idx = idx;
+    });
+  }, []);
   // The board's own grid origin (`(setup (grid_origin))`), which pcbnew hands
   // to the GAL on open (pcb_base_edit_frame.cpp) and which both the dots and
   // the snap are measured from. A ref because `draw` and the pointer handlers
@@ -3799,10 +3834,12 @@ export function PcbEditor({
     const onWheel = (e: WheelEvent): void => {
       e.preventDefault();
       const v = viewRef.current;
-      const action = wheelAction(e, commonInputPrefs(), {
-        width: canvas.width,
-        height: canvas.height,
-      });
+      const action = wheelAction(
+        e,
+        commonInputPrefs(),
+        { width: canvas.width, height: canvas.height },
+        zoomCtlRef.current,
+      );
       if (action.kind === 'none') return;
       if (action.kind === 'pan') {
         v.tx += action.dx;
@@ -3842,6 +3879,11 @@ export function PcbEditor({
 
   // Middle-button pan (KiCad reserves the left button for select/move).
   const panRef = useRef<{ x: number; y: number } | null>(null);
+  /**
+   * `WX_VIEW_CONTROLS::m_zoomController` — this canvas's own, because upstream
+   * each `WX_VIEW_CONTROLS` owns one and the accelerating one has history.
+   */
+  const zoomCtlRef = useRef(makeZoomController());
   /**
    * A DRAG_ZOOMING gesture: the last pointer y, and `m_zoomStartPoint` --
    * where the button went down, held fixed for the whole drag
@@ -4779,7 +4821,7 @@ export function PcbEditor({
         setGrid: (i) => {
           const iu = PCB_GRIDS[i];
           if (iu !== undefined) {
-            setGridIU(iu);
+            setGridIUStored(iu);
             requestDraw();
           }
         },
@@ -8078,7 +8120,7 @@ export function PcbEditor({
                     ]),
               ]}
               onChange={(v) => {
-                setGridIU(Number(v));
+                setGridIUStored(Number(v));
                 requestDraw();
               }}
             />
