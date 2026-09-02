@@ -858,10 +858,17 @@ export function App(): JSX.Element {
     if (!name) return;
     void (async () => {
       try {
-        // Complete it first. The 3D bodies and datasheets were skipped on open
-        // and are wanted now: a copy the user keeps should be the whole demo,
-        // not the part of it that happened to be needed to draw a schematic.
-        const extras = demoSource ? await fetchDemoExtras(demoSource) : [];
+        // Complete it first, for a demo that arrived file-by-file: its 3D
+        // bodies and datasheets were skipped on open and are wanted now, since
+        // a copy the user keeps should be the whole demo rather than the part
+        // needed to draw a schematic. A BUNDLED demo already has all of them,
+        // and passing what we hold is what stops this re-downloading them.
+        const extras = demoSource
+          ? await fetchDemoExtras(
+              demoSource,
+              cur.map((f) => f.name),
+            )
+          : [];
         const files = [...cur, ...extras]
           .filter((f) => (f.bytes && f.bytes.length > 0) || f.text.length > 0)
           .map((f) => ({ name: f.name, bytes: f.bytes ?? enc.encode(f.text) }));

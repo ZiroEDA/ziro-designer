@@ -58,6 +58,7 @@ import {
   isHiddenFile,
   inArchiveAllowList,
   basename,
+  fmtBytes,
   type DirNode,
 } from './project_tree.js';
 
@@ -607,14 +608,22 @@ export function HomePage({
     // neither Projects nor Recent, both of which list the account's store;
     // keeping one is Save As. (This comment used to say the opposite — that a
     // demo persists "so it lands in Recent". It never did.) The files stream
-    // from the hosted CDN, so show a per-file download gauge while they arrive.
+    // from the hosted CDN, so show a download gauge while they arrive.
+    //
+    // A bundled demo is a single object, so its callback reports BYTES and the
+    // detail has to read as bytes; the per-file path still counts files. Same
+    // gauge, two units, and printing one in the other's words ("5242880 of
+    // 10675173 files") is how you get a progress line nobody believes.
+    const bundled = d.bundleBytes !== undefined;
     setLoading({ message: `Downloading demo: ${d.title}`, value: 0 });
     let files: PickedHomeFile[];
     try {
       files = await openDemo(d, (done, total, file) =>
         setLoading({
           message: `Downloading demo: ${d.title}`,
-          detail: `${file}, ${done} of ${total} files`,
+          detail: bundled
+            ? `${fmtBytes(done)} of ${fmtBytes(total)}`
+            : `${file}, ${done} of ${total} files`,
           value: done / total,
         }),
       );

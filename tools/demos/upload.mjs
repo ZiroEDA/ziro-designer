@@ -11,6 +11,7 @@
  * After upload set VITE_DEMOS_URL=https://<public-r2-host>/<prefix>.
  */
 import { createHash, createHmac } from 'node:crypto';
+import { verifyZip, zipSync } from './zip.mjs';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { extname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -140,6 +141,10 @@ const proDirs = [
   ),
 ];
 const tops = proDirs.filter((d) => !proDirs.some((o) => o !== d && d.startsWith(`${o}/`))).sort();
+/** The object name the app looks for; see `openDemo` in designer/src/home/demos.ts. */
+const BUNDLE_NAME = 'bundle.zip';
+const bundles = [];
+
 const demos = tops
   .map((d) => {
     const inDir = files
@@ -164,6 +169,34 @@ const demos = tops
     };
   })
   .sort((a, b) => a.title.toLowerCase().localeCompare(b.title.toLowerCase()));
+
+/**
+ * One .zip per demo, so opening a project is ONE request instead of one per
+ * file.
+ *
+ * The cost of a demo was never its bytes, it was its round trips: CM5 Minima
+ * is 89 files and 5.3 MB of design, and fetching them at the browser's cap of
+ * ~6 connections to an HTTP/1.1 host measured 8.45 s. As a single zip it is
+ * one request, and the deflate inside it is the compression the bucket does
+ * not do (it serves every object as uncompressed application/octet-stream).
+ *
+ * The bundle holds the WHOLE project, 3D models included. Nothing is deferred:
+ * a wait the user watched on purpose beats a stall in the middle of their
+ * work, and the models are needed the moment they open the 3D view.
+ *
+ * Individual files are still uploaded alongside. The bundle is an optimisation,
+ * not a format — the app falls back to per-file fetches for any demo without
+ * one, which is what makes this deployable before the corpus is re-uploaded.
+ */
+for (const d of demos) {
+  const entries = {};
+  for (const rel of d.files) entries[rel] = readFileSync(join(SRC, `${d.id}/${rel}`));
+  const zip = zipSync(entries);
+  // Nothing in CI opens a bundle this writer produced; see `verifyZip`.
+  verifyZip(zip, entries);
+  d.bundleBytes = zip.length;
+  bundles.push([`${PREFIX}/${d.id}/${BUNDLE_NAME}`, zip]);
+}
 
 const totalBytes = files.reduce((n, f) => n + statSync(join(SRC, f)).size, 0);
 console.log(`${demos.length} demos, ${files.length} files, ${(totalBytes / 1e6).toFixed(1)} MB`);
@@ -193,6 +226,21 @@ async function worker() {
   }
 }
 await Promise.all(Array.from({ length: 6 }, worker));
+
+for (const [key, body] of bundles) {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      await putObject(key, body, 'application/zip');
+      break;
+    } catch (e) {
+      if (attempt >= 4) throw e;
+      await new Promise((r) => setTimeout(r, attempt * 2000));
+    }
+  }
+}
+console.log(
+  `uploaded ${bundles.length} bundles, ${(bundles.reduce((n, [, b]) => n + b.length, 0) / 1e6).toFixed(0)} MB`,
+);
 
 const manifest = Buffer.from(`${JSON.stringify({ demos }, null, 2)}\n`);
 await putObject(`${PREFIX}/index.json`, manifest, 'application/json');
