@@ -2,90 +2,27 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * The mouse cursor each schematic tool shows. Counterparts: `common/gal/
- * cursors.cpp` (CURSOR_STORE, the XPM/hotspot table) and the
- * `SetCurrentCursor( KICURSOR::… )` calls in `eeschema/tools/
- * sch_drawing_tools.cpp` / `sch_line_wire_bus_tool.cpp`, which decide which
- * one a tool uses.
+ * Which `KICURSOR` each schematic tool runs with.
  *
- * The bitmaps are KiCad's, painted to a canvas and handed to CSS as data-URI
- * cursors. This matters beyond looks: the GAL crosshair is drawn *on the
- * canvas*, so leaving the pointer as the browser's `crosshair` puts two
- * near-identical crosses on screen. KiCad's tool cursors are arrows and
- * pencils that read as a pointer, with the crosshair being the one that marks
- * the snapped point.
+ * This is eeschema's half of the cursor question and nothing else. Upstream it
+ * is not a table at all: every tool calls
+ * `m_frame->GetCanvas()->SetCurrentCursor( KICURSOR::… )` in its own
+ * `setCursor` lambda — `sch_drawing_tools.cpp`,
+ * `sch_line_wire_bus_tool.cpp`, `sch_selection_tool.cpp`, `zoom_tool.cpp` —
+ * and the ART those names resolve to belongs to `CURSOR_STORE`, which every
+ * editor shares.
+ *
+ * So the art is not here. This file used to carry a second copy of KiCad's
+ * cursor table, `cursors_data.ts`, re-encoded as XPM strings and rasterised
+ * to a data URI in the browser; `ui/kicursors.ts` is the CURSOR_STORE, the
+ * schematic canvas draws from it like every other canvas, and what is left
+ * over is the mapping below — the part that really is eeschema's.
  */
 
-import { XPM_CURSORS, type XpmCursor } from './cursors_data.js';
-
-/** KICURSOR, restricted to the ones eeschema's tools ask for. */
-export type KiCursor =
-  | 'arrow'
-  | 'place'
-  | 'pencil'
-  | 'component'
-  | 'text'
-  | 'labelNet'
-  | 'labelGlobal'
-  | 'labelHier'
-  | 'lineWire'
-  | 'lineBus'
-  | 'lineGraphic'
-  | 'selectLasso'
-  | 'zoomIn'
-  | 'remove'
-  | 'moving';
-
-/** Painted cursors, keyed by name, each XPM is rasterised once. */
-const cache = new Map<string, string>();
-
-/** Paint an XPM to a data URI and wrap it as a CSS cursor value. */
-function cssCursor(name: string, def: XpmCursor, fallback: string): string {
-  const hit = cache.get(name);
-  if (hit) return hit;
-  if (typeof document === 'undefined') return fallback;
-  const size = def.rows.length;
-  const canvas = document.createElement('canvas');
-  canvas.width = size;
-  canvas.height = size;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return fallback;
-  for (let y = 0; y < size; y++) {
-    const row = def.rows[y] ?? '';
-    for (let x = 0; x < row.length; x++) {
-      const colour = def.palette[row[x]!];
-      if (!colour) continue; // transparent
-      ctx.fillStyle = colour;
-      ctx.fillRect(x, y, 1, 1);
-    }
-  }
-  const [hx, hy] = def.hotspot;
-  const value = `url("${canvas.toDataURL()}") ${hx} ${hy}, ${fallback}`;
-  cache.set(name, value);
-  return value;
-}
+import { kiCursor, type KiCursor } from '../../ui/kicursors.js';
 
 /**
- * The CSS cursor for a KICURSOR value.
- *
- * KICURSOR::ARROW is the only one with no bitmap of its own — CURSOR_STORE
- * leaves it to the platform, which is what `default` is. Every other entry is
- * a KiCad XPM, MOVING included: it used to answer the browser's `move`
- * keyword, which made it the one cursor in this table that was not KiCad's own
- * drawing, and the four-arrow pointer the desktop supplies looks nothing like
- * the arrow-with-a-cross KiCad paints. The keyword survives only as the
- * fallback for when the bitmap cannot be rasterised, which is the role
- * `CURSOR_STORE::GetStockCursor`'s wxCURSOR_SIZING plays upstream.
- */
-export function kiCursor(cursor: KiCursor): string {
-  if (cursor === 'arrow') return 'default';
-  const fallback = cursor === 'moving' ? 'move' : 'crosshair';
-  const def = XPM_CURSORS[cursor];
-  return def ? cssCursor(cursor, def, fallback) : fallback;
-}
-
-/**
- * Which KICURSOR a right-toolbar tool runs with, following the tool that
+ * Which `KICURSOR` a right-toolbar tool runs with, following the tool that
  * handles it upstream:
  *
  *  - SingleClickPlace (junction, no-connect, bus entry), KICURSOR::PLACE
@@ -99,36 +36,36 @@ export function kiCursor(cursor: KiCursor): string {
 export function toolCursorName(tool: string): KiCursor {
   switch (tool) {
     case 'select':
-      return 'arrow';
+      return 'ARROW';
     // ZOOM_TOOL::Main sets KICURSOR::ZOOM_IN for as long as it runs, and puts
     // the arrow back only on the way out.
     case 'zoomTool':
-      return 'zoomIn';
+      return 'ZOOM_IN';
     case 'selectLasso':
-      return 'selectLasso';
+      return 'SELECT_LASSO';
     // SCH_TOOL_BASE::InteractiveDelete's picker runs with KICURSOR::REMOVE, the
     // eraser; without it the tool falls through to the pencil below and looks
     // like a drawing tool.
     case 'delete':
-      return 'remove';
+      return 'REMOVE';
     case 'drawWire':
-      return 'lineWire';
+      return 'LINE_WIRE';
     case 'drawBus':
-      return 'lineBus';
+      return 'LINE_BUS';
     case 'lines':
-      return 'lineGraphic';
+      return 'LINE_GRAPHIC';
     case 'junction':
     case 'noConnect':
     case 'busEntry':
     case 'image':
-      return 'place';
+      return 'PLACE';
     case 'placeSymbol':
     case 'placePower':
-      return 'component';
+      return 'COMPONENT';
     case 'placeText':
     case 'text':
     case 'textBox':
-      return 'text';
+      return 'TEXT';
     case 'placeLabel':
     // `SCH_DRAWING_TOOLS::TwoClickPlace`'s setCursor puts the net-label cursor
     // on both, and only the shapes fall through to the pencil:
@@ -136,19 +73,23 @@ export function toolCursorName(tool: string): KiCursor {
     //     else if( isNetLabel || isClassLabel )
     //         m_frame->GetCanvas()->SetCurrentCursor( KICURSOR::LABEL_NET );
     case 'placeClassLabel':
-      return 'labelNet';
+      return 'LABEL_NET';
     case 'placeGlobalLabel':
-      return 'labelGlobal';
+      return 'LABEL_GLOBAL';
     case 'placeHierLabel':
     case 'sheetPin':
-      return 'labelHier';
+      return 'LABEL_HIER';
     default:
       // Graphics, sheets, tables, rule areas and the rest of the drawing tools.
-      return 'pencil';
+      return 'PENCIL';
   }
 }
 
-/** The CSS cursor a tool shows while active. */
+/**
+ * The CSS cursor a tool shows while active — `SetCurrentCursor( KICURSOR )`
+ * followed by `CURSOR_STORE::GetCursor`, which is the only path to a cursor
+ * upstream and now the only one here.
+ */
 export function toolCursor(tool: string): string {
   return kiCursor(toolCursorName(tool));
 }

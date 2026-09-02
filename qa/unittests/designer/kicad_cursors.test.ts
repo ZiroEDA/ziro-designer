@@ -17,27 +17,47 @@
  */
 import { describe, expect, it } from 'vitest';
 import { readFileSync, existsSync } from 'node:fs';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const path = (rel: string): string => fileURLToPath(new URL(rel, import.meta.url));
 const SRC = readFileSync(path('../../../designer/src/ui/kicursors.ts'), 'utf8');
 
 /**
- * `CURSOR_STORE`, quoted from `common/gal/cursors.cpp`. [data]
+ * `cursors_defs`, quoted from `common/gal/cursors.cpp:114-322`. [data]
  *
- * MOVING is the `#else` half of that entry's `#ifdef __WINDOWS__`, which is
- * what a Linux KiCad compiles.
+ * MOVING and PLACE are the `#else` half of their `#ifdef __WINDOWS__`, which
+ * is what a Linux KiCad compiles.
+ *
+ * This is the WHOLE of what the app points with, in one table, because
+ * upstream `CURSOR_STORE` is one table in front of every canvas. It used to
+ * be six entries here and fifteen more in `editors/schematic/cursors_data.ts`,
+ * hand-copied as XPM text; two tables is how ZOOM_IN came to carry hotspot
+ * (7, 7) in this one and the correct (6, 6) in the other, with a test on each
+ * agreeing with its own table.
  */
 const CURSORS_CPP: Record<string, { file: string; x: number; y: number }> = {
   PENCIL: { file: 'cursor-pencil', x: 4, y: 27 },
+  MOVING: { file: 'cursor-select-m-black', x: 1, y: 1 },
   REMOVE: { file: 'cursor-eraser', x: 4, y: 4 },
   TEXT: { file: 'cursor-text', x: 7, y: 7 },
-  MOVING: { file: 'cursor-select-m-black', x: 1, y: 1 },
-  ZOOM_IN: { file: 'cursor-zoom-in', x: 7, y: 7 },
-  // `{ cursor_measure_xpm, { 4, 4 } }` (cursors.cpp:199-205) — the Measure
+  // `{ cursor_measure_xpm, { 4, 4 } }` (cursors.cpp:200-206) — the Measure
   // Tool's, which arrived with the PCB ruler. The 64x64 entry's { 8, 8 } is
   // the same hotspot doubled, so only the 32x32 pair is stored, as above.
   MEASURE: { file: 'cursor-measure', x: 4, y: 4 },
+  // { 6, 6 }: the centre of the lens, not the tip of the handle.
+  ZOOM_IN: { file: 'cursor-zoom-in', x: 6, y: 6 },
+  LABEL_NET: { file: 'cursor-label-net', x: 7, y: 7 },
+  LABEL_GLOBAL: { file: 'cursor-label-global', x: 7, y: 7 },
+  LABEL_HIER: { file: 'cursor-label-hier', x: 7, y: 7 },
+  COMPONENT: { file: 'cursor-component', x: 7, y: 7 },
+  SELECT_LASSO: { file: 'cursor-select-lasso', x: 7, y: 7 },
+  // The one entry whose hotspot is not on the diagonal.
+  SELECT_WINDOW: { file: 'cursor-select-window', x: 7, y: 10 },
+  LINE_WIRE: { file: 'cursor-line-wire', x: 5, y: 26 },
+  LINE_BUS: { file: 'cursor-line-bus', x: 5, y: 26 },
+  LINE_GRAPHIC: { file: 'cursor-line-graphic', x: 5, y: 26 },
+  PLACE: { file: 'cursor-place-black', x: 1, y: 1 },
 };
 
 /** What `kicursors.ts` declares, parsed out of its STORE literal. */
@@ -87,12 +107,64 @@ describe('the hotspot the browser is given', () => {
     expect(SRC).toMatch(/image-set\(url\(\$\{one\}\) 1x, url\(\$\{two\}\) 2x\) \$\{hot\}/);
   });
 
-  it('keeps a stock fallback after the comma on every entry', () => {
+  it('every cursor value still ends in a keyword', () => {
     // A `cursor` value whose image cannot load falls through to the next in
-    // the list; an entry with no fallback would leave the canvas with the
-    // default arrow while a tool is active.
-    const entries = [...SRC.matchAll(/fallback:\s*'([^']+)'/g)].map((m) => m[1]);
-    expect(entries).toHaveLength(Object.keys(CURSORS_CPP).length);
-    for (const f of entries) expect(f).not.toBe('');
+    // the list, and a value with nothing after the comma is invalid CSS and is
+    // dropped WHOLE. There is one keyword now rather than a field per entry:
+    // upstream's only analogous branch answers `wxCURSOR_ARROW` (`GetCursor`,
+    // `cursors.cpp:417-418`), so anything else here would be invented.
+    expect(SRC).toMatch(/export const STOCK_CURSOR = 'default';/);
+    for (const tail of ['${hot}, ${STOCK_CURSOR}`', '2x) ${hot}, ${STOCK_CURSOR}`']) {
+      expect(SRC, tail).toContain(tail);
+    }
+    // …and no entry carries a keyword of its own any more.
+    expect(SRC).not.toMatch(/fallback:/);
+  });
+});
+
+/**
+ * There is ONE cursor store, and every canvas points through it.
+ *
+ * Upstream this needs no test: `cursors_defs` is a file-static map,
+ * `CURSOR_STORE::GetCursor` holds the only instance of it (`cursors.cpp:405`),
+ * and `SetCurrentCursor( KICURSOR )` is the only call a tool can make. Ours
+ * are React components that each set a CSS `cursor` string, so a second table
+ * is one file away — and there WAS one, `editors/schematic/cursors_data.ts`,
+ * for long enough that the same KiCad pencil shipped as a vendored PNG on one
+ * canvas and a browser-rasterised data URI on another, with the Preferences
+ * checkbox reaching only the first.
+ *
+ * Walked as text, the way `view_controls_coverage.test.ts` walks the wheel.
+ */
+describe('one CURSOR_STORE, like KiCad', () => {
+  const SRCDIR = fileURLToPath(new URL('../../../designer/src', import.meta.url));
+
+  /** Every file that sets a canvas cursor from KiCad art. */
+  const CALLERS = [
+    'editors/schematic/cursors.ts',
+    'editors/schematic/components/SchematicCanvas.tsx',
+    'editors/symbol/SymbolCanvas.tsx',
+    'editors/footprint/FootprintCanvas.tsx',
+    'editors/drawingsheet/DrawingSheetCanvas.tsx',
+  ];
+
+  it.each(CALLERS)('%s imports the store rather than declaring one', (rel) => {
+    const src = readFileSync(join(SRCDIR, rel), 'utf8');
+    expect(src).toMatch(/from '[./]+ui\/kicursors\.js'/);
+  });
+
+  it('the deleted second table has not come back', () => {
+    expect(existsSync(join(SRCDIR, 'editors/schematic/cursors_data.ts'))).toBe(false);
+  });
+
+  it('nothing paints a cursor bitmap at run time any more', () => {
+    // `cssCursor` built `url("data:image/png;base64,…")` off a <canvas>, which
+    // is how the schematic's cursors escaped both the hotspot table and the
+    // preference. An XPM converts to a PNG exactly; there is no reason to
+    // rasterise one in a browser.
+    for (const rel of CALLERS) {
+      const src = readFileSync(join(SRCDIR, rel), 'utf8');
+      expect(src, rel).not.toMatch(/toDataURL\(/);
+    }
   });
 });

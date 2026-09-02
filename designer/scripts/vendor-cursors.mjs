@@ -29,27 +29,74 @@ const OUT = join(HERE, '../src/assets/cursors');
 /**
  * The cursors ZiroEDA uses, by their `common/gal/cursors.cpp` file name.
  *
- * MOVING takes the `#else` (non-Windows) branch of the `#ifdef __WINDOWS__` in
- * that table — the `*_black` variant — because that is the branch a Linux
- * KiCad compiles, and the browser is not Windows-themed.
+ * This is `cursors_defs` (`common/gal/cursors.cpp:114-322`) minus the entries
+ * whose tools do not exist in this port. Upstream has ONE table and one
+ * `CURSOR_STORE` in front of every canvas, which is why a pencil in
+ * pl_editor, in eeschema and in pcbnew is the same pencil; the list here is
+ * the vendoring half of that single table and `ui/kicursors.ts` is the rest.
  *
- * Not vendored yet, because nothing reads them: PLACE (`cursor-place-black`),
- * SELECT_WINDOW and SELECT_LASSO. KiCad shows the last two during a
- * box/lasso drag (`pl_selection_tool.cpp:361-362`); ours tracks that drag in a
- * ref and never re-renders on it, so wiring them is a change to the canvas's
- * state, not to this list. Add the names here when that happens.
+ * Both variants of every entry: a 32x32 and the 64x64 KiCad swaps in on a
+ * HiDPI display, which is what `image-set`'s `2x` descriptor asks the browser
+ * for.
+ *
+ * MOVING and PLACE take the `#else` (non-Windows) branch of the
+ * `#ifdef __WINDOWS__` in that table -- the `*_black` variants -- because that
+ * is the branch a Linux KiCad compiles, and Linux is the parity target.
+ *
+ * Not vendored, because no tool in this port asks for them: VOLTAGE_PROBE,
+ * CURRENT_PROBE and TUNE (the simulator's), WARNING, ADD, SUBTRACT, XOR
+ * (pcbnew's zone boolean pickers) and ZOOM_OUT. Add the pair here when the
+ * tool arrives -- not one of the pair.
  */
 const WANTED = [
+  // KICURSOR::PENCIL
   'cursor-pencil',
   'cursor-pencil64',
+  // KICURSOR::REMOVE
   'cursor-eraser',
   'cursor-eraser64',
+  // KICURSOR::TEXT
   'cursor-text',
   'cursor-text64',
+  // KICURSOR::MOVING
   'cursor-select-m-black',
   'cursor-select-m-black64',
+  // KICURSOR::PLACE
+  'cursor-place-black',
+  'cursor-place-black64',
+  // KICURSOR::COMPONENT
+  'cursor-component',
+  'cursor-component64',
+  // KICURSOR::MEASURE
+  'cursor-measure',
+  'cursor-measure64',
+  // KICURSOR::ZOOM_IN
   'cursor-zoom-in',
   'cursor-zoom-in64',
+  // KICURSOR::LABEL_NET
+  'cursor-label-net',
+  'cursor-label-net64',
+  // KICURSOR::LABEL_GLOBAL
+  'cursor-label-global',
+  'cursor-label-global64',
+  // KICURSOR::LABEL_HIER
+  'cursor-label-hier',
+  'cursor-label-hier64',
+  // KICURSOR::LINE_WIRE
+  'cursor-line-wire',
+  'cursor-line-wire64',
+  // KICURSOR::LINE_BUS
+  'cursor-line-bus',
+  'cursor-line-bus64',
+  // KICURSOR::LINE_GRAPHIC
+  'cursor-line-graphic',
+  'cursor-line-graphic64',
+  // KICURSOR::SELECT_LASSO
+  'cursor-select-lasso',
+  'cursor-select-lasso64',
+  // KICURSOR::SELECT_WINDOW
+  'cursor-select-window',
+  'cursor-select-window64',
 ];
 
 /** Named XPM colours that appear in these files alongside the #RRGGBB ones. */
