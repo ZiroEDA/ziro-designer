@@ -309,4 +309,33 @@ describe('what a pull agrees on', () => {
     await updateProjectFiles(id, [{ name: 'Legacy.kicad_sch', bytes: text('EDITED') }]);
     expect(await hasDivergedLocally(id)).toBe(true);
   });
+
+  it('keeps measuring a legacy project across an ordinary re-save', async () => {
+    // `saveProject` rebuilds the record from scratch, so a field it does not
+    // carry is silently dropped — the shape that made `syncedAt` inert and
+    // un-owned a project while signed out.
+    //
+    // Dropping `syncedHashes` is invisible for a project pushed from here,
+    // because divergence falls back to `pushedHashes` and the push path sets
+    // it. A project pulled from a legacy row has no `pushedHashes` at all —
+    // its blobs are not in the content-addressed store — so there is nothing to
+    // fall back to, and the project would read as "never synced" forever and
+    // stop being pushed. Half the rows in the account are that shape.
+    const id = await synced('Legacy', 'ORIGINAL');
+    const p = await exportProject(id);
+    await importProject({
+      ...p!,
+      files: [{ name: 'Legacy.kicad_sch', gzB64: p!.files[0]!.gzB64 }],
+      baseVersion: 1,
+    });
+    // The pull left nothing that the fallback could stand in for.
+    const fresh = await exportManifest(id);
+    expect(fresh).toBeTruthy();
+
+    await saveProject('Legacy', [{ name: 'Legacy.kicad_sch', bytes: text('ORIGINAL') }], id);
+    expect(await hasDivergedLocally(id)).toBe(false);
+
+    await updateProjectFiles(id, [{ name: 'Legacy.kicad_sch', bytes: text('EDITED') }]);
+    expect(await hasDivergedLocally(id)).toBe(true);
+  });
 });
