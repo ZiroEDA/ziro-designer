@@ -292,6 +292,55 @@ describe('there is one implementation of each, and both consumers use it', () =>
     }
   });
 
+  /**
+   * `PANEL_COLOR_SETTINGS` is the third panel `common/` owns, and the one where
+   * the interesting half of the rule is the NEGATIVE half. Exactly two of the
+   * four Colors pages derive from it:
+   *
+   *     class PANEL_EESCHEMA_COLOR_SETTINGS : public PANEL_COLOR_SETTINGS
+   *     class PANEL_GERBVIEW_COLOR_SETTINGS : public PANEL_COLOR_SETTINGS
+   *     class PANEL_SYM_COLOR_SETTINGS      : public PANEL_SYM_COLOR_SETTINGS_BASE
+   *     class PANEL_PL_EDITOR_COLOR_SETTINGS: public PANEL_PL_EDITOR_COLOR_SETTINGS_BASE
+   *
+   * The last two are plain `wxPanel`s with no swatch grid at all — the Symbol
+   * Editor's is two radio buttons choosing WHICH settings object the frame
+   * asks, and the Drawing Sheet Editor's is a single `wxChoice`. So "unify all
+   * four Colors pages" is a wrong reading that this test exists to fail: doing
+   * it would invent a per-layer override for two editors that have none.
+   */
+  const COLOR_SUBCLASSES = [
+    'editors/schematic/prefs/PanelEeschemaColorSettings.tsx',
+    'editors/gerbview/prefs/PanelGerbviewColorSettings.tsx',
+  ];
+  const COLOR_NON_SUBCLASSES = [
+    'editors/symbol/prefs/PanelSymbolEditorColorSettings.tsx',
+    'editors/drawingsheet/prefs/PanelPlEditorColorSettings.tsx',
+  ];
+
+  it('both PANEL_COLOR_SETTINGS subclasses render the shared panel', () => {
+    for (const rel of COLOR_SUBCLASSES) {
+      const src = read(rel);
+      expect(src, rel).toContain("from '../../../dialogs/prefs/PanelColorSettings.js'");
+      expect(src, rel).toContain('<PanelColorSettings');
+      // The tell that a copy has grown back: the swatch grid's own markup,
+      // which belongs to the shared panel and to nothing else.
+      expect(src, `${rel} rebuilds the swatch grid`).not.toContain('ze-colorgrid');
+      expect(src, `${rel} rebuilds the control row`).not.toContain('ze-colorpage-controls');
+    }
+  });
+
+  it('the two pages that are not that class do not borrow it', () => {
+    for (const rel of COLOR_NON_SUBCLASSES) {
+      const src = read(rel);
+      expect(src, `${rel} is not a PANEL_COLOR_SETTINGS upstream`).not.toContain(
+        '<PanelColorSettings',
+      );
+      // Neither page has a swatch anywhere: no layer list, no per-layer
+      // override, nothing to checkerboard against a background layer.
+      expect(src, `${rel} grew a swatch grid`).not.toContain('ColorSwatch');
+    }
+  });
+
   it('every Display Options page embeds the shared GAL panel', () => {
     for (const rel of DISPLAY_PAGES) {
       const src = read(rel);

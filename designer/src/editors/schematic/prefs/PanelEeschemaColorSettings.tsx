@@ -20,13 +20,14 @@
  * takes every remaining pixel. Ours had the swatches spread across the whole
  * page in a two-across grid, in an order of our own, with no preview at all.
  */
-import { Fragment, useMemo, type JSX } from 'react';
-import { Check } from '../../../dialogs/prefs/widgets.js';
-import { ColorThemeChoice } from '../../../dialogs/prefs/ColorThemeChoice.js';
+import { useMemo, type JSX } from 'react';
+import {
+  PanelColorSettings,
+  type ColorSwatchRow,
+} from '../../../dialogs/prefs/PanelColorSettings.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
 import { pcm, usePcmVersion } from '../../../pcm/pcmStore.js';
 import { BUILTIN_THEMES, KICAD_DEFAULT, type Theme } from '../theme.js';
-import { ColorSwatch } from '../../../ui/ColorSwatch.js';
 import { ColorPreviewPanel } from './ColorPreviewPanel.js';
 import { BUILTIN_CLASSIC_THEME, BUILTIN_DEFAULT_THEME, type Color4d } from '@ziroeda/common';
 import { COLOR4D_UNSPECIFIED, parseColor4d, toCssColor } from '@ziroeda/common/src/color4d.js';
@@ -145,94 +146,42 @@ export function PanelEeschemaColorSettings({ ctx }: { ctx: PrefsContext }): JSX.
 
   const raw = rawTable(themeId);
 
+  // `m_validLayers` crossed with `createSwatches()`, in that function's own
+  // order. A row whose `key` is null has no field on our painter's `Theme`, so
+  // it reads the theme table directly and cannot be edited.
+  const rows: ColorSwatchRow[] = COLOR_LAYERS.map(({ layer, name, key }) => ({
+    id: layer,
+    name,
+    color: key ? parseColor4d(activeColors[key]) : (raw[layer] ?? COLOR4D_UNSPECIFIED),
+    // Upstream a read-only THEME disables the whole panel; `key === null` is
+    // our separate reason, a layer with no reader on this side.
+    disabled: themeId !== 'user' || key === null,
+    ...(key
+      ? {
+          onChange: (picked: Color4d): void => {
+            setUserColors((c) => ({ ...c, [key]: toCssColor(picked, ', ') }));
+          },
+        }
+      : {}),
+  }));
+
   return (
-    <div className="ze-colorpage">
-      {/* `bControlSizer` (`panel_color_settings_base.cpp:19-49`), horizontal
-          and in NO group: the Theme choice, a proportion-1 spacer, the override
-          checkbox, another spacer, and Open Theme Folder. Ours drew a "Theme"
-          heading with a rule, and a note of its own saying built-in themes are
-          read-only — KiCad says that by disabling the swatches, which is what
-          the disabled swatches below already do. */}
-      <div className="ze-colorpage-controls">
-        <ColorThemeChoice
-          label="Theme:"
-          /* `m_cbTheme->Append( GetSettingsDropdownName( settings ), … )`
-             (`panel_color_settings.cpp:340`) — " (read-only)" on every theme
-             whose file cannot be written. */
-          markReadOnly
-          value={themeId}
-          onChange={(v) =>
-            upE((s) => {
-              s.appearance.color_theme = v;
-            })
-          }
-        />
-        <span className="ze-spacer" />
-        {/* `m_optOverrideColors`. Dead, and with no setting behind it on
-            purpose: the flag is `override_schematic_item_colors`, a field of
-            the COLOR_SETTINGS file itself (`color_settings.cpp:49`), read by
-            `SCH_RENDER_SETTINGS::m_OverrideItemColors`
-            (`sch_render_settings.cpp:75`). We model a theme as a colour map and
-            no painter reads such a flag, so inventing a home for it in
-            eeschema's own settings would put it in a store upstream never
-            uses. */}
-        <Check
-          label="Override individual item colors"
-          title="Show all items in their default color even if they have specific colors set in their properties."
-          checked={false}
-          disabled
-          onChange={() => {}}
-        />
-        <span className="ze-spacer" />
-        {/* `m_btnOpenFolder`. A directory in the file manager, which a page
-            cannot open — the same reason the dialog's own "Open Preferences
-            Directory" button is drawn and disabled. */}
-        <button
-          type="button"
-          className="ze-btn"
-          disabled
-          title="Open the folder containing color themes"
-        >
-          Open Theme Folder
-        </button>
-      </div>
-      {/* `m_panel1`, the WX_PANEL carrying `m_colorsMainSizer`. */}
-      <div className="ze-colorpage-body">
-        {/* `m_colorsListWindow`, a wxScrolledWindow around
-            `m_colorsGridSizer = new wxFlexGridSizer( 0, 2, 0, 0 )` (`:54-69`):
-            two columns, a swatch and its label, one row per layer. */}
-        <div className="ze-colorlist">
-          <div className="ze-colorgrid">
-            {COLOR_LAYERS.map(({ layer, name, key }) => (
-              <Fragment key={layer}>
-                {/* COLOR_SWATCH (color_swatch.cpp:301-328), SWATCH_MEDIUM. The
-                    split into hex-plus-alpha existed only because
-                    <input type="color"> could not carry the alpha; the picker
-                    can, so the whole colour goes in and comes back. */}
-                <ColorSwatch
-                  label={name}
-                  /* `COLOR_SWATCH( …, backgroundColor, … )` with
-                     `backgroundColor = m_currentSettings->GetColor( m_backgroundLayer )`
-                     (`panel_color_settings.cpp:262`) — the theme's own
-                     schematic background, which is what a half-transparent
-                     colour is checkerboarded against. */
-                  background={parseColor4d(activeColors.background)}
-                  disabled={themeId !== 'user' || key === null}
-                  color={
-                    key ? parseColor4d(activeColors[key]) : (raw[layer] ?? COLOR4D_UNSPECIFIED)
-                  }
-                  onChange={(picked) => {
-                    if (key) setUserColors((c) => ({ ...c, [key]: toCssColor(picked, ', ') }));
-                  }}
-                />
-                <span>{name}</span>
-              </Fragment>
-            ))}
-          </div>
-        </div>
-        {/* `m_preview`, the SCH_PREVIEW_PANEL (`:218-227`). */}
-        <ColorPreviewPanel theme={activeColors} />
-      </div>
-    </div>
+    <PanelColorSettings
+      themeId={themeId}
+      onThemeChange={(v) =>
+        upE((s) => {
+          s.appearance.color_theme = v;
+        })
+      }
+      rows={rows}
+      /* `backgroundColor = m_currentSettings->GetColor( m_backgroundLayer )`
+         (`panel_color_settings.cpp:262`) — the theme's own schematic
+         background, which is what a half-transparent colour is
+         checkerboarded against. */
+      background={parseColor4d(activeColors.background)}
+      /* `m_preview`, the SCH_PREVIEW_PANEL (`:218-227`). eeschema and pcbnew
+         are the only two pages that fill `m_previewPanelSizer`. */
+      preview={<ColorPreviewPanel theme={activeColors} />}
+    />
   );
 }
