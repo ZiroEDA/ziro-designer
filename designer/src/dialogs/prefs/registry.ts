@@ -53,6 +53,7 @@ export const PAGES: readonly PrefsPageEntry[] = [
   { id: null, label: 'Symbol Editor' },
   { id: 'sym-display', label: 'Display Options', indent: true, owner: 'symbol' },
   { id: 'sym-grids', label: 'Grids', indent: true, owner: 'symbol' },
+  { id: 'sym-editing', label: 'Editing Options', indent: true, owner: 'symbol' },
   { id: 'sym-toolbars', label: 'Toolbars', indent: true, owner: 'symbol' },
   { id: null, label: 'Schematic Editor' },
   { id: 'sch-display', label: 'Display Options', indent: true, owner: 'schematic' },
@@ -80,6 +81,7 @@ export const PAGES: readonly PrefsPageEntry[] = [
   // editor's heading here, where Grids comes second.
   { id: null, label: 'Gerber Viewer' },
   { id: 'gbr-display', label: 'Display Options', indent: true, owner: 'gerbview' },
+  { id: 'gbr-colors', label: 'Colors', indent: true, owner: 'gerbview' },
   { id: 'gbr-toolbars', label: 'Toolbars', indent: true, owner: 'gerbview' },
   // pl_editor's KIFACE is added last of the five, after gerbview's
   // (`common/eda_base_frame.cpp:1726-1737`).
@@ -256,12 +258,6 @@ export const OMITTED_PAGES: Readonly<Record<string, readonly DeclaredPage[]>> = 
   // gives a Toolbars page to have one here. The other three are the same shape.
   'Symbol Editor': [
     {
-      label: 'Editing Options',
-      reason:
-        'Being built. PANEL_SYM_EDITING_OPTIONS is the defaults.* and repeat.* fields plus one ' +
-        'General Editing checkbox.',
-    },
-    {
       label: 'Colors',
       reason:
         'Being built. PANEL_SYM_COLOR_SETTINGS is two radio buttons and a theme choice — a plain ' +
@@ -273,13 +269,6 @@ export const OMITTED_PAGES: Readonly<Record<string, readonly DeclaredPage[]>> = 
   // into existence; Toolbars came with it because `prefs_page_book.test.ts`
   // requires every heading upstream gives a Toolbars page to have one here.
   'Gerber Viewer': [
-    {
-      label: 'Colors',
-      reason:
-        'Half-built and parked. PANEL_GERBVIEW_COLOR_SETTINGS wants the shared half of ' +
-        'PANEL_COLOR_SETTINGS pulled out of the eeschema page first; the work in flight when ' +
-        'it was parked is under ~/ziro-parked-*/.',
-    },
     {
       label: 'Grids',
       reason:

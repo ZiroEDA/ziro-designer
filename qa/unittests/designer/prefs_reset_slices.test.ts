@@ -77,10 +77,13 @@ import {
   resetPcbToolbars,
 } from '@ziroeda/designer/src/editors/pcb/prefs/resets.js';
 import {
+  resetSymbolEditorDisplayOptions,
+  resetSymbolEditorEditingOptions,
   resetSymbolEditorGrids,
   resetSymbolEditorToolbars,
 } from '@ziroeda/designer/src/editors/symbol/prefs/resets.js';
 import {
+  resetGerbviewColorSettings,
   resetGerbviewDisplayOptions,
   resetGerbviewToolbars,
 } from '@ziroeda/designer/src/editors/gerbview/prefs/resets.js';
@@ -244,6 +247,32 @@ const SLICES: Partial<Record<PrefsPageId, readonly string[]>> = {
   // merely edits (`panel_toolbar_customization.cpp:243-267`).
   'sch-toolbars': ['toolbars.eeschema'],
   'pcb-toolbars': ['toolbars.pcbnew'],
+  // PanelSymbolEditorDisplayOptions.tsx — the four Appearance checkboxes
+  // `loadSymEditorSettings` writes (`panel_sym_display_options.cpp:41-47`) plus
+  // the embedded PANEL_GAL_OPTIONS' six, which is what `ResetPanel` covers
+  // (`:76-85`). The grid LIST and the overrides belong to the Grids page.
+  'sym-display': [
+    'symbolEditor.show_hidden_lib_pins',
+    'symbolEditor.show_hidden_lib_fields',
+    'symbolEditor.show_pin_electrical_type',
+    'symbolEditor.show_pin_alt_icons',
+    'symbolEditor.window.grid.style',
+    'symbolEditor.window.grid.line_width',
+    'symbolEditor.window.grid.min_spacing',
+    'symbolEditor.window.grid.snap',
+    'symbolEditor.window.cursor.crosshair',
+    'symbolEditor.window.cursor.always_show_cursor',
+  ],
+  // PanelSymbolEditorEditingOptions.tsx — the eight values
+  // `loadSymEditorSettings` pushes at the controls
+  // (`panel_sym_editing_options.cpp:53-63`), which is every field on the page
+  // and nothing else. Three of the eight are drawn disabled; a disabled control
+  // is still this page's field, and `ResetPanel` puts it back.
+  'sym-editing': [
+    'symbolEditor.defaults',
+    'symbolEditor.repeat',
+    'symbolEditor.drag_pins_along_with_edges',
+  ],
   // PanelSymbolEditorGrids.tsx — the same shared PANEL_GRID_SETTINGS, over
   // `symbol_editor.json`. `PANEL_GRID_SETTINGS::ResetPanel` is the same two
   // lines whatever frame constructed it.
@@ -303,6 +332,11 @@ const SLICES: Partial<Record<PrefsPageId, readonly string[]>> = {
     'gerbview.window.cursor.crosshair',
     'gerbview.window.cursor.always_show_cursor',
   ],
+  // `gbr-colors` is deliberately ABSENT: its slice is a NAMESPACE inside
+  // `userColors`, and this harness compares that record whole (see
+  // `bagLeaves`). Checked by "the Colors pages share one file, one namespace
+  // each" at the bottom of this file instead — a page skipped here without a
+  // test of its own would be a page nobody checks.
   'gbr-toolbars': ['toolbars.gerbview'],
 };
 
@@ -311,6 +345,8 @@ const RESETS: Partial<Record<PrefsPageId, (ctx: PrefsContext) => void>> = {
   common: resetCommonPanel,
   mouse: resetMousePanel,
   hotkeys: (ctx) => ctx.setHotkeys({}),
+  'sym-display': resetSymbolEditorDisplayOptions,
+  'sym-editing': resetSymbolEditorEditingOptions,
   'sym-grids': resetSymbolEditorGrids,
   'sym-toolbars': resetSymbolEditorToolbars,
   'sch-display': resetEeschemaDisplayOptions,
@@ -324,6 +360,7 @@ const RESETS: Partial<Record<PrefsPageId, (ctx: PrefsContext) => void>> = {
   'ds-grids': resetPlEditorGrids,
   'ds-colors': resetPlEditorColorSettings,
   'ds-toolbars': resetPlEditorToolbars,
+  'gbr-colors': resetGerbviewColorSettings,
   'gbr-display': resetGerbviewDisplayOptions,
   'gbr-toolbars': resetGerbviewToolbars,
 };
@@ -503,7 +540,11 @@ function dirtyEverything(bag: Bag): void {
   bag.gerbview = dirty(bag.gerbview) as GerbviewSettings;
   bag.plEditor = dirty(bag.plEditor) as PlEditorSettings;
   bag.privacy = dirty(bag.privacy) as PrivacySettings;
-  bag.userColors = { wire: '#ff0000' };
+  // Two namespaces, because `colors/user.json` holds every app's colours under
+  // its own (`m_colorNamespace`). Resetting one editor's Colors page must
+  // leave the other's rows alone, and a single-key map could not tell the
+  // difference between doing that and clearing the lot.
+  bag.userColors = { wire: '#ff0000', 'gerbview.grid': '#00ff00' };
   bag.hotkeys = { 'sch.drawWire': 'Ctrl+Shift+W' };
   for (const app of TOOLBAR_APPS)
     bag.toolbars[app] = { toolbars: [{ name: 'LEFT', contents: [{ type: 'SEPARATOR' }] }] };
@@ -712,7 +753,7 @@ describe('every resettable page is wired to its own reset', () => {
     ],
     ['editors/schematic/prefs/index.ts', ['sch-display', 'sch-grids', 'sch-editing', 'sch-colors']],
     ['editors/pcb/prefs/index.ts', ['pcb-display']],
-    ['editors/symbol/prefs/index.ts', ['sym-grids', 'sym-toolbars']],
+    ['editors/symbol/prefs/index.ts', ['sym-display', 'sym-editing', 'sym-grids', 'sym-toolbars']],
   ] as [string, string[]][])('%s', (rel, ids) => {
     const src = read(rel);
     for (const id of ids) {
@@ -722,5 +763,67 @@ describe('every resettable page is wired to its own reset', () => {
       const arm = src.slice(start, next === -1 ? src.indexOf('default:') : next);
       expect(arm, `${id} has no reset`).toMatch(/\breset:/);
     }
+  });
+});
+
+/**
+ * `colors/user.json` is ONE file holding EVERY app's colours, each under its
+ * own section: `PANEL_COLOR_SETTINGS` announces which by setting
+ * `m_colorNamespace` — `"gerbview"` at
+ * `gerbview/dialogs/panel_gerbview_color_settings.cpp:33`, `"schematic"` at
+ * `eeschema/dialogs/panel_eeschema_color_settings.cpp`. Ours is one flat map
+ * with the namespace in the key.
+ *
+ * So "reset this page and no other" has a second meaning for the Colors pages
+ * that the whole-tree harness above cannot express: it compares `userColors` as
+ * a single leaf, because the record has no fixed shape. Resetting the Gerber
+ * Viewer's Colors page while leaving the schematic's wires alone is invisible
+ * to a whole-record compare, and that is exactly the failure mode — one page
+ * clearing another app's colours out of a shared file.
+ */
+describe('the Colors pages share one file, one namespace each', () => {
+  it('the Gerber Viewer’s reset clears its own rows and nobody else’s', () => {
+    const bag = freshBag();
+    bag.userColors = {
+      wire: '#ff0000',
+      bus: '#00ff00',
+      'gerbview.grid': '#0000ff',
+      'gerbview.layer3': '#ffff00',
+    };
+
+    resetGerbviewColorSettings(makeCtx(bag));
+
+    expect(bag.userColors).toEqual({ wire: '#ff0000', bus: '#00ff00' });
+  });
+
+  it('it is a no-op when the Gerber Viewer has no override stored', () => {
+    // `PANEL_COLOR_SETTINGS::ResetPanel` writes the DEFAULT into every swatch,
+    // and a swatch already at its default does not move. Ours drops the key,
+    // which is the same state — the fallback IS the default.
+    const bag = freshBag();
+    bag.userColors = { wire: '#ff0000' };
+    resetGerbviewColorSettings(makeCtx(bag));
+    expect(bag.userColors).toEqual({ wire: '#ff0000' });
+  });
+
+  /**
+   * The other direction is a KNOWN DEFECT and is recorded rather than asserted
+   * green: `resetEeschemaColorSettings` is `ctx.setUserColors({})`
+   * (`editors/schematic/prefs/resets.ts:157-162`), which empties the whole file
+   * and so takes the Gerber Viewer's rows with it. Upstream cannot do that —
+   * `ResetPanel` walks `m_swatches`, and eeschema's panel has no gerbview
+   * swatch to walk.
+   *
+   * It is not fixed here because that file belongs to another workstream this
+   * session; the fix is to filter by namespace exactly as the gerbview one
+   * does. Written as the CURRENT behaviour on purpose: when someone narrows
+   * that reset, this test fails and points at the line to delete, which is how
+   * a recorded defect stops being a comment nobody reads.
+   */
+  it('the schematic’s reset still empties the whole file — recorded, not endorsed', () => {
+    const bag = freshBag();
+    bag.userColors = { wire: '#ff0000', 'gerbview.grid': '#0000ff' };
+    resetEeschemaColorSettings(makeCtx(bag));
+    expect(bag.userColors).toEqual({});
   });
 });

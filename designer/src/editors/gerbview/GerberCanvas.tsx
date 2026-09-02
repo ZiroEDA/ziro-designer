@@ -87,7 +87,7 @@ function glContent(layers: readonly GerberLayerView[], opts: GerberRenderOptions
       // GetColor's negative and highlight branches, resolved per layer because
       // m_layerColorsHi is Brightened( 0.5 ) of the LAYER's own colour
       // (`gerbview_painter.cpp:70`) - not one flat highlight for all of them.
-      negativeColor: GERBER_NEGATIVE_COLOR,
+      negativeColor: opts.colors.negativeObjects,
       highlightColor: highlightedLayerColor(l.color),
       visible: l.visible,
     })),
@@ -298,7 +298,7 @@ export const GerberCanvas = forwardRef<GerberCanvasController, GerberCanvasProps
         {
           show: sg,
           sizeIU: g,
-          color: GERBER_GRID_COLOR,
+          color: opts.colors.grid,
           devicePixelRatio: dpr,
           // GERBVIEW_FRAME's constructor turns the GAL's axes on directly -
           // "Enable the axes to match legacy draw style"
@@ -306,7 +306,7 @@ export const GerberCanvas = forwardRef<GerberCanvasController, GerberCanvasProps
           // here, and upstream draws them BEFORE the grid-visibility test
           // (`opengl_gal.cpp:1919-1928`), which is why they survive Show Grid
           // being off. We drew none at all.
-          axes: { color: GERBER_AXES_COLOR },
+          axes: { color: opts.colors.axes },
         },
       );
 
@@ -338,12 +338,12 @@ export const GerberCanvas = forwardRef<GerberCanvasController, GerberCanvasProps
       // paint over the sheet. That is exactly this position: on the overlay
       // canvas, ahead of the rubber band, the measure line and the crosshair.
       if (opts.drawingSheet) {
-        drawGerberDrawingSheet(octx, v, opts.flipView, GERBER_DRAWINGSHEET_COLOR, opts.paper);
+        drawGerberDrawingSheet(octx, v, opts.flipView, opts.colors.drawingSheet, opts.paper);
       }
       // DS_PROXY_VIEW_ITEM::ViewDraw draws the border AFTER the sheet's items
       // (ds_proxy_view_item.cpp:139-147), and on its own visibility flag.
       if (opts.pageLimits) {
-        drawGerberPageLimits(octx, v, opts.flipView, GERBER_PAGE_LIMITS_COLOR, opts.paper);
+        drawGerberPageLimits(octx, v, opts.flipView, opts.colors.pageLimits, opts.paper);
       }
 
       octx.setTransform(1, 0, 0, 1, 0, 0);

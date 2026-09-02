@@ -20,9 +20,14 @@
  * The pages not yet here are declared in `dialogs/prefs/registry.ts`'
  * `OMITTED_PAGES`, with a reason each, rather than silently missing.
  */
+import { PanelGerbviewColorSettings } from './PanelGerbviewColorSettings.js';
 import { PanelGerbviewDisplayOptions } from './PanelGerbviewDisplayOptions.js';
 import { PanelGerbviewToolbars } from './PanelGerbviewToolbars.js';
-import { resetGerbviewDisplayOptions, resetGerbviewToolbars } from './resets.js';
+import {
+  resetGerbviewColorSettings,
+  resetGerbviewDisplayOptions,
+  resetGerbviewToolbars,
+} from './resets.js';
 import type {
   PrefsPageId,
   PrefsPanelFactory,
@@ -35,6 +40,17 @@ export const createPrefsPanel: PrefsPanelFactory = (id: PrefsPageId): PrefsPanel
       return {
         Panel: PanelGerbviewDisplayOptions,
         reset: resetGerbviewDisplayOptions,
+      };
+
+    case 'gbr-colors':
+      return {
+        Panel: PanelGerbviewColorSettings,
+        reset: resetGerbviewColorSettings,
+        // PANEL_COLOR_SETTINGS::GetResetTooltip
+        // (include/dialogs/panel_color_settings.h:48-51). Gerbview's page IS a
+        // subclass of it, unlike the symbol editor's and pl_editor's, so it
+        // inherits the override rather than DEFAULT_RESET_TOOLTIP.
+        resetTooltip: 'Reset all colors in this theme to the KiCad defaults',
       };
 
     case 'gbr-toolbars':

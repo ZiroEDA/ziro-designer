@@ -56,14 +56,11 @@ const GERBER_PAPER = 'GERBER';
 /**
  * The page the sheet and the page-limits rectangle are drawn on.
  *
- * Asked of the settings manager here rather than threaded down as a prop,
- * because upstream it is asked of the settings object at the same depth: the
- * DRAW PANEL, not the frame, is what runs `GetAppSettings<…>( "gerbview" )` and
- * reads `m_Appearance.page_type` back out of it. `usePlEditorColors` documents
- * the same shape for pl_editor's palette.
- *
- * A caller may still pass one, which is what lets a test state the page it is
- * asserting about instead of depending on a store.
+ * The frame passes it in (`GerberRenderOptions.paper` -> `GerberCanvas`), which
+ * is what makes a change in Preferences repaint. The settings manager is only
+ * the FALLBACK, for the one caller that has no options object — a test, or the
+ * zoom-to-fit bbox — and an unknown page name falls back further, to the
+ * `PARAM`'s own default, rather than indexing `PAPER_MM` off the end.
  */
 function paperOf(paper?: string): string {
   const want = paper ?? settings.gerbview.appearance.page_type;
@@ -93,6 +90,26 @@ export interface ViewTransform {
   scale: number;
   tx: number;
   ty: number;
+}
+
+/**
+ * The gerbview-specific layers a painter needs, resolved. Keys are
+ * `gerbviewColorLayers.ts`' seven, minus the background — that one already has
+ * its own option, because it is also what a layer buffer is composited over.
+ */
+export interface GerbviewPalette {
+  /** LAYER_DCODES. */
+  dcodes: string;
+  /** LAYER_NEGATIVE_OBJECTS, and `GBR_DISPLAY_OPTIONS::m_NegativeDrawColor`. */
+  negativeObjects: string;
+  /** LAYER_GERBVIEW_GRID. */
+  grid: string;
+  /** LAYER_GERBVIEW_AXES. */
+  axes: string;
+  /** LAYER_GERBVIEW_DRAWINGSHEET. */
+  drawingSheet: string;
+  /** LAYER_GERBVIEW_PAGE_LIMITS. */
+  pageLimits: string;
 }
 
 export interface GerberLayerView {
@@ -158,6 +175,19 @@ export interface GerberRenderOptions {
    * Preferences control must never be in.
    */
   paper: string;
+  /**
+   * The seven gerbview-specific layer colours in force —
+   * `m_currentSettings->GetColor( layer )` for each of `LAYER_DCODES ..
+   * GERBVIEW_LAYER_ID_END`, which is what Preferences > Gerber Viewer > Colors
+   * edits and what the Layers manager edits, because upstream they are one
+   * `COLOR_SETTINGS`.
+   *
+   * On the options object rather than imported as module constants for the
+   * same reason `paper` is: the canvas asks for a frame when this object
+   * changes identity, so a colour the painter fetched for itself would be
+   * stored, correct, and invisible until something else redrew.
+   */
+  colors: GerbviewPalette;
   /** Optional highlight (by net / component / attribute / DCode). */
   highlightTest?: (item: GERBER_DRAW_ITEM) => boolean;
 }
@@ -242,8 +272,15 @@ export function itemColor(
   highlighted: boolean,
   negativePolarity: boolean,
   showNegativeObjects: boolean,
+  /**
+   * LAYER_NEGATIVE_OBJECTS' colour, which Preferences > Gerber Viewer > Colors
+   * and the Layers manager both edit. Defaulted so the many call sites that
+   * only care about the add/erase decision need not name it — and so this
+   * stays callable from a test without a store.
+   */
+  negativeColor: string = GERBER_NEGATIVE_COLOR,
 ): string | null {
-  if (negativePolarity) return showNegativeObjects ? GERBER_NEGATIVE_COLOR : null;
+  if (negativePolarity) return showNegativeObjects ? negativeColor : null;
   if (highlighted) return highlightedLayerColor(layerColor);
   return layerColor;
 }
@@ -344,7 +381,13 @@ function drawItem(
   // component or attribute match (`gerbview_painter.cpp:70,135-147`). It used to
   // be a flat white for every layer.
   const color =
-    itemColor(layerColor, highlighted, !itemAdd, opts.showNegativeObjects) ?? layerColor;
+    itemColor(
+      layerColor,
+      highlighted,
+      !itemAdd,
+      opts.showNegativeObjects,
+      opts.colors.negativeObjects,
+    ) ?? layerColor;
   // Highlighted and ghosted negative objects always add (source-over).
   const op: GlobalCompositeOperation =
     highlighted || showNeg
@@ -529,7 +572,7 @@ export function renderGerberLayers(
   // DCode number annotations (drawn upright in device space).
   if (opts.showDcodes) {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.fillStyle = GERBER_DCODE_COLOR;
+    ctx.fillStyle = opts.colors.dcodes;
     ctx.font = '11px sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';

@@ -37,6 +37,21 @@ export function usePlEditorSettings(): typeof settings.plEditor {
   return settings.plEditor;
 }
 
+/**
+ * `colors/user.json` — the editable "User" theme's per-layer overrides.
+ *
+ * One file upstream, holding every app's colours under its own namespace:
+ * `PANEL_COLOR_SETTINGS` announces which by setting `m_colorNamespace`
+ * (`panel_gerbview_color_settings.cpp:33` sets `"gerbview"`), and a
+ * `COLOR_SETTINGS` file carries them all. Ours is one flat map with the
+ * namespace in the key, which is why a frame subscribing to it sees only its
+ * own rows move.
+ */
+export function useUserColors(): typeof settings.userColors {
+  useSettingsVersion();
+  return settings.userColors;
+}
+
 /** `gerbview.json`, so the Gerber Viewer re-renders when it changes. */
 export function useGerbviewSettings(): typeof settings.gerbview {
   useSettingsVersion();

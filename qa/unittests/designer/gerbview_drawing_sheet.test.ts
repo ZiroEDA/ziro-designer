@@ -190,11 +190,15 @@ describe('the canvas actually paints it', () => {
    * value and appears not to work.
    */
   it('draws both on the page appearance.page_type names', () => {
+    // The COLOUR is threaded too, and from the same place: LAYER_GERBVIEW_
+    // DRAWINGSHEET and LAYER_GERBVIEW_PAGE_LIMITS are two of the seven swatches
+    // on Preferences > Gerber Viewer > Colors, so a module constant here would
+    // be a swatch that could never move anything.
     expect(CANVAS).toContain(
-      'drawGerberDrawingSheet(octx, v, opts.flipView, GERBER_DRAWINGSHEET_COLOR, opts.paper)',
+      'drawGerberDrawingSheet(octx, v, opts.flipView, opts.colors.drawingSheet, opts.paper)',
     );
     expect(CANVAS).toContain(
-      'drawGerberPageLimits(octx, v, opts.flipView, GERBER_PAGE_LIMITS_COLOR, opts.paper)',
+      'drawGerberPageLimits(octx, v, opts.flipView, opts.colors.pageLimits, opts.paper)',
     );
     // …and the frame puts the setting on the options object in the first
     // place. Without this the two lines above thread `undefined`.

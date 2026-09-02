@@ -110,7 +110,32 @@ describe('the frame does not put a colour back on the file', () => {
   });
 
   it('an override is stored by row, not on the layer', () => {
-    // setColor used to map over `layers` and rewrite the matching one.
-    expect(FRAME).toContain('setLayerColors((prev) => ({ ...prev, [index]: color }))');
+    // setColor used to map over `layers` and rewrite the matching one. It is
+    // keyed by ROW — `graphicLayerKey( index )`, our spelling of
+    // `GERBER_DRAW_LAYER( aLayer )` (`gerbview_layer_widget.cpp:343`) — so the
+    // colour stays on the row when the layers are re-sorted.
+    expect(FRAME).toContain('graphicLayerKey(index)');
+    expect(FRAME).not.toMatch(/setColor[\s\S]{0,200}layers\.map/);
+  });
+
+  /**
+   * …and it is stored in `colors/user.json`, the SAME place Preferences >
+   * Gerber Viewer > Colors writes.
+   *
+   * Upstream that is not incidental: `PANEL_GERBVIEW_COLOR_SETTINGS`' own
+   * constructor seeds itself from the manager with
+   * `frame->m_LayersManager->CollectCurrentColorSettings( current )` under the
+   * comment "Colors can also be modified from the LayersManager"
+   * (`panel_gerbview_color_settings.cpp:41-43`), which only means anything
+   * because the two edit one COLOR_SETTINGS. Ours held the manager's colours
+   * in React state, where nothing outside the component could read them — so
+   * the Colors page could not have shown, let alone changed, a colour the
+   * manager had set, and the manager's colours died on reload.
+   */
+  it('the manager and Preferences write one store, not two', () => {
+    expect(FRAME).toContain('settings.setUserColors(');
+    // Derived from that store rather than kept beside it: a second useState
+    // would be the two-store bug again, one render later.
+    expect(FRAME).not.toMatch(/useState<Record<number, string>>/);
   });
 });

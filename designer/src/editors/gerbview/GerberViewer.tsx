@@ -122,9 +122,15 @@ import { AboutDialog } from '../../home/dialogs/dialog_about.js';
 import { ABOUT_TITLES } from '../../ui/about_titles.js';
 import { PreferencesDialog } from '../../dialogs/PreferencesDialog.js';
 import { settings } from '../../prefs/settings.js';
-import { useCommonSettings, useGerbviewSettings } from '../../prefs/useSettings.js';
+import { useCommonSettings, useGerbviewSettings, useUserColors } from '../../prefs/useSettings.js';
 import './gerbview.css';
 import '../../ui/shell.css';
+import {
+  GERBVIEW_FIXED_LAYERS,
+  gerbviewColor,
+  graphicLayerKey,
+  graphicLayerRow,
+} from './gerbviewColorLayers.js';
 import {
   applyToggle,
   applyTogglesToSettings,
@@ -226,6 +232,16 @@ export function GerberViewer({
    * fields, which is what lets the two agree.
    */
   const gbrCfg = useGerbviewSettings();
+  /**
+   * `colors/user.json`'s gerbview rows — the ONE store both the Layers manager
+   * and Preferences > Gerber Viewer > Colors write. Upstream that is not a
+   * design choice either: `PANEL_GERBVIEW_COLOR_SETTINGS`' constructor seeds
+   * itself with `frame->m_LayersManager->CollectCurrentColorSettings( current )`
+   * under the comment "Colors can also be modified from the LayersManager"
+   * (`panel_gerbview_color_settings.cpp:41-43`), which only means anything
+   * because the two are the same COLOR_SETTINGS.
+   */
+  const userColors = useUserColors();
   const [toggles, setToggles] = useState<Set<string>>(() =>
     togglesFromSettings(settings.gerbview, DEFAULT_TOGGLES),
   );
@@ -662,7 +678,14 @@ export function GerberViewer({
    * image. Empty means "no override": the row shows its palette default,
    * `s_defaultTheme[GERBVIEW_LAYER_ID_START + row]`.
    */
-  const [layerColors, setLayerColors] = useState<Record<number, string>>({});
+  const layerColors = useMemo<Record<number, string>>(() => {
+    const out: Record<number, string> = {};
+    for (const [key, value] of Object.entries(userColors)) {
+      const row = graphicLayerRow(key);
+      if (row !== null) out[row] = value;
+    }
+    return out;
+  }, [userColors]);
   const colorAt = useCallback(
     (row: number): string => layerColorAt(row, layerColors),
     [layerColors],
@@ -670,7 +693,11 @@ export function GerberViewer({
 
   const clearAll = useCallback(() => {
     setLayers([]);
-    setLayerColors({});
+    // The colours are NOT cleared with the images. `SetLayerColor` is keyed by
+    // `GERBER_DRAW_LAYER( row )` (`gerbview_layer_widget.cpp:343`) and lives in
+    // COLOR_SETTINGS, which `Clear_DrawLayers` never touches — so a row keeps
+    // the colour it was given and the next file loaded into it inherits that,
+    // which is the same rule that makes a re-sort repaint rather than shuffle.
     setActiveLayer(0);
     setPicked(null);
     setHighlight({ mode: 'none', value: '' });
@@ -684,7 +711,7 @@ export function GerberViewer({
   // (`gerbview_layer_widget.cpp:343`) - by ROW, so it stays on the row when the
   // layers are re-sorted, exactly as upstream's does.
   const setColor = useCallback((index: number, color: string) => {
-    setLayerColors((prev) => ({ ...prev, [index]: color }));
+    settings.setUserColors({ ...settings.userColors, [graphicLayerKey(index)]: color });
   }, []);
   const showAll = useCallback(
     () => setLayers((prev) => prev.map((l) => ({ ...l, visible: true }))),
@@ -759,6 +786,33 @@ export function GerberViewer({
     }
   }, [highlight]);
 
+  /**
+   * The seven gerbview-specific layer colours in force — the swatches on
+   * Preferences > Gerber Viewer > Colors, resolved through the same store the
+   * Layers manager writes.
+   *
+   * `GERBVIEW_FIXED_LAYERS` is the panel's own `m_validLayers` tail, so a row
+   * cannot appear on that page without a reader here, or gain one here without
+   * showing up there.
+   */
+  const gbrPalette = useMemo(() => {
+    const at = (key: string): string => {
+      const row = GERBVIEW_FIXED_LAYERS.find((l) => l.key === key);
+      return gerbviewColor(key, row?.fallback ?? GERBER_BG_COLOR, userColors);
+    };
+    return {
+      dcodes: at('gerbview.dcodes'),
+      negativeObjects: at('gerbview.negativeObjects'),
+      grid: at('gerbview.grid'),
+      axes: at('gerbview.axes'),
+      drawingSheet: at('gerbview.drawingSheet'),
+      pageLimits: at('gerbview.pageLimits'),
+    };
+  }, [userColors]);
+
+  /** LAYER_GERBVIEW_BACKGROUND, which is a render option of its own. */
+  const gbrBackground = gerbviewColor('gerbview.background', GERBER_BG_COLOR, userColors);
+
   /** LAYER_GERBVIEW_DRAWINGSHEET's visibility — one read, three consumers. */
   const showDrawingSheet = toggles.has('showDrawingSheet');
   const options = useMemo<GerberRenderOptions>(
@@ -772,7 +826,7 @@ export function GerberViewer({
       highContrast: toggles.has('highContrast'),
       activeLayer,
       flipView: toggles.has('flipView'),
-      background: GERBER_BG_COLOR,
+      background: gbrBackground,
       // Both default FALSE upstream, so both are opt-in toggles rather than
       // opt-out ones: `appearance.show_border_and_titleblock` and
       // `display.page_limits` are declared with a `false` default at
@@ -790,6 +844,10 @@ export function GerberViewer({
       // painter so that changing it in Preferences moves this object and the
       // canvas asks for a new frame.
       paper: gbrCfg.appearance.page_type,
+      // `m_currentSettings->GetColor( layer )` for the seven gerbview layers.
+      // Resolved here, once, so both this canvas and the Layers manager read
+      // the same answer — upstream they read the same COLOR_SETTINGS.
+      colors: gbrPalette,
       // No highlight COLOUR is passed: upstream has none to pass. A highlighted
       // item takes m_layerColorsHi[aLayer], its own layer's colour brightened
       // by 0.5 (`gerbview_painter.cpp:70`), so the renderer derives it per
@@ -803,6 +861,7 @@ export function GerberViewer({
       showDrawingSheet,
       gbrCfg.appearance.mode_opacity_value,
       gbrCfg.appearance.page_type,
+      gbrPalette,
     ],
   );
 
@@ -825,7 +884,7 @@ export function GerberViewer({
     // layer in that set — the active one
     // (`gerbview_draw_panel_gal.cpp:74-86`). So the dimming is a COLOUR, chosen
     // per layer here, and every renderer that takes these colours gets it.
-    const bg = parseColor4d(GERBER_BG_COLOR);
+    const bg = parseColor4d(gbrBackground);
     return ordered.map((i) => {
       const l = layers[i] as Layer;
       const base = colorAt(i);
@@ -1284,15 +1343,14 @@ export function GerberViewer({
   );
   const itemRows = useMemo(
     () =>
-      renderRows({
-        dcodes: GERBER_DCODE_COLOR,
-        negativeObjects: GERBER_NEGATIVE_COLOR,
-        grid: GERBER_GRID_COLOR,
-        drawingSheet: GERBER_DRAWINGSHEET_COLOR,
-        pageLimits: GERBER_PAGE_LIMITS_COLOR,
-        background: GERBER_BG_COLOR,
-      }),
-    [],
+      // The Layers manager's own item rows take the SAME resolved colours the
+      // canvas does, because upstream `GERBER_LAYER_WIDGET::ReFillRender` reads
+      // `m_frame->GetVisibleElementColor( … )` out of the one COLOR_SETTINGS
+      // that Preferences > Gerber Viewer > Colors also edits
+      // (`gerbview_layer_widget.cpp:242-266`). These used to be the module
+      // constants, so a swatch could never have moved them.
+      renderRows({ ...gbrPalette, background: gbrBackground }),
+    [gbrPalette, gbrBackground],
   );
 
   // ---- status bar --------------------------------------------------------
