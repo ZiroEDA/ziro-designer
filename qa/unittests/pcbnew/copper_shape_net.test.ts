@@ -22,7 +22,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
+import { readBoard, readFootprintFile } from '@ziroeda/pcbnew/src/read-board.js';
 import { buildBoardShapeNode } from '@ziroeda/pcbnew/src/write-board.js';
 import { serialize } from '@ziroeda/sexpr/src/serializer.js';
 
@@ -114,23 +114,33 @@ describe('a copper graphic carrying a net', () => {
 });
 
 describe('the reader is not left holding a board it has finished with', () => {
-  it('does not resolve a later board against an earlier one', () => {
-    // A `.kicad_mod` has no board and its graphics carry no net. If the
-    // resolver were left set, a name in one would silently bind to whatever
-    // board happened to be parsed before it.
+  it('does not resolve a footprint file against the last board read', () => {
+    // The leak this guards. `readBoard` re-points the resolver on entry, so a
+    // second *board* would be fine either way; a `.kicad_mod` read never sets
+    // it, and would silently bind its graphics to whichever board happened to
+    // be parsed before it — in a library browser, any of them.
     board(
       '  (gr_line (start 10 10) (end 20 10) (stroke (width 0.2) (type solid)) (layer "F.Cu") (net "/uart/SDA"))',
+    );
+    const fp = readFootprintFile(
+      parse(`(footprint "R_0805" (layer "F.Cu")
+  (fp_line (start 0 0) (end 1 0) (stroke (width 0.1) (type solid)) (layer "F.Cu") (net "/uart/SDA"))
+)`),
+    );
+    // No board, so nothing to resolve against and nothing to invent.
+    expect(fp!.shapes[0]!.net).toBeUndefined();
+  });
+
+  it('does not let one board declare a net into the next one', () => {
+    board(
+      '  (gr_line (start 10 10) (end 20 10) (stroke (width 0.2) (type solid)) (layer "F.Cu") (net "/late/GND"))',
     );
     const b2 = readBoard(
       parse(`(kicad_pcb (version 20241229) (generator "test")
   (layers (0 "F.Cu" signal))
   (net 0 "")
-  (gr_line (start 10 10) (end 20 10) (stroke (width 0.2) (type solid)) (layer "F.Cu") (net "/uart/SDA"))
 )`),
     );
-    // A fresh board: the name is unknown here, so it is declared here, not
-    // borrowed from the previous parse.
-    expect(b2.nets.get(b2.shapes[0]!.net!)).toBe('/uart/SDA');
-    expect(b2.nets.size).toBe(2);
+    expect(b2.nets.size).toBe(1);
   });
 });
