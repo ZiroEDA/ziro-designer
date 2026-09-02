@@ -73,8 +73,11 @@ import {
 import {
   EDIT_GRIDS_LABEL,
   GRID_LIST_SEPARATOR,
+  fastGridActionForKey,
+  fastGridIndex,
   gridChoiceLabel,
   gridSizeToIU,
+  type FastGridAction,
 } from '../../ui/grid_settings.js';
 import { ZOOM_LIST, zoomChoices } from '../../ui/zoom_settings.js';
 import { GerberCanvas, type GerberCanvasController } from './GerberCanvas.js';
@@ -1172,6 +1175,19 @@ export function GerberViewer({
         // ACTIONS::zoomOut, "Zoom Out at Cursor" (WXK_F2 off macOS).
         e.preventDefault();
         controller.current?.zoomOut();
+      } else if (e.altKey && fastGridActionForKey(e.key) !== null) {
+        // ACTIONS::gridFast1 / gridFast2 / gridFastCycle (Alt+1 / Alt+2 /
+        // Alt+4). `COMMON_TOOLS` registers all three for every frame; ours had
+        // none, so the two Fast Grid Switching rows on Preferences > Gerber
+        // Viewer > Grids stored an index nothing acted on.
+        const idx = fastGridIndex(
+          settings.gerbview.window.grid,
+          fastGridActionForKey(e.key) as FastGridAction,
+        );
+        if (idx !== null) {
+          e.preventDefault();
+          setGridIdx(idx);
+        }
       }
     };
     window.addEventListener('keydown', onKey);

@@ -83,6 +83,11 @@ import {
 import { MM, symItemId, type SymbolViewOptions } from './render/symbolRenderer.js';
 import { symbolGridIU } from './grid.js';
 import { symbolItemDefaults } from './defaults.js';
+import {
+  fastGridActionForKey,
+  fastGridIndex,
+  type FastGridAction,
+} from '../../ui/grid_settings.js';
 import { settings } from '../../prefs/settings.js';
 import type { SymbolHit } from './edits.js';
 import {
@@ -1600,6 +1605,22 @@ export function SymbolEditor({
             return;
           }
         }
+      }
+
+      // ACTIONS::gridFast1 / gridFast2 / gridFastCycle (Alt+1 / Alt+2 / Alt+4).
+      // `COMMON_TOOLS` registers all three for every frame, so this frame has
+      // them too; ours had none, which left the two Fast Grid Switching rows on
+      // Preferences > Symbol Editor > Grids storing an index nothing acted on.
+      // `settings.updateSymbolEditor` — this editor's own file, never
+      // eeschema's.
+      if (e.altKey && fastGridActionForKey(e.key) !== null) {
+        const action = fastGridActionForKey(e.key);
+        e.preventDefault();
+        settings.updateSymbolEditor((st) => {
+          const idx = fastGridIndex(st.window.grid, action as FastGridAction);
+          if (idx !== null) st.window.grid.last_size_idx = idx;
+        });
+        return;
       }
 
       // --- global: the menu accelerators --------------------------------------

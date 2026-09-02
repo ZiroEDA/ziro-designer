@@ -450,7 +450,13 @@ import type { ProgressSnapshot } from '../../ui/progress_reporter.js';
 import { PreferencesDialog } from '../../dialogs/PreferencesDialog.js';
 import type { PrefsPageId } from '../../dialogs/prefs/types.js';
 import { settings, gridSizeToIU } from '../../prefs/settings.js';
-import { gridChoiceLabel, gridFeedback } from '../../ui/grid_settings.js';
+import {
+  fastGridActionForKey,
+  fastGridIndex,
+  gridChoiceLabel,
+  gridFeedback,
+  type FastGridAction,
+} from '../../ui/grid_settings.js';
 import { useHotkeyCyclePopup } from '../../widgets/HotkeyCyclePopup.js';
 import {
   useCommonSettings,
@@ -7825,25 +7831,18 @@ export function SchematicEditor({
         // ACTIONS::toggleGridOverrides (Ctrl+Shift+G).
         e.preventDefault();
         onLeftToggle('toggleGridOverrides');
-      } else if (e.altKey && (e.key === '1' || e.key === '2' || e.key === '4')) {
-        // ACTIONS::gridFast1 / gridFast2 / gridFastCycle. The two fast grids are
-        // indices into the grid list, stored 1-based as KiCad stores them.
+      } else if (e.altKey && fastGridActionForKey(e.key) !== null) {
+        // ACTIONS::gridFast1 / gridFast2 / gridFastCycle, through the shared
+        // `COMMON_TOOLS` implementation. This had its own copy that read the
+        // two indices as 1-BASED — `min(max(v, 1), n) - 1` — where
+        // `GridPreset` clamps `idx` into `[0, size-1]` untouched, so with the
+        // stock settings Alt+1 selected 100 mil instead of 50 and Alt+2 50
+        // instead of 25. See `fastGridIndex`.
+        const action = fastGridActionForKey(e.key);
         e.preventDefault();
         settings.updateEeschema((st) => {
-          const n = st.window.grid.sizes.length;
-          if (n === 0) return;
-          const g1 = Math.min(Math.max(st.window.grid.fast_grid_1, 1), n) - 1;
-          const g2 = Math.min(Math.max(st.window.grid.fast_grid_2, 1), n) - 1;
-          st.window.grid.last_size_idx =
-            e.key === '1'
-              ? g1
-              : e.key === '2'
-                ? g2
-                : // Cycle: whichever of the two is not current, so the key
-                  // toggles between them rather than stepping the whole list.
-                  st.window.grid.last_size_idx === g1
-                  ? g2
-                  : g1;
+          const idx = fastGridIndex(st.window.grid, action as FastGridAction);
+          if (idx !== null) st.window.grid.last_size_idx = idx;
         });
         // GridFast1/2/Cycle all reach `GridPreset( idx, true )`, so they post
         // GridChangedByKeyEvent too (common/tool/common_tools.cpp:569-592).

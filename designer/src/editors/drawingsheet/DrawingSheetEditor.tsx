@@ -70,7 +70,14 @@ import {
 import { DS_DEFAULT_TOOLBARS } from './drawingSheetToolbars.js';
 import { useToolbarEntries } from '../../ui/useToolbarEntries.js';
 import { buildDsContextMenu } from './ds_context_menu.js';
-import { DEFAULT_GRID_INDEX, GRID_SIZE_LIST, gridSizeToMM } from '../../ui/grid_settings.js';
+import {
+  DEFAULT_GRID_INDEX,
+  GRID_SIZE_LIST,
+  fastGridActionForKey,
+  fastGridIndex,
+  gridSizeToMM,
+  type FastGridAction,
+} from '../../ui/grid_settings.js';
 import { DrawingSheetCanvas, type DrawingSheetCanvasController } from './DrawingSheetCanvas.js';
 import { PropertiesFrame, SyntaxHelpDialog } from './PropertiesFrame.js';
 import { DockSash } from '../../ui/DockSash.js';
@@ -1845,6 +1852,24 @@ export function DrawingSheetEditor({
         if (selection.size > 0) {
           e.preventDefault();
           setMoveMode(true);
+        }
+        return;
+      }
+
+      // ACTIONS::gridFast1 / gridFast2 / gridFastCycle (Alt+1 / Alt+2 / Alt+4).
+      // `COMMON_TOOLS` registers all three for every frame; ours had none, so
+      // the two Fast Grid Switching rows on Preferences > Drawing Sheet Editor
+      // > Grids stored an index nothing acted on. Through `setGridIndex`, not
+      // the settings object directly, because this frame mirrors the index in
+      // React state and writing past the setter would leave the two disagreeing.
+      if (e.altKey && fastGridActionForKey(e.key) !== null) {
+        const idx = fastGridIndex(
+          settings.plEditor.window.grid,
+          fastGridActionForKey(e.key) as FastGridAction,
+        );
+        if (idx !== null) {
+          e.preventDefault();
+          setGridIndex(idx);
         }
         return;
       }

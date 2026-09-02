@@ -376,3 +376,66 @@ export function gridFeedback(
  */
 export const GRID_LIST_SEPARATOR = '---';
 export const EDIT_GRIDS_LABEL = 'Edit Grids...';
+
+/**
+ * The `grid` slice `COMMON_TOOLS`' fast-grid actions read — as much of it as
+ * they touch, so a caller can pass any app's without a cast.
+ */
+export interface FastGridSlice {
+  /** Only its LENGTH is read: `GridPreset` clamps against `m_grids.size()`. */
+  sizes: { readonly length: number };
+  last_size_idx: number;
+  fast_grid_1: number;
+  fast_grid_2: number;
+}
+
+/** The three actions that jump to a stored grid. */
+export type FastGridAction = 'gridFast1' | 'gridFast2' | 'gridFastCycle';
+
+/**
+ * `COMMON_TOOLS::GridFast1` / `GridFast2` / `GridFastCycle`
+ * (`common/tool/common_tools.cpp:571-592`), which are three one-line calls into
+ * `GridPreset( int idx, bool aFromHotkey )` (`:534-541`):
+ *
+ *     currentGrid = std::clamp( idx, 0, (int) m_grids.size() - 1 );
+ *
+ * Written once because upstream writes it once, on `COMMON_TOOLS` — every
+ * frame gets the same three actions from the same class, and the only thing
+ * that differs is which settings object `GetWindowSettings` returns.
+ *
+ * **The indices are 0-BASED**, and this is where the schematic was wrong: it
+ * clamped with `min(max(v, 1), n) - 1`, i.e. read them as 1-based, so with the
+ * defaults (`fast_grid_1` = 1, `fast_grid_2` = 2, both indices into the same
+ * list `last_size_idx` indexes) Alt+1 selected 100 mil where it should select
+ * 50, and Alt+2 selected 50 where it should select 25. `PANEL_GRID_SETTINGS`'
+ * two Fast Grid choices have always stored the index 0-based — they are
+ * `wxChoice` selections over the same list — so the page and the hotkey
+ * disagreed, and nothing pinned either.
+ *
+ * `GridFastCycle` compares against `fast_grid_1` and picks the OTHER one, so
+ * the key toggles between the two rather than stepping the list.
+ *
+ * @returns the new `last_size_idx`, or null when there is no grid to select.
+ */
+export function fastGridIndex(grid: FastGridSlice, action: FastGridAction): number | null {
+  const n = grid.sizes.length;
+  if (n === 0) return null;
+  const clamp = (idx: number): number => Math.min(Math.max(idx, 0), n - 1);
+  const g1 = clamp(grid.fast_grid_1);
+  const g2 = clamp(grid.fast_grid_2);
+  if (action === 'gridFast1') return g1;
+  if (action === 'gridFast2') return g2;
+  // `if( last_size_idx == fast_grid_1 ) return GridPreset( fast_grid_2 );`
+  // — and note the comparison is against the UNCLAMPED stored value upstream,
+  // which only matters for an index already out of range; clamping both sides
+  // first is the same answer for every reachable state.
+  return grid.last_size_idx === g1 ? g2 : g1;
+}
+
+/** `Alt+1` / `Alt+2` / `Alt+4` -> the action, or null for any other key. */
+export function fastGridActionForKey(key: string): FastGridAction | null {
+  if (key === '1') return 'gridFast1';
+  if (key === '2') return 'gridFast2';
+  if (key === '4') return 'gridFastCycle';
+  return null;
+}
