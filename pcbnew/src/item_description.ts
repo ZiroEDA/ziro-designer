@@ -10,6 +10,7 @@
  * cannot: on a four-layer board the net is the part they *share*, and the layer
  * and the priority are the only things that tell them apart.
  */
+import { unescapeString } from '@ziroeda/common/src/string_utils.js';
 import { GetLayerName } from './layer_ids.js';
 import type { Board, PcbZone } from './types.js';
 
@@ -29,10 +30,16 @@ export function boardLayerName(board: Board, layer: string): string {
 /**
  * `BOARD_CONNECTED_ITEM::GetNetnameMsg`: the net in brackets, or the bracketed
  * placeholder upstream prints when there is no net at all.
+ *
+ * The name is unescaped, as upstream's is. `{slash}` is how a `/` inside a
+ * label's own name survives a file whose `/` already means hierarchy — a
+ * *file* encoding, never something to put in a sentence shown to the person who
+ * named the net (issue #626). Note this is the FULL net name, not the short one
+ * `displayNetname` gives the painters: a description names the whole path.
  */
 export function netnameMsg(board: Board, netCode: number, netName?: string): string {
   const name = netName ?? board.nets.get(netCode) ?? '';
-  return name.length === 0 ? '[<no net>]' : `[${name}]`;
+  return name.length === 0 ? '[<no net>]' : `[${unescapeString(name)}]`;
 }
 
 /**

@@ -11,6 +11,7 @@
  * logic — the dialog around it is not.
  */
 
+import { unescapeString } from '@ziroeda/common/src/string_utils.js';
 import {
   type Board,
   buildClearanceReport,
@@ -39,7 +40,11 @@ export function describeSelected(board: Board, id: string): Described | null {
   const ref = parseBoardItemId(id);
   if (!ref) return null;
 
-  const netName = (net: number): string => board.nets.get(net) || `net ${net}`;
+  // Unescaped, like every other net name a person reads: `{slash}` is the file's
+  // encoding of a `/` inside a label name, not part of what the net is called
+  // (issue #626).
+  const netName = (net: number): string =>
+    unescapeString(board.nets.get(net) ?? '') || `net ${net}`;
 
   switch (ref.kind) {
     case 'track':

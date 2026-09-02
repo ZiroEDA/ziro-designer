@@ -268,10 +268,12 @@ export {
 export {
   appendNet,
   declaredNetCodes,
+  displayNetname,
   findNet,
   netName,
   removeUnusedNets,
   renameNet,
+  shortNetname,
   UNCONNECTED_NET,
 } from './netinfo.js';
 export {

@@ -36,6 +36,7 @@ import type { Vec2 } from '@ziroeda/kimath';
 import {
   dimensionBBox,
   dimensionSegments,
+  displayNetname,
   imageBBox,
   tableBBox,
   tableBorderSegments,
@@ -1044,7 +1045,7 @@ function addPadLabels(
   // name (NETINFO's part after the last '/'); a no-connect pad overrides it
   // with a big "x" and a "free" pad on an unconnected net with "*"
   // (IsNoConnectPad / IsFreePad).
-  let netLabel = (pad.net ?? 0) > 0 ? netName.slice(netName.lastIndexOf('/') + 1) : '';
+  let netLabel = (pad.net ?? 0) > 0 ? displayNetname(netName) : '';
   if (pad.pinType?.includes('no_connect')) netLabel = 'x';
   else if (pad.pinType === 'free' && netLabel.startsWith('unconnected-(')) netLabel = '*';
   const showNet = netLabel !== '';
@@ -1331,7 +1332,7 @@ function compileScene(board: Board, filter: SceneFilter): BoardScene {
     // short one (GetDisplayNetname).
     if (t.net > 0) {
       const name = board.nets.get(t.net) ?? '';
-      const shown = name.slice(name.lastIndexOf('/') + 1);
+      const shown = displayNetname(name);
       if (shown !== '')
         scene.netLabels.push({
           start: t.start,
@@ -1369,7 +1370,7 @@ function compileScene(board: Board, filter: SceneFilter): BoardScene {
       // is not a full-stack through via a "top-bottom" line of copper layer
       // numbers (F.Cu = 1 … B.Cu = copper count, matching the layer manager).
       const name = (v.net ?? 0) > 0 ? (board.nets.get(v.net) ?? '') : '';
-      const text = name.slice(name.lastIndexOf('/') + 1);
+      const text = displayNetname(name);
       let layerIds = '';
       if (v.kind && v.kind !== 'through') {
         const top = copperNames.indexOf(v.layers[0]) + 1;
