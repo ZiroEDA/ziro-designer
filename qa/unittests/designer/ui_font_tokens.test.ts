@@ -268,7 +268,10 @@ const BASELINE: Record<string, number> = {
   // Derived twice: the scan reports "editors/schematic: 46 now, baseline still
   // says 49", and `git show HEAD:` of the deleted file lists exactly three
   // `fontSize` occurrences.
-  'editors/schematic': 46,
+  // 46 -> 45: the Field Name Templates page's `fontSize: 12.5`, which went with
+  // the duplicate table it was on — the shared panel states no size at all.
+  // RESCANNED.
+  'editors/schematic': 45,
   // 2 until the Symbol Editor parity pass deleted the invented
   // "Double-click a symbol..." hint that an empty SYMBOL_EDIT_FRAME does not
   // have; it carried an inline `fontSize: 14` and a `color: '#888'`.
@@ -588,10 +591,11 @@ describe('hardcoded font sizes do not grow', () => {
     // went at the same time are not sites here, and `.ze-projecttree
     // .ze-tree-item`'s `var(--ui-font-size)` was a token, never a literal - it
     // only existed to escape the 13px, and went with it.
+    // 287 -> 286: Field Name Templates' 12.5; see the `editors/schematic` row.
     // 290 -> 287: the three the Hotkeys list stated; see the `ui` row. RESCANNED
     // from this tree, and the per-area table agrees — `ui` 89 -> 86 is the only
     // row that moves, and 290 - 3 agrees with it.
-    expect(sites.length).toBe(287);
+    expect(sites.length).toBe(286);
   });
 });
 

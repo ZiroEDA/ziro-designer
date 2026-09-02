@@ -21,8 +21,17 @@ import { bitmapUrl } from './toolbarIcons.js';
 export interface StdBitmapButtonProps {
   /** A `BITMAPS::` name, e.g. `small_plus`; resolved out of KiCad's own SVGs. */
   bitmap: string;
-  /** `SetToolTip( … )` — and the accessible name, since there is no label. */
+  /** The accessible name. An icon-only button must have one; wx gets it free
+   *  from the bitmap's context, a bare `<button>` does not. */
   title: string;
+  /**
+   * `SetToolTip( … )`, which is NOT the same question as the accessible name:
+   * a form builder sets it on some of a button row and not others, and putting
+   * one where upstream has none invents hover text. Defaults to `title`,
+   * because that is what most call sites want; pass `null` for the buttons
+   * upstream leaves without one.
+   */
+  tooltip?: string | null;
   disabled?: boolean;
   onClick: () => void;
 }
@@ -30,15 +39,17 @@ export interface StdBitmapButtonProps {
 export function StdBitmapButton({
   bitmap,
   title,
+  tooltip,
   disabled,
   onClick,
 }: StdBitmapButtonProps): JSX.Element {
   const url = bitmapUrl(bitmap);
+  const hover = tooltip === undefined ? title : tooltip;
   return (
     <button
       type="button"
       className="ze-gridbtn"
-      title={title}
+      {...(hover === null ? {} : { title: hover })}
       aria-label={title}
       disabled={disabled}
       onClick={onClick}

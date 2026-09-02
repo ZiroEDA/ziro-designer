@@ -223,7 +223,12 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // (`eeschema_settings.cpp:396-400`), and `COLOR_SWATCH::MakeBitmap` paints
   // the colour over a checkerboard at its own alpha — so unset is the bare
   // checkerboard, which is what a fresh KiCad shows. RESCANNED.
-  'editors/schematic': { colours: 58, metrics: 195 },
+  // 58 -> 57 / 195 -> 191: Preferences > Field Name Templates stopped being a
+  // second hand-rolled table and became the panel Schematic Setup already
+  // builds, which is what upstream has — one PANEL_TEMPLATE_FIELDNAMES with a
+  // `global` branch. The four metric literals and the one colour went with the
+  // inline `style={{ … }}` objects that table carried. RESCANNED.
+  'editors/schematic': { colours: 57, metrics: 191 },
   // colours 12 -> 7: the Symbol Editor parity pass. Four were
   // SYMBOL_EDITOR_COLORS, a private copy of LAYER_SCHEMATIC_ANCHOR /
   // LAYER_HIDDEN / LAYER_PRIVATE_NOTES / LAYER_FIELDS that matched the Default
@@ -774,13 +779,15 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // 609 -> 598: the Hotkeys list took the theme's colours; see the `ui` row.
     // RESCANNED from this tree, and the per-area table agrees — `ui` 231 -> 220
     // is the only row that moves, and 609 - 11 agrees with it.
+    // 594 -> 593: the Field Name Templates duplicate; see the
+    // `editors/schematic` row.
     // 598 -> 594: eeschema's Editing Options; see the `ui` and
     // `editors/schematic` rows. Four literals go — the hint's #9aa0a6, the
     // mouse table's #9aa0a6, and the two `fallback` colours that painted an
     // UNSET swatch red and cream — and the one that arrives, the
     // `rgba(0, 0, 0, 0)` that IS `COLOR4D::UNSPECIFIED`, carries its citation
     // on its own line and so is not counted. RESCANNED from this tree.
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(594);
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(593);
     // 1657 -> 1649: the same sweep. A native colour input has no useful
     // default size, so eight of the sixteen sites gave theirs an inline
     // width and height; the shared swatch takes --swatch-*-w/h. Rescanned.
@@ -906,8 +913,10 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // header's invented 5 px 8 px padding. RESCANNED from this tree, and the
     // per-area table agrees — `ui` 729 -> 721 is the only row that moves, and
     // 1514 - 8 agrees with it.
+    // 1505 -> 1501: the Field Name Templates duplicate's four inline style
+    // metrics; see the `editors/schematic` row.
     // 1506 -> 1505: see the `ui` row; that one row is the only one that moves.
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1505);
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1501);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {

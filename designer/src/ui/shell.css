@@ -11550,6 +11550,68 @@ textarea.ze-ds-textedit {
   flex: 0 0 auto;
 }
 
+/* ---- PANEL_TEMPLATE_FIELDNAMES (eeschema/dialogs/panel_template_fieldnames_base.cpp)
+   The Name / Visible / URL grid, on both the Preferences page and Schematic
+   Setup — one panel upstream, so one set of rules here.
+
+   `bPanelSizer` is vertical and full-bleed: the title `wxTOP|wxLEFT|wxEXPAND, 8`,
+   a 3 px spacer, `m_grid` at proportion 1 with `wxEXPAND|wxRIGHT, 5`, then the
+   button row `wxEXPAND|wxTOP, 3`. Measured against a live 10.0.5 page: the
+   header band runs x 660..1536 where the notebook page is 655..1541, which is
+   the same 5 px page inset the Colors page carries plus the grid's own wxRIGHT
+   and no wxLEFT at all. */
+.ze-prefs-panel:has(> .ze-fieldnames) {
+  padding: 0;
+}
+.ze-fieldnames {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  /* [px] the notebook page's own inset, the same one Preferences > Colors
+     measures. */
+  padding-left: 5px;
+}
+.ze-fieldnames-title {
+  /* [data] `Add( m_title, 0, wxTOP|wxLEFT|wxEXPAND, 8 )`. */
+  padding: 8px 0 0 8px;
+  /* [data] the `Add( 0, 3 )` spacer between the title and the grid. */
+  margin-bottom: 3px;
+}
+.ze-fieldnames-grid {
+  flex: 1;
+  /* [data] `m_grid->SetMinSize( wxSize( -1, 180 ) )`. */
+  min-height: 180px;
+  /* [data] `Add( m_grid, 1, wxEXPAND|wxRIGHT, 5 )` — a right border only. */
+  margin-right: 5px;
+}
+/* `SetColLabelSize( wxGRID_AUTOSIZE )`, not the fixed 30 the design inspector
+   asks for: this header sizes to its own text, and the live page's band
+   measures 25 px. */
+.ze-fieldnames .ze-grid th {
+  height: auto;
+}
+/* [data] `SetColSize( 1, 48 )` and `SetColSize( 2, 48 )`; column 0 takes the
+   slack, which is `SetupColumnAutosizer( 0 )`. */
+.ze-fieldnames-bool {
+  width: 48px;
+}
+/* `SetCellAlignment( row, n, wxALIGN_CENTRE, wxALIGN_CENTRE )` on both boolean
+   columns. */
+td.ze-fieldnames-bool {
+  text-align: center;
+}
+.ze-fieldnames > .ze-grid-btns {
+  /* [data] `Add( bSizer10, 0, wxEXPAND|wxTOP, 3 )` — this row's own 3, where
+     the shared rule carries another page's 6. */
+  margin-top: 3px;
+}
+.ze-fieldnames-gap {
+  /* [data] `bSizer10->Add( 20, 0, 0, wxEXPAND, 5 )`, the fixed gap before
+     Delete. */
+  width: 20px;
+  flex: 0 0 auto;
+}
+
 /* ---- HOTKEY_CYCLE_POPUP (common/dialogs/hotkey_cycle_popup.cpp) -------------
    The panel that flashes when a single-stroke hotkey cycles a setting. Its
    layout is EDA_VIEW_SWITCHER_BASE (common/dialogs/eda_view_switcher_base.cpp:
