@@ -752,3 +752,67 @@ export function titleCaps(str: string): string {
 
   return result;
 }
+
+/**
+ * `PrintableCharCount`: how many characters a string actually *prints*.
+ *
+ * Not `length`. KiCad's bitmap text understands three markup forms — `~{…}` for
+ * an overbar, `^{…}` and `_{…}` for super- and subscript — and the introducer
+ * and the braces that delimit them draw nothing. Tabs are dropped too, because
+ * bitmap text does not lay them out.
+ *
+ * It matters because the pad painter divides the pad's width by this count to
+ * choose a font size (`pcb_painter.cpp:1538, 1564`). Counting the markup makes
+ * the string look longer than it is and the text comes out smaller than KiCad
+ * draws it — for a net named `~{RESET}` by five characters, a third of its
+ * width.
+ *
+ * The nesting rules are upstream's, including the ones that look odd: an
+ * introducer only opens a group when a `{` immediately follows, only one
+ * overbar and one super/subscript group can be open at a time, and a `}` closes
+ * one only at the exact brace depth its group opened at. Anything else counts.
+ */
+export function printableCharCount(text: string): number {
+  let count = 0;
+  let overbarDepth = -1;
+  let superSubDepth = -1;
+  let braceNesting = 0;
+
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i]!;
+
+    if (ch === '\t') continue;
+
+    if ((ch === '^' || ch === '_') && superSubDepth === -1) {
+      if (text[i + 1] === '{') {
+        i++;
+        superSubDepth = braceNesting;
+        braceNesting++;
+        continue;
+      }
+    } else if (ch === '~' && overbarDepth === -1) {
+      if (text[i + 1] === '{') {
+        i++;
+        overbarDepth = braceNesting;
+        braceNesting++;
+        continue;
+      }
+    } else if (ch === '{') {
+      braceNesting++;
+    } else if (ch === '}') {
+      if (braceNesting > 0) braceNesting--;
+      if (braceNesting === superSubDepth) {
+        superSubDepth = -1;
+        continue;
+      }
+      if (braceNesting === overbarDepth) {
+        overbarDepth = -1;
+        continue;
+      }
+    }
+
+    count++;
+  }
+
+  return count;
+}
