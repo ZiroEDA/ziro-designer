@@ -51,6 +51,7 @@ export const PAGES: readonly PrefsPageEntry[] = [
   // Editor's five sub-pages (`common/eda_base_frame.cpp:1632-1637`) come before
   // the Schematic Editor's (`:1641-1652`).
   { id: null, label: 'Symbol Editor' },
+  { id: 'sym-display', label: 'Display Options', indent: true, owner: 'symbol' },
   { id: 'sym-grids', label: 'Grids', indent: true, owner: 'symbol' },
   { id: 'sym-toolbars', label: 'Toolbars', indent: true, owner: 'symbol' },
   { id: null, label: 'Schematic Editor' },
@@ -79,6 +80,7 @@ export const PAGES: readonly PrefsPageEntry[] = [
   // editor's heading here, where Grids comes second.
   { id: null, label: 'Gerber Viewer' },
   { id: 'gbr-display', label: 'Display Options', indent: true, owner: 'gerbview' },
+  { id: 'gbr-colors', label: 'Colors', indent: true, owner: 'gerbview' },
   { id: 'gbr-toolbars', label: 'Toolbars', indent: true, owner: 'gerbview' },
   // pl_editor's KIFACE is added last of the five, after gerbview's
   // (`common/eda_base_frame.cpp:1726-1737`).
@@ -255,12 +257,6 @@ export const OMITTED_PAGES: Readonly<Record<string, readonly DeclaredPage[]>> = 
   // gives a Toolbars page to have one here. The other three are the same shape.
   'Symbol Editor': [
     {
-      label: 'Display Options',
-      reason:
-        'Being built. PANEL_SYM_DISPLAY_OPTIONS is four Appearance checkboxes beside the shared ' +
-        'PANEL_GAL_OPTIONS, bound to symbol_editor.json.',
-    },
-    {
       label: 'Editing Options',
       reason:
         'Being built. PANEL_SYM_EDITING_OPTIONS is the defaults.* and repeat.* fields plus one ' +
@@ -278,12 +274,6 @@ export const OMITTED_PAGES: Readonly<Record<string, readonly DeclaredPage[]>> = 
   // into existence; Toolbars came with it because `prefs_page_book.test.ts`
   // requires every heading upstream gives a Toolbars page to have one here.
   'Gerber Viewer': [
-    {
-      label: 'Colors',
-      reason:
-        'Being built. PANEL_GERBVIEW_COLOR_SETTINGS is a PANEL_COLOR_SETTINGS subclass over the ' +
-        'GERBVIEW layer set, the same base eeschema’s Colors page uses.',
-    },
     {
       label: 'Grids',
       reason:

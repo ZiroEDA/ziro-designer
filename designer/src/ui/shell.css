@@ -8574,6 +8574,23 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   /* [data] 15 + 20 + 5. */
   margin-right: 40px;
 }
+/* `PANEL_SYM_DISPLAY_OPTIONS`' two columns, three Add() borders again but a
+   different three:
+
+     m_galOptionsSizer->Add( m_galOptsPanel, 1, wxEXPAND|wxRIGHT, 5 );
+       (panel_sym_display_options.cpp:36)
+     bPanelSizer->Add( m_galOptionsSizer, 0, wxEXPAND|wxRIGHT, 15 );
+     bPanelSizer->Add( bRightColumn, 0, wxEXPAND|wxBOTTOM|wxLEFT, 10 );
+       (panel_sym_display_options_base.cpp:21, :51)
+
+   `PANEL_SYM_EDITING_OPTIONS` reaches the same 30 by another route — its left
+   column's own wxRIGHT 5 plus an `Add( 25, 0 )` spacer
+   (panel_sym_editing_options_base.cpp:172-176) — so the Symbol Editor's two
+   two-column pages agree with each other and with neither of the pages above. */
+.ze-pref-columns.ze-gutter-30 > div:first-child {
+  /* [data] 5 + 15 + 10 on Display Options; 5 + a 25 px spacer on Editing Options. */
+  margin-right: 30px;
+}
 /* `bSizerLeftCol` (`panel_grid_settings_base.cpp:23-56`): the heading, the list
    at PROPORTION 1, and the button row under it. The list is the thing that
    grows — `Add( m_currentGridCtrl, 1, wxEXPAND|wxBOTTOM|wxLEFT, 3 )` — so the

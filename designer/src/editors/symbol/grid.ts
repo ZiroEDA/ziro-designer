@@ -97,3 +97,21 @@ const SHAPE_TOOL_IDS = new Set<string>([
   'drawSymbolTextBox',
   'bezier',
 ]);
+
+/**
+ * `KIGFX::GAL::GetGridSnapping()`
+ * (`include/gal/graphics_abstraction_layer.h:815-819`):
+ *
+ *     return m_options.m_gridSnapping == GRID_SNAPPING::ALWAYS
+ *            || ( m_gridVisibility && m_options.m_gridSnapping == GRID_SNAPPING::WITH_GRID );
+ *
+ * — which is the whole of what the "Snap to grid" choice on Display Options
+ * does, and the reason the middle option is worded "When grid shown": it reads
+ * `ACTIONS::toggleGrid`'s state, not the grid list.
+ *
+ * `GRID_SNAPPING::NEVER` is the third option and falls out of both arms.
+ */
+export function symbolSnappingEnabled(cfg: SymbolEditorSettings): boolean {
+  const { snap, show } = cfg.window.grid;
+  return snap === 0 || (show && snap === 1);
+}

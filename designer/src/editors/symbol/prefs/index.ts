@@ -14,9 +14,14 @@
  * The dialog does not know this file exists beyond that dynamic import, and
  * nothing here may reach into another editor.
  */
+import { PanelSymbolEditorDisplayOptions } from './PanelSymbolEditorDisplayOptions.js';
 import { PanelSymbolEditorGrids } from './PanelSymbolEditorGrids.js';
 import { PanelSymbolEditorToolbars } from './PanelSymbolEditorToolbars.js';
-import { resetSymbolEditorGrids, resetSymbolEditorToolbars } from './resets.js';
+import {
+  resetSymbolEditorDisplayOptions,
+  resetSymbolEditorGrids,
+  resetSymbolEditorToolbars,
+} from './resets.js';
 import type {
   PrefsPageId,
   PrefsPanelFactory,
@@ -25,6 +30,12 @@ import type {
 
 export const createPrefsPanel: PrefsPanelFactory = (id: PrefsPageId): PrefsPanelModule | null => {
   switch (id) {
+    case 'sym-display':
+      return {
+        Panel: PanelSymbolEditorDisplayOptions,
+        reset: resetSymbolEditorDisplayOptions,
+      };
+
     case 'sym-grids':
       return {
         Panel: PanelSymbolEditorGrids,

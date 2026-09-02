@@ -56,6 +56,7 @@ const EXPECTED: PrefsPageEntry[] = [
   // Toolbars are shipped; the other three are declared in OMITTED_PAGES until
   // they land.
   { id: null, label: 'Symbol Editor' },
+  { id: 'sym-display', label: 'Display Options', indent: true, owner: 'symbol' },
   { id: 'sym-grids', label: 'Grids', indent: true, owner: 'symbol' },
   { id: 'sym-toolbars', label: 'Toolbars', indent: true, owner: 'symbol' },
   { id: null, label: 'Schematic Editor' },
@@ -78,6 +79,7 @@ const EXPECTED: PrefsPageEntry[] = [
   // the one heading here where Grids does not come second.
   { id: null, label: 'Gerber Viewer' },
   { id: 'gbr-display', label: 'Display Options', indent: true, owner: 'gerbview' },
+  { id: 'gbr-colors', label: 'Colors', indent: true, owner: 'gerbview' },
   { id: 'gbr-toolbars', label: 'Toolbars', indent: true, owner: 'gerbview' },
   // pl_editor's KIFACE is consulted last of the five
   // (`common/eda_base_frame.cpp:1726-1737`), so its heading is last.

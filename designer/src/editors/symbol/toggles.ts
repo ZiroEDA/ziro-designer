@@ -13,7 +13,7 @@
 
 import type { LibSymbol } from '@ziroeda/eeschema/src/types.js';
 import { defaultUnitsToggle } from '../../ui/app_settings_units.js';
-import type { SymbolEditorSettings } from '../../prefs/settings.js';
+import { SYMBOL_EDITOR_DEFAULTS, type SymbolEditorSettings } from '../../prefs/settings.js';
 import { unitCount, unitsLocked } from './edits.js';
 
 /**
@@ -31,21 +31,20 @@ export const RADIO_GROUPS: readonly (readonly string[])[] = [
 ];
 
 /**
- * What a fresh SYMBOL_EDIT_FRAME shows.
+ * The half of the frame's opening state that is NOT in `symbol_editor.json`:
+ * the two AUI panes, and the unit.
  *
- * The units entry is NOT written here. `system.units`' default is one branch in
- * `APP_SETTINGS_BASE` (`common/settings/app_settings.cpp:228-238`) and
- * `symbol_editor` is on its imperial side, so this frame opens in mils —
- * `grid 50`, not `grid 1.27`. See `ui/app_settings_units.ts`.
+ * The units entry is not a literal here either. `system.units`' default is one
+ * branch in `APP_SETTINGS_BASE` (`common/settings/app_settings.cpp:228-238`)
+ * and `symbol_editor` is on its imperial side, so this frame opens in mils —
+ * `grid 50`, not `grid 1.27`. See `ui/app_settings_units.ts`. (`m_AuiPanels.
+ * show_properties` IS a stored key upstream; we do not model AUI perspective
+ * at all, so the two panes stay session state here.)
  */
-export const DEFAULT_TOGGLES: ReadonlySet<string> = new Set([
-  'toggleGrid',
+export const SESSION_TOGGLES: ReadonlySet<string> = new Set([
   defaultUnitsToggle('symbol_editor'),
   'showLibraryTree',
   'showProperties',
-  // `cursorSmallCrosshairs` is the group's first action, so it is the one the
-  // crosshair button shows on open.
-  'crosshairSmall',
 ]);
 
 /**
@@ -119,13 +118,79 @@ export function applyToggle(prev: ReadonlySet<string>, id: string): Set<string> 
  * had.
  */
 export function symbolTogglesFromSettings(cfg: SymbolEditorSettings): Set<string> {
-  const out = new Set(DEFAULT_TOGGLES);
-  if (cfg.window.grid.show) out.add('toggleGrid');
-  else out.delete('toggleGrid');
-  if (cfg.window.grid.overrides_enabled) out.add('toggleGridOverrides');
-  else out.delete('toggleGridOverrides');
+  const out = new Set(SESSION_TOGGLES);
+  const flag = (id: string, on: boolean): void => {
+    if (on) out.add(id);
+  };
+  // `COMMON_TOOLS::ToggleGrid` / `ToggleGridOverrides`, both through the
+  // settings object (`eda_draw_frame.cpp:585-598`).
+  flag('toggleGrid', cfg.window.grid.show);
+  flag('toggleGridOverrides', cfg.window.grid.overrides_enabled);
+  // `SYMBOL_EDIT_FRAME::setupUIConditions`' four CHECK conditions
+  // (`symbol_edit_frame.cpp:566-606`), each of which reads
+  // `libeditconfig()->m_Show*` and nothing else.
+  flag('showHiddenPins', cfg.show_hidden_lib_pins);
+  flag('showHiddenFields', cfg.show_hidden_lib_fields);
+  flag('showElectricalTypes', cfg.show_pin_electrical_type);
+  // `togglePinAltIcons` is deliberately NOT here: the renderer draws no
+  // alternate-mode indicator, so `show_pin_alt_icons` has no reader and a lit
+  // button would be a lie. Upstream has the button commented out of the
+  // toolbar too (`toolbars_symbol_editor.cpp:85`), which is why there is no
+  // control here to keep consistent with.
+  out.add(crosshairToggleId(cfg.window.cursor.crosshair));
   return out;
 }
+
+/**
+ * `CURSOR_SETTINGS::cross_hair_mode` as the id of the crosshair group's checked
+ * action — the three-way version of `drawingsheet/toggles.ts`' two-way one.
+ *
+ * The group's members are `ACTIONS::cursorSmallCrosshairs`,
+ * `cursorFullWindowCrosshairs` and `cursor45DegreeCrosshairs`, and the mode is
+ * a setting, so which of the three is lit must come from the file rather than
+ * from "the group's first action". Ours hardcoded `crosshairSmall`, which is
+ * the default and therefore invisible until someone changed it on Preferences
+ * > Display Options and reopened the editor.
+ */
+export function crosshairToggleId(
+  mode: SymbolEditorSettings['window']['cursor']['crosshair'],
+): string {
+  return mode === 'full' ? 'crosshairFull' : mode === '45' ? 'crosshair45' : 'crosshairSmall';
+}
+
+/** {@link crosshairToggleId} backwards: which mode a group member selects. */
+export function crosshairToggleMode(
+  id: string,
+): SymbolEditorSettings['window']['cursor']['crosshair'] | null {
+  if (id === 'crosshairFull') return 'full';
+  if (id === 'crosshair45') return '45';
+  if (id === 'crosshairSmall') return 'small';
+  return null;
+}
+
+/**
+ * What a fresh SYMBOL_EDIT_FRAME actually shows: {@link SESSION_TOGGLES} plus
+ * everything `symbol_editor.json` decides, applied to that file's own defaults.
+ *
+ * Written this way round rather than as a hand-kept list, for the reason
+ * `drawingsheet/toggles.ts` gives about its own: a second table beside the
+ * derivation is one answer written twice, and nothing in the app reads it —
+ * the frame boots from `symbolTogglesFromSettings( settings.symbolEditor )`.
+ *
+ * It used to be five ids, and three of them were wrong. `m_ShowPinElectricalType`,
+ * `show_hidden_lib_pins` and `show_hidden_lib_fields` are all `PARAM<bool>( …,
+ * true )` (`symbol_editor_settings.cpp:79-89`) and `overrides_enabled` is true
+ * as well (`app_settings.cpp:497-498`), and every one of the four is a CHECK
+ * condition on its toolbar button reading the settings object directly
+ * (`symbol_edit_frame.cpp:566-606`). So a real cold KiCad opens with Show
+ * Hidden Pins, Show Hidden Fields, Show Pin Electrical Type and Grid Overrides
+ * all lit; ours opened with all four flat. Confirmed against the installed
+ * build's own `~/.config/kicad/10.0/symbol_editor.json`, which is the parity
+ * target.
+ */
+
+export const DEFAULT_TOGGLES: ReadonlySet<string> =
+  symbolTogglesFromSettings(SYMBOL_EDITOR_DEFAULTS);
 
 /**
  * Fold a toolbar activation into `symbol_editor.json`. Returns whether it did.
@@ -145,6 +210,30 @@ export function persistSymbolToggle(cfg: SymbolEditorSettings, id: string): bool
     cfg.window.grid.overrides_enabled = !cfg.window.grid.overrides_enabled;
     return true;
   }
+  // `SYMBOL_EDITOR_CONTROL::ToggleHiddenPins` / `ToggleHiddenFields` /
+  // `TogglePinAltIcons` (`symbol_editor_control.cpp:714-752`) are all
+  // `cfg->m_X = !cfg->m_X` followed by pushing the new value at the render
+  // settings — the file is the state, the render settings are the copy.
+  if (id === 'showHiddenPins') {
+    cfg.show_hidden_lib_pins = !cfg.show_hidden_lib_pins;
+    return true;
+  }
+  if (id === 'showHiddenFields') {
+    cfg.show_hidden_lib_fields = !cfg.show_hidden_lib_fields;
+    return true;
+  }
+  if (id === 'showElectricalTypes') {
+    cfg.show_pin_electrical_type = !cfg.show_pin_electrical_type;
+    return true;
+  }
+  // The crosshair group REPLACES rather than flips: re-activating the member
+  // already on leaves it on, which is what `applyToggle` does to the set.
+  const mode = crosshairToggleMode(id);
+  if (mode !== null) {
+    if (cfg.window.cursor.crosshair === mode) return false;
+    cfg.window.cursor.crosshair = mode;
+    return true;
+  }
   return false;
 }
 
@@ -160,4 +249,37 @@ export function persistSymbolToggle(cfg: SymbolEditorSettings, id: string): bool
 export const SYMBOL_SETTING_TOGGLES: ReadonlySet<string> = new Set([
   'toggleGrid',
   'toggleGridOverrides',
+  'showHiddenPins',
+  'showHiddenFields',
+  'showElectricalTypes',
+  'crosshairSmall',
+  'crosshairFull',
+  'crosshair45',
 ]);
+
+/**
+ * The toolbar state the frame actually DRAWS: session state for the ids that
+ * are session state, and `symbol_editor.json` for the ids that are settings.
+ *
+ * Upstream there is no set to merge — a toolbar button's lit state is a
+ * `CHECK( … )` condition evaluated on every idle, and the settings-backed ones
+ * read the settings object directly (`SYMBOL_EDIT_FRAME::setupUIConditions`,
+ * `symbol_edit_frame.cpp:566-606`). So Preferences > Symbol Editor > Display
+ * Options pressing OK moves those buttons with no notification at all, and
+ * `CommonSettingsChanged` (`:1560-1570`) pushes the same values at the render
+ * settings.
+ *
+ * Ours holds one React set, which is initialised once and would therefore go
+ * stale the moment the dialog wrote the file. This is that condition
+ * re-evaluated: the settings ids are recomputed from the file every render and
+ * the rest of the set is left alone.
+ */
+export function mergeSymbolToggles(
+  session: ReadonlySet<string>,
+  cfg: SymbolEditorSettings,
+): Set<string> {
+  const out = new Set(session);
+  for (const id of SYMBOL_SETTING_TOGGLES) out.delete(id);
+  for (const id of symbolTogglesFromSettings(cfg)) if (SYMBOL_SETTING_TOGGLES.has(id)) out.add(id);
+  return out;
+}

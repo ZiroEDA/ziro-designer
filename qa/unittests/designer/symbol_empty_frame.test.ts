@@ -96,12 +96,33 @@ describe("SYMBOL_EDIT_FRAME's opening toggle state", () => {
    * Whole-set and in one expectation, because "contains unitsMils" would pass
    * with `unitsMm` still in the set beside it.
    */
-  it('is the five buttons upstream leaves on, with mils among them', () => {
+  it('is the nine buttons upstream leaves on, with mils among them', () => {
+    // Re-derived from the C++, not re-baselined. It said five, and four of
+    // those nine were missing:
+    //   show_pin_electrical_type  PARAM<bool>( …, true )  symbol_editor_settings.cpp:79
+    //   show_pin_alt_icons        PARAM<bool>( …, true )  :82   (no button, see below)
+    //   show_hidden_lib_fields    PARAM<bool>( …, true )  :85
+    //   show_hidden_lib_pins      PARAM<bool>( …, true )  :88
+    //   window.grid.overrides_enabled  PARAM<bool>( …, true )  app_settings.cpp:497
+    // and each of the four with a button is a CHECK condition reading that
+    // field straight off the settings object (`symbol_edit_frame.cpp:566-606`,
+    // `:601-606`), so a cold KiCad shows all four lit. The installed build's
+    // own ~/.config/kicad/10.0/symbol_editor.json agrees, and it is the parity
+    // target.
+    //
+    // `togglePinAltIcons` is NOT here even though its setting defaults true:
+    // upstream has that button commented out of the toolbar
+    // (`toolbars_symbol_editor.cpp:85`) and our renderer draws no
+    // alternate-mode indicator, so there is no button for it to light.
     expect([...DEFAULT_TOGGLES].sort()).toEqual([
       'crosshairSmall',
+      'showElectricalTypes',
+      'showHiddenFields',
+      'showHiddenPins',
       'showLibraryTree',
       'showProperties',
       'toggleGrid',
+      'toggleGridOverrides',
       'unitsMils',
     ]);
   });
@@ -139,9 +160,14 @@ describe("SYMBOL_EDIT_FRAME's opening toggle state", () => {
     expect(inches.has('unitsMm')).toBe(false);
     // Re-activating the member already on leaves it on.
     expect(applyToggle(inches, 'unitsInches').has('unitsInches')).toBe(true);
-    // A non-group id flips.
+    // A non-group id flips — both ways, so this cannot pass by the id simply
+    // being absent. `toggleSyncedPinsMode` is the one the test below proves is
+    // off on a cold frame.
     expect(applyToggle(DEFAULT_TOGGLES, 'toggleGrid').has('toggleGrid')).toBe(false);
-    expect(applyToggle(DEFAULT_TOGGLES, 'showHiddenPins').has('showHiddenPins')).toBe(true);
+    expect(applyToggle(DEFAULT_TOGGLES, 'showHiddenPins').has('showHiddenPins')).toBe(false);
+    expect(applyToggle(DEFAULT_TOGGLES, 'toggleSyncedPinsMode').has('toggleSyncedPinsMode')).toBe(
+      true,
+    );
   });
 });
 

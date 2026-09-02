@@ -53,7 +53,7 @@ import {
   moveSymbolOrigin,
   type SymbolHit,
 } from './edits.js';
-import { symbolGridForTool } from './grid.js';
+import { symbolGridForTool, symbolSnappingEnabled } from './grid.js';
 
 /**
  * The symbol editor's drawing canvas: pan/zoom, selection/move (SCH_SELECTION /
@@ -196,12 +196,17 @@ export const SymbolCanvas = forwardRef<SymbolCanvasController, Props>(function S
    */
   const symCfg = useSymbolEditorSettings();
   const gridIU = symbolGridForTool(symCfg, activeTool);
+  /**
+   * `GRID_HELPER::canUseGrid()`, whose only term we can express is
+   * `GetGAL()->GetGridSnapping()` — the "Snap to grid" choice. With it off the
+   * cursor is where the pointer is, which is what `GRID_SNAPPING::NEVER`
+   * means.
+   */
+  const snapping = symbolSnappingEnabled(symCfg);
   const snap = useCallback(
-    (p: Vec2): Vec2 => ({
-      x: Math.round(p.x / gridIU) * gridIU,
-      y: Math.round(p.y / gridIU) * gridIU,
-    }),
-    [gridIU],
+    (p: Vec2): Vec2 =>
+      snapping ? { x: Math.round(p.x / gridIU) * gridIU, y: Math.round(p.y / gridIU) * gridIU } : p,
+    [gridIU, snapping],
   );
 
   const modeRef = useRef<Mode>('idle');

@@ -119,6 +119,7 @@ import { OpenFileDialog } from '../../fs/OpenFileDialog.js';
 import { kicadSymbolLibWildcard } from '../../fs/wildcards.js';
 import {
   applyToggle,
+  mergeSymbolToggles,
   persistSymbolToggle,
   SYMBOL_SETTING_TOGGLES,
   symbolTogglesFromSettings,
@@ -283,8 +284,19 @@ export function SymbolEditor({
   // The frame boots from `symbol_editor.json`, not from a constant set: Show
   // Grid and Grid Overrides are settings upstream (see `toggles.ts`), so both
   // buttons must come up showing the file.
-  const [toggles, setToggles] = useState<Set<string>>(() =>
+  const [sessionToggles, setToggles] = useState<Set<string>>(() =>
     symbolTogglesFromSettings(settings.symbolEditor),
+  );
+  /**
+   * What the toolbars and the canvas actually see. The settings-backed ids are
+   * re-read from `symbol_editor.json` every render, which is how a button
+   * follows Preferences > Symbol Editor > Display Options pressing OK — the
+   * `CHECK` conditions upstream read the settings object and are evaluated on
+   * every idle, so there is nothing there to go stale. See `toggles.ts`.
+   */
+  const toggles = useMemo(
+    () => mergeSymbolToggles(sessionToggles, symCfg),
+    [sessionToggles, symCfg],
   );
   const [cursor, setCursor] = useState<Vec2 | null>(null);
   const [scale, setScale] = useState(1);
