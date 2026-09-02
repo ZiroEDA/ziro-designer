@@ -5281,6 +5281,10 @@ export function SchematicEditor({
       showHiddenPins: es.appearance.show_hidden_pins,
       showHiddenFields: es.appearance.show_hidden_fields,
       showPageLimits: es.appearance.show_page_limits,
+      // `eeconfig()->m_Appearance.show_directive_labels` — read per label by
+      // the painter (sch_painter.cpp:3266), so the flags disappear the moment
+      // Display Options turns them off, and a selected one stays visible.
+      showDirectiveLabels: es.appearance.show_directive_labels,
       // `eeconfig()->m_Appearance.mark_sim_exclusions` — the painter reads it
       // per symbol (sch_painter.cpp:2696), so the marker disappears the moment
       // Display Options turns it off.

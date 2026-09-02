@@ -178,6 +178,13 @@ function outputRenderOpts(opts: PlotOpts): RenderOpts {
     showHiddenPins: false,
     showHiddenFields: false,
     showPageLimits: false,
+    // Directive labels are ordinary schematic content, not a "hidden item"
+    // like the two above, so a plot carries them. Upstream the painter reads
+    // the LIVE `eeconfig()` here as it does on screen, which we cannot from a
+    // plotter that is handed no settings — so this is the PARAM's own default
+    // (`eeschema_settings.cpp:210-211`), and a plot made with the flags turned
+    // off on screen still shows them. Stated rather than silent.
+    showDirectiveLabels: true,
     showDrawingSheet: opts.drawingSheet,
     ...(opts.sheet ? { drawingSheet: opts.sheet } : {}),
     pageNumber: opts.pageNumber,

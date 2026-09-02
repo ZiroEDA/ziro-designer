@@ -92,7 +92,6 @@ export function PanelEeschemaDisplayOptions({ ctx }: { ctx: PrefsContext }): JSX
           <Check
             label="Show directive labels"
             checked={eeschema.appearance.show_directive_labels}
-            disabled
             onChange={(v) =>
               upE((s) => {
                 s.appearance.show_directive_labels = v;

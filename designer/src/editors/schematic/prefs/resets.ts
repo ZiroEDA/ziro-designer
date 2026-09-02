@@ -155,7 +155,18 @@ export function resetEeschemaEditingOptions(ctx: PrefsContext): void {
  * theme. This one was already narrow.
  */
 export function resetEeschemaColorSettings(ctx: PrefsContext): void {
-  ctx.setUserColors({});
+  // Only THIS app's namespace. `colors/user.json` holds every app's colours —
+  // upstream keyed by `m_colorNamespace`, here by the key's prefix — and
+  // `PANEL_COLOR_SETTINGS::ResetPanel` walks `m_swatches`, which are this
+  // panel's own. Emptying the file took the Gerber Viewer's 128 graphic layers
+  // with it, which upstream's reset cannot do because eeschema's page has no
+  // gerbview swatch to walk. Found by the Gerber Viewer's Colors page landing
+  // beside it.
+  ctx.setUserColors((c) => {
+    const out: Record<string, string> = {};
+    for (const [k, v] of Object.entries(c)) if (k.includes('.')) out[k] = v;
+    return out;
+  });
   ctx.upE((s) => {
     s.appearance.color_theme = EESCHEMA_DEFAULTS.appearance.color_theme;
   });

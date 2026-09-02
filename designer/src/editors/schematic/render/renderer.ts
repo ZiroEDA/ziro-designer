@@ -458,6 +458,19 @@ export interface Viewport {
  */
 export interface RenderOpts {
   showHiddenPins: boolean;
+  /**
+   * `EESCHEMA_SETTINGS::m_Appearance.show_directive_labels`
+   * (`eeschema_settings.cpp:210-211`, default true).
+   *
+   * `SCH_PAINTER::draw( const SCH_DIRECTIVE_LABEL* )` opens with
+   *
+   *     if( !eeconfig()->m_Appearance.show_directive_labels && !aLabel->IsSelected() )
+   *         return;                                    (sch_painter.cpp:3266-3267)
+   *
+   * — so a SELECTED directive label is drawn whatever the setting says, which
+   * is what stops one vanishing under the pointer while it is being edited.
+   */
+  showDirectiveLabels: boolean;
   showHiddenFields: boolean;
   showPageLimits: boolean;
   /** Draw the page border + title block (LAYER_DRAWINGSHEET). Defaults to true;
@@ -640,6 +653,8 @@ export interface RenderOpts {
 
 export const DEFAULT_RENDER_OPTS: RenderOpts = {
   showHiddenPins: false,
+  // [data] `PARAM<bool>( "appearance.show_directive_labels", …, true )`.
+  showDirectiveLabels: true,
   showHiddenFields: false,
   showPageLimits: true,
   selectionThicknessMils: 3,
@@ -1205,6 +1220,9 @@ export function renderSchematic(
   // line from the anchor and the flag shape at its end, in LAYER_NETCLASS_REFS.
   // The visible fields ("Netclass") are drawn beside it.
   for (const [i, d] of (sch.directiveLabels ?? []).entries()) {
+    // `if( !show_directive_labels && !aLabel->IsSelected() ) return;`
+    if (!opts.showDirectiveLabels && !(selection?.has(refId('directive', d.uuid, i)) ?? false))
+      continue;
     const g = directiveGraphic(d);
     const box = directiveBox(d);
     if (!inView(box.minX, box.minY, box.maxX, box.maxY)) continue;

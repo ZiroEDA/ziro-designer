@@ -117,7 +117,6 @@ describe('a group is disabled on the side that does not read it', () => {
 describe('the rows nothing reads are disabled', () => {
   it.each([
     ['Default font:'],
-    ['Show directive labels'],
     ['Show OP voltages'],
     ['Show OP currents'],
     ['Show pin alternate mode indicator icons'],
@@ -132,6 +131,10 @@ describe('the rows nothing reads are disabled', () => {
   });
 
   it.each([
+    // `sch_painter.cpp:3266` reads it per directive label, and the second half
+    // of that line — `&& !aLabel->IsSelected()` — is why a selected one stays
+    // visible. Pinned in `sch_directive_labels_setting.test.ts`.
+    ['Show directive labels', 'show_directive_labels'],
     ['Show hidden pins', 'show_hidden_pins'],
     ['Show ERC errors', 'show_erc_errors'],
     ['Show page limits', 'show_page_limits'],
