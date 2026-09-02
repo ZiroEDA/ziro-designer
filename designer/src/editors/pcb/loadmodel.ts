@@ -3,57 +3,36 @@
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Load a STEP/IGES model into a three.js object, in the browser. Counterpart:
- * `plugins/3d/occ/loadmodel.cpp`, KiCad tessellates these formats with its
+ * `plugins/3d/occ/loadmodel.cpp` — KiCad tessellates these formats with its
  * OpenCascade kernel; we use the same kernel compiled to WASM
  * (occt-import-js), lazy-loaded on first use so boards without project-local
  * CAD models never pay for it.
  *
- * Geometry comes out in the file's native millimetres, KiCad model space,
- * with per-BREP-face STEP colors mapped to one material per color, exactly as
- * our offline library converter does for the hosted `.glb` set.
+ * Three things happen here, in the order KiCad does them
+ * (`3d-viewer/3d_cache/3d_cache.cpp:255-315`):
+ *
+ *   1. hash the file's bytes,
+ *   2. answer from the cache if those exact bytes have been tessellated before,
+ *   3. otherwise run the kernel — in a worker — and cache what comes back.
+ *
+ * Step 2 is the whole performance story. Tessellation is 1.5-2x slower here
+ * than in native KiCad (measured: 10.99 s of WASM against a 6.87 s
+ * `kicad-cli pcb export glb` for the same four models), which is the ordinary
+ * WASM penalty and not something a different library fixes. Nobody pays it
+ * twice, on either side.
+ *
+ * Geometry comes out in the file's native millimetres, KiCad model space, with
+ * per-BREP-face STEP colors mapped to one material per color, exactly as our
+ * offline library converter does for the hosted `.glb` set.
  */
 import * as THREE from 'three';
+import type { CadKind, Tessellation } from './occt_types.js';
+import { tessellate } from './occt_tessellate.js';
+import type { OcctRequest, OcctResponse } from './occt_worker.js';
+import { cacheGet, cachePut, modelKey } from './model_cache.js';
 
-interface OcctFace {
-  first: number;
-  last: number;
-  color?: [number, number, number] | null;
-}
-interface OcctMesh {
-  name?: string;
-  attributes: { position: { array: number[] }; normal?: { array: number[] } };
-  index: { array: number[] };
-  color?: [number, number, number] | null;
-  brep_faces?: OcctFace[];
-}
-interface OcctResult {
-  success: boolean;
-  meshes: OcctMesh[];
-}
-interface OcctModule {
-  ReadStepFile(content: Uint8Array, params: null): OcctResult;
-  ReadIgesFile(content: Uint8Array, params: null): OcctResult;
-}
-
-let occtPromise: Promise<OcctModule> | null = null;
-
-// Lazy singleton: the WASM kernel is ~11 MB, fetched only when a project
-// actually ships a STEP/IGES model.
-function occt(): Promise<OcctModule> {
-  if (!occtPromise) {
-    occtPromise = (async () => {
-      const [{ default: init }, { default: wasmUrl }] = await Promise.all([
-        import('occt-import-js'),
-        import('occt-import-js/dist/occt-import-js.wasm?url'),
-      ]);
-      return (await init({ locateFile: () => wasmUrl })) as OcctModule;
-    })();
-  }
-  return occtPromise;
-}
-
-function toObject3D(result: OcctResult): THREE.Object3D | null {
-  if (!result.success || result.meshes.length === 0) return null;
+function toObject3D(tess: Tessellation): THREE.Object3D | null {
+  if (tess.meshes.length === 0) return null;
   const root = new THREE.Group();
   const matCache = new Map<string, THREE.MeshStandardMaterial>();
   const materialFor = (color: [number, number, number] | null): THREE.MeshStandardMaterial => {
@@ -70,12 +49,10 @@ function toObject3D(result: OcctResult): THREE.Object3D | null {
     return m;
   };
 
-  for (const mesh of result.meshes) {
-    const position = new THREE.Float32BufferAttribute(mesh.attributes.position.array, 3);
-    const normal = mesh.attributes.normal
-      ? new THREE.Float32BufferAttribute(mesh.attributes.normal.array, 3)
-      : null;
-    const allIdx = Uint32Array.from(mesh.index.array);
+  for (const mesh of tess.meshes) {
+    const position = new THREE.Float32BufferAttribute(mesh.position, 3);
+    const normal = mesh.normal ? new THREE.Float32BufferAttribute(mesh.normal, 3) : null;
+    const allIdx = mesh.index;
 
     // STEP colors are per-BREP-face; group triangle ranges by color into one
     // mesh per color, sharing the vertex buffers.
@@ -83,10 +60,9 @@ function toObject3D(result: OcctResult): THREE.Object3D | null {
       string,
       { color: [number, number, number] | null; ranges: [number, number][] }
     >();
-    const faces: OcctFace[] =
-      mesh.brep_faces && mesh.brep_faces.length > 0
-        ? mesh.brep_faces
-        : [{ first: 0, last: allIdx.length / 3 - 1, color: mesh.color ?? null }];
+    const faces = mesh.faces ?? [
+      { first: 0, last: allIdx.length / 3 - 1, color: mesh.color ?? null },
+    ];
     for (const f of faces) {
       const color = f.color ?? mesh.color ?? null;
       const key = color ? color.join(',') : 'default';
@@ -118,16 +94,92 @@ function toObject3D(result: OcctResult): THREE.Object3D | null {
   return root;
 }
 
-/** Tessellate STEP (or IGES) file content to a three.js object; null on failure. */
-export async function loadCadModel(
-  bytes: Uint8Array,
-  kind: 'step' | 'iges',
-): Promise<THREE.Object3D | null> {
-  try {
-    const mod = await occt();
-    const result = kind === 'step' ? mod.ReadStepFile(bytes, null) : mod.ReadIgesFile(bytes, null);
-    return toObject3D(result);
-  } catch {
+interface Pending {
+  resolve: (t: Tessellation | null) => void;
+}
+
+let worker: Worker | null = null;
+let workerBroken = false;
+let nextId = 1;
+const pending = new Map<number, Pending>();
+
+/**
+ * The kernel worker, or null where there is no `Worker` to make one from
+ * (happy-dom under test, and any environment that has taken workers away).
+ * A missing worker must degrade to a slow main thread, never to a blank board.
+ */
+function ensureWorker(): Worker | null {
+  if (workerBroken) return null;
+  if (worker) return worker;
+  if (typeof Worker === 'undefined') {
+    workerBroken = true;
     return null;
   }
+  try {
+    worker = new Worker(new URL('./occt_worker.js', import.meta.url), { type: 'module' });
+    worker.onmessage = (e: MessageEvent<OcctResponse>) => {
+      const p = pending.get(e.data.id);
+      if (!p) return;
+      pending.delete(e.data.id);
+      p.resolve(e.data.tess);
+    };
+    // A worker that dies takes every in-flight request with it. Answer them
+    // (as failures) rather than leaving their promises hanging forever, and
+    // fall back to the main thread from here on.
+    worker.onerror = () => {
+      workerBroken = true;
+      worker = null;
+      for (const [, p] of pending) p.resolve(null);
+      pending.clear();
+    };
+    return worker;
+  } catch {
+    workerBroken = true;
+    return null;
+  }
+}
+
+function runTessellation(bytes: Uint8Array, kind: CadKind): Promise<Tessellation | null> {
+  const w = ensureWorker();
+  if (!w) return tessellate(bytes, kind);
+  return new Promise((resolve) => {
+    const id = nextId++;
+    pending.set(id, { resolve });
+    const req: OcctRequest = { id, bytes, kind };
+    // `bytes` belongs to the project's file list and is read again on every
+    // board load, so it is copied to the worker rather than transferred.
+    w.postMessage(req);
+  });
+}
+
+/**
+ * Tessellate STEP (or IGES) file content to a three.js object; null on failure.
+ *
+ * Answers from the cache when these exact bytes have been seen before — on
+ * this board, another board, or a previous session.
+ */
+export async function loadCadModel(
+  bytes: Uint8Array,
+  kind: CadKind,
+): Promise<THREE.Object3D | null> {
+  let hash: string | null = null;
+  try {
+    hash = await modelKey(bytes);
+  } catch {
+    // No SubtleCrypto (an insecure origin, say). Tessellate uncached rather
+    // than refuse to draw the model.
+    hash = null;
+  }
+
+  if (hash) {
+    const hit = await cacheGet(hash);
+    // A row with `tess: null` is a remembered failure: the kernel already
+    // could not read these bytes, and re-running it would cost seconds to
+    // reach the same answer.
+    if (hit) return hit.tess ? toObject3D(hit.tess) : null;
+  }
+
+  const tess = await runTessellation(bytes, kind);
+  if (hash) await cachePut(hash, tess);
+  return tess ? toObject3D(tess) : null;
 }
