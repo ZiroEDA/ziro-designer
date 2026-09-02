@@ -18,6 +18,7 @@
  * out of the DRC constraints.
  */
 
+import { unescapeString } from '@ziroeda/common/src/string_utils.js';
 import type { Board } from './types.js';
 
 export interface NetRow {
@@ -51,8 +52,15 @@ export function netInspectorRows(
       const name = board.nets.get(net) ?? '';
       row = {
         net,
-        name,
-        netclass: [...netClassesOf(name)].join(', '),
+        // Displayed, so unescaped — `PCB_NET_INSPECTOR_PANEL`'s data model is
+        // `UnescapeString( aNet->GetNetname() )`. The raw `name` stays the
+        // lookup key below: netclass assignments are keyed by the stored form,
+        // and unescaping before the lookup would match nothing (issue #626).
+        name: unescapeString(name),
+        // Per class, not over the joined string: upstream unescapes each
+        // `netClass->GetName()`, and a `, ` separator inserted between escaped
+        // names is not itself something to unescape.
+        netclass: [...netClassesOf(name)].map(unescapeString).join(', '),
         padCount: 0,
         viaCount: 0,
         trackCount: 0,

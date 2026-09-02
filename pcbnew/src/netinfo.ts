@@ -14,6 +14,7 @@
 
 import { atom, head, isList, str, type SList, type SNode } from '@ziroeda/sexpr/src/types.js';
 import { arg, numArg } from '@ziroeda/sexpr/src/query.js';
+import { unescapeString } from '@ziroeda/common/src/string_utils.js';
 import type { Board } from './types.js';
 
 /** NETINFO_LIST::UNCONNECTED, the code every unconnected item carries. */
@@ -29,6 +30,34 @@ export function findNet(board: Board, netName: string): number | undefined {
 
 /** NETINFO_LIST::GetNetItem( code ), the name of a net by code. */
 export const netName = (board: Board, code: number): string => board.nets.get(code) ?? '';
+
+/**
+ * `NETINFO_ITEM::GetShortNetname`: the part of a net name after the last `/`.
+ *
+ * The separator is the *hierarchy* separator, so a slash that belongs to a
+ * label's own name is not one: the schematic writes that as `{slash}`, which is
+ * why splitting has to happen before unescaping and never after.
+ */
+export const shortNetname = (name: string): string => name.slice(name.lastIndexOf('/') + 1);
+
+/**
+ * `BOARD_CONNECTED_ITEM::GetDisplayNetname`: the short net name, unescaped —
+ * what every painter puts on a pad, track, via or shape.
+ *
+ * It exists because the escaped form is a *file* encoding, not a name anybody
+ * chose. A net called `SDA/A4` in the schematic is stored `SDA{slash}A4`
+ * (`EscapeString`, CTX_NETNAME, since `/` already means hierarchy), and every
+ * painter site here computed the short name inline and drew it raw — so the
+ * board showed `SDA{slash}A4` (issue #626). KiCad has one accessor and five
+ * call sites; the reason to have one here is that five inline copies is exactly
+ * how four of them stayed wrong.
+ *
+ * Not yet ported: `NETINFO_LIST::RebuildDisplayNetnames` also lengthens the
+ * name when two nets share a short one — `/Sheet1/SDA` and `/Sheet2/SDA` show
+ * with enough of their paths to tell them apart. That is a separate gap and
+ * needs the whole net list, not one name.
+ */
+export const displayNetname = (name: string): string => unescapeString(shortNetname(name));
 
 /** NETINFO_LIST::getFreeNetCode, net codes stay consecutive. */
 function freeNetCode(board: Board): number {
