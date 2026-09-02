@@ -842,10 +842,25 @@ export function LibSymbolPropertiesDialog({
 
 export function SymbolTextDialog({
   initial,
+  defaultFontSize,
   onOk,
   onCancel,
 }: {
   initial?: { text: string; fontSize: number; bold: boolean; italic: boolean };
+  /**
+   * `cfg->m_Defaults.text_size`, in IU — what a NEW text item opens at.
+   *
+   * Upstream the tool sets it on the item BEFORE the dialog is constructed:
+   *
+   *     text->SetTextSize( VECTOR2I( schIUScale.MilsToIU( cfg->m_Defaults.text_size ), … ) );
+   *     DIALOG_TEXT_PROPERTIES dlg( m_frame, text );
+   *     (`eeschema/tools/symbol_editor_drawing_tools.cpp:238-246`)
+   *
+   * so the dialog opens showing the preference rather than a constant. Ours
+   * held `1.27 * MM` here, which is that default written past the page that
+   * sets it.
+   */
+  defaultFontSize?: number;
   onOk: (r: { text: string; fontSize: number; bold: boolean; italic: boolean }) => void;
   onCancel: () => void;
 }): JSX.Element {
@@ -854,7 +869,7 @@ export function SymbolTextDialog({
   useModalEscape(onCancel);
 
   const [text, setText] = useState(initial?.text ?? '');
-  const [size, setSize] = useState(initial?.fontSize ?? 1.27 * MM);
+  const [size, setSize] = useState(initial?.fontSize ?? defaultFontSize ?? 1.27 * MM);
   const [bold, setBold] = useState(initial?.bold ?? false);
   const [italic, setItalic] = useState(initial?.italic ?? false);
   const submit = (): void => {

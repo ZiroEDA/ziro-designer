@@ -9292,6 +9292,49 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-pref-buttoncol > button:first-child {
   margin-bottom: 10px; /* [data] the spacer's own height. */
 }
+/* `gbSizer1` on `PANEL_SYM_EDITING_OPTIONS`
+   (`panel_sym_editing_options_base.cpp:33-36`), the one grid-bag sizer in these
+   pages whose vertical gap is not the 5 every other group carries:
+
+     gbSizer1 = new wxGridBagSizer( 2, 0 );
+     gbSizer1->SetEmptyCellSize( wxSize( -1, 8 ) );
+
+   A wrapper rather than per-row classes, because the gap belongs to the SIZER
+   and the borders belong to each Add(): the rows still carry their own
+   `ze-border-top`, and this is what sits between them. */
+.ze-sym-gbsizer {
+  display: flex;
+  flex-direction: column;
+}
+.ze-sym-gbsizer > * {
+  /* [data] the 2 of `wxGridBagSizer( 2, 0 )`. */
+  margin-bottom: 2px;
+}
+/* `wxTOP, 5` on the Default text size row's three cells. */
+.ze-sym-gbsizer > .ze-border-top {
+  margin-top: 5px; /* [data] */
+}
+/* `m_widthHelpText`, added `wxBOTTOM|wxLEFT, 5`. */
+.ze-sym-gbsizer > .ze-pref-infotext {
+  /* [data] the wxLEFT and wxBOTTOM of that Add(); the vgap above it stands. */
+  margin: 0 0 5px 5px;
+}
+/* Row 3 of that sizer is left unfilled, so it is `SetEmptyCellSize`'s height
+   and nothing else. */
+.ze-sym-gb-empty {
+  height: 8px; /* [data] the 8 of `SetEmptyCellSize( wxSize( -1, 8 ) )`. */
+  margin-bottom: 0;
+}
+/* `KIUI::GetInfoFont( this ).Italic()` (`panel_sym_editing_options.cpp:51`),
+   which is `getGUIFont( aWindow, -1 )` — the GUI font ONE point down, where
+   `.ze-pref-hint` above is `GetSmallInfoFont`'s two. Two different calls, so
+   two different sizes; `--ui-font-size-info` was declared for exactly this and
+   this is its first consumer. No `SetForegroundColour` anywhere near it, so no
+   colour here either. */
+.ze-pref-infotext {
+  font-size: var(--ui-font-size-info);
+  font-style: italic;
+}
 /* `m_hint1` / `m_hint2`, the two-line note under Left Click Mouse Commands:
    `KIUI::GetSmallInfoFont( this ).Italic()` (`panel_eeschema_editing_options.cpp:79`),
    which is `getGUIFont( aWindow, -2 )` — the GUI font two points down — and no

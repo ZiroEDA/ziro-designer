@@ -15,10 +15,12 @@
  * nothing here may reach into another editor.
  */
 import { PanelSymbolEditorDisplayOptions } from './PanelSymbolEditorDisplayOptions.js';
+import { PanelSymbolEditorEditingOptions } from './PanelSymbolEditorEditingOptions.js';
 import { PanelSymbolEditorGrids } from './PanelSymbolEditorGrids.js';
 import { PanelSymbolEditorToolbars } from './PanelSymbolEditorToolbars.js';
 import {
   resetSymbolEditorDisplayOptions,
+  resetSymbolEditorEditingOptions,
   resetSymbolEditorGrids,
   resetSymbolEditorToolbars,
 } from './resets.js';
@@ -40,6 +42,12 @@ export const createPrefsPanel: PrefsPanelFactory = (id: PrefsPageId): PrefsPanel
       return {
         Panel: PanelSymbolEditorGrids,
         reset: resetSymbolEditorGrids,
+      };
+
+    case 'sym-editing':
+      return {
+        Panel: PanelSymbolEditorEditingOptions,
+        reset: resetSymbolEditorEditingOptions,
       };
 
     case 'sym-toolbars':

@@ -82,6 +82,7 @@ import {
 } from './edits.js';
 import { MM, symItemId, type SymbolViewOptions } from './render/symbolRenderer.js';
 import { symbolGridIU } from './grid.js';
+import { symbolItemDefaults } from './defaults.js';
 import { settings } from '../../prefs/settings.js';
 import type { SymbolHit } from './edits.js';
 import {
@@ -169,16 +170,31 @@ interface LastPinState {
  */
 const LIBRARY_TREE_WIDTH = 250;
 
-const DEFAULT_LAST_PIN: LastPinState = {
-  electricalType: 'input',
-  shape: 'line',
-  angle: 0,
-  length: 2.54 * MM, // DEFAULT_PIN_LENGTH = 100 mils
-  nameSize: 1.27 * MM, // DEFAULT_PINNAME_SIZE = 50 mils
-  numberSize: 1.27 * MM, // DEFAULT_PINNUM_SIZE = 50 mils
-  commonUnit: false,
-  commonBody: false,
-  visible: true,
+/**
+ * `g_LastPin*`'s starting values (`symbol_editor_pin_tool.cpp:37-79`).
+ *
+ * The four that are not sizes are static initialisers there —
+ * `PIN_ORIENTATION::PIN_RIGHT`, `GRAPHIC_PINSHAPE::LINE`, both `common` flags
+ * false, visible true — and stay literals here. The three sizes are NOT: they
+ * are `-1` sentinels that `GetLastPinLength()` and its two siblings fill in
+ * from `cfg->m_Defaults` the first time a pin is placed, which is what makes
+ * Preferences > Symbol Editor > Editing Options mean anything. They were
+ * `2.54 * MM` and `1.27 * MM` here, i.e. the defaults hardcoded past the page
+ * that sets them.
+ */
+const lastPinDefaults = (cfg = settings.symbolEditor): LastPinState => {
+  const d = symbolItemDefaults(cfg);
+  return {
+    electricalType: 'input',
+    shape: 'line',
+    angle: 0,
+    length: d.pinLengthIU,
+    nameSize: d.pinNameSizeIU,
+    numberSize: d.pinNumberSizeIU,
+    commonUnit: false,
+    commonBody: false,
+    visible: true,
+  };
 };
 
 const basename = (p: string): string => p.split('/').pop()!.split('\\').pop()!;
@@ -379,7 +395,11 @@ export function SymbolEditor({
   useModalEscape(() => setNewLibName(null), newLibName !== null);
   useModalEscape(() => setLibError(null), libError !== null);
 
-  const lastPin = useRef<LastPinState>({ ...DEFAULT_LAST_PIN });
+  // `g_LastPin*` are process statics upstream, filled in from the settings file
+  // on first use; ours are per-frame, seeded from the same file when the frame
+  // opens. Either way a change on Editing Options reaches the next NEW pin and
+  // does not disturb one the user has already sized.
+  const lastPin = useRef<LastPinState>(lastPinDefaults(settings.symbolEditor));
   const controller = useRef<SymbolCanvasController>(null);
   const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
 
@@ -1184,8 +1204,8 @@ export function SymbolEditor({
         shape: r.pin.shape,
         angle: r.pin.angle,
         length: r.pin.length,
-        nameSize: r.pin.nameSize ?? DEFAULT_LAST_PIN.nameSize,
-        numberSize: r.pin.numberSize ?? DEFAULT_LAST_PIN.numberSize,
+        nameSize: r.pin.nameSize ?? lastPin.current.nameSize,
+        numberSize: r.pin.numberSize ?? lastPin.current.numberSize,
         commonUnit: r.commonToAllUnits,
         commonBody: r.commonToAllBodyStyles,
         visible: !r.pin.hidden,
@@ -1341,10 +1361,26 @@ export function SymbolEditor({
   const onPlaceShape = useCallback(
     (g: LibGraphic) => {
       if (!workSymbol || isAlias) return;
-      // New shapes take KiCad's defaults: line_width 0 ("default") and no fill.
-      commit(addGraphicToSymbol(workSymbol, g, unit, bodyStyle).sym, `Add ${g.kind}`);
+      // `int lineWidth = schIUScale.MilsToIU( cfg->m_Defaults.line_width )`,
+      // handed to every SHAPE the tool constructs
+      // (`symbol_editor_drawing_tools.cpp:480`). Two narrowings, both
+      // upstream's:
+      //
+      //  - `kind: 'text'` is excluded because a `SCH_TEXT` is not built with a
+      //    line width at all (`:230`) — only the textbox and the shapes are —
+      //    and `LibGraphic`'s text arm has no `stroke` to put one on;
+      //  - width 0 is left as NO stroke rather than `(stroke (width 0))`. Zero
+      //    is upstream's "inherit line width properties from schematic", which
+      //    is what an absent stroke already means to the writer, so a default
+      //    profile keeps writing exactly the bytes it did.
+      const lineWidthIU = symbolItemDefaults(symCfg).lineWidthIU;
+      const shaped: LibGraphic =
+        lineWidthIU > 0 && g.kind !== 'text'
+          ? { ...g, stroke: { ...(g.stroke ?? { type: 'default' }), width: lineWidthIU } }
+          : g;
+      commit(addGraphicToSymbol(workSymbol, shaped, unit, bodyStyle).sym, `Add ${g.kind}`);
     },
-    [workSymbol, isAlias, unit, bodyStyle, commit],
+    [workSymbol, isAlias, unit, bodyStyle, commit, symCfg],
   );
 
   // ----- item editing -----------------------------------------------------------------
@@ -2432,6 +2468,11 @@ export function SymbolEditor({
       {textDialog && (
         <SymbolTextDialog
           {...(textDialog.initial ? { initial: textDialog.initial } : {})}
+          // `cfg->m_Defaults.text_size` — the size a NEW text item opens at,
+          // set on the item BEFORE the dialog is constructed
+          // (`symbol_editor_drawing_tools.cpp:238-246`). An EDIT keeps the
+          // item's own size, which is what `initial` above carries.
+          defaultFontSize={symbolItemDefaults(symCfg).textSizeIU}
           onOk={onTextDialogOk}
           onCancel={() => {
             setTextDialog(null);
