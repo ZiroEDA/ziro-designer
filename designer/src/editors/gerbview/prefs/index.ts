@@ -22,10 +22,12 @@
  */
 import { PanelGerbviewColorSettings } from './PanelGerbviewColorSettings.js';
 import { PanelGerbviewDisplayOptions } from './PanelGerbviewDisplayOptions.js';
+import { PanelGerbviewGrids } from './PanelGerbviewGrids.js';
 import { PanelGerbviewToolbars } from './PanelGerbviewToolbars.js';
 import {
   resetGerbviewColorSettings,
   resetGerbviewDisplayOptions,
+  resetGerbviewGrids,
   resetGerbviewToolbars,
 } from './resets.js';
 import type {
@@ -51,6 +53,12 @@ export const createPrefsPanel: PrefsPanelFactory = (id: PrefsPageId): PrefsPanel
         // subclass of it, unlike the symbol editor's and pl_editor's, so it
         // inherits the override rather than DEFAULT_RESET_TOOLTIP.
         resetTooltip: 'Reset all colors in this theme to the KiCad defaults',
+      };
+
+    case 'gbr-grids':
+      return {
+        Panel: PanelGerbviewGrids,
+        reset: resetGerbviewGrids,
       };
 
     case 'gbr-toolbars':

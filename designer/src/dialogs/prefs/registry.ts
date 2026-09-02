@@ -83,6 +83,7 @@ export const PAGES: readonly PrefsPageEntry[] = [
   { id: 'gbr-display', label: 'Display Options', indent: true, owner: 'gerbview' },
   { id: 'gbr-colors', label: 'Colors', indent: true, owner: 'gerbview' },
   { id: 'gbr-toolbars', label: 'Toolbars', indent: true, owner: 'gerbview' },
+  { id: 'gbr-grids', label: 'Grids', indent: true, owner: 'gerbview' },
   // pl_editor's KIFACE is added last of the five, after gerbview's
   // (`common/eda_base_frame.cpp:1726-1737`).
   { id: null, label: 'Drawing Sheet Editor' },
@@ -269,12 +270,6 @@ export const OMITTED_PAGES: Readonly<Record<string, readonly DeclaredPage[]>> = 
   // into existence; Toolbars came with it because `prefs_page_book.test.ts`
   // requires every heading upstream gives a Toolbars page to have one here.
   'Gerber Viewer': [
-    {
-      label: 'Grids',
-      reason:
-        'Being built. The shared PANEL_GRID_SETTINGS with FRAME_GERBER, which hides the whole ' +
-        'Grid Overrides group (panel_grid_settings.cpp:62-90).',
-    },
     {
       label: 'Excellon Options',
       reason:

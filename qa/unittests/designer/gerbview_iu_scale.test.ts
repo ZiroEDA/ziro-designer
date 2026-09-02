@@ -36,6 +36,27 @@ const ROOTS = ['../../../designer/src/editors/gerbview', '../../../designer/src/
   (r) => fileURLToPath(new URL(r, import.meta.url)),
 );
 
+/**
+ * `editors/gerbview/prefs/` is DIALOG code and is scanned out.
+ *
+ * The rule this file guards is about the CANVAS: a coordinate, a bounding box
+ * or a pen width there is in the parser's 1e6, so reaching for `common`'s 1e5
+ * to size or place something is out by ten. A Preferences panel places nothing.
+ * What it does with a scale is FORMAT — `gridChoiceLabel( g, units,
+ * iuScale.IU_PER_MM )` decides how many digits a grid row prints to — and the
+ * scale it must use for that is the one the KIFACE's own `UNITS_PROVIDER`
+ * carries, which upstream is `UNITS_PROVIDER( gerbIUScale, EDA_UNITS::MM )`
+ * (`gerbview/gerbview.cpp:60-61`). So `gerbIUScale` is the RIGHT answer there
+ * and 1e6 would be the wrong one — the exact inversion of the canvas rule,
+ * which is why the exception is a directory and not a per-line waiver.
+ *
+ * `PanelPlEditorGrids` is the same shape with `drawSheetIUScale`, and lives
+ * outside these roots only because pl_editor has no such mismatch to guard.
+ */
+const SCANNED_OUT = [
+  fileURLToPath(new URL('../../../designer/src/editors/gerbview/prefs', import.meta.url)),
+];
+
 /** Source with comments blanked — prose about the trap is not an import of it. */
 const strip = (s: string): string => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
 
@@ -54,6 +75,7 @@ const offenders = (pattern: RegExp): string[] => {
   const hits: string[] = [];
   for (const root of ROOTS) {
     for (const file of walk(root)) {
+      if (SCANNED_OUT.some((dir) => file.startsWith(`${dir}/`))) continue;
       const rel = relative(fileURLToPath(new URL('../../..', import.meta.url)), file);
       strip(readFileSync(file, 'utf8'))
         .split('\n')

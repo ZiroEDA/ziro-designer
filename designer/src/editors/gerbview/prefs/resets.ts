@@ -63,6 +63,31 @@ export function resetGerbviewDisplayOptions(ctx: PrefsContext): void {
 }
 
 /**
+ * `PANEL_GRID_SETTINGS::ResetPanel` (`common/dialogs/panel_grid_settings.cpp:
+ * 110-113`) — the same two lines for every frame that constructs the panel, so
+ * the slice is the same as the schematic's and the Drawing Sheet Editor's over
+ * this editor's settings object.
+ *
+ * `overrides` is in the list even though gerbview draws no override row:
+ * `TransferDataFromWindow` assigns the whole `m_grids` block back regardless,
+ * and a key left out here is a field that silently never resets. It is empty
+ * for this app, so resetting it is a no-op — which is the correct no-op, not an
+ * omission.
+ */
+export function resetGerbviewGrids(ctx: PrefsContext): void {
+  ctx.upGbr((s) => {
+    resetKeys(s.window.grid, GERBVIEW_DEFAULTS.window.grid, [
+      'sizes',
+      'last_size_idx',
+      'fast_grid_1',
+      'fast_grid_2',
+      'overrides_enabled',
+      'overrides',
+    ]);
+  });
+}
+
+/**
  * `PANEL_COLOR_SETTINGS::ResetPanel` (`common/dialogs/panel_color_settings.cpp:
  * 72-87`):
  *

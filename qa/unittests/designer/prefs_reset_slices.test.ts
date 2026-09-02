@@ -85,6 +85,7 @@ import {
 import {
   resetGerbviewColorSettings,
   resetGerbviewDisplayOptions,
+  resetGerbviewGrids,
   resetGerbviewToolbars,
 } from '@ziroeda/designer/src/editors/gerbview/prefs/resets.js';
 import {
@@ -337,6 +338,23 @@ const SLICES: Partial<Record<PrefsPageId, readonly string[]>> = {
   // `bagLeaves`). Checked by "the Colors pages share one file, one namespace
   // each" at the bottom of this file instead — a page skipped here without a
   // test of its own would be a page nobody checks.
+  // PanelGerbviewGrids.tsx — the same PANEL_GRID_SETTINGS the schematic's and
+  // the Drawing Sheet Editor's Grids pages are, so the same slice over this
+  // editor's settings object.
+  'gbr-grids': [
+    'gerbview.window.grid.sizes',
+    'gerbview.window.grid.last_size_idx',
+    'gerbview.window.grid.fast_grid_1',
+    'gerbview.window.grid.fast_grid_2',
+    'gerbview.window.grid.overrides_enabled',
+    // `gerbview.window.grid.overrides` is deliberately NOT here. The panel does
+    // assign the whole `m_grids` block back, and the reset does put that key
+    // back — but `PANEL_GRID_SETTINGS` hides every override row for
+    // FRAME_GERBER (`panel_grid_settings.cpp:62-90`), so the record is
+    // permanently empty and resetting it cannot move a leaf. Listing a leaf
+    // that can never change would make this page the one test in the file
+    // asserting something unobservable.
+  ],
   'gbr-toolbars': ['toolbars.gerbview'],
 };
 
@@ -362,6 +380,7 @@ const RESETS: Partial<Record<PrefsPageId, (ctx: PrefsContext) => void>> = {
   'ds-toolbars': resetPlEditorToolbars,
   'gbr-colors': resetGerbviewColorSettings,
   'gbr-display': resetGerbviewDisplayOptions,
+  'gbr-grids': resetGerbviewGrids,
   'gbr-toolbars': resetGerbviewToolbars,
 };
 
@@ -540,11 +559,15 @@ function dirtyEverything(bag: Bag): void {
   bag.gerbview = dirty(bag.gerbview) as GerbviewSettings;
   bag.plEditor = dirty(bag.plEditor) as PlEditorSettings;
   bag.privacy = dirty(bag.privacy) as PrivacySettings;
-  // Two namespaces, because `colors/user.json` holds every app's colours under
-  // its own (`m_colorNamespace`). Resetting one editor's Colors page must
-  // leave the other's rows alone, and a single-key map could not tell the
-  // difference between doing that and clearing the lot.
-  bag.userColors = { wire: '#ff0000', 'gerbview.grid': '#00ff00' };
+  // ONE namespace, the schematic's. `colors/user.json` holds every app's
+  // colours under its own (`m_colorNamespace`), but this harness compares
+  // `userColors` as a single leaf — it has no fixed shape — so it can say "the
+  // record moved" and not "whose rows moved". Dirtying a second namespace here
+  // would make every Colors page fail for the right behaviour: a reset that
+  // correctly spares the other app leaves the leaf not-equal to its default.
+  // That half is checked instead by "the Colors pages share one file, one
+  // namespace each" at the bottom of this file, in both directions.
+  bag.userColors = { wire: '#ff0000' };
   bag.hotkeys = { 'sch.drawWire': 'Ctrl+Shift+W' };
   for (const app of TOOLBAR_APPS)
     bag.toolbars[app] = { toolbars: [{ name: 'LEFT', contents: [{ type: 'SEPARATOR' }] }] };
@@ -807,23 +830,20 @@ describe('the Colors pages share one file, one namespace each', () => {
   });
 
   /**
-   * The other direction is a KNOWN DEFECT and is recorded rather than asserted
-   * green: `resetEeschemaColorSettings` is `ctx.setUserColors({})`
-   * (`editors/schematic/prefs/resets.ts:157-162`), which empties the whole file
-   * and so takes the Gerber Viewer's rows with it. Upstream cannot do that —
-   * `ResetPanel` walks `m_swatches`, and eeschema's panel has no gerbview
-   * swatch to walk.
+   * The other direction, which was a real defect until this page landed beside
+   * it: `resetEeschemaColorSettings` was `ctx.setUserColors({})`, emptying the
+   * whole file and taking the Gerber Viewer's 128 graphic layers with it.
+   * Upstream cannot do that — `ResetPanel` walks `m_swatches`, and eeschema's
+   * panel has no gerbview swatch to walk.
    *
-   * It is not fixed here because that file belongs to another workstream this
-   * session; the fix is to filter by namespace exactly as the gerbview one
-   * does. Written as the CURRENT behaviour on purpose: when someone narrows
-   * that reset, this test fails and points at the line to delete, which is how
-   * a recorded defect stops being a comment nobody reads.
+   * Now narrowed to its own namespace, and asserted from the other side so it
+   * stays narrow: this test is what fails if either reset goes back to
+   * clearing the record whole.
    */
-  it('the schematic’s reset still empties the whole file — recorded, not endorsed', () => {
+  it('the schematic’s reset leaves the Gerber Viewer’s rows alone', () => {
     const bag = freshBag();
     bag.userColors = { wire: '#ff0000', 'gerbview.grid': '#0000ff' };
     resetEeschemaColorSettings(makeCtx(bag));
-    expect(bag.userColors).toEqual({});
+    expect(bag.userColors).toEqual({ 'gerbview.grid': '#0000ff' });
   });
 });

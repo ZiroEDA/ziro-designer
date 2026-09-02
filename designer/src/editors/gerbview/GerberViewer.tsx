@@ -71,10 +71,8 @@ import {
   textInfoLine,
 } from './gerberAuxControls.js';
 import {
-  DEFAULT_GRID_INDEX,
   EDIT_GRIDS_LABEL,
   GRID_LIST_SEPARATOR,
-  GRID_SIZE_LIST,
   gridChoiceLabel,
   gridSizeToIU,
 } from '../../ui/grid_settings.js';
@@ -121,6 +119,7 @@ import { showHotkeyList } from '../../ui/hotkey_list_action.js';
 import { AboutDialog } from '../../home/dialogs/dialog_about.js';
 import { ABOUT_TITLES } from '../../ui/about_titles.js';
 import { PreferencesDialog } from '../../dialogs/PreferencesDialog.js';
+import type { PrefsPageId } from '../../dialogs/prefs/types.js';
 import { settings } from '../../prefs/settings.js';
 import { useCommonSettings, useGerbviewSettings, useUserColors } from '../../prefs/useSettings.js';
 import './gerbview.css';
@@ -307,11 +306,37 @@ export function GerberViewer({
   const [showDcodeList, setShowDcodeList] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
   const common = useCommonSettings();
-  const [prefsOpen, setPrefsOpen] = useState(false);
-  // `window.grid.last_size_idx`, whose default for anything that is not
-  // eeschema/symbol_editor/pl_editor is 15 (`common/settings/app_settings.cpp:472-481`)
-  // -- "0.5 mm" in GerbView's own row of DefaultGridSizeList.
-  const [gridIdx, setGridIdx] = useState(DEFAULT_GRID_INDEX.gerbview);
+  /**
+   * Which page Preferences opens on — `ShowPreferences( aStartPage,
+   * aStartParentPage )`. Upstream names the page by LABEL because the book is a
+   * wxTreebook of strings; ours names it by id, which says the same thing
+   * unambiguously (two editors both have a page labelled "Grids").
+   *
+   * `true` is the plain Preferences command, which opens on the book's first
+   * page; null is closed.
+   */
+  const [prefsOpen, setPrefsOpen] = useState<null | true | PrefsPageId>(null);
+  /**
+   * `window.grid.last_size_idx` and `window.grid.sizes`, out of `gerbview.json`
+   * — not React state and not `GRID_SIZE_LIST.gerbview`.
+   *
+   * `GRID_SETTINGS::grids` is what `PANEL_GRID_SETTINGS` edits: add, edit,
+   * remove and reorder all write `m_grids` back into `gridCfg.grids`
+   * (`common/dialogs/panel_grid_settings.cpp:190-192`), and `last_size` is the
+   * row its Current Grid choice selects. A frame reading the module table
+   * instead would draw the stock grids however that page was left, which is the
+   * same defect the toolbars had before `useToolbarEntries`.
+   *
+   * The default is still `DEFAULT_GRID_INDEX.gerbview` — 15,
+   * `app_settings.cpp:472-481` — but it is now the SETTINGS' default, seeded in
+   * `GERBVIEW_DEFAULTS`, rather than a second copy of it here.
+   */
+  const gridIdx = gbrCfg.window.grid.last_size_idx;
+  const setGridIdx = useCallback((next: number) => {
+    settings.updateGerbview((s) => {
+      s.window.grid.last_size_idx = next;
+    });
+  }, []);
   const [highlight, setHighlight] = useState<{ mode: HighlightMode; value: string }>({
     mode: 'none',
     value: '',
@@ -1397,7 +1422,7 @@ export function GerberViewer({
   // The grid the `gridSelect` control has selected. It used to be a literal
   // pair -- 1 mm metric, 0.1" imperial -- which is not a grid GerbView offers
   // at all, and which no control could change because there was no control.
-  const gridSizes = GRID_SIZE_LIST.gerbview;
+  const gridSizes = gbrCfg.window.grid.sizes;
   const gridIU =
     gridSizeToIU(gridSizes[Math.min(gridIdx, gridSizes.length - 1)]?.x ?? '0.5 mm', IU_PER_MM) ??
     IU_PER_MM;
@@ -1540,7 +1565,15 @@ export function GerberViewer({
           { value: EDIT_GRIDS_LABEL, label: EDIT_GRIDS_LABEL },
         ]}
         onChange={(v) => {
-          if (v === GRID_LIST_SEPARATOR || v === EDIT_GRIDS_LABEL) return;
+          if (v === GRID_LIST_SEPARATOR) return;
+          // `COMMON_TOOLS::GridProperties` is nothing but
+          // `ShowPreferences( _( "Grids" ), <frame name> )` and a return
+          // (`common/tool/common_tools.cpp:609-634`) — so the row opens the
+          // page rather than doing grid editing of its own.
+          if (v === EDIT_GRIDS_LABEL) {
+            setPrefsOpen('gbr-grids');
+            return;
+          }
           setGridIdx(Number(v));
         }}
       />
@@ -1868,7 +1901,16 @@ export function GerberViewer({
       {aboutOpen && (
         <AboutDialog title={ABOUT_TITLES.gerbview} onClose={() => setAboutOpen(false)} />
       )}
-      {prefsOpen && <PreferencesDialog onClose={() => setPrefsOpen(false)} />}
+      {prefsOpen && (
+        <PreferencesDialog
+          onClose={() => setPrefsOpen(null)}
+          {...(prefsOpen === true ? {} : { initialPage: prefsOpen })}
+          // `if( GetFrameType() == FRAME_GERBER ) expand.push_back( … )`
+          // (`common/eda_base_frame.cpp:1710-1712`) — the section the tree
+          // opens expanded is the one the window was opened FROM.
+          frameOwner="gerbview"
+        />
+      )}
     </div>
   );
 }
