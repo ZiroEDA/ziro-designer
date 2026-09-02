@@ -117,7 +117,10 @@ describe('what it restores to', () => {
   it('writes the point back and reopens, which is OpenProjectFiles', () => {
     const src = b();
     const write = src.indexOf('updateProjectFiles');
-    const reopen = src.indexOf('setProjectFiles');
+    // `openProjectFiles`, not a bare `setProjectFiles`: reverting is an OPEN,
+    // and the editors' load effects now key on that rather than on the identity
+    // of the file array (which every unrelated write to it used to trip).
+    const reopen = src.indexOf('openProjectFiles(');
     expect(write).toBeGreaterThan(-1);
     expect(reopen).toBeGreaterThan(-1);
     expect(write).toBeLessThan(reopen);

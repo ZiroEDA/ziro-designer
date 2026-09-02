@@ -143,12 +143,25 @@ const enc = new TextEncoder();
 /**
  * How long edits settle before the project is pushed to the account.
  *
- * Longer than the 1.2 s local autosave deliberately. Local storage is where the
+ * Longer than the local autosave deliberately. Local storage is where the
  * work is made safe and should happen as soon as the user stops typing; the
  * account copy is a second home, and one request per keystroke would be a poor
  * trade for a copy that is a few seconds fresher.
  */
 const CLOUD_PUSH_IDLE_MS = 4000;
+
+/**
+ * How long edits settle before they are written to IndexedDB.
+ *
+ * This was 1.2 s, which was the *cloud* argument applied to the wrong store:
+ * a network request per keystroke is worth avoiding, an IndexedDB write of the
+ * files that changed is not. The editors already debounce on their own side
+ * (900 ms in eeschema, 1 s in pcbnew) before anything reaches this queue, so
+ * the 1.2 s sat on top of that and made the unrecoverable window 2.2 s wide.
+ * Coalescing a burst is still worth something — a drag emits a change per
+ * frame — so this is a short settle, not zero.
+ */
+const LOCAL_WRITE_IDLE_MS = 250;
 
 // Non-text project files (plot / export outputs) that must stay raw bytes,
 // decoding them as UTF-8 would corrupt them.
@@ -227,6 +240,44 @@ export function App(): JSX.Element {
     | 'gerber'
   >('home');
   const [projectFiles, setProjectFiles] = useState<PickedFile[] | null>(null);
+  /**
+   * The text of every file an editor has handed up this session, keyed by the
+   * project-relative name — the freshest copy of the project there is.
+   *
+   * Written as edits are QUEUED, not when they are flushed. It used to be
+   * filled only by `flushSaves`, from whatever happened to be sitting in
+   * `pendingWrite` at that instant; everything the debounce timer had already
+   * written was cleared from that queue and never landed here. So the home
+   * tree, and a reopen from it, served the file as it was OPENED and threw the
+   * session's work away.
+   *
+   * Cleared by `openProjectFiles`, i.e. when a different project is opened.
+   */
+  const liveEdits = useRef<Map<string, string>>(new Map());
+  /**
+   * Bumped once per *deliberate* project open, and by nothing else.
+   *
+   * KiCad opens a project when something asks it to — `OpenProjectFiles` is an
+   * action, not a binding to a data structure. Here the editors keyed their
+   * "load the project" effect on the identity of the `projectFiles` array, so
+   * every unrelated `setProjectFiles` — a plot output file, a Ctrl+S in the
+   * board editor, an autosave mirrored back in — re-ran `loadProject` and
+   * reverted the canvas to the file as opened, undo history and all. The
+   * editor's 900 ms autosave then serialised that revert over the good copy in
+   * IndexedDB, so the loss was permanent and silent.
+   *
+   * With the load keyed on this instead, `projectFiles` is free to carry the
+   * current content, which is what makes a remount (a hot patch, a re-suspended
+   * chunk) re-initialise from the user's work rather than from the file.
+   */
+  const [openNonce, setOpenNonce] = useState(0);
+  /** Open a project: replace the file set, drop the previous one's edits, and
+   *  tell the editors this is an open and not just a state change. */
+  const openProjectFiles = useCallback((files: PickedFile[] | null) => {
+    liveEdits.current.clear();
+    setProjectFiles(files);
+    setOpenNonce((n) => n + 1);
+  }, []);
   // `.kicad_wks` saved into the open project this session (Drawing Sheet Editor
   // → Save to Project). Kept separate from projectFiles so adding one doesn't
   // reload/reset the mounted editors; offered as schematic Page Settings choices.
@@ -329,7 +380,7 @@ export function App(): JSX.Element {
         const list = await listProjects();
         const loaded = list[0] ? await loadProject(list[0].id) : null;
         if (!loaded) return;
-        setProjectFiles(loaded.files.map(pickedFromStored));
+        openProjectFiles(loaded.files.map(pickedFromStored));
         setStartFile(s.startFile ?? null);
         if (s.view === 'schematic') setSchMounted(true);
         else if (s.view === 'pcb') setPcbMounted(true);
@@ -434,32 +485,70 @@ export function App(): JSX.Element {
       const cur = projectFilesRef.current;
       if (!cur || !storageAvailable()) return;
       const fullByBase = new Map(cur.map((f) => [pcbBasename(f.name), f.name]));
-      let queued = false;
+      const fresh = new Map<string, string>();
       for (const f of changed) {
         const full = fullByBase.get(pcbBasename(f.name));
         if (!full) continue;
         pendingWrite.current.set(full, enc.encode(f.text));
-        queued = true;
+        // The in-memory project learns about the edit at the same moment the
+        // write queue does. Anything that re-reads the project — the home tree,
+        // a reopen, an editor remounting — then sees the work rather than the
+        // file it was opened from.
+        liveEdits.current.set(full, f.text);
+        fresh.set(full, f.text);
       }
-      if (!queued) return;
+      if (fresh.size === 0) return;
+      setProjectFiles((prev) => {
+        if (!prev) return prev;
+        // Same array back when nothing moved: the editors re-serialise
+        // identical content on a sheet switch, and a new array for that would
+        // be a render of every frame for no change at all.
+        if (!prev.some((f) => fresh.has(f.name) && fresh.get(f.name) !== f.text)) return prev;
+        return prev.map((f) => {
+          const text = fresh.get(f.name);
+          return text === undefined || text === f.text ? f : { name: f.name, text };
+        });
+      });
       reportLocalPending(true);
       clearTimeout(saveTimer.current);
-      saveTimer.current = setTimeout(writePending, 1200);
+      saveTimer.current = setTimeout(writePending, LOCAL_WRITE_IDLE_MS);
     },
     [writePending],
   );
-  // Flush any pending autosave now, on leaving an editor and before reopening,
-  // so a quick "edit → home → reopen" never reads a stale project.
-  const schFlush = useRef<(() => void) | null>(null);
-  const registerSchFlush = useCallback((fn: (() => void) | null) => {
-    schFlush.current = fn;
+  /**
+   * Every mounted editor's "serialise what you are holding, now" callback,
+   * keyed by editor so one can replace its own without disturbing the others.
+   *
+   * There used to be a single slot and only eeschema was ever given it, so a
+   * board edit had nothing that could force it out: `goHome`, `pagehide`,
+   * `visibilitychange` and the crash-recovery zip all ran a flush that could
+   * not reach pcbnew, and up to the board editor's own 1 s debounce of work was
+   * unreachable at any instant.
+   */
+  const editorFlush = useRef<Map<string, () => void>>(new Map());
+  const registerFlushFor = useCallback(
+    (key: string) =>
+      (fn: (() => void) | null): void => {
+        if (fn) editorFlush.current.set(key, fn);
+        else editorFlush.current.delete(key);
+      },
+    [],
+  );
+  const registerSchFlush = useMemo(() => registerFlushFor('schematic'), [registerFlushFor]);
+  const registerPcbFlush = useMemo(() => registerFlushFor('pcb'), [registerFlushFor]);
+  /** Ask every mounted editor to serialise now. One that throws must not stop
+   *  the others: this runs on the page's last callback and on the crash path. */
+  const flushEditors = useCallback(() => {
+    for (const fn of [...editorFlush.current.values()]) {
+      try {
+        fn();
+      } catch (e) {
+        console.warn('Editor flush failed:', e);
+      }
+    }
   }, []);
-  // Edits mirrored into the in-memory project so the home tree (and a reopen
-  // from it) reflect them, autosave only writes IndexedDB, which a tree reopen
-  // does not re-read. Cleared when a project is (re)opened.
-  const liveEdits = useRef<Map<string, string>>(new Map());
   const flushSaves = useCallback(() => {
-    schFlush.current?.(); // push the editor's latest serialized sheets into the queue
+    flushEditors(); // push each editor's latest serialization into the queue
     clearTimeout(saveTimer.current);
     for (const [name, bytes] of pendingWrite.current)
       liveEdits.current.set(name, dec.decode(bytes));
@@ -470,15 +559,12 @@ export function App(): JSX.Element {
     // user comes back.
     clearTimeout(cloudTimer.current);
     pushNow();
-  }, [writePending, pushNow]);
-  useEffect(() => {
-    liveEdits.current.clear();
-  }, [projectFiles]);
+  }, [writePending, pushNow, flushEditors]);
 
-  // Autosave is debounced by 1.2 s. That is right while someone types and wrong
-  // at the moment they leave: an edit followed within the window by a tab
-  // close, a reload or a swipe to another app never reached storage. Leaving an
-  // editor already flushed; leaving the page did not.
+  // Autosave is debounced. That is right while someone types and wrong at the
+  // moment they leave: an edit followed within the window by a tab close, a
+  // reload or a swipe to another app never reached storage. Leaving an editor
+  // already flushed; leaving the page did not.
   useEffect(() => installFlushOnHide(flushSaves), [flushSaves]);
 
   // Persist project files to IndexedDB/cloud immediately (no autosave debounce),
@@ -562,12 +648,12 @@ export function App(): JSX.Element {
       const files = await readSnapshot(point.id);
       if (!files || files.length === 0) return false;
       await updateProjectFiles(rec.id, files);
-      setProjectFiles(files.map(pickedFromStored));
+      openProjectFiles(files.map(pickedFromStored));
       return true;
     } catch {
       return false;
     }
-  }, []);
+  }, [openProjectFiles]);
 
   const persistFilesNow = useCallback((files: PickedFile[]) => {
     const cur = projectFilesRef.current;
@@ -719,7 +805,7 @@ export function App(): JSX.Element {
       // a debounce-window behind the crash. It writes to storage too, which on
       // this path is welcome; a throw here must not cost us the rest.
       try {
-        schFlush.current?.();
+        flushEditors();
       } catch {
         /* the app is already broken; take what is already queued */
       }
@@ -731,7 +817,7 @@ export function App(): JSX.Element {
       );
     });
     return () => setRecoveryProvider(null);
-  }, [projectName]);
+  }, [projectName, flushEditors]);
 
   // The views without an editor frame of their own name the tab from here;
   // each editor claims it through the same hook while it is the one on screen.
@@ -921,14 +1007,14 @@ export function App(): JSX.Element {
         activePro={activeProName ?? undefined}
         onSwitchProject={switchProject}
         onOpenSchematic={() => {
-          setProjectFiles(null);
+          openProjectFiles(null);
           setStandalonePcb(null);
           setStartFile(null);
           setSchMounted(true);
           setView('schematic');
         }}
         onOpenProject={(files, start, demo) => {
-          setProjectFiles(files);
+          openProjectFiles(files);
           setDemoProject(!!demo);
           setDemoSource(demo ?? null);
           setStandalonePcb(null);
@@ -940,11 +1026,11 @@ export function App(): JSX.Element {
           setDemoProject(false);
           setDemoSource(null);
           if (files) {
-            setProjectFiles(files);
+            openProjectFiles(files);
             setStandalonePcb(null);
           } else {
             setStandalonePcb(file);
-            setProjectFiles(null);
+            openProjectFiles(null);
           }
           setPcbMounted(true);
           setView('pcb');
@@ -953,7 +1039,7 @@ export function App(): JSX.Element {
           setDemoProject(false);
           setDemoSource(null);
           if (files) {
-            setProjectFiles(files);
+            openProjectFiles(files);
             setStandalonePcb(null);
           }
           setSymMounted(true);
@@ -962,7 +1048,7 @@ export function App(): JSX.Element {
         }}
         onOpenFootprintEditor={(files, startFile) => {
           if (files) {
-            setProjectFiles(files);
+            openProjectFiles(files);
             setStandalonePcb(null);
           }
           setFpMounted(true);
@@ -1064,6 +1150,7 @@ export function App(): JSX.Element {
               onRevert={revertProject}
               onOutputFile={onOutputFile}
               registerAutosaveFlush={registerSchFlush}
+              openNonce={openNonce}
               extraSheetFiles={sessionSheets}
               projectName={projectName}
               readOnlyNotice={demoNotice}
@@ -1084,6 +1171,8 @@ export function App(): JSX.Element {
               onShowSchematic={hasSchematic ? showSchematic : undefined}
               onShowFootprintEditor={showFootprintEditor}
               onBoardChange={(text: string) => onProjectChange([{ name: pcbFile.name, text }])}
+              registerAutosaveFlush={registerPcbFlush}
+              openNonce={openNonce}
               onSaveBoard={(text: string) => {
                 const name = pcbFile.name;
                 setProjectFiles((prev) =>

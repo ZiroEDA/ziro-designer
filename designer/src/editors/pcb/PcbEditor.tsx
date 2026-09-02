@@ -739,6 +739,8 @@ export function PcbEditor({
   onShowFootprintEditor,
   onSaveBoard,
   onBoardChange,
+  registerAutosaveFlush,
+  openNonce,
   projectName,
   projectFiles,
   rootPro,
@@ -762,6 +764,29 @@ export function PcbEditor({
   /** Debounced autosave sink (the app's coalesced project autosave): board
    *  edits sync automatically like the schematic's. */
   onBoardChange?: (text: string) => void;
+  /**
+   * Hand the host a "serialise the board NOW" callback, the same contract
+   * eeschema has had.
+   *
+   * Without it the board's own 1 s autosave debounce was unreachable: the
+   * host's flush — leaving for the home screen, `visibilitychange`, `pagehide`,
+   * the crash-recovery zip — could force the schematic out and had nothing at
+   * all for pcbnew, so the last second of board work was lost by every one of
+   * those paths.
+   */
+  registerAutosaveFlush?: (fn: (() => void) | null) => void;
+  /**
+   * Bumped by the host once per deliberate project open, and by nothing else.
+   *
+   * `text` is a LIVE prop: the host mirrors this editor's own autosaved output
+   * back into the open project so a reopen or a remount sees the work rather
+   * than the file. Reloading the board whenever that string changed would
+   * therefore reparse the board on every autosave and throw the session away
+   * on every reopen, so the reload is keyed on the open instead — KiCad calls
+   * `OpenProjectFiles` when something asks it to, not because a data structure
+   * changed identity.
+   */
+  openNonce?: number;
   /** Project name shown as "<project>, PCB Editor" in the menu bar. */
   projectName?: string;
   /** The open project's files (name + text), lets the 3D viewer resolve
@@ -1521,6 +1546,25 @@ export function PcbEditor({
     return () => clearTimeout(id);
   }, [dirty, board, onBoardChange]);
 
+  // The same 1 s debounce, forced out. `SCH_EDIT_FRAME`'s equivalent has been
+  // registered since autosave existed; pcbnew's never was, which is why leaving
+  // the frame, hiding the tab, unloading the page or crashing all lost the last
+  // second of board work with nothing to say so.
+  const dirtyRef = useRef(dirty);
+  dirtyRef.current = dirty;
+  useEffect(() => {
+    if (!registerAutosaveFlush) return;
+    registerAutosaveFlush(() => {
+      const brd = boardRef.current;
+      // Not dirty means the last serialization already reached the host, and
+      // re-serializing a large board on every tab hide is not free.
+      if (!brd || !dirtyRef.current || !onBoardChange) return;
+      onBoardChange(serializeBoard(brd));
+      setDirty(false);
+    });
+    return () => registerAutosaveFlush(null);
+  }, [registerAutosaveFlush, onBoardChange]);
+
   const showAppearance = toggles.has('showLayersManager');
   const showProperties = toggles.has('showProperties');
 
@@ -1570,12 +1614,20 @@ export function PcbEditor({
     return s;
   }, [toggles, contrast, objects.ratsnest, highlightNets]);
 
+  // `text` is live (see the `openNonce` prop): the host mirrors this editor's
+  // own autosaved board back into the open project, so reading it as a
+  // dependency would reparse the board on every autosave — and, on a reopen,
+  // replace the board being edited with the copy the host happened to hold.
+  // Read at open time only.
+  const textRef = useRef(text);
+  textRef.current = text;
+
   // Parse after the first paint so "Loading…" is visible for big boards.
   useEffect(() => {
     let cancelled = false;
     const id = setTimeout(() => {
       try {
-        const b = { ...readBoard(parse(text)), fileName };
+        const b = { ...readBoard(parse(textRef.current)), fileName };
         if (cancelled) return;
         boardRef.current = b;
         sceneRef.current = buildBoardScene(b);
@@ -1593,7 +1645,24 @@ export function PcbEditor({
       cancelled = true;
       clearTimeout(id);
     };
-  }, [text, fileName]);
+  }, [openNonce, fileName]);
+
+  /**
+   * The `.kicad_pro` / `.kicad_dru` content Board Setup is derived from.
+   *
+   * Keyed on the CONTENT rather than on the `projectFiles` array, which now
+   * changes identity on every autosave tick: re-deriving the whole of Board
+   * Setup and re-rendering the frame once a second, for files that had not
+   * moved, is not something the user should pay for.
+   */
+  const setupSourceKey = useMemo(
+    () =>
+      projectFilesNow()
+        .filter((f) => /\.(kicad_pro|kicad_dru)$/i.test(f.name))
+        .map((f) => `${f.name} ${f.text}`)
+        .join(''),
+    [projectFilesNow],
+  );
 
   // Hydrate Board Setup from the loaded project: the .kicad_pro slices
   // (design settings, netclasses, component classes, tuning profiles, text
@@ -1602,11 +1671,12 @@ export function PcbEditor({
   useEffect(() => {
     const files = projectFilesNow();
     const s = readBoardSetupPro(files, rootPro);
-    applyBoardFileSetup(text, s);
+    applyBoardFileSetup(textRef.current, s);
     const dru = findProjectDru(files, rootPro);
     if (dru) s.customRules.text = dru.text;
     setBoardSetup(s);
-  }, [projectFilesNow, rootPro, text]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [setupSourceKey, rootPro, openNonce]);
 
   // Commit Board Setup on dialog OK, KiCad's DIALOG_BOARD_SETUP flow: the
   // project-side slices merge into the .kicad_pro (+ .kicad_dru), persisted

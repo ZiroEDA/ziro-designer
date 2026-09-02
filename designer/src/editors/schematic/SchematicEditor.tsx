@@ -700,6 +700,7 @@ export function SchematicEditor({
   onRevert,
   onOutputFile,
   registerAutosaveFlush,
+  openNonce,
   extraSheetFiles,
   projectName,
   rootPro,
@@ -778,6 +779,14 @@ export function SchematicEditor({
   /** Register a flush the host calls before leaving/reopening, so a pending
    *  autosave is written out first (the "edit → home → reopen" case). */
   registerAutosaveFlush?: (fn: (() => void) | null) => void;
+  /**
+   * Bumped by the host once per deliberate project open, and by nothing else.
+   *
+   * `initialProject` is a LIVE prop — the host mirrors this editor's own
+   * autosaved sheets back into it — so it is not, and must not be, what decides
+   * that the project should be re-opened. See the effect that reads this.
+   */
+  openNonce?: number;
   /** `.kicad_wks` saved into the project this session (Drawing Sheet Editor →
    *  Save to Project), offered as extra Page Settings drawing-sheet choices. */
   extraSheetFiles?: PickedFile[];
@@ -3921,21 +3930,63 @@ export function SchematicEditor({
     [resetTransient, resetErc, rootPro],
   );
 
-  // A project handed over from the home page's Open Project picker.
+  /**
+   * A project handed over from the home page's Open Project picker.
+   *
+   * Keyed on `openNonce` — the host telling us it OPENED something — and not on
+   * the identity of the `initialProject` array. That array is now live: the
+   * host mirrors our own autosaved sheets back into it so a reopen, or a
+   * remount, sees the session's work instead of the file it started from. When
+   * the reload was keyed on identity, every unrelated change to it re-ran
+   * `loadProject` and reverted the canvas to the opened file — a plot output
+   * file, a Ctrl+S in the board editor, a reopen from the tree — and the 900 ms
+   * autosave below then wrote that revert over the good copy in storage.
+   *
+   * `loadProject` throws away `project.current`, the undo histories and the
+   * view, so it must run when a project is opened and at no other time. That is
+   * KiCad's own shape: `OpenProjectFiles` is called by an action.
+   */
+  const openedKey = useRef<string | null>(null);
+  const projectRef = useRef(initialProject);
+  projectRef.current = initialProject;
+  /**
+   * The project's NON-SHEET content: the `.kicad_pro`, the library tables, the
+   * drawing sheet. What `rawFiles` and Schematic Setup are read from.
+   *
+   * Keyed on content rather than on the array, which now changes identity every
+   * time autosave mirrors a sheet back. Re-deriving Setup from the prop on each
+   * of those ticks would undo a Schematic Setup the user had just changed: the
+   * dialog persists straight to storage and does not refresh the prop, so what
+   * came back would be the `.kicad_pro` as it was opened.
+   */
+  const projectMetaKey = useMemo(
+    () =>
+      (initialProject ?? [])
+        .filter((f) => !/\.kicad_sch$/i.test(f.name))
+        .map((f) => `${f.name} ${f.text}`)
+        .join(''),
+    [initialProject],
+  );
   useEffect(() => {
-    if (initialProject && initialProject.length > 0)
-      void loadProject(initialProject, initialFile ?? undefined);
+    const files = projectRef.current;
+    // rootPro is part of the key so switching the active project (same folder,
+    // different .kicad_pro) reloads with the newly-pinned root sheet.
+    const key = `${openNonce ?? 0} ${rootPro ?? ''}`;
+    const opening = openedKey.current !== key;
+    openedKey.current = key;
+    if (opening) {
+      if (files && files.length > 0) void loadProject(files, initialFile ?? undefined);
+      // Drop any in-session sheet override for the freshly opened project.
+      setSheetOverride(null);
+    }
     // Reseed the raw files (drawing-sheet reference + .kicad_wks choices) and
-    // drop any in-session sheet override for the freshly opened project.
-    setRawFiles(initialProject ?? []);
-    setSheetOverride(null);
-    // Hydrate the Schematic Setup from the project's .kicad_pro (SCHEMATIC/ERC/
-    // NET_SETTINGS live in the project file, like KiCad's project load).
-    setSetup(readSchematicSetup(initialProject ?? [], rootPro ?? undefined));
-    // rootPro is a dep so switching the active project (same folder, different
-    // .kicad_pro) reloads with the newly-pinned root sheet.
+    // hydrate the Schematic Setup from the project's .kicad_pro (SCHEMATIC/ERC/
+    // NET_SETTINGS live in the project file, like KiCad's project load). Both
+    // read the project rather than the document, so they follow the prop.
+    setRawFiles(files ?? []);
+    setSetup(readSchematicSetup(files ?? [], rootPro ?? undefined));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialProject, rootPro]);
+  }, [projectMetaKey, rootPro, openNonce]);
 
   // Serialize the project's sheets (current sheet + resident others) for autosave.
   const serializeSheets = useCallback((): PickedFile[] => {

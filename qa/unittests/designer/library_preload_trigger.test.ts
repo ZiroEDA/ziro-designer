@@ -70,7 +70,10 @@ describe('the board fires it from its load path', () => {
     expect(calls).toHaveLength(1);
     // pcbnew/files.cpp:605-612 preloads as the project is switched, just
     // before the board is read; ours goes in the same parse effect.
-    const parse = at(src, 'readBoard(parse(text))');
+    // `textRef.current`: the `text` prop is live now (the host mirrors the
+    // board's own autosave back into the open project), so the parse effect
+    // reads it at open time instead of depending on it.
+    const parse = at(src, 'readBoard(parse(textRef.current))');
     const call = calls[0] ?? -1;
     expect(call).toBeGreaterThan(parse);
     expect(call - parse).toBeLessThan(800);
