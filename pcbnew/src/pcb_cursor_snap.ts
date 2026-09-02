@@ -539,7 +539,7 @@ export function computeDragAnchors(
             aWhere.y >= bb.minY &&
             aWhere.y <= bb.maxY
           )
-            pad(p);
+            void 0;
         }
 
         anchors.push({ pos: fp.at, flags: ANCHOR_ORIGIN | ANCHOR_SNAPPABLE });

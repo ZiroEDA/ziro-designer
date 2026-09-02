@@ -39,7 +39,13 @@ export function boardLayerName(board: Board, layer: string): string {
  */
 export function netnameMsg(board: Board, netCode: number, netName?: string): string {
   const name = netName ?? board.nets.get(netCode) ?? '';
-  return name.length === 0 ? '[<no net>]' : `[${unescapeString(name)}]`;
+  if (name.length === 0) return '[<no net>]';
+  // A negative code is a net the board names but the net list does not have —
+  // what a netlist update leaves behind when a net is removed from the
+  // schematic while copper still references it. Upstream says so rather than
+  // showing a name that resolves to nothing.
+  if (netCode < 0) return `[${unescapeString(name)}](Not Found)`;
+  return `[${unescapeString(name)}]`;
 }
 
 /**

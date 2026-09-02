@@ -11,6 +11,7 @@ export {
   type RatsnestEdge,
 } from './ratsnest.js';
 export { readBoard, readFootprintFile, rotatePcb, tessellateArc, arcCenter } from './read-board.js';
+export { arcSweepDegrees } from './autoplace_matrix.js';
 export {
   serializeFootprint,
   writeFootprintNode,
