@@ -38,12 +38,11 @@
  *    Connected items, text on Text, the drawing tools on Graphics. The Wires
  *    row is drawn and never applies, because no item inside a `LIB_SYMBOL`
  *    maps to `GRID_WIRES` — that is upstream's behaviour, not a gap;
- *  - **Fast Grid Switching** is the one pair still without a reader:
- *    `ACTIONS::gridFast1` / `gridFast2` have no binding in this frame yet, so
- *    the two choices store an index nothing acts on. They are left live rather
- *    than greyed because upstream's page has no per-row enable and greying
- *    them would be inventing a control state; the gap is the missing hotkey,
- *    not this page.
+ *  - **Fast Grid Switching** -> `fastGridIndex` in `ui/grid_settings.ts`, which
+ *    is `COMMON_TOOLS::GridFast1` / `GridFast2` / `GridFastCycle`, bound to
+ *    Alt+1 / Alt+2 / Alt+4 in this frame's key chain. The two choices are
+ *    0-based indices into the list above them, as `GridPreset`'s
+ *    `std::clamp( idx, 0, size - 1 )` reads them.
  */
 import type { JSX } from 'react';
 import { schIUScale } from '@ziroeda/common';
