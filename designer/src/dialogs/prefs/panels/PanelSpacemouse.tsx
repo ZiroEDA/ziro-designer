@@ -21,10 +21,35 @@
  * Rows 2 and 6 are EMPTY, and that is the only thing holding "Pan speed:" and
  * "Reverse zoom direction" away from the rows above them.
  *
- * Everything here is drawn and disabled. A SpaceMouse reaches KiCad through
- * 3Dconnexion's own daemon and the 3dxware SDK, which is a native library; no
- * browser API exposes the device, so nothing reads `common.spacemouse.*`. That
- * reason belongs HERE, in the source — it was on the page as a banner and
+ * Everything here is drawn and disabled, and unlike most greyed controls in
+ * this port these are not waiting on work. There is nothing to port.
+ *
+ * On the parity target a SpaceMouse reaches KiCad through libspnav, a client
+ * of the `spacenavd` daemon over a UNIX domain socket
+ * (`common/spacenav/libspnav_driver.cpp`, linked at
+ * `common/CMakeLists.txt:332` and included by every 2D frame as
+ * `spacenav/spnav_2d_plugin.h`). The Windows and macOS builds use
+ * 3Dconnexion's 3dxware SDK through each app's `navlib` directory instead. A
+ * page can open neither a UNIX socket nor a native SDK, and while WebHID could
+ * in principle see the raw device, on Linux `spacenavd` has already claimed
+ * it — and there would be no KiCad code to port, only a 6-DOF decoder invented
+ * here.
+ *
+ * That last point is the decisive one for these six settings. Their ONLY
+ * readers upstream are inside the spnav event callbacks —
+ * `spnav_2d_plugin.cpp:78-105` and
+ * `3d-viewer/3d_spacenav/spnav_viewer_plugin.cpp:68-93` — which fire only when
+ * the daemon delivers a motion event. With no device there is no callback and
+ * no reader, in KiCad exactly as here.
+ *
+ * Worth knowing before anyone tries: two of the six do nothing in a 2D editor
+ * even in KiCad. `spnav_2d_plugin.cpp` reads `pan_speed`, `reverse_pan_x`,
+ * `reverse_pan_y` and `reverse_zoom`, and never touches `rotate_speed` or
+ * `reverse_rotate` — those two are the 3D viewer's alone
+ * (`spnav_viewer_plugin.cpp:91-93`). KiCad still draws all six on this one
+ * page, so we do too.
+ *
+ * The reason belongs HERE, in the source — it was on the page as a banner and
  * repeated in every control's tooltip, and KiCad has neither.
  *
  * The controls still bind to the stored settings rather than to literals: the
