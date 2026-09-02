@@ -149,16 +149,20 @@ export function PanelMouseSettings({ ctx }: { ctx: PrefsContext }): JSX.Element 
               })
             }
           />
-          {/* (0,2). Dead: nothing reads `input.auto_pan`. Upstream the view
-              controls pan when a drag approaches the edge of the canvas
-              (`WX_VIEW_CONTROLS::handleAutoPanning`); ours have no autopan
-              timer at all, and the speed below it feeds the same absent code. */}
+          {/* (0,2). LIVE. `input.auto_pan` is `m_autoPanSettingEnabled`, the
+              Preferences half of `if( m_autoPanEnabled &&
+              m_autoPanSettingEnabled ) handleAutoPanning( aEvent )`
+              (`wx_view_controls.cpp:304-305`). The other half is the TOOL's:
+              every move and drawing tool brackets its loop with
+              `SetAutoPan( true/false )`, so the pan happens while an item is
+              in flight and never on an idle hover. `ui/view_controls.ts`'s
+              `makeAutoPan` is `handleAutoPanning` plus `onTimer`, and every
+              canvas holds one. */}
           <div className="gb-col3">
             <Check
               label="Automatically pan while moving object"
               title="When drawing a track or moving an item, pan when approaching the edge of the display."
               checked={input.auto_pan}
-              disabled
               onChange={(v) =>
                 upC((s) => {
                   s.input.auto_pan = v;
@@ -225,7 +229,12 @@ export function PanelMouseSettings({ ctx }: { ctx: PrefsContext }): JSX.Element 
               }
             />
           </div>
-          {/* `m_panSizer` at (2,2). Dead with the checkbox above it. */}
+          {/* `m_panSizer` at (2,2). LIVE with the checkbox above it.
+              `m_autoPanAcceleration` is `onTimer`'s `accel = 0.5f +
+              ( m_settings.m_autoPanAcceleration / 5.0f )`
+              (`wx_view_controls.cpp:684`), which multiplies the step ONLY in
+              the outermost band -- so the slider changes how fast a cursor
+              held well past the edge pans, and not the ease-in near it. */}
           <div className="ze-mouse-slider gb-col3">
             <span className="lbl">Auto pan speed:</span>
             <Slider
@@ -234,7 +243,6 @@ export function PanelMouseSettings({ ctx }: { ctx: PrefsContext }): JSX.Element 
               value={input.auto_pan_acceleration}
               title="How fast to pan when moving an object off the edge of the screen"
               ariaLabel="Auto pan speed"
-              disabled
               onChange={(v) =>
                 upC((s) => {
                   s.input.auto_pan_acceleration = v;

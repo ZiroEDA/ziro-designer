@@ -37,6 +37,11 @@ export interface InputPrefs {
   horizontalPan: boolean;
   /** `input.motion_pan_modifier` — the key that pans on a bare pointer move. */
   motionPanModifier: ScrollModifier;
+  /** `input.auto_pan` — `m_autoPanSettingEnabled`, the Preferences half of the
+   *  gate at `wx_view_controls.cpp:304`. */
+  autoPan: boolean;
+  /** `input.auto_pan_acceleration` — `m_autoPanAcceleration`, 1..10. */
+  autoPanAcceleration: number;
   mouseLeft: 'select' | 'drag_selected' | 'drag_any';
   mouseMiddle: 'pan' | 'zoom' | 'none';
   mouseRight: 'pan' | 'zoom' | 'none';
@@ -60,6 +65,9 @@ export const DEFAULT_INPUT_PREFS: InputPrefs = {
   reverseScrollPanH: false,
   horizontalPan: false,
   motionPanModifier: 'none',
+  autoPan: false,
+  // `view_controls.cpp:71`, and the PARAM's own default (`common_settings.cpp:245`).
+  autoPanAcceleration: 5,
   mouseLeft: 'drag_selected',
   mouseMiddle: 'pan',
   mouseRight: 'pan',
@@ -92,6 +100,8 @@ export function commonInputPrefs(): InputPrefs {
     reverseScrollPanH: input.reverse_scroll_pan_h,
     horizontalPan: input.horizontal_pan,
     motionPanModifier: input.motion_pan_modifier,
+    autoPan: input.auto_pan,
+    autoPanAcceleration: input.auto_pan_acceleration,
     mouseLeft: input.mouse_left as InputPrefs['mouseLeft'],
     mouseMiddle: input.mouse_middle as InputPrefs['mouseMiddle'],
     mouseRight: input.mouse_right as InputPrefs['mouseRight'],
@@ -517,6 +527,218 @@ export function makeMotionPan(): {
       return { dx, dy };
     },
   };
+}
+
+// ---------------------------------------------------------------------------
+// Autopan — WX_VIEW_CONTROLS::handleAutoPanning (:1026-1095) + onTimer (:644-706)
+// ---------------------------------------------------------------------------
+
+/**
+ * `VIEW_CONTROLS_SETTINGS::m_autoPanMargin` (`common/view/view_controls.cpp:69`).
+ * [data] — a VIEW_CONTROLS default, not a Preferences setting: KiCad offers no
+ * control over the margin, only over whether autopan runs and how fast.
+ */
+const AUTO_PAN_MARGIN = 0.02;
+
+/**
+ * `m_panTimer.Start( (int) ( 250.0 / 60.0 ), true )` (`:1087`) — 4 ms, because
+ * the cast truncates 4.1666. The timer is one-shot and `onTimer` restarts it
+ * (`:699`), so it is a ~250 Hz loop and each tick pans by one step.
+ */
+export const AUTO_PAN_INTERVAL_MS = 4;
+
+/**
+ * `handleAutoPanning`'s border maths (`wx_view_controls.cpp:1044-1063`), which
+ * decides both WHETHER the pointer is in the autopan zone and HOW FAR into it.
+ *
+ *     int borderStart = min( margin * ScreenPixelSize().x, margin * ScreenPixelSize().y );
+ *     borderStart = max( borderStart, 2 );
+ *     int borderEndX = ScreenPixelSize().x - borderStart;
+ *     int borderEndY = ScreenPixelSize().y - borderStart;
+ *
+ *     if( p.x < borderStart )       m_panDirection.x = -( borderStart - p.x );
+ *     else if( p.x > borderEndX )   m_panDirection.x =  ( p.x - borderEndX );
+ *     else                          m_panDirection.x = 0;
+ *
+ * and the same for y. The result is a SIGNED distance past the edge, not a
+ * flag: `onTimer` uses its magnitude as the pan speed, so a pointer held far
+ * outside pans faster than one just over the line.
+ *
+ * `borderStart` is the smaller of the two margins on both axes — one square
+ * band, not a proportional one — and it is clamped UP to 2 px so that a canvas
+ * too small for a 2 % margin still has a zone.
+ */
+export function autoPanDirection(
+  /** The pointer, in device pixels relative to the canvas. */
+  p: { x: number; y: number },
+  viewportPx: { width: number; height: number },
+): { x: number; y: number } {
+  const borderStart = Math.max(
+    Math.min(AUTO_PAN_MARGIN * viewportPx.width, AUTO_PAN_MARGIN * viewportPx.height),
+    2,
+  );
+  const borderEndX = viewportPx.width - borderStart;
+  const borderEndY = viewportPx.height - borderStart;
+
+  const axis = (v: number, end: number): number => {
+    if (v < borderStart) return -(borderStart - v);
+    if (v > end) return v - end;
+    return 0;
+  };
+
+  return { x: axis(p.x, borderEndX), y: axis(p.y, borderEndY) };
+}
+
+/**
+ * `onTimer`'s AUTO_PANNING case (`wx_view_controls.cpp:673-698`) — how far one
+ * tick moves the view centre, in device pixels.
+ *
+ *     double borderSize = min( margin * ScreenPixelSize().x, margin * ScreenPixelSize().y );
+ *     VECTOR2D dir( m_panDirection );
+ *     float accel = 0.5f + ( m_settings.m_autoPanAcceleration / 5.0f );
+ *
+ *     if( dir.EuclideanNorm() >= borderSize )          dir = dir.Resize( borderSize * accel );
+ *     else if( dir.EuclideanNorm() > borderSize / 2 )  dir = dir.Resize( borderSize );
+ *
+ *     m_view->SetCenter( m_view->GetCenter() + m_view->ToWorld( dir, false ) );
+ *
+ * Three bands, and the third is the one a reader loses: below borderSize / 2
+ * the vector is used AS IS, unresized, so the pan eases in as the pointer
+ * crosses the line instead of jumping to full speed.
+ *
+ * `borderSize` here is NOT `handleAutoPanning`'s `borderStart`: this one is
+ * never clamped up to 2. On a canvas under 100 px the two differ, and the
+ * zone can then be wider than the step it produces.
+ *
+ * `Resize( n )` scales a vector to length n, keeping its direction.
+ *
+ * The Preferences slider is `m_autoPanAcceleration` (1..10), so `accel` runs
+ * 0.7 to 2.5 and multiplies only the outermost band. The default is 5, giving
+ * 1.5 (`view_controls.cpp:71`).
+ */
+export function autoPanStep(
+  dir: { x: number; y: number },
+  viewportPx: { width: number; height: number },
+  /** `m_autoPanAcceleration` — Preferences > "Auto pan speed", 1..10. */
+  acceleration: number,
+): { x: number; y: number } {
+  const borderSize = Math.min(
+    AUTO_PAN_MARGIN * viewportPx.width,
+    AUTO_PAN_MARGIN * viewportPx.height,
+  );
+  const norm = Math.hypot(dir.x, dir.y);
+  if (norm === 0) return { x: 0, y: 0 };
+
+  const accel = 0.5 + acceleration / 5.0;
+  const resize = (n: number): { x: number; y: number } => ({
+    x: (dir.x / norm) * n,
+    y: (dir.y / norm) * n,
+  });
+
+  if (norm >= borderSize) return resize(borderSize * accel);
+  if (norm > borderSize / 2) return resize(borderSize);
+  return { x: dir.x, y: dir.y };
+}
+
+/** What a canvas gives autopan so it can run without knowing the canvas. */
+export interface AutoPanIO {
+  /** The canvas size in device pixels, read at every tick. */
+  viewportPx: () => { width: number; height: number };
+  /**
+   * `m_autoPanEnabled` — whether a TOOL currently has something in flight.
+   * Upstream every drawing and move tool brackets its loop with
+   * `SetAutoPan( true/false )` (`sch_move_tool.cpp:997`,
+   * `sch_line_wire_bus_tool.cpp:1142`, `zoom_tool.cpp:113`, and their pcbnew
+   * and pl_editor equivalents), so autopan runs only while dragging an item,
+   * drawing a line or framing a zoom box — never on an idle hover.
+   */
+  enabled: () => boolean;
+  /**
+   * `VIEW::SetCenter( GetCenter() + dir )`, given `dir` in device pixels.
+   * Our canvases translate rather than re-centre, so the sign flips at the
+   * call site: moving the centre right is moving the content left.
+   */
+  panBy: (dx: number, dy: number) => void;
+}
+
+/**
+ * `m_panTimer` and the AUTO_PANNING state, per canvas.
+ *
+ * Upstream's IDLE/AUTO_PANNING transitions (`handleAutoPanning`'s switch,
+ * `:1067-1092`) are the whole of what this holds: crossing into the zone
+ * starts the timer, leaving it stops the timer and returns to IDLE, and
+ * `onTimer` drops back to IDLE the moment `m_autoPanEnabled` goes false
+ * (`:650-654`) — so releasing the item stops the pan even if the pointer never
+ * moves again.
+ */
+export function makeAutoPan(
+  io: AutoPanIO,
+  /** Injected so a test can drive the timer; `setInterval` in the app. */
+  schedule: (fn: () => void, ms: number) => () => void = defaultSchedule,
+): {
+  /**
+   * `onMotion`'s `if( m_autoPanEnabled && m_autoPanSettingEnabled )
+   * isAutoPanning = handleAutoPanning( aEvent )` (`:304-305`). Returns
+   * upstream's `isAutoPanning`.
+   */
+  motion(
+    p: { x: number; y: number },
+    opts: { settingEnabled: boolean; acceleration: number },
+  ): boolean;
+  /** Leaving the canvas, or the tool finishing: back to IDLE. */
+  stop(): void;
+} {
+  let cancel: (() => void) | null = null;
+  let dir = { x: 0, y: 0 };
+  let acceleration = 5;
+
+  const stop = (): void => {
+    cancel?.();
+    cancel = null;
+    dir = { x: 0, y: 0 };
+  };
+
+  const tick = (): void => {
+    // `if( !m_settings.m_autoPanEnabled ) { setState( IDLE ); return; }` — the
+    // tool letting go ends the pan without waiting for another motion event.
+    if (!io.enabled()) {
+      stop();
+      return;
+    }
+    const step = autoPanStep(dir, io.viewportPx(), acceleration);
+    if (step.x !== 0 || step.y !== 0) io.panBy(step.x, step.y);
+  };
+
+  return {
+    motion(p, opts) {
+      if (!opts.settingEnabled || !io.enabled()) {
+        stop();
+        return false;
+      }
+
+      acceleration = opts.acceleration;
+      dir = autoPanDirection(p, io.viewportPx());
+      const borderHit = dir.x !== 0 || dir.y !== 0;
+
+      if (!borderHit) {
+        // `case AUTO_PANNING: if( !borderHit ) { m_panTimer.Stop(); setState( IDLE ); return false; }`
+        stop();
+        return false;
+      }
+
+      // `case IDLE: if( borderHit ) { setState( AUTO_PANNING ); m_panTimer.Start( … ); return true; }`
+      // Already AUTO_PANNING is `return true` with the timer left running --
+      // restarting it here would reset the phase on every mouse move.
+      if (cancel === null) cancel = schedule(tick, AUTO_PAN_INTERVAL_MS);
+      return true;
+    },
+    stop,
+  };
+}
+
+function defaultSchedule(fn: () => void, ms: number): () => void {
+  const id = setInterval(fn, ms);
+  return () => clearInterval(id);
 }
 
 // ---------------------------------------------------------------------------

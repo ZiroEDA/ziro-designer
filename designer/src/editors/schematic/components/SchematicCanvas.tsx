@@ -232,6 +232,7 @@ import {
   DEFAULT_INPUT_PREFS,
   dragGesture,
   dragZoomScale,
+  makeAutoPan,
   makeMotionPan,
   makeZoomController,
   wheelAction,
@@ -998,6 +999,34 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
   const boxModifiersRef = useRef({ additive: false, subtractive: false });
   // Zoom to Selection Area (zoomTool): the box drag zooms instead of selecting.
   const zoomAreaRef = useRef(false);
+  /**
+   * `WX_VIEW_CONTROLS::m_panTimer` and the AUTO_PANNING state, per canvas.
+   *
+   * `enabled` is `m_autoPanEnabled`, which upstream every move and drawing
+   * tool brackets its loop with (`SetAutoPan( true/false )`) — so autopan
+   * runs while an item is in flight or a rubber band is being framed, and
+   * never on an idle hover.
+   */
+  const autoPanRef = useRef(
+    makeAutoPan({
+      viewportPx: () => ({
+        width: canvasRef.current?.width ?? 0,
+        height: canvasRef.current?.height ?? 0,
+      }),
+      enabled: () =>
+        modeRef.current === 'move' ||
+        grabbedRef.current ||
+        wiresRef.current.length > 0 ||
+        zoomAreaRef.current,
+      // `SetCenter( center + dir )`: the centre moves WITH dir, so the
+      // translation moves against it.
+      panBy: (dx, dy) => {
+        const v = viewportRef.current;
+        if (v) viewportRef.current = { ...v, offsetX: v.offsetX - dx, offsetY: v.offsetY - dy };
+        requestDraw();
+      },
+    }),
+  );
   // Lasso-selection trace (KiCad selectLasso): the freehand polygon in world coords.
   const lassoPointsRef = useRef<Vec2[]>([]);
 
@@ -3357,6 +3386,16 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     (e: React.PointerEvent) => {
       const vp = viewportRef.current;
       if (!vp) return;
+      // `if( m_autoPanEnabled && m_autoPanSettingEnabled ) isAutoPanning =
+      // handleAutoPanning( aEvent )` (`wx_view_controls.cpp:304-305`).
+      {
+        const apr = canvasRef.current?.getBoundingClientRect();
+        if (apr)
+          autoPanRef.current.motion(
+            { x: (e.clientX - apr.left) * dpr(), y: (e.clientY - apr.top) * dpr() },
+            { settingEnabled: inputPrefs.autoPan, acceleration: inputPrefs.autoPanAcceleration },
+          );
+      }
       // `onMotion`'s meta-pan (`wx_view_controls.cpp:288-311`), which comes
       // FIRST and returns: with the Drag Gestures key held, a bare pointer move
       // pans and nothing else in this handler runs.

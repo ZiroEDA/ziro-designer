@@ -18,10 +18,13 @@
 import { describe, it, expect } from 'vitest';
 import {
   AcceleratingZoomController,
+  autoPanDirection,
+  autoPanStep,
   DEFAULT_INPUT_PREFS,
   dragGesture,
   dragZoomScale,
   fitMarginScaleFactor,
+  makeAutoPan,
   makeMotionPan,
   makeZoomController,
   zoomControllerFor,
@@ -696,5 +699,215 @@ describe('makeMotionPan — onMotion (wx_view_controls.cpp:288-311)', () => {
   it('treats Cmd as Control, the way wx maps it', () => {
     const mp = makeMotionPan();
     expect(mp.update(at(0, 0, { metaKey: true }), 'ctrl', 1)).not.toBe(null);
+  });
+});
+
+/**
+ * `WX_VIEW_CONTROLS::handleAutoPanning` (`:1026-1095`) and `onTimer`'s
+ * AUTO_PANNING case (`:644-706`) — Preferences > Mouse and Touchpad >
+ * "Automatically pan while moving object" and "Auto pan speed".
+ *
+ * Every number below is worked out from the C++ by hand. A 1000x800 viewport
+ * gives `borderStart = max( min( 0.02*1000, 0.02*800 ), 2 ) = max( 16, 2 ) =
+ * 16`, so the zone is 16 px on every edge and `borderSize` in onTimer is the
+ * same 16 (it is the same min, only without the clamp).
+ */
+describe('autoPanDirection — the zone (wx_view_controls.cpp:1044-1063)', () => {
+  const VP = { width: 1000, height: 800 };
+
+  it('is zero anywhere in the middle', () => {
+    expect(autoPanDirection({ x: 500, y: 400 }, VP)).toEqual({ x: 0, y: 0 });
+    // Exactly ON the boundary is inside: the tests are `< borderStart` and
+    // `> borderEnd`, both strict.
+    expect(autoPanDirection({ x: 16, y: 16 }, VP)).toEqual({ x: 0, y: 0 });
+    expect(autoPanDirection({ x: 984, y: 784 }, VP)).toEqual({ x: 0, y: 0 });
+  });
+
+  it('is a SIGNED distance past the edge, not a flag', () => {
+    // `m_panDirection.x = -( borderStart - p.x )` — at x = 6 that is -10.
+    expect(autoPanDirection({ x: 6, y: 400 }, VP)).toEqual({ x: -10, y: 0 });
+    // `m_panDirection.x = ( p.x - borderEndX )` — at x = 994 that is +10.
+    expect(autoPanDirection({ x: 994, y: 400 }, VP)).toEqual({ x: 10, y: 0 });
+    // The magnitude keeps growing outside the canvas, which is what makes a
+    // pointer dragged well past the edge pan faster.
+    expect(autoPanDirection({ x: -100, y: 400 }, VP)).toEqual({ x: -116, y: 0 });
+  });
+
+  it('uses the SMALLER of the two margins on both axes', () => {
+    // `min( margin * x, margin * y )` — one square band. A port that used
+    // 0.02 * width for x and 0.02 * height for y would give y a 16 px band
+    // here and pass every single-axis test above.
+    const tall = { width: 1000, height: 200 };
+    // min( 20, 4 ) = 4 on BOTH axes, so x = 10 is 6 px past a 4 px band.
+    expect(autoPanDirection({ x: 10, y: 100 }, tall)).toEqual({ x: 0, y: 0 });
+    expect(autoPanDirection({ x: 3, y: 100 }, tall)).toEqual({ x: -1, y: 0 });
+  });
+
+  it('clamps the band UP to 2 px on a tiny canvas', () => {
+    // `borderStart = max( borderStart, 2 )` — 0.02 * 50 is 1, so without the
+    // clamp a 50 px canvas would have a 1 px zone.
+    expect(autoPanDirection({ x: 1, y: 25 }, { width: 50, height: 50 })).toEqual({ x: -1, y: 0 });
+    expect(autoPanDirection({ x: 2, y: 25 }, { width: 50, height: 50 })).toEqual({ x: 0, y: 0 });
+  });
+
+  it('reports both axes at once in a corner', () => {
+    expect(autoPanDirection({ x: 6, y: 6 }, VP)).toEqual({ x: -10, y: -10 });
+  });
+});
+
+describe('autoPanStep — the tick (wx_view_controls.cpp:673-698)', () => {
+  const VP = { width: 1000, height: 800 }; // borderSize = 16
+
+  it('below half the border, the raw vector is used unresized', () => {
+    // The third band, and the one a reader loses: `dir` is left ALONE, so the
+    // pan eases in from nothing as the pointer crosses the line rather than
+    // jumping straight to full speed.
+    expect(autoPanStep({ x: -5, y: 0 }, VP, 5)).toEqual({ x: -5, y: 0 });
+    expect(autoPanStep({ x: 0, y: 8 }, VP, 5)).toEqual({ x: 0, y: 8 });
+  });
+
+  it('between half and one border, it is resized to exactly the border', () => {
+    // `else if( norm > borderSize / 2 ) dir = dir.Resize( borderSize )`.
+    expect(autoPanStep({ x: -12, y: 0 }, VP, 5)).toEqual({ x: -16, y: 0 });
+  });
+
+  it('at or beyond the border, it is resized to borderSize * accel', () => {
+    // `accel = 0.5 + acceleration / 5`. At the default 5 that is 1.5, so the
+    // step is 16 * 1.5 = 24.
+    expect(autoPanStep({ x: 40, y: 0 }, VP, 5)).toEqual({ x: 24, y: 0 });
+  });
+
+  it('the Auto pan speed slider scales ONLY the outermost band', () => {
+    // 1 -> 0.7, 10 -> 2.5. This is the reader for the slider, and the whole
+    // reason it is no longer greyed.
+    expect(autoPanStep({ x: 40, y: 0 }, VP, 1).x).toBeCloseTo(16 * 0.7, 12);
+    expect(autoPanStep({ x: 40, y: 0 }, VP, 10).x).toBeCloseTo(16 * 2.5, 12);
+    // …and leaves the two inner bands alone, which is easy to get wrong.
+    expect(autoPanStep({ x: -5, y: 0 }, VP, 1)).toEqual({ x: -5, y: 0 });
+    expect(autoPanStep({ x: -5, y: 0 }, VP, 10)).toEqual({ x: -5, y: 0 });
+    expect(autoPanStep({ x: -12, y: 0 }, VP, 1)).toEqual({ x: -16, y: 0 });
+    expect(autoPanStep({ x: -12, y: 0 }, VP, 10)).toEqual({ x: -16, y: 0 });
+  });
+
+  it('Resize keeps the direction of a diagonal', () => {
+    // A 3-4-5 triangle scaled to 24: (14.4, 19.2).
+    const step = autoPanStep({ x: 30, y: 40 }, VP, 5);
+    expect(step.x).toBeCloseTo(14.4, 12);
+    expect(step.y).toBeCloseTo(19.2, 12);
+    expect(Math.hypot(step.x, step.y)).toBeCloseTo(24, 12);
+  });
+
+  it('a zero direction is a zero step, with no division by zero', () => {
+    expect(autoPanStep({ x: 0, y: 0 }, VP, 5)).toEqual({ x: 0, y: 0 });
+  });
+});
+
+describe('makeAutoPan — the state machine and m_panTimer', () => {
+  /** A schedule the test drives, standing in for wxTimer. */
+  function harness(opts: { enabled?: () => boolean } = {}) {
+    const panned: { dx: number; dy: number }[] = [];
+    let fn: (() => void) | null = null;
+    let ms = 0;
+    let stopped = 0;
+    const ap = makeAutoPan(
+      {
+        viewportPx: () => ({ width: 1000, height: 800 }),
+        enabled: opts.enabled ?? (() => true),
+        panBy: (dx, dy) => panned.push({ dx, dy }),
+      },
+      (f, interval) => {
+        fn = f;
+        ms = interval;
+        return () => {
+          fn = null;
+          stopped++;
+        };
+      },
+    );
+    return {
+      ap,
+      panned,
+      tick: () => fn?.(),
+      running: () => fn !== null,
+      interval: () => ms,
+      stops: () => stopped,
+    };
+  }
+
+  const on = { settingEnabled: true, acceleration: 5 };
+
+  it('does nothing while the Preferences box is off', () => {
+    const h = harness();
+    expect(h.ap.motion({ x: 2, y: 400 }, { ...on, settingEnabled: false })).toBe(false);
+    expect(h.running()).toBe(false);
+  });
+
+  it('does nothing while no tool has a drag in flight', () => {
+    // The other half of `m_autoPanEnabled && m_autoPanSettingEnabled`.
+    const h = harness({ enabled: () => false });
+    expect(h.ap.motion({ x: 2, y: 400 }, on)).toBe(false);
+    expect(h.running()).toBe(false);
+  });
+
+  it('starts the timer on entering the zone and reports isAutoPanning', () => {
+    const h = harness();
+    expect(h.ap.motion({ x: 500, y: 400 }, on)).toBe(false);
+    expect(h.running()).toBe(false);
+    expect(h.ap.motion({ x: 2, y: 400 }, on)).toBe(true);
+    expect(h.running()).toBe(true);
+    // `(int)( 250.0 / 60.0 )` truncates to 4.
+    expect(h.interval()).toBe(4);
+  });
+
+  it('each tick pans by one step, and keeps panning without further motion', () => {
+    // The point of the timer: an item held still against the edge keeps the
+    // view moving. A port that panned only on motion events would stop dead.
+    const h = harness();
+    h.ap.motion({ x: 2, y: 400 }, on); // dir.x = -14, |dir| < 16, > 8 -> Resize(16)
+    h.tick();
+    h.tick();
+    expect(h.panned).toEqual([
+      { dx: -16, dy: 0 },
+      { dx: -16, dy: 0 },
+    ]);
+  });
+
+  it('does NOT restart the timer on every motion inside the zone', () => {
+    // `case AUTO_PANNING: return true;` with the timer untouched. Restarting
+    // it would reset the phase on each mouse move and stall the pan.
+    const h = harness();
+    h.ap.motion({ x: 2, y: 400 }, on);
+    h.ap.motion({ x: 3, y: 400 }, on);
+    h.ap.motion({ x: 4, y: 400 }, on);
+    expect(h.stops()).toBe(0);
+  });
+
+  it('leaving the zone stops the timer and returns to IDLE', () => {
+    const h = harness();
+    h.ap.motion({ x: 2, y: 400 }, on);
+    expect(h.ap.motion({ x: 500, y: 400 }, on)).toBe(false);
+    expect(h.running()).toBe(false);
+  });
+
+  it('the tool letting go stops the pan without another motion event', () => {
+    // `onTimer`: `if( !m_settings.m_autoPanEnabled ) { setState( IDLE ); return; }`
+    // — dropping the item ends the pan even with the pointer still off-canvas.
+    let inFlight = true;
+    const h = harness({ enabled: () => inFlight });
+    h.ap.motion({ x: 2, y: 400 }, on);
+    h.tick();
+    expect(h.panned).toHaveLength(1);
+    inFlight = false;
+    h.tick();
+    expect(h.panned).toHaveLength(1);
+    expect(h.running()).toBe(false);
+  });
+
+  it('the speed setting reaches the tick', () => {
+    const h = harness();
+    h.ap.motion({ x: -100, y: 400 }, { settingEnabled: true, acceleration: 10 });
+    h.tick();
+    // |dir| = 116 >= 16, so Resize( 16 * ( 0.5 + 10/5 ) ) = 40, negative x.
+    expect(h.panned).toEqual([{ dx: -40, dy: 0 }]);
   });
 });

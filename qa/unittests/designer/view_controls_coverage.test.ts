@@ -175,6 +175,38 @@ describe('shared view controls', () => {
     expect(src, `${rel} never calls update`).toContain('motionPanRef.current.update(');
   });
 
+  /**
+   * `m_panTimer` and the AUTO_PANNING state, also members, also per canvas.
+   *
+   * The preview panes are the one exception and it is upstream's: autopan is
+   * turned on by TOOLS (`SetAutoPan( true )` in the move, drawing, zoom and
+   * picker tools), and a preview pane runs none — it has no tool manager at
+   * all. So the list here is CANVASES minus that file, spelled out rather than
+   * filtered, so that adding a seventh canvas fails instead of inheriting an
+   * exemption it did not earn.
+   */
+  const AUTOPAN_CANVASES = CANVASES.filter((c) => c !== 'widgets/preview_view_controls.ts');
+
+  it('every editing canvas holds its own m_panTimer', () => {
+    // Six, and the preview panes are the seventh CANVAS. If that count moves,
+    // read the block comment above before changing the number.
+    expect(AUTOPAN_CANVASES).toHaveLength(6);
+  });
+
+  it.each(AUTOPAN_CANVASES)('%s runs handleAutoPanning on motion', (rel) => {
+    const src = read(rel);
+    expect(src, `${rel} builds no autopanner`).toContain('makeAutoPan(');
+    expect(src, `${rel} never calls motion`).toContain('autoPanRef.current.motion(');
+  });
+
+  it.each(AUTOPAN_CANVASES)('%s gates autopan on a tool having something in flight', (rel) => {
+    // `m_autoPanEnabled` is the tools' half of the condition. A canvas that
+    // passed `enabled: () => true` would autopan on an idle hover, which
+    // KiCad never does.
+    const src = read(rel);
+    expect(src, `${rel} autopans on any hover`).not.toMatch(/enabled:\s*\(\)\s*=>\s*true/);
+  });
+
   it('the drag-zoom step is the shared exp(), not a literal', () => {
     // `exp( d.y * m_settings.m_zoomSpeed * 0.001 )` (`:383`). The schematic
     // canvas had `Math.exp((...) * 0.005)`, which is zoom_speed 5 frozen: the

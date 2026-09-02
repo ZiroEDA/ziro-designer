@@ -183,14 +183,6 @@ describe('isScrollModSetValid', () => {
  * three of these settings are not in it.
  */
 describe('the rows nothing reads are disabled', () => {
-  it.each([
-    // No autopan timer exists here at all.
-    ['Automatically pan while moving object'],
-    ['Auto pan speed'],
-  ])('%s is disabled', (label) => {
-    expect(props(label), label).toMatch(/\bdisabled\b/);
-  });
-
   /**
    * `input.center_on_zoom` is `m_warpCursor` upstream, and `onWheel` acts on it
    * (`wx_view_controls.cpp:177`, `:472`): `CenterOnCursor()` recentres the view
@@ -230,6 +222,22 @@ describe('the rows nothing reads are disabled', () => {
    * without consulting the flag (`:55-71`). Greying it on that ground would be
    * the same divergence as greying the horizontal-pan box above.
    */
+  /**
+   * The autopan pair was dead while no timer existed here.
+   * `handleAutoPanning` (`:1026-1095`) and `onTimer` (`:644-706`) are ported
+   * now as `makeAutoPan`, and every canvas holds one, so both rows are live:
+   * the checkbox is `m_autoPanSettingEnabled` and the slider is
+   * `m_autoPanAcceleration`.
+   */
+  it.each([
+    ['Automatically pan while moving object', 'auto_pan'],
+    ['Auto pan speed', 'auto_pan_acceleration'],
+  ])('%s is live, and bound to %s', (label, setting) => {
+    const p = props(label);
+    expect(p, label).toContain(setting);
+    expect(p, label).not.toMatch(/\bdisabled\b/);
+  });
+
   /**
    * "Pan on mouse movement with key" was dead while our view controls only
    * panned on a DRAG. `onMotion`'s meta-pan block (`:288-311`) is ported now —
