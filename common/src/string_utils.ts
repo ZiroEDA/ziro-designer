@@ -833,7 +833,7 @@ export function printableCharCount(text: string): number {
  *    only `/` and drops newlines — it leaves `\\` alone.
  *  - A backslash anywhere else is an ordinary character and is kept.
  */
-export function wxSplit(text: string, sep: string, escape = '\\'): string[] {
+export function wxSplit(text: string, sep: string, escapeChar = '\\'): string[] {
   if (text.length === 0) return [];
 
   const out: string[] = [];
@@ -842,7 +842,7 @@ export function wxSplit(text: string, sep: string, escape = '\\'): string[] {
 
   for (const ch of text) {
     if (ch === sep) {
-      if (prev === escape && escape !== '') {
+      if (prev === escapeChar && escapeChar !== '') {
         // Drop the escape that is already in `current` and keep the separator
         // as an ordinary character: wx rewrites its last character in place.
         current = `${current.slice(0, -1)}${sep}`;
