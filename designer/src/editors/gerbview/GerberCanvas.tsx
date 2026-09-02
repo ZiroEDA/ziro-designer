@@ -234,8 +234,17 @@ export const GerberCanvas = forwardRef<GerberCanvasController, GerberCanvasProps
      */
     const gbrCfg = useGerbviewSettings();
     const snapping = gridSnappingEnabled(gbrCfg.window.grid.snap, showGrid);
-    const gridRef = useRef({ snapping, gridIU });
-    gridRef.current = { snapping, gridIU };
+    // The appearance half of `GAL_DISPLAY_OPTIONS`, carried on the same ref as
+    // the snapping half. Omitting these let `drawGrid` fall back to
+    // `DEFAULT_GRID_APPEARANCE`, so the three Grid Display controls on Display
+    // Options were drawn enabled, stored a value, and painted dots/1/10
+    // whatever the user chose. The ref is reassigned every render, so `draw`
+    // reads them fresh without re-arming its callback.
+    const gridStyle = gbrCfg.window.grid.style;
+    const gridLineWidthPx = gbrCfg.window.grid.line_width;
+    const gridMinSpacingPx = gbrCfg.window.grid.min_spacing;
+    const gridRef = useRef({ snapping, gridIU, gridStyle, gridLineWidthPx, gridMinSpacingPx });
+    gridRef.current = { snapping, gridIU, gridStyle, gridLineWidthPx, gridMinSpacingPx };
     const crosshairRef = useRef(crosshairMode);
     crosshairRef.current = crosshairMode;
 
@@ -318,6 +327,9 @@ export const GerberCanvas = forwardRef<GerberCanvasController, GerberCanvasProps
           sizeIU: g,
           color: opts.colors.grid,
           devicePixelRatio: dpr,
+          style: gridRef.current.gridStyle,
+          lineWidthPx: gridRef.current.gridLineWidthPx,
+          minSpacingPx: gridRef.current.gridMinSpacingPx,
           // GERBVIEW_FRAME's constructor turns the GAL's axes on directly -
           // "Enable the axes to match legacy draw style"
           // (`gerbview/gerbview_frame.cpp:188-191`) - so they are unconditional
@@ -472,7 +484,17 @@ export const GerberCanvas = forwardRef<GerberCanvasController, GerberCanvasProps
 
     useEffect(() => {
       requestDraw();
-    }, [layers, options, showGrid, gridIU, crosshairMode, requestDraw]);
+    }, [
+      layers,
+      options,
+      showGrid,
+      gridIU,
+      gridStyle,
+      gridLineWidthPx,
+      gridMinSpacingPx,
+      crosshairMode,
+      requestDraw,
+    ]);
 
     const zoomToFit = useCallback(() => {
       const canvas = canvasRef.current;

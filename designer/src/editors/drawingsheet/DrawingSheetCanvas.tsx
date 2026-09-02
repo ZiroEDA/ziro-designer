@@ -317,6 +317,12 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
      */
     const plCfg = usePlEditorSettings();
     const snapping = gridSnappingEnabled(plCfg.window.grid.snap, showGrid);
+    // `GAL_DISPLAY_OPTIONS::m_gridStyle` / `m_gridLineWidth` / `m_gridMinSpacing`,
+    // read here as primitives so `draw`'s dependency list can name them: a
+    // `plCfg` the closure never re-reads is a setting the page cannot move.
+    const gridStyle = plCfg.window.grid.style;
+    const gridLineWidthPx = plCfg.window.grid.line_width;
+    const gridMinSpacingPx = plCfg.window.grid.min_spacing;
     const snap = useCallback(
       (p: Vec2): Vec2 =>
         snapping && gridIU > 0
@@ -361,6 +367,13 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
         sizeIU: gridIU,
         color: darkBg ? DS_GRID_COLOR_ON_DARK : DS_GRID_COLOR_ON_LIGHT,
         devicePixelRatio: dpr,
+        // The appearance half of `GAL_DISPLAY_OPTIONS`. Omitting these let
+        // `drawGrid` fall back to `DEFAULT_GRID_APPEARANCE`, so the three
+        // Grid Display controls on Display Options were drawn enabled, stored
+        // a value, and painted dots/1/10 whatever the user chose.
+        style: gridStyle,
+        lineWidthPx: gridLineWidthPx,
+        minSpacingPx: gridMinSpacingPx,
       });
       // World transform again: drawGrid paints in device space.
       ctx.setTransform(v.scale, 0, 0, v.scale, v.tx, v.ty);
@@ -579,6 +592,9 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
       pageH,
       showGrid,
       gridIU,
+      gridStyle,
+      gridLineWidthPx,
+      gridMinSpacingPx,
       // The origin corner. Without it the marker is painted once and then never
       // again: `draw` is a useCallback, so an origin the closure never re-reads
       // is an origin the dropdown cannot move. The value is memoised upstream on
