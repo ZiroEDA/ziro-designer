@@ -107,10 +107,31 @@ const bytesToB64 = (u: Uint8Array): string => {
   return btoa(s);
 };
 
-/** id + updatedAt for every cloud project of the signed-in user. */
-export async function cloudListMeta(): Promise<{ id: string; updatedAt: number }[]> {
+/**
+ * id + current version for every cloud project of the signed-in user.
+ *
+ * Was id + `updated_at`, which is what made reconciliation a comparison between
+ * two browsers' clocks. A version is assigned by one authority and is ordered by
+ * construction, so "has the cloud moved since I last agreed with it" is a fact
+ * rather than an inference.
+ */
+export async function cloudListMeta(): Promise<{ id: string; version: number }[]> {
   const rows = await need().listProjects();
-  return rows.map((r) => ({ id: r.id, updatedAt: new Date(r.updated_at).getTime() }));
+  return rows.map((r) => ({ id: r.id, version: Number(r.version ?? 1) }));
+}
+
+/**
+ * A commit refused because the row is no longer at the version the caller was
+ * editing. Someone else — another tab, another machine — landed a write first.
+ *
+ * A distinct type because it is the one push failure that is not a failure: the
+ * answer is to pull, reconcile and try again, never to retry the same write.
+ */
+export class StaleBaseError extends Error {
+  constructor(readonly id: string) {
+    super(`project ${id}: the cloud copy has moved on since this one last agreed with it`);
+    this.name = 'StaleBaseError';
+  }
 }
 
 /**
@@ -165,6 +186,10 @@ export async function cloudGet(id: string): Promise<SyncableProject | null> {
     name: row.name,
     createdAt: new Date(row.created_at).getTime(),
     updatedAt: new Date(row.updated_at).getTime(),
+    // What a pull agrees with, and what its next push must name as its base.
+    // A legacy row written before the column existed reads as 1, which is what
+    // the migration defaulted it to.
+    baseVersion: Number(row.version ?? 1),
     files: await readFiles(be, row, row.user_id ?? ''),
   };
 }
@@ -191,7 +216,7 @@ export async function cloudGet(id: string): Promise<SyncableProject | null> {
  */
 export async function cloudMissingObjects(
   id: string,
-): Promise<{ name: string; missing: number; total: number } | null> {
+): Promise<{ name: string; missing: number; total: number; version: number } | null> {
   const be = need();
   const row = await be.getProject(id);
   if (!row) return null;
@@ -201,7 +226,7 @@ export async function cloudMissingObjects(
   // An inline row carries its bytes in the row itself, so it has no objects to
   // be missing; without a user id nothing can be addressed to check.
   if (files.length === 0 || !userId || isInlineFile(files[0]!)) {
-    return { name: row.name, missing: 0, total: files.length };
+    return { name: row.name, missing: 0, total: files.length, version: Number(row.version ?? 1) };
   }
 
   // Manifest rows address blobs by hash, which may be stored under either
@@ -211,8 +236,14 @@ export async function cloudMissingObjects(
   const present = isManifestEntry(files[0]!)
     ? await Promise.all((files as ManifestEntry[]).map((f) => blobExists(be, userId, f.hash)))
     : await Promise.all(files.map((f) => be.hasObject(legacyPath(userId, row.id, f.name))));
-  // The row's own name, so a report can say which project rather than which key.
-  return { name: row.name, missing: present.filter((ok) => !ok).length, total: present.length };
+  // The row's own name, so a report can say which project rather than which
+  // key — and its version, which a repair has to name as the thing it replaces.
+  return {
+    name: row.name,
+    missing: present.filter((ok) => !ok).length,
+    total: present.length,
+    version: Number(row.version ?? 1),
+  };
 }
 
 /**
@@ -292,16 +323,25 @@ export async function restoreFromHistory(
     if (!present.every(Boolean)) continue;
 
     const row = await be.getProject(id);
-    await be.putProject({
-      id,
-      user_id: userId,
-      name: version.name || row?.name || 'Recovered project',
-      created_at: row?.created_at ?? version.committed_at,
-      // The recovered state is current as of now; keeping the old timestamp
-      // would leave every client believing it already has this version.
-      updated_at: new Date().toISOString(),
-      files: entries,
-    });
+    // Over whatever the row is at now, read a moment ago. A repair is still a
+    // write and still has to state what it replaces: two tabs both discovering
+    // the same damage would otherwise both "fix" it and one would lose.
+    const landed = await be.commitProject(
+      {
+        id,
+        user_id: userId,
+        name: version.name || row?.name || 'Recovered project',
+        created_at: row?.created_at ?? version.committed_at,
+        updated_at: new Date().toISOString(),
+        files: entries,
+      },
+      // A row that is there but carries no version is at 1 — what the migration
+      // defaulted every existing row to. Only the absence of the row itself is
+      // base 0, and conflating the two makes the repair claim the project is new
+      // and be refused for the row it is trying to fix.
+      row ? Number(row.version ?? 1) : 0,
+    );
+    if (landed === null) throw new StaleBaseError(id);
     return { name: version.name, committedAt: version.committed_at, files: entries.length };
   }
   return null;
@@ -338,7 +378,8 @@ export async function cloudUpsert(
   userId: string,
   p: SyncableProject,
   knownPresent: ReadonlySet<string> = new Set(),
-): Promise<ManifestEntry[]> {
+  base = 0,
+): Promise<{ manifest: ManifestEntry[]; version: number }> {
   const be = need();
 
   if (isHollow(p.files)) {
@@ -399,16 +440,25 @@ export async function cloudUpsert(
     );
   }
 
-  // 3. Commit. Everything the row names is now known to exist.
+  // 3. Commit, but only over the version this copy was derived from.
+  //
+  //    The blob work above is additive and safe to repeat; this is the single
+  //    moment the project's contents change, and it now also asserts *what it
+  //    is replacing*. A base that no longer matches means another device landed
+  //    a write while this one was uploading, and overwriting it is precisely the
+  //    data loss the version column exists to make impossible.
   const row: ProjectRow & { user_id: string } = {
     id: p.id,
     user_id: userId,
     name: p.name,
     created_at: new Date(p.createdAt).toISOString(),
+    // Sent for the row shape's sake; the server stamps its own and nothing
+    // reads this to decide anything.
     updated_at: new Date(p.updatedAt).toISOString(),
     files: manifest,
   };
-  await be.putProject(row);
+  const version = await be.commitProject(row, base);
+  if (version === null) throw new StaleBaseError(p.id);
 
   // 4. Record the committed manifest. Additive history: the blobs it names are
   //    never deleted while it exists, so any past version can be restored.
@@ -418,16 +468,17 @@ export async function cloudUpsert(
   //    sides marked as disagreeing when they agree. A database without the
   //    `manifest.sql` migration simply has no history.
   try {
-    await be.recordVersion?.(userId, row);
+    await be.recordVersion?.(userId, { ...row, version });
   } catch (e) {
     console.warn(`project history not recorded for "${p.name}":`, e);
   }
 
   // What was committed, including hashes computed here for files stored before
-  // they carried one. The caller records these as known-present; deriving them
-  // from its own copy instead would miss exactly those files and leave them
-  // re-checked on every sync forever.
-  return manifest;
+  // they carried one, and the version it landed as. The caller records both:
+  // the hashes as known-present (deriving them from its own copy instead would
+  // miss exactly those files and leave them re-checked on every sync forever),
+  // and the version as the base its next push must name.
+  return { manifest, version };
 }
 
 /**

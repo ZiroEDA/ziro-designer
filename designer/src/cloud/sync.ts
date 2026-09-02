@@ -4,9 +4,29 @@
 /**
  * Two-way project sync between IndexedDB (local) and the cloud.
  *
- * Strategy: last-write-wins by `updatedAt`, over the union of local and cloud
- * ids. Individual saves and deletes also mirror up while online (see HomePage),
- * so this full pass mainly matters at first sign-in on a new device.
+ * Strategy: **fast-forward on a version integer**, over the union of local and
+ * cloud ids. Individual saves and deletes also mirror up while online (see
+ * HomePage), so this full pass mainly matters at first sign-in on a new device.
+ *
+ * ### Why not last-write-wins on a timestamp
+ *
+ * It used to be exactly that, and the timestamp was `Date.now()` **from the
+ * browser** — written into `projects.updated_at` and compared against another
+ * machine's clock as if the two were one. A device a minute slow lost every
+ * race regardless of what actually happened first, and the *contents* were never
+ * consulted at all. Since opening a project rewrites its files (identical bytes,
+ * fresh timestamp), the last tab to merely open a project won, and could
+ * overwrite a different machine's real work.
+ *
+ * Now every row carries a `version` the server assigns, and a push states the
+ * version it is replacing. Three cases, and they are git's:
+ *
+ *  - **base === cloud, no local change** — already in sync, do nothing.
+ *  - **base === cloud, local changed** — fast-forward: push over that version.
+ *  - **base < cloud** — the cloud moved. Pull. If this side *also* changed, that
+ *    is a genuine conflict, and only then is the local copy forked aside.
+ *
+ * No clock takes part in any of it, and "changed" means the blob hashes differ.
  *
  * ### Failures are reported, not counted as success
  *
@@ -46,6 +66,7 @@ import {
   cloudMissingObjects,
   cloudUpsert,
   restoreFromHistory,
+  StaleBaseError,
 } from './cloudStore.js';
 
 /** Progress callback: `done` of `total` transfers finished so far. */
@@ -104,8 +125,8 @@ export async function syncAllProjects(
   if (!cloudBackendInstalled()) return result;
 
   const [localMeta, cloudMeta] = await Promise.all([listSyncMeta(), cloudListMeta()]);
-  const local = new Map(localMeta.map((m) => [m.id, m.updatedAt]));
-  const cloud = new Map(cloudMeta.map((m) => [m.id, m.updatedAt]));
+  const local = new Map(localMeta.map((m) => [m.id, m]));
+  const cloud = new Map(cloudMeta.map((m) => [m.id, m.version]));
 
   const ops: Promise<void>[] = [];
 
@@ -150,20 +171,50 @@ export async function syncAllProjects(
   };
 
   for (const id of new Set([...local.keys(), ...cloud.keys()])) {
-    const lt = local.get(id);
-    const ct = cloud.get(id);
+    const here = local.get(id);
+    const there = cloud.get(id);
 
-    if (lt !== undefined && ct === undefined) track(id, 'push', pushOne(userId, id));
-    else if (lt === undefined && ct !== undefined) track(id, 'pull', pullOne(userId, id));
-    else if (lt !== undefined && ct !== undefined && lt !== ct) {
-      if (lt > ct) track(id, 'push', pushOne(userId, id));
-      else track(id, 'pull', pullOne(userId, id));
+    // Local only: a project made on this machine, or one the cloud has never
+    // seen. Pushed as base 0, which asserts no such row exists.
+    if (here && there === undefined) track(id, 'push', pushFallingBackToPull(userId, id));
+    // Cloud only: nothing here to weigh against it.
+    else if (!here && there !== undefined) track(id, 'pull', pullOne(userId, id));
+    else if (here && there !== undefined) {
+      // Up to date with the cloud. Push only if this side actually changed —
+      // and "changed" is now the file hashes, so opening a project does not
+      // qualify and the account is not written to for nothing.
+      if (here.baseVersion === there) {
+        if (here.diverged) track(id, 'push', pushFallingBackToPull(userId, id));
+      } else {
+        // The cloud has moved since this copy last agreed with it. Pull;
+        // `pullOne` forks the local copy aside first if it also changed.
+        track(id, 'pull', pullOne(userId, id));
+      }
     }
   }
 
   if (ops.length > 0) onProgress?.(0, ops.length);
   await Promise.all(ops);
   return result;
+}
+
+/**
+ * Push, and if the cloud moved underneath us in the meantime, pull instead.
+ *
+ * The listing this pass planned from was read at the start of it, so by the
+ * time a transfer runs another device may have committed. That is an ordinary
+ * race, not a fault, and the resolution is the same one `pullOne` already
+ * implements: take the cloud's copy, forking this side aside first if it too
+ * has changed. Reporting it as a failed push would put a red banner in front of
+ * the user for something the next line of code can settle correctly.
+ */
+async function pushFallingBackToPull(userId: string, id: string): Promise<Outcome> {
+  try {
+    return await pushOne(userId, id);
+  } catch (e) {
+    if (!(e instanceof StaleBaseError)) throw e;
+    return pullOne(userId, id);
+  }
 }
 
 /**
@@ -175,7 +226,7 @@ export async function syncAllProjects(
  * "these sides agree" after a failed push is what let a damaged copy be treated
  * as the agreed one.
  */
-async function pushOne(userId: string, id: string): Promise<Outcome> {
+async function pushOne(userId: string, id: string, base?: number): Promise<Outcome> {
   // A manifest, not the whole project: names, hashes and sizes, with the bytes
   // left in the store until a blob actually has to be uploaded. Encoding every
   // file to base64 to find out that none of them changed cost about 400 ms of
@@ -185,14 +236,29 @@ async function pushOne(userId: string, id: string): Promise<Outcome> {
   // What the last landed push put in the store. Those blobs are still
   // referenced by the cloud row, so they need neither storing nor confirming
   // again, which is most of the cost of pushing a project that barely changed.
-  const committed = await cloudUpsert(userId, p, await knownPushedHashes(id));
+  //
+  // `baseVersion` is the version this copy came from. Undefined means it has
+  // never been in the cloud, which is stated as base 0: the commit lands only
+  // if no such row exists, so a project another device already created under
+  // this id is never silently overwritten.
+  const { manifest, version } = await cloudUpsert(
+    userId,
+    p,
+    await knownPushedHashes(id),
+    // `base` overrides only where the caller knows the row it is replacing
+    // better than the local record does — the repair path, which has just read
+    // the damaged row and is deliberately overwriting it.
+    base ?? p.baseVersion ?? 0,
+  );
   // Only after the write lands: a project that has been pushed belongs to this
   // account, so the next person to sign in on this browser does not inherit it.
   await claimProject(id, userId);
-  // The two sides agree as of this push (#367), and this is what it agrees on.
+  // The two sides agree as of this push (#367), and this is what it agrees on:
+  // these blobs, at that version.
   await markSynced(
     id,
-    committed.map((m) => m.hash),
+    manifest.map((m) => m.hash),
+    version,
   );
   return 'pushed';
 }
@@ -292,14 +358,31 @@ async function repairUnreadable(userId: string, id: string, cause: unknown): Pro
     );
   }
 
-  await pushOne(userId, id);
+  // Over the damaged row, at the version it is actually at. The local record's
+  // own base is stale or absent here by definition — that is what being
+  // unreadable means — and stating 0 would claim the project is new and be
+  // refused for the very row this is repairing.
+  await pushOne(userId, id, damage.version);
   return 'healed';
 }
 
-/** Mirror a single saved project up to the cloud. Throws if it did not land. */
+/**
+ * Mirror a single saved project up to the cloud. Throws if it did not land.
+ *
+ * A stale base is the one failure that is not a failure: another tab or machine
+ * committed while this one was editing. Retrying the same write would either
+ * fail again or, under the old protocol, silently destroy their work — so the
+ * answer is to reconcile this one project, which pulls and forks the local copy
+ * aside if it too has changed. Nothing is lost either way.
+ */
 export async function pushProject(userId: string, id: string): Promise<void> {
   if (!cloudBackendInstalled()) return;
-  await pushOne(userId, id);
+  try {
+    await pushOne(userId, id);
+  } catch (e) {
+    if (!(e instanceof StaleBaseError)) throw e;
+    await pullOne(userId, id);
+  }
 }
 
 /** Mirror a delete up to the cloud. */

@@ -64,6 +64,37 @@ interface StoredRecord {
    */
   syncedAt?: number;
   /**
+   * The cloud `version` this record last agreed with, from the pull that
+   * brought it down or the push that landed it.
+   *
+   * This is what a push names as the version it is replacing, and the server
+   * refuses the write if the row has moved since. Undefined means the project
+   * has never been in the cloud, which a push states as base 0 — "this is new,
+   * and must not already exist".
+   *
+   * It replaces `syncedAt` as the thing reconciliation actually reads.
+   * `syncedAt` is still written, for records that predate this and for nothing
+   * else; a timestamp cannot order two machines' writes and never could.
+   */
+  baseVersion?: number;
+  /**
+   * The content hashes of this record's files at the moment the two sides last
+   * agreed. What divergence is measured against.
+   *
+   * Deliberately *not* `pushedHashes`, though for a project pushed from here
+   * the two hold the same strings. They answer different questions, and
+   * conflating them loses data: `pushedHashes` means "these blobs are in the
+   * content-addressed store", which lets a push skip uploading and verifying
+   * them. A legacy cloud row references its files by path or inline, so its
+   * blobs are *not* in that store — recording their computed hashes as pushed
+   * would make the next push upload nothing, verify nothing, and commit a row
+   * naming objects that were never stored.
+   *
+   * So a pull records what it took (always), and only a push records what is
+   * known present (when it is).
+   */
+  syncedHashes?: string[];
+  /**
    * `hash` is the SHA-256 of `gz`, the key the blob is stored under in the
    * cloud. Computed here, once, when the bytes are written, rather than in the
    * push, which was hashing every file of the project on every sync even when
@@ -316,6 +347,17 @@ export async function saveProject(
     // what is on this machine, not which blobs the cloud row points at. Dropping
     // it would make every save re-examine every file on the next push.
     ...(existing?.pushedHashes ? { pushedHashes: existing.pushedHashes } : {}),
+    // The version the cloud row was at when the two sides last agreed. A save
+    // edits this machine's copy; it does not move the cloud's, so the base the
+    // next push names is unchanged. Dropping it would make the push claim the
+    // project is new, and its commit would then refuse to overwrite the row it
+    // was derived from.
+    ...(existing?.baseVersion !== undefined ? { baseVersion: existing.baseVersion } : {}),
+    // And what those two sides agreed *on*. This is the one that must survive:
+    // divergence is "the files differ from these", so a save that erased it
+    // would answer "not diverged" for the edit that just happened — the exact
+    // shape of the `syncedAt` bug above, one field along.
+    ...(existing?.syncedHashes ? { syncedHashes: existing.syncedHashes } : {}),
     // Falls back to the record's existing owner rather than dropping it: an
     // unowned record is visible to every account on the browser, so saving
     // while signed out must not un-own somebody's project.
@@ -373,7 +415,8 @@ export async function saveProject(
  * Fixed, so the same folder is the same row on every device the account signs
  * in from, and the sync converges instead of making a second Templates. Safe to
  * share across accounts because the cloud's primary key is `(user_id, id)`, not
- * `id` — see `putProject`'s `onConflict`.
+ * `id` — see `commit_project`, which scopes both its insert and its update by
+ * `auth.uid()`.
  *
  * They are UUIDs and not `userdir:templates` because `projects.id` is a `uuid`
  * column. The readable form reached Postgres on the first push and came back
@@ -555,16 +598,27 @@ export async function updateProjectFiles(id: string, changed: StoredFile[]): Pro
     if (!r) return;
     const byName = new Map(r.files.map((f) => [f.name, f]));
     const now = Date.now();
+    // Whether any of these bytes are actually new.
+    //
+    // The schematic editor re-serializes and hands its sheets up 900 ms after a
+    // project is *opened*, not only after it is edited — its own comment says
+    // "fires on sheet switch/load too, re-saving identical content". Writing
+    // that restamped `updatedAt`, which made the record look newer than the
+    // cloud and look diverged from it, so merely opening a tab could overwrite
+    // another machine's real work and fork a "(local copy)" aside. Comparing the
+    // hash first makes an identical save cost a hash and change nothing.
+    let dirty = false;
     for (const f of changed) {
       const gz = await gzip(f.bytes);
-      byName.set(f.name, {
-        name: f.name,
-        gz,
-        hash: await sha256Hex(gz),
-        size: f.bytes.byteLength,
-        writtenAt: now,
-      });
+      const hash = await sha256Hex(gz);
+      if (byName.get(f.name)?.hash === hash) continue;
+      dirty = true;
+      byName.set(f.name, { name: f.name, gz, hash, size: f.bytes.byteLength, writtenAt: now });
     }
+    // Nothing changed, so nothing is recorded as having changed. Returning here
+    // also skips the template mirror, which would otherwise rewrite the template
+    // on every open for exactly the same reason.
+    if (!dirty) return;
     r.files = [...byName.values()];
     r.updatedAt = now;
     await tx('readwrite', (s) => s.put(r));
@@ -886,14 +940,25 @@ export async function claimProject(id: string, userId: string): Promise<void> {
  * right — the watermark has to move on every successful push, not only the
  * first one.
  */
-export async function markSynced(id: string, pushedHashes?: string[]): Promise<void> {
+export async function markSynced(
+  id: string,
+  pushedHashes?: string[],
+  version?: number,
+): Promise<void> {
   await withRecordLock(id, async () => {
     const r = await tx<StoredRecord | undefined>('readonly', (s) => s.get(id));
     if (!r) return;
     r.syncedAt = r.updatedAt;
-    // Recorded together with the watermark, and only here, so the two cannot
-    // disagree: these are the blobs the row that just landed refers to.
-    if (pushedHashes) r.pushedHashes = pushedHashes;
+    // Recorded together, and only here, so the three cannot disagree: these are
+    // the blobs the row that just landed refers to, and that is the version it
+    // landed as — the base the next push has to name.
+    if (pushedHashes) {
+      r.pushedHashes = pushedHashes;
+      // The push sent this record's files, so these are also the contents the
+      // two sides now agree on.
+      r.syncedHashes = pushedHashes;
+    }
+    if (version !== undefined) r.baseVersion = version;
     await tx('readwrite', (s) => s.put(r));
   });
 }
@@ -930,6 +995,8 @@ export interface SyncableProject {
   name: string;
   createdAt: number;
   updatedAt: number;
+  /** The cloud version this copy is derived from; see `StoredRecord.baseVersion`. */
+  baseVersion?: number;
   /**
    * `gzB64` is the file's stored bytes, base64 encoded — and is optional
    * because encoding them is expensive enough to matter. A 10 MB project turns
@@ -963,7 +1030,9 @@ function b64ToBytes(b64: string): Uint8Array {
 }
 
 /** id + updatedAt for every local project, for cheap sync diffing. */
-export async function listSyncMeta(): Promise<{ id: string; updatedAt: number }[]> {
+export async function listSyncMeta(): Promise<
+  { id: string; baseVersion?: number; diverged: boolean }[]
+> {
   // Before the list, not after: this is the call that decides what gets pushed,
   // and a readable id reaching Postgres is the failure it has to prevent.
   await migrateUserDirIds();
@@ -972,9 +1041,15 @@ export async function listSyncMeta(): Promise<{ id: string; updatedAt: number }[
   // against the cloud, and row-level security means another account's rows are
   // invisible, so anything left in here would look local-only and be pushed up
   // under the wrong owner.
-  return all
-    .filter((r) => r.id !== PROBE_ID && ownedByCurrent(r))
-    .map((r) => ({ id: r.id, updatedAt: r.updatedAt }));
+  return Promise.all(
+    all
+      .filter((r) => r.id !== PROBE_ID && ownedByCurrent(r))
+      .map(async (r) => ({
+        id: r.id,
+        ...(r.baseVersion !== undefined ? { baseVersion: r.baseVersion } : {}),
+        diverged: await divergedFrom(r),
+      })),
+  );
 }
 
 /** Export a stored project to its serializable (base64) form, or null if gone. */
@@ -986,6 +1061,7 @@ export async function exportProject(id: string): Promise<SyncableProject | null>
     name: r.name,
     createdAt: r.createdAt,
     updatedAt: r.updatedAt,
+    ...(r.baseVersion !== undefined ? { baseVersion: r.baseVersion } : {}),
     files: r.files.map((f) => ({
       name: f.name,
       gzB64: bytesToB64(f.gz),
@@ -1015,15 +1091,18 @@ export const isHollowRecord = (files: { gz: Uint8Array }[]): boolean =>
 /** Write a project from its serializable form, preserving its timestamps. */
 export async function importProject(p: SyncableProject): Promise<void> {
   // A pull always carries bytes; a manifest (the push shape) never reaches here.
-  const files = p.files.map((f) => ({
-    name: f.name,
-    gz: b64ToBytes(f.gzB64 ?? ''),
-    ...(f.hash ? { hash: f.hash } : {}),
-    // A copy that carries sizes saves the first listing a gunzip per file. One
-    // that does not — an older cloud row — is measured on demand by
-    // `listProjectFiles` instead, which is why this stays optional.
-    ...(f.size !== undefined ? { size: f.size } : {}),
-  }));
+  //
+  // A file from a legacy row carries no hash, so one is computed from the bytes
+  // that just arrived. That is the same SHA-256 the store would key it under,
+  // it costs one hash per file on a pull, and it is what lets divergence be
+  // measured for a project whose cloud copy predates content addressing. It
+  // does *not* make the blob present in the object store; see `syncedHashes`.
+  const files = await Promise.all(
+    p.files.map(async (f) => {
+      const gz = b64ToBytes(f.gzB64 ?? '');
+      return { name: f.name, gz, hash: f.hash ?? (await sha256Hex(gz)), size: f.size };
+    }),
+  );
 
   // The last line of defence, and the one that would have held when the others
   // did not. Whatever the layers above believe, an incoming copy with no
@@ -1058,8 +1137,13 @@ export async function importProject(p: SyncableProject): Promise<void> {
     // Footprints and 3D Models down as four projects to open.
     ...(userDirOf(p.id, local) ? { userDir: userDirOf(p.id, local)! } : {}),
     // We have just taken the cloud's copy wholesale, so this is the point the
-    // two sides agree.
+    // two sides agree — and this is the version they agree on, which the next
+    // push must name as the one it replaces.
     syncedAt: p.updatedAt,
+    ...(p.baseVersion !== undefined ? { baseVersion: p.baseVersion } : {}),
+    // What was just taken, whatever shape the row was in. Divergence is
+    // measured against this.
+    syncedHashes: files.map((f) => f.hash),
     ...(currentOwner ? { ownerId: currentOwner } : {}),
     // The row this came from names exactly these blobs, so they are the ones a
     // later push can take as already stored. Absent when the cloud copy was in
@@ -1095,6 +1179,7 @@ export async function exportManifest(id: string): Promise<SyncableProject | null
     name: r.name,
     createdAt: r.createdAt,
     updatedAt: r.updatedAt,
+    ...(r.baseVersion !== undefined ? { baseVersion: r.baseVersion } : {}),
     files,
     bytesOf: async (name: string) => {
       // Re-read rather than close over the record: a push runs alongside
@@ -1117,7 +1202,40 @@ export async function exportManifest(id: string): Promise<SyncableProject | null
  */
 export async function hasDivergedLocally(id: string): Promise<boolean> {
   const r = await tx<StoredRecord | undefined>('readonly', (s) => s.get(id));
-  return !!r && r.syncedAt !== undefined && r.updatedAt > r.syncedAt;
+  return !!r && (await divergedFrom(r));
+}
+
+/**
+ * Whether this record's contents differ from the ones its last agreed cloud
+ * version referenced.
+ *
+ * **Content, not time.** The old test was `updatedAt > syncedAt`, and
+ * `updateProjectFiles` restamps `updatedAt` on every write including one that
+ * stores byte-identical files — which the schematic editor performs 900 ms after
+ * a project is merely *opened*. So opening a tab and touching nothing marked the
+ * project as diverged, and a pull then forked it aside as unsynced work. That is
+ * where `ACtoDCconverter (local copy, 2026-09-01)` and its siblings came from.
+ *
+ * Comparing the blob hashes instead makes the question the one actually being
+ * asked. A record that has never agreed with the cloud is not diverged: forking
+ * on a first sync would fork every project the first time somebody signs in.
+ */
+async function divergedFrom(r: StoredRecord): Promise<boolean> {
+  // `syncedHashes` where it exists, falling back to `pushedHashes` for records
+  // written before the two were told apart — for those the push path set it and
+  // the meanings coincide.
+  const agreed = r.syncedHashes ?? r.pushedHashes;
+  if (!agreed) return false; // never synced: nothing to have diverged from
+  const then = new Set(agreed);
+  if (r.files.length !== then.size) return true;
+  // A file written before hashes were recorded has none, so it is hashed here
+  // rather than counted as a difference. Treating "unknown" as "changed" would
+  // fork every legacy record once, which is the failure mode being removed.
+  for (const f of r.files) {
+    const h = f.hash ?? (await sha256Hex(f.gz));
+    if (!then.has(h)) return true;
+  }
+  return false;
 }
 
 /**

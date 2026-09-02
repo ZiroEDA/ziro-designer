@@ -69,7 +69,20 @@ export interface ProjectRow {
   user_id?: string;
   name: string;
   created_at: string;
+  /**
+   * Display only, and stamped by the server. Nothing decides anything from it.
+   *
+   * It used to hold whatever `Date.now()` the browser said and to be the entire
+   * basis of reconciliation, so two machines' clocks were compared as if they
+   * were one. `version` answers that question now; see `commitProject`.
+   */
   updated_at: string;
+  /**
+   * The row's commit counter, incremented by every write that lands.
+   *
+   * Absent only on a row read through a path that did not select it.
+   */
+  version?: number;
   files: RowFile[];
 }
 
@@ -82,17 +95,29 @@ export interface ProjectRow {
  * an overwrite incapable of destroying anything.
  */
 export interface CloudBackend {
-  /** Every project of the signed-in user: id and modification time only. */
-  listProjects(): Promise<{ id: string; updated_at: string }[]>;
+  /** Every project of the signed-in user: id and current version only. */
+  listProjects(): Promise<{ id: string; version: number }[]>;
 
   /** One project row, or null when the user has no such project. */
   getProject(id: string): Promise<ProjectRow | null>;
 
   /**
-   * Write the row. Called only after every blob its manifest names is known to
-   * be stored, so a row never references an object that is not there.
+   * Write the row, but only if it is still at `base`. Returns the new version,
+   * or **null** when the row has moved on and this caller is stale.
+   *
+   * Called only after every blob its manifest names is known to be stored, so a
+   * row never references an object that is not there.
+   *
+   * `base` of 0 means "this project is new": the write lands only if no such
+   * row exists. An upsert there would silently overwrite a project another
+   * device created under the same id, which is not a hypothetical -- ids are
+   * fixed for the user-data folders.
+   *
+   * Null rather than a throw because a stale base is an ordinary outcome of two
+   * devices editing, not a fault. The caller pulls and reconciles; every real
+   * failure still rejects.
    */
-  putProject(row: ProjectRow & { user_id: string }): Promise<void>;
+  commitProject(row: ProjectRow & { user_id: string }, base: number): Promise<number | null>;
 
   deleteProject(id: string): Promise<void>;
 

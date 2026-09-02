@@ -57,8 +57,8 @@ export function supabaseBackend(): CloudBackend {
 
   return {
     async listProjects() {
-      const data = unwrap(await db.from('projects').select('id, updated_at'), 'list projects');
-      return (data ?? []) as { id: string; updated_at: string }[];
+      const data = unwrap(await db.from('projects').select('id, version'), 'list projects');
+      return (data ?? []) as { id: string; version: number }[];
     },
 
     async getProject(id) {
@@ -69,11 +69,23 @@ export function supabaseBackend(): CloudBackend {
       return (data as ProjectRow | null) ?? null;
     },
 
-    async putProject(row) {
-      // Conflict on the (user_id, id) primary key. On `id` alone the update
-      // would aim at another account's row, which row-level security refuses.
-      const { error } = await db.from('projects').upsert(row, { onConflict: 'user_id,id' });
-      if (error) throw new Error(`write project ${row.id}: ${error.message}`);
+    async commitProject(row, base) {
+      // The compare-and-swap lives in Postgres, not here, because it has to be
+      // one statement. Read-then-write from the browser is the same race with
+      // more steps: two devices both read version 4 and both write 5.
+      //
+      // `updated_at` is deliberately not sent. The function stamps it from the
+      // server's clock, and the whole reason this RPC exists is that a client's
+      // clock had no business deciding anything.
+      const { data, error } = await db.rpc('commit_project', {
+        p_id: row.id,
+        p_name: row.name,
+        p_files: row.files,
+        p_base: base,
+      });
+      if (error) throw new Error(`commit project ${row.id}: ${error.message}`);
+      // Null is the contract's "you are stale", not a failure to write.
+      return data === null || data === undefined ? null : Number(data);
     },
 
     async deleteProject(id) {

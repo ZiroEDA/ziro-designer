@@ -56,13 +56,19 @@ function fakeBackend(opts: {
       }
     },
     async listProjects() {
-      return [...rows.values()].map((r) => ({ id: r.id, updated_at: r.updated_at }));
+      return [...rows.values()].map((r) => ({ id: r.id, version: r.version ?? 1 }));
     },
     async getProject(id: string) {
       return rows.get(id) ?? null;
     },
-    async putProject(row: ProjectRow) {
-      rows.set(row.id, row as ProjectRow);
+    async commitProject(row: ProjectRow, base: number) {
+      const cur = rows.get(row.id);
+      // The rule the RPC enforces: base 0 asserts the row is new, any other
+      // base asserts the row is still exactly at that version.
+      if (base <= 0 ? cur !== undefined : (cur?.version ?? 1) !== base) return null;
+      const version = base <= 0 ? 1 : base + 1;
+      rows.set(row.id, { ...row, version });
+      return version;
     },
     async deleteProject(id: string) {
       rows.delete(id);

@@ -41,14 +41,20 @@ function fake(): CloudBackend & {
     rows: new Map<string, ProjectRow>(),
     calls: [] as string[],
     async listProjects() {
-      return [...f.rows.values()].map((r) => ({ id: r.id, updated_at: r.updated_at }));
+      return [...f.rows.values()].map((r) => ({ id: r.id, version: r.version ?? 1 }));
     },
     async getProject(id: string) {
       return f.rows.get(id) ?? null;
     },
-    async putProject(row: ProjectRow & { user_id: string }) {
+    async commitProject(row: ProjectRow & { user_id: string }, base: number) {
       f.calls.push(`put:${row.id}`);
-      f.rows.set(row.id, row);
+      const cur = f.rows.get(row.id);
+      // The rule the RPC enforces: base 0 asserts the row is new, any other
+      // base asserts the row is still exactly at that version.
+      if (base <= 0 ? cur !== undefined : (cur?.version ?? 1) !== base) return null;
+      const version = base <= 0 ? 1 : base + 1;
+      f.rows.set(row.id, { ...row, version });
+      return version;
     },
     async deleteProject(id: string) {
       f.rows.delete(id);
@@ -96,15 +102,22 @@ describe('pushing a project again', () => {
     await syncAllProjects(USER); // first push: stores everything
     backend.calls.length = 0;
 
-    // Something unrelated moved the clock on, so it is pushed again.
+    // The editor re-serializing an open project: the same bytes, written again.
     await updateProjectFiles(id, [{ name: 'part0.kicad_mod', bytes: text('(footprint "P0")') }]);
     await syncAllProjects(USER);
 
-    // The one rewritten file has identical bytes, so its hash is unchanged and
-    // it is already in the store: nothing to upload, nothing to ask about.
+    // The rewritten file has identical bytes, so its hash is unchanged and it is
+    // already in the store: nothing to upload, nothing to ask about.
     expect(countOf('upload')).toBe(0);
     expect(countOf('stat')).toBe(0);
-    expect(countOf('put')).toBe(1); // the row itself still commits
+    // And the row does not commit either, which is the part that changed.
+    //
+    // It used to, because the identical write still restamped `updatedAt` and
+    // reconciliation compared timestamps. That commit could only do harm: it
+    // stored no new content, and — since a commit now advances the version —
+    // it would invalidate every other device's base to say nothing. A project
+    // that is opened and not edited must leave the account untouched.
+    expect(countOf('put')).toBe(0);
   });
 
   it('stores and confirms the file that did change, and only that one', async () => {
@@ -152,7 +165,7 @@ describe('pushing a project again', () => {
 
     const stripped = { ...exported!, files: exported!.files.map(({ hash: _h, ...f }) => f) };
     const { cloudUpsert } = await import('@ziroeda/designer/src/cloud/cloudStore.js');
-    const manifest = await cloudUpsert(USER, stripped);
+    const { manifest } = await cloudUpsert(USER, stripped);
 
     expect(manifest).toHaveLength(2);
     expect(manifest.every((m) => m.hash.length === 64)).toBe(true);

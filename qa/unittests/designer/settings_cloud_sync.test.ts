@@ -101,7 +101,9 @@ function fake(): Fake {
     async getProject() {
       return null;
     },
-    async putProject() {},
+    async commitProject() {
+      return 1;
+    },
     async deleteProject() {},
     async putObject() {},
     async getObject() {

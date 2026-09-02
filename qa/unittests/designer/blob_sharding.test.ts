@@ -44,13 +44,19 @@ function fake(): Fake {
     rows: new Map(),
     listed: [],
     async listProjects() {
-      return [...f.rows.values()].map((r) => ({ id: r.id, updated_at: r.updated_at }));
+      return [...f.rows.values()].map((r) => ({ id: r.id, version: r.version ?? 1 }));
     },
     async getProject(id) {
       return f.rows.get(id) ?? null;
     },
-    async putProject(row) {
-      f.rows.set(row.id, row);
+    async commitProject(row: ProjectRow & { user_id: string }, base: number) {
+      const cur = f.rows.get(row.id);
+      // The rule the RPC enforces: base 0 asserts the row is new, any other
+      // base asserts the row is still exactly at that version.
+      if (base <= 0 ? cur !== undefined : (cur?.version ?? 1) !== base) return null;
+      const version = base <= 0 ? 1 : base + 1;
+      f.rows.set(row.id, { ...row, version });
+      return version;
     },
     async deleteProject(id) {
       f.rows.delete(id);
@@ -164,7 +170,10 @@ describe('blobs written before the split', () => {
     const f = install();
     const hash = await legacyRow('p-old', 'a.kicad_sch', 'ORIGINAL');
 
-    await cloudUpsert(USER, project({ 'a.kicad_sch': 'ORIGINAL' }, 'p-old'));
+    // Base 1: the legacy row is already there, at the version the migration
+    // defaulted every existing row to. A push over it states that, exactly as
+    // `pushOne` would from a record whose `baseVersion` came from a pull.
+    await cloudUpsert(USER, project({ 'a.kicad_sch': 'ORIGINAL' }, 'p-old'), new Set(), 1);
 
     expect(f.objects.has(blobPath(USER, hash))).toBe(true);
     // The old copy is left exactly where it is: other rows may name it, and it

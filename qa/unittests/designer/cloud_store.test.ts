@@ -76,16 +76,22 @@ function fake(): Fake {
     },
     async listProjects() {
       guard('listProjects');
-      return [...f.rows.values()].map((r) => ({ id: r.id, updated_at: r.updated_at }));
+      return [...f.rows.values()].map((r) => ({ id: r.id, version: r.version ?? 1 }));
     },
     async getProject(id) {
       guard(`getProject:${id}`);
       return f.rows.get(id) ?? null;
     },
-    async putProject(row) {
+    async commitProject(row, base) {
       guard(`putProject:${row.id}`);
       f.calls.push(`putProject:${row.id}`);
-      f.rows.set(row.id, row);
+      const cur = f.rows.get(row.id);
+      // The rule the RPC enforces: base 0 asserts the row is new, any other
+      // base asserts the row is still exactly at that version.
+      if (base <= 0 ? cur !== undefined : (cur?.version ?? 1) !== base) return null;
+      const version = base <= 0 ? 1 : base + 1;
+      f.rows.set(row.id, { ...row, version });
+      return version;
     },
     async deleteProject(id) {
       guard(`deleteProject:${id}`);
@@ -223,9 +229,10 @@ describe('a push', () => {
     // new risk.
     const f = install();
     const p = project({ 'a.kicad_sch': 'AAA' });
-    await cloudUpsert(USER, p);
+    const { version } = await cloudUpsert(USER, p);
     f.calls.length = 0;
-    await cloudUpsert(USER, p);
+    // Over the version the first push landed as, which is what `pushOne` sends.
+    await cloudUpsert(USER, p, new Set(), version);
     expect(f.calls.filter((c) => c.startsWith('putObject:'))).toEqual([]);
   });
 
@@ -242,8 +249,10 @@ describe('a push', () => {
     const f = install();
     f.failOn(/^recordVersion:/);
     // Resolves with the manifest it committed, history or no history.
-    const manifest = await cloudUpsert(USER, project({ 'a.kicad_sch': 'AAA' }));
+    const { manifest, version } = await cloudUpsert(USER, project({ 'a.kicad_sch': 'AAA' }));
     expect(manifest.map((m) => m.name)).toEqual(['a.kicad_sch']);
+    // A first commit lands as version 1; history failing does not roll it back.
+    expect(version).toBe(1);
     expect(f.rows.has('p1')).toBe(true);
   });
 });
