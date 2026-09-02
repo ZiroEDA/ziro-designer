@@ -98,5 +98,9 @@ int main()
     show( "third unrelated",      { "/Sheet1/SDA", "/Sheet2/SDA", "/Sheet1/SCL" } );
     show( "no leading slash",     { "Sheet1/SDA", "Sheet2/SDA" } );
     show( "bare short names",     { "SDA", "SDA" } );
+    // A backslash escape: wxSplit consumes it, so parts.join("/") is NOT the
+    // original name and "widen from 0" stops being the same as "keep it all".
+    show( "escaped sep, differ 0", { "a\\/x/SDA", "b\\/x/SDA" } );
+    show( "escaped sep, differ 1", { "/a\\/x/SDA", "/b\\/x/SDA" } );
     return 0;
 }

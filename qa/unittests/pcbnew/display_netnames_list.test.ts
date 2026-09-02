@@ -14,8 +14,11 @@
  * The awkward parts of the algorithm are the point of this file, because each
  * of them is a place a reimplementation would drift:
  *
- *  - the comparison group **includes the net's own name**, so a net never
- *    disagrees with itself;
+ *  - the comparison group **includes the net's own name**. That one is an
+ *    equivalent mutation rather than a testable rule — a name matches itself at
+ *    every index, so it can never push `firstNonCommon` forward, and removing
+ *    it changes no output. Recorded here so the next reader does not spend an
+ *    afternoon writing the test that cannot exist;
  *  - a name is widened only when the first difference is at index **> 0** —
  *    nets differing at the very first component fall back to the *full* name;
  *  - so does a group that never differs within the shorter name's length;
@@ -169,6 +172,40 @@ describe('two nets sharing a short name', () => {
     ]);
     expect(d.get(3)).toBe('SCL'); // unique short name, untouched
     expect(d.get(1)).toBe('Sheet1/SDA');
+  });
+});
+
+describe('an escaped separator, where the two split rules part company', () => {
+  // These are the cases that justify porting `wxSplit` instead of using
+  // `String.split`, and the cases where "widen from 0" stops being the same
+  // thing as "keep the whole name" — because `parts.join('/')` no longer
+  // reconstructs the original once an escape has been consumed.
+  //
+  // Both answers come from qa/probes/display_netnames_probe.cpp, the C++
+  // transcribed over real wxSplit, not from reading the algorithm.
+
+  it('keeps the escape when the names differ at the first component', () => {
+    // wxSplit gives ['a/x', 'SDA'] and ['b/x', 'SDA'] — a difference at 0, so
+    // the FULL name is kept, backslash and all. Rejoining the parts would have
+    // silently dropped the escape.
+    const d = names([
+      [1, 'a\\/x/SDA'],
+      [2, 'b\\/x/SDA'],
+    ]);
+    expect(d.get(1)).toBe('a\\/x/SDA');
+    expect(d.get(2)).toBe('b\\/x/SDA');
+  });
+
+  it('widens across an escaped separator without splitting on it', () => {
+    // ['', 'a/x', 'SDA'] — the escaped slash is inside one component, so
+    // widening from index 1 yields `a/x/SDA`. `String.split` would have made
+    // four parts and answered differently.
+    const d = names([
+      [1, '/a\\/x/SDA'],
+      [2, '/b\\/x/SDA'],
+    ]);
+    expect(d.get(1)).toBe('a/x/SDA');
+    expect(d.get(2)).toBe('b/x/SDA');
   });
 });
 
