@@ -40,6 +40,7 @@ import {
   arcCenter,
   arcSweepDegrees,
   displayNetname,
+  displayNetnames,
   shortNetname,
   imageBBox,
   tableBBox,
@@ -1109,6 +1110,13 @@ function addPadLabels(
   scene: BoardScene,
   pad: PcbPad,
   netName: string,
+  /**
+   * `GetDisplayNetname()` for this pad's net, resolved against the whole net
+   * list — so a net sharing its short name with another arrives already
+   * widened. `netName` stays the raw, escaped name because `IsFreePad()` tests
+   * that one.
+   */
+  displayName: string,
   layers: string[],
   owner: string,
 ): void {
@@ -1130,7 +1138,7 @@ function addPadLabels(
   // displayed one: the prefix it looks for is `unconnected-(`, and testing the
   // unescaped string would answer for a name the file does not contain.
   const shortName = shortNetname(netName);
-  let netLabel = (pad.net ?? 0) > 0 ? displayNetname(netName) : '';
+  let netLabel = (pad.net ?? 0) > 0 ? displayName : '';
   let netIsOverride = false;
   if (pad.pinType?.includes('no_connect')) {
     netLabel = 'x';
@@ -1406,6 +1414,17 @@ export function buildScene(
 }
 
 function compileScene(board: Board, filter: SceneFilter): BoardScene {
+  // Every net's display name, computed once for the whole list.
+  //
+  // `GetDisplayNetname()` is a per-item accessor upstream, but the value behind
+  // it is a property of the *list*: a short name is only shown when it is
+  // unique, and widening a name means comparing it against every other net that
+  // shortens the same way (`NETINFO_LIST::RebuildDisplayNetnames`). KiCad
+  // rebuilds the whole table when the list is dirty and the accessor then just
+  // reads it; this is that rebuild, at the one point that has the board.
+  const displayNames = displayNetnames(board.nets);
+  const displayNameOf = (code: number): string =>
+    displayNames.get(code) ?? displayNetname(board.nets.get(code) ?? '');
   const scene: BoardScene = {
     layers: new Map(),
     viaHoles: pathFactory.path(),
@@ -1452,7 +1471,7 @@ function compileScene(board: Board, filter: SceneFilter): BoardScene {
     // short one (GetDisplayNetname).
     if (t.net > 0) {
       const name = board.nets.get(t.net) ?? '';
-      const shown = displayNetname(name);
+      const shown = displayNameOf(t.net);
       if (shown !== '')
         scene.netLabels.push({
           start: t.start,
@@ -1478,7 +1497,7 @@ function compileScene(board: Board, filter: SceneFilter): BoardScene {
     // the tangent there — the radius is perpendicular to it, so rotating the
     // radial vector by 90° gives the text direction (pcb_painter.cpp:978-981).
     if (a.net > 0) {
-      const text = displayNetname(board.nets.get(a.net) ?? '');
+      const text = displayNameOf(a.net);
       const c = arcCenter(a.start, a.mid, a.end);
       if (text !== '' && c) {
         const radius = Math.hypot(a.start.x - c.x, a.start.y - c.y);
@@ -1517,7 +1536,7 @@ function compileScene(board: Board, filter: SceneFilter): BoardScene {
       // is not a full-stack through via a "top-bottom" line of copper layer
       // numbers (F.Cu = 1 … B.Cu = copper count, matching the layer manager).
       const name = (v.net ?? 0) > 0 ? (board.nets.get(v.net) ?? '') : '';
-      const text = displayNetname(name);
+      const text = displayNameOf(v.net ?? 0);
       let layerIds = '';
       if (v.kind && v.kind !== 'through') {
         const top = copperNames.indexOf(v.layers[0]) + 1;
@@ -1598,6 +1617,22 @@ function compileScene(board: Board, filter: SceneFilter): BoardScene {
     // with nothing at all; tagging it correctly is what exposed the leak.
     pathFactory.setOwner?.(`shape:${si}`);
     addShape(scene, s);
+    // draw(PCB_SHAPE)'s netname branch: a copper graphic belongs to a net like
+    // anything else, and a SEGMENT-shaped one is lettered through the very
+    // `renderNetNameForSegment` a track uses — so it becomes an ordinary track
+    // label. Upstream draws nothing for the other shapes ("TODO: Maybe use some
+    // of the pad code?", pcb_painter.cpp:2061), and neither do we.
+    if (s.kind === 'line' && (s.net ?? 0) > 0 && s.start && s.end) {
+      const text = displayNameOf(s.net!);
+      if (text !== '')
+        scene.netLabels.push({
+          start: s.start,
+          end: s.end,
+          width: s.width,
+          layer: s.layer,
+          text,
+        });
+    }
     if (s.start) grow(s.start.x, s.start.y, s.width);
     if (s.end) grow(s.end.x, s.end.y, s.width);
     if (s.center) grow(s.center.x, s.center.y);
@@ -1668,6 +1703,7 @@ function compileScene(board: Board, filter: SceneFilter): BoardScene {
         scene,
         pad,
         board.nets.get(pad.net ?? 0) ?? '',
+        displayNameOf(pad.net ?? 0),
         expandLayers(pad.layers, copperNames).filter((l) => copperNames.includes(l)),
         `footprint:${fi}`,
       );

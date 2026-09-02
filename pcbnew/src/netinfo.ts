@@ -14,7 +14,7 @@
 
 import { atom, head, isList, str, type SList, type SNode } from '@ziroeda/sexpr/src/types.js';
 import { arg, numArg } from '@ziroeda/sexpr/src/query.js';
-import { unescapeString } from '@ziroeda/common/src/string_utils.js';
+import { unescapeString, wxSplit } from '@ziroeda/common/src/string_utils.js';
 import type { Board } from './types.js';
 
 /** NETINFO_LIST::UNCONNECTED, the code every unconnected item carries. */
@@ -52,12 +52,76 @@ export const shortNetname = (name: string): string => name.slice(name.lastIndexO
  * call sites; the reason to have one here is that five inline copies is exactly
  * how four of them stayed wrong.
  *
- * Not yet ported: `NETINFO_LIST::RebuildDisplayNetnames` also lengthens the
- * name when two nets share a short one — `/Sheet1/SDA` and `/Sheet2/SDA` show
- * with enough of their paths to tell them apart. That is a separate gap and
- * needs the whole net list, not one name.
+ * This is the single-name answer, which is the one `NETINFO_ITEM`'s constructor
+ * and `SetNetname` compute. When two nets share a short name the list widens
+ * both until they can be told apart — see {@link displayNetnames}, which is what
+ * a painter with a whole board in hand should use.
  */
 export const displayNetname = (name: string): string => unescapeString(shortNetname(name));
+
+/**
+ * `NETINFO_LIST::RebuildDisplayNetnames`: every net's display name at once.
+ *
+ * A short name is only useful while it is unique. `/Sheet1/SDA` and
+ * `/Sheet2/SDA` both shorten to `SDA`, and on a hierarchical design with
+ * repeated sub-sheets — where this matters most — every instance's nets then
+ * letter identically. So a net that shares its short name with another is shown
+ * from the first path component where they *differ* onwards, which is the least
+ * that distinguishes them.
+ *
+ * Mirrors the C++ step for step, including the parts that look like accidents
+ * and are load-bearing:
+ *
+ *  - the comparison group is `shortNameMap[short]`, which **contains this net's
+ *    own full name**; comparing it against itself never disagrees, so it cannot
+ *    push `firstNonCommon` forward on its own;
+ *  - a name is only widened when `firstNonCommon` is both **set and > 0**. Nets
+ *    differing at the very first component fall through to the full name, not
+ *    to a suffix of it;
+ *  - so does a group whose members never differ within `parts.length` — two
+ *    identical net names, or one that is a prefix of another;
+ *  - and the split is `wxSplit`, whose escape rules and empty-string case are
+ *    not `String.split`'s. See that function.
+ */
+export function displayNetnames(nets: ReadonlyMap<number, string>): Map<number, string> {
+  const shortNameMap = new Map<string, string[]>();
+  for (const name of nets.values()) {
+    const short = shortNetname(name);
+    const group = shortNameMap.get(short);
+    if (group) group.push(name);
+    else shortNameMap.set(short, [name]);
+  }
+
+  const out = new Map<number, string>();
+  for (const [code, name] of nets) {
+    const short = shortNetname(name);
+    const group = shortNameMap.get(short) ?? [name];
+
+    if (group.length === 1) {
+      out.set(code, unescapeString(short));
+      continue;
+    }
+
+    const parts = wxSplit(name, '/');
+    const aggregateParts = group.map((longName) => wxSplit(longName, '/'));
+    let firstNonCommon: number | undefined;
+
+    for (let ii = 0; ii < parts.length && firstNonCommon === undefined; ii++) {
+      for (const otherParts of aggregateParts) {
+        if (ii < otherParts.length && otherParts[ii] === parts[ii]) continue;
+        firstNonCommon = ii;
+        break;
+      }
+    }
+
+    if (firstNonCommon !== undefined && firstNonCommon > 0 && firstNonCommon < parts.length) {
+      out.set(code, unescapeString(parts.slice(firstNonCommon).join('/')));
+    } else {
+      out.set(code, unescapeString(name));
+    }
+  }
+  return out;
+}
 
 /** NETINFO_LIST::getFreeNetCode, net codes stay consecutive. */
 function freeNetCode(board: Board): number {

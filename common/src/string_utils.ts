@@ -816,3 +816,46 @@ export function printableCharCount(text: string): number {
 
   return count;
 }
+
+/**
+ * `wxSplit( str, sep, escape )`, with wx's own default escape of `\\`.
+ *
+ * A port rather than `String.split`, because the two disagree in three ways
+ * that reach real net names, and `NETINFO_LIST::RebuildDisplayNetnames` depends
+ * on all three. Measured against wxWidgets 3.2 rather than read off the docs
+ * (`qa/probes/wxsplit_probe.cpp`):
+ *
+ *  - **An empty string yields no parts at all**, not one empty part. `split`
+ *    gives `['']`.
+ *  - **The escape character suppresses a separator** and is consumed:
+ *    `/Sheet\\/SDA` is two parts, the second `Sheet/SDA`. A backslash is
+ *    reachable in a net name because `EscapeString( …, CTX_NETNAME )` escapes
+ *    only `/` and drops newlines — it leaves `\\` alone.
+ *  - A backslash anywhere else is an ordinary character and is kept.
+ */
+export function wxSplit(text: string, sep: string, escape = '\\'): string[] {
+  if (text.length === 0) return [];
+
+  const out: string[] = [];
+  let current = '';
+  let prev = '';
+
+  for (const ch of text) {
+    if (ch === sep) {
+      if (prev === escape && escape !== '') {
+        // Drop the escape that is already in `current` and keep the separator
+        // as an ordinary character: wx rewrites its last character in place.
+        current = `${current.slice(0, -1)}${sep}`;
+      } else {
+        out.push(current);
+        current = '';
+      }
+    } else {
+      current += ch;
+    }
+    prev = ch;
+  }
+
+  out.push(current);
+  return out;
+}
