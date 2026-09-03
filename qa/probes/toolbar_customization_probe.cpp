@@ -54,7 +54,10 @@ public:
             wxListItem it;
             it.SetId( i );
             it.SetText( wxString::Format( "Action %d", i ) );
-            it.SetImage( 0 );
+            // Row 2 gets NO image, the way a CONTROL entry does: `populateActions`
+            // sets `entry.image_index` only for a tool with a real bitmap.
+            if( i != 2 )
+                it.SetImage( 0 );
             list->InsertItem( it );
         }
 
@@ -89,6 +92,9 @@ public:
             printf( "list icon rect  : x=%d y=%d w=%d h=%d\n", ir.x, ir.y, ir.width, ir.height );
         if( list->GetSubItemRect( 0, 0, ir, wxLIST_RECT_LABEL ) )
             printf( "list label rect : x=%d y=%d w=%d h=%d\n", ir.x, ir.y, ir.width, ir.height );
+        // The same for the row with no image: does the list reserve the cell?
+        if( list->GetSubItemRect( 2, 0, ir, wxLIST_RECT_LABEL ) )
+            printf( "list label NOIMG: x=%d y=%d w=%d h=%d\n", ir.x, ir.y, ir.width, ir.height );
 
         wxSize exp = wxRendererNative::Get().GetExpanderSize( tree );
         printf( "expander size   : %d x %d\n", exp.x, exp.y );

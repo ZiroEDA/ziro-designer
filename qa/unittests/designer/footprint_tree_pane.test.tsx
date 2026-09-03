@@ -515,7 +515,11 @@ describe('the Footprints pane remembers how wide it was', () => {
       s.window.lib_width = 250; // scrub the drag's own write
     });
     const hide = Array.from(container.querySelectorAll('button')).find(
-      (b) => b.getAttribute('title') === 'Show footprint tree',
+      // `ACTIONS::showLibraryTree`'s FriendlyName is "Library Tree"
+      // (`actions.cpp:970-972`), and the button's title is now that rather than
+      // the invented "Show footprint tree" it fell back to while the action was
+      // scoped to eeschema.
+      (b) => b.getAttribute('title')?.split('\t')[0]?.split('\n')[0] === 'Library Tree',
     )!;
     fireEvent.click(hide);
     expect({

@@ -34,6 +34,7 @@ import {
   DS_LEFT_TOOLBAR,
   DS_TOP_TOOLBAR,
 } from '@ziroeda/designer/src/editors/drawingsheet/drawingSheetToolbars.js';
+import { SYM_DEFAULT_TOOLBARS } from '@ziroeda/designer/src/editors/symbol/symbolToolbars.js';
 import { PCB_DEFAULT_TOOLBARS } from '@ziroeda/designer/src/editors/pcb/pcbToolbars.js';
 import { SCH_DEFAULT_TOOLBARS } from '@ziroeda/designer/src/editors/schematic/toolbars_sch_editor.js';
 
@@ -129,7 +130,12 @@ describe('the Toolbar: choice', () => {
     mount('pl_editor', DS_DEFAULT_TOOLBARS);
     expect(choiceValue()).toBe('Left');
     expect(treeRows()).toEqual([
-      'Show grid',
+      // `ACTIONS::toggleGrid.FriendlyName()` is "Show Grid" — re-derived from
+      // `actions.cpp:1079-1084`, not re-baselined. This read "Show grid", the
+      // drawing sheet BUTTON's own title, because the id resolved through no
+      // action table: `toggleGrid` is a `common.*` action that had been scoped
+      // to eeschema.
+      'Show Grid',
       'Units',
       'Units in millimetres',
       'Units in inches',
@@ -169,7 +175,7 @@ describe('the action list', () => {
   it('offers the app’s own buttons and its controls, sorted case-insensitively', () => {
     mount('pl_editor', DS_DEFAULT_TOOLBARS);
     const rows = actionRows();
-    expect(rows).toContain('Show grid');
+    expect(rows).toContain('Show Grid');
     expect(rows).toContain('Origin selector');
     expect([...rows].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()))).toEqual(rows);
   });
@@ -210,7 +216,7 @@ describe('editing writes to the store', () => {
 
   it('delete removes the selected item from that toolbar only', () => {
     const seen = mount('pl_editor', DS_DEFAULT_TOOLBARS);
-    fireEvent.click(within(tree()).getByText('Show grid'));
+    fireEvent.click(within(tree()).getByText('Show Grid'));
     fireEvent.click(screen.getByLabelText('Delete'));
 
     expect(storedToolbarConfig(seen.store, 'LEFT')).toEqual([
@@ -218,12 +224,12 @@ describe('editing writes to the store', () => {
     ]);
     // The other toolbars are untouched, so they still follow their defaults.
     expect(storedToolbarConfig(seen.store, 'TOP_MAIN')).toBeUndefined();
-    expect(treeRows()).not.toContain('Show grid');
+    expect(treeRows()).not.toContain('Show Grid');
   });
 
   it('Insert Separator inserts after the selection', () => {
     const seen = mount('pl_editor', DS_DEFAULT_TOOLBARS);
-    fireEvent.click(within(tree()).getByText('Show grid'));
+    fireEvent.click(within(tree()).getByText('Show Grid'));
     fireEvent.click(screen.getByText('Insert Separator'));
     expect(storedToolbarConfig(seen.store, 'LEFT')?.[1]).toEqual({ type: 'SEPARATOR' });
   });
@@ -359,6 +365,66 @@ describe('the two lists are the size the widgets are', () => {
     const rows = Array.from(tree().querySelectorAll('.ze-tbcust-row'));
     expect(rows.length).toBeGreaterThan(2);
     for (const r of rows) expect(r.querySelector(':scope > .twisty')).not.toBeNull();
+  });
+
+  it('labels a tree row with the action’s FriendlyName', () => {
+    // Both boxes use `GetFriendlyName()` — `AppendItem( root, toolIter->second
+    // ->GetFriendlyName(), … )` (`:526`) and `entry.label = tool->
+    // GetFriendlyName()` (`:611`). `toggleGrid` is `common.Control.toggleGrid`,
+    // whose FriendlyName is "Show Grid".
+    //
+    // `toolbarButtonLabel` looked only at `TOOLBAR_ACTIONS[app]` and never at
+    // `COMMON_TOOLBAR_ACTIONS`, so every common action fell through to the
+    // BUTTON's `title` — a tooltip-ish sentence, not the action's name — and
+    // the page read "Toggle grid display" where KiCad reads "Show Grid".
+    mount('symbol', SYM_DEFAULT_TOOLBARS);
+    const labels = Array.from(tree().querySelectorAll('.ze-tbcust-row')).map((r) =>
+      r.textContent?.trim(),
+    );
+    expect(labels).toContain('Show Grid');
+    expect(labels).toContain('Grid Overrides');
+    expect(labels).toContain('Show Hidden Pins');
+    expect(labels).toContain('Library Tree');
+    expect(labels).toContain('Properties');
+    // ...and none of the fallback titles it used to show.
+    expect(labels).not.toContain('Toggle grid display');
+    expect(labels).not.toContain('Show properties manager');
+  });
+
+  it('names a CONTROL by its GetUiName, never by its id', () => {
+    // `AppendItem( root, controlIter->second->GetUiName(), -1, -1, … )`
+    // (`:499`). An untranscribed control falls back to the key, which is how
+    // the raw id `bodyStyleSelector` appeared in the action list as its own
+    // label — `control.BodyStyleSelector` is "Symbol body style selector"
+    // (`action_toolbar.cpp:1268-1270`).
+    mount('symbol', SYM_DEFAULT_TOOLBARS);
+    const all = document.body.textContent ?? '';
+    expect(all).not.toContain('bodyStyleSelector');
+    expect(all).toContain('Symbol body style selector');
+  });
+
+  it('reserves NO image cell on a row that has no image', () => {
+    // Probed on this machine's wx, both controls:
+    //
+    //   tree  "Show Grid" (image) label x=61   "Separator" (none) label x=33
+    //   list  row with image      label x=31   row with none      label x=2
+    //
+    // `AppendItem( …, -1 )` and a `wxListItem` with no image reserve nothing,
+    // so an iconless row's text starts where the image would have. A 24 px
+    // spacer stood in for the missing icon, which lined every row up and put
+    // "Separator", "Units" and "Crosshair modes" 28 px right of KiCad's.
+    expect(CSS, 'the spacer element must be gone').not.toContain('ze-tbcust-noicon');
+    mount('pl_editor', DS_DEFAULT_TOOLBARS);
+    const rows = Array.from(tree().querySelectorAll('.ze-tbcust-row'));
+    // A GROUP row is the iconless case this toolbar has: `AppendItem( root,
+    // item.m_GroupName, -1, -1, … )` (`:536`). It must carry no image and no
+    // stand-in for one — twisty and label, nothing between.
+    const group = rows.find((r) => r.querySelector(':scope > .twisty.expandable') !== null);
+    expect(group, 'the left toolbar has one group').toBeTruthy();
+    expect(group?.querySelector('img')).toBeNull();
+    expect(group?.children.length).toBe(2);
+    // ...and a row that DOES have one still draws it, so this is not "no icons".
+    expect(rows.some((r) => r.querySelector('img') !== null)).toBe(true);
   });
 });
 

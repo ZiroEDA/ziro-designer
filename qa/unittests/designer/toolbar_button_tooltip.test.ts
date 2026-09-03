@@ -19,6 +19,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { buttonTooltipFor, tooltipFor } from '@ziroeda/designer/src/ui/tooltip_text.js';
 import {
+  actionFor,
   EESCHEMA_TOOLBAR_ACTIONS,
   TOOLBAR_ACTIONS,
   toolbarButtonLabel,
@@ -85,11 +86,24 @@ describe('the transcribed actions', () => {
   ];
 
   it.each(cases)('%s', (id, name, hotkey, tip) => {
-    expect(EESCHEMA_TOOLBAR_ACTIONS[id]).toEqual({
+    // Resolved the way a call site resolves it, not out of one table: the
+    // `common.*` actions among these are `ACTIONS::` objects shared by every
+    // editor, so they live in `COMMON_TOOLBAR_ACTIONS` and eeschema reaches
+    // them through the fallback. Asserting on `EESCHEMA_TOOLBAR_ACTIONS` alone
+    // would force a per-app copy of each — the drift this file exists to stop.
+    expect(actionFor('eeschema', id)).toEqual({
       name,
       ...(hotkey ? { hotkey } : {}),
       ...(tip ? { tip } : {}),
     });
+  });
+
+  it('resolves those shared ones for an app with no table of its own', () => {
+    // The Symbol Editor has no `TOOLBAR_ACTIONS` entry, and must still get
+    // "Show Grid" rather than falling through to the button's title.
+    expect(actionFor('symbol_editor', 'toggleGrid')?.name).toBe('Show Grid');
+    expect(actionFor('symbol_editor', 'showProperties')?.name).toBe('Properties');
+    expect(actionFor(undefined, 'undo')?.name).toBe('Undo');
   });
 
   /**

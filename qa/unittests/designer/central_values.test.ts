@@ -444,7 +444,7 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // (`panel_eeschema_editing_options.cpp:79`), and the first column of the
   // Left Click Mouse Commands table, which is plain wxStaticTexts. Both said
   // #9aa0a6. RESCANNED.
-  ui: { colours: 218, metrics: 720 },
+  ui: { colours: 214, metrics: 720 },
   // colours 6 -> 7: the opacity slider's #55585d track arrived here with
   // APPEARANCE_CONTROLS; it is the same literal `editors/pcb` lost, not a new
   // one. The panel's own stylesheet adds none: every length in
@@ -805,7 +805,7 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // became one (-19) and Field Name Templates stopped being two panels (-1),
     // and `editors/schematic` is the only row either moved. RESCANNED from the
     // merged tree.
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(558);
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(554);
     // 1657 -> 1649: the same sweep. A native colour input has no useful
     // default size, so eight of the sixteen sites gave theirs an inline
     // width and height; the shared swatch takes --swatch-*-w/h. Rescanned.

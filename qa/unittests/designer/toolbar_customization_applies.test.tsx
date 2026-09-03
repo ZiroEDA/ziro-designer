@@ -92,7 +92,7 @@ describe('the Drawing Sheet Editor’s left toolbar reads the store', () => {
     render(<LeftBar />);
     // `toolbars_pl_editor.cpp:45-59`: the grid toggle, then the Units group,
     // which is one button.
-    expect(drawn()).toEqual(['Show grid', 'Units in millimetres']);
+    expect(drawn()).toEqual(['Show Grid', 'Units in millimetres']);
   });
 
   it('still draws the default when a configuration is stored but custom_toolbars is off', () => {
@@ -104,7 +104,7 @@ describe('the Drawing Sheet Editor’s left toolbar reads the store', () => {
       s.appearance.custom_toolbars = false;
     });
     render(<LeftBar />);
-    expect(drawn()).toEqual(['Show grid', 'Units in millimetres']);
+    expect(drawn()).toEqual(['Show Grid', 'Units in millimetres']);
   });
 
   it('draws the stored configuration when custom_toolbars is on', () => {
@@ -130,7 +130,7 @@ describe('the Drawing Sheet Editor’s left toolbar reads the store', () => {
       s.appearance.custom_toolbars = false;
     });
     view.rerender(<LeftBar />);
-    expect(drawn()).toEqual(['Show grid', 'Units in millimetres']);
+    expect(drawn()).toEqual(['Show Grid', 'Units in millimetres']);
   });
 
   it('survives a reload: what was stored is what the next session reads', () => {
@@ -166,7 +166,7 @@ describe('the Drawing Sheet Editor’s left toolbar reads the store', () => {
       s.appearance.custom_toolbars = true;
     });
     render(<LeftBar />);
-    expect(drawn()).toEqual(['Show grid']);
+    expect(drawn()).toEqual(['Show Grid']);
   });
 
   it('a stored copy of the default draws exactly the default', () => {
@@ -179,7 +179,7 @@ describe('the Drawing Sheet Editor’s left toolbar reads the store', () => {
       s.appearance.custom_toolbars = true;
     });
     render(<LeftBar />);
-    expect(drawn()).toEqual(['Show grid', 'Units in millimetres']);
+    expect(drawn()).toEqual(['Show Grid', 'Units in millimetres']);
   });
 });
 

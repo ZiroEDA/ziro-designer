@@ -219,6 +219,11 @@ export const BITMAP: Record<string, string> = {
   previousSymbol: 'lib_previous',
   nextSymbol: 'lib_next',
   showPinNumbers: 'pin',
+  // `SCH_ACTIONS::showHiddenPins` declares `.Icon( BITMAPS::hidden_pin )`
+  // (`sch_actions.cpp:352`). The file was already vendored and simply unmapped,
+  // so the button and the Toolbars tree drew the row with no icon at all —
+  // which also threw the tree's text out of line with its neighbours.
+  showHiddenPins: 'hidden_pin',
   showHiddenFields: 'text_sketch',
   showLibraryTree: 'search_tree',
   placePin: 'pin',
