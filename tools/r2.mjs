@@ -160,6 +160,38 @@ export async function getObjectBytes(key) {
   return Buffer.from(await res.arrayBuffer());
 }
 
+/** Remove an object. Used to prune probes and orphaned bundles. */
+export async function deleteObject(key) {
+  const amzDate = `${new Date().toISOString().replace(/[-:]/g, '').slice(0, 15)}Z`;
+  const date = amzDate.slice(0, 8);
+  const canonicalUri = `/${BUCKET}/${encPath(key)}`;
+  const empty = sha256('');
+  const headers = { host: HOST, 'x-amz-content-sha256': empty, 'x-amz-date': amzDate };
+  const signedHeaders = Object.keys(headers).sort().join(';');
+  const canonical = [
+    'DELETE',
+    canonicalUri,
+    '',
+    ...Object.keys(headers)
+      .sort()
+      .map((h) => `${h}:${headers[h]}`),
+    '',
+    signedHeaders,
+    empty,
+  ].join('\n');
+  const scope = `${date}/auto/s3/aws4_request`;
+  const toSign = ['AWS4-HMAC-SHA256', amzDate, scope, sha256(canonical)].join('\n');
+  const kSigning = hmac(hmac(hmac(hmac(`AWS4${SECRET}`, date), 'auto'), 's3'), 'aws4_request');
+  const signature = createHmac('sha256', kSigning).update(toSign).digest('hex');
+  const auth = `AWS4-HMAC-SHA256 Credential=${KEY}/${scope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
+  const res = await fetch(`https://${HOST}${canonicalUri}`, {
+    method: 'DELETE',
+    headers: { ...headers, authorization: auth },
+  });
+  // S3 delete is idempotent: a missing key is a 204, not an error.
+  if (!res.ok && res.status !== 404) throw new Error(`DELETE ${key}: ${res.status}`);
+}
+
 /** Upload [key, body, type] entries with limited concurrency and retries. */
 export async function uploadAll(entries, { concurrency = 8, onProgress } = {}) {
   let done = 0;
