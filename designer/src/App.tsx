@@ -1043,11 +1043,18 @@ export function App(): JSX.Element {
           setView('pcb');
         }}
         onOpenSymbolEditor={(files, startFile) => {
-          setDemoProject(false);
-          setDemoSource(null);
           if (files) {
+            // The OPEN PROJECT's symbols. Whatever the project is - a demo
+            // included - it still is. Clearing the flag here is what lost
+            // [Read Only] the moment a .kicad_sym was opened from the tree,
+            // and with it the gate that stops a demo being edited. The board
+            // editor had the same bug; the footprint editor never did.
             openProjectFiles(files);
             setStandalonePcb(null);
+          } else {
+            // A lone .kicad_sym with no project behind it is not a demo.
+            setDemoProject(false);
+            setDemoSource(null);
           }
           setSymMounted(true);
           setView('symbols');
@@ -1212,6 +1219,14 @@ export function App(): JSX.Element {
               openRequest={symRequest}
               schematicSymbol={symFromSchematic}
               onSaveToSchematic={saveSymbolToSchematic}
+              /* `SYMBOL_EDIT_FRAME::ShowInfoBarMessages` puts up "Library is
+                 read-only.  Changes cannot be saved to this library." with a
+                 "Create an editable copy" link. When a demo project is what
+                 makes it read-only, the thing to copy is the PROJECT - one
+                 editable symbol in a project that still is not saved would be
+                 a worse answer than upstream's - so this is the project's own
+                 strip, the same call pl_editor makes just above. */
+              readOnlyNotice={demoProject ? demoNotice : null}
             />
           </Suspense>
         </div>

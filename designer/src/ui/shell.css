@@ -5807,10 +5807,30 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   width: max-content;
   min-width: 100%;
 }
+/* `LIB_TREE_RENDERER::Render`'s canvas-item marker
+   (common/lib_tree_model_adapter.cpp:100-116): a one-pixel outline round the
+   whole row with its right edge drawn to a point at half height. Not a
+   strikethrough - the adapter sets that attribute as a FLAG and the renderer
+   clears it before drawing (`realAttr.SetStrikethrough( false )`, :95).
+
+   `*wxWHITE_PEN` on a dark theme, `*wxBLACK_PEN` on a light one, which is what
+   `currentColor` gives here since the row already carries the theme's text
+   colour. */
+.ze-libtree-canvasitem {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: visible;
+}
+
 .ze-libtree-row {
   display: flex;
   align-items: center;
   gap: 4px;
+  /* The canvas-item outline is absolute against the row. */
+  position: relative;
   /* The row's box is GTK's BACKGROUND AREA, not its cell area, because that is
      what the selection fills.
 

@@ -35,11 +35,51 @@ import { bitmapUrl } from '../ui/toolbarIcons.js';
  * colour, that token is where `shell.css` already keeps it (#929292 on this
  * machine, measured), and every other greyed thing in the app reads it there.
  */
+/**
+ * The "this is the item on the canvas" marker, `LIB_TREE_RENDERER::Render`
+ * (common/lib_tree_model_adapter.cpp:100-116).
+ *
+ * Six points: a rectangle whose right edge is pulled into a point at half
+ * height, drawn one pixel wide in white on a dark theme and black on a light
+ * one (`KIPLATFORM::UI::IsDarkTheme()`). Upstream's own coordinates:
+ *
+ *     topLeft, topRight+(-4,0), topRight+(0,h/2),
+ *     bottomRight+(-4,1), bottomLeft+(0,1), topLeft
+ *
+ * An SVG rather than a border, because a border cannot make that notch.
+ * `vector-effect` keeps it one device pixel at any zoom, which is what a
+ * `wxPen` of width 1 is.
+ */
+function CanvasItemOutline(): JSX.Element {
+  const [box, setBox] = useState<{ w: number; h: number } | null>(null);
+  const ref = useCallback((el: SVGSVGElement | null) => {
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    setBox({ w: Math.round(r.width), h: Math.round(r.height) });
+  }, []);
+  // Upstream's six points, verbatim. The notch is 4 device pixels whatever the
+  // row is wide, so the shape is measured rather than expressed as a ratio -
+  // a viewBox scaled with preserveAspectRatio would stretch the point.
+  const pts = box
+    ? `0,0 ${box.w - 4},0 ${box.w},${box.h / 2} ${box.w - 4},${box.h} 0,${box.h} 0,0`
+    : '';
+  return (
+    <svg className="ze-libtree-canvasitem" ref={ref} aria-hidden="true">
+      {box && <polyline points={pts} fill="none" stroke="currentColor" strokeWidth="1" />}
+    </svg>
+  );
+}
+
 function itemCellStyle(attr: LibTreeNodeAttr): CSSProperties | undefined {
   const style: CSSProperties = {};
   if (attr.bold) style.fontWeight = 700;
   if (attr.italic) style.fontStyle = 'italic';
-  if (attr.strikethrough) style.textDecoration = 'line-through';
+  // NOT strikethrough, despite the attribute's name. `LIB_TREE_RENDERER::SetAttr`
+  // reads `GetStrikethrough()` as a flag - "use strikethrough as a proxy for
+  // is-canvas-item" - and then explicitly clears it,
+  // `realAttr.SetStrikethrough( false )` (common/lib_tree_model_adapter.cpp:89-97),
+  // so a line is never drawn. `Render` draws a 6-point outline around the row
+  // instead. See `canvasItemOutline`.
   if (attr.greyed) style.color = 'var(--ctl-fg-disabled)';
   return Object.keys(style).length > 0 ? style : undefined;
 }
@@ -716,7 +756,47 @@ export function LibTree({
       if (top < list.scrollTop) list.scrollTop = top;
       else if (top + pitch > list.scrollTop + height) list.scrollTop = top + pitch - height;
     };
-    if (selected.parent) scrollTo(selected.parent);
+    /*
+     * `LIB_TREE::centerIfValid` (common/widgets/lib_tree.cpp:545-588), and its
+     * own comment is the specification:
+     *
+     *   "This doesn't actually center because the wxWidgets API is poorly
+     *    suited to that (and it might be too noisy as well). It does try to
+     *    keep the given item a bit off the top or bottom of the window."
+     *
+     * So it makes the sibling FIVE rows below visible, then the sibling five
+     * rows above (or the parent, if there are fewer than five above), and only
+     * then the item - which leaves it sitting with context on both sides.
+     *
+     * What this replaced was `scrollTo(parent); scrollTo(selected)`, which is
+     * only ever upstream's `idx - 5 < 0` branch: the parent goes to the top
+     * edge, so the item below it lands hard against the BOTTOM edge with
+     * nothing after it. Selecting the fifth of ten files scrolled the list and
+     * stuck the selection at the bottom of the pane.
+     */
+    // Upstream reads the siblings off the wxDataViewModel - `GetChildren` on
+    // the adapter, which returns the DISPLAYED children, not the model's. The
+    // difference is live whenever the search box has anything in it: the model
+    // still holds every symbol, while the tree shows the ones that scored.
+    // Taking siblings from the model would pick a row that is not on screen
+    // and scroll to nothing, quietly degrading to the old behaviour exactly
+    // when the tree is longest. `rows` IS the displayed set.
+    const sibs = rows.filter((r) => r.node.parent === selected.parent).map((r) => r.node);
+    const idx = sibs.indexOf(selected);
+    if (selected.parent && idx >= 0) {
+      if (idx + 5 < sibs.length) {
+        scrollTo(sibs[idx + 5]!);
+      } else {
+        // "if the parent has a next sibling, make THAT visible" - same
+        // displayed-set reasoning as above.
+        const grand = selected.parent.parent;
+        const pSibs = rows.filter((r) => r.node.parent === grand).map((r) => r.node);
+        const pIdx = pSibs.indexOf(selected.parent);
+        if (pIdx >= 0 && pIdx + 1 < pSibs.length) scrollTo(pSibs[pIdx + 1]!);
+      }
+      if (idx - 5 >= 0) scrollTo(sibs[idx - 5]!);
+      else scrollTo(selected.parent);
+    }
     scrollTo(selected);
   }, [selected, rows]);
 
@@ -1087,6 +1167,9 @@ export function LibTree({
                 than the base (`symbol_tree_synchronizing_adapter.cpp:249-397`);
                 the italic for a derived symbol is the base answer and reaches
                 the chooser unchanged. The pinning mark is LIB_TREE's own. */}
+              {/* The canvas-item marker, drawn over the whole row rather than
+                  through the text - see `CanvasItemOutline`. */}
+              {adapter.nodeAttr(node, open).strikethrough && <CanvasItemOutline />}
               <span
                 className="col-item"
                 style={{

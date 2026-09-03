@@ -4,7 +4,7 @@
 import { iuToMM, SCH_IU_PER_MM } from '@ziroeda/common';
 import { parse } from '@ziroeda/sexpr';
 import type { Vec2 } from '@ziroeda/kimath';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   letterSubReference,
   readSymbolLib,
@@ -236,6 +236,7 @@ export function SymbolEditor({
   openRequest,
   schematicSymbol,
   onSaveToSchematic,
+  readOnlyNotice,
 }: {
   onExitToHome: () => void;
   /** The open project's folder name, for the chooser's Save/Open places. */
@@ -257,6 +258,24 @@ export function SymbolEditor({
   /** Save, when the open symbol came from the schematic: the edit goes back to
    *  the placement instead of to a library (SaveSymbolToSchematic). */
   onSaveToSchematic?: (sym: LibSymbol) => void;
+  /**
+   * The WX_INFOBAR strip above the canvas.
+   *
+   * `SYMBOL_EDIT_FRAME::ShowInfoBarMessages` (symbol_edit_frame.cpp:1052-1056)
+   * raises one whenever the open symbol's library cannot be written:
+   *
+   *     _( "Library is read-only.  Changes cannot be saved to this library." )
+   *
+   * plus a "Create an editable copy" hyperlink. We had none - opening a
+   * .kicad_sym out of a read-only project showed a canvas with no indication
+   * that nothing would be kept.
+   *
+   * The frame does not decide this, because the reason it is read-only lives
+   * outside it: the caller owns the project, so the caller owns the bar. That
+   * is the same split pl_editor already uses, and it is what makes the whole
+   * project - not one symbol - the thing "Save a copy" copies.
+   */
+  readOnlyNotice?: ReactNode;
 }): JSX.Element {
   const manager = useRef(new SymbolLibraryManager());
   // `SYMBOL_EDIT_FRAME::GetColorSettings` (`symbol_edit_frame.cpp:402-410`),
@@ -2346,6 +2365,11 @@ export function SymbolEditor({
           ),
         }}
       />
+
+      {/* Above the panes, below the toolbars - `m_infoBar` is added to the AUI
+          manager with `Top()` (symbol_edit_frame.cpp:227-230), so it spans the
+          full width and pushes the canvas down rather than floating over it. */}
+      {readOnlyNotice}
 
       <div className="ze-body">
         {/* Three independent AUI panes upstream — "LibraryTree"
