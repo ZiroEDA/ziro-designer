@@ -198,9 +198,6 @@ export interface DrawingSheetCanvasProps {
  * returns null when WebGL is unavailable, and every frame then falls through to
  * the raster path below, which still draws the whole sheet.
  */
-const GL_RENDERER =
-  typeof location !== 'undefined' &&
-  new URLSearchParams(location.search).get('renderer') !== 'canvas';
 
 const TWO_CLICK = new Set(['dsAddLine', 'dsAddRect']);
 const ONE_CLICK = new Set(['dsAddText', 'dsAddBitmap']);
@@ -437,34 +434,16 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
       const glCanvas = glCanvasRef.current;
       let sheetOnGl = false;
       /*
-       * A sheet with an image on it goes down the raster path, whole.
+       * Images go on the GPU with everything else.
        *
-       * `GlRecorder.drawImage` is a no-op — "images are not recorded yet...
-       * which is why the backend is not yet the default" (recorder.ts). The
-       * backend then BECAME the default here, and the comment's condition went
-       * with it: placing an image put a real DS_DATA_ITEM_BITMAP in the sheet,
-       * saved it, and drew nothing at all. Reported as "the image inserting
-       * tool not working", and it was not the tool.
-       *
-       * The raster painter draws bitmaps properly (`drawBitmap`, ds_painter.ts),
-       * so falling back to it is not a degraded mode — it is the renderer that
-       * was the default until recently, and it is the same painter. It costs
-       * the GL crispness on sheets that carry a logo, which is the trade until
-       * the recorder can texture a quad.
-       *
-       * Only when the image has DATA: an item still decoding, or one whose PNG
-       * failed to load, is drawn as a dashed placeholder rectangle, and a
-       * rectangle is something the recorder handles.
+       * This used to send a sheet carrying one down the raster path whole,
+       * because `GlRecorder.drawImage` was a no-op: placing an image put a real
+       * DS_DATA_ITEM_BITMAP in the sheet, saved it, and drew nothing at all -
+       * reported as "the image inserting tool not working", which it was not.
+       * The recorder records a textured quad now, verified against the GPU, so
+       * the diversion is gone.
        */
-      const hasImage = drawsRef.current.some((d) => d.kind === 'bitmap' && !!d.pngB64);
-      if (
-        GL_RENDERER &&
-        glc &&
-        glCanvas &&
-        !glc.isLost &&
-        !hasImage &&
-        !(md && selRef.current.size > 0)
-      ) {
+      if (glc && glCanvas && !glc.isLost && !(md && selRef.current.size > 0)) {
         const brightened = brightenedRef.current;
         glc.render(
           {
@@ -865,7 +844,6 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
      * `DrawingSheetGl.create` returning null has to stay survivable.
      */
     useEffect(() => {
-      if (!GL_RENDERER) return;
       const el = glCanvasRef.current;
       if (!el) return;
       glRef.current = DrawingSheetGl.create(el);
@@ -1325,20 +1303,20 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
         {/* The sheet. Takes no pointer events, so every capture still lands on
             the canvas underneath — the hit testing, the drag handling and the
             context menu are all unchanged by this layer existing. */}
-        {GL_RENDERER && (
+        {
           <canvas
             ref={glCanvasRef}
             style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}
           />
-        )}
+        }
         {/* Above the sheet: the selection boxes, the point-editor handles and
             the crosshair — pl_editor's overlay target. */}
-        {GL_RENDERER && (
+        {
           <canvas
             ref={overCanvasRef}
             style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}
           />
-        )}
+        }
       </div>
     );
   },

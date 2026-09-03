@@ -66,9 +66,6 @@ import { drawSelectionArea, selectionAreaColors } from '@ziroeda/common';
  * keeps working regardless, because `GerbviewGl.create` returns null and every
  * frame falls through to the raster path.
  */
-const GL_RENDERER =
-  typeof location !== 'undefined' &&
-  new URLSearchParams(location.search).get('renderer') !== 'canvas';
 
 /** `?perf=1` publishes per-frame cost and which path drew it, on window. */
 const PERF =
@@ -278,7 +275,7 @@ export const GerberCanvas = forwardRef<GerberCanvasController, GerberCanvasProps
       const gl = glRef.current;
       const glCanvas = glCanvasRef.current;
       let drewWithGl = false;
-      if (GL_RENDERER && gl && glCanvas && !gl.isLost) {
+      if (gl && glCanvas && !gl.isLost) {
         // The background, grid and axes go on the canvas *below* GL, so this
         // pass paints only those and the item pass is transparent over it.
         ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -441,7 +438,6 @@ export const GerberCanvas = forwardRef<GerberCanvasController, GerberCanvasProps
      * raster path, which is a real renderer and not a stub.
      */
     useEffect(() => {
-      if (!GL_RENDERER) return;
       const el = glCanvasRef.current;
       if (!el) return;
       glRef.current = GerbviewGl.create(el);
@@ -957,20 +953,20 @@ export const GerberCanvas = forwardRef<GerberCanvasController, GerberCanvasProps
         />
         {/* The items. Takes no pointer events, so captures still land on the
             canvas underneath. */}
-        {GL_RENDERER && (
+        {
           <canvas
             ref={glCanvasRef}
             style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}
           />
-        )}
+        }
         {/* Above the items: the zoom rubber band, the measure line and the
             crosshair - GerbView's TARGET_OVERLAY. */}
-        {GL_RENDERER && (
+        {
           <canvas
             ref={overCanvasRef}
             style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}
           />
-        )}
+        }
       </div>
     );
   },
