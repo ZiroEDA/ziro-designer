@@ -18,6 +18,10 @@ import {
 import * as sexpr from '@ziroeda/sexpr';
 import { MenuBar, type Menu } from '../../ui/MenuBar.js';
 import { Toolbar } from '../../ui/Toolbar.js';
+import { useStatusReadout } from '../../ui/useStatusReadout.js';
+
+/** `SCH_SCREEN::m_LocalOrigin`; a module constant so its identity is stable. */
+const SYM_LOCAL_ORIGIN = { x: 0, y: 0 };
 import { LoadingOverlay } from '../../ui/LoadingOverlay.js';
 import { formatTitle, useDocumentTitle } from '../../ui/useDocumentTitle.js';
 import { useUnsavedGuard } from '../../ui/useUnsavedGuard.js';
@@ -29,8 +33,6 @@ import { SymbolTreeSynchronizingAdapter } from './symbol_tree_synchronizing_adap
 import { KiStatusBar } from '../../ui/KiStatusBar.js';
 import { MsgPanel, type MsgPanelItem } from '../../ui/MsgPanel.js';
 import {
-  coordsMsg,
-  deltasMsg,
   gridMsg,
   messageTextFromValue,
   type StatusUnits,
@@ -344,7 +346,28 @@ export function SymbolEditor({
     () => mergeSymbolToggles(sessionToggles, symCfg),
     [sessionToggles, symCfg],
   );
-  const [cursor, setCursor] = useState<Vec2 | null>(null);
+  const unitsLabel: StatusUnits = toggles.has('unitsInches')
+    ? 'in'
+    : toggles.has('unitsMils')
+      ? 'mils'
+      : 'mm';
+  /**
+   * The panes that follow the pointer, written through refs.
+   *
+   * `SCH_BASE_FRAME::UpdateStatusBar` writes them with `SetStatusText` on every
+   * cursor motion and repaints nothing else. This frame held the cursor in
+   * `useState` instead, so every mouse move re-rendered the whole editor — the
+   * toolbars, the library tree, the canvas props — before the frame that moves
+   * the crosshair. `localOrigin` is `SCH_SCREEN::m_LocalOrigin`, which this
+   * editor never moves (no `ACTIONS::resetLocalCoords` binding yet), so the
+   * deltas are measured from the symbol anchor.
+   */
+  const statusReadout = useStatusReadout({
+    units: unitsLabel,
+    localOrigin: SYM_LOCAL_ORIGIN,
+    devicePixelRatio: typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1,
+    iuPerMM: SCH_IU_PER_MM,
+  });
   const [scale, setScale] = useState(1);
   const [status, setStatus] = useState('');
   const [loading, setLoading] = useState<string | null>(null);
@@ -2210,11 +2233,6 @@ export function SymbolEditor({
   // the easier mistake to make.
   useUnsavedGuard(manager.current.hasModifications());
 
-  const unitsLabel: StatusUnits = toggles.has('unitsInches')
-    ? 'in'
-    : toggles.has('unitsMils')
-      ? 'mils'
-      : 'mm';
   // MessageTextFromValue at the eeschema IU scale, which is the short form:
   // mm %.3f (trimmed), mils %.0f, inches %.3f.
   const fmt = (iu: number): string => messageTextFromValue(iuToMM(iu), unitsLabel, SCH_IU_PER_MM);
@@ -2535,7 +2553,7 @@ export function SymbolEditor({
               onPlacePendingText={onPlacePendingText}
               onPlaceShape={onPlaceShape}
               onEditItem={onEditItem}
-              onCursorMove={setCursor}
+              onCursorMove={statusReadout.setCursor}
               onScaleChange={setScale}
             />
             {/* Nothing goes here. An empty SYMBOL_EDIT_FRAME draws the axes and
@@ -2570,13 +2588,8 @@ export function SymbolEditor({
         fields={{
           message: status,
           zoom: zoomMsg(zoomFactorForScale(scale, dpr, SCH_IU_PER_MM)),
-          coords: cursor ? coordsMsg(fmt(cursor.x), fmt(cursor.y)) : coordsMsg(null),
-          // SCH_SCREEN::m_LocalOrigin, which the symbol editor never moves
-          // (it has no ACTIONS::resetLocalCoords binding yet), so the deltas
-          // are measured from the symbol anchor.
-          deltas: cursor
-            ? deltasMsg(fmt(cursor.x), fmt(cursor.y), fmt(Math.hypot(cursor.x, cursor.y)))
-            : deltasMsg(null),
+          coords: <span ref={statusReadout.coordsRef} />,
+          deltas: <span ref={statusReadout.deltasRef} />,
           // `EDA_DRAW_FRAME::DisplayGridMsg` prints `GetCanvas()->GetGAL()->
           // GetGridSize()`, which is the frame's current grid — the one the
           // Grids page picks — and not a constant.

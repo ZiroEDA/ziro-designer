@@ -23,6 +23,13 @@ import {
 } from '../../ui/view_controls.js';
 import { DockSash } from '../../ui/DockSash.js';
 import { appearanceNetRows } from './appearance_nets.js';
+import { useStatusReadout } from '../../ui/useStatusReadout.js';
+
+/**
+ * `BASE_SCREEN::m_LocalOrigin`, the point pane 3's dx/dy/dist measures from.
+ * A module constant so its identity is stable across renders.
+ */
+const PCB_LOCAL_ORIGIN = { x: 0, y: 0 };
 import { drawRulerItem, rulerEnd } from '../../ui/ruler_item.js';
 import { kiCursor } from '../../ui/kicursors.js';
 import { appearanceLayerRows, layerTooltip } from '../../widgets/appearance_layers.js';
@@ -220,11 +227,8 @@ import { DialogPasteSpecial, type PasteSpecialMode } from '../../dialogs/dialog_
 import { KiStatusBar } from '../../ui/KiStatusBar.js';
 import { MsgPanel, type MsgPanelItem } from '../../ui/MsgPanel.js';
 import {
-  coordsMsg,
-  deltasMsg,
   gridMsg,
   messageTextFromValue,
-  polarMsg,
   scaleForZoomFactor,
   type StatusUnits,
   unitsMsg,
@@ -871,6 +875,39 @@ export function PcbEditor({
   // like rebuildLayerPresetsWidget.
   const [tab, setTab] = useState<'Layers' | 'Objects' | 'Nets'>('Layers');
   const [toggles, setToggles] = useState<Set<string>>(new Set(DEFAULT_TOGGLES));
+  const unitLabel: StatusUnits = toggles.has('unitsInches')
+    ? 'in'
+    : toggles.has('unitsMils')
+      ? 'mils'
+      : 'mm';
+  /**
+   * The three status panes that follow the pointer, written through refs.
+   *
+   * `PCB_BASE_FRAME::UpdateStatusBar` (pcb_base_frame.cpp:761) runs on every
+   * cursor motion and calls `SetStatusText`; nothing else on the frame
+   * repaints. This frame instead held the cursor in React state and set it
+   * from `onPointerMove` — with a fresh `{ x, y }` object, so `Object.is` never
+   * matched and React could never bail out. Every mouse move re-rendered the
+   * whole editor: both toolbars, the Appearance notebook, the Properties grid,
+   * the Selection Filter and the status bar, all before the
+   * `requestAnimationFrame` that actually moves the crosshair. That is why the
+   * crosshair trailed the pointer here and not in eeschema, which was this
+   * hook's only caller. (`setScale( v.scale )` at the end of `draw` is a
+   * NUMBER, so React does bail out of that one — which is why zoom never had
+   * the same problem.)
+   *
+   * `localOrigin` is `BASE_SCREEN::m_LocalOrigin`, which pane 3 measures from.
+   * There is no Set Local Origin here yet, so it is the page origin — as a
+   * module constant, because the hook's repaint effect depends on its identity.
+   */
+  const statusReadout = useStatusReadout({
+    units: unitLabel,
+    localOrigin: PCB_LOCAL_ORIGIN,
+    devicePixelRatio: window.devicePixelRatio || 1,
+    iuPerMM: PCB_IU_PER_MM,
+    // `GetShowPolarCoords()` — the same pane, the other branch.
+    polar: toggles.has('togglePolarCoords'),
+  });
   // Properties pane width. KiCad's PCB_PROPERTIES_PANEL docks at BestSize 300,
   // MinSize 240 (pcb_edit_frame.cpp), and the pane is user-resizable.
   const [propWidth, setPropWidth] = useState(300);
@@ -1038,7 +1075,6 @@ export function PcbEditor({
   // narrows an existing selection once, and is kept across openings as
   // PCB_SELECTION_TOOL keeps its OPTIONS on the tool.
   const [filterOpts, setFilterOpts] = useState<SelectionFilter>(DEFAULT_SELECTION_FILTER);
-  const [cursor, setCursor] = useState<{ x: number; y: number } | null>(null);
   // Live (world) cursor position read by draw()'s crosshair pass without
   // re-creating the callback; null when the pointer is off the canvas.
   const cursorRef = useRef<{ x: number; y: number } | null>(null);
@@ -6536,7 +6572,7 @@ export function PcbEditor({
       // Signed X so the crosshair tracks the physical cursor under a flipped view.
       const wx = ((e.clientX - rect.left) * dpr - v.tx) / (v.flipX ? -v.scale : v.scale);
       const wy = ((e.clientY - rect.top) * dpr - v.ty) / v.scale;
-      setCursor({ x: wx, y: wy });
+      statusReadout.setCursor({ x: wx, y: wy });
       cursorRef.current = { x: wx, y: wy };
       // Repaint so the crosshair follows even on a plain hover (no pan/drag).
       requestDraw();
@@ -6815,7 +6851,7 @@ export function PcbEditor({
   // Pointer left the canvas, drop the crosshair.
   const onPointerLeave = (): void => {
     cursorRef.current = null;
-    setCursor(null);
+    statusReadout.setCursor(null);
     requestDraw();
   };
 
@@ -8074,11 +8110,6 @@ export function PcbEditor({
 
   // ----- unit display ---------------------------------------------------------
 
-  const unitLabel: StatusUnits = toggles.has('unitsInches')
-    ? 'in'
-    : toggles.has('unitsMils')
-      ? 'mils'
-      : 'mm';
   // MessageTextFromValue at the pcbnew IU scale (PCB_IU_PER_MM), which is the
   // long form: mm %.4f, mils %.2f, inches %.4f.
   unitsRef.current = unitLabel;
@@ -8098,19 +8129,6 @@ export function PcbEditor({
     if (!board || selection.size !== 1) return undefined;
     return pcbItemFriendlyName(board, [...selection][0] as string);
   }, [board, selection]);
-  const statusCoordText = cursor
-    ? coordsMsg(fmtCoord(cursor.x), fmtCoord(cursor.y))
-    : coordsMsg(null);
-  const statusDeltaText = cursor
-    ? toggles.has('togglePolarCoords')
-      ? polarMsg(
-          fmtCoord(Math.hypot(cursor.x, cursor.y)),
-          (Math.atan2(-cursor.y, cursor.x) * 180) / Math.PI,
-        )
-      : deltasMsg(fmtCoord(cursor.x), fmtCoord(cursor.y), fmtCoord(Math.hypot(cursor.x, cursor.y)))
-    : toggles.has('togglePolarCoords')
-      ? polarMsg(null)
-      : deltasMsg(null);
   const gridText = gridMsg(fmtCoord(gridIU));
   // TOP_AUX combo formatting (PCB_EDIT_FRAME::ComboBoxUnits): mm at %.3f,
   // mils at %.2f.
@@ -9500,8 +9518,8 @@ export function PcbEditor({
         }}
         fields={{
           zoom: zoomMsg(zoomFactorForScale(scale, window.devicePixelRatio || 1)),
-          coords: statusCoordText,
-          deltas: statusDeltaText,
+          coords: <span ref={statusReadout.coordsRef} />,
+          deltas: <span ref={statusReadout.deltasRef} />,
           grid: gridText,
           units: unitsMsg(unitLabel),
           tool: toolMsg,

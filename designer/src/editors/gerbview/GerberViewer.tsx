@@ -50,6 +50,10 @@ import { PAPER_MM } from '@ziroeda/common';
 import { MenuBar, type Menu } from '../../ui/MenuBar.js';
 import { formatTitle, useDocumentTitle } from '../../ui/useDocumentTitle.js';
 import { Toolbar } from '../../ui/Toolbar.js';
+import { useStatusReadout } from '../../ui/useStatusReadout.js';
+
+/** `BASE_SCREEN::m_LocalOrigin`; a module constant so its identity is stable. */
+const GBR_LOCAL_ORIGIN = { x: 0, y: 0 };
 import { ensureTextCtrlWidth, measureTextWidth } from '../../ui/text_ctrl_width.js';
 import { GBR_CONTROL, GBR_DEFAULT_TOOLBARS } from './gerberToolbars.js';
 import { useToolbarEntries } from '../../ui/useToolbarEntries.js';
@@ -98,9 +102,6 @@ import {
 import { MsgPanel } from '../../ui/MsgPanel.js';
 import { useMenuHotkeys } from '../../ui/useMenuHotkeys.js';
 import {
-  coordsMsg,
-  deltasMsg,
-  polarMsg,
   scaleForZoomFactor,
   zoomFactorForScale,
   unitsMsg,
@@ -330,10 +331,33 @@ export function GerberViewer({
   }, [activeTool]);
 
   const [dockMin, setDockMin] = useState(80);
-  const [cursor, setCursor] = useState<Vec2 | null>(null);
+  const unit: 'mm' | 'in' | 'mils' = toggles.has('unitsInches')
+    ? 'in'
+    : toggles.has('unitsMils')
+      ? 'mils'
+      : 'mm';
+
+  /**
+   * The panes that follow the pointer, written through refs.
+   *
+   * `UpdateStatusBar` writes them with `SetStatusText` on every cursor motion
+   * and repaints nothing else; this frame re-rendered itself whole on every
+   * mouse move instead. `localOrigin` is `BASE_SCREEN::m_LocalOrigin`, which
+   * GerbView never moves here.
+   */
+  const statusReadout = useStatusReadout({
+    units: unit,
+    localOrigin: GBR_LOCAL_ORIGIN,
+    devicePixelRatio: typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1,
+    iuPerMM: IU_PER_MM,
+    polar: toggles.has('togglePolar'),
+  });
   const [scale, setScale] = useState(0);
   const [status, setStatus] = useState('Ready, open a Gerber, drill, job or zip file');
-  const [measure, setMeasure] = useState<{ a: Vec2; b: Vec2 } | null>(null);
+  // No `measure` state here any more. It was set on every pointer move of a
+  // measure drag and read by nothing but the pane-3 override above, which went
+  // with it — so it was a re-render of the whole viewer per mouse move, for a
+  // string upstream does not write and `RULER_ITEM` already draws.
   const [picked, setPicked] = useState<GERBER_DRAW_ITEM | null>(null);
   const [showDcodeList, setShowDcodeList] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
@@ -402,12 +426,6 @@ export function GerberViewer({
   const drillInputRef = useRef<HTMLInputElement>(null);
   const jobInputRef = useRef<HTMLInputElement>(null);
   const zipInputRef = useRef<HTMLInputElement>(null);
-
-  const unit: 'mm' | 'in' | 'mils' = toggles.has('unitsInches')
-    ? 'in'
-    : toggles.has('unitsMils')
-      ? 'mils'
-      : 'mm';
 
   /**
    * `GERBVIEW_FRAME::SortLayersByFileExtension` / `SortLayersByX2Attributes`
@@ -1435,32 +1453,20 @@ export function GerberViewer({
     [unit],
   );
 
-  const polar = toggles.has('togglePolar');
   // GERBVIEW_FRAME::UpdateStatusBar (gerbview/gerbview_frame.cpp:962) writes
   // X/Y into pane 2 *unconditionally*; the polar switch only changes pane 3,
   // from "dx dy dist" to "r theta". Ours put the polar reading in pane 2 and
   // so lost the absolute coordinates whenever polar mode was on.
-  const coordText = cursor ? coordsMsg(fmtCoord(cursor.x), fmtCoord(cursor.y)) : coordsMsg(null);
-
-  const deltaText = (() => {
-    if (polar) {
-      return cursor
-        ? polarMsg(
-            fmtCoord(Math.hypot(cursor.x, cursor.y)),
-            (Math.atan2(-cursor.y, cursor.x) * 180) / Math.PI,
-          )
-        : polarMsg(null);
-    }
-    if (measure) {
-      const dx = measure.b.x - measure.a.x;
-      const dy = measure.b.y - measure.a.y;
-      return deltasMsg(fmtCoord(dx), fmtCoord(dy), fmtCoord(Math.hypot(dx, dy)));
-    }
-    // BASE_SCREEN::m_LocalOrigin, which GerbView never moves here.
-    return cursor
-      ? deltasMsg(fmtCoord(cursor.x), fmtCoord(cursor.y), fmtCoord(Math.hypot(cursor.x, cursor.y)))
-      : deltasMsg(null);
-  })();
+  /**
+   * Pane 3 no longer carries the live measurement.
+   *
+   * `GERBVIEW_FRAME::UpdateStatusBar` (gerbview_frame.cpp:972-1001) has the
+   * same two branches pcbnew has and no third: polar, or dx/dy/dist, both from
+   * `m_LocalOrigin`. The measurement is shown by `RULER_ITEM` itself, beside
+   * the cursor — which it now does here too, since the ruler became the shared
+   * item. Keeping the override would also have meant two writers on one pane,
+   * with the cursor's winning on the next mouse move.
+   */
 
   const unitLabel = unit === 'mm' ? 'mm' : unit === 'in' ? 'in' : 'mils';
 
@@ -1805,9 +1811,8 @@ export function GerberViewer({
               toggles.has('crosshair45') ? '45' : toggles.has('crosshairFull') ? 'full' : 'small'
             }
             activeTool={activeTool}
-            onCursorMove={setCursor}
+            onCursorMove={statusReadout.setCursor}
             onScaleChange={setScale}
-            onMeasure={setMeasure}
             measureUnits={unitLabel}
             onPick={(it) => setPicked(it)}
             // One drag is one zoom: ZOOM_TOOL breaks its Main loop as soon as
@@ -1893,8 +1898,8 @@ export function GerberViewer({
           // Never an activity log - see gerbviewStatusField0.
           message: gerbviewStatusField0(activeImage),
           zoom: zoomMsg(zoomFactorForScale(scale, dpr, IU_PER_MM)),
-          coords: coordText,
-          deltas: deltaText,
+          coords: <span ref={statusReadout.coordsRef} />,
+          deltas: <span ref={statusReadout.deltasRef} />,
           // GERBVIEW_FRAME::DisplayGridMsg (gerbview_frame.cpp:948) prints both
           // axes as "grid X %s  Y %s", not GRID::MessageText's collapsed form.
           grid: `grid X ${fmtCoord(gridIU)}  Y ${fmtCoord(gridIU)}`,

@@ -34,6 +34,10 @@ import { FootprintPropertiesDialog, PadPropertiesDialog } from './dialogs.js';
 import { MenuBar, ContextMenu, type Menu } from '../../ui/MenuBar.js';
 import { footprintTreeContextMenu } from './tree_context_menu.js';
 import { Toolbar } from '../../ui/Toolbar.js';
+import { useStatusReadout } from '../../ui/useStatusReadout.js';
+
+/** `BOARD::m_LocalOrigin`; a module constant so its identity is stable. */
+const FP_LOCAL_ORIGIN = { x: 0, y: 0 };
 import { LoadingOverlay } from '../../ui/LoadingOverlay.js';
 import { formatTitle, useDocumentTitle } from '../../ui/useDocumentTitle.js';
 import { FP_FRAME_NAME, fpFrameTitle } from './frame_title.js';
@@ -47,8 +51,6 @@ import { MsgPanel, type MsgPanelItem } from '../../ui/MsgPanel.js';
 import {
   angleSnapModeOf,
   constraintsMsg,
-  coordsMsg,
-  deltasMsg,
   gridMsg,
   messageTextFromValue,
   type StatusUnits,
@@ -312,7 +314,26 @@ export function FootprintEditor({
   const [gridIU, setGridIU] = useState(FP_DEFAULT_GRID);
   // First anchor of a 2-click graphic (line/rect/circle) being drawn.
   const [drawStart, setDrawStart] = useState<Vec2 | null>(null);
-  const [cursor, setCursor] = useState<Vec2 | null>(null);
+  const unitLabel: StatusUnits = toggles.has('unitsInches')
+    ? 'in'
+    : toggles.has('unitsMils')
+      ? 'mils'
+      : 'mm';
+  /**
+   * The panes that follow the pointer, written through refs.
+   *
+   * `PCB_BASE_FRAME::UpdateStatusBar` writes them with `SetStatusText` on every
+   * cursor motion and repaints nothing else; this frame re-rendered itself
+   * whole on every mouse move instead. `localOrigin` is `BOARD::m_LocalOrigin`,
+   * which the footprint editor never moves (no `ACTIONS::resetLocalCoords`
+   * binding yet), so the deltas run from the footprint origin.
+   */
+  const statusReadout = useStatusReadout({
+    units: unitLabel,
+    localOrigin: FP_LOCAL_ORIGIN,
+    devicePixelRatio: typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1,
+    iuPerMM: SCH_IU_PER_MM,
+  });
   const [scale, setScale] = useState(0);
   const [status, setStatus] = useState('');
   const [loading, setLoading] = useState<string | null>(null);
@@ -1435,11 +1456,6 @@ export function FootprintEditor({
   useUnsavedGuard(manager.current.hasModifications());
 
   // ----- unit display -----------------------------------------------------------
-  const unitLabel: StatusUnits = toggles.has('unitsInches')
-    ? 'in'
-    : toggles.has('unitsMils')
-      ? 'mils'
-      : 'mm';
   // FOOTPRINT_EDIT_FRAME is a PCB_BASE_EDIT_FRAME, so MessageTextFromValue takes
   // its long form off pcbIUScale — mm %.4f, mils %.2f, inches %.4f — and the
   // value has to be converted at that scale too. It went through the SCHEMATIC
@@ -1700,7 +1716,7 @@ export function FootprintEditor({
             // footprint VIEWER passed this and the editor did not, so the same
             // canvas measured in mm here whatever the toolbar said.
             measureUnits={unitLabel}
-            onCursorMove={setCursor}
+            onCursorMove={statusReadout.setCursor}
             onScaleChange={setScale}
             onSelect={onSelect}
             onSelectBox={onSelectBox}
@@ -1814,13 +1830,8 @@ export function FootprintEditor({
           // `scale` is device px per *our* IU, so the zoom factor is derived
           // against the scale our geometry is held at, not pcbnew's.
           zoom: zoomMsg(zoomFactorForScale(scale, dpr, SCH_IU_PER_MM)),
-          coords: cursor ? coordsMsg(fmt(cursor.x), fmt(cursor.y)) : coordsMsg(null),
-          // BOARD::m_LocalOrigin, which the footprint editor never moves (no
-          // ACTIONS::resetLocalCoords binding yet), so deltas run from the
-          // footprint origin.
-          deltas: cursor
-            ? deltasMsg(fmt(cursor.x), fmt(cursor.y), fmt(Math.hypot(cursor.x, cursor.y)))
-            : deltasMsg(null),
+          coords: <span ref={statusReadout.coordsRef} />,
+          deltas: <span ref={statusReadout.deltasRef} />,
           grid: gridMsg(fmt(gridIU)),
           units: unitsMsg(unitLabel),
           // Pane 6 is `DisplayToolMsg` and pane 7 `DisplayConstraintsMsg`

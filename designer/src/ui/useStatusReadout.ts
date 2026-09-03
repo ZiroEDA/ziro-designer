@@ -23,6 +23,7 @@ import {
   coordsMsg,
   deltasMsg,
   messageTextFromValue,
+  polarMsg,
   type StatusUnits,
   zoomFactorForScale,
   zoomMsg,
@@ -51,6 +52,15 @@ export interface StatusReadoutOptions {
   devicePixelRatio: number;
   /** The frame's `EDA_IU_SCALE` (`SCH_IU_PER_MM`, `PCB_IU_PER_MM`, …). */
   iuPerMM?: number;
+  /**
+   * `GetShowPolarCoords()` — pane 3 as `r`/`theta` instead of `dx`/`dy`/`dist`
+   * (`PCB_BASE_FRAME::UpdateStatusBar`, pcb_base_frame.cpp:773-785).
+   *
+   * A pcbnew-side branch on the SAME pane rather than a second readout, which
+   * is how upstream has it: one `UpdateStatusBar` with an `if`. eeschema's
+   * `SCH_BASE_FRAME` has no polar mode and simply never passes this.
+   */
+  polar?: boolean;
 }
 
 export function useStatusReadout({
@@ -58,6 +68,7 @@ export function useStatusReadout({
   localOrigin,
   devicePixelRatio,
   iuPerMM = SCH_IU_PER_MM,
+  polar = false,
 }: StatusReadoutOptions): StatusReadout {
   const zoomRef = useRef<HTMLSpanElement>(null);
   const coordsRef = useRef<HTMLSpanElement>(null);
@@ -67,11 +78,17 @@ export function useStatusReadout({
   // imperative path never depends on a re-render having happened first.
   const cursorRef = useRef<{ x: number; y: number } | null>(null);
   const scaleRef = useRef(0);
-  const optsRef = useRef({ units, localOrigin, devicePixelRatio, iuPerMM });
-  optsRef.current = { units, localOrigin, devicePixelRatio, iuPerMM };
+  const optsRef = useRef({ units, localOrigin, devicePixelRatio, iuPerMM, polar });
+  optsRef.current = { units, localOrigin, devicePixelRatio, iuPerMM, polar };
 
   const paint = useCallback(() => {
-    const { units: u, localOrigin: o, devicePixelRatio: dpr, iuPerMM: iu } = optsRef.current;
+    const {
+      units: u,
+      localOrigin: o,
+      devicePixelRatio: dpr,
+      iuPerMM: iu,
+      polar: pol,
+    } = optsRef.current;
     const fmt = (v: number): string => messageTextFromValue(v / iu, u, iu);
     const c = cursorRef.current;
 
@@ -84,9 +101,22 @@ export function useStatusReadout({
     }
 
     if (deltasRef.current) {
-      deltasRef.current.textContent = c
-        ? deltasMsg(fmt(c.x - o.x), fmt(c.y - o.y), fmt(Math.hypot(c.x - o.x, c.y - o.y)))
-        : deltasMsg(null);
+      // Both branches measure from `m_LocalOrigin`, which is the whole point of
+      // pane 3: `dx = cursorPos.x - screen->m_LocalOrigin.x` and the polar
+      // `theta = RAD2DEG( atan2( -dy, dx ) )` over the same dx/dy
+      // (pcb_base_frame.cpp:774-777, :798-806). Y is negated for theta because
+      // screen Y grows downward and the reported angle is the mathematical one.
+      const dx = c ? c.x - o.x : 0;
+      const dy = c ? c.y - o.y : 0;
+      if (pol) {
+        deltasRef.current.textContent = c
+          ? polarMsg(fmt(Math.hypot(dx, dy)), (Math.atan2(-dy, dx) * 180) / Math.PI)
+          : polarMsg(null);
+      } else {
+        deltasRef.current.textContent = c
+          ? deltasMsg(fmt(dx), fmt(dy), fmt(Math.hypot(dx, dy)))
+          : deltasMsg(null);
+      }
     }
   }, []);
 
@@ -96,7 +126,7 @@ export function useStatusReadout({
   // biome-ignore lint/correctness/useExhaustiveDependencies: repaint triggers, read via optsRef
   useEffect(() => {
     paint();
-  }, [paint, units, localOrigin, devicePixelRatio, iuPerMM]);
+  }, [paint, units, localOrigin, devicePixelRatio, iuPerMM, polar]);
 
   return useMemo(
     (): StatusReadout => ({
