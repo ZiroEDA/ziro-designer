@@ -204,7 +204,6 @@ export function PanelEeschemaDisplayOptions({ ctx }: { ctx: PrefsContext }): JSX
           <Num
             label="Selection thickness:"
             value={eeschema.selection.thickness}
-            unit="mils"
             min={0}
             max={50}
             onChange={(v) =>
@@ -219,16 +218,15 @@ export function PanelEeschemaDisplayOptions({ ctx }: { ctx: PrefsContext }): JSX
               #9a9ca0 of its own; a wxStaticText takes the dialog's foreground,
               so this is the label class and the dimmed copy is gone. */}
           <div className="ze-pref-note">(selection color can be edited in the "Colors" page)</div>
-          {/* `m_collisionMarkerWidthCtrl` (`:271`), missing from this page.
-              Dead: dragging a wire past another net draws no collision marker
-              here, so nothing reads `selection.drag_net_collision_width`. */}
+          {/* `m_collisionMarkerWidthCtrl` (`:196`). Live: the pen, in device
+              pixels, that `SCH_DRAG_NET_COLLISION_MONITOR::Update` strokes the
+              markers with (`sch_drag_net_collision.cpp:181-190`). */}
           <Num
             label="Net collision marker width:"
             value={eeschema.selection.drag_net_collision_width}
             /* [data] `wxSpinCtrlDouble( …, 1, 50, 4.000000, 1 )`. */
             min={1}
             max={50}
-            disabled
             onChange={(v) =>
               upE((s) => {
                 s.selection.drag_net_collision_width = v;
@@ -238,7 +236,6 @@ export function PanelEeschemaDisplayOptions({ ctx }: { ctx: PrefsContext }): JSX
           <Num
             label="Highlight thickness:"
             value={eeschema.selection.highlight_thickness}
-            unit="mils"
             min={0}
             max={50}
             onChange={(v) =>
@@ -275,7 +272,6 @@ export function PanelEeschemaDisplayOptions({ ctx }: { ctx: PrefsContext }): JSX
           <Num
             label="Color highlight opacity:"
             value={Math.round(eeschema.selection.highlight_netclass_colors_alpha * 100)}
-            unit="%"
             min={0}
             max={100}
             onChange={(v) =>

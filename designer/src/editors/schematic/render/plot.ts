@@ -129,6 +129,9 @@ function monochromeTheme(): Theme {
     globalLabel: black,
     hierLabel: black,
     netclassFlag: black,
+    // Never reached on a plot either: the collision markers live on a
+    // VIEW_OVERLAY that only exists while a drag is in flight.
+    dragNetCollision: black,
     netHighlight: black,
     selectionShadow: none,
     noteLine: black,

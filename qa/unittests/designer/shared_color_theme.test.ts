@@ -243,8 +243,12 @@ describe('eeschema resolves to the schematic layers', () => {
     // `SCH_PAINTER::draw( SCH_SYMBOL )` asks for at `sch_painter.cpp:2811` and
     // `:2839`, they are already in the shared builtin themes, and the Colors
     // page lists both (`common/layer_id.cpp:100-101`).
+    //
+    // 45 since `dragNetCollision`, LAYER_DRAG_NET_COLLISION, which
+    // `SCH_DRAG_NET_COLLISION_MONITOR::Update` reads off the theme directly
+    // (`sch_drag_net_collision.cpp:158-163`).
     const fields = Object.entries(KICAD_DEFAULT);
-    expect(fields).toHaveLength(44);
+    expect(fields).toHaveLength(45);
     for (const [name, value] of fields) expect(value, name).toMatch(/^rgba?\(/);
   });
 
@@ -266,5 +270,24 @@ describe('eeschema resolves to the schematic layers', () => {
     // ...and it is not just the grid colour under another name, in either theme.
     expect(KICAD_DEFAULT.gridAxes).not.toBe(KICAD_DEFAULT.grid);
     expect(KICAD_CLASSIC.gridAxes).not.toBe(KICAD_CLASSIC.grid);
+  });
+
+  /**
+   * The drag-collision colour, pinned the same way.
+   *
+   * The two themes disagree here, which is the point of pinning both: the
+   * default theme states `CSS_COLOR( 230, 9, 13, 0.8 )` and Classic says
+   * `COLOR4D( PURERED ).WithAlpha( 0.8 )` (`builtin_color_themes.h:54`, `:336`).
+   * `PURERED` really is (255, 0, 0) — unlike `RED`, which that same B,G,R
+   * struct makes (132, 0, 0).
+   *
+   * The alpha is load-bearing, not decoration: `Update` derives BOTH the fill
+   * and the stroke alpha from it (`sch_drag_net_collision.cpp:167-171`), so a
+   * theme colour read at alpha 1 would draw the markers a third more opaque
+   * than KiCad does.
+   */
+  it('reads the drag-collision colour, alpha included, from LAYER_DRAG_NET_COLLISION', () => {
+    expect(KICAD_DEFAULT.dragNetCollision).toBe('rgba(230, 9, 13, 0.8)');
+    expect(KICAD_CLASSIC.dragNetCollision).toBe('rgba(255, 0, 0, 0.8)');
   });
 });

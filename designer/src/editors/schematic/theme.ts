@@ -52,6 +52,10 @@ const SCH_LAYERS = {
   globalLabel: 'LAYER_GLOBLABEL',
   hierLabel: 'LAYER_HIERLABEL',
   netclassFlag: 'LAYER_NETCLASS_REFS',
+  // `SCH_DRAG_NET_COLLISION_MONITOR::Update` reads this one straight off the
+  // theme (`sch_drag_net_collision.cpp:158-163`) and derives both of the alphas
+  // it strokes and fills the markers with from the colour's own.
+  dragNetCollision: 'LAYER_DRAG_NET_COLLISION',
   netHighlight: 'LAYER_BRIGHTENED',
   selectionShadow: 'LAYER_SELECTION_SHADOWS',
   brightened: 'LAYER_BRIGHTENED',
@@ -105,6 +109,9 @@ export interface Theme {
   hierLabel: string;
   /** LAYER_NETCLASS_REFS, netclass directive labels. */
   netclassFlag: string;
+  /** LAYER_DRAG_NET_COLLISION: the rings a drag that would merge two nets
+   *  raises, and the line across a connection it has pulled apart. */
+  dragNetCollision: string;
   netHighlight: string;
   selectionShadow: string;
   /** LAYER_BRIGHTENED: what a cross-probed item turns while it is focused. */

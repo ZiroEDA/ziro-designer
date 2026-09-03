@@ -58,6 +58,10 @@ const CURSORS_CPP: Record<string, { file: string; x: number; y: number }> = {
   LINE_BUS: { file: 'cursor-line-bus', x: 5, y: 26 },
   LINE_GRAPHIC: { file: 'cursor-line-graphic', x: 5, y: 26 },
   PLACE: { file: 'cursor-place-black', x: 1, y: 1 },
+  // `{ cursor_warning_black_xpm, { 1, 1 } }` (cursors.cpp:164-184), the
+  // `#else` half again. `SCH_DRAG_NET_COLLISION_MONITOR::AdjustCursor` is the
+  // only thing that asks for it: the drag in flight would merge two nets.
+  WARNING: { file: 'cursor-warning-black', x: 1, y: 1 },
 };
 
 /** What `kicursors.ts` declares, parsed out of its STORE literal. */
