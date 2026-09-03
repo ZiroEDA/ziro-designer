@@ -19,6 +19,9 @@
  *                                        (`toolbars_symbol_editor.cpp:43-47`)
  */
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
 import {
   defaultUnits,
   defaultUnitsToggle,
@@ -45,6 +48,9 @@ import {
   defaultSelectionFilter,
   selectionFilterAll,
 } from '@ziroeda/eeschema/src/tools/sch_selection_filter.js';
+
+const SRC = fileURLToPath(new URL('../../../designer/src', import.meta.url));
+const read = (rel: string): string => readFileSync(join(SRC, rel), 'utf8');
 
 // ---------------------------------------------------------------------------
 // 1. system.units
@@ -110,10 +116,16 @@ describe("SYMBOL_EDIT_FRAME's opening toggle state", () => {
     // own ~/.config/kicad/10.0/symbol_editor.json agrees, and it is the parity
     // target.
     //
-    // `togglePinAltIcons` is NOT here even though its setting defaults true:
-    // upstream has that button commented out of the toolbar
-    // (`toolbars_symbol_editor.cpp:85`) and our renderer draws no
-    // alternate-mode indicator, so there is no button for it to light.
+    // `togglePinAltIcons` IS here, and it is the one entry with no toolbar
+    // button. Re-derived rather than re-baselined: `setupUIConditions` sets
+    // FIVE CHECK conditions off the settings object, not four —
+    // `showPinAltIconsCond` is the fifth (`symbol_edit_frame.cpp:583-587`,
+    // bound at `:607`) — and `show_pin_alt_icons` is `PARAM<bool>( …, true )`
+    // (`symbol_editor_settings.cpp:82`), so a cold frame has it ON. What it
+    // lacks is a BUTTON: `toolbars_symbol_editor.cpp:85` leaves that commented
+    // out, so the condition is drawn only on the View menu
+    // (`menubar_symbol_editor.cpp:142`). This set is the CHECK state, not the
+    // button row, which is why the ninth belongs.
     expect([...DEFAULT_TOGGLES].sort()).toEqual([
       'crosshairSmall',
       'showElectricalTypes',
@@ -123,8 +135,21 @@ describe("SYMBOL_EDIT_FRAME's opening toggle state", () => {
       'showProperties',
       'toggleGrid',
       'toggleGridOverrides',
+      'togglePinAltIcons',
       'unitsMils',
     ]);
+  });
+
+  it('the one with no toolbar button is drawn on the View menu instead', () => {
+    // The distinction the list above turns on, asserted rather than left to
+    // the comment: a lit toolbar button for an action upstream does not draw
+    // would be the defect, so this pins WHERE it is shown.
+    const menubar = read('editors/symbol/menubar.ts');
+    expect(menubar).toContain("chk('Show Pin Alternate Icons', 'togglePinAltIcons')");
+    const toolbars = read('editors/symbol/symbolToolbars.ts');
+    expect(toolbars, 'upstream leaves this button commented out').not.toContain(
+      'togglePinAltIcons',
+    );
   });
 
   /**
@@ -236,6 +261,8 @@ function paintEmptyScene(showGrid = true, canvas = { w: 400, h: 300 }): Seg[] {
     unit: 1,
     bodyStyle: 1,
     showPinElectricalTypes: false,
+    // An empty-canvas fixture: no symbol, so no pin can declare alternates.
+    showPinAltIcons: false,
     showHiddenPins: false,
     showHiddenFields: false,
     showGrid,

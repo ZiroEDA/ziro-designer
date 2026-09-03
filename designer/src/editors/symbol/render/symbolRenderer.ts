@@ -18,6 +18,7 @@
  */
 
 import { electricalPinTypeGetText, pinShapeGetText } from '@ziroeda/eeschema';
+import { altIconBox } from '@ziroeda/eeschema/src/pin_box.js';
 import type { Vec2 } from '@ziroeda/kimath';
 import { zoomFitView } from '../../../ui/view_controls.js';
 import { iuToMM, mmToIU } from '@ziroeda/common';
@@ -62,6 +63,12 @@ export interface SymbolViewOptions {
   forcePinNumbers?: boolean;
   /** SCH_ACTIONS::showHiddenPins. */
   showHiddenPins: boolean;
+  /**
+   * `SYMBOL_EDITOR_SETTINGS::m_ShowPinAltIcons`, written by Preferences >
+   * Symbol Editor > Display Options. Defaults TRUE upstream
+   * (`panel_sym_display_options_base.cpp:46`, `SetValue(true)`).
+   */
+  showPinAltIcons: boolean;
   /** SCH_ACTIONS::showHiddenFields. */
   showHiddenFields: boolean;
   /** ACTIONS::toggleGrid (WINDOW_SETTINGS grid.show). Unset = shown, which is
@@ -211,21 +218,123 @@ function transformTextForPin(info: TextInfo, pin: LibPin): void {
   switch (((pin.angle % 360) + 360) % 360) {
     case 180: // PIN_LEFT
       info.halign = flipH(info.halign);
-      info.at = { x: -info.at.x, y: info.at.y };
       break;
     case 90: // PIN_UP
       info.vertical = true;
-      info.at = { x: info.at.y, y: -info.at.x };
       break;
     case 270: // PIN_DOWN
       info.vertical = true;
-      info.at = { x: info.at.y, y: info.at.x };
       info.halign = flipH(info.halign);
       break;
     default: // PIN_RIGHT
       break;
   }
-  info.at = { x: info.at.x + pin.at.x, y: info.at.y + pin.at.y };
+  info.at = transformPointForPin(info.at, pin);
+}
+
+/**
+ * The point half of `transformTextForPin`, on its own so the alternate-mode
+ * icon can reuse it. Upstream the icon is placed from a BOX2I that the same
+ * `transformBoxForPin` has already turned, so sharing the rotation here is what
+ * keeps the two from drifting — an icon rotated by a second copy of these four
+ * cases is exactly the bug that copy would eventually grow.
+ */
+function transformPointForPin(at: Vec2, pin: LibPin): Vec2 {
+  let p = at;
+  switch (((pin.angle % 360) + 360) % 360) {
+    case 180: // PIN_LEFT
+      p = { x: -at.x, y: at.y };
+      break;
+    case 90: // PIN_UP
+      p = { x: at.y, y: -at.x };
+      break;
+    case 270: // PIN_DOWN
+      p = { x: at.y, y: at.x };
+      break;
+    default: // PIN_RIGHT
+      break;
+  }
+  return { x: p.x + pin.at.x, y: p.y + pin.at.y };
+}
+
+/**
+ * `drawAltPinModesIcon` (`sch_painter.cpp:838-906`) — the two-arrow glyph that
+ * marks a pin as having alternate modes, drawn beside its name.
+ *
+ * Upstream's own diagram of the two states:
+ *
+ *      ----------->            -----  ---->
+ *          + <--center            \
+ *         \------->                \------>
+ *
+ *      aBaseSelected = true      aBaseSelected = false
+ *
+ * The call site passes `true` unconditionally, with its reason in a comment —
+ * "Icon style doesn't work due to the tempPin having no alt but maybe it's
+ * better with just one style anyway" (`:1674-1676`) — so the gapped variant is
+ * unreachable in KiCad today. It is ported anyway because the branch is the
+ * upstream code and a caller may one day pass false; passing `true` here is
+ * matching the call site, not dropping half the function.
+ *
+ * `aRotate` turns the glyph 270 degrees for a vertical pin name.
+ */
+function drawAltPinModesIcon(
+  ctx: CanvasRenderingContext2D,
+  at: Vec2,
+  size: number,
+  baseSelected: boolean,
+  rotate: boolean,
+  extraLineWidth: number,
+  color: string,
+): void {
+  ctx.save();
+  ctx.translate(at.x, at.y);
+  // `aGal.Rotate( ANGLE_270.AsRadians() )`.
+  if (rotate) ctx.rotate((270 * Math.PI) / 180);
+
+  ctx.strokeStyle = color;
+  ctx.lineWidth = size / 10 + extraLineWidth;
+
+  const lineYOffset = size / 4;
+  const arrowHead = size / 8;
+  const topX = size / 2;
+  const topY = -lineYOffset;
+  const btmY = lineYOffset;
+
+  const line = (x1: number, y1: number, x2: number, y2: number): void => {
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+  };
+
+  // Top line and arrowhead.
+  if (baseSelected) {
+    line(topX, topY, topX - size, topY);
+  } else {
+    line(topX, topY, topX - size / 2, topY);
+    line(topX - size, topY, topX - size * 0.7, topY);
+  }
+  line(topX, topY, topX - arrowHead * 1.2, topY - arrowHead);
+  line(topX, topY, topX - arrowHead * 1.2, topY + arrowHead);
+
+  // Bottom line and arrowhead.
+  line(topX, btmY, topX - size / 2, btmY);
+  line(topX, btmY, topX - arrowHead * 1.2, btmY - arrowHead);
+  line(topX, btmY, topX - arrowHead * 1.2, btmY + arrowHead);
+
+  // The 'S' arcs. `DrawArc( centre, r, ANGLE_0, -ANGLE_90 )` sweeps NEGATIVE,
+  // which is anticlockwise in KiCad's y-down world, so canvas takes
+  // `anticlockwise = true` for the same visual sweep.
+  const arc = (cx: number, cy: number, r: number, from: number, to: number): void => {
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, (from * Math.PI) / 180, (to * Math.PI) / 180, true);
+    ctx.stroke();
+  };
+  if (!baseSelected) arc(topX - size, topY + lineYOffset, lineYOffset, 0, -90);
+  arc(topX - (size - lineYOffset * 2), topY + lineYOffset, lineYOffset, 180, 90);
+
+  ctx.restore();
 }
 
 /** GetPinNameInfo: name inside the body (offset > 0) or centred above the pin. */
@@ -370,6 +479,8 @@ export interface PinDisplaySettings {
   pinNameOffset: number;
   showElectricalTypes: boolean;
   showHiddenPins: boolean;
+  /** `SYMBOL_EDITOR_SETTINGS::m_ShowPinAltIcons`. */
+  showPinAltIcons: boolean;
 }
 
 /**
@@ -530,7 +641,32 @@ export function drawPin(
   const numInfo = pinNumberInfo(pin, sym);
   if (numInfo) drawTextInfo(ctx, numInfo, hidden ? hiddenColor : theme.pinNumber);
   const nameInfo = pinNameInfo(pin, sym);
-  if (nameInfo) drawTextInfo(ctx, nameInfo, hidden ? hiddenColor : theme.pinName);
+  if (nameInfo) {
+    drawTextInfo(ctx, nameInfo, hidden ? hiddenColor : theme.pinName);
+
+    // `sch_painter.cpp:1672-1679`: the icon hangs off the NAME and is drawn
+    // inside the name's own `if`, so a pin whose name is hidden gets none.
+    // `altIconBox` is null unless the pin declares alternates.
+    if (sym.showPinAltIcons) {
+      const box = altIconBox(pin, sym.pinNameOffset);
+      if (box) {
+        const c = transformPointForPin(
+          { x: (box.minX + box.maxX) / 2, y: (box.minY + box.maxY) / 2 },
+          pin,
+        );
+        drawAltPinModesIcon(
+          ctx,
+          c,
+          box.maxX - box.minX,
+          // The call site passes `true` unconditionally (`:1674-1676`).
+          true,
+          nameInfo.vertical,
+          0,
+          hidden ? hiddenColor : theme.pinName,
+        );
+      }
+    }
+  }
   if (sym.showElectricalTypes) {
     drawTextInfo(ctx, pinElectricalTypeInfo(pin), hidden ? hiddenColor : theme.privateNote);
   }
@@ -829,6 +965,7 @@ export function renderSymbolScene(
     pinNameOffset: sym.pinNameOffset,
     showElectricalTypes: opts.showPinElectricalTypes,
     showHiddenPins: opts.showHiddenPins,
+    showPinAltIcons: opts.showPinAltIcons,
   };
 
   // getShadowWidth(false): a zoom-scaled screen term plus a fixed world minimum.

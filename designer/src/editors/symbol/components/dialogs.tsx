@@ -164,6 +164,10 @@ export function PinPropertiesDialog({
         pinNumbersHidden: symbol.pinNumbersHidden,
         pinNameOffset: symbol.pinNameOffset,
         showElectricalTypes: false,
+        // `SCH_DESIGN_BLOCK_PREVIEW_WIDGET` sets `m_ShowPinAltIcons = false` on
+        // its own preview settings (`:95`) — a one-pin preview has nothing to
+        // advertise.
+        showPinAltIcons: false,
         showHiddenPins: true,
       },
       KICAD_CLASSIC,

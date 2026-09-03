@@ -330,12 +330,21 @@ describe('editors/symbol/SymbolEditor.tsx seeds its toolbar from the settings fi
     //   showHiddenPins        show_hidden_lib_pins          symbol_editor_settings.cpp:90
     //   showHiddenFields      show_hidden_lib_fields        symbol_editor_settings.cpp:87
     //   showElectricalTypes   show_pin_electrical_type      symbol_editor_settings.cpp:81
+    //   togglePinAltIcons     show_pin_alt_icons            symbol_editor_settings.cpp:82
     //   crosshairSmall/Full/45  window.cursor.cross_hair_mode  app_settings.cpp:567
     //
     // The three crosshair ids are ONE setting drawn as a radio group, which is
     // why they arrive together. An id here that is not a PARAM upstream would
-    // be a button writing a file on every click; an id missing from here is a
-    // button Preferences can move without the toolbar noticing.
+    // be a control writing a file on every click; an id missing from here is
+    // one Preferences can move without the frame noticing.
+    //
+    // `togglePinAltIcons` is the odd one: it is the only id in this set with
+    // no toolbar BUTTON, because `toolbars_symbol_editor.cpp:85` leaves that
+    // commented out. It is still a stored setting flipped from the UI — the
+    // View row (`menubar_symbol_editor.cpp:142`) — so it must fold, or that
+    // row would toggle a value that never reaches the file. The set is "ids
+    // whose lit state is a stored setting", which is why the name of this test
+    // says toolbar and the membership rule does not.
     expect([...SYMBOL_SETTING_TOGGLES].sort()).toEqual([
       'crosshair45',
       'crosshairFull',
@@ -345,7 +354,16 @@ describe('editors/symbol/SymbolEditor.tsx seeds its toolbar from the settings fi
       'showHiddenPins',
       'toggleGrid',
       'toggleGridOverrides',
+      'togglePinAltIcons',
     ]);
+  });
+
+  it('the settings-backed id with no button is reachable from the View menu', () => {
+    // Membership above is only half the rule: an id that folds but has no
+    // control at all is a setting the user cannot reach. This is the other
+    // half, and it is why `togglePinAltIcons` is allowed to have no button.
+    const menubar = src('editors/symbol/menubar.ts');
+    expect(menubar).toContain("chk('Show Pin Alternate Icons', 'togglePinAltIcons')");
   });
 
   it('opens with both lit, because both default true', () => {

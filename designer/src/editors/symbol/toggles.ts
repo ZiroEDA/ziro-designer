@@ -132,11 +132,12 @@ export function symbolTogglesFromSettings(cfg: SymbolEditorSettings): Set<string
   flag('showHiddenPins', cfg.show_hidden_lib_pins);
   flag('showHiddenFields', cfg.show_hidden_lib_fields);
   flag('showElectricalTypes', cfg.show_pin_electrical_type);
-  // `togglePinAltIcons` is deliberately NOT here: the renderer draws no
-  // alternate-mode indicator, so `show_pin_alt_icons` has no reader and a lit
-  // button would be a lie. Upstream has the button commented out of the
-  // toolbar too (`toolbars_symbol_editor.cpp:85`), which is why there is no
-  // control here to keep consistent with.
+  // `showPinAltIconsCond` — `return libeditconfig()->m_ShowPinAltIcons;`
+  // (`symbol_edit_frame.cpp:583-587`), the FIFTH of those conditions. It has
+  // no toolbar button, since upstream leaves that one commented out
+  // (`toolbars_symbol_editor.cpp:85`), but it does have a View-menu CHECK
+  // (`menubar_symbol_editor.cpp:142`), so the flag belongs in this set.
+  flag('togglePinAltIcons', cfg.show_pin_alt_icons);
   out.add(crosshairToggleId(cfg.window.cursor.crosshair));
   return out;
 }
@@ -226,6 +227,12 @@ export function persistSymbolToggle(cfg: SymbolEditorSettings, id: string): bool
     cfg.show_pin_electrical_type = !cfg.show_pin_electrical_type;
     return true;
   }
+  // `SYMBOL_EDITOR_CONTROL::TogglePinAltIcons` is the fourth of that same
+  // family (`symbol_editor_control.cpp:714-752`).
+  if (id === 'togglePinAltIcons') {
+    cfg.show_pin_alt_icons = !cfg.show_pin_alt_icons;
+    return true;
+  }
   // The crosshair group REPLACES rather than flips: re-activating the member
   // already on leaves it on, which is what `applyToggle` does to the set.
   const mode = crosshairToggleMode(id);
@@ -252,6 +259,7 @@ export const SYMBOL_SETTING_TOGGLES: ReadonlySet<string> = new Set([
   'showHiddenPins',
   'showHiddenFields',
   'showElectricalTypes',
+  'togglePinAltIcons',
   'crosshairSmall',
   'crosshairFull',
   'crosshair45',

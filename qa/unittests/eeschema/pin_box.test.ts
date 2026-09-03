@@ -15,7 +15,7 @@
 import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr/src/index.js';
 import { readSchematic } from '@ziroeda/eeschema/src/sch_io/sexpr/read-schematic.js';
-import { libPinBoundingBox } from '@ziroeda/eeschema/src/pin_box.js';
+import { libPinBoundingBox, altIconBox } from '@ziroeda/eeschema/src/pin_box.js';
 import type { LibSymbol, LibPin } from '@ziroeda/eeschema/src/types.js';
 import { mmToIU } from '@ziroeda/common/src/eda_units.js';
 
@@ -167,5 +167,99 @@ describe('the shape decorations', () => {
     // text size — DEFAULT_PINNAME_SIZE = 50 mils = 12700 — so 6350 each way.
     const b = box(sym(1.016, ZERO('clock')));
     expect(b.maxY - b.minY).toBe(2 * 6350 + 2);
+  });
+});
+
+// --------------------------------------------------- the alternate-mode icon
+
+describe('altIconBox — getUntransformedAltIconBox', () => {
+  /** A pin that declares one `(alternate …)`, which is what the icon marks. */
+  const withAlt = (offsetMM: number): LibSymbol =>
+    sym(
+      offsetMM,
+      `(pin input line (at -100 0 0) (length 100)
+         (name "IN" (effects (font (size 1.27 1.27))))
+         (number "1" (effects (font (size 1.27 1.27))))
+         (alternate "CLK" input inverted))`,
+    );
+  const noAlt = (offsetMM: number): LibSymbol =>
+    sym(
+      offsetMM,
+      `(pin input line (at -100 0 0) (length 100)
+         (name "IN" (effects (font (size 1.27 1.27))))
+         (number "1" (effects (font (size 1.27 1.27)))))`,
+    );
+
+  it('is null for a pin that declares no alternates', () => {
+    // `m_pin.GetAlternates().empty()` (`pin_layout_cache.cpp:621`) — the icon
+    // says "this pin has other modes", so a pin with none must not get one.
+    // This is the gate, and it is why the caller cannot simply trust the
+    // setting.
+    const s = noAlt(2.54);
+    expect(altIconBox(onlyPin(s), s.pinNameOffset)).toBeNull();
+  });
+
+  it('is a square of the name text size, capped at 1.5 mm', () => {
+    // `std::min( m_pin.GetNameTextSize(), schIUScale.mmToIU( 1.5 ) )`. The
+    // name here is 1.27 mm, under the cap, so the square is the name size.
+    const s = withAlt(2.54);
+    const b = altIconBox(onlyPin(s), s.pinNameOffset);
+    expect(b).not.toBeNull();
+    const w = b!.maxX - b!.minX;
+    const h = b!.maxY - b!.minY;
+    expect(w).toBe(h);
+    expect(w).toBe(mmToIU(1.27));
+  });
+
+  it('the cap binds when the name text is larger than 1.5 mm', () => {
+    const s = sym(
+      2.54,
+      `(pin input line (at -100 0 0) (length 100)
+         (name "IN" (effects (font (size 5 5))))
+         (number "1" (effects (font (size 1.27 1.27))))
+         (alternate "CLK" input inverted))`,
+    );
+    const b = altIconBox(onlyPin(s), s.pinNameOffset)!;
+    expect(b.maxX - b.minX).toBe(mmToIU(1.5));
+  });
+
+  it('sits further INSIDE when the name is inside, and outside when it is not', () => {
+    // `c.x = nameBox->GetRight() + iconSize * 0.75` for offset > 0, and
+    // `nameBox->GetLeft() - iconSize * 0.75` otherwise — the icon follows the
+    // name out past whichever end of it is away from the body.
+    const inside = withAlt(2.54);
+    const outside = withAlt(0);
+    const pin = onlyPin(inside);
+    const bi = altIconBox(pin, inside.pinNameOffset)!;
+    const bo = altIconBox(onlyPin(outside), outside.pinNameOffset)!;
+    const cx = (b: { minX: number; maxX: number }): number => (b.minX + b.maxX) / 2;
+
+    // Each arm is pinned against a landmark of the PIN rather than against the
+    // other arm: "bi is further right than bo" holds even when both take the
+    // same `nameBox->GetRight()`, so it does not catch the arms collapsing.
+    //
+    // Name inside the body starts at the pin root plus the offset, and the
+    // icon goes past its far end, so it is beyond that.
+    expect(cx(bi)).toBeGreaterThan(pin.length + mmToIU(2.54));
+    // Name outside is centred along the pin's length, and the icon goes to its
+    // LEFT, so it is short of the midpoint.
+    expect(cx(bo)).toBeLessThan(pin.length / 2);
+  });
+
+  it('rides above the pin when the name is outside, and on the axis when inside', () => {
+    // The y centre is the name box's, and the name box is above the pin when
+    // it is drawn outside the body (`nameBox` takes `-PIN_TEXT_OFFSET`).
+    const outside = withAlt(0);
+    const b = altIconBox(onlyPin(outside), outside.pinNameOffset)!;
+    expect((b.minY + b.maxY) / 2).toBeLessThan(0);
+  });
+
+  it('is vertically centred on the name box', () => {
+    // `VECTOR2I c{ 0, ( nameBox->GetTop() + nameBox->GetBottom() ) / 2 }`.
+    const s = withAlt(2.54);
+    const b = altIconBox(onlyPin(s), s.pinNameOffset)!;
+    // The name sits on the pin axis when it is inside the body, so the icon
+    // straddles y = 0.
+    expect((b.minY + b.maxY) / 2).toBe(0);
   });
 });

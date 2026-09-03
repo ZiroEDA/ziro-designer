@@ -279,6 +279,11 @@ export const SymbolCanvas = forwardRef<SymbolCanvasController, Props>(function S
           pinNamesHidden: doc.pinNamesHidden,
           pinNumbersHidden: doc.pinNumbersHidden,
           pinNameOffset: doc.pinNameOffset,
+          // The ghost following the cursor during a two-click place: a pin
+          // being created declares no alternates yet, so the icon could never
+          // appear and passing the live setting would be a reader that cannot
+          // fire.
+          showPinAltIcons: false,
           showElectricalTypes: opts.showPinElectricalTypes,
           showHiddenPins: true,
         },
