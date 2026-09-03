@@ -161,3 +161,101 @@ describe('the heading is complete', () => {
     ]);
   });
 });
+
+// -------------------------------------------------- the choice's width + order
+
+describe('the theme list is ordered as GetColorSettingsList orders it', () => {
+  it('sorts by NAME, so Classic comes before Default', () => {
+    // `std::sort( …, []( COLOR_SETTINGS* a, COLOR_SETTINGS* b )
+    //                 { return a->GetName() < b->GetName(); } )`
+    // (`settings_manager.cpp:299-300`). We listed the built-ins in declaration
+    // order, which put "KiCad Default" first — the opposite of a real KiCad.
+    const names = colorThemeOptions([]).map(([, label]) => label);
+    expect(names).toEqual([...names].sort());
+    expect(names.indexOf('KiCad Classic')).toBeLessThan(names.indexOf('KiCad Default'));
+  });
+
+  it('sorts an installed theme INTO the list, not onto the end', () => {
+    // The tell that the sort is real rather than a reordered literal: a PCM
+    // theme named "Aardvark" must land first, and one named "Zebra" last.
+    const names = colorThemeOptions([
+      { id: 'z', name: 'Zebra' },
+      { id: 'a', name: 'Aardvark' },
+    ]).map(([, label]) => label);
+    expect(names[0]).toBe('Aardvark');
+    expect(names[names.length - 1]).toBe('Zebra');
+  });
+
+  it('gives the same ORDER whether or not the names are decorated', () => {
+    // Upstream sorts by `GetName()` and only then asks
+    // `GetSettingsDropdownName` for the " (read-only)" suffix, so the order
+    // cannot depend on the decoration.
+    //
+    // Worth recording: sorting the DECORATED strings instead would give the
+    // same answer, so no test can tell those two apart. The suffix begins with
+    // a SPACE (0x20), which is lower than every printable character, so it only
+    // ever matters when one raw name is a proper prefix of another — and there
+    // it still preserves the order. This assertion is therefore about the sort
+    // KEY being a name at all: sorting by id would put `_builtin_classic`,
+    // `_builtin_default`, `user` in a different order from their names, and
+    // leaving the list in insertion order fails the test above.
+    const byId = (markReadOnly: boolean): string[] =>
+      colorThemeOptions([{ id: 'z', name: 'Aardvark' }], markReadOnly).map(([id]) => id);
+    expect(byId(true)).toEqual(byId(false));
+    // ...and that order is the NAMES' order, not the ids'.
+    expect(byId(false)).toEqual(['z', '_builtin_classic', '_builtin_default', 'user']);
+  });
+
+  it('names the user theme from its FILE, disambiguated against the built-in', () => {
+    // Not "User": `colors/user.json`'s `meta.name` defaults to "KiCad Default"
+    // (`color_settings.cpp:45-46`), which collides with the built-in, so
+    // `loadAllColorSettings` appends the filename (`settings_manager.cpp:
+    // 466-473`). The installed KiCad on this machine lists exactly this.
+    const names = colorThemeOptions([]).map(([, label]) => label);
+    expect(names).toEqual(['KiCad Classic', 'KiCad Default', 'KiCad Default (user)']);
+  });
+
+  it('applies the same rule to an installed theme that collides', () => {
+    // The rule is about COLLIDING WITH A BUILT-IN, not about being the user
+    // theme — so a PCM theme called "KiCad Classic" is disambiguated too, and
+    // one with its own name is left alone.
+    const names = colorThemeOptions([
+      { id: 'clash', name: 'KiCad Classic' },
+      { id: 'mine', name: 'Solarized' },
+    ]).map(([, label]) => label);
+    expect(names).toContain('KiCad Classic (clash)');
+    expect(names).toContain('Solarized');
+    // The BUILT-IN of that name keeps its own, undecorated.
+    expect(names).toContain('KiCad Classic');
+  });
+});
+
+describe('the Use theme choice is content-width, not panel-width', () => {
+  it('takes its width from the widest theme NAME plus 50', () => {
+    // `m_themes->GetTextExtent( settings->GetName(), &width, &height );`
+    // `minwidth = std::max( minwidth, width );`
+    // `m_themes->SetMinSize( wxSize( minwidth + 50, -1 ) );`
+    // (`panel_sym_color_settings.cpp:61-65`)
+    const src = readFileSync(
+      join(SRC, 'editors/symbol/prefs/PanelSymbolEditorColorSettings.tsx'),
+      'utf8',
+    );
+    expect(src).toContain('THEME_CHOICE_EXTRA = 50');
+    expect(src).toContain('measureTextWidth(');
+    expect(src).toContain('widest + THEME_CHOICE_EXTRA');
+  });
+
+  it('and the row does not stretch across the page', () => {
+    // `p1mainSizer->Add( bMargins, 0, wxTOP, 10 )` — proportion 0 and no
+    // wxEXPAND, then `Fit()`. The choice IS proportion 1 inside `bSizer2`, but
+    // its parent claims no spare width for it to take, so reading that
+    // proportion alone and writing `flex: 1` stretched it to the panel edge.
+    const css = readFileSync(join(SRC, 'ui/shell.css'), 'utf8');
+    const at = css.indexOf('.ze-sym-colors-row {');
+    expect(at).toBeGreaterThan(-1);
+    const rule = css.slice(at, css.indexOf('}', at));
+    expect(rule).toContain('width: max-content');
+    const combo = css.slice(css.indexOf('.ze-sym-colors-row > .ze-combo {'));
+    expect(combo.slice(0, combo.indexOf('}')), 'the combo must not flex').not.toContain('flex:');
+  });
+});

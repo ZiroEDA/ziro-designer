@@ -284,7 +284,15 @@ describe('the theme choice names the read-only themes as such', () => {
     expect(names.get('solarized')).toBe('Solarized (read-only)');
   });
 
-  it('leaves the one writable theme alone', () => {
-    expect(new Map(colorThemeOptions([], true)).get('user')).toBe('User');
+  it('leaves the one writable theme unmarked', () => {
+    // The invariant is the absence of the suffix, not the name: `user.json`'s
+    // `meta.name` defaults to "KiCad Default" (`color_settings.cpp:45-46`) and
+    // `loadAllColorSettings` appends the filename when that collides with a
+    // built-in (`settings_manager.cpp:466-473`), so the label is
+    // "KiCad Default (user)". What must stay true is that the only WRITABLE
+    // theme is not called read-only.
+    const label = new Map(colorThemeOptions([], true)).get('user');
+    expect(label).not.toContain('(read-only)');
+    expect(label).toBe('KiCad Default (user)');
   });
 });
