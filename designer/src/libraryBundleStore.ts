@@ -127,7 +127,7 @@ export async function ensureBundle(
     // nothing to compare, re-download, or invalidate.
 
     const res = await fetch(`${LIBRARY_HOST}/${info.key}`);
-    if (!res.ok) throw new Error('missing');
+    if (!res.ok) return false;
     const zip = new Uint8Array(await res.arrayBuffer());
 
     // Stored entries, so this is a header walk rather than a decompression;
