@@ -196,10 +196,11 @@ describe('the action list', () => {
     // toolbars, which is the one list a page for ADDING a button cannot serve.
     mount('symbol_editor', SYM_DEFAULT_TOOLBARS);
     const rows = actionRows();
-    expect(rows.length).toBeGreaterThan(300);
+    // 295 actions plus this frame's two AppendControl entries.
+    expect(rows.length).toBeGreaterThan(250);
     // Actions that are on no default toolbar of ours, so the old list had none
     // of them.
-    for (const missing of ['Pan Left', 'Zoom to All Objects', 'Save As...'])
+    for (const missing of ['Add Library...', 'Next Marker', 'Collapse All'])
       expect(rows, missing).toContain(missing);
   });
 
@@ -260,18 +261,41 @@ describe('the action list', () => {
     expect(rows.indexOf('Bulk Edit Symbol Fields...')).toBeGreaterThan(20);
   });
 
-  it('draws an icon for every action that declares one', () => {
-    // `if( tool->GetIcon() != BITMAPS::INVALID_BITMAP )` (`:617`): an action
-    // naming INVALID_BITMAP has no image, exactly like one naming none. The
-    // generator was recording that literal as a bitmap called
-    // "INVALID_BITMAP", which resolved to no file and so drew nothing anyway —
-    // right by accident, and wrong the moment anyone read the data.
+  it('offers no action without an icon, because there is no such action', () => {
+    // The rule that made 66 rows appear here and in no KiCad — `TOOL_ACTION`'s
+    // own constructor (`common/tool/tool_action.cpp:109-111`):
+    //
+    //     // If there is no icon, then the action should be hidden from the toolbar
+    //     if( !m_icon.has_value() )
+    //         m_toolbarState.set( static_cast<size_t>( TOOLBAR_STATE::HIDDEN ) );
+    //
+    // "No icon" IS hidden. It is not a second condition beside
+    // `TOOLBAR_STATE::HIDDEN`, it sets that very flag — so an iconless row
+    // cannot occur on this page, and "Add Design Variant..." (`.FriendlyName`
+    // and `.Tooltip` and nothing else) is absent from KiCad's list for exactly
+    // this reason.
     expect(ACTION_CATALOGUE.some((a) => a.icon === 'INVALID_BITMAP')).toBe(false);
+    for (const a of ACTION_CATALOGUE) if (!a.icon) expect(a.hidden, a.name).toBe(true);
+
     mount('symbol_editor', SYM_DEFAULT_TOOLBARS);
     const list = screen.getByLabelText('Actions');
+    const rows = list.querySelectorAll('.ze-tbcust-row').length;
     const withIcon = list.querySelectorAll('.ze-tbcust-row img').length;
-    // 66 of the 362 declare no `.Icon()` upstream and are iconless there too.
-    expect(withIcon).toBeGreaterThan(280);
+    // Every row but the two controls, which carry no image upstream either.
+    expect(rows - withIcon).toBe(2);
+  });
+
+  it('drops the iconless actions specifically, not a count of them', () => {
+    // A number would pass for the wrong reason if the filter changed. These
+    // three declare `.FriendlyName()` and no `.Icon()`, and KiCad shows none.
+    mount('symbol_editor', SYM_DEFAULT_TOOLBARS);
+    const rows = actionRows();
+    for (const gone of ['Add Design Variant...', 'Remove Design Variant...', 'Reset Grid Origin'])
+      expect(rows, gone).not.toContain(gone);
+    // ...and the neighbours it used to sit between are still there, so this is
+    // not "the list emptied".
+    expect(rows).toContain('Add Column Before');
+    expect(rows).toContain('Add Items');
   });
 
   it('offers actions this frame cannot even run, as KiCad does', () => {
