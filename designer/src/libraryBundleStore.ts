@@ -163,17 +163,50 @@ export async function readLibraryBlob(kind: LibraryKind, name: string): Promise<
   }, null);
 }
 
+/**
+ * Unzipped `.pretty` archives, by library name.
+ *
+ * A footprint is read one at a time — the chooser previews them individually —
+ * and unzipping the whole library for each would redo the same work per part.
+ * The values are views into one decompressed buffer per library, so this holds
+ * the libraries a session actually touches and nothing else.
+ */
+const footprintLibs = new Map<string, Record<string, Uint8Array> | null>();
+
 /** One `.pretty`'s footprints, by bare footprint name. */
 export async function readFootprintLibrary(
   library: string,
 ): Promise<Record<string, Uint8Array> | null> {
+  const memo = footprintLibs.get(library);
+  if (memo !== undefined) return memo;
   const packed = await readLibraryBlob('footprints', `${library}.pretty`);
-  if (!packed) return null;
-  return quiet(async () => unzipSync(packed), null);
+  const out = packed ? await quiet(async () => unzipSync(packed), null) : null;
+  footprintLibs.set(library, out);
+  return out;
+}
+
+const dec = new TextDecoder();
+
+/**
+ * A stock symbol library's text, or null when this device has no bundle.
+ *
+ * Null is the signal to fetch it the old way; every caller keeps that path.
+ */
+export async function symbolLibraryText(library: string): Promise<string | null> {
+  const bytes = await readLibraryBlob('symbols', `${library}.kicad_sym`);
+  return bytes ? dec.decode(bytes) : null;
+}
+
+/** A stock footprint's text, or null when this device has no bundle. */
+export async function footprintText(library: string, name: string): Promise<string | null> {
+  const lib = await readFootprintLibrary(library);
+  const entry = lib?.[`${name}.kicad_mod`];
+  return entry ? dec.decode(entry) : null;
 }
 
 /** Preferences > Maintenance, and the tests. */
 export async function clearBundles(): Promise<void> {
+  footprintLibs.clear();
   await quiet(async () => {
     (await store(BLOBS, 'readwrite')).clear();
     (await store(META, 'readwrite')).clear();

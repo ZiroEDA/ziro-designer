@@ -21,7 +21,7 @@
  */
 
 import type { Board } from '@ziroeda/pcbnew';
-import { preloadLibraries, workQueueAdapter } from '../../libraryPreload.js';
+import { preloadBundle, preloadLibraries, workQueueAdapter } from '../../libraryPreload.js';
 import { footprintPreloadWork } from '../../widgets/footprint_list.js';
 
 /** Every footprint LIB_ID on the board — `FOOTPRINT::GetFPID`. */
@@ -39,6 +39,10 @@ export function placedFootprintIds(board: Board): string[] {
 export function preloadBoardLibraries(board: Board): void {
   const work = footprintPreloadWork(placedFootprintIds(board));
   setTimeout(() => {
-    void preloadLibraries('footprints', workQueueAdapter(work));
+    // The stock footprint catalogue first, as one object; the preload below
+    // then reads it locally, or falls through to the network without it.
+    void preloadBundle('footprints').then(() =>
+      preloadLibraries('footprints', workQueueAdapter(work)),
+    );
   }, 0);
 }

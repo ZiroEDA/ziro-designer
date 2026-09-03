@@ -22,6 +22,7 @@
  * lib_tree_item.ts for why the parsed form cannot be kept.
  */
 import { parse } from '@ziroeda/sexpr';
+import { symbolLibraryText } from '../../../libraryBundleStore.js';
 import { readSymbolLib } from '@ziroeda/eeschema';
 import { libTreeItem, type LibTreeItem } from './lib_tree_item.js';
 
@@ -47,6 +48,13 @@ export interface PreloadResult {
 /** Fetch, parse and project one library. Exported so the main thread can run
  *  the identical work inline where there is no `Worker` (see preload_pool.ts). */
 export async function loadLibraryItems(library: string, url: string): Promise<LibTreeItem[]> {
+  // The whole stock catalogue arrives as one object at project open, so ask
+  // the resident copy before the network. Null means this device has no
+  // bundle — a first visit, a cleared origin, a browser without IndexedDB —
+  // and the fetch below is still the answer.
+  const resident = await symbolLibraryText(library);
+  if (resident !== null) return readSymbolLib(parse(resident)).map(libTreeItem);
+
   const res = await fetch(url);
   // Without this the body of a 404 or an error page reaches the parser, and a
   // missing library surfaces as `Expected a top-level list starting with "("`.

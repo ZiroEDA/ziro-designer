@@ -20,6 +20,7 @@
  */
 
 import { parse } from '@ziroeda/sexpr';
+import { footprintText } from '../../libraryBundleStore.js';
 import { readFootprintFile, serializeFootprint, type PcbFootprint } from '@ziroeda/pcbnew';
 import { libraryBase } from '../../libraryHosts.js';
 import { trackLibraryLoad } from '../../widgets/library_loading.js';
@@ -193,16 +194,20 @@ export class FootprintLibraryManager {
     if (existing) return existing;
     if (lib.scope === 'global') {
       try {
+        // Resident catalogue first; null falls through to the network, which
+        // is what a device without a bundle still uses.
         const text = await trackLibraryLoad(
           'footprints',
           `Loading ${lib.name}...`,
-          fetch(
-            `${footprintsBase()}/${encodeURIComponent(lib.name)}.pretty/${encodeURIComponent(fpName)}.kicad_mod`,
-          ),
-        ).then((r) => {
-          if (!r.ok) throw new Error(`${r.status}`);
-          return r.text();
-        });
+          footprintText(lib.name, fpName).then(async (resident) => {
+            if (resident !== null) return resident;
+            const r = await fetch(
+              `${footprintsBase()}/${encodeURIComponent(lib.name)}.pretty/${encodeURIComponent(fpName)}.kicad_mod`,
+            );
+            if (!r.ok) throw new Error(`${r.status}`);
+            return r.text();
+          }),
+        );
         const fp = readFootprintFile(parse(text));
         if (!fp) return undefined;
         lib.footprints.set(fpName, fp);
