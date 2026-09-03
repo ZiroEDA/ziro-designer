@@ -64,6 +64,20 @@ export default defineConfig({
   base: process.env.VITE_BASE ?? '/',
   define: { __BUILD_STAMP__: JSON.stringify(buildStamp()) },
   build: { sourcemap: uploadMaps ? 'hidden' : false },
+  /**
+   * ES, not Vite's default IIFE.
+   *
+   * The OCCT worker (`editors/pcb/occt_worker.ts`) lazily imports the 7.6 MB
+   * WASM kernel, and a lazy import is a code split. Rollup cannot emit a
+   * split build as IIFE, so the default fails the whole build with "UMD and
+   * IIFE output formats are not supported for code-splitting builds" — not at
+   * dev time, only at `vite build`, which is why this arrived with the worker
+   * and was found one commit later.
+   *
+   * Every browser that has `Worker` at all supports module workers, and the
+   * loader falls back to the main thread where it does not.
+   */
+  worker: { format: 'es' },
   plugins: [
     react(),
     ...(uploadMaps
