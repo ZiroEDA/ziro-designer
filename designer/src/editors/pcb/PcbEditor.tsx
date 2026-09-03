@@ -23,6 +23,8 @@ import {
 } from '../../ui/view_controls.js';
 import { DockSash } from '../../ui/DockSash.js';
 import { appearanceNetRows } from './appearance_nets.js';
+import { drawRulerItem, rulerEnd } from '../../ui/ruler_item.js';
+import { kiCursor } from '../../ui/kicursors.js';
 import { appearanceLayerRows, layerTooltip } from '../../widgets/appearance_layers.js';
 import {
   ZOOM_AUTO_LABEL,
@@ -1053,6 +1055,8 @@ export function PcbEditor({
   // held still changes nothing until the pointer is jiggled, and upstream
   // reacts at once because the modifier arrives as its own tool event.
   const shiftDownRef = useRef(false);
+  /** `GetUserUnits()`, for the paint pass — `unitLabel` is computed far below. */
+  const unitsRef = useRef<StatusUnits>('mm');
   const ctrlDownRef = useRef(false);
   const [scale, setScale] = useState(0);
   // Active grid size (the TOP_AUX grid selector; EDA_DRAW_FRAME's grid list).
@@ -2537,40 +2541,29 @@ export function PcbEditor({
         ctx.setTransform(1, 0, 0, 1, 0, 0);
       }
     }
-    // Measure ruler (ACTIONS::measureTool): line with end ticks and the
-    // distance / dx / dy readout in the current units.
+    // `KIGFX::PREVIEW::RULER_ITEM`, the item ACTIONS::measureTool puts up.
+    // The shared painter, beside its own arithmetic: this frame used to draw a
+    // `rgba(120,230,255)` line with a 6px end tick and one invented
+    // `dist (dx dy)` string — no graduations, no LAYER_AUX_ITEMS colour, and
+    // no `x / y / r / theta` block, which are the four strings upstream shows.
     {
       const m = measureRef.current;
       const cur0 = cursorRef.current;
       if (m && (m.b || cur0)) {
-        const b = m.b ?? snapToGrid(cur0!);
-        const ax = m.a.x * sx + v.tx;
-        const ay = m.a.y * v.scale + v.ty;
-        const bx = b.x * sx + v.tx;
-        const by = b.y * v.scale + v.ty;
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-        ctx.strokeStyle = 'rgba(120,230,255,0.95)';
-        ctx.fillStyle = 'rgba(120,230,255,0.95)';
-        ctx.lineWidth = Math.max(1, dpr);
-        ctx.beginPath();
-        ctx.moveTo(ax, ay);
-        ctx.lineTo(bx, by);
-        // End ticks perpendicular to the ruler.
-        const len = Math.hypot(bx - ax, by - ay) || 1;
-        const nx = (-(by - ay) / len) * 6 * dpr;
-        const ny = ((bx - ax) / len) * 6 * dpr;
-        ctx.moveTo(ax - nx, ay - ny);
-        ctx.lineTo(ax + nx, ay + ny);
-        ctx.moveTo(bx - nx, by - ny);
-        ctx.lineTo(bx + nx, by + ny);
-        ctx.stroke();
-        const dist = Math.hypot(b.x - m.a.x, b.y - m.a.y);
-        ctx.font = `${12 * dpr}px system-ui, sans-serif`;
-        ctx.fillText(
-          `${fmtCoord(dist)} ${unitLabel}  (dx ${fmtCoord(b.x - m.a.x)}  dy ${fmtCoord(b.y - m.a.y)})`,
-          (ax + bx) / 2 + 10 * dpr,
-          (ay + by) / 2 - 8 * dpr,
-        );
+        drawRulerItem(ctx, {
+          origin: m.a,
+          end: m.b ?? rulerEnd(m.a, snapToGrid(cur0!), shiftDownRef.current ? 'deg45' : 'direct'),
+          toPx: (p) => ({ x: p.x * sx + v.tx, y: p.y * v.scale + v.ty }),
+          // The flipped board view carries a negative X scale; the painter
+          // takes the magnitude for the graduation spacing.
+          worldScale: v.scale,
+          iuPerMm: PCB_IU_PER_MM,
+          units: unitsRef.current,
+          color: drawOpts.theme?.special.auxItems ?? PCB_SPECIAL.auxItems,
+          devicePixelRatio: dpr,
+          canvasWidth: ctx.canvas.width,
+          canvasHeight: ctx.canvas.height,
+        });
       }
     }
     // In-flight drawing preview (DRAWING_TOOL's live outline): the committed
@@ -5550,7 +5543,15 @@ export function PcbEditor({
     const p = snapToGrid(world);
     const m = measureRef.current;
     if (!m || m.b) measureRef.current = { a: p, b: null };
-    else measureRef.current = { a: m.a, b: p };
+    // `twoPtMgr.SetAngleSnap( evt->Modifier( MD_SHIFT ) ? LEADER_MODE::DEG45
+    // : LEADER_MODE::DIRECT )` — pcb_viewer_tools.cpp:383-388, set on every
+    // motion AND carried into the point the second click pins. Snapping the
+    // preview but not the commit would let go of a ruler that jumps.
+    else
+      measureRef.current = {
+        a: m.a,
+        b: rulerEnd(m.a, p, shiftDownRef.current ? 'deg45' : 'direct'),
+      };
     requestDraw();
   };
 
@@ -8080,6 +8081,7 @@ export function PcbEditor({
       : 'mm';
   // MessageTextFromValue at the pcbnew IU scale (PCB_IU_PER_MM), which is the
   // long form: mm %.4f, mils %.2f, inches %.4f.
+  unitsRef.current = unitLabel;
   const fmtCoord = (iu: number): string =>
     messageTextFromValue(iuToMM(iu), unitLabel, PCB_IU_PER_MM);
 
@@ -8513,7 +8515,21 @@ export function PcbEditor({
                 // Picker tools keep `crosshair`: KICURSOR::BULLSEYE resolves to
                 // the stock wxCURSOR_BULLSEYE on GTK (IsStockCursorOk), the
                 // system crosshair, which is what CSS `crosshair` is too.
-                cursor: activeTool === 'localRatsnestTool' ? 'crosshair' : 'default',
+                //
+                // The two tools that DO name a cursor name KiCad's own art,
+                // through the one CURSOR_STORE: `ZOOM_TOOL::Main` sets
+                // KICURSOR::ZOOM_IN (`zoom_tool.cpp:65-69`) and
+                // `PCB_VIEWER_TOOLS::MeasureTool` KICURSOR::MEASURE
+                // (`pcb_viewer_tools.cpp:292`). This frame had neither and
+                // showed the plain arrow for both.
+                cursor:
+                  activeTool === 'zoomTool'
+                    ? kiCursor('ZOOM_IN')
+                    : activeTool === 'measureTool'
+                      ? kiCursor('MEASURE')
+                      : activeTool === 'localRatsnestTool'
+                        ? 'crosshair'
+                        : 'default',
               }}
               onPointerDown={onPointerDown}
               onPointerMove={onPointerMove}

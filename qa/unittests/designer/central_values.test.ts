@@ -177,7 +177,14 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // ordinary wxMenu upstream and is now the shared ContextMenu — it carried
   // #26262b, #444, rgba(0,0,0,0.5), a borderRadius, a minWidth, a boxShadow
   // and two paddings of its own.
-  'editors/pcb': { colours: 63, metrics: 380 },
+  // 63 -> 61: the frame's own measure ruler went. It stroked
+  // `rgba(120,230,255,0.95)` for both the line and the label — a cyan that
+  // appears nowhere in a KiCad theme, where RULER_ITEM takes LAYER_AUX_ITEMS
+  // and nothing else (ruler_item.cpp:320-323) — and it drew one invented
+  // `dist (dx dy)` string where upstream shows four. The item is the shared
+  // `ui/ruler_item` painter now, the one the footprint editor already used.
+  // RESCANNED from this tree.
+  'editors/pcb': { colours: 61, metrics: 380 },
   // 68/215 -> 60/210: the COLOR_SWATCH sweep. Eight `<input type="color">`s
   // across the item dialogs, the net-chain table and the colour-settings
   // panel each carried a '#000000' or '#ffffff' fallback the native control
@@ -838,7 +845,9 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // 553 -> 548: the Objects tab's slider and the Nets tab's boxes; see the
     // `ui` and `widgets` rows. RESCANNED, and the per-area table agrees --
     // `ui` 213 -> 209 and `widgets` 7 -> 6, which is 553 - 5.
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(548);
+    // 548 -> 546: pcbnew's own measure ruler; see the `editors/pcb` row.
+    // RESCANNED, and the table agrees -- 63 -> 61 is the only row that moved.
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(546);
     // 1657 -> 1649: the same sweep. A native colour input has no useful
     // default size, so eight of the sixteen sites gave theirs an inline
     // width and height; the shared swatch takes --swatch-*-w/h. Rescanned.

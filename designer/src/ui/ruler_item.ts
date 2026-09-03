@@ -10,9 +10,18 @@
  * `DISPLAY_FOOTPRINTS_FRAME`), by `EE_TOOLS` in eeschema and by gerbview, and
  * every one of them puts up this same item.
  *
- * Only the arithmetic and the label text live here — the part that must not be
- * re-derived. Arming the tool, capturing the pointer and painting belong to
- * each canvas, because each of ours owns its own transform.
+ * The arithmetic, the label text AND the painting live here. The painting was
+ * meant to belong to each canvas "because each of ours owns its own
+ * transform", and that reasoning did not survive a second caller: the whole
+ * item is drawn in DEVICE space — upstream divides every size by
+ * `GetWorldScale()` precisely so the ruler does not grow with the zoom — so a
+ * `toPx` callback and the view scale are the only things a canvas has to
+ * supply. Three canvases wanted the tool and only one had it: pcbnew drew a
+ * `rgba(120,230,255)` line with a 6px tick and an invented `dist (dx dy)`
+ * string, and GerbView a dashed line with a dot at each end and no readout at
+ * all. Neither had a graduation, and neither had Shift's 45 degree snap.
+ *
+ * What stays with each canvas is arming the tool and capturing the pointer.
  */
 
 /** A world-space point, matching the canvases' own `Vec2`. */
@@ -261,4 +270,205 @@ export function tickLineWidthPx(devicePixelRatio: number): number {
 export function constantLinePitchPx(devicePixelRatio: number, relativeSize = 0): number {
   const f = devicePixelRatio > 1 ? 1.7 : 1.9;
   return constantGlyphHeightPx(devicePixelRatio, relativeSize) * f;
+}
+
+// ---------------------------------------------------------------------------
+// RULER_ITEM::ViewDraw (ruler_item.cpp:300-370).
+
+/**
+ * The CSS `font-size` whose cap height is `targetPx`.
+ *
+ * KiCad's `TEXT_DIMS::GlyphSize` is the stroke font's glyph HEIGHT — the height
+ * of a capital — while CSS `font-size` is the em box, which is always larger.
+ * Setting one as the other draws the preview text about a third too small,
+ * which is what made ours look thin and undersized beside a real ruler.
+ *
+ * Measured rather than assumed: the ratio differs per face, and the fallback
+ * chain here can resolve to whatever the platform has. `actualBoundingBoxAscent`
+ * of a digit is that cap height.
+ */
+const capRatioCache = new Map<string, number>();
+export function cssSizeForGlyphHeight(ctx: CanvasRenderingContext2D, targetPx: number): number {
+  const face = RULER_FONT;
+  let ratio = capRatioCache.get(face);
+  if (ratio === undefined) {
+    const probe = 100;
+    const saved = ctx.font;
+    ctx.font = `${probe}px ${face}`;
+    const m = ctx.measureText('0');
+    const asc = m.actualBoundingBoxAscent;
+    ratio = asc > 0 ? asc / probe : 0.72;
+    ctx.font = saved;
+    capRatioCache.set(face, ratio);
+  }
+  return targetPx / ratio;
+}
+
+/** The face the ruler's numbers are set in; KiCad's is the stroke font. */
+const RULER_FONT = 'ui-monospace, monospace';
+
+/** `DrawTextNextToCursor`'s offset from the cursor (`ruler_item.cpp:342`). */
+const CURSOR_TEXT_OFFSET_PX = 15;
+
+/** `minorTickLen`, the graduation length `drawTicksAlongLine` starts from. */
+const END_TICK_PX = 5;
+
+export interface RulerDrawOptions {
+  /** The two ends, in the caller's world units. */
+  origin: RulerPoint;
+  end: RulerPoint;
+  /** World → device pixels, the caller's own transform. */
+  toPx: (p: RulerPoint) => { x: number; y: number };
+  /**
+   * `GetWorldScale()`, device px per world unit. Only its MAGNITUDE is used —
+   * pcbnew's flipped board view carries a negative X scale, and a graduation
+   * spacing cannot be negative.
+   */
+  worldScale: number;
+  /** The caller's IU per millimetre: pcbnew's and eeschema's differ. */
+  iuPerMm: number;
+  units: RulerUnits;
+  /**
+   * `rs->GetLayerColor( LAYER_AUX_ITEMS )` — the item carries no colour of its
+   * own (`ruler_item.cpp:320-323`), so each frame's theme answers it.
+   */
+  color: string;
+  devicePixelRatio: number;
+  /** The backing-store size, so a graduation off screen can be skipped. */
+  canvasWidth: number;
+  canvasHeight: number;
+}
+
+/**
+ * Paint the ruler: the line, an end tick at each end, the graduations along it
+ * with their values, and the four dimension strings beside the cursor.
+ *
+ * Saves and restores the context, and works in device space throughout.
+ */
+export function drawRulerItem(ctx: CanvasRenderingContext2D, o: RulerDrawOptions): void {
+  const dpr = o.devicePixelRatio;
+  const a = o.toPx(o.origin);
+  const b = o.toPx(o.end);
+
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.strokeStyle = o.color;
+  ctx.fillStyle = o.color;
+  // `getTickLineWidth( textDims )` = StrokeWidth * 0.8, not a hairline.
+  ctx.lineWidth = rulerLineWidthPx(dpr) * dpr;
+  ctx.setLineDash([]);
+  ctx.beginPath();
+  ctx.moveTo(a.x, a.y);
+  ctx.lineTo(b.x, b.y);
+  ctx.stroke();
+
+  // An end tick perpendicular to the line at each end.
+  const lenPx = Math.hypot(b.x - a.x, b.y - a.y);
+  if (lenPx > 0) {
+    const nx = (-(b.y - a.y) / lenPx) * END_TICK_PX * dpr;
+    const ny = ((b.x - a.x) / lenPx) * END_TICK_PX * dpr;
+    ctx.beginPath();
+    ctx.moveTo(a.x - nx, a.y - ny);
+    ctx.lineTo(a.x + nx, a.y + ny);
+    ctx.moveTo(b.x - nx, b.y - ny);
+    ctx.lineTo(b.x + nx, b.y + ny);
+    ctx.stroke();
+  }
+
+  // `drawTicksAlongLine`: a tick every `tickSpace` along the line,
+  // perpendicular to it, with the value on major and mid ones. All the sizes
+  // are screen sizes upstream (`5.0 / GetWorldScale()`), so they are device px
+  // here and the ruler does not grow with zoom.
+  const dxw = o.end.x - o.origin.x;
+  const dyw = o.end.y - o.origin.y;
+  const lenIU = Math.hypot(dxw, dyw);
+  if (lenIU > 0 && lenPx > 0) {
+    const ux = dxw / lenIU;
+    const uy = dyw / lenIU;
+    // `VECTOR2D tickLine = aLine; RotatePoint( tickLine, ANGLE_90 );`
+    // KiCad's ANGLE_90 turns (x, y) into (y, -x), which points to the side the
+    // graduations and their numbers sit on. Negating it instead put both on
+    // the wrong side of the line.
+    //
+    // Taken from the DEVICE-space line, not the world one. The two agree on a
+    // Y-down canvas whose scale is positive, which is every caller this was
+    // written against — but pcbnew mirrors X in the flipped board view and
+    // GerbView's canvas is Y-up, and on either of those a world-space normal
+    // is not perpendicular on screen. Perpendicular on screen is what a tick
+    // is.
+    const px = (b.y - a.y) / lenPx;
+    const py = -(b.x - a.x) / lenPx;
+    const ticks = rulerTicks(lenIU, Math.abs(o.worldScale), o.iuPerMm, o.units);
+    // KiCad's GlyphSize is the stroke font's glyph HEIGHT; CSS font-size is the
+    // em box, which is larger. Measure the face's own cap height once and solve
+    // for the size that yields the height upstream asks for.
+    const tickFont = cssSizeForGlyphHeight(ctx, constantGlyphHeightPx(dpr, -1) * dpr);
+    // `labelOffset = tickLine.Resize( majorTickLen )`, where
+    // drawTicksAlongLine's majorTickLen is minor * (2.5 + 1).
+    const labelOff = END_TICK_PX * 3.5 * dpr;
+    ctx.font = `${tickFont}px ${RULER_FONT}`;
+    ctx.textBaseline = 'middle';
+    // `labelAngle = -EDA_ANGLE( tickLine )`: the numbers run along the TICK,
+    // not along the ruler — which is why upstream's read bottom-to-top beside a
+    // roughly horizontal measurement. Rotating them along the line instead is
+    // what drew ours mirrored.
+    //
+    // The two `m_Halign` branches are the same rule stated in KiCad's angle
+    // convention: keep the text right-reading. A baseline pointing into the
+    // left half-plane is upside down, so it turns through 180 and anchors from
+    // the other end.
+    let textAngle = Math.atan2(py, px);
+    let alignRight = false;
+    if (textAngle > Math.PI / 2 || textAngle < -Math.PI / 2) {
+      textAngle += Math.PI;
+      alignRight = true;
+    }
+    ctx.textAlign = alignRight ? 'right' : 'left';
+    // `SetLineWidth( labelAttrs.m_StrokeWidth / 2 )`.
+    ctx.lineWidth = tickLineWidthPx(dpr) * dpr;
+    for (const t of ticks) {
+      const p = o.toPx({ x: o.origin.x + ux * t.distIU, y: o.origin.y + uy * t.distIU });
+      if (p.x < -50 || p.x > o.canvasWidth + 50 || p.y < -50 || p.y > o.canvasHeight + 50) continue;
+      const L = t.lengthPx * dpr;
+      ctx.beginPath();
+      ctx.moveTo(p.x, p.y);
+      ctx.lineTo(p.x + px * L, p.y + py * L);
+      ctx.stroke();
+      if (t.label !== null) {
+        ctx.save();
+        ctx.translate(p.x + px * labelOff, p.y + py * labelOff);
+        ctx.rotate(textAngle);
+        ctx.fillText(t.label, 0, 0);
+        ctx.restore();
+      }
+    }
+  }
+
+  const lines = rulerDimensionStrings(o.origin, o.end, o.iuPerMm, o.units);
+  // `DrawTextNextToCursor`'s 15 px offset, and the quadrant it prefers: away
+  // from the origin, so the labels never sit on the ruler
+  // (ruler_item.cpp:342-343, 363).
+  const offX = CURSOR_TEXT_OFFSET_PX * dpr;
+  // `DrawTextNextToCursor` at GetConstantGlyphHeight()'s size and pitch —
+  // sizes[3] = 14 / hdpiSizes[3] = 11, times linePitchFactor 1.9 / 1.7.
+  const pitch = constantLinePitchPx(dpr) * dpr;
+  const qx = o.end.y < o.origin.y ? -1 : 1;
+  const qy = o.end.x < o.origin.x ? 1 : -1;
+  ctx.font = `${cssSizeForGlyphHeight(ctx, constantGlyphHeightPx(dpr) * dpr)}px ${RULER_FONT}`;
+  ctx.textAlign = qx < 0 ? 'right' : 'left';
+  ctx.textBaseline = 'middle';
+  // The quadrant only decides where the BLOCK sits; the lines inside it stay in
+  // GetDimensionStrings' order — x, y, r, θ, top to bottom. Stacking them along
+  // `qy` reversed them whenever the block went up.
+  const x0 = b.x + qx * offX;
+  const top = qy < 0 ? b.y - offX - (lines.length - 1) * pitch : b.y + offX;
+  // A stroke font at thicknessFactor 0.2 reads bold; fill plus a stroke of the
+  // same width is that weight on a 2D context.
+  ctx.lineWidth = constantStrokeWidthPx(dpr) * dpr * 0.5;
+  ctx.lineJoin = 'round';
+  for (let i = 0; i < lines.length; i++) {
+    ctx.fillText(lines[i]!, x0, top + i * pitch);
+    ctx.strokeText(lines[i]!, x0, top + i * pitch);
+  }
+  ctx.restore();
 }

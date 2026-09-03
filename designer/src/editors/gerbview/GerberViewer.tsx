@@ -1808,6 +1808,7 @@ export function GerberViewer({
             onCursorMove={setCursor}
             onScaleChange={setScale}
             onMeasure={setMeasure}
+            measureUnits={unitLabel}
             onPick={(it) => setPicked(it)}
             // One drag is one zoom: ZOOM_TOOL breaks its Main loop as soon as
             // selectRegion returns and pops the tool (`zoom_tool.cpp:85-87`).

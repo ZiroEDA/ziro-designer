@@ -14,6 +14,8 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import type { Vec2 } from '@ziroeda/kimath';
 import { IU_PER_MM, type GERBER_DRAW_ITEM } from '@ziroeda/gerbview';
+import { drawRulerItem, type RulerUnits } from '../../ui/ruler_item.js';
+import { kiCursor } from '../../ui/kicursors.js';
 import {
   renderGerberLayers,
   worldToDevice,
@@ -129,6 +131,8 @@ export interface GerberCanvasProps {
    */
   crosshairMode: CrosshairMode;
   activeTool: 'select' | 'measure' | 'zoom';
+  /** `GetUserUnits()`, which the ruler's graduations and readout are in. */
+  measureUnits?: RulerUnits;
   /** Report the cursor world position (IU) for the status bar. */
   onCursorMove?: (p: Vec2 | null) => void;
   onScaleChange?: (scale: number) => void;
@@ -154,6 +158,7 @@ export const GerberCanvas = forwardRef<GerberCanvasController, GerberCanvasProps
       gridIU,
       crosshairMode,
       activeTool,
+      measureUnits = 'mm',
       onCursorMove,
       onZoomAreaDone,
       onScaleChange,
@@ -244,6 +249,9 @@ export const GerberCanvas = forwardRef<GerberCanvasController, GerberCanvasProps
 
     const cursorPxRef = useRef<{ x: number; y: number } | null>(null);
     const measureRef = useRef<{ a: Vec2; b: Vec2 } | null>(null);
+    // A ref, because the paint pass runs outside the render that set the prop.
+    const measureUnitsRef = useRef<RulerUnits>(measureUnits);
+    measureUnitsRef.current = measureUnits;
     /**
      * ZOOM_TOOL::selectRegion's rubber band (`common/tool/zoom_tool.cpp:110-165`).
      * `out` records which button started the drag: upstream a LEFT drag zooms
@@ -390,30 +398,28 @@ export const GerberCanvas = forwardRef<GerberCanvasController, GerberCanvasProps
         );
       }
 
-      // Measure overlay.
+      // `KIGFX::PREVIEW::RULER_ITEM`, the same item and the same painter the
+      // footprint editor and pcbnew put up — `GERBVIEW_ACTIONS::measureTool`
+      // is `ACTIONS::measureTool`. This was a dashed line with a dot at each
+      // end: no graduations, and none of the four dimension strings.
       const m = measureRef.current;
       if (m) {
-        const p0 = worldToPx(m.a);
-        const p1 = worldToPx(m.b);
-        // `KIGFX::PREVIEW::RULER_ITEM` strokes in
-        // `rs->GetLayerColor( LAYER_AUX_ITEMS )` (`ruler_item.cpp:323`), which
-        // gerbview leaves at the COLOR_SETTINGS default of white
-        // (`builtin_color_themes.h:159`) — its own theme block defines no
-        // aux-items layer. The `#ffd54a` amber here was an invention.
-        octx.strokeStyle = GERBER_AUX_ITEMS_COLOR;
-        octx.fillStyle = GERBER_AUX_ITEMS_COLOR;
-        octx.lineWidth = Math.max(1, dpr);
-        octx.setLineDash([6 * dpr, 4 * dpr]);
-        octx.beginPath();
-        octx.moveTo(p0.x, p0.y);
-        octx.lineTo(p1.x, p1.y);
-        octx.stroke();
-        octx.setLineDash([]);
-        for (const p of [p0, p1]) {
-          octx.beginPath();
-          octx.arc(p.x, p.y, 3 * dpr, 0, Math.PI * 2);
-          octx.fill();
-        }
+        drawRulerItem(octx, {
+          origin: m.a,
+          end: m.b,
+          toPx: worldToPx,
+          worldScale: v.scale,
+          iuPerMm: IU_PER_MM,
+          units: measureUnitsRef.current,
+          // `rs->GetLayerColor( LAYER_AUX_ITEMS )` (`ruler_item.cpp:323`),
+          // which gerbview leaves at the COLOR_SETTINGS default of white
+          // (`builtin_color_themes.h:159`) — its own theme block defines no
+          // aux-items layer. The `#ffd54a` amber here was an invention.
+          color: GERBER_AUX_ITEMS_COLOR,
+          devicePixelRatio: dpr,
+          canvasWidth: canvas.width,
+          canvasHeight: canvas.height,
+        });
       }
 
       // GAL::blitCursor in LAYER_CURSOR (gerbview_painter.h:95). GerbView has
@@ -943,11 +949,14 @@ export const GerberCanvas = forwardRef<GerberCanvasController, GerberCanvasProps
             display: 'block',
             // ZOOM_TOOL sets KICURSOR::ZOOM_IN while it is armed
             // (`common/tool/zoom_tool.cpp:70`).
+            // KiCad's own art through the one CURSOR_STORE, not the
+            // browser's lookalikes: `ZOOM_TOOL::Main` sets KICURSOR::ZOOM_IN
+            // (`zoom_tool.cpp:65-69`) and the measure tool KICURSOR::MEASURE.
             cursor:
               activeTool === 'zoom'
-                ? 'zoom-in'
+                ? kiCursor('ZOOM_IN')
                 : activeTool === 'measure'
-                  ? 'crosshair'
+                  ? kiCursor('MEASURE')
                   : 'default',
           }}
         />
