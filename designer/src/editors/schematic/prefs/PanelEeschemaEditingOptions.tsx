@@ -272,7 +272,25 @@ export function PanelEeschemaEditingOptions({ ctx }: { ctx: PrefsContext }): JSX
           <Check
             label="Never show Rescue Symbols tool"
             checked={eeschema.system.never_show_rescue_dialog}
-            /* Dead: there is no Rescue Symbols tool to suppress. */
+            /* Dead, and not for want of building it. `m_RescueNeverShow`
+               suppresses ONE prompt, and that prompt is raised in the legacy
+               branch of the file loader —
+
+                   if( schFileType == SCH_IO_MGR::SCH_LEGACY ) { …
+                       if( ( !cfg || !cfg->m_RescueNeverShow ) && !cacheExists )
+                           editor->RescueSymbolLibTableProject( false );
+                   (`files-io.cpp:470`, `:616`)
+
+               — so it fires only when opening a KiCad 4/5 `.sch` whose
+               `<project>-cache.lib` is missing. This port reads `.kicad_sch`
+               and has no legacy cache, so the prompt cannot occur.
+
+               Nor would running the tool on demand find anything: every
+               candidate needs a `cache_match` from `LegacySchLibs`
+               (`project_rescue.cpp:371-386`), and without a cache library the
+               loop `continue`s over every symbol. The question Rescue was
+               asking — does the sheet's cached definition still match the
+               library? — is `lib_symbol_mismatch` in ERC here. */
             disabled
             onChange={(v) =>
               upE((s) => {
