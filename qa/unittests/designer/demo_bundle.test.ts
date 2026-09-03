@@ -164,3 +164,45 @@ describe('keeping a demo does not re-download what it already has', () => {
     expect(seen.fileHits).toContain('lib/part.step');
   });
 });
+
+describe('a brotli-encoded bundle', () => {
+  /**
+   * The browser decodes `content-encoding: br` before the app sees a byte, so
+   * the stream yields DECODED bytes while `content-length` reports compressed
+   * ones. Measuring one against the other ran the gauge to ~700%.
+   */
+  it('measures progress against the decoded size, not content-length', async () => {
+    const zip = bundleBytes();
+    const compressedLength = Math.floor(zip.length / 3); // as if brotli'd
+    vi.stubGlobal('fetch', async () => ({
+      ok: true,
+      status: 200,
+      // What R2 sends for an object stored with content-encoding: br.
+      headers: new Headers({ 'content-length': String(compressedLength) }),
+      body: {
+        getReader() {
+          let sent = false;
+          return {
+            async read() {
+              if (sent) return { done: true, value: undefined };
+              sent = true;
+              return { done: false, value: zip }; // decoded bytes
+            },
+          };
+        },
+      },
+    }));
+
+    const seen: { done: number; total: number }[] = [];
+    await openDemo(
+      { ...DEMO, bundleBytes: compressedLength, bundleRawBytes: zip.length },
+      (done, total) => seen.push({ done, total }),
+    );
+
+    expect(seen.length).toBeGreaterThan(0);
+    for (const s of seen) {
+      expect(s.total).toBe(zip.length);
+      expect(s.done).toBeLessThanOrEqual(s.total);
+    }
+  });
+});

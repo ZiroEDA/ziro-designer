@@ -4728,7 +4728,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 /* Determinate progress (ProgressReporter → LoadingOverlay): the gauge under
    the message, like KiCad's WX_PROGRESS_REPORTER dialog. */
 .ze-loading-card.with-progress {
-  min-width: 320px;
   align-items: flex-start;
 }
 .ze-loading-text {
@@ -4736,7 +4735,17 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   flex-direction: column;
   gap: 6px;
   flex: 1;
-  min-width: 0;
+  /* [chrome, measured] The room WX_PROGRESS_REPORTER reserves for its message:
+     `wxString( ' ', 80 )` (wx_progress_reporters.cpp:37), which is 240 px of
+     Ubuntu Sans 11 - the GTK dialog font, and the face --ui-font-size names.
+     Asked of Pango directly rather than guessed; 80 `ch` would be 640 px,
+     because `ch` is the width of a zero and upstream reserves spaces.
+
+     A width, not a min-width, so the card is the same size on every tick. The
+     card's own 320 px min-width was an invention and is gone: it floored the
+     width without holding it, so the card widened for a long filename and
+     snapped back on the next short one. */
+  width: 240px;
 }
 .ze-loading-detail {
   /* [data] `NUMBER_BADGE`'s `m_textSize( 10 )` (number_badge.cpp:33) — a POINT

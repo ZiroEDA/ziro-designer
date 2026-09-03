@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
-import type { JSX } from 'react';
+import { type JSX, useRef } from 'react';
 import type { ProgressSnapshot } from './progress_reporter.js';
 
 /**
@@ -13,20 +13,48 @@ import type { ProgressSnapshot } from './progress_reporter.js';
  *
  * `label` may be a plain string (indeterminate spinner, the original API) or a
  * ProgressSnapshot from a ProgressReporter, then a determinate progress bar
- * with a percentage and an optional "3 of 12" detail line renders under the
- * message, like KiCad's gauge dialog.
+ * with a percentage and an optional detail line renders under the message,
+ * like KiCad's gauge dialog.
+ *
+ * **The card never narrows.** `WX_PROGRESS_REPORTER` reserves room for the
+ * message up front — `wxString( ' ', 80 )` when `aReserveSpaceForMessage`
+ * (`wx_progress_reporters.cpp:37`) — and thereafter only ever grows:
+ *
+ *     if( newWidth > m_messageWidth ) { m_messageWidth = newWidth; Fit(); }   // :94-98
+ *
+ * one-directional, so a dialog whose message changes on every tick sits still
+ * instead of pulsing. Ours resized both ways, because `min-width: 320px` is a
+ * floor and nothing held the high-water mark, so a long filename widened the
+ * card and the next short one snapped it back. That is the jitter, and the fix
+ * is upstream's rule rather than a wider floor.
  */
 export function LoadingOverlay({
   label,
 }: {
   label: string | ProgressSnapshot | null;
 }): JSX.Element | null {
-  if (!label) return null;
+  // `m_messageWidth`: the high-water mark, reset when the overlay is dismissed
+  // so the next job starts from the reserved width rather than inheriting the
+  // last one's.
+  const widest = useRef(0);
+  if (!label) {
+    widest.current = 0;
+    return null;
+  }
   const snap: ProgressSnapshot = typeof label === 'string' ? { message: label } : label;
   const pct = snap.value !== undefined ? Math.round(snap.value * 100) : null;
   return (
     <div className="ze-modal-backdrop ze-loading-backdrop">
-      <div className={`ze-loading-card${pct !== null ? ' with-progress' : ''}`}>
+      <div
+        className={`ze-loading-card${pct !== null ? ' with-progress' : ''}`}
+        ref={(el) => {
+          if (!el) return;
+          // Measure, then latch. Reading offsetWidth after paint is this
+          // widget's `GetTextExtent`; the `Fit()` half is the style write.
+          widest.current = Math.max(widest.current, el.offsetWidth);
+          el.style.minWidth = `${widest.current}px`;
+        }}
+      >
         <span className="ze-spinner" />
         <div className="ze-loading-text">
           <span>{snap.message}</span>

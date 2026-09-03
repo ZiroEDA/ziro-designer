@@ -21,13 +21,23 @@ export interface DemoMeta {
   description: string;
   files: string[];
   /**
-   * Size of this demo's `bundle.zip`, when `tools/demos/upload.mjs` wrote one.
+   * Size of this demo's `bundle.zip` on the wire.
    *
    * Its presence is what tells the app a single-request open is available;
    * absent, the per-file path is used, which is what lets this ship before the
    * corpus is re-uploaded.
    */
   bundleBytes?: number;
+  /**
+   * Size of the bundle AFTER the browser decodes `content-encoding`, when the
+   * object is stored brotli-compressed.
+   *
+   * A decoding response streams decoded bytes while `content-length` reports
+   * the compressed size, so measuring one against the other runs a progress
+   * bar to several hundred percent. This is the honest denominator; absent
+   * (an uncompressed object), `content-length` already is.
+   */
+  bundleRawBytes?: number;
 }
 
 const DEMOS_BASE = DEMOS_HOST;
@@ -101,7 +111,11 @@ async function fetchDemoBundle(
     const res = await fetch(`${DEMOS_BASE}/${encodeRel(d.id)}/${BUNDLE_NAME}`);
     if (!res.ok) return null;
 
-    const total = Number(res.headers.get('content-length')) || d.bundleBytes || 0;
+    // Decoded size first: `content-length` counts compressed bytes when the
+    // object carries `content-encoding`, and the stream below yields decoded
+    // ones.
+    const total =
+      d.bundleRawBytes || Number(res.headers.get('content-length')) || d.bundleBytes || 0;
     let bytes: Uint8Array;
     if (res.body && total > 0) {
       const reader = res.body.getReader();

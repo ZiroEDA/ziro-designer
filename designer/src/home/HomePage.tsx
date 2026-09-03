@@ -58,7 +58,6 @@ import {
   isHiddenFile,
   inArchiveAllowList,
   basename,
-  fmtBytes,
   type DirNode,
 } from './project_tree.js';
 
@@ -610,20 +609,17 @@ export function HomePage({
     // demo persists "so it lands in Recent". It never did.) The files stream
     // from the hosted CDN, so show a download gauge while they arrive.
     //
-    // A bundled demo is a single object, so its callback reports BYTES and the
-    // detail has to read as bytes; the per-file path still counts files. Same
-    // gauge, two units, and printing one in the other's words ("5242880 of
-    // 10675173 files") is how you get a progress line nobody believes.
-    const bundled = d.bundleBytes !== undefined;
+    // The gauge shows a percentage and nothing else. The two paths count
+    // different things - a bundle reports bytes, the per-file fallback reports
+    // files - and both used to name the file in flight, so the line changed on
+    // every one of 89 ticks and the card resized under it. A fraction is the
+    // one thing both paths agree on, and the bar already carries it.
     setLoading({ message: `Downloading demo: ${d.title}`, value: 0 });
     let files: PickedHomeFile[];
     try {
-      files = await openDemo(d, (done, total, file) =>
+      files = await openDemo(d, (done, total) =>
         setLoading({
           message: `Downloading demo: ${d.title}`,
-          detail: bundled
-            ? `${fmtBytes(done)} of ${fmtBytes(total)}`
-            : `${file}, ${done} of ${total} files`,
           value: done / total,
         }),
       );
@@ -846,7 +842,6 @@ export function HomePage({
         out.push({ name: f.name, text: dec.decode(bytes), bytes });
         setLoading({
           message: 'Reading files...',
-          detail: `${base}, ${i + 1} of ${files.length}`,
           value: (i + 1) / files.length,
         });
       }

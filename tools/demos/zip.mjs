@@ -40,9 +40,18 @@ const DOS_DATE = (1 << 5) | 1; // January 1, year 0 of the DOS epoch (1980)
 
 /**
  * @param {Record<string, Uint8Array>} entries path -> bytes
+ * @param {{ store?: boolean }} [opts] `store` writes every entry uncompressed.
+ *
+ * Storing looks wasteful and is not, when the object is then served with
+ * `content-encoding: br`: deflate compresses each file in isolation, while
+ * brotli over the whole archive sees the redundancy BETWEEN files — and a
+ * KiCad project is dozens of near-identical `.kicad_mod` footprints. Measured
+ * on CM5 Minima: 10,674,284 bytes deflated per-file against 7,194,221 bytes
+ * stored-then-brotli, a 32.6% saving for the same content.
+ *
  * @returns {Buffer} the .zip
  */
-export function zipSync(entries) {
+export function zipSync(entries, opts = {}) {
   const locals = [];
   const central = [];
   let offset = 0;
@@ -50,11 +59,11 @@ export function zipSync(entries) {
   for (const [name, bytes] of Object.entries(entries)) {
     const nameBuf = Buffer.from(name, 'utf8');
     const body = Buffer.from(bytes);
-    const deflated = deflateRawSync(body, { level: 9 });
+    const deflated = opts.store ? body : deflateRawSync(body, { level: 9 });
     // A file that deflates larger than it started (already-compressed bytes:
     // a PDF, a PNG) is stored instead, which is what every real zip writer
     // does and what keeps a bundle from being bigger than its contents.
-    const stored = deflated.length >= body.length;
+    const stored = opts.store || deflated.length >= body.length;
     const data = stored ? body : deflated;
     const method = stored ? 0 : 8;
     const crc = crc32(body);

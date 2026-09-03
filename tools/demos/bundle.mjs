@@ -22,10 +22,21 @@
  * One demo at a time, in memory, so a 120 MB project needs 120 MB rather than
  * a copy of the corpus on a disk that may not have room for it.
  *
- * Usage: pnpm demos:bundle          (dry run: builds and verifies, uploads nothing)
- *        pnpm demos:bundle --write  (uploads)
+ * Usage: pnpm demos:bundle           (dry run: builds and verifies, uploads nothing)
+ *        pnpm demos:bundle --write   (uploads)
+ *        pnpm demos:bundle --write --brotli
+ *
+ * `--brotli` stores the zip uncompressed and brotli-compresses the object,
+ * served with `content-encoding: br`. The browser decodes it transparently, so
+ * the app still receives a plain zip and `expandArchive` needs no change —
+ * while brotli, seeing the whole archive at once, exploits the redundancy
+ * between a project's dozens of near-identical footprints that per-file
+ * deflate cannot. Measured on CM5 Minima: 10.67 MB -> 7.19 MB, 32.6% less.
+ * Verified beforehand that R2 stores and returns both `content-encoding` and
+ * `cache-control` on a public object.
  */
-import { writeFileSync } from 'node:fs';
+import { existsSync, writeFileSync } from 'node:fs';
+import { brotliCompressSync, constants as zlibConstants } from 'node:zlib';
 import { fileURLToPath } from 'node:url';
 import { getObject, getObjectBytes, putObject } from '../r2.mjs';
 import { verifyZip, zipSync } from './zip.mjs';
@@ -33,6 +44,14 @@ import { verifyZip, zipSync } from './zip.mjs';
 const PREFIX = (process.env.R2_PREFIX ?? 'demos').replace(/\/+$/, '');
 const BUNDLE_NAME = 'bundle.zip';
 const WRITE = process.argv.includes('--write');
+const BROTLI = process.argv.includes('--brotli');
+
+/**
+ * Long enough that a reopened demo is free, short enough that a re-upload is
+ * picked up the same day. The object name is fixed, so an `immutable` year
+ * would strand clients on a stale bundle with no way to invalidate.
+ */
+const CACHE_CONTROL = 'public, max-age=3600';
 const ONLY = process.argv.find((a) => a.startsWith('--only='))?.slice(7);
 
 const mb = (n) => `${(n / 1e6).toFixed(1)} MB`;
@@ -43,9 +62,18 @@ const manifest = JSON.parse(manifestText);
 
 // The rollback artifact, written before anything is uploaded. Restoring it is
 // enough to put every client back on the per-file path.
+//
+// Never clobbered. A second run's "previous manifest" is the FIRST run's
+// output, so overwriting would quietly destroy the only record of the state
+// before any of this existed - which is precisely the state a rollback wants.
+// Each run also drops a timestamped copy, so every step is recoverable.
 const backup = fileURLToPath(new URL('index.json.bak', import.meta.url));
-writeFileSync(backup, manifestText);
-console.log(`${manifest.demos.length} demos; previous manifest saved to ${backup}`);
+if (!existsSync(backup)) writeFileSync(backup, manifestText);
+const stamped = fileURLToPath(
+  new URL(`index.json.${new Date().toISOString().replace(/[:.]/g, '-')}.bak`, import.meta.url),
+);
+writeFileSync(stamped, manifestText);
+console.log(`${manifest.demos.length} demos; manifest saved to ${stamped}`);
 if (!WRITE) console.log('DRY RUN - pass --write to upload\n');
 
 let totalRaw = 0;
@@ -75,14 +103,28 @@ for (const d of manifest.demos) {
   const ordered = {};
   for (const rel of d.files) ordered[rel] = entries[rel];
 
-  const zip = zipSync(ordered);
+  const zip = zipSync(ordered, { store: BROTLI });
   // Nothing in CI opens a bundle this writer produced; see `verifyZip`.
   verifyZip(zip, ordered);
+
+  // What the wire carries, and what the browser hands the app after decoding.
+  const body = BROTLI
+    ? brotliCompressSync(zip, {
+        params: {
+          [zlibConstants.BROTLI_PARAM_QUALITY]: 11,
+          [zlibConstants.BROTLI_PARAM_LGWIN]: 24,
+          [zlibConstants.BROTLI_PARAM_SIZE_HINT]: zip.length,
+        },
+      })
+    : zip;
 
   if (WRITE) {
     for (let attempt = 1; ; attempt++) {
       try {
-        await putObject(`${PREFIX}/${d.id}/${BUNDLE_NAME}`, zip, 'application/zip');
+        await putObject(`${PREFIX}/${d.id}/${BUNDLE_NAME}`, body, 'application/zip', {
+          'cache-control': CACHE_CONTROL,
+          ...(BROTLI ? { 'content-encoding': 'br' } : {}),
+        });
         break;
       } catch (e) {
         if (attempt >= 4) throw e;
@@ -90,11 +132,18 @@ for (const d of manifest.demos) {
       }
     }
   }
-  d.bundleBytes = zip.length;
+  // `bundleBytes` is what the wire carries. `bundleRawBytes` is what the app
+  // receives after the browser decodes `content-encoding`, and it is the only
+  // honest denominator for a download gauge: a decoding stream yields decoded
+  // bytes, so measuring them against the compressed content-length runs the
+  // bar past 100%.
+  d.bundleBytes = body.length;
+  if (BROTLI) d.bundleRawBytes = zip.length;
+  else delete d.bundleRawBytes;
   totalRaw += raw;
-  totalZip += zip.length;
+  totalZip += body.length;
   console.log(
-    `${WRITE ? 'uploaded' : 'built   '} ${d.id.padEnd(38)} ${String(d.files.length).padStart(3)} files  ${mb(raw).padStart(9)} -> ${mb(zip.length).padStart(9)}`,
+    `${WRITE ? 'uploaded' : 'built   '} ${d.id.padEnd(38)} ${String(d.files.length).padStart(3)} files  ${mb(raw).padStart(9)} -> ${mb(body.length).padStart(9)}`,
   );
 }
 
