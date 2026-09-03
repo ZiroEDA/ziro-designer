@@ -435,9 +435,27 @@ export interface EeschemaSettings {
     /** input.allow_unconstrained_pin_swaps: allow swapping symbol pin positions. */
     allow_unconstrained_pin_swaps: boolean;
   };
-  /** system.never_show_rescue_dialog (RescueNeverShow). */
   system: {
+    /** system.never_show_rescue_dialog (RescueNeverShow). */
     never_show_rescue_dialog: boolean;
+    /**
+     * `system.units` (`app_settings.cpp:231-232`), MILS on this app's branch.
+     *
+     * It is a PARAM on EVERY `APP_SETTINGS_BASE` — the `:228-238` conditional
+     * chooses the DEFAULT, not whether the key exists — so its absence here was
+     * not "a pl_editor extra eeschema does without". Without it the frame's
+     * units button was session state, lost on reload, and every page that asks
+     * the frame for its unit got a constant instead of the live answer.
+     */
+    units: EdaUnits;
+    /** `system.last_metric_units` (`:240-241`), EDA_UNITS::MM. */
+    last_metric_units: EdaUnits;
+    /**
+     * `system.last_imperial_units` (`:243-244`), EDA_UNITS::MILS — what Ctrl+U
+     * comes back to, and a setting rather than `COMMON_TOOLS`' constructor
+     * seed, which `setupUnits` (`eda_draw_frame.cpp:1385`) overwrites.
+     */
+    last_imperial_units: EdaUnits;
   };
   selection: {
     thickness: number; // mils
@@ -658,6 +676,10 @@ export const EESCHEMA_DEFAULTS: EeschemaSettings = {
   },
   system: {
     never_show_rescue_dialog: false,
+    // The `app_settings.cpp:228-238` branch, asked rather than restated.
+    units: defaultUnits('eeschema'),
+    last_metric_units: 'mm',
+    last_imperial_units: 'mils',
   },
   selection: {
     thickness: 3,
@@ -1171,6 +1193,25 @@ export const PL_EDITOR_DEFAULTS: PlEditorSettings = {
  */
 export interface SymbolEditorSettings {
   /**
+   * `APP_SETTINGS_BASE`'s `system.*`. `system.units` is a PARAM on EVERY app —
+   * the `app_settings.cpp:228-238` branch chooses its DEFAULT, not whether the
+   * key exists — so this is not a pl_editor/gerbview extra that these two do
+   * without. Missing here, the frame's units button was session-only and every
+   * page that asks the frame for its unit got a constant instead.
+   */
+  system: {
+    /** `system.units` (`app_settings.cpp:231-232`), MILS on this branch. */
+    units: EdaUnits;
+    /** `system.last_metric_units` (`:240-241`), EDA_UNITS::MM. */
+    last_metric_units: EdaUnits;
+    /**
+     * `system.last_imperial_units` (`:243-244`), EDA_UNITS::MILS — what Ctrl+U
+     * comes back to, and a setting rather than `COMMON_TOOLS`' constructor
+     * seed, which `setupUnits` (`eda_draw_frame.cpp:1385`) overwrites.
+     */
+    last_imperial_units: EdaUnits;
+  };
+  /**
    * `APP_SETTINGS_BASE`'s `appearance.*`, the two keys the base class gives
    * every app (`common/settings/app_settings.cpp:282-286`).
    */
@@ -1285,6 +1326,12 @@ export interface SymbolEditorSettings {
 }
 
 export const SYMBOL_EDITOR_DEFAULTS: SymbolEditorSettings = {
+  system: {
+    // The `app_settings.cpp:228-238` branch, asked rather than restated.
+    units: defaultUnits('symbol_editor'),
+    last_metric_units: 'mm',
+    last_imperial_units: 'mils',
+  },
   appearance: {
     color_theme: '_builtin_default',
     custom_toolbars: false,

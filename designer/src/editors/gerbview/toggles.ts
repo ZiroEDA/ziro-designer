@@ -20,6 +20,7 @@
 
 import { defaultUnitsToggle } from '../../ui/app_settings_units.js';
 import type { GerbviewSettings } from '../../prefs/settings.js';
+import { switchUnits, toggleIdUnits, unitsToggleId } from '../../ui/app_settings_units.js';
 
 /** `EDA_DRAW_FRAME`'s unit choice — one of three, never none and never two. */
 export const UNIT_GROUP = ['unitsMm', 'unitsInches', 'unitsMils'];
@@ -221,13 +222,7 @@ export function togglesFromSettings(
   const on = new Set<string>();
   for (const [id, t] of Object.entries(STORED_TOGGLES)) if (t.read(cfg)) on.add(id);
   // `system.units`, the same three the Units radio group offers.
-  on.add(
-    cfg.system.units === 'in'
-      ? 'unitsInches'
-      : cfg.system.units === 'mils'
-        ? 'unitsMils'
-        : 'unitsMm',
-  );
+  on.add(unitsToggleId(cfg.system.units));
   // `window.cursor.cross_hair_mode` — CROSS_HAIR_MODE's three.
   on.add(
     cfg.window.cursor.crosshair === '45'
@@ -256,9 +251,17 @@ export function applyTogglesToSettings(cfg: GerbviewSettings, on: ReadonlySet<st
       changed = true;
     }
   }
-  const units = on.has('unitsInches') ? 'in' : on.has('unitsMils') ? 'mils' : 'mm';
-  if (cfg.system.units !== units) {
-    cfg.system.units = units;
+  // `COMMON_TOOLS::SwitchUnits`, which also remembers the choice as the last of
+  // its own FAMILY (`common_tools.cpp:656-668`) — this wrote `system.units`
+  // alone, so Ctrl+U came back to whatever `last_*_units` still held from the
+  // defaults rather than to the unit actually used last.
+  const unitsId = on.has('unitsInches')
+    ? 'unitsInches'
+    : on.has('unitsMils')
+      ? 'unitsMils'
+      : 'unitsMm';
+  if (cfg.system.units !== toggleIdUnits(unitsId)) {
+    switchUnits(cfg.system, unitsId);
     changed = true;
   }
   const crosshair = on.has('crosshair45') ? '45' : on.has('crosshairFull') ? 'full' : 'small';

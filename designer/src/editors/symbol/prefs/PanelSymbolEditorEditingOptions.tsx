@@ -47,7 +47,7 @@
  * opens on, which for `symbol_editor` is mils
  * (`common/settings/app_settings.cpp:228-238`).
  *
- * **What reads each control**, which is why three of the eight are drawn
+ * **What reads each control**, which is why one of the eight is drawn
  * disabled:
  *
  *  - the five `defaults.*` fields are live. `editors/symbol/defaults.ts`
@@ -55,20 +55,23 @@
  *    `g_LastPin*` delayed initialisation, `symbol_editor_pin_tool.cpp:50-79`),
  *    the text dialog's opening size (`symbol_editor_drawing_tools.cpp:238-246`)
  *    and a new shape's stroke width (`:480`) from it;
- *  - **Pitch of repeated pins** and **Label increment** have no reader.
- *    Upstream both are `SYMBOL_EDITOR_PIN_TOOL::RepeatPin`'s
- *    (`symbol_editor_pin_tool.cpp:425-445`), reached by `ACTIONS::doDelete`'s
- *    neighbour `SCH_ACTIONS::repeatDrawItem` (Insert), and by Add/Duplicate in
- *    `DIALOG_LIB_EDIT_PIN_TABLE` (`:566`, `:1330`). This port has neither the
- *    repeat action nor an editable pin table, so the two would store a number
- *    nothing steps by;
+ *  - **Pitch of repeated pins** and **Label increment** are live, through
+ *    `SYMBOL_EDITOR_PIN_TOOL::RepeatPin` (`symbol_editor_pin_tool.cpp:411-457`)
+ *    reached by `SCH_ACTIONS::repeatDrawItem` (Insert). Upstream's other caller
+ *    is Add/Duplicate in `DIALOG_LIB_EDIT_PIN_TABLE` (`:566`, `:1330`), which
+ *    this port does not have — one of the two entry points, not neither;
  *  - **Keep pins attached when dragging edges** has no reader. Its one use is
- *    `SCH_POINT_EDITOR` (`eeschema/tools/sch_point_editor.cpp:653`), which is
- *    wired into the schematic here and not into the symbol editor, so there is
- *    no outline-edge drag for it to change.
+ *    `SCH_POINT_EDITOR::dragPinsOnEdge` (`sch_point_editor.cpp:641-704`), and
+ *    it needs more than a binding: this editor has no point editor at all — no
+ *    edit points, no rectangle edge lines, nothing draggable but a whole item.
+ *    Upstream's rule is also narrower than the label suggests, and worth
+ *    recording before anyone builds it: only an EDGE drag moves pins, corner
+ *    drags deliberately do not ("an escape hatch to avoid moving pins", `:583`),
+ *    and only pins whose ROOT lies strictly INSIDE the dragged segment come
+ *    along — `getPinsOnSeg( …, aIncludeEnds = false )`.
  *
- * Building those actions is its own piece of work; the page does not get to
- * pretend they exist in the meantime.
+ * Building that is its own piece of work; the page does not get to pretend it
+ * exists in the meantime.
  */
 import type { JSX } from 'react';
 import { Check, Group, Num } from '../../../dialogs/prefs/widgets.js';
@@ -171,15 +174,14 @@ export function PanelSymbolEditorEditingOptions({ ctx }: { ctx: PrefsContext }):
           </div>
         </Group>
         <Group title="Repeated Items">
-          {/* Dead: nothing repeats a pin. `SCH_ACTIONS::repeatDrawItem` is not
-              built and the pin table has no Add/Duplicate, so
-              `SYMBOL_EDITOR_PIN_TOOL::RepeatPin`'s two readers
-              (`symbol_editor_pin_tool.cpp:431-444`) do not exist here. */}
+          {/* Live: `SYMBOL_EDITOR_PIN_TOOL::RepeatPin` steps the duplicate by
+              this, on the axis perpendicular to the pin
+              (`symbol_editor_pin_tool.cpp:427-435`). Insert is the whole of its
+              UI upstream — no menu row, no toolbar button. */}
           <Num
             label="Pitch of repeated pins:"
             unit="mils"
             spin={false}
-            disabled
             value={symbolEditor.repeat.pin_step}
             onChange={(v) =>
               upSym((s) => {
@@ -187,11 +189,11 @@ export function PanelSymbolEditorEditingOptions({ ctx }: { ctx: PrefsContext }):
               })
             }
           />
-          {/* Dead with the pitch above it: `IncrementString( nextName,
-              cfg->m_Repeat.label_delta )` is in the same function. */}
+          {/* Live with the pitch above it: `IncrementString( nextName,
+              cfg->m_Repeat.label_delta )` is in the same function, and steps
+              the pin's NAME and its NUMBER (`:438-445`). */}
           <Num
             label="Label increment:"
-            disabled
             min={LABEL_INCREMENT_RANGE.min}
             max={LABEL_INCREMENT_RANGE.max}
             value={symbolEditor.repeat.label_delta}

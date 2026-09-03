@@ -33,6 +33,7 @@
  * (`APP_SETTINGS_BASE( "symbol_editor", … )`, `symbol_editor_settings.cpp:38`),
  * not our invention, so they are spelled the way upstream spells them.
  */
+import type { EdaUnits } from '@ziroeda/common/src/eda_units.js';
 
 /** The three units a drawing frame's Units toolbar group offers. */
 export type DefaultUnits = 'mm' | 'mils';
@@ -84,4 +85,75 @@ export function toStatusUnits(units: string): 'mm' | 'in' | 'mils' {
  */
 export function defaultUnitsToggle(app: AppSettingsName): 'unitsMm' | 'unitsMils' {
   return defaultUnits(app) === 'mils' ? 'unitsMils' : 'unitsMm';
+}
+
+// ---------------------------------------------------------------------------
+// `COMMON_TOOLS`' unit actions
+// ---------------------------------------------------------------------------
+
+/**
+ * The `system.*` slice every `APP_SETTINGS_BASE` carries
+ * (`app_settings.cpp:228-244`). Taken structurally rather than per app, because
+ * `COMMON_TOOLS` is one tool on the TOOL_MANAGER every frame shares — it does
+ * not know which settings file it is looking at, and neither should this.
+ */
+export interface UnitsSlice {
+  units: EdaUnits;
+  last_metric_units: EdaUnits;
+  last_imperial_units: EdaUnits;
+}
+
+/** The toolbar/menu id for a stored unit. */
+export function unitsToggleId(units: EdaUnits): 'unitsMm' | 'unitsInches' | 'unitsMils' {
+  switch (units) {
+    case 'in':
+      return 'unitsInches';
+    case 'mils':
+      return 'unitsMils';
+    default:
+      return 'unitsMm';
+  }
+}
+
+/** The inverse, for writing a toolbar choice back to `system.units`. */
+export function toggleIdUnits(id: string): EdaUnits {
+  switch (id) {
+    case 'unitsInches':
+      return 'in';
+    case 'unitsMils':
+      return 'mils';
+    default:
+      return 'mm';
+  }
+}
+
+/**
+ * `EDA_UNIT_UTILS::IsImperialUnit` (`common/eda_units.cpp`) for the three a
+ * frame can be in: INCH and MILS are imperial, MM is metric.
+ */
+export function isImperialUnits(units: EdaUnits): boolean {
+  return units === 'in' || units === 'mils';
+}
+
+/**
+ * `COMMON_TOOLS::SwitchUnits` (`common_tools.cpp:656-668`): picking a unit sets
+ * the frame's unit **and** remembers it as the last of its own family, which is
+ * what `ACTIONS::toggleUnits` (Ctrl+U) flips back to. Only one of the two
+ * `last_*` fields moves, because the incoming unit belongs to one family.
+ */
+export function switchUnits(cfg: UnitsSlice, id: string): void {
+  const units = toggleIdUnits(id);
+  if (isImperialUnits(units)) cfg.last_imperial_units = units;
+  else cfg.last_metric_units = units;
+  cfg.units = units;
+}
+
+/**
+ * `COMMON_TOOLS::ToggleUnits` (`common_tools.cpp:671-677`): Ctrl+U swaps
+ * families, landing on whichever member of the other family was used last.
+ */
+export function toggleUnitsId(cfg: UnitsSlice): string {
+  return unitsToggleId(
+    isImperialUnits(cfg.units) ? cfg.last_metric_units : cfg.last_imperial_units,
+  );
 }

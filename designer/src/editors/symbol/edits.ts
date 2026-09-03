@@ -35,6 +35,8 @@ import {
   type SymItemKind,
 } from './render/symbolRenderer.js';
 import { symbolGridIU } from './grid.js';
+import { incrementString } from '@ziroeda/eeschema/src/tools/repeat_item.js';
+import { schIUScale } from '@ziroeda/common/src/eda_units.js';
 
 export interface SymItemRef {
   kind: SymItemKind;
@@ -610,6 +612,91 @@ export function createImagePins(
     out = addPinToSymbol(out, copy, ii, bodyStyle).sym;
   }
   return out;
+}
+
+/**
+ * `SYMBOL_EDITOR_PIN_TOOL::RepeatPin` (`symbol_editor_pin_tool.cpp:411-457`) —
+ * Insert, the action that fills a pin row out.
+ *
+ * It duplicates the LAST PLACED pin, steps it by `m_Repeat.pin_step`, and
+ * increments both its name and its number by `m_Repeat.label_delta`. Those two
+ * numbers are Preferences > Symbol Editor > Editing Options' "Pitch of repeated
+ * pins" and "Label increment", which had no reader until this existed.
+ *
+ * The step axis is the one PERPENDICULAR to the pin
+ * (`symbol_editor_pin_tool.cpp:427-435`):
+ *
+ *     PIN_RIGHT: step.y = MilsToIU( pin_step )
+ *     PIN_UP:    step.x = MilsToIU( pin_step )
+ *     PIN_DOWN:  step.x = MilsToIU( pin_step )
+ *     PIN_LEFT:  step.y = MilsToIU( pin_step )
+ *
+ * — a horizontal pin stacks down the side of the body, a vertical one stacks
+ * across it. Every arm is POSITIVE, so a repeated pin always walks +y or +x
+ * regardless of which way the pin itself faces; that asymmetry is upstream's.
+ *
+ * `IncrementString` steps the last run of digits and is a no-op on a name with
+ * none, so an unnumbered pin repeats with its name unchanged rather than
+ * failing. It also refuses to go below zero, which `incrementString` reports as
+ * null and this treats the same way upstream's `false` return does: the string
+ * is left as it was.
+ *
+ * Synchronized pins are honoured through `createImagePins`, exactly as
+ * `PlacePin` does (`:454-456`), so a repeat in one unit of a multi-unit symbol
+ * lands in the others too.
+ */
+export function repeatPin(
+  sym: LibSymbol,
+  sourceId: string,
+  opts: {
+    /** `m_Repeat.pin_step`, in MILS as the settings file stores it. */
+    pinStepMils: number;
+    /** `m_Repeat.label_delta`. */
+    labelDelta: number;
+    /** `SYMBOL_EDIT_FRAME::SynchronizePins()`. */
+    synchronize: boolean;
+    unit: number;
+    bodyStyle: number;
+  },
+): { sym: LibSymbol; id: string; pin: LibPin } | null {
+  const found = findPinById(sym, sourceId);
+  if (!found) return null;
+
+  // `schIUScale.MilsToIU` — the symbol editor is an SCH frame.
+  const stepIU = schIUScale.milsToIU(opts.pinStepMils);
+  // `switch( pin->GetOrientation() )` — the `default:` arm shares PIN_RIGHT's
+  // case label upstream, so an angle outside the four steps in y like a
+  // right-facing pin does.
+  const vertical = found.pin.angle === 90 || found.pin.angle === 270;
+  const at = vertical
+    ? { x: found.pin.at.x + stepIU, y: found.pin.at.y }
+    : { x: found.pin.at.x, y: found.pin.at.y + stepIU };
+
+  const pin: LibPin = {
+    ...found.pin,
+    at,
+    name: incrementString(found.pin.name, opts.labelDelta) ?? found.pin.name,
+    number: incrementString(found.pin.number, opts.labelDelta) ?? found.pin.number,
+    // A duplicate is a new item: it must not carry the source's file bytes, or
+    // the writer would emit the original's text for both.
+    source: EMPTY_SOURCE,
+  };
+
+  const added = addPinToSymbol(sym, pin, opts.unit, opts.bodyStyle);
+  const out = opts.synchronize
+    ? createImagePins(added.sym, pin, opts.unit, opts.bodyStyle)
+    : added.sym;
+  return { sym: out, id: added.id, pin };
+}
+
+/** The pin behind a selection id, with the unit it lives in. */
+function findPinById(sym: LibSymbol, id: string): { pin: LibPin; unitIdx: number } | null {
+  for (const [ui, u] of sym.units.entries()) {
+    for (const [pi, p] of u.pins.entries()) {
+      if (symItemId('pin', ui, pi) === id) return { pin: p, unitIdx: ui };
+    }
+  }
+  return null;
 }
 
 /** Add a graphic body item; returns the new item's id. */

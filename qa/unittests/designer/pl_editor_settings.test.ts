@@ -33,12 +33,11 @@ import {
   applyToggle,
   persistToggle,
   switchUnits,
-  toggleIdUnits,
   toggleUnitsId,
   DEFAULT_TOGGLES,
   togglesFromSettings,
-  unitsToggleId,
 } from '@ziroeda/designer/src/editors/drawingsheet/toggles.js';
+import { toggleIdUnits, unitsToggleId } from '@ziroeda/designer/src/ui/app_settings_units.js';
 import {
   previewSettingsFromConfig,
   writePageToConfig,
@@ -225,6 +224,9 @@ describe('Ctrl+U swaps families and returns to the last member of the other', ()
 });
 
 describe('the unit id and the EDA_UNITS member map both ways', () => {
+  // These two moved to `ui/app_settings_units.ts`: `COMMON_TOOLS` is one tool
+  // on the shared TOOL_MANAGER, so its unit actions are one module rather than
+  // a copy per editor. The pl_editor's copy is gone, not renamed.
   it('round-trips the three a frame can display', () => {
     expect(unitsToggleId('mm')).toBe('unitsMm');
     expect(unitsToggleId('in')).toBe('unitsInches');
