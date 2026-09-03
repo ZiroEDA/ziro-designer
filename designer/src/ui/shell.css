@@ -1909,6 +1909,13 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-canvas-wrap {
   flex: 1;
   min-width: 0;
+  /* A flex item defaults to `min-height: auto`, which is its CONTENT height, so
+     this refused to shrink: the moment an infobar appeared above the canvas the
+     column overflowed downward and carried the status bar off the bottom of the
+     window. Only `position: relative` is added here, not `display: flex` - the
+     canvas inside is absolutely positioned against this box and laying it out
+     as a flex column changes what size it is given. */
+  min-height: 0;
   position: relative;
 }
 
@@ -8191,15 +8198,18 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
    through to `infobar.info > revealer > box` (port/wxgtk/ui.cpp:96-113). Asked
    of GTK along that exact path: background #121617, text #f7f7f7.
 
-   [chrome, measured] The height is a GtkInfoBar's natural 35px, which the
-   constructor multiplies - `sy = 1.5 * sy` (:81), "the infobar seems to start
-   too small". 52px. */
+   [chrome, measured] 35px tall. The constructor does say `sy = 1.5 * sy` (:81),
+   "the infobar seems to start too small" - but that SetSize is overridden by
+   the sizer's own layout, so 1.5x is not what renders. Measured off a real
+   KiCad window instead: the #121617 band runs 35 rows before the 1px #292929
+   border below it. Taking the C++ at its word gave 52px, which is half again
+   too tall. */
 .ze-infobar {
   display: flex;
   align-items: center;
   gap: 12px;
   flex: 0 0 auto;
-  min-height: 52px;
+  min-height: 35px;
   padding: 0 12px;
   font-size: var(--ui-font-size);
   background: #121617;
@@ -11780,20 +11790,28 @@ textarea.ze-ds-textedit {
   /* [px] `m_toolbarTree->GetIndent()`, applied per level. */
   margin-left: 15px;
 }
-.ze-tbcust-row img,
-.ze-tbcust-noicon {
+/* There is no rule for a MISSING icon, and that is the point. `AppendItem( …,
+   -1 )` and a `wxListItem` with no image reserve no image cell at all, so an
+   iconless row's text starts where the image would have. Probed on this
+   machine's wx:
+
+     tree  "Show Grid" (image)   label x=61      "Separator" (none)  label x=33
+     list  row with image        label x=31      row with none       label x=2
+
+   A 24 px spacer stood in for the missing image, which lined every row's text
+   up and put "Separator", "Units" and "Crosshair modes" 28 px right of where
+   KiCad draws them. */
+.ze-tbcust-row img {
   width: 24px; /* [data] `c_defSize`, the size every bundle is built at */
   height: 24px; /* [data] as above */
   flex: 0 0 auto;
 }
-.ze-tbcust-tree .ze-tbcust-row img,
-.ze-tbcust-tree .ze-tbcust-noicon {
-  /* [px] 28 - 24: the tree's image cell less the image inside it. */
+.ze-tbcust-tree .ze-tbcust-row img {
+  /* [px] 61 - 33 - 24: the tree's image cell less the image inside it. */
   margin-right: 4px;
 }
-.ze-tbcust-list .ze-tbcust-row img,
-.ze-tbcust-list .ze-tbcust-noicon {
-  /* [px] 29 - 24: the same in the list, whose label starts at 31. */
+.ze-tbcust-list .ze-tbcust-row img {
+  /* [px] 31 - 2 - 24: the same in the list, whose label starts at 31. */
   margin-right: 5px;
 }
 .ze-tbcust-btns {
