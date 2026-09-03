@@ -35,6 +35,7 @@ import {
   DS_TOP_TOOLBAR,
 } from '@ziroeda/designer/src/editors/drawingsheet/drawingSheetToolbars.js';
 import { SYM_DEFAULT_TOOLBARS } from '@ziroeda/designer/src/editors/symbol/symbolToolbars.js';
+import { ACTION_CATALOGUE } from '@ziroeda/designer/src/ui/action_catalogue.js';
 import { PCB_DEFAULT_TOOLBARS } from '@ziroeda/designer/src/editors/pcb/pcbToolbars.js';
 import { SCH_DEFAULT_TOOLBARS } from '@ziroeda/designer/src/editors/schematic/toolbars_sch_editor.js';
 
@@ -180,6 +181,45 @@ describe('the action list', () => {
     expect([...rows].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()))).toEqual(rows);
   });
 
+  it('lists the whole catalogue, not just the buttons already on a toolbar', () => {
+    // `populateActions` walks `m_availableTools` — every registered action —
+    // and filters ONLY by `isActionSupported` and `TOOLBAR_STATE::HIDDEN`
+    // (`panel_toolbar_customization.cpp:601-624`). This listed
+    // `toolbarTemplates(defaults)`, the buttons already ON the app's default
+    // toolbars, which is the one list a page for ADDING a button cannot serve.
+    mount('symbol_editor', SYM_DEFAULT_TOOLBARS);
+    const rows = actionRows();
+    expect(rows.length).toBeGreaterThan(300);
+    // Actions that are on no default toolbar of ours, so the old list had none
+    // of them.
+    for (const missing of ['Pan Left', 'Zoom to All Objects', 'Save As...'])
+      expect(rows, missing).toContain(missing);
+  });
+
+  it('offers actions this frame cannot even run, as KiCad does', () => {
+    // The filter is a NAME PREFIX test, not a can-this-frame-run-it test
+    // (`:225-243`), so a real KiCad's Symbol Editor page lists the table and
+    // alignment actions too. Narrowing it to the runnable subset would be a
+    // different page from KiCad's — this asserts we did not.
+    mount('symbol_editor', SYM_DEFAULT_TOOLBARS);
+    const rows = actionRows();
+    for (const schematicOnly of ['Align to Bottom', 'Add Column After', 'Annotate Schematic...'])
+      expect(rows, schematicOnly).toContain(schematicOnly);
+  });
+
+  it('never offers a HIDDEN action', () => {
+    // `if( tool->CheckToolbarState( TOOLBAR_STATE::HIDDEN ) ) continue;`
+    // (`:606-607`). `ACTIONS::selectionTool` carries it.
+    mount('symbol_editor', SYM_DEFAULT_TOOLBARS);
+    const hidden = ACTION_CATALOGUE.filter((a) => a.hidden).map((a) => a.label);
+    expect(hidden.length).toBeGreaterThan(0);
+    const rows = new Set(actionRows());
+    // A label a VISIBLE action also carries is not evidence either way, so only
+    // the ones unique to hidden actions are checked.
+    const visible = new Set(ACTION_CATALOGUE.filter((a) => !a.hidden).map((a) => a.label));
+    for (const h of hidden) if (!visible.has(h)) expect(rows.has(h), h).toBe(false);
+  });
+
   it('offers no other editor’s actions', () => {
     // `isActionSupported` (`:206-241`): pl_editor's page lists `plEditor.*` and
     // `common.*` and never `eeschema.*`. These three are on the schematic's
@@ -197,12 +237,15 @@ describe('the action list', () => {
   });
 
   it('filters on the label and the tooltip, upper-cased, as Contains does', () => {
+    // "Mils", not our button's "Units in mils": `ACTIONS::milsUnits`'
+    // FriendlyName is one word (`actions.cpp:1118-1120`), and the list is
+    // `entry.label = tool->GetFriendlyName()`.
     mount('pl_editor', DS_DEFAULT_TOOLBARS);
     fireEvent.change(screen.getByLabelText('Filter actions'), { target: { value: 'mils' } });
-    expect(actionRows()).toEqual(['Units in mils']);
+    expect(actionRows()).toEqual(['Mils']);
     // Case-insensitive: `search_text.Contains( aFilter.Upper() )`.
     fireEvent.change(screen.getByLabelText('Filter actions'), { target: { value: 'MILS' } });
-    expect(actionRows()).toEqual(['Units in mils']);
+    expect(actionRows()).toEqual(['Mils']);
   });
 });
 
@@ -237,7 +280,7 @@ describe('editing writes to the store', () => {
   it('the left-arrow button adds the selected action', () => {
     const seen = mount('pl_editor', DS_DEFAULT_TOOLBARS);
     fireEvent.change(screen.getByLabelText('Filter actions'), { target: { value: 'mils' } });
-    fireEvent.click(within(screen.getByLabelText('Actions')).getByText('Units in mils'));
+    fireEvent.click(within(screen.getByLabelText('Actions')).getByText('Mils'));
     fireEvent.click(screen.getByLabelText('Add to toolbar'));
 
     const left = storedToolbarConfig(seen.store, 'LEFT');

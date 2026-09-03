@@ -39,8 +39,9 @@ import { Check } from './widgets.js';
 import { Combo } from '../../ui/Combo.js';
 import { SplitButton } from '../../ui/SplitButton.js';
 import { StdBitmapButton } from '../../ui/StdBitmapButton.js';
-import { toolbarIconUrl } from '../../ui/toolbarIcons.js';
+import { bitmapUrl, toolbarIconUrl } from '../../ui/toolbarIcons.js';
 import { toolbarButtonLabel } from '../../ui/toolbar_actions.js';
+import { catalogueFor, ourToolbarId } from '../../ui/action_catalogue.js';
 import { toolbarControlDescription, toolbarControlUiName } from '../../ui/toolbar_controls.js';
 import {
   TOOLBAR_LOC_NAMES,
@@ -140,18 +141,35 @@ export function PanelToolbarCustomization({
   const tools = useMemo(() => toolbarTemplates(defaults), [defaults]);
   const controls = useMemo(() => toolbarControlNames(defaults), [defaults]);
 
-  /** `populateActions` (`:582-643`): the tools, then the controls, then sorted. */
+  /**
+   * `populateActions` (`:582-643`): every action, then the controls, then
+   * sorted case-insensitively.
+   *
+   * "Every action" is the whole registered catalogue filtered by
+   * `isActionSupported`, which is a NAME PREFIX test and nothing more — not a
+   * test of whether this frame can run the thing. KiCad's Symbol Editor page
+   * really does offer "Add Column After" and "Align to Bottom".
+   *
+   * This listed `toolbarTemplates(defaults)` instead: the buttons already on
+   * that app's DEFAULT toolbars, which is 28 rows where KiCad shows 363. The
+   * page's whole purpose is adding a button that is not there yet, so a list
+   * of the ones that are there is the one list that cannot serve it.
+   */
   const entries = useMemo<ActionEntry[]>(() => {
     const out: ActionEntry[] = [];
-    for (const [id, b] of tools) {
-      const label = toolbarButtonLabel(app, id, b.title) || id;
-      const tooltip = b.title ?? '';
+    for (const a of catalogueFor(app)) {
+      // Our own toolbar id where the action is one we implement, so adding it
+      // stores an id the toolbars render and act on; the action's own name
+      // otherwise, which is what upstream stores for every one of them
+      // (`TOOLBAR_ITEM::m_ActionName`).
+      const id = ourToolbarId(a.name) ?? a.name;
+      const tooltip = a.tip ?? '';
       out.push({
-        label,
+        label: a.label,
         tooltip,
-        search: `${label} ${tooltip}`.toUpperCase(),
+        search: `${a.label} ${tooltip}`.toUpperCase(),
         action: id,
-        icon: id,
+        ...(a.icon ? { icon: a.icon } : {}),
       });
     }
     for (const name of controls) {
@@ -161,7 +179,7 @@ export function PanelToolbarCustomization({
     }
     // `a.label.CmpNoCase( b.label ) < 0`.
     return out.sort((a, b) => a.label.toLowerCase().localeCompare(b.label.toLowerCase()));
-  }, [app, tools, controls]);
+  }, [app, controls]);
 
   /** `applyActionFilter` (`:657-687`): `search_text.Contains( filter.Upper() )`. */
   const shown = useMemo(
@@ -557,9 +575,12 @@ export function PanelToolbarCustomization({
                       image has its label at x=2, where an image row's is at 31
                       (probed). `populateActions` sets `image_index` only for a
                       tool with a real bitmap, so every CONTROL row is one. */}
-                  {e.icon && toolbarIconUrl(e.icon) ? (
-                    <img src={toolbarIconUrl(e.icon)} alt="" />
-                  ) : null}
+                  {/* `entry.image_index` is the action's own
+                      `.Icon( BITMAPS::… )`, so the bitmap is looked up by NAME
+                      rather than through a toolbar id — the catalogue carries
+                      hundreds of actions that are on no toolbar of ours and so
+                      have no id in `BITMAP`. */}
+                  {e.icon && bitmapUrl(e.icon) ? <img src={bitmapUrl(e.icon)} alt="" /> : null}
                   <span>{e.label}</span>
                 </div>
               </li>
