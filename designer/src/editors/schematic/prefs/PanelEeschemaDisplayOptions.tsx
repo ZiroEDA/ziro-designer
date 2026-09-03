@@ -178,13 +178,15 @@ export function PanelEeschemaDisplayOptions({ ctx }: { ctx: PrefsContext }): JSX
           />
         </Group>
         <Group title="Selection & Highlighting">
-          {/* Dead: the selection painter draws the parent's own outline, and
-              nothing reads `selection.draw_selected_children` or
-              `selection.fill_shapes`. */}
+          {/* Live: the shadow pass tests it at three places — a pin's name and
+              number (`sch_painter.cpp:1131`), a symbol's fields (`:2702`) and a
+              sheet's fields and pins (`:3102`). Off, a selected symbol glows on
+              its body and pin lines alone; its reference and value stay
+              unhaloed but perfectly visible, because the flag governs only the
+              HALO (`if( !drawingShadows || … )`). */}
           <Check
             label="Draw selected child items"
             checked={eeschema.selection.draw_selected_children}
-            disabled
             onChange={(v) =>
               upE((s) => {
                 s.selection.draw_selected_children = v;

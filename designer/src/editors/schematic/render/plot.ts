@@ -189,6 +189,9 @@ function outputRenderOpts(opts: PlotOpts): RenderOpts {
     // cannot show. Present because RenderOpts requires it, at the PARAM's own
     // default.
     fillSelectedShapes: false,
+    // A plot has no selection, so neither shadow-pass flag can fire; both are
+    // here because RenderOpts requires them.
+    drawSelectedChildren: true,
     showDrawingSheet: opts.drawingSheet,
     ...(opts.sheet ? { drawingSheet: opts.sheet } : {}),
     pageNumber: opts.pageNumber,

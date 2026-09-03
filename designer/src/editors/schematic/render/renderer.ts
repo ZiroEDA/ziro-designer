@@ -480,6 +480,11 @@ export interface RenderOpts {
    * the exception.
    */
   fillSelectedShapes: boolean;
+  /**
+   * `m_Selection.draw_selected_children` (`eeschema_settings.cpp:438-439`),
+   * default TRUE — the opposite of `fill_shapes` beside it.
+   */
+  drawSelectedChildren: boolean;
   showHiddenFields: boolean;
   showPageLimits: boolean;
   /** Draw the page border + title block (LAYER_DRAWINGSHEET). Defaults to true;
@@ -665,6 +670,8 @@ export const DEFAULT_RENDER_OPTS: RenderOpts = {
   // [data] `PARAM<bool>( "selection.fill_shapes", …, false )` — the one of
   // these that upstream defaults OFF.
   fillSelectedShapes: false,
+  // [data] `PARAM<bool>( "selection.draw_selected_children", …, true )`.
+  drawSelectedChildren: true,
   // [data] `PARAM<bool>( "appearance.show_directive_labels", …, true )`.
   showDirectiveLabels: true,
   showHiddenFields: false,
@@ -954,6 +961,7 @@ export function renderSchematic(
       selShadowWidth,
       opts.showHiddenPins,
       opts.fillSelectedShapes,
+      opts.drawSelectedChildren,
     );
 
   // Net highlighting, ported from SCH_PAINTER: brightened items are drawn twice,
@@ -2833,6 +2841,28 @@ function drawSelectionShadows(
   showHiddenPins = false,
   /** `m_Selection.fill_shapes` (`eeschema_settings.cpp:441-442`, default false). */
   fillSelectedShapes = false,
+  /**
+   * `m_Selection.draw_selected_children` (`eeschema_settings.cpp:438-439`),
+   * default TRUE — the opposite of `fill_shapes` beside it.
+   *
+   * A selected item's CHILDREN get a halo of their own. `SCH_SELECTION_TOOL::
+   * highlight()` marks them selected, and the painter then tests this flag at
+   * three places, all inside the shadow pass:
+   *
+   *     if( drawingShadows && !…draw_selected_children ) return;   // a PIN's
+   *                                                               // name and number
+   *                                                               // (`sch_painter.cpp:1131`)
+   *     if( !drawingShadows || …draw_selected_children )           // a SYMBOL's fields
+   *         for( const SCH_FIELD& field : aSymbol->GetFields() )   // (`:2702`)
+   *     if( !drawingShadows || …draw_selected_children )           // a LABEL's fields
+   *         for( const SCH_FIELD& field : aLabel->GetFields() )    // (`:3102`)
+   *
+   * Note the asymmetry in the second and third: `!drawingShadows ||` means the
+   * fields are always drawn NORMALLY and the flag governs only their halo. Off,
+   * a selected symbol glows on its body and pin lines alone — its reference and
+   * value stay unhaloed but perfectly visible.
+   */
+  drawSelectedChildren = true,
 ): void {
   ctx.strokeStyle = color;
   ctx.fillStyle = color;
@@ -2912,11 +2942,27 @@ function drawSelectionShadows(
     const t = symbolTransform(sym.angle, sym.mirror);
     for (const unit of lib.units)
       if (libUnitMatches(unit, sym.unit, sym.bodyStyle))
-        drawLibUnitShadow(ctx, unit, sym.at, t, color, width, showHiddenPins, {
-          numbersHidden: lib.pinNumbersHidden,
-          namesHidden: lib.pinNamesHidden,
-          nameOffset: lib.pinNameOffset,
-        });
+        drawLibUnitShadow(
+          ctx,
+          unit,
+          sym.at,
+          t,
+          color,
+          width,
+          showHiddenPins,
+          // `if( drawingShadows && !…draw_selected_children ) return;` before
+          // "Draw the labels" (`sch_painter.cpp:1131-1134`). Passing no
+          // PinDisplay is exactly that early return: the halo then covers the
+          // pin LINE and stops, which is what the shadow pass did before any
+          // pin text was placed in it.
+          drawSelectedChildren
+            ? {
+                numbersHidden: lib.pinNumbersHidden,
+                namesHidden: lib.pinNamesHidden,
+                nameOffset: lib.pinNameOffset,
+              }
+            : undefined,
+        );
   });
 
   // A pin picked on its own gets the glow by itself; a selected symbol already
@@ -2948,7 +2994,12 @@ function drawSelectionShadows(
       // not leave its highlight sitting at the old position, and a dragged
       // symbol must take its fields' halos with it.
       if (!drawableChild(symId, fieldId(symId, fd.index))) continue;
-      if (!symbolSelected && !selection.has(fieldId(symId, fd.index))) continue;
+      // `if( !drawingShadows || …draw_selected_children )` (`:2702`). A field
+      // picked ON ITS OWN still glows: `highlight()` marked THAT field, and the
+      // flag is about a child glowing because its PARENT was picked.
+      if (!selection.has(fieldId(symId, fd.index))) {
+        if (!symbolSelected || !drawSelectedChildren) continue;
+      }
       drawText(
         ctx,
         fd.shown,
@@ -3005,7 +3056,10 @@ function drawSelectionShadows(
       // Laid out exactly as the sheet's own field pass lays them out, prefix
       // included: a halo that disagrees with the glyphs sits beside the text
       // instead of under it.
-      for (const f of sh.fields) {
+      // `if( !drawingShadows || …draw_selected_children )` (`sch_painter.cpp:3102`)
+      // — the sheet's own rectangle above is not a child and is haloed either
+      // way; these two fields and the pins below are.
+      for (const f of drawSelectedChildren ? sh.fields : []) {
         if (!f.at || f.effects?.hidden || f.value === '') continue;
         const text = f.key === 'Sheetfile' ? `File: ${f.value}` : f.value;
         drawText(
@@ -3030,7 +3084,12 @@ function drawSelectionShadows(
     sh.pins.forEach((p, k) => {
       const pid = sheetPinId(id, k);
       if (!drawableChild(id, pid)) return;
-      if (!sheetSelected && !selection.has(pid)) return;
+      // Same split as the fields: a pin picked ON ITS OWN still glows, because
+      // `highlight()` marked that pin. The flag is about a child glowing
+      // because its PARENT was picked.
+      if (!selection.has(pid)) {
+        if (!sheetSelected || !drawSelectedChildren) return;
+      }
       drawLabel(ctx, sheetPinAsLabel(p), theme, { color, width });
     });
   });
