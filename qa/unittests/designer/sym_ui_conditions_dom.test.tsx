@@ -86,11 +86,20 @@ const sym = (name: string): LibSymbol => {
  * `symbolToolbars.ts`' own, so a button whose id is misspelled still appears
  * here — it just never gets greyed, which is what these expectations catch.
  */
+/**
+ * Every button, keyed by the ACTION NAME its tooltip starts with.
+ *
+ * The `title` is `GetButtonTooltip()` — FriendlyName, a tab, the hotkey, then a
+ * newline and the tooltip (`action_toolbar.cpp:149`) — so keying on the whole
+ * string would put a hotkey and a sentence in every expectation here, and this
+ * file is about what is GREYED, not about tooltip wording. That wording is
+ * pinned action by action in `toolbar_button_tooltip.test.ts`.
+ */
 const buttons = (root: HTMLElement): Record<string, boolean> => {
   const out: Record<string, boolean> = {};
   for (const b of Array.from(root.querySelectorAll('button'))) {
     const title = b.getAttribute('title');
-    if (title) out[title] = b.hasAttribute('disabled');
+    if (title) out[title.split('\t')[0]!.split('\n')[0]!] = b.hasAttribute('disabled');
   }
   return out;
 };
@@ -113,6 +122,11 @@ describe('a cold SYMBOL_EDIT_FRAME', () => {
 
     // Dead: everything whose condition needs `m_symbol`.
     expect({
+      // The `title` IS `GetButtonTooltip()` — FriendlyName, a tab, the hotkey
+      // (`action_toolbar.cpp:149`). These two read a bare "Undo"/"Redo" while
+      // `undo` and `redo` were scoped to eeschema and the symbol editor's
+      // lookup found nothing, so the button fell back to its own title and
+      // advertised no hotkey at all.
       Undo: b.Undo,
       Redo: b.Redo,
       'Rotate clockwise': b['Rotate clockwise'],
@@ -150,14 +164,14 @@ describe('a cold SYMBOL_EDIT_FRAME', () => {
     // the drawing tools above, wrongly live.
     expect({
       'New symbol': b['New symbol'],
-      'Save changes': b['Save changes'],
+      Save: b['Save'],
       'Save All': b['Save All'],
       'Check duplicate and off-grid pins': b['Check duplicate and off-grid pins'],
       'Add symbol to schematic': b['Add symbol to schematic'],
       'Select item(s)': b['Select item(s)'],
     }).toEqual({
       'New symbol': false,
-      'Save changes': false,
+      Save: false,
       'Save All': false,
       'Check duplicate and off-grid pins': false,
       'Add symbol to schematic': false,
@@ -208,6 +222,11 @@ describe('with a ROOT symbol loaded', () => {
       // half of the rule the cold frame cannot see: there, `haveSymbolCond`
       // alone is already false, so a frame that lied about the stack depth
       // would still look right.
+      // The `title` IS `GetButtonTooltip()` — FriendlyName, a tab, the hotkey
+      // (`action_toolbar.cpp:149`). These two read a bare "Undo"/"Redo" while
+      // `undo` and `redo` were scoped to eeschema and the symbol editor's
+      // lookup found nothing, so the button fell back to its own title and
+      // advertised no hotkey at all.
       Undo: b.Undo,
       Redo: b.Redo,
     }).toEqual({
@@ -392,6 +411,11 @@ describe('with a symbol opened from a LIBRARY, not the schematic', () => {
       'Rotate clockwise': b['Rotate clockwise'],
       'Edit pins in a table': b['Edit pins in a table'],
       // Freshly opened: empty undo stack, empty Datasheet field.
+      // The `title` IS `GetButtonTooltip()` — FriendlyName, a tab, the hotkey
+      // (`action_toolbar.cpp:149`). These two read a bare "Undo"/"Redo" while
+      // `undo` and `redo` were scoped to eeschema and the symbol editor's
+      // lookup found nothing, so the button fell back to its own title and
+      // advertised no hotkey at all.
       Undo: b.Undo,
       'Show associated datasheet or document': b['Show associated datasheet or document'],
     }).toEqual({
@@ -430,7 +454,10 @@ const topBar = (root: HTMLElement): Record<string, boolean> => {
   // two of this bar's twenty-two controls unclaimed.
   for (const b of Array.from(bar.querySelectorAll('button, select'))) {
     const title = b.getAttribute('title');
-    if (title) out[title] = b.hasAttribute('disabled');
+    // Keyed on the ACTION NAME, as `buttons` above is: the title is
+    // `GetButtonTooltip()`, so the whole string carries the hotkey and the
+    // tooltip sentence too.
+    if (title) out[title.split('\t')[0]!.split('\n')[0]!] = b.hasAttribute('disabled');
   }
   return out;
 };
@@ -469,7 +496,7 @@ describe('the whole top bar, against a captured KiCad', () => {
       // ACTIONS::saveAll — ENABLE( ShowAlways ) (:528)
       'Save All': false,
       // ACTIONS::save — ENABLE( ShowAlways ) (:529)
-      'Save changes': false,
+      Save: false,
       // haveSymbolCond && cond.UndoAvailable() / RedoAvailable() (:537-538)
       Undo: true,
       Redo: true,
@@ -493,9 +520,9 @@ describe('the whole top bar, against a captured KiCad', () => {
       // The zooms: no ENABLE on any of them (`eda_draw_frame.cpp:1363-1374`
       // registers only the three unit CHECKs), and zoomTool is CHECK-only
       // (:561), so all five are live with an empty canvas.
-      'Redraw view': false,
-      'Zoom in': false,
-      'Zoom out': false,
+      Refresh: false,
+      'Zoom In': false,
+      'Zoom Out': false,
       'Zoom to fit symbol': false,
       'Zoom to Selection Area': false,
       // isEditableInAliasCond (:555-556) / isEditableCond (:558-559)
@@ -539,7 +566,7 @@ describe('the whole top bar, against a captured KiCad', () => {
     expect(b).toEqual({
       'New symbol': false,
       'Save All': false,
-      'Save changes': false,
+      Save: false,
       // GetUndoCommandCount() is 0 on a freshly loaded symbol.
       Undo: true,
       Redo: true,
@@ -547,9 +574,9 @@ describe('the whole top bar, against a captured KiCad', () => {
       // depend on m_symbol in either direction.
       Find: false,
       'Find and Replace': false,
-      'Redraw view': false,
-      'Zoom in': false,
-      'Zoom out': false,
+      Refresh: false,
+      'Zoom In': false,
+      'Zoom Out': false,
       'Zoom to fit symbol': false,
       'Zoom to Selection Area': false,
       'Rotate counterclockwise': false,
@@ -581,7 +608,7 @@ describe('the whole top bar, against a captured KiCad', () => {
 const pressed = (root: HTMLElement, title: string): string | null => {
   const bar = root.querySelector('.ze-toolbar.horizontal');
   const btn = Array.from(bar?.querySelectorAll('button') ?? []).find(
-    (b) => b.getAttribute('title') === title,
+    (b) => b.getAttribute('title')?.split('\t')[0]?.split('\n')[0] === title,
   );
   if (!btn) throw new Error(`no button titled ${title}`);
   return btn.getAttribute('aria-pressed');
@@ -732,7 +759,7 @@ describe('the Zoom to Selection Area button', () => {
     const before = getByTestId('sym-tool-msg').textContent;
     const bar = container.querySelector('.ze-toolbar.horizontal');
     const btn = Array.from(bar?.querySelectorAll('button') ?? []).find(
-      (b) => b.getAttribute('title') === 'Zoom to Selection Area',
+      (b) => b.getAttribute('title')?.split('\t')[0]?.split('\n')[0] === 'Zoom to Selection Area',
     );
     if (!btn) throw new Error('no Zoom to Selection Area button');
     fireEvent.click(btn);
@@ -781,7 +808,7 @@ describe('status-bar field 6, the Current Tool pane', () => {
       const btn = [
         ...Array.from(bar?.querySelectorAll('button') ?? []),
         ...Array.from(right?.querySelectorAll('button') ?? []),
-      ].find((b) => b.getAttribute('title') === title);
+      ].find((b) => b.getAttribute('title')?.split('\t')[0]?.split('\n')[0] === title);
       if (!btn) throw new Error(`no button titled ${title}`);
       fireEvent.click(btn);
     };

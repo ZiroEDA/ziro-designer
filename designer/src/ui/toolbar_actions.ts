@@ -51,55 +51,15 @@ export interface ToolbarAction {
  * not been converted yet is unaffected.
  */
 export const EESCHEMA_TOOLBAR_ACTIONS: Readonly<Record<string, ToolbarAction>> = {
-  // ---- common/tool/actions.cpp ------------------------------------------
-  save: { name: 'Save', hotkey: 'Ctrl+S', tip: 'Save changes' },
-  pageSettings: {
-    name: 'Page Settings...',
-    tip: 'Settings for paper size and title block info',
-  },
-  print: { name: 'Print...', hotkey: 'Ctrl+P' },
-  plot: { name: 'Plot...' },
-  paste: { name: 'Paste', hotkey: 'Ctrl+V', tip: 'Paste item(s) from clipboard' },
-  undo: { name: 'Undo', hotkey: 'Ctrl+Z' },
-  // `#else` branch: Ctrl+Y off macOS (actions.cpp:292-302).
-  redo: { name: 'Redo', hotkey: 'Ctrl+Y' },
-  find: { name: 'Find', hotkey: 'Ctrl+F' },
   findReplace: { name: 'Find and Replace', hotkey: 'Ctrl+Alt+F' },
-  // `#else` branch: F5 off macOS (actions.cpp:705-716).
-  zoomRedraw: { name: 'Refresh', hotkey: 'F5' },
-  // The toolbar carries zoomInCenter / zoomOutCenter, which declare no hotkey;
-  // F1 / F2 belong to ACTIONS::zoomIn / zoomOut, a different pair of actions.
-  zoomIn: { name: 'Zoom In' },
-  zoomOut: { name: 'Zoom Out' },
   zoomFit: {
     name: 'Zoom to Fit',
     hotkey: 'Home',
     tip: 'Zoom to worksheet area if exists or edited object',
   },
-  zoomFitObjects: {
-    name: 'Zoom to All Objects',
-    hotkey: 'Ctrl+Home',
-    tip: 'Zoom to all objects on screen',
-  },
-  zoomTool: {
-    name: 'Zoom to Selection Area',
-    hotkey: 'Ctrl+F5',
-    tip: 'Zoom to an area selection created by a mouse drag',
-  },
-  group: {
-    name: 'Group Items',
-    tip: 'Group the selected items so that they are treated as a single item',
-  },
-  ungroup: { name: 'Ungroup Items', tip: 'Ungroup any selected groups' },
   symbolEditor: { name: 'Symbol Editor', tip: 'Create, delete and edit schematic symbols' },
   symbolBrowser: { name: 'Symbol Library Browser' },
   footprintEditor: { name: 'Footprint Editor', tip: 'Create, delete and edit board footprints' },
-  toggleGrid: { name: 'Show Grid', tip: 'Display background grid in the edit window' },
-  toggleGridOverrides: {
-    name: 'Grid Overrides',
-    hotkey: 'Ctrl+Shift+G',
-    tip: 'Enables item-specific grids that override the current grid',
-  },
   unitsInches: { name: 'Inches' },
   unitsMils: { name: 'Mils' },
   unitsMm: { name: 'Millimeters' },
@@ -115,10 +75,8 @@ export const EESCHEMA_TOOLBAR_ACTIONS: Readonly<Record<string, ToolbarAction>> =
     name: '45 Degree Crosshairs',
     tip: 'Display full-window crosshairs aligned at 45 and 135 degrees',
   },
-  showProperties: { name: 'Properties', tip: 'Show/hide the properties manager' },
   select: { name: 'Rectangle', tip: 'Set selection mode to use rectangle' },
   selectLasso: { name: 'Lasso', tip: 'Set selection mode to use polygon lasso' },
-  delete: { name: 'Interactive Delete Tool', tip: 'Delete clicked items' },
 
   // ---- eeschema/tools/sch_actions.cpp -----------------------------------
   schematicSetup: {
@@ -230,6 +188,57 @@ export const EESCHEMA_TOOLBAR_ACTIONS: Readonly<Record<string, ToolbarAction>> =
  * for the id, so an editor that gives an id its own meaning still wins.
  */
 export const COMMON_TOOLBAR_ACTIONS: Readonly<Record<string, ToolbarAction>> = {
+  // ---- the `common.*` actions, which every editor shares -----------------
+  //
+  // These were under `eeschema` and are `ACTIONS::` objects in
+  // `common/tool/actions.cpp` — ONE TOOL_ACTION each, pointed at by every
+  // frame's toolbar. Scoping them to one app is the drift the central-value
+  // rule forbids, and it showed: the Symbol Editor's Toolbars page listed
+  // "Toggle grid display" (the BUTTON's own title, the fallback) where KiCad
+  // lists "Show Grid", because `TOOLBAR_ACTIONS['symbol_editor']` does not
+  // exist and the lookup never reached here.
+  // ---- common/tool/actions.cpp ------------------------------------------
+  save: { name: 'Save', hotkey: 'Ctrl+S', tip: 'Save changes' },
+  pageSettings: {
+    name: 'Page Settings...',
+    tip: 'Settings for paper size and title block info',
+  },
+  print: { name: 'Print...', hotkey: 'Ctrl+P' },
+  plot: { name: 'Plot...' },
+  paste: { name: 'Paste', hotkey: 'Ctrl+V', tip: 'Paste item(s) from clipboard' },
+  undo: { name: 'Undo', hotkey: 'Ctrl+Z' },
+  // `#else` branch: Ctrl+Y off macOS (actions.cpp:292-302).
+  redo: { name: 'Redo', hotkey: 'Ctrl+Y' },
+  find: { name: 'Find', hotkey: 'Ctrl+F' },
+  // `#else` branch: F5 off macOS (actions.cpp:705-716).
+  zoomRedraw: { name: 'Refresh', hotkey: 'F5' },
+  // The toolbar carries zoomInCenter / zoomOutCenter, which declare no hotkey;
+  // F1 / F2 belong to ACTIONS::zoomIn / zoomOut, a different pair of actions.
+  zoomIn: { name: 'Zoom In' },
+  zoomOut: { name: 'Zoom Out' },
+  zoomFitObjects: {
+    name: 'Zoom to All Objects',
+    hotkey: 'Ctrl+Home',
+    tip: 'Zoom to all objects on screen',
+  },
+  zoomTool: {
+    name: 'Zoom to Selection Area',
+    hotkey: 'Ctrl+F5',
+    tip: 'Zoom to an area selection created by a mouse drag',
+  },
+  group: {
+    name: 'Group Items',
+    tip: 'Group the selected items so that they are treated as a single item',
+  },
+  ungroup: { name: 'Ungroup Items', tip: 'Ungroup any selected groups' },
+  toggleGrid: { name: 'Show Grid', tip: 'Display background grid in the edit window' },
+  toggleGridOverrides: {
+    name: 'Grid Overrides',
+    hotkey: 'Ctrl+Shift+G',
+    tip: 'Enables item-specific grids that override the current grid',
+  },
+  showProperties: { name: 'Properties', tip: 'Show/hide the properties manager' },
+  delete: { name: 'Interactive Delete Tool', tip: 'Delete clicked items' },
   // actions.cpp:1095-1100. The FriendlyName is "Edit Grids...", NOT "Grid
   // Properties": the C++ identifier is `gridProperties` but the words the user
   // reads are not. `EDA_DRAW_FRAME::UpdateGridSelectBox` writes the same two
@@ -239,6 +248,22 @@ export const COMMON_TOOLBAR_ACTIONS: Readonly<Record<string, ToolbarAction>> = {
   gridProperties: { name: 'Edit Grids...', tip: 'Edit grid definitions' },
   // actions.cpp:1102-1107.
   gridOrigin: { name: 'Grid Origin...', tip: 'Set the grid origin point' },
+  // actions.cpp:968-973. No `.Tooltip()`, so the button gets no second line.
+  showLibraryTree: { name: 'Library Tree' },
+  // The eeschema ones the Symbol Editor's left toolbar and its Toolbars page
+  // both draw. They live here rather than under `symbol` because
+  // `SCH_ACTIONS::showHiddenPins` and friends are one object shared by the
+  // symbol editor and the symbol viewer, exactly as `showLibraryTree` is one
+  // object shared by every frame with a tree.
+  // sch_actions.cpp:307-313.
+  showElectricalTypes: {
+    name: 'Show Pin Electrical Types',
+    tip: 'Annotate pins with their electrical types',
+  },
+  // sch_actions.cpp:347-352. No `.Tooltip()`.
+  showHiddenPins: { name: 'Show Hidden Pins' },
+  // sch_actions.cpp:354-359. No `.Tooltip()`.
+  showHiddenFields: { name: 'Show Hidden Fields' },
 };
 
 /**
@@ -275,7 +300,10 @@ export function toolbarButtonTooltip(
   id: string,
   fallback?: string,
 ): string {
-  const a = app ? TOOLBAR_ACTIONS[app]?.[id] : undefined;
+  // Through `actionFor` for the same reason the label is: half these ids are
+  // `ACTIONS::` objects living in `COMMON_TOOLBAR_ACTIONS`, and looking only at
+  // the app's own table drops the tooltip for every one of them.
+  const a = actionFor(app, id);
   if (!a) return fallback ?? '';
   return buttonTooltipFor(a.name, a.hotkey, a.tip);
 }
@@ -286,7 +314,12 @@ export function toolbarButtonTooltip(
  * screen reader wants.
  */
 export function toolbarButtonLabel(app: string | undefined, id: string, fallback?: string): string {
-  return (app ? TOOLBAR_ACTIONS[app]?.[id]?.name : undefined) ?? fallback ?? '';
+  // Through `actionFor`, so `COMMON_TOOLBAR_ACTIONS` is behind the app's own
+  // table. `toggleGrid` is `common.Control.toggleGrid` and its FriendlyName is
+  // "Show Grid"; looking only at `TOOLBAR_ACTIONS[app]` missed it and fell
+  // through to the button's `title`, which is why the Toolbars page listed
+  // "Toggle grid display" where KiCad lists "Show Grid".
+  return actionFor(app, id)?.name ?? fallback ?? '';
 }
 
 /**
@@ -298,7 +331,7 @@ export function toolbarButtonLabel(app: string | undefined, id: string, fallback
  * not exist. So this is the lookup with `COMMON_TOOLBAR_ACTIONS` behind it and
  * no per-call-site string in the way.
  */
-function actionFor(app: string | undefined, id: string): ToolbarAction | undefined {
+export function actionFor(app: string | undefined, id: string): ToolbarAction | undefined {
   return (app ? TOOLBAR_ACTIONS[app]?.[id] : undefined) ?? COMMON_TOOLBAR_ACTIONS[id];
 }
 

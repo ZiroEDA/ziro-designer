@@ -418,7 +418,12 @@ export function PanelToolbarCustomization({
                       ) : (
                         <span className="twisty" />
                       )}
-                      {icon ? <img src={icon} alt="" /> : <span className="ze-tbcust-noicon" />}
+                      {/* No spacer when there is no icon. `AppendItem( …, -1 )`
+                          reserves no image cell: the probe puts an iconless
+                          tree row's label at x=33 and an icon row's at 61, so
+                          "Separator" and a group's name sit LEFT of their
+                          neighbours' text rather than lining up with it. */}
+                      {icon ? <img src={icon} alt="" /> : null}
                       {editing === i ? (
                         <input
                           className="ze-search"
@@ -451,11 +456,7 @@ export function PanelToolbarCustomization({
                                 onClick={() => enabled && setSel({ i, j })}
                               >
                                 <span className="twisty" />
-                                {childIcon ? (
-                                  <img src={childIcon} alt="" />
-                                ) : (
-                                  <span className="ze-tbcust-noicon" />
-                                )}
+                                {childIcon ? <img src={childIcon} alt="" /> : null}
                                 <span>{childLabel}</span>
                               </div>
                             </li>
@@ -552,11 +553,13 @@ export function PanelToolbarCustomization({
                     }
                   }}
                 >
+                  {/* Same in the list, and further left still: a row with no
+                      image has its label at x=2, where an image row's is at 31
+                      (probed). `populateActions` sets `image_index` only for a
+                      tool with a real bitmap, so every CONTROL row is one. */}
                   {e.icon && toolbarIconUrl(e.icon) ? (
                     <img src={toolbarIconUrl(e.icon)} alt="" />
-                  ) : (
-                    <span className="ze-tbcust-noicon" />
-                  )}
+                  ) : null}
                   <span>{e.label}</span>
                 </div>
               </li>

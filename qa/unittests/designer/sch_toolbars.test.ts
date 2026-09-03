@@ -22,6 +22,7 @@ import { nextInGroup } from '@ziroeda/designer/src/ui/toolbar_types.js';
 import {
   EESCHEMA_TOOLBAR_ACTIONS,
   toolbarButtonTooltip,
+  actionFor,
 } from '@ziroeda/designer/src/ui/toolbar_actions.js';
 import type { ToolButton, ToolEntry, ToolGroup } from '@ziroeda/designer/src/ui/toolbar_types.js';
 
@@ -133,7 +134,10 @@ describe('no button is silently inert', () => {
       for (const b of buttons(tb)) {
         expect({ id: b.id, icon: !!b.icon }).toEqual({ id: b.id, icon: true });
         expect(toolbarButtonTooltip('eeschema', b.id, b.title), b.id).not.toBe('');
-        expect(EESCHEMA_TOOLBAR_ACTIONS[b.id], `${b.id} is not in TOOLBAR_ACTIONS`).toBeDefined();
+        // Resolved, not looked up in one table: an `ACTIONS::` object lives in
+        // the shared `COMMON_TOOLBAR_ACTIONS` and eeschema reaches it through
+        // the fallback, exactly as KiCad's toolbar points at the one object.
+        expect(actionFor('eeschema', b.id), `${b.id} is transcribed nowhere`).toBeDefined();
       }
     }
   });
@@ -324,7 +328,10 @@ describe('the right toolbar’s one non-tool button', () => {
 describe('the two accelerators that came from the macOS branch', () => {
   /** actions.cpp:292-302 — `#else` is `MD_CTRL + 'Y'`. */
   it('Redo advertises Ctrl+Y, not the macOS Ctrl+Shift+Z', () => {
-    expect(EESCHEMA_TOOLBAR_ACTIONS.redo?.hotkey).toBe('Ctrl+Y');
+    // Resolved as a call site resolves it: `ACTIONS::redo` is a `common.*`
+    // object, so it lives in the shared table and eeschema reaches it through
+    // the fallback.
+    expect(actionFor('eeschema', 'redo')?.hotkey).toBe('Ctrl+Y');
     // `GetButtonTooltip()`: a TAB before the hotkey, and no second line at all,
     // because ACTIONS::redo declares no `.Tooltip()`.
     expect(toolbarButtonTooltip('eeschema', 'redo')).toBe('Redo\t(Ctrl+Y)');
@@ -332,7 +339,7 @@ describe('the two accelerators that came from the macOS branch', () => {
 
   /** actions.cpp:705-716 — `#else` is `WXK_F5`. */
   it('Refresh advertises F5, not the macOS Ctrl+R', () => {
-    expect(EESCHEMA_TOOLBAR_ACTIONS.zoomRedraw?.hotkey).toBe('F5');
+    expect(actionFor('eeschema', 'zoomRedraw')?.hotkey).toBe('F5');
     expect(toolbarButtonTooltip('eeschema', 'zoomRedraw')).toBe('Refresh\t(F5)');
   });
 

@@ -59,6 +59,21 @@ export const TOOLBAR_CONTROLS: Readonly<Record<string, ToolbarControlInfo>> = {
     uiName: 'Override locks',
     description: 'Allow moving of locked items with the mouse',
   },
+  // action_toolbar.cpp:1262-1272. The Symbol Editor's top bar appends both
+  // (`toolbars_symbol_editor.cpp:146-147`), and without them the Toolbars page
+  // printed the raw id `bodyStyleSelector` as its own label — `GetUiName()`
+  // falling back to the key is exactly what an untranscribed control looks
+  // like, and it looks like a bug because it is one.
+  unitSelector: {
+    name: 'control.UnitSelector',
+    uiName: 'Symbol unit selector',
+    description: 'Displays the current unit',
+  },
+  bodyStyleSelector: {
+    name: 'control.BodyStyleSelector',
+    uiName: 'Symbol body style selector',
+    description: 'Displays the current body style',
+  },
   // pcbnew/toolbars_pcb_editor.cpp:127-138
   trackWidth: {
     name: 'control.PCBTrackWidth',
