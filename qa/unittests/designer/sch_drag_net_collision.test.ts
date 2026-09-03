@@ -260,6 +260,85 @@ describe('a drag that slides a connection along a wire', () => {
 });
 
 /**
+ * The same slide, with the two items the other way round in the recorded pair.
+ *
+ * `m_originalConnections` stores its two sides in a stable order — upstream by
+ * pointer, here by refId — and `collectDisconnectedMarkers` then hit-tests
+ * `itemA` against B's point AND `itemB` against A's (`:551-556`). Which of the
+ * two is the line depends entirely on that ordering, so one test only ever
+ * exercises one of the two hit tests. This is the other one: the wire's id
+ * sorts FIRST here, where above it sorted second.
+ */
+describe('the same slide, with the wire on the other side of the pair', () => {
+  const before = doc([wire('aw', 0, 0, 30, 0), label('zl', 'A', 0, 0)].join('\n'));
+  const after = doc([wire('aw', -10, 0, 20, 0), label('zl', 'A', 0, 0)].join('\n'));
+  const sel = new Set(['aw']);
+  const state = beginDragNetCollision(before, LIB, sel, { pens: PENS });
+
+  it('really is the other ordering, or it would be the same test twice', () => {
+    expect(state.connections).toEqual([{ a: 'aw', ai: 0, b: 'zl', bi: 0 }]);
+  });
+
+  it('marks nothing: the point is still on the wire', () => {
+    expect(dragNetCollisionMarkers(state, after, LIB, sel, PENS).disconnections).toEqual([]);
+  });
+});
+
+/**
+ * `SCH_LINE::IsConnectable()` is true for LAYER_WIRE and LAYER_BUS only
+ * (`sch_line.cpp:665-671`).
+ *
+ * A graphic polyline drawn to the same point as a wire is not wired to it, so
+ * dragging the wire away breaks nothing — and a monitor that counted graphics
+ * would raise a disconnection mark on every drag away from a drawn box.
+ */
+describe('a graphic line touching the same point', () => {
+  const before = doc(
+    [
+      wire('w1', 0, 0, 10, 0),
+      '  (polyline (pts (xy 0 0) (xy 0 -10)) (stroke (width 0) (type default)) (uuid "gfx"))',
+    ].join('\n'),
+  );
+  const after = doc(
+    [
+      wire('w1', 10, 0, 20, 0),
+      '  (polyline (pts (xy 0 0) (xy 0 -10)) (stroke (width 0) (type default)) (uuid "gfx"))',
+    ].join('\n'),
+  );
+  const sel = new Set(['w1']);
+
+  it('is not a connection, so the drag pulls nothing apart', () => {
+    const state = beginDragNetCollision(before, LIB, sel, { pens: PENS });
+    expect(state.connections).toEqual([]);
+    expect(dragNetCollisionMarkers(state, after, LIB, sel, PENS).disconnections).toEqual([]);
+  });
+});
+
+/**
+ * A bus is connectable too — LAYER_BUS is the other half of
+ * `SCH_LINE::IsConnectable()` — and takes the netclass BUS pen, twelve mils
+ * against a wire's six, which is what a disconnection ring is sized by.
+ */
+describe('a drag that pulls two buses apart', () => {
+  const bus = (uuid: string, x1: number, y1: number, x2: number, y2: number): string =>
+    `  (bus (pts (xy ${x1} ${y1}) (xy ${x2} ${y2})) (stroke (width 0) (type default)) (uuid "${uuid}"))`;
+  const before = doc([bus('b1', 0, 0, 10, 0), bus('b2', 0, 0, 0, 10)].join('\n'));
+  const after = doc([bus('b1', 10, 0, 20, 0), bus('b2', 0, 0, 0, 10)].join('\n'));
+  const sel = new Set(['b1']);
+  const state = beginDragNetCollision(before, LIB, sel, { pens: PENS });
+
+  it('recorded the touch, so a bus is not treated as a graphic', () => {
+    expect(state.connections).toEqual([{ a: 'b1', ai: 0, b: 'b2', bi: 0 }]);
+  });
+
+  it('marks it, at the BUS pen and not the wire one', () => {
+    const marks = dragNetCollisionMarkers(state, after, LIB, sel, PENS);
+    expect(marks.disconnections).toHaveLength(1);
+    expect(marks.disconnections[0]?.radius).toBe(0.3048 * MM);
+  });
+});
+
+/**
  * `previewItems` is the selection PLUS `m_newDragLines` and
  * `m_changedDragLines` (`sch_move_tool.cpp:846-857`) — the rubber-band stubs a
  * drag creates and the wires whose ends it stretches. Neither is selected, so
