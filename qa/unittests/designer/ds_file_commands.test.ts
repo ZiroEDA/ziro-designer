@@ -230,11 +230,19 @@ describe('the seams the strings above have to reach', () => {
   it('raises the outdated-format infobar rather than only computing it', () => {
     // `m_infoBar->ShowMessage( …, OUTDATED_SAVE )` (files.cpp:267-274). The
     // flag has to reach the DOM: a state nothing renders is the shape of bug
-    // this file is here for.
-    expect(statements(EDITOR, '{outdatedFormat && (')).toHaveLength(1);
-    expect(statements(EDITOR, '{DS_OUTDATED_FORMAT_INFOBAR}')).toHaveLength(1);
-    // Set on load, cleared by a successful save (:265, :329-330).
-    expect(statements(EDITOR, 'setOutdatedFormat(')).toHaveLength(3);
+    // this file is here for. Matched as "the flag gates the message" rather
+    // than on the bracket style, which is what broke when the bar became the
+    // shared `ReadOnlyNotice` and the JSX collapsed onto one line.
+    const raised = statements(EDITOR, 'outdatedFormat &&').filter((l) =>
+      l.includes('DS_OUTDATED_FORMAT_INFOBAR'),
+    );
+    expect(raised).toHaveLength(1);
+    // Set on load, cleared by a successful save (:265, :329-330). TWO, not
+    // three: the third was the bar's own close button, and `ReadOnlyNotice`
+    // owns dismissal now — keyed on the message, so a different one re-opens a
+    // bar the user closed. That is `RemoveAllButtons()` then `AddCloseButton()`
+    // (files.cpp:276-281) living in one place instead of at each call site.
+    expect(statements(EDITOR, 'setOutdatedFormat(')).toHaveLength(2);
   });
 
   it('shows the queued modals one at a time, in order', () => {

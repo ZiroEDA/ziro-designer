@@ -86,26 +86,25 @@ describe('SchematicCanvas props are all wired up', () => {
 
 /**
  * The GL layer sits *above* the 2D one, so a buffer left on it keeps showing
- * through. The paint function clears it before every 2D path — but through a
- * local that is deliberately null whenever this render may not use GL, and "the
- * document has an image" is one of those reasons.
+ * through. The paint function clears it before every 2D path — and it has to
+ * do that through the context, not through the `gl` local.
  *
- * So the clear was a no-op in exactly the case that needs it: attaching an image
- * to the cursor flipped the backend off mid-session and froze the whole sheet's
- * last GL frame on top of the live one, two sheets on screen, one of them
- * stuck. It has to reach the context, not the gated local.
+ * The local used to be `doc.images.length === 0 ? glRef.current : null`,
+ * deliberately null whenever that render might not use GL. So the clear was a
+ * no-op in exactly the case that needed it: attaching an image to the cursor
+ * flipped the backend off mid-session and froze the sheet's last GL frame on
+ * top of the live one — two sheets on screen, one of them stuck.
+ *
+ * That gate is gone: images go on the GPU now, so a document holding one is no
+ * longer a reason to fall off the layer, and the local is plain
+ * `glRef.current`. The assertion that pinned the gate went with it. This one
+ * stays, because the rule it protects outlives the reason: whatever the local
+ * comes to hold, the clear reaches the context.
  */
-describe('the GL layer is cleared through the context, not the gated local', () => {
-  it('nulls the local when the document has an image', () => {
-    // If this gate goes away the guard below stops meaning anything, so pin it.
-    expect(CANVAS).toMatch(/const gl = doc\.images\.length === 0 \? glRef\.current : null;/);
-  });
-
+describe('the GL layer is cleared through the context, not a local', () => {
   it('clears via glRef, never via the local', () => {
     expect(CANVAS).toContain('glRef.current?.clear()');
-    // The gated local must not be the one asked to clear.
-    // The gated local must not be the one asked to clear. Matched as a
-    // statement so the prose above it in the source does not count.
+    // Matched as a statement so the prose above it in the source does not count.
     expect(CANVAS.includes('\n    gl?.clear();')).toBe(false);
   });
 });

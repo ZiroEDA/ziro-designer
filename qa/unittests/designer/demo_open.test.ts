@@ -2,25 +2,28 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * Opening a demo waits for the design, not for the 3D models.
+ * The per-file fallback delivers the WHOLE demo.
  *
- * The CM5 Minima demo is 107 files and about 46 MB, of which 40.7 MB is STEP
- * bodies and a datasheet: none of it read to show a schematic or a board. They
- * were fetched before the editor appeared, one file at a time, so the open was
- * spent waiting on 128 round trips for bytes nobody had asked to see.
+ * This file used to assert the opposite, and was right to at the time:
+ * `isDeferrableDemoFile` held back .step/.stp/.wrl/.glb/.pdf/.bin — 40.7 MB of
+ * the CM5 demo's 46 — and `fetchDemoExtras` collected them later, because 89
+ * separate requests made fetching everything unaffordable.
  *
- * Both halves are asserted here, because both can regress silently: the split
- * (a deferrable file must not be in the opening set) and the completeness (the
- * deferred half must still be fetchable, or a demo quietly loses its 3D view).
+ * The bundle removed that reason (see `demo_bundle.test.ts`, which covers the
+ * one-request path). Both functions were deleted with it, and the fallback was
+ * widened to fetch every file, so that **the two paths deliver the same
+ * project** — a demo opened either way is complete, and `saveDemoCopy` has
+ * nothing left to finish.
+ *
+ * So what is asserted here is the property that replaced the split: nothing is
+ * withheld. A file that reached the opening set but not the deferred one used
+ * to be the silent failure; a file quietly dropped from the fallback is the
+ * one now.
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import {
-  fetchDemoExtras,
-  isDeferrableDemoFile,
-  openDemo,
-  type DemoMeta,
-} from '@ziroeda/designer/src/home/demos.js';
+import { openDemo, type DemoMeta } from '@ziroeda/designer/src/home/demos.js';
 
+/** No `bundleBytes`, so `openDemo` takes the per-file path this file is about. */
 const demo: DemoMeta = {
   id: 'cm5_minima',
   base: 'CM5_MINIMA',
@@ -39,7 +42,14 @@ const demo: DemoMeta = {
   ],
 };
 
-const DEFERRED = ['connector.step', 'regulator.stp', 'legacy.wrl', 'datasheet.pdf', 'blob.bin'];
+/** The five that used to be held back, and must not be any more. */
+const ONCE_DEFERRED = [
+  'connector.step',
+  'regulator.stp',
+  'legacy.wrl',
+  'datasheet.pdf',
+  'blob.bin',
+];
 
 /** Records what was asked for, and how many were in flight at once. */
 function serve(): { urls: string[]; peak: number } {
@@ -62,74 +72,48 @@ function serve(): { urls: string[]; peak: number } {
 
 afterEach(() => vi.unstubAllGlobals());
 
-describe('opening a demo', () => {
-  it('fetches nothing that only the 3D view or the file manager needs', async () => {
+describe('opening a demo without a bundle', () => {
+  it('fetches every file the manifest lists, models and datasheet included', async () => {
     const state = serve();
 
     const files = await openDemo(demo);
 
-    expect(files).toHaveLength(4);
-    for (const heavy of DEFERRED) {
+    expect(files).toHaveLength(demo.files.length);
+    for (const heavy of ONCE_DEFERRED) {
       expect(
         state.urls.some((u) => u.includes(heavy)),
-        `${heavy} was fetched`,
-      ).toBe(false);
+        `${heavy} was NOT fetched; the fallback is withholding files again`,
+      ).toBe(true);
     }
-    // The design itself is all there, under the demo's own folder name.
-    expect(files.map((f) => f.name)).toEqual([
-      'CM5_MINIMA/cm5.kicad_pro',
-      'CM5_MINIMA/cm5.kicad_sch',
-      'CM5_MINIMA/cm5.kicad_pcb',
-      'CM5_MINIMA/lib/R_0805.kicad_mod',
-    ]);
+  });
+
+  it('names them under the demo’s own folder, in manifest order', async () => {
+    serve();
+    expect((await openDemo(demo)).map((f) => f.name)).toEqual(
+      demo.files.map((f) => `CM5_MINIMA/${f}`),
+    );
+  });
+
+  it('accounts for every file, so none falls down a gap', async () => {
+    // The split this replaces could lose a file between its two halves. One
+    // path now, so the check is that the manifest and the result are the same
+    // set — the property, not the ordering, which the test above pins.
+    serve();
+    const got = (await openDemo(demo)).map((f) => f.name.replace('CM5_MINIMA/', ''));
+    expect([...got].sort()).toEqual([...demo.files].sort());
   });
 
   it('fetches them in parallel rather than one round trip at a time', async () => {
     const state = serve();
-
     await openDemo(demo);
-
-    // Four files, so four at once; the point is that it is not one.
+    // `mapLimit(rels, FETCH_CONCURRENCY, …)`; the point is that it is not one.
     expect(state.peak).toBeGreaterThan(1);
   });
 
-  it('does not fetch the deferred half merely because a demo was opened', async () => {
-    // Fetching 40 MB of 3D bodies in the background to look at a demo is the
-    // same waste as fetching them up front, only less visible. They are fetched
-    // when the user keeps the project, not when they glance at it.
-    const state = serve();
-    await openDemo(demo);
-    expect(state.urls).toHaveLength(4);
-  });
-
-  it('still offers the deferred half, so a kept copy is complete', async () => {
-    serve();
-
-    const extras = await fetchDemoExtras(demo);
-
-    expect(extras.map((f) => f.name)).toEqual([
-      'CM5_MINIMA/models/connector.step',
-      'CM5_MINIMA/models/regulator.stp',
-      'CM5_MINIMA/models/legacy.wrl',
-      'CM5_MINIMA/docs/datasheet.pdf',
-      'CM5_MINIMA/fw/blob.bin',
-    ]);
-  });
-
-  it('accounts for every file between the two halves', async () => {
-    // No file may fall down the gap between "not needed to open" and "fetched
-    // afterwards", which is how a project would lose one silently.
-    const opening = demo.files.filter((f) => !isDeferrableDemoFile(f));
-    const deferred = demo.files.filter(isDeferrableDemoFile);
-    expect([...opening, ...deferred].sort()).toEqual([...demo.files].sort());
-  });
-
-  it('keeps a demo of only design files entirely in the opening half', async () => {
+  it('opens a design-only demo the same way', async () => {
     serve();
     const light: DemoMeta = { ...demo, files: ['a.kicad_sch', 'b.kicad_pcb'] };
-
     expect(await openDemo(light)).toHaveLength(2);
-    expect(await fetchDemoExtras(light)).toEqual([]);
   });
 
   it('skips a file the host does not have instead of failing the open', async () => {
@@ -145,6 +129,6 @@ describe('opening a demo', () => {
     const files = await openDemo(demo);
 
     expect(files.map((f) => f.name)).not.toContain('CM5_MINIMA/cm5.kicad_pcb');
-    expect(files).toHaveLength(3);
+    expect(files).toHaveLength(demo.files.length - 1);
   });
 });

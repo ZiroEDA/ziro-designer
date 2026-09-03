@@ -210,7 +210,13 @@ async function fetchDemoFiles(
 }
 
 /**
- * Fetch what a demo needs to open: everything except the deferrable files.
+ * Fetch a demo, whole.
+ *
+ * Nothing is deferred: the bundle carries the entire project in one request,
+ * and the per-file fallback fetches every file the manifest lists, so the two
+ * paths deliver the same project. (This said "everything except the deferrable
+ * files" until `isDeferrableDemoFile` was deleted, and then said it for a
+ * function that no longer had a second half.)
  *
  * `onProgress(done, total, file)` ticks as each arrives, so the caller can show
  * a determinate gauge.

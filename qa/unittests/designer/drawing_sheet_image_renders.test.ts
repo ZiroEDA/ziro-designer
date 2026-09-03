@@ -2,19 +2,25 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * A sheet with an image on it has to be drawn by something that draws images.
+ * The raster painter really does draw a bitmap item.
  *
- * `GlRecorder.drawImage` is a no-op — its own comment said "images are not
- * recorded yet ... which is why the backend is not yet the default". The
- * backend then became the default in `DrawingSheetCanvas` and the comment's
- * condition went with it, so placing an image put a real bitmap item in the
- * sheet, saved it, reloaded it, and drew nothing. Reported as "the image
- * inserting tool not working"; the tool was fine.
+ * `GlRecorder.drawImage` was once a no-op, three canvases made the GL backend
+ * their default, and every image on a document stopped being drawn — reported
+ * as "the image inserting tool not working"; the tool was fine. This file
+ * pinned both halves of the workaround for that: the painter's own behaviour,
+ * and a gate in `DrawingSheetCanvas` diverting an image-carrying sheet off the
+ * GL layer.
  *
- * Two halves are pinned here, because either alone passes with the bug:
+ * The recorder draws bitmaps now, so the gate is gone and the two `describe`s
+ * that read it out of the canvas source went with it. What replaced them is
+ * `gl_image_recording.test.ts`, which asserts the geometry, the UVs and the
+ * texture identity actually reach the scene — the behaviour, where these read
+ * the source. That is the better test, and it is why these are not rewritten
+ * in place.
  *
- *  1. the raster painter really does draw a bitmap item (it always did), and
- *  2. the canvas actually routes a sheet containing one to it.
+ * The painter's half below is unchanged and still load-bearing: it is the
+ * other end of the same path, and a canvas that routes correctly to a painter
+ * that draws nothing looks exactly like the original bug.
  */
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
@@ -24,13 +30,6 @@ import { drawDrawingSheetItems } from '@ziroeda/common';
 
 const PAINTER = readFileSync(
   fileURLToPath(new URL('../../../common/src/drawing_sheet/ds_painter.ts', import.meta.url)),
-  'utf8',
-);
-
-const CANVAS = readFileSync(
-  fileURLToPath(
-    new URL('../../../designer/src/editors/drawingsheet/DrawingSheetCanvas.tsx', import.meta.url),
-  ),
   'utf8',
 );
 
@@ -108,58 +107,5 @@ describe('the raster painter', () => {
     // not strokeRect. If this ever became strokeRect the GL path would be
     // "fine" and the picture still absent.
     expect(PAINTER).toContain('ctx.drawImage(decoded.img, x, y, w, h);');
-  });
-});
-
-describe('the canvas', () => {
-  it('keeps a sheet carrying a decoded image off the GL layer', () => {
-    // The condition itself, because the no-op it works around is invisible:
-    // nothing throws, nothing logs, the image is simply not there.
-    expect(CANVAS).toMatch(
-      /const hasImage = drawsRef\.current\.some\(\(d\) => d\.kind === 'bitmap' && !!d\.pngB64\)/,
-    );
-  });
-
-  it('has that check inside the GL gate, not merely present in the file', () => {
-    // Per-occurrence: a `hasImage` computed and never consulted is exactly the
-    // shape of a test that cannot fail.
-    const at = CANVAS.indexOf('if (\n        GL_RENDERER');
-    expect(at, 'the GL gate is not the multi-line form this reads').toBeGreaterThanOrEqual(0);
-    const gate = CANVAS.slice(at, CANVAS.indexOf('sheetOnGl = true;', at));
-    expect(gate).toContain('!hasImage');
-  });
-
-  it('still lets an image-free sheet use the GL layer', () => {
-    // The fallback must be conditional. Diverting every sheet would "fix" the
-    // image and throw away the reason the layer exists.
-    const at = CANVAS.indexOf('if (\n        GL_RENDERER');
-    const gate = CANVAS.slice(at, CANVAS.indexOf('sheetOnGl = true;', at));
-    expect(gate).toContain('GL_RENDERER');
-    expect(gate).not.toMatch(/GL_RENDERER && false/);
-  });
-});
-
-describe('the recorder that made this necessary', () => {
-  const REC = readFileSync(
-    fileURLToPath(new URL('../../../designer/src/render/gl/recorder.ts', import.meta.url)),
-    'utf8',
-  );
-
-  it('still says out loud that drawImage draws nothing', () => {
-    expect(REC).toMatch(/drawImage\(\): void \{\}/);
-    // The stale version of this comment read as a live precondition long after
-    // it had stopped being true, which is what let the bug ship. So the thing
-    // to pin is not the absence of that sentence — it wrapped across two lines
-    // and no substring test could see it — but the presence of the warning
-    // that replaced it.
-    expect(REC).toContain('A caller that can be handed one must check');
-  });
-
-  it('names the two callers that still drop an image', () => {
-    // One `expect` per call site, not a single "mentions renderer" check: the
-    // point of the list is that BOTH are recorded, and a per-file test of a
-    // per-occurrence rule passes on either one alone.
-    expect(REC).toContain('editors/schematic/render/renderer.ts:1076');
-    expect(REC).toContain('editors/pcb/renderBoard.ts:2034');
   });
 });
