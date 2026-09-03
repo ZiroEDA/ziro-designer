@@ -308,6 +308,11 @@ export function App(): JSX.Element {
    * downloading.
    */
   const [demoSource, setDemoSource] = useState<DemoMeta | null>(null);
+  /** The home frame telling us what it opened; see `onDemoStateChange` there. */
+  const onDemoStateChange = useCallback((demo: DemoMeta | null) => {
+    setDemoProject(!!demo);
+    setDemoSource(demo);
+  }, []);
   // Fetch the editors in the background while the launcher is on screen, so
   // opening one is not the first time its code is asked for.
   useEffect(() => prefetchEditors(), []);
@@ -1013,6 +1018,11 @@ export function App(): JSX.Element {
           setSchMounted(true);
           setView('schematic');
         }}
+        /* Demo-ness arrives the moment it is known, not when eeschema opens.
+           `onOpenProject` still sets it - that path also carries the files -
+           but it is no longer the ONLY way in, which is what left every other
+           editor thinking a demo was an ordinary project. */
+        onDemoStateChange={onDemoStateChange}
         onOpenProject={(files, start, demo) => {
           openProjectFiles(files);
           setDemoProject(!!demo);

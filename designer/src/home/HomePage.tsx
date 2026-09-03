@@ -295,6 +295,7 @@ export function HomePage({
   initialFiles,
   activePro,
   activeDemo,
+  onDemoStateChange,
   onSwitchProject,
 }: {
   onOpenSchematic: () => void;
@@ -336,6 +337,20 @@ export function HomePage({
    * dropped [Read Only] from the title and took the infobar with it.
    */
   activeDemo?: DemoMeta | null;
+  /**
+   * ...and the same fact travelling back out.
+   *
+   * `activeDemo` alone is half a channel. Demo-ness is DISCOVERED here - File >
+   * Open Demo Project runs in this frame - but every consequence of it lives in
+   * `App`: the [Read Only] suffix, the infobar each editor renders, the gate on
+   * saving. It used to reach App only through `onOpenProject`, which is the
+   * SCHEMATIC launch path, so opening a demo and going straight to any other
+   * editor left App believing it had an ordinary project: no strip, nothing
+   * marking the edits as unsaveable. Reported as the symbol editor "losing the
+   * read-only state", and the board and footprint editors had it too - it was
+   * never lost, it was never sent.
+   */
+  onDemoStateChange?: (demo: DemoMeta | null) => void;
   /** Switch the active project (double-clicking another .kicad_pro in the tree). */
   onSwitchProject?: (proFullName: string) => void;
 }): JSX.Element {
@@ -404,6 +419,12 @@ export function HomePage({
   const [demoOpen, setDemoOpen] = useState(!!activeDemo);
   /** The open demo's manifest, so saving a copy can complete it. */
   const [demoSource, setDemoSource] = useState<DemoMeta | null>(activeDemo ?? null);
+  // One effect rather than a call at each of the three places this state moves,
+  // so a fourth cannot forget. On mount it reports back the value it was just
+  // given, which React drops as an identical set.
+  useEffect(() => {
+    onDemoStateChange?.(demoOpen ? demoSource : null);
+  }, [demoOpen, demoSource, onDemoStateChange]);
   // Saved projects (IndexedDB), the offline half of cloud persistence.
   const [saved, setSaved] = useState<ProjectMeta[]>([]);
   // Expanded directory-tree folder paths (collapsed by default, like KiCad).
