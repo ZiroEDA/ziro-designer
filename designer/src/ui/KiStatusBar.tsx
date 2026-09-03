@@ -161,7 +161,17 @@ function BackgroundJobFields(): JSX.Element | null {
   // `HideBackgroundProgressBar()` is the constructor's last act; the bar is
   // shown only from `jobUpdated` (:339-346) and hidden again by `Remove` when
   // the queue empties (:280-289).
-  if (!job) return null;
+  //
+  // The LIST is not part of that. Upstream it is a frame of its own
+  // (`BACKGROUND_JOB_LIST`), so it stays up when the queue drains and the user
+  // reads what just finished. Rendering it inside this early return made it
+  // vanish the instant the last job ended - which for a fast job is before the
+  // click that opened it has finished, so it could not be opened at all.
+  if (!job) {
+    return listAt ? (
+      <BackgroundJobList anchorX={listAt.x} anchorY={listAt.y} onClose={closeList} />
+    ) : null;
+  }
 
   return (
     <>

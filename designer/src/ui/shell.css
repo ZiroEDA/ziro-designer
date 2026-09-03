@@ -2238,7 +2238,16 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
    is a fixed 75. Both are rendered only while a job runs, which is the DOM
    equivalent of collapsing them to width 0 when idle. */
 .ze-statusbar .cell.bgjob-label {
-  flex: 1 1 0;
+  /* Upstream this field is width -1, a stretch field (kistatusbar.cpp:127-129).
+     Content-width here renders IDENTICALLY in KiCad's own field set - the label
+     is right-aligned and the only thing to its right is the 75px gauge, so
+     stretching it changes nothing that is drawn. It changes plenty in ours,
+     because this bar carries a field KiCad has no equivalent of ("Saved in
+     browser"): a second stretch field halves the leftover the project path was
+     taking, and that field slides from the right edge to the middle the moment
+     a job starts. Same pixels where upstream can be compared, and nothing
+     wanders where it cannot. */
+  flex: 0 1 auto;
   min-width: 0;
   text-align: right;
 }

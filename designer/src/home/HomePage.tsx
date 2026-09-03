@@ -2,6 +2,7 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
+import { preloadBundle } from '../libraryPreload.js';
 import { MenuBar, type Menu } from '../ui/MenuBar.js';
 import {
   storageAvailable,
@@ -350,6 +351,34 @@ export function HomePage({
   const zipInputRef = useRef<HTMLInputElement>(null);
   // The picked project's files (shown in the tree until the editor is launched).
   const [picked, setPicked] = useState<PickedHomeFile[] | null>(initialFiles ?? null);
+
+  /**
+   * `KICAD_MANAGER_FRAME`'s own preload — `CallAfter` on project open, both
+   * faces at once (`kicad/kicad_manager_frame.cpp:540-548`):
+   *
+   *     schface->PreloadLibraries( &Kiway() );
+   *     pcbface->PreloadLibraries( &Kiway() );
+   *
+   * The editors preload too, but upstream does not wait for one to be opened
+   * and neither should this: without it the catalogue arrived only when the
+   * user first entered eeschema, so the manager sat there fetching nothing and
+   * the first schematic open paid for all of it.
+   *
+   * Keyed on the project's identity rather than on `picked`, which is a new
+   * array on every edit; `ensureBundle` is idempotent, but re-running it per
+   * keystroke would still churn the status bar.
+   */
+  // The project's identity, not its contents: `picked` is a new array on every
+  // edit, and re-running the preload per keystroke would churn the status bar.
+  const projectKey = useMemo(
+    () => picked?.find((f) => f.name.toLowerCase().endsWith('.kicad_pro'))?.name ?? null,
+    [picked],
+  );
+  useEffect(() => {
+    if (!projectKey) return;
+    void preloadBundle('symbols');
+    void preloadBundle('footprints');
+  }, [projectKey]);
   /**
    * Whether what is open came from the demo library.
    *

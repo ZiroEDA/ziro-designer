@@ -301,6 +301,12 @@ export function preloadInProgress(kind: PreloadKind): boolean {
 export async function preloadBundle(kind: PreloadKind): Promise<void> {
   const job: BackgroundJob = backgroundJobsMonitor.create(PRELOAD_JOB_NAME[kind]);
   job.reporter.report(PRELOAD_JOB_NAME[kind]);
+  // Give the gauge its range up front. `create()` leaves maxProgress at 0, and
+  // `<progress max={0}>` draws an empty trough - so a catalogue already
+  // resident, which returns without ever reporting progress, showed a label
+  // beside a dead gauge. setCurrentProgress is what sets the range
+  // (FRACTIONAL_PROGRESS_RANGE), so calling it once at zero is enough.
+  job.reporter.setCurrentProgress(0);
   try {
     await ensureBundle(kind, (done, total) => {
       job.reporter.setCurrentProgress(total > 0 ? done / total : 0);
