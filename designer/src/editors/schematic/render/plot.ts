@@ -14,6 +14,7 @@
  */
 
 import type { Schematic } from '@ziroeda/eeschema';
+import { busJunctionIds } from '@ziroeda/eeschema/src/connectivity/bus.js';
 import type { WksSheet } from '@ziroeda/common';
 import type { Theme } from '../theme.js';
 import { KICAD_CLASSIC } from '../theme.js';
@@ -176,7 +177,7 @@ function outputTheme(base: Theme, opts: PlotOpts): Theme {
 }
 
 /** Render options for output: no grid, no page-limit outline, drawing sheet per option. */
-function outputRenderOpts(opts: PlotOpts): RenderOpts {
+function outputRenderOpts(opts: PlotOpts, sch: Schematic): RenderOpts {
   return {
     showHiddenPins: false,
     showHiddenFields: false,
@@ -215,6 +216,10 @@ function outputRenderOpts(opts: PlotOpts): RenderOpts {
     sheetPath: opts.sheetPath,
     defaultPenIU: opts.defaultPenIU,
     junctionDiameterIU: opts.junctionDiameterIU,
+    // A plot paints the same layers the screen does, so a junction on a bus
+    // has to plot in the bus-junction colour too. Derived here rather than
+    // threaded in: a plot has no live connection graph to ask.
+    busJunctionIds: busJunctionIds(sch),
     dashLengthRatio: opts.dashLengthRatio,
     gapLengthRatio: opts.gapLengthRatio,
     textOffsetRatio: opts.textOffsetRatio,
@@ -266,7 +271,7 @@ export function renderSheetToCanvas(
     ch,
     undefined,
     undefined,
-    outputRenderOpts(opts),
+    outputRenderOpts(opts, sch),
   );
   return canvas;
 }
@@ -386,7 +391,7 @@ export function sheetToSvg(sch: Schematic, base: Theme, opts: PlotOpts): string 
       page.h,
       undefined,
       undefined,
-      outputRenderOpts(opts),
+      outputRenderOpts(opts, sch),
     );
   } finally {
     setVectorText(false);
@@ -973,7 +978,7 @@ function renderToVector<C extends VectorContext>(
       page.h,
       undefined,
       undefined,
-      outputRenderOpts(opts),
+      outputRenderOpts(opts, sch),
     );
   } finally {
     setVectorText(false);
