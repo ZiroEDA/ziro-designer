@@ -247,7 +247,7 @@ describe('what the private tree did, and still happens', () => {
    * opposite — it calls `SelectLibId` after a load — so this is the one place
    * the two panes disagree, and a shared widget has to be able to do both.
    */
-  it('and then unselects the tree, leaving the row struck through instead', async () => {
+  it('and then unselects the tree, leaving the row marked as the canvas item', async () => {
     const container = await open();
     fireEvent.click(twistyOf(rowNamed(container, 'Resistor_SMD')!));
     // The click that SELECTS it, first. `fireEvent.doubleClick` does not fire a
@@ -261,8 +261,13 @@ describe('what the private tree did, and still happens', () => {
     const row = rowNamed(container, 'R_0805')!;
     expect({
       selected: rows(container).some((r) => r.classList.contains('active')),
-      struck: (row.querySelector('.col-item') as HTMLElement).style.textDecoration,
-    }).toEqual({ selected: false, struck: 'line-through' });
+      // `LIB_TREE_RENDERER::Render`'s outline. NOT a strikethrough: `SetAttr`
+      // takes that attribute as the is-canvas-item flag and clears it before
+      // drawing (common/lib_tree_model_adapter.cpp:89-97). Asserting the line
+      // is what let the mis-port stand.
+      marked: !!row.querySelector('.ze-libtree-canvasitem'),
+      lineThrough: (row.querySelector('.col-item') as HTMLElement).style.textDecoration,
+    }).toEqual({ selected: false, marked: true, lineThrough: '' });
   });
 
   /**
@@ -419,9 +424,9 @@ describe('the row faces reach the DOM', () => {
    *
    * A newly created footprint is modified from the moment it exists, and it is
    * the one on the canvas, so this is three faces at once — the item's " *",
-   * its bold, and its strikethrough as "is canvas item".
+   * its bold, and the outline marking it as the canvas item.
    */
-  it('shows the asterisk, the bold and the strikethrough the adapter answers', async () => {
+  it('shows the asterisk, the bold and the canvas-item outline the adapter answers', async () => {
     const container = await open();
     fireEvent.click(rowNamed(container, 'Resistor_SMD')!);
     // File > New Footprint…, which creates it in the selected library.
@@ -441,11 +446,13 @@ describe('the row faces reach the DOM', () => {
       )!,
     );
     await waitFor(() => expect(rowNamed(container, 'NEW_FP *')).toBeDefined());
-    const cell = rowNamed(container, 'NEW_FP *')!.querySelector('.col-item') as HTMLElement;
+    const fpRow = rowNamed(container, 'NEW_FP *')!;
+    const cell = fpRow.querySelector('.col-item') as HTMLElement;
     expect({
       bold: cell.style.fontWeight,
-      struck: cell.style.textDecoration,
-    }).toEqual({ bold: '700', struck: 'line-through' });
+      marked: !!fpRow.querySelector('.ze-libtree-canvasitem'),
+      lineThrough: cell.style.textDecoration,
+    }).toEqual({ bold: '700', marked: true, lineThrough: '' });
   });
 });
 

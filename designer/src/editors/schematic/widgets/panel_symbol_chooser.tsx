@@ -263,6 +263,13 @@ export const PanelSymbolChooser = forwardRef<PanelSymbolChooserHandle, PanelSymb
 
     const adapter = useMemo(() => {
       const a = new LibTreeModelAdapter();
+      // `SYMBOL_TREE_MODEL_ADAPTER`'s constructor
+      // (eeschema/symbol_tree_model_adapter.cpp:54-58) - the ONLY adapter
+      // upstream that widens the base pair, which is why this is here and not
+      // in `LibTreeModelAdapter`. Value is not decoration: every shown column
+      // becomes a weight-4 search term in `RebuildSearchTerms`, so it is part
+      // of this chooser's ranking as well as its header.
+      a.setSymbolChooserColumns();
       a.setSortMode(settings.eeschema.sym_chooser.sort_mode as SortMode);
       // loadColumnConfig: the persisted column set, defaulting to Item +
       // Description with "Item" forced to the front.

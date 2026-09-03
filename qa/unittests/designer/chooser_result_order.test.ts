@@ -60,6 +60,17 @@ function libSymbol(nickname: string, f: Fixture): LibSymbol {
  */
 function buildLibrary(nickname: string, fixtures: readonly Fixture[]): LibTreeModelAdapter {
   const adapter = new LibTreeModelAdapter();
+  // These orders are the SYMBOL CHOOSER's, so the adapter has to be the one the
+  // chooser builds. `SYMBOL_TREE_MODEL_ADAPTER` is the only adapter upstream
+  // that adds Value and Footprint (symbol_tree_model_adapter.cpp:54-58, and
+  // :74 for the shown set) - the base pair is Item and Description, which is
+  // what the symbol EDITOR and both footprint trees get.
+  //
+  // This used to come free because our base adapter carried the chooser's
+  // columns, which is upstream inverted; the expectations below are unchanged,
+  // and they are exactly what pins it, since Value is a weight-4 search term
+  // and dropping it moves "res" in Device and the DIN-5 score from 34 to 30.
+  adapter.setSymbolChooserColumns();
   const lib = adapter.addLibrary(nickname, '', false);
 
   for (const f of fixtures) {

@@ -5967,9 +5967,11 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
    colour. */
 .ze-libtree-canvasitem {
   position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
+  /* `left` and `width` are the Item CELL's, set inline by the row - the marker
+     is a cell renderer upstream, not a row decoration, so it must not span the
+     Description column. Only the vertical extent is the row's. */
+  top: 0;
+  bottom: 0;
   pointer-events: none;
   overflow: visible;
 }

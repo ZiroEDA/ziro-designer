@@ -451,6 +451,7 @@ export function SymbolEditor({
     // registered by neither (`HasLibrary( nickname, true )`).
     for (const { row, file } of resolvedProjectSymLibs(initialProject ?? [])) {
       if (row.disabled) continue;
+      if (row.descr) libDescs.current.set(row.name, row.descr);
       manager.current.addProjectLibrary(row.name, file.name, file.text);
     }
     // Libraries installed through the Plugin and Content Manager (loaded eagerly
@@ -460,7 +461,10 @@ export function SymbolEditor({
     // Bundled global libraries: names first (like KiCad's lazy library loads).
     loadIndex()
       .then((idx) => {
-        for (const lib of idx) manager.current.addGlobalLibrary(lib.name, lib.symbols);
+        for (const lib of idx) {
+          if (lib.descr) libDescs.current.set(lib.name, lib.descr);
+          manager.current.addGlobalLibrary(lib.name, lib.symbols);
+        }
         bump();
       })
       .catch(() => bump());
@@ -1770,6 +1774,23 @@ export function SymbolEditor({
    * the same reason upstream's adapter holds a `LIB_SYMBOL_LIBRARY_MANAGER*`
    * and a `SYMBOL_EDIT_FRAME*` instead of copies.
    */
+  /**
+   * Library nickname -> the Description cell of its row.
+   *
+   * `SYMBOL_TREE_SYNCHRONIZING_ADAPTER::GetValue` takes it from the sym-lib-
+   * table (`symbol_tree_synchronizing_adapter.cpp:290-294`):
+   *
+   *     if( auto optRow = adapter->GetRow( node->m_LibId.GetLibNickname() ) )
+   *         node->m_Desc = ( *optRow )->Description();
+   *
+   * Both of our sources already carry it - the project table's rows have
+   * `descr`, and the bundled index has `descr` described in its own type as
+   * "the library's own description, shown against its row in the tree" - so
+   * every library row was blank only because nothing joined the two to the
+   * tree. A ref, not state: the tree effect reads it, and writing it must not
+   * be a second render.
+   */
+  const libDescs = useRef(new Map<string, string>());
   const curLibIdRef = useRef('');
   curLibIdRef.current = curLib && curName ? `${curLib}:${curName}` : '';
   const treeAdapter = useMemo(
@@ -1811,9 +1832,10 @@ export function SymbolEditor({
       if (!lib) continue;
       // The Description column of a LIBRARY row is the sym-lib-table row's
       // `Description()` (`symbol_tree_synchronizing_adapter.cpp:290-294`), not
-      // the file name. Our `ManagedLibrary` does not carry the table's descr,
-      // so the cell is empty rather than filled with something else.
-      const libNode = treeAdapter.addLibrary(libName, '', false);
+      // the file name. Upstream additionally prefixes the cell with
+      // "(failed to load)" or "(read-only)" (:296-299); the second waits on the
+      // writability notion `SymbolLibraryManager` still does not have.
+      const libNode = treeAdapter.addLibrary(libName, libDescs.current.get(libName) ?? '', false);
       for (const name of mgr.symbolNames(libName)) {
         const sym = lib.symbols.get(name);
         const item = new LibTreeNode();
@@ -2366,11 +2388,6 @@ export function SymbolEditor({
         }}
       />
 
-      {/* Above the panes, below the toolbars - `m_infoBar` is added to the AUI
-          manager with `Top()` (symbol_edit_frame.cpp:227-230), so it spans the
-          full width and pushes the canvas down rather than floating over it. */}
-      {readOnlyNotice}
-
       <div className="ze-body">
         {/* Three independent AUI panes upstream — "LibraryTree"
             (`symbol_edit_frame.cpp:219-225`), the properties pane
@@ -2486,29 +2503,42 @@ export function SymbolEditor({
           disabledIds={leftDisabled}
         />
 
-        <div className="ze-canvas-wrap">
-          <SymbolCanvas
-            ref={controller}
-            symbol={workSymbol}
-            theme={theme}
-            opts={opts}
-            selection={selection}
-            activeTool={activeTool}
-            pendingPin={pendingPin}
-            pendingText={pendingText}
-            onSelect={onSelect}
-            onSelectBox={onSelectBox}
-            onCommit={commit}
-            onPinToolClick={onPinToolClick}
-            onPlacePendingPin={onPlacePendingPin}
-            onTextToolClick={onTextToolClick}
-            onPlacePendingText={onPlacePendingText}
-            onPlaceShape={onPlaceShape}
-            onEditItem={onEditItem}
-            onCursorMove={setCursor}
-            onScaleChange={setScale}
-          />
-          {/* Nothing goes here. An empty SYMBOL_EDIT_FRAME draws the axes and
+        {/* The infobar spans the CANVAS, not the frame.
+            `CreateInfoBar` docks it `.Top().Layer( 1 )`
+            (common/eda_base_frame.cpp:1358) and in wxAUI a lower layer sits
+            CLOSER to the centre pane - so the library tree at `.Left().Layer( 3 )`
+            and the left toolbar at `.Left().Layer( 2 )` both take their full
+            height first, and the bar gets only what is left. It was rendered
+            above `ze-body` here, which spans the whole frame including the
+            Libraries dock; upstream never draws it there. The board editor
+            already had this shape. */}
+        <div
+          style={{ flex: 1, minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column' }}
+        >
+          {readOnlyNotice}
+          <div className="ze-canvas-wrap">
+            <SymbolCanvas
+              ref={controller}
+              symbol={workSymbol}
+              theme={theme}
+              opts={opts}
+              selection={selection}
+              activeTool={activeTool}
+              pendingPin={pendingPin}
+              pendingText={pendingText}
+              onSelect={onSelect}
+              onSelectBox={onSelectBox}
+              onCommit={commit}
+              onPinToolClick={onPinToolClick}
+              onPlacePendingPin={onPlacePendingPin}
+              onTextToolClick={onTextToolClick}
+              onPlacePendingText={onPlacePendingText}
+              onPlaceShape={onPlaceShape}
+              onEditItem={onEditItem}
+              onCursorMove={setCursor}
+              onScaleChange={setScale}
+            />
+            {/* Nothing goes here. An empty SYMBOL_EDIT_FRAME draws the axes and
               the grid and no text at all: `LoadOneLibrarySymbolAux` simply
               leaves the screen empty (`symbol_edit_frame.cpp:1546-1555`,
               `emptyScreen`), and the only place upstream says anything is the
@@ -2518,6 +2548,7 @@ export function SymbolEditor({
               What stood here was an invented hint centred on the canvas, in an
               invented grey (`#888`) at an invented 14 px — two chrome literals
               for a control KiCad does not have. */}
+          </div>
         </div>
 
         <Toolbar
