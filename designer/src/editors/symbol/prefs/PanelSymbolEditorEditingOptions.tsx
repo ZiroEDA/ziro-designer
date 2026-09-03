@@ -47,8 +47,7 @@
  * opens on, which for `symbol_editor` is mils
  * (`common/settings/app_settings.cpp:228-238`).
  *
- * **What reads each control**, which is why one of the eight is drawn
- * disabled:
+ * **What reads each control**:
  *
  *  - the five `defaults.*` fields are live. `editors/symbol/defaults.ts`
  *    converts them once and `SymbolEditor.tsx` seeds `lastPin` (upstream's
@@ -60,18 +59,14 @@
  *    reached by `SCH_ACTIONS::repeatDrawItem` (Insert). Upstream's other caller
  *    is Add/Duplicate in `DIALOG_LIB_EDIT_PIN_TABLE` (`:566`, `:1330`), which
  *    this port does not have — one of the two entry points, not neither;
- *  - **Keep pins attached when dragging edges** has no reader. Its one use is
- *    `SCH_POINT_EDITOR::dragPinsOnEdge` (`sch_point_editor.cpp:641-704`), and
- *    it needs more than a binding: this editor has no point editor at all — no
- *    edit points, no rectangle edge lines, nothing draggable but a whole item.
- *    Upstream's rule is also narrower than the label suggests, and worth
- *    recording before anyone builds it: only an EDGE drag moves pins, corner
- *    drags deliberately do not ("an escape hatch to avoid moving pins", `:583`),
- *    and only pins whose ROOT lies strictly INSIDE the dragged segment come
- *    along — `getPinsOnSeg( …, aIncludeEnds = false )`.
+ *  - **Keep pins attached when dragging edges** is live, through
+ *    `SCH_POINT_EDITOR::dragPinsOnEdge` (`sch_point_editor.cpp:641-704`). The
+ *    rule is narrower than the label suggests: only an EDGE drag moves pins —
+ *    corner drags deliberately do not, "an escape hatch to avoid moving pins"
+ *    (`:583`) — and only pins whose ROOT lies strictly INSIDE the dragged
+ *    segment come along, `getPinsOnSeg( …, aIncludeEnds = false )`.
  *
- * Building that is its own piece of work; the page does not get to pretend it
- * exists in the meantime.
+ * So every control on this page now reads.
  */
 import type { JSX } from 'react';
 import { Check, Group, Num } from '../../../dialogs/prefs/widgets.js';
@@ -207,13 +202,13 @@ export function PanelSymbolEditorEditingOptions({ ctx }: { ctx: PrefsContext }):
       </div>
       <div>
         <Group title="General Editing">
-          {/* Dead: `SCH_POINT_EDITOR` is the only reader
-              (`sch_point_editor.cpp:653`) and it is not wired into this
-              editor, so no outline edge can be dragged for pins to follow. */}
+          {/* Live: `SCH_POINT_EDITOR::dragPinsOnEdge` (`:641-704`), read by the
+              same tool the schematic runs — one class registered by both frames
+              (`sch_edit_frame.cpp:705`, `symbol_edit_frame.cpp:431`) with this
+              branch inside it. */}
           <Check
             label="Keep pins attached when dragging edges"
             checked={symbolEditor.drag_pins_along_with_edges}
-            disabled
             borders={['top', 'bottom']}
             onChange={(v) =>
               upSym((s) => {

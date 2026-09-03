@@ -16,6 +16,14 @@ import { EMPTY_SOURCE } from '@ziroeda/eeschema';
 import { KICAD_DEFAULT, type Theme } from '../schematic/theme.js';
 import { drawSelectionArea, isBackgroundDark, selectionAreaColors } from '@ziroeda/common';
 import {
+  EDIT_POINT_BORDER_SIZE,
+  EDIT_POINT_HOVER_SIZE,
+  EDIT_POINT_SIZE,
+  editPointColors,
+} from '@ziroeda/common';
+import type { EditHandle } from '@ziroeda/eeschema/src/tools/point_editor.js';
+import { ArcEditMode } from '@ziroeda/eeschema/src/tools/arc_edit.js';
+import {
   commonInputPrefs,
   dragGesture,
   dragZoomScale,
@@ -46,6 +54,9 @@ import {
   symbolDeleteOutcome,
   hitTestSymbol,
   moveSymbolItems,
+  symbolEditHandles,
+  symbolIndicatorLines,
+  dragSymbolHandle,
   moveSymbolOrigin,
   type SymbolHit,
 } from './edits.js';
@@ -109,7 +120,7 @@ interface Props {
   onScaleChange?: (scale: number) => void;
 }
 
-type Mode = 'idle' | 'pan' | 'dragzoom' | 'move' | 'box' | 'zoom';
+type Mode = 'idle' | 'pan' | 'dragzoom' | 'move' | 'box' | 'zoom' | 'point';
 
 /** GAL::GetScaleFactor. Module scope so it is stable across renders. */
 const dpr = (): number => window.devicePixelRatio || 1;
@@ -213,6 +224,22 @@ export const SymbolCanvas = forwardRef<SymbolCanvasController, Props>(function S
   const panMovedRef = useRef(false);
   const moveStartRef = useRef<Vec2 | null>(null);
   const moveDeltaRef = useRef<Vec2 | null>(null);
+
+  /**
+   * `SCH_POINT_EDITOR`'s EDIT_POINTS for the one selected shape.
+   *
+   * The same tool the schematic runs — one class registered by both frames
+   * (`sch_edit_frame.cpp:705`, `symbol_edit_frame.cpp:431`) — so the handles
+   * come from the shared behaviours rather than a second set computed here.
+   * Upstream shows them for a single selection of a `pointEditorTypes` item;
+   * inside a LIB_SYMBOL that is a shape and nothing else.
+   */
+  const pointTargetRef = useRef<string | null>(null);
+  const pointHandlesRef = useRef<readonly EditHandle[]>([]);
+  const pointLeadersRef = useRef<readonly [Vec2, Vec2][]>([]);
+  const pointDragRef = useRef<EditHandle | null>(null);
+  const pointDragPosRef = useRef<Vec2 | null>(null);
+  const hoveredHandleRef = useRef<EditHandle | null>(null);
   const boxOriginRef = useRef<Vec2 | null>(null);
   const boxEndRef = useRef<Vec2 | null>(null);
   const boxModifiersRef = useRef({ additive: false, subtractive: false });
@@ -250,6 +277,53 @@ export const SymbolCanvas = forwardRef<SymbolCanvasController, Props>(function S
   const cursorRef = useRef<Vec2 | null>(null);
   const drawStateRef = useRef<DrawState | null>(null);
 
+  /**
+   * `SCH_POINT_EDITOR::Main`'s guard, ported: handles appear for a single
+   * selection of an editable item and for nothing else.
+   *
+   *     if( selection.Size() != 1 || !selection.Front()->IsType( pointEditorTypes ) )
+   *         return 0;
+   *     (`sch_point_editor.cpp:1152-1153`)
+   *
+   * It also waits for the drawing tool to finish, which here is the `select`
+   * tool test — a shape being drawn is not a selection.
+   */
+  useEffect(() => {
+    const ids = [...selection];
+    const id = ids.length === 1 ? ids[0]! : null;
+    const editable = id !== null && id.startsWith('gfx:') && activeTool === 'select';
+    pointTargetRef.current = editable ? id : null;
+    pointHandlesRef.current = editable && symbol ? symbolEditHandles(symbol, id) : [];
+    pointLeadersRef.current = editable && symbol ? symbolIndicatorLines(symbol, id) : [];
+    if (!editable) {
+      pointDragRef.current = null;
+      hoveredHandleRef.current = null;
+    }
+  }, [selection, symbol, activeTool]);
+
+  /**
+   * `EDIT_POINTS::FindPoint` — each handle's own box, POINT_SIZE screen pixels
+   * wide however far you are zoomed, so the tolerance converts back through the
+   * view scale.
+   */
+  const handleAt = useCallback((p: Vec2): EditHandle | null => {
+    const vp = viewportRef.current;
+    const handles = pointHandlesRef.current;
+    if (!vp || handles.length === 0) return null;
+    const tol = (EDIT_POINT_SIZE * dpr()) / vp.scale;
+    let best: EditHandle | null = null;
+    let bestD = Number.POSITIVE_INFINITY;
+    for (const h of handles) {
+      const d = Math.hypot(h.at.x - p.x, h.at.y - p.y);
+      // A corner wins a tie: it sits on top of the two edge handles beside it.
+      if (d <= tol && (d < bestD || (d === bestD && h.kind === 'point'))) {
+        best = h;
+        bestD = d;
+      }
+    }
+    return best;
+  }, []);
+
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
     const vp = viewportRef.current;
@@ -261,6 +335,16 @@ export const SymbolCanvas = forwardRef<SymbolCanvasController, Props>(function S
     const md = moveDeltaRef.current;
     if (doc && modeRef.current === 'move' && md && (md.x !== 0 || md.y !== 0)) {
       doc = moveSymbolItems(doc, selection, md);
+    }
+    // The live reshape, from the same pure function the release commits.
+    if (doc && modeRef.current === 'point' && pointDragRef.current && pointDragPosRef.current) {
+      const id = pointTargetRef.current;
+      if (id) {
+        doc = dragSymbolHandle(doc, id, pointDragRef.current, pointDragPosRef.current, {
+          arcMode: ArcEditMode.KeepCenterAdjustAngleRadius,
+          dragPins: symCfg.drag_pins_along_with_edges,
+        });
+      }
     }
     renderSymbolScene(ctx, doc, vp, theme, canvas.width, canvas.height, opts, selection);
 
@@ -364,6 +448,49 @@ export const SymbolCanvas = forwardRef<SymbolCanvasController, Props>(function S
       );
       ctx.restore();
     }
+    // Edit points (`EDIT_POINTS::ViewDraw`): a square on every corner or vertex
+    // and a circle at every edge midpoint, at a fixed SCREEN size whatever the
+    // zoom, so this runs in device space. The colours are derived from the
+    // theme's LAYER_AUX_ITEMS exactly as upstream derives them, through the one
+    // shared `editPointColors`.
+    {
+      const handles = pointHandlesRef.current;
+      if (handles.length > 0 && modeRef.current !== 'move') {
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        const r = dpr();
+        const half = (EDIT_POINT_SIZE / 2) * r;
+        const hovered = pointDragRef.current ?? hoveredHandleRef.current;
+        const colors = editPointColors(theme.auxItems, theme.background);
+        ctx.setLineDash([]);
+        // Leaders first, so a handle square sits on top of the line ending at
+        // it. `borderSize / 4`, in the border colour, no midpoint circle.
+        if (pointLeadersRef.current.length > 0) {
+          ctx.strokeStyle = colors.border;
+          ctx.lineWidth = (EDIT_POINT_BORDER_SIZE / 4) * r;
+          ctx.beginPath();
+          for (const [a, b] of pointLeadersRef.current) {
+            ctx.moveTo(a.x * vp.scale + vp.offsetX, a.y * vp.scale + vp.offsetY);
+            ctx.lineTo(b.x * vp.scale + vp.offsetX, b.y * vp.scale + vp.offsetY);
+          }
+          ctx.stroke();
+        }
+        ctx.fillStyle = colors.fill;
+        for (const h of handles) {
+          const x = h.at.x * vp.scale + vp.offsetX;
+          const y = h.at.y * vp.scale + vp.offsetY;
+          const active = hovered?.kind === h.kind && hovered?.index === h.index;
+          ctx.strokeStyle = active ? colors.highlight : colors.border;
+          ctx.lineWidth = (active ? EDIT_POINT_HOVER_SIZE : EDIT_POINT_BORDER_SIZE) * r;
+          ctx.beginPath();
+          if (h.kind === 'line') ctx.arc(x, y, half, 0, Math.PI * 2);
+          else ctx.rect(x - half, y - half, half * 2, half * 2);
+          ctx.fill();
+          ctx.stroke();
+        }
+        ctx.setTransform(vp.scale, 0, 0, vp.scale, vp.offsetX, vp.offsetY);
+      }
+    }
+
     // GAL::blitCursor at the snapped point, in LAYER_SCHEMATIC_CURSOR: the
     // symbol editor is an SCH_BASE_FRAME and reads eeschema's cursor layer
     // (sch_render_settings.h:71). It had none at all before.
@@ -721,6 +848,18 @@ export const SymbolCanvas = forwardRef<SymbolCanvasController, Props>(function S
 
       (e.target as Element).setPointerCapture(e.pointerId);
       if (!symbol) return;
+
+      // A handle wins over the item under it: `SCH_POINT_EDITOR` runs before
+      // the selection tool's drag, which is why grabbing a corner resizes
+      // rather than moving the whole shape.
+      const grabbed = handleAt(world);
+      if (grabbed) {
+        pointDragRef.current = grabbed;
+        modeRef.current = 'point';
+        draw();
+        return;
+      }
+
       const hit = hitTestSymbol(
         symbol,
         opts.unit,
@@ -824,6 +963,14 @@ export const SymbolCanvas = forwardRef<SymbolCanvasController, Props>(function S
         draw();
         return;
       }
+      // A live handle drag. `SCH_POINT_EDITOR` reshapes the item on every
+      // motion and commits once on release, so the preview and the committed
+      // result come from the same pure function.
+      if (modeRef.current === 'point' && pointDragRef.current) {
+        pointDragPosRef.current = snap(world);
+        draw();
+        return;
+      }
       if (modeRef.current === 'move' && moveStartRef.current) {
         const raw = { x: world.x - moveStartRef.current.x, y: world.y - moveStartRef.current.y };
         // `SYMBOL_EDITOR_MOVE_TOOL` moves by whole grid steps, and the grid is
@@ -846,6 +993,16 @@ export const SymbolCanvas = forwardRef<SymbolCanvasController, Props>(function S
       if (pendingPin || pendingText) {
         draw();
         return;
+      }
+      // Idle: which handle is under the pointer, so it can thicken.
+      // `EDIT_POINTS::ViewDraw` uses HOVER_SIZE for a hovered or active point.
+      if (modeRef.current === 'idle' && pointHandlesRef.current.length > 0) {
+        const over = handleAt(world);
+        const prev = hoveredHandleRef.current;
+        if (over?.kind !== prev?.kind || over?.index !== prev?.index) {
+          hoveredHandleRef.current = over;
+          draw();
+        }
       }
       // Nothing is in flight, but the crosshair still follows the pointer.
       draw();
@@ -882,7 +1039,28 @@ export const SymbolCanvas = forwardRef<SymbolCanvasController, Props>(function S
       if (activeTool !== 'select') return;
       (e.target as Element).releasePointerCapture(e.pointerId);
       let committed = false;
-      if (modeRef.current === 'move') {
+      if (modeRef.current === 'point') {
+        // One commit on release, from the same `dragSymbolHandle` the preview
+        // ran — so what is drawn and what is stored cannot disagree.
+        const h = pointDragRef.current;
+        const at = pointDragPosRef.current;
+        const id = pointTargetRef.current;
+        if (symbol && h && at && id) {
+          const next = dragSymbolHandle(symbol, id, h, at, {
+            arcMode: ArcEditMode.KeepCenterAdjustAngleRadius,
+            // `editor.GetSettings()->m_dragPinsAlongWithEdges`
+            // (`sch_point_editor.cpp:652-653`) — Preferences > Symbol Editor >
+            // Editing Options' "Keep pins attached when dragging edges".
+            dragPins: symCfg.drag_pins_along_with_edges,
+          });
+          if (next !== symbol) {
+            onCommit(next, 'Drag Corner');
+            committed = true;
+          }
+        }
+        pointDragRef.current = null;
+        pointDragPosRef.current = null;
+      } else if (modeRef.current === 'move') {
         const d = moveDeltaRef.current;
         if (symbol && d && (d.x !== 0 || d.y !== 0) && selection.size > 0) {
           onCommit(moveSymbolItems(symbol, selection, d), 'Move');

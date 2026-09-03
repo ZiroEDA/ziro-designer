@@ -37,6 +37,16 @@ import {
 import { symbolGridIU } from './grid.js';
 import { incrementString } from '@ziroeda/eeschema/src/tools/repeat_item.js';
 import { schIUScale } from '@ziroeda/common/src/eda_units.js';
+import {
+  type EditHandle,
+  dragGraphic,
+  draggedRectEdge,
+  graphicHandles,
+  graphicIndicatorLines,
+  pinRoot,
+  pinRootOnSeg,
+} from '@ziroeda/eeschema/src/tools/point_editor.js';
+import type { ArcEditMode } from '@ziroeda/eeschema/src/tools/arc_edit.js';
 
 export interface SymItemRef {
   kind: SymItemKind;
@@ -612,6 +622,93 @@ export function createImagePins(
     out = addPinToSymbol(out, copy, ii, bodyStyle).sym;
   }
   return out;
+}
+
+/**
+ * The point editor, in the symbol editor.
+ *
+ * `SCH_POINT_EDITOR` is ONE tool registered by both `SCH_EDIT_FRAME`
+ * (`sch_edit_frame.cpp:705`) and `SYMBOL_EDIT_FRAME`
+ * (`symbol_edit_frame.cpp:431`), over one `pointEditorTypes` list
+ * (`sch_point_editor.cpp:50-56`). A rectangle therefore carries the same eight
+ * handles in either editor, and the geometry is the shared behaviours in
+ * `eeschema/src/tools/point_editor.ts` — this file resolves the selection and
+ * writes the result back, and computes nothing of its own.
+ *
+ * The symbol editor sees only `SCH_SHAPE_T` of that list: a `LIB_SYMBOL` holds
+ * shapes and pins, and there are no sheets, tables or bitmaps inside one.
+ */
+export function symbolEditHandles(sym: LibSymbol, id: string): EditHandle[] {
+  const g = findGraphicById(sym, id);
+  return g ? graphicHandles(g.graphic) : [];
+}
+
+/** The leader lines a bezier's control points and an arc's centre get. */
+export function symbolIndicatorLines(sym: LibSymbol, id: string): [Vec2, Vec2][] {
+  return graphicIndicatorLines(findGraphicById(sym, id)?.graphic);
+}
+
+/**
+ * Drag one handle of one shape, and carry the pins on a dragged EDGE with it.
+ *
+ * The pin half is `SCH_POINT_EDITOR::dragPinsOnEdge` (`:641-704`), which is
+ * gated on the frame being the symbol editor AND on
+ * `m_dragPinsAlongWithEdges` — Preferences > Symbol Editor > Editing Options'
+ * "Keep pins attached when dragging edges". With it off the shape resizes and
+ * the pins stay exactly where they were.
+ *
+ * Only pins in the SAME unit as the shape move (`aEdgeUnit == 0 ||
+ * aEdgeUnit == editor.GetUnit()`, `:658`), and `GetGraphicalPins( aUnit, 0 )`
+ * is what upstream collects them from.
+ */
+export function dragSymbolHandle(
+  sym: LibSymbol,
+  id: string,
+  handle: EditHandle,
+  pos: Vec2,
+  opts: { arcMode: ArcEditMode; dragPins: boolean },
+): LibSymbol {
+  const found = findGraphicById(sym, id);
+  if (!found) return sym;
+
+  const before = found.graphic;
+  const after = dragGraphic(before, handle, pos, opts.arcMode);
+  if (after === before) return sym;
+
+  let next = mapUnit(sym, found.unitIdx, (u) => ({
+    ...u,
+    graphics: u.graphics.map((x, i) => (i === found.itemIdx ? after : x)),
+  }));
+
+  // `dragPinsOnEdge` — a rectangle EDGE drag only, and only with the setting on.
+  if (!opts.dragPins) return next;
+  if (before.kind !== 'rectangle' || after.kind !== 'rectangle') return next;
+  const edge = draggedRectEdge(before, after, handle);
+  // `if( aMoveVecs[i] == VECTOR2I( 0, 0 ) … ) continue;`
+  if (!edge || (edge.move.x === 0 && edge.move.y === 0)) return next;
+
+  next = mapUnit(next, found.unitIdx, (u) => ({
+    ...u,
+    pins: u.pins.map((pin) =>
+      pinRootOnSeg(pinRoot(pin), edge.seg)
+        ? { ...pin, at: { x: pin.at.x + edge.move.x, y: pin.at.y + edge.move.y } }
+        : pin,
+    ),
+  }));
+  return next;
+}
+
+/** The graphic behind a selection id, with the unit it lives in. */
+function findGraphicById(
+  sym: LibSymbol,
+  id: string,
+): { graphic: LibGraphic; unitIdx: number; itemIdx: number } | null {
+  for (const [ui, u] of sym.units.entries()) {
+    for (const [gi, g] of u.graphics.entries()) {
+      if (symItemId('gfx', ui, gi) === id) return { graphic: g, unitIdx: ui, itemIdx: gi };
+    }
+  }
+  return null;
 }
 
 /**
