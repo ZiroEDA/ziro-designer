@@ -16,7 +16,8 @@
     "demos:upload": "node --env-file=.env tools/demos/upload.mjs",
     "demos:bundle": "node --env-file=.env tools/demos/bundle.mjs",
     "libraries:split": "node --env-file=.env tools/libraries/split_upload.mjs",
-    "libraries:reindex": "node --env-file=.env tools/libraries/reindex.mjs"
+    "libraries:reindex": "node --env-file=.env tools/libraries/reindex.mjs",
+    "libraries:bundle": "node --env-file=.env tools/libraries/bundle.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.3",
