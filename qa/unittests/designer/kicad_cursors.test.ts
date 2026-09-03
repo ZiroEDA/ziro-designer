@@ -122,11 +122,15 @@ describe('the value the browser is given', () => {
 
   it('always offers the plain 32x32 art, whatever image-set does', () => {
     // `cursor` takes a LIST and the browser uses the first candidate it can
-    // draw. An engine that PARSES `image-set()` here but declines to render
-    // one — which `CSS.supports` cannot tell you, because it answers about the
-    // grammar rather than about this property's parser — used to fall straight
-    // past the only art we offered and land on the arrow. Every custom cursor
-    // in the app was the plain pointer for that reason.
+    // draw, so an engine that PARSES `image-set()` here but declines to render
+    // one falls through to art at the right size instead of to the arrow.
+    //
+    // NOT what was wrong when this was written. [px] Chrome 149 parses, keeps
+    // and computes the image-set (see `SUPPORTS_IMAGE_SET`); the canvas that
+    // showed the plain arrow had `use_custom_cursors: false` stored, i.e.
+    // Preferences > Common > "Disable custom cursors". This is a spare wheel,
+    // pinned so it does not quietly go away, and the note is here so nobody
+    // spends the session on it that its first author did.
     const plain = candidates.filter((c) => /^url\(/.test(c));
     expect(plain.length, value).toBe(1);
     expect(plain[0]).toContain('cursor-measure.png');

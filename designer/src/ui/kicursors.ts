@@ -171,13 +171,23 @@ const IMAGE_SET_PROBE = 'image-set(url(a.png) 1x, url(b.png) 2x) 0 0, auto';
  * dropped WHOLE, comma fallback and all, so a browser without it would get no
  * cursor rather than the 32x32 one.
  *
- * Asked of the REAL property on a real element rather than of `CSS.supports`.
- * The two are not the same question: `CSS.supports` answers about the grammar,
- * and a style assignment answers whether this engine's `cursor` parser kept
- * the value — which is what actually decides whether a cursor appears. An
- * engine that parses the function elsewhere but not here says yes to the first
- * and no to the second, and believing the first is how every custom cursor in
- * the app can silently become the plain arrow.
+ * Asked of the REAL property on a real element rather than of `CSS.supports`,
+ * because they are not quite the same question: `CSS.supports` answers about
+ * the grammar, and a style assignment answers whether this engine's `cursor`
+ * parser kept the value.
+ *
+ * [px] on this machine the two agree, and both say yes. A probe against
+ * Chrome 149 (`google-chrome --headless=new`, 2026-09-04): `CSS.supports` true,
+ * the assignment retained verbatim, and `getComputedStyle().cursor` holding the
+ * image-set with its descriptors resolved to `1dppx`/`2dppx`. So this is not a
+ * workaround for anything observed — it is the narrower question, asked
+ * because it is the one that decides.
+ *
+ * Recorded because a session was spent on the wrong suspect: a canvas showing
+ * the plain arrow where KiCad shows its art is far more likely to be
+ * {@link customCursorsEnabled} answering false — Preferences > Common >
+ * "Disable custom cursors", which is persisted per browser and invisible from
+ * the canvas. Check that FIRST.
  */
 const SUPPORTS_IMAGE_SET = ((): boolean => {
   if (typeof document === 'undefined') return false;
@@ -226,10 +236,11 @@ export function kiCursor(name: KiCursor): string {
   if (!one) return STOCK_CURSOR;
   const hot = `${spec.x} ${spec.y}`;
   // `cursor` takes a LIST, and the browser uses the first candidate it can
-  // actually draw. So the 32x32 url always stands behind the image-set rather
-  // than instead of it: an engine that parses `image-set()` here but declines
+  // actually draw. So the 32x32 url stands behind the image-set rather than
+  // the keyword doing: an engine that parses `image-set()` here but declines
   // to render one falls through to art at the right size instead of to the
-  // arrow, and that fall-through costs nothing where image-set does work.
+  // arrow. Chrome 149 needs none of that (see SUPPORTS_IMAGE_SET) — it is a
+  // spare wheel, and it costs one more candidate in a string.
   const candidates: string[] = [];
   if (SUPPORTS_IMAGE_SET && two)
     candidates.push(`image-set(url(${one}) 1x, url(${two}) 2x) ${hot}`);
