@@ -80,7 +80,6 @@ export const BITMAP: Record<string, string> = {
   selectLayerPair: 'select_layer_pair',
   gridOrigin: 'grid_select_axis',
   placePoint: 'add_point',
-  measure: 'measurement',
   // pcb editor right toolbar (master DefaultToolbarConfig ids)
   selectSetRect: 'cursor',
   selectSetLasso: 'lasso',
@@ -100,6 +99,12 @@ export const BITMAP: Record<string, string> = {
   drawLeader: 'add_leader',
   placeBarcode: 'add_barcode',
   gridSetOrigin: 'grid_select_axis',
+  // `ACTIONS::measureTool` — `.Icon( BITMAPS::measurement )`
+  // (`common/tool/actions.cpp`). ONE key, because upstream has one action:
+  // pcbnew asked for `measureTool`, the footprint editor for `measure` and
+  // GerbView for `gerbMeasure`, three names in front of the same bitmap and
+  // one of them attached to a toolbar button that armed a tool no canvas
+  // listened for.
   measureTool: 'measurement',
   // `ACTIONS::selectionTool` — `.Icon( BITMAPS::cursor )`
   // (`common/tool/actions.cpp:1227-1233`). The same glyph `selectSetRect` and
@@ -290,7 +295,6 @@ export const BITMAP: Record<string, string> = {
   gerbClearLayer: 'delete_sheet', // clearLayer, :104
   gerbSort: 'reload',
   gerbDcodeList: 'show_dcodenumber', // showDCodes, :83
-  gerbMeasure: 'measurement',
   gerbTogglePolar: 'polar_coord',
   gerbFlashedSketch: 'pad_sketch', // flashedDisplayOutlines, :195
   gerbLinesSketch: 'showtrack', // linesDisplayOutlines, :185

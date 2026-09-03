@@ -145,7 +145,7 @@ export const GBR_LEFT_TOOLBAR: ToolEntry[] = [
   { id: 'select', icon: 'select', title: 'Select item(s)' },
   {
     id: 'measure',
-    icon: 'gerbMeasure',
+    icon: 'measureTool',
     title: 'Interactively measure distance between points',
   },
   sep,

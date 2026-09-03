@@ -358,7 +358,15 @@ export function footprintEditorMenus(
     {
       label: 'Inspect',
       items: [
-        stub('Measure Tool', 'measureTool', { shortcut: 'Ctrl+Shift+M' }),
+        // `ACTIONS::measureTool` — the same tool the right toolbar arms, and a
+        // real item rather than a stub now that the canvas hears it.
+        {
+          label: 'Measure Tool',
+          icon: 'measureTool',
+          action: () => h.tool('measureTool'),
+          shortcut: 'Ctrl+Shift+M',
+          tooltip: 'Interactively measure distance between points',
+        },
         SEP,
         // pcb_actions.cpp:954 — FriendlyName "Footprint Checker", no ellipsis.
         stub('Footprint Checker', 'checkFootprint'),

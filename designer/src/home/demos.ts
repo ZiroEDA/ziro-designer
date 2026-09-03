@@ -9,9 +9,19 @@
  * VITE_DEMOS_URL points at it (Cloudflare R2, same pattern as the 3D model
  * library; build the upload tree with tools/demos/build.mjs). Opening a demo
  * fetches its files verbatim (no renaming, a demo opens as itself).
+ *
+ * **A demo arrives whole.** It used to hold back .step/.stp/.wrl/.glb/.pdf/.bin
+ * - 40.7 MB of the CM5 demo's 46 - and fetch them later, because 89 separate
+ * requests made anything else unaffordable. The bundle removed the reason:
+ * the whole project is one object now, so there is nothing to defer and no
+ * second fetch to stall the user mid-edit. It also puts those files in the
+ * project tree, where KiCad has them all along - `s_allowedExtensionsToList`
+ * lists `.pdf` (project_tree_pane.cpp:266), and a deferred file was not in the
+ * file list for the tree to show.
  */
 import type { PickedHomeFile } from './files.js';
 import { DEMOS_HOST } from '../libraryHosts.js';
+import { expandArchive } from './project_archiver.js';
 
 export interface DemoMeta {
   id: string;
@@ -19,6 +29,24 @@ export interface DemoMeta {
   title: string;
   description: string;
   files: string[];
+  /**
+   * Size of this demo's `bundle.zip` on the wire.
+   *
+   * Its presence is what tells the app a single-request open is available;
+   * absent, the per-file path is used, which is what lets this ship before the
+   * corpus is re-uploaded.
+   */
+  bundleBytes?: number;
+  /**
+   * Size of the bundle AFTER the browser decodes `content-encoding`, when the
+   * object is stored brotli-compressed.
+   *
+   * A decoding response streams decoded bytes while `content-length` reports
+   * the compressed size, so measuring one against the other runs a progress
+   * bar to several hundred percent. This is the honest denominator; absent
+   * (an uncompressed object), `content-length` already is.
+   */
+  bundleRawBytes?: number;
 }
 
 const DEMOS_BASE = DEMOS_HOST;
@@ -66,17 +94,73 @@ export function demoAt(path: string, demos: readonly DemoMeta[]): DemoMeta | nul
 
 const encodeRel = (rel: string): string => rel.split('/').map(encodeURIComponent).join('/');
 
+/** Matches `BUNDLE_NAME` in `tools/demos/upload.mjs`. */
+const BUNDLE_NAME = 'bundle.zip';
+
 /**
- * Files a demo carries that nothing needs in order to *open* it.
+ * Fetch a demo as one object.
  *
- * 3D models dominate: the CM5 Minima demo is 46 MB, of which 40.7 MB is STEP
- * bodies and a datasheet PDF, against 5 MB of schematic, board and footprints.
- * None of it is read to show a schematic or a board, only to render the 3D view
- * or to open the document from the project tree, so waiting for it before the
- * editor appears is 89% of the wait for nothing.
+ * The cost of a demo is round trips, not bytes — CM5 Minima's 89 files are
+ * 5.3 MB and took 8.45 s measured, because the bucket speaks HTTP/1.1 and the
+ * browser caps connections per host at about six. One zip is one request, and
+ * its deflate is also the compression the bucket does not do (every object is
+ * served uncompressed as `application/octet-stream`).
+ *
+ * Progress is bytes here rather than files, which is both honest for a single
+ * object and a better gauge: the old counter jumped in 89 discrete steps whose
+ * sizes differed by three orders of magnitude.
+ *
+ * Returns null on any failure, so the caller falls back to per-file fetches.
  */
-export const isDeferrableDemoFile = (rel: string): boolean =>
-  /\.(step|stp|wrl|glb|pdf|bin)$/i.test(rel);
+async function fetchDemoBundle(
+  d: DemoMeta,
+  onProgress?: (done: number, total: number, file: string) => void,
+): Promise<PickedHomeFile[] | null> {
+  try {
+    const res = await fetch(`${DEMOS_BASE}/${encodeRel(d.id)}/${BUNDLE_NAME}`);
+    if (!res.ok) return null;
+
+    // Decoded size first: `content-length` counts compressed bytes when the
+    // object carries `content-encoding`, and the stream below yields decoded
+    // ones.
+    const total =
+      d.bundleRawBytes || Number(res.headers.get('content-length')) || d.bundleBytes || 0;
+    let bytes: Uint8Array;
+    if (res.body && total > 0) {
+      const reader = res.body.getReader();
+      const chunks: Uint8Array[] = [];
+      let got = 0;
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+        got += value.length;
+        onProgress?.(got, total, d.base);
+      }
+      bytes = new Uint8Array(got);
+      let at = 0;
+      for (const c of chunks) {
+        bytes.set(c, at);
+        at += c.length;
+      }
+    } else {
+      bytes = new Uint8Array(await res.arrayBuffer());
+    }
+
+    // The same reader that opens a user's uploaded .zip; a demo bundle is not
+    // a new format, so there is nothing here to keep in step with the writer.
+    const entries = expandArchive(bytes);
+    if (!entries || entries.length === 0) return null;
+
+    return entries.map((e) => ({
+      name: `${d.base}/${e.name}`,
+      text: dec.decode(e.data),
+      bytes: e.data,
+    }));
+  } catch {
+    return null;
+  }
+}
 
 /** Run `work` over `items`, at most `limit` in flight. */
 async function mapLimit<T, R>(
@@ -126,7 +210,13 @@ async function fetchDemoFiles(
 }
 
 /**
- * Fetch what a demo needs to open: everything except the deferrable files.
+ * Fetch a demo, whole.
+ *
+ * Nothing is deferred: the bundle carries the entire project in one request,
+ * and the per-file fallback fetches every file the manifest lists, so the two
+ * paths deliver the same project. (This said "everything except the deferrable
+ * files" until `isDeferrableDemoFile` was deleted, and then said it for a
+ * function that no longer had a second half.)
  *
  * `onProgress(done, total, file)` ticks as each arrives, so the caller can show
  * a determinate gauge.
@@ -135,21 +225,12 @@ export async function openDemo(
   d: DemoMeta,
   onProgress?: (done: number, total: number, file: string) => void,
 ): Promise<PickedHomeFile[]> {
-  return fetchDemoFiles(
-    d,
-    d.files.filter((rel) => !isDeferrableDemoFile(rel)),
-    onProgress,
-  );
-}
-
-/**
- * The rest of a demo's files, fetched after it is already on screen.
- *
- * The project is still expected to be complete: it lands in Recent, it syncs,
- * and its 3D view has to work. So these arrive too, just not in the way of the
- * user seeing their board. Returns an empty list when there are none.
- */
-export async function fetchDemoExtras(d: DemoMeta): Promise<PickedHomeFile[]> {
-  const rels = d.files.filter(isDeferrableDemoFile);
-  return rels.length === 0 ? [] : fetchDemoFiles(d, rels);
+  // A bundle carries the WHOLE project, 3D models included, so nothing is
+  // deferred and nothing stalls later: a wait the user watched on purpose is
+  // better than one that interrupts them mid-edit.
+  if (d.bundleBytes) {
+    const bundled = await fetchDemoBundle(d, onProgress);
+    if (bundled) return bundled;
+  }
+  return fetchDemoFiles(d, d.files, onProgress);
 }

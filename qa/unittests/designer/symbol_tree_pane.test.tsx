@@ -297,10 +297,18 @@ describe('the row faces reach the DOM', () => {
    * equivalent: the borrowed symbol goes into a transient library that has no
    * file behind it, so both it and its library are modified from the moment
    * they appear, and the symbol is the one on the canvas. That is three of the
-   * four faces at once — `Schematic *` bold, `R *` bold, and `R` struck
-   * through as "is canvas item".
+   * four faces at once — `Schematic *` bold, `R *` bold, and `R` MARKED as the
+   * canvas item.
+   *
+   * Marked, not struck through. `LIB_TREE_RENDERER::SetAttr` reads the
+   * strikethrough attribute as a flag - upstream's own words, "uses
+   * strikethrough as a proxy for is-canvas-item" - and then clears it,
+   * `realAttr.SetStrikethrough( false )` (common/lib_tree_model_adapter.cpp:95),
+   * so no line is ever drawn. `Render` (:100-116) draws a six-point outline
+   * round the cell instead. This asserted the line, which is why the porting
+   * bug survived a green suite.
    */
-  it('shows the asterisk, the bold and the strikethrough the adapter answers', async () => {
+  it('shows the asterisk, the bold and the canvas-item outline the adapter answers', async () => {
     const sym = readSymbolLib(parse(LIB)).find((s) => s.libId === 'R')!;
     const { container, unmount } = render(
       <SymbolEditor
@@ -309,10 +317,15 @@ describe('the row faces reach the DOM', () => {
       />,
     );
     await waitFor(() => expect(rotateLive(container)).toBe(true));
-    const cell = (name: string): { text: string; style: string } => {
+    const cell = (name: string): { text: string; style: string; marked: boolean } => {
       const row = rows(container).find((r) => itemText(r).startsWith(name))!;
       const el = row.querySelector('.col-item') as HTMLElement;
-      return { text: el.textContent ?? '', style: el.getAttribute('style') ?? '' };
+      return {
+        text: el.textContent ?? '',
+        style: el.getAttribute('style') ?? '',
+        // `Render`'s outline, which is what the flag actually produces.
+        marked: !!row.querySelector('.ze-libtree-canvasitem'),
+      };
     };
     const lib = cell('Schematic');
     const item = cell('R');
@@ -320,19 +333,22 @@ describe('the row faces reach the DOM', () => {
     expect({
       libText: lib.text,
       libBold: lib.style.includes('font-weight: 700'),
-      // The LIBRARY row is struck through only while COLLAPSED, and a lone
-      // library opens itself, so this one is not.
-      libStruck: lib.style.includes('line-through'),
+      // The LIBRARY row is marked only while COLLAPSED, and a lone library
+      // opens itself, so this one is not.
+      libMarked: lib.marked,
       itemText: item.text,
       itemBold: item.style.includes('font-weight: 700'),
-      itemStruck: item.style.includes('line-through'),
+      itemMarked: item.marked,
+      // The line upstream never draws, on either row.
+      anyLineThrough: lib.style.includes('line-through') || item.style.includes('line-through'),
     }).toEqual({
       libText: 'Schematic *',
       libBold: true,
-      libStruck: false,
+      libMarked: false,
       itemText: 'R *',
       itemBold: true,
-      itemStruck: true,
+      itemMarked: true,
+      anyLineThrough: false,
     });
   });
 });

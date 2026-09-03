@@ -12,6 +12,7 @@
  * as the symbol libraries (FOOTPRINTS_BASE / VITE_FOOTPRINTS_URL).
  */
 import type { PcbFootprint } from '@ziroeda/pcbnew';
+import { footprintText } from '../libraryBundleStore.js';
 import { EdaCombinedMatcher, searchTerm, type SearchTerm } from '@ziroeda/common';
 import { fetchLibraryIndex, libraryBase } from '../libraryHosts.js';
 import { trackLibraryLoad } from './library_loading.js';
@@ -168,10 +169,15 @@ export function loadFootprint(libId: string): Promise<PcbFootprint | null> {
     p = trackLibraryLoad(
       'footprints',
       `Loading ${lib}...`,
-      fetch(
-        `${libraryBase.footprints}/${encodeURIComponent(lib)}.pretty/${encodeURIComponent(name)}.kicad_mod`,
-      )
-        .then((r) => {
+      // The resident catalogue first — it arrives as one object at project
+      // open. Null means this device has no bundle yet, and the fetch is still
+      // the answer, so the network path below is never removed.
+      footprintText(lib, name)
+        .then(async (resident) => {
+          if (resident !== null) return resident;
+          const r = await fetch(
+            `${libraryBase.footprints}/${encodeURIComponent(lib)}.pretty/${encodeURIComponent(name)}.kicad_mod`,
+          );
           if (!r.ok) throw new Error(String(r.status));
           return r.text();
         })

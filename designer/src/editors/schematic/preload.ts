@@ -29,7 +29,7 @@
  */
 
 import type { Schematic } from '@ziroeda/eeschema';
-import { preloadLibraries, workQueueAdapter } from '../../libraryPreload.js';
+import { preloadBundle, preloadLibraries, workQueueAdapter } from '../../libraryPreload.js';
 import { symbolPreloadWork } from './symbols/index.js';
 import { terminatePreloadPool } from './symbols/preload_pool.js';
 import { footprintPreloadWork } from '../../widgets/footprint_list.js';
@@ -71,15 +71,22 @@ export function preloadSchematicLibraries(docs: Iterable<Schematic>): void {
   const all = [...docs];
   const footprints = footprintPreloadWork(assignedFootprintIds(all));
   setTimeout(() => {
-    // Symbols: every library, which needs the index first because the index is
-    // our library table. Awaiting it here rather than making it a work item
-    // keeps the gauge counting libraries, as `m_loadTotal = rows.size()` does.
-    void symbolPreloadWork()
-      .then((symbols) => preloadLibraries('symbols', workQueueAdapter(symbols)))
-      // `GetKiCadThreadPool().purge(); .wait();` (common/single_top.cpp:93-94).
-      // Each parse worker is a whole JS realm with our parser instantiated in
-      // it, and nothing else uses the pool once the preload has drained.
-      .finally(terminatePreloadPool);
-    void preloadLibraries('footprints', workQueueAdapter(footprints));
+    // The stock catalogue first, as one object per kind. Everything below then
+    // reads it out of IndexedDB instead of fetching library by library; when
+    // there is no bundle it simply falls through to the network, unchanged.
+    void preloadBundle('symbols').then(() =>
+      // Symbols: every library, which needs the index first because the index is
+      // our library table. Awaiting it here rather than making it a work item
+      // keeps the gauge counting libraries, as `m_loadTotal = rows.size()` does.
+      symbolPreloadWork()
+        .then((symbols) => preloadLibraries('symbols', workQueueAdapter(symbols)))
+        // `GetKiCadThreadPool().purge(); .wait();` (common/single_top.cpp:93-94).
+        // Each parse worker is a whole JS realm with our parser instantiated in
+        // it, and nothing else uses the pool once the preload has drained.
+        .finally(terminatePreloadPool),
+    );
+    void preloadBundle('footprints').then(() =>
+      preloadLibraries('footprints', workQueueAdapter(footprints)),
+    );
   }, 0);
 }

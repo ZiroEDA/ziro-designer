@@ -406,6 +406,44 @@ export interface ActivationHandlers {
  * the same as {@link Activation}'s `none`, which is upstream deciding there is
  * nothing to do; that returns `true`, because the switch was honoured.
  */
+/**
+ * The MIME type a browser will RENDER this file as, or null if it will not.
+ *
+ * Four of `Activate`'s branches end in the operating system, and this app has
+ * no shell to hand a path to (see the note at the top of this module). But the
+ * substitute is not always "nothing": a browser IS the system PDF viewer, the
+ * default browser, and the default application for an image. So the branches
+ * that upstream hands to the OS are answered here where the browser can answer
+ * them, and left alone where it cannot.
+ *
+ * A `.zip` gets null, deliberately. There is nothing to show, and the tree's
+ * own `Download...` (project_tree_menu.ts) is where a file the browser cannot
+ * render is meant to be fetched from.
+ */
+export function browserViewableMime(name: string): string | null {
+  const ext = name.split('.').pop()?.toLowerCase() ?? '';
+  switch (ext) {
+    case 'pdf':
+      return 'application/pdf';
+    case 'svg':
+      return 'image/svg+xml';
+    case 'htm':
+    case 'html':
+      return 'text/html';
+    case 'png':
+      return 'image/png';
+    case 'jpg':
+    case 'jpeg':
+      return 'image/jpeg';
+    case 'gif':
+      return 'image/gif';
+    case 'webp':
+      return 'image/webp';
+    default:
+      return null;
+  }
+}
+
 export function runActivation(activation: Activation, handlers: ActivationHandlers): boolean {
   const run = (fn: (() => void) | undefined): boolean => {
     if (!fn) return false;

@@ -4,7 +4,7 @@
 import { iuToMM, SCH_IU_PER_MM } from '@ziroeda/common';
 import { parse } from '@ziroeda/sexpr';
 import type { Vec2 } from '@ziroeda/kimath';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   letterSubReference,
   readSymbolLib,
@@ -18,6 +18,10 @@ import {
 import * as sexpr from '@ziroeda/sexpr';
 import { MenuBar, type Menu } from '../../ui/MenuBar.js';
 import { Toolbar } from '../../ui/Toolbar.js';
+import { useStatusReadout } from '../../ui/useStatusReadout.js';
+
+/** `SCH_SCREEN::m_LocalOrigin`; a module constant so its identity is stable. */
+const SYM_LOCAL_ORIGIN = { x: 0, y: 0 };
 import { LoadingOverlay } from '../../ui/LoadingOverlay.js';
 import { formatTitle, useDocumentTitle } from '../../ui/useDocumentTitle.js';
 import { useUnsavedGuard } from '../../ui/useUnsavedGuard.js';
@@ -29,8 +33,6 @@ import { SymbolTreeSynchronizingAdapter } from './symbol_tree_synchronizing_adap
 import { KiStatusBar } from '../../ui/KiStatusBar.js';
 import { MsgPanel, type MsgPanelItem } from '../../ui/MsgPanel.js';
 import {
-  coordsMsg,
-  deltasMsg,
   gridMsg,
   messageTextFromValue,
   type StatusUnits,
@@ -236,6 +238,7 @@ export function SymbolEditor({
   openRequest,
   schematicSymbol,
   onSaveToSchematic,
+  readOnlyNotice,
 }: {
   onExitToHome: () => void;
   /** The open project's folder name, for the chooser's Save/Open places. */
@@ -257,6 +260,24 @@ export function SymbolEditor({
   /** Save, when the open symbol came from the schematic: the edit goes back to
    *  the placement instead of to a library (SaveSymbolToSchematic). */
   onSaveToSchematic?: (sym: LibSymbol) => void;
+  /**
+   * The WX_INFOBAR strip above the canvas.
+   *
+   * `SYMBOL_EDIT_FRAME::ShowInfoBarMessages` (symbol_edit_frame.cpp:1052-1056)
+   * raises one whenever the open symbol's library cannot be written:
+   *
+   *     _( "Library is read-only.  Changes cannot be saved to this library." )
+   *
+   * plus a "Create an editable copy" hyperlink. We had none - opening a
+   * .kicad_sym out of a read-only project showed a canvas with no indication
+   * that nothing would be kept.
+   *
+   * The frame does not decide this, because the reason it is read-only lives
+   * outside it: the caller owns the project, so the caller owns the bar. That
+   * is the same split pl_editor already uses, and it is what makes the whole
+   * project - not one symbol - the thing "Save a copy" copies.
+   */
+  readOnlyNotice?: ReactNode;
 }): JSX.Element {
   const manager = useRef(new SymbolLibraryManager());
   // `SYMBOL_EDIT_FRAME::GetColorSettings` (`symbol_edit_frame.cpp:402-410`),
@@ -325,7 +346,28 @@ export function SymbolEditor({
     () => mergeSymbolToggles(sessionToggles, symCfg),
     [sessionToggles, symCfg],
   );
-  const [cursor, setCursor] = useState<Vec2 | null>(null);
+  const unitsLabel: StatusUnits = toggles.has('unitsInches')
+    ? 'in'
+    : toggles.has('unitsMils')
+      ? 'mils'
+      : 'mm';
+  /**
+   * The panes that follow the pointer, written through refs.
+   *
+   * `SCH_BASE_FRAME::UpdateStatusBar` writes them with `SetStatusText` on every
+   * cursor motion and repaints nothing else. This frame held the cursor in
+   * `useState` instead, so every mouse move re-rendered the whole editor — the
+   * toolbars, the library tree, the canvas props — before the frame that moves
+   * the crosshair. `localOrigin` is `SCH_SCREEN::m_LocalOrigin`, which this
+   * editor never moves (no `ACTIONS::resetLocalCoords` binding yet), so the
+   * deltas are measured from the symbol anchor.
+   */
+  const statusReadout = useStatusReadout({
+    units: unitsLabel,
+    localOrigin: SYM_LOCAL_ORIGIN,
+    devicePixelRatio: typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1,
+    iuPerMM: SCH_IU_PER_MM,
+  });
   const [scale, setScale] = useState(1);
   const [status, setStatus] = useState('');
   const [loading, setLoading] = useState<string | null>(null);
@@ -432,6 +474,7 @@ export function SymbolEditor({
     // registered by neither (`HasLibrary( nickname, true )`).
     for (const { row, file } of resolvedProjectSymLibs(initialProject ?? [])) {
       if (row.disabled) continue;
+      if (row.descr) libDescs.current.set(row.name, row.descr);
       manager.current.addProjectLibrary(row.name, file.name, file.text);
     }
     // Libraries installed through the Plugin and Content Manager (loaded eagerly
@@ -441,7 +484,10 @@ export function SymbolEditor({
     // Bundled global libraries: names first (like KiCad's lazy library loads).
     loadIndex()
       .then((idx) => {
-        for (const lib of idx) manager.current.addGlobalLibrary(lib.name, lib.symbols);
+        for (const lib of idx) {
+          if (lib.descr) libDescs.current.set(lib.name, lib.descr);
+          manager.current.addGlobalLibrary(lib.name, lib.symbols);
+        }
         bump();
       })
       .catch(() => bump());
@@ -1751,6 +1797,23 @@ export function SymbolEditor({
    * the same reason upstream's adapter holds a `LIB_SYMBOL_LIBRARY_MANAGER*`
    * and a `SYMBOL_EDIT_FRAME*` instead of copies.
    */
+  /**
+   * Library nickname -> the Description cell of its row.
+   *
+   * `SYMBOL_TREE_SYNCHRONIZING_ADAPTER::GetValue` takes it from the sym-lib-
+   * table (`symbol_tree_synchronizing_adapter.cpp:290-294`):
+   *
+   *     if( auto optRow = adapter->GetRow( node->m_LibId.GetLibNickname() ) )
+   *         node->m_Desc = ( *optRow )->Description();
+   *
+   * Both of our sources already carry it - the project table's rows have
+   * `descr`, and the bundled index has `descr` described in its own type as
+   * "the library's own description, shown against its row in the tree" - so
+   * every library row was blank only because nothing joined the two to the
+   * tree. A ref, not state: the tree effect reads it, and writing it must not
+   * be a second render.
+   */
+  const libDescs = useRef(new Map<string, string>());
   const curLibIdRef = useRef('');
   curLibIdRef.current = curLib && curName ? `${curLib}:${curName}` : '';
   const treeAdapter = useMemo(
@@ -1792,9 +1855,10 @@ export function SymbolEditor({
       if (!lib) continue;
       // The Description column of a LIBRARY row is the sym-lib-table row's
       // `Description()` (`symbol_tree_synchronizing_adapter.cpp:290-294`), not
-      // the file name. Our `ManagedLibrary` does not carry the table's descr,
-      // so the cell is empty rather than filled with something else.
-      const libNode = treeAdapter.addLibrary(libName, '', false);
+      // the file name. Upstream additionally prefixes the cell with
+      // "(failed to load)" or "(read-only)" (:296-299); the second waits on the
+      // writability notion `SymbolLibraryManager` still does not have.
+      const libNode = treeAdapter.addLibrary(libName, libDescs.current.get(libName) ?? '', false);
       for (const name of mgr.symbolNames(libName)) {
         const sym = lib.symbols.get(name);
         const item = new LibTreeNode();
@@ -2169,11 +2233,6 @@ export function SymbolEditor({
   // the easier mistake to make.
   useUnsavedGuard(manager.current.hasModifications());
 
-  const unitsLabel: StatusUnits = toggles.has('unitsInches')
-    ? 'in'
-    : toggles.has('unitsMils')
-      ? 'mils'
-      : 'mm';
   // MessageTextFromValue at the eeschema IU scale, which is the short form:
   // mm %.3f (trimmed), mils %.0f, inches %.3f.
   const fmt = (iu: number): string => messageTextFromValue(iuToMM(iu), unitsLabel, SCH_IU_PER_MM);
@@ -2462,29 +2521,42 @@ export function SymbolEditor({
           disabledIds={leftDisabled}
         />
 
-        <div className="ze-canvas-wrap">
-          <SymbolCanvas
-            ref={controller}
-            symbol={workSymbol}
-            theme={theme}
-            opts={opts}
-            selection={selection}
-            activeTool={activeTool}
-            pendingPin={pendingPin}
-            pendingText={pendingText}
-            onSelect={onSelect}
-            onSelectBox={onSelectBox}
-            onCommit={commit}
-            onPinToolClick={onPinToolClick}
-            onPlacePendingPin={onPlacePendingPin}
-            onTextToolClick={onTextToolClick}
-            onPlacePendingText={onPlacePendingText}
-            onPlaceShape={onPlaceShape}
-            onEditItem={onEditItem}
-            onCursorMove={setCursor}
-            onScaleChange={setScale}
-          />
-          {/* Nothing goes here. An empty SYMBOL_EDIT_FRAME draws the axes and
+        {/* The infobar spans the CANVAS, not the frame.
+            `CreateInfoBar` docks it `.Top().Layer( 1 )`
+            (common/eda_base_frame.cpp:1358) and in wxAUI a lower layer sits
+            CLOSER to the centre pane - so the library tree at `.Left().Layer( 3 )`
+            and the left toolbar at `.Left().Layer( 2 )` both take their full
+            height first, and the bar gets only what is left. It was rendered
+            above `ze-body` here, which spans the whole frame including the
+            Libraries dock; upstream never draws it there. The board editor
+            already had this shape. */}
+        <div
+          style={{ flex: 1, minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column' }}
+        >
+          {readOnlyNotice}
+          <div className="ze-canvas-wrap">
+            <SymbolCanvas
+              ref={controller}
+              symbol={workSymbol}
+              theme={theme}
+              opts={opts}
+              selection={selection}
+              activeTool={activeTool}
+              pendingPin={pendingPin}
+              pendingText={pendingText}
+              onSelect={onSelect}
+              onSelectBox={onSelectBox}
+              onCommit={commit}
+              onPinToolClick={onPinToolClick}
+              onPlacePendingPin={onPlacePendingPin}
+              onTextToolClick={onTextToolClick}
+              onPlacePendingText={onPlacePendingText}
+              onPlaceShape={onPlaceShape}
+              onEditItem={onEditItem}
+              onCursorMove={statusReadout.setCursor}
+              onScaleChange={setScale}
+            />
+            {/* Nothing goes here. An empty SYMBOL_EDIT_FRAME draws the axes and
               the grid and no text at all: `LoadOneLibrarySymbolAux` simply
               leaves the screen empty (`symbol_edit_frame.cpp:1546-1555`,
               `emptyScreen`), and the only place upstream says anything is the
@@ -2494,6 +2566,7 @@ export function SymbolEditor({
               What stood here was an invented hint centred on the canvas, in an
               invented grey (`#888`) at an invented 14 px — two chrome literals
               for a control KiCad does not have. */}
+          </div>
         </div>
 
         <Toolbar
@@ -2515,13 +2588,8 @@ export function SymbolEditor({
         fields={{
           message: status,
           zoom: zoomMsg(zoomFactorForScale(scale, dpr, SCH_IU_PER_MM)),
-          coords: cursor ? coordsMsg(fmt(cursor.x), fmt(cursor.y)) : coordsMsg(null),
-          // SCH_SCREEN::m_LocalOrigin, which the symbol editor never moves
-          // (it has no ACTIONS::resetLocalCoords binding yet), so the deltas
-          // are measured from the symbol anchor.
-          deltas: cursor
-            ? deltasMsg(fmt(cursor.x), fmt(cursor.y), fmt(Math.hypot(cursor.x, cursor.y)))
-            : deltasMsg(null),
+          coords: <span ref={statusReadout.coordsRef} />,
+          deltas: <span ref={statusReadout.deltasRef} />,
           // `EDA_DRAW_FRAME::DisplayGridMsg` prints `GetCanvas()->GetGAL()->
           // GetGridSize()`, which is the frame's current grid — the one the
           // Grids page picks — and not a constant.

@@ -157,7 +157,16 @@ describe('the right-hand dock column carries its separator on the canvas side', 
 
   it('moves the border to the left edge, since that is the edge facing the canvas', () => {
     expect(body).toMatch(/border-right:\s*none/);
-    expect(body).toMatch(/border-left:\s*1px solid var\(--chrome-border\)/);
+    // Re-derived, not re-baselined: this pane is `EDA_PANE().Palette()`
+    // (pl_editor_frame.cpp:200), and `Palette()` is the one thing that turns
+    // `PaneBorder( true )` back on (eda_base_frame.h:965-970). So the line is
+    // wxAUI's own pane border, and `qa/probes/aui_sash_probe.cpp` reads that
+    // out of the dock art as 1px of rgb(41,41,41) — not --chrome-border's
+    // #1e1e1e, which is a colour nothing in wxAUI ever asks for. See
+    // aui_pane_border.test.ts for the rest of that border's four sides.
+    expect(body).toMatch(
+      /border-left:\s*var\(--aui-pane-border-size\) solid var\(--aui-pane-border\)/,
+    );
   });
 
   it('floors the pane at its content, which is what `.MinSize` does', () => {

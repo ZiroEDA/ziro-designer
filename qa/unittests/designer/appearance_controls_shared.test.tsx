@@ -504,15 +504,28 @@ describe('the presets and viewports combos', () => {
     expect(getByLabelText('Viewports')).toBeTruthy();
   });
 
+  /**
+   * The entries a `ui/Combo` offers, in order.
+   *
+   * `m_cbLayerPresets` and `m_cbViewports` are wxChoices
+   * (appearance_controls_base.cpp:165, :185), so they are `ui/Combo` and not a
+   * native `<select>`: a select draws its list with the OS and cannot be given
+   * GTK's metrics or colours (see Combo.tsx's header). There is therefore no
+   * `.options` to read - the list exists once the button is pressed.
+   */
+  function comboItems(el: HTMLElement): string[] {
+    fireEvent.click(el);
+    return Array.from(el.ownerDocument.querySelectorAll('[role="option"]')).map((o) =>
+      (o.textContent ?? '').trim(),
+    );
+  }
+
   it.each([
     ['pcbnew', pcbProps],
     ['the footprint editor', fpProps],
   ] as const)('%s lists the eight built-in presets alphabetically', (_n, make) => {
     const { getByLabelText } = render(<AppearanceControls {...make()} />);
-    const options = Array.from((getByLabelText('Presets') as HTMLSelectElement).options).map(
-      (o) => o.text,
-    );
-    expect(options).toEqual([
+    expect(comboItems(getByLabelText('Presets') as HTMLElement)).toEqual([
       'All Copper Layers',
       'All Layers',
       'Back Assembly View',
@@ -532,13 +545,22 @@ describe('the presets and viewports combos', () => {
     ['the footprint editor', fpProps],
   ] as const)('%s opens its viewports combo on the separator', (_n, make) => {
     const { getByLabelText } = render(<AppearanceControls {...make()} />);
-    const sel = getByLabelText('Viewports') as HTMLSelectElement;
-    expect(Array.from(sel.options).map((o) => o.text)).toEqual([
-      '---',
-      'Save viewport...',
-      'Delete viewport...',
-    ]);
-    expect(sel.value).toBe('---');
+    const combo = getByLabelText('Viewports') as HTMLElement;
+    // The shown value, which is what a wxChoice's button paints.
+    expect(combo.querySelector('.ze-combo-shown')?.textContent).toBe('---');
+    expect(comboItems(combo)).toEqual(['---', 'Save viewport...', 'Delete viewport...']);
+  });
+
+  it.each([
+    ['pcbnew', pcbProps],
+    ['the footprint editor', fpProps],
+  ] as const)('%s draws them with Combo, never a native select', (_n, make) => {
+    // A native <select> is the OS's widget: its list, its highlight, its
+    // arrow, none of them GTK's. Both of these were one until 2026-09-03.
+    const { container } = render(<AppearanceControls {...make()} />);
+    const bottom = container.querySelector('.ze-appearance-bottom') as HTMLElement;
+    expect(bottom.querySelectorAll('select')).toHaveLength(0);
+    expect(bottom.querySelectorAll('.ze-combo')).toHaveLength(2);
   });
 });
 

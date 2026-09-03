@@ -177,7 +177,14 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // ordinary wxMenu upstream and is now the shared ContextMenu — it carried
   // #26262b, #444, rgba(0,0,0,0.5), a borderRadius, a minWidth, a boxShadow
   // and two paddings of its own.
-  'editors/pcb': { colours: 63, metrics: 380 },
+  // 63 -> 61: the frame's own measure ruler went. It stroked
+  // `rgba(120,230,255,0.95)` for both the line and the label — a cyan that
+  // appears nowhere in a KiCad theme, where RULER_ITEM takes LAYER_AUX_ITEMS
+  // and nothing else (ruler_item.cpp:320-323) — and it drew one invented
+  // `dist (dx dy)` string where upstream shows four. The item is the shared
+  // `ui/ruler_item` painter now, the one the footprint editor already used.
+  // RESCANNED from this tree.
+  'editors/pcb': { colours: 61, metrics: 380 },
   // 68/215 -> 60/210: the COLOR_SWATCH sweep. Eight `<input type="color">`s
   // across the item dialogs, the net-chain table and the colour-settings
   // panel each carried a '#000000' or '#ffffff' fallback the native control
@@ -444,7 +451,33 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // (`panel_eeschema_editing_options.cpp:79`), and the first column of the
   // Left Click Mouse Commands table, which is plain wxStaticTexts. Both said
   // #9aa0a6. RESCANNED.
-  ui: { colours: 214, metrics: 720 },
+  // 214 -> 213 colours and 720 -> 719 metrics: the docked-pane edges. The
+  // colour is `.ze-statusbar`'s `border-top: 1px solid #292929`, a rule GTK
+  // does not draw at all — [px] pcbnew down x=1660 and x=1700, #373737 through
+  // y=1176 and #2c2c2c from y=1177, nothing between — and the metric is the
+  // 1px that went with it. What survives of that family is `--aui-pane-border`,
+  // which is the value `qa/probes/aui_sash_probe.cpp` reads out of the wxAUI
+  // dock art, so the three rules that used to spell `--toolbar-dock-edge` now
+  // take a token that says what it is. RESCANNED from this tree, and the
+  // per-area table agrees: `ui` is the only row that moved.
+  // 213 -> 209 and 719 -> 711: the Objects tab's opacity control. It was an
+  // `<input type="range">` of its own with a `#55585d` trough, an 11px
+  // `#d0d3d7` thumb and `--slider-fill`'s orange, and the Nets tab's two
+  // panels were a rounded `#313438` box with a `--chrome-border` frame. GTK
+  // paints none of that — [px] pcbnew's real slider is a 4px trough, #e95420
+  // left of a 20px #fcfcfc knob, and its Nets tab is unbroken #272727 with no
+  // box at all. The widget is `ui/Slider`, which already consumes every one of
+  // those as a token. RESCANNED from this tree.
+  // 711 -> 709: the Nets tab's two lists and its header row took their sizer
+  // borders as MARKED numbers — every one is a `wxALL` or a `wxRIGHT|wxLEFT`
+  // out of appearance_controls_base.cpp — while `.ze-nets-list`'s invented
+  // `max-height: 40vh` and the boxes' padding and radius went with the
+  // splitter that replaced them. RESCANNED from this tree.
+  // Both sides of the 2026-09-04 merge with origin/main touched this row's
+  // neighbourhood, so it conflicted. RESCANNED from the MERGED tree rather
+  // than either side's figure being adopted: the scan agrees with 209/709,
+  // which says main's 22 commits moved nothing here.
+  ui: { colours: 209, metrics: 709 },
   // colours 6 -> 7: the opacity slider's #55585d track arrived here with
   // APPEARANCE_CONTROLS; it is the same literal `editors/pcb` lost, not a new
   // one. The panel's own stylesheet adds none: every length in
@@ -472,7 +505,12 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // The swatch the pcbnew adoption added states no unmarked length either:
   // --pgrid-swatch-width is a token declaration, and the one `margin: 1px 0`
   // is a 1px the scanner does not count.
-  widgets: { colours: 7, metrics: 44 },
+  // 7 -> 6: the opacity slider's inline `linear-gradient(... #55585d ...)` on
+  // the Objects row went with the control — the widget is `ui/Slider` now, and
+  // it paints its own track from --chrome-active and --slider-track-bg. The
+  // 45th metric that appeared alongside it, the notebook's `margin: 5px 0`,
+  // carries [data] and its Add() call, so it is not counted. RESCANNED.
+  widgets: { colours: 6, metrics: 44 },
 };
 
 /** Properties whose value the GTK theme decides, so a px in one is drift. */
@@ -805,7 +843,15 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // became one (-19) and Field Name Templates stopped being two panels (-1),
     // and `editors/schematic` is the only row either moved. RESCANNED from the
     // merged tree.
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(554);
+    // 554 -> 553: `.ze-statusbar`'s invented #292929; see the `ui` row.
+    // RESCANNED from this tree, and derived a second time from the per-area
+    // table -- `ui` 214 -> 213 is the only row that moved, and 554 - 1 agrees.
+    // 553 -> 548: the Objects tab's slider and the Nets tab's boxes; see the
+    // `ui` and `widgets` rows. RESCANNED, and the per-area table agrees --
+    // `ui` 213 -> 209 and `widgets` 7 -> 6, which is 553 - 5.
+    // 548 -> 546: pcbnew's own measure ruler; see the `editors/pcb` row.
+    // RESCANNED, and the table agrees -- 63 -> 61 is the only row that moved.
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(546);
     // 1657 -> 1649: the same sweep. A native colour input has no useful
     // default size, so eight of the sixteen sites gave theirs an inline
     // width and height; the shared swatch takes --swatch-*-w/h. Rescanned.
@@ -934,7 +980,14 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // 1505 -> 1501: the Field Name Templates duplicate's four inline style
     // metrics; see the `editors/schematic` row.
     // 1506 -> 1505: see the `ui` row; that one row is the only one that moves.
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1501);
+    // 1501 -> 1500: the 1px that went with `.ze-statusbar`'s invented border;
+    // see the `ui` row. RESCANNED from this tree, and derived a second time
+    // from the per-area table -- `ui` 720 -> 719 is the only row that moved.
+    // 1500 -> 1492: the slider's and the nets boxes' own geometry; see the
+    // `ui` row, 719 -> 711, which is again the only row that moved.
+    // 1492 -> 1490: the Nets tab's sizer borders, now cited; see the `ui` row,
+    // 711 -> 709, the only row that moved.
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1490);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {

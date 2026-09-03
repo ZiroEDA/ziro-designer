@@ -21,7 +21,7 @@ import { recoverySnapshotFrom } from './home/recovery_source.js';
 import { formatTitle, useDocumentTitle } from './ui/useDocumentTitle.js';
 import { pushProject } from './cloud/sync.js';
 import { installSettingsSync } from './cloud/settingsSync.js';
-import { fetchDemoExtras, type DemoMeta } from './home/demos.js';
+import type { DemoMeta } from './home/demos.js';
 import { useAuth } from './auth/AuthProvider.js';
 import {
   reportCloudFailed,
@@ -308,6 +308,11 @@ export function App(): JSX.Element {
    * downloading.
    */
   const [demoSource, setDemoSource] = useState<DemoMeta | null>(null);
+  /** The home frame telling us what it opened; see `onDemoStateChange` there. */
+  const onDemoStateChange = useCallback((demo: DemoMeta | null) => {
+    setDemoProject(!!demo);
+    setDemoSource(demo);
+  }, []);
   // Fetch the editors in the background while the launcher is on screen, so
   // opening one is not the first time its code is asked for.
   useEffect(() => prefetchEditors(), []);
@@ -870,11 +875,10 @@ export function App(): JSX.Element {
     if (!name) return;
     void (async () => {
       try {
-        // Complete it first. The 3D bodies and datasheets were skipped on open
-        // and are wanted now: a copy the user keeps should be the whole demo,
-        // not the part of it that happened to be needed to draw a schematic.
-        const extras = demoSource ? await fetchDemoExtras(demoSource) : [];
-        const files = [...cur, ...extras]
+        // Nothing to complete: a demo arrives whole now, so what is open IS
+        // the whole demo. This used to fetch the 3D bodies and datasheets that
+        // the open had skipped.
+        const files = [...cur]
           .filter((f) => (f.bytes && f.bytes.length > 0) || f.text.length > 0)
           .map((f) => ({ name: f.name, bytes: f.bytes ?? enc.encode(f.text) }));
         await saveProject(name, files);
@@ -1017,6 +1021,7 @@ export function App(): JSX.Element {
       <HomePage
         initialFiles={openFiles}
         activePro={activeProName ?? undefined}
+        activeDemo={demoSource}
         onSwitchProject={switchProject}
         onOpenSchematic={() => {
           openProjectFiles(null);
@@ -1025,6 +1030,11 @@ export function App(): JSX.Element {
           setSchMounted(true);
           setView('schematic');
         }}
+        /* Demo-ness arrives the moment it is known, not when eeschema opens.
+           `onOpenProject` still sets it - that path also carries the files -
+           but it is no longer the ONLY way in, which is what left every other
+           editor thinking a demo was an ordinary project. */
+        onDemoStateChange={onDemoStateChange}
         onOpenProject={(files, start, demo) => {
           openProjectFiles(files);
           setDemoProject(!!demo);
@@ -1035,12 +1045,19 @@ export function App(): JSX.Element {
           setView('schematic');
         }}
         onOpenPcb={(file, files) => {
-          setDemoProject(false);
-          setDemoSource(null);
           if (files) {
+            // The OPEN PROJECT's board (`onOpenPcb(pcbFile, picked)`), so
+            // whatever the project is - a demo included - it still is. Clearing
+            // the flag here is what stopped pcbnew ever showing the read-only
+            // strip: demoNotice went null on the way in, so the bar the board
+            // editor renders had nothing to render.
             openProjectFiles(files);
             setStandalonePcb(null);
           } else {
+            // A lone .kicad_pcb with no project behind it. Not a demo by
+            // definition, whatever was open before.
+            setDemoProject(false);
+            setDemoSource(null);
             setStandalonePcb(file);
             openProjectFiles(null);
           }
@@ -1048,11 +1065,18 @@ export function App(): JSX.Element {
           setView('pcb');
         }}
         onOpenSymbolEditor={(files, startFile) => {
-          setDemoProject(false);
-          setDemoSource(null);
           if (files) {
+            // The OPEN PROJECT's symbols. Whatever the project is - a demo
+            // included - it still is. Clearing the flag here is what lost
+            // [Read Only] the moment a .kicad_sym was opened from the tree,
+            // and with it the gate that stops a demo being edited. The board
+            // editor had the same bug; the footprint editor never did.
             openProjectFiles(files);
             setStandalonePcb(null);
+          } else {
+            // A lone .kicad_sym with no project behind it is not a demo.
+            setDemoProject(false);
+            setDemoSource(null);
           }
           setSymMounted(true);
           setView('symbols');
@@ -1221,6 +1245,14 @@ export function App(): JSX.Element {
               openRequest={symRequest}
               schematicSymbol={symFromSchematic}
               onSaveToSchematic={saveSymbolToSchematic}
+              /* `SYMBOL_EDIT_FRAME::ShowInfoBarMessages` puts up "Library is
+                 read-only.  Changes cannot be saved to this library." with a
+                 "Create an editable copy" link. When a demo project is what
+                 makes it read-only, the thing to copy is the PROJECT - one
+                 editable symbol in a project that still is not saved would be
+                 a worse answer than upstream's - so this is the project's own
+                 strip, the same call pl_editor makes just above. */
+              readOnlyNotice={demoProject ? demoNotice : null}
             />
           </Suspense>
         </div>
@@ -1249,6 +1281,22 @@ export function App(): JSX.Element {
             <DrawingSheetEditor
               onExitToHome={goHome}
               projectName={projectName}
+              /* Two cases, because this frame is reachable both ways.
+                 WITH a project open, the thing to keep is the project, not the
+                 sheet - the editor already saves sheet copies on its own - so
+                 it gets the project's own strip and its Save a copy.
+                 WITHOUT one, there is nothing to save a copy OF, so it is
+                 upstream's bar verbatim: `_( "Layout file is read only." )`
+                 after RemoveAllButtons() and AddCloseButton()
+                 (pagelayout_editor/files.cpp:276-281) - message in KiCad's
+                 words, close button and nothing else. */
+              readOnlyNotice={
+                !demoProject ? null : projectFiles ? (
+                  demoNotice
+                ) : (
+                  <ReadOnlyNotice message="Layout file is read only." />
+                )
+              }
               // Always passed: a Save As into `/Templates` needs no open project,
               // and the editor's only other answer was a browser download.
               onSaveToProject={onSaveToProject}

@@ -23,6 +23,8 @@ import {
   DISC_VERT,
   GLYPH_FRAG,
   GLYPH_VERT,
+  IMAGE_FRAG,
+  IMAGE_VERT,
   SEGMENT_FRAG,
   SEGMENT_VERT,
   TRIANGLE_FRAG,
@@ -33,8 +35,10 @@ import { loadFontAtlas } from './font_atlas.js';
 import {
   DISC_STRIDE,
   GLYPH_VERTEX_STRIDE,
+  IMAGE_VERTEX_STRIDE,
   SEGMENT_STRIDE,
   TRIANGLE_STRIDE,
+  type ImageSource,
   type ItemRanges,
   type Run,
   type Scene,
@@ -100,14 +104,17 @@ interface GlLayer {
   disc: WebGLBuffer;
   tri: WebGLBuffer;
   glyph: WebGLBuffer;
+  image: WebGLBuffer;
   vaoSeg: WebGLVertexArrayObject;
   vaoDisc: WebGLVertexArrayObject;
   vaoTri: WebGLVertexArrayObject;
   vaoGlyph: WebGLVertexArrayObject;
+  vaoImage: WebGLVertexArrayObject;
   segCount: number;
   discCount: number;
   triVerts: number;
   glyphVerts: number;
+  imageVerts: number;
   /** Painter's order across the four kinds; empty means "draw by kind". */
   runs: Run[];
 }
@@ -149,7 +156,21 @@ function createLayer(gl: WebGL2RenderingContext, quad: WebGLBuffer): GlLayer | n
   const vaoDisc = gl.createVertexArray();
   const vaoTri = gl.createVertexArray();
   const vaoGlyph = gl.createVertexArray();
-  if (!seg || !disc || !tri || !glyph || !vaoSeg || !vaoDisc || !vaoTri || !vaoGlyph) return null;
+  const image = gl.createBuffer();
+  const vaoImage = gl.createVertexArray();
+  if (
+    !seg ||
+    !disc ||
+    !tri ||
+    !glyph ||
+    !image ||
+    !vaoSeg ||
+    !vaoDisc ||
+    !vaoTri ||
+    !vaoGlyph ||
+    !vaoImage
+  )
+    return null;
 
   // Segments: location 0 is the shared quad (divisor 0), 1..5 are per-instance.
   gl.bindVertexArray(vaoSeg);
@@ -197,20 +218,35 @@ function createLayer(gl: WebGL2RenderingContext, quad: WebGLBuffer): GlLayer | n
   gl.enableVertexAttribArray(2);
   gl.vertexAttribPointer(2, 4, gl.FLOAT, false, glyphStride, 4 * F32);
 
+  // Images: the glyph layout exactly - position, texture coords, tint - which
+  // is why IMAGE_VERT is GLYPH_VERT rather than a copy of it.
+  gl.bindVertexArray(vaoImage);
+  gl.bindBuffer(gl.ARRAY_BUFFER, image);
+  const imageStride = IMAGE_VERTEX_STRIDE * F32;
+  gl.enableVertexAttribArray(0);
+  gl.vertexAttribPointer(0, 2, gl.FLOAT, false, imageStride, 0);
+  gl.enableVertexAttribArray(1);
+  gl.vertexAttribPointer(1, 2, gl.FLOAT, false, imageStride, 2 * F32);
+  gl.enableVertexAttribArray(2);
+  gl.vertexAttribPointer(2, 4, gl.FLOAT, false, imageStride, 4 * F32);
+
   gl.bindVertexArray(null);
   return {
     seg,
     disc,
     tri,
     glyph,
+    image,
     vaoSeg,
     vaoDisc,
     vaoTri,
     vaoGlyph,
+    vaoImage,
     segCount: 0,
     discCount: 0,
     triVerts: 0,
     glyphVerts: 0,
+    imageVerts: 0,
     runs: [],
   };
 }
@@ -232,6 +268,11 @@ export class GlDevice {
    */
   private atlas: WebGLTexture | null = null;
 
+  /**
+   * One texture per document bitmap. Never cleared per frame: the whole point
+   * is that a pan binds what is already on the GPU. Released with the context.
+   */
+  private readonly textures = new Map<ImageSource, WebGLTexture>();
   /** `u_depth` on the glyph program; set per pass, so see {@link glyphDepth}. */
   private readonly depthLoc: WebGLUniformLocation | null;
 
@@ -261,6 +302,7 @@ export class GlDevice {
     private readonly progDisc: WebGLProgram,
     private readonly progTri: WebGLProgram,
     private readonly progGlyph: WebGLProgram,
+    private readonly progImage: WebGLProgram,
     private readonly quad: WebGLBuffer,
     private readonly base: GlLayer,
     private readonly preview: GlLayer,
@@ -268,7 +310,7 @@ export class GlDevice {
     private readonly text: GlLayer,
   ) {
     this.depthLoc = gl.getUniformLocation(progGlyph, 'u_depth');
-    for (const p of [progSeg, progDisc, progTri, progGlyph]) {
+    for (const p of [progSeg, progDisc, progTri, progGlyph, progImage]) {
       this.uniforms.set(p, {
         view: gl.getUniformLocation(p, 'u_view'),
         viewport: gl.getUniformLocation(p, 'u_viewport'),
@@ -281,6 +323,10 @@ export class GlDevice {
     gl.useProgram(progGlyph);
     gl.uniform1i(gl.getUniformLocation(progGlyph, 'u_atlas'), 0);
     gl.uniform2f(gl.getUniformLocation(progGlyph, 'u_atlasSize'), ATLAS_WIDTH, ATLAS_HEIGHT);
+    // Same for the image program: its sampler is always unit zero.
+    // biome-ignore lint/correctness/useHookAtTopLevel: gl.useProgram is WebGL, not a React hook
+    gl.useProgram(progImage);
+    gl.uniform1i(gl.getUniformLocation(progImage, 'u_image'), 0);
 
     void loadFontAtlas().then((image) => {
       if (image && !gl.isContextLost()) this.uploadAtlas(image);
@@ -309,6 +355,38 @@ export class GlDevice {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     gl.bindTexture(gl.TEXTURE_2D, null);
     this.atlas = tex;
+  }
+
+  /**
+   * One GPU texture per source bitmap, uploaded on first sight and kept.
+   *
+   * Keyed on the bitmap object itself, which is the decoded image living on the
+   * document item — so it is stable across frames and a pan re-binds rather
+   * than re-uploads. Keying on anything rebuilt per frame would upload the
+   * whole image sixty times a second and show up only as "still slow", which is
+   * the trap the renderer notes describe for content keys compared by
+   * reference.
+   *
+   * RGBA, not the atlas's RGB: a reference image or a logo has transparency,
+   * and dropping the alpha channel would paint its background over the board.
+   */
+  private texture(src: ImageSource): WebGLTexture | null {
+    const cached = this.textures.get(src);
+    if (cached) return cached;
+    const gl = this.gl;
+    const tex = gl.createTexture();
+    if (!tex) return null;
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, src);
+    // No mipmaps: a document bitmap is drawn at one scale per frame and the
+    // NPOT rules in WebGL2 make CLAMP_TO_EDGE + LINEAR the safe pair anyway.
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+    this.textures.set(src, tex);
+    return tex;
   }
 
   static create(canvas: HTMLCanvasElement): GlDevice | null {
@@ -361,7 +439,8 @@ export class GlDevice {
     const progDisc = link(gl, DISC_VERT, DISC_FRAG);
     const progTri = link(gl, TRIANGLE_VERT, TRIANGLE_FRAG);
     const progGlyph = link(gl, GLYPH_VERT, GLYPH_FRAG);
-    if (!progSeg || !progDisc || !progTri || !progGlyph) return null;
+    const progImage = link(gl, IMAGE_VERT, IMAGE_FRAG);
+    if (!progSeg || !progDisc || !progTri || !progGlyph || !progImage) return null;
 
     const quad = gl.createBuffer();
     if (!quad) return null;
@@ -385,6 +464,7 @@ export class GlDevice {
       progDisc,
       progTri,
       progGlyph,
+      progImage,
       quad,
       base,
       preview,
@@ -407,10 +487,13 @@ export class GlDevice {
     gl.bufferData(gl.ARRAY_BUFFER, scene.triangles.view(), gl.DYNAMIC_DRAW);
     gl.bindBuffer(gl.ARRAY_BUFFER, layer.glyph);
     gl.bufferData(gl.ARRAY_BUFFER, scene.glyphs.view(), gl.DYNAMIC_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER, layer.image);
+    gl.bufferData(gl.ARRAY_BUFFER, scene.images.view(), gl.DYNAMIC_DRAW);
     layer.segCount = scene.segmentCount;
     layer.discCount = scene.discCount;
     layer.triVerts = scene.triangleVertexCount;
     layer.glyphVerts = scene.glyphVertexCount;
+    layer.imageVerts = scene.imageVertexCount;
     // Copied, not aliased: the scene is cleared and re-recorded in place.
     layer.runs = scene.runs.map((r) => ({ ...r }));
   }
@@ -479,6 +562,7 @@ export class GlDevice {
     this.text.discCount = 0;
     this.text.triVerts = 0;
     this.text.glyphVerts = 0;
+    this.text.imageVerts = 0;
     this.text.runs.length = 0;
   }
 
@@ -500,6 +584,7 @@ export class GlDevice {
     this.inner.discCount = 0;
     this.inner.triVerts = 0;
     this.inner.glyphVerts = 0;
+    this.inner.imageVerts = 0;
     this.inner.runs.length = 0;
   }
 
@@ -508,6 +593,7 @@ export class GlDevice {
     this.preview.discCount = 0;
     this.preview.triVerts = 0;
     this.preview.glyphVerts = 0;
+    this.preview.imageVerts = 0;
   }
 
   /**
@@ -576,6 +662,27 @@ export class GlDevice {
       gl.disable(gl.DEPTH_TEST);
     };
 
+    /**
+     * A bitmap quad. Unlike a glyph run it binds its OWN texture, which is why
+     * `Run` carries the source and why image runs never coalesce - two images
+     * merged into one draw would both be drawn with the first one's texture.
+     *
+     * No depth test. Glyphs use one to stop crossing net names compounding
+     * their alpha; a document bitmap is painted in document order like every
+     * other item, and a depth test here would let it reject fragments of
+     * whatever is drawn after it.
+     */
+    const drawImageRun = (src: GlLayer, run: Run): void => {
+      if (!run.image || run.count <= 0) return;
+      const tex = this.texture(run.image);
+      if (!tex) return;
+      bindProgram(this.progImage);
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.bindVertexArray(src.vaoImage);
+      gl.drawArrays(gl.TRIANGLES, run.start, run.count);
+    };
+
     // The document, the items being dragged over it, then the per-frame text.
     for (const layer of [this.base, this.preview, this.text]) {
       if (layer.runs.length > 0) {
@@ -598,6 +705,8 @@ export class GlDevice {
               gl.drawArrays(gl.TRIANGLES, run.start, run.count);
             } else if (run.kind === 'glyph') {
               drawGlyphs(src, run.start, run.count);
+            } else if (run.kind === 'image') {
+              drawImageRun(src, run);
             } else if (run.kind === 'seg') {
               bindProgram(this.progSeg);
               this.pointInstances(src.vaoSeg, src.seg, SEGMENT_ATTRS, SEGMENT_STRIDE, run.start);

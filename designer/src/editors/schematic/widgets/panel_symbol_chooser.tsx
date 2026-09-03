@@ -45,6 +45,7 @@ import {
 } from '../symbols/index.js';
 import { libTreeItem, type LibTreeItem } from '../symbols/lib_tree_item.js';
 import { settings } from '../../../prefs/settings.js';
+import { Sash } from '../../../ui/Sash.js';
 
 /** Upstream PICKED_SYMBOL (sch_screen.h): LIB_ID + unit + edited fields. */
 export interface PickedSymbol {
@@ -262,6 +263,13 @@ export const PanelSymbolChooser = forwardRef<PanelSymbolChooserHandle, PanelSymb
 
     const adapter = useMemo(() => {
       const a = new LibTreeModelAdapter();
+      // `SYMBOL_TREE_MODEL_ADAPTER`'s constructor
+      // (eeschema/symbol_tree_model_adapter.cpp:54-58) - the ONLY adapter
+      // upstream that widens the base pair, which is why this is here and not
+      // in `LibTreeModelAdapter`. Value is not decoration: every shown column
+      // becomes a weight-4 search term in `RebuildSearchTerms`, so it is part
+      // of this chooser's ranking as well as its header.
+      a.setSymbolChooserColumns();
       a.setSortMode(settings.eeschema.sym_chooser.sort_mode as SortMode);
       // loadColumnConfig: the persisted column set, defaulting to Item +
       // Description with "Item" forced to the front.
@@ -600,29 +608,19 @@ export const PanelSymbolChooser = forwardRef<PanelSymbolChooserHandle, PanelSymb
       [powerFilter],
     );
 
-    // Sash dragging (wxSplitterWindow wxSP_LIVE_UPDATE).
+    // Both splitters are `ui/Sash`, the shared wxSplitterWindow sash: the bar,
+    // the pointer capture and the clamp are one implementation, and what stays
+    // here is only what upstream states per splitter — the minimum pane size
+    // and where the position is persisted.
     const bodyRef = useRef<HTMLDivElement>(null);
-    const dragSash = (which: 'h' | 'v') => (down: React.MouseEvent) => {
-      down.preventDefault();
-      const body = bodyRef.current?.getBoundingClientRect();
-      if (!body) return;
-      const move = (e: MouseEvent) => {
-        if (which === 'h') {
-          const w = Math.max(180, Math.min(body.width - 220, body.right - e.clientX));
-          setSashH(w);
-          settings.updateEeschema((s) => (s.sym_chooser.sash_pos_h = w));
-        } else {
-          const h = Math.max(60, Math.min(body.height - 120, body.bottom - e.clientY));
-          setSashV(h);
-          settings.updateEeschema((s) => (s.sym_chooser.sash_pos_v = h));
-        }
-      };
-      const up = () => {
-        window.removeEventListener('mousemove', move);
-        window.removeEventListener('mouseup', up);
-      };
-      window.addEventListener('mousemove', move);
-      window.addEventListener('mouseup', up);
+    const bodyBox = (): DOMRect | undefined => bodyRef.current?.getBoundingClientRect();
+    const setSashHPos = (w: number): void => {
+      setSashH(w);
+      settings.updateEeschema((s) => (s.sym_chooser.sash_pos_h = w));
+    };
+    const setSashVPos = (h: number): void => {
+      setSashV(h);
+      settings.updateEeschema((s) => (s.sym_chooser.sash_pos_v = h));
     };
 
     const validSelection = !!(selectedNode && selectedNode.libId);
@@ -758,7 +756,13 @@ export const PanelSymbolChooser = forwardRef<PanelSymbolChooserHandle, PanelSymb
       return (
         <div className="ze-chooser-panel" ref={bodyRef}>
           {tree}
-          <div className="ze-sash v" onMouseDown={dragSash('h')} />
+          <Sash
+            edge="left"
+            size={sashH}
+            min={180}
+            max={(bodyBox()?.width ?? 0) - 220}
+            onResize={setSashHPos}
+          />
           <div className="ze-chooser-right" style={{ width: sashH, flex: 'none' }}>
             {/* constructRightPanel's proportions: 11 for the symbol preview, 10
                 for the footprint preview, 0 for the selector between them
@@ -788,7 +792,13 @@ export const PanelSymbolChooser = forwardRef<PanelSymbolChooserHandle, PanelSymb
       <div className="ze-chooser-panel column" ref={bodyRef}>
         <div className="ze-chooser-upper">
           {tree}
-          <div className="ze-sash v" onMouseDown={dragSash('h')} />
+          <Sash
+            edge="left"
+            size={sashH}
+            min={180}
+            max={(bodyBox()?.width ?? 0) - 220}
+            onResize={setSashHPos}
+          />
           <div className="ze-chooser-right" style={{ width: sashH, flex: 'none' }}>
             {/* The no-footprints branch adds the preview alone, wxALL 5. */}
             <div className="ze-chooser-preview" style={{ flex: 1, marginBottom: 0 }}>
@@ -796,7 +806,13 @@ export const PanelSymbolChooser = forwardRef<PanelSymbolChooserHandle, PanelSymb
             </div>
           </div>
         </div>
-        <div className="ze-sash h" onMouseDown={dragSash('v')} />
+        <Sash
+          edge="top"
+          size={sashV}
+          min={60}
+          max={(bodyBox()?.height ?? 0) - 120}
+          onResize={setSashVPos}
+        />
         <div
           className="ze-libtree-details external"
           style={{ height: sashV, flex: 'none' }}

@@ -27,14 +27,64 @@
   min-height: 0;
 }
 
-.ze-appearance > .ze-panel-body {
-  flex: 1 1 auto;
+/* The wxNotebook: `m_sizerOuter->Add( m_notebook, 1, wxEXPAND|wxTOP|wxBOTTOM,
+   5 )` (appearance_controls_base.cpp:153). wxTOP|wxBOTTOM and no wxLEFT or
+   wxRIGHT, which is why the frame sits 5px under the caption and runs to the
+   pane's own left and right edges - [px] pcbnew 1920x1200, pane x 1671..1919:
+   the frame's #181818 at x=1671 and x=1919 on every row, and its top edge at
+   y=193 with 5px of pane face above it.
+
+   `.ze-nb-frame` is the shared notebook box, the same one PANEL_SYMBOL_PROPS
+   takes; only this widget's sizer border is stated here. */
+.ze-appearance > .ze-nb-frame {
+  /* [data] wxTOP|wxBOTTOM, 5 (appearance_controls_base.cpp:153). */
+  margin: 5px 0;
   min-height: 0;
 }
 
-.ze-appearance > .ze-collapsepane,
+/* The notebook PAGE. Painted on the pane instead, `m_layerPanelColour` flooded
+   the tab strip, the Presets block and the Selection Filter with the list grey.
+   It belongs to one page: `m_windowLayers->SetBackgroundColour(
+   m_layerPanelColour )` and a loop over `m_layersOuterSizer`'s children
+   (appearance_controls.cpp:1242-1248). `m_windowObjects` is not in that
+   function at all, so the Objects page - and the Nets page with it - keeps the
+   notebook page's own background. [px] pcbnew: #4b4b4b behind a layer row,
+   #272727 behind an object row. */
+.ze-appearance > .ze-nb-frame > .ze-appearance-page {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+.ze-appearance > .ze-nb-frame > .page-layers {
+  background: var(--panel-list-bg);
+}
+.ze-appearance > .ze-nb-frame > .page-objects,
+.ze-appearance > .ze-nb-frame > .page-nets {
+  background: var(--panel-bg);
+}
+/* The Nets page is not one scroller: it is `m_netsTabSplitter`, two panels
+   that each scroll inside their own half (appearance_controls_base.cpp:49-144).
+   Left as one, a board's 220 nets pushed Net Classes off the bottom. */
+.ze-appearance > .ze-nb-frame > .page-nets {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.ze-appearance > .ze-nb-frame > .ze-collapsepane,
 .ze-appearance > .ze-appearance-bottom {
   flex: 0 0 auto;
+}
+
+/* WX_COLLAPSIBLE_PANE, and it is inside the notebook: `new WX_COLLAPSIBLE_PANE(
+   m_panelLayers, ... )` with
+   `SetBackgroundColour( m_notebook->GetThemeBackgroundColour() )`
+   (appearance_controls.cpp:625-629). [px] that theme background reads #272727,
+   a step DARKER than both the list above it and the pane below - the strip at
+   y 809..833 between the list ending at 808 and the notebook's bottom edge at
+   834. It inherited the list grey here. */
+.ze-appearance > .ze-nb-frame > .ze-collapsepane {
+  background: var(--panel-bg);
 }
 
 /* The three-radio rows: "Inactive layers", "Net colors" and "Ratsnest

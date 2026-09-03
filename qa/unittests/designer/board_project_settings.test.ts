@@ -149,6 +149,9 @@ function customSetup(): BoardSetupValues {
     lineStyle: 'Solid',
   });
   s.netClasses.assignments = [{ pattern: 'VCC*', netClass: 'Power' }];
+  // `net_settings.net_colors` — the per-net overrides the Nets tab draws.
+  // `#rrggbb`, the one form a colour takes inside a BoardSetupValues.
+  s.netClasses.netColors = { '+3V3_PI': '#ee8a00', '/CC1': '#00bedc' };
   s.textVars = [{ name: 'BOARD_REV', value: 'B2' }];
   return s;
 }
@@ -181,6 +184,25 @@ describe('board project_settings (.kicad_pro)', () => {
     expect(back.tuningProfiles).toEqual(want.tuningProfiles);
     expect(back.netClasses).toEqual(want.netClasses);
     expect(back.textVars).toEqual(want.textVars);
+  });
+
+  it('reads the per-net colours a KiCad project assigns, keyed by net name', () => {
+    // `NET_SETTINGS::m_netColorAssignments` (net_settings.cpp:224-249), which
+    // `PCB_EDIT_FRAME::LoadProjectSettings` turns into the painter's net colour
+    // map (pcbnew_config.cpp:95-105) and the Nets tab reads back out of it.
+    // Nothing read this at all, so a board whose project assigned colours
+    // opened with every net's swatch showing the unspecified checkerboard.
+    const pro = JSON.stringify({
+      net_settings: {
+        net_colors: { '+3V3_PI': 'rgb(238, 138, 0)', '/CC1': 'rgba(0, 190, 220, 1.000)' },
+      },
+    });
+    const s = readBoardSetupProText(pro);
+    // Normalised to the `#rrggbb` every other colour in this slice takes.
+    expect(s.netClasses.netColors['+3V3_PI']).toBe('#ee8a00');
+    expect(s.netClasses.netColors['/CC1']).toBe('#00bedc');
+    // A net with no entry is COLOR4D::UNSPECIFIED, not black.
+    expect(s.netClasses.netColors['/CC2']).toBeUndefined();
   });
 
   it('reads a KiCad-authored design_settings block (file units)', () => {

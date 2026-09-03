@@ -483,6 +483,46 @@ void main() {
 `;
 
 /**
+ * A bitmap on the document — SCH_BITMAP, pcbnew's reference images, the
+ * drawing sheet's logo.
+ *
+ * The vertex stage is GLYPH_VERT's, attribute for attribute, so an image run
+ * reuses the glyph VAO layout: position, uv, colour. What differs is entirely
+ * in the fragment stage.
+ *
+ * Not a variant of the glyph program, though it looks like one. That one
+ * decodes a multi-channel signed distance field - `median()` of three channels
+ * against a zoom-adaptive threshold - which is the right way to draw a glyph at
+ * any size and completely wrong for a photograph: it would posterise the image
+ * to two levels. A bitmap is sampled, multiplied by the tint, and drawn.
+ *
+ * The tint exists because KiCad's bitmaps are not always drawn as authored -
+ * `drawBitmap` (common/drawing_sheet/ds_painter.cpp) applies the item's colour.
+ * A caller that wants the bitmap untouched passes opaque white.
+ */
+export const IMAGE_VERT = GLYPH_VERT;
+
+export const IMAGE_FRAG = /* glsl */ `#version 300 es
+precision highp float;
+
+in vec2 v_uv;
+in vec4 v_color;
+
+uniform sampler2D u_image;
+
+out vec4 fragColor;
+
+void main() {
+  vec4 texel = texture(u_image, v_uv);
+  // Straight (non-premultiplied) alpha, matching how the texture is uploaded:
+  // UNPACK_PREMULTIPLY_ALPHA_WEBGL is left off, so the blend func the device
+  // sets for everything else applies unchanged.
+  fragColor = texel * v_color;
+  if (fragColor.a <= 0.0) discard;
+}
+`;
+
+/**
  * The full-screen quad the difference composite draws.
  *
  * KiCad's `xor_diff_vert.glsl` is fixed-function GLSL 120 — it passes

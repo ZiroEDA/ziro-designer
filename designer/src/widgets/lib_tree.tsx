@@ -35,11 +35,57 @@ import { bitmapUrl } from '../ui/toolbarIcons.js';
  * colour, that token is where `shell.css` already keeps it (#929292 on this
  * machine, measured), and every other greyed thing in the app reads it there.
  */
+/**
+ * The "this is the item on the canvas" marker, `LIB_TREE_RENDERER::Render`
+ * (common/lib_tree_model_adapter.cpp:100-116).
+ *
+ * Six points: a rectangle whose right edge is pulled into a point at half
+ * height, drawn one pixel wide in white on a dark theme and black on a light
+ * one (`KIPLATFORM::UI::IsDarkTheme()`). Upstream's own coordinates:
+ *
+ *     topLeft, topRight+(-4,0), topRight+(0,h/2),
+ *     bottomRight+(-4,1), bottomLeft+(0,1), topLeft
+ *
+ * An SVG rather than a border, because a border cannot make that notch.
+ *
+ * `aRect` is the CELL, not the row: `LIB_TREE_RENDERER` is a
+ * `wxDataViewCustomRenderer` and wx hands each renderer the rectangle of the
+ * column it is attached to, so the marker closes around the Item cell and the
+ * Description is outside it. Drawn across the whole row instead - which is what
+ * this did - the point lands at the row's full scroll width, some 740 px past
+ * the right-hand edge of a 250 px dock, so all that is ever on screen is a left
+ * edge and two rules running off the side.
+ */
+function CanvasItemOutline({ left, width }: { left: number; width: number }): JSX.Element {
+  const [box, setBox] = useState<{ w: number; h: number } | null>(null);
+  const ref = useCallback((el: SVGSVGElement | null) => {
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    setBox({ w: Math.round(r.width), h: Math.round(r.height) });
+  }, []);
+  // Upstream's six points, verbatim. The notch is 4 device pixels whatever the
+  // row is wide, so the shape is measured rather than expressed as a ratio -
+  // a viewBox scaled with preserveAspectRatio would stretch the point.
+  const pts = box
+    ? `0,0 ${box.w - 4},0 ${box.w},${box.h / 2} ${box.w - 4},${box.h} 0,${box.h} 0,0`
+    : '';
+  return (
+    <svg className="ze-libtree-canvasitem" ref={ref} aria-hidden="true" style={{ left, width }}>
+      {box && <polyline points={pts} fill="none" stroke="currentColor" strokeWidth="1" />}
+    </svg>
+  );
+}
+
 function itemCellStyle(attr: LibTreeNodeAttr): CSSProperties | undefined {
   const style: CSSProperties = {};
   if (attr.bold) style.fontWeight = 700;
   if (attr.italic) style.fontStyle = 'italic';
-  if (attr.strikethrough) style.textDecoration = 'line-through';
+  // NOT strikethrough, despite the attribute's name. `LIB_TREE_RENDERER::SetAttr`
+  // reads `GetStrikethrough()` as a flag - "use strikethrough as a proxy for
+  // is-canvas-item" - and then explicitly clears it,
+  // `realAttr.SetStrikethrough( false )` (common/lib_tree_model_adapter.cpp:89-97),
+  // so a line is never drawn. `Render` draws a 6-point outline around the row
+  // instead. See `canvasItemOutline`.
   if (attr.greyed) style.color = 'var(--ctl-fg-disabled)';
   return Object.keys(style).length > 0 ? style : undefined;
 }
@@ -296,6 +342,8 @@ export function LibTree({
   const [sortMode, setSortModeState] = useState<SortMode>(adapter.getSortMode());
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set(openLibs ?? []));
   const [selected, setSelected] = useState<LibTreeNode | null>(null);
+  /** The node `CenterLibId` was asked to centre, pending a laid-out `rows`. */
+  const [pendingCenter, setPendingCenter] = useState<LibTreeNode | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [recentOpen, setRecentOpen] = useState(false);
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; node: LibTreeNode } | null>(null);
@@ -451,6 +499,10 @@ export function LibTree({
     if (!node) return;
     expandAncestors(node);
     select(node);
+    // `SelectLibId` then `CenterLibId` on the next idle - the pair the symbol
+    // editor issues after LOADING a symbol (symbol_editor.cpp:208-213). This is
+    // the only path that centres; a click just selects.
+    setPendingCenter(node);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectLibId, regenerateNonce]);
 
@@ -694,9 +746,16 @@ export function LibTree({
   // that jump is exactly what upstream calls EnsureVisibleIfEnabled for. It is
   // recomputed from the model rather than from the scroll offset, so it does
   // not move when the pointer does.
-  useEffect(() => {
-    if (!selected) return;
-    const scrollTo = (node: LibTreeNode): void => {
+  /**
+   * `LIB_TREE::selectIfValid` (common/widgets/lib_tree.cpp:531-540): a plain
+   * selection does `EnsureVisibleIfEnabled` and NOTHING else - scroll only if
+   * the row is off-screen, and only far enough to bring it to the near edge.
+   *
+   * The five-row centring that used to live here belongs to `CenterLibId`
+   * alone, which nothing on this path calls; see `centerOnLoad` below.
+   */
+  const scrollTo = useCallback(
+    (node: LibTreeNode): void => {
       const el = rowRefs.current.get(node);
       if (el) {
         el.scrollIntoView({ block: 'nearest' });
@@ -711,14 +770,62 @@ export function LibTree({
       const index = rows.findIndex((r) => r.node === node);
       if (index < 0) return;
       const top = index * pitch;
-      // `block: 'nearest'` scrolls only when the row is outside the viewport,
-      // and only far enough to bring it to the near edge.
       if (top < list.scrollTop) list.scrollTop = top;
       else if (top + pitch > list.scrollTop + height) list.scrollTop = top + pitch - height;
-    };
-    if (selected.parent) scrollTo(selected.parent);
+    },
+    [rows],
+  );
+
+  useEffect(() => {
+    if (!selected) return;
     scrollTo(selected);
-  }, [selected, rows]);
+  }, [selected, rows, scrollTo]);
+
+  /**
+   * `LIB_TREE::centerIfValid` (common/widgets/lib_tree.cpp:543-588), reached
+   * ONLY through `CenterLibId` (:387-390) - and the sole caller of that in the
+   * symbol editor is `centerItemIdleHandler`, bound for one idle event after a
+   * symbol is LOADED (eeschema/symbol_editor/symbol_editor.cpp:208-226):
+   *
+   *     m_treePane->GetLibTree()->SelectLibId( libId );
+   *     m_centerItemOnIdle = libId;
+   *     Bind( wxEVT_IDLE, &SYMBOL_EDIT_FRAME::centerItemIdleHandler, this );
+   *
+   * So it runs when the editor opens a symbol, never when the user picks a row.
+   * Driving it off the selection - which is what this did - made every click
+   * re-scroll the list by five rows, which upstream does not do and which is
+   * exactly what "it should stay there only" describes.
+   *
+   * Upstream's own comment on the shape:
+   *
+   *   "This doesn't actually center because the wxWidgets API is poorly suited
+   *    to that (and it might be too noisy as well). It does try to keep the
+   *    given item a bit off the top or bottom of the window."
+   *
+   * The idle event is what lets the tree finish laying out first; the wait on
+   * `rows` containing the node is the same guarantee, since the node does not
+   * exist in the row set until the ancestors this path expanded have rendered.
+   */
+  useEffect(() => {
+    if (!pendingCenter) return;
+    const sibs = rows.filter((r) => r.node.parent === pendingCenter.parent).map((r) => r.node);
+    const idx = sibs.indexOf(pendingCenter);
+    if (idx < 0) return; // not laid out yet; a later `rows` will carry it
+    if (pendingCenter.parent) {
+      if (idx + 5 < sibs.length) {
+        scrollTo(sibs[idx + 5]!);
+      } else {
+        const grand = pendingCenter.parent.parent;
+        const pSibs = rows.filter((r) => r.node.parent === grand).map((r) => r.node);
+        const pIdx = pSibs.indexOf(pendingCenter.parent);
+        if (pIdx >= 0 && pIdx + 1 < pSibs.length) scrollTo(pSibs[pIdx + 1]!);
+      }
+      if (idx - 5 >= 0) scrollTo(sibs[idx - 5]!);
+      else scrollTo(pendingCenter.parent);
+    }
+    scrollTo(pendingCenter);
+    setPendingCenter(null);
+  }, [pendingCenter, rows, scrollTo]);
 
   // Arrow keys move the selection whether they come from the search box or
   // the tree (upstream onQueryCharHook forwards them to the tree control).
@@ -1039,77 +1146,91 @@ export function LibTree({
           }}
         >
           {view.before > 0 && <div style={{ height: view.before, flex: '0 0 auto' }} />}
-          {view.slice.map(({ node, indent, expandable, open }) => (
-            <div
-              key={`${node.parent?.name ?? ''}/${node.libId || node.name}${node.type === LibTreeNodeType.UNIT ? `#${node.unit}` : ''}`}
-              ref={(el) => {
-                el ? rowRefs.current.set(node, el) : rowRefs.current.delete(node);
-              }}
-              className={
-                `ze-libtree-row${node === selected ? ' active' : ''}` +
-                (node.type === LibTreeNodeType.LIBRARY ? ' lib' : '')
-              }
-              style={{ paddingLeft: ROW_LEAD_IN + indent * LIB_TREE_INDENT }}
-              onClick={() => select(node)}
-              onDoubleClick={() => activate(node)}
-              onMouseMove={(e) => onRowHover(node, e)}
-              onContextMenu={(e) => {
-                e.preventDefault();
-                hidePreview();
-                // "Select the item under the cursor before showing the context
-                // menu" (`lib_tree.cpp:1041-1053`), whichever menu follows.
-                select(node);
-                if (onItemContextMenu) {
-                  // The adapter names a tool, so the tool's menu is what opens.
-                  onItemContextMenu(node, e.clientX, e.clientY);
-                  return;
-                }
-                // The else branch: Pin/Unpin, and only on a pinnable
-                // (non-group) library row.
-                if (node.type === LibTreeNodeType.LIBRARY && !node.isGroup)
-                  setCtxMenu({ x: e.clientX, y: e.clientY, node });
-              }}
-              title={node.libId || node.name}
-            >
-              <span
-                className={`twisty${expandable ? ' expandable' : ''}${open ? ' open' : ''}`}
-                onClick={(e) => {
-                  if (expandable) {
-                    e.stopPropagation();
-                    toggle(node);
-                  }
+          {view.slice.map(({ node, indent, expandable, open }) => {
+            // `aRect` for the Item column: the row's width minus the lead-in,
+            // this row's indent, the expander and the gaps either side of it.
+            // Shared by the cell and by the canvas-item outline drawn over it,
+            // so the marker cannot end up a different size from the thing it
+            // marks.
+            const itemCellWidth =
+              (colWidths[0] ?? 0) -
+              (ROW_LEAD_IN + indent * LIB_TREE_INDENT) -
+              TWISTY_W -
+              2 * CELL_GAP;
+            return (
+              <div
+                key={`${node.parent?.name ?? ''}/${node.libId || node.name}${node.type === LibTreeNodeType.UNIT ? `#${node.unit}` : ''}`}
+                ref={(el) => {
+                  el ? rowRefs.current.set(node, el) : rowRefs.current.delete(node);
                 }}
-              />
-              {/* The Item cell is `GetValue( …, NAME_COL )` and its face is
+                className={
+                  `ze-libtree-row${node === selected ? ' active' : ''}` +
+                  (node.type === LibTreeNodeType.LIBRARY ? ' lib' : '')
+                }
+                style={{ paddingLeft: ROW_LEAD_IN + indent * LIB_TREE_INDENT }}
+                onClick={() => select(node)}
+                onDoubleClick={() => activate(node)}
+                onMouseMove={(e) => onRowHover(node, e)}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  hidePreview();
+                  // "Select the item under the cursor before showing the context
+                  // menu" (`lib_tree.cpp:1041-1053`), whichever menu follows.
+                  select(node);
+                  if (onItemContextMenu) {
+                    // The adapter names a tool, so the tool's menu is what opens.
+                    onItemContextMenu(node, e.clientX, e.clientY);
+                    return;
+                  }
+                  // The else branch: Pin/Unpin, and only on a pinnable
+                  // (non-group) library row.
+                  if (node.type === LibTreeNodeType.LIBRARY && !node.isGroup)
+                    setCtxMenu({ x: e.clientX, y: e.clientY, node });
+                }}
+                title={node.libId || node.name}
+              >
+                <span
+                  className={`twisty${expandable ? ' expandable' : ''}${open ? ' open' : ''}`}
+                  onClick={(e) => {
+                    if (expandable) {
+                      e.stopPropagation();
+                      toggle(node);
+                    }
+                  }}
+                />
+                {/* The Item cell is `GetValue( …, NAME_COL )` and its face is
                 `GetAttr( …, NAME_COL )` — both the adapter's, because both are
                 computed on every paint from state the adapter owns. The Symbol
                 Editor's synchronizing adapter is the one that has more to say
                 than the base (`symbol_tree_synchronizing_adapter.cpp:249-397`);
                 the italic for a derived symbol is the base answer and reaches
                 the chooser unchanged. The pinning mark is LIB_TREE's own. */}
-              <span
-                className="col-item"
-                style={{
-                  ...itemCellStyle(adapter.nodeAttr(node, open)),
-                  // The Item cell starts past the expander, so the width the
-                  // column was created at is what is left of it.
-                  width:
-                    (colWidths[0] ?? 0) -
-                    (ROW_LEAD_IN + indent * LIB_TREE_INDENT) -
-                    TWISTY_W -
-                    2 * CELL_GAP,
-                }}
-              >
-                {node.pinned ? PINNING_SYMBOL : ''}
-                {adapter.nameCell(node)}
-              </span>
-              {columns.slice(1).map((col, i) => (
-                <span key={col} className="col-desc" style={{ width: colWidths[i + 1] }}>
-                  {cellValue(node, col)}
+                {/* The canvas-item marker. It takes the Item cell's own box, so
+                  the two cannot drift apart. */}
+                {adapter.nodeAttr(node, open).strikethrough && (
+                  <CanvasItemOutline
+                    left={ROW_LEAD_IN + indent * LIB_TREE_INDENT + TWISTY_W + CELL_GAP}
+                    width={itemCellWidth}
+                  />
+                )}
+                <span
+                  className="col-item"
+                  style={{
+                    ...itemCellStyle(adapter.nodeAttr(node, open)),
+                    width: itemCellWidth,
+                  }}
+                >
+                  {node.pinned ? PINNING_SYMBOL : ''}
+                  {adapter.nameCell(node)}
                 </span>
-              ))}
-            </div>
-          ))}
+                {columns.slice(1).map((col, i) => (
+                  <span key={col} className="col-desc" style={{ width: colWidths[i + 1] }}>
+                    {cellValue(node, col)}
+                  </span>
+                ))}
+              </div>
+            );
+          })}
           {view.after > 0 && <div style={{ height: view.after, flex: '0 0 auto' }} />}
           {/* LIB_TREE has no loading state, because by the time it is shown
             `IFACE::PreloadLibraries` has run and the tree holds every library

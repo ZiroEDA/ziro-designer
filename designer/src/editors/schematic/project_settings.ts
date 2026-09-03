@@ -421,6 +421,18 @@ export function readSchematicSetupText(proText: string): SchematicSetup {
       .map((e) => ({ pattern: str(e.pattern, ''), netClass: str(e.netclass, '') }))
       .filter((a): a is NetClassAssignment => Boolean(a.pattern || a.netClass));
   }
+  // net_settings.net_colors: a net NAME to colour map, the per-net overrides
+  // the Nets tab shows (net_settings.cpp:224-249). Nothing read it, so a board
+  // whose project assigns colours opened with every net unspecified.
+  const netColors = getPath(j, 'net_settings.net_colors');
+  if (isObj(netColors)) {
+    const out: Record<string, string> = {};
+    for (const [name, v] of Object.entries(netColors)) {
+      const css = kicadColorToCss(v);
+      if (css) out[name] = css;
+    }
+    s.netClasses.netColors = out;
+  }
 
   // net_settings.net_chain_classes: the only persisted net-chain state is the
   // chain -> class map; the chains themselves are engine data. Rebuild the
@@ -765,6 +777,19 @@ export function writeSchematicSetupText(proText: string, s: SchematicSetup): str
     j,
     'net_settings.netclass_patterns',
     s.netClasses.assignments.map((a) => ({ netclass: a.netClass, pattern: a.pattern })),
+  );
+  setPath(
+    j,
+    'net_settings.net_colors',
+    Object.fromEntries(
+      // `?? {}` because a settings object stored before this field existed does
+      // not carry it, and reading one back is not a type error the compiler can
+      // see — the JSON is `any` by the time it gets here.
+      Object.entries(s.netClasses.netColors ?? {}).map(([name, css]) => [
+        name,
+        cssColorToKicad(css),
+      ]),
+    ),
   );
 
   // net_settings.net_chain_classes: the in-memory chain -> class map persists

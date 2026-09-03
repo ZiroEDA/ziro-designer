@@ -48,6 +48,7 @@ const PAGE_NUMBER_CHOICES: readonly ComboOption[] = [
   { value: '1', label: 'Page 1' },
   { value: '2', label: 'Other pages' },
 ];
+import { ReadOnlyNotice } from '../../ui/ReadOnlyNotice.js';
 import { Toolbar } from '../../ui/Toolbar.js';
 import {
   FRAME_TITLE_SEPARATOR,
@@ -287,9 +288,20 @@ export function DrawingSheetEditor({
   projectName,
   onSaveToProject,
   openRequest,
+  readOnlyNotice,
 }: {
   onExitToHome: () => void;
   projectName?: string;
+  /**
+   * The read-only strip, when the layout cannot be written.
+   *
+   * `LoadDrawingSheetFile` raises one for exactly this
+   * (`pagelayout_editor/files.cpp:276-281`): `RemoveAllButtons()`,
+   * `AddCloseButton()`, then `ShowMessage( _( "Layout file is read only." ),
+   * wxICON_WARNING )` - the same three calls eeschema and pcbnew make, which is
+   * why this frame gets the same strip they do rather than one of its own.
+   */
+  readOnlyNotice?: JSX.Element | null;
   /** Save the current sheet into the open project as a `.kicad_wks`. Absent
    *  when no project is open (the menu item is then hidden). */
   /** Write the sheet at this full account path — see `writeSheet`. */
@@ -2414,22 +2426,14 @@ export function DrawingSheetEditor({
           (files.cpp:267-274); dismissed by the next load and by a successful
           save (:265, :329-330).
 
-          The strip is the shared `.ze-infobar`, the same one the schematic
-          raises. Its palette has NOT been measured against a live pl_editor's
-          wxInfoBar — see docs/editor-status.md. */}
-      {outdatedFormat && (
-        <div className="ze-infobar">
-          {DS_OUTDATED_FORMAT_INFOBAR}
-          <span
-            className="x"
-            title="Close"
-            onClick={() => setOutdatedFormat(false)}
-            style={{ marginLeft: 'auto', cursor: 'default' }}
-          >
-            ✕
-          </span>
-        </div>
-      )}
+          Both strips are the shared `ReadOnlyNotice`, which IS the WX_INFOBAR:
+          same #121617/#f7f7f7 taken from GTK's own infobar style context, same
+          35px, same theme glyphs. The note that used to sit here - that this
+          palette had never been measured against a live pl_editor - is settled
+          and gone, and with it a hand-rolled `✕` that was not the close button
+          any other frame draws. */}
+      {readOnlyNotice}
+      {outdatedFormat && <ReadOnlyNotice message={DS_OUTDATED_FORMAT_INFOBAR} />}
 
       <div className="ze-body" ref={bodyRef}>
         <Toolbar

@@ -183,7 +183,12 @@ export const FP_RIGHT_TOOLBAR: ToolEntry[] = [
   { id: 'placePoint', icon: 'placePoint', title: 'Place points' },
   { id: 'setAnchor', icon: 'setAnchor', title: 'Set the footprint anchor' },
   { id: 'gridOrigin', icon: 'gridOrigin', title: 'Set the grid origin point' },
-  { id: 'measure', icon: 'measure', title: 'Measure distance' },
+  // `ACTIONS::measureTool` (toolbars_footprint_editor.cpp:137). The id is the
+  // ACTION's name, which is what `FootprintCanvas` arms its ruler on: as
+  // `measure` this button lit up and did nothing at all, because the canvas
+  // was listening for `measureTool` — the name pcbnew and the footprint viewer
+  // both already used.
+  { id: 'measureTool', icon: 'measureTool', title: 'Measure distance' },
 ];
 
 /**
@@ -222,7 +227,7 @@ export const FP_TOOL_FRIENDLY_NAMES: Readonly<Record<string, string>> = {
   setAnchor: 'Place the Footprint Anchor',
   gridOrigin: 'Grid Origin',
   deleteTool: 'Interactive Delete Tool',
-  measure: 'Measure Tool',
+  measureTool: 'Measure Tool',
   zoomTool: 'Zoom to Selection Area',
 };
 

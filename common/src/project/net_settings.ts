@@ -81,6 +81,21 @@ export interface NetClassAssignment {
 export interface NetClassesData {
   classes: NetClass[];
   assignments: NetClassAssignment[];
+  /**
+   * `net_settings.net_colors` — `NET_SETTINGS::m_netColorAssignments`, a net
+   * NAME to colour map (net_settings.cpp:224-249). It is not a netclass
+   * property and not a board property: a per-net colour override lives in the
+   * project file, keyed by name, which is why a board opened without its
+   * `.kicad_pro` shows none.
+   *
+   * pcbnew loads it into the painter at
+   * `PCB_EDIT_FRAME::LoadProjectSettings` (pcbnew_config.cpp:95-105) and
+   * APPEARANCE_CONTROLS' Nets tab reads it back out of there
+   * (appearance_controls.cpp:235). Keyed by name, values in our CSS colour
+   * form; a net with no entry is COLOR4D::UNSPECIFIED and draws the
+   * checkerboard.
+   */
+  netColors: Record<string, string>;
 }
 
 /**
@@ -130,6 +145,7 @@ export function defaultNetClasses(): NetClassesData {
       },
     ],
     assignments: [],
+    netColors: {},
   };
 }
 

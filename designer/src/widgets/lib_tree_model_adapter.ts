@@ -148,10 +148,23 @@ export class LibTreeModelAdapter {
   private filter: LibTreeNodeFilter | null = null;
   private searchString = '';
   private preselect: { libId: string; unit: number } | null = null;
-  /** m_shownColumns, ordered, "Item" always first (loadColumnConfig). */
-  protected shownColumns: string[] = [...LIB_TREE_DEFAULT_SHOWN_COLUMNS];
-  /** m_availableColumns. */
-  protected availableColumns: string[] = [...LIB_TREE_COLUMNS];
+  /**
+   * m_shownColumns / m_availableColumns, ordered, "Item" always first.
+   *
+   * The BASE adapter's own two, `common/lib_tree_model_adapter.cpp:168,195-196`.
+   * These used to hold the symbol CHOOSER's set - Item, Description, Value
+   * (+ Footprint available) - which inverts upstream: there the base is the
+   * plain pair and `SYMBOL_TREE_MODEL_ADAPTER`'s constructor is the only thing
+   * that adds Value and Footprint (eeschema/symbol_tree_model_adapter.cpp:54-58).
+   *
+   * Inverting it made every other tree responsible for UNDOING a column it
+   * never asked for. The footprint editor remembered (`fp_tree_synchronizing_
+   * adapter.ts:89-90`); the symbol editor did not, so its dock carried a Value
+   * column upstream does not have there - `SYMBOL_TREE_SYNCHRONIZING_ADAPTER`
+   * adds nothing at all and inherits exactly this pair.
+   */
+  protected shownColumns: string[] = [...LIB_TREE_BASE_COLUMNS];
+  protected availableColumns: string[] = [...LIB_TREE_BASE_COLUMNS];
   /**
    * `m_colWidths`, per adapter and not per class.
    *
@@ -260,6 +273,24 @@ export class LibTreeModelAdapter {
 
   getShownColumns(): readonly string[] {
     return this.shownColumns;
+  }
+
+  /**
+   * `SYMBOL_TREE_MODEL_ADAPTER::SYMBOL_TREE_MODEL_ADAPTER`
+   * (eeschema/symbol_tree_model_adapter.cpp:54-58) plus its `loadColumnConfig`
+   * fallback (:66-80). The symbol chooser is the one tree that has Value and
+   * Footprint; nothing else upstream does, so widening lives at that call site
+   * rather than in the shared default.
+   *
+   *     m_colWidths[ VALUE ] = 300;  m_colWidths[ FOOTPRINT ] = 600;
+   *     m_availableColumns.emplace_back( VALUE );
+   *     m_availableColumns.emplace_back( FOOTPRINT );
+   */
+  setSymbolChooserColumns(): void {
+    this.availableColumns = [...LIB_TREE_COLUMNS];
+    this.shownColumns = [...LIB_TREE_DEFAULT_SHOWN_COLUMNS];
+    this.colWidths['Value'] = 300;
+    this.colWidths['Footprint'] = 600;
   }
 
   /**

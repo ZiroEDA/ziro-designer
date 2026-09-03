@@ -2,6 +2,7 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
+import { preloadBundle } from '../libraryPreload.js';
 import { MenuBar, type Menu } from '../ui/MenuBar.js';
 import {
   storageAvailable,
@@ -40,7 +41,7 @@ import {
   listUserTemplates,
   userTemplateFiles,
 } from './user_templates.js';
-import { demoAt, fetchDemoExtras, loadDemos, openDemo, type DemoMeta } from './demos.js';
+import { demoAt, loadDemos, openDemo, type DemoMeta } from './demos.js';
 import '../ui/shell.css';
 import type { PickedHomeFile } from './files.js';
 import {
@@ -66,6 +67,7 @@ import { archiveEntries, zipArchive, expandArchive } from './project_archiver.js
 import {
   type Activation,
   activationForFile,
+  browserViewableMime,
   projectFileContext,
   runActivation,
 } from './file_activation.js';
@@ -292,6 +294,8 @@ export function HomePage({
   onOpenGerberViewer,
   initialFiles,
   activePro,
+  activeDemo,
+  onDemoStateChange,
   onSwitchProject,
 }: {
   onOpenSchematic: () => void;
@@ -322,6 +326,31 @@ export function HomePage({
   initialFiles?: PickedHomeFile[] | null;
   /** The active project's .kicad_pro (full name) when a folder holds several. */
   activePro?: string;
+  /**
+   * The demo the app currently has open, if any.
+   *
+   * This frame is an early return in `App` (`if (view === 'home')`), not a
+   * hidden-but-mounted pane like the editors, so it UNMOUNTS on the way into an
+   * editor and remounts on the way back with every piece of its state reset.
+   * "This project is a demo" cannot live here, then: it was lost the first time
+   * the user closed eeschema, and reopening it handed `App` a null demo, which
+   * dropped [Read Only] from the title and took the infobar with it.
+   */
+  activeDemo?: DemoMeta | null;
+  /**
+   * ...and the same fact travelling back out.
+   *
+   * `activeDemo` alone is half a channel. Demo-ness is DISCOVERED here - File >
+   * Open Demo Project runs in this frame - but every consequence of it lives in
+   * `App`: the [Read Only] suffix, the infobar each editor renders, the gate on
+   * saving. It used to reach App only through `onOpenProject`, which is the
+   * SCHEMATIC launch path, so opening a demo and going straight to any other
+   * editor left App believing it had an ordinary project: no strip, nothing
+   * marking the edits as unsaveable. Reported as the symbol editor "losing the
+   * read-only state", and the board and footprint editors had it too - it was
+   * never lost, it was never sent.
+   */
+  onDemoStateChange?: (demo: DemoMeta | null) => void;
   /** Switch the active project (double-clicking another .kicad_pro in the tree). */
   onSwitchProject?: (proFullName: string) => void;
 }): JSX.Element {
@@ -350,6 +379,34 @@ export function HomePage({
   const zipInputRef = useRef<HTMLInputElement>(null);
   // The picked project's files (shown in the tree until the editor is launched).
   const [picked, setPicked] = useState<PickedHomeFile[] | null>(initialFiles ?? null);
+
+  /**
+   * `KICAD_MANAGER_FRAME`'s own preload — `CallAfter` on project open, both
+   * faces at once (`kicad/kicad_manager_frame.cpp:540-548`):
+   *
+   *     schface->PreloadLibraries( &Kiway() );
+   *     pcbface->PreloadLibraries( &Kiway() );
+   *
+   * The editors preload too, but upstream does not wait for one to be opened
+   * and neither should this: without it the catalogue arrived only when the
+   * user first entered eeschema, so the manager sat there fetching nothing and
+   * the first schematic open paid for all of it.
+   *
+   * Keyed on the project's identity rather than on `picked`, which is a new
+   * array on every edit; `ensureBundle` is idempotent, but re-running it per
+   * keystroke would still churn the status bar.
+   */
+  // The project's identity, not its contents: `picked` is a new array on every
+  // edit, and re-running the preload per keystroke would churn the status bar.
+  const projectKey = useMemo(
+    () => picked?.find((f) => f.name.toLowerCase().endsWith('.kicad_pro'))?.name ?? null,
+    [picked],
+  );
+  useEffect(() => {
+    if (!projectKey) return;
+    void preloadBundle('symbols');
+    void preloadBundle('footprints');
+  }, [projectKey]);
   /**
    * Whether what is open came from the demo library.
    *
@@ -359,9 +416,15 @@ export function HomePage({
    * funnel every open goes through, so it cannot survive into the next project
    * opened after a demo.
    */
-  const [demoOpen, setDemoOpen] = useState(false);
+  const [demoOpen, setDemoOpen] = useState(!!activeDemo);
   /** The open demo's manifest, so saving a copy can complete it. */
-  const [demoSource, setDemoSource] = useState<DemoMeta | null>(null);
+  const [demoSource, setDemoSource] = useState<DemoMeta | null>(activeDemo ?? null);
+  // One effect rather than a call at each of the three places this state moves,
+  // so a fourth cannot forget. On mount it reports back the value it was just
+  // given, which React drops as an identical set.
+  useEffect(() => {
+    onDemoStateChange?.(demoOpen ? demoSource : null);
+  }, [demoOpen, demoSource, onDemoStateChange]);
   // Saved projects (IndexedDB), the offline half of cloud persistence.
   const [saved, setSaved] = useState<ProjectMeta[]>([]);
   // Expanded directory-tree folder paths (collapsed by default, like KiCad).
@@ -607,14 +670,19 @@ export function HomePage({
     // neither Projects nor Recent, both of which list the account's store;
     // keeping one is Save As. (This comment used to say the opposite — that a
     // demo persists "so it lands in Recent". It never did.) The files stream
-    // from the hosted CDN, so show a per-file download gauge while they arrive.
+    // from the hosted CDN, so show a download gauge while they arrive.
+    //
+    // The gauge shows a percentage and nothing else. The two paths count
+    // different things - a bundle reports bytes, the per-file fallback reports
+    // files - and both used to name the file in flight, so the line changed on
+    // every one of 89 ticks and the card resized under it. A fraction is the
+    // one thing both paths agree on, and the bar already carries it.
     setLoading({ message: `Downloading demo: ${d.title}`, value: 0 });
     let files: PickedHomeFile[];
     try {
-      files = await openDemo(d, (done, total, file) =>
+      files = await openDemo(d, (done, total) =>
         setLoading({
           message: `Downloading demo: ${d.title}`,
-          detail: `${file}, ${done} of ${total} files`,
           value: done / total,
         }),
       );
@@ -837,7 +905,6 @@ export function HomePage({
         out.push({ name: f.name, text: dec.decode(bytes), bytes });
         setLoading({
           message: 'Reading files...',
-          detail: `${base}, ${i + 1} of ${files.length}`,
           value: (i + 1) / files.length,
         });
       }
@@ -1376,12 +1443,36 @@ export function HomePage({
    * So the text branch opens the viewer and the other three download, and
    * neither is described here as being what KiCad does.
    */
-  const handOffFile = (file: PickedHomeFile, treePath: string, activation: Activation): void => {
+  /**
+   * The branches `Activate` ends in the operating system with.
+   *
+   * A browser cannot run `Pgm().GetTextEditor()` or hand a path to gestfich,
+   * but it is not helpless either: it IS the PDF viewer, the default browser
+   * and the image viewer. So each branch is answered where the browser can
+   * answer it - the text viewer for text, a tab for anything renderable - and
+   * left alone where it cannot.
+   *
+   * Nothing downloads from here any more. Double-clicking a .kicad_pcb opens
+   * the board; double-clicking a datasheet used to save it to disk, which is
+   * not what activating a file means in any editor. The tree's context menu
+   * keeps `Download...` for files the browser will not render.
+   */
+  const handOffFile = (file: PickedHomeFile, _treePath: string, activation: Activation): void => {
     if (activation.kind === 'openTextEditor') {
       setTextView(file);
       return;
     }
-    downloadFileAtPath(treePath);
+    const mime = browserViewableMime(file.name);
+    if (!mime) return;
+    const blob = file.bytes
+      ? new Blob([file.bytes.buffer as ArrayBuffer], { type: mime })
+      : new Blob([file.text], { type: mime });
+    const url = URL.createObjectURL(blob);
+    window.open(url, '_blank', 'noopener');
+    // NOT revoked here: the new tab has not loaded from it yet, and revoking
+    // in the same turn leaves it with a dead URL. The delay is longer than any
+    // plausible load and the object dies with the page regardless.
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
   };
 
   const downloadFileAtPath = (path: string): void => {
@@ -1747,13 +1838,14 @@ export function HomePage({
           // is the path in it: the same one the file chooser shows.
           text={projectStatusText(picked && proFile ? `/${proFile.name}` : null)}
         />
-        <span className="cell">
-          {storageAvailable()
-            ? session
-              ? 'Saved in browser · cloud sync on'
-              : 'Saved in browser'
-            : 'In-memory only (storage unavailable)'}
-        </span>
+        {/* KiCad's manager status bar has the project field and, on Windows
+            only, a file-watcher one — there is no storage field, and this held
+            a second one reading "Saved in browser · cloud sync on".
+            `ui/SaveIndicator` is what says where the user's work is now, and it
+            names that very string as the thing it replaced: a line that claims
+            "saved" unconditionally is furniture, and it stayed reassuring while
+            an hour of edits sat on one machine. It is quiet in the steady state
+            and loud when a write fails, so nothing is lost by dropping this. */}
       </KiStatusBar>
 
       {openPrjOpen && (

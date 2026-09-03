@@ -170,7 +170,10 @@ describe('an ordered scene records painter order across the primitive kinds', ()
     const s = recordOrdered();
     // Nothing may be dropped, duplicated or reordered: read in sequence, the
     // runs have to walk each buffer from its start to its end exactly once.
-    const next: Record<RunKind, number> = { tri: 0, seg: 0, disc: 0, glyph: 0 };
+    // Every kind, including `image`: `Record<RunKind, …>` is exhaustive on
+    // purpose, so adding a primitive to the scene makes this fail to compile
+    // rather than quietly skipping the new buffer's partition check.
+    const next: Record<RunKind, number> = { tri: 0, seg: 0, disc: 0, glyph: 0, image: 0 };
     for (const run of s.runs) {
       expect(run.start).toBe(next[run.kind]);
       expect(run.count).toBeGreaterThan(0);
@@ -180,6 +183,9 @@ describe('an ordered scene records painter order across the primitive kinds', ()
     expect(next.seg).toBe(s.segmentCount);
     expect(next.disc).toBe(s.discCount);
     expect(next.glyph).toBe(s.glyphVertexCount);
+    // The board records no bitmaps, so this run stays empty — but it is
+    // asserted rather than omitted, since "no image runs" is the claim.
+    expect(next.image).toBe(0);
   });
 
   it('keeps a fill recorded after a stroke after it', () => {

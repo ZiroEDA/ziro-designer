@@ -323,7 +323,7 @@ function toolsMenu(h: GerbviewMenuHandlers): Menu {
       },
       {
         label: 'Measure Tool',
-        icon: 'gerbMeasure',
+        icon: 'measureTool',
         action: h.measureTool,
         shortcut: 'Ctrl+Shift+M',
         tooltip: 'Interactively measure distance between points',

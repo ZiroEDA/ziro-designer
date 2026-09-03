@@ -37,10 +37,15 @@
  * local disk. Ours are objects in a bucket, and the numbers say a literal
  * transliteration is the wrong answer here, not a faithful one:
  *
- *     symbol libraries          223 files, 219.7 MB   (measured, and the
- *                                                      bucket serves them
- *                                                      uncompressed)
- *     individual symbols     22 778 files, ~22 MB in 22 778 round trips
+ *     symbol libraries          223 files, 230.4 MB raw
+ *     individual symbols     22 784 files, in 22 784 round trips
+ *
+ * That last point is now handled up front instead: {@link preloadBundle}
+ * fetches the whole catalogue as ONE object per kind (measured: symbols
+ * 230.4 MB raw -> 10.21 MB, footprints 155.9 MB -> 11.73 MB), stores each
+ * library gzipped, and the read paths expand one on demand. The stale note this
+ * paragraph used to carry - that the bucket serves libraries uncompressed - was
+ * true when it was written and is not now.
  *
  * So the preload does what KiCad's *achieves* rather than what it does: it
  * makes resident everything the open design refers to — which is exactly the
@@ -53,6 +58,7 @@
  */
 
 import { backgroundJobsMonitor, type BackgroundJob } from './ui/background_jobs_monitor.js';
+import { ensureBundle } from './libraryBundleStore.js';
 
 /** Which hosted library set a preload covers. */
 export type PreloadKind = 'symbols' | 'footprints';
@@ -280,4 +286,32 @@ export async function cancelPreload(kind: PreloadKind, block = false): Promise<v
 /** Whether a preload of this kind is running — `m_libraryPreloadInProgress`. */
 export function preloadInProgress(kind: PreloadKind): boolean {
   return inProgress[kind];
+}
+
+/**
+ * Make a kind's stock catalogue resident before its preload runs.
+ *
+ * A job on the same `BACKGROUND_JOBS_MONITOR` every other preload uses, so this
+ * shows in the status bar's gauge and its job list rather than in a dialog —
+ * `Pgm().GetBackgroundJobMonitor().Create( … )`, eeschema.cpp:504-505.
+ *
+ * Never throws and never blocks the preload behind a failure: `ensureBundle`
+ * reports false and the per-library fetches carry on exactly as before.
+ */
+export async function preloadBundle(kind: PreloadKind): Promise<void> {
+  const job: BackgroundJob = backgroundJobsMonitor.create(PRELOAD_JOB_NAME[kind]);
+  job.reporter.report(PRELOAD_JOB_NAME[kind]);
+  // Give the gauge its range up front. `create()` leaves maxProgress at 0, and
+  // `<progress max={0}>` draws an empty trough - so a catalogue already
+  // resident, which returns without ever reporting progress, showed a label
+  // beside a dead gauge. setCurrentProgress is what sets the range
+  // (FRACTIONAL_PROGRESS_RANGE), so calling it once at zero is enough.
+  job.reporter.setCurrentProgress(0);
+  try {
+    await ensureBundle(kind, (done, total) => {
+      job.reporter.setCurrentProgress(total > 0 ? done / total : 0);
+    });
+  } finally {
+    backgroundJobsMonitor.remove(job);
+  }
 }

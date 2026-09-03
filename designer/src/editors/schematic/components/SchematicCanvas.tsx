@@ -226,9 +226,6 @@ function notePaint(branch: 'preview' | 'ghostFull' | 'blit' | 'full' | 'gl', t0:
  * anyway (`SchematicGl.create` returns null and `drawScene` takes the old
  * path). An editor that renders beats one that renders quickly.
  */
-const GL_RENDERER =
-  typeof location !== 'undefined' &&
-  new URLSearchParams(location.search).get('renderer') !== 'canvas';
 
 /**
  * Every item a move changes the look of, by the id the painter keys them under.
@@ -2197,11 +2194,12 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     // GPU once and every later pan or zoom is a uniform update. That replaces
     // the ~70 ms unchunked repaint `startSceneRender` does after each gesture,
     // which is what makes the wheel feel like it stutters.
-    // The GL recorder does not draw images yet, so a sheet carrying one is
-    // painted by Canvas2D rather than silently losing it. Checked per frame
-    // because it is a property of the document being drawn, and it costs a
-    // length comparison.
-    const gl = doc.images.length === 0 ? glRef.current : null;
+    // Images go on the GPU like everything else. This used to divert a sheet
+    // carrying one to Canvas2D, because `GlRecorder.drawImage` was a no-op and
+    // the alternative was drawing nothing at all. It records a textured quad
+    // now - verified against the GPU, a 2x2 bitmap reading back red/green/
+    // blue/white in the right corners - so the diversion is gone.
+    const gl = glRef.current;
     const dragSpec = modeRef.current === 'move' ? moveSpecRef.current : null;
 
     // A drag on the GL path: the document without the moving items stays on the
@@ -3031,7 +3029,6 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
   // Canvas2D path exactly as before: an editor that renders is worth more than
   // one that renders quickly.
   useEffect(() => {
-    if (!GL_RENDERER) return;
     const canvas = glCanvasRef.current;
     if (!canvas || glRef.current) return;
     glRef.current = SchematicGl.create(canvas);
@@ -3044,9 +3041,29 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       glRef.current = null;
       requestDrawRef.current();
     };
+    /**
+     * ...and then come back. `preventDefault()` above is what asks the browser
+     * to restore the context at all, and without a listener for it that request
+     * was made and ignored: a transient loss - a GPU reset, a driver update, the
+     * tab backgrounded long enough to be reclaimed - dropped this canvas to
+     * Canvas2D permanently, until a reload. GerberCanvas and DrawingSheetCanvas
+     * have restored theirs all along; this one and PcbEditor did not.
+     *
+     * The new device's buffers are empty, so the scene has to be re-recorded
+     * rather than merely redrawn. That is what `sceneDirtyRef` is for, and it
+     * is the half the other two canvases do not need because their render path
+     * re-records every frame anyway.
+     */
+    const onRestored = (): void => {
+      glRef.current = SchematicGl.create(canvas);
+      sceneDirtyRef.current = true;
+      requestDrawRef.current();
+    };
     canvas.addEventListener('webglcontextlost', onLost);
+    canvas.addEventListener('webglcontextrestored', onRestored);
     return () => {
       canvas.removeEventListener('webglcontextlost', onLost);
+      canvas.removeEventListener('webglcontextrestored', onRestored);
       glRef.current?.dispose();
       glRef.current = null;
     };
@@ -4424,12 +4441,12 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
           background and the grid: the grid's spacing adapts to the zoom, so it
           is the one thing that genuinely cannot live in a retained buffer.
           Takes no events, like the overlay above it. */}
-      {GL_RENDERER && (
+      {
         <canvas
           ref={glCanvasRef}
           style={{ display: 'block', position: 'absolute', left: 0, top: 0, pointerEvents: 'none' }}
         />
-      )}
+      }
       {/* The pointer overlay (crosshair, rubber band, lasso, wire preview) sits
           above the scene and never takes events, so clicks and pointer captures
           still land on the scene canvas below. */}

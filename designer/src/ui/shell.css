@@ -96,14 +96,6 @@
   --toolbar-icon-size: 24px;
   --toolbar-button-pad: 3px;
   --toolbar-button-size: calc(var(--toolbar-icon-size) + 2 * var(--toolbar-button-pad));
-  /* [px] the bottom of the whole toolbar block, where it meets the canvas —
-     ONE line, and it is not --chrome-border. Sampled down two empty columns of
-     a live GerbView capture (x=1500 and x=1650, 2026-08-21): the face is an
-     unbroken #373737 from the menu bar to y=170, then a single #292929 at
-     y=171, then the canvas. Stacked wxAuiToolBar rows draw NO divider between
-     them at all, which is why this is one edge below the block rather than a
-     border on each row. */
-  --toolbar-dock-edge: #292929;
   /* [px] the wxAuiToolBar separator, from the same capture: #5f5f5f, and it
      is LIGHTER than the toolbar face rather than darker. */
   --toolbar-separator: #5f5f5f;
@@ -128,6 +120,25 @@
      sash inside a dialog, a different widget that GTK draws differently. */
   --aui-sash: #373737;
   --aui-sash-size: 5px;
+  /* The other half of the same dock art: the border wxAUI draws around a pane
+     that asked for one. `EDA_PANE().Canvas()` is the one that always does
+     (`PaneBorder( true )`, eda_base_frame.h:975-981), which is why every
+     editor's canvas is fenced off from the toolbars and panes around it while
+     two docked toolbars butt together with no line at all.
+
+     Same probe, same dock art (qa/probes/aui_sash_probe.cpp):
+       GetMetric( wxAUI_DOCKART_PANE_BORDER_SIZE ) -> 1
+       GetColour( wxAUI_DOCKART_BORDER_COLOUR )    -> rgb(41, 41, 41)
+
+     This was `--toolbar-dock-edge`, named for the one place we had noticed it:
+     the line under the top toolbar block. It is not a property of toolbars —
+     it is the canvas pane's own border, and the toolbars merely happen to be
+     what sits against three of its four sides. [px] pcbnew 1920x1200: #292929
+     down x=405 and x=1631 beside the two vertical toolbars, and ALSO along
+     y=1140 under the canvas — where there is no toolbar at all, and where we
+     had a full-width --chrome-border rule instead. */
+  --aui-pane-border: #292929;
+  --aui-pane-border-size: 1px;
   /* That other sash. PANEL_SYMBOL_CHOOSER builds its panes with a
      wxSplitterWindow pair (eeschema/widgets/panel_symbol_chooser.cpp:193-210,
      wxSP_LIVE_UPDATE | wxSP_NOBORDER | wxSP_3DSASH) and names neither number.
@@ -1630,9 +1641,9 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 /* The dock edge, on the LAST horizontal row rather than on each one. Every row
    used to carry `border-bottom: 1px solid var(--chrome-border)`, which drew a
    near-black rule between TOP_MAIN and TOP_AUX that KiCad does not have: its
-   two rows are one continuous face. See --toolbar-dock-edge for the sample. */
+   two rows are one continuous face. See --aui-pane-border for the sample. */
 .ze-toolbar.horizontal:not(:has(+ .ze-toolbar.horizontal)) {
-  border-bottom: 1px solid var(--toolbar-dock-edge);
+  border-bottom: var(--aui-pane-border-size) solid var(--aui-pane-border);
 }
 /* No width either: [px] GerbView's left strip is x 66..99 = 34 px around a
    30 px button at 68..97, i.e. --toolbar-button-size in 2 px of toolbar. Ours
@@ -1657,10 +1668,10 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
    canvas. Ours drew --chrome-border (#1e1e1e) there, which reads as a black
    rule breaking the strip away from the bars above and below it. */
 .ze-toolbar.vertical.left {
-  border-right: 1px solid var(--toolbar-dock-edge);
+  border-right: var(--aui-pane-border-size) solid var(--aui-pane-border);
 }
 .ze-toolbar.vertical.right {
-  border-left: 1px solid var(--toolbar-dock-edge);
+  border-left: var(--aui-pane-border-size) solid var(--aui-pane-border);
 }
 
 .ze-tbtn {
@@ -1906,9 +1917,28 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   display: flex;
   min-height: 0;
 }
+/* `EDA_PANE().Canvas()` is `PaneBorder( true )` (eda_base_frame.h:975-981), so
+   wxAUI fences the canvas off on all four sides with --aui-pane-border. Three
+   of those sides are already drawn from the other direction, by the toolbar
+   that sits against them (.ze-toolbar.horizontal's bottom and
+   .ze-toolbar.vertical's left/right) — the bottom is the one edge with no
+   toolbar beside it, so it is stated here.
+
+   It is on the wrap and not on the message panel below because the border is
+   the CANVAS pane's: it stops where the canvas stops. [px] pcbnew at y=1140:
+   #292929 from x=405 to x=1631 and #373737 either side of that, over the
+   toolbars and the docked panes. */
 .ze-canvas-wrap {
   flex: 1;
+  border-bottom: var(--aui-pane-border-size) solid var(--aui-pane-border);
   min-width: 0;
+  /* A flex item defaults to `min-height: auto`, which is its CONTENT height, so
+     this refused to shrink: the moment an infobar appeared above the canvas the
+     column overflowed downward and carried the status bar off the bottom of the
+     window. Only `position: relative` is added here, not `display: flex` - the
+     canvas inside is absolutely positioned against this box and laying it out
+     as a flex column changes what size it is given. */
+  min-height: 0;
   position: relative;
 }
 
@@ -1932,8 +1962,12 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
    only overrides the text colour (to wxSYS_COLOUR_BTNTEXT, i.e. undimmed) and
    kills the gradient, so the fill is flat. Ours was a 26px bold 12px bar. */
 .ze-panel-header {
-  /* 17px of fill plus the 1px rule under it, measured across the real pane. */
-  min-height: 18px;
+  /* [px] wxAUI_DOCKART_CAPTION_SIZE, 17 (qa/probes/aui_sash_probe.cpp), and a
+     live pcbnew agrees at three captions: Properties, Appearance and Selection
+     Filter all fill y 171..187. It said 18 while it also drew a rule under
+     itself; the rule has gone to the control it belongs to, so the strip is
+     the caption alone. */
+  min-height: 17px;
   display: flex;
   align-items: center;
   /* The caption's close box sits at the far end. Every `EDA_PANE().Palette()`
@@ -1950,7 +1984,16 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   font-weight: 400;
   font-size: 8pt;
   background: var(--panel-header);
-  border-bottom: 1px solid var(--ctl-border);
+  /* And no rule UNDER it either, for the same reason: the line beneath a
+     caption is the top edge of whatever control fills the pane, so it starts
+     and stops where that control does. [px] pcbnew 1920x1200, three panes
+     down one column each: Properties at x=345, Appearance at x=1900 and
+     Selection Filter at x=1900 all go straight from the caption's #2e2e2e to
+     the pane body with nothing between. This carried
+     `border-bottom: 1px solid var(--ctl-border)`, so a pane whose control is
+     inset — the Properties pane, whose wxPropertyGrid sits 28px below the
+     caption behind the wxStaticText — drew the control's frame in the wrong
+     place, one line high on the caption and none around the grid. */
 }
 .ze-panel-body {
   padding: 6px 8px;
@@ -2122,9 +2165,17 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
      DoGetBestSize() = wxSize( wxDefaultCoord, 2 * m_fontSize.y )   :78
      m_fontSize = GetTextExtent( "W" )                              :72
        -> 14 x 18, so 36
-   Corroborated by sampling a real GerbView capture down x=400: a 1px rule at
-   y=1140 then rgb(55,55,55) from 1141 to 1176 - 36 rows - and rgb(44,44,44)
-   from 1177, the status bar. Two methods that share no step.
+   Corroborated by sampling a real GerbView capture down x=400: rgb(55,55,55)
+   from 1141 to 1176 - 36 rows - and rgb(44,44,44) from 1177, the status bar.
+   Two methods that share no step.
+
+   The 1px rule above y=1141 in that sample is NOT this panel's. x=400 is a
+   canvas column, and the rule is the canvas pane's own border; [px] the same
+   row of a pcbnew capture reads #292929 only from x=405 to x=1631, and runs
+   straight through as #373737 over the two vertical toolbars and both docked
+   panes. We had it as a `border-top` here, which drew it across the whole
+   window and cut every toolbar off from the panel below it. It lives on
+   .ze-canvas-wrap now, with the other three sides of the same border.
 
    The colour equals --content-bg and --aui-sash because GTK maps BTNFACE and
    3DFACE to one colour; they are three roles, not one value with three names. */
@@ -2134,7 +2185,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   min-height: 36px;
   overflow: hidden;
   background: var(--msgpanel-bg);
-  border-top: 1px solid var(--chrome-border);
   /* The text is drawn with KIUI::GetControlFont (msgpanel.cpp:121), which off
      macOS is getGUIFont( win, 0 ) — the plain GTK UI font, the same size as the
      menu bar and the trees. There is no smaller "info" size here. Ours said
@@ -2185,7 +2235,11 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
      kinds of status bar do not measure the same. See --statusbar-height. */
   height: var(--statusbar-height);
   background: var(--chrome-bg);
-  border-top: 1px solid #292929;
+  /* No border. A KISTATUSBAR is a wxStatusBar and GTK gives it no top rule;
+     [px] pcbnew 1920x1200, straight down x=1660 and x=1700: #373737 through
+     y=1176, then #2c2c2c from y=1177 with nothing between. Ours wrote a
+     literal #292929 here — a value the theme never asked for, and one pixel
+     that pushed the whole bar down out of alignment with KiCad's. */
   font-size: var(--ui-font-size);
   /* Not pure white. Same font (system-ui resolves to Ubuntu here, which is what
      KiCad draws with), same size - measured glyph-for-glyph, "Project:" is 51px
@@ -2238,7 +2292,16 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
    is a fixed 75. Both are rendered only while a job runs, which is the DOM
    equivalent of collapsing them to width 0 when idle. */
 .ze-statusbar .cell.bgjob-label {
-  flex: 1 1 0;
+  /* Upstream this field is width -1, a stretch field (kistatusbar.cpp:127-129).
+     Content-width here renders IDENTICALLY in KiCad's own field set - the label
+     is right-aligned and the only thing to its right is the 75px gauge, so
+     stretching it changes nothing that is drawn. It changes plenty in ours,
+     because this bar carries a field KiCad has no equivalent of ("Saved in
+     browser"): a second stretch field halves the leftover the project path was
+     taking, and that field slides from the right edge to the middle the moment
+     a job starts. Same pixels where upstream can be compared, and nothing
+     wanders where it cannot. */
+  flex: 0 1 auto;
   min-width: 0;
   text-align: right;
 }
@@ -3260,6 +3323,27 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   display: flex;
   flex-direction: column;
   width: 240px;
+}
+/* What separates a dock from the toolbar beside it is wxAUI's SASH, not a
+   rule. Every pane docked here is added with `PaneBorder( false )` —
+   pcbnew's Properties and Appearance (pcb_edit_frame.cpp:345,382), GerbView's
+   Layers Manager (gerbview_frame.cpp:170), the project tree
+   (kicad_manager_frame.cpp:236) — so wxAUI draws no border at all and the only
+   thing between the pane and its neighbour is `wxAUI_DOCKART_SASH_SIZE` of
+   `wxAUI_DOCKART_SASH_COLOUR`: 5px of #373737, the same face as the toolbar,
+   which is why the two read as one strip.
+
+   [px] pcbnew 1920x1200, scanned at y=1000: the Properties pane ends at x=365,
+   then #373737 through x=370, then the 34px left toolbar at 371..404. Ours
+   drew 1px of --chrome-border there and rendered the sash into a column, where
+   a `width`-only rule collapses it to nothing — so our strip measured 35px
+   against KiCad's 40 and had a black rule down its outer edge.
+
+   The rule survives only for a dock that has NOT been given its sash yet
+   (SymbolEditor, SchematicEditor, FootprintEditor, the project manager);
+   without it those butt straight into the canvas. Scoped rather than restated
+   so that giving one of them a `<DockSash>` is the whole change. */
+.ze-leftdock:not(:has(+ .ze-dock-sash)) {
   border-right: 1px solid var(--chrome-border);
 }
 /* The same dock column on the other side, for pl_editor's Props pane —
@@ -3268,16 +3352,23 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
    differs, because that edge is the one facing the canvas.
 
    Deliberately NOT `.ze-rightdock`: that is pcbnew's Appearance + Selection
-   Filter stack, and it repaints its panes in the layer-panel grey
-   (`--panel-list-bg`) that a plain wxPanel does not have.
+   Filter stack, which stacks two panes in one dock and clips them so only the
+   notebook scrolls.
 
    `min-width` is the pane's `.MinSize( m_propertiesPagelayout->GetMinSize() )`
    (pl_editor_frame.cpp:203) — the panel's own content minimum, which wxAUI
    takes over BestSize whenever it is larger. The width is content, the way
-   `.ze-modal` is `Fit()`. */
+   `.ze-modal` is `Fit()`.
+
+   This one keeps its border where the docks above lose theirs, because this
+   pane is the one that asked for it: `EDA_PANE().Palette()` sets
+   `PaneBorder( true )` (eda_base_frame.h:965-970) and pl_editor never turns it
+   back off, unlike pcbnew and GerbView. So the colour is wxAUI's border, not
+   --chrome-border, and it sits INSIDE the sash: canvas, toolbar, 5px sash,
+   1px #292929, pane. */
 .ze-leftdock.on-right {
   border-right: none;
-  border-left: 1px solid var(--chrome-border);
+  border-left: var(--aui-pane-border-size) solid var(--aui-pane-border);
   min-width: min-content;
 }
 /* The centre pane and whatever wxAUI puts in LAYER 0 around it.
@@ -3302,14 +3393,18 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 /* A pane docked at the bottom of that column — eeschema's and pcbnew's Search
    panes (`sch_edit_frame.cpp:290-300`). Height comes from the pane's own
    `BestSize`/`MinSize` and is set on the element, the way the left dock's width
-   is; only the edge facing the canvas is stated here, because that is the one
-   wxAUI draws. */
+   is.
+
+   No edge of its own: the Search pane is `.PaneBorder( false )`
+   (pcb_edit_frame.cpp:403-405), so the only line between it and the canvas is
+   the canvas pane's own border, which .ze-canvas-wrap draws. This carried a
+   --chrome-border of its own, which doubled that line the moment the pane was
+   opened. */
 .ze-bottomdock {
   flex: 0 0 auto;
   display: flex;
   flex-direction: column;
   min-height: 0;
-  border-top: 1px solid var(--chrome-border);
 }
 /* wxTreeCtrl's row selection is a sharp-edged rectangle, not rounded. */
 .sch-leftdock .ze-tree-item {
@@ -3348,18 +3443,37 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-rightdock {
   display: flex;
   flex-direction: column;
-  border-left: 1px solid var(--chrome-border);
   min-width: 0;
   min-height: 0;
   overflow: hidden;
 }
+/* The mirror of `.ze-leftdock:not(:has(+ .ze-dock-sash))`, and for the same
+   reason: where the sash is there, it is the separation. The sash precedes
+   this dock rather than following it, because it is the pane's canvas-facing
+   edge that carries it. */
+:not(.ze-dock-sash) + .ze-rightdock {
+  border-left: 1px solid var(--chrome-border);
+}
 /* In the dock the panes stack vertically, so drop the fixed 220px width.
-   The whole content area is KiCad's lighter panel grey (m_layerPanelColour)
-   so the layer/object rows read as a list, not the near-black chrome. */
+
+   The pane is a plain wxPanel and takes wxSYS_COLOUR_3DFACE like any other.
+   `m_layerPanelColour` is NOT the pane: it is
+   `m_panelLayers->GetBackgroundColour().ChangeLightness( 110 )` and
+   APPEARANCE_CONTROLS sets it on `m_windowLayers` and on each row's panel
+   (appearance_controls.cpp:1240-1269), i.e. on the LIST inside the notebook.
+   Painting the whole pane with it made the tab strip, the Presets/Viewports
+   block and the Selection Filter read as one flat sheet of #4b4b4b where
+   KiCad has #373737 around a #4b4b4b list — [px] pcbnew down x=1915: pane
+   face 188..192, tab strip 194..229, list 250..808, then #373737 again from
+   835 through the Selection Filter.
+
+   No border between the two panes either. They share a dock row, so what
+   wxAUI puts between them is a sash, and a sash is the same #373737 as the
+   panes — invisible, where our rule drew a black rule above the Selection
+   Filter caption. */
 .ze-rightdock .ze-panel {
   width: auto;
-  border-bottom: 1px solid var(--chrome-border);
-  background: var(--panel-list-bg);
+  background: var(--content-bg);
 }
 /* Appearance pane: grows to fill and clips, so its notebook body scrolls. */
 .ze-rightdock .ze-panel.grow {
@@ -3497,6 +3611,17 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   line-height: 1.35;
   white-space: nowrap;
 }
+/* A row is as tall as its tallest child, and on the six rows that carry an
+   opacity control that child is the wxSlider. `qa/probes/appearance_row_probe.cpp`
+   builds one and asks: 34 px, the same answer wx gives for a wxTextCtrl, which
+   is why this is --ctl-height and not a number of its own. [px] pcbnew's
+   Objects page confirms it from the other side — Tracks, Vias, Pads, Zones,
+   Filled Shapes and Images repeat every 34 px while the rows below them, which
+   have no slider, repeat every 20. Ours was 22 for both. */
+.ze-object-row.has-slider {
+  height: var(--ctl-height);
+  box-sizing: border-box;
+}
 /* Label column: opacity rows fix its width so the sliders align (KiCad's
    label->SetMinSize(labelWidth)); other rows let the label fill. */
 .ze-obj-label {
@@ -3511,36 +3636,23 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 /* Opacity slider: KiCad's compact wxSlider, a thin track with a small round
    thumb, not the browser's tall default control. The filled left portion is
    set inline as a gradient so it shows the current value. */
+/* The opacity control on an Objects row. The WIDGET is `ui/Slider` — a
+   wxSlider is a wxSlider wherever KiCad opens one — so all that belongs here is
+   where this call site puts it: `ctl_opacity->SetMinSize` gives it a fixed
+   width and the row's sizer right-aligns it.
+
+   This used to be a `<input type="range">` of its own, with a `#55585d`
+   trough, an 11px `#d0d3d7` thumb and `--slider-fill`'s #e8912b — three
+   colours and two sizes GTK draws nowhere. [px] the real control on pcbnew's
+   Tracks row: a 4px trough, #e95420 left of the knob and #4b4b4b right of it,
+   under a 20px #fcfcfc circle. Every one of those is already a token, and
+   `.ze-slider` already consumes them. */
 .ze-opacity {
   flex: 0 0 auto;
-  width: 76px;
-  height: 4px;
-  margin: 0 4px;
-  -webkit-appearance: none;
-  appearance: none;
-  background: #55585d;
-  border-radius: 2px;
-  cursor: default;
-}
-.ze-opacity::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 11px;
-  height: 11px;
-  border-radius: 50%;
-  background: #d0d3d7;
-  cursor: default;
-}
-.ze-opacity::-moz-range-thumb {
-  width: 11px;
-  height: 11px;
-  border: none;
-  border-radius: 50%;
-  background: #d0d3d7;
-  cursor: default;
-}
-.ze-opacity:disabled {
-  opacity: 0.5;
+  /* [px] the slider box measured x 1806..1905 on a pane whose content ends at
+     1918, i.e. 100 wide — which is also what wx answers for a wxSlider built
+     with wxDefaultSize (qa/probes/appearance_row_probe.cpp: best 100 x 34). */
+  width: 100px;
 }
 
 /* Color swatch that opens a picker (COLOR_SWATCH): the native color input is
@@ -3587,21 +3699,53 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 
 /* Nets tab: the Nets grid and the Net Classes list each sit in their own
    boxed section (KiCad splits them into two panels of the notebook). */
+/* `m_panelNets` and `m_panelNetclasses`, the two halves of the Nets tab's
+   splitter. Each is a bare `wxPanel` (appearance_controls_base.cpp:54, :111):
+   no border, no corner radius and no background of its own — [px] pcbnew's
+   Nets tab is an unbroken #272727 from the tab strip's rule at y=230 down to
+   the sash at y=511, with the two headers sitting straight on it. This drew a
+   rounded #313438 box with a --chrome-border frame around each, none of which
+   GTK paints anywhere.
+
+   They scroll inside their own half rather than pushing each other: that is
+   what the splitter is for, and `max-height: 40vh` was standing in for it. */
 .ze-nets-box {
-  border: 1px solid var(--chrome-border);
-  border-radius: 3px;
-  background: #313438;
-  padding: 4px;
-  margin-bottom: 6px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
 }
-.ze-nets-box + .ze-nets-box {
-  margin-bottom: 0;
+/* The lower half takes what the sash leaves it. */
+.ze-nets-box.grow {
+  flex: 1 1 auto;
 }
-/* The net list scrolls inside its box so a long net list doesn't push the
-   Net Classes box off-screen (KiCad's splitter caps the nets panel). */
+/* `m_netsGrid`, and a wxGrid is a CONTROL: it paints its own cell background
+   over the panel's, which is what makes the net list read as a box inside the
+   Nets panel while the netclass list below it does not. [px] pcbnew's Nets
+   tab, panel face #272727: the grid is an unbroken #373737 from x=1677 to
+   x=1912 and from just under the header down to the sash, with the selected
+   row #181818 inside it. Ours drew the rows straight on the panel, so there
+   was no box at all — and before that a rounded #313438 one, which is neither.
+
+   [data] `bSizer192->Add( m_netsGrid, 0, wxALL|wxEXPAND, 5 )`
+   (appearance_controls_base.cpp:105) — the 5px inset on all four sides. */
 .ze-nets-list {
-  max-height: 40vh;
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
+  background: var(--content-bg);
+  /* [data] wxALL, 5 (appearance_controls_base.cpp:105). */
+  margin: 5px;
+}
+/* `m_netclassScrolledWindow` is a wxScrolledWindow, not a grid: no background
+   of its own, just the same 5px — [data] `bSizerNetClasses->Add(
+   m_netclassScrolledWindow, 1, wxEXPAND | wxALL, 5 )` (:138). */
+.ze-nets-box.grow > .ze-netclass-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  /* [data] wxALL, 5 (appearance_controls_base.cpp:138). */
+  margin: 5px;
 }
 
 /* Nets tab headers ("Nets" / "Net Classes"): a label that takes the row and a
@@ -3613,7 +3757,15 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   align-items: center;
   gap: 6px;
   font-size: var(--ui-font-size-info);
-  margin: 2px 0 4px;
+  /* [data] `bSizer17->Add( m_staticTextNets, 1, wxALIGN_CENTER_VERTICAL |
+     wxRIGHT | wxLEFT, 5 )` and the same flags on the button
+     (appearance_controls_base.cpp:63, :73), then `bSizer192->Add( bSizer17, 0,
+     wxEXPAND, 5 )` (:76) — wxEXPAND with no wxTOP, so the row sits hard
+     against the top of the panel. Ours added 2px above and 4px below, which is
+     why our "Nets" title sat lower than KiCad's. */
+  margin: 0;
+  /* [data] wxRIGHT|wxLEFT, 5 on both children (appearance_controls_base.cpp:63, :73). */
+  padding: 0 5px;
 }
 .ze-nets-header span {
   flex: 1;
@@ -3637,8 +3789,12 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 }
 
 /* WX_COLLAPSIBLE_PANE ("Layer Display Options" / "Net Display Options") */
+/* WX_COLLAPSIBLE_PANE. No rule above it: it changes colour instead, taking the
+   notebook's theme background where the list above it wears m_layerPanelColour
+   — [px] pcbnew down x=1915, #4b4b4b through y=808 and #272727 from 809, with
+   no line between. The colour is stated where the widget puts the pane; this
+   is only its sizer inset. */
 .ze-collapsepane {
-  border-top: 1px solid var(--chrome-border);
   padding: 4px 6px;
 }
 .ze-collapse-toggle {
@@ -3689,26 +3845,38 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 }
 
 /* Presets / Viewports row under the Appearance notebook */
+/* bBottomMargin, the Presets / Viewports block. It sits OUTSIDE the notebook
+   (`m_sizerOuter->Add( bBottomMargin, 0, wxEXPAND|wxTOP|wxBOTTOM, 4 )`,
+   appearance_controls_base.cpp:192), so the line above it is the notebook's own
+   bottom edge and not a rule of its own. Ours drew both, which put two lines
+   there. */
 .ze-appearance-bottom {
-  border-top: 1px solid var(--chrome-border);
   padding: 6px;
   font-size: var(--ui-font-size-info);
 }
-.ze-appearance-bottom select {
-  width: 100%;
+/* `bPresets->Add( m_cbLayerPresets, 0, wxALL|wxEXPAND, 2 )`
+   (appearance_controls_base.cpp:169, :186): both choices EXPAND to the block's
+   width and carry 2px on every side. `.ze-combo` brings its own look; only the
+   sizer flags belong here. */
+.ze-appearance-bottom .ze-combo {
+  /* [data] wxALL, 2 (appearance_controls_base.cpp:169, :186). */
+  margin: 2px;
+  /* wxEXPAND, less the border the line above puts on each side. */
+  width: calc(100% - 4px);
 }
 
 /* Native <select> comboboxes default to the OS light theme (white box on
    Linux/GTK). Give KiCad's dark combobox look to every AppendControl combo —
    .ze-tb-control is the slot Toolbar renders one into, so this covers the pcb
    aux bar's five and the top bar's variant choice without naming a launcher —
-   and to the Presets / Viewports selects, plus the drop-down list itself. The
-   .ze-select / .ze-cell-select classes handle dialogs.
+   plus the drop-down list itself. The .ze-select / .ze-cell-select classes
+   handle dialogs. The Presets / Viewports pair used to be here; they are
+   wxChoices (appearance_controls_base.cpp:165, :185) and are the shared
+   `Combo` now, which is what a wxChoice is.
 
    It was scoped to `.ze-auxbar`, a class only the pcb editor's hand-rolled aux
    div carried; when that div became a real toolbar the rule matched nothing. */
-.ze-tb-control select,
-.ze-appearance-bottom select {
+.ze-tb-control select {
   background: var(--chrome-bg2);
   color: var(--chrome-fg);
   border: 1px solid var(--chrome-border);
@@ -3720,17 +3888,14 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 }
 /* A drop-down is a GTK button, which has no :focus border — only the dashed
    keyboard rectangle. See the note on `.ze-app …:focus` above. */
-.ze-tb-control select:focus,
-.ze-appearance-bottom select:focus {
+.ze-tb-control select:focus {
   outline: none;
 }
-.ze-tb-control select:focus-visible,
-.ze-appearance-bottom select:focus-visible {
+.ze-tb-control select:focus-visible {
   outline: 1px dashed var(--field-focus-border);
   outline-offset: -3px;
 }
-.ze-tb-control select:disabled,
-.ze-appearance-bottom select:disabled {
+.ze-tb-control select:disabled {
   opacity: 0.55;
   cursor: default;
 }
@@ -4401,15 +4566,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   margin-left: 5px;
 }
 /* WX_INFOBAR: the "annotation required" banner ModalAnnotate passes in. */
-.ze-infobar {
-  margin: 6px 6px 0;
-  padding: 6px 10px;
-  border: 1px solid #7a6a20;
-  border-radius: 3px;
-  background: #3a3520;
-  color: #e8e2c8;
-  font-size: 12px;
-}
 .ze-annotate-body fieldset {
   border: 1px solid var(--chrome-border);
   padding: 8px 10px;
@@ -4728,7 +4884,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 /* Determinate progress (ProgressReporter → LoadingOverlay): the gauge under
    the message, like KiCad's WX_PROGRESS_REPORTER dialog. */
 .ze-loading-card.with-progress {
-  min-width: 320px;
   align-items: flex-start;
 }
 .ze-loading-text {
@@ -4736,7 +4891,17 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   flex-direction: column;
   gap: 6px;
   flex: 1;
-  min-width: 0;
+  /* [chrome, measured] The room WX_PROGRESS_REPORTER reserves for its message:
+     `wxString( ' ', 80 )` (wx_progress_reporters.cpp:37), which is 240 px of
+     Ubuntu Sans 11 - the GTK dialog font, and the face --ui-font-size names.
+     Asked of Pango directly rather than guessed; 80 `ch` would be 640 px,
+     because `ch` is the width of a zero and upstream reserves spaces.
+
+     A width, not a min-width, so the card is the same size on every tick. The
+     card's own 320 px min-width was an invention and is gone: it floored the
+     width without holding it, so the card widened for a long filename and
+     snapped back on the next short one. */
+  width: 240px;
 }
 .ze-loading-detail {
   /* [data] `NUMBER_BADGE`'s `m_textSize( 10 )` (number_badge.cpp:33) — a POINT
@@ -5791,10 +5956,32 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   width: max-content;
   min-width: 100%;
 }
+/* `LIB_TREE_RENDERER::Render`'s canvas-item marker
+   (common/lib_tree_model_adapter.cpp:100-116): a one-pixel outline round the
+   whole row with its right edge drawn to a point at half height. Not a
+   strikethrough - the adapter sets that attribute as a FLAG and the renderer
+   clears it before drawing (`realAttr.SetStrikethrough( false )`, :95).
+
+   `*wxWHITE_PEN` on a dark theme, `*wxBLACK_PEN` on a light one, which is what
+   `currentColor` gives here since the row already carries the theme's text
+   colour. */
+.ze-libtree-canvasitem {
+  position: absolute;
+  /* `left` and `width` are the Item CELL's, set inline by the row - the marker
+     is a cell renderer upstream, not a row decoration, so it must not span the
+     Description column. Only the vertical extent is the row's. */
+  top: 0;
+  bottom: 0;
+  pointer-events: none;
+  overflow: visible;
+}
+
 .ze-libtree-row {
   display: flex;
   align-items: center;
   gap: 4px;
+  /* The canvas-item outline is absolute against the row. */
+  position: relative;
   /* The row's box is GTK's BACKGROUND AREA, not its cell area, because that is
      what the selection fills.
 
@@ -8171,13 +8358,33 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   text-decoration: underline;
 }
 /* WX_INFOBAR-style warning strip (annotation incomplete) */
+/* WX_INFOBAR (common/widgets/wx_infobar.cpp). TWO rules used to define this,
+   the later overriding half of the earlier, and between them they invented an
+   olive #4d3f14 / #ffd76e strip floating 6px inside the canvas with rounded
+   corners. Upstream's is none of those things, and the dead rule is now gone.
+
+   [chrome, measured] The colours are GTK's. WX_INFOBAR asks
+   `KIPLATFORM::UI::GetInfoBarColours` (:65), which reads the `infobar.info`
+   style context and, when that returns alpha 0 as Yaru-dark does, falls
+   through to `infobar.info > revealer > box` (port/wxgtk/ui.cpp:96-113). Asked
+   of GTK along that exact path: background #121617, text #f7f7f7.
+
+   [chrome, measured] 35px tall. The constructor does say `sy = 1.5 * sy` (:81),
+   "the infobar seems to start too small" - but that SetSize is overridden by
+   the sizer's own layout, so 1.5x is not what renders. Measured off a real
+   KiCad window instead: the #121617 band runs 35 rows before the 1px #292929
+   border below it. Taking the C++ at its word gave 52px, which is half again
+   too tall. */
 .ze-infobar {
   display: flex;
   align-items: center;
-  padding: 7px 12px;
-  font-size: 12.5px;
-  background: #4d3f14;
-  color: #ffd76e;
+  gap: 12px;
+  flex: 0 0 auto;
+  min-height: 35px;
+  padding: 0 12px;
+  font-size: var(--ui-font-size);
+  background: #121617;
+  color: #f7f7f7;
   border-bottom: 1px solid var(--chrome-border);
 }
 .ze-infobar .lnk {
@@ -9515,8 +9722,19 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   padding-left: 8px;
   gap: 8px;
 }
+/* The strip is --tab-strip-height, and that has to be SAID: with only the
+   padding stated, the height came out as whatever line box the label made -
+   [px] 38 against KiCad's 36 on the Appearance pane, which pushed the whole
+   notebook down two pixels. `qa/probes/appearance_row_probe.cpp` puts a real
+   wxNotebook's first page at y=38 inside the control, which is 1px of frame,
+   36 of strip and the 1px line under it.
+
+   border-box, so the arithmetic in the comment below is the rule: 8 + 17 + 8 +
+   the 3px marker = 36. */
 .ze-ds-tabs button,
 .ze-nb-tabs button {
+  box-sizing: border-box;
+  height: var(--tab-strip-height);
   /* Not `flex: 1`. That split the strip evenly between the tabs and centred
      each label, which is why ours read as two half-width buttons where KiCad
      shows two small tabs tucked against the left edge. */
@@ -10202,18 +10420,55 @@ textarea.ze-ds-textedit {
   align-items: center;
   gap: 12px;
 }
-.ze-readonly-infobar button {
-  margin-left: auto;
-  padding: 3px 10px;
-  font: inherit;
-  color: #f4eeda;
-  background: rgba(0, 0, 0, 0.3);
-  border: 1px solid #7a6a20;
+/* The icon is drawn at the wxART_BUTTON size hint, which GTK reports as 16x16
+   (measured) - the size wxInfoBarGeneric asks the art provider for. */
+.ze-infobar-icon {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+}
+/* The sizer's spacer: everything after the message goes to the right edge,
+   buttons in order with the close button last. */
+.ze-readonly-infobar .msg {
+  margin-right: auto;
+}
+/* `AddCloseButton()` is a wxBitmapButton, so it is the glyph and nothing else -
+   no frame, no fill, unlike the ordinary buttons beside it. */
+.ze-infobar-close {
+  display: flex;
+  align-items: center;
+  padding: 2px;
+  background: none;
+  border: 0;
   border-radius: 3px;
   cursor: default;
 }
+.ze-infobar-close img {
+  width: 16px;
+  height: 16px;
+}
+.ze-infobar-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* `AddButton()` puts a plain wxButton in the bar, so it is the theme's button
+   rather than a tint of the strip it sits on.
+
+   `:not(.ze-infobar-close)` because the close button is a wxBitmapButton and
+   must NOT get this frame - and without the exclusion it would, since
+   `.ze-readonly-infobar button` is (0,1,1) and beats `.ze-infobar-close` at
+   (0,1,0) no matter which is written last. */
+.ze-readonly-infobar button:not(.ze-infobar-close) {
+  padding: 3px 12px;
+  font: inherit;
+  color: #f7f7f7;
+  background: var(--chrome-bg2);
+  border: 1px solid var(--chrome-border);
+  border-radius: 4px;
+  cursor: default;
+}
 .ze-readonly-infobar button:hover {
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(255, 255, 255, 0.08);
 }
 
 /* ---------------------------------------------------------------------------
@@ -10349,6 +10604,13 @@ textarea.ze-ds-textedit {
   border-left: 1px solid var(--ctl-border);
   border-right: 1px solid var(--ctl-border);
   border-radius: 0;
+}
+/* The fourth side. It used to arrive as `.ze-panel-header`'s `border-bottom`,
+   which is the caption's rule and not this control's — the same pixel, owned
+   by the wrong widget, and wrong the moment a pane puts anything between the
+   caption and its control. */
+.ze-lhist-head {
+  border-top: 1px solid var(--ctl-border);
 }
 .ze-lhist-list {
   border-bottom: 1px solid var(--ctl-border);
@@ -11752,20 +12014,28 @@ textarea.ze-ds-textedit {
   /* [px] `m_toolbarTree->GetIndent()`, applied per level. */
   margin-left: 15px;
 }
-.ze-tbcust-row img,
-.ze-tbcust-noicon {
+/* There is no rule for a MISSING icon, and that is the point. `AppendItem( …,
+   -1 )` and a `wxListItem` with no image reserve no image cell at all, so an
+   iconless row's text starts where the image would have. Probed on this
+   machine's wx:
+
+     tree  "Show Grid" (image)   label x=61      "Separator" (none)  label x=33
+     list  row with image        label x=31      row with none       label x=2
+
+   A 24 px spacer stood in for the missing image, which lined every row's text
+   up and put "Separator", "Units" and "Crosshair modes" 28 px right of where
+   KiCad draws them. */
+.ze-tbcust-row img {
   width: 24px; /* [data] `c_defSize`, the size every bundle is built at */
   height: 24px; /* [data] as above */
   flex: 0 0 auto;
 }
-.ze-tbcust-tree .ze-tbcust-row img,
-.ze-tbcust-tree .ze-tbcust-noicon {
-  /* [px] 28 - 24: the tree's image cell less the image inside it. */
+.ze-tbcust-tree .ze-tbcust-row img {
+  /* [px] 61 - 33 - 24: the tree's image cell less the image inside it. */
   margin-right: 4px;
 }
-.ze-tbcust-list .ze-tbcust-row img,
-.ze-tbcust-list .ze-tbcust-noicon {
-  /* [px] 29 - 24: the same in the list, whose label starts at 31. */
+.ze-tbcust-list .ze-tbcust-row img {
+  /* [px] 31 - 2 - 24: the same in the list, whose label starts at 31. */
   margin-right: 5px;
 }
 .ze-tbcust-btns {

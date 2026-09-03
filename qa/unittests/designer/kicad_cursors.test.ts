@@ -16,6 +16,7 @@
  * the pencil tip is, and no screenshot comparison would show it.
  */
 import { describe, expect, it } from 'vitest';
+import { kiCursor } from '@ziroeda/designer/src/ui/kicursors.js';
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -101,27 +102,48 @@ describe('every cursor we point with', () => {
   });
 });
 
-describe('the hotspot the browser is given', () => {
-  it('is the 32x32 one even when image-set serves the 64x64 file', () => {
+describe('the value the browser is given', () => {
+  // The VALUE, not the source that builds it: a `cursor` declaration either
+  // draws art or it does not, and the string is the whole of what decides.
+  const value = kiCursor('MEASURE');
+  const candidates = value.split(/,(?![^()]*\))/).map((c) => c.trim());
+
+  it('is the 32x32 hotspot even when image-set serves the 64x64 file', () => {
     // A CSS hotspot is in CSS pixels, and image-set lays the 2x image out at
     // the 1x image's CSS size — so the 64x64 art must NOT bring its doubled
     // hotspot with it. Halving KiCad's 64x64 values gives the 32x32 ones back,
     // which is why only one pair is stored.
     expect(SRC).not.toMatch(/x:\s*8,\s*y:\s*54/); // cursor-pencil64's { 8, 54 }
-    expect(SRC).toMatch(/image-set\(url\(\$\{one\}\) 1x, url\(\$\{two\}\) 2x\) \$\{hot\}/);
+    const { x, y } = CURSORS_CPP.MEASURE!;
+    for (const c of candidates.filter((c) => c.includes('url('))) {
+      expect(c, c).toMatch(new RegExp(`\\)\\s${x} ${y}$`));
+    }
   });
 
-  it('every cursor value still ends in a keyword', () => {
-    // A `cursor` value whose image cannot load falls through to the next in
-    // the list, and a value with nothing after the comma is invalid CSS and is
-    // dropped WHOLE. There is one keyword now rather than a field per entry:
-    // upstream's only analogous branch answers `wxCURSOR_ARROW` (`GetCursor`,
+  it('always offers the plain 32x32 art, whatever image-set does', () => {
+    // `cursor` takes a LIST and the browser uses the first candidate it can
+    // draw, so an engine that PARSES `image-set()` here but declines to render
+    // one falls through to art at the right size instead of to the arrow.
+    //
+    // NOT what was wrong when this was written. [px] Chrome 149 parses, keeps
+    // and computes the image-set (see `SUPPORTS_IMAGE_SET`); the canvas that
+    // showed the plain arrow had `use_custom_cursors: false` stored, i.e.
+    // Preferences > Common > "Disable custom cursors". This is a spare wheel,
+    // pinned so it does not quietly go away, and the note is here so nobody
+    // spends the session on it that its first author did.
+    const plain = candidates.filter((c) => /^url\(/.test(c));
+    expect(plain.length, value).toBe(1);
+    expect(plain[0]).toContain('cursor-measure.png');
+    expect(plain[0]).not.toContain('64');
+  });
+
+  it('and still ends in a keyword', () => {
+    // A value with nothing after the last comma is invalid CSS and is dropped
+    // WHOLE. There is one keyword rather than a field per entry: upstream's
+    // only analogous branch answers `wxCURSOR_ARROW` (`GetCursor`,
     // `cursors.cpp:417-418`), so anything else here would be invented.
     expect(SRC).toMatch(/export const STOCK_CURSOR = 'default';/);
-    for (const tail of ['${hot}, ${STOCK_CURSOR}`', '2x) ${hot}, ${STOCK_CURSOR}`']) {
-      expect(SRC, tail).toContain(tail);
-    }
-    // …and no entry carries a keyword of its own any more.
+    expect(candidates.at(-1)).toBe('default');
     expect(SRC).not.toMatch(/fallback:/);
   });
 });

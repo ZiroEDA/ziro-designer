@@ -22,6 +22,16 @@ import {
   zoomFitScale,
 } from '../../ui/view_controls.js';
 import { DockSash } from '../../ui/DockSash.js';
+import { appearanceNetRows } from './appearance_nets.js';
+import { useStatusReadout } from '../../ui/useStatusReadout.js';
+
+/**
+ * `BASE_SCREEN::m_LocalOrigin`, the point pane 3's dx/dy/dist measures from.
+ * A module constant so its identity is stable across renders.
+ */
+const PCB_LOCAL_ORIGIN = { x: 0, y: 0 };
+import { drawRulerItem, rulerEnd } from '../../ui/ruler_item.js';
+import { kiCursor } from '../../ui/kicursors.js';
 import { appearanceLayerRows, layerTooltip } from '../../widgets/appearance_layers.js';
 import {
   ZOOM_AUTO_LABEL,
@@ -217,11 +227,8 @@ import { DialogPasteSpecial, type PasteSpecialMode } from '../../dialogs/dialog_
 import { KiStatusBar } from '../../ui/KiStatusBar.js';
 import { MsgPanel, type MsgPanelItem } from '../../ui/MsgPanel.js';
 import {
-  coordsMsg,
-  deltasMsg,
   gridMsg,
   messageTextFromValue,
-  polarMsg,
   scaleForZoomFactor,
   type StatusUnits,
   unitsMsg,
@@ -430,7 +437,12 @@ import { dispatchMenuHotkey, focusBlocksHotkey } from '../../ui/menu_hotkeys.js'
 import { isTypingTarget, wasBrowserSuppressed, type FocusLike } from '../../ui/browser_hotkeys.js';
 import { settings } from '../../prefs/settings.js';
 import { ColorSwatch } from '../../ui/ColorSwatch.js';
-import { COLOR4D_UNSPECIFIED, parseColor4d, toCssColor } from '@ziroeda/common/src/color4d.js';
+import {
+  COLOR4D_UNSPECIFIED,
+  parseColor4d,
+  toCssColor,
+  type Color4d,
+} from '@ziroeda/common/src/color4d.js';
 
 const MM = PCB_IU_PER_MM; // pcbnew IU is 1 nm (base_units.h)
 
@@ -445,9 +457,6 @@ const MM = PCB_IU_PER_MM; // pcbnew IU is 1 nm (base_units.h)
  * WebGL2 has to keep working anyway — `PcbGl.create` returns null and every
  * frame falls back to the raster path below.
  */
-const GL_RENDERER =
-  typeof location !== 'undefined' &&
-  new URLSearchParams(location.search).get('renderer') !== 'canvas';
 
 /**
  * `?perf=1` publishes what each frame cost and which path drew it, on
@@ -866,6 +875,39 @@ export function PcbEditor({
   // like rebuildLayerPresetsWidget.
   const [tab, setTab] = useState<'Layers' | 'Objects' | 'Nets'>('Layers');
   const [toggles, setToggles] = useState<Set<string>>(new Set(DEFAULT_TOGGLES));
+  const unitLabel: StatusUnits = toggles.has('unitsInches')
+    ? 'in'
+    : toggles.has('unitsMils')
+      ? 'mils'
+      : 'mm';
+  /**
+   * The three status panes that follow the pointer, written through refs.
+   *
+   * `PCB_BASE_FRAME::UpdateStatusBar` (pcb_base_frame.cpp:761) runs on every
+   * cursor motion and calls `SetStatusText`; nothing else on the frame
+   * repaints. This frame instead held the cursor in React state and set it
+   * from `onPointerMove` — with a fresh `{ x, y }` object, so `Object.is` never
+   * matched and React could never bail out. Every mouse move re-rendered the
+   * whole editor: both toolbars, the Appearance notebook, the Properties grid,
+   * the Selection Filter and the status bar, all before the
+   * `requestAnimationFrame` that actually moves the crosshair. That is why the
+   * crosshair trailed the pointer here and not in eeschema, which was this
+   * hook's only caller. (`setScale( v.scale )` at the end of `draw` is a
+   * NUMBER, so React does bail out of that one — which is why zoom never had
+   * the same problem.)
+   *
+   * `localOrigin` is `BASE_SCREEN::m_LocalOrigin`, which pane 3 measures from.
+   * There is no Set Local Origin here yet, so it is the page origin — as a
+   * module constant, because the hook's repaint effect depends on its identity.
+   */
+  const statusReadout = useStatusReadout({
+    units: unitLabel,
+    localOrigin: PCB_LOCAL_ORIGIN,
+    devicePixelRatio: window.devicePixelRatio || 1,
+    iuPerMM: PCB_IU_PER_MM,
+    // `GetShowPolarCoords()` — the same pane, the other branch.
+    polar: toggles.has('togglePolarCoords'),
+  });
   // Properties pane width. KiCad's PCB_PROPERTIES_PANEL docks at BestSize 300,
   // MinSize 240 (pcb_edit_frame.cpp), and the pane is user-resizable.
   const [propWidth, setPropWidth] = useState(300);
@@ -896,7 +938,6 @@ export function PcbEditor({
   const [deleteChooser, setDeleteChooser] = useState<'presets' | 'viewports' | null>(null);
   // Nets tab state: per-net / per-class colors, ratsnest visibility, and the
   // Net Display Options modes (appearance_controls.cpp net display pane).
-  const [netColors, setNetColors] = useState<ReadonlyMap<number, string>>(new Map());
   const [hiddenNets, setHiddenNets] = useState<ReadonlySet<number>>(new Set());
   const [classColors, setClassColors] = useState<ReadonlyMap<string, string>>(new Map());
   const [hiddenClasses, setHiddenClasses] = useState<ReadonlySet<string>>(new Set());
@@ -1034,7 +1075,6 @@ export function PcbEditor({
   // narrows an existing selection once, and is kept across openings as
   // PCB_SELECTION_TOOL keeps its OPTIONS on the tool.
   const [filterOpts, setFilterOpts] = useState<SelectionFilter>(DEFAULT_SELECTION_FILTER);
-  const [cursor, setCursor] = useState<{ x: number; y: number } | null>(null);
   // Live (world) cursor position read by draw()'s crosshair pass without
   // re-creating the callback; null when the pointer is off the canvas.
   const cursorRef = useRef<{ x: number; y: number } | null>(null);
@@ -1051,6 +1091,8 @@ export function PcbEditor({
   // held still changes nothing until the pointer is jiggled, and upstream
   // reacts at once because the modifier arrives as its own tool event.
   const shiftDownRef = useRef(false);
+  /** `GetUserUnits()`, for the paint pass — `unitLabel` is computed far below. */
+  const unitsRef = useRef<StatusUnits>('mm');
   const ctrlDownRef = useRef(false);
   const [scale, setScale] = useState(0);
   // Active grid size (the TOP_AUX grid selector; EDA_DRAW_FRAME's grid list).
@@ -2535,40 +2577,29 @@ export function PcbEditor({
         ctx.setTransform(1, 0, 0, 1, 0, 0);
       }
     }
-    // Measure ruler (ACTIONS::measureTool): line with end ticks and the
-    // distance / dx / dy readout in the current units.
+    // `KIGFX::PREVIEW::RULER_ITEM`, the item ACTIONS::measureTool puts up.
+    // The shared painter, beside its own arithmetic: this frame used to draw a
+    // `rgba(120,230,255)` line with a 6px end tick and one invented
+    // `dist (dx dy)` string — no graduations, no LAYER_AUX_ITEMS colour, and
+    // no `x / y / r / theta` block, which are the four strings upstream shows.
     {
       const m = measureRef.current;
       const cur0 = cursorRef.current;
       if (m && (m.b || cur0)) {
-        const b = m.b ?? snapToGrid(cur0!);
-        const ax = m.a.x * sx + v.tx;
-        const ay = m.a.y * v.scale + v.ty;
-        const bx = b.x * sx + v.tx;
-        const by = b.y * v.scale + v.ty;
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-        ctx.strokeStyle = 'rgba(120,230,255,0.95)';
-        ctx.fillStyle = 'rgba(120,230,255,0.95)';
-        ctx.lineWidth = Math.max(1, dpr);
-        ctx.beginPath();
-        ctx.moveTo(ax, ay);
-        ctx.lineTo(bx, by);
-        // End ticks perpendicular to the ruler.
-        const len = Math.hypot(bx - ax, by - ay) || 1;
-        const nx = (-(by - ay) / len) * 6 * dpr;
-        const ny = ((bx - ax) / len) * 6 * dpr;
-        ctx.moveTo(ax - nx, ay - ny);
-        ctx.lineTo(ax + nx, ay + ny);
-        ctx.moveTo(bx - nx, by - ny);
-        ctx.lineTo(bx + nx, by + ny);
-        ctx.stroke();
-        const dist = Math.hypot(b.x - m.a.x, b.y - m.a.y);
-        ctx.font = `${12 * dpr}px system-ui, sans-serif`;
-        ctx.fillText(
-          `${fmtCoord(dist)} ${unitLabel}  (dx ${fmtCoord(b.x - m.a.x)}  dy ${fmtCoord(b.y - m.a.y)})`,
-          (ax + bx) / 2 + 10 * dpr,
-          (ay + by) / 2 - 8 * dpr,
-        );
+        drawRulerItem(ctx, {
+          origin: m.a,
+          end: m.b ?? rulerEnd(m.a, snapToGrid(cur0!), shiftDownRef.current ? 'deg45' : 'direct'),
+          toPx: (p) => ({ x: p.x * sx + v.tx, y: p.y * v.scale + v.ty }),
+          // The flipped board view carries a negative X scale; the painter
+          // takes the magnitude for the graduation spacing.
+          worldScale: v.scale,
+          iuPerMm: PCB_IU_PER_MM,
+          units: unitsRef.current,
+          color: drawOpts.theme?.special.auxItems ?? PCB_SPECIAL.auxItems,
+          devicePixelRatio: dpr,
+          canvasWidth: ctx.canvas.width,
+          canvasHeight: ctx.canvas.height,
+        });
       }
     }
     // In-flight drawing preview (DRAWING_TOOL's live outline): the committed
@@ -2868,7 +2899,6 @@ export function PcbEditor({
    * scene is already built through the right factory.
    */
   useEffect(() => {
-    if (!GL_RENDERER) return;
     const canvas = glCanvasRef.current;
     if (!canvas || glRef.current) return;
     glRef.current = PcbGl.create(canvas);
@@ -2892,9 +2922,30 @@ export function PcbEditor({
       if (brd) rebuildSceneRef.current(brd);
       requestDrawRef.current();
     };
+    /**
+     * ...and then come back. `preventDefault()` above asks the browser to
+     * restore the context; with no listener for it, that request was made and
+     * ignored, so a transient loss - a GPU reset, a driver update, the tab
+     * reclaimed while backgrounded - left this editor on the raster path
+     * permanently, until a reload. GerberCanvas and DrawingSheetCanvas have
+     * restored theirs all along.
+     *
+     * The new device's buffers are empty, so the scene is rebuilt rather than
+     * merely redrawn, and `glOkRef` goes back up - it is what the scene
+     * compiler keys off, not `glRef.current`.
+     */
+    const onRestored = (): void => {
+      glRef.current = PcbGl.create(canvas);
+      glOkRef.current = !!glRef.current;
+      const brd = boardRef.current;
+      if (brd) rebuildSceneRef.current(brd);
+      requestDrawRef.current();
+    };
     canvas.addEventListener('webglcontextlost', onLost);
+    canvas.addEventListener('webglcontextrestored', onRestored);
     return () => {
       canvas.removeEventListener('webglcontextlost', onLost);
+      canvas.removeEventListener('webglcontextrestored', onRestored);
       glRef.current?.dispose();
       glRef.current = null;
       glOkRef.current = false;
@@ -5528,7 +5579,15 @@ export function PcbEditor({
     const p = snapToGrid(world);
     const m = measureRef.current;
     if (!m || m.b) measureRef.current = { a: p, b: null };
-    else measureRef.current = { a: m.a, b: p };
+    // `twoPtMgr.SetAngleSnap( evt->Modifier( MD_SHIFT ) ? LEADER_MODE::DEG45
+    // : LEADER_MODE::DIRECT )` — pcb_viewer_tools.cpp:383-388, set on every
+    // motion AND carried into the point the second click pins. Snapping the
+    // preview but not the commit would let go of a ruler that jumps.
+    else
+      measureRef.current = {
+        a: m.a,
+        b: rulerEnd(m.a, p, shiftDownRef.current ? 'deg45' : 'direct'),
+      };
     requestDraw();
   };
 
@@ -6513,7 +6572,7 @@ export function PcbEditor({
       // Signed X so the crosshair tracks the physical cursor under a flipped view.
       const wx = ((e.clientX - rect.left) * dpr - v.tx) / (v.flipX ? -v.scale : v.scale);
       const wy = ((e.clientY - rect.top) * dpr - v.ty) / v.scale;
-      setCursor({ x: wx, y: wy });
+      statusReadout.setCursor({ x: wx, y: wy });
       cursorRef.current = { x: wx, y: wy };
       // Repaint so the crosshair follows even on a plain hover (no pan/drag).
       requestDraw();
@@ -6792,7 +6851,7 @@ export function PcbEditor({
   // Pointer left the canvas, drop the crosshair.
   const onPointerLeave = (): void => {
     cursorRef.current = null;
-    setCursor(null);
+    statusReadout.setCursor(null);
     requestDraw();
   };
 
@@ -7186,14 +7245,9 @@ export function PcbEditor({
     requestDraw();
   };
 
-  const nets = useMemo(() => {
-    if (!board) return [];
-    // NET_GRID_TABLE::Rebuild skips the unconnected net (code 0) and sorts by
-    // name; m_txtNetFilter is hidden, so there is nothing to filter by.
-    return [...board.nets.entries()]
-      .filter(([code]) => code !== 0)
-      .sort((a, b) => a[1].localeCompare(b[1]));
-  }, [board]);
+  // `NET_GRID_TABLE::Rebuild`'s filter and sort, in a module qa can import;
+  // see appearance_nets.ts for both decisions and what each one got wrong.
+  const nets = useMemo(() => (board ? appearanceNetRows(board.nets) : []), [board]);
 
   // ----- ratsnest + net classes ----------------------------------------------
 
@@ -7299,6 +7353,62 @@ export function PcbEditor({
   // neighbour: NET_GRID_TABLE's rows, m_netclassSettings, and the two combos.
 
   /** NET_GRID_TABLE's rows (appearance_controls.h:48-62). */
+  /**
+   * The per-net colour overrides, by net code.
+   *
+   * Not state of this frame's own: `PCB_EDIT_FRAME::LoadProjectSettings` fills
+   * the painter's map from `NET_SETTINGS::GetNetColorAssignments()`
+   * (pcbnew_config.cpp:95-105), which is `net_settings.net_colors` in the
+   * .kicad_pro — a NAME to colour map, resolved to net codes through the
+   * board's own net list. This was a `useState( new Map() )` that only the
+   * colour picker ever wrote, so a board whose project assigns colours opened
+   * with every net unspecified, and a colour set here was gone on reload.
+   */
+  const netColors = useMemo(() => {
+    const byCode = new Map<number, string>();
+    if (!board) return byCode;
+    for (const [code, name] of board.nets.entries()) {
+      const css = boardSetup.netClasses.netColors[name];
+      if (css) byCode.set(code, css);
+    }
+    return byCode;
+  }, [board, boardSetup.netClasses.netColors]);
+
+  /**
+   * The picker's write, straight back into the project slice it came from.
+   *
+   * `#rrggbb`, because that is the form every colour in a BoardSetupValues
+   * takes — `kicadColorToCss` normalises the file's `rgb(...)` into it and
+   * `cssColorToKicad` only accepts it back (project_settings.ts:196-209). An
+   * `rgb(...)` string handed in here would be written out as the UNSET
+   * sentinel, i.e. silently dropped.
+   *
+   * COLOR4D::UNSPECIFIED (alpha 0) clears the assignment rather than storing a
+   * transparent black, which is what upstream's `if( color != UNSPECIFIED )`
+   * does on the way in (pcbnew_config.cpp:99).
+   */
+  const setNetColor = useCallback(
+    (code: number, picked: Color4d): void => {
+      const name = board?.nets.get(code);
+      if (!name) return;
+      const next = { ...(boardSetupRef.current.netClasses.netColors ?? {}) };
+      if (picked.a > 0) {
+        const ch = (v: number): string =>
+          Math.round(Math.min(1, Math.max(0, v)) * 255)
+            .toString(16)
+            .padStart(2, '0');
+        next[name] = `#${ch(picked.r)}${ch(picked.g)}${ch(picked.b)}`;
+      } else {
+        delete next[name];
+      }
+      commitBoardSetup({
+        ...boardSetupRef.current,
+        netClasses: { ...boardSetupRef.current.netClasses, netColors: next },
+      });
+    },
+    [board, commitBoardSetup],
+  );
+
   const netRows = useMemo(
     () =>
       nets.map(([code, name]) => ({
@@ -8000,13 +8110,9 @@ export function PcbEditor({
 
   // ----- unit display ---------------------------------------------------------
 
-  const unitLabel: StatusUnits = toggles.has('unitsInches')
-    ? 'in'
-    : toggles.has('unitsMils')
-      ? 'mils'
-      : 'mm';
   // MessageTextFromValue at the pcbnew IU scale (PCB_IU_PER_MM), which is the
   // long form: mm %.4f, mils %.2f, inches %.4f.
+  unitsRef.current = unitLabel;
   const fmtCoord = (iu: number): string =>
     messageTextFromValue(iuToMM(iu), unitLabel, PCB_IU_PER_MM);
 
@@ -8023,19 +8129,6 @@ export function PcbEditor({
     if (!board || selection.size !== 1) return undefined;
     return pcbItemFriendlyName(board, [...selection][0] as string);
   }, [board, selection]);
-  const statusCoordText = cursor
-    ? coordsMsg(fmtCoord(cursor.x), fmtCoord(cursor.y))
-    : coordsMsg(null);
-  const statusDeltaText = cursor
-    ? toggles.has('togglePolarCoords')
-      ? polarMsg(
-          fmtCoord(Math.hypot(cursor.x, cursor.y)),
-          (Math.atan2(-cursor.y, cursor.x) * 180) / Math.PI,
-        )
-      : deltasMsg(fmtCoord(cursor.x), fmtCoord(cursor.y), fmtCoord(Math.hypot(cursor.x, cursor.y)))
-    : toggles.has('togglePolarCoords')
-      ? polarMsg(null)
-      : deltasMsg(null);
   const gridText = gridMsg(fmtCoord(gridIU));
   // TOP_AUX combo formatting (PCB_EDIT_FRAME::ComboBoxUnits): mm at %.3f,
   // mils at %.2f.
@@ -8340,29 +8433,53 @@ export function PcbEditor({
         {/* KiCad docks the Properties pane outermost-left (Layer 5), then the
             left options toolbar (Layer 3), then the canvas. */}
         {showProperties && (
-          <div
-            className="ze-leftdock"
-            style={{ width: propWidth, minWidth: 240, position: 'relative' }}
-          >
-            <div className="ze-panel grow">
-              <div className="ze-panel-header">Properties</div>
-              <div className="ze-panel-body">
-                {/* The empty and multi-selection captions are PROPERTIES_PANEL's
+          <>
+            <div className="ze-leftdock" style={{ width: propWidth, minWidth: 240 }}>
+              <div className="ze-panel grow">
+                <div className="ze-panel-header">
+                  <span>Properties</span>
+                  {/* `.CloseButton( true )` on this pane and this pane alone —
+                      Appearance and Selection Filter are both
+                      `.CloseButton( false )` (pcb_edit_frame.cpp:356,365,387),
+                      which is why only this caption gets the box. The same
+                      `.ze-pane-close` eeschema's palettes use; closing a pane
+                      is the state the View > Panels check item drives, so it
+                      goes through the same toggle. */}
+                  <button
+                    type="button"
+                    className="ze-pane-close"
+                    onClick={() => onLeftToggle('showProperties')}
+                    title="Close"
+                  >
+                    ⊠
+                  </button>
+                </div>
+                <div className="ze-panel-body">
+                  {/* The empty and multi-selection captions are PROPERTIES_PANEL's
                     own (properties_panel.cpp:196-210), so the panel renders them
                     rather than the frame swapping in a placeholder. */}
-                <PcbPropertiesPanel
-                  rows={propRows}
-                  selectionCount={selection.size}
-                  friendlyName={propFriendlyName}
-                  units={unitLabel}
-                  onCommand={commitBoard}
-                />
+                  <PcbPropertiesPanel
+                    rows={propRows}
+                    selectionCount={selection.size}
+                    friendlyName={propFriendlyName}
+                    units={unitLabel}
+                    onCommand={commitBoard}
+                  />
+                </div>
               </div>
             </div>
-            {/* Clamps unchanged: KiCad's PCB_PROPERTIES_PANEL MinSize 240,
-                and 600 past which the canvas suffers. */}
+            {/* A SIBLING of the pane, not a child of it. wxAUI puts the sash
+              BETWEEN two docks and gives it its own 5px - [px] pcbnew at
+              y=1000, the pane ends at x=365 and the left toolbar starts at
+              x=371. Inside `.ze-leftdock`, which is a column, a `width`-only
+              rule gets a flex-basis of auto and no height, so the bar was
+              there in the markup and nowhere on screen: the pane butted
+              straight into the toolbar and the strip read 5px narrow.
+
+              Clamps unchanged: KiCad's PCB_PROPERTIES_PANEL MinSize 240, and
+              600 past which the canvas suffers. */}
             <DockSash edge="right" width={propWidth} min={240} max={600} onResize={setPropWidth} />
-          </div>
+          </>
         )}
 
         <Toolbar
@@ -8375,101 +8492,131 @@ export function PcbEditor({
           onActivate={onLeftToggle}
         />
 
-        <div className="ze-canvas-wrap" ref={wrapRef} style={{ position: 'relative' }}>
+        {/* `CreateInfoBar()` puts WX_INFOBAR at AUI layer 1: its own pane ABOVE
+            the canvas, not something drawn inside it. That distinction is load
+            bearing here, because this frame's <canvas> is `position: absolute;
+            inset: 0` in the wrap - so a strip rendered as its sibling was
+            painted over the moment the board had anything to draw, and only
+            showed while the canvas was still empty. The column gives the bar
+            its own height and leaves everything inside the wrap positioned
+            against the wrap exactly as before. */}
+        <div
+          style={{ flex: 1, minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column' }}
+        >
           {readOnlyNotice}
-          <canvas
-            ref={canvasRef}
-            style={{
-              position: 'absolute',
-              inset: 0,
-              // A real cursor, always.
-              //
-              // This was `none` for every tool but the picker, on the grounds
-              // that KiCad draws its own crosshair on the canvas, which it does
-              // (the crosshair pass is below). But desktop KiCad draws that
-              // crosshair *and* keeps the window's pointer: the crosshair marks
-              // the snapped point, the pointer shows where the mouse is.
-              //
-              // With `none` there is no pointer at all, so the only thing on
-              // screen that follows the mouse is painted by us, and it can move
-              // no faster than a frame. A native cursor is composited by the
-              // OS and tracks the mouse whatever the page is doing. That is the
-              // whole of the difference between a cursor that feels attached to
-              // your hand and one that feels dragged through mud, and no amount
-              // of renderer work reaches it.
-              //
-              // Picker tools keep `crosshair`: KICURSOR::BULLSEYE resolves to
-              // the stock wxCURSOR_BULLSEYE on GTK (IsStockCursorOk), the
-              // system crosshair, which is what CSS `crosshair` is too.
-              cursor: activeTool === 'localRatsnestTool' ? 'crosshair' : 'default',
-            }}
-            onPointerDown={onPointerDown}
-            onPointerMove={onPointerMove}
-            onPointerUp={onPointerUp}
-            onPointerLeave={onPointerLeave}
-            onDoubleClick={onCanvasDoubleClick}
-            onContextMenu={onCanvasContextMenu}
-          />
-          {/* The board, on the GPU (#481). Transparent, so the background, the
+          <div
+            className="ze-canvas-wrap"
+            ref={wrapRef}
+            style={{ position: 'relative', flex: 1, minHeight: 0 }}
+          >
+            <canvas
+              ref={canvasRef}
+              style={{
+                position: 'absolute',
+                inset: 0,
+                // A real cursor, always.
+                //
+                // This was `none` for every tool but the picker, on the grounds
+                // that KiCad draws its own crosshair on the canvas, which it does
+                // (the crosshair pass is below). But desktop KiCad draws that
+                // crosshair *and* keeps the window's pointer: the crosshair marks
+                // the snapped point, the pointer shows where the mouse is.
+                //
+                // With `none` there is no pointer at all, so the only thing on
+                // screen that follows the mouse is painted by us, and it can move
+                // no faster than a frame. A native cursor is composited by the
+                // OS and tracks the mouse whatever the page is doing. That is the
+                // whole of the difference between a cursor that feels attached to
+                // your hand and one that feels dragged through mud, and no amount
+                // of renderer work reaches it.
+                //
+                // Picker tools keep `crosshair`: KICURSOR::BULLSEYE resolves to
+                // the stock wxCURSOR_BULLSEYE on GTK (IsStockCursorOk), the
+                // system crosshair, which is what CSS `crosshair` is too.
+                //
+                // The two tools that DO name a cursor name KiCad's own art,
+                // through the one CURSOR_STORE: `ZOOM_TOOL::Main` sets
+                // KICURSOR::ZOOM_IN (`zoom_tool.cpp:65-69`) and
+                // `PCB_VIEWER_TOOLS::MeasureTool` KICURSOR::MEASURE
+                // (`pcb_viewer_tools.cpp:292`). This frame had neither and
+                // showed the plain arrow for both.
+                cursor:
+                  activeTool === 'zoomTool'
+                    ? kiCursor('ZOOM_IN')
+                    : activeTool === 'measureTool'
+                      ? kiCursor('MEASURE')
+                      : activeTool === 'localRatsnestTool'
+                        ? 'crosshair'
+                        : 'default',
+              }}
+              onPointerDown={onPointerDown}
+              onPointerMove={onPointerMove}
+              onPointerUp={onPointerUp}
+              onPointerLeave={onPointerLeave}
+              onDoubleClick={onCanvasDoubleClick}
+              onContextMenu={onCanvasContextMenu}
+            />
+            {/* The board, on the GPU (#481). Transparent, so the background, the
               grid and the drawing sheet painted on the canvas below show
               through — the grid's spacing adapts to the zoom, which is the one
               thing that genuinely cannot live in a retained buffer. Takes no
               events, like the overlay above it, so pointer captures still land
               on the canvas underneath. */}
-          {GL_RENDERER && (
-            <canvas
-              ref={glCanvasRef}
-              style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}
-            />
-          )}
-          {/* Everything above the board: selection, ratsnest, umbilicals, the
+            {
+              <canvas
+                ref={glCanvasRef}
+                style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}
+              />
+            }
+            {/* Everything above the board: selection, ratsnest, umbilicals, the
               in-flight previews, DRC markers and the crosshair. Split out only
               because the GL layer has to go between it and the background;
               without the GL renderer `draw` paints all of it onto the one
               canvas as before. */}
-          {GL_RENDERER && (
-            <canvas
-              ref={overCanvasRef}
-              style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}
-            />
-          )}
-          {ctxMenu && (
-            <ContextMenu
-              x={ctxMenu.x}
-              y={ctxMenu.y}
-              items={buildPcbContextMenu()}
-              onClose={() => setCtxMenu(null)}
-            />
-          )}
-          {enteredGroupName && (
-            <div className="ze-group-editing" onMouseDown={(e) => e.stopPropagation()}>
-              <span>
-                Editing group: <b>{enteredGroupName}</b>
-              </span>
-              <button type="button" onClick={() => setEnteredGroup(null)}>
-                Leave (Esc)
-              </button>
-            </div>
-          )}
-          {!board && !error && (
-            <div className="ze-canvas-loading">
-              <span className="ze-spinner" />
-              <span>Loading board... (large boards can take a while)</span>
-            </div>
-          )}
-          {error && (
-            <div
-              style={{
-                position: 'absolute',
-                inset: 0,
-                display: 'grid',
-                placeItems: 'center',
-                color: '#ff8080',
-              }}
-            >
-              Couldn’t open board: {error}
-            </div>
-          )}
+            {
+              <canvas
+                ref={overCanvasRef}
+                style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}
+              />
+            }
+            {ctxMenu && (
+              <ContextMenu
+                x={ctxMenu.x}
+                y={ctxMenu.y}
+                items={buildPcbContextMenu()}
+                onClose={() => setCtxMenu(null)}
+              />
+            )}
+            {enteredGroupName && (
+              <div className="ze-group-editing" onMouseDown={(e) => e.stopPropagation()}>
+                <span>
+                  Editing group: <b>{enteredGroupName}</b>
+                </span>
+                <button type="button" onClick={() => setEnteredGroup(null)}>
+                  Leave (Esc)
+                </button>
+              </div>
+            )}
+            {!board && !error && (
+              <div className="ze-canvas-loading">
+                <span className="ze-spinner" />
+                <span>Loading board... (large boards can take a while)</span>
+              </div>
+            )}
+            {error && (
+              <div
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  display: 'grid',
+                  placeItems: 'center',
+                  color: '#ff8080',
+                }}
+              >
+                Couldn’t open board: {error}
+              </div>
+            )}
+          </div>
         </div>
 
         <Toolbar
@@ -8484,97 +8631,101 @@ export function PcbEditor({
             Right().Layer(3) toolbar (pcb_edit_frame.cpp AUI setup), i.e. at the
             window edge with the toolbar between it and the canvas. */}
         {showAppearance && (
-          <div className="ze-rightdock" style={{ width: appWidth, position: 'relative' }}>
-            {/* The same sash GerbView's layers pane uses; wxAUI gives every
-                dock one, so it belongs in ui/ rather than here. The clamps are
-                unchanged: MinSize 200, and 500 past which the canvas suffers. */}
+          <>
+            {/* The same sash GerbView's layers pane uses; wxAUI gives every dock
+              one, so it belongs in ui/ rather than here. It is a sibling of
+              the pane for the reason the Properties one is - see there - and
+              it comes FIRST because this dock's canvas-facing edge is its
+              left. The clamps are unchanged: MinSize 200, and 500 past which
+              the canvas suffers. */}
             <DockSash edge="left" width={appWidth} min={200} max={500} onResize={setAppWidth} />
-            <div className="ze-panel grow">
-              <div className="ze-panel-header">Appearance</div>
-              {/* APPEARANCE_CONTROLS. The identical widget the footprint editor
+            <div className="ze-rightdock" style={{ width: appWidth }}>
+              <div className="ze-panel grow">
+                <div className="ze-panel-header">Appearance</div>
+                {/* APPEARANCE_CONTROLS. The identical widget the footprint editor
                   builds; everything below is data this frame supplies. */}
-              <AppearanceControls
-                tab={tab}
-                onTab={setTab}
-                layerRows={layerRows}
-                layerName={layerName}
-                layerColor={layerColor}
-                activeLayer={activeLayer}
-                onActiveLayer={setActiveLayer}
-                visibleLayers={visible}
-                onToggleLayer={toggleLayer}
-                onLayerContextMenu={(x, y) => setLayerMenu({ x, y })}
-                objects={objects}
-                onToggleObject={(key) => setObjects((p) => toggleObject(p, key))}
-                objectColor={(key) => PCB_OBJECT_COLORS[key]}
-                opacity={opacity}
-                onOpacity={(key, value) => setOpacity((p) => ({ ...p, [key]: value }))}
-                contrast={contrast}
-                onContrast={setContrast}
-                flipBoard={flipView}
-                onFlipBoard={toggleFlip}
-                layerOptionsOpen={layerOptsOpen}
-                onLayerOptionsOpen={setLayerOptsOpen}
-                nets={{
-                  nets: netRows,
-                  onNetColor: (code, picked) =>
-                    setNetColors((p) => new Map(p).set(code, toCssColor(picked, ', '))),
-                  onNetVisibility: (code) =>
-                    setHiddenNets((p) => {
-                      const next = new Set(p);
-                      if (next.has(code)) next.delete(code);
-                      else next.add(code);
-                      return next;
-                    }),
-                  netclasses: netclassRows,
-                  onNetclassColor: (cls, picked) =>
-                    setClassColors((p) => new Map(p).set(cls, toCssColor(picked, ', '))),
-                  onNetclassVisibility: (cls) =>
-                    setHiddenClasses((p) => {
-                      const next = new Set(p);
-                      if (next.has(cls)) next.delete(cls);
-                      else next.add(cls);
-                      return next;
-                    }),
-                  onConfigureNetclasses: () => {
-                    setBoardSetupPage('netclasses');
-                    setBoardSetupOpen(true);
-                  },
-                  netColorMode,
-                  onNetColorMode: setNetColorMode,
-                  ratsnestMode,
-                  onRatsnestMode: setRatsnestMode,
-                  optionsOpen: netOptsOpen,
-                  onOptionsOpen: setNetOptsOpen,
-                }}
-                presetItems={presetItems}
-                preset={preset}
-                onPreset={onPresetChoice}
-                deletePresetDisabled={userPresets.length === 0}
-                viewportItems={viewportItems}
-                viewport={viewportSel}
-                onViewport={onViewportChoice}
-                deleteViewportDisabled={viewports.length === 0}
-              />
-            </div>
+                <AppearanceControls
+                  tab={tab}
+                  onTab={setTab}
+                  layerRows={layerRows}
+                  layerName={layerName}
+                  layerColor={layerColor}
+                  activeLayer={activeLayer}
+                  onActiveLayer={setActiveLayer}
+                  visibleLayers={visible}
+                  onToggleLayer={toggleLayer}
+                  onLayerContextMenu={(x, y) => setLayerMenu({ x, y })}
+                  objects={objects}
+                  onToggleObject={(key) => setObjects((p) => toggleObject(p, key))}
+                  objectColor={(key) => PCB_OBJECT_COLORS[key]}
+                  opacity={opacity}
+                  onOpacity={(key, value) => setOpacity((p) => ({ ...p, [key]: value }))}
+                  contrast={contrast}
+                  onContrast={setContrast}
+                  flipBoard={flipView}
+                  onFlipBoard={toggleFlip}
+                  layerOptionsOpen={layerOptsOpen}
+                  onLayerOptionsOpen={setLayerOptsOpen}
+                  nets={{
+                    nets: netRows,
+                    onNetColor: setNetColor,
+                    onNetVisibility: (code) =>
+                      setHiddenNets((p) => {
+                        const next = new Set(p);
+                        if (next.has(code)) next.delete(code);
+                        else next.add(code);
+                        return next;
+                      }),
+                    netclasses: netclassRows,
+                    onNetclassColor: (cls, picked) =>
+                      setClassColors((p) => new Map(p).set(cls, toCssColor(picked, ', '))),
+                    onNetclassVisibility: (cls) =>
+                      setHiddenClasses((p) => {
+                        const next = new Set(p);
+                        if (next.has(cls)) next.delete(cls);
+                        else next.add(cls);
+                        return next;
+                      }),
+                    onConfigureNetclasses: () => {
+                      setBoardSetupPage('netclasses');
+                      setBoardSetupOpen(true);
+                    },
+                    netColorMode,
+                    onNetColorMode: setNetColorMode,
+                    ratsnestMode,
+                    onRatsnestMode: setRatsnestMode,
+                    optionsOpen: netOptsOpen,
+                    onOptionsOpen: setNetOptsOpen,
+                  }}
+                  presetItems={presetItems}
+                  preset={preset}
+                  onPreset={onPresetChoice}
+                  deletePresetDisabled={userPresets.length === 0}
+                  viewportItems={viewportItems}
+                  viewport={viewportSel}
+                  onViewport={onViewportChoice}
+                  deleteViewportDisabled={viewports.length === 0}
+                />
+              </div>
 
-            {/* `.fixed` is `dock_proportion = 0` —
+              {/* `.fixed` is `dock_proportion = 0` —
                 `m_auimgr.GetPane( "SelectionFilter" ).dock_proportion = 0`
                 (pcbnew/pcb_edit_frame.cpp:422). A docked pane grows by default;
                 this is the pane that declares it does not. */}
-            <div className="ze-panel fixed">
-              <div className="ze-panel-header">Selection Filter</div>
-              <div className="ze-panel-body">
-                {/* PANEL_SELECTION_FILTER — the same widget the footprint
+              <div className="ze-panel fixed">
+                <div className="ze-panel-header">Selection Filter</div>
+                <div className="ze-panel-body">
+                  {/* PANEL_SELECTION_FILTER — the same widget the footprint
                     editor docks. Right-clicking a category pops "Only <label>". */}
-                <SelectionFilterPanel
-                  filter={selFilter}
-                  onChange={setSelFilter}
-                  onContextMenu={(x, y, item) => setFilterMenu({ x, y, item })}
-                />
+                  <SelectionFilterPanel
+                    filter={selFilter}
+                    onChange={setSelFilter}
+                    onContextMenu={(x, y, item) => setFilterMenu({ x, y, item })}
+                  />
+                </div>
               </div>
             </div>
-          </div>
+          </>
         )}
       </div>
 
@@ -9367,8 +9518,8 @@ export function PcbEditor({
         }}
         fields={{
           zoom: zoomMsg(zoomFactorForScale(scale, window.devicePixelRatio || 1)),
-          coords: statusCoordText,
-          deltas: statusDeltaText,
+          coords: <span ref={statusReadout.coordsRef} />,
+          deltas: <span ref={statusReadout.deltasRef} />,
           grid: gridText,
           units: unitsMsg(unitLabel),
           tool: toolMsg,

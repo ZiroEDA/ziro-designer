@@ -161,18 +161,40 @@ export function customCursorsEnabled(): boolean {
   return settings.common.appearance.use_custom_cursors;
 }
 
+/** The candidate we know every engine draws: the 32x32 art at its own hotspot. */
+const IMAGE_SET_PROBE = 'image-set(url(a.png) 1x, url(b.png) 2x) 0 0, auto';
+
 /**
  * Whether this browser can take an `image-set()` in a `cursor` declaration.
  *
  * Worth asking rather than assuming: a `cursor` value the parser rejects is
  * dropped WHOLE, comma fallback and all, so a browser without it would get no
- * cursor rather than the 32x32 one. Chrome and Firefox both take it; the check
- * costs one call at module load.
+ * cursor rather than the 32x32 one.
+ *
+ * Asked of the REAL property on a real element rather than of `CSS.supports`,
+ * because they are not quite the same question: `CSS.supports` answers about
+ * the grammar, and a style assignment answers whether this engine's `cursor`
+ * parser kept the value.
+ *
+ * [px] on this machine the two agree, and both say yes. A probe against
+ * Chrome 149 (`google-chrome --headless=new`, 2026-09-04): `CSS.supports` true,
+ * the assignment retained verbatim, and `getComputedStyle().cursor` holding the
+ * image-set with its descriptors resolved to `1dppx`/`2dppx`. So this is not a
+ * workaround for anything observed — it is the narrower question, asked
+ * because it is the one that decides.
+ *
+ * Recorded because a session was spent on the wrong suspect: a canvas showing
+ * the plain arrow where KiCad shows its art is far more likely to be
+ * {@link customCursorsEnabled} answering false — Preferences > Common >
+ * "Disable custom cursors", which is persisted per browser and invisible from
+ * the canvas. Check that FIRST.
  */
-const SUPPORTS_IMAGE_SET =
-  typeof CSS !== 'undefined' &&
-  typeof CSS.supports === 'function' &&
-  CSS.supports('cursor', 'image-set(url(a.png) 1x, url(b.png) 2x) 0 0, auto');
+const SUPPORTS_IMAGE_SET = ((): boolean => {
+  if (typeof document === 'undefined') return false;
+  const el = document.createElement('div');
+  el.style.cursor = IMAGE_SET_PROBE;
+  return el.style.cursor.includes('image-set');
+})();
 
 /**
  * `CURSOR_STORE::GetCursor` (`common/gal/cursors.cpp:403-434`), in CSS.
@@ -213,8 +235,16 @@ export function kiCursor(name: KiCursor): string {
   const two = URLS[`../assets/cursors/${spec.file}64.png`];
   if (!one) return STOCK_CURSOR;
   const hot = `${spec.x} ${spec.y}`;
-  if (SUPPORTS_IMAGE_SET && two) {
-    return `image-set(url(${one}) 1x, url(${two}) 2x) ${hot}, ${STOCK_CURSOR}`;
-  }
-  return `url(${one}) ${hot}, ${STOCK_CURSOR}`;
+  // `cursor` takes a LIST, and the browser uses the first candidate it can
+  // actually draw. So the 32x32 url stands behind the image-set rather than
+  // the keyword doing: an engine that parses `image-set()` here but declines
+  // to render one falls through to art at the right size instead of to the
+  // arrow. Chrome 149 needs none of that (see SUPPORTS_IMAGE_SET) — it is a
+  // spare wheel, and it costs one more candidate in a string.
+  const candidates: string[] = [];
+  if (SUPPORTS_IMAGE_SET && two)
+    candidates.push(`image-set(url(${one}) 1x, url(${two}) 2x) ${hot}`);
+  candidates.push(`url(${one}) ${hot}`);
+  candidates.push(STOCK_CURSOR);
+  return candidates.join(', ');
 }

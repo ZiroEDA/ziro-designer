@@ -36,18 +36,7 @@ import { type CrosshairMode, drawCrosshair, drawGrid } from '../../ui/grid_curso
 import { kiCursor } from '../../ui/kicursors.js';
 import { clampViewScale } from '../../ui/zoom_settings.js';
 import { zoomAreaTarget, type ZoomArea } from '../../ui/zoom_tool.js';
-import {
-  constantGlyphHeightPx,
-  constantLinePitchPx,
-  constantStrokeWidthPx,
-  rulerLineWidthPx,
-  tickLineWidthPx,
-  rulerDimensionStrings,
-  rulerEnd,
-  rulerTicks,
-  type RulerPoint,
-  type RulerUnits,
-} from '../../ui/ruler_item.js';
+import { drawRulerItem, rulerEnd, type RulerPoint, type RulerUnits } from '../../ui/ruler_item.js';
 import { hitTestFootprint } from '@ziroeda/pcbnew';
 import { itemsInBox, fpItemBBox, type PcbFootprint } from '@ziroeda/pcbnew';
 import {
@@ -464,142 +453,26 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
           selectionAreaColors({ backgroundDark: isBackgroundDark(PCB_BACKGROUND), inside: true }),
         );
       }
-      // `KIGFX::PREVIEW::RULER_ITEM`: the main line origin→end, a tick at each
-      // end, and the four dimension strings beside the cursor. It is painted in
-      // device space because upstream draws it at a constant glyph height and a
-      // constant tick length — `GetConstantGlyphHeight` divides by the world
-      // scale precisely so the ruler does not grow when you zoom.
+      // `KIGFX::PREVIEW::RULER_ITEM`, drawn by the shared painter beside the
+      // arithmetic it belongs with. This canvas had the only correct ruler in
+      // the app and it lived here, so pcbnew and GerbView each grew one of
+      // their own instead of using it.
       const rl = rulerRef.current;
       if (rl) {
-        const a = toPx(rl.origin);
-        const b = toPx(rl.end);
-        ctx.save();
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-        // LAYER_AUX_ITEMS, which is what RULER_ITEM strokes with when it
-        // carries no colour of its own (ruler_item.cpp:320-323).
-        const aux = drawOpts.theme?.special?.auxItems ?? PCB_SPECIAL.auxItems;
-        ctx.strokeStyle = aux;
-        ctx.fillStyle = aux;
-        // `getTickLineWidth( textDims )` = StrokeWidth * 0.8, not a hairline.
-        ctx.lineWidth = rulerLineWidthPx(dpr) * dpr;
-        ctx.setLineDash([]);
-        ctx.beginPath();
-        ctx.moveTo(a.x, a.y);
-        ctx.lineTo(b.x, b.y);
-        ctx.stroke();
-        // An end tick perpendicular to the line at each end.
-        const len = Math.hypot(b.x - a.x, b.y - a.y);
-        if (len > 0) {
-          const nx = (-(b.y - a.y) / len) * 5 * dpr;
-          const ny = ((b.x - a.x) / len) * 5 * dpr;
-          ctx.beginPath();
-          ctx.moveTo(a.x - nx, a.y - ny);
-          ctx.lineTo(a.x + nx, a.y + ny);
-          ctx.moveTo(b.x - nx, b.y - ny);
-          ctx.lineTo(b.x + nx, b.y + ny);
-          ctx.stroke();
-        }
-        // PCB_IU_PER_MM, asked for rather than restated. This file used to
-        // hold `const MM = 10000` -- eeschema's scale -- in a PCB canvas, and
-        // it read 9.83 mm as 983.370 mm. Every other pcbnew module writes
-        // `const MM = PCB_IU_PER_MM`; this one was the exception.
-        // `drawTicksAlongLine`: a tick every `tickSpace` along the line,
-        // perpendicular to it, with the value on major and mid ones. All the
-        // sizes are screen sizes upstream (`5.0 / GetWorldScale()`), so they are
-        // device px here and the ruler does not grow with zoom.
-        const dxw = rl.end.x - rl.origin.x;
-        const dyw = rl.end.y - rl.origin.y;
-        const lenIU = Math.hypot(dxw, dyw);
-        if (lenIU > 0) {
-          const ux = dxw / lenIU;
-          const uy = dyw / lenIU;
-          // `VECTOR2D tickLine = aLine; RotatePoint( tickLine, ANGLE_90 );`
-          // KiCad's ANGLE_90 turns (x, y) into (y, -x), which on a Y-down
-          // canvas points to the side the graduations and their numbers sit on.
-          // Negating it instead put both on the wrong side of the line.
-          const px = uy;
-          const py = -ux;
-          const ticks = rulerTicks(lenIU, v.scale, PCB_IU_PER_MM, measureUnitsRef.current);
-          // KiCad's GlyphSize is the stroke font's glyph HEIGHT; CSS
-          // font-size is the em box, which is larger. Measure the face's own
-          // cap height once and solve for the size that yields the height
-          // upstream asks for, rather than guessing a ratio.
-          const tickFont = cssSizeForGlyphHeight(ctx, constantGlyphHeightPx(dpr, -1) * dpr);
-          // `labelOffset = tickLine.Resize( majorTickLen )`, where
-          // drawTicksAlongLine's majorTickLen is minor * (2.5 + 1).
-          const labelOff = 5 * 3.5 * dpr;
-          ctx.font = `${tickFont}px ui-monospace, monospace`;
-          ctx.textBaseline = 'middle';
-          // `labelAngle = -EDA_ANGLE( tickLine )`: the numbers run along the
-          // TICK, not along the ruler — which is why upstream's read
-          // bottom-to-top beside a roughly horizontal measurement. Rotating
-          // them along the line instead is what drew ours mirrored.
-          //
-          // The two `m_Halign` branches are the same rule stated in KiCad's
-          // angle convention: keep the text right-reading. A baseline pointing
-          // into the left half-plane is upside down, so it turns through 180
-          // and anchors from the other end.
-          let textAngle = Math.atan2(py, px);
-          let alignRight = false;
-          if (textAngle > Math.PI / 2 || textAngle < -Math.PI / 2) {
-            textAngle += Math.PI;
-            alignRight = true;
-          }
-          ctx.textAlign = alignRight ? 'right' : 'left';
-          // `SetLineWidth( labelAttrs.m_StrokeWidth / 2 )`.
-          ctx.lineWidth = tickLineWidthPx(dpr) * dpr;
-          for (const t of ticks) {
-            const wx = rl.origin.x + ux * t.distIU;
-            const wy = rl.origin.y + uy * t.distIU;
-            const p = toPx({ x: wx, y: wy });
-            if (p.x < -50 || p.x > canvas.width + 50 || p.y < -50 || p.y > canvas.height + 50)
-              continue;
-            const L = t.lengthPx * dpr;
-            ctx.beginPath();
-            ctx.moveTo(p.x, p.y);
-            ctx.lineTo(p.x + px * L, p.y + py * L);
-            ctx.stroke();
-            if (t.label !== null) {
-              ctx.save();
-              ctx.translate(p.x + px * labelOff, p.y + py * labelOff);
-              ctx.rotate(textAngle);
-              ctx.fillText(t.label, 0, 0);
-              ctx.restore();
-            }
-          }
-        }
-        const lines = rulerDimensionStrings(
-          rl.origin,
-          rl.end,
-          PCB_IU_PER_MM,
-          measureUnitsRef.current,
-        );
-        // `DrawTextNextToCursor`'s 15 px offset, and the quadrant it prefers:
-        // away from the origin, so the labels never sit on the ruler
-        // (ruler_item.cpp:342-343, 363).
-        const offX = 15 * dpr;
-        // `DrawTextNextToCursor` at GetConstantGlyphHeight()'s size and pitch —
-        // sizes[3] = 14 / hdpiSizes[3] = 11, times linePitchFactor 1.9 / 1.7.
-        const pitch = constantLinePitchPx(dpr) * dpr;
-        const sx = rl.end.y < rl.origin.y ? -1 : 1;
-        const sy = rl.end.x < rl.origin.x ? 1 : -1;
-        ctx.font = `${cssSizeForGlyphHeight(ctx, constantGlyphHeightPx(dpr) * dpr)}px ui-monospace, monospace`;
-        ctx.textAlign = sx < 0 ? 'right' : 'left';
-        ctx.textBaseline = 'middle';
-        // The quadrant only decides where the BLOCK sits; the lines inside it
-        // stay in GetDimensionStrings' order — x, y, r, θ, top to bottom.
-        // Stacking them along `sy` reversed them whenever the block went up.
-        const x0 = b.x + sx * offX;
-        const top = sy < 0 ? b.y - offX - (lines.length - 1) * pitch : b.y + offX;
-        // A stroke font at thicknessFactor 0.2 reads bold; fill plus a stroke
-        // of the same width is that weight on a 2D context.
-        ctx.lineWidth = constantStrokeWidthPx(dpr) * dpr * 0.5;
-        ctx.lineJoin = 'round';
-        for (let i = 0; i < lines.length; i++) {
-          ctx.fillText(lines[i]!, x0, top + i * pitch);
-          ctx.strokeText(lines[i]!, x0, top + i * pitch);
-        }
-        ctx.restore();
+        drawRulerItem(ctx, {
+          origin: rl.origin,
+          end: rl.end,
+          toPx,
+          worldScale: v.scale,
+          iuPerMm: PCB_IU_PER_MM,
+          units: measureUnitsRef.current,
+          // LAYER_AUX_ITEMS, which is what RULER_ITEM strokes with when it
+          // carries no colour of its own (ruler_item.cpp:320-323).
+          color: drawOpts.theme?.special?.auxItems ?? PCB_SPECIAL.auxItems,
+          devicePixelRatio: dpr,
+          canvasWidth: canvas.width,
+          canvasHeight: canvas.height,
+        });
       }
       // Rubber-band preview for a graphic being drawn (start → cursor).
       const pv = previewRef.current;
@@ -1128,32 +1001,3 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
     );
   },
 );
-
-/**
- * The CSS `font-size` whose cap height is `targetPx`.
- *
- * KiCad's `TEXT_DIMS::GlyphSize` is the stroke font's glyph HEIGHT — the height
- * of a capital — while CSS `font-size` is the em box, which is always larger.
- * Setting one as the other draws the preview text about a third too small,
- * which is what made ours look thin and undersized beside a real ruler.
- *
- * Measured rather than assumed: the ratio differs per face, and the fallback
- * chain here can resolve to whatever the platform has. `actualBoundingBoxAscent`
- * of a digit is that cap height.
- */
-const capRatioCache = new Map<string, number>();
-function cssSizeForGlyphHeight(ctx: CanvasRenderingContext2D, targetPx: number): number {
-  const face = 'ui-monospace, monospace';
-  let ratio = capRatioCache.get(face);
-  if (ratio === undefined) {
-    const probe = 100;
-    const saved = ctx.font;
-    ctx.font = `${probe}px ${face}`;
-    const m = ctx.measureText('0');
-    const asc = m.actualBoundingBoxAscent;
-    ratio = asc > 0 ? asc / probe : 0.72;
-    ctx.font = saved;
-    capRatioCache.set(face, ratio);
-  }
-  return targetPx / ratio;
-}
