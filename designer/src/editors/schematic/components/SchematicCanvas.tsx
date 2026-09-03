@@ -705,10 +705,19 @@ interface Props {
    * clipboard text (which carries the library definitions they need), and their
    * extent, which is what the destination's placement search needs.
    *
-   * The source half — the ordinary move, then the deletion — is a normal
-   * `onCommand`, issued first, so undo on THIS sheet is one step.
+   * `source` is this sheet's half — the items leaving it — handed over rather
+   * than issued as an ordinary `onCommand`, because the two halves are ONE undo
+   * step: `SCH_COMMIT` stages both screens and pushes a single entry
+   * (`sch_move_tool.cpp:2005-2006`). Issuing them separately made undoing the
+   * source leave the copy on the destination, which duplicates rather than
+   * reverts.
    */
-  onDropIntoSheet?: (drop: { sheetId: string; text: string; box: BBox }) => void;
+  onDropIntoSheet?: (drop: {
+    sheetId: string;
+    text: string;
+    box: BBox;
+    source: EditCommand;
+  }) => void;
   /**
    * "Defaults for New Objects" (Preferences > Schematic Editor > Editing
    * Options), which `SCH_DRAWING_TOOLS` stamps onto the item as it is created.
@@ -1447,8 +1456,10 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       };
       const gone = deleteByIds(ids);
       const split = breakCmdRef.current;
-      onCommand(split ? composeCommands(split.label, [split, gone]) : gone);
-      onDropIntoSheet(drop);
+      onDropIntoSheet({
+        ...drop,
+        source: split ? composeCommands(split.label, [split, gone]) : gone,
+      });
     },
     [onCommand, onDropIntoSheet, buildMoveCommit, buildMove, schematic, libById],
   );
