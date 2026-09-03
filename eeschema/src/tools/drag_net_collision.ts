@@ -183,6 +183,10 @@ function connectableItems(
     });
   });
   sch.lines.forEach((l, i) => {
+    // `SCH_LINE::IsConnectable()` is LAYER_WIRE or LAYER_BUS and nothing else
+    // (`sch_line.cpp:665-671`): a graphic polyline that happens to end on a pin
+    // is not a connection, and must not be recorded as one to break later.
+    if (l.kind !== 'wire' && l.kind !== 'bus') return;
     const id = refId('line', l.uuid, i);
     out.push({
       id,
@@ -422,6 +426,21 @@ function analyzeJunction(
     }
   }
 
+  // Both of upstream's conditions are kept, and under `SCH_MOVE_TOOL`'s call
+  // neither of the two guards below can decide anything on its own:
+  //
+  //  - being AT a junction means being connected, and two stationary items
+  //    connected at a point were connected before the drag too, so they share a
+  //    net code. Two distinct codes at a point therefore always include one
+  //    that arrived on something moved — `movedNets.size > 0` is implied;
+  //  - `originalCollision` needs a moved and a stationary code that differ,
+  //    which puts two codes in `allNets` with one of them moved — that is
+  //    `previewCollision` again.
+  //
+  // Both stop being implied the moment `aPreviewAssignments` is non-empty,
+  // which is the path `Update` exists to support and the move tool does not
+  // use (`sch_move_tool.cpp:863`). Removing either would be a divergence that
+  // reads as a simplification, so they stay.
   const previewCollision = movedNets.size > 0 && allNets.size >= 2;
   let originalCollision = false;
   for (const moved of movedOriginals) {
