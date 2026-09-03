@@ -5294,6 +5294,9 @@ export function SchematicEditor({
       // `eeconfig()->m_Selection.fill_shapes`, read in the shadow pass
       // (sch_painter.cpp:2068).
       showPinAltIcons: es.appearance.show_pin_alt_icons,
+      highlightNetclassColors: es.selection.highlight_netclass_colors,
+      netclassHighlightThicknessMils: es.selection.highlight_netclass_colors_thickness,
+      netclassHighlightAlpha: es.selection.highlight_netclass_colors_alpha,
       fillSelectedShapes: es.selection.fill_shapes,
       drawSelectedChildren: es.selection.draw_selected_children,
       // `eeconfig()->m_Appearance.mark_sim_exclusions` — the painter reads it

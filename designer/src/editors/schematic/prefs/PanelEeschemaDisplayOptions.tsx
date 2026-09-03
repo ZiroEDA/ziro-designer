@@ -254,7 +254,6 @@ export function PanelEeschemaDisplayOptions({ ctx }: { ctx: PrefsContext }): JSX
           <Check
             label="Highlight netclass colors"
             checked={eeschema.selection.highlight_netclass_colors}
-            disabled
             onChange={(v) =>
               upE((s) => {
                 s.selection.highlight_netclass_colors = v;
@@ -264,7 +263,6 @@ export function PanelEeschemaDisplayOptions({ ctx }: { ctx: PrefsContext }): JSX
           <Num
             label="Color highlight thickness:"
             value={eeschema.selection.highlight_netclass_colors_thickness}
-            disabled
             min={0}
             max={50}
             onChange={(v) =>
@@ -273,16 +271,18 @@ export function PanelEeschemaDisplayOptions({ ctx }: { ctx: PrefsContext }): JSX
               })
             }
           />
+          {/* The control is a PERCENT and the setting is a FRACTION:
+              `SetValue( …alpha * 100 )` and `…alpha = GetValue() / 100.0`
+              (`panel_eeschema_display_options.cpp:73`, `:117`). */}
           <Num
             label="Color highlight opacity:"
-            value={eeschema.selection.highlight_netclass_colors_alpha}
-            disabled
+            value={Math.round(eeschema.selection.highlight_netclass_colors_alpha * 100)}
             unit="%"
             min={0}
             max={100}
             onChange={(v) =>
               upE((s) => {
-                s.selection.highlight_netclass_colors_alpha = v;
+                s.selection.highlight_netclass_colors_alpha = v / 100;
               })
             }
           />

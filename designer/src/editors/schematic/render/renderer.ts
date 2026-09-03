@@ -489,6 +489,14 @@ export interface RenderOpts {
    */
   showPinAltIcons: boolean;
   /**
+   * `m_Selection.highlight_netclass_colors` (`eeschema_settings.cpp:444-451`)
+   * and its two numbers — thickness in MILS (default 15, 0..50) and alpha as a
+   * FACTOR (default 0.6, 0..1).
+   */
+  highlightNetclassColors: boolean;
+  netclassHighlightThicknessMils: number;
+  netclassHighlightAlpha: number;
+  /**
    * `m_Selection.draw_selected_children` (`eeschema_settings.cpp:438-439`),
    * default TRUE — the opposite of `fill_shapes` beside it.
    */
@@ -680,6 +688,11 @@ export const DEFAULT_RENDER_OPTS: RenderOpts = {
   fillSelectedShapes: false,
   // [data] `PARAM<bool>( "appearance.show_pin_alt_icons", …, true )`.
   showPinAltIcons: true,
+  // [data] `PARAM<bool>( …, false )`, `PARAM<int>( …, 15, 0, 50 )` and
+  // `PARAM<double>( …, 0.6, 0, 1 )` (`eeschema_settings.cpp:444-451`).
+  highlightNetclassColors: false,
+  netclassHighlightThicknessMils: 15,
+  netclassHighlightAlpha: 0.6,
   // [data] `PARAM<bool>( "selection.draw_selected_children", …, true )`.
   drawSelectedChildren: true,
   // [data] `PARAM<bool>( "appearance.show_directive_labels", …, true )`.
@@ -1054,6 +1067,50 @@ export function renderSchematic(
 
   // The halo-only pass is done: the items themselves are on the layer above.
   if (halos === 'only') return;
+
+  // LAYER_NET_COLOR_HIGHLIGHT — a fat translucent band under a wire or bus that
+  // a netclass has coloured, so a net's colour reads at a glance without
+  // changing the wire itself.
+  //
+  // It goes FIRST because it is drawn at the back. The layer is never given a
+  // place in `SCH_LAYER_ORDER` (`sch_view.h:46-85`); `SCH_DRAW_PANEL` only calls
+  // `SetLayerDisplayOnly` on it (`sch_draw_panel.cpp:180`), so it keeps VIEW's
+  // default `renderingOrder = <enum value>` = 493 (`view.cpp:279`), and layers
+  // sort DESCENDING by that (`view.h:857-860`) — 493 against the ordered 0..40
+  // puts it behind everything, painted before the wire that sits on it.
+  if (opts.highlightNetclassColors) {
+    // `schIUScale.MilsToIU( thickness )` — a plain world width, not the
+    // zoom-scaled term the selection halo uses.
+    const thickIU = opts.netclassHighlightThicknessMils * (0.0254 * MM);
+    ctx.setLineDash([]);
+    sch.lines.forEach((line, i) => {
+      const id = refId('line', line.uuid, i);
+      if (!drawable(id)) return;
+      // `if( drawingNetColorHighlights && !( aLine->IsWire() || aLine->IsBus() ) ) return;`
+      if (line.kind !== 'wire' && line.kind !== 'bus') return;
+      const nc = g_netOverrides?.lines.get(id);
+      const colour = line.stroke?.color ? cssColor(line.stroke.color) : nc?.color;
+      if (!colour) return;
+      // "Don't draw highlights for default-colored nets" (`sch_painter.cpp:1839-1845`):
+      // a wire whose colour IS the layer's own gets no band, which is what keeps
+      // the effect to the nets a netclass actually singles out.
+      if (colour === (line.kind === 'bus' ? theme.bus : theme.wire)) return;
+      const width =
+        line.stroke && line.stroke.width > 0
+          ? line.stroke.width
+          : (nc?.widthIU ?? lineDefaultWidth(line.kind));
+      // `width += MilsToIU( highlight_netclass_colors_thickness )` in
+      // `getLineWidth`'s `aDrawingWireColorHighlights` arm (`:510-519`), and
+      // `color.WithAlpha( color.a * highlightAlpha )` (`:1846`) — a FACTOR on
+      // whatever alpha the colour already had, not an assignment.
+      ctx.strokeStyle = cssWithAlpha(colour, parseColor4d(colour).a * opts.netclassHighlightAlpha);
+      ctx.lineWidth = width + thickIU;
+      const pts = line.points ?? [line.start, line.end];
+      ctx.beginPath();
+      pts.forEach((pt, k) => (k === 0 ? ctx.moveTo(pt.x, pt.y) : ctx.lineTo(pt.x, pt.y)));
+      ctx.stroke();
+    });
+  }
 
   // Wires, buses and graphic polylines. Wires/buses use the theme net colours; a
   // graphic polyline uses its own stroke colour (KiCad graphics carry their colour)
