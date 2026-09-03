@@ -5,6 +5,7 @@ import type { Vec2 } from '@ziroeda/kimath';
 import {
   ensureFileExtension,
   iuToMM,
+  parseColor4d,
   KICAD_SCHEMATIC_FILE_EXTENSION,
   mmToIU,
   RPT_SEVERITY_ACTION,
@@ -212,6 +213,8 @@ import {
   findRootFile,
   addItems,
   makeSheet,
+  applyNewPowerSymbolType,
+  type NewSheetDefaults,
   addSheetPin,
   nextImportableSheetPin,
   importableSheetPins,
@@ -1990,6 +1993,35 @@ export function SchematicEditor({
 
   // Every edit runs through KiCad's post-commit cleanup (colinear wire merge),
   // as part of the same undoable step (SCHEMATIC::CleanUp / RecalculateConnections).
+  /**
+   * "Defaults for New Objects", as `SCH_DRAWING_TOOLS::DrawSheet` reads them
+   * (`sch_drawing_tools.cpp:3444-3446`).
+   *
+   * Both colours are `COLOR4D` upstream and default to UNSPECIFIED, which is
+   * (0, 0, 0, 0) and means "take the theme's". Ours are stored as CSS, so the
+   * unset state is the empty string OR a fully transparent colour, and either
+   * has to come back as `undefined` rather than as black.
+   */
+  const newSheetDefaults = useMemo((): NewSheetDefaults => {
+    const colour = (css: string): readonly [number, number, number, number] | undefined => {
+      if (!css) return undefined;
+      const c = parseColor4d(css);
+      if (c.a === 0) return undefined;
+      return [Math.round(c.r * 255), Math.round(c.g * 255), Math.round(c.b * 255), c.a];
+    };
+    const border = colour(es.drawing.default_sheet_border_color);
+    const background = colour(es.drawing.default_sheet_background_color);
+    return {
+      borderWidthMils: es.drawing.default_line_thickness,
+      ...(border ? { borderColor: border } : {}),
+      ...(background ? { backgroundColor: background } : {}),
+    };
+  }, [
+    es.drawing.default_line_thickness,
+    es.drawing.default_sheet_border_color,
+    es.drawing.default_sheet_background_color,
+  ]);
+
   const runCommand = useCallback(
     (cmd: EditCommand) => {
       setDoc((d) => (d ? history.current.execute(d, withCleanup(cmd, libById)) : d));
@@ -3018,7 +3050,11 @@ export function SchematicEditor({
       const file = sheetFile(sheet);
       const target = file === currentFile ? doc : project.current.docs.get(file);
       if (!target) return;
-      const payload = parsePastedText(drop.text, target, { mode: 'keep' });
+      // `pasteOptions('keep')`, not a bare `{ mode }`: this is a MOVE wearing
+      // the clipboard's clothes, so it must not re-annotate — but it still
+      // wants the hierarchy the other paste paths pass, which is what decides
+      // whether a KIID can be kept.
+      const payload = parsePastedText(drop.text, target, pasteOptions('keep'));
       if (!payload) return;
       const offset = sheetDropOffset(
         drop.box,
@@ -3031,7 +3067,7 @@ export function SchematicEditor({
       // on this sheet any more, so nothing here can still be selected.
       setSelection(new Set());
     },
-    [doc, currentFile, libById, applySheetCommand, onProjectChange],
+    [doc, currentFile, libById, applySheetCommand, onProjectChange, pasteOptions],
   );
 
   const applySheetSymbols = useCallback(
@@ -9031,6 +9067,8 @@ export function SchematicEditor({
               }}
               onCommand={runCommand}
               onDropIntoSheet={dropIntoSheet}
+              newSheetDefaults={newSheetDefaults}
+              newPowerSymbols={es.drawing.new_power_symbols}
               onAnnotatePlacement={annotatePlacement}
               onAutoplacePlacement={autoplacePlacement}
               onRequestChooser={() => setChooserDismissed(false)}
@@ -10371,6 +10409,7 @@ export function SchematicEditor({
                         sheetDraw.size,
                         sheetDraw.name,
                         sheetDraw.file,
+                        newSheetDefaults,
                       );
                       runCommand(addItems({ sheets: [sheet] }));
                       setSelection(new Set([refId('sheet', sheet.uuid, doc.sheets.length)]));
@@ -10394,6 +10433,7 @@ export function SchematicEditor({
                     sheetDraw.size,
                     sheetDraw.name.trim(),
                     sheetDraw.file.trim(),
+                    newSheetDefaults,
                   );
                   runCommand(addItems({ sheets: [sheet] }));
                   // "c.Push( "Draw Sheet" ); ... m_selectionTool->AddItemToSel( sheet );"

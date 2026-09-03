@@ -107,10 +107,9 @@ describe('an unset colour stays unset', () => {
  */
 describe('the rows nothing reads are disabled', () => {
   it.each([
+    // Needs `SCH_EDIT_TOOL::SwapPins`, which needs per-instance library copies.
     ['Allow unconstrained pin swaps'],
-    ['Sheet border:'],
-    ['Sheet background:'],
-    ['Power Symbols:'],
+    // Needs the Rescue Symbols tool, which this port does not have.
     ['Never show Rescue Symbols tool'],
   ])('%s is disabled', (label) => {
     expect(props(label), label).toMatch(/\bdisabled\b/);
@@ -127,6 +126,12 @@ describe('the rows nothing reads are disabled', () => {
     ['Automatically place symbol fields', 'autoplace_fields.enable'],
     // `appearance.footprint_preview` -> `SchematicEditor.tsx:9580`
     ['Show footprint previews in Symbol Chooser', 'footprint_preview'],
+    // The three "Defaults for New Objects" rows, stamped onto the item as it
+    // is created (`sch_drawing_tools.cpp:3444-3446` and `:436-471`). Pinned in
+    // `sch_new_object_defaults.test.ts`.
+    ['Sheet border:', 'default_sheet_border_color'],
+    ['Sheet background:', 'default_sheet_background_color'],
+    ['Power Symbols:', 'new_power_symbols'],
   ])('%s is live, and bound to %s', (label, setting) => {
     const p = props(label);
     expect(p, label).toContain(setting);

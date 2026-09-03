@@ -354,12 +354,34 @@ function sheetFieldMargin(ratio: number): number {
   return borderMargin + Math.round(SHEET_FIELD_TEXT * ratio);
 }
 
+/**
+ * What Preferences > Schematic Editor > Editing Options > "Defaults for New
+ * Objects" puts on a sheet the moment it is drawn:
+ *
+ *     sheet->SetBorderWidth( schIUScale.MilsToIU( cfg->m_Drawing.default_line_thickness ) );
+ *     sheet->SetBorderColor( cfg->m_Drawing.default_sheet_border_color );
+ *     sheet->SetBackgroundColor( cfg->m_Drawing.default_sheet_background_color );
+ *     (`sch_drawing_tools.cpp:3444-3446`)
+ *
+ * Both colours default to `COLOR4D::UNSPECIFIED`, which is (0, 0, 0, 0) and
+ * means "take the theme's" — so an unset colour must be ABSENT here, not black.
+ */
+export interface NewSheetDefaults {
+  /** `m_Drawing.default_line_thickness`, in mils. */
+  borderWidthMils?: number;
+  /** `m_Drawing.default_sheet_border_color`; absent = UNSPECIFIED. */
+  borderColor?: readonly [number, number, number, number];
+  /** `m_Drawing.default_sheet_background_color`; absent = UNSPECIFIED. */
+  backgroundColor?: readonly [number, number, number, number];
+}
+
 /** Create a hierarchical sub-sheet with Sheetname/Sheetfile fields (SCH_SHEET). */
 export function makeSheet(
   at: Vec2,
   size: { w: number; h: number },
   name: string,
   file: string,
+  defaults: NewSheetDefaults = {},
 ): SchSheet {
   const uuid = newKiid();
   const namePos = { x: at.x, y: at.y - sheetFieldMargin(0.5) };
@@ -390,12 +412,16 @@ export function makeSheet(
     },
     source: sheetProperty('Sheetfile', file, filePos, false, fileJustify),
   };
+  // DEFAULT_LINE_WIDTH_MILS 6 (`eeschema/default_values.h`), which is what
+  // `m_Drawing.default_line_thickness` itself defaults to. [data]
+  const widthIU = Math.round(mmToIU((defaults.borderWidthMils ?? 6) * 0.0254));
+  const fill = defaults.backgroundColor ?? ([0, 0, 0, 0] as const);
   const source = list(
     atom('sheet'),
     list(atom('at'), atom(mm(at.x)), atom(mm(at.y))),
     list(atom('size'), atom(mm(size.w)), atom(mm(size.h))),
     list(atom('fields_autoplaced'), atom('yes')),
-    list(atom('stroke'), list(atom('width'), atom('0.1524')), list(atom('type'), atom('solid'))),
+    list(atom('stroke'), list(atom('width'), atom(mm(widthIU))), list(atom('type'), atom('solid'))),
     list(atom('fill'), list(atom('color'), atom('0'), atom('0'), atom('0'), atom('0.0'))),
     list(atom('uuid'), str(uuid)),
     nameField.source,
@@ -404,7 +430,12 @@ export function makeSheet(
   return {
     at,
     size,
-    stroke: { width: mmToIU(0.1524), type: 'solid' },
+    stroke: {
+      width: widthIU,
+      type: 'solid',
+      ...(defaults.borderColor ? { color: defaults.borderColor } : {}),
+    },
+    ...(defaults.backgroundColor ? { fillColor: fill } : {}),
     fields: [nameField, fileField],
     pins: [],
     // A new sheet is included everywhere, like a new symbol (SCH_SHEET's ctor).
