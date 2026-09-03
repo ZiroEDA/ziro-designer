@@ -115,10 +115,10 @@ export function PanelEeschemaEditingOptions({ ctx }: { ctx: PrefsContext }): JSX
           <ColorRow
             label="Sheet border:"
             value={eeschema.drawing.default_sheet_border_color}
-            /* Dead, both swatches: a new sheet takes the theme's colours here,
-               and nothing reads `drawing.default_sheet_border_color` or
-               `default_sheet_background_color`. */
-            disabled
+            /* `sheet->SetBorderColor( cfg->m_Drawing.default_sheet_border_color )`
+               (`sch_drawing_tools.cpp:3445`), stamped on the sheet as it is
+               drawn. Unset — a fully transparent colour, KiCad's
+               COLOR4D::UNSPECIFIED — leaves the sheet on the theme's. */
             onChange={(css) =>
               upE((s) => {
                 s.drawing.default_sheet_border_color = css;
@@ -128,8 +128,7 @@ export function PanelEeschemaEditingOptions({ ctx }: { ctx: PrefsContext }): JSX
           <ColorRow
             label="Sheet background:"
             value={eeschema.drawing.default_sheet_background_color}
-            /* Dead with the border above it. */
-            disabled
+            /* `SetBackgroundColor` on the same line (`:3446`). */
             onChange={(css) =>
               upE((s) => {
                 s.drawing.default_sheet_background_color = css;
@@ -139,9 +138,9 @@ export function PanelEeschemaEditingOptions({ ctx }: { ctx: PrefsContext }): JSX
           <Sel
             label="Power Symbols:"
             value={eeschema.drawing.new_power_symbols}
-            /* Dead: a placed power symbol keeps the library's own type; nothing
-               reads `drawing.new_power_symbols`. */
-            disabled
+            /* `PlaceSymbol` converts the library symbol between the two power
+               kinds before building the placement (`:436-471`). Default follows
+               the definition, and an ordinary symbol is never promoted. */
             options={[
               [0, 'Default'],
               [1, 'Global'],

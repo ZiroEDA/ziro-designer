@@ -80,6 +80,9 @@ import {
   makePolyline,
   makeRuleArea,
   makeSheet,
+  applyNewPowerSymbolType,
+  type NewSheetDefaults,
+  NewPowerSymbols,
   MIN_SHEET_WIDTH,
   MIN_SHEET_HEIGHT,
   makeRuleAreaPreview,
@@ -706,6 +709,14 @@ interface Props {
    * `onCommand`, issued first, so undo on THIS sheet is one step.
    */
   onDropIntoSheet?: (drop: { sheetId: string; text: string; box: BBox }) => void;
+  /**
+   * "Defaults for New Objects" (Preferences > Schematic Editor > Editing
+   * Options), which `SCH_DRAWING_TOOLS` stamps onto the item as it is created.
+   */
+  newSheetDefaults?: NewSheetDefaults;
+  /** `m_Drawing.new_power_symbols`: which power kind a placed power symbol is
+   *  converted to (`sch_drawing_tools.cpp:436-471`). */
+  newPowerSymbols?: NewPowerSymbols;
   /** WX_INFOBAR message from a tool ("Junction location contains no joinable
    *  wires and/or pins."); null dismisses it. */
   onInfoBar?: (message: string | null) => void;
@@ -804,7 +815,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     lineMode,
     arcEditMode,
     wireStartRequest,
-    placeLib,
+    placeLib: placeLibProp,
     onAnnotatePlacement,
     onAutoplacePlacement,
     onRequestChooser,
@@ -828,6 +839,8 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     onMarkerPick,
     onCommand,
     onDropIntoSheet,
+    newSheetDefaults,
+    newPowerSymbols,
     onInfoBar,
     onCursorMove,
     onScaleChange,
@@ -894,6 +907,20 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
    * default — so it was right by accident and the other two options did
    * nothing at all.
    */
+  /**
+   * `SCH_DRAWING_TOOLS::PlaceSymbol` converts the LIBRARY symbol just before it
+   * builds the placement (`sch_drawing_tools.cpp:436-471`), so the ghost, the
+   * committed symbol and the `lib_symbols` entry that goes with it all come
+   * from the converted definition rather than only the last of the three.
+   */
+  const placeLib = useMemo(
+    () =>
+      placeLibProp
+        ? applyNewPowerSymbolType(placeLibProp, newPowerSymbols ?? NewPowerSymbols.Default)
+        : null,
+    [placeLibProp, newPowerSymbols],
+  );
+
   const snapping = gridSnappingEnabled(
     settings.eeschema.window.grid.snap,
     renderOpts.grid.show !== false,
@@ -1799,7 +1826,9 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
         // which is the opposite way round from `TwoClickPlace`, where the item
         // is selected the whole time it rides the cursor. So the outline stays
         // in the plain sheet-border colour until it is dropped.
-        doc = addItems({ sheets: [makeSheet(at, size, 'Sheet', 'sheet.kicad_sch')] }).apply(doc);
+        doc = addItems({
+          sheets: [makeSheet(at, size, 'Sheet', 'sheet.kicad_sch', newSheetDefaults)],
+        }).apply(doc);
       } else if (ds.tool === 'table') {
         // A table previews as a *table*, cells and all, not as a rectangle that
         // turns into one on release. The motion branch of `DrawTable` rebuilds
