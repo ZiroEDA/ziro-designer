@@ -35,7 +35,7 @@ import {
   DS_TOP_TOOLBAR,
 } from '@ziroeda/designer/src/editors/drawingsheet/drawingSheetToolbars.js';
 import { SYM_DEFAULT_TOOLBARS } from '@ziroeda/designer/src/editors/symbol/symbolToolbars.js';
-import { ACTION_CATALOGUE } from '@ziroeda/designer/src/ui/action_catalogue.js';
+import { ACTION_CATALOGUE, ourToolbarId } from '@ziroeda/designer/src/ui/action_catalogue.js';
 import { PCB_DEFAULT_TOOLBARS } from '@ziroeda/designer/src/editors/pcb/pcbToolbars.js';
 import { SCH_DEFAULT_TOOLBARS } from '@ziroeda/designer/src/editors/schematic/toolbars_sch_editor.js';
 
@@ -87,6 +87,13 @@ const mount = (
 };
 
 const isDisabled = (el: HTMLElement): boolean => el.hasAttribute('disabled');
+
+/** The panel's own source, for the one assertion a DOM test cannot make. */
+const panelSource = (): string =>
+  readFileSync(
+    resolve(process.cwd(), '../designer/src/dialogs/prefs/PanelToolbarCustomization.tsx'),
+    'utf8',
+  );
 
 /**
  * `m_tbChoice` is a wxChoice, which is our `Combo`: a BUTTON with a popup, never
@@ -194,6 +201,77 @@ describe('the action list', () => {
     // of them.
     for (const missing of ['Pan Left', 'Zoom to All Objects', 'Save As...'])
       expect(rows, missing).toContain(missing);
+  });
+
+  it('renders the rows in the order the sort put them, first row included', () => {
+    // This is the assertion that was missing when the list shuffled on screen.
+    // Every row carried `key={e.action}` — our short toolbar id — and the
+    // bridge is MANY-TO-ONE, so the two actions both called "Bulk Edit Symbol
+    // Fields..." collided on one key and React rendered them above "3D Viewer".
+    // The sort was never wrong; the keys were.
+    //
+    // Checking the whole rendered sequence rather than "is it sorted" is the
+    // point: a duplicate key does not unsort the array, it misplaces the DOM.
+    mount('symbol_editor', SYM_DEFAULT_TOOLBARS);
+    const rows = actionRows();
+    expect(rows.slice(0, 5)).toEqual([
+      '3D Viewer',
+      '45 Degree Crosshairs',
+      'About KiCad',
+      'Add Column After',
+      'Add Column Before',
+    ]);
+    expect([...rows].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()))).toEqual(rows);
+  });
+
+  it('rows are keyed by something UNIQUE, which the action id is not', () => {
+    // The bug this replaces: `key={e.action}` — our short toolbar id — while
+    // `OUR_ID_BY_ACTION` is many-to-one. Two catalogue entries then shared a
+    // React key and the browser rendered them above "3D Viewer".
+    //
+    // The rendered-order test above does NOT catch it: a duplicate key is a
+    // reconciliation fault, and a fresh mount in happy-dom lays the rows out in
+    // array order regardless. Reverting the fix leaves it green. So what is
+    // asserted here is the DATA invariant that makes a key safe, plus the one
+    // line that uses it.
+    const names = ACTION_CATALOGUE.map((a) => a.name);
+    expect(new Set(names).size, 'action names must be unique').toBe(names.length);
+    const labels = ACTION_CATALOGUE.map((a) => a.label);
+    expect(new Set(labels).size, 'labels are NOT unique — 13 collide').toBeLessThan(labels.length);
+    const bridged = ACTION_CATALOGUE.map((a) => ourToolbarId(a.name)).filter(
+      (x): x is string => x !== undefined,
+    );
+    expect(new Set(bridged).size, 'nor are our ids — the bridge is many-to-one').toBeLessThan(
+      bridged.length,
+    );
+    expect(panelSource(), 'the row key must be the action name').toContain('<li key={e.name ??');
+  });
+
+  it('keeps both actions that share one FriendlyName, and does not move them', () => {
+    // 13 labels in the symbol editor's slice belong to two actions each —
+    // `eeschema.EditorControl.editSymbolFields` and
+    // `…SymbolLibraryControl.showLibraryFieldsTable` are both "Bulk Edit Symbol
+    // Fields...". KiCad lists both, so a de-duplicating fix would be wrong; the
+    // rows just have to be keyed by something unique.
+    mount('symbol_editor', SYM_DEFAULT_TOOLBARS);
+    const rows = actionRows();
+    expect(rows.filter((r) => r === 'Bulk Edit Symbol Fields...').length).toBe(2);
+    // ...and they sit where B sorts, not at the top.
+    expect(rows.indexOf('Bulk Edit Symbol Fields...')).toBeGreaterThan(20);
+  });
+
+  it('draws an icon for every action that declares one', () => {
+    // `if( tool->GetIcon() != BITMAPS::INVALID_BITMAP )` (`:617`): an action
+    // naming INVALID_BITMAP has no image, exactly like one naming none. The
+    // generator was recording that literal as a bitmap called
+    // "INVALID_BITMAP", which resolved to no file and so drew nothing anyway —
+    // right by accident, and wrong the moment anyone read the data.
+    expect(ACTION_CATALOGUE.some((a) => a.icon === 'INVALID_BITMAP')).toBe(false);
+    mount('symbol_editor', SYM_DEFAULT_TOOLBARS);
+    const list = screen.getByLabelText('Actions');
+    const withIcon = list.querySelectorAll('.ze-tbcust-row img').length;
+    // 66 of the 362 declare no `.Icon()` upstream and are iconless there too.
+    expect(withIcon).toBeGreaterThan(280);
   });
 
   it('offers actions this frame cannot even run, as KiCad does', () => {

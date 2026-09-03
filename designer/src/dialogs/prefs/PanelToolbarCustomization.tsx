@@ -72,6 +72,15 @@ interface ActionEntry {
   tooltip: string;
   /** `entry.label.Upper() + " " + entry.tooltip.Upper()`. */
   search: string;
+  /**
+   * The action's own NAME — unique across the catalogue, and the row's identity.
+   *
+   * NOT the same as `action`: the bridge is many-to-one, so several catalogue
+   * entries can share one of our toolbar ids. Keying the rows on `action` gave
+   * React duplicate keys, and it reordered the list on screen — two "Bulk Edit
+   * Symbol Fields..." rows appeared above "3D Viewer", which no sort produces.
+   */
+  name?: string;
   /** Set for a TOOL; `control` is set instead for a CONTROL. */
   action?: string;
   control?: string;
@@ -168,6 +177,7 @@ export function PanelToolbarCustomization({
         label: a.label,
         tooltip,
         search: `${a.label} ${tooltip}`.toUpperCase(),
+        name: a.name,
         action: id,
         ...(a.icon ? { icon: a.icon } : {}),
       });
@@ -556,7 +566,7 @@ export function PanelToolbarCustomization({
           </div>
           <ul className="ze-tbcust-list" aria-label="Actions">
             {shown.map((e, i) => (
-              <li key={e.action ?? `control:${e.control}`}>
+              <li key={e.name ?? `control:${e.control}`}>
                 {/* biome-ignore lint/a11y/useKeyWithClickEvents: a wxListCtrl row
                     is reached with the arrow keys, which the list owns. */}
                 <div

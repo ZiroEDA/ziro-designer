@@ -64,6 +64,11 @@ def extract() -> list[dict]:
                 continue
             tip = re.search(r'\.Tooltip\(\s*_\(([^)]*)\)\s*\)', body, flags=re.S)
             icon = re.search(r'\.Icon\(\s*BITMAPS::(\w+)\s*\)', body)
+            # `if( tool->GetIcon() != BITMAPS::INVALID_BITMAP )`
+            # (`panel_toolbar_customization.cpp:617`) — an action that names it
+            # explicitly has no image, exactly as one that names none.
+            if icon and icon.group(1) == 'INVALID_BITMAP':
+                icon = None
             rec = {
                 'name': name.group(1),
                 'label': unquote(friendly.group(1)),
