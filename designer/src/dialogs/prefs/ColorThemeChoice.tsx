@@ -59,13 +59,60 @@ export function colorThemeOptions(
 ): [string, string][] {
   const name = (n: string, readOnly: boolean): string =>
     markReadOnly ? dropdownName(n, readOnly) : n;
-  return [
-    ...Object.entries(BUILTIN_THEMES).map(([id, t]): [string, string] => [id, name(t.name, true)]),
+  // `SETTINGS_MANAGER::GetColorSettingsList` (`settings_manager.cpp:292-303`)
+  // sorts the whole list by NAME before anyone displays it:
+  //
+  //     std::sort( ret.begin(), ret.end(), []( COLOR_SETTINGS* a, COLOR_SETTINGS* b )
+  //                                        { return a->GetName() < b->GetName(); } );
+  //
+  // so a real KiCad lists "KiCad Classic" BEFORE "KiCad Default", and an
+  // installed theme lands alphabetically among them rather than after them. We
+  // listed the built-ins in declaration order and appended the rest, which put
+  // Default first and every PCM theme at the end.
+  //
+  // The sort key is the RAW name — `GetName()`, not `GetSettingsDropdownName()`
+  // — so " (read-only)" is appended after ordering and cannot affect it. A
+  // plain `<` rather than `localeCompare`, because `wxString::operator<` is
+  // what upstream compares with.
+  const raw: [id: string, name: string, readOnly: boolean][] = [
+    ...Object.entries(BUILTIN_THEMES).map(([id, t]): [string, string, boolean] => [
+      id,
+      t.name,
+      true,
+    ]),
     // A PCM theme lands in the third-party colours directory, which
     // `registerColorSettings( …, true )` marks read-only.
-    ...installed.map((t): [string, string] => [t.id, name(t.name, true)]),
-    ['user', name('User', false)],
+    ...installed.map((t): [string, string, boolean] => [t.id, t.name, true]),
+    // The user theme's name is NOT a literal "User". It is `colors/user.json`'s
+    // `meta.name`, whose PARAM default is "KiCad Default"
+    // (`color_settings.cpp:45-46`) — `SetName( "User" )` runs only in
+    // `GetMigratedColorSettings` when that file has to be CREATED
+    // (`settings_manager.cpp:385-389`), so an installed KiCad that already has
+    // one shows the file's name. This machine's does, and it says
+    // "KiCad Default". We store colours for this theme and no name, so the
+    // PARAM default is the whole of the answer.
+    ['user', BUILTIN_THEMES._builtin_default?.name ?? 'KiCad Default', false],
   ];
+
+  // `SETTINGS_MANAGER::loadAllColorSettings`' last pass
+  // (`settings_manager.cpp:452-475`):
+  //
+  //     // Built-ins own their names, so disambiguate any colliding user theme
+  //     // by appending its filename.
+  //     settings->SetName( wxString::Format( wxS( "%s (%s)" ), settings->GetName(),
+  //                                          wxFileName( settings->GetFilename() ).GetName() ) );
+  //
+  // which is why a real KiCad lists "KiCad Default (user)" and not "User".
+  // Only the two BUILT-INS are exempt; a PCM theme that happens to be called
+  // "KiCad Classic" gets its own filename appended the same way.
+  const builtinNames = new Set(Object.values(BUILTIN_THEMES).map((t) => t.name));
+  for (const row of raw) {
+    const [id, n] = row;
+    if (id in BUILTIN_THEMES) continue;
+    if (builtinNames.has(n)) row[1] = `${n} (${id})`;
+  }
+  raw.sort((a, b) => (a[1] < b[1] ? -1 : a[1] > b[1] ? 1 : 0));
+  return raw.map(([id, n, readOnly]): [string, string] => [id, name(n, readOnly)]);
 }
 
 export function ColorThemeChoice({

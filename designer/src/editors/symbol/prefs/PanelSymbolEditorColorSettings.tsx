@@ -47,7 +47,8 @@
  * (`panel_sym_color_settings.cpp:56`) where `PANEL_COLOR_SETTINGS` goes through
  * `GetSettingsDropdownName` and adds "(read-only)".
  */
-import type { JSX } from 'react';
+import { useEffect, useRef, useState, type JSX } from 'react';
+import { measureTextWidth } from '../../../ui/text_ctrl_width.js';
 import { Combo } from '../../../ui/Combo.js';
 import { colorThemeOptions } from '../../../dialogs/prefs/ColorThemeChoice.js';
 import { pcm, usePcmVersion } from '../../../pcm/pcmStore.js';
@@ -56,12 +57,44 @@ import type { PrefsContext } from '../../../dialogs/prefs/types.js';
 /** `wxRadioButton`'s group name — the two are one `wxRB_GROUP`. */
 const GROUP = 'sym-colors-source';
 
+/**
+ * `minwidth + 50` — `PANEL_SYM_COLOR_SETTINGS::TransferDataToWindow`
+ * (`panel_sym_color_settings.cpp:61-65`) measures every theme NAME and sets the
+ * choice's min size from the widest:
+ *
+ *     m_themes->GetTextExtent( settings->GetName(), &width, &height );
+ *     minwidth = std::max( minwidth, width );
+ *     …
+ *     m_themes->SetMinSize( wxSize( minwidth + 50, -1 ) );
+ *
+ * [data] the 50 is upstream's own literal — room for the drop arrow and the
+ * control's borders, not a value GTK is asked for.
+ */
+const THEME_CHOICE_EXTRA = 50;
+
 export function PanelSymbolEditorColorSettings({ ctx }: { ctx: PrefsContext }): JSX.Element {
   const { symbolEditor, upSym } = ctx;
   usePcmVersion();
   const useEeschema = symbolEditor.use_eeschema_color_settings;
+  const options = colorThemeOptions(pcm.installedThemes()).map(([value, label]) => ({
+    value,
+    label,
+  }));
+
+  // `GetTextExtent` over the same list, in the control's own font.
+  const rowRef = useRef<HTMLDivElement>(null);
+  const [minWidth, setMinWidth] = useState<number | undefined>(undefined);
+  useEffect(() => {
+    const el = rowRef.current?.querySelector('.ze-combo');
+    if (!el) return;
+    let widest = 0;
+    for (const o of options) widest = Math.max(widest, measureTextWidth(o.label, el));
+    // A jsdom run measures 0; leaving the min-width off there is the same as
+    // upstream's `minwidth` starting at 0 with nothing to measure.
+    setMinWidth(widest > 0 ? widest + THEME_CHOICE_EXTRA : undefined);
+  }, [options]);
   return (
-    <div className="ze-sym-colors">
+    <div className="ze-sym-colors" ref={rowRef}>
       <label className="ze-pref-radio">
         <input
           type="radio"
@@ -98,10 +131,8 @@ export function PanelSymbolEditorColorSettings({ ctx }: { ctx: PrefsContext }): 
         <Combo
           value={symbolEditor.appearance.color_theme}
           ariaLabel="Use theme:"
-          options={colorThemeOptions(pcm.installedThemes()).map(([value, label]) => ({
-            value,
-            label,
-          }))}
+          options={options}
+          {...(minWidth === undefined ? {} : { style: { minWidth } })}
           onChange={(v) =>
             upSym((s) => {
               s.appearance.color_theme = v;
