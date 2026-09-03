@@ -2,6 +2,10 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 import { type JSX, useState } from 'react';
+// The desktop theme's own files, vendored — see the note below on why these
+// are not KiCad bitmaps.
+import warningIcon from '../assets/theme/dialog-warning.png';
+import closeIcon from '../assets/theme/window-close.png';
 
 /**
  * `WX_INFOBAR` (common/widgets/wx_infobar.cpp), the strip above the canvas.
@@ -14,23 +18,29 @@ import { type JSX, useState } from 'react';
  *     m_infoBar->ShowMessage( _( "Schematic is read only." ),
  *                             wxICON_WARNING, MESSAGE_TYPE::OUTDATED_SAVE );
  *
- * so: an icon, a message, and a close button — in that order, the close button
- * rightmost because `AddButton` adds "in the right-most position" (:115).
+ * so: icon, message, then buttons at the far right — the close button last,
+ * because `AddButton` adds "in the right-most position" (wx_infobar.h:115).
  *
- * [chrome, measured] The icon is `wxICON_WARNING` at the `wxART_BUTTON` size
- * hint, which GTK reports as **16x16**, resolving through the icon theme to
- * Yaru's `dialog-warning`. That file is not the amber triangle the name
- * suggests: at 16px it is a **plain filled circle**, no glyph inside, and its
- * fill sampled off the PNG is **#e01c39**. Drawn rather than vendored, because
- * a browser cannot read the GTK icon theme and copying Yaru's art into a
- * GPL-3 tree is a licence question this does not need to ask.
+ * **The two glyphs are the desktop theme's, not KiCad's**, which is the one
+ * place in this app where that is true and is worth explaining.
  *
- * The close button is `wxBitmapButton::NewCloseButton` (:377) with the tooltip
- * `_( "Hide this message." )` (wx_infobar.h:111) — both taken verbatim.
+ * `wxICON_WARNING` and `wxBitmapButton::NewCloseButton` do not draw KiCad
+ * bitmaps: they ask the ART PROVIDER, so what appears is whatever the GTK icon
+ * theme supplies. Vendoring KiCad's own `dialog_warning.svg` therefore looked
+ * right by convention and was visibly wrong — an amber triangle where KiCad on
+ * this desktop draws a red disc. Proven rather than argued: sampling KiCad's
+ * own window gives #e41f3b for the icon and #c7162b x126 with #ffffff x12 for
+ * the close button, and Yaru's `16x16/status/dialog-warning.png` and
+ * `16x16/actions/window-close.png` have exactly those counts.
+ *
+ * So these are Yaru's files, byte-identical, at 16x16 because that is the
+ * `wxART_BUTTON` size hint GTK reports. They are **CC-BY-SA-4.0**, which is
+ * one-way compatible with this project's GPL-3.0-or-later; the attribution is
+ * in NOTICE.md. They live under `assets/theme/` rather than `assets/toolbar/`
+ * so their provenance is obvious: everything in `toolbar/` is KiCad's.
  *
  * Dismissal is local and re-arms on a new message, which is what upstream does
- * by construction: closing hides the bar, and the next `ShowMessage` shows it
- * again.
+ * by construction: closing hides the bar, the next `ShowMessage` shows it again.
  */
 export function ReadOnlyNotice({
   message,
@@ -48,24 +58,17 @@ export function ReadOnlyNotice({
 
   return (
     <div className="ze-infobar ze-readonly-infobar" role="status">
-      {/* wxICON_WARNING, drawn at the size GTK hints for wxART_BUTTON. */}
-      <svg
-        className="ze-infobar-icon"
-        viewBox="0 0 16 16"
-        width="16"
-        height="16"
-        aria-hidden="true"
-        focusable="false"
-      >
-        <circle cx="8" cy="8" r="8" fill="#e01c39" />
-      </svg>
+      <img className="ze-infobar-icon" src={warningIcon} alt="" aria-hidden="true" />
+      {/* `margin-right: auto` lives on this, so everything after it is pushed
+          to the right edge the way the sizer's spacer pushes the buttons. */}
       <span className="msg">{message}</span>
       {actionLabel && onAction && (
         <button type="button" onClick={onAction}>
           {actionLabel}
         </button>
       )}
-      {/* `AddCloseButton()`: rightmost, and it only hides the bar. */}
+      {/* `AddCloseButton()` (wx_infobar.cpp:375-382), rightmost, and it only
+          hides the bar. The tooltip is upstream's own default string. */}
       <button
         type="button"
         className="ze-infobar-close"
@@ -73,15 +76,7 @@ export function ReadOnlyNotice({
         aria-label="Hide this message."
         onClick={() => setHiddenFor(message)}
       >
-        <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false">
-          {/* Yaru's own `window-close-symbolic` path, so the glyph is the
-              theme's rather than an approximation of it. */}
-          <path
-            d="M4.795 3.912l-.883.883.147.146L7.117 8 4.06 11.059l-.147.146.883.883.146-.147L8 8.883l3.059 3.058.146.147.883-.883-.147-.146L8.883 8l3.058-3.059.147-.146-.883-.883-.146.147L8 7.117 4.941 4.06z"
-            fill="currentColor"
-            fillRule="evenodd"
-          />
-        </svg>
+        <img src={closeIcon} alt="" aria-hidden="true" />
       </button>
     </div>
   );

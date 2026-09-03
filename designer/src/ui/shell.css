@@ -10238,10 +10238,45 @@ textarea.ze-ds-textedit {
   align-items: center;
   gap: 12px;
 }
+/* The icon is drawn at the wxART_BUTTON size hint, which GTK reports as 16x16
+   (measured) - the size wxInfoBarGeneric asks the art provider for. */
+.ze-infobar-icon {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+}
+/* The sizer's spacer: everything after the message goes to the right edge,
+   buttons in order with the close button last. */
+.ze-readonly-infobar .msg {
+  margin-right: auto;
+}
+/* `AddCloseButton()` is a wxBitmapButton, so it is the glyph and nothing else -
+   no frame, no fill, unlike the ordinary buttons beside it. */
+.ze-infobar-close {
+  display: flex;
+  align-items: center;
+  padding: 2px;
+  background: none;
+  border: 0;
+  border-radius: 3px;
+  cursor: default;
+}
+.ze-infobar-close img {
+  width: 16px;
+  height: 16px;
+}
+.ze-infobar-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
 /* `AddButton()` puts a plain wxButton in the bar, so it is the theme's button
-   rather than a tint of the strip it sits on. */
-.ze-readonly-infobar button {
-  margin-left: auto;
+   rather than a tint of the strip it sits on.
+
+   `:not(.ze-infobar-close)` because the close button is a wxBitmapButton and
+   must NOT get this frame - and without the exclusion it would, since
+   `.ze-readonly-infobar button` is (0,1,1) and beats `.ze-infobar-close` at
+   (0,1,0) no matter which is written last. */
+.ze-readonly-infobar button:not(.ze-infobar-close) {
   padding: 3px 12px;
   font: inherit;
   color: #f7f7f7;

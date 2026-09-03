@@ -131,3 +131,16 @@ Licence 1.0.
 
 The npm packages listed in each `package.json` carry their own licences. Run
 `pnpm licenses list` to enumerate them for a given install.
+
+## Yaru icon theme
+
+`designer/src/assets/theme/dialog-warning.png` and
+`designer/src/assets/theme/window-close.png` are byte-identical copies of
+Ubuntu's Yaru icon theme (`/usr/share/icons/Yaru/16x16/`), Copyright the Yaru
+authors, licensed **CC-BY-SA-4.0** — https://github.com/ubuntu/yaru
+
+They are here because `WX_INFOBAR` does not draw KiCad bitmaps at this call
+site. `wxICON_WARNING` and `wxBitmapButton::NewCloseButton` ask the art
+provider, so the glyphs KiCad shows are the desktop theme's; using KiCad's own
+`dialog_warning.svg` produced an amber triangle where KiCad draws a red disc.
+CC-BY-SA-4.0 is one-way compatible with this project's GPL-3.0-or-later.

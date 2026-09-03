@@ -293,6 +293,7 @@ export function HomePage({
   onOpenGerberViewer,
   initialFiles,
   activePro,
+  activeDemo,
   onSwitchProject,
 }: {
   onOpenSchematic: () => void;
@@ -323,6 +324,17 @@ export function HomePage({
   initialFiles?: PickedHomeFile[] | null;
   /** The active project's .kicad_pro (full name) when a folder holds several. */
   activePro?: string;
+  /**
+   * The demo the app currently has open, if any.
+   *
+   * This frame is an early return in `App` (`if (view === 'home')`), not a
+   * hidden-but-mounted pane like the editors, so it UNMOUNTS on the way into an
+   * editor and remounts on the way back with every piece of its state reset.
+   * "This project is a demo" cannot live here, then: it was lost the first time
+   * the user closed eeschema, and reopening it handed `App` a null demo, which
+   * dropped [Read Only] from the title and took the infobar with it.
+   */
+  activeDemo?: DemoMeta | null;
   /** Switch the active project (double-clicking another .kicad_pro in the tree). */
   onSwitchProject?: (proFullName: string) => void;
 }): JSX.Element {
@@ -388,9 +400,9 @@ export function HomePage({
    * funnel every open goes through, so it cannot survive into the next project
    * opened after a demo.
    */
-  const [demoOpen, setDemoOpen] = useState(false);
+  const [demoOpen, setDemoOpen] = useState(!!activeDemo);
   /** The open demo's manifest, so saving a copy can complete it. */
-  const [demoSource, setDemoSource] = useState<DemoMeta | null>(null);
+  const [demoSource, setDemoSource] = useState<DemoMeta | null>(activeDemo ?? null);
   // Saved projects (IndexedDB), the offline half of cloud persistence.
   const [saved, setSaved] = useState<ProjectMeta[]>([]);
   // Expanded directory-tree folder paths (collapsed by default, like KiCad).
@@ -1780,13 +1792,14 @@ export function HomePage({
           // is the path in it: the same one the file chooser shows.
           text={projectStatusText(picked && proFile ? `/${proFile.name}` : null)}
         />
-        <span className="cell">
-          {storageAvailable()
-            ? session
-              ? 'Saved in browser · cloud sync on'
-              : 'Saved in browser'
-            : 'In-memory only (storage unavailable)'}
-        </span>
+        {/* KiCad's manager status bar has the project field and, on Windows
+            only, a file-watcher one — there is no storage field, and this held
+            a second one reading "Saved in browser · cloud sync on".
+            `ui/SaveIndicator` is what says where the user's work is now, and it
+            names that very string as the thing it replaced: a line that claims
+            "saved" unconditionally is furniture, and it stayed reassuring while
+            an hour of edits sat on one machine. It is quiet in the steady state
+            and loud when a write fails, so nothing is lost by dropping this. */}
       </KiStatusBar>
 
       {openPrjOpen && (

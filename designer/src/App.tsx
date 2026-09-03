@@ -1012,6 +1012,7 @@ export function App(): JSX.Element {
       <HomePage
         initialFiles={openFiles}
         activePro={activeProName ?? undefined}
+        activeDemo={demoSource}
         onSwitchProject={switchProject}
         onOpenSchematic={() => {
           openProjectFiles(null);
