@@ -67,6 +67,7 @@ import { archiveEntries, zipArchive, expandArchive } from './project_archiver.js
 import {
   type Activation,
   activationForFile,
+  browserViewableMime,
   projectFileContext,
   runActivation,
 } from './file_activation.js';
@@ -1421,12 +1422,36 @@ export function HomePage({
    * So the text branch opens the viewer and the other three download, and
    * neither is described here as being what KiCad does.
    */
-  const handOffFile = (file: PickedHomeFile, treePath: string, activation: Activation): void => {
+  /**
+   * The branches `Activate` ends in the operating system with.
+   *
+   * A browser cannot run `Pgm().GetTextEditor()` or hand a path to gestfich,
+   * but it is not helpless either: it IS the PDF viewer, the default browser
+   * and the image viewer. So each branch is answered where the browser can
+   * answer it - the text viewer for text, a tab for anything renderable - and
+   * left alone where it cannot.
+   *
+   * Nothing downloads from here any more. Double-clicking a .kicad_pcb opens
+   * the board; double-clicking a datasheet used to save it to disk, which is
+   * not what activating a file means in any editor. The tree's context menu
+   * keeps `Download...` for files the browser will not render.
+   */
+  const handOffFile = (file: PickedHomeFile, _treePath: string, activation: Activation): void => {
     if (activation.kind === 'openTextEditor') {
       setTextView(file);
       return;
     }
-    downloadFileAtPath(treePath);
+    const mime = browserViewableMime(file.name);
+    if (!mime) return;
+    const blob = file.bytes
+      ? new Blob([file.bytes.buffer as ArrayBuffer], { type: mime })
+      : new Blob([file.text], { type: mime });
+    const url = URL.createObjectURL(blob);
+    window.open(url, '_blank', 'noopener');
+    // NOT revoked here: the new tab has not loaded from it yet, and revoking
+    // in the same turn leaves it with a dead URL. The delay is longer than any
+    // plausible load and the object dies with the page regardless.
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
   };
 
   const downloadFileAtPath = (path: string): void => {
