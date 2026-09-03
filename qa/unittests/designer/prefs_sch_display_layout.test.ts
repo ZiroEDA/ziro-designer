@@ -123,7 +123,6 @@ describe('the rows nothing reads are disabled', () => {
     ['Default font:'],
     ['Show OP voltages'],
     ['Show OP currents'],
-    ['Net collision marker width:'],
   ])('%s is disabled', (label) => {
     expect(props(label), label).toMatch(/\bdisabled\b/);
   });
@@ -154,6 +153,10 @@ describe('the rows nothing reads are disabled', () => {
     ['Show page limits', 'show_page_limits'],
     ['Selection thickness:', 'thickness'],
     ['Highlight thickness:', 'highlight_thickness'],
+    // The pen `SCH_DRAG_NET_COLLISION_MONITOR::Update` strokes its rings with
+    // (`sch_drag_net_collision.cpp:181-190`). Pinned in
+    // `sch_drag_net_collision.test.ts`.
+    ['Net collision marker width:', 'drag_net_collision_width'],
   ])('%s is live, and bound to %s', (label, setting) => {
     const p = props(label);
     expect(p, label).toContain(setting);

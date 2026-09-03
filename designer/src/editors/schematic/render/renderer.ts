@@ -717,9 +717,19 @@ const STROKE_V_FUDGE = 0.052;
 const STROKE_H_FUDGE = 1.52;
 
 const MM = 10000; // IU per mm
-const DEFAULT_LINE_WIDTH = 0.1524 * MM; // DEFAULT_LINE_WIDTH_MILS 6
-const DEFAULT_WIRE_WIDTH = 0.1524 * MM; // DEFAULT_WIRE_WIDTH_MILS 6
-const DEFAULT_BUS_WIDTH = 0.3048 * MM; // DEFAULT_BUS_WIDTH_MILS 12
+/**
+ * The pens a line falls back to, in IU — `eeschema/default_values.h`'s
+ * DEFAULT_LINE_WIDTH_MILS 6, DEFAULT_WIRE_WIDTH_MILS 6 and
+ * DEFAULT_BUS_WIDTH_MILS **12**. [data]
+ *
+ * Exported because they are not only the painter's: anything that has to know
+ * how thick a wire is without asking the painter — the wire tool's preview,
+ * the drag-collision markers — resolves through the same three, so a project
+ * that overrides one overrides it everywhere.
+ */
+export const DEFAULT_LINE_WIDTH = 0.1524 * MM;
+export const DEFAULT_WIRE_WIDTH = 0.1524 * MM;
+export const DEFAULT_BUS_WIDTH = 0.3048 * MM;
 /** UNSELECTED_END_SIZE / 2 (eeschema/default_values.h: 4 mils). */
 const UNSELECTED_END_HALF = 2 * 0.0254 * MM;
 const DEFAULT_JUNCTION_DIAM = 0.9144 * MM; // 36 mil (eeschema/default_values.h)

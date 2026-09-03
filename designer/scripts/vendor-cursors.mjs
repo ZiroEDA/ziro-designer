@@ -44,9 +44,9 @@ const OUT = join(HERE, '../src/assets/cursors');
  * is the branch a Linux KiCad compiles, and Linux is the parity target.
  *
  * Not vendored, because no tool in this port asks for them: VOLTAGE_PROBE,
- * CURRENT_PROBE and TUNE (the simulator's), WARNING, ADD, SUBTRACT, XOR
- * (pcbnew's zone boolean pickers) and ZOOM_OUT. Add the pair here when the
- * tool arrives -- not one of the pair.
+ * CURRENT_PROBE and TUNE (the simulator's), ADD, SUBTRACT, XOR (pcbnew's zone
+ * boolean pickers) and ZOOM_OUT. Add the pair here when the tool arrives --
+ * not one of the pair.
  */
 const WANTED = [
   // KICURSOR::PENCIL
@@ -97,6 +97,10 @@ const WANTED = [
   // KICURSOR::SELECT_WINDOW
   'cursor-select-window',
   'cursor-select-window64',
+  // KICURSOR::WARNING, what SCH_DRAG_NET_COLLISION_MONITOR::AdjustCursor
+  // swaps in while a drag would merge two nets.
+  'cursor-warning-black',
+  'cursor-warning-black64',
 ];
 
 /** Named XPM colours that appear in these files alongside the #RRGGBB ones. */

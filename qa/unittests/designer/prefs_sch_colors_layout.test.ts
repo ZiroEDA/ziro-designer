@@ -141,11 +141,10 @@ describe('the list is every layer createSwatches keeps, in its order', () => {
   });
 
   /** A row is live exactly when our painter has a `Theme` field for its layer. */
-  it('leaves the six layers no painter of ours reads without a key', () => {
+  it('leaves the five layers no painter of ours reads without a key', () => {
     const dead = COLOR_LAYERS.filter((r) => r.key === null).map((r) => r.layer);
     expect(dead.sort()).toEqual(
       [
-        'LAYER_DRAG_NET_COLLISION',
         'LAYER_HOVERED',
         'LAYER_INTERSHEET_REFS',
         'LAYER_OP_CURRENTS',

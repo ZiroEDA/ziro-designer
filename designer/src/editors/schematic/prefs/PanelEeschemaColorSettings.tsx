@@ -66,7 +66,7 @@ export const COLOR_LAYERS: readonly ColorRowSpec[] = [
   { layer: 'LAYER_BUS', name: 'Buses', key: 'bus' },
   { layer: 'LAYER_SCHEMATIC_CURSOR', name: 'Cursor', key: 'cursor' },
   { layer: 'LAYER_DNP_MARKER', name: 'DNP markers', key: 'dnpMarker' },
-  { layer: 'LAYER_DRAG_NET_COLLISION', name: 'Drag net collisions', key: null },
+  { layer: 'LAYER_DRAG_NET_COLLISION', name: 'Drag net collisions', key: 'dragNetCollision' },
   { layer: 'LAYER_SCHEMATIC_DRAWINGSHEET', name: 'Drawing sheet', key: 'pageFrame' },
   { layer: 'LAYER_ERC_ERR', name: 'ERC errors', key: 'ercError' },
   { layer: 'LAYER_ERC_EXCLUSION', name: 'ERC exclusions', key: 'ercExclusion' },

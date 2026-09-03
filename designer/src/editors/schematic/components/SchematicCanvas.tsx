@@ -22,6 +22,14 @@ import {
   planMoveFromPoints,
   moveItems,
   moveWithConnections,
+  beginDragNetCollision,
+  dragNetCollisionMarkers,
+  dragNetCollisionAlphas,
+  dragNetCollisionPenPx,
+  hasDragNetCollision,
+  type DragNetCollisionMarks,
+  type DragNetCollisionState,
+  type DragPenWidths,
   orthoMove,
   addItems,
   deleteByIds,
@@ -132,6 +140,9 @@ import {
   setRenderInvalidator,
   schematicGridOptions,
   DEFAULT_RENDER_OPTS,
+  DEFAULT_LINE_WIDTH,
+  DEFAULT_WIRE_WIDTH,
+  DEFAULT_BUS_WIDTH,
   type RenderOpts,
   type Viewport,
 } from '../render/renderer.js';
@@ -228,6 +239,8 @@ import {
   isBackgroundDark,
   lassoIsInside,
   selectionAreaColors,
+  parseColor4d,
+  cssWithAlpha,
 } from '@ziroeda/common';
 import { toolCursor as kiToolCursor } from '../cursors.js';
 import { kiCursor } from '../../../ui/kicursors.js';
@@ -1006,6 +1019,20 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
    */
   const moveBaseRef = useRef<Schematic | null>(null);
   const breakCmdRef = useRef<EditCommand | null>(null);
+  /**
+   * `SCH_DRAG_NET_COLLISION_MONITOR`, which `doMoveSelection` owns for the
+   * length of one move (`sch_move_tool.cpp:642-657`, `:835-863`).
+   *
+   * `Initialize` is the expensive half — it wants the sheet's net codes — so it
+   * runs on the first frame of a drag and not once per pointer move; the
+   * monitor is then asked for markers each frame, and `null` on both refs is
+   * "no drag in flight", which is what `Reset` leaves behind.
+   */
+  const dragCollisionRef = useRef<DragNetCollisionState | null>(null);
+  const dragMarksRef = useRef<DragNetCollisionMarks | null>(null);
+  /** Whether the drag, rather than the tool, is what put the current cursor on
+   *  the canvas — so that only a drag's cursor is ever taken back off. */
+  const dragCursorRef = useRef(false);
   /**
    * The keyboard's half of a move: which axis the last arrow locked, and which
    * arrow it was (the release test compares against the immediately preceding
@@ -1911,6 +1938,76 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
   scheduleViewRebuildRef.current = scheduleViewRebuild;
   useEffect(() => () => clearTimeout(viewRebuildRef.current), []);
 
+  /**
+   * The pens `SCH_ITEM::GetPenWidth()` resolves to, for the sizing of a
+   * disconnection ring. Same three numbers the painter uses, from the same
+   * place, so a project that widens its wires widens the markers with them.
+   */
+  const dragPens = useCallback(
+    (): DragPenWidths => ({
+      defaultLineWidthIU: renderOpts.defaultPenIU || DEFAULT_LINE_WIDTH,
+      wireWidthIU: renderOpts.defaultWireIU || DEFAULT_WIRE_WIDTH,
+      busWidthIU: renderOpts.defaultBusIU || DEFAULT_BUS_WIDTH,
+      ...(renderOpts.netOverrides
+        ? {
+            lineOverrideIU: new Map(
+              [...renderOpts.netOverrides.lines]
+                .filter(([, v]) => v.widthIU !== undefined)
+                .map(([id, v]) => [id, v.widthIU as number]),
+            ),
+          }
+        : {}),
+    }),
+    [renderOpts],
+  );
+
+  /**
+   * `netCollisionMonitor->Initialize` on the first frame of a drag, then
+   * `->Update( previewJunctions, selection )` on every frame after
+   * (`sch_move_tool.cpp:656-657`, `:859-863`).
+   *
+   * `doc` is the document as the ghost has it, which is the state upstream's
+   * live screen is in at the same point: `performItemMove` has already run.
+   */
+  const updateDragNetCollision = useCallback(
+    (doc: Schematic) => {
+      const canvas = canvasRef.current;
+      if (modeRef.current !== 'move') {
+        dragCollisionRef.current = null;
+        dragMarksRef.current = null;
+        // Put back whatever the tool asks for, but only if this is the frame
+        // after a drag: the wire tool sets its own cursor on hover, and
+        // overwriting that every frame would undo it.
+        if (dragCursorRef.current && canvas) {
+          canvas.style.cursor = toolCursor(activeTool, attachedCursor);
+          dragCursorRef.current = false;
+        }
+        return;
+      }
+      const sel = effSelRef.current;
+      const pens = dragPens();
+      if (!dragCollisionRef.current) {
+        dragCollisionRef.current = beginDragNetCollision(
+          moveBaseRef.current ?? schematic,
+          libById,
+          sel,
+          { pens },
+        );
+      }
+      const marks = dragNetCollisionMarkers(dragCollisionRef.current, doc, libById, sel, pens);
+      dragMarksRef.current = marks;
+      // `currentCursor = KICURSOR::MOVING; … = netCollisionMonitor->AdjustCursor(
+      // currentCursor )` (`sch_move_tool.cpp:833-836`). Upstream's third arm,
+      // PLACE while the pointer is over a sheet the selection could be dropped
+      // INTO, waits on `findTargetSheet`, which this port does not have yet.
+      if (canvas) {
+        canvas.style.cursor = kiCursor(hasDragNetCollision(marks) ? 'WARNING' : 'MOVING');
+        dragCursorRef.current = true;
+      }
+    },
+    [schematic, libById, dragPens, activeTool, attachedCursor],
+  );
+
   /** The schematic layer: a blit of the retained raster, or a direct paint. */
   const drawScene = useCallback(() => {
     const __t0 = PERF ? performance.now() : 0;
@@ -1920,6 +2017,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     const { doc, ghosting, ghostIds } = buildDisplayDoc();
+    updateDragNetCollision(doc);
 
     // The WebGL path (#449). The 2D canvas keeps the background and the grid,
     // which are cheap and genuinely zoom-dependent; the document goes to the
@@ -2174,6 +2272,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     else if (!sameView(cache.view, vp)) scheduleViewRebuild();
   }, [
     buildDisplayDoc,
+    updateDragNetCollision,
     paintSchematic,
     paintHalos,
     startSceneRender,
@@ -2209,6 +2308,41 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     // hidden by the very item it flags. LAYER_ERC_ERR / LAYER_ERC_WARN are
     // above the items upstream, and this is the only layer above them here.
     if (ercMarkers && ercMarkers.length > 0) drawErcMarkers(ctx, ercMarkers, vp, theme);
+
+    // The drag-collision overlay (`SCH_DRAG_NET_COLLISION_MONITOR::Update`,
+    // `:151-190`). Upstream builds it with `m_view->MakeOverlay()`, so it sits
+    // above every layer, which is what this one is.
+    //
+    // Filled AND stroked, at two alphas derived from the theme colour's own,
+    // and the pen is `ToWorld( drag_net_collision_width )` — a fixed number of
+    // DEVICE pixels at any zoom, which is why it is set with the world
+    // transform on and divided back out.
+    const marks = dragMarksRef.current;
+    if (marks && (marks.collisions.length > 0 || marks.disconnections.length > 0)) {
+      const base = parseColor4d(theme.dragNetCollision);
+      const { fill, stroke } = dragNetCollisionAlphas(base.a);
+      const px = dragNetCollisionPenPx(settings.eeschema.selection.drag_net_collision_width);
+      ctx.setTransform(vp.scale, 0, 0, vp.scale, vp.offsetX, vp.offsetY);
+      ctx.fillStyle = cssWithAlpha(theme.dragNetCollision, fill);
+      ctx.strokeStyle = cssWithAlpha(theme.dragNetCollision, stroke);
+      ctx.lineWidth = (px * dpr()) / vp.scale;
+      const ring = (at: { x: number; y: number }, radius: number): void => {
+        ctx.beginPath();
+        ctx.arc(at.x, at.y, radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+      };
+      for (const c of marks.collisions) ring(c.at, c.radius);
+      for (const d of marks.disconnections) {
+        ring(d.a, d.radius);
+        ring(d.b, d.radius);
+        ctx.beginPath();
+        ctx.moveTo(d.a.x, d.a.y);
+        ctx.lineTo(d.b.x, d.b.y);
+        ctx.stroke();
+      }
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+    }
 
     // Box-selection rubber band, in KiCad's colours: the fill shows the mode
     // (normal/additive/subtractive) and the outline shows the direction,
@@ -2276,8 +2410,8 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       // 6 and 12 mils while the renderer drew both at the graphic-line default).
       ctx.lineWidth =
         activeTool === 'drawBus'
-          ? (renderOpts.defaultBusIU ?? 0.3048 * 10000)
-          : (renderOpts.defaultWireIU ?? 0.1524 * 10000);
+          ? (renderOpts.defaultBusIU ?? DEFAULT_BUS_WIDTH)
+          : (renderOpts.defaultWireIU ?? DEFAULT_WIRE_WIDTH);
       ctx.beginPath();
       for (const seg of wiresRef.current) {
         if (segIsNull(seg)) continue;
@@ -2418,6 +2552,9 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     // A break that is abandoned takes its split with it: nothing was committed,
     // so dropping the pending command restores the unbroken wire.
     breakCmdRef.current = null;
+    // `~SCH_DRAG_NET_COLLISION_MONITOR` calls `Reset`, which clears the overlay.
+    dragCollisionRef.current = null;
+    dragMarksRef.current = null;
     moveBaseRef.current = null;
     // The lock lives exactly as long as the move that owns it.
     axisLockRef.current = 'none';
@@ -2447,6 +2584,9 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     moveDeltaRef.current = null;
     moveStartRef.current = null;
     breakCmdRef.current = null;
+    // `~SCH_DRAG_NET_COLLISION_MONITOR` calls `Reset`, which clears the overlay.
+    dragCollisionRef.current = null;
+    dragMarksRef.current = null;
     moveBaseRef.current = null;
     axisLockRef.current = 'none';
     lastArrowRef.current = null;
@@ -3815,6 +3955,8 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       moveStartRef.current = null;
       moveDeltaRef.current = null;
       moveSpecRef.current = null;
+      dragCollisionRef.current = null;
+      dragMarksRef.current = null;
       panLastRef.current = null;
       if (!committedMove) requestDraw();
     },

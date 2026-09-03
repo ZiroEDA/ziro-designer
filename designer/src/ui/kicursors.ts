@@ -64,10 +64,9 @@ interface CursorSpec {
  * MOVING and PLACE take the `#else` half of their `#ifdef __WINDOWS__` — the
  * `*_black` art — because that is the branch a Linux KiCad compiles.
  *
- * Upstream's table has six more: VOLTAGE_PROBE, CURRENT_PROBE and TUNE belong
- * to the simulator, WARNING to a drag that would break a rule, and ADD /
- * SUBTRACT / XOR / ZOOM_OUT to tools this port does not have. They are absent
- * rather than unvendored-but-listed, so the store and
+ * Upstream's table has five more: VOLTAGE_PROBE, CURRENT_PROBE and TUNE belong
+ * to the simulator, and ADD / SUBTRACT / XOR / ZOOM_OUT to tools this port does
+ * not have. They are absent rather than unvendored-but-listed, so the store and
  * `scripts/vendor-cursors.mjs`'s list say the same thing.
  */
 const STORE = {
@@ -110,6 +109,12 @@ const STORE = {
   LINE_GRAPHIC: { file: 'cursor-line-graphic', x: 5, y: 26 },
   /** cursors.cpp:304-321 */
   PLACE: { file: 'cursor-place-black', x: 1, y: 1 },
+  /**
+   * cursors.cpp:164-184 — `SCH_DRAG_NET_COLLISION_MONITOR::AdjustCursor`
+   * replaces MOVING with this one for as long as the drag in flight would
+   * merge two nets, and it is the only thing in eeschema that asks for it.
+   */
+  WARNING: { file: 'cursor-warning-black', x: 1, y: 1 },
 } as const satisfies Record<string, CursorSpec>;
 
 /**
