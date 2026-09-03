@@ -2655,9 +2655,29 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       glRef.current = null;
       requestDrawRef.current();
     };
+    /**
+     * ...and then come back. `preventDefault()` above is what asks the browser
+     * to restore the context at all, and without a listener for it that request
+     * was made and ignored: a transient loss - a GPU reset, a driver update, the
+     * tab backgrounded long enough to be reclaimed - dropped this canvas to
+     * Canvas2D permanently, until a reload. GerberCanvas and DrawingSheetCanvas
+     * have restored theirs all along; this one and PcbEditor did not.
+     *
+     * The new device's buffers are empty, so the scene has to be re-recorded
+     * rather than merely redrawn. That is what `sceneDirtyRef` is for, and it
+     * is the half the other two canvases do not need because their render path
+     * re-records every frame anyway.
+     */
+    const onRestored = (): void => {
+      glRef.current = SchematicGl.create(canvas);
+      sceneDirtyRef.current = true;
+      requestDrawRef.current();
+    };
     canvas.addEventListener('webglcontextlost', onLost);
+    canvas.addEventListener('webglcontextrestored', onRestored);
     return () => {
       canvas.removeEventListener('webglcontextlost', onLost);
+      canvas.removeEventListener('webglcontextrestored', onRestored);
       glRef.current?.dispose();
       glRef.current = null;
     };
