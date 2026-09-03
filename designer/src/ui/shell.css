@@ -4410,15 +4410,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   margin-left: 5px;
 }
 /* WX_INFOBAR: the "annotation required" banner ModalAnnotate passes in. */
-.ze-infobar {
-  margin: 6px 6px 0;
-  padding: 6px 10px;
-  border: 1px solid #7a6a20;
-  border-radius: 3px;
-  background: #3a3520;
-  color: #e8e2c8;
-  font-size: 12px;
-}
 .ze-annotate-body fieldset {
   border: 1px solid var(--chrome-border);
   padding: 8px 10px;
@@ -8189,13 +8180,30 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   text-decoration: underline;
 }
 /* WX_INFOBAR-style warning strip (annotation incomplete) */
+/* WX_INFOBAR (common/widgets/wx_infobar.cpp). TWO rules used to define this,
+   the later overriding half of the earlier, and between them they invented an
+   olive #4d3f14 / #ffd76e strip floating 6px inside the canvas with rounded
+   corners. Upstream's is none of those things, and the dead rule is now gone.
+
+   [chrome, measured] The colours are GTK's. WX_INFOBAR asks
+   `KIPLATFORM::UI::GetInfoBarColours` (:65), which reads the `infobar.info`
+   style context and, when that returns alpha 0 as Yaru-dark does, falls
+   through to `infobar.info > revealer > box` (port/wxgtk/ui.cpp:96-113). Asked
+   of GTK along that exact path: background #121617, text #f7f7f7.
+
+   [chrome, measured] The height is a GtkInfoBar's natural 35px, which the
+   constructor multiplies - `sy = 1.5 * sy` (:81), "the infobar seems to start
+   too small". 52px. */
 .ze-infobar {
   display: flex;
   align-items: center;
-  padding: 7px 12px;
-  font-size: 12.5px;
-  background: #4d3f14;
-  color: #ffd76e;
+  gap: 12px;
+  flex: 0 0 auto;
+  min-height: 52px;
+  padding: 0 12px;
+  font-size: var(--ui-font-size);
+  background: #121617;
+  color: #f7f7f7;
   border-bottom: 1px solid var(--chrome-border);
 }
 .ze-infobar .lnk {
@@ -10220,18 +10228,20 @@ textarea.ze-ds-textedit {
   align-items: center;
   gap: 12px;
 }
+/* `AddButton()` puts a plain wxButton in the bar, so it is the theme's button
+   rather than a tint of the strip it sits on. */
 .ze-readonly-infobar button {
   margin-left: auto;
-  padding: 3px 10px;
+  padding: 3px 12px;
   font: inherit;
-  color: #f4eeda;
-  background: rgba(0, 0, 0, 0.3);
-  border: 1px solid #7a6a20;
-  border-radius: 3px;
+  color: #f7f7f7;
+  background: var(--chrome-bg2);
+  border: 1px solid var(--chrome-border);
+  border-radius: 4px;
   cursor: default;
 }
 .ze-readonly-infobar button:hover {
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(255, 255, 255, 0.08);
 }
 
 /* ---------------------------------------------------------------------------
