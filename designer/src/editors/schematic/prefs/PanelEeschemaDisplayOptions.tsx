@@ -156,11 +156,12 @@ export function PanelEeschemaDisplayOptions({ ctx }: { ctx: PrefsContext }): JSX
               })
             }
           />
-          {/* Dead: the painter draws no alternate-mode indicator yet. */}
+          {/* Live: `drawAltPinModesIcon` beside the pin name, for a pin that
+              declares alternates (`sch_painter.cpp:1672-1679`). One painter for
+              both editors — the Symbol Editor imports the same function. */}
           <Check
             label="Show pin alternate mode indicator icons"
             checked={eeschema.appearance.show_pin_alt_icons}
-            disabled
             onChange={(v) =>
               upE((s) => {
                 s.appearance.show_pin_alt_icons = v;

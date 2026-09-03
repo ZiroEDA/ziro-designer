@@ -188,6 +188,9 @@ function outputRenderOpts(opts: PlotOpts): RenderOpts {
     // A plot has no selection, so the selection shadow never runs and this
     // cannot show. Present because RenderOpts requires it, at the PARAM's own
     // default.
+    // A plot has no selection; the alt icon is not a selection thing and a
+    // plotted sheet shows it exactly as the canvas does.
+    showPinAltIcons: true,
     fillSelectedShapes: false,
     // A plot has no selection, so neither shadow-pass flag can fire; both are
     // here because RenderOpts requires them.
