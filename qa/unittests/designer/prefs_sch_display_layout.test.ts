@@ -120,9 +120,6 @@ describe('the rows nothing reads are disabled', () => {
     ['Show OP voltages'],
     ['Show OP currents'],
     ['Net collision marker width:'],
-    ['Highlight netclass colors'],
-    ['Color highlight thickness:'],
-    ['Color highlight opacity:'],
   ])('%s is disabled', (label) => {
     expect(props(label), label).toMatch(/\bdisabled\b/);
   });
@@ -143,6 +140,11 @@ describe('the rows nothing reads are disabled', () => {
     // alternates (`sch_painter.cpp:1672-1679`). Pinned in
     // `sch_pin_alt_icons.test.ts`.
     ['Show pin alternate mode indicator icons', 'show_pin_alt_icons'],
+    // LAYER_NET_COLOR_HIGHLIGHT: a fat translucent band under a wire a
+    // netclass has coloured. Pinned in `sch_netclass_highlight.test.ts`.
+    ['Highlight netclass colors', 'highlight_netclass_colors'],
+    ['Color highlight thickness:', 'highlight_netclass_colors_thickness'],
+    ['Color highlight opacity:', 'highlight_netclass_colors_alpha'],
     ['Show hidden pins', 'show_hidden_pins'],
     ['Show ERC errors', 'show_erc_errors'],
     ['Show page limits', 'show_page_limits'],

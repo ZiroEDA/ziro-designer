@@ -690,7 +690,13 @@ export const EESCHEMA_DEFAULTS: EeschemaSettings = {
     fill_shapes: false,
     highlight_netclass_colors: false,
     highlight_netclass_colors_thickness: 15,
-    highlight_netclass_colors_alpha: 60,
+    // 0.6, NOT 60. `PARAM<double>( "selection.highlight_netclass_colors_alpha",
+    // …, 0.6, 0, 1 )` (`eeschema_settings.cpp:450-451`) — the panel is what
+    // scales it, showing `alpha * 100` and storing `GetValue() / 100.0`
+    // (`panel_eeschema_display_options.cpp:73`, `:117`). Storing the displayed
+    // number would have made a `.json` of ours disagree with KiCad's, and the
+    // painter multiplies the colour's alpha by this directly.
+    highlight_netclass_colors_alpha: 0.6,
   },
   annotation: {
     automatic: true,

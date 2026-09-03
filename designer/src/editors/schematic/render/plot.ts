@@ -191,6 +191,14 @@ function outputRenderOpts(opts: PlotOpts): RenderOpts {
     // A plot has no selection; the alt icon is not a selection thing and a
     // plotted sheet shows it exactly as the canvas does.
     showPinAltIcons: true,
+    // `if( m_schSettings.m_OverrideItemColors && drawingNetColorHighlights ) return;`
+    // — a plot is not that flag, but it is also not the canvas: KiCad plots the
+    // highlight layer only if the plotter asks for it, and ours does not offer
+    // the layer at all, so it stays off here rather than inventing a plotted
+    // band the user never asked to print.
+    highlightNetclassColors: false,
+    netclassHighlightThicknessMils: 15,
+    netclassHighlightAlpha: 0.6,
     fillSelectedShapes: false,
     // A plot has no selection, so neither shadow-pass flag can fire; both are
     // here because RenderOpts requires them.
