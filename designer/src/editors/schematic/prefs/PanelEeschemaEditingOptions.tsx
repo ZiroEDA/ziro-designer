@@ -244,8 +244,12 @@ export function PanelEeschemaEditingOptions({ ctx }: { ctx: PrefsContext }): JSX
           <Num
             label="Label increment:"
             value={eeschema.drawing.repeat_label_increment}
-            min={-10}
-            max={10}
+            /* [data] `m_spinLabelRepeatStep->SetRange( -100000, 100000 )`
+               (`panel_eeschema_editing_options.cpp:83`), which OVERRIDES the
+               base file's own -1000000..1000000 (`:347`). Ours said -10..10,
+               which is neither, and refused a repeat step of 100. */
+            min={-100000}
+            max={100000}
             onChange={(v) =>
               upE((s) => {
                 s.drawing.repeat_label_increment = v;
