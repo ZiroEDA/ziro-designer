@@ -267,6 +267,12 @@ export function SymbolLibraryBrowser({ onPick, onClose }: Props): JSX.Element {
       // The viewer's GAL shows the symbol as drawn: no hidden pins/fields.
       showHiddenPins: false,
       showHiddenFields: false,
+      // The Symbol Library Browser is a viewer over the library table, and
+      // `SYMBOL_VIEWER_FRAME` has no Display Options page of its own — the
+      // setting belongs to the Symbol EDITOR. Upstream's viewer leaves the
+      // render setting at `SCH_RENDER_SETTINGS`' default, which is false
+      // (`sch_render_settings.cpp:44`).
+      showPinAltIcons: false,
     }),
     [unit, bodyStyle, showElectricalTypes, showPinNumbers],
   );

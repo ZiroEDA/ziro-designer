@@ -453,6 +453,12 @@ export function SymbolEditor({
       showPinElectricalTypes: toggles.has('showElectricalTypes'),
       showHiddenPins: toggles.has('showHiddenPins'),
       showHiddenFields: toggles.has('showHiddenFields'),
+      // `SYMBOL_EDITOR_SETTINGS::m_ShowPinAltIcons` — Preferences > Symbol
+      // Editor > Display Options, and ONLY there: upstream has the toolbar
+      // button commented out (`toolbars_symbol_editor.cpp:85`), so unlike its
+      // three neighbours above this one has no View-menu toggle to mirror and
+      // is read straight off the settings object.
+      showPinAltIcons: symCfg.show_pin_alt_icons,
       // ACTIONS::toggleGrid. The toolbar button used to render pressed while
       // the renderer painted its grid unconditionally, so pressing it did
       // nothing at all.
@@ -2042,6 +2048,11 @@ export function SymbolEditor({
         {
           showHiddenPins: toggles.has('showHiddenPins'),
           showHiddenFields: toggles.has('showHiddenFields'),
+          // The one CHECK condition with no toolbar button: upstream leaves
+          // that one commented out (`toolbars_symbol_editor.cpp:85`), so the
+          // View row is the only place `showPinAltIconsCond`
+          // (`symbol_edit_frame.cpp:583-587`) is drawn.
+          togglePinAltIcons: toggles.has('togglePinAltIcons'),
           showLibraryTree: toggles.has('showLibraryTree'),
           showProperties: toggles.has('showProperties'),
         },

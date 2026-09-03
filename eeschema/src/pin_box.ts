@@ -208,6 +208,38 @@ function nameBox(pin: LibPin, pinNameOffset: number): BBox {
   return moved(byCenter(idiv(pin.length, 2), 0, e.x, e.y), 0, -idiv(e.y, 2) - PIN_TEXT_OFFSET);
 }
 
+/**
+ * `PIN_LAYOUT_CACHE::getUntransformedAltIconBox` (`pin_layout_cache.cpp:617-636`)
+ * — the square the alternate-mode indicator is drawn in, in the same
+ * untransformed pin frame as `nameBox`.
+ *
+ *     const int iconSize = std::min( m_pin.GetNameTextSize(), schIUScale.mmToIU( 1.5 ) );
+ *     VECTOR2I c{ 0, ( nameBox->GetTop() + nameBox->GetBottom() ) / 2 };
+ *     if( m_pin.GetParentSymbol()->GetPinNameOffset() > 0 )
+ *         c.x = nameBox->GetRight() + iconSize * 0.75;   // name inside, icon more inside
+ *     else
+ *         c.x = nameBox->GetLeft() - iconSize * 0.75;
+ *     return BOX2I::ByCenter( c, { iconSize, iconSize } );
+ *
+ * Null unless the pin actually DECLARES alternates (`:621`) — the icon says
+ * "this pin has other modes", so a pin with none must not get one. That is the
+ * gate the caller cannot skip, and it is here rather than at the call site so
+ * both the drawing and any future measurement share it.
+ *
+ * `nameSize` is the pin's own name text size, so the icon shrinks with the name
+ * and is capped at 1.5 mm.
+ */
+export function altIconBox(pin: LibPin, pinNameOffset: number): BBox | null {
+  if (!pin.alternates || pin.alternates.length === 0) return null;
+  if (pinNameText(pin) === '' || pinNameText(pin) === '~') return null;
+
+  const box = nameBox(pin, pinNameOffset);
+  const iconSize = Math.min(nameSize(pin), mmToIU(1.5));
+  const cy = idiv(box.minY + box.maxY, 2);
+  const cx = pinNameOffset > 0 ? box.maxX + iconSize * 0.75 : box.minX - iconSize * 0.75;
+  return byCenter(cx, cy, iconSize, iconSize);
+}
+
 /** `getUntransformedPinNumberBox`. */
 function numberBox(pin: LibPin, showBothNameAndNumber: boolean): BBox {
   const e = extents(pin.number, numberSize(pin));

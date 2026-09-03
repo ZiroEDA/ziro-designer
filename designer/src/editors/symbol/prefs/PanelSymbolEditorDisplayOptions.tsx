@@ -39,12 +39,13 @@
  * state and the toolbar set is derived from it. Three of the four therefore
  * change the canvas the moment OK is pressed.
  *
- * The fourth, Show pin alternate mode indicator icons, is **disabled**: the
- * renderer draws no alternate-mode indicator at all, so `show_pin_alt_icons`
- * has no reader. `editors/symbol/menubar.ts` already greys the matching View
- * row for the same reason, and upstream leaves the button commented out of the
- * toolbar (`toolbars_symbol_editor.cpp:85`), so there is no live control here
- * for a greyed one to be inconsistent with.
+ * The fourth, Show pin alternate mode indicator icons, reaches the canvas by a
+ * different route. Its three neighbours mirror View-menu toggles; this one has
+ * no toggle to mirror, because upstream leaves that toolbar button commented
+ * out (`toolbars_symbol_editor.cpp:85`), so `SymbolEditor` reads
+ * `show_pin_alt_icons` off the settings object directly. It was greyed here
+ * while `drawPin` had no indicator to draw; it now draws
+ * `drawAltPinModesIcon`, so the row is live.
  */
 import type { JSX } from 'react';
 import { Check, Group } from '../../../dialogs/prefs/widgets.js';
@@ -102,13 +103,14 @@ export function PanelSymbolEditorDisplayOptions({ ctx }: { ctx: PrefsContext }):
               })
             }
           />
-          {/* Dead: nothing reads `show_pin_alt_icons`. `drawPin`
-              (`render/symbolRenderer.ts`) has no alternate-mode indicator to
-              draw, so this would store a flag the canvas cannot act on. */}
+          {/* Live: `drawPin` draws `drawAltPinModesIcon` beside the pin name
+              when the pin declares alternates. Unlike its three neighbours it
+              is read straight off the settings object rather than from a
+              toolbar toggle, because upstream has that button commented out
+              (`toolbars_symbol_editor.cpp:85`). */}
           <Check
             label="Show pin alternate mode indicator icons"
             checked={symbolEditor.show_pin_alt_icons}
-            disabled
             onChange={(v) =>
               upSym((s) => {
                 s.show_pin_alt_icons = v;

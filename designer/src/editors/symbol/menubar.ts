@@ -295,12 +295,14 @@ export function symbolEditorMenus(
         SEP,
         chk('Show Hidden Pins', 'showHiddenPins'),
         chk('Show Hidden Fields', 'showHiddenFields'),
-        // SCH_ACTIONS::togglePinAltIcons (sch_actions.cpp:1334). Greyed rather
-        // than wired: `SymbolViewOptions` has no such flag, so the tick would
-        // be a setting nothing reads. Upstream has it commented out of the
-        // toolbar too (`toolbars_symbol_editor.cpp:85`), so there is no button
-        // here for a live row to stay consistent with.
-        stub('Show Pin Alternate Icons', 'togglePinAltIcons'),
+        // SCH_ACTIONS::togglePinAltIcons (sch_actions.cpp:1334), a CHECK row
+        // upstream (`menubar_symbol_editor.cpp:142`) ticked from
+        // `showPinAltIconsCond` (`symbol_edit_frame.cpp:583-587`). It was a
+        // stub while the renderer drew no indicator; `drawPin` draws one now.
+        // There is still no toolbar button, because upstream leaves that
+        // commented out (`toolbars_symbol_editor.cpp:85`) — the menu row and
+        // the Preferences checkbox are the two ways in.
+        chk('Show Pin Alternate Icons', 'togglePinAltIcons'),
         //
         // NOT here: "Show Pin Electrical Types". SCH_ACTIONS::showElectricalTypes
         // is a left-toolbar TOGGLE (`toolbars_symbol_editor.cpp:82`) and appears

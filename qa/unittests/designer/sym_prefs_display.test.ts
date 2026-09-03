@@ -84,27 +84,57 @@ describe('the three live Appearance checkboxes', () => {
   });
 });
 
-describe('the fourth checkbox is drawn disabled, because nothing reads it', () => {
-  it('says so at the control', () => {
+describe('the fourth checkbox is live, and reaches the canvas by its own route', () => {
+  it('is not drawn disabled any more', () => {
     const src = read('editors/symbol/prefs/PanelSymbolEditorDisplayOptions.tsx');
+    // Only this control's arm, so a `disabled` elsewhere on the page cannot
+    // satisfy or break it.
     const arm = src.slice(src.indexOf('Show pin alternate mode indicator icons'));
-    expect(arm).toContain('disabled');
+    const control = arm.slice(0, arm.indexOf('/>'));
+    expect(control).not.toContain('disabled');
   });
 
-  it('is not a toolbar toggle either, so the two agree', () => {
-    // A lit button for a flag the renderer cannot act on is the same defect as
-    // a live checkbox for it. `menubar.ts` already greys the View row.
-    expect(DEFAULT_TOGGLES.has('togglePinAltIcons')).toBe(false);
-    expect(SYMBOL_SETTING_TOGGLES.has('togglePinAltIcons')).toBe(false);
-    expect(persistSymbolToggle(cfg(), 'togglePinAltIcons')).toBe(false);
+  it('has a View-menu CHECK but no toolbar button, which is upstream’s shape', () => {
+    // `menubar_symbol_editor.cpp:142` adds it as ACTION_MENU::CHECK, ticked
+    // from `showPinAltIconsCond` (`symbol_edit_frame.cpp:583-587`), while
+    // `toolbars_symbol_editor.cpp:85` leaves the BUTTON commented out. So it
+    // belongs in the toggle set and in the persisted set, and the menu row is
+    // a `chk` rather than a `stub`.
+    expect(SYMBOL_SETTING_TOGGLES.has('togglePinAltIcons')).toBe(true);
+    expect(persistSymbolToggle(cfg(), 'togglePinAltIcons')).toBe(true);
+    const menubar = read('editors/symbol/menubar.ts');
+    expect(menubar).toContain("chk('Show Pin Alternate Icons', 'togglePinAltIcons')");
+    expect(menubar).not.toContain("stub('Show Pin Alternate Icons'");
   });
 
-  it('the renderer really has no alternate-mode indicator to draw', () => {
-    // The claim the `disabled` rests on. If `drawPin` ever grows one, this
-    // fails and the checkbox comes alive.
+  it('the tick follows the settings object, as showPinAltIconsCond does', () => {
+    // `return libeditconfig()->m_ShowPinAltIcons;` — the fifth CHECK
+    // condition, and it reads the file rather than session state.
+    const c = cfg();
+    c.show_pin_alt_icons = true;
+    expect(symbolTogglesFromSettings(c).has('togglePinAltIcons')).toBe(true);
+    c.show_pin_alt_icons = false;
+    expect(symbolTogglesFromSettings(c).has('togglePinAltIcons')).toBe(false);
+  });
+
+  it('flipping it writes the flag, like TogglePinAltIcons', () => {
+    const c = cfg();
+    const before = c.show_pin_alt_icons;
+    expect(persistSymbolToggle(c, 'togglePinAltIcons')).toBe(true);
+    expect(c.show_pin_alt_icons).toBe(!before);
+  });
+
+  it('the renderer draws the indicator the checkbox now promises', () => {
+    // The claim the un-greying rests on: `drawPin` calls KiCad's own
+    // `drawAltPinModesIcon`, gated on the setting, and gets its box from
+    // `altIconBox` — which is null unless the pin declares alternates.
     const renderer = read('editors/symbol/render/symbolRenderer.ts');
-    expect(renderer).not.toContain('altIcon');
-    expect(renderer).not.toContain('show_pin_alt_icons');
+    expect(renderer).toContain('drawAltPinModesIcon');
+    expect(renderer).toContain('altIconBox');
+    expect(renderer).toMatch(/if \(sym\.showPinAltIcons\)/);
+    // And the editor feeds it from symbol_editor.json, not eeschema's.
+    const editor = read('editors/symbol/SymbolEditor.tsx');
+    expect(editor).toContain('showPinAltIcons: symCfg.show_pin_alt_icons');
   });
 });
 
