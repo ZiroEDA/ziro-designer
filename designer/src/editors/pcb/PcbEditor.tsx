@@ -997,15 +997,6 @@ export function PcbEditor({
   const [selection, setSelection] = useState<ReadonlySet<string>>(new Set());
 
   /**
-   * Send this selection to the schematic — `PCB_EDIT_FRAME::SendSelectItemsToSch`,
-   * which `PCB_SELECTION_TOOL` calls whenever the selection settles.
-   *
-   * The nonce comes from the parts themselves rather than a counter: re-sending
-   * an identical packet is what upstream's `aForce` is for, and this side never
-   * forces, so a selection that has not changed has nothing to say. An empty
-   * selection still sends — that is how the schematic learns to clear its own.
-   */
-  /**
    * `SendCrossProbeNetName` / `SendCrossProbeClearHighlight`: the board's
    * highlight, named, going the other way.
    *
@@ -1021,6 +1012,15 @@ export function PcbEditor({
     onCrossProbeNetToSch(first === undefined ? null : (brd.nets.get(first) ?? null));
   }, [highlightNets, onCrossProbeNetToSch]);
 
+  /**
+   * Send this selection to the schematic — `PCB_EDIT_FRAME::SendSelectItemsToSch`,
+   * which `PCB_SELECTION_TOOL` calls whenever the selection settles.
+   *
+   * The nonce comes from the parts themselves rather than a counter: re-sending
+   * an identical packet is what upstream's `aForce` is for, and this side never
+   * forces, so a selection that has not changed has nothing to say. An empty
+   * selection still sends — that is how the schematic learns to clear its own.
+   */
   const lastPartsRef = useRef<string>('');
   const syncNonceRef = useRef(0);
   useEffect(() => {

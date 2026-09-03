@@ -473,6 +473,10 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // out of appearance_controls_base.cpp — while `.ze-nets-list`'s invented
   // `max-height: 40vh` and the boxes' padding and radius went with the
   // splitter that replaced them. RESCANNED from this tree.
+  // Both sides of the 2026-09-04 merge with origin/main touched this row's
+  // neighbourhood, so it conflicted. RESCANNED from the MERGED tree rather
+  // than either side's figure being adopted: the scan agrees with 209/709,
+  // which says main's 22 commits moved nothing here.
   ui: { colours: 209, metrics: 709 },
   // colours 6 -> 7: the opacity slider's #55585d track arrived here with
   // APPEARANCE_CONTROLS; it is the same literal `editors/pcb` lost, not a new
