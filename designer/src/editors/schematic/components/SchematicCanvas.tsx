@@ -23,7 +23,13 @@ import {
   moveItems,
   moveWithConnections,
   beginDragNetCollision,
-  dragNetCollisionMarkers,
+  dragNetCollisionFrame,
+  findTargetSheet,
+  copySelectionText,
+  selectionBBox,
+  type BBox,
+  PREVIEW_JUNCTION_DIAMETER_IU,
+  makeJunctionWithUuid,
   dragNetCollisionAlphas,
   dragNetCollisionPenPx,
   hasDragNetCollision,
@@ -143,6 +149,7 @@ import {
   DEFAULT_LINE_WIDTH,
   DEFAULT_WIRE_WIDTH,
   DEFAULT_BUS_WIDTH,
+  shadowWidthIU,
   type RenderOpts,
   type Viewport,
 } from '../render/renderer.js';
@@ -685,6 +692,20 @@ interface Props {
    */
   onMarkerPick?: (violation: ErcViolation, doubleClick: boolean) => void;
   onCommand: (cmd: EditCommand) => void;
+  /**
+   * A move was dropped INTO a sheet — `SCH_MOVE_TOOL::moveSelectionToSheet`
+   * (`sch_move_tool.cpp:1001-1013`, `:1957-2008`).
+   *
+   * The canvas cannot do this itself: the items leave this sheet's screen for
+   * another document's, and only the editor holds the project's other sheets.
+   * So it hands over the sheet it is dropping into, the items as KiCad's own
+   * clipboard text (which carries the library definitions they need), and their
+   * extent, which is what the destination's placement search needs.
+   *
+   * The source half — the ordinary move, then the deletion — is a normal
+   * `onCommand`, issued first, so undo on THIS sheet is one step.
+   */
+  onDropIntoSheet?: (drop: { sheetId: string; text: string; box: BBox }) => void;
   /** WX_INFOBAR message from a tool ("Junction location contains no joinable
    *  wires and/or pins."); null dismisses it. */
   onInfoBar?: (message: string | null) => void;
@@ -806,6 +827,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     ercMarkers,
     onMarkerPick,
     onCommand,
+    onDropIntoSheet,
     onInfoBar,
     onCursorMove,
     onScaleChange,
@@ -1030,6 +1052,23 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
    */
   const dragCollisionRef = useRef<DragNetCollisionState | null>(null);
   const dragMarksRef = useRef<DragNetCollisionMarks | null>(null);
+  /**
+   * The dots `AddToPreview` puts under the cursor for the junctions the drag
+   * WOULD create (`sch_move_tool.cpp:865-866`) — the sheet's own junction pass
+   * does not run until the drop, so without these a drag lands its wire on
+   * another and shows nothing until the mouse button comes up.
+   */
+  const previewJunctionsRef = useRef<readonly { x: number; y: number }[]>([]);
+  /**
+   * `hoverSheet` (`sch_move_tool.cpp:697`): the sheet this move would drop into
+   * if it ended now, as its refId. It brightens, the cursor turns to PLACE, and
+   * the drop happens on the button coming up.
+   */
+  const hoverSheetRef = useRef<string | null>(null);
+  /** `ctrlDown` / `lastCtrlDown` (`sch_move_tool.cpp:660`, `:819`): the only
+   *  thing that lets a graphics-only selection drop into a sheet, read live
+   *  while the drag runs and again at the drop. */
+  const ctrlDownRef = useRef(false);
   /** Whether the drag, rather than the tool, is what put the current cursor on
    *  the canvas — so that only a drag's cursor is ever taken back off. */
   const dragCursorRef = useRef(false);
@@ -1347,6 +1386,46 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     [buildMove, libById],
   );
 
+  /**
+   * The drop. `doMoveSelection`'s tail (`sch_move_tool.cpp:1001-1013`):
+   *
+   *     SCH_SHEET* targetSheet = hoverSheet;
+   *     …
+   *     if( targetSheet )
+   *     {
+   *         moveSelectionToSheet( selection, targetSheet, aCommit );
+   *         m_toolMgr->RunAction( ACTIONS::selectionClear );
+   *     }
+   *
+   * The source sheet's half is a plain delete, not a move-then-delete: a drop
+   * only ever happens in MOVE mode, where `buildMove` translates the selection
+   * and adds nothing, so where the items sat when they left changes nothing
+   * here. It matters on the OTHER side, which is why the dragged document is
+   * what the payload and the extent are taken from.
+   */
+  const commitMove = useCallback(
+    (spec: MoveSpec, d: Vec2) => {
+      const target = hoverSheetRef.current;
+      if (!target || !onDropIntoSheet) {
+        onCommand(buildMoveCommit(spec, d));
+        return;
+      }
+      const ids = effSelRef.current;
+      const base = moveBaseRef.current ?? schematic;
+      const moved = buildMove(spec, d).apply(base);
+      const drop = {
+        sheetId: target,
+        text: copySelectionText(moved, ids),
+        box: selectionBBox(moved, ids, libById),
+      };
+      const gone = deleteByIds(ids);
+      const split = breakCmdRef.current;
+      onCommand(split ? composeCommands(split.label, [split, gone]) : gone);
+      onDropIntoSheet(drop);
+    },
+    [onCommand, onDropIntoSheet, buildMoveCommit, buildMove, schematic, libById],
+  );
+
   // Keyboard-initiated grabbed move (SCH_MOVE_TOOL Move/Drag): the selection
   // follows the cursor from the current position until a left click drops it.
   // biome-ignore lint/correctness/useExhaustiveDependencies: nonce-driven, like placeRequest
@@ -1365,7 +1444,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       if (grabbedRef.current) {
         const spec = moveSpecRef.current;
         const d = moveDeltaRef.current;
-        if (spec && d && (d.x !== 0 || d.y !== 0)) onCommand(buildMoveCommit(spec, d));
+        if (spec && d && (d.x !== 0 || d.y !== 0)) commitMove(spec, d);
         endGrab();
         return;
       }
@@ -1399,7 +1478,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     if (what === 'drop') {
       const spec = moveSpecRef.current;
       const d = moveDeltaRef.current;
-      if (spec && d && (d.x !== 0 || d.y !== 0)) onCommand(buildMoveCommit(spec, d));
+      if (spec && d && (d.x !== 0 || d.y !== 0)) commitMove(spec, d);
       endGrab();
       return;
     }
@@ -1975,6 +2054,8 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       if (modeRef.current !== 'move') {
         dragCollisionRef.current = null;
         dragMarksRef.current = null;
+        previewJunctionsRef.current = [];
+        hoverSheetRef.current = null;
         // Put back whatever the tool asks for, but only if this is the frame
         // after a drag: the wire tool sets its own cursor on hover, and
         // overwriting that every frame would undo it.
@@ -1994,18 +2075,49 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
           { pens },
         );
       }
-      const marks = dragNetCollisionMarkers(dragCollisionRef.current, doc, libById, sel, pens);
+      const { junctions, marks } = dragNetCollisionFrame(
+        dragCollisionRef.current,
+        doc,
+        libById,
+        sel,
+        pens,
+      );
       dragMarksRef.current = marks;
-      // `currentCursor = KICURSOR::MOVING; … = netCollisionMonitor->AdjustCursor(
-      // currentCursor )` (`sch_move_tool.cpp:833-836`). Upstream's third arm,
-      // PLACE while the pointer is over a sheet the selection could be dropped
-      // INTO, waits on `findTargetSheet`, which this port does not have yet.
+      previewJunctionsRef.current = junctions;
+
+      // `findTargetSheet` runs on a MOVE only (`sch_move_tool.cpp:817-819`): a
+      // drag, break or slice reshapes connections in place and must never pull
+      // items onto a sub-sheet's screen.
+      //
+      // `m_cursor` is the SNAPPED cursor the move is being driven by, which is
+      // the move's start plus its accumulated delta — not the raw pointer.
+      const start = moveStartRef.current;
+      const delta = moveDeltaRef.current;
+      hoverSheetRef.current =
+        onDropIntoSheet && moveKindRef.current === 'move' && start && delta
+          ? findTargetSheet(
+              doc,
+              libById,
+              sel,
+              { x: start.x + delta.x, y: start.y + delta.y },
+              {
+                defaultLineWidthIU: renderOpts.defaultPenIU || DEFAULT_LINE_WIDTH,
+                ctrlDown: ctrlDownRef.current,
+              },
+            )
+          : null;
+      // `currentCursor = hoverSheet ? KICURSOR::PLACE : KICURSOR::MOVING;` then
+      // `currentCursor = netCollisionMonitor->AdjustCursor( currentCursor )`
+      // (`sch_move_tool.cpp:833-836`) — so a collision outranks a drop target,
+      // in that order and not the other way round.
       if (canvas) {
-        canvas.style.cursor = kiCursor(hasDragNetCollision(marks) ? 'WARNING' : 'MOVING');
+        canvas.style.cursor = kiCursor(
+          hasDragNetCollision(marks) ? 'WARNING' : hoverSheetRef.current ? 'PLACE' : 'MOVING',
+        );
         dragCursorRef.current = true;
       }
     },
-    [schematic, libById, dragPens, activeTool, attachedCursor],
+    [schematic, libById, dragPens, activeTool, attachedCursor, onDropIntoSheet, renderOpts],
   );
 
   /** The schematic layer: a blit of the retained raster, or a direct paint. */
@@ -2016,8 +2128,26 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     if (!canvas || !vp) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    const { doc, ghosting, ghostIds } = buildDisplayDoc();
-    updateDragNetCollision(doc);
+    const built = buildDisplayDoc();
+    const { ghosting, ghostIds } = built;
+    updateDragNetCollision(built.doc);
+    // `for( SCH_JUNCTION* jct : previewJunctions ) m_view->AddToPreview( jct, true )`
+    // (`sch_move_tool.cpp:865-866`), AFTER `Update` has been given them: the
+    // dots are a view overlay and are never on the screen the monitor analyses.
+    //
+    // Each is `new SCH_JUNCTION( pt )` with no `Schematic()` parent, so its
+    // diameter is KiCad's 36-mil default rather than this project's junction
+    // size — stated here because a document junction stores 0 and means
+    // "ask the settings".
+    const doc =
+      previewJunctionsRef.current.length > 0
+        ? addItems({
+            junctions: previewJunctionsRef.current.map((p, i) => ({
+              ...makeJunctionWithUuid(p, `preview-junction-${i}`),
+              diameter: PREVIEW_JUNCTION_DIAMETER_IU,
+            })),
+          }).apply(built.doc)
+        : built.doc;
 
     // The WebGL path (#449). The 2D canvas keeps the background and the grid,
     // which are cheap and genuinely zoom-dependent; the document goes to the
@@ -2309,6 +2439,36 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     // above the items upstream, and this is the only layer above them here.
     if (ercMarkers && ercMarkers.length > 0) drawErcMarkers(ctx, ercMarkers, vp, theme);
 
+    // The sheet a drop is armed for: `hoverSheet->SetFlags( BRIGHTENED )`
+    // (`sch_move_tool.cpp:826-830`).
+    //
+    // `getRenderColor` answers LAYER_BRIGHTENED for a brightened item and the
+    // shadow pass strokes the same geometry at `color.WithAlpha( 0.15 )`
+    // (`sch_painter.cpp:449-458`), which is the glow. Drawn here rather than by
+    // recolouring the item, because a hover changes every frame and the sheet
+    // lives in the retained raster — this is the same reason the collision
+    // rings below are on the overlay and not in the document.
+    const hoverId = hoverSheetRef.current;
+    if (hoverId) {
+      const idx = schematic.sheets.findIndex((sh, i) => refId('sheet', sh.uuid, i) === hoverId);
+      const sh = idx >= 0 ? schematic.sheets[idx] : undefined;
+      if (sh) {
+        const pen =
+          sh.stroke && sh.stroke.width > 0
+            ? sh.stroke.width
+            : renderOpts.defaultPenIU || DEFAULT_LINE_WIDTH;
+        ctx.setTransform(vp.scale, 0, 0, vp.scale, vp.offsetX, vp.offsetY);
+        ctx.lineJoin = 'round';
+        ctx.strokeStyle = cssWithAlpha(theme.brightened, 0.15);
+        ctx.lineWidth = pen + shadowWidthIU(renderOpts.highlightThicknessMils, vp.scale);
+        ctx.strokeRect(sh.at.x, sh.at.y, sh.size.w, sh.size.h);
+        ctx.strokeStyle = theme.brightened;
+        ctx.lineWidth = pen;
+        ctx.strokeRect(sh.at.x, sh.at.y, sh.size.w, sh.size.h);
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+      }
+    }
+
     // The drag-collision overlay (`SCH_DRAG_NET_COLLISION_MONITOR::Update`,
     // `:151-190`). Upstream builds it with `m_view->MakeOverlay()`, so it sits
     // above every layer, which is what this one is.
@@ -2555,6 +2715,8 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     // `~SCH_DRAG_NET_COLLISION_MONITOR` calls `Reset`, which clears the overlay.
     dragCollisionRef.current = null;
     dragMarksRef.current = null;
+    previewJunctionsRef.current = [];
+    hoverSheetRef.current = null;
     moveBaseRef.current = null;
     // The lock lives exactly as long as the move that owns it.
     axisLockRef.current = 'none';
@@ -2587,6 +2749,8 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     // `~SCH_DRAG_NET_COLLISION_MONITOR` calls `Reset`, which clears the overlay.
     dragCollisionRef.current = null;
     dragMarksRef.current = null;
+    previewJunctionsRef.current = [];
+    hoverSheetRef.current = null;
     moveBaseRef.current = null;
     axisLockRef.current = 'none';
     lastArrowRef.current = null;
@@ -3106,7 +3270,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
         if (e.button !== 0) return;
         const d = moveDeltaRef.current;
         const spec = moveSpecRef.current;
-        if (d && spec && (d.x !== 0 || d.y !== 0)) onCommand(buildMoveCommit(spec, d));
+        if (d && spec && (d.x !== 0 || d.y !== 0)) commitMove(spec, d);
         endGrab();
         return;
       }
@@ -3617,6 +3781,10 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     (e: React.PointerEvent) => {
       const vp = viewportRef.current;
       if (!vp) return;
+      // `bool ctrlDown = evt->Modifier( MD_CTRL )` (`sch_move_tool.cpp:660`),
+      // read off the event every frame of the move — a graphics-only selection
+      // becomes droppable the instant Ctrl goes down, without moving the mouse.
+      ctrlDownRef.current = e.ctrlKey || e.metaKey;
       // `if( m_autoPanEnabled && m_autoPanSettingEnabled ) isAutoPanning =
       // handleAutoPanning( aEvent )` (`wx_view_controls.cpp:304-305`).
       {
@@ -3917,7 +4085,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
         const d = moveDeltaRef.current;
         const spec = moveSpecRef.current;
         if (d && spec && (d.x !== 0 || d.y !== 0)) {
-          onCommand(buildMoveCommit(spec, d));
+          commitMove(spec, d);
           committedMove = true;
         } else {
           // The press never became a drag, so it was a click: SelectPoint runs
@@ -3957,6 +4125,8 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       moveSpecRef.current = null;
       dragCollisionRef.current = null;
       dragMarksRef.current = null;
+      previewJunctionsRef.current = [];
+      hoverSheetRef.current = null;
       panLastRef.current = null;
       if (!committedMove) requestDraw();
     },

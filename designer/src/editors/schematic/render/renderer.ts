@@ -2338,7 +2338,16 @@ export function hitTestErcMarker(at: Vec2, p: Vec2, accuracy = 0): boolean {
 
 const HIGHLIGHT_THICKNESS_MILS = 2; // eeschema_settings.cpp's default
 
-function shadowWidthIU(mils: number, scale: number): number {
+/**
+ * `SCH_PAINTER::getShadowWidth` (`sch_painter.cpp`): a screen term that stays
+ * the same number of pixels at any zoom, plus a fixed world minimum.
+ *
+ * Exported because a halo is not only the painter's: anything that draws a
+ * BRIGHTENED item outside the document — the sheet a drag is armed to drop
+ * into — has to glow by the same amount, and `highlight_thickness` is the one
+ * preference behind it.
+ */
+export function shadowWidthIU(mils: number, scale: number): number {
   return Math.abs(mils / scale) + mils * (0.0254 * MM);
 }
 

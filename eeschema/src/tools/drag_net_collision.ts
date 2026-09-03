@@ -46,10 +46,12 @@ import type { LibSymbol, Schematic, Vec2 } from '../types.js';
  * does apply (a fresh `SCH_ITEM` has `m_connectivity_dirty = false`), but it
  * clamps against `NETCLASS( "" )`'s own wire width, which is far under this.
  *
- * So the collision ring is the same size at every zoom and in every project,
- * and Schematic Setup's junction-dot size does not reach it.
+ * So the collision ring — and the preview DOT itself, which
+ * `SCH_PAINTER::draw( SCH_JUNCTION* )` sizes from the same call
+ * (`sch_painter.cpp:1763`) — is the same size in every project, and Schematic
+ * Setup's junction-dot size does not reach either.
  */
-const PREVIEW_JUNCTION_DIAMETER_IU = 36 * 254;
+export const PREVIEW_JUNCTION_DIAMETER_IU = 36 * 254;
 
 /** `std::max( base * 1.5, 800.0 )`, `sch_drag_net_collision.cpp:426-427`. */
 const COLLISION_MARKER_RADIUS_IU = Math.max(PREVIEW_JUNCTION_DIAMETER_IU * 1.5, 800);
@@ -506,15 +508,46 @@ export function dragNetCollisionMarkers(
   libById: ReadonlyMap<string, LibSymbol>,
   selection: ReadonlySet<string>,
   pens: DragPenWidths,
+  junctions: readonly Vec2[],
 ): DragNetCollisionMarks {
   const items = connectableItems(preview, libById, pens);
-  const moved = movedPreviewItems(state, preview, selection);
   const collisions: DragNetCollisionRing[] = [];
-  for (const point of previewJunctionPoints(preview, libById, moved, pens)) {
+  for (const point of junctions) {
     const ring = analyzeJunction(point, items, state.netByItem, selection);
     if (ring) collisions.push(ring);
   }
   return { collisions, disconnections: collectDisconnections(state, items, selection) };
+}
+
+/**
+ * One frame of a drag, as `doMoveSelection` runs it (`sch_move_tool.cpp:846-866`):
+ *
+ *     std::vector<SCH_JUNCTION*> previewJunctions =
+ *             JUNCTION_HELPERS::PreviewJunctions( m_frame->GetScreen(), previewItems );
+ *
+ *     if( netCollisionMonitor )
+ *         netCollisionMonitor->Update( previewJunctions, selection );
+ *
+ *     for( SCH_JUNCTION* jct : previewJunctions )
+ *         m_view->AddToPreview( jct, true );
+ *
+ * The junctions are wanted twice over — the monitor analyses them and the view
+ * DRAWS them, so a dot appears under the cursor the moment a drag would create
+ * one — and computing them is the expensive half, so one call answers both.
+ */
+export function dragNetCollisionFrame(
+  state: DragNetCollisionState,
+  preview: Schematic,
+  libById: ReadonlyMap<string, LibSymbol>,
+  selection: ReadonlySet<string>,
+  pens: DragPenWidths,
+): { junctions: Vec2[]; marks: DragNetCollisionMarks } {
+  const moved = movedPreviewItems(state, preview, selection);
+  const junctions = previewJunctionPoints(preview, libById, moved, pens);
+  return {
+    junctions,
+    marks: dragNetCollisionMarkers(state, preview, libById, selection, pens, junctions),
+  };
 }
 
 /** `markers.empty() && disconnections.empty()` inverted — `m_hasCollision`,
