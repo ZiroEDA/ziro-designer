@@ -18,6 +18,8 @@ import { readSchematic } from '@ziroeda/eeschema';
 import {
   beginDragNetCollision,
   dragNetCollisionMarkers,
+  dragNetCollisionFrame,
+  PREVIEW_JUNCTION_DIAMETER_IU,
   dragNetCollisionAlphas,
   dragNetCollisionPenPx,
   hasDragNetCollision,
@@ -78,7 +80,8 @@ const DRAGGED = new Set(['w1', 'la']);
 
 describe('a drag that would merge two nets', () => {
   const state = beginDragNetCollision(twoNetsBefore, LIB, DRAGGED, { pens: PENS });
-  const marks = dragNetCollisionMarkers(state, twoNetsAfter, LIB, DRAGGED, PENS);
+  const frame = dragNetCollisionFrame(state, twoNetsAfter, LIB, DRAGGED, PENS);
+  const marks = frame.marks;
 
   it('rings the junction the two nets would meet at', () => {
     expect(marks.collisions.map((c) => c.at)).toEqual([{ x: 20 * MM, y: 0 }]);
@@ -134,7 +137,7 @@ describe('a drag onto the same net', () => {
 
   it('rings nothing — a junction is not a warning', () => {
     const state = beginDragNetCollision(before, LIB, DRAGGED, { pens: PENS });
-    const marks = dragNetCollisionMarkers(state, after, LIB, DRAGGED, PENS);
+    const marks = dragNetCollisionFrame(state, after, LIB, DRAGGED, PENS).marks;
     expect(marks.collisions).toEqual([]);
     expect(hasDragNetCollision(marks)).toBe(false);
   });
@@ -181,7 +184,7 @@ describe('a wire dragged across a connection point rather than onto it', () => {
 
   it('and rings it', () => {
     const state = beginDragNetCollision(before, LIB, DRAGGED, { pens: PENS });
-    const marks = dragNetCollisionMarkers(state, after, LIB, DRAGGED, PENS);
+    const marks = dragNetCollisionFrame(state, after, LIB, DRAGGED, PENS).marks;
     expect(marks.collisions.map((c) => c.at)).toEqual([{ x: 20 * MM, y: 0 }]);
   });
 });
@@ -196,7 +199,7 @@ describe('a drag that pulls a connection apart', () => {
   const after = doc([wire('w1', 10, 0, 20, 0), label('la', 'A', 0, 0)].join('\n'));
   const sel = new Set(['w1']);
   const state = beginDragNetCollision(before, LIB, sel, { pens: PENS });
-  const marks = dragNetCollisionMarkers(state, after, LIB, sel, PENS);
+  const marks = dragNetCollisionFrame(state, after, LIB, sel, PENS).marks;
 
   it('recorded the touch before the drag moved anything', () => {
     expect(state.connections).toEqual([{ a: 'la', ai: 0, b: 'w1', bi: 0 }]);
@@ -225,18 +228,18 @@ describe('a drag that pulls a connection apart', () => {
    */
   it('is sized by the thicker of the two pens, not by the floor', () => {
     expect(marks.disconnections[0]?.radius).toBe(1524);
-    const fat = dragNetCollisionMarkers(state, after, LIB, sel, {
+    const fat = dragNetCollisionFrame(state, after, LIB, sel, {
       ...PENS,
       wireWidthIU: 3 * MM,
-    });
+    }).marks;
     expect(fat.disconnections[0]?.radius).toBe(3 * MM);
   });
 
   it('takes the 800 IU floor when both pens are under it', () => {
-    const thin = dragNetCollisionMarkers(state, after, LIB, sel, {
+    const thin = dragNetCollisionFrame(state, after, LIB, sel, {
       ...PENS,
       wireWidthIU: 100,
-    });
+    }).marks;
     expect(thin.disconnections[0]?.radius).toBe(800);
   });
 });
@@ -254,7 +257,7 @@ describe('a drag that slides a connection along a wire', () => {
   it('marks nothing: the point is still on the wire', () => {
     const state = beginDragNetCollision(before, LIB, sel, { pens: PENS });
     expect(state.connections).toHaveLength(1);
-    const marks = dragNetCollisionMarkers(state, after, LIB, sel, PENS);
+    const marks = dragNetCollisionFrame(state, after, LIB, sel, PENS).marks;
     expect(marks.disconnections).toEqual([]);
   });
 });
@@ -280,7 +283,7 @@ describe('the same slide, with the wire on the other side of the pair', () => {
   });
 
   it('marks nothing: the point is still on the wire', () => {
-    expect(dragNetCollisionMarkers(state, after, LIB, sel, PENS).disconnections).toEqual([]);
+    expect(dragNetCollisionFrame(state, after, LIB, sel, PENS).marks.disconnections).toEqual([]);
   });
 });
 
@@ -310,7 +313,7 @@ describe('a graphic line touching the same point', () => {
   it('is not a connection, so the drag pulls nothing apart', () => {
     const state = beginDragNetCollision(before, LIB, sel, { pens: PENS });
     expect(state.connections).toEqual([]);
-    expect(dragNetCollisionMarkers(state, after, LIB, sel, PENS).disconnections).toEqual([]);
+    expect(dragNetCollisionFrame(state, after, LIB, sel, PENS).marks.disconnections).toEqual([]);
   });
 });
 
@@ -332,7 +335,7 @@ describe('a drag that pulls two buses apart', () => {
   });
 
   it('marks it, at the BUS pen and not the wire one', () => {
-    const marks = dragNetCollisionMarkers(state, after, LIB, sel, PENS);
+    const marks = dragNetCollisionFrame(state, after, LIB, sel, PENS).marks;
     expect(marks.disconnections).toHaveLength(1);
     expect(marks.disconnections[0]?.radius).toBe(0.3048 * MM);
   });
@@ -382,7 +385,80 @@ describe('a drag of something that was not on the sheet a moment ago', () => {
     const sel = new Set(['new']);
     const state = beginDragNetCollision(before, LIB, sel, { pens: PENS });
     expect(state.connections).toEqual([]);
-    expect(dragNetCollisionMarkers(state, after, LIB, sel, PENS).disconnections).toEqual([]);
+    expect(dragNetCollisionFrame(state, after, LIB, sel, PENS).marks.disconnections).toEqual([]);
+  });
+});
+
+/**
+ * `doMoveSelection` computes the preview junctions once and uses them twice:
+ * the monitor analyses them, and the view DRAWS them
+ * (`sch_move_tool.cpp:859-866`). Ours returns both from one call for the same
+ * reason — finding them is the expensive half.
+ */
+describe('the junctions a drag would create', () => {
+  it('come back beside the markers, to be drawn as dots', () => {
+    const state = beginDragNetCollision(twoNetsBefore, LIB, DRAGGED, { pens: PENS });
+    const frame = dragNetCollisionFrame(state, twoNetsAfter, LIB, DRAGGED, PENS);
+    expect(frame.junctions).toEqual([{ x: 20 * MM, y: 0 }]);
+  });
+
+  it('are found on a drag that merges nothing, where there is no marker at all', () => {
+    // Same net both sides: a dot belongs there, and no ring does. Without the
+    // dots this drag would show nothing until the button came up.
+    const before = doc(
+      [
+        wire('w1', 0, 0, 10, 0),
+        label('la', 'A', 0, 0),
+        wire('w2', 20, -10, 20, 10),
+        label('lb', 'A', 20, 10),
+      ].join('\n'),
+    );
+    const after = doc(
+      [
+        wire('w1', 10, 0, 20, 0),
+        label('la', 'A', 10, 0),
+        wire('w2', 20, -10, 20, 10),
+        label('lb', 'A', 20, 10),
+      ].join('\n'),
+    );
+    const state = beginDragNetCollision(before, LIB, DRAGGED, { pens: PENS });
+    const frame = dragNetCollisionFrame(state, after, LIB, DRAGGED, PENS);
+    expect(frame.junctions).toEqual([{ x: 20 * MM, y: 0 }]);
+    expect(frame.marks.collisions).toEqual([]);
+  });
+
+  it('are none at all while the drag has moved nothing yet', () => {
+    const state = beginDragNetCollision(twoNetsBefore, LIB, DRAGGED, { pens: PENS });
+    expect(dragNetCollisionFrame(state, twoNetsBefore, LIB, DRAGGED, PENS).junctions).toEqual([]);
+  });
+
+  /**
+   * `Update` is HANDED its junctions; it does not go looking. Passing a point
+   * that is not one has to ring it anyway, or the two halves of the frame could
+   * silently disagree about where the junctions are.
+   */
+  it('are the only places the marker pass looks', () => {
+    const state = beginDragNetCollision(twoNetsBefore, LIB, DRAGGED, { pens: PENS });
+    const none = dragNetCollisionMarkers(state, twoNetsAfter, LIB, DRAGGED, PENS, []);
+    expect(none.collisions).toEqual([]);
+    const given = dragNetCollisionMarkers(state, twoNetsAfter, LIB, DRAGGED, PENS, [
+      { x: 20 * MM, y: 0 },
+    ]);
+    expect(given.collisions).toHaveLength(1);
+  });
+
+  /**
+   * The dot's own size. `SCH_PAINTER::draw( SCH_JUNCTION* )` takes
+   * `GetEffectiveDiameter()` (`sch_painter.cpp:1763`), and a preview junction
+   * has no `Schematic()` parent — so it is KiCad's 36-mil default and NOT the
+   * project's junction-dot size, which a document junction (diameter 0) would
+   * resolve to. That is also the base the collision ring is 1.5 of.
+   */
+  it('draw at KiCad’s parentless default, which the ring is 1.5 of', () => {
+    expect(PREVIEW_JUNCTION_DIAMETER_IU).toBe(9144);
+    const state = beginDragNetCollision(twoNetsBefore, LIB, DRAGGED, { pens: PENS });
+    const marks = dragNetCollisionFrame(state, twoNetsAfter, LIB, DRAGGED, PENS).marks;
+    expect(marks.collisions[0]?.radius).toBe(PREVIEW_JUNCTION_DIAMETER_IU * 1.5);
   });
 });
 

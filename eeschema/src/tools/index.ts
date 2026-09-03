@@ -24,6 +24,7 @@ export * from './assign_netclass.js';
 export * from './search_handlers.js';
 export * from './junction_helpers.js';
 export * from './drag_net_collision.js';
+export * from './sch_sheet_drop.js';
 export * from './sch_collectors.js';
 export * from './sch_get_node.js';
 export * from './sch_properties_panel.js';

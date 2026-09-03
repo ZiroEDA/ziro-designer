@@ -69,6 +69,10 @@ import {
   editSymbolProperties,
   copySelectionText,
   parsePastedText,
+  pasteItems,
+  translatePayload,
+  alignBoxes,
+  sheetDropOffset,
   boxSelect,
   symbolBodyBBox,
   selectionBBox,
@@ -2980,6 +2984,54 @@ export function SchematicEditor({
       }
     },
     [currentFile, runCommand, libById],
+  );
+
+  /**
+   * A move dropped INTO a sheet — the destination half of
+   * `SCH_MOVE_TOOL::moveSelectionToSheet` (`sch_move_tool.cpp:1957-2008`).
+   *
+   * The canvas has already deleted the items from this sheet, as one undo step
+   * with whatever else that move did, and hands over the sheet, the items as
+   * clipboard text, and their extent. The rest is upstream's:
+   *
+   *     VECTOR2I offset = VECTOR2I( 0, 0 ) - bbox.GetPosition();
+   *     … while( overlap ) offset += VECTOR2I( step, step );
+   *
+   * — the selection lands at the target sheet's origin and steps diagonally
+   * until it clears everything already there.
+   *
+   * The clipboard is the transport because it is already exactly this: the
+   * items with the library definitions they need, and `mode: 'keep'` is the
+   * paste that does NOT re-annotate and keeps each KIID, which its own comment
+   * describes as "the same symbol being moved". Instance records are pruned by
+   * that path, which is right — they name a sheet path the items have left.
+   *
+   * Undo is per sheet, so undoing on this sheet brings the items back here and
+   * leaves the copy on the target: the same split every cross-sheet edit in this
+   * editor has (Sync Sheet Pins, Increment Annotations), and the same fix.
+   */
+  const dropIntoSheet = useCallback(
+    (drop: { sheetId: string; text: string; box: BBox }): void => {
+      if (!doc) return;
+      const sheet = doc.sheets.find((sh, i) => refId('sheet', sh.uuid, i) === drop.sheetId);
+      if (!sheet) return;
+      const file = sheetFile(sheet);
+      const target = file === currentFile ? doc : project.current.docs.get(file);
+      if (!target) return;
+      const payload = parsePastedText(drop.text, target, { mode: 'keep' });
+      if (!payload) return;
+      const offset = sheetDropOffset(
+        drop.box,
+        alignBoxes(target, null, libById).map((b) => b.box),
+      );
+      const changed: PickedFile[] = [];
+      applySheetCommand(file, pasteItems(translatePayload(payload, offset)), changed);
+      if (changed.length) onProjectChange?.(changed);
+      // `m_toolMgr->RunAction( ACTIONS::selectionClear )` — the items are not
+      // on this sheet any more, so nothing here can still be selected.
+      setSelection(new Set());
+    },
+    [doc, currentFile, libById, applySheetCommand, onProjectChange],
   );
 
   const applySheetSymbols = useCallback(
@@ -8978,6 +9030,7 @@ export function SchematicEditor({
                   pendingErcSelect.current = ercExclusionKey(v);
               }}
               onCommand={runCommand}
+              onDropIntoSheet={dropIntoSheet}
               onAnnotatePlacement={annotatePlacement}
               onAutoplacePlacement={autoplacePlacement}
               onRequestChooser={() => setChooserDismissed(false)}
