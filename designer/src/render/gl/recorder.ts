@@ -45,7 +45,7 @@ import {
 } from './tessellate.js';
 import { triangulateRings } from './holes.js';
 import { layoutBitmapText, type BitmapTextPlacement } from './bitmap_text.js';
-import { BITMAP_MINPX_FLAG, parseColor, type Rgba, type Scene } from './scene.js';
+import { BITMAP_MINPX_FLAG, type ImageSource, parseColor, type Rgba, type Scene } from './scene.js';
 import type { GlPath } from './gl_path.js';
 
 /** 2D affine transform as Canvas orders it: [a, b, c, d, e, f]. */
@@ -677,27 +677,45 @@ export class GlRecorder {
   fillText(): void {}
 
   /**
-   * Images are not recorded yet. **A caller that can be handed one must check.**
+   * A bitmap on the document — SCH_BITMAP, pcbnew's reference images, the
+   * drawing sheet's logo.
    *
-   * Reference images and logos need a textured quad and a texture cache, which
-   * is its own piece of work. This used to say "which is why the backend is not
-   * yet the default" — and then the backend became the default in all four
-   * canvases, while this stayed a silent no-op. An image therefore stopped
-   * being drawn at all: the item is in the document, it saves and reloads, and
-   * the canvas shows nothing. It was reported as the drawing sheet's image tool
-   * "not working", which it was not.
+   * The signature is `CanvasRenderingContext2D.drawImage`'s five-argument form,
+   * because that is what every caller already invokes on the 2D target: an
+   * axis-aligned destination rect in the current transform's units. Neither
+   * path rotates a bitmap, so neither does this.
    *
-   * `DrawingSheetCanvas` now sends a sheet carrying an image down the raster
-   * path instead, which draws it (`drawBitmap`, common/drawing_sheet/
-   * ds_painter.ts). The other two callers that can reach a `drawImage` have no
-   * such check yet and drop the image the same way this did:
+   * This was a silent no-op for a long time and the comment here said so, which
+   * did not stop three canvases making the GL backend their default and
+   * dropping every image on the document. The drawing sheet's image tool was
+   * reported as "not working"; it was working, and this method was throwing its
+   * output away. The lesson is in the shape of the fix, not the fix: a recorder
+   * method that accepts a call and records nothing cannot be told apart from
+   * one that works, by any caller or any test that does not look at pixels.
    *
-   *   - `editors/schematic/render/renderer.ts:1076` — SCH_BITMAP, recorded by
-   *     `schematic_gl.ts` through this class;
-   *   - `editors/pcb/renderBoard.ts:2034` — reference images.
-   *
-   * Tracked in the follow-up on issue #449. Until a texture path exists, do not
-   * make this method look harmless.
+   * The four corners go through `pushPt`'s transform so a bitmap moves with
+   * the item that carries it; the texture is the caller's decoded image and is
+   * also the device's cache key, so it must be the stable object rather than
+   * one decoded per frame.
    */
-  drawImage(): void {}
+  drawImage(image: ImageSource, dx: number, dy: number, dw: number, dh: number): void {
+    const m = this.st.ctm;
+    const at = (x: number, y: number): [number, number] => [
+      (m[0] * x + m[2] * y + m[4] - this.originX) / this.worldScale,
+      (m[1] * x + m[3] * y + m[5] - this.originY) / this.worldScale,
+    ];
+    const [x0, y0] = at(dx, dy);
+    const [x1, y1] = at(dx + dw, dy);
+    const [x2, y2] = at(dx, dy + dh);
+    const [x3, y3] = at(dx + dw, dy + dh);
+    // Opaque white: the sample is drawn as authored. A caller wanting KiCad's
+    // coloured bitmap (ds_painter's `drawBitmap` tints) can pass one later; no
+    // current caller does.
+    this.scene.pushImage(image, x0, y0, x1, y1, x2, y2, x3, y3, 0, 0, 1, 1, {
+      r: 1,
+      g: 1,
+      b: 1,
+      a: 1,
+    });
+  }
 }

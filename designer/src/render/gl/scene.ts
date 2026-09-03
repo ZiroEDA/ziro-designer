@@ -195,6 +195,12 @@ export const DISC_STRIDE = 8;
 export const TRIANGLE_STRIDE = 6;
 /** Floats per glyph vertex: position(2) texture coords(2) rgba(4). */
 export const GLYPH_VERTEX_STRIDE = 8;
+
+/** x, y, u, v, r, g, b, a — the glyph layout, so the VAO setup is the same. */
+export const IMAGE_VERTEX_STRIDE = 8;
+
+/** Two triangles, as for a glyph. */
+export const IMAGE_VERTICES = 6;
 /** Vertices per glyph: two triangles, not indexed. */
 export const GLYPH_VERTICES = 6;
 
@@ -207,7 +213,19 @@ export interface Rgba {
 }
 
 /** Which program draws a run. */
-export type RunKind = 'tri' | 'seg' | 'disc' | 'glyph';
+export type RunKind = 'tri' | 'seg' | 'disc' | 'glyph' | 'image';
+
+/**
+ * The source of an image run's texture.
+ *
+ * Deliberately the bitmap itself rather than a GL texture: this module knows no
+ * WebGL, and the device caches one texture per source. It is also the cache
+ * key, which is why it must be the STABLE object - the decoded bitmap that
+ * lives on the item - and not something rebuilt per frame. A key that changes
+ * every frame re-uploads the image every frame, which is the trap the renderer
+ * notes describe for content keys compared by reference.
+ */
+export type ImageSource = ImageBitmap | HTMLImageElement | HTMLCanvasElement;
 
 /**
  * A maximal stretch of consecutive primitives of one kind.
@@ -219,6 +237,14 @@ export interface Run {
   kind: RunKind;
   start: number;
   count: number;
+  /**
+   * Which bitmap an `'image'` run samples. Absent on every other kind.
+   *
+   * Glyph runs need no equivalent because every glyph shares one atlas, so the
+   * device binds it once; images each carry their own, so the run has to say
+   * which. That is also why image runs never coalesce - see `note`.
+   */
+  image?: ImageSource;
 }
 
 /**
@@ -282,6 +308,14 @@ export class Scene {
    * and is rebuilt each frame from what is actually on screen.
    */
   readonly glyphs = new F32Buffer(512);
+  /**
+   * Textured quads sampled from a bitmap on the document — SCH_BITMAP, pcbnew's
+   * reference images, the drawing sheet's logo.
+   *
+   * Small because a document carries a handful of these at most, and unlike the
+   * glyph buffer it is not rebuilt per frame.
+   */
+  readonly images = new F32Buffer(64);
   /** Empty on an unordered scene; the device then falls back to three draws. */
   readonly runs: Run[] = [];
   /** Vertex ranges per board item; empty unless the recorder named owners. */
@@ -371,7 +405,9 @@ export class Scene {
           ? this.segmentCount - count
           : kind === 'glyph'
             ? this.glyphVertexCount - count
-            : this.discCount - count;
+            : kind === 'image'
+              ? this.imageVertexCount - count
+              : this.discCount - count;
     this.runs.push({ kind, start, count });
   }
 
@@ -443,11 +479,62 @@ export class Scene {
     this.note('glyph', GLYPH_VERTICES);
   }
 
+  /**
+   * A bitmap quad, corners in world units and UVs in texture space.
+   *
+   * `tint` multiplies the sample, so a caller that wants the bitmap as authored
+   * passes opaque white. The corner order matches `pushGlyph`: 0 is (u0,v0), 1
+   * is (u1,v0), 2 is (u0,v1), 3 is (u1,v1).
+   *
+   * Each call is its own run. Runs coalesce by kind, and two images with
+   * different textures cannot share one draw - merging them would draw the
+   * second image's quad with the first image's texture bound.
+   */
+  pushImage(
+    image: ImageSource,
+    x0: number,
+    y0: number,
+    x1: number,
+    y1: number,
+    x2: number,
+    y2: number,
+    x3: number,
+    y3: number,
+    u0: number,
+    v0: number,
+    u1: number,
+    v1: number,
+    tint: Rgba,
+  ): void {
+    const g = this.images;
+    const { r, g: gg, b, a } = tint;
+    g.pushGlyph(x0, y0, u0, v0, r, gg, b, a);
+    g.pushGlyph(x1, y1, u1, v0, r, gg, b, a);
+    g.pushGlyph(x2, y2, u0, v1, r, gg, b, a);
+    g.pushGlyph(x1, y1, u1, v0, r, gg, b, a);
+    g.pushGlyph(x2, y2, u0, v1, r, gg, b, a);
+    g.pushGlyph(x3, y3, u1, v1, r, gg, b, a);
+    this.noteImage(image, IMAGE_VERTICES);
+  }
+
+  /**
+   * `note`, but always starting a fresh run and recording which bitmap it
+   * samples. See `pushImage` for why these never merge.
+   */
+  private noteImage(image: ImageSource, count: number): void {
+    if (!this.ordered) return;
+    this.breakRun = false;
+    this.runs.push({ kind: 'image', start: this.imageVertexCount - count, count, image });
+  }
+
   get segmentCount(): number {
     return this.segments.length / SEGMENT_STRIDE;
   }
   get glyphVertexCount(): number {
     return this.glyphs.length / GLYPH_VERTEX_STRIDE;
+  }
+  get imageVertexCount(): number {
+    return this.images.length / IMAGE_VERTEX_STRIDE;
   }
   get discCount(): number {
     return this.discs.length / DISC_STRIDE;
@@ -462,7 +549,8 @@ export class Scene {
       this.segments.length === 0 &&
       this.discs.length === 0 &&
       this.triangles.length === 0 &&
-      this.glyphs.length === 0
+      this.glyphs.length === 0 &&
+      this.images.length === 0
     );
   }
 
@@ -471,6 +559,7 @@ export class Scene {
     this.discs.clear();
     this.triangles.clear();
     this.glyphs.clear();
+    this.images.clear();
     this.runs.length = 0;
     this.marks.clear();
     this.itemRanges.clear();
