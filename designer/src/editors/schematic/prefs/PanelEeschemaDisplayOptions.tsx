@@ -38,15 +38,13 @@ export function PanelEeschemaDisplayOptions({ ctx }: { ctx: PrefsContext }): JSX
           update={(fn) => upE((s) => fn(s.window))}
           idPrefix="sch"
         />
-        {/* Dead, all five. These govern probes arriving in the SCHEMATIC from
-            the board — Select on Schematic, and PCB net highlight — and that
-            direction is not built: nothing reads `eeschema.cross_probing`. The
-            board's own copy is live (`editors/pcb/PcbEditor.tsx:3302`,
-            `pcbnew/src/cross_probe.ts:205`, `:287`), which is why the same
-            group is enabled under PCB Editor > Display Options. */}
+        {/* Live, all five. They govern probes arriving in the SCHEMATIC from
+            the board — `SCH_EDIT_FRAME::KiwayMailIn`'s `MAIL_SELECTION` and the
+            `$NET:` handler — and that direction now exists: the board sends its
+            selection and its highlighted net, and `SCH_SELECTION_TOOL::
+            SyncSelection` applies them subject to these five. */}
         <CrossProbingGroup
           peer="pcb"
-          disabled
           value={eeschema.cross_probing}
           onChange={(fn) => upE((s) => fn(s.cross_probing))}
         />

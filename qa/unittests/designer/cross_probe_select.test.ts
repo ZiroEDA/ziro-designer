@@ -21,6 +21,13 @@
 import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
 import { readSchematic, syncSelectionParts } from '@ziroeda/eeschema';
+import {
+  crossProbeSchSelection,
+  findSymbolsFromSyncSelection,
+  schCrossProbeZoomScale,
+} from '@ziroeda/eeschema/src/tools/cross_probe.js';
+import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { boardSyncSelectionParts } from '@ziroeda/pcbnew/src/cross_probe.js';
 import { readBoard } from '@ziroeda/pcbnew';
 import { findItemsFromSyncSelection, crossProbeZoomScale } from '@ziroeda/pcbnew';
 import { escapeIpc } from '@ziroeda/common/src/string_utils.js';
@@ -223,5 +230,197 @@ describe('how far the board zooms on a probe', () => {
     expect(wide).not.toBeNull();
     // 400 mm across a 100 mm viewport has to zoom *out*, below the old scale.
     expect(wide).toBeLessThan(1);
+  });
+});
+
+// ------------------------------------------------- the other direction
+
+/**
+ * Board -> schematic: `PCB_EDIT_FRAME::SendSelectItemsToSch` writes the parts
+ * and `SCH_EDIT_FRAME::KiwayMailIn` + `SCH_SELECTION_TOOL::SyncSelection` reads
+ * them. The same three letters, pointed the other way, which is why the pair
+ * has to agree exactly: a mismatched letter selects nothing and looks like a
+ * feature that is merely off.
+ */
+describe('the parts a board selection sends', () => {
+  it('names a footprint by its reference', () => {
+    expect(boardSyncSelectionParts(board, new Set(['footprint:0']))).toEqual(['FR1']);
+  });
+
+  it('escapes a reference the way the schematic escapes it', () => {
+    // "R,2" — a comma is the packet's own separator, so it travels escaped.
+    expect(boardSyncSelectionParts(board, new Set(['footprint:1']))).toEqual([
+      `F${escapeIpc('R,2')}`,
+    ]);
+  });
+
+  it('names a pad as <reference>/<pad>', () => {
+    expect(boardSyncSelectionParts(board, new Set(['pad:1:0']))).toEqual([
+      `P${escapeIpc('R,2')}/1`,
+    ]);
+  });
+
+  it('carries each part once, sorted, as a std::set does', () => {
+    const parts = boardSyncSelectionParts(board, new Set(['footprint:1', 'pad:1:0', 'pad:1:1']));
+    expect(parts).toEqual([...new Set(parts)]);
+    expect(parts).toEqual([...parts].sort());
+  });
+});
+
+describe('the schematic items those parts name', () => {
+  it('matches a symbol by reference', () => {
+    expect(findSymbolsFromSyncSelection(doc, ['FR1'], '/', libById)).toEqual(['sym-1']);
+  });
+
+  it('matches the escaped reference, so a comma survives the round trip', () => {
+    const parts = boardSyncSelectionParts(board, new Set(['footprint:1']));
+    expect(findSymbolsFromSyncSelection(doc, parts, '/', libById)).toEqual(['sym-2']);
+  });
+
+  it('matches a pad down to the symbol that owns the pin', () => {
+    // A pin is not independently selectable here, so a pad probe selects the
+    // SYMBOL — `select( item )`'s parent fallback (`sch_selection_tool.cpp:
+    // 3506-3512`).
+    const parts = boardSyncSelectionParts(board, new Set(['pad:1:0']));
+    expect(findSymbolsFromSyncSelection(doc, parts, '/', libById)).toEqual(['sym-2']);
+  });
+
+  it('matches a sheet as a PREFIX, which is what reaches its subsheets', () => {
+    expect(findSymbolsFromSyncSelection(doc, ['S/'], '/', libById)).toEqual(['sheet-1']);
+  });
+
+  it('ignores a letter it does not know rather than failing the packet', () => {
+    // `default: break` — a message from a newer board selects what it can.
+    expect(findSymbolsFromSyncSelection(doc, ['FR1', 'Zwhatever'], '/', libById)).toEqual([
+      'sym-1',
+    ]);
+  });
+
+  it('returns each id once even when two parts name the same symbol', () => {
+    const parts = boardSyncSelectionParts(board, new Set(['footprint:1', 'pad:1:0', 'pad:1:1']));
+    expect(findSymbolsFromSyncSelection(doc, parts, '/', libById)).toEqual(['sym-2']);
+  });
+
+  it('round-trips a schematic selection through the board and back', () => {
+    // The pair's real contract: what the schematic sends, the board resolves,
+    // and what the board sends back resolves to the same symbol.
+    const out = syncSelectionParts(doc, ids('sym-1'), '/', libById);
+    const onBoard = findItemsFromSyncSelection(board, out);
+    expect(onBoard).toEqual(['footprint:0']);
+    const back = boardSyncSelectionParts(board, new Set(onBoard));
+    expect(findSymbolsFromSyncSelection(doc, back, '/', libById)).toEqual(['sym-1']);
+  });
+});
+
+describe('on_selection gates the probe, and force overrides it', () => {
+  it('refuses with the preference off', () => {
+    expect(crossProbeSchSelection({ on_selection: false }, doc, ['FR1'], '/', libById)).toBeNull();
+  });
+
+  it('applies with it on', () => {
+    expect(crossProbeSchSelection({ on_selection: true }, doc, ['FR1'], '/', libById)).toEqual([
+      'sym-1',
+    ]);
+  });
+
+  it('applies regardless when forced', () => {
+    // `MAIL_SELECTION_FORCE` falls in below the check, so the explicit
+    // cross-probe menu commands are not subject to the preference.
+    expect(
+      crossProbeSchSelection({ on_selection: false }, doc, ['FR1'], '/', libById, true),
+    ).toEqual(['sym-1']);
+  });
+});
+
+describe('the schematic’s own cross-probe zoom', () => {
+  // `GetViewport().GetSize()` — the visible rect in WORLD units, not pixels.
+  // A 1200x800 canvas at a scale of 6 px/mm sees 200mm by 133mm.
+  const SCREEN = { x: mmToIU(200), y: mmToIU(133) };
+  const box = (w: number, h: number) => ({ minX: 0, minY: 0, maxX: w, maxY: h });
+
+  it('is not pcbnew’s table', () => {
+    // Upstream keeps TWO `ZoomFitCrossProbeBBox` implementations over different
+    // LUTs — a resistor wants 16x its own height of schematic around it where a
+    // footprint wants 8x — so a shared table would be the drift, not the fix.
+    // Same box, same screen, two answers.
+    const b = box(mmToIU(2), mmToIU(2));
+    // The PCB function reads its box in PCB IU, so the same numbers mean a
+    // different physical size there — which is itself the point: the two
+    // frames measure in different units against different tables, and one
+    // shared answer would be wrong in at least one of them.
+    expect(schCrossProbeZoomScale(b, SCREEN, 1)).not.toBe(crossProbeZoomScale(b, SCREEN, 1));
+  });
+
+  it('leaves the zoom alone for the sizes that already sit right', () => {
+    // "Try not to zoom on every cross-probe; it gets very noisy" — a ratio
+    // already between 0.5 and 1.0 returns null rather than a new scale.
+    //
+    // Swept rather than pinned to one magic box: which size lands in that band
+    // depends on the LUT, the screen and the text height together, so a single
+    // fixture would be a number nobody could re-derive. What must be true is
+    // that the band EXISTS and is bounded on both sides.
+    const answers = [];
+    for (let mm = 1; mm <= 400; mm += 1)
+      answers.push(schCrossProbeZoomScale(box(mmToIU(mm), mmToIU(mm)), SCREEN, 1));
+    expect(
+      answers.some((a) => a === null),
+      'some size needs no zoom',
+    ).toBe(true);
+    expect(answers[0], 'the smallest still zooms').not.toBeNull();
+    expect(answers[answers.length - 1], 'the largest still zooms').not.toBeNull();
+  });
+
+  it('is the arithmetic of ZoomFitCrossProbeBBox, to the number', () => {
+    // Worked through by hand rather than read off the output, because the
+    // ordering assertions here are all satisfied by a wrong LUT and a missing
+    // margin alike — both of those mutants survived until this existed.
+    //
+    //   box            0.5 mm         -> 5000 IU wide
+    //   Inflate(20%)   round(5000*.2) = 1000 each side -> bbSize 7000
+    //   TEXT_HEIGHT    MilsToIU(50)   = 12700
+    //   compRatio      7000/12700     = 0.551, below the LUT's first entry,
+    //                                   so compRatioBent is its value: 16
+    //   screenSize.y   133 mm         = 1330000
+    //   ratio          7000/1330000   = 0.0052631…, not wider than the screen
+    //   ratio*bent     0.0842…        < 0.5, so it zooms
+    //   scale/ratio    1/0.0842…      = 11.875
+    expect(schCrossProbeZoomScale(box(mmToIU(0.5), mmToIU(0.5)), SCREEN, 1)).toBeCloseTo(11.875, 9);
+  });
+
+  it('measures against the SCHEMATIC default text height', () => {
+    // `schIUScale.MilsToIU( DEFAULT_TEXT_SIZE )` = 50 mils = 12700 IU, not
+    // pcbnew's 1.0 mm. Swapping the two survived every assertion above, because
+    // at 0.5 mm the ratio is under the LUT's first entry either way.
+    //
+    // Pinned without hand-computing a second constant: two boxes BOTH under
+    // that first entry share one bend factor (16), so their answers are exactly
+    // inversely proportional to their sizes. 0.5 mm and 1.0 mm inflate to 7000
+    // and 14000 IU, both below 1.25 x 12700 = 15875, so the ratio is exactly 2.
+    // With a 10000 IU text height the boundary drops to 12500, 14000 crosses
+    // it, its bend factor is no longer 16 and the proportion breaks.
+    const half = schCrossProbeZoomScale(box(mmToIU(0.5), mmToIU(0.5)), SCREEN, 1)!;
+    const one = schCrossProbeZoomScale(box(mmToIU(1), mmToIU(1)), SCREEN, 1)!;
+    expect(half / one).toBeCloseTo(2, 9);
+  });
+
+  it('refuses a zero-width box, which has nothing to aim at', () => {
+    expect(schCrossProbeZoomScale(box(0, mmToIU(5)), SCREEN, 1)).toBeNull();
+  });
+
+  it('zooms IN further for a small symbol than for a large one', () => {
+    // The LUT's whole job: a resistor gets more context around it than a BGA.
+    // Either side of the no-zoom band, which sits around 50mm on this viewport.
+    const small = schCrossProbeZoomScale(box(mmToIU(2), mmToIU(2)), SCREEN, 1);
+    const large = schCrossProbeZoomScale(box(mmToIU(200), mmToIU(200)), SCREEN, 1);
+    expect(small).not.toBeNull();
+    expect(large).not.toBeNull();
+    expect(small!).toBeGreaterThan(large!);
+  });
+
+  it('scales the caller’s current zoom rather than replacing it', () => {
+    // `SetScale( GetScale() / ratio )`.
+    const one = schCrossProbeZoomScale(box(mmToIU(2), mmToIU(2)), SCREEN, 1)!;
+    const ten = schCrossProbeZoomScale(box(mmToIU(2), mmToIU(2)), SCREEN, 10)!;
+    expect(ten / one).toBeCloseTo(10, 6);
   });
 });

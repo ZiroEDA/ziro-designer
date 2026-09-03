@@ -149,6 +149,7 @@ import {
   startPlaceImage,
   type ImagePlaceState,
   crossProbeSelection,
+  boardSyncSelectionParts,
   crossProbeHighlightNet,
   crossProbeViewChange,
   crossProbeFlashSelection,
@@ -748,6 +749,8 @@ export function PcbEditor({
   onOutputFile,
   crossProbeNet,
   syncSelection,
+  onSyncSelectionToSch,
+  onCrossProbeNetToSch,
   updateFromSchematic,
   readOnlyNotice,
   readOnly,
@@ -808,6 +811,19 @@ export function PcbEditor({
    *  this board (pcbnew's own handler, `FindItemsFromSyncSelection` then
    *  `syncSelection`). The nonce makes a repeat of the same request arrive. */
   syncSelection?: { parts: readonly string[]; nonce: number } | null;
+  /**
+   * The other direction: this board's selection, as the `$SELECT:` parts the
+   * schematic resolves — `PCB_EDIT_FRAME::SendSelectItemsToSch`
+   * (`pcbnew/cross-probing.cpp:349`). The nonce is what makes selecting the
+   * same items twice arrive twice, since it is an event rather than a state.
+   */
+  onSyncSelectionToSch?: (sel: { parts: readonly string[]; nonce: number }) => void;
+  /**
+   * This board's highlighted net, as KiCad's `$NET: "<name>"` —
+   * `PCB_EDIT_FRAME::SendCrossProbeNetName` (`pcbnew/cross-probing.cpp:405`).
+   * null is `SendCrossProbeClearHighlight`.
+   */
+  onCrossProbeNetToSch?: (net: string | null) => void;
   /** A strip to show above the canvas, e.g. "this demo is not being saved". */
   readOnlyNotice?: JSX.Element | null;
   /**
@@ -938,6 +954,45 @@ export function PcbEditor({
   const [activeTool, setActiveTool] = useState('selectSetRect');
   // Selected board items (PCB_SELECTION_TOOL's selection), by `${kind}:${index}` id.
   const [selection, setSelection] = useState<ReadonlySet<string>>(new Set());
+
+  /**
+   * `SendCrossProbeNetName` / `SendCrossProbeClearHighlight`: the board's
+   * highlight, named, going the other way.
+   *
+   * One net, because the packet carries one — a multi-net highlight
+   * (`$NETS:`) has no schematic-side equivalent here, so the first is sent, as
+   * the schematic side already does when a CHAIN is highlighted.
+   */
+  useEffect(() => {
+    if (!onCrossProbeNetToSch) return;
+    const brd = boardRef.current;
+    if (!brd) return;
+    const first = [...highlightNets][0];
+    onCrossProbeNetToSch(first === undefined ? null : (brd.nets.get(first) ?? null));
+  }, [highlightNets, onCrossProbeNetToSch]);
+
+  /**
+   * Send this selection to the schematic — `PCB_EDIT_FRAME::SendSelectItemsToSch`,
+   * which `PCB_SELECTION_TOOL` calls whenever the selection settles.
+   *
+   * The nonce comes from the parts themselves rather than a counter: re-sending
+   * an identical packet is what upstream's `aForce` is for, and this side never
+   * forces, so a selection that has not changed has nothing to say. An empty
+   * selection still sends — that is how the schematic learns to clear its own.
+   */
+  const lastPartsRef = useRef<string>('');
+  const syncNonceRef = useRef(0);
+  useEffect(() => {
+    if (!onSyncSelectionToSch) return;
+    const brd = boardRef.current;
+    if (!brd) return;
+    const parts = boardSyncSelectionParts(brd, selection);
+    const key = parts.join(',');
+    if (key === lastPartsRef.current) return;
+    lastPartsRef.current = key;
+    syncNonceRef.current += 1;
+    onSyncSelectionToSch({ parts, nonce: syncNonceRef.current });
+  }, [selection, onSyncSelectionToSch]);
   // Disambiguation menu (PCB_SELECTION_TOOL::doSelectionMenu): shown at a click
   // that hits several equally-plausible items so the user can pick one.
   const [disambig, setDisambig] = useState<{
