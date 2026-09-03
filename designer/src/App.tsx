@@ -1031,12 +1031,19 @@ export function App(): JSX.Element {
           setView('schematic');
         }}
         onOpenPcb={(file, files) => {
-          setDemoProject(false);
-          setDemoSource(null);
           if (files) {
+            // The OPEN PROJECT's board (`onOpenPcb(pcbFile, picked)`), so
+            // whatever the project is - a demo included - it still is. Clearing
+            // the flag here is what stopped pcbnew ever showing the read-only
+            // strip: demoNotice went null on the way in, so the bar the board
+            // editor renders had nothing to render.
             openProjectFiles(files);
             setStandalonePcb(null);
           } else {
+            // A lone .kicad_pcb with no project behind it. Not a demo by
+            // definition, whatever was open before.
+            setDemoProject(false);
+            setDemoSource(null);
             setStandalonePcb(file);
             openProjectFiles(null);
           }
@@ -1241,6 +1248,22 @@ export function App(): JSX.Element {
             <DrawingSheetEditor
               onExitToHome={goHome}
               projectName={projectName}
+              /* Two cases, because this frame is reachable both ways.
+                 WITH a project open, the thing to keep is the project, not the
+                 sheet - the editor already saves sheet copies on its own - so
+                 it gets the project's own strip and its Save a copy.
+                 WITHOUT one, there is nothing to save a copy OF, so it is
+                 upstream's bar verbatim: `_( "Layout file is read only." )`
+                 after RemoveAllButtons() and AddCloseButton()
+                 (pagelayout_editor/files.cpp:276-281) - message in KiCad's
+                 words, close button and nothing else. */
+              readOnlyNotice={
+                !demoProject ? null : projectFiles ? (
+                  demoNotice
+                ) : (
+                  <ReadOnlyNotice message="Layout file is read only." />
+                )
+              }
               // Always passed: a Save As into `/Templates` needs no open project,
               // and the editor's only other answer was a browser download.
               onSaveToProject={onSaveToProject}
