@@ -138,3 +138,32 @@ describe('the rows nothing reads are disabled', () => {
     expect(p, label).not.toMatch(/\bdisabled\b/);
   });
 });
+
+/**
+ * A numeric row's limits are KiCad's, and KiCad states them in two places that
+ * disagree: the base file constructs the control with one range and the panel's
+ * constructor then overrides it. The second one wins, and it is the one a user
+ * runs into.
+ */
+describe('the Repeated Items limits are the ones upstream ends up with', () => {
+  it('lets the label increment go to ±100000, not to some range of ours', () => {
+    // `m_spinLabelRepeatStep->SetRange( -100000, 100000 )`
+    // (`panel_eeschema_editing_options.cpp:83`) replaces the base file's
+    // `wxSpinCtrl( …, -1000000, 1000000, 1 )` (`_base.cpp:347`). This said
+    // -10..10 and so refused a repeat step of 100.
+    const p = props('Label increment:');
+    expect(p).toContain('min={-100000}');
+    expect(p).toContain('max={100000}');
+  });
+
+  it('leaves the two pitches unbounded, because a UNIT_BINDER’s entry is', () => {
+    // `m_hPitch` / `m_vPitch` are UNIT_BINDERs over plain wxTextCtrls
+    // (`panel_eeschema_editing_options.cpp:72-73`) with no range set on either,
+    // so a min or a max here would be invented.
+    for (const label of ['Horizontal pitch:', 'Vertical pitch:']) {
+      const p = props(label);
+      expect(p, label).not.toMatch(/\bmin=/);
+      expect(p, label).not.toMatch(/\bmax=/);
+    }
+  });
+});
