@@ -120,7 +120,6 @@ describe('the rows nothing reads are disabled', () => {
     ['Show OP voltages'],
     ['Show OP currents'],
     ['Show pin alternate mode indicator icons'],
-    ['Draw selected child items'],
     ['Net collision marker width:'],
     ['Highlight netclass colors'],
     ['Color highlight thickness:'],
@@ -137,6 +136,10 @@ describe('the rows nothing reads are disabled', () => {
     // The shadow pass fills a selected shape rather than only outlining it
     // (`sch_painter.cpp:2068-2080`). Pinned in `sch_selection_fill.test.ts`.
     ['Fill selected shapes', 'fill_shapes'],
+    // The halo reaches a selected item's CHILDREN — a pin's name and number
+    // (`:1131`), a symbol's fields (`:2702`), a sheet's fields and pins
+    // (`:3102`). Pinned in `sch_selected_children.test.ts`.
+    ['Draw selected child items', 'draw_selected_children'],
     ['Show hidden pins', 'show_hidden_pins'],
     ['Show ERC errors', 'show_erc_errors'],
     ['Show page limits', 'show_page_limits'],

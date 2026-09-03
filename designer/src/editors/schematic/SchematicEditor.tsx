@@ -5294,6 +5294,7 @@ export function SchematicEditor({
       // `eeconfig()->m_Selection.fill_shapes`, read in the shadow pass
       // (sch_painter.cpp:2068).
       fillSelectedShapes: es.selection.fill_shapes,
+      drawSelectedChildren: es.selection.draw_selected_children,
       // `eeconfig()->m_Appearance.mark_sim_exclusions` — the painter reads it
       // per symbol (sch_painter.cpp:2696), so the marker disappears the moment
       // Display Options turns it off.
