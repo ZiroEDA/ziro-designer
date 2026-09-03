@@ -5,9 +5,12 @@
 .ze-gbr-dock {
   /* Width is state, not CSS: the pane is sash-resizable and opens at
      GERBER_LAYER_WIDGET's best size (see LAYERS_PANE_BEST_WIDTH). Leaving a
-     literal here as well would be a second source for the same number. */
+     literal here as well would be a second source for the same number.
+
+     No canvas-facing border either. The pane is `.PaneBorder( false )`
+     (gerbview_frame.cpp:170) and what wxAUI puts between it and the toolbar
+     is the 5px sash this dock already renders; see `.ze-leftdock`. */
   background: var(--panel-bg);
-  border-left: 1px solid var(--chrome-border);
   display: flex;
   flex-direction: column;
   overflow: hidden;

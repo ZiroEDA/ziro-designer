@@ -22,6 +22,7 @@ import {
   zoomFitScale,
 } from '../../ui/view_controls.js';
 import { DockSash } from '../../ui/DockSash.js';
+import { appearanceNetRows } from './appearance_nets.js';
 import { appearanceLayerRows, layerTooltip } from '../../widgets/appearance_layers.js';
 import {
   ZOOM_AUTO_LABEL,
@@ -149,6 +150,7 @@ import {
   startPlaceImage,
   type ImagePlaceState,
   crossProbeSelection,
+  boardSyncSelectionParts,
   crossProbeHighlightNet,
   crossProbeViewChange,
   crossProbeFlashSelection,
@@ -429,7 +431,12 @@ import { dispatchMenuHotkey, focusBlocksHotkey } from '../../ui/menu_hotkeys.js'
 import { isTypingTarget, wasBrowserSuppressed, type FocusLike } from '../../ui/browser_hotkeys.js';
 import { settings } from '../../prefs/settings.js';
 import { ColorSwatch } from '../../ui/ColorSwatch.js';
-import { COLOR4D_UNSPECIFIED, parseColor4d, toCssColor } from '@ziroeda/common/src/color4d.js';
+import {
+  COLOR4D_UNSPECIFIED,
+  parseColor4d,
+  toCssColor,
+  type Color4d,
+} from '@ziroeda/common/src/color4d.js';
 
 const MM = PCB_IU_PER_MM; // pcbnew IU is 1 nm (base_units.h)
 
@@ -745,6 +752,8 @@ export function PcbEditor({
   onOutputFile,
   crossProbeNet,
   syncSelection,
+  onSyncSelectionToSch,
+  onCrossProbeNetToSch,
   updateFromSchematic,
   readOnlyNotice,
   readOnly,
@@ -805,6 +814,19 @@ export function PcbEditor({
    *  this board (pcbnew's own handler, `FindItemsFromSyncSelection` then
    *  `syncSelection`). The nonce makes a repeat of the same request arrive. */
   syncSelection?: { parts: readonly string[]; nonce: number } | null;
+  /**
+   * The other direction: this board's selection, as the `$SELECT:` parts the
+   * schematic resolves — `PCB_EDIT_FRAME::SendSelectItemsToSch`
+   * (`pcbnew/cross-probing.cpp:349`). The nonce is what makes selecting the
+   * same items twice arrive twice, since it is an event rather than a state.
+   */
+  onSyncSelectionToSch?: (sel: { parts: readonly string[]; nonce: number }) => void;
+  /**
+   * This board's highlighted net, as KiCad's `$NET: "<name>"` —
+   * `PCB_EDIT_FRAME::SendCrossProbeNetName` (`pcbnew/cross-probing.cpp:405`).
+   * null is `SendCrossProbeClearHighlight`.
+   */
+  onCrossProbeNetToSch?: (net: string | null) => void;
   /** A strip to show above the canvas, e.g. "this demo is not being saved". */
   readOnlyNotice?: JSX.Element | null;
   /**
@@ -877,7 +899,6 @@ export function PcbEditor({
   const [deleteChooser, setDeleteChooser] = useState<'presets' | 'viewports' | null>(null);
   // Nets tab state: per-net / per-class colors, ratsnest visibility, and the
   // Net Display Options modes (appearance_controls.cpp net display pane).
-  const [netColors, setNetColors] = useState<ReadonlyMap<number, string>>(new Map());
   const [hiddenNets, setHiddenNets] = useState<ReadonlySet<number>>(new Set());
   const [classColors, setClassColors] = useState<ReadonlyMap<string, string>>(new Map());
   const [hiddenClasses, setHiddenClasses] = useState<ReadonlySet<string>>(new Set());
@@ -935,6 +956,45 @@ export function PcbEditor({
   const [activeTool, setActiveTool] = useState('selectSetRect');
   // Selected board items (PCB_SELECTION_TOOL's selection), by `${kind}:${index}` id.
   const [selection, setSelection] = useState<ReadonlySet<string>>(new Set());
+
+  /**
+   * Send this selection to the schematic — `PCB_EDIT_FRAME::SendSelectItemsToSch`,
+   * which `PCB_SELECTION_TOOL` calls whenever the selection settles.
+   *
+   * The nonce comes from the parts themselves rather than a counter: re-sending
+   * an identical packet is what upstream's `aForce` is for, and this side never
+   * forces, so a selection that has not changed has nothing to say. An empty
+   * selection still sends — that is how the schematic learns to clear its own.
+   */
+  /**
+   * `SendCrossProbeNetName` / `SendCrossProbeClearHighlight`: the board's
+   * highlight, named, going the other way.
+   *
+   * One net, because the packet carries one — a multi-net highlight
+   * (`$NETS:`) has no schematic-side equivalent here, so the first is sent, as
+   * the schematic side already does when a CHAIN is highlighted.
+   */
+  useEffect(() => {
+    if (!onCrossProbeNetToSch) return;
+    const brd = boardRef.current;
+    if (!brd) return;
+    const first = [...highlightNets][0];
+    onCrossProbeNetToSch(first === undefined ? null : (brd.nets.get(first) ?? null));
+  }, [highlightNets, onCrossProbeNetToSch]);
+
+  const lastPartsRef = useRef<string>('');
+  const syncNonceRef = useRef(0);
+  useEffect(() => {
+    if (!onSyncSelectionToSch) return;
+    const brd = boardRef.current;
+    if (!brd) return;
+    const parts = boardSyncSelectionParts(brd, selection);
+    const key = parts.join(',');
+    if (key === lastPartsRef.current) return;
+    lastPartsRef.current = key;
+    syncNonceRef.current += 1;
+    onSyncSelectionToSch({ parts, nonce: syncNonceRef.current });
+  }, [selection, onSyncSelectionToSch]);
   // Disambiguation menu (PCB_SELECTION_TOOL::doSelectionMenu): shown at a click
   // that hits several equally-plausible items so the user can pick one.
   const [disambig, setDisambig] = useState<{
@@ -7148,14 +7208,9 @@ export function PcbEditor({
     requestDraw();
   };
 
-  const nets = useMemo(() => {
-    if (!board) return [];
-    // NET_GRID_TABLE::Rebuild skips the unconnected net (code 0) and sorts by
-    // name; m_txtNetFilter is hidden, so there is nothing to filter by.
-    return [...board.nets.entries()]
-      .filter(([code]) => code !== 0)
-      .sort((a, b) => a[1].localeCompare(b[1]));
-  }, [board]);
+  // `NET_GRID_TABLE::Rebuild`'s filter and sort, in a module qa can import;
+  // see appearance_nets.ts for both decisions and what each one got wrong.
+  const nets = useMemo(() => (board ? appearanceNetRows(board.nets) : []), [board]);
 
   // ----- ratsnest + net classes ----------------------------------------------
 
@@ -7261,6 +7316,62 @@ export function PcbEditor({
   // neighbour: NET_GRID_TABLE's rows, m_netclassSettings, and the two combos.
 
   /** NET_GRID_TABLE's rows (appearance_controls.h:48-62). */
+  /**
+   * The per-net colour overrides, by net code.
+   *
+   * Not state of this frame's own: `PCB_EDIT_FRAME::LoadProjectSettings` fills
+   * the painter's map from `NET_SETTINGS::GetNetColorAssignments()`
+   * (pcbnew_config.cpp:95-105), which is `net_settings.net_colors` in the
+   * .kicad_pro — a NAME to colour map, resolved to net codes through the
+   * board's own net list. This was a `useState( new Map() )` that only the
+   * colour picker ever wrote, so a board whose project assigns colours opened
+   * with every net unspecified, and a colour set here was gone on reload.
+   */
+  const netColors = useMemo(() => {
+    const byCode = new Map<number, string>();
+    if (!board) return byCode;
+    for (const [code, name] of board.nets.entries()) {
+      const css = boardSetup.netClasses.netColors[name];
+      if (css) byCode.set(code, css);
+    }
+    return byCode;
+  }, [board, boardSetup.netClasses.netColors]);
+
+  /**
+   * The picker's write, straight back into the project slice it came from.
+   *
+   * `#rrggbb`, because that is the form every colour in a BoardSetupValues
+   * takes — `kicadColorToCss` normalises the file's `rgb(...)` into it and
+   * `cssColorToKicad` only accepts it back (project_settings.ts:196-209). An
+   * `rgb(...)` string handed in here would be written out as the UNSET
+   * sentinel, i.e. silently dropped.
+   *
+   * COLOR4D::UNSPECIFIED (alpha 0) clears the assignment rather than storing a
+   * transparent black, which is what upstream's `if( color != UNSPECIFIED )`
+   * does on the way in (pcbnew_config.cpp:99).
+   */
+  const setNetColor = useCallback(
+    (code: number, picked: Color4d): void => {
+      const name = board?.nets.get(code);
+      if (!name) return;
+      const next = { ...(boardSetupRef.current.netClasses.netColors ?? {}) };
+      if (picked.a > 0) {
+        const ch = (v: number): string =>
+          Math.round(Math.min(1, Math.max(0, v)) * 255)
+            .toString(16)
+            .padStart(2, '0');
+        next[name] = `#${ch(picked.r)}${ch(picked.g)}${ch(picked.b)}`;
+      } else {
+        delete next[name];
+      }
+      commitBoardSetup({
+        ...boardSetupRef.current,
+        netClasses: { ...boardSetupRef.current.netClasses, netColors: next },
+      });
+    },
+    [board, commitBoardSetup],
+  );
+
   const netRows = useMemo(
     () =>
       nets.map(([code, name]) => ({
@@ -8523,8 +8634,7 @@ export function PcbEditor({
                   onLayerOptionsOpen={setLayerOptsOpen}
                   nets={{
                     nets: netRows,
-                    onNetColor: (code, picked) =>
-                      setNetColors((p) => new Map(p).set(code, toCssColor(picked, ', '))),
+                    onNetColor: setNetColor,
                     onNetVisibility: (code) =>
                       setHiddenNets((p) => {
                         const next = new Set(p);

@@ -41,10 +41,13 @@
  * frames also construct. It is ported alongside, in
  * `widgets/panel_selection_filter.tsx`.
  */
-import { useMemo, type JSX } from 'react';
+import { useMemo, useRef, useState, type JSX } from 'react';
 import { COLOR4D_UNSPECIFIED, parseColor4d } from '@ziroeda/common/src/color4d.js';
 import type { Color4d } from '@ziroeda/common/src/color4d.js';
 import { ColorSwatch } from '../ui/ColorSwatch.js';
+import { Combo } from '../ui/Combo.js';
+import { Slider } from '../ui/Slider.js';
+import { Sash } from '../ui/Sash.js';
 // KiCad's own bitmaps, vendored under `assets/toolbar/`. Nothing in this panel
 // reaches for `ui/icons.tsx` any more: that module's own header calls its
 // glyphs "recognisable stand-ins, not KiCad's exact bitmaps", and every icon
@@ -261,370 +264,419 @@ export function AppearanceControls(props: AppearanceControlsProps): JSX.Element 
   // an empty body.
   const page: AppearanceTab = tabs.includes(tab) ? tab : 'Layers';
 
+  /* `m_netsTabSplitter->SplitHorizontally( ..., 300 )`
+     (appearance_controls_base.cpp:144) — where the Nets panel's lower edge
+     opens. Upstream keeps it on the splitter; here it is the widget's own
+     state, because nothing outside this panel reads it. */
+  const [netsSashPos, setNetsSashPos] = useState(NETS_SASH_POS);
+  const netsPageRef = useRef<HTMLDivElement>(null);
+
   return (
     <div className="ze-appearance">
       {/* APPEARANCE_CONTROLS' wxNotebook (appearance_controls_base.cpp:22).
           The same widget pl_editor and GerbView draw, so it takes the shared
-          .ze-nb-tabs rule and states nothing of its own. */}
-      <div className="ze-nb-tabs" role="tablist">
-        {tabs.map((t) => (
-          <button
-            key={t}
-            type="button"
-            role="tab"
-            aria-selected={page === t}
-            className={page === t ? 'active' : undefined}
-            onClick={() => onTab(t)}
-          >
-            {t}
-          </button>
-        ))}
-      </div>
+          .ze-nb-tabs rule and states nothing of its own.
 
-      <div className="ze-panel-body" style={{ overflow: 'auto' }}>
-        {page === 'Layers' &&
-          layerRows.map((name) => {
-            const on = visibleLayers.has(name);
-            return (
-              // appendLayer row: [indicator][color swatch][eye][name]
-              <div
-                key={name}
-                className={`ze-layer-row${name === activeLayer ? ' active' : ''}`}
-                onClick={() => onActiveLayer(name)}
-                onContextMenu={(e) => {
-                  if (!onLayerContextMenu) return;
-                  e.preventDefault();
-                  onLayerContextMenu(e.clientX, e.clientY);
-                }}
-                title={layerTooltip(name)}
-              >
-                <span className={`ze-layer-indicator${name === activeLayer ? ' on' : ''}`} />
-                <span className="ze-layer-swatch" style={{ background: layerColor(name) }} />
-                <button
-                  type="button"
-                  className="ze-eye-btn"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onToggleLayer(name);
+          `.ze-nb-frame` is the notebook itself — a wxNotebook draws a box
+          around the tab strip AND the page, and everything inside this element
+          is what that box encloses: the strip, the layer/object/net list, and
+          the "Layer Display Options" pane, which is a child of `m_panelLayers`
+          (appearance_controls.cpp:625) and therefore inside the notebook.
+          Presets and Viewports are children of the PANEL, so they stay
+          outside it. [px] pcbnew 1920x1200: the frame's top edge at y=193,
+          five pixels under the caption, and its bottom at y=834, immediately
+          below the collapsed "Layer Display Options" strip. */}
+      <div className="ze-nb-frame ze-appearance-nb">
+        <div className="ze-nb-tabs" role="tablist">
+          {tabs.map((t) => (
+            <button
+              key={t}
+              type="button"
+              role="tab"
+              aria-selected={page === t}
+              className={page === t ? 'active' : undefined}
+              onClick={() => onTab(t)}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+
+        {/* The notebook page. `m_layerPanelColour` is set on `m_windowLayers`
+          alone — `m_windowObjects` is never given it (appearance_controls.cpp
+          :1242-1248, and the Objects page's scroller appears nowhere in that
+          function) — so the Layers page is the lighter list grey and the other
+          two keep the notebook page's own background. [px] pcbnew: #4b4b4b
+          behind a layer row, #272727 behind an object row. */}
+        <div
+          ref={netsPageRef}
+          className={`ze-panel-body ze-appearance-page page-${page.toLowerCase()}`}
+        >
+          {page === 'Layers' &&
+            layerRows.map((name) => {
+              const on = visibleLayers.has(name);
+              return (
+                // appendLayer row: [indicator][color swatch][eye][name]
+                <div
+                  key={name}
+                  className={`ze-layer-row${name === activeLayer ? ' active' : ''}`}
+                  onClick={() => onActiveLayer(name)}
+                  onContextMenu={(e) => {
+                    if (!onLayerContextMenu) return;
+                    e.preventDefault();
+                    onLayerContextMenu(e.clientX, e.clientY);
                   }}
-                  title="Show or hide this layer"
+                  title={layerTooltip(name)}
                 >
-                  <EyeIcon on={on} />
-                </button>
-                <span className="ze-ellipsis">{layerName(name)}</span>
-              </div>
-            );
-          })}
-
-        {page === 'Objects' &&
-          objectRows.map((row, i) => {
-            // m_objectsOuterSizer->AddSpacer( m_pointSize / 2 ): half the GUI
-            // font's point size, 11/2 = 5 (appearance_controls.cpp:2461).
-            if (row === 'sep') return <div key={`sep${i}`} className="ze-object-sep" />;
-            const { key, label, tooltip, slider, noVisibility } = row;
-            const on = objects[key];
-            const swatchColor = objectColor(key);
-            return (
-              // appendObject row: [swatch][eye|spacer][label][slider]
-              <div key={key} className="ze-object-row" title={tooltip}>
-                {/* Every row carries a swatch. A row with no theme colour gets
-                    COLOR_SWATCH's checkerboard rather than a gap, because
-                    GetDefaultColor never answers UNSPECIFIED
-                    (color_settings.cpp:411). */}
-                <span
-                  className={`ze-layer-swatch${swatchColor ? '' : ' unset'}`}
-                  style={swatchColor ? { background: swatchColor } : undefined}
-                />
-                {noVisibility ? (
-                  <span style={{ width: 16, flex: '0 0 auto' }} />
-                ) : (
+                  <span className={`ze-layer-indicator${name === activeLayer ? ' on' : ''}`} />
+                  <span className="ze-layer-swatch" style={{ background: layerColor(name) }} />
                   <button
                     type="button"
                     className="ze-eye-btn"
-                    onClick={() => onToggleObject(key)}
-                    title={`Show or hide ${label.toLowerCase()}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onToggleLayer(name);
+                    }}
+                    title="Show or hide this layer"
                   >
                     <EyeIcon on={on} />
                   </button>
-                )}
-                {/* Opacity rows fix the label width so all sliders line up
+                  <span className="ze-ellipsis">{layerName(name)}</span>
+                </div>
+              );
+            })}
+
+          {page === 'Objects' &&
+            objectRows.map((row, i) => {
+              // m_objectsOuterSizer->AddSpacer( m_pointSize / 2 ): half the GUI
+              // font's point size, 11/2 = 5 (appearance_controls.cpp:2461).
+              if (row === 'sep') return <div key={`sep${i}`} className="ze-object-sep" />;
+              const { key, label, tooltip, slider, noVisibility } = row;
+              const on = objects[key];
+              const swatchColor = objectColor(key);
+              return (
+                // appendObject row: [swatch][eye|spacer][label][slider]
+                <div
+                  key={key}
+                  className={`ze-object-row${slider ? ' has-slider' : ''}`}
+                  title={tooltip}
+                >
+                  {/* Every row carries a swatch. A row with no theme colour gets
+                    COLOR_SWATCH's checkerboard rather than a gap, because
+                    GetDefaultColor never answers UNSPECIFIED
+                    (color_settings.cpp:411). */}
+                  <span
+                    className={`ze-layer-swatch${swatchColor ? '' : ' unset'}`}
+                    style={swatchColor ? { background: swatchColor } : undefined}
+                  />
+                  {noVisibility ? (
+                    <span style={{ width: 16, flex: '0 0 auto' }} />
+                  ) : (
+                    <button
+                      type="button"
+                      className="ze-eye-btn"
+                      onClick={() => onToggleObject(key)}
+                      title={`Show or hide ${label.toLowerCase()}`}
+                    >
+                      <EyeIcon on={on} />
+                    </button>
+                  )}
+                  {/* Opacity rows fix the label width so all sliders line up
                     (KiCad's label->SetMinSize(labelWidth)); other rows let the
                     label fill the row. */}
-                <span className={`ze-obj-label${slider ? ' fixed' : ''}`}>{label}</span>
-                {slider &&
-                  key in opacity &&
-                  (() => {
-                    const pct = Math.round(opacity[key as keyof ObjectOpacity] * 100);
-                    return (
-                      <input
-                        type="range"
-                        className="ze-opacity"
-                        min={0}
-                        max={100}
-                        value={pct}
-                        // Fill the track left of the thumb (KiCad's slider shows
-                        // the set portion), the rest neutral grey.
-                        style={{
-                          background: `linear-gradient(to right, var(--slider-fill) 0 ${pct}%, #55585d ${pct}% 100%)`,
-                        }}
-                        title={`Set opacity of ${label.toLowerCase()}`}
-                        onChange={(e) =>
-                          onOpacity(key as keyof ObjectOpacity, Number(e.target.value) / 100)
-                        }
-                      />
-                    );
-                  })()}
-              </div>
-            );
-          })}
+                  <span className={`ze-obj-label${slider ? ' fixed' : ''}`}>{label}</span>
+                  {/* The opacity control is a `wxSlider`, so it is `ui/Slider`
+                    — the same widget the image converter's threshold, the
+                    colour picker's Value and Opacity and the calculator's
+                    current density all open. It was a bare
+                    `<input type="range">` with its own `#55585d` trough, its
+                    own 11px thumb and its own orange, none of which GTK draws:
+                    [px] pcbnew's real one is a 4px trough with the #e95420
+                    accent left of a 20px #fcfcfc knob. */}
+                  {slider && key in opacity && (
+                    <Slider
+                      className="ze-opacity"
+                      value={Math.round(opacity[key as keyof ObjectOpacity] * 100)}
+                      min={0}
+                      max={100}
+                      title={`Set opacity of ${label.toLowerCase()}`}
+                      onChange={(v) => onOpacity(key as keyof ObjectOpacity, v / 100)}
+                    />
+                  )}
+                </div>
+              );
+            })}
 
-        {page === 'Nets' && nets && (
-          <>
-            {/* Nets box: header + the scrollable net list, its own panel like
-                KiCad's nets/netclasses splitter. */}
-            <div className="ze-nets-box">
-              {/* m_txtNetFilter is constructed and then Hide()n
+          {page === 'Nets' && nets && (
+            <>
+              {/* `m_panelNets`, the upper half of `m_netsTabSplitter`. */}
+              <div className="ze-nets-box" style={{ height: netsSashPos, flex: '0 0 auto' }}>
+                {/* m_txtNetFilter is constructed and then Hide()n
                   (appearance_controls_base.cpp:67); what sits at the right of
                   this header is the Net Inspector button. */}
-              <div className="ze-nets-header">
-                <span>Nets</span>
-                {/* PCB_ACTIONS::showNetInspector. The panel it opens is not
+                <div className="ze-nets-header">
+                  <span>Nets</span>
+                  {/* PCB_ACTIONS::showNetInspector. The panel it opens is not
                     ported, so the button is genuinely unavailable and says so. */}
-                <button
-                  type="button"
-                  className="ze-bitmap-btn"
-                  title="Show the Net Inspector"
-                  onClick={nets.onShowNetInspector}
-                  disabled={!nets.onShowNetInspector}
-                >
-                  {/* `m_btnNetInspector->SetBitmap( KiBitmapBundle(
+                  <button
+                    type="button"
+                    className="ze-bitmap-btn"
+                    title="Show the Net Inspector"
+                    onClick={nets.onShowNetInspector}
+                    disabled={!nets.onShowNetInspector}
+                  >
+                    {/* `m_btnNetInspector->SetBitmap( KiBitmapBundle(
                       BITMAPS::list_nets_16 ) )` (appearance_controls.cpp:471).
                       Vendored from KiCad's own `sources/dark/list_nets_16.svg`;
                       what stood here was a hand-drawn stand-in out of
                       `icons.tsx`, whose header says as much. */}
-                  <img src={bitmapUrl('list_nets_16')} width="16" height="16" alt="" />
-                </button>
-              </div>
-              <div className="ze-nets-list">
-                {/* Net rows: [color swatch][visibility][name]; the swatch opens a
+                    <img src={bitmapUrl('list_nets_16')} width="16" height="16" alt="" />
+                  </button>
+                </div>
+                <div className="ze-nets-list">
+                  {/* Net rows: [color swatch][visibility][name]; the swatch opens a
                     color picker, the eye hides the net's ratsnest. */}
-                {nets.nets.slice(0, NET_ROW_CAP).map((net) => (
-                  <div key={net.code} className="ze-object-row" title={`Net ${net.code}`}>
-                    {/* COLOR_SWATCH (color_swatch.cpp:301-328) — the same
+                  {nets.nets.slice(0, NET_ROW_CAP).map((net) => (
+                    <div key={net.code} className="ze-object-row" title={`Net ${net.code}`}>
+                      {/* COLOR_SWATCH (color_swatch.cpp:301-328) — the same
                         control APPEARANCE_CONTROLS builds for a net row. */}
-                    <ColorSwatch
-                      size="small"
-                      label={`Set color for net ${net.name}`}
-                      color={net.color ? parseColor4d(net.color) : COLOR4D_UNSPECIFIED}
-                      onChange={(picked) => nets.onNetColor(net.code, picked)}
-                    />
-                    <button
-                      type="button"
-                      className="ze-eye-btn"
-                      title={`Show or hide ratsnest for ${net.name}`}
-                      onClick={() => nets.onNetVisibility(net.code)}
-                    >
-                      <EyeIcon on={net.visible} />
-                    </button>
-                    <span className="ze-ellipsis">{net.name || `(unnamed ${net.code})`}</span>
-                  </div>
-                ))}
-                {nets.nets.length > NET_ROW_CAP && (
-                  <div className="ze-muted">…{nets.nets.length - NET_ROW_CAP} more</div>
-                )}
-              </div>
-            </div>
-
-            {/* Net Classes box: the lower panel of KiCad's nets splitter. */}
-            <div className="ze-nets-box">
-              <div className="ze-nets-header">
-                <span>Net Classes</span>
-                <button
-                  type="button"
-                  className="ze-bitmap-btn"
-                  title="Configure net classes"
-                  onClick={nets.onConfigureNetclasses}
-                >
-                  {/* `m_btnConfigureNetClasses->SetBitmap( KiBitmapBundle(
-                      BITMAPS::options_generic_16 ) )` (:474). */}
-                  <img src={bitmapUrl('options_generic_16')} width="16" height="16" alt="" />
-                </button>
-              </div>
-              {nets.netclasses.map((cls) => {
-                // "Default netclass can't have an override color", so its
-                // swatch is Hide()n — but added with
-                // wxRESERVE_SPACE_EVEN_IF_HIDDEN, so the row still indents by a
-                // swatch (appearance_controls.cpp:2607).
-                const isDefault = cls.name === 'Default';
-                return (
-                  <div key={cls.name} className="ze-object-row">
-                    {isDefault ? (
-                      <span className="ze-layer-swatch" aria-hidden="true" />
-                    ) : (
                       <ColorSwatch
                         size="small"
-                        label={`Set color for the ${cls.name} netclass`}
-                        color={cls.color ? parseColor4d(cls.color) : COLOR4D_UNSPECIFIED}
-                        onChange={(picked) => nets.onNetclassColor(cls.name, picked)}
+                        label={`Set color for net ${net.name}`}
+                        color={net.color ? parseColor4d(net.color) : COLOR4D_UNSPECIFIED}
+                        onChange={(picked) => nets.onNetColor(net.code, picked)}
                       />
-                    )}
-                    <button
-                      type="button"
-                      className="ze-eye-btn"
-                      title={`Show or hide ratsnest for the ${cls.name} class`}
-                      onClick={() => nets.onNetclassVisibility(cls.name)}
-                    >
-                      <EyeIcon on={cls.visible} />
-                    </button>
-                    <span className="ze-ellipsis">{cls.name}</span>
-                  </div>
-                );
-              })}
-            </div>
-          </>
-        )}
-      </div>
+                      <button
+                        type="button"
+                        className="ze-eye-btn"
+                        title={`Show or hide ratsnest for ${net.name}`}
+                        onClick={() => nets.onNetVisibility(net.code)}
+                      >
+                        <EyeIcon on={net.visible} />
+                      </button>
+                      <span className="ze-ellipsis">{net.name || `(unnamed ${net.code})`}</span>
+                    </div>
+                  ))}
+                  {nets.nets.length > NET_ROW_CAP && (
+                    <div className="ze-muted">…{nets.nets.length - NET_ROW_CAP} more</div>
+                  )}
+                </div>
+              </div>
 
-      {/* "Net Display Options" collapsible pane on the Nets tab. */}
-      {page === 'Nets' && nets && (
-        <div className="ze-collapsepane">
-          <button
-            type="button"
-            className="ze-collapse-toggle"
-            onClick={() => nets.onOptionsOpen(!nets.optionsOpen)}
-          >
-            <span className={`ze-collapse-arrow${nets.optionsOpen ? ' open' : ''}`} />
-            Net Display Options
-          </button>
-          {nets.optionsOpen && (
-            <div className="ze-collapse-body">
-              <div className="ze-info ze-inset" title="Choose when to show net and netclass colors">
-                Net colors:
+              {/* `m_netsTabSplitter->SplitHorizontally( m_panelNets,
+                  m_panelNetclasses, 300 )` with `SetMinimumPaneSize( 80 )`
+                  (appearance_controls_base.cpp:52, :144). Without it a board
+                  with 220 nets pushed Net Classes off the bottom of the pane
+                  and there was no way to reach it. The bar is `ui/Sash`, the
+                  shared wxSplitterWindow sash — the same one the symbol
+                  chooser and the symbol viewer open. */}
+              <Sash
+                edge="bottom"
+                size={netsSashPos}
+                min={NETS_MIN_PANE}
+                max={Math.max(
+                  NETS_MIN_PANE,
+                  (netsPageRef.current?.clientHeight ?? 0) - NETS_MIN_PANE,
+                )}
+                onResize={setNetsSashPos}
+              />
+
+              {/* `m_panelNetclasses`, the lower half. */}
+              <div className="ze-nets-box grow">
+                <div className="ze-nets-header">
+                  <span>Net Classes</span>
+                  <button
+                    type="button"
+                    className="ze-bitmap-btn"
+                    title="Configure net classes"
+                    onClick={nets.onConfigureNetclasses}
+                  >
+                    {/* `m_btnConfigureNetClasses->SetBitmap( KiBitmapBundle(
+                      BITMAPS::options_generic_16 ) )` (:474). */}
+                    <img src={bitmapUrl('options_generic_16')} width="16" height="16" alt="" />
+                  </button>
+                </div>
+                <div className="ze-netclass-list">
+                  {nets.netclasses.map((cls) => {
+                    // "Default netclass can't have an override color", so its
+                    // swatch is Hide()n — but added with
+                    // wxRESERVE_SPACE_EVEN_IF_HIDDEN, so the row still indents by a
+                    // swatch (appearance_controls.cpp:2607).
+                    const isDefault = cls.name === 'Default';
+                    return (
+                      <div key={cls.name} className="ze-object-row">
+                        {isDefault ? (
+                          <span className="ze-layer-swatch" aria-hidden="true" />
+                        ) : (
+                          <ColorSwatch
+                            size="small"
+                            label={`Set color for the ${cls.name} netclass`}
+                            color={cls.color ? parseColor4d(cls.color) : COLOR4D_UNSPECIFIED}
+                            onChange={(picked) => nets.onNetclassColor(cls.name, picked)}
+                          />
+                        )}
+                        <button
+                          type="button"
+                          className="ze-eye-btn"
+                          title={`Show or hide ratsnest for the ${cls.name} class`}
+                          onClick={() => nets.onNetclassVisibility(cls.name)}
+                        >
+                          <EyeIcon on={cls.visible} />
+                        </button>
+                        <span className="ze-ellipsis">{cls.name}</span>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-              <div className="ze-radio-row ze-radio-gap">
-                <label title="Net and netclass colors are shown on all copper items">
-                  <input
-                    type="radio"
-                    name="ze-netcolor"
-                    checked={nets.netColorMode === 'all'}
-                    onChange={() => nets.onNetColorMode('all')}
-                  />
-                  All
-                </label>
-                <label title="Net and netclass colors are shown on the ratsnest only">
-                  <input
-                    type="radio"
-                    name="ze-netcolor"
-                    checked={nets.netColorMode === 'ratsnest'}
-                    onChange={() => nets.onNetColorMode('ratsnest')}
-                  />
-                  Ratsnest
-                </label>
-                <label title="Net and netclass colors are not shown">
-                  <input
-                    type="radio"
-                    name="ze-netcolor"
-                    checked={nets.netColorMode === 'off'}
-                    onChange={() => nets.onNetColorMode('off')}
-                  />
-                  None
-                </label>
-              </div>
-              <div className="ze-info ze-inset" title="Choose which ratsnest lines to display">
-                Ratsnest display:
-              </div>
-              <div className="ze-radio-row ze-radio-gap">
-                <label title="Show ratsnest lines to items on all layers">
-                  <input
-                    type="radio"
-                    name="ze-ratsmode"
-                    checked={nets.ratsnestMode === 'all'}
-                    onChange={() => nets.onRatsnestMode('all')}
-                  />
-                  All
-                </label>
-                <label title="Show ratsnest lines to items on visible layers">
-                  <input
-                    type="radio"
-                    name="ze-ratsmode"
-                    checked={nets.ratsnestMode === 'visible'}
-                    onChange={() => nets.onRatsnestMode('visible')}
-                  />
-                  Visible layers
-                </label>
-                <label title="Hide all ratsnest lines">
-                  <input
-                    type="radio"
-                    name="ze-ratsmode"
-                    checked={nets.ratsnestMode === 'off'}
-                    onChange={() => nets.onRatsnestMode('off')}
-                  />
-                  None
-                </label>
-              </div>
-            </div>
+            </>
           )}
         </div>
-      )}
 
-      {/* "Layer Display Options" collapsible pane at the bottom of the Layers
+        {/* "Net Display Options" collapsible pane on the Nets tab. */}
+        {page === 'Nets' && nets && (
+          <div className="ze-collapsepane">
+            <button
+              type="button"
+              className="ze-collapse-toggle"
+              onClick={() => nets.onOptionsOpen(!nets.optionsOpen)}
+            >
+              <span className={`ze-collapse-arrow${nets.optionsOpen ? ' open' : ''}`} />
+              Net Display Options
+            </button>
+            {nets.optionsOpen && (
+              <div className="ze-collapse-body">
+                <div
+                  className="ze-info ze-inset"
+                  title="Choose when to show net and netclass colors"
+                >
+                  Net colors:
+                </div>
+                <div className="ze-radio-row ze-radio-gap">
+                  <label title="Net and netclass colors are shown on all copper items">
+                    <input
+                      type="radio"
+                      name="ze-netcolor"
+                      checked={nets.netColorMode === 'all'}
+                      onChange={() => nets.onNetColorMode('all')}
+                    />
+                    All
+                  </label>
+                  <label title="Net and netclass colors are shown on the ratsnest only">
+                    <input
+                      type="radio"
+                      name="ze-netcolor"
+                      checked={nets.netColorMode === 'ratsnest'}
+                      onChange={() => nets.onNetColorMode('ratsnest')}
+                    />
+                    Ratsnest
+                  </label>
+                  <label title="Net and netclass colors are not shown">
+                    <input
+                      type="radio"
+                      name="ze-netcolor"
+                      checked={nets.netColorMode === 'off'}
+                      onChange={() => nets.onNetColorMode('off')}
+                    />
+                    None
+                  </label>
+                </div>
+                <div className="ze-info ze-inset" title="Choose which ratsnest lines to display">
+                  Ratsnest display:
+                </div>
+                <div className="ze-radio-row ze-radio-gap">
+                  <label title="Show ratsnest lines to items on all layers">
+                    <input
+                      type="radio"
+                      name="ze-ratsmode"
+                      checked={nets.ratsnestMode === 'all'}
+                      onChange={() => nets.onRatsnestMode('all')}
+                    />
+                    All
+                  </label>
+                  <label title="Show ratsnest lines to items on visible layers">
+                    <input
+                      type="radio"
+                      name="ze-ratsmode"
+                      checked={nets.ratsnestMode === 'visible'}
+                      onChange={() => nets.onRatsnestMode('visible')}
+                    />
+                    Visible layers
+                  </label>
+                  <label title="Hide all ratsnest lines">
+                    <input
+                      type="radio"
+                      name="ze-ratsmode"
+                      checked={nets.ratsnestMode === 'off'}
+                      onChange={() => nets.onRatsnestMode('off')}
+                    />
+                    None
+                  </label>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* "Layer Display Options" collapsible pane at the bottom of the Layers
           tab (createControls). Both frames build it: `m_cbFlipBoard` and the
           three high-contrast radios are set from `GetDisplayOptions()` with no
           `m_isFpEditor` branch at all (UpdateDisplayOptions, :1500-1520). */}
-      {page === 'Layers' && (
-        <div className="ze-collapsepane">
-          <button
-            type="button"
-            className="ze-collapse-toggle"
-            onClick={() => onLayerOptionsOpen(!layerOptionsOpen)}
-          >
-            <span className={`ze-collapse-arrow${layerOptionsOpen ? ' open' : ''}`} />
-            Layer Display Options
-          </button>
-          {layerOptionsOpen && (
-            <div className="ze-collapse-body">
-              {/* `wxString::Format( _( "Inactive layers (%s):" ),
+        {page === 'Layers' && (
+          <div className="ze-collapsepane">
+            <button
+              type="button"
+              className="ze-collapse-toggle"
+              onClick={() => onLayerOptionsOpen(!layerOptionsOpen)}
+            >
+              <span className={`ze-collapse-arrow${layerOptionsOpen ? ' open' : ''}`} />
+              Layer Display Options
+            </button>
+            {layerOptionsOpen && (
+              <div className="ze-collapse-body">
+                {/* `wxString::Format( _( "Inactive layers (%s):" ),
                   KeyNameFromKeyCode( hotkey ) )` — highContrastModeCycle is H
                   (appearance_controls.cpp:1944-1951). */}
-              <div className="ze-info">Inactive layers (H):</div>
-              <div className="ze-radio-row">
-                <label title="Inactive layers will be shown in full color">
-                  <input
-                    type="radio"
-                    name="ze-hc"
-                    checked={contrast === 'normal'}
-                    onChange={() => onContrast('normal')}
-                  />
-                  Normal
-                </label>
-                <label title="Inactive layers will be dimmed">
-                  <input
-                    type="radio"
-                    name="ze-hc"
-                    checked={contrast === 'dim'}
-                    onChange={() => onContrast('dim')}
-                  />
-                  Dim
-                </label>
-                <label title="Inactive layers will be hidden">
-                  <input
-                    type="radio"
-                    name="ze-hc"
-                    checked={contrast === 'hide'}
-                    onChange={() => onContrast('hide')}
-                  />
-                  Hide
+                <div className="ze-info">Inactive layers (H):</div>
+                <div className="ze-radio-row">
+                  <label title="Inactive layers will be shown in full color">
+                    <input
+                      type="radio"
+                      name="ze-hc"
+                      checked={contrast === 'normal'}
+                      onChange={() => onContrast('normal')}
+                    />
+                    Normal
+                  </label>
+                  <label title="Inactive layers will be dimmed">
+                    <input
+                      type="radio"
+                      name="ze-hc"
+                      checked={contrast === 'dim'}
+                      onChange={() => onContrast('dim')}
+                    />
+                    Dim
+                  </label>
+                  <label title="Inactive layers will be hidden">
+                    <input
+                      type="radio"
+                      name="ze-hc"
+                      checked={contrast === 'hide'}
+                      onChange={() => onContrast('hide')}
+                    />
+                    Hide
+                  </label>
+                </div>
+                <hr className="ze-hr" />
+                <label>
+                  <input type="checkbox" checked={flipBoard} onChange={onFlipBoard} />
+                  Flip board view
                 </label>
               </div>
-              <hr className="ze-hr" />
-              <label>
-                <input type="checkbox" checked={flipBoard} onChange={onFlipBoard} />
-                Flip board view
-              </label>
-            </div>
-          )}
-        </div>
-      )}
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Presets / Viewports below the notebook. Both live on the PANEL, not on
           a page (appearance_controls_base.cpp:140-186), so both frames get them
@@ -632,36 +684,34 @@ export function AppearanceControls(props: AppearanceControlsProps): JSX.Element 
           `m_isFpEditor` branch. */}
       <div className="ze-appearance-bottom">
         <div className="ze-info ze-inset">Presets (Ctrl+Tab):</div>
-        <select aria-label="Presets" value={preset} onChange={(e) => onPreset(e.target.value)}>
-          {presetItems.map((name, i) => (
-            <option
-              key={`${name}:${i}`}
-              value={name}
-              disabled={name === 'Delete preset...' && deletePresetDisabled}
-            >
-              {name}
-            </option>
-          ))}
-        </select>
+        {/* `m_cbLayerPresets` is a wxChoice (appearance_controls_base.cpp:165),
+            and a wxChoice is the shared `Combo` — never a native <select>,
+            which brings the platform's own metrics, arrow and popup and cannot
+            be made to match GTK's. */}
+        <Combo
+          ariaLabel="Presets"
+          value={preset}
+          options={presetItems.map((name) => ({
+            value: name,
+            label: name,
+            disabled: name === 'Delete preset...' && deletePresetDisabled,
+          }))}
+          onChange={onPreset}
+        />
         {/* `VIEWPORT_SWITCH_KEY` is WXK_SHIFT (appearance_controls.cpp), which
             is why the label reads Shift and not the Alt the wxFormBuilder stub
             carries. */}
         <div className="ze-info ze-inset ze-viewports-label">Viewports (Shift+Tab):</div>
-        <select
-          aria-label="Viewports"
+        <Combo
+          ariaLabel="Viewports"
           value={viewport}
-          onChange={(e) => onViewport(e.target.value)}
-        >
-          {viewportItems.map((name, i) => (
-            <option
-              key={`${name}:${i}`}
-              value={name}
-              disabled={name === 'Delete viewport...' && deleteViewportDisabled}
-            >
-              {name}
-            </option>
-          ))}
-        </select>
+          options={viewportItems.map((name) => ({
+            value: name,
+            label: name,
+            disabled: name === 'Delete viewport...' && deleteViewportDisabled,
+          }))}
+          onChange={onViewport}
+        />
       </div>
     </div>
   );
@@ -676,3 +726,11 @@ export function AppearanceControls(props: AppearanceControlsProps): JSX.Element 
  * budget, not a KiCad number.
  */
 const NET_ROW_CAP = 400;
+
+/** [data] `m_netsTabSplitter->SplitHorizontally( m_panelNets, m_panelNetclasses,
+ *  300 )` — the sash position the base file opens at
+ *  (appearance_controls_base.cpp:144). */
+const NETS_SASH_POS = 300;
+
+/** [data] `m_netsTabSplitter->SetMinimumPaneSize( 80 )` (:52). */
+const NETS_MIN_PANE = 80;

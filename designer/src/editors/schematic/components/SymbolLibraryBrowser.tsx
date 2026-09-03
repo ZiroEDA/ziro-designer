@@ -34,6 +34,7 @@ import { useSchematicTheme } from '../../../prefs/useSettings.js';
 import { LibraryLoadingPanel } from '../../../widgets/library_loading_panel.js';
 import { useModalEscape } from '../../../ui/useModalEscape.js';
 import { MsgPanel } from '../../../ui/MsgPanel.js';
+import { Sash } from '../../../ui/Sash.js';
 import { MenuBar } from '../../../ui/MenuBar.js';
 import type { Menu } from '../../../ui/menu_types.js';
 import { addClose } from '../../../ui/action_menu.js';
@@ -519,31 +520,17 @@ export function SymbolLibraryBrowser({ onPick, onClose }: Props): JSX.Element {
   // ----- pane sashes (the AUI "Libraries" / "Symbols" pane widths) ----------
 
   const bodyRef = useRef<HTMLDivElement>(null);
-  const dragSash =
-    (which: 'lib' | 'sym') =>
-    (down: React.MouseEvent): void => {
-      down.preventDefault();
-      const body = bodyRef.current?.getBoundingClientRect();
-      if (!body) return;
-      const startX = down.clientX;
-      const startW = which === 'lib' ? libWidth : symWidth;
-      const move = (e: MouseEvent): void => {
-        const w = Math.max(100, Math.min(body.width - 240, startW + e.clientX - startX));
-        if (which === 'lib') {
-          setLibWidth(w);
-          settings.updateEeschema((s) => (s.lib_view.lib_list_width = w));
-        } else {
-          setSymWidth(w);
-          settings.updateEeschema((s) => (s.lib_view.cmp_list_width = w));
-        }
-      };
-      const up = (): void => {
-        window.removeEventListener('mousemove', move);
-        window.removeEventListener('mouseup', up);
-      };
-      window.addEventListener('mousemove', move);
-      window.addEventListener('mouseup', up);
-    };
+  // Both sashes are `ui/Sash`, the shared wxSplitterWindow one; what stays
+  // here is only where each position is persisted.
+  const bodyBox = (): DOMRect | undefined => bodyRef.current?.getBoundingClientRect();
+  const setLibSash = (w: number): void => {
+    setLibWidth(w);
+    settings.updateEeschema((s) => (s.lib_view.lib_list_width = w));
+  };
+  const setSymSash = (w: number): void => {
+    setSymWidth(w);
+    settings.updateEeschema((s) => (s.lib_view.cmp_list_width = w));
+  };
 
   // ----- toolbar controls (unit / body style choices) ----------------------
 
@@ -652,7 +639,13 @@ export function SymbolLibraryBrowser({ onPick, onClose }: Props): JSX.Element {
               ))}
             </div>
           </div>
-          <div className="ze-sash v" onMouseDown={dragSash('lib')} />
+          <Sash
+            edge="right"
+            size={libWidth}
+            min={100}
+            max={(bodyBox()?.width ?? 0) - 240}
+            onResize={setLibSash}
+          />
 
           {/* AUI pane "Symbols" */}
           <div className="ze-lib-viewer-pane" style={{ width: symWidth }}>
@@ -691,7 +684,13 @@ export function SymbolLibraryBrowser({ onPick, onClose }: Props): JSX.Element {
               })}
             </div>
           </div>
-          <div className="ze-sash v" onMouseDown={dragSash('sym')} />
+          <Sash
+            edge="right"
+            size={symWidth}
+            min={100}
+            max={(bodyBox()?.width ?? 0) - 240}
+            onResize={setSymSash}
+          />
 
           {/* AUI pane "DrawFrame" */}
           <div className="ze-lib-viewer-canvas" ref={containerRef}>

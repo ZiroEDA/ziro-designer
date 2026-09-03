@@ -75,6 +75,9 @@ describe('resolveEffectiveNetClass', () => {
       { pattern: 'VCC', netClass: 'Power' },
       { pattern: 'CLK*', netClass: 'Clocks' },
     ],
+    // Netclass resolution never looks at the per-net colour overrides; they
+    // live in the same NET_SETTINGS block and are pcbnew's Nets tab's.
+    netColors: {},
   });
 
   it('resolves unmatched nets to Default', () => {

@@ -9,8 +9,17 @@
  * cannot be reached from qa's tests at all. Named here, it can be.
  */
 
-/** Which edge of the pane the sash sits on. */
-export type DockEdge = 'left' | 'right';
+/**
+ * Which edge of the pane the sash sits on.
+ *
+ * `top` and `bottom` are the same decision turned ninety degrees, for a
+ * wxSplitterWindow split horizontally — APPEARANCE_CONTROLS' Nets tab stacks
+ * its two panels that way (`m_netsTabSplitter`,
+ * appearance_controls_base.cpp:145). One function rather than two, because the
+ * bug the header warns about is the sign, and a second copy is a second sign
+ * to get wrong.
+ */
+export type DockEdge = 'left' | 'right' | 'top' | 'bottom';
 
 /**
  * The pane's new width after the pointer has moved `dx` from where the drag
@@ -29,7 +38,7 @@ export function resizeDock(
   min: number,
   max: number,
 ): number {
-  const sign = edge === 'left' ? -1 : 1;
+  const sign = edge === 'left' || edge === 'top' ? -1 : 1;
   // `max` can fall below `min` on a very narrow window; the pane's own minimum
   // wins, because wxAUI will not shrink a pane past its MinSize to make room.
   return Math.max(min, Math.min(Math.max(min, max), startWidth + sign * dx));

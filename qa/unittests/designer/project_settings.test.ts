@@ -103,6 +103,11 @@ function customSetup(): SchematicSetup {
       },
     ],
     assignments: [{ pattern: '/power/*', netClass: 'Power' }],
+    // `net_settings.net_colors`: a net NAME to `#rrggbb` map, the per-net
+    // overrides pcbnew's Nets tab draws (net_settings.cpp:224-249). eeschema
+    // does not show them, but it owns the same NET_SETTINGS block and has to
+    // carry them across a write or a schematic save would drop the board's.
+    netColors: { '+3V3': '#ee8a00' },
   };
   s.netChains = {
     chains: [{ name: 'CHAIN1', members: ['N1', 'N2'], chainClass: 'CC1', netClass: '', color: '' }],

@@ -65,6 +65,19 @@
 .ze-pgrid {
   /* [px] GetCellBackgroundColour() = #272727 = wxSYS_COLOUR_WINDOW. */
   background: var(--panel-bg);
+  /* A wxPropertyGrid is a view control, so GTK frames it the way it frames a
+     wxListCtrl or a wxTextCtrl - one pixel of --ctl-border, on all four sides.
+     `mainSizer->Add( m_grid, 1, wxEXPAND, 5 )` (properties_panel.cpp:115) has
+     no wxALL, so that 5 is never applied and the grid runs edge to edge inside
+     the pane: [px] pcbnew 1920x1200, Properties pane spanning x 66..365, reads
+     #181818 at x=66 and x=365 on every property row, at y=216 where the grid
+     starts under the 28px caption, and at y=1140 where it ends.
+
+     This border was drawn as `.ze-panel-header`'s `border-bottom` instead - so
+     it appeared once, above the wxStaticText caption rather than around the
+     grid, and the pane had no left, right or bottom edge at all. */
+  box-sizing: border-box;
+  border: 1px solid var(--ctl-border);
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
@@ -81,6 +94,10 @@
   /* [px] GetMarginWidth() = 15. The gutter down the left that the category
      twisty is drawn in; it is painted GetMarginColour(), not the cell colour. */
   --pgrid-margin-width: 15px;
+  /* [data] wxPG_ICON_WIDTH, 9 in propgriddefs.h's __WXGTK__ block: the box
+     wxPropertyGrid hands wxRendererNative for the expander, in both
+     directions. */
+  --pgrid-icon-width: 9px;
   /* wxPG_XBEFORETEXT, the gap between a column's edge and its text.
      propgriddefs.h states it per platform and the __WXGTK__ block says 5;
      a capture agrees, label and value ink both starting 5px into their cell. */
@@ -135,11 +152,15 @@
   content: "";
   position: absolute;
   top: 50%;
-  left: 0;
-  width: 9px;
-  /* [data] wxPG_ICON_WIDTH, 9 in propgriddefs.h's __WXGTK__ block, which is
-     the box wxPropertyGrid gives the expander in both directions. */
-  height: 9px;
+  /* Centred in the margin, not flush against it. `wxRendererNative::
+     DrawTreeItemButton` centres GTK's expander in the rect it is handed, and
+     the rect is the whole 15px gutter - [px] pcbnew's "Basic Properties" row,
+     margin x 67..81, chevron ink x 68..78, i.e. a centre of 73 against the
+     gutter's 74. Ours sat at `left: 0`, which put the point 3px left of that
+     and read as a glyph jammed into the pane's edge. */
+  left: calc((var(--pgrid-margin-width) - var(--pgrid-icon-width)) / 2);
+  width: var(--pgrid-icon-width);
+  height: var(--pgrid-icon-width);
   /* [art] the chevron's own stroke. wxRendererNative::DrawTreeItemButton hands
      GTK's `expander` node, which paints pan-down-symbolic.svg; we cannot call
      it, so this is the glyph re-drawn. The stroke is the icon's, not a number
