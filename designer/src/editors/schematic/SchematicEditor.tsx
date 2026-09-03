@@ -216,6 +216,8 @@ import {
   addItems,
   makeSheet,
   applyNewPowerSymbolType,
+  swapPinsCommand,
+  sharedPinSwapMessage,
   type NewSheetDefaults,
   addSheetPin,
   nextImportableSheetPin,
@@ -6962,7 +6964,22 @@ export function SchematicEditor({
             ),
           ),
         );
-      else if (id === 'openPreferences') setPrefsOpen(true);
+      // `SCH_EDIT_TOOL::SwapPins` (`sch_edit_tool.cpp:1765-1900`). The
+      // preference is checked here too, not only on the menu entry: upstream's
+      // handler opens with the same test (`:1769-1770`), so a hotkey or a
+      // scripted call cannot get past it either.
+      else if (id === 'swapPins') {
+        if (!doc || !es.input.allow_unconstrained_pin_swaps) return;
+        const r = swapPinsCommand(doc, libById, [...selection], project.current.root);
+        if ('cmd' in r) {
+          runCommand(r.cmd);
+          // `if( selection.IsHover() ) RunAction( selectionClear )` — and the
+          // pins have moved, so the ids no longer name what was picked.
+          setSelection(new Set());
+        } else if (r.kind === 'shared') {
+          setInfoBar(sharedPinSwapMessage(r));
+        }
+      } else if (id === 'openPreferences') setPrefsOpen(true);
       else if (id === 'close') onExitToHome();
       // ACTIONS::help — "Open product documentation in a web browser".
       else if (id === 'help')
@@ -7242,6 +7259,19 @@ export function SchematicEditor({
         if (anyLocked) lockItems.push(act('Unlock', 'unlock'));
         lockItems.push(act('Toggle Lock', 'toggleLock'));
         add(250.5, { label: 'Locking', items: lockItems });
+      }
+      // `menu.AddItem( SCH_ACTIONS::swapPins, multiplePinsSelection &&
+      // schEditCondition && SCH_CONDITIONS::Idle && allowPinSwaps, 250 )`
+      // (`sch_selection_tool.cpp:385`). `multiplePinsSelection` is
+      // `MoreThan( 1 ) && OnlyTypes( { SCH_PIN_T } )` (`:281`) — pins and
+      // nothing else — and `allowPinSwaps` is the preference, so the entry is
+      // absent rather than greyed when it is off.
+      if (
+        es.input.allow_unconstrained_pin_swaps &&
+        selection.size > 1 &&
+        [...selection].every((id) => id.includes(':pin'))
+      ) {
+        add(250.1, act('Swap Pins', 'swapPins'));
       }
       add(
         150.4,
