@@ -119,7 +119,6 @@ describe('the rows nothing reads are disabled', () => {
     ['Default font:'],
     ['Show OP voltages'],
     ['Show OP currents'],
-    ['Show pin alternate mode indicator icons'],
     ['Net collision marker width:'],
     ['Highlight netclass colors'],
     ['Color highlight thickness:'],
@@ -140,6 +139,10 @@ describe('the rows nothing reads are disabled', () => {
     // (`:1131`), a symbol's fields (`:2702`), a sheet's fields and pins
     // (`:3102`). Pinned in `sch_selected_children.test.ts`.
     ['Draw selected child items', 'draw_selected_children'],
+    // `drawAltPinModesIcon` beside the pin name, for a pin that declares
+    // alternates (`sch_painter.cpp:1672-1679`). Pinned in
+    // `sch_pin_alt_icons.test.ts`.
+    ['Show pin alternate mode indicator icons', 'show_pin_alt_icons'],
     ['Show hidden pins', 'show_hidden_pins'],
     ['Show ERC errors', 'show_erc_errors'],
     ['Show page limits', 'show_page_limits'],

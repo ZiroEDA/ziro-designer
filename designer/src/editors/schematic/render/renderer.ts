@@ -97,6 +97,8 @@ import {
   simExclusionMarker,
 } from './symbol_markers.js';
 import { dimmedColor } from './render_color.js';
+import { altIconBox } from '@ziroeda/eeschema/src/pin_box.js';
+import { drawAltPinModesIcon } from './pin_alt_icon.js';
 
 /**
  * Which items this render is allowed to draw (`hiddenItems` / `onlyItems`).
@@ -481,6 +483,12 @@ export interface RenderOpts {
    */
   fillSelectedShapes: boolean;
   /**
+   * `m_Appearance.show_pin_alt_icons` (`eeschema_settings.cpp:231-232`),
+   * default TRUE, pushed at the render settings by
+   * `SCH_EDIT_FRAME::eeconfigChanged` (`sch_edit_frame.cpp:2011`).
+   */
+  showPinAltIcons: boolean;
+  /**
    * `m_Selection.draw_selected_children` (`eeschema_settings.cpp:438-439`),
    * default TRUE — the opposite of `fill_shapes` beside it.
    */
@@ -670,6 +678,8 @@ export const DEFAULT_RENDER_OPTS: RenderOpts = {
   // [data] `PARAM<bool>( "selection.fill_shapes", …, false )` — the one of
   // these that upstream defaults OFF.
   fillSelectedShapes: false,
+  // [data] `PARAM<bool>( "appearance.show_pin_alt_icons", …, true )`.
+  showPinAltIcons: true,
   // [data] `PARAM<bool>( "selection.draw_selected_children", …, true )`.
   drawSelectedChildren: true,
   // [data] `PARAM<bool>( "appearance.show_directive_labels", …, true )`.
@@ -1326,6 +1336,7 @@ export function renderSchematic(
         numbersHidden: lib.pinNumbersHidden,
         namesHidden: lib.pinNamesHidden,
         nameOffset: lib.pinNameOffset,
+        showPinAltIcons: opts.showPinAltIcons,
       };
       const symId = refId('symbol', sym.uuid, si);
       let pinIndex = 0;
@@ -3316,6 +3327,12 @@ interface PinDisplay {
   numbersHidden: boolean;
   namesHidden: boolean;
   nameOffset: number;
+  /**
+   * `SCH_RENDER_SETTINGS::m_ShowPinAltIcons`, fed from
+   * `EESCHEMA_SETTINGS::m_Appearance.show_pin_alt_icons`
+   * (`sch_edit_frame.cpp:2011`).
+   */
+  showPinAltIcons?: boolean;
 }
 
 /** Local-space unit vector pointing from a pin's connection point toward the body. */
@@ -3948,6 +3965,39 @@ function drawLibUnit(
     ctx.strokeStyle = dim(brightened ? '#ff00ff' : hiddenGhost ? theme.hidden : theme.pin);
     ctx.lineWidth = g_defaultPen;
     strokePinBody();
+
+    // The alternate-mode indicator, beside the pin NAME.
+    //
+    // `sch_painter.cpp:1672-1679` draws it inside the name's own `if`, so a pin
+    // whose name is hidden gets none, and `getUntransformedAltIconBox` returns
+    // null unless the pin declares alternates (`pin_layout_cache.cpp:621`) —
+    // the glyph means "this pin has other modes", so a pin with none must not
+    // wear one whatever the setting says.
+    //
+    // The box is computed in the pin's own untransformed frame by `altIconBox`,
+    // which the Symbol Editor uses too, and mapped here by the same
+    // `localToWorld` the pin geometry went through. Deriving it from the
+    // already-transformed name run instead would be a second piece of geometry
+    // to keep in step.
+    if (pins.showPinAltIcons === true && !pins.namesHidden) {
+      const box = altIconBox(pin, pins.nameOffset);
+      if (box) {
+        const at = localToWorld(origin, t, {
+          x: (box.minX + box.maxX) / 2,
+          y: (box.minY + box.maxY) / 2,
+        });
+        drawAltPinModesIcon(
+          ctx,
+          at,
+          box.maxX - box.minX,
+          // The call site passes `true` unconditionally (`:1674-1676`).
+          true,
+          geom.dir.y !== 0,
+          0,
+          dim(hiddenGhost ? theme.hidden : theme.pinName),
+        );
+      }
+    }
 
     // Pin name and number, placed by `pinTextRuns` so the halo can place them
     // the same way.
