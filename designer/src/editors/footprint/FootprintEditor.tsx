@@ -1695,6 +1695,11 @@ export function FootprintEditor({
             activeTool={activeTool}
             showGrid={objects.grid && toggles.has('toggleGrid')}
             gridIU={gridIU}
+            // `RULER_ITEM` is built with `frame()->GetUserUnits()`, so the
+            // Units radio group drives its graduations and its readout. The
+            // footprint VIEWER passed this and the editor did not, so the same
+            // canvas measured in mm here whatever the toolbar said.
+            measureUnits={unitLabel}
             onCursorMove={setCursor}
             onScaleChange={setScale}
             onSelect={onSelect}

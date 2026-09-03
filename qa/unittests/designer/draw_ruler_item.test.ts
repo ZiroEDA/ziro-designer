@@ -199,6 +199,52 @@ describe('one ruler, three canvases', () => {
     }
   });
 
+  it('every frame KiCad gives the tool to has a button that arms it', () => {
+    // `measureTool` appears in pcbnew's, the footprint editor's and the
+    // footprint viewer's toolbars and in gerbview's — and nowhere in eeschema
+    // or pl_editor, which is why those two are absent here.
+    //
+    // The id is the ACTION's name, because that is what each canvas arms its
+    // ruler on. The footprint editor called it `measure`: the button lit, the
+    // canvas heard nothing, and the only ruler in that frame was the viewer's.
+    const bars: [string, string][] = [
+      ['editors/pcb/pcbToolbars.ts', 'PCB_RIGHT'],
+      ['editors/footprint/footprintToolbars.ts', 'FP_RIGHT'],
+      ['editors/schematic/display_footprints_toolbars.ts', 'viewer'],
+      ['editors/gerbview/gerberToolbars.ts', 'GBR_LEFT'],
+    ];
+    for (const [rel, what] of bars) {
+      expect(read(rel), `${what} has no measure button`).toMatch(/measureTool|'measure'/);
+    }
+    // …and the three PCB-side ones spell it the action's way.
+    for (const rel of bars.slice(0, 3).map(([r]) => r)) {
+      expect(read(rel), `${rel} still uses a name of its own`).toContain("id: 'measureTool'");
+    }
+  });
+
+  it('one action, one bitmap key — not three', () => {
+    // `ACTIONS::measureTool` is one action with one `BITMAPS::measurement`.
+    // We had `measure`, `measureTool` and `gerbMeasure` in front of it, and
+    // the alias is what let the footprint editor's button drift off the name
+    // its own canvas listens for.
+    const bitmaps = read('ui/toolbar_bitmaps.ts');
+    const keys = [...bitmaps.matchAll(/^ {2}(\w+): 'measurement',/gm)].map((m) => m[1]);
+    expect(keys).toEqual(['measureTool']);
+  });
+
+  it('the ruler is graduated in the frame’s units, in every frame', () => {
+    // `RULER_ITEM` is built with `frame()->GetUserUnits()`. The footprint
+    // viewer passed this and the editor did not, so the same canvas measured
+    // in mm there whatever its Units radio said.
+    for (const rel of [
+      'editors/footprint/FootprintEditor.tsx',
+      'editors/schematic/dialogs/display_footprints_frame.tsx',
+      'editors/gerbview/GerberViewer.tsx',
+    ]) {
+      expect(read(rel), `${rel} does not hand the canvas its units`).toContain('measureUnits=');
+    }
+  });
+
   it('the measure tool wears KiCad’s own cursor in each of them', () => {
     // `PCB_VIEWER_TOOLS::MeasureTool` sets KICURSOR::MEASURE
     // (pcb_viewer_tools.cpp:292), through the one CURSOR_STORE. pcbnew showed
