@@ -51,10 +51,17 @@ export function PanelEeschemaDisplayOptions({ ctx }: { ctx: PrefsContext }): JSX
       </div>
       <div>
         <Group title="Appearance">
-          {/* Dead: nothing reads `appearance.default_font`. Every string in
-              this port is drawn with KiCad's own stroke font or its MSDF
-              atlas, so there is no second face to pick — upstream lists the
-              installed fonts here. */}
+          {/* Dead, and waiting on a feature rather than on the browser.
+              `default_font` is the face every text item with no `(font (face
+              …))` of its own draws in (`sch_painter.cpp:620`, `:652`, `:696`),
+              and this port draws every string with KiCad's stroke font or its
+              MSDF atlas — so choosing a second face would change nothing on
+              screen. The measuring half of that already has its seam
+              (`common/src/font/font_provider.ts`, deliberately with no
+              provider installed, because a face that measures one way and
+              draws another is worse than no outline fonts at all); the drawing
+              half is issue #154, and this list becomes the installed faces
+              when it lands. */}
           <Sel
             label="Default font:"
             value={eeschema.appearance.default_font}
