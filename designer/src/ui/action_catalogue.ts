@@ -1445,7 +1445,6 @@ export const ACTION_CATALOGUE: readonly CatalogueAction[] = [
     name: 'eeschema.InteractiveDrawingLineWireBus.unfoldBus',
     label: 'Unfold from Bus',
     tip: 'Break a wire out of a bus',
-    icon: 'INVALID_BITMAP',
   },
   {
     name: 'eeschema.InteractiveEdit.assignNetclass',
