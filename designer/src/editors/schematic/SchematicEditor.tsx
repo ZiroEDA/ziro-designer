@@ -515,6 +515,7 @@ import { useStatusReadout } from '../../ui/useStatusReadout.js';
 import { useUnsavedGuard } from '../../ui/useUnsavedGuard.js';
 import '../../ui/shell.css';
 import { schSymbolLibraryName } from '@ziroeda/eeschema';
+import { busJunctionIds as busJunctionIdsOf } from '@ziroeda/eeschema/src/connectivity/bus.js';
 import { useModalEscape } from '../../ui/useModalEscape.js';
 import { applyToggle, DEFAULT_TOGGLES } from './toggles.js';
 import {
@@ -3634,6 +3635,15 @@ export function SchematicEditor({
   // Drawing defaults shared by every output (screen, print, plot), derived
   // from Schematic Setup > Formatting the way SCH_RENDER_SETTINGS is seeded
   // from SCHEMATIC_SETTINGS upstream (eeschema_config.cpp).
+  /**
+   * `SetLayer( busLine ? LAYER_BUS_JUNCTION : LAYER_JUNCTION )`
+   * (`connection_graph.cpp:1451-1454`), for the junctions on this sheet.
+   *
+   * Cheap enough to keep current on every document change: one segment index
+   * over the buses, then one lookup per junction.
+   */
+  const busJunctionIds = useMemo(() => (doc ? busJunctionIdsOf(doc) : new Set<string>()), [doc]);
+
   const drawingDefaults = useMemo(
     () => ({
       junctionDiameterIU: junctionDotDiameterIU(setup),
@@ -5556,6 +5566,11 @@ export function SchematicEditor({
       ...drawingDefaults,
       // Wire colour/width/style + junction clamp from the resolved netclasses.
       ...(netOverrides ? { netOverrides } : {}),
+      // Which junction dots the graph put on LAYER_BUS_JUNCTION. Upstream this
+      // is a flag CONNECTION_GRAPH writes onto the item; here it travels with
+      // the other connectivity answers rather than being re-derived by the
+      // painter.
+      busJunctionIds,
       // ${VAR} expansion in labels/text/fields (GetShownText).
       ...(resolveTextVar ? { resolveTextVar } : {}),
       // ${INTERSHEET_REFS} on global labels (LAYER_INTERSHEET_REFS shown).
@@ -5593,6 +5608,7 @@ export function SchematicEditor({
       activeSheet,
       setup,
       drawingDefaults,
+      busJunctionIds,
       netOverrides,
       resolveTextVar,
       intersheetRefs,

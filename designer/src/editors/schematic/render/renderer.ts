@@ -521,6 +521,16 @@ export interface RenderOpts {
    *  diameter (SCHEMATIC_SETTINGS::GetJunctionSize()). A value ≤ 1 means the
    *  user chose "None", no dot is drawn. Unset = DEFAULT_JUNCTION_DIAM. */
   junctionDiameterIU?: number;
+  /**
+   * The junctions the connectivity pass put on LAYER_BUS_JUNCTION, by refId
+   * (`connection_graph.cpp:1451-1454`).
+   *
+   * A junction's layer is decided by the graph, not by the painter, so this
+   * arrives as an answer rather than being worked out here — and an absent set
+   * means "no connectivity has run", which paints every dot on LAYER_JUNCTION,
+   * exactly as an unbuilt graph leaves them.
+   */
+  busJunctionIds?: ReadonlySet<string>;
   /** Dashed-line dash / gap lengths as multiples of the line width
    *  (m_DashedLineDashRatio / m_DashedLineGapRatio; ISO 128-2 defaults 12 / 3). */
   dashLengthRatio?: number;
@@ -1290,7 +1300,8 @@ export function renderSchematic(
     // "None" choice, the junction exists but draws no dot (sch_junction.cpp).
     const d = j.diameter > 0 ? j.diameter : (g_netOverrides?.junctions.get(jid) ?? g_junctionDiam);
     if (d <= 1) return;
-    ctx.fillStyle = hl(jid) ? theme.netHighlight : j.color ? cssColor(j.color) : theme.junction;
+    const layerColour = opts.busJunctionIds?.has(jid) ? theme.busJunction : theme.junction;
+    ctx.fillStyle = hl(jid) ? theme.netHighlight : j.color ? cssColor(j.color) : layerColour;
     ctx.beginPath();
     ctx.arc(j.at.x, j.at.y, d / 2, 0, Math.PI * 2);
     ctx.fill();

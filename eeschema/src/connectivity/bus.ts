@@ -23,6 +23,7 @@
 
 import type { Schematic, Vec2 } from '../types.js';
 import { SegmentIndex } from './segment_index.js';
+import { refId } from '../tools/hittest.js';
 
 const isSuperSubOverbar = (c: string | undefined): boolean => c === '^' || c === '_' || c === '~';
 
@@ -338,4 +339,29 @@ export function busTouchTest(sch: Schematic): (p: Vec2) => boolean {
   if (buses.length === 0) return () => false;
   const index = new SegmentIndex(buses.map((l) => ({ item: l, a: l.start, b: l.end })));
   return (p) => index.any(p);
+}
+
+/**
+ * The junction dots that sit on a bus, by refId — the ones KiCad paints on
+ * LAYER_BUS_JUNCTION rather than LAYER_JUNCTION.
+ *
+ * Upstream this is not a painter decision at all: `CONNECTION_GRAPH` sets the
+ * layer while it builds the graph,
+ *
+ *     else if( connected_item->Type() == SCH_JUNCTION_T )
+ *         connected_item->SetLayer( busLine ? LAYER_BUS_JUNCTION : LAYER_JUNCTION );
+ *     (`connection_graph.cpp:1451-1454`)
+ *
+ * where `busLine` is `screen->GetBus( point )`, a bus whose ENTIRE LENGTH
+ * covers the point — the same test {@link busTouchTest} makes. So this is the
+ * connectivity pass's answer, handed to the painter, and not a second reading
+ * of the geometry by the painter itself.
+ */
+export function busJunctionIds(sch: Schematic): Set<string> {
+  const onBus = busTouchTest(sch);
+  const out = new Set<string>();
+  sch.junctions.forEach((j, i) => {
+    if (onBus(j.at)) out.add(refId('junction', j.uuid, i));
+  });
+  return out;
 }
