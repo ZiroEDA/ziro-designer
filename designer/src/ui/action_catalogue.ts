@@ -58,6 +58,7 @@ export const ACTION_CATALOGUE: readonly CatalogueAction[] = [
   {
     name: 'common.Control.centerSelection',
     label: 'Pan to Center Selected Objects',
+    hidden: true,
   },
   {
     name: 'common.Control.collapseAll',
@@ -154,26 +155,32 @@ export const ACTION_CATALOGUE: readonly CatalogueAction[] = [
   {
     name: 'common.Control.gridFast1',
     label: 'Switch to Fast Grid 1',
+    hidden: true,
   },
   {
     name: 'common.Control.gridFast2',
     label: 'Switch to Fast Grid 2',
+    hidden: true,
   },
   {
     name: 'common.Control.gridFastCycle',
     label: 'Cycle Fast Grid',
+    hidden: true,
   },
   {
     name: 'common.Control.gridNext',
     label: 'Switch to Next Grid',
+    hidden: true,
   },
   {
     name: 'common.Control.gridPrev',
     label: 'Switch to Previous Grid',
+    hidden: true,
   },
   {
     name: 'common.Control.gridResetOrigin',
     label: 'Reset Grid Origin',
+    hidden: true,
   },
   {
     name: 'common.Control.gridSetOrigin',
@@ -212,16 +219,19 @@ export const ACTION_CATALOGUE: readonly CatalogueAction[] = [
     name: 'common.Control.magneticSnapActiveLayer',
     label: 'Snap to Objects on the Active Layer Only',
     tip: 'Enables snapping to objects on the active layer only',
+    hidden: true,
   },
   {
     name: 'common.Control.magneticSnapAllLayers',
     label: 'Snap to Objects on All Layers',
     tip: 'Enables snapping to objects on all visible layers',
+    hidden: true,
   },
   {
     name: 'common.Control.magneticSnapToggle',
     label: 'Toggle Snapping Between Active and All Layers',
     tip: 'Toggles between snapping on all visible layers and only the active area',
+    hidden: true,
   },
   {
     name: 'common.Control.metricUnits',
@@ -272,23 +282,28 @@ export const ACTION_CATALOGUE: readonly CatalogueAction[] = [
   {
     name: 'common.Control.panDown',
     label: 'Pan Down',
+    hidden: true,
   },
   {
     name: 'common.Control.panLeft',
     label: 'Pan Left',
+    hidden: true,
   },
   {
     name: 'common.Control.panRight',
     label: 'Pan Right',
+    hidden: true,
   },
   {
     name: 'common.Control.panUp',
     label: 'Pan Up',
+    hidden: true,
   },
   {
     name: 'common.Control.pinLibrary',
     label: 'Pin Library',
     tip: 'Keep the library at the top of the list',
+    hidden: true,
   },
   {
     name: 'common.Control.plot',
@@ -315,6 +330,7 @@ export const ACTION_CATALOGUE: readonly CatalogueAction[] = [
   {
     name: 'common.Control.resetLocalCoords',
     label: 'Reset Local Coordinates',
+    hidden: true,
   },
   {
     name: 'common.Control.revert',
@@ -465,6 +481,7 @@ export const ACTION_CATALOGUE: readonly CatalogueAction[] = [
     name: 'common.Control.unpinLibrary',
     label: 'Unpin Library',
     tip: 'No longer keep the library at the top of the list',
+    hidden: true,
   },
   {
     name: 'common.Control.updatePcbFromSchematic',
@@ -560,16 +577,19 @@ export const ACTION_CATALOGUE: readonly CatalogueAction[] = [
     name: 'common.Embed.embededFile',
     label: 'Embedded Files',
     tip: 'Manage embedded files',
+    hidden: true,
   },
   {
     name: 'common.Embed.extractFile',
     label: 'Extract File',
     tip: 'Extract an embedded file',
+    hidden: true,
   },
   {
     name: 'common.Embed.removeFile',
     label: 'Remove File',
     tip: 'Remove an embedded file',
+    hidden: true,
   },
   {
     name: 'common.Interactive.addToGroup',
@@ -602,6 +622,7 @@ export const ACTION_CATALOGUE: readonly CatalogueAction[] = [
     name: 'common.Interactive.cycleArcEditMode',
     label: 'Cycle Arc Editing Mode',
     tip: 'Switch to a different method of editing arcs',
+    hidden: true,
   },
   {
     name: 'common.Interactive.delete',
@@ -716,6 +737,7 @@ export const ACTION_CATALOGUE: readonly CatalogueAction[] = [
     name: 'common.Interactive.selectAll',
     label: 'Select All',
     tip: 'Select all items on screen',
+    hidden: true,
   },
   {
     name: 'common.Interactive.selectSetLasso',
@@ -744,6 +766,7 @@ export const ACTION_CATALOGUE: readonly CatalogueAction[] = [
     name: 'common.Interactive.unselectAll',
     label: 'Unselect All',
     tip: 'Unselect all items on screen',
+    hidden: true,
   },
   {
     name: 'common.InteractiveSelection.SelectTable',
@@ -765,6 +788,7 @@ export const ACTION_CATALOGUE: readonly CatalogueAction[] = [
     name: 'common.SuiteControl.donate',
     label: 'Donate',
     tip: 'Open "Donate to KiCad" in a web browser',
+    hidden: true,
   },
   {
     name: 'common.SuiteControl.getInvolved',
@@ -904,6 +928,7 @@ export const ACTION_CATALOGUE: readonly CatalogueAction[] = [
     name: 'eeschema.EditorControl.addVariant',
     label: 'Add Design Variant...',
     tip: 'Add new design variant to the schematic.',
+    hidden: true,
   },
   {
     name: 'eeschema.EditorControl.annotate',
@@ -927,6 +952,7 @@ export const ACTION_CATALOGUE: readonly CatalogueAction[] = [
     name: 'eeschema.EditorControl.clearHighlight',
     label: 'Clear Net Highlighting',
     tip: 'Clear any existing net highlighting',
+    hidden: true,
   },
   {
     name: 'eeschema.EditorControl.drawSheetOnClipboard',
@@ -944,6 +970,7 @@ export const ACTION_CATALOGUE: readonly CatalogueAction[] = [
     name: 'eeschema.EditorControl.editPageNumber',
     label: 'Edit Sheet Page Number...',
     tip: 'Edit the page number of the current or selected sheet',
+    hidden: true,
   },
   {
     name: 'eeschema.EditorControl.editSymbolFields',
@@ -961,6 +988,7 @@ export const ACTION_CATALOGUE: readonly CatalogueAction[] = [
     name: 'eeschema.EditorControl.editVariantDescription',
     label: 'Edit Variant Description...',
     tip: 'Edit the description of an existing design variant.',
+    hidden: true,
   },
   {
     name: 'eeschema.EditorControl.editWithSymbolEditor',
@@ -1042,6 +1070,7 @@ export const ACTION_CATALOGUE: readonly CatalogueAction[] = [
     name: 'eeschema.EditorControl.lineModeNext',
     label: 'Line Mode for Wires and Buses',
     tip: 'Switch to next angle snapping mode',
+    hidden: true,
   },
   {
     name: 'eeschema.EditorControl.lineModeOrthonal',
@@ -1053,26 +1082,31 @@ export const ACTION_CATALOGUE: readonly CatalogueAction[] = [
     name: 'eeschema.EditorControl.markSimExclusions',
     label: 'Mark items excluded from simulation',
     tip: "Draw 'X's over items which have been excluded from simulation",
+    hidden: true,
   },
   {
     name: 'eeschema.EditorControl.nextNetItem',
     label: 'Next Net Item',
     tip: 'Select next item on the current net',
+    hidden: true,
   },
   {
     name: 'eeschema.EditorControl.nextUnit',
     label: 'Next Symbol Unit',
     tip: 'Open the next unit of the symbol',
+    hidden: true,
   },
   {
     name: 'eeschema.EditorControl.previousNetItem',
     label: 'Previous Net Item',
     tip: 'Select previous item on the current net',
+    hidden: true,
   },
   {
     name: 'eeschema.EditorControl.previousUnit',
     label: 'Previous Symbol Unit',
     tip: 'Open the previous unit of the symbol',
+    hidden: true,
   },
   {
     name: 'eeschema.EditorControl.remapSymbols',
@@ -1084,6 +1118,7 @@ export const ACTION_CATALOGUE: readonly CatalogueAction[] = [
     name: 'eeschema.EditorControl.removeVariant',
     label: 'Remove Design Variant...',
     tip: 'Remove an existing design variant from the schematic.',
+    hidden: true,
   },
   {
     name: 'eeschema.EditorControl.rescueSymbols',
@@ -1113,49 +1148,59 @@ export const ACTION_CATALOGUE: readonly CatalogueAction[] = [
     name: 'eeschema.EditorControl.setDNP',
     label: 'Do not Populate',
     tip: 'Set the do not populate attribute',
+    hidden: true,
   },
   {
     name: 'eeschema.EditorControl.setExcludeFromBOM',
     label: 'Exclude from Bill of Materials',
     tip: 'Set the exclude from bill of materials attribute',
+    hidden: true,
   },
   {
     name: 'eeschema.EditorControl.setExcludeFromBoard',
     label: 'Exclude from Board',
     tip: 'Set the exclude from board attribute',
+    hidden: true,
   },
   {
     name: 'eeschema.EditorControl.setExcludeFromPosFiles',
     label: 'Exclude from Position Files',
     tip: 'Set the exclude from position files attribute',
+    hidden: true,
   },
   {
     name: 'eeschema.EditorControl.setExcludeFromSimulation',
     label: 'Exclude from Simulation',
     tip: 'Set the exclude from simulation attribute',
+    hidden: true,
   },
   {
     name: 'eeschema.EditorControl.showDirectiveLabels',
     label: 'Show Directive Labels',
+    hidden: true,
   },
   {
     name: 'eeschema.EditorControl.showERCErrors',
     label: 'Show ERC Errors',
     tip: 'Show markers for electrical rules checker errors',
+    hidden: true,
   },
   {
     name: 'eeschema.EditorControl.showERCExclusions',
     label: 'Show ERC Exclusions',
     tip: 'Show markers for excluded electrical rules checker violations',
+    hidden: true,
   },
   {
     name: 'eeschema.EditorControl.showERCWarnings',
     label: 'Show ERC Warnings',
     tip: 'Show markers for electrical rules checker warnings',
+    hidden: true,
   },
   {
     name: 'eeschema.EditorControl.showHiddenFields',
     label: 'Show Hidden Fields',
+    hidden: true,
   },
   {
     name: 'eeschema.EditorControl.showHiddenPins',
@@ -1166,16 +1211,19 @@ export const ACTION_CATALOGUE: readonly CatalogueAction[] = [
     name: 'eeschema.EditorControl.showNetNavigator',
     label: 'Net Navigator',
     tip: 'Show/hide the net navigator',
+    hidden: true,
   },
   {
     name: 'eeschema.EditorControl.showOperatingPointCurrents',
     label: 'Show OP Currents',
     tip: 'Show operating point current data from simulation',
+    hidden: true,
   },
   {
     name: 'eeschema.EditorControl.showOperatingPointVoltages',
     label: 'Show OP Voltages',
     tip: 'Show operating point voltage data from simulation',
+    hidden: true,
   },
   {
     name: 'eeschema.EditorControl.showPcbNew',
@@ -1193,6 +1241,7 @@ export const ACTION_CATALOGUE: readonly CatalogueAction[] = [
     name: 'eeschema.EditorControl.togglePinAltIcons',
     label: 'Show Pin Alternate Icons',
     tip: 'Show indicator icons for pins with alternate modes',
+    hidden: true,
   },
   {
     name: 'eeschema.EditorTool.showHierarchy',
@@ -1226,27 +1275,33 @@ export const ACTION_CATALOGUE: readonly CatalogueAction[] = [
   {
     name: 'eeschema.Interactive.decrementPrimary',
     label: 'Decrement Primary',
+    hidden: true,
   },
   {
     name: 'eeschema.Interactive.decrementSecondary',
     label: 'Decrement Secondary',
+    hidden: true,
   },
   {
     name: 'eeschema.Interactive.increment',
     label: 'Increment',
+    hidden: true,
   },
   {
     name: 'eeschema.Interactive.incrementPrimary',
     label: 'Increment Primary',
+    hidden: true,
   },
   {
     name: 'eeschema.Interactive.incrementSecondary',
     label: 'Increment Secondary',
+    hidden: true,
   },
   {
     name: 'eeschema.InteractiveDrawing.autoplaceAllSheetPins',
     label: 'Autoplace All Sheet Pins',
     tip: 'Imports and auto places all sheet pins',
+    hidden: true,
   },
   {
     name: 'eeschema.InteractiveDrawing.closeOutline',
@@ -1369,6 +1424,7 @@ export const ACTION_CATALOGUE: readonly CatalogueAction[] = [
     name: 'eeschema.InteractiveDrawing.placeNextSymbolUnit',
     label: 'Place Next Symbol Unit',
     tip: 'Place the next unit of the current symbol that is missing from the schematic',
+    hidden: true,
   },
   {
     name: 'eeschema.InteractiveDrawing.placeNoConnect',
@@ -1445,6 +1501,7 @@ export const ACTION_CATALOGUE: readonly CatalogueAction[] = [
     name: 'eeschema.InteractiveDrawingLineWireBus.unfoldBus',
     label: 'Unfold from Bus',
     tip: 'Break a wire out of a bus',
+    hidden: true,
   },
   {
     name: 'eeschema.InteractiveEdit.assignNetclass',
@@ -1479,6 +1536,7 @@ export const ACTION_CATALOGUE: readonly CatalogueAction[] = [
     name: 'eeschema.InteractiveEdit.cleanupSheetPins',
     label: 'Cleanup Sheet Pins',
     tip: 'Delete unreferenced sheet pins',
+    hidden: true,
   },
   {
     name: 'eeschema.InteractiveEdit.convertStackedPins',
@@ -1517,6 +1575,7 @@ export const ACTION_CATALOGUE: readonly CatalogueAction[] = [
     name: 'eeschema.InteractiveEdit.findNetInInspector',
     label: 'Find in Net Navigator',
     tip: 'Locate the selected net in the net navigator',
+    hidden: true,
   },
   {
     name: 'eeschema.InteractiveEdit.mirrorH',
@@ -1543,6 +1602,7 @@ export const ACTION_CATALOGUE: readonly CatalogueAction[] = [
     name: 'eeschema.InteractiveEdit.repeatDrawItem',
     label: 'Repeat Last Item',
     tip: 'Duplicates the last drawn item',
+    hidden: true,
   },
   {
     name: 'eeschema.InteractiveEdit.rotateCCW',
@@ -1663,6 +1723,7 @@ export const ACTION_CATALOGUE: readonly CatalogueAction[] = [
     name: 'eeschema.InteractiveSelection.SelectNode',
     label: 'Select Node',
     tip: 'Select a connection item under the cursor',
+    hidden: true,
   },
   {
     name: 'eeschema.NavigateTool.back',
@@ -1875,10 +1936,12 @@ export const ACTION_CATALOGUE: readonly CatalogueAction[] = [
     name: 'eeschema.Simulator.toggleDarkModePlots',
     label: 'Dark Mode Plots',
     tip: 'Draw plots with a black background',
+    hidden: true,
   },
   {
     name: 'eeschema.Simulator.toggleDottedSecondary',
     label: 'Dotted Current/Phase',
+    hidden: true,
   },
   {
     name: 'eeschema.Simulator.toggleLegend',
@@ -1888,10 +1951,12 @@ export const ACTION_CATALOGUE: readonly CatalogueAction[] = [
   {
     name: 'eeschema.Simulator.toggleSimConsole',
     label: 'Show Simulation Console Panel',
+    hidden: true,
   },
   {
     name: 'eeschema.Simulator.toggleSimSidePanel',
     label: 'Show Simulation Side Panel',
+    hidden: true,
   },
   {
     name: 'eeschema.SymbolDrawing.drawSymbolLines',
@@ -1985,6 +2050,7 @@ export const ACTION_CATALOGUE: readonly CatalogueAction[] = [
     name: 'eeschema.SymbolLibraryControl.flattenSymbol',
     label: 'Flatten Symbol',
     tip: 'Remove inheritance from symbol',
+    hidden: true,
   },
   {
     name: 'eeschema.SymbolLibraryControl.importSymbol',
@@ -2022,6 +2088,7 @@ export const ACTION_CATALOGUE: readonly CatalogueAction[] = [
     name: 'eeschema.SymbolLibraryControl.saveLibraryAs',
     label: 'Save Library As...',
     tip: 'Save the current library to a new file',
+    hidden: true,
   },
   {
     name: 'eeschema.SymbolLibraryControl.saveSymbolAs',
@@ -2142,10 +2209,12 @@ export const ACTION_CATALOGUE: readonly CatalogueAction[] = [
   {
     name: 'gerbview.Control.layerNext',
     label: 'Next Layer',
+    hidden: true,
   },
   {
     name: 'gerbview.Control.layerPrev',
     label: 'Previous Layer',
+    hidden: true,
   },
   {
     name: 'gerbview.Control.linesDisplayOutlines',
@@ -2289,11 +2358,13 @@ export const ACTION_CATALOGUE: readonly CatalogueAction[] = [
     name: 'pcbnew.Autoplacer.autoplaceOffboard',
     label: 'Place Off-Board Footprints',
     tip: 'Performs automatic placement of components outside board area',
+    hidden: true,
   },
   {
     name: 'pcbnew.Autoplacer.autoplaceSelected',
     label: 'Place Selected Footprints',
     tip: 'Performs automatic placement of selected components',
+    hidden: true,
   },
   {
     name: 'pcbnew.Control.flipBoard',
@@ -2328,140 +2399,174 @@ export const ACTION_CATALOGUE: readonly CatalogueAction[] = [
   {
     name: 'pcbnew.Control.layerInner1',
     label: 'Switch to Inner Layer 1',
+    hidden: true,
   },
   {
     name: 'pcbnew.Control.layerInner10',
     label: 'Switch to Inner Layer 10',
+    hidden: true,
   },
   {
     name: 'pcbnew.Control.layerInner11',
     label: 'Switch to Inner Layer 11',
+    hidden: true,
   },
   {
     name: 'pcbnew.Control.layerInner12',
     label: 'Switch to Inner Layer 12',
+    hidden: true,
   },
   {
     name: 'pcbnew.Control.layerInner13',
     label: 'Switch to Inner Layer 13',
+    hidden: true,
   },
   {
     name: 'pcbnew.Control.layerInner14',
     label: 'Switch to Inner Layer 14',
+    hidden: true,
   },
   {
     name: 'pcbnew.Control.layerInner15',
     label: 'Switch to Inner Layer 15',
+    hidden: true,
   },
   {
     name: 'pcbnew.Control.layerInner16',
     label: 'Switch to Inner Layer 16',
+    hidden: true,
   },
   {
     name: 'pcbnew.Control.layerInner17',
     label: 'Switch to Inner Layer 17',
+    hidden: true,
   },
   {
     name: 'pcbnew.Control.layerInner18',
     label: 'Switch to Inner Layer 18',
+    hidden: true,
   },
   {
     name: 'pcbnew.Control.layerInner19',
     label: 'Switch to Inner Layer 19',
+    hidden: true,
   },
   {
     name: 'pcbnew.Control.layerInner2',
     label: 'Switch to Inner Layer 2',
+    hidden: true,
   },
   {
     name: 'pcbnew.Control.layerInner20',
     label: 'Switch to Inner Layer 20',
+    hidden: true,
   },
   {
     name: 'pcbnew.Control.layerInner21',
     label: 'Switch to Inner Layer 21',
+    hidden: true,
   },
   {
     name: 'pcbnew.Control.layerInner22',
     label: 'Switch to Inner Layer 22',
+    hidden: true,
   },
   {
     name: 'pcbnew.Control.layerInner23',
     label: 'Switch to Inner Layer 23',
+    hidden: true,
   },
   {
     name: 'pcbnew.Control.layerInner24',
     label: 'Switch to Inner Layer 24',
+    hidden: true,
   },
   {
     name: 'pcbnew.Control.layerInner25',
     label: 'Switch to Inner Layer 25',
+    hidden: true,
   },
   {
     name: 'pcbnew.Control.layerInner26',
     label: 'Switch to Inner Layer 26',
+    hidden: true,
   },
   {
     name: 'pcbnew.Control.layerInner27',
     label: 'Switch to Inner Layer 27',
+    hidden: true,
   },
   {
     name: 'pcbnew.Control.layerInner28',
     label: 'Switch to Inner Layer 28',
+    hidden: true,
   },
   {
     name: 'pcbnew.Control.layerInner29',
     label: 'Switch to Inner Layer 29',
+    hidden: true,
   },
   {
     name: 'pcbnew.Control.layerInner3',
     label: 'Switch to Inner Layer 3',
+    hidden: true,
   },
   {
     name: 'pcbnew.Control.layerInner30',
     label: 'Switch to Inner Layer 30',
+    hidden: true,
   },
   {
     name: 'pcbnew.Control.layerInner4',
     label: 'Switch to Inner Layer 4',
+    hidden: true,
   },
   {
     name: 'pcbnew.Control.layerInner5',
     label: 'Switch to Inner Layer 5',
+    hidden: true,
   },
   {
     name: 'pcbnew.Control.layerInner6',
     label: 'Switch to Inner Layer 6',
+    hidden: true,
   },
   {
     name: 'pcbnew.Control.layerInner7',
     label: 'Switch to Inner Layer 7',
+    hidden: true,
   },
   {
     name: 'pcbnew.Control.layerInner8',
     label: 'Switch to Inner Layer 8',
+    hidden: true,
   },
   {
     name: 'pcbnew.Control.layerInner9',
     label: 'Switch to Inner Layer 9',
+    hidden: true,
   },
   {
     name: 'pcbnew.Control.layerNext',
     label: 'Switch to Next Layer',
+    hidden: true,
   },
   {
     name: 'pcbnew.Control.layerPairPresetCycle',
     label: 'Cycle Layer Pair Presets',
     tip: 'Cycle between preset layer pairs',
+    hidden: true,
   },
   {
     name: 'pcbnew.Control.layerPrev',
     label: 'Switch to Previous Layer',
+    hidden: true,
   },
   {
     name: 'pcbnew.Control.layerToggle',
     label: 'Toggle Layer',
     tip: 'Switch between layers in active layer pair',
+    hidden: true,
   },
   {
     name: 'pcbnew.Control.localRatsnestTool',
@@ -2629,6 +2734,7 @@ export const ACTION_CATALOGUE: readonly CatalogueAction[] = [
     name: 'pcbnew.DRETool.drcRuleEditor',
     label: 'DRC Rule Editor',
     tip: 'Open DRC rule editor window',
+    hidden: true,
   },
   {
     name: 'pcbnew.EditorControl.EditFpInFpEditor',
@@ -2667,6 +2773,7 @@ export const ACTION_CATALOGUE: readonly CatalogueAction[] = [
   {
     name: 'pcbnew.EditorControl.clearHighlight',
     label: 'Clear Net Highlighting',
+    hidden: true,
   },
   {
     name: 'pcbnew.EditorControl.collect3DModels',
@@ -2683,6 +2790,7 @@ export const ACTION_CATALOGUE: readonly CatalogueAction[] = [
   {
     name: 'pcbnew.EditorControl.drillResetOrigin',
     label: 'Reset Drill Origin',
+    hidden: true,
   },
   {
     name: 'pcbnew.EditorControl.exportFootprints',
@@ -2786,6 +2894,7 @@ export const ACTION_CATALOGUE: readonly CatalogueAction[] = [
     name: 'pcbnew.EditorControl.lineModeNext',
     label: 'Line Modes',
     tip: 'Switch to next angle snapping mode',
+    hidden: true,
   },
   {
     name: 'pcbnew.EditorControl.lineModeOrthonal',
@@ -2832,6 +2941,7 @@ export const ACTION_CATALOGUE: readonly CatalogueAction[] = [
     name: 'pcbnew.EditorControl.toggleLastNetHighlight',
     label: 'Toggle Last Net Highlight',
     tip: 'Toggle between last two highlighted nets',
+    hidden: true,
   },
   {
     name: 'pcbnew.EditorControl.toggleLock',
@@ -2848,11 +2958,13 @@ export const ACTION_CATALOGUE: readonly CatalogueAction[] = [
     name: 'pcbnew.EditorControl.trackWidthDec',
     label: 'Switch Track Width to Previous',
     tip: 'Change track width to previous pre-defined size',
+    hidden: true,
   },
   {
     name: 'pcbnew.EditorControl.trackWidthInc',
     label: 'Switch Track Width to Next',
     tip: 'Change track width to next pre-defined size',
+    hidden: true,
   },
   {
     name: 'pcbnew.EditorControl.unlock',
@@ -2864,11 +2976,13 @@ export const ACTION_CATALOGUE: readonly CatalogueAction[] = [
     name: 'pcbnew.EditorControl.viaSizeDec',
     label: 'Decrease Via Size',
     tip: 'Change via size to previous pre-defined size',
+    hidden: true,
   },
   {
     name: 'pcbnew.EditorControl.viaSizeInc',
     label: 'Increase Via Size',
     tip: 'Change via size to next pre-defined size',
+    hidden: true,
   },
   {
     name: 'pcbnew.EditorControl.zoneDuplicate',
@@ -2878,6 +2992,7 @@ export const ACTION_CATALOGUE: readonly CatalogueAction[] = [
   {
     name: 'pcbnew.EditorControl.zoneMerge',
     label: 'Merge Zones',
+    hidden: true,
   },
   {
     name: 'pcbnew.EditorControl.zonePriorityLower',
@@ -3079,6 +3194,7 @@ export const ACTION_CATALOGUE: readonly CatalogueAction[] = [
   {
     name: 'pcbnew.InteractiveDrawing.arcPosture',
     label: 'Switch Arc Posture',
+    hidden: true,
   },
   {
     name: 'pcbnew.InteractiveDrawing.barcode',
@@ -3110,6 +3226,7 @@ export const ACTION_CATALOGUE: readonly CatalogueAction[] = [
   {
     name: 'pcbnew.InteractiveDrawing.decWidth',
     label: 'Decrease Line Width',
+    hidden: true,
   },
   {
     name: 'pcbnew.InteractiveDrawing.deleteLastPoint',
@@ -3130,6 +3247,7 @@ export const ACTION_CATALOGUE: readonly CatalogueAction[] = [
   {
     name: 'pcbnew.InteractiveDrawing.incWidth',
     label: 'Increase Line Width',
+    hidden: true,
   },
   {
     name: 'pcbnew.InteractiveDrawing.leader',
@@ -3150,6 +3268,7 @@ export const ACTION_CATALOGUE: readonly CatalogueAction[] = [
     name: 'pcbnew.InteractiveDrawing.placeCharacteristics',
     label: 'Add Board Characteristics',
     tip: 'Add a board characteristics table on a graphic layer',
+    hidden: true,
   },
   {
     name: 'pcbnew.InteractiveDrawing.placeDesignBlock',
@@ -3184,6 +3303,7 @@ export const ACTION_CATALOGUE: readonly CatalogueAction[] = [
     name: 'pcbnew.InteractiveDrawing.placeStackup',
     label: 'Add Stackup Table',
     tip: 'Add a board stackup table on a graphic layer',
+    hidden: true,
   },
   {
     name: 'pcbnew.InteractiveDrawing.radialDimension',
@@ -3261,6 +3381,7 @@ export const ACTION_CATALOGUE: readonly CatalogueAction[] = [
     name: 'pcbnew.InteractiveEdit.changeTrackWidth',
     label: 'Change Track Width',
     tip: 'Updates selected track & via sizes',
+    hidden: true,
   },
   {
     name: 'pcbnew.InteractiveEdit.deleteFull',
@@ -3271,6 +3392,7 @@ export const ACTION_CATALOGUE: readonly CatalogueAction[] = [
     name: 'pcbnew.InteractiveEdit.dogboneCorners',
     label: 'Dogbone Corners...',
     tip: 'Add dogbone corners to selected lines',
+    hidden: true,
   },
   {
     name: 'pcbnew.InteractiveEdit.duplicateIncrementPads',
@@ -3287,6 +3409,7 @@ export const ACTION_CATALOGUE: readonly CatalogueAction[] = [
     name: 'pcbnew.InteractiveEdit.extendLines',
     label: 'Extend Lines to Meet',
     tip: 'Extend lines to meet each other',
+    hidden: true,
   },
   {
     name: 'pcbnew.InteractiveEdit.filletLines',
@@ -3298,6 +3421,7 @@ export const ACTION_CATALOGUE: readonly CatalogueAction[] = [
     name: 'pcbnew.InteractiveEdit.filletTracks',
     label: 'Fillet Tracks',
     tip: 'Adds arcs tangent to the selected straight track segments',
+    hidden: true,
   },
   {
     name: 'pcbnew.InteractiveEdit.flip',
@@ -3374,6 +3498,7 @@ export const ACTION_CATALOGUE: readonly CatalogueAction[] = [
     name: 'pcbnew.InteractiveEdit.simplifyPolygons',
     label: 'Simplify Polygons',
     tip: 'Simplify polygon outlines, removing superfluous points',
+    hidden: true,
   },
   {
     name: 'pcbnew.InteractiveEdit.skip',
@@ -3409,11 +3534,13 @@ export const ACTION_CATALOGUE: readonly CatalogueAction[] = [
     name: 'pcbnew.InteractiveEdit.toggleExcludeFromBOM',
     label: 'Exclude from Bill of Materials',
     tip: 'Toggle the exclude from bill of materials attribute',
+    hidden: true,
   },
   {
     name: 'pcbnew.InteractiveEdit.toggleExcludeFromPosFiles',
     label: 'Exclude from Position Files',
     tip: 'Toggle the exclude from position files attribute',
+    hidden: true,
   },
   {
     name: 'pcbnew.InteractiveMove.copyWithReference',
@@ -3440,6 +3567,7 @@ export const ACTION_CATALOGUE: readonly CatalogueAction[] = [
     name: 'pcbnew.InteractiveRouter.AttemptFinish',
     label: 'Attempt Finish',
     tip: 'Attempts to complete current route to nearest ratsnest end.',
+    hidden: true,
   },
   {
     name: 'pcbnew.InteractiveRouter.BreakTrack',
@@ -3451,16 +3579,19 @@ export const ACTION_CATALOGUE: readonly CatalogueAction[] = [
     name: 'pcbnew.InteractiveRouter.CancelCurrentItem',
     label: 'Cancel Current Item',
     tip: 'Skip current item and route next selected item.',
+    hidden: true,
   },
   {
     name: 'pcbnew.InteractiveRouter.ContinueFromEnd',
     label: 'Route From Other End',
     tip: 'Commits current segments and starts next segment from nearest ratsnest end.',
+    hidden: true,
   },
   {
     name: 'pcbnew.InteractiveRouter.CycleRouterMode',
     label: 'Cycle Router Mode',
     tip: 'Cycle router to the next mode',
+    hidden: true,
   },
   {
     name: 'pcbnew.InteractiveRouter.DiffPair',
@@ -3490,16 +3621,19 @@ export const ACTION_CATALOGUE: readonly CatalogueAction[] = [
     name: 'pcbnew.InteractiveRouter.HighlightMode',
     label: 'Router Highlight Mode',
     tip: 'Switch router to highlight mode',
+    hidden: true,
   },
   {
     name: 'pcbnew.InteractiveRouter.RouteSelected',
     label: 'Route Selected',
     tip: 'Sequentially route selected items from ratsnest anchor.',
+    hidden: true,
   },
   {
     name: 'pcbnew.InteractiveRouter.RouteSelectedFromEnd',
     label: 'Route Selected From Other End',
     tip: 'Sequentially route selected items from other end of ratsnest anchor.',
+    hidden: true,
   },
   {
     name: 'pcbnew.InteractiveRouter.SelectLayerPair',
@@ -3517,6 +3651,7 @@ export const ACTION_CATALOGUE: readonly CatalogueAction[] = [
     name: 'pcbnew.InteractiveRouter.ShoveMode',
     label: 'Router Shove Mode',
     tip: 'Switch router to shove mode',
+    hidden: true,
   },
   {
     name: 'pcbnew.InteractiveRouter.SingleTrack',
@@ -3528,16 +3663,19 @@ export const ACTION_CATALOGUE: readonly CatalogueAction[] = [
     name: 'pcbnew.InteractiveRouter.UndoLastSegment',
     label: 'Undo Last Segment',
     tip: 'Walks the current track back one segment.',
+    hidden: true,
   },
   {
     name: 'pcbnew.InteractiveRouter.WalkaroundMode',
     label: 'Router Walkaround Mode',
     tip: 'Switch router to walkaround mode',
+    hidden: true,
   },
   {
     name: 'pcbnew.InteractiveSelection.DeselectNet',
     label: 'Deselect All Tracks in Net',
     tip: 'Deselects all tracks & vias belonging to the same net.',
+    hidden: true,
   },
   {
     name: 'pcbnew.InteractiveSelection.FilterSelection',
@@ -3549,6 +3687,7 @@ export const ACTION_CATALOGUE: readonly CatalogueAction[] = [
     name: 'pcbnew.InteractiveSelection.GrabUnconnected',
     label: 'Grab Nearest Unconnected Footprints',
     tip: 'Selects and initiates moving the nearest unconnected footprint on each selected net.',
+    hidden: true,
   },
   {
     name: 'pcbnew.InteractiveSelection.SelectConnection',
@@ -3560,6 +3699,7 @@ export const ACTION_CATALOGUE: readonly CatalogueAction[] = [
     name: 'pcbnew.InteractiveSelection.SelectNet',
     label: 'Select All Tracks in Net',
     tip: 'Selects all tracks & vias belonging to the same net.',
+    hidden: true,
   },
   {
     name: 'pcbnew.InteractiveSelection.SelectOnSchematic',
@@ -3583,6 +3723,7 @@ export const ACTION_CATALOGUE: readonly CatalogueAction[] = [
     name: 'pcbnew.InteractiveSelection.SelectUnconnected',
     label: 'Select All Unconnected Footprints',
     tip: 'Selects all unconnected footprints belonging to each selected net.',
+    hidden: true,
   },
   {
     name: 'pcbnew.InteractiveSelection.unrouteSegment',
@@ -3854,16 +3995,19 @@ export const ACTION_CATALOGUE: readonly CatalogueAction[] = [
     name: 'pcbnew.PointEditor.arcKeepCenter',
     label: 'Keep Arc Center, Adjust Radius',
     tip: 'Switch arc editing mode to keep center, adjust radius and endpoints',
+    hidden: true,
   },
   {
     name: 'pcbnew.PointEditor.arcKeepEndpoint',
     label: 'Keep Arc Endpoints or Direction of Starting Point',
     tip: 'Switch arc editing mode to keep endpoints, or to keep direction of the other point',
+    hidden: true,
   },
   {
     name: 'pcbnew.PointEditor.arcKeepRadius',
     label: 'Keep Arc Radius and Center, adjust angle',
     tip: 'Switch arc editing mode to maintaining radius when endpoint are moved',
+    hidden: true,
   },
   {
     name: 'pcbnew.PointEditor.chamferCorner',

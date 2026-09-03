@@ -77,7 +77,18 @@ def extract() -> list[dict]:
                 rec['tip'] = unquote(tip.group(1))
             if icon:
                 rec['icon'] = icon.group(1)
-            if 'TOOLBAR_STATE::HIDDEN' in body:
+            # `TOOL_ACTION`'s constructor (`common/tool/tool_action.cpp:109-111`):
+            #
+            #     // If there is no icon, then the action should be hidden from the toolbar
+            #     if( !m_icon.has_value() )
+            #         m_toolbarState.set( static_cast<size_t>( TOOLBAR_STATE::HIDDEN ) );
+            #
+            # So "no icon" IS hidden — it is not a separate condition, and an
+            # action that declares neither `.Icon()` nor a `ToolbarState` never
+            # reaches the Toolbars page. That one line is why KiCad's list has
+            # no "Add Design Variant...", and why every row it does show has a
+            # picture: an iconless row cannot occur.
+            if 'TOOLBAR_STATE::HIDDEN' in body or not icon:
                 rec['hidden'] = True
             # Keyed by the full action name, which is unique and is what
             # `TOOLBAR_ITEM::m_ActionName` stores (`toolbar_configuration.cpp:54`).
