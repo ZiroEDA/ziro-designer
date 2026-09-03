@@ -20,6 +20,12 @@
 
 import { PL_EDITOR_DEFAULTS, type PlEditorSettings } from '../../prefs/settings.js';
 import type { EdaUnits } from '@ziroeda/common/src/eda_units.js';
+import {
+  switchUnits as sharedSwitchUnits,
+  toggleIdUnits,
+  toggleUnitsId as sharedToggleUnitsId,
+  unitsToggleId,
+} from '../../ui/app_settings_units.js';
 
 /** `EDA_DRAW_FRAME`'s unit choice — one of three, never none and never two. */
 export const UNIT_GROUP = ['unitsMm', 'unitsInches', 'unitsMils'];
@@ -44,45 +50,6 @@ export function applyToggle(prev: ReadonlySet<string>, id: string): Set<string> 
   }
 
   return next;
-}
-
-/**
- * `EDA_DRAW_FRAME::setupUnits`' switch (eda_draw_frame.cpp:1390-1396).
- *
- * Note the `default:` arm sits on `EDA_UNITS::MM` upstream, so a stored value
- * that is not one of the three a frame can display lands on millimetres — even
- * for pl_editor, whose *default* is mils. That is the corrupt-file arm, not
- * the fresh-profile one, and the two are different on purpose.
- */
-export function unitsToggleId(units: EdaUnits): string {
-  switch (units) {
-    case 'in':
-      return 'unitsInches';
-    case 'mils':
-      return 'unitsMils';
-    default:
-      return 'unitsMm';
-  }
-}
-
-/** The inverse, for writing a toolbar choice back to `system.units`. */
-export function toggleIdUnits(id: string): EdaUnits {
-  switch (id) {
-    case 'unitsInches':
-      return 'in';
-    case 'unitsMils':
-      return 'mils';
-    default:
-      return 'mm';
-  }
-}
-
-/**
- * `EDA_UNIT_UTILS::IsImperialUnit` (common/eda_units.cpp) for the three a
- * frame can be in: INCH and MILS are imperial, MM is metric.
- */
-function isImperial(units: EdaUnits): boolean {
-  return units === 'in' || units === 'mils';
 }
 
 /**
@@ -128,10 +95,7 @@ export function togglesFromSettings(cfg: PlEditorSettings): Set<string> {
  * `last_*` fields moves, because the incoming unit belongs to one family.
  */
 export function switchUnits(cfg: PlEditorSettings, id: string): void {
-  const units = toggleIdUnits(id);
-  if (isImperial(units)) cfg.system.last_imperial_units = units;
-  else cfg.system.last_metric_units = units;
-  cfg.system.units = units;
+  sharedSwitchUnits(cfg.system, id);
 }
 
 /**
@@ -139,9 +103,7 @@ export function switchUnits(cfg: PlEditorSettings, id: string): void {
  * families, landing on whichever member of the other family was used last.
  */
 export function toggleUnitsId(cfg: PlEditorSettings): string {
-  return unitsToggleId(
-    isImperial(cfg.system.units) ? cfg.system.last_metric_units : cfg.system.last_imperial_units,
-  );
+  return sharedToggleUnitsId(cfg.system);
 }
 
 /**

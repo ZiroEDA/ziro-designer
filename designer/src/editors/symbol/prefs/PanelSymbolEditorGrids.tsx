@@ -48,7 +48,7 @@ import type { JSX } from 'react';
 import { schIUScale } from '@ziroeda/common';
 import { PanelGridSettings } from '../../../dialogs/prefs/PanelGridSettings.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
-import { defaultUnits, toStatusUnits } from '../../../ui/app_settings_units.js';
+import { toStatusUnits } from '../../../ui/app_settings_units.js';
 
 export function PanelSymbolEditorGrids({ ctx }: { ctx: PrefsContext }): JSX.Element {
   const { symbolEditor, upSym } = ctx;
@@ -57,13 +57,13 @@ export function PanelSymbolEditorGrids({ ctx }: { ctx: PrefsContext }): JSX.Elem
       grid={symbolEditor.window.grid}
       update={(fn) => upSym((s) => fn(s.window.grid))}
       frameType="FRAME_SCH_SYMBOL_EDITOR"
-      // The `UNITS_PROVIDER` is the frame, and the symbol editor's live display
-      // unit is toolbar state rather than a key we model — `system.units` is
-      // one of the `APP_SETTINGS_BASE` keys this port does not carry yet. So
-      // this is the unit the frame OPENS on, which
-      // `common/settings/app_settings.cpp:228-238` puts on the imperial side
-      // for `symbol_editor` by name, asked for rather than written out.
-      units={toStatusUnits(defaultUnits('symbol_editor'))}
+      // The `UNITS_PROVIDER` is the FRAME (`eeschema.cpp:254-268` passes it),
+      // so these rows print in whatever unit the toolbar is on — switch to mm
+      // and every grid row is mm. This read `defaultUnits('symbol_editor')`, a
+      // constant, so the page said mils however the frame was set; the fix was
+      // `system.units`, which every `APP_SETTINGS_BASE` stores and this app's
+      // settings object was missing.
+      units={toStatusUnits(symbolEditor.system.units)}
       // `schIUScale`: SYMBOL_EDIT_FRAME is an SCH_BASE_FRAME, so its rows print
       // at eeschema's precision, not pcbnew's.
       iuScale={schIUScale}

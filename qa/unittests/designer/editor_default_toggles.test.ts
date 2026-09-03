@@ -331,6 +331,7 @@ describe('editors/symbol/SymbolEditor.tsx seeds its toolbar from the settings fi
     //   showHiddenFields      show_hidden_lib_fields        symbol_editor_settings.cpp:87
     //   showElectricalTypes   show_pin_electrical_type      symbol_editor_settings.cpp:81
     //   togglePinAltIcons     show_pin_alt_icons            symbol_editor_settings.cpp:82
+    //   unitsMm/Inches/Mils   system.units                  app_settings.cpp:231
     //   crosshairSmall/Full/45  window.cursor.cross_hair_mode  app_settings.cpp:567
     //
     // The three crosshair ids are ONE setting drawn as a radio group, which is
@@ -345,6 +346,13 @@ describe('editors/symbol/SymbolEditor.tsx seeds its toolbar from the settings fi
     // row would toggle a value that never reaches the file. The set is "ids
     // whose lit state is a stored setting", which is why the name of this test
     // says toolbar and the membership rule does not.
+    //
+    // The three units ids are likewise ONE setting drawn as a group. They were
+    // SESSION state here, seeded from the app's default — which looked right
+    // because `symbol_editor`'s default is mils and the frame always opened
+    // there. `system.units` is a PARAM on every `APP_SETTINGS_BASE` (the
+    // `:228-238` branch picks its default, not whether it exists), so a real
+    // symbol editor remembers the unit and ours reverted on every reload.
     expect([...SYMBOL_SETTING_TOGGLES].sort()).toEqual([
       'crosshair45',
       'crosshairFull',
@@ -355,6 +363,9 @@ describe('editors/symbol/SymbolEditor.tsx seeds its toolbar from the settings fi
       'toggleGrid',
       'toggleGridOverrides',
       'togglePinAltIcons',
+      'unitsInches',
+      'unitsMils',
+      'unitsMm',
     ]);
   });
 

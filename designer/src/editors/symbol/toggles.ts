@@ -15,6 +15,7 @@ import type { LibSymbol } from '@ziroeda/eeschema/src/types.js';
 import { defaultUnitsToggle } from '../../ui/app_settings_units.js';
 import { SYMBOL_EDITOR_DEFAULTS, type SymbolEditorSettings } from '../../prefs/settings.js';
 import { unitCount, unitsLocked } from './edits.js';
+import { switchUnits, toggleIdUnits, unitsToggleId } from '../../ui/app_settings_units.js';
 
 /**
  * The left toolbar's cycling groups — `AppendGroup( TOOLBAR_GROUP_CONFIG(...) )`
@@ -32,20 +33,20 @@ export const RADIO_GROUPS: readonly (readonly string[])[] = [
 
 /**
  * The half of the frame's opening state that is NOT in `symbol_editor.json`:
- * the two AUI panes, and the unit.
+ * the two AUI panes.
  *
- * The units entry is not a literal here either. `system.units`' default is one
- * branch in `APP_SETTINGS_BASE` (`common/settings/app_settings.cpp:228-238`)
- * and `symbol_editor` is on its imperial side, so this frame opens in mils —
- * `grid 50`, not `grid 1.27`. See `ui/app_settings_units.ts`. (`m_AuiPanels.
- * show_properties` IS a stored key upstream; we do not model AUI perspective
- * at all, so the two panes stay session state here.)
+ * The UNIT used to be here, seeded from `defaultUnitsToggle('symbol_editor')`,
+ * and that was wrong in a way the default hid: `system.units` is a PARAM on
+ * every `APP_SETTINGS_BASE` — the `app_settings.cpp:228-238` conditional picks
+ * its DEFAULT, not whether the key exists — so a real symbol editor remembers
+ * the unit you picked. Ours reverted to mils on every reload, and Preferences >
+ * Grids printed mils whatever the toolbar said, because nothing stored the
+ * live answer for it to read.
+ *
+ * (`m_AuiPanels.show_properties` IS a stored key upstream; we do not model AUI
+ * perspective at all, so the two panes stay session state here.)
  */
-export const SESSION_TOGGLES: ReadonlySet<string> = new Set([
-  defaultUnitsToggle('symbol_editor'),
-  'showLibraryTree',
-  'showProperties',
-]);
+export const SESSION_TOGGLES: ReadonlySet<string> = new Set(['showLibraryTree', 'showProperties']);
 
 /**
  * `m_SyncPinEdit` after `SYMBOL_EDIT_FRAME::SetCurSymbol`
@@ -138,6 +139,9 @@ export function symbolTogglesFromSettings(cfg: SymbolEditorSettings): Set<string
   // (`toolbars_symbol_editor.cpp:85`), but it does have a View-menu CHECK
   // (`menubar_symbol_editor.cpp:142`), so the flag belongs in this set.
   flag('togglePinAltIcons', cfg.show_pin_alt_icons);
+  // `EDA_DRAW_FRAME::setupUnits` (`eda_draw_frame.cpp:1378-1397`) — the frame
+  // opens on `system.units`, not on the app's default.
+  out.add(unitsToggleId(cfg.system.units));
   out.add(crosshairToggleId(cfg.window.cursor.crosshair));
   return out;
 }
@@ -203,6 +207,15 @@ export const DEFAULT_TOGGLES: ReadonlySet<string> =
  * too and is left alone.
  */
 export function persistSymbolToggle(cfg: SymbolEditorSettings, id: string): boolean {
+  // `COMMON_TOOLS::SwitchUnits` (`common_tools.cpp:656-668`), which also
+  // remembers the choice as the last of its own family so Ctrl+U can come back
+  // to it. Like the crosshair group below it REPLACES rather than flips, so
+  // re-picking the unit already on writes nothing.
+  if (RADIO_GROUPS[0]?.includes(id)) {
+    if (cfg.system.units === toggleIdUnits(id)) return false;
+    switchUnits(cfg.system, id);
+    return true;
+  }
   if (id === 'toggleGrid') {
     cfg.window.grid.show = !cfg.window.grid.show;
     return true;
@@ -260,6 +273,9 @@ export const SYMBOL_SETTING_TOGGLES: ReadonlySet<string> = new Set([
   'showHiddenFields',
   'showElectricalTypes',
   'togglePinAltIcons',
+  'unitsMm',
+  'unitsInches',
+  'unitsMils',
   'crosshairSmall',
   'crosshairFull',
   'crosshair45',

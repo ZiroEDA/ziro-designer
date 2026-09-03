@@ -68,6 +68,7 @@ import {
   addPinToSymbol,
   allPins,
   createImagePins,
+  repeatPin,
   deleteSymbolItems,
   symbolDeleteOutcome,
   ensureUnitEntry,
@@ -410,6 +411,15 @@ export function SymbolEditor({
   // opens. Either way a change on Editing Options reaches the next NEW pin and
   // does not disturb one the user has already sized.
   const lastPin = useRef<LastPinState>(lastPinDefaults(settings.symbolEditor));
+  /**
+   * `SYMBOL_EDITOR_DRAWING_TOOLS::g_lastPin` — the KIID of the last pin
+   * PLACED, which is a different thing from `lastPin` above: that one is the
+   * `g_LastPin*` family of defaults a new pin inherits, this one is what Insert
+   * repeats. Upstream sets it at `symbol_editor_drawing_tools.cpp:222` after
+   * CreatePin and again at `:878` after each repeat, so holding Insert walks a
+   * row of pins rather than stacking them all on the second position.
+   */
+  const lastPinId = useRef<string | null>(null);
   const controller = useRef<SymbolCanvasController>(null);
   const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
 
@@ -1310,14 +1320,45 @@ export function SymbolEditor({
         }
       }
 
-      let { sym: next } = addPinToSymbol(workSymbol, pin, pinUnit, pinBody);
+      const placed = addPinToSymbol(workSymbol, pin, pinUnit, pinBody);
+      let next = placed.sym;
       if (synced && units > 1) next = createImagePins(next, pin, pinUnit, pinBody);
+      // `g_lastPin = item->m_Uuid` (`symbol_editor_drawing_tools.cpp:222`).
+      lastPinId.current = placed.id;
       commit(next, 'Place Pin');
       // The tool stays active; the next click opens the dialog again (CreatePin).
       setPendingPin(null);
     },
     [workSymbol, pendingPin, curLib, unit, bodyStyle, synced, units, commit],
   );
+
+  /**
+   * `SYMBOL_EDITOR_DRAWING_TOOLS::RepeatDrawItem` (`:854-886`), which is Insert.
+   *
+   * It finds the pin whose uuid is `g_lastPin`, hands it to
+   * `SYMBOL_EDITOR_PIN_TOOL::RepeatPin`, then makes the NEW pin the last one
+   * and selects it — so holding Insert lays out a row.
+   *
+   * Upstream reads `g_lastPin` out of the symbol and does nothing when it is
+   * not there, which is the case after a reload or when the last placed pin has
+   * since been deleted. Same here: no source pin, no repeat, no error.
+   */
+  const onRepeatPin = useCallback(() => {
+    if (!workSymbol || isAlias || !lastPinId.current) return;
+    const cfg = settings.symbolEditor;
+    const r = repeatPin(workSymbol, lastPinId.current, {
+      pinStepMils: cfg.repeat.pin_step,
+      labelDelta: cfg.repeat.label_delta,
+      synchronize: synced && units > 1,
+      unit,
+      bodyStyle,
+    });
+    if (!r) return;
+    lastPinId.current = r.id;
+    commit(r.sym, 'Repeat Pin');
+    // `RunAction( selectionClear )` then `RunAction( selectItem, pin )`.
+    setSelection(new Set([r.id]));
+  }, [workSymbol, isAlias, synced, units, unit, bodyStyle, commit]);
 
   // ----- text / shapes ------------------------------------------------------------------
   const onTextToolClick = useCallback(() => {
@@ -1619,6 +1660,15 @@ export function SymbolEditor({
       // Preferences > Symbol Editor > Grids storing an index nothing acted on.
       // `settings.updateSymbolEditor` — this editor's own file, never
       // eeschema's.
+      // `SCH_ACTIONS::repeatDrawItem`, WXK_INSERT on the `#else` branch of
+      // `sch_actions.cpp:757-759`. It has no menu row and no toolbar button in
+      // the symbol editor — the key is the whole of the UI for it upstream.
+      if (e.key === 'Insert' && plain && !e.shiftKey) {
+        e.preventDefault();
+        onRepeatPin();
+        return;
+      }
+
       if (e.altKey && fastGridActionForKey(e.key) !== null) {
         const action = fastGridActionForKey(e.key);
         e.preventDefault();
