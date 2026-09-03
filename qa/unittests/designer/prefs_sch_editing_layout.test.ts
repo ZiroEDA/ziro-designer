@@ -107,8 +107,6 @@ describe('an unset colour stays unset', () => {
  */
 describe('the rows nothing reads are disabled', () => {
   it.each([
-    // Needs `SCH_EDIT_TOOL::SwapPins`, which needs per-instance library copies.
-    ['Allow unconstrained pin swaps'],
     // Needs the Rescue Symbols tool, which this port does not have.
     ['Never show Rescue Symbols tool'],
   ])('%s is disabled', (label) => {
@@ -132,6 +130,9 @@ describe('the rows nothing reads are disabled', () => {
     ['Sheet border:', 'default_sheet_border_color'],
     ['Sheet background:', 'default_sheet_background_color'],
     ['Power Symbols:', 'new_power_symbols'],
+    // Gates the Swap Pins context-menu entry and the tool behind it. Pinned in
+    // `swap_pins.test.ts` and `sch_swap_pins_wired.test.ts`.
+    ['Allow unconstrained pin swaps', 'allow_unconstrained_pin_swaps'],
   ])('%s is live, and bound to %s', (label, setting) => {
     const p = props(label);
     expect(p, label).toContain(setting);

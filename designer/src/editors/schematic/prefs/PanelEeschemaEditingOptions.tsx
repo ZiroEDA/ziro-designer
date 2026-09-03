@@ -101,8 +101,10 @@ export function PanelEeschemaEditingOptions({ ctx }: { ctx: PrefsContext }): JSX
           <Check
             label="Allow unconstrained pin swaps"
             checked={eeschema.input.allow_unconstrained_pin_swaps}
-            /* Dead: pin swapping is not implemented, so nothing reads this. */
-            disabled
+            /* `allowPinSwaps` gates the context-menu entry
+               (`sch_selection_tool.cpp:385`) AND `SwapPins` itself
+               (`sch_edit_tool.cpp:1769`), so turning it off removes the entry
+               rather than greying it, and nothing else can reach the tool. */
             title="Allows swapping symbol pins' positions. May cause invalid design changes; use with caution."
             onChange={(v) =>
               upE((s) => {

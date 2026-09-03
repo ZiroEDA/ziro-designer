@@ -22,7 +22,9 @@ import { arg, childNamed, numArg, stringField } from '@ziroeda/sexpr/src/query.j
 import { iuToMM, mmToIU } from '@ziroeda/common/src/eda_units.js';
 import { GENERATOR, GENERATOR_VERSION } from '@ziroeda/common/src/generator.js';
 import { fieldIsPrivate, readEffects, readField } from './read-schematic.js';
+import { writeLibSymbolNode } from './write-symbol-lib.js';
 import type {
+  LibSymbol,
   Schematic,
   SchSymbol,
   SchSymbolInstance,
@@ -674,8 +676,37 @@ function patchSymbolInstances(node: SList, sym: SchSymbol): SList {
   }));
 }
 
+/**
+ * `(lib_name "R_1")` — `saveSymbol`'s first line:
+ *
+ *     if( !symbol->UseLibIdLookup() )
+ *         … "lib_name" … symbol->GetSchSymbolLibraryName() …
+ *     (`sch_io_kicad_sexpr.cpp`)
+ *
+ * `UseLibIdLookup()` is "the name is empty", so the token is present exactly
+ * when the placement has a definition of its OWN in `lib_symbols` — one that
+ * has diverged from the library's and is filed under a private name
+ * (`SCH_SCREEN::Append`, `sch_screen.cpp:186-265`).
+ *
+ * It has to be written when the model gained one, not only carried through
+ * from the source: a placement whose definition this session made private —
+ * a pin swap — would otherwise be saved pointing at the shared entry, and
+ * reload with the swap gone.
+ */
+function patchLibName(node: SList, libName: string | undefined): SList {
+  const existing = childNamed(node, 'lib_name');
+  if (!libName) {
+    return existing
+      ? { kind: 'list', items: node.items.filter((it) => !(isList(it) && head(it) === 'lib_name')) }
+      : node;
+  }
+  const child = list(atom('lib_name'), str(libName));
+  return existing ? mapChild(node, 'lib_name', () => child) : insertCanonical(node, child);
+}
+
 function writeSymbol(sym: SchSymbol): SList {
-  let node = patchAt(sym.source, sym.at);
+  let node = patchLibName(sym.source, sym.libName);
+  node = patchAt(node, sym.at);
   node = patchAtAngle(node, sym.angle);
   node = patchMirror(node, sym.mirror);
   node = patchUnit(node, sym.unit);
@@ -1512,17 +1543,23 @@ const ITEM_HEADS = new Set([
 
 /** Rebuild the `(kicad_sch ...)` root list from the current model. */
 /**
- * A `(symbol "NAME" …)` node with its top-level name replaced and everything
- * else left byte-identical. Unchanged when the name already matches, so a file
- * that was already right round-trips untouched.
+ * One entry of `lib_symbols`, re-derived from the model.
+ *
+ * This used to be a rename and nothing else — the source node passed through
+ * byte for byte with `items[1]` replaced — on the reasoning that nothing ever
+ * edits a schematic's cached definition. That stopped being true the moment
+ * something did: a pin swap edits exactly this, and the save wrote the file's
+ * original pins back over it, so the swap survived until the next reload and
+ * then silently vanished.
+ *
+ * `writeLibSymbolNode` is the library writer's own, and it is source-preserving
+ * by construction: an untouched pin or graphic is emitted as its own source
+ * node (`pinNode`, `graphicNode`), and children the model does not represent
+ * pass through. So a definition nothing has edited still round-trips
+ * unchanged, and one that has been edited is finally written.
  */
-function renameLibSymbol(source: SNode, libId: string): SNode {
-  if (!isList(source)) return source;
-  // The name is a quoted string, not a bare atom; both are accepted so an
-  // unquoted one is still renamed rather than silently passed through.
-  const name = source.items[1];
-  if (name === undefined || name.kind === 'list' || name.value === libId) return source;
-  return { kind: 'list', items: [source.items[0]!, str(libId), ...source.items.slice(2)] };
+function renameLibSymbol(sym: LibSymbol): SNode {
+  return writeLibSymbolNode(sym);
 }
 
 export function writeSchematic(sch: Schematic): SList {
@@ -1562,9 +1599,7 @@ export function writeSchematic(sch: Schematic): SList {
   // SCH_SCREEN::m_libSymbols), which is the full LIB_ID. A real file reads
   // `(symbol "complex_hierarchy:+12V" (symbol "+12V_0_1" …))`: only the
   // top-level name carries the nickname, the unit sub-symbols keep the stem.
-  out.push(
-    list(atom('lib_symbols'), ...sch.libSymbols.map((l) => renameLibSymbol(l.source, l.libId))),
-  );
+  out.push(list(atom('lib_symbols'), ...sch.libSymbols.map(renameLibSymbol)));
 
   // KiCad sorts the screen's items into a multiset keyed on (type ordinal,
   // uuid) before writing — "Enforce item ordering" in

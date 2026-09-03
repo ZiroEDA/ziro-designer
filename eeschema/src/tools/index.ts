@@ -26,6 +26,7 @@ export * from './junction_helpers.js';
 export * from './drag_net_collision.js';
 export * from './sch_sheet_drop.js';
 export * from './new_object_defaults.js';
+export * from './swap_pins.js';
 export * from './sch_collectors.js';
 export * from './sch_get_node.js';
 export * from './sch_properties_panel.js';
