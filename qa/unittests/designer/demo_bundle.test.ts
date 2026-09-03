@@ -12,7 +12,7 @@
  * which is the whole class of bug the bundle exists to remove.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { type DemoMeta, fetchDemoExtras, openDemo } from '@ziroeda/designer/src/home/demos.js';
+import { type DemoMeta, openDemo } from '@ziroeda/designer/src/home/demos.js';
 import { zipArchive } from '@ziroeda/designer/src/home/project_archiver.js';
 
 const enc = new TextEncoder();
@@ -106,9 +106,17 @@ describe('the bundle is an optimisation, not a format', () => {
     const files = await openDemo(DEMO);
 
     expect(seen.bundleHits).toBe(1);
-    // The old path, which fetches only what is needed to open the project.
-    expect(seen.fileHits.sort()).toEqual(['widget.kicad_pro', 'widget.kicad_sch']);
+    // Every file, including the STEP body and the PDF. The fallback used to
+    // hold those back; a demo arrives whole now whichever path delivers it.
+    expect(seen.fileHits.sort()).toEqual([
+      'doc/sheet.pdf',
+      'lib/part.step',
+      'widget.kicad_pro',
+      'widget.kicad_sch',
+    ]);
     expect(files.map((f) => f.name).sort()).toEqual([
+      'widget/doc/sheet.pdf',
+      'widget/lib/part.step',
       'widget/widget.kicad_pro',
       'widget/widget.kicad_sch',
     ]);
@@ -120,7 +128,7 @@ describe('the bundle is an optimisation, not a format', () => {
     const files = await openDemo(DEMO);
 
     expect(seen.fileHits.length).toBeGreaterThan(0);
-    expect(files.length).toBe(2);
+    expect(files.length).toBe(4);
   });
 
   it('does not look for a bundle when the manifest declares none', async () => {
@@ -133,35 +141,18 @@ describe('the bundle is an optimisation, not a format', () => {
   });
 });
 
-describe('keeping a demo does not re-download what it already has', () => {
-  it('fetches no extras when the bundle delivered them', async () => {
-    const seen = stubFetch(bundleBytes());
+describe('a demo arrives whole', () => {
+  it('delivers the 3D bodies and the datasheet with everything else', async () => {
+    stubFetch(await bundleBytes());
+
     const files = await openDemo(DEMO);
 
-    const extras = await fetchDemoExtras(
-      DEMO,
-      files.map((f) => f.name),
-    );
-
-    expect(extras).toEqual([]);
-    // 43 MB of STEP in the real CM5 demo; here, simply nothing.
-    expect(seen.fileHits).toEqual([]);
-  });
-
-  it('still fetches extras for a demo that arrived file-by-file', async () => {
-    const seen = stubFetch(null);
-    const files = await openDemo(DEMO);
-
-    const extras = await fetchDemoExtras(
-      DEMO,
-      files.map((f) => f.name),
-    );
-
-    expect(extras.map((f) => f.name).sort()).toEqual([
-      'widget/doc/sheet.pdf',
-      'widget/lib/part.step',
-    ]);
-    expect(seen.fileHits).toContain('lib/part.step');
+    // These two are what the old path deferred. They are in the project now,
+    // which is also what puts the .pdf in the project tree: KiCad's
+    // s_allowedExtensionsToList has `.pdf` (project_tree_pane.cpp:266), and a
+    // file that was never fetched could not be listed.
+    expect(files.map((f) => f.name)).toContain('widget/lib/part.step');
+    expect(files.map((f) => f.name)).toContain('widget/doc/sheet.pdf');
   });
 });
 

@@ -9,6 +9,15 @@
  * VITE_DEMOS_URL points at it (Cloudflare R2, same pattern as the 3D model
  * library; build the upload tree with tools/demos/build.mjs). Opening a demo
  * fetches its files verbatim (no renaming, a demo opens as itself).
+ *
+ * **A demo arrives whole.** It used to hold back .step/.stp/.wrl/.glb/.pdf/.bin
+ * - 40.7 MB of the CM5 demo's 46 - and fetch them later, because 89 separate
+ * requests made anything else unaffordable. The bundle removed the reason:
+ * the whole project is one object now, so there is nothing to defer and no
+ * second fetch to stall the user mid-edit. It also puts those files in the
+ * project tree, where KiCad has them all along - `s_allowedExtensionsToList`
+ * lists `.pdf` (project_tree_pane.cpp:266), and a deferred file was not in the
+ * file list for the tree to show.
  */
 import type { PickedHomeFile } from './files.js';
 import { DEMOS_HOST } from '../libraryHosts.js';
@@ -153,18 +162,6 @@ async function fetchDemoBundle(
   }
 }
 
-/**
- * Files a demo carries that nothing needs in order to *open* it.
- *
- * 3D models dominate: the CM5 Minima demo is 46 MB, of which 40.7 MB is STEP
- * bodies and a datasheet PDF, against 5 MB of schematic, board and footprints.
- * None of it is read to show a schematic or a board, only to render the 3D view
- * or to open the document from the project tree, so waiting for it before the
- * editor appears is 89% of the wait for nothing.
- */
-export const isDeferrableDemoFile = (rel: string): boolean =>
-  /\.(step|stp|wrl|glb|pdf|bin)$/i.test(rel);
-
 /** Run `work` over `items`, at most `limit` in flight. */
 async function mapLimit<T, R>(
   items: readonly T[],
@@ -229,31 +226,5 @@ export async function openDemo(
     const bundled = await fetchDemoBundle(d, onProgress);
     if (bundled) return bundled;
   }
-  return fetchDemoFiles(
-    d,
-    d.files.filter((rel) => !isDeferrableDemoFile(rel)),
-    onProgress,
-  );
-}
-
-/**
- * The rest of a demo's files, fetched after it is already on screen.
- *
- * The project is still expected to be complete: it lands in Recent, it syncs,
- * and its 3D view has to work. So these arrive too, just not in the way of the
- * user seeing their board. Returns an empty list when there are none.
- */
-export async function fetchDemoExtras(
-  d: DemoMeta,
-  have: readonly string[] = [],
-): Promise<PickedHomeFile[]> {
-  // `have` is what the open already produced. A bundled demo arrives complete,
-  // so every deferrable file is already present and this is empty — without
-  // the check, keeping a bundled demo would re-download its 3D models one by
-  // one, the exact traffic the bundle exists to remove.
-  const present = new Set(have);
-  const rels = d.files.filter(
-    (rel) => isDeferrableDemoFile(rel) && !present.has(`${d.base}/${rel}`),
-  );
-  return rels.length === 0 ? [] : fetchDemoFiles(d, rels);
+  return fetchDemoFiles(d, d.files, onProgress);
 }

@@ -41,7 +41,7 @@ import {
   listUserTemplates,
   userTemplateFiles,
 } from './user_templates.js';
-import { demoAt, fetchDemoExtras, loadDemos, openDemo, type DemoMeta } from './demos.js';
+import { demoAt, loadDemos, openDemo, type DemoMeta } from './demos.js';
 import '../ui/shell.css';
 import type { PickedHomeFile } from './files.js';
 import {

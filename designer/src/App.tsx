@@ -21,7 +21,7 @@ import { recoverySnapshotFrom } from './home/recovery_source.js';
 import { formatTitle, useDocumentTitle } from './ui/useDocumentTitle.js';
 import { pushProject } from './cloud/sync.js';
 import { installSettingsSync } from './cloud/settingsSync.js';
-import { fetchDemoExtras, type DemoMeta } from './home/demos.js';
+import type { DemoMeta } from './home/demos.js';
 import { useAuth } from './auth/AuthProvider.js';
 import {
   reportCloudFailed,
@@ -858,18 +858,10 @@ export function App(): JSX.Element {
     if (!name) return;
     void (async () => {
       try {
-        // Complete it first, for a demo that arrived file-by-file: its 3D
-        // bodies and datasheets were skipped on open and are wanted now, since
-        // a copy the user keeps should be the whole demo rather than the part
-        // needed to draw a schematic. A BUNDLED demo already has all of them,
-        // and passing what we hold is what stops this re-downloading them.
-        const extras = demoSource
-          ? await fetchDemoExtras(
-              demoSource,
-              cur.map((f) => f.name),
-            )
-          : [];
-        const files = [...cur, ...extras]
+        // Nothing to complete: a demo arrives whole now, so what is open IS
+        // the whole demo. This used to fetch the 3D bodies and datasheets that
+        // the open had skipped.
+        const files = [...cur]
           .filter((f) => (f.bytes && f.bytes.length > 0) || f.text.length > 0)
           .map((f) => ({ name: f.name, bytes: f.bytes ?? enc.encode(f.text) }));
         await saveProject(name, files);
