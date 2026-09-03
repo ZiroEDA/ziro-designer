@@ -480,7 +480,18 @@ function resizeSheet(doc: Schematic, index: number, h: EditHandle, pos: Vec2): S
 // ----- handles and drags per item kind ---------------------------------------
 
 /** The handles a graphic shape carries, by kind. */
-function graphicHandles(g: LibGraphic): EditHandle[] {
+/**
+ * The handles a shape carries, independent of which document holds it.
+ *
+ * This is upstream's `POINT_EDIT_BEHAVIOR` layer — `MakePoints` on the shared
+ * classes in `common/tool/point_editor_behavior.cpp`, which know a shape and
+ * nothing about the frame. `SCH_POINT_EDITOR` is ONE tool registered by BOTH
+ * `SCH_EDIT_FRAME` (`sch_edit_frame.cpp:705`) and `SYMBOL_EDIT_FRAME`
+ * (`symbol_edit_frame.cpp:431`), so a rectangle gets the same eight handles in
+ * either editor. Exported for the symbol editor to use directly, rather than
+ * copied there: a second implementation is how the two would drift.
+ */
+export function graphicHandles(g: LibGraphic): EditHandle[] {
   switch (g.kind) {
     case 'rectangle':
       return rectHandles(g.start, g.end, true);
@@ -618,7 +629,16 @@ function dragArc(
   }
 }
 
-function dragGraphic(g: LibGraphic, h: EditHandle, pos: Vec2, arcMode: ArcEditMode): LibGraphic {
+/**
+ * The shape reshaped by dragging one of its handles — `UpdateItem` on the same
+ * shared behaviours, and the other half of what both frames share.
+ */
+export function dragGraphic(
+  g: LibGraphic,
+  h: EditHandle,
+  pos: Vec2,
+  arcMode: ArcEditMode,
+): LibGraphic {
   switch (g.kind) {
     case 'arc': {
       const moved = dragArc(g, h, pos, arcMode);
@@ -901,6 +921,11 @@ export function editHandles(doc: Schematic, t: PointEditTarget): EditHandle[] {
 export function indicatorLines(doc: Schematic, t: PointEditTarget): [Vec2, Vec2][] {
   if (t.kind !== 'graphic') return [];
   const g = doc.graphics[t.index];
+  return g ? graphicIndicatorLines(g) : [];
+}
+
+/** The shape-level half of the above, for the other frame that runs this tool. */
+export function graphicIndicatorLines(g: LibGraphic | undefined): [Vec2, Vec2][] {
   if (g?.kind === 'bezier' && g.points.length >= 4) {
     const [start, c1, c2, end] = g.points as [Vec2, Vec2, Vec2, Vec2];
     return [
@@ -1098,4 +1123,114 @@ export function reshapeCommand(label: string, after: Schematic): EditCommand {
     },
     invert: (before: Schematic) => reshapeCommand(label, before),
   };
+}
+
+// ----- the symbol editor's arm of this tool ----------------------------------
+//
+// `SCH_POINT_EDITOR` is one class registered by both `SCH_EDIT_FRAME`
+// (`sch_edit_frame.cpp:705`) and `SYMBOL_EDIT_FRAME` (`symbol_edit_frame.cpp:431`),
+// and the symbol-only behaviour lives INSIDE it behind a frame check:
+//
+//     // This only make sense in the symbol editor
+//     if( !m_frame.IsType( FRAME_SCH_SYMBOL_EDITOR ) )
+//         return;
+//     // And only if the setting is enabled
+//     if( !editor.GetSettings()->m_dragPinsAlongWithEdges )
+//         return;
+//     (`sch_point_editor.cpp:641-654`)
+//
+// So it belongs here rather than in a symbol-editor module: same tool, one
+// branch. Keeping it beside `dragGraphic` is also what stops the two going out
+// of step, since the move vector it needs is the one that reshaped the rect.
+
+/** A point that a pin's root may sit on. */
+export interface PinRootLike {
+  readonly at: Vec2;
+  readonly angle: number;
+  readonly length: number;
+}
+
+/**
+ * `RECTANGLE_POINT_EDIT_BEHAVIOR::UpdateItem`'s `oldSegs` / `moveVecs`
+ * (`sch_point_editor.cpp:603-627`) — which edge of the old rectangle was
+ * dragged, and by how much.
+ *
+ * Null for anything but the four EDGE handles. Corner drags are excluded on
+ * purpose and upstream says why (`:583-586`):
+ *
+ *     // Corner drags don't update pins. Not only is it an escape hatch to avoid
+ *     // moving pins, it also avoids tricky problems when the pins "fall off"
+ *     // the ends of one of the two segments and get either left behind or
+ *     // "swept up" into the corner.
+ *
+ * The centre handle is excluded too: moving the whole rectangle is `m_rect.Move`
+ * and produces no `oldSegs` at all, so the pins stay where they are.
+ */
+export function draggedRectEdge(
+  before: { start: Vec2; end: Vec2 },
+  after: { start: Vec2; end: Vec2 },
+  h: EditHandle,
+): { seg: [Vec2, Vec2]; move: Vec2 } | null {
+  if (h.kind !== 'line') return null;
+  const c = cornersOf(before.start, before.end);
+  const a = cornersOf(after.start, after.end);
+  switch (h.index) {
+    case RECT_TOP:
+      return { seg: [c.topLeft, c.topRight], move: { x: 0, y: a.topLeft.y - c.topLeft.y } };
+    case RECT_LEFT:
+      return { seg: [c.botLeft, c.topLeft], move: { x: a.topLeft.x - c.topLeft.x, y: 0 } };
+    case RECT_BOT:
+      return { seg: [c.botRight, c.botLeft], move: { x: 0, y: a.botRight.y - c.botRight.y } };
+    case RECT_RIGHT:
+      return { seg: [c.topRight, c.botRight], move: { x: a.botRight.x - c.botRight.x, y: 0 } };
+    default:
+      return null;
+  }
+}
+
+/**
+ * `SCH_PIN::GetPinRoot` — the BODY end of a pin, which is the end that sits on
+ * an outline, not the connection point.
+ */
+export function pinRoot(pin: PinRootLike): Vec2 {
+  switch (((pin.angle % 360) + 360) % 360) {
+    case 180:
+      return { x: pin.at.x - pin.length, y: pin.at.y };
+    case 90:
+      return { x: pin.at.x, y: pin.at.y - pin.length };
+    case 270:
+      return { x: pin.at.x, y: pin.at.y + pin.length };
+    default:
+      return { x: pin.at.x + pin.length, y: pin.at.y };
+  }
+}
+
+/**
+ * `getPinsOnSeg( …, aIncludeEnds = false )` (`sch_point_editor.cpp:663-684`):
+ * the pin's ROOT must lie on the segment and NOT on either endpoint.
+ *
+ * Excluding the ends is what keeps a pin at a corner from being dragged by both
+ * of the edges that meet there, and it is the reason a pin sitting exactly on a
+ * rectangle's corner stays put.
+ */
+export function pinRootOnSeg(root: Vec2, seg: readonly [Vec2, Vec2]): boolean {
+  const [a, b] = seg;
+  // `aSeg.Contains( pinRootPos )` — INCLUSIVE, as `SEG::Contains` is. The
+  // endpoint rejection below is the separate `aIncludeEnds` test, kept separate
+  // exactly as upstream keeps it: collapsing the two into one strict comparison
+  // gives the same answer today and leaves nothing to flip if a caller ever
+  // wants the inclusive form.
+  const between = (v: number, lo: number, hi: number): boolean =>
+    v >= Math.min(lo, hi) && v <= Math.max(lo, hi);
+  const contains =
+    a.x === b.x
+      ? root.x === a.x && between(root.y, a.y, b.y)
+      : a.y === b.y
+        ? root.y === a.y && between(root.x, a.x, b.x)
+        : false;
+  if (!contains) return false;
+  // `if( aIncludeEnds || ( pinRootPos != aSeg.A && pinRootPos != aSeg.B ) )`
+  if (root.x === a.x && root.y === a.y) return false;
+  if (root.x === b.x && root.y === b.y) return false;
+  return true;
 }

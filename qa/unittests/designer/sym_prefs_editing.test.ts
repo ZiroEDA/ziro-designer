@@ -140,7 +140,7 @@ describe('the frame reads the five live fields', () => {
 
 // ------------------------------------------------------- the three without readers
 
-describe('the one control with no reader is drawn disabled', () => {
+describe('every control on the page reads', () => {
   /**
    * One control's props, from its `label=` prop to the end of that element.
    *
@@ -155,22 +155,27 @@ describe('the one control with no reader is drawn disabled', () => {
     return src.slice(at, src.indexOf('/>', at));
   };
 
-  it('Keep pins attached when dragging edges', () => {
-    expect(arm('Keep pins attached when dragging edges')).toContain('disabled');
-  });
-
-  it('and the other seven are NOT disabled, so this cannot pass by accident', () => {
+  it('none of the eight is disabled', () => {
     for (const label of [
       'Default line width:',
       'Default text size:',
       'Default pin length:',
       'Default pin number size:',
       'Default pin name size:',
-      // The two Repeated Items rows came alive with Insert.
+      // Live with Insert (`SYMBOL_EDITOR_PIN_TOOL::RepeatPin`).
       'Pitch of repeated pins:',
       'Label increment:',
+      // Live with the point editor (`SCH_POINT_EDITOR::dragPinsOnEdge`).
+      'Keep pins attached when dragging edges',
     ])
       expect(arm(label), label).not.toContain('disabled');
+  });
+
+  it('the page really does draw eight controls, so the loop is not vacuous', () => {
+    // A label list that silently shrank would make the check above pass by
+    // testing less, which is the failure mode of a per-label loop.
+    const src = read(PAGE);
+    expect((src.match(/label="/g) ?? []).length).toBeGreaterThanOrEqual(8);
   });
 
   it('the Repeated Items pair really is read now', () => {
@@ -181,14 +186,15 @@ describe('the one control with no reader is drawn disabled', () => {
     expect(read('editors/symbol/SymbolEditor.tsx')).toContain('cfg.repeat.label_delta');
   });
 
-  it('and the one remaining reader really is absent, which is what its greying rests on', () => {
-    // `drag_pins_along_with_edges` is `SCH_POINT_EDITOR`'s alone
-    // (`sch_point_editor.cpp:653`), and this editor has no point editor at all
-    // — no edit points, no edge lines, nothing to drag but a whole item. When
-    // one lands, this fails and the control comes alive.
-    const symbolDir = ['SymbolEditor.tsx', 'SymbolCanvas.tsx', 'edits.ts', 'symbolToolbars.ts'];
-    for (const f of symbolDir)
-      expect(read(`editors/symbol/${f}`), f).not.toContain('drag_pins_along_with_edges');
+  it('the last one is read by the canvas, through the shared point editor', () => {
+    // `drag_pins_along_with_edges` is `SCH_POINT_EDITOR::dragPinsOnEdge`'s
+    // (`sch_point_editor.cpp:652-653`), and that tool is ONE class registered
+    // by both frames — so the symbol canvas reads the setting and the geometry
+    // comes from the shared module rather than a symbol-side copy.
+    expect(read('editors/symbol/SymbolCanvas.tsx')).toContain('symCfg.drag_pins_along_with_edges');
+    expect(read('editors/symbol/edits.ts')).toContain(
+      "from '@ziroeda/eeschema/src/tools/point_editor.js'",
+    );
   });
 });
 
