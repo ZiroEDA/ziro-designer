@@ -331,6 +331,18 @@ export function App(): JSX.Element {
     parts: readonly string[];
     nonce: number;
   } | null>(null);
+  // The same channel pointed the other way: the BOARD's selection, arriving at
+  // the schematic. `PCB_EDIT_FRAME::SendSelectItemsToSch` sends it whenever the
+  // board's selection settles, and the schematic applies it subject to
+  // `eeschema.cross_probing` — which is why that group on Preferences >
+  // Schematic Editor > Display Options was greyed: nothing arrived for it to
+  // govern.
+  const [schSyncSelection, setSchSyncSelection] = useState<{
+    parts: readonly string[];
+    nonce: number;
+  } | null>(null);
+  // ...and the board's highlighted net, arriving at the schematic as `$NET:`.
+  const [schCrossProbeNet, setSchCrossProbeNet] = useState<string | null>(null);
   const [schMounted, setSchMounted] = useState(false);
   const [pcbMounted, setPcbMounted] = useState(false);
   const [symMounted, setSymMounted] = useState(false);
@@ -1180,6 +1192,8 @@ export function App(): JSX.Element {
               readOnlyNotice={demoNotice}
               readOnly={!!demoProject}
               onCrossProbeNet={setCrossProbeNet}
+              syncSelectionFromPcb={schSyncSelection}
+              crossProbeNetFromPcb={schCrossProbeNet}
               onSelectOnPcb={selectOnPcb}
             />
           </Suspense>
@@ -1211,6 +1225,8 @@ export function App(): JSX.Element {
               onOutputFile={onOutputFile}
               crossProbeNet={crossProbeNet}
               syncSelection={pcbSyncSelection}
+              onSyncSelectionToSch={setSchSyncSelection}
+              onCrossProbeNetToSch={setSchCrossProbeNet}
               updateFromSchematic={updatePcbNonce}
               readOnlyNotice={demoNotice}
               readOnly={!!demoProject}

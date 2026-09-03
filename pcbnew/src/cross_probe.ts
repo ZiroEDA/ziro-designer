@@ -199,14 +199,27 @@ export function crossProbeViewChange(
   bbox: { minX: number; minY: number; maxX: number; maxY: number } | null,
   view: CrossProbeView,
   canvas: { width: number; height: number },
+  /**
+   * The frame's own `ZoomFitCrossProbeBBox`. Upstream keeps TWO of these — the
+   * DECISION below is identical in both frames, but the LUT they interpolate is
+   * not (`sch_selection_tool.cpp:3391-3397` against pcbnew's), so the table is
+   * the caller's and the nesting is shared.
+   */
+  zoomScale: (
+    bbox: { minX: number; minY: number; maxX: number; maxY: number },
+    screen: { x: number; y: number },
+    scale: number,
+  ) => number | null = crossProbeZoomScale,
 ): CrossProbeView | null {
   // `bbox.GetWidth() != 0 && bbox.GetHeight() != 0`.
   if (!bbox || bbox.maxX <= bbox.minX || bbox.maxY <= bbox.minY) return null;
   if (!cfg.center_on_items) return null;
 
   const scale = cfg.zoom_to_fit
-    ? (crossProbeZoomScale(
+    ? (zoomScale(
         bbox,
+        // `GetViewport().GetSize()` is the visible rect in WORLD units, not
+        // pixels — the ratio it feeds is world-over-world.
         { x: canvas.width / view.scale, y: canvas.height / view.scale },
         view.scale,
       ) ?? view.scale)
@@ -288,4 +301,34 @@ export function crossProbeHighlightNet(
   if (!netName) return 0;
   for (const [code, name] of board.nets) if (name === netName) return code;
   return 0;
+}
+
+/**
+ * The `$SELECT:` parts a board selection sends TO the schematic —
+ * `PCB_EDIT_FRAME::collectItemsForSyncParts` (`pcbnew/cross-probing.cpp:
+ * 305-345`), the mirror of eeschema's `syncSelectionParts`.
+ *
+ *     F<reference>          a footprint
+ *     P<reference>/<pad>    a pad, matched down to the pin on the other side
+ *
+ * There is no `S` here: a board has no sheets to name. Upstream also walks
+ * `PCB_GROUP_T` into its members; this port has no board groups in the
+ * selection, so that arm has nothing to walk.
+ *
+ * `parts` is a `std::set` upstream, so the packet carries each part once and in
+ * sorted order; a Set here does the first half and the sort is explicit.
+ */
+export function boardSyncSelectionParts(board: Board, selection: ReadonlySet<string>): string[] {
+  const parts = new Set<string>();
+
+  board.footprints.forEach((fp, fi) => {
+    const ref = escapeIpc(fp.reference ?? '');
+    if (selection.has(boardItemId('footprint', fi))) parts.add(`F${ref}`);
+    fp.pads.forEach((pad, pi) => {
+      if (selection.has(boardItemId('pad', fi, pi)))
+        parts.add(`P${ref}/${escapeIpc(pad.number ?? '')}`);
+    });
+  });
+
+  return [...parts].sort();
 }

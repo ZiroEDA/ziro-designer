@@ -102,6 +102,8 @@ import {
   screenHasItems,
   selectionCanCopyAsText,
   selectionIsExpandable,
+  crossProbeSchSelection,
+  schCrossProbeZoomScale,
   syncSelectionParts,
   getNode,
   selectConnection,
@@ -508,6 +510,12 @@ import '../../ui/shell.css';
 import { schSymbolLibraryName } from '@ziroeda/eeschema';
 import { useModalEscape } from '../../ui/useModalEscape.js';
 import { applyToggle, DEFAULT_TOGGLES } from './toggles.js';
+import {
+  CROSS_PROBE_FLASH_INTERVAL_MS,
+  CROSS_PROBE_FLASH_LAST_PHASE,
+  crossProbeFlashSelection,
+  crossProbeViewChange,
+} from '@ziroeda/pcbnew';
 
 // What KiCad writes for File > New Schematic: an empty sheet on A4 paper.
 // Launching the editor without a project starts here (no bundled demo).
@@ -711,6 +719,8 @@ export function SchematicEditor({
   projectName,
   rootPro,
   onCrossProbeNet,
+  syncSelectionFromPcb,
+  crossProbeNetFromPcb,
   onSelectOnPcb,
 }: {
   onExitToHome: () => void;
@@ -806,6 +816,15 @@ export function SchematicEditor({
    *  (SCH_EDIT_FRAME::SendCrossProbeConnection / SendCrossProbeClearHighlight);
    *  null when the highlight is cleared. */
   onCrossProbeNet?: (net: string | null) => void;
+  /**
+   * The board's selection arriving here — `SCH_EDIT_FRAME::KiwayMailIn`'s
+   * `MAIL_SELECTION` (`eeschema/sch_edit_frame.cpp`), which parses the
+   * `$SELECT:` parts and hands them to `SCH_SELECTION_TOOL::SyncSelection`.
+   * The nonce makes the same packet arriving twice arrive twice.
+   */
+  syncSelectionFromPcb?: { parts: readonly string[]; nonce: number } | null;
+  /** The board's highlighted net, arriving as KiCad's `$NET: "<name>"`. */
+  crossProbeNetFromPcb?: string | null;
   /** Select on PCB (SCH_ACTIONS::selectOnPCB): the `$SELECT:` parts of the
    *  current selection, for the board frame to resolve and select. */
   onSelectOnPcb?: (parts: readonly string[]) => void;
@@ -1534,6 +1553,13 @@ export function SchematicEditor({
   // SetHighlightedNetChain (SCHEMATIC::m_highlightedNetChain): exclusive with
   // the plain net highlight, like upstream.
   const [highlightedChain, setHighlightedChain] = useState<string | null>(null);
+  /**
+   * A net highlighted by a `$NET:` probe from the board, subject to
+   * `cross_probing.auto_highlight` — `if( !crossProbingSettings.auto_highlight )
+   * return;` (`eeschema/cross-probing.cpp:229-231`), which returns BEFORE
+   * touching the highlight, so a refused probe leaves whatever is lit alone.
+   */
+  const [probedNet, setProbedNet] = useState<string | null>(null);
   const { highlightWires, highlightName } = useMemo(() => {
     const items = new Set<string>();
     let name: string | null = null;
@@ -1548,8 +1574,12 @@ export function SchematicEditor({
           if (net) for (const item of net.items) items.add(item);
         }
       }
-    } else if (netlist && highlightItem !== null) {
-      name = connectionName(netlist, highlightItem);
+    } else if (netlist && (highlightItem !== null || probedNet !== null)) {
+      // `$NET: "<name>"` from the board (`eeschema/cross-probing.cpp:225-250`)
+      // names a net directly, where a click names an ITEM and the net is
+      // derived from it. Both end in the same `connNames` walk below, which is
+      // `UpdateNetHighlighting`.
+      name = highlightItem !== null ? connectionName(netlist, highlightItem) : probedNet;
       if (name !== null) {
         // UpdateNetHighlighting's connNames set: the net itself, the other
         // label forms of the same bus (GetEquivalentBusNames), the bus members
@@ -1571,7 +1601,7 @@ export function SchematicEditor({
       }
     }
     return { highlightWires: items, highlightName: name };
-  }, [netlist, highlightItem, highlightedChain, highlightBusMembers, committedChains]);
+  }, [netlist, highlightItem, highlightedChain, highlightBusMembers, committedChains, probedNet]);
 
   // Cross-probe the highlight to the PCB editor. A highlighted chain probes its
   // first member net, the PCB side takes one net, as upstream notes when it
@@ -1584,6 +1614,111 @@ export function SchematicEditor({
   useEffect(() => {
     onCrossProbeNet?.(crossProbeNet);
   }, [crossProbeNet, onCrossProbeNet]);
+
+  /**
+   * ...and the board's selection arriving HERE — `SCH_SELECTION_TOOL::
+   * SyncSelection` (`sch_selection_tool.cpp:3464-3534`).
+   *
+   * Every one of `eeschema.cross_probing`'s five controls is read on this path,
+   * which is what the group on Display Options governs:
+   *
+   *   on_selection    `crossProbeSchSelection` refuses the probe outright
+   *   center_on_items the view moves at all
+   *   zoom_to_fit     the scale changes — INSIDE the `center_on_items` branch,
+   *                   "ignored if center_on_items is off"
+   *   flash_selection the newly probed items blink
+   *   auto_highlight  belongs to the `$NET:` probe, not to this one
+   */
+  useEffect(() => {
+    if (crossProbeNetFromPcb === undefined) return;
+    // The refusal is the whole of what `auto_highlight` does here.
+    if (!settings.eeschema.cross_probing.auto_highlight) return;
+    setProbedNet(crossProbeNetFromPcb);
+  }, [crossProbeNetFromPcb]);
+
+  const probeNonceRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!syncSelectionFromPcb || syncSelectionFromPcb.nonce === probeNonceRef.current) return;
+    probeNonceRef.current = syncSelectionFromPcb.nonce;
+    const doc = docRef.current;
+    if (!doc) return;
+    const ids = crossProbeSchSelection(
+      settings.eeschema.cross_probing,
+      doc,
+      syncSelectionFromPcb.parts,
+      currentPath,
+      libByIdRef.current,
+    );
+    // null is the probe REFUSED (`on_selection` off): upstream `break`s before
+    // touching the selection, so whatever the user had picked stays picked.
+    if (ids === null) return;
+    setSelection(new Set(ids));
+    if (ids.length === 0) return;
+
+    const cfg = settings.eeschema.cross_probing;
+    const box = selectionBBox(doc, new Set(ids), libByIdRef.current);
+    // `if( bbox.GetWidth() != 0 && bbox.GetHeight() != 0 )` — nothing to aim at.
+    const degenerate = box.maxX <= box.minX || box.maxY <= box.minY;
+    // The nesting is the part that is easy to get wrong: `zoom_to_fit` sits
+    // INSIDE the `center_on_items` branch — "ignored if center_on_items is off"
+    // (`app_settings.h:36`) — so with centring off the zoom is not touched
+    // either, and the view does not move at all.
+    const view = controller.current?.viewMetrics();
+    if (!degenerate && view) {
+      // The three-step decision is `crossProbeViewChange`, shared with the
+      // board because upstream spells it identically in both frames; only the
+      // zoom LUT differs, which is why that goes in as an argument. It also
+      // carries `FocusOnLocation`'s rule that a target already on screen does
+      // NOT recentre the view.
+      const next = crossProbeViewChange(
+        cfg,
+        box,
+        { scale: view.scale, cx: view.cx, cy: view.cy },
+        { width: view.width, height: view.height },
+        schCrossProbeZoomScale,
+      );
+      if (next) {
+        if (next.scale !== view.scale) controller.current?.setScale(next.scale);
+        controller.current?.centerOn({ x: next.cx, y: next.cy });
+      }
+    }
+
+    // `flash_selection` — "visual attention aid" (`app_settings.h:37`). The
+    // phases and the interval are `pcbnew/src/cross_probe.ts`', because the
+    // blink is one behaviour and only the items differ.
+    if (cfg.flash_selection) setFlashPhase(0);
+  }, [syncSelectionFromPcb, currentPath]);
+
+  /**
+   * The flash itself: `crossProbeFlashSelection` decides which ids are lit at
+   * each phase, and the phase advances on a timer until the last one.
+   */
+  const [flashPhase, setFlashPhase] = useState<number | null>(null);
+  /**
+   * The selection the CANVAS draws, which is the real one except during a
+   * cross-probe flash: `crossProbeFlashSelection` blanks it on the even phases,
+   * so the halo blinks. The stored selection never changes — a blink that
+   * actually deselected would break whatever the user did next.
+   */
+  const shownSelection = useMemo(
+    () =>
+      flashPhase === null
+        ? selection
+        : new Set(crossProbeFlashSelection(flashPhase, [...selection])),
+    [selection, flashPhase],
+  );
+  useEffect(() => {
+    if (flashPhase === null) return;
+    if (flashPhase > CROSS_PROBE_FLASH_LAST_PHASE) {
+      setFlashPhase(null);
+      return;
+    }
+    const t = setTimeout(
+      () => setFlashPhase((p) => (p === null ? null : p + 1)),
+      CROSS_PROBE_FLASH_INTERVAL_MS,
+    );
+    return () => clearTimeout(t);
+  }, [flashPhase]);
 
   // Wire tint while a coloured chain is highlighted (painter chain block).
   const chainHighlight = useMemo(() => {
@@ -8738,7 +8873,7 @@ export function SchematicEditor({
               onInfoBar={setInfoBar}
               schematic={doc}
               libById={libById}
-              selection={selection}
+              selection={shownSelection}
               activeTool={activeTool}
               lineMode={lineMode}
               wireStartRequest={wireStartRequest}

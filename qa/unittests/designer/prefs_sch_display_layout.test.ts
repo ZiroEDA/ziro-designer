@@ -97,10 +97,14 @@ describe('the controls upstream draws are all here', () => {
  * has no reader at all.
  */
 describe('a group is disabled on the side that does not read it', () => {
-  it("greys the schematic page's copy", () => {
+  it("leaves the schematic page's copy live too, now the probe arrives", () => {
+    // It was greyed while nothing read `eeschema.cross_probing`: the board
+    // sends its selection (`SendSelectItemsToSch`) and its highlighted net
+    // (`SendCrossProbeNetName`) now, and `SCH_SELECTION_TOOL::SyncSelection`
+    // applies them subject to all five.
     const at = CODE.indexOf('<CrossProbingGroup');
     expect(at).toBeGreaterThan(-1);
-    expect(CODE.slice(at, CODE.indexOf('/>', at))).toMatch(/\bdisabled\b/);
+    expect(CODE.slice(at, CODE.indexOf('/>', at))).not.toMatch(/\bdisabled\b/);
   });
 
   it("leaves the board page's copy live", () => {

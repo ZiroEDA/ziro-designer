@@ -557,6 +557,21 @@ export interface CanvasController {
   /** Centre the viewport on a world point (used by ERC click-to-locate). */
   centerOn: (p: Vec2) => void;
   /**
+   * The current scale and the canvas size in pixels — `VIEW::GetScale()` and
+   * `GetViewport().GetSize()`, which `ZoomFitCrossProbeBBox` reads before it
+   * decides anything. Null before the canvas has been sized.
+   */
+  viewMetrics: () => {
+    scale: number;
+    width: number;
+    height: number;
+    /** The WORLD point at the middle of the canvas — `GetViewport().Centre()`. */
+    cx: number;
+    cy: number;
+  } | null;
+  /** `VIEW::SetScale( s )`, keeping the world point at the centre. */
+  setScale: (s: number) => void;
+  /**
    * What `SCH_SELECTION_TOOL::SelectPoint` would collect at the cursor:
    * `collectAndGuess`' candidates, closest first, empty when the pointer is off
    * the canvas.
@@ -2608,6 +2623,33 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       // is no cursor to zoom about, so the centre is the fallback.
       zoomIn: () => zoomAboutCursor(1.25),
       zoomOut: () => zoomAboutCursor(0.8),
+      viewMetrics: () => {
+        const c = canvasRef.current;
+        const vp = viewportRef.current;
+        if (!c || !vp || !sizedRef.current) return null;
+        return {
+          scale: vp.scale,
+          width: c.width,
+          height: c.height,
+          cx: (c.width / 2 - vp.offsetX) / vp.scale,
+          cy: (c.height / 2 - vp.offsetY) / vp.scale,
+        };
+      },
+      setScale: (next: number) => {
+        const c = canvasRef.current;
+        const vp = viewportRef.current;
+        if (!c || !vp || !(next > 0)) return;
+        // `SetScale` keeps the viewport CENTRE fixed, so the world point in the
+        // middle stays there while the zoom changes around it.
+        const cx = (c.width / 2 - vp.offsetX) / vp.scale;
+        const cy = (c.height / 2 - vp.offsetY) / vp.scale;
+        viewportRef.current = {
+          scale: next,
+          offsetX: c.width / 2 - cx * next,
+          offsetY: c.height / 2 - cy * next,
+        };
+        requestDraw();
+      },
       centerOn: (p: Vec2) => {
         const c = canvasRef.current;
         const vp = viewportRef.current;
