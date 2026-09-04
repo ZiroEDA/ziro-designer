@@ -232,6 +232,14 @@ export function footprintBBox(fp: PcbFootprint, includeText = true): FpBBox | nu
   // own change rather than smuggled in with the preview's framing fix.
   for (const pad of fp.pads) padPoints(pad).forEach(grow);
   for (const s of fp.shapes) shapePoints(s).forEach(grow);
+  // `bbox.Merge( point->GetBoundingBox() )` (`footprint.cpp:1853-1854`), and a
+  // point's box is `BOX2I::ByCenter( m_pos, { m_size, m_size } )` — half a size
+  // each way, not the bare position. Unconditional: a point is not text, so
+  // `aIncludeText` does not gate it.
+  for (const p of fp.points) {
+    grow({ x: p.at.x - p.size / 2, y: p.at.y - p.size / 2 });
+    grow({ x: p.at.x + p.size / 2, y: p.at.y + p.size / 2 });
+  }
   if (includeText) {
     for (const t of fp.texts) {
       if (t.hide) continue;

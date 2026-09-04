@@ -38,7 +38,9 @@ import {
   rotateBoardItemsBy,
   mirrorBoardItems,
   duplicateBoardItems,
+  flipBoardItems,
 } from '@ziroeda/pcbnew/src/edit-board.js';
+import { footprintBBox } from '@ziroeda/pcbnew/src/edit-footprint.js';
 import { isBoardItemLocked, setBoardItemsLocked } from '@ziroeda/pcbnew/src/edit-board.js';
 import { pcbPropertiesFor } from '@ziroeda/pcbnew/src/properties_panel.js';
 import { bestSnapAnchor } from '@ziroeda/pcbnew/src/pcb_cursor_snap.js';
@@ -452,5 +454,70 @@ describe('the Properties panel', () => {
 
     expect(isBoardItemLocked(locked, 'point:0')).toBe(true);
     expect(serializeBoard(locked)).not.toContain('locked');
+  });
+});
+
+describe('a footprint carries its points', () => {
+  // Our footprint children are held board-absolute, and the writer un-bakes
+  // each one against the footprint's anchor on save. So a transform that moved
+  // the footprint and not its points would not merely leave them behind on
+  // screen — it would change their footprint-relative offset and SAVE that.
+  const FP = `(kicad_pcb (version 20241229) (generator "test")
+    (layers (0 "F.Cu" signal) (31 "B.Cu" signal) (37 "F.SilkS" user "F.Silkscreen")
+            (38 "B.SilkS" user "B.Silkscreen"))
+    (net 0 "")
+    (footprint "L:P" (layer "F.Cu") (at 100 50)
+      (point (at 1 2) (size 2) (layer "F.SilkS"))))`;
+  const fpBoard = (): Board => read(FP);
+  const pointOf = (b: Board): { x: number; y: number } => b.footprints[0]!.points[0]!.at;
+
+  it('moves with it — `FOOTPRINT::SetPosition`', () => {
+    const after = moveBoardItems(fpBoard(), new Set(['footprint:0']), { x: MM(10), y: MM(20) });
+
+    expect(after.footprints[0]!.at).toEqual({ x: MM(110), y: MM(70) });
+    expect(pointOf(after)).toEqual({ x: MM(111), y: MM(72) });
+    // …and the saved offset is still (1, 2), which is the half that would
+    // silently corrupt the file if the point had stayed put.
+    expect(serializeBoard(after)).toContain('(at 1 2)');
+  });
+
+  it('rotates with it — `FOOTPRINT::SetOrientation`', () => {
+    // 90° about the footprint's own anchor: the point is at (+1, +2) from it,
+    // and KiCad's RotatePoint on screen coords takes (x, y) to (y, -x).
+    const after = rotateBoardItemsBy(fpBoard(), new Set(['footprint:0']), 90, {
+      x: MM(100),
+      y: MM(50),
+    });
+
+    expect(pointOf(after)).toEqual({ x: MM(102), y: MM(49) });
+  });
+
+  it('flips with it, layer and all — `FOOTPRINT::Flip`', () => {
+    // `for( PCB_POINT* point : m_points ) point->Flip( m_pos, TOP_BOTTOM )`.
+    // Upstream's comment there says "Points move but don't flip layer", but
+    // `PCB_POINT::Flip` is `MIRROR( m_pos, … )` *and*
+    // `SetLayer( GetBoard()->FlipLayer( GetLayer() ) )`. The code is what runs.
+    // An explicit centre: with none, `flipBoardItems` takes the selection's
+    // bounding-box centre, which for a footprint whose only content is this
+    // point IS the point — so it would mirror onto itself and the assertion
+    // would hold whatever the code did.
+    const after = flipBoardItems(fpBoard(), new Set(['footprint:0']), {
+      x: MM(100),
+      y: MM(50),
+    });
+    const p = after.footprints[0]!.points[0]!;
+
+    expect(p.at).toEqual({ x: MM(101), y: MM(48) });
+    expect(p.layer).toBe('B.SilkS');
+  });
+
+  it('is measured by the footprint’s bounding box', () => {
+    // `bbox.Merge( point->GetBoundingBox() )` (`footprint.cpp:1853`). This is
+    // what zoom-to-fit and the board box read, so a point outside every other
+    // item — which is exactly where a snap anchor goes — would be cropped.
+    const fp = fpBoard().footprints[0]!;
+    const far = { ...fp, points: [{ ...fp.points[0]!, at: { x: MM(500), y: MM(500) } }] };
+
+    expect(footprintBBox(far)!.maxX).toBeGreaterThanOrEqual(MM(501));
   });
 });

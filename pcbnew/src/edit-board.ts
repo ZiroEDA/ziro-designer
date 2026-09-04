@@ -1399,6 +1399,13 @@ const moveFootprint = (fp: PcbFootprint, d: Vec2): PcbFootprint => ({
   at: add(fp.at, d),
   pads: fp.pads.map((p) => ({ ...p, at: add(p.at, d) })),
   texts: fp.texts.map((t) => ({ ...t, at: add(t.at, d) })),
+  // `FOOTPRINT::SetPosition` shifts every child by the same delta, points
+  // included (`footprint.cpp:3022`). Ours are held board-absolute, so a mover
+  // that skipped them would leave them behind on the board — and because the
+  // writer derives a child's `(at …)` by un-baking against the footprint's NEW
+  // anchor, the wrong offset would then be saved. A move of (10, 20) on a point
+  // at (+1, +2) writes `(at -9 -18)`.
+  points: fp.points.map((p) => ({ ...p, at: add(p.at, d) })),
   shapes: fp.shapes.map((s) => {
     const n: PcbShape = { ...s };
     if (s.center) n.center = add(s.center, d);
@@ -2096,6 +2103,10 @@ function rotateFootprintAbout(f: PcbFootprint, c: Vec2, deg: number): PcbFootpri
       angle: norm360(t.angle + deg),
     })),
     shapes: f.shapes.map((s) => ({ ...s, ...rotShapeCoords(s, c, deg) })),
+    // `FOOTPRINT::SetOrientation` turns every child about the anchor
+    // (`footprint.cpp:3122`). A point has no orientation of its own, so only
+    // the position moves — `PCB_POINT::Rotate` is `RotatePoint( m_pos, … )`.
+    points: f.points.map((p) => ({ ...p, at: rotAbout(p.at, c, deg) })),
     source: patchChild(f.source, 'at', atNode(at, angle)),
   };
 }
@@ -3085,6 +3096,13 @@ export function flipBoardItems(board: Board, ids: ReadonlySet<string>, centre?: 
       pads,
       texts: f.texts.map((t) => flipText(t, true)),
       shapes: f.shapes.map(flipShape),
+      // `for( PCB_POINT* point : m_points ) point->Flip( m_pos, TOP_BOTTOM )`
+      // (`footprint.cpp:2977-2979`). The comment upstream puts above that loop
+      // — "Points move but don't flip layer" — contradicts the method it
+      // calls: `PCB_POINT::Flip` is `MIRROR( m_pos, … )` followed by
+      // `SetLayer( GetBoard()->FlipLayer( GetLayer() ) )`
+      // (`pcb_point.cpp:139-144`). The code is what runs, so the layer flips.
+      points: f.points.map((p) => ({ ...p, at: mirY(p.at), layer: flipLayer(p.layer) })),
       source: patchChild(patchChild(f.source, 'at', atNode(at, angle)), 'layer', layerNode(layer)),
     };
   };
