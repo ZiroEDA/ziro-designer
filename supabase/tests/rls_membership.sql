@@ -120,3 +120,25 @@ select count(*) as owner_member_rows from public.project_members
 
 \echo '### 18 a link cannot grant ownership -- expect exception'
 update public.projects set link_access = 'owner';
+
+\echo '### 19 an EDITOR cannot change how a project is shared -- expect exception'
+\set QUIET on
+update public.projects set link_access = 'viewer';
+-- B is put back on the project as an editor FIRST. Test 12 had them leave, and
+-- without this the update below matches no row they can see -- so the check
+-- reports "UPDATE 0" and passes while proving nothing at all about editors.
+insert into public.project_members (project_uid, user_id, role)
+select uid,'bbbbbbbb-0000-0000-0000-000000000002','editor' from public.projects
+on conflict on constraint project_members_pkey do update set role='editor';
+\set QUIET off
+begin; set local role authenticated; set local "request.jwt.claim.sub" = 'bbbbbbbb-0000-0000-0000-000000000002';
+update public.projects set link_access = 'editor'; rollback;
+
+\echo '### 20 ...and the owner can -- expect UPDATE 1'
+begin; set local role authenticated; set local "request.jwt.claim.sub" = 'aaaaaaaa-0000-0000-0000-000000000001';
+update public.projects set link_access = 'editor'; commit;
+
+\echo '### 21 an editor may still edit the project itself -- expect UPDATE 1'
+begin; set local role authenticated; set local "request.jwt.claim.sub" = 'bbbbbbbb-0000-0000-0000-000000000002';
+update public.projects set name = 'Renamed by the editor'; commit;
+select name from public.projects;

@@ -77,6 +77,25 @@ export function projectLinkIn(href: string): string | null {
 }
 
 /**
+ * The link to send somebody, for a project and the page this app is served
+ * from.
+ *
+ * Built from `origin + pathname`, dropping whatever query and hash happen to be
+ * on the current URL. Copying the address bar instead would hand out whatever
+ * was in it — another project's `?p=`, a `?join=` token, a demo parameter —
+ * which is how a share button quietly shares the wrong thing.
+ */
+export function shareUrlFor(uid: string, base?: string): string {
+  const href = base ?? (typeof window === 'undefined' ? '' : window.location.href);
+  try {
+    const url = new URL(href);
+    return `${url.origin}${url.pathname}?${PROJECT_PARAM}=${uid}`;
+  } catch {
+    return `?${PROJECT_PARAM}=${uid}`;
+  }
+}
+
+/**
  * Claim whatever the current page's project link offers.
  *
  * Returns what was granted, or null when the page carries no link. Rejects when

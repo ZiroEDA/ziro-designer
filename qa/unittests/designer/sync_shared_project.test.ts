@@ -32,6 +32,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import {
   deleteProject,
   exportManifest,
+  importProject,
   listProjects,
   loadProject,
   saveProject,
@@ -39,7 +40,11 @@ import {
   updateProjectFiles,
 } from '@ziroeda/designer/src/home/projectStore.js';
 import { setCloudBackend } from '@ziroeda/designer/src/cloud/cloudStore.js';
-import { deleteCloudProject, syncAllProjects } from '@ziroeda/designer/src/cloud/sync.js';
+import {
+  deleteCloudProject,
+  pushProject,
+  syncAllProjects,
+} from '@ziroeda/designer/src/cloud/sync.js';
 import type { CloudBackend, ProjectRow } from '@ziroeda/designer/src/cloud/backend.js';
 
 const ME = 'user-me';
@@ -176,6 +181,9 @@ function shareIn(
   // on the project can read them from.
   f.objects.set(`${OWNER}/blobs/${opts.hash.slice(0, 2)}/${opts.hash}`, text(opts.body));
 }
+
+/** Base64 of some text, the shape a pulled file arrives in. */
+const b64 = (t: string): string => Buffer.from(text(t)).toString('base64');
 
 /** The sha-256 the store would key these bytes under. */
 async function hashOf(body: string): Promise<string> {
@@ -379,22 +387,55 @@ describe('removing a shared project', () => {
 
 describe('a project pushed before uids existed', () => {
   it('learns its identity from the listing without being pushed again', async () => {
-    const id = await saveProject('Amp', [{ name: 'Amp.kicad_sch', bytes: text('BODY') }]);
-    // First pass creates the row; the server assigns the uid, and the record
-    // has no way to know it yet.
-    await syncAllProjects(ME);
-    expect(backend.commits).toBe(1);
-    expect((await exportManifest(id))!.cloudUid).toBeUndefined();
+    // A record from before the column existed: it is already in the cloud, and
+    // its local copy knows the id it was pushed under and nothing else. Built
+    // directly rather than by pushing, because a push now records the identity
+    // itself -- which is what the next test pins, and would make this one prove
+    // nothing at all.
+    const hash = await hashOf('BODY');
+    backend.rows.set('uid-1', {
+      id: 'legacy-1',
+      uid: 'uid-1',
+      user_id: ME,
+      name: 'Amp',
+      created_at: new Date(1000).toISOString(),
+      updated_at: new Date(1000).toISOString(),
+      version: 1,
+      files: [{ name: 'Amp.kicad_sch', hash, size: text('BODY').length }],
+    });
+    await importProject({
+      id: 'legacy-1',
+      name: 'Amp',
+      createdAt: 1000,
+      updatedAt: 1000,
+      baseVersion: 1,
+      files: [{ name: 'Amp.kicad_sch', gzB64: b64('BODY') }],
+    });
+    expect((await exportManifest('legacy-1'))!.cloudUid).toBeUndefined();
 
-    // Second pass: matched by id among this user's own rows, and the identity
-    // recorded. A pass that failed to match would push a duplicate.
     const r = await syncAllProjects(ME);
     expect(r.failures).toEqual([]);
-    expect(backend.commits).toBe(1);
+    // Matched by id among this user's own rows, and the identity recorded. A
+    // pass that failed to match would push a duplicate instead.
+    expect(backend.commits).toBe(0);
     expect(backend.rows.size).toBe(1);
 
-    const linked = await exportManifest(id);
+    const linked = await exportManifest('legacy-1');
     expect(linked!.cloudUid).toBe('uid-1');
     expect(linked!.cloudOwnerId).toBe(ME);
+  });
+
+  it('records its identity on the very first push, not on the next reconcile', async () => {
+    const id = await saveProject('Fresh', [{ name: 'Fresh.kicad_sch', bytes: text('NEW') }]);
+    // What happens when a project is created and saved in one sitting: a single
+    // push, no full reconcile. The server assigns the uid, so the push cannot
+    // know it — but everything that names a project across accounts needs one,
+    // so without this the Share button would truthfully and uselessly report
+    // that a project already in the cloud cannot be shared yet.
+    await pushProject(ME, id);
+
+    const after = await exportManifest(id);
+    expect(after!.cloudUid).toBe('uid-1');
+    expect(after!.cloudOwnerId).toBe(ME);
   });
 });

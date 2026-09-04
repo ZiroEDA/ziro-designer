@@ -86,6 +86,13 @@ export interface ProjectRow {
    * what addresses them, for a shared project as much as for your own.
    */
   user_id?: string;
+  /**
+   * What this project's link is worth: `viewer`, `editor`, or null for "link
+   * sharing is off". Only the owner may change it — an editor has been invited
+   * to work on a board, which is not the same permission as deciding who else
+   * can reach it.
+   */
+  link_access?: 'viewer' | 'editor' | null;
   name: string;
   created_at: string;
   /**
@@ -213,6 +220,18 @@ export interface CloudBackend {
    * cannot be probed for existence.
    */
   openByLink?(uid: string): Promise<string | null>;
+
+  /**
+   * Turn link sharing on or off for a project the caller owns.
+   *
+   * Null switches it off, which does **not** revoke anyone already on the
+   * project: they hold membership rows, and those are removed by removing
+   * them. That is the same distinction Figma and Google Docs draw, and it is
+   * worth surfacing in the UI rather than smoothing over — "stop giving this
+   * out" and "remove the people who already took it" are different intentions
+   * and only one of them is what closing a link means.
+   */
+  setLinkAccess?(uid: string, role: 'viewer' | 'editor' | null): Promise<void>;
 
   deleteProject(id: string): Promise<void>;
 

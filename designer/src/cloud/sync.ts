@@ -62,6 +62,7 @@ import {
   cloudBackendInstalled,
   cloudDelete,
   cloudGet,
+  cloudGetRow,
   cloudListMeta,
   cloudMemberships,
   assertStoreAnswers,
@@ -360,6 +361,34 @@ async function pushOne(userId: string, id: string, base?: number): Promise<Outco
     manifest.map((m) => m.hash),
     version,
   );
+
+  // A project's global identity is assigned by the server when the row is
+  // created, so a push cannot know it and `commitProject` returns the version
+  // rather than the uid. Without this, a project made and saved in one sitting
+  // has no identity recorded until the next full reconcile — and everything
+  // that names a project across accounts needs one, so Share would truthfully
+  // but uselessly report that a project already sitting in the cloud cannot be
+  // shared yet.
+  //
+  // One extra read, and only ever on the first push of a project: afterwards
+  // the record has the uid and this is skipped.
+  if (!p.cloudUid) {
+    try {
+      const row = await cloudGetRow(p.cloudId ?? id);
+      if (row?.uid) {
+        await linkCloudProject(id, {
+          uid: row.uid,
+          cloudId: row.id,
+          ...(row.user_id ? { ownerId: row.user_id } : {}),
+          role: 'owner',
+        });
+      }
+    } catch (e) {
+      // Never fatal. The push landed; this is bookkeeping that the next
+      // reconcile will do anyway.
+      console.warn(`project identity not recorded for "${p.name}":`, e);
+    }
+  }
   return 'pushed';
 }
 

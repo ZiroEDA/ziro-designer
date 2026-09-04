@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'rea
 import { preloadBundle } from '../libraryPreload.js';
 import { MenuBar, type Menu } from '../ui/MenuBar.js';
 import {
+  cloudIdentityOf,
   storageAvailable,
   listProjects,
   saveProject,
@@ -77,6 +78,7 @@ import {
   projectFileContext,
   runActivation,
 } from './file_activation.js';
+import { ShareProjectDialog } from './dialogs/dialog_share_project.js';
 import { AboutDialog } from './dialogs/dialog_about.js';
 import { showHotkeyList } from '../ui/hotkey_list_action.js';
 import { TextViewerDialog } from './dialogs/dialog_text_viewer.js';
@@ -811,6 +813,14 @@ export function HomePage({
   const [joinNotice, setJoinNotice] = useState<
     { kind: 'joined'; role: ProjectRole } | { kind: 'failed'; message: string } | null
   >(null);
+  // Non-null while the Share window is open, holding what it needs to know
+  // about the project: its global id (absent until the project has synced, and
+  // the dialog says so) and whether this account owns it.
+  const [shareOpen, setShareOpen] = useState<{
+    name: string;
+    uid?: string;
+    isOwner: boolean;
+  } | null>(null);
   const refreshSaved = (): void => {
     if (storageAvailable()) void listProjects().then(setSaved);
   };
@@ -1744,6 +1754,36 @@ export function HomePage({
         rightSlot={
           session ? (
             <div className="ze-account">
+              {/* Ours, not KiCad's: a project on a disk has no notion of
+                  somebody else opening it, so there is no upstream menu row to
+                  match. It sits with the account controls for the same reason
+                  the sync pill does — it is a cloud affordance, and putting it
+                  in the File menu would put a thing KiCad has never had in the
+                  middle of a menu that is otherwise upstream's exactly. */}
+              {openProjectId && (
+                <button
+                  className="ze-account-signout"
+                  onClick={() => {
+                    const name = projName || 'this project';
+                    // Read at open time, not held in the row: the identity
+                    // arrives on the first sync after the project is created,
+                    // so a value captured when the list was built is stale for
+                    // exactly the project the user just made and now wants to
+                    // share.
+                    void cloudIdentityOf(openProjectId).then((c) =>
+                      setShareOpen({
+                        name,
+                        ...(c?.uid ? { uid: c.uid } : {}),
+                        // No recorded role means it is the user's own: a role is
+                        // only written for projects somebody else owns.
+                        isOwner: !c?.role || c.role === 'owner',
+                      }),
+                    );
+                  }}
+                >
+                  Share
+                </button>
+              )}
               <span className="ze-account-email">{session.user.email}</span>
               <button className="ze-account-signout" onClick={() => void signOut()}>
                 Sign out
@@ -2131,6 +2171,15 @@ export function HomePage({
       )}
 
       {signInOpen && <SignInDialog onClose={() => setSignInOpen(false)} />}
+
+      {shareOpen && (
+        <ShareProjectDialog
+          projectName={shareOpen.name}
+          {...(shareOpen.uid ? { uid: shareOpen.uid } : {})}
+          isOwner={shareOpen.isOwner}
+          onClose={() => setShareOpen(null)}
+        />
+      )}
 
       {/* The outcome of following a share link. Its own pill rather than folded
           into the sync one: the reader deliberately clicked a link and is

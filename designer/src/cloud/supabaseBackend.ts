@@ -150,6 +150,15 @@ export function supabaseBackend(): CloudBackend {
       if (error) throw new Error(`delete project ${id}: ${error.message}`);
     },
 
+    async setLinkAccess(uid, role) {
+      // The owner-only rule is a trigger in the database
+      // (`projects_freeze_identity`), not a check here: an editor holds UPDATE
+      // on the row through `projects_update_editor`, so nothing client-side
+      // could be relied on to stop them.
+      const { error } = await db.from('projects').update({ link_access: role }).eq('uid', uid);
+      if (error) throw new Error(`share ${uid}: ${error.message}`);
+    },
+
     async openByLink(uid) {
       const { data, error } = await db.rpc('join_project_by_link', { p_uid: uid });
       if (error) throw new Error(error.message);

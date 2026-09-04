@@ -992,6 +992,31 @@ export async function claimProject(id: string, userId: string): Promise<void> {
 }
 
 /**
+ * Which cloud project a local record is a copy of, if it has met the cloud yet.
+ *
+ * Null when there is no such record, and `uid` undefined when the project has
+ * never synced — which is the difference between "cannot be shared yet" and
+ * "not shared", and the share UI has to say which.
+ *
+ * Deliberately not `exportManifest`, which answers the same question: that one
+ * hashes every file whose hash was never recorded, which is the right price for
+ * a push and an absurd one for opening a dialog.
+ */
+export async function cloudIdentityOf(id: string): Promise<{
+  uid?: string;
+  ownerId?: string;
+  role?: 'owner' | 'editor' | 'viewer';
+} | null> {
+  const r = await tx<StoredRecord | undefined>('readonly', (s) => s.get(id));
+  if (!r) return null;
+  return {
+    ...(r.cloudUid ? { uid: r.cloudUid } : {}),
+    ...(r.cloudOwnerId ? { ownerId: r.cloudOwnerId } : {}),
+    ...(r.cloudRole ? { role: r.cloudRole } : {}),
+  };
+}
+
+/**
  * Record which cloud project this local record is a copy of.
  *
  * Called whenever the identity is learned: from a pull, from the first listing

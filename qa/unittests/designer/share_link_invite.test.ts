@@ -32,6 +32,7 @@ import {
   pendingInvite,
   projectLinkIn,
   redeemPendingInvite,
+  shareUrlFor,
 } from '@ziroeda/designer/src/cloud/invites.js';
 import type { CloudBackend } from '@ziroeda/designer/src/cloud/backend.js';
 
@@ -169,6 +170,26 @@ describe('an ordinary share link, `?p=<uid>`', () => {
     // A `?join` link is not a project address, and a `?p` link is not a token.
     expect(projectLinkIn(window.location.href)).toBeNull();
     expect(await openProjectLink(fakeBackend(async () => null))).toBeNull();
+  });
+});
+
+describe('the link a Share button hands out', () => {
+  const UID = '11111111-2222-3333-4444-555555555555';
+
+  it('is built from the app address, not from whatever is in the bar', () => {
+    // The current URL can carry another project's `?p=`, a `?join=` token, or a
+    // demo parameter. Copying the address bar would hand those out too, which
+    // is how a Share button quietly shares the wrong thing.
+    expect(shareUrlFor(UID, 'https://app.test/?p=99999999-9999-9999-9999-999999999999')).toBe(
+      `https://app.test/?p=${UID}`,
+    );
+    expect(shareUrlFor(UID, `https://app.test/?join=${TOKEN}&demo=amp#x`)).toBe(
+      `https://app.test/?p=${UID}`,
+    );
+  });
+
+  it('round-trips: what it builds is what the reader is understood to have followed', () => {
+    expect(projectLinkIn(shareUrlFor(UID, 'https://app.test/'))).toBe(UID);
   });
 });
 

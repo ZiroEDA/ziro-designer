@@ -240,6 +240,17 @@ export async function cloudGet(id: string, uid?: string): Promise<SyncableProjec
 }
 
 /**
+ * The raw row for a project, without fetching any of its file bodies.
+ *
+ * `cloudGet` downloads every blob, which is the whole cost of a pull; this is
+ * for the callers that only need to know what the row *says* — its identity,
+ * its owner, its sharing setting.
+ */
+export async function cloudGetRow(id: string, uid?: string): Promise<ProjectRow | null> {
+  return need().getProject(id, uid);
+}
+
+/**
  * How much of a cloud copy is not actually in the object store.
  *
  * A row can outlive its objects. Rows written before the commit protocol
