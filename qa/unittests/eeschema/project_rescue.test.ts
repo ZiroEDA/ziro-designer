@@ -120,6 +120,17 @@ describe('what makes a symbol a rescue candidate', () => {
     expect(found[0]!.lib).not.toBeNull();
   });
 
+  /**
+   * `if( !cache_match && lib_match ) continue;` — the ordinary healthy case on
+   * a project with no cache library at all, which is every project written by
+   * KiCad 6 or later. Without this arm, Rescue would offer to rescue every
+   * symbol on every modern schematic.
+   */
+  it('is not a symbol with a legal name the library can still supply', () => {
+    const found = findRescues([placed('Device:R')], sources({ lib: () => symbol('R') }));
+    expect(found).toEqual([]);
+  });
+
   it('is not a symbol nobody has — there is nothing to rescue it from', () => {
     // `if( !cache_match && !lib_match ) continue;`
     expect(findRescues([placed('Device:R')], sources())).toEqual([]);
@@ -189,6 +200,24 @@ describe('the candidate list', () => {
     const found = findRescues([two], sources({ cache: new Map([['Device:R', symbol('R')]]) }));
     expect(found[0]!.unit).toBe(2);
     expect(found[0]!.bodyStyle).toBe(2);
+  });
+
+  /**
+   * The FIRST of the group, not the last. Upstream only builds a candidate when
+   * `old_symbol_id != symbol_id`, so the placement that opens each run of the
+   * id-sorted list is the one whose unit the preview shows; every later
+   * placement of the same id is skipped entirely.
+   */
+  it('takes them from the first placement of the id, not the last', () => {
+    const first = { ...placed('Device:R'), unit: 1, bodyStyle: 1 } as SchSymbol;
+    const later = { ...placed('Device:R'), unit: 3, bodyStyle: 2 } as SchSymbol;
+    const found = findRescues(
+      [first, later],
+      sources({ cache: new Map([['Device:R', symbol('R')]]) }),
+    );
+    expect(found).toHaveLength(1);
+    expect(found[0]!.unit).toBe(1);
+    expect(found[0]!.bodyStyle).toBe(1);
   });
 });
 
@@ -286,6 +315,26 @@ describe('performing the rescue', () => {
     ).toEqual(['1', '2']);
   });
 
+  /**
+   * `LIB_SYMBOL* tmp = ( m_cache_candidate ) ? m_cache_candidate : m_lib_candidate;`
+   * — the CACHE copy wins when there is one, and that is the whole point of a
+   * rescue. Taking the library's copy would keep the very change the user was
+   * being offered a way out of.
+   */
+  it('keeps the cache’s geometry, not the library’s, when the two differ', () => {
+    const moved = symbol('R', BODY.replace('(at 0 3.81 270)', '(at 0 5.08 270)'));
+    const c = findRescues(
+      [placed('Device:R')],
+      sources({ cache: new Map([['Device:R', symbol('R')]]), lib: () => moved }),
+    )[0]!;
+    const pin = rescuedDefinition(c)!
+      .units.flatMap((u) => u.pins)
+      .find((p) => p.number === '1')!;
+    // The reader inverts Y for library pins, so the cache's 3.81 mm is -38100 IU
+    // and the library's 5.08 would be -50800.
+    expect(pin.at.y).toBe(-38100);
+  });
+
   it('renames the units so the definition stands on its own', () => {
     const def = rescuedDefinition(candidate())!;
     expect(def.units.map((u) => u.name)).toEqual(['R-Device_0_1', 'R-Device_1_1']);
@@ -366,6 +415,28 @@ describe('the rescue applied to a document', () => {
   it('drops the definition nothing on the sheet resolves through any more', () => {
     const next = rescueDocumentCommand([candidate()]).apply(sheet('Device:R'));
     expect(next.libSymbols.map((l) => l.libId)).not.toContain('Device:R');
+  });
+
+  /**
+   * A sheet gets the definitions IT places and no others. `lib_symbols` is the
+   * sheet's own cache, and filing a rescued symbol into a sheet that never
+   * placed it would put a definition in the file that nothing there resolves
+   * through — the same fault as leaving the stale one behind, from the other
+   * direction.
+   */
+  it('files only the definitions this sheet actually places', () => {
+    const both = [
+      findRescues(
+        [placed('Device:R')],
+        sources({ cache: new Map([['Device:R', symbol('R')]]) }),
+      )[0]!,
+      findRescues(
+        [placed('Device:C')],
+        sources({ cache: new Map([['Device:C', symbol('C')]]) }),
+      )[0]!,
+    ];
+    const next = rescueDocumentCommand(both).apply(sheet('Device:R'));
+    expect(next.libSymbols.map((l) => l.libId)).toEqual(['board-rescue:R-Device']);
   });
 
   it('leaves a sheet that places none of them exactly as it was', () => {

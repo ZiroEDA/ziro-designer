@@ -10,6 +10,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import {
+  escapeLibId,
   getTrailingInt,
   splitString,
   strNumCmp,
@@ -218,5 +219,41 @@ describe('splitString', () => {
     // `R10` is 0.10 R and not the reference designator it looks like.
     expect(splitString('R10')).toEqual({ beginning: '', digits: '.10', end: 'R' });
     expect(splitString('X10')).toEqual({ beginning: 'X', digits: '10', end: '' });
+  });
+});
+
+/**
+ * `EscapeString( …, CTX_LIBID )` — the escapes a LIB_ID part carries so that a
+ * name a user gave a symbol can still be written into one.
+ */
+describe('escapeLibId', () => {
+  it('escapes each character LIB_ID::isLegalChar rejects', () => {
+    expect(escapeLibId('a<b')).toBe('a{lt}b');
+    expect(escapeLibId('a>b')).toBe('a{gt}b');
+    expect(escapeLibId('a:b')).toBe('a{colon}b');
+    expect(escapeLibId('a"b')).toBe('a{dblquote}b');
+    expect(escapeLibId('a\\b')).toBe('a{backslash}b');
+  });
+
+  /**
+   * `converted += wxEmptyString;    // drop` — a newline has no escape token,
+   * so it is removed rather than turned into one. An escape would round-trip
+   * back into a character LIB_ID still forbids.
+   */
+  it('drops a newline and a carriage return rather than escaping them', () => {
+    expect(escapeLibId('a\nb')).toBe('ab');
+    expect(escapeLibId('a\r\nb')).toBe('ab');
+  });
+
+  /** "We no longer escape '/' in LIB_IDs, but we used to" — CTX_LEGACY_LIBID's
+   *  `{slash}` is the one thing the modern context does not do. */
+  it('leaves a slash, a brace and a space alone', () => {
+    expect(escapeLibId('a/b')).toBe('a/b');
+    expect(escapeLibId('a{b}c')).toBe('a{b}c');
+    expect(escapeLibId('a b')).toBe('a b');
+  });
+
+  it('leaves a name that needs nothing exactly as it was', () => {
+    expect(escapeLibId('Conn_01x02')).toBe('Conn_01x02');
   });
 });
