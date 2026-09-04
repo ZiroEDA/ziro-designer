@@ -205,6 +205,30 @@
 			)
 		)
 		(symbol "TESTPART_1_1"
+			(arc
+				(start -22.8092 -0.4318)
+				(mid -22.8464 0)
+				(end -22.8092 0.4318)
+				(stroke
+					(width 0.254)
+					(type solid)
+				)
+				(fill
+					(type none)
+				)
+			)
+			(arc
+				(start -10.8966 1.8034)
+				(mid -10.3437 -0.976)
+				(end -12.7 -2.54)
+				(stroke
+					(width 0.254)
+					(type solid)
+				)
+				(fill
+					(type none)
+				)
+			)
 			(rectangle
 				(start -7.62 -7.62)
 				(end 7.62 7.62)
@@ -273,6 +297,14 @@
 				)
 				(fill
 					(type outline)
+				)
+			)
+			(text "he\"llo"
+				(at -15.24 7.62 0)
+				(effects
+					(font
+						(size 1.016 1.016)
+					)
 				)
 			)
 			(text "Hello World"

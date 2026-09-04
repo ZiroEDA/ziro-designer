@@ -46,7 +46,10 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { parse } from '@ziroeda/sexpr/src/index.js';
 import { readSymbolLib } from '@ziroeda/eeschema';
-import { readLegacySymbolLibrary } from '@ziroeda/eeschema/src/sch_io/legacy/read-lib.js';
+import {
+  legacyCacheFileNames,
+  readLegacySymbolLibrary,
+} from '@ziroeda/eeschema/src/sch_io/legacy/read-lib.js';
 import type { LibSymbol } from '@ziroeda/eeschema/src/types.js';
 
 const data = (name: string): string =>
@@ -188,6 +191,16 @@ describe('the parts of the format, individually', () => {
     );
   });
 
+  it('turns the old two-apostrophe spelling back into a double quote', () => {
+    // "convert two apostrophes back to double quote" — `he''llo` is `he"llo`,
+    // which is how the format wrote a quote it could not otherwise carry.
+    const texts = find('TESTPART')
+      .units.flatMap((u) => u.graphics)
+      .filter((g) => g.kind === 'text')
+      .map((g) => (g as { text: string }).text);
+    expect(texts).toContain('he"llo');
+  });
+
   it('keeps a user field’s own name', () => {
     expect(find('TESTPART').properties.find((f) => f.key === 'MyField')?.value).toBe('user-value');
   });
@@ -195,18 +208,29 @@ describe('the parts of the format, individually', () => {
   /**
    * The arc is the one entry the format overdefines — centre, radius, both
    * angles AND both endpoints — and `MapAnglesV6` exists to decide when the
-   * endpoints have to be swapped. Both forms are in the fixture: one with
-   * explicit ends and one without.
+   * endpoints have to be swapped. Three are in the fixture: one with explicit
+   * ends, one without, one whose sweep crosses zero degrees, and one whose
+   * start angle is still the GREATER of the two after `MapAnglesV6` has had its
+   * say — 170 degrees to -170, a twenty-degree sweep across the 180 line. That
+   * last one is what `CalcArcAngles`' `while( aEndAngle < aStartAngle )
+   * aEndAngle += 360` exists for; without it the mid lands on the far side of
+   * the circle and the arc is drawn the long way round. The other three do not
+   * reach it, because MapAnglesV6 swaps the ends of any sweep over 180 and the
+   * wrap is then a no-op.
    */
-  it('reads both arc forms to the same three points KiCad stores', () => {
+  it('reads every arc form to the same three points KiCad stores', () => {
     const kicad = readSymbolLib(parse(data('legacy_all.kicad_sym')));
+    // Sorted for the reason at the head of this file: the order within a unit
+    // is the writer's, and these are being compared for content.
     const arcsOf = (list: LibSymbol[]) =>
       list
         .find((s) => s.libId === 'TESTPART')!
         .units.flatMap((u) => u.graphics)
-        .filter((g) => g.kind === 'arc');
+        .filter((g) => g.kind === 'arc')
+        .map((g) => JSON.parse(JSON.stringify({ ...g, source: undefined })) as unknown)
+        .sort((a, b) => (JSON.stringify(a) < JSON.stringify(b) ? -1 : 1));
     expect(arcsOf(ours())).toEqual(arcsOf(kicad));
-    expect(arcsOf(ours())).toHaveLength(2);
+    expect(arcsOf(ours())).toHaveLength(4);
   });
 });
 
@@ -220,5 +244,19 @@ describe('a file that is not a legacy library', () => {
     // "Some old libraries use a version syntax like
     //  EESchema-LIBRARY Version 2/10/2006-18:49:15".
     expect(readLegacySymbolLibrary('EESchema-LIBRARY Version 2/10/2006-18:49:15\n')).toEqual([]);
+  });
+});
+
+/**
+ * `LEGACY_SYMBOL_LIBS::CacheName` — which file the project's cache is, and it
+ * is named after the `.kicad_pro`, not after the root sheet.
+ */
+describe('the cache library’s name', () => {
+  it('is the project name with -cache, and the 2007 form as a fallback', () => {
+    expect(legacyCacheFileNames('board.kicad_pro')).toEqual(['board-cache.lib', 'board.cache.lib']);
+  });
+
+  it('takes the name out of a full path', () => {
+    expect(legacyCacheFileNames('/home/me/proj/power.kicad_pro')[0]).toBe('power-cache.lib');
   });
 });
