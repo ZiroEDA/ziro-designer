@@ -67,6 +67,24 @@ describe('the on-demand path', () => {
     expect(EDITOR).toContain('askShowAgain={false}');
   });
 
+  /** `PROJECT_SCH::LegacySchLibs`, which is the OTHER half of the comparison. */
+  it('reads the project’s legacy cache library, so the other arms can fire', () => {
+    expect(EDITOR).toContain('legacyCacheFileNames(');
+    expect(EDITOR).toContain('readLegacySymbolLibrary(file.text)');
+    expect(EDITOR).toContain('cache: legacyCache()');
+    // The `.kicad_pro`'s name, not the root sheet's: `CacheName` takes
+    // `aProject->GetProjectFullName()`.
+    expect(EDITOR).toContain('/\\.kicad_pro$/i.test(f.name)');
+  });
+
+  it('runs the rescue anyway when that cache will not parse', () => {
+    // `AddLibrary` throws, `LoadAllLibraries` logs and carries on.
+    const at = EDITOR.indexOf('const legacyCache');
+    expect(at).toBeGreaterThan(-1);
+    expect(EDITOR.slice(at, at + 1400)).toContain('failed to load.');
+    expect(EDITOR.slice(at, at + 1400)).toContain('return new Map();');
+  });
+
   it('resolves each id through the library, never the sheet’s own cache', () => {
     const at = EDITOR.indexOf('const runRescueSymbols');
     expect(at).toBeGreaterThan(-1);

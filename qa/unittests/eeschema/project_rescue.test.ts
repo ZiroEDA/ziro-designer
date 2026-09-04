@@ -25,6 +25,7 @@ import {
   RESCUE_PIN_TESTS,
   type RescueSources,
 } from '@ziroeda/eeschema/src/tools/project_rescue.js';
+import { readLegacySymbolLibrary } from '@ziroeda/eeschema/src/sch_io/legacy/read-lib.js';
 import type { LibSymbol, Schematic, SchSymbol } from '@ziroeda/eeschema/src/types.js';
 
 const BODY = `
@@ -449,5 +450,86 @@ describe('the rescue applied to a document', () => {
     const cmd = rescueDocumentCommand([candidate()]);
     const after = cmd.apply(before);
     expect(cmd.invert(before).apply(after)).toBe(before);
+  });
+});
+
+/**
+ * The three arms that need a `<project>-cache.lib`, with a real one.
+ *
+ * `LEGACY_SYMBOL_LIBS::LoadAllLibraries` adds the cache library whatever the
+ * schematic's format ("add the special cache library",
+ * `legacy_symbol_library.cpp:589`), and `PROJECT_SCH::LegacySchLibs` loads it
+ * the first time anything asks — which on a modern project is Rescue and
+ * nothing else. So these are not a legacy-only path; they are what the tool
+ * does on any project whose folder still carries the file.
+ */
+describe('with a cache library, the arms that need one', () => {
+  const legacy = (body: string) =>
+    new Map(
+      readLegacySymbolLibrary(`EESchema-LIBRARY Version 2.4\n#\n${body}\n#\n#End Library\n`).map(
+        (sym) => [sym.libId, sym],
+      ),
+    );
+
+  /** A two-pin part in the cache, under the name a V5 cache files it as. */
+  const cached = (name: string, y1 = 100) =>
+    legacy(`DEF ${name} R 0 10 N Y 1 F N
+F0 "R" 0 0 50 H V C CNN
+F1 "${name}" 0 0 50 H V C CNN
+F2 "" 0 0 50 H V C CNN
+F3 "" 0 0 50 H V C CNN
+DRAW
+S -40 ${y1} 40 -100 0 1 10 N
+X ~ 1 0 ${y1 + 50} 50 D 50 50 1 1 P
+X ~ 2 0 -150 50 U 50 50 1 1 P
+ENDDRAW
+ENDDEF`);
+
+  it('rescues a symbol the library has lost but the cache still holds', () => {
+    const found = findRescues([placed('Device:R')], sources({ cache: cached('Device:R') }));
+    expect(found).toHaveLength(1);
+    expect(rescueActionDescription(found[0]!)).toContain('found only in cache library');
+  });
+
+  it('rescues a symbol whose library copy has moved a pin', () => {
+    // The cache's pin 1 sits at y 150 mils; the library's at 3.81 mm = 150 mils
+    // too, so they agree — until the cache's is moved.
+    const moved = cached('Device:R', 200);
+    const found = findRescues(
+      [placed('Device:R')],
+      sources({ cache: moved, lib: () => symbol('R') }),
+    );
+    expect(found).toHaveLength(1);
+    expect(rescueActionDescription(found[0]!)).toContain('Rescue modified symbol');
+  });
+
+  it('leaves a symbol alone when the cache and the library agree', () => {
+    // Same geometry both sides: `PinsConflictWith` finds no conflict and the
+    // `continue` that needed a cache to be reachable finally fires.
+    const agreeing = legacy(`DEF Device:R R 0 10 N Y 1 F N
+F0 "R" 0 0 50 H V C CNN
+F1 "Device:R" 0 0 50 H V C CNN
+F2 "" 0 0 50 H V C CNN
+F3 "" 0 0 50 H V C CNN
+DRAW
+S -40 100 40 -100 0 1 10 N
+X ~ 1 0 150 50 D 50 50 1 1 P
+X ~ 2 0 -150 50 U 50 50 1 1 P
+ENDDRAW
+ENDDEF`);
+    // Not vacuous: an empty result also comes out of `!cache && lib`, so first
+    // pin that the cache really does hold this id under this name.
+    expect(agreeing.has('Device:R')).toBe(true);
+    expect(pinsConflictWith(agreeing.get('Device:R')!, symbol('R'), RESCUE_PIN_TESTS)).toBe(false);
+    expect(
+      findRescues([placed('Device:R')], sources({ cache: agreeing, lib: () => symbol('R') })),
+    ).toEqual([]);
+  });
+
+  it('rescues the cached copy itself, not the library’s', () => {
+    const c = findRescues([placed('Device:R')], sources({ cache: cached('Device:R', 200) }))[0]!;
+    const def = rescuedDefinition(c)!;
+    // 250 mils = 63500 IU, the cache's pin 1, negated by the reader.
+    expect(def.units.flatMap((u) => u.pins).find((p) => p.number === '1')!.at.y).toBe(-250 * 254);
   });
 });

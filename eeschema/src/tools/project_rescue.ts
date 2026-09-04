@@ -23,16 +23,17 @@
  * `SYMBOL_LIB_TABLE_RESCUER`, and this module ports its candidate finder,
  * `RESCUE_SYMBOL_LIB_TABLE_CANDIDATE::FindRescues` (`project_rescue.cpp:344-436`).
  *
- * ## What it can and cannot see here
+ * ## The two places it looks
  *
- * The finder consults two places for each symbol id: the project's legacy
- * `<project>-cache.lib`, through `PROJECT_SCH::LegacySchLibs`, and the symbol
- * library table. We do not read the legacy `.lib` format, so the cache half is
- * empty until we do, and {@link findRescues} takes it as an argument rather
- * than pretending. That leaves exactly one of the four arms live — a library id
- * whose item name contains characters `LIB_ID` forbids — and it is a real one:
- * an id like `Device:Conn<1>` comes in from an importer or a hand-edited file,
- * and is the case the two `continue`s below are deliberately NOT guarding:
+ * The finder consults the project's legacy `<project>-cache.lib`, through
+ * `PROJECT_SCH::LegacySchLibs`, and the symbol library table. The cache is
+ * taken as an argument here rather than reached for, because who supplies it is
+ * the caller's business — `sch_io/legacy/read-lib.ts` reads that format, and a
+ * project without one hands over an empty map.
+ *
+ * With no cache exactly one arm stays live, and it is a real one: an id whose
+ * item name contains characters `LIB_ID` forbids. Both cache-dependent skips
+ * sit *inside* the legal-name test —
  *
  *     if( LIB_ID::HasIllegalChars( symbol_id.GetLibItemName() ) == -1 )
  *     {
@@ -42,8 +43,8 @@
  *             continue;
  *     }
  *
- * Both skips sit *inside* the legal-name test, so an illegal name is a
- * candidate on the strength of the name alone, with no cache library anywhere.
+ * — so `Device:Conn<1>`, which an importer or a hand-edited file leaves behind,
+ * is a candidate on the strength of its name alone.
  *
  * This is deliberately NOT the same question as ERC's `lib_symbol_mismatch`,
  * which compares a sheet's `lib_symbols` entry against the library. That is the

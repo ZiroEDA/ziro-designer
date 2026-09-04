@@ -323,6 +323,10 @@ import {
   type RescueCandidate,
 } from '@ziroeda/eeschema/src/tools/project_rescue.js';
 import { DialogRescueEach, type RescueInstance } from './dialogs/dialog_rescue_each.js';
+import {
+  legacyCacheFileNames,
+  readLegacySymbolLibrary,
+} from '@ziroeda/eeschema/src/sch_io/legacy/read-lib.js';
 import { preloadSchematicLibraries } from './preload.js';
 import {
   projectSymbolLibraries,
@@ -3495,6 +3499,38 @@ export function SchematicEditor({
   const [rescueCandidates, setRescueCandidates] = useState<readonly RescueCandidate[] | null>(null);
   const [rescueMessage, setRescueMessage] = useState<string | null>(null);
 
+  /**
+   * The project's `<project>-cache.lib`, read — `PROJECT_SCH::LegacySchLibs`.
+   *
+   * `LoadAllLibraries` adds it whatever the schematic's format
+   * (`legacy_symbol_library.cpp:589-600`, "add the special cache library"), and
+   * the lazy load happens the first time anything asks — which for a modern
+   * project is the Project Rescue Helper and nothing else.
+   *
+   * A cache that will not parse leaves the map empty and the rescue runs
+   * without it, which is what upstream does with the `IO_ERROR`: `AddLibrary`
+   * throws, `LoadAllLibraries` catches it, logs "Symbol library '%s' failed to
+   * load." and carries on with the libraries it did get.
+   */
+  const legacyCache = useCallback((): Map<string, LibSymbol> => {
+    const names = legacyCacheFileNames(
+      rawFiles.find((f) => /\.kicad_pro$/i.test(f.name))?.name ?? project.current.root,
+    );
+    const file = names
+      .map((n) => rawFiles.find((f) => f.name.replace(/\\/g, '/').split('/').pop() === n))
+      .find(Boolean);
+    if (!file) return new Map();
+    try {
+      // Keyed by the name the cache files each symbol under, which is what
+      // `LEGACY_SYMBOL_LIB::FindSymbol` looks up — aliases included, because
+      // `loadAliases` puts each one in the map under its own name.
+      return new Map(readLegacySymbolLibrary(file.text).map((sym) => [sym.libId, sym]));
+    } catch (e) {
+      console.warn(`Symbol library '${file.name}' failed to load.`, e);
+      return new Map();
+    }
+  }, [rawFiles]);
+
   const runRescueSymbols = useCallback(async () => {
     const docs = liveDocs();
     const symbols = [...docs.values()].flatMap((d) => d.symbols);
@@ -3507,10 +3543,7 @@ export function SchematicEditor({
       new Map(),
     );
     const found = findRescues(symbols, {
-      // The legacy `<project>-cache.lib` half. Empty until that format is read:
-      // no cache library means the cache-only and pins-conflict arms cannot
-      // fire, and the illegal-name arm still can. See project_rescue.ts.
-      cache: new Map(),
+      cache: legacyCache(),
       lib: (id) => libs.get(id) ?? null,
       schematicFileName: project.current.root,
     });
@@ -3519,7 +3552,7 @@ export function SchematicEditor({
       return;
     }
     setRescueCandidates(found);
-  }, [liveDocs]);
+  }, [liveDocs, legacyCache]);
 
   /** "Instances of this symbol" — every placement of one id, over the hierarchy. */
   const rescueInstances = useCallback(
