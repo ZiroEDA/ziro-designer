@@ -134,7 +134,12 @@ const UNBUILT: Readonly<Record<string, readonly string[]>> = {
     'placeBarcode',
     'gridSetOrigin',
     'drillOrigin',
-    'placePoint',
+    // `placePoint` came off this list when `PCB_POINT` was ported: the item is
+    // in the model, the parser, the writer and the painter, and
+    // `DRAWING_TOOL::PlacePoint` is `handlePointClick` in `PcbEditor`. The two
+    // origin tools above it stay — `PCB_CONTROL::GridPlaceOrigin` and
+    // `BOARD_EDITOR_CONTROL::DrillOrigin` both run through `PCB_PICKER_TOOL`,
+    // which is not ported.
   ],
   'footprint top': [],
   'footprint left': [],

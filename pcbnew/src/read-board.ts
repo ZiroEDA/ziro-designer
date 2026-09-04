@@ -48,6 +48,7 @@ import type {
   PcbDimension,
   PcbFootprint,
   PcbPad,
+  PcbPoint,
   PcbShape,
   PcbImage,
   PcbTable,
@@ -159,6 +160,31 @@ const toBoard = (local: Vec2, t: FpTransform | null): Vec2 => {
   const r = rotatePcb(local, t.angle);
   return { x: r.x + t.pos.x, y: r.y + t.pos.y };
 };
+
+/**
+ * `(point (at x y) (size s) (layer L) (uuid …))`, `parsePCB_POINT`
+ * (`pcb_io_kicad_sexpr_parser.cpp:8582-8628`).
+ *
+ * Every token is optional in the grammar — the parser only rejects what is not
+ * one of the four — and a `PCB_POINT` constructed with none of them is at the
+ * origin with `DEFAULT_PT_SIZE_MM` (`pcb_point.cpp:41`) and no layer, so those
+ * are what an absent token leaves behind here.
+ *
+ * `t` is the footprint placement, applied for exactly the reason a shape's is:
+ * on a board a footprint's children are read into board coordinates.
+ */
+function readPoint(item: SList, t: FpTransform | null): PcbPoint {
+  return {
+    at: toBoard(ptAt(childNamed(item, 'at')) ?? { x: 0, y: 0 }, t),
+    size: mmOrUndef(item, 'size') ?? DEFAULT_POINT_SIZE,
+    layer: layerOf(item),
+    uuid: uuidOf(item),
+    source: item,
+  };
+}
+
+/** `DEFAULT_PT_SIZE_MM = 1.0` (`pcbnew/pcb_point.cpp:42`), in IU. */
+export const DEFAULT_POINT_SIZE = mmToIU(1.0);
 
 const layerOf = (node: SList): string => {
   const l = childNamed(node, 'layer');
@@ -902,6 +928,7 @@ function readFootprint(item: SList, local = false): PcbFootprint | null {
     pads: [],
     shapes: [],
     texts: [],
+    points: [],
     models: [],
     uuid: uuidOf(item),
     source: item,
@@ -915,6 +942,10 @@ function readFootprint(item: SList, local = false): PcbFootprint | null {
     } else if (h === 'model') {
       const m = readModel(child);
       if (m) fp.models.push(m);
+    } else if (h === 'point') {
+      // `parseFOOTPRINT`, T_point (`…_parser.cpp:5606-5610`). Unprefixed, not
+      // `fp_point`: the same token a board uses.
+      fp.points.push(readPoint(child, t));
     } else if (h.startsWith('fp_') && h !== 'fp_text' && h !== 'fp_text_box') {
       const s = readShape(child, t);
       if (s) fp.shapes.push(s);
@@ -1230,6 +1261,7 @@ export function readBoard(root: SList): Board {
     tables: [],
     images: [],
     dimensions: [],
+    points: [],
     groups: [],
     source: root,
   };
@@ -1398,6 +1430,12 @@ export function readBoard(root: SList): Board {
         if (d) board.dimensions.push({ ...d, locked: lockedOf(item) });
         break;
       }
+      case 'point':
+        // `parseBOARD_unchecked`, T_point (`…_parser.cpp:1330`): a board's own
+        // snap points, `BOARD::Points()`. Nothing transforms them — they are
+        // already board coordinates.
+        board.points.push(readPoint(item, null));
+        break;
       default:
         break;
     }

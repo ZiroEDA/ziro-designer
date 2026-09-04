@@ -180,7 +180,10 @@ export const FP_RIGHT_TOOLBAR: ToolEntry[] = [
   },
   { id: 'deleteTool', icon: 'deleteTool', title: 'Interactive delete tool' },
   sep,
-  { id: 'placePoint', icon: 'placePoint', title: 'Place points' },
+  // `PCB_ACTIONS::placePoint`'s Tooltip is "Add reference/snap points"
+  // (`pcb_actions.cpp:191-198`) — one action, one tooltip, whichever frame's
+  // toolbar it lands on. "Place points" was ours.
+  { id: 'placePoint', icon: 'placePoint', title: 'Add reference/snap points' },
   { id: 'setAnchor', icon: 'setAnchor', title: 'Set the footprint anchor' },
   { id: 'gridOrigin', icon: 'gridOrigin', title: 'Set the grid origin point' },
   // `ACTIONS::measureTool` (toolbars_footprint_editor.cpp:137). The id is the

@@ -55,6 +55,7 @@ const board = (): Board => ({
       ],
       shapes: [],
       texts: [],
+      points: [],
       models: [],
       source: EMPTY,
     },
@@ -97,6 +98,7 @@ const board = (): Board => ({
   textBoxes: [],
   tables: [],
   images: [],
+  points: [],
   groups: [],
   source: EMPTY,
 });

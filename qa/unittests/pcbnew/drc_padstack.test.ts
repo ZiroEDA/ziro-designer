@@ -48,6 +48,7 @@ const board = (pads: PcbPad[]): Board => ({
       pads,
       shapes: [],
       texts: [],
+      points: [],
       models: [],
       attributes: ['allow_missing_courtyard'],
       source: EMPTY,
@@ -63,6 +64,7 @@ const board = (pads: PcbPad[]): Board => ({
   textBoxes: [],
   tables: [],
   images: [],
+  points: [],
   groups: [],
   source: EMPTY,
 });

@@ -55,6 +55,7 @@ import {
   type PcbTable,
   type PcbTextBox,
   type PcbPad,
+  type PcbPoint,
   type PcbShape,
   type PcbTextItem,
 } from '@ziroeda/pcbnew';
@@ -223,6 +224,13 @@ export interface PcbDrawOptions {
   vias: boolean;
   pads: boolean;
   zones: boolean;
+  /**
+   * `LAYER_POINTS` — the Objects tab's "Points" row ("Show explicit snap
+   * points as crosses"). `PCB_POINT::ViewGetLOD` opens with
+   * `if( !aView->IsLayerVisible( LAYER_POINTS ) ) return LOD_HIDE`, so this
+   * hides every point whatever its own layer is doing.
+   */
+  points: boolean;
   fpValues: boolean;
   fpReferences: boolean;
   fpText: boolean;
@@ -328,6 +336,7 @@ export const DEFAULT_DRAW_OPTIONS: PcbDrawOptions = {
   vias: true,
   pads: true,
   zones: true,
+  points: true,
   fpValues: true,
   fpReferences: true,
   fpText: true,
@@ -372,6 +381,17 @@ interface LayerBuckets {
   textVal: Map<number, Path2D>;
   textFp: Map<number, Path2D>;
   textBoard: Map<number, Path2D>;
+  /**
+   * `PCB_POINT`s on this layer, as two paths because they are two colours: the
+   * X takes LAYER_POINTS and the ring takes the point's own board layer
+   * (`draw( const PCB_POINT* )`, `pcb_painter.cpp:3225-3269`). Bucketed per
+   * layer even though the cross colour is global, because visibility is per
+   * layer: `PCB_POINT::ViewGetLOD` hides the marker when either LAYER_POINTS
+   * or its board layer is off.
+   */
+  pointCross: Path2D;
+  pointRing: Path2D;
+  hasPoints: boolean;
 }
 
 /** A reference image's payload and where it goes; the bitmap is cached apart. */
@@ -617,6 +637,9 @@ const newBuckets = (): LayerBuckets => ({
   textVal: new Map(),
   textFp: new Map(),
   textBoard: new Map(),
+  pointCross: pathFactory.path(),
+  pointRing: pathFactory.path(),
+  hasPoints: false,
 });
 
 const buckets = (scene: BoardScene, layer: string): LayerBuckets => {
@@ -859,6 +882,36 @@ function addChamferedRect(
     sub.arcTo(-hx, -hy, -hx + r, -hy, r);
   }
   sub.closePath();
+}
+
+/**
+ * `PCB_PAINTER::draw( const PCB_POINT*, int )` (`pcb_painter.cpp:3225-3269`).
+ *
+ * An X and a circle, both in world units and both stroked at
+ * `m_pcbSettings.m_outlineWidth` — GAL's minimum pen, which the paint pass
+ * supplies as `minPen`:
+ *
+ *     double size = (double) aPoint->GetSize() / 2;
+ *     …
+ *     m_gal->DrawLine( { -size, -size }, {  size,  size } );
+ *     m_gal->DrawLine( {  size, -size }, { -size,  size } );
+ *     m_gal->SetStrokeColor( ringColor );
+ *     m_gal->DrawCircle( { 0, 0 }, size / 2 );
+ *
+ * So the X spans the full `GetSize()` corner to corner and the ring's radius
+ * is a quarter of it. "Draw as X to make it clearer when overlaid on cursor or
+ * axes" — the marker is deliberately not the `+` a footprint anchor uses.
+ */
+function addPoint(scene: BoardScene, p: PcbPoint): void {
+  const b = buckets(scene, p.layer);
+  const size = p.size / 2;
+  b.pointCross.moveTo(p.at.x - size, p.at.y - size);
+  b.pointCross.lineTo(p.at.x + size, p.at.y + size);
+  b.pointCross.moveTo(p.at.x + size, p.at.y - size);
+  b.pointCross.lineTo(p.at.x - size, p.at.y + size);
+  b.pointRing.moveTo(p.at.x + size / 2, p.at.y);
+  b.pointRing.arc(p.at.x, p.at.y, size / 2, 0, Math.PI * 2);
+  b.hasPoints = true;
 }
 
 function addShape(scene: BoardScene, s: PcbShape): void {
@@ -1638,6 +1691,11 @@ function compileScene(board: Board, filter: SceneFilter): BoardScene {
     if (s.center) grow(s.center.x, s.center.y);
     for (const pt of s.pts ?? []) grow(pt.x, pt.y);
   }
+  for (const [pi, pt] of board.points.entries()) {
+    pathFactory.setOwner?.(`point:${pi}`);
+    addPoint(scene, pt);
+    grow(pt.at.x, pt.at.y, pt.size / 2);
+  }
   for (const [fi, fp] of board.footprints.entries()) {
     pathFactory.setOwner?.(`footprint:${fi}`);
     if (filter.hideFrontFootprints && fp.layer === 'F.Cu') continue;
@@ -1647,6 +1705,13 @@ function compileScene(board: Board, filter: SceneFilter): BoardScene {
     // Back takes their anchors with them.
     scene.anchors.push({ x: fp.at.x, y: fp.at.y, layer: fp.layer, owner: `footprint:${fi}` });
     for (const s of fp.shapes) addShape(scene, s);
+    // `FOOTPRINT::Points()`, drawn by the same `draw( const PCB_POINT* )` — a
+    // footprint's snap points are not graphics and are not pads, so they get
+    // their own pass here.
+    for (const pt of fp.points) {
+      addPoint(scene, pt);
+      grow(pt.at.x, pt.at.y, pt.size / 2);
+    }
     for (const t of fp.texts) {
       if (t.hide) continue;
       const b = buckets(scene, t.layer);
@@ -2318,11 +2383,34 @@ export function buildDrawSteps(
     strokeText(b.textBoard);
     ctx.globalAlpha = 1;
   };
+  /**
+   * `POINT_LAYER_FOR( layer )`, which GAL_LAYER_ORDER files directly above the
+   * board layer it belongs to (`pcb_draw_panel_gal.cpp:84-140`) — so a point
+   * paints over its own layer's copper and graphics, and under the next layer
+   * up. Two strokes, two colours: the X in LAYER_POINTS and the ring in the
+   * layer's own colour, both at the minimum pen.
+   */
+  const paintPoints = (layer: string, la: number) => (): void => {
+    const b = scene.layers.get(layer);
+    if (!b || !b.hasPoints || !opts.points) return;
+    ctx.globalAlpha = la;
+    ctx.lineWidth = minPen;
+    ctx.strokeStyle = sp(special.points);
+    ctx.stroke(b.pointCross);
+    ctx.strokeStyle = col(layer);
+    ctx.stroke(b.pointRing);
+    ctx.globalAlpha = 1;
+  };
   const pushLayer = (layer: string): void => {
     if (!visible.has(layer) || !scene.layers.has(layer)) return;
     const la = layerAlpha(layer);
     if (la <= 0) return;
-    steps.push(paintZones(layer, la), paintCopper(layer, la), paintText(layer, la));
+    steps.push(
+      paintZones(layer, la),
+      paintCopper(layer, la),
+      paintText(layer, la),
+      paintPoints(layer, la),
+    );
   };
 
   const fCuIndex = PCB_PAINT_ORDER.indexOf('F.Cu');

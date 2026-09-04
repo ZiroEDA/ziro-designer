@@ -41,6 +41,7 @@ import type {
   PcbTrack,
   PcbArcTrack,
   PcbVia,
+  PcbPoint,
   PcbShape,
   PcbTextItem,
   PcbZone,
@@ -585,6 +586,27 @@ export function buildGroupNode(g: PcbGroup): SList {
 const groupNode = (g: PcbGroup): SNode =>
   g.source.items.length > 0 ? g.source : buildGroupNode(g);
 
+/**
+ * `(point (at …) (size …) (layer …) (uuid …))`, PCB_IO_KICAD_SEXPR::
+ * format(PCB_POINT) (`pcb_io_kicad_sexpr.cpp:1156-1167`).
+ *
+ * Four tokens and no fifth: no `(locked …)`, because the formatter has none —
+ * see {@link PcbPoint}. The order is the formatter's, and `(at …)` is a plain
+ * pair with no angle, a point having no orientation to write.
+ */
+export function buildPointNode(p: PcbPoint): SList {
+  const items: SNode[] = [
+    atom('point'),
+    list(atom('at'), atom(mm(p.at.x)), atom(mm(p.at.y))),
+    list(atom('size'), atom(mm(p.size))),
+    list(atom('layer'), str(p.layer)),
+  ];
+  if (p.uuid) items.push(list(atom('uuid'), str(p.uuid)));
+  return { kind: 'list', items };
+}
+const pointNode = (p: PcbPoint): SNode =>
+  p.source.items.length > 0 ? p.source : buildPointNode(p);
+
 /** A source child the reader parsed by these top-level heads. */
 const GRAPHIC_HEADS = new Set(['gr_line', 'gr_arc', 'gr_circle', 'gr_rect', 'gr_poly', 'gr_curve']);
 
@@ -608,6 +630,7 @@ export function writeBoardNode(board: Board): SList {
     bi = 0,
     tbi = 0,
     ii = 0,
+    pi = 0,
     gi = 0;
 
   for (const it of src.items) {
@@ -649,6 +672,9 @@ export function writeBoardNode(board: Board): SList {
     } else if (h === 'dimension') {
       if (di < board.dimensions.length) out.push(dimensionNode(board.dimensions[di]!));
       di++;
+    } else if (h === 'point') {
+      if (pi < board.points.length) out.push(pointNode(board.points[pi]!));
+      pi++;
     } else if (h === 'group') {
       // Empty groups are never written (PCB_IO_KICAD_SEXPR::format(PCB_GROUP)).
       if (gi < board.groups.length && board.groups[gi]!.members.length > 0)
@@ -674,6 +700,7 @@ export function writeBoardNode(board: Board): SList {
   for (; ii < board.images.length; ii++) out.push(imageNode(board.images[ii]!));
   for (; tbi < board.tables.length; tbi++) out.push(tableNode(board.tables[tbi]!));
   for (; di < board.dimensions.length; di++) out.push(dimensionNode(board.dimensions[di]!));
+  for (; pi < board.points.length; pi++) out.push(pointNode(board.points[pi]!));
   for (; gi < board.groups.length; gi++)
     if (board.groups[gi]!.members.length > 0) out.push(groupNode(board.groups[gi]!));
 

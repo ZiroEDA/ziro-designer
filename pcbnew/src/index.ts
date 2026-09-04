@@ -10,7 +10,14 @@ export {
   type LocalRatsnest,
   type RatsnestEdge,
 } from './ratsnest.js';
-export { readBoard, readFootprintFile, rotatePcb, tessellateArc, arcCenter } from './read-board.js';
+export {
+  readBoard,
+  readFootprintFile,
+  rotatePcb,
+  tessellateArc,
+  arcCenter,
+  DEFAULT_POINT_SIZE,
+} from './read-board.js';
 export { arcSweepDegrees } from './autoplace_matrix.js';
 export {
   serializeFootprint,
@@ -33,6 +40,7 @@ export {
   mirrorFootprintItems,
   deleteFootprintItems,
   addPad,
+  addPoint,
   addShape,
   addText,
   replaceFootprintItem,
@@ -70,6 +78,7 @@ export {
   addBoardImage,
   addBoardTextBox,
   addBoardTable,
+  addBoardPoint,
   addBoardZone,
   rotateBoardItems,
   rotateBoardItemsBy,

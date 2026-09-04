@@ -321,6 +321,8 @@ export interface PcbFootprint {
   pads: PcbPad[];
   shapes: PcbShape[];
   texts: PcbTextItem[];
+  /** `FOOTPRINT::Points()`, the footprint's own snap points. */
+  points: PcbPoint[];
   /** 3D model references (rendered by the 3D viewer, resolved to hosted assets). */
   models: Model3D[];
   uuid?: string;
@@ -741,6 +743,33 @@ export interface PcbDimension {
   source: SList;
 }
 
+/**
+ * A snap point, KiCad `(point (at …) (size …) (layer …) (uuid …))`.
+ * Counterpart: `PCB_POINT` (`pcbnew/pcb_point.h`).
+ *
+ * "A 0-dimensional point that is used to mark a position on a PCB, or more
+ * usually a footprint" — a defined snap anchor for component alignment, or a
+ * routing snap point in a custom pad. It has a position, a layer and nothing
+ * else but a size, and the size is in *board* units, not screen ones: a
+ * constant-size marker would fill the board with huge crosses when zoomed out,
+ * "so allow users to set how big they are as needed" (`pcb_point.h:36-42`).
+ *
+ * No `locked`. `PCB_POINT` inherits `BOARD_ITEM` and so has the flag —
+ * `ViewGetLayers` even pushes `LAYER_LOCKED_ITEM_SHADOW` for it — but neither
+ * `format( const PCB_POINT* )` nor `parsePCB_POINT` has a token for it
+ * (`pcb_io_kicad_sexpr.cpp:1156-1167`, whose parser `Expecting( "at, size,
+ * layer or uuid" )`), so the flag cannot survive a save. Modelling it would
+ * invent a file format.
+ */
+export interface PcbPoint {
+  at: Vec2;
+  /** `(size …)`, IU. The full width of the X, so each arm is half of it. */
+  size: number;
+  layer: string;
+  uuid?: string;
+  source: SList;
+}
+
 export interface Board {
   version: number;
   thickness?: number;
@@ -767,6 +796,8 @@ export interface Board {
   tables: PcbTable[];
   images: PcbImage[];
   dimensions: PcbDimension[];
+  /** `BOARD::Points()` — the board's own snap points, not a footprint's. */
+  points: PcbPoint[];
   groups: PcbGroup[];
   fileName?: string;
   source: SList;

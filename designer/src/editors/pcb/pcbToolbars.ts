@@ -363,7 +363,6 @@ export const PCB_RIGHT_TOOLBAR: ToolEntry[] = [
     id: 'placePoint',
     icon: 'placePoint',
     title: 'Place Point\nAdd reference/snap points',
-    ...todo,
   },
   {
     id: 'measureTool',

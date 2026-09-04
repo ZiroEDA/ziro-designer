@@ -94,7 +94,9 @@ import {
   addBoardTrack,
   addBoardVia,
   addBoardText,
+  addBoardPoint,
   addBoardZone,
+  DEFAULT_POINT_SIZE,
   type RatsnestEdge,
   type Board,
   type BoardBBox,
@@ -585,6 +587,9 @@ const PCB_TOOL_MSGS: Record<string, string> = {
   drawCircle: 'Draw Circle',
   drawPolygon: 'Draw Polygon',
   placeText: 'Add Text',
+  // `TOOL_ACTION::GetFriendlyName()`, which `TOOLS_HOLDER::PushTool` puts in
+  // pane 6 — "Place Point" (`pcb_actions.cpp:194`), not the tooltip.
+  placePoint: 'Place Point',
   measureTool: 'Measure Tool',
   deleteTool: 'Delete Items',
   localRatsnestTool: 'Local Ratsnest',
@@ -599,6 +604,11 @@ const isClickTool = (t: string): boolean =>
   t === 'placeText' ||
   t === 'drawZone' ||
   t === 'measureTool' ||
+  // `POINT_PLACER::SnapItem` calls `BestSnapAnchor` and then
+  // `ForceCursorPosition( true, cursorPos )` (drawing_tool.cpp:895-906) — a
+  // snap point that could not land on another item's anchor would be a poor
+  // snap point.
+  t === 'placePoint' ||
   !!DRAW_SHAPE_TOOLS[t];
 
 // Default graphic line widths per layer class, in IU
@@ -1673,6 +1683,7 @@ export function PcbEditor({
       vias: objects.vias,
       pads: objects.pads,
       zones: objects.zones,
+      points: objects.points,
       fpValues: objects.fpValues,
       fpReferences: objects.fpReferences,
       fpText: objects.fpText,
@@ -2601,6 +2612,34 @@ export function PcbEditor({
           canvasHeight: ctx.canvas.height,
         });
       }
+    }
+    // Place Point's preview item.
+    //
+    // `doInteractiveItemPlacement` with `IPO_SINGLE_CLICK` calls `makeNewItem`
+    // *before* the event loop (`pcb_tool_base.cpp:119-120`), so there is always
+    // a live `PCB_POINT` on the preview VIEW_GROUP following the cursor — the
+    // click commits that item rather than creating one. It is the real marker,
+    // drawn by the same `draw( const PCB_POINT* )`, which is why this mirrors
+    // `addPoint` in renderBoard rather than inventing a placeholder glyph.
+    if (activeToolRef.current === 'placePoint' && cursorRef.current) {
+      const at = cursorSnapRef.current(cursorRef.current);
+      const half = DEFAULT_POINT_SIZE / 2;
+      ctx.save();
+      ctx.setTransform(sx, 0, 0, v.scale, v.tx, v.ty);
+      ctx.lineWidth = 1 / v.scale;
+      ctx.beginPath();
+      ctx.moveTo(at.x - half, at.y - half);
+      ctx.lineTo(at.x + half, at.y + half);
+      ctx.moveTo(at.x + half, at.y - half);
+      ctx.lineTo(at.x - half, at.y + half);
+      ctx.strokeStyle = drawOpts.theme?.special.points ?? PCB_SPECIAL.points;
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(at.x, at.y, half / 2, 0, Math.PI * 2);
+      ctx.strokeStyle = layerColor(activeLayer);
+      ctx.stroke();
+      ctx.restore();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
     }
     // In-flight drawing preview (DRAWING_TOOL's live outline): the committed
     // points plus the snapped cursor, stroked in the active layer's color at
@@ -4123,7 +4162,12 @@ export function PcbEditor({
                 ? 'graphics'
                 : kind === 'text' || kind === 'fptext'
                   ? 'text'
-                  : null;
+                  : // `case PCB_POINT_T: if( !m_filter.points ) …`
+                    // (`pcb_selection_tool.cpp:3511-3518`) — points have a
+                    // category box of their own, unlike dimensions.
+                    kind === 'point'
+                    ? 'points'
+                    : null;
   const passesFilter = (id: string): boolean => {
     const r = parseBoardItemId(id);
     if (!r) return false;
@@ -5611,6 +5655,31 @@ export function PcbEditor({
     );
   };
 
+  /**
+   * Place a snap point (`DRAWING_TOOL::PlacePoint`, drawing_tool.cpp:914-930).
+   *
+   * `POINT_PLACER::CreateItem` makes a default `PCB_POINT` and sets exactly one
+   * thing on it, `SetLayer( m_frame.GetActiveLayer() )` — so the size is the
+   * constructor's 1 mm and the position is whatever `SnapItem` forced the
+   * cursor to, which is `cursorSnapRef` here.
+   *
+   * `IPO_REPEAT` means the tool re-arms after each placement rather than
+   * falling back to the selection tool, so this handler does not clear
+   * `activeTool`; `IPO_SINGLE_CLICK` is why one click both creates and commits
+   * (the preview item exists before the first click, see `pointPreviewRef`).
+   */
+  const handlePointClick = (world: { x: number; y: number }): void => {
+    const brd = boardRef.current;
+    if (!brd) return;
+    commitBoard(
+      addBoardPoint(brd, {
+        at: cursorSnapRef.current(world),
+        size: DEFAULT_POINT_SIZE,
+        layer: activeLayerRef.current,
+      }).board,
+    );
+  };
+
   // ----- interactive move / drag (EDIT_TOOL Move vs Drag) ---------------------
 
   const sceneFilter = (): { hideFrontFootprints: boolean; hideBackFootprints: boolean } => ({
@@ -6819,6 +6888,9 @@ export function PcbEditor({
         } else if (activeToolRef.current === 'drawZone') {
           const w = worldAt(e.clientX, e.clientY);
           if (w) handleZoneClick(w);
+        } else if (activeToolRef.current === 'placePoint') {
+          const w = worldAt(e.clientX, e.clientY);
+          if (w) handlePointClick(w);
         } else if (activeToolRef.current === 'measureTool') {
           const w = worldAt(e.clientX, e.clientY);
           if (w) handleMeasureClick(w);
@@ -8037,6 +8109,15 @@ export function PcbEditor({
         { label: 'Via', disabled: dis },
         { label: 'Zone', disabled: dis },
         { label: 'Text', disabled: dis },
+        // `placeMenu->Add( PCB_ACTIONS::placePoint )`
+        // (`menubar_pcb_editor.cpp:314`), which upstream files after Draw Table
+        // and before Add Barcode — between Text and the Dimensions submenu in
+        // the rows this abridged menu carries.
+        {
+          label: 'Place Point',
+          disabled: dis,
+          action: () => setActiveTool('placePoint'),
+        },
         { label: 'Dimension', disabled: dis },
         { sep: true },
         { label: 'Drill/Place File Origin', disabled: dis },
@@ -8545,9 +8626,17 @@ export function PcbEditor({
                     ? kiCursor('ZOOM_IN')
                     : activeTool === 'measureTool'
                       ? kiCursor('MEASURE')
-                      : activeTool === 'localRatsnestTool'
-                        ? 'crosshair'
-                        : 'default',
+                      : // `PCB_TOOL_BASE::doInteractiveItemPlacement`'s
+                        // `setCursor`: KICURSOR::PENCIL while there is no item
+                        // yet, KICURSOR::PLACE once one exists
+                        // (`pcb_tool_base.cpp:121-128`). Place Point runs with
+                        // IPO_SINGLE_CLICK, which makes the item before the
+                        // loop starts, so PLACE is the cursor the whole time.
+                        activeTool === 'placePoint'
+                        ? kiCursor('PLACE')
+                        : activeTool === 'localRatsnestTool'
+                          ? 'crosshair'
+                          : 'default',
               }}
               onPointerDown={onPointerDown}
               onPointerMove={onPointerMove}
@@ -9605,6 +9694,12 @@ function describeBoardItem(board: Board, id: string): string {
       const d = board.dimensions[r.index];
       return d ? `Dimension '${d.text?.text ?? ''}' on ${d.layer}` : 'Dimension';
     }
+    case 'point':
+      // `PCB_POINT::GetItemDescription` returns `_( "Point" )` and nothing
+      // else — no layer, no position. Two snap points on the same spot are
+      // therefore two identical rows in the disambiguation menu, which is what
+      // upstream shows.
+      return 'Point';
     case 'group': {
       const g = board.groups[r.index];
       // EDA_GROUP::GetItemDescription: 'Group "<name>" with N members' /

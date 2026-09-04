@@ -69,6 +69,8 @@ const BOARD = `(kicad_pcb (version 20241229) (generator "test")
         (layer "F.SilkS")
         (uuid "11111111-0000-0000-0000-000000000008")
         (effects (font (size 1 1))))))
+  (point (at 15 25) (size 1) (layer "F.SilkS")
+    (uuid "11111111-0000-0000-0000-000000000009"))
   (dimension (type orthogonal) (layer "Dwgs.User")
     (uuid "11111111-0000-0000-0000-000000000006")
     (pts (xy 70 70) (xy 80 70)) (height 5) (orientation 0)
@@ -106,6 +108,7 @@ describe('the board starts with one of everything', () => {
     expect(c.textBoxes).toBe(1);
     expect(c.tables).toBe(1);
     expect(c.dimensions).toBe(1);
+    expect(c.points).toBe(1);
   });
 });
 

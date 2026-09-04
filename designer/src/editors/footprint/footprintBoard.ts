@@ -115,6 +115,10 @@ export function footprintToBoard(fp: PcbFootprint | null): Board {
     tables: [],
     images: [],
     dimensions: [],
+    // The frame's board owns no points of its own: a footprint's snap points
+    // are `FOOTPRINT::Points()` and travel inside `fp`, exactly as its pads and
+    // graphics do.
+    points: [],
     tracks: [],
     arcs: [],
     vias: [],

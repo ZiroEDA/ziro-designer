@@ -249,18 +249,28 @@ export interface BestSnapOptions {
    * reshaping, which would pin it in place.
    */
   avoid?: ReadonlySet<string>;
+  /**
+   * `aSelectionFilter->points` — the Selection Filter's Points box, which
+   * `computeAnchors` consults before adding a `PCB_POINT`'s anchor
+   * (`pcb_grid_helper.cpp:1610-1611`, `:1790-1796`). Absent means on, as the
+   * filter defaults.
+   */
+  points?: boolean;
 }
 
 const sqDist = (a: Vec2, b: Vec2): number => (a.x - b.x) ** 2 + (a.y - b.y) ** 2;
 
 /**
- * `computeAnchors` over the board's copper.
+ * `computeAnchors` over the board's copper — and over its snap points.
  *
  * Ported: pads (`handlePadShape`'s centre), vias, tracks and arcs — the items
- * whose anchors decide where a track or a via can be dropped. Not yet ported:
- * graphics, zones, dimensions, text and the construction-geometry
- * intersections, all of which add anchors upstream and none of which change
- * where copper lands.
+ * whose anchors decide where a track or a via can be dropped — plus every
+ * `PCB_POINT`, which is what a point is *for*: "a defined snap anchor for
+ * component alignment, [or] a routing snap point in a custom pad"
+ * (`pcb_point.h:31-35`). A point that did not reach this list would be a
+ * marker and nothing more. Not yet ported: graphics, zones, dimensions, text
+ * and the construction-geometry intersections, all of which add anchors
+ * upstream and none of which change where copper lands.
  */
 export function computeCopperAnchors(
   aBoard: Board,
@@ -325,6 +335,31 @@ export function computeCopperAnchors(
       const mid = { x: (t.start.x + t.end.x) / 2, y: (t.start.y + t.end.y) / 2 };
 
       if (inRange(mid)) anchors.push({ pos: mid, flags: ANCHOR_ORIGIN });
+    }
+  }
+
+  // `case PCB_POINT_T: addAnchor( aItem->GetPosition(), ORIGIN | SNAPPABLE, … )`
+  // (`pcb_grid_helper.cpp:1790-1797`), and the same for a footprint's own
+  // points, which upstream collects in the footprint branch with the comment
+  // "Points are also pick-up points" (`:1607-1617`).
+  //
+  // Outside both magnetic blocks above: `MAGNETIC_SETTINGS` govern pads and
+  // tracks, and a point is neither — its anchor is offered whatever those are
+  // set to.
+  if (aOpts.points !== false) {
+    for (const [i, pt] of aBoard.points.entries()) {
+      if (skipped('point', i)) continue;
+      if (!onLayer(pt.layer)) continue;
+      if (inRange(pt.at)) anchors.push({ pos: pt.at, flags: ANCHOR_ORIGIN | ANCHOR_SNAPPABLE });
+    }
+
+    for (const [fpIndex, fp] of aBoard.footprints.entries()) {
+      if (skipped('footprint', fpIndex)) continue;
+
+      for (const pt of fp.points) {
+        if (!onLayer(pt.layer)) continue;
+        if (inRange(pt.at)) anchors.push({ pos: pt.at, flags: ANCHOR_ORIGIN | ANCHOR_SNAPPABLE });
+      }
     }
   }
 

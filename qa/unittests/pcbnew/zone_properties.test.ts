@@ -265,6 +265,7 @@ describe('island removal reaches the filler', () => {
         pads: [pad({ x: MM(5), y: MM(5) }, 1, 2), pad({ x: MM(15), y: MM(5) }, 2, 0.5)],
         shapes: [],
         texts: [],
+        points: [],
         models: [],
         source: EMPTY,
       },
@@ -305,6 +306,7 @@ describe('island removal reaches the filler', () => {
     textBoxes: [],
     tables: [],
     images: [],
+    points: [],
     groups: [],
     source: EMPTY,
   });

@@ -15,7 +15,9 @@ import {
   deleteFootprintItems,
   fpItemBBox,
   addPad,
+  addPoint,
   addShape,
+  DEFAULT_POINT_SIZE,
   setFootprintReference,
   setFootprintValue,
   footprintStringChild,
@@ -210,6 +212,7 @@ function newFootprint(name: string): PcbFootprint {
       makeText('reference', 'REF**', { x: 0, y: mmToIU(-1) }, 'F.SilkS'),
       makeText('value', name, { x: 0, y: mmToIU(1) }, 'F.Fab'),
     ],
+    points: [],
     models: [],
     source: EMPTY_SOURCE,
   };
@@ -447,6 +450,7 @@ export function FootprintEditor({
       vias: objects.vias,
       pads: objects.pads,
       zones: objects.zones,
+      points: objects.points,
       fpValues: objects.fpValues,
       fpReferences: objects.fpReferences,
       fpText: objects.fpText,
@@ -672,6 +676,23 @@ export function FootprintEditor({
       const p = { x: Math.round(pos.x), y: Math.round(pos.y) };
       if (activeTool === 'placePad') {
         placePadAt(p);
+        return;
+      }
+      // `DRAWING_TOOL::PlacePoint` — `POINT_PLACER::CreateItem` sets nothing on
+      // the new `PCB_POINT` but `SetLayer( GetActiveLayer() )`, so the size is
+      // the constructor's 1 mm. `IPO_REPEAT | IPO_SINGLE_CLICK`: one click
+      // places one point and the tool stays armed.
+      if (activeTool === 'placePoint') {
+        if (workFp)
+          commit(
+            addPoint(workFp, {
+              at: p,
+              size: DEFAULT_POINT_SIZE,
+              layer: activeLayer,
+              source: EMPTY_SOURCE,
+            }),
+            'Place point',
+          );
         return;
       }
       if (DRAW_TOOLS.has(activeTool)) {

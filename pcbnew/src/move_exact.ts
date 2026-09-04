@@ -174,6 +174,8 @@ export function itemAnchorPoint(board: Board, id: string): Vec2 | null {
       // PCB_DIMENSION_BASE::GetPosition() is GetStart() — the first feature
       // point, not the centre of the drawn lines and not the text.
       return board.dimensions[r.index]?.start ?? null;
+    case 'point':
+      return board.points[r.index]?.at ?? null;
     default:
       return null;
   }

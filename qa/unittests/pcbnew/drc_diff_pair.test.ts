@@ -260,6 +260,7 @@ const board = (tracks: PcbTrack[], names: [number, string][]): Board => ({
   textBoxes: [],
   tables: [],
   images: [],
+  points: [],
   groups: [],
   source: EMPTY,
 });

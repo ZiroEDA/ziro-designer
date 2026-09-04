@@ -126,6 +126,7 @@ const fp = (over: Partial<PcbFootprint> = {}): PcbFootprint => ({
   pads: [pad('1', -0.8), pad('2', 0.8)],
   shapes: [silk()],
   texts: [],
+  points: [],
   models: [],
   source: EMPTY,
   ...over,
@@ -149,6 +150,7 @@ const board = (footprints: PcbFootprint[]): Board => ({
   textBoxes: [],
   tables: [],
   images: [],
+  points: [],
   groups: [],
   source: EMPTY,
 });

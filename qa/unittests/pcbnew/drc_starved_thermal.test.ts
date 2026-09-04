@@ -91,6 +91,7 @@ const fp = (pads: PcbPad[], over: Partial<PcbFootprint> = {}): PcbFootprint => (
   pads,
   shapes: [],
   texts: [],
+  points: [],
   models: [],
   attributes: ['allow_missing_courtyard'],
   source: EMPTY,
@@ -136,6 +137,7 @@ const board = (zones: PcbZone[], footprints: PcbFootprint[]): Board => ({
   textBoxes: [],
   tables: [],
   images: [],
+  points: [],
   groups: [],
   source: EMPTY,
 });

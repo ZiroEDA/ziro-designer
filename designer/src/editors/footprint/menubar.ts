@@ -335,7 +335,11 @@ export function footprintEditorMenus(
         stub('Draw Text', 'placeText', { shortcut: browserSafeKey('Ctrl+Shift+T') }),
         stub('Draw Text Boxes', 'drawTextBox'),
         stub('Draw Tables', 'drawTable'),
-        stub('Place Point', 'placePoint'),
+        // `DRAWING_TOOL::PlacePoint` opens with
+        // `if( m_isFootprintEditor && !m_frame->GetModel() ) return 0`
+        // (`drawing_tool.cpp:916-917`) — the same "a footprint is loaded"
+        // guard the other placement rows carry as `haveFootprintCond`.
+        tool('Place Point', 'placePoint', { disabled: !conds.haveFootprint }),
         stub('Add Barcode', 'placeBarcode'),
         SEP,
         stub('Draw Orthogonal Dimensions', 'drawOrthogonalDimension', {

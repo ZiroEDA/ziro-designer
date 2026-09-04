@@ -112,6 +112,7 @@ import {
   buildDimensionNode,
   buildGroupNode,
   buildImageNode,
+  buildPointNode,
   buildTableNode,
   buildTextBoxNode,
   buildTrackNode,
@@ -283,6 +284,7 @@ const CLIPBOARD_KINDS: readonly BoardItemKind[] = [
   'image',
   'table',
   'dimension',
+  'point',
   'group',
 ];
 
@@ -298,6 +300,7 @@ interface KindIndices {
   image: Set<number>;
   table: Set<number>;
   dimension: Set<number>;
+  point: Set<number>;
   group: Set<number>;
   /** footprint index -> selected pad indices, for a bare `pad:i:j` selection. */
   pads: Map<number, Set<number>>;
@@ -318,6 +321,7 @@ function indicesOf(ids: Iterable<string>): KindIndices {
     image: new Set(),
     table: new Set(),
     dimension: new Set(),
+    point: new Set(),
     group: new Set(),
     pads: new Map(),
     fpTexts: new Map(),
@@ -402,6 +406,7 @@ function padWrapperFootprint(pads: PcbPad[]): PcbFootprint {
     pads,
     shapes: [],
     texts: [],
+    points: [],
     models: [],
     source: { kind: 'list', items: [] },
   };
@@ -623,6 +628,7 @@ function materializePayload(clip: Board): Board {
     tables: clip.tables.map((t) => materialize(t, buildTableNode)),
     images: clip.images.map((i) => materialize(i, buildImageNode)),
     dimensions: clip.dimensions.map((d) => materialize(d, buildDimensionNode)),
+    points: clip.points.map((p) => materialize(p, buildPointNode)),
     groups: clip.groups.map((g) => materialize(g, buildGroupNode)),
   };
 }
@@ -682,6 +688,7 @@ function emptyClipboardBoard(board: Board): Board {
     tables: [],
     images: [],
     dimensions: [],
+    points: [],
     groups: [],
     source: { kind: 'list', items: [] },
   };
@@ -700,6 +707,7 @@ function isEmptyPayload(clip: Board): boolean {
     clip.tables.length === 0 &&
     clip.images.length === 0 &&
     clip.dimensions.length === 0 &&
+    clip.points.length === 0 &&
     clip.groups.length === 0
   );
 }
@@ -718,6 +726,7 @@ function clipboardItemIds(clip: Board): string[] {
     image: clip.images.length,
     table: clip.tables.length,
     dimension: clip.dimensions.length,
+    point: clip.points.length,
     group: clip.groups.length,
   };
   const out: string[] = [];
@@ -780,6 +789,7 @@ function collectSelection(board: Board, idx: KindIndices): Board {
     tables: keep(board.tables, idx.table),
     images: keep(board.images, idx.image),
     dimensions: keep(board.dimensions, idx.dimension),
+    points: keep(board.points, idx.point),
     groups: keep(board.groups, idx.group),
   };
 
@@ -799,6 +809,7 @@ function collectSelection(board: Board, idx: KindIndices): Board {
   for (const t of clip.tables) note(t.uuid);
   for (const i of clip.images) note(i.uuid);
   for (const d of clip.dimensions) note(d.uuid);
+  for (const p of clip.points) note(p.uuid);
   for (const g of clip.groups) note(g.uuid);
 
   clip.groups = clip.groups.map((g) =>
@@ -984,6 +995,7 @@ export function parseClipboardText(text: string): ParsedClipboard | null {
         tables: [],
         images: [],
         dimensions: [],
+        points: [],
         groups: [],
         source: { kind: 'list', items: [atom('kicad_pcb')] },
       };
@@ -1297,6 +1309,7 @@ function pruneItemLayers(dest: Board, clip: Board): { clip: Board; prunedCount: 
     tables: clip.tables.filter(keepOne),
     images: clip.images.filter(keepOne),
     dimensions: clip.dimensions.filter(keepOne),
+    points: clip.points.filter(keepOne),
   };
 
   // "make sure it's not still included in its parent group" — a pruned item
@@ -1316,6 +1329,7 @@ function pruneItemLayers(dest: Board, clip: Board): { clip: Board; prunedCount: 
   for (const t of next.tables) note(t.uuid);
   for (const i of next.images) note(i.uuid);
   for (const d of next.dimensions) note(d.uuid);
+  for (const p of next.points) note(p.uuid);
   for (const g of next.groups) note(g.uuid);
   next.groups = next.groups.map((g) =>
     withMembers(
@@ -1393,6 +1407,7 @@ function restamp(dest: Board, clip: Board): Board {
     tables: clip.tables.map(stamp),
     images: clip.images.map(stamp),
     dimensions: clip.dimensions.map(stamp),
+    points: clip.points.map(stamp),
     groups: clip.groups.map(stamp),
   };
 
@@ -1422,6 +1437,7 @@ function appendPayload(dest: Board, clip: Board): { board: Board; newIds: string
   at('image', dest.images.length, clip.images.length);
   at('table', dest.tables.length, clip.tables.length);
   at('dimension', dest.dimensions.length, clip.dimensions.length);
+  at('point', dest.points.length, clip.points.length);
   at('group', dest.groups.length, clip.groups.length);
 
   return {
@@ -1438,6 +1454,7 @@ function appendPayload(dest: Board, clip: Board): { board: Board; newIds: string
       tables: [...dest.tables, ...clip.tables],
       images: [...dest.images, ...clip.images],
       dimensions: [...dest.dimensions, ...clip.dimensions],
+      points: [...dest.points, ...clip.points],
       groups: [...dest.groups, ...clip.groups],
     },
     newIds,

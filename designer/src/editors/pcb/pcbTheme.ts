@@ -122,6 +122,8 @@ export interface PcbSpecialColors {
   padHoleWall: string;
   ratsnest: string;
   anchor: string;
+  /** `LAYER_POINTS` ("board.points"): the colour of a `PCB_POINT`'s X. */
+  points: string;
   /** `LAYER_AUX_ITEMS` ("board.aux_items"), which the ruler and the edit
    *  points draw in. */
   auxItems: string;
@@ -150,6 +152,7 @@ const specialFor = (colors: ThemeColors): PcbSpecialColors => ({
   padHoleWall: at(colors, 'LAYER_VIA_HOLES'),
   ratsnest: at(colors, 'LAYER_RATSNEST'),
   anchor: at(colors, 'LAYER_ANCHOR'),
+  points: at(colors, 'LAYER_POINTS'),
   auxItems: at(colors, 'LAYER_AUX_ITEMS'),
   drawingSheet: at(colors, 'LAYER_DRAWINGSHEET'),
   // LAYER_PAGE_LIMITS: the paper edge, outside the sheet's own frame and in
@@ -245,6 +248,7 @@ export const PCB_BW_PRINT_THEME: PcbColorTheme = {
     padHoleWall: BLACK,
     ratsnest: BLACK,
     anchor: BLACK,
+    points: BLACK,
     auxItems: BLACK,
     drawingSheet: BLACK,
     pageLimits: BLACK,
@@ -276,7 +280,7 @@ export const PCB_OBJECT_COLORS: Record<string, string> = {
   drcErrors: PCB_SPECIAL.drcError,
   drcExclusions: PCB_SPECIAL.drcExclusion,
   anchors: PCB_SPECIAL.anchor,
-  points: at(BUILTIN_DEFAULT_THEME, 'LAYER_POINTS'),
+  points: PCB_SPECIAL.points,
   lockedShadow: at(BUILTIN_DEFAULT_THEME, 'LAYER_LOCKED_ITEM_SHADOW'),
   collidingCourtyards: at(BUILTIN_DEFAULT_THEME, 'LAYER_CONFLICTS_SHADOW'),
   boardAreaShadow: at(BUILTIN_DEFAULT_THEME, 'LAYER_BOARD_OUTLINE_AREA'),

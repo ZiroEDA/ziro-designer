@@ -42,6 +42,7 @@ import type {
   PcbDimension,
   PcbFootprint,
   PcbPad,
+  PcbPoint,
   PcbTrack,
   PcbArcTrack,
   PcbVia,
@@ -80,6 +81,7 @@ const BOARD_ITEM_KINDS = [
   'table',
   'image',
   'dimension',
+  'point',
   'fptext',
   'pad',
   'group',
@@ -279,6 +281,14 @@ export function boardItemBBox(board: Board, id: string): BoardBBox | null {
       // The lines only — the text is measured separately, since sizing it needs
       // glyph metrics the engine does not have.
       return d ? dimensionBBox(d) : null;
+    }
+    case 'point': {
+      const p = board.points[ref.index];
+      // `PCB_POINT::GetBoundingBox`: `BOX2I::ByCenter( m_pos, { m_size, m_size } )`
+      // (`pcb_point.cpp:143-147`) — the square the X is inscribed in, so half a
+      // size in each direction.
+      return p ? { minX: p.at.x - p.size / 2, minY: p.at.y - p.size / 2,
+                   maxX: p.at.x + p.size / 2, maxY: p.at.y + p.size / 2 } : null;
     }
     case 'fptext': {
       const f = board.footprints[ref.index];
@@ -496,6 +506,37 @@ const arcDist = (a: PcbArcTrack, pos: Vec2): number => {
   return Math.max(0, Math.min(dist(pos, a.start), dist(pos, a.end)) - a.width / 2);
 };
 
+/**
+ * Distance from the cursor to a snap point, `PCB_POINT::HitTest`
+ * (`pcb_point.cpp:82-96`).
+ *
+ * Three shapes, whichever is nearest — and note that upstream's local `size` is
+ * `GetSize() / 2`, so every dimension below is half what the name suggests:
+ *
+ *     const int size = GetSize() / 2;
+ *     seg1 = SEG( m_pos - {size, size},  m_pos + {size, size} );
+ *     seg2 = SEG( m_pos - {size, -size}, m_pos + {size, -size} );
+ *     SHAPE_CIRCLE circle( m_pos, size / 2 );
+ *
+ * The two diagonals are the drawn X, so its arms reach half a `size` from the
+ * centre; the circle is a *disc* — `SHAPE_CIRCLE::Collide` tests the centre
+ * distance against the radius, not the ring — of radius `GetSize() / 4`, which
+ * is the drawn ring. So the interior of the little circle is solid to the
+ * mouse and the rest of the marker is its two strokes.
+ */
+const pointDist = (p: PcbPoint, pos: Vec2): number => {
+  const h = p.size / 2;
+  const a = { x: p.at.x - h, y: p.at.y - h };
+  const b = { x: p.at.x + h, y: p.at.y + h };
+  const c = { x: p.at.x - h, y: p.at.y + h };
+  const d = { x: p.at.x + h, y: p.at.y - h };
+  return Math.min(
+    distToSeg(pos, a, b),
+    distToSeg(pos, c, d),
+    Math.max(0, dist(pos, p.at) - h / 2),
+  );
+};
+
 /** Distance from a point to a graphic shape (0 inside a filled shape). */
 const shapeDist = (s: PcbShape, pos: Vec2): number => {
   const half = s.width / 2;
@@ -700,6 +741,20 @@ export function boardHitCandidates(
         // dimension never hides a solid item underneath it.
         area: dm.style.thickness * dm.style.thickness,
         layers: [dm.layer],
+      });
+  });
+  board.points.forEach((pt, i) => {
+    const d = pointDist(pt, pos);
+    if (d <= tol)
+      hits.push({
+        id: boardItemId('point', i),
+        kind: 'point',
+        dist: d,
+        // A marker drawn at the minimum pen: linear, so it counts as the width
+        // squared and never hides a solid item under it, the way a dimension
+        // and an unfilled graphic do.
+        area: 1,
+        layers: [pt.layer],
       });
   });
   board.shapes.forEach((s, i) => {
@@ -1012,6 +1067,12 @@ export function boardItemsInBox(
     const b = boardItemBBox(board, boardItemId('dimension', i))!;
     if (contained ? boxContainsBox(rect, b) : boxIntersects(rect, b)) push('dimension', i);
   });
+  board.points.forEach((_, i) => {
+    // `PCB_POINT::HitTest( BOX2I )` is `KIGEOM::BoxHitTest` on the bounding box
+    // (`pcb_point.cpp:105-108`) in both modes, so this is the plain box test.
+    const b = boardItemBBox(board, boardItemId('point', i))!;
+    if (contained ? boxContainsBox(rect, b) : boxIntersects(rect, b)) push('point', i);
+  });
   board.zones.forEach((z, i) => {
     if (contained) {
       if (bboxContained('zone', i)) push('zone', i);
@@ -1037,6 +1098,7 @@ export function allBoardItemIds(board: Board): string[] {
   board.tables.forEach((_, i) => out.push(boardItemId('table', i)));
   board.images.forEach((_, i) => out.push(boardItemId('image', i)));
   board.dimensions.forEach((_, i) => out.push(boardItemId('dimension', i)));
+  board.points.forEach((_, i) => out.push(boardItemId('point', i)));
   board.zones.forEach((_, i) => out.push(boardItemId('zone', i)));
   return out;
 }
@@ -1209,6 +1271,15 @@ const moveTextBox = (t: PcbTextBox, d: Vec2): PcbTextBox => {
 };
 
 /**
+ * Shift a snap point. `PCB_POINT::Move` is `m_pos += aMoveVector` and nothing
+ * else — a point has no second coordinate to keep in step.
+ */
+const movePoint = (p: PcbPoint, d: Vec2): PcbPoint => {
+  const at = add(p.at, d);
+  return { ...p, at, source: patchChild(p.source, 'at', xyNode('at', at)) };
+};
+
+/**
  * Shift a dimension: both feature points, and the text if it has one.
  *
  * The `(pts …)` list holds the feature points and the `(gr_text … (at …))`
@@ -1357,6 +1428,7 @@ export function moveBoardItems(board: Board, ids: ReadonlySet<string>, delta: Ve
     textBoxes: board.textBoxes.map((t, i) => (idx.textbox.has(i) ? moveTextBox(t, delta) : t)),
     tables: board.tables.map((t, i) => (idx.table.has(i) ? moveTable(t, delta) : t)),
     images: board.images.map((img, i) => (idx.image.has(i) ? moveImage(img, delta) : img)),
+    points: board.points.map((p, i) => (idx.point.has(i) ? movePoint(p, delta) : p)),
     dimensions: board.dimensions.map((d, i) =>
       idx.dimension.has(i) ? moveDimension(d, delta) : d,
     ),
@@ -1525,6 +1597,7 @@ function indicesByKind(ids: ReadonlySet<string>): Record<BoardItemKind, Set<numb
     table: new Set(),
     image: new Set(),
     dimension: new Set(),
+    point: new Set(),
     fptext: new Set(),
     pad: new Set(),
     group: new Set(),
@@ -1619,6 +1692,7 @@ export function deleteBoardItems(board: Board, ids: ReadonlySet<string>): Board 
     tables: board.tables.filter((_, i) => !idx.table.has(i)),
     images: board.images.filter((_, i) => !idx.image.has(i)),
     dimensions: board.dimensions.filter((_, i) => !idx.dimension.has(i)),
+    points: board.points.filter((_, i) => !idx.point.has(i)),
     footprints: board.footprints
       // Remove individually-selected footprint texts first (on original indices,
       // so the fptext map stays aligned), then drop whole selected footprints.
@@ -1735,6 +1809,27 @@ export function addBoardDimension(
   };
 }
 
+/**
+ * Append a freshly-placed snap point — `POINT_PLACER::CreateItem` followed by
+ * `INTERACTIVE_PLACER_BASE::PlaceItem`'s `commit.Add`
+ * (`drawing_tool.cpp:885-893`).
+ *
+ * `CreateItem` builds a default-constructed `PCB_POINT` and sets one thing on
+ * it, `SetLayer( m_frame.GetActiveLayer() )` — so the size is the constructor's
+ * {@link DEFAULT_POINT_SIZE} and the position is whatever `SnapItem` last
+ * forced the cursor to. Source-less, like every other adder here.
+ */
+export function addBoardPoint(
+  board: Board,
+  point: Omit<PcbPoint, 'source'>,
+): { board: Board; id: string } {
+  const withSource: PcbPoint = { ...point, source: { kind: 'list', items: [] } };
+  return {
+    board: { ...board, points: [...board.points, withSource] },
+    id: boardItemId('point', board.points.length),
+  };
+}
+
 /** Append a freshly-placed reference image (`DRAWING_TOOL::PlaceReferenceImage`'s commit). */
 export function addBoardImage(
   board: Board,
@@ -1788,6 +1883,7 @@ export function subsetBoardItems(board: Board, ids: ReadonlySet<string>): Board 
           ...f,
           pads: pi ? f.pads.filter((_, j) => pi.has(j)) : [],
           shapes: [],
+          points: [],
           models: [],
           texts: ti ? f.texts.filter((_, j) => ti.has(j)) : [],
         });
@@ -1802,6 +1898,7 @@ export function subsetBoardItems(board: Board, ids: ReadonlySet<string>): Board 
     zones: board.zones.filter((_, i) => idx.zone.has(i)),
     shapes: board.shapes.filter((_, i) => idx.shape.has(i)),
     texts: board.texts.filter((_, i) => idx.text.has(i)),
+    points: board.points.filter((_, i) => idx.point.has(i)),
     footprints,
   };
 }
@@ -1867,6 +1964,8 @@ export function boardItemPosition(board: Board, id: string): Vec2 | null {
       return board.footprints[ref.index]?.texts[ref.sub ?? 0]?.at ?? null;
     case 'dimension':
       return board.dimensions[ref.index]?.start ?? null;
+    case 'point':
+      return board.points[ref.index]?.at ?? null;
     case 'image':
       // `PCB_REFERENCE_IMAGE::GetPosition` is "the center of the image"
       // (pcb_reference_image.h:93), which is what `(at …)` holds here.
@@ -2122,9 +2221,16 @@ export function rotateBoardItemsBy(
   };
   const rotShape = (s: PcbShape): PcbShape => rotateBoardShape(s, c, deg);
   const rotFootprint = (f: PcbFootprint): PcbFootprint => rotateFootprintAbout(f, c, deg);
+  // `PCB_POINT::Rotate` is `RotatePoint( m_pos, aRotCentre, aAngle )` and
+  // nothing more — no orientation to carry round with it.
+  const rotPoint = (p: PcbPoint): PcbPoint => {
+    const at = rotAbout(p.at, c, deg);
+    return { ...p, at, source: patchChild(p.source, 'at', xyNode('at', at)) };
+  };
 
   return {
     ...board,
+    points: board.points.map((p, i) => (idx.point.has(i) ? rotPoint(p) : p)),
     tracks: board.tracks.map((t, i) => (idx.track.has(i) ? rotTrack(t) : t)),
     arcs: board.arcs.map((a, i) => (idx.arc.has(i) ? rotArc(a) : a)),
     vias: board.vias.map((v, i) => (idx.via.has(i) ? rotVia(v) : v)),
@@ -2148,6 +2254,7 @@ export function boardUuidIndex(board: Board): Map<string, string> {
   board.zones.forEach((z, i) => put(z.uuid, boardItemId('zone', i)));
   board.shapes.forEach((s, i) => put(s.uuid, boardItemId('shape', i)));
   board.texts.forEach((t, i) => put(t.uuid, boardItemId('text', i)));
+  board.points.forEach((p, i) => put(p.uuid, boardItemId('point', i)));
   board.footprints.forEach((f, i) => put(f.uuid, boardItemId('footprint', i)));
   board.groups.forEach((g, i) => put(g.uuid, boardItemId('group', i)));
   return m;
@@ -2185,6 +2292,8 @@ function uuidOfItemId(board: Board, id: string): string | undefined {
       return board.images[r.index]?.uuid;
     case 'dimension':
       return board.dimensions[r.index]?.uuid;
+    case 'point':
+      return board.points[r.index]?.uuid;
     case 'footprint':
       return board.footprints[r.index]?.uuid;
     case 'group':
@@ -2418,6 +2527,10 @@ export function isBoardItemLocked(board: Board, id: string): boolean {
       return !!board.images[r.index]?.locked;
     case 'dimension':
       return !!board.dimensions[r.index]?.locked;
+    // A point can never report locked: `format( const PCB_POINT* )` has no
+    // `(locked …)` token, so the flag has nowhere to live. See {@link PcbPoint}.
+    case 'point':
+      return false;
     case 'footprint':
     case 'pad':
     case 'fptext':
@@ -2594,6 +2707,20 @@ export function mirrorBoardItems(
     return { ...next, source: src };
   };
 
+  // `PCB_POINT_T` is in `EDIT_TOOL::MirrorableItems` (`edit_tool.cpp:2417-2420`)
+  // and `EDIT_TOOL::Mirror`'s switch calls `PCB_POINT::Mirror` — which 10.0.5
+  // does not define. It resolves to `BOARD_ITEM::Mirror`, whose entire body is
+  // `wxMessageBox( "virtual BOARD_ITEM::Mirror used, should not occur" )`
+  // (`board_item.cpp:395-398`): mirroring a point upstream pops an error box
+  // and moves nothing. Reproducing that would be reproducing a crash dialog,
+  // so we do what the item is plainly meant to do and what every other
+  // positional item's `Mirror` does — reflect the position. The layer is left
+  // alone: that is `Flip`, a different command.
+  const mirPoint = (p: PcbPoint): PcbPoint => {
+    const at = mir(p.at);
+    return { ...p, at, source: patchChild(p.source, 'at', xyNode('at', at)) };
+  };
+
   return {
     ...board,
     tracks: board.tracks.map((t, i) => (idx.track.has(i) ? mirTrack(t) : t)),
@@ -2601,6 +2728,7 @@ export function mirrorBoardItems(
     vias: board.vias.map((v, i) => (idx.via.has(i) ? mirVia(v) : v)),
     texts: board.texts.map((t, i) => (idx.text.has(i) ? mirText(t) : t)),
     shapes: board.shapes.map((s, i) => (idx.shape.has(i) ? mirShape(s) : s)),
+    points: board.points.map((p, i) => (idx.point.has(i) ? mirPoint(p) : p)),
   };
 }
 
@@ -2637,7 +2765,8 @@ export function duplicateBoardItems(
     vias = [...board.vias];
   const footprints = [...board.footprints],
     shapes = [...board.shapes],
-    texts = [...board.texts];
+    texts = [...board.texts],
+    points = [...board.points];
   const newIds: string[] = [];
   const dup = <T extends { uuid?: string; source: SList }>(
     arr: T[],
@@ -2658,7 +2787,8 @@ export function duplicateBoardItems(
   dup(footprints, board.footprints, idx.footprint, 'footprint');
   dup(shapes, board.shapes, idx.shape, 'shape');
   dup(texts, board.texts, idx.text, 'text');
-  const copied: Board = { ...board, tracks, arcs, vias, footprints, shapes, texts };
+  dup(points, board.points, idx.point, 'point');
+  const copied: Board = { ...board, tracks, arcs, vias, footprints, shapes, texts, points };
   return { board: moveBoardItems(copied, new Set(newIds), delta), ids: newIds };
 }
 

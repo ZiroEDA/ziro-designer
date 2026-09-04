@@ -57,6 +57,7 @@ const board = (images: PcbImage[]): Board => ({
   textBoxes: [],
   tables: [],
   images,
+  points: [],
   groups: [],
   source: EMPTY,
 });

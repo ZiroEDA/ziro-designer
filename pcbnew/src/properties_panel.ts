@@ -180,6 +180,10 @@ export function pcbItemFriendlyName(board: Board, id: string): string | undefine
       return 'Reference Image';
     case 'dimension':
       return 'Dimension';
+    // The `ENUM_MAP<KICAD_T>` entry, `.Map( PCB_POINT_T, _HKI( "Point" ) )`
+    // (`common/eda_item.cpp:466`) — `PCB_POINT` overrides no friendly name.
+    case 'point':
+      return 'Point';
     case 'group':
       return 'Group';
   }

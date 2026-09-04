@@ -52,6 +52,7 @@ const board = (over: Partial<Board> = {}): Board => ({
   textBoxes: [],
   tables: [],
   images: [],
+  points: [],
   groups: [],
   source: EMPTY,
   ...over,
@@ -85,6 +86,7 @@ const fp = (pads: PcbPad[]) => ({
   pads,
   shapes: [],
   texts: [],
+  points: [],
   models: [],
   source: EMPTY,
 });

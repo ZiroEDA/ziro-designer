@@ -145,6 +145,7 @@ describe('committing to the board', () => {
     textBoxes: [],
     tables: [],
     images: [],
+    points: [],
     groups: [],
     source: EMPTY,
   });

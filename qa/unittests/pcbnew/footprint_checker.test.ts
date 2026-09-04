@@ -58,6 +58,7 @@ const fp = (over: Partial<PcbFootprint> = {}): PcbFootprint => ({
   pads: [],
   shapes: [],
   texts: [],
+  points: [],
   models: [],
   source: EMPTY,
   ...over,

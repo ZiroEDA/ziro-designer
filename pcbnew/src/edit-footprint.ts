@@ -21,12 +21,20 @@ import { atom, str, list, isList, head, type SList } from '@ziroeda/sexpr/src/in
 import { pcbIuToMM as iuToMM } from '@ziroeda/common/src/eda_units.js';
 import { textItemBBox, textItemHitTest } from './text_metrics.js';
 import { rotatePcb } from './read-board.js';
-import type { PadShape, PadType, PcbFootprint, PcbPad, PcbShape, PcbTextItem } from './types.js';
+import type {
+  PadShape,
+  PadType,
+  PcbFootprint,
+  PcbPad,
+  PcbPoint,
+  PcbShape,
+  PcbTextItem,
+} from './types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
 // ----- item ids ---------------------------------------------------------------
 
-export type FpItemKind = 'pad' | 'shape' | 'text';
+export type FpItemKind = 'pad' | 'shape' | 'text' | 'point';
 export interface FpItemRef {
   kind: FpItemKind;
   index: number;
@@ -37,7 +45,10 @@ export const fpItemId = (kind: FpItemKind, index: number): string => `${kind}:${
 export function parseFpItemId(id: string): FpItemRef | null {
   const [kind, idx] = id.split(':');
   const index = Number(idx);
-  if ((kind === 'pad' || kind === 'shape' || kind === 'text') && Number.isInteger(index)) {
+  if (
+    (kind === 'pad' || kind === 'shape' || kind === 'text' || kind === 'point') &&
+    Number.isInteger(index)
+  ) {
     return { kind, index };
   }
   return null;
@@ -159,6 +170,13 @@ export function fpItemBBox(fp: PcbFootprint, id: string): FpBBox | null {
     const s = fp.shapes[ref.index];
     return s ? bboxOf(shapePoints(s)) : null;
   }
+  if (ref.kind === 'point') {
+    // `PCB_POINT::GetBoundingBox`: `BOX2I::ByCenter( m_pos, { m_size, m_size } )`.
+    const p = fp.points[ref.index];
+    if (!p) return null;
+    const h = p.size / 2;
+    return { minX: p.at.x - h, minY: p.at.y - h, maxX: p.at.x + h, maxY: p.at.y + h };
+  }
   const t = fp.texts[ref.index];
   if (!t) return null;
   // `PCB_TEXT::GetBoundingBox`: `EDA_TEXT::GetTextBox` rotated by the draw
@@ -262,6 +280,23 @@ export const padHit = (pad: PcbPad, pos: Vec2, tol: number): boolean => {
 /** Board-absolute bounding box of a single pad (for board-level selection). */
 export const padBBox = (pad: PcbPad): FpBBox | null => bboxOf(padPoints(pad));
 
+/**
+ * `PCB_POINT::HitTest( VECTOR2I, int )` (`pcb_point.cpp:82-96`): the two bars
+ * of the X, or the disc at its centre.
+ *
+ * Upstream's local `size` is `GetSize() / 2`, so the X's arms reach `size / 2`
+ * from the centre and the disc's radius is `GetSize() / 4` — the drawn ring.
+ * The board editor's `pointDist` is the same test as a distance.
+ */
+const pointHit = (p: PcbPoint, pos: Vec2, tol: number): boolean => {
+  const h = p.size / 2;
+  return (
+    distToSeg(pos, { x: p.at.x - h, y: p.at.y - h }, { x: p.at.x + h, y: p.at.y + h }) <= tol ||
+    distToSeg(pos, { x: p.at.x - h, y: p.at.y + h }, { x: p.at.x + h, y: p.at.y - h }) <= tol ||
+    Math.hypot(pos.x - p.at.x, pos.y - p.at.y) <= h / 2 + tol
+  );
+};
+
 const shapeHit = (s: PcbShape, pos: Vec2, tol: number): boolean => {
   const t = tol + s.width / 2;
   if (s.kind === 'line' && s.start && s.end) return distToSeg(pos, s.start, s.end) <= t;
@@ -307,6 +342,8 @@ export function hitTestFootprint(fp: PcbFootprint, pos: Vec2, tol: number): stri
     if (!fp.texts[i]!.hide && textHit(fp.texts[i]!, pos, tol)) return fpItemId('text', i);
   for (let i = fp.pads.length - 1; i >= 0; i--)
     if (padHit(fp.pads[i]!, pos, tol)) return fpItemId('pad', i);
+  for (let i = fp.points.length - 1; i >= 0; i--)
+    if (pointHit(fp.points[i]!, pos, tol)) return fpItemId('point', i);
   for (let i = fp.shapes.length - 1; i >= 0; i--)
     if (shapeHit(fp.shapes[i]!, pos, tol)) return fpItemId('shape', i);
   return null;
@@ -333,6 +370,9 @@ export function itemsInBox(
   fp.texts.forEach((t, i) => {
     if (!t.hide && inside(t.at)) out.push(fpItemId('text', i));
   });
+  fp.points.forEach((p, i) => {
+    if (inside(p.at)) out.push(fpItemId('point', i));
+  });
   return out;
 }
 
@@ -341,22 +381,36 @@ export function itemsInBox(
 type PadT = (p: PcbPad) => PcbPad;
 type ShapeT = (s: PcbShape) => PcbShape;
 type TextT = (t: PcbTextItem) => PcbTextItem;
+type PointT = (p: PcbPoint) => PcbPoint;
 
-/** Apply per-kind transforms to just the selected items. */
+/**
+ * Apply per-kind transforms to just the selected items.
+ *
+ * The point transform is a position map and never more: `PCB_POINT` has no
+ * orientation and no second coordinate, so `Move`, `Rotate` and the mirror all
+ * reduce to moving `m_pos`. That is why it is `(p: Vec2) => Vec2` here and not
+ * a full `PcbPoint` transformer at every call site.
+ */
 function mapSelected(
   fp: PcbFootprint,
   ids: ReadonlySet<string>,
   tp: PadT,
   ts: ShapeT,
   tt: TextT,
+  moveAt: (p: Vec2) => Vec2,
 ): PcbFootprint {
   const sel = new Set<string>();
   for (const id of ids) if (parseFpItemId(id)) sel.add(id);
+  const to: PointT = (p) => {
+    const at = moveAt(p.at);
+    return { ...p, at, source: patchChild(p.source, 'at', xyNode('at', at)) };
+  };
   return {
     ...fp,
     pads: fp.pads.map((p, i) => (sel.has(fpItemId('pad', i)) ? tp(p) : p)),
     shapes: fp.shapes.map((s, i) => (sel.has(fpItemId('shape', i)) ? ts(s) : s)),
     texts: fp.texts.map((t, i) => (sel.has(fpItemId('text', i)) ? tt(t) : t)),
+    points: fp.points.map((p, i) => (sel.has(fpItemId('point', i)) ? to(p) : p)),
   };
 }
 
@@ -411,7 +465,10 @@ export function moveFootprintItems(
   delta: Vec2,
 ): PcbFootprint {
   if ((delta.x === 0 && delta.y === 0) || ids.size === 0) return fp;
-  return mapSelected(fp, ids, movePad(delta), moveShape(delta), moveText(delta));
+  return mapSelected(fp, ids, movePad(delta), moveShape(delta), moveText(delta), (p) => ({
+    x: p.x + delta.x,
+    y: p.y + delta.y,
+  }));
 }
 
 export function rotateFootprintItems(
@@ -433,7 +490,7 @@ export function rotateFootprintItems(
     return { ...t, at, angle, source: patchChild(t.source, 'at', atNode(at, angle)) };
   };
   const ts: ShapeT = (s) => shiftShape(s, (p) => rotAbout(p, center, deg));
-  return mapSelected(fp, ids, tp, ts, tt);
+  return mapSelected(fp, ids, tp, ts, tt, (p) => rotAbout(p, center, deg));
 }
 
 export function mirrorFootprintItems(
@@ -453,14 +510,19 @@ export function mirrorFootprintItems(
     return { ...t, at, mirror: !t.mirror, source: patchChild(t.source, 'at', atNode(at, t.angle)) };
   };
   const ts: ShapeT = (s) => shiftShape(s, (p) => mirrorX(p, cx));
-  return mapSelected(fp, ids, tp, ts, tt);
+  return mapSelected(fp, ids, tp, ts, tt, (p) => mirrorX(p, cx));
 }
 
 // ----- add / delete -----------------------------------------------------------
 
 /** Remove the selected items (delete tool / Del key). */
 export function deleteFootprintItems(fp: PcbFootprint, ids: ReadonlySet<string>): PcbFootprint {
-  const del = { pad: new Set<number>(), shape: new Set<number>(), text: new Set<number>() };
+  const del = {
+    pad: new Set<number>(),
+    shape: new Set<number>(),
+    text: new Set<number>(),
+    point: new Set<number>(),
+  };
   for (const id of ids) {
     const r = parseFpItemId(id);
     if (r) del[r.kind].add(r.index);
@@ -470,6 +532,7 @@ export function deleteFootprintItems(fp: PcbFootprint, ids: ReadonlySet<string>)
     pads: fp.pads.filter((_, i) => !del.pad.has(i)),
     shapes: fp.shapes.filter((_, i) => !del.shape.has(i)),
     texts: fp.texts.filter((_, i) => !del.text.has(i)),
+    points: fp.points.filter((_, i) => !del.point.has(i)),
   };
 }
 
@@ -484,6 +547,11 @@ export const addShape = (fp: PcbFootprint, shape: PcbShape): PcbFootprint => ({
 export const addText = (fp: PcbFootprint, text: PcbTextItem): PcbFootprint => ({
   ...fp,
   texts: [...fp.texts, text],
+});
+/** `POINT_PLACER`'s commit, in the footprint editor's own `FOOTPRINT::Points()`. */
+export const addPoint = (fp: PcbFootprint, point: PcbPoint): PcbFootprint => ({
+  ...fp,
+  points: [...fp.points, point],
 });
 
 // ----- footprint properties (Reference / Value / Description / Keywords) ------

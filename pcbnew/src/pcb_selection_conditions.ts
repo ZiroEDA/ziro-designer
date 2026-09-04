@@ -106,7 +106,7 @@ export function hasUnlockedItems(board: Board, selection: Iterable<string>): boo
  * texts, text boxes, tables, images and dimensions our `Board` keeps in six
  * separate arrays; `m_tracks` covers tracks, arcs and vias. `m_groups` is NOT
  * in the list upstream and so is not here — a board holding nothing but an
- * empty group counts as empty either way. We have no `m_points` counterpart.
+ * empty group counts as empty either way.
  *
  * The one caller is `EDIT_TOOL::Init`'s `noItemsCondition`
  * (`edit_tool.cpp:732-735`), which gates Select All and Unselect All in the
@@ -129,6 +129,7 @@ export function boardIsEmpty(board: Board): boolean {
     board.textBoxes.length === 0 &&
     board.tables.length === 0 &&
     board.images.length === 0 &&
-    board.dimensions.length === 0
+    board.dimensions.length === 0 &&
+    board.points.length === 0
   );
 }

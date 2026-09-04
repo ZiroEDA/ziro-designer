@@ -104,6 +104,7 @@ const make = (at = { x: 0, y: 0 }, angle = 0, over: Partial<PcbFootprint> = {}):
     ],
     shapes: [silk(base, { x: MM(-1), y: MM(-0.5) }, { x: MM(1), y: MM(-0.5) })],
     texts: [],
+    points: [],
     models: [],
     source: EMPTY,
     ...over,

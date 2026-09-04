@@ -56,6 +56,7 @@ const fp = (pads: PcbPad[], shapes: PcbShape[] = []): PcbFootprint => ({
   pads,
   shapes,
   texts: [],
+  points: [],
   models: [],
   attributes: ['allow_missing_courtyard'],
   source: EMPTY,
@@ -79,6 +80,7 @@ const board = (footprints: PcbFootprint[], shapes: PcbShape[] = []): Board => ({
   textBoxes: [],
   tables: [],
   images: [],
+  points: [],
   groups: [],
   source: EMPTY,
 });

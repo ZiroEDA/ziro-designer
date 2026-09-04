@@ -32,6 +32,7 @@ import type {
   PcbFootprint,
   PcbFootprintField,
   PcbPad,
+  PcbPoint,
   PcbShape,
   PcbTextItem,
   TeardropParams,
@@ -348,6 +349,31 @@ const textNode = (t: PcbTextItem, fp: PcbFootprint): SList =>
 const fieldNode = (f: PcbFootprintField, fp: PcbFootprint): SList =>
   f.source.items.length > 0 ? f.source : buildFieldNode(f, fp);
 
+/**
+ * A footprint's `(point …)`, `PCB_IO_KICAD_SEXPR::format( const PCB_POINT* )`
+ * reached through `format( const FOOTPRINT* )`'s `sorted_points` loop.
+ *
+ * The same four tokens the board writes, but `(at …)` is footprint-relative,
+ * because the whole child list is: a point read off a board was baked into
+ * board coordinates by `readPoint`, so it has to be unbaked here or a
+ * round trip would move it by the footprint's placement. `omitZero` is
+ * irrelevant — a point has no orientation and the formatter prints no third
+ * field — so the angle argument is always zero and always omitted.
+ */
+const fpPointNode = (p: PcbPoint, fp: PcbFootprint): SList =>
+  p.source.items.length > 0
+    ? patchChild(p.source, 'at', fpChildAtNode(fp, p.at, 0, true, childNamed(p.source, 'at')))
+    : {
+        kind: 'list',
+        items: [
+          atom('point'),
+          fpChildAtNode(fp, p.at, 0, true, undefined),
+          list(atom('size'), atom(mm(p.size))),
+          list(atom('layer'), str(p.layer)),
+          ...(p.uuid ? [list(atom('uuid'), str(p.uuid))] : []),
+        ],
+      };
+
 const GRAPHIC_HEADS = new Set(['fp_line', 'fp_arc', 'fp_circle', 'fp_rect', 'fp_poly', 'fp_curve']);
 
 /** Whether a source child is one the model owns as a text (Reference/Value or fp_text). */
@@ -383,7 +409,8 @@ export function writeFootprintNode(fp: PcbFootprint): SList {
   let pi = 0,
     si = 0,
     ti = 0,
-    di = 0; // next model pad / shape / text / user field to emit
+    di = 0, // next model pad / shape / text / user field to emit
+    oi = 0; // …and the next point
 
   if (src.items.length > 0) {
     for (const it of src.items) {
@@ -404,6 +431,9 @@ export function writeFootprintNode(fp: PcbFootprint): SList {
       } else if (isFieldSource(it)) {
         if (di < fields.length) out.push(fieldNode(fields[di]!, fp));
         di++;
+      } else if (h === 'point') {
+        if (oi < fp.points.length) out.push(fpPointNode(fp.points[oi]!, fp));
+        oi++;
       } else out.push(it);
     }
   } else {
@@ -422,6 +452,9 @@ export function writeFootprintNode(fp: PcbFootprint): SList {
   for (; ti < fp.texts.length; ti++) out.push(textNode(fp.texts[ti]!, fp));
   for (; di < fields.length; di++) out.push(fieldNode(fields[di]!, fp));
   for (; si < fp.shapes.length; si++) out.push(shapeNode(fp.shapes[si]!));
+  // After the graphics and before the pads, which is where
+  // `format( const FOOTPRINT* )` puts its `sorted_points` loop (:1450-1451).
+  for (; oi < fp.points.length; oi++) out.push(fpPointNode(fp.points[oi]!, fp));
   for (; pi < fp.pads.length; pi++) out.push(padNode(fp.pads[pi]!, fp));
 
   return { kind: 'list', items: out };

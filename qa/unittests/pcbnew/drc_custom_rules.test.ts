@@ -57,6 +57,7 @@ const board = (over: Partial<Board> = {}): Board => ({
   textBoxes: [],
   tables: [],
   images: [],
+  points: [],
   groups: [],
   source: EMPTY,
   ...over,

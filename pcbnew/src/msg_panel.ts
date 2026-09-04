@@ -73,6 +73,7 @@ import type {
   PcbArcTrack,
   PcbFootprint,
   PcbPad,
+  PcbPoint,
   PcbShape,
   PcbTextItem,
   PcbTrack,
@@ -941,6 +942,8 @@ export const BOARD_ITEM_FRIENDLY_NAME: Record<string, string> = {
   arc: 'Track',
   via: 'Via',
   dimension: 'Dimension',
+  // `PCB_POINT::GetItemDescription` returns a bare `_( "Point" )`.
+  point: 'Point',
   zone: 'Zone',
   group: 'Group',
   image: 'Reference Image',
@@ -966,12 +969,34 @@ const KICAD_T_ORDER: string[] = [
   'dimension',
   'zone',
   'group',
+  // `PCB_POINT_T` is declared after `PCB_GROUP_T` in `typeinfo.h`.
+  'point',
 ];
 
 const kicadTypeOrder = (kind: string): number => {
   const at = KICAD_T_ORDER.indexOf(kind);
   return at < 0 ? KICAD_T_ORDER.length : at;
 };
+
+/**
+ * `PCB_POINT::GetMsgPanelInfo` (`pcb_point.cpp:180-188`).
+ *
+ * Five rows and no `Type` row: the first is a bare header with an empty value,
+ * which is why the label reads "PCB Point" and not "Point" — it is standing in
+ * for the type line every other item gets from `GetFriendlyName`. X and Y are
+ * separate rows rather than one position pair, again unlike its neighbours.
+ */
+export function pcbPointMsgPanelInfo(ctx: PcbMsgPanelContext, p: PcbPoint): MsgPanelItem[] {
+  return [
+    { upper: 'PCB Point', lower: '' },
+    { upper: 'Position X', lower: fmt(ctx, p.at.x) },
+    { upper: 'Position Y', lower: fmt(ctx, p.at.y) },
+    { upper: 'Size', lower: fmt(ctx, p.size) },
+    // `GetLayerName()`, the board's name for the layer — not the mask
+    // describer the multi-layer items use.
+    { upper: 'Layer', lower: layerName(ctx, p.layer) },
+  ];
+}
 
 /** What the dispatcher needs to describe a selection it did not build. */
 export interface PcbMsgPanelSelection {
@@ -1023,6 +1048,10 @@ export function boardItemMsgPanelInfo(ctx: PcbMsgPanelContext, ref: BoardItemRef
     case 'shape': {
       const s = b.shapes[ref.index];
       return s ? pcbShapeMsgPanelInfo(ctx, s, undefined) : [];
+    }
+    case 'point': {
+      const p = b.points[ref.index];
+      return p ? pcbPointMsgPanelInfo(ctx, p) : [];
     }
     default:
       // PCB_TEXTBOX, PCB_TABLE, PCB_DIMENSION, PCB_REFERENCE_IMAGE and

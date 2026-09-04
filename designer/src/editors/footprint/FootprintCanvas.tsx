@@ -970,9 +970,14 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
                 ? kiCursor('ZOOM_IN')
                 : activeTool === 'measureTool'
                   ? kiCursor('MEASURE')
-                  : activeTool === 'selectSetRect'
-                    ? 'default'
-                    : 'crosshair',
+                  : // `doInteractiveItemPlacement`'s setCursor: PLACE once the
+                    // preview item exists, and IPO_SINGLE_CLICK makes it before
+                    // the loop starts (`pcb_tool_base.cpp:119-128`).
+                    activeTool === 'placePoint'
+                    ? kiCursor('PLACE')
+                    : activeTool === 'selectSetRect'
+                      ? 'default'
+                      : 'crosshair',
           }}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
