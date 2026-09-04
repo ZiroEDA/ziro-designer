@@ -60,11 +60,37 @@ export function supabaseBackend(): CloudBackend {
       // `uid` and `user_id` come back because this listing now spans two
       // accounts: row-level security returns projects shared with the signed-in
       // user alongside their own, and `id` alone cannot tell them apart.
-      const data = unwrap(
-        await db.from('projects').select('id, uid, user_id, version'),
-        'list projects',
-      );
-      return (data ?? []) as { id: string; version: number; uid?: string; user_id?: string }[];
+      const withIdentity = await db.from('projects').select('id, uid, user_id, version');
+      if (!withIdentity.error) {
+        return (withIdentity.data ?? []) as {
+          id: string;
+          version: number;
+          uid?: string;
+          user_id?: string;
+        }[];
+      }
+
+      // A database whose `uid` migration has not been run has no such column,
+      // and PostgREST answers a select that names one with an error rather than
+      // by ignoring it. Without this fallback, deploying the code before
+      // running the migration takes cloud sync down for **every** account:
+      // `cloudListMeta` is the first thing a sign-in does, and the whole
+      // reconcile fails on it.
+      //
+      // Narrow on purpose. Only "that column does not exist" falls back; an
+      // expired token or a network failure must still reject, because a
+      // listing that quietly returns fewer projects than the account has is
+      // exactly the shape that makes a sync push a stale copy over a good one.
+      const missingColumn =
+        withIdentity.error.code === '42703' ||
+        /column .* does not exist/i.test(withIdentity.error.message ?? '');
+      if (!missingColumn) throw new Error(`list projects: ${withIdentity.error.message}`);
+
+      const legacy = unwrap(await db.from('projects').select('id, version'), 'list projects');
+      // No `uid` and no `user_id`, which is what the sync layer already reads as
+      // "every visible row is this user's own" — true, on a database that
+      // cannot share anything.
+      return (legacy ?? []) as { id: string; version: number }[];
     },
 
     async getProject(id, uid) {
