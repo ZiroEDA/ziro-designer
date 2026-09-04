@@ -71,6 +71,18 @@ const EXCUSED: Record<string, Record<string, string>> = {
   },
   forkLocalCopy: {
     id: 'a fresh id — the copy is a new project',
+    cloudUid:
+      'deliberately absent, and carrying it would be dangerous. The fork has a ' +
+      'fresh id and no cloud row; naming the original’s project would aim its ' +
+      'first push at that row, so forking a shared project aside to rescue ' +
+      'local edits would commit them over the work being forked away from',
+    cloudId: 'see cloudUid: the fork is not a copy of any cloud row',
+    cloudOwnerId:
+      'see cloudUid. It would also send the fork’s blobs into the original ' +
+      'owner’s storage space, for a project that owner has never heard of',
+    cloudRole:
+      'a fork is the forker’s own project, so there is no role to inherit — ' +
+      'carrying `viewer` would make a copy they own permanently unpushable',
     userDir:
       'deliberately not carried, and carrying it would LOSE the fork. A ' +
       'user-data folder is reached by its fixed id and hidden from ' +

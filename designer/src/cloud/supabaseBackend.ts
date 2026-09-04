@@ -57,16 +57,42 @@ export function supabaseBackend(): CloudBackend {
 
   return {
     async listProjects() {
-      const data = unwrap(await db.from('projects').select('id, version'), 'list projects');
-      return (data ?? []) as { id: string; version: number }[];
+      // `uid` and `user_id` come back because this listing now spans two
+      // accounts: row-level security returns projects shared with the signed-in
+      // user alongside their own, and `id` alone cannot tell them apart.
+      const data = unwrap(
+        await db.from('projects').select('id, uid, user_id, version'),
+        'list projects',
+      );
+      return (data ?? []) as { id: string; version: number; uid?: string; user_id?: string }[];
     },
 
-    async getProject(id) {
-      const data = unwrap(
-        await db.from('projects').select('*').eq('id', id).maybeSingle(),
-        `read project ${id}`,
-      );
-      return (data as ProjectRow | null) ?? null;
+    async getProject(id, uid) {
+      // By `uid` whenever the caller knows it. `.eq('id', id)` can now match two
+      // visible rows — one of the user's own and one shared with them under the
+      // same browser-local id — and `maybeSingle()` answers that with an error,
+      // so addressing by a local id is not merely ambiguous but broken.
+      const q = uid
+        ? db.from('projects').select('*').eq('uid', uid)
+        : db.from('projects').select('*').eq('id', id);
+      const rows = unwrap(await q, `read project ${uid ?? id}`) as ProjectRow[] | null;
+      return (rows ?? [])[0] ?? null;
+    },
+
+    async listMemberships() {
+      // Own rows only. The roster policy deliberately shows every member of a
+      // project to every other member, so without this filter a user on a
+      // three-person project reads back two roles that are not theirs.
+      const me = (await db.auth.getUser()).data.user?.id;
+      if (!me) return [];
+      const { data, error } = await db
+        .from('project_members')
+        .select('project_uid, role')
+        .eq('user_id', me);
+      // A database without the membership migration has no such table, and the
+      // answer there is the true one: this user is a member of nothing.
+      if (error) return [];
+      return (data ?? []) as { project_uid: string; role: string }[];
     },
 
     async commitProject(row, base) {
@@ -82,6 +108,11 @@ export function supabaseBackend(): CloudBackend {
         p_name: row.name,
         p_files: row.files,
         p_base: base,
+        // Names the project directly when it is one this user does not own.
+        // Without it the function looks for *the caller's own* row of that id,
+        // finds nothing, and reports the caller stale — which reads as a
+        // conflict rather than as "you were editing someone else's project".
+        ...(row.uid ? { p_uid: row.uid } : {}),
       });
       if (error) throw new Error(`commit project ${row.id}: ${error.message}`);
       // Null is the contract's "you are stale", not a failure to write.
@@ -91,6 +122,20 @@ export function supabaseBackend(): CloudBackend {
     async deleteProject(id) {
       const { error } = await db.from('projects').delete().eq('id', id);
       if (error) throw new Error(`delete project ${id}: ${error.message}`);
+    },
+
+    async leaveProject(uid) {
+      const me = (await db.auth.getUser()).data.user?.id;
+      if (!me) throw new Error(`leave project ${uid}: not signed in`);
+      // The `project_members_leave` policy permits exactly this row and no
+      // other, so a user can always show themselves out and can never remove
+      // anybody else.
+      const { error } = await db
+        .from('project_members')
+        .delete()
+        .eq('project_uid', uid)
+        .eq('user_id', me);
+      if (error) throw new Error(`leave project ${uid}: ${error.message}`);
     },
 
     async putObject(path, bytes) {
@@ -148,7 +193,15 @@ export function supabaseBackend(): CloudBackend {
       // failing a sync over. The error is surfaced once so it is not invisible.
       const { error } = await db.from('project_versions').insert({
         project_id: row.id,
+        // Who committed, which for a shared project is not who owns it. The
+        // project itself is named by `project_uid`.
         user_id: userId,
+        // Sent explicitly rather than left to the table's trigger. That trigger
+        // fills it by looking up `(user_id, project_id)` in `projects`, which
+        // only finds anything when the committer is the owner — so on a shared
+        // project it would leave the column null, and the insert policy, having
+        // no project to ask about, would refuse the row outright.
+        ...(row.uid ? { project_uid: row.uid } : {}),
         name: row.name,
         files: row.files,
         committed_at: row.updated_at,
@@ -165,13 +218,16 @@ export function supabaseBackend(): CloudBackend {
       }
     },
 
-    async listVersions(userId, projectId) {
-      const { data, error } = await db
-        .from('project_versions')
-        .select('name, files, committed_at')
-        .eq('user_id', userId)
-        .eq('project_id', projectId)
-        .order('version_id', { ascending: false });
+    async listVersions(userId, projectId, uid) {
+      // By project, not by author. `user_id` on a version row records who
+      // committed it, so on a shared project filtering by it returns only the
+      // versions this user happened to write and hides exactly the history a
+      // recovery would need.
+      const q = db.from('project_versions').select('name, files, committed_at');
+      const { data, error } = await (uid
+        ? q.eq('project_uid', uid)
+        : q.eq('user_id', userId).eq('project_id', projectId)
+      ).order('version_id', { ascending: false });
       // A database without the migration has no table. That is not a failure to
       // report: there simply is no history to offer, and the caller falls back.
       if (error) return [];

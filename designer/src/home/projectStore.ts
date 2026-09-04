@@ -150,6 +150,43 @@ interface StoredRecord {
    */
   ownerId?: string;
   /**
+   * The project's global identity (`projects.uid`), once this copy has met the
+   * cloud. Learned from a pull, or from the listing on the first sync after the
+   * column existed.
+   *
+   * This is what a sync matches on. `id` cannot be: it is unique on one machine
+   * only, so a project shared with this user may carry the same one as a
+   * project of their own, and matching by it would reconcile two unrelated
+   * projects into each other.
+   */
+  cloudUid?: string;
+  /**
+   * The `id` the cloud row carries, when it is not this record's own.
+   *
+   * A project shared with this user is filed here under its `uid`, because its
+   * owner's local id could already be taken by something of the user's. The
+   * row's own id still has to be sent back on a commit, so it is kept.
+   */
+  cloudId?: string;
+  /**
+   * The account that owns the project. Equal to `ownerId` for the user's own
+   * projects, and someone else's for a shared one.
+   *
+   * Not a courtesy field: blobs live at `<owner>/blobs/…`, so this is what
+   * addresses the file contents. Pushing a shared project under the signed-in
+   * user's own id would upload every blob into the wrong account, where the
+   * owner cannot read them.
+   */
+  cloudOwnerId?: string;
+  /**
+   * What this user may do with the project. Absent means their own.
+   *
+   * A viewer's local copy is a copy to read, not an unsynced project: without
+   * this, sync sees ordinary local edits, pushes, is refused by row-level
+   * security, and forks a "(local copy)" aside on every pass forever.
+   */
+  cloudRole?: 'owner' | 'editor' | 'viewer';
+  /**
    * The blob hashes of the last push that landed.
    *
    * Every one of them is referenced by this project's cloud row, so the store
@@ -353,6 +390,16 @@ export async function saveProject(
     // project is new, and its commit would then refuse to overwrite the row it
     // was derived from.
     ...(existing?.baseVersion !== undefined ? { baseVersion: existing.baseVersion } : {}),
+    // Which cloud project this is a copy of, and what this user may do with it.
+    // A save changes the contents of a project; it never changes whose project
+    // it is. Dropping these would turn a project shared with this user into one
+    // that looks like their own the moment they edit it -- and the next sync,
+    // seeing a local project the cloud has no row for, would push it up as a
+    // *new* project in their account: someone else's board, silently copied.
+    ...(existing?.cloudUid ? { cloudUid: existing.cloudUid } : {}),
+    ...(existing?.cloudId ? { cloudId: existing.cloudId } : {}),
+    ...(existing?.cloudOwnerId ? { cloudOwnerId: existing.cloudOwnerId } : {}),
+    ...(existing?.cloudRole ? { cloudRole: existing.cloudRole } : {}),
     // And what those two sides agreed *on*. This is the one that must survive:
     // divergence is "the files differ from these", so a save that erased it
     // would answer "not diverged" for the edit that just happened — the exact
@@ -934,6 +981,42 @@ export async function claimProject(id: string, userId: string): Promise<void> {
 }
 
 /**
+ * Record which cloud project this local record is a copy of.
+ *
+ * Called whenever the identity is learned: from a pull, from the first listing
+ * that reports a `uid` for a project pushed before the column existed, and from
+ * a push that created the row.
+ *
+ * Separate from `claimProject` because it answers a different question.
+ * `ownerId` is *which signed-in account this browser record is filed under*,
+ * which for a shared project is still the person reading it; `cloudOwnerId` is
+ * *who owns the project in the cloud*, which is where its blobs live and who
+ * may delete it. Conflating them is what would push another person's project
+ * into this user's account.
+ */
+export async function linkCloudProject(
+  id: string,
+  cloud: {
+    uid?: string;
+    cloudId?: string;
+    ownerId?: string;
+    role?: 'owner' | 'editor' | 'viewer';
+  },
+): Promise<void> {
+  await withRecordLock(id, async () => {
+    const r = await tx<StoredRecord | undefined>('readonly', (s) => s.get(id));
+    if (!r) return;
+    if (cloud.uid) r.cloudUid = cloud.uid;
+    // Only when it differs: for the user's own project the cloud row's id *is*
+    // the local one, and storing it twice invites the two to drift apart.
+    if (cloud.cloudId && cloud.cloudId !== id) r.cloudId = cloud.cloudId;
+    if (cloud.ownerId) r.cloudOwnerId = cloud.ownerId;
+    if (cloud.role) r.cloudRole = cloud.role;
+    await tx('readwrite', (s) => s.put(r));
+  });
+}
+
+/**
  * Record that the local copy now agrees with the cloud, after a push.
  *
  * Separate from `claimProject`, which early-returns when the owner is already
@@ -998,6 +1081,18 @@ export interface SyncableProject {
   /** The cloud version this copy is derived from; see `StoredRecord.baseVersion`. */
   baseVersion?: number;
   /**
+   * Where this project lives in the cloud, when that is not simply "mine".
+   *
+   * `id` above is the *local* key — the one IndexedDB files this record under —
+   * and for a project shared with this user it is deliberately not the id the
+   * cloud row carries. These four say what the cloud copy actually is; see the
+   * matching fields on `StoredRecord`.
+   */
+  cloudUid?: string;
+  cloudId?: string;
+  cloudOwnerId?: string;
+  cloudRole?: 'owner' | 'editor' | 'viewer';
+  /**
    * `gzB64` is the file's stored bytes, base64 encoded — and is optional
    * because encoding them is expensive enough to matter. A 10 MB project turns
    * into a 13 MB string and about 400 ms of main-thread work, which a push was
@@ -1031,7 +1126,14 @@ function b64ToBytes(b64: string): Uint8Array {
 
 /** id + updatedAt for every local project, for cheap sync diffing. */
 export async function listSyncMeta(): Promise<
-  { id: string; baseVersion?: number; diverged: boolean }[]
+  {
+    id: string;
+    baseVersion?: number;
+    diverged: boolean;
+    cloudUid?: string;
+    cloudOwnerId?: string;
+    cloudRole?: 'owner' | 'editor' | 'viewer';
+  }[]
 > {
   // Before the list, not after: this is the call that decides what gets pushed,
   // and a readable id reaching Postgres is the failure it has to prevent.
@@ -1047,6 +1149,12 @@ export async function listSyncMeta(): Promise<
       .map(async (r) => ({
         id: r.id,
         ...(r.baseVersion !== undefined ? { baseVersion: r.baseVersion } : {}),
+        // How this record is matched to a cloud row, and whether it may be
+        // pushed at all. Matching on `id` alone stopped being sound once a
+        // project belonging to somebody else could be sitting in this store.
+        ...(r.cloudUid ? { cloudUid: r.cloudUid } : {}),
+        ...(r.cloudOwnerId ? { cloudOwnerId: r.cloudOwnerId } : {}),
+        ...(r.cloudRole ? { cloudRole: r.cloudRole } : {}),
         diverged: await divergedFrom(r),
       })),
   );
@@ -1145,6 +1253,13 @@ export async function importProject(p: SyncableProject): Promise<void> {
     // measured against this.
     syncedHashes: files.map((f) => f.hash),
     ...(currentOwner ? { ownerId: currentOwner } : {}),
+    // Which cloud project this is a copy of, and what this user may do with it.
+    // Recorded on every pull, so a record that arrived before these existed
+    // picks them up the first time it comes down again.
+    ...(p.cloudUid ? { cloudUid: p.cloudUid } : {}),
+    ...(p.cloudId && p.cloudId !== p.id ? { cloudId: p.cloudId } : {}),
+    ...(p.cloudOwnerId ? { cloudOwnerId: p.cloudOwnerId } : {}),
+    ...(p.cloudRole ? { cloudRole: p.cloudRole } : {}),
     // The row this came from names exactly these blobs, so they are the ones a
     // later push can take as already stored. Absent when the cloud copy was in
     // one of the older shapes, which carry no hashes.
@@ -1180,6 +1295,12 @@ export async function exportManifest(id: string): Promise<SyncableProject | null
     createdAt: r.createdAt,
     updatedAt: r.updatedAt,
     ...(r.baseVersion !== undefined ? { baseVersion: r.baseVersion } : {}),
+    // A push has to name the row it is writing, not the local record: for a
+    // shared project those are different ids, in different accounts.
+    ...(r.cloudUid ? { cloudUid: r.cloudUid } : {}),
+    ...(r.cloudId ? { cloudId: r.cloudId } : {}),
+    ...(r.cloudOwnerId ? { cloudOwnerId: r.cloudOwnerId } : {}),
+    ...(r.cloudRole ? { cloudRole: r.cloudRole } : {}),
     files,
     bytesOf: async (name: string) => {
       // Re-read rather than close over the record: a push runs alongside
@@ -1279,6 +1400,12 @@ export async function forkLocalCopy(id: string, name: string): Promise<string | 
     // The original's owner, falling back to whoever is signed in now. Not
     // omitted: see above.
     ...((r.ownerId ?? currentOwner) ? { ownerId: r.ownerId ?? currentOwner! } : {}),
+    // `cloudUid`, `cloudId`, `cloudOwnerId` and `cloudRole` are deliberately
+    // absent, and carrying them would be actively dangerous. This copy is a new
+    // local project with a fresh id and no cloud row; naming the original's
+    // project would point its first push straight at that row -- so forking a
+    // shared project aside to rescue your own edits would commit them over the
+    // work you were forking away from. A fork is yours, and unshared.
   };
   await tx('readwrite', (s) => s.put(copy));
   return copyId;

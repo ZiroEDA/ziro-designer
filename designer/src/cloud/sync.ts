@@ -53,6 +53,7 @@ import {
   hasDivergedLocally,
   importProject,
   knownPushedHashes,
+  linkCloudProject,
   listSyncMeta,
   localCopyName,
   markSynced,
@@ -62,6 +63,7 @@ import {
   cloudDelete,
   cloudGet,
   cloudListMeta,
+  cloudMemberships,
   assertStoreAnswers,
   cloudMissingObjects,
   cloudUpsert,
@@ -116,6 +118,25 @@ export interface SyncResult {
 
 const message = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 
+/**
+ * Which cloud project a local copy is a copy of, and what may be done to it.
+ *
+ * The two ids are the point. `localId` is the key IndexedDB files this copy
+ * under; `remoteId` is the `id` the cloud row carries. For the user's own
+ * projects they are the same string and always were. For a project shared with
+ * them they are not, and cannot be: the owner's local id may already name
+ * something of this user's, so a shared copy is filed under the project's `uid`
+ * instead. Reconciling on `id` alone would then merge two unrelated projects.
+ */
+interface ProjectRef {
+  localId: string;
+  remoteId: string;
+  uid?: string;
+  /** The account that owns it -- also where its blobs live. */
+  ownerId?: string;
+  role: 'owner' | 'editor' | 'viewer';
+}
+
 /** Reconcile all local and cloud projects for the signed-in user. */
 export async function syncAllProjects(
   userId: string,
@@ -124,9 +145,34 @@ export async function syncAllProjects(
   const result: SyncResult = { pushed: 0, pulled: 0, healed: 0, failures: [] };
   if (!cloudBackendInstalled()) return result;
 
-  const [localMeta, cloudMeta] = await Promise.all([listSyncMeta(), cloudListMeta()]);
-  const local = new Map(localMeta.map((m) => [m.id, m]));
-  const cloud = new Map(cloudMeta.map((m) => [m.id, m.version]));
+  const [localMeta, cloudMeta, roles] = await Promise.all([
+    listSyncMeta(),
+    cloudListMeta(),
+    cloudMemberships(),
+  ]);
+
+  /**
+   * A row with no owner comes from a database without the membership
+   * migration, where everything visible is the signed-in user's own -- which is
+   * what this assumed before any other kind of row existed. A shared row with
+   * no membership entry should not be reachable at all, so the safe reading of
+   * one is the least privileged.
+   */
+  const roleOf = (c: { uid?: string; ownerId?: string }): 'owner' | 'editor' | 'viewer' => {
+    if (!c.ownerId || c.ownerId === userId) return 'owner';
+    return (c.uid ? roles.get(c.uid) : undefined) ?? 'viewer';
+  };
+
+  // Two indexes, because there are two ways a local record is recognised. By
+  // `uid` once it has one -- the only handle that means the same thing in two
+  // accounts. By `id` otherwise, and then *only among this user's own rows*:
+  // that is the migration path for records pushed before the column existed,
+  // and confining it to their own projects is what stops a shared project that
+  // happens to carry the same id from being mistaken for one of them.
+  const byUid = new Map(cloudMeta.filter((c) => c.uid).map((c) => [c.uid!, c]));
+  const mineById = new Map(
+    cloudMeta.filter((c) => (c.ownerId ?? userId) === userId).map((c) => [c.id, c]),
+  );
 
   const ops: Promise<void>[] = [];
 
@@ -170,27 +216,76 @@ export async function syncAllProjects(
     );
   };
 
-  for (const id of new Set([...local.keys(), ...cloud.keys()])) {
-    const here = local.get(id);
-    const there = cloud.get(id);
+  const matched = new Set<(typeof cloudMeta)[number]>();
+
+  for (const here of localMeta) {
+    const there = (here.cloudUid ? byUid.get(here.cloudUid) : undefined) ?? mineById.get(here.id);
+    if (there) matched.add(there);
+
+    const ref: ProjectRef = {
+      localId: here.id,
+      remoteId: there?.id ?? here.id,
+      ...(there?.uid ? { uid: there.uid } : {}),
+      ...(there?.ownerId ? { ownerId: there.ownerId } : {}),
+      role: there ? roleOf(there) : 'owner',
+    };
+
+    // Record what was just learned, so later passes match on `uid` instead of
+    // falling back to the id -- and so a project pushed before the column
+    // existed acquires its identity without a round trip of its own.
+    if (there?.uid && there.uid !== here.cloudUid) {
+      await linkCloudProject(here.id, {
+        uid: there.uid,
+        cloudId: there.id,
+        ...(there.ownerId ? { ownerId: there.ownerId } : {}),
+        role: ref.role,
+      });
+    }
 
     // Local only: a project made on this machine, or one the cloud has never
     // seen. Pushed as base 0, which asserts no such row exists.
-    if (here && there === undefined) track(id, 'push', pushFallingBackToPull(userId, id));
-    // Cloud only: nothing here to weigh against it.
-    else if (!here && there !== undefined) track(id, 'pull', pullOne(userId, id));
-    else if (here && there !== undefined) {
-      // Up to date with the cloud. Push only if this side actually changed —
-      // and "changed" is now the file hashes, so opening a project does not
-      // qualify and the account is not written to for nothing.
-      if (here.baseVersion === there) {
-        if (here.diverged) track(id, 'push', pushFallingBackToPull(userId, id));
-      } else {
-        // The cloud has moved since this copy last agreed with it. Pull;
-        // `pullOne` forks the local copy aside first if it also changed.
-        track(id, 'pull', pullOne(userId, id));
+    if (!there) {
+      track(here.id, 'push', pushFallingBackToPull(userId, ref));
+    } else if (here.baseVersion === there.version) {
+      // Up to date with the cloud. Push only if this side actually changed --
+      // and "changed" is the file hashes, so opening a project does not qualify
+      // and the account is not written to for nothing.
+      //
+      // A viewer's copy is never pushed. Their edits are real and are kept, but
+      // they are edits to somebody else's project: the write is refused, and
+      // attempting it every pass would report a failure they can do nothing
+      // about. It surfaces as a forked local copy the next time the cloud side
+      // moves, which is where work that cannot go up belongs.
+      if (here.diverged && ref.role !== 'viewer') {
+        track(here.id, 'push', pushFallingBackToPull(userId, ref));
       }
+    } else {
+      // The cloud has moved since this copy last agreed with it. Pull;
+      // `pullOne` forks the local copy aside if it also changed.
+      track(here.id, 'pull', pullOne(userId, ref));
     }
+  }
+
+  // Cloud rows nothing local matched: a project from another device, or one
+  // just shared with this user. Nothing here to weigh against them.
+  for (const there of cloudMeta) {
+    if (matched.has(there)) continue;
+    const role = roleOf(there);
+    // A shared project is filed under its `uid`, never under the id its owner's
+    // browser gave it: that id may already name a project of this user's, and
+    // importing over it would replace their work with somebody else's.
+    const localId = role === 'owner' ? there.id : (there.uid ?? there.id);
+    track(
+      localId,
+      'pull',
+      pullOne(userId, {
+        localId,
+        remoteId: there.id,
+        ...(there.uid ? { uid: there.uid } : {}),
+        ...(there.ownerId ? { ownerId: there.ownerId } : {}),
+        role,
+      }),
+    );
   }
 
   if (ops.length > 0) onProgress?.(0, ops.length);
@@ -208,12 +303,12 @@ export async function syncAllProjects(
  * has changed. Reporting it as a failed push would put a red banner in front of
  * the user for something the next line of code can settle correctly.
  */
-async function pushFallingBackToPull(userId: string, id: string): Promise<Outcome> {
+async function pushFallingBackToPull(userId: string, ref: ProjectRef): Promise<Outcome> {
   try {
-    return await pushOne(userId, id);
+    return await pushOne(userId, ref.localId);
   } catch (e) {
     if (!(e instanceof StaleBaseError)) throw e;
-    return pullOne(userId, id);
+    return pullOne(userId, ref);
   }
 }
 
@@ -227,6 +322,11 @@ async function pushFallingBackToPull(userId: string, id: string): Promise<Outcom
  * as the agreed one.
  */
 async function pushOne(userId: string, id: string, base?: number): Promise<Outcome> {
+  // `id` is the *local* key throughout. Which cloud row this writes, and whose
+  // account its blobs go to, comes from the record itself -- `exportManifest`
+  // carries the project's `uid`, the row's own id and its owner -- so a shared
+  // project is committed where it lives rather than copied into the pusher's
+  // account. `cloudUpsert` refuses outright if the role is viewer.
   // A manifest, not the whole project: names, hashes and sizes, with the bytes
   // left in the store until a blob actually has to be uploaded. Encoding every
   // file to base64 to find out that none of them changed cost about 400 ms of
@@ -279,17 +379,20 @@ async function pushOne(userId: string, id: string, base?: number): Promise<Outco
  * and throws on any that is missing or corrupt, so a partial fetch cannot reach
  * `importProject` disguised as a complete one.
  */
-async function pullOne(userId: string, id: string): Promise<Outcome> {
+async function pullOne(userId: string, ref: ProjectRef): Promise<Outcome> {
   try {
-    const p = await cloudGet(id);
+    const p = await cloudGet(ref.remoteId, ref.uid);
     if (!p) return 'pulled';
-    if (await hasDivergedLocally(id)) {
-      await forkLocalCopy(id, localCopyName(p.name, new Date()));
+    if (await hasDivergedLocally(ref.localId)) {
+      await forkLocalCopy(ref.localId, localCopyName(p.name, new Date()));
     }
-    await importProject(p);
+    // Filed under the local key, which for a shared project is not the id the
+    // row carries -- `cloudGet` reports the row's identity and leaves the
+    // filing decision here, because only this side knows what is already taken.
+    await importProject({ ...p, id: ref.localId, cloudRole: ref.role });
     return 'pulled';
   } catch (e) {
-    return await repairUnreadable(userId, id, e);
+    return await repairUnreadable(userId, ref, e);
   }
 }
 
@@ -319,9 +422,15 @@ async function pullOne(userId: string, id: string): Promise<Outcome> {
  * When there is nothing local to repair from, the copy really is gone, and the
  * error says so in terms of the project rather than of a storage path.
  */
-async function repairUnreadable(userId: string, id: string, cause: unknown): Promise<Outcome> {
-  const damage = await cloudMissingObjects(id); // throws on "could not ask"
+async function repairUnreadable(userId: string, ref: ProjectRef, cause: unknown): Promise<Outcome> {
+  const damage = await cloudMissingObjects(ref.remoteId, ref.uid); // throws on "could not ask"
   if (!damage || damage.missing === 0) throw cause; // readable copy, real failure
+
+  // A project this user may only read is not theirs to rewrite. Every step
+  // below ends in overwriting the cloud copy from a local one, which for a
+  // viewer means replacing the owner's project with whatever is in this
+  // browser -- and the write would be refused anyway, one blob upload later.
+  if (ref.role === 'viewer') throw cause;
 
   // Everything below treats "absent" as fact — it overwrites the cloud copy,
   // and failing that, tells the user their project is gone. So the answer has
@@ -336,7 +445,7 @@ async function repairUnreadable(userId: string, id: string, cause: unknown): Pro
   // "Has contents" rather than "exists": a local copy whose files are all empty
   // is the same damage in the other direction, and promoting it over the remote
   // one would destroy the last thing a recovery could come from.
-  const local = await exportProject(id);
+  const local = await exportProject(ref.localId);
   const usable = !!local && local.files.some((f) => (f.gzB64?.length ?? 0) > 0);
   if (!usable) {
     // Nothing on this machine to restore from, so the last place to look is the
@@ -344,15 +453,15 @@ async function repairUnreadable(userId: string, id: string, cause: unknown): Pro
     // them, so an older manifest's objects often outlive the row that replaced
     // it, and for a project damaged before the commit protocol existed that
     // version may be the only readable copy anywhere.
-    const restored = await restoreFromHistory(userId, id);
+    const restored = await restoreFromHistory(userId, ref.remoteId, ref.uid);
     if (restored) {
-      const p = await cloudGet(id);
-      if (p) await importProject(p);
+      const p = await cloudGet(ref.remoteId, ref.uid);
+      if (p) await importProject({ ...p, id: ref.localId, cloudRole: ref.role });
       return 'healed';
     }
     throw new UnrecoverableProject(
-      id,
-      `the cloud copy of "${damage.name || local?.name || id}" cannot be recovered: ` +
+      ref.localId,
+      `the cloud copy of "${damage.name || local?.name || ref.localId}" cannot be recovered: ` +
         `${damage.missing} of ${damage.total} files are missing from storage, ` +
         `there is no copy on this device, and no earlier version is intact`,
     );
@@ -362,7 +471,7 @@ async function repairUnreadable(userId: string, id: string, cause: unknown): Pro
   // own base is stale or absent here by definition — that is what being
   // unreadable means — and stating 0 would claim the project is new and be
   // refused for the very row this is repairing.
-  await pushOne(userId, id, damage.version);
+  await pushOne(userId, ref.localId, damage.version);
   return 'healed';
 }
 
@@ -381,14 +490,42 @@ export async function pushProject(userId: string, id: string): Promise<void> {
     await pushOne(userId, id);
   } catch (e) {
     if (!(e instanceof StaleBaseError)) throw e;
-    await pullOne(userId, id);
+    // Read back from the record rather than assuming the local id names the
+    // row: for a shared project it does not, and pulling by it would fetch
+    // whatever else happens to carry that id -- or nothing.
+    const p = await exportManifest(id);
+    await pullOne(userId, {
+      localId: id,
+      remoteId: p?.cloudId ?? id,
+      ...(p?.cloudUid ? { uid: p.cloudUid } : {}),
+      ...(p?.cloudOwnerId ? { ownerId: p.cloudOwnerId } : {}),
+      role: p?.cloudRole ?? 'owner',
+    });
   }
 }
 
-/** Mirror a delete up to the cloud. */
-export async function deleteCloudProject(id: string): Promise<void> {
+/**
+ * Mirror a delete up to the cloud.
+ *
+ * The identity is resolved from the account's own listing rather than from the
+ * local record, because the record is normally gone by the time this runs. A
+ * shared project is filed locally under its `uid`, so that is the first thing
+ * to look for; an owned one is filed under the row's id.
+ *
+ * `cloudDelete` decides what a delete *means*: the owner destroys the project,
+ * anyone else gives up their membership.
+ */
+export async function deleteCloudProject(id: string, userId?: string): Promise<void> {
   if (!cloudBackendInstalled()) return;
-  await cloudDelete(id);
+  const meta = await cloudListMeta();
+  const hit =
+    meta.find((m) => m.uid === id) ??
+    meta.find((m) => m.id === id && (m.ownerId ?? userId) === userId);
+  if (!hit) return;
+  await cloudDelete(hit.id, {
+    ...(hit.uid ? { uid: hit.uid } : {}),
+    ...(userId ? { signedInUser: userId } : {}),
+  });
 }
 
 /**

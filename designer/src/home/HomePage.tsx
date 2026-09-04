@@ -1132,7 +1132,8 @@ export function HomePage({
     // Nothing else will ever reference these snapshots again.
     await deleteProjectHistory(id);
     refreshSaved();
-    if (userId) void deleteCloudProject(id).catch((e) => console.warn('Cloud delete failed:', e));
+    if (userId)
+      void deleteCloudProject(id, userId).catch((e) => console.warn('Cloud delete failed:', e));
   };
 
   const onPicked = async (list: FileList | null): Promise<void> => {

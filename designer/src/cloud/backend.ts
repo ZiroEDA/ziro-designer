@@ -66,6 +66,25 @@ export const isInlineFile = (f: RowFile): f is InlineFile =>
 /** A row of the `projects` table. */
 export interface ProjectRow {
   id: string;
+  /**
+   * The project's global identity, and the only handle that means the same
+   * thing in two accounts.
+   *
+   * `id` comes from the browser's IndexedDB and is unique on one machine, so
+   * two accounts can hold different projects under the same one — which was
+   * harmless while a row was reachable only by its owner, and is not now that
+   * membership makes someone else's row visible. Everything that addresses a
+   * project across accounts uses this; see the `projects.uid` migration.
+   *
+   * Absent on a row read from a database whose migration has not been run.
+   */
+  uid?: string;
+  /**
+   * The account that owns the project — not necessarily the signed-in one.
+   *
+   * It is also where the project's blobs live (`<user_id>/blobs/…`), so this is
+   * what addresses them, for a shared project as much as for your own.
+   */
   user_id?: string;
   name: string;
   created_at: string;
@@ -95,11 +114,24 @@ export interface ProjectRow {
  * an overwrite incapable of destroying anything.
  */
 export interface CloudBackend {
-  /** Every project of the signed-in user: id and current version only. */
-  listProjects(): Promise<{ id: string; version: number }[]>;
+  /**
+   * Every project the signed-in user can reach: their own, and any shared with
+   * them. Identity and version only.
+   *
+   * `uid` and `user_id` are what tell the two apart, and both are optional
+   * because a database without the membership migration reports neither — in
+   * which case every row is the user's own, which is what it was before.
+   */
+  listProjects(): Promise<{ id: string; version: number; uid?: string; user_id?: string }[]>;
 
-  /** One project row, or null when the user has no such project. */
-  getProject(id: string): Promise<ProjectRow | null>;
+  /**
+   * One project row, or null when there is no such project.
+   *
+   * `uid` addresses it globally and is preferred wherever it is known: `id`
+   * alone can now match more than one visible row, because a project shared
+   * with this user may carry the same browser-local id as one of their own.
+   */
+  getProject(id: string, uid?: string): Promise<ProjectRow | null>;
 
   /**
    * Write the row, but only if it is still at `base`. Returns the new version,
@@ -116,8 +148,37 @@ export interface CloudBackend {
    * Null rather than a throw because a stale base is an ordinary outcome of two
    * devices editing, not a fault. The caller pulls and reconciles; every real
    * failure still rejects.
+   *
+   * `row.uid` names the project when it is one the caller does not own; without
+   * it the write targets the caller's own project of that `id`. Null also comes
+   * back when the row is there but the caller may only read it, which is the
+   * same instruction to the caller either way: stop, do not retry this write.
    */
   commitProject(row: ProjectRow & { user_id: string }, base: number): Promise<number | null>;
+
+  /**
+   * What this user may do on projects that are not theirs.
+   *
+   * Only shared projects appear: your own carry no membership row, because
+   * ownership is the `projects` row itself. Optional like the rest of the
+   * membership surface — a database without that migration has no such table,
+   * and every project is then the user's own.
+   *
+   * The alternative was to find out by pushing and being refused, which is
+   * technically safe (row-level security holds either way) but forks a "(local
+   * copy)" aside on every sync for a project the user was never able to write.
+   */
+  listMemberships?(): Promise<{ project_uid: string; role: string }[]>;
+
+  /**
+   * Give up membership of a project owned by somebody else.
+   *
+   * What "delete" means on a shared project: the user is removing it from their
+   * own list, not destroying another person's work. `deleteProject` on one is
+   * refused by row-level security and reports nothing, which would leave the
+   * project sitting there with the user believing they had removed it.
+   */
+  leaveProject?(uid: string): Promise<void>;
 
   deleteProject(id: string): Promise<void>;
 
@@ -158,6 +219,7 @@ export interface CloudBackend {
   listVersions?(
     userId: string,
     projectId: string,
+    uid?: string,
   ): Promise<{ name: string; files: RowFile[]; committed_at: string }[]>;
 
   /**

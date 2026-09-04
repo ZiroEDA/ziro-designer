@@ -115,9 +115,39 @@ const bytesToB64 = (u: Uint8Array): string => {
  * construction, so "has the cloud moved since I last agreed with it" is a fact
  * rather than an inference.
  */
-export async function cloudListMeta(): Promise<{ id: string; version: number }[]> {
+export async function cloudListMeta(): Promise<
+  { id: string; version: number; uid?: string; ownerId?: string }[]
+> {
   const rows = await need().listProjects();
-  return rows.map((r) => ({ id: r.id, version: Number(r.version ?? 1) }));
+  return rows.map((r) => ({
+    id: r.id,
+    version: Number(r.version ?? 1),
+    // Both absent on a database without the membership migration, where every
+    // visible row is the signed-in user's own -- which is what the caller
+    // assumes when they are missing.
+    ...(r.uid ? { uid: r.uid } : {}),
+    ...(r.user_id ? { ownerId: r.user_id } : {}),
+  }));
+}
+
+/**
+ * The signed-in user's role on every project shared with them, by `uid`.
+ *
+ * Empty when the backend cannot say -- a deployment without the membership
+ * migration, where nothing is shared with anybody. Absent from the map means
+ * "not a shared project", which is the same as "mine".
+ */
+export async function cloudMemberships(): Promise<Map<string, 'owner' | 'editor' | 'viewer'>> {
+  const be = need();
+  if (!be.listMemberships) return new Map();
+  const rows = await be.listMemberships();
+  const out = new Map<string, 'owner' | 'editor' | 'viewer'>();
+  for (const r of rows) {
+    if (r.role === 'owner' || r.role === 'editor' || r.role === 'viewer') {
+      out.set(r.project_uid, r.role);
+    }
+  }
+  return out;
 }
 
 /**
@@ -176,16 +206,31 @@ async function readFiles(
   );
 }
 
-/** Fetch a single cloud project with its file bodies, or null if absent. */
-export async function cloudGet(id: string): Promise<SyncableProject | null> {
+/**
+ * Fetch a single cloud project with its file bodies, or null if absent.
+ *
+ * `id` here is the row's own id, and `uid` -- when the caller knows it -- is
+ * what actually addresses the row; see `CloudBackend.getProject`. The returned
+ * `id` is the row's, not a local key: a caller filing this away has to decide
+ * that for itself, because a project shared with this user may collide with one
+ * of their own.
+ *
+ * Blobs are read from `row.user_id`, the project's *owner*, which is already
+ * what this did and is exactly right for a shared project: the bytes live in
+ * the owner's space and are readable from there by anyone on the project.
+ */
+export async function cloudGet(id: string, uid?: string): Promise<SyncableProject | null> {
   const be = need();
-  const row = await be.getProject(id);
+  const row = await be.getProject(id, uid);
   if (!row) return null;
   return {
     id: row.id,
     name: row.name,
     createdAt: new Date(row.created_at).getTime(),
     updatedAt: new Date(row.updated_at).getTime(),
+    ...(row.uid ? { cloudUid: row.uid } : {}),
+    cloudId: row.id,
+    ...(row.user_id ? { cloudOwnerId: row.user_id } : {}),
     // What a pull agrees with, and what its next push must name as its base.
     // A legacy row written before the column existed reads as 1, which is what
     // the migration defaulted it to.
@@ -216,9 +261,10 @@ export async function cloudGet(id: string): Promise<SyncableProject | null> {
  */
 export async function cloudMissingObjects(
   id: string,
+  uid?: string,
 ): Promise<{ name: string; missing: number; total: number; version: number } | null> {
   const be = need();
-  const row = await be.getProject(id);
+  const row = await be.getProject(id, uid);
   if (!row) return null;
 
   const files: RowFile[] = row.files ?? [];
@@ -305,10 +351,11 @@ export async function assertStoreAnswers(userId: string): Promise<void> {
 export async function restoreFromHistory(
   userId: string,
   id: string,
+  uid?: string,
 ): Promise<{ name: string; committedAt: string; files: number } | null> {
   const be = need();
   if (!be.listVersions) return null;
-  const versions = await be.listVersions(userId, id);
+  const versions = await be.listVersions(userId, id, uid);
 
   for (const version of versions) {
     const entries = (version.files ?? []).filter(isManifestEntry);
@@ -322,14 +369,17 @@ export async function restoreFromHistory(
     const present = await Promise.all(entries.map((f) => blobExists(be, userId, f.hash)));
     if (!present.every(Boolean)) continue;
 
-    const row = await be.getProject(id);
+    const row = await be.getProject(id, uid);
     // Over whatever the row is at now, read a moment ago. A repair is still a
     // write and still has to state what it replaces: two tabs both discovering
     // the same damage would otherwise both "fix" it and one would lose.
     const landed = await be.commitProject(
       {
-        id,
-        user_id: userId,
+        id: row?.id ?? id,
+        ...(row?.uid ? { uid: row.uid } : uid ? { uid } : {}),
+        // The owner, so the repaired row keeps belonging to whoever it belonged
+        // to. A repair is not a transfer.
+        user_id: row?.user_id ?? userId,
         name: version.name || row?.name || 'Recovered project',
         created_at: row?.created_at ?? version.committed_at,
         updated_at: new Date().toISOString(),
@@ -382,6 +432,16 @@ export async function cloudUpsert(
 ): Promise<{ manifest: ManifestEntry[]; version: number }> {
   const be = need();
 
+  if (p.cloudRole === 'viewer') {
+    throw new Error(`refusing to push "${p.name}": this project is shared read-only`);
+  }
+
+  // Blobs live under the project's *owner*, not whoever is writing. An editor
+  // uploading into their own space would put the bytes where the owner cannot
+  // read them, and commit a row naming objects that, for everyone else on the
+  // project, are not there.
+  const owner = p.cloudOwnerId ?? userId;
+
   if (isHollow(p.files)) {
     throw new Error(
       `refusing to push "${p.name}": all ${p.files.length} files are empty, which means the local copy is damaged`,
@@ -425,13 +485,13 @@ export async function cloudUpsert(
   await Promise.all(
     fresh.map(async (m) => {
       const src = p.files.find((f) => f.name === m.name)!;
-      return putBlob(be, userId, await bytesFor(src));
+      return putBlob(be, owner, await bytesFor(src));
     }),
   );
 
   const missing = (
     await Promise.all(
-      fresh.map(async (m) => ((await be.hasObject(blobPath(userId, m.hash))) ? null : m.name)),
+      fresh.map(async (m) => ((await be.hasObject(blobPath(owner, m.hash))) ? null : m.name)),
     )
   ).filter((n): n is string => n !== null);
   if (missing.length > 0) {
@@ -448,8 +508,11 @@ export async function cloudUpsert(
   //    a write while this one was uploading, and overwriting it is precisely the
   //    data loss the version column exists to make impossible.
   const row: ProjectRow & { user_id: string } = {
-    id: p.id,
-    user_id: userId,
+    // The row's own id, which for a shared project is the owner's and not the
+    // key this copy is filed under locally.
+    id: p.cloudId ?? p.id,
+    ...(p.cloudUid ? { uid: p.cloudUid } : {}),
+    user_id: owner,
     name: p.name,
     created_at: new Date(p.createdAt).toISOString(),
     // Sent for the row shape's sake; the server stamps its own and nothing
@@ -468,6 +531,8 @@ export async function cloudUpsert(
   //    sides marked as disagreeing when they agree. A database without the
   //    `manifest.sql` migration simply has no history.
   try {
+    // `userId`, not `owner`: a version row records who committed it. The
+    // project it belongs to is named by `row.uid`.
     await be.recordVersion?.(userId, { ...row, version });
   } catch (e) {
     console.warn(`project history not recorded for "${p.name}":`, e);
@@ -494,11 +559,24 @@ export async function cloudUpsert(
  * objects cost storage, and this is the only code path in the module that can
  * destroy anything.
  */
-export async function cloudDelete(id: string, opts: { keepBlobs?: boolean } = {}): Promise<void> {
+export async function cloudDelete(
+  id: string,
+  opts: { keepBlobs?: boolean; uid?: string; signedInUser?: string } = {},
+): Promise<void> {
   const be = need();
-  const row = await be.getProject(id);
+  const row = await be.getProject(id, opts.uid);
   if (!row) return;
   const userId = row.user_id ?? '';
+
+  // Removing a shared project from your own list is not deleting the project.
+  // Row-level security would refuse the delete anyway, silently and as a no-op,
+  // which is the worst of the three outcomes: the user is told nothing and the
+  // project stays. Giving up the membership is what they actually asked for.
+  if (opts.signedInUser && userId && userId !== opts.signedInUser) {
+    if (row.uid) await be.leaveProject?.(row.uid);
+    return;
+  }
+
   const doomed = (row.files ?? []).filter(isManifestEntry).map((f) => f.hash);
 
   await be.deleteProject(id);
@@ -509,10 +587,14 @@ export async function cloudDelete(id: string, opts: { keepBlobs?: boolean } = {}
   if (opts.keepBlobs || !userId || doomed.length === 0) return;
   let stillUsed: Set<string>;
   try {
-    const others = await be.listProjects();
-    const rows = await Promise.all(
-      others.filter((o) => o.id !== id).map((o) => be.getProject(o.id)),
+    // Only this owner's projects. The listing now also returns projects shared
+    // with the signed-in user, whose blobs live in a different account entirely
+    // -- counting them as "still used" is harmless, but reading them is a round
+    // trip per project for an answer that cannot apply.
+    const others = (await be.listProjects()).filter(
+      (o) => (o.user_id ?? userId) === userId && o.id !== id,
     );
+    const rows = await Promise.all(others.map((o) => be.getProject(o.id, o.uid)));
     stillUsed = new Set(
       rows.flatMap((r) => (r?.files ?? []).filter(isManifestEntry).map((f) => f.hash)),
     );
@@ -524,7 +606,7 @@ export async function cloudDelete(id: string, opts: { keepBlobs?: boolean } = {}
     // needed.
     if (be.listVersions) {
       const histories = await Promise.all(
-        others.map((o) => be.listVersions!(userId, o.id).catch(() => [])),
+        others.map((o) => be.listVersions!(userId, o.id, o.uid).catch(() => [])),
       );
       for (const versions of histories) {
         for (const v of versions) {
