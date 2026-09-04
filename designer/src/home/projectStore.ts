@@ -44,6 +44,16 @@ export interface ProjectMeta {
   lastOpenedAt?: number;
   fileCount: number;
   bytes: number; // compressed size on disk
+  /**
+   * What this user may do with the project, when it is not simply theirs.
+   *
+   * Absent on their own projects, which is nearly all of them. Present means
+   * somebody shared it: the list has to say so, because "delete" means
+   * something different on it, and a `viewer` cannot save at all -- finding
+   * that out by editing for an hour and being unable to keep it is the worst
+   * possible way to learn.
+   */
+  cloudRole?: 'owner' | 'editor' | 'viewer';
 }
 
 interface StoredRecord {
@@ -625,6 +635,7 @@ export async function listProjects(): Promise<ProjectMeta[]> {
         lastOpenedAt: r.lastOpenedAt,
         fileCount: r.files.length,
         bytes: r.files.reduce((n, f) => n + f.gz.byteLength, 0),
+        ...(r.cloudRole && r.cloudRole !== 'owner' ? { cloudRole: r.cloudRole } : {}),
       }))
       // Recent = last opened (falls back to last saved for older records).
       .sort((a, b) => (b.lastOpenedAt ?? b.updatedAt) - (a.lastOpenedAt ?? a.updatedAt))

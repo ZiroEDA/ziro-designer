@@ -180,6 +180,21 @@ export interface CloudBackend {
    */
   leaveProject?(uid: string): Promise<void>;
 
+  /**
+   * Spend a share token, joining the project it names.
+   *
+   * Returns what was joined, or null when the token buys nothing. Rejects when
+   * it is no longer valid — expired, revoked, spent, or addressed to a
+   * different account — because that is a sentence to put in front of the
+   * person who followed the link, not a silent nothing.
+   *
+   * The token is never read directly: the invite row is not selectable, so
+   * holding one cannot be used to find out who else was invited or at what
+   * role, nor to probe which tokens exist. Redemption is the only thing a
+   * token can do.
+   */
+  redeemInvite?(token: string): Promise<{ project_uid: string; role: string } | null>;
+
   deleteProject(id: string): Promise<void>;
 
   /** Store bytes at a path. Resolves only when the object is durably written. */

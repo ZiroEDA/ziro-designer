@@ -25,7 +25,8 @@ import {
   forgetDamagedProject,
 } from '../cloud/sync.js';
 import type { SyncResult } from '../cloud/sync.js';
-import { syncTemplates as syncUserTemplates } from '../cloud/cloudStore.js';
+import { cloudBackend, syncTemplates as syncUserTemplates } from '../cloud/cloudStore.js';
+import { captureInviteFromUrl, redeemPendingInvite, type ProjectRole } from '../cloud/invites.js';
 import { LoadingOverlay, nextPaint } from '../ui/LoadingOverlay.js';
 import type { ProgressSnapshot } from '../ui/progress_reporter.js';
 import {
@@ -800,25 +801,77 @@ export function HomePage({
   const [syncState, setSyncState] = useState<
     { done: number; total: number } | { failures: SyncFailure[] } | { healed: number } | null
   >(null);
+  // What became of a share link the reader followed. Null when they did not
+  // follow one, which is nearly always.
+  const [joinNotice, setJoinNotice] = useState<
+    { kind: 'joined'; role: ProjectRole } | { kind: 'failed'; message: string } | null
+  >(null);
   const refreshSaved = (): void => {
     if (storageAvailable()) void listProjects().then(setSaved);
   };
   useEffect(refreshSaved, []);
 
-  // Sign-in (or session restore): pull the user's cloud projects into the local
-  // store and push any local-only ones up, then refresh the list.
+  // A share link arriving as `?join=<token>`. Read on the first render, before
+  // anything can navigate: `signInWithGoogle` redirects to the bare origin, so
+  // a token still sitting in the URL when the reader signs in does not come
+  // back. See `invites.ts` — this also takes it out of the address bar.
+  //
+  // Declared BEFORE the sign-in effect below, and that order matters: React
+  // runs effects in declaration order, so when somebody who is already signed
+  // in follows a link, the token is stashed in the same commit that the sync
+  // effect reads it. Moving this after that one would silently lose the invite
+  // for exactly the users for whom it should be the smoothest.
+  useEffect(() => {
+    captureInviteFromUrl();
+  }, []);
+
+  // Sign-in (or session restore): redeem any waiting share link, then pull the
+  // user's cloud projects into the local store and push any local-only ones up,
+  // then refresh the list.
   const userId = session?.user.id;
   useEffect(() => {
     if (!userId || !storageAvailable()) return;
     let cancelled = false;
-    void syncAllProjects(userId, (done, total) => {
-      // Refresh the list as projects land so pulled ones appear immediately,
-      // not only after the whole reconcile finishes.
-      if (!cancelled) {
-        setSyncState({ done, total });
-        if (done > 0) refreshSaved();
-      }
-    })
+    // Redeem first, and do not let a failure stop the sync. A bad link is the
+    // reader's problem with that link; it says nothing about the twenty
+    // projects they already have, and refusing to sync those because a
+    // colleague's invite had expired would be absurd.
+    //
+    // Awaited rather than run alongside: redeeming is what makes the project
+    // visible to this account, so a reconcile that started first would not see
+    // it and the user would stare at a list without the project they clicked
+    // a link to open.
+    const joining = redeemPendingInvite(cloudBackend()).then(
+      (joined) => {
+        if (joined && !cancelled) setJoinNotice({ kind: 'joined', role: joined.role });
+      },
+      (e: unknown) => {
+        // Worth a sentence rather than a console line: the person deliberately
+        // followed a link and it did not work. The database answers every kind
+        // of refusal with one message, deliberately, so this is all there is.
+        if (!cancelled) {
+          setJoinNotice({ kind: 'failed', message: e instanceof Error ? e.message : String(e) });
+        }
+      },
+    );
+
+    void joining
+      .then(() => {
+        // Re-checked because the redeem was awaited: the account can have
+        // changed, or the page moved on, while it was in flight, and starting a
+        // whole reconcile for a session that is no longer current is work
+        // nobody asked for. The empty result falls straight through the
+        // `cancelled` guard below.
+        if (cancelled) return { pushed: 0, pulled: 0, healed: 0, failures: [] } as SyncResult;
+        return syncAllProjects(userId, (done, total) => {
+          // Refresh the list as projects land so pulled ones appear immediately,
+          // not only after the whole reconcile finishes.
+          if (!cancelled) {
+            setSyncState({ done, total });
+            if (done > 0) refreshSaved();
+          }
+        });
+      })
       .then(async (r) => {
         if (cancelled) return;
         refreshSaved();
@@ -2058,6 +2111,27 @@ export function HomePage({
       )}
 
       {signInOpen && <SignInDialog onClose={() => setSignInOpen(false)} />}
+
+      {/* The outcome of following a share link. Its own pill rather than folded
+          into the sync one: the reader deliberately clicked a link and is
+          waiting to be told whether it worked, and a failure here ("that invite
+          is no longer valid") is not a sync failure and must not be reported as
+          one. Both stay until dismissed — a message about access that vanishes
+          after two seconds is a message nobody reads. */}
+      {joinNotice && (
+        <div className={`ze-sync-pill${joinNotice.kind === 'failed' ? ' failed' : ' done'}`}>
+          <span>
+            {joinNotice.kind === 'joined'
+              ? joinNotice.role === 'viewer'
+                ? '✓ Joined a shared project — you can view it, but not save changes to it'
+                : '✓ Joined a shared project — you can edit it'
+              : `⚠ ${joinNotice.message}`}
+          </span>
+          <button type="button" className="ze-sync-dismiss" onClick={() => setJoinNotice(null)}>
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {/* Cloud-sync status (non-blocking): projects reconciling on sign-in.
           A failure stays until dismissed — it is the only signal the user gets

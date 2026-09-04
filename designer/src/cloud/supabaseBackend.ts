@@ -124,6 +124,16 @@ export function supabaseBackend(): CloudBackend {
       if (error) throw new Error(`delete project ${id}: ${error.message}`);
     },
 
+    async redeemInvite(token) {
+      const { data, error } = await db.rpc('redeem_project_invite', { p_token: token });
+      // Every refusal the function makes arrives as one message, deliberately:
+      // it does not distinguish "expired" from "no such token", because doing
+      // so would tell somebody probing which tokens are real.
+      if (error) throw new Error(error.message);
+      const row = (data as { project_uid: string; role: string }[] | null)?.[0];
+      return row ?? null;
+    },
+
     async leaveProject(uid) {
       const me = (await db.auth.getUser()).data.user?.id;
       if (!me) throw new Error(`leave project ${uid}: not signed in`);
