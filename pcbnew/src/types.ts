@@ -754,12 +754,6 @@ export interface PcbDimension {
  * constant-size marker would fill the board with huge crosses when zoomed out,
  * "so allow users to set how big they are as needed" (`pcb_point.h:36-42`).
  *
- * No `locked`. `PCB_POINT` inherits `BOARD_ITEM` and so has the flag —
- * `ViewGetLayers` even pushes `LAYER_LOCKED_ITEM_SHADOW` for it — but neither
- * `format( const PCB_POINT* )` nor `parsePCB_POINT` has a token for it
- * (`pcb_io_kicad_sexpr.cpp:1156-1167`, whose parser `Expecting( "at, size,
- * layer or uuid" )`), so the flag cannot survive a save. Modelling it would
- * invent a file format.
  */
 export interface PcbPoint {
   at: Vec2;
@@ -767,6 +761,21 @@ export interface PcbPoint {
   size: number;
   layer: string;
   uuid?: string;
+  /**
+   * `BOARD_ITEM::m_isLocked`, and **in memory only** — this one never reaches
+   * the file, on purpose.
+   *
+   * `PCB_POINT` inherits `BOARD_ITEM`, so `SetLocked` works on it, the
+   * Properties panel offers a Locked row for it (`BOARD_ITEM_DESC`,
+   * `board_item.cpp:457`) and `ViewGetLayers` pushes
+   * LAYER_LOCKED_ITEM_SHADOW for it. But `format( const PCB_POINT* )` writes
+   * four tokens and none of them is `(locked …)`, and `parsePCB_POINT`
+   * `Expecting( "at, size, layer or uuid" )` — so emitting one would produce a
+   * file **KiCad's own parser rejects**. Upstream's flag dies with the session
+   * for exactly the same reason; ours does too, which is why the writer must
+   * never patch it into the source node.
+   */
+  locked?: boolean;
   source: SList;
 }
 

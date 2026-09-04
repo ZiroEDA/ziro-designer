@@ -68,7 +68,16 @@ import {
   type TextValues,
 } from './graphic_properties.js';
 import { fillZones } from './zone_filler.js';
-import type { Board } from './types.js';
+import { atom, list, str, type SList } from '@ziroeda/sexpr/src/index.js';
+import { patchChild } from './edit-board.js';
+import { pcbIuToMM } from '@ziroeda/common/src/eda_units.js';
+import type { Board, PcbPoint } from './types.js';
+
+/** `formatInternalUnits`, for the point source patcher below. */
+function mm(iu: number): string {
+  const v = pcbIuToMM(iu).toFixed(6).replace(/0+$/, '').replace(/\.$/, '');
+  return v === '' || v === '-0' ? '0' : v;
+}
 
 /**
  * One row of the property grid, in the shape
@@ -902,6 +911,90 @@ function textRows(board: Board, index: number, ctx: PcbPropertiesContext): PcbPr
 }
 
 /** PCB_SHAPE_DESC / EDA_SHAPE_DESC's rows (eda_shape.cpp:2740-2900). */
+/**
+ * A snap point's rows: `PCB_POINT_DESC` (`pcb_point.cpp:236-252`) over
+ * `BOARD_ITEM_DESC` (`board_item.cpp:449-459`).
+ *
+ * `PCB_POINT_DESC` registers exactly one property of its own —
+ *
+ *     propMgr.InheritsAfter( TYPE_HASH( PCB_POINT ), TYPE_HASH( BOARD_ITEM ) );
+ *     propMgr.AddProperty( new PROPERTY<PCB_POINT, int>( _HKI( "Size" ),
+ *             &PCB_POINT::SetSize, &PCB_POINT::GetSize, PROPERTY_DISPLAY::PT_SIZE ) );
+ *
+ * — and inherits Position X, Position Y, Layer and Locked from `BOARD_ITEM`.
+ * `InheritsAfter` is why Size comes last rather than first.
+ *
+ * Selecting a point used to fall through the dispatcher's `default` and show an
+ * empty panel.
+ */
+function pointRows(board: Board, index: number, ctx: PcbPropertiesContext): PcbPropRow[] {
+  const p = board.points[index];
+  if (!p) return [];
+  const commit = (patch: Partial<PcbPoint>): Board => {
+    const next: PcbPoint = { ...p, ...patch };
+    return {
+      ...board,
+      points: board.points.map((q, i) =>
+        i === index ? { ...next, source: repatchPoint(next) } : q,
+      ),
+    };
+  };
+
+  return [
+    {
+      group: '',
+      name: 'Position X',
+      kind: 'coord',
+      value: p.at.x,
+      set: (n) => (typeof n === 'number' ? commit({ at: { ...p.at, x: n } }) : null),
+    },
+    {
+      group: '',
+      name: 'Position Y',
+      kind: 'coord',
+      value: p.at.y,
+      set: (n) => (typeof n === 'number' ? commit({ at: { ...p.at, y: n } }) : null),
+    },
+    choiceRow(
+      '',
+      'Layer',
+      p.layer,
+      layerChoices(board, false),
+      (layer) => commit({ layer }),
+      ctx.layerColor(p.layer),
+    ),
+    {
+      group: '',
+      name: 'Locked',
+      kind: 'bool',
+      // In memory only, exactly as upstream's is — see `PcbPoint`.
+      value: !!p.locked,
+      set: (n) => commit({ locked: !!n }),
+    },
+    {
+      group: '',
+      name: 'Size',
+      kind: 'dist',
+      value: p.size,
+      set: (n) => (typeof n === 'number' ? commit({ size: n }) : null),
+    },
+  ];
+}
+
+/**
+ * Re-patch a point's source after an edit, so the writer emits the new value.
+ *
+ * Deliberately does NOT touch `(locked …)`: the formatter has no such token and
+ * `parsePCB_POINT` rejects one, so writing it would produce a file KiCad cannot
+ * read. The lock lives in the model alone.
+ */
+function repatchPoint(p: PcbPoint): SList {
+  if (p.source.items.length === 0) return p.source;
+  let src = patchChild(p.source, 'at', list(atom('at'), atom(mm(p.at.x)), atom(mm(p.at.y))));
+  src = patchChild(src, 'size', list(atom('size'), atom(mm(p.size))));
+  return patchChild(src, 'layer', list(atom('layer'), str(p.layer)));
+}
+
 function shapeRows(board: Board, index: number, ctx: PcbPropertiesContext): PcbPropRow[] {
   const shape = board.shapes[index];
   if (!shape) return [];
@@ -1005,6 +1098,8 @@ export function pcbPropertiesFor(
       return textRows(board, ref.index, ctx);
     case 'shape':
       return shapeRows(board, ref.index, ctx);
+    case 'point':
+      return pointRows(board, ref.index, ctx);
     default:
       return [];
   }

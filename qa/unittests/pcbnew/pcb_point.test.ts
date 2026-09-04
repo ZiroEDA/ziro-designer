@@ -39,6 +39,8 @@ import {
   mirrorBoardItems,
   duplicateBoardItems,
 } from '@ziroeda/pcbnew/src/edit-board.js';
+import { isBoardItemLocked, setBoardItemsLocked } from '@ziroeda/pcbnew/src/edit-board.js';
+import { pcbPropertiesFor } from '@ziroeda/pcbnew/src/properties_panel.js';
 import { bestSnapAnchor } from '@ziroeda/pcbnew/src/pcb_cursor_snap.js';
 import { pcbPointMsgPanelInfo } from '@ziroeda/pcbnew/src/msg_panel.js';
 import { boardIsEmpty } from '@ziroeda/pcbnew/src/pcb_selection_conditions.js';
@@ -276,11 +278,16 @@ describe('editing', () => {
   });
 
   it('mirrors its position and keeps its layer', () => {
-    // 10.0.5 has no `PCB_POINT::Mirror` even though `PCB_POINT_T` is in
-    // `EDIT_TOOL::MirrorableItems`, so upstream falls through to
-    // `BOARD_ITEM::Mirror` and pops "should not occur". We reflect the
-    // position, which is what the item plainly means and what every other
-    // positional `Mirror` does. The layer is untouched: that is `Flip`.
+    // `PCB_POINT::Mirror` is the one method 10.0.5 forgot: `PCB_POINT_T` is in
+    // `EDIT_TOOL::MirrorableItems` and the switch calls it, but `pcb_point.h`
+    // overrides `Move`/`Rotate`/`Flip` and not `Mirror`, so it lands on
+    // `BOARD_ITEM::Mirror` — a `wxMessageBox( "should not occur" )`.
+    //
+    // Derived, not invented: `MIRROR( p, ref, LEFT_RIGHT )` is
+    // `p.x = -( p.x - ref.x ) + ref.x` (`core/mirror.h:45-61`) and every
+    // sibling's `Mirror` is one `MIRROR()` per coordinate. A point has one, so
+    // the method is `MIRROR( m_pos, aCentre, aDir )`. The layer is untouched —
+    // flipping it is `Flip`, which `PCB_POINT` *does* implement.
     const after = mirrorBoardItems(read(), new Set(['point:0']), 'h', { x: MM(0), y: MM(0) });
 
     expect(after.points[0]!.at).toEqual({ x: MM(-10), y: MM(20) });
@@ -374,5 +381,76 @@ describe('the message panel', () => {
     expect(rows[1]!.lower).toBe('10.0000 mm');
     expect(rows[3]!.lower).toBe('1.5000 mm');
     expect(rows[4]!.lower).toBe('F.Silkscreen');
+  });
+});
+
+describe('the Properties panel', () => {
+  // `PCB_POINT_DESC` (`pcb_point.cpp:236-252`) registers one property of its
+  // own, Size, and `InheritsAfter( PCB_POINT, BOARD_ITEM )` brings Position X,
+  // Position Y, Layer and Locked from `BOARD_ITEM_DESC` (`board_item.cpp:449-459`)
+  // — which is why Size comes last. Selecting a point used to fall through the
+  // dispatcher's `default` and show an empty panel.
+  const ctx = { layerColor: () => 'rgb(0, 0, 0)', units: 'mm' as const };
+  const rows = (b = read()): ReturnType<typeof pcbPropertiesFor> =>
+    pcbPropertiesFor(b, ['point:0'], ctx);
+
+  it('offers BOARD_ITEM’s four rows and PCB_POINT’s Size, in that order', () => {
+    expect(rows().map((r) => r.name)).toEqual([
+      'Position X',
+      'Position Y',
+      'Layer',
+      'Locked',
+      'Size',
+    ]);
+  });
+
+  it('reads the point’s own values', () => {
+    const r = rows();
+    expect(r.find((x) => x.name === 'Position X')!.value).toBe(MM(10));
+    expect(r.find((x) => x.name === 'Size')!.value).toBe(MM(1.5));
+    // `LSET::Name( layer )` — the CANONICAL name (`pcb_properties_panel.cpp:655`),
+    // not `GetLayerName()`. So this cell reads "F.SilkS" even on a board whose
+    // layer table renames it "F.Silkscreen", which is the opposite of what the
+    // Appearance panel shows and is upstream's own split.
+    expect(r.find((x) => x.name === 'Layer')!.value).toBe('F.SilkS');
+  });
+
+  it('commits Size, and the edit reaches the file', () => {
+    // A row whose `set` updated the model but not the source node would show
+    // the new size and save the old one.
+    const next = rows().find((x) => x.name === 'Size')!.set!(MM(3))!;
+
+    expect(next.points[0]!.size).toBe(MM(3));
+    expect(readBoard(parse(serializeBoard(next))).points[0]!.size).toBe(MM(3));
+  });
+
+  it('commits a position, and that reaches the file too', () => {
+    const next = rows().find((x) => x.name === 'Position X')!.set!(MM(42))!;
+
+    expect(readBoard(parse(serializeBoard(next))).points[0]!.at.x).toBe(MM(42));
+  });
+
+  it('locks in memory and writes no token, because the parser rejects one', () => {
+    // `SetLocked` works on a `PCB_POINT` — it is a `BOARD_ITEM` — and the panel
+    // offers the row. But `format( const PCB_POINT* )` has no `(locked …)` and
+    // `parsePCB_POINT` `Expecting( "at, size, layer or uuid" )`, so emitting one
+    // would hand KiCad a `(point …)` its own parser throws on. Upstream's lock
+    // is equally unsaveable.
+    const next = rows().find((x) => x.name === 'Locked')!.set!(true)!;
+
+    expect(next.points[0]!.locked).toBe(true);
+    expect(isBoardItemLocked(next, 'point:0')).toBe(true);
+    expect(serializeBoard(next)).not.toContain('locked');
+    // And it is gone after a round trip, which is what upstream does too.
+    expect(readBoard(parse(serializeBoard(next))).points[0]!.locked).toBeUndefined();
+  });
+
+  it('Lock/Unlock reaches a point at all, which is the shared command', () => {
+    // `setBoardItemsLocked` is what `PCB_ACTIONS::lock` runs. Points were the
+    // one kind it skipped, so the command silently did nothing to them.
+    const locked = setBoardItemsLocked(read(), new Set(['point:0']), true);
+
+    expect(isBoardItemLocked(locked, 'point:0')).toBe(true);
+    expect(serializeBoard(locked)).not.toContain('locked');
   });
 });

@@ -2529,10 +2529,8 @@ export function isBoardItemLocked(board: Board, id: string): boolean {
       return !!board.images[r.index]?.locked;
     case 'dimension':
       return !!board.dimensions[r.index]?.locked;
-    // A point can never report locked: `format( const PCB_POINT* )` has no
-    // `(locked …)` token, so the flag has nowhere to live. See {@link PcbPoint}.
     case 'point':
-      return false;
+      return !!board.points[r.index]?.locked;
     case 'footprint':
     case 'pad':
     case 'fptext':
@@ -2579,6 +2577,14 @@ export function setBoardItemsLocked(
     texts: board.texts.map((t, i) => (idx.text.has(i) ? patch(t) : t)),
     footprints: board.footprints.map((f, i) => (idx.footprint.has(i) ? patch(f) : f)),
     groups: board.groups.map((g, i) => (idx.group.has(i) ? patch(g) : g)),
+    // A point takes the flag but NOT the source patch every other kind takes.
+    // `format( const PCB_POINT* )` has no `(locked …)` token and
+    // `parsePCB_POINT` `Expecting( "at, size, layer or uuid" )`, so writing one
+    // would hand KiCad a `(point …)` its own parser throws on. Upstream's lock
+    // is equally unsaveable and equally real within the session.
+    points: board.points.map((p, i) =>
+      idx.point.has(i) ? { ...p, locked: locked === 'toggle' ? !p.locked : locked } : p,
+    ),
   };
 }
 
@@ -2709,15 +2715,26 @@ export function mirrorBoardItems(
     return { ...next, source: src };
   };
 
+  // `PCB_POINT::Mirror`, which 10.0.5 forgot to write.
+  //
   // `PCB_POINT_T` is in `EDIT_TOOL::MirrorableItems` (`edit_tool.cpp:2417-2420`)
-  // and `EDIT_TOOL::Mirror`'s switch calls `PCB_POINT::Mirror` — which 10.0.5
-  // does not define. It resolves to `BOARD_ITEM::Mirror`, whose entire body is
+  // and the switch calls `static_cast<PCB_POINT*>( item )->Mirror( … )` — but
+  // `pcb_point.h` overrides `Move`, `Rotate` and `Flip` and *not* `Mirror`, so
+  // the call resolves to `BOARD_ITEM::Mirror`, whose entire body is
   // `wxMessageBox( "virtual BOARD_ITEM::Mirror used, should not occur" )`
-  // (`board_item.cpp:395-398`): mirroring a point upstream pops an error box
-  // and moves nothing. Reproducing that would be reproducing a crash dialog,
-  // so we do what the item is plainly meant to do and what every other
-  // positional item's `Mirror` does — reflect the position. The layer is left
-  // alone: that is `Flip`, a different command.
+  // (`board_item.cpp:395-398`).
+  //
+  // So this is not a place we diverge — it is the missing one-liner, derived
+  // rather than invented. Every sibling's `Mirror` is the same shape:
+  //
+  //     void PCB_TRACK::Mirror( const VECTOR2I& aCentre, FLIP_DIRECTION aDir )
+  //     { MIRROR( m_Start, aCentre, aDir ); MIRROR( m_End, aCentre, aDir ); }
+  //
+  // and `MIRROR( p, ref, LEFT_RIGHT )` is `p.x = -( p.x - ref.x ) + ref.x`
+  // (`include/core/mirror.h:45-61`), which is the `mir` above. A point has one
+  // coordinate, so `PCB_POINT::Mirror` is `MIRROR( m_pos, aCentre, aDir )` and
+  // nothing else. The layer is untouched: flipping it is `Flip`, a different
+  // command, and `PCB_POINT::Flip` does have an implementation.
   const mirPoint = (p: PcbPoint): PcbPoint => {
     const at = mir(p.at);
     return { ...p, at, source: patchChild(p.source, 'at', xyNode('at', at)) };
