@@ -105,6 +105,24 @@ describe('one entry, several sheets', () => {
     expect(uuids(docs.get('sub.kicad_sch'))).toEqual(['a', 'z']);
   });
 
+  /**
+   * `Redo` pushes the list back onto the undo stack (`sch_editor_control.cpp:1638-1640`),
+   * which is what makes Ctrl+Z / Ctrl+Y / Ctrl+Z work rather than stranding
+   * the entry after one round trip.
+   */
+  it('leaves a redone edit undoable again', () => {
+    const h = new ProjectHistory();
+    const docs = project();
+    fold(docs, h.execute(docs, moveToSub));
+    fold(docs, h.undo(docs));
+    fold(docs, h.redo(docs));
+    expect(h.canUndo).toBe(true);
+
+    fold(docs, h.undo(docs));
+    expect(uuids(docs.get('root.kicad_sch'))).toEqual(['a', 'b']);
+    expect(uuids(docs.get('sub.kicad_sch'))).toEqual(['z']);
+  });
+
   it('spans three sheets as readily as two', () => {
     const h = new ProjectHistory();
     const docs = project();
