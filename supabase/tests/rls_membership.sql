@@ -1,0 +1,78 @@
+\pset pager off
+\set QUIET on
+delete from public.project_versions; delete from public.projects;
+delete from storage.objects where bucket_id='projects';
+insert into auth.users (id, instance_id, aud, role, email) values
+ ('aaaaaaaa-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000000','authenticated','authenticated','a@x.test'),
+ ('bbbbbbbb-0000-0000-0000-000000000002','00000000-0000-0000-0000-000000000000','authenticated','authenticated','b@x.test')
+on conflict do nothing;
+insert into storage.buckets(id,name,public) values ('projects','projects',false) on conflict do nothing;
+insert into public.projects (id, user_id, name, files)
+values ('11111111-1111-1111-1111-111111111111','aaaaaaaa-0000-0000-0000-000000000001','Board A',
+        '[{"name":"board.kicad_pcb","hash":"HASH1","size":10}]'::jsonb);
+insert into storage.objects(bucket_id,name) values
+  ('projects','aaaaaaaa-0000-0000-0000-000000000001/blobs/HA/HASH1'),
+  ('projects','aaaaaaaa-0000-0000-0000-000000000001/blobs/HA/HASH2');
+\set QUIET off
+
+\echo '### 1 blob index built from manifest -- expect HASH1 only'
+select hash from public.project_blobs;
+
+\echo '### 2 B cannot see A''s project -- expect 0'
+begin; set local role authenticated; set local "request.jwt.claim.sub" = 'bbbbbbbb-0000-0000-0000-000000000002';
+select count(*) as n from public.projects; commit;
+
+\echo '### 3 A issues a viewer link -- expect INSERT 0 1'
+begin; set local role authenticated; set local "request.jwt.claim.sub" = 'aaaaaaaa-0000-0000-0000-000000000001';
+insert into public.project_invites (token, project_uid, role, created_by)
+select '99999999-9999-9999-9999-999999999999', uid, 'viewer','aaaaaaaa-0000-0000-0000-000000000001'
+  from public.projects; commit;
+
+\echo '### 4 B redeems -- expect viewer, then sees 1 project'
+begin; set local role authenticated; set local "request.jwt.claim.sub" = 'bbbbbbbb-0000-0000-0000-000000000002';
+select role as redeemed from public.redeem_project_invite('99999999-9999-9999-9999-999999999999');
+select count(*) as n from public.projects; commit;
+
+\echo '### 5 viewer CANNOT write -- expect null'
+begin; set local role authenticated; set local "request.jwt.claim.sub" = 'bbbbbbbb-0000-0000-0000-000000000002';
+select public.commit_project('11111111-1111-1111-1111-111111111111','Hijacked',
+  '[{"name":"b","hash":"HASH9","size":1}]'::jsonb, 1, (select uid from public.projects)) as viewer_write; commit;
+
+\echo '### 6 viewer sees HASH1 (in the project) but NOT HASH2 -- expect one row'
+begin; set local role authenticated; set local "request.jwt.claim.sub" = 'bbbbbbbb-0000-0000-0000-000000000002';
+select regexp_replace(name,'^.*/','') as blob from storage.objects; commit;
+
+\echo '### 7 promote B to editor; B commits -- expect version 2, one bump only'
+\set QUIET on
+update public.project_members set role='editor' where user_id='bbbbbbbb-0000-0000-0000-000000000002';
+\set QUIET off
+begin; set local role authenticated; set local "request.jwt.claim.sub" = 'bbbbbbbb-0000-0000-0000-000000000002';
+select public.commit_project('11111111-1111-1111-1111-111111111111','Edited by B',
+  '[{"name":"b","hash":"HASH3","size":11}]'::jsonb, 1, (select uid from public.projects)) as new_version; commit;
+select version, name from public.projects;
+
+\echo '### 8 editor CANNOT steal ownership -- expect exception'
+begin; set local role authenticated; set local "request.jwt.claim.sub" = 'bbbbbbbb-0000-0000-0000-000000000002';
+update public.projects set user_id='bbbbbbbb-0000-0000-0000-000000000002'; rollback;
+
+\echo '### 9 editor CANNOT delete the project -- expect DELETE 0'
+begin; set local role authenticated; set local "request.jwt.claim.sub" = 'bbbbbbbb-0000-0000-0000-000000000002';
+delete from public.projects; rollback;
+
+\echo '### 10 revoked link is refused -- expect exception'
+\set QUIET on
+update public.project_invites set revoked=true;
+\set QUIET off
+begin; set local role authenticated; set local "request.jwt.claim.sub" = 'bbbbbbbb-0000-0000-0000-000000000002';
+select * from public.redeem_project_invite('99999999-9999-9999-9999-999999999999'); rollback;
+
+\echo '### 11 roles -- expect A=owner, B=editor'
+begin; set local role authenticated; set local "request.jwt.claim.sub" = 'aaaaaaaa-0000-0000-0000-000000000001';
+select public.project_role_of((select uid from public.projects)) as a_role; commit;
+begin; set local role authenticated; set local "request.jwt.claim.sub" = 'bbbbbbbb-0000-0000-0000-000000000002';
+select public.project_role_of((select uid from public.projects)) as b_role; commit;
+
+\echo '### 12 B can leave; then sees nothing -- expect 0'
+begin; set local role authenticated; set local "request.jwt.claim.sub" = 'bbbbbbbb-0000-0000-0000-000000000002';
+delete from public.project_members where user_id='bbbbbbbb-0000-0000-0000-000000000002';
+select count(*) as n from public.projects; commit;
