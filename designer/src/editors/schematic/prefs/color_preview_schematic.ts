@@ -25,7 +25,7 @@
  * repaints in that colour, exactly as upstream's `KIGFX::VIEW` does.
  */
 import { parse } from '@ziroeda/sexpr';
-import { readSchematic, type Schematic } from '@ziroeda/eeschema';
+import { readSchematic, sheetFieldMargin, type Schematic } from '@ziroeda/eeschema';
 
 /**
  * The uuid of the one item `createPreviewItems` selects, `t2` — `LABEL_{0}`
@@ -36,6 +36,23 @@ const SELECTED_LABEL_UUID = '00000000-0000-0000-0000-00000000la00';
 
 /** `schIUScale.MilsToIU( n )` in the file format's millimetres. */
 const mil = (n: number): string => (n * 0.0254).toFixed(4);
+
+/** An IU length in the same millimetres, for the numbers a formula produces. */
+const iu = (n: number): string => (n / 10000).toFixed(4);
+
+/**
+ * `s->AutoplaceFields( nullptr, AUTOPLACE_AUTO )` (`:446`).
+ *
+ * The sheet is 4000,1300 mils and 800 x 1300, its border width is 0 so
+ * `GetPenWidth()` falls through to the 6-mil default, and its two fields are
+ * the default 1.27 mm. Everything else about their placement follows, so it is
+ * computed with the shared helper rather than restated: a preview that agrees
+ * with the formula but not with `makeSheet` would be the worse of both.
+ */
+const SHEET_TOP_IU = 1300 * 254;
+const SHEET_BOTTOM_IU = (1300 + 1300) * 254;
+const SHEET_NAME_Y = SHEET_TOP_IU - sheetFieldMargin(0.5);
+const SHEET_FILE_Y = SHEET_BOTTOM_IU + sheetFieldMargin(0.4);
 
 /**
  * `m_titleBlock->SetDate( wxDateTime::Now().FormatDate() )` (`:254`).
@@ -121,9 +138,22 @@ const PREVIEW_TEXT = `(kicad_sch (version 20250114) (generator "ziro")
   ${/* `:442-449`: the sheet at (4000,1300), 800 x 1300 mils, and its pin. */ ''}
   (sheet (at ${mil(4000)} ${mil(1300)}) (size ${mil(800)} ${mil(1300)})
     (stroke (width 0) (type solid)) (fill (color 0 0 0 0.0000))
-    (property "Sheetname" "SHEET" (at ${mil(4000)} ${mil(1240)} 0) (effects (font (size 1.27 1.27)) (justify left bottom)))
-    (property "Sheetfile" "/path/to/sheet" (at ${mil(4000)} ${mil(2660)} 0) (effects (font (size 1.27 1.27)) (justify left top)))
-    (pin "SHEET PIN" input (at ${mil(4000)} ${mil(1500)} 180) (effects (font (size 1.27 1.27)) (justify right))))
+    (property "Sheetname" "SHEET" (at ${mil(4000)} ${iu(SHEET_NAME_Y)} 0) (effects (font (size 1.27 1.27)) (justify left bottom)))
+    (property "Sheetfile" "/path/to/sheet" (at ${mil(4000)} ${iu(SHEET_FILE_Y)} 0) (effects (font (size 1.27 1.27)) (justify left top)))
+    ${
+      /* `SCH_SHEET_PIN( s, MILS_POINT( 4500, 1500 ), … )` (`:450`). The
+         constructor does NOT keep that x: the sheet has no pins yet, so
+         `IsVerticalOrientation()` is false, `SetSide( SHEET_SIDE::LEFT )` runs
+         and pulls the pin onto the sheet's left edge — `SetTextX( m_pos.x )`,
+         4000 — with `SetSpinStyle( SPIN_STYLE::RIGHT )`.
+
+         RIGHT is the spin the writer adds NOTHING to (`sch_io_kicad_sexpr.cpp:1441-1448`),
+         so the angle is 0, and `SCH_LABEL_BASE::SetSpinStyle` left-justifies it
+         — "we want to left justify text up against the anchor if we are on the
+         right". Ours had 180 and a right justification, which drew the pin's
+         arrow into the sheet and its name off the wrong side. */ ''
+    }
+    (pin "SHEET PIN" input (at ${mil(4000)} ${mil(1500)} 0) (effects (font (size 1.27 1.27)) (justify left))))
 )`;
 
 /**

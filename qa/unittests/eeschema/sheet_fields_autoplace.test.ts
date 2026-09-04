@@ -72,6 +72,27 @@ describe('a new sheet places its two mandatory fields', () => {
     expect(AT.y - field('Sheetname').at.y).toBe(borderMargin + Math.round(text * 0.5));
     expect(field('Sheetfile').at.y - (AT.y + SIZE.h)).toBe(borderMargin + Math.round(text * 0.4));
   });
+
+  /**
+   * `GetPenWidth()` is the sheet's OWN border, not the 6-mil default:
+   *
+   *     if( GetBorderWidth() > 0 ) return GetBorderWidth();
+   *
+   * and "Defaults for New Objects" sets that border from the project's default
+   * line thickness. The margin took the 6-mil default as read, so every sheet
+   * drawn in a project with a thicker default had its fields half a border
+   * width too close to the box.
+   */
+  it('widens with the sheet’s own border, which the default thickness sets', () => {
+    const thick = makeSheet(AT, SIZE, 'S', 's.kicad_sch', { borderWidthMils: 20 });
+    const at = (key: string) => thick.fields.find((f) => f.key === key)!.at!;
+    const text = mmToIU(1.27);
+    const borderMargin = Math.round(mmToIU(20 * 0.0254) / 2) + 4;
+    expect(AT.y - at('Sheetname').y).toBe(borderMargin + Math.round(text * 0.5));
+    expect(at('Sheetfile').y - (AT.y + SIZE.h)).toBe(borderMargin + Math.round(text * 0.4));
+    // ...and that really is a different answer from the 6-mil one.
+    expect(at('Sheetname').y).not.toBe(field('Sheetname').at.y);
+  });
 });
 
 describe('and the justification is written to the file', () => {

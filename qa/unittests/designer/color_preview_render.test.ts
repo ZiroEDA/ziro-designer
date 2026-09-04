@@ -227,3 +227,64 @@ describe('RenderOpts.connectivity gates the bus recolour', () => {
     expect(colors).toContain(KICAD_DEFAULT.globalLabel);
   });
 });
+
+/**
+ * The sheet, which is the part of the preview that was drawn wrong.
+ *
+ * `createPreviewItems` builds it with `SCH_SHEET( nullptr, MILS_POINT( 4000,
+ * 1300 ), MILS_POINT( 800, 1300 ) )`, calls `AutoplaceFields`, and hangs one
+ * pin off it. None of the three was pinned here, so all three were free to
+ * drift — and two had.
+ */
+describe('the sheet in the preview', () => {
+  const sheet = () => COLOR_PREVIEW_SCHEMATIC.sheets[0]!;
+  const field = (key: string) => sheet().fields.find((f) => f.key === key)!;
+
+  it('sits where upstream puts it', () => {
+    expect(sheet().at).toEqual({ x: 4000 * 254, y: 1300 * 254 });
+    expect(sheet().size).toEqual({ w: 800 * 254, h: 1300 * 254 });
+  });
+
+  /**
+   *     int borderMargin = KiROUND( GetPenWidth() / 2.0 ) + 4;
+   *     int margin = borderMargin + KiROUND( max( textSize.x, textSize.y ) * 0.5 );
+   *     sheetNameField->SetTextPos( m_pos + VECTOR2I( 0, -margin ) );
+   *
+   * with a 6-mil pen and a 1.27 mm field: 766 + 6350 = 7116 IU above the top
+   * edge, and 766 + 5080 = 5846 below the bottom one. Both were hand-placed at
+   * 60 mils (15240 IU) instead — more than twice the gap, on both fields.
+   */
+  it('places its name and file where AutoplaceFields does', () => {
+    expect(field('Sheetname').at).toEqual({ x: 4000 * 254, y: 1300 * 254 - (766 + 6350) });
+    expect(field('Sheetfile').at).toEqual({ x: 4000 * 254, y: 2600 * 254 + (766 + 5080) });
+  });
+
+  it('left-justifies both, the name above the box and the file below it', () => {
+    expect(field('Sheetname').effects?.justify).toEqual(['left', 'bottom']);
+    expect(field('Sheetfile').effects?.justify).toEqual(['left', 'top']);
+  });
+
+  /**
+   * `SCH_SHEET_PIN( s, MILS_POINT( 4500, 1500 ), … )` does not keep that x. The
+   * sheet has no pins yet, so `IsVerticalOrientation()` is false and
+   * `SetSide( SHEET_SIDE::LEFT )` pulls it onto the left edge.
+   */
+  it('pulls the pin onto the sheet’s left edge, not the 4500 it was given', () => {
+    const pin = sheet().pins[0]!;
+    expect(pin.name).toBe('SHEET PIN');
+    expect(pin.at).toEqual({ x: 4000 * 254, y: 1500 * 254 });
+  });
+
+  /**
+   * `SetSide( LEFT )` also sets `SPIN_STYLE::RIGHT`, which the writer adds
+   * nothing to — so the angle is 0 — and which left-justifies the text: "we
+   * want to left justify text up against the anchor if we are on the right".
+   * It read 180 and right, which pointed the pin into the sheet and put its
+   * name on the wrong side of the edge.
+   */
+  it('gives the pin the spin SetSide chose, not its opposite', () => {
+    const pin = sheet().pins[0]!;
+    expect(pin.angle).toBe(0);
+    expect(pin.effects?.justify).toEqual(['left']);
+  });
+});

@@ -345,12 +345,30 @@ function sheetProperty(
  * bottom-aligned above the top edge, the file top-aligned below the bottom one.
  * Ours wrote no justification at all, so both were centred and their middles
  * landed on the corner instead of their left ends starting there.
+ *
+ * `GetPenWidth()` is the sheet's OWN border, not a constant:
+ *
+ *     if( GetBorderWidth() > 0 ) return GetBorderWidth();
+ *     if( Schematic() ) return Schematic()->Settings().m_DefaultLineWidth;
+ *     return schIUScale.MilsToIU( DEFAULT_LINE_WIDTH_MILS );
+ *
+ * so a project whose default line thickness is not 6 mils gets a different
+ * margin. This took the 6-mil default as read, which put the fields of every
+ * thicker-bordered sheet half a border width out.
  */
-const SHEET_FIELD_TEXT = 12700; // 1.27 mm, the size written above
-const SHEET_BORDER_IU = 1524; // the 0.1524 mm stroke written below
+export const SHEET_FIELD_TEXT = 12700; // 1.27 mm, the size written above
+/** `MilsToIU( DEFAULT_LINE_WIDTH_MILS )`, the fallback `GetPenWidth()` ends on. */
+export const DEFAULT_LINE_WIDTH_IU = 1524;
 
-function sheetFieldMargin(ratio: number): number {
-  const borderMargin = Math.round(SHEET_BORDER_IU / 2) + 4;
+/**
+ * `SCH_SHEET::AutoplaceFields`' margin, for the ratio the name (0.5) or the
+ * file (0.4) uses.
+ *
+ * @param penWidthIU `GetPenWidth()`: the sheet's border width when it has one,
+ *   else the schematic's default line width.
+ */
+export function sheetFieldMargin(ratio: number, penWidthIU = DEFAULT_LINE_WIDTH_IU): number {
+  const borderMargin = Math.round(penWidthIU / 2) + 4;
   return borderMargin + Math.round(SHEET_FIELD_TEXT * ratio);
 }
 
@@ -384,8 +402,12 @@ export function makeSheet(
   defaults: NewSheetDefaults = {},
 ): SchSheet {
   const uuid = newKiid();
-  const namePos = { x: at.x, y: at.y - sheetFieldMargin(0.5) };
-  const filePos = { x: at.x, y: at.y + size.h + sheetFieldMargin(0.4) };
+  // DEFAULT_LINE_WIDTH_MILS 6 (`eeschema/default_values.h`), which is what
+  // `m_Drawing.default_line_thickness` itself defaults to. [data]
+  const widthIU = Math.round(mmToIU((defaults.borderWidthMils ?? 6) * 0.0254));
+  // The margin is `GetPenWidth()`'s, and this sheet's border IS its pen width.
+  const namePos = { x: at.x, y: at.y - sheetFieldMargin(0.5, widthIU) };
+  const filePos = { x: at.x, y: at.y + size.h + sheetFieldMargin(0.4, widthIU) };
   const nameJustify = ['left', 'bottom'];
   const fileJustify = ['left', 'top'];
   const nameField: SchField = {
@@ -412,9 +434,6 @@ export function makeSheet(
     },
     source: sheetProperty('Sheetfile', file, filePos, false, fileJustify),
   };
-  // DEFAULT_LINE_WIDTH_MILS 6 (`eeschema/default_values.h`), which is what
-  // `m_Drawing.default_line_thickness` itself defaults to. [data]
-  const widthIU = Math.round(mmToIU((defaults.borderWidthMils ?? 6) * 0.0254));
   const fill = defaults.backgroundColor ?? ([0, 0, 0, 0] as const);
   const source = list(
     atom('sheet'),
