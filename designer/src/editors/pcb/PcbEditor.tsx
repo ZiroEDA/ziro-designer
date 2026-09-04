@@ -22,6 +22,7 @@ import {
   zoomFitScale,
 } from '../../ui/view_controls.js';
 import { DockSash } from '../../ui/DockSash.js';
+import { applyCanvasSize, canvasBackingSize, isMeasured } from '../../ui/canvas_size.js';
 import { appearanceNetRows } from './appearance_nets.js';
 import { useStatusReadout } from '../../ui/useStatusReadout.js';
 
@@ -4006,28 +4007,24 @@ export function PcbEditor({
     const canvas = canvasRef.current;
     if (!wrap || !canvas) return;
     const ro = new ResizeObserver(() => {
-      const r = wrap.getBoundingClientRect();
-      const w = Math.max(1, Math.round(r.width * dpr));
-      const h = Math.max(1, Math.round(r.height * dpr));
-      // Assigning canvas.width clears the canvas even when the value is
-      // unchanged, blanking the board for a frame. This effect re-runs (and
-      // re-observes, firing an initial callback) whenever the draw options
-      // change, so only touch the canvas on a REAL size change, otherwise a
-      // left-toolbar toggle flickers the whole view.
-      const changed = canvas.width !== w || canvas.height !== h;
-      if (changed) {
-        // The GL and overlay layers are sized with the board canvas. The GL
-        // one's drawing buffer *is* the viewport its shaders project into, so a
-        // stale size shows up as a board drawn at the wrong scale rather than as
-        // nothing at all.
-        for (const c of [canvas, glCanvasRef.current, overCanvasRef.current]) {
-          if (!c) continue;
-          c.width = w;
-          c.height = h;
-          c.style.width = `${r.width}px`;
-          c.style.height = `${r.height}px`;
-        }
-      }
+      // `canvasBackingSize`, shared with the schematic canvas, and the reason
+      // this frame used to shimmer while a dock was dragged: it measured with
+      // `getBoundingClientRect()`, whose width is fractional, and put a rounded
+      // backing store behind a fractional CSS size — so the browser resampled
+      // the whole board on every frame of the drag. See `ui/canvas_size.ts`.
+      //
+      // `applyCanvasSize` keeps the "only assign canvas.width on a REAL change"
+      // rule: assigning it clears the bitmap even when the value is unchanged,
+      // and this effect re-runs (and re-observes, firing an initial callback)
+      // whenever the draw options change, so a left-toolbar toggle would
+      // otherwise blank the view for a frame.
+      //
+      // The GL and overlay layers are sized with the board canvas. The GL one's
+      // drawing buffer *is* the viewport its shaders project into, so a stale
+      // size shows up as a board drawn at the wrong scale rather than as
+      // nothing at all.
+      const size = canvasBackingSize(wrap, dpr);
+      const changed = applyCanvasSize([canvas, glCanvasRef.current, overCanvasRef.current], size);
       // Only a fit against a viewport that exists counts.
       //
       // The frames stay mounted and are toggled with CSS, so this observer also
@@ -4037,8 +4034,7 @@ export function PcbEditor({
       // meant nothing, and recording it as done meant the real layout, when the
       // user finally switched over, never fitted at all: an empty sheet with the
       // origin marker sitting in it until they pressed Zoom to Fit themselves.
-      const measured = r.width > 0 && r.height > 0;
-      if (!fittedRef.current && sceneRef.current && measured) {
+      if (!fittedRef.current && sceneRef.current && isMeasured(size)) {
         fittedRef.current = true;
         zoomToFit();
       } else if (changed) {

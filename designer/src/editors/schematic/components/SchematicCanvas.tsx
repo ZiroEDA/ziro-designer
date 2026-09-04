@@ -253,6 +253,7 @@ import {
   cssWithAlpha,
 } from '@ziroeda/common';
 import { toolCursor as kiToolCursor } from '../cursors.js';
+import { applyCanvasSize, backingSizeFor } from '../../../ui/canvas_size.js';
 import { kiCursor } from '../../../ui/kicursors.js';
 import { remapEvent } from '../hotkey_bindings.js';
 import { settings } from '../../../prefs/settings.js';
@@ -3076,21 +3077,15 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     const canvas = canvasRef.current;
     const overlay = overlayRef.current;
     if (!canvas || !overlay || size.w === 0 || size.h === 0) return;
-    const r = dpr();
-    const w = Math.floor(size.w * r);
-    const h = Math.floor(size.h * r);
     // The GL layer is sized with the others when it is mounted. Its drawing
     // buffer is the viewport the shaders project into, so a stale size shows up
     // as a document drawn at the wrong scale rather than as nothing at all.
-    const layers = [canvas, overlay, ...(glCanvasRef.current ? [glCanvasRef.current] : [])];
-    for (const c of layers) {
-      if (c.width !== w || c.height !== h) {
-        c.width = w;
-        c.height = h;
-      }
-      c.style.width = `${size.w}px`;
-      c.style.height = `${size.h}px`;
-    }
+    //
+    // `applyCanvasSize` is shared with the board editor. This canvas was already
+    // measuring in whole CSS pixels, which is why it stayed steady under a dock
+    // drag while the board shimmered; the rule now lives in one place instead of
+    // being a property of which editor you happened to be reading.
+    applyCanvasSize([canvas, overlay, glCanvasRef.current], backingSizeFor(size.w, size.h, dpr()));
     sizedRef.current = true;
     if (!viewportRef.current || fitPendingRef.current) {
       viewportRef.current = fitToContent(
