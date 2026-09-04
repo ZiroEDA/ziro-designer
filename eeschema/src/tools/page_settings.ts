@@ -122,6 +122,9 @@ function applyPageSettings(doc: Schematic, s: PageSettings): Schematic {
 export function setPageSettingsCommand(next: PageSettings): EditCommand {
   return {
     label: 'Page Settings',
+    // UNDO_REDO::PAGESETTINGS: undoing this one brings its own sheet on screen
+    // first, because the border it restores is the whole visible result.
+    pageSettings: true,
     apply(doc: Schematic): Schematic {
       return applyPageSettings(doc, next);
     },

@@ -61,8 +61,8 @@ import {
   type Fill,
   readSchematic,
   serializeSchematic,
-  type HistoryStep,
-  type CrossSheetEdit,
+  type ProjectStep,
+  type ProjectEdit,
   deleteByIds,
   deleteItems,
   transformItems,
@@ -258,7 +258,7 @@ import {
   makeTable,
   makeTableFromDrag,
   buildPropertyNode,
-  History,
+  ProjectHistory,
   type Schematic,
   type SchImage,
   type SchTable,
@@ -864,14 +864,14 @@ export function SchematicEditor({
   const [unsaved, setUnsaved] = useState(false);
 
   const [doc, setDoc] = useState<Schematic | null>(initial);
-  // Multi-sheet project: every parsed document by basename, the root file, and a
-  // History per sheet (KiCad keeps one undo stack per screen). `doc` is always
-  // the currently-shown sheet; it is written back into `docs` when switching.
+  // Multi-sheet project: every parsed document by basename, and the root file.
+  // `doc` is always the currently-shown sheet; it is written back into `docs`
+  // when switching. The undo stack is NOT here — there is one for the whole
+  // project, on the frame, exactly as `EDA_BASE_FRAME` holds it.
   const project = useRef<{ docs: Map<string, Schematic>; root: string }>({
     docs: new Map(initial ? [[DEFAULT_FILE, initial]] : []),
     root: DEFAULT_FILE,
   });
-  const histories = useRef<Map<string, History>>(new Map());
   const [currentFile, setCurrentFile] = useState<string>(DEFAULT_FILE);
   // The active sheet *instance* (KiCad SCH_SHEET_PATH). Distinct from currentFile
   // so two instances of one shared document highlight/navigate independently.
@@ -879,10 +879,6 @@ export function SchematicEditor({
   // KiCad's "Load Schematic" progress: non-null while parsing/saving a project
   // (a plain message, or a snapshot with the per-sheet parse gauge).
   const [loading, setLoading] = useState<string | ProgressSnapshot | null>(null);
-  // Register the initial sheet's undo stack so returning to it keeps its history.
-  useEffect(() => {
-    histories.current.set(DEFAULT_FILE, history.current);
-  }, []);
   const [selection, setSelection] = useState<ReadonlySet<string>>(new Set());
   /**
    * The selection a right-click made just to have something to aim the menu at
@@ -919,7 +915,7 @@ export function SchematicEditor({
   // SCH_EDITOR_CONTROL::m_highlightBusMembers: re-clicking an already-highlighted
   // net toggles the members of the bus it rides on into the highlight.
   const [highlightBusMembers, setHighlightBusMembers] = useState(false);
-  const history = useRef(new History());
+  const history = useRef(new ProjectHistory());
   const controller = useRef<CanvasController>(null);
   const [activeTool, setActiveTool] = useState('select');
   /**
@@ -1748,6 +1744,11 @@ export function SchematicEditor({
   // The live document for stable callbacks (selection promotion needs groups).
   const docRef = useRef(doc);
   docRef.current = doc;
+  // Which file that document is, for the same reason: an undo step is applied
+  // inside a `setDoc` updater, where the state value of `currentFile` may be a
+  // render behind.
+  const currentFileRef = useRef(currentFile);
+  currentFileRef.current = currentFile;
   /**
    * `grid.GetGrid().x` for the rules that measure in grid squares — right now
    * only `SCH_SELECTION_TOOL::Main`'s right-click test. A ref because
@@ -2027,81 +2028,100 @@ export function SchematicEditor({
     es.drawing.default_sheet_background_color,
   ]);
 
-  const runCommand = useCallback(
-    (cmd: EditCommand) => {
-      setDoc((d) => (d ? history.current.execute(d, withCleanup(cmd, libById)) : d));
-    },
-    [libById],
-  );
-
   /**
-   * Fold an undo/redo step's OTHER sheets back into the project.
+   * Fold a history step back into the project.
    *
-   * A step that touched only this sheet returns none, which is every step but a
-   * cross-sheet one; a step that touched several writes each back and hands the
-   * caller the files to persist, so one Ctrl+Z puts the whole edit back the way
-   * `SCH_COMMIT`'s single undo entry does.
+   * The step names every document it changed. The one on screen becomes the new
+   * `doc`; the rest are written into the project and queued for the host, so a
+   * single Ctrl+Z that reverts an edit spanning three sheets really does put all
+   * three back — `PutDataInPreviousState` adding each item to the screen its own
+   * picker names.
    *
    * Called from inside a `setDoc` updater, so it must not call `setState`: the
-   * project's documents live in a ref, and the files are persisted after.
+   * project's documents live in a ref, and the files are persisted after the
+   * render.
    */
-  const foldStep = useCallback((step: HistoryStep | null): Schematic | null => {
-    if (!step) return null;
-    if (step.others.size === 0) return step.doc;
-    const changed: PickedFile[] = [];
-    for (const [file, next] of step.others) {
-      project.current.docs.set(file, next);
-      try {
-        changed.push({ name: file, text: serializeSchematic(next) });
-      } catch {
-        /* skip a bad sheet */
+  const foldStep = useCallback(
+    (step: ProjectStep | null, fallback: Schematic, persist = false): Schematic => {
+      if (!step) return fallback;
+      const here = currentFileRef.current;
+      const changed: PickedFile[] = [];
+      for (const [file, next] of step.docs) {
+        // The open sheet is written to disk by the ordinary (debounced) save, so
+        // it is reported only when the caller asked to persist right now.
+        if (file === here && !persist) continue;
+        if (file !== here) project.current.docs.set(file, next);
+        try {
+          changed.push({ name: file, text: serializeSchematic(next) });
+        } catch {
+          /* skip a bad sheet */
+        }
       }
-    }
-    if (changed.length) pendingProjectChange.current.push(...changed);
-    return step.doc;
-  }, []);
+      if (changed.length) pendingProjectChange.current.push(...changed);
+      if (persist) pendingPersist.current = true;
+      // The one status whose undo navigates; see `EditCommand.pageSettings`.
+      if (step.showSheet && step.showSheet !== here) pendingShowSheet.current = step.showSheet;
+      return step.docs.get(here) ?? fallback;
+    },
+    [],
+  );
 
-  /** Files an undo/redo folded back, flushed to the host after the render. */
+  /** Files an edit or undo folded back, flushed to the host after the render. */
   const pendingProjectChange = useRef<PickedFile[]>([]);
+  /** …and whether the caller wanted them written now rather than on the timer. */
+  const pendingPersist = useRef(false);
   useEffect(() => {
     if (pendingProjectChange.current.length === 0) return;
     const files = pendingProjectChange.current;
+    const persist = pendingPersist.current;
     pendingProjectChange.current = [];
+    pendingPersist.current = false;
     onProjectChange?.(files);
+    if (persist) onPersistFiles?.(files);
   });
 
+  /** A sheet an undo asked to be shown (page settings), navigated to after. */
+  const pendingShowSheet = useRef<string | null>(null);
+
   /**
-   * Run one edit that spans several sheets as a SINGLE undo step — `SCH_COMMIT`
-   * staging items with each item's own SCH_SCREEN and pushing once.
-   *
-   * The entry lives on the sheet you are looking at, because that is the undo
-   * stack Ctrl+Z reaches, and it carries the other sheets' commands with it.
-   * Every other sheet's own stack is left alone: an entry there would undo half
-   * of this edit on its own.
+   * The project's live documents as a history step must see them, from inside a
+   * `setDoc` updater — the open sheet's edits are in `d`, not yet in the map.
    */
-  const runAcrossSheets = useCallback(
-    (edit: CrossSheetEdit): void => {
+  const docsWith = (d: Schematic): Map<string, Schematic> =>
+    new Map(project.current.docs).set(currentFileRef.current, d);
+
+  /**
+   * Run one edit as a SINGLE undo entry, over whichever sheets it touches.
+   *
+   * This is `SCH_COMMIT::Push`: the commit has staged each modified item with
+   * the screen it belongs to, and pushes one `PICKED_ITEMS_LIST` onto the
+   * frame's undo list. An edit confined to the open sheet is not a different
+   * case, just a one-file one.
+   */
+  const runProject = useCallback(
+    (edit: ProjectEdit, persist = false): void => {
       setDoc((d) => {
         if (!d) return d;
-        const own = withCleanup(edit.own, libById);
-        const others = new Map<string, EditCommand>();
-        for (const [file, cmd] of edit.others) others.set(file, withCleanup(cmd, libById));
-        return (
-          foldStep(history.current.executeAcross(d, { own, others }, project.current.docs)) ?? d
-        );
+        const staged = new Map<string, EditCommand>();
+        for (const [file, cmd] of edit) staged.set(file, withCleanup(cmd, libById));
+        return foldStep(history.current.execute(docsWith(d), staged), d, persist);
       });
     },
     [libById, foldStep],
   );
 
+  /** The overwhelmingly common case: an edit on the sheet you are looking at. */
+  const runCommand = useCallback(
+    (cmd: EditCommand) => runProject(new Map([[currentFileRef.current, cmd]])),
+    [runProject],
+  );
+
   const undo = useCallback(
-    () =>
-      setDoc((d) => (d ? (foldStep(history.current.undoAcross(d, project.current.docs)) ?? d) : d)),
+    () => setDoc((d) => (d ? foldStep(history.current.undo(docsWith(d)), d) : d)),
     [foldStep],
   );
   const redo = useCallback(
-    () =>
-      setDoc((d) => (d ? (foldStep(history.current.redoAcross(d, project.current.docs)) ?? d) : d)),
+    () => setDoc((d) => (d ? foldStep(history.current.redo(docsWith(d)), d) : d)),
     [foldStep],
   );
 
@@ -2533,22 +2553,12 @@ export function SchematicEditor({
       const sheetIndex = parentDoc.sheets.findIndex((s) => s.uuid === ownUuid);
       if (sheetIndex === -1) return;
       const cmd = setSheetPageNumberCommand(sheetIndex, instanceKey(rootUuid, chain), page);
-      if (parentFile === currentFile) {
-        runCommand(cmd);
-      } else {
-        // Edit the parent document via its own undo history (SCH_COMMIT on it).
-        if (!histories.current.has(parentFile)) histories.current.set(parentFile, new History());
-        project.current.docs.set(
-          parentFile,
-          histories.current.get(parentFile)!.execute(parentDoc, withCleanup(cmd, libById)),
-        );
-        onProjectChange?.([
-          { name: parentFile, text: serializeSchematic(project.current.docs.get(parentFile)!) },
-        ]);
-        forcePageRefresh((n) => n + 1);
-      }
+      // The sheet object lives in the PARENT document, which may not be the one
+      // on screen. One entry either way: the stack is the project's.
+      runProject(new Map([[parentFile, cmd]]));
+      if (parentFile !== currentFile) forcePageRefresh((n) => n + 1);
     },
-    [currentPath, currentFile, doc, flatSheets, liveDocs, runCommand, onProjectChange, libById],
+    [currentPath, currentFile, doc, flatSheets, liveDocs, runProject],
   );
 
   // Find / Find and Replace (SCH_FIND_REPLACE_TOOL): modeless dialog state
@@ -2856,10 +2866,15 @@ export function SchematicEditor({
               exports.comments[i] ? (next.comments[i] ?? c) : c,
             ),
           };
-          if (!histories.current.has(file)) histories.current.set(file, new History());
-          const updated = histories.current
-            .get(file)!
-            .execute(target, withCleanup(setPageSettingsCommand(merged), libById));
+          // No undo entry for the exported sheets, because upstream makes
+          // none: `onSavePageSettings` walks `SCH_SCREENS` and calls
+          // `SetPageSettings` / `SetTitleBlock` on each other screen straight
+          // out (`dialog_eeschema_page_settings.cpp:134-180`), while the only
+          // thing on the undo list is the `DS_PROXY_UNDO_ITEM` for THIS screen
+          // pushed before the dialog opened (`sch_editor_control.cpp:503-509`).
+          // Ctrl+Z after exporting a title to twelve sheets takes back this
+          // sheet's page settings and leaves the other twelve as they now are.
+          const updated = withCleanup(setPageSettingsCommand(merged), libById).apply(target);
           project.current.docs.set(file, updated);
           try {
             changedFiles.push({ name: file, text: serializeSchematic(updated) });
@@ -3080,7 +3095,7 @@ export function SchematicEditor({
    * `applySheetCommand` while it is open is collected here instead of being
    * executed, so the whole operation lands as one undo entry.
    */
-  const openBatch = useRef<{ own: EditCommand[]; others: Map<string, EditCommand[]> } | null>(null);
+  const openBatch = useRef<Map<string, EditCommand[]> | null>(null);
 
   /**
    * Run a multi-sheet operation as ONE undo step, whichever sheets it turns out
@@ -3105,55 +3120,41 @@ export function SchematicEditor({
         body();
         return;
       }
-      const batch = { own: [] as EditCommand[], others: new Map<string, EditCommand[]>() };
+      const batch = new Map<string, EditCommand[]>();
       openBatch.current = batch;
       try {
         body();
       } finally {
         openBatch.current = null;
       }
-      if (batch.own.length === 0 && batch.others.size === 0) return;
-      const others = new Map<string, EditCommand>();
-      for (const [file, cmds] of batch.others) others.set(file, composeCommands(label, cmds));
-      // An operation that changed only OTHER sheets still needs an entry on
-      // this one — that is the stack Ctrl+Z reaches — so its own half is the
-      // identity. `composeCommands(label, [])` is exactly that.
-      runAcrossSheets({ own: composeCommands(label, batch.own), others });
+      if (batch.size === 0) return;
+      const edit = new Map<string, EditCommand>();
+      for (const [file, cmds] of batch) edit.set(file, composeCommands(label, cmds));
+      runProject(edit);
     },
-    [runAcrossSheets],
+    [runProject],
+  );
+
+  /** Collect one command into the open batch, or run it as its own entry. */
+  const stage = useCallback(
+    (file: string, cmd: EditCommand): void => {
+      const batch = openBatch.current;
+      if (!batch) {
+        runProject(new Map([[file, cmd]]));
+        return;
+      }
+      const list = batch.get(file);
+      if (list) list.push(cmd);
+      else batch.set(file, [cmd]);
+    },
+    [runProject],
   );
 
   const applySheetCommand = useCallback(
-    (file: string, cmd: EditCommand, changed: PickedFile[]): void => {
-      const batch = openBatch.current;
-      if (batch) {
-        // Collected, not executed: `sheetBatch` pushes the lot as one entry and
-        // writes the other sheets back itself, so `changed` stays empty and the
-        // caller's own `onProjectChange` is a no-op.
-        if (file === currentFile) batch.own.push(cmd);
-        else if (project.current.docs.has(file)) {
-          const list = batch.others.get(file);
-          if (list) list.push(cmd);
-          else batch.others.set(file, [cmd]);
-        }
-        return;
-      }
-      if (file === currentFile) {
-        runCommand(cmd);
-        return;
-      }
-      const target = project.current.docs.get(file);
-      if (!target) return;
-      if (!histories.current.has(file)) histories.current.set(file, new History());
-      const next = histories.current.get(file)!.execute(target, withCleanup(cmd, libById));
-      project.current.docs.set(file, next);
-      try {
-        changed.push({ name: file, text: serializeSchematic(next) });
-      } catch {
-        /* skip a bad sheet */
-      }
+    (file: string, cmd: EditCommand): void => {
+      if (file === currentFile || project.current.docs.has(file)) stage(file, cmd);
     },
-    [currentFile, runCommand, libById],
+    [currentFile, stage],
   );
 
   /**
@@ -3176,7 +3177,7 @@ export function SchematicEditor({
    * describes as "the same symbol being moved". Instance records are pruned by
    * that path, which is right — they name a sheet path the items have left.
    *
-   * Both halves go on as ONE undo entry (`runAcrossSheets`), because upstream
+   * Both halves go on as ONE undo entry (`runProject`), because upstream
    * stages both screens in one `SCH_COMMIT` and pushes it once
    * (`sch_move_tool.cpp:2005-2006`). Two entries would mean undoing the source
    * left the copy on the destination — a duplicate, not a revert.
@@ -3199,41 +3200,28 @@ export function SchematicEditor({
         drop.box,
         alignBoxes(target, null, libById).map((b) => b.box),
       );
-      runAcrossSheets({
-        own: drop.source,
-        others: new Map([[file, pasteItems(translatePayload(payload, offset))]]),
-      });
+      const arrives = pasteItems(translatePayload(payload, offset));
+      // A sheet whose file is this one (a self-reference) is one document, so
+      // the two halves become one command on it rather than two map entries.
+      runProject(
+        file === currentFile
+          ? new Map([[currentFile, composeCommands('Move To Sheet', [drop.source, arrives])]])
+          : new Map([
+              [currentFile, drop.source],
+              [file, arrives],
+            ]),
+      );
       // `m_toolMgr->RunAction( ACTIONS::selectionClear )` — the items are not
       // on this sheet any more, so nothing here can still be selected.
       setSelection(new Set());
     },
-    [doc, currentFile, libById, runAcrossSheets, pasteOptions],
+    [doc, currentFile, libById, runProject, pasteOptions],
   );
 
   const applySheetSymbols = useCallback(
-    (file: string, symbols: readonly SchSymbol[], label: string, changed: PickedFile[]): void => {
-      const cmd = setSymbolsCommand(symbols, label);
-      // Inside a `sheetBatch` the whole operation is one entry; see there.
-      if (openBatch.current) {
-        applySheetCommand(file, cmd, changed);
-        return;
-      }
-      if (file === currentFile) {
-        runCommand(cmd);
-        return;
-      }
-      const target = project.current.docs.get(file);
-      if (!target) return;
-      if (!histories.current.has(file)) histories.current.set(file, new History());
-      const next = histories.current.get(file)!.execute(target, withCleanup(cmd, libById));
-      project.current.docs.set(file, next);
-      try {
-        changed.push({ name: file, text: serializeSchematic(next) });
-      } catch {
-        /* skip a bad sheet */
-      }
-    },
-    [currentFile, runCommand, libById, applySheetCommand],
+    (file: string, symbols: readonly SchSymbol[], label: string): void =>
+      applySheetCommand(file, setSymbolsCommand(symbols, label)),
+    [applySheetCommand],
   );
 
   // Increment Annotations From… (SCH_EDITOR_CONTROL::IncrementAnnotations):
@@ -3245,7 +3233,6 @@ export function SchematicEditor({
       const sheets = r.allSheets
         ? annotateSheets('all', false)
         : annotateSheets('current_sheet', false);
-      const changedFiles: PickedFile[] = [];
       sheetBatch('Increment Annotations', () => {
         for (const sheet of sheets) {
           if (sheet.scope === 'out') continue;
@@ -3254,17 +3241,16 @@ export function SchematicEditor({
             increment: r.increment,
           });
           if (symbols === sheet.doc.symbols) continue;
-          applySheetSymbols(sheet.file, symbols, 'Increment Annotations', changedFiles);
+          applySheetSymbols(sheet.file, symbols, 'Increment Annotations');
         }
       });
-      if (changedFiles.length) onProjectChange?.(changedFiles);
     },
-    [annotateSheets, applySheetSymbols, onProjectChange, sheetBatch],
+    [annotateSheets, applySheetSymbols, sheetBatch],
   );
 
   /** The same, for an edit that replaces a whole sheet document. */
   const applySheetDocument = useCallback(
-    (file: string, next: Schematic, label: string, changed: PickedFile[]): void => {
+    (file: string, next: Schematic, label: string): void => {
       const cmd: EditCommand = {
         label,
         apply: () => next,
@@ -3274,22 +3260,9 @@ export function SchematicEditor({
           invert: (b: Schematic) => ({ label, apply: () => b, invert: () => cmd }),
         }),
       };
-      if (file === currentFile) {
-        runCommand(cmd);
-        return;
-      }
-      const target = project.current.docs.get(file);
-      if (!target) return;
-      if (!histories.current.has(file)) histories.current.set(file, new History());
-      const applied = histories.current.get(file)!.execute(target, cmd);
-      project.current.docs.set(file, applied);
-      try {
-        changed.push({ name: file, text: serializeSchematic(applied) });
-      } catch {
-        /* skip a bad sheet */
-      }
+      applySheetCommand(file, cmd);
     },
-    [currentFile, runCommand, applySheetCommand],
+    [applySheetCommand],
   );
 
   /** Open the fields table, unless its field names have to be resolved first. */
@@ -3507,7 +3480,6 @@ export function SchematicEditor({
         loadSymbol,
         hierarchyLibs(sheets),
       );
-      const changedFiles: PickedFile[] = [];
       const messages: ChangeSymbolsMessage[] = [];
       sheetBatch('Change Symbols', () => {
         for (const sheet of sheets) {
@@ -3526,11 +3498,9 @@ export function SchematicEditor({
             sheet.file,
             r.doc,
             o.mode === 'change' ? 'Change Symbols' : 'Update Symbols from Library',
-            changedFiles,
           );
         }
       });
-      if (changedFiles.length) onProjectChange?.(changedFiles);
       setChangeSymbolsMessages(messages);
     },
     [
@@ -3551,7 +3521,6 @@ export function SchematicEditor({
     (r: GlobalEditResult) => {
       const sheets = annotateSheets('all', false);
       const libs = hierarchyLibs(sheets);
-      const changedFiles: PickedFile[] = [];
       sheetBatch('Edit Text and Graphics', () => {
         for (const sheet of sheets) {
           // The net filter needs that sheet's own netlist; it is only computed
@@ -3579,10 +3548,9 @@ export function SchematicEditor({
             ...(netOfItem ? { netOfItem } : {}),
           });
           if (next === sheet.doc) continue;
-          applySheetDocument(sheet.file, next, 'Edit Text and Graphics', changedFiles);
+          applySheetDocument(sheet.file, next, 'Edit Text and Graphics');
         }
       });
-      if (changedFiles.length) onProjectChange?.(changedFiles);
     },
     [
       annotateSheets,
@@ -3719,17 +3687,15 @@ export function SchematicEditor({
         subReference(unit, subpartSettings(setup.annotation), false);
       const updated = annotateHierarchy(sheets, libs, { ...opts, tracker }, selection);
 
-      const changedFiles: PickedFile[] = [];
       const diffs: AnnotateDiff[] = [];
       sheetBatch('Annotate Schematic', () => {
         for (const sheet of sheets) {
           const symbols = updated.get(sheet.file);
           if (!symbols) continue;
-          applySheetSymbols(sheet.file, symbols, 'Annotate Schematic', changedFiles);
+          applySheetSymbols(sheet.file, symbols, 'Annotate Schematic');
           diffs.push({ before: sheet.doc, after: { ...sheet.doc, symbols } });
         }
       });
-      if (changedFiles.length) onProjectChange?.(changedFiles);
 
       const lines = [...annotationReport(diffs, libs, subRef)];
       // The final control runs over the sheets that were in scope, as upstream's
@@ -3771,7 +3737,6 @@ export function SchematicEditor({
     (scope: AnnotateOptions['scope'], recursive: boolean) => {
       const sheets = annotateSheets(scope, recursive);
       const libs = hierarchyLibs(sheets);
-      const changedFiles: PickedFile[] = [];
       const diffs: AnnotateDiff[] = [];
       sheetBatch('Clear Annotation', () => {
         for (const sheet of sheets) {
@@ -3782,11 +3747,10 @@ export function SchematicEditor({
           );
           const next = cmd.apply(sheet.doc);
           if (next === sheet.doc) continue;
-          applySheetSymbols(sheet.file, next.symbols, 'Clear Annotation', changedFiles);
+          applySheetSymbols(sheet.file, next.symbols, 'Clear Annotation');
           diffs.push({ before: sheet.doc, after: next });
         }
       });
-      if (changedFiles.length) onProjectChange?.(changedFiles);
       setAnnotateMessages(
         clearAnnotationReport(diffs, libs, (unit) =>
           subReference(unit, subpartSettings(setup.annotation), false),
@@ -3973,9 +3937,9 @@ export function SchematicEditor({
     [theme, outputBaseName, printPages],
   );
 
-  // Bulk Edit Symbol Fields: apply the changed cells per sheet, the current
-  // sheet through the live undo history, other sheets through their own
-  // histories (the same cross-document pattern as editPageNumber/ReplaceAll).
+  // Bulk Edit Symbol Fields: apply the changed cells across every sheet they
+  // reach, as ONE entry — DIALOG_SYMBOL_FIELDS_TABLE builds a single SCH_COMMIT
+  // and pushes it once, however many screens it modified.
   const applyFieldsEdits = useCallback(
     (
       edits: FieldsEdits,
@@ -3985,9 +3949,10 @@ export function SchematicEditor({
         attrs?: ReadonlyMap<string, ReadonlyMap<string, SymbolAttrEdit>>;
       } = {},
     ) => {
-      const changedFiles: PickedFile[] = [];
+      const edit = new Map<string, EditCommand>();
       const files = new Set([...edits.keys(), ...(opts.attrs?.keys() ?? [])]);
       for (const file of files) {
+        if (file !== currentFile && !project.current.docs.has(file)) continue;
         const perSymbol = edits.get(file);
         const perSymbolAttrs = opts.attrs?.get(file);
         const cmds = [
@@ -3995,42 +3960,15 @@ export function SchematicEditor({
           ...(perSymbolAttrs?.size ? [bulkEditSymbolAttributesCommand(perSymbolAttrs)] : []),
         ];
         if (cmds.length === 0) continue;
-        const cmd = cmds.length === 1 ? cmds[0]! : composeCommands('Edit Symbol Fields', cmds);
-        if (file === currentFile) {
-          runCommand(cmd);
-          // "Apply, Save Schematic & Continue" (CVPCB) saves right away rather
-          // than waiting for the debounced autosave, so the on-screen sheet is
-          // serialized from the same command result runCommand just committed.
-          const cur = docRef.current;
-          if (opts.persist && cur) {
-            try {
-              changedFiles.push({
-                name: file,
-                text: serializeSchematic(withCleanup(cmd, libById).apply(cur)),
-              });
-            } catch {
-              /* skip a bad sheet */
-            }
-          }
-          continue;
-        }
-        const target = project.current.docs.get(file);
-        if (!target) continue;
-        if (!histories.current.has(file)) histories.current.set(file, new History());
-        const next = histories.current.get(file)!.execute(target, withCleanup(cmd, libById));
-        project.current.docs.set(file, next);
-        try {
-          changedFiles.push({ name: file, text: serializeSchematic(next) });
-        } catch {
-          /* skip a bad sheet */
-        }
+        edit.set(file, cmds.length === 1 ? cmds[0]! : composeCommands('Edit Symbol Fields', cmds));
       }
-      if (changedFiles.length) {
-        onProjectChange?.(changedFiles);
-        if (opts.persist) onPersistFiles?.(changedFiles);
-      }
+      if (edit.size === 0) return;
+      // "Apply, Save Schematic & Continue" (CVPCB) writes now rather than
+      // waiting for the debounced autosave, so every sheet the edit reached —
+      // the open one included — is reported to the host.
+      runProject(edit, opts.persist === true);
     },
-    [currentFile, runCommand, onProjectChange, onPersistFiles, libById],
+    [currentFile, runProject],
   );
 
   // Plot (DIALOG_PLOT_SCHEMATIC / SCH_PLOTTER::Plot): write the chosen format
@@ -4224,8 +4162,7 @@ export function SchematicEditor({
         const next = { ...readSchematic(parse(text)), fileName: name ?? 'untitled.kicad_sch' };
         const file = name ?? 'untitled.kicad_sch';
         project.current = { docs: new Map([[file, next]]), root: file };
-        histories.current = new Map([[file, new History()]]);
-        history.current = histories.current.get(file)!;
+        history.current.clear();
         setCurrentFile(file);
         setCurrentPath('/');
         navTool.current.resetHistory('/');
@@ -4310,8 +4247,7 @@ export function SchematicEditor({
           problems.push(
             `root schematic ${wantRoot} is not in the selection, opened ${root} instead`,
           );
-        histories.current = new Map([[start, new History()]]);
-        history.current = histories.current.get(start)!;
+        history.current.clear();
         setCurrentFile(start);
         // Home-tree opens the root; deeper instances are entered from the canvas.
         setCurrentPath('/');
@@ -4468,8 +4404,8 @@ export function SchematicEditor({
         setError(`Sheet file not in project: ${file}`);
         return;
       }
-      if (!histories.current.has(file)) histories.current.set(file, new History());
-      history.current = histories.current.get(file)!;
+      // The undo stack is NOT swapped: there is one for the whole project, and
+      // stepping into a sheet does not change what Ctrl+Z takes back.
       setCurrentFile(file);
       setDoc(target);
       resetTransient();
@@ -4477,6 +4413,25 @@ export function SchematicEditor({
     },
     [doc, currentFile, resetTransient],
   );
+
+  /**
+   * The page-settings undo's navigation, run after the step has been folded in.
+   *
+   *     SetCurrentSheet( undoSheet );
+   *     DisplayCurrentSheet();
+   *     (`schematic_undo_redo.cpp:357-358`)
+   *
+   * Only that one status asks for it; see `EditCommand.pageSettings`. If the
+   * sheet has since been removed from the hierarchy there is nothing to show,
+   * and the restored settings simply stay where they landed.
+   */
+  useEffect(() => {
+    const file = pendingShowSheet.current;
+    if (!file) return;
+    pendingShowSheet.current = null;
+    const target = flatSheets.find((sh) => sh.file === file);
+    if (target) switchSheet(target.path, file);
+  });
 
   // FindNext/FindPrevious (SCH_FIND_REPLACE_TOOL): collect matches over the
   // sheet instances (hierarchy order, or just the current instance), advance
@@ -4551,19 +4506,14 @@ export function SchematicEditor({
   // or in every document of the project, each through its own undo history.
   const doReplaceAll = useCallback(() => {
     if (!searchData.findString) return;
+    // One entry over every sheet it reaches: `SCH_FIND_REPLACE_TOOL::ReplaceAll`
+    // runs a single SCH_COMMIT over the whole hierarchy and pushes it once.
+    const edit = new Map<string, EditCommand>([[currentFile, replaceCommand(searchData)]]);
     if (!searchData.searchCurrentSheetOnly) {
-      for (const [file, target] of project.current.docs) {
-        if (file === currentFile) continue;
-        if (!histories.current.has(file)) histories.current.set(file, new History());
-        project.current.docs.set(
-          file,
-          histories.current
-            .get(file)!
-            .execute(target, withCleanup(replaceCommand(searchData), libById)),
-        );
-      }
+      for (const file of project.current.docs.keys())
+        if (file !== currentFile) edit.set(file, replaceCommand(searchData));
     }
-    runCommand(replaceCommand(searchData));
+    runProject(edit);
     findCursor.current = -1;
     lastMatch.current = null;
     setFindStatus('');
@@ -5210,7 +5160,6 @@ export function SchematicEditor({
             }
           : {}),
       });
-      histories.current.set(name, new History());
     },
     [currentFile, liveDocs],
   );
@@ -9342,19 +9291,18 @@ export function SchematicEditor({
                     label,
                   );
                   if (!cmd) return;
-                  const changed: PickedFile[] = [];
                   sheetBatch('Sync Sheet Pins', () =>
-                    applySheetCommand(syncParentFile.current, cmd, changed),
+                    applySheetCommand(syncParentFile.current, cmd),
                   );
-                  if (changed.length) onProjectChange?.(changed);
                 }}
                 onUseLabelTemplate={(entry, label, pin) => {
-                  const changed: PickedFile[] = [];
                   sheetBatch('Sync Sheet Pins', () =>
-                    applySheetCommand(entry.file, syncLabelsFromPin(label, pin), changed),
+                    applySheetCommand(entry.file, syncLabelsFromPin(label, pin)),
                   );
-                  if (changed.length) onProjectChange?.(changed);
                   // The dialog reads the sub-sheet it was handed, so refresh it.
+                  // Safe to read `project.current.docs` here even though the
+                  // edit is folded in a `setDoc` updater: `doc`'s hook is
+                  // declared above this one, so its queue is drained first.
                   setSyncPinsOpen((prev) =>
                     prev
                       ? prev.map((e) =>
@@ -9420,22 +9368,17 @@ export function SchematicEditor({
                 // The two delete buttons (`OnBtnRmPinsClicked` /
                 // `OnBtnRmLabelsClicked`), each writing its own half's file.
                 onDeletePins={(entry, indices) => {
-                  const changed: PickedFile[] = [];
                   sheetBatch('Sync Sheet Pins', () =>
                     applySheetCommand(
                       syncParentFile.current,
                       deleteSyncPins(entry.sheetIndex, indices),
-                      changed,
                     ),
                   );
-                  if (changed.length) onProjectChange?.(changed);
                 }}
                 onDeleteLabels={(entry, texts) => {
-                  const changed: PickedFile[] = [];
                   sheetBatch('Sync Sheet Pins', () =>
-                    applySheetCommand(entry.file, deleteSyncLabels(texts), changed),
+                    applySheetCommand(entry.file, deleteSyncLabels(texts)),
                   );
-                  if (changed.length) onProjectChange?.(changed);
                   setSyncPinsOpen((prev) =>
                     prev
                       ? prev.map((e) =>
