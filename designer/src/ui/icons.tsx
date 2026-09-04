@@ -144,6 +144,17 @@ const ICONS: Record<string, JSX.Element> = {
     </g>
   ),
   annotate: P('M3 13l1-3 7-7 2 2-7 7zM10 4l2 2'),
+  // BITMAPS::rescue is a life ring: a filled annulus (outer r 12, hole r 4.7715
+  // of 24) with the right-upper and left-lower quadrants picked out in a second
+  // colour. Monochrome and stroked here, like every glyph in this file, so it
+  // is the two circles and the four spokes that divide those quadrants.
+  rescue: (
+    <g>
+      <circle cx="8" cy="8" r="7" />
+      <circle cx="8" cy="8" r="2.8" />
+      <path d="M8 1v2.2 M8 12.8V15 M1 8h2.2 M12.8 8H15" />
+    </g>
+  ),
   erc: (
     <g>
       <circle cx="8" cy="8" r="6" />

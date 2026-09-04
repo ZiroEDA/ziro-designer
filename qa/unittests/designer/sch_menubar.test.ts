@@ -177,7 +177,11 @@ describe('no entry is silently inert', () => {
       'Show Bus Syntax Help',
       'Compare Symbol with Library',
       'Simulator',
-      'Rescue Symbols...',
+      // "Rescue Symbols..." used to be greyed here. The Project Rescue Helper
+      // is built: `SYMBOL_LIB_TABLE_RESCUER`'s candidate finder, the dialog and
+      // the `<schematic>-rescue.kicad_sym` it writes. Remap stays greyed - it
+      // is the KiCad 4 path, and `HasNoFullyDefinedLibIds()` is never true for
+      // a `.kicad_sch`.
       'Remap Legacy Library Symbols...',
       'Generate Legacy Bill of Materials...',
       'Add Design Variant...',

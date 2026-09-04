@@ -61,6 +61,8 @@ import {
   type Fill,
   readSchematic,
   serializeSchematic,
+  readSymbolLib,
+  serializeSymbolLib,
   type ProjectStep,
   type ProjectEdit,
   deleteByIds,
@@ -312,9 +314,19 @@ import { SymbolLibraryBrowser } from './components/SymbolLibraryBrowser.js';
 import { loadFootprint, loadFootprintIndex } from '../../widgets/footprint_list.js';
 import { libraryUri, loadIndex, loadSymbol, symbolsBase } from './symbols/index.js';
 import { repairSourceLibs } from './symbols/repair_source.js';
+import {
+  findRescues,
+  rescueDocumentCommand,
+  rescueLibraryFileName,
+  rescueLibraryNickname,
+  rescuedDefinition,
+  type RescueCandidate,
+} from '@ziroeda/eeschema/src/tools/project_rescue.js';
+import { DialogRescueEach, type RescueInstance } from './dialogs/dialog_rescue_each.js';
 import { preloadSchematicLibraries } from './preload.js';
 import {
   projectSymbolLibraries,
+  projectSymLibTable,
   projectSymLibTablePath,
   serializeSymLibTable,
 } from './symbols/project_sym_lib_table.js';
@@ -341,7 +353,7 @@ import {
 } from './hover_selection.js';
 import { buildMenus } from './menubar.js';
 import { CONFIRMATION_CAPTION, revertPromptMessage, savedFileMessage } from './files_io.js';
-import { MessageDialogYesNo } from '../../ui/dialog_message.js';
+import { MessageDialogOk, MessageDialogYesNo } from '../../ui/dialog_message.js';
 import { dispatchMenuHotkey, focusBlocksHotkey } from '../../ui/menu_hotkeys.js';
 import { wasBrowserSuppressed, type FocusLike } from '../../ui/browser_hotkeys.js';
 import { remapEvent } from './hotkey_bindings.js';
@@ -2070,7 +2082,20 @@ export function SchematicEditor({
   const pendingProjectChange = useRef<PickedFile[]>([]);
   /** …and whether the caller wanted them written now rather than on the timer. */
   const pendingPersist = useRef(false);
+  /**
+   * `ClearUndoRedoList` asked for by an edit that has just been queued.
+   *
+   * The Project Rescue Helper is the one operation that drops the whole undo
+   * history when it finishes; it cannot do it at the call site, because the
+   * entry it is dropping has not been pushed yet — `runProject` folds inside a
+   * `setDoc` updater, which React runs at the next render.
+   */
+  const pendingClearHistory = useRef(false);
   useEffect(() => {
+    if (pendingClearHistory.current) {
+      pendingClearHistory.current = false;
+      history.current.clear();
+    }
     if (pendingProjectChange.current.length === 0) return;
     const files = pendingProjectChange.current;
     const persist = pendingPersist.current;
@@ -3454,6 +3479,135 @@ export function SchematicEditor({
     }
     runCommand(cmd);
   }, [editedSymbol, runCommand]);
+
+  /**
+   * Tools > Rescue Symbols — `SCH_EDITOR_CONTROL::RescueSymbols`.
+   *
+   * Always the symbol-library-table rescuer: `LEGACY_RESCUER` is chosen only
+   * when `HasNoFullyDefinedLibIds()`, a KiCad 4 schematic whose symbols carry a
+   * bare name with no nickname, and nothing we can open is one.
+   *
+   * `aRunningOnDemand` is true here and always will be: the other caller is the
+   * prompt at load time, which sits inside the legacy `.sch` branch
+   * (`files-io.cpp:616-621`). That is what makes the "nothing to rescue"
+   * message appear at all — the automatic call passes false and stays silent.
+   */
+  const [rescueCandidates, setRescueCandidates] = useState<readonly RescueCandidate[] | null>(null);
+  const [rescueMessage, setRescueMessage] = useState<string | null>(null);
+
+  const runRescueSymbols = useCallback(async () => {
+    const docs = liveDocs();
+    const symbols = [...docs.values()].flatMap((d) => d.symbols);
+    // `SchGetLibSymbol( symbol_id, SymbolLibAdapter( … ) )`: the library the id
+    // names, never the sheet's own cached copy — the cache is the other half of
+    // the comparison, so it cannot also stand in for the library.
+    const libs = await repairSourceLibs(
+      symbols.map((sym) => sym.libId),
+      loadSymbol,
+      new Map(),
+    );
+    const found = findRescues(symbols, {
+      // The legacy `<project>-cache.lib` half. Empty until that format is read:
+      // no cache library means the cache-only and pins-conflict arms cannot
+      // fire, and the illegal-name arm still can. See project_rescue.ts.
+      cache: new Map(),
+      lib: (id) => libs.get(id) ?? null,
+      schematicFileName: project.current.root,
+    });
+    if (found.length === 0) {
+      setRescueMessage('This project has nothing to rescue.');
+      return;
+    }
+    setRescueCandidates(found);
+  }, [liveDocs]);
+
+  /** "Instances of this symbol" — every placement of one id, over the hierarchy. */
+  const rescueInstances = useCallback(
+    (requestedId: string): RescueInstance[] => {
+      const out: RescueInstance[] = [];
+      for (const sheet of flatSheets) {
+        const d = sheet.file === currentFile ? doc : project.current.docs.get(sheet.file);
+        for (const sym of d?.symbols ?? []) {
+          if (sym.libId !== requestedId) continue;
+          out.push({
+            reference: sym.fields.find((f) => f.key === 'Reference')?.value ?? '',
+            value: sym.fields.find((f) => f.key === 'Value')?.value ?? '',
+          });
+        }
+      }
+      return out;
+    },
+    [flatSheets, currentFile, doc],
+  );
+
+  /**
+   * OK on the dialog — `DoRescues` then `WriteRescueLibrary`, and then
+   * `m_frame->ClearUndoRedoList()` (`sch_editor_control.cpp:582`).
+   *
+   * The undo list goes because the rescue has written a library file; undoing
+   * the schematic afterwards would leave it pointing at symbol ids the rescue
+   * library still defines, which is not a state the project was ever in.
+   */
+  const applyRescues = useCallback(
+    (chosen: readonly RescueCandidate[]) => {
+      setRescueCandidates(null);
+      if (chosen.length === 0) {
+        // "No symbols were rescued." — upstream says this even on Cancel,
+        // because a mis-click there should not look like it did something.
+        setRescueMessage('No symbols were rescued.');
+        return;
+      }
+
+      // The library file itself. `OpenRescueLibrary` copies any existing rescue
+      // library in first so previous rescues are not lost.
+      const libFile = rescueLibraryFileName(project.current.root);
+      const nickname = rescueLibraryNickname(project.current.root);
+      const existing = rawFiles.find((f) => f.name === libFile);
+      const kept: LibSymbol[] = existing ? readSymbolLib(parse(existing.text)) : [];
+      const minted = chosen
+        .map(rescuedDefinition)
+        .filter((d): d is LibSymbol => d !== null)
+        .filter((d) => !kept.some((k) => k.libId === d.libId));
+      const text = serializeSymbolLib([...kept, ...minted]);
+
+      setRawFiles((prev) =>
+        prev.some((f) => f.name === libFile)
+          ? prev.map((f) => (f.name === libFile ? { ...f, text } : f))
+          : [...prev, { name: libFile, text }],
+      );
+      onPersistFiles?.([{ name: libFile, text }]);
+
+      // "If the rescue library already exists in the symbol library table no
+      // need save it to add it to the table."
+      const rows = projectSymLibTable(rawFiles);
+      if (!rows.some((r) => r.name === nickname)) {
+        saveProjectSymLibTable([
+          ...rows,
+          {
+            name: nickname,
+            type: 'KiCad',
+            // `wxS( "${KIPRJMOD}/" ) + fn.GetFullName()` — a path relative to
+            // the project, so the row survives the folder being moved.
+            uri: `\${KIPRJMOD}/${libFile}`,
+            options: '',
+            descr: '',
+          },
+        ]);
+      }
+
+      // The schematic half: one edit over every sheet that places a rescued id.
+      const edit = new Map<string, EditCommand>();
+      for (const [file, d] of liveDocs()) {
+        if (!d.symbols.some((sym) => chosen.some((c) => c.requestedId === sym.libId))) continue;
+        edit.set(file, rescueDocumentCommand(chosen));
+      }
+      if (edit.size > 0) runProject(edit);
+      // Queued, not immediate: `runProject` folds inside a `setDoc` updater, so
+      // the entry it pushes does not exist yet.
+      pendingClearHistory.current = true;
+    },
+    [rawFiles, onPersistFiles, saveProjectSymLibTable, liveDocs, runProject],
+  );
 
   // Change Symbols / Update Symbols from Library (DIALOG_CHANGE_SYMBOLS). The
   // dialog stays open on its report, as upstream's does.
@@ -6940,6 +7094,7 @@ export function SchematicEditor({
       else if (id === 'annotate') setAnnotateOpen(true);
       else if (id === 'incrementAnnotations') setIncrementAnnotationsOpen(true);
       else if (id === 'globalEditTextAndGraphics') setGlobalEditOpen(true);
+      else if (id === 'rescueSymbols') void runRescueSymbols();
       else if (id === 'editSymbolLibraryLinks') {
         setLibIdErrors([]);
         setLibIdsOpen(true);
@@ -7099,6 +7254,7 @@ export function SchematicEditor({
       withSelection,
       requestTarget,
       applySelectionState,
+      runRescueSymbols,
     ],
   );
 
@@ -9402,6 +9558,37 @@ export function SchematicEditor({
                   setSymLibTableOpen(false);
                 }}
                 onClose={() => setSymLibTableOpen(false)}
+              />
+            )}
+            {rescueCandidates && (
+              <DialogRescueEach
+                candidates={rescueCandidates}
+                instancesOf={rescueInstances}
+                // `aAskShowAgain = !aRunningOnDemand`, and ours is always on
+                // demand: the automatic caller lives in the legacy `.sch`
+                // branch of the loader, which we never take.
+                askShowAgain={false}
+                inputPrefs={inputPrefs}
+                onOk={applyRescues}
+                onCancel={() => {
+                  // `OnCancelClick` clears the chosen candidates, and
+                  // `RescueProject` then reports that nothing was rescued.
+                  setRescueCandidates(null);
+                  setRescueMessage('No symbols were rescued.');
+                }}
+                onNeverShowAgain={() => {
+                  setRescueCandidates(null);
+                  settings.updateEeschema((st) => {
+                    st.system.never_show_rescue_dialog = true;
+                  });
+                }}
+              />
+            )}
+            {rescueMessage && (
+              <MessageDialogOk
+                caption="Project Rescue Helper"
+                message={rescueMessage}
+                onClose={() => setRescueMessage(null)}
               />
             )}
             {ercOpen && (

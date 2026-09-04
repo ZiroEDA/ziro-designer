@@ -1,0 +1,143 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later
+   Copyright (C) 2026 ZiroEDA and contributors.
+   Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
+
+   Project Rescue Helper (DIALOG_RESCUE_EACH).
+
+   Every number is one of wxFormBuilder's own out of
+   `eeschema/dialogs/dialog_rescue_each_base.cpp`, and each carries the line it
+   came from. Everything the theme decides - face, ink, border, selection,
+   font - is a token from ui/shell.css. Nothing here states a colour.
+   --------------------------------------------------------------------------- */
+
+.ze-rescue-dialog {
+  display: flex;
+  flex-direction: column;
+  /* [data] the two preview panels are 350 wide each (`:66`, `:87`), inside
+     `bSizerPreviews` which sits at `wxRIGHT|wxLEFT, 10` (`:100`), and each
+     preview panel adds `wxALL, 5` (`:71`, `:92`). 350*2 + 10*2 + 5*4 = 740. */
+  min-width: 740px;
+  max-height: 90vh;
+}
+
+.ze-rescue-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.ze-rescue-prompt {
+  /* [data] `m_htmlPrompt->SetMinSize( wxSize( -1, 80 ) )` (`:24`). */
+  min-height: 80px;
+  /* [data] `bSizer8->Add( m_htmlPrompt, 1, wxEXPAND|wxTOP|wxBOTTOM, 5 )` (`:26`)
+     - five above and below, and nothing left or right, where it runs to the
+     dialog's own edge. */
+  margin: 5px 0;
+  /* [px] wxHtmlWindow's own border, the same 10px `.ze-libtree-details` states
+     and for the same reason: the first line box of a real HTML_WINDOW lands at
+     x 10, y 10 (`qa/probes/libtree_details_probe.cpp`). Neither window sets
+     `SetBorders`, so both get the default. */
+  padding: 10px;
+  overflow: auto;
+  white-space: pre-wrap;
+  /* [chrome] `SetBackgroundColour( wxSYS_COLOUR_BTNFACE )` (`:23`) - the same
+     face the dialog itself is drawn on, which is why the prompt reads as part
+     of the frame rather than as a field. */
+  background: var(--panel-bg);
+}
+
+.ze-rescue-title {
+  /* [data] `bSizer8->Add( m_titleSymbols, 0, wxEXPAND|wxLEFT|wxRIGHT, 10 )` (`:30`). */
+  padding: 0 10px;
+  /* [data] the fixed spacer under each title, `bSizer8->Add( 0, 2, 0, wxEXPAND, 5 )`
+     (`:33`, `:44`) — two pixels, not the 5 that Add's border argument names and
+     a zero-size spacer never uses. */
+  margin-bottom: 2px;
+}
+
+.ze-rescue-list {
+  /* [data] `wxEXPAND|wxBOTTOM|wxRIGHT|wxLEFT, 10` on both lists (`:36`, `:47`). */
+  margin: 0 10px 10px;
+  overflow: auto;
+  border: 1px solid var(--ctl-border);
+  background: var(--field-bg);
+}
+
+/* [data] the two lists are proportion 2 and 1 inside bSizer8 (`:36`, `:47`),
+   so the conflicts list gets twice the slack the instances list does. */
+.ze-rescue-conflicts {
+  flex: 2 1 0;
+  min-height: 0;
+}
+
+.ze-rescue-instances {
+  flex: 1 1 0;
+  min-height: 0;
+}
+
+.ze-rescue-list .ze-grid {
+  width: 100%;
+}
+
+.ze-rescue-list tbody tr {
+  cursor: default;
+}
+
+.ze-rescue-list tbody tr.selected {
+  background: var(--selection-bg);
+  color: var(--selection-fg);
+}
+
+.ze-rescue-accept {
+  /* [data] the Accept column is sized to its own bold header text times 1.25
+     (`dialog_rescue_each.cpp:104-108`); it holds one toggle, so it is the
+     narrowest column and does not grow. */
+  width: 1%;
+  white-space: nowrap;
+  text-align: center;
+}
+
+.ze-rescue-previews {
+  display: flex;
+  /* [data] `bSizerMain->Add( bSizerPreviews, 2, wxEXPAND|wxRIGHT|wxLEFT, 10 )` (`:100`). */
+  margin: 0 10px;
+  flex: 2 1 0;
+  min-height: 0;
+}
+
+.ze-rescue-preview {
+  display: flex;
+  flex-direction: column;
+  /* [data] both halves are proportion 1 of bSizerPreviews (`:76`, `:97`). */
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.ze-rescue-preview-panel {
+  /* [data] `m_previewOldPanel->SetMinSize( wxSize( 350, -1 ) )` (`:66`). */
+  min-width: 350px;
+  /* [data] `bSizerLeftPreview->Add( m_previewOldPanel, 1, wxEXPAND | wxALL, 5 )` (`:71`). */
+  margin: 5px;
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+}
+
+.ze-rescue-buttons {
+  display: flex;
+  align-items: center;
+  /* [data] `bSizer5->Add( m_stdButtons, 0, wxALL|wxEXPAND, 5 )` (`:117`). */
+  padding: 5px;
+}
+
+.ze-rescue-buttons > .spacer {
+  /* [data] `bSizer5->Add( 0, 0, 1, wxEXPAND, 5 )` (`:109`) - the stretch that
+     keeps Never Show Again on the left and the stock buttons on the right. */
+  flex: 1 1 0;
+}
+
+.ze-rescue-buttons > button:first-child {
+  /* [data] `wxALIGN_CENTER_VERTICAL|wxRIGHT|wxLEFT, 10` (`:106`). */
+  margin: 0 10px;
+}

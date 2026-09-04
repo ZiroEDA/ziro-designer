@@ -75,6 +75,38 @@ export function escapeIpc(source: string): string {
   return out;
 }
 
+/**
+ * `EscapeString( …, CTX_LIBID )`, make a string safe to use as a LIB_ID part.
+ *
+ * The set is exactly the characters `LIB_ID::isLegalChar` rejects, minus the
+ * two it drops rather than escapes:
+ *
+ *     else if( c == '\\' )      converted += wxT( "{backslash}" );
+ *     else if( c == '<' )       converted += wxT( "{lt}" );
+ *     else if( c == '>' )       converted += wxT( "{gt}" );
+ *     else if( c == ':' )       converted += wxT( "{colon}" );
+ *     else if( c == '\"' )      converted += wxT( "{dblquote}" );
+ *     else if( c == '\n' || c == '\r' ) converted += wxEmptyString;    // drop
+ *
+ * `/` is NOT escaped: it was, under `CTX_LEGACY_LIBID`, and the comment
+ * upstream ("We no longer escape '/' in LIB_IDs, but we used to") is the whole
+ * reason the two contexts still exist separately. A tab survives too — it is
+ * illegal in a LIB_ID but has no escape, which is upstream's, not ours.
+ */
+export function escapeLibId(source: string): string {
+  let out = '';
+  for (const c of source) {
+    if (c === '\\') out += '{backslash}';
+    else if (c === '<') out += '{lt}';
+    else if (c === '>') out += '{gt}';
+    else if (c === ':') out += '{colon}';
+    else if (c === '"') out += '{dblquote}';
+    else if (c === '\n' || c === '\r') continue;
+    else out += c;
+  }
+  return out;
+}
+
 /** UnescapeString's `{token}` -> character table. */
 const UNESCAPE_TOKENS: Record<string, string> = {
   dblquote: '"',

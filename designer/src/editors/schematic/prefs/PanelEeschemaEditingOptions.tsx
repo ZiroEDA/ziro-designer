@@ -272,9 +272,12 @@ export function PanelEeschemaEditingOptions({ ctx }: { ctx: PrefsContext }): JSX
           <Check
             label="Never show Rescue Symbols tool"
             checked={eeschema.system.never_show_rescue_dialog}
-            /* Dead, and not for want of building it. `m_RescueNeverShow`
-               suppresses ONE prompt, and that prompt is raised in the legacy
-               branch of the file loader —
+            /* The TOOL is live (Tools > Rescue Symbols); this preference is
+               not, and it never gated the tool.
+
+               `m_RescueNeverShow` suppresses exactly ONE prompt, the automatic
+               one, and that prompt is raised in the legacy branch of the file
+               loader —
 
                    if( schFileType == SCH_IO_MGR::SCH_LEGACY ) { …
                        if( ( !cfg || !cfg->m_RescueNeverShow ) && !cacheExists )
@@ -282,15 +285,12 @@ export function PanelEeschemaEditingOptions({ ctx }: { ctx: PrefsContext }): JSX
                    (`files-io.cpp:470`, `:616`)
 
                — so it fires only when opening a KiCad 4/5 `.sch` whose
-               `<project>-cache.lib` is missing. This port reads `.kicad_sch`
-               and has no legacy cache, so the prompt cannot occur.
-
-               Nor would running the tool on demand find anything: every
-               candidate needs a `cache_match` from `LegacySchLibs`
-               (`project_rescue.cpp:371-386`), and without a cache library the
-               loop `continue`s over every symbol. The question Rescue was
-               asking — does the sheet's cached definition still match the
-               library? — is `lib_symbol_mismatch` in ERC here. */
+               `<project>-cache.lib` is missing. This port reads `.kicad_sch`,
+               so that call site cannot be reached and there is no prompt for
+               the flag to suppress. `RescueSymbols` from the menu passes
+               `aRunningOnDemand = true` and does not consult it at all
+               (`sch_editor_control.cpp:532-541`), which is why un-greying this
+               would not change anything the user can see. */
             disabled
             onChange={(v) =>
               upE((s) => {

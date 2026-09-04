@@ -67,6 +67,19 @@ export function libNickname(libId: string): string {
 }
 
 /**
+ * `LIB_ID::HasIllegalChars`: **the offset of the first character a LIB_ID part
+ * may not contain, or -1 when there is none.**
+ *
+ * The sign convention is upstream's and the rescuer reads it as a flag rather
+ * than a position — `if( LIB_ID::HasIllegalChars( … ) == -1 )` guards the two
+ * skips that would otherwise drop a symbol whose only fault is its name.
+ */
+export function libItemNameIllegalCharOffset(name: string): number {
+  for (let i = 0; i < name.length; i++) if (FORBIDDEN.includes(name[i]!)) return i;
+  return -1;
+}
+
+/**
  * `LIB_ID::Parse` followed by `IsValid`: a nickname and an item name, split by
  * the one colon they are allowed between them, and no forbidden characters in
  * either. This is why a colon is forbidden *inside* the parts — it is the

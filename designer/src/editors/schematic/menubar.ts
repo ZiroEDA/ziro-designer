@@ -306,7 +306,7 @@ export function buildMenus(h: MenuHandlers, checks: MenuChecks = {}): Menu[] {
         act('Symbol Editor', 'symbolEditor', 'symbolEditor'),
         act('Update Symbols from Library...', 'properties', 'updateSymbolsFromLibrary'),
         SEP,
-        stub('Rescue Symbols...'),
+        act('Rescue Symbols...', 'rescue', 'rescueSymbols'),
         stub('Remap Legacy Library Symbols...'),
         SEP,
         act('Bulk Edit Symbol Fields...', 'fields', 'editSymbolFields'),
