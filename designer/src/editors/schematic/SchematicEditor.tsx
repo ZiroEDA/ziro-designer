@@ -327,6 +327,11 @@ import {
   legacyCacheFileNames,
   readLegacySymbolLibrary,
 } from '@ziroeda/eeschema/src/sch_io/legacy/read-lib.js';
+import {
+  legacyLibrarySymbols,
+  legacyRootFile,
+  readLegacyProject,
+} from '@ziroeda/eeschema/src/sch_io/legacy/read-schematic.js';
 import { preloadSchematicLibraries } from './preload.js';
 import {
   projectSymbolLibraries,
@@ -3498,6 +3503,10 @@ export function SchematicEditor({
    */
   const [rescueCandidates, setRescueCandidates] = useState<readonly RescueCandidate[] | null>(null);
   const [rescueMessage, setRescueMessage] = useState<string | null>(null);
+  /** `aRunningOnDemand`: true from the Tools menu, false for the load prompt. */
+  const [rescueOnDemand, setRescueOnDemand] = useState(true);
+  /** Set by a legacy project load; the prompt runs once the sheet is on screen. */
+  const pendingRescuePrompt = useRef(false);
 
   /**
    * The project's `<project>-cache.lib`, read — `PROJECT_SCH::LegacySchLibs`.
@@ -3531,28 +3540,49 @@ export function SchematicEditor({
     }
   }, [rawFiles]);
 
-  const runRescueSymbols = useCallback(async () => {
-    const docs = liveDocs();
-    const symbols = [...docs.values()].flatMap((d) => d.symbols);
-    // `SchGetLibSymbol( symbol_id, SymbolLibAdapter( … ) )`: the library the id
-    // names, never the sheet's own cached copy — the cache is the other half of
-    // the comparison, so it cannot also stand in for the library.
-    const libs = await repairSourceLibs(
-      symbols.map((sym) => sym.libId),
-      loadSymbol,
-      new Map(),
-    );
-    const found = findRescues(symbols, {
-      cache: legacyCache(),
-      lib: (id) => libs.get(id) ?? null,
-      schematicFileName: project.current.root,
-    });
-    if (found.length === 0) {
-      setRescueMessage('This project has nothing to rescue.');
-      return;
-    }
-    setRescueCandidates(found);
-  }, [liveDocs, legacyCache]);
+  const runRescueSymbols = useCallback(
+    async (onDemand = true) => {
+      setRescueOnDemand(onDemand);
+      const docs = liveDocs();
+      const symbols = [...docs.values()].flatMap((d) => d.symbols);
+      // `SchGetLibSymbol( symbol_id, SymbolLibAdapter( … ) )`: the library the id
+      // names, never the sheet's own cached copy — the cache is the other half of
+      // the comparison, so it cannot also stand in for the library.
+      const libs = await repairSourceLibs(
+        symbols.map((sym) => sym.libId),
+        loadSymbol,
+        new Map(),
+      );
+      const found = findRescues(symbols, {
+        cache: legacyCache(),
+        lib: (id) => libs.get(id) ?? null,
+        schematicFileName: project.current.root,
+      });
+      if (found.length === 0) {
+        // "if( aRunningOnDemand )" — the automatic call says nothing when there
+        // is nothing to say, because the user did not ask for it.
+        if (onDemand) setRescueMessage('This project has nothing to rescue.');
+        return;
+      }
+      setRescueCandidates(found);
+    },
+    [liveDocs, legacyCache],
+  );
+
+  /**
+   * The load-time prompt — `files-io.cpp:616-621`:
+   *
+   *     if( ( !cfg || !cfg->m_RescueNeverShow ) && !cacheExists )
+   *         editor->RescueSymbolLibTableProject( false );
+   *
+   * Deferred to an effect because it needs the sheet that was just opened, and
+   * `loadProject` puts that on screen with `setDoc`.
+   */
+  useEffect(() => {
+    if (!pendingRescuePrompt.current || !doc) return;
+    pendingRescuePrompt.current = false;
+    void runRescueSymbols(false);
+  }, [doc, runRescueSymbols]);
 
   /** "Instances of this symbol" — every placement of one id, over the hierarchy. */
   const rescueInstances = useCallback(
@@ -4420,6 +4450,56 @@ export function SchematicEditor({
           }
           parsed++;
         }
+        /**
+         * A KiCad 4/5 project, converted on the way in — `SCH_IO_MGR::SCH_LEGACY`.
+         *
+         * Only when the selection holds no `.kicad_sch` at all: a folder with
+         * both is one that has already been upgraded, and the old files beside
+         * it are what KiCad leaves behind rather than what it opens.
+         */
+        let legacy = false;
+        if (docs.size === 0) {
+          const sch = new Map<string, string>();
+          const libs = new Map<string, string>();
+          for (const f of files) {
+            const base = f.name.split('/').pop()!.split('\\').pop()!;
+            if (/\.sch$/i.test(base)) sch.set(base, f.text);
+            else if (/\.lib$/i.test(base)) libs.set(base, f.text);
+          }
+          const rootSch = legacyRootFile(sch, proName?.replace(/\.kicad_pro$/i, ''));
+          if (rootSch) {
+            legacy = true;
+            setLoading(`Loading schematic: ${rootSch}`);
+            await nextPaint();
+            const converted = readLegacyProject({
+              files: sch,
+              rootFile: rootSch,
+              projectName: (proName ?? rootSch).replace(/\.[^.]*$/, ''),
+              // `UpdateSymbolLinks` fills a screen's `lib_symbols` from the
+              // resolved library, and it is that which a `.kicad_sch` carries.
+              libSymbols: legacyLibrarySymbols(libs, readLegacySymbolLibrary),
+            });
+            for (const [name, d] of converted.docs) docs.set(name, d);
+            problems.push(...converted.problems);
+
+            // The one thing `never_show_rescue_dialog` gates:
+            //
+            //     if( ( !cfg || !cfg->m_RescueNeverShow ) && !cacheExists )
+            //         editor->RescueSymbolLibTableProject( false );
+            //     (files-io.cpp:616-621)
+            //
+            // A project whose cache library is still there needs no prompt —
+            // the symbols it was drawn with are all present.
+            const cacheNames = legacyCacheFileNames(proName ?? rootSch);
+            const cacheExists = files.some((f) =>
+              cacheNames.includes(f.name.replace(/\\/g, '/').split('/').pop() ?? ''),
+            );
+            if (!settings.eeschema.system.never_show_rescue_dialog && !cacheExists) {
+              pendingRescuePrompt.current = true;
+            }
+          }
+        }
+
         if (docs.size === 0) {
           setError(problems[0] ?? 'No .kicad_sch files in the selection');
           return;
@@ -7127,7 +7207,7 @@ export function SchematicEditor({
       else if (id === 'annotate') setAnnotateOpen(true);
       else if (id === 'incrementAnnotations') setIncrementAnnotationsOpen(true);
       else if (id === 'globalEditTextAndGraphics') setGlobalEditOpen(true);
-      else if (id === 'rescueSymbols') void runRescueSymbols();
+      else if (id === 'rescueSymbols') void runRescueSymbols(true);
       else if (id === 'editSymbolLibraryLinks') {
         setLibIdErrors([]);
         setLibIdsOpen(true);
@@ -9600,7 +9680,9 @@ export function SchematicEditor({
                 // `aAskShowAgain = !aRunningOnDemand`, and ours is always on
                 // demand: the automatic caller lives in the legacy `.sch`
                 // branch of the loader, which we never take.
-                askShowAgain={false}
+                // `aAskShowAgain = !aRunningOnDemand`: the button is offered
+                // only by the prompt the user did not ask for.
+                askShowAgain={!rescueOnDemand}
                 inputPrefs={inputPrefs}
                 onOk={applyRescues}
                 onCancel={() => {

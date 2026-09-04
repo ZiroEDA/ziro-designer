@@ -272,26 +272,24 @@ export function PanelEeschemaEditingOptions({ ctx }: { ctx: PrefsContext }): JSX
           <Check
             label="Never show Rescue Symbols tool"
             checked={eeschema.system.never_show_rescue_dialog}
-            /* The TOOL is live (Tools > Rescue Symbols); this preference is
-               not, and it never gated the tool.
-
-               `m_RescueNeverShow` suppresses exactly ONE prompt, the automatic
-               one, and that prompt is raised in the legacy branch of the file
-               loader —
+            /* `m_RescueNeverShow` suppresses exactly ONE prompt, the automatic
+               one, raised in the legacy branch of the file loader —
 
                    if( schFileType == SCH_IO_MGR::SCH_LEGACY ) { …
                        if( ( !cfg || !cfg->m_RescueNeverShow ) && !cacheExists )
                            editor->RescueSymbolLibTableProject( false );
                    (`files-io.cpp:470`, `:616`)
 
-               — so it fires only when opening a KiCad 4/5 `.sch` whose
-               `<project>-cache.lib` is missing. This port reads `.kicad_sch`,
-               so that call site cannot be reached and there is no prompt for
-               the flag to suppress. `RescueSymbols` from the menu passes
-               `aRunningOnDemand = true` and does not consult it at all
-               (`sch_editor_control.cpp:532-541`), which is why un-greying this
-               would not change anything the user can see. */
-            disabled
+               — so it fires when opening a KiCad 4/5 `.sch` whose
+               `<project>-cache.lib` is missing, and that is now a thing this
+               port can do: `sch_io/legacy/read-schematic.ts` reads the format
+               and `loadProject` raises the prompt under exactly that condition.
+
+               It does NOT gate the Tools > Rescue Symbols entry, and never did:
+               `RescueSymbols` passes `aRunningOnDemand = true` and does not
+               consult the flag (`sch_editor_control.cpp:532-541`). Ticking this
+               stops the offer being made for you; it does not take the tool
+               away. */
             onChange={(v) =>
               upE((s) => {
                 s.system.never_show_rescue_dialog = v;

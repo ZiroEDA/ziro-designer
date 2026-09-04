@@ -35,7 +35,7 @@ describe('the menu entry', () => {
 
   it('reaches the handler', () => {
     expect(EDITOR).toContain("id === 'rescueSymbols'");
-    expect(EDITOR).toContain('void runRescueSymbols()');
+    expect(EDITOR).toContain('void runRescueSymbols(true)');
   });
 
   /** Remap Legacy Library Symbols stays a stub: it is the KiCad 4 path, and
@@ -63,8 +63,16 @@ describe('the on-demand path', () => {
   });
 
   /** `aAskShowAgain = !aRunningOnDemand`. */
-  it('hides Never Show Again, since the tool was run deliberately', () => {
-    expect(EDITOR).toContain('askShowAgain={false}');
+  it('offers Never Show Again only on the prompt nobody asked for', () => {
+    expect(EDITOR).toContain('askShowAgain={!rescueOnDemand}');
+    expect(EDITOR).toContain("id === 'rescueSymbols') void runRescueSymbols(true)");
+  });
+
+  it('says nothing about an empty result when it ran itself', () => {
+    // `if( aRunningOnDemand )` guards the "nothing to rescue" box.
+    expect(EDITOR).toContain(
+      "if (onDemand) setRescueMessage('This project has nothing to rescue.')",
+    );
   });
 
   /** `PROJECT_SCH::LegacySchLibs`, which is the OTHER half of the comparison. */
@@ -145,18 +153,42 @@ describe('the dialog', () => {
   });
 });
 
+describe('the load-time prompt', () => {
+  it('is raised only for a legacy project, and only without a cache library', () => {
+    expect(EDITOR).toContain('const cacheNames = legacyCacheFileNames(proName ?? rootSch)');
+    expect(EDITOR).toContain('!settings.eeschema.system.never_show_rescue_dialog && !cacheExists');
+    expect(EDITOR).toContain('pendingRescuePrompt.current = true');
+  });
+
+  it('runs it as the automatic call, not the on-demand one', () => {
+    expect(EDITOR).toContain('void runRescueSymbols(false)');
+  });
+
+  it('converts the legacy project that makes the prompt possible at all', () => {
+    expect(EDITOR).toContain('readLegacyProject({');
+    expect(EDITOR).toContain('legacyRootFile(sch,');
+    expect(EDITOR).toContain('legacyLibrarySymbols(libs, readLegacySymbolLibrary)');
+  });
+});
+
 describe('the preference', () => {
   /**
-   * It stays greyed, and the reason is now narrower than it was: the TOOL is
-   * live, but this flag never gated the tool — `RescueSymbols` passes
-   * `aRunningOnDemand = true` and does not read it.
+   * Live now: something reads it. The prompt it suppresses is raised by
+   * `loadProject` when a legacy project comes in without its cache library,
+   * which is the one condition upstream raises it under.
    */
-  it('is still disabled, and says why in terms of the prompt, not the tool', () => {
+  it('is live, because the prompt it gates can now happen', () => {
     const at = PANEL.indexOf('Never show Rescue Symbols tool');
     expect(at).toBeGreaterThan(-1);
     const props = PANEL.slice(at, PANEL.indexOf('/>', at));
-    expect(props).toMatch(/\bdisabled\b/);
-    expect(props).toContain('aRunningOnDemand = true');
+    expect(props).not.toMatch(/\bdisabled\b/);
+    expect(props).toContain('s.system.never_show_rescue_dialog = v');
+  });
+
+  it('still says it does not gate the Tools menu entry', () => {
+    // It never did, and un-greying it must not read as though it now does.
+    const at = PANEL.indexOf('Never show Rescue Symbols tool');
+    expect(PANEL.slice(at, PANEL.indexOf('/>', at))).toContain('aRunningOnDemand = true');
   });
 
   it('no longer claims the tool itself can find nothing', () => {

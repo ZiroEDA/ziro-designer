@@ -910,6 +910,65 @@ function skipBitmap(lines: string[], i: number): number {
 // The project
 // ---------------------------------------------------------------------------
 
+/**
+ * The symbols a legacy project's `.lib` files supply, keyed by the `lib_id` a
+ * schematic names them with.
+ *
+ * A legacy project has no symbol library table; the `.pro` lists library FILES
+ * and a symbol's id is `<library file stem>:<symbol name>` — which is exactly
+ * what `SYMBOL_LIB_TABLE`'s migration produces for one. The cache library is
+ * included under its own names too, because that is how it files them
+ * (`complex_hierarchy_schlib_R`, not `complex_hierarchy_schlib:R`) and it is
+ * the last resort for a symbol whose library has gone.
+ */
+export function legacyLibrarySymbols(
+  libFiles: ReadonlyMap<string, string>,
+  read: (text: string) => LibSymbol[],
+): Map<string, LibSymbol> {
+  const out = new Map<string, LibSymbol>();
+  for (const [name, text] of libFiles) {
+    const stem = name.replace(/^.*[\\/]/, '').replace(/\.lib$/i, '');
+    let symbols: LibSymbol[];
+    try {
+      symbols = read(text);
+    } catch {
+      continue; // `LoadAllLibraries` logs and carries on with the rest.
+    }
+    for (const sym of symbols) {
+      const id = `${stem}:${sym.libId}`;
+      if (!out.has(id)) out.set(id, sym);
+      // A cache library files its symbols under the fully-qualified name
+      // already; keep that spelling too so both resolve.
+      if (!out.has(sym.libId)) out.set(sym.libId, sym);
+    }
+  }
+  return out;
+}
+
+/**
+ * Which `.sch` of a selection is the root: the one no other sheet points at.
+ *
+ * `SCH_IO_KICAD_LEGACY` is told the root and walks down from it; a folder of
+ * files has to be asked instead. A project file settles it when there is one,
+ * since KiCad names the root sheet after the project.
+ */
+export function legacyRootFile(
+  files: ReadonlyMap<string, string>,
+  projectName?: string,
+): string | null {
+  const names = [...files.keys()];
+  if (names.length === 0) return null;
+
+  const named = projectName ? `${projectName}.sch` : null;
+  if (named && files.has(named)) return named;
+
+  const referenced = new Set<string>();
+  for (const text of files.values()) {
+    for (const m of text.matchAll(/^F1\s+"([^"]+)"/gm)) referenced.add(m[1]!);
+  }
+  return names.find((n) => !referenced.has(n)) ?? names[0]!;
+}
+
 export interface LegacyProjectInput {
   /** Every `.sch` of the project, by basename. */
   readonly files: ReadonlyMap<string, string>;

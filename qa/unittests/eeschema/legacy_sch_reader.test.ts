@@ -37,9 +37,11 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readSchematic } from '@ziroeda/eeschema';
+import { computeNetlist, readSchematic } from '@ziroeda/eeschema';
 import { readLegacySymbolLibrary } from '@ziroeda/eeschema/src/sch_io/legacy/read-lib.js';
 import {
+  legacyLibrarySymbols,
+  legacyRootFile,
   legacyUuid,
   modernSheetFile,
   readLegacyProject,
@@ -359,5 +361,111 @@ describe('the library definitions a converted sheet carries', () => {
         .map((p) => p.number)
         .sort(),
     ).toEqual(['1', '2']);
+  });
+});
+
+/**
+ * A legacy project has no symbol library table: the `.pro` lists library FILES,
+ * and a symbol's id is `<library file stem>:<symbol name>` — which is what
+ * `SYMBOL_LIB_TABLE`'s migration produces when it converts one.
+ */
+describe('resolving a legacy project’s libraries', () => {
+  const libs = () =>
+    legacyLibrarySymbols(
+      new Map([['complex_hierarchy_schlib.lib', data('complex_hierarchy_schlib.lib')]]),
+      readLegacySymbolLibrary,
+    );
+
+  it('keys each symbol by the id the schematic names it with', () => {
+    expect(libs().has('complex_hierarchy_schlib:R')).toBe(true);
+    expect(libs().has('complex_hierarchy_schlib:LM358N')).toBe(true);
+  });
+
+  it('keeps the bare name too, which is how a cache library files them', () => {
+    expect(libs().has('R')).toBe(true);
+  });
+
+  it('carries on past a library that will not parse', () => {
+    // `LoadAllLibraries` catches the IO_ERROR, logs "Symbol library '%s' failed
+    // to load." and loads the rest.
+    const mixed = legacyLibrarySymbols(
+      new Map([
+        ['broken.lib', 'this is not a symbol library'],
+        ['complex_hierarchy_schlib.lib', data('complex_hierarchy_schlib.lib')],
+      ]),
+      readLegacySymbolLibrary,
+    );
+    expect(mixed.has('complex_hierarchy_schlib:R')).toBe(true);
+  });
+
+  it('resolves every symbol the project actually places', () => {
+    const placed = new Set([...converted().values()].flatMap((d) => d.symbols.map((s) => s.libId)));
+    for (const id of placed) expect(libs().has(id), `unresolved ${id}`).toBe(true);
+  });
+});
+
+describe('which file is the root', () => {
+  const sch = () =>
+    new Map([
+      ['complex_hierarchy.sch', data('complex_hierarchy.sch')],
+      ['ampli_ht.sch', data('ampli_ht.sch')],
+    ]);
+
+  it('is the sheet no other sheet points at', () => {
+    expect(legacyRootFile(sch())).toBe('complex_hierarchy.sch');
+  });
+
+  it('is the one named after the project when there is one', () => {
+    expect(legacyRootFile(sch(), 'complex_hierarchy')).toBe('complex_hierarchy.sch');
+    // A project name that names no file falls back to the search.
+    expect(legacyRootFile(sch(), 'nothing')).toBe('complex_hierarchy.sch');
+  });
+
+  it('has nothing to say about an empty selection', () => {
+    expect(legacyRootFile(new Map())).toBeNull();
+  });
+});
+
+/**
+ * The point of all of it: a converted project has to be electrically real, not
+ * just geometrically right.
+ *
+ * `kicad-cli sch export netlist` on the very same `.sch` produces
+ * `(components)` and `(nets)` EMPTY — it reads the header and stops. So this is
+ * also the one place where reading the legacy format here does something the
+ * shipped tooling cannot.
+ */
+describe('a converted sheet carries a netlist', () => {
+  const rootNetlist = () => {
+    const root = converted().get('complex_hierarchy.kicad_sch')!;
+    return computeNetlist(root, new Map(root.libSymbols.map((l) => [l.libId, l])));
+  };
+
+  /** A node id of the form `<symbolRef>:pin<i>` is a symbol pin on the net. */
+  const pinCount = (nl: { nets: { items: string[] }[] }): number =>
+    nl.nets.flatMap((n) => n.items).filter((id) => id.includes(':pin')).length;
+
+  it('finds nets, with pins on them', () => {
+    const nl = rootNetlist();
+    expect(nl.nets.length).toBeGreaterThan(0);
+    expect(pinCount(nl)).toBeGreaterThan(0);
+  });
+
+  it('names the nets the labels name', () => {
+    // The root sheet carries one label; whatever it is, a net wears its name.
+    const root = converted().get('complex_hierarchy.kicad_sch')!;
+    const labelled = root.labels[0]!.text;
+    expect(rootNetlist().nets.some((n) => n.name.includes(labelled))).toBe(true);
+  });
+
+  /**
+   * A symbol with no library definition has no pins, so it joins nothing. If
+   * the `lib_symbols` embedding regressed this is where it would show: the
+   * geometry tests would all still pass and the netlist would quietly empty.
+   */
+  it('would be empty without the embedded definitions, and is not', () => {
+    const root = converted().get('complex_hierarchy.kicad_sch')!;
+    expect(pinCount(computeNetlist(root, new Map()))).toBe(0);
+    expect(pinCount(rootNetlist())).toBeGreaterThan(0);
   });
 });

@@ -106,11 +106,24 @@ describe('an unset colour stays unset', () => {
  * setting.
  */
 describe('the rows nothing reads are disabled', () => {
-  it.each([
-    // Needs the Rescue Symbols tool, which this port does not have.
-    ['Never show Rescue Symbols tool'],
-  ])('%s is disabled', (label) => {
+  /**
+   * Nothing on this page is disabled any more.
+   *
+   * "Never show Rescue Symbols tool" was the last one. It gates the prompt
+   * `files-io.cpp:616` raises when a KiCad 4/5 `.sch` is opened without its
+   * cache library, which needed the legacy schematic reader before it could
+   * ever happen; `loadProject` raises it now, under that condition.
+   *
+   * The `it.each` is kept rather than deleted: when the next unreadable row
+   * appears it belongs here, and an empty list is a clearer place to add one
+   * than a describe that has to be reinvented.
+   */
+  it.each([] as [string][])('%s is disabled', (label) => {
     expect(props(label), label).toMatch(/\bdisabled\b/);
+  });
+
+  it('leaves nothing on the page disabled', () => {
+    expect(props('Never show Rescue Symbols tool')).not.toMatch(/\bdisabled\b/);
   });
 
   it.each([
