@@ -124,6 +124,12 @@ export function supabaseBackend(): CloudBackend {
       if (error) throw new Error(`delete project ${id}: ${error.message}`);
     },
 
+    async openByLink(uid) {
+      const { data, error } = await db.rpc('join_project_by_link', { p_uid: uid });
+      if (error) throw new Error(error.message);
+      return (data as string | null) ?? null;
+    },
+
     async redeemInvite(token) {
       const { data, error } = await db.rpc('redeem_project_invite', { p_token: token });
       // Every refusal the function makes arrives as one message, deliberately:

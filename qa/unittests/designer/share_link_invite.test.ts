@@ -28,7 +28,9 @@ import {
   captureInviteFromUrl,
   clearPendingInvite,
   inviteTokenIn,
+  openProjectLink,
   pendingInvite,
+  projectLinkIn,
   redeemPendingInvite,
 } from '@ziroeda/designer/src/cloud/invites.js';
 import type { CloudBackend } from '@ziroeda/designer/src/cloud/backend.js';
@@ -124,6 +126,51 @@ function fakeBackend(
     },
   };
 }
+
+describe('an ordinary share link, `?p=<uid>`', () => {
+  const UID = '11111111-2222-3333-4444-555555555555';
+
+  it('names the project and is left in the address bar', () => {
+    window.history.replaceState(null, '', `${BASE}?p=${UID}`);
+    expect(projectLinkIn(window.location.href)).toBe(UID);
+
+    // Deliberately NOT stripped. This is the project's address, the way
+    // `/file/<key>` is in Figma: somebody who has opened a project expects to
+    // reload it, bookmark it and send that URL on. There is no secret here to
+    // protect -- what the link is worth is a setting on the project, which its
+    // owner can change or switch off.
+    expect(window.location.search).toBe(`?p=${UID}`);
+  });
+
+  it('refuses anything that is not a project id', () => {
+    expect(projectLinkIn(`${BASE}?p=1`)).toBeNull();
+    expect(projectLinkIn(`${BASE}?p=`)).toBeNull();
+    expect(projectLinkIn(BASE)).toBeNull();
+  });
+
+  it('claims the access the link offers, and can be followed twice', async () => {
+    window.history.replaceState(null, '', `${BASE}?p=${UID}`);
+    const seen: string[] = [];
+    const be = fakeBackend(async () => null);
+    (be as unknown as { openByLink: (u: string) => Promise<string> }).openByLink = async (u) => {
+      seen.push(u);
+      return 'editor';
+    };
+
+    expect(await openProjectLink(be)).toEqual({ uid: UID, role: 'editor' });
+    // Nothing was spent, so this is not a second use of anything -- it is the
+    // same page being opened again, which must behave identically.
+    expect(await openProjectLink(be)).toEqual({ uid: UID, role: 'editor' });
+    expect(seen).toEqual([UID, UID]);
+  });
+
+  it('is not confused with an invite token', async () => {
+    window.history.replaceState(null, '', `${BASE}?join=${TOKEN}`);
+    // A `?join` link is not a project address, and a `?p` link is not a token.
+    expect(projectLinkIn(window.location.href)).toBeNull();
+    expect(await openProjectLink(fakeBackend(async () => null))).toBeNull();
+  });
+});
 
 describe('redeeming it', () => {
   it('spends the token once and reports the role granted', async () => {

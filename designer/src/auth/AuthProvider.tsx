@@ -89,9 +89,15 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
         if (!supabase) return { error: 'Auth is not configured.' };
         // Redirect flow: local (IndexedDB) work survives the round trip, and
         // sign-in sync pushes it to the cloud once the session lands.
+        //
+        // Back to `href`, not `origin`. Returning someone to the bare origin
+        // throws away wherever they were, and the case that makes it a bug
+        // rather than a wrinkle is a share link: `?p=<project>` is the whole
+        // content of the URL somebody followed, and sending them to the origin
+        // after they sign in loses the project they were trying to open.
         const { error } = await supabase.auth.signInWithOAuth({
           provider: 'google',
-          options: { redirectTo: window.location.origin },
+          options: { redirectTo: window.location.href },
         });
         return { error: error?.message ?? null };
       },

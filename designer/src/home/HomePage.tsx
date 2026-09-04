@@ -26,7 +26,12 @@ import {
 } from '../cloud/sync.js';
 import type { SyncResult } from '../cloud/sync.js';
 import { cloudBackend, syncTemplates as syncUserTemplates } from '../cloud/cloudStore.js';
-import { captureInviteFromUrl, redeemPendingInvite, type ProjectRole } from '../cloud/invites.js';
+import {
+  captureInviteFromUrl,
+  openProjectLink,
+  redeemPendingInvite,
+  type ProjectRole,
+} from '../cloud/invites.js';
 import { LoadingOverlay, nextPaint } from '../ui/LoadingOverlay.js';
 import type { ProgressSnapshot } from '../ui/progress_reporter.js';
 import {
@@ -841,19 +846,34 @@ export function HomePage({
     // visible to this account, so a reconcile that started first would not see
     // it and the user would stare at a list without the project they clicked
     // a link to open.
-    const joining = redeemPendingInvite(cloudBackend()).then(
-      (joined) => {
-        if (joined && !cancelled) setJoinNotice({ kind: 'joined', role: joined.role });
-      },
-      (e: unknown) => {
-        // Worth a sentence rather than a console line: the person deliberately
-        // followed a link and it did not work. The database answers every kind
-        // of refusal with one message, deliberately, so this is all there is.
-        if (!cancelled) {
-          setJoinNotice({ kind: 'failed', message: e instanceof Error ? e.message : String(e) });
-        }
-      },
-    );
+    // Two ways in, and they are not variations of one thing.
+    //
+    // `?p=<uid>` is the ordinary one: the project's own address, worth whatever
+    // its owner has set link sharing to. Nothing is spent, so following it
+    // twice is simply following it twice.
+    //
+    // `?join=<token>` is an invitation addressed to a person, spent once. It
+    // exists for "invite this colleague as an editor" and for links meant to
+    // expire — not for everyday sharing, which is why all the stashing and
+    // stripping it needs lives in `invites.ts` and nowhere near this path.
+    const joining = Promise.all([
+      openProjectLink(cloudBackend()),
+      redeemPendingInvite(cloudBackend()),
+    ])
+      .then(([viaLink, viaInvite]) => ({ joined: viaLink ?? viaInvite }))
+      .then(
+        ({ joined }) => {
+          if (joined && !cancelled) setJoinNotice({ kind: 'joined', role: joined.role });
+        },
+        (e: unknown) => {
+          // Worth a sentence rather than a console line: the person deliberately
+          // followed a link and it did not work. The database answers every kind
+          // of refusal with one message, deliberately, so this is all there is.
+          if (!cancelled) {
+            setJoinNotice({ kind: 'failed', message: e instanceof Error ? e.message : String(e) });
+          }
+        },
+      );
 
     void joining
       .then(() => {

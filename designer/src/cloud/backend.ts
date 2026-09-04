@@ -195,6 +195,25 @@ export interface CloudBackend {
    */
   redeemInvite?(token: string): Promise<{ project_uid: string; role: string } | null>;
 
+  /**
+   * Claim the access a project's own link offers, returning the role granted.
+   *
+   * The ordinary way a project is shared, and separate from `redeemInvite`
+   * because it is a different thing: a link is not a secret to be spent but the
+   * project's address, and what it is worth is a setting on the project that
+   * its owner can change or switch off at any time.
+   *
+   * It still grants a *membership row*, on first open. That is not an
+   * implementation detail worth hiding: it is what keeps membership the single
+   * thing every policy consults, and it is why a link-shared project does not
+   * appear in a stranger's project list until they actually open it.
+   *
+   * Rejects when the link is not available — no such project, or sharing is
+   * off — which the database answers with one message for both, so that an id
+   * cannot be probed for existence.
+   */
+  openByLink?(uid: string): Promise<string | null>;
+
   deleteProject(id: string): Promise<void>;
 
   /** Store bytes at a path. Resolves only when the object is durably written. */

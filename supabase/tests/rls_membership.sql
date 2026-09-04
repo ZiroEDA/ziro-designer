@@ -76,3 +76,47 @@ select public.project_role_of((select uid from public.projects)) as b_role; comm
 begin; set local role authenticated; set local "request.jwt.claim.sub" = 'bbbbbbbb-0000-0000-0000-000000000002';
 delete from public.project_members where user_id='bbbbbbbb-0000-0000-0000-000000000002';
 select count(*) as n from public.projects; commit;
+
+\echo '### 13 link sharing: off by default -- expect exception'
+\set QUIET on
+insert into auth.users (id, instance_id, aud, role, email) values
+ ('cccccccc-0000-0000-0000-000000000003','00000000-0000-0000-0000-000000000000','authenticated','authenticated','c@x.test')
+on conflict do nothing;
+-- Captured HERE, as superuser. Reading it inside the stranger's transaction
+-- reads it under row-level security, which returns nothing -- so the function
+-- would be handed a null and refuse for that reason instead of the one under
+-- test. That is a check that cannot fail, and it looked green.
+select uid as puid from public.projects limit 1
+\gset
+\set QUIET off
+begin; set local role authenticated; set local "request.jwt.claim.sub" = 'cccccccc-0000-0000-0000-000000000003';
+select public.join_project_by_link(:'puid'::uuid); rollback;
+
+\echo '### 14 a link-shared project is NOT in a stranger''s list until opened -- expect 0'
+\set QUIET on
+update public.projects set link_access = 'viewer';
+\set QUIET off
+begin; set local role authenticated; set local "request.jwt.claim.sub" = 'cccccccc-0000-0000-0000-000000000003';
+select count(*) as n from public.projects; commit;
+
+\echo '### 15 following the link grants viewer, and then it appears -- expect viewer, then 1'
+begin; set local role authenticated; set local "request.jwt.claim.sub" = 'cccccccc-0000-0000-0000-000000000003';
+select public.join_project_by_link(:'puid'::uuid) as granted; commit;
+begin; set local role authenticated; set local "request.jwt.claim.sub" = 'cccccccc-0000-0000-0000-000000000003';
+select count(*) as n from public.projects; commit;
+
+\echo '### 16 a viewer link never demotes an existing editor -- expect editor'
+\set QUIET on
+update public.project_members set role='editor' where user_id='cccccccc-0000-0000-0000-000000000003';
+\set QUIET off
+begin; set local role authenticated; set local "request.jwt.claim.sub" = 'cccccccc-0000-0000-0000-000000000003';
+select public.join_project_by_link(:'puid'::uuid) as granted; commit;
+
+\echo '### 17 the owner following their own link gets no membership row -- expect owner, 0 rows'
+begin; set local role authenticated; set local "request.jwt.claim.sub" = 'aaaaaaaa-0000-0000-0000-000000000001';
+select public.join_project_by_link(:'puid'::uuid) as granted; commit;
+select count(*) as owner_member_rows from public.project_members
+ where user_id = 'aaaaaaaa-0000-0000-0000-000000000001';
+
+\echo '### 18 a link cannot grant ownership -- expect exception'
+update public.projects set link_access = 'owner';

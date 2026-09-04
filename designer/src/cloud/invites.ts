@@ -36,13 +36,67 @@
 
 import type { CloudBackend } from './backend.js';
 
-/** The query parameter a share link carries. */
+/**
+ * The parameter an ordinary share link carries: the project's own id.
+ *
+ * This is the Figma / Google Docs shape, and it is the one to reach for. The
+ * URL *addresses* the project; what a link is worth is a setting on the
+ * project (`projects.link_access`), not something encoded in the URL. Nothing
+ * here is a secret to be spent, so there is nothing to strip, stash or explain
+ * afterwards -- the machinery below exists only for `?join`, and only because a
+ * token genuinely is a secret sitting in an address bar.
+ */
+export const PROJECT_PARAM = 'p';
+
+/** The query parameter an *invitation* link carries: a one-time token. */
 export const INVITE_PARAM = 'join';
 
 /** Where the token waits while the reader signs in. */
 const STASH_KEY = 'ziro.pendingInvite';
 
 export type ProjectRole = 'owner' | 'editor' | 'viewer';
+
+/** A uuid, as it appears in a URL. */
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * The project a `?p=<uid>` link names, or null.
+ *
+ * Deliberately left in the address bar. It is the project's address, the way
+ * `/file/<key>` is in Figma -- a person who has opened a project expects to be
+ * able to reload, bookmark and send that URL, and stripping it would break all
+ * three for no gain. What the link is *worth* is revocable on the project.
+ */
+export function projectLinkIn(href: string): string | null {
+  try {
+    const raw = new URL(href).searchParams.get(PROJECT_PARAM);
+    return raw && UUID.test(raw) ? raw : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Claim whatever the current page's project link offers.
+ *
+ * Returns what was granted, or null when the page carries no link. Rejects when
+ * the link is not available -- the project does not exist, or its owner has
+ * link sharing switched off, which the database answers identically on purpose.
+ *
+ * No stash and no redirect dance: the uid stays in the URL, and
+ * `signInWithGoogle` returns to `window.location.href`, so it is still there
+ * when the session arrives.
+ */
+export async function openProjectLink(
+  backend: CloudBackend | null,
+): Promise<{ uid: string; role: ProjectRole } | null> {
+  if (typeof window === 'undefined') return null;
+  const uid = projectLinkIn(window.location.href);
+  if (!uid || !backend?.openByLink) return null;
+  const role = await backend.openByLink(uid);
+  if (!role) return null;
+  return { uid, role: role === 'owner' || role === 'editor' ? role : 'viewer' };
+}
 
 /**
  * The token in a URL, and the same URL without it.
@@ -70,9 +124,7 @@ export function inviteTokenIn(href: string): { token: string | null; cleaned: st
   // put in storage and later sent to the database. A token is a uuid; anything
   // else is a typo or a probe, and stashing it would only produce a confusing
   // failure later, well away from the link that caused it.
-  const token = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(raw)
-    ? raw
-    : null;
+  const token = UUID.test(raw) ? raw : null;
   return { token, cleaned };
 }
 
