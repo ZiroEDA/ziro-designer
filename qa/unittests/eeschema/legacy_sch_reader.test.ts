@@ -173,6 +173,53 @@ describe('the project KiCad converted, converted again', () => {
   });
 });
 
+/**
+ * The one place a schematic's Y is not simply carried across:
+ *
+ *     // Y got inverted in symbol coordinates
+ *     pos.y = -( pos.y - symbol->GetY() ) + symbol->GetY();
+ *
+ * and nothing else touches a symbol field afterwards — `loadSymbol` calls
+ * `SetTextPos( pos )` and stops. Only a SHEET gets `AutoplaceFields`.
+ *
+ * This one is asserted against the pinned source and NOT against the fixture,
+ * which disagrees: `complex_hierarchy.kicad_sch` was written by 5.99-1712 six
+ * years ago, and its field positions are additionally turned by the symbol's
+ * transform (`#PWR02`'s reference lands at 9450,2750 there against the
+ * formula's 9350,2850-mirrored). Where a six-year-old conversion and the
+ * installed 10.0.5 disagree, the installed build is the parity target.
+ */
+describe('a symbol field’s position', () => {
+  const root = () => converted().get('complex_hierarchy.kicad_sch')!;
+  const pwr02 = () => root().symbols.find((s) => s.uuid === legacyUuid('4B4B1578'))!;
+
+  it('is mirrored about its own symbol’s Y, and not otherwise moved', () => {
+    // `P 9350 2750` with `F 0 "#PWR02" H 9350 2850`:
+    //   symbol y  = 2750 mils = 698500 IU
+    //   field  y  = 2850 mils = 723900 IU
+    //   mirrored  = -(723900 - 698500) + 698500 = 673100
+    const s = pwr02();
+    expect(s.at).toEqual({ x: 9350 * 254, y: 698500 });
+    const ref = s.fields.find((f) => f.key === 'Reference')!;
+    expect(ref.value).toBe('#PWR02');
+    expect(ref.at).toEqual({ x: 9350 * 254, y: 673100 });
+  });
+
+  it('keeps the field’s own angle, V meaning ninety degrees', () => {
+    // `F 1 "-VAA" V 9350 2950` -> -(749300 - 698500) + 698500 = 647700.
+    const v = pwr02().fields.find((f) => f.key === 'Value')!;
+    expect(v.at).toEqual({ x: 9350 * 254, y: 647700 });
+    expect(v.angle).toBe(90);
+  });
+
+  it('leaves a field level with its symbol exactly where it is', () => {
+    // `F 2 "" H 9350 2750` sits on the symbol's own Y, so the mirror is a
+    // no-op — which is the case that would hide a sign error.
+    const f = pwr02().fields.find((x) => x.key === 'Footprint')!;
+    expect(f.at).toEqual({ x: 9350 * 254, y: 698500 });
+  });
+});
+
 describe('a symbol’s unit', () => {
   /**
    * `symbol->SetUnit( unit )` takes it from the `U <unit> <bodyStyle> <id>`
@@ -235,10 +282,13 @@ describe('the hierarchy', () => {
     const r = sub.symbols.find((s) => s.instances?.some((i) => i.reference === 'R26'));
     expect(r, 'no symbol carries the R26 instance').toBeDefined();
     expect(r!.instances!.map((i) => i.reference).sort()).toEqual(['R26', 'R28']);
-    for (const inst of r!.instances!) {
-      // Rooted at the root SCREEN's uuid, which is the one minted first.
-      expect(inst.path.startsWith('/00000000-0000-0000-0000-000000000001/')).toBe(true);
-    }
+    // `/4B3A13A4/4B3A1368` becomes root + the SHEET, with the symbol id
+    // dropped — "it's already defined in the symbol itself". A path that kept
+    // it would be one level too deep and match no sheet at all.
+    expect(r!.instances!.map((i) => i.path).sort()).toEqual([
+      `/00000000-0000-0000-0000-000000000001/${legacyUuid('4B3A1333')}`,
+      `/00000000-0000-0000-0000-000000000001/${legacyUuid('4B3A13A4')}`,
+    ]);
   });
 
   it('files those instances under the project name', () => {
@@ -415,9 +465,22 @@ describe('which file is the root', () => {
     expect(legacyRootFile(sch())).toBe('complex_hierarchy.sch');
   });
 
-  it('is the one named after the project when there is one', () => {
-    expect(legacyRootFile(sch(), 'complex_hierarchy')).toBe('complex_hierarchy.sch');
-    // A project name that names no file falls back to the search.
+  /**
+   * The project name WINS over the search, and the two can disagree: a file
+   * every other sheet points at is still the root if the project says so, and
+   * a folder holding two unrelated projects has two unreferenced files.
+   */
+  it('is the one named after the project, ahead of the search', () => {
+    const two = new Map([
+      ['other.sch', 'EESchema Schematic File Version 4\n'],
+      ['wanted.sch', 'EESchema Schematic File Version 4\n'],
+    ]);
+    // The search takes the first unreferenced file, which is `other.sch`.
+    expect(legacyRootFile(two)).toBe('other.sch');
+    expect(legacyRootFile(two, 'wanted')).toBe('wanted.sch');
+  });
+
+  it('falls back to the search when the project names no file it has', () => {
     expect(legacyRootFile(sch(), 'nothing')).toBe('complex_hierarchy.sch');
   });
 
@@ -467,5 +530,88 @@ describe('a converted sheet carries a netlist', () => {
     const root = converted().get('complex_hierarchy.kicad_sch')!;
     expect(pinCount(computeNetlist(root, new Map()))).toBe(0);
     expect(pinCount(rootNetlist())).toBeGreaterThan(0);
+  });
+});
+
+/**
+ * Cases a real project does not contain, and a mutation sweep found unpinned.
+ * Each is a repair or a guard upstream states explicitly, so each is written as
+ * the smallest legacy file that reaches it.
+ */
+describe('the repairs and guards a healthy project never exercises', () => {
+  const sch = (body: string): string =>
+    `EESchema Schematic File Version 4\nEELAYER 30 0\nEELAYER END\n$Descr A4 11693 8268\nSheet 1 1\n$EndDescr\n${body}$EndSCHEMATC\n`;
+
+  const one = (body: string, files: Record<string, string> = {}) => {
+    let n = 0;
+    return readLegacyProject({
+      files: new Map([['root.sch', sch(body)], ...Object.entries(files)]),
+      rootFile: 'root.sch',
+      projectName: 'p',
+      newUuid: () => `00000000-0000-0000-0000-${String(++n).padStart(12, '0')}`,
+    });
+  };
+
+  const comp = (u: string, id: string) =>
+    `$Comp\nL Lib:R R1\nU ${u} ${id}\nP 1000 1000\nF 0 "R1" H 1000 1000 50  0000 C CNN\n\t1    1000 1000\n\t1    0    0    -1  \n$EndComp\n`;
+
+  /**
+   * "This fixes a potentially buggy files caused by unit being set to zero
+   * which causes netlist issues." (`sch_io_kicad_legacy.cpp:1182`) — and the
+   * same for the body style two lines below it.
+   */
+  it('turns a zero unit and body style into one', () => {
+    const d = one(comp('0 0', '5A2B3C4D')).docs.get('root.kicad_sch')!;
+    expect(d.symbols[0]!.unit).toBe(1);
+    expect(d.symbols[0]!.bodyStyle).toBe(1);
+  });
+
+  /**
+   * The De Morgan alternate. This is written as `body_style`, not the
+   * pre-KiCad-8 `convert`, because that is the spelling the reader looks for —
+   * writing the old one dropped every alternate body to its base and nothing
+   * said so, since `bodyStyle` then defaulted to 1 and looked repaired.
+   */
+  it('carries a second body style through', () => {
+    const d = one(comp('1 2', '5A2B3C4D')).docs.get('root.kicad_sch')!;
+    expect(d.symbols[0]!.bodyStyle).toBe(2);
+  });
+
+  /** `if( text != "00000000" )` — the format's "no id here" placeholder. */
+  it('mints an id rather than believing the 00000000 placeholder', () => {
+    const d = one(comp('1 1', '00000000')).docs.get('root.kicad_sch')!;
+    expect(d.symbols[0]!.uuid).not.toBe(legacyUuid('00000000'));
+    // ...and a real timestamp IS believed.
+    const real = one(comp('1 1', '5A2B3C4D')).docs.get('root.kicad_sch')!;
+    expect(real.symbols[0]!.uuid).toBe(legacyUuid('5A2B3C4D'));
+  });
+
+  const sheet = (file: string, id: string) =>
+    `$Sheet\nS 500 500 1000 1000\nU ${id}\nF0 "sub" 50\nF1 "${file}" 50\n$EndSheet\n`;
+
+  /**
+   * `loadHierarchy` reuses a screen it has already loaded. Without that, a
+   * sheet that reaches itself — which a hand-edited file can do — recurses
+   * until the stack goes, and this test would hang rather than fail.
+   */
+  it('does not follow a sheet that reaches itself', () => {
+    const r = one(sheet('root.sch', '4B3A1333'));
+    expect([...r.docs.keys()]).toEqual(['root.kicad_sch']);
+  });
+
+  it('says so when a sheet names a file that is not there', () => {
+    const r = one(sheet('missing.sch', '4B3A1333'));
+    expect(r.problems).toEqual(['sheet file not found: missing.sch']);
+  });
+
+  /**
+   * `Entry Wire Line` writes the two ENDPOINTS, and the loader turns the second
+   * into a size: `size.x -= pos.x`. Read as a size instead, a bus entry that
+   * starts anywhere but the origin comes out enormous.
+   */
+  it('reads a bus entry’s second pair as its far end, not its size', () => {
+    const d = one('Entry Wire Line\n\t1000 1000 1100 1100\n').docs.get('root.kicad_sch')!;
+    expect(d.busEntries[0]!.at).toEqual({ x: 1000 * 254, y: 1000 * 254 });
+    expect(d.busEntries[0]!.size).toEqual({ x: 100 * 254, y: 100 * 254 });
   });
 });

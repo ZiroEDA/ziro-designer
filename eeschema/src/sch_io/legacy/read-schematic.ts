@@ -37,6 +37,7 @@
 
 import { atom, list, str, type SList, type SNode } from '@ziroeda/sexpr/src/index.js';
 import { convertToNewOverbarNotation } from '@ziroeda/common/src/string_utils.js';
+import { GENERATOR, GENERATOR_VERSION } from '@ziroeda/common/src/generator.js';
 import type { Reporter } from '@ziroeda/common/src/reporter.js';
 import type { LibSymbol, Schematic } from '../../types.js';
 import { readSchematic } from '../sexpr/read-schematic.js';
@@ -752,7 +753,10 @@ function loadSymbol(
       at(pos.x, pos.y, orient.angle),
       ...(orient.mirror ? [list(atom('mirror'), atom(orient.mirror))] : []),
       list(atom('unit'), atom(String(unit))),
-      list(atom('convert'), atom(String(bodyStyle))),
+      // `body_style`, which is what the reader looks for. `(convert N)` is the
+      // pre-KiCad-8 spelling and nothing here reads it, so writing that would
+      // have silently dropped every De Morgan alternate to its base body.
+      list(atom('body_style'), atom(String(bodyStyle))),
       list(atom('in_bom'), atom('yes')),
       list(atom('on_board'), atom('yes')),
       uuidNode(uuid),
@@ -876,7 +880,12 @@ function readScreen(
     items: [
       atom('kicad_sch'),
       list(atom('version'), atom(String(SEXPR_SCHEMATIC_FILE_VERSION))),
-      list(atom('generator'), str('eeschema')),
+      // Ours, not KiCad's: the node this builds is handed straight to the
+      // reader, but the reader keeps it as the document's `source` and the
+      // writer is source-preserving — so this string reaches a `.kicad_sch`
+      // the moment a converted project is saved.
+      list(atom('generator'), str(GENERATOR)),
+      list(atom('generator_version'), str(GENERATOR_VERSION)),
       uuidNode(screenUuid),
       ...(screen.paper ? [screen.paper] : []),
       ...(screen.titleBlock ? [screen.titleBlock] : []),

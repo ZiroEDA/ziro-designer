@@ -40,6 +40,7 @@
 import { atom, list, str, type SList, type SNode } from '@ziroeda/sexpr/src/index.js';
 import { fx, fy, kiRound, mil, mm, ParseError, Scanner } from './parse.js';
 import { convertToNewOverbarNotation } from '@ziroeda/common/src/string_utils.js';
+import { GENERATOR, GENERATOR_VERSION } from '@ziroeda/common/src/generator.js';
 import type { Reporter } from '@ziroeda/common/src/reporter.js';
 import type { LibSymbol } from '../../types.js';
 import { readSymbolLib } from '../sexpr/read-schematic.js';
@@ -1016,7 +1017,8 @@ export function readLegacySymbolLibrary(text: string, reporter?: Reporter): LibS
   const nodes: SNode[] = [
     atom('kicad_symbol_lib'),
     list(atom('version'), atom('20241209')),
-    list(atom('generator'), str('legacy')),
+    list(atom('generator'), str(GENERATOR)),
+    list(atom('generator_version'), str(GENERATOR_VERSION)),
   ];
 
   // `m_symbols` is a `LIB_SYMBOL_MAP`, a `std::map<wxString, LIB_SYMBOL*>`, so
