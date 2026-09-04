@@ -80,6 +80,7 @@ export {
   addBoardTable,
   addBoardPoint,
   addBoardZone,
+  setBoardOrigin,
   rotateBoardItems,
   rotateBoardItemsBy,
   duplicateBoardItems,

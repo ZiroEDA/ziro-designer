@@ -27,6 +27,7 @@ const board = (over: Partial<Board>): Board =>
     tables: [],
     images: [],
     dimensions: [],
+    points: [],
     footprints: [],
     groups: [],
     ...over,
@@ -150,6 +151,10 @@ describe('BOARD::IsEmpty', () => {
     ['tables', 'tables'],
     ['images', 'images'],
     ['dimensions', 'dimensions'],
+    // `m_points.empty()` is one of the five terms of `BOARD::IsEmpty` — it is
+    // named in the C++ beside `m_drawings`, `m_footprints`, `m_tracks` and
+    // `m_zones`, not folded into any of them.
+    ['points', 'points'],
   ])('is false for a board holding only %s', (_name, key) => {
     expect(boardIsEmpty(board({ [key]: [{}] } as Partial<Board>))).toBe(false);
   });

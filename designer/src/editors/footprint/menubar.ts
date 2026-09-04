@@ -354,9 +354,11 @@ export function footprintEditorMenus(
           shortcut: browserSafeKey('Ctrl+Shift+N'),
         }),
         // ACTIONS::gridSetOrigin (actions.cpp:1057) — "Grid Origin", the tool.
-        stub('Grid Origin', 'gridSetOrigin'),
+        tool('Grid Origin', 'gridSetOrigin'),
         SEP,
-        stub('Reset Grid Origin', 'gridResetOrigin'),
+        // `ACTIONS::gridResetOrigin` — not a tool: `COMMON_TOOLS::GridResetOrigin`
+        // sets it to (0, 0) outright, so this is an `act` row.
+        act('Reset Grid Origin', 'gridResetOrigin'),
       ],
     },
     {

@@ -43,6 +43,7 @@ import {
   buildScene,
   buildDrawSteps,
   drawAnchors,
+  drawOriginMarkers,
   DEFAULT_DRAW_OPTIONS,
   type BoardScene,
   type PcbDrawOptions,
@@ -96,9 +97,23 @@ export interface FootprintCanvasProps {
    * `RULER_ITEM` is constructed with `frame()->GetUserUnits()`.
    */
   measureUnits?: RulerUnits;
-  /** Grid size in IU (GAL m_gridSize). A library footprint has no board, so
-   *  there is no grid origin: FOOTPRINT_EDIT_FRAME leaves it at (0, 0). */
+  /** Grid size in IU (GAL m_gridSize). */
   gridIU?: number;
+  /**
+   * `GAL::m_gridOrigin` — `BOARD_DESIGN_SETTINGS::GetGridOrigin()` of the
+   * frame's board.
+   *
+   * `FOOTPRINT_EDIT_FRAME` is a `PCB_BASE_EDIT_FRAME` and owns a real `BOARD`
+   * holding the one footprint, so it has a grid origin like any other frame —
+   * and `ACTIONS::gridSetOrigin` is on its right toolbar
+   * (`toolbars_footprint_editor.cpp:136`) precisely to move it. This was
+   * hardcoded to (0, 0) here on the reading that "a library footprint has no
+   * board"; the footprint has none, the *frame* does.
+   *
+   * It is not saved: nothing in `.kicad_mod` can express it, so it lives as
+   * long as the frame does, exactly as upstream's does.
+   */
+  gridOrigin?: Vec2;
   onCursorMove?: (p: Vec2 | null) => void;
   onScaleChange?: (scale: number) => void;
   /** Click/box selection results (additive when Shift is held). */
@@ -138,6 +153,9 @@ export interface FootprintCanvasProps {
   onFootprintChange?: () => void;
 }
 
+/** `BOARD_DESIGN_SETTINGS`' own default grid origin. */
+const ORIGIN: Vec2 = { x: 0, y: 0 };
+
 const EMPTY_SEL: ReadonlySet<string> = new Set();
 
 export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCanvasProps>(
@@ -152,6 +170,7 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
       crosshairMode = 'small',
       measureUnits = 'mm',
       gridIU = PCB_DEFAULT_GRID_IU,
+      gridOrigin = ORIGIN,
       onCursorMove,
       onScaleChange,
       onSelect,
@@ -240,10 +259,12 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
     gridIURef.current = gridIU;
     const activeToolRef = useRef(activeTool);
     activeToolRef.current = activeTool;
-    /** GRID_HELPER::BestSnapAnchor, reduced to the plain grid: a footprint has
-     *  no board grid origin, so it rounds about (0, 0). */
+    /** GRID_HELPER::BestSnapAnchor, reduced to the plain grid about the
+     *  frame's grid origin. */
+    const gridOriginRef = useRef(gridOrigin);
+    gridOriginRef.current = gridOrigin;
     const snapRef = useRef((p: Vec2): Vec2 => p);
-    snapRef.current = (p: Vec2): Vec2 => (showGrid ? snapToGridSize(p, gridIU, { x: 0, y: 0 }) : p);
+    snapRef.current = (p: Vec2): Vec2 => (showGrid ? snapToGridSize(p, gridIU, gridOrigin) : p);
 
     // Compile the footprint (wrapped as a board) into retained per-layer paths.
     const scene = useMemo(() => buildScene(footprintToBoard(footprint)), [footprint]);
@@ -341,6 +362,7 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
           show: showGridRef.current,
           sizeIU: gridIURef.current,
           color: drawOpts.theme?.grid,
+          origin: gridOriginRef.current,
           devicePixelRatio: dpr,
           // Both frames this canvas serves enable the origin axes:
           // FOOTPRINT_EDIT_FRAME and CVPCB's DISPLAY_FOOTPRINTS_FRAME. The
@@ -370,6 +392,19 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
       // draw the same footprints through the same painter and had no component
       // origin at all, which is the marker Akshay pointed out is present
       // everywhere in pcbnew.
+      // `PCB_CONTROL::m_gridOrigin` — the CIRCLE_X marker, through the shared
+      // `ORIGIN_VIEWITEM` painter. `m_drawAtZero` is false, so a frame whose
+      // origin has never been moved shows nothing, which is what a freshly
+      // opened footprint editor looks like upstream.
+      drawOriginMarkers(
+        ctx,
+        { aux: ORIGIN, grid: gridOriginRef.current },
+        { scale: v.scale, tx: v.tx, ty: v.ty, flipX: false },
+        canvas.width,
+        canvas.height,
+        dpr,
+        drawOpts.theme,
+      );
       const sc = sceneRef.current;
       if (sc) {
         drawAnchors(
@@ -972,8 +1007,10 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
                   ? kiCursor('MEASURE')
                   : // `doInteractiveItemPlacement`'s setCursor: PLACE once the
                     // preview item exists, and IPO_SINGLE_CLICK makes it before
-                    // the loop starts (`pcb_tool_base.cpp:119-128`).
-                    activeTool === 'placePoint'
+                    // the loop starts (`pcb_tool_base.cpp:119-128`). The grid
+                    // origin picker sets the same cursor outright
+                    // (`pcb_control.cpp:791`).
+                    activeTool === 'placePoint' || activeTool === 'gridSetOrigin'
                     ? kiCursor('PLACE')
                     : activeTool === 'selectSetRect'
                       ? 'default'

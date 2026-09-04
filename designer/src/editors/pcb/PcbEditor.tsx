@@ -96,6 +96,7 @@ import {
   addBoardText,
   addBoardPoint,
   addBoardZone,
+  setBoardOrigin,
   DEFAULT_POINT_SIZE,
   type RatsnestEdge,
   type Board,
@@ -387,7 +388,7 @@ import {
   hitTestBoardDrawingSheet,
   drawPageLimits,
   drawNetNames,
-  drawOriginMarker,
+  drawOriginMarkers,
   drawDrcMarkers,
   PCB_DEFAULT_GRID_IU,
   PCB_DEFAULT_GRID_ORIGIN,
@@ -590,6 +591,11 @@ const PCB_TOOL_MSGS: Record<string, string> = {
   // `TOOL_ACTION::GetFriendlyName()`, which `TOOLS_HOLDER::PushTool` puts in
   // pane 6 — "Place Point" (`pcb_actions.cpp:194`), not the tooltip.
   placePoint: 'Place Point',
+  // `ACTIONS::gridSetOrigin` is "Grid Origin" (`actions.cpp:1057`) and
+  // `PCB_ACTIONS::drillOrigin` "Drill/Place File Origin"
+  // (`pcb_actions.cpp:1472`) — the FriendlyName, not the tooltip.
+  gridSetOrigin: 'Grid Origin',
+  drillOrigin: 'Drill/Place File Origin',
   measureTool: 'Measure Tool',
   deleteTool: 'Delete Items',
   localRatsnestTool: 'Local Ratsnest',
@@ -609,6 +615,11 @@ const isClickTool = (t: string): boolean =>
   // snap point that could not land on another item's anchor would be a poor
   // snap point.
   t === 'placePoint' ||
+  // `PCB_PICKER_TOOL::Main` runs the cursor through `BestSnapAnchor` on every
+  // motion (`pcb_picker_tool.cpp`), which is what lets an origin be dropped
+  // exactly on a pad or a track end.
+  t === 'gridSetOrigin' ||
+  t === 'drillOrigin' ||
   !!DRAW_SHAPE_TOOLS[t];
 
 // Default graphic line widths per layer class, in IU
@@ -2248,7 +2259,15 @@ export function PcbEditor({
     }
     // The drill/place file origin marker, screen-space like the anchors and,
     // like them, drawn above the board (LAYER_GP_OVERLAY).
-    drawOriginMarker(ctx, auxOriginOf(), v, canvas.width, canvas.height, dpr);
+    drawOriginMarkers(
+      ctx,
+      { aux: auxOriginOf(), grid: gridOriginRef.current },
+      v,
+      canvas.width,
+      canvas.height,
+      dpr,
+      drawOpts.theme,
+    );
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     // Back and inner net names. On the GPU they were recorded into the board's
     // own draw at the depth pcbnew files them at (see the `recordInner` call
@@ -5680,6 +5699,46 @@ export function PcbEditor({
     );
   };
 
+  /**
+   * The two origin pickers: Grid Origin and Drill/Place File Origin.
+   *
+   * `PCB_CONTROL::GridPlaceOrigin` (`pcb_control.cpp:769-800`) and
+   * `BOARD_EDITOR_CONTROL::DrillOrigin` (`board_editor_control.cpp:2288-2330`)
+   * are the same shape: `Activate()` to deactivate whatever else is running,
+   * `picker->SetCursor( KICURSOR::PLACE )`, one click handler, and
+   * `ACTIONS::pickerTool`. Both handlers end
+   *
+   *     return false;   // drill origin is a one-shot; don't continue with tool
+   *
+   * so the tool pops after a single click — unlike Place Point, which is
+   * `IPO_REPEAT`. That `false` is why `setActiveTool` returns to the selection
+   * tool here rather than leaving the button lit.
+   *
+   * What each writes is one design setting: `SetGridOrigin` /
+   * `SetAuxOrigin`, which the file spells `(setup (grid_origin …))` and
+   * `(setup (aux_axis_origin …))`.
+   */
+  const handleOriginClick = (
+    which: 'grid_origin' | 'aux_axis_origin',
+    world: { x: number; y: number },
+  ): void => {
+    const brd = boardRef.current;
+    if (!brd) return;
+    commitBoard(setBoardOrigin(brd, which, cursorSnapRef.current(world)));
+    // `PopTool` — the picker is a one-shot.
+    setActiveTool('selectSetRect');
+  };
+
+  /**
+   * `PCB_CONTROL::GridResetOrigin` (`:803-808`) and `drillResetOrigin`
+   * (`board_editor_control.cpp:2290-2295`): the same setter with (0, 0), and
+   * no picker at all — a menu row, not a tool.
+   */
+  const resetOrigin = (which: 'grid_origin' | 'aux_axis_origin'): void => {
+    const brd = boardRef.current;
+    if (brd) commitBoard(setBoardOrigin(brd, which, { x: 0, y: 0 }));
+  };
+
   // ----- interactive move / drag (EDIT_TOOL Move vs Drag) ---------------------
 
   const sceneFilter = (): { hideFrontFootprints: boolean; hideBackFootprints: boolean } => ({
@@ -6888,6 +6947,12 @@ export function PcbEditor({
         } else if (activeToolRef.current === 'drawZone') {
           const w = worldAt(e.clientX, e.clientY);
           if (w) handleZoneClick(w);
+        } else if (activeToolRef.current === 'gridSetOrigin') {
+          const w = worldAt(e.clientX, e.clientY);
+          if (w) handleOriginClick('grid_origin', w);
+        } else if (activeToolRef.current === 'drillOrigin') {
+          const w = worldAt(e.clientX, e.clientY);
+          if (w) handleOriginClick('aux_axis_origin', w);
         } else if (activeToolRef.current === 'placePoint') {
           const w = worldAt(e.clientX, e.clientY);
           if (w) handlePointClick(w);
@@ -8120,8 +8185,24 @@ export function PcbEditor({
         },
         { label: 'Dimension', disabled: dis },
         { sep: true },
-        { label: 'Drill/Place File Origin', disabled: dis },
-        { label: 'Grid Origin', disabled: dis },
+        // `menubar_pcb_editor.cpp:333-336`, in this order: the two setters each
+        // followed by their reset.
+        {
+          label: 'Drill/Place File Origin',
+          disabled: dis,
+          action: () => setActiveTool('drillOrigin'),
+        },
+        {
+          label: 'Reset Drill Origin',
+          disabled: dis,
+          action: () => resetOrigin('aux_axis_origin'),
+        },
+        { label: 'Grid Origin', disabled: dis, action: () => setActiveTool('gridSetOrigin') },
+        {
+          label: 'Reset Grid Origin',
+          disabled: dis,
+          action: () => resetOrigin('grid_origin'),
+        },
       ],
     },
     {
@@ -8632,7 +8713,9 @@ export function PcbEditor({
                         // (`pcb_tool_base.cpp:121-128`). Place Point runs with
                         // IPO_SINGLE_CLICK, which makes the item before the
                         // loop starts, so PLACE is the cursor the whole time.
-                        activeTool === 'placePoint'
+                        activeTool === 'placePoint' ||
+                          activeTool === 'gridSetOrigin' ||
+                          activeTool === 'drillOrigin'
                         ? kiCursor('PLACE')
                         : activeTool === 'localRatsnestTool'
                           ? 'crosshair'

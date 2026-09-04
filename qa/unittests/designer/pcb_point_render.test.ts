@@ -165,7 +165,9 @@ const POINT = '(point (at 10 20) (size 2) (layer "F.SilkS"))';
 
 /** The X, identified by the two diagonal strokes it is alone in drawing. */
 const crossOf = (s: Stroke[]): Stroke | undefined =>
-  s.find((x) => x.path.ops.filter((o) => o.op === 'lineTo').length === 2 && x.path.ops.length === 4);
+  s.find(
+    (x) => x.path.ops.filter((o) => o.op === 'lineTo').length === 2 && x.path.ops.length === 4,
+  );
 const ringOf = (s: Stroke[]): Stroke | undefined =>
   s.find((x) => x.path.ops.some((o) => o.op === 'arc'));
 

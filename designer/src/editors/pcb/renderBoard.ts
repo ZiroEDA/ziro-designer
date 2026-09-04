@@ -23,6 +23,17 @@
  */
 
 import { PCB_IU_PER_MM } from '@ziroeda/common/src/eda_units.js';
+import {
+  brightened,
+  brightness,
+  darkened,
+  parseColor4d,
+  toCssColor,
+} from '@ziroeda/common/src/color4d.js';
+import {
+  drawOriginViewItem,
+  ORIGIN_VIEWITEM_SIZE,
+} from '@ziroeda/common/src/preview_items/origin_viewitem.js';
 import { printableCharCount, unescapeString } from '@ziroeda/common/src/string_utils.js';
 import { drawDrawingSheetItems, hitTestDrawingSheet } from '@ziroeda/common';
 import {
@@ -65,6 +76,7 @@ import {
   PCB_PAINT_ORDER,
   PCB_SPECIAL,
   layerColor,
+  PCB_BACKGROUND,
   PCB_GRID,
   PCB_PLACE_ORIGIN,
   type PcbColorTheme,
@@ -2929,48 +2941,79 @@ export function drawAnchors(
 }
 
 /**
- * The drill/place file origin marker, `BOARD_EDITOR_CONTROL`'s `m_placeOrigin`
- * (board_editor_control.cpp): an `ORIGIN_VIEWITEM` in `CIRCLE_CROSS` style,
- * `COLOR4D(0.8, 0, 0)`, size 16 — and the size is a *screen* size, because
- * `ORIGIN_VIEWITEM::ViewDraw` runs it through `aView->ToWorld(..., false)`, so
- * the marker keeps its size at every zoom like the anchor crosses do. Drawn on
- * LAYER_GP_OVERLAY, i.e. above the board.
+ * The board's two origin markers, both `KIGFX::ORIGIN_VIEWITEM`s on
+ * LAYER_GP_OVERLAY — i.e. above the board.
  *
- * `m_drawAtZero` is false by default, so a board that never set an auxiliary
- * origin (it sits at 0,0) shows no marker at all.
+ *   - the drill/place file origin, `BOARD_EDITOR_CONTROL::m_placeOrigin`:
+ *     CIRCLE_CROSS in `COLOR4D( 0.8, 0.0, 0.0, 1.0 )`
+ *     (`board_editor_control.cpp:330-331`);
+ *   - the grid origin, `PCB_CONTROL::m_gridOrigin`: the constructor's default
+ *     CIRCLE_X, in the grid colour pushed away from the background
+ *     (`pcb_control.cpp:116`, `:130-146`).
+ *
+ * The drawing itself is the shared `ORIGIN_VIEWITEM` painter in `common/`,
+ * because upstream has exactly one and five callers reach for it. This module
+ * used to carry a private copy that could draw only the first of the two, in
+ * one hardcoded style — so the grid origin had no marker at all.
  */
-export function drawOriginMarker(
+export function drawOriginMarkers(
   ctx: CanvasRenderingContext2D,
-  at: { x: number; y: number },
+  origins: { aux: { x: number; y: number }; grid: { x: number; y: number } },
   view: PcbViewTransform,
   widthPx: number,
   heightPx: number,
   dpr = 1,
+  theme?: PcbColorTheme,
 ): void {
-  if (at.x === 0 && at.y === 0) return;
-  const size = ORIGIN_MARKER_PX * dpr;
   const sx = view.flipX ? -view.scale : view.scale;
-  // SetLineWidth(1) is one internal unit, i.e. nothing: the pen floor draws it.
-  const pen = Math.max(1, dpr);
-  const x = snapPx(at.x * sx + view.tx, pen);
-  const y = snapPx(at.y * view.scale + view.ty, pen);
-  if (x < -size || x > widthPx + size || y < -size || y > heightPx + size) return;
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.strokeStyle = PCB_PLACE_ORIGIN;
-  ctx.lineWidth = pen;
-  ctx.beginPath();
-  ctx.moveTo(x - size, y);
-  ctx.lineTo(x + size, y);
-  ctx.moveTo(x, y - size);
-  ctx.lineTo(x, y + size);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.arc(x, y, size, 0, Math.PI * 2);
-  ctx.stroke();
+  const toPx = (p: { x: number; y: number }): { x: number; y: number } => ({
+    x: p.x * sx + view.tx,
+    y: p.y * view.scale + view.ty,
+  });
+  const common = {
+    toPx,
+    size: ORIGIN_VIEWITEM_SIZE * dpr,
+    // `SetLineWidth( 1 )` is one internal unit, i.e. nothing: the pen floor
+    // is what draws it.
+    lineWidth: Math.max(1, dpr),
+    canvasWidth: widthPx,
+    canvasHeight: heightPx,
+  };
+
+  drawOriginViewItem(ctx, {
+    ...common,
+    position: origins.aux,
+    style: 'circle_cross',
+    color: PCB_PLACE_ORIGIN,
+  });
+  drawOriginViewItem(ctx, {
+    ...common,
+    position: origins.grid,
+    style: 'circle_x',
+    color: gridOriginColor(theme?.grid ?? PCB_GRID, theme?.background ?? PCB_BACKGROUND),
+  });
 }
 
-/** ORIGIN_VIEWITEM's default `aSize = 16`, in screen pixels. */
-const ORIGIN_MARKER_PX = 16;
+/**
+ * `PCB_CONTROL::Reset`'s colour for the grid-origin marker
+ * (`pcb_control.cpp:133-142`):
+ *
+ *     double backgroundBrightness = …GetGAL()->GetClearColor().GetBrightness();
+ *     COLOR4D color = m_frame->GetGridColor();
+ *     if( backgroundBrightness > 0.5 ) color.Darken( 0.25 );
+ *     else                             color.Brighten( 0.25 );
+ *
+ * The grid colour on its own would be nearly invisible against the grid it
+ * sits on, so the marker is pushed a quarter of the way *away* from the
+ * background — brighter on a dark board, darker on a light one.
+ */
+function gridOriginColor(gridCss: string, backgroundCss: string): string {
+  const grid = parseColor4d(gridCss);
+  // `GetClearColor()` is the canvas background; `GetBrightness()` is the
+  // weighted W3C formula, which `common/src/color4d.ts` already ports.
+  const bg = brightness(parseColor4d(backgroundCss));
+  return toCssColor(bg > 0.5 ? darkened(grid, 0.25) : brightened(grid, 0.25));
+}
 
 /**
  * Put a device-space coordinate where a stroke of `width` lands on whole

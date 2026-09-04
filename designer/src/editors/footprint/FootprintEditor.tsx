@@ -311,6 +311,16 @@ export function FootprintEditor({
   const [viewportSel, setViewportSel] = useState(PRESET_SEPARATOR);
   const [toggles, setToggles] = useState<Set<string>>(new Set(DEFAULT_TOGGLES));
   const [activeTool, setActiveTool] = useState('selectSetRect');
+  /**
+   * `BOARD_DESIGN_SETTINGS::GetGridOrigin()` of this frame's board.
+   *
+   * `FOOTPRINT_EDIT_FRAME` owns a real `BOARD` holding the one footprint, so it
+   * has a grid origin, and `ACTIONS::gridSetOrigin` on its right toolbar moves
+   * it. Frame state and not document state, because nothing in `.kicad_mod` can
+   * express it — upstream's lives on the dummy board and dies with the frame
+   * too.
+   */
+  const [gridOrigin, setGridOrigin] = useState<Vec2>({ x: 0, y: 0 });
   /** Whether any tool has been pushed since the frame opened — see `selectTool`. */
   const [toolArmed, setToolArmed] = useState(false);
   /** WINDOW_SETTINGS grid.last_size, as an IU size. */
@@ -676,6 +686,14 @@ export function FootprintEditor({
       const p = { x: Math.round(pos.x), y: Math.round(pos.y) };
       if (activeTool === 'placePad') {
         placePadAt(p);
+        return;
+      }
+      // `PCB_CONTROL::GridPlaceOrigin`'s picker (`pcb_control.cpp:769-800`),
+      // which the footprint editor reaches through the same PCB_CONTROL.
+      // A one-shot: the click handler returns false, so the tool pops.
+      if (activeTool === 'gridSetOrigin') {
+        setGridOrigin(p);
+        setActiveTool('selectSetRect');
         return;
       }
       // `DRAWING_TOOL::PlacePoint` — `POINT_PLACER::CreateItem` sets nothing on
@@ -1262,6 +1280,11 @@ export function FootprintEditor({
   const onMenuAction = useCallback(
     (id: string) => {
       switch (id) {
+        // `COMMON_TOOLS::GridResetOrigin` — `SetGridOrigin( VECTOR2I( 0, 0 ) )`
+        // and a refresh. Not a picker, so it is a plain menu action.
+        case 'gridResetOrigin':
+          setGridOrigin({ x: 0, y: 0 });
+          break;
         case 'newLibrary':
           setNewLibName('');
           break;
@@ -1730,6 +1753,7 @@ export function FootprintEditor({
             drawOpts={drawOpts}
             selection={selection}
             activeTool={activeTool}
+            gridOrigin={gridOrigin}
             showGrid={objects.grid && toggles.has('toggleGrid')}
             gridIU={gridIU}
             // `RULER_ITEM` is built with `frame()->GetUserUnits()`, so the

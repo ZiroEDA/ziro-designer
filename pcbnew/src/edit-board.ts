@@ -287,8 +287,14 @@ export function boardItemBBox(board: Board, id: string): BoardBBox | null {
       // `PCB_POINT::GetBoundingBox`: `BOX2I::ByCenter( m_pos, { m_size, m_size } )`
       // (`pcb_point.cpp:143-147`) — the square the X is inscribed in, so half a
       // size in each direction.
-      return p ? { minX: p.at.x - p.size / 2, minY: p.at.y - p.size / 2,
-                   maxX: p.at.x + p.size / 2, maxY: p.at.y + p.size / 2 } : null;
+      return p
+        ? {
+            minX: p.at.x - p.size / 2,
+            minY: p.at.y - p.size / 2,
+            maxX: p.at.x + p.size / 2,
+            maxY: p.at.y + p.size / 2,
+          }
+        : null;
     }
     case 'fptext': {
       const f = board.footprints[ref.index];
@@ -530,11 +536,7 @@ const pointDist = (p: PcbPoint, pos: Vec2): number => {
   const b = { x: p.at.x + h, y: p.at.y + h };
   const c = { x: p.at.x - h, y: p.at.y + h };
   const d = { x: p.at.x + h, y: p.at.y - h };
-  return Math.min(
-    distToSeg(pos, a, b),
-    distToSeg(pos, c, d),
-    Math.max(0, dist(pos, p.at) - h / 2),
-  );
+  return Math.min(distToSeg(pos, a, b), distToSeg(pos, c, d), Math.max(0, dist(pos, p.at) - h / 2));
 };
 
 /** Distance from a point to a graphic shape (0 inside a filled shape). */
@@ -3078,5 +3080,50 @@ export function flipBoardItems(board: Board, ids: ReadonlySet<string>, centre?: 
     texts: board.texts.map((t, i) => (idx.text.has(i) ? flipText(t) : t)),
     shapes: board.shapes.map((s, i) => (idx.shape.has(i) ? flipShape(s) : s)),
     footprints: board.footprints.map((f, i) => (idx.footprint.has(i) ? flipFp(f) : f)),
+  };
+}
+
+// ----- the two board origins (PCB_CONTROL / BOARD_EDITOR_CONTROL) -------------
+
+/**
+ * Move one of the board's two origins, patching `(setup …)` in place.
+ *
+ * The pair upstream:
+ *
+ *     void PCB_CONTROL::DoSetGridOrigin( VIEW* aView, PCB_BASE_FRAME* aFrame,
+ *                                        EDA_ITEM* originViewItem, const VECTOR2D& aPoint )
+ *     {
+ *         aFrame->GetDesignSettings().SetGridOrigin( VECTOR2I( aPoint ) );
+ *         aView->GetGAL()->SetGridOrigin( aPoint );
+ *         originViewItem->SetPosition( aPoint );
+ *         aView->MarkDirty();
+ *         aFrame->OnModify();
+ *     }
+ *     (`pcb_control.cpp:757-765`, and `BOARD_EDITOR_CONTROL::DoSetDrillOrigin`
+ *      at `board_editor_control.cpp:2303-2310` with `SetAuxOrigin`.)
+ *
+ * Four of those five lines are view bookkeeping the browser does by redrawing;
+ * what has to survive is the design setting, which lives in the file as
+ * `(setup (grid_origin x y))` / `(setup (aux_axis_origin x y))`. Both are
+ * *preserved-opaque* nodes in `board_file_settings.ts` — Board Setup carries
+ * them through untouched — so this is the one writer for them, and it patches
+ * the source rather than going through that dialog's whole-section rebuild.
+ *
+ * A board with no `(setup …)` at all gains one, because
+ * `BOARD_DESIGN_SETTINGS` always has an origin to write even when the file
+ * did not name one.
+ */
+export function setBoardOrigin(
+  board: Board,
+  which: 'grid_origin' | 'aux_axis_origin',
+  at: Vec2,
+): Board {
+  const node = list(atom(which), atom(mm(at.x)), atom(mm(at.y)));
+  const setup = childNamed(board.source, 'setup');
+  const nextSetup = setup ? patchChild(setup, which, node) : list(atom('setup'), node);
+
+  return {
+    ...board,
+    source: patchChild(board.source, 'setup', nextSetup),
   };
 }

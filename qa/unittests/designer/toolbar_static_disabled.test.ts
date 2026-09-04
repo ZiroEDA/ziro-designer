@@ -132,14 +132,11 @@ const UNBUILT: Readonly<Record<string, readonly string[]>> = {
     'drawRuleArea',
     'drawBezier',
     'placeBarcode',
-    'gridSetOrigin',
-    'drillOrigin',
-    // `placePoint` came off this list when `PCB_POINT` was ported: the item is
-    // in the model, the parser, the writer and the painter, and
-    // `DRAWING_TOOL::PlacePoint` is `handlePointClick` in `PcbEditor`. The two
-    // origin tools above it stay — `PCB_CONTROL::GridPlaceOrigin` and
-    // `BOARD_EDITOR_CONTROL::DrillOrigin` both run through `PCB_PICKER_TOOL`,
-    // which is not ported.
+    // The whole "PCB origins and points" group came off this list together:
+    // `DRAWING_TOOL::PlacePoint` is `handlePointClick`, and
+    // `PCB_CONTROL::GridPlaceOrigin` / `BOARD_EDITOR_CONTROL::DrillOrigin` are
+    // `handleOriginClick` — the one-shot picker both of them run, writing
+    // `(setup (grid_origin …))` and `(setup (aux_axis_origin …))`.
   ],
   'footprint top': [],
   'footprint left': [],

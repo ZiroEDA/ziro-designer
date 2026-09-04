@@ -185,7 +185,13 @@ export const FP_RIGHT_TOOLBAR: ToolEntry[] = [
   // toolbar it lands on. "Place points" was ours.
   { id: 'placePoint', icon: 'placePoint', title: 'Add reference/snap points' },
   { id: 'setAnchor', icon: 'setAnchor', title: 'Set the footprint anchor' },
-  { id: 'gridOrigin', icon: 'gridOrigin', title: 'Set the grid origin point' },
+  // `ACTIONS::gridSetOrigin` (`toolbars_footprint_editor.cpp:136`) — the
+  // click-to-place TOOL. This carried the id `gridOrigin`, which is a
+  // *different* action: `ACTIONS::gridOrigin` is the WX_PT_ENTRY_DIALOG on the
+  // Show Grid button's right-click menu. Same alias bug the measure tool had:
+  // the button lit and the canvas, listening for the action's own name, heard
+  // nothing.
+  { id: 'gridSetOrigin', icon: 'gridSetOrigin', title: 'Set the grid origin point' },
   // `ACTIONS::measureTool` (toolbars_footprint_editor.cpp:137). The id is the
   // ACTION's name, which is what `FootprintCanvas` arms its ruler on: as
   // `measure` this button lit up and did nothing at all, because the canvas
@@ -228,7 +234,7 @@ export const FP_TOOL_FRIENDLY_NAMES: Readonly<Record<string, string>> = {
   placePoint: 'Place Point',
   placeImage: 'Place Reference Images',
   setAnchor: 'Place the Footprint Anchor',
-  gridOrigin: 'Grid Origin',
+  gridSetOrigin: 'Grid Origin',
   deleteTool: 'Interactive Delete Tool',
   measureTool: 'Measure Tool',
   zoomTool: 'Zoom to Selection Area',

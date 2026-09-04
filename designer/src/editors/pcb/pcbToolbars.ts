@@ -348,14 +348,12 @@ export const PCB_RIGHT_TOOLBAR: ToolEntry[] = [
         id: 'gridSetOrigin',
         icon: 'gridSetOrigin',
         title: 'Grid Origin\nPlace the grid origin point',
-        ...todo,
       },
       {
         id: 'drillOrigin',
         icon: 'drillOrigin',
         title:
           'Drill/Place File Origin\nPlace origin point for drill files and component placement files',
-        ...todo,
       },
     ],
   },
