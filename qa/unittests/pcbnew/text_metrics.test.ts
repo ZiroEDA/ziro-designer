@@ -201,6 +201,7 @@ const footprint = (over: Partial<PcbFootprint> = {}): PcbFootprint => ({
   shapes: [],
   texts: [],
   points: [],
+  barcodes: [],
   models: [],
   source: EMPTY,
   ...over,
@@ -222,6 +223,7 @@ const board = (texts: PcbTextItem[]): Board => ({
   tables: [],
   images: [],
   points: [],
+  barcodes: [],
   groups: [],
   source: EMPTY,
 });

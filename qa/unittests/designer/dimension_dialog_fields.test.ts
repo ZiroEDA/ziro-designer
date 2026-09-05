@@ -122,6 +122,7 @@ describe('the flags agree with what the engine will actually write', () => {
       tables: [],
       images: [],
       points: [],
+      barcodes: [],
       groups: [],
       source: { kind: 'list' as const, items: [] },
     };

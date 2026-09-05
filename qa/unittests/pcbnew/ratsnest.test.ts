@@ -34,6 +34,7 @@ const footprint = (pads: PcbPad[]): PcbFootprint => ({
   shapes: [],
   texts: [],
   points: [],
+  barcodes: [],
   models: [],
   source: EMPTY,
 });
@@ -84,6 +85,7 @@ const board = (over: Partial<Board>): Board => ({
   tables: [],
   images: [],
   points: [],
+  barcodes: [],
   groups: [],
   source: EMPTY,
   ...over,

@@ -407,6 +407,7 @@ function padWrapperFootprint(pads: PcbPad[]): PcbFootprint {
     shapes: [],
     texts: [],
     points: [],
+    barcodes: [],
     models: [],
     source: { kind: 'list', items: [] },
   };
@@ -689,6 +690,7 @@ function emptyClipboardBoard(board: Board): Board {
     images: [],
     dimensions: [],
     points: [],
+    barcodes: [],
     groups: [],
     source: { kind: 'list', items: [] },
   };
@@ -996,6 +998,7 @@ export function parseClipboardText(text: string): ParsedClipboard | null {
         images: [],
         dimensions: [],
         points: [],
+        barcodes: [],
         groups: [],
         source: { kind: 'list', items: [atom('kicad_pcb')] },
       };

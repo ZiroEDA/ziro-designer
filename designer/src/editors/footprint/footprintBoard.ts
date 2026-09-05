@@ -119,6 +119,7 @@ export function footprintToBoard(fp: PcbFootprint | null): Board {
     // are `FOOTPRINT::Points()` and travel inside `fp`, exactly as its pads and
     // graphics do.
     points: [],
+    barcodes: [],
     tracks: [],
     arcs: [],
     vias: [],

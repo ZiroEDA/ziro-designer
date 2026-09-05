@@ -50,6 +50,7 @@ const board = (texts: PcbTextItem[]): Board => ({
   tables: [],
   images: [],
   points: [],
+  barcodes: [],
   groups: [],
   source: EMPTY,
 });

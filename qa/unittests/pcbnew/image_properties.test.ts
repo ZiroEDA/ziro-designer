@@ -58,6 +58,7 @@ const board = (images: PcbImage[]): Board => ({
   tables: [],
   images,
   points: [],
+  barcodes: [],
   groups: [],
   source: EMPTY,
 });

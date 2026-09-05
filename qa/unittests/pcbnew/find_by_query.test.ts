@@ -56,6 +56,7 @@ const board = (): Board => ({
       shapes: [],
       texts: [],
       points: [],
+      barcodes: [],
       models: [],
       source: EMPTY,
     },
@@ -99,6 +100,7 @@ const board = (): Board => ({
   tables: [],
   images: [],
   points: [],
+  barcodes: [],
   groups: [],
   source: EMPTY,
 });

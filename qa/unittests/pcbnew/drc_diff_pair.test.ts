@@ -261,6 +261,7 @@ const board = (tracks: PcbTrack[], names: [number, string][]): Board => ({
   tables: [],
   images: [],
   points: [],
+  barcodes: [],
   groups: [],
   source: EMPTY,
 });

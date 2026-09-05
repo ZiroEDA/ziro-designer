@@ -76,6 +76,7 @@ const fp = (spec: FpSpec): PcbFootprint => {
     shapes: [],
     texts: [refText(spec.ref, spec.refAt ?? at)],
     points: [],
+    barcodes: [],
     models: [],
     source: list(atom('footprint')),
   };
@@ -100,6 +101,7 @@ const board = (specs: FpSpec[]): Board => ({
   images: [],
   dimensions: [],
   points: [],
+  barcodes: [],
   groups: [],
   source: EMPTY,
 });

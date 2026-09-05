@@ -213,6 +213,7 @@ function newFootprint(name: string): PcbFootprint {
       makeText('value', name, { x: 0, y: mmToIU(1) }, 'F.Fab'),
     ],
     points: [],
+    barcodes: [],
     models: [],
     source: EMPTY_SOURCE,
   };

@@ -57,6 +57,9 @@ import type {
   PcbTextItem,
   PcbZone,
   PcbZoneFill,
+  BarcodeEcc,
+  BarcodeKind,
+  PcbBarcode,
   PlacementSourceType,
   StrokeType,
   TeardropParams,
@@ -170,12 +173,27 @@ const toBoard = (local: Vec2, t: FpTransform | null): Vec2 => {
  * origin with `DEFAULT_PT_SIZE_MM` (`pcb_point.cpp:41`) and no layer, so those
  * are what an absent token leaves behind here.
  *
- * `t` is the footprint placement, applied for exactly the reason a shape's is:
- * on a board a footprint's children are read into board coordinates.
+ * **No footprint transform, even inside a footprint.** Every other child does
+ * one: `parsePCB_SHAPE` finishes with
+ *
+ *     shape->Rotate( { 0, 0 }, parentFP->GetOrientation() );
+ *     shape->Move( parentFP->GetPosition() );        (`…_parser.cpp:3649-3652`)
+ *
+ * and `format( const PCB_SHAPE* )` unwinds it by passing `parentFP` to
+ * `formatInternalUnits`. `parsePCB_POINT` takes no parent at all — it is the
+ * only child parser with an empty signature — and `format( const PCB_POINT* )`
+ * prints `GetPosition()` through the *one-argument* overload
+ * (`pcb_io_kicad_sexpr.cpp:1158`). Both halves are missing, not one, so this is
+ * the convention rather than an upstream oversight: a footprint's points are
+ * stored in absolute board coordinates and read back as they are written.
+ *
+ * We baked them through the placement here, which round-tripped (the writer
+ * unbaked) but put the marker in the wrong place on screen for any footprint
+ * that was not at the origin unrotated.
  */
-function readPoint(item: SList, t: FpTransform | null): PcbPoint {
+function readPoint(item: SList): PcbPoint {
   return {
-    at: toBoard(ptAt(childNamed(item, 'at')) ?? { x: 0, y: 0 }, t),
+    at: ptAt(childNamed(item, 'at')) ?? { x: 0, y: 0 },
     size: mmOrUndef(item, 'size') ?? DEFAULT_POINT_SIZE,
     layer: layerOf(item),
     uuid: uuidOf(item),
@@ -185,6 +203,108 @@ function readPoint(item: SList, t: FpTransform | null): PcbPoint {
 
 /** `DEFAULT_PT_SIZE_MM = 1.0` (`pcbnew/pcb_point.cpp:42`), in IU. */
 export const DEFAULT_POINT_SIZE = mmToIU(1.0);
+
+/**
+ * `PCB_BARCODE`'s constructor defaults (`pcb_barcode.cpp:61-71`), for the
+ * tokens a `(barcode …)` node leaves out. The grammar makes every one of them
+ * optional — `parsePCB_BARCODE` only rejects what is not one of its eleven
+ * heads — so an absent token has to fall back to what the freshly-constructed
+ * item already holds.
+ */
+export const BARCODE_DEFAULTS = {
+  /** `m_width`/`m_height`, both `pcbIUScale.mmToIU( 40 )`. */
+  size: mmToIU(40),
+  /** `m_layer = Dwgs_User`, the last line of the constructor body. */
+  layer: 'Dwgs.User',
+  /** `m_kind( BARCODE_T::QR_CODE )`. */
+  kind: 'qr' as BarcodeKind,
+  /** `m_errorCorrection( BARCODE_ECC_T::L )`. */
+  ecc: 'L' as BarcodeEcc,
+  /**
+   * `m_text` is a default-constructed `PCB_TEXT`, so its height is `EDA_TEXT`'s
+   * `DEFAULT_SIZE_TEXT` — 50 mils (`eda_text.cpp:105`, `eda_text.h:81`).
+   * The barcode constructor never calls `SetTextSize`; the *tool* does, from
+   * `bds.GetTextSize( layer ).y` (`drawing_tool.cpp:1532`), which is a board
+   * setting and so not a default of the item.
+   */
+  textHeight: mmToIU(1.27),
+} as const;
+
+/**
+ * `(barcode …)`, `PCB_IO_KICAD_SEXPR_PARSER::parsePCB_BARCODE`
+ * (`…_parser.cpp:3979-4117`). Read identically at board level (T_barcode,
+ * :1237) and inside a footprint (:5559).
+ *
+ * Like `readPoint`, and unlike every graphic, there is **no footprint
+ * transform**: `parsePCB_BARCODE` never touches `aParent` beyond handing it to
+ * the constructor, and `format( const PCB_BARCODE* )` prints `GetPosition()`
+ * through the one-argument `formatInternalUnits` (`pcb_io_kicad_sexpr.cpp:2208`).
+ * A footprint's barcode is stored in absolute board coordinates.
+ *
+ * Nothing about the *symbol* is read, because nothing about it is written: the
+ * parser ends with `barcode->AssembleBarcode()` (:4113) and the modules are
+ * recomputed from `text`, `kind` and `ecc` on every load.
+ */
+function readBarcode(item: SList): PcbBarcode {
+  const at = childNamed(item, 'at');
+  const size = childNamed(item, 'size');
+  const margins = childNamed(item, 'margins');
+  const type = childNamed(item, 'type');
+  const eccLevel = childNamed(item, 'ecc_level');
+  const textNode = childNamed(item, 'text');
+  const hide = childNamed(item, 'hide');
+  const knockout = childNamed(item, 'knockout');
+
+  return {
+    at: ptAt(at) ?? { x: 0, y: 0 },
+    // `(at x y angle)`: the third field is optional, and read as a plain double
+    // rather than through the angle parser (:4003-4004).
+    angle: (at ? numArg(at, 2) : undefined) ?? 0,
+    layer: layerOf(item) || BARCODE_DEFAULTS.layer,
+    width: (size ? ptAt(size)?.x : undefined) ?? BARCODE_DEFAULTS.size,
+    height: (size ? ptAt(size)?.y : undefined) ?? BARCODE_DEFAULTS.size,
+    text: (textNode ? arg(textNode, 0) : undefined) ?? '',
+    textHeight: mmOrUndef(item, 'text_height') ?? BARCODE_DEFAULTS.textHeight,
+    kind: BARCODE_KIND_TOKENS[(type ? arg(type, 0) : undefined) ?? ''] ?? BARCODE_DEFAULTS.kind,
+    ecc: BARCODE_ECC_TOKENS[(eccLevel ? arg(eccLevel, 0) : undefined) ?? ''] ?? BARCODE_DEFAULTS.ecc,
+    // `(hide …)` is the negation of what we store: `SetShowText( !parseBool() )`.
+    showText: hide ? arg(hide, 0) === 'no' : true,
+    knockout: knockout ? arg(knockout, 0) !== 'no' : false,
+    margin: (margins ? ptAt(margins) : undefined) ?? { x: 0, y: 0 },
+    uuid: uuidOf(item),
+    locked: maybeAbsent(item, 'locked', true),
+    source: item,
+  };
+}
+
+/**
+ * The `(type …)` spellings the parser accepts (:4045-4059). Three of the five
+ * have an accepted alias, and the writer emits only the first of each pair
+ * (`pcb_io_kicad_sexpr.cpp:2225-2229`) — so a file written elsewhere may use
+ * the alias and must still load.
+ */
+const BARCODE_KIND_TOKENS: Readonly<Record<string, BarcodeKind>> = {
+  code39: 'code39',
+  code128: 'code128',
+  datamatrix: 'datamatrix',
+  data_matrix: 'datamatrix',
+  qr: 'qr',
+  qrcode: 'qr',
+  microqr: 'microqr',
+  micro_qr: 'microqr',
+};
+
+/** `(ecc_level …)` (:4067-4076): either case is accepted. */
+const BARCODE_ECC_TOKENS: Readonly<Record<string, BarcodeEcc>> = {
+  L: 'L',
+  l: 'L',
+  M: 'M',
+  m: 'M',
+  Q: 'Q',
+  q: 'Q',
+  H: 'H',
+  h: 'H',
+};
 
 const layerOf = (node: SList): string => {
   const l = childNamed(node, 'layer');
@@ -929,6 +1049,7 @@ function readFootprint(item: SList, local = false): PcbFootprint | null {
     shapes: [],
     texts: [],
     points: [],
+    barcodes: [],
     models: [],
     uuid: uuidOf(item),
     source: item,
@@ -942,10 +1063,13 @@ function readFootprint(item: SList, local = false): PcbFootprint | null {
     } else if (h === 'model') {
       const m = readModel(child);
       if (m) fp.models.push(m);
+    } else if (h === 'barcode') {
+      // `parseFOOTPRINT`, T_barcode (`…_parser.cpp:5559-5563`).
+      fp.barcodes.push(readBarcode(child));
     } else if (h === 'point') {
       // `parseFOOTPRINT`, T_point (`…_parser.cpp:5606-5610`). Unprefixed, not
       // `fp_point`: the same token a board uses.
-      fp.points.push(readPoint(child, t));
+      fp.points.push(readPoint(child));
     } else if (h.startsWith('fp_') && h !== 'fp_text' && h !== 'fp_text_box') {
       const s = readShape(child, t);
       if (s) fp.shapes.push(s);
@@ -1262,6 +1386,7 @@ export function readBoard(root: SList): Board {
     images: [],
     dimensions: [],
     points: [],
+    barcodes: [],
     groups: [],
     source: root,
   };
@@ -1430,11 +1555,15 @@ export function readBoard(root: SList): Board {
         if (d) board.dimensions.push({ ...d, locked: lockedOf(item) });
         break;
       }
+      case 'barcode':
+        // `parseBOARD_unchecked`, T_barcode (`…_parser.cpp:1237`).
+        board.barcodes.push(readBarcode(item));
+        break;
       case 'point':
         // `parseBOARD_unchecked`, T_point (`…_parser.cpp:1330`): a board's own
         // snap points, `BOARD::Points()`. Nothing transforms them — they are
         // already board coordinates.
-        board.points.push(readPoint(item, null));
+        board.points.push(readPoint(item));
         break;
       default:
         break;

@@ -266,6 +266,7 @@ describe('island removal reaches the filler', () => {
         shapes: [],
         texts: [],
         points: [],
+        barcodes: [],
         models: [],
         source: EMPTY,
       },
@@ -307,6 +308,7 @@ describe('island removal reaches the filler', () => {
     tables: [],
     images: [],
     points: [],
+    barcodes: [],
     groups: [],
     source: EMPTY,
   });

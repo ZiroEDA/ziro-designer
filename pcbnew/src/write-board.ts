@@ -29,6 +29,7 @@ import {
   buildTeardropParamsNode,
   isDefaultTeardropParams,
   writeFootprintNode,
+  barcodeNode,
 } from './write-footprint.js';
 import { isAlignedKind } from './types.js';
 import type {
@@ -41,6 +42,7 @@ import type {
   PcbTrack,
   PcbArcTrack,
   PcbVia,
+  PcbBarcode,
   PcbPoint,
   PcbShape,
   PcbTextItem,
@@ -607,6 +609,7 @@ export function buildPointNode(p: PcbPoint): SList {
 const pointNode = (p: PcbPoint): SNode =>
   p.source.items.length > 0 ? p.source : buildPointNode(p);
 
+
 /** A source child the reader parsed by these top-level heads. */
 const GRAPHIC_HEADS = new Set(['gr_line', 'gr_arc', 'gr_circle', 'gr_rect', 'gr_poly', 'gr_curve']);
 
@@ -631,6 +634,7 @@ export function writeBoardNode(board: Board): SList {
     tbi = 0,
     ii = 0,
     pi = 0,
+    bci = 0,
     gi = 0;
 
   for (const it of src.items) {
@@ -675,6 +679,9 @@ export function writeBoardNode(board: Board): SList {
     } else if (h === 'point') {
       if (pi < board.points.length) out.push(pointNode(board.points[pi]!));
       pi++;
+    } else if (h === 'barcode') {
+      if (bci < board.barcodes.length) out.push(barcodeNode(board.barcodes[bci]!));
+      bci++;
     } else if (h === 'group') {
       // Empty groups are never written (PCB_IO_KICAD_SEXPR::format(PCB_GROUP)).
       if (gi < board.groups.length && board.groups[gi]!.members.length > 0)
@@ -700,6 +707,10 @@ export function writeBoardNode(board: Board): SList {
   for (; ii < board.images.length; ii++) out.push(imageNode(board.images[ii]!));
   for (; tbi < board.tables.length; tbi++) out.push(tableNode(board.tables[tbi]!));
   for (; di < board.dimensions.length; di++) out.push(dimensionNode(board.dimensions[di]!));
+  // With the graphics and before the points: a barcode is a `BOARD::Drawings()`
+  // item (`board.cpp:1504`), so `format( const BOARD* )` writes it in the
+  // `sorted_drawings` loop (:833) that runs ahead of `sorted_points` (:837).
+  for (; bci < board.barcodes.length; bci++) out.push(barcodeNode(board.barcodes[bci]!));
   for (; pi < board.points.length; pi++) out.push(pointNode(board.points[pi]!));
   for (; gi < board.groups.length; gi++)
     if (board.groups[gi]!.members.length > 0) out.push(groupNode(board.groups[gi]!));

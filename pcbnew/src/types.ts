@@ -323,6 +323,8 @@ export interface PcbFootprint {
   texts: PcbTextItem[];
   /** `FOOTPRINT::Points()`, the footprint's own snap points. */
   points: PcbPoint[];
+  /** `(barcode …)` inside a footprint, `parseFOOTPRINT` T_barcode. */
+  barcodes: PcbBarcode[];
   /** 3D model references (rendered by the 3D viewer, resolved to hosted assets). */
   models: Model3D[];
   uuid?: string;
@@ -779,6 +781,59 @@ export interface PcbPoint {
   source: SList;
 }
 
+/**
+ * `BARCODE_T` (`pcb_barcode.h:41-48`). The five symbologies KiCad offers, in
+ * the enum's own order — the order is the file's, the property grid's and the
+ * dialog dropdown's, and the integers are what the protobuf carries.
+ */
+export type BarcodeKind = 'code39' | 'code128' | 'datamatrix' | 'qr' | 'microqr';
+
+/**
+ * `BARCODE_ECC_T` (`pcb_barcode.h:50-56`). Only QR and Micro QR have one; the
+ * values are Zint's `option_1`, which is why they start at 1 rather than 0
+ * (`pcb_barcode.cpp:583` passes the enum straight through as `option_1`).
+ */
+export type BarcodeEcc = 'L' | 'M' | 'Q' | 'H';
+
+/**
+ * `PCB_BARCODE` (`pcbnew/pcb_barcode.h:63`) — a machine-readable symbol drawn
+ * as filled polygons on a graphic layer, plus optional human-readable text
+ * under it.
+ *
+ * Nothing here is geometry. The file stores *what to encode*, never the
+ * modules, and `parsePCB_BARCODE` finishes with `barcode->AssembleBarcode()`
+ * (`…_parser.cpp:4113`) — every load re-runs the encoder. So a barcode whose
+ * text is a variable reference re-renders when the variable changes, and a
+ * board saved by a newer Zint draws differently without the file changing.
+ * We mirror that: `readBarcode` stores the tokens, and the modules are
+ * computed on demand.
+ */
+export interface PcbBarcode {
+  /** `m_pos`, the *centre* — `GetPosition` returns it and `GetCenter` aliases it. */
+  at: Vec2;
+  /** `m_angle` in degrees, the second argument of `(at x y angle)`. */
+  angle: number;
+  layer: string;
+  /** `(size w h)`, IU. The symbol only — margins and text are outside it. */
+  width: number;
+  height: number;
+  /** `(text "…")`, the content to encode, before variable resolution. */
+  text: string;
+  /** `(text_height …)`, IU: the human-readable line under the symbol. */
+  textHeight: number;
+  kind: BarcodeKind;
+  /** `m_errorCorrection`; written only for `qr` and `microqr`. */
+  ecc: BarcodeEcc;
+  /** `m_text.IsVisible()`. The file spells the negation, `(hide yes)`. */
+  showText: boolean;
+  knockout: boolean;
+  /** `(margins x y)`, the knockout surround. Written only when non-zero. */
+  margin: Vec2;
+  uuid?: string;
+  locked?: boolean;
+  source: SList;
+}
+
 export interface Board {
   version: number;
   thickness?: number;
@@ -807,6 +862,8 @@ export interface Board {
   dimensions: PcbDimension[];
   /** `BOARD::Points()` — the board's own snap points, not a footprint's. */
   points: PcbPoint[];
+  /** `(barcode …)` at board level, `parseBOARD_unchecked` T_barcode. */
+  barcodes: PcbBarcode[];
   groups: PcbGroup[];
   fileName?: string;
   source: SList;

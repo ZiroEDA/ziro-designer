@@ -201,6 +201,7 @@ const board = (over: Partial<Board> = {}): Board => ({
   tables: [],
   images: [],
   points: [],
+  barcodes: [],
   groups: [],
   source: EMPTY,
   ...over,

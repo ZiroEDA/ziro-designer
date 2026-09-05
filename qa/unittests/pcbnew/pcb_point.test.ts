@@ -215,18 +215,43 @@ describe('a footprint’s own points', () => {
     expect(serializeFootprint(readFootprintFile(src)!)).toBe(serialize(src));
   });
 
-  it('is baked into board coordinates when the footprint is placed, and unbaked on save', () => {
-    // A footprint's children are read into board coordinates through the
-    // placement transform, exactly as its graphics are — and written back
-    // footprint-relative. Without both halves a save would move the point by
-    // the footprint's own position on every round trip.
+  it('is stored in ABSOLUTE board coordinates, unlike every graphic', () => {
+    // A footprint's graphics are footprint-relative in the file: their parser
+    // ends with `Rotate( {0,0}, parentFP->GetOrientation() ); Move(
+    // parentFP->GetPosition() )` (`…_parser.cpp:3649-3652`) and their formatter
+    // unwinds it by passing `parentFP` to `formatInternalUnits`.
+    //
+    // A point is the exception, and it is the exception in BOTH halves:
+    // `parsePCB_POINT()` is the one child parser that takes no parent at all
+    // (:8582), and `format( const PCB_POINT* )` prints `GetPosition()` through
+    // the one-argument overload (`pcb_io_kicad_sexpr.cpp:1158-1160`). Two
+    // missing halves is a convention, not an oversight — so `(at 1 2)` under a
+    // footprint at (100, 50) means 1 mm, 2 mm on the BOARD, and the marker that
+    // draws there is what KiCad draws.
+    //
+    // We used to bake it through the placement, which round-tripped — the
+    // writer unbaked — but drew the marker 100 mm away from where KiCad puts
+    // it, for any footprint not at the origin.
     const src = `(kicad_pcb (version 20241229) (net 0 "")
       (footprint "L:P" (layer "F.Cu") (at 100 50)
         (point (at 1 2) (size 1) (layer "F.Fab")
           (uuid "dddddddd-0000-0000-0000-000000000004"))))`;
     const b = read(src);
 
-    expect(b.footprints[0]!.points[0]!.at).toEqual({ x: MM(101), y: MM(52) });
+    expect(b.footprints[0]!.points[0]!.at).toEqual({ x: MM(1), y: MM(2) });
+    expect(serializeBoard(b)).toBe(serialize(parse(src)));
+  });
+
+  it('and a rotated footprint does not turn its points either', () => {
+    // The corollary, and the half a round-trip test cannot see: an orientation
+    // is not applied on read, so it must not be unapplied on write.
+    const src = `(kicad_pcb (version 20241229) (net 0 "")
+      (footprint "L:P" (layer "F.Cu") (at 100 50 90)
+        (point (at 1 2) (size 1) (layer "F.Fab")
+          (uuid "dddddddd-0000-0000-0000-000000000005"))))`;
+    const b = read(src);
+
+    expect(b.footprints[0]!.points[0]!.at).toEqual({ x: MM(1), y: MM(2) });
     expect(serializeBoard(b)).toBe(serialize(parse(src)));
   });
 });
@@ -377,7 +402,7 @@ describe('as a snap anchor — the thing it exists for', () => {
       (layers (0 "F.Cu" signal) (37 "F.SilkS" user "F.Silkscreen"))
       (net 0 "")
       (footprint "L:P" (layer "F.Cu") (at 100 50)
-        (point (at 1 2) (size 1) (layer "F.SilkS"))))`);
+        (point (at 101 52) (size 1) (layer "F.SilkS"))))`);
     const nearFp = { x: MM(101) + MM(0.2), y: MM(52) + MM(0.2) };
 
     expect(bestSnapAnchor(b, nearFp, grid, snapOpts)).toEqual({ x: MM(101), y: MM(52) });
@@ -489,16 +514,18 @@ describe('the Properties panel', () => {
 });
 
 describe('a footprint carries its points', () => {
-  // Our footprint children are held board-absolute, and the writer un-bakes
-  // each one against the footprint's anchor on save. So a transform that moved
-  // the footprint and not its points would not merely leave them behind on
-  // screen — it would change their footprint-relative offset and SAVE that.
+  // `FOOTPRINT::Move`, `::Rotate` and `::Flip` each end with a loop over
+  // `m_points` calling the same method on every one. A point is stored
+  // board-absolute (it is written that way too), so a transform that moved the
+  // footprint and not its points would move them apart on screen AND save the
+  // new gap — the file records where each point ended up, not an offset that
+  // could still be reconstructed.
   const FP = `(kicad_pcb (version 20241229) (generator "test")
     (layers (0 "F.Cu" signal) (31 "B.Cu" signal) (37 "F.SilkS" user "F.Silkscreen")
             (38 "B.SilkS" user "B.Silkscreen"))
     (net 0 "")
     (footprint "L:P" (layer "F.Cu") (at 100 50)
-      (point (at 1 2) (size 2) (layer "F.SilkS"))))`;
+      (point (at 101 52) (size 2) (layer "F.SilkS"))))`;
   const fpBoard = (): Board => read(FP);
   const pointOf = (b: Board): { x: number; y: number } => b.footprints[0]!.points[0]!.at;
 
@@ -507,9 +534,9 @@ describe('a footprint carries its points', () => {
 
     expect(after.footprints[0]!.at).toEqual({ x: MM(110), y: MM(70) });
     expect(pointOf(after)).toEqual({ x: MM(111), y: MM(72) });
-    // …and the saved offset is still (1, 2), which is the half that would
-    // silently corrupt the file if the point had stayed put.
-    expect(serializeBoard(after)).toContain('(at 1 2)');
+    // …and the file records the point's new absolute position, which is the
+    // half that would silently corrupt it if the point had stayed put.
+    expect(serializeBoard(after)).toContain('(at 111 72)');
   });
 
   it('rotates with it — `FOOTPRINT::SetOrientation`', () => {

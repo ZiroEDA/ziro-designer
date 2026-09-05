@@ -26,12 +26,14 @@ import { patchChild } from './edit-board.js';
 import { serialize } from '@ziroeda/sexpr/src/serializer.js';
 import { pcbIuToMM as iuToMM, pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 import { rotatePcb } from './read-board.js';
-import { formatDouble2Str } from '@ziroeda/common/src/plotters/fmt.js';
+import { formatDouble2Str, formatG } from '@ziroeda/common/src/plotters/fmt.js';
 import { GENERATOR, GENERATOR_VERSION } from '@ziroeda/common/src/generator.js';
 import type {
   PcbFootprint,
   PcbFootprintField,
   PcbPad,
+  BarcodeKind,
+  PcbBarcode,
   PcbPoint,
   PcbShape,
   PcbTextItem,
@@ -353,26 +355,100 @@ const fieldNode = (f: PcbFootprintField, fp: PcbFootprint): SList =>
  * A footprint's `(point …)`, `PCB_IO_KICAD_SEXPR::format( const PCB_POINT* )`
  * reached through `format( const FOOTPRINT* )`'s `sorted_points` loop.
  *
- * The same four tokens the board writes, but `(at …)` is footprint-relative,
- * because the whole child list is: a point read off a board was baked into
- * board coordinates by `readPoint`, so it has to be unbaked here or a
- * round trip would move it by the footprint's placement. `omitZero` is
- * irrelevant — a point has no orientation and the formatter prints no third
- * field — so the angle argument is always zero and always omitted.
+ * The same four tokens the board writes, and the same *absolute* `(at …)`:
+ * `format( const PCB_POINT* )` prints `GetPosition()` through the one-argument
+ * `formatInternalUnits` (`pcb_io_kicad_sexpr.cpp:1158`), not the `parentFP`
+ * overload every other footprint child uses. So there is nothing to unbake —
+ * see {@link readPoint}, whose parser has no parent either. `(at …)` is a
+ * plain pair with no angle, a point having no orientation to write.
  */
-const fpPointNode = (p: PcbPoint, fp: PcbFootprint): SList =>
+const fpPointNode = (p: PcbPoint): SList =>
   p.source.items.length > 0
-    ? patchChild(p.source, 'at', fpChildAtNode(fp, p.at, 0, true, childNamed(p.source, 'at')))
+    ? patchChild(p.source, 'at', list(atom('at'), atom(mm(p.at.x)), atom(mm(p.at.y))))
     : {
         kind: 'list',
         items: [
           atom('point'),
-          fpChildAtNode(fp, p.at, 0, true, undefined),
+          list(atom('at'), atom(mm(p.at.x)), atom(mm(p.at.y))),
           list(atom('size'), atom(mm(p.size))),
           list(atom('layer'), str(p.layer)),
           ...(p.uuid ? [list(atom('uuid'), str(p.uuid))] : []),
         ],
       };
+
+/*
+ * A `(barcode …)` is written identically at board level and inside a footprint
+ * — no parent transform either way (see {@link fpPointNode}) — so there is one
+ * builder, and it lives here because `write-board` already imports this module.
+ */
+/**
+ * `(type …)` and `(ecc_level …)` spellings, `format( const PCB_BARCODE* )`
+ * (`pcb_io_kicad_sexpr.cpp:2221-2246`).
+ *
+ * The parser accepts an alias for three of the five kinds; the writer emits
+ * only these, so a file we save uses the canonical spelling whichever form it
+ * was loaded from — which is what KiCad does too.
+ */
+const BARCODE_KIND_TOKEN: Readonly<Record<BarcodeKind, string>> = {
+  code39: 'code39',
+  code128: 'code128',
+  datamatrix: 'datamatrix',
+  qr: 'qr',
+  microqr: 'microqr',
+};
+
+/**
+ * `(barcode …)`, `PCB_IO_KICAD_SEXPR::format( const PCB_BARCODE* )`
+ * (`pcb_io_kicad_sexpr.cpp:2198-2261`). Child order is upstream's.
+ *
+ * Three details that are not obvious:
+ *
+ * - **`(at …)` always carries the angle**, through `FormatAngle` — a plain
+ *   `%.10g` of the degrees — where most items omit a zero rotation. The
+ *   barcode's formatter has no such branch, so `0` is written out.
+ * - **`(hide …)` and `(knockout …)` are written both ways.** They go through
+ *   `FormatBool`, which always emits, so a `no` is not noise: dropping it would
+ *   change what a reader defaults to.
+ * - **`(ecc_level …)` only exists for QR and Micro QR**, the two symbologies
+ *   whose error correction Zint takes as `option_1`. Writing one for a Code 39
+ *   would be a token KiCad's own parser accepts but its writer never produces.
+ *
+ * `(margins …)` is the one token written conditionally, and on the *value*
+ * rather than on a flag: only when either axis is non-zero.
+ *
+ * Nothing about the symbol's geometry is written, because none is stored — the
+ * modules are recomputed from `(text …)`, `(type …)` and `(ecc_level …)` on
+ * every load. See {@link PcbBarcode}.
+ */
+export function buildBarcodeNode(b: PcbBarcode): SList {
+  const items: SNode[] = [atom('barcode')];
+  if (b.locked) items.push(list(atom('locked'), atom('yes')));
+
+  items.push(
+    list(atom('at'), atom(mm(b.at.x)), atom(mm(b.at.y)), atom(formatG(b.angle, 10))),
+    list(atom('layer'), str(b.layer)),
+    list(atom('size'), atom(mm(b.width)), atom(mm(b.height))),
+    list(atom('text'), str(b.text)),
+    list(atom('text_height'), atom(mm(b.textHeight))),
+    list(atom('type'), atom(BARCODE_KIND_TOKEN[b.kind])),
+  );
+
+  if (b.kind === 'qr' || b.kind === 'microqr')
+    items.push(list(atom('ecc_level'), atom(b.ecc)));
+
+  items.push(
+    list(atom('hide'), atom(b.showText ? 'no' : 'yes')),
+    list(atom('knockout'), atom(b.knockout ? 'yes' : 'no')),
+  );
+
+  if (b.margin.x !== 0 || b.margin.y !== 0)
+    items.push(list(atom('margins'), atom(mm(b.margin.x)), atom(mm(b.margin.y))));
+
+  if (b.uuid) items.push(list(atom('uuid'), str(b.uuid)));
+  return { kind: 'list', items };
+}
+export const barcodeNode = (b: PcbBarcode): SNode =>
+  b.source.items.length > 0 ? b.source : buildBarcodeNode(b);
 
 const GRAPHIC_HEADS = new Set(['fp_line', 'fp_arc', 'fp_circle', 'fp_rect', 'fp_poly', 'fp_curve']);
 
@@ -410,7 +486,8 @@ export function writeFootprintNode(fp: PcbFootprint): SList {
     si = 0,
     ti = 0,
     di = 0, // next model pad / shape / text / user field to emit
-    oi = 0; // …and the next point
+    oi = 0, // …and the next point
+    bci = 0; // …and the next barcode
 
   if (src.items.length > 0) {
     for (const it of src.items) {
@@ -431,8 +508,11 @@ export function writeFootprintNode(fp: PcbFootprint): SList {
       } else if (isFieldSource(it)) {
         if (di < fields.length) out.push(fieldNode(fields[di]!, fp));
         di++;
+      } else if (h === 'barcode') {
+        if (bci < fp.barcodes.length) out.push(barcodeNode(fp.barcodes[bci]!));
+        bci++;
       } else if (h === 'point') {
-        if (oi < fp.points.length) out.push(fpPointNode(fp.points[oi]!, fp));
+        if (oi < fp.points.length) out.push(fpPointNode(fp.points[oi]!));
         oi++;
       } else out.push(it);
     }
@@ -452,9 +532,13 @@ export function writeFootprintNode(fp: PcbFootprint): SList {
   for (; ti < fp.texts.length; ti++) out.push(textNode(fp.texts[ti]!, fp));
   for (; di < fields.length; di++) out.push(fieldNode(fields[di]!, fp));
   for (; si < fp.shapes.length; si++) out.push(shapeNode(fp.shapes[si]!));
+  // A barcode is one of the footprint's `GraphicalItems()` (`footprint.cpp:1450`),
+  // so it belongs to the `sorted_drawings` loop (:1447) — with the graphics, and
+  // still ahead of the points.
+  for (; bci < fp.barcodes.length; bci++) out.push(barcodeNode(fp.barcodes[bci]!));
   // After the graphics and before the pads, which is where
   // `format( const FOOTPRINT* )` puts its `sorted_points` loop (:1450-1451).
-  for (; oi < fp.points.length; oi++) out.push(fpPointNode(fp.points[oi]!, fp));
+  for (; oi < fp.points.length; oi++) out.push(fpPointNode(fp.points[oi]!));
   for (; pi < fp.pads.length; pi++) out.push(padNode(fp.pads[pi]!, fp));
 
   return { kind: 'list', items: out };

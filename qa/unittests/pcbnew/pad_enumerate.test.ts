@@ -58,6 +58,7 @@ const footprint = (pads: PcbPad[]): PcbFootprint => ({
   shapes: [],
   texts: [],
   points: [],
+  barcodes: [],
   models: [],
   source: EMPTY,
 });
