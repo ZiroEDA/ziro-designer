@@ -151,7 +151,11 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // `.ze-libtree-search` now — and a footprint row's `paddingLeft: 26`, which
   // was not even a spacing value: it was one level of tree indent, and
   // `kDataViewIndent` is 20 (`lib_tree_model_adapter.cpp:40`).
-  'editors/footprint': { colours: 4, metrics: 14 },
+  // 14 -> 13: the grid selector's `style={{ margin: '0 4px' }}`, which went
+  // with the native `<select>` it was on. `UpdateGridSelectBox` builds a
+  // wxChoice and the toolbar's own sizer spaces it; a margin typed at the call
+  // site was this launcher deciding for itself what the toolbar looks like.
+  'editors/footprint': { colours: 4, metrics: 13 },
   'editors/gerbview': { colours: 1, metrics: 4 },
   // 1 -> 0. Its last metric was the slider's `height: 7px` NOT-PROVEN fudge,
   // and the slider itself moved to ui/Slider.tsx + shell.css when it stopped
@@ -1017,7 +1021,12 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // `ui` row, 719 -> 711, which is again the only row that moved.
     // 1492 -> 1490: the Nets tab's sizer borders, now cited; see the `ui` row,
     // 711 -> 709, the only row that moved.
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1490);
+    // 1490 -> 1489: the footprint editor's grid selector became a `Combo` and
+    // dropped the inline margin it carried as a `<select>`; see the
+    // `editors/footprint` row, 14 -> 13, the only row that moved. The same
+    // pass took `.ze-pref-row .lbl`'s `min-width: 150px` out of `ui` and put
+    // one CITED `column-gap` back, so `ui` does not move.
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1489);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {

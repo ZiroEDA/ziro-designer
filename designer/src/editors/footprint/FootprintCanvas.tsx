@@ -32,7 +32,12 @@ import {
   zoomFitView,
   type FitFrame,
 } from '../../ui/view_controls.js';
-import { type CrosshairMode, drawCrosshair, drawGrid } from '../../ui/grid_cursor.js';
+import {
+  type CrosshairMode,
+  drawCrosshair,
+  drawGrid,
+  type GridStyle,
+} from '../../ui/grid_cursor.js';
 import { footprintToolCursor } from './cursors.js';
 import { clampViewScale } from '../../ui/zoom_settings.js';
 import { zoomAreaTarget, type ZoomArea } from '../../ui/zoom_tool.js';
@@ -92,6 +97,39 @@ export interface FootprintCanvasProps {
    * radio items that changed nothing.
    */
   crosshairMode?: CrosshairMode;
+  /**
+   * `CURSOR_SETTINGS::always_show_cursor`, the Cursor group's second control.
+   *
+   * With it clear the crosshair is drawn only while a tool has asked for it
+   * (`KIGFX::VIEW_CONTROLS::ShowCursor`); with it set every tool gets one,
+   * which is what `m_forceCursorPosition`-less `m_cursorEnabled` means. This
+   * was hardcoded `true` here, so "Always show crosshairs" could not be turned
+   * off in this frame.
+   */
+  alwaysShowCursor?: boolean;
+  /**
+   * `GAL_DISPLAY_OPTIONS::m_gridStyle` / `m_gridLineWidth` /
+   * `m_gridMinSpacing` — `PANEL_GAL_OPTIONS`' Grid Display group, which every
+   * editor's Display Options page embeds.
+   *
+   * Props rather than a settings read inside the canvas, because this canvas
+   * serves three frames: `FOOTPRINT_EDIT_FRAME` (`fpedit.json`), CVPCB's
+   * `DISPLAY_FOOTPRINTS_FRAME` and the schematic's footprint preview, and each
+   * upstream is handed its own `APP_SETTINGS_BASE`. Reading one file in here
+   * would make the two viewers follow the editor's page.
+   */
+  gridStyle?: GridStyle;
+  gridLineWidthPx?: number;
+  gridMinSpacingPx?: number;
+  /**
+   * `KIGFX::GAL::GetGridSnapping()` — the Snap to grid choice, already resolved
+   * against `window.grid.show` by the caller (`footprintSnappingEnabled`).
+   *
+   * This was `showGrid`, i.e. `GRID_SNAPPING::WITH_GRID` hardcoded, so the
+   * default `ALWAYS` behaved like `WHEN_GRID_SHOWN` and `NEVER` was
+   * unreachable.
+   */
+  snapping?: boolean;
   /**
    * The frame's distance units, for the Measure Tool's labels.
    * `RULER_ITEM` is constructed with `frame()->GetUserUnits()`.
@@ -168,6 +206,11 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
       activeTool = 'selectSetRect',
       showGrid = true,
       crosshairMode = 'small',
+      alwaysShowCursor = true,
+      gridStyle,
+      gridLineWidthPx,
+      gridMinSpacingPx,
+      snapping,
       measureUnits = 'mm',
       gridIU = PCB_DEFAULT_GRID_IU,
       gridOrigin = ORIGIN,
@@ -253,6 +296,10 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
     showGridRef.current = showGrid;
     const crosshairModeRef = useRef(crosshairMode);
     crosshairModeRef.current = crosshairMode;
+    // The rest of `GAL_DISPLAY_OPTIONS`, read the same way: the draw callback
+    // is memoised on the scene and would otherwise close over a stale value.
+    const galRef = useRef({ gridStyle, gridLineWidthPx, gridMinSpacingPx, alwaysShowCursor });
+    galRef.current = { gridStyle, gridLineWidthPx, gridMinSpacingPx, alwaysShowCursor };
     const measureUnitsRef = useRef(measureUnits);
     measureUnitsRef.current = measureUnits;
     const gridIURef = useRef(gridIU);
@@ -264,7 +311,10 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
     const gridOriginRef = useRef(gridOrigin);
     gridOriginRef.current = gridOrigin;
     const snapRef = useRef((p: Vec2): Vec2 => p);
-    snapRef.current = (p: Vec2): Vec2 => (showGrid ? snapToGridSize(p, gridIU, gridOrigin) : p);
+    // `snapping` unset keeps the old reading for the two viewer frames, which
+    // have no Snap to grid control of their own yet.
+    const snapOn = snapping ?? showGrid;
+    snapRef.current = (p: Vec2): Vec2 => (snapOn ? snapToGridSize(p, gridIU, gridOrigin) : p);
 
     // Compile the footprint (wrapped as a board) into retained per-layer paths.
     const scene = useMemo(() => buildScene(footprintToBoard(footprint)), [footprint]);
@@ -364,6 +414,11 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
           color: drawOpts.theme?.grid,
           origin: gridOriginRef.current,
           devicePixelRatio: dpr,
+          // `PANEL_GAL_OPTIONS`' Grid Display group. Left undefined by the two
+          // viewer frames, where `pcbGridOptions`' own defaults stand.
+          style: galRef.current.gridStyle,
+          lineWidthPx: galRef.current.gridLineWidthPx,
+          minSpacingPx: galRef.current.gridMinSpacingPx,
           // Both frames this canvas serves enable the origin axes:
           // FOOTPRINT_EDIT_FRAME and CVPCB's DISPLAY_FOOTPRINTS_FRAME. The
           // board editor does not, which is why this is stated here rather
@@ -550,7 +605,7 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
           // PCB_TOOL_BASE; the selection tool does not, so there the crosshair
           // is the dimmed forced one.
           toolWantsCursor: activeToolRef.current !== 'selectSetRect',
-          alwaysShow: true,
+          alwaysShow: galRef.current.alwaysShowCursor,
           devicePixelRatio: dpr,
         });
       }

@@ -4,7 +4,8 @@
 import { parse } from '@ziroeda/sexpr';
 import type { Vec2 } from '@ziroeda/kimath';
 import { mmToIU, pcbIuToMM, PCB_IU_PER_MM, SCH_IU_PER_MM } from '@ziroeda/common';
-import { defaultGridIU, gridSizesIU } from '../../ui/grid_settings.js';
+import { EDIT_GRIDS_LABEL, GRID_LIST_SEPARATOR, gridChoiceLabel } from '../../ui/grid_settings.js';
+import { footprintGridForTool, footprintGridIU, footprintSnappingEnabled } from './grid.js';
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import { EMPTY_SOURCE } from '@ziroeda/eeschema';
 import { applyBarcodeValues, barcodeValues } from '@ziroeda/pcbnew/src/barcode_properties.js';
@@ -108,7 +109,9 @@ import { DEFAULT_DRAW_OPTIONS, type PcbDrawOptions } from '../pcb/renderBoard.js
 import '../../ui/shell.css';
 import { AboutDialog } from '../../home/dialogs/dialog_about.js';
 import { PreferencesDialog } from '../../dialogs/PreferencesDialog.js';
-import { useCommonSettings } from '../../prefs/useSettings.js';
+import type { PrefsPageId } from '../../dialogs/prefs/types.js';
+import { Combo } from '../../ui/Combo.js';
+import { useCommonSettings, useFpEditSettings } from '../../prefs/useSettings.js';
 import { settings } from '../../prefs/settings.js';
 import { footprintEditorMenus } from './menubar.js';
 import { showHotkeyList } from '../../ui/hotkey_list_action.js';
@@ -138,17 +141,6 @@ export interface FootprintEditorFile {
 const _MM = 10000;
 
 /**
- * The footprint editor's grid choices and its default.
- *
- * `fpedit` falls on the `else` row of `APP_SETTINGS_BASE::DefaultGridSizeList()`
- * — pcbnew's list — with `defaultGridIdx` 15, which is "0.5 mm"
- * (`common/settings/app_settings.cpp:463-481, 641-664`). The combo used to be
- * `disabled` with one hardcoded option reading "0.635 mm (25 mils)", a value
- * from neither the table nor the default index, and it was built with the
- * schematic IU scale while this canvas holds board geometry at pcbnew's, so the
- * number it printed and the number it meant were a hundred apart.
- */
-/**
  * The two docked palette widths, `footprint_edit_frame.cpp:228-252`.
  *
  * [data] KiCad states them itself, as `FromDIP` pixels rather than a theme
@@ -159,9 +151,6 @@ const _MM = 10000;
  */
 const LIBRARY_TREE_WIDTH = 250;
 const LAYERS_MANAGER_WIDTH = 180;
-
-const FP_GRIDS: number[] = gridSizesIU('pcbnew', PCB_IU_PER_MM);
-const FP_DEFAULT_GRID = defaultGridIU('pcbnew', PCB_IU_PER_MM);
 
 const basename = (p: string): string => p.split('/').pop()!.split('\\').pop()!;
 
@@ -289,6 +278,14 @@ export function FootprintEditor({
    * so its page would have edited `fpedit-toolbars` and changed nothing on
    * screen — the exact defect `useToolbarEntries` was written to end.
    */
+  /**
+   * `GetAppSettings<FOOTPRINT_EDITOR_SETTINGS>( "fpedit" )`, which upstream the
+   * frame holds as `GetFootprintEditorSettings()` and every one of its
+   * Preferences pages is handed. Subscribed, so pressing OK on any of them
+   * repaints this frame — `EDA_BASE_FRAME::CommonSettingsChanged`.
+   */
+  const fpCfg = useFpEditSettings();
+
   const fpTopBar = useToolbarEntries('fpedit', 'TOP_MAIN', FP_DEFAULT_TOOLBARS);
   const fpLeftBar = useToolbarEntries('fpedit', 'LEFT', FP_DEFAULT_TOOLBARS);
   const fpRightBar = useToolbarEntries('fpedit', 'RIGHT', FP_DEFAULT_TOOLBARS);
@@ -360,8 +357,33 @@ export function FootprintEditor({
   const [gridOrigin, setGridOrigin] = useState<Vec2>({ x: 0, y: 0 });
   /** Whether any tool has been pushed since the frame opened — see `selectTool`. */
   const [toolArmed, setToolArmed] = useState(false);
-  /** WINDOW_SETTINGS grid.last_size, as an IU size. */
-  const [gridIU, setGridIU] = useState(FP_DEFAULT_GRID);
+  /**
+   * `window.grid.last_size_idx` and `window.grid.sizes`, out of `fpedit.json` —
+   * not React state and not `GRID_SIZE_LIST.pcbnew`.
+   *
+   * `GRID_SETTINGS::grids` is what `PANEL_GRID_SETTINGS` edits: add, edit,
+   * remove and reorder all write `m_grids` back into `gridCfg.grids`
+   * (`common/dialogs/panel_grid_settings.cpp:190-192`), and `last_size` is the
+   * row its Current Grid choice selects. A frame reading the module table
+   * instead would draw the stock grids however that page was left, which is the
+   * same defect the toolbars had before `useToolbarEntries`.
+   *
+   * The default is still 15 — `app_settings.cpp:472-481`, `0.5 mm` — but it is
+   * now `FPEDIT_DEFAULTS`' rather than a second copy of it here.
+   */
+  const gridIdx = fpCfg.window.grid.last_size_idx;
+  /**
+   * `PCB_GRID_HELPER::GetGridSize( GetItemGrid( … ) )` — the current grid
+   * unless a Grid Overrides row applies to the kind of item the active tool
+   * lays down. The status bar deliberately does NOT use this: `DisplayGridMsg`
+   * prints the current grid.
+   */
+  const toolGridIU = footprintGridForTool(fpCfg, activeTool);
+  const setGridIdx = useCallback((next: number) => {
+    settings.updateFpEdit((s) => {
+      s.window.grid.last_size_idx = next;
+    });
+  }, []);
   // First anchor of a 2-click graphic (line/rect/circle) being drawn.
   const [drawStart, setDrawStart] = useState<Vec2 | null>(null);
   /** The barcode properties dialog: `at` for a new one, `index` to edit one. */
@@ -385,6 +407,14 @@ export function FootprintEditor({
     localOrigin: FP_LOCAL_ORIGIN,
     devicePixelRatio: typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1,
     iuPerMM: SCH_IU_PER_MM,
+    // `PCB_BASE_FRAME::GetShowPolarCoords()` -> `m_PolarCoords`, which the left
+    // toolbar's `ACTIONS::togglePolarCoords` writes
+    // (`footprint_editor_settings.cpp:115-116`).
+    polar: fpCfg.editing.polar_coords,
+    // `PCB_ORIGIN_TRANSFORMS::invertXAxis()` / `invertYAxis()`, i.e.
+    // Preferences > Footprint Editor > Origins & Axes.
+    invertX: fpCfg.origin_invert_x_axis,
+    invertY: fpCfg.origin_invert_y_axis,
   });
   const [scale, setScale] = useState(0);
   const [status, setStatus] = useState('');
@@ -426,7 +456,13 @@ export function FootprintEditor({
   const [newFpName, setNewFpName] = useState<string | null>(null);
   const [propsOpen, setPropsOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
-  const [prefsOpen, setPrefsOpen] = useState(false);
+  /**
+   * `ShowPreferences( <page>, <heading> )`. `true` is the plain
+   * `ACTIONS::openPreferences`, which names no page; a `PrefsPageId` is what
+   * `COMMON_TOOLS::GridProperties` and the grid combo's Edit Grids... row ask
+   * for (`common/tool/common_tools.cpp:609-634`).
+   */
+  const [prefsOpen, setPrefsOpen] = useState<null | true | PrefsPageId>(null);
   const common = useCommonSettings();
   const [padDialogId, setPadDialogId] = useState<string | null>(null);
 
@@ -938,7 +974,7 @@ export function FootprintEditor({
     // (`common/tool/common_tools.cpp:626`); that page is not in our book yet,
     // so the dialog opens without naming one.
     if (id === 'gridProperties') {
-      setPrefsOpen(true);
+      setPrefsOpen('fp-grids');
       return;
     }
     // `FOOTPRINT_EDIT_FRAME::ToggleLibraryTree` (`:402-419`): hiding the pane
@@ -948,6 +984,27 @@ export function FootprintEditor({
     if (id === 'showLibraryTree' && togglesRef.current.has(id)) {
       settings.updateFpEdit((s) => {
         s.window.lib_width = panelWidthRef.current;
+      });
+    }
+    // `COMMON_TOOLS::CursorControl` (`common/tool/common_tools.cpp`) does not
+    // keep a toolbar state of its own: it writes
+    // `GetCanvas()->GetGAL()->GetOptions().m_gridStyle`'s neighbour,
+    // `m_Window.cursor.cross_hair_mode`, and the buttons' CHECK conditions read
+    // it back. So this group is the settings key, and Preferences > Display
+    // Options is the same three choices over the same value.
+    // `PCB_BASE_FRAME::SetShowPolarCoords` writes `m_PolarCoords` on the app's
+    // settings object (`footprint_editor_settings.cpp:115-116`), which is what
+    // `UpdateStatusBar`'s `if( GetShowPolarCoords() )` reads back. The button
+    // and pane 3 are one value.
+    if (id === 'togglePolarCoords') {
+      settings.updateFpEdit((s) => {
+        s.editing.polar_coords = !s.editing.polar_coords;
+      });
+    }
+    if (id === 'crosshairSmall' || id === 'crosshairFull' || id === 'crosshair45') {
+      const mode = id === 'crosshair45' ? '45' : id === 'crosshairFull' ? 'full' : 'small';
+      settings.updateFpEdit((s) => {
+        s.window.cursor.crosshair = mode;
       });
     }
     setToggles((prev) => applyToggle(prev, id));
@@ -1671,23 +1728,35 @@ export function FootprintEditor({
       <div style={{ display: 'flex', alignItems: 'center' }}>
         <Toolbar entries={fpTopBar} orientation="horizontal" onActivate={onTopAction} />
         <span style={{ width: 8 }} />
-        <select
-          className="ze-select"
+        {/* `EDA_DRAW_FRAME::UpdateGridSelectBox` (`common/eda_draw_frame.cpp:
+            200-225`): one row per `GRID_SETTINGS::grids` entry labelled by
+            `GRID_MENU::BuildChoiceList`, then a "---" rule and Edit Grids....
+            The app's own combo, never a native <select> — a wxChoice is
+            owner-drawn and takes the GTK theme. */}
+        <Combo
           title="Grid"
-          style={{ margin: '0 4px' }}
-          value={gridIU}
-          onChange={(e) => setGridIU(Number(e.target.value))}
-        >
-          {FP_GRIDS.map((g) => (
-            <option key={g} value={g}>
-              {fmt(g)} {unitLabel} (
-              {toggles.has('unitsMils')
-                ? `${pcbIuToMM(g).toFixed(4)} mm`
-                : `${((pcbIuToMM(g) / 25.4) * 1000).toFixed(2)} mil`}
-              )
-            </option>
-          ))}
-        </select>
+          value={String(gridIdx)}
+          options={[
+            ...fpCfg.window.grid.sizes.map((g, i) => ({
+              value: String(i),
+              label: gridChoiceLabel(g, unitLabel, PCB_IU_PER_MM, g.name),
+            })),
+            { value: GRID_LIST_SEPARATOR, label: GRID_LIST_SEPARATOR, disabled: true },
+            { value: EDIT_GRIDS_LABEL, label: EDIT_GRIDS_LABEL },
+          ]}
+          onChange={(v) => {
+            if (v === GRID_LIST_SEPARATOR) return;
+            // `COMMON_TOOLS::GridProperties` is `ShowPreferences( _( "Grids" ),
+            // _( "Footprint Editor" ) )` and a return
+            // (`common/tool/common_tools.cpp:626`), so the row opens the page
+            // rather than doing grid editing of its own.
+            if (v === EDIT_GRIDS_LABEL) {
+              setPrefsOpen('fp-grids');
+              return;
+            }
+            setGridIdx(Number(v));
+          }}
+        />
         <select className="ze-select" disabled title="Zoom" style={{ margin: '0 4px' }}>
           <option>Zoom Auto</option>
         </select>
@@ -1802,7 +1871,22 @@ export function FootprintEditor({
             activeTool={activeTool}
             gridOrigin={gridOrigin}
             showGrid={objects.grid && toggles.has('toggleGrid')}
-            gridIU={gridIU}
+            // `PCB_GRID_HELPER::GetGrid`, i.e. the current grid unless an
+            // override applies to what the active tool lays down.
+            gridIU={toolGridIU}
+            // `PANEL_GAL_OPTIONS`, out of this frame's own settings object.
+            gridStyle={fpCfg.window.grid.style}
+            gridLineWidthPx={fpCfg.window.grid.line_width}
+            gridMinSpacingPx={fpCfg.window.grid.min_spacing}
+            // `window.cursor.cross_hair_mode`, which is one setting with two
+            // controls over it: `PANEL_GAL_OPTIONS`' Cursor group and the left
+            // toolbar's `ACTIONS::cursorSmallCrosshairs` group, which
+            // `COMMON_TOOLS::CursorControl` writes into the same key. Reading
+            // the toolbar's own toggle set here instead is what would let the
+            // two disagree.
+            crosshairMode={fpCfg.window.cursor.crosshair}
+            alwaysShowCursor={fpCfg.window.cursor.always_show_cursor}
+            snapping={footprintSnappingEnabled(fpCfg)}
             // `RULER_ITEM` is built with `frame()->GetUserUnits()`, so the
             // Units radio group drives its graduations and its readout. The
             // footprint VIEWER passed this and the editor did not, so the same
@@ -1924,7 +2008,9 @@ export function FootprintEditor({
           zoom: zoomMsg(zoomFactorForScale(scale, dpr, SCH_IU_PER_MM)),
           coords: <span ref={statusReadout.coordsRef} />,
           deltas: <span ref={statusReadout.deltasRef} />,
-          grid: gridMsg(fmt(gridIU)),
+          // `EDA_DRAW_FRAME::DisplayGridMsg` prints the CURRENT grid, not the
+          // override the active tool is on (`common/eda_draw_frame.cpp`).
+          grid: gridMsg(fmt(footprintGridIU(fpCfg))),
           units: unitsMsg(unitLabel),
           // Pane 6 is `DisplayToolMsg` and pane 7 `DisplayConstraintsMsg`
           // (`eda_draw_frame.cpp:729-744`). Ours put the active layer in pane 6
@@ -1982,7 +2068,16 @@ export function FootprintEditor({
       {aboutOpen && (
         <AboutDialog title={ABOUT_TITLES.footprint} onClose={() => setAboutOpen(false)} />
       )}
-      {prefsOpen && <PreferencesDialog onClose={() => setPrefsOpen(false)} />}
+      {prefsOpen && (
+        <PreferencesDialog
+          onClose={() => setPrefsOpen(null)}
+          {...(prefsOpen === true ? {} : { initialPage: prefsOpen })}
+          // `if( GetFrameType() == FRAME_FOOTPRINT_EDITOR ) expand.push_back( … )`
+          // (`common/eda_base_frame.cpp:1663-1664`) — the section the tree opens
+          // expanded is the one the window was opened FROM.
+          frameOwner="footprint"
+        />
+      )}
       {propsOpen && workFp && (
         <FootprintPropertiesDialog
           footprint={workFp}

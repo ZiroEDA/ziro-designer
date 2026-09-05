@@ -10,12 +10,19 @@
  * bundle, and routing the page through `editors/pcb` would pull the whole board
  * editor into the dialog for a footprint-editor user.
  *
- * Display Options, Grids, Origins & Axes, Editing Options, Colors, Footprint
- * Defaults, Graphics Defaults and User Layer Names still belong here — the same
- * tree gap the PCB Editor's own heading has.
+ * Editing Options, Colors, Footprint Defaults, Graphics Defaults and User Layer
+ * Names still belong here.
  */
+import { PanelFpDisplayOptions } from './PanelFpDisplayOptions.js';
+import { PanelFpGrids } from './PanelFpGrids.js';
+import { PanelFpOriginsAxes } from './PanelFpOriginsAxes.js';
 import { PanelFpToolbars } from './PanelFpToolbars.js';
-import { resetFpToolbars } from './resets.js';
+import {
+  resetFpDisplayOptions,
+  resetFpGrids,
+  resetFpOriginsAxes,
+  resetFpToolbars,
+} from './resets.js';
 import type {
   PrefsPageId,
   PrefsPanelFactory,
@@ -24,6 +31,15 @@ import type {
 
 export const createPrefsPanel: PrefsPanelFactory = (id: PrefsPageId): PrefsPanelModule | null => {
   switch (id) {
+    case 'fp-display':
+      return { Panel: PanelFpDisplayOptions, reset: resetFpDisplayOptions };
+
+    case 'fp-grids':
+      return { Panel: PanelFpGrids, reset: resetFpGrids };
+
+    case 'fp-origins':
+      return { Panel: PanelFpOriginsAxes, reset: resetFpOriginsAxes };
+
     case 'fp-toolbars':
       return { Panel: PanelFpToolbars, reset: resetFpToolbars };
 

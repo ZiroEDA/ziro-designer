@@ -76,9 +76,14 @@ const EXPECTED: PrefsPageEntry[] = [
   // rows here at all, which is why those two frames had no Toolbars page and
   // drew their bars from a module constant.
   //
-  // Each shows only its Toolbars row: the rest of both headings is the same
-  // tree gap the PCB Editor's own has.
+  // The 3D Viewer still shows only its Toolbars row; the Footprint Editor's
+  // first three are now built, each through the class upstream shares between
+  // the two pcbnew frames — `PANEL_GAL_OPTIONS`, `PANEL_GRID_SETTINGS` and
+  // `PANEL_PCBNEW_DISPLAY_ORIGIN`.
   { id: null, label: 'Footprint Editor' },
+  { id: 'fp-display', label: 'Display Options', indent: true, owner: 'footprint' },
+  { id: 'fp-grids', label: 'Grids', indent: true, owner: 'footprint' },
+  { id: 'fp-origins', label: 'Origins & Axes', indent: true, owner: 'footprint' },
   { id: 'fp-toolbars', label: 'Toolbars', indent: true, owner: 'footprint' },
   { id: null, label: 'PCB Editor' },
   { id: 'pcb-display', label: 'Display Options', indent: true, owner: 'pcb' },

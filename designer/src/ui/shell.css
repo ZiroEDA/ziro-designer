@@ -9164,6 +9164,53 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   gap: 0;
   padding-left: 4px;
 }
+/* The label column, and the ONE rule that decides how wide it is.
+ *
+ * A labelled row (`.ze-pref-row`) is a cell of a `wxFlexGridSizer` or a
+ * `wxGridBagSizer`, and wx sizes column 0 to **the widest item in that column
+ * OF THAT SIZER** -- so the rows of one group line up with each other and with
+ * nothing else. Two groups on the same page have two different label columns,
+ * which is exactly what KiCad looks like: on Preferences > Footprint Editor >
+ * Display Options the Grid Display group's combos start after "Minimum grid
+ * spacing:", while the Clearance Outlines group's single "Tracks:" combo sits
+ * immediately after that one short word.
+ *
+ * This was `.ze-pref-row .lbl { min-width: 150px }` -- one number for every
+ * label on every page. wx never wrote a 150 anywhere; the value was picked to
+ * suit the widest group and it pushed every SHORT label's control 150 px out.
+ * "Tracks:", "Grid 1:" and "Grid 2:" were the visible cases, each with its
+ * dropdown stranded a hundred-odd pixels from its label.
+ *
+ * `subgrid` is what makes it per-group without giving up the row box: the row
+ * keeps its own element, so `.ze-pref-group-body > *`'s wxBOTTOM margin and the
+ * per-Add() border classes still land on it, while its label and control align
+ * to the group's tracks. Three tracks, because a row may carry a trailing
+ * `wxStaticText` -- `PANEL_GAL_OPTIONS`' "pixels" and the Grids page's
+ * `m_grid1HotKey` are both that third column
+ * (`panel_grid_settings.cpp:75`, `fgSizer3 = new wxFlexGridSizer( 2, 3, 6, 5 )`).
+ *
+ * `:has(> .ze-pref-row)` so a group of nothing but checkboxes stays the flex
+ * column it was: a `subgrid` whose parent is not a grid falls back to a single
+ * implicit track, which would stack every label above its control. */
+.ze-pref-group-body:has(> .ze-pref-row) {
+  display: grid;
+  grid-template-columns: max-content max-content 1fr;
+  align-items: center;
+  /* [px] the same 8 `.ze-pref-row`'s own `gap` carried; with `subgrid` the gap
+     comes from the parent, so stating it here is what keeps every existing page
+     spaced exactly as it was. */
+  column-gap: 8px;
+}
+.ze-pref-group-body > .ze-pref-row {
+  display: grid;
+  grid-template-columns: subgrid;
+  grid-column: 1 / -1;
+}
+/* Everything that is not a labelled row -- a checkbox, a radio run, a nested
+   table -- is a single `Add()` spanning the sizer, not a cell of it. */
+.ze-pref-group-body:has(> .ze-pref-row) > :not(.ze-pref-row) {
+  grid-column: 1 / -1;
+}
 .ze-pref-group-body > * {
   margin-bottom: 5px; /* [data] the wxBOTTOM nearly every Add() in these groups carries. */
 }
@@ -9232,8 +9279,10 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
    (`panel_common_settings_base.cpp:202-226`), Toolbar icon size (`:228-251`),
    PANEL_GAL_OPTIONS' grid Style (`panel_gal_options_base.cpp:23-41`).
 
-   Not `.ze-pref-row`: that rule gives the label a 150 px column, which is what
-   a gbSizer cell wants and what this sizer never had. [px] `qa/probes/
+   Not `.ze-pref-row`: that rule puts the label in the group's shared label
+   column, which is what a gbSizer cell wants and what this sizer never had --
+   a bare `wxBoxSizer( wxHORIZONTAL )` gives each child its own width, so two
+   radio rows do not line up with each other. [px] `qa/probes/
    prefs_ui_group_probe.cpp` builds this exact sizer with wxWidgets on this
    machine and this theme and reads the widgets back: the label starts at the
    same x=5 as the checkboxes above it, the first radio follows it by 10, and
@@ -9256,8 +9305,14 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
    beside it. This stated #c7c9cc for the label and #9aa0a6 for the units,
    which made every labelled row read dimmer than the checkbox above it and
    made a DISABLED row indistinguishable from an enabled one. */
+/* No width here. The label is as wide as its text and never wraps; how far the
+   control beside it starts is the GROUP's business, not the label's -- see
+   `.ze-pref-group-body:has(> .ze-pref-row)` above. `white-space: nowrap` is the
+   half of the old `min-width` that was load-bearing: a wx label is never
+   wrapped, and a dialog's width is derived from the widths its controls insist
+   on (see the note above `.ze-pref-columns > div`). */
 .ze-pref-row .lbl {
-  min-width: 150px;
+  white-space: nowrap;
 }
 .ze-search.num {
   text-align: right;
@@ -9351,11 +9406,9 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
      five between every pair. */
   gap: 5px;
 }
-/* The label keeps its own width. `.ze-pref-row .lbl`'s 150 px column is for the
-   pages built on a flex grid whose labels must line up; this label is one cell
-   of a two-column sizer and takes the width of its text. */
+/* This label is one cell of a two-column sizer and takes the width of its text
+   -- which is now what every `.lbl` does, so only the nowrap is stated. */
 .ze-excellon-fmt > .lbl {
-  min-width: auto;
   white-space: nowrap;
 }
 /* Each choice is a `.ze-pref-row` with an EMPTY label — the wxChoice is the
@@ -9616,16 +9669,13 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 }
 /* `bControlSizer` is a wxBoxSizer, not a flex grid: "Theme:" is one item with
    `wxLEFT|wxRIGHT, 5` and `m_cbTheme` the next with no wxLEFT of its own, so
-   the two are five pixels apart. The 150 px label column `.ze-pref-row .lbl`
+   the two are five pixels apart. The shared label column `.ze-pref-row .lbl`
    reserves is for the pages built on a wxFlexGridSizer, where a column of
    labels has to line up; here there is no column, and it opened half an inch
    of nothing between the word and the choice. */
 .ze-colorpage-controls .ze-pref-row {
   /* [data] the label's own wxRIGHT border. */
   gap: 5px;
-}
-.ze-colorpage-controls .ze-pref-row > .lbl {
-  min-width: auto;
 }
 /* [data] `m_cbTheme->SetMinSize( wxSize( 150, -1 ) )`
    (panel_color_settings_base.cpp:28). */

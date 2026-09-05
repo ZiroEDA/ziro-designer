@@ -1674,11 +1674,38 @@ export function mergeViewer3d(stored: unknown): Viewer3dSettings {
 
 export interface FpEditSettings {
   /**
+   * `APP_SETTINGS_BASE`'s `system.*`, the block every app settings file
+   * carries. `fpedit` takes the `else` arm of the units branch
+   * (`common/settings/app_settings.cpp:229-238`) — the imperial side names
+   * only `pl_editor`, `eeschema` and `symbol_editor` — so it opens on **MM**.
+   *
+   * The frame's units button is what writes it, and the Grids page is what
+   * reads it: `PANEL_GRID_SETTINGS` prints its rows through the frame's
+   * `UNITS_PROVIDER` (`pcbnew/pcbnew.cpp:309-323` passes the frame), so a
+   * footprint editor switched to mm shows every grid row in mm.
+   */
+  system: {
+    /** `system.units`, MM on this branch. */
+    units: EdaUnits;
+    /** `system.last_metric_units` (`:240-241`), EDA_UNITS::MM. */
+    last_metric_units: EdaUnits;
+    /** `system.last_imperial_units` (`:243-244`), EDA_UNITS::MILS — what Ctrl+U returns to. */
+    last_imperial_units: EdaUnits;
+  };
+  /**
    * `APP_SETTINGS_BASE`'s own block, which every app settings file carries.
-   * Only the key this app reads is transcribed, the same partial shape the rest
-   * of this interface takes.
+   * Only the keys this app reads are transcribed, the same partial shape the
+   * rest of this interface takes.
    */
   appearance: {
+    /**
+     * `appearance.color_theme` -> `APP_SETTINGS_BASE::m_ColorTheme`
+     * (`common/settings/app_settings.cpp:282-284`). Written by the Colors page,
+     * and only on its "Use theme:" branch — `PANEL_FP_EDITOR_COLOR_SETTINGS`
+     * otherwise defers to pcbnew's, exactly as the symbol editor defers to
+     * eeschema's (see {@link FpEditSettings.use_board_editor_color_settings}).
+     */
+    color_theme: string;
     /** `appearance.custom_toolbars` -> `APP_SETTINGS_BASE::m_CustomToolbars`
      *  (`common/settings/app_settings.cpp:285-286`), the Toolbars page's
      *  "Customize toolbars" checkbox. */
@@ -1697,7 +1724,149 @@ export interface FpEditSettings {
      * which is why a fresh install opens at exactly the default.
      */
     lib_width: number;
+    /**
+     * `APP_SETTINGS_BASE::m_Window.grid`, the slice the Grids page and the
+     * Display Options page's `PANEL_GAL_OPTIONS` share
+     * (`common/settings/app_settings.cpp:458-562`).
+     */
+    grid: {
+      /**
+       * `window.grid.sizes`, seeded from `DefaultGridSizeList()`. `fpedit`
+       * falls on the **`else`** row of that switch (`:641-664`) — pcbnew's
+       * twenty-two grids — because the switch names only eeschema,
+       * symbol_editor, pl_editor and gerbview.
+       */
+      sizes: GridEntry[];
+      /**
+       * `window.grid.last_size`. `defaultGridIdx` is **15** for `fpedit`, the
+       * same `else` arm at `:463-481`, which is `0.5 mm`.
+       */
+      last_size_idx: number;
+      /** `window.grid.fast_grid_1` (`:483-484`), `defaultGridIdx`. */
+      fast_grid_1: number;
+      /** `window.grid.fast_grid_2` (`:486-487`), `defaultGridIdx + 1`. */
+      fast_grid_2: number;
+      /** `window.grid.style` (`:558-559`), 0 = DOTS. */
+      style: 'dots' | 'lines' | 'crosses';
+      /** `window.grid.line_width` (`:549-550`), 1.0 px. */
+      line_width: number;
+      /** `window.grid.min_spacing` (`:552-553`), 10 px. */
+      min_spacing: number;
+      /** `window.grid.snap` (`:561-562`), 0 = ALWAYS. */
+      snap: 0 | 1 | 2;
+      /** `window.grid.show` (`:555-556`), true. `ACTIONS::toggleGrid`, not a page. */
+      show: boolean;
+      /** `window.grid.overrides_enabled` (`:524-525`), true. */
+      overrides_enabled: boolean;
+      /**
+       * The three override rows `PANEL_GRID_SETTINGS` leaves standing for
+       * `FRAME_FOOTPRINT_EDITOR` (`common/dialogs/panel_grid_settings.cpp:
+       * 53-92`): vias is hidden outside pcbnew, and connected and wires are
+       * hidden outside the four schematic frames — except that connected is
+       * re-shown with the label `_( "Pads:" )` at `:57`. Wires really is gone,
+       * so there is no `wires` key here; `OVERRIDE_ROWS.FRAME_FOOTPRINT_EDITOR`
+       * is the same statement from the panel's side.
+       */
+      overrides: {
+        connected: GridOverride;
+        text: GridOverride;
+        graphics: GridOverride;
+      };
+    };
+    /** `APP_SETTINGS_BASE::m_Window.cursor`, the other half of `PANEL_GAL_OPTIONS`. */
+    cursor: {
+      /** `window.cursor.cross_hair_mode` (`:567-568`), SMALL_CROSS. */
+      crosshair: 'small' | 'full' | '45';
+      /** `window.cursor.always_show_cursor` (`:564-565`), true. */
+      always_show_cursor: boolean;
+    };
   };
+  /**
+   * `PCB_VIEWERS_SETTINGS_BASE::m_ViewersDisplay`, registered under
+   * `pcb_display.*` by this app rather than by the base class
+   * (`footprint_editor_settings.cpp:95-107`).
+   *
+   * These four are **not** on any Preferences page in the footprint editor:
+   * they are the View menu's fill toggles and the Show Pad Numbers toggle,
+   * which is why they live here and not beside a panel. `PANEL_DISPLAY_OPTIONS`
+   * puts `m_OptDisplayPadNumber` in front of `m_DisplayPadNumbers`, but only on
+   * its PCB page — see `PanelFpDisplayOptions`.
+   */
+  pcb_display: {
+    /** `pcb_display.graphics_fill` -> `m_DisplayGraphicsFill`, true. */
+    graphics_fill: boolean;
+    /** `pcb_display.text_fill` -> `m_DisplayTextFill`, true. */
+    text_fill: boolean;
+    /** `pcb_display.pad_fill` -> `m_DisplayPadFill`, true. */
+    pad_fill: boolean;
+    /** `pcb_display.pad_numbers` -> `m_DisplayPadNumbers`, true. */
+    pad_numbers: boolean;
+  };
+  /**
+   * `editing.*` — the Editing Options page's slice
+   * (`footprint_editor_settings.cpp:109-137`).
+   *
+   * `m_ArcEditMode` is deliberately absent. `PANEL_EDIT_OPTIONS` writes
+   * `cfg->m_ArcEditMode` in the footprint-editor branch too
+   * (`panel_edit_options.cpp:177`), but `FOOTPRINT_EDITOR_SETTINGS` registers
+   * **no** `editing.arc_edit_mode` param for it — only `PCBNEW_SETTINGS` does
+   * (`pcbnew_settings.cpp:183-185`) — so upstream the choice takes effect for
+   * the session and is gone at the next launch. Mirrored: see
+   * `editors/footprint/arc_edit_mode.ts`.
+   */
+  editing: {
+    /**
+     * `editing.magnetic_pads` -> `m_MagneticItems.pads`, `CAPTURE_ALWAYS` (2).
+     * The FP editor's page shows it as a **checkbox**, not pcbnew's three-way
+     * choice: checked is `CAPTURE_ALWAYS` and clear is `NO_EFFECT` (0)
+     * (`panel_edit_options.cpp:170-172`), so `CAPTURE_CURSOR_IN_TRACK_TOOL` is
+     * unreachable from this editor and still storable, exactly as upstream.
+     */
+    magnetic_pads: 0 | 1 | 2;
+    /** `editing.magnetic_graphics` -> `m_MagneticItems.graphics`, true. */
+    magnetic_graphics: boolean;
+    /**
+     * `editing.magnetic_all_layers` -> `m_MagneticItems.allLayers`, false. No
+     * control on any footprint-editor page; `PCB_GRID_HELPER` reads it.
+     */
+    magnetic_all_layers: boolean;
+    /**
+     * `editing.polar_coords` -> `m_PolarCoords`, false. The status bar's
+     * polar/cartesian toggle, not a Preferences control.
+     */
+    polar_coords: boolean;
+    /**
+     * `editing.rotation_angle`, **tenths of a degree**, 900.
+     *
+     * Stored in tenths because that is what the `PARAM_LAMBDA<int>` writes —
+     * `m_RotationAngle.AsTenthsOfADegree()` (`:126-137`) — and the setter
+     * ignores a stored 0, which is upstream's guard against a file that would
+     * otherwise make every rotation a no-op.
+     */
+    rotation_angle: number;
+    /**
+     * `editing.fp_angle_snap_mode` -> `m_AngleSnapMode`, `LEADER_MODE::DEG45`
+     * (1) (`libs/kimath/include/geometry/geometry_utils.h:45-50`: DIRECT 0,
+     * DEG45 1, DEG90 2).
+     *
+     * The page shows it as one checkbox, "Constrain actions to H, V, 45
+     * degrees": checked is DEG45 and clear is DIRECT
+     * (`panel_edit_options.cpp:174-175`), so DEG90 is likewise storable and
+     * unreachable from the page.
+     */
+    fp_angle_snap_mode: 0 | 1 | 2;
+  };
+  /**
+   * `origin_invert_x_axis` -> `m_DisplayInvertXAxis`, false — Origins & Axes'
+   * "Increases left" (`footprint_editor_settings.cpp:118-123`).
+   *
+   * Top-level, not under `editing.` or `pcb_display.`, because that is where
+   * this app puts it; pcbnew stores the same two under
+   * `pcb_display.origin_invert_*`. Two files, two paths, one control.
+   */
+  origin_invert_x_axis: boolean;
+  /** `origin_invert_y_axis` -> `m_DisplayInvertYAxis`, false — "Increases up". */
+  origin_invert_y_axis: boolean;
   /**
    * `APP_SETTINGS_BASE::m_LibTree`, the `lib_tree.*` params every app settings
    * file carries (`common/settings/app_settings.cpp:140-171`). The Footprint
@@ -1719,8 +1888,59 @@ export interface FpEditSettings {
 }
 
 export const FPEDIT_DEFAULTS: FpEditSettings = {
-  appearance: { custom_toolbars: false },
-  window: { lib_width: 250 },
+  system: {
+    // The `app_settings.cpp:228-238` branch, asked rather than restated.
+    units: defaultUnits('fpedit'),
+    last_metric_units: 'mm',
+    last_imperial_units: 'mils',
+  },
+  appearance: { color_theme: '_builtin_default', custom_toolbars: false },
+  window: {
+    lib_width: 250,
+    grid: {
+      // `DefaultGridSizeList()`'s `else` row — pcbnew's — and its
+      // `defaultGridIdx` 15, asked rather than restated.
+      sizes: GRID_SIZE_LIST.pcbnew.map(gridEntryOf),
+      last_size_idx: DEFAULT_GRID_INDEX.pcbnew,
+      fast_grid_1: DEFAULT_GRID_INDEX.pcbnew,
+      fast_grid_2: DEFAULT_GRID_INDEX.pcbnew + 1,
+      style: 'dots',
+      line_width: 1,
+      min_spacing: 10,
+      snap: 0,
+      show: true,
+      // The `else` arm of `app_settings.cpp:522-548`, the one every frame that
+      // is not eeschema or the symbol editor takes: every flag false, and the
+      // indices 16, 18 and 15 into pcbnew's grid row above — 0.25 mm for pads,
+      // 0.1 mm for text, 0.5 mm for graphics. Written as the sizes they name
+      // rather than as indices, because `GridOverride` stores the size string
+      // and an index into a list the user can reorder is not a stable value.
+      overrides_enabled: true,
+      overrides: {
+        connected: { enabled: false, size: '0.25 mm' },
+        text: { enabled: false, size: '0.1 mm' },
+        graphics: { enabled: false, size: '0.5 mm' },
+      },
+    },
+    cursor: { crosshair: 'small', always_show_cursor: true },
+  },
+  pcb_display: { graphics_fill: true, text_fill: true, pad_fill: true, pad_numbers: true },
+  editing: {
+    // `MAGNETIC_OPTIONS::CAPTURE_ALWAYS`, set in the constructor body rather
+    // than by the param's own default (`footprint_editor_settings.cpp:60`) —
+    // pcbnew's same key defaults to CAPTURE_CURSOR_IN_TRACK_TOOL, so this is
+    // one of the few places the two files genuinely disagree.
+    magnetic_pads: 2,
+    magnetic_graphics: true,
+    magnetic_all_layers: false,
+    polar_coords: false,
+    // ANGLE_90 in tenths of a degree.
+    rotation_angle: 900,
+    // LEADER_MODE::DEG45.
+    fp_angle_snap_mode: 1,
+  },
+  origin_invert_x_axis: false,
+  origin_invert_y_axis: false,
   lib_tree: { columns: [], column_widths: {}, open_libs: [] },
 };
 
@@ -1747,13 +1967,18 @@ export function normalizeColumnWidths(parsed: unknown): Record<string, number> {
  * `fpedit.json` on the way in: the fixed tree merged as usual, with the one
  * free-form subtree inside it normalised instead — the same shape as
  * {@link mergeCommon}, and for the same reason.
+ *
+ * `normalizeGrids` for the reason eeschema, the symbol editor, pl_editor and
+ * gerbview need it: `window.grid.sizes` is a LIST, `deepMerge` adopts a stored
+ * array whole, and a file written before `DIALOG_GRID_SETTINGS` was ported
+ * holds one unit-bearing string per row instead of a `GRID{ name, x, y }`.
  */
 export function mergeFpEdit(stored: unknown): FpEditSettings {
   const out = deepMerge(structuredClone(FPEDIT_DEFAULTS), stored);
   const widths = (stored as { lib_tree?: { column_widths?: unknown } } | undefined)?.lib_tree
     ?.column_widths;
   out.lib_tree.column_widths = normalizeColumnWidths(widths);
-  return out;
+  return normalizeGrids(out, FPEDIT_DEFAULTS.window.grid.sizes);
 }
 
 /** Parse a grid size string ("50 mil", "1.27 mm") into IU (100 nm). */

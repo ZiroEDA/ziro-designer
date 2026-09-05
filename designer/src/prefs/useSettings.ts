@@ -31,6 +31,19 @@ export function useSymbolEditorSettings(): typeof settings.symbolEditor {
   return settings.symbolEditor;
 }
 
+/**
+ * `fpedit.json`, so the Footprint Editor re-renders when it changes.
+ *
+ * `FOOTPRINT_EDIT_FRAME` is handed
+ * `GetAppSettings<FOOTPRINT_EDITOR_SETTINGS>( "fpedit" )` and never pcbnew's
+ * (`pcbnew/pcbnew.cpp:305-399`), which is the whole reason this editor's five
+ * settings pages are its own and not the board editor's.
+ */
+export function useFpEditSettings(): typeof settings.fpEdit {
+  useSettingsVersion();
+  return settings.fpEdit;
+}
+
 /** `pl_editor.json`, so the Drawing Sheet Editor re-renders when it changes. */
 export function usePlEditorSettings(): typeof settings.plEditor {
   useSettingsVersion();

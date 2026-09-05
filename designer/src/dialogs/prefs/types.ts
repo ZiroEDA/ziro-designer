@@ -69,8 +69,14 @@ export type PrefsPageId =
   | 'sch-fields'
   | 'sch-datasources'
   | 'sch-simulator'
-  // `PANEL_FP_TOOLBARS`, the sixth row under the Footprint Editor heading
-  // (`common/eda_base_frame.cpp:1672`).
+  // The Footprint Editor's nine, added at `common/eda_base_frame.cpp:1667-1675`
+  // in this order. Upstream's ids are `PANEL_FP_DISPLAY_OPTIONS`,
+  // `PANEL_FP_GRIDS`, `PANEL_FP_ORIGINS_AXES`, `PANEL_FP_EDIT_OPTIONS`,
+  // `PANEL_FP_COLORS`, `PANEL_FP_TOOLBARS`, `PANEL_FP_DEFAULT_FIELDS`,
+  // `PANEL_FP_DEFAULT_GRAPHICS_VALUES` and `PANEL_FP_USER_LAYER_NAMES`.
+  | 'fp-display'
+  | 'fp-grids'
+  | 'fp-origins'
   | 'fp-toolbars'
   | 'pcb-display'
   | 'pcb-grids'

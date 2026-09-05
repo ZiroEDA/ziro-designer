@@ -157,7 +157,7 @@ describe('shared grid + crosshair', () => {
     );
   });
 
-  it('the footprint grid combo is live and reads the shared size table', () => {
+  it('the footprint grid combo is live and reads the STORED grid list', () => {
     const src = read('editors/footprint/FootprintEditor.tsx');
     // It used to be `<select className="ze-select" disabled title="Grid">` with
     // one hardcoded `Grid: 0.635 mm (25 mils)` option.
@@ -165,8 +165,15 @@ describe('shared grid + crosshair', () => {
     // The hardcoded single option, `Grid: ${...} mm (... mils)`.
     expect(src).not.toMatch(/<option>\{`Grid:/);
     expect(src).not.toMatch(/0\.635\s*\*/);
-    expect(src).toMatch(/from '[./]+ui\/grid_settings\.js'/);
-    expect(src).toMatch(/gridSizesIU\('pcbnew'/);
+    // `gridSizesIU('pcbnew', …)` was the previous step and is now the wrong
+    // source: `DefaultGridSizeList()` seeds `window.grid.sizes` ONCE, and
+    // `PANEL_GRID_SETTINGS` then edits that list — add, edit, remove, reorder.
+    // A combo built from the module table would ignore every one of those, so
+    // reading it here is the defect, not the fix.
+    expect(src).not.toMatch(/gridSizesIU\(/);
+    expect(src).toMatch(/fpCfg\.window\.grid\.sizes/);
+    // ...and it is a `Combo`, never the browser's `<select>`.
+    expect(src).toMatch(/from '[./]+ui\/Combo\.js'/);
   });
 
   it('nobody keeps a private copy of DefaultGridSizeList', () => {

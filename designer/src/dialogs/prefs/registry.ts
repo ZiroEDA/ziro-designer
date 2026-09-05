@@ -71,10 +71,12 @@ export const PAGES: readonly PrefsPageEntry[] = [
   // the third were missing here entirely, which is why those two frames drew
   // their toolbars from a module constant with no page to change it.
   //
-  // Only the Toolbars row of each is listed: the rest of both headings is the
-  // same tree gap the PCB Editor's own heading has (Origins & Axes, Editing
-  // Options and Colors are not built yet), not a decision about these frames.
+  // The 3D Viewer's heading still lists only its Toolbars row; the rest of it is
+  // in `OMITTED_PAGES`, not a decision about that frame.
   { id: null, label: 'Footprint Editor' },
+  { id: 'fp-display', label: 'Display Options', indent: true, owner: 'footprint' },
+  { id: 'fp-grids', label: 'Grids', indent: true, owner: 'footprint' },
+  { id: 'fp-origins', label: 'Origins & Axes', indent: true, owner: 'footprint' },
   { id: 'fp-toolbars', label: 'Toolbars', indent: true, owner: 'footprint' },
   { id: null, label: 'PCB Editor' },
   { id: 'pcb-display', label: 'Display Options', indent: true, owner: 'pcb' },
@@ -274,14 +276,12 @@ export const OMITTED_PAGES: Readonly<Record<string, readonly DeclaredPage[]>> = 
   // omitted because upstream does not have it here either; it is a Schematic
   // Setup page, which is where ours lives.
   'Schematic Editor': [],
-  // Both were the whole heading until the Toolbars page shipped. Every
-  // remaining row is a page nobody has built, not one that cannot exist:
-  // `PANEL_FP_EDIT_GRIDS` is `PANEL_GRID_SETTINGS` and every Display Options
-  // page wraps `PANEL_GAL_OPTIONS`, both of which this port already has.
+  // Every remaining row here is a page nobody has built, not one that cannot
+  // exist. Display Options, Grids and Origins & Axes have now shipped, each
+  // through the class upstream shares between the two pcbnew frames —
+  // `PANEL_GAL_OPTIONS`, `PANEL_GRID_SETTINGS` and
+  // `PANEL_PCBNEW_DISPLAY_ORIGIN`.
   'Footprint Editor': [
-    { label: 'Display Options', reason: 'Footprint Editor tracker 200.' },
-    { label: 'Grids', reason: 'Footprint Editor tracker 200.' },
-    { label: 'Origins & Axes', reason: 'Footprint Editor tracker 200.' },
     { label: 'Editing Options', reason: 'Footprint Editor tracker 200.' },
     { label: 'Colors', reason: 'Footprint Editor tracker 200.' },
     { label: 'Footprint Defaults', reason: 'Footprint Editor tracker 200.' },

@@ -61,6 +61,25 @@ export interface StatusReadoutOptions {
    * `SCH_BASE_FRAME` has no polar mode and simply never passes this.
    */
   polar?: boolean;
+  /**
+   * `PCB_ORIGIN_TRANSFORMS::invertXAxis()` / `invertYAxis()`
+   * (`pcbnew/pcb_origin_transforms.cpp:140-155`) — Preferences > Origins &
+   * Axes' "Increases left" and "Increases up".
+   *
+   * `PCB_BASE_FRAME::UpdateStatusBar` does not print the cursor position: it
+   * prints `m_originTransforms.ToDisplayAbsX( … )` and, for pane 3,
+   * `ToDisplayRelX( … )` (`pcb_base_frame.cpp:788-812`), and those are
+   * `value - userOrigin` and `value` respectively with the sign flipped when
+   * the axis is inverted (`include/origin_transforms.h:111-145`). So this
+   * changes the READOUT and nothing about the geometry, the canvas or which way
+   * the view faces — which is why it belongs here and not in a canvas.
+   *
+   * eeschema and the drawing sheet have no such preference and never pass it;
+   * `invertXAxis()` itself branches on the frame type, pcbnew's copy of the two
+   * flags against the footprint editor's.
+   */
+  invertX?: boolean;
+  invertY?: boolean;
 }
 
 export function useStatusReadout({
@@ -69,6 +88,8 @@ export function useStatusReadout({
   devicePixelRatio,
   iuPerMM = SCH_IU_PER_MM,
   polar = false,
+  invertX = false,
+  invertY = false,
 }: StatusReadoutOptions): StatusReadout {
   const zoomRef = useRef<HTMLSpanElement>(null);
   const coordsRef = useRef<HTMLSpanElement>(null);
@@ -78,8 +99,16 @@ export function useStatusReadout({
   // imperative path never depends on a re-render having happened first.
   const cursorRef = useRef<{ x: number; y: number } | null>(null);
   const scaleRef = useRef(0);
-  const optsRef = useRef({ units, localOrigin, devicePixelRatio, iuPerMM, polar });
-  optsRef.current = { units, localOrigin, devicePixelRatio, iuPerMM, polar };
+  const optsRef = useRef({
+    units,
+    localOrigin,
+    devicePixelRatio,
+    iuPerMM,
+    polar,
+    invertX,
+    invertY,
+  });
+  optsRef.current = { units, localOrigin, devicePixelRatio, iuPerMM, polar, invertX, invertY };
 
   const paint = useCallback(() => {
     const {
@@ -88,16 +117,31 @@ export function useStatusReadout({
       devicePixelRatio: dpr,
       iuPerMM: iu,
       polar: pol,
+      invertX: invX,
+      invertY: invY,
     } = optsRef.current;
     const fmt = (v: number): string => messageTextFromValue(v / iu, u, iu);
     const c = cursorRef.current;
+    /**
+     * `ORIGIN_TRANSFORMS::ToDisplayRel`/`ToDisplayAbs`
+     * (`include/origin_transforms.h:111-145`): flip the sign when the axis is
+     * inverted, and leave an exact zero alone — upstream guards
+     * `aValue != static_cast<T>( 0 )` so the pane never reads "-0".
+     */
+    const disp = (v: number, invert: boolean | undefined): number => (invert && v !== 0 ? -v : v);
 
     if (zoomRef.current) {
       zoomRef.current.textContent = zoomMsg(zoomFactorForScale(scaleRef.current, dpr, iu));
     }
 
     if (coordsRef.current) {
-      coordsRef.current.textContent = c ? coordsMsg(fmt(c.x), fmt(c.y)) : coordsMsg(null);
+      // `ToDisplayAbsX/Y`. The user origin is the frame's, which for these
+      // editors is (0, 0) — `PCB_BASE_FRAME::GetUserOrigin` returns the drill/
+      // place origin only when Display Origin says so, and that control is
+      // hidden outside the board editor.
+      coordsRef.current.textContent = c
+        ? coordsMsg(fmt(disp(c.x, invX)), fmt(disp(c.y, invY)))
+        : coordsMsg(null);
     }
 
     if (deltasRef.current) {
@@ -106,8 +150,10 @@ export function useStatusReadout({
       // `theta = RAD2DEG( atan2( -dy, dx ) )` over the same dx/dy
       // (pcb_base_frame.cpp:774-777, :798-806). Y is negated for theta because
       // screen Y grows downward and the reported angle is the mathematical one.
-      const dx = c ? c.x - o.x : 0;
-      const dy = c ? c.y - o.y : 0;
+      // `ToDisplayRelX/Y`, applied to the delta as upstream does at
+      // `pcb_base_frame.cpp:804-805`.
+      const dx = disp(c ? c.x - o.x : 0, invX);
+      const dy = disp(c ? c.y - o.y : 0, invY);
       if (pol) {
         deltasRef.current.textContent = c
           ? polarMsg(fmt(Math.hypot(dx, dy)), (Math.atan2(-dy, dx) * 180) / Math.PI)
