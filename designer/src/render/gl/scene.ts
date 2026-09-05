@@ -433,17 +433,24 @@ export class Scene {
       return;
     }
     this.breakRun = false;
-    const start =
-      kind === 'tri'
-        ? this.triangleVertexCount - count
-        : kind === 'seg'
-          ? this.segmentCount - count
-          : kind === 'glyph'
-            ? this.glyphVertexCount - count
-            : kind === 'image'
-              ? this.imageVertexCount - count
-              : this.discCount - count;
-    this.runs.push({ kind, start, count });
+    // Each kind indexes its OWN buffer, so a new primitive must be named here
+    // or it inherits whichever branch happens to be last. `ring` fell through
+    // to `disc` and took its start from the disc buffer: on a board with via
+    // and pad holes that is a garbage offset into the rings, and a circle drew
+    // only when `discCount - count` happened to coincide with the true index —
+    // which is why some points showed a ring and others did not.
+    //
+    // Written as a lookup so the next kind added has nowhere to fall through
+    // to: an entry missing from this record fails to compile.
+    const counts: Record<RunKind, number> = {
+      tri: this.triangleVertexCount,
+      seg: this.segmentCount,
+      disc: this.discCount,
+      ring: this.ringCount,
+      glyph: this.glyphVertexCount,
+      image: this.imageVertexCount,
+    };
+    this.runs.push({ kind, start: counts[kind] - count, count });
   }
 
   /**

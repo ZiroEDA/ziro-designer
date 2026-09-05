@@ -238,4 +238,60 @@ describe('a placed point reaches the GPU as a ring', () => {
     // The cross is two segments; the ring must not add sixteen more.
     expect(recorded().segmentCount).toBe(2);
   });
+
+  it('gives each ring run a start index into the RING buffer', () => {
+    // The bug that made some placed points show a circle and others not.
+    // `Scene.note` picked a run's start from a chain of ternaries whose final
+    // branch was the disc buffer, so `ring` fell through and took `discCount -
+    // count`. On a board with via and pad holes that is a garbage offset into
+    // the rings, and a circle drew only where the two happened to coincide.
+    //
+    // Asserted as a partition — read in order, the runs of a kind must walk
+    // that kind's buffer from 0 to its end exactly once. A start borrowed from
+    // another buffer fails this even when the counts add up.
+    const board = readBoard(
+      parse(`(kicad_pcb (version 20241229)
+  (layers (0 "F.Cu" signal) (31 "B.Cu" signal) (37 "F.SilkS" user "F.Silkscreen"))
+  (net 0 "")
+  (via (at 5 5) (size 0.8) (drill 0.4) (layers "F.Cu" "B.Cu") (net 0))
+  (via (at 8 5) (size 0.8) (drill 0.4) (layers "F.Cu" "B.Cu") (net 0))
+  (point (at 10 20) (size 2) (layer "F.SilkS"))
+  (point (at 14 20) (size 2) (layer "F.SilkS"))
+  (point (at 18 20) (size 2) (layer "F.Cu"))
+)`),
+    );
+    const s = new Scene(true);
+    recordBoardScene(
+      s,
+      {
+        scene: buildScene(board, {}, GL_PATH_FACTORY),
+        visible: new Set(['F.Cu', 'B.Cu', 'F.SilkS']),
+        opts: { ...DEFAULT_DRAW_OPTIONS, minPenWidth: 0, drawingSheet: false },
+        emphasis: 'none',
+      },
+      1,
+    );
+
+    // More than three rings, and deliberately not pinned to a number: the two
+    // vias contribute their hole walls, which are stroked circles and are now
+    // exact for the same reason the points are. What matters here is that
+    // several ring RUNS exist — the F.Cu point is separated from the two on
+    // F.SilkS by other kinds — because a single run would be right at start 0
+    // whatever buffer the index came from, and could not catch this.
+    expect(s.ringCount).toBeGreaterThanOrEqual(3);
+    expect(s.runs.filter((r) => r.kind === 'ring').length).toBeGreaterThan(1);
+    // A board records no discs at all — `disc` is the schematic's junction
+    // primitive — so the fall-through handed rings `0 - count`, a NEGATIVE
+    // start. That is what the partition below catches, and it is why the
+    // symptom was "some points have a circle": a negative instance offset
+    // reads outside the buffer, and what came back varied.
+    expect(s.discCount).toBe(0);
+
+    let next = 0;
+    for (const run of s.runs.filter((r) => r.kind === 'ring')) {
+      expect(run.start).toBe(next);
+      next = run.start + run.count;
+    }
+    expect(next).toBe(s.ringCount);
+  });
 });
