@@ -305,6 +305,8 @@ function ctxFor(
     upE: onUpdate,
     userColors: {},
     setUserColors: () => {},
+    userThemes: {},
+    setUserThemes: () => {},
   } as unknown as PrefsContext;
 }
 
@@ -383,7 +385,7 @@ describe('the checkbox is live until a theme change says otherwise', () => {
     expect(s.appearance.override_item_colors).toBe(false);
   });
 
-  it('drops that tick on the next theme change, which reloads the theme\'s own', () => {
+  it("drops that tick on the next theme change, which reloads the theme's own", () => {
     const s = withTheme('_builtin_default', false);
     render(<PanelEeschemaColorSettings ctx={ctxFor(s, (fn) => fn(s))} />);
     fireEvent.click(box());
@@ -394,7 +396,6 @@ describe('the checkbox is live until a theme change says otherwise', () => {
 });
 
 describe('the flag itself belongs to the theme', () => {
-
   /**
    * The box SHOWS the flag. Without this the suite passed with the checkbox
    * wired to a constant false: every other assertion here happens to be about

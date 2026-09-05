@@ -126,22 +126,30 @@ export function ThemeFolderDialog({
 
   return (
     <div className="ze-modal-backdrop">
-      <div className="ze-modal ze-themefolder" role="dialog" aria-modal="true">
+      <div className="ze-modal ze-choicedlg ze-themefolder" role="dialog" aria-modal="true">
         <div className="ze-modal-header">
           {folderName ? `Color Themes — ${folderName}` : 'Color Themes'}
         </div>
-        <div className="ze-themefolder-body">
+        <div className="ze-choicedlg-body">
           {folderName === undefined && (
             /* Said once, plainly, rather than leaving the user to work out why
                a button called "Open Theme Folder" produced a download. */
-            <div className="ze-themefolder-message">
+            <div className="ze-choicedlg-message">
               This browser will not open a folder, so themes are saved and loaded as files.
             </div>
           )}
 
-          <div className="ze-themefolder-list" role="table" aria-label="Color theme files">
+          <div
+            className="ze-choicedlg-list cols ze-themefolder-list"
+            role="table"
+            aria-label="Color theme files"
+          >
             {folderFiles.map((f) => (
-              <div className="ze-themefolder-row" role="row" key={`folder:${f.fileName}`}>
+              <div
+                className="ze-choicedlg-item cols ze-themefolder-row"
+                role="row"
+                key={`folder:${f.fileName}`}
+              >
                 <span role="cell" className="ze-themefolder-file">
                   {f.fileName}
                 </span>
@@ -162,7 +170,11 @@ export function ThemeFolderDialog({
               </div>
             ))}
             {files.map((f) => (
-              <div className="ze-themefolder-row" role="row" key={`app:${f.fileName}`}>
+              <div
+                className="ze-choicedlg-item cols ze-themefolder-row"
+                role="row"
+                key={`app:${f.fileName}`}
+              >
                 <span role="cell" className="ze-themefolder-file">
                   {f.fileName}
                 </span>
@@ -177,10 +189,10 @@ export function ThemeFolderDialog({
             ))}
           </div>
 
-          {note !== '' && <div className="ze-themefolder-message">{note}</div>}
+          {note !== '' && <div className="ze-choicedlg-message">{note}</div>}
           {error !== '' && <div className="ze-themefolder-error">{error}</div>}
         </div>
-        <div className="ze-themefolder-buttons">
+        <div className="ze-choicedlg-buttons">
           <input
             ref={inputRef}
             type="file"
@@ -196,7 +208,7 @@ export function ThemeFolderDialog({
           {/* With a folder open its files are listed above and loadable from
               there; this stays for a theme that lives somewhere else. */}
           <button type="button" className="ze-btn" onClick={() => inputRef.current?.click()}>
-            Import…
+            Import...
           </button>
           <span className="ze-spacer" />
           <button type="button" className="ze-btn" onClick={onClose}>

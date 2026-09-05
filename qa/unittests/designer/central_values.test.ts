@@ -492,7 +492,14 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // as the central value rather than a copy of one. Net -2 because the panel's
   // own copy was one of the three. Metrics do not move: `box-shadow` lengths
   // are not a chrome metric here. RESCANNED from this tree.
-  ui: { colours: 206, metrics: 709 },
+  // colours 206 -> 205: `generateHtml`'s error ink, now `--error-ink`. The
+  // report panel's tag stated it and the theme folder's "could not write" line
+  // needed the same one; one token declaration in, which the scanner skips, and
+  // one literal out. `.ze-badge.error`'s is a BADGE FILL and stays -- a
+  // different role that happens to share the value, the same split
+  // --selection-fg records. RESCANNED from this tree; `ui` is the only row that
+  // moved.
+  ui: { colours: 205, metrics: 709 },
   // colours 6 -> 7: the opacity slider's #55585d track arrived here with
   // APPEARANCE_CONTROLS; it is the same literal `editors/pcb` lost, not a new
   // one. The panel's own stylesheet adds none: every length in
@@ -869,7 +876,12 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // 546 -> 545: `.ze-account-email`'s ink; see the `ui` row.
     // 545 -> 543: the three copies of the popup shadow, now `--popup-shadow`;
     // see the `ui` row, which is again the only one that moved.
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(543);
+    // 543 -> 542: `generateHtml`'s error ink, now `--error-ink`. The theme
+    // folder's "could not write" line needed it and would have been a third
+    // copy; the report panel's tag was the second. Derived, not rescanned: two
+    // literals became one token declaration, which the scanner does not count,
+    // and `ui` is the only row either of them is in.
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(542);
     // 1657 -> 1649: the same sweep. A native colour input has no useful
     // default size, so eight of the sixteen sites gave theirs an inline
     // width and height; the shared swatch takes --swatch-*-w/h. Rescanned.

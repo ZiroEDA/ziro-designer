@@ -37,6 +37,7 @@ import type {
   PrivacySettings,
   SymbolEditorSettings,
   ToolbarApp,
+  UserColorTheme,
 } from '../../prefs/settings.js';
 import type { ToolbarSettings } from '../../ui/toolbar_config.js';
 
@@ -114,6 +115,8 @@ export interface PrefsContext {
   plEditor: PlEditorSettings;
   privacy: PrivacySettings;
   userColors: Record<string, string>;
+  /** Every theme "New Theme..." made — see {@link UserColorTheme}. */
+  userThemes: Record<string, UserColorTheme>;
   hotkeys: HotkeyOverrides;
   /**
    * Each app's `TOOLBAR_SETTINGS`, which upstream is a second object the KIFACE
@@ -146,6 +149,7 @@ export interface PrefsContext {
   setPlEditor: Dispatch<SetStateAction<PlEditorSettings>>;
   setPrivacy: Dispatch<SetStateAction<PrivacySettings>>;
   setUserColors: Dispatch<SetStateAction<Record<string, string>>>;
+  setUserThemes: Dispatch<SetStateAction<Record<string, UserColorTheme>>>;
   setHotkeys: Dispatch<SetStateAction<HotkeyOverrides>>;
   /**
    * `wxQueueEvent( m_parent, new wxCommandEvent( …, wxID_CANCEL ) )` — close

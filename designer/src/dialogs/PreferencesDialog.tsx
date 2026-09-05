@@ -13,6 +13,7 @@ import {
   type PrivacySettings,
   type SymbolEditorSettings,
   type ToolbarApp,
+  type UserColorTheme,
 } from '../prefs/settings.js';
 import type { ToolbarSettings } from '../ui/toolbar_config.js';
 import { usePagedDialogSize } from '../ui/paged_dialog_size.js';
@@ -203,6 +204,9 @@ export function PreferencesDialog({
   const [symbolEditor, setSymbolEditor] = useState<SymbolEditorSettings>(() =>
     structuredClone(settings.symbolEditor),
   );
+  const [userThemes, setUserThemes] = useState<Record<string, UserColorTheme>>(() =>
+    structuredClone(settings.userThemes),
+  );
   const [userColors, setUserColors] = useState<Record<string, string>>(() => ({
     ...settings.userColors,
   }));
@@ -286,6 +290,7 @@ export function PreferencesDialog({
     for (const app of TOOLBAR_APPS)
       settings.updateToolbars(app, (s) => Object.assign(s, toolbars[app]));
     settings.setUserColors(userColors);
+    settings.setUserThemes(userThemes);
     settings.setHotkeys(hotkeys);
     // Routed through the reporter rather than written directly: switching this
     // off has to tear the transport down now, not merely record a preference.
@@ -306,6 +311,7 @@ export function PreferencesDialog({
     plEditor,
     privacy,
     userColors,
+    userThemes,
     hotkeys,
     toolbars,
     upC,
@@ -323,6 +329,7 @@ export function PreferencesDialog({
     setPlEditor,
     setPrivacy,
     setUserColors,
+    setUserThemes,
     setHotkeys,
     // Cancel, not close: `onClose` is the shell's discard path, so the working
     // copy is dropped rather than committed. Which is the whole point of the

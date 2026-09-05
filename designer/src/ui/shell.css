@@ -475,6 +475,12 @@
      was written out three times, and the share panel was about to be a
      fourth. */
   --popup-shadow: 0 6px 18px rgb(0 0 0 / 45%);
+  /* The ink KiCad writes for a line a user has to notice.
+     `WX_HTML_REPORT_PANEL::generateHtml` emits an RPT_SEVERITY_ERROR line's tag
+     in it, and it is the one colour upstream STATES for a message rather than
+     leaving to the dialog's foreground. It was written out twice and the theme
+     folder's "could not write" line was about to be a third. */
+  --error-ink: #f04040;
   /* [css] `decoration { box-shadow: 0 3px 9px 1px rgba(0,0,0,0.5),
      0 0 0 1px rgba(0,0,0,0.75) }` (:4507) — a tight drop shadow plus a 1px
      hairline ring, not the deep soft shadow we had invented. */
@@ -4793,7 +4799,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   word-break: break-word;
 }
 .ze-report-line .tag {
-  color: #f04040;
+  color: var(--error-ink);
 }
 .ze-report-line.warning .tag {
   color: inherit;
@@ -11440,7 +11446,9 @@ textarea.ze-ds-textedit {
    [px] 240 px wide and 325 tall for the resistivity list, its title clipped to
    "Electrical R..." because the dialog is narrower than the caption. Ours was
    855x580 with a 340 px floor, i.e. three times the area. */
-.ze-modal.ze-choicedlg {
+.ze-modal.ze-choicedlg,
+.ze-modal.ze-themefolder,
+.ze-modal.ze-addtheme {
   width: fit-content;
   height: auto;
   min-width: 0;
@@ -11501,52 +11509,25 @@ textarea.ze-ds-textedit {
 }
 
 /* ---- Color Themes (dialogs/prefs/dialog_theme_folder.tsx) ----
-   The stand-in for the directory "Open Theme Folder" launches a file manager
-   on. It is a listing, so it borrows the single-choice list's chrome rather
-   than restating a border, a radius and a field colour of its own. */
-.ze-modal.ze-themefolder {
-  width: fit-content;
-  height: auto;
-  min-width: 0;
-  max-width: 90vw;
-}
-.ze-themefolder-body {
-  padding: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: var(--wx-border);
-}
+   A listing in a dialog, which is what `.ze-choicedlg` already is: the modal's
+   size, the body's padding, the list's chrome and the button row are all that
+   rule's, reused by name in the markup. What is left here is the only thing
+   that differs -- three columns instead of two -- and the ink for a line the
+   user has to read. */
 .ze-themefolder-list {
-  background: var(--field-bg);
-  border: 1px solid var(--ctl-border);
-  border-radius: var(--ctl-radius);
-  max-height: 220px;
-  overflow-y: auto;
-  display: grid;
   grid-template-columns: max-content 1fr max-content;
-  align-content: start;
-}
-.ze-themefolder-row {
-  display: grid;
-  grid-column: 1 / -1;
-  grid-template-columns: subgrid;
-  align-items: center;
-  column-gap: calc(var(--wx-border) * 2);
-  padding: 3px 8px;
 }
 /* No colour on the name column or the note: a dialog's text is the DIALOG's
    foreground, and stating one here is the drift the report panel's legend
-   comment describes. The error line takes `generateHtml`'s error ink, which is
-   the one colour KiCad does state for a message a user has to notice. */
+   comment describes. The error line takes `generateHtml`'s error ink. */
 .ze-themefolder-error {
-  color: #f04040;
+  color: var(--error-ink);
 }
-.ze-themefolder-buttons {
-  display: flex;
-  align-items: center;
-  gap: var(--wx-border);
-  padding: var(--wx-border) 10px 10px;
-}
+
+/* ---- Add Color Theme (dialogs/prefs/dialog_add_color_theme.tsx) ----
+   A wxTextEntryDialog: a prompt, a field, and a wxStdDialogButtonSizer. The
+   project already has one of those -- the Duplicate Template prompt -- so this
+   is that dialog's body, reused rather than restated. */
 
 /* ---- DIALOG_PAGES_SETTINGS (common/dialogs/dialog_page_settings_base.cpp) ----
    Two columns under one `bUpperSizerH`, each a vertical stack of centred

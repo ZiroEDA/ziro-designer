@@ -91,6 +91,8 @@ export function PanelColorSettings({
   overrideColorsEnabled = false,
   onOverrideColorsChange,
   onOpenThemeFolder,
+  userThemes,
+  onNewTheme,
   preview,
 }: {
   /** `cfg->m_ColorTheme`, whichever app's settings object that is. */
@@ -125,6 +127,11 @@ export function PanelColorSettings({
    * folder's contents on one that does — see `dialog_theme_folder.tsx`.
    */
   onOpenThemeFolder?: () => void;
+  /** Themes "New Theme..." made, which the choice lists beside the rest. */
+  userThemes?: Readonly<Record<string, { name: string }>>;
+  /** Given, the choice ends in `---` and `New Theme...` — `createThemeList`'s
+   *  last two rows, which only THIS panel appends. */
+  onNewTheme?: () => void;
   /** `m_previewPanelSizer`'s contents, which only eeschema and pcbnew fill. */
   preview?: ReactNode;
 }): JSX.Element {
@@ -139,6 +146,8 @@ export function PanelColorSettings({
           markReadOnly
           value={themeId}
           onChange={onThemeChange}
+          {...(userThemes ? { userThemes } : {})}
+          {...(onNewTheme ? { onNewTheme } : {})}
         />
         <span className="ze-spacer" />
         {showOverrideColors && (

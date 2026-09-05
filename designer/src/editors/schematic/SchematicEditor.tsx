@@ -497,6 +497,7 @@ import {
   useEeschemaSettings,
   useHotkeyOverrides,
   useSchematicTheme,
+  overrideItemColorsFor,
 } from '../../prefs/useSettings.js';
 import type { RenderOpts } from './render/renderer.js';
 import type { InputPrefs } from '../../ui/view_controls.js';
@@ -5910,10 +5911,9 @@ export function SchematicEditor({
       // `SCH_RENDER_SETTINGS::LoadColors` copies the theme's
       // `GetOverrideSchItemColors()` into `m_OverrideItemColors`
       // (`sch_render_settings.cpp:75`); the painter then ignores every item's
-      // own colour. Only the writable theme can set it — see
-      // `EeschemaSettings.appearance.override_item_colors`.
-      overrideItemColors:
-        es.appearance.color_theme === 'user' && es.appearance.override_item_colors,
+      // own colour. The flag belongs to the THEME, so it comes from whichever
+      // one is selected — see `overrideItemColorsFor`.
+      overrideItemColors: overrideItemColorsFor(es.appearance.color_theme),
       showPageLimits: es.appearance.show_page_limits,
       // `eeconfig()->m_Appearance.show_directive_labels` — read per label by
       // the painter (sch_painter.cpp:3266), so the flags disappear the moment

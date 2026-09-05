@@ -266,6 +266,12 @@ describe('the same workspace on another device', () => {
       s.crash_reports = false;
     });
     a.setUserColors({ wire: 'rgb(1, 2, 3)' });
+    // A theme made with "New Theme...". Upstream these are one `<name>.json`
+    // each in the colours directory, so they have to follow the account for the
+    // same reason `colors.user` does.
+    a.setUserThemes({
+      Midnight: { name: 'Midnight', colors: { background: 'rgb(0, 0, 0)' }, override: true },
+    });
     a.setHotkeys({ 'eeschema.save': 'Ctrl+Alt+S' });
     // The three TOOLBAR_SETTINGS files. A customised toolbar is the kind of
     // thing that must follow the account — it is why the slices exist — so it
@@ -314,6 +320,9 @@ describe('the same workspace on another device', () => {
     expect(b.bitmap2cmp.negative).toBe(true);
     expect(b.privacy.crash_reports).toBe(false);
     expect(b.userColors).toEqual({ wire: 'rgb(1, 2, 3)' });
+    expect(b.userThemes).toEqual({
+      Midnight: { name: 'Midnight', colors: { background: 'rgb(0, 0, 0)' }, override: true },
+    });
     expect(b.hotkeys).toEqual({ 'eeschema.save': 'Ctrl+Alt+S' });
     // Each app's toolbars came down as its own file, not as one shared blob.
     // `TOOLBAR_LOC` in magic_enum's own spelling, which is the only spelling
@@ -862,6 +871,7 @@ describe('the per-slice stamps', () => {
     a.updateBitmap2Cmp(() => undefined);
     a.updatePrivacy(() => undefined);
     a.setUserColors({});
+    a.setUserThemes({});
     a.setHotkeys({});
     a.resetCommon();
     a.resetEeschema();
@@ -883,14 +893,16 @@ describe('the per-slice stamps', () => {
     // together, which is green. These are KiCad's settings-file basenames —
     // common.json, eeschema.json, pcbnew.json, pl_editor.json,
     // pcb_calculator.json, bitmap2component.json, fpedit.json,
-    // colors/user.json, user.hotkeys — plus `privacy`, which has no upstream
-    // counterpart, and the three `*-toolbars` files. Those are files in their
+    // colors/user.json, user.hotkeys — plus `colors.themes`, which stands for
+    // every OTHER `colors/<name>.json` "New Theme..." made, `privacy`, which has
+    // no upstream counterpart, and the three `*-toolbars` files. Those are files in their
     // own right upstream, not keys inside an app's settings:
     // `GetToolbarSettings<…>( "pl_editor-toolbars" )` (pl_editor.cpp:88,
     // eeschema.cpp:346, pcbnew.cpp:455), so a synced account carries
     // `eeschema-toolbars.json` rather than a sub-object of `eeschema.json`.
     const expected: SettingsSlice[] = [
       'bitmap2component',
+      'colors.themes',
       'colors.user',
       'common',
       'eeschema',

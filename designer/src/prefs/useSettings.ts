@@ -80,8 +80,25 @@ export function resolveThemeById(id: string): Theme {
   // A colour theme installed via the Plugin and Content Manager.
   const installed = pcm.themeById(id);
   if (installed) return installed;
+  // A theme "New Theme..." made, which carries a colour table of its own.
+  const made = settings.userThemes[id];
+  if (made) return { ...KICAD_DEFAULT, ...made.colors } as Theme;
   // "User" theme: the default theme with the stored per-layer overrides.
   return { ...KICAD_DEFAULT, ...settings.userColors } as Theme;
+}
+
+/**
+ * `COLOR_SETTINGS::GetOverrideSchItemColors()` for one theme id.
+ *
+ * Both built-ins and everything the PCM installs leave it at
+ * `color_settings.cpp:49`'s false — they are read-only, and nothing can write
+ * one. Only a theme with a file of its own carries a true.
+ */
+export function overrideItemColorsFor(id: string): boolean {
+  if (BUILTIN_THEMES[id] || pcm.themeById(id)) return false;
+  const made = settings.userThemes[id];
+  if (made) return made.override;
+  return settings.eeschema.appearance.override_item_colors;
 }
 
 /** Resolve the active theme (COLOR_SETTINGS lookup): builtin id, a PCM-installed

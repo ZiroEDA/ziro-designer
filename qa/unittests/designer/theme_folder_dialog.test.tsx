@@ -182,7 +182,14 @@ function ctxFor(
   upE: (fn: (s: EeschemaSettings) => void) => void,
   setUserColors: (fn: (c: Record<string, string>) => Record<string, string>) => void = () => {},
 ): PrefsContext {
-  return { eeschema, upE, userColors: {}, setUserColors } as unknown as PrefsContext;
+  return {
+    eeschema,
+    upE,
+    userColors: {},
+    setUserColors,
+    userThemes: {},
+    setUserThemes: () => {},
+  } as unknown as PrefsContext;
 }
 
 describe('the button on the Colors page', () => {

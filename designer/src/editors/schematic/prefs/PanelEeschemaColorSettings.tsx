@@ -37,6 +37,8 @@ import {
   type FolderFile,
   type ThemeFile,
 } from '../../../dialogs/prefs/dialog_theme_folder.js';
+import { AddColorThemeDialog } from '../../../dialogs/prefs/dialog_add_color_theme.js';
+import { MessageDialogOk } from '../../../ui/dialog_message.js';
 import {
   PICK_CANCELLED,
   pickThemeFolder,
@@ -156,7 +158,10 @@ const themeByLayer = (theme: Theme): Partial<Record<SchLayerId, string>> => {
 };
 
 export function PanelEeschemaColorSettings({ ctx }: { ctx: PrefsContext }): JSX.Element {
-  const { eeschema, upE, userColors, setUserColors } = ctx;
+  const { eeschema, upE, userColors, setUserColors, userThemes, setUserThemes } = ctx;
+  /** The "New Theme..." prompt, and the box that reports a name already taken. */
+  const [naming, setNaming] = useState(false);
+  const [nameTaken, setNameTaken] = useState(false);
   const [themeFolder, setThemeFolder] = useState(false);
   /**
    * The picked directory, once the user has granted one. Null means the browser
@@ -202,8 +207,12 @@ export function PanelEeschemaColorSettings({ ctx }: { ctx: PrefsContext }): JSX.
     if (builtin) return builtin.theme;
     const installed = pcm.themeById(themeId);
     if (installed) return installed;
+    // A theme "New Theme..." made carries its own colour table; `user` and an
+    // id nothing knows both fall through to the writable one.
+    const made = userThemes[themeId];
+    if (made) return { ...KICAD_DEFAULT, ...made.colors } as Theme;
     return { ...KICAD_DEFAULT, ...userColors } as Theme;
-  }, [themeId, userColors]);
+  }, [themeId, userColors, userThemes]);
 
   const raw = rawTable(themeId);
 
@@ -259,8 +268,32 @@ export function PanelEeschemaColorSettings({ ctx }: { ctx: PrefsContext }): JSX.
    * which for either built-in is `color_settings.cpp:49`'s false.
    */
   const [workingOverride, setWorkingOverride] = useState<boolean | null>(null);
+
+  /**
+   * `!m_currentSettings->IsReadOnly()`, which is `m_writeFile`
+   * (`json_settings.h:105`). The built-ins clear it in
+   * `CreateBuiltinColorSettings` and everything under the system and
+   * third-party colour directories gets `SetReadOnly( true )`; a theme
+   * `AddNewColorSettings` made has a file of its own and is writable, exactly
+   * like `user.json`.
+   */
+  const writable = themeId === 'user' || themeId in userThemes;
+  const stored = userThemes[themeId];
   const override =
-    workingOverride ?? (themeId === 'user' && eeschema.appearance.override_item_colors);
+    workingOverride ??
+    (themeId === 'user' ? eeschema.appearance.override_item_colors : (stored?.override ?? false));
+
+  /** `m_currentSettings->SetColor( layer, … )` on whichever theme is selected. */
+  const setThemeColor = (key: string, css: string): void => {
+    if (stored) {
+      setUserThemes((t) => ({
+        ...t,
+        [themeId]: { ...stored, colors: { ...stored.colors, [key]: css } },
+      }));
+      return;
+    }
+    setUserColors((c) => ({ ...c, [key]: css }));
+  };
 
   // `m_validLayers` crossed with `createSwatches()`, in that function's own
   // order. A row whose `key` is null has no field on our painter's `Theme`, so
@@ -287,11 +320,11 @@ export function PanelEeschemaColorSettings({ ctx }: { ctx: PrefsContext }): JSX.
     color: key ? parseColor4d(activeColors[key]) : (raw[layer] ?? COLOR4D_UNSPECIFIED),
     // Upstream a read-only THEME disables the whole panel; `key === null` is
     // our separate reason, a layer with no reader on this side.
-    disabled: themeId !== 'user' || key === null,
+    disabled: !writable || key === null,
     ...(key
       ? {
           onChange: (picked: Color4d): void => {
-            setUserColors((c) => ({ ...c, [key]: toCssColor(picked, ', ') }));
+            setThemeColor(key, toCssColor(picked, ', '));
           },
         }
       : {}),
@@ -305,7 +338,7 @@ export function PanelEeschemaColorSettings({ ctx }: { ctx: PrefsContext }): JSX.
           // `OnThemeChanged`, in its order: the new theme's flag, then whether
           // it can be edited at all.
           setWorkingOverride(null);
-          setOverrideEnabled(v === 'user');
+          setOverrideEnabled(v === 'user' || v in userThemes);
           upE((s) => {
             s.appearance.color_theme = v;
           });
@@ -318,12 +351,15 @@ export function PanelEeschemaColorSettings({ ctx }: { ctx: PrefsContext }): JSX.
           setWorkingOverride(v);
           // `saveCurrentTheme` writes only a theme it can write, so a tick on a
           // read-only one lives as long as the page and no longer.
-          if (themeId === 'user')
+          if (stored) setUserThemes((t) => ({ ...t, [themeId]: { ...stored, override: v } }));
+          else if (themeId === 'user')
             upE((s) => {
               s.appearance.override_item_colors = v;
             });
         }}
         onOpenThemeFolder={() => void openThemeFolder()}
+        userThemes={userThemes}
+        onNewTheme={() => setNaming(true)}
         /* `backgroundColor = m_currentSettings->GetColor( m_backgroundLayer )`
          (`panel_color_settings.cpp:262`) — the theme's own schematic
          background, which is what a half-transparent colour is
@@ -333,6 +369,42 @@ export function PanelEeschemaColorSettings({ ctx }: { ctx: PrefsContext }): JSX.
          are the only two pages that fill `m_previewPanelSizer`. */
         preview={<ColorPreviewPanel theme={activeColors} overrideItemColors={override} />}
       />
+      {naming && (
+        <AddColorThemeDialog
+          onCancel={() => setNaming(false)}
+          onConfirm={(name) => {
+            setNaming(false);
+            /*
+             * `if( fn.Exists() ) { wxMessageBox( _( "Theme already exists!" ) ); return; }`
+             * — the FILE, so the question is about the folder, not about the
+             * display name. `user.json` is in that folder too, which is why it
+             * is checked here alongside the themes this made.
+             */
+            if (name === 'user' || name in userThemes) {
+              setNameTaken(true);
+              return;
+            }
+            /*
+             * `for( int layer : m_validLayers )
+             *      newSettings->SetColor( layer, m_currentSettings->GetColor( layer ) );`
+             * — seeded from the theme that was SELECTED, not from the defaults,
+             * so "New Theme..." on KiCad Classic gives you Classic to edit.
+             */
+            const seed: Record<string, string> = {};
+            for (const { key } of COLOR_LAYERS) if (key) seed[key] = activeColors[key] as string;
+            setUserThemes((t) => ({ ...t, [name]: { name, colors: seed, override } }));
+            // `m_cbTheme->SetSelection( idx )`, then `Enable( !IsReadOnly() )`.
+            setWorkingOverride(null);
+            setOverrideEnabled(true);
+            upE((st) => {
+              st.appearance.color_theme = name;
+            });
+          }}
+        />
+      )}
+      {nameTaken && (
+        <MessageDialogOk message="Theme already exists!" onClose={() => setNameTaken(false)} />
+      )}
       {themeFolder && (
         <ThemeFolderDialog
           files={themeFiles}

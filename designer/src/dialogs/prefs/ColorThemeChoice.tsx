@@ -53,9 +53,27 @@ const dropdownName = (name: string, readOnly: boolean): string =>
  * (`panel_pl_editor_color_settings.cpp:46`). One list, named two ways, and the
  * difference is upstream's.
  */
+/**
+ * `createThemeList`'s last two rows (`panel_color_settings.cpp:238-239`):
+ *
+ *     m_cbTheme->Append( wxT( "---" ) );
+ *     m_cbTheme->Append( _( "New Theme..." ) );
+ *
+ * They belong to `PANEL_COLOR_SETTINGS` alone — `PANEL_PL_EDITOR_COLOR_SETTINGS`
+ * fills its own choice from `GetColorSettingsList()` and appends neither
+ * (`panel_pl_editor_color_settings.cpp:44-58`), which is why they are a
+ * parameter here and not part of the list.
+ */
+export const THEME_SEPARATOR = '---';
+export const NEW_THEME = 'New Theme...';
+
 export function colorThemeOptions(
   installed: readonly { id: string; name: string }[],
   markReadOnly = false,
+  /** Themes made with "New Theme...", keyed by file stem. */
+  userThemes: Readonly<Record<string, { name: string }>> = {},
+  /** Append `---` and `New Theme...`. Only `PANEL_COLOR_SETTINGS` does. */
+  allowNew = false,
 ): [string, string][] {
   const name = (n: string, readOnly: boolean): string =>
     markReadOnly ? dropdownName(n, readOnly) : n;
@@ -92,6 +110,10 @@ export function colorThemeOptions(
     // "KiCad Default". We store colours for this theme and no name, so the
     // PARAM default is the whole of the answer.
     ['user', BUILTIN_THEMES._builtin_default?.name ?? 'KiCad Default', false],
+    // `AddNewColorSettings( themeName )` writes `<themeName>.json` into the
+    // colours directory and `SetReadOnly( false )` on it, so a theme the user
+    // made is in the list beside the rest and carries no "(read-only)".
+    ...Object.entries(userThemes).map(([id, t]): [string, string, boolean] => [id, t.name, false]),
   ];
 
   // `SETTINGS_MANAGER::loadAllColorSettings`' last pass
@@ -112,7 +134,11 @@ export function colorThemeOptions(
     if (builtinNames.has(n)) row[1] = `${n} (${id})`;
   }
   raw.sort((a, b) => (a[1] < b[1] ? -1 : a[1] > b[1] ? 1 : 0));
-  return raw.map(([id, n, readOnly]): [string, string] => [id, name(n, readOnly)]);
+  const out = raw.map(([id, n, readOnly]): [string, string] => [id, name(n, readOnly)]);
+  // Appended AFTER the sort, because `createThemeList` appends them after its
+  // loop over the already-sorted list.
+  if (allowNew) out.push([THEME_SEPARATOR, THEME_SEPARATOR], [NEW_THEME, NEW_THEME]);
+  return out;
 }
 
 export function ColorThemeChoice({
@@ -120,20 +146,46 @@ export function ColorThemeChoice({
   value,
   onChange,
   markReadOnly,
+  userThemes,
+  onNewTheme,
 }: {
   label: string;
   value: string;
   onChange: (id: string) => void;
   /** See `colorThemeOptions`: only `PANEL_COLOR_SETTINGS` names them that way. */
   markReadOnly?: boolean;
+  userThemes?: Readonly<Record<string, { name: string }>>;
+  /** Given, the list ends in `---` and `New Theme...`. */
+  onNewTheme?: () => void;
 }): JSX.Element {
   usePcmVersion();
   return (
     <Sel
       label={label}
       value={value}
-      options={colorThemeOptions(pcm.installedThemes(), markReadOnly)}
-      onChange={onChange}
+      options={colorThemeOptions(
+        pcm.installedThemes(),
+        markReadOnly,
+        userThemes ?? {},
+        onNewTheme !== undefined,
+      )}
+      onChange={(id) => {
+        /*
+         * `OnThemeChanged` (`panel_color_settings.cpp:122-137`) reads the two
+         * trailing rows by INDEX: the separator puts the selection back —
+         *
+         *     m_cbTheme->SetStringSelection( GetSettingsDropdownName( m_currentSettings ) );
+         *     return;
+         *
+         * — and the last row runs New Theme instead of selecting anything.
+         */
+        if (id === THEME_SEPARATOR) return;
+        if (id === NEW_THEME) {
+          onNewTheme?.();
+          return;
+        }
+        onChange(id);
+      }}
     />
   );
 }

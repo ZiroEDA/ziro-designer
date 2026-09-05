@@ -2282,6 +2282,10 @@ export const SETTINGS_SLICES = [
   'bitmap2component',
   'privacy',
   'colors.user',
+  // Every theme "New Theme..." made. Upstream these are one `<name>.json` each
+  // in `GetColorSettingsPath()`; a slice is what this app syncs, so they ride
+  // together with the stems as keys.
+  'colors.themes',
   'hotkeys',
   // `TOOLBAR_SETTINGS` is a file of its own per app, not a key inside the app's
   // settings: `GetToolbarSettings<…>( "pl_editor-toolbars" )`
@@ -2633,6 +2637,42 @@ export function mergeCommon(stored: unknown): CommonSettings {
   return out;
 }
 
+/**
+ * One theme the user made with "New Theme..." — a `colors/<name>.json` that is
+ * not `user.json`.
+ *
+ * `AddNewColorSettings( themeName )` names the FILE after the theme
+ * (`panel_color_settings.cpp:147-158`), so the key of the map is both the file
+ * stem and the theme id, exactly as it is on disk.
+ */
+export interface UserColorTheme {
+  /** `meta.name`. */
+  name: string;
+  /** Our painter's `Theme` keys -> CSS, the same shape as `colors.user`. */
+  colors: Record<string, string>;
+  /** `schematic.override_item_colors`. */
+  override: boolean;
+}
+
+/**
+ * `colors.themes`. Free-form for the same reason `colors.user` is: `deepMerge`
+ * keeps only keys the DEFAULTS already have, and the defaults here are `{}`.
+ */
+export function normalizeUserThemes(parsed: unknown): Record<string, UserColorTheme> {
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return {};
+  const out: Record<string, UserColorTheme> = {};
+  for (const [id, v] of Object.entries(parsed as Record<string, unknown>)) {
+    if (typeof v !== 'object' || v === null || Array.isArray(v)) continue;
+    const t = v as { name?: unknown; colors?: unknown; override?: unknown };
+    out[id] = {
+      name: typeof t.name === 'string' && t.name !== '' ? t.name : id,
+      colors: normalizeUserColors(t.colors),
+      override: t.override === true,
+    };
+  }
+  return out;
+}
+
 /** The "User" colour theme: layer key -> CSS colour. Free-form, same as above. */
 export function normalizeUserColors(parsed: unknown): Record<string, string> {
   if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return {};
@@ -2777,6 +2817,15 @@ const SLICE_IO: Record<SettingsSlice, SliceIO> = {
       m.userColors = normalizeUserColors(v);
     },
   },
+  // Every theme "New Theme..." made. One slice rather than a file each, because
+  // a slice is what this app syncs; upstream's directory of `<name>.json` is
+  // the same map with the stems as keys.
+  'colors.themes': {
+    read: (m) => m.userThemes,
+    adopt: (m, v) => {
+      m.userThemes = normalizeUserThemes(v);
+    },
+  },
   hotkeys: {
     read: (m) => m.hotkeys,
     adopt: (m, v) => {
@@ -2871,6 +2920,8 @@ export class SettingsManager {
   bitmap2cmp: Bitmap2CmpSettings = load(sliceStorageKey('bitmap2component'), BITMAP2CMP_DEFAULTS);
   privacy: PrivacySettings = load(sliceStorageKey('privacy'), PRIVACY_DEFAULTS);
   /** The editable "User" colour theme: layer-key -> CSS colour overrides. */
+  userThemes: Record<string, UserColorTheme> = loadFreeForm('colors.themes', normalizeUserThemes);
+
   userColors: Record<string, string> = loadFreeForm(
     sliceStorageKey('colors.user'),
     normalizeUserColors,
@@ -3120,6 +3171,11 @@ export class SettingsManager {
   resetUserColors(): void {
     this.userColors = {};
     this.commit('colors.user', this.userColors);
+  }
+
+  setUserThemes(themes: Record<string, UserColorTheme>): void {
+    this.userThemes = { ...themes };
+    this.commit('colors.themes', this.userThemes);
   }
 
   /**
