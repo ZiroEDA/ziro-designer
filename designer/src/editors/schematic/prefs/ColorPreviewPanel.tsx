@@ -72,7 +72,15 @@ const PREVIEW_OPTS: RenderOpts = {
   showHiddenFields: true,
 };
 
-export function ColorPreviewPanel({ theme }: { theme: Theme }): JSX.Element {
+export function ColorPreviewPanel({
+  theme,
+  overrideItemColors = false,
+}: {
+  theme: Theme;
+  /** The theme's `schematic.override_item_colors`, so the preview shows what
+   *  the checkbox above it does. */
+  overrideItemColors?: boolean;
+}): JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const boxRef = useRef<HTMLDivElement>(null);
   /**
@@ -86,6 +94,8 @@ export function ColorPreviewPanel({ theme }: { theme: Theme }): JSX.Element {
   // a ref rather than being closed over.
   const themeRef = useRef(theme);
   themeRef.current = theme;
+  const overrideRef = useRef(overrideItemColors);
+  overrideRef.current = overrideItemColors;
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -111,7 +121,7 @@ export function ColorPreviewPanel({ theme }: { theme: Theme }): JSX.Element {
         h,
         COLOR_PREVIEW_SELECTION,
         undefined,
-        PREVIEW_OPTS,
+        { ...PREVIEW_OPTS, overrideItemColors: overrideRef.current },
       );
     };
 
@@ -217,9 +227,21 @@ export function ColorPreviewPanel({ theme }: { theme: Theme }): JSX.Element {
       h,
       COLOR_PREVIEW_SELECTION,
       undefined,
-      PREVIEW_OPTS,
+      { ...PREVIEW_OPTS, overrideItemColors },
     );
-  }, [theme]);
+    /*
+     * A deliberate difference, and the only one on this page.
+     *
+     * `OnOverrideItemColorsClicked` (`panel_eeschema_color_settings.cpp:550`)
+     * sets the flag and calls `updateAllowedSwatches()` — NOT `updatePreview()`
+     * — so upstream's preview keeps the colours its retained KIGFX::VIEW
+     * already has until the next swatch change or resize refreshes it. There is
+     * no retained view here to leave stale: the canvas is repainted from the
+     * document every time this component's props change, and withholding that
+     * would mean adding code whose only effect is to show the user something
+     * out of date.
+     */
+  }, [theme, overrideItemColors]);
 
   return (
     <div className="ze-colorpreview" ref={boxRef}>

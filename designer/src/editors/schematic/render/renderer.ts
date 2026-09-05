@@ -502,6 +502,19 @@ export interface RenderOpts {
    */
   drawSelectedChildren: boolean;
   showHiddenFields: boolean;
+  /**
+   * `SCH_RENDER_SETTINGS::m_OverrideItemColors` — the theme's
+   * `override_schematic_item_colors`.
+   *
+   * When set, an item's OWN colour is ignored and everything is drawn in its
+   * layer's colour. Upstream this is one branch in `SCH_PAINTER::getRenderColor`:
+   *
+   *     if( !m_schSettings.m_OverrideItemColors ) { … take the item's colour … }
+   *     (`sch_painter.cpp:320`)
+   *
+   * which is why {@link itemColour} is the only place ours asks the question.
+   */
+  overrideItemColors?: boolean;
   showPageLimits: boolean;
   /** Draw the page border + title block (LAYER_DRAWINGSHEET). Defaults to true;
    *  Print/Plot's "drawing sheet" option turns it off. */
@@ -781,6 +794,34 @@ let g_pinSymbolSize = 0.635 * MM; // m_PinSymbolSize (25 mil); 0 = per-pin fallb
 let g_hopOverRadius = 0; // hop-over arc radius (IU); 0 = hop-overs off
 // Inter-sheet reference resolver for the current render (unset = hidden).
 let g_intersheetRefs: RenderOpts['intersheetRefs'];
+let g_overrideItemColors = false;
+
+/**
+ * An item's own colour, or its layer's when the theme overrides item colours.
+ *
+ * `SCH_PAINTER::getRenderColor` (`sch_painter.cpp:305-420`) asks this once for
+ * every item type it knows;
+ * ours asks it once per site, which is the same thing said in a language with
+ * no common base class to hang it on. Every `x.color ? cssColor(x.color) : layer`
+ * in this file goes through here — a site that does not is a colour the
+ * override silently fails to reach.
+ */
+function itemColour(
+  own: readonly [number, number, number, number] | undefined,
+  layerColour: string,
+): string {
+  return !g_overrideItemColors && own ? cssColor(own) : layerColour;
+}
+
+/**
+ * The same question where the item's colour has already been resolved to CSS —
+ * a field layout caches its `cssColor`, and a `${VAR}`-expanded label is rebuilt
+ * before its colour is picked. Returns undefined when the override is on, so
+ * the call site's `?? layerColour` takes over.
+ */
+function itemOwnCss(own: string | undefined | false): string | undefined {
+  return g_overrideItemColors || !own ? undefined : own;
+}
 // Highlighted-chain wire tint for the current render (unset = none).
 let g_chainHighlight: RenderOpts['chainHighlight'];
 // Netclass fallbacks for the current render (unset = no netclass visuals).
@@ -907,6 +948,7 @@ export function renderSchematic(
       : PIN_SYMBOL_SIZE;
   g_hopOverRadius = opts.hopOverRadiusIU && opts.hopOverRadiusIU > 0 ? opts.hopOverRadiusIU : 0;
   g_intersheetRefs = opts.intersheetRefs;
+  g_overrideItemColors = opts.overrideItemColors ?? false;
   g_chainHighlight = opts.chainHighlight;
   g_netOverrides = opts.netOverrides;
   g_resolveText = opts.resolveTextVar;
@@ -1109,7 +1151,7 @@ export function renderSchematic(
       // `if( drawingNetColorHighlights && !( aLine->IsWire() || aLine->IsBus() ) ) return;`
       if (line.kind !== 'wire' && line.kind !== 'bus') return;
       const nc = g_netOverrides?.lines.get(id);
-      const colour = line.stroke?.color ? cssColor(line.stroke.color) : nc?.color;
+      const colour = itemColour(line.stroke?.color, nc?.color ?? '');
       if (!colour) return;
       // "Don't draw highlights for default-colored nets" (`sch_painter.cpp:1839-1845`):
       // a wire whose colour IS the layer's own gets no band, which is what keeps
@@ -1173,15 +1215,14 @@ export function renderSchematic(
       chainTint ??
       (on
         ? theme.netHighlight
-        : line.stroke?.color
-          ? cssColor(line.stroke.color)
-          : nc?.color
+        : (itemOwnCss(line.stroke?.color && cssColor(line.stroke.color)) ??
+          (nc?.color
             ? nc.color
             : line.kind === 'bus'
               ? theme.bus
               : line.kind === 'wire'
                 ? theme.wire
-                : theme.noteLine);
+                : theme.noteLine)));
     ctx.lineWidth = width;
     const dashType =
       line.stroke?.type && line.stroke.type !== 'default'
@@ -1301,7 +1342,7 @@ export function renderSchematic(
     const d = j.diameter > 0 ? j.diameter : (g_netOverrides?.junctions.get(jid) ?? g_junctionDiam);
     if (d <= 1) return;
     const layerColour = opts.busJunctionIds?.has(jid) ? theme.busJunction : theme.junction;
-    ctx.fillStyle = hl(jid) ? theme.netHighlight : j.color ? cssColor(j.color) : layerColour;
+    ctx.fillStyle = hl(jid) ? theme.netHighlight : itemColour(j.color, layerColour);
     ctx.beginPath();
     ctx.arc(j.at.x, j.at.y, d / 2, 0, Math.PI * 2);
     ctx.fill();
@@ -1478,7 +1519,7 @@ export function renderSchematic(
         ? theme.hidden
         : powerFieldsLit && (fd.key === 'Reference' || fd.key === 'Value')
           ? theme.netHighlight
-          : (fd.cssColor ??
+          : (itemOwnCss(fd.cssColor) ??
             (fd.key === 'Reference'
               ? theme.reference
               : fd.key === 'Value'
@@ -1548,7 +1589,7 @@ export function renderSchematic(
     const pad = 8 * MM; // fields sit just outside the rectangle
     if (!inView(sh.at.x - pad, sh.at.y - pad, sh.at.x + sh.size.w + pad, sh.at.y + sh.size.h + pad))
       return;
-    const border = sh.stroke?.color ? cssColor(sh.stroke.color) : theme.sheetBorder;
+    const border = itemColour(sh.stroke?.color, theme.sheetBorder);
     const bw = sh.stroke && sh.stroke.width > 0 ? sh.stroke.width : g_defaultPen;
     // LAYER_SHEET_BACKGROUND (SCH_PAINTER::draw(SCH_SHEET), first block): the
     // sheet's own background colour, falling back to the theme's — which the
@@ -1570,7 +1611,7 @@ export function renderSchematic(
     // Taking it literally meant every sheet KiCad ever wrote counted as having
     // its own transparent colour, so the theme's sheet background was never
     // reached and no sheet was ever filled.
-    const own = sh.fillColor;
+    const own = g_overrideItemColors ? undefined : sh.fillColor;
     const unspecified =
       !own || (own[0] === 0 && own[1] === 0 && own[2] === 0 && (own[3] ?? 0) === 0);
     const sheetFill = unspecified ? theme.sheetBackground : cssColor(own);
@@ -1843,8 +1884,11 @@ function drawSheetGraphic(
   // ordinary drawing takes LAYER_NOTES. An explicit stroke colour still wins,
   // as it does for any shape.
   const layerColor = g.ruleArea ? theme.ruleArea : theme.noteLine;
-  const color = stroke?.color ? cssColor(stroke.color) : layerColor;
-  const ownFill = g.fill?.type === 'color' && g.fill.color ? cssColor(g.fill.color) : null;
+  const color = itemColour(stroke?.color, layerColor);
+  const ownFill =
+    g.fill?.type === 'color' && g.fill.color && !g_overrideItemColors
+      ? cssColor(g.fill.color)
+      : null;
   const fill = ownFill === null ? null : backgroundLayerFill(ownFill, selected, brightened);
 
   // Cheap culling per shape.
@@ -1979,10 +2023,10 @@ function drawTextBox(
 
   const stroke = tb.stroke;
   const width = stroke && stroke.width > 0 ? stroke.width : g_defaultPen;
-  const borderColor = stroke?.color ? cssColor(stroke.color) : theme.noteLine;
-  const textColor = tb.effects?.color ? cssColor(tb.effects.color) : theme.noteLine;
+  const borderColor = itemColour(stroke?.color, theme.noteLine);
+  const textColor = itemColour(tb.effects?.color, theme.noteLine);
   const ownFill =
-    tb.fill?.type === 'color' && tb.fill.color
+    tb.fill?.type === 'color' && tb.fill.color && !g_overrideItemColors
       ? cssColor(tb.fill.color)
       : tb.fill?.type === 'background'
         ? theme.background
@@ -2130,7 +2174,7 @@ function drawTable(
   const applyStroke = (stroke: Stroke | undefined): void => {
     const w = stroke?.width;
     ctx.lineWidth = w === undefined || w === 0 ? g_defaultPen : w;
-    ctx.strokeStyle = stroke?.color ? cssColor(stroke.color) : color;
+    ctx.strokeStyle = itemColour(stroke?.color, color);
     setDash(ctx, stroke?.type, ctx.lineWidth);
   };
   /** `if( StrokeExternal() && GetBorderStroke().GetWidth() >= 0 )`. */
@@ -2636,9 +2680,7 @@ function drawLabel(
             : l.kind === 'hierarchical_label'
               ? theme.hierLabel
               : l.kind === 'text'
-                ? l.effects?.color
-                  ? cssColor(l.effects.color)
-                  : theme.noText
+                ? (itemOwnCss(l.effects?.color && cssColor(l.effects.color)) ?? theme.noText)
                 : theme.label));
 
   /**
@@ -2666,9 +2708,7 @@ function drawLabel(
       ? brightened
       : // An explicit `(effects (font (color …)))` still wins: getRenderColor
         // tests the item's own text colour before it consults aIgnoreNets.
-        l.effects?.color
-        ? cssColor(l.effects.color)
-        : theme.hierLabel;
+        (itemOwnCss(l.effects?.color && cssColor(l.effects.color)) ?? theme.hierLabel);
   // SCH_LABEL_BASE::GetSchematicTextOffset: lift the text clear of the wire by
   // m_TextOffsetRatio x text size plus the pen width (sch_label.cpp).
   const dist = Math.round(g_textOffsetRatio * h) + g_defaultPen;
@@ -3953,7 +3993,9 @@ function drawLibUnit(
       const fillType = g.fill?.type;
       if (fillType !== 'background' && fillType !== 'color') continue;
       const bodyFill = dim(
-        fillType === 'color' && g.fill?.color ? cssColor(g.fill.color) : theme.symbolFill,
+        fillType === 'color' && g.fill?.color && !g_overrideItemColors
+          ? cssColor(g.fill.color)
+          : theme.symbolFill,
       );
       ctx.fillStyle = backgroundLayerFill(bodyFill, bgSelected, bgBrightened);
       if (g.kind === 'arc') {

@@ -20,7 +20,7 @@
  * takes every remaining pixel. Ours had the swatches spread across the whole
  * page in a two-across grid, in an order of our own, with no preview at all.
  */
-import { useMemo, type JSX } from 'react';
+import { useMemo, useState, type JSX } from 'react';
 import {
   PanelColorSettings,
   type ColorSwatchRow,
@@ -31,6 +31,8 @@ import { BUILTIN_THEMES, KICAD_DEFAULT, type Theme } from '../theme.js';
 import { ColorPreviewPanel } from './ColorPreviewPanel.js';
 import { BUILTIN_CLASSIC_THEME, BUILTIN_DEFAULT_THEME, type Color4d } from '@ziroeda/common';
 import { COLOR4D_UNSPECIFIED, parseColor4d, toCssColor } from '@ziroeda/common/src/color4d.js';
+import type { SchLayerId } from '@ziroeda/common/src/settings/color_theme_file.js';
+import { ThemeFolderDialog, type ThemeFile } from '../../../dialogs/prefs/dialog_theme_folder.js';
 
 /** One row of `m_colorsGridSizer`: a swatch and the layer's name. */
 export interface ColorRowSpec {
@@ -128,8 +130,23 @@ export const COLOR_LAYERS: readonly ColorRowSpec[] = [
 const rawTable = (themeId: string): Partial<Record<string, Color4d>> =>
   themeId === '_builtin_classic' ? BUILTIN_CLASSIC_THEME : BUILTIN_DEFAULT_THEME;
 
+/**
+ * The theme's colour table keyed the way a COLOR_SETTINGS file keys it.
+ *
+ * `Theme` is the painter's projection and has no field for six of the layers,
+ * so those are simply absent — `colorThemeToFile` falls back to
+ * `s_defaultTheme` for them, which is what `COLOR_MAP_PARAM`'s default is.
+ */
+const themeByLayer = (theme: Theme): Partial<Record<SchLayerId, string>> => {
+  const out: Partial<Record<SchLayerId, string>> = {};
+  for (const { layer, key } of COLOR_LAYERS)
+    if (key) out[layer as SchLayerId] = theme[key] as string;
+  return out;
+};
+
 export function PanelEeschemaColorSettings({ ctx }: { ctx: PrefsContext }): JSX.Element {
   const { eeschema, upE, userColors, setUserColors } = ctx;
+  const [themeFolder, setThemeFolder] = useState(false);
 
   // Colour themes installed via the Plugin and Content Manager are offered by
   // `ColorThemeChoice`, which subscribes to the store itself; this page still
@@ -146,10 +163,58 @@ export function PanelEeschemaColorSettings({ ctx }: { ctx: PrefsContext }): JSX.
 
   const raw = rawTable(themeId);
 
+  /*
+   * What the folder holds. KiCad's colour-theme directory contains the themes
+   * a user made and the ones the PCM installed — never the two built-ins,
+   * which are compiled in and have no file (`COLOR_BUILTIN_DEFAULT`,
+   * `color_settings.cpp:34-35`).
+   */
+  const themeFiles: readonly ThemeFile[] = [
+    {
+      fileName: 'user.json',
+      name: 'User',
+      contents: {
+        name: 'User',
+        colors: themeByLayer({ ...KICAD_DEFAULT, ...userColors } as Theme),
+        override: eeschema.appearance.override_item_colors,
+      },
+      writable: true,
+    },
+    ...pcm.installedThemes().map(({ id, name, theme }) => ({
+      fileName: `${id.replace(/^pcm:/, '')}.json`,
+      name,
+      contents: { name, colors: themeByLayer(theme), override: false },
+      writable: false,
+    })),
+  ];
+
+  /**
+   * `m_currentSettings->GetOverrideSchItemColors()`. Only the writable theme
+   * carries one; both built-ins leave it false, which is the default in
+   * `color_settings.cpp:49`.
+   */
+  const override = themeId === 'user' && eeschema.appearance.override_item_colors;
+
   // `m_validLayers` crossed with `createSwatches()`, in that function's own
   // order. A row whose `key` is null has no field on our painter's `Theme`, so
   // it reads the theme table directly and cannot be edited.
-  const rows: ColorSwatchRow[] = COLOR_LAYERS.map(({ layer, name, key }) => ({
+  const rows: ColorSwatchRow[] = COLOR_LAYERS.filter(
+    /*
+     * `updateAllowedSwatches` (`panel_eeschema_color_settings.cpp:536-548`):
+     *
+     *     // If the theme is not overriding individual item colors then don't
+     *     // show them so that the user doesn't get seduced into thinking
+     *     // they'll have some effect.
+     *     m_labels[ LAYER_SHEET ]->Show( …GetOverrideSchItemColors() );
+     *     m_swatches[ LAYER_SHEET ]->Show( … );
+     *     m_labels[ LAYER_SHEET_BACKGROUND ]->Show( … );
+     *     m_swatches[ LAYER_SHEET_BACKGROUND ]->Show( … );
+     *
+     * A hidden wxWindow takes no space in its sizer, so the two rows are gone
+     * from the list rather than greyed in it.
+     */
+    ({ layer }) => override || (layer !== 'LAYER_SHEET' && layer !== 'LAYER_SHEET_BACKGROUND'),
+  ).map(({ layer, name, key }) => ({
     id: layer,
     name,
     color: key ? parseColor4d(activeColors[key]) : (raw[layer] ?? COLOR4D_UNSPECIFIED),
@@ -166,22 +231,61 @@ export function PanelEeschemaColorSettings({ ctx }: { ctx: PrefsContext }): JSX.
   }));
 
   return (
-    <PanelColorSettings
-      themeId={themeId}
-      onThemeChange={(v) =>
-        upE((s) => {
-          s.appearance.color_theme = v;
-        })
-      }
-      rows={rows}
-      /* `backgroundColor = m_currentSettings->GetColor( m_backgroundLayer )`
+    <>
+      <PanelColorSettings
+        themeId={themeId}
+        onThemeChange={(v) =>
+          upE((s) => {
+            s.appearance.color_theme = v;
+          })
+        }
+        rows={rows}
+        showOverrideColors
+        overrideColors={override}
+        /* `m_optOverrideColors->Enable( !newSettings->IsReadOnly() )`
+         (`panel_color_settings.cpp:171`). */
+        overrideColorsEnabled={themeId === 'user'}
+        onOverrideColorsChange={(v: boolean) =>
+          upE((s) => {
+            s.appearance.override_item_colors = v;
+          })
+        }
+        onOpenThemeFolder={() => setThemeFolder(true)}
+        /* `backgroundColor = m_currentSettings->GetColor( m_backgroundLayer )`
          (`panel_color_settings.cpp:262`) — the theme's own schematic
          background, which is what a half-transparent colour is
          checkerboarded against. */
-      background={parseColor4d(activeColors.background)}
-      /* `m_preview`, the SCH_PREVIEW_PANEL (`:218-227`). eeschema and pcbnew
+        background={parseColor4d(activeColors.background)}
+        /* `m_preview`, the SCH_PREVIEW_PANEL (`:218-227`). eeschema and pcbnew
          are the only two pages that fill `m_previewPanelSizer`. */
-      preview={<ColorPreviewPanel theme={activeColors} />}
-    />
+        preview={<ColorPreviewPanel theme={activeColors} overrideItemColors={override} />}
+      />
+      {themeFolder && (
+        <ThemeFolderDialog
+          files={themeFiles}
+          onImport={(contents) => {
+            /*
+             * Upstream a file dropped in the folder becomes a theme of its own;
+             * here the one writable theme takes the colours, and the chooser is
+             * switched to it so the page shows what was imported. A layer the
+             * file did not name falls back to the default rather than keeping
+             * what the previous theme had, which is `COLOR_MAP_PARAM::Load`'s
+             * `aResetIfMissing`: the file is the whole theme, not a patch.
+             */
+            const next: Record<string, string> = {};
+            for (const { layer, key } of COLOR_LAYERS) {
+              const css = contents.colors[layer as SchLayerId];
+              if (key && css !== undefined) next[key] = css;
+            }
+            setUserColors(() => next);
+            upE((s) => {
+              s.appearance.color_theme = 'user';
+              s.appearance.override_item_colors = contents.override;
+            });
+          }}
+          onClose={() => setThemeFolder(false)}
+        />
+      )}
+    </>
   );
 }

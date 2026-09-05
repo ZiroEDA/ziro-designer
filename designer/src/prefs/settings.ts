@@ -368,6 +368,20 @@ export interface EeschemaSettings {
   appearance: {
     /** Active colour theme id: '_builtin_default' | '_builtin_classic' | 'user'. */
     color_theme: string;
+    /**
+     * `schematic.override_item_colors` in a COLOR_SETTINGS file
+     * (`color_settings.cpp:48-49`), read into
+     * `SCH_RENDER_SETTINGS::m_OverrideItemColors`
+     * (`sch_render_settings.cpp:75`): draw every item in its LAYER's colour,
+     * ignoring any colour the item itself carries.
+     *
+     * Upstream it is a field of the COLOR_SETTINGS FILE, so each theme has its
+     * own. Ours belongs to the one writable theme — the built-ins are
+     * read-only and both leave it false, which is `color_settings.cpp:49`'s
+     * default — which is why the checkbox is dead unless "user" is selected,
+     * exactly as `m_optOverrideColors->Enable( !IsReadOnly() )` has it.
+     */
+    override_item_colors: boolean;
     default_font: string;
     show_hidden_pins: boolean;
     show_hidden_fields: boolean;
@@ -631,6 +645,7 @@ export interface EeschemaSettings {
 export const EESCHEMA_DEFAULTS: EeschemaSettings = {
   appearance: {
     color_theme: '_builtin_default',
+    override_item_colors: false,
     default_font: 'KiCad Font',
     show_hidden_pins: false,
     show_hidden_fields: false,

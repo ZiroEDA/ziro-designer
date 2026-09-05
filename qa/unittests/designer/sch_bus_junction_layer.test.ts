@@ -105,8 +105,11 @@ describe('the painter reads that answer rather than the geometry', () => {
 
   it('leaves an explicit per-junction colour winning over the layer', async () => {
     // `SCH_JUNCTION::GetJunctionColor`: the item's own colour beats the layer's,
-    // whichever layer that is.
+    // whichever layer that is. The choice moved into `itemColour`, which is the
+    // one place the theme's "override individual item colors" can suppress it;
+    // that the own colour actually reaches the canvas is painted and checked in
+    // `override_item_colors.test.tsx`.
     const src = await import('node:fs').then((fs) => fs.readFileSync(RENDERER, 'utf8'));
-    expect(src).toContain('j.color ? cssColor(j.color) : layerColour');
+    expect(src).toContain('itemColour(j.color, layerColour)');
   });
 });

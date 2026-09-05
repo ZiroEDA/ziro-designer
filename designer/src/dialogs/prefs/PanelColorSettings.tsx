@@ -87,6 +87,10 @@ export function PanelColorSettings({
   rows,
   background,
   showOverrideColors = true,
+  overrideColors = false,
+  overrideColorsEnabled = false,
+  onOverrideColorsChange,
+  onOpenThemeFolder,
   preview,
 }: {
   /** `cfg->m_ColorTheme`, whichever app's settings object that is. */
@@ -109,6 +113,18 @@ export function PanelColorSettings({
    * space in its sizer.
    */
   showOverrideColors?: boolean;
+  /** `m_optOverrideColors->GetValue()`. */
+  overrideColors?: boolean;
+  /** `m_optOverrideColors->Enable( !settings->IsReadOnly() )`. */
+  overrideColorsEnabled?: boolean;
+  onOverrideColorsChange?: (value: boolean) => void;
+  /**
+   * `m_btnOpenFolder`'s handler. Upstream it is
+   * `LaunchExternal( GetColorSettingsPath() )`; a page has no file manager to
+   * launch, so the button is dead on a page that passes nothing and shows the
+   * folder's contents on one that does — see `dialog_theme_folder.tsx`.
+   */
+  onOpenThemeFolder?: () => void;
   /** `m_previewPanelSizer`'s contents, which only eeschema and pcbnew fill. */
   preview?: ReactNode;
 }): JSX.Element {
@@ -126,30 +142,27 @@ export function PanelColorSettings({
         />
         <span className="ze-spacer" />
         {showOverrideColors && (
-          /* Dead, and with no setting behind it on purpose: the flag is
-             `override_schematic_item_colors`, a field of the COLOR_SETTINGS
-             FILE (`color_settings.cpp:49`) read by
-             `SCH_RENDER_SETTINGS::m_OverrideItemColors`. We model a theme as a
-             colour map and no painter reads such a flag, so inventing a home
-             for it in an app's own settings would put it in a store upstream
-             never uses. */
+          /* `schematic.override_item_colors`, a field of the COLOR_SETTINGS
+             FILE (`color_settings.cpp:48-49`) read by
+             `SCH_RENDER_SETTINGS::m_OverrideItemColors`. It belongs to the
+             THEME, so it is live only while a writable one is selected —
+             `m_optOverrideColors->Enable( !settings->IsReadOnly() )`. */
           <Check
             label="Override individual item colors"
             title="Show all items in their default color even if they have specific colors set in their properties."
-            checked={false}
-            disabled
-            onChange={() => {}}
+            checked={overrideColors}
+            disabled={!overrideColorsEnabled}
+            onChange={(v) => onOverrideColorsChange?.(v)}
           />
         )}
         <span className="ze-spacer" />
-        {/* `m_btnOpenFolder`. A directory in the file manager, which a page
-            cannot open — the same reason the dialog's own "Open Preferences
-            Directory" button is drawn and disabled. */}
+        {/* `m_btnOpenFolder`. */}
         <button
           type="button"
           className="ze-btn"
-          disabled
+          disabled={!onOpenThemeFolder}
           title="Open the folder containing color themes"
+          onClick={onOpenThemeFolder}
         >
           Open Theme Folder
         </button>
