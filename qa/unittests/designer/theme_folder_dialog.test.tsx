@@ -169,9 +169,24 @@ describe('Import reads a KiCad theme file back', () => {
   it('says so and imports nothing when the JSON is not a theme', async () => {
     const seen = vi.fn();
     render(<ThemeFolderDialog files={FILES} onImport={seen} onClose={() => {}} />);
-    pick('board.json', '{"board":{"anchor":"rgb(0, 0, 0)"}}');
+    // A JSON object with none of the sections this app reads. `board` used to
+    // be the example here and no longer is: `color_settings.cpp:124-244`
+    // registers those params on the same COLOR_SETTINGS as the schematic ones,
+    // so a file carrying only that section IS a theme -- see below.
+    pick('nope.json', '{"3d_viewer":{"background_top":"rgb(0, 0, 0)"}}');
     await waitFor(() => expect(screen.getByText(/not a color theme/)).toBeTruthy());
     expect(seen).not.toHaveBeenCalled();
+  });
+
+  it('takes a file whose only section is the board one', async () => {
+    const seen = vi.fn();
+    render(<ThemeFolderDialog files={FILES} onImport={seen} onClose={() => {}} />);
+    pick('board.json', '{"meta":{"name":"Board"},"board":{"anchor":"rgb(1, 2, 3)"}}');
+    await waitFor(() => expect(seen).toHaveBeenCalled());
+    expect(seen.mock.calls[0]?.[0]).toMatchObject({
+      name: 'Board',
+      board: { LAYER_ANCHOR: 'rgb(1, 2, 3)' },
+    });
   });
 });
 
@@ -340,7 +355,8 @@ describe('reading the folder', () => {
       'user.json': KICAD_TEXT,
       'notes.txt': 'not json at all',
       'broken.json': '{ this is not json',
-      'board.json': '{"board":{}}',
+      // Not a theme: JSON, but with none of the sections this app reads.
+      'nope.json': '{"3d_viewer":{}}',
       // A perfectly good theme under a name the folder does not use. Without
       // this the extension test cannot fail: every other non-`.json` file here
       // is also unparseable, so dropping the extension check changes nothing.

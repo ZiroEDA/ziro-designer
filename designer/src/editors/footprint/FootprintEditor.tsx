@@ -113,7 +113,12 @@ import { AboutDialog } from '../../home/dialogs/dialog_about.js';
 import { PreferencesDialog } from '../../dialogs/PreferencesDialog.js';
 import type { PrefsPageId } from '../../dialogs/prefs/types.js';
 import { Combo } from '../../ui/Combo.js';
-import { useCommonSettings, useFpEditSettings, useUserColors } from '../../prefs/useSettings.js';
+import {
+  useCommonSettings,
+  useFpEditSettings,
+  useUserColors,
+  useUserThemes,
+} from '../../prefs/useSettings.js';
 import { pcbThemeWithOverrides } from '../pcb/pcbTheme.js';
 import { settings } from '../../prefs/settings.js';
 import { footprintEditorMenus } from './menubar.js';
@@ -253,6 +258,7 @@ export function FootprintEditor({
   /** `colors/user.json`'s `board.*` rows — the other half of what the Colors
    *  page writes. */
   const userColors = useUserColors();
+  const userThemes = useUserThemes();
   /**
    * `updateEnabledLayers()` — this frame's layer set, whose `User.n` rows come
    * from Preferences > Footprint Editor > User Layer Names. A module constant
@@ -530,9 +536,18 @@ export function FootprintEditor({
       // `appearance.color_theme`, over the `board` namespace it shares with the
       // PCB Editor. Preferences > Footprint Editor > Colors is the page that
       // writes both halves.
-      theme: pcbThemeWithOverrides(fpCfg.appearance.color_theme, userColors),
+      theme: pcbThemeWithOverrides(fpCfg.appearance.color_theme, userColors, userThemes),
     }),
-    [toggles, objects, opacity, contrast, activeLayer, fpCfg.appearance.color_theme, userColors],
+    [
+      toggles,
+      objects,
+      opacity,
+      contrast,
+      activeLayer,
+      fpCfg.appearance.color_theme,
+      userColors,
+      userThemes,
+    ],
   );
 
   // ----- load / save ------------------------------------------------------------

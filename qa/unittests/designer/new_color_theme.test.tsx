@@ -33,8 +33,18 @@ import {
   THEME_NAME_ILLEGAL_CHARS,
 } from '@ziroeda/designer/src/dialogs/prefs/dialog_add_color_theme.js';
 import { PanelEeschemaColorSettings } from '@ziroeda/designer/src/editors/schematic/prefs/PanelEeschemaColorSettings.js';
-import { normalizeUserThemes, EESCHEMA_DEFAULTS } from '@ziroeda/designer/src/prefs/settings.js';
-import type { EeschemaSettings, UserColorTheme } from '@ziroeda/designer/src/prefs/settings.js';
+import { PanelFpColorSettings } from '@ziroeda/designer/src/editors/footprint/prefs/PanelFpColorSettings.js';
+import { pcbThemeWithOverrides } from '@ziroeda/designer/src/editors/pcb/pcbTheme.js';
+import {
+  normalizeUserThemes,
+  EESCHEMA_DEFAULTS,
+  FPEDIT_DEFAULTS,
+} from '@ziroeda/designer/src/prefs/settings.js';
+import type {
+  EeschemaSettings,
+  FpEditSettings,
+  UserColorTheme,
+} from '@ziroeda/designer/src/prefs/settings.js';
 import type { PrefsContext } from '@ziroeda/designer/src/dialogs/prefs/types.js';
 
 afterEach(cleanup);
@@ -224,5 +234,177 @@ describe('New Theme..., end to end on the page', () => {
     cleanup();
     render(<PanelEeschemaColorSettings ctx={ctxFor(s, bag)} />);
     expect(swatch().disabled).toBe(false);
+  });
+});
+
+/* ------------------------------------------- the same two, on another page -- */
+
+/**
+ * `m_btnOpenFolder` and the `New Theme...` row are `PANEL_COLOR_SETTINGS`'
+ * (`panel_color_settings.cpp:65-69` and `:122-176`), so EVERY subclass has
+ * them. Ours were wired by hand on eeschema's page alone, which left the
+ * footprint editor's Colors page with a dead button and a list that stopped at
+ * the three themes — the two things Akshay spotted beside a live 10.0.5.
+ *
+ * The page differs from eeschema's only in namespace: `m_colorNamespace =
+ * "board"` (`panel_fp_editor_color_settings.cpp:34`), so a theme made here
+ * carries `board.*` keys.
+ */
+function fpCtxFor(
+  fpEdit: FpEditSettings,
+  bag: { themes: Record<string, UserColorTheme>; colors: Record<string, string> },
+): PrefsContext {
+  return {
+    fpEdit,
+    upFp: (fn: (s: FpEditSettings) => void) => fn(fpEdit),
+    eeschema: structuredClone(EESCHEMA_DEFAULTS),
+    upE: () => {},
+    userColors: bag.colors,
+    setUserColors: (fn: (c: Record<string, string>) => Record<string, string>) => {
+      bag.colors = fn(bag.colors);
+    },
+    userThemes: bag.themes,
+    setUserThemes: (fn: (t: Record<string, UserColorTheme>) => Record<string, UserColorTheme>) => {
+      bag.themes = fn(bag.themes);
+    },
+  } as unknown as PrefsContext;
+}
+
+const fpSettingsFor = (theme: string): FpEditSettings => {
+  const s = structuredClone(FPEDIT_DEFAULTS);
+  s.appearance.color_theme = theme;
+  return s;
+};
+
+const openFolderBtn = (): HTMLButtonElement =>
+  [...document.querySelectorAll('button')].find(
+    (b) => b.textContent === 'Open Theme Folder',
+  ) as HTMLButtonElement;
+
+describe('Footprint Editor > Colors has the base class’ two theme commands', () => {
+  it('offers the separator and New Theme, as every subclass does', () => {
+    render(
+      <PanelFpColorSettings ctx={fpCtxFor(fpSettingsFor('user'), { themes: {}, colors: {} })} />,
+    );
+    const labels = [...document.querySelectorAll('.ze-combo-ghost')].map((o) => o.textContent);
+    expect(labels.slice(-2)).toEqual([THEME_SEPARATOR, NEW_THEME]);
+  });
+
+  it('leaves Open Theme Folder live, not greyed', () => {
+    render(
+      <PanelFpColorSettings ctx={fpCtxFor(fpSettingsFor('user'), { themes: {}, colors: {} })} />,
+    );
+    expect(openFolderBtn().disabled).toBe(false);
+  });
+
+  /**
+   * `for( int layer : m_validLayers )
+   *      newSettings->SetColor( layer, m_currentSettings->GetColor( layer ) );`
+   * — `m_validLayers` here is the board rows, so the seed is keyed `board.*`
+   * and not by a schematic layer.
+   */
+  it('seeds a new theme from the board colours on show', () => {
+    const s = fpSettingsFor('user');
+    const bag = {
+      themes: {} as Record<string, UserColorTheme>,
+      colors: { 'board.copper.f': 'rgb(1, 2, 3)' },
+    };
+    render(<PanelFpColorSettings ctx={fpCtxFor(s, bag)} />);
+    chooseTheme('New Theme...');
+    fireEvent.change(nameField(), { target: { value: 'Midnight' } });
+    fireEvent.click(screen.getByText('OK'));
+
+    const made = bag.themes.Midnight as UserColorTheme;
+    expect(made.colors['board.copper.f']).toBe('rgb(1, 2, 3)');
+    // A row the user never touched is seeded from `s_defaultTheme`, which is
+    // what a fresh COLOR_SETTINGS carries. The spacing is `fpDefaultColor`'s,
+    // not the file format's: `colorThemeToFile` re-spells every colour through
+    // `COLOR4D::ToCSSString` on the way out, so the stored form need not match
+    // the written one.
+    expect(made.colors['board.background']).toBe('rgb(0,16,35)');
+    expect(s.appearance.color_theme).toBe('Midnight');
+  });
+
+  it('is editable once made, unlike the theme it was seeded from', () => {
+    const s = fpSettingsFor('_builtin_default');
+    const bag = { themes: {} as Record<string, UserColorTheme>, colors: {} };
+    render(<PanelFpColorSettings ctx={fpCtxFor(s, bag)} />);
+    const swatch = (): HTMLButtonElement =>
+      document.querySelector('.ze-colorgrid button') as HTMLButtonElement;
+    expect(swatch().disabled).toBe(true);
+
+    chooseTheme('New Theme...');
+    fireEvent.change(nameField(), { target: { value: 'Midnight' } });
+    fireEvent.click(screen.getByText('OK'));
+    cleanup();
+    render(<PanelFpColorSettings ctx={fpCtxFor(s, bag)} />);
+    expect(swatch().disabled).toBe(false);
+  });
+
+  /**
+   * `m_currentSettings` is the SELECTED theme's table. A made theme has a file
+   * of its own, so its colours are read from there and not from `user.json` —
+   * without that the page would list the theme and then show somebody else's
+   * palette under it.
+   */
+  it('shows the made theme’s own colours, not the user theme’s', () => {
+    const s = fpSettingsFor('Midnight');
+    const bag = {
+      themes: {
+        Midnight: {
+          name: 'Midnight',
+          colors: { 'board.copper.f': 'rgb(9, 9, 9)' },
+          override: false,
+        },
+      } as Record<string, UserColorTheme>,
+      // A different F.Cu in `user.json`, which is the theme NOT selected.
+      colors: { 'board.copper.f': 'rgb(1, 2, 3)' } as Record<string, string>,
+    };
+    render(<PanelFpColorSettings ctx={fpCtxFor(s, bag)} />);
+    // `fpColorRows()`' first row is F.Cu.
+    const swatch = document.querySelector('.ze-colorgrid .ze-swatch') as HTMLElement;
+    expect(swatch.style.getPropertyValue('--swatch-color')).toBe('rgb(9, 9, 9)');
+  });
+});
+
+/* ------------------------------------------------- and the canvas follows -- */
+
+/**
+ * `FOOTPRINT_EDIT_FRAME::GetColorSettings()` is
+ * `::GetColorSettings( GetSettings()->m_ColorTheme )`, and `SETTINGS_MANAGER`
+ * hands back the whole `COLOR_SETTINGS` whatever kind of theme it is. A made
+ * theme has a file of its own and `SetReadOnly( false )`
+ * (`panel_color_settings.cpp:158-160`), so it paints like `user.json` does —
+ * resolving it as a built-in would leave the page showing one palette and the
+ * canvas drawing another.
+ */
+describe('a made theme paints the board, not only the swatches', () => {
+  it('reads a made theme’s own table', () => {
+    const theme = pcbThemeWithOverrides(
+      'Midnight',
+      { 'board.copper.f': 'rgb(1, 2, 3)' },
+      {
+        Midnight: {
+          colors: { 'board.copper.f': 'rgb(9, 9, 9)', 'board.background': 'rgb(4, 4, 4)' },
+        },
+      },
+    );
+    expect(theme.layerColors['F.Cu']).toBe('rgb(9, 9, 9)');
+    expect(theme.background).toBe('rgb(4, 4, 4)');
+  });
+
+  it('still reads user.json for the writable theme', () => {
+    const theme = pcbThemeWithOverrides('user', { 'board.copper.f': 'rgb(1, 2, 3)' }, {});
+    expect(theme.layerColors['F.Cu']).toBe('rgb(1, 2, 3)');
+  });
+
+  it('leaves a built-in alone, because its file is read-only', () => {
+    const plain = pcbThemeWithOverrides('_builtin_classic', {}, {});
+    const withOverrides = pcbThemeWithOverrides(
+      '_builtin_classic',
+      { 'board.copper.f': 'rgb(1, 2, 3)' },
+      {},
+    );
+    expect(withOverrides.layerColors['F.Cu']).toBe(plain.layerColors['F.Cu']);
   });
 });

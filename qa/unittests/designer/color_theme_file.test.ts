@@ -21,6 +21,7 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import {
+  BOARD_COLOR_KEYS,
   COLOR_THEME_SCHEMA_VERSION,
   OVERRIDE_ITEM_COLORS_KEY,
   SCHEMATIC_COLOR_KEYS,
@@ -32,7 +33,11 @@ import {
 
 const KICAD = JSON.parse(
   readFileSync(resolve(process.cwd(), 'data/settings/kicad_10_0_5_default_theme.json'), 'utf8'),
-) as { meta: { name: string; version: number }; schematic: Record<string, string | boolean> };
+) as {
+  meta: { name: string; version: number };
+  schematic: Record<string, string | boolean>;
+  board: Record<string, unknown>;
+};
 
 /** What KiCad writes for a theme nobody has changed: every default, verbatim. */
 const ours = colorThemeToFile({ name: KICAD.meta.name, colors: {}, override: false }) as {
@@ -124,8 +129,78 @@ describe('a file that is not a theme is refused rather than half-read', () => {
       expect(colorThemeFromFile(JSON.parse(bad)), bad).toBeNull();
   });
 
-  it('rejects JSON with no schematic section', () => {
-    expect(colorThemeFromFile({ meta: { name: 'x' }, board: {} })).toBeNull();
+  it('rejects JSON with none of the sections it reads', () => {
+    // `board` was this test's example until the footprint editor's Colors page
+    // could write one. It is a section now, so the file that is NOT a theme is
+    // one carrying neither — `3d_viewer` alone is a real KiCad section this
+    // reader still knows nothing about.
+    expect(colorThemeFromFile({ meta: { name: 'x' }, '3d_viewer': {} })).toBeNull();
+  });
+
+  it('takes a file whose only section is the board one', () => {
+    const back = colorThemeFromFile({
+      meta: { name: 'Board only' },
+      board: { anchor: 'rgb(1, 2, 3)', copper: { f: 'rgb(4, 5, 6)' } },
+    });
+    expect(back?.name).toBe('Board only');
+    expect(back?.board?.LAYER_ANCHOR).toBe('rgb(1, 2, 3)');
+    expect(back?.board?.F_Cu).toBe('rgb(4, 5, 6)');
+    // No schematic section means no schematic colours, not defaults invented
+    // here: `colorThemeToFile` fills those in when the file is written.
+    expect(back?.colors).toEqual({});
+  });
+});
+
+/**
+ * The `board` section, against the same file.
+ *
+ * `color_settings.cpp:124-244` gives the names; only the file settles that
+ * `board.copper.f` is a NESTED object (`{"board":{"copper":{"f": … }}}`),
+ * because `JSON_SETTINGS` addresses a param by a json_pointer built from the
+ * dotted path. Reading the C++ alone produces a flat `"copper.f"` key, which
+ * KiCad would not have read back at all.
+ */
+describe('the board section is the one KiCad wrote', () => {
+  /** Every leaf path of an object, `a.b.c`. */
+  const paths = (o: Record<string, unknown>, prefix = ''): string[] =>
+    Object.entries(o).flatMap(([k, v]) =>
+      typeof v === 'object' && v !== null
+        ? paths(v as Record<string, unknown>, `${prefix}${k}.`)
+        : [`${prefix}${k}`],
+    );
+
+  it('names exactly the keys the file has, spelled the same way', () => {
+    expect([...BOARD_COLOR_KEYS.map(([k]) => k)].sort()).toEqual(paths(KICAD.board).sort());
+  });
+
+  it('writes the whole section, values and nesting included', () => {
+    const file = colorThemeToFile({
+      name: KICAD.meta.name,
+      colors: {},
+      board: {},
+      override: false,
+    });
+    // Byte-for-byte against KiCad's own defaults: the shape AND every colour,
+    // which is what makes a mistyped `s_defaultTheme` entry fail here.
+    expect((file as { board: unknown }).board).toEqual(KICAD.board);
+  });
+
+  it('leaves the section out when the theme has no board colours', () => {
+    const file = colorThemeToFile({ name: 'x', colors: {}, override: false });
+    // An EMPTY board section is not neutral: it names every board layer at its
+    // default, so writing one from a page that never edited them would reset a
+    // user's board palette.
+    expect('board' in file).toBe(false);
+  });
+
+  it('round-trips a board colour through the file', () => {
+    const file = colorThemeToFile({
+      name: 'x',
+      colors: {},
+      board: { F_Cu: 'rgba(1, 2, 3, 0.5)' },
+      override: false,
+    });
+    expect(colorThemeFromFile(file)?.board?.F_Cu).toBe('rgba(1, 2, 3, 0.502)');
   });
 
   it('accepts a KiCad file that has other sections too', () => {

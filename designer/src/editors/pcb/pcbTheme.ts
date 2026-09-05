@@ -247,12 +247,24 @@ export const themeByFilename = (filename: string): PcbColorTheme =>
 export function pcbThemeWithOverrides(
   filename: string,
   userColors: Readonly<Record<string, string>>,
+  /**
+   * Themes "New Theme..." made, each with a `board.*` table of its own.
+   * `AddNewColorSettings` gives one a file and `SetReadOnly( false )`
+   * (`panel_color_settings.cpp:158-160`), so it is a theme the Colors page can
+   * write and this has to read — a made theme resolved as a built-in would
+   * paint the canvas in Default while its swatches showed something else.
+   */
+  userThemes: Readonly<Record<string, { colors: Readonly<Record<string, string>> }>> = {},
 ): PcbColorTheme {
   const base = themeByFilename(filename);
+  const made = userThemes[filename];
   // A built-in theme's file `IsReadOnly()`, so no override can apply to it —
-  // which is also why the swatches are answerable only on "User"
+  // which is also why the swatches are answerable only on a writable theme
   // (`panel_color_settings.cpp:74-75`).
-  if (filename !== 'user') return base;
+  if (filename !== 'user' && !made) return base;
+  // `m_currentSettings` is the theme's OWN table; the writable one is stored as
+  // `colors/user.json`, a made one under its own name.
+  const overrides = made ? made.colors : userColors;
 
   const layerColors = { ...base.layerColors };
   // `board.copper.<f|b|in1…>` for a copper layer, `board.<layer>` otherwise.
@@ -261,11 +273,11 @@ export function pcbThemeWithOverrides(
     const key = /\.Cu$/.test(name)
       ? `board.copper.${name.replace(/\.Cu$/, '').toLowerCase()}`
       : `board.${id.toLowerCase()}`;
-    const override = userColors[key];
+    const override = overrides[key];
     if (override !== undefined) layerColors[name] = override;
   }
 
-  const pick = (key: string, fallback: string): string => userColors[key] ?? fallback;
+  const pick = (key: string, fallback: string): string => overrides[key] ?? fallback;
   return {
     ...base,
     background: pick('board.background', base.background),

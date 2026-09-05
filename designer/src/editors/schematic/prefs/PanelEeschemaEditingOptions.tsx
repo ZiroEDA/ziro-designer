@@ -14,6 +14,17 @@ import type { JSX } from 'react';
 import { Check, ColorRow, Group, Num, Sel } from '../../../dialogs/prefs/widgets.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
 
+/**
+ * The space between `m_staticTextArcEdit` and `m_choiceArcMode`.
+ *
+ * [data] `Add( m_staticTextArcEdit, 0, wxALL, 5 )` then
+ * `Add( m_choiceArcMode, 0, wxALL|wxEXPAND, 5 )`
+ * (`panel_eeschema_editing_options_base.cpp:46-54`) — the 5 is that wxALL.
+ * pcbnew's copy of the same control is spaced by its own numbers, which is why
+ * this is stated at the call site and not in `.ze-pref-stacked`.
+ */
+const ARC_MODE_STACK = { gap: 5 };
+
 export function PanelEeschemaEditingOptions({ ctx }: { ctx: PrefsContext }): JSX.Element {
   const { eeschema, upE } = ctx;
   return (
@@ -49,7 +60,7 @@ export function PanelEeschemaEditingOptions({ ctx }: { ctx: PrefsContext }): JSX
           <Sel
             label="Arc editing mode:"
             ariaLabel="Arc editing mode"
-            stacked={{ gap: 5 }}
+            stacked={ARC_MODE_STACK}
             value={eeschema.drawing.arc_edit_mode}
             options={[
               [0, 'Keep center, adjust radius'],

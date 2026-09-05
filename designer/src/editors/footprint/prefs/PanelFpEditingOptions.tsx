@@ -84,6 +84,17 @@ const MOUSE_COMMANDS: readonly (readonly [string, string])[] = [
   ['Ctrl:', 'Toggle selection'],
 ];
 
+/**
+ * The two `Add()` borders that space the Arc editing mode block.
+ *
+ * [data] both are the `Add( 0, 3 )` spacer wxFormBuilder emitted
+ * (`panel_edit_options_base.cpp:57` and `:65`): one before the label and one
+ * between the label and the choice. The label carries `wxLEFT, 5` and the
+ * choice `wxBOTTOM|wxRIGHT|wxLEFT, 5`, so neither contributes a vertical border
+ * of its own and the spacer is the whole of the distance.
+ */
+const ARC_MODE_STACK = { gap: 3, above: 3 };
+
 export function PanelFpEditingOptions({ ctx }: { ctx: PrefsContext }): JSX.Element {
   const { fpEdit, upFp } = ctx;
   const arcMode = useSessionArcEditMode();
@@ -148,7 +159,7 @@ export function PanelFpEditingOptions({ ctx }: { ctx: PrefsContext }): JSX.Eleme
           <Sel
             label="Arc editing mode:"
             ariaLabel="Arc editing mode"
-            stacked={{ gap: 3, above: 3 }}
+            stacked={ARC_MODE_STACK}
             value={arcMode}
             options={ARC_EDIT_MODE_CHOICES}
             onChange={setSessionArcEditMode}

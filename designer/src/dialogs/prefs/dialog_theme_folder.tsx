@@ -101,7 +101,7 @@ export function ThemeFolderDialog({
     }
     const contents = colorThemeFromFile(parsed);
     if (!contents) {
-      setError(`${file.name} has no "schematic" section, so it is not a color theme.`);
+      setError(`${file.name} has no "schematic" or "board" section, so it is not a color theme.`);
       return;
     }
     setError('');

@@ -65,6 +65,16 @@ export function useUserColors(): typeof settings.userColors {
   return settings.userColors;
 }
 
+/**
+ * The themes "New Theme..." made, so a frame repaints when one is edited.
+ * `SETTINGS_MANAGER` hands a frame the whole `COLOR_SETTINGS`, so a theme with
+ * a file of its own is read exactly like `colors/user.json`.
+ */
+export function useUserThemes(): typeof settings.userThemes {
+  useSettingsVersion();
+  return settings.userThemes;
+}
+
 /** `gerbview.json`, so the Gerber Viewer re-renders when it changes. */
 export function useGerbviewSettings(): typeof settings.gerbview {
   useSettingsVersion();

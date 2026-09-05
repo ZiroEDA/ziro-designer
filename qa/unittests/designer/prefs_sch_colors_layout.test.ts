@@ -22,7 +22,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { COLOR_LAYERS } from '@ziroeda/designer/src/editors/schematic/prefs/PanelEeschemaColorSettings.js';
+import { COLOR_LAYERS } from '@ziroeda/designer/src/editors/schematic/prefs/schColorLayers.js';
 import { colorThemeOptions } from '@ziroeda/designer/src/dialogs/prefs/ColorThemeChoice.js';
 import { COLOR_PREVIEW_SCHEMATIC } from '@ziroeda/designer/src/editors/schematic/prefs/color_preview_schematic.js';
 
