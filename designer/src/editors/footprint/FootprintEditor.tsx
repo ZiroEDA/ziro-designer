@@ -6,6 +6,8 @@ import type { Vec2 } from '@ziroeda/kimath';
 import { mmToIU, pcbIuToMM, PCB_IU_PER_MM, SCH_IU_PER_MM } from '@ziroeda/common';
 import { EDIT_GRIDS_LABEL, GRID_LIST_SEPARATOR, gridChoiceLabel } from '../../ui/grid_settings.js';
 import { footprintGridForTool, footprintGridIU, footprintSnappingEnabled } from './grid.js';
+import { newFootprint } from './new_footprint.js';
+import { fpLineThicknessMM } from './graphics_defaults.js';
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import { EMPTY_SOURCE } from '@ziroeda/eeschema';
 import { applyBarcodeValues, barcodeValues } from '@ziroeda/pcbnew/src/barcode_properties.js';
@@ -74,7 +76,7 @@ import { FootprintLibraryManager, fpNameOf, footprintsBase } from './libraryMana
 import { projectFpLibTable, projectLibraryNickname } from './fp_lib_table.js';
 import {
   FOOTPRINT_COPPER_STACK,
-  FOOTPRINT_LAYERS,
+  footprintLayers,
   FP_DEFAULT_ACTIVE_LAYER,
 } from './footprintBoard.js';
 import { layerColor, PCB_BACKGROUND, PCB_OBJECT_COLORS } from '../pcb/pcbTheme.js';
@@ -111,7 +113,8 @@ import { AboutDialog } from '../../home/dialogs/dialog_about.js';
 import { PreferencesDialog } from '../../dialogs/PreferencesDialog.js';
 import type { PrefsPageId } from '../../dialogs/prefs/types.js';
 import { Combo } from '../../ui/Combo.js';
-import { useCommonSettings, useFpEditSettings } from '../../prefs/useSettings.js';
+import { useCommonSettings, useFpEditSettings, useUserColors } from '../../prefs/useSettings.js';
+import { pcbThemeWithOverrides } from '../pcb/pcbTheme.js';
 import { settings } from '../../prefs/settings.js';
 import { footprintEditorMenus } from './menubar.js';
 import { showHotkeyList } from '../../ui/hotkey_list_action.js';
@@ -154,8 +157,6 @@ const LAYERS_MANAGER_WIDTH = 180;
 
 const basename = (p: string): string => p.split('/').pop()!.split('\\').pop()!;
 
-const ALL_FP_LAYERS = FOOTPRINT_LAYERS.map((l) => l.name);
-
 /**
  * `PCB_BARCODE`'s constructor (`pcb_barcode.cpp:61-72`), for the item the
  * barcode tool builds before opening its dialog. The layer and position are
@@ -195,42 +196,6 @@ const VIEWPORT_ITEMS = viewportComboItems();
 // `toggles.ts` rather than here, because `qa`'s tsconfig compiles `.ts` only:
 // a default written in a `.tsx` is one no test can read, and the line mode had
 // been wrong since the toolbar landed.
-
-/** An fp_text item (Reference/Value) for a freshly-created footprint. */
-function makeText(kind: PcbTextItem['kind'], text: string, at: Vec2, layer: string): PcbTextItem {
-  return {
-    kind,
-    text,
-    at,
-    angle: 0,
-    layer,
-    size: { x: mmToIU(1), y: mmToIU(1) },
-    thickness: mmToIU(0.15),
-    source: EMPTY_SOURCE,
-  };
-}
-
-/** A blank footprint (FOOTPRINT_EDIT_FRAME::CreateNewFootprint default). */
-function newFootprint(name: string): PcbFootprint {
-  return {
-    lib: name,
-    at: { x: 0, y: 0 },
-    angle: 0,
-    layer: 'F.Cu',
-    reference: 'REF**',
-    value: name,
-    pads: [],
-    shapes: [],
-    texts: [
-      makeText('reference', 'REF**', { x: 0, y: mmToIU(-1) }, 'F.SilkS'),
-      makeText('value', name, { x: 0, y: mmToIU(1) }, 'F.Fab'),
-    ],
-    points: [],
-    barcodes: [],
-    models: [],
-    source: EMPTY_SOURCE,
-  };
-}
 
 /**
  * Resolve a project `.kicad_mod` path (the file the project manager
@@ -285,6 +250,17 @@ export function FootprintEditor({
    * repaints this frame — `EDA_BASE_FRAME::CommonSettingsChanged`.
    */
   const fpCfg = useFpEditSettings();
+  /** `colors/user.json`'s `board.*` rows — the other half of what the Colors
+   *  page writes. */
+  const userColors = useUserColors();
+  /**
+   * `updateEnabledLayers()` — this frame's layer set, whose `User.n` rows come
+   * from Preferences > Footprint Editor > User Layer Names. A module constant
+   * here is what made that page unreachable: the count and the names had
+   * nothing to change.
+   */
+  const fpLayers = useMemo(() => footprintLayers(fpCfg), [fpCfg]);
+  const allFpLayers = useMemo(() => fpLayers.map((l) => l.name), [fpLayers]);
 
   const fpTopBar = useToolbarEntries('fpedit', 'TOP_MAIN', FP_DEFAULT_TOOLBARS);
   const fpLeftBar = useToolbarEntries('fpedit', 'LEFT', FP_DEFAULT_TOOLBARS);
@@ -313,7 +289,7 @@ export function FootprintEditor({
   const [undoDepth, setUndoDepth] = useState(0);
   const [redoDepth, setRedoDepth] = useState(0);
 
-  const [visible, setVisible] = useState<ReadonlySet<string>>(new Set(ALL_FP_LAYERS));
+  const [visible, setVisible] = useState<ReadonlySet<string>>(new Set(allFpLayers));
   // `SetActiveLayer( F_SilkS )` — see `FP_DEFAULT_ACTIVE_LAYER`.
   const [activeLayer, setActiveLayer] = useState(FP_DEFAULT_ACTIVE_LAYER);
   // ----- APPEARANCE_CONTROLS' state -------------------------------------------
@@ -549,8 +525,14 @@ export function FootprintEditor({
       padFill: !toggles.has('padDisplayMode'),
       contrastMode: contrast,
       activeLayer,
+      // `FOOTPRINT_EDIT_FRAME::GetColorSettings()` is
+      // `::GetColorSettings( GetSettings()->m_ColorTheme )` — this frame's own
+      // `appearance.color_theme`, over the `board` namespace it shares with the
+      // PCB Editor. Preferences > Footprint Editor > Colors is the page that
+      // writes both halves.
+      theme: pcbThemeWithOverrides(fpCfg.appearance.color_theme, userColors),
     }),
-    [toggles, objects, opacity, contrast, activeLayer],
+    [toggles, objects, opacity, contrast, activeLayer, fpCfg.appearance.color_theme, userColors],
   );
 
   // ----- load / save ------------------------------------------------------------
@@ -679,11 +661,19 @@ export function FootprintEditor({
     (ccw: boolean) => {
       if (!workFp || selection.size === 0) return;
       commit(
-        rotateFootprintItems(workFp, selection, ccw, selectionCenter(workFp, selection)),
+        rotateFootprintItems(
+          workFp,
+          selection,
+          ccw,
+          selectionCenter(workFp, selection),
+          // `frame()->GetRotationAngle()` — `editing.rotation_angle`, stored in
+          // tenths of a degree.
+          fpCfg.editing.rotation_angle / 10,
+        ),
         ccw ? 'Rotate CCW' : 'Rotate CW',
       );
     },
-    [workFp, selection, commit, selectionCenter],
+    [workFp, selection, commit, selectionCenter, fpCfg.editing.rotation_angle],
   );
 
   const mirrorSel = useCallback(() => {
@@ -745,13 +735,23 @@ export function FootprintEditor({
   // Build a graphic from its two click points, on the active layer.
   const makeShape = useCallback(
     (tool: string, a: Vec2, b: Vec2): PcbShape | null => {
-      const base = { width: mmToIU(0.1), fill: false, layer: activeLayer, source: EMPTY_SOURCE };
+      // `DRAWING_TOOL`'s `m_stroke.SetWidth( bds.GetLineThickness( layer ) )`
+      // — the stroke a new graphic takes is the ACTIVE LAYER's class, out of
+      // Preferences > Footprint Editor > Graphics Defaults. This was
+      // `mmToIU( 0.1 )`, which is the silk class's default and so looked right
+      // on silk and was wrong on every other layer.
+      const base = {
+        width: mmToIU(fpLineThicknessMM(activeLayer, fpCfg)),
+        fill: false,
+        layer: activeLayer,
+        source: EMPTY_SOURCE,
+      };
       if (tool === 'drawLine') return { kind: 'line', start: a, end: b, ...base };
       if (tool === 'drawRectangle') return { kind: 'rect', start: a, end: b, ...base };
       if (tool === 'drawCircle') return { kind: 'circle', center: a, end: b, ...base };
       return null;
     },
-    [activeLayer],
+    [activeLayer, fpCfg],
   );
 
   const DRAW_TOOLS = new Set(['drawLine', 'drawRectangle', 'drawCircle']);
@@ -999,6 +999,17 @@ export function FootprintEditor({
     if (id === 'togglePolarCoords') {
       settings.updateFpEdit((s) => {
         s.editing.polar_coords = !s.editing.polar_coords;
+      });
+    }
+    // `FOOTPRINT_EDITOR_CONTROL::OnAngleSnapModeChanged`
+    // (`pcbnew/tools/footprint_editor_control.cpp:1031-1048`) maps
+    // `m_AngleSnapMode` onto these three buttons, and `PCB_ACTIONS::lineMode*`
+    // writes it back — so the group and Preferences > Editing Options'
+    // "Constrain actions to H, V, 45 degrees" are one value.
+    if (id === 'lineModeFree' || id === 'lineMode90' || id === 'lineMode45') {
+      const mode = id === 'lineMode45' ? 1 : id === 'lineMode90' ? 2 : 0;
+      settings.updateFpEdit((s) => {
+        s.editing.fp_angle_snap_mode = mode;
       });
     }
     if (id === 'crosshairSmall' || id === 'crosshairFull' || id === 'crosshair45') {
@@ -1617,7 +1628,7 @@ export function FootprintEditor({
    * `non_cu_seq`. Shared with the PCB editor — see `widgets/appearance_layers.ts`
    * for what this used to be instead.
    */
-  const layerRows = useMemo(() => appearanceLayerRows(FOOTPRINT_COPPER_STACK, ALL_FP_LAYERS), []);
+  const layerRows = useMemo(() => appearanceLayerRows(FOOTPRINT_COPPER_STACK, allFpLayers), []);
 
   /**
    * Which preset the combo shows — `syncLayerPresetSelection`, derived from the
@@ -1632,7 +1643,7 @@ export function FootprintEditor({
           (r) => r === 'sep' || objects[r.key] === DEFAULT_OBJECTS[r.key],
         ),
         flipBoard,
-        allLayers: ALL_FP_LAYERS,
+        allLayers: allFpLayers,
         copperLayers: FOOTPRINT_COPPER_STACK,
       }),
     [visible, objects, flipBoard],
@@ -1645,12 +1656,12 @@ export function FootprintEditor({
     setVisible(
       new Set(
         p
-          .layers([...ALL_FP_LAYERS], [...FOOTPRINT_COPPER_STACK])
-          .filter((l) => ALL_FP_LAYERS.includes(l)),
+          .layers([...allFpLayers], [...FOOTPRINT_COPPER_STACK])
+          .filter((l) => allFpLayers.includes(l)),
       ),
     );
     setFlipBoard(p.flipBoard);
-    if (p.activeLayer && ALL_FP_LAYERS.includes(p.activeLayer)) setActiveLayer(p.activeLayer);
+    if (p.activeLayer && allFpLayers.includes(p.activeLayer)) setActiveLayer(p.activeLayer);
   }, []);
 
   /**
@@ -1660,7 +1671,7 @@ export function FootprintEditor({
    * the status bar all said `F.SilkS`, `Dwgs.User`, `F.CrtYd` where KiCad says
    * `F.Silkscreen`, `User.Drawings`, `F.Courtyard`.
    */
-  const layerName = useCallback((name: string): string => GetLayerName(FOOTPRINT_LAYERS, name), []);
+  const layerName = useCallback((name: string): string => GetLayerName(fpLayers, name), [fpLayers]);
 
   /**
    * FOOTPRINT::GetMsgPanelInfo's FRAME_FOOTPRINT_EDITOR branch
@@ -1887,6 +1898,8 @@ export function FootprintEditor({
             crosshairMode={fpCfg.window.cursor.crosshair}
             alwaysShowCursor={fpCfg.window.cursor.always_show_cursor}
             snapping={footprintSnappingEnabled(fpCfg)}
+            // `updateEnabledLayers()` — the user layers Preferences asked for.
+            layers={fpLayers}
             // `RULER_ITEM` is built with `frame()->GetUserUnits()`, so the
             // Units radio group drives its graduations and its readout. The
             // footprint VIEWER passed this and the editor did not, so the same
@@ -2018,7 +2031,16 @@ export function FootprintEditor({
           // left pane 7 empty, where real pcbnew opens on "Constrain to H, V,
           // 45" because `DRAWING_TOOL::Reset` fills it.
           tool: footprintToolMsg(activeTool, toolArmed),
-          constraint: constraintsMsg(angleSnapModeOf(toggles)),
+          // `DRAWING_TOOL::UpdateStatusBar` switches on `m_AngleSnapMode`
+          // (`pcbnew/tools/drawing_tool.cpp:340-357`), the settings field — not
+          // on a toolbar's own state, which is what reading `toggles` here was.
+          constraint: constraintsMsg(
+            fpCfg.editing.fp_angle_snap_mode === 1
+              ? 'deg45'
+              : fpCfg.editing.fp_angle_snap_mode === 2
+                ? 'deg90'
+                : 'direct',
+          ),
         }}
       />
 
@@ -2127,7 +2149,7 @@ export function FootprintEditor({
             <DialogBarcodeProperties
               barcode={bc}
               initial={barcodeValues(bc)}
-              layers={ALL_FP_LAYERS}
+              layers={allFpLayers}
               layerColor={layerColor}
               background={PCB_BACKGROUND}
               onClose={() => setBarcodeDialog(null)}

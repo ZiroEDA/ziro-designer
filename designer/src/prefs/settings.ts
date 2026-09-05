@@ -1672,6 +1672,43 @@ export function mergeViewer3d(stored: unknown): Viewer3dSettings {
   return deepMerge(structuredClone(VIEWER3D_DEFAULTS), stored);
 }
 
+/**
+ * One entry of `design_settings.default_footprint_text_items` — upstream's
+ * `TEXT_ITEM_INFO{ m_Text, m_Visible, m_Layer }`, stored as the three-element
+ * JSON array `footprint_editor_settings.cpp:145-152` writes.
+ */
+export interface FpTextItem {
+  /** `m_Text`. `${REFERENCE}` and friends are text variables, not resolved here. */
+  text: string;
+  /** `m_Visible`. Only the first two rows have a control for it. */
+  visible: boolean;
+  /** `LSET::Name( m_Layer )` — the canonical name, e.g. `F.SilkS`. */
+  layer: string;
+}
+
+/**
+ * A Graphics Defaults row that carries only a line width: Edge Cuts and
+ * Courtyards, whose four text cells the panel disables
+ * (`panel_fp_editor_graphics_defaults.cpp:98-104`) because no `*_text_*` param
+ * exists for them.
+ */
+export interface FpGraphicsLineClass {
+  /** `design_settings.<class>_line_width`, **millimetres**. */
+  line_width: number;
+}
+
+/** A Graphics Defaults row that carries text as well — silk, copper, fab, others. */
+export interface FpGraphicsTextClass extends FpGraphicsLineClass {
+  /** `design_settings.<class>_text_size_h`, mm. */
+  text_size_h: number;
+  /** `design_settings.<class>_text_size_v`, mm. */
+  text_size_v: number;
+  /** `design_settings.<class>_text_thickness`, mm. */
+  text_thickness: number;
+  /** `design_settings.<class>_text_italic`, false. */
+  text_italic: boolean;
+}
+
 export interface FpEditSettings {
   /**
    * `APP_SETTINGS_BASE`'s `system.*`, the block every app settings file
@@ -1868,6 +1905,101 @@ export interface FpEditSettings {
   /** `origin_invert_y_axis` -> `m_DisplayInvertYAxis`, false — "Increases up". */
   origin_invert_y_axis: boolean;
   /**
+   * `design_settings.*` — the slice `FOOTPRINT_EDITOR_SETTINGS` keeps in a
+   * whole `BOARD_DESIGN_SETTINGS` of its own, with the comment upstream leaves
+   * on it: "Only some of these settings are actually used for footprint
+   * editing" (`include/footprint_editor_settings.h:60`). Only the ones a
+   * Preferences page writes are here, which is the same partial shape the rest
+   * of this interface takes.
+   *
+   * Three pages share it — Footprint Defaults, Graphics Defaults and User Layer
+   * Names — because upstream all three hold a reference to the same
+   * `m_DesignSettings` member.
+   */
+  design_settings: {
+    /**
+     * `design_settings.default_footprint_text_items`
+     * (`footprint_editor_settings.cpp:139-186`), a JSON **array of triples**:
+     * `[ text, visible, layerName ]`, in that order.
+     *
+     * The first two entries are the Reference designator and the Value —
+     * `PANEL_FP_EDITOR_FIELD_DEFAULTS::loadFPSettings` puts exactly
+     * `min( 2, size )` of them in the upper grid and everything after index 1
+     * in the lower one (`panel_fp_editor_field_defaults.cpp:216-247`), so the
+     * position in this list IS which grid a row belongs to. A row beyond the
+     * first two is always written back visible, because the lower grid has no
+     * Show column (`:296-303`).
+     *
+     * The layer is stored as its canonical name (`LSET::Name`), not its number,
+     * which is why these are strings.
+     */
+    default_footprint_text_items: FpTextItem[];
+    /**
+     * `design_settings.default_footprint_layer_names`, a
+     * `PARAM_MAP<wxString>` over `BOARD_DESIGN_SETTINGS::m_UserLayerNames`
+     * (`:188-189`): canonical layer name -> the name to show. Free-form, so it
+     * is normalised rather than `deepMerge`d — see {@link mergeFpEdit}.
+     */
+    default_footprint_layer_names: Record<string, string>;
+    /**
+     * `design_settings.user_layer_count` (`:191-195`), default **4** — how many
+     * `User.n` layers a new footprint gets. The page offers 0..9
+     * (`panel_fp_user_layer_names_base.cpp:29-32`).
+     */
+    user_layer_count: number;
+    /**
+     * The six layer classes of the Graphics Defaults grid, in the row order
+     * `panel_fp_editor_graphics_defaults.cpp:47-56` declares: silk, copper,
+     * edges, courtyard, fab, others.
+     *
+     * **Millimetres**, because that is what the file holds: every one of these
+     * is a `PARAM_SCALED<int>( …, pcbIUScale.MM_PER_IU )`
+     * (`footprint_editor_settings.cpp:207-290`), which stores IU scaled to mm
+     * and reads it back scaled up. Storing IU here would be a different file
+     * from KiCad's.
+     *
+     * Edge Cuts and Courtyards carry a line width and nothing else: they have
+     * no `*_text_*` params at all, and the panel greys those four cells out
+     * (`:98-104`). That absence is the type, not a comment.
+     */
+    silk: FpGraphicsTextClass;
+    copper: FpGraphicsTextClass;
+    edges: FpGraphicsLineClass;
+    courtyard: FpGraphicsLineClass;
+    fab: FpGraphicsTextClass;
+    others: FpGraphicsTextClass;
+    /**
+     * `design_settings.dimensions.*` (`:295-330`) — `PANEL_SETUP_DIMENSIONS`,
+     * which upstream is ONE class Board Setup and this page both construct
+     * (`panel_fp_editor_graphics_defaults.cpp:70`).
+     *
+     * `arrow_length` and `extension_offset` are plain `PARAM<int>`, so unlike
+     * the block above they really are **IU**.
+     */
+    dimensions: {
+      /** `DIM_UNITS_MODE` (`pcbnew/pcb_dimension.h:71-77`): INCH 0, MILS 1, MM 2, AUTOMATIC 3. */
+      units: 0 | 1 | 2 | 3;
+      /** `DIM_PRECISION` (`:46-58`), X_XXXX = 4. The page offers the first six. */
+      precision: number;
+      /** `DIM_UNITS_FORMAT` (`:39-44`): NO_SUFFIX 0, BARE_SUFFIX 1, PAREN_SUFFIX 2. */
+      units_format: 0 | 1 | 2;
+      /** `design_settings.dimensions.suppress_zeroes`, true. */
+      suppress_zeroes: boolean;
+      /**
+       * `DIM_TEXT_POSITION` (`:61-66`): OUTSIDE 0, INLINE 1. MANUAL (2) is
+       * reachable on an item but not from this page — the param's range stops
+       * at INLINE, with upstream's own note "excluding DIM_TEXT_POSITION::MANUAL".
+       */
+      text_position: 0 | 1;
+      /** `design_settings.dimensions.keep_text_aligned`, true. */
+      keep_text_aligned: boolean;
+      /** `dimensions.arrow_length` in **IU**, `MilsToIU( 50 )`. */
+      arrow_length: number;
+      /** `dimensions.extension_offset` in **IU**, `mmToIU( 0.5 )`. */
+      extension_offset: number;
+    };
+  };
+  /**
    * `APP_SETTINGS_BASE::m_LibTree`, the `lib_tree.*` params every app settings
    * file carries (`common/settings/app_settings.cpp:140-171`). The Footprint
    * Editor's tree reads and writes this one, the symbol editor's reads
@@ -1941,6 +2073,67 @@ export const FPEDIT_DEFAULTS: FpEditSettings = {
   },
   origin_invert_x_axis: false,
   origin_invert_y_axis: false,
+  design_settings: {
+    // The `PARAM_LAMBDA`'s own default array (`footprint_editor_settings.cpp:
+    // 180-185`). Three rows: two field rows and one text item, which is why a
+    // fresh Footprint Defaults page shows one row in its lower grid.
+    default_footprint_text_items: [
+      { text: 'REF**', visible: true, layer: 'F.SilkS' },
+      { text: '', visible: true, layer: 'F.Fab' },
+      { text: '${REFERENCE}', visible: true, layer: 'F.Fab' },
+    ],
+    default_footprint_layer_names: {},
+    user_layer_count: 4,
+    // [data] `include/board_design_settings.h:38-50`, the DEFAULT_* macros
+    // `footprint_editor_settings.cpp:207-290` names, in millimetres because
+    // that is the unit the params store.
+    silk: {
+      line_width: 0.1, // DEFAULT_SILK_LINE_WIDTH
+      text_size_h: 1.0, // DEFAULT_SILK_TEXT_SIZE
+      text_size_v: 1.0,
+      text_thickness: 0.1, // DEFAULT_SILK_TEXT_WIDTH
+      text_italic: false,
+    },
+    copper: {
+      line_width: 0.2, // DEFAULT_COPPER_LINE_WIDTH
+      text_size_h: 1.5, // DEFAULT_COPPER_TEXT_SIZE
+      text_size_v: 1.5,
+      text_thickness: 0.3, // DEFAULT_COPPER_TEXT_WIDTH
+      text_italic: false,
+    },
+    edges: { line_width: 0.05 }, // DEFAULT_EDGE_WIDTH
+    courtyard: { line_width: 0.05 }, // DEFAULT_COURTYARD_WIDTH
+    // Fab and Others share the generic macros: DEFAULT_LINE_WIDTH,
+    // DEFAULT_TEXT_SIZE and DEFAULT_TEXT_WIDTH.
+    fab: {
+      line_width: 0.1,
+      text_size_h: 1.0,
+      text_size_v: 1.0,
+      text_thickness: 0.15,
+      text_italic: false,
+    },
+    others: {
+      line_width: 0.1,
+      text_size_h: 1.0,
+      text_size_v: 1.0,
+      text_thickness: 0.15,
+      text_italic: false,
+    },
+    dimensions: {
+      units: 3, // DIM_UNITS_MODE::AUTOMATIC
+      precision: 4, // DIM_PRECISION::X_XXXX
+      units_format: 0, // DIM_UNITS_FORMAT::NO_SUFFIX
+      suppress_zeroes: true,
+      text_position: 0, // DIM_TEXT_POSITION::OUTSIDE
+      keep_text_aligned: true,
+      // [data] `pcbIUScale.MilsToIU( DEFAULT_DIMENSION_ARROW_LENGTH )` — 50
+      // mils at 25400 IU/mil, and upstream's comment says the mils are "for
+      // legacy purposes".
+      arrow_length: 1270000,
+      // [data] `pcbIUScale.mmToIU( DEFAULT_DIMENSION_EXTENSION_OFFSET )`, 0.5 mm.
+      extension_offset: 500000,
+    },
+  },
   lib_tree: { columns: [], column_widths: {}, open_libs: [] },
 };
 
@@ -1975,10 +2168,78 @@ export function normalizeColumnWidths(parsed: unknown): Record<string, number> {
  */
 export function mergeFpEdit(stored: unknown): FpEditSettings {
   const out = deepMerge(structuredClone(FPEDIT_DEFAULTS), stored);
+  const ds = (stored as { design_settings?: Record<string, unknown> } | undefined)?.design_settings;
   const widths = (stored as { lib_tree?: { column_widths?: unknown } } | undefined)?.lib_tree
     ?.column_widths;
   out.lib_tree.column_widths = normalizeColumnWidths(widths);
+  // `default_footprint_layer_names` is a `PARAM_MAP`, free-form for the same
+  // reason `lib_tree.column_widths` is: the defaults are `{}` and `deepMerge`
+  // keeps only keys the defaults already have, so every stored name would be
+  // dropped on the way back in.
+  out.design_settings.default_footprint_layer_names = normalizeLayerNames(
+    ds?.['default_footprint_layer_names'],
+  );
+  // ...and the text items are a LIST. `deepMerge` adopts a stored array whole,
+  // so a file written by an older build could hand us rows of the wrong shape;
+  // `normalizeFpTextItems` is what keeps a hand-edited one from reaching the
+  // grids as `undefined.text`.
+  out.design_settings.default_footprint_text_items = normalizeFpTextItems(
+    ds?.['default_footprint_text_items'],
+  );
   return normalizeGrids(out, FPEDIT_DEFAULTS.window.grid.sizes);
+}
+
+/**
+ * `PARAM_MAP<wxString>` on the way in — `default_footprint_layer_names`, whose
+ * keys are canonical layer names and whose values are the names to show. A
+ * value that is not a string is not a layer name; it is damage.
+ */
+export function normalizeLayerNames(parsed: unknown): Record<string, string> {
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return {};
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
+    if (typeof v === 'string' && v !== '') out[k] = v;
+  }
+  return out;
+}
+
+/**
+ * `default_footprint_text_items` on the way in: the setter at
+ * `footprint_editor_settings.cpp:158-179`, which skips an entry that is not a
+ * non-empty array and falls back to `F_SilkS` for a layer name it cannot
+ * resolve — so a bad row is dropped rather than made up.
+ *
+ * An empty result takes the defaults, because the Footprint Defaults page reads
+ * rows 0 and 1 as the Reference and Value fields by POSITION: a list shorter
+ * than two would leave those two grid rows with nothing behind them.
+ */
+export function normalizeFpTextItems(parsed: unknown): FpTextItem[] {
+  if (!Array.isArray(parsed)) {
+    return structuredClone(FPEDIT_DEFAULTS.design_settings.default_footprint_text_items);
+  }
+  const out: FpTextItem[] = [];
+  for (const row of parsed as unknown[]) {
+    // The stored shape is the three-element ARRAY the getter writes.
+    if (Array.isArray(row) && row.length >= 3) {
+      out.push({
+        text: typeof row[0] === 'string' ? row[0] : '',
+        visible: row[1] !== false,
+        layer: typeof row[2] === 'string' && row[2] !== '' ? row[2] : 'F.SilkS',
+      });
+    } else if (typeof row === 'object' && row !== null && !Array.isArray(row)) {
+      // ...and the object shape this port wrote before the array one, so a
+      // settings file from an earlier build is not silently emptied.
+      const r = row as Record<string, unknown>;
+      out.push({
+        text: typeof r['text'] === 'string' ? r['text'] : '',
+        visible: r['visible'] !== false,
+        layer: typeof r['layer'] === 'string' && r['layer'] !== '' ? r['layer'] : 'F.SilkS',
+      });
+    }
+  }
+  return out.length >= 2
+    ? out
+    : structuredClone(FPEDIT_DEFAULTS.design_settings.default_footprint_text_items);
 }
 
 /** Parse a grid size string ("50 mil", "1.27 mm") into IU (100 nm). */

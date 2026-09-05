@@ -78,134 +78,195 @@ async function openPage(id: 'ds-display' | 'ds-grids' | 'ds-colors'): Promise<vo
   // enough under the FULL suite, where the transform competes with every other
   // worker; the budget is deliberately far larger than the work, because a
   // number that has to be tuned is the assertion this comment says it is not.
+  //
+  // **And it was unreachable.** vitest's own per-test default is 5 s, so the
+  // FIRST test in this file died at 5 s with 10 s of this budget unspent —
+  // deterministically, since the first open really does cost ~9 s here. A
+  // `findBy` budget only means anything if the test outlives it, which is what
+  // `SLOW` below is for.
   await screen.findByText(ANCHOR[id], { exact: false }, { timeout: 15000 });
 }
+
+/** vitest's own per-test budget, which has to clear `openPage`'s. */
+const SLOW = 30000;
 
 const panelText = (): string =>
   document.querySelector('.ze-prefs-panel')?.textContent?.replace(/\s+/g, ' ') ?? '';
 
 describe('Drawing Sheet Editor > Display Options', () => {
-  it('renders the Grid Display group above the Cursor group', async () => {
-    await openPage('ds-display');
-    const text = panelText();
-    for (const title of GAL_GROUP_TITLES) expect(text, title).toContain(title);
-    // Order matters: `mainSizer` adds Grid Display first and Cursor second
-    // (`panel_gal_options_base.cpp:17` then `:96`). Ours had only the second.
-    expect(text.indexOf(GAL_GROUP_TITLES[0])).toBeLessThan(text.indexOf(GAL_GROUP_TITLES[1]));
-  });
+  it(
+    'renders the Grid Display group above the Cursor group',
+    async () => {
+      await openPage('ds-display');
+      const text = panelText();
+      for (const title of GAL_GROUP_TITLES) expect(text, title).toContain(title);
+      // Order matters: `mainSizer` adds Grid Display first and Cursor second
+      // (`panel_gal_options_base.cpp:17` then `:96`). Ours had only the second.
+      expect(text.indexOf(GAL_GROUP_TITLES[0])).toBeLessThan(text.indexOf(GAL_GROUP_TITLES[1]));
+    },
+    SLOW,
+  );
 
-  it('renders all four Grid Display controls, which the old modal had none of', async () => {
-    await openPage('ds-display');
-    for (const label of GRID_DISPLAY_LABELS) expect(panelText(), label).toContain(label);
-  });
+  it(
+    'renders all four Grid Display controls, which the old modal had none of',
+    async () => {
+      await openPage('ds-display');
+      for (const label of GRID_DISPLAY_LABELS) expect(panelText(), label).toContain(label);
+    },
+    SLOW,
+  );
 
-  it('offers the grid styles as radio buttons, not a dropdown', async () => {
-    await openPage('ds-display');
-    // `wxRB_GROUP` of three `wxRadioButton`s (`panel_gal_options_base.cpp:31-38`).
-    for (const [, label] of GRID_STYLE_CHOICES) {
-      const input = screen.getByLabelText(label);
-      expect(input.getAttribute('type'), label).toBe('radio');
-    }
-  });
+  it(
+    'offers the grid styles as radio buttons, not a dropdown',
+    async () => {
+      await openPage('ds-display');
+      // `wxRB_GROUP` of three `wxRadioButton`s (`panel_gal_options_base.cpp:31-38`).
+      for (const [, label] of GRID_STYLE_CHOICES) {
+        const input = screen.getByLabelText(label);
+        expect(input.getAttribute('type'), label).toBe('radio');
+      }
+    },
+    SLOW,
+  );
 
-  it('offers every grid thickness the wxChoice offers', async () => {
-    await openPage('ds-display');
-    const options = comboOptions();
-    for (const [, label] of GRID_THICKNESS_CHOICES) expect(options, label).toContain(label);
-  });
+  it(
+    'offers every grid thickness the wxChoice offers',
+    async () => {
+      await openPage('ds-display');
+      const options = comboOptions();
+      for (const [, label] of GRID_THICKNESS_CHOICES) expect(options, label).toContain(label);
+    },
+    SLOW,
+  );
 
-  it('offers KiCad’s three snap modes', async () => {
-    await openPage('ds-display');
-    const options = comboOptions();
-    for (const [, label] of GRID_SNAP_CHOICES) expect(options, label).toContain(label);
-  });
+  it(
+    'offers KiCad’s three snap modes',
+    async () => {
+      await openPage('ds-display');
+      const options = comboOptions();
+      for (const [, label] of GRID_SNAP_CHOICES) expect(options, label).toContain(label);
+    },
+    SLOW,
+  );
 
-  it('shows the crosshair radio and its separate checkbox', async () => {
-    await openPage('ds-display');
-    expect(screen.getByLabelText('Small crosshairs').getAttribute('type')).toBe('radio');
-    expect(screen.getByLabelText('45 degree crosshairs').getAttribute('type')).toBe('radio');
-    expect(screen.getByLabelText('Always show crosshairs').getAttribute('type')).toBe('checkbox');
-  });
+  it(
+    'shows the crosshair radio and its separate checkbox',
+    async () => {
+      await openPage('ds-display');
+      expect(screen.getByLabelText('Small crosshairs').getAttribute('type')).toBe('radio');
+      expect(screen.getByLabelText('45 degree crosshairs').getAttribute('type')).toBe('radio');
+      expect(screen.getByLabelText('Always show crosshairs').getAttribute('type')).toBe('checkbox');
+    },
+    SLOW,
+  );
 
-  it('offers no black-background control', async () => {
-    await openPage('ds-display');
-    expect(panelText().toLowerCase()).not.toContain('black background');
-  });
+  it(
+    'offers no black-background control',
+    async () => {
+      await openPage('ds-display');
+      expect(panelText().toLowerCase()).not.toContain('black background');
+    },
+    SLOW,
+  );
 });
 
 describe('Drawing Sheet Editor > Grids', () => {
-  it('renders the three groups of PANEL_GRID_SETTINGS', async () => {
-    await openPage('ds-grids');
-    const text = panelText();
-    for (const title of ['Grids', 'Fast Grid Switching', 'Grid Overrides'])
-      expect(text, title).toContain(title);
-  });
+  it(
+    'renders the three groups of PANEL_GRID_SETTINGS',
+    async () => {
+      await openPage('ds-grids');
+      const text = panelText();
+      for (const title of ['Grids', 'Fast Grid Switching', 'Grid Overrides'])
+        expect(text, title).toContain(title);
+    },
+    SLOW,
+  );
 
-  it('lists this editor’s grids, from the settings and not from the unit', async () => {
-    await openPage('ds-grids');
-    // `m_currentGridCtrl`, a wxListBox (`panel_grid_settings_base.cpp:29`), so
-    // the rows are a list and not the text fields they used to be. It is a
-    // listbox of our own rather than a native <select size>, which paints the
-    // browser's blue over the selected row as soon as it has focus.
-    const options = Array.from(document.querySelectorAll('.ze-gridlist .ze-gridlist-row')).map(
-      (o) => o.textContent,
-    );
-    expect(options).toHaveLength(PL_EDITOR_DEFAULTS.window.grid.sizes.length);
+  it(
+    'lists this editor’s grids, from the settings and not from the unit',
+    async () => {
+      await openPage('ds-grids');
+      // `m_currentGridCtrl`, a wxListBox (`panel_grid_settings_base.cpp:29`), so
+      // the rows are a list and not the text fields they used to be. It is a
+      // listbox of our own rather than a native <select size>, which paints the
+      // browser's blue over the selected row as soon as it has focus.
+      const options = Array.from(document.querySelectorAll('.ze-gridlist .ze-gridlist-row')).map(
+        (o) => o.textContent,
+      );
+      expect(options).toHaveLength(PL_EDITOR_DEFAULTS.window.grid.sizes.length);
 
-    // `RebuildGridSizes`' `_( "%s%s (%s)" )` (`panel_grid_settings.cpp:139-143`):
-    // the optional name, the size in the frame's unit, then in the other one.
-    // Written out rather than computed, and re-derived from the C++ rather than
-    // read off the page: pl_editor opens in MILS (`app_settings.cpp:228-238`)
-    // and counts microns, so it is NOT the eeschema short form —
-    // `MessageTextFromValue` gives mils two decimals and mm four
-    // (`common/eda_units.cpp:445-460`). 5 mm is 196.8503937 mils.
-    expect(options[0]).toBe('196.85 mils (5.0000 mm)');
-    expect(options[4]).toBe('19.69 mils (0.5000 mm)');
-  });
+      // `RebuildGridSizes`' `_( "%s%s (%s)" )` (`panel_grid_settings.cpp:139-143`):
+      // the optional name, the size in the frame's unit, then in the other one.
+      // Written out rather than computed, and re-derived from the C++ rather than
+      // read off the page: pl_editor opens in MILS (`app_settings.cpp:228-238`)
+      // and counts microns, so it is NOT the eeschema short form —
+      // `MessageTextFromValue` gives mils two decimals and mm four
+      // (`common/eda_units.cpp:445-460`). 5 mm is 196.8503937 mils.
+      expect(options[0]).toBe('196.85 mils (5.0000 mm)');
+      expect(options[4]).toBe('19.69 mils (0.5000 mm)');
+    },
+    SLOW,
+  );
 
-  it('shows exactly the override rows FRAME_PL_EDITOR shows', async () => {
-    await openPage('ds-grids');
-    const text = panelText();
-    for (const [, label] of OVERRIDE_ROWS.FRAME_PL_EDITOR) expect(text, label).toContain(label);
-    // And the three the constructor hides for this frame. This is the assertion
-    // the frame table exists for: a shared panel that showed everything to
-    // everyone would pass every test above and be wrong here.
-    for (const label of ['Connected items:', 'Wires:', 'Vias:'])
-      expect(text, `${label} must be hidden for FRAME_PL_EDITOR`).not.toContain(label);
-  });
+  it(
+    'shows exactly the override rows FRAME_PL_EDITOR shows',
+    async () => {
+      await openPage('ds-grids');
+      const text = panelText();
+      for (const [, label] of OVERRIDE_ROWS.FRAME_PL_EDITOR) expect(text, label).toContain(label);
+      // And the three the constructor hides for this frame. This is the assertion
+      // the frame table exists for: a shared panel that showed everything to
+      // everyone would pass every test above and be wrong here.
+      for (const label of ['Connected items:', 'Wires:', 'Vias:'])
+        expect(text, `${label} must be hidden for FRAME_PL_EDITOR`).not.toContain(label);
+    },
+    SLOW,
+  );
 });
 
 describe('Drawing Sheet Editor > Colors', () => {
-  it('is one Color theme: choice, with no swatch grid', async () => {
-    await openPage('ds-colors');
-    expect(panelText()).toContain('Color theme:');
-    // `PANEL_PL_EDITOR_COLOR_SETTINGS` does not derive from
-    // `PANEL_COLOR_SETTINGS`; its base file is a label and a wxChoice and
-    // nothing else (`panel_pl_editor_color_settings_base.cpp:14-32`). A swatch
-    // grid here would be an invention.
-    expect(document.querySelectorAll('.ze-colorgrid')).toHaveLength(0);
-    expect(document.querySelectorAll('.ze-combo')).toHaveLength(1);
-    expect(document.querySelectorAll('select')).toHaveLength(0);
-  });
+  it(
+    'is one Color theme: choice, with no swatch grid',
+    async () => {
+      await openPage('ds-colors');
+      expect(panelText()).toContain('Color theme:');
+      // `PANEL_PL_EDITOR_COLOR_SETTINGS` does not derive from
+      // `PANEL_COLOR_SETTINGS`; its base file is a label and a wxChoice and
+      // nothing else (`panel_pl_editor_color_settings_base.cpp:14-32`). A swatch
+      // grid here would be an invention.
+      expect(document.querySelectorAll('.ze-colorgrid')).toHaveLength(0);
+      expect(document.querySelectorAll('.ze-combo')).toHaveLength(1);
+      expect(document.querySelectorAll('select')).toHaveLength(0);
+    },
+    SLOW,
+  );
 
-  it('offers the theme KiCad’s ResetPanel selects', async () => {
-    await openPage('ds-colors');
-    // `m_themes->SetStringSelection( _( "KiCad Default" ) )`
-    // (`panel_pl_editor_color_settings.cpp:84`).
-    expect(comboOptions()).toContain('KiCad Default');
-  });
+  it(
+    'offers the theme KiCad’s ResetPanel selects',
+    async () => {
+      await openPage('ds-colors');
+      // `m_themes->SetStringSelection( _( "KiCad Default" ) )`
+      // (`panel_pl_editor_color_settings.cpp:84`).
+      expect(comboOptions()).toContain('KiCad Default');
+    },
+    SLOW,
+  );
 });
 
 describe('the pages are reachable at all', () => {
-  it('every Drawing Sheet Editor page renders something', async () => {
-    // The blunt version of the whole file: a page id in `PAGES` whose panel
-    // cannot be imported leaves the panel pane empty, and nothing that reads
-    // the registry as data would notice.
-    for (const id of ['ds-display', 'ds-grids', 'ds-colors'] as const) {
-      await openPage(id);
-      expect(panelText().length, id).toBeGreaterThan(20);
-      cleanup();
-      resetPrefsPanelCache();
-    }
-  });
+  it(
+    'every Drawing Sheet Editor page renders something',
+    async () => {
+      // The blunt version of the whole file: a page id in `PAGES` whose panel
+      // cannot be imported leaves the panel pane empty, and nothing that reads
+      // the registry as data would notice.
+      for (const id of ['ds-display', 'ds-grids', 'ds-colors'] as const) {
+        await openPage(id);
+        expect(panelText().length, id).toBeGreaterThan(20);
+        cleanup();
+        resetPrefsPanelCache();
+      }
+    },
+    SLOW,
+  );
 });

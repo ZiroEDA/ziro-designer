@@ -76,15 +76,22 @@ const EXPECTED: PrefsPageEntry[] = [
   // rows here at all, which is why those two frames had no Toolbars page and
   // drew their bars from a module constant.
   //
-  // The 3D Viewer still shows only its Toolbars row; the Footprint Editor's
-  // first three are now built, each through the class upstream shares between
-  // the two pcbnew frames — `PANEL_GAL_OPTIONS`, `PANEL_GRID_SETTINGS` and
-  // `PANEL_PCBNEW_DISPLAY_ORIGIN`.
+  // The Footprint Editor's heading is COMPLETE — all nine of the rows
+  // `common/eda_base_frame.cpp:1667-1675` adds, in that order. Five of them are
+  // classes upstream shares between the two pcbnew frames (`PANEL_GAL_OPTIONS`,
+  // `PANEL_GRID_SETTINGS`, `PANEL_PCBNEW_DISPLAY_ORIGIN`, `PANEL_EDIT_OPTIONS`,
+  // `PANEL_COLOR_SETTINGS`), one is `PANEL_TOOLBAR_CUSTOMIZATION`, and three
+  // are this editor's own. The 3D Viewer still shows only its Toolbars row.
   { id: null, label: 'Footprint Editor' },
   { id: 'fp-display', label: 'Display Options', indent: true, owner: 'footprint' },
   { id: 'fp-grids', label: 'Grids', indent: true, owner: 'footprint' },
   { id: 'fp-origins', label: 'Origins & Axes', indent: true, owner: 'footprint' },
+  { id: 'fp-editing', label: 'Editing Options', indent: true, owner: 'footprint' },
+  { id: 'fp-colors', label: 'Colors', indent: true, owner: 'footprint' },
   { id: 'fp-toolbars', label: 'Toolbars', indent: true, owner: 'footprint' },
+  { id: 'fp-defaults', label: 'Footprint Defaults', indent: true, owner: 'footprint' },
+  { id: 'fp-graphics', label: 'Graphics Defaults', indent: true, owner: 'footprint' },
+  { id: 'fp-userlayers', label: 'User Layer Names', indent: true, owner: 'footprint' },
   { id: null, label: 'PCB Editor' },
   { id: 'pcb-display', label: 'Display Options', indent: true, owner: 'pcb' },
   { id: 'pcb-grids', label: 'Grids', indent: true, owner: 'pcb' },

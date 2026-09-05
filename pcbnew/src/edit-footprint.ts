@@ -485,9 +485,22 @@ export function rotateFootprintItems(
   ids: ReadonlySet<string>,
   ccw: boolean,
   center: Vec2,
+  /**
+   * `EDIT_TOOL::Rotate`'s step — `frame()->GetRotationAngle()`, which is the
+   * settings object's `m_RotationAngle` and NOT a constant
+   * (`pcbnew/tools/edit_tool.cpp`: `EDA_ANGLE rotateAngle = TOOL_EVT_UTILS::
+   * GetEventRotationAngle( *editFrame, aEvent )`, whose default arm returns
+   * `aFrame.GetRotationAngle()`). It is Preferences > Editing Options' "Step
+   * for rotate commands:", and hard-coding 90 here is what made that control
+   * unreachable.
+   *
+   * Defaulted so the two existing callers that do not set it keep KiCad's own
+   * default of ANGLE_90.
+   */
+  degrees = 90,
 ): PcbFootprint {
   if (ids.size === 0) return fp;
-  const deg = ccw ? 90 : -90;
+  const deg = ccw ? degrees : -degrees;
   const tp: PadT = (p) => {
     const at = rotAbout(p.at, center, deg);
     const angle = norm360(p.angle + deg);

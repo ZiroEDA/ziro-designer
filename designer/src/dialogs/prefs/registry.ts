@@ -71,13 +71,18 @@ export const PAGES: readonly PrefsPageEntry[] = [
   // the third were missing here entirely, which is why those two frames drew
   // their toolbars from a module constant with no page to change it.
   //
-  // The 3D Viewer's heading still lists only its Toolbars row; the rest of it is
-  // in `OMITTED_PAGES`, not a decision about that frame.
+  // The Footprint Editor's nine all ship. The 3D Viewer's heading still lists
+  // only its Toolbars row; the rest of it is in `OMITTED_PAGES`.
   { id: null, label: 'Footprint Editor' },
   { id: 'fp-display', label: 'Display Options', indent: true, owner: 'footprint' },
   { id: 'fp-grids', label: 'Grids', indent: true, owner: 'footprint' },
   { id: 'fp-origins', label: 'Origins & Axes', indent: true, owner: 'footprint' },
+  { id: 'fp-editing', label: 'Editing Options', indent: true, owner: 'footprint' },
+  { id: 'fp-colors', label: 'Colors', indent: true, owner: 'footprint' },
   { id: 'fp-toolbars', label: 'Toolbars', indent: true, owner: 'footprint' },
+  { id: 'fp-defaults', label: 'Footprint Defaults', indent: true, owner: 'footprint' },
+  { id: 'fp-graphics', label: 'Graphics Defaults', indent: true, owner: 'footprint' },
+  { id: 'fp-userlayers', label: 'User Layer Names', indent: true, owner: 'footprint' },
   { id: null, label: 'PCB Editor' },
   { id: 'pcb-display', label: 'Display Options', indent: true, owner: 'pcb' },
   { id: 'pcb-grids', label: 'Grids', indent: true, owner: 'pcb' },
@@ -276,18 +281,10 @@ export const OMITTED_PAGES: Readonly<Record<string, readonly DeclaredPage[]>> = 
   // omitted because upstream does not have it here either; it is a Schematic
   // Setup page, which is where ours lives.
   'Schematic Editor': [],
-  // Every remaining row here is a page nobody has built, not one that cannot
-  // exist. Display Options, Grids and Origins & Axes have now shipped, each
-  // through the class upstream shares between the two pcbnew frames —
-  // `PANEL_GAL_OPTIONS`, `PANEL_GRID_SETTINGS` and
-  // `PANEL_PCBNEW_DISPLAY_ORIGIN`.
-  'Footprint Editor': [
-    { label: 'Editing Options', reason: 'Footprint Editor tracker 200.' },
-    { label: 'Colors', reason: 'Footprint Editor tracker 200.' },
-    { label: 'Footprint Defaults', reason: 'Footprint Editor tracker 200.' },
-    { label: 'Graphics Defaults', reason: 'Footprint Editor tracker 200.' },
-    { label: 'User Layer Names', reason: 'Footprint Editor tracker 200.' },
-  ],
+  // The 3D Viewer's rows are all that is left under a pcbnew heading now, and
+  // two of the three are decisions rather than gaps.
+  // The Footprint Editor heading has NO entry: all nine of its pages ship.
+  'Footprint Editor': [],
   '3D Viewer': [
     { label: 'General', reason: '3D Viewer tracker 200.' },
     {

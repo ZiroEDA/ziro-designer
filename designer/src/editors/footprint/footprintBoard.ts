@@ -14,6 +14,7 @@
 
 import { parse } from '@ziroeda/sexpr';
 import { EMPTY_SOURCE } from '@ziroeda/eeschema';
+import { settings, type FpEditSettings } from '../../prefs/settings.js';
 import {
   readFootprintFile,
   type Board,
@@ -93,6 +94,61 @@ export const FOOTPRINT_LAYERS: PcbLayerDef[] = [
 ];
 
 /**
+ * `LSET::UserDefinedLayersMask( n )` and `BOARD::GetLayerName` — the layer set
+ * a footprint editor frame actually has, which is {@link FOOTPRINT_LAYERS} with
+ * its `User.n` rows re-cut from **Preferences > Footprint Editor > User Layer
+ * Names**.
+ *
+ * Two settings, two effects, both upstream's:
+ *
+ *   - `design_settings.user_layer_count` decides HOW MANY `User.n` rows there
+ *     are. `BOARD_DESIGN_SETTINGS::SetUserDefinedLayerCount` feeds
+ *     `LSET::UserDefinedLayersMask` (`common/lset.cpp:704-719`), which is
+ *     `User_1` and every second id after it, and
+ *     `FOOTPRINT_EDIT_FRAME::updateEnabledLayers` enables exactly that mask.
+ *   - `design_settings.default_footprint_layer_names` decides what each of them
+ *     is CALLED. That map is `BOARD_DESIGN_SETTINGS::m_UserLayerNames`, keyed
+ *     by the canonical name, and `BOARD::GetLayerName` returns the user name
+ *     where one is set — which is why the Appearance panel, the layer selector
+ *     and the layer combo in every dialog all show it.
+ *
+ * {@link FOOTPRINT_LAYERS} stays as it was and is still the right answer for
+ * the two VIEWER frames — CVPCB's and the schematic's footprint preview — which
+ * have no such preference and open on the default count of 4.
+ */
+export function footprintLayers(cfg: FpEditSettings = settings.fpEdit): PcbLayerDef[] {
+  const count = Math.max(0, Math.min(9, cfg.design_settings.user_layer_count));
+  const names = cfg.design_settings.default_footprint_layer_names;
+  const out: PcbLayerDef[] = [];
+  for (const l of FOOTPRINT_LAYERS) {
+    const numbered = /^User\.(\d+)$/.exec(l.name);
+    // A numbered user layer beyond the count is not enabled on this board.
+    if (numbered && Number(numbered[1]) > count) continue;
+    const userName = names[l.name];
+    out.push(userName ? { ...l, userName } : l);
+  }
+  // ...and a count above the four this table declares needs the rest built.
+  // `User_1` is id 39 and the ids step by 2 (`include/layer_ids.h:124`).
+  for (let n = USER_LAYERS_IN_TABLE + 1; n <= count; n++) {
+    const name = `User.${n}`;
+    const userName = names[name];
+    out.push({
+      id: USER_1_LAYER_ID + (n - 1) * 2,
+      name,
+      kind: 'user',
+      ...(userName ? { userName } : {}),
+    });
+  }
+  return out;
+}
+
+/** [data] `User_1` (`include/layer_ids.h:124`), which `pcbnew/src/layer_ids.ts` also names. */
+const USER_1_LAYER_ID = 39;
+
+/** How many `User.n` rows {@link FOOTPRINT_LAYERS} spells out — the default count. */
+const USER_LAYERS_IN_TABLE = 4;
+
+/**
  * `enabled.CuStack()` for this frame (`appearance_controls.cpp:1859-1860`):
  * "show all coppers first, with front on top, back on bottom". F.Cu, then the
  * inner layers in number order, then B.Cu — the board's declaration order is
@@ -104,11 +160,20 @@ export const FOOTPRINT_COPPER_STACK: readonly string[] = [
   'B.Cu',
 ];
 
-/** Board holding just the given footprint (or empty), for the footprint canvas. */
-export function footprintToBoard(fp: PcbFootprint | null): Board {
+/**
+ * Board holding just the given footprint (or empty), for the footprint canvas.
+ *
+ * `layers` defaults to the module table, which is what the two VIEWER frames
+ * want; the EDITOR passes {@link footprintLayers} so its board carries the user
+ * layers Preferences was told to give it.
+ */
+export function footprintToBoard(
+  fp: PcbFootprint | null,
+  layers: PcbLayerDef[] = FOOTPRINT_LAYERS,
+): Board {
   return {
     version: 20241229,
-    layers: FOOTPRINT_LAYERS,
+    layers,
     nets: new Map([[0, '']]),
     footprints: fp ? [fp] : [],
     textBoxes: [],

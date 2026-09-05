@@ -55,7 +55,8 @@ import {
 } from '../pcb/renderBoard.js';
 import { PCB_BACKGROUND, PCB_CURSOR, PCB_GRID_AXES, PCB_SPECIAL } from '../pcb/pcbTheme.js';
 import { drawSelectionArea, isBackgroundDark, selectionAreaColors } from '@ziroeda/common';
-import { footprintToBoard } from './footprintBoard.js';
+import { FOOTPRINT_LAYERS, footprintToBoard } from './footprintBoard.js';
+import type { PcbLayerDef } from '@ziroeda/pcbnew/src/types.js';
 import { pcbGridOptions, PCB_DEFAULT_GRID_IU } from '../pcb/renderBoard.js';
 import { snapToGridSize } from '../pcb/pcb_grid.js';
 
@@ -130,6 +131,13 @@ export interface FootprintCanvasProps {
    * unreachable.
    */
   snapping?: boolean;
+  /**
+   * `BOARD::GetEnabledLayers()` for the frame this canvas is in —
+   * `updateEnabledLayers()`'s result. A prop rather than a module constant
+   * because the footprint EDITOR's set is cut by
+   * `design_settings.user_layer_count`, and the two viewer frames' is not.
+   */
+  layers?: PcbLayerDef[];
   /**
    * The frame's distance units, for the Measure Tool's labels.
    * `RULER_ITEM` is constructed with `frame()->GetUserUnits()`.
@@ -211,6 +219,7 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
       gridLineWidthPx,
       gridMinSpacingPx,
       snapping,
+      layers = FOOTPRINT_LAYERS,
       measureUnits = 'mm',
       gridIU = PCB_DEFAULT_GRID_IU,
       gridOrigin = ORIGIN,
@@ -317,7 +326,13 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
     snapRef.current = (p: Vec2): Vec2 => (snapOn ? snapToGridSize(p, gridIU, gridOrigin) : p);
 
     // Compile the footprint (wrapped as a board) into retained per-layer paths.
-    const scene = useMemo(() => buildScene(footprintToBoard(footprint)), [footprint]);
+    // `layers` is the FRAME's set, which in the editor carries the user layers
+    // Preferences > Footprint Editor > User Layer Names asked for. The two
+    // viewer frames pass none and take the default four.
+    const scene = useMemo(
+      () => buildScene(footprintToBoard(footprint, layers)),
+      [footprint, layers],
+    );
     sceneRef.current = scene;
 
     // ----- crisp off-screen raster, blitted with a delta transform each frame ---

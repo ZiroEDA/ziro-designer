@@ -229,6 +229,69 @@ export const themeByFilename = (filename: string): PcbColorTheme =>
   PCB_THEMES.find((t) => t.filename === filename) ?? PCB_THEMES[0]!;
 
 /**
+ * `::GetColorSettings( cfg->m_ColorTheme )` for a board frame — the built-in
+ * palette with the "User" theme's per-layer overrides laid over it.
+ *
+ * Upstream a theme IS a `COLOR_SETTINGS` file, so a user theme is not a
+ * built-in plus a patch: it is a file of its own that `SETTINGS_MANAGER` hands
+ * back whole. Ours stores only the rows a user has changed (`colors/user.json`,
+ * flat, namespaced) — see `useUserColors` — so the two are assembled here, in
+ * one place, rather than at each frame that asks.
+ *
+ * The keys are `board.*` (`common/settings/color_settings.cpp:124-190`), which
+ * is the namespace `PANEL_FP_EDITOR_COLOR_SETTINGS` and the PCB Editor's own
+ * Colors page BOTH write — `m_colorNamespace = "board"` — so a colour changed
+ * from the footprint editor moves the board editor too. That shared namespace
+ * is upstream's, not a shortcut here.
+ */
+export function pcbThemeWithOverrides(
+  filename: string,
+  userColors: Readonly<Record<string, string>>,
+): PcbColorTheme {
+  const base = themeByFilename(filename);
+  // A built-in theme's file `IsReadOnly()`, so no override can apply to it —
+  // which is also why the swatches are answerable only on "User"
+  // (`panel_color_settings.cpp:74-75`).
+  if (filename !== 'user') return base;
+
+  const layerColors = { ...base.layerColors };
+  // `board.copper.<f|b|in1…>` for a copper layer, `board.<layer>` otherwise.
+  for (const id of PCB_LAYER_IDS) {
+    const name = layerName(id);
+    const key = /\.Cu$/.test(name)
+      ? `board.copper.${name.replace(/\.Cu$/, '').toLowerCase()}`
+      : `board.${id.toLowerCase()}`;
+    const override = userColors[key];
+    if (override !== undefined) layerColors[name] = override;
+  }
+
+  const pick = (key: string, fallback: string): string => userColors[key] ?? fallback;
+  return {
+    ...base,
+    background: pick('board.background', base.background),
+    grid: pick('board.grid', base.grid),
+    gridAxes: pick('board.grid_axes', base.gridAxes),
+    layerColors,
+    special: {
+      ...base.special,
+      ratsnest: pick('board.ratsnest', base.special.ratsnest),
+      anchor: pick('board.anchor', base.special.anchor),
+      points: pick('board.points', base.special.points),
+      auxItems: pick('board.aux_items', base.special.auxItems),
+      drawingSheet: pick('board.worksheet', base.special.drawingSheet),
+      pageLimits: pick('board.page_limits', base.special.pageLimits),
+      nonPlatedHole: pick('board.plated_hole', base.special.nonPlatedHole),
+      netName: pick('board.track_net_names', base.special.netName),
+      padName: pick('board.pad_net_names', base.special.padName),
+      viaName: pick('board.via_net_names', base.special.viaName),
+      drcError: pick('board.drc_error', base.special.drcError),
+      drcWarning: pick('board.drc_warning', base.special.drcWarning),
+      drcExclusion: pick('board.drc_exclusion', base.special.drcExclusion),
+    },
+  };
+}
+
+/**
  * Black-and-white print rendering (BOARD_PRINTOUT with blackWhite: every item
  * prints black on white paper; hole interiors read as paper through the
  * copper, hole walls print black).

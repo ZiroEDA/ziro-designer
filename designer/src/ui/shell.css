@@ -13184,3 +13184,157 @@ td.ze-fieldnames-bool {
   background: var(--ctl-face-disabled);
   color: var(--ctl-fg-disabled);
 }
+
+/* ---------------------------------------------------------------------------
+   Preferences > Footprint Editor — the four pages whose layout is not one of
+   the shared prefs shapes. Every number below is an `Add()` border, a
+   `SetColSize` or a spacer from the panel's own wxFormBuilder file; where a
+   value is a bare `[px]` it is one wxFormBuilder wrote and nothing derives.
+   --------------------------------------------------------------------------- */
+
+/* `fgSizerCmdsWinLin = new wxFlexGridSizer( 0, 2, 8, 0 )`
+   (`pcbnew/dialogs/panel_edit_options_base.cpp:127-130`): two columns, an 8 px
+   vgap, no hgap of its own — the space between the two columns is each cell's
+   `wxRIGHT|wxLEFT, 5`. The label column is `max-content`, as a flex grid's
+   column 0 always is. */
+.ze-fp-mousecmds {
+  display: grid;
+  grid-template-columns: max-content max-content;
+  /* [data] the sizer's vgap 8, and 5 + 5 from the two cells' own borders. */
+  gap: 8px 10px;
+  /* [data] `Add( fgSizerCmdsWinLin, 1, wxEXPAND|wxTOP, 5 )`. */
+  padding-top: 5px;
+}
+.ze-fp-mousecmd {
+  display: contents;
+}
+
+/* A plain wxStaticText title with no rule under it — `defaultFieldPropertiesLabel`
+   (`panel_fp_editor_field_defaults_base.cpp:20-22`), `m_layerNamesLabel`
+   (`panel_fp_user_layer_names_base.cpp:41-43`) and `defaultPropertiesLabel`
+   (`panel_fp_editor_graphics_defaults_base.cpp:15-17`) are the same shape:
+   `wxTOP|wxRIGHT|wxLEFT, 8` followed by an `Add( 0, 4 )` spacer.
+
+   Not `.ze-pref-group-title`: that one draws the `wxStaticLine` every
+   Preferences GROUP has, and these three headings have none. */
+.ze-fp-defaults-title {
+  /* [data] the `wxTOP|wxLEFT, 8` of each heading's own Add(). */
+  padding: 8px 0 0 8px;
+  /* [data] the `Add( 0, 4 )` spacer under it. */
+  margin-bottom: 4px;
+}
+/* `bSizerMargins->Add( 5, 25, 0, wxEXPAND, 5 )` — the gap between the two grids
+   on Footprint Defaults, which is bigger than the 8 above every other heading. */
+.ze-fp-defaults-title2 {
+  /* [data] the spacer's own 25, less the heading's own wxTOP 8. */
+  margin-top: 17px;
+}
+
+.ze-fp-defaults,
+.ze-fp-userlayers,
+.ze-fp-gfxdefaults {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  /* [px] the notebook page's own inset, the same one `.ze-fieldnames` carries
+     and the same one Preferences > Colors measures. */
+  padding-left: 5px;
+}
+
+/* `SetColSize( 0, 240 )`, `SetColSize( 1, 60 )`, `SetColSize( 2, 150 )` and
+   `SetRowLabelSize( 160 )` (`panel_fp_editor_field_defaults_base.cpp:36-52`).
+   Column 0 takes the slack, as every autosized first column does. */
+.ze-fp-fieldprops th:first-child,
+.ze-fp-fieldprops td:first-child {
+  width: 160px; /* [px] SetRowLabelSize( 160 ) */
+}
+.ze-fp-fieldprops th:nth-child(3) {
+  width: 60px; /* [px] SetColSize( 1, 60 ) */
+}
+.ze-fp-fieldprops th:nth-child(4) {
+  width: 150px; /* [px] SetColSize( 2, 150 ) */
+}
+/* `SetColSize( 0, 460 )` and `SetColSize( 1, 150 )` (`:75-76`). */
+.ze-fp-textitems th:nth-child(2) {
+  width: 150px; /* [px] */
+}
+/* `m_textItemsGrid->SetMinSize( wxSize( -1, 140 ) )` (`:89`), and the same on
+   `m_layerNamesGrid` (`panel_fp_user_layer_names_base.cpp:74`). */
+.ze-fp-textitems-grid,
+.ze-fp-userlayers-grid {
+  flex: 1;
+  min-height: 140px; /* [data] */
+  /* [data] the grid's own `Add( …, 1, wxEXPAND, 5 )`, whose 5 is the border
+     wxFormBuilder writes and the flags do not apply — so no margin. */
+}
+/* `SetColSize( 0, 200 )` / `SetColSize( 1, 220 )`
+   (`panel_fp_user_layer_names_base.cpp:60-61`). */
+.ze-fp-layernames th:first-child {
+  width: 200px; /* [px] */
+}
+
+/* `bSizerUserLayerCount`, a bare `wxBoxSizer( wxHORIZONTAL )` added
+   `wxTOP|wxRIGHT|wxLEFT|wxEXPAND, 8` (`panel_fp_user_layer_names_base.cpp:
+   20-35`): the label carries `wxRIGHT, 5` and the choice none, then a growing
+   spacer takes the slack — so the pair sits at the left and does NOT line up
+   with anything below it. */
+.ze-fp-userlayer-count {
+  /* [data] the `wxTOP|wxRIGHT|wxLEFT, 8` of the sizer's own Add(). */
+  padding: 8px 8px 0;
+  /* [data] the `Add( 0, 10 )` spacer between this row and the next heading. */
+  margin-bottom: 10px;
+}
+/* A `.ze-pref-row` outside a group body has no shared label column to sit in;
+   this one is a two-item box sizer, so its label keeps its own width and the
+   choice follows it by the label's own `wxRIGHT, 5`. */
+.ze-fp-userlayer-count .ze-pref-row {
+  gap: 5px; /* [data] the label's `wxRIGHT, 5`. */
+}
+
+/* `SetColSize( 0, 110 )` then 100/100/100/60
+   (`panel_fp_editor_graphics_defaults_base.cpp:35-39`), with the row-label
+   column autosized to its widest label. */
+.ze-fp-gfxgrid th:nth-child(2),
+.ze-fp-gfxgrid th:nth-child(3),
+.ze-fp-gfxgrid th:nth-child(4),
+.ze-fp-gfxgrid th:nth-child(5) {
+  width: 100px; /* [px] */
+}
+.ze-fp-gfxgrid th:last-child {
+  width: 60px; /* [px] SetColSize( 4, 60 ) */
+}
+
+/* `SetCellAlignment( row, col, wxALIGN_CENTER, wxALIGN_CENTER )` on a
+   `wxGridCellBoolRenderer` column — the Show column of Footprint Defaults and
+   the Italic column of Graphics Defaults are both that
+   (`panel_fp_editor_field_defaults.cpp:349-353`,
+   `panel_fp_editor_graphics_defaults.cpp:128-133`). */
+td.ze-grid-bool {
+  text-align: center;
+}
+
+/* `disableCell( row, col )`: `SetReadOnly` plus
+   `SetCellBackgroundColour( wxSystemSettings::GetColour( wxSYS_COLOUR_FRAMEBK ) )`
+   (`panel_fp_editor_graphics_defaults.cpp:98-104`).
+
+   FRAMEBK is the dialog's own face colour, which is `--chrome-bg` here — so the
+   four dead cells of Edge Cuts and Courtyards read as one blank block outside
+   the table rather than as empty editable cells. The border goes with it,
+   because a cell painted in the surround colour keeping its gridlines would
+   still read as a cell. */
+.ze-grid-disabled {
+  background: var(--chrome-bg);
+  border: none;
+}
+
+/* `PAGED_DIALOG::SetError`'s message (`common/widgets/paged_dialog.cpp`), which
+   upstream puts in an infobar across the top of the dialog. Ours is beside the
+   grid that raised it, so a page shown on its own still says which control is
+   wrong. */
+.ze-prefs-error {
+  /* The shared token, never a literal: `--error-ink` is what every other error
+     line in the app takes. */
+  color: var(--error-ink);
+  /* [data] the same `wxLEFT, 8` the headings above it carry. */
+  padding: 4px 0 0 8px;
+}
