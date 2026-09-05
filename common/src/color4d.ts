@@ -189,6 +189,26 @@ export const toCssColor = (c: Color4d, separator = ','): string => {
   return c.a >= 1 ? `rgb(${rgb})` : `rgba(${rgb}${separator}${c.a})`;
 };
 
+/**
+ * `COLOR4D::ToCSSString()` (`common/gal/color4d.cpp:150-175`), which is what
+ * `to_json( json&, const COLOR4D& )` writes into a settings FILE.
+ *
+ * It is not {@link toCssColor} with a different separator. The alpha term is
+ * `wxString::FromCDouble( c.Alpha() / 255.0, 3 )` — the alpha is quantised to
+ * a byte by `ToColour()` first and then printed to exactly three decimals — so
+ * KiCad writes `rgba(0, 0, 0, 0.502)` where a naive printer writes
+ * `rgba(0,0,0,0.5)`. A theme file has to agree with KiCad character for
+ * character, because KiCad's own `MatchesFile` compares what it would write
+ * against what is there.
+ */
+export const toCssString = (c: Color4d): string => {
+  const [r, g, b] = [color4dChannel(c.r), color4dChannel(c.g), color4dChannel(c.b)];
+  const alpha = color4dChannel(c.a);
+  // `alpha == wxALPHA_OPAQUE` — the byte, not the float, so 0.999 is opaque.
+  if (alpha === 255) return `rgb(${r}, ${g}, ${b})`;
+  return `rgba(${r}, ${g}, ${b}, ${(alpha / 255).toFixed(3)})`;
+};
+
 /** An 8-bit RGB triple, the range `wxColour` works in. */
 export type Rgb8 = readonly [number, number, number];
 
