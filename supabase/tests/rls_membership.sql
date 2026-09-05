@@ -184,3 +184,47 @@ begin; set local role authenticated; set local "request.jwt.claim.sub" = 'bbbbbb
 select public.commit_project('77777777-7777-7777-7777-777777777777','B own board v2',
   '[{"name":"b.kicad_sch","hash":"HB2","size":4}]'::jsonb, 1) as second_commit;
 commit;
+
+\echo '### 28 a client that mints its own uid gets exactly that uid -- expect 1, then the uid back'
+begin; set local role authenticated; set local "request.jwt.claim.sub" = 'bbbbbbbb-0000-0000-0000-000000000002';
+select public.commit_project('88888888-8888-8888-8888-888888888888','minted',
+  '[{"name":"m","hash":"HM","size":2}]'::jsonb, 0,
+  'dddddddd-dddd-4ddd-8ddd-dddddddddddd') as first_commit;
+commit;
+select uid, id, name from public.projects where uid = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+
+\echo '### 29 two accounts may hold the SAME local id now -- expect 1'
+-- The fixed user-data folder uuids are shared by every account on purpose, and
+-- that used to need `(user_id, id)` as the key. With `uid` as the key it is
+-- simply not a question any more.
+begin; set local role authenticated; set local "request.jwt.claim.sub" = 'aaaaaaaa-0000-0000-0000-000000000001';
+select public.commit_project('88888888-8888-8888-8888-888888888888','same local id, other account',
+  '[{"name":"m","hash":"HM","size":2}]'::jsonb, 0,
+  'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee') as also_committed;
+commit;
+select count(*) as rows_with_that_local_id from public.projects
+ where id = '88888888-8888-8888-8888-888888888888';
+
+\echo '### 30 a re-push of a uid already there is refused, not duplicated -- expect null'
+begin; set local role authenticated; set local "request.jwt.claim.sub" = 'bbbbbbbb-0000-0000-0000-000000000002';
+select public.commit_project('88888888-8888-8888-8888-888888888888','again',
+  '[{"name":"m","hash":"HM","size":2}]'::jsonb, 0,
+  'dddddddd-dddd-4ddd-8ddd-dddddddddddd') as second_first_commit;
+commit;
+
+\echo '### 31 an old client (no uid) re-pushing a project it already has gets null, not a duplicate'
+-- The regression this guards: with the conflict target moved to `uid`, a first
+-- commit from a client that mints nothing arrives with a fresh uid, conflicts
+-- with nothing, and would insert a SECOND copy of a project the account already
+-- has. `(user_id, id)` stays unique for exactly that caller.
+\set QUIET on
+select count(*) as before from public.projects
+ where user_id = 'bbbbbbbb-0000-0000-0000-000000000002'
+\gset
+\set QUIET off
+begin; set local role authenticated; set local "request.jwt.claim.sub" = 'bbbbbbbb-0000-0000-0000-000000000002';
+select public.commit_project('77777777-7777-7777-7777-777777777777','old client, no uid',
+  '[{"name":"b","hash":"HB","size":3}]'::jsonb, 0) as refused;
+commit;
+select :before::int = count(*)::int as row_count_unchanged from public.projects
+ where user_id = 'bbbbbbbb-0000-0000-0000-000000000002';

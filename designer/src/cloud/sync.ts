@@ -372,6 +372,17 @@ async function pushOne(userId: string, id: string, base?: number): Promise<Outco
   //
   // One extra read, and only ever on the first push of a project: afterwards
   // the record has the uid and this is skipped.
+  // A first commit is always the caller's own project -- the function refuses
+  // to create a row inside another account, and says so -- so the owner is
+  // known without asking anybody. Recorded because it is what addresses the
+  // blobs, and the fallback that stands in for it is only right by coincidence.
+  if (!p.cloudOwnerId) {
+    await linkCloudProject(id, { ownerId: userId, role: 'owner' });
+  }
+
+  // Only for a record that predates minting its own identity. A project made by
+  // this build already named itself at creation, so there is nothing to learn
+  // and no extra round trip to pay for.
   if (!p.cloudUid) {
     try {
       const row = await cloudGetRow(p.cloudId ?? id);

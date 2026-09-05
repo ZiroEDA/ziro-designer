@@ -406,7 +406,13 @@ export async function saveProject(
     // that looks like their own the moment they edit it -- and the next sync,
     // seeing a local project the cloud has no row for, would push it up as a
     // *new* project in their account: someone else's board, silently copied.
-    ...(existing?.cloudUid ? { cloudUid: existing.cloudUid } : {}),
+    // Minted here when there is none, rather than waited for. A project's
+    // identity is a uuid, and there is no reason the browser cannot be the one
+    // to choose it -- an offline-first client has to be able to name what it
+    // creates. Waiting for the server left a window in which a project existed
+    // and had no identity, which is what made Share report "this project has
+    // not reached the cloud yet" about a project already in it.
+    cloudUid: existing?.cloudUid ?? newCloudUid(),
     ...(existing?.cloudId ? { cloudId: existing.cloudId } : {}),
     ...(existing?.cloudOwnerId ? { cloudOwnerId: existing.cloudOwnerId } : {}),
     ...(existing?.cloudRole ? { cloudRole: existing.cloudRole } : {}),
@@ -480,6 +486,24 @@ export async function saveProject(
  * `invalid input syntax for type uuid`, which failed the whole sync run — four
  * real projects stopped syncing because of a folder.
  */
+/**
+ * A project's identity, minted where the project is made.
+ *
+ * `crypto.randomUUID` where the browser has it -- every browser this app
+ * supports does, and `browser_support.ts` gates the ones that do not -- with a
+ * v4-shaped fallback so a context without it still produces something Postgres
+ * will accept in a `uuid` column rather than failing the whole sync.
+ */
+function newCloudUid(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = Math.trunc(Math.random() * 16);
+    return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+  });
+}
+
 export const USER_DIR_IDS: Record<string, string> = {
   templates: '9a7c1e40-0000-4000-8000-000000000001',
   symbols: '9a7c1e40-0000-4000-8000-000000000002',

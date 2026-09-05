@@ -109,7 +109,11 @@ function fake(me: string) {
         // Base 0 asserts the project is new, and a new project is always your
         // own -- you cannot create a row inside another account.
         if (base > 0) return null;
-        const uid = `uid-${f.rows.size + 1}`;
+        // `coalesce(p_uid, gen_random_uuid())`: the caller's identity is used
+        // when it has one, and only a caller with none gets given one. A fake
+        // that always assigned its own would hide a client that failed to send
+        // the uid it had already minted.
+        const uid = row.uid ?? `uid-${f.rows.size + 1}`;
         f.rows.set(uid, {
           ...row,
           uid,
@@ -425,17 +429,25 @@ describe('a project pushed before uids existed', () => {
     expect(linked!.cloudOwnerId).toBe(ME);
   });
 
-  it('records its identity on the very first push, not on the next reconcile', async () => {
+  it('names itself at creation rather than waiting for the server to', async () => {
     const id = await saveProject('Fresh', [{ name: 'Fresh.kicad_sch', bytes: text('NEW') }]);
-    // What happens when a project is created and saved in one sitting: a single
-    // push, no full reconcile. The server assigns the uid, so the push cannot
-    // know it — but everything that names a project across accounts needs one,
-    // so without this the Share button would truthfully and uselessly report
-    // that a project already in the cloud cannot be shared yet.
+
+    // Already has an identity, before anything has been pushed. That is the
+    // point: a project used to exist for a while with no identity at all, and
+    // everything that names one across accounts -- a share link, a membership
+    // row, a version -- had nothing to name. Share reported "this project has
+    // not reached the cloud yet" about projects sitting in the cloud.
+    const minted = (await exportManifest(id))!.cloudUid;
+    expect(minted).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+
     await pushProject(ME, id);
 
+    // The row is under the id the CLIENT chose. The server minted nothing, so
+    // there is one identity rather than a local one and a remote one to
+    // reconcile.
+    expect([...backend.rows.keys()]).toEqual([minted]);
     const after = await exportManifest(id);
-    expect(after!.cloudUid).toBe('uid-1');
+    expect(after!.cloudUid).toBe(minted);
     expect(after!.cloudOwnerId).toBe(ME);
   });
 });
