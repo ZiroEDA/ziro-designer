@@ -34,6 +34,39 @@ import type { FileSystem } from './filesystem.js';
  * instead of an empty folder — and what makes a path picked in here a real
  * path in the account, so the caller needs no special case for it.
  */
+/**
+ * The account's tree with the shared folders hidden from its root.
+ *
+ * Templates, Symbols, Footprints and 3D Models sit at the root beside the
+ * projects, because the account's tree is this app's file manager and that is
+ * where they live. In **Open Existing Project** they are noise of the worst
+ * kind: four rows that look exactly like the thing being asked for and can
+ * never be it. The dialog already refuses to accept one -- they are `folder`,
+ * not `project` -- so all they do is push the projects down the list.
+ *
+ * Only the root, and only `list`. Everything else delegates, so a path picked
+ * here is still a real path in the account and walking into a project still
+ * shows its files.
+ *
+ * Deliberately NOT used by New Project Folder, which lists the same root: there
+ * the four names are the reserved ones, and somebody about to create a project
+ * called "Templates" is better off seeing that it is taken than finding out
+ * when the save collides.
+ */
+export function projectsOnlyFileSystem(below: FileSystem): FileSystem {
+  const hidden = new Set(Object.values(USER_DIRS).map((p) => p.replace(/^\/+/, '')));
+  return {
+    ...below,
+    async list(dir) {
+      const entries = await below.list(dir);
+      // The root is the only level they appear at, and a project of the same
+      // name would be a different path -- so comparing the path rather than the
+      // name is what keeps a project called "Symbols" visible.
+      return entries.filter((e) => !(hidden.has(e.name) && e.path === `/${e.name}`));
+    },
+  };
+}
+
 export function recentFileSystem(below: FileSystem): FileSystem {
   return listFileSystem(
     async () => ({

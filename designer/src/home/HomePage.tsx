@@ -19,7 +19,11 @@ import {
   touchOpened,
   type ProjectMeta,
 } from './projectStore.js';
-import { chooserPlacesFor, recentFileSystem } from '../fs/chooser_places.js';
+import {
+  chooserPlacesFor,
+  projectsOnlyFileSystem,
+  recentFileSystem,
+} from '../fs/chooser_places.js';
 import { useAuth } from '../auth/AuthProvider.js';
 import { authEnabled } from '../auth/supabaseClient.js';
 import { SignInDialog } from '../auth/SignIn.js';
@@ -533,6 +537,10 @@ export function HomePage({
   // fs/chooser_places.ts when the editors stopped opening a sidebar-less
   // chooser, and one copy of it is the point.
   const recentFs = useMemo(() => recentFileSystem(accountFs), [accountFs]);
+  // Open Existing Project sees projects and nothing else. The shared folders
+  // are still in the account's tree, and still in every other dialog that
+  // lists it -- see `projectsOnlyFileSystem` for why this one is the exception.
+  const openProjectFs = useMemo(() => projectsOnlyFileSystem(accountFs), [accountFs]);
   // Accepting in a place that browses its own tree cannot go to the account's
   // handler: `/simulation/amplifier_ac/amplifier_ac.kicad_pro` names a demo, and
   // `projectAt` reads the first segment as a project of the store, finds no
@@ -1969,7 +1977,7 @@ export function HomePage({
 
       {openPrjOpen && (
         <FileChooser
-          fs={accountFs}
+          fs={openProjectFs}
           mode="open"
           title="Open Existing Project"
           accept="Open"

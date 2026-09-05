@@ -228,3 +228,39 @@ select public.commit_project('77777777-7777-7777-7777-777777777777','old client,
 commit;
 select :before::int = count(*)::int as row_count_unchanged from public.projects
  where user_id = 'bbbbbbbb-0000-0000-0000-000000000002';
+
+\echo '### 32 turning link sharing on does NOT move the version'
+-- The bug this is the regression for: `setLinkAccess` writes one metadata
+-- column, the old trigger bumped the version anyway, and every other device
+-- read that as "the project moved" -- pulled, found local edits, and forked the
+-- project aside as "(local copy)". Turning sharing on spawned duplicates.
+\set QUIET on
+select version as v_before from public.projects where uid = :'puid'::uuid
+\gset
+\set QUIET off
+begin; set local role authenticated; set local "request.jwt.claim.sub" = 'aaaaaaaa-0000-0000-0000-000000000001';
+update public.projects set link_access = 'viewer' where uid = :'puid'::uuid; commit;
+select :v_before::bigint = version as version_unchanged from public.projects
+ where uid = :'puid'::uuid;
+
+\echo '### 33 committing different files DOES move it -- expect true'
+begin; set local role authenticated; set local "request.jwt.claim.sub" = 'aaaaaaaa-0000-0000-0000-000000000001';
+select public.commit_project(null,'Edited by A',
+  '[{"name":"b","hash":"HNEW","size":9}]'::jsonb, :v_before::bigint, :'puid'::uuid) is not null
+  as committed;
+commit;
+select version > :v_before::bigint as version_moved from public.projects
+ where uid = :'puid'::uuid;
+
+\echo '### 34 a rename moves it too, or no other device would learn the name'
+\set QUIET on
+select version as v_named from public.projects where uid = :'puid'::uuid
+\gset
+\set QUIET off
+begin; set local role authenticated; set local "request.jwt.claim.sub" = 'aaaaaaaa-0000-0000-0000-000000000001';
+select public.commit_project(null,'Renamed by A',
+  '[{"name":"b","hash":"HNEW","size":9}]'::jsonb, :v_named::bigint, :'puid'::uuid) is not null
+  as renamed;
+commit;
+select version > :v_named::bigint as version_moved_for_rename from public.projects
+ where uid = :'puid'::uuid;
