@@ -15,6 +15,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
+  fileForFrame,
   HOME,
   parseRoute,
   routeHref,
@@ -180,5 +181,50 @@ describe('telling two routes apart', () => {
     const withNone: Route = { kind: 'project', uid: UID, view: 'schematic' };
     const withEmpty: Route = { kind: 'project', uid: UID, view: 'schematic', file: '' };
     expect(sameRoute(withNone, withEmpty)).toBe(true);
+  });
+});
+
+describe('which file the address names', () => {
+  // Three frames open a file and each holds its own: eeschema's sheet, and the
+  // library each of the two editors was launched on (KiCad's MAIL_LIB_EDIT and
+  // MAIL_FP_EDIT). `?f=` is one parameter, so the frame decides which of the
+  // three it means.
+  const OPEN = {
+    schematic: 'sheets/Power.kicad_sch',
+    symbols: 'lib/Amp.kicad_sym',
+    footprints: 'lib/Amp.pretty/R_0805.kicad_mod',
+  };
+
+  it('gives each frame its own', () => {
+    expect(fileForFrame('schematic', OPEN)).toBe('sheets/Power.kicad_sch');
+    expect(fileForFrame('symbols', OPEN)).toBe('lib/Amp.kicad_sym');
+    expect(fileForFrame('footprints', OPEN)).toBe('lib/Amp.pretty/R_0805.kicad_mod');
+  });
+
+  it('gives the board and the manager none, whatever else is open', () => {
+    // The bug this exists for: one shared `startFile` was written to the
+    // address whatever was on screen, so walking from a sheet to the board
+    // produced `/p/<uid>/pcb?f=Amp.kicad_sch` — a file pcbnew does not open,
+    // and a link that reopens somewhere other than where it was copied from. A
+    // project has one board, and the manager is the project itself.
+    expect(fileForFrame('pcb', OPEN)).toBeUndefined();
+    expect(fileForFrame('manager', OPEN)).toBeUndefined();
+  });
+
+  it('treats nothing open as no parameter at all', () => {
+    // Not the empty string: `routeHref` writes `f` for any truthy value, and
+    // `?f=` naming nothing would come back from `parseRoute` as no file — an
+    // address that does not round-trip.
+    expect(fileForFrame('schematic', {})).toBeUndefined();
+    expect(fileForFrame('schematic', { schematic: null })).toBeUndefined();
+    expect(fileForFrame('symbols', { symbols: '' })).toBeUndefined();
+  });
+
+  it('survives the round trip, for every frame that has one', () => {
+    for (const view of ['schematic', 'symbols', 'footprints'] as const) {
+      const file = fileForFrame(view, OPEN);
+      const r: Route = { kind: 'project', uid: UID, view, ...(file ? { file } : {}) };
+      expect(parseRoute(`${AT}${routeHref(r)}`)).toEqual(r);
+    }
   });
 });

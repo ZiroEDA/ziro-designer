@@ -195,3 +195,40 @@ export function sameRoute(a: Route, b: Route): boolean {
   if (a.kind === 'tool' && b.kind === 'tool') return a.tool === b.tool;
   return true;
 }
+
+/**
+ * The file each frame holds open, as App keeps them.
+ *
+ * Three separate pieces of state, because the three frames are launched
+ * separately: `startFile` for eeschema's sheet, and the `{file, nonce}` open
+ * requests the symbol and footprint editors take (KiCad's MAIL_LIB_EDIT and
+ * MAIL_FP_EDIT, which carry a URI apiece).
+ */
+export interface FrameFiles {
+  schematic?: string | null;
+  symbols?: string | null;
+  footprints?: string | null;
+}
+
+/**
+ * Which of those `?f=` names, for the frame you are in.
+ *
+ * Per frame, and that is the whole point: one shared `startFile` was written
+ * into the address whatever was on screen, so walking from a sheet to the board
+ * left `/p/<uid>/pcb?f=Amp.kicad_sch` -- a file that frame does not open, and a
+ * link that reopens to a different place than the one it was copied from.
+ *
+ * The board and the manager name no file: a project has one `.kicad_pcb`, and
+ * the manager is the project itself.
+ */
+export function fileForFrame(view: ProjectView, files: FrameFiles): string | undefined {
+  const f =
+    view === 'schematic'
+      ? files.schematic
+      : view === 'symbols'
+        ? files.symbols
+        : view === 'footprints'
+          ? files.footprints
+          : null;
+  return f || undefined;
+}

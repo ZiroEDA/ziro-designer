@@ -23,7 +23,7 @@ import { recoverySnapshotFrom } from './home/recovery_source.js';
 import { formatTitle, useDocumentTitle } from './ui/useDocumentTitle.js';
 import { pushProject } from './cloud/sync.js';
 import { useRoute } from './nav/useRoute.js';
-import type { ProjectView, Route } from './nav/route.js';
+import { fileForFrame, type ProjectView, type Route } from './nav/route.js';
 import { installSettingsSync } from './cloud/settingsSync.js';
 import type { DemoMeta } from './home/demos.js';
 import { useAuth } from './auth/AuthProvider.js';
@@ -322,10 +322,35 @@ export function App(): JSX.Element {
    * downloading.
    */
   const [demoSource, setDemoSource] = useState<DemoMeta | null>(null);
+  /**
+   * The demo the app is ON, as the address names it.
+   *
+   * Not the same fact as `demoSource`, and it cannot be: a demo arrives over
+   * the network and the manifest only lands when the download finishes, while
+   * the address says `/demo/<id>` from the first paint. Were the mirror reading
+   * `demoSource` it would rewrite a freshly-opened deep link to `/` and then
+   * open the demo at an address that no longer named it.
+   *
+   * Set from both ends — by an address being applied, and by the manager
+   * reporting what File > Open Demo Project opened — so the two agree whichever
+   * way round the demo was reached.
+   */
+  const [demoRoute, setDemoRoute] = useState<string | null>(null);
+  /**
+   * `/demo/<id>` handed to the frame that can act on it.
+   *
+   * Only the project manager can open a demo: it is the side that fetches the
+   * list and holds `openDemoProject`. The nonce is the shape the symbol and
+   * footprint editors' open requests already use, so re-visiting the same demo
+   * (Back, then Forward) re-opens it rather than being swallowed as an
+   * unchanged prop.
+   */
+  const [demoRequest, setDemoRequest] = useState<{ id: string; nonce: number } | null>(null);
   /** The home frame telling us what it opened; see `onDemoStateChange` there. */
   const onDemoStateChange = useCallback((demo: DemoMeta | null) => {
     setDemoProject(!!demo);
     setDemoSource(demo);
+    if (demo) setDemoRoute(demo.id);
   }, []);
   // Fetch the editors in the background while the launcher is on screen, so
   // opening one is not the first time its code is asked for.
@@ -419,13 +444,27 @@ export function App(): JSX.Element {
     if (view === 'drawingsheet') return { kind: 'tool', tool: 'drawing-sheet' };
     if (view === 'image') return { kind: 'tool', tool: 'image-converter' };
     if (view === 'gerber') return { kind: 'tool', tool: 'gerber' };
-    if (!openUid) return { kind: 'home' };
+    if (!openUid) {
+      // A demo is not a project of the account: it is never written to the
+      // store, so it has no uid for `/p/<uid>` to name. `/demo/<id>` is its
+      // address, and it has to be written for the same reason the project's is
+      // -- without it a reload of an open demo lands on the home screen.
+      return demoRoute ? { kind: 'demo', id: demoRoute } : { kind: 'home' };
+    }
     const pv: ProjectView =
       view === 'schematic' || view === 'pcb' || view === 'symbols' || view === 'footprints'
         ? view
         : 'manager';
-    return { kind: 'project', uid: openUid, view: pv, ...(startFile ? { file: startFile } : {}) };
-  }, [view, openUid, startFile]);
+    // Per frame. One shared `startFile` went into the address whatever was on
+    // screen, so walking from a sheet to the board wrote `?f=Amp.kicad_sch` on
+    // the board's address -- a file pcbnew does not open.
+    const file = fileForFrame(pv, {
+      schematic: startFile,
+      symbols: symRequest?.file,
+      footprints: fpRequest?.file,
+    });
+    return { kind: 'project', uid: openUid, view: pv, ...(file ? { file } : {}) };
+  }, [view, openUid, startFile, symRequest?.file, fpRequest?.file, demoRoute]);
 
   // Restore the last view on reload. The ADDRESS is asked first, and only when
   // it names nothing does this fall back to the old behaviour -- the saved view
@@ -434,7 +473,9 @@ export function App(): JSX.Element {
   // opened whatever was top of Recent, because nothing recorded which project
   // you had been in. It stays for one release so a session already in progress
   // still restores.
-  const [restoring, setRestoring] = useState(() => !!loadSession() || route.kind === 'project');
+  const [restoring, setRestoring] = useState(
+    () => !!loadSession() || route.kind === 'project' || route.kind === 'demo',
+  );
   const restored = useRef(false);
 
   /**
@@ -456,6 +497,10 @@ export function App(): JSX.Element {
       setOpenUid(null);
       return;
     }
+    // A project of the account is open, and a demo is never one of those --
+    // it is ingested without being persisted. So whatever demo the address
+    // named, this is not it, and `/p/<uid>` is now the truthful address.
+    setDemoRoute(null);
     void cloudIdentityOf(localId).then(
       (c) => setOpenUid(c?.uid ?? null),
       () => setOpenUid(null),
@@ -501,9 +546,42 @@ export function App(): JSX.Element {
           if (!already && !(await openByUid(route.uid))) return;
           const v =
             route.view === 'manager' ? 'home' : (route.view as Extract<typeof view, 'schematic'>);
-          if (route.file) setStartFile(route.file);
+          // `?f=` goes to the frame the address names, and only to that one.
+          // The symbol and footprint editors take it as an open request -- the
+          // same message the project manager sends on a double-click, KiCad's
+          // MAIL_LIB_EDIT and MAIL_FP_EDIT -- because that is the only way in
+          // to a resident editor; a bare prop would be swallowed as unchanged
+          // when the same library is asked for twice.
+          if (route.file) {
+            if (route.view === 'symbols')
+              setSymRequest((prev) => ({ file: route.file!, nonce: (prev?.nonce ?? 0) + 1 }));
+            else if (route.view === 'footprints')
+              setFpRequest((prev) => ({ file: route.file!, nonce: (prev?.nonce ?? 0) + 1 }));
+            else setStartFile(route.file);
+          }
           mountFor(v);
           setView(v);
+          return;
+        }
+
+        // `/demo/<id>`. The manager is the only side that can open one -- it
+        // fetches the list and owns `openDemoProject` -- so this is a request
+        // to it, and the address is recorded here so the mirror does not
+        // rewrite it to `/` during the download.
+        if (route.kind === 'demo') {
+          setDemoRoute(route.id);
+          // A demo is open in the MANAGER -- `/demo/<id>` names no frame, and
+          // opening one is `ingest` into the manager's own state. The project
+          // that was open is not this address, so it goes, exactly as `/` makes
+          // it go: leaving its uid set would have the mirror push `/p/<uid>`
+          // straight back over the address just applied.
+          setOpenUid(null);
+          setStartFile(null);
+          setView('home');
+          if (demoSource?.id !== route.id) {
+            openProjectFiles(null);
+            setDemoRequest((prev) => ({ id: route.id, nonce: (prev?.nonce ?? 0) + 1 }));
+          }
           return;
         }
 
@@ -532,6 +610,7 @@ export function App(): JSX.Element {
           openProjectFiles(null);
           setOpenUid(null);
           setStartFile(null);
+          setDemoRoute(null);
           setView('home');
           return;
         }
@@ -551,7 +630,7 @@ export function App(): JSX.Element {
         setRestoring(false);
       }
     })();
-  }, [route, openUid, openByUid, mountFor, openProjectFiles]);
+  }, [route, openUid, openByUid, mountFor, openProjectFiles, demoSource?.id]);
 
   /**
    * And the address mirrors the state.
@@ -1203,6 +1282,9 @@ export function App(): JSX.Element {
            editor thinking a demo was an ordinary project. */
         onDemoStateChange={onDemoStateChange}
         onProjectIdChange={onProjectIdChange}
+        /* `/demo/<id>`, applied. Only this frame has the demo list and the
+           handler that opens one, so the address is delivered to it. */
+        openDemoRequest={demoRequest}
         onOpenProject={(files, start, demo) => {
           openProjectFiles(files);
           setDemoProject(!!demo);

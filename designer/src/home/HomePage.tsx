@@ -315,6 +315,7 @@ export function HomePage({
   activeDemo,
   onDemoStateChange,
   onProjectIdChange,
+  openDemoRequest,
   onSwitchProject,
 }: {
   onOpenSchematic: () => void;
@@ -351,6 +352,16 @@ export function HomePage({
    * saying it four times invites the four to disagree.
    */
   onProjectIdChange?: (localId: string | null) => void;
+  /**
+   * `/demo/<id>` from the address bar, to open here.
+   *
+   * The other direction of `onDemoStateChange`, and it has to come this way
+   * round: the demo list is fetched in this frame and `openDemoProject` is its
+   * handler, so App can name a demo but cannot open one. The nonce is the shape
+   * the symbol and footprint editors' open requests use -- leaving and coming
+   * back to the same demo is a fresh request, not an unchanged prop.
+   */
+  openDemoRequest?: { id: string; nonce: number } | null;
   /** A project already open in the app: keep it in the tree on return to home. */
   initialFiles?: PickedHomeFile[] | null;
   /** The active project's .kicad_pro (full name) when a folder holds several. */
@@ -781,6 +792,26 @@ export function HomePage({
     // fetched when the user keeps the project, in `saveDemoCopy`.
     setDemoSource(d);
   };
+
+  /**
+   * `/demo/<id>`, opened.
+   *
+   * Waits for the list, because the manifest is fetched and an address applied
+   * before it lands would find nothing -- this is the whole reason the route
+   * parsed for a release before it did anything. `demos` is in the deps rather
+   * than read once so the arrival of the list is itself what runs this.
+   *
+   * A demo the corpus does not have leaves the home screen up, the same answer
+   * a project this browser does not hold gets. The address keeps saying which
+   * demo was asked for, because that is still the truth about the link.
+   */
+  useEffect(() => {
+    const id = openDemoRequest?.id;
+    if (!id || demos.length === 0) return;
+    if (demoSource?.id === id) return;
+    void openDemoProject(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openDemoRequest?.id, openDemoRequest?.nonce, demos]);
   /**
    * Project-tree pane width (px), draggable like KiCad's wxAUI sash.
    *
