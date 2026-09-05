@@ -51,7 +51,7 @@ MUTANTS = [
     ('code39: no stop character',
      'pcbnew/src/barcode/code.ts',
      "  dest += C39_TABLE[43]!.slice(0, 9);",
-     "  dest += '';",
+     "  dest += C39_TABLE[43]!.slice(0, 8);",
      ['unittests/pcbnew/zint_encode.test.ts']),
 
     ('qr mask: ties go to the higher pattern',
@@ -81,19 +81,19 @@ MUTANTS = [
     ('microqr: every version ends on a byte',
      'pcbnew/src/barcode/microqr.ts',
      "  const bitsEnd = version === 0 || version === 2 ? 4 : 8;",
-     "  const bitsEnd = 8;",
+     "  const bitsEnd = version === 0 || version === 3 ? 4 : 8;",
      ['unittests/pcbnew/zint_encode.test.ts']),
 
     ('datamatrix: EDIFACT tail always unlatches',
      'pcbnew/src/barcode/dmatrix.ts',
      "    if (symbolsLeft <= 2 && buffer.length <= symbolsLeft) {",
-     "    if (false) {",
+     "    if (symbolsLeft <= 2 && buffer.length < symbolsLeft) {",
      ['unittests/pcbnew/zint_encode.test.ts']),
 
     ('datamatrix: no 255-state randomiser on Base 256',
      'pcbnew/src/barcode/dmatrix.ts',
      "    target[i] = (target[i]! + prn) & 0xff;",
-     "    target[i] = target[i]!;",
+     "    target[i] = (target[i]! + prn + 1) & 0xff;",
      ['unittests/pcbnew/zint_encode.test.ts']),
 
     ('datamatrix: square sizes only',
@@ -274,6 +274,25 @@ def restore(path, src):
     passes its own tests, which is indistinguishable from a kill."""
     open(path, 'w').write(src)
 
+def errors():
+    """Type errors across the two packages a mutant can touch."""
+    n = 0
+    for pkg in ('pcbnew', 'designer'):
+        r = run(f'pnpm -C {pkg} typecheck 2>&1')
+        n += len([l for l in r.stdout.split('\n') if 'error TS' in l])
+    return n
+
+
+# The tree is SHARED with another session that edits it while this runs, so
+# "zero type errors" is not a precondition this sweep can assume. What it can
+# assume is that a mutant does not ADD one — so the bar is the count as it
+# stands when the sweep begins, re-read here rather than assumed.
+#
+# Without this, every mutant after the other session broke `FootprintEditor.tsx`
+# read as BUILD-FAIL, which scores a mutant nobody tested as "not a survivor".
+BASELINE_ERRORS = errors()
+print(f'baseline: {BASELINE_ERRORS} type errors in the tree', flush=True)
+
 killed, survived, broken, unapplied, inconclusive = [], [], [], [], []
 
 only = sys.argv[1:] if len(sys.argv) > 1 else None
@@ -294,9 +313,7 @@ for i, (name, path, find, repl, tests) in enumerate(MUTANTS):
         restore(path, src)
         continue
 
-    tc = run('pnpm -C pcbnew typecheck 2>&1 | grep -c "error TS"')
-    tc2 = run('pnpm -C designer typecheck 2>&1 | grep -c "error TS"')
-    if tc.stdout.strip() != '0' or tc2.stdout.strip() != '0':
+    if errors() > BASELINE_ERRORS:
         broken.append(name)
         print(f'[{i:2d}] BUILD-FAIL {name}', flush=True)
         restore(path, src)

@@ -33,6 +33,7 @@ import {
   setBoardItemsLocked,
 } from '@ziroeda/pcbnew/src/edit-board.js';
 import {
+  barcodeAt,
   barcodeCommitError,
   barcodeUiState,
   barcodeValues,
@@ -347,6 +348,23 @@ describe('as a board item', () => {
 });
 
 describe('what the properties dialog decides', () => {
+  it('opens on one barcode and on nothing else', () => {
+    // `EDIT_TOOL::Properties` lists `PCB_BARCODE_T` with the items whose
+    // dialog it can open (`edit_tool.cpp:2785`), so Properties... over one
+    // barcode has to resolve to it rather than falling through to the
+    // footprint's — which is what a missing arm would do.
+    const b = read();
+
+    expect(barcodeAt(b, ['barcode:0'])).toBe(0);
+    expect(barcodeAt(b, [])).toBeNull();
+    expect(barcodeAt(b, ['shape:0'])).toBeNull();
+    // Two of them is not one, and upstream's Properties is single-item except
+    // for tracks.
+    expect(barcodeAt(b, ['barcode:0', 'barcode:1'])).toBeNull();
+    // An id past the end resolves to nothing rather than to a hole.
+    expect(barcodeAt(b, ['barcode:9'])).toBeNull();
+  });
+
   it('offers error correction for the two QR kinds only', () => {
     // `m_barcode->GetSelection() >= to_underlying( BARCODE_T::QR_CODE )`
     // (`dialog_barcode_properties.cpp:149`). Data Matrix has error correction

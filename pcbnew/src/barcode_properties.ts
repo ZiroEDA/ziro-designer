@@ -18,7 +18,8 @@
  * committed as an empty symbol.
  */
 import { barcodeGeometry } from './barcode_geometry.js';
-import type { BarcodeEcc, BarcodeKind, PcbBarcode } from './types.js';
+import { parseBoardItemId } from './edit-board.js';
+import type { BarcodeEcc, BarcodeKind, Board, PcbBarcode } from './types.js';
 
 /**
  * The Code radio box, in `BARCODE_T` order — which is the order the file's
@@ -60,6 +61,27 @@ export interface BarcodeValues {
   showText: boolean;
   kind: BarcodeKind;
   ecc: BarcodeEcc;
+}
+
+/**
+ * Resolve a `barcode:N` id, or null when the selection is not one barcode.
+ *
+ * `EDIT_TOOL::Properties` (`edit_tool.cpp:2785`) lists `PCB_BARCODE_T` with
+ * the items whose dialog it can open, so Properties... over one barcode has to
+ * reach `DIALOG_BARCODE_PROPERTIES` rather than falling through to the
+ * footprint's.
+ */
+export function barcodeAt(board: Board, selection: Iterable<string>): number | null {
+  let found: number | null = null;
+
+  for (const id of selection) {
+    const ref = parseBoardItemId(id);
+    if (!ref || ref.kind !== 'barcode') continue;
+    if (found !== null) return null;
+    if (board.barcodes[ref.index]) found = ref.index;
+  }
+
+  return found;
 }
 
 /** `TransferDataToWindow` (`:174-227`). */

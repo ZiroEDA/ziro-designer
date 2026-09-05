@@ -51,6 +51,37 @@ ALPHABETS = [
     ''.join(chr(c) for c in range(32, 127)),
 ]
 
+# Code 128 only: text that needs BOTH Code Set A and Code Set B, so the
+# encoder's priority ORDER is observable.
+#
+# `c128_set_priority` puts B before A, and `c128_cost` takes the first entry on
+# a tie, so swapping the two changes the symbol for data that could go either
+# way — which needs a control character (forces A), a lower-case one (forces B)
+# and characters from the 32..95 range both sets share.
+#
+# The hand-picked list and the four alphabets above between them produced not
+# one such case, and a mutation sweep that swapped the order found 477 tests
+# still green. 290 of 400 targeted cases differ under that swap.
+AB_ALPHABET = (
+    ''.join(chr(c) for c in range(1, 32))
+    + ''.join(chr(c) for c in range(97, 123))
+    + ''.join(chr(c) for c in range(32, 96))
+)
+
+
+def ab_fuzz(count, seed):
+    """Strings that need both Code Set A and Code Set B."""
+    random.seed(seed)
+    out = []
+    while len(out) < count:
+        n = random.randint(2, 14)
+        t = ''.join(random.choice(AB_ALPHABET) for _ in range(n))
+        needs_a = any(not (ord(c) & 0x60) for c in t)
+        needs_b = any((ord(c) & 0x60) == 0x60 for c in t)
+        if needs_a and needs_b:
+            out.append(t)
+    return out
+
 
 def fuzz(count, max_len, seed):
     random.seed(seed)
@@ -80,6 +111,8 @@ def cases():
         yield ('microqr', 'L', t)
         yield ('microqr', 'M', t)
     for t in fuzz(30, 80, 13):
+        yield ('code128', 'L', t)
+    for t in ab_fuzz(60, 23):
         yield ('code128', 'L', t)
     for t in DMATRIX:
         yield ('datamatrix', 'L', t)

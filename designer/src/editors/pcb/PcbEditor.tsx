@@ -173,7 +173,11 @@ import {
   setBoardBarcode,
   type PcbBarcode,
 } from '@ziroeda/pcbnew';
-import { applyBarcodeValues, barcodeValues } from '@ziroeda/pcbnew/src/barcode_properties.js';
+import {
+  applyBarcodeValues,
+  barcodeAt,
+  barcodeValues,
+} from '@ziroeda/pcbnew/src/barcode_properties.js';
 import { DialogBarcodeProperties } from './dialogs/dialog_barcode_properties.js';
 import { GetLayerName } from '@ziroeda/pcbnew/src/layer_ids.js';
 import {
@@ -4612,6 +4616,7 @@ export function PcbEditor({
     const padIdx = brd ? selectedPadAt(brd, selection) : null;
     const textIdx = brd ? textAt(brd, selection) : null;
     const shapeIdx = brd ? shapeAt(brd, selection) : null;
+    const barcodeIdx = brd ? barcodeAt(brd, selection) : null;
     const copper = brd ? hasTrackOrVia(trackViaSelection(brd, selection)) : false;
     // `propertiesCondition` — something the properties dialog can open on.
     const editable =
@@ -4620,7 +4625,10 @@ export function PcbEditor({
       fpIdx !== null ||
       padIdx !== null ||
       textIdx !== null ||
-      shapeIdx !== null;
+      shapeIdx !== null ||
+      // `EDIT_TOOL::Properties` lists `PCB_BARCODE_T` with the items whose
+      // dialog it opens (`edit_tool.cpp:2785`).
+      barcodeIdx !== null;
     // `singleFootprintCondition` / `multipleFootprintsCondition`
     // (edit_tool.cpp), which gate the whole footprint block.
     let footprintCount = 0;
@@ -4858,7 +4866,10 @@ export function PcbEditor({
             else if (padIdx !== null) setPadPropsRef(padIdx);
             else if (textIdx !== null) setTextPropsIndex(textIdx);
             else if (shapeIdx !== null) setShapePropsIndex(shapeIdx);
-            else setFpPropsIndex(fpIdx);
+            else if (barcodeIdx !== null) {
+              const bc = boardRef.current?.barcodes[barcodeIdx];
+              if (bc) setBarcodeDialog({ at: bc.at, index: barcodeIdx });
+            } else setFpPropsIndex(fpIdx);
           },
         },
         -1,

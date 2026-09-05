@@ -59,11 +59,23 @@ describe('every vector Zint gave us', () => {
   const cases = VECTORS.cases.filter((c) => PORTED.has(c.kind));
 
   it('covers all five of BARCODE_T, so a filter typo cannot empty this file', () => {
-    expect(cases.length).toBeGreaterThan(400);
+    expect(cases.length).toBeGreaterThan(500);
     expect(new Set(cases.map((c) => c.kind))).toEqual(PORTED);
     // …and that the error cases are actually exercised: they are a third of
     // Micro QR's, which has four small versions and rejects a lot.
     expect(cases.filter((c) => c.error).length).toBeGreaterThan(20);
+
+    // Code 128 data that needs BOTH code sets, which is the only shape where
+    // the encoder's priority ORDER is observable. The fixture had none until a
+    // mutation sweep swapped A and B and left 477 tests green; see
+    // `ab_fuzz` in `qa/probes/zint_probe/regenerate.py`.
+    const needsBothSets = cases.filter(
+      (c) =>
+        c.kind === 'code128' &&
+        [...c.text].some((ch) => !(ch.charCodeAt(0) & 0x60)) &&
+        [...c.text].some((ch) => (ch.charCodeAt(0) & 0x60) === 0x60),
+    );
+    expect(needsBothSets.length).toBeGreaterThan(40);
   });
 
   it.each(
