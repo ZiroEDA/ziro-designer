@@ -246,11 +246,15 @@ describe('a footprint’s own points', () => {
     // their own in the scene build. Without one a `.kicad_mod` full of snap
     // points opens blank in the footprint editor.
     const b = boardWith(`(footprint "T" (layer "F.Cu") (at 100 50)
-      (point (at 1 2) (size 2) (layer "F.SilkS")))`);
+      (point (at 101 52) (size 2) (layer "F.SilkS")))`);
     const cross = crossOf(strokes(b));
 
     expect(cross).toBeDefined();
-    // Board coordinates: the footprint sits at (100, 50).
+    // The X's first corner is a half-size in from the centre, and the centre
+    // is where the file says: a footprint's point is stored in ABSOLUTE board
+    // coordinates, unlike its graphics. `parsePCB_POINT()` takes no parent and
+    // `format( const PCB_POINT* )` prints through the one-argument
+    // `formatInternalUnits` — both halves missing, so it is the convention.
     expect(cross!.path.ops[0]!.args).toEqual([100 * MM, 51 * MM]);
   });
 });

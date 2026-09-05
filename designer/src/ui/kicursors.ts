@@ -126,6 +126,15 @@ const STORE = {
 export type KiCursor = keyof typeof STORE | 'ARROW';
 
 /**
+ * Every name the store answers, so a test can ask "is this string one of
+ * KiCad's cursors?" without reaching into `STORE` itself.
+ */
+export const KICURSOR_NAMES: readonly KiCursor[] = [
+  ...(Object.keys(STORE) as (keyof typeof STORE)[]),
+  'ARROW',
+];
+
+/**
  * `CURSOR_STORE::GetStockCursor` (`cursors.cpp:437-463`), on this platform.
  *
  *     case KICURSOR::MOVING:   stockCursor = wxCURSOR_SIZING;   break;

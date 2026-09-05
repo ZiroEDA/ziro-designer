@@ -17,7 +17,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { kiCursor } from '@ziroeda/designer/src/ui/kicursors.js';
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -162,21 +162,61 @@ describe('the value the browser is given', () => {
  *
  * Walked as text, the way `view_controls_coverage.test.ts` walks the wheel.
  */
+/** Every .ts/.tsx under designer/src. */
+function walk(dir: string, out: string[] = []): string[] {
+  for (const name of readdirSync(dir)) {
+    const p = join(dir, name);
+    if (statSync(p).isDirectory()) walk(p, out);
+    else if (p.endsWith('.ts') || p.endsWith('.tsx')) out.push(p);
+  }
+  return out;
+}
+
 describe('one CURSOR_STORE, like KiCad', () => {
   const SRCDIR = fileURLToPath(new URL('../../../designer/src', import.meta.url));
 
-  /** Every file that sets a canvas cursor from KiCad art. */
-  const CALLERS = [
+  /**
+   * Every module that decides a canvas cursor. Each editor now has a
+   * `cursors.ts` of its own — one function, so a test can CALL it — and the
+   * shared answers come from `ui/tool_cursors.ts` behind them.
+   *
+   * This used to list the CANVASES, and went stale the moment their ternaries
+   * moved into those modules: the rule ("one store") still held while the
+   * check ("this file imports it") did not.
+   */
+  const DECIDERS = [
     'editors/schematic/cursors.ts',
-    'editors/schematic/components/SchematicCanvas.tsx',
-    'editors/symbol/SymbolCanvas.tsx',
-    'editors/footprint/FootprintCanvas.tsx',
-    'editors/drawingsheet/DrawingSheetCanvas.tsx',
+    'editors/symbol/cursors.ts',
+    'editors/footprint/cursors.ts',
+    'editors/pcb/cursors.ts',
+    'editors/gerbview/cursors.ts',
+    'editors/drawingsheet/cursors.ts',
+    'ui/tool_cursors.ts',
   ];
 
-  it.each(CALLERS)('%s imports the store rather than declaring one', (rel) => {
-    const src = readFileSync(join(SRCDIR, rel), 'utf8');
-    expect(src).toMatch(/from '[./]+ui\/kicursors\.js'/);
+  /** Files that still name a cursor at the point of use. */
+  const CALLERS = [...DECIDERS, 'editors/schematic/components/SchematicCanvas.tsx'];
+
+  it.each(DECIDERS)('%s exists, so its editor has one place to decide', (rel) => {
+    expect(existsSync(join(SRCDIR, rel)), `${rel} is missing`).toBe(true);
+  });
+
+  it('the store is the only source of KiCad art, tree-wide', () => {
+    // Per-occurrence, and over the WHOLE tree rather than a list that can go
+    // stale: any file naming a `KICURSOR` has to reach `ui/kicursors.ts`,
+    // directly or through the one shared table that does.
+    const offenders: string[] = [];
+
+    for (const file of walk(SRCDIR)) {
+      const src = readFileSync(file, 'utf8');
+      if (!/\bkiCursor\(/.test(src)) continue;
+
+      const rel = file.slice(SRCDIR.length + 1);
+      if (rel === 'ui/kicursors.ts') continue;
+      if (!/from '[./]+(ui\/)?kicursors\.js'/.test(src)) offenders.push(rel);
+    }
+
+    expect(offenders).toEqual([]);
   });
 
   it('the deleted second table has not come back', () => {
