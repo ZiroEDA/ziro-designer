@@ -31,9 +31,11 @@
  *       "Editing Options" + wxStaticLine
  *       bSizerUniversal (V)                     wxEXPAND|wxALL 5
  *         m_cbConstrainHV45Mode                 wxTOP|wxBOTTOM|wxLEFT 5
- *         "Step for rotate commands:" + entry + "deg"
+ *         "Step for rotate commands:" + entry + UNIT_BINDER's "°"
  *         (0, 3) spacer
- *         "Arc editing mode:" + m_arcEditMode   wxEXPAND|wxBOTTOM|wxRIGHT|wxLEFT 5
+ *         "Arc editing mode:"                   wxLEFT 5
+ *         (0, 3) spacer
+ *         m_arcEditMode                         wxEXPAND|wxBOTTOM|wxRIGHT|wxLEFT 5
  *       m_sizerBoardEdit                        HIDDEN here
  *       "Left Click Mouse Commands" + wxStaticLine
  *       m_mouseCmdsWinLin (V)
@@ -63,6 +65,7 @@
  */
 import type { JSX } from 'react';
 import { Check, Group, Num, Sel } from '../../../dialogs/prefs/widgets.js';
+import { unitLabel } from '@ziroeda/common/src/eda_units.js';
 import { ARC_EDIT_MODE_CHOICES } from '../arc_edit_mode.js';
 import { setSessionArcEditMode, useSessionArcEditMode } from '../arc_edit_mode.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
@@ -106,13 +109,20 @@ export function PanelFpEditingOptions({ ctx }: { ctx: PrefsContext }): JSX.Eleme
           />
           {/* `m_rotationAngle` is a `UNIT_BINDER` on `EDA_UNITS::DEGREES`
               (`panel_edit_options.cpp:38-43`), i.e. a plain text entry with a
-              "deg" label after it — not a spin control, which is why `spin` is
+              units label after it — not a spin control, which is why `spin` is
               false. The setting is TENTHS of a degree, as the `PARAM_LAMBDA`
-              stores it. */}
+              stores it.
+
+              The label is `°`, not the `_("deg")` in `_base.cpp:49`: that
+              string is the wxFormBuilder placeholder, and `UNIT_BINDER::
+              SetUnits` overwrites it with `EDA_UNIT_UTILS::GetLabel( DEGREES )`
+              (`unit_binder.cpp:110`, `eda_units.cpp:153`) the moment the panel
+              is built. Reading `_base.cpp` alone is how we shipped the
+              placeholder. */}
           <Num
             label="Step for rotate commands:"
             value={fpEdit.editing.rotation_angle / 10}
-            unit="deg"
+            unit={unitLabel('degrees')}
             spin={false}
             width={60}
             title="Set increment (in degrees) for context menu and hotkey rotation."
@@ -127,8 +137,18 @@ export function PanelFpEditingOptions({ ctx }: { ctx: PrefsContext }): JSX.Eleme
               })
             }
           />
+          {/* Not a labelled row: `m_arcEditModeLabel` is added to
+              `bSizerUniversal` on its own (`wxLEFT, 5`), then a `(0, 3)`
+              spacer, then `m_arcEditMode` with `wxEXPAND|wxBOTTOM|wxRIGHT|
+              wxLEFT, 5` (`panel_edit_options_base.cpp:59-71`) — so the choice
+              is as wide as the column, not as wide as what is left beside a
+              label. Ours put the two on one row, which made the group's
+              max-content control column as wide as the combo and stranded the
+              rotation entry's `°` out at the far right of it. */}
           <Sel
             label="Arc editing mode:"
+            ariaLabel="Arc editing mode"
+            stacked={{ gap: 3, above: 3 }}
             value={arcMode}
             options={ARC_EDIT_MODE_CHOICES}
             onChange={setSessionArcEditMode}

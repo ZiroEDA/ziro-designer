@@ -161,6 +161,8 @@ export function Sel<T extends string | number>({
   unit,
   disabled,
   title,
+  ariaLabel,
+  stacked,
 }: {
   label: string;
   value: T;
@@ -172,7 +174,56 @@ export function Sel<T extends string | number>({
   disabled?: boolean;
   /** The control's `SetToolTip`. Carries the reason when `disabled` is set. */
   title?: string;
+  /**
+   * The choice's own accessible name, where the label beside it is not the one
+   * a reader should hear. Left out, the `<span class="lbl">` next to it is.
+   */
+  ariaLabel?: string;
+  /**
+   * The label on its own line with the choice stretched under it — what a
+   * VERTICAL sizer does when the two are separate `Add()`s rather than one
+   * horizontal sizer. Both Arc editing mode panels are that shape, because the
+   * longest entry ("Keep endpoints or direction of starting point") does not
+   * fit beside a label.
+   *
+   * The numbers are the wx borders of those Add()s, and they are stated here
+   * rather than in the class because they differ per panel — a uniform gap is
+   * exactly what would flatten the difference:
+   *
+   *   * `gap` — the space between the label and the choice.
+   *   * `above` — an explicit spacer `Add()` before the label, on top of the
+   *     previous row's own wxBOTTOM.
+   */
+  stacked?: { gap: number; above?: number };
 }): JSX.Element {
+  // The app's own combo, never the browser's -- see the note at the call below.
+  const combo = (
+    <Combo
+      value={String(value)}
+      disabled={disabled}
+      ariaLabel={ariaLabel}
+      options={options.map(([v, l]) => ({ value: String(v), label: l }))}
+      onChange={(raw) => onChange((typeof value === 'number' ? Number(raw) : raw) as T)}
+    />
+  );
+
+  if (stacked) {
+    return (
+      <div
+        className="ze-pref-stacked"
+        title={title}
+        style={{
+          gap: stacked.gap,
+          ...(stacked.above !== undefined ? { marginTop: stacked.above } : {}),
+        }}
+      >
+        <span className="lbl">{label}</span>
+        {combo}
+        {unit && <span className="unit">{unit}</span>}
+      </div>
+    );
+  }
+
   return (
     // Not a <label>: `Combo` is a button, and wrapping a button in a label
     // makes every click on the text toggle it open and shut again.
@@ -184,12 +235,7 @@ export function Sel<T extends string | number>({
           <select> cannot draw at all. One widget for every dropdown in the app
           is also the only way they stay identical; a native one here would be
           the single control on the page that is not ours. */}
-      <Combo
-        value={String(value)}
-        disabled={disabled}
-        options={options.map(([v, l]) => ({ value: String(v), label: l }))}
-        onChange={(raw) => onChange((typeof value === 'number' ? Number(raw) : raw) as T)}
-      />
+      {combo}
       {unit && <span className="unit">{unit}</span>}
     </div>
   );

@@ -51,9 +51,15 @@ function props(label: string): string {
 
 describe('the left column is as wide as upstream makes it', () => {
   it('stacks the arc-mode label above a full-width choice', () => {
-    expect(CODE).toContain('ze-pref-stacked');
+    // The shared `Sel`'s `stacked` prop, not a `.ze-pref-stacked` div written
+    // out here: pcbnew's Editing Options page has the same control and the two
+    // must not be two hand-rolled copies. The gap is 5 because BOTH Add()s
+    // carry `wxALL, 5`; pcbnew's is 3, from a `(0, 3)` spacer.
+    expect(props('Arc editing mode:')).toContain('stacked={{ gap: 5 }}');
     expect(rule('.ze-pref-stacked')).toMatch(/flex-direction:\s*column/);
     expect(rule('.ze-pref-stacked > .ze-combo')).toMatch(/width:\s*100%/);
+    // The distance is per call site now, so the class must not restate one.
+    expect(rule('.ze-pref-stacked')).not.toMatch(/(^|[;\s])gap\s*:/);
   });
 
   it('breaks the hint where the string breaks it', () => {

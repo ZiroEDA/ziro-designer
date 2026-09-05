@@ -9333,17 +9333,23 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 }
 /* A label on its own line with its control stretched under it — what a sizer
    does when the label and the choice are two `Add()`s of a VERTICAL sizer
-   rather than one horizontal one. eeschema's Arc editing mode is that:
+   rather than one horizontal one. Both Arc editing mode panels are that shape,
+   because the longest entry does not fit beside a label:
    `Add( m_staticTextArcEdit, 0, wxALL, 5 )` then
    `Add( m_choiceArcMode, 0, wxALL|wxEXPAND, 5 )`
-   (`panel_eeschema_editing_options_base.cpp:48-54`), because the longest entry
-   does not fit beside a label. */
+   (`panel_eeschema_editing_options_base.cpp:48-54`), and pcbnew's
+   `Add( m_arcEditModeLabel, 0, wxLEFT, 5 )`, a `(0, 3)` spacer, then
+   `Add( m_arcEditMode, 0, wxEXPAND|wxBOTTOM|wxRIGHT|wxLEFT, 5 )`
+   (`panel_edit_options_base.cpp:59-71`).
+
+   No `gap` here, and that is the point: the two panels space the label from the
+   choice by different numbers — 5 from a pair of wxALL borders, 3 from an
+   explicit spacer — so the distance is `Sel`'s `stacked` prop, stated per call
+   site the way every other per-Add() border in these panels is. */
 .ze-pref-stacked {
   display: flex;
   flex-direction: column;
-  /* [data] the `wxALL, 5` both children carry. */
-  gap: 5px;
-  /* [data] the same wxALL 5, on the sides. */
+  /* [data] the wxALL/wxLEFT 5 on the sides, which both panels do share. */
   padding: 0 5px;
 }
 .ze-pref-stacked > .ze-combo {

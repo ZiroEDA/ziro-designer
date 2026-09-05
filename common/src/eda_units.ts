@@ -152,6 +152,20 @@ export function unitLabelText(units: EdaUnits, type: EdaDataType = 'distance'): 
   return label;
 }
 
+/**
+ * `EDA_UNIT_UTILS::GetLabel` (common/eda_units.cpp:178-181) —
+ * {@link unitLabelText} with its leading space trimmed.
+ *
+ * This is the one a WIDGET's units `wxStaticText` takes, not the message-panel
+ * one: `UNIT_BINDER::SetUnits` writes `GetLabel( m_units, m_dataType )` into
+ * `m_unitLabel` (`common/widgets/unit_binder.cpp:110`), so every entry bound to
+ * `EDA_UNITS::DEGREES` is followed by `°` — never the word `deg`, which is only
+ * the wxFormBuilder placeholder the binder overwrites.
+ */
+export function unitLabel(units: EdaUnits, type: EdaDataType = 'distance'): string {
+  return unitLabelText(units, type).trimStart();
+}
+
 /** `EDA_UNIT_UTILS::UI::ToUserUnit` — one factor of the IU→display conversion. */
 function toUserUnit(iuScale: EdaIuScale, units: EdaUnits, value: number): number {
   switch (units) {

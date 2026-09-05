@@ -12,7 +12,6 @@
  */
 import type { JSX } from 'react';
 import { Check, ColorRow, Group, Num, Sel } from '../../../dialogs/prefs/widgets.js';
-import { Combo } from '../../../ui/Combo.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
 
 export function PanelEeschemaEditingOptions({ ctx }: { ctx: PrefsContext }): JSX.Element {
@@ -41,24 +40,28 @@ export function PanelEeschemaEditingOptions({ ctx }: { ctx: PrefsContext }): JSX
               the column — its longest entry, "Keep endpoints or direction of
               starting point", does not fit beside a label. Ours put the two on
               one row, which made the left column wide enough to push the right
-              one off the edge of the dialog. */}
-          <div className="ze-pref-stacked">
-            <span className="lbl">Arc editing mode:</span>
-            <Combo
-              value={String(eeschema.drawing.arc_edit_mode)}
-              ariaLabel="Arc editing mode"
-              options={[
-                { value: '0', label: 'Keep center, adjust radius' },
-                { value: '1', label: 'Keep endpoints or direction of starting point' },
-                { value: '2', label: 'Keep center and radius, adjust endpoints' },
-              ]}
-              onChange={(v) =>
-                upE((s) => {
-                  s.drawing.arc_edit_mode = Number(v) as 0 | 1 | 2;
-                })
-              }
-            />
-          </div>
+              one off the edge of the dialog.
+
+              `gap: 5` is the `wxALL, 5` those two Add()s carry. It is stated
+              here and not in `.ze-pref-stacked` because pcbnew's copy of this
+              control is spaced by its own numbers — a `(0, 3)` spacer, and no
+              wxBOTTOM on the label at all. */}
+          <Sel
+            label="Arc editing mode:"
+            ariaLabel="Arc editing mode"
+            stacked={{ gap: 5 }}
+            value={eeschema.drawing.arc_edit_mode}
+            options={[
+              [0, 'Keep center, adjust radius'],
+              [1, 'Keep endpoints or direction of starting point'],
+              [2, 'Keep center and radius, adjust endpoints'],
+            ]}
+            onChange={(v) =>
+              upE((s) => {
+                s.drawing.arc_edit_mode = v as 0 | 1 | 2;
+              })
+            }
+          />
           <Check
             label="Mouse drag performs Drag (G) operation"
             checked={!eeschema.input.drag_is_move}

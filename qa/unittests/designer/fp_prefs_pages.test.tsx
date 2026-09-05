@@ -229,6 +229,59 @@ describe('Footprint Editor > Editing Options', () => {
   );
 
   it(
+    'labels the rotation entry with UNIT_BINDER’s degree sign, next to the entry',
+    async () => {
+      await openPage('fp-editing');
+      // `m_rotationAngle` is a UNIT_BINDER on `EDA_UNITS::DEGREES`
+      // (`panel_edit_options.cpp:38-45`), and `SetUnits` writes
+      // `EDA_UNIT_UTILS::GetLabel( DEGREES )` -- `°` (`eda_units.cpp:153`) --
+      // over the `_("deg")` wxFormBuilder put in `_base.cpp:49`.
+      const row = Array.from(document.querySelectorAll('.ze-prefs-panel .ze-pref-row')).find(
+        (r) => r.querySelector('.lbl')?.textContent === 'Step for rotate commands:',
+      );
+      expect(row, 'the rotation row').toBeDefined();
+      expect(row?.querySelector('.unit')?.textContent).toBe('°');
+      // Not the placeholder. ("45 degrees" on the checkbox above is a different
+      // row, which is why this reads the row and not the whole page.)
+      expect(row?.textContent).not.toContain('deg');
+      // The units label is the entry's NEXT sibling, not a cell stranded past
+      // some wider control in the same column: `bSizerRotationStep` is a
+      // wxBoxSizer, so nothing between them can push it right.
+      const entry = row?.querySelector('input[type="text"]');
+      expect(entry?.nextElementSibling?.className).toBe('unit');
+    },
+    SLOW,
+  );
+
+  it(
+    'stacks the arc-mode label above a full-width choice',
+    async () => {
+      await openPage('fp-editing');
+      // `Add( m_arcEditModeLabel, 0, wxLEFT, 5 )`, a `(0, 3)` spacer, then
+      // `Add( m_arcEditMode, 0, wxEXPAND|wxBOTTOM|wxRIGHT|wxLEFT, 5 )`
+      // (`panel_edit_options_base.cpp:59-71`) -- two Add()s of a VERTICAL
+      // sizer, so the choice is as wide as the column and not a cell beside
+      // the label.
+      const stacked = document.querySelector('.ze-prefs-panel .ze-pref-stacked');
+      expect(stacked, 'the arc-mode block is not a .ze-pref-row').not.toBeNull();
+      expect(stacked?.querySelector('.lbl')?.textContent).toBe('Arc editing mode:');
+      expect(stacked?.querySelector('.ze-combo')).not.toBeNull();
+      // [data] the `(0, 3)` spacer, twice: once above the label and once
+      // between it and the choice.
+      const style = (stacked as HTMLElement | null)?.style;
+      expect(style?.gap).toBe('3px');
+      expect(style?.marginTop).toBe('3px');
+      // Every choice upstream offers, in upstream's order.
+      expect(comboOptions(stacked ?? document)).toEqual([
+        'Keep center, adjust radius',
+        'Keep endpoints or direction of starting point',
+        'Keep center and radius, adjust endpoints',
+      ]);
+    },
+    SLOW,
+  );
+
+  it(
     'hides the board half and the Ctrl row’s second radio',
     async () => {
       await openPage('fp-editing');
