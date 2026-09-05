@@ -290,6 +290,26 @@ def errors():
 #
 # Without this, every mutant after the other session broke `FootprintEditor.tsx`
 # read as BUILD-FAIL, which scores a mutant nobody tested as "not a survivor".
+# Every file this will touch must be COMMITTED before a single mutation is
+# applied. Two reasons, and both have already bitten:
+#
+#  - a sweep killed mid-mutant leaves one LIVE in the tree, and the next sweep
+#    reads that mutated text as its "original" and restores to it permanently;
+#  - a live mutant passes its own tests, which is indistinguishable from a kill.
+#
+# `git checkout --` is not the recovery either — over an uncommitted baseline it
+# would revert the feature. So the sweep refuses to start instead.
+dirty = [
+    f for f in sorted({m[1] for m in MUTANTS})
+    if run(f'git diff --quiet -- {f}').returncode != 0
+]
+if dirty:
+    print('REFUSING TO RUN — these files are not committed:', flush=True)
+    for f in dirty:
+        print('  ', f, flush=True)
+    print('Commit them (or restore a mutant a killed sweep left behind) first.', flush=True)
+    raise SystemExit(2)
+
 BASELINE_ERRORS = errors()
 print(f'baseline: {BASELINE_ERRORS} type errors in the tree', flush=True)
 
