@@ -28,8 +28,9 @@
  * a menu row rather than something that merely resembles one.
  */
 
-import { useEffect, useRef, useState, type JSX } from 'react';
+import { useCallback, useRef, useState, type JSX } from 'react';
 import { profileInitial } from '../auth/profile.js';
+import { useDismissOnOutside } from './useDismissOnOutside.js';
 
 export function AccountButton({
   email,
@@ -52,22 +53,13 @@ export function AccountButton({
   const root = useRef<HTMLDivElement>(null);
 
   // A menu closes on Escape and on a click anywhere else, which is what every
-  // other popup in the app does and what a WM does to a GTK menu.
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') setOpen(false);
-    };
-    const onDown = (e: MouseEvent): void => {
-      if (!root.current?.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener('keydown', onKey);
-    document.addEventListener('mousedown', onDown);
-    return () => {
-      document.removeEventListener('keydown', onKey);
-      document.removeEventListener('mousedown', onDown);
-    };
-  }, [open]);
+  // other popup in the app does and what a WM does to a GTK menu. Shared, and
+  // in the capture phase: see `useDismissOnOutside`.
+  useDismissOnOutside(
+    root,
+    useCallback(() => setOpen(false), []),
+    open,
+  );
 
   const photo = photoUrl && !photoFailed ? photoUrl : null;
 

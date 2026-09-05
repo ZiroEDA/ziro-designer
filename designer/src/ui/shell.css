@@ -1614,7 +1614,10 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
      a left-aligned panel would run off the window. */
   right: 0;
   z-index: 200;
-  width: 26em;
+  /* Wide enough for a full address beside a role and a remove -- the rows
+     ellipsize rather than wrap, and an address cut in half is the one thing a
+     roster must not do. */
+  width: 29em;
   max-width: 90vw;
   display: flex;
   flex-direction: column;
@@ -1626,8 +1629,19 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   border-radius: 0.5em;
   box-shadow: var(--popup-shadow);
 }
+/* The panel's own heading. Weight only, no size: KiCad has no oversized text
+   anywhere in its chrome, and a new font-size value here would be the
+   thirtieth in a tree that is supposed to key on `--ui-font-size`. */
 .ze-share-title {
   font-weight: 600;
+}
+/* "People with access", "General access" -- the two sections, named the way
+   every tool that does this names them. Dim and small, because they label
+   rather than say anything. */
+.ze-share-heading {
+  font-size: var(--ui-font-size-small);
+  font-weight: 600;
+  opacity: 0.65;
 }
 .ze-share-invite {
   display: flex;
@@ -1649,15 +1663,23 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 }
 .ze-share-person {
   display: flex;
-  gap: 0.5em;
+  gap: 0.6em;
   align-items: center;
+  padding: 0.2em 0.35em;
+  /* Negative on the row's own inset so a hover reaches the panel's padding
+     rather than stopping short of it, the way a menu row does. */
+  margin: 0 -0.35em;
+  border-radius: 0.3em;
+}
+.ze-share-person:hover {
+  background: var(--content-bg);
 }
 /* The same monogram the account button draws, at text size: a person in a list
    is identified the way a person in the corner is. */
 .ze-share-monogram {
   flex: none;
-  width: 1.7em;
-  height: 1.7em;
+  width: 2em;
+  height: 2em;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -1683,9 +1705,9 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-share-link {
   display: flex;
   flex-direction: column;
-  gap: 0.4em;
+  gap: 0.5em;
   border-top: 1px solid var(--chrome-border);
-  padding-top: 0.75em;
+  padding-top: 0.85em;
 }
 .ze-share-linkrow {
   display: flex;

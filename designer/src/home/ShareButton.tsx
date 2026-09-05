@@ -29,8 +29,9 @@
  * at all, so "Invited" is shown as a state rather than as a confirmation.
  */
 
-import { useCallback, useEffect, useRef, useState, type JSX } from 'react';
+import { useCallback, useRef, useState, type JSX } from 'react';
 import { Combo } from '../ui/Combo.js';
+import { useDismissOnOutside } from '../ui/useDismissOnOutside.js';
 import { Icon } from '../ui/icons.js';
 import { cloudBackend } from '../cloud/cloudStore.js';
 import { shareUrlFor } from '../cloud/invites.js';
@@ -78,21 +79,15 @@ export function ShareButton({
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') setOpen(false);
-    };
-    const onDown = (e: MouseEvent): void => {
-      if (!root.current?.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener('keydown', onKey);
-    document.addEventListener('mousedown', onDown);
-    return () => {
-      document.removeEventListener('keydown', onKey);
-      document.removeEventListener('mousedown', onDown);
-    };
-  }, [open]);
+  // Capture phase, and shared, because a bubble-phase version is closed by its
+  // own controls: `Combo` commits on mousedown and unmounts its list in the
+  // same event, so the node `contains` is asked about is already detached and
+  // reads as outside. Choosing a role shut the whole panel.
+  useDismissOnOutside(
+    root,
+    useCallback(() => setOpen(false), []),
+    open,
+  );
 
   const load = useCallback(async (): Promise<void> => {
     setNote(null);
@@ -158,7 +153,7 @@ export function ShareButton({
 
       {open && (
         <div className="ze-share-pop">
-          <div className="ze-share-title">Share "{projectName}"</div>
+          <div className="ze-share-title">Share &ldquo;{projectName}&rdquo;</div>
 
           {!uid && !loading && (
             <p className="ze-auth-note">
@@ -198,6 +193,7 @@ export function ShareButton({
                 </div>
               )}
 
+              <div className="ze-share-heading">People with access</div>
               <div className="ze-share-people">
                 {people.map((p) => (
                   <div className="ze-share-person" key={p.user_id}>
@@ -250,6 +246,7 @@ export function ShareButton({
               </div>
 
               <div className="ze-share-link">
+                <div className="ze-share-heading">General access</div>
                 <Combo
                   value={linkAccess ?? 'off'}
                   options={LINK_OPTIONS}

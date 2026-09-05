@@ -165,3 +165,22 @@ select email from public.project_roster(:'puid'::uuid); rollback;
 \echo '### 25 ...and cannot enumerate accounts with a uid they invented -- expect exception'
 begin; set local role authenticated; set local "request.jwt.claim.sub" = 'cccccccc-0000-0000-0000-000000000003';
 select email from public.project_roster('00000000-0000-0000-0000-000000000000'::uuid); rollback;
+
+-- 26 and 27 are the regression for the bug that shipped: `commit_project`'s
+-- first-commit branch ends with `returning version`, Postgres applies the
+-- SELECT policy to the row a statement returns, and that policy asked a
+-- `stable` function about `projects` -- which reads the pre-insert snapshot and
+-- cannot see the row being inserted. Every first push of a new project failed.
+-- The suite missed it because it only ever committed to projects that already
+-- existed.
+\echo '### 26 a first commit returns its version -- expect 1, not an RLS error'
+begin; set local role authenticated; set local "request.jwt.claim.sub" = 'bbbbbbbb-0000-0000-0000-000000000002';
+select public.commit_project('77777777-7777-7777-7777-777777777777','B own board',
+  '[{"name":"b.kicad_sch","hash":"HB","size":3}]'::jsonb, 0) as first_commit;
+commit;
+
+\echo '### 27 ...and can commit to it again -- expect 2'
+begin; set local role authenticated; set local "request.jwt.claim.sub" = 'bbbbbbbb-0000-0000-0000-000000000002';
+select public.commit_project('77777777-7777-7777-7777-777777777777','B own board v2',
+  '[{"name":"b.kicad_sch","hash":"HB2","size":4}]'::jsonb, 1) as second_commit;
+commit;
