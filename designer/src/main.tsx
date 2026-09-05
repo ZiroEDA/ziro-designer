@@ -15,6 +15,7 @@ import { initTelemetry } from './telemetry/reporter.js';
 import { sentrySink } from './telemetry/sentrySink.js';
 import { installGlobalErrorHandlers } from './telemetry/global_handlers.js';
 import { installOverlayScrollbars } from './ui/overlay_scrollbars.js';
+import { installDialogSizeHints } from './ui/dialog_size_hints.js';
 import { missingFeatures, unsupportedMessage } from './browser_support.js';
 import { checkStorageHealth, setTemplateSink } from './home/projectStore.js';
 import { updateUserTemplateFiles } from './home/user_templates.js';
@@ -36,6 +37,12 @@ installGlobalErrorHandlers();
 // off; this draws GTK's. Installed at boot rather than per editor because every
 // frame in KiCad gets them from the theme, not from its own code.
 installOverlayScrollbars();
+// `Fit()` once, then `SetSizeHints()` — the two lines every KiCad dialog ends
+// with. `.ze-modal` ports the first as `width: max-content`, which keeps
+// tracking the content forever, so a dialog moved under the user whenever its
+// own text changed. Installed here rather than per dialog because in wx it
+// comes from the dialog base class, not from the dialog.
+installDialogSizeHints();
 // The real storage test, at boot. storageAvailable() only proves the API
 // exists; this proves a write/read/delete round-trip lands. Without it the
 // first a user hears of a full or read-only origin is a save failing mid-edit,
