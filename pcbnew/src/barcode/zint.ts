@@ -19,6 +19,7 @@
 import { code39 } from './code.js';
 import { code128 } from './code128.js';
 import { newSymbol, type ZintSymbol } from './common.js';
+import { datamatrix } from './dmatrix.js';
 import { microqr } from './microqr.js';
 import { qrcode } from './qr.js';
 import type { BarcodeEcc, BarcodeKind } from '../types.js';
@@ -119,9 +120,8 @@ export function encodeBarcode(kind: BarcodeKind, ecc: BarcodeEcc, text: string):
       if (!bytes) return { symbol: null, error: NON_ASCII };
       error = microqr(symbol, bytes, symbol.option1);
       break;
-    default:
-      // Data Matrix is not ported yet.
-      error = '';
+    case 'datamatrix':
+      error = datamatrix(symbol, eciData(text, eci), eci);
       break;
   }
 

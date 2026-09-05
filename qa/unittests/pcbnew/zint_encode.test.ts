@@ -51,19 +51,16 @@ const gridOf = (kind: BarcodeKind, ecc: BarcodeEcc, text: string): string[] => {
   );
 };
 
-// Only the symbologies that are ported. Data Matrix falls through
-// `encodeBarcode`'s default arm and produces nothing, which would read as a
-// silent pass here rather than as the gap it is.
-const PORTED: ReadonlySet<string> = new Set(['code39', 'code128', 'qr', 'microqr']);
+// All five of `BARCODE_T`. This set exists so that a symbology that stops
+// being ported cannot quietly drop out of the run.
+const PORTED: ReadonlySet<string> = new Set(['code39', 'code128', 'qr', 'microqr', 'datamatrix']);
 
 describe('every vector Zint gave us', () => {
   const cases = VECTORS.cases.filter((c) => PORTED.has(c.kind));
 
-  it('covers all four ported symbologies, so a filter typo cannot empty this file', () => {
-    expect(cases.length).toBeGreaterThan(300);
-    expect(new Set(cases.map((c) => c.kind))).toEqual(
-      new Set(['code39', 'code128', 'qr', 'microqr']),
-    );
+  it('covers all five of BARCODE_T, so a filter typo cannot empty this file', () => {
+    expect(cases.length).toBeGreaterThan(400);
+    expect(new Set(cases.map((c) => c.kind))).toEqual(PORTED);
     // …and that the error cases are actually exercised: they are a third of
     // Micro QR's, which has four small versions and rejects a lot.
     expect(cases.filter((c) => c.error).length).toBeGreaterThan(20);
@@ -154,6 +151,20 @@ describe('the shape of the answer', () => {
     );
   });
 
+  it('encodes every kind BARCODE_T offers', () => {
+    // The five arms of `ComputeBarcode`'s switch (`pcb_barcode.cpp:568-594`).
+    // A kind that fell through to nothing would draw an empty barcode, and the
+    // fixture above cannot catch that on its own — a missing arm would simply
+    // stop producing cases to compare.
+    for (const kind of ['code39', 'code128', 'datamatrix', 'qr', 'microqr'] as const) {
+      const { symbol, error } = encodeBarcode(kind, 'L', 'ZIRO1');
+
+      expect(error, kind).toBe('');
+      expect(symbol, kind).not.toBeNull();
+      expect(symbol!.width, kind).toBeGreaterThan(0);
+    }
+  });
+
   it('encodes nothing for empty text, and calls it no error', () => {
     // `if( text.empty() ) return;` (`pcb_barcode.cpp:600`) — before the encode
     // and after `m_lastError.clear()`, so a barcode with no text draws nothing
@@ -238,5 +249,85 @@ describe('the two-dimensional symbologies', () => {
     expect(encodeBarcode('microqr', 'L', 'Ω').error).toContain(
       'does not support international characters',
     );
+  });
+});
+
+describe('Data Matrix', () => {
+  it('picks a size from ISO/IEC 16022 Table 7, square or oblong', () => {
+    // Twenty-four sizes: 24 square from 10x10 to 144x144, and six oblong.
+    // The oblong ones are the standard's, not DMRE — those are the other
+    // twenty-four table entries and `ComputeBarcode` never asks for one
+    // (`option_3` stays zero, so `dm_get_symbolsize` skips them).
+    const STANDARD = new Set([
+      '10x10',
+      '12x12',
+      '14x14',
+      '16x16',
+      '18x18',
+      '20x20',
+      '22x22',
+      '24x24',
+      '26x26',
+      '32x32',
+      '36x36',
+      '40x40',
+      '44x44',
+      '48x48',
+      '52x52',
+      '64x64',
+      '72x72',
+      '80x80',
+      '88x88',
+      '96x96',
+      '104x104',
+      '120x120',
+      '132x132',
+      '144x144',
+      '8x18',
+      '8x32',
+      '12x26',
+      '12x36',
+      '16x36',
+      '16x48',
+    ]);
+
+    for (const text of ['A', 'A'.repeat(20), 'A'.repeat(100), 'A'.repeat(600)]) {
+      const g = gridOf('datamatrix', 'L', text);
+
+      expect(STANDARD, `${text.length} chars`).toContain(`${g.length}x${g[0]!.length}`);
+    }
+  });
+
+  it('does use the oblong sizes, which is easy to get wrong by skipping them', () => {
+    // 20 characters land on 12x26. A size search that filtered to squares —
+    // Zint's `DM_SQUARE` option, which we must NOT set — would give 18x18
+    // instead, and both scan, so only a differential test would notice.
+    const g = gridOf('datamatrix', 'L', 'A'.repeat(20));
+
+    expect([g.length, g[0]!.length]).toEqual([12, 26]);
+  });
+
+  it('draws the L-shaped finder: solid left and bottom, dashed top and right', () => {
+    // The one feature no data can move, and the reason a Data Matrix scans in
+    // any orientation.
+    const g = gridOf('datamatrix', 'L', 'ZIROEDA');
+    const n = g.length;
+
+    expect(g.map((row) => row[0]).join('')).toBe('1'.repeat(n));
+    expect(g[n - 1]).toBe('1'.repeat(g[0]!.length));
+    expect(g[0]).toBe('10'.repeat(g[0]!.length / 2));
+    expect(g.map((row) => row[g[0]!.length - 1]).join('')).toBe('01'.repeat(n / 2));
+  });
+
+  it('packs digit pairs into one codeword, as ASCII mode does', () => {
+    // 30 digits fit a symbol that 30 letters do not: ASCII mode encodes a
+    // digit pair in a single codeword and a letter in one each.
+    expect(gridOf('datamatrix', 'L', '1'.repeat(30)).length).toBeLessThan(
+      gridOf('datamatrix', 'L', 'Z'.repeat(30)).length,
+    );
+  });
+
+  it('carries UTF-8 through ECI, like QR and unlike the rest', () => {
+    expect(encodeBarcode('datamatrix', 'L', 'Ω unicode ✓').error).toBe('');
   });
 });

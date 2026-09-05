@@ -28,6 +28,14 @@ TWO_D = [
     'MiXeD 123 TEXT.', 'A' * 100, '9' * 200, 'x' * 300, 'Ω unicode ✓',
     'a', 'AB', '  ', '%$*+-./:',
 ]
+DMATRIX = [
+    'A', '1', '12', '123', '1234', 'ZIRO', 'ABC-123', 'Hello, World!',
+    'abcdefghij', 'ABCDEFGHIJKLMNOP', '0123456789012345678901234567890',
+    'https://example.com/x?y=1', 'A' * 50, '9' * 100, 'x' * 200, 'a' * 7,
+    'A1B2C3', '  ', '>*\r', '@ABC', 'Ω unicode ✓', 'MiXeD 123 TEXT.',
+    '$%*+-./:', 'AB', 'ABC', 'ABCD', 'ABCDE', '\x01\x02\x03', 'aA1 bB2 cC3',
+    'Z' * 30, '0' * 3116,
+]
 MICRO = [
     '1', '12', '123456', 'ABC', 'HELLO', 'A1B2', 'hello', 'x',
     '12345678901234567890', 'ABCDEFGHIJKLMNOPQRSTUVWXYZ12345', 'abcdefghij',
@@ -73,6 +81,10 @@ def cases():
         yield ('microqr', 'M', t)
     for t in fuzz(30, 80, 13):
         yield ('code128', 'L', t)
+    for t in DMATRIX:
+        yield ('datamatrix', 'L', t)
+    for t in fuzz(60, 250, 17):
+        yield ('datamatrix', 'L', t)
 
 
 def main():
