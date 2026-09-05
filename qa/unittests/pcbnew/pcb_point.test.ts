@@ -12,7 +12,15 @@
  * the board editor's and the footprint editor's right toolbars, the Objects
  * tab already had a Points row and the Selection Filter already had a Points
  * box, and `board.points` did not exist — so a `.kicad_pcb` carrying `(point
- * …)` loaded with the marker silently dropped and saved it back out gone.
+ * …)` opened with nothing to show for it: not drawn, not selectable, and not
+ * offering the snap anchor the item exists for.
+ *
+ * It was NOT lost from the file, and the first version of this comment said it
+ * was. `writeBoardNode` walks the source children and passes through every head
+ * it does not own (`else out.push(it)`), so an unmodelled node round-trips
+ * byte-identically — which `an unmodelled item survives a save` below now pins,
+ * because that property is what makes a half-finished port safe and it was
+ * being relied on without ever being checked.
  *
  * The snap behaviour is the part worth pinning hardest: a point that draws but
  * does not offer an anchor is decoration, and that is the one thing the item
@@ -101,6 +109,28 @@ describe('reading (point …)', () => {
     // A board holding one point is not empty, so Select All is live on it.
     expect(boardIsEmpty(read())).toBe(false);
     expect(boardIsEmpty(read(`(kicad_pcb (version 20241229) (net 0 ""))`))).toBe(true);
+  });
+});
+
+describe('an unmodelled item survives a save', () => {
+  it('passes through byte-identically, so a gap is never data loss', () => {
+    // The property the whole model leans on: `writeBoardNode` emits any source
+    // child whose head it does not own. A board carrying an item we have not
+    // ported yet — a `(barcode …)`, a `(target …)`, a `(generator …)` — opens
+    // without it on screen and saves with it intact.
+    //
+    // Pinned here because it was *assumed* rather than checked, and because
+    // assuming it wrongly points the finger the wrong way: a missing item reads
+    // as "we deleted the user's data" when it is really "we have not drawn it
+    // yet", and those two have very different urgency.
+    const src = `(kicad_pcb (version 20241229) (generator "${GENERATOR}") (generator_version "${GENERATOR_VERSION}")
+  (layers (0 "F.Cu" signal))
+  (net 0 "")
+  (barcode (at 10 20 0) (layer "F.SilkS") (size 5 5) (text "ABC") (text_height 1)
+    (type qr) (ecc_level M) (hide no) (knockout no) (uuid "aaaaaaaa-0000-0000-0000-00000000000b"))
+)`;
+
+    expect(serializeBoard(readBoard(parse(src)))).toBe(serialize(parse(src)));
   });
 });
 
