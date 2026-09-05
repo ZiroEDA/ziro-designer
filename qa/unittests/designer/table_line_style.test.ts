@@ -34,6 +34,7 @@ import { readSchematic } from '@ziroeda/eeschema';
 import {
   DEFAULT_RENDER_OPTS,
   renderSchematic,
+  setVectorText,
 } from '@ziroeda/designer/src/editors/schematic/render/renderer.js';
 import { KICAD_DEFAULT } from '@ziroeda/designer/src/editors/schematic/theme.js';
 import { mmToIU } from '@ziroeda/common/src/eda_units.js';
@@ -128,21 +129,38 @@ const inTable = (l: Line): boolean =>
 
 const paint = (doc: Schematic): Line[] => {
   const s = spy();
-  renderSchematic(
-    s.ctx,
-    doc,
-    { scale: 0.0005, offsetX: 0, offsetY: 0 },
-    KICAD_DEFAULT,
-    1400,
-    1000,
-    undefined,
-    undefined,
-    {
-      ...DEFAULT_RENDER_OPTS,
-      grid: { ...DEFAULT_RENDER_OPTS.grid, show: false },
-      showDrawingSheet: false,
-    },
-  );
+  /*
+   * Measured through the GEOMETRY path, which is what these assertions are
+   * about: which width the table CHOOSES.
+   *
+   * The screen path quantises every stroke to a whole number of device pixels,
+   * the way KiCad's GAL does (`roundr( w / u_worldPixelSize, 1.0 )`,
+   * `common/gal/shaders/kicad_vert.glsl:70`), so a 0.5 mm border and a 0.6 mm
+   * one can land on the same pixel count and the choice becomes unreadable.
+   * `setVectorText` is the mode the SVG, DXF and PostScript plotters render in
+   * — no screen, no pixels, no floor — and it is the one place the model's own
+   * numbers reach a canvas unchanged.
+   */
+  setVectorText(true);
+  try {
+    renderSchematic(
+      s.ctx,
+      doc,
+      { scale: 0.0005, offsetX: 0, offsetY: 0 },
+      KICAD_DEFAULT,
+      1400,
+      1000,
+      undefined,
+      undefined,
+      {
+        ...DEFAULT_RENDER_OPTS,
+        grid: { ...DEFAULT_RENDER_OPTS.grid, show: false },
+        showDrawingSheet: false,
+      },
+    );
+  } finally {
+    setVectorText(false);
+  }
   return s.lines.filter(inTable);
 };
 

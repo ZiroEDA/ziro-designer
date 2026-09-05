@@ -282,6 +282,21 @@ export interface RenderOpts {
   color?: string;
   /** IU pen floor so hairlines stay visible; caller passes 1 world-unit ≈ n px. */
   minWidth?: number;
+  /**
+   * The caller's own pen rule, applied to every stroke width this painter picks.
+   *
+   * `minWidth` is only the FLOOR. KiCad's GAL also rounds a width to a whole
+   * number of device pixels before drawing it —
+   *
+   *     float pixelWidth = roundr( w / u_worldPixelSize, 1.0 );
+   *     (`common/gal/shaders/kicad_vert.glsl:70`)
+   *
+   * — and a fractional width is what makes a stroke render as two half-covered
+   * pixel columns instead of one solid one. The rule needs the world-to-device
+   * scale, which is the CALLER's, so it arrives as a function rather than being
+   * re-derived here. A caller that passes none is unchanged.
+   */
+  quantise?: (worldWidth: number) => number;
   /** Item index brightened by the interactive-delete picker (green). */
   brightened?: number | null;
   /**
@@ -363,6 +378,7 @@ function drawText(
   t: DsTextItem,
   color: string,
   minWidth: number,
+  quantise: (w: number) => number,
 ): void {
   // A named outline font is filled (font->Draw); the default is the stroke
   // font. "KiCad Font" is a name for the stroke font itself, not an outline
@@ -378,7 +394,7 @@ function drawText(
   const { strokes, width } = layoutText(t.text, size);
   // EDA_TEXT pen: file thickness else bold→size/5 / normal→size/8, clamped ≤ size·0.25.
   const raw = t.thickness > 0 ? t.thickness : t.bold ? size / 5 : size / 8;
-  const thickness = Math.max(Math.min(raw, size * 0.25), minWidth);
+  const thickness = quantise(Math.max(Math.min(raw, size * 0.25), minWidth));
   const offX = t.hjustify === 'left' ? 0 : t.hjustify === 'right' ? -width : -width / 2;
   const offY = t.vjustify === 'top' ? size : t.vjustify === 'bottom' ? 0 : size / 2;
   const rad = (-t.rotate * Math.PI) / 180;
@@ -416,6 +432,7 @@ function drawBitmap(
   d: DsBitmapItem,
   color: string,
   minWidth: number,
+  quantise: (w: number) => number,
 ): void {
   const decoded = d.pngB64 ? getBitmapImage(d.pngB64) : null;
   const pxW = decoded?.w ?? (d.pxW && d.pxW > 0 ? d.pxW : d.ppi);
@@ -429,7 +446,7 @@ function drawBitmap(
   } else {
     ctx.strokeStyle = color;
     ctx.setLineDash([Math.max(w, h) / 40, Math.max(w, h) / 60]);
-    ctx.lineWidth = minWidth;
+    ctx.lineWidth = quantise(minWidth);
     ctx.strokeRect(x, y, w, h);
     ctx.setLineDash([]);
   }
@@ -520,6 +537,7 @@ export function drawDrawingSheetItems(
   const forceBlack = opts.forceBlackPen === true;
   const baseColor = forceBlack ? '#000000' : (opts.color ?? DS_ITEM_COLOR);
   const minWidth = opts.minWidth ?? 1;
+  const quantise = opts.quantise ?? ((w: number): number => w);
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
 
@@ -544,7 +562,7 @@ export function drawDrawingSheetItems(
           : itemColor;
     switch (d.kind) {
       case 'line': {
-        const w = Math.max(d.width, minWidth);
+        const w = quantise(Math.max(d.width, minWidth));
         ctx.strokeStyle = color;
         ctx.lineWidth = w;
         // Snap only a hairline, and only when it is axis-aligned in device
@@ -577,7 +595,7 @@ export function drawDrawingSheetItems(
         break;
       }
       case 'rect': {
-        const w = Math.max(d.width, minWidth);
+        const w = quantise(Math.max(d.width, minWidth));
         const x = Math.min(d.a.x, d.b.x);
         const y = Math.min(d.a.y, d.b.y);
         const rw = Math.abs(d.b.x - d.a.x);
@@ -612,10 +630,10 @@ export function drawDrawingSheetItems(
         break;
       }
       case 'text':
-        drawText(ctx, d, color, minWidth);
+        drawText(ctx, d, color, minWidth, quantise);
         break;
       case 'bitmap':
-        drawBitmap(ctx, d, color, minWidth);
+        drawBitmap(ctx, d, color, minWidth, quantise);
         break;
     }
   }

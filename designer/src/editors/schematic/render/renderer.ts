@@ -515,6 +515,17 @@ export interface RenderOpts {
    * which is why {@link itemColour} is the only place ours asks the question.
    */
   overrideItemColors?: boolean;
+  /**
+   * Device pixels per CSS pixel for THIS context, which is what turns a world
+   * width into the pixel count KiCad rounds.
+   *
+   * It is a per-caller fact, not a global one: the editor's 2D overlays are
+   * handed a context already sized in device pixels (their `view.scale` carries
+   * the ratio), while the Colors preview lays out in CSS pixels and applies the
+   * ratio with `setTransform`. Defaulting to 1 is right for the first and wrong
+   * for the second, so the second says so.
+   */
+  devicePixelRatio?: number;
   showPageLimits: boolean;
   /** Draw the page border + title block (LAYER_DRAWINGSHEET). Defaults to true;
    *  Print/Plot's "drawing sheet" option turns it off. */
@@ -795,6 +806,37 @@ let g_hopOverRadius = 0; // hop-over arc radius (IU); 0 = hop-overs off
 // Inter-sheet reference resolver for the current render (unset = hidden).
 let g_intersheetRefs: RenderOpts['intersheetRefs'];
 let g_overrideItemColors = false;
+let g_devicePixelRatio = 1;
+
+/**
+ * A stroke width in world units, quantised the way KiCad quantises one.
+ *
+ *     float w = ((lineWidth == 0.0) ? u_worldPixelSize : lineWidth );
+ *     float pixelWidth = roundr( w / u_worldPixelSize, 1.0 );
+ *     if( pixelWidth < u_minLinePixelWidth ) pixelWidth = u_minLinePixelWidth;
+ *     (`common/gal/shaders/kicad_vert.glsl:69-77`)
+ *
+ * `roundr( f, 1.0 )` is `floor( f + 0.5 )`, `u_worldPixelSize` is the world
+ * units in one DEVICE pixel (`getWorldPixelSize() / GetScaleFactor()`), and
+ * `u_minLinePixelWidth` is 1, set once in the GAL constructor. So every stroke
+ * KiCad draws covers a whole number of device pixels and never fewer than one —
+ * which is the whole reason its canvas looks crisp where a faithful
+ * transcription of the same geometry looks washed out. Ours drew the Colors
+ * preview's hairlines at 0.30 of a device pixel, i.e. at 30% coverage.
+ *
+ * A vector backend gets none of it. The SVG, DXF and PostScript plotters and
+ * the WebGL recorder record geometry, and a floor derived from the current zoom
+ * would be baked into their output — the same reason `drawingSheetItems` hands
+ * them `minWidth: 0`.
+ */
+function penWidth(worldWidth: number): number {
+  if (g_vectorText) return worldWidth;
+  const perPixel = g_scale * g_devicePixelRatio;
+  if (!(perPixel > 0) || !Number.isFinite(worldWidth)) return worldWidth;
+  // `lineWidth == 0.0` means one pixel upstream, not an invisible line.
+  const px = worldWidth > 0 ? worldWidth * perPixel : 1;
+  return Math.max(Math.floor(px + 0.5), 1) / perPixel;
+}
 
 /**
  * An item's own colour, or its layer's when the theme overrides item colours.
@@ -857,7 +899,7 @@ function drawLockBadge(ctx: CanvasRenderingContext2D, x: number, y: number, them
   ctx.save();
   ctx.fillStyle = theme.hidden;
   ctx.strokeStyle = theme.hidden;
-  ctx.lineWidth = 0.12 * MM;
+  ctx.lineWidth = penWidth(0.12 * MM);
   // Shackle (arc) above the body.
   ctx.beginPath();
   ctx.arc(x + s / 2, y + s * 0.42, s * 0.28, Math.PI, 2 * Math.PI);
@@ -949,6 +991,7 @@ export function renderSchematic(
   g_hopOverRadius = opts.hopOverRadiusIU && opts.hopOverRadiusIU > 0 ? opts.hopOverRadiusIU : 0;
   g_intersheetRefs = opts.intersheetRefs;
   g_overrideItemColors = opts.overrideItemColors ?? false;
+  g_devicePixelRatio = opts.devicePixelRatio ?? 1;
   g_chainHighlight = opts.chainHighlight;
   g_netOverrides = opts.netOverrides;
   g_resolveText = opts.resolveTextVar;
@@ -1012,7 +1055,7 @@ export function renderSchematic(
     const page = paperSizeIU(sch.paper);
     if (page) {
       ctx.strokeStyle = theme.pageLimits;
-      ctx.lineWidth = 0.1 * MM;
+      ctx.lineWidth = penWidth(0.1 * MM);
       ctx.setLineDash([]);
       ctx.strokeRect(0, 0, page.w, page.h);
     }
@@ -1067,7 +1110,7 @@ export function renderSchematic(
       if (!drawable(id) || !hl(id)) return;
       const base =
         line.stroke && line.stroke.width > 0 ? line.stroke.width : lineDefaultWidth(line.kind);
-      ctx.lineWidth = base + shadowWidth;
+      ctx.lineWidth = penWidth(base + shadowWidth);
       strokeLine(ctx, line.start, line.end);
     });
     // Junction shadows are drawn as a stroked ring at the junction's own radius
@@ -1080,7 +1123,7 @@ export function renderSchematic(
       const d =
         j.diameter > 0 ? j.diameter : (g_netOverrides?.junctions.get(jid) ?? g_junctionDiam);
       if (d <= 1) return; // settings size "None": nothing to halo
-      ctx.lineWidth = shadowWidth;
+      ctx.lineWidth = penWidth(shadowWidth);
       ctx.beginPath();
       ctx.arc(j.at.x, j.at.y, d / 2, 0, Math.PI * 2);
       ctx.stroke();
@@ -1093,14 +1136,14 @@ export function renderSchematic(
       const id = refId('busentry', be.uuid, i);
       if (!drawable(id) || !hl(id)) return;
       const base = be.stroke && be.stroke.width > 0 ? be.stroke.width : g_defaultPen;
-      ctx.lineWidth = base + shadowWidth;
+      ctx.lineWidth = penWidth(base + shadowWidth);
       strokeLine(ctx, be.at, { x: be.at.x + be.size.x, y: be.at.y + be.size.y });
     });
     sch.noConnects.forEach((nc, i) => {
       const id = refId('noconnect', nc.uuid, i);
       if (!drawable(id) || !hl(id)) return;
       const delta = Math.max(NOCONNECT_SIZE, g_defaultPen * 3) / 2;
-      ctx.lineWidth = g_defaultPen + shadowWidth;
+      ctx.lineWidth = penWidth(g_defaultPen + shadowWidth);
       strokeLine(
         ctx,
         { x: nc.at.x - delta, y: nc.at.y - delta },
@@ -1166,7 +1209,7 @@ export function renderSchematic(
       // `color.WithAlpha( color.a * highlightAlpha )` (`:1846`) — a FACTOR on
       // whatever alpha the colour already had, not an assignment.
       ctx.strokeStyle = cssWithAlpha(colour, parseColor4d(colour).a * opts.netclassHighlightAlpha);
-      ctx.lineWidth = width + thickIU;
+      ctx.lineWidth = penWidth(width + thickIU);
       const pts = line.points ?? [line.start, line.end];
       ctx.beginPath();
       pts.forEach((pt, k) => (k === 0 ? ctx.moveTo(pt.x, pt.y) : ctx.lineTo(pt.x, pt.y)));
@@ -1223,7 +1266,7 @@ export function renderSchematic(
               : line.kind === 'wire'
                 ? theme.wire
                 : theme.noteLine)));
-    ctx.lineWidth = width;
+    ctx.lineWidth = penWidth(width);
     const dashType =
       line.stroke?.type && line.stroke.type !== 'default'
         ? line.stroke.type
@@ -1281,7 +1324,7 @@ export function renderSchematic(
     )
       return;
     ctx.strokeStyle = hl(refId('busentry', be.uuid, i)) ? theme.netHighlight : theme.wire;
-    ctx.lineWidth = be.stroke && be.stroke.width > 0 ? be.stroke.width : g_defaultPen;
+    ctx.lineWidth = penWidth(be.stroke && be.stroke.width > 0 ? be.stroke.width : g_defaultPen);
     ctx.beginPath();
     ctx.moveTo(be.at.x, be.at.y);
     ctx.lineTo(ex, ey);
@@ -1351,7 +1394,7 @@ export function renderSchematic(
   // No-connect flags: KiCad's X, spanning DEFAULT_NOCONNECT_SIZE (48 mil) about
   // the point, in the LAYER_NOCONNECT colour (SCH_PAINTER::draw(SCH_NO_CONNECT)).
   if (sch.noConnects.length > 0) {
-    ctx.lineWidth = g_defaultPen;
+    ctx.lineWidth = penWidth(g_defaultPen);
     const delta = Math.max(NOCONNECT_SIZE, g_defaultPen * 3) / 2;
     sch.noConnects.forEach((nc, i) => {
       if (!drawable(refId('noconnect', nc.uuid, i))) return;
@@ -1379,7 +1422,7 @@ export function renderSchematic(
     const colour = hl(refId('directive', d.uuid, i)) ? theme.netHighlight : theme.netclassFlag;
     ctx.strokeStyle = colour;
     ctx.fillStyle = colour;
-    ctx.lineWidth = g_defaultPen;
+    ctx.lineWidth = penWidth(g_defaultPen);
     ctx.beginPath();
     ctx.moveTo(g.line[0].x, g.line[0].y);
     ctx.lineTo(g.line[1].x, g.line[1].y);
@@ -1627,7 +1670,7 @@ export function renderSchematic(
       ctx.fillRect(sh.at.x, sh.at.y, sh.size.w, sh.size.h);
     }
     ctx.strokeStyle = border;
-    ctx.lineWidth = bw;
+    ctx.lineWidth = penWidth(bw);
     ctx.setLineDash([]);
     ctx.strokeRect(sh.at.x, sh.at.y, sh.size.w, sh.size.h);
 
@@ -1696,7 +1739,7 @@ export function renderSchematic(
     : danglingFor(sch, libById);
   if (dangling.pins.length > 0) {
     ctx.strokeStyle = brighten(theme.pin, 0.3);
-    ctx.lineWidth = g_defaultPen / 3;
+    ctx.lineWidth = penWidth(g_defaultPen / 3);
     for (const p of dangling.pins) {
       if (!inView(p.x, p.y, p.x, p.y)) continue;
       ctx.beginPath();
@@ -1711,7 +1754,7 @@ export function renderSchematic(
   // the item's colour Brightened(0.3) so it reads over a junction dot.
   const MIL6 = 1524; // 6 mil in IU
   if (dangling.wireEnds.length > 0 || dangling.labels.length > 0) {
-    ctx.lineWidth = g_defaultPen / 3;
+    ctx.lineWidth = penWidth(g_defaultPen / 3);
     ctx.setLineDash([]);
     ctx.strokeStyle = brighten(theme.wire, 0.3);
     for (const d of dangling.wireEnds) {
@@ -1794,14 +1837,14 @@ export function renderSchematic(
         if (opts.movingSelection && selection.has(fid)) {
           // GetOutlineWidth() is 1 IU (render_settings.cpp), a hairline, so
           // floor it at one device pixel rather than letting it vanish.
-          ctx.lineWidth = Math.max(1, g_scale > 0 ? 1 / g_scale : 1);
+          ctx.lineWidth = penWidth(Math.max(1, g_scale > 0 ? 1 / g_scale : 1));
           strokeLine(ctx, at, sym.at);
         } else {
           // drawAnchor: a zoom-compensated cross, TEXT_ANCHOR_SIZE = 8 mils.
           const radius =
             Math.round(((g_scale > 0 ? 1 / g_scale : 1) * TEXT_ANCHOR_SIZE_MILS) / 25) +
             TEXT_ANCHOR_SIZE_MILS * MIL_IU;
-          ctx.lineWidth = g_defaultPen / 3;
+          ctx.lineWidth = penWidth(g_defaultPen / 3);
           strokeLine(ctx, { x: at.x - radius, y: at.y }, { x: at.x + radius, y: at.y });
           strokeLine(ctx, { x: at.x, y: at.y - radius }, { x: at.x, y: at.y + radius });
         }
@@ -1826,7 +1869,7 @@ export function renderSchematic(
     const anchorRadius =
       Math.round(((g_scale > 0 ? 1 / g_scale : 1) * TEXT_ANCHOR_SIZE_MILS) / 25) +
       TEXT_ANCHOR_SIZE_MILS * MIL_IU;
-    ctx.lineWidth = g_defaultPen / 3;
+    ctx.lineWidth = penWidth(g_defaultPen / 3);
     sch.labels.forEach((l, i) => {
       const id = refId('label', l.uuid, i);
       if (!drawable(id) || !selection.has(id) || l.effects?.hidden) return;
@@ -1929,7 +1972,7 @@ function drawSheetGraphic(
   if (!inView(minX, minY, maxX, maxY)) return;
 
   ctx.strokeStyle = color;
-  ctx.lineWidth = width;
+  ctx.lineWidth = penWidth(width);
   setDash(ctx, stroke?.type, width);
   if (fill) ctx.fillStyle = fill;
   if (g.kind === 'arc') {
@@ -2042,7 +2085,7 @@ function drawTextBox(
   }
   if (stroke?.type !== 'none') {
     ctx.strokeStyle = borderColor;
-    ctx.lineWidth = width;
+    ctx.lineWidth = penWidth(width);
     setDash(ctx, stroke?.type, width);
     ctx.stroke();
     ctx.setLineDash([]);
@@ -2173,7 +2216,7 @@ function drawTable(
    */
   const applyStroke = (stroke: Stroke | undefined): void => {
     const w = stroke?.width;
-    ctx.lineWidth = w === undefined || w === 0 ? g_defaultPen : w;
+    ctx.lineWidth = penWidth(w === undefined || w === 0 ? g_defaultPen : w);
     ctx.strokeStyle = itemColour(stroke?.color, color);
     setDash(ctx, stroke?.type, ctx.lineWidth);
   };
@@ -2466,7 +2509,7 @@ export function drawErcMarkers(
       // around the marker rather than an outline on it.
       path();
       ctx.strokeStyle = cssWithAlpha(theme.brightened, 0.15);
-      ctx.lineWidth = shadowWidthIU(HIGHLIGHT_THICKNESS_MILS, viewport.scale);
+      ctx.lineWidth = penWidth(shadowWidthIU(HIGHLIGHT_THICKNESS_MILS, viewport.scale));
       ctx.lineJoin = 'round';
       ctx.stroke();
     }
@@ -2722,7 +2765,7 @@ function drawLabel(
           ? { x: 0, y: -1 }
           : { x: 0, y: 1 };
 
-  ctx.lineWidth = shadow ? g_defaultPen + shadow.width : g_defaultPen;
+  ctx.lineWidth = penWidth(shadow ? g_defaultPen + shadow.width : g_defaultPen);
   ctx.strokeStyle = color;
 
   /**
@@ -3034,7 +3077,7 @@ function drawSelectionShadows(
     const id = refId('line', l.uuid, i);
     if (!drawable(id) || !selection.has(id)) return;
     const base = l.stroke && l.stroke.width > 0 ? l.stroke.width : lineDefaultWidth(l.kind);
-    ctx.lineWidth = base + width;
+    ctx.lineWidth = penWidth(base + width);
     strokeLine(ctx, l.start, l.end);
   });
 
@@ -3052,7 +3095,7 @@ function drawSelectionShadows(
   const ends = g_draggedEnds;
   if (ends) {
     ctx.strokeStyle = toCss(brightened(inverted(parseColor4d(color)), 0.3));
-    ctx.lineWidth = width;
+    ctx.lineWidth = penWidth(width);
     ctx.setLineDash([]);
     sch.lines.forEach((l, i) => {
       const id = refId('line', l.uuid, i);
@@ -3085,7 +3128,7 @@ function drawSelectionShadows(
   sch.noConnects.forEach((nc, i) => {
     const id = refId('noconnect', nc.uuid, i);
     if (!drawable(id) || !selection.has(id)) return;
-    ctx.lineWidth = g_defaultPen + width;
+    ctx.lineWidth = penWidth(g_defaultPen + width);
     const delta = Math.max(NOCONNECT_SIZE, g_defaultPen * 3) / 2;
     ctx.beginPath();
     ctx.moveTo(nc.at.x - delta, nc.at.y - delta);
@@ -3135,7 +3178,7 @@ function drawSelectionShadows(
     if (!selection.has(seg.id)) continue;
     if (selection.has(segSymId)) continue;
     ctx.strokeStyle = color;
-    ctx.lineWidth = g_defaultPen + width;
+    ctx.lineWidth = penWidth(g_defaultPen + width);
     strokeLine(ctx, seg.at, seg.bodyEnd);
   }
 
@@ -3212,7 +3255,7 @@ function drawSelectionShadows(
     if (sheetSelected) {
       const bw = sh.stroke && sh.stroke.width > 0 ? sh.stroke.width : g_defaultPen;
       ctx.strokeStyle = color;
-      ctx.lineWidth = bw + width;
+      ctx.lineWidth = penWidth(bw + width);
       ctx.strokeRect(sh.at.x, sh.at.y, sh.size.w, sh.size.h);
 
       // Laid out exactly as the sheet's own field pass lays them out, prefix
@@ -3266,7 +3309,7 @@ function drawSelectionShadows(
     if (!drawable(id) || !selection.has(id)) return;
     const base = be.stroke && be.stroke.width > 0 ? be.stroke.width : g_defaultPen;
     ctx.strokeStyle = color;
-    ctx.lineWidth = base + width;
+    ctx.lineWidth = penWidth(base + width);
     strokeLine(ctx, be.at, { x: be.at.x + be.size.x, y: be.at.y + be.size.y });
   });
 
@@ -3278,7 +3321,7 @@ function drawSelectionShadows(
     if (!drawable(id) || !selection.has(id)) return;
     const base = tb.stroke && tb.stroke.width > 0 ? tb.stroke.width : g_defaultPen;
     ctx.strokeStyle = color;
-    ctx.lineWidth = base + width;
+    ctx.lineWidth = penWidth(base + width);
     ctx.strokeRect(tb.start.x, tb.start.y, tb.end.x - tb.start.x, tb.end.y - tb.start.y);
   });
 
@@ -3291,7 +3334,7 @@ function drawSelectionShadows(
     const maxY = Math.max(...t.cells.map((c) => Math.max(c.start.y, c.end.y)));
     const base = t.borderStroke && t.borderStroke.width > 0 ? t.borderStroke.width : g_defaultPen;
     ctx.strokeStyle = color;
-    ctx.lineWidth = base + width;
+    ctx.lineWidth = penWidth(base + width);
     ctx.strokeRect(minX, minY, maxX - minX, maxY - minY);
   });
 
@@ -3307,7 +3350,7 @@ function drawSelectionShadows(
       const y0 = Math.min(c.start.y, c.end.y);
       const base = t.borderStroke && t.borderStroke.width > 0 ? t.borderStroke.width : g_defaultPen;
       ctx.strokeStyle = color;
-      ctx.lineWidth = base + width;
+      ctx.lineWidth = penWidth(base + width);
       ctx.strokeRect(x0, y0, Math.abs(c.end.x - c.start.x), Math.abs(c.end.y - c.start.y));
     });
   });
@@ -3319,7 +3362,7 @@ function drawSelectionShadows(
     if (!drawable(id) || !selection.has(id)) return;
     const sz = imageSizeIU(im);
     ctx.strokeStyle = color;
-    ctx.lineWidth = g_defaultPen + width;
+    ctx.lineWidth = penWidth(g_defaultPen + width);
     ctx.strokeRect(im.at.x - sz.w / 2, im.at.y - sz.h / 2, sz.w, sz.h);
   });
 
@@ -3330,7 +3373,7 @@ function drawSelectionShadows(
     ctx.strokeStyle = color;
     // A graphic text carries no stroke; every other shape may.
     const gw = 'stroke' in g && g.stroke && g.stroke.width > 0 ? g.stroke.width : g_defaultPen;
-    ctx.lineWidth = gw + width;
+    ctx.lineWidth = penWidth(gw + width);
     // `if( eeconfig()->m_Selection.fill_shapes ) m_gal->SetIsFill( true )` —
     // the fill goes down first, so the wider outline still reads as a halo.
     if (fillSelectedShapes) fillGraphicShadow(ctx, g);
@@ -3344,7 +3387,7 @@ function drawSelectionShadows(
     const g = directiveGraphic(d);
     ctx.strokeStyle = color;
     ctx.fillStyle = color;
-    ctx.lineWidth = g_defaultPen + width;
+    ctx.lineWidth = penWidth(g_defaultPen + width);
     strokeLine(ctx, g.line[0], g.line[1]);
     if (g.circle) {
       ctx.beginPath();
@@ -3747,7 +3790,7 @@ function drawLibUnitShadow(
   for (const g of unit.graphics) {
     const base =
       g.kind !== 'text' && g.stroke && g.stroke.width > 0 ? g.stroke.width : g_defaultPen;
-    ctx.lineWidth = base + width;
+    ctx.lineWidth = penWidth(base + width);
     switch (g.kind) {
       case 'rectangle': {
         const corners = [
@@ -3810,7 +3853,7 @@ function drawLibUnitShadow(
   // (`DrawLine( p0 + dir * diam, pos )`), so a straight halo ran through the
   // hole in the middle of the bubble and left the bubble itself unlit — a glow
   // along an invisible line, which is exactly how it looked.
-  ctx.lineWidth = g_defaultPen + width;
+  ctx.lineWidth = penWidth(g_defaultPen + width);
   for (const pin of unit.pins) {
     if (pin.hidden && !showHiddenPins) continue;
     const g = pinStrokeGeometry(pin, origin, t);
@@ -3835,7 +3878,7 @@ function drawLibUnitShadow(
           undefined,
           width,
         );
-    ctx.lineWidth = g_defaultPen + width;
+    ctx.lineWidth = penWidth(g_defaultPen + width);
   }
 }
 
@@ -3853,7 +3896,7 @@ function drawDnpMarker(
   theme: Theme,
 ): void {
   ctx.strokeStyle = theme.dnpMarker;
-  ctx.lineWidth = DNP_MARKER_STROKE_WIDTH;
+  ctx.lineWidth = penWidth(DNP_MARKER_STROKE_WIDTH);
   for (const seg of dnpMarkerSegments(body, bodyAndPins)) strokeLine(ctx, seg.a, seg.b);
 }
 
@@ -3877,7 +3920,7 @@ function drawSimExclusionMarker(ctx: CanvasRenderingContext2D, body: BBox, theme
   const m = simExclusionMarker(body);
 
   ctx.strokeStyle = theme.excludedFromSim;
-  ctx.lineWidth = SIM_EXCLUSION_STROKE_WIDTH;
+  ctx.lineWidth = penWidth(SIM_EXCLUSION_STROKE_WIDTH);
   for (const seg of m.box) strokeLine(ctx, seg.a, seg.b);
 
   // `SetFillColor( marker_color.WithAlpha( 0.1 ) ); DrawCircle( center, offset )`
@@ -4017,7 +4060,7 @@ function drawLibUnit(
   // Pass 2: LAYER_DEVICE, outlines, outline-colour (FILLED_SHAPE) fills, text.
   for (const g of unit.graphics) {
     const lw = g.kind !== 'text' && g.stroke && g.stroke.width > 0 ? g.stroke.width : g_defaultPen;
-    ctx.lineWidth = lw;
+    ctx.lineWidth = penWidth(lw);
     ctx.strokeStyle = dim(theme.symbolOutline);
     ctx.fillStyle = dim(theme.symbolOutline);
 
@@ -4112,11 +4155,11 @@ function drawLibUnit(
     const brightened = symId !== undefined && (highlight?.has(`${symId}:pin${idx}`) ?? false);
     if (brightened) {
       ctx.strokeStyle = 'rgba(255, 0, 255, 0.15)';
-      ctx.lineWidth = g_defaultPen + shadowWidth;
+      ctx.lineWidth = penWidth(g_defaultPen + shadowWidth);
       strokePinBody();
     }
     ctx.strokeStyle = dim(brightened ? '#ff00ff' : hiddenGhost ? theme.hidden : theme.pin);
-    ctx.lineWidth = g_defaultPen;
+    ctx.lineWidth = penWidth(g_defaultPen);
     strokePinBody();
 
     // The alternate-mode indicator, beside the pin NAME.
@@ -4352,7 +4395,7 @@ function drawText(
   if (a !== 0) ctx.rotate(-a); // matches placeAt's screen-space rotation
   ctx.translate(offX, offY);
   ctx.strokeStyle = color;
-  ctx.lineWidth = pen;
+  ctx.lineWidth = penWidth(pen);
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
   // Vector-text mode strokes segments directly (capturable by the SVG adapter);
@@ -4556,7 +4599,10 @@ function drawDrawingSheet(
   drawDrawingSheetItems(ctx, draws, NO_DS_SELECTION, {
     color: theme.pageFrame,
     // A 1-device-pixel pen floor keeps the frame's hairlines visible when
-    // zoomed out, expressed as the world width that is one pixel *now*.
+    // zoomed out, expressed as the world width that is one pixel *now*. It said
+    // "device" and computed a CSS pixel, which on a 2x display is two — the
+    // frame came out at double width and half strength. `penWidth` is the same
+    // rule the strokes above it take.
     //
     // A vector backend gets none of it. It records geometry rather than pixels,
     // so a floor derived from the current zoom is baked into the output: for
@@ -4565,7 +4611,11 @@ function drawDrawingSheet(
     // have pixels. This was the last thing keeping the recorded scene tied to
     // the view: 921 of 80230 floats moved with the zoom, and the whole buffer
     // had to be rebuilt because of them.
-    minWidth: g_vectorText ? 0 : g_scale > 0 ? 1 / g_scale : 1,
+    minWidth: g_vectorText ? 0 : penWidth(0),
+    // …and the same rule on every width the sheet painter picks for itself: its
+    // title-block text is stroked with a pen of its own, well above the floor,
+    // and a fractional one is exactly as soft there as anywhere else.
+    ...(g_vectorText ? {} : { quantise: penWidth }),
   });
 }
 

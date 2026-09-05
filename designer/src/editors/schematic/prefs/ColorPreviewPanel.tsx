@@ -121,7 +121,7 @@ export function ColorPreviewPanel({
         h,
         COLOR_PREVIEW_SELECTION,
         undefined,
-        { ...PREVIEW_OPTS, overrideItemColors: overrideRef.current },
+        { ...PREVIEW_OPTS, overrideItemColors: overrideRef.current, devicePixelRatio: dpr },
       );
     };
 
@@ -227,7 +227,7 @@ export function ColorPreviewPanel({
       h,
       COLOR_PREVIEW_SELECTION,
       undefined,
-      { ...PREVIEW_OPTS, overrideItemColors },
+      { ...PREVIEW_OPTS, overrideItemColors, devicePixelRatio: dpr },
     );
     /*
      * A deliberate difference, and the only one on this page.
