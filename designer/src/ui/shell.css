@@ -4925,42 +4925,53 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 }
 /* Cloud-sync status pill (bottom-right, non-blocking): shows pull/push counts
    while projects sync on sign-in, then a brief "synced" confirmation. */
-/* The signed-in account, bottom-left. See `ui/AccountButton.tsx`: a KiCad frame
-   has no account, so there is no menu row or toolbar slot for one, and it
-   belongs to the app shell rather than to the frame -- the same place the
-   cloud-sync pill below lives.
+/* The signed-in account, at the foot of the project manager's left bar. See
+   `ui/AccountButton.tsx` for why it is there and not in the menu bar.
 
-   Every measurement here is derived rather than picked. The avatar is sized in
-   `em`, so it tracks `--ui-font-size` and stays in proportion to the chrome if
-   the theme's font changes; it is placed off `--statusbar-height` so it sits
-   ABOVE the ported KISTATUSBAR rather than over the project path it shows. */
+   It states no size. `.ze-mgrbar` above already decides that its buttons are
+   32px on a 34px bar, measured off the real pane, and `.ze-mgrbar button`
+   applies it -- so naming a size here would be a second answer to a question
+   already answered, and the two would drift the moment the bar was remeasured.
+   `auto` is the whole placement: it sinks to the bottom of the bar's flex
+   column however many tools sit above it. */
 .ze-account-fab {
-  position: fixed;
-  left: 0.75em;
-  bottom: calc(var(--statusbar-height) + 0.5em);
-  z-index: 250;
+  position: relative;
+  margin-top: auto;
 }
-.ze-account-avatar {
-  width: 2.4em;
-  height: 2.4em;
+/* Scoped to the bar, and it has to be: `.ze-mgrbar button` states
+   `border-radius: 0` at (0,1,1) and a bare `.ze-account-avatar` is (0,1,0), so
+   an unscoped rule here loses and the avatar renders SQUARE. Same story for the
+   picture -- `.ze-mgrbar img` fixes 24px, which would leave a small square
+   image floating in a round button.
+
+   No hover of its own: `.ze-mgrbar button:hover` already paints one, and every
+   other button in the bar gets it. */
+.ze-mgrbar .ze-account-avatar {
   border-radius: 50%;
+  /* The picture is square and the button is round, so the corners have to go
+     somewhere. */
+  overflow: hidden;
   /* A button takes the user-agent font unless something says otherwise, which
      is how the drawing sheet's tabs ended up in Arial. */
   font: inherit;
   color: var(--chrome-fg);
-  background: var(--chrome-bg);
-  border: 1px solid var(--chrome-border);
   cursor: pointer;
 }
-.ze-account-avatar:hover {
-  border-color: var(--chrome-fg);
+/* Fills the button, whatever the provider's picture happens to measure --
+   Google serves a square, but nothing about the URL promises one, and `cover`
+   crops rather than distorting a face. */
+.ze-mgrbar .ze-account-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
-/* A popup on a control at the bottom of the window opens upward. `.ze-dropdown`
-   is the menu bar's, which hangs below its row; only the two edges change. */
-.ze-dropdown.up {
+/* The bar is 34px wide and this sits at the bottom of it, so the popup goes to
+   the side and upward. `.ze-dropdown` is the menu bar's own, which hangs below
+   its row; only the edges it hangs from change. */
+.ze-account-menu {
   top: auto;
-  bottom: 100%;
-  margin-bottom: 0.35em;
+  bottom: 0;
+  left: 100%;
 }
 
 .ze-sync-pill {

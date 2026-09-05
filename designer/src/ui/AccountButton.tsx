@@ -11,33 +11,44 @@
  * into the menu bar, which is a row that is otherwise upstream's exactly. Three
  * undifferentiated text links crowded next to `Help` is what that produced.
  *
- * So it belongs to the app shell rather than to the frame, the same way the
- * cloud-sync pill and the guest nudge do: fixed to a corner, over the frame,
- * owing nothing to the sizer tree. Bottom-left is where web tools have settled
- * on putting it — VS Code, Linear, Notion — and it is the one corner of this
- * app that carries no KiCad chrome.
+ * So it goes at the foot of the project manager's own left bar, which is where
+ * an activity bar puts it — VS Code, Linear, Notion all reach for the same
+ * corner. A deliberate divergence rather than an oversight: `KICAD_MANAGER_FRAME`
+ * has that bar and has nothing like this in it.
  *
- * It sits ABOVE the status bar rather than over it, off `--statusbar-height`,
- * because that bar is a ported `KISTATUSBAR` with a measured height and its
- * own fields; covering the project path with an avatar would be the same
- * mistake in a new corner.
+ * It states no size of its own. `.ze-mgrbar` already decides its buttons are
+ * 32px on a 34px bar, measured off the real pane, so an avatar that named its
+ * own would be a second answer to a question the bar has already answered.
+ * `margin-top: auto` is the only placement here, which sinks it to the bottom
+ * of the bar's flex column however many tools are above it.
  *
- * The popup is `.ze-dropdown` — the menu bar's own popup, opening upward
- * instead of downward. Its rows are `.ze-mitem` with the same three spans
- * `MenuEntry` writes, so a row here is a menu row rather than something that
- * merely resembles one.
+ * The popup is `.ze-dropdown` — the menu bar's own popup — opening to the side
+ * and upward, because the bar is 34px wide and at the bottom of the window. Its
+ * rows are `.ze-mitem` with the same spans `MenuEntry` writes, so a row here is
+ * a menu row rather than something that merely resembles one.
  */
 
 import { useEffect, useRef, useState, type JSX } from 'react';
+import { profileInitial } from '../auth/profile.js';
 
 export function AccountButton({
   email,
+  photoUrl,
   onSignOut,
 }: {
   email: string;
+  /** The provider's picture, when the person signed in with one. */
+  photoUrl?: string | null;
   onSignOut: () => void;
 }): JSX.Element {
   const [open, setOpen] = useState(false);
+  /**
+   * Set when the picture will not load, which is not hypothetical: a Google
+   * avatar is served from a third-party host, and an extension, a blocker or a
+   * revoked URL all end the same way. Without this the button would be an empty
+   * circle with no clue that it is the account.
+   */
+  const [photoFailed, setPhotoFailed] = useState(false);
   const root = useRef<HTMLDivElement>(null);
 
   // A menu closes on Escape and on a click anywhere else, which is what every
@@ -58,16 +69,12 @@ export function AccountButton({
     };
   }, [open]);
 
-  // The first character of the address, which is what a service with no
-  // uploaded picture shows. Upper-cased because an avatar is a monogram, and
-  // guarded because an empty string is a legitimate value for a session whose
-  // user has no email (an OAuth identity that did not release one).
-  const initial = (email.trim()[0] ?? '?').toUpperCase();
+  const photo = photoUrl && !photoFailed ? photoUrl : null;
 
   return (
     <div className="ze-account-fab" ref={root}>
       {open && (
-        <div className="ze-dropdown up">
+        <div className="ze-dropdown ze-account-menu">
           {/* The address is what the row identifies, not something to click:
               `disabled` is how `.ze-mitem` already paints a row that is there
               to be read. */}
@@ -95,7 +102,16 @@ export function AccountButton({
         aria-label={`Account: ${email}`}
         onClick={() => setOpen((v) => !v)}
       >
-        {initial}
+        {photo ? (
+          <img
+            src={photo}
+            alt=""
+            referrerPolicy="no-referrer"
+            onError={() => setPhotoFailed(true)}
+          />
+        ) : (
+          profileInitial(email)
+        )}
       </button>
     </div>
   );

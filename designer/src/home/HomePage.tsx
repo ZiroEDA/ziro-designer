@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'rea
 import { preloadBundle } from '../libraryPreload.js';
 import { MenuBar, type Menu } from '../ui/MenuBar.js';
 import { AccountButton } from '../ui/AccountButton.js';
+import { profilePhotoUrl } from '../auth/profile.js';
 import { Icon } from '../ui/icons.js';
 import {
   cloudIdentityOf,
@@ -1861,6 +1862,17 @@ export function HomePage({
               </button>
             ),
           )}
+          {/* Last in the bar, so it sits at its foot the way an activity bar's
+              account button does. A deliberate divergence: upstream has this
+              bar and has nothing like this in it, because a KiCad frame has no
+              account to show. */}
+          {session && (
+            <AccountButton
+              email={session.user.email ?? ''}
+              photoUrl={profilePhotoUrl(session.user.user_metadata)}
+              onSignOut={() => void signOut()}
+            />
+          )}
         </div>
 
         {/* The left dock. Upstream puts BOTH panes in it, same direction, same
@@ -2211,15 +2223,6 @@ export function HomePage({
       )}
 
       {signInOpen && <SignInDialog onClose={() => setSignInOpen(false)} />}
-
-      {/* The account, bottom-left, with the address and Sign out behind it.
-          Fixed to the shell rather than placed in the frame, the same as the
-          sync pill below: a KiCad window has no account and therefore no slot
-          for one, and the menu bar it used to sit in is otherwise upstream's
-          exactly. */}
-      {session && (
-        <AccountButton email={session.user.email ?? ''} onSignOut={() => void signOut()} />
-      )}
 
       {shareOpen && (
         <ShareProjectDialog
