@@ -198,7 +198,7 @@ function barcodeHandles(board: Board, index: number): BoardEditHandle[] {
 }
 
 /** `EDA_ANGLE::IsCardinal`: a multiple of 90 degrees. */
-const isCardinal = (deg: number): boolean => (((deg % 90) + 90) % 90) === 0;
+const isCardinal = (deg: number): boolean => ((deg % 90) + 90) % 90 === 0;
 
 /**
  * `makeDummyRect()`'s corners. The rectangle is the item's width and height
@@ -228,12 +228,7 @@ function barcodeCorners(bc: PcbBarcode): Corners {
  *     m_barcode.SetWidth( dummy.GetRectangleWidth() );
  *     m_barcode.SetHeight( dummy.GetRectangleHeight() );
  */
-function dragBarcodeHandle(
-  board: Board,
-  index: number,
-  handle: BoardEditHandle,
-  pos: Vec2,
-): Board {
+function dragBarcodeHandle(board: Board, index: number, handle: BoardEditHandle, pos: Vec2): Board {
   const bc = board.barcodes[index];
   if (!bc || !isCardinal(bc.angle)) return board;
 
