@@ -21,7 +21,9 @@
  *  - the three pages that are this editor's own and are grids.
  */
 import { afterEach, describe, expect, it } from 'vitest';
-import { cleanup, render, screen } from '@testing-library/react';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { PreferencesDialog } from '@ziroeda/designer/src/dialogs/PreferencesDialog.js';
 import { resetPrefsPanelCache } from '@ziroeda/designer/src/dialogs/prefs/lazy_pages.js';
 import { GAL_GROUP_TITLES } from '@ziroeda/designer/src/dialogs/prefs/gal_options.js';
@@ -379,6 +381,44 @@ describe('Footprint Editor > Footprint Defaults', () => {
     },
     SLOW,
   );
+
+  it(
+    'puts every layer in the cell, not the ones a footprint board has',
+    async () => {
+      await openPage('fp-defaults');
+      // `GRID_CELL_LAYER_SELECTOR( nullptr, {} )` — a null frame, so
+      // `getEnabledLayers()` is `LSET::AllLayersMask()` and `UIOrder()` yields
+      // 95 rows. See `fp_layer_choices.test.ts` for the list itself; this is
+      // the assertion that the PAGE reaches it.
+      const cell = document.querySelector('.ze-fp-fieldprops td:last-child');
+      const offered = comboOptions(cell ?? document);
+      expect(offered).toHaveLength(95);
+      expect(offered[0]).toBe('F.Cu');
+      expect(offered.at(-1)).toBe('User.45');
+      // The renamed ones are shown by `LayerName`, stored by `LSET::Name`.
+      expect(offered).toContain('F.Silkscreen');
+      expect(offered).not.toContain('F.SilkS');
+    },
+    SLOW,
+  );
+
+  it('is two 610 px grids, not two that fill the dialog', () => {
+    // `SetColSize` 240/60/150 with `SetRowLabelSize( 160 )`, and 460/150
+    // (`panel_fp_editor_field_defaults_base.cpp:42-52`, `:93-95`) — every
+    // width stated, so both grids stop at 610 and the page is empty to the
+    // right of them. Column 0 was taking the slack instead, which stretched
+    // Value across the dialog and pushed Layer to the far edge.
+    const css = readFileSync(resolve(process.cwd(), '../designer/src/ui/shell.css'), 'utf8');
+    const rule = (selector: string): string => {
+      for (const m of css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{([^{}]*)\}/g))
+        if ((m[1] ?? '').split(',').some((sel) => sel.trim() === selector)) return m[2] ?? '';
+      return '';
+    };
+    expect(rule('.ze-fp-fieldprops')).toMatch(/width:\s*610px/);
+    expect(rule('.ze-fp-fieldprops')).toMatch(/table-layout:\s*fixed/);
+    expect(rule('.ze-fp-fieldprops th:nth-child(2)')).toMatch(/width:\s*240px/);
+    expect(rule('.ze-fp-textitems th:first-child')).toMatch(/width:\s*460px/);
+  });
 });
 
 describe('Footprint Editor > Graphics Defaults', () => {
@@ -439,6 +479,27 @@ describe('Footprint Editor > User Layer Names', () => {
       // `m_choiceUserLayersChoices` — ten rows, "0" … "9".
       const counts = comboOptions();
       for (const n of ['0', '1', '9']) expect(counts).toContain(n);
+    },
+    SLOW,
+  );
+
+  it(
+    'offers the 49 layers its mask leaves, not eight',
+    async () => {
+      await openPage('fp-userlayers');
+      // `AllCuMask() | AllTechMask()` plus Edge_Cuts and Margin
+      // (`panel_fp_user_layer_names.cpp:160-164`): the four `*.User`
+      // auxiliaries and User.1 … User.45 survive.
+      // The grid starts empty — a fresh install has named no user layer — so
+      // `m_bpAdd` is what puts a layer cell on the page.
+      fireEvent.click(screen.getByLabelText('Add layer'));
+      const cell = document.querySelector('.ze-fp-layernames tbody td:first-child');
+      expect(cell, 'the added row').not.toBeNull();
+      const offered = comboOptions(cell ?? document);
+      expect(offered).toHaveLength(49);
+      expect(offered[0]).toBe('User.Drawings');
+      expect(offered.at(-1)).toBe('User.45');
+      expect(offered).not.toContain('F.Cu');
     },
     SLOW,
   );

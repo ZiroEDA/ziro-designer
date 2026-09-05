@@ -2,58 +2,80 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * `GRID_CELL_LAYER_SELECTOR`'s option list, for the three Preferences pages of
+ * `GRID_CELL_LAYER_SELECTOR`'s option list, for the two Preferences pages of
  * this editor that put a layer in a grid cell.
  *
- * Upstream the cell editor is one class (`common/grid_layer_box_helpers.cpp`),
- * built with a `LSET` of layers to LEAVE OUT:
+ * Upstream the cell editor is one class (`pcbnew/grid_layer_box_helpers.cpp`),
+ * built with a `LSET` of layers to LEAVE OUT and a frame to take the board
+ * from:
  *
  *     new GRID_CELL_LAYER_SELECTOR( nullptr, {} )        // Footprint Defaults
  *     new GRID_CELL_LAYER_SELECTOR( nullptr, forbidden ) // User Layer Names
  *
- * so the only difference between the two pages is that mask. It sits here
- * rather than inside a panel because both panels want it and neither owns it —
- * and because the mask is a statement about the BOARD's layers, which is this
- * directory's subject.
+ * **The frame is `nullptr` in both**, and that is the whole of what these
+ * pages list. `PCB_LAYER_BOX_SELECTOR::getEnabledLayers()` returns
+ * `LSET::AllLayersMask()` when it has no board frame
+ * (`pcb_layer_box_selector.cpp:129-136`), so neither list is cut down to the
+ * layers a board has: Footprint Defaults offers all 95 rows `UIOrder()` yields
+ * — F.Cu, In1.Cu … In30.Cu, B.Cu, the eighteen tech and user layers, then
+ * User.1 … User.45 — and the only difference between the two pages is the
+ * mask. Ours listed the 26 layers of the footprint editor's own dummy board,
+ * which is the set the CANVAS has and not the set this control offers.
+ *
+ * The names are `BOARD::GetStandardLayerName`, i.e. `LayerName()`
+ * (`grid_layer_box_helpers.cpp:96`), for the same reason: with no frame there
+ * is no board to have renamed anything, so a user layer name set on **User
+ * Layer Names** does not show here. The value stored is `LSET::Name` — the
+ * canonical token, which is what `default_footprint_text_items` holds in
+ * `fpedit.json`.
  *
  * The entries carry the layer's colour, which is not decoration:
  * `PCB_LAYER_BOX_SELECTOR::Resync` appends each name with
  * `LAYER_PRESENTATION::DrawColorSwatch`, and our shared `Combo` takes the same
  * `swatch` on an option.
  */
-import { FOOTPRINT_LAYERS } from './footprintBoard.js';
+import {
+  AllCuMask,
+  AllTechMask,
+  Edge_Cuts,
+  LSET_Name,
+  LayerName,
+  LayerSelectorUIOrder,
+  MAX_CU_LAYERS,
+  Margin,
+} from '@ziroeda/pcbnew/src/layer_ids.js';
 import { layerColor } from '../pcb/pcbTheme.js';
 
 /** One row of the cell's dropdown: the canonical name stored, the name shown. */
 export interface FpLayerChoice {
   /** `LSET::Name( layer )` — what `default_footprint_text_items` stores. */
   value: string;
-  /** `BOARD::GetLayerName`, which is the user name where a layer has one. */
+  /** `BOARD::GetStandardLayerName( layer )`, which with no frame is
+   *  `LayerName()`: `F.SilkS` shows as `F.Silkscreen`. */
   label: string;
   /** The layer's colour, for the swatch. */
   swatch: string;
 }
 
-const choiceOf = (l: (typeof FOOTPRINT_LAYERS)[number]): FpLayerChoice => ({
-  value: l.name,
-  label: l.userName ?? l.name,
-  swatch: layerColor(l.name),
-});
+const choiceOf = (id: number): FpLayerChoice => {
+  const name = LSET_Name(id);
+  return { value: name, label: LayerName(name), swatch: layerColor(name) };
+};
 
 /**
- * Every layer the frame's board has — `GRID_CELL_LAYER_SELECTOR( nullptr, {} )`,
- * an empty forbidden set, which is what Footprint Defaults passes
- * (`panel_fp_editor_field_defaults.cpp:199-201`).
+ * Every layer the selector has — `GRID_CELL_LAYER_SELECTOR( nullptr, {} )`, an
+ * empty forbidden set, which is what Footprint Defaults passes
+ * (`panel_fp_editor_field_defaults.cpp:189-201`).
  */
 export function allLayerChoices(): FpLayerChoice[] {
-  return FOOTPRINT_LAYERS.map(choiceOf);
+  return LayerSelectorUIOrder().map(choiceOf);
 }
 
 /**
  * The layers a User Layer Names row may name.
  *
  * `PANEL_FP_USER_LAYER_NAMES`' mask is built by exclusion
- * (`panel_fp_user_layer_names.cpp:157-161`):
+ * (`panel_fp_user_layer_names.cpp:160-164`):
  *
  *     LSET forbiddenLayers = LSET::AllCuMask() | LSET::AllTechMask();
  *     forbiddenLayers.set( Edge_Cuts );
@@ -61,42 +83,12 @@ export function allLayerChoices(): FpLayerChoice[] {
  *
  * `AllTechMask()` is the twelve F/B adhesive, paste, silkscreen, mask,
  * courtyard and fab layers (`common/lset.cpp`), so what is left is the four
- * `User.*` auxiliary layers — Drawings, Comments, Eco1, Eco2 — and the
- * numbered `User.n` ones. Those are exactly the layers `IsUserLayer` accepts
- * when the panel writes the row back (`:250-253`).
+ * `User.*` auxiliary layers — Drawings, Comments, Eco1, Eco2 — and all
+ * forty-five numbered `User.n` ones. Those are exactly the layers
+ * `IsUserLayer` accepts when the panel writes the row back (`:250-256`).
  */
 export function userLayerChoices(): FpLayerChoice[] {
-  return FOOTPRINT_LAYERS.filter(
-    (l) =>
-      l.kind !== 'signal' &&
-      !TECH_LAYERS.has(l.name) &&
-      l.name !== 'Edge.Cuts' &&
-      l.name !== 'Margin',
-  ).map(choiceOf);
-}
-
-/**
- * `LSET::AllTechMask()` by name — the twelve technical layers, which are the
- * F/B pairs of adhesive, paste, silkscreen, mask, courtyard and fab
- * (`common/lset.cpp`). Stated as names because that is what `FOOTPRINT_LAYERS`
- * is keyed by; the numeric mask has no other reader here. [data]
- */
-const TECH_LAYERS: ReadonlySet<string> = new Set([
-  'F.Adhes',
-  'B.Adhes',
-  'F.Paste',
-  'B.Paste',
-  'F.SilkS',
-  'B.SilkS',
-  'F.Mask',
-  'B.Mask',
-  'F.CrtYd',
-  'B.CrtYd',
-  'F.Fab',
-  'B.Fab',
-]);
-
-/** The label a stored canonical name shows as, or the name itself if unknown. */
-export function fpLayerLabel(canonical: string): string {
-  return FOOTPRINT_LAYERS.find((l) => l.name === canonical)?.userName ?? canonical;
+  return LayerSelectorUIOrder([...AllCuMask(MAX_CU_LAYERS), ...AllTechMask, Edge_Cuts, Margin]).map(
+    choiceOf,
+  );
 }

@@ -13249,10 +13249,31 @@ td.ze-fieldnames-bool {
 
 /* `SetColSize( 0, 240 )`, `SetColSize( 1, 60 )`, `SetColSize( 2, 150 )` and
    `SetRowLabelSize( 160 )` (`panel_fp_editor_field_defaults_base.cpp:36-52`).
-   Column 0 takes the slack, as every autosized first column does. */
+
+   Every one of them is STATED, so both grids are 610 px wide — 160 + 240 + 60
+   + 150 and 460 + 150, which is why KiCad's two grids line up with each other
+   — and the rest of the page is empty. That is what a wxGrid whose columns do
+   not fill its window looks like: the column-label band and the cell
+   backgrounds both stop where the last column does. `width: 100%` with column
+   0 taking the slack stretched the Value cell across the whole dialog and put
+   Layer against the right edge.
+
+   `table-layout: fixed` is `SetDefaultCellOverflow( false )` for a cell that
+   holds a CONTROL rather than text: the stated column widths are used as-is
+   and a combo whose longest entry is wide cannot push its column out. The
+   text-cell half of that is `.ze-grid td > .ze-grid-text`'s `max-width: 0`
+   above. */
+.ze-fp-fieldprops,
+.ze-fp-textitems {
+  width: 610px; /* [px] the columns above, added up. */
+  table-layout: fixed;
+}
 .ze-fp-fieldprops th:first-child,
 .ze-fp-fieldprops td:first-child {
   width: 160px; /* [px] SetRowLabelSize( 160 ) */
+}
+.ze-fp-fieldprops th:nth-child(2) {
+  width: 240px; /* [px] SetColSize( 0, 240 ) */
 }
 .ze-fp-fieldprops th:nth-child(3) {
   width: 60px; /* [px] SetColSize( 1, 60 ) */
@@ -13261,6 +13282,9 @@ td.ze-fieldnames-bool {
   width: 150px; /* [px] SetColSize( 2, 150 ) */
 }
 /* `SetColSize( 0, 460 )` and `SetColSize( 1, 150 )` (`:75-76`). */
+.ze-fp-textitems th:first-child {
+  width: 460px; /* [px] */
+}
 .ze-fp-textitems th:nth-child(2) {
   width: 150px; /* [px] */
 }

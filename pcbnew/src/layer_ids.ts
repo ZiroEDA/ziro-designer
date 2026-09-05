@@ -181,6 +181,74 @@ export const AllTechMask: readonly number[] = [
   F_Fab,
 ];
 
+/**
+ * `LSET::TechAndUserUIOrder()`'s explicit head (`common/lset.cpp:276-300`) —
+ * an `LSEQ::Seq()` over a written-out list, so this order is the file's own and
+ * not the ascending id order the tech mask above is in. B before F on adhesive,
+ * paste and silkscreen; F before B on courtyard and fab.
+ */
+export const TECH_AND_USER_UI_ORDER: readonly number[] = [
+  F_Adhes,
+  B_Adhes,
+  F_Paste,
+  B_Paste,
+  F_SilkS,
+  B_SilkS,
+  F_Mask,
+  B_Mask,
+  Dwgs_User,
+  Cmts_User,
+  Eco1_User,
+  Eco2_User,
+  Edge_Cuts,
+  Margin,
+  F_CrtYd,
+  B_CrtYd,
+  F_Fab,
+  B_Fab,
+];
+
+/**
+ * `User_1 … User_45` — the tail `TechAndUserUIOrder` appends by walking the
+ * non-copper (odd) ids and keeping every one `>= User_1` (`:303-307`).
+ *
+ * Forty-five of them, because `User_45` is 127 and `PCB_LAYER_ID_COUNT` is 128
+ * (`include/layer_ids.h:124-171`). `Rescue` is 37 and so falls below the test,
+ * which is why it is in the set a selector shows and never in its list.
+ */
+export const USER_DEFINED_LAYERS: readonly number[] = Array.from(
+  { length: (PCB_LAYER_ID_COUNT - 1 - User_1) / 2 + 1 },
+  (_, i) => User_1 + i * 2,
+);
+
+/**
+ * The layers a `PCB_LAYER_BOX_SELECTOR` lists, in the order it lists them —
+ * `Resync()` (`pcbnew/pcb_layer_box_selector.cpp:57-101`):
+ *
+ *     LSET show = ( LSET::AllCuMask() | LSET::AllNonCuMask() ) & ~m_layerMaskDisable;
+ *     for( PCB_LAYER_ID layerid : show.UIOrder() )
+ *
+ * with `UIOrder()` being `CuStack()` then `TechAndUserUIOrder()`
+ * (`common/lset.cpp:743-751`). `AllNonCuMask()` is every ODD id, so the set is
+ * the 32 copper layers plus all 64 odd ones, and what survives `UIOrder` is 95
+ * rows: F.Cu, In1…In30, B.Cu, the eighteen tech/user layers, then User.1…45.
+ *
+ * The rows are NOT filtered to a board's enabled layers here. That is
+ * `getEnabledLayers()`, which returns `LSET::AllLayersMask()` whenever the
+ * selector has no board frame (`:129-136`) — and every layer cell on the
+ * footprint editor's Preferences pages is built with `nullptr` for the frame
+ * (`panel_fp_editor_field_defaults.cpp:189-201`), so those show the lot.
+ *
+ * @param aNotAllowed `SetNotAllowedLayerSet( m_mask )` — the layers to leave
+ *   out, which is the only thing that differs between two such selectors.
+ */
+export function LayerSelectorUIOrder(aNotAllowed: Iterable<number> = []): number[] {
+  const off = new Set(aNotAllowed);
+  return [...AllCuMask(MAX_CU_LAYERS), ...TECH_AND_USER_UI_ORDER, ...USER_DEFINED_LAYERS].filter(
+    (id) => !off.has(id),
+  );
+}
+
 /** `LSET::UserMask()` (`common/lset.cpp:690-694`), ascending as above. */
 export const UserMask: readonly number[] = [
   Dwgs_User,

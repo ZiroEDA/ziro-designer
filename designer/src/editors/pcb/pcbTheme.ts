@@ -73,10 +73,12 @@ const PCB_LAYER_IDS = [
   'F_CrtYd',
   'B_Fab',
   'F_Fab',
-  // KiCad's themes carry User_1..User_45; we paint the nine the board editor
-  // currently exposes. Extending the list is a layer-set change, not a colour
-  // one — the shared table already has all 45.
-  ...Array.from({ length: 9 }, (_, i) => `User_${i + 1}`),
+  // All forty-five, as `color_settings.cpp:199-244` registers them. This is a
+  // lookup keyed by layer name, not a list of what gets painted, and the
+  // footprint editor's layer dropdowns offer every one of them
+  // (`PCB_LAYER_BOX_SELECTOR::getEnabledLayers` with no board frame) — so
+  // stopping at nine gave User.10 and up the grid colour in their swatch.
+  ...Array.from({ length: 45 }, (_, i) => `User_${i + 1}`),
 ] as (keyof typeof BUILTIN_DEFAULT_THEME)[];
 
 /** `F_Cu` → `F.Cu`, `User_1` → `User.1`. */
