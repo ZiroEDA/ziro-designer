@@ -127,6 +127,65 @@ describe('zone filler', () => {
     expect(1600 - filled).toBeLessThan(9.5);
   });
 
+  it('is knocked out by a barcode — by its BOX, not by its modules', () => {
+    // `zone_filler.cpp:1765-1770`:
+    //
+    //     case PCB_BARCODE_T:
+    //         barcode->GetBoundingHull( aHoles, aLayer, aGap, m_maxError, ERROR_OUTSIDE );
+    //
+    // `GetBoundingHull`, not `TransformShapeToPolygon`. Every other item hands
+    // the filler its own outline; a barcode hands it two RECTANGLES — one
+    // round the symbol, one round the text. Copper is kept out of the whole
+    // box rather than threaded between the modules, which is the only useful
+    // answer: a pour reaching into a QR code's light squares makes it
+    // unreadable, and the modules are not where the scanner looks anyway.
+    const bc = {
+      at: { x: MM(20), y: MM(20) },
+      angle: 0,
+      layer: 'F.Cu',
+      width: MM(8),
+      height: MM(8),
+      text: 'ZIRO',
+      textHeight: MM(1.27),
+      kind: 'qr' as const,
+      ecc: 'L' as const,
+      showText: false,
+      knockout: false,
+      margin: { x: 0, y: 0 },
+      source: EMPTY,
+    };
+    const filled = area(fillZone(board({ zones: [zone()], barcodes: [bc] }), 0)[0]!.polys);
+
+    // 8 x 8 mm plus 0.5 mm clearance each side is a 9 x 9 mm bite = 81 mm²,
+    // less a little at the rounded corners. A knockout that followed the
+    // MODULES would take roughly half of the 64 mm² — nowhere near this.
+    expect(1600 - filled).toBeGreaterThan(78);
+    expect(1600 - filled).toBeLessThan(81.1);
+  });
+
+  it('and only on its own layer', () => {
+    const bc = {
+      at: { x: MM(20), y: MM(20) },
+      angle: 0,
+      layer: 'B.Cu',
+      width: MM(8),
+      height: MM(8),
+      text: 'ZIRO',
+      textHeight: MM(1.27),
+      kind: 'qr' as const,
+      ecc: 'L' as const,
+      showText: false,
+      knockout: false,
+      margin: { x: 0, y: 0 },
+      source: EMPTY,
+    };
+
+    expect(area(fillZone(board({ zones: [zone()], barcodes: [bc] }), 0)[0]!.polys)).toBeCloseTo(
+      1600,
+      0,
+    );
+  });
+
   it('opens a thermal relief around its own pad and bridges back with spokes', () => {
     const b = board({
       zones: [zone()],

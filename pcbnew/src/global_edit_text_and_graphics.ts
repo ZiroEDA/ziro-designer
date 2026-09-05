@@ -82,6 +82,7 @@ import { atom, head, isList, list, str, type SList, type SNode } from '@ziroeda/
 import { boardItemId, dropChild, mm, patchChild } from './edit-board.js';
 import { isCopperLayerName } from './swap_layers.js';
 import type {
+  PcbBarcode,
   Board,
   DimPrecision,
   DimTextPosition,
@@ -325,6 +326,21 @@ export function styleTextFromSettings(
 export const styleShapeFromSettings = (s: PcbShape, d: TextGfxDefaultsIU): PcbShape => ({
   ...s,
   width: d[textGfxLayerClass(s.layer)].lineThickness,
+});
+
+/**
+ * `PCB_BARCODE::StyleFromSettings` (`pcb_barcode.cpp:318-321`): ONE line.
+ *
+ *     void PCB_BARCODE::StyleFromSettings( const BOARD_DESIGN_SETTINGS& settings, bool aCheckSide )
+ *     { SetTextSize( settings.GetTextSize( GetLayer() ).y ); }
+ *
+ * The layer class's text HEIGHT and nothing else — no width, no thickness, no
+ * italic, and `aCheckSide` is ignored. `SetTextSize` takes one int and squares
+ * it, so the human-readable line's two axes are always equal.
+ */
+export const styleBarcodeFromSettings = (b: PcbBarcode, d: TextGfxDefaultsIU): PcbBarcode => ({
+  ...b,
+  textHeight: d[textGfxLayerClass(b.layer)].textSize.y,
 });
 
 /**
@@ -739,6 +755,16 @@ function restitchTableCells(src: SList, cells: readonly PcbTableCell[]): SList {
 }
 
 /** A `PcbShape`'s node: layer and stroke width, keeping the stroke type. */
+/**
+ * A barcode's `(layer …)` and `(text_height …)` after a global edit — the only
+ * two children this dialog can change on one.
+ */
+function patchBarcodeSource(b: PcbBarcode): SList {
+  if (b.source.items.length === 0) return b.source;
+  const patched = patchChild(b.source, 'layer', list(atom('layer'), str(b.layer)));
+  return patchChild(patched, 'text_height', list(atom('text_height'), atom(mm(b.textHeight))));
+}
+
 function patchShapeSource(s: PcbShape): SList {
   if (!hasSource(s.source)) return s.source;
 
@@ -818,6 +844,7 @@ type EditableItem =
   | { shape: 'textbox'; item: PcbTextBox }
   | { shape: 'cell'; item: PcbTableCell }
   | { shape: 'shape'; item: PcbShape }
+  | { shape: 'barcode'; item: PcbBarcode }
   | { shape: 'dimension'; item: PcbDimension };
 
 /**
@@ -894,6 +921,8 @@ function processItem(
           shape: 'shape',
           item: styleShapeFromSettings(target.item, ctx.defaults),
         };
+      case 'barcode':
+        return { shape: 'barcode', item: styleBarcodeFromSettings(target.item, ctx.defaults) };
       case 'dimension':
         return {
           shape: 'dimension',
@@ -939,6 +968,33 @@ function processItem(
       // Width only — the stroke style is preserved.
       if (opts.lineWidth !== undefined) s = { ...s, width: opts.lineWidth };
       return { shape: 'shape', item: s };
+    }
+
+    case 'barcode': {
+      // `dialog_global_edit_text_and_graphics.cpp:426-432`:
+      //
+      //     if( barcode )
+      //     {
+      //         if( !m_textHeight.IsIndeterminate() )
+      //             barcode->SetTextSize( m_textHeight.GetIntValue() );
+      //         else if( !m_textWidth.IsIndeterminate() )
+      //             barcode->SetTextSize( m_textWidth.GetIntValue() );
+      //     }
+      //
+      // `else if`, not two assignments: the height wins, and the width is only
+      // consulted when the height was left indeterminate. `SetTextSize` takes
+      // ONE int and squares it, so whichever field answered sets both axes.
+      //
+      // Nothing else on the specified-values panel touches a barcode —
+      // thickness, bold, italic, keep-upright and visibility are all `text`'s,
+      // and the line width is `shape`'s.
+      let b = target.item;
+      if (opts.layer !== undefined) b = { ...b, layer: opts.layer };
+
+      if (opts.textHeight !== undefined) b = { ...b, textHeight: opts.textHeight };
+      else if (opts.textWidth !== undefined) b = { ...b, textHeight: opts.textWidth };
+
+      return { shape: 'barcode', item: b };
     }
 
     case 'dimension': {
@@ -1152,6 +1208,16 @@ function enumerate(board: Board, opts: GlobalTextGfxOptions): Visit[] {
           inFootprint: true,
         });
       });
+      // `else if( itemType == PCB_SHAPE_T || itemType == PCB_BARCODE_T )`
+      // (`dialog_global_edit_text_and_graphics.cpp:586`): a barcode moves with
+      // the Graphics checkbox, not with Text.
+      fp.barcodes.forEach((bc) => {
+        out.push({
+          target: { shape: 'barcode', item: bc },
+          ctxTarget: { id: null, layer: bc.layer, fp, uuid: bc.uuid, fpId },
+          inFootprint: true,
+        });
+      });
     }
   });
 
@@ -1226,6 +1292,18 @@ function enumerate(board: Board, opts: GlobalTextGfxOptions): Visit[] {
         inFootprint: false,
       });
     });
+    board.barcodes.forEach((bc, i) => {
+      out.push({
+        target: { shape: 'barcode', item: bc },
+        ctxTarget: {
+          id: boardItemId('barcode', i),
+          layer: bc.layer,
+          fp: null,
+          uuid: bc.uuid,
+        },
+        inFootprint: false,
+      });
+    });
   }
 
   return out;
@@ -1262,6 +1340,11 @@ function withPatchedSource(
       return {
         shape: 'shape',
         item: { ...after.item, source: patchShapeSource(after.item) },
+      };
+    case 'barcode':
+      return {
+        shape: 'barcode',
+        item: { ...after.item, source: patchBarcodeSource(after.item) },
       };
     case 'dimension':
       return {

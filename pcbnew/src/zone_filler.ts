@@ -39,6 +39,7 @@ import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { padShapes } from './drc/drc_engine.js';
 import type { Shape } from './drc/drc_geometry.js';
 import { tessellateArc } from './read-board.js';
+import { barcodeGeometry, barcodeHullBoxes } from './barcode_geometry.js';
 import type { Board, PadPrimitive, PcbPad, PcbZone, PcbZoneFill } from './types.js';
 
 /** BOARD_DESIGN_SETTINGS::m_MaxError, the arc approximation limit (0.005 mm). */
@@ -370,6 +371,41 @@ export function fillZone(
         ...shapeToPolygon({ kind: 'poly', pts: other.outline, r: 0 }, gapTo(other.net), maxError),
       );
     });
+
+    // A barcode on this layer knocks the pour out — `ZONE_FILLER::…`'s
+    // `case PCB_BARCODE_T` (`zone_filler.cpp:1765-1770`):
+    //
+    //     barcode->GetBoundingHull( aHoles, aLayer, aGap, m_maxError, ERROR_OUTSIDE );
+    //
+    // `GetBoundingHull`, NOT `TransformShapeToPolygon`. Every other item hands
+    // the filler its own outline; a barcode hands it two RECTANGLES, one round
+    // the symbol and one round the text. So copper is kept out of the whole
+    // box rather than threaded between the modules — which is the only useful
+    // answer, since a pour reaching into a QR code's light squares would make
+    // it unreadable.
+    for (const bc of [...board.barcodes, ...board.footprints.flatMap((f) => f.barcodes)]) {
+      if (bc.layer !== layer) continue;
+
+      const g = barcodeGeometry(bc);
+      for (const hull of barcodeHullBoxes(g, bc)) {
+        holes.push(
+          ...shapeToPolygon(
+            {
+              kind: 'poly',
+              pts: [
+                { x: hull.x1, y: hull.y1 },
+                { x: hull.x2, y: hull.y1 },
+                { x: hull.x2, y: hull.y2 },
+                { x: hull.x1, y: hull.y2 },
+              ],
+              r: 0,
+            },
+            gapTo(0),
+            maxError,
+          ),
+        );
+      }
+    }
 
     let area: MultiPolygon =
       holes.length === 0
