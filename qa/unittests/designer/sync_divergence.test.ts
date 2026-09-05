@@ -5,9 +5,16 @@
  * The naming of a preserved copy, and the rule that decides when one is made
  * (#367).
  *
- * Reconciliation is last-write-wins on `updatedAt`, so a pull overwrites the
- * local record wholesale. Fine when the local side has not changed since it
- * last agreed with the cloud; a day's work when it has.
+ * A pull overwrites the local record wholesale, which is fine when the local
+ * side has not changed since it last agreed with the cloud and a day's work
+ * when it has. Preserving it as a copy is what that bought.
+ *
+ * The copy is no longer made by the sync, though: a project that changed on
+ * both sides is reported and neither side is touched, because the decision is
+ * not the sync's to make and making it silently put duplicates of somebody's
+ * board in Open Project. `keepBoth` still makes exactly this copy with exactly
+ * this name -- the difference is that somebody chose it. See
+ * `sync_no_auto_copy.test.ts`.
  */
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';

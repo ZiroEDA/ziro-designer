@@ -75,8 +75,34 @@ import {
 /** Progress callback: `done` of `total` transfers finished so far. */
 export type SyncProgress = (done: number, total: number) => void;
 
-/** What one transfer turned out to be. A pull can become a repair. */
-type Outcome = 'pushed' | 'pulled' | 'healed';
+/**
+ * What one transfer turned out to be. A pull can become a repair, or stop
+ * short and ask.
+ */
+type Outcome = 'pushed' | 'pulled' | 'healed' | 'conflict';
+
+/**
+ * A project that changed on both sides, reported rather than resolved.
+ *
+ * This used to be resolved here, by forking the local copy aside as
+ * "<name> (local copy, <date>)" and then pulling. It was additive and lost
+ * nothing, which is why it was built that way -- but it is a decision the sync
+ * has no business making, and it makes it silently, and the user then finds
+ * duplicates of their board in Open Project with no idea where they came from.
+ * Which is exactly what happened.
+ *
+ * So nothing is copied and nothing is overwritten. The pull stops, the fact is
+ * reported, and the two resolutions are things a person chooses:
+ * `keepMine` or `keepBoth`. There is deliberately no "take the cloud's and
+ * discard mine" -- that is the one outcome that destroys work, and it is not
+ * something to offer as a button on a status pill.
+ */
+export interface SyncConflict {
+  /** The key the local copy is filed under, which is what a resolution needs. */
+  localId: string;
+  /** For the sentence shown to the user. */
+  name: string;
+}
 
 /**
  * A cloud copy that is damaged beyond any recovery this app can perform: its
@@ -107,6 +133,11 @@ export interface SyncResult {
    * it is worth telling the user that a broken copy in their account was fixed.
    */
   healed: number;
+  /**
+   * Projects that changed on both sides. Neither copy has been touched; see
+   * {@link SyncConflict}.
+   */
+  conflicts: SyncConflict[];
   /** One entry per project that failed. Empty means everything landed. */
   failures: {
     id: string;
@@ -143,7 +174,7 @@ export async function syncAllProjects(
   userId: string,
   onProgress?: SyncProgress,
 ): Promise<SyncResult> {
-  const result: SyncResult = { pushed: 0, pulled: 0, healed: 0, failures: [] };
+  const result: SyncResult = { pushed: 0, pulled: 0, healed: 0, conflicts: [], failures: [] };
   if (!cloudBackendInstalled()) return result;
 
   const [localMeta, cloudMeta, roles] = await Promise.all([
@@ -201,7 +232,9 @@ export async function syncAllProjects(
         (outcome) => {
           if (outcome === 'pushed') result.pushed++;
           else if (outcome === 'pulled') result.pulled++;
-          else result.healed++;
+          else if (outcome === 'healed') result.healed++;
+          // A conflict is counted by `pendingConflicts` below, which knows the
+          // project's name; there is nothing to add here.
           tick();
         },
         (e) => {
@@ -263,7 +296,7 @@ export async function syncAllProjects(
     } else {
       // The cloud has moved since this copy last agreed with it. Pull;
       // `pullOne` forks the local copy aside if it also changed.
-      track(here.id, 'pull', pullOne(userId, ref));
+      track(here.id, 'pull', pullOne(userId, ref, result.conflicts));
     }
   }
 
@@ -279,13 +312,17 @@ export async function syncAllProjects(
     track(
       localId,
       'pull',
-      pullOne(userId, {
-        localId,
-        remoteId: there.id,
-        ...(there.uid ? { uid: there.uid } : {}),
-        ...(there.ownerId ? { ownerId: there.ownerId } : {}),
-        role,
-      }),
+      pullOne(
+        userId,
+        {
+          localId,
+          remoteId: there.id,
+          ...(there.uid ? { uid: there.uid } : {}),
+          ...(there.ownerId ? { ownerId: there.ownerId } : {}),
+          role,
+        },
+        result.conflicts,
+      ),
     );
   }
 
@@ -419,13 +456,40 @@ async function pushOne(userId: string, id: string, base?: number): Promise<Outco
  * and throws on any that is missing or corrupt, so a partial fetch cannot reach
  * `importProject` disguised as a complete one.
  */
-async function pullOne(userId: string, ref: ProjectRef): Promise<Outcome> {
+async function pullOne(
+  userId: string,
+  ref: ProjectRef,
+  /** Where a both-sides-changed project is reported instead of resolved. */
+  conflicts?: SyncConflict[],
+): Promise<Outcome> {
+  try {
+    // Asked BEFORE the files are fetched. A conflict needs the project's name
+    // and nothing else, and `cloudGet` downloads every blob -- so checking
+    // afterwards paid for a whole project to decide not to use it.
+    if (await hasDivergedLocally(ref.localId)) {
+      const row = await cloudGetRow(ref.remoteId, ref.uid);
+      conflicts?.push({ localId: ref.localId, name: row?.name ?? ref.localId });
+      // Neither side touched. See `SyncConflict`.
+      return 'conflict';
+    }
+    return await takeCloudCopy(userId, ref);
+  } catch (e) {
+    return await repairUnreadable(userId, ref, e);
+  }
+}
+
+/**
+ * Take the cloud's copy, without asking whether that is the right thing to do.
+ *
+ * Separate from {@link pullOne} because an explicit resolution has already
+ * settled that question -- and calling `pullOne` after setting the local copy
+ * aside would find the original still diverged and report the same conflict
+ * again.
+ */
+async function takeCloudCopy(userId: string, ref: ProjectRef): Promise<Outcome> {
   try {
     const p = await cloudGet(ref.remoteId, ref.uid);
     if (!p) return 'pulled';
-    if (await hasDivergedLocally(ref.localId)) {
-      await forkLocalCopy(ref.localId, localCopyName(p.name, new Date()));
-    }
     // Filed under the local key, which for a shared project is not the id the
     // row carries -- `cloudGet` reports the row's identity and leaves the
     // filing decision here, because only this side knows what is already taken.
@@ -434,6 +498,57 @@ async function pullOne(userId: string, ref: ProjectRef): Promise<Outcome> {
   } catch (e) {
     return await repairUnreadable(userId, ref, e);
   }
+}
+
+/**
+ * The ref for a local copy, read back from its own record.
+ *
+ * Everything a transfer needs to name the cloud row is on the record, and for a
+ * shared project none of it is the local key -- so a caller holding only that
+ * key cannot assume anything and has to ask.
+ */
+async function refFor(localId: string): Promise<ProjectRef | null> {
+  const p = await exportManifest(localId);
+  if (!p) return null;
+  return {
+    localId,
+    remoteId: p.cloudId ?? localId,
+    ...(p.cloudUid ? { uid: p.cloudUid } : {}),
+    ...(p.cloudOwnerId ? { ownerId: p.cloudOwnerId } : {}),
+    role: p.cloudRole ?? 'owner',
+  };
+}
+
+/**
+ * Resolve a conflict by keeping this machine's copy: push it over whatever the
+ * cloud is at now.
+ *
+ * The base comes from the row as it stands rather than from the local record,
+ * whose own base is stale by definition -- that is what the conflict was.
+ */
+export async function resolveKeepMine(userId: string, localId: string): Promise<void> {
+  if (!cloudBackendInstalled()) return;
+  const ref = await refFor(localId);
+  if (!ref) return;
+  const row = await cloudGetRow(ref.remoteId, ref.uid);
+  await pushOne(userId, localId, row ? Number(row.version ?? 1) : 0);
+}
+
+/**
+ * Resolve a conflict by keeping both: this machine's copy becomes a project of
+ * its own, and the cloud's is then taken.
+ *
+ * The same thing the sync used to do by itself, and the entire difference is
+ * that somebody asked for it. A copy nobody asked for is a duplicate; a copy
+ * somebody chose is a copy.
+ */
+export async function resolveKeepBoth(userId: string, localId: string): Promise<void> {
+  if (!cloudBackendInstalled()) return;
+  const ref = await refFor(localId);
+  if (!ref) return;
+  const row = await cloudGetRow(ref.remoteId, ref.uid);
+  await forkLocalCopy(localId, localCopyName(row?.name ?? localId, new Date()));
+  await takeCloudCopy(userId, ref);
 }
 
 /**

@@ -32,7 +32,10 @@ import {
   pushProject,
   deleteCloudProject,
   forgetDamagedProject,
+  resolveKeepBoth,
+  resolveKeepMine,
 } from '../cloud/sync.js';
+import type { SyncConflict } from '../cloud/sync.js';
 import type { SyncResult } from '../cloud/sync.js';
 import { cloudBackend, syncTemplates as syncUserTemplates } from '../cloud/cloudStore.js';
 import {
@@ -656,6 +659,43 @@ export function HomePage({
    * intact version: it cannot be downloaded by this or any other client, and
    * keeping it costs the user the same error on every sign-in.
    */
+  /**
+   * Act on every conflict the pass reported, the way the person asked.
+   *
+   * One choice for all of them rather than one each: they arise together, from
+   * one sync, and asking twice about the same decision is worse than assuming
+   * it. Neither branch destroys anything -- `mine` pushes over the cloud,
+   * `both` sets this machine's copy aside as its own project first.
+   */
+  const resolveConflicts = async (
+    conflicts: SyncConflict[],
+    how: 'mine' | 'both',
+  ): Promise<void> => {
+    if (!userId) return;
+    setSyncState({ done: 0, total: conflicts.length });
+    const failures: SyncFailure[] = [];
+    for (const [i, c] of conflicts.entries()) {
+      try {
+        if (how === 'mine') await resolveKeepMine(userId, c.localId);
+        else await resolveKeepBoth(userId, c.localId);
+      } catch (e) {
+        failures.push({
+          id: c.localId,
+          direction: how === 'mine' ? 'push' : 'pull',
+          message: e instanceof Error ? e.message : String(e),
+        });
+      }
+      setSyncState({ done: i + 1, total: conflicts.length });
+    }
+    refreshSaved();
+    if (failures.length > 0) {
+      setSyncState({ failures });
+      return;
+    }
+    setSyncState({ healed: 0 });
+    setTimeout(() => setSyncState(null), 2500);
+  };
+
   const removeUnrecoverable = async (failures: SyncFailure[]): Promise<void> => {
     const doomed = failures.filter((f) => f.unrecoverable);
     if (doomed.length === 0) return;
@@ -817,7 +857,11 @@ export function HomePage({
   // Cloud sync status pill (non-blocking, bottom-right): transfers done/total
   // while projects reconcile on sign-in, then a brief "synced" confirmation.
   const [syncState, setSyncState] = useState<
-    { done: number; total: number } | { failures: SyncFailure[] } | { healed: number } | null
+    | { done: number; total: number }
+    | { failures: SyncFailure[] }
+    | { healed: number }
+    | { conflicts: SyncConflict[] }
+    | null
   >(null);
   // What became of a share link the reader followed. Null when they did not
   // follow one, which is nearly always.
@@ -919,7 +963,8 @@ export function HomePage({
         // whole reconcile for a session that is no longer current is work
         // nobody asked for. The empty result falls straight through the
         // `cancelled` guard below.
-        if (cancelled) return { pushed: 0, pulled: 0, healed: 0, failures: [] } as SyncResult;
+        if (cancelled)
+          return { pushed: 0, pulled: 0, healed: 0, conflicts: [], failures: [] } as SyncResult;
         return syncAllProjects(userId, (done, total) => {
           // Refresh the list as projects land so pulled ones appear immediately,
           // not only after the whole reconcile finishes.
@@ -959,6 +1004,14 @@ export function HomePage({
         if (r.failures.length > 0) {
           for (const f of r.failures) console.warn(`Cloud ${f.direction} failed:`, f.message);
           setSyncState({ failures: r.failures });
+          return;
+        }
+        // A project that changed on both sides is waiting on a person, so it
+        // outranks the success tick and does not fade: nothing has been copied
+        // and nothing overwritten, and until it is resolved that project is not
+        // syncing at all.
+        if (r.conflicts.length > 0) {
+          setSyncState({ conflicts: r.conflicts });
           return;
         }
         // `healed` is a repair, not a save: a cloud copy that could not be
@@ -2212,10 +2265,37 @@ export function HomePage({
       {syncState && (
         <div
           className={`ze-sync-pill${'healed' in syncState ? ' done' : ''}${
-            'failures' in syncState ? ' failed' : ''
+            'failures' in syncState || 'conflicts' in syncState ? ' failed' : ''
           }`}
         >
-          {'healed' in syncState ? (
+          {'conflicts' in syncState ? (
+            <>
+              <span>
+                {syncState.conflicts.length === 1
+                  ? `"${syncState.conflicts[0]!.name}" changed here and on another device.`
+                  : `${syncState.conflicts.length} projects changed here and on another device.`}{' '}
+                Nothing has been changed or copied.
+              </span>
+              {/* Two choices, and neither destroys anything. There is
+                  deliberately no "take the cloud's and discard mine": that is
+                  the one outcome that loses work, and a status pill is not
+                  where it belongs. */}
+              <button
+                type="button"
+                className="ze-sync-dismiss"
+                onClick={() => void resolveConflicts(syncState.conflicts, 'mine')}
+              >
+                Keep mine
+              </button>
+              <button
+                type="button"
+                className="ze-sync-dismiss"
+                onClick={() => void resolveConflicts(syncState.conflicts, 'both')}
+              >
+                Keep both
+              </button>
+            </>
+          ) : 'healed' in syncState ? (
             <>
               ✓ Projects synced
               {syncState.healed > 0 &&

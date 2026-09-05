@@ -44,7 +44,7 @@ import {
   setCloudBackend,
   StaleBaseError,
 } from '@ziroeda/designer/src/cloud/cloudStore.js';
-import { syncAllProjects } from '@ziroeda/designer/src/cloud/sync.js';
+import { resolveKeepBoth, syncAllProjects } from '@ziroeda/designer/src/cloud/sync.js';
 import type { CloudBackend, ProjectRow } from '@ziroeda/designer/src/cloud/backend.js';
 
 const USER = 'user-1';
@@ -241,9 +241,15 @@ describe('a clock says nothing about who is right', () => {
   it('does not overwrite a newer row from a machine whose clock is an hour ahead', async () => {
     // The reported failure, as a test. Both sides changed, and the local one
     // carries the later timestamp — under last-write-wins that alone decided
-    // it, and the cloud's real work was overwritten. Here the version decides:
-    // this copy's base is behind, so it pulls, and its own edit is preserved as
-    // a fork rather than by destroying the other side.
+    // it, and the cloud's real work was overwritten. Here the version decides,
+    // and because both sides moved it decides to do NOTHING and say so: the
+    // other machine's commit stands and this machine's edit stays where it is.
+    //
+    // This used to assert `pulled === 1` and a "(local copy)" fork. Both were
+    // the old mechanism rather than the intent — the sync no longer copies
+    // anything on its own, because a decision made silently put duplicates in
+    // people's Open Project. The intent is unchanged and is asserted below:
+    // the future timestamp buys nothing, and no work is lost either way.
     const id = await synced('Amp', 'ORIGINAL');
 
     // The other machine commits the work that matters. The row moves to 2.
@@ -261,15 +267,23 @@ describe('a clock says nothing about who is right', () => {
 
     const result = await syncAllProjects(USER);
 
-    // It pulled. The future timestamp bought nothing, and the other machine's
-    // commit is still what the account holds.
+    // Neither side written. The future timestamp bought nothing: the account
+    // still holds the other machine's commit, at the version it committed.
     expect(result.pushed).toBe(0);
-    expect(result.pulled).toBe(1);
+    expect(result.pulled).toBe(0);
     expect(backend.rows.get(id)!.version).toBe(2);
     expect(result.failures).toEqual([]);
+    expect(result.conflicts.map((c) => c.localId)).toEqual([id]);
 
-    // And the local edit was not simply discarded: a genuine conflict is kept
-    // aside, which is the one case a "(local copy)" is supposed to appear in.
+    // And this machine's edit is still this machine's project -- not discarded,
+    // and not moved into a copy nobody asked for.
+    expect((await listProjects()).filter((p) => p.name.includes('local copy'))).toHaveLength(0);
+    const mine = await loadProject(id);
+    expect(read(mine!.files[0]!.bytes)).toBe('LOCAL-EDIT');
+
+    // Choosing to keep both is what produces the copy, with the same name it
+    // always had.
+    await resolveKeepBoth(USER, id);
     const copies = (await listProjects()).filter((p) => p.name.includes('local copy'));
     expect(copies).toHaveLength(1);
     const kept = await loadProject(copies[0]!.id);
