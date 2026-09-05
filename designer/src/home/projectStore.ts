@@ -489,14 +489,38 @@ export async function saveProject(
 /**
  * A project's identity, minted where the project is made.
  *
- * `crypto.randomUUID` where the browser has it -- every browser this app
- * supports does, and `browser_support.ts` gates the ones that do not -- with a
- * v4-shaped fallback so a context without it still produces something Postgres
- * will accept in a `uuid` column rather than failing the whole sync.
+ * A v4 uuid is 122 random bits, so two clients choosing the same one is not a
+ * risk worth designing around -- a one-in-a-billion chance of any collision
+ * needs on the order of 10^15 of them. And it is not relied on either: `uid` is
+ * the primary key, so a duplicate row is impossible and the second insert is
+ * refused, which the caller already reads as "you are stale, pull first".
+ *
+ * The three rungs matter, because the top one is not always there.
+ * `crypto.randomUUID` exists only in a SECURE CONTEXT -- https, or localhost --
+ * so it is simply undefined when the app is served over plain http on a LAN
+ * address, which is exactly how somebody tries it on another machine on their
+ * desk. `getRandomValues` has no such restriction and is the same CSPRNG, so it
+ * is the rung that carries that case.
+ *
+ * `Math.random()` is last and is a real step down: it is not a CSPRNG, and
+ * nothing promises two tabs are seeded differently. It is here so that a
+ * context with no crypto at all still produces something Postgres accepts in a
+ * `uuid` column, rather than failing every sync -- not because its numbers are
+ * good enough to depend on.
  */
 function newCloudUid(): string {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID();
+  if (typeof crypto !== 'undefined') {
+    if (typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+    if (typeof crypto.getRandomValues === 'function') {
+      const b = crypto.getRandomValues(new Uint8Array(16));
+      // RFC 4122: version 4 in the high nibble of byte 6, variant 10x in the
+      // top bits of byte 8. Without these it is a random string that happens to
+      // be uuid-shaped, and Postgres would take it -- but it would not be a v4.
+      b[6] = (b[6]! & 0x0f) | 0x40;
+      b[8] = (b[8]! & 0x3f) | 0x80;
+      const hex = [...b].map((n) => n.toString(16).padStart(2, '0')).join('');
+      return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+    }
   }
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
     const r = Math.trunc(Math.random() * 16);
