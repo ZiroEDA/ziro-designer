@@ -58,6 +58,8 @@ import {
   localCopyName,
   markSynced,
 } from '../home/projectStore.js';
+import { isManifestEntry, type ProjectRow } from './backend.js';
+import type { SyncableProject } from '../home/projectStore.js';
 import {
   cloudBackendInstalled,
   cloudDelete,
@@ -468,6 +470,25 @@ async function pullOne(
     // afterwards paid for a whole project to decide not to use it.
     if (await hasDivergedLocally(ref.localId)) {
       const row = await cloudGetRow(ref.remoteId, ref.uid);
+      // "Diverged" means the files differ from the ones the two sides last
+      // AGREED on -- which is not the same as differing from what the cloud
+      // holds now. Both sides can have moved to the same place: the same edit
+      // made twice, a rename round-tripped, a push whose reply was lost and
+      // then repeated. Asking somebody to choose between two identical copies
+      // is the worst version of asking at all, so the manifests are compared
+      // first and the answer is simply recorded.
+      //
+      // Free: the row was already fetched for its name, and it carries the
+      // hashes.
+      const mine = await exportManifest(ref.localId);
+      if (row && mine && sameContent(row, mine)) {
+        await markSynced(
+          ref.localId,
+          mine.files.map((f) => f.hash!),
+          Number(row.version ?? 1),
+        );
+        return 'pulled';
+      }
       conflicts?.push({ localId: ref.localId, name: row?.name ?? ref.localId });
       // Neither side touched. See `SyncConflict`.
       return 'conflict';
@@ -476,6 +497,27 @@ async function pullOne(
   } catch (e) {
     return await repairUnreadable(userId, ref, e);
   }
+}
+
+/**
+ * Whether a cloud row and a local copy hold the same files.
+ *
+ * By content, since that is the only thing that decides whether there is
+ * anything to reconcile. A legacy row that names no hashes cannot be compared
+ * this way and is reported as a conflict rather than guessed at -- being wrong
+ * here means overwriting one side.
+ */
+function sameContent(row: ProjectRow, local: SyncableProject): boolean {
+  const theirs = (row.files ?? []).filter(isManifestEntry);
+  if (theirs.length !== (row.files ?? []).length) return false;
+  const mine = local.files.map((f) => f.hash).filter((h): h is string => !!h);
+  if (mine.length !== local.files.length) return false;
+  if (theirs.length !== mine.length) return false;
+  // A project cannot hold two files of the same name, so the multiset of
+  // hashes is the whole comparison and order is not part of it.
+  const a = [...theirs.map((f) => f.hash)].sort();
+  const b = [...mine].sort();
+  return a.every((h, i) => h === b[i]);
 }
 
 /**

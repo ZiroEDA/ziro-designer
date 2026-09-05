@@ -167,6 +167,101 @@ describe('a project that changed on both sides', () => {
   });
 });
 
+describe('a project that only looks diverged', () => {
+  it('is not a conflict when both sides hold the same files', async () => {
+    // "Diverged" means the files differ from the ones the two sides last
+    // AGREED on -- not from what the cloud holds now. Both can have moved to
+    // the same place: the same edit made twice, a rename round-tripped, a push
+    // whose reply was lost and repeated. Asking somebody to choose between two
+    // identical copies is the worst version of asking at all.
+    const id = await saveProject('Amp', [{ name: 'Amp.kicad_sch', bytes: text('ORIGINAL') }]);
+    const { manifest, version } = await cloudUpsert(USER, (await exportManifest(id))!);
+    await markSynced(
+      id,
+      manifest.map((m) => m.hash),
+      version,
+    );
+
+    // The other device commits a real change, and this one happens to make the
+    // very same change without pushing.
+    const edited = [{ name: 'Amp.kicad_sch', bytes: text('SAME EDIT') }];
+    await updateProjectFiles(id, edited);
+    const pushedByOther = (await exportManifest(id))!;
+    const row = [...backend.rows.values()][0]!;
+    backend.rows.set(row.id, {
+      ...row,
+      files: pushedByOther.files.map((f) => ({ name: f.name, hash: f.hash!, size: f.size! })),
+      version: (row.version ?? 1) + 1,
+    });
+    // Local is now "diverged" from the agreed point, and identical to the cloud.
+    expect(await hasDivergedLocally(id)).toBe(true);
+
+    const r = await syncAllProjects(USER);
+
+    expect(r.conflicts).toEqual([]);
+    expect(r.failures).toEqual([]);
+    // And it is recorded as agreed, so it does not ask again on every sync.
+    expect(await hasDivergedLocally(id)).toBe(false);
+  });
+
+  it('does not guess about a legacy row that names no hashes', async () => {
+    // The oldest cloud rows list file NAMES only. There is nothing to compare,
+    // and being wrong here means overwriting one side, so it is reported rather
+    // than assumed identical.
+    const id = await saveProject('Amp', [{ name: 'Amp.kicad_sch', bytes: text('ORIGINAL') }]);
+    const { manifest, version } = await cloudUpsert(USER, (await exportManifest(id))!);
+    await markSynced(
+      id,
+      manifest.map((m) => m.hash),
+      version,
+    );
+    const row = [...backend.rows.values()][0]!;
+    backend.rows.set(row.id, {
+      ...row,
+      // A row in the oldest shape: names, no hashes.
+      files: [{ name: 'Amp.kicad_sch' }],
+      version: (row.version ?? 1) + 1,
+    });
+    await updateProjectFiles(id, [{ name: 'Amp.kicad_sch', bytes: text('MY EDIT') }]);
+
+    expect((await syncAllProjects(USER)).conflicts.map((c) => c.localId)).toEqual([id]);
+  });
+
+  it('does not guess about a row where only SOME files carry a hash', async () => {
+    // The case an all-legacy row cannot reach, and the one the guard is
+    // actually for: a row that is part-migrated. Counting only the addressable
+    // entries makes two files look like one, so a comparison that stopped at
+    // lengths would call a project identical to a copy missing a file from it.
+    const id = await saveProject('Amp', [{ name: 'Amp.kicad_sch', bytes: text('ORIGINAL') }]);
+    const { manifest, version } = await cloudUpsert(USER, (await exportManifest(id))!);
+    await markSynced(
+      id,
+      manifest.map((m) => m.hash),
+      version,
+    );
+    const row = [...backend.rows.values()][0]!;
+    const mine = (await exportManifest(id))!;
+    backend.rows.set(row.id, {
+      ...row,
+      files: [
+        // The one file this machine has, byte for byte...
+        { name: 'Amp.kicad_sch', hash: mine.files[0]!.hash!, size: mine.files[0]!.size! },
+        // ...and one it does not, in the old shape so it carries no hash.
+        { name: 'Amp.kicad_pcb' },
+      ],
+      version: (row.version ?? 1) + 1,
+    });
+    // Diverged, without changing the file -- so the hashed entry still matches
+    // this machine's copy exactly and the ONLY thing that can tell the two
+    // apart is the file the row has and this machine does not. Contrived on
+    // purpose: any edit here would make the hashes differ and the comparison
+    // would refuse for the ordinary reason instead of this one.
+    await markSynced(id, ['a-hash-this-project-no-longer-has'], Number(row.version ?? 1));
+
+    expect((await syncAllProjects(USER)).conflicts.map((c) => c.localId)).toEqual([id]);
+  });
+});
+
 describe('resolving it', () => {
   it('"keep mine" pushes over the cloud, and still makes no copy', async () => {
     const id = await bothSidesChanged();
