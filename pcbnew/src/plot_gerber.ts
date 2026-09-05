@@ -15,7 +15,7 @@
  * not yet plotted (KiCad strokes glyphs; staged).
  */
 
-import type { Board, PcbPad, PcbShape } from './types.js';
+import type { Board, PcbBarcode, PcbPad, PcbShape } from './types.js';
 import { pcbIuToMM as iuToMM, pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 import {
   GENERATOR_APPLICATION,
@@ -24,6 +24,7 @@ import {
 } from '@ziroeda/common/src/generator.js';
 import { childNamed, numArg } from '@ziroeda/sexpr/src/query.js';
 import { tessellateArc, rotatePcb } from './read-board.js';
+import { barcodeGeometry } from './barcode_geometry.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
 /** Fractional digits for the 4.x format; the dialog offers 4.5 / 4.6. */
@@ -220,6 +221,16 @@ export function plotGerberLayer(board: Board, layer: string, opts: GerberPlotOpt
     }
   };
 
+  /**
+   * A barcode: one filled region per ring of `m_poly`, on its own layer.
+   * `TransformShapeToPolySet` returns early when the layer does not match,
+   * which is the `layer` test here.
+   */
+  const barcodePlot = (bc: PcbBarcode): void => {
+    if (bc.layer !== layer) return;
+    for (const rings of barcodeGeometry(bc).poly) for (const ring of rings) region(ring);
+  };
+
   if (/\.Cu$/.test(layer)) {
     for (const t of board.tracks) if (t.layer === layer) stroke([t.start, t.end], t.width);
     for (const a of board.arcs)
@@ -234,6 +245,13 @@ export function plotGerberLayer(board: Board, layer: string, opts: GerberPlotOpt
     for (const s of fp.shapes) shapePlot(s);
   }
   for (const s of board.shapes) shapePlot(s);
+  // `BRDITEMS_PLOTTER::PlotBarCode` (`plot_brditems_plotter.cpp:1188-1204`):
+  // the assembled polygon plotted as a `SHAPE_T::POLY` with
+  // `FILL_T::FILLED_SHAPE` and width 0 — "to avoid duplicate code, build a
+  // PCB_SHAPE to plot the polygon shape". A barcode that did not reach the
+  // plotter would be on the board and missing from the film.
+  for (const bc of board.barcodes) barcodePlot(bc);
+  for (const fp of board.footprints) for (const bc of fp.barcodes) barcodePlot(bc);
 
   const date = opts.creationDate ?? '';
   // X2 puts the file attributes in %TF blocks; X1 keeps the same information as

@@ -39,6 +39,8 @@ import {
   correctEccForKind,
 } from '@ziroeda/pcbnew/src/barcode_properties.js';
 import { encodeBarcode } from '@ziroeda/pcbnew/src/barcode/zint.js';
+import { bestSnapAnchor } from '@ziroeda/pcbnew/src/pcb_cursor_snap.js';
+import { boardEditHandles, dragBoardHandle } from '@ziroeda/pcbnew/src/point_editor.js';
 import { pcbBarcodeMsgPanelInfo } from '@ziroeda/pcbnew/src/msg_panel.js';
 import { pcbPropertiesFor } from '@ziroeda/pcbnew/src/properties_panel.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
@@ -135,8 +137,24 @@ describe('the human-readable line', () => {
 
     expect(hidden.h).toBe(MM(8));
     expect(shown.h).toBeGreaterThan(hidden.h);
-    // The gap plus the glyphs, and nothing above the symbol.
-    expect(shown.h).toBeGreaterThan(MM(8) + MM(1));
+    // …and nothing is added above the symbol: the whole growth is below.
+    expect(barcodeGeometry(bc({ showText: true })).bbox.y1).toBe(
+      barcodeGeometry(bc({ showText: false })).bbox.y1,
+    );
+  });
+
+  it('sits exactly 1 mm below the symbol, not flush against it', () => {
+    // `textPos.y = symbolBBox.GetBottom() - textBBox.GetTop() + textOffset`
+    // with `textOffset = pcbIUScale.mmToIU( 1 )` (`pcb_barcode.cpp:398-401`).
+    //
+    // Measuring the total height cannot see this: the glyphs are ~1.3 mm tall
+    // on their own, so a barcode with no gap at all is still taller than one
+    // with the text hidden. The gap has to be measured directly.
+    const g = barcodeGeometry(bc({ showText: true }));
+    const symbolBottom = barcodeGeometry(bc({ showText: false })).bbox.y2;
+    const textTop = Math.min(...g.textPoly.flat(2).map((p) => p.y));
+
+    expect(textTop - symbolBottom).toBe(MM(1));
   });
 
   it('is centred on the symbol', () => {
@@ -518,5 +536,115 @@ describe('the Properties panel', () => {
     const after = row.set!('MICRO_QR_CODE')!;
 
     expect(after.barcodes[0]!.ecc).toBe('Q');
+  });
+});
+
+describe('as a snap anchor', () => {
+  // `computeAnchors`, `case PCB_BARCODE_T` (`pcb_grid_helper.cpp:1915-1928`):
+  // the item's own position as a centre anchor, then `addRectPoints` over the
+  // SYMBOL polygon's bounding box — nine more, the corners, the edge midpoints
+  // and the box centre.
+  //
+  // The grid is disabled so `bestSnapAnchor`'s fallback is the raw cursor,
+  // which is what makes "the barcode pulled it" distinguishable from "nothing
+  // did" — with a grid on, both answers could round to the same node.
+  const grid = { size: MM(1), origin: { x: 0, y: 0 }, enableGrid: false, enableSnap: true };
+  const snapOpts = { snapScale: MM(1), visibleGrid: MM(100), layer: 'Dwgs.User' };
+  const near = (p: { x: number; y: number }): { x: number; y: number } => ({
+    x: p.x + MM(0.2),
+    y: p.y + MM(0.2),
+  });
+
+  it('pulls the cursor onto a corner of the symbol box', () => {
+    const b = read();
+    // 8 mm square centred on (10, 20), so the top-left corner is (6, 16).
+    const corner = { x: MM(6), y: MM(16) };
+
+    expect(bestSnapAnchor(b, near(corner), grid, snapOpts)).toEqual(corner);
+  });
+
+  it('and onto the middle of an edge', () => {
+    const b = read();
+    const edge = { x: MM(10), y: MM(16) };
+
+    expect(bestSnapAnchor(b, near(edge), grid, snapOpts)).toEqual(edge);
+  });
+
+  it('offers nothing once the Selection Filter’s Other items box is cleared', () => {
+    // `if( aFrom && aSelectionFilter && !aSelectionFilter->otherItems ) break;`
+    // — and it is `otherItems`, not `graphics`, because that is the category a
+    // barcode falls in (`pcb_selection_tool.cpp:3522`).
+    const b = read();
+    const p = near({ x: MM(6), y: MM(16) });
+
+    expect(bestSnapAnchor(b, p, grid, { ...snapOpts, otherItems: false })).toEqual(p);
+  });
+
+  it('is not offered from a layer the caller is not on', () => {
+    const b = read();
+    const p = near({ x: MM(6), y: MM(16) });
+
+    expect(bestSnapAnchor(b, p, grid, { ...snapOpts, layer: 'B.Cu' })).toEqual(p);
+  });
+
+  it('measures the SYMBOL box, so the text is outside it', () => {
+    // `barcode->GetSymbolPoly().BBox()`, not `m_poly`'s: the human-readable
+    // line and any knockout margin are not part of the snap box.
+    const withText = read(BOARD.replace('(hide yes)', '(hide no)'));
+    const corner = { x: MM(6), y: MM(24) }; // the symbol's bottom-left
+
+    expect(bestSnapAnchor(withText, near(corner), grid, snapOpts)).toEqual(corner);
+  });
+});
+
+describe('the point editor', () => {
+  // `BARCODE_POINT_EDIT_BEHAVIOR` (`pcb_point_editor.cpp:680-748`): the
+  // barcode is edited as the rectangle `makeDummyRect()` builds from its
+  // centre and size, so the handles are `RECTANGLE_POINT_EDIT_BEHAVIOR`'s.
+  const handles = (b: Board = read()): ReturnType<typeof boardEditHandles> =>
+    boardEditHandles(b, 'barcode:0');
+
+  it('offers the rectangle’s nine handles', () => {
+    expect(handles()).toHaveLength(9);
+  });
+
+  it('offers none at a non-cardinal angle', () => {
+    // "Non-cardinal barcode point-editing isn't useful enough to support"
+    // (`:698-702`) — and `UpdatePoints` returns false for it too, so the
+    // handles do not merely misbehave, they are not drawn.
+    expect(handles(read(BOARD.replace('(at 10 20 0)', '(at 10 20 30)')))).toHaveLength(0);
+    // A quarter turn IS cardinal.
+    expect(handles(read(BOARD.replace('(at 10 20 0)', '(at 10 20 90)')))).toHaveLength(9);
+  });
+
+  it('resizes when a corner is dragged, and stays square for a QR code', () => {
+    // `KeepSquare()` is QR, Micro QR and Data Matrix (`pcb_barcode.h:1069`),
+    // held square by 45-degree constraints on both diagonals. A QR code
+    // dragged into a rectangle still encodes and does not scan.
+    const b = read();
+    const corner = handles(b).find((h) => h.kind === 'point' && h.index === 0)!;
+    const after = dragBoardHandle(b, 'barcode:0', corner, { x: MM(2), y: MM(16) });
+    const bc = after.barcodes[0]!;
+
+    expect(bc.width).toBe(bc.height);
+    expect(bc.width).toBe(MM(12));
+  });
+
+  it('and takes the dragged size as-is for one that is not square', () => {
+    const b = read(BOARD.replace('(type qr)', '(type code128)'));
+    const corner = handles(b).find((h) => h.kind === 'point' && h.index === 0)!;
+    const after = dragBoardHandle(b, 'barcode:0', corner, { x: MM(2), y: MM(16) });
+
+    expect(after.barcodes[0]!.width).toBe(MM(12));
+    expect(after.barcodes[0]!.height).toBe(MM(8));
+  });
+
+  it('the centre handle moves it rather than resizing it', () => {
+    const b = read();
+    const centre = handles(b).find((h) => h.kind === 'point' && h.index === 4)!;
+    const after = dragBoardHandle(b, 'barcode:0', centre, { x: MM(30), y: MM(40) });
+
+    expect(after.barcodes[0]!.at).toEqual({ x: MM(30), y: MM(40) });
+    expect(after.barcodes[0]!.width).toBe(MM(8));
   });
 });

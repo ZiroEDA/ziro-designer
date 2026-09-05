@@ -15,6 +15,7 @@ import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 import { type DrcOptions, runDrc } from '@ziroeda/pcbnew/src/drc/drc_engine.js';
 import type {
   Board,
+  PcbBarcode,
   PcbFootprint,
   PcbPad,
   PcbShape,
@@ -75,6 +76,23 @@ const text = (over: Partial<PcbTextItem> = {}): PcbTextItem => ({
   angle: 0,
   layer: 'F.SilkS',
   size: { x: MM(1), y: MM(1) },
+  source: EMPTY,
+  ...over,
+});
+
+const barcode = (over: Partial<PcbBarcode> = {}): PcbBarcode => ({
+  at: { x: MM(5), y: MM(5) },
+  angle: 0,
+  layer: 'F.SilkS',
+  width: MM(8),
+  height: MM(8),
+  text: 'ZIRO',
+  textHeight: MM(1.27),
+  kind: 'qr',
+  ecc: 'L',
+  showText: false,
+  knockout: false,
+  margin: { x: 0, y: 0 },
   source: EMPTY,
   ...over,
 });
@@ -236,6 +254,29 @@ describe('text on Edge.Cuts', () => {
     expect(codes(board({ texts: [text({ layer: 'F.SilkS' })] }), 'text_on_edge_cuts')).toHaveLength(
       0,
     );
+  });
+
+  it('reports a barcode, which is in this list and not the graphics one', () => {
+    // "Tables and barcodes also plot geometry onto Edge.Cuts and corrupt the
+    // board outline" (`drc_test_provider_disallow.cpp:198-200`). A barcode is
+    // checked here rather than with the graphics precisely because it DOES
+    // plot: `PlotBarCode` fills its polygon onto whatever layer it is on, and
+    // the outline reader would then trace the modules round the board.
+    expect(
+      codes(board({ barcodes: [barcode({ layer: 'Edge.Cuts' })] }), 'text_on_edge_cuts'),
+    ).toHaveLength(1);
+  });
+
+  it('reports a footprint’s barcode too', () => {
+    const fp = footprint({ barcodes: [barcode({ layer: 'Edge.Cuts' })] });
+
+    expect(codes(board({ footprints: [fp] }), 'text_on_edge_cuts')).toHaveLength(1);
+  });
+
+  it('and leaves one on a graphic layer alone', () => {
+    expect(
+      codes(board({ barcodes: [barcode({ layer: 'F.SilkS' })] }), 'text_on_edge_cuts'),
+    ).toHaveLength(0);
   });
 
   it('does not report a graphic on Edge.Cuts', () => {

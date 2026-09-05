@@ -2326,6 +2326,29 @@ export function runDrc(board: Board, opts: DrcOptions): DrcViolation[] {
     }
   }
 
+  // …and a barcode, for the same reason and by name:
+  //
+  //     // Tables and barcodes also plot geometry onto Edge.Cuts and corrupt
+  //     // the board outline. Reference images are excluded since they are
+  //     // never plotted.
+  //     if( … || item->Type() == PCB_BARCODE_T || … )
+  //     (`drc_test_provider_disallow.cpp:198-212`)
+  //
+  // It is in the text-like list rather than the graphics one precisely
+  // because it DOES plot: `PlotBarCode` fills its polygon onto whatever layer
+  // it is on, Edge.Cuts included, and the outline reader would then follow the
+  // module edges round the board.
+  for (const bc of [...board.barcodes, ...board.footprints.flatMap((fp) => fp.barcodes)]) {
+    if (bc.layer === 'Edge.Cuts') {
+      out.push({
+        code: 'text_on_edge_cuts',
+        message: 'Text or graphic on Edge.Cuts layer',
+        pos: bc.at,
+        items: [{ desc: `Barcode '${bc.text}'`, pos: bc.at }],
+      });
+    }
+  }
+
   // A text variable the reader could not resolve is still spelled `${…}` in
   // the shown text, which is exactly upstream's `*${*}*` test.
   for (const t of [...board.texts, ...board.footprints.flatMap((fp) => fp.texts)]) {

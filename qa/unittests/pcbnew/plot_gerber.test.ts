@@ -139,3 +139,50 @@ describe('page settings (DIALOG_PAGES_SETTINGS persistence)', () => {
     expect(serializeBoard(p2)).toContain('(paper "User" 200 150)');
   });
 });
+
+describe('a barcode reaches the film', () => {
+  // `BRDITEMS_PLOTTER::PlotBarCode` (`plot_brditems_plotter.cpp:1188-1204`):
+  // the assembled polygon plotted as a filled `SHAPE_T::POLY` of width 0 —
+  // "to avoid duplicate code, build a PCB_SHAPE to plot the polygon shape".
+  //
+  // A barcode is a graphic layer item, so this is what puts it on the
+  // silkscreen or fab film that gets manufactured. Without it the board would
+  // carry a barcode the fabricator never sees.
+  const WITH_BARCODE = `(kicad_pcb (version 20241229) (generator x)
+  (layers (0 "F.Cu" signal) (37 "F.SilkS" user "F.Silkscreen") (44 "Dwgs.User" user))
+  (net 0 "")
+  (barcode (at 10 20 0) (layer "F.SilkS") (size 8 8) (text "ZIRO") (text_height 1.27)
+    (type qr) (ecc_level L) (hide yes) (knockout no) (uuid "b1"))
+)`;
+
+  const board = readBoard(parse(WITH_BARCODE));
+
+  it('emits filled regions on the barcode’s own layer', () => {
+    // `G36*`/`G37*` bracket a region; a QR code is dozens of them.
+    const out = plotGerberLayer(board, 'F.SilkS');
+
+    expect((out.match(/G36\*/g) ?? []).length).toBeGreaterThan(10);
+    expect(out).toContain('%TF.FileFunction,Legend,Top*%');
+  });
+
+  it('and nothing at all on a layer it is not on', () => {
+    // `if( !m_layerMask[aBarCode->GetLayer()] ) return;` — the first line of
+    // `PlotBarCode`.
+    expect(plotGerberLayer(board, 'F.Cu')).not.toContain('G36*');
+  });
+
+  it('plots a footprint’s barcode too', () => {
+    // `FOOTPRINT::GraphicalItems()` holds it, and the plotter walks those as
+    // well as the board's own.
+    const inFp = readBoard(
+      parse(
+        WITH_BARCODE.replace(
+          '(barcode (at 10 20 0)',
+          '(footprint "B" (layer "F.Cu") (at 0 0) (barcode (at 10 20 0)',
+        ).replace('(uuid "b1"))\n)', '(uuid "b1")))\n)'),
+      ),
+    );
+
+    expect((plotGerberLayer(inFp, 'F.SilkS').match(/G36\*/g) ?? []).length).toBeGreaterThan(10);
+  });
+});

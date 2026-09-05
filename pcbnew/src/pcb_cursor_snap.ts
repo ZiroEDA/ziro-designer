@@ -24,7 +24,7 @@ import type { Board, PcbBarcode } from './types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { boardHitCandidates, parseBoardItemId } from './edit-board.js';
 import { footprintBBox, padBBox } from './edit-footprint.js';
-import { barcodeGeometry } from './barcode_geometry.js';
+import { barcodeGeometry, type BarcodeGeometry } from './barcode_geometry.js';
 import { rotatePcb } from './read-board.js';
 import { segNearestPoint } from '@ziroeda/kimath/src/geometry/seg.js';
 import {
@@ -387,12 +387,22 @@ export function computeCopperAnchors(
     for (const { kind, index, bc } of barcodes) {
       if (skipped(kind, index)) continue;
       if (!onLayer(bc.layer)) continue;
-      if (!inRange(bc.at)) continue;
+
+      // `queryVisible`'s horizon is the item's EXTENT against the box round
+      // the cursor, not its position: a barcode whose corner is under the
+      // cursor has its centre 5 mm away, and gating on the centre would offer
+      // the anchors of exactly the items the cursor is not near.
+      const g = barcodeGeometry(bc);
+      if (g.symbolPoly.length === 0) continue;
+
+      const box = g.bbox;
+      if (box.x2 < aWhere.x - aRange || box.x1 > aWhere.x + aRange) continue;
+      if (box.y2 < aWhere.y - aRange || box.y1 > aWhere.y + aRange) continue;
 
       // `addAnchor( aItem->GetPosition(), ORIGIN, barcode, PT_CENTER )`.
-      anchors.push({ pos: bc.at, flags: ANCHOR_ORIGIN });
+      if (inRange(bc.at)) anchors.push({ pos: bc.at, flags: ANCHOR_ORIGIN });
 
-      for (const p of barcodeSnapPoints(bc))
+      for (const p of barcodeSnapPoints(g, bc))
         if (inRange(p)) anchors.push({ pos: p, flags: ANCHOR_CORNER | ANCHOR_SNAPPABLE });
     }
   }
@@ -408,8 +418,7 @@ export function computeCopperAnchors(
  * The box is the *symbol's*, taken before the rotation is applied to `m_poly`,
  * so the nine points turn with the barcode rather than boxing it upright.
  */
-function barcodeSnapPoints(bc: PcbBarcode): Vec2[] {
-  const g = barcodeGeometry(bc);
+function barcodeSnapPoints(g: BarcodeGeometry, bc: PcbBarcode): Vec2[] {
   if (g.symbolPoly.length === 0) return [];
 
   const b = symbolPolyBox(g.symbolPoly);
@@ -438,7 +447,9 @@ function barcodeSnapPoints(bc: PcbBarcode): Vec2[] {
   ].map(turn);
 }
 
-const symbolPolyBox = (poly: readonly (readonly (readonly Vec2[])[])[]): {
+const symbolPolyBox = (
+  poly: readonly (readonly (readonly Vec2[])[])[],
+): {
   x1: number;
   y1: number;
   x2: number;
