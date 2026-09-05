@@ -33,7 +33,7 @@ import {
   wheelAction,
 } from '../../ui/view_controls.js';
 import { drawCrosshair } from '../../ui/grid_cursor.js';
-import { kiCursor } from '../../ui/kicursors.js';
+import { symbolToolCursor } from './cursors.js';
 import { clampViewScale } from '../../ui/zoom_settings.js';
 import { SCH_IU_PER_MM } from '@ziroeda/common';
 import { zoomAreaTarget, type ZoomArea } from '../../ui/zoom_tool.js';
@@ -1136,14 +1136,7 @@ export const SymbolCanvas = forwardRef<SymbolCanvasController, Props>(function S
     return () => window.removeEventListener('keydown', onKey);
   }, [draw, finishPoly]);
 
-  // `ZOOM_TOOL::Main`'s `setCursor` is `SetCurrentCursor( KICURSOR::ZOOM_IN )`
-  // (`zoom_tool.cpp:65-69`) — KiCad's own art, not the browser's `zoom-in`.
-  const cursor =
-    activeTool === 'zoomTool'
-      ? kiCursor('ZOOM_IN')
-      : activeTool === 'select'
-        ? 'default'
-        : 'crosshair';
+  const cursor = symbolToolCursor(activeTool);
 
   return (
     <div

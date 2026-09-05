@@ -32,7 +32,7 @@ import { useStatusReadout } from '../../ui/useStatusReadout.js';
  */
 const PCB_LOCAL_ORIGIN = { x: 0, y: 0 };
 import { drawRulerItem, rulerEnd } from '../../ui/ruler_item.js';
-import { kiCursor } from '../../ui/kicursors.js';
+import { boardToolCursor } from './cursors.js';
 import { appearanceLayerRows, layerTooltip } from '../../widgets/appearance_layers.js';
 import {
   ZOOM_AUTO_LABEL,
@@ -8698,24 +8698,7 @@ export function PcbEditor({
                 // `PCB_VIEWER_TOOLS::MeasureTool` KICURSOR::MEASURE
                 // (`pcb_viewer_tools.cpp:292`). This frame had neither and
                 // showed the plain arrow for both.
-                cursor:
-                  activeTool === 'zoomTool'
-                    ? kiCursor('ZOOM_IN')
-                    : activeTool === 'measureTool'
-                      ? kiCursor('MEASURE')
-                      : // `PCB_TOOL_BASE::doInteractiveItemPlacement`'s
-                        // `setCursor`: KICURSOR::PENCIL while there is no item
-                        // yet, KICURSOR::PLACE once one exists
-                        // (`pcb_tool_base.cpp:121-128`). Place Point runs with
-                        // IPO_SINGLE_CLICK, which makes the item before the
-                        // loop starts, so PLACE is the cursor the whole time.
-                        activeTool === 'placePoint' ||
-                          activeTool === 'gridSetOrigin' ||
-                          activeTool === 'drillOrigin'
-                        ? kiCursor('PLACE')
-                        : activeTool === 'localRatsnestTool'
-                          ? 'crosshair'
-                          : 'default',
+                cursor: boardToolCursor(activeTool),
               }}
               onPointerDown={onPointerDown}
               onPointerMove={onPointerMove}

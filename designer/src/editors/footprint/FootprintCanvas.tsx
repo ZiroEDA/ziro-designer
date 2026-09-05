@@ -33,7 +33,7 @@ import {
   type FitFrame,
 } from '../../ui/view_controls.js';
 import { type CrosshairMode, drawCrosshair, drawGrid } from '../../ui/grid_cursor.js';
-import { kiCursor } from '../../ui/kicursors.js';
+import { footprintToolCursor } from './cursors.js';
 import { clampViewScale } from '../../ui/zoom_settings.js';
 import { zoomAreaTarget, type ZoomArea } from '../../ui/zoom_tool.js';
 import { drawRulerItem, rulerEnd, type RulerPoint, type RulerUnits } from '../../ui/ruler_item.js';
@@ -1000,21 +1000,7 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
             // `ZOOM_TOOL::Main` and `PCB_VIEWER_TOOLS::MeasureTool` each set
             // their own: KICURSOR::ZOOM_IN (`zoom_tool.cpp:65-69`) and
             // KICURSOR::MEASURE (`pcb_viewer_tools.cpp:292`).
-            cursor:
-              activeTool === 'zoomTool'
-                ? kiCursor('ZOOM_IN')
-                : activeTool === 'measureTool'
-                  ? kiCursor('MEASURE')
-                  : // `doInteractiveItemPlacement`'s setCursor: PLACE once the
-                    // preview item exists, and IPO_SINGLE_CLICK makes it before
-                    // the loop starts (`pcb_tool_base.cpp:119-128`). The grid
-                    // origin picker sets the same cursor outright
-                    // (`pcb_control.cpp:791`).
-                    activeTool === 'placePoint' || activeTool === 'gridSetOrigin'
-                    ? kiCursor('PLACE')
-                    : activeTool === 'selectSetRect'
-                      ? 'default'
-                      : 'crosshair',
+            cursor: footprintToolCursor(activeTool),
           }}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}

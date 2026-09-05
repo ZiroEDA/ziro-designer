@@ -52,7 +52,7 @@ import type { Board } from '@ziroeda/pcbnew/src/types.js';
 
 const MM = (n: number): number => mmToIU(n);
 
-const BOARD = `(kicad_pcb (version 20241229) (generator "ziroeda") (generator_version "1.0")
+const BOARD = `(kicad_pcb (version 20241229) (generator "${GENERATOR}") (generator_version "${GENERATOR_VERSION}")
   (layers (0 "F.Cu" signal) (31 "B.Cu" signal) (37 "F.SilkS" user "F.Silkscreen"))
   (net 0 "")
   (point (at 10 20) (size 1.5) (layer "F.SilkS")

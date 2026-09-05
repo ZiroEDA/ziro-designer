@@ -20,6 +20,7 @@
  */
 
 import { kiCursor, type KiCursor } from '../../ui/kicursors.js';
+import { sharedToolCursorName } from '../../ui/tool_cursors.js';
 
 /**
  * Which `KICURSOR` a right-toolbar tool runs with, following the tool that
@@ -34,20 +35,17 @@ import { kiCursor, type KiCursor } from '../../ui/kicursors.js';
  *  - selection tools, ARROW, and the lasso its own cursor
  */
 export function toolCursorName(tool: string): KiCursor {
+  // The actions eeschema shares with the other editors answer once, in
+  // `ui/tool_cursors.ts` — the delete tool's eraser, the zoom tool's glass.
+  // Restating them here is how the board editor and this one came to disagree.
+  const shared = sharedToolCursorName(tool);
+  if (shared) return shared;
+
   switch (tool) {
     case 'select':
       return 'ARROW';
-    // ZOOM_TOOL::Main sets KICURSOR::ZOOM_IN for as long as it runs, and puts
-    // the arrow back only on the way out.
-    case 'zoomTool':
-      return 'ZOOM_IN';
     case 'selectLasso':
       return 'SELECT_LASSO';
-    // SCH_TOOL_BASE::InteractiveDelete's picker runs with KICURSOR::REMOVE, the
-    // eraser; without it the tool falls through to the pencil below and looks
-    // like a drawing tool.
-    case 'delete':
-      return 'REMOVE';
     case 'drawWire':
       return 'LINE_WIRE';
     case 'drawBus':

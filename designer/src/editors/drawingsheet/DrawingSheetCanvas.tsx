@@ -66,6 +66,7 @@ import { drawCrosshair, drawGrid, gridSnappingEnabled } from '../../ui/grid_curs
 import { scaleForZoomFactor, zoomFactorForScale } from '../../ui/status_format.js';
 import { ZOOM_LIST, nextZoomPreset } from '../../ui/zoom_settings.js';
 import { kiCursor } from '../../ui/kicursors.js';
+import { sharedToolCursorName } from '../../ui/tool_cursors.js';
 import {
   DELETE_THRESHOLD_PX,
   EDIT_POINT_SIZE_PX,
@@ -1246,25 +1247,24 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
      * (pl_drawing_tools.cpp:83-99): text takes KICURSOR::TEXT, placeImage takes
      * KICURSOR::ARROW, and only the rest take KICURSOR::PENCIL.
      */
-    const cursor =
-      activeTool === 'zoomTool'
-        ? kiCursor('ZOOM_IN')
-        : activeTool === 'dsDelete'
-          ? // PL_EDIT_TOOL's delete picker: `picker->SetCursor( KICURSOR::REMOVE )`
-            // (pl_edit_tool.cpp:424).
-            kiCursor('REMOVE')
-          : activeTool === 'dsAddText'
-            ? // KICURSOR::TEXT (pl_drawing_tools.cpp:90) — KiCad's own I-beam
-              // art, not the browser's `text`, which is a different glyph.
-              kiCursor('TEXT')
-            : activeTool === 'dsAddBitmap'
-              ? 'default'
-              : placing
-                ? kiCursor('PENCIL')
-                : moveMode
-                  ? // KICURSOR::MOVING (pl_edit_tool.cpp:158).
-                    kiCursor('MOVING')
-                  : 'default';
+    // The zoom glass and the delete eraser are shared with every other editor
+    // and answer once, in `ui/tool_cursors.ts`; what is left below is this
+    // frame's own.
+    const shared = sharedToolCursorName(activeTool);
+    const cursor = shared
+      ? kiCursor(shared)
+      : activeTool === 'dsAddText'
+        ? // KICURSOR::TEXT (pl_drawing_tools.cpp:90) — KiCad's own I-beam
+          // art, not the browser's `text`, which is a different glyph.
+          kiCursor('TEXT')
+        : activeTool === 'dsAddBitmap'
+          ? 'default'
+          : placing
+            ? kiCursor('PENCIL')
+            : moveMode
+              ? // KICURSOR::MOVING (pl_edit_tool.cpp:158).
+                kiCursor('MOVING')
+              : 'default';
     return (
       <div
         className="ze-canvas-wrap"
