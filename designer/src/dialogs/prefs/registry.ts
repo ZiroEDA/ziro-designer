@@ -65,10 +65,23 @@ export const PAGES: readonly PrefsPageEntry[] = [
   { id: 'sch-fields', label: 'Field Name Templates', indent: true, owner: 'schematic' },
   { id: 'sch-datasources', label: 'Data Sources', indent: true, owner: 'schematic' },
   { id: 'sch-simulator', label: 'Simulator', indent: true, owner: 'schematic' },
+  // pcbnew's KIFACE adds THREE headings, in this order
+  // (`common/eda_base_frame.cpp:1657-1697`): the Footprint Editor's nine
+  // sub-pages, the PCB Editor's seven, then the 3D Viewer's four. The first and
+  // the third were missing here entirely, which is why those two frames drew
+  // their toolbars from a module constant with no page to change it.
+  //
+  // Only the Toolbars row of each is listed: the rest of both headings is the
+  // same tree gap the PCB Editor's own heading has (Origins & Axes, Editing
+  // Options and Colors are not built yet), not a decision about these frames.
+  { id: null, label: 'Footprint Editor' },
+  { id: 'fp-toolbars', label: 'Toolbars', indent: true, owner: 'footprint' },
   { id: null, label: 'PCB Editor' },
   { id: 'pcb-display', label: 'Display Options', indent: true, owner: 'pcb' },
   { id: 'pcb-grids', label: 'Grids', indent: true, owner: 'pcb' },
   { id: 'pcb-toolbars', label: 'Toolbars', indent: true, owner: 'pcb' },
+  { id: null, label: '3D Viewer' },
+  { id: '3dv-toolbars', label: 'Toolbars', indent: true, owner: 'pcb' },
   // gerbview's KIFACE is consulted after pcbnew's and before pl_editor's
   // (`common/eda_base_frame.cpp:1702-1721`).
   //
@@ -134,6 +147,19 @@ export const UPSTREAM_BOOK: Readonly<Record<string, readonly string[]>> = {
     'Data Sources',
     'Simulator',
   ],
+  // `common/eda_base_frame.cpp:1666-1676`, the nine `AddLazySubPage` calls
+  // under the Footprint Editor heading, in source order.
+  'Footprint Editor': [
+    'Display Options',
+    'Grids',
+    'Origins & Axes',
+    'Editing Options',
+    'Colors',
+    'Toolbars',
+    'Footprint Defaults',
+    'Graphics Defaults',
+    'User Layer Names',
+  ],
   'PCB Editor': [
     'Display Options',
     'Grids',
@@ -143,6 +169,9 @@ export const UPSTREAM_BOOK: Readonly<Record<string, readonly string[]>> = {
     'Toolbars',
     'Plugins',
   ],
+  // `common/eda_base_frame.cpp:1692-1696`. The 3D Viewer's first row is called
+  // "General", not "Display Options".
+  '3D Viewer': ['General', 'Toolbars', 'Realtime Renderer', 'Raytracing Renderer'],
   // `common/eda_base_frame.cpp:1714-1718`. Colors and Toolbars come BEFORE
   // Grids here, which no other heading does; see the note in {@link PAGES}.
   'Gerber Viewer': ['Display Options', 'Colors', 'Toolbars', 'Grids', 'Excellon Options'],
@@ -198,17 +227,8 @@ export interface DeclaredPage {
  * The top-level rows of {@link UPSTREAM_TOP_LEVEL} this port does not draw, and
  * why.
  *
- * Two are headings for editors we DO ship — Footprint Editor, 3D Viewer — so
- * those two are unfinished rather than impossible.
- * Upstream their sub-pages are mostly the shared widgets we already have:
- * `PANEL_FP_EDIT_GRIDS` and `PANEL_GBR_GRIDS` are both `PANEL_GRID_SETTINGS`,
- * every Toolbars page is `PANEL_TOOLBAR_CUSTOMIZATION`, and every Display
- * Options page wraps `PANEL_GAL_OPTIONS`. So they are bindings to a settings
- * store, not new panels — which is what the Symbol Editor and Gerber Viewer
- * headings, two of the four until they shipped, turned out to be.
- *
- * The other two were built and then taken out again, which is the useful part
- * of their entries: a page whose every control is a desktop concept has nothing
+ * Both remaining entries were built and then taken out again, which is the
+ * useful part of them: a page whose every control is a desktop concept has nothing
  * to show once the controls are disabled, and a row that exists only to explain
  * its own emptiness is worse than an absent row. Maintenance stayed and is
  * live, because it manipulates the settings store rather than a device, a path
@@ -232,18 +252,6 @@ export const OMITTED_TOP_LEVEL: readonly DeclaredPage[] = [
       'on the same machine and points at a native Python interpreter. A browser tab has neither, ' +
       'and there is no partial version of "let other software on this computer connect".',
   },
-  {
-    label: 'Footprint Editor',
-    reason:
-      'Unfinished, not impossible: we ship the editor. Nine sub-pages, of which Footprint ' +
-      'Defaults, Graphics Defaults and User Layer Names are genuinely new. Tracker 200.',
-  },
-  {
-    label: '3D Viewer',
-    reason:
-      'Unfinished: we ship the viewer as a child frame. General and Toolbars are portable; ' +
-      'Realtime Renderer and Raytracing Renderer describe an OpenGL/raytracer we do not have.',
-  },
 ];
 
 /**
@@ -266,6 +274,34 @@ export const OMITTED_PAGES: Readonly<Record<string, readonly DeclaredPage[]>> = 
   // omitted because upstream does not have it here either; it is a Schematic
   // Setup page, which is where ours lives.
   'Schematic Editor': [],
+  // Both were the whole heading until the Toolbars page shipped. Every
+  // remaining row is a page nobody has built, not one that cannot exist:
+  // `PANEL_FP_EDIT_GRIDS` is `PANEL_GRID_SETTINGS` and every Display Options
+  // page wraps `PANEL_GAL_OPTIONS`, both of which this port already has.
+  'Footprint Editor': [
+    { label: 'Display Options', reason: 'Footprint Editor tracker 200.' },
+    { label: 'Grids', reason: 'Footprint Editor tracker 200.' },
+    { label: 'Origins & Axes', reason: 'Footprint Editor tracker 200.' },
+    { label: 'Editing Options', reason: 'Footprint Editor tracker 200.' },
+    { label: 'Colors', reason: 'Footprint Editor tracker 200.' },
+    { label: 'Footprint Defaults', reason: 'Footprint Editor tracker 200.' },
+    { label: 'Graphics Defaults', reason: 'Footprint Editor tracker 200.' },
+    { label: 'User Layer Names', reason: 'Footprint Editor tracker 200.' },
+  ],
+  '3D Viewer': [
+    { label: 'General', reason: '3D Viewer tracker 200.' },
+    {
+      label: 'Realtime Renderer',
+      reason:
+        "PANEL_3D_OPENGL_OPTIONS configures KiCad's own OpenGL renderer — its " +
+        'anti-aliasing mode, its copper thickness and its highlight animation. Ours is a ' +
+        'three.js scene with none of those knobs.',
+    },
+    {
+      label: 'Raytracing Renderer',
+      reason: 'PANEL_3D_RAYTRACING_OPTIONS configures a raytracer this port does not have.',
+    },
+  ],
   'PCB Editor': [
     { label: 'Origins & Axes', reason: 'PCB Editor tracker 200.' },
     { label: 'Editing Options', reason: 'PCB Editor tracker 200.' },

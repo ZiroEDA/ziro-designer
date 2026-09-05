@@ -24,6 +24,7 @@ import {
   resetEeschemaGrids,
   resetEeschemaToolbars,
   resetSimulatorPreferences,
+  transferTemplateFieldnamesPage,
 } from './resets.js';
 import { PanelEeschemaToolbars } from './PanelEeschemaToolbars.js';
 import type {
@@ -71,7 +72,10 @@ export const createPrefsPanel: PrefsPanelFactory = (id: PrefsPageId): PrefsPanel
       // RESETTABLE_PANEL (eeschema/dialogs/panel_template_fieldnames_base.h:36),
       // and PANEL_TEMPLATE_FIELDNAMES declares no ResetPanel, so
       // PAGED_DIALOG::UpdateResetButton greys the button out on this page.
-      return { Panel: PanelTemplateFieldnames };
+      // It DOES have a `TransferDataFromWindow`, which is a different virtual
+      // and a different button: the grid's blanks, duplicates and mandatory
+      // case variants are filtered on OK.
+      return { Panel: PanelTemplateFieldnames, transfer: transferTemplateFieldnamesPage };
 
     case 'sch-datasources':
       // PANEL_SCH_DATA_SOURCES IS a RESETTABLE_PANEL

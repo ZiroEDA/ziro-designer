@@ -11,13 +11,19 @@
  * (`eeschema/sim/sim_preferences.h:37-50`) and they live in
  * `EESCHEMA_SETTINGS::m_Simulator.preferences.mouse_wheel_actions`.
  *
- * **Every control here is dead, and drawn.** We ship no simulator, so nothing
- * reads these values — and by the rule this dialog is built on, a control is
- * enabled exactly when something outside Preferences reads its setting. The
- * page is not deleted the way the browser-irrelevant groups were: a simulator
- * is a thing this port can have, so this is the "not built yet" case, which is
- * greyed. The settings slice is real and round-trips, so the choices show the
- * values a `.kicad_prefs` written elsewhere would carry.
+ * The page is LIVE. Nothing reads these values yet — the simulator itself is
+ * the piece this port has not built — but the page's own job is to write
+ * `m_Simulator.preferences.mouse_wheel_actions`, and it does that completely.
+ * Greying it would mean a user who enables the simulator has to come back here
+ * and set the page up again, and it would also mean this page is the one place
+ * in the dialog whose behaviour is not upstream's: KiCad's controls are live
+ * whether or not a plot window is open.
+ *
+ * That is a narrower rule than "enabled exactly when something reads it", and
+ * deliberately so: a control that cannot be honoured by anything, ever — a
+ * local socket, a native interpreter — is REMOVED here. One whose reader is
+ * merely unbuilt is live, so the setting is already right when the reader
+ * arrives.
  *
  * Note the choice lists are NOT the same on both halves. Vertical offers all
  * seven actions; horizontal offers three, and `horizontalScrollSelectionToAction`
@@ -85,6 +91,10 @@ const VERTICAL_ROWS: readonly [keyof typeof MOUSE_DEFAULTS, string][] = [
 
 export function PanelSimulatorPreferences({ ctx }: { ctx: PrefsContext }): JSX.Element {
   const wheel = ctx.eeschema.simulator.mouse_wheel_actions;
+  const setWheel = (patch: Partial<typeof wheel>): void =>
+    ctx.upE((s) => {
+      Object.assign(s.simulator.mouse_wheel_actions, patch);
+    });
 
   return (
     // `m_lblScrollHeading` with `m_scrollLine` under it — a heading and a
@@ -106,9 +116,8 @@ export function PanelSimulatorPreferences({ ctx }: { ctx: PrefsContext }): JSX.E
                 <Combo
                   value={String(wheel[key])}
                   ariaLabel={`Vertical ${label.replace(':', '')}`}
-                  disabled
                   options={VERTICAL_ACTIONS.map((l, i) => ({ value: String(i), label: l }))}
-                  onChange={() => {}}
+                  onChange={(v) => setWheel({ [key]: Number(v) })}
                   className="ze-simprefs-choice"
                 />
               </Fragment>
@@ -125,9 +134,8 @@ export function PanelSimulatorPreferences({ ctx }: { ctx: PrefsContext }): JSX.E
             <Combo
               value={String(wheel.horizontal)}
               ariaLabel="Horizontal Any"
-              disabled
               options={HORIZONTAL_ACTIONS.map(([v, l]) => ({ value: String(v), label: l }))}
-              onChange={() => {}}
+              onChange={(v) => setWheel({ horizontal: Number(v) })}
               className="ze-simprefs-choice"
             />
           </div>
@@ -135,12 +143,14 @@ export function PanelSimulatorPreferences({ ctx }: { ctx: PrefsContext }): JSX.E
 
         <div className="ze-simprefs-btns">
           {/* `onMouseDefaults` / `onTrackpadDefaults` write
-              `GetMouseDefaults()` / `GetTrackpadDefaults()` into the panel.
-              Dead with the rest of the page. */}
-          <button type="button" className="ze-btn" disabled>
+              `GetMouseDefaults()` / `GetTrackpadDefaults()` into the PANEL's
+              controls (`panel_simulator_preferences.cpp`), not into the
+              settings — the values land in the file on OK with the rest of the
+              page, which is what `setWheel` does here. */}
+          <button type="button" className="ze-btn" onClick={() => setWheel(MOUSE_DEFAULTS)}>
             Reset to Mouse Defaults
           </button>
-          <button type="button" className="ze-btn" disabled>
+          <button type="button" className="ze-btn" onClick={() => setWheel(TRACKPAD_DEFAULTS)}>
             Reset to Trackpad Defaults
           </button>
         </div>

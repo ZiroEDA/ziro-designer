@@ -188,7 +188,10 @@ export function DialogSymbolFieldsTable({
   const stateRef = useRef<TableState | null>(null);
   if (!stateRef.current) {
     const refs = buildFieldsReferences(docs, rootFile);
-    const model = new FieldsDataModel(refs);
+    // The third argument is the resolved template list, which is what makes a
+    // `${MPN}` in a field resolve to empty rather than printing its own token
+    // (`SCH_SYMBOL::ResolveTextVar`, sch_symbol.cpp:1967-1978).
+    const model = new FieldsDataModel(refs, undefined, fieldTemplates ?? []);
     const order = loadFieldNames(model, refs, fieldTemplates);
     model.setPath(currentPath);
     model.applyBomPreset(toSpec(presets.settings));

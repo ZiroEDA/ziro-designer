@@ -39,7 +39,8 @@ import { KiStatusBar } from '../../ui/KiStatusBar.js';
 // for. The runtime import below stays lazy, which is the point — three.js only
 // downloads when the viewer is actually opened.
 import type { Viewer3D, Viewer3DStatus, Grid3D, View3DDir } from './viewer3d_types.js';
-import { VIEWER3D_TOP_TOOLBAR } from './viewer3dToolbars.js';
+import { VIEWER3D_DEFAULT_TOOLBARS } from './viewer3dToolbars.js';
+import { useToolbarEntries } from '../../ui/useToolbarEntries.js';
 import { buildViewer3DMenus } from './viewer3dMenus.js';
 import { VIEWER_3D_FRAME_NAME } from './frame_title.js';
 
@@ -77,6 +78,13 @@ export function Viewer3DFrame({
   imageBaseName,
   onClose,
 }: Viewer3DFrameProps): JSX.Element {
+  /*
+   * `RecreateToolbars` reads the TOOLBAR_SETTINGS, never `DefaultToolbarConfig`
+   * (`common/eda_base_frame.cpp:1728-1843`). This frame read the module
+   * constant, so its Toolbars page would have saved `3d_viewer-toolbars` and
+   * changed nothing on screen.
+   */
+  const viewer3dTopBar = useToolbarEntries('3d_viewer', 'TOP_MAIN', VIEWER3D_DEFAULT_TOOLBARS);
   const hostRef = useRef<HTMLDivElement>(null);
   const api = useRef<Viewer3D | null>(null);
   const [ready, setReady] = useState(false);
@@ -333,7 +341,7 @@ export function Viewer3DFrame({
         title={title}
       />
       <Toolbar
-        entries={VIEWER3D_TOP_TOOLBAR}
+        entries={viewer3dTopBar}
         orientation="horizontal"
         toggled={ortho ? ORTHO_ON : EMPTY_IDS}
         onActivate={onAction}

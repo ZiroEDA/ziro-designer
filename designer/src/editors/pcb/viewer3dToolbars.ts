@@ -16,6 +16,7 @@
  */
 
 import type { ToolEntry } from '../../ui/toolbar_types.js';
+import type { ToolbarDefaults } from '../../ui/toolbar_config.js';
 
 const sep: ToolEntry = 'sep';
 
@@ -72,3 +73,19 @@ export const VIEWER3D_TOP_TOOLBAR: ToolEntry[] = [
     ...todo,
   }, // prettier-ignore
 ];
+
+/**
+ * `EDA_3D_VIEWER_TOOLBAR_SETTINGS::DefaultToolbarConfig`
+ * (`3d-viewer/3d_viewer/toolbars_3d.cpp:41-...`):
+ *
+ *     case TOOLBAR_LOC::LEFT:
+ *     case TOOLBAR_LOC::RIGHT:
+ *     case TOOLBAR_LOC::TOP_AUX:
+ *         return std::nullopt;
+ *
+ * — one toolbar, and the three absent keys say `std::nullopt` the way
+ * `GetToolbarConfig` returns it.
+ */
+export const VIEWER3D_DEFAULT_TOOLBARS: ToolbarDefaults = {
+  TOP_MAIN: VIEWER3D_TOP_TOOLBAR,
+};

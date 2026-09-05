@@ -35,9 +35,11 @@ import type {
   PcbnewSettings,
   PlEditorSettings,
   PrivacySettings,
+  FpEditSettings,
   SymbolEditorSettings,
   ToolbarApp,
   UserColorTheme,
+  Viewer3dSettings,
 } from '../../prefs/settings.js';
 import type { ToolbarSettings } from '../../ui/toolbar_config.js';
 
@@ -67,9 +69,14 @@ export type PrefsPageId =
   | 'sch-fields'
   | 'sch-datasources'
   | 'sch-simulator'
+  // `PANEL_FP_TOOLBARS`, the sixth row under the Footprint Editor heading
+  // (`common/eda_base_frame.cpp:1672`).
+  | 'fp-toolbars'
   | 'pcb-display'
   | 'pcb-grids'
   | 'pcb-toolbars'
+  // `PANEL_3DV_TOOLBARS`, the second row under the 3D Viewer heading (`:1694`).
+  | '3dv-toolbars'
   // gerbview's KIFACE is consulted after pcbnew's and before pl_editor's, and
   // its five ids are `PANEL_GBR_DISPLAY_OPTIONS`, `PANEL_GBR_COLORS`,
   // `PANEL_GBR_TOOLBARS`, `PANEL_GBR_GRIDS`, `PANEL_GBR_EXCELLON_OPTIONS`
@@ -92,6 +99,12 @@ export type PrefsPageOwner =
   | 'generic'
   | 'symbol'
   | 'schematic'
+  // Upstream the Footprint Editor's pages come out of pcbnew's KIFACE, the same
+  // `CreateKiWindow` switch the board editor's do. Its own owner here for the
+  // reason the Symbol Editor has one: the two editors are separate bundles, and
+  // routing this page through the board's factory would pull `editors/pcb` in
+  // whenever a footprint-editor user opened Preferences.
+  | 'footprint'
   | 'pcb'
   | 'gerbview'
   | 'drawingsheet';
@@ -110,6 +123,10 @@ export interface PrefsContext {
    */
   symbolEditor: SymbolEditorSettings;
   pcbnew: PcbnewSettings;
+  /** `fpedit.json` — the Footprint Editor's own file (`pcbnew.cpp:381`). */
+  fpEdit: FpEditSettings;
+  /** `3d_viewer.json` — the 3D Viewer's own file (`pcbnew.cpp:483`). */
+  viewer3d: Viewer3dSettings;
   /** `gerbview.json` — see {@link GerbviewSettings}. */
   gerbview: GerbviewSettings;
   plEditor: PlEditorSettings;
@@ -136,6 +153,10 @@ export interface PrefsContext {
   /** Mutate a clone of `symbol_editor.json`'s working copy. */
   upSym: (fn: (s: SymbolEditorSettings) => void) => void;
   upP: (fn: (s: PcbnewSettings) => void) => void;
+  /** Mutate a clone of `fpedit.json`'s working copy. */
+  upFp: (fn: (s: FpEditSettings) => void) => void;
+  /** Mutate a clone of `3d_viewer.json`'s working copy. */
+  up3d: (fn: (s: Viewer3dSettings) => void) => void;
   /** Mutate a clone of `gerbview.json`'s working copy. */
   upGbr: (fn: (s: GerbviewSettings) => void) => void;
   upPl: (fn: (s: PlEditorSettings) => void) => void;
@@ -194,6 +215,44 @@ export interface PrefsPanelModule {
    * `DEFAULT_RESET_TOOLTIP` when absent.
    */
   resetTooltip?: string;
+  /**
+   * `wxPanel::TransferDataFromWindow` — the page's own chance to turn what its
+   * controls hold into what the settings file may contain, run once when OK is
+   * pressed.
+   *
+   * A grid or a text field holds whatever was typed, and for most pages that is
+   * already the stored value. For some it is not:
+   * `PANEL_TEMPLATE_FIELDNAMES::TransferDataFromWindow`
+   * (`eeschema/dialogs/panel_template_fieldnames.cpp:193-252`) drops blank
+   * names, refuses a case variant of a mandatory field name and collapses
+   * duplicates — none of which a keystroke handler can do, because deleting the
+   * row a user is halfway through clearing is not a filter, it is a fight.
+   *
+   * **Optional**, and it lives here rather than in the shell for the reason
+   * {@link reset} does: the shell knows no editor, and a page's transfer touches
+   * that page's slice and no other.
+   */
+  transfer?: (ctx: PrefsContext, confirmed?: boolean) => PrefsTransferPrompt | void;
+}
+
+/**
+ * A question a page's transfer has to ask before it can finish — upstream, a
+ * `KICAD_MESSAGE_DIALOG` raised from inside `TransferDataFromWindow`
+ * (`eeschema/dialogs/panel_template_fieldnames.cpp:210-230` is the only one).
+ *
+ * It is DATA, not a component, and that is the point: the shell renders it with
+ * the app's own message dialog and never learns which editor asked. The shell
+ * then calls `transfer` a second time with the answer in `confirmed`, which is
+ * how the same function does the work both times.
+ */
+export interface PrefsTransferPrompt {
+  /** The window title — upstream's third `KICAD_MESSAGE_DIALOG` argument. */
+  caption: string;
+  message: string;
+  /** `SetExtendedMessage`, the smaller line under it. */
+  extendedMessage?: string;
+  /** `SetOKCancelLabels`. `ok` is the affirmative, which becomes `confirmed`. */
+  labels: { ok: string; cancel: string };
 }
 
 /** `RESETTABLE_PANEL::GetResetTooltip`'s base text (`include/widgets/resettable_panel.h:66`). */

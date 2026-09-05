@@ -70,10 +70,22 @@ const EXPECTED: PrefsPageEntry[] = [
   { id: 'sch-fields', label: 'Field Name Templates', indent: true, owner: 'schematic' },
   { id: 'sch-datasources', label: 'Data Sources', indent: true, owner: 'schematic' },
   { id: 'sch-simulator', label: 'Simulator', indent: true, owner: 'schematic' },
+  // pcbnew's KIFACE adds THREE headings, not one
+  // (`common/eda_base_frame.cpp:1657-1697`): the Footprint Editor's, the PCB
+  // Editor's and the 3D Viewer's, in that order. The first and the third had no
+  // rows here at all, which is why those two frames had no Toolbars page and
+  // drew their bars from a module constant.
+  //
+  // Each shows only its Toolbars row: the rest of both headings is the same
+  // tree gap the PCB Editor's own has.
+  { id: null, label: 'Footprint Editor' },
+  { id: 'fp-toolbars', label: 'Toolbars', indent: true, owner: 'footprint' },
   { id: null, label: 'PCB Editor' },
   { id: 'pcb-display', label: 'Display Options', indent: true, owner: 'pcb' },
   { id: 'pcb-grids', label: 'Grids', indent: true, owner: 'pcb' },
   { id: 'pcb-toolbars', label: 'Toolbars', indent: true, owner: 'pcb' },
+  { id: null, label: '3D Viewer' },
+  { id: '3dv-toolbars', label: 'Toolbars', indent: true, owner: 'pcb' },
   // gerbview's KIFACE is consulted after pcbnew's
   // (`common/eda_base_frame.cpp:1702-1721`), and its sub-page order is
   // `ShowPreferences`' — Display Options, Colors, Toolbars, Grids, Excellon
@@ -149,6 +161,9 @@ const OWNER_SOURCES: Record<string, string> = {
   generic: 'dialogs/prefs/panels/index.ts',
   symbol: 'editors/symbol/prefs/index.ts',
   schematic: 'editors/schematic/prefs/index.ts',
+  // Upstream these come out of pcbnew's KIFACE with the board editor's; here
+  // the Footprint Editor is its own bundle, so it is its own factory.
+  footprint: 'editors/footprint/prefs/index.ts',
   pcb: 'editors/pcb/prefs/index.ts',
   gerbview: 'editors/gerbview/prefs/index.ts',
   drawingsheet: 'editors/drawingsheet/prefs/index.ts',
@@ -157,7 +172,7 @@ const OWNER_SOURCES: Record<string, string> = {
 describe('every page id is constructed by its owner', () => {
   it.each(Object.entries(OWNER_SOURCES))('%s constructs exactly its own ids', (owner, rel) => {
     const src = read(rel);
-    const cases = [...src.matchAll(/case '([a-z-]+)':/g)].map((m) => m[1]).sort();
+    const cases = [...src.matchAll(/case '([a-z0-9-]+)':/g)].map((m) => m[1]).sort();
     const mine = PAGES.filter((p) => p.owner === owner)
       .map((p) => p.id as string)
       .sort();
@@ -167,7 +182,7 @@ describe('every page id is constructed by its owner', () => {
   it('leaves no page id unowned by any factory', () => {
     const constructed = new Set(
       Object.values(OWNER_SOURCES).flatMap((rel) =>
-        [...read(rel).matchAll(/case '([a-z-]+)':/g)].map((m) => m[1] as string),
+        [...read(rel).matchAll(/case '([a-z0-9-]+)':/g)].map((m) => m[1] as string),
       ),
     );
     for (const p of PAGES) if (p.id !== null) expect(constructed.has(p.id), p.id).toBe(true);

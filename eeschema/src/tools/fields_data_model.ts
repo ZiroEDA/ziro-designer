@@ -216,6 +216,12 @@ const ATTR_EDIT_KEY: Readonly<Record<string, keyof SymbolAttrEdit>> = {
 export function symbolTextVarResolver(
   ref: FieldsRef,
   docResolver?: TextVarResolver,
+  /**
+   * The RESOLVED template field names (`TEMPLATES::GetTemplateFieldNames()`),
+   * for the branch below. Absent = none, which is what a caller with no
+   * schematic settings to hand has.
+   */
+  templateFieldNames: readonly { name: string }[] = [],
 ): TextVarResolver {
   const sym = ref.symbol;
   return (token) => {
@@ -253,6 +259,28 @@ export function symbolTextVarResolver(
         return parts.length > 1 ? (parts[1] ?? '') : sym.libId;
       }
       default:
+        /*
+         * A token naming a TEMPLATE field the symbol does not carry resolves to
+         * empty, rather than being left for the document resolver and printed
+         * as `${MPN}`:
+         *
+         *     for( const TEMPLATE_FIELDNAME& templateFieldname : …GetTemplateFieldNames() )
+         *         if( token->IsSameAs( templateFieldname.m_Name )
+         *             || token->IsSameAs( templateFieldname.m_Name.Upper() ) )
+         *         {
+         *             // If we didn't find it in the fields list then it isn't set
+         *             // on this symbol. Just return an empty string.
+         *             *token = wxEmptyString;
+         *             return true;
+         *         }
+         *     (`eeschema/sch_symbol.cpp:1967-1978`)
+         *
+         * The loop above has already answered for a field the symbol DOES
+         * carry, so reaching here means it does not. Upstream matches the name
+         * as written or fully upper-cased, and nothing in between.
+         */
+        for (const t of templateFieldNames)
+          if (token === t.name || token === t.name.toUpperCase()) return '';
         return docResolver?.(token);
     }
   };
@@ -306,6 +334,8 @@ export function loadFieldNames(
  */
 export class FieldsDataModel {
   private readonly refs: readonly FieldsRef[];
+
+  private readonly templateFieldNames: readonly { name: string }[];
   private cols: DataModelCol[] = [];
   private rows: DataModelRow[] = [];
   /** symbol key → field name → pending value. */
@@ -326,9 +356,12 @@ export class FieldsDataModel {
   constructor(
     refs: readonly FieldsRef[],
     docResolver?: (ref: FieldsRef) => TextVarResolver | undefined,
+    /** The resolved template field names — see {@link symbolTextVarResolver}. */
+    templateFieldNames: readonly { name: string }[] = [],
   ) {
     this.refs = refs;
     this.docResolver = docResolver;
+    this.templateFieldNames = templateFieldNames;
   }
 
   // --- columns -------------------------------------------------------------
@@ -565,7 +598,7 @@ export class FieldsDataModel {
   }
 
   private resolverFor(ref: FieldsRef): TextVarResolver {
-    return symbolTextVarResolver(ref, this.docResolver?.(ref));
+    return symbolTextVarResolver(ref, this.docResolver?.(ref), this.templateFieldNames);
   }
 
   /** getFieldShownText, the field's resolved text straight off the symbol. */

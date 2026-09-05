@@ -291,6 +291,18 @@ describe('the same workspace on another device', () => {
     a.updateToolbars('gerbview', (s) => {
       s.toolbars = [{ name: 'LEFT', contents: [] }];
     });
+    a.updateToolbars('fpedit', (s) => {
+      s.toolbars = [{ name: 'TOP_MAIN', contents: [] }];
+    });
+    a.updateToolbars('3d_viewer', (s) => {
+      s.toolbars = [{ name: 'TOP_MAIN', contents: [] }];
+    });
+    a.updateFpEdit((s) => {
+      s.appearance.custom_toolbars = true;
+    });
+    a.updateViewer3d((s) => {
+      s.appearance.custom_toolbars = true;
+    });
     a.updateGerbview((s) => {
       s.appearance.page_type = 'A4';
     });
@@ -331,6 +343,11 @@ describe('the same workspace on another device', () => {
     expect(b.toolbars.eeschema.toolbars[0]?.name).toBe('TOP_MAIN');
     expect(b.toolbars.pcbnew.toolbars[0]?.name).toBe('LEFT');
     expect(b.toolbars.pl_editor.toolbars[0]?.name).toBe('RIGHT');
+    // …including the two whose files upstream keeps beside the board's.
+    expect(b.toolbars.fpedit.toolbars[0]?.name).toBe('TOP_MAIN');
+    expect(b.toolbars['3d_viewer'].toolbars[0]?.name).toBe('TOP_MAIN');
+    expect(b.fpEdit.appearance.custom_toolbars).toBe(true);
+    expect(b.viewer3d.appearance.custom_toolbars).toBe(true);
   });
 
   it('a pull survives the device reloading', async () => {
@@ -886,6 +903,9 @@ describe('the per-slice stamps', () => {
     a.updateToolbars('pcbnew', () => undefined);
     a.updateToolbars('pl_editor', () => undefined);
     a.updateToolbars('gerbview', () => undefined);
+    a.updateToolbars('fpedit', () => undefined);
+    a.updateToolbars('3d_viewer', () => undefined);
+    a.updateViewer3d(() => undefined);
 
     // Written out rather than compared against `SETTINGS_SLICES`. Comparing the
     // list to itself is an expectation computed by calling the code under test:
@@ -901,6 +921,11 @@ describe('the per-slice stamps', () => {
     // eeschema.cpp:346, pcbnew.cpp:455), so a synced account carries
     // `eeschema-toolbars.json` rather than a sub-object of `eeschema.json`.
     const expected: SettingsSlice[] = [
+      // `3d_viewer.json` — `GetAppSettings<EDA_3D_VIEWER_SETTINGS>( "3d_viewer" )`
+      // (`pcbnew/pcbnew.cpp:483`), a file of its own and not a corner of
+      // `pcbnew.json`, plus its own `3d_viewer-toolbars`.
+      '3d_viewer',
+      '3d_viewer-toolbars',
       'bitmap2component',
       'colors.themes',
       'colors.user',
@@ -908,6 +933,7 @@ describe('the per-slice stamps', () => {
       'eeschema',
       'eeschema-toolbars',
       'fpedit',
+      'fpedit-toolbars',
       // `gerbview.json` and `gerbview-toolbars.json`, the Gerber Viewer's own
       // two files — `GetAppSettings<GERBVIEW_SETTINGS>( "gerbview" )` and
       // `GetToolbarSettings<GERBVIEW_TOOLBAR_SETTINGS>( "gerbview-toolbars" )`

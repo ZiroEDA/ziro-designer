@@ -760,7 +760,11 @@ describe('a page that is not resettable has no reset', () => {
     // and a slice that runs past it reads the following arm's `reset:` as this
     // arm's. `sch-datasources` and `sch-simulator` come after it now.
     const from = src.indexOf("case 'sch-fields':");
-    const to = src.indexOf('case ', from + 1);
+    // `case '` WITH the quote: an arm's own comment can say "case variants of a
+    // mandatory field name", and `'case '` alone cut this slice off at that
+    // word — leaving an arm that held neither its panel nor its reset, so both
+    // assertions below passed on nothing at all.
+    const to = src.indexOf("case '", from + 1);
     const arm = src.slice(from, to === -1 ? src.indexOf('default:') : to);
     expect(arm).toContain('PanelTemplateFieldnames');
     expect(arm).not.toMatch(/\breset:/);
@@ -776,7 +780,11 @@ describe('a page that is not resettable has no reset', () => {
     const src = read('editors/symbol/prefs/index.ts');
     const from = src.indexOf("case 'sym-colors':");
     expect(from, 'no arm for sym-colors').toBeGreaterThan(-1);
-    const to = src.indexOf('case ', from + 1);
+    // `case '` WITH the quote: an arm's own comment can say "case variants of a
+    // mandatory field name", and `'case '` alone cut this slice off at that
+    // word — leaving an arm that held neither its panel nor its reset, so both
+    // assertions below passed on nothing at all.
+    const to = src.indexOf("case '", from + 1);
     const arm = src.slice(from, to === -1 ? src.indexOf('default:') : to);
     expect(arm).toContain('PanelSymbolEditorColorSettings');
     expect(arm).not.toMatch(/\breset:/);

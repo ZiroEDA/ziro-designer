@@ -32,6 +32,7 @@ const OWNERS: Record<PrefsPageOwner, () => Promise<PrefsPanelFactory>> = {
   // prevent.
   symbol: async () => (await import('../../editors/symbol/prefs/index.js')).createPrefsPanel,
   schematic: async () => (await import('../../editors/schematic/prefs/index.js')).createPrefsPanel,
+  footprint: async () => (await import('../../editors/footprint/prefs/index.js')).createPrefsPanel,
   pcb: async () => (await import('../../editors/pcb/prefs/index.js')).createPrefsPanel,
   gerbview: async () => (await import('../../editors/gerbview/prefs/index.js')).createPrefsPanel,
   drawingsheet: async () =>

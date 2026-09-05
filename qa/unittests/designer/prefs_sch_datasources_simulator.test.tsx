@@ -20,9 +20,14 @@ import { PanelSchDataSources } from '@ziroeda/designer/src/editors/schematic/pre
 import {
   HORIZONTAL_ACTIONS,
   MOUSE_DEFAULTS,
+  PanelSimulatorPreferences,
   TRACKPAD_DEFAULTS,
   VERTICAL_ACTIONS,
 } from '@ziroeda/designer/src/editors/schematic/prefs/PanelSimulatorPreferences.js';
+import type { EeschemaSettings } from '@ziroeda/designer/src/prefs/settings.js';
+import type { PrefsContext } from '@ziroeda/designer/src/dialogs/prefs/types.js';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { EESCHEMA_DEFAULTS } from '@ziroeda/designer/src/prefs/settings.js';
 import { OMITTED_PAGES, PAGES } from '@ziroeda/designer/src/dialogs/prefs/registry.js';
 import { pcm } from '@ziroeda/designer/src/pcm/pcmStore.js';
@@ -175,5 +180,108 @@ describe('Data Sources lists what the PCM has installed', () => {
     fireEvent.click(screen.getByText('Manage Data Sources...'));
     const active = document.querySelector('.ze-pcm-tabs .active, .ze-tabbar .active');
     expect(active?.textContent).toBe('Data Sources');
+  });
+});
+
+/* ---------------------------------------------------- the page is live -- */
+
+/**
+ * The page used to draw every control greyed, on the rule that a control is
+ * enabled exactly when something outside Preferences reads its setting. Nothing
+ * reads these yet — the simulator itself is unbuilt — but greying them means a
+ * user who enables the simulator has to come back and set the page up again,
+ * and it is also not what KiCad does: `PANEL_SIMULATOR_PREFERENCES` enables its
+ * controls whether or not a plot window exists.
+ *
+ * The narrower rule this page now follows: a control nothing can EVER honour —
+ * a local socket, a native interpreter — is removed; a control whose reader is
+ * merely unbuilt is live, so the setting is already right when the reader
+ * arrives.
+ */
+function simCtx(eeschema: EeschemaSettings): PrefsContext {
+  return {
+    eeschema,
+    upE: (fn: (s: EeschemaSettings) => void) => fn(eeschema),
+  } as unknown as PrefsContext;
+}
+
+const freshSim = (): EeschemaSettings => structuredClone(EESCHEMA_DEFAULTS);
+
+/** The app's own Combo: a button plus a `role="listbox"` popup, never a <select>. */
+function pickAction(ariaLabel: string, label: string): void {
+  const combo = screen.getByLabelText(ariaLabel);
+  fireEvent.click(combo);
+  const option = [...document.querySelectorAll('[role="option"]')].find(
+    (o) => o.textContent === label,
+  );
+  if (!option) throw new Error(`no option "${label}" under ${ariaLabel}`);
+  fireEvent.mouseDown(option);
+}
+
+describe('the Simulator page writes its settings, so enabling the tool needs no revisit', () => {
+  it('draws no disabled control at all', () => {
+    render(<PanelSimulatorPreferences ctx={simCtx(freshSim())} />);
+    expect(document.querySelectorAll('button[disabled], input[disabled]')).toHaveLength(0);
+  });
+
+  it('writes a vertical choice onto its own modifier key', () => {
+    const s = freshSim();
+    render(<PanelSimulatorPreferences ctx={simCtx(s)} />);
+    pickAction('Vertical Ctrl', 'Zoom vertically');
+    // Index 6 in SIM_MOUSE_WHEEL_ACTION, and only that key moves.
+    expect(s.simulator.mouse_wheel_actions.vertical_with_ctrl).toBe(6);
+    expect(s.simulator.mouse_wheel_actions.vertical_unmodified).toBe(
+      EESCHEMA_DEFAULTS.simulator.mouse_wheel_actions.vertical_unmodified,
+    );
+  });
+
+  /**
+   * `horizontalScrollSelectionToAction` maps the choice's 0/1/2 onto NONE,
+   * PAN_LEFT_RIGHT and ZOOM_HORIZONTALLY (`:127-150`), so what is stored for
+   * the third entry is 5 and not 2 — the one thing on this page that is easy
+   * to port wrongly, and it is only visible once the control can be used.
+   */
+  it('stores the horizontal choice as its ENUM value, not its position', () => {
+    const s = freshSim();
+    render(<PanelSimulatorPreferences ctx={simCtx(s)} />);
+    pickAction('Horizontal Any', 'Zoom horizontally');
+    expect(s.simulator.mouse_wheel_actions.horizontal).toBe(5);
+  });
+
+  it('Reset to Mouse Defaults writes GetMouseDefaults, every key of it', () => {
+    const s = freshSim();
+    s.simulator.mouse_wheel_actions.vertical_unmodified = 6;
+    render(<PanelSimulatorPreferences ctx={simCtx(s)} />);
+    fireEvent.click(screen.getByText('Reset to Mouse Defaults'));
+    expect(s.simulator.mouse_wheel_actions).toEqual(MOUSE_DEFAULTS);
+  });
+
+  it('and Reset to Trackpad Defaults writes the other set, which differs on four', () => {
+    const s = freshSim();
+    render(<PanelSimulatorPreferences ctx={simCtx(s)} />);
+    fireEvent.click(screen.getByText('Reset to Trackpad Defaults'));
+    expect(s.simulator.mouse_wheel_actions).toEqual(TRACKPAD_DEFAULTS);
+  });
+});
+
+describe('the choices are sized by their contents, as a wxChoice is', () => {
+  /**
+   * `fgVScroll->AddGrowableCol( 0 )` names the LABEL column, and the grid is
+   * added at proportion 0 with no wxEXPAND —
+   * `bScrollSizerLeft->Add( fgVScroll, 0, wxRIGHT|wxLEFT, 24 )` — so the sizer
+   * never receives slack to hand out and every column stays at its minimum. A
+   * wxChoice added at proportion 0 without wxEXPAND takes its own best size.
+   *
+   * Ours gave the choice column `1fr`, which stretched every control to the
+   * width of the page: measured against a live 10.0.5 side by side, KiCad's
+   * combos are about 165 px and ours were about 450.
+   */
+  it('gives neither grid column a fraction of the free space', () => {
+    const css = readFileSync(resolve(process.cwd(), '../designer/src/ui/shell.css'), 'utf8');
+    const rule = /\.ze-simprefs-grid\s*\{([^}]*)\}/.exec(css.replace(/\/\*[\s\S]*?\*\//g, ''));
+    expect(rule, 'no .ze-simprefs-grid rule').toBeTruthy();
+    const body = rule?.[1] ?? '';
+    expect(body).toMatch(/grid-template-columns:\s*max-content\s+max-content/);
+    expect(body).not.toContain('1fr');
   });
 });

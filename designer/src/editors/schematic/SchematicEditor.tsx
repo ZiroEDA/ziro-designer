@@ -499,6 +499,7 @@ import {
   useSchematicTheme,
   overrideItemColorsFor,
 } from '../../prefs/useSettings.js';
+import { resolveTemplateFieldnames } from './template_fieldnames.js';
 import type { RenderOpts } from './render/renderer.js';
 import type { InputPrefs } from '../../ui/view_controls.js';
 import { SchPropertiesPanel } from './components/SchPropertiesPanel.js';
@@ -5899,6 +5900,25 @@ export function SchematicEditor({
     [doc, currentFile, liveDocs],
   );
 
+  /**
+   * `SCHEMATIC_SETTINGS::m_TemplateFieldNames.GetTemplateFieldNames()` — the
+   * RESOLVED templates, which is what every consumer upstream asks for and what
+   * neither of ours was getting.
+   *
+   * There are two lists. Schematic Setup > Field Name Templates edits the
+   * PROJECT's, and Preferences > Schematic Editor > Field Name Templates edits
+   * the GLOBAL one in `eeschema.json`'s `drawing.field_names`
+   * (`panel_template_fieldnames.cpp:50-60`). We passed `setup.fieldTemplates`
+   * — the project's alone — to both dialogs, so a template added on the
+   * Preferences page was stored, listed back on that page, and used by nothing.
+   *
+   * See `template_fieldnames.ts` for the merge, which is `resolveTemplates`.
+   */
+  const resolvedFieldTemplates = useMemo(
+    () => resolveTemplateFieldnames(setup.fieldTemplates, es.drawing.field_names),
+    [setup.fieldTemplates, es.drawing.field_names],
+  );
+
   const lineMode: LineMode =
     es.drawing.line_mode === 0 ? 'free' : es.drawing.line_mode === 2 ? '45' : '90';
 
@@ -10224,7 +10244,7 @@ export function SchematicEditor({
                 docs={liveDocs()}
                 rootFile={project.current.root}
                 currentPath={currentPath}
-                fieldTemplates={setup.fieldTemplates}
+                fieldTemplates={resolvedFieldTemplates}
                 presets={setup.bomPresets}
                 // Saved presets persist into schematic.bom_presets and list in
                 // Schematic Setup > BOM Presets, like upstream.
@@ -10396,7 +10416,7 @@ export function SchematicEditor({
           hasAlternate={hasAlternateBodyStyle(libById.get(schSymbolLibraryName(propsSymbol)))}
           symbol={propsSymbol}
           lib={libById.get(schSymbolLibraryName(propsSymbol))}
-          fieldTemplates={setup.fieldTemplates}
+          fieldTemplates={resolvedFieldTemplates}
           subpart={subpartSettings(setup.annotation)}
           // `m_frame->GetUserUnits()` — the grid's Text Size / X / Y cells are
           // formatted and parsed in the frame's display unit, not in mm.

@@ -129,7 +129,7 @@ describe('the Cursor group’s two controls, where they now live', () => {
     expect(statements(DS_DISPLAY, 'update={(fn) => upPl((s) => fn(s.window))}')).toHaveLength(1);
     // …and OK commits it to the slice that is persisted as pl_editor.json.
     expect(
-      statements(SHELL, 'settings.updatePlEditor((s) => Object.assign(s, plEditor));'),
+      statements(SHELL, 'settings.updatePlEditor((s) => Object.assign(s, draft.plEditor));'),
     ).toHaveLength(1);
   });
 

@@ -20,7 +20,8 @@
 import { EESCHEMA_DEFAULTS } from '../../../prefs/settings.js';
 import { resetKeys } from '../../../dialogs/prefs/reset.js';
 import { MOUSE_DEFAULTS } from './PanelSimulatorPreferences.js';
-import type { PrefsContext } from '../../../dialogs/prefs/types.js';
+import { templateNamesNeedingTrim, transferTemplateFieldnames } from '../template_fieldnames.js';
+import type { PrefsContext, PrefsTransferPrompt } from '../../../dialogs/prefs/types.js';
 import { resetToolbarsPanel } from '../../../dialogs/prefs/toolbar_reset.js';
 
 /**
@@ -202,4 +203,61 @@ export function resetSimulatorPreferences(ctx: PrefsContext): void {
   ctx.upE((s) => {
     s.simulator.mouse_wheel_actions = { ...MOUSE_DEFAULTS };
   });
+}
+
+/**
+ * `PANEL_TEMPLATE_FIELDNAMES::TransferDataFromWindow`
+ * (`eeschema/dialogs/panel_template_fieldnames.cpp:193-252`).
+ *
+ * The grid holds whatever was typed; the file may not. Filtering on every
+ * keystroke would delete the row a user is halfway through clearing, so it
+ * happens once, when OK is pressed — which is exactly when upstream does it.
+ *
+ * This page is `m_global = true`, so it transfers `drawing.field_names` and
+ * nothing else. See `template_fieldnames.ts` for the three rules.
+ */
+export function transferTemplateFieldnamesPage(
+  ctx: PrefsContext,
+  confirmed?: boolean,
+): PrefsTransferPrompt | void {
+  const apply = (trim: boolean): void =>
+    ctx.upE((s) => {
+      s.drawing.field_names = transferTemplateFieldnames(s.drawing.field_names, trim);
+    });
+
+  // The second call, carrying the answer to the question below.
+  if (confirmed !== undefined) return void apply(confirmed);
+
+  /*
+   *     if( field.m_Name != trimmedName )
+   *     {
+   *         msg.Printf( _( "The field name '%s' contains trailing and/or leading white space." ), … );
+   *         KICAD_MESSAGE_DIALOG dlg( this, msg, _( "Warning" ),
+   *                                   wxOK | wxCANCEL | wxCENTER | wxICON_WARNING );
+   *         dlg.SetExtendedMessage( … );
+   *         dlg.SetOKCancelLabels( _( "Remove White Space" ), _( "Keep White Space" ) );
+   *         if( dlg.ShowModal() == wxID_OK ) field.m_Name = trimmedName;
+   *     }
+   *     (`panel_template_fieldnames.cpp:210-230`)
+   *
+   * Neither answer cancels — the field is added either way — so this holds up
+   * the OK and never the page. Upstream asks once per offending field, inside
+   * the loop; ours asks once for all of them, because a modal per row is a wx
+   * idiom rather than a behaviour and the answer is the same for every one.
+   */
+  const padded = templateNamesNeedingTrim(ctx.eeschema.drawing.field_names);
+  if (padded.length === 0) return void apply(false);
+
+  return {
+    caption: 'Warning',
+    message:
+      padded.length === 1
+        ? `The field name '${padded[0]}' contains trailing and/or leading white space.`
+        : `${padded.length} field names contain trailing and/or leading white space.`,
+    extendedMessage:
+      'This may result in what appears to be duplicate field names but are actually unique ' +
+      'names differing only by white space characters.  Removing the white space characters ' +
+      'will have no effect on existing symbol field names.',
+    labels: { ok: 'Remove White Space', cancel: 'Keep White Space' },
+  };
 }

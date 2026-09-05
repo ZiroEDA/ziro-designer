@@ -70,6 +70,13 @@ describe('the store is a file per app, off by default', () => {
       // `GetToolbarSettings<GERBVIEW_TOOLBAR_SETTINGS>( "gerbview-toolbars" )`
       // (`gerbview/gerbview.cpp:99`).
       'gerbview-toolbars',
+      // The two frames that had no file at all until the Footprint Editor and
+      // the 3D Viewer got their pages: `pcbnew.cpp:384` and `:484`. Upstream
+      // builds `PANEL_TOOLBAR_CUSTOMIZATION` for SEVEN frames, and these were
+      // the missing two — both drew their toolbars from a module constant, so
+      // there was nothing for a page to change.
+      'fpedit-toolbars',
+      '3d_viewer-toolbars',
     ]);
   });
 

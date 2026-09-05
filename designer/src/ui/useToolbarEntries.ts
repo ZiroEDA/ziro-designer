@@ -45,6 +45,10 @@ export function customToolbarsEnabled(app: ToolbarApp): boolean {
       return settings.plEditor.appearance.custom_toolbars;
     case 'gerbview':
       return settings.gerbview.appearance.custom_toolbars;
+    case 'fpedit':
+      return settings.fpEdit.appearance.custom_toolbars;
+    case '3d_viewer':
+      return settings.viewer3d.appearance.custom_toolbars;
   }
 }
 

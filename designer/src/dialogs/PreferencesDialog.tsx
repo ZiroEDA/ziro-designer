@@ -12,10 +12,14 @@ import {
   type PlEditorSettings,
   type PrivacySettings,
   type SymbolEditorSettings,
+  type FpEditSettings,
   type ToolbarApp,
   type UserColorTheme,
+  type Viewer3dSettings,
 } from '../prefs/settings.js';
+import type { PrefsTransferPrompt } from './prefs/types.js';
 import type { ToolbarSettings } from '../ui/toolbar_config.js';
+import { MessageDialogYesNo } from '../ui/dialog_message.js';
 import { usePagedDialogSize } from '../ui/paged_dialog_size.js';
 import { PagedDialogTree } from '../ui/PagedDialogTree.js';
 import { FIRST_PAGE, PAGES, labelOf, ownerOf } from './prefs/registry.js';
@@ -211,6 +215,12 @@ export function PreferencesDialog({
     ...settings.userColors,
   }));
   const [pcbnew, setPcbnew] = useState<PcbnewSettings>(() => structuredClone(settings.pcbnew));
+  // `fpedit.json` and `3d_viewer.json`, the two other files pcbnew's KIFACE
+  // hands its panels (`pcbnew.cpp:381`, `:483`).
+  const [fpEdit, setFpEdit] = useState<FpEditSettings>(() => structuredClone(settings.fpEdit));
+  const [viewer3d, setViewer3d] = useState<Viewer3dSettings>(() =>
+    structuredClone(settings.viewer3d),
+  );
   const [gerbview, setGerbview] = useState<GerbviewSettings>(() =>
     structuredClone(settings.gerbview),
   );
@@ -256,6 +266,20 @@ export function PreferencesDialog({
       return n;
     });
 
+  const upFp = (fn: (s: FpEditSettings) => void): void =>
+    setFpEdit((s) => {
+      const n = structuredClone(s);
+      fn(n);
+      return n;
+    });
+
+  const up3d = (fn: (s: Viewer3dSettings) => void): void =>
+    setViewer3d((s) => {
+      const n = structuredClone(s);
+      fn(n);
+      return n;
+    });
+
   const upGbr = (fn: (s: GerbviewSettings) => void): void =>
     setGerbview((s) => {
       const n = structuredClone(s);
@@ -277,13 +301,77 @@ export function PreferencesDialog({
       return { ...s, [app]: n };
     });
 
-  const ok = (): void => {
-    settings.updateCommon((s) => Object.assign(s, common));
-    settings.updateEeschema((s) => Object.assign(s, eeschema));
-    settings.updateSymbolEditor((s) => Object.assign(s, symbolEditor));
-    settings.updatePcbnew((s) => Object.assign(s, pcbnew));
-    settings.updateGerbview((s) => Object.assign(s, gerbview));
-    settings.updatePlEditor((s) => Object.assign(s, plEditor));
+  /**
+   * A question a page's `TransferDataFromWindow` has to ask before OK can
+   * finish, and the answer once it has one.
+   *
+   * The shell renders the page's prompt with the app's own message dialog and
+   * calls that page's `transfer` again with the answer; it never learns which
+   * page asked or what the answer means. Upstream the panel raises its own
+   * `KICAD_MESSAGE_DIALOG` from inside the transfer, which is the same thing
+   * said by a class that can open a window.
+   */
+  const [prompt, setPrompt] = useState<{ id: PrefsPageId; prompt: PrefsTransferPrompt } | null>(
+    null,
+  );
+
+  const ok = (answer?: { id: PrefsPageId; confirmed: boolean }): void => {
+    /*
+     * `wxWindow::TransferDataFromWindow` on every page the book built, before
+     * the dialog closes. Only a page that has been OPENED has a panel —
+     * `AddLazySubPage` constructs nothing until its row is selected — which is
+     * upstream's behaviour too: a page never visited has no controls to
+     * transfer and no settings that were touched.
+     *
+     * It runs against a DRAFT rather than through the React setters. A `upE`
+     * here would schedule a re-render, and the `settings.update…` calls below
+     * read the values this render closed over — so the transfer would land one
+     * OK too late, which is to say never.
+     */
+    const draft = {
+      common: structuredClone(common),
+      eeschema: structuredClone(eeschema),
+      symbolEditor: structuredClone(symbolEditor),
+      pcbnew: structuredClone(pcbnew),
+      fpEdit: structuredClone(fpEdit),
+      viewer3d: structuredClone(viewer3d),
+      gerbview: structuredClone(gerbview),
+      plEditor: structuredClone(plEditor),
+    };
+    const transferCtx: PrefsContext = {
+      ...ctx,
+      ...draft,
+      upC: (fn) => fn(draft.common),
+      upE: (fn) => fn(draft.eeschema),
+      upSym: (fn) => fn(draft.symbolEditor),
+      upP: (fn) => fn(draft.pcbnew),
+      upFp: (fn) => fn(draft.fpEdit),
+      up3d: (fn) => fn(draft.viewer3d),
+      upGbr: (fn) => fn(draft.gerbview),
+      upPl: (fn) => fn(draft.plEditor),
+    };
+    for (const row of PAGES) {
+      if (row.id === null) continue;
+      const asked =
+        answer?.id === row.id
+          ? peekPrefsPanel(row.id)?.transfer?.(transferCtx, answer.confirmed)
+          : peekPrefsPanel(row.id)?.transfer?.(transferCtx);
+      // A page that needs an answer stops the OK where it stands: nothing is
+      // committed, and the whole run happens again once it has one.
+      if (asked) {
+        setPrompt({ id: row.id, prompt: asked });
+        return;
+      }
+    }
+
+    settings.updateCommon((s) => Object.assign(s, draft.common));
+    settings.updateEeschema((s) => Object.assign(s, draft.eeschema));
+    settings.updateSymbolEditor((s) => Object.assign(s, draft.symbolEditor));
+    settings.updatePcbnew((s) => Object.assign(s, draft.pcbnew));
+    settings.updateFpEdit((s) => Object.assign(s, draft.fpEdit));
+    settings.updateViewer3d((s) => Object.assign(s, draft.viewer3d));
+    settings.updateGerbview((s) => Object.assign(s, draft.gerbview));
+    settings.updatePlEditor((s) => Object.assign(s, draft.plEditor));
     // `TransferDataFromWindow` writes every toolbar back through
     // `SetStoredToolbarConfig`, changed or not
     // (`panel_toolbar_customization.cpp:352-354`).
@@ -310,6 +398,8 @@ export function PreferencesDialog({
     gerbview,
     plEditor,
     privacy,
+    fpEdit,
+    viewer3d,
     userColors,
     userThemes,
     hotkeys,
@@ -318,6 +408,8 @@ export function PreferencesDialog({
     upE,
     upSym,
     upP,
+    upFp,
+    up3d,
     upGbr,
     upPl,
     upTb,
@@ -439,11 +531,31 @@ export function PreferencesDialog({
           <button className="ze-btn" onClick={onClose}>
             Cancel
           </button>
-          <button className="ze-btn primary" onClick={ok}>
+          <button className="ze-btn primary" onClick={() => ok()}>
             OK
           </button>
         </div>
       </div>
+
+      {prompt !== null && (
+        /* `wxOK | wxCANCEL | wxCENTER | wxICON_WARNING` with
+           `SetOKCancelLabels`. The words are the page's; this only shows them. */
+        <MessageDialogYesNo
+          caption={prompt.prompt.caption}
+          message={prompt.prompt.message}
+          {...(prompt.prompt.extendedMessage
+            ? { extendedMessage: prompt.prompt.extendedMessage }
+            : {})}
+          icon="warning"
+          defaultButton="yes"
+          labels={{ yes: prompt.prompt.labels.ok, no: prompt.prompt.labels.cancel }}
+          onResult={(r) => {
+            const id = prompt.id;
+            setPrompt(null);
+            ok({ id, confirmed: r === 'yes' });
+          }}
+        />
+      )}
     </div>
   );
 }

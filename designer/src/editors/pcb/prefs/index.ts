@@ -15,8 +15,14 @@
  */
 import { PanelPcbDisplayOptions } from './PanelPcbDisplayOptions.js';
 import { PanelPcbGrids } from './PanelPcbGrids.js';
-import { resetPcbDisplayOptions, resetPcbGrids, resetPcbToolbars } from './resets.js';
+import {
+  resetPcbDisplayOptions,
+  resetPcbGrids,
+  resetPcbToolbars,
+  resetViewer3dToolbars,
+} from './resets.js';
 import { PanelPcbToolbars } from './PanelPcbToolbars.js';
+import { PanelViewer3dToolbars } from './PanelViewer3dToolbars.js';
 import type {
   PrefsPageId,
   PrefsPanelFactory,
@@ -41,6 +47,14 @@ export const createPrefsPanel: PrefsPanelFactory = (id: PrefsPageId): PrefsPanel
       return {
         Panel: PanelPcbToolbars,
         reset: resetPcbToolbars,
+      };
+
+    // The 3D Viewer is a heading of its own but the same KIFACE, so its page
+    // is constructed here rather than in a factory of its own.
+    case '3dv-toolbars':
+      return {
+        Panel: PanelViewer3dToolbars,
+        reset: resetViewer3dToolbars,
       };
 
     default:

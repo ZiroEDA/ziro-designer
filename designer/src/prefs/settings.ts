@@ -1645,7 +1645,45 @@ export const GERBVIEW_DEFAULTS: GerbviewSettings = {
  * either lives elsewhere in this port already or is not persisted yet, and a
  * key that nothing reads is a key that can drift.
  */
+/**
+ * `3d_viewer.json` — `EDA_3D_VIEWER_SETTINGS`, an `APP_SETTINGS_BASE` like the
+ * rest (`GetAppSettings<EDA_3D_VIEWER_SETTINGS>( "3d_viewer" )`,
+ * `pcbnew/pcbnew.cpp:483`).
+ *
+ * A file of its own, not a corner of `pcbnew.json`, which is why the 3D viewer
+ * has a Preferences page and a `3d_viewer-toolbars` file of its own too. Only
+ * the key this app reads is transcribed, the same partial shape
+ * {@link FpEditSettings} takes; the viewer's render options live in its own
+ * state and have not needed a settings file yet.
+ */
+export interface Viewer3dSettings {
+  appearance: {
+    /** `appearance.custom_toolbars` -> `APP_SETTINGS_BASE::m_CustomToolbars`
+     *  (`common/settings/app_settings.cpp:285-286`). */
+    custom_toolbars: boolean;
+  };
+}
+
+export const VIEWER3D_DEFAULTS: Viewer3dSettings = {
+  appearance: { custom_toolbars: false },
+};
+
+export function mergeViewer3d(stored: unknown): Viewer3dSettings {
+  return deepMerge(structuredClone(VIEWER3D_DEFAULTS), stored);
+}
+
 export interface FpEditSettings {
+  /**
+   * `APP_SETTINGS_BASE`'s own block, which every app settings file carries.
+   * Only the key this app reads is transcribed, the same partial shape the rest
+   * of this interface takes.
+   */
+  appearance: {
+    /** `appearance.custom_toolbars` -> `APP_SETTINGS_BASE::m_CustomToolbars`
+     *  (`common/settings/app_settings.cpp:285-286`), the Toolbars page's
+     *  "Customize toolbars" checkbox. */
+    custom_toolbars: boolean;
+  };
   window: {
     /**
      * `PARAM<int>( "window.lib_width", &m_LibWidth, 250 )`
@@ -1681,6 +1719,7 @@ export interface FpEditSettings {
 }
 
 export const FPEDIT_DEFAULTS: FpEditSettings = {
+  appearance: { custom_toolbars: false },
   window: { lib_width: 250 },
   lib_tree: { columns: [], column_widths: {}, open_libs: [] },
 };
@@ -2281,6 +2320,7 @@ export const SETTINGS_SLICES = [
   'pcb_calculator',
   'bitmap2component',
   'privacy',
+  '3d_viewer',
   'colors.user',
   // Every theme "New Theme..." made. Upstream these are one `<name>.json` each
   // in `GetColorSettingsPath()`; a slice is what this app syncs, so they ride
@@ -2294,6 +2334,8 @@ export const SETTINGS_SLICES = [
   // file, so a synced account carries `eeschema-toolbars.json` and not a
   // sub-object of `eeschema.json`.
   'eeschema-toolbars',
+  'fpedit-toolbars',
+  '3d_viewer-toolbars',
   // `GetToolbarSettings<SYMBOL_EDIT_TOOLBAR_SETTINGS>( "symbol_editor-toolbars" )`
   // (`eeschema/eeschema.cpp:289`).
   'symbol_editor-toolbars',
@@ -2323,6 +2365,14 @@ export const TOOLBAR_APPS = [
   'pcbnew',
   'pl_editor',
   'gerbview',
+  // `GetToolbarSettings<FOOTPRINT_EDIT_TOOLBAR_SETTINGS>( "fpedit-toolbars" )`
+  // and `GetToolbarSettings<EDA_3D_VIEWER_TOOLBAR_SETTINGS>( "3d_viewer-toolbars" )`
+  // (`pcbnew/pcbnew.cpp:384`, `:484`). Upstream builds
+  // `PANEL_TOOLBAR_CUSTOMIZATION` for SEVEN frames; these are the two that had
+  // neither a file nor a page here, so their editors drew the module constant
+  // and a customised toolbar changed nothing.
+  'fpedit',
+  '3d_viewer',
 ] as const;
 
 export type ToolbarApp = (typeof TOOLBAR_APPS)[number];
@@ -2792,6 +2842,12 @@ const SLICE_IO: Record<SettingsSlice, SliceIO> = {
       m.fpEdit = mergeFpEdit(v);
     },
   },
+  '3d_viewer': {
+    read: (m) => m.viewer3d,
+    adopt: (m, v) => {
+      m.viewer3d = mergeViewer3d(v);
+    },
+  },
   pcb_calculator: {
     read: (m) => m.pcbCalculator,
     // Not `deepMerge`: the transmission-line keyword maps are free-form.
@@ -2872,6 +2928,18 @@ const SLICE_IO: Record<SettingsSlice, SliceIO> = {
       m.toolbars = { ...m.toolbars, gerbview: normalizeToolbarSettings(v) };
     },
   },
+  'fpedit-toolbars': {
+    read: (m) => m.toolbars.fpedit,
+    adopt: (m, v) => {
+      m.toolbars = { ...m.toolbars, fpedit: normalizeToolbarSettings(v) };
+    },
+  },
+  '3d_viewer-toolbars': {
+    read: (m) => m.toolbars['3d_viewer'],
+    adopt: (m, v) => {
+      m.toolbars = { ...m.toolbars, '3d_viewer': normalizeToolbarSettings(v) };
+    },
+  },
 };
 
 /**
@@ -2911,6 +2979,8 @@ export class SettingsManager {
   /** `fpedit.json`, the Footprint Editor's own settings file. Not `load()`:
    *  `lib_tree.column_widths` is free-form. See `mergeFpEdit`. */
   fpEdit: FpEditSettings = loadFreeForm(sliceStorageKey('fpedit'), mergeFpEdit);
+
+  viewer3d: Viewer3dSettings = loadFreeForm(sliceStorageKey('3d_viewer'), mergeViewer3d);
   /** `pcb_calculator.json` — the Calculator Tools frame's last inputs. */
   pcbCalculator: PcbCalculatorSettings = loadFreeForm(
     sliceStorageKey('pcb_calculator'),
@@ -2950,6 +3020,8 @@ export class SettingsManager {
     pcbnew: loadFreeForm(sliceStorageKey('pcbnew-toolbars'), normalizeToolbarSettings),
     pl_editor: loadFreeForm(sliceStorageKey('pl_editor-toolbars'), normalizeToolbarSettings),
     gerbview: loadFreeForm(sliceStorageKey('gerbview-toolbars'), normalizeToolbarSettings),
+    fpedit: loadFreeForm(sliceStorageKey('fpedit-toolbars'), normalizeToolbarSettings),
+    '3d_viewer': loadFreeForm(sliceStorageKey('3d_viewer-toolbars'), normalizeToolbarSettings),
   };
   /** Per-slice modification and agreement stamps; see {@link SliceStamp}. */
   stamps: Record<string, SliceStamp> = loadStamps();
@@ -3118,6 +3190,13 @@ export class SettingsManager {
   }
 
   /** `FOOTPRINT_EDIT_FRAME::SaveSettings` (`footprint_edit_frame.cpp:823-860`). */
+  updateViewer3d(mutate: (s: Viewer3dSettings) => void): void {
+    const next = structuredClone(this.viewer3d);
+    mutate(next);
+    this.viewer3d = next;
+    this.commit('3d_viewer', this.viewer3d);
+  }
+
   updateFpEdit(mutate: (s: FpEditSettings) => void): void {
     const next = structuredClone(this.fpEdit);
     mutate(next);

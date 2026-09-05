@@ -41,6 +41,13 @@ export function resetPcbToolbars(ctx: PrefsContext): void {
   });
 }
 
+/** The same panel, over the 3D Viewer's own `3d_viewer-toolbars` file. */
+export function resetViewer3dToolbars(ctx: PrefsContext): void {
+  ctx.upTb('3d_viewer', (s) => {
+    resetToolbarsPanel(s);
+  });
+}
+
 /**
  * `PANEL_GRID_SETTINGS::ResetPanel`
  * (`common/dialogs/panel_grid_settings.cpp:110-113`) — the same two lines for

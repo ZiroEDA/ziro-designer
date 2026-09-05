@@ -528,6 +528,8 @@ describe('the editor reads and writes the store', () => {
     // And the dialog's OK is what carries that working copy into the store —
     // without this line the panel would edit a clone and throw it away, which is
     // precisely the "displays a value and then discards it" failure.
-    expect(PREFS_SHELL).toContain('settings.updatePlEditor((s) => Object.assign(s, plEditor));');
+    expect(PREFS_SHELL).toContain(
+      'settings.updatePlEditor((s) => Object.assign(s, draft.plEditor));',
+    );
   });
 });

@@ -105,7 +105,7 @@ describe('a vertical toolbar touches the canvas; a palette docks outside it', ()
     before(
       FP,
       'className="ze-leftdock" style={{ width: panelWidth',
-      'entries={FP_LEFT_TOOLBAR}',
+      'entries={fpLeftBar}',
       'fp left',
     );
   });
@@ -121,7 +121,7 @@ describe('a vertical toolbar touches the canvas; a palette docks outside it', ()
     // `.Right().Layer( 3 )` stack, the filter at `.Position( 2 )`. It used to be
     // the LEFT dock rule with the border flipped over, which is why the filter
     // pane could not be stacked under it at all.
-    before(FP, 'entries={FP_RIGHT_TOOLBAR}', 'className="ze-rightdock"', 'fp right');
+    before(FP, 'entries={fpRightBar}', 'className="ze-rightdock"', 'fp right');
     before(FP, 'className="ze-rightdock"', 'ze-panel-header">Appearance', 'fp appearance');
     before(FP, 'ze-panel-header">Appearance', 'ze-panel-header">Selection Filter', 'fp filter');
   });
