@@ -30,8 +30,10 @@ import {
   inviteTokenIn,
   openProjectLink,
   pendingInvite,
+  clearPendingProjectLink,
   projectLinkIn,
   redeemPendingInvite,
+  rememberProjectLink,
   shareUrlFor,
 } from '@ziroeda/designer/src/cloud/invites.js';
 import type { CloudBackend } from '@ziroeda/designer/src/cloud/backend.js';
@@ -46,6 +48,7 @@ const BASE = 'http://localhost:3000/';
 
 beforeEach(() => {
   clearPendingInvite();
+  clearPendingProjectLink();
   window.history.replaceState(null, '', BASE);
 });
 
@@ -170,6 +173,84 @@ describe('an ordinary share link, `?p=<uid>`', () => {
     // A `?join` link is not a project address, and a `?p` link is not a token.
     expect(projectLinkIn(window.location.href)).toBeNull();
     expect(await openProjectLink(fakeBackend(async () => null))).toBeNull();
+  });
+});
+
+describe('a share link followed through a sign-in', () => {
+  const UID = '11111111-2222-3333-4444-555555555555';
+
+  it('survives the URL being taken apart, which is what actually happens', async () => {
+    // This is the bug that shipped. Signing in destroys the query string --
+    // `detectSessionInUrl` rewrites the address bar after reading the auth
+    // fragment, and Supabase serves the configured Site URL, which carries no
+    // query, whenever the `redirectTo` it was handed is not allow-listed. Both
+    // were invisible to every test here, because every one of them started from
+    // a URL that still had the link in it.
+    window.history.replaceState(null, '', `${BASE}?p=${UID}`);
+    rememberProjectLink();
+
+    // What the reader comes back to: no query, and a spent auth fragment.
+    window.history.replaceState(null, '', `${BASE}#`);
+    expect(projectLinkIn(window.location.href)).toBeNull();
+
+    const be = fakeBackend(async () => null);
+    (be as unknown as { openByLink: (u: string) => Promise<string> }).openByLink = async () =>
+      'viewer';
+    expect(await openProjectLink(be)).toEqual({ uid: UID, role: 'viewer' });
+  });
+
+  it('is acted on once, not on every later sign-in', async () => {
+    window.history.replaceState(null, '', `${BASE}?p=${UID}`);
+    rememberProjectLink();
+    window.history.replaceState(null, '', BASE);
+
+    const seen: string[] = [];
+    const be = fakeBackend(async () => null);
+    (be as unknown as { openByLink: (u: string) => Promise<string> }).openByLink = async (u) => {
+      seen.push(u);
+      return 'viewer';
+    };
+    await openProjectLink(be);
+    await openProjectLink(be);
+    // A link nobody is holding any more must not keep joining projects every
+    // time somebody signs in on this machine.
+    expect(seen).toEqual([UID]);
+  });
+
+  it('ignores a stale one, and anything that is not a link', async () => {
+    const be = fakeBackend(async () => null);
+    (be as unknown as { openByLink: () => Promise<string> }).openByLink = async () => 'viewer';
+
+    window.localStorage.setItem(
+      'ziro.pendingProjectLink',
+      // Half an hour is the cutoff: long enough for a sign-up with an emailed
+      // code, short enough that a link followed and abandoned last week does
+      // not silently join a project on the next sign-in.
+      JSON.stringify({ uid: UID, at: Date.now() - 31 * 60 * 1000 }),
+    );
+    expect(await openProjectLink(be)).toBeNull();
+
+    window.localStorage.setItem('ziro.pendingProjectLink', 'not json at all');
+    expect(await openProjectLink(be)).toBeNull();
+
+    window.localStorage.setItem('ziro.pendingProjectLink', JSON.stringify({ uid: '../../etc' }));
+    expect(await openProjectLink(be)).toBeNull();
+  });
+
+  it('leaves it remembered when the backend cannot act on it yet', async () => {
+    window.history.replaceState(null, '', `${BASE}?p=${UID}`);
+    rememberProjectLink();
+    window.history.replaceState(null, '', BASE);
+
+    // A deployment without the migration. Nothing was attempted, so the next
+    // load -- against a database that has it -- can still open the project.
+    const noLink = fakeBackend(async () => null);
+    expect(await openProjectLink(noLink)).toBeNull();
+    expect(await openProjectLink(null)).toBeNull();
+
+    const be = fakeBackend(async () => null);
+    (be as unknown as { openByLink: () => Promise<string> }).openByLink = async () => 'editor';
+    expect(await openProjectLink(be)).toEqual({ uid: UID, role: 'editor' });
   });
 });
 

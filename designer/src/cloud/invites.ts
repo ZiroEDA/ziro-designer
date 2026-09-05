@@ -54,6 +54,27 @@ export const INVITE_PARAM = 'join';
 /** Where the token waits while the reader signs in. */
 const STASH_KEY = 'ziro.pendingInvite';
 
+/**
+ * Where the *project* a link named waits while the reader signs in.
+ *
+ * `localStorage`, not `sessionStorage`, and that difference is deliberate. The
+ * invite token is a secret, so it is kept for exactly one tab and no longer.
+ * A project id is an address, and the flow it has to survive is worse: an
+ * emailed magic link can open a **new tab**, where a session store is empty.
+ * The exposure is a project id sitting in one browser for half an hour, which
+ * is what the address bar would have held anyway.
+ */
+const LINK_KEY = 'ziro.pendingProjectLink';
+
+/**
+ * How long a remembered link stays worth acting on.
+ *
+ * Long enough for a sign-up with an emailed code, short enough that a link
+ * followed and abandoned last week does not silently join a project the next
+ * time somebody signs in on that machine.
+ */
+const LINK_TTL_MS = 30 * 60 * 1000;
+
 export type ProjectRole = 'owner' | 'editor' | 'viewer';
 
 /** A uuid, as it appears in a URL. */
@@ -96,22 +117,79 @@ export function shareUrlFor(uid: string, base?: string): string {
 }
 
 /**
- * Claim whatever the current page's project link offers.
+ * Write down the project the current URL names, so signing in cannot lose it.
  *
- * Returns what was granted, or null when the page carries no link. Rejects when
- * the link is not available -- the project does not exist, or its owner has
- * link sharing switched off, which the database answers identically on purpose.
+ * **Called before the Supabase client is constructed**, from `supabaseClient.ts`,
+ * because the client is what destroys the evidence. `detectSessionInUrl` reads
+ * the auth fragment and then rewrites the address bar, and Supabase itself
+ * falls back to the project's configured Site URL -- which carries no query --
+ * whenever the `redirectTo` it was handed is not in the allow-list. Either way
+ * `?p=<uid>` is gone by the time a session exists, and the app is left showing
+ * whatever project that account happened to have open last.
  *
- * No stash and no redirect dance: the uid stays in the URL, and
- * `signInWithGoogle` returns to `window.location.href`, so it is still there
- * when the session arrives.
+ * This was the bug: sharing was tested by generating a link, and following one
+ * only ever failed *after* a sign-in, which is the one path no test covered.
+ * `redirectTo: window.location.href` was necessary and nowhere near sufficient.
+ *
+ * Idempotent, and a URL with no link leaves an already-remembered one alone.
+ */
+export function rememberProjectLink(): string | null {
+  if (typeof window === 'undefined') return null;
+  const uid = projectLinkIn(window.location.href);
+  if (!uid) return pendingProjectLink();
+  try {
+    window.localStorage.setItem(LINK_KEY, JSON.stringify({ uid, at: Date.now() }));
+  } catch {
+    // Private browsing, or storage disabled. The link still works in this page
+    // load; it just will not survive a sign-in that navigates.
+  }
+  return uid;
+}
+
+/** The project a link named, if one is still waiting and recent enough. */
+export function pendingProjectLink(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.localStorage.getItem(LINK_KEY);
+    if (!raw) return null;
+    const { uid, at } = JSON.parse(raw) as { uid?: string; at?: number };
+    if (typeof uid !== 'string' || !UUID.test(uid)) return null;
+    if (typeof at !== 'number' || Date.now() - at > LINK_TTL_MS) return null;
+    return uid;
+  } catch {
+    return null;
+  }
+}
+
+export function clearPendingProjectLink(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.removeItem(LINK_KEY);
+  } catch {
+    /* nothing to clear if it could not be written either */
+  }
+}
+
+/**
+ * Claim whatever project link this visit is carrying.
+ *
+ * The URL first, then what was remembered before the sign-in took the URL
+ * apart. Cleared once acted on, successfully or not: a link that the database
+ * refuses will be refused identically forever, and re-attempting it on every
+ * sign-in would put the same message in front of somebody who needs a new
+ * link, not a reminder.
  */
 export async function openProjectLink(
   backend: CloudBackend | null,
 ): Promise<{ uid: string; role: ProjectRole } | null> {
   if (typeof window === 'undefined') return null;
-  const uid = projectLinkIn(window.location.href);
-  if (!uid || !backend?.openByLink) return null;
+  const uid = projectLinkIn(window.location.href) ?? pendingProjectLink();
+  if (!uid) return null;
+  // No backend, or a deployment without the migration: leave it remembered.
+  // Nothing was attempted, so the next load can still act on it.
+  if (!backend?.openByLink) return null;
+
+  clearPendingProjectLink();
   const role = await backend.openByLink(uid);
   if (!role) return null;
   return { uid, role: role === 'owner' || role === 'editor' ? role : 'viewer' };

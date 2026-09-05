@@ -6,6 +6,7 @@ import { preloadBundle } from '../libraryPreload.js';
 import { MenuBar, type Menu } from '../ui/MenuBar.js';
 import {
   cloudIdentityOf,
+  localIdForCloudUid,
   storageAvailable,
   listProjects,
   saveProject,
@@ -810,6 +811,10 @@ export function HomePage({
   >(null);
   // What became of a share link the reader followed. Null when they did not
   // follow one, which is nearly always.
+  // The project a share link named, held across the reconcile that brings it
+  // down. A ref rather than state: nothing renders from it, and a re-render
+  // between the join and the open would drop it.
+  const openAfterJoin = useRef<string | null>(null);
   const [joinNotice, setJoinNotice] = useState<
     { kind: 'joined'; role: ProjectRole } | { kind: 'failed'; message: string } | null
   >(null);
@@ -871,9 +876,13 @@ export function HomePage({
       redeemPendingInvite(cloudBackend()),
     ])
       .then(([viaLink, viaInvite]) => ({ joined: viaLink ?? viaInvite }))
-      .then(
+      .then<{ uid: string } | null, { uid: string } | null>(
         ({ joined }) => {
           if (joined && !cancelled) setJoinNotice({ kind: 'joined', role: joined.role });
+          // Carried through the reconcile so the project can be opened once it
+          // has actually arrived: joining makes it visible, the sync is what
+          // brings it down, and opening it before that would find nothing.
+          return joined ? { uid: joined.uid } : null;
         },
         (e: unknown) => {
           // Worth a sentence rather than a console line: the person deliberately
@@ -882,10 +891,26 @@ export function HomePage({
           if (!cancelled) {
             setJoinNotice({ kind: 'failed', message: e instanceof Error ? e.message : String(e) });
           }
+          return null;
         },
       );
 
     void joining
+      .then(async (joined) => {
+        // Land in the project the link named.
+        //
+        // Following a link and being shown whatever this account had open last
+        // is the whole failure this exists to prevent, and it reads as "some
+        // random project opened" -- which is exactly what it is. Awaited after
+        // the reconcile below rather than here, because the copy has to exist
+        // locally first.
+        //
+        // Resolved by `uid`, because that is the only handle a link carries: a
+        // shared project is filed locally under it, one of the reader's own
+        // under the id their browser gave it, and only the store knows which.
+        openAfterJoin.current = joined?.uid ?? null;
+        return joined;
+      })
       .then(() => {
         // Re-checked because the redeem was awaited: the account can have
         // changed, or the page moved on, while it was in flight, and starting a
@@ -905,6 +930,16 @@ export function HomePage({
       .then(async (r) => {
         if (cancelled) return;
         refreshSaved();
+        // The project the link named, now that the reconcile has actually
+        // brought it down. Before the failure branch below on purpose: another
+        // project failing to sync is no reason to leave somebody who followed a
+        // link staring at whichever project this account had open last.
+        const landed = openAfterJoin.current;
+        openAfterJoin.current = null;
+        if (landed) {
+          const local = await localIdForCloudUid(landed);
+          if (local && !cancelled) await openStored(local);
+        }
         // Templates ride the same account, through the same blob store, but a
         // separate index object (templateSync.ts). Awaited after the projects
         // rather than beside them so a template failure cannot mask a project

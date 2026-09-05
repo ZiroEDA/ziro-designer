@@ -992,6 +992,19 @@ export async function claimProject(id: string, userId: string): Promise<void> {
 }
 
 /**
+ * The local key of the copy of a given cloud project, or null when this browser
+ * has none.
+ *
+ * A shared project is filed under its `uid` and one of your own under the id
+ * its browser gave it, so a caller holding only a `uid` -- everything that came
+ * in through a share link does -- cannot work out which without asking.
+ */
+export async function localIdForCloudUid(uid: string): Promise<string | null> {
+  const all = await tx<StoredRecord[]>('readonly', (s) => s.getAll());
+  return all.find((r) => r.cloudUid === uid)?.id ?? null;
+}
+
+/**
  * Which cloud project a local record is a copy of, if it has met the cloud yet.
  *
  * Null when there is no such record, and `uid` undefined when the project has
