@@ -14,7 +14,8 @@
 import { PCB_IU_PER_MM } from '@ziroeda/common/src/eda_units.js';
 import earcut from 'earcut';
 import polygonClipping from 'polygon-clipping';
-import { tessellateArc, type Board } from '@ziroeda/pcbnew';
+import { tessellateArc, type Board, type PcbBarcode } from '@ziroeda/pcbnew';
+import { barcodeGeometry } from '@ziroeda/pcbnew/src/barcode_geometry.js';
 import { layoutText } from '@ziroeda/common/src/font/stroke_font.js';
 import { ITALIC_TILT } from '@ziroeda/common/src/font/font_metrics.js';
 
@@ -302,6 +303,14 @@ export function buildBoardGeom(board: Board, box: Box): BoardGeom {
   }
   for (const sh of board.shapes) addSilk(sh, silkSide(sh.layer), poly3d);
 
+  // `EXPORTER_STEP::visitItem`, `case PCB_BARCODE_T` (`exporter_step.cpp:1033`)
+  // and `FOOTPRINT::TransformFPShapesToPolySet`'s `aIncludeShapes` arm
+  // (`footprint.cpp:4693`): a barcode contributes its assembled polygon to the
+  // layer it is on, exactly as a graphic does. Its geometry is already a set
+  // of filled rings, so it needs no stroking — it goes straight in.
+  for (const bc of [...board.barcodes, ...board.footprints.flatMap((f) => f.barcodes)])
+    addBarcode3d(bc, silkSide(bc.layer), poly3d);
+
   // Text as stroke geometry, reference designators/values on silk, plus text
   // on copper (e.g. a board name on F.Cu/B.Cu) into the copper mesh so it reads
   // like KiCad. Mirrors renderBoard.addText's placement transform.
@@ -365,6 +374,29 @@ function addText(t: Text, mesh: Mesh | null, poly3d: (mesh: Mesh, loop: Pt[]) =>
 }
 
 // One silkscreen graphic → thin filled geometry.
+/**
+ * A barcode's modules, as filled silkscreen geometry.
+ *
+ * Unlike every other silk primitive this one is not stroked: `addSilk` turns a
+ * centreline into a stadium of the shape's own width, and a barcode has no
+ * centreline — `m_poly` is already the filled area. So each ring goes in as
+ * itself.
+ *
+ * Holes are dropped: a knockout barcode's rings are FRACTURED, so its holes
+ * arrive as zero-width slits in one outline rather than as separate rings, and
+ * the triangulator sees a single simple loop.
+ */
+function addBarcode3d(
+  bc: PcbBarcode,
+  s: SideGeom | null,
+  poly3d: (mesh: Mesh, loop: Pt[]) => void,
+): void {
+  if (!s) return;
+
+  for (const poly of barcodeGeometry(bc).poly)
+    for (const ring of poly) if (ring.length >= 3) poly3d(s.silk, ring);
+}
+
 function addSilk(
   sh: Board['shapes'][number],
   s: SideGeom | null,

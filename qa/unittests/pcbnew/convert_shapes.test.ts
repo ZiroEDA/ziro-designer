@@ -424,6 +424,38 @@ describe('putting the two paths together', () => {
 
     expect(convertToPolygons(b, ['zone:0'])).toHaveLength(1);
   });
+
+  it('takes a barcode’s modules, which is why it is in toPolyTypes', () => {
+    // `PCB_BARCODE_T` sits in `CONVERT_TOOL`'s `toPolyTypes`
+    // (`convert_tool.cpp:277`) beside `PCB_TEXT_T` — the two items whose
+    // "outline" is a set of shapes rather than one ring. Converting turns the
+    // modules into editable graphics, which is how a barcode gets milled or
+    // handed to a process that will not read `(barcode …)`.
+    const b = board({
+      barcodes: [
+        {
+          at: { x: MM(10), y: MM(10) },
+          angle: 0,
+          layer: 'F.SilkS',
+          width: MM(8),
+          height: MM(8),
+          text: 'ZIRO',
+          textHeight: MM(1.27),
+          kind: 'qr',
+          ecc: 'L',
+          showText: false,
+          knockout: false,
+          margin: { x: 0, y: 0 },
+          source: EMPTY,
+        },
+      ],
+    });
+    const rings = convertToPolygons(b, ['barcode:0']);
+
+    // One ring per module run — dozens for a QR code, and every one closed.
+    expect(rings.length).toBeGreaterThan(10);
+    for (const r of rings) expect(r.length).toBeGreaterThanOrEqual(3);
+  });
 });
 
 describe('the line width the result is stroked with', () => {

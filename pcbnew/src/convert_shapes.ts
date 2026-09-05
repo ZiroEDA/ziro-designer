@@ -33,6 +33,7 @@
 
 import { boardItemId, parseBoardItemId } from './edit-board.js';
 import { tessellateArc } from './read-board.js';
+import { barcodeGeometry } from './barcode_geometry.js';
 import type { Board, PcbShape, PcbZone } from './types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
@@ -306,6 +307,18 @@ export function convertToPolygons(board: Board, selection: Iterable<string>): Ve
     } else if (r?.kind === 'zone') {
       const outline = board.zones[r.index]?.outline;
       if (outline && outline.length >= 3) rings.push([...outline]);
+    } else if (r?.kind === 'barcode') {
+      // `PCB_BARCODE_T` is in `CONVERT_TOOL`'s `toPolyTypes`
+      // (`convert_tool.cpp:277`), beside `PCB_TEXT_T` — the two items whose
+      // "outline" is a set of glyph or module shapes rather than one ring.
+      //
+      // Each ring of the assembled polygon becomes an outline, which is what
+      // makes Create Polygon useful on a barcode at all: it turns the modules
+      // into editable graphics that can then be filled, milled or exported.
+      const bc = board.barcodes[r.index];
+      if (bc)
+        for (const poly of barcodeGeometry(bc).poly)
+          for (const ring of poly) if (ring.length >= 3) rings.push([...ring]);
     }
   }
 
