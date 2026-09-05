@@ -103,6 +103,7 @@ export * from './project/net_settings.js';
 export * from './page_info.js';
 export * from './color4d.js';
 export * from './settings/builtin_color_themes.js';
+export * from './settings/color_theme_file.js';
 
 export * from './array_options.js';
 export * from './table.js';

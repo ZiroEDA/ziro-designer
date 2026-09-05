@@ -11534,11 +11534,12 @@ textarea.ze-ds-textedit {
   column-gap: calc(var(--wx-border) * 2);
   padding: 3px 8px;
 }
-.ze-themefolder-name {
-  color: var(--chrome-dim-fg);
-}
+/* No colour on the name column or the note: a dialog's text is the DIALOG's
+   foreground, and stating one here is the drift the report panel's legend
+   comment describes. The error line takes `generateHtml`'s error ink, which is
+   the one colour KiCad does state for a message a user has to notice. */
 .ze-themefolder-error {
-  color: var(--error-fg);
+  color: #f04040;
 }
 .ze-themefolder-buttons {
   display: flex;

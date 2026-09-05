@@ -32,7 +32,18 @@ import { ColorPreviewPanel } from './ColorPreviewPanel.js';
 import { BUILTIN_CLASSIC_THEME, BUILTIN_DEFAULT_THEME, type Color4d } from '@ziroeda/common';
 import { COLOR4D_UNSPECIFIED, parseColor4d, toCssColor } from '@ziroeda/common/src/color4d.js';
 import type { SchLayerId } from '@ziroeda/common/src/settings/color_theme_file.js';
-import { ThemeFolderDialog, type ThemeFile } from '../../../dialogs/prefs/dialog_theme_folder.js';
+import {
+  ThemeFolderDialog,
+  type FolderFile,
+  type ThemeFile,
+} from '../../../dialogs/prefs/dialog_theme_folder.js';
+import {
+  PICK_CANCELLED,
+  pickThemeFolder,
+  readThemeFolder,
+  writeThemeFile,
+  type ThemeDirHandle,
+} from '../../../fs/theme_folder.js';
 
 /** One row of `m_colorsGridSizer`: a swatch and the layer's name. */
 export interface ColorRowSpec {
@@ -147,6 +158,39 @@ const themeByLayer = (theme: Theme): Partial<Record<SchLayerId, string>> => {
 export function PanelEeschemaColorSettings({ ctx }: { ctx: PrefsContext }): JSX.Element {
   const { eeschema, upE, userColors, setUserColors } = ctx;
   const [themeFolder, setThemeFolder] = useState(false);
+  /**
+   * The picked directory, once the user has granted one. Null means the browser
+   * would not open a folder, and the dialog offers files instead — see
+   * `fs/theme_folder.ts`.
+   */
+  const [dir, setDir] = useState<ThemeDirHandle | null>(null);
+  const [folderFiles, setFolderFiles] = useState<readonly FolderFile[]>([]);
+
+  /**
+   * `LaunchExternal( GetColorSettingsPath() )`, as near as a page gets: the
+   * desktop's folder chooser, then the folder's own theme files.
+   *
+   * A cancel does nothing at all — the same `AbortError` branch
+   * `HomePage.openProjectPicker` has, because closing a chooser you did not
+   * want should not leave a dialog behind.
+   */
+  const openThemeFolder = async (): Promise<void> => {
+    const picked = await pickThemeFolder();
+    if (picked === PICK_CANCELLED) return;
+    if (typeof picked === 'string') {
+      setDir(null);
+      setFolderFiles([]);
+    } else {
+      setDir(picked);
+      try {
+        setFolderFiles(await readThemeFolder(picked));
+      } catch {
+        // A folder we can open but not list is still a folder to write into.
+        setFolderFiles([]);
+      }
+    }
+    setThemeFolder(true);
+  };
 
   // Colour themes installed via the Plugin and Content Manager are offered by
   // `ColorThemeChoice`, which subscribes to the store itself; this page still
@@ -189,11 +233,34 @@ export function PanelEeschemaColorSettings({ ctx }: { ctx: PrefsContext }): JSX.
   ];
 
   /**
-   * `m_currentSettings->GetOverrideSchItemColors()`. Only the writable theme
-   * carries one; both built-ins leave it false, which is the default in
-   * `color_settings.cpp:49`.
+   * `m_optOverrideColors`' ENABLED state, which is a small state machine and
+   * not a property of the selected theme.
+   *
+   * `Enable()` is called in exactly two places, `panel_color_settings.cpp:171`
+   * and `:187`, and BOTH are inside `OnThemeChanged`. Neither
+   * `PANEL_COLOR_SETTINGS`' constructor nor `PANEL_EESCHEMA_COLOR_SETTINGS`'
+   * touches it, and a wxCheckBox is born enabled — so the box is live when the
+   * page opens, whatever theme is selected, and goes grey only once the user
+   * switches to a read-only one. A live 10.0.5 shows it enabled on
+   * "KiCad Default (read-only)". Reading `:171` as a rule about read-only
+   * themes greyed it permanently instead.
    */
-  const override = themeId === 'user' && eeschema.appearance.override_item_colors;
+  const [overrideEnabled, setOverrideEnabled] = useState(true);
+
+  /**
+   * The WORKING COPY's flag — `m_currentSettings->SetOverrideSchItemColors( … )`
+   * (`panel_eeschema_color_settings.cpp:552`).
+   *
+   * `m_currentSettings` is a COPY of the selected theme, so a tick takes effect
+   * at once even on a read-only one; `saveCurrentTheme` simply never writes that
+   * file, and the next theme change loads the new theme's own value over it
+   * (`SetValue( selected->GetOverrideSchItemColors() )`). Null means "not
+   * touched since the last theme change", so the theme's stored value shows —
+   * which for either built-in is `color_settings.cpp:49`'s false.
+   */
+  const [workingOverride, setWorkingOverride] = useState<boolean | null>(null);
+  const override =
+    workingOverride ?? (themeId === 'user' && eeschema.appearance.override_item_colors);
 
   // `m_validLayers` crossed with `createSwatches()`, in that function's own
   // order. A row whose `key` is null has no field on our painter's `Theme`, so
@@ -234,23 +301,29 @@ export function PanelEeschemaColorSettings({ ctx }: { ctx: PrefsContext }): JSX.
     <>
       <PanelColorSettings
         themeId={themeId}
-        onThemeChange={(v) =>
+        onThemeChange={(v) => {
+          // `OnThemeChanged`, in its order: the new theme's flag, then whether
+          // it can be edited at all.
+          setWorkingOverride(null);
+          setOverrideEnabled(v === 'user');
           upE((s) => {
             s.appearance.color_theme = v;
-          })
-        }
+          });
+        }}
         rows={rows}
         showOverrideColors
         overrideColors={override}
-        /* `m_optOverrideColors->Enable( !newSettings->IsReadOnly() )`
-         (`panel_color_settings.cpp:171`). */
-        overrideColorsEnabled={themeId === 'user'}
-        onOverrideColorsChange={(v: boolean) =>
-          upE((s) => {
-            s.appearance.override_item_colors = v;
-          })
-        }
-        onOpenThemeFolder={() => setThemeFolder(true)}
+        overrideColorsEnabled={overrideEnabled}
+        onOverrideColorsChange={(v: boolean) => {
+          setWorkingOverride(v);
+          // `saveCurrentTheme` writes only a theme it can write, so a tick on a
+          // read-only one lives as long as the page and no longer.
+          if (themeId === 'user')
+            upE((s) => {
+              s.appearance.override_item_colors = v;
+            });
+        }}
+        onOpenThemeFolder={() => void openThemeFolder()}
         /* `backgroundColor = m_currentSettings->GetColor( m_backgroundLayer )`
          (`panel_color_settings.cpp:262`) — the theme's own schematic
          background, which is what a half-transparent colour is
@@ -263,6 +336,21 @@ export function PanelEeschemaColorSettings({ ctx }: { ctx: PrefsContext }): JSX.
       {themeFolder && (
         <ThemeFolderDialog
           files={themeFiles}
+          {...(dir ? { folderName: dir.name } : {})}
+          folderFiles={folderFiles}
+          {...(dir
+            ? {
+                onWriteToFolder: async (fileName: string, text: string): Promise<string> => {
+                  try {
+                    await writeThemeFile(dir, fileName, text);
+                    setFolderFiles(await readThemeFolder(dir));
+                    return '';
+                  } catch (e) {
+                    return `Could not write ${fileName}: ${(e as Error)?.message ?? 'refused'}`;
+                  }
+                },
+              }
+            : {})}
           onImport={(contents) => {
             /*
              * Upstream a file dropped in the folder becomes a theme of its own;

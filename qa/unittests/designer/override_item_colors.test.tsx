@@ -318,18 +318,93 @@ const withTheme = (theme: string, override: boolean): EeschemaSettings => {
 const box = (): HTMLInputElement =>
   screen.getByLabelText('Override individual item colors') as HTMLInputElement;
 
-describe('the checkbox belongs to the theme, so only a writable one has it', () => {
-  /** `m_optOverrideColors->Enable( !newSettings->IsReadOnly() )`
-   *  (`common/dialogs/panel_color_settings.cpp:171`). */
-  it('is live on "user" and dead on a built-in', () => {
-    render(<PanelEeschemaColorSettings ctx={ctxFor(withTheme('user', false), () => {})} />);
-    expect(box().disabled).toBe(false);
-    cleanup();
+/**
+ * Change the theme the way a user does. The chooser is the app's own `Combo` —
+ * a button and a `role="listbox"` popup, never a native `<select>` — so the
+ * option is opened and mouse-downed, which is what `onMouseDown` listens for.
+ */
+function chooseTheme(label: string): void {
+  const rows = [...document.querySelectorAll('.ze-pref-row')];
+  const row = rows.find((r) => r.querySelector('.lbl')?.textContent === 'Theme:');
+  fireEvent.click(row?.querySelector('.ze-combo') as HTMLElement);
+  const option = [...document.querySelectorAll('[role="option"]')].find(
+    (o) => o.textContent === label,
+  );
+  if (!option) throw new Error(`no theme option "${label}"`);
+  fireEvent.mouseDown(option);
+}
 
+/**
+ * The enabled state is a STATE MACHINE, and getting that wrong is what made
+ * ours look unlike a live 10.0.5 on the very first screen of this page.
+ *
+ * `m_optOverrideColors->Enable()` appears twice in the whole tree —
+ * `panel_color_settings.cpp:171` and `:187` — and both are inside
+ * `OnThemeChanged`. No constructor calls it, and a wxCheckBox starts enabled.
+ */
+describe('the checkbox is live until a theme change says otherwise', () => {
+  it('opens live on a read-only built-in, which is what KiCad shows', () => {
     render(
       <PanelEeschemaColorSettings ctx={ctxFor(withTheme('_builtin_default', false), () => {})} />,
     );
+    expect(box().disabled).toBe(false);
+  });
+
+  it('goes grey once the user switches to a read-only theme', () => {
+    const s = withTheme('user', false);
+    render(<PanelEeschemaColorSettings ctx={ctxFor(s, (fn) => fn(s))} />);
+    expect(box().disabled).toBe(false);
+    chooseTheme('KiCad Classic (read-only)');
     expect(box().disabled).toBe(true);
+  });
+
+  it('comes back when they switch to the writable one', () => {
+    const s = withTheme('_builtin_classic', false);
+    render(<PanelEeschemaColorSettings ctx={ctxFor(s, (fn) => fn(s))} />);
+    chooseTheme('KiCad Default (read-only)');
+    expect(box().disabled).toBe(true);
+    chooseTheme('KiCad Default (user)');
+    expect(box().disabled).toBe(false);
+  });
+
+  /**
+   * `m_currentSettings` is a COPY of the theme, so a tick on a read-only one
+   * shows and takes effect — it just cannot be saved. Ours used to swallow it
+   * entirely, so the box could be clicked and nothing at all would happen.
+   */
+  it('takes a tick on a read-only theme, and shows the rows it implies', () => {
+    const s = withTheme('_builtin_default', false);
+    render(<PanelEeschemaColorSettings ctx={ctxFor(s, (fn) => fn(s))} />);
+    expect(screen.queryByText('Sheet borders')).toBeNull();
+    fireEvent.click(box());
+    expect(box().checked).toBe(true);
+    expect(screen.queryByText('Sheet borders')).not.toBeNull();
+    // …but it is not written to the settings, because that theme has no file.
+    expect(s.appearance.override_item_colors).toBe(false);
+  });
+
+  it('drops that tick on the next theme change, which reloads the theme\'s own', () => {
+    const s = withTheme('_builtin_default', false);
+    render(<PanelEeschemaColorSettings ctx={ctxFor(s, (fn) => fn(s))} />);
+    fireEvent.click(box());
+    expect(box().checked).toBe(true);
+    chooseTheme('KiCad Classic (read-only)');
+    expect(box().checked).toBe(false);
+  });
+});
+
+describe('the flag itself belongs to the theme', () => {
+
+  /**
+   * The box SHOWS the flag. Without this the suite passed with the checkbox
+   * wired to a constant false: every other assertion here happens to be about
+   * a theme whose flag is off, so `checked={false}` was indistinguishable from
+   * `checked={overrideColors}` — the first shape in "tests that cannot fail",
+   * a value nothing ever reads.
+   */
+  it('is ticked when the writable theme has the flag set', () => {
+    render(<PanelEeschemaColorSettings ctx={ctxFor(withTheme('user', true), () => {})} />);
+    expect(box().checked).toBe(true);
   });
 
   /**

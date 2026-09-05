@@ -10,44 +10,54 @@
  *     LaunchExternal( dir );
  *     (`common/dialogs/panel_color_settings.cpp:65-69`)
  *
- * DELIBERATE DIVERGENCE. A page in a browser tab cannot start the desktop's
- * file manager, and there is no `~/.config/kicad/10.0/colors` behind this app
- * to start it on — a theme here is a slice of `localStorage`. So the button
- * shows the folder instead of launching one: the same list of theme files, with
- * the two things that folder is opened FOR. A user copies a theme out of it
- * (Export writes the `.json` KiCad itself would have written, so the file drops
- * straight into a real KiCad install) and copies one in (Import reads a KiCad
- * theme file back).
+ * The button opens a folder, and a page can do that: the desktop's folder
+ * chooser is the File System Access API, which this app already opens a project
+ * with. Point it at `~/.config/kicad/10.0/colors` and this IS KiCad's theme
+ * folder — its files listed, loaded, and written back.
  *
- * Import can only ever land in the writable theme, for the same reason the
- * override checkbox is dead on the others: `IsReadOnly()`. Upstream a file
- * dropped in the folder becomes a theme of its own, which needs a per-theme
- * store this app does not have — so the file's colours are loaded into "User"
- * and its name is shown, rather than silently inventing a theme id.
+ * What a page cannot do is start the file MANAGER, so the folder's contents are
+ * shown here instead of in Files or Nautilus. The two operations are the ones
+ * that folder is opened for: a theme goes out of the app into it, and one of
+ * its files comes back in.
+ *
+ * When the browser has no picker, or refuses the folder — Chrome blocks
+ * "system" locations, the profile root, Desktop, Documents and Downloads — the
+ * dialog falls back to a download and an upload, which need no permission.
+ * That fallback is not a lesser mode by accident: it is the only one Firefox
+ * and Safari can offer.
+ *
+ * Import can only land in the writable theme, for the same reason the override
+ * checkbox is dead on the others: `IsReadOnly()`. Upstream a file in the folder
+ * is a theme of its own, which needs a per-theme store this app does not have,
+ * so its colours load into "User" rather than inventing a theme id.
  */
 import { useRef, useState, type JSX } from 'react';
 import {
   colorThemeFileText,
   colorThemeFromFile,
   type ColorThemeContents,
-  type SchLayerId,
 } from '@ziroeda/common/src/settings/color_theme_file.js';
 import { useModalEscape } from '../../ui/useModalEscape.js';
 import { OK_LABEL } from '../../ui/message_dialog.js';
 
-/** One row of the folder listing: a theme file, and whether it can be replaced. */
+/** A theme this app holds, which can be written into the folder. */
 export interface ThemeFile {
-  /** The file name a real KiCad folder would show, e.g. `user.json`. */
+  /** The file name a real KiCad folder would give it, e.g. `user.json`. */
   fileName: string;
   /** `meta.name`. */
   name: string;
-  /** What Export writes. */
   contents: ColorThemeContents;
   /** False for a built-in or a PCM-installed theme — `IsReadOnly()`. */
   writable: boolean;
 }
 
-/** A download, which is the only "copy out of the folder" a tab can perform. */
+/** A theme file found in the folder the user picked. */
+export interface FolderFile {
+  fileName: string;
+  contents: ColorThemeContents;
+}
+
+/** A download, for when there is no folder to write into. */
 function saveFile(fileName: string, text: string): void {
   const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
   const a = document.createElement('a');
@@ -59,19 +69,29 @@ function saveFile(fileName: string, text: string): void {
 
 export function ThemeFolderDialog({
   files,
+  folderName,
+  folderFiles = [],
+  onWriteToFolder,
   onImport,
   onClose,
 }: {
+  /** The themes this app holds. */
   files: readonly ThemeFile[];
-  /** Called with a file KiCad wrote, once it has parsed. */
+  /** The picked folder's own name, absent when there is no folder. */
+  folderName?: string;
+  /** The theme files in it. */
+  folderFiles?: readonly FolderFile[];
+  /** Write one of `files` into the folder. Absent = no folder, so download. */
+  onWriteToFolder?: (fileName: string, text: string) => Promise<string>;
   onImport: (contents: ColorThemeContents) => void;
   onClose: () => void;
 }): JSX.Element {
   const inputRef = useRef<HTMLInputElement>(null);
+  const [note, setNote] = useState('');
   const [error, setError] = useState('');
   useModalEscape(onClose);
 
-  const read = async (file: File): Promise<void> => {
+  const readPicked = async (file: File): Promise<void> => {
     let parsed: unknown;
     try {
       parsed = JSON.parse(await file.text());
@@ -89,14 +109,60 @@ export function ThemeFolderDialog({
     onClose();
   };
 
+  const put = async (f: ThemeFile): Promise<void> => {
+    const text = colorThemeFileText(f.contents);
+    if (!onWriteToFolder) {
+      saveFile(f.fileName, text);
+      return;
+    }
+    setError('');
+    // The write can be refused after the fact — permission revoked, a
+    // read-only mount — and a button that silently did nothing would be worse
+    // than one that says why.
+    const failed = await onWriteToFolder(f.fileName, text);
+    if (failed) setError(failed);
+    else setNote(`Wrote ${f.fileName}.`);
+  };
+
   return (
     <div className="ze-modal-backdrop">
       <div className="ze-modal ze-themefolder" role="dialog" aria-modal="true">
-        <div className="ze-modal-header">Color Themes</div>
+        <div className="ze-modal-header">
+          {folderName ? `Color Themes — ${folderName}` : 'Color Themes'}
+        </div>
         <div className="ze-themefolder-body">
+          {folderName === undefined && (
+            /* Said once, plainly, rather than leaving the user to work out why
+               a button called "Open Theme Folder" produced a download. */
+            <div className="ze-themefolder-message">
+              This browser will not open a folder, so themes are saved and loaded as files.
+            </div>
+          )}
+
           <div className="ze-themefolder-list" role="table" aria-label="Color theme files">
+            {folderFiles.map((f) => (
+              <div className="ze-themefolder-row" role="row" key={`folder:${f.fileName}`}>
+                <span role="cell" className="ze-themefolder-file">
+                  {f.fileName}
+                </span>
+                <span role="cell" className="ze-themefolder-name">
+                  {f.contents.name}
+                </span>
+                <button
+                  type="button"
+                  role="cell"
+                  className="ze-btn"
+                  onClick={() => {
+                    onImport(f.contents);
+                    onClose();
+                  }}
+                >
+                  Load
+                </button>
+              </div>
+            ))}
             {files.map((f) => (
-              <div className="ze-themefolder-row" role="row" key={f.fileName}>
+              <div className="ze-themefolder-row" role="row" key={`app:${f.fileName}`}>
                 <span role="cell" className="ze-themefolder-file">
                   {f.fileName}
                 </span>
@@ -104,17 +170,14 @@ export function ThemeFolderDialog({
                   {f.name}
                   {f.writable ? '' : ' (read-only)'}
                 </span>
-                <button
-                  type="button"
-                  role="cell"
-                  className="ze-btn"
-                  onClick={() => saveFile(f.fileName, colorThemeFileText(f.contents))}
-                >
-                  Export
+                <button type="button" role="cell" className="ze-btn" onClick={() => void put(f)}>
+                  {onWriteToFolder ? 'Save to folder' : 'Export'}
                 </button>
               </div>
             ))}
           </div>
+
+          {note !== '' && <div className="ze-themefolder-message">{note}</div>}
           {error !== '' && <div className="ze-themefolder-error">{error}</div>}
         </div>
         <div className="ze-themefolder-buttons">
@@ -125,11 +188,13 @@ export function ThemeFolderDialog({
             hidden
             onChange={(e) => {
               const file = e.target.files?.[0];
-              // Clear it, so picking the same file twice fires twice.
+              // Cleared, so picking the same file twice fires twice.
               e.target.value = '';
-              if (file) void read(file);
+              if (file) void readPicked(file);
             }}
           />
+          {/* With a folder open its files are listed above and loadable from
+              there; this stays for a theme that lives somewhere else. */}
           <button type="button" className="ze-btn" onClick={() => inputRef.current?.click()}>
             Import…
           </button>
@@ -142,6 +207,3 @@ export function ThemeFolderDialog({
     </div>
   );
 }
-
-/** Re-exported so a caller does not need the common module for one type. */
-export type { SchLayerId };
