@@ -50,7 +50,10 @@ int main(int argc, char **argv)
         symbol->eci = 26; /* ECI_UTF8 */
 
     int rc = ZBarcode_Encode(symbol, (unsigned char *) text, length);
-    if (rc >= ZINT_ERROR) { printf("ERROR %s\n", symbol->errtxt); return 1; }
+    /* Exit 0 even on an encode error: the error TEXT is part of what we mirror
+     * (it is what `m_lastError` shows), so the caller reads it like any other
+     * answer rather than treating it as a probe failure. */
+    if (rc >= ZINT_ERROR) { printf("ERROR %s\n", symbol->errtxt); return 0; }
 
     printf("%d %d\n", symbol->rows, symbol->width);
     for (int r = 0; r < symbol->rows; r++) {

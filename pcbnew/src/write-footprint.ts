@@ -433,8 +433,7 @@ export function buildBarcodeNode(b: PcbBarcode): SList {
     list(atom('type'), atom(BARCODE_KIND_TOKEN[b.kind])),
   );
 
-  if (b.kind === 'qr' || b.kind === 'microqr')
-    items.push(list(atom('ecc_level'), atom(b.ecc)));
+  if (b.kind === 'qr' || b.kind === 'microqr') items.push(list(atom('ecc_level'), atom(b.ecc)));
 
   items.push(
     list(atom('hide'), atom(b.showText ? 'no' : 'yes')),

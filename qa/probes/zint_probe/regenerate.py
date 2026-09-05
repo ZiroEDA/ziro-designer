@@ -1,41 +1,105 @@
-"""Ask the Zint probe for the module grid of each case, and emit a TS fixture."""
-import subprocess, json, sys
+#!/usr/bin/env python3
+"""Regenerate qa/data/zint_vectors.json from the Zint probe.
+
+The probe links the copy of Zint vendored in KiCad's own tree, which is the
+library `PCB_BARCODE::ComputeBarcode` calls. Its answer is the definition of
+correct for our port, so these grids are never hand-edited: build the probe
+(`qa/probes/zint_probe/build.sh`) and run this from the repository root.
+"""
+import json
+import random
+import subprocess
 
 PROBE = 'qa/probes/zint_probe/zint_probe'
+ECC_N = {'L': 1, 'M': 2, 'Q': 3, 'H': 4}
 
-CASES = [
-  # (kind, ecc, text)
-  ('code39', 'L', 'ZIRO'),
-  ('code39', 'L', '0'),
-  ('code39', 'L', 'ABC-123'),
-  ('code39', 'L', 'A B.C$D/E+F%G'),
-  ('code39', 'L', 'abc'),
-  ('code39', 'L', '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'),
-  ('code128', 'L', 'ZIRO'),
-  ('code128', 'L', '0'),
-  ('code128', 'L', '1234567890'),
-  ('code128', 'L', 'ABC-123'),
-  ('code128', 'L', 'a'),
-  ('code128', 'L', 'Hello, World!'),
-  ('code128', 'L', '12345678901234567890'),
-  ('code128', 'L', 'AB12CD34'),
-  ('code128', 'L', '\x01\x02control'),
-  ('code128', 'L', 'MiXeD123case456'),
-  ('code128', 'L', 'ZIROé'),
-  ('code128', 'L', 'éèê'),
-  ('code128', 'L', '99'),
-  ('code128', 'L', 'X999999999999Y'),
+LINEAR = [
+    'ZIRO', '0', 'ABC-123', 'A B.C$D/E+F%G', 'abc',
+    '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ',
+]
+CODE128_ONLY = [
+    '1234567890', 'a', 'Hello, World!', '12345678901234567890', 'AB12CD34',
+    '\x01\x02control', 'MiXeD123case456', 'ZIROé', 'éèê', '99',
+    'X999999999999Y',
+]
+TWO_D = [
+    'ZIRO', '1', '12345', 'HELLO WORLD', 'https://example.com/a/b?c=1',
+    'abcdefghijklmnop', '0123456789012345678901234567890123456789',
+    'MiXeD 123 TEXT.', 'A' * 100, '9' * 200, 'x' * 300, 'Ω unicode ✓',
+    'a', 'AB', '  ', '%$*+-./:',
+]
+MICRO = [
+    '1', '12', '123456', 'ABC', 'HELLO', 'A1B2', 'hello', 'x',
+    '12345678901234567890', 'ABCDEFGHIJKLMNOPQRSTUVWXYZ12345', 'abcdefghij',
+    'A B.C:D', '9' * 35, '$%*+-./:', 'Zz', '0',
 ]
 
-out = []
-for kind, ecc, text in CASES:
-    ecc_n = {'L':1,'M':2,'Q':3,'H':4}[ecc]
-    r = subprocess.run([PROBE, kind, str(ecc_n), text], capture_output=True, text=True)
-    lines = r.stdout.strip().split('\n')
-    if lines[0].startswith('ERROR'):
-        out.append({'kind':kind,'ecc':ecc,'text':text,'error':lines[0][6:]})
-        continue
-    rows, width = map(int, lines[0].split())
-    grid = lines[1:1+rows]
-    out.append({'kind':kind,'ecc':ecc,'text':text,'rows':rows,'width':width,'grid':grid})
-print(json.dumps(out, indent=2, ensure_ascii=False))
+# Random cases, to catch the mode-switching and mask choices that a hand-picked
+# list will not. Seeded, so the fixture is reproducible.
+ALPHABETS = [
+    '0123456789',
+    'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 $%*+-./:',
+    'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789',
+    ''.join(chr(c) for c in range(32, 127)),
+]
+
+
+def fuzz(count, max_len, seed):
+    random.seed(seed)
+    out = []
+    for _ in range(count):
+        a = random.choice(ALPHABETS)
+        n = random.randint(1, max_len)
+        out.append(''.join(random.choice(a) for _ in range(n)))
+    return out
+
+
+def cases():
+    for t in LINEAR:
+        yield ('code39', 'L', t)
+    for t in LINEAR + CODE128_ONLY:
+        yield ('code128', 'L', t)
+    for ecc in 'LMQH':
+        for t in TWO_D:
+            yield ('qr', ecc, t)
+    for ecc in 'LMQ':
+        for t in MICRO:
+            yield ('microqr', ecc, t)
+    for t in fuzz(60, 200, 7):
+        yield ('qr', 'L', t)
+        yield ('qr', 'H', t)
+    for t in fuzz(40, 30, 11):
+        yield ('microqr', 'L', t)
+        yield ('microqr', 'M', t)
+    for t in fuzz(30, 80, 13):
+        yield ('code128', 'L', t)
+
+
+def main():
+    out = []
+    for kind, ecc, text in cases():
+        r = subprocess.run([PROBE, kind, str(ECC_N[ecc]), text],
+                           capture_output=True, text=True, check=True)
+        lines = r.stdout.strip().split('\n')
+        if lines[0].startswith('ERROR '):
+            out.append({'kind': kind, 'ecc': ecc, 'text': text, 'error': lines[0][6:]})
+            continue
+        rows, width = map(int, lines[0].split())
+        out.append({'kind': kind, 'ecc': ecc, 'text': text, 'rows': rows,
+                    'width': width, 'grid': lines[1:1 + rows]})
+
+    doc = {
+        '_source': 'qa/probes/zint_probe, built from kicad-reference/thirdparty/zint',
+        '_what': ("What KiCad's own vendored Zint produces for each case — the module grid, "
+                  "or the error text `m_lastError` would show. Regenerate with "
+                  "qa/probes/zint_probe/regenerate.py; never hand-edit."),
+        'cases': out,
+    }
+    with open('qa/data/zint_vectors.json', 'w') as f:
+        json.dump(doc, f, indent=1, ensure_ascii=False)
+        f.write('\n')
+    print(f'{len(out)} cases, {sum(1 for c in out if "error" in c)} of them errors')
+
+
+if __name__ == '__main__':
+    main()

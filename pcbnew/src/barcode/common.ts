@@ -58,7 +58,11 @@ export const newSymbol = (): ZintSymbol => ({
 
 /** `set_module( symbol, row, col )` (`common.h`). */
 export function setModule(symbol: ZintSymbol, row: number, col: number): void {
-  const r = (symbol.encoded[row] ??= []);
+  let r = symbol.encoded[row];
+  if (!r) {
+    r = [];
+    symbol.encoded[row] = r;
+  }
   r[col] = true;
 }
 

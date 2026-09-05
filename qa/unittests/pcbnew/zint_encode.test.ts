@@ -51,26 +51,43 @@ const gridOf = (kind: BarcodeKind, ecc: BarcodeEcc, text: string): string[] => {
   );
 };
 
-// Only the symbologies that are ported. The remaining three fall through
-// `encodeBarcode`'s default arm and produce nothing, which would read as a
+// Only the symbologies that are ported. Data Matrix falls through
+// `encodeBarcode`'s default arm and produces nothing, which would read as a
 // silent pass here rather than as the gap it is.
-const PORTED: ReadonlySet<string> = new Set(['code39', 'code128']);
+const PORTED: ReadonlySet<string> = new Set(['code39', 'code128', 'qr', 'microqr']);
 
 describe('every vector Zint gave us', () => {
   const cases = VECTORS.cases.filter((c) => PORTED.has(c.kind));
 
-  it('covers both ported symbologies, so a filter typo cannot empty this file', () => {
-    expect(cases.length).toBeGreaterThan(10);
-    expect(new Set(cases.map((c) => c.kind))).toEqual(new Set(['code39', 'code128']));
+  it('covers all four ported symbologies, so a filter typo cannot empty this file', () => {
+    expect(cases.length).toBeGreaterThan(300);
+    expect(new Set(cases.map((c) => c.kind))).toEqual(
+      new Set(['code39', 'code128', 'qr', 'microqr']),
+    );
+    // …and that the error cases are actually exercised: they are a third of
+    // Micro QR's, which has four small versions and rejects a lot.
+    expect(cases.filter((c) => c.error).length).toBeGreaterThan(20);
   });
 
-  it.each(cases.map((c) => [`${c.kind} ${JSON.stringify(c.text)}`, c] as const))(
-    '%s',
-    (_name, c) => {
-      expect(c.error, 'the probe itself failed on this case').toBeUndefined();
-      expect(gridOf(c.kind, c.ecc, c.text)).toEqual(c.grid);
-    },
-  );
+  it.each(
+    cases.map((c) => [`${c.kind} ${c.ecc} ${JSON.stringify(c.text)}`, c] as const),
+  )('%s', (_name, c) => {
+    const { symbol, error } = encodeBarcode(c.kind, c.ecc, c.text);
+
+    if (c.error) {
+      // The message matters as much as the grid: `ComputeBarcode` copies
+      // `symbol->errtxt` straight into `m_lastError`, and the dialog shows
+      // it. Zint's own "Error <id>: " prefix comes from `error_tag`
+      // (`library.c:277`), so it is part of what the user reads.
+      expect(symbol).toBeNull();
+      expect(error).toBe(c.error);
+      return;
+    }
+
+    expect(error).toBe('');
+    expect(symbol).not.toBeNull();
+    expect(gridOf(c.kind, c.ecc, c.text)).toEqual(c.grid);
+  });
 });
 
 describe('the shape of the answer', () => {
@@ -99,7 +116,9 @@ describe('the shape of the answer', () => {
     const { symbol, error } = encodeBarcode('code39', 'L', 'A*B');
 
     expect(symbol).toBeNull();
-    expect(error).toContain('Invalid character at position 2');
+    expect(error).toBe(
+      'Error 324: Invalid character at position 2 in input (alphanumerics, space and "-.$/+%" only)',
+    );
   });
 
   it('Code 128 packs digit pairs two to a symbol character', () => {
@@ -141,5 +160,83 @@ describe('the shape of the answer', () => {
     // and reports nothing. A new one placed from the tool is in exactly that
     // state until the dialog is filled in.
     expect(encodeBarcode('qr', 'L', '')).toEqual({ symbol: null, error: '' });
+  });
+});
+
+describe('the two-dimensional symbologies', () => {
+  it('QR grows through the version table rather than stretching', () => {
+    // ISO/IEC 18004 Table 1: version 1 is 21 modules, and each version adds
+    // four. Nothing between those sizes exists, so a symbol whose side is not
+    // 21 + 4n means the version search went wrong.
+    for (const text of ['A', 'A'.repeat(50), 'A'.repeat(400), 'A'.repeat(1000)]) {
+      const grid = gridOf('qr', 'L', text);
+      expect(grid.length).toBe(grid[0]!.length);
+      expect((grid.length - 21) % 4).toBe(0);
+    }
+  });
+
+  it('QR puts a finder pattern in three corners and not the fourth', () => {
+    // The one structural feature no amount of mask or data can move.
+    const g = gridOf('qr', 'M', 'ZIROEDA');
+    const n = g.length;
+    const finderAt = (r: number, c: number): boolean =>
+      g[r]!.slice(c, c + 7) === '1111111' && g[r + 6]!.slice(c, c + 7) === '1111111';
+
+    expect(finderAt(0, 0)).toBe(true);
+    expect(finderAt(0, n - 7)).toBe(true);
+    expect(finderAt(n - 7, 0)).toBe(true);
+    expect(finderAt(n - 7, n - 7)).toBe(false);
+  });
+
+  it('a higher ECC level costs capacity at the same version', () => {
+    // The reason the level is a user choice at all. Same text, and H needs a
+    // bigger symbol than L.
+    const text = 'A'.repeat(120);
+
+    expect(gridOf('qr', 'H', text).length).toBeGreaterThan(gridOf('qr', 'L', text).length);
+  });
+
+  it('Micro QR has one finder, and is 11, 13, 15 or 17 across', () => {
+    // M1-M4 (`microqr_sizes`). The single finder is what makes it small: the
+    // other three corners carry data.
+    //
+    // The four texts also pin the version restrictions: M1 is digits only, M2
+    // adds alphanumeric, and lower case forces byte mode, which starts at M3.
+    for (const [text, size] of [
+      ['1', 11],
+      ['123456', 13],
+      ['hello', 15],
+      ['abcdefghijkl', 17],
+    ] as const) {
+      const g = gridOf('microqr', 'L', text);
+      expect(g.length).toBe(size);
+      expect(g[0]!.slice(0, 7)).toBe('1111111');
+    }
+  });
+
+  it('Micro QR refuses ECC level H, which QR accepts', () => {
+    // `PCB_BARCODE`'s dialog offers the same four levels for both kinds, and
+    // Micro QR has only three (`qr.c:2199-2201`). A user who picks H and
+    // switches kind gets this, and it is Zint's own wording.
+    expect(encodeBarcode('microqr', 'H', 'ZIRO').error).toBe(
+      'Error 566: Error correction level H not available',
+    );
+    expect(encodeBarcode('qr', 'H', 'ZIRO').error).toBe('');
+  });
+
+  it('Micro QR takes 35 characters at most', () => {
+    expect(encodeBarcode('microqr', 'L', '9'.repeat(35)).error).toBe('');
+    expect(encodeBarcode('microqr', 'L', '9'.repeat(36)).error).toBe(
+      'Error 562: Input length 36 too long (maximum 35)',
+    );
+  });
+
+  it('QR declares UTF-8 through ECI where Micro QR cannot', () => {
+    // `ComputeBarcode` sets `symbol->eci = ECI_UTF8` for QR and Data Matrix
+    // only (`pcb_barcode.cpp:602-605`) — Micro QR has no ECI field at all.
+    expect(encodeBarcode('qr', 'L', 'Ω unicode ✓').error).toBe('');
+    expect(encodeBarcode('microqr', 'L', 'Ω').error).toContain(
+      'does not support international characters',
+    );
   });
 });

@@ -266,7 +266,8 @@ function readBarcode(item: SList): PcbBarcode {
     text: (textNode ? arg(textNode, 0) : undefined) ?? '',
     textHeight: mmOrUndef(item, 'text_height') ?? BARCODE_DEFAULTS.textHeight,
     kind: BARCODE_KIND_TOKENS[(type ? arg(type, 0) : undefined) ?? ''] ?? BARCODE_DEFAULTS.kind,
-    ecc: BARCODE_ECC_TOKENS[(eccLevel ? arg(eccLevel, 0) : undefined) ?? ''] ?? BARCODE_DEFAULTS.ecc,
+    ecc:
+      BARCODE_ECC_TOKENS[(eccLevel ? arg(eccLevel, 0) : undefined) ?? ''] ?? BARCODE_DEFAULTS.ecc,
     // `(hide …)` is the negation of what we store: `SetShowText( !parseBool() )`.
     showText: hide ? arg(hide, 0) === 'no' : true,
     knockout: knockout ? arg(knockout, 0) !== 'no' : false,

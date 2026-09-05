@@ -609,7 +609,6 @@ export function buildPointNode(p: PcbPoint): SList {
 const pointNode = (p: PcbPoint): SNode =>
   p.source.items.length > 0 ? p.source : buildPointNode(p);
 
-
 /** A source child the reader parsed by these top-level heads. */
 const GRAPHIC_HEADS = new Set(['gr_line', 'gr_arc', 'gr_circle', 'gr_rect', 'gr_poly', 'gr_curve']);
 
