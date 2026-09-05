@@ -20,21 +20,28 @@
  * costs no compatibility.
  */
 
-/** The company. Used where a format separates vendor from application. */
+/**
+ * The company. Used where a format separates vendor from application, which
+ * Gerber X2's `.GenerationSoftware` does -- so both fields now carry the same
+ * string, the application having been renamed to the company's name. That is
+ * honest rather than redundant: the format asks two questions and we have one
+ * answer. Prose that named both was rewritten to name one; see
+ * `place_file_exporter.ts`.
+ */
 export const GENERATOR_VENDOR = 'ZiroEDA';
 
 /** The application, in prose. */
-export const GENERATOR_APPLICATION = 'Ziro Designer';
+export const GENERATOR_APPLICATION = 'ZiroEDA';
 
 /**
  * The application as a `(generator ...)` token. Lowercase and underscored to
  * match the style of the values KiCad writes ("pcbnew", "kicad_symbol_editor").
  *
  * One name for every editor, unlike KiCad, whose editors are separate programs
- * and so identify separately. Ziro Designer is a single application, and
+ * and so identify separately. ZiroEDA is a single application, and
  * claiming otherwise in the file would be its own small fiction.
  */
-export const GENERATOR = 'ziro_designer';
+export const GENERATOR = 'ziroeda';
 
 /**
  * Our version, not KiCad's. The format revision is carried separately by each

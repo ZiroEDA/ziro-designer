@@ -130,6 +130,33 @@ export class F32Buffer {
     this.len = n;
   }
 
+  /** Append exactly nine floats: one ring instance. */
+  push9(
+    a: number,
+    b: number,
+    c: number,
+    d: number,
+    e: number,
+    f: number,
+    g: number,
+    h: number,
+    i: number,
+  ): void {
+    this.ensure(9);
+    const t = this.data;
+    let n = this.len;
+    t[n++] = a;
+    t[n++] = b;
+    t[n++] = c;
+    t[n++] = d;
+    t[n++] = e;
+    t[n++] = f;
+    t[n++] = g;
+    t[n++] = h;
+    t[n++] = i;
+    this.len = n;
+  }
+
   /** Append exactly six floats: one triangle vertex. */
   push6(a: number, b: number, c: number, d: number, e: number, f: number): void {
     this.ensure(6);
@@ -191,6 +218,8 @@ export const BITMAP_MINPX_FLAG = 1024;
 export const SEGMENT_STRIDE = 10;
 /** Floats per disc instance: centre(2) radius minPx rgba(4). */
 export const DISC_STRIDE = 8;
+/** centre x, y | radius | half width | minPx | rgba — see `RING_VERT`. */
+export const RING_STRIDE = 9;
 /** Floats per triangle vertex: position(2) rgba(4). */
 export const TRIANGLE_STRIDE = 6;
 /** Floats per glyph vertex: position(2) texture coords(2) rgba(4). */
@@ -213,7 +242,7 @@ export interface Rgba {
 }
 
 /** Which program draws a run. */
-export type RunKind = 'tri' | 'seg' | 'disc' | 'glyph' | 'image';
+export type RunKind = 'tri' | 'seg' | 'disc' | 'ring' | 'glyph' | 'image';
 
 /**
  * The source of an image run's texture.
@@ -293,12 +322,14 @@ export interface Run {
 export interface ItemRanges {
   seg: [number, number][];
   disc: [number, number][];
+  ring: [number, number][];
   tri: [number, number][];
 }
 
 export class Scene {
   readonly segments = new F32Buffer(4096);
   readonly discs = new F32Buffer(256);
+  readonly rings = new F32Buffer(64);
   readonly triangles = new F32Buffer(1024);
   /**
    * Textured quads sampled from the bitmap-font atlas — the pad numbers and net
@@ -336,6 +367,7 @@ export class Scene {
   private breakRun = false;
   private segMark = 0;
   private discMark = 0;
+  private ringMark = 0;
   private triMark = 0;
 
   constructor(private readonly ordered = false) {}
@@ -352,6 +384,7 @@ export class Scene {
     this.owner = id;
     this.segMark = this.segmentCount;
     this.discMark = this.discCount;
+    this.ringMark = this.ringCount;
     this.triMark = this.triangleVertexCount;
   }
 
@@ -373,13 +406,15 @@ export class Scene {
     if (id === undefined) return;
     let r = this.itemRanges.get(id);
     if (!r) {
-      r = { seg: [], disc: [], tri: [] };
+      r = { seg: [], disc: [], ring: [], tri: [] };
       this.itemRanges.set(id, r);
     }
     if (this.segmentCount > this.segMark)
       r.seg.push([this.segMark, this.segmentCount - this.segMark]);
     if (this.discCount > this.discMark)
       r.disc.push([this.discMark, this.discCount - this.discMark]);
+    if (this.ringCount > this.ringMark)
+      r.ring.push([this.ringMark, this.ringCount - this.ringMark]);
     if (this.triangleVertexCount > this.triMark)
       r.tri.push([this.triMark, this.triangleVertexCount - this.triMark]);
     this.owner = undefined;
@@ -436,6 +471,20 @@ export class Scene {
   disc(cx: number, cy: number, radius: number, minPx: number, c: Rgba): void {
     this.discs.push8(cx, cy, radius, minPx, c.r, c.g, c.b, c.a);
     this.note('disc', 1);
+  }
+
+  /**
+   * A STROKED circle that stays round at every zoom — the outline `disc` is the
+   * fill of.
+   *
+   * The one primitive a polyline cannot stand in for. A tessellated circle is
+   * cut for a fixed world sagitta, so magnifying it eventually shows the facets;
+   * this is exact wherever it is drawn, which is what KiCad's `GAL::DrawCircle`
+   * gives its callers.
+   */
+  ring(cx: number, cy: number, radius: number, halfWidth: number, minPx: number, c: Rgba): void {
+    this.rings.push9(cx, cy, radius, halfWidth, minPx, c.r, c.g, c.b, c.a);
+    this.note('ring', 1);
   }
 
   /** One filled triangle. Callers triangulate; see `tessellate.ts`. */
@@ -536,6 +585,9 @@ export class Scene {
   get imageVertexCount(): number {
     return this.images.length / IMAGE_VERTEX_STRIDE;
   }
+  get ringCount(): number {
+    return this.rings.length / RING_STRIDE;
+  }
   get discCount(): number {
     return this.discs.length / DISC_STRIDE;
   }
@@ -548,6 +600,7 @@ export class Scene {
     return (
       this.segments.length === 0 &&
       this.discs.length === 0 &&
+      this.rings.length === 0 &&
       this.triangles.length === 0 &&
       this.glyphs.length === 0 &&
       this.images.length === 0
@@ -557,6 +610,7 @@ export class Scene {
   clear(): void {
     this.segments.clear();
     this.discs.clear();
+    this.rings.clear();
     this.triangles.clear();
     this.glyphs.clear();
     this.images.clear();
@@ -567,6 +621,7 @@ export class Scene {
     this.breakRun = false;
     this.segMark = 0;
     this.discMark = 0;
+    this.ringMark = 0;
     this.triMark = 0;
   }
 
@@ -596,6 +651,14 @@ export class Scene {
         const o = (first + i) * DISC_STRIDE;
         disc[o] = (disc[o] ?? 0) + dx;
         disc[o + 1] = (disc[o + 1] ?? 0) + dy;
+      }
+    }
+    const ring = this.rings.view();
+    for (const [first, count] of r.ring) {
+      for (let i = 0; i < count; i++) {
+        const o = (first + i) * RING_STRIDE;
+        ring[o] = (ring[o] ?? 0) + dx;
+        ring[o + 1] = (ring[o + 1] ?? 0) + dy;
       }
     }
     const tri = this.triangles.view();

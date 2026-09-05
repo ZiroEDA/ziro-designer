@@ -53,5 +53,12 @@ exports[`GlDevice default draw path > issues a stable sequence of GL calls for a
   "vertexAttribPointer(3,1,2,false,32,12)",
   "vertexAttribPointer(4,4,2,false,32,16)",
   "bindVertexArray",
+  "bindBuffer",
+  "vertexAttribPointer(1,2,2,false,36,0)",
+  "vertexAttribPointer(2,1,2,false,36,8)",
+  "vertexAttribPointer(3,1,2,false,36,12)",
+  "vertexAttribPointer(4,1,2,false,36,16)",
+  "vertexAttribPointer(5,4,2,false,36,20)",
+  "bindVertexArray",
 ]
 `;

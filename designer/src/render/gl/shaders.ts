@@ -388,6 +388,99 @@ void main() {
 `;
 
 /**
+ * Stroked circles: the ring `DISC` is the fill of.
+ *
+ * KiCad's OpenGL GAL never tessellates a circle — `DrawCircle` puts down a quad
+ * and lets the fragment shader do the distance test, so a circle is exact at
+ * every zoom. Ours flattened one into a polyline at record time, and because the
+ * retained scene is deliberately zoom-independent that polyline was cut for a
+ * *world* sagitta of 0.005 mm. On a small circle that is a coarse polygon: a
+ * `PCB_POINT`'s ring is 0.25 mm in radius and came out a **16-gon**, plainly
+ * faceted once magnified, and at small sizes so blocky that a one-pixel stroke
+ * filled it in as a solid dot instead of a ring.
+ *
+ * (0.005 mm is not a display tolerance at all — it is `arc_to_seg_error`, what
+ * KiCad uses to turn arcs into segments for *plotting and geometry*. Borrowing
+ * it for the screen was the mistake.)
+ *
+ * Same quad-plus-distance idea as `DISC`, with the coverage taken from the
+ * distance to the *ring* rather than to the centre.
+ */
+export const RING_VERT = `${COMMON}
+layout(location = 0) in vec2 a_corner;
+layout(location = 1) in vec2 a_centre;     // world
+layout(location = 2) in float a_radius;    // world
+layout(location = 3) in float a_halfWidth; // world
+layout(location = 4) in float a_minPx;     // device pixels; SIGNED, see below
+layout(location = 5) in vec4 a_color;
+
+out vec2 v_pixel;
+flat out vec2 v_centre;
+flat out float v_radiusPx;
+flat out float v_halfPx;
+flat out vec4 v_color;
+
+void main() {
+  vec2 centre = worldToPixel(a_centre);
+  float scale = abs(u_view.x);
+  float radiusPx = a_radius * scale;
+
+  // a_minPx arrives from GlRecorder.pen() and its SIGN is a tag, not a
+  // value — the same encoding SEGMENT_VERT decodes at length. A ring is
+  // always a *line* (a_minPx < 0), never text, so all that is needed here is
+  // the magnitude. Taking it raw, as the disc shader does, is what made a
+  // placed point's ring vanish: the board records its strokes with
+  // minPenWidth: 0, so a_halfWidth is 0 and max(0, negative) came out 0.
+  // The disc gets away with a raw a_minPx because its callers pass a plain
+  // positive floor rather than going through pen().
+  float minPx = abs(a_minPx);
+
+  float trueHalfPx = a_halfWidth * scale;
+  // The clamp KiCad applies with u_minLinePixelWidth, then rounded to whole
+  // device pixels the way SEGMENT_VERT rounds a stroke: a hairline ring reads
+  // as one crisp pixel instead of two grey ones.
+  float halfPx = max(trueHalfPx, minPx);
+  halfPx = max(floor(halfPx * 2.0 + 0.5), 1.0) * 0.5;
+
+  // The quad has to cover the ring's OUTER edge, so it grows by the stroke's
+  // half-width as well as by the radius — a disc's quad only needs the radius.
+  vec2 pos = centre + a_corner * (radiusPx + halfPx + 1.0);
+
+  v_pixel = pos;
+  v_centre = centre;
+  v_radiusPx = radiusPx;
+  v_halfPx = halfPx;
+  v_color = a_color;
+  gl_Position = pixelToClip(pos);
+}
+`;
+
+export const RING_FRAG = /* glsl */ `#version 300 es
+precision highp float;
+
+in vec2 v_pixel;
+flat in vec2 v_centre;
+flat in float v_radiusPx;
+flat in float v_halfPx;
+flat in vec4 v_color;
+
+out vec4 fragColor;
+
+void main() {
+  // Distance to the ring itself, not to its centre — that one difference is the
+  // whole of a stroked circle against a filled one.
+  float d = abs(distance(v_pixel, v_centre) - v_radiusPx);
+  float cover = clamp(v_halfPx + 0.5 - d, 0.0, 1.0);
+  if (cover <= 0.0) discard;
+  // Solid, with no alpha paid for the pixel floor. That is the LINE rule:
+  // "computeLineCoords clamps pixelWidth up to u_minLinePixelWidth and the
+  // fragment stage draws it solid… Nothing fades." Fading lines as well is what
+  // once made the courtyard rectangles disappear from a zoomed-out board.
+  fragColor = vec4(v_color.rgb, v_color.a * cover);
+}
+`;
+
+/**
  * Filled areas, already triangulated on the way in.
  *
  * No distance test and so no antialiased edge: a filled region in a schematic

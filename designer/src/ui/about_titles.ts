@@ -37,7 +37,7 @@
  */
 
 /** The product name, which every frame's title is built on. */
-export const PRODUCT = 'Ziro Designer';
+export const PRODUCT = 'ZiroEDA';
 
 export const ABOUT_TITLES = {
   /** kicad_manager_frame.cpp sets the bare product name, not "<product> Project Manager". */

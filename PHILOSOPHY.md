@@ -1,26 +1,26 @@
-# Ziro Designer: Philosophy & Compatibility Promise
+# ZiroEDA: Philosophy & Compatibility Promise
 
-Ziro Designer, the design suite from ZiroEDA, exists for one reason: the world's largest open-source EDA community
+ZiroEDA exists for one reason: the world's largest open-source EDA community
 should be able to open a browser tab and be instantly at home. Same UI, same
 hotkeys, same files. **Open a tab, not learn a tool.**
 
-This document is our public commitment about how Ziro Designer relates to the
+This document is our public commitment about how ZiroEDA relates to the
 [KiCad](https://www.kicad.org/) project and its community. It is written to be
 held against us.
 
-## What Ziro Designer is
+## What ZiroEDA is
 
 - A **browser-native reimplementation of the KiCad workflow** (TypeScript and
   Canvas/WebGL instead of C++ and wxWidgets) that reads and writes KiCad's
   native file formats directly.
 - **A complement to KiCad desktop, not a replacement for it.** KiCad remains
-  the deep, mature desktop suite. Ziro Designer is the way you open, share, review,
+  the deep, mature desktop suite. ZiroEDA is the way you open, share, review,
   and edit those same projects from any machine with a browser.
-- **GPL-3.0-or-later, like KiCad itself.** The core of Ziro Designer is and will
+- **GPL-3.0-or-later, like KiCad itself.** The core of ZiroEDA is and will
   remain free software. There is no proprietary fork of the editor waiting in
   the wings.
 
-## What Ziro Designer is not
+## What ZiroEDA is not
 
 - **Not a fork of KiCad.** We share no code with KiCad; this is a ground-up
   reimplementation that stays format-compatible (see
@@ -37,9 +37,9 @@ held against us.
 1. **KiCad desktop is the upstream source of truth for the file formats.**
    We follow the formats KiCad defines. We do not extend them, we do not add
    Ziro-only tokens to them, and we never will.
-2. **Anything Ziro Designer needs beyond the format lives in sidecar files**
+2. **Anything ZiroEDA needs beyond the format lives in sidecar files**
    (for example a `.ziro/` folder next to the project), never inside
-   KiCad-format files. A project touched by Ziro Designer must remain a 100% valid
+   KiCad-format files. A project touched by ZiroEDA must remain a 100% valid
    KiCad project.
 3. **Round-trip fidelity is a release blocker.** A file opened and saved by
    ZiroEDA must load in desktop KiCad with no loss and no surprises. Format

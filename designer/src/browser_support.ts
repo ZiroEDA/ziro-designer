@@ -67,7 +67,7 @@ export function missingFeatures(probes: Probe[] = PROBES): Missing[] {
 export function unsupportedMessage(missing: readonly Missing[]): string {
   const list = missing.map((m) => m.feature).join(', ');
   return (
-    `This browser is missing ${list}, which Ziro Designer needs to run.\n\n` +
+    `This browser is missing ${list}, which ZiroEDA needs to run.\n\n` +
     'Please use a current version of Chrome, Edge, Firefox or Safari. ' +
     'Your projects are stored in this browser, so opening the app in a ' +
     'supported one on the same machine will not carry them across — export ' +

@@ -223,7 +223,7 @@ export class GbrToPcbExporter {
    * The one divergence is the `(generator …)` pair. Upstream writes
    * `"gerbview"` and `GetMajorMinorVersion()`; we write the two central values
    * from `common/src/generator.ts`, which every other writer in this tree uses
-   * and which exist because Ziro Designer is one application rather than
+   * and which exist because ZiroEDA is one application rather than
    * KiCad's eight separate ones.
    *
    * Upstream writes no `(general …)` and no `(paper …)`, and neither do we.

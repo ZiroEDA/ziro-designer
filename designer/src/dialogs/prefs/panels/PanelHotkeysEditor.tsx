@@ -331,7 +331,7 @@ export function PanelHotkeysEditor({
                           className={`key${isBrowserReserved(e.keys) ? ' taken' : ''}`}
                           title={
                             isBrowserReserved(e.keys)
-                              ? `${e.keys} belongs to the browser and cannot be intercepted by a page. It reaches Ziro Designer only in fullscreen.`
+                              ? `${e.keys} belongs to the browser and cannot be intercepted by a page. It reaches ZiroEDA only in fullscreen.`
                               : undefined
                           }
                         >

@@ -21,16 +21,16 @@ import {
 describe('the title', () => {
   it('is the project’s basename without its extension', () => {
     // title = fn.GetName() (:1296), which drops the extension.
-    expect(managerTitle('demo', 'Ziro Designer')).toBe('demo — Ziro Designer');
-    expect(managerTitle('demo.kicad_pro', 'Ziro Designer')).toBe('demo — Ziro Designer');
+    expect(managerTitle('demo', 'ZiroEDA')).toBe('demo — ZiroEDA');
+    expect(managerTitle('demo.kicad_pro', 'ZiroEDA')).toBe('demo — ZiroEDA');
   });
 
   it('is "[no project loaded]" with no project', () => {
     // _( "[no project loaded]" ) (:1304), brackets and all - not "No project".
     expect(NO_PROJECT_TITLE).toBe('[no project loaded]');
-    expect(managerTitle(null, 'Ziro Designer')).toBe('[no project loaded] — Ziro Designer');
-    expect(managerTitle(undefined, 'Ziro Designer')).toBe('[no project loaded] — Ziro Designer');
-    expect(managerTitle('   ', 'Ziro Designer')).toBe('[no project loaded] — Ziro Designer');
+    expect(managerTitle(null, 'ZiroEDA')).toBe('[no project loaded] — ZiroEDA');
+    expect(managerTitle(undefined, 'ZiroEDA')).toBe('[no project loaded] — ZiroEDA');
+    expect(managerTitle('   ', 'ZiroEDA')).toBe('[no project loaded] — ZiroEDA');
   });
 
   it('appends " [Read Only]" after the name, before the app', () => {
@@ -39,12 +39,12 @@ describe('the title', () => {
     //         title += wxS( " " ) + _( "[Read Only]" );
     // (:1296-1299) - inside the name half, not after the app name.
     expect(READ_ONLY_SUFFIX).toBe('[Read Only]');
-    expect(managerTitle('demo', 'Ziro Designer', true)).toBe('demo [Read Only] — Ziro Designer');
+    expect(managerTitle('demo', 'ZiroEDA', true)).toBe('demo [Read Only] — ZiroEDA');
   });
 
   it('does not append the suffix when there is no project to be read-only', () => {
     // The else branch has no suffix at all.
-    expect(managerTitle(null, 'Ziro Designer', true)).toBe('[no project loaded] — Ziro Designer');
+    expect(managerTitle(null, 'ZiroEDA', true)).toBe('[no project loaded] — ZiroEDA');
   });
 
   it('separates with an em dash and one space either side', () => {

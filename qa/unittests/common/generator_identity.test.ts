@@ -88,10 +88,13 @@ function emittedGenerators(text: string): string[] {
 
 describe('generator identity', () => {
   it('names the application, not the company', () => {
-    // The company is ZiroEDA; the application is Ziro Designer. The generator
+    // The company and the application are both ZiroEDA now -- the app was
+    // renamed to the company's name. The format still asks the two questions
+    // separately (Gerber X2's `.GenerationSoftware`), and gets one answer
+    // twice, which is honest. The generator
     // token names the program that wrote the file, so it is the application.
-    expect(GENERATOR).toBe('ziro_designer');
-    expect(GENERATOR_APPLICATION).toBe('Ziro Designer');
+    expect(GENERATOR).toBe('ziroeda');
+    expect(GENERATOR_APPLICATION).toBe('ZiroEDA');
     expect(GENERATOR_VENDOR).toBe('ZiroEDA');
   });
 

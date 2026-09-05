@@ -57,7 +57,7 @@ export class ErrorBoundary extends Component<Props, State> {
     return (
       <div className="ze-crash">
         <div className="ze-crash-card">
-          <h1 className="ze-crash-title">Ziro Designer hit an unexpected error</h1>
+          <h1 className="ze-crash-title">ZiroEDA hit an unexpected error</h1>
 
           {snap ? (
             <>

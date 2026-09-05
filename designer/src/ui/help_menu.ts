@@ -29,7 +29,7 @@
  * seven entries, because there is only one place they are written.
  *
  * Ours were written eight separate times and had drifted into eight different
- * menus: "About ZiroEDA" here, "About Ziro Designer" there, "About Image
+ * menus: "About ZiroEDA" here, "About Ziro Design" there, "About Image
  * Converter" in the image converter, and only the project manager carrying
  * documentation, hotkeys or a bug link at all.
  *
@@ -39,6 +39,7 @@
  * every link points at our own documentation and repository, for the same
  * reason.
  */
+import { PRODUCT } from './about_titles.js';
 import type { Menu, MenuItem } from './menu_types.js';
 
 export interface HelpMenuHandlers {
@@ -58,7 +59,7 @@ const openExternal = (url: string) => (): void => {
  * ACTIONS::about's friendly name is "About KiCad" - the product, in every
  * frame, not the frame. Ours had four spellings of this across five editors.
  */
-export const ABOUT_LABEL = 'About Ziro Designer';
+export const ABOUT_LABEL = `About ${PRODUCT}`;
 
 /** The Help menu, identical in every frame, as upstream's is. */
 export function standardHelpMenu(h: HelpMenuHandlers): Menu {
@@ -73,7 +74,7 @@ export function standardHelpMenu(h: HelpMenuHandlers): Menu {
       // ACTIONS::gettingStarted: "Getting Started with KiCad". The product name
       // is part of the label upstream, so it is part of ours.
       {
-        label: 'Getting Started with Ziro Designer',
+        label: `Getting Started with ${PRODUCT}`,
         action: openExternal('https://docs.ziroeda.com/getting-started'),
       },
       // ACTIONS::listHotKeys, .DefaultHotkey( MD_CTRL + WXK_F1 ).

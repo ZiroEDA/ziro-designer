@@ -1,6 +1,6 @@
-# Ziro Designer documentation style guide
+# ZiroEDA documentation style guide
 
-These are the conventions for writing and editing the Ziro Designer docs, so
+These are the conventions for writing and editing the ZiroEDA docs, so
 every page keeps one consistent voice no matter who drafts it. The team writes
 and reviews these docs with the help of AI tools, and owns the result. The rules
 below are our house style.

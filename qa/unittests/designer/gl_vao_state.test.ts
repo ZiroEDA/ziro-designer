@@ -167,8 +167,12 @@ describe('ordered draw leaves every VAO pointing at its own buffer', () => {
     // triangle VAO is indistinguishable from a disc VAO by content alone, and
     // the preview layer keeps an untouched triangle VAO that would satisfy a
     // content search whether or not the bug is present. Each layer creates
-    // seg, disc, tri in that order, so index 2 is the first layer's triangles.
-    const triVao = order[2]!;
+    // seg, disc, ring, tri in that order, so index 3 is the first layer's
+    // triangles. (It was index 2 until the exact-circle `ring` primitive was
+    // added between the disc and the triangles — an index that moves when a
+    // primitive is added is the cost of identifying by creation order, and the
+    // alternative, identifying by content, is what this comment rules out.)
+    const triVao = order[3]!;
     const colour = vaos.get(triVao)!.get(1)!;
     // The disc rewind used to land here as size 2 / stride 32 / offset 0.
     expect(

@@ -173,7 +173,7 @@ describe('an ordered scene records painter order across the primitive kinds', ()
     // Every kind, including `image`: `Record<RunKind, …>` is exhaustive on
     // purpose, so adding a primitive to the scene makes this fail to compile
     // rather than quietly skipping the new buffer's partition check.
-    const next: Record<RunKind, number> = { tri: 0, seg: 0, disc: 0, glyph: 0, image: 0 };
+    const next: Record<RunKind, number> = { tri: 0, seg: 0, disc: 0, ring: 0, glyph: 0, image: 0 };
     for (const run of s.runs) {
       expect(run.start).toBe(next[run.kind]);
       expect(run.count).toBeGreaterThan(0);
@@ -182,6 +182,7 @@ describe('an ordered scene records painter order across the primitive kinds', ()
     expect(next.tri).toBe(s.triangleVertexCount);
     expect(next.seg).toBe(s.segmentCount);
     expect(next.disc).toBe(s.discCount);
+    expect(next.ring).toBe(s.ringCount);
     expect(next.glyph).toBe(s.glyphVertexCount);
     // The board records no bitmaps, so this run stays empty — but it is
     // asserted rather than omitted, since "no image runs" is the claim.

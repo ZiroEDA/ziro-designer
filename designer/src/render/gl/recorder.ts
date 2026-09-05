@@ -100,6 +100,8 @@ interface SubPath {
   closed: boolean;
   /** The board item this run came from, carried through from `GlPath`. */
   owner?: string;
+  /** This run is a whole circle; stroke it exactly. Carried from `GlPath`. */
+  circle?: { cx: number; cy: number; r: number };
 }
 
 export interface RecorderOptions {
@@ -493,7 +495,7 @@ export class GlRecorder {
       return out;
     }
     for (const sp of path.subpaths) {
-      const s: SubPath = { pts: [], closed: sp.closed, owner: sp.owner };
+      const s: SubPath = { pts: [], closed: sp.closed, owner: sp.owner, circle: sp.circle };
       for (const p of sp.pts) this.pushPt(s, p.x, p.y);
       out.push(s);
     }
@@ -512,6 +514,13 @@ export class GlRecorder {
     const dashed = this.st.dash.length > 0 && this.st.dash.some((d) => d > 0);
     for (const sub of path ? this.adopt(path) : this.subs) {
       this.scene.setItem(sub.owner);
+      // A whole circle is stroked as one exact ring rather than as its facets.
+      // Not under a dash pattern: a dashed circle is a sequence of arcs, and
+      // the polyline is what carries them.
+      if (sub.circle && !dashed) {
+        this.scene.ring(sub.circle.cx, sub.circle.cy, sub.circle.r, half, minPx, c);
+        continue;
+      }
       const p = sub.pts;
       if (p.length === 2) {
         // A lone point strokes as a dot under a round cap, which is how the

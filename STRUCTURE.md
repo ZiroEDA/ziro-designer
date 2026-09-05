@@ -1,6 +1,6 @@
 # Repository structure
 
-Ziro Designer is organised as a pnpm monorepo: one app package (`designer/`)
+ZiroEDA is organised as a pnpm monorepo: one app package (`designer/`)
 on top of framework-agnostic engine packages. The engine tree follows the
 source-layout conventions of the upstream KiCad codebase, the one place in
 the project where we deliberately keep that vocabulary, so ported logic has
@@ -9,7 +9,7 @@ format-compatibility.
 
 | Directory        | Upstream counterpart | Contents                                                                 |
 | ---------------- | -------------------- | ------------------------------------------------------------------------ |
-| `designer/`      | *(ours)*             | The Ziro Designer app (Vite + React): launcher/home, menus/toolbars, editor frames, auth + cloud sync, served libraries under `designer/public/` |
+| `designer/`      | *(ours)*             | The ZiroEDA app (Vite + React): launcher/home, menus/toolbars, editor frames, auth + cloud sync, served libraries under `designer/public/` |
 | `eeschema/`      | `eeschema/`          | Schematic engine: document model, `sch_io/sexpr` reader/writer, `connectivity/` (nets, ERC), `tools/` (interactive editing) |
 | `pcbnew/`        | `pcbnew/`            | Board engine: board/footprint/pad/zone object model, `pcb_io/sexpr` parser + formatter, board and footprint editing |
 | `gerbview/`      | `gerbview/`          | Gerber viewer engine: RS-274X Gerber + Excellon drill readers, `D_CODE` apertures, `APERTURE_MACRO` primitives, `GERBER_DRAW_ITEM` model, `GBR_LAYOUT`, `.gbrjob` job-file parsing |

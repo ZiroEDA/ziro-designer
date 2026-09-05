@@ -1,10 +1,10 @@
 # Third-party notices
 
-Ziro Designer is a browser-native reimplementation of the KiCad workflow, and it
+ZiroEDA is a browser-native reimplementation of the KiCad workflow, and it
 reuses a substantial amount of KiCad's own work. This file records what came
 from where, and under which terms.
 
-Ziro Designer is distributed under the GNU General Public License, version 3 or
+ZiroEDA is distributed under the GNU General Public License, version 3 or
 later (see [LICENSE](./LICENSE)). Every licence below is compatible with that,
 so the combined work is governed by the GPL. Attribution, however, is required
 independently of compatibility, which is what this file provides.

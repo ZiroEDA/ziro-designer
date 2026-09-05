@@ -47,11 +47,12 @@ import { bestSnapAnchor } from '@ziroeda/pcbnew/src/pcb_cursor_snap.js';
 import { pcbPointMsgPanelInfo } from '@ziroeda/pcbnew/src/msg_panel.js';
 import { boardIsEmpty } from '@ziroeda/pcbnew/src/pcb_selection_conditions.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { GENERATOR, GENERATOR_VERSION } from '@ziroeda/common/src/generator.js';
 import type { Board } from '@ziroeda/pcbnew/src/types.js';
 
 const MM = (n: number): number => mmToIU(n);
 
-const BOARD = `(kicad_pcb (version 20241229) (generator "ziro_designer") (generator_version "1.0")
+const BOARD = `(kicad_pcb (version 20241229) (generator "ziroeda") (generator_version "1.0")
   (layers (0 "F.Cu" signal) (31 "B.Cu" signal) (37 "F.SilkS" user "F.Silkscreen"))
   (net 0 "")
   (point (at 10 20) (size 1.5) (layer "F.SilkS")

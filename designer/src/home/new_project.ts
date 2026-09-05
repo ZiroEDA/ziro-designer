@@ -4,7 +4,7 @@
 /**
  * File > New Project scaffolding: the three files a fresh project starts
  * with (.kicad_pro / .kicad_sch / .kicad_pcb), byte-identical in spirit to
- * what the desktop suite writes, so a new Ziro Designer project opens
+ * what the desktop suite writes, so a new ZiroEDA project opens
  * anywhere.
  */
 

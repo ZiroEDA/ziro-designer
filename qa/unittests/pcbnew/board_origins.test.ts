@@ -30,6 +30,7 @@ import { serializeBoard } from '@ziroeda/pcbnew/src/write-board.js';
 import { setBoardOrigin } from '@ziroeda/pcbnew/src/edit-board.js';
 import { boardAuxOrigin, boardGridOrigin } from '@ziroeda/pcbnew/src/plot_gerber.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { GENERATOR } from '@ziroeda/common/src/generator.js';
 import type { Board } from '@ziroeda/pcbnew/src/types.js';
 
 const MM = (n: number): number => mmToIU(n);
@@ -109,7 +110,10 @@ describe('the file otherwise round-trips', () => {
   it('an untouched board is byte-identical', () => {
     // The guard against the writer running on every save: it must only fire
     // when a tool actually moved an origin.
-    const src = parse(WITH_SETUP.replace('"test"', '"ziro_designer"'));
+    // The generator name comes from the constant, not from a literal: the
+    // writer stamps it on every save, and a test that spells it out fails when
+    // the product is renamed for reasons unrelated to what it checks.
+    const src = parse(WITH_SETUP.replace('"test"', `"${GENERATOR}"`));
 
     expect(serializeBoard(readBoard(src))).toBe(serialize(src));
   });

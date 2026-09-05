@@ -268,7 +268,8 @@ describe('the ASCII table', () => {
   it('names us rather than KiCad', () => {
     const out = genPositionData(board([fp()]), BOTH);
 
-    expect(out.data).toContain('### Printed by ZiroEDA Ziro Designer version');
+    // One name, not two: the application and the vendor are the same word now.
+    expect(out.data).toContain('### Printed by ZiroEDA version');
     expect(out.data).not.toContain('KiCad');
   });
 });

@@ -28,7 +28,7 @@
  * preview to scroll sideways.
  *
  * One deliberate difference. Upstream opens with `color-scheme: light dark` and
- * lets light-dark() follow the desktop. Ziro Designer has no light mode: the
+ * lets light-dark() follow the desktop. ZiroEDA has no light mode: the
  * shell is dark whatever the desktop says, so following the desktop here would
  * put a white page inside a dark dialog for anyone running a light theme. The
  * declaration is pinned to `dark` and the light halves of each light-dark()

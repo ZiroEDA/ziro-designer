@@ -265,7 +265,9 @@ export function genPositionData(
   // Upstream prints `### Printed by KiCad version <ver>`. Naming KiCad in a
   // file we generated is what common/src/generator.ts exists to prevent, so the
   // line carries our own identity, as plot_gerber.ts already does.
-  out += `### Printed by ${GENERATOR_VENDOR} ${GENERATOR_APPLICATION} version ${GENERATOR_VERSION}\n`;
+  // One name, not two: the application and the vendor are now the same word,
+  // and "Printed by ZiroEDA ZiroEDA" is not a sentence.
+  out += `### Printed by ${GENERATOR_APPLICATION} version ${GENERATOR_VERSION}\n`;
   out += opts.unitsMM ? UNIT_TEXT_MM : UNIT_TEXT_INCH;
   out += `## Side : ${sideWord}\n`;
 

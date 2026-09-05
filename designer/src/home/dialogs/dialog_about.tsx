@@ -47,7 +47,7 @@ export function AboutDialog({
           </span>
         </div>
         <div className="ze-label-dialog-body" style={{ lineHeight: 1.6 }}>
-          <div style={{ fontSize: 16, fontWeight: 700 }}>Ziro Designer</div>
+          <div style={{ fontSize: 16, fontWeight: 700 }}>ZiroEDA</div>
           <div style={{ opacity: 0.8 }}>
             The browser-native electronics design suite from ZiroEDA.
           </div>

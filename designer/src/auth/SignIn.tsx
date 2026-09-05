@@ -126,7 +126,7 @@ export function SignInDialog({
             ✕
           </span>
         )}
-        <div className="ze-auth-brand">Ziro Designer</div>
+        <div className="ze-auth-brand">ZiroEDA</div>
         <div className="ze-auth-sub">
           {gate
             ? 'Sign in or create a free account to start designing, the full KiCad experience, right in your browser.'

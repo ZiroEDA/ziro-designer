@@ -71,6 +71,20 @@ export interface SubPath {
    * item its own object.
    */
   owner?: string;
+  /**
+   * This run is a whole circle, and these are its true parameters.
+   *
+   * The points are still flattened into `pts`, so a fill (which triangulates)
+   * and anything else that walks the polyline is unaffected. Only a *stroke*
+   * looks at this, and it draws an exact ring instead of the facets — which is
+   * what `GAL::DrawCircle` gives KiCad at every zoom. See `RING_VERT`.
+   *
+   * Set only for an arc that sweeps a full turn AND begins its own subpath, so
+   * the marker can never disagree with the points beside it: a circle joined
+   * onto an existing run (a rounded pad corner, say) is geometry within a
+   * larger outline and is left as a polyline.
+   */
+  circle?: { cx: number; cy: number; r: number };
 }
 
 /**
@@ -147,11 +161,32 @@ export class GlPath {
   arc(cx: number, cy: number, r: number, a0: number, a1: number, ccw = false): void {
     const pts = arcToPolyline(cx, cy, r, a0, a1, ccw);
     if (pts.length === 0) return;
+    const whole = this.startsAWholeCircle(a0, a1, pts[0]!);
     if (this.cur) for (const p of pts) this.cur.pts.push(p);
     else {
       this.startNew(pts[0]!);
       for (let i = 1; i < pts.length; i++) this.cur!.pts.push(pts[i]!);
     }
+    if (whole && this.cur) this.cur.circle = { cx, cy, r };
+  }
+
+  /**
+   * Is this arc a full turn that owns the run it is being written into?
+   *
+   * Two callers draw a circle: one with no open subpath at all, and one that
+   * did `moveTo(cx + r, cy)` first so the shared bucket does not join this
+   * circle to the last one with a straight line. The second is what
+   * `renderBoard` does for a `PCB_POINT`'s ring, so both have to count — but
+   * the seed point must be the arc's own start, or the run holds something
+   * else as well and is not a circle.
+   */
+  private startsAWholeCircle(a0: number, a1: number, start: Pt): boolean {
+    if (Math.abs(a1 - a0) < Math.PI * 2 - 1e-9) return false;
+    const c = this.cur;
+    if (!c) return true;
+    if (c.pts.length !== 1 || c.circle) return false;
+    const seed = c.pts[0]!;
+    return Math.abs(seed.x - start.x) < 1e-6 && Math.abs(seed.y - start.y) < 1e-6;
   }
 
   /**

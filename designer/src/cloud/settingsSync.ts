@@ -359,7 +359,7 @@ export async function syncSettings(
   if (result.future.length > 0 && !warnedFutureFormat) {
     warnedFutureFormat = true;
     console.warn(
-      `These settings were written by a newer version of Ziro Designer and are ` +
+      `These settings were written by a newer version of ZiroEDA and are ` +
         `read-only on this device: ${result.future.join(', ')}. ` +
         `Changes made here will not reach your account until this device is updated.`,
     );

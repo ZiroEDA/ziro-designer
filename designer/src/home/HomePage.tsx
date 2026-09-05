@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'rea
 import { preloadBundle } from '../libraryPreload.js';
 import { MenuBar, type Menu } from '../ui/MenuBar.js';
 import { AccountButton } from '../ui/AccountButton.js';
+import { PRODUCT } from '../ui/about_titles.js';
 import { profilePhotoUrl } from '../auth/profile.js';
 import { Icon } from '../ui/icons.js';
 import {
@@ -1788,7 +1789,7 @@ export function HomePage({
         // "[Read Only]" suffix. (Upstream's own source for that flag is a
         // LOCKFILE on the project directory, which a browser has no equivalent
         // of - "you cannot save to this" is the part that survives.)
-        title={managerTitle(picked ? projName : null, 'Ziro Designer', demoOpen)}
+        title={managerTitle(picked ? projName : null, PRODUCT, demoOpen)}
         rightSlot={
           session ? (
             <div className="ze-account">

@@ -1,10 +1,9 @@
-# Ziro Designer
+# ZiroEDA
 
 **Professional electronics design in a browser tab: zero learning curve, zero
 installs.**
 
-Ziro Designer is the flagship design suite from **ZiroEDA**: a browser-native,
-open-source electronics design tool. It speaks the industry's open file formats
+**ZiroEDA** is a browser-native, open-source electronics design suite. It speaks the industry's open file formats
 natively: projects made in KiCad open directly with no import step, no
 migration, no retraining, while everything about the product (cloud projects,
 sharing, and the AI-assisted design tools on our roadmap) is built web-first.
@@ -15,7 +14,7 @@ autorouting, batch DRC), real-time team collaboration, and AI assistance,
 never for the editor itself. See **[PHILOSOPHY.md](./PHILOSOPHY.md)** for our
 format-compatibility promise and how we relate to the upstream ecosystem.
 
-> Ziro Designer is an independent project by ZiroEDA. It is **not** affiliated
+> ZiroEDA is an independent project. It is **not** affiliated
 > with or endorsed by the KiCad project; "KiCad" is a trademark of its
 > respective owners.
 
@@ -198,7 +197,7 @@ Two layers, both built for round-trip fidelity:
 
 - **Lossless S-expression layer**: the parser/serializer for the open design
   formats. "Lossless" is a hard requirement: it preserves every node (including
-  fields Ziro Designer does not yet model) and the exact source text of numeric
+  fields ZiroEDA does not yet model) and the exact source text of numeric
   atoms, so saving a file never silently corrupts data the user cares about.
   Correctness is enforced by round-trip tests against real design files
   (`parse ∘ serialize ∘ parse` is identity over the AST).

@@ -21,6 +21,8 @@
 import {
   DISC_FRAG,
   DISC_VERT,
+  RING_FRAG,
+  RING_VERT,
   GLYPH_FRAG,
   GLYPH_VERT,
   IMAGE_FRAG,
@@ -34,6 +36,7 @@ import { ATLAS_HEIGHT, ATLAS_WIDTH } from './bitmap_font.js';
 import { loadFontAtlas } from './font_atlas.js';
 import {
   DISC_STRIDE,
+  RING_STRIDE,
   GLYPH_VERTEX_STRIDE,
   IMAGE_VERTEX_STRIDE,
   SEGMENT_STRIDE,
@@ -102,16 +105,19 @@ function link(gl: WebGL2RenderingContext, vertSrc: string, fragSrc: string): Web
 interface GlLayer {
   seg: WebGLBuffer;
   disc: WebGLBuffer;
+  ring: WebGLBuffer;
   tri: WebGLBuffer;
   glyph: WebGLBuffer;
   image: WebGLBuffer;
   vaoSeg: WebGLVertexArrayObject;
   vaoDisc: WebGLVertexArrayObject;
+  vaoRing: WebGLVertexArrayObject;
   vaoTri: WebGLVertexArrayObject;
   vaoGlyph: WebGLVertexArrayObject;
   vaoImage: WebGLVertexArrayObject;
   segCount: number;
   discCount: number;
+  ringCount: number;
   triVerts: number;
   glyphVerts: number;
   imageVerts: number;
@@ -143,6 +149,15 @@ const DISC_ATTRS: [number, number, number][] = [
   [4, 4, 4], // colour
 ];
 
+/** One more slot than a disc: a stroked circle also carries its width. */
+const RING_ATTRS: [number, number, number][] = [
+  [1, 2, 0], // centre
+  [2, 1, 2], // radius
+  [3, 1, 3], // half width
+  [4, 1, 4], // minPx
+  [5, 4, 5], // colour
+];
+
 /** The unit quad every instanced primitive expands from. */
 const QUAD = new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]);
 
@@ -150,10 +165,12 @@ const QUAD = new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]);
 function createLayer(gl: WebGL2RenderingContext, quad: WebGLBuffer): GlLayer | null {
   const seg = gl.createBuffer();
   const disc = gl.createBuffer();
+  const ring = gl.createBuffer();
   const tri = gl.createBuffer();
   const glyph = gl.createBuffer();
   const vaoSeg = gl.createVertexArray();
   const vaoDisc = gl.createVertexArray();
+  const vaoRing = gl.createVertexArray();
   const vaoTri = gl.createVertexArray();
   const vaoGlyph = gl.createVertexArray();
   const image = gl.createBuffer();
@@ -161,11 +178,13 @@ function createLayer(gl: WebGL2RenderingContext, quad: WebGLBuffer): GlLayer | n
   if (
     !seg ||
     !disc ||
+    !ring ||
     !tri ||
     !glyph ||
     !image ||
     !vaoSeg ||
     !vaoDisc ||
+    !vaoRing ||
     !vaoTri ||
     !vaoGlyph ||
     !vaoImage
@@ -194,6 +213,18 @@ function createLayer(gl: WebGL2RenderingContext, quad: WebGLBuffer): GlLayer | n
   for (const [loc, size, offset] of DISC_ATTRS) {
     gl.enableVertexAttribArray(loc);
     gl.vertexAttribPointer(loc, size, gl.FLOAT, false, discStride, offset * F32);
+    gl.vertexAttribDivisor(loc, 1);
+  }
+
+  gl.bindVertexArray(vaoRing);
+  gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+  gl.enableVertexAttribArray(0);
+  gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+  gl.bindBuffer(gl.ARRAY_BUFFER, ring);
+  const ringStride = RING_STRIDE * F32;
+  for (const [loc, size, offset] of RING_ATTRS) {
+    gl.enableVertexAttribArray(loc);
+    gl.vertexAttribPointer(loc, size, gl.FLOAT, false, ringStride, offset * F32);
     gl.vertexAttribDivisor(loc, 1);
   }
 
@@ -234,16 +265,19 @@ function createLayer(gl: WebGL2RenderingContext, quad: WebGLBuffer): GlLayer | n
   return {
     seg,
     disc,
+    ring,
     tri,
     glyph,
     image,
     vaoSeg,
     vaoDisc,
+    vaoRing,
     vaoTri,
     vaoGlyph,
     vaoImage,
     segCount: 0,
     discCount: 0,
+    ringCount: 0,
     triVerts: 0,
     glyphVerts: 0,
     imageVerts: 0,
@@ -300,6 +334,7 @@ export class GlDevice {
     private readonly gl: WebGL2RenderingContext,
     private readonly progSeg: WebGLProgram,
     private readonly progDisc: WebGLProgram,
+    private readonly progRing: WebGLProgram,
     private readonly progTri: WebGLProgram,
     private readonly progGlyph: WebGLProgram,
     private readonly progImage: WebGLProgram,
@@ -310,7 +345,7 @@ export class GlDevice {
     private readonly text: GlLayer,
   ) {
     this.depthLoc = gl.getUniformLocation(progGlyph, 'u_depth');
-    for (const p of [progSeg, progDisc, progTri, progGlyph, progImage]) {
+    for (const p of [progSeg, progDisc, progRing, progTri, progGlyph, progImage]) {
       this.uniforms.set(p, {
         view: gl.getUniformLocation(p, 'u_view'),
         viewport: gl.getUniformLocation(p, 'u_viewport'),
@@ -437,10 +472,11 @@ export class GlDevice {
 
     const progSeg = link(gl, SEGMENT_VERT, SEGMENT_FRAG);
     const progDisc = link(gl, DISC_VERT, DISC_FRAG);
+    const progRing = link(gl, RING_VERT, RING_FRAG);
     const progTri = link(gl, TRIANGLE_VERT, TRIANGLE_FRAG);
     const progGlyph = link(gl, GLYPH_VERT, GLYPH_FRAG);
     const progImage = link(gl, IMAGE_VERT, IMAGE_FRAG);
-    if (!progSeg || !progDisc || !progTri || !progGlyph || !progImage) return null;
+    if (!progSeg || !progDisc || !progRing || !progTri || !progGlyph || !progImage) return null;
 
     const quad = gl.createBuffer();
     if (!quad) return null;
@@ -462,6 +498,7 @@ export class GlDevice {
       gl,
       progSeg,
       progDisc,
+      progRing,
       progTri,
       progGlyph,
       progImage,
@@ -483,6 +520,8 @@ export class GlDevice {
     gl.bufferData(gl.ARRAY_BUFFER, scene.segments.view(), gl.DYNAMIC_DRAW);
     gl.bindBuffer(gl.ARRAY_BUFFER, layer.disc);
     gl.bufferData(gl.ARRAY_BUFFER, scene.discs.view(), gl.DYNAMIC_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER, layer.ring);
+    gl.bufferData(gl.ARRAY_BUFFER, scene.rings.view(), gl.DYNAMIC_DRAW);
     gl.bindBuffer(gl.ARRAY_BUFFER, layer.tri);
     gl.bufferData(gl.ARRAY_BUFFER, scene.triangles.view(), gl.DYNAMIC_DRAW);
     gl.bindBuffer(gl.ARRAY_BUFFER, layer.glyph);
@@ -491,6 +530,7 @@ export class GlDevice {
     gl.bufferData(gl.ARRAY_BUFFER, scene.images.view(), gl.DYNAMIC_DRAW);
     layer.segCount = scene.segmentCount;
     layer.discCount = scene.discCount;
+    layer.ringCount = scene.ringCount;
     layer.triVerts = scene.triangleVertexCount;
     layer.glyphVerts = scene.glyphVertexCount;
     layer.imageVerts = scene.imageVertexCount;
@@ -534,6 +574,7 @@ export class GlDevice {
     };
     send(this.base.seg, scene.segments.view(), SEGMENT_STRIDE, ranges.seg);
     send(this.base.disc, scene.discs.view(), DISC_STRIDE, ranges.disc);
+    send(this.base.ring, scene.rings.view(), RING_STRIDE, ranges.ring);
     send(this.base.tri, scene.triangles.view(), TRIANGLE_STRIDE, ranges.tri);
   }
 
@@ -560,6 +601,7 @@ export class GlDevice {
   clearText(): void {
     this.text.segCount = 0;
     this.text.discCount = 0;
+    this.text.ringCount = 0;
     this.text.triVerts = 0;
     this.text.glyphVerts = 0;
     this.text.imageVerts = 0;
@@ -582,6 +624,7 @@ export class GlDevice {
   clearInner(): void {
     this.inner.segCount = 0;
     this.inner.discCount = 0;
+    this.inner.ringCount = 0;
     this.inner.triVerts = 0;
     this.inner.glyphVerts = 0;
     this.inner.imageVerts = 0;
@@ -591,6 +634,7 @@ export class GlDevice {
   clearPreview(): void {
     this.preview.segCount = 0;
     this.preview.discCount = 0;
+    this.preview.ringCount = 0;
     this.preview.triVerts = 0;
     this.preview.glyphVerts = 0;
     this.preview.imageVerts = 0;
@@ -711,6 +755,10 @@ export class GlDevice {
               bindProgram(this.progSeg);
               this.pointInstances(src.vaoSeg, src.seg, SEGMENT_ATTRS, SEGMENT_STRIDE, run.start);
               gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, run.count);
+            } else if (run.kind === 'ring') {
+              bindProgram(this.progRing);
+              this.pointInstances(src.vaoRing, src.ring, RING_ATTRS, RING_STRIDE, run.start);
+              gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, run.count);
             } else {
               bindProgram(this.progDisc);
               this.pointInstances(src.vaoDisc, src.disc, DISC_ATTRS, DISC_STRIDE, run.start);
@@ -719,6 +767,7 @@ export class GlDevice {
           }
           this.pointInstances(src.vaoSeg, src.seg, SEGMENT_ATTRS, SEGMENT_STRIDE, 0);
           this.pointInstances(src.vaoDisc, src.disc, DISC_ATTRS, DISC_STRIDE, 0);
+          this.pointInstances(src.vaoRing, src.ring, RING_ATTRS, RING_STRIDE, 0);
         };
         if (stopAt >= 0 && interleave) {
           // The per-frame pass belongs *inside* the board, at the depth it was
@@ -756,6 +805,11 @@ export class GlDevice {
         bindProgram(this.progDisc);
         gl.bindVertexArray(layer.vaoDisc);
         gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, layer.discCount);
+      }
+      if (layer.ringCount > 0) {
+        bindProgram(this.progRing);
+        gl.bindVertexArray(layer.vaoRing);
+        gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, layer.ringCount);
       }
       // Text last: it is the one thing that is meant to sit over everything
       // else in an unordered scene.
@@ -838,6 +892,7 @@ export class GlDevice {
     for (const layer of [this.base, this.preview, this.inner]) {
       gl.deleteBuffer(layer.seg);
       gl.deleteBuffer(layer.disc);
+      gl.deleteBuffer(layer.ring);
       gl.deleteBuffer(layer.tri);
       gl.deleteBuffer(layer.glyph);
       gl.deleteVertexArray(layer.vaoSeg);

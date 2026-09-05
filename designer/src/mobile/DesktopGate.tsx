@@ -33,7 +33,7 @@ function GateCard({ onContinue }: { onContinue: () => void }): JSX.Element {
   const [copied, setCopied] = useState(false);
   const url = window.location.href;
   const mailto =
-    `mailto:?subject=${encodeURIComponent('Ziro Designer')}` +
+    `mailto:?subject=${encodeURIComponent('ZiroEDA')}` +
     `&body=${encodeURIComponent(`Open this on your computer:\n\n${url}\n`)}`;
 
   return (
@@ -44,11 +44,11 @@ function GateCard({ onContinue }: { onContinue: () => void }): JSX.Element {
           <path d="M17 33h14M24 31v2" />
         </svg>
 
-        <h1 className="ze-gate-title">Ziro Designer needs a bigger screen</h1>
+        <h1 className="ze-gate-title">ZiroEDA needs a bigger screen</h1>
 
         <p className="ze-gate-body">
-          Ziro Designer is a full EDA suite, schematic capture, PCB layout and 3D preview. It's
-          built for a mouse, a keyboard and room to work, so there's no phone version yet.
+          ZiroEDA is a full EDA suite, schematic capture, PCB layout and 3D preview. It's built for
+          a mouse, a keyboard and room to work, so there's no phone version yet.
         </p>
         <p className="ze-gate-body">Open this link on a laptop or desktop to get started.</p>
 

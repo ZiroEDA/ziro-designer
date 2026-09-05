@@ -237,7 +237,7 @@ describe('copySelectionToClipboardText: the payload document', () => {
   it('names us, not pcbnew, in the generator stamp', () => {
     const b = board({ tracks: [track({ x: 0, y: 0 }, { x: 1000000, y: 0 })] });
     const text = copySelectionToClipboardText(b, ['track:0']);
-    expect(text).toContain('(generator "ziro_designer")');
+    expect(text).toContain('(generator "ziroeda")');
     expect(text).not.toContain('"pcbnew"');
   });
 
@@ -421,7 +421,7 @@ describe('copySelectionToClipboardText: a lone footprint', () => {
   it('carries the footprint file header upstream stamps on a clipboard footprint', () => {
     const text = copySelectionToClipboardText(fp(), ['footprint:0']);
     expect(text).toContain('(version 20241229)');
-    expect(text).toContain('(generator "ziro_designer")');
+    expect(text).toContain('(generator "ziroeda")');
     expect(text).toContain('(generator_version "1.0")');
   });
 

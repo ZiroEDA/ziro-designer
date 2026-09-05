@@ -1,6 +1,6 @@
-# Working on Ziro Designer
+# Working on ZiroEDA
 
-Ziro Designer is a port of KiCad 10.0.5 to the browser. The reference source is
+ZiroEDA is a port of KiCad 10.0.5 to the browser. The reference source is
 pinned at `/home/akshay/kicad-reference` — read that, never KiCad master, because
 the parity target is the installed build.
 

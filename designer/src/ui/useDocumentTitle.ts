@@ -17,11 +17,12 @@
  */
 
 import { useEffect } from 'react';
+import { PRODUCT } from './about_titles.js';
 
 /** The app name every title ends with, matching index.html's default. */
-export const APP_NAME = 'Ziro Designer';
+export const APP_NAME = PRODUCT;
 
-/** `*doc, Editor · Ziro Designer`, or `Editor · Ziro Designer` with no doc. */
+/** `*doc, Editor · ZiroEDA`, or `Editor · ZiroEDA` with no doc. */
 export function formatTitle(editor: string, doc?: string | null, modified = false): string {
   const name = doc?.trim();
   const head = name ? `${modified ? '*' : ''}${name}, ${editor}` : editor;
