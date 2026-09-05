@@ -314,6 +314,7 @@ export function HomePage({
   activePro,
   activeDemo,
   onDemoStateChange,
+  onProjectIdChange,
   onSwitchProject,
 }: {
   onOpenSchematic: () => void;
@@ -340,6 +341,16 @@ export function HomePage({
    *  `file` is a gerber, gerber job or drill file to load straight away -
    *  KICAD_MANAGER_ACTIONS::viewGerbers, which upstream runs with the file. */
   onOpenGerberViewer?: (file?: PickedHomeFile) => void;
+  /**
+   * Which project is open, as its local key, or null when none is.
+   *
+   * App holds the FILES of the open project and was never told which project
+   * they are -- and an address has to name one. This is the only side that
+   * knows. Reported as soon as it is known rather than through each of the
+   * launch callbacks, because every one of them opens the same project and
+   * saying it four times invites the four to disagree.
+   */
+  onProjectIdChange?: (localId: string | null) => void;
   /** A project already open in the app: keep it in the tree on return to home. */
   initialFiles?: PickedHomeFile[] | null;
   /** The active project's .kicad_pro (full name) when a folder holds several. */
@@ -1471,6 +1482,14 @@ export function HomePage({
     () => (projName ? (saved.find((p) => p.name === projName)?.id ?? null) : null),
     [saved, projName],
   );
+
+  // Told as soon as it is known, the same shape as `onDemoStateChange`: the
+  // address has to name the open project, and this is the only side that knows
+  // which one it is.
+  useEffect(() => {
+    onProjectIdChange?.(openProjectId);
+  }, [openProjectId, onProjectIdChange]);
+
   // `HistoryExists( Prj().GetProjectPath() )`, which the File menu's enable
   // condition asks for on every UI update (kicad/menubar.cpp:108-113). Read the
   // same way the pane reads it, and re-read on the same event, so the menu item

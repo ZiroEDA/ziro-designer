@@ -8,8 +8,10 @@ import type { PickedFile } from './editors/schematic/SchematicEditor.js';
 import { LoadingOverlay } from './ui/LoadingOverlay.js';
 import {
   storageAvailable,
+  cloudIdentityOf,
   listProjects,
   loadProject,
+  localIdForCloudUid,
   saveProject,
   updateProjectFiles,
 } from './home/projectStore.js';
@@ -20,6 +22,8 @@ import { setRecoveryProvider } from './home/recovery.js';
 import { recoverySnapshotFrom } from './home/recovery_source.js';
 import { formatTitle, useDocumentTitle } from './ui/useDocumentTitle.js';
 import { pushProject } from './cloud/sync.js';
+import { useRoute } from './nav/useRoute.js';
+import type { ProjectView, Route } from './nav/route.js';
 import { installSettingsSync } from './cloud/settingsSync.js';
 import type { DemoMeta } from './home/demos.js';
 import { useAuth } from './auth/AuthProvider.js';
@@ -239,6 +243,16 @@ export function App(): JSX.Element {
     | 'image'
     | 'gerber'
   >('home');
+  /**
+   * The address bar, and the open project's identity -- the two halves of
+   * having URLs at all.
+   *
+   * `openUid` is `projects.uid`, which App has never held: it holds the FILES
+   * of the open project and was never told which project they are. The project
+   * manager is the only side that knows, and says so through `onOpenProject`.
+   */
+  const { route, navigate } = useRoute();
+  const [openUid, setOpenUid] = useState<string | null>(null);
   const [projectFiles, setProjectFiles] = useState<PickedFile[] | null>(null);
   /**
    * The text of every file an editor has handed up this session, keyed by the
@@ -381,40 +395,193 @@ export function App(): JSX.Element {
     document.body.dataset.activeView = view;
   }, [view]);
 
-  // Restore the last view on reload: reopen the most-recently-opened project
-  // (top of Recent) into the saved view, so a refresh doesn't lose your work.
-  // On reload, reopen the most-recently-opened project (top of Recent), into
-  // the home file manager and, if that's where you were, the editor view too.
-  const [restoring, setRestoring] = useState(() => !!loadSession());
+  /** Mount the frame a view needs, which is what makes it exist at all. */
+  const mountFor = useCallback((v: typeof view): void => {
+    if (v === 'schematic') setSchMounted(true);
+    else if (v === 'pcb') setPcbMounted(true);
+    else if (v === 'symbols') setSymMounted(true);
+    else if (v === 'footprints') setFpMounted(true);
+    else if (v === 'calculator') setCalcMounted(true);
+    else if (v === 'drawingsheet') setDsMounted(true);
+    else if (v === 'image') setImgMounted(true);
+    else if (v === 'gerber') setGbMounted(true);
+  }, []);
+
+  /**
+   * The address for the app's current state.
+   *
+   * A view the address cannot name -- an editor open on files with no project
+   * behind them, a lone `.kicad_pcb` -- comes out as home rather than as a
+   * project route that names nothing.
+   */
+  const routeForState = useCallback((): Route => {
+    if (view === 'calculator') return { kind: 'tool', tool: 'calculator' };
+    if (view === 'drawingsheet') return { kind: 'tool', tool: 'drawing-sheet' };
+    if (view === 'image') return { kind: 'tool', tool: 'image-converter' };
+    if (view === 'gerber') return { kind: 'tool', tool: 'gerber' };
+    if (!openUid) return { kind: 'home' };
+    const pv: ProjectView =
+      view === 'schematic' || view === 'pcb' || view === 'symbols' || view === 'footprints'
+        ? view
+        : 'manager';
+    return { kind: 'project', uid: openUid, view: pv, ...(startFile ? { file: startFile } : {}) };
+  }, [view, openUid, startFile]);
+
+  // Restore the last view on reload. The ADDRESS is asked first, and only when
+  // it names nothing does this fall back to the old behaviour -- the saved view
+  // plus the most-recently-opened project. That fallback is why a refresh could
+  // land you in a different board's editor: it restored the view and then
+  // opened whatever was top of Recent, because nothing recorded which project
+  // you had been in. It stays for one release so a session already in progress
+  // still restores.
+  const [restoring, setRestoring] = useState(() => !!loadSession() || route.kind === 'project');
   const restored = useRef(false);
+
+  /**
+   * Open the project an address names, whatever this browser calls it locally.
+   *
+   * An address carries `uid` -- the one identity, which means the same project
+   * in every account. The local store files a project under its own key, so the
+   * two have to be joined up; `localIdForCloudUid` is that join.
+   */
+  /**
+   * Which project the manager has open, as its local key, turned into the one
+   * identity an address can carry.
+   *
+   * Stable, so the effect in the project manager that reports it does not fire
+   * on every render of this component.
+   */
+  const onProjectIdChange = useCallback((localId: string | null) => {
+    if (!localId) {
+      setOpenUid(null);
+      return;
+    }
+    void cloudIdentityOf(localId).then(
+      (c) => setOpenUid(c?.uid ?? null),
+      () => setOpenUid(null),
+    );
+  }, []);
+
+  const openByUid = useCallback(
+    async (uid: string): Promise<boolean> => {
+      const localId = await localIdForCloudUid(uid);
+      const loaded = localId ? await loadProject(localId) : null;
+      if (!loaded) return false;
+      openProjectFiles(loaded.files.map(pickedFromStored));
+      setOpenUid(uid);
+      return true;
+    },
+    [openProjectFiles],
+  );
+
+  /**
+   * The address, applied.
+   *
+   * Runs on the first load and on Back and Forward. Without the second, the
+   * address would change and the app would not, which is worse than having no
+   * addresses at all.
+   */
+  const appliedRoute = useRef<string | null>(null);
   useEffect(() => {
-    if (restored.current) return;
+    const key = JSON.stringify(route);
+    if (appliedRoute.current === key) return;
+    const first = !restored.current;
     restored.current = true;
+    appliedRoute.current = key;
+
     void (async () => {
       try {
-        const s = loadSession();
-        if (!s || !storageAvailable()) return;
+        if (!storageAvailable()) return;
+
+        if (route.kind === 'project') {
+          const already = route.uid === openUid;
+          // A project this browser does not have -- someone else's link before
+          // the sync has brought it down, or a project deleted since. Home,
+          // rather than a frame with nothing in it.
+          if (!already && !(await openByUid(route.uid))) return;
+          const v =
+            route.view === 'manager' ? 'home' : (route.view as Extract<typeof view, 'schematic'>);
+          if (route.file) setStartFile(route.file);
+          mountFor(v);
+          setView(v);
+          return;
+        }
+
+        if (route.kind === 'tool') {
+          const v =
+            route.tool === 'drawing-sheet'
+              ? 'drawingsheet'
+              : route.tool === 'image-converter'
+                ? 'image'
+                : route.tool;
+          mountFor(v);
+          setView(v);
+          return;
+        }
+
+        // Home. On the first load that is the cue to fall back to the saved
+        // session; afterwards it is Back, and `/` means what it says -- nothing
+        // open -- so the project is closed.
+        //
+        // It has to close. `/p/<uid>` is the truthful address for a project
+        // open in the manager, so leaving it open here would have the mirror
+        // push that address straight back and Back would bounce off `/`
+        // forever. Closing is also what the address describes, and it is the
+        // same thing File > Close Project does; the files are already saved.
+        if (!first) {
+          openProjectFiles(null);
+          setOpenUid(null);
+          setStartFile(null);
+          setView('home');
+          return;
+        }
+        const sess = loadSession();
+        if (!sess) return;
         const list = await listProjects();
         const loaded = list[0] ? await loadProject(list[0].id) : null;
         if (!loaded) return;
         openProjectFiles(loaded.files.map(pickedFromStored));
-        setStartFile(s.startFile ?? null);
-        if (s.view === 'schematic') setSchMounted(true);
-        else if (s.view === 'pcb') setPcbMounted(true);
-        else if (s.view === 'symbols') setSymMounted(true);
-        else if (s.view === 'footprints') setFpMounted(true);
-        else if (s.view === 'calculator') setCalcMounted(true);
-        else if (s.view === 'drawingsheet') setDsMounted(true);
-        else if (s.view === 'image') setImgMounted(true);
-        else if (s.view === 'gerber') setGbMounted(true);
-        setView(s.view);
+        setOpenUid((await cloudIdentityOf(list[0]!.id))?.uid ?? null);
+        setStartFile(sess.startFile ?? null);
+        mountFor(sess.view);
+        setView(sess.view);
       } catch {
         /* fall back to home */
       } finally {
         setRestoring(false);
       }
     })();
-  }, []);
+  }, [route, openUid, openByUid, mountFor, openProjectFiles]);
+
+  /**
+   * And the address mirrors the state.
+   *
+   * A mirror rather than the source, deliberately: `view` is set from seventeen
+   * places across nine frames, and until this change App did not hold the
+   * project's identity at all. Making the route the only writer would mean
+   * rewriting all of that in one go, on a file another session is also editing.
+   *
+   * So state changes and the address follows; an address arriving from a link,
+   * a reload or Back is applied by the effect above. The two cannot fight
+   * because both sides compare ROUTES rather than strings, and `navigate`
+   * checks against the address itself rather than a render's closure.
+   */
+  useEffect(() => {
+    if (restoring) return;
+    const next = routeForState();
+    // Replace when only which file is open changed -- switching sheets should
+    // not fill Back with one entry per sheet -- and push for a change of place,
+    // so Back returns to the project manager rather than leaving the app.
+    const before = appliedRoute.current ? (JSON.parse(appliedRoute.current) as Route) : null;
+    const onlyFile =
+      !!before &&
+      before.kind === 'project' &&
+      next.kind === 'project' &&
+      before.uid === next.uid &&
+      before.view === next.view;
+    appliedRoute.current = JSON.stringify(next);
+    navigate(next, { replace: onlyFile });
+  }, [routeForState, restoring, navigate]);
 
   // Remember the current view (+ open sheet) so a reload can restore it.
   useEffect(() => {
@@ -1035,6 +1202,7 @@ export function App(): JSX.Element {
            but it is no longer the ONLY way in, which is what left every other
            editor thinking a demo was an ordinary project. */
         onDemoStateChange={onDemoStateChange}
+        onProjectIdChange={onProjectIdChange}
         onOpenProject={(files, start, demo) => {
           openProjectFiles(files);
           setDemoProject(!!demo);
