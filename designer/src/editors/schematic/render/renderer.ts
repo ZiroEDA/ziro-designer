@@ -2807,12 +2807,36 @@ function drawLabel(
         // SCH_GLOBALLABEL centres it vertically, which is drawText's default.
         justifyFor(spin),
       );
-      // The implicit "Intersheet References" field (${INTERSHEET_REFS}), when
-      // Formatting shows the layer. Colour: LAYER_INTERSHEET_REFS aliases
-      // LAYER_GLOBLABEL (render_settings.h GetLayerColor).
-      if (g_intersheetRefs && !shadow) {
-        const field = intersheetRefsField(l);
-        const refText = g_intersheetRefs.text(l.text);
+      /*
+       * The implicit "Intersheet References" field (${INTERSHEET_REFS}).
+       *
+       * It is drawn for two different reasons, and they are independent:
+       *
+       *   - Formatting shows LAYER_INTERSHEET_REFS, so the RESOLVED references
+       *     appear in the label's own colour (LAYER_INTERSHEET_REFS aliases
+       *     LAYER_GLOBLABEL, render_settings.h GetLayerColor); or
+       *   - the field itself is invisible — every `SCH_GLOBALLABEL` ctor does
+       *     `m_fields.back().SetVisible( false )` — and hidden fields are being
+       *     shown, in which case it is drawn in LAYER_HIDDEN with its text
+       *     UNRESOLVED:
+       *
+       *         if( !( aField->IsVisible() || aField->IsForceVisible() ) ) {
+       *             if( force_show ) color = getRenderColor( aField, LAYER_HIDDEN, … );
+       *             else return; }
+       *         (`sch_painter.cpp:2907-2918`)
+       *
+       * The second is why the Colors preview shows a grey `${INTERSHEET_REFS}`
+       * beside its global label: that panel has no SCHEMATIC, so `force_show`
+       * falls back to `SCH_RENDER_SETTINGS::m_ShowHiddenFields`, which is true.
+       * In the editor it reads the preference instead, which is off, so an
+       * ordinary schematic shows nothing.
+       */
+      const refsField = intersheetRefsField(l);
+      const refsHidden = refsField?.effects?.hidden === true;
+      if ((g_intersheetRefs || (refsHidden && g_fieldShowHidden)) && !shadow) {
+        const field = refsField;
+        const refText = g_intersheetRefs ? g_intersheetRefs.text(l.text) : (field?.value ?? '');
+        const refColor = g_intersheetRefs ? color : theme.hidden;
         const fh = field?.effects?.fontSize?.[0] ?? 1.27 * MM;
         if (intersheetRefsAutoplaced(l, field)) {
           // SCH_LABEL_BASE::AutoplaceFields: the refs sit past the flag's tail
@@ -2831,12 +2855,12 @@ function drawLabel(
           }
           const off = Math.max(maxX - minX, maxY - minY) + margin;
           if (spin === SPIN.LEFT)
-            drawText(ctx, refText, { x: l.at.x - off, y: l.at.y }, fh, color, ['right']);
+            drawText(ctx, refText, { x: l.at.x - off, y: l.at.y }, fh, refColor, ['right']);
           else if (spin === SPIN.UP)
-            drawText(ctx, refText, { x: l.at.x, y: l.at.y - off }, fh, color, ['left'], 90);
+            drawText(ctx, refText, { x: l.at.x, y: l.at.y - off }, fh, refColor, ['left'], 90);
           else if (spin === SPIN.RIGHT)
-            drawText(ctx, refText, { x: l.at.x + off, y: l.at.y }, fh, color, ['left']);
-          else drawText(ctx, refText, { x: l.at.x, y: l.at.y + off }, fh, color, ['right'], 90);
+            drawText(ctx, refText, { x: l.at.x + off, y: l.at.y }, fh, refColor, ['left']);
+          else drawText(ctx, refText, { x: l.at.x, y: l.at.y + off }, fh, refColor, ['right'], 90);
         } else if (field?.at) {
           // A user-placed field keeps its stored position/effects.
           drawText(
@@ -2844,7 +2868,7 @@ function drawLabel(
             refText,
             field.at,
             fh,
-            color,
+            refColor,
             field.effects?.justify,
             field.angle % 180 === 90 ? 90 : 0,
             field.effects?.bold ?? false,

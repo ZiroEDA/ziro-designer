@@ -107,13 +107,25 @@ describe('intersheetRefsText (SCH_GLOBALLABEL::ResolveTextVar)', () => {
 });
 
 describe('intersheetRefsField / intersheetRefsAutoplaced', () => {
-  it('reads the stored "Intersheet References" property and detects custom placement', () => {
+  /**
+   * The property's name is the CANONICAL one KiCad writes:
+   *
+   *     #define INTERSHEET_REFS_CANONICAL "Intersheetrefs"
+   *     (`common/template_fieldnames.cpp:42`)
+   *
+   * One word. These fixtures said "Intersheet References", which reads better
+   * and appears in no file KiCad has ever written — so the lookup matched
+   * nothing on a real schematic, and the two branches below were reachable only
+   * from here. Confirmed against KiCad's own demos, every one of which carries
+   * `(property "Intersheetrefs" "${INTERSHEET_REFS}" …)`.
+   */
+  it('reads the stored "Intersheetrefs" property and detects custom placement', () => {
     const auto = sch(
       glabel(
         'CLK',
         10,
         10,
-        `(property "Intersheet References" "\${INTERSHEET_REFS}" (at 10 10 0)
+        `(property "Intersheetrefs" "\${INTERSHEET_REFS}" (at 10 10 0)
            (effects (font (size 1.27 1.27))))`,
       ),
     ).labels[0]!;
@@ -122,7 +134,7 @@ describe('intersheetRefsField / intersheetRefsAutoplaced', () => {
         'CLK',
         10,
         10,
-        `(property "Intersheet References" "\${INTERSHEET_REFS}" (at 25 30 0)
+        `(property "Intersheetrefs" "\${INTERSHEET_REFS}" (at 25 30 0)
            (effects (font (size 1.27 1.27)) (justify left)))`,
       ),
     ).labels[0]!;

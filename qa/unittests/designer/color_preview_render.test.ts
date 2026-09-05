@@ -34,6 +34,7 @@ import {
   COLOR_PREVIEW_SELECTION,
 } from '@ziroeda/designer/src/editors/schematic/prefs/color_preview_schematic.js';
 import type { LibSymbol, Schematic } from '@ziroeda/eeschema';
+import { intersheetRefsField } from '@ziroeda/eeschema/src/tools/intersheet_refs.js';
 import { readSchematic } from '@ziroeda/eeschema';
 import { parse } from '@ziroeda/sexpr';
 
@@ -107,7 +108,7 @@ class Path2DStub {
 (globalThis as { Path2D?: unknown }).Path2D ??= Path2DStub;
 
 /** `ColorPreviewPanel`'s own options — see there. */
-const PREVIEW_OPTS = { ...DEFAULT_RENDER_OPTS, connectivity: false };
+const PREVIEW_OPTS = { ...DEFAULT_RENDER_OPTS, connectivity: false, showHiddenFields: true };
 
 const LIB_BY_ID = new Map<string, LibSymbol>(
   COLOR_PREVIEW_SCHEMATIC.libSymbols.map((l) => [l.libId, l]),
@@ -276,15 +277,71 @@ describe('the sheet in the preview', () => {
   });
 
   /**
-   * `SetSide( LEFT )` also sets `SPIN_STYLE::RIGHT`, which the writer adds
-   * nothing to — so the angle is 0 — and which left-justifies the text: "we
-   * want to left justify text up against the anchor if we are on the right".
-   * It read 180 and right, which pointed the pin into the sheet and put its
-   * name on the wrong side of the edge.
+   * A sheet pin's angle is its EDGE, not a spin style. `saveSheet` writes it
+   * with a table of its own —
+   *
+   *     case SHEET_SIDE::LEFT:   return ANGLE_180;
+   *     case SHEET_SIDE::RIGHT:  return ANGLE_0;
+   *     case SHEET_SIDE::TOP:    return ANGLE_90;
+   *     case SHEET_SIDE::BOTTOM: return ANGLE_270;
+   *     (`sch_io_kicad_sexpr_common.cpp`, `getSheetPinAngle`)
+   *
+   * — and never goes through `saveText`, whose spin switch would say 0 for the
+   * `SPIN_STYLE::RIGHT` that `SetSide( LEFT )` sets. Reading it that way put
+   * this pin on the right edge, with its name outside the box.
+   *
+   * Confirmed against KiCad's own demos rather than derived: every left-edge
+   * pin in `One-Air-Max`, `pic_programmer`, `tinytapeout-demo` and
+   * `kit-dev-coldfire-xilinx_5213` carries 180, every right-edge one 0, and the
+   * bottom-edge one 270.
    */
-  it('gives the pin the spin SetSide chose, not its opposite', () => {
+  it('gives the pin the angle of the edge it sits on', () => {
     const pin = sheet().pins[0]!;
-    expect(pin.angle).toBe(0);
-    expect(pin.effects?.justify).toEqual(['left']);
+    expect(pin.angle).toBe(180);
+  });
+
+  /**
+   * The justification is the label's own, and it is not what the angle implies:
+   * a real left-edge pin carries `(at … 180)` with `(justify left)`
+   * (`One-Air-Max.kicad_sch`). This read `right`.
+   */
+  it('left-justifies it, as a left-edge pin is written', () => {
+    expect(sheet().pins[0]!.effects?.justify).toEqual(['left']);
+  });
+});
+
+/**
+ * The grey `${INTERSHEET_REFS}` beside the global label.
+ *
+ * Every `SCH_GLOBALLABEL` is constructed with an intersheet-references field
+ * that is `SetVisible( false )`. An invisible field is not skipped: it is drawn
+ * in LAYER_HIDDEN when hidden fields are shown, with its text unresolved
+ * (`sch_painter.cpp:2907-2918`). The Colors preview shows it because that panel
+ * has no SCHEMATIC and falls back to `m_ShowHiddenFields`, true by
+ * construction; the editor reads the preference instead, which is off.
+ *
+ * It is the only item on the page that gives the "Hidden items" colour
+ * something to appear on — the same reason `LABEL_{0}` is selected.
+ */
+describe('the hidden intersheet-references field', () => {
+  const globalLabel = () => COLOR_PREVIEW_SCHEMATIC.labels.find((l) => l.kind === 'global_label')!;
+
+  it('is carried by the global label, hidden and unresolved', () => {
+    const field = intersheetRefsField(globalLabel())!;
+    expect(field, 'the global label carries no Intersheetrefs property').toBeDefined();
+    expect(field.value).toBe('${INTERSHEET_REFS}');
+    expect(field.effects?.hidden).toBe(true);
+  });
+
+  it('is drawn, in the hidden-items colour and nothing else', () => {
+    const theme = KICAD_DEFAULT;
+    const inks = paint(theme, { ...PREVIEW_OPTS, showHiddenFields: true });
+    expect([...inks].map((c) => c.toLowerCase())).toContain(theme.hidden.toLowerCase());
+  });
+
+  it('is not drawn when hidden fields are off, as in the editor', () => {
+    const theme = KICAD_DEFAULT;
+    const inks = paint(theme, { ...PREVIEW_OPTS, showHiddenFields: false });
+    expect([...inks].map((c) => c.toLowerCase())).not.toContain(theme.hidden.toLowerCase());
   });
 });

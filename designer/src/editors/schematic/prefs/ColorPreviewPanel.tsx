@@ -59,7 +59,18 @@ function zoomFitPreview(width: number, height: number): Viewport {
  * `GLOBAL[0..3]` is LAYER_GLOBLABEL's dark red and not the bus blue a connected
  * bus-vector label would take.
  */
-const PREVIEW_OPTS: RenderOpts = { ...DEFAULT_RENDER_OPTS, connectivity: false };
+const PREVIEW_OPTS: RenderOpts = {
+  ...DEFAULT_RENDER_OPTS,
+  connectivity: false,
+  /**
+   * `SCH_RENDER_SETTINGS::m_ShowHiddenFields` is true by construction
+   * (`sch_render_settings.cpp:40`), and the preview panel overrides only
+   * `m_IsSymbolEditor`. In the EDITOR the painter reads the preference instead
+   * — `m_schematic ? eeconfig()->m_Appearance.show_hidden_fields : …` — which
+   * is why an ordinary schematic hides what this page shows.
+   */
+  showHiddenFields: true,
+};
 
 export function ColorPreviewPanel({ theme }: { theme: Theme }): JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement>(null);

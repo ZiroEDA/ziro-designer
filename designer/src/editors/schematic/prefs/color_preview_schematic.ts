@@ -108,7 +108,24 @@ const PREVIEW_TEXT = `(kicad_sch (version 20250114) (generator "ziro")
        not input, and `SetSpinStyle( SPIN::LEFT )` is 180 degrees with a right
        justification (`SCH_LABEL_BASE::GetSpinStyle`). */ ''
   }
-  (global_label "GLOBAL[0..3]" (shape bidirectional) (at ${mil(1750)} ${mil(1300)} 180) (effects (font (size 1.27 1.27)) (justify right)))
+  ${
+    /* Every `SCH_GLOBALLABEL` is built with an intersheet-references field:
+
+           m_fields.emplace_back( SCH_FIELD( this, FIELD_T::INTERSHEET_REFS, … ) );
+           m_fields.back().SetText( wxT( "${INTERSHEET_REFS}" ) );
+           m_fields.back().SetVisible( false );
+           (`sch_label.cpp`, SCH_GLOBALLABEL's constructor)
+
+       and `createPreviewItems`' trailing loop autoplaces it along with every
+       other connectable item's fields. It is INVISIBLE, and the preview draws
+       it anyway — greyed, in LAYER_HIDDEN, with the variable unresolved —
+       because that panel has no SCHEMATIC and so falls back to
+       `m_ShowHiddenFields`, which is true. That grey `${INTERSHEET_REFS}` to
+       the left of the label is the only thing on this page that shows what the
+       "Hidden items" colour looks like. */ ''
+  }
+  (global_label "GLOBAL[0..3]" (shape bidirectional) (at ${mil(1750)} ${mil(1300)} 180) (effects (font (size 1.27 1.27)) (justify right))
+    (property "Intersheetrefs" "\${INTERSHEET_REFS}" (at ${mil(1750)} ${mil(1300)} 0) (effects (font (size 1.27 1.27)) (hide yes))))
   (hierarchical_label "HIER_LABEL" (shape input) (at ${mil(3250)} ${mil(1600)} 0) (effects (font (size 1.27 1.27)) (justify left)))
   (junction (at ${mil(3075)} ${mil(1600)}) (diameter 0) (color 0 0 0 0))
 
@@ -145,15 +162,26 @@ const PREVIEW_TEXT = `(kicad_sch (version 20250114) (generator "ziro")
          constructor does NOT keep that x: the sheet has no pins yet, so
          `IsVerticalOrientation()` is false, `SetSide( SHEET_SIDE::LEFT )` runs
          and pulls the pin onto the sheet's left edge — `SetTextX( m_pos.x )`,
-         4000 — with `SetSpinStyle( SPIN_STYLE::RIGHT )`.
+         4000.
 
-         RIGHT is the spin the writer adds NOTHING to (`sch_io_kicad_sexpr.cpp:1441-1448`),
-         so the angle is 0, and `SCH_LABEL_BASE::SetSpinStyle` left-justifies it
-         — "we want to left justify text up against the anchor if we are on the
-         right". Ours had 180 and a right justification, which drew the pin's
-         arrow into the sheet and its name off the wrong side. */ ''
+         The angle is the EDGE, not a spin style. A sheet pin is not written by
+         `saveText`; `saveSheet` writes it with its own table:
+
+             case SHEET_SIDE::LEFT:   return ANGLE_180;
+             case SHEET_SIDE::RIGHT:  return ANGLE_0;
+             case SHEET_SIDE::TOP:    return ANGLE_90;
+             case SHEET_SIDE::BOTTOM: return ANGLE_270;
+             (`sch_io_kicad_sexpr_common.cpp`, `getSheetPinAngle`)
+
+         so a LEFT-edge pin is 180. Reading it as a spin style — RIGHT adds
+         nothing, therefore 0 — is the trap: that switch belongs to `saveText`,
+         which sheet pins never reach, and 0 is the RIGHT edge. Every sheet pin
+         in KiCad's own demos agrees: left 180, right 0, bottom 270.
+
+         The justification is the label's own, and for the left edge KiCad
+         writes `left` (verified against `One-Air-Max.kicad_sch`). */ ''
     }
-    (pin "SHEET PIN" input (at ${mil(4000)} ${mil(1500)} 0) (effects (font (size 1.27 1.27)) (justify left))))
+    (pin "SHEET PIN" input (at ${mil(4000)} ${mil(1500)} 180) (effects (font (size 1.27 1.27)) (justify left))))
 )`;
 
 /**

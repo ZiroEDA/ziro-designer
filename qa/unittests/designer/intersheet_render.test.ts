@@ -3,7 +3,7 @@
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Inter-sheet reference rendering: the renderer draws the implicit
- * "Intersheet References" field beside global labels when the resolver is
+ * "Intersheetrefs" field beside global labels when the resolver is
  * active (SCH_PAINTER field draw + SCH_LABEL_BASE::AutoplaceFields), verified
  * headlessly through the vector SVG plot path (sheetToSvg strokes glyphs as
  * `<path>` elements).
@@ -70,7 +70,7 @@ describe('inter-sheet references in the render pipeline', () => {
   it('honours a custom-placed stored field position', () => {
     const custom = sch(
       `(global_label "CLK" (shape input) (at 100 100 0)
-         (property "Intersheet References" "\${INTERSHEET_REFS}" (at 50 50 0)
+         (property "Intersheetrefs" "\${INTERSHEET_REFS}" (at 50 50 0)
            (effects (font (size 1.27 1.27)) (justify left)))
          (uuid "g1"))`,
     );

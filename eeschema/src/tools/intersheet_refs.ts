@@ -18,7 +18,20 @@ import { childNamed, childrenNamed } from '@ziroeda/sexpr/src/query.js';
 import type { Schematic, SchField, SchLabel } from '../types.js';
 import { readField } from '../sch_io/sexpr/read-schematic.js';
 
-export const INTERSHEET_REFS_FIELD_NAME = 'Intersheet References';
+/**
+ * The field's canonical name, which is what a `.kicad_sch` carries:
+ *
+ *     #define INTERSHEET_REFS_CANONICAL "Intersheetrefs"
+ *     case FIELD_T::INTERSHEET_REFS: return s_CanonicalIntersheetRefs;
+ *     (`common/template_fieldnames.cpp:42,68`)
+ *
+ * One word, not "Intersheet References" — which is the layer's display name
+ * ("Sheet references"), not the field's. Spelt the readable way this matched
+ * nothing, so every global label in every real file looked as though it had no
+ * such field: its stored position and font size were never read, and the
+ * autoplace branch was the only one that ever ran.
+ */
+export const INTERSHEET_REFS_FIELD_NAME = 'Intersheetrefs';
 
 /** One sheet instance of the hierarchy, in SCH_SHEET_LIST order. */
 export interface IntersheetSheet {
