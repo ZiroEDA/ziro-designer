@@ -112,7 +112,15 @@ describe('the rows a multi-item selection is entitled to', () => {
     expect(FRAME).toMatch(
       /const propertiesCondition = selection\.size === 1 \|\| \(moreThanOne && onlyTracks\);/,
     );
-    expect(FRAME).toMatch(/label: 'Properties\.\.\.'[\s\S]{0,600}\n {8}propertiesCondition,/);
+    // Read to the NEXT `menuEntry(` rather than through a fixed window: the
+    // row's `action` body grows every time a new item type gets a dialog (the
+    // barcode arm is what pushed it past the old 600 characters), and a window
+    // that has to be widened for each one is measuring the body, not the rule.
+    const row = FRAME.slice(FRAME.indexOf("label: 'Properties...'"));
+    const untilNextRow = row.slice(0, row.indexOf('menuEntry(', 1));
+    expect(untilNextRow, 'the Properties row no longer takes propertiesCondition').toMatch(
+      /\n {8}propertiesCondition,/,
+    );
   });
 
   it('names the two footprint-update rows the way their actions are named', () => {
