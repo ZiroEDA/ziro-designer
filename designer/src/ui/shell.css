@@ -4925,6 +4925,44 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 }
 /* Cloud-sync status pill (bottom-right, non-blocking): shows pull/push counts
    while projects sync on sign-in, then a brief "synced" confirmation. */
+/* The signed-in account, bottom-left. See `ui/AccountButton.tsx`: a KiCad frame
+   has no account, so there is no menu row or toolbar slot for one, and it
+   belongs to the app shell rather than to the frame -- the same place the
+   cloud-sync pill below lives.
+
+   Every measurement here is derived rather than picked. The avatar is sized in
+   `em`, so it tracks `--ui-font-size` and stays in proportion to the chrome if
+   the theme's font changes; it is placed off `--statusbar-height` so it sits
+   ABOVE the ported KISTATUSBAR rather than over the project path it shows. */
+.ze-account-fab {
+  position: fixed;
+  left: 0.75em;
+  bottom: calc(var(--statusbar-height) + 0.5em);
+  z-index: 250;
+}
+.ze-account-avatar {
+  width: 2.4em;
+  height: 2.4em;
+  border-radius: 50%;
+  /* A button takes the user-agent font unless something says otherwise, which
+     is how the drawing sheet's tabs ended up in Arial. */
+  font: inherit;
+  color: var(--chrome-fg);
+  background: var(--chrome-bg);
+  border: 1px solid var(--chrome-border);
+  cursor: pointer;
+}
+.ze-account-avatar:hover {
+  border-color: var(--chrome-fg);
+}
+/* A popup on a control at the bottom of the window opens upward. `.ze-dropdown`
+   is the menu bar's, which hangs below its row; only the two edges change. */
+.ze-dropdown.up {
+  top: auto;
+  bottom: 100%;
+  margin-bottom: 0.35em;
+}
+
 .ze-sync-pill {
   position: fixed;
   right: 16px;
@@ -8635,14 +8673,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   align-items: center;
   gap: 10px;
   padding-right: 6px;
-}
-.ze-account-email {
-  font-size: 12px;
-  color: #b7bcc4;
-  max-width: 220px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 .ze-account-signout {
   background: var(--chrome-bg2);

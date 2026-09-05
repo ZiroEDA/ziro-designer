@@ -350,7 +350,11 @@ const BASELINE: Record<string, number> = {
   // the import note, which is why the whole table read a size smaller than
   // KiCad's. The column header's `var(--ui-font-size)` went with them: it was
   // a token, never a literal, and only existed to restate the inherited size.
-  ui: 84,
+  // 84 -> 83: `.ze-account-email`'s 12px went with the account moving out of
+  // the menu bar. The address is now a `.ze-mitem` inside `.ze-dropdown`, which
+  // takes the menu's own size, and the avatar that replaced the row is sized in
+  // `em` off `--ui-font-size` rather than in pixels. RESCANNED from this tree.
+  ui: 83,
   widgets: 6,
 };
 
@@ -595,7 +599,8 @@ describe('hardcoded font sizes do not grow', () => {
     // 290 -> 287: the three the Hotkeys list stated; see the `ui` row. RESCANNED
     // from this tree, and the per-area table agrees — `ui` 89 -> 86 is the only
     // row that moves, and 290 - 3 agrees with it.
-    expect(sites.length).toBe(284);
+    // 284 -> 283: see the `ui` row, which is the only one that moved.
+    expect(sites.length).toBe(283);
   });
 });
 

@@ -477,7 +477,15 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // neighbourhood, so it conflicted. RESCANNED from the MERGED tree rather
   // than either side's figure being adopted: the scan agrees with 209/709,
   // which says main's 22 commits moved nothing here.
-  ui: { colours: 209, metrics: 709 },
+  // 209 -> 208 colours: `.ze-account-email`'s #b7bcc4 ink went with the account
+  // moving out of the menu bar -- the address is now a `.ze-mitem` inside
+  // `.ze-dropdown`, which already states it. Metrics do not move: its other two
+  // numbers belong to neither total here, the 12px being `ui_font_tokens`' to
+  // count and `max-width` not a chrome metric. What replaces it -- the avatar
+  // and its popup -- adds nothing to either: sized in `em` off `--ui-font-size`,
+  // placed off `--statusbar-height`, coloured from `--chrome-fg` /
+  // `--chrome-bg` / `--chrome-border`. RESCANNED from this tree.
+  ui: { colours: 208, metrics: 709 },
   // colours 6 -> 7: the opacity slider's #55585d track arrived here with
   // APPEARANCE_CONTROLS; it is the same literal `editors/pcb` lost, not a new
   // one. The panel's own stylesheet adds none: every length in
@@ -851,7 +859,8 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // `ui` 213 -> 209 and `widgets` 7 -> 6, which is 553 - 5.
     // 548 -> 546: pcbnew's own measure ruler; see the `editors/pcb` row.
     // RESCANNED, and the table agrees -- 63 -> 61 is the only row that moved.
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(546);
+    // 546 -> 545: `.ze-account-email`'s ink; see the `ui` row.
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(545);
     // 1657 -> 1649: the same sweep. A native colour input has no useful
     // default size, so eight of the sixteen sites gave theirs an inline
     // width and height; the shared swatch takes --swatch-*-w/h. Rescanned.

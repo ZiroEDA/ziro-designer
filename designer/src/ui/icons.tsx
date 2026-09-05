@@ -15,6 +15,17 @@ const P = (d: string) => <path d={d} />;
 const ICONS: Record<string, JSX.Element> = {
   // top, file/edit
   new: P('M4 1h6l3 3v11H4z M10 1v3h3'),
+  /* Sharing a project has no KiCad glyph to approximate -- a project on a disk
+     is not shared with anybody -- so this is the shape the web has settled on:
+     three nodes and the two edges between them. */
+  share: (
+    <g>
+      <circle cx="12" cy="3.5" r="2" />
+      <circle cx="4" cy="8" r="2" />
+      <circle cx="12" cy="12.5" r="2" />
+      <path d="M10.2 4.5 5.8 7 M5.8 9 10.2 11.5" />
+    </g>
+  ),
   open: P('M1 4h5l1 2h7v7H1z'),
   save: (
     <g>

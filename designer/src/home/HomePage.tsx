@@ -4,6 +4,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import { preloadBundle } from '../libraryPreload.js';
 import { MenuBar, type Menu } from '../ui/MenuBar.js';
+import { AccountButton } from '../ui/AccountButton.js';
+import { Icon } from '../ui/icons.js';
 import {
   cloudIdentityOf,
   localIdForCloudUid,
@@ -1791,13 +1793,20 @@ export function HomePage({
             <div className="ze-account">
               {/* Ours, not KiCad's: a project on a disk has no notion of
                   somebody else opening it, so there is no upstream menu row to
-                  match. It sits with the account controls for the same reason
-                  the sync pill does — it is a cloud affordance, and putting it
-                  in the File menu would put a thing KiCad has never had in the
-                  middle of a menu that is otherwise upstream's exactly. */}
+                  match, and putting an invented row in the File menu would put
+                  a thing KiCad has never had in the middle of a menu that is
+                  otherwise upstream's exactly.
+                  
+                  An icon rather than the word, because this row is the menu bar
+                  and every other thing in it is a menu title. The account it
+                  used to sit beside has moved to the bottom-left corner, which
+                  is the one corner of the window carrying no KiCad chrome —
+                  see `ui/AccountButton.tsx`. */}
               {openProjectId && (
                 <button
                   className="ze-account-signout"
+                  title="Share this project"
+                  aria-label="Share this project"
                   onClick={() => {
                     const name = projName || 'this project';
                     // Read at open time, not held in the row: the identity
@@ -1816,13 +1825,9 @@ export function HomePage({
                     );
                   }}
                 >
-                  Share
+                  <Icon name="share" />
                 </button>
               )}
-              <span className="ze-account-email">{session.user.email}</span>
-              <button className="ze-account-signout" onClick={() => void signOut()}>
-                Sign out
-              </button>
             </div>
           ) : authEnabled ? (
             <div className="ze-account">
@@ -2206,6 +2211,15 @@ export function HomePage({
       )}
 
       {signInOpen && <SignInDialog onClose={() => setSignInOpen(false)} />}
+
+      {/* The account, bottom-left, with the address and Sign out behind it.
+          Fixed to the shell rather than placed in the frame, the same as the
+          sync pill below: a KiCad window has no account and therefore no slot
+          for one, and the menu bar it used to sit in is otherwise upstream's
+          exactly. */}
+      {session && (
+        <AccountButton email={session.user.email ?? ''} onSignOut={() => void signOut()} />
+      )}
 
       {shareOpen && (
         <ShareProjectDialog
