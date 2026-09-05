@@ -28,6 +28,7 @@ const board = (over: Partial<Board>): Board =>
     images: [],
     dimensions: [],
     points: [],
+    barcodes: [],
     footprints: [],
     groups: [],
     ...over,
@@ -155,6 +156,11 @@ describe('BOARD::IsEmpty', () => {
     // named in the C++ beside `m_drawings`, `m_footprints`, `m_tracks` and
     // `m_zones`, not folded into any of them.
     ['points', 'points'],
+    // A barcode is a `m_drawings` item (`board.cpp:1504`), so it is covered by
+    // the same `m_drawings.empty()` term that catches a shape or a text — but
+    // our model gives it its own array, and an `IsEmpty` that forgot it would
+    // call a board with one barcode on it empty.
+    ['barcodes', 'barcodes'],
   ])('is false for a board holding only %s', (_name, key) => {
     expect(boardIsEmpty(board({ [key]: [{}] } as Partial<Board>))).toBe(false);
   });

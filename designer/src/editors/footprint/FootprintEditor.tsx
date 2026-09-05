@@ -7,6 +7,8 @@ import { mmToIU, pcbIuToMM, PCB_IU_PER_MM, SCH_IU_PER_MM } from '@ziroeda/common
 import { defaultGridIU, gridSizesIU } from '../../ui/grid_settings.js';
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import { EMPTY_SOURCE } from '@ziroeda/eeschema';
+import { applyBarcodeValues, barcodeValues } from '@ziroeda/pcbnew/src/barcode_properties.js';
+import { DialogBarcodeProperties } from '../pcb/dialogs/dialog_barcode_properties.js';
 import {
   readFootprintFile,
   moveFootprintItems,
@@ -16,6 +18,8 @@ import {
   fpItemBBox,
   addPad,
   addPoint,
+  addBarcode,
+  setBarcode,
   addShape,
   DEFAULT_POINT_SIZE,
   setFootprintReference,
@@ -28,6 +32,7 @@ import {
   parseFpItemId,
   type PadEdit,
   type PcbFootprint,
+  type PcbBarcode,
   type PcbPad,
   type PcbShape,
   type PcbTextItem,
@@ -60,12 +65,8 @@ import {
   zoomFactorForScale,
   zoomMsg,
 } from '../../ui/status_format.js';
-import {
-  FP_TOP_TOOLBAR,
-  FP_LEFT_TOOLBAR,
-  FP_RIGHT_TOOLBAR,
-  footprintToolMsg,
-} from './footprintToolbars.js';
+import { FP_DEFAULT_TOOLBARS, footprintToolMsg } from './footprintToolbars.js';
+import { useToolbarEntries } from '../../ui/useToolbarEntries.js';
 import { applyToggle, DEFAULT_TOGGLES } from './toggles.js';
 import { FootprintCanvas, type FootprintCanvasController } from './FootprintCanvas.js';
 import { FootprintLibraryManager, fpNameOf, footprintsBase } from './libraryManager.js';
@@ -75,7 +76,7 @@ import {
   FOOTPRINT_LAYERS,
   FP_DEFAULT_ACTIVE_LAYER,
 } from './footprintBoard.js';
-import { layerColor, PCB_OBJECT_COLORS } from '../pcb/pcbTheme.js';
+import { layerColor, PCB_BACKGROUND, PCB_OBJECT_COLORS } from '../pcb/pcbTheme.js';
 import { appearanceLayerRows } from '../../widgets/appearance_layers.js';
 // APPEARANCE_CONTROLS and PANEL_SELECTION_FILTER are the same two widgets
 // pcbnew docks; FOOTPRINT_EDIT_FRAME passes `aFpEditor = true` and its own
@@ -165,6 +166,29 @@ const FP_DEFAULT_GRID = defaultGridIU('pcbnew', PCB_IU_PER_MM);
 const basename = (p: string): string => p.split('/').pop()!.split('\\').pop()!;
 
 const ALL_FP_LAYERS = FOOTPRINT_LAYERS.map((l) => l.name);
+
+/**
+ * `PCB_BARCODE`'s constructor (`pcb_barcode.cpp:61-72`), for the item the
+ * barcode tool builds before opening its dialog. The layer and position are
+ * the tool's; the text height stays `EDA_TEXT`'s 50 mil here rather than the
+ * board setting `DrawBarcode` reads, because the footprint editor has no
+ * `BOARD_DESIGN_SETTINGS` of its own to read it from.
+ */
+const NEW_FP_BARCODE: PcbBarcode = {
+  at: { x: 0, y: 0 },
+  angle: 0,
+  layer: 'Dwgs.User',
+  width: mmToIU(40),
+  height: mmToIU(40),
+  text: '',
+  textHeight: mmToIU(1.27),
+  kind: 'qr',
+  ecc: 'L',
+  showText: true,
+  knockout: false,
+  margin: { x: 0, y: 0 },
+  source: EMPTY_SOURCE,
+};
 
 /**
  * The two combos under the notebook.
@@ -257,6 +281,18 @@ export function FootprintEditor({
    *  Re-sent with a fresh nonce each activation so a resident editor re-opens. */
   openRequest?: { file: string | null; nonce: number } | null;
 }): JSX.Element {
+  /*
+   * `EDA_BASE_FRAME::RecreateToolbars` asks the TOOLBAR_SETTINGS for each
+   * location rather than reading `DefaultToolbarConfig` itself
+   * (`common/eda_base_frame.cpp:1728-1843`), which is the whole reason
+   * Preferences > Toolbars does anything. This frame read the module constants,
+   * so its page would have edited `fpedit-toolbars` and changed nothing on
+   * screen — the exact defect `useToolbarEntries` was written to end.
+   */
+  const fpTopBar = useToolbarEntries('fpedit', 'TOP_MAIN', FP_DEFAULT_TOOLBARS);
+  const fpLeftBar = useToolbarEntries('fpedit', 'LEFT', FP_DEFAULT_TOOLBARS);
+  const fpRightBar = useToolbarEntries('fpedit', 'RIGHT', FP_DEFAULT_TOOLBARS);
+
   const manager = useRef(new FootprintLibraryManager());
   const [revision, setRevision] = useState(0);
   const bump = useCallback(() => setRevision((r) => r + 1), []);
@@ -328,6 +364,8 @@ export function FootprintEditor({
   const [gridIU, setGridIU] = useState(FP_DEFAULT_GRID);
   // First anchor of a 2-click graphic (line/rect/circle) being drawn.
   const [drawStart, setDrawStart] = useState<Vec2 | null>(null);
+  /** The barcode properties dialog: `at` for a new one, `index` to edit one. */
+  const [barcodeDialog, setBarcodeDialog] = useState<{ at: Vec2; index?: number } | null>(null);
   const unitLabel: StatusUnits = toggles.has('unitsInches')
     ? 'in'
     : toggles.has('unitsMils')
@@ -712,6 +750,14 @@ export function FootprintEditor({
             }),
             'Place point',
           );
+        return;
+      }
+      // `DRAWING_TOOL::DrawBarcode` again, reached here through the footprint
+      // editor's own Place menu (`menubar_footprint_editor.cpp:193`). One
+      // click opens the properties dialog; nothing is added until it returns
+      // OK, and the tool does not re-arm (`PopTool` after the commit).
+      if (activeTool === 'placeBarcode') {
+        setBarcodeDialog({ at: p });
         return;
       }
       if (DRAW_TOOLS.has(activeTool)) {
@@ -1623,7 +1669,7 @@ export function FootprintEditor({
 
       {/* Top toolbar + grid / zoom / layer selector combos (toolbars_footprint_editor.cpp). */}
       <div style={{ display: 'flex', alignItems: 'center' }}>
-        <Toolbar entries={FP_TOP_TOOLBAR} orientation="horizontal" onActivate={onTopAction} />
+        <Toolbar entries={fpTopBar} orientation="horizontal" onActivate={onTopAction} />
         <span style={{ width: 8 }} />
         <select
           className="ze-select"
@@ -1737,7 +1783,7 @@ export function FootprintEditor({
         )}
 
         <Toolbar
-          entries={FP_LEFT_TOOLBAR}
+          entries={fpLeftBar}
           app="footprint_editor"
           orientation="vertical"
           side="left"
@@ -1794,7 +1840,7 @@ export function FootprintEditor({
             A higher wxAUI layer docks further from the centre, so the toolbar
             touches the canvas and the palettes sit outside it. */}
         <Toolbar
-          entries={FP_RIGHT_TOOLBAR}
+          entries={fpRightBar}
           orientation="vertical"
           side="right"
           activeTool={activeTool}
@@ -1968,6 +2014,46 @@ export function FootprintEditor({
           onClose={() => setTreeMenu(null)}
         />
       )}
+
+      {/* Barcode properties: `DRAWING_TOOL::DrawBarcode` opens it before
+          placing, and the footprint editor reaches the same tool through its
+          own Place menu. */}
+      {barcodeDialog &&
+        (() => {
+          const bc: PcbBarcode =
+            barcodeDialog.index !== undefined
+              ? (workFp?.barcodes[barcodeDialog.index] ?? NEW_FP_BARCODE)
+              : {
+                  ...NEW_FP_BARCODE,
+                  at: barcodeDialog.at,
+                  layer: activeLayer,
+                };
+          return (
+            <DialogBarcodeProperties
+              barcode={bc}
+              initial={barcodeValues(bc)}
+              layers={ALL_FP_LAYERS}
+              layerColor={layerColor}
+              background={PCB_BACKGROUND}
+              onClose={() => setBarcodeDialog(null)}
+              onApply={(v) => {
+                const dlg = barcodeDialog;
+                setBarcodeDialog(null);
+                if (!workFp || !dlg) return;
+                const next = applyBarcodeValues(bc, v);
+                commit(
+                  dlg.index !== undefined
+                    ? setBarcode(workFp, dlg.index, next)
+                    : addBarcode(workFp, next),
+                  'Draw Barcode',
+                );
+                // `PopTool` — unlike Place Point, the barcode tool does not
+                // re-arm (`drawing_tool.cpp` runs one dialog per activation).
+                setActiveTool('selectSetRect');
+              }}
+            />
+          );
+        })()}
 
       <TreeSelActions
         treeSel={treeSel}

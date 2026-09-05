@@ -10558,6 +10558,65 @@ textarea.ze-ds-textedit {
   margin-left: 120px;
 }
 
+/* Barcode Properties (dialog_barcode_properties_base.cpp).
+
+   `bSizer8` is horizontal: the fields on the left and the GAL preview panel on
+   the right; inside the fields, `bSizer9` puts the three checkboxes
+   (`m_LeftBoxSizer`) beside `gbSizer1`, whose fifth column carries the two
+   radio boxes (`wxGBPosition( 0, 4 )` and `( 6, 4 )`, each spanning six rows).
+   That is the four columns below.
+
+   No width: `bMainSizer->Fit( this )` sizes it from its contents, and the
+   preview's own `wxSize` is the only fixed number in the tree. Every gap is a
+   wx sizer border, and every one of them in this dialog is 5 — the
+   `--wx-border` token — except the preview's left gap of 10 and the checkbox
+   indents, which are stated where they are used. */
+.ze-barcode-dialog .ze-barcode-text {
+  display: flex;
+  align-items: center;
+  gap: var(--wx-border);
+}
+.ze-barcode-dialog .ze-barcode-text .ze-tvp-input {
+  flex: 1;
+  text-align: left;
+}
+/* `bSizer8->Add( bSizerDisplayPad, 1, wxEXPAND|wxLEFT, 10 )` — the preview is
+   the one child with a wider gap than the sizer's 5. */
+.ze-barcode-columns {
+  display: flex;
+  align-items: flex-start;
+  gap: calc(var(--wx-border) * 2);
+  margin-top: var(--wx-border);
+}
+.ze-barcode-checks,
+.ze-barcode-grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wx-border);
+}
+.ze-barcode-radios {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wx-border);
+}
+.ze-barcode-radios label {
+  display: block;
+}
+/* The preview is a canvas, and the item is drawn in its layer's own colour on
+   the canvas background — so the frame is the control border, not the dialog's
+   own. */
+.ze-barcode-preview {
+  border: 1px solid var(--ctl-border);
+  align-self: flex-start;
+}
+/* `wxMessageBox( m_dummyBarcode->GetLastError(), _( "Barcode Error" ),
+   wxOK | wxICON_ERROR )` — the ink KiCad writes for a line a user has to
+   notice. */
+.ze-barcode-error {
+  margin-top: var(--wx-border);
+  color: var(--error-ink);
+}
+
 /* Copper Zone Properties (panel_zone_properties_base.cpp). */
 .ze-zone-dialog {
   width: 560px;
@@ -11447,8 +11506,7 @@ textarea.ze-ds-textedit {
    "Electrical R..." because the dialog is narrower than the caption. Ours was
    855x580 with a 340 px floor, i.e. three times the area. */
 .ze-modal.ze-choicedlg,
-.ze-modal.ze-themefolder,
-.ze-modal.ze-addtheme {
+.ze-modal.ze-themefolder {
   width: fit-content;
   height: auto;
   min-width: 0;
@@ -12341,7 +12399,15 @@ textarea.ze-ds-textedit {
    has none. */
 .ze-simprefs-grid {
   display: grid;
-  grid-template-columns: max-content 1fr;
+  /* BOTH columns hug. `AddGrowableCol( 0 )` names the LABEL column, and the
+     grid itself is added at proportion 0 with no wxEXPAND —
+     `bScrollSizerLeft->Add( fgVScroll, 0, wxRIGHT|wxLEFT, 24 )` — so the sizer
+     never receives slack to give it and every column stays at its minimum. A
+     wxChoice added at proportion 0 without wxEXPAND takes its own best size,
+     which is its widest item plus the arrow; ours had `1fr` on that column and
+     stretched the control to the width of the page. */
+  grid-template-columns: max-content max-content;
+  justify-content: start;
   align-items: center;
   /* [data] `wxFlexGridSizer( 0, 2, 5, 0 )` — a 5 px vgap and no hgap. */
   row-gap: 5px;

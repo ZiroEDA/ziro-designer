@@ -26,6 +26,7 @@ import type {
   PadType,
   PcbFootprint,
   PcbPad,
+  PcbBarcode,
   PcbPoint,
   PcbShape,
   PcbTextItem,
@@ -560,6 +561,21 @@ export const addText = (fp: PcbFootprint, text: PcbTextItem): PcbFootprint => ({
 export const addPoint = (fp: PcbFootprint, point: PcbPoint): PcbFootprint => ({
   ...fp,
   points: [...fp.points, point],
+});
+
+/**
+ * `DRAWING_TOOL::DrawBarcode`'s commit inside the footprint editor
+ * (`drawing_tool.cpp:1528`, where `m_frame->GetModel()` is the footprint).
+ */
+export const addBarcode = (fp: PcbFootprint, barcode: PcbBarcode): PcbFootprint => ({
+  ...fp,
+  barcodes: [...fp.barcodes, barcode],
+});
+
+/** Replace one of the footprint's barcodes (the properties dialog's OK). */
+export const setBarcode = (fp: PcbFootprint, index: number, next: PcbBarcode): PcbFootprint => ({
+  ...fp,
+  barcodes: fp.barcodes.map((b, i) => (i === index ? next : b)),
 });
 
 // ----- footprint properties (Reference / Value / Description / Keywords) ------

@@ -12,6 +12,7 @@
  */
 
 import type { ToolEntry } from '../../ui/toolbar_types.js';
+import type { ToolbarDefaults } from '../../ui/toolbar_config.js';
 
 const sep: ToolEntry = 'sep';
 
@@ -232,6 +233,7 @@ export const FP_TOOL_FRIENDLY_NAMES: Readonly<Record<string, string>> = {
   drawTextBox: 'Draw Text Boxes',
   drawTable: 'Draw Tables',
   placePoint: 'Place Point',
+  placeBarcode: 'Add Barcode',
   placeImage: 'Place Reference Images',
   setAnchor: 'Place the Footprint Anchor',
   gridSetOrigin: 'Grid Origin',
@@ -256,3 +258,21 @@ export function footprintToolMsg(aActiveTool: string, aArmed: boolean): string {
   if (!aArmed) return '';
   return FP_TOOL_FRIENDLY_NAMES[aActiveTool] ?? '';
 }
+
+/**
+ * `FOOTPRINT_EDIT_TOOLBAR_SETTINGS::DefaultToolbarConfig`
+ * (`pcbnew/toolbars_footprint_editor.cpp:41-...`).
+ *
+ *     // No Aux toolbar
+ *     case TOOLBAR_LOC::TOP_AUX:
+ *         return std::nullopt;
+ *
+ * so this frame has three, not pcbnew's four. `std::nullopt` is what
+ * `GetToolbarConfig` returns for a location the app does not have, and an
+ * absent key here says the same thing.
+ */
+export const FP_DEFAULT_TOOLBARS: ToolbarDefaults = {
+  LEFT: FP_LEFT_TOOLBAR,
+  RIGHT: FP_RIGHT_TOOLBAR,
+  TOP_MAIN: FP_TOP_TOOLBAR,
+};

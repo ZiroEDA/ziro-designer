@@ -66,10 +66,12 @@ import {
   type PcbTable,
   type PcbTextBox,
   type PcbPad,
+  type PcbBarcode,
   type PcbPoint,
   type PcbShape,
   type PcbTextItem,
 } from '@ziroeda/pcbnew';
+import { barcodeBBox, barcodeGeometry } from '@ziroeda/pcbnew/src/barcode_geometry.js';
 import { textPenWidth } from '@ziroeda/pcbnew/src/text_metrics.js';
 import { effectiveTextPenWidth, ITALIC_TILT } from '@ziroeda/common/src/font/text_box.js';
 import {
@@ -388,6 +390,15 @@ interface LayerBuckets {
   hasVias: boolean;
   gfxFill: Path2D;
   hasGfxFill: boolean;
+  /**
+   * `PCB_BARCODE`s on this layer. Their own path rather than `gfxFill`'s,
+   * because `PCB_PAINTER::draw( const PCB_BARCODE*, int )`
+   * (`pcb_painter.cpp:3061-3079`) sets `SetIsFill( true )` outright and never
+   * consults `m_DisplayGraphicsFill` — a barcode with unfilled modules would
+   * not scan, so "Sketch graphic items" does not apply to it.
+   */
+  barcodes: Path2D;
+  hasBarcodes: boolean;
   gfxStrokes: Map<number, Path2D>;
   textRef: Map<number, Path2D>; // thickness -> glyph strokes
   textVal: Map<number, Path2D>;
@@ -644,6 +655,8 @@ const newBuckets = (): LayerBuckets => ({
   hasVias: false,
   gfxFill: pathFactory.path(),
   hasGfxFill: false,
+  barcodes: pathFactory.path(),
+  hasBarcodes: false,
   gfxStrokes: new Map(),
   textRef: new Map(),
   textVal: new Map(),
@@ -924,6 +937,30 @@ function addPoint(scene: BoardScene, p: PcbPoint): void {
   b.pointRing.moveTo(p.at.x + size / 2, p.at.y);
   b.pointRing.arc(p.at.x, p.at.y, size / 2, 0, Math.PI * 2);
   b.hasPoints = true;
+}
+
+/**
+ * `PCB_PAINTER::draw( const PCB_BARCODE*, int )` (`pcb_painter.cpp:3061-3079`):
+ * one filled polygon, `m_poly`, in the layer's own colour.
+ *
+ * Everything interesting has already happened in `barcodeGeometry` — encoding,
+ * scaling, the human-readable line, the knockout inversion, the back-layer
+ * mirror and the rotation. There is nothing left here but the fill, which is
+ * exactly the shape of upstream's painter.
+ */
+function addBarcode(scene: BoardScene, bc: PcbBarcode): void {
+  const b = buckets(scene, bc.layer);
+  const { poly } = barcodeGeometry(bc);
+
+  for (const rings of poly) {
+    for (const ring of rings) {
+      if (ring.length < 3) continue;
+      b.barcodes.moveTo(ring[0]!.x, ring[0]!.y);
+      for (let i = 1; i < ring.length; i++) b.barcodes.lineTo(ring[i]!.x, ring[i]!.y);
+      b.barcodes.closePath();
+      b.hasBarcodes = true;
+    }
+  }
 }
 
 function addShape(scene: BoardScene, s: PcbShape): void {
@@ -1703,6 +1740,13 @@ function compileScene(board: Board, filter: SceneFilter): BoardScene {
     if (s.center) grow(s.center.x, s.center.y);
     for (const pt of s.pts ?? []) grow(pt.x, pt.y);
   }
+  for (const [bi, bc] of board.barcodes.entries()) {
+    pathFactory.setOwner?.(`barcode:${bi}`);
+    addBarcode(scene, bc);
+    const box = barcodeBBox(bc);
+    grow(box.x1, box.y1);
+    grow(box.x2, box.y2);
+  }
   for (const [pi, pt] of board.points.entries()) {
     pathFactory.setOwner?.(`point:${pi}`);
     addPoint(scene, pt);
@@ -1723,6 +1767,12 @@ function compileScene(board: Board, filter: SceneFilter): BoardScene {
     for (const pt of fp.points) {
       addPoint(scene, pt);
       grow(pt.at.x, pt.at.y, pt.size / 2);
+    }
+    for (const bc of fp.barcodes) {
+      addBarcode(scene, bc);
+      const box = barcodeBBox(bc);
+      grow(box.x1, box.y1);
+      grow(box.x2, box.y2);
     }
     for (const t of fp.texts) {
       if (t.hide) continue;
@@ -2378,6 +2428,17 @@ export function buildDrawSteps(
     }
     ctx.globalAlpha = 1;
   };
+  const paintBarcodes = (layer: string, la: number) => (): void => {
+    const b = scene.layers.get(layer);
+    if (!b || !b.hasBarcodes) return;
+    ctx.globalAlpha = la;
+    ctx.fillStyle = col(layer);
+    // `nonzero`, not `evenodd`: `AssembleBarcode` fractures the polygon, so a
+    // knockout's holes arrive as slits in one ring rather than as separate
+    // rings that an even-odd fill would have to cancel.
+    ctx.fill(b.barcodes, 'nonzero');
+    ctx.globalAlpha = 1;
+  };
   const paintText = (layer: string, la: number) => (): void => {
     const b = scene.layers.get(layer);
     if (!b) return;
@@ -2420,6 +2481,7 @@ export function buildDrawSteps(
     steps.push(
       paintZones(layer, la),
       paintCopper(layer, la),
+      paintBarcodes(layer, la),
       paintText(layer, la),
       paintPoints(layer, la),
     );

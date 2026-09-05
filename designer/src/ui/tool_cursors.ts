@@ -33,8 +33,9 @@ import { kiCursor, type KiCursor } from './kicursors.js';
 /**
  * Our tool ids are not all spelled alike: the one delete action is `delete` in
  * eeschema, `deleteTool` on the board and in the symbol and footprint editors,
- * and `dsDelete` in the drawing-sheet editor. All three spellings map to the
- * one action here. That divergence is ours, not KiCad's — upstream every one of
+ * and `dsDelete` in the drawing-sheet editor; GerbView says `zoom` and
+ * `measure` where everything else says `zoomTool` and `measureTool`. Every
+ * spelling maps to the one action here. That divergence is ours, not KiCad's — upstream every one of
  * those toolbar rows is `ACTIONS::deleteTool` — and three names for one action
  * is precisely how the frames came to disagree about its cursor.
  */
@@ -45,13 +46,21 @@ const SHARED: Readonly<Record<string, KiCursor>> = {
   dsDelete: 'REMOVE',
   // `ZOOM_TOOL::Main` (`zoom_tool.cpp:65-69`), which every canvas runs.
   zoomTool: 'ZOOM_IN',
+  // GerbView's own name for the same action.
+  zoom: 'ZOOM_IN',
   // `PCB_VIEWER_TOOLS::MeasureTool` (`pcb_viewer_tools.cpp:292`); the same
   // ruler eeschema, gerbview and the footprint frames all put up.
   measureTool: 'MEASURE',
+  measure: 'MEASURE',
   // `PCB_TOOL_BASE::doInteractiveItemPlacement`'s `setCursor` once an item
   // exists (`pcb_tool_base.cpp:121-128`), and the two origin pickers, which
   // set it outright (`pcb_control.cpp:791`, `board_editor_control.cpp:2309`).
   placePoint: 'PLACE',
+  // `DRAWING_TOOL::DrawBarcode`'s `setCursor` (`drawing_tool.cpp:1438-1445`):
+  // PENCIL until an item exists, MOVING while one is being placed. Ours opens
+  // the dialog on the click rather than dragging a preview, so the pencil is
+  // the whole of it.
+  placeBarcode: 'PENCIL',
   gridSetOrigin: 'PLACE',
   drillOrigin: 'PLACE',
 };

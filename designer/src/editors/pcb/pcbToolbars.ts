@@ -338,7 +338,7 @@ export const PCB_RIGHT_TOOLBAR: ToolEntry[] = [
       { id: 'drawLeader', icon: 'drawLeader', title: 'Draw Leaders' },
     ],
   },
-  { id: 'placeBarcode', icon: 'placeBarcode', title: 'Add Barcode\nAdd a barcode', ...todo },
+  { id: 'placeBarcode', icon: 'placeBarcode', title: 'Add Barcode\nAdd a barcode' },
   { id: 'deleteTool', icon: 'deleteTool', title: 'Interactive Delete Tool\nDelete clicked items' },
   sep,
   {

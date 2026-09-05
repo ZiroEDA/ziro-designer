@@ -53,6 +53,7 @@ const board = (shapes: PcbShape[]): Board =>
     tables: [],
     images: [],
     points: [],
+    barcodes: [],
     groups: [],
     source: EMPTY,
   }) as unknown as Board;

@@ -17,6 +17,10 @@
  * too, which is what makes "three canvases, one ruler" checkable.
  */
 import { readFileSync } from 'node:fs';
+import { toolCursorCss } from '@ziroeda/designer/src/ui/tool_cursors.js';
+import { boardToolCursor } from '@ziroeda/designer/src/editors/pcb/cursors.js';
+import { footprintToolCursor } from '@ziroeda/designer/src/editors/footprint/cursors.js';
+import { gerberToolCursor } from '@ziroeda/designer/src/editors/gerbview/cursors.js';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
@@ -249,8 +253,23 @@ describe('one ruler, three canvases', () => {
     // `PCB_VIEWER_TOOLS::MeasureTool` sets KICURSOR::MEASURE
     // (pcb_viewer_tools.cpp:292), through the one CURSOR_STORE. pcbnew showed
     // the plain arrow and GerbView the browser's `crosshair`.
-    for (const rel of CANVASES) {
-      expect(read(rel), `${rel} does not set the measure cursor`).toContain("kiCursor('MEASURE')");
+    //
+    // Called, not grepped. This read each canvas's SOURCE for
+    // `kiCursor('MEASURE')`, and went red the moment the three ternaries were
+    // replaced by the shared table in `ui/tool_cursors.ts` — the answer was
+    // still right and the check could not see it. That is CLAUDE.md's
+    // "file-level check where the rule is per-occurrence", from the other
+    // side: it pinned the implementation rather than the behaviour.
+    const MEASURE = toolCursorCss('measureTool', 'never');
+
+    expect(MEASURE).not.toBe('never');
+
+    for (const [name, cursorFor, tool] of [
+      ['the board editor', boardToolCursor, 'measureTool'],
+      ['the footprint editor', footprintToolCursor, 'measureTool'],
+      ['GerbView', gerberToolCursor, 'measure'],
+    ] as const) {
+      expect(cursorFor(tool), `${name} does not set the measure cursor`).toBe(MEASURE);
     }
   });
 });

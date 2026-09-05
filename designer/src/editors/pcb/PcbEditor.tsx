@@ -169,7 +169,12 @@ import {
   crossProbeFlashSelection,
   CROSS_PROBE_FLASH_INTERVAL_MS,
   CROSS_PROBE_FLASH_LAST_PHASE,
+  addBoardBarcode,
+  setBoardBarcode,
+  type PcbBarcode,
 } from '@ziroeda/pcbnew';
+import { applyBarcodeValues, barcodeValues } from '@ziroeda/pcbnew/src/barcode_properties.js';
+import { DialogBarcodeProperties } from './dialogs/dialog_barcode_properties.js';
 import { GetLayerName } from '@ziroeda/pcbnew/src/layer_ids.js';
 import {
   boardIsEmpty,
@@ -450,6 +455,30 @@ import {
 
 const MM = PCB_IU_PER_MM; // pcbnew IU is 1 nm (base_units.h)
 
+/** A node with no children, for an item that has never been in a file. */
+const EMPTY_SOURCE = { kind: 'list' as const, items: [] };
+
+/**
+ * `PCB_BARCODE`'s constructor (`pcb_barcode.cpp:61-72`), for the item the
+ * barcode tool creates before opening its dialog. The layer, position and text
+ * height are the tool's and are filled in by the caller; everything here is
+ * the item's own default.
+ */
+const NEW_BARCODE = {
+  at: { x: 0, y: 0 },
+  angle: 0,
+  layer: 'Dwgs.User',
+  width: 40 * MM,
+  height: 40 * MM,
+  text: '',
+  textHeight: 1.27 * MM,
+  kind: 'qr' as const,
+  ecc: 'L' as const,
+  showText: true,
+  knockout: false,
+  margin: { x: 0, y: 0 },
+};
+
 /**
  * The WebGL board renderer, on by default; `?renderer=canvas` opts out.
  *
@@ -592,6 +621,7 @@ const PCB_TOOL_MSGS: Record<string, string> = {
   // `TOOL_ACTION::GetFriendlyName()`, which `TOOLS_HOLDER::PushTool` puts in
   // pane 6 — "Place Point" (`pcb_actions.cpp:194`), not the tooltip.
   placePoint: 'Place Point',
+  placeBarcode: 'Add Barcode',
   // `ACTIONS::gridSetOrigin` is "Grid Origin" (`actions.cpp:1057`) and
   // `PCB_ACTIONS::drillOrigin` "Drill/Place File Origin"
   // (`pcb_actions.cpp:1472`) — the FriendlyName, not the tooltip.
@@ -616,6 +646,10 @@ const isClickTool = (t: string): boolean =>
   // snap point that could not land on another item's anchor would be a poor
   // snap point.
   t === 'placePoint' ||
+  // `DRAWING_TOOL::DrawBarcode` snaps through `PCB_GRID_HELPER::BestSnapAnchor`
+  // with `GRID_TEXT` (`drawing_tool.cpp:1478-1481`) before the click, exactly
+  // as the text tool does.
+  t === 'placeBarcode' ||
   // `PCB_PICKER_TOOL::Main` runs the cursor through `BestSnapAnchor` on every
   // motion (`pcb_picker_tool.cpp`), which is what lets an origin be dropped
   // exactly on a pad or a track end.
@@ -1536,6 +1570,15 @@ export function PcbEditor({
   // A query/options change restarts the search (DIALOG_FIND::search(true)).
   const findDirtyRef = useRef(true);
   const [textDialog, setTextDialog] = useState<{ x: number; y: number } | null>(null);
+  /**
+   * The barcode properties dialog. `at` is where the click landed for a new
+   * one; `index` names an existing barcode being edited instead
+   * (`EDIT_TOOL::Properties`).
+   */
+  const [barcodeDialog, setBarcodeDialog] = useState<{
+    at: { x: number; y: number };
+    index?: number;
+  } | null>(null);
   const [textDraft, setTextDraft] = useState('');
   // Pending "Copper Zone Properties" dialog: the zone's first corner.
   const [zoneDialog, setZoneDialog] = useState<{ x: number; y: number } | null>(null);
@@ -4182,7 +4225,13 @@ export function PcbEditor({
                     // category box of their own, unlike dimensions.
                     kind === 'point'
                     ? 'points'
-                    : null;
+                    : // `case PCB_BARCODE_T: default: if( !m_filter.otherItems )`
+                      // (`pcb_selection_tool.cpp:3522-3530`) — a barcode shares
+                      // the catch-all box with targets and the rest, rather
+                      // than counting as a graphic.
+                      kind === 'barcode'
+                      ? 'otherItems'
+                      : null;
   const passesFilter = (id: string): boolean => {
     const r = parseBoardItemId(id);
     if (!r) return false;
@@ -4281,6 +4330,10 @@ export function PcbEditor({
     } else if (top && r?.kind === 'text') {
       setSelection((prev) => (prev.has(top) ? prev : new Set([top])));
       setTextPropsIndex(r.index);
+    } else if (top && r?.kind === 'barcode') {
+      setSelection((prev) => (prev.has(top) ? prev : new Set([top])));
+      const bc = brd.barcodes[r.index];
+      if (bc) setBarcodeDialog({ at: bc.at, index: r.index });
     } else if (top && r?.kind === 'shape') {
       setSelection((prev) => (prev.has(top) ? prev : new Set([top])));
       setShapePropsIndex(r.index);
@@ -5384,6 +5437,32 @@ export function PcbEditor({
   };
   const routeViaSwitchRef = useRef(routeViaSwitch);
   routeViaSwitchRef.current = routeViaSwitch;
+
+  /**
+   * The barcode the properties dialog edits: an existing one when the dialog
+   * was opened by double-click, otherwise the item `DRAWING_TOOL::DrawBarcode`
+   * builds before opening it (`drawing_tool.cpp:1528-1532`) —
+   *
+   *     barcode = new PCB_BARCODE( m_frame->GetModel() );
+   *     barcode->SetLayer( layer );
+   *     barcode->SetPosition( cursorPos );
+   *     barcode->SetTextSize( bds.GetTextSize( layer ).y );
+   *
+   * so everything else is `PCB_BARCODE`'s constructor, and the text height is
+   * the layer class's Board Setup value rather than `EDA_TEXT`'s default.
+   */
+  const barcodeUnderEdit = (): PcbBarcode | null => {
+    const brd = boardRef.current;
+    if (!brd || !barcodeDialog) return null;
+    if (barcodeDialog.index !== undefined) return brd.barcodes[barcodeDialog.index] ?? null;
+    return {
+      ...NEW_BARCODE,
+      at: barcodeDialog.at,
+      layer: activeLayer,
+      textHeight: Math.round((layerClassRow(activeLayer).textHeight ?? 1) * MM),
+      source: EMPTY_SOURCE,
+    };
+  };
 
   // Commit the "Add Text" dialog: a user gr_text at the clicked point on the
   // active layer, at the layer class's default size/thickness.
@@ -6949,6 +7028,12 @@ export function PcbEditor({
         } else if (activeToolRef.current === 'drillOrigin') {
           const w = worldAt(e.clientX, e.clientY);
           if (w) handleOriginClick('aux_axis_origin', w);
+        } else if (activeToolRef.current === 'placeBarcode') {
+          const w = worldAt(e.clientX, e.clientY);
+          // `DrawBarcode` creates the item, opens the dialog, and only commits
+          // if it returns OK (`drawing_tool.cpp:1528-1560`) — so nothing is
+          // added here, and Cancel leaves the board untouched.
+          if (w) setBarcodeDialog({ at: cursorSnapRef.current(w) });
         } else if (activeToolRef.current === 'placePoint') {
           const w = worldAt(e.clientX, e.clientY);
           if (w) handlePointClick(w);
@@ -9048,6 +9133,41 @@ export function PcbEditor({
         </>
       )}
 
+      {/* Barcode properties. `DRAWING_TOOL::DrawBarcode` opens this before
+          placing (`drawing_tool.cpp:1534-1541`); a double-click on an existing
+          barcode opens it through `EDIT_TOOL::Properties`. */}
+      {barcodeDialog &&
+        (() => {
+          const bc = barcodeUnderEdit();
+          if (!bc) return null;
+          return (
+            <DialogBarcodeProperties
+              barcode={bc}
+              initial={barcodeValues(bc)}
+              layers={board?.layers.map((l) => l.name) ?? []}
+              layerColor={layerColor}
+              background={PCB_BACKGROUND}
+              onClose={() => setBarcodeDialog(null)}
+              onApply={(v) => {
+                const brd = boardRef.current;
+                const dlg = barcodeDialog;
+                setBarcodeDialog(null);
+                if (!brd || !dlg) return;
+                const next = applyBarcodeValues(bc, v);
+                if (dlg.index !== undefined) {
+                  commitBoard(setBoardBarcode(brd, dlg.index, next));
+                  return;
+                }
+                // `m_toolMgr->RunAction<EDA_ITEM*>( ACTIONS::selectItem, barcode )`
+                // (`drawing_tool.cpp:1558`): the new barcode is left selected.
+                const added = addBoardBarcode(brd, next);
+                commitBoard(added.board);
+                setSelection(new Set([added.id]));
+              }}
+            />
+          );
+        })()}
+
       {/* "Add Text" properties dialog (DRAWING_TOOL::PlaceText opens the text
           properties dialog before placing). */}
       {textDialog && (
@@ -9762,6 +9882,13 @@ function describeBoardItem(board: Board, id: string): string {
       // therefore two identical rows in the disambiguation menu, which is what
       // upstream shows.
       return 'Point';
+    case 'barcode': {
+      const bc = board.barcodes[r.index];
+      // `PCB_BARCODE::GetItemDescription` (`pcb_barcode.cpp:633-636`):
+      // `_( "Barcode '%s' on %s" )` with `GetText()` — the raw text, variable
+      // references and all, not `GetShownText()`.
+      return bc ? `Barcode '${bc.text}' on ${bc.layer}` : 'Barcode';
+    }
     case 'group': {
       const g = board.groups[r.index];
       // EDA_GROUP::GetItemDescription: 'Group "<name>" with N members' /

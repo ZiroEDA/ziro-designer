@@ -29,6 +29,8 @@
 import { atom, str, isList, head, type SList, type SNode } from '@ziroeda/sexpr/src/index.js';
 import { childNamed, numArg } from '@ziroeda/sexpr/src/query.js';
 import { pcbIuToMM as iuToMM, pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { formatG } from '@ziroeda/common/src/plotters/fmt.js';
+import { barcodeBBox, barcodeGeometry, barcodeHullBoxes } from './barcode_geometry.js';
 import { textItemBBox } from './text_metrics.js';
 import { arcCenter, rotatePcb } from './read-board.js';
 import { connectedTrackEnds } from './connectivity.js';
@@ -38,6 +40,7 @@ import { textBoxBBox } from './textbox_geometry.js';
 import { tableBBox } from './table_geometry.js';
 import { imageBBox } from './image_geometry.js';
 import type {
+  PcbBarcode,
   Board,
   PcbDimension,
   PcbFootprint,
@@ -82,6 +85,7 @@ const BOARD_ITEM_KINDS = [
   'image',
   'dimension',
   'point',
+  'barcode',
   'fptext',
   'pad',
   'group',
@@ -295,6 +299,15 @@ export function boardItemBBox(board: Board, id: string): BoardBBox | null {
             maxY: p.at.y + p.size / 2,
           }
         : null;
+    }
+    case 'barcode': {
+      const bc = board.barcodes[ref.index];
+      // `PCB_BARCODE::GetBoundingBox` returns `m_bbox`, which `AssembleBarcode`
+      // sets from the assembled polygon — symbol, text, knockout margin and
+      // rotation all included (`pcb_barcode.cpp:627-630`, :377).
+      if (!bc) return null;
+      const box = barcodeBBox(bc);
+      return { minX: box.x1, minY: box.y1, maxX: box.x2, maxY: box.y2 };
     }
     case 'fptext': {
       const f = board.footprints[ref.index];
@@ -745,6 +758,35 @@ export function boardHitCandidates(
         layers: [dm.layer],
       });
   });
+  board.barcodes.forEach((bc, i) => {
+    // `PCB_BARCODE::HitTest( VECTOR2I )` (`pcb_barcode.cpp:562-573`): the
+    // bounding box first, then `GetBoundingHull` — two rectangles, one round
+    // the symbol and one round the text, NOT the modules. So a click in the
+    // white space inside a QR code selects it, which is what a user expects
+    // and what upstream does.
+    const box = barcodeBBox(bc);
+    if (pos.x < box.x1 - tol || pos.x > box.x2 + tol) return;
+    if (pos.y < box.y1 - tol || pos.y > box.y2 + tol) return;
+
+    const g = barcodeGeometry(bc);
+    for (const hull of barcodeHullBoxes(g, bc)) {
+      if (
+        pos.x >= hull.x1 - tol &&
+        pos.x <= hull.x2 + tol &&
+        pos.y >= hull.y1 - tol &&
+        pos.y <= hull.y2 + tol
+      ) {
+        hits.push({
+          id: boardItemId('barcode', i),
+          kind: 'barcode',
+          dist: 0,
+          area: Math.max(1, (hull.x2 - hull.x1) * (hull.y2 - hull.y1)),
+          layers: [bc.layer],
+        });
+        break;
+      }
+    }
+  });
   board.points.forEach((pt, i) => {
     const d = pointDist(pt, pos);
     if (d <= tol)
@@ -1075,6 +1117,12 @@ export function boardItemsInBox(
     const b = boardItemBBox(board, boardItemId('point', i))!;
     if (contained ? boxContainsBox(rect, b) : boxIntersects(rect, b)) push('point', i);
   });
+  board.barcodes.forEach((_, i) => {
+    // `PCB_BARCODE::HitTest( BOX2I )` (`pcb_barcode.cpp:575-590`) is the plain
+    // box test in both modes, like a point's.
+    const b = boardItemBBox(board, boardItemId('barcode', i))!;
+    if (contained ? boxContainsBox(rect, b) : boxIntersects(rect, b)) push('barcode', i);
+  });
   board.zones.forEach((z, i) => {
     if (contained) {
       if (bboxContained('zone', i)) push('zone', i);
@@ -1101,6 +1149,7 @@ export function allBoardItemIds(board: Board): string[] {
   board.images.forEach((_, i) => out.push(boardItemId('image', i)));
   board.dimensions.forEach((_, i) => out.push(boardItemId('dimension', i)));
   board.points.forEach((_, i) => out.push(boardItemId('point', i)));
+  board.barcodes.forEach((_, i) => out.push(boardItemId('barcode', i)));
   board.zones.forEach((_, i) => out.push(boardItemId('zone', i)));
   return out;
 }
@@ -1406,6 +1455,7 @@ const moveFootprint = (fp: PcbFootprint, d: Vec2): PcbFootprint => ({
   // anchor, the wrong offset would then be saved. A move of (10, 20) on a point
   // at (+1, +2) writes `(at -9 -18)`.
   points: fp.points.map((p) => ({ ...p, at: add(p.at, d) })),
+  barcodes: fp.barcodes.map((b) => moveBarcode(b, d)),
   shapes: fp.shapes.map((s) => {
     const n: PcbShape = { ...s };
     if (s.center) n.center = add(s.center, d);
@@ -1438,6 +1488,7 @@ export function moveBoardItems(board: Board, ids: ReadonlySet<string>, delta: Ve
     tables: board.tables.map((t, i) => (idx.table.has(i) ? moveTable(t, delta) : t)),
     images: board.images.map((img, i) => (idx.image.has(i) ? moveImage(img, delta) : img)),
     points: board.points.map((p, i) => (idx.point.has(i) ? movePoint(p, delta) : p)),
+    barcodes: board.barcodes.map((b, i) => (idx.barcode.has(i) ? moveBarcode(b, delta) : b)),
     dimensions: board.dimensions.map((d, i) =>
       idx.dimension.has(i) ? moveDimension(d, delta) : d,
     ),
@@ -1590,6 +1641,68 @@ export function setFootprintOrientation(board: Board, index: number, deg: number
   return replaceFp(board, index, rotateFootprintAbout(f, f.at, delta));
 }
 
+/**
+ * `(at x y angle)` for a barcode: the formatter always writes the angle
+ * (`pcb_io_kicad_sexpr.cpp:2207-2209`), so the patched node always has three
+ * fields even when the rotation is zero.
+ */
+const patchBarcodeAt = (b: PcbBarcode, at: Vec2, angle: number): SList =>
+  patchChild(b.source, 'at', {
+    kind: 'list',
+    items: [atom('at'), atom(mm(at.x)), atom(mm(at.y)), atom(formatG(angle, 10))],
+  });
+
+/**
+ * `PCB_BARCODE::Move` (`pcb_barcode.cpp:285-293`). The polygons move with the
+ * position upstream; ours are recomputed on demand, so only `m_pos` is stored.
+ */
+const moveBarcode = (b: PcbBarcode, d: Vec2): PcbBarcode => {
+  const at = add(b.at, d);
+  return { ...b, at, source: patchBarcodeAt(b, at, b.angle) };
+};
+
+/**
+ * `PCB_BARCODE::Rotate` (`pcb_barcode.cpp:296-302`):
+ *
+ *     RotatePoint( m_pos, aRotCentre, aAngle );
+ *     m_angle += aAngle;
+ *     AssembleBarcode();
+ *
+ * — the position turns about the centre AND the item's own orientation
+ * advances, which is why a rotated barcode still reads the right way up
+ * relative to itself.
+ */
+const rotateBarcodeAbout = (b: PcbBarcode, c: Vec2, deg: number): PcbBarcode => {
+  const at = rotAbout(b.at, c, deg);
+  const angle = norm360(b.angle + deg);
+  return { ...b, at, angle, source: patchBarcodeAt(b, at, angle) };
+};
+
+/**
+ * `PCB_BARCODE::Flip` (`pcb_barcode.cpp:305-316`): mirror the position, add
+ * 180 degrees for a top-bottom flip, and move to the flipped layer.
+ *
+ * `flipLayer` is the caller's, because which layer a graphic lands on is the
+ * board's business (`BOARD::FlipLayer`) rather than the item's.
+ */
+const flipBarcodeTo = (b: PcbBarcode, at: Vec2, layer: string, topBottom: boolean): PcbBarcode => {
+  const angle = topBottom ? norm360(b.angle + 180) : b.angle;
+  return { ...b, at, angle, layer, source: patchBarcodeAt(b, at, angle) };
+};
+
+/**
+ * `(locked …)` on a barcode, unlike on a point, DOES reach the file:
+ * `format( const PCB_BARCODE* )` writes it (`pcb_io_kicad_sexpr.cpp:2204-2205`)
+ * and `parsePCB_BARCODE` reads it (`…_parser.cpp:4081-4083`).
+ */
+const lockBarcode = (b: PcbBarcode, locked: boolean): PcbBarcode => ({
+  ...b,
+  locked,
+  source: locked
+    ? patchChild(b.source, 'locked', list(atom('locked'), atom('yes')))
+    : dropChild(b.source, 'locked'),
+});
+
 // ----- delete (EDIT_TOOL::Remove) ---------------------------------------------
 
 /** Split a selection id set into per-kind index sets. */
@@ -1599,6 +1712,7 @@ function indicesByKind(ids: ReadonlySet<string>): Record<BoardItemKind, Set<numb
     arc: new Set(),
     via: new Set(),
     footprint: new Set(),
+    barcode: new Set(),
     zone: new Set(),
     shape: new Set(),
     text: new Set(),
@@ -1702,6 +1816,7 @@ export function deleteBoardItems(board: Board, ids: ReadonlySet<string>): Board 
     images: board.images.filter((_, i) => !idx.image.has(i)),
     dimensions: board.dimensions.filter((_, i) => !idx.dimension.has(i)),
     points: board.points.filter((_, i) => !idx.point.has(i)),
+    barcodes: board.barcodes.filter((_, i) => !idx.barcode.has(i)),
     footprints: board.footprints
       // Remove individually-selected footprint texts first (on original indices,
       // so the fptext map stays aligned), then drop whole selected footprints.
@@ -1839,6 +1954,36 @@ export function addBoardPoint(
   };
 }
 
+/**
+ * Append a freshly-placed barcode — `DRAWING_TOOL::DrawBarcode`'s
+ * `commit.Add( barcode )` (`drawing_tool.cpp:1555-1556`), after the properties
+ * dialog returned OK.
+ *
+ * The tool sets three things on the new item before the dialog sees it
+ * (`:1528-1532`): the active layer, the click position, and the text size from
+ * `bds.GetTextSize( layer ).y` — a *board* setting, so it is the caller's to
+ * supply. Everything else is `PCB_BARCODE`'s constructor.
+ */
+export function addBoardBarcode(
+  board: Board,
+  barcode: Omit<PcbBarcode, 'source'>,
+): { board: Board; id: string } {
+  const withSource: PcbBarcode = { ...barcode, source: { kind: 'list', items: [] } };
+  return {
+    board: { ...board, barcodes: [...board.barcodes, withSource] },
+    id: boardItemId('barcode', board.barcodes.length),
+  };
+}
+
+/** Replace one barcode in place (the properties dialog's OK). */
+export function setBoardBarcode(board: Board, index: number, next: PcbBarcode): Board {
+  if (!board.barcodes[index]) return board;
+  return {
+    ...board,
+    barcodes: board.barcodes.map((b, i) => (i === index ? next : b)),
+  };
+}
+
 /** Append a freshly-placed reference image (`DRAWING_TOOL::PlaceReferenceImage`'s commit). */
 export function addBoardImage(
   board: Board,
@@ -1893,6 +2038,7 @@ export function subsetBoardItems(board: Board, ids: ReadonlySet<string>): Board 
           pads: pi ? f.pads.filter((_, j) => pi.has(j)) : [],
           shapes: [],
           points: [],
+          barcodes: [],
           models: [],
           texts: ti ? f.texts.filter((_, j) => ti.has(j)) : [],
         });
@@ -1908,6 +2054,7 @@ export function subsetBoardItems(board: Board, ids: ReadonlySet<string>): Board 
     shapes: board.shapes.filter((_, i) => idx.shape.has(i)),
     texts: board.texts.filter((_, i) => idx.text.has(i)),
     points: board.points.filter((_, i) => idx.point.has(i)),
+    barcodes: board.barcodes.filter((_, i) => idx.barcode.has(i)),
     footprints,
   };
 }
@@ -1975,6 +2122,9 @@ export function boardItemPosition(board: Board, id: string): Vec2 | null {
       return board.dimensions[ref.index]?.start ?? null;
     case 'point':
       return board.points[ref.index]?.at ?? null;
+    case 'barcode':
+      // `GetPosition` is the centre, and `GetCenter` aliases it.
+      return board.barcodes[ref.index]?.at ?? null;
     case 'image':
       // `PCB_REFERENCE_IMAGE::GetPosition` is "the center of the image"
       // (pcb_reference_image.h:93), which is what `(at …)` holds here.
@@ -2107,6 +2257,7 @@ function rotateFootprintAbout(f: PcbFootprint, c: Vec2, deg: number): PcbFootpri
     // (`footprint.cpp:3122`). A point has no orientation of its own, so only
     // the position moves — `PCB_POINT::Rotate` is `RotatePoint( m_pos, … )`.
     points: f.points.map((p) => ({ ...p, at: rotAbout(p.at, c, deg) })),
+    barcodes: f.barcodes.map((b) => rotateBarcodeAbout(b, c, deg)),
     source: patchChild(f.source, 'at', atNode(at, angle)),
   };
 }
@@ -2244,6 +2395,9 @@ export function rotateBoardItemsBy(
   return {
     ...board,
     points: board.points.map((p, i) => (idx.point.has(i) ? rotPoint(p) : p)),
+    barcodes: board.barcodes.map((b, i) =>
+      idx.barcode.has(i) ? rotateBarcodeAbout(b, c, deg) : b,
+    ),
     tracks: board.tracks.map((t, i) => (idx.track.has(i) ? rotTrack(t) : t)),
     arcs: board.arcs.map((a, i) => (idx.arc.has(i) ? rotArc(a) : a)),
     vias: board.vias.map((v, i) => (idx.via.has(i) ? rotVia(v) : v)),
@@ -2307,6 +2461,8 @@ function uuidOfItemId(board: Board, id: string): string | undefined {
       return board.dimensions[r.index]?.uuid;
     case 'point':
       return board.points[r.index]?.uuid;
+    case 'barcode':
+      return board.barcodes[r.index]?.uuid;
     case 'footprint':
       return board.footprints[r.index]?.uuid;
     case 'group':
@@ -2542,6 +2698,8 @@ export function isBoardItemLocked(board: Board, id: string): boolean {
       return !!board.dimensions[r.index]?.locked;
     case 'point':
       return !!board.points[r.index]?.locked;
+    case 'barcode':
+      return !!board.barcodes[r.index]?.locked;
     case 'footprint':
     case 'pad':
     case 'fptext':
@@ -2595,6 +2753,9 @@ export function setBoardItemsLocked(
     // is equally unsaveable and equally real within the session.
     points: board.points.map((p, i) =>
       idx.point.has(i) ? { ...p, locked: locked === 'toggle' ? !p.locked : locked } : p,
+    ),
+    barcodes: board.barcodes.map((b, i) =>
+      idx.barcode.has(i) ? lockBarcode(b, locked === 'toggle' ? !b.locked : locked) : b,
     ),
   };
 }
@@ -2759,6 +2920,20 @@ export function mirrorBoardItems(
     texts: board.texts.map((t, i) => (idx.text.has(i) ? mirText(t) : t)),
     shapes: board.shapes.map((s, i) => (idx.shape.has(i) ? mirShape(s) : s)),
     points: board.points.map((p, i) => (idx.point.has(i) ? mirPoint(p) : p)),
+    barcodes: board.barcodes.map((b, i) =>
+      idx.barcode.has(i)
+        ? // `PCB_BARCODE` has no `Mirror` override either, and the same
+          // reasoning as `mirPoint` applies: `BOARD_ITEM::Mirror` is a message
+          // box, and every sibling's is `MIRROR` on its own coordinates. The
+          // orientation reflects with it, as a shape's does.
+          {
+            ...b,
+            at: mir(b.at),
+            angle: mirAngle(b.angle),
+            source: patchBarcodeAt(b, mir(b.at), mirAngle(b.angle)),
+          }
+        : b,
+    ),
   };
 }
 
@@ -2796,7 +2971,8 @@ export function duplicateBoardItems(
   const footprints = [...board.footprints],
     shapes = [...board.shapes],
     texts = [...board.texts],
-    points = [...board.points];
+    points = [...board.points],
+    barcodes = [...board.barcodes];
   const newIds: string[] = [];
   const dup = <T extends { uuid?: string; source: SList }>(
     arr: T[],
@@ -2818,7 +2994,18 @@ export function duplicateBoardItems(
   dup(shapes, board.shapes, idx.shape, 'shape');
   dup(texts, board.texts, idx.text, 'text');
   dup(points, board.points, idx.point, 'point');
-  const copied: Board = { ...board, tracks, arcs, vias, footprints, shapes, texts, points };
+  dup(barcodes, board.barcodes, idx.barcode, 'barcode');
+  const copied: Board = {
+    ...board,
+    tracks,
+    arcs,
+    vias,
+    footprints,
+    shapes,
+    texts,
+    points,
+    barcodes,
+  };
   return { board: moveBoardItems(copied, new Set(newIds), delta), ids: newIds };
 }
 
@@ -3103,6 +3290,7 @@ export function flipBoardItems(board: Board, ids: ReadonlySet<string>, centre?: 
       // `SetLayer( GetBoard()->FlipLayer( GetLayer() ) )`
       // (`pcb_point.cpp:139-144`). The code is what runs, so the layer flips.
       points: f.points.map((p) => ({ ...p, at: mirY(p.at), layer: flipLayer(p.layer) })),
+      barcodes: f.barcodes.map((b) => flipBarcodeTo(b, mirY(b.at), flipLayer(b.layer), true)),
       source: patchChild(patchChild(f.source, 'at', atNode(at, angle)), 'layer', layerNode(layer)),
     };
   };
@@ -3114,6 +3302,9 @@ export function flipBoardItems(board: Board, ids: ReadonlySet<string>, centre?: 
     vias: board.vias.map((v, i) => (idx.via.has(i) ? flipVia(v) : v)),
     texts: board.texts.map((t, i) => (idx.text.has(i) ? flipText(t) : t)),
     shapes: board.shapes.map((s, i) => (idx.shape.has(i) ? flipShape(s) : s)),
+    barcodes: board.barcodes.map((bc, i) =>
+      idx.barcode.has(i) ? flipBarcodeTo(bc, mirY(bc.at), flipLayer(bc.layer), true) : bc,
+    ),
     footprints: board.footprints.map((f, i) => (idx.footprint.has(i) ? flipFp(f) : f)),
   };
 }

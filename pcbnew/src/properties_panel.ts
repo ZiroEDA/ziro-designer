@@ -69,9 +69,10 @@ import {
 } from './graphic_properties.js';
 import { fillZones } from './zone_filler.js';
 import { atom, list, str, type SList } from '@ziroeda/sexpr/src/index.js';
-import { patchChild } from './edit-board.js';
-import { pcbIuToMM } from '@ziroeda/common/src/eda_units.js';
-import type { Board, PcbPoint } from './types.js';
+import { dropChild, patchChild } from './edit-board.js';
+import { pcbIuToMM, pcbMmToIU } from '@ziroeda/common/src/eda_units.js';
+import { formatG } from '@ziroeda/common/src/plotters/fmt.js';
+import type { BarcodeEcc, BarcodeKind, Board, PcbBarcode, PcbPoint } from './types.js';
 
 /** `formatInternalUnits`, for the point source patcher below. */
 function mm(iu: number): string {
@@ -193,6 +194,9 @@ export function pcbItemFriendlyName(board: Board, id: string): string | undefine
     // (`common/eda_item.cpp:466`) — `PCB_POINT` overrides no friendly name.
     case 'point':
       return 'Point';
+    case 'barcode':
+      // `.Map( PCB_BARCODE_T, _HKI( "Barcode" ) )`.
+      return 'Barcode';
     case 'group':
       return 'Group';
   }
@@ -982,6 +986,219 @@ function pointRows(board: Board, index: number, ctx: PcbPropertiesContext): PcbP
 }
 
 /**
+ * A barcode's rows: `PCB_BARCODE_DESC` (`pcb_barcode.cpp:890-993`) over
+ * `BOARD_ITEM_DESC`.
+ *
+ * `InheritsAfter( PCB_BARCODE, BOARD_ITEM )` again, so Position X/Y, Layer and
+ * Locked come first and the ten "Barcode Properties" rows follow.
+ *
+ * Two of them are conditional, through `SetAvailableFunc`: Error Correction
+ * only for the two QR kinds, and the two margins only when Knockout is on. And
+ * Error Correction's CHOICES are conditional too (`SetChoicesFunc`) — Micro QR
+ * is offered L, M and Q, and only a full QR code gets H.
+ */
+function barcodeRows(board: Board, index: number, ctx: PcbPropertiesContext): PcbPropRow[] {
+  const b = board.barcodes[index];
+  if (!b) return [];
+
+  const commit = (patch: Partial<PcbBarcode>): Board => {
+    const next: PcbBarcode = { ...b, ...patch };
+    return {
+      ...board,
+      barcodes: board.barcodes.map((q, i) =>
+        i === index ? { ...next, source: repatchBarcode(next) } : q,
+      ),
+    };
+  };
+
+  const G = 'Barcode Properties';
+  const dist = (name: string, value: number, set: (n: number) => Board): PcbPropRow => ({
+    group: G,
+    name,
+    kind: 'coord',
+    value,
+    set: (n) => (typeof n === 'number' ? set(n) : null),
+  });
+
+  const rows: PcbPropRow[] = [
+    {
+      group: '',
+      name: 'Position X',
+      kind: 'coord',
+      value: b.at.x,
+      set: (n) => (typeof n === 'number' ? commit({ at: { ...b.at, x: n } }) : null),
+    },
+    {
+      group: '',
+      name: 'Position Y',
+      kind: 'coord',
+      value: b.at.y,
+      set: (n) => (typeof n === 'number' ? commit({ at: { ...b.at, y: n } }) : null),
+    },
+    choiceRow(
+      '',
+      'Layer',
+      b.layer,
+      layerChoices(board, false),
+      (layer) => commit({ layer }),
+      ctx.layerColor(b.layer),
+    ),
+    {
+      group: '',
+      name: 'Locked',
+      kind: 'bool',
+      value: !!b.locked,
+      set: (n) => commit({ locked: !!n }),
+    },
+    {
+      group: G,
+      name: 'Text',
+      kind: 'string',
+      value: b.text,
+      set: (v) => commit({ text: String(v) }),
+    },
+    {
+      group: G,
+      name: 'Show Text',
+      kind: 'bool',
+      value: b.showText,
+      set: (n) => commit({ showText: !!n }),
+    },
+    dist('Text Size', b.textHeight, (n) => commit({ textHeight: n })),
+    dist('Width', b.width, (n) => commit({ width: n })),
+    dist('Height', b.height, (n) => commit({ height: n })),
+    {
+      group: G,
+      name: 'Orientation',
+      // `PROPERTY<PCB_BARCODE, double>` with no `PROPERTY_DISPLAY`, so it is a
+      // plain number rather than a `PGPROPERTY_ANGLE` — no degree sign, and no
+      // normalisation to (-180, 180].
+      kind: 'string',
+      value: String(b.angle),
+      set: (v) => {
+        const deg = parseAngle(v);
+        return deg === null ? null : commit({ angle: deg });
+      },
+    },
+    choiceRow(G, 'Barcode Type', b.kind, BARCODE_TYPE_CHOICES, (kind) =>
+      // `SetBarcodeKind` re-encodes, and switching to Micro QR while H is
+      // selected has to move off it — the same correction the dialog makes.
+      commit(kind === 'microqr' && b.ecc === 'H' ? { kind, ecc: 'Q' } : { kind }),
+    ),
+  ];
+
+  // `SetAvailableFunc( isQRCode )`: the row is not greyed, it is absent.
+  if (b.kind === 'qr' || b.kind === 'microqr')
+    rows.push(
+      choiceRow(
+        G,
+        'Error Correction',
+        b.ecc,
+        // `SetChoicesFunc`: "Only QR_CODE has High".
+        b.kind === 'qr' ? BARCODE_ECC_CHOICES_ALL : BARCODE_ECC_CHOICES_ALL.slice(0, 3),
+        (ecc) => commit({ ecc }),
+      ),
+    );
+
+  rows.push({
+    group: G,
+    name: 'Knockout',
+    kind: 'bool',
+    value: b.knockout,
+    set: (n) => commit({ knockout: !!n }),
+  });
+
+  // `SetAvailableFunc( hasKnockout )`.
+  if (b.knockout) {
+    // `SetMarginX` clamps to at least 1 mm (`pcb_barcode.h:390-395`), which is
+    // the item's own floor and not the dialog's.
+    const clamp = (n: number): number => Math.max(pcbMmToIU(1), n);
+    rows.push(
+      dist('Margin X', b.margin.x, (n) => commit({ margin: { ...b.margin, x: clamp(n) } })),
+    );
+    rows.push(
+      dist('Margin Y', b.margin.y, (n) => commit({ margin: { ...b.margin, y: clamp(n) } })),
+    );
+  }
+
+  return rows;
+}
+
+/** `ENUM_MAP<BARCODE_T>`'s labels (`pcb_barcode.cpp:904-908`). */
+const BARCODE_TYPE_CHOICES: readonly (readonly [BarcodeKind, string])[] = [
+  ['code39', 'CODE_39'],
+  ['code128', 'CODE_128'],
+  ['datamatrix', 'DATA_MATRIX'],
+  ['qr', 'QR_CODE'],
+  ['microqr', 'MICRO_QR_CODE'],
+];
+
+/**
+ * The Error Correction choices (`pcb_barcode.cpp:970-978`). These are the
+ * property grid's own labels, spelled out where the dialog's radio box gives
+ * percentages instead.
+ */
+const BARCODE_ECC_CHOICES_ALL: readonly (readonly [BarcodeEcc, string])[] = [
+  ['L', 'L (Low)'],
+  ['M', 'M (Medium)'],
+  ['Q', 'Q (Quartile)'],
+  ['H', 'H (High)'],
+];
+
+/**
+ * Re-patch a barcode's source after an edit, so the writer emits the new
+ * values.
+ *
+ * Nine of the node's children are editable from this panel, which is nearly
+ * all of them — but patching child by child is still right: the tokens this
+ * does NOT own (`(uuid …)`, and anything a newer KiCad writes that we do not
+ * model) survive untouched, which rebuilding the node would throw away.
+ */
+function repatchBarcode(b: PcbBarcode): SList {
+  if (b.source.items.length === 0) return b.source;
+
+  let src = patchChild(b.source, 'at', {
+    kind: 'list',
+    items: [atom('at'), atom(mm(b.at.x)), atom(mm(b.at.y)), atom(formatG(b.angle, 10))],
+  });
+  src = patchChild(src, 'layer', list(atom('layer'), str(b.layer)));
+  src = patchChild(src, 'size', list(atom('size'), atom(mm(b.width)), atom(mm(b.height))));
+  src = patchChild(src, 'text', list(atom('text'), str(b.text)));
+  src = patchChild(src, 'text_height', list(atom('text_height'), atom(mm(b.textHeight))));
+  src = patchChild(src, 'type', list(atom('type'), atom(BARCODE_KIND_TOKEN[b.kind])));
+  // `(ecc_level …)` is written for the two QR kinds only, so a barcode changed
+  // away from QR has to lose it rather than keep a stale one.
+  src =
+    b.kind === 'qr' || b.kind === 'microqr'
+      ? patchChild(src, 'ecc_level', list(atom('ecc_level'), atom(b.ecc)))
+      : dropChild(src, 'ecc_level');
+  src = patchChild(src, 'hide', list(atom('hide'), atom(b.showText ? 'no' : 'yes')));
+  src = patchChild(src, 'knockout', list(atom('knockout'), atom(b.knockout ? 'yes' : 'no')));
+  src =
+    b.margin.x !== 0 || b.margin.y !== 0
+      ? patchChild(
+          src,
+          'margins',
+          list(atom('margins'), atom(mm(b.margin.x)), atom(mm(b.margin.y))),
+        )
+      : dropChild(src, 'margins');
+  src = b.locked
+    ? patchChild(src, 'locked', list(atom('locked'), atom('yes')))
+    : dropChild(src, 'locked');
+
+  return src;
+}
+
+/** `format( const PCB_BARCODE* )`'s `(type …)` spellings (`:2225-2229`). */
+const BARCODE_KIND_TOKEN: Readonly<Record<BarcodeKind, string>> = {
+  code39: 'code39',
+  code128: 'code128',
+  datamatrix: 'datamatrix',
+  qr: 'qr',
+  microqr: 'microqr',
+};
+
+/**
  * Re-patch a point's source after an edit, so the writer emits the new value.
  *
  * Deliberately does NOT touch `(locked …)`: the formatter has no such token and
@@ -1100,6 +1317,8 @@ export function pcbPropertiesFor(
       return shapeRows(board, ref.index, ctx);
     case 'point':
       return pointRows(board, ref.index, ctx);
+    case 'barcode':
+      return barcodeRows(board, ref.index, ctx);
     default:
       return [];
   }

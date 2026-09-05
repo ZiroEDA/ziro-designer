@@ -130,6 +130,7 @@ export function boardIsEmpty(board: Board): boolean {
     board.tables.length === 0 &&
     board.images.length === 0 &&
     board.dimensions.length === 0 &&
-    board.points.length === 0
+    board.points.length === 0 &&
+    board.barcodes.length === 0
   );
 }

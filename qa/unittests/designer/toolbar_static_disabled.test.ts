@@ -131,7 +131,6 @@ const UNBUILT: Readonly<Record<string, readonly string[]>> = {
     'tuneSkew',
     'drawRuleArea',
     'drawBezier',
-    'placeBarcode',
     // The whole "PCB origins and points" group came off this list together:
     // `DRAWING_TOOL::PlacePoint` is `handlePointClick`, and
     // `PCB_CONTROL::GridPlaceOrigin` / `BOARD_EDITOR_CONTROL::DrillOrigin` are

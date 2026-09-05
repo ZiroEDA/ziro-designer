@@ -15,7 +15,7 @@ import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useSta
 import type { Vec2 } from '@ziroeda/kimath';
 import { IU_PER_MM, type GERBER_DRAW_ITEM } from '@ziroeda/gerbview';
 import { drawRulerItem, type RulerUnits } from '../../ui/ruler_item.js';
-import { kiCursor } from '../../ui/kicursors.js';
+import { gerberToolCursor } from './cursors.js';
 import {
   renderGerberLayers,
   worldToDevice,
@@ -947,17 +947,12 @@ export const GerberCanvas = forwardRef<GerberCanvasController, GerberCanvasProps
             position: 'absolute',
             inset: 0,
             display: 'block',
-            // ZOOM_TOOL sets KICURSOR::ZOOM_IN while it is armed
-            // (`common/tool/zoom_tool.cpp:70`).
-            // KiCad's own art through the one CURSOR_STORE, not the
-            // browser's lookalikes: `ZOOM_TOOL::Main` sets KICURSOR::ZOOM_IN
+            // KiCad's own art through the one CURSOR_STORE, not the browser's
+            // lookalikes: `ZOOM_TOOL::Main` sets KICURSOR::ZOOM_IN
             // (`zoom_tool.cpp:65-69`) and the measure tool KICURSOR::MEASURE.
-            cursor:
-              activeTool === 'zoom'
-                ? kiCursor('ZOOM_IN')
-                : activeTool === 'measure'
-                  ? kiCursor('MEASURE')
-                  : 'default',
+            // The answer is the shared table's, because the actions are shared
+            // — see `ui/tool_cursors.ts`.
+            cursor: gerberToolCursor(activeTool),
           }}
         />
         {/* The items. Takes no pointer events, so captures still land on the

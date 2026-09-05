@@ -20,10 +20,12 @@
  * crosshair sits on the copper or floats above it.
  */
 
-import type { Board } from './types.js';
+import type { Board, PcbBarcode } from './types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { boardHitCandidates, parseBoardItemId } from './edit-board.js';
 import { footprintBBox, padBBox } from './edit-footprint.js';
+import { barcodeGeometry } from './barcode_geometry.js';
+import { rotatePcb } from './read-board.js';
 import { segNearestPoint } from '@ziroeda/kimath/src/geometry/seg.js';
 import {
   align,
@@ -256,6 +258,13 @@ export interface BestSnapOptions {
    * filter defaults.
    */
   points?: boolean;
+  /**
+   * `aSelectionFilter->otherItems`, which gates a barcode's anchors
+   * (`pcb_grid_helper.cpp:1916-1917`). A barcode is not in the Graphics
+   * category — `pcb_selection_tool.cpp:3522` puts it in the catch-all with
+   * targets. Absent means on.
+   */
+  otherItems?: boolean;
 }
 
 const sqDist = (a: Vec2, b: Vec2): number => (a.x - b.x) ** 2 + (a.y - b.y) ** 2;
@@ -363,8 +372,94 @@ export function computeCopperAnchors(
     }
   }
 
+  // `case PCB_BARCODE_T` (`pcb_grid_helper.cpp:1915-1928`): the item's own
+  // position as a centre anchor, then the SYMBOL polygon's bounding box —
+  // `GetSymbolPoly().BBox()`, so the human-readable line and any knockout
+  // margin are outside it — through `addRectPoints`.
+  //
+  // Gated on the Selection Filter's "Other items" box rather than on Graphics,
+  // matching `pcb_selection_tool.cpp:3522`.
+  if (aOpts.otherItems !== false) {
+    const barcodes: { kind: string; index: number; bc: PcbBarcode }[] = [
+      ...aBoard.barcodes.map((bc, index) => ({ kind: 'barcode', index, bc })),
+    ];
+
+    for (const { kind, index, bc } of barcodes) {
+      if (skipped(kind, index)) continue;
+      if (!onLayer(bc.layer)) continue;
+      if (!inRange(bc.at)) continue;
+
+      // `addAnchor( aItem->GetPosition(), ORIGIN, barcode, PT_CENTER )`.
+      anchors.push({ pos: bc.at, flags: ANCHOR_ORIGIN });
+
+      for (const p of barcodeSnapPoints(bc))
+        if (inRange(p)) anchors.push({ pos: p, flags: ANCHOR_CORNER | ANCHOR_SNAPPABLE });
+    }
+  }
+
   return anchors;
 }
+
+/**
+ * `addRectPoints( barcode->GetSymbolPoly().BBox(), … )`
+ * (`pcb_grid_helper.cpp:1479-1502`): the box's centre, its four corners and
+ * the midpoint of each of its four edges.
+ *
+ * The box is the *symbol's*, taken before the rotation is applied to `m_poly`,
+ * so the nine points turn with the barcode rather than boxing it upright.
+ */
+function barcodeSnapPoints(bc: PcbBarcode): Vec2[] {
+  const g = barcodeGeometry(bc);
+  if (g.symbolPoly.length === 0) return [];
+
+  const b = symbolPolyBox(g.symbolPoly);
+  const turn = (p: Vec2): Vec2 => {
+    if (bc.angle === 0) return p;
+    const r = rotatePcb({ x: p.x - bc.at.x, y: p.y - bc.at.y }, bc.angle);
+    return { x: r.x + bc.at.x, y: r.y + bc.at.y };
+  };
+
+  const tl = { x: b.x1, y: b.y1 };
+  const tr = { x: b.x2, y: b.y1 };
+  const br = { x: b.x2, y: b.y2 };
+  const bl = { x: b.x1, y: b.y2 };
+  const mid = (a: Vec2, c: Vec2): Vec2 => ({ x: (a.x + c.x) / 2, y: (a.y + c.y) / 2 });
+
+  return [
+    mid(tl, br), // the box centre
+    tl,
+    mid(tl, tr),
+    tr,
+    mid(tr, br),
+    br,
+    mid(br, bl),
+    bl,
+    mid(bl, tl),
+  ].map(turn);
+}
+
+const symbolPolyBox = (poly: readonly (readonly (readonly Vec2[])[])[]): {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+} => {
+  let x1 = Number.POSITIVE_INFINITY;
+  let y1 = Number.POSITIVE_INFINITY;
+  let x2 = Number.NEGATIVE_INFINITY;
+  let y2 = Number.NEGATIVE_INFINITY;
+
+  for (const rings of poly)
+    for (const ring of rings)
+      for (const p of ring) {
+        if (p.x < x1) x1 = p.x;
+        if (p.y < y1) y1 = p.y;
+        if (p.x > x2) x2 = p.x;
+        if (p.y > y2) y2 = p.y;
+      }
+
+  return { x1, y1, x2, y2 };
+};
 
 /**
  * `PCB_GRID_HELPER::nearestAnchor( aPos, aFlags )` (pcbnew/tools/pcb_grid_helper.cpp:1966)

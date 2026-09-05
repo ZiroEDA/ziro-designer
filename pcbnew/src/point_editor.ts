@@ -35,7 +35,7 @@ import {
   zoneHandles,
 } from './edit-board.js';
 import { arcCenter } from './read-board.js';
-import type { Board, PcbShape } from './types.js';
+import type { Board, PcbBarcode, PcbShape } from './types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
 /** A square handle on a corner or vertex (`EDIT_POINT`), or a circle at an edge
@@ -112,6 +112,8 @@ export function boardEditHandles(board: Board, id: string): BoardEditHandle[] {
       : [];
   }
 
+  if (r.kind === 'barcode') return barcodeHandles(board, r.index);
+
   if (r.kind !== 'shape') return [];
 
   const s = board.shapes[r.index];
@@ -161,6 +163,142 @@ export function boardEditHandles(board: Board, id: string): BoardEditHandle[] {
   }
 
   return [];
+}
+
+/**
+ * `BARCODE_POINT_EDIT_BEHAVIOR::MakePoints` (`pcb_point_editor.cpp:696-719`).
+ *
+ * A barcode is edited as a rectangle — `makeDummyRect()` builds a `PCB_SHAPE`
+ * from the centre and size, rotates it by the item's angle, and hands it to
+ * `RECTANGLE_POINT_EDIT_BEHAVIOR` — so the nine handles are the rectangle's.
+ *
+ * Two things are its own. A non-cardinal rotation gets NO handles at all:
+ * "Non-cardinal barcode point-editing isn't useful enough to support"
+ * (`:698-702`). And the three square symbologies constrain the diagonals to
+ * 45 degrees (`KeepSquare`, `pcb_barcode.h:1069-1074`) so a QR code cannot be
+ * dragged into a rectangle — which would still encode, and would not scan.
+ */
+function barcodeHandles(board: Board, index: number): BoardEditHandle[] {
+  const bc = board.barcodes[index];
+  if (!bc || !isCardinal(bc.angle)) return [];
+
+  const c = barcodeCorners(bc);
+
+  return [
+    pt('point', RECT_TOPLEFT, c.topLeft),
+    pt('point', RECT_TOPRIGHT, c.topRight),
+    pt('point', RECT_BOTRIGHT, c.botRight),
+    pt('point', RECT_BOTLEFT, c.botLeft),
+    pt('point', RECT_CENTER, bc.at),
+    pt('line', RECT_TOP, mid(c.topLeft, c.topRight)),
+    pt('line', RECT_RIGHT, mid(c.topRight, c.botRight)),
+    pt('line', RECT_BOT, mid(c.botRight, c.botLeft)),
+    pt('line', RECT_LEFT, mid(c.botLeft, c.topLeft)),
+  ];
+}
+
+/** `EDA_ANGLE::IsCardinal`: a multiple of 90 degrees. */
+const isCardinal = (deg: number): boolean => (((deg % 90) + 90) % 90) === 0;
+
+/**
+ * `makeDummyRect()`'s corners. The rectangle is the item's width and height
+ * about its centre, then turned by its angle — and for a cardinal angle that
+ * is a 90-degree multiple, so a quarter turn swaps width and height.
+ */
+function barcodeCorners(bc: PcbBarcode): Corners {
+  const quarter = ((Math.round(bc.angle / 90) % 4) + 4) % 4;
+  const swap = quarter === 1 || quarter === 3;
+  const w = (swap ? bc.height : bc.width) / 2;
+  const h = (swap ? bc.width : bc.height) / 2;
+
+  return {
+    topLeft: { x: bc.at.x - w, y: bc.at.y - h },
+    topRight: { x: bc.at.x + w, y: bc.at.y - h },
+    botRight: { x: bc.at.x + w, y: bc.at.y + h },
+    botLeft: { x: bc.at.x - w, y: bc.at.y + h },
+  };
+}
+
+/**
+ * `BARCODE_POINT_EDIT_BEHAVIOR::UpdateItem` (`:731-745`): resize the dummy
+ * rectangle, un-rotate it, and read the new centre and size back off it.
+ *
+ *     dummy.Rotate( dummy.GetCenter(), -m_barcode.GetAngle() );
+ *     m_barcode.SetPosition( dummy.GetCenter() );
+ *     m_barcode.SetWidth( dummy.GetRectangleWidth() );
+ *     m_barcode.SetHeight( dummy.GetRectangleHeight() );
+ */
+function dragBarcodeHandle(
+  board: Board,
+  index: number,
+  handle: BoardEditHandle,
+  pos: Vec2,
+): Board {
+  const bc = board.barcodes[index];
+  if (!bc || !isCardinal(bc.angle)) return board;
+
+  const c = barcodeCorners(bc);
+  let box: { topLeft: Vec2; botRight: Vec2 };
+
+  if (handle.kind === 'point' && handle.index === RECT_CENTER) {
+    const d = { x: pos.x - bc.at.x, y: pos.y - bc.at.y };
+    box = { topLeft: add(c.topLeft, d), botRight: add(c.botRight, d) };
+  } else if (handle.kind === 'point') {
+    if (handle.index > RECT_BOTLEFT) return board;
+    const dragged = clampDraggedCorner(c, handle.index, pos);
+    box = { topLeft: dragged.topLeft, botRight: dragged.botRight };
+  } else {
+    let topLeft = c.topLeft;
+    let botRight = c.botRight;
+    if (handle.index === RECT_TOP)
+      topLeft = { ...topLeft, y: Math.min(pos.y, botRight.y - MIN_RECT_SIZE) };
+    else if (handle.index === RECT_BOT)
+      botRight = { ...botRight, y: Math.max(pos.y, topLeft.y + MIN_RECT_SIZE) };
+    else if (handle.index === RECT_LEFT)
+      topLeft = { ...topLeft, x: Math.min(pos.x, botRight.x - MIN_RECT_SIZE) };
+    else if (handle.index === RECT_RIGHT)
+      botRight = { ...botRight, x: Math.max(pos.x, topLeft.x + MIN_RECT_SIZE) };
+    else return board;
+    box = { topLeft, botRight };
+  }
+
+  // `KeepSquare()`: the 45-degree constraints on both diagonals hold the box
+  // square while it is dragged, so a QR code stays a QR code.
+  if (bc.kind === 'qr' || bc.kind === 'microqr' || bc.kind === 'datamatrix') {
+    const w = box.botRight.x - box.topLeft.x;
+    const h = box.botRight.y - box.topLeft.y;
+    const side = Math.max(w, h);
+    const cx = (box.topLeft.x + box.botRight.x) / 2;
+    const cy = (box.topLeft.y + box.botRight.y) / 2;
+    box = {
+      topLeft: { x: cx - side / 2, y: cy - side / 2 },
+      botRight: { x: cx + side / 2, y: cy + side / 2 },
+    };
+  }
+
+  const at = mid(box.topLeft, box.botRight);
+  const width = box.botRight.x - box.topLeft.x;
+  const height = box.botRight.y - box.topLeft.y;
+  // Un-rotating a cardinal angle swaps the axes back for a quarter turn.
+  const quarter = ((Math.round(bc.angle / 90) % 4) + 4) % 4;
+  const swap = quarter === 1 || quarter === 3;
+
+  return {
+    ...board,
+    barcodes: board.barcodes.map((x, i) =>
+      i === index
+        ? {
+            ...x,
+            at,
+            width: swap ? height : width,
+            height: swap ? width : height,
+            // The writer patches `(at …)` and `(size …)` from the model when
+            // the source has been cleared, exactly as a dragged shape's is.
+            source: { kind: 'list' as const, items: [] },
+          }
+        : x,
+    ),
+  };
 }
 
 interface Corners {
@@ -311,6 +449,8 @@ export function dragBoardHandle(
       ),
     };
   }
+
+  if (r.kind === 'barcode') return dragBarcodeHandle(board, r.index, handle, pos);
 
   if (r.kind !== 'shape') return board;
 

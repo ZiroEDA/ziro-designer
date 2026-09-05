@@ -340,7 +340,10 @@ export function footprintEditorMenus(
         // (`drawing_tool.cpp:916-917`) — the same "a footprint is loaded"
         // guard the other placement rows carry as `haveFootprintCond`.
         tool('Place Point', 'placePoint', { disabled: !conds.haveFootprint }),
-        stub('Add Barcode', 'placeBarcode'),
+        // `PCB_ACTIONS::placeBarcode` (`menubar_footprint_editor.cpp:193`),
+        // behind the same "a footprint is loaded" guard the other placement
+        // rows carry.
+        tool('Add Barcode', 'placeBarcode', { disabled: !conds.haveFootprint }),
         SEP,
         stub('Draw Orthogonal Dimensions', 'drawOrthogonalDimension', {
           shortcut: 'Ctrl+Shift+H',

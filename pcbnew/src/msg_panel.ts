@@ -69,6 +69,8 @@ import {
 import { type BoardItemRef, parseBoardItemId } from './edit-board.js';
 import { GetLayerName } from './layer_ids.js';
 import type {
+  BarcodeKind,
+  PcbBarcode,
   Board,
   PcbArcTrack,
   PcbFootprint,
@@ -998,6 +1000,60 @@ export function pcbPointMsgPanelInfo(ctx: PcbMsgPanelContext, p: PcbPoint): MsgP
   ];
 }
 
+/**
+ * `PCB_BARCODE::GetMsgPanelInfo` (`pcb_barcode.cpp:539-560`).
+ *
+ * `Footprint` only in the board editor, `Status: Locked` only there and only
+ * when locked, and the text is `GetText()` rather than `GetShownText()` —
+ * "Don't use GetShownText() here; we want to show the user the variable
+ * references" (`:549`), which is the opposite of what most items do.
+ *
+ * The angle goes through `%g` rather than the unit provider, so it has no
+ * degree sign and no fixed number of places.
+ */
+export function pcbBarcodeMsgPanelInfo(
+  ctx: PcbMsgPanelContext,
+  b: PcbBarcode,
+  parentFootprintReference?: string,
+): MsgPanelItem[] {
+  const rows: MsgPanelItem[] = [];
+
+  if (parentFootprintReference !== undefined && ctx.frame === 'pcb_edit')
+    rows.push({ upper: 'Footprint', lower: parentFootprintReference });
+
+  rows.push({ upper: 'Barcode', lower: BARCODE_KIND_LABEL[b.kind] });
+  // "Don't use GetShownText() here; we want to show the user the variable
+  // references" (`:548`) — the opposite of most items, because a barcode's
+  // content is usually generated. `KIUI::EllipsizeStatusText` is left to CSS,
+  // as it is for `PCB_TEXT` above.
+  rows.push({ upper: 'Text', lower: b.text });
+
+  if (ctx.frame === 'pcb_edit' && b.locked) rows.push({ upper: 'Status', lower: 'Locked' });
+
+  rows.push({ upper: 'Layer', lower: layerName(ctx, b.layer) });
+  rows.push({ upper: 'Angle', lower: formatG(b.angle) });
+  rows.push({ upper: 'Text Height', lower: fmt(ctx, b.textHeight) });
+
+  return rows;
+}
+
+/**
+ * `ENUM_MAP<BARCODE_T>::Instance().ToString( m_kind )`, registered in
+ * `pcb_barcode.cpp:900-909`.
+ *
+ * These are the raw enum spellings — `CODE_39`, not "Code 39" — because that
+ * is what `_HKI( "CODE_39" )` maps them to. The property grid and this message
+ * row both show them, and they are deliberately not the dialog's radio-box
+ * labels, which read "Code 39 (ISO 16388)".
+ */
+const BARCODE_KIND_LABEL: Readonly<Record<BarcodeKind, string>> = {
+  code39: 'CODE_39',
+  code128: 'CODE_128',
+  datamatrix: 'DATA_MATRIX',
+  qr: 'QR_CODE',
+  microqr: 'MICRO_QR_CODE',
+};
+
 /** What the dispatcher needs to describe a selection it did not build. */
 export interface PcbMsgPanelSelection {
   /** Board item ids, as `boardItemId` encodes them. */
@@ -1052,6 +1108,10 @@ export function boardItemMsgPanelInfo(ctx: PcbMsgPanelContext, ref: BoardItemRef
     case 'point': {
       const p = b.points[ref.index];
       return p ? pcbPointMsgPanelInfo(ctx, p) : [];
+    }
+    case 'barcode': {
+      const bar = b.barcodes[ref.index];
+      return bar ? pcbBarcodeMsgPanelInfo(ctx, bar) : [];
     }
     default:
       // PCB_TEXTBOX, PCB_TABLE, PCB_DIMENSION, PCB_REFERENCE_IMAGE and
