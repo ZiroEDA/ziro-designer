@@ -233,6 +233,41 @@ export interface CloudBackend {
    */
   setLinkAccess?(uid: string, role: 'viewer' | 'editor' | null): Promise<void>;
 
+  /**
+   * Who is on a project: the owner and every member, by address.
+   *
+   * A roster has to show people, and `project_members` stores user ids —
+   * reading an address means reading `auth.users`, which no client may do.
+   * `project_roster()` is the one function that may, for one project, and only
+   * for somebody already on it.
+   */
+  projectRoster?(
+    uid: string,
+  ): Promise<{ user_id: string; email: string; role: string; joined_at: string }[]>;
+
+  /** Change what a member may do. Owner-only, enforced by policy. */
+  setMemberRole?(uid: string, userId: string, role: 'viewer' | 'editor'): Promise<void>;
+
+  /** Take somebody off a project. Owner-only, except that anyone may leave. */
+  removeMember?(uid: string, userId: string): Promise<void>;
+
+  /**
+   * Invite somebody by address, creating a token addressed to them.
+   *
+   * Nothing sends them mail: there is no mail path in this app yet, so the
+   * invitation is a row that becomes real the next time that person signs in
+   * and follows the link. The caller has to say so rather than implying an
+   * email was sent, which is why `pendingInvites` exists — an invitation that
+   * cannot be seen is indistinguishable from one that failed.
+   */
+  inviteByEmail?(uid: string, email: string, role: 'viewer' | 'editor'): Promise<void>;
+
+  /** Invitations issued and not yet redeemed. Owner-only, by policy. */
+  pendingInvites?(uid: string): Promise<{ token: string; email: string; role: string }[]>;
+
+  /** Withdraw an invitation that has not been redeemed. */
+  revokeInvite?(token: string): Promise<void>;
+
   deleteProject(id: string): Promise<void>;
 
   /** Store bytes at a path. Resolves only when the object is durably written. */

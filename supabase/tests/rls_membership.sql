@@ -142,3 +142,26 @@ update public.projects set link_access = 'editor'; commit;
 begin; set local role authenticated; set local "request.jwt.claim.sub" = 'bbbbbbbb-0000-0000-0000-000000000002';
 update public.projects set name = 'Renamed by the editor'; commit;
 select name from public.projects;
+
+-- Three by now, not two: A owns it, B was made an editor in 19 and C joined by
+-- link in 15 and was promoted in 21. The owner comes first because ownership is
+-- the projects row and carries its created_at.
+\echo '### 22 the roster names the owner and every member -- expect a@owner, c@editor, b@editor'
+begin; set local role authenticated; set local "request.jwt.claim.sub" = 'aaaaaaaa-0000-0000-0000-000000000001';
+select email, role from public.project_roster(:'puid'::uuid); commit;
+
+\echo '### 23 a member sees the same roster -- expect the same three'
+begin; set local role authenticated; set local "request.jwt.claim.sub" = 'bbbbbbbb-0000-0000-0000-000000000002';
+select email, role from public.project_roster(:'puid'::uuid); commit;
+
+\echo '### 24 somebody not on the project sees nothing -- expect exception'
+\set QUIET on
+delete from public.project_members where user_id = 'cccccccc-0000-0000-0000-000000000003';
+update public.projects set link_access = null;
+\set QUIET off
+begin; set local role authenticated; set local "request.jwt.claim.sub" = 'cccccccc-0000-0000-0000-000000000003';
+select email from public.project_roster(:'puid'::uuid); rollback;
+
+\echo '### 25 ...and cannot enumerate accounts with a uid they invented -- expect exception'
+begin; set local role authenticated; set local "request.jwt.claim.sub" = 'cccccccc-0000-0000-0000-000000000003';
+select email from public.project_roster('00000000-0000-0000-0000-000000000000'::uuid); rollback;

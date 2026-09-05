@@ -159,6 +159,76 @@ export function supabaseBackend(): CloudBackend {
       if (error) throw new Error(`share ${uid}: ${error.message}`);
     },
 
+    async projectRoster(uid) {
+      const { data, error } = await db.rpc('project_roster', { p_uid: uid });
+      if (error) throw new Error(`read the people on ${uid}: ${error.message}`);
+      return (data ?? []) as {
+        user_id: string;
+        email: string;
+        role: string;
+        joined_at: string;
+      }[];
+    },
+
+    async setMemberRole(uid, userId, role) {
+      const { error } = await db
+        .from('project_members')
+        .update({ role })
+        .eq('project_uid', uid)
+        .eq('user_id', userId);
+      if (error) throw new Error(`change a role on ${uid}: ${error.message}`);
+    },
+
+    async removeMember(uid, userId) {
+      const { error } = await db
+        .from('project_members')
+        .delete()
+        .eq('project_uid', uid)
+        .eq('user_id', userId);
+      if (error) throw new Error(`remove somebody from ${uid}: ${error.message}`);
+    },
+
+    async inviteByEmail(uid, email, role) {
+      const me = (await db.auth.getUser()).data.user?.id;
+      if (!me) throw new Error('sign in to invite somebody');
+      // Lower-cased because that is what redemption compares against, and an
+      // address typed with a capital would otherwise never match.
+      const { error } = await db.from('project_invites').insert({
+        project_uid: uid,
+        email: email.trim().toLowerCase(),
+        role,
+        created_by: me,
+      });
+      if (error) throw new Error(`invite ${email}: ${error.message}`);
+    },
+
+    async pendingInvites(uid) {
+      const { data, error } = await db
+        .from('project_invites')
+        .select('token, email, role, revoked, uses, max_uses')
+        .eq('project_uid', uid)
+        .eq('revoked', false)
+        .not('email', 'is', null);
+      // No such table, or not the owner: either way there is nothing to show,
+      // and an owner-only list is not worth failing a whole panel over.
+      if (error) return [];
+      return (data ?? [])
+        .filter((r) => {
+          const row = r as { uses?: number; max_uses?: number | null };
+          // Spent, so no longer pending. A null `max_uses` is unlimited.
+          return row.max_uses == null || (row.uses ?? 0) < row.max_uses;
+        })
+        .map((r) => r as { token: string; email: string; role: string });
+    },
+
+    async revokeInvite(token) {
+      const { error } = await db
+        .from('project_invites')
+        .update({ revoked: true })
+        .eq('token', token);
+      if (error) throw new Error(`withdraw an invitation: ${error.message}`);
+    },
+
     async openByLink(uid) {
       const { data, error } = await db.rpc('join_project_by_link', { p_uid: uid });
       if (error) throw new Error(error.message);

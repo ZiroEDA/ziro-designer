@@ -485,7 +485,14 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // and its popup -- adds nothing to either: sized in `em` off `--ui-font-size`,
   // placed off `--statusbar-height`, coloured from `--chrome-fg` /
   // `--chrome-bg` / `--chrome-border`. RESCANNED from this tree.
-  ui: { colours: 208, metrics: 709 },
+  // 208 -> 206 colours: `--popup-shadow`. Every popup in the app casts the same
+  // shadow -- GTK draws one for popup windows, from the theme -- and it was
+  // written out as a literal three times, with the share panel about to be a
+  // fourth. Three copies out, one token declaration in, which the scanner skips
+  // as the central value rather than a copy of one. Net -2 because the panel's
+  // own copy was one of the three. Metrics do not move: `box-shadow` lengths
+  // are not a chrome metric here. RESCANNED from this tree.
+  ui: { colours: 206, metrics: 709 },
   // colours 6 -> 7: the opacity slider's #55585d track arrived here with
   // APPEARANCE_CONTROLS; it is the same literal `editors/pcb` lost, not a new
   // one. The panel's own stylesheet adds none: every length in
@@ -860,7 +867,9 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // 548 -> 546: pcbnew's own measure ruler; see the `editors/pcb` row.
     // RESCANNED, and the table agrees -- 63 -> 61 is the only row that moved.
     // 546 -> 545: `.ze-account-email`'s ink; see the `ui` row.
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(545);
+    // 545 -> 543: the three copies of the popup shadow, now `--popup-shadow`;
+    // see the `ui` row, which is again the only one that moved.
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(543);
     // 1657 -> 1649: the same sweep. A native colour input has no useful
     // default size, so eight of the sixteen sites gave theirs an inline
     // width and height; the shared swatch takes --swatch-*-w/h. Rescanned.

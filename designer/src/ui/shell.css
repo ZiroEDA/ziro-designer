@@ -469,6 +469,12 @@
      square. This is the window frame, so it is NOT --ctl-radius (6px), which is
      a button/entry value — ours used that on all four corners. */
   --window-radius: 12px;
+  /* The drop shadow every popup casts -- a menu, a flyout, the share panel.
+     GTK draws one shadow for popup windows, from the theme, so this is one
+     value in one place rather than a number each popup happens to carry. It
+     was written out three times, and the share panel was about to be a
+     fourth. */
+  --popup-shadow: 0 6px 18px rgb(0 0 0 / 45%);
   /* [css] `decoration { box-shadow: 0 3px 9px 1px rgba(0,0,0,0.5),
      0 0 0 1px rgba(0,0,0,0.75) }` (:4507) — a tight drop shadow plus a 1px
      hairline ring, not the deep soft shadow we had invented. */
@@ -1585,6 +1591,116 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 }
 /* Centred on the frame, not on the space left over by the home link — a WM
    centres the title on the title bar itself. */
+/* The right end of the title bar. `.ze-titlebar` is a flex row whose title is
+   absolutely centred, so this cannot push the title off centre, and `auto` is
+   the whole rule -- the row's own 6px gap already spaces whatever sits here. */
+/* Share, and the panel that hangs off it. See `home/ShareButton.tsx`: anchored
+   to the button rather than raised in the middle of the screen, so the thing
+   you asked for appears where you asked for it.
+
+   Everything here is stated in `em` and in tokens: the panel tracks
+   `--ui-font-size` and takes its ink from the same three chrome variables every
+   other popup does, so there is no pixel here for a theme change to leave
+   behind. `--titlebar-height` places it clear of the bar it hangs from. */
+.ze-share-anchor {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.ze-share-pop {
+  position: absolute;
+  top: 100%;
+  /* Right-aligned, because the button is at the right end of the title bar and
+     a left-aligned panel would run off the window. */
+  right: 0;
+  z-index: 200;
+  width: 26em;
+  max-width: 90vw;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75em;
+  padding: 0.85em 1em;
+  color: var(--chrome-fg);
+  background: var(--chrome-bg);
+  border: 1px solid var(--chrome-border);
+  border-radius: 0.5em;
+  box-shadow: var(--popup-shadow);
+}
+.ze-share-title {
+  font-weight: 600;
+}
+.ze-share-invite {
+  display: flex;
+  gap: 0.4em;
+  align-items: center;
+}
+.ze-share-invite input {
+  flex: 1;
+  min-width: 0;
+}
+.ze-share-people {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35em;
+  /* A project with twenty people scrolls rather than growing the panel past the
+     window. */
+  max-height: 14em;
+  overflow-y: auto;
+}
+.ze-share-person {
+  display: flex;
+  gap: 0.5em;
+  align-items: center;
+}
+/* The same monogram the account button draws, at text size: a person in a list
+   is identified the way a person in the corner is. */
+.ze-share-monogram {
+  flex: none;
+  width: 1.7em;
+  height: 1.7em;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--content-bg);
+  border: 1px solid var(--chrome-border);
+}
+.ze-share-person .lbl {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ze-share-remove {
+  flex: none;
+  font: inherit;
+  color: var(--chrome-fg);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+.ze-share-link {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4em;
+  border-top: 1px solid var(--chrome-border);
+  padding-top: 0.75em;
+}
+.ze-share-linkrow {
+  display: flex;
+  gap: 0.4em;
+}
+.ze-share-linkrow input {
+  flex: 1;
+  min-width: 0;
+}
+
+.ze-titlebar-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+}
 .ze-titlebar-title {
   position: absolute;
   left: 50%;
@@ -4160,7 +4276,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   background: #1d1d1d;
   border: 1px solid #4b4b4b;
   border-radius: 6px;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+  box-shadow: var(--popup-shadow);
   z-index: 100;
   padding: 4px 0;
   cursor: default;
@@ -4391,7 +4507,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   width: 560px;
   background: var(--chrome-bg);
   border: 1px solid var(--chrome-border);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+  box-shadow: var(--popup-shadow);
   z-index: 60;
 }
 /* The DRC dialog reuses the modeless find-dialog chrome (DIALOG_DRC is
@@ -11360,6 +11476,53 @@ textarea.ze-ds-textedit {
   justify-content: flex-end;
   gap: var(--wx-border);
   padding: var(--wx-border) 10px 10px; /* [px] the buttons sit 10 px off the dialog's edges */
+}
+
+/* ---- Color Themes (dialogs/prefs/dialog_theme_folder.tsx) ----
+   The stand-in for the directory "Open Theme Folder" launches a file manager
+   on. It is a listing, so it borrows the single-choice list's chrome rather
+   than restating a border, a radius and a field colour of its own. */
+.ze-modal.ze-themefolder {
+  width: fit-content;
+  height: auto;
+  min-width: 0;
+  max-width: 90vw;
+}
+.ze-themefolder-body {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--wx-border);
+}
+.ze-themefolder-list {
+  background: var(--field-bg);
+  border: 1px solid var(--ctl-border);
+  border-radius: var(--ctl-radius);
+  max-height: 220px;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: max-content 1fr max-content;
+  align-content: start;
+}
+.ze-themefolder-row {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  align-items: center;
+  column-gap: calc(var(--wx-border) * 2);
+  padding: 3px 8px;
+}
+.ze-themefolder-name {
+  color: var(--chrome-dim-fg);
+}
+.ze-themefolder-error {
+  color: var(--error-fg);
+}
+.ze-themefolder-buttons {
+  display: flex;
+  align-items: center;
+  gap: var(--wx-border);
+  padding: var(--wx-border) 10px 10px;
 }
 
 /* ---- DIALOG_PAGES_SETTINGS (common/dialogs/dialog_page_settings_base.cpp) ----

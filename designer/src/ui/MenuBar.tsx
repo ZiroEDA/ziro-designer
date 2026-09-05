@@ -366,12 +366,22 @@ export function ContextMenu({
 export function MenuBar({
   menus,
   leftSlot,
-  rightSlot,
+  titleRight,
   title,
 }: {
   menus: Menu[];
   leftSlot?: ReactNode;
-  rightSlot?: ReactNode;
+  /**
+   * The right end of the TITLE bar, not of the menu row.
+   *
+   * It used to be the menu row, and that was the whole complaint: a row whose
+   * every other child is a menu title had an account address and two links
+   * jammed on the end of it, reading as three more menus. The title bar is
+   * where a window-level control belongs -- the home link already rides there
+   * for the same reason -- and the title itself is absolutely centred, so a
+   * flex child at the end cannot push it off centre.
+   */
+  titleRight?: ReactNode;
   /** KiCad-style "<project>, <Editor>" shown in the bar (window-title info). */
   title?: ReactNode;
 }): JSX.Element {
@@ -397,10 +407,11 @@ export function MenuBar({
           in) is what forced it down to 8pt. The home link rides here too: it
           has no KiCad counterpart, and the title bar is where a window-level
           control belongs. */}
-      {(title || leftSlot) && (
+      {(title || leftSlot || titleRight) && (
         <div className="ze-titlebar">
           {leftSlot}
           {title && <div className="ze-titlebar-title">{title}</div>}
+          {titleRight && <div className="ze-titlebar-right">{titleRight}</div>}
         </div>
       )}
       <div className="ze-menubar" ref={ref}>
@@ -421,7 +432,6 @@ export function MenuBar({
             )}
           </div>
         ))}
-        {rightSlot}
       </div>
     </div>
   );
