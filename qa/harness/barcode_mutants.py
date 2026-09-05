@@ -116,7 +116,7 @@ MUTANTS = [
 
     ('writer: ecc_level for every kind',
      'pcbnew/src/write-footprint.ts',
-     "  if (b.kind === 'qr' || b.kind === 'microqr')\n    items.push(list(atom('ecc_level'), atom(b.ecc)));",
+     "  if (b.kind === 'qr' || b.kind === 'microqr') items.push(list(atom('ecc_level'), atom(b.ecc)));",
      "  items.push(list(atom('ecc_level'), atom(b.ecc)));",
      ['unittests/pcbnew/pcb_barcode_io.test.ts']),
 
@@ -141,7 +141,7 @@ MUTANTS = [
     ('hit test: the modules, not the hull',
      'pcbnew/src/edit-board.ts',
      "    const g = barcodeGeometry(bc);\n    for (const hull of barcodeHullBoxes(g, bc)) {",
-     "    const g = barcodeGeometry(bc);\n    for (const hull of []) {",
+     "    const g = barcodeGeometry(bc);\n    for (const hull of barcodeHullBoxes(g, bc).slice(0, 0)) {",
      ['unittests/pcbnew/pcb_barcode.test.ts']),
 
     ('rotate: the position turns but the item does not',
@@ -225,7 +225,7 @@ MUTANTS = [
     ('drc: a barcode on Edge.Cuts is fine',
      'pcbnew/src/drc/drc_engine.ts',
      "  for (const bc of [...board.barcodes, ...board.footprints.flatMap((fp) => fp.barcodes)]) {\n    if (bc.layer === 'Edge.Cuts') {",
-     "  for (const bc of []) {\n    if (bc.layer === 'Edge.Cuts') {",
+     "  for (const bc of [...board.barcodes, ...board.footprints.flatMap((fp) => fp.barcodes)].slice(0, 0)) {\n    if (bc.layer === 'Edge.Cuts') {",
      ['unittests/pcbnew/drc_misc.test.ts']),
 
     ('snap: a barcode offers no anchors',
