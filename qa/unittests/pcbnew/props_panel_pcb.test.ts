@@ -494,7 +494,15 @@ describe('PAD rows', () => {
     // BOARD_CONNECTED_ITEM's (board_connected_item.cpp) and comes last, because a
     // base class's groups are collected after the derived class's own
     // (property_mgr.cpp:319-345).
-    expect(groupOrder(smd)).toEqual(['', 'Pad Properties', 'Overrides', 'Teardrops']);
+    expect(groupOrder(smd)).toEqual([
+      '',
+      'Pad Properties',
+      // pad.cpp:3445-3446, registered between Pad Properties and Overrides.
+      'Post-machining Properties',
+      'Backdrill Properties',
+      'Overrides',
+      'Teardrops',
+    ]);
   });
 
   it('drops Size Y for a circle and the hole rows for an SMD pad', () => {
@@ -716,7 +724,14 @@ describe('VIA rows', () => {
     // inside a group. Every property PCB_VIA registers carries a group, so ''
     // only arrives from BOARD_ITEM, after "Via Properties"; "Teardrops" comes
     // from BOARD_CONNECTED_ITEM and is last.
-    expect(groupOrder(rows)).toEqual(['Via Properties', '', 'Teardrops']);
+    expect(groupOrder(rows)).toEqual([
+      'Via Properties',
+      // pcb_track.cpp:3179-3180 names these two, after groupVia.
+      'Backdrill',
+      'Post-machining',
+      '',
+      'Teardrops',
+    ]);
   });
 
   it('shows no Layer row: a via spans a range, and says so with two', () => {
@@ -868,6 +883,151 @@ describe('VIA rows', () => {
   it('commits the diameter and the hole', () => {
     expect(row(rows, 'Diameter').set?.(MM(1))?.vias[0]?.size).toBe(MM(1));
     expect(row(rows, 'Hole').set?.(MM(0.5))?.vias[0]?.drill).toBe(MM(0.5));
+  });
+});
+
+/**
+ * The Backdrill and Post-machining groups, which a pad and a via both carry
+ * because both are PADSTACKs — and which differ only in their group names, in
+ * Top/Bottom versus Front/Back, and in which of the two comes first.
+ */
+describe('the padstack drill groups, on the pad and the via', () => {
+  const drilled = load(
+    SRC.replace(
+      '(via (at 40 0) (size 0.8) (drill 0.4) (layers "F.Cu" "B.Cu") (net 1) (uuid "v1"))',
+      `(via (at 40 0) (size 0.8) (drill 0.4) (layers "F.Cu" "B.Cu") (net 1) (uuid "v1")
+         (backdrill (size 0.6) (layers "B.Cu" "In1.Cu"))
+         (front_post_machining counterbore (size 1.2) (depth 0.3))
+         (back_post_machining countersink (size 1.4) (angle 90)))`,
+    ),
+  );
+  const via = rowsFor('via:0', drilled);
+
+  it('reads a backdrill by its START layer, which is the side', () => {
+    // `findBackdrillDrill( aTop )` (padstack.cpp:523-536): the slot number means
+    // nothing and the start layer means everything — B.Cu is the bottom side.
+    // That is why KiCad 10.0 files, which used the tertiary slot for the top
+    // backdrill, still read correctly.
+    expect(drilled.vias[0]?.backdrill).toEqual({
+      size: MM(0.6),
+      start: 'B.Cu',
+      end: 'In1.Cu',
+    });
+    expect(row(via, 'Backdrill Mode').value).toBe('Backdrill bottom');
+    expect(row(via, 'Bottom Backdrill Size').value).toBe(MM(0.6));
+    expect(row(via, 'Bottom Backdrill Must-Cut').value).toBe('In1.Cu');
+  });
+
+  it("shows a side's size and must-cut only when the mode names that side", () => {
+    // The two `SetAvailableFunc`s on each pair (pcb_track.cpp:3238-3290).
+    expect(names(via)).not.toContain('Top Backdrill Size');
+    expect(names(via)).not.toContain('Top Backdrill Must-Cut');
+
+    const both = rowsFor('via:0', row(via, 'Backdrill Mode').set?.('Backdrill both') as Board);
+    expect(names(both)).toContain('Top Backdrill Size');
+    // `SetBackdrillMode` gives a new side a drill 10% over the main hole
+    // (padstack.cpp:549-550) — 0.4 mm here, so 0.44.
+    expect(row(both, 'Top Backdrill Size').value).toBe(MM(0.44));
+  });
+
+  it('writes the backdrill back as its own node, and drops it with the mode', () => {
+    const both = row(via, 'Backdrill Mode').set?.('Backdrill both');
+    expect(flat(both!.vias[0]!.source)).toContain('(tertiary_drill (size 0.44)');
+    const none = row(via, 'Backdrill Mode').set?.('No backdrill');
+    expect(flat(none!.vias[0]!.source)).not.toContain('backdrill');
+  });
+
+  it('builds no drill node for a slot with no size, as the writer does not', () => {
+    // `if( …SecondaryDrill().size.x > 0 )` (pcb_io_kicad_sexpr.cpp:2657): an
+    // empty slot is not a backdrill, and the BUILDER — the path a newly placed
+    // via takes — must not write one either.
+    const built = flat(
+      buildViaNode({
+        at: { x: 0, y: 0 },
+        size: MM(0.8),
+        drill: MM(0.4),
+        layers: ['F.Cu', 'B.Cu'],
+        kind: 'through',
+        net: 0,
+        backdrill: { size: 0, start: 'B.Cu', end: 'In1.Cu' },
+        source: { kind: 'list', items: [] },
+      }),
+    );
+    expect(built).not.toContain('backdrill');
+
+    const real = flat(
+      buildViaNode({
+        at: { x: 0, y: 0 },
+        size: MM(0.8),
+        drill: MM(0.4),
+        layers: ['F.Cu', 'B.Cu'],
+        kind: 'through',
+        net: 0,
+        backdrill: { size: MM(0.6), start: 'B.Cu', end: 'In1.Cu' },
+        source: { kind: 'list', items: [] },
+      }),
+    );
+    expect(real).toContain('(backdrill (size 0.6) (layers "B.Cu" "In1.Cu"))');
+  });
+
+  it('shows a post-machining measurement only for the mode that has it', () => {
+    // Size for either mode, Depth for a counterbore, Angle for a countersink
+    // (pad.cpp:3564-3614) — and the via says Front and Back where a pad says
+    // Top and Bottom for the same two sides.
+    expect(row(via, 'Front Post-machining').value).toBe('Counterbore');
+    expect(names(via)).toContain('Front Counterbore Depth');
+    expect(names(via)).not.toContain('Front Countersink Angle');
+
+    expect(row(via, 'Back Post-machining').value).toBe('Countersink');
+    expect(names(via)).toContain('Back Countersink Angle');
+    expect(names(via)).not.toContain('Back Counterbore Depth');
+  });
+
+  it('keeps the countersink angle in TENTHS of a degree, and writes degrees', () => {
+    // `PT_DECIDEGREE`, and the parser's `KiROUND( parseDouble( … ) * 10.0 )`
+    // against the writer's `FormatDouble2Str( angle / 10.0 )`.
+    expect(drilled.vias[0]?.backPostMachining?.angle).toBe(900);
+    expect(row(via, 'Back Countersink Angle').value).toBe('90°');
+
+    const wider = row(via, 'Back Countersink Angle').set?.('120');
+    expect(wider?.vias[0]?.backPostMachining?.angle).toBe(1200);
+    expect(flat(wider!.vias[0]!.source)).toContain('(angle 120)');
+  });
+
+  it('turns post-machining off by dropping the whole token', () => {
+    const off = row(via, 'Front Post-machining').set?.('Not post-machined');
+    expect(off?.vias[0]?.frontPostMachining).toBeUndefined();
+    expect(flat(off!.vias[0]!.source)).not.toContain('front_post_machining');
+    expect(flat(off!.vias[0]!.source)).toContain('back_post_machining');
+  });
+
+  it("gives a pad the same rows under the pad's own names", () => {
+    const pad = rowsFor('pad:0:1');
+    // pad.cpp:3445-3446 for the group names, and Top/Bottom for the sides.
+    expect(groupOrder(pad)).toContain('Post-machining Properties');
+    expect(groupOrder(pad)).toContain('Backdrill Properties');
+    expect(names(pad)).toContain('Top Post-machining');
+    expect(names(pad)).toContain('Bottom Post-machining');
+    expect(names(pad)).not.toContain('Front Post-machining');
+
+    const bored = row(pad, 'Top Post-machining').set?.('Counterbore');
+    expect(bored?.footprints[0]?.pads[1]?.frontPostMachining?.mode).toBe('counterbore');
+    expect(flat(bored!.footprints[0]!.pads[1]!.source)).toContain(
+      '(front_post_machining counterbore)',
+    );
+  });
+
+  it('registers the two groups in the opposite order on a pad and a via', () => {
+    // A via registers Backdrill Mode (pcb_track.cpp:3231) before its
+    // post-machining (:3419); a pad registers Top Post-machining
+    // (pad.cpp:3551) before its Backdrill Mode (:3681). The panel shows each in
+    // its own order.
+    const viaGroups = groupOrder(via).filter((g) => g === 'Backdrill' || g === 'Post-machining');
+    expect(viaGroups).toEqual(['Backdrill', 'Post-machining']);
+    const padGroups = groupOrder(rowsFor('pad:0:1')).filter(
+      (g) => g.startsWith('Backdrill') || g.startsWith('Post-machining'),
+    );
+    expect(padGroups).toEqual(['Post-machining Properties', 'Backdrill Properties']);
   });
 });
 

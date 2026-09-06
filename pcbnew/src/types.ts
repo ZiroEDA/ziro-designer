@@ -17,6 +17,7 @@ import type { SList } from '@ziroeda/sexpr/src/types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import type { ZoneConnection } from './zone_connection.js';
 import type { PcbFillMode } from './shape_fill.js';
+import type { PcbDrillSlot, PcbPostMachining } from './padstack_drill.js';
 
 /** One `(N "Name" type [userName])` row of the `(layers …)` table. */
 export interface PcbLayerDef {
@@ -94,6 +95,17 @@ export interface PcbPad {
   thermalGap?: number;
   /** `(die_length …)`, PAD::GetPadToDieLength, IU. */
   padToDieLength?: number;
+  /**
+   * The PADSTACK's two secondary drill slots and its post-machining
+   * (`(backdrill …)`, `(tertiary_drill …)`, `(front_post_machining …)`,
+   * `(back_post_machining …)` — pcb_io_kicad_sexpr.cpp:1744-1784). A backdrill's
+   * SIDE is its start layer, not its slot, so read them through
+   * `padstack_drill.ts` rather than by position.
+   */
+  backdrill?: PcbDrillSlot;
+  tertiaryDrill?: PcbDrillSlot;
+  frontPostMachining?: PcbPostMachining;
+  backPostMachining?: PcbPostMachining;
   /** `(teardrops …)`, PAD::GetTeardropParams. Absent means upstream's defaults. */
   teardrops?: TeardropParams;
   /**
@@ -430,6 +442,12 @@ export interface PcbVia {
   plugging?: FrontBackOptBool;
   capping?: boolean;
   filling?: boolean;
+  /** The same two backdrill slots and post-machining a pad carries
+   *  (pcb_io_kicad_sexpr.cpp:2657-2694). */
+  backdrill?: PcbDrillSlot;
+  tertiaryDrill?: PcbDrillSlot;
+  frontPostMachining?: PcbPostMachining;
+  backPostMachining?: PcbPostMachining;
   /**
    * `(remove_unused_layers …)` / `(keep_end_layers …)` / `(start_end_only …)`,
    * PADSTACK's UNCONNECTED_LAYER_MODE. Absent means the file said nothing,
@@ -497,6 +515,13 @@ export interface PcbZone {
   hatchSmoothingValue?: number;
   /** `(fill … (hatch_min_hole_area …))`, as a fraction of a full grid hole. */
   hatchHoleMinArea?: number;
+  /**
+   * `ZONE::LayerProperties()` — this zone's OWN per-layer overrides, written as
+   * bare `(property (layer …) (hatch_position (xy …)))` children of the zone
+   * (`pcb_io_kicad_sexpr.cpp:3052-3055`). Keyed by canonical layer name, in IU.
+   * A layer absent here falls back to the board's Zone Hatch Offsets page.
+   */
+  layerProperties?: Record<string, { x: number; y: number }>;
   /** `(fill … (smoothing chamfer|fillet))`, ZONE_SETTINGS::m_cornerSmoothingType. */
   cornerSmoothing?: 'none' | 'chamfer' | 'fillet';
   /** `(fill … (radius …))`, the chamfer distance / fillet radius in IU. */

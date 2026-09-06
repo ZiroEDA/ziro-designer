@@ -68,6 +68,7 @@ import type {
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { zoneConnectionFromCode, type ZoneConnection } from './zone_connection.js';
 import type { FrontBackOptBool } from './types.js';
+import { readDrillSlot, readPostMachining } from './padstack_drill.js';
 import { pcbFillModeFromToken } from './shape_fill.js';
 
 /**
@@ -1006,6 +1007,10 @@ function readPad(item: SList, t: FpTransform | null): PcbPad | null {
     padToDieLength: mmOrUndef(item, 'die_length'),
     teardrops: readTeardropParams(childNamed(item, 'teardrops')),
     unconnectedLayerMode: readUnconnectedLayerMode(item, false),
+    backdrill: readDrillSlot(item, 'backdrill', mmToIU),
+    tertiaryDrill: readDrillSlot(item, 'tertiary_drill', mmToIU),
+    frontPostMachining: readPostMachining(item, 'front_post_machining', mmToIU),
+    backPostMachining: readPostMachining(item, 'back_post_machining', mmToIU),
     uuid: uuidOf(item),
     source: item,
   };
@@ -1309,6 +1314,23 @@ function readZone(item: SList): PcbZone {
     hatchSmoothingLevel: numChild(fillNode, 'hatch_smoothing_level') ?? 0,
     hatchSmoothingValue: numChild(fillNode, 'hatch_smoothing_value') ?? 0,
     hatchHoleMinArea: numChild(fillNode, 'hatch_min_hole_area') ?? 0.3,
+    // A zone's own `(property (layer …) (hatch_position (xy X Y)))` entries.
+    // They sit directly under the zone, not inside `(fill …)`, and only a
+    // property that carries a hatch_position counts as an override.
+    layerProperties: (() => {
+      const out: Record<string, { x: number; y: number }> = {};
+      for (const prop of childrenNamed(item, 'property')) {
+        const layerNode = childNamed(prop, 'layer');
+        const layer = layerNode ? arg(layerNode, 0) : undefined;
+        const hatch = childNamed(prop, 'hatch_position');
+        const xy = hatch ? childNamed(hatch, 'xy') : undefined;
+        const x = xy ? numArg(xy, 0) : undefined;
+        const y = xy ? numArg(xy, 1) : undefined;
+        if (layer && x !== undefined && y !== undefined)
+          out[layer] = { x: mmToIU(x), y: mmToIU(y) };
+      }
+      return Object.keys(out).length ? out : undefined;
+    })(),
     filled: fillNode ? arg(fillNode, 0) === 'yes' : false,
     islandRemovalMode: (() => {
       const v = numChild(fillNode, 'island_removal_mode');
@@ -1542,6 +1564,10 @@ export function readBoard(root: SList): Board {
           plugging: frontBackOptBoolOf(childNamed(item, 'plugging')),
           capping: optBoolOf(childNamed(item, 'capping')),
           filling: optBoolOf(childNamed(item, 'filling')),
+          backdrill: readDrillSlot(item, 'backdrill', mmToIU),
+          tertiaryDrill: readDrillSlot(item, 'tertiary_drill', mmToIU),
+          frontPostMachining: readPostMachining(item, 'front_post_machining', mmToIU),
+          backPostMachining: readPostMachining(item, 'back_post_machining', mmToIU),
           unconnectedLayerMode: readUnconnectedLayerMode(item, true),
           locked: lockedOf(item),
           uuid: uuidOf(item),

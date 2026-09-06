@@ -52,6 +52,12 @@ import type {
   StrokeType,
 } from './types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
+import {
+  drillSlotNode,
+  postMachiningNode,
+  type PcbDrillSlot,
+  type PcbPostMachining,
+} from './padstack_drill.js';
 
 const list = (...items: SNode[]): SList => ({ kind: 'list', items });
 
@@ -142,10 +148,39 @@ export function buildViaNode(v: PcbVia): SList {
     items.push(list(atom('keep_end_layers'), atom(keep ? 'yes' : 'no')));
   }
   if (!isDefaultTeardropParams(v.teardrops)) items.push(buildTeardropParamsNode(v.teardrops!));
+  items.push(...padstackDrillNodes(v));
   items.push(...viaOuterLayerNodes(v));
   if (v.uuid) items.push(list(atom('uuid'), str(v.uuid)));
   return { kind: 'list', items };
 }
+
+/**
+ * The PADSTACK's secondary drills and post-machining, in the writer's order and
+ * on its conditions: a drill slot only when its size is positive
+ * (`if( …SecondaryDrill().size.x > 0 )`), and post-machining only for a mode
+ * that is set and not NOT_POST_MACHINED. Shared by the pad and via builders,
+ * because `format()` writes the same four tokens for both.
+ */
+export function padstackDrillNodes(item: {
+  backdrill?: PcbDrillSlot;
+  tertiaryDrill?: PcbDrillSlot;
+  frontPostMachining?: PcbPostMachining;
+  backPostMachining?: PcbPostMachining;
+}): SList[] {
+  const out: SList[] = [];
+  if (item.backdrill && item.backdrill.size > 0)
+    out.push(drillSlotNode('backdrill', item.backdrill, mm));
+  if (item.tertiaryDrill && item.tertiaryDrill.size > 0)
+    out.push(drillSlotNode('tertiary_drill', item.tertiaryDrill, mm));
+  if (item.frontPostMachining)
+    out.push(postMachiningNode('front_post_machining', item.frontPostMachining, mm, formatG2));
+  if (item.backPostMachining)
+    out.push(postMachiningNode('back_post_machining', item.backPostMachining, mm, formatG2));
+  return out;
+}
+
+/** `FormatDouble2Str`, which is what the angle is written through. */
+const formatG2 = (n: number): string => String(Number.parseFloat(n.toFixed(6)));
 
 /** `FormatOptBool`: `yes`, `no`, or `none` for the empty optional. */
 const optBoolNode = (name: string, v: boolean | undefined): SList =>

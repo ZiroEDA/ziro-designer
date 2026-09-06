@@ -64,12 +64,22 @@ import { GetArcAngle } from '@ziroeda/common/src/eda_shape.js';
 import { UI_FILL_MODE_CHOICES } from './shape_fill.js';
 import type { TeardropParams } from './types.js';
 import { UNCONNECTED_LAYER_MODE_CHOICES } from './unused_pad_layers.js';
+import {
+  applyBackdrillMode,
+  backdrillMode,
+  backdrillSlot,
+  setBackdrillSlot,
+  type BackdrillMode,
+  type PcbPostMachining,
+  type WithBackdrills,
+} from './padstack_drill.js';
 import { defaultTeardropParameters } from './teardrop.js';
 import { arcCenter } from './read-board.js';
 import { ELECTRICAL_PINTYPES, type ElectricalPinType } from '@ziroeda/common/src/pin_type.js';
 import {
   applyTrackViaValues,
   trackViaSelection,
+  type TrackViaSelection,
   type TrackViaValues,
 } from './track_via_properties.js';
 import {
@@ -103,8 +113,10 @@ import {
   sizeForScale,
   type ImageValues,
 } from './image_properties.js';
-import { atom, list, str, type SList } from '@ziroeda/sexpr/src/index.js';
+import { atom, head, list, str, type SList } from '@ziroeda/sexpr/src/index.js';
 import { dropChild, patchChild } from './edit-board.js';
+import { padstackDrillNodes } from './write-board.js';
+import type { PcbDrillSlot } from './padstack_drill.js';
 import { pcbIuToMM, pcbMmToIU } from '@ziroeda/common/src/eda_units.js';
 import { formatG } from '@ziroeda/common/src/plotters/fmt.js';
 import {
@@ -114,8 +126,10 @@ import {
   type Board,
   type PcbBarcode,
   type PcbFootprint,
+  type PcbPad,
   type PcbPoint,
   type PcbShape,
+  type PcbVia,
   type PcbGroup,
   type PcbZone,
 } from './types.js';
@@ -341,6 +355,73 @@ const SHAPE_T_CHOICES = [
   ['curve', 'Bezier'],
 ] as const satisfies readonly (readonly [PcbShape['kind'], string])[];
 
+/**
+ * Write padstack fields straight onto a pad or a via and re-patch its source.
+ *
+ * These four tokens are not part of either dialog's value object — no dialog
+ * edits them — so they do not go through `applyPadValues` / `applyTrackViaValues`.
+ * The node is patched child by child, in the writer's order, so a via's
+ * unrelated tokens survive.
+ */
+function patchPad(board: Board, ref: PadRef, patch: Partial<PcbPad>): Board {
+  const fp = board.footprints[ref.footprint];
+  const pad = fp?.pads[ref.pad];
+  if (!fp || !pad) return board;
+  const next: PcbPad = { ...pad, ...patch };
+  return {
+    ...board,
+    footprints: board.footprints.map((f, i) =>
+      i === ref.footprint
+        ? {
+            ...f,
+            pads: f.pads.map((p, j) =>
+              j === ref.pad ? { ...next, source: repatchPadstackDrills(next) } : p,
+            ),
+          }
+        : f,
+    ),
+  };
+}
+
+function patchVia(board: Board, sel: TrackViaSelection, patch: Partial<PcbVia>): Board {
+  const idx = sel.vias[0]?.index;
+  if (idx === undefined) return board;
+  const via = board.vias[idx];
+  if (!via) return board;
+  const next: PcbVia = { ...via, ...patch };
+  return {
+    ...board,
+    vias: board.vias.map((v, i) =>
+      i === idx ? { ...next, source: repatchPadstackDrills(next) } : v,
+    ),
+  };
+}
+
+/** The four padstack tokens, patched into a stored source or dropped from it. */
+function repatchPadstackDrills<
+  T extends {
+    source: SList;
+    backdrill?: PcbDrillSlot;
+    tertiaryDrill?: PcbDrillSlot;
+    frontPostMachining?: PcbPostMachining;
+    backPostMachining?: PcbPostMachining;
+  },
+>(item: T): SList {
+  if (item.source.items.length === 0) return item.source;
+  let src = item.source;
+  const nodes = padstackDrillNodes(item);
+  for (const token of [
+    'backdrill',
+    'tertiary_drill',
+    'front_post_machining',
+    'back_post_machining',
+  ] as const) {
+    const node = nodes.find((n) => head(n) === token);
+    src = node ? patchChild(src, token, node) : dropChild(src, token);
+  }
+  return src;
+}
+
 /** A read-only row — upstream's `wxPG_PROP_READONLY`. */
 const roRow = (group: string, name: string, value: string): PcbPropRow => ({
   group,
@@ -479,6 +560,157 @@ const sideRow = (
     (v) => commit(v === 'board' ? undefined : v === 'yes'),
   ),
 ];
+
+/**
+ * The Backdrill and Post-machining groups, which a PAD and a VIA both carry
+ * because both are PADSTACKs (pad.cpp:3551-3700, pcb_track.cpp:3218-3300).
+ *
+ * The two differ only in their group NAMES — the pad's are "Backdrill
+ * Properties" and "Post-machining Properties", the via's are "Backdrill" and
+ * "Post-machining" — and in the pad's side words, which are Top and Bottom
+ * where the via says Front and Back for the same two sides. Everything under
+ * them is the same padstack, so it is written once.
+ *
+ * Availability is heavily conditional and each condition is upstream's:
+ *
+ *   Backdrill size / must-cut   only for the side(s) the mode names
+ *   Post-machining size         mode is a counterbore OR a countersink
+ *   Counterbore depth           mode is a counterbore
+ *   Countersink angle           mode is a countersink, and PT_DECIDEGREE
+ */
+function padstackDrillRows(
+  item: WithBackdrills & {
+    frontPostMachining?: PcbPostMachining;
+    backPostMachining?: PcbPostMachining;
+  },
+  opts: {
+    backdrillGroup: string;
+    postGroup: string;
+    /** The pad says Top/Bottom where the via says Front/Back. */
+    sideWord: (top: boolean) => string;
+    copperLayers: readonly (readonly [string, string])[];
+    commitBackdrill: (next: WithBackdrills) => Board;
+    commitPost: (top: boolean, next: PcbPostMachining | undefined) => Board;
+    /** The main hole, which a new backdrill is sized 10% over. */
+    mainDrill: number;
+    /** `SetBackdrillEndLayer`'s default when a side is switched on. */
+    defaultEnd: (top: boolean) => string;
+    /**
+     * Which group is registered first, and so which one the panel shows first.
+     * They differ: a VIA registers Backdrill Mode (pcb_track.cpp:3231) before
+     * its post-machining (:3419), and a PAD registers Top Post-machining
+     * (pad.cpp:3551) before its Backdrill Mode (:3681).
+     */
+    postFirst?: boolean;
+  },
+): PcbPropRow[] {
+  const B = opts.backdrillGroup;
+  const P = opts.postGroup;
+  const mode = backdrillMode(item);
+
+  const rows: PcbPropRow[] = [];
+  const post: PcbPropRow[] = [];
+
+  rows.push(
+    choiceRow(B, 'Backdrill Mode', mode, BACKDRILL_MODE_CHOICES, (next) =>
+      opts.commitBackdrill(applyBackdrillMode(item, next, opts.mainDrill, opts.defaultEnd)),
+    ),
+  );
+
+  // Bottom before top, as both DESCs register them.
+  for (const top of [false, true]) {
+    const on = mode === 'both' || mode === (top ? 'top' : 'bottom');
+    if (!on) continue;
+    const slot = backdrillSlot(item, top);
+    const word = top ? 'Top' : 'Bottom';
+
+    rows.push(
+      {
+        group: B,
+        name: `${word} Backdrill Size`,
+        kind: 'dist',
+        value: slot?.size ?? null,
+        optional: true,
+        set: (n) => {
+          if (n === '') return opts.commitBackdrill(setBackdrillSlot(item, top, undefined));
+          if (typeof n !== 'number' || !slot) return null;
+          return opts.commitBackdrill(setBackdrillSlot(item, top, { ...slot, size: n }));
+        },
+      },
+      choiceRow(
+        B,
+        `${word} Backdrill Must-Cut`,
+        slot?.end ?? '',
+        opts.copperLayers,
+        slot
+          ? (end) => opts.commitBackdrill(setBackdrillSlot(item, top, { ...slot, end }))
+          : undefined,
+      ),
+    );
+  }
+
+  for (const top of [true, false]) {
+    const p = top ? item.frontPostMachining : item.backPostMachining;
+    const word = opts.sideWord(top);
+    const set = (next: PcbPostMachining | undefined): Board => opts.commitPost(top, next);
+
+    post.push(
+      choiceRow(P, `${word} Post-machining`, p?.mode ?? 'none', POST_MACHINING_CHOICES, (m) =>
+        set(m === 'none' ? undefined : { ...(p ?? {}), mode: m }),
+      ),
+    );
+
+    if (!p) continue;
+
+    post.push({
+      group: P,
+      name: `${word} Post-machining Size`,
+      kind: 'dist',
+      value: p.size ?? 0,
+      set: (n) => (typeof n === 'number' ? set({ ...p, size: n }) : null),
+    });
+
+    if (p.mode === 'counterbore')
+      post.push({
+        group: P,
+        name: `${word} Counterbore Depth`,
+        kind: 'dist',
+        value: p.depth ?? 0,
+        set: (n) => (typeof n === 'number' ? set({ ...p, depth: n }) : null),
+      });
+
+    if (p.mode === 'countersink')
+      post.push({
+        // PT_DECIDEGREE: the property is tenths of a degree, and the cell shows
+        // the degrees — `FormatDouble2Str( angle / 10.0 )` is what the file gets.
+        group: P,
+        name: `${word} Countersink Angle`,
+        kind: 'string',
+        value: ANGLE((p.angle ?? 0) / 10),
+        set: (t) => {
+          const deg = parseAngle(t);
+          return deg === null ? null : set({ ...p, angle: Math.round(deg * 10) });
+        },
+      });
+  }
+
+  return opts.postFirst ? [...post, ...rows] : [...rows, ...post];
+}
+
+/** `ENUM_MAP<BACKDRILL_MODE>` (pad.cpp:3378-3385), in Map order. */
+const BACKDRILL_MODE_CHOICES = [
+  ['none', 'No backdrill'],
+  ['bottom', 'Backdrill bottom'],
+  ['top', 'Backdrill top'],
+  ['both', 'Backdrill both'],
+] as const satisfies readonly (readonly [BackdrillMode, string])[];
+
+/** `ENUM_MAP<PAD_DRILL_POST_MACHINING_MODE>` (pad.cpp:3370-3376). */
+const POST_MACHINING_CHOICES = [
+  ['none', 'Not post-machined'],
+  ['counterbore', 'Counterbore'],
+  ['countersink', 'Countersink'],
+] as const satisfies readonly (readonly ['none' | 'counterbore' | 'countersink', string])[];
 
 /**
  * The Teardrops group — `BOARD_CONNECTED_ITEM_DESC` (board_connected_item.cpp),
@@ -830,6 +1062,24 @@ function padRows(board: Board, ref: PadRef): PcbPropRow[] {
       });
   }
 
+  // `groupPostMachining` and `groupBackdrill` are declared with groupPad
+  // (pad.cpp:3444-3446) and registered before the Overrides, so the two groups
+  // sit between them. A pad says Top and Bottom where a via says Front and Back.
+  rows.push(
+    ...padstackDrillRows(pad, {
+      backdrillGroup: 'Backdrill Properties',
+      postGroup: 'Post-machining Properties',
+      sideWord: (top) => (top ? 'Top' : 'Bottom'),
+      postFirst: true,
+      copperLayers: layerChoices(board, true),
+      mainDrill: pad.drill?.w ?? 0,
+      defaultEnd: (top) => (top ? 'B.Cu' : 'F.Cu'),
+      commitBackdrill: (next) => patchPad(board, ref, next),
+      commitPost: (top, next) =>
+        patchPad(board, ref, top ? { frontPostMachining: next } : { backPostMachining: next }),
+    }),
+  );
+
   rows.push(
     // "Copper Layers" is UNCONNECTED_LAYER_MODE (pad.cpp:3390-3397, 3757-3759) —
     // what a through-hole pad does with a layer it is NOT connected on — and not
@@ -1064,6 +1314,20 @@ function viaRows(board: Board, id: string, ctx: PcbPropertiesContext): PcbPropRo
     ),
     ...sideRow('Capping', via.capping, CAPPING_CHOICES, (b) => commit({ capping: b ?? null })),
     ...sideRow('Filling', via.filling, FILLING_CHOICES, (b) => commit({ filling: b ?? null })),
+    // `groupBackdrill` and `groupPostMachining` are declared beside groupVia
+    // (pcb_track.cpp:3178-3180) and their properties registered after it, so the
+    // two groups sit here — before Basic Properties, which is a BASE class's.
+    ...padstackDrillRows(via, {
+      backdrillGroup: 'Backdrill',
+      postGroup: 'Post-machining',
+      sideWord: (top) => (top ? 'Front' : 'Back'),
+      copperLayers: copper,
+      mainDrill: via.drill,
+      defaultEnd: (top) => (top ? (via.layers[1] ?? 'B.Cu') : (via.layers[0] ?? 'F.Cu')),
+      commitBackdrill: (next) => patchVia(board, sel, next),
+      commitPost: (top, next) =>
+        patchVia(board, sel, top ? { frontPostMachining: next } : { backPostMachining: next }),
+    }),
     {
       group: '',
       name: 'Position X',

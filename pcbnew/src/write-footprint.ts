@@ -40,6 +40,7 @@ import type {
   TeardropParams,
 } from './types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
+import { padstackDrillNodes } from './write-board.js';
 
 /** SEXPR board/footprint file version (KiCad 9.0; matches pcbnew's output). */
 export const FOOTPRINT_FILE_VERSION = 20241229;
@@ -213,6 +214,10 @@ export function buildPadNode(pad: PcbPad, fp?: PcbFootprint): SList {
       items.push(list(atom('keep_end_layers'), atom(keep ? 'yes' : 'no')));
     }
   }
+  // The PADSTACK's secondary drills and post-machining, which `format( const
+  // PAD* )` writes right after the hole and before the shape extras
+  // (pcb_io_kicad_sexpr.cpp:1744-1784).
+  items.push(...padstackDrillNodes(pad));
   if (pad.roundrectRatio !== undefined)
     items.push(list(atom('roundrect_rratio'), atom(mm(pad.roundrectRatio))));
   if (pad.chamferRatio !== undefined)
