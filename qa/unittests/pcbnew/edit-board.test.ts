@@ -232,6 +232,27 @@ describe('shape hit-test (EDA_SHAPE)', () => {
     const b = board({ shapes: [s] });
     expect(hitTestBoard(b, { x: 100, y: 100 }, 0)).toBe('shape:0');
   });
+  it('HATCHED rect: a click on a hatch LINE picks the shape', () => {
+    // `if( IsHatchedFill() && GetHatching().Collide( … ) )`
+    // (eda_shape.cpp:1522-1523): the lines are real geometry, so the interior
+    // is neither wholly live (that is a solid fill) nor wholly dead.
+    const hatched: PcbShape = {
+      kind: 'rect',
+      start: { x: 0, y: 0 },
+      end: { x: 10_000, y: 10_000 },
+      width: 100,
+      fillMode: 'hatch',
+      layer: 'F.SilkS',
+      source: EMPTY,
+    };
+    const b = board({ shapes: [hatched] });
+    // The -1 family through the middle: the line at offset 10000 runs corner to
+    // corner, so the centre is on it.
+    expect(hitTestBoard(b, { x: 5000, y: 5000 }, 10)).toBe('shape:0');
+    // Half a spacing off that line, and between two of them, is a miss: the
+    // spacing is 10 x the 100-unit pen, so 500 units is well clear of both.
+    expect(hitTestBoard(b, { x: 5000, y: 5000 + 500 }, 10)).toBeNull();
+  });
   it('rounded rect: the corner is an ARC, so just outside it is a miss', () => {
     // `EDA_SHAPE::hitTest` takes the ROUNDRECT outline when `m_cornerRadius > 0`
     // (eda_shape.cpp:1500-1508) — the square outline it would otherwise walk
@@ -257,11 +278,13 @@ describe('shape hit-test (EDA_SHAPE)', () => {
     // And the straight runs still hit, which is the part the clamps leave alone.
     expect(hitTestBoard(b, { x: 500, y: 0 }, 5)).toBe('shape:0');
   });
-  it('HATCHED circle: the interior does NOT hit, because hit-testing asks IsSolidFill', () => {
-    // `EDA_SHAPE::IsFilledForHitTesting()` is `IsSolidFill()` (eda_shape.h:143),
-    // and the three hatch modes are not solid — so a hatched shape is picked by
-    // its outline, exactly as an unfilled one is. `IsAnyFill()` would be true
-    // here and is the wrong question.
+  it('HATCHED circle: the interior is live on the LINES and dead between them', () => {
+    // Two rules meet here. `IsFilledForHitTesting()` is `IsSolidFill()`
+    // (eda_shape.h:143), so the interior is not uniformly live the way a solid
+    // fill's is — `IsAnyFill()` would say it was, and is the wrong question. But
+    // every case then ends with `IsHatchedFill() && GetHatching().Collide( … )`
+    // (eda_shape.cpp:1522-1523), so a click that lands ON a hatch line picks the
+    // shape. Both, or the fill is either a solid or invisible.
     const hatched: PcbShape = {
       kind: 'circle',
       center: { x: 0, y: 0 },
@@ -272,7 +295,13 @@ describe('shape hit-test (EDA_SHAPE)', () => {
       source: EMPTY,
     };
     const b = board({ shapes: [hatched] });
-    expect(hitTestBoard(b, { x: 100, y: 100 }, 0)).toBeNull();
+    // The pen is 20, so the spacing is 200 and the -1 family runs through
+    // (100, 100): that point is on a line.
+    expect(hitTestBoard(b, { x: 100, y: 100 }, 0)).toBe('shape:0');
+    // (100, 200) is on neither family — a is 300 for the -1 lines and 100 for
+    // the +1 lines, and neither is a multiple of 200 off the snapped start.
+    expect(hitTestBoard(b, { x: 100, y: 200 }, 0)).toBeNull();
+    // And the outline is still live, which is the unfilled rule underneath.
     expect(hitTestBoard(b, { x: 500, y: 0 }, 5)).toBe('shape:0');
   });
 });

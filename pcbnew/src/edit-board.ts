@@ -58,7 +58,7 @@ import type {
   PcbGroup,
 } from './types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
-import { isSolidFill } from './shape_fill.js';
+import { isHatchedFill, isSolidFill, shapeHatchLines } from './shape_fill.js';
 
 // ----- item ids ---------------------------------------------------------------
 
@@ -519,7 +519,11 @@ const pointDist = (p: PcbPoint, pos: Vec2): number => {
 };
 
 /** Distance from a point to a graphic shape (0 inside a filled shape). */
-const shapeDist = (s: PcbShape, pos: Vec2): number => {
+/**
+ * The distance to a shape's own geometry — its outline, or its interior when it
+ * is solid-filled. {@link shapeDist} adds the hatch lines to it.
+ */
+const shapeOutlineDist = (s: PcbShape, pos: Vec2): number => {
   const half = s.width / 2;
   if (s.kind === 'line' && s.start && s.end)
     return Math.max(0, distToSeg(pos, s.start, s.end) - half);
@@ -562,6 +566,25 @@ const shapeDist = (s: PcbShape, pos: Vec2): number => {
   for (let i = 1; i < pts.length; i++) d = Math.min(d, distToSeg(pos, pts[i - 1]!, pts[i]!));
   if (pts.length >= 3) d = Math.min(d, distToSeg(pos, pts[pts.length - 1]!, pts[0]!));
   return Math.max(0, d - half);
+};
+
+/**
+ * `EDA_SHAPE::hitTest`, as a distance.
+ *
+ * The hatch lines are part of the shape: every kind's case ends with
+ * `if( IsHatchedFill() && GetHatching().Collide( aPosition, maxdist ) )`
+ * (eda_shape.cpp:1522-1523) BEFORE it gives up, so a click on a line of a
+ * hatched fill picks the shape while the gaps between the lines do not.
+ */
+const shapeDist = (s: PcbShape, pos: Vec2): number => {
+  const outline = shapeOutlineDist(s, pos);
+  if (!isHatchedFill(s)) return outline;
+
+  let best = outline;
+  const half = s.width / 2;
+  for (const seg of shapeHatchLines(s))
+    best = Math.min(best, Math.max(0, distToSeg(pos, seg.a, seg.b) - half));
+  return best;
 };
 
 interface HitEntry {

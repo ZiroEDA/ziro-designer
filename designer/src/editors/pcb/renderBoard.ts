@@ -99,7 +99,7 @@ const MM = PCB_IU_PER_MM; // pcbnew IU is 1 nm (base_units.h)
  */
 import { GAL_SCREEN_DPI } from '../../ui/status_format.js';
 import { DEFAULT_GRID_APPEARANCE, type GridOptions, type GridStyle } from '../../ui/grid_cursor.js';
-import { isSolidFill } from '@ziroeda/pcbnew/src/shape_fill.js';
+import { isHatchedFill, isSolidFill, shapeHatchLines } from '@ziroeda/pcbnew/src/shape_fill.js';
 
 export { GAL_SCREEN_DPI };
 
@@ -990,6 +990,7 @@ function addShape(scene: BoardScene, s: PcbShape): void {
       b.hasGfxFill = true;
     }
     box(pathIn(b.gfxStrokes, width));
+    addHatch(b, s);
   } else if (s.kind === 'circle' && s.center && s.end) {
     const r = Math.hypot(s.end.x - s.center.x, s.end.y - s.center.y);
     if (r <= 0) return;
@@ -1001,6 +1002,7 @@ function addShape(scene: BoardScene, s: PcbShape): void {
     const p = pathIn(b.gfxStrokes, width);
     p.moveTo(s.center.x + r, s.center.y);
     p.arc(s.center.x, s.center.y, r, 0, Math.PI * 2);
+    addHatch(b, s);
   } else if (s.kind === 'arc' && s.start && s.mid && s.end) {
     const pts = tessellateArc(s.start, s.mid, s.end);
     const p = pathIn(b.gfxStrokes, width);
@@ -1017,6 +1019,23 @@ function addShape(scene: BoardScene, s: PcbShape): void {
     p.moveTo(s.pts[0]!.x, s.pts[0]!.y);
     for (let i = 1; i < s.pts.length; i++) p.lineTo(s.pts[i]!.x, s.pts[i]!.y);
     if (isSolidFill(s)) p.closePath();
+    addHatch(b, s);
+  }
+}
+
+/**
+ * The hatch lines of a hatched fill, stroked at the shape's own line width.
+ *
+ * `EDA_SHAPE::UpdateHatching` builds real segments and the painter draws them
+ * as strokes (not as a pattern), so they go into the same width-keyed stroke
+ * map every other graphic uses and pick up the same pen quantisation.
+ */
+function addHatch(b: LayerBuckets, s: PcbShape): void {
+  if (!isHatchedFill(s)) return;
+  const p = pathIn(b.gfxStrokes, s.width);
+  for (const seg of shapeHatchLines(s)) {
+    p.moveTo(seg.a.x, seg.a.y);
+    p.lineTo(seg.b.x, seg.b.y);
   }
 }
 
