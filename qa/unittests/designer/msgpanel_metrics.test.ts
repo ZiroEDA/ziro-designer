@@ -113,6 +113,41 @@ describe('the cell advance carries the padding spaces', () => {
   });
 });
 
+/**
+ * A cell is as wide as its own text and the PANEL clips.
+ *
+ * `updateItemPos` gives each item an absolute `m_X` accumulated from the items
+ * before it, and `showItem` (msgpanel.cpp:171-190) draws the whole string at
+ * that x — there is no measurement of the remaining width, no shrinking and no
+ * shortening anywhere in the class. What does not fit is clipped by the window.
+ *
+ * As a flex row with the default shrink factor, ours did the opposite: every
+ * cell squeezed and every row ellipsized, so a PCB editor at a normal width
+ * showed "Boa..." for Board Side and "Attr..." for Attributes: while KiCad had
+ * both in full and cut only the last cell at the edge.
+ */
+describe('cells keep their width, and the panel clips', () => {
+  it('gives the cell no shrink factor', () => {
+    // `flex: 0 0 auto` — a flex item's default `1` shrink is what squeezed them.
+    expect(rule('.ze-msgpanel-item').flex).toBe('0 0 auto');
+  });
+
+  it('never ellipsizes a row: nothing in EDA_MSG_PANEL shortens a string', () => {
+    // `KIUI::EllipsizeStatusText` exists and belongs to the STATUS BAR; the
+    // message panel has no equivalent.
+    const rows = rule('.ze-msgpanel-upper,\n.ze-msgpanel-lower');
+    expect(rows['text-overflow']).toBeUndefined();
+    expect(rows.overflow).toBeUndefined();
+    // The text still may not wrap — a cell is one line per row, m_UpperY and
+    // m_LowerY being one font height apart.
+    expect(rows['white-space']).toBe('nowrap');
+  });
+
+  it('clips on the PANEL, which is where the window edge is', () => {
+    expect(rule('.ze-msgpanel').overflow).toBe('hidden');
+  });
+});
+
 describe('an item that asks for a different padding gets it', () => {
   it('MsgPanelItem carries m_Padding', () => {
     // The interface moved to `msgpanel_types.ts` — a `.ts`, because qa's tsc

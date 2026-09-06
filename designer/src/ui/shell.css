@@ -2345,6 +2345,15 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   display: grid;
   grid-template-rows: 1fr 1fr;
   align-content: center;
+  /* A cell is exactly as wide as its own text, whatever the panel's width.
+     `updateItemPos` hands each item an absolute `m_X` accumulated from the
+     items before it and `showItem` draws the whole string there
+     (msgpanel.cpp:130-190) — there is no shrinking, and the panel's right edge
+     CLIPS what does not fit. Left to flex's default `1` shrink factor these
+     cells squeezed, and each row's ellipsis then ate the labels: "Board Side"
+     became "Boa...", "Attributes:" became "Attr...", on a panel where KiCad
+     shows every label in full and cuts only the last cell at the window edge. */
+  flex: 0 0 auto;
   /* `m_last_x += GetTextExtent( text ).x; m_last_x += m_fontSize.x`
      (msgpanel.cpp:151-154) where `text` already carries the item's padding
      spaces (:140). So a cell advances by its own width plus padding spaces plus
@@ -2356,8 +2365,9 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 }
 .ze-msgpanel-upper,
 .ze-msgpanel-lower {
-  overflow: hidden;
-  text-overflow: ellipsis;
+  /* No ellipsis. `showItem` draws the text and the window clips it; nothing in
+     EDA_MSG_PANEL shortens a string. (`KIUI::EllipsizeStatusText` is the STATUS
+     BAR's, and `.ze-statusbar` is where it belongs.) */
   white-space: nowrap;
   /* The two rows sit at m_UpperY = drawSize.y/2 - m_fontSize.y = 0 and
      m_LowerY = drawSize.y - m_fontSize.y = 18 (msgpanel.cpp:147-148), i.e. one
