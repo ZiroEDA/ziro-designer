@@ -104,6 +104,23 @@ const SRC = `(kicad_pcb (version 20240108) (generator "pcbnew")
         (layer "F.SilkS") (span 1 1) (effects (font (size 1 1))))
       (table_cell "b" (start 10 0) (end 20 5) (margins 0.5 0.5 0.5 0.5)
         (layer "F.SilkS") (span 1 1) (effects (font (size 1 1))))))
+  (dimension (type orthogonal) (layer "Dwgs.User") (uuid "d1")
+    (pts (xy 113.6 58.975) (xy 113.35 28.975)) (height 12.85) (orientation 1)
+    (format (prefix "R ") (suffix " typ") (units 3) (units_format 0) (precision 4)
+      (suppress_zeroes yes))
+    (style (thickness 0.1) (arrow_length 1.27) (text_position_mode 0)
+      (arrow_direction outward) (extension_height 0.58642) (extension_offset 0.5)
+      (keep_text_aligned yes))
+    (gr_text "30" (at 125.3 43.975 90) (layer "Dwgs.User") (uuid "dt1")
+      (effects (font (size 1 1) (thickness 0.15)))))
+  (dimension (type leader) (layer "Cmts.User") (uuid "d2")
+    (pts (xy 152.9 67.3) (xy 156.2 63.9))
+    (format (prefix "") (suffix "") (units 0) (units_format 0) (precision 4)
+      (override_value "0.3mm Thickness"))
+    (style (thickness 0.1) (arrow_length 1.27) (text_position_mode 0)
+      (text_frame 1) (extension_offset 0.5))
+    (gr_text "0.3mm Thickness" (at 168.9 63.9 0) (layer "Cmts.User") (uuid "dt2")
+      (effects (font (size 1 1) (thickness 0.15)))))
   (group "cluster" (uuid "g1") (members "gl1" "gc1"))
   (gr_line (start 0 0) (end 5 0) (stroke (width 0.1) (type dash)) (layer "Edge.Cuts") (uuid "gl1"))
   (gr_circle (center 30 30) (end 33 34) (stroke (width 0.1) (type solid)) (fill none)
@@ -1794,6 +1811,88 @@ describe('GROUP rows', () => {
     expect(flat(renamed!.groups[0]!.source)).toContain('(group "power"');
     // The members are untouched: renaming is not re-grouping.
     expect(renamed?.groups[0]?.members).toEqual(['gl1', 'gc1']);
+  });
+});
+
+/**
+ * A dimension, which had no panel at all. Which rows exist is almost entirely a
+ * question of WHICH KIND it is, and the two kinds here — an orthogonal and a
+ * leader — are the two extremes of that.
+ */
+describe('DIMENSION rows', () => {
+  const ortho = rowsFor('dimension:0');
+  const leader = rowsFor('dimension:1');
+
+  it('opens on Dimension Properties and reaches Basic Properties last', () => {
+    // Groups are collected derived-first (property_mgr.cpp:319-345), and every
+    // property a dimension registers carries a group, so '' arrives from
+    // BOARD_ITEM at the end.
+    expect(groupOrder(ortho)).toEqual(['Dimension Properties', 'Text Properties', '']);
+  });
+
+  it('gives a measured dimension the format rows and an arrow direction', () => {
+    // `isNotLeader` on the seven format rows, and `isMultiArrowDirection` —
+    // `dynamic_cast<PCB_DIM_ALIGNED*>`, so an aligned or an orthogonal — on the
+    // arrow one (pcb_dimension.cpp:1916-1953).
+    expect(row(ortho, 'Prefix').value).toBe('R ');
+    expect(row(ortho, 'Suffix').value).toBe(' typ');
+    expect(row(ortho, 'Units').value).toBe('Automatic');
+    expect(row(ortho, 'Units Format').value).toBe('1234.0');
+    expect(row(ortho, 'Precision').value).toBe('0.0000');
+    expect(row(ortho, 'Suppress Trailing Zeroes').value).toBe(true);
+    expect(row(ortho, 'Arrow Direction').value).toBe('Outward');
+    // PCB_DIM_ALIGNED's own two, after the base's.
+    expect(row(ortho, 'Crossbar Height').value).toBe(MM(12.85));
+    expect(names(ortho)).toContain('Extension Line Overshoot');
+    // A leader has none of them.
+    for (const n of ['Prefix', 'Units', 'Precision', 'Arrow Direction', 'Crossbar Height'])
+      expect(names(leader), n).not.toContain(n);
+  });
+
+  it("calls a leader's override text 'Text', because that is all it has", () => {
+    // Same setter as the others' Override Text — `ChangeOverrideText`
+    // (:1929-1932) — under a different name and the opposite availability.
+    expect(names(leader)).toContain('Text');
+    expect(names(leader)).not.toContain('Override Text');
+    expect(row(leader, 'Text').value).toBe('0.3mm Thickness');
+    expect(names(ortho)).toContain('Override Text');
+    expect(names(ortho)).not.toContain('Text');
+
+    // And the Text Frame is the leader's alone.
+    expect(row(leader, 'Text Frame').value).toBe('Rectangle');
+    expect(names(ortho)).not.toContain('Text Frame');
+  });
+
+  it('greys the text Orientation while the text is kept aligned', () => {
+    // `SetWriteableFunc( isTextOrientationWriteable )` (:1957-1973): when the
+    // text follows the dimension, the dimension owns the angle.
+    expect(row(ortho, 'Keep Aligned with Dimension').value).toBe(true);
+    expect(row(ortho, 'Orientation').set).toBeUndefined();
+
+    const freed = rowsFor(
+      'dimension:0',
+      row(ortho, 'Keep Aligned with Dimension').set?.(false) as Board,
+    );
+    expect(row(freed, 'Orientation').set).toBeTypeOf('function');
+  });
+
+  it('shows none of the four rows every subtype turns off', () => {
+    // Each subtype `OverrideAvailability`s EDA_TEXT's Text, Vertical
+    // Justification and Hyperlink and BOARD_ITEM's Knockout to false
+    // (pcb_dimension.cpp:2010-2024) — and the base masks EDA_TEXT's Orientation,
+    // replacing it with its own in Text Properties.
+    for (const n of ['Vertical Justification', 'Hyperlink', 'Knockout'])
+      expect(names(ortho), n).not.toContain(n);
+    expect(row(ortho, 'Orientation').group).toBe('Text Properties');
+  });
+
+  it('commits a format change, and the crossbar height as its own token', () => {
+    const mm = row(ortho, 'Units').set?.('Millimeters');
+    expect(mm?.dimensions[0]?.format?.units).toBe(2);
+
+    const taller = row(ortho, 'Crossbar Height').set?.(MM(20));
+    expect(taller?.dimensions[0]?.height).toBe(MM(20));
+    expect(flat(taller!.dimensions[0]!.source)).toContain('(height 20)');
   });
 });
 

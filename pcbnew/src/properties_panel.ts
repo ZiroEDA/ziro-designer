@@ -106,6 +106,11 @@ import {
 } from './textbox_properties.js';
 import { applyTableValues, collectTableValues, type TableValues } from './table_properties.js';
 import {
+  applyDimensionValues,
+  collectDimensionValues,
+  type DimensionValues,
+} from './dimension_properties.js';
+import {
   applyImageValues,
   collectImageValues,
   scaleForHeight,
@@ -117,7 +122,7 @@ import { atom, head, list, str, type SList } from '@ziroeda/sexpr/src/index.js';
 import { dropChild, patchChild } from './edit-board.js';
 import { padstackDrillNodes } from './write-board.js';
 import type { PcbDrillSlot } from './padstack_drill.js';
-import { pcbIuToMM, pcbMmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbIuToMM, pcbMmToIU, type EdaUnits } from '@ziroeda/common/src/eda_units.js';
 import { formatG } from '@ziroeda/common/src/plotters/fmt.js';
 import {
   RESERVED_FOOTPRINT_PROPERTIES,
@@ -128,8 +133,14 @@ import {
   type PcbFootprint,
   type PcbPad,
   type PcbPoint,
+  type PcbDimension,
   type PcbShape,
   type PcbVia,
+  type DimPrecision,
+  type DimTextBorder,
+  type DimUnitsFormat,
+  type DimUnitsMode,
+  isAlignedKind,
   type PcbGroup,
   type PcbZone,
 } from './types.js';
@@ -183,6 +194,12 @@ export interface PcbPropertiesContext {
    * `m_frame->GetColorSettings()->GetColor( ToLAYER_ID( aValue ) )`.
    */
   layerColor: (layer: string) => string;
+  /**
+   * The frame's display units, `EDA_DRAW_FRAME::GetUserUnits()`. A dimension's
+   * label is re-derived on every commit (`aTarget->Update()`), and an AUTOMATIC
+   * one takes its unit from here.
+   */
+  units?: EdaUnits;
 }
 
 /**
@@ -285,7 +302,7 @@ function parseAngle(v: string | number | boolean): number | null {
  * A `wxEnumProperty` row. The grid shows and edits the LABEL while the model
  * keeps the value, so the row carries the labels and maps back on commit.
  */
-function choiceRow<T extends string>(
+function choiceRow<T extends string | number>(
   group: string,
   name: string,
   value: T,
@@ -420,6 +437,30 @@ function repatchPadstackDrills<
     src = node ? patchChild(src, token, node) : dropChild(src, token);
   }
   return src;
+}
+
+/**
+ * A dimension's own geometry fields, which are not part of what the DIALOG
+ * edits: the aligned crossbar's height and the radial leader's length. Both are
+ * one token, so the node is patched in place.
+ */
+function patchDimension(board: Board, index: number, patch: Partial<PcbDimension>): Board {
+  const d = board.dimensions[index];
+  if (!d) return board;
+  const next: PcbDimension = { ...d, ...patch };
+  let src = next.source;
+  if (patch.height !== undefined)
+    src = patchChild(src, 'height', list(atom('height'), atom(mm(patch.height))));
+  if (patch.leaderLength !== undefined)
+    src = patchChild(
+      src,
+      'leader_length',
+      list(atom('leader_length'), atom(mm(patch.leaderLength))),
+    );
+  return {
+    ...board,
+    dimensions: board.dimensions.map((x, i) => (i === index ? { ...next, source: src } : x)),
+  };
 }
 
 /** A read-only row — upstream's `wxPG_PROP_READONLY`. */
@@ -2590,6 +2631,253 @@ function groupRows(board: Board, index: number): PcbPropRow[] {
 }
 
 /**
+ * PCB_DIMENSION's rows: `DIMENSION_DESC` (pcb_dimension.cpp:1854-1980) plus the
+ * one group each subtype adds, over PCB_TEXT, EDA_TEXT and BOARD_ITEM.
+ *
+ * The groups come out derived-first, so a dimension opens on "Dimension
+ * Properties" and reaches Basic Properties last — and the rows inside each are
+ * base-first, so PCB_DIMENSION_BASE's eight precede the subtype's two.
+ *
+ * Which rows exist is entirely a question of WHICH KIND this is:
+ *
+ *   isNotLeader          Prefix, Suffix, Override Text, Units, Units Format,
+ *                        Precision, Suppress Trailing Zeroes
+ *   isLeader             Text — a leader has no measurement, so it carries the
+ *                        text itself where the others carry an override
+ *   isMultiArrowDirection  Arrow Direction, `dynamic_cast<PCB_DIM_ALIGNED*>`,
+ *                        which is an aligned or an orthogonal
+ *   PCB_DIM_ALIGNED      Crossbar Height, Extension Line Overshoot
+ *   PCB_DIM_RADIAL       Leader Length
+ *   PCB_DIM_LEADER       Text Frame
+ *
+ * Every subtype then turns four inherited rows OFF by name — Text (the
+ * EDA_TEXT one), Vertical Justification, Hyperlink and Knockout — and
+ * PCB_DIMENSION_BASE masks EDA_TEXT's Orientation, replacing it with its own
+ * that is read-only while the text is kept aligned with the dimension.
+ */
+function dimensionRows(board: Board, index: number, ctx: PcbPropertiesContext): PcbPropRow[] {
+  const d = board.dimensions[index];
+  if (!d) return [];
+  const v = collectDimensionValues(d);
+  const commit = (patch: Partial<DimensionValues>): Board =>
+    applyDimensionValues(board, index, { ...v, ...patch }, ctx.units);
+
+  const D = 'Dimension Properties';
+  const T = TEXT_PROPS;
+  const isLeader = d.kind === 'leader';
+  const text = (group: string, name: string, value: string, key: keyof DimensionValues) => ({
+    group,
+    name,
+    kind: 'string' as const,
+    value,
+    set: (t: string | number | boolean) => commit({ [key]: String(t) } as Partial<DimensionValues>),
+  });
+  const dist = (group: string, name: string, iu: number, key: keyof DimensionValues) => ({
+    group,
+    name,
+    kind: 'dist' as const,
+    value: iu,
+    set: (n: string | number | boolean) =>
+      typeof n === 'number' ? commit({ [key]: n } as Partial<DimensionValues>) : null,
+  });
+
+  const rows: PcbPropRow[] = [];
+
+  if (!isLeader) {
+    rows.push(
+      text(D, 'Prefix', v.prefix, 'prefix'),
+      text(D, 'Suffix', v.suffix, 'suffix'),
+      // An EMPTY override is a set override, not an absent one — the model keeps
+      // the difference and the cell cannot, so an emptied cell means "no text".
+      text(D, 'Override Text', v.overrideValue ?? '', 'overrideValue'),
+      choiceRow(D, 'Units', v.units, DIM_UNITS_CHOICES, (units) => commit({ units })),
+      choiceRow(D, 'Units Format', v.unitsFormat, DIM_UNITS_FORMAT_CHOICES, (unitsFormat) =>
+        commit({ unitsFormat }),
+      ),
+      choiceRow(D, 'Precision', v.precision, DIM_PRECISION_CHOICES, (precision) =>
+        commit({ precision }),
+      ),
+      {
+        group: D,
+        name: 'Suppress Trailing Zeroes',
+        kind: 'bool',
+        value: v.suppressZeroes,
+        set: (b) => commit({ suppressZeroes: !!b }),
+      },
+    );
+  } else {
+    // A leader's "Text" is the SAME setter as the others' Override Text
+    // (`ChangeOverrideText`, :1929-1932) — a leader measures nothing, so its
+    // override is the whole label. Only the row's name and availability differ.
+    rows.push(text(D, 'Text', v.overrideValue ?? '', 'overrideValue'));
+  }
+
+  if (isAlignedKind(d.kind))
+    rows.push(
+      choiceRow(
+        D,
+        'Arrow Direction',
+        v.arrowDirection,
+        [
+          ['inward', 'Inward'],
+          ['outward', 'Outward'],
+        ] as const,
+        (arrowDirection) => commit({ arrowDirection }),
+      ),
+      {
+        // `PCB_DIM_ALIGNED::ChangeHeight` — the crossbar's distance from the
+        // feature line, which is geometry and not one of the dialog's fields.
+        group: D,
+        name: 'Crossbar Height',
+        kind: 'dist',
+        value: d.height ?? 0,
+        set: (n) => (typeof n === 'number' ? patchDimension(board, index, { height: n }) : null),
+      },
+      dist(D, 'Extension Line Overshoot', v.extensionOvershoot, 'extensionOvershoot'),
+    );
+
+  if (d.kind === 'radial')
+    rows.push({
+      // `PCB_DIM_RADIAL::ChangeLeaderLength`, the knee's distance from the arrow.
+      group: D,
+      name: 'Leader Length',
+      kind: 'dist',
+      value: d.leaderLength ?? 0,
+      set: (n) =>
+        typeof n === 'number' ? patchDimension(board, index, { leaderLength: n }) : null,
+    });
+
+  if (isLeader)
+    rows.push(
+      choiceRow(D, 'Text Frame', v.textFrame, DIM_TEXT_BORDER_CHOICES, (textFrame) =>
+        commit({ textFrame }),
+      ),
+    );
+
+  // The Text Properties group, minus the four every subtype turns off.
+  rows.push(
+    {
+      group: T,
+      name: 'Auto Thickness',
+      kind: 'bool',
+      value: v.textThickness === 0,
+      set: (b) => commit({ textThickness: b ? 0 : v.textThickness }),
+    },
+    dist(T, 'Thickness', v.textThickness, 'textThickness'),
+    {
+      group: T,
+      name: 'Italic',
+      kind: 'bool',
+      value: v.italic,
+      set: (b) => commit({ italic: !!b }),
+    },
+    { group: T, name: 'Bold', kind: 'bool', value: v.bold, set: (b) => commit({ bold: !!b }) },
+    {
+      group: T,
+      name: 'Mirrored',
+      kind: 'bool',
+      value: v.mirrored,
+      set: (b) => commit({ mirrored: !!b }),
+    },
+    dist(T, 'Width', v.textWidth, 'textWidth'),
+    dist(T, 'Height', v.textHeight, 'textHeight'),
+    {
+      group: T,
+      name: 'Keep Aligned with Dimension',
+      kind: 'bool',
+      value: v.keepTextAligned,
+      set: (b) => commit({ keepTextAligned: !!b }),
+    },
+    {
+      // PCB_DIMENSION_BASE's own Orientation, replacing EDA_TEXT's masked one,
+      // and `SetWriteableFunc( isTextOrientationWriteable )`: read-only while
+      // the text is kept aligned, because then the dimension decides the angle.
+      group: T,
+      name: 'Orientation',
+      kind: 'string',
+      value: ANGLE(v.textOrientation),
+      set: v.keepTextAligned
+        ? undefined
+        : (t) => {
+            const deg = parseAngle(t);
+            return deg === null ? null : commit({ textOrientation: deg });
+          },
+    },
+  );
+
+  rows.push(
+    {
+      group: '',
+      name: 'Position X',
+      kind: 'coord',
+      value: d.start.x,
+      set: (n) => (typeof n === 'number' ? commit({ textX: n }) : null),
+    },
+    {
+      group: '',
+      name: 'Position Y',
+      kind: 'coord',
+      value: d.start.y,
+      set: (n) => (typeof n === 'number' ? commit({ textY: n }) : null),
+    },
+    choiceRow(
+      '',
+      'Layer',
+      v.layer,
+      layerChoices(board, false),
+      (layer) => commit({ layer }),
+      ctx.layerColor(v.layer),
+    ),
+    {
+      group: '',
+      name: 'Locked',
+      kind: 'bool',
+      value: v.locked,
+      set: (b) => commit({ locked: !!b }),
+    },
+  );
+
+  return rows;
+}
+
+/** `ENUM_MAP<DIM_UNITS_MODE>` (pcb_dimension.cpp:1876-1880), in Map order. */
+const DIM_UNITS_CHOICES = [
+  [0, 'Inches'],
+  [1, 'Mils'],
+  [2, 'Millimeters'],
+  [3, 'Automatic'],
+] as const satisfies readonly (readonly [DimUnitsMode, string])[];
+
+/** `ENUM_MAP<DIM_UNITS_FORMAT>` (:1871-1874). */
+const DIM_UNITS_FORMAT_CHOICES = [
+  [0, '1234.0'],
+  [1, '1234.0 mm'],
+  [2, '1234.0 (mm)'],
+] as const satisfies readonly (readonly [DimUnitsFormat, string])[];
+
+/** `ENUM_MAP<DIM_PRECISION>` (:1859-1869) — ten entries, the last four of which
+ *  are the unit-dependent ones. */
+const DIM_PRECISION_CHOICES = [
+  [0, '0'],
+  [1, '0.0'],
+  [2, '0.00'],
+  [3, '0.000'],
+  [4, '0.0000'],
+  [5, '0.00000'],
+  [6, '0.00 in / 0 mils / 0.0 mm'],
+  [7, '0.000 / 0 / 0.00'],
+  [8, '0.0000 / 0.0 / 0.000'],
+  [9, '0.00000 / 0.00 / 0.0000'],
+] as const satisfies readonly (readonly [DimPrecision, string])[];
+
+/** `ENUM_MAP<DIM_TEXT_BORDER>` (:2104-2107) — a leader's frame. */
+const DIM_TEXT_BORDER_CHOICES = [
+  [0, 'None'],
+  [1, 'Rectangle'],
+  [2, 'Circle'],
+] as const satisfies readonly (readonly [DimTextBorder, string])[];
+
+/**
  * `PCB_PROPERTIES_PANEL::UpdateData()` — the rows for the current selection,
  * in display order, grouped.
  *
@@ -2637,6 +2925,8 @@ export function pcbPropertiesFor(
       return imageRows(board, ref.index, ctx);
     case 'group':
       return groupRows(board, ref.index);
+    case 'dimension':
+      return dimensionRows(board, ref.index, ctx);
     default:
       return [];
   }
