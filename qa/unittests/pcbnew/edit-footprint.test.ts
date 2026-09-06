@@ -28,6 +28,7 @@ import type { PcbPad, PcbShape } from '@ziroeda/pcbnew/src/types.js';
 const EMPTY = { kind: 'list' as const, items: [] };
 import { pcbMmToIU as mmToIU, pcbIuToMM as iuToMM } from '@ziroeda/common/src/eda_units.js';
 import { measureText } from '@ziroeda/common/src/font/stroke_font.js';
+import type { PcbFootprint } from '@ziroeda/pcbnew/src/types.js';
 
 /** `KiROUND`: half away from zero. */
 const kiRound = (v: number): number => (v < 0 ? Math.ceil(v - 0.5) : Math.floor(v + 0.5));
@@ -95,6 +96,36 @@ describe('footprint editing', () => {
       fpItemId('shape', 0),
     );
     expect(hitTestFootprint(fp, { x: mmToIU(5), y: mmToIU(5) }, 0)).toBeNull();
+  });
+
+  it('hit-tests a rounded rectangle on its ROUNDRECT outline', () => {
+    // `EDA_SHAPE::hitTest` takes the rounded outline when `m_cornerRadius > 0`
+    // (eda_shape.cpp:1500-1508). The square corner is where the two differ: the
+    // shape is not drawn there, so it must not be picked there.
+    const fp: PcbFootprint = {
+      ...read(),
+      shapes: [
+        {
+          kind: 'rect',
+          start: { x: 0, y: 0 },
+          end: { x: mmToIU(10), y: mmToIU(10) },
+          width: mmToIU(0.1),
+          fillMode: 'none',
+          cornerRadius: mmToIU(3),
+          layer: 'F.SilkS',
+          source: { kind: 'list', items: [] },
+        },
+      ],
+    };
+    const tol = mmToIU(0.05);
+    expect(hitTestFootprint(fp, { x: 0, y: 0 }, tol)).toBeNull();
+    // On the arc, 45 degrees out from the corner's centre of curvature.
+    const d = mmToIU(3) / Math.SQRT2;
+    expect(hitTestFootprint(fp, { x: mmToIU(3) - d, y: mmToIU(3) - d }, tol)).toBe(
+      fpItemId('shape', 0),
+    );
+    // The straight runs are unchanged.
+    expect(hitTestFootprint(fp, { x: mmToIU(5), y: 0 }, tol)).toBe(fpItemId('shape', 0));
   });
 
   it('box-selects overlapping items', () => {

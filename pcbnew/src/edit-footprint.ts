@@ -322,6 +322,19 @@ const shapeHit = (s: PcbShape, pos: Vec2, tol: number): boolean => {
       y1 = Math.max(s.start.y, s.end.y);
     if (isSolidFill(s))
       return pos.x >= x0 - t && pos.x <= x1 + t && pos.y >= y0 - t && pos.y <= y1 + t;
+    // A rounded rectangle is hit on its ROUNDRECT outline
+    // (`EDA_SHAPE::hitTest`, eda_shape.cpp:1500-1508): the four corners are
+    // arcs, so the square corner point is NOT on the shape.
+    const r = Math.min(s.cornerRadius ?? 0, Math.min(x1 - x0, y1 - y0) / 2);
+    if (r > 0) {
+      const cx = Math.min(Math.max(pos.x, x0 + r), x1 - r);
+      const cy = Math.min(Math.max(pos.y, y0 + r), y1 - r);
+      // Off both clamps means the point is in a corner quadrant, where the
+      // outline is the arc about the inset centre; on a straight run one clamp
+      // is a no-op and the edge test below is the right one.
+      if (pos.x !== cx && pos.y !== cy)
+        return Math.abs(Math.hypot(pos.x - cx, pos.y - cy) - r) <= t;
+    }
     const near = Math.min(
       Math.abs(pos.x - x0),
       Math.abs(pos.x - x1),

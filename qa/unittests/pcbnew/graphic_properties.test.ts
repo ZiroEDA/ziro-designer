@@ -261,6 +261,68 @@ describe('shape', () => {
     expect(built({ kind: 'poly', pts: [], fillMode: 'hatch' })).toContain('(fill hatch)');
   });
 
+  it('clamps a corner radius to half the shorter side, as SetCornerRadius does', () => {
+    // `EDA_SHAPE::SetCornerRadius` is `std::clamp( aRadius, 0, maxRadius )` with
+    // `maxRadius = min( |w|, |h| ) / 2` for a RECTANGLE (eda_shape.cpp:508-522).
+    // The panel's own validator REFUSES an oversized value; the model clamps,
+    // and both have to, because the two are different doors onto the same field.
+    const rect = load(
+      SRC.replace(
+        '(gr_line (start 0 0) (end 10 0)',
+        '(gr_rect (start 0 0) (end 20 10) (stroke (width 0.1) (type solid)) (fill no) (layer "F.SilkS") (uuid "r1"))\n  (gr_line (start 0 0) (end 10 0)',
+      ),
+    );
+    const base = collectShapeValues(rect.shapes[0]!);
+    expect(rect.shapes[0]?.kind).toBe('rect');
+
+    // 20 x 10, so the limit is 5 mm.
+    const over = applyShapeValues(rect, 0, { ...base, cornerRadius: mmToIU(9) });
+    expect(over.shapes[0]?.cornerRadius).toBe(mmToIU(5));
+    const negative = applyShapeValues(rect, 0, { ...base, cornerRadius: -1 });
+    expect(negative.shapes[0]?.cornerRadius).toBeUndefined();
+  });
+
+  it('drops the radius when the shape stops being a rectangle', () => {
+    // Only a RECTANGLE has the token (parsePCB_SHAPE's T_radius), so a rounded
+    // rect turned into a circle must not carry one — the model would keep a
+    // value nothing can express and the builder would write it.
+    const rect = load(
+      SRC.replace(
+        '(gr_line (start 0 0) (end 10 0)',
+        '(gr_rect (start 0 0) (end 20 10) (radius 3) (stroke (width 0.1) (type solid)) (fill no) (layer "F.SilkS") (uuid "r1"))\n  (gr_line (start 0 0) (end 10 0)',
+      ),
+    );
+    expect(rect.shapes[0]?.cornerRadius).toBe(mmToIU(3));
+    const base = collectShapeValues(rect.shapes[0]!);
+    const asCircle = applyShapeValues(rect, 0, { ...base, kind: 'circle' });
+    expect(asCircle.shapes[0]?.cornerRadius).toBeUndefined();
+    expect(flat(asCircle)).not.toContain('(radius 3)');
+  });
+
+  it('builds the stroke type and the corner radius, not a hardcoded solid', () => {
+    // The BUILDER is the path a newly drawn shape takes. It wrote `(type solid)`
+    // whatever the shape's dash was, so a dashed graphic drawn here came back
+    // solid on the next load; and it had no radius at all.
+    const built = serialize(
+      buildBoardShapeNode({
+        kind: 'rect',
+        start: { x: 0, y: 0 },
+        end: { x: 2e7, y: 1e7 },
+        width: 2e5,
+        strokeType: 'dash',
+        cornerRadius: 3e6,
+        fillMode: 'none',
+        layer: 'F.SilkS',
+        locked: true,
+        source: { kind: 'list', items: [] },
+      }),
+    ).replace(/\s+/g, ' ');
+    expect(built).toContain('(type dash)');
+    expect(built).toContain('(radius 3)');
+    // `if( aShape->IsLocked() )`, before the layer.
+    expect(built).toContain('(locked yes)');
+  });
+
   it('reads every (fill …) word the parser accepts', () => {
     // pcb_io_kicad_sexpr_parser.cpp:3580-3600. `yes` is the 2017 spelling of
     // `solid` and `no` of `none`; the three hatch words are their own modes, and

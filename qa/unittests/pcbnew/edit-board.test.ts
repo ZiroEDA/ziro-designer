@@ -4,6 +4,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   boardItemId,
+  subsetBoardItems,
   parseBoardItemId,
   boardItemBBox,
   hitTestBoard,
@@ -230,6 +231,31 @@ describe('shape hit-test (EDA_SHAPE)', () => {
     };
     const b = board({ shapes: [s] });
     expect(hitTestBoard(b, { x: 100, y: 100 }, 0)).toBe('shape:0');
+  });
+  it('rounded rect: the corner is an ARC, so just outside it is a miss', () => {
+    // `EDA_SHAPE::hitTest` takes the ROUNDRECT outline when `m_cornerRadius > 0`
+    // (eda_shape.cpp:1500-1508) — the square outline it would otherwise walk
+    // says the corner point IS on the shape, and the drawn shape has nothing
+    // there.
+    const rounded: PcbShape = {
+      kind: 'rect',
+      start: { x: 0, y: 0 },
+      end: { x: 1000, y: 1000 },
+      width: 40,
+      fillMode: 'none',
+      cornerRadius: 300,
+      layer: 'Edge.Cuts',
+      source: EMPTY,
+    };
+    const b = board({ shapes: [rounded] });
+    // The square corner: 300 IU in from each side is where the arc runs, and
+    // the corner itself is ~124 IU beyond it.
+    expect(hitTestBoard(b, { x: 0, y: 0 }, 5)).toBeNull();
+    // On the arc: 45 degrees out from the corner's centre of curvature.
+    const d = 300 / Math.SQRT2;
+    expect(hitTestBoard(b, { x: 300 - d, y: 300 - d }, 5)).toBe('shape:0');
+    // And the straight runs still hit, which is the part the clamps leave alone.
+    expect(hitTestBoard(b, { x: 500, y: 0 }, 5)).toBe('shape:0');
   });
   it('HATCHED circle: the interior does NOT hit, because hit-testing asks IsSolidFill', () => {
     // `EDA_SHAPE::IsFilledForHitTesting()` is `IsSolidFill()` (eda_shape.h:143),
@@ -986,5 +1012,58 @@ describe('zone outline editing (PCB_POINT_EDITOR over a ZONE)', () => {
     const noOutline = { ...b, zones: [{ ...b.zones[0]!, outline: undefined }] };
     expect(zoneHandles(noOutline, 0)).toEqual([]);
     expect(moveZoneCorner(noOutline, 0, 0, { x: 1, y: 1 })).toBe(noOutline);
+  });
+});
+
+describe('the move overlay subset', () => {
+  // `subsetBoardItems` is the board the live move overlay is drawn from: the
+  // selected items only, translated by the drag delta, over a backdrop that has
+  // them removed. Anything it fails to filter is drawn moving *and* left in
+  // place — and snaps back on drop, because the commit moves only what is
+  // selected. Four item kinds were missing, so a board with any dimension,
+  // text box, table or reference image on it had every one of them ride along
+  // with any drag.
+  const stub = (n: number): unknown[] => Array.from({ length: n }, (_, i) => ({ i }));
+
+  const full = (): Board =>
+    board({
+      dimensions: stub(3) as Board['dimensions'],
+      textBoxes: stub(3) as Board['textBoxes'],
+      tables: stub(3) as Board['tables'],
+      images: stub(3) as Board['images'],
+      texts: stub(3) as Board['texts'],
+      shapes: stub(3) as Board['shapes'],
+    });
+
+  it('keeps only the selected dimension', () => {
+    const out = subsetBoardItems(full(), new Set([boardItemId('dimension', 1)]));
+    expect(out.dimensions).toHaveLength(1);
+    expect(out.dimensions[0]).toEqual({ i: 1 });
+  });
+
+  it('keeps only the selected text box, table and image', () => {
+    const b = full();
+    expect(subsetBoardItems(b, new Set([boardItemId('textbox', 2)])).textBoxes).toHaveLength(1);
+    expect(subsetBoardItems(b, new Set([boardItemId('table', 0)])).tables).toHaveLength(1);
+    expect(subsetBoardItems(b, new Set([boardItemId('image', 2)])).images).toHaveLength(1);
+  });
+
+  it('drops every one of them when something else entirely is dragged', () => {
+    // The discriminating case: dragging a *shape* must not bring three
+    // dimensions along for the ride.
+    const out = subsetBoardItems(full(), new Set([boardItemId('shape', 0)]));
+    expect(out.shapes).toHaveLength(1);
+    expect(out.dimensions).toEqual([]);
+    expect(out.textBoxes).toEqual([]);
+    expect(out.tables).toEqual([]);
+    expect(out.images).toEqual([]);
+  });
+
+  it('still keeps the board metadata, which is what makes it render alike', () => {
+    const b = full();
+    const out = subsetBoardItems(b, new Set([boardItemId('dimension', 0)]));
+    expect(out.version).toBe(20241229);
+    expect(out.nets).toBe(b.nets);
+    expect(out.layers).toBe(b.layers);
   });
 });

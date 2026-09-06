@@ -115,6 +115,7 @@ import {
   type PcbBarcode,
   type PcbFootprint,
   type PcbPoint,
+  type PcbShape,
   type PcbGroup,
   type PcbZone,
 } from './types.js';
@@ -325,6 +326,20 @@ const TEXT_PROPS = 'Text Properties';
 
 /** `EDA_SHAPE_DESC`'s group (`common/eda_shape.cpp:2807`). */
 const SHAPE_PROPS = 'Shape Properties';
+
+/**
+ * `ENUM_MAP<SHAPE_T>` (common/eda_shape.cpp:2745-2752), in Map order. UNDEFINED
+ * is not mapped, so it is not offered; the six that are are the six this model
+ * carries, under the names it spells them with.
+ */
+const SHAPE_T_CHOICES = [
+  ['line', 'Segment'],
+  ['rect', 'Rectangle'],
+  ['arc', 'Arc'],
+  ['circle', 'Circle'],
+  ['poly', 'Polygon'],
+  ['curve', 'Bezier'],
+] as const satisfies readonly (readonly [PcbShape['kind'], string])[];
 
 /** A read-only row — upstream's `wxPG_PROP_READONLY`. */
 const roRow = (group: string, name: string, value: string): PcbPropRow => ({
@@ -1854,6 +1869,11 @@ function shapeRows(board: Board, index: number, ctx: PcbPropertiesContext): PcbP
       value: v.locked,
       set: (n) => commit({ locked: !!n }),
     },
+    // `PROPERTY_ENUM<EDA_SHAPE, SHAPE_T>` over `SetShape` (eda_shape.cpp:2809-2812),
+    // the first row of the group. The setter only assigns the type: the points
+    // stay, so a segment becomes a rectangle on the same two corners, which is
+    // exactly what upstream does and looks like.
+    choiceRow(SHAPE_PROPS, 'Shape', shape.kind, SHAPE_T_CHOICES, (kind) => commit({ kind })),
   ];
 
   // `OverrideAvailability( …, "Net", isCopper )`: a graphic carries a net only
@@ -1884,6 +1904,22 @@ function shapeRows(board: Board, index: number, ctx: PcbPropertiesContext): PcbP
 
   if (shape.kind === 'rect')
     rows.push(
+      {
+        // `SetCornerRadius` clamps to half the shorter side, and the property's
+        // own SetValidator REFUSES a larger one rather than clamping
+        // (eda_shape.cpp:2827-2850) — so a value past the limit is rejected and
+        // the cell goes back, which is what returning null here is.
+        group: SHAPE_PROPS,
+        name: 'Corner Radius',
+        kind: 'dist',
+        value: v.cornerRadius,
+        set: (n) => {
+          if (typeof n !== 'number') return null;
+          const w = Math.abs(v.end.x - v.start.x);
+          const h = Math.abs(v.end.y - v.start.y);
+          return n < 0 || n > Math.min(w, h) / 2 ? null : commit({ cornerRadius: n });
+        },
+      },
       {
         // `GetRectangleWidth()` is `GetEndX() - GetStartX()` and the setter
         // moves the END (eda_shape.cpp:488-499, 540-552), so the anchor corner

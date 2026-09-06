@@ -1278,6 +1278,8 @@ describe('SHAPE rows', () => {
     expect(names(line)).toEqual([
       'Layer',
       'Locked',
+      // EDA_SHAPE's first row, and the one that changes what the rest are.
+      'Shape',
       'Start X',
       'Start Y',
       'End X',
@@ -1288,6 +1290,7 @@ describe('SHAPE rows', () => {
     expect(names(circle)).toEqual([
       'Layer',
       'Locked',
+      'Shape',
       'Center X',
       'Center Y',
       'Radius',
@@ -1354,11 +1357,64 @@ describe('SHAPE rows', () => {
     // `SetEndX( GetStartX() + width )` (eda_shape.cpp:488-499, 540-552) — the
     // start corner is the anchor.
     const rect = rowsFor('shape:4');
+    expect(names(rect)).toContain('Corner Radius');
     expect(row(rect, 'Width').value).toBe(MM(20));
     expect(row(rect, 'Height').value).toBe(MM(10));
     const wider = row(rect, 'Width').set?.(MM(30));
     expect(wider?.shapes[4]?.start).toEqual({ x: MM(0), y: MM(0) });
     expect(wider?.shapes[4]?.end).toEqual({ x: MM(30), y: MM(10) });
+  });
+
+  it("changes the SHAPE_T, which is the node's head token", () => {
+    // `SetShape` assigns the type and moves no point (eda_shape.cpp:2809-2812),
+    // so a segment becomes a rectangle on the same two corners. The head token
+    // has to be rewritten for it, which is the one edit that goes through the
+    // BUILDER rather than the stored source.
+    expect(row(line, 'Shape').value).toBe('Segment');
+    expect(row(line, 'Shape').choices).toEqual([
+      'Segment',
+      'Rectangle',
+      'Arc',
+      'Circle',
+      'Polygon',
+      'Bezier',
+    ]);
+
+    const asRect = row(line, 'Shape').set?.('Rectangle');
+    expect(asRect?.shapes[0]?.kind).toBe('rect');
+    expect(asRect?.shapes[0]?.start).toEqual({ x: MM(0), y: MM(0) });
+    expect(asRect?.shapes[0]?.end).toEqual({ x: MM(5), y: MM(0) });
+    const written = flat(writeBoardNode(asRect as Board));
+    expect(written).toContain('(gr_rect (start 0 0) (end 5 0)');
+    expect(written).not.toContain('(gr_line (start 0 0) (end 5 0)');
+    // The builder has to carry what the source did: this shape's dash type, its
+    // uuid and its layer all survive the rewrite.
+    expect(written).toContain('(type dash)');
+    expect(written).toContain('"gl1"');
+  });
+
+  it('gives a rectangle a Corner Radius, and refuses one past half the short side', () => {
+    // `SetCornerRadius` clamps to `min(w, h) / 2`, and the property's own
+    // validator REFUSES a larger value rather than clamping it
+    // (eda_shape.cpp:2827-2850) — a refused edit puts the cell back.
+    const rect = rowsFor('shape:4');
+    expect(row(rect, 'Corner Radius').value).toBe(0);
+    // The fixture rectangle is 20 x 10, so the limit is 5 mm.
+    expect(row(rect, 'Corner Radius').set?.(MM(6))).toBeNull();
+    expect(row(rect, 'Corner Radius').set?.(MM(-1))).toBeNull();
+
+    const rounded = row(rect, 'Corner Radius').set?.(MM(2));
+    expect(rounded?.shapes[4]?.cornerRadius).toBe(MM(2));
+    expect(flat(rounded!.shapes[4]!.source)).toContain('(radius 2)');
+
+    // And zero drops the token: the writer emits it only when it is non-zero.
+    const square = row(rowsFor('shape:4', rounded as Board), 'Corner Radius').set?.(0);
+    expect(square?.shapes[4]?.cornerRadius).toBeUndefined();
+    expect(flat(square!.shapes[4]!.source)).not.toContain('radius');
+  });
+
+  it('has no Corner Radius on anything but a rectangle', () => {
+    for (const r of [line, circle]) expect(names(r)).not.toContain('Corner Radius');
   });
 
   it('offers a Net on copper only, and writes the net NAME', () => {

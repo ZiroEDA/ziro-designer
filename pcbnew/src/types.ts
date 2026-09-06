@@ -169,6 +169,13 @@ export interface PcbShape {
   /** `(stroke (type …))`; absent means the file did not say, i.e. solid. */
   strokeType?: StrokeType;
   /**
+   * `(radius …)` inside a `gr_rect`, `EDA_SHAPE::GetCornerRadius` — a rounded
+   * rectangle. Written only when it is non-zero
+   * (`pcb_io_kicad_sexpr.cpp:1014-1021`), and clamped by the setter to half the
+   * shorter side, because past that the corners would cross.
+   */
+  cornerRadius?: number;
+  /**
    * `EDA_SHAPE::GetFillMode()`. NOT a boolean: a board graphic can be hatched
    * three ways as well as solid — see {@link PcbFillMode}. Ask
    * {@link isSolidFill} / {@link isAnyFill} rather than testing it for truth,

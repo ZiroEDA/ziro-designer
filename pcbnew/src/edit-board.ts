@@ -363,41 +363,6 @@ const arcHit = (
   return ccwSpan(ap, a0) <= ccwSpan(a1, a0); // CW arc
 };
 
-/** EDA_SHAPE::hitTest, per shape kind. */
-const shapeHit = (s: PcbShape, pos: Vec2, tol: number): boolean => {
-  const t = tol + s.width / 2;
-  if (s.kind === 'line' && s.start && s.end) return distToSeg(pos, s.start, s.end) <= t;
-  if (s.kind === 'arc' && s.start && s.mid && s.end)
-    return arcHit(s.start, s.mid, s.end, s.width, pos, tol);
-  if (s.kind === 'circle' && s.center && s.end) {
-    const r = dist(s.center, s.end);
-    const d = dist(s.center, pos);
-    return isSolidFill(s) ? d <= r + t : Math.abs(d - r) <= t;
-  }
-  if (s.kind === 'rect' && s.start && s.end) {
-    const x0 = Math.min(s.start.x, s.end.x),
-      x1 = Math.max(s.start.x, s.end.x);
-    const y0 = Math.min(s.start.y, s.end.y),
-      y1 = Math.max(s.start.y, s.end.y);
-    if (pos.x < x0 - t || pos.x > x1 + t || pos.y < y0 - t || pos.y > y1 + t) return false;
-    if (isSolidFill(s)) return true;
-    // Unfilled: only the border is live.
-    const near = Math.min(
-      Math.abs(pos.x - x0),
-      Math.abs(pos.x - x1),
-      Math.abs(pos.y - y0),
-      Math.abs(pos.y - y1),
-    );
-    return near <= t;
-  }
-  // poly / curve: nearest edge, plus interior when filled.
-  const pts = s.pts ?? shapePoints(s);
-  if (isSolidFill(s) && pts.length >= 3 && pointInPolygon(pos, pts)) return true;
-  for (let i = 1; i < pts.length; i++) if (distToSeg(pos, pts[i - 1]!, pts[i]!) <= t) return true;
-  if (pts.length >= 3 && distToSeg(pos, pts[pts.length - 1]!, pts[0]!) <= t) return true;
-  return false;
-};
-
 /** Even-odd ray cast: is `p` inside polygon `poly`. */
 const pointInPolygon = (p: Vec2, poly: Vec2[]): boolean => {
   let inside = false;
@@ -571,6 +536,16 @@ const shapeDist = (s: PcbShape, pos: Vec2): number => {
       maxY: Math.max(s.start.y, s.end.y),
     };
     if (isSolidFill(s)) return bboxDist(b, pos);
+    // The same ROUNDRECT outline the hit test walks: without it the four
+    // corners measure to a square that is not drawn, and a click 100 IU outside
+    // a rounded corner picks the shape.
+    const r = Math.min(s.cornerRadius ?? 0, Math.min(b.maxX - b.minX, b.maxY - b.minY) / 2);
+    if (r > 0) {
+      const cx = Math.min(Math.max(pos.x, b.minX + r), b.maxX - r);
+      const cy = Math.min(Math.max(pos.y, b.minY + r), b.maxY - r);
+      if (pos.x !== cx && pos.y !== cy)
+        return Math.max(0, Math.abs(Math.hypot(pos.x - cx, pos.y - cy) - r) - half);
+    }
     const corners: Vec2[] = [
       { x: b.minX, y: b.minY },
       { x: b.maxX, y: b.minY },

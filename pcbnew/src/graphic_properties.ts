@@ -256,8 +256,17 @@ export interface ShapeValues {
   end: Vec2;
   mid: Vec2;
   center: Vec2;
+  /**
+   * `SHAPE_T`. Changing it is `EDA_SHAPE::SetShape`, which assigns the type and
+   * leaves the points where they are — a segment becomes a rectangle on the same
+   * two corners. The NODE has to be rebuilt for it, because the kind is the
+   * node's head token.
+   */
+  kind: PcbShape['kind'];
   lineWidth: number;
   strokeType: StrokeType;
+  /** `(radius …)`, a rounded rectangle's corner. Zero for every other kind. */
+  cornerRadius: number;
   /**
    * `GetFillModeProp()` — UI_FILL_MODE, the five-way enum the Fill cell offers,
    * not a checkbox. `common/eda_shape.cpp:608-631` maps it onto FILL_T.
@@ -319,7 +328,9 @@ export function collectShapeValues(s: PcbShape): ShapeValues {
     mid: s.mid ?? ZERO,
     center: s.center ?? ZERO,
     net: s.net ?? 0,
+    kind: s.kind,
     lineWidth: s.width,
+    cornerRadius: s.cornerRadius ?? 0,
     strokeType: s.strokeType ?? 'solid',
     fillMode: s.fillMode,
     layer: s.layer,
@@ -337,9 +348,35 @@ export function applyShapeValues(board: Board, index: number, v: ShapeValues): B
   const before = collectShapeValues(s);
   if (JSON.stringify(before) === JSON.stringify(v)) return board;
 
-  const used = shapePointsUsed(s.kind);
-  const next: PcbShape = { ...s };
-  let src = s.source;
+  const used = shapePointsUsed(v.kind);
+  const next: PcbShape = { ...s, kind: v.kind };
+  // `SetShape` changes the node's HEAD token, and a stored source is emitted
+  // verbatim — so on a kind change the source is DISCARDED at the end and the
+  // writer rebuilds the node from the model. Everything the builder does not
+  // carry would be lost, which is why it carries the lock, both layer
+  // spellings, the mask margin, the net and the uuid; a kind change is the one
+  // edit that goes through it. (The patching below still runs and is simply
+  // thrown away — patching an empty list would build a headless node, which is
+  // what a `(` with no `gr_rect` in the file was.)
+  const rebuild = v.kind !== s.kind;
+  let src: SList = s.source;
+
+  // `SetCornerRadius` clamps to half the shorter side for a RECTANGLE and takes
+  // the value as given for anything else (eda_shape.cpp:508-522) — and only a
+  // rectangle has the token at all.
+  if (v.kind === 'rect') {
+    const w = Math.abs(v.end.x - v.start.x);
+    const h = Math.abs(v.end.y - v.start.y);
+    const clamped = Math.min(Math.max(v.cornerRadius, 0), Math.trunc(Math.min(w, h) / 2));
+    next.cornerRadius = clamped > 0 ? clamped : undefined;
+    src =
+      clamped > 0
+        ? patchChild(src, 'radius', list(atom('radius'), atom(mm(clamped))))
+        : dropChild(src, 'radius');
+  } else {
+    next.cornerRadius = undefined;
+    src = dropChild(src, 'radius');
+  }
 
   // Only write back the points this kind owns: a circle has no `mid`, and
   // inventing one would put a token in the file that KiCad never wrote.
@@ -416,7 +453,7 @@ export function applyShapeValues(board: Board, index: number, v: ShapeValues): B
   next.locked = v.locked;
   src = patchLocked(src, v.locked);
 
-  next.source = src;
+  next.source = rebuild ? { kind: 'list', items: [] } : src;
 
   return { ...board, shapes: board.shapes.map((x, i) => (i === index ? next : x)) };
 }

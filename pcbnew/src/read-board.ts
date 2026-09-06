@@ -820,6 +820,9 @@ function readShape(item: SList, t: FpTransform | null): PcbShape | null {
     kind: kind as PcbShape['kind'],
     width: mmToIU(strokeWidth(item)),
     strokeType: strokeType(item),
+    // `(radius …)` is a rounded RECTANGLE's, and the parser accepts it only
+    // there (T_radius in parsePCB_SHAPE, :3554-3558).
+    cornerRadius: kind === 'rect' ? mmOrUndef(item, 'radius') : undefined,
     fillMode: pcbFillModeFromToken(fillVal),
     layer: layerOf(item),
     maskLayer: maskLayerOf(item),

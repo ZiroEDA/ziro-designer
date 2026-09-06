@@ -194,9 +194,19 @@ export function buildBoardShapeNode(s: PcbShape): SList {
   } else {
     pt('start', s.start);
     pt('end', s.end);
+    // `if( aShape->GetCornerRadius() > 0 )` on the RECTANGLE branch alone
+    // (pcb_io_kicad_sexpr.cpp:1014-1021), right after the two corners.
+    if (s.kind === 'rect' && (s.cornerRadius ?? 0) > 0)
+      items.push(list(atom('radius'), atom(mm(s.cornerRadius as number))));
   }
   items.push(
-    list(atom('stroke'), list(atom('width'), atom(mm(s.width))), list(atom('type'), atom('solid'))),
+    list(
+      atom('stroke'),
+      list(atom('width'), atom(mm(s.width))),
+      // The shape's OWN dash type. Hardcoding `solid` here meant a newly drawn
+      // dashed graphic — one with no source node to copy — came back solid.
+      list(atom('type'), atom(s.strokeType ?? 'solid')),
+    ),
   );
   // `format( const PCB_SHAPE* )` (pcb_io_kicad_sexpr.cpp:1071-1097): the token
   // belongs to a POLY, a RECTANGLE or a CIRCLE — "the filled flag represents if
@@ -210,7 +220,19 @@ export function buildBoardShapeNode(s: PcbShape): SList {
         atom(s.fillMode === 'solid' ? 'yes' : s.fillMode === 'none' ? 'no' : s.fillMode),
       ),
     );
-  items.push(list(atom('layer'), str(s.layer)));
+  // `if( aShape->IsLocked() )`, before the layer (:1100-1101).
+  if (s.locked) items.push(list(atom('locked'), atom('yes')));
+  // `GetLayerSet().count() > 1` picks `(layers …)` over `(layer …)`: a graphic
+  // that also opens the solder mask names both.
+  items.push(
+    s.maskLayer
+      ? { kind: 'list', items: [atom('layers'), str(s.layer), str(s.maskLayer)] }
+      : list(atom('layer'), str(s.layer)),
+  );
+  // `HasSolderMask() && margin.has_value() && IsExternalCopperLayer()` — all
+  // three, so an inner-layer graphic writes no margin even when it carries one.
+  if (s.maskLayer && s.solderMaskMargin !== undefined && (s.layer === 'F.Cu' || s.layer === 'B.Cu'))
+    items.push(list(atom('solder_mask_margin'), atom(mm(s.solderMaskMargin))));
   // `if( !( m_ctl & CTL_OMIT_PAD_NETS ) && aShape->GetNetCode() > 0 )`
   // (pcb_io_kicad_sexpr.cpp:1116). Written by NAME, and only for a real net:
   // code 0 is the unconnected one and upstream omits the token entirely.

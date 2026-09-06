@@ -976,11 +976,20 @@ function addShape(scene: BoardScene, s: PcbShape): void {
     const y = Math.min(s.start.y, s.end.y);
     const rw = Math.abs(s.end.x - s.start.x);
     const rh = Math.abs(s.end.y - s.start.y);
+    // `(radius …)`: a rounded rectangle, which EDA_SHAPE draws as a ROUNDRECT
+    // (eda_shape.cpp:702-706). Clamped here as `SetCornerRadius` clamps, so a
+    // hand-edited file with an oversized radius draws a stadium rather than
+    // crossing its own corners.
+    const r = Math.min(s.cornerRadius ?? 0, Math.min(rw, rh) / 2);
+    const box = (path: Path2D): void => {
+      if (r > 0) path.roundRect(x, y, rw, rh, r);
+      else path.rect(x, y, rw, rh);
+    };
     if (isSolidFill(s)) {
-      b.gfxFill.rect(x, y, rw, rh);
+      box(b.gfxFill);
       b.hasGfxFill = true;
     }
-    pathIn(b.gfxStrokes, width).rect(x, y, rw, rh);
+    box(pathIn(b.gfxStrokes, width));
   } else if (s.kind === 'circle' && s.center && s.end) {
     const r = Math.hypot(s.end.x - s.center.x, s.end.y - s.center.y);
     if (r <= 0) return;
