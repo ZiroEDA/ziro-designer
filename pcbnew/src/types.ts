@@ -850,6 +850,13 @@ export interface PcbBarcode {
 export interface Board {
   version: number;
   thickness?: number;
+  /**
+   * `(setup (legacy_teardrops …))`, `BOARD::LegacyTeardrops()`. A board written
+   * before teardrops became per-item properties draws them as zones instead, and
+   * `supportsTeardrops` (board_connected_item.cpp) then offers NO teardrop rows
+   * on a pad or a via — there is nothing per-item to edit.
+   */
+  legacyTeardrops?: boolean;
   paper?: string;
   titleBlock?: {
     title?: string;

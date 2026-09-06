@@ -468,9 +468,12 @@ describe('PAD rows', () => {
   const smd = rowsFor('pad:0:0');
   const pth = rowsFor('pad:0:1');
 
-  it('groups them Basic / Pad Properties / Overrides', () => {
-    // pad.cpp:3444 and :3771 name the last two.
-    expect(groupOrder(smd)).toEqual(['', 'Pad Properties', 'Overrides']);
+  it('groups them Basic / Pad Properties / Overrides / Teardrops', () => {
+    // pad.cpp:3444 and :3771 name the middle two; "Teardrops" is
+    // BOARD_CONNECTED_ITEM's (board_connected_item.cpp) and comes last, because a
+    // base class's groups are collected after the derived class's own
+    // (property_mgr.cpp:319-345).
+    expect(groupOrder(smd)).toEqual(['', 'Pad Properties', 'Overrides', 'Teardrops']);
   });
 
   it('drops Size Y for a circle and the hole rows for an SMD pad', () => {
@@ -494,6 +497,11 @@ describe('PAD rows', () => {
       'All copper layers',
       'Connected layers only',
       'Front, back and connected layers',
+      // Upstream's fourth. A pad cannot STORE it — the writer emits
+      // GetRemoveUnconnected/GetKeepTopBottom (pad.h:876-894), which spell it
+      // exactly as REMOVE_ALL — so KiCad shows the choice, takes it, and loses it
+      // on save. The combo is the enum, not the file format.
+      'Start and end layers only',
     ]);
     // An SMD pad carries no such tokens — upstream's writer emits them for
     // PAD_ATTRIB::PTH alone — so there is nothing to commit.
@@ -598,18 +606,61 @@ describe('TRACK and ARC rows', () => {
   const track = rowsFor('track:0');
   const arc = rowsFor('arc:0');
 
-  it('lists the endpoints, the net, then the track group', () => {
+  it("lists them in the property manager's order, base class first", () => {
+    // `collectPropsRecur` (property_mgr.cpp:349-370) inserts a class's own
+    // properties EARLIER than anything a subclass already put in the list, so
+    // walking derived-to-base leaves the base's first: BOARD_ITEM's four (with
+    // Position X/Y replaced in place by Start X/Y, pcb_track.cpp:3134-3148),
+    // then BOARD_CONNECTED_ITEM's Net, then PCB_TRACK's Width, End X, End Y.
+    //
+    // And they are all in Basic Properties: there is no "Track Properties" group
+    // upstream — PCB_TRACK passes no group for any of the three.
     expect(names(track)).toEqual([
       'Start X',
       'Start Y',
+      'Layer',
+      'Locked',
+      'Net',
+      'Width',
       'End X',
       'End Y',
-      'Net',
-      'Layer',
-      'Width',
-      'Locked',
+      // PCB_TRACK's own group, after its ungrouped properties.
+      'Soldermask',
+      'Soldermask Margin Override',
     ]);
-    expect(groupOrder(track)).toEqual(['', 'Track Properties']);
+    expect(groupOrder(track)).toEqual(['', 'Technical Layers']);
+  });
+
+  it('has no Net Class row, which upstream hides with its reason written out', () => {
+    // `SetIsHiddenFromPropertiesManager()` (board_connected_item.cpp:36-42):
+    // "there is no way to edit the netclass of a net from a selected connected
+    // item, and showing it makes users think they can change it."
+    for (const n of ['Net Class', 'NetClass', 'NetName']) expect(names(track)).not.toContain(n);
+  });
+
+  it('gives an external-layer track the Technical Layers group, and an inner one none', () => {
+    // `isExternalLayerTrack` (pcb_track.cpp:3152-3159): a solder-mask opening is
+    // a front/back thing. The fixture track is on F.Cu and has the group; the
+    // same track on In1.Cu loses it entirely rather than greying it.
+    expect(groupOrder(track)).toContain('Technical Layers');
+    const inner = load(
+      SRC.replace(
+        '(segment (start 0 0) (end 10 0) (width 0.25) (layer "F.Cu")',
+        '(segment (start 0 0) (end 10 0) (width 0.25) (layer "In1.Cu")',
+      ),
+    );
+    expect(groupOrder(rowsFor('track:0', inner))).not.toContain('Technical Layers');
+    expect(names(rowsFor('track:0', inner))).not.toContain('Soldermask');
+  });
+
+  it('commits the solder-mask opening, which is a second layer on the track', () => {
+    // `PCB_TRACK::SetHasSolderMask` — the track's layer SET gains F.Mask, which
+    // the file spells `(layers "F.Cu" "F.Mask")`.
+    const masked = row(track, 'Soldermask').set?.(true);
+    expect(masked?.tracks[0]?.maskLayer).toBe('F.Mask');
+    const margin = row(track, 'Soldermask Margin Override').set?.(MM(0.05));
+    expect(margin?.tracks[0]?.solderMaskMargin).toBe(MM(0.05));
+    expect(row(track, 'Soldermask Margin Override').optional).toBe(true);
   });
 
   it('makes an arc’s endpoints read-only, because its mid point drives them', () => {
@@ -638,10 +689,20 @@ describe('TRACK and ARC rows', () => {
 describe('VIA rows', () => {
   const rows = rowsFor('via:0');
 
-  it('groups them Basic / Via Properties / Teardrops', () => {
-    // "Teardrops" is BOARD_CONNECTED_ITEM_DESC's group
-    // (board_connected_item.cpp:301); "Via Properties" is pcb_track.cpp:3178.
-    expect(groupOrder(rows)).toEqual(['', 'Via Properties', 'Teardrops']);
+  it('puts Via Properties BEFORE Basic Properties, as the group order does', () => {
+    // `collectGroupsRecursive` (property_mgr.cpp:319-345) collects the class's
+    // OWN groups first and its bases' after — the opposite of the property order
+    // inside a group. Every property PCB_VIA registers carries a group, so ''
+    // only arrives from BOARD_ITEM, after "Via Properties"; "Teardrops" comes
+    // from BOARD_CONNECTED_ITEM and is last.
+    expect(groupOrder(rows)).toEqual(['Via Properties', '', 'Teardrops']);
+  });
+
+  it('shows no Layer row: a via spans a range, and says so with two', () => {
+    // `propMgr.Mask( PCB_VIA, BOARD_CONNECTED_ITEM, "Layer" )` (pcb_track.cpp:3182).
+    expect(names(rows)).not.toContain('Layer');
+    expect(names(rows)).toContain('Layer Top');
+    expect(names(rows)).toContain('Layer Bottom');
   });
 
   it('gives Layer Top and Layer Bottom their own swatches', () => {
@@ -654,6 +715,93 @@ describe('VIA rows', () => {
   it('commits the diameter and the hole', () => {
     expect(row(rows, 'Diameter').set?.(MM(1))?.vias[0]?.size).toBe(MM(1));
     expect(row(rows, 'Hole').set?.(MM(0.5))?.vias[0]?.drill).toBe(MM(0.5));
+  });
+});
+
+/**
+ * The Teardrops group is `BOARD_CONNECTED_ITEM_DESC`'s, so a pad and a via get
+ * the SAME nine rows from the same setters — which is the whole point of testing
+ * them together.
+ */
+describe('the Teardrops group, on both items that have one', () => {
+  const via = rowsFor('via:0');
+  const pad = rowsFor('pad:0:1');
+
+  it('gives a via eight rows and a pad nine, in registration order', () => {
+    const td = (r: PcbPropRow[]): string[] =>
+      r.filter((x) => x.group === 'Teardrops').map((x) => x.name);
+    expect(td(via)).toEqual([
+      'Enable Teardrops',
+      'Best Length Ratio',
+      'Max Length',
+      'Best Width Ratio',
+      'Max Width',
+      'Curved Teardrops',
+      'Allow Teardrops To Span Two Tracks',
+      'Max Width Ratio',
+    ]);
+    // `supportsTeardropPreferZoneSetting` is PCB_PAD_T alone, and it sits where
+    // it is registered — after Curved Teardrops.
+    expect(td(pad)).toEqual([
+      'Enable Teardrops',
+      'Best Length Ratio',
+      'Max Length',
+      'Best Width Ratio',
+      'Max Width',
+      'Curved Teardrops',
+      'Prefer Zone Connections',
+      'Allow Teardrops To Span Two Tracks',
+      'Max Width Ratio',
+    ]);
+  });
+
+  it('gives a TRACK none: supportsTeardrops is a pad or a via', () => {
+    expect(groupOrder(rowsFor('track:0'))).not.toContain('Teardrops');
+  });
+
+  it('shows the ratios as the fraction the property carries, not the percentage', () => {
+    // The teardrop DIALOG shows 50%; `GetTeardropBestLengthRatio` is a plain
+    // double with no PROPERTY_DISPLAY, so the cell reads 0.5.
+    // TEARDROP_PARAMETERS' own defaults (teardrop_parameters.h): best length
+    // 0.5, best width 1.0, filter ratio 0.9.
+    expect(row(via, 'Best Length Ratio').value).toBe('0.5');
+    expect(row(via, 'Best Width Ratio').value).toBe('1');
+    expect(row(via, 'Max Width Ratio').value).toBe('0.9');
+    // And rejects a negative one — PROPERTY_VALIDATORS::PositiveRatioValidator.
+    expect(row(via, 'Best Length Ratio').set?.('-0.2')).toBeNull();
+  });
+
+  it('commits through the item, and writes the (teardrops …) node', () => {
+    const on = row(via, 'Enable Teardrops').set?.(true);
+    expect(on?.vias[0]?.teardrops?.enabled).toBe(true);
+    expect(serialize(on!.vias[0]!.source)).toContain('(teardrops');
+
+    const curved = row(pad, 'Curved Teardrops').set?.(true);
+    expect(curved?.footprints[0]?.pads[1]?.teardrops?.curvedEdges).toBe(true);
+    expect(serialize(curved!.footprints[0]!.pads[1]!.source)).toContain('(curved_edges yes)');
+  });
+
+  it('stores Prefer Zone Connections INVERTED, as the parameter is', () => {
+    // `SetTeardropPreferZoneConnections( aPrefer )` is
+    // `m_TdOnPadsInZones = !aPrefer` (board_connected_item.h:227-228), and the
+    // file token `(prefer_zone_connections …)` is the inverse again.
+    const prefer = row(pad, 'Prefer Zone Connections');
+    expect(prefer.value).toBe(true);
+    const off = prefer.set?.(false);
+    expect(off?.footprints[0]?.pads[1]?.teardrops?.tdOnPadsInZones).toBe(true);
+    expect(serialize(off!.footprints[0]!.pads[1]!.source)).toContain(
+      '(prefer_zone_connections no)',
+    );
+  });
+
+  it('offers no teardrop rows at all on a legacy-teardrop board', () => {
+    // `supportsTeardrops` opens with `if( !bci->GetBoard() ||
+    // bci->GetBoard()->LegacyTeardrops() ) return false` — those boards draw
+    // teardrops as zones, so there is nothing per-item to edit.
+    const legacy = load(SRC.replace('(net 0 "")', '(setup (legacy_teardrops yes))\n  (net 0 "")'));
+    expect(legacy.legacyTeardrops).toBe(true);
+    expect(groupOrder(rowsFor('via:0', legacy))).not.toContain('Teardrops');
+    expect(groupOrder(rowsFor('pad:0:1', legacy))).not.toContain('Teardrops');
   });
 });
 

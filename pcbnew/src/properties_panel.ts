@@ -62,6 +62,9 @@ import { ZONE_CONNECTION_CHOICES } from './zone_connection.js';
 import { GetLayerName } from './layer_ids.js';
 import { GetArcAngle } from '@ziroeda/common/src/eda_shape.js';
 import { UI_FILL_MODE_CHOICES } from './shape_fill.js';
+import type { TeardropParams } from './types.js';
+import { UNCONNECTED_LAYER_MODE_CHOICES } from './unused_pad_layers.js';
+import { defaultTeardropParameters } from './teardrop.js';
 import { arcCenter } from './read-board.js';
 import { ELECTRICAL_PINTYPES, type ElectricalPinType } from '@ziroeda/common/src/pin_type.js';
 import {
@@ -405,6 +408,97 @@ function footprintFieldRows(board: Board, index: number, fp: PcbFootprint): PcbP
   });
 }
 
+/**
+ * The Teardrops group — `BOARD_CONNECTED_ITEM_DESC` (board_connected_item.cpp),
+ * nine properties on the base class, so a pad and a via get the SAME rows from
+ * the same setters. Ours used to show two of them, on the via alone, under names
+ * that were not upstream's.
+ *
+ * `supportsTeardrops` gates the whole group: PCB_PAD_T or PCB_VIA_T, and only
+ * when the board is not on legacy (zone-drawn) teardrops. "Prefer Zone
+ * Connections" is narrower still — `supportsTeardropPreferZoneSetting` is a pad
+ * alone — and it is stored INVERTED (`m_TdOnPadsInZones = !aPrefer`).
+ *
+ * The three ratios are `double` properties with no PROPERTY_DISPLAY, so they are
+ * plain numbers: the fraction itself, not the percentage the teardrop dialog
+ * shows. `PositiveRatioValidator` rejects a negative one.
+ */
+function teardropRows(
+  td: TeardropParams,
+  isPad: boolean,
+  commit: (next: TeardropParams) => Board,
+): PcbPropRow[] {
+  const G = 'Teardrops';
+  const set = (patch: Partial<TeardropParams>): Board => commit({ ...td, ...patch });
+  const ratio = (name: string, value: number, apply: (r: number) => Board): PcbPropRow => ({
+    group: G,
+    name,
+    kind: 'string',
+    value: String(value),
+    set: (t) => {
+      const n = Number(String(t).trim());
+      // `PROPERTY_VALIDATORS::PositiveRatioValidator`.
+      return Number.isFinite(n) && n >= 0 ? apply(n) : null;
+    },
+  });
+  const size = (name: string, value: number, apply: (n: number) => Board): PcbPropRow => ({
+    group: G,
+    name,
+    kind: 'dist',
+    value,
+    set: (n) => (typeof n === 'number' ? apply(n) : null),
+  });
+
+  return [
+    {
+      group: G,
+      name: 'Enable Teardrops',
+      kind: 'bool',
+      value: td.enabled,
+      set: (b) => set({ enabled: !!b }),
+    },
+    ratio('Best Length Ratio', td.bestLengthRatio, (bestLengthRatio) => set({ bestLengthRatio })),
+    size('Max Length', td.tdMaxLen, (tdMaxLen) => set({ tdMaxLen })),
+    ratio('Best Width Ratio', td.bestWidthRatio, (bestWidthRatio) => set({ bestWidthRatio })),
+    size('Max Width', td.tdMaxWidth, (tdMaxWidth) => set({ tdMaxWidth })),
+    {
+      group: G,
+      name: 'Curved Teardrops',
+      kind: 'bool',
+      value: td.curvedEdges,
+      set: (b) => set({ curvedEdges: !!b }),
+    },
+    ...(isPad
+      ? [
+          {
+            group: G,
+            name: 'Prefer Zone Connections',
+            kind: 'bool' as const,
+            // `GetTeardropPreferZoneConnections()` is `!m_TdOnPadsInZones`.
+            value: !td.tdOnPadsInZones,
+            set: (b: string | number | boolean) => set({ tdOnPadsInZones: !b }),
+          },
+        ]
+      : []),
+    {
+      group: G,
+      name: 'Allow Teardrops To Span Two Tracks',
+      kind: 'bool',
+      value: td.allowUseTwoTracks,
+      set: (b) => set({ allowUseTwoTracks: !!b }),
+    },
+    ratio('Max Width Ratio', td.widthtoSizeFilterRatio, (widthtoSizeFilterRatio) =>
+      set({ widthtoSizeFilterRatio }),
+    ),
+  ];
+}
+
+/**
+ * `supportsTeardrops` (board_connected_item.cpp): a pad or a via, and not on a
+ * board that still draws teardrops as zones.
+ */
+const boardHasItemTeardrops = (board: Board): boolean => board.legacyTeardrops !== true;
+
 /** FOOTPRINT_DESC's rows (footprint.cpp:4880-4960). */
 function footprintRows(board: Board, index: number, ctx: PcbPropertiesContext): PcbPropRow[] {
   const fp = board.footprints[index];
@@ -669,20 +763,19 @@ function padRows(board: Board, ref: PadRef): PcbPropRow[] {
     // what a through-hole pad does with a layer it is NOT connected on — and not
     // the pad's layer list, which the panel does not show at all.
     //
-    // START_END_ONLY is upstream's fourth choice and is missing here on purpose:
-    // the pad parser has no token for it (only the VIA parser does,
-    // pcb_io_kicad_sexpr_parser.cpp:7508), so a pad set to it would come back
-    // `keep_all` on the next load. Offering an edit the file cannot keep is worse
-    // than offering three that it can.
+    // All four choices, START_END_ONLY included, because that is the enum
+    // upstream offers. A pad cannot STORE it — the pad writer emits the two
+    // booleans `GetRemoveUnconnected()` / `GetKeepTopBottom()` (pad.h:876-894),
+    // which spell START_END_ONLY the same way as REMOVE_ALL, and the pad parser
+    // has no `start_end_only` token (only the via's does,
+    // pcb_io_kicad_sexpr_parser.cpp:7508). So KiCad itself shows the choice,
+    // takes it, and loses it on save; offering three would be a different
+    // program, not a safer one.
     choiceRow(
       'Pad Properties',
       'Copper Layers',
       v.unconnectedLayerMode,
-      [
-        ['keep_all', 'All copper layers'],
-        ['remove_all', 'Connected layers only'],
-        ['remove_except_start_and_end', 'Front, back and connected layers'],
-      ] as const,
+      UNCONNECTED_LAYER_MODE_CHOICES,
       v.type === 'thru_hole'
         ? (unconnectedLayerMode) => commit({ unconnectedLayerMode })
         : undefined,
@@ -715,10 +808,35 @@ function padRows(board: Board, ref: PadRef): PcbPropRow[] {
     ),
   );
 
+  // PAD's own groups come first and its bases' after (`collectGroupsRecursive`,
+  // property_mgr.cpp:319-345), so Teardrops — BOARD_CONNECTED_ITEM's — is last.
+  if (boardHasItemTeardrops(board))
+    rows.push(...teardropRows(v.teardrops, true, (teardrops) => commit({ teardrops })));
+
   return rows;
 }
 
-/** PCB_TRACK_DESC's rows (pcb_track.cpp:3100-3178). */
+/**
+ * PCB_TRACK's rows: `TRACK_VIA_DESC` (pcb_track.cpp:2871-3382) over
+ * `BOARD_CONNECTED_ITEM_DESC` over `BOARD_ITEM_DESC`.
+ *
+ * There is no "Track Properties" group upstream — that was ours. PCB_TRACK
+ * registers Width, End X and End Y with NO group, and REPLACES BOARD_ITEM's
+ * Position X/Y with Start X/Y in place (:3134-3148), so everything but the
+ * Technical Layers pair is Basic Properties.
+ *
+ * The order inside the group is the property manager's: a base class's
+ * properties come before the derived class's (`collectPropsRecur` inserts its
+ * own "earlier than anything already in the list", walking derived to base), so
+ * BOARD_ITEM's four — Start X, Start Y, Layer, Locked — then
+ * BOARD_CONNECTED_ITEM's Net, then PCB_TRACK's Width, End X, End Y.
+ *
+ * Teardrops are absent by `supportsTeardrops`: a track is neither a pad nor a
+ * via. Net Class is absent too — it is registered
+ * `SetIsHiddenFromPropertiesManager` with the reason written out at
+ * board_connected_item.cpp:36-42 ("there is no way to edit the netclass of a net
+ * from a selected connected item, and showing it makes users think they can").
+ */
 function trackRows(board: Board, id: string, ctx: PcbPropertiesContext): PcbPropRow[] {
   const sel = trackViaSelection(board, [id]);
   const t = sel.tracks[0]?.item ?? sel.arcs[0]?.item;
@@ -734,14 +852,11 @@ function trackRows(board: Board, id: string, ctx: PcbPropertiesContext): PcbProp
     set: isArc ? undefined : (n) => (typeof n === 'number' ? commit({ [key]: n }) : null),
   });
 
-  return [
+  const rows: PcbPropRow[] = [
     endpoint('Start X', t.start.x, 'startX'),
     endpoint('Start Y', t.start.y, 'startY'),
-    endpoint('End X', t.end.x, 'endX'),
-    endpoint('End Y', t.end.y, 'endY'),
-    choiceRow('', 'Net', String(t.net), netChoices(board), (n) => commit({ net: Number(n) })),
     choiceRow(
-      'Track Properties',
+      '',
       'Layer',
       t.layer,
       layerChoices(board, true),
@@ -749,31 +864,110 @@ function trackRows(board: Board, id: string, ctx: PcbPropertiesContext): PcbProp
       ctx.layerColor(t.layer),
     ),
     {
-      group: 'Track Properties',
-      name: 'Width',
-      kind: 'dist',
-      value: t.width,
-      set: (n) => (typeof n === 'number' ? commit({ trackWidth: n }) : null),
-    },
-    {
-      group: 'Track Properties',
+      group: '',
       name: 'Locked',
       kind: 'bool',
       value: t.locked ?? false,
       set: (v) => commit({ locked: !!v }),
     },
+    choiceRow('', 'Net', String(t.net), netChoices(board), (n) => commit({ net: Number(n) })),
+    {
+      group: '',
+      name: 'Width',
+      kind: 'dist',
+      value: t.width,
+      set: (n) => (typeof n === 'number' ? commit({ trackWidth: n }) : null),
+    },
+    endpoint('End X', t.end.x, 'endX'),
+    endpoint('End Y', t.end.y, 'endY'),
   ];
+
+  // `isExternalLayerTrack` (:3152-3159): a solder-mask opening is a front/back
+  // thing, so an inner-layer track has no Technical Layers group at all.
+  if (t.layer === 'F.Cu' || t.layer === 'B.Cu')
+    rows.push(
+      {
+        group: 'Technical Layers',
+        name: 'Soldermask',
+        kind: 'bool',
+        value: t.maskLayer !== undefined,
+        set: (b) => commit({ hasMask: !!b }),
+      },
+      overrideRow(
+        'Technical Layers',
+        'Soldermask Margin Override',
+        t.solderMaskMargin ?? null,
+        (n) => commit({ maskMargin: n }),
+      ),
+    );
+
+  return rows;
 }
 
-/** PCB_VIA_DESC's rows (pcb_track.cpp:3178-3260). */
+/**
+ * PCB_VIA's rows: `TRACK_VIA_DESC`'s via half (pcb_track.cpp:3175-3382).
+ *
+ * A via's GROUPS come out derived-first — Via Properties before Basic
+ * Properties — and that is not a mistake here: `collectGroupsRecursive`
+ * (property_mgr.cpp:319-345) walks the class's own groups and only then its
+ * bases', and every property PCB_VIA registers is in a group of its own, so ''
+ * arrives from BOARD_ITEM afterwards. Teardrops, BOARD_CONNECTED_ITEM's, is last.
+ *
+ * Layer is MASKED for a via (:3182) — it spans a range, and Layer Top / Layer
+ * Bottom are the two rows that say so.
+ */
 function viaRows(board: Board, id: string, ctx: PcbPropertiesContext): PcbPropRow[] {
   const sel = trackViaSelection(board, [id]);
   const via = sel.vias[0]?.item;
   if (!via) return [];
   const commit = (patch: Partial<TrackViaValues>): Board => applyTrackViaValues(board, sel, patch);
   const copper = layerChoices(board, true);
+  const G = 'Via Properties';
 
-  return [
+  const rows: PcbPropRow[] = [
+    {
+      group: G,
+      name: 'Diameter',
+      kind: 'dist',
+      value: via.size,
+      set: (n) => (typeof n === 'number' ? commit({ viaDiameter: n }) : null),
+    },
+    {
+      group: G,
+      name: 'Hole',
+      kind: 'dist',
+      value: via.drill,
+      set: (n) => (typeof n === 'number' ? commit({ viaDrill: n }) : null),
+    },
+    choiceRow(
+      G,
+      'Layer Top',
+      via.layers[0] ?? '',
+      copper,
+      (startLayer) => commit({ startLayer }),
+      ctx.layerColor(via.layers[0] ?? ''),
+    ),
+    choiceRow(
+      G,
+      'Layer Bottom',
+      via.layers[1] ?? '',
+      copper,
+      (endLayer) => commit({ endLayer }),
+      ctx.layerColor(via.layers[1] ?? ''),
+    ),
+    choiceRow(
+      G,
+      'Via Type',
+      via.kind,
+      // `ENUM_MAP<VIATYPE>` (:2878-2881). Blind and buried are one kind in this
+      // model and in the file — `(type blind)` — so they share a row.
+      [
+        ['through', 'Through'],
+        ['blind', 'Blind/buried'],
+        ['micro', 'Micro'],
+      ] as const,
+      (viaType) => commit({ viaType }),
+    ),
     {
       group: '',
       name: 'Position X',
@@ -788,70 +982,33 @@ function viaRows(board: Board, id: string, ctx: PcbPropertiesContext): PcbPropRo
       value: via.at.y,
       set: (n) => (typeof n === 'number' ? commit({ viaY: n }) : null),
     },
-    choiceRow('', 'Net', String(via.net), netChoices(board), (n) => commit({ net: Number(n) })),
-    choiceRow(
-      'Via Properties',
-      'Via Type',
-      via.kind,
-      [
-        ['through', 'Through'],
-        ['blind', 'Blind/buried'],
-        ['micro', 'Microvia'],
-      ] as const,
-      (viaType) => commit({ viaType }),
-    ),
     {
-      group: 'Via Properties',
-      name: 'Diameter',
-      kind: 'dist',
-      value: via.size,
-      set: (n) => (typeof n === 'number' ? commit({ viaDiameter: n }) : null),
-    },
-    {
-      group: 'Via Properties',
-      name: 'Hole',
-      kind: 'dist',
-      value: via.drill,
-      set: (n) => (typeof n === 'number' ? commit({ viaDrill: n }) : null),
-    },
-    choiceRow(
-      'Via Properties',
-      'Layer Top',
-      via.layers[0] ?? '',
-      copper,
-      (startLayer) => commit({ startLayer }),
-      ctx.layerColor(via.layers[0] ?? ''),
-    ),
-    choiceRow(
-      'Via Properties',
-      'Layer Bottom',
-      via.layers[1] ?? '',
-      copper,
-      (endLayer) => commit({ endLayer }),
-      ctx.layerColor(via.layers[1] ?? ''),
-    ),
-    {
-      group: 'Via Properties',
+      group: '',
       name: 'Locked',
       kind: 'bool',
       value: via.locked ?? false,
       set: (v) => commit({ locked: !!v }),
     },
-    {
-      group: 'Teardrops',
-      name: 'Enabled',
-      kind: 'bool',
-      value: via.teardrops?.enabled ?? false,
-      set: (v) => commit({ tdEnabled: !!v }),
-    },
-    {
-      group: 'Teardrops',
-      name: 'Curved Edges',
-      kind: 'bool',
-      value: via.teardrops?.curvedEdges ?? false,
-      set: (v) => commit({ tdCurvedEdges: !!v }),
-    },
+    choiceRow('', 'Net', String(via.net), netChoices(board), (n) => commit({ net: Number(n) })),
   ];
+
+  if (boardHasItemTeardrops(board))
+    rows.push(
+      ...teardropRows(via.teardrops ?? defaultTeardropParameters(), false, (td) =>
+        commit({
+          tdEnabled: td.enabled,
+          tdAllowTwoTracks: td.allowUseTwoTracks,
+          tdCurvedEdges: td.curvedEdges,
+          tdMaxLen: td.tdMaxLen,
+          tdMaxWidth: td.tdMaxWidth,
+          tdBestLengthPct: td.bestLengthRatio * 100,
+          tdBestWidthPct: td.bestWidthRatio * 100,
+          tdFilterPct: td.widthtoSizeFilterRatio * 100,
+        }),
+      ),
+    );
+
+  return rows;
 }
 
 /** ZONE_DESC's rows (zone.cpp:2000-2200). */

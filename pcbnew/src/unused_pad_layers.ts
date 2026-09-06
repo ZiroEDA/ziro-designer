@@ -74,6 +74,17 @@ export const isExternalCopperLayer = (layer: string): boolean =>
   layer === 'F.Cu' || layer === 'B.Cu';
 
 /** `PADSTACK::UnconnectedLayerMode()`; an absent field is KiCad's default. */
+/**
+ * `ENUM_MAP<UNCONNECTED_LAYER_MODE>` (pad.cpp:3390-3397), in Map order — which is
+ * the order the "Copper Layers" combo lists them for both a pad and a via.
+ */
+export const UNCONNECTED_LAYER_MODE_CHOICES = [
+  ['keep_all', 'All copper layers'],
+  ['remove_all', 'Connected layers only'],
+  ['remove_except_start_and_end', 'Front, back and connected layers'],
+  ['start_end_only', 'Start and end layers only'],
+] as const satisfies readonly (readonly [UnconnectedLayerMode, string])[];
+
 export const unconnectedLayerModeOf = (item: PcbPad | PcbVia): UnconnectedLayerMode =>
   item.unconnectedLayerMode ?? 'keep_all';
 

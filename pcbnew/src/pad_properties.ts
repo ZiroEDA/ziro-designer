@@ -20,6 +20,13 @@ import { dropChild, mm, parseBoardItemId, patchChild } from './edit-board.js';
 import { rotatePcb } from './read-board.js';
 import type { Board, PadShape, PadType, PcbFootprint, PcbPad } from './types.js';
 import { ZONE_CONNECTION_CODE } from './zone_connection.js';
+import { buildTeardropParamsNode, isDefaultTeardropParams } from './write-footprint.js';
+import { defaultTeardropParameters } from './teardrop.js';
+import type { TeardropParams } from './types.js';
+
+/** `BOARD_CONNECTED_ITEM::GetTeardropParams()`: the item's own, or the defaults. */
+const teardropParamsOf = (pad: PcbPad): TeardropParams =>
+  pad.teardrops ?? defaultTeardropParameters();
 import { unconnectedLayerModeOf } from './unused_pad_layers.js';
 import type { UnconnectedLayerMode } from './types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
@@ -83,6 +90,14 @@ export interface PadValues {
   thermalBridgeWidth: number | null;
   thermalGap: number | null;
   padToDieLength: number | null;
+  /**
+   * `(teardrops …)`, the per-item TEARDROP_PARAMETERS `BOARD_CONNECTED_ITEM`
+   * carries. DIALOG_PAD_PROPERTIES has no teardrop page — these are the
+   * Properties panel's rows (board_connected_item.cpp's `groupTeardrops`), whose
+   * setters are BOARD_CONNECTED_ITEM's own and so apply to a pad exactly as they
+   * do to a via.
+   */
+  teardrops: TeardropParams;
 }
 
 /** Resolve a `pad:F:P` id, or null when the selection is not a single pad. */
@@ -133,6 +148,7 @@ export function collectPadValues(pad: PcbPad): PadValues {
     thermalBridgeWidth: pad.thermalBridgeWidth ?? null,
     thermalGap: pad.thermalGap ?? null,
     padToDieLength: pad.padToDieLength ?? null,
+    teardrops: teardropParamsOf(pad),
   };
 }
 
@@ -340,6 +356,18 @@ export function applyPadValues(board: Board, ref: PadRef, v: PadValues): Board {
     // The tokens belong to a PTH pad alone, so a pad changed to SMD loses them.
     next.unconnectedLayerMode = undefined;
     src = dropChild(dropChild(src, 'remove_unused_layers'), 'keep_end_layers');
+  }
+
+  // `(teardrops …)` is written only when it differs from the defaults, exactly
+  // as the writer decides — so a pad left at the defaults keeps no token.
+  const td = teardropParamsOf(pad);
+  if (
+    (Object.keys(v.teardrops) as (keyof TeardropParams)[]).some((k) => v.teardrops[k] !== td[k])
+  ) {
+    next.teardrops = v.teardrops;
+    src = isDefaultTeardropParams(v.teardrops)
+      ? dropChild(src, 'teardrops')
+      : patchChild(src, 'teardrops', buildTeardropParamsNode(v.teardrops));
   }
 
   next.zoneConnection = v.zoneConnection === 'inherited' ? undefined : v.zoneConnection;

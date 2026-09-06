@@ -1343,8 +1343,12 @@ function readZone(item: SList): PcbZone {
 /** Read a parsed `.kicad_pcb` document into the typed Board model. */
 export function readBoard(root: SList): Board {
   if (head(root) !== 'kicad_pcb') throw new Error('not a kicad_pcb document');
+  const setupNode = childNamed(root, 'setup');
   const board: Board = {
     version: numberField(root, 'version') ?? 0,
+    // `parseMaybeAbsentBool( true )` (pcb_io_kicad_sexpr_parser.cpp:1713-1715):
+    // a bare `(legacy_teardrops)` means yes.
+    legacyTeardrops: setupNode ? maybeAbsent(setupNode, 'legacy_teardrops', true) : undefined,
     // Full token ("A4", "A4 portrait", "User 200 150") so the Page Settings
     // dialog round-trips orientation and custom sizes; consumers split on
     // whitespace and use the first word for the size lookup.
