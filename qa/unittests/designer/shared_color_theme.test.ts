@@ -109,8 +109,22 @@ describe('pcbnew resolves to s_defaultTheme', () => {
     expect(PCB_LAYER_COLORS.Margin).toBe(toCssColor(d.Margin));
     expect(PCB_LAYER_COLORS['B.CrtYd']).toBe(toCssColor(d.B_CrtYd));
     expect(PCB_LAYER_COLORS['User.9']).toBe(toCssColor(d.User_9));
-    // 32 copper + 18 technical + 9 user, the set the board editor paints.
-    expect(Object.keys(PCB_LAYER_COLORS)).toHaveLength(59);
+    expect(PCB_LAYER_COLORS['User.45']).toBe(toCssColor(d.User_45));
+    /*
+     * 32 copper + 18 technical/user + 45 numbered user layers.
+     *
+     * It was 59 — the same 50, but stopping at `User_9` "the set the board
+     * editor paints". Re-derived rather than re-baselined: this is a LOOKUP
+     * keyed by layer name, not a list of what gets painted, and the set of
+     * `PCB_LAYER_ID`s a `COLOR_SETTINGS` carries a colour for is all 95.
+     * `color_settings.cpp:124-244` registers a `board.*` param for every one
+     * of them, and `LSET::UIOrder()` over `AllCuMask() | AllNonCuMask()`
+     * yields the same 95 — which is exactly what the footprint editor's layer
+     * dropdowns offer (`PCB_LAYER_BOX_SELECTOR::getEnabledLayers` with no
+     * board frame). Nine of forty-five left User.10 and up drawing the grid
+     * colour in those dropdowns' swatches.
+     */
+    expect(Object.keys(PCB_LAYER_COLORS)).toHaveLength(95);
   });
 
   it('keeps the three painter overrides that are not the theme value', () => {

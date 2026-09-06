@@ -6751,20 +6751,38 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   color: var(--chrome-fg);
   cursor: pointer;
 }
-/* The in-cell editor carries `.ze-bare` in the markup, which is the shared
-   entry rule's own opt-out. Without it that rule —
-   `.ze-app input:not(...)x5` at (0,6,1) against this selector's (0,2,1) —
-   wins, and its border lands INSIDE the cell's own cursor box, so an open
-   editor drew two nested rectangles where KiCad draws one. A wxGrid editor has
-   no frame of its own: `wxGridCellTextEditor` creates a borderless control and
-   the cell's highlight is the only outline. */
-.ze-grid td input[type="text"],
+/* A wxGrid editor has NO FRAME of its own: `wxGridCellTextEditor` creates a
+   borderless control and the cell's own outline is the only one. Ours drew the
+   shared entry — `--field-bg` inside `--ctl-border`, and an orange focus ring
+   on top — because that rule is `.ze-app input:not(…)x5` at (0,5,1) and this
+   one was (0,2,1). Two nested rectangles where KiCad draws none, and on a
+   SELECTED row a dark field sitting in the middle of the orange fill, which is
+   what Akshay saw on Footprint Defaults.
+
+   The `:not()` run is that rule's own, restated to outrank it. `.ze-bare` is
+   the other way to opt out and several grids carry it in their markup; this
+   states the same thing once, for the base-class reason — `WX_GRID` is what
+   every KiCad grid inherits from, so no grid anywhere has a framed editor and
+   no call site should have to remember that. `.ze-bare` in the markup stays
+   valid and is now redundant rather than load-bearing.
+
+   `color: inherit`, not `--chrome-fg`: a wxGrid paints a selected row's text
+   in `wxSYS_COLOUR_HIGHLIGHTTEXT`, and the cell already carries that through
+   `.ze-grid tr.selected td`. Naming the normal foreground here kept the text
+   dark on the orange fill. */
+.ze-app .ze-grid
+  td
+  input[type="text"]:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not(
+    [type="range"]
+  ),
 .ze-grid td .ze-grid-input {
   width: 100%;
   box-sizing: border-box;
   border: none;
+  border-radius: 0;
   background: transparent;
-  color: var(--chrome-fg);
+  box-shadow: none;
+  color: inherit;
   font: inherit;
   padding: 3px 6px;
   outline: none;
