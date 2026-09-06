@@ -30,6 +30,9 @@ const MM = (n: number): number => mmToIU(n);
 const load = (text: string): Board => readBoard(parse(text));
 /** What the board WRITES — a model-only edit that never reaches the source reverts on reload. */
 const written = (board: Board): string => serialize(writeBoardNode(board));
+/** The first board text's own node, as the writer emits it (it is stored source). */
+const writtenText = (board: Board): string => serialize(board.texts[0]!.source);
+
 /** The head of every DIRECT child of the first footprint's source node. */
 const fpChildren = (board: Board): string[] => {
   const src = board.footprints[0]?.source;
@@ -82,8 +85,15 @@ const SRC = `(kicad_pcb (version 20240108) (generator "pcbnew")
   (gr_text "hello" (at 5 5 0) (layer "F.SilkS") (uuid "gt1")
     (effects (font (size 1 1) (thickness 0.15))))
   (gr_line (start 0 0) (end 5 0) (stroke (width 0.1) (type dash)) (layer "Edge.Cuts") (uuid "gl1"))
-  (gr_circle (center 30 30) (end 35 30) (stroke (width 0.1) (type solid)) (fill none)
+  (gr_circle (center 30 30) (end 33 34) (stroke (width 0.1) (type solid)) (fill none)
     (layer "F.SilkS") (uuid "gc1"))
+  (gr_poly (pts (xy 0 0) (xy 5 0) (xy 5 5)) (stroke (width 0.1) (type solid)) (fill none)
+    (layer "F.SilkS") (uuid "gp1"))
+  (gr_arc (start 0 5) (mid -5 0) (end 0 -5) (stroke (width 0.1) (type solid))
+    (layer "F.SilkS") (uuid "ga1"))
+  (gr_rect (start 0 0) (end 20 10) (stroke (width 0.1) (type solid)) (fill none)
+    (layer "F.SilkS") (uuid "gr1"))
+  (gr_line (start 1 1) (end 2 2) (stroke (width 0.2) (type solid)) (layer "F.Cu") (uuid "gcu1"))
 )`;
 
 const B = load(SRC);
@@ -704,14 +714,113 @@ describe('TEXT rows', () => {
     expect(row(rows, 'Layer').swatch).toBe('#f2eda1');
   });
 
-  it('carries the five EDA_TEXT flags as bool rows', () => {
-    expect(names(rows).slice(-5)).toEqual(['Bold', 'Italic', 'Mirrored', 'Knockout', 'Hidden']);
-    for (const n of ['Bold', 'Italic', 'Mirrored', 'Knockout', 'Hidden'])
+  it("lists every row in the property manager's order, inherited first", () => {
+    // BOARD_ITEM's four, then EDA_TEXT's ungrouped Orientation and its group,
+    // then PCB_TEXT's own — `InheritsAfter( PCB_TEXT, BOARD_ITEM )` followed by
+    // `InheritsAfter( PCB_TEXT, EDA_TEXT )` (pcb_text.cpp:747-748). Text used to
+    // come first and sit in Basic Properties; it is EDA_TEXT's, in the group
+    // (eda_text.cpp:1350-1352).
+    expect(names(rows)).toEqual([
+      'Position X',
+      'Position Y',
+      'Layer',
+      'Locked',
+      'Orientation',
+      'Text',
+      'Auto Thickness',
+      'Thickness',
+      'Italic',
+      'Bold',
+      'Mirrored',
+      'Width',
+      'Height',
+      'Horizontal Justification',
+      'Vertical Justification',
+      'Knockout',
+    ]);
+    for (const n of ['Auto Thickness', 'Italic', 'Bold', 'Mirrored', 'Knockout'])
       expect(row(rows, n).kind).toBe('bool');
+
+    // The GROUP as well as the order: Text is EDA_TEXT's, registered with
+    // `textProps` (eda_text.cpp:1350-1352), so it heads the group rather than
+    // sitting in Basic Properties with the position.
+    expect(row(rows, 'Text').group).toBe('Text Properties');
+    expect(row(rows, 'Orientation').group).toBe('');
+  });
+
+  it('shows none of the four EDA_TEXT rows PCB_TEXT takes away', () => {
+    // Color and Hyperlink are `propMgr.Mask`ed (pcb_text.cpp:750, :771) — the
+    // writer passes CTL_OMIT_COLOR | CTL_OMIT_HYPERLINK and says so. Visible is
+    // `SetAvailableFunc( isField )`, and `(hide yes)` is written for a field
+    // alone (pcb_io_kicad_sexpr.cpp:2308-2309), so a gr_text has no Hidden row.
+    // Keep Upright is restricted to text with a parent footprint (:760-769).
+    for (const n of ['Color', 'Hyperlink', 'Visible', 'Hidden', 'Keep Upright'])
+      expect(names(rows)).not.toContain(n);
   });
 
   it('commits the text', () => {
     expect(row(rows, 'Text').set?.('goodbye')?.texts[0]?.text).toBe('goodbye');
+  });
+
+  it('writes the justification as the (justify …) words, in EDA_TEXT order', () => {
+    // eda_text.cpp:1100-1114: horizontal, then vertical, then mirror, each
+    // omitted at its default (CENTER / not mirrored), and the whole token
+    // omitted when all three are.
+    expect(row(rows, 'Horizontal Justification').value).toBe('Center');
+    expect(row(rows, 'Vertical Justification').value).toBe('Center');
+
+    const left = row(rows, 'Horizontal Justification').set?.('Left');
+    expect(left?.texts[0]?.justify).toEqual(['left']);
+    expect(written(left!)).toContain('(justify left)');
+
+    const bottom = row(rowsFor('text:0', left!), 'Vertical Justification').set?.('Bottom');
+    expect(bottom?.texts[0]?.justify).toEqual(['left', 'bottom']);
+    expect(written(bottom!)).toContain('(justify left bottom)');
+
+    const mirrored = row(rowsFor('text:0', bottom!), 'Mirrored').set?.(true);
+    expect(written(mirrored!)).toContain('(justify left bottom mirror)');
+
+    // Back to both defaults: the token goes away rather than reading `(justify)`.
+    const back = row(rowsFor('text:0', bottom!), 'Horizontal Justification').set?.('Center');
+    const centred = row(rowsFor('text:0', back!), 'Vertical Justification').set?.('Center');
+    expect(centred?.texts[0]?.justify).toBeUndefined();
+    expect(written(centred!)).not.toContain('justify');
+  });
+
+  it('makes Auto Thickness a stored thickness of zero, and back', () => {
+    // `GetAutoThickness()` is `GetTextThickness() == 0` (eda_text.h:150), and
+    // `Format` writes the token only when it is off (eda_text.cpp:1079-1084).
+    // The fixture's text has `(thickness 0.15)`, so it starts explicit.
+    expect(row(rows, 'Auto Thickness').value).toBe(false);
+    expect(row(rows, 'Thickness').value).toBe(MM(0.15));
+
+    const auto = row(rows, 'Auto Thickness').set?.(true);
+    expect(auto?.texts[0]?.thickness).toBeUndefined();
+    // Scoped to the text's own node: the fixture's zone carries a
+    // `(min_thickness …)`, which a whole-file search would match.
+    expect(writtenText(auto!)).not.toContain('thickness');
+
+    // The cell now reads the width the text is DRAWN with, not zero:
+    // `GetTextThicknessProperty` returns `GetEffectiveTextPenWidth()` while auto
+    // is on, which for this 1 mm non-bold text is `GetPenSizeForNormal` = 1/8.
+    const autoRows = rowsFor('text:0', auto!);
+    expect(row(autoRows, 'Thickness').value).toBe(MM(1) / 8);
+
+    // And back: `SetAutoThickness( false )` materialises exactly that width, so
+    // the text keeps the pen it had rather than dropping to zero.
+    const explicit = row(autoRows, 'Auto Thickness').set?.(false);
+    expect(explicit?.texts[0]?.thickness).toBe(MM(1) / 8);
+    expect(writtenText(explicit!)).toContain('(thickness 0.125)');
+  });
+
+  it('reads a stored zero as automatic too, not just an absent token', () => {
+    // `GetAutoThickness()` is `GetTextThickness() == 0` (eda_text.h:150). A file
+    // CAN carry `(thickness 0)` — KiCad reads it as automatic and writes it back
+    // without the token. Deriving the flag from "the model field is undefined"
+    // agrees on every file KiCad wrote and is wrong on this one.
+    const zero = load(SRC.replace('(thickness 0.15)', '(thickness 0)'));
+    expect(zero.texts[0]?.thickness).toBe(0);
+    expect(row(rowsFor('text:0', zero), 'Auto Thickness').value).toBe(true);
   });
 });
 
@@ -719,10 +828,107 @@ describe('SHAPE rows', () => {
   const line = rowsFor('shape:0');
   const circle = rowsFor('shape:1');
 
-  it('lists only the points the shape kind uses', () => {
-    // shapePointsUsed: a segment has start/end, a circle centre/radius.
-    expect(names(line).slice(0, 4)).toEqual(['Start X', 'Start Y', 'End X', 'End Y']);
-    expect(names(circle).slice(0, 4)).toEqual(['Center X', 'Center Y', 'Radius X', 'Radius Y']);
+  it('lists the geometry rows the SHAPE_T makes available, and no others', () => {
+    // Every one of these is a `SetAvailableFunc` upstream, and an unavailable
+    // property is ABSENT rather than greyed (properties_panel.cpp:434). PCB_SHAPE
+    // rewrites four of EDA_SHAPE's conditions with OverrideAvailability
+    // (pcb_shape.cpp:1130-1143): Start/End for anything but a circle, Center and
+    // Radius for a circle alone.
+    expect(names(line)).toEqual([
+      'Layer',
+      'Locked',
+      'Start X',
+      'Start Y',
+      'End X',
+      'End Y',
+      'Line Width',
+      'Line Style',
+    ]);
+    expect(names(circle)).toEqual([
+      'Layer',
+      'Locked',
+      'Center X',
+      'Center Y',
+      'Radius',
+      'Line Width',
+      'Line Style',
+      'Fill',
+    ]);
+  });
+
+  it("makes a circle's Radius one distance, derived from the point on it", () => {
+    // `GetRadius()` is the centre-to-end distance and `SetRadius( r )` puts the
+    // end at `centre + (r, 0)` (eda_shape.h:253-257) — the file stores a POINT on
+    // the circle, never a radius, so a "Radius X"/"Radius Y" pair was the end
+    // point wearing the wrong label.
+    // The fixture is `(center 30 30) (end 33 34)` — a 3/4/5 triangle, so 5 mm,
+    // and the end is deliberately NOT level with the centre: a radius taken from
+    // the x delta alone would read 3 mm here and 5 mm on an axis-aligned circle.
+    expect(row(circle, 'Radius').value).toBe(MM(5));
+    expect(row(circle, 'Radius').kind).toBe('dist');
+
+    const bigger = row(circle, 'Radius').set?.(MM(8));
+    expect(bigger?.shapes[1]?.end).toEqual({ x: MM(38), y: MM(30) });
+    expect(bigger?.shapes[1]?.center).toEqual({ x: MM(30), y: MM(30) });
+  });
+
+  it('gives a segment no Fill row, because a segment has nothing to fill', () => {
+    // `fillAvailable` is POLY / RECTANGLE / CIRCLE / BEZIER (eda_shape.cpp), and
+    // PCB_SHAPE takes BEZIER back out: "fill is not supported in board editor"
+    // (pcb_shape.cpp:1101-1114).
+    expect(names(line)).not.toContain('Fill');
+    expect(names(circle)).toContain('Fill');
+  });
+
+  it('shows an arc its read-only sweep, and no Mid row', () => {
+    // `GetArcAngle`, PT_DECIDEGREE, NO_SETTER. EDA_SHAPE registers no mid point
+    // at all — an arc's third point is the point editor's, not the panel's.
+    const arc = rowsFor('shape:3');
+    expect(names(arc)).not.toContain('Mid X');
+    // `(start 0 5) (mid -5 0) (end 0 -5)`, so the centre is the origin. KiCad's
+    // ArcTangente puts the start vector (0, 5) at +90° and the end vector
+    // (0, -5) at -90° (eda_angle's x == 0 cases), and `CalcArcAngles` winds the
+    // end FORWARD past the start — to 270° — before subtracting. So the sweep is
+    // 180° and not -180°: the arc is the half that runs through (-5, 0).
+    expect(row(arc, 'Angle').value).toBe('180°');
+    expect(row(arc, 'Angle').set).toBeUndefined();
+  });
+
+  it('gives a rectangle Width and Height, which move the END corner', () => {
+    // `GetRectangleWidth()` is `GetEndX() - GetStartX()`, and the setter is
+    // `SetEndX( GetStartX() + width )` (eda_shape.cpp:488-499, 540-552) — the
+    // start corner is the anchor.
+    const rect = rowsFor('shape:4');
+    expect(row(rect, 'Width').value).toBe(MM(20));
+    expect(row(rect, 'Height').value).toBe(MM(10));
+    const wider = row(rect, 'Width').set?.(MM(30));
+    expect(wider?.shapes[4]?.start).toEqual({ x: MM(0), y: MM(0) });
+    expect(wider?.shapes[4]?.end).toEqual({ x: MM(30), y: MM(10) });
+  });
+
+  it('offers a Net on copper only, and writes the net NAME', () => {
+    // `OverrideAvailability( …, "Net", isCopper )` (pcb_shape.cpp:1150-1155);
+    // PCB_SHAPE is a BOARD_CONNECTED_ITEM, and the writer emits `(net …)` with
+    // the name (pcb_io_kicad_sexpr.cpp:1116) whenever the code is non-zero.
+    expect(names(line)).not.toContain('Net');
+    const copper = rowsFor('shape:5');
+    expect(names(copper)).toContain('Net');
+
+    const gnd = row(copper, 'Net').set?.('GND');
+    expect(gnd?.shapes[5]?.net).toBe(1);
+    expect(gnd?.shapes[5]?.netName).toBe('GND');
+    expect(serialize(gnd!.shapes[5]!.source)).toContain('(net "GND")');
+  });
+
+  it('offers the Technical Layers group on an external copper layer only', () => {
+    // `isExternalCuLayer` (pcb_shape.cpp:1216-1223): a mask opening is a
+    // front/back thing, so an inner-layer or silkscreen graphic has no group.
+    expect(groupOrder(rowsFor('shape:5'))).toContain('Technical Layers');
+    expect(groupOrder(line)).not.toContain('Technical Layers');
+
+    const masked = row(rowsFor('shape:5'), 'Soldermask').set?.(true);
+    expect(masked?.shapes[5]?.maskLayer).toBe('F.Mask');
+    expect(serialize(masked!.shapes[5]!.source)).toContain('(layers "F.Cu" "F.Mask")');
   });
 
   it('offers ENUM_MAP<LINE_STYLE> without DEFAULT', () => {
@@ -738,8 +944,10 @@ describe('SHAPE rows', () => {
     expect(row(line, 'Line Style').set?.('Dotted')?.shapes[0]?.strokeType).toBe('dot');
   });
 
-  it('groups them Basic / Stroke', () => {
-    expect(groupOrder(line)).toEqual(['', 'Stroke']);
+  it('groups them Basic / Shape Properties', () => {
+    // EDA_SHAPE_DESC's group is "Shape Properties" (common/eda_shape.cpp:2807);
+    // "Stroke" was ours.
+    expect(groupOrder(line)).toEqual(['', 'Shape Properties']);
   });
 });
 

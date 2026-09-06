@@ -230,7 +230,7 @@ export function effectiveTextPenWidth(
 // EDA_TEXT setters that are not plain assignments
 
 /** `GetAutoThickness()` is `GetTextThickness() == 0`; an absent token reads as 0. */
-const isAutoThickness = (t: { thickness?: number }): boolean => (t.thickness ?? 0) === 0;
+export const isAutoThickness = (t: { thickness?: number }): boolean => (t.thickness ?? 0) === 0;
 
 /**
  * `EDA_TEXT::SetAutoThickness` (eda_text.cpp:287).

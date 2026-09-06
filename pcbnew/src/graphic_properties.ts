@@ -16,6 +16,7 @@
 
 import { atom, str, type SList, type SNode } from '@ziroeda/sexpr/src/index.js';
 import { dropChild, mm, parseBoardItemId, patchChild } from './edit-board.js';
+import { effectiveTextPenWidth, isAutoThickness } from './global_edit_text_and_graphics.js';
 import type { Board, PcbShape, PcbTextItem, StrokeType } from './types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
@@ -56,10 +57,32 @@ export interface TextValues {
   /** Glyph box, IU. */
   width: number;
   height: number;
+  /**
+   * `EDA_TEXT::GetAutoThickness()`, which is `GetTextThickness() == 0`
+   * (eda_text.h:150) — the pen width is derived from the glyph size rather than
+   * stored. `EDA_TEXT::Format` then writes `(thickness …)` only
+   * `if( !GetAutoThickness() )` (eda_text.cpp:1079-1084), so the token's absence
+   * and a stored zero are the same thing and both mean automatic.
+   */
+  autoThickness: boolean;
+  /**
+   * `GetTextThicknessProperty()` (eda_text.h:141-147): the stored thickness, or
+   * the width the text is actually drawn with when that is automatic — which is
+   * what DIALOG_TEXT_PROPERTIES puts in the (disabled) box too (:328-333). So
+   * turning Auto Thickness off writes the pen the text already had, rather than
+   * dropping it to zero.
+   */
   thickness: number;
   bold: boolean;
   italic: boolean;
   mirrored: boolean;
+  /**
+   * `GR_TEXT_H_ALIGN_T` / `GR_TEXT_V_ALIGN_T`, the `(justify …)` words. CENTER
+   * is the default in both axes and writes no word, which is why the token is
+   * absent on most text.
+   */
+  hJustify: 'left' | 'center' | 'right';
+  vJustify: 'top' | 'center' | 'bottom';
   /** `(hide yes)` — the item is kept but not drawn or plotted. */
   hidden: boolean;
   /** `(knockout)`: the glyphs are cut out of a filled box. */
@@ -89,10 +112,21 @@ export function collectTextValues(t: PcbTextItem): TextValues {
     layer: t.layer,
     width: t.size.x,
     height: t.size.y,
-    thickness: t.thickness ?? 0,
+    autoThickness: isAutoThickness(t),
+    thickness: isAutoThickness(t) ? effectiveTextPenWidth(t) : (t.thickness ?? 0),
     bold: t.bold ?? false,
     italic: t.italic ?? false,
     mirrored: t.mirror ?? false,
+    hJustify: t.justify?.includes('left')
+      ? 'left'
+      : t.justify?.includes('right')
+        ? 'right'
+        : 'center',
+    vJustify: t.justify?.includes('top')
+      ? 'top'
+      : t.justify?.includes('bottom')
+        ? 'bottom'
+        : 'center',
     hidden: t.hide ?? false,
     knockout: t.knockout ?? false,
     locked: t.locked ?? false,
@@ -106,41 +140,46 @@ export function collectTextValues(t: PcbTextItem): TextValues {
  * the `(size x y)` every other item uses — a detail that silently transposes a
  * text box if you assume otherwise.
  */
-function effectsNode(prev: SList, v: TextValues): SList {
+function effectsNode(v: TextValues): SList {
   const font: SNode[] = [atom('font'), list(atom('size'), atom(mm(v.height)), atom(mm(v.width)))];
-  if (v.thickness > 0) font.push(list(atom('thickness'), atom(mm(v.thickness))));
+  // `if( !GetAutoThickness() )` (eda_text.cpp:1079-1084), and auto IS a
+  // thickness of zero — so this is the same test as the `v.thickness > 0` it
+  // replaces, said the way upstream says it. What changed is that the flag is
+  // now a cell of its own, and `v.thickness` carries the EFFECTIVE width while
+  // it is on, which must not be written.
+  if (!v.autoThickness) font.push(list(atom('thickness'), atom(mm(v.thickness))));
   if (v.bold) font.push(list(atom('bold'), atom('yes')));
   if (v.italic) font.push(list(atom('italic'), atom('yes')));
 
   const items: SNode[] = [atom('effects'), { kind: 'list', items: font }];
 
-  // Justification carries the mirror flag as well as the alignment, so the
-  // existing tokens are kept and only `mirror` is added or removed.
-  const oldEffects = prev.items.find(
-    (it): it is SList =>
-      typeof it === 'object' &&
-      'items' in it &&
-      it.items[0]?.kind === 'atom' &&
-      it.items[0].value === 'effects',
-  );
-  const oldJustify = oldEffects?.items.find(
-    (it): it is SList =>
-      typeof it === 'object' &&
-      'items' in it &&
-      it.items[0]?.kind === 'atom' &&
-      it.items[0].value === 'justify',
-  );
+  // `(justify …)` in EDA_TEXT::Format's own order (eda_text.cpp:1100-1114):
+  // horizontal word, then vertical, then `mirror`, each omitted at its default —
+  // and the whole token omitted when all three are. It is built from the values
+  // rather than patched into the old words, because the alignment IS these
+  // words: keeping them and only editing `mirror` is what left a text whose
+  // justification the panel could not change.
+  const words = [
+    ...(v.hJustify === 'center' ? [] : [v.hJustify]),
+    ...(v.vJustify === 'center' ? [] : [v.vJustify]),
+    ...(v.mirrored ? ['mirror'] : []),
+  ];
 
-  const words = (oldJustify?.items.slice(1) ?? [])
-    .map((it) => (it.kind === 'atom' ? it.value : undefined))
-    .filter((w): w is string => w !== undefined && w !== 'mirror');
-
-  if (v.mirrored) words.push('mirror');
   if (words.length > 0)
     items.push({ kind: 'list', items: [atom('justify'), ...words.map((w) => atom(w))] });
 
   return { kind: 'list', items };
 }
+
+/** The `(justify …)` words {@link effectsNode} writes, for the model to carry. */
+const justifyWords = (v: TextValues): string[] | undefined => {
+  const words = [
+    ...(v.hJustify === 'center' ? [] : [v.hJustify]),
+    ...(v.vJustify === 'center' ? [] : [v.vJustify]),
+    ...(v.mirrored ? ['mirror'] : []),
+  ];
+  return words.length > 0 ? words : undefined;
+};
 
 /** DIALOG_TEXT_PROPERTIES::TransferDataFromWindow. */
 export function applyTextValues(board: Board, index: number, v: TextValues): Board {
@@ -157,10 +196,13 @@ export function applyTextValues(board: Board, index: number, v: TextValues): Boa
     angle: v.orientation,
     layer: v.layer,
     size: { x: v.width, y: v.height },
-    thickness: v.thickness,
+    // `SetAutoThickness( true )` is `SetTextThickness( 0 )` (eda_text.cpp:276-280);
+    // our reader spells a stored zero as the token's absence, so it is undefined.
+    thickness: v.autoThickness ? undefined : v.thickness,
     bold: v.bold,
     italic: v.italic,
     mirror: v.mirrored,
+    justify: justifyWords(v),
     hide: v.hidden,
     knockout: v.knockout,
     locked: v.locked,
@@ -192,7 +234,7 @@ export function applyTextValues(board: Board, index: number, v: TextValues): Boa
       ? list(atom('layer'), str(v.layer), atom('knockout'))
       : list(atom('layer'), str(v.layer)),
   );
-  src = patchChild(src, 'effects', effectsNode(t.source, v));
+  src = patchChild(src, 'effects', effectsNode(v));
   src = v.hidden
     ? patchChild(src, 'hide', list(atom('hide'), atom('yes')))
     : dropChild(src, 'hide');
@@ -217,6 +259,12 @@ export interface ShapeValues {
   strokeType: StrokeType;
   filled: boolean;
   layer: string;
+  /**
+   * `(net …)`, the net a COPPER graphic belongs to — PCB_SHAPE is a
+   * BOARD_CONNECTED_ITEM. Zero is `<no net>`, and the token is dropped for it,
+   * the way the writer only emits one when `GetNetCode() > 0`.
+   */
+  net: number;
   hasMask: boolean;
   /** null is blank: use the Board Setup value. */
   maskMargin: number | null;
@@ -265,6 +313,7 @@ export function collectShapeValues(s: PcbShape): ShapeValues {
     end: s.end ?? ZERO,
     mid: s.mid ?? ZERO,
     center: s.center ?? ZERO,
+    net: s.net ?? 0,
     lineWidth: s.width,
     strokeType: s.strokeType ?? 'solid',
     filled: s.fill,
@@ -336,6 +385,16 @@ export function applyShapeValues(board: Board, index: number, v: ShapeValues): B
           'solder_mask_margin',
           list(atom('solder_mask_margin'), atom(mm(v.maskMargin))),
         );
+
+  // `(net …)` carries the NAME, not the code (`pcb_io_kicad_sexpr.cpp:1116`,
+  // emitted only when `GetNetCode() > 0`), so the board's table is what names it
+  // — and net 0 drops the token rather than writing an empty name.
+  next.net = v.net > 0 ? v.net : undefined;
+  next.netName = v.net > 0 ? (board.nets.get(v.net) ?? '') : undefined;
+  src =
+    next.net === undefined
+      ? dropChild(src, 'net')
+      : patchChild(src, 'net', list(atom('net'), str(next.netName ?? '')));
 
   next.locked = v.locked;
   src = patchLocked(src, v.locked);

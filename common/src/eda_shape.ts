@@ -14,7 +14,11 @@
  */
 
 import { type VECTOR2I, Distance } from '@ziroeda/kimath/src/math/vector2.js';
-import type { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
+import {
+  ANGLE_360,
+  EDA_ANGLE as EDA_ANGLE_C,
+  type EDA_ANGLE,
+} from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { RotatePoint, TestSegmentHit } from '@ziroeda/kimath/src/trigo.js';
 import { MIRROR, type FLIP_DIRECTION } from '@ziroeda/core/src/mirror.js';
 
@@ -26,6 +30,28 @@ export enum SHAPE_T {
   CIRCLE,
   POLY,
   BEZIER,
+}
+
+/**
+ * `EDA_SHAPE::GetArcAngle()` (eda_shape.cpp): `CalcArcAngles`, then their
+ * difference — the sweep from start to end about the centre, always positive
+ * because `CalcArcAngles` winds the end forward until it is past the start.
+ *
+ * A zero difference is a FULL circle, not a null arc, which is why the equal
+ * case adds a whole turn rather than returning nothing.
+ *
+ * Here rather than in either editor because both need it: eeschema's arc point
+ * editor to keep an arc's mid on the curve, pcbnew's Properties panel to show
+ * the read-only Angle cell EDA_SHAPE_DESC registers for an arc.
+ */
+export function GetArcAngle(start: VECTOR2I, end: VECTOR2I, center: VECTOR2I): EDA_ANGLE {
+  const startAngle = EDA_ANGLE_C.fromVector({ x: start.x - center.x, y: start.y - center.y });
+  let endAngle = EDA_ANGLE_C.fromVector({ x: end.x - center.x, y: end.y - center.y });
+
+  if (endAngle.AsDegrees() === startAngle.AsDegrees()) endAngle = endAngle.add(ANGLE_360);
+  while (endAngle.AsDegrees() < startAngle.AsDegrees()) endAngle = endAngle.add(ANGLE_360);
+
+  return endAngle.sub(startAngle);
 }
 
 /** Circumcentre of three points (KiCad CalcArcCenter), or the start/end midpoint. */

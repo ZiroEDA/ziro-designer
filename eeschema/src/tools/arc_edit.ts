@@ -22,6 +22,7 @@
 import { CalcArcCenter, RotatePoint } from '@ziroeda/kimath/src/trigo.js';
 import { EDA_ANGLE, ANGLE_360 } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { GetArcAngle } from '@ziroeda/common/src/eda_shape.js';
 import type { Vec2 } from '../types.js';
 
 /**
@@ -79,15 +80,11 @@ function resize(v: Vec2, len: number): Vec2 {
   return { x: (v.x / l) * len, y: (v.y / l) * len };
 }
 
-/** `EDA_SHAPE::CalcArcAngles`, then their difference: the arc's sweep. */
-function arcAngle(s: ArcState): EDA_ANGLE {
-  const startAngle = EDA_ANGLE.fromVector(sub(s.start, s.center));
-  let endAngle = EDA_ANGLE.fromVector(sub(s.end, s.center));
-  // A zero sweep is a full ring, not a null arc.
-  if (endAngle.AsDegrees() === startAngle.AsDegrees()) endAngle = endAngle.add(ANGLE_360);
-  while (endAngle.AsDegrees() < startAngle.AsDegrees()) endAngle = endAngle.add(ANGLE_360);
-  return endAngle.sub(startAngle);
-}
+/**
+ * `EDA_SHAPE::CalcArcAngles`, then their difference: the arc's sweep. One copy,
+ * in common/, because pcbnew's Properties panel shows the same number.
+ */
+const arcAngle = (s: ArcState): EDA_ANGLE => GetArcAngle(s.start, s.end, s.center);
 
 /** `EDA_SHAPE::GetArcMid`: the start swung half the sweep about the centre. */
 export function arcMidOf(s: ArcState): Vec2 {

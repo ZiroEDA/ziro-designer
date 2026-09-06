@@ -60,6 +60,8 @@ import {
 } from './footprint_properties.js';
 import { ZONE_CONNECTION_CHOICES } from './zone_connection.js';
 import { GetLayerName } from './layer_ids.js';
+import { GetArcAngle } from '@ziroeda/common/src/eda_shape.js';
+import { arcCenter } from './read-board.js';
 import { ELECTRICAL_PINTYPES, type ElectricalPinType } from '@ziroeda/common/src/pin_type.js';
 import {
   applyTrackViaValues,
@@ -291,6 +293,12 @@ function overrideRow(
       : undefined,
   };
 }
+
+/** `EDA_TEXT_DESC`'s group (`common/eda_text.cpp:1348`), shared by every text item. */
+const TEXT_PROPS = 'Text Properties';
+
+/** `EDA_SHAPE_DESC`'s group (`common/eda_shape.cpp:2807`). */
+const SHAPE_PROPS = 'Shape Properties';
 
 /** A read-only row — upstream's `wxPG_PROP_READONLY`. */
 const roRow = (group: string, name: string, value: string): PcbPropRow => ({
@@ -966,22 +974,47 @@ function zoneRows(board: Board, index: number): PcbPropRow[] {
   ];
 }
 
-/** PCB_TEXT_DESC / EDA_TEXT_DESC's rows (pcb_text.cpp:740-760, eda_text.cpp). */
+/**
+ * PCB_TEXT's rows: `PCB_TEXT_DESC` (pcb_text.cpp:739-773) over `EDA_TEXT_DESC`
+ * (common/eda_text.cpp:1344-1430) over `BOARD_ITEM_DESC`.
+ *
+ * `InheritsAfter( PCB_TEXT, BOARD_ITEM )` then `InheritsAfter( PCB_TEXT,
+ * EDA_TEXT )`, so the order is BOARD_ITEM's four, then EDA_TEXT's ungrouped
+ * Orientation and its "Text Properties" group, then PCB_TEXT's own two.
+ *
+ * Four of EDA_TEXT's are NOT here, and each is upstream's own decision:
+ *
+ *  - **Color** and **Hyperlink** are `propMgr.Mask`ed by PCB_TEXT (:750, :771).
+ *    The writer says why: "Currently, texts have no specific color and no
+ *    hyperlink, so ensure they are never written in kicad_pcb file"
+ *    (pcb_io_kicad_sexpr.cpp:2314-2316), and it passes CTL_OMIT_COLOR |
+ *    CTL_OMIT_HYPERLINK.
+ *  - **Visible** is `SetAvailableFunc( isField )` — SCH_FIELD and PCB_FIELD
+ *    only. A board `gr_text` has no visibility: `(hide yes)` is written `if(
+ *    field && !field->IsVisible() )` (:2308-2309) and nowhere else.
+ *  - **Keep Upright** is PCB_TEXT's, but `OverrideAvailability` restricts it to
+ *    text with a parent footprint (:760-769), and these are board texts.
+ *
+ * **Font** is the one omitted for a reason of ours: its choices are
+ * `Fontconfig()->ListFonts()`, the fonts installed on the machine, and we draw
+ * every text with the one KiCad stroke font. A combo whose every entry renders
+ * identically would be a lie; the row comes back when outline fonts do.
+ */
 function textRows(board: Board, index: number, ctx: PcbPropertiesContext): PcbPropRow[] {
   const t = board.texts[index];
   if (!t) return [];
   const v = collectTextValues(t);
   const commit = (patch: Partial<TextValues>): Board =>
     applyTextValues(board, index, { ...v, ...patch });
-  const dist = (group: string, name: string, iu: number, key: keyof TextValues): PcbPropRow => ({
-    group,
+  const dist = (name: string, iu: number, key: keyof TextValues): PcbPropRow => ({
+    group: TEXT_PROPS,
     name,
     kind: 'dist',
     value: iu,
     set: (n) => (typeof n === 'number' ? commit({ [key]: n }) : null),
   });
   const flag = (name: string, on: boolean, key: keyof TextValues): PcbPropRow => ({
-    group: 'Text Properties',
+    group: TEXT_PROPS,
     name,
     kind: 'bool',
     value: on,
@@ -989,13 +1022,6 @@ function textRows(board: Board, index: number, ctx: PcbPropertiesContext): PcbPr
   });
 
   return [
-    {
-      group: '',
-      name: 'Text',
-      kind: 'string',
-      value: v.text,
-      set: (n) => commit({ text: String(n) }),
-    },
     {
       group: '',
       name: 'Position X',
@@ -1009,16 +1035,6 @@ function textRows(board: Board, index: number, ctx: PcbPropertiesContext): PcbPr
       kind: 'coord',
       value: v.y,
       set: (n) => (typeof n === 'number' ? commit({ y: n }) : null),
-    },
-    {
-      group: '',
-      name: 'Orientation',
-      kind: 'string',
-      value: ANGLE(v.orientation),
-      set: (s) => {
-        const deg = parseAngle(s);
-        return deg === null ? null : commit({ orientation: deg });
-      },
     },
     choiceRow(
       '',
@@ -1035,14 +1051,56 @@ function textRows(board: Board, index: number, ctx: PcbPropertiesContext): PcbPr
       value: v.locked,
       set: (n) => commit({ locked: !!n }),
     },
-    dist('Text Properties', 'Width', v.width, 'width'),
-    dist('Text Properties', 'Height', v.height, 'height'),
-    dist('Text Properties', 'Thickness', v.thickness, 'thickness'),
-    flag('Bold', v.bold, 'bold'),
+    {
+      group: '',
+      name: 'Orientation',
+      kind: 'string',
+      value: ANGLE(v.orientation),
+      set: (s) => {
+        const deg = parseAngle(s);
+        return deg === null ? null : commit({ orientation: deg });
+      },
+    },
+    {
+      group: TEXT_PROPS,
+      name: 'Text',
+      kind: 'string',
+      value: v.text,
+      set: (n) => commit({ text: String(n) }),
+    },
+    // `EDA_TEXT::SetAutoThickness` (eda_text.cpp:276-280): ticking it stores a
+    // thickness of zero, which is what drops the token; clearing it materialises
+    // the width the text was already drawn with, so the cell below stays true.
+    flag('Auto Thickness', v.autoThickness, 'autoThickness'),
+    dist('Thickness', v.thickness, 'thickness'),
     flag('Italic', v.italic, 'italic'),
+    flag('Bold', v.bold, 'bold'),
     flag('Mirrored', v.mirrored, 'mirrored'),
+    dist('Width', v.width, 'width'),
+    dist('Height', v.height, 'height'),
+    choiceRow(
+      TEXT_PROPS,
+      'Horizontal Justification',
+      v.hJustify,
+      [
+        ['left', 'Left'],
+        ['center', 'Center'],
+        ['right', 'Right'],
+      ] as const,
+      (hJustify) => commit({ hJustify }),
+    ),
+    choiceRow(
+      TEXT_PROPS,
+      'Vertical Justification',
+      v.vJustify,
+      [
+        ['top', 'Top'],
+        ['center', 'Center'],
+        ['bottom', 'Bottom'],
+      ] as const,
+      (vJustify) => commit({ vJustify }),
+    ),
     flag('Knockout', v.knockout, 'knockout'),
-    flag('Hidden', v.hidden, 'hidden'),
   ];
 }
 
@@ -1344,6 +1402,39 @@ function repatchPoint(p: PcbPoint): SList {
   return patchChild(src, 'layer', list(atom('layer'), str(p.layer)));
 }
 
+/**
+ * PCB_SHAPE's rows: `PCB_SHAPE_DESC` (pcb_shape.cpp:1050-1230) over
+ * `EDA_SHAPE_DESC` (common/eda_shape.cpp:2740-2960) over
+ * `BOARD_CONNECTED_ITEM_DESC`.
+ *
+ * Nearly every row here is conditional, and the conditions are the point: a
+ * `SetAvailableFunc` that returns false REMOVES the row rather than greying it
+ * (`PROPERTIES_PANEL::rebuildProperties` :434). PCB_SHAPE then rewrites four of
+ * EDA_SHAPE's conditions with `OverrideAvailability`, so the pcbnew rules are
+ * not the schematic ones:
+ *
+ *   Position X/Y   polygon only        (:1082-1087, "on other shapes these are
+ *                                       duplicates of the Start properties")
+ *   Start/End X/Y  anything but circle (:1130-1137 — EDA_SHAPE excluded polygons
+ *                                       too; pcbnew puts them back)
+ *   Center X/Y     circle only         (:1138-1143)
+ *   Radius         circle only, and it is ONE size, not a point pair
+ *   Width/Height   rectangle only      (eda_shape.cpp, SetRectangleWidth)
+ *   Angle          arc only, NO_SETTER (read-only)
+ *   Net            copper layers only  (:1150-1155)
+ *   Technical      external copper only
+ *
+ * Three of EDA_SHAPE's are absent whatever the shape: Line Color and Fill Color
+ * are `propMgr.Mask`ed by PCB_SHAPE (:1097-1098) — a board graphic takes its
+ * colour from the layer — and the Pad Primitives pair (Number Box, Thermal Spoke
+ * Template) is available only while a pad is entered in the footprint editor.
+ *
+ * Two are missing because the MODEL is, and both are noted rather than faked:
+ * `Corner Radius` (a rounded rectangle's, which we do not read), and `Shape`
+ * itself, whose setter reinterprets the same points as another SHAPE_T and needs
+ * the node's head token rewritten. `Fill` is here but as the boolean the model
+ * carries, not upstream's five-way UI_FILL_MODE.
+ */
 function shapeRows(board: Board, index: number, ctx: PcbPropertiesContext): PcbPropRow[] {
   const shape = board.shapes[index];
   if (!shape) return [];
@@ -1352,16 +1443,16 @@ function shapeRows(board: Board, index: number, ctx: PcbPropertiesContext): PcbP
   const commit = (patch: Partial<ShapeValues>): Board =>
     applyShapeValues(board, index, { ...v, ...patch });
 
-  const pt = (label: string, key: 'start' | 'end' | 'mid' | 'center'): PcbPropRow[] => [
+  const pt = (label: string, key: 'start' | 'end' | 'center'): PcbPropRow[] => [
     {
-      group: '',
+      group: SHAPE_PROPS,
       name: `${label} X`,
       kind: 'coord',
       value: v[key].x,
       set: (n) => (typeof n === 'number' ? commit({ [key]: { ...v[key], x: n } }) : null),
     },
     {
-      group: '',
+      group: SHAPE_PROPS,
       name: `${label} Y`,
       kind: 'coord',
       value: v[key].y,
@@ -1369,11 +1460,7 @@ function shapeRows(board: Board, index: number, ctx: PcbPropertiesContext): PcbP
     },
   ];
 
-  return [
-    ...(used.center ? pt('Center', 'center') : []),
-    ...(used.start ? pt('Start', 'start') : []),
-    ...(used.mid ? pt('Mid', 'mid') : []),
-    ...(used.end ? pt(shape.kind === 'circle' ? 'Radius' : 'End', 'end') : []),
+  const rows: PcbPropRow[] = [
     choiceRow(
       '',
       'Layer',
@@ -1389,8 +1476,60 @@ function shapeRows(board: Board, index: number, ctx: PcbPropertiesContext): PcbP
       value: v.locked,
       set: (n) => commit({ locked: !!n }),
     },
+  ];
+
+  // `OverrideAvailability( …, "Net", isCopper )`: a graphic carries a net only
+  // on a copper layer, which is the same test the writer makes before emitting
+  // `(net …)`.
+  if (/\.Cu$/.test(v.layer))
+    rows.push(
+      choiceRow('', 'Net', String(v.net), netChoices(board), (net) => commit({ net: Number(net) })),
+    );
+
+  if (shape.kind === 'circle') {
+    rows.push(...pt('Center', 'center'));
+    rows.push({
+      // `GetRadius()` is the centre-to-end distance and `SetRadius( r )` puts
+      // the end at `centre + (r, 0)` (eda_shape.h:253-257) — the stored point
+      // is a point ON the circle, so the radius is derived, not stored.
+      group: SHAPE_PROPS,
+      name: 'Radius',
+      kind: 'dist',
+      value: Math.round(Math.hypot(v.end.x - v.center.x, v.end.y - v.center.y)),
+      set: (n) =>
+        typeof n === 'number' ? commit({ end: { x: v.center.x + n, y: v.center.y } }) : null,
+    });
+  } else {
+    if (used.start) rows.push(...pt('Start', 'start'));
+    if (used.end) rows.push(...pt('End', 'end'));
+  }
+
+  if (shape.kind === 'rect')
+    rows.push(
+      {
+        // `GetRectangleWidth()` is `GetEndX() - GetStartX()` and the setter
+        // moves the END (eda_shape.cpp:488-499, 540-552), so the anchor corner
+        // stays put. Signed, as upstream's subtraction is.
+        group: SHAPE_PROPS,
+        name: 'Width',
+        kind: 'dist',
+        value: v.end.x - v.start.x,
+        set: (n) =>
+          typeof n === 'number' ? commit({ end: { ...v.end, x: v.start.x + n } }) : null,
+      },
+      {
+        group: SHAPE_PROPS,
+        name: 'Height',
+        kind: 'dist',
+        value: v.end.y - v.start.y,
+        set: (n) =>
+          typeof n === 'number' ? commit({ end: { ...v.end, y: v.start.y + n } }) : null,
+      },
+    );
+
+  rows.push(
     {
-      group: 'Stroke',
+      group: SHAPE_PROPS,
       name: 'Line Width',
       kind: 'dist',
       value: v.lineWidth,
@@ -1398,17 +1537,53 @@ function shapeRows(board: Board, index: number, ctx: PcbPropertiesContext): PcbP
     },
     // ENUM_MAP<LINE_STYLE> (common/eda_shape.cpp:2833) is what the properties
     // manager offers: the five lineTypeNames, no DEFAULT.
-    choiceRow('Stroke', 'Line Style', v.strokeType, LINE_STYLE_CHOICES, (strokeType) =>
+    choiceRow(SHAPE_PROPS, 'Line Style', v.strokeType, LINE_STYLE_CHOICES, (strokeType) =>
       commit({ strokeType }),
     ),
-    {
-      group: 'Stroke',
-      name: 'Filled',
+  );
+
+  // `GetArcAngle`, PT_DECIDEGREE, `NO_SETTER` — an arc's sweep is a consequence
+  // of its three points, so the cell is read-only.
+  if (shape.kind === 'arc' && shape.start && shape.mid && shape.end) {
+    // Three collinear points have no centre and so no sweep; upstream's
+    // `m_arcCenter` is stale rather than absent there, and a row that reads
+    // "NaN°" is worse than no row.
+    const centre = arcCenter(shape.start, shape.mid, shape.end);
+    if (centre)
+      rows.push(
+        roRow(SHAPE_PROPS, 'Angle', ANGLE(GetArcAngle(shape.start, shape.end, centre).AsDegrees())),
+      );
+  }
+
+  // `fillAvailable`: POLY, RECTANGLE, CIRCLE and BEZIER — and PCB_SHAPE then
+  // takes BEZIER back out, because "fill is not supported in board editor"
+  // (:1101-1114). A segment and an arc have nothing to fill.
+  if (shape.kind === 'poly' || shape.kind === 'rect' || shape.kind === 'circle')
+    rows.push({
+      group: SHAPE_PROPS,
+      name: 'Fill',
       kind: 'bool',
       value: v.filled,
       set: (n) => commit({ filled: !!n }),
-    },
-  ];
+    });
+
+  // `isExternalCuLayer` — the mask opening is a front/back copper thing, so an
+  // inner-layer graphic has no Technical Layers group at all.
+  if (v.layer === 'F.Cu' || v.layer === 'B.Cu')
+    rows.push(
+      {
+        group: 'Technical Layers',
+        name: 'Soldermask',
+        kind: 'bool',
+        value: v.hasMask,
+        set: (n) => commit({ hasMask: !!n }),
+      },
+      overrideRow('Technical Layers', 'Soldermask Margin Override', v.maskMargin, (n) =>
+        commit({ maskMargin: n }),
+      ),
+    );
+
+  return rows;
 }
 
 /**
