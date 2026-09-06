@@ -88,6 +88,21 @@ import {
   type TextValues,
 } from './graphic_properties.js';
 import { fillZones } from './zone_filler.js';
+import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
+import {
+  applyTextBoxValues,
+  collectTextBoxValues,
+  type TextBoxValues,
+} from './textbox_properties.js';
+import { applyTableValues, collectTableValues, type TableValues } from './table_properties.js';
+import {
+  applyImageValues,
+  collectImageValues,
+  scaleForHeight,
+  scaleForWidth,
+  sizeForScale,
+  type ImageValues,
+} from './image_properties.js';
 import { atom, list, str, type SList } from '@ziroeda/sexpr/src/index.js';
 import { dropChild, patchChild } from './edit-board.js';
 import { pcbIuToMM, pcbMmToIU } from '@ziroeda/common/src/eda_units.js';
@@ -100,6 +115,7 @@ import {
   type PcbBarcode,
   type PcbFootprint,
   type PcbPoint,
+  type PcbGroup,
   type PcbZone,
 } from './types.js';
 
@@ -1950,6 +1966,330 @@ function shapeRows(board: Board, index: number, ctx: PcbPropertiesContext): PcbP
 }
 
 /**
+ * PCB_TEXTBOX's rows: `PCB_TEXTBOX_DESC` (pcb_textbox.cpp:390-470) over
+ * PCB_SHAPE, EDA_SHAPE and EDA_TEXT all three.
+ *
+ * It inherits from a shape and masks nearly all of it: Shape, Start X/Y,
+ * End X/Y, Width, Height, Line Width, Line Style, Filled, Line Color, Corner
+ * Radius and the Soldermask pair are all `propMgr.Mask`ed, and Fill /Fill Color
+ * are unavailable because `fillAvailable` excludes PCB_TEXTBOX_T by type. What
+ * survives from the shape side is the Layer and the Locked flag; the geometry
+ * rows a box would otherwise show belong to its BORDER, which is the group
+ * PCB_TEXTBOX adds instead.
+ *
+ * EDA_TEXT's Width and Height are NOT masked — the masks name EDA_SHAPE's — so
+ * the two rows a text box shows under those names are the glyph box, not the
+ * rectangle.
+ */
+function textBoxRows(board: Board, index: number, ctx: PcbPropertiesContext): PcbPropRow[] {
+  const tb = board.textBoxes[index];
+  if (!tb) return [];
+  const v = collectTextBoxValues(tb);
+  const commit = (patch: Partial<TextBoxValues>): Board =>
+    applyTextBoxValues(board, index, { ...v, ...patch });
+
+  const T = TEXT_PROPS;
+  const flag = (
+    group: string,
+    name: string,
+    on: boolean,
+    key: keyof TextBoxValues,
+  ): PcbPropRow => ({
+    group,
+    name,
+    kind: 'bool',
+    value: on,
+    set: (b) => commit({ [key]: !!b } as Partial<TextBoxValues>),
+  });
+  const dist = (group: string, name: string, iu: number, key: keyof TextBoxValues): PcbPropRow => ({
+    group,
+    name,
+    kind: 'dist',
+    value: iu,
+    set: (n) => (typeof n === 'number' ? commit({ [key]: n } as Partial<TextBoxValues>) : null),
+  });
+
+  return [
+    choiceRow(
+      '',
+      'Layer',
+      v.layer,
+      layerChoices(board, false),
+      (layer) => commit({ layer }),
+      ctx.layerColor(v.layer),
+    ),
+    flag('', 'Locked', v.locked, 'locked'),
+    {
+      group: '',
+      name: 'Orientation',
+      kind: 'string',
+      value: ANGLE(v.orientation),
+      set: (t) => {
+        const deg = parseAngle(t);
+        return deg === null ? null : commit({ orientation: deg });
+      },
+    },
+    {
+      group: T,
+      name: 'Text',
+      kind: 'string',
+      value: v.text,
+      set: (t) => commit({ text: String(t) }),
+    },
+    // `GetAutoThickness()` is a thickness of zero, here as everywhere.
+    flag(T, 'Auto Thickness', v.thickness === 0, 'thickness'),
+    dist(T, 'Thickness', v.thickness, 'thickness'),
+    flag(T, 'Italic', v.italic, 'italic'),
+    flag(T, 'Bold', v.bold, 'bold'),
+    flag(T, 'Mirrored', v.mirrored, 'mirrored'),
+    dist(T, 'Width', v.width, 'width'),
+    dist(T, 'Height', v.height, 'height'),
+    choiceRow(
+      T,
+      'Horizontal Justification',
+      v.horizJustify,
+      [
+        ['left', 'Left'],
+        ['center', 'Center'],
+        ['right', 'Right'],
+      ] as const,
+      (horizJustify) => commit({ horizJustify }),
+    ),
+    choiceRow(
+      T,
+      'Vertical Justification',
+      v.vertJustify,
+      [
+        ['top', 'Top'],
+        ['center', 'Center'],
+        ['bottom', 'Bottom'],
+      ] as const,
+      (vertJustify) => commit({ vertJustify }),
+    ),
+    // PCB_TEXTBOX's own, and the only Text Properties row it adds.
+    flag(T, 'Knockout', v.knockout, 'knockout'),
+    flag('Border Properties', 'Border', v.border, 'border'),
+    choiceRow(
+      'Border Properties',
+      'Border Style',
+      v.borderStyle,
+      LINE_STYLE_CHOICES,
+      (borderStyle) => commit({ borderStyle }),
+    ),
+    dist('Border Properties', 'Border Width', v.borderWidth, 'borderWidth'),
+    dist('Margins', 'Margin Left', v.marginLeft, 'marginLeft'),
+    dist('Margins', 'Margin Top', v.marginTop, 'marginTop'),
+    dist('Margins', 'Margin Right', v.marginRight, 'marginRight'),
+    dist('Margins', 'Margin Bottom', v.marginBottom, 'marginBottom'),
+  ];
+}
+
+/**
+ * PCB_TABLE's rows: `PCB_TABLE_DESC` (pcb_table.cpp:600-700).
+ *
+ * Start X and Start Y are the table's own, ungrouped, replacing nothing — a
+ * table has no Position property of its own to replace, because it inherits
+ * BOARD_ITEM through BOARD_ITEM_CONTAINER. Everything else is one group.
+ *
+ * Border Color and Separators Color are `COLOR4D` properties; a board table
+ * stores no colour of its own (`format( const PCB_TABLE* )` writes the two
+ * strokes and no colour at all), so those two rows have nothing to read and are
+ * left out rather than shown reading black.
+ */
+function tableRows(board: Board, index: number): PcbPropRow[] {
+  const t = board.tables[index];
+  if (!t) return [];
+  const v = collectTableValues(t);
+  const commit = (patch: Partial<TableValues>): Board =>
+    applyTableValues(board, index, { ...v, ...patch });
+
+  const G = 'Table Properties';
+  const origin = t.cells[0]?.start ?? { x: 0, y: 0 };
+  const flag = (name: string, on: boolean, key: keyof TableValues): PcbPropRow => ({
+    group: G,
+    name,
+    kind: 'bool',
+    value: on,
+    set: (b) => commit({ [key]: !!b } as Partial<TableValues>),
+  });
+  const dist = (name: string, iu: number, key: keyof TableValues): PcbPropRow => ({
+    group: G,
+    name,
+    kind: 'dist',
+    value: iu,
+    set: (n) => (typeof n === 'number' ? commit({ [key]: n } as Partial<TableValues>) : null),
+  });
+
+  return [
+    // `PCB_TABLE::GetPosition()` is the first cell's corner, and the property is
+    // read-only in this model: a table moves by dragging, which moves every cell.
+    { group: '', name: 'Start X', kind: 'coord', value: origin.x },
+    { group: '', name: 'Start Y', kind: 'coord', value: origin.y },
+    {
+      group: '',
+      name: 'Locked',
+      kind: 'bool',
+      value: v.locked,
+      set: (b) => commit({ locked: !!b }),
+    },
+    flag('External Border', v.borderExternal, 'borderExternal'),
+    flag('Header Border', v.borderHeader, 'borderHeader'),
+    dist('Border Width', v.borderWidth, 'borderWidth'),
+    choiceRow(G, 'Border Style', v.borderStyle, LINE_STYLE_CHOICES, (borderStyle) =>
+      commit({ borderStyle }),
+    ),
+    flag('Row Separators', v.separatorRows, 'separatorRows'),
+    flag('Cell Separators', v.separatorCols, 'separatorCols'),
+    dist('Separators Width', v.separatorWidth, 'separatorWidth'),
+    choiceRow(G, 'Separators Style', v.separatorStyle, LINE_STYLE_CHOICES, (separatorStyle) =>
+      commit({ separatorStyle }),
+    ),
+  ];
+}
+
+/**
+ * PCB_REFERENCE_IMAGE's rows: `PCB_REFERENCE_IMAGE_DESC`
+ * (pcb_reference_image.cpp:428-470).
+ *
+ * BOARD_ITEM's Layer is REPLACED by one called "Associated Layer" — an image is
+ * not on a layer, it is associated with one, and that is the row's name. The
+ * `Greyscale` group upstream declares is never given a property, so it draws no
+ * rows here either.
+ *
+ * Width and Height are the image's size in IU, and setting one is a SCALE:
+ * `REFERENCE_IMAGE::SetWidth` divides by the current width and scales by the
+ * ratio (common/reference_image.cpp:204-211), which is exactly what
+ * {@link scaleForWidth} does for the dialog.
+ */
+function imageRows(board: Board, index: number, ctx: PcbPropertiesContext): PcbPropRow[] {
+  const img = board.images[index];
+  if (!img) return [];
+  const v = collectImageValues(img);
+  const commit = (next: ImageValues): Board => applyImageValues(board, index, next);
+  const offset = img.transformOffset ?? { x: 0, y: 0 };
+  const setOffset = (o: Vec2): Board => ({
+    ...board,
+    images: board.images.map((x, i) => (i === index ? { ...x, transformOffset: o } : x)),
+  });
+
+  return [
+    {
+      group: '',
+      name: 'Position X',
+      kind: 'coord',
+      value: v.x,
+      set: (n) => (typeof n === 'number' ? commit({ ...v, x: n }) : null),
+    },
+    {
+      group: '',
+      name: 'Position Y',
+      kind: 'coord',
+      value: v.y,
+      set: (n) => (typeof n === 'number' ? commit({ ...v, y: n }) : null),
+    },
+    choiceRow(
+      '',
+      'Associated Layer',
+      v.layer,
+      layerChoices(board, false),
+      (layer) => commit({ ...v, layer }),
+      ctx.layerColor(v.layer),
+    ),
+    {
+      group: '',
+      name: 'Locked',
+      kind: 'bool',
+      value: v.locked,
+      set: (b) => commit({ ...v, locked: !!b }),
+    },
+    {
+      group: 'Image Properties',
+      name: 'Scale',
+      kind: 'string',
+      value: String(v.scale),
+      set: (t) => {
+        const n = Number(String(t).trim());
+        return Number.isFinite(n) ? commit(sizeForScale(img, v, n)) : null;
+      },
+    },
+    {
+      group: 'Image Properties',
+      name: 'Transform Offset X',
+      kind: 'coord',
+      value: offset.x,
+      set: (n) => (typeof n === 'number' ? setOffset({ ...offset, x: n }) : null),
+    },
+    {
+      group: 'Image Properties',
+      name: 'Transform Offset Y',
+      kind: 'coord',
+      value: offset.y,
+      set: (n) => (typeof n === 'number' ? setOffset({ ...offset, y: n }) : null),
+    },
+    {
+      group: 'Image Properties',
+      name: 'Width',
+      kind: 'coord',
+      value: v.width,
+      set: (n) => (typeof n === 'number' ? commit(scaleForWidth(img, v, n)) : null),
+    },
+    {
+      group: 'Image Properties',
+      name: 'Height',
+      kind: 'coord',
+      value: v.height,
+      set: (n) => (typeof n === 'number' ? commit(scaleForHeight(img, v, n)) : null),
+    },
+  ];
+}
+
+/**
+ * PCB_GROUP's rows: `PCB_GROUP_DESC` (pcb_group.cpp:600-640) — Position X,
+ * Position Y and Layer are all masked, because a group has no geometry and no
+ * layer of its own, so what is left is Locked and the one property it declares.
+ */
+function groupRows(board: Board, index: number): PcbPropRow[] {
+  const g = board.groups[index];
+  if (!g) return [];
+  const commit = (patch: Partial<PcbGroup>): Board => {
+    const next: PcbGroup = { ...g, ...patch };
+    // The name is the node's first positional argument, `(group "name" …)`, and
+    // the lock is a child — `format( const PCB_GROUP* )`.
+    let src = next.source;
+    if (patch.name !== undefined) {
+      const items = [...src.items];
+      items[1] = str(next.name);
+      src = { kind: 'list', items };
+    }
+    if (patch.locked !== undefined)
+      src = next.locked
+        ? patchChild(src, 'locked', list(atom('locked'), atom('yes')))
+        : dropChild(src, 'locked');
+    return {
+      ...board,
+      groups: board.groups.map((x, i) => (i === index ? { ...next, source: src } : x)),
+    };
+  };
+
+  return [
+    {
+      group: '',
+      name: 'Locked',
+      kind: 'bool',
+      value: g.locked ?? false,
+      set: (b) => commit({ locked: !!b }),
+    },
+    {
+      group: 'Group Properties',
+      name: 'Name',
+      kind: 'string',
+      value: g.name,
+      set: (t) => commit({ name: String(t) }),
+    },
+  ];
+}
+
+/**
  * `PCB_PROPERTIES_PANEL::UpdateData()` — the rows for the current selection,
  * in display order, grouped.
  *
@@ -1989,6 +2329,14 @@ export function pcbPropertiesFor(
       return pointRows(board, ref.index, ctx);
     case 'barcode':
       return barcodeRows(board, ref.index, ctx);
+    case 'textbox':
+      return textBoxRows(board, ref.index, ctx);
+    case 'table':
+      return tableRows(board, ref.index);
+    case 'image':
+      return imageRows(board, ref.index, ctx);
+    case 'group':
+      return groupRows(board, ref.index);
     default:
       return [];
   }

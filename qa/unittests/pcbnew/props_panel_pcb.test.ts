@@ -91,6 +91,20 @@ const SRC = `(kicad_pcb (version 20240108) (generator "pcbnew")
   )
   (gr_text "hello" (at 5 5 0) (layer "F.SilkS") (uuid "gt1")
     (effects (font (size 1 1) (thickness 0.15))))
+  (gr_text_box "note" (start 60 60) (end 80 70) (margins 0.5 0.6 0.7 0.8)
+    (layer "F.SilkS") (uuid "tb1") (border yes)
+    (stroke (width 0.15) (type dash))
+    (effects (font (size 1 1) (thickness 0.15)) (justify left top)))
+  (table (column_count 2) (layer "F.SilkS") (uuid "tbl1")
+    (border (external yes) (header no) (stroke (width 0.2) (type solid)))
+    (separators (rows yes) (cols no) (stroke (width 0.1) (type dash)))
+    (column_widths 10 10) (row_heights 5)
+    (cells
+      (table_cell "a" (start 0 0) (end 10 5) (margins 0.5 0.5 0.5 0.5)
+        (layer "F.SilkS") (span 1 1) (effects (font (size 1 1))))
+      (table_cell "b" (start 10 0) (end 20 5) (margins 0.5 0.5 0.5 0.5)
+        (layer "F.SilkS") (span 1 1) (effects (font (size 1 1))))))
+  (group "cluster" (uuid "g1") (members "gl1" "gc1"))
   (gr_line (start 0 0) (end 5 0) (stroke (width 0.1) (type dash)) (layer "Edge.Cuts") (uuid "gl1"))
   (gr_circle (center 30 30) (end 33 34) (stroke (width 0.1) (type solid)) (fill none)
     (layer "F.SilkS") (uuid "gc1"))
@@ -1207,9 +1221,11 @@ describe('TEXT rows', () => {
 
     // Back to both defaults: the token goes away rather than reading `(justify)`.
     const back = row(rowsFor('text:0', bottom!), 'Horizontal Justification').set?.('Center');
-    const centred = row(rowsFor('text:0', back!), 'Vertical Justification').set?.('Center');
+    const centred = row(rowsFor('text:0', back as Board), 'Vertical Justification').set?.('Center');
     expect(centred?.texts[0]?.justify).toBeUndefined();
-    expect(written(centred!)).not.toContain('justify');
+    // Scoped to the text's own node: the fixture's text BOX carries a
+    // `(justify left top)` of its own.
+    expect(writtenText(centred as Board)).not.toContain('justify');
   });
 
   it('makes Auto Thickness a stored thickness of zero, and back', () => {
@@ -1387,6 +1403,181 @@ describe('SHAPE rows', () => {
     // EDA_SHAPE_DESC's group is "Shape Properties" (common/eda_shape.cpp:2807);
     // "Stroke" was ours.
     expect(groupOrder(line)).toEqual(['', 'Shape Properties']);
+  });
+});
+
+/**
+ * Four item types whose panel used to be EMPTY — the dispatcher had no case for
+ * them, so selecting one showed "Text Box" and nothing under it.
+ */
+describe('TEXT BOX rows', () => {
+  const rows = rowsFor('textbox:0');
+
+  it('shows the text, border and margin groups, and none of the shape ones', () => {
+    // PCB_TEXTBOX inherits PCB_SHAPE and masks nearly all of it
+    // (pcb_textbox.cpp:415-441): Shape, Start/End X/Y, Width, Height, Line
+    // Width, Line Style, Filled, Line Color, Corner Radius and the Soldermask
+    // pair. The geometry a box would show belongs to its BORDER instead.
+    expect(groupOrder(rows)).toEqual(['', 'Text Properties', 'Border Properties', 'Margins']);
+    for (const n of ['Shape', 'Start X', 'End Y', 'Line Width', 'Line Style', 'Fill', 'Soldermask'])
+      expect(names(rows), n).not.toContain(n);
+  });
+
+  it('takes Width and Height from EDA_TEXT, not from the masked shape', () => {
+    // The masks name EDA_SHAPE's Width and Height; EDA_TEXT's survive, so these
+    // two rows are the GLYPH box — 1 mm square here — and not the 20x10 rectangle.
+    expect(row(rows, 'Width').value).toBe(MM(1));
+    expect(row(rows, 'Height').value).toBe(MM(1));
+    expect(row(rows, 'Width').group).toBe('Text Properties');
+  });
+
+  it('edits the border, the four margins and the text', () => {
+    expect(row(rows, 'Border').value).toBe(true);
+    expect(row(rows, 'Border Style').value).toBe('Dashed');
+    expect(row(rows, 'Border Width').value).toBe(MM(0.15));
+    expect(row(rows, 'Margin Left').value).toBe(MM(0.5));
+    expect(row(rows, 'Margin Bottom').value).toBe(MM(0.8));
+
+    const off = row(rows, 'Border').set?.(false);
+    expect(off?.textBoxes[0]?.border).toBe(false);
+    expect(flat(off!.textBoxes[0]!.source)).toContain('(border no)');
+
+    const margin = row(rows, 'Margin Top').set?.(MM(1.25));
+    expect(margin?.textBoxes[0]?.margins.top).toBe(MM(1.25));
+
+    const text = row(rows, 'Text').set?.('rewritten');
+    expect(text?.textBoxes[0]?.text).toBe('rewritten');
+  });
+
+  it('reads its justification, which the fixture sets to left/top', () => {
+    expect(row(rows, 'Horizontal Justification').value).toBe('Left');
+    expect(row(rows, 'Vertical Justification').value).toBe('Top');
+    const centred = row(rows, 'Horizontal Justification').set?.('Center');
+    expect(centred?.textBoxes[0]?.justify).not.toContain('left');
+  });
+});
+
+describe('TABLE rows', () => {
+  const rows = rowsFor('table:0');
+
+  it('lists the border and separator properties in one group', () => {
+    expect(names(rows)).toEqual([
+      'Start X',
+      'Start Y',
+      'Locked',
+      'External Border',
+      'Header Border',
+      'Border Width',
+      'Border Style',
+      'Row Separators',
+      'Cell Separators',
+      'Separators Width',
+      'Separators Style',
+    ]);
+    expect(groupOrder(rows)).toEqual(['', 'Table Properties']);
+  });
+
+  it('reads the two strokes separately, and commits each', () => {
+    expect(row(rows, 'External Border').value).toBe(true);
+    expect(row(rows, 'Header Border').value).toBe(false);
+    expect(row(rows, 'Border Width').value).toBe(MM(0.2));
+    expect(row(rows, 'Row Separators').value).toBe(true);
+    expect(row(rows, 'Cell Separators').value).toBe(false);
+    expect(row(rows, 'Separators Style').value).toBe('Dashed');
+
+    const header = row(rows, 'Header Border').set?.(true);
+    expect(header?.tables[0]?.borderHeader).toBe(true);
+    const width = row(rows, 'Separators Width').set?.(MM(0.3));
+    expect(width?.tables[0]?.separatorWidth).toBe(MM(0.3));
+  });
+
+  it('shows Start X/Y read-only: a table moves by moving its cells', () => {
+    expect(row(rows, 'Start X').value).toBe(MM(0));
+    expect(row(rows, 'Start X').set).toBeUndefined();
+  });
+});
+
+describe('REFERENCE IMAGE rows', () => {
+  // A 1x1 PNG is enough: the rows are about the scale, and the size follows it.
+  const withImage = load(
+    SRC.replace(
+      '(group "cluster"',
+      `(image (at 100 50) (layer "F.SilkS") (scale 2) (uuid "im1")
+         (data "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="))
+       (group "cluster"`,
+    ),
+  );
+  const rows = rowsFor('image:0', withImage);
+
+  it('calls the layer row "Associated Layer", because BOARD_ITEM\'s is replaced', () => {
+    // `ReplaceProperty( BOARD_ITEM, "Layer", … "Associated Layer" )`
+    // (pcb_reference_image.cpp:432-436): an image is not ON a layer, it is
+    // associated with one.
+    expect(names(rows)).toContain('Associated Layer');
+    expect(names(rows)).not.toContain('Layer');
+    expect(row(rows, 'Associated Layer').swatch).toBe('#f2eda1');
+  });
+
+  it('lists the Image Properties group, with no Greyscale rows', () => {
+    // Upstream declares a `Greyscale` group and never adds a property to it, so
+    // it draws nothing there either.
+    expect(names(rows)).toEqual([
+      'Position X',
+      'Position Y',
+      'Associated Layer',
+      'Locked',
+      'Scale',
+      'Transform Offset X',
+      'Transform Offset Y',
+      'Width',
+      'Height',
+    ]);
+    expect(groupOrder(rows)).toEqual(['', 'Image Properties']);
+  });
+
+  it('makes Width and Height a SCALE, as REFERENCE_IMAGE::SetWidth is', () => {
+    // `SetWidth` divides by the current width and scales by the ratio
+    // (common/reference_image.cpp:204-211) — it does not stretch one axis.
+    const w = row(rows, 'Width').value as number;
+    expect(w).toBeGreaterThan(0);
+    const doubled = row(rows, 'Width').set?.(w * 2);
+    expect(doubled?.images[0]?.scale).toBeCloseTo(4);
+    const next = rowsFor('image:0', doubled as Board);
+    // The height went with it: one ratio, both axes. Within a nanometre — the
+    // size is pixels/PPI x scale rounded to internal units, so doubling the
+    // scale and doubling the rounded size differ in the last IU.
+    expect(row(next, 'Height').value as number).toBeCloseTo(
+      (row(rows, 'Height').value as number) * 2,
+      -1,
+    );
+  });
+
+  it('keeps the transform offset in memory, because the file has nowhere for it', () => {
+    // `format( const PCB_REFERENCE_IMAGE* )` writes (at), the layer, (scale),
+    // (locked) and the data — upstream loses this on save too.
+    const moved = row(rows, 'Transform Offset X').set?.(MM(3));
+    expect(moved?.images[0]?.transformOffset).toEqual({ x: MM(3), y: 0 });
+    expect(flat(moved!.images[0]!.source)).not.toContain('transform');
+  });
+});
+
+describe('GROUP rows', () => {
+  const rows = rowsFor('group:0');
+
+  it('has a Name and a Locked flag, and no geometry', () => {
+    // PCB_GROUP masks Position X, Position Y and Layer (pcb_group.cpp): a group
+    // has no geometry and no layer of its own.
+    expect(names(rows)).toEqual(['Locked', 'Name']);
+    expect(groupOrder(rows)).toEqual(['', 'Group Properties']);
+    expect(row(rows, 'Name').value).toBe('cluster');
+  });
+
+  it('renames the group in its own node, which is the first argument', () => {
+    const renamed = row(rows, 'Name').set?.('power');
+    expect(renamed?.groups[0]?.name).toBe('power');
+    expect(flat(renamed!.groups[0]!.source)).toContain('(group "power"');
+    // The members are untouched: renaming is not re-grouping.
+    expect(renamed?.groups[0]?.members).toEqual(['gl1', 'gc1']);
   });
 });
 

@@ -609,6 +609,15 @@ export interface PcbImage {
   layer: string;
   /** `(scale …)`; absent means 1. */
   scale?: number;
+  /**
+   * `REFERENCE_IMAGE::m_transformOriginOffset`, the Properties panel's Transform
+   * Offset X/Y. In memory only: `format( const PCB_REFERENCE_IMAGE* )`
+   * (pcb_io_kicad_sexpr.cpp:1124-1150) writes `(at …)`, the layer, `(scale …)`,
+   * `(locked …)` and the data and nothing else, so upstream loses this on save
+   * too. It is the origin a rotation would turn about, and a board image cannot
+   * be rotated, which is why nothing has ever missed it.
+   */
+  transformOffset?: Vec2;
   locked?: boolean;
   /** The PNG, base64-encoded, with the file's line splits joined out. */
   data: string;
