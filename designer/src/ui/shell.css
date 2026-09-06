@@ -3322,12 +3322,20 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   padding: 0 12px;
   display: flex;
   align-items: center;
+  /* The gap between the mark and the name. [px] the menubar's own item padding
+     halved: 12px on the outside, 6px between two things that read as one. */
+  gap: 6px;
   cursor: default;
   font-weight: 700;
   color: #4a86c5;
 }
 .ze-home-link:hover {
   background: var(--chrome-hover);
+}
+/* In the project manager the mark is a label: there is nowhere to go from home,
+   so it must not light up under the pointer like the launchers' link does. */
+.ze-home-link-static:hover {
+  background: none;
 }
 
 /* The project manager's own tree (PROJECT_TREE, kicad/project_tree.cpp).

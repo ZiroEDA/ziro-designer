@@ -130,6 +130,7 @@ import { wasBrowserSuppressed, type FocusLike } from '../../ui/browser_hotkeys.j
 import { OpenFileDialog } from '../../fs/OpenFileDialog.js';
 import { kicadFootprintLibWildcard } from '../../fs/wildcards.js';
 import { CONFIRM_REVERT_EXTENDED, confirmRevertMessage } from '../../ui/confirm.js';
+import { HomeLink } from '../../ui/HomeLink.js';
 
 /**
  * The Footprint Editor frame, the web mirror of KiCad's FOOTPRINT_EDIT_FRAME
@@ -1733,11 +1734,7 @@ export function FootprintEditor({
 
       <MenuBar
         menus={menus}
-        leftSlot={
-          <div className="ze-home-link" onClick={onExitToHome} title="Back to project manager">
-            ⌂ ZiroEDA
-          </div>
-        }
+        leftSlot={<HomeLink onClick={onExitToHome} />}
         title={
           <>
             <b>

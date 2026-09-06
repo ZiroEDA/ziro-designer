@@ -1,0 +1,8 @@
+<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+  <!-- ZiroEDA's mark. Kept as one file so the browser tab, the manager's title
+       bar and every launcher's home link draw the same thing; the React copy is
+       ui/ZiroLogo.tsx and the two must not drift. -->
+  <circle cx="50" cy="50" r="45" fill="#18181b" stroke="#ffffff" stroke-width="4" />
+  <path d="M 15 70 A 40 40 0 0 0 50 89" stroke="#14b8a6" stroke-width="5" stroke-linecap="round" fill="none" />
+  <path d="M 35 35 H 65 L 35 65 H 65" stroke="#ffffff" stroke-width="8" stroke-linecap="square" stroke-linejoin="round" fill="none" />
+</svg>

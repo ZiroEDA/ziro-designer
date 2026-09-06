@@ -456,6 +456,7 @@ import {
   toCssColor,
   type Color4d,
 } from '@ziroeda/common/src/color4d.js';
+import { HomeLink } from '../../ui/HomeLink.js';
 
 const MM = PCB_IU_PER_MM; // pcbnew IU is 1 nm (base_units.h)
 
@@ -8485,11 +8486,7 @@ export function PcbEditor({
     <div className="ze-app">
       <MenuBar
         menus={menus}
-        leftSlot={
-          <div className="ze-home-link" onClick={onExit} title="Back to project manager">
-            ⌂ ZiroEDA
-          </div>
-        }
+        leftSlot={<HomeLink onClick={onExit} />}
         title={
           <>
             <b>

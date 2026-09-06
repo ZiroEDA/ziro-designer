@@ -78,6 +78,7 @@ import { useModalEscape } from '../../ui/useModalEscape.js';
 import { KiStatusBar } from '../../ui/KiStatusBar.js';
 import { useMenuHotkeys } from '../../ui/useMenuHotkeys.js';
 import { addQuit } from '../../ui/action_menu.js';
+import { HomeLink } from '../../ui/HomeLink.js';
 
 type Tab = 'original' | 'greyscale' | 'bw';
 
@@ -517,11 +518,7 @@ export function ImageConverter({ onExitToHome }: { onExitToHome: () => void }): 
     <div className="imgc-frame ze-app">
       <MenuBar
         menus={menus}
-        leftSlot={
-          <div className="ze-home-link" onClick={onExitToHome} title="Back to project manager">
-            ⌂ ZiroEDA
-          </div>
-        }
+        leftSlot={<HomeLink onClick={onExitToHome} />}
         title={loaded ? `${loaded.fullName} \u2014 Image Converter` : 'Image Converter'}
       />
       <input

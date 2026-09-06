@@ -551,6 +551,7 @@ import {
   crossProbeFlashSelection,
   crossProbeViewChange,
 } from '@ziroeda/pcbnew';
+import { HomeLink } from '../../ui/HomeLink.js';
 
 // What KiCad writes for File > New Schematic: an empty sheet on A4 paper.
 // Launching the editor without a project starts here (no bundled demo).
@@ -9148,11 +9149,7 @@ export function SchematicEditor({
       )}
       <MenuBar
         menus={menus}
-        leftSlot={
-          <div className="ze-home-link" onClick={onExitToHome} title="Back to project manager">
-            ⌂ ZiroEDA
-          </div>
-        }
+        leftSlot={<HomeLink onClick={onExitToHome} />}
         title={
           <>
             <b>

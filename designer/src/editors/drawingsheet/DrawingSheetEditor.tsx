@@ -161,6 +161,7 @@ import {
   togglesFromSettings,
 } from './toggles.js';
 import { DRAWING_SHEET_FILE_EXTENSION } from '@ziroeda/common/src/common.js';
+import { HomeLink } from '../../ui/HomeLink.js';
 
 export interface DrawingSheetEditorFile {
   name: string;
@@ -2357,11 +2358,7 @@ export function DrawingSheetEditor({
 
       <MenuBar
         menus={menus}
-        leftSlot={
-          <div className="ze-home-link" onClick={onExitToHome} title="Back to project manager">
-            ⌂ ZiroEDA
-          </div>
-        }
+        leftSlot={<HomeLink onClick={onExitToHome} />}
         title={
           <>
             <b>

@@ -144,6 +144,7 @@ import {
   UNIT_GROUP,
 } from './toggles.js';
 import { OpenFileDialog } from '../../fs/OpenFileDialog.js';
+import { HomeLink } from '../../ui/HomeLink.js';
 
 /**
  * One loaded image and the row it occupies.
@@ -1753,11 +1754,7 @@ export function GerberViewer({
 
       <MenuBar
         menus={menus}
-        leftSlot={
-          <div className="ze-home-link" onClick={onExitToHome} title="Back to project manager">
-            ⌂ ZiroEDA
-          </div>
-        }
+        leftSlot={<HomeLink onClick={onExitToHome} />}
         title={(() => {
           // GERBVIEW_FRAME::UpdateTitleAndInfo (gerbview/gerbview_frame.cpp:659-692),
           // built in gerberAuxControls so a test can reach it.

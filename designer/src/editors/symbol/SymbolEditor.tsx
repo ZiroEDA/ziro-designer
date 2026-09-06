@@ -141,6 +141,7 @@ import {
   defaultSelectionFilter,
   type SelectionFilterOptions,
 } from '@ziroeda/eeschema/src/tools/sch_selection_filter.js';
+import { HomeLink } from '../../ui/HomeLink.js';
 
 /**
  * The Symbol Editor frame, the web mirror of KiCad's SYMBOL_EDIT_FRAME
@@ -2310,11 +2311,7 @@ export function SymbolEditor({
 
       <MenuBar
         menus={menus}
-        leftSlot={
-          <div className="ze-home-link" onClick={onExitToHome} title="Back to project manager">
-            ⌂ ZiroEDA
-          </div>
-        }
+        leftSlot={<HomeLink onClick={onExitToHome} />}
         title={
           <>
             <b>

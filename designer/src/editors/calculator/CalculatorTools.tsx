@@ -41,6 +41,7 @@ import {
   installCalcSettingsFlush,
   useCalcSaveSettings,
 } from './calc_settings.js';
+import { HomeLink } from '../../ui/HomeLink.js';
 
 interface TreeItem {
   id: string;
@@ -144,11 +145,7 @@ export function CalculatorTools({ onExitToHome }: { onExitToHome: () => void }):
     <div className="calc-frame ze-app">
       <MenuBar
         menus={menus}
-        leftSlot={
-          <div className="ze-home-link" onClick={onExitToHome} title="Back to project manager">
-            ⌂ ZiroEDA
-          </div>
-        }
+        leftSlot={<HomeLink onClick={onExitToHome} />}
         title="Calculator Tools"
       />
       <div className="calc-body">

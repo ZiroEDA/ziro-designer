@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import { preloadBundle } from '../libraryPreload.js';
 import { MenuBar, type Menu } from '../ui/MenuBar.js';
+import { HomeLink } from '../ui/HomeLink.js';
 import { AccountButton } from '../ui/AccountButton.js';
 import { ShareButton } from './ShareButton.js';
 import { PRODUCT } from '../ui/about_titles.js';
@@ -1882,6 +1883,9 @@ export function HomePage({
 
       <MenuBar
         menus={menus}
+        // The manager is home, so the mark is a label and not a way back: the
+        // same component every launcher puts here, minus the click.
+        leftSlot={<HomeLink />}
         // KICAD_MANAGER_FRAME's own title, whose no-project half is
         // "[no project loaded]" - see manager_frame.ts. The app name stands in
         // for "KiCad " + GetMajorMinorVersion(); everything else is upstream's.
