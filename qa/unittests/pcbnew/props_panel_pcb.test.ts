@@ -18,7 +18,7 @@ import { describe, expect, it } from 'vitest';
 import { head, isList, parse, serialize } from '@ziroeda/sexpr/src/index.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import { writeBoardNode } from '@ziroeda/pcbnew/src/write-board.js';
+import { buildViaNode, writeBoardNode } from '@ziroeda/pcbnew/src/write-board.js';
 import {
   pcbItemFriendlyName,
   pcbPropertiesFor,
@@ -30,6 +30,13 @@ const MM = (n: number): number => mmToIU(n);
 const load = (text: string): Board => readBoard(parse(text));
 /** What the board WRITES — a model-only edit that never reaches the source reverts on reload. */
 const written = (board: Board): string => serialize(writeBoardNode(board));
+/** One node's bytes with the pretty-printer's newlines squeezed out. */
+const flat = (n: { kind: 'list'; items: unknown[] }): string =>
+  serialize(n as Parameters<typeof serialize>[0])
+    .replace(/\s+/g, ' ')
+    .replace(/\( /g, '(')
+    .replace(/ \)/g, ')');
+
 /** The first board text's own node, as the writer emits it (it is stored source). */
 const writtenText = (board: Board): string => serialize(board.texts[0]!.source);
 
@@ -710,6 +717,138 @@ describe('VIA rows', () => {
     expect(row(rows, 'Layer Top').swatch).toBe('#c83434');
     expect(row(rows, 'Layer Bottom').value).toBe('B.Cu');
     expect(row(rows, 'Layer Bottom').swatch).toBe('#4d7fc4');
+  });
+
+  it('lists the Via Properties group in registration order', () => {
+    // pcb_track.cpp:3184-3216. The five outer-layer flags come after Via Type,
+    // and `capping`/`filling` belong to the DRILL, so they have one row each
+    // where tenting, covering and plugging have a front/back pair.
+    expect(rows.filter((r) => r.group === 'Via Properties').map((r) => r.name)).toEqual([
+      'Diameter',
+      'Hole',
+      'Layer Top',
+      'Layer Bottom',
+      'Via Type',
+      'Front tenting',
+      'Back tenting',
+      'Front covering',
+      'Back covering',
+      'Front plugging',
+      'Back plugging',
+      'Capping',
+      'Filling',
+    ]);
+  });
+
+  it('makes each outer-layer flag three-state, defaulting to the board stackup', () => {
+    // `std::optional<bool>` in PADSTACK: no value is TENTING_MODE::FROM_BOARD,
+    // which is a third state and not a false. The fixture via says nothing about
+    // any of them.
+    const tenting = row(rows, 'Front tenting');
+    expect(tenting.value).toBe('From board stackup');
+    expect(tenting.choices).toEqual(['From board stackup', 'Tented', 'Not tented']);
+    expect(row(rows, 'Front covering').choices).toEqual([
+      'From board stackup',
+      'Covered',
+      'Not covered',
+    ]);
+    expect(row(rows, 'Capping').choices).toEqual(['From board stackup', 'Capped', 'Not capped']);
+    expect(row(rows, 'Filling').choices).toEqual(['From board stackup', 'Filled', 'Not filled']);
+  });
+
+  it('writes each flag the way FormatOptBool does, and drops it for the board', () => {
+    const tented = row(rows, 'Front tenting').set?.('Tented');
+    expect(tented?.vias[0]?.tenting).toEqual({ front: true, back: undefined });
+    // `(front yes) (back none)` — the sides are independent, and `none` is how
+    // the empty optional is spelled.
+    expect(flat(tented!.vias[0]!.source)).toContain('(tenting (front yes) (back none))');
+
+    const capped = row(rows, 'Capping').set?.('Not capped');
+    expect(capped?.vias[0]?.capping).toBe(false);
+    expect(flat(capped!.vias[0]!.source)).toContain('(capping no)');
+
+    // Back to the board: the token goes away rather than reading `(capping none)`,
+    // because the writer emits it only `if( …is_capped.has_value() )`.
+    const back = row(rowsFor('via:0', capped!), 'Capping').set?.('From board stackup');
+    expect(back?.vias[0]?.capping).toBeUndefined();
+    expect(flat(back!.vias[0]!.source)).not.toContain('capping');
+  });
+
+  it("reads the flags back, including tenting's legacy bare-word spelling", () => {
+    const withFlags = load(
+      SRC.replace(
+        '(via (at 40 0) (size 0.8) (drill 0.4) (layers "F.Cu" "B.Cu") (net 1) (uuid "v1"))',
+        `(via (at 40 0) (size 0.8) (drill 0.4) (layers "F.Cu" "B.Cu") (net 1) (uuid "v1")
+           (tenting (front yes) (back no)) (covering (front no) (back none))
+           (plugging (front yes) (back yes)) (capping yes) (filling no))`,
+      ),
+    );
+    expect(withFlags.vias[0]?.tenting).toEqual({ front: true, back: false });
+    expect(withFlags.vias[0]?.covering).toEqual({ front: false, back: undefined });
+    expect(withFlags.vias[0]?.plugging).toEqual({ front: true, back: true });
+    expect(withFlags.vias[0]?.capping).toBe(true);
+    expect(withFlags.vias[0]?.filling).toBe(false);
+
+    // `parseFrontBackOptBool( true )`: before the sides could differ, tenting was
+    // written as bare words, and `none` reset both.
+    const legacy = load(
+      SRC.replace('(net 1) (uuid "v1"))', '(net 1) (uuid "v1") (tenting front))'),
+    );
+    expect(legacy.vias[0]?.tenting?.front).toBe(true);
+    expect(legacy.vias[0]?.tenting?.back).toBeUndefined();
+
+    // `none` resets BOTH sides whatever came before it, so this is not
+    // "front, then nothing" — it is nothing at all.
+    const legacyNone = load(
+      SRC.replace('(net 1) (uuid "v1"))', '(net 1) (uuid "v1") (tenting front none))'),
+    );
+    expect(legacyNone.vias[0]?.tenting?.front).toBeUndefined();
+
+    // And a via that says nothing carries no object, not an empty one: the
+    // writer's test is `has_value()` on each side.
+    expect(B.vias[0]?.tenting).toBeUndefined();
+  });
+
+  it('builds no flag tokens for a via that follows the board, and one for each that does not', () => {
+    // The BUILDER is the path a newly placed via takes, having no source. The
+    // writer's own condition is `has_value()` on the side or the drill flag
+    // (pcb_io_kicad_sexpr.cpp:2740-2778), so an opinion-free via gains nothing.
+    const bare = flat(
+      buildViaNode({
+        at: { x: 0, y: 0 },
+        size: MM(0.8),
+        drill: MM(0.4),
+        layers: ['F.Cu', 'B.Cu'],
+        kind: 'through',
+        net: 0,
+        // An EMPTY object, not an absent one: this is the state a `(tenting
+        // none)` in the file leaves, and the one the panel leaves when both
+        // sides go back to the board. `has_value()` is false on each side, so
+        // the token is still not written.
+        tenting: {},
+        covering: {},
+        source: { kind: 'list', items: [] },
+      }),
+    );
+    for (const t of ['tenting', 'covering', 'plugging', 'capping', 'filling'])
+      expect(bare, t).not.toContain(t);
+
+    const opinionated = flat(
+      buildViaNode({
+        at: { x: 0, y: 0 },
+        size: MM(0.8),
+        drill: MM(0.4),
+        layers: ['F.Cu', 'B.Cu'],
+        kind: 'through',
+        net: 0,
+        tenting: { front: true },
+        filling: false,
+        source: { kind: 'list', items: [] },
+      }),
+    );
+    expect(opinionated).toContain('(tenting (front yes) (back none))');
+    expect(opinionated).toContain('(filling no)');
+    expect(opinionated).not.toContain('covering');
   });
 
   it('commits the diameter and the hole', () => {

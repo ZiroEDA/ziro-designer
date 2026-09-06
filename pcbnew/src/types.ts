@@ -384,6 +384,16 @@ export interface PcbArcTrack {
   source: SList;
 }
 
+/**
+ * One side of a via's outer-layer flag, `std::optional<bool>` in PADSTACK.
+ * Absent means FROM_BOARD — take the board stackup's setting — which is a third
+ * state and not a false. Written `(front yes|no|none)`.
+ */
+export interface FrontBackOptBool {
+  front?: boolean;
+  back?: boolean;
+}
+
 export interface PcbVia {
   at: Vec2;
   size: number;
@@ -393,6 +403,26 @@ export interface PcbVia {
   net: number;
   /** `(teardrops …)`, PCB_VIA::GetTeardropParams. */
   teardrops?: TeardropParams;
+  /**
+   * The PADSTACK outer-layer and drill flags a via carries
+   * (`pcb_io_kicad_sexpr.cpp:2738-2778`). Each is three-state: a side with no
+   * value takes the board stackup's, which is TENTING_MODE::FROM_BOARD and the
+   * five enums beside it.
+   *
+   *     (tenting (front yes) (back none))   has_solder_mask
+   *     (covering (front …) (back …))       has_covering
+   *     (plugging (front …) (back …))       has_plugging
+   *     (capping yes|no|none)               Drill().is_capped
+   *     (filling yes|no|none)               Drill().is_filled
+   *
+   * Tenting also has a legacy spelling, `(tenting front back)` as bare words,
+   * which `parseFrontBackOptBool( true )` still accepts.
+   */
+  tenting?: FrontBackOptBool;
+  covering?: FrontBackOptBool;
+  plugging?: FrontBackOptBool;
+  capping?: boolean;
+  filling?: boolean;
   /**
    * `(remove_unused_layers …)` / `(keep_end_layers …)` / `(start_end_only …)`,
    * PADSTACK's UNCONNECTED_LAYER_MODE. Absent means the file said nothing,

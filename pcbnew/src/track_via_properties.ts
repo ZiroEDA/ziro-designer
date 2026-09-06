@@ -19,7 +19,15 @@ import { atom, isList, str, type SList, type SNode } from '@ziroeda/sexpr/src/in
 import { dropChild, mm, parseBoardItemId, patchChild } from './edit-board.js';
 import { defaultTeardropParameters } from './teardrop.js';
 import { buildTeardropParamsNode, isDefaultTeardropParams } from './write-footprint.js';
-import type { Board, PcbArcTrack, PcbTrack, PcbVia, TeardropParams } from './types.js';
+import type {
+  Board,
+  FrontBackOptBool,
+  PcbArcTrack,
+  PcbTrack,
+  PcbVia,
+  TeardropParams,
+} from './types.js';
+import { viaOuterLayerNodes } from './write-board.js';
 
 const list = (...items: SNode[]): SList => ({ kind: 'list', items });
 const numNode = (name: string, iu: number): SList => list(atom(name), atom(mm(iu)));
@@ -101,6 +109,17 @@ export interface TrackViaValues {
   viaType?: PcbVia['kind'];
   startLayer?: string;
   endLayer?: string;
+  /**
+   * The PADSTACK outer-layer flags. `undefined` here is "not being edited";
+   * the flag's own third state — take the board stackup's — is the `front`/`back`
+   * field being absent inside the object.
+   */
+  tenting?: FrontBackOptBool;
+  covering?: FrontBackOptBool;
+  plugging?: FrontBackOptBool;
+  /** `null` is the third state (`none`): follow the board. */
+  capping?: boolean | null;
+  filling?: boolean | null;
 
   // ----- Teardrops (per item, `(teardrops …)`) -----
   tdEnabled?: boolean;
@@ -414,6 +433,32 @@ function applyToVia(via: PcbVia, v: TrackViaValues): PcbVia {
       kind: 'list',
       items: [atom('layers'), str(layers[0]), str(layers[1])],
     });
+    changed = true;
+  }
+
+  for (const key of ['tenting', 'covering', 'plugging'] as const) {
+    const want = v[key];
+    if (want === undefined) continue;
+    const have = via[key] ?? {};
+    if (want.front === have.front && want.back === have.back) continue;
+    next[key] = want;
+    src =
+      want.front === undefined && want.back === undefined
+        ? dropChild(src, key)
+        : patchChild(src, key, viaOuterLayerNodes({ ...next, [key]: want })[0] ?? src);
+    changed = true;
+  }
+
+  for (const key of ['capping', 'filling'] as const) {
+    const want = v[key];
+    if (want === undefined) continue;
+    const value = want === null ? undefined : want;
+    if (value === via[key]) continue;
+    next[key] = value;
+    src =
+      value === undefined
+        ? dropChild(src, key)
+        : patchChild(src, key, list(atom(key), atom(value ? 'yes' : 'no')));
     changed = true;
   }
 

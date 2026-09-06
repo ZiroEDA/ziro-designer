@@ -409,6 +409,41 @@ function footprintFieldRows(board: Board, index: number, fp: PcbFootprint): PcbP
 }
 
 /**
+ * `ENUM_MAP<TENTING_MODE>` and the four beside it (pcb_track.cpp:2885-2911).
+ * Every one is FROM_BOARD / on / off, and FROM_BOARD is the `std::optional<bool>`
+ * with no value: the via defers to the board stackup rather than storing a
+ * decision. The labels differ per flag, so each map is its own.
+ */
+const optBoolChoices = (on: string, off: string) =>
+  [
+    ['board', 'From board stackup'],
+    ['yes', on],
+    ['no', off],
+  ] as const;
+
+const TENTING_CHOICES = optBoolChoices('Tented', 'Not tented');
+const COVERING_CHOICES = optBoolChoices('Covered', 'Not covered');
+const PLUGGING_CHOICES = optBoolChoices('Plugged', 'Not plugged');
+const CAPPING_CHOICES = optBoolChoices('Capped', 'Not capped');
+const FILLING_CHOICES = optBoolChoices('Filled', 'Not filled');
+
+/** One three-state outer-layer row, in the Via Properties group. */
+const sideRow = (
+  name: string,
+  value: boolean | undefined,
+  choices: ReturnType<typeof optBoolChoices>,
+  commit: (v: boolean | undefined) => Board,
+): PcbPropRow[] => [
+  choiceRow(
+    'Via Properties',
+    name,
+    value === undefined ? 'board' : value ? 'yes' : 'no',
+    choices,
+    (v) => commit(v === 'board' ? undefined : v === 'yes'),
+  ),
+];
+
+/**
  * The Teardrops group — `BOARD_CONNECTED_ITEM_DESC` (board_connected_item.cpp),
  * nine properties on the base class, so a pad and a via get the SAME rows from
  * the same setters. Ours used to show two of them, on the via alone, under names
@@ -968,6 +1003,30 @@ function viaRows(board: Board, id: string, ctx: PcbPropertiesContext): PcbPropRo
       ] as const,
       (viaType) => commit({ viaType }),
     ),
+    // The PADSTACK outer-layer flags, in registration order (pcb_track.cpp:3199-3216).
+    // Each is a three-state enum whose first value, "From board stackup", is the
+    // optional with no value — NOT a false. `capping` and `filling` belong to the
+    // drill and so have one row each rather than a front/back pair.
+    ...sideRow('Front tenting', via.tenting?.front, TENTING_CHOICES, (b) =>
+      commit({ tenting: { ...(via.tenting ?? {}), front: b } }),
+    ),
+    ...sideRow('Back tenting', via.tenting?.back, TENTING_CHOICES, (b) =>
+      commit({ tenting: { ...(via.tenting ?? {}), back: b } }),
+    ),
+    ...sideRow('Front covering', via.covering?.front, COVERING_CHOICES, (b) =>
+      commit({ covering: { ...(via.covering ?? {}), front: b } }),
+    ),
+    ...sideRow('Back covering', via.covering?.back, COVERING_CHOICES, (b) =>
+      commit({ covering: { ...(via.covering ?? {}), back: b } }),
+    ),
+    ...sideRow('Front plugging', via.plugging?.front, PLUGGING_CHOICES, (b) =>
+      commit({ plugging: { ...(via.plugging ?? {}), front: b } }),
+    ),
+    ...sideRow('Back plugging', via.plugging?.back, PLUGGING_CHOICES, (b) =>
+      commit({ plugging: { ...(via.plugging ?? {}), back: b } }),
+    ),
+    ...sideRow('Capping', via.capping, CAPPING_CHOICES, (b) => commit({ capping: b ?? null })),
+    ...sideRow('Filling', via.filling, FILLING_CHOICES, (b) => commit({ filling: b ?? null })),
     {
       group: '',
       name: 'Position X',

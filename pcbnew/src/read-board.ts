@@ -67,6 +67,7 @@ import type {
 } from './types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { zoneConnectionFromCode, type ZoneConnection } from './zone_connection.js';
+import type { FrontBackOptBool } from './types.js';
 import { pcbFillModeFromToken } from './shape_fill.js';
 
 /**
@@ -87,6 +88,39 @@ const maybeAbsent = (parent: SList, name: string, whenPresent: boolean): boolean
  * Every field has a default, so a partial token still yields a complete set —
  * and `prefer_zone_connections` is stored inverted, as upstream does.
  */
+/**
+ * `parseOptBool()`: `yes`/`no`/`none`, where `none` is the empty optional — the
+ * third state, "take the board stackup's setting".
+ */
+const optBoolOf = (node: SList | undefined): boolean | undefined => {
+  const w = node ? arg(node, 0) : undefined;
+  return w === 'yes' || w === 'true' ? true : w === 'no' || w === 'false' ? false : undefined;
+};
+
+/**
+ * `parseFrontBackOptBool( aAllowLegacyFormat )`
+ * (pcb_io_kicad_sexpr_parser.cpp:7698-7762): either `(front yes) (back none)`
+ * children, or — for `(tenting …)` alone — the bare words `front`, `back` and
+ * `none` that KiCad wrote before the sides could differ.
+ */
+function frontBackOptBoolOf(
+  node: SList | undefined,
+  allowLegacy = false,
+): FrontBackOptBool | undefined {
+  // No token at all: the via has no opinion, which is the same state as one
+  // whose sides are both `none` — and the writer emits neither.
+  if (!node) return undefined;
+  const front = childNamed(node, 'front');
+  const back = childNamed(node, 'back');
+  if (front || back) return { front: optBoolOf(front), back: optBoolOf(back) };
+
+  if (!allowLegacy) return {};
+  const words = args(node);
+  // `none` resets BOTH, whatever came before it.
+  if (words.includes('none')) return {};
+  return { front: words.includes('front') || undefined, back: words.includes('back') || undefined };
+}
+
 function readTeardropParams(node: SList | undefined): TeardropParams | undefined {
   if (!node) return undefined;
 
@@ -1500,6 +1534,11 @@ export function readBoard(root: SList): Board {
               : 'through',
           net: numberField(item, 'net') ?? 0,
           teardrops: readTeardropParams(childNamed(item, 'teardrops')),
+          tenting: frontBackOptBoolOf(childNamed(item, 'tenting'), true),
+          covering: frontBackOptBoolOf(childNamed(item, 'covering')),
+          plugging: frontBackOptBoolOf(childNamed(item, 'plugging')),
+          capping: optBoolOf(childNamed(item, 'capping')),
+          filling: optBoolOf(childNamed(item, 'filling')),
           unconnectedLayerMode: readUnconnectedLayerMode(item, true),
           locked: lockedOf(item),
           uuid: uuidOf(item),

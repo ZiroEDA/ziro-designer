@@ -42,6 +42,7 @@ import type {
   PcbTrack,
   PcbArcTrack,
   PcbVia,
+  FrontBackOptBool,
   PcbBarcode,
   PcbPoint,
   PcbShape,
@@ -141,8 +142,38 @@ export function buildViaNode(v: PcbVia): SList {
     items.push(list(atom('keep_end_layers'), atom(keep ? 'yes' : 'no')));
   }
   if (!isDefaultTeardropParams(v.teardrops)) items.push(buildTeardropParamsNode(v.teardrops!));
+  items.push(...viaOuterLayerNodes(v));
   if (v.uuid) items.push(list(atom('uuid'), str(v.uuid)));
   return { kind: 'list', items };
+}
+
+/** `FormatOptBool`: `yes`, `no`, or `none` for the empty optional. */
+const optBoolNode = (name: string, v: boolean | undefined): SList =>
+  list(atom(name), atom(v === undefined ? 'none' : v ? 'yes' : 'no'));
+
+/**
+ * A via's PADSTACK outer-layer and drill flags, in the order and on the
+ * conditions `format( const PCB_TRACK* )` writes them
+ * (pcb_io_kicad_sexpr.cpp:2738-2778): tenting, capping, covering, plugging,
+ * filling — each written only when it has something to say, so a via that
+ * follows the board stackup for all of them gains no tokens at all.
+ */
+export function viaOuterLayerNodes(v: PcbVia): SList[] {
+  const out: SList[] = [];
+  const pair = (name: string, fb: FrontBackOptBool | undefined): void => {
+    if (!fb || (fb.front === undefined && fb.back === undefined)) return;
+    out.push({
+      kind: 'list',
+      items: [atom(name), optBoolNode('front', fb.front), optBoolNode('back', fb.back)],
+    });
+  };
+
+  pair('tenting', v.tenting);
+  if (v.capping !== undefined) out.push(optBoolNode('capping', v.capping));
+  pair('covering', v.covering);
+  pair('plugging', v.plugging);
+  if (v.filling !== undefined) out.push(optBoolNode('filling', v.filling));
+  return out;
 }
 
 /** `(gr_line|gr_arc|… (start ..) … (stroke ..) [(fill ..)] (layer ..) [(uuid ..)])`. */
