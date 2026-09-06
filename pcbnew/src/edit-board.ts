@@ -1622,6 +1622,43 @@ export function setFootprintField(
   });
 }
 
+/**
+ * Set one of a footprint's fields BY NAME, which is what the Properties panel
+ * edits: `PCB_FOOTPRINT_FIELD_PROPERTY::setter`
+ * (`pcbnew/widgets/pcb_properties_panel.cpp:73-110`) looks the name up with
+ * `FOOTPRINT::GetField( m_name )` and, finding nothing, adds a brand-new
+ * `FIELD_T::USER` field carrying it. Reference and Value are the two names that
+ * are also text items, so they go through {@link setFootprintField}.
+ *
+ * A new field is source-less; `writeFootprintNode` builds its `(property …)`
+ * from the model, the same way the netlist updater's new fields are written.
+ */
+export function setFootprintFieldByName(
+  board: Board,
+  index: number,
+  name: string,
+  value: string,
+): Board {
+  const f = board.footprints[index];
+  if (!f) return board;
+  if (name === 'Reference' || name === 'Value')
+    return setFootprintField(board, index, name === 'Reference' ? 'reference' : 'value', value);
+
+  const fields = f.fields ?? [];
+  const at = fields.findIndex((x) => x.name === name);
+  if (at < 0)
+    return replaceFp(board, index, {
+      ...f,
+      fields: [...fields, { name, value, source: { kind: 'list', items: [] } }],
+    });
+
+  const field = fields[at]!;
+  if (field.value === value) return board;
+  const next = fields.slice();
+  next[at] = { ...field, value, source: replaceArg(field.source, 1, value) };
+  return replaceFp(board, index, { ...f, fields: next });
+}
+
 /** Lock or unlock a footprint (`(locked yes)`). */
 export function setFootprintLocked(board: Board, index: number, locked: boolean): Board {
   const f = board.footprints[index];

@@ -48,10 +48,19 @@ import {
   moveBoardItems,
   parseBoardItemId,
   setFootprintField,
+  setFootprintFieldByName,
   setFootprintLocked,
   setFootprintOrientation,
 } from './edit-board.js';
 import { applyPadValues, collectPadValues, type PadRef, type PadValues } from './pad_properties.js';
+import {
+  applyFootprintValues,
+  collectFootprintValues,
+  type FootprintValues,
+} from './footprint_properties.js';
+import { ZONE_CONNECTION_CHOICES } from './zone_connection.js';
+import { GetLayerName } from './layer_ids.js';
+import { ELECTRICAL_PINTYPES, type ElectricalPinType } from '@ziroeda/common/src/pin_type.js';
 import {
   applyTrackViaValues,
   trackViaSelection,
@@ -72,7 +81,15 @@ import { atom, list, str, type SList } from '@ziroeda/sexpr/src/index.js';
 import { dropChild, patchChild } from './edit-board.js';
 import { pcbIuToMM, pcbMmToIU } from '@ziroeda/common/src/eda_units.js';
 import { formatG } from '@ziroeda/common/src/plotters/fmt.js';
-import type { BarcodeEcc, BarcodeKind, Board, PcbBarcode, PcbPoint } from './types.js';
+import {
+  RESERVED_FOOTPRINT_PROPERTIES,
+  type BarcodeEcc,
+  type BarcodeKind,
+  type Board,
+  type PcbBarcode,
+  type PcbFootprint,
+  type PcbPoint,
+} from './types.js';
 
 /** `formatInternalUnits`, for the point source patcher below. */
 function mm(iu: number): string {
@@ -293,8 +310,36 @@ const layerChoices = (
   copperOnly: boolean,
 ): readonly (readonly [string, string])[] => {
   const names = board.layers.map((l) => l.name);
-  return (copperOnly ? names.filter((l) => /\.Cu$/.test(l)) : names).map((l) => [l, l] as const);
+  // The cell shows `BOARD::GetLayerName()` — the user name when the board set
+  // one — while the value stays canonical, because that is what the item stores.
+  return (copperOnly ? names.filter((l) => /\.Cu$/.test(l)) : names).map(
+    (l) => [l, GetLayerName(board.layers, l)] as const,
+  );
 };
+
+/**
+ * A `PGPROPERTY_RATIO` cell over `std::optional<double>`: a fraction, so it is
+ * NOT unit-converted, and an emptied cell is "no override" rather than zero.
+ */
+function ratioRow(
+  group: string,
+  name: string,
+  ratio: number | null,
+  commit: (v: number | null) => Board,
+): PcbPropRow {
+  return {
+    group,
+    name,
+    kind: 'string',
+    value: ratio === null ? '' : String(ratio),
+    set: (t) => {
+      const text = String(t).trim();
+      if (text === '') return commit(null);
+      const n = Number(text);
+      return Number.isFinite(n) ? commit(n) : null;
+    },
+  };
+}
 
 /**
  * `PCB_PROPERTIES_PANEL::updateLists` (:594-618): every net on the board,
@@ -306,104 +351,174 @@ const netChoices = (board: Board): readonly (readonly [string, string])[] =>
     .map(([code, name]) => [String(code), name === '' ? '<no net>' : name] as const)
     .sort((a, b) => a[1].localeCompare(b[1], undefined, { sensitivity: 'accent' }));
 
+/**
+ * A FOOTPRINT's four mandatory fields, `FOOTPRINT::FOOTPRINT` (footprint.cpp:114-117):
+ * every footprint carries them whether or not the file wrote a `(property …)` for
+ * each, so Datasheet and Description have a row even when they are empty.
+ * Reference and Value are named here because they are rows of their own, ahead of
+ * the rest.
+ */
+const FOOTPRINT_MANDATORY_FIELDS = ['Reference', 'Value', 'Datasheet', 'Description'] as const;
+
+/**
+ * The names `PCB_PROPERTIES_PANEL::rebuildProperties` (:395-431) registers as
+ * PCB_FOOTPRINT_FIELD_PROPERTYs: `m_currentFieldNames` is filled from
+ * `footprint->GetFields()` and is a `std::set<wxString>`, so the dynamic rows are
+ * ordered by name and not by the order the file wrote them. Reference is already a
+ * FOOTPRINT_DESC property and Value is added first by hand ("Make sure value comes
+ * immediately after reference"), so both are skipped here.
+ *
+ * A RESERVED_FOOTPRINT_PROPERTIES key is not a field — `parseFOOTPRINT` consumes it
+ * into `(sheetname …)` and friends rather than making a PCB_FIELD of it — so it gets
+ * no row either.
+ */
+export function footprintDynamicFieldNames(fp: PcbFootprint): string[] {
+  const names = new Set<string>(FOOTPRINT_MANDATORY_FIELDS);
+  for (const f of fp.fields ?? [])
+    if (!RESERVED_FOOTPRINT_PROPERTIES.has(f.name)) names.add(f.name);
+  names.delete('Reference');
+  names.delete('Value');
+  return [...names].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+}
+
+/** The Fields rows after Reference and Value — see {@link footprintDynamicFieldNames}. */
+function footprintFieldRows(board: Board, index: number, fp: PcbFootprint): PcbPropRow[] {
+  return footprintDynamicFieldNames(fp).map((name) => {
+    const value = (fp.fields ?? []).find((f) => f.name === name)?.value ?? '';
+    return {
+      group: 'Fields',
+      name,
+      kind: 'string',
+      value,
+      set: (v) =>
+        String(v) === value ? null : setFootprintFieldByName(board, index, name, String(v)),
+    };
+  });
+}
+
 /** FOOTPRINT_DESC's rows (footprint.cpp:4880-4960). */
 function footprintRows(board: Board, index: number, ctx: PcbPropertiesContext): PcbPropRow[] {
   const fp = board.footprints[index];
   if (!fp) return [];
-  const attrs = fp.attributes ?? [];
-  const has = (a: string): boolean => attrs.includes(a);
-  const id = boardItemId('footprint', index);
+
+  // The same collect/apply pair DIALOG_FOOTPRINT_PROPERTIES uses, because
+  // upstream a property setter and the dialog call the SAME FOOTPRINT method:
+  // `Not in Schematic` is `FOOTPRINT::SetBoardOnly` from either. Writing the
+  // attr list or the override tokens a second time here is how the two drift.
+  const v = collectFootprintValues(fp);
+  const commit = (patch: Partial<FootprintValues>): Board =>
+    applyFootprintValues(board, index, { ...v, ...patch });
+  const flag = (name: string, key: keyof FootprintValues, value: boolean): PcbPropRow => ({
+    group: 'Attributes',
+    name,
+    kind: 'bool',
+    value,
+    set: (b) => commit({ [key]: !!b } as Partial<FootprintValues>),
+  });
 
   return [
     {
       group: '',
       name: 'Position X',
       kind: 'coord',
-      value: fp.at.x,
-      set: (v) =>
-        typeof v === 'number'
-          ? moveBoardItems(board, new Set([id]), { x: v - fp.at.x, y: 0 })
-          : null,
+      value: v.x,
+      set: (n) => (typeof n === 'number' ? commit({ x: n }) : null),
     },
     {
       group: '',
       name: 'Position Y',
       kind: 'coord',
-      value: fp.at.y,
-      set: (v) =>
-        typeof v === 'number'
-          ? moveBoardItems(board, new Set([id]), { x: 0, y: v - fp.at.y })
-          : null,
+      value: v.y,
+      set: (n) => (typeof n === 'number' ? commit({ y: n }) : null),
     },
     {
       group: '',
       name: 'Locked',
       kind: 'bool',
-      value: !!fp.locked,
-      set: (v) => setFootprintLocked(board, index, !!v),
+      value: v.locked,
+      set: (b) => commit({ locked: !!b }),
     },
-    // A footprint's Layer is F.Cu or B.Cu and changing it is a FLIP, which is
-    // `PCB_ACTIONS::flip`, not a property write. Read-only, with the swatch
-    // PGPROPERTY_COLORENUM paints.
-    {
-      group: '',
-      name: 'Layer',
-      kind: 'string',
-      value: fp.layer,
-      swatch: ctx.layerColor(fp.layer),
-    },
+    // `SetLayerAndFlip` (footprint.cpp:4896-4900) — the setter IS a flip, and the
+    // choices are F.Cu and B.Cu alone, because those are the only two layers a
+    // footprint can be placed on. `createPGProperty` relabels them with the
+    // BOARD's layer names and paints the swatch PGPROPERTY_COLORENUM draws.
+    // Unavailable only in the footprint editor (`isNotFootprintHolder`), which
+    // is a different frame, not this one.
+    choiceRow(
+      '',
+      'Layer',
+      v.side,
+      [
+        ['front', GetLayerName(board.layers, 'F.Cu')],
+        ['back', GetLayerName(board.layers, 'B.Cu')],
+      ] as const,
+      (side) => commit({ side }),
+      ctx.layerColor(fp.layer),
+    ),
     {
       group: '',
       name: 'Orientation',
       kind: 'string',
-      value: fmtOrient(fp.angle),
-      set: (v) => {
-        const deg = parseAngle(v);
-        return deg === null ? null : setFootprintOrientation(board, index, deg);
+      value: fmtOrient(v.orientation),
+      set: (t) => {
+        const deg = parseAngle(t);
+        return deg === null ? null : commit({ orientation: deg });
       },
     },
     {
       group: 'Fields',
       name: 'Reference',
       kind: 'string',
-      value: fp.reference ?? '',
-      set: (v) => setFootprintField(board, index, 'reference', String(v)),
+      value: v.reference,
+      set: (t) => commit({ reference: String(t) }),
     },
     {
       group: 'Fields',
       name: 'Value',
       kind: 'string',
-      value: fp.value ?? '',
-      set: (v) => setFootprintField(board, index, 'value', String(v)),
+      value: v.value,
+      set: (t) => commit({ value: String(t) }),
     },
-    roRow('Fields', 'Library Link', fp.lib),
-    roRow('Fields', 'Library Description', fp.descr ?? ''),
-    roRow('Fields', 'Keywords', fp.tags ?? ''),
-    roRow('Fields', 'Component Class', ''),
-    { group: 'Attributes', name: 'Not in Schematic', kind: 'bool', value: has('board_only') },
+    ...footprintFieldRows(board, index, fp),
+    // A separate group upstream (`propertyFields`), NOT part of "Fields": these
+    // four are FOOTPRINT_DESC's own NO_SETTER properties, while the Fields rows
+    // above are the footprint's PCB_FIELDs.
+    roRow('Footprint Properties', 'Library Link', fp.lib),
+    roRow('Footprint Properties', 'Library Description', fp.descr ?? ''),
+    roRow('Footprint Properties', 'Keywords', fp.tags ?? ''),
+    roRow('Footprint Properties', 'Component Class', ''),
+    flag('Not in Schematic', 'notInSchematic', v.notInSchematic),
+    flag('Exclude From Position Files', 'excludeFromPosFiles', v.excludeFromPosFiles),
+    flag('Exclude From Bill of Materials', 'excludeFromBom', v.excludeFromBom),
+    flag('Do not Populate', 'doNotPopulate', v.doNotPopulate),
     {
-      group: 'Attributes',
-      name: 'Exclude From Position Files',
-      kind: 'bool',
-      value: has('exclude_from_pos_files'),
-    },
-    {
-      group: 'Attributes',
-      name: 'Exclude From Bill of Materials',
-      kind: 'bool',
-      value: has('exclude_from_bom'),
-    },
-    { group: 'Attributes', name: 'Do not Populate', kind: 'bool', value: has('dnp') },
-    {
+      ...flag(
+        'Exempt From Courtyard Requirement',
+        'allowMissingCourtyard',
+        v.allowMissingCourtyard,
+      ),
       group: 'Overrides',
-      name: 'Exempt From Courtyard Requirement',
-      kind: 'bool',
-      value: has('allow_missing_courtyard'),
     },
-    roRow('Overrides', 'Clearance Override', ''),
-    roRow('Overrides', 'Solderpaste Margin Override', ''),
-    roRow('Overrides', 'Solderpaste Margin Ratio Override', ''),
-    roRow('Overrides', 'Zone Connection Style', 'Inherited'),
+    overrideRow('Overrides', 'Clearance Override', v.localClearance, (n) =>
+      commit({ localClearance: n }),
+    ),
+    // No Soldermask Margin Override row: FOOTPRINT_DESC registers Clearance,
+    // Solderpaste Margin, Solderpaste Margin Ratio and Zone Connection Style and
+    // no soldermask one (footprint.cpp:4948-4967), even though the footprint
+    // carries the value and its dialog edits it.
+    overrideRow('Overrides', 'Solderpaste Margin Override', v.localSolderPasteMargin, (n) =>
+      commit({ localSolderPasteMargin: n }),
+    ),
+    ratioRow('Overrides', 'Solderpaste Margin Ratio Override', v.localSolderPasteMarginRatio, (r) =>
+      commit({ localSolderPasteMarginRatio: r }),
+    ),
+    choiceRow(
+      'Overrides',
+      'Zone Connection Style',
+      v.zoneConnection,
+      ZONE_CONNECTION_CHOICES,
+      (zoneConnection) => commit({ zoneConnection }),
+    ),
   ];
 }
 
@@ -414,12 +529,6 @@ function padRows(board: Board, ref: PadRef): PcbPropRow[] {
   const v = collectPadValues(pad);
   const commit = (patch: Partial<PadValues>): Board =>
     applyPadValues(board, ref, { ...v, ...patch });
-
-  // A through pad spans all copper (KiCad "All copper layers"); an SMD pad
-  // names its single copper layer.
-  const copperLayers = pad.layers.some((l) => l === '*.Cu')
-    ? 'All copper layers'
-    : pad.layers.filter((l) => /\.Cu$/.test(l)).join(', ') || pad.layers.join(', ');
 
   const rows: PcbPropRow[] = [
     {
@@ -480,8 +589,23 @@ function padRows(board: Board, ref: PadRef): PcbPropRow[] {
       value: v.number,
       set: (n) => commit({ number: String(n) }),
     },
-    roRow('Pad Properties', 'Pin Name', pad.pinFunction ?? ''),
-    roRow('Pad Properties', 'Pin Type', pad.pinType ?? ''),
+    // `SetPinFunction` / `SetPinType` (pad.cpp:3457-3478): both are writeable,
+    // and Pin Type's SetChoicesFunc lists `GetCanonicalElectricalTypeName` for
+    // every ELECTRICAL_PINTYPE — the canonical tokens, not the display names.
+    {
+      group: 'Pad Properties',
+      name: 'Pin Name',
+      kind: 'string',
+      value: v.pinFunction,
+      set: (t) => commit({ pinFunction: String(t) }),
+    },
+    choiceRow(
+      'Pad Properties',
+      'Pin Type',
+      v.pinType as ElectricalPinType,
+      ELECTRICAL_PINTYPES.map((t) => [t, t] as const),
+      (pinType) => commit({ pinType }),
+    ),
     {
       group: 'Pad Properties',
       name: 'Size X',
@@ -532,7 +656,28 @@ function padRows(board: Board, ref: PadRef): PcbPropRow[] {
   }
 
   rows.push(
-    roRow('Pad Properties', 'Copper Layers', copperLayers),
+    // "Copper Layers" is UNCONNECTED_LAYER_MODE (pad.cpp:3390-3397, 3757-3759) —
+    // what a through-hole pad does with a layer it is NOT connected on — and not
+    // the pad's layer list, which the panel does not show at all.
+    //
+    // START_END_ONLY is upstream's fourth choice and is missing here on purpose:
+    // the pad parser has no token for it (only the VIA parser does,
+    // pcb_io_kicad_sexpr_parser.cpp:7508), so a pad set to it would come back
+    // `keep_all` on the next load. Offering an edit the file cannot keep is worse
+    // than offering three that it can.
+    choiceRow(
+      'Pad Properties',
+      'Copper Layers',
+      v.unconnectedLayerMode,
+      [
+        ['keep_all', 'All copper layers'],
+        ['remove_all', 'Connected layers only'],
+        ['remove_except_start_and_end', 'Front, back and connected layers'],
+      ] as const,
+      v.type === 'thru_hole'
+        ? (unconnectedLayerMode) => commit({ unconnectedLayerMode })
+        : undefined,
+    ),
     overrideRow('Pad Properties', 'Pad To Die Length', v.padToDieLength, (n) =>
       commit({ padToDieLength: n }),
     ),
@@ -545,30 +690,14 @@ function padRows(board: Board, ref: PadRef): PcbPropRow[] {
     overrideRow('Overrides', 'Solderpaste Margin Override', v.localSolderPasteMargin, (n) =>
       commit({ localSolderPasteMargin: n }),
     ),
-    {
-      // PGPROPERTY_RATIO over std::optional<double>: blank is no override,
-      // and it is a ratio, not a distance, so it is not unit-converted.
-      group: 'Overrides',
-      name: 'Solderpaste Margin Ratio Override',
-      kind: 'string',
-      value: v.localSolderPasteMarginRatio === null ? '' : String(v.localSolderPasteMarginRatio),
-      set: (t) => {
-        const text = String(t).trim();
-        if (text === '') return commit({ localSolderPasteMarginRatio: null });
-        const n = Number(text);
-        return Number.isFinite(n) ? commit({ localSolderPasteMarginRatio: n }) : null;
-      },
-    },
+    ratioRow('Overrides', 'Solderpaste Margin Ratio Override', v.localSolderPasteMarginRatio, (r) =>
+      commit({ localSolderPasteMarginRatio: r }),
+    ),
     choiceRow(
       'Overrides',
       'Zone Connection Style',
       v.zoneConnection,
-      [
-        ['inherited', 'Inherited'],
-        ['full', 'Solid'],
-        ['thermal', 'Thermal reliefs'],
-        ['none', 'None'],
-      ] as const,
+      ZONE_CONNECTION_CHOICES,
       (zoneConnection) => commit({ zoneConnection }),
     ),
     overrideRow('Overrides', 'Thermal Relief Gap', v.thermalGap, (n) => commit({ thermalGap: n })),
@@ -735,7 +864,10 @@ function zoneRows(board: Board, index: number): PcbPropRow[] {
       set: (n) => commit({ name: String(n) }),
     },
     choiceRow('', 'Net', String(v.net), netChoices(board), (n) => commit({ net: Number(n) })),
-    roRow('', 'Layers', zone.layers.join(', ')),
+    // No Layer row: ZONE_DESC replaces BOARD_CONNECTED_ITEM's with one marked
+    // `SetIsHiddenFromPropertiesManager()` (zone.cpp:2026-2029), and
+    // `PROPERTIES_PANEL::rebuildProperties` skips a hidden property (:280). A
+    // zone can be on several layers at once, which a single-value cell cannot say.
     {
       group: '',
       name: 'Priority',

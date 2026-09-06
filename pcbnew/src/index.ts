@@ -68,6 +68,7 @@ export {
   moveBoardItems,
   dragBoardItems,
   setFootprintField,
+  setFootprintFieldByName,
   setFootprintLocked,
   setFootprintOrientation,
   subsetBoardItems,

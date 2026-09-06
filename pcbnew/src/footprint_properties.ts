@@ -28,6 +28,7 @@ import {
   setFootprintOrientation,
 } from './edit-board.js';
 import type { Board, PcbFootprint } from './types.js';
+import { ZONE_CONNECTION_CODE } from './zone_connection.js';
 
 const list = (...items: SNode[]): SList => ({ kind: 'list', items });
 
@@ -136,14 +137,6 @@ export function attributesFor(v: FootprintValues): FootprintAttribute[] {
   return out;
 }
 
-/** ZONE_CONNECTION's file numbering: 0 inherited, 1 thermal, 2 none, 3 full. */
-const ZONE_CONNECT_CODE: Record<NonNullable<PcbFootprint['zoneConnection']>, number> = {
-  inherited: 0,
-  thermal: 1,
-  none: 2,
-  full: 3,
-};
-
 /**
  * DIALOG_FOOTPRINT_PROPERTIES::TransferDataFromWindow.
  *
@@ -241,7 +234,7 @@ export function applyFootprintValues(board: Board, index: number, v: FootprintVa
       : patchChild(
           src,
           'zone_connect',
-          list(atom('zone_connect'), atom(String(ZONE_CONNECT_CODE[v.zoneConnection]))),
+          list(atom('zone_connect'), atom(String(ZONE_CONNECTION_CODE[v.zoneConnection]))),
         );
 
   patched.source = src;

@@ -19,6 +19,9 @@ import { atom, str, type SList, type SNode } from '@ziroeda/sexpr/src/index.js';
 import { dropChild, mm, parseBoardItemId, patchChild } from './edit-board.js';
 import { rotatePcb } from './read-board.js';
 import type { Board, PadShape, PadType, PcbFootprint, PcbPad } from './types.js';
+import { ZONE_CONNECTION_CODE } from './zone_connection.js';
+import { unconnectedLayerModeOf } from './unused_pad_layers.js';
+import type { UnconnectedLayerMode } from './types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
 const list = (...items: SNode[]): SList => ({ kind: 'list', items });
@@ -63,6 +66,20 @@ export interface PadValues {
   localSolderPasteMargin: number | null;
   localSolderPasteMarginRatio: number | null;
   zoneConnection: NonNullable<PcbPad['zoneConnection']>;
+  /**
+   * `(pinfunction …)` / `(pintype …)` — the schematic's pin name and electrical
+   * type, pushed onto the pad by the netlist. DIALOG_PAD_PROPERTIES shows them
+   * and does not edit them; PAD_DESC registers both with real setters
+   * (pad.cpp:3462-3478), so the Properties panel does.
+   */
+  pinFunction: string;
+  pinType: string;
+  /**
+   * `UNCONNECTED_LAYER_MODE`, PAD_DESC's "Copper Layers" enum
+   * (pad.cpp:3757-3759): which copper layers a through-hole pad keeps where it
+   * is not connected. Not a layer LIST — that is `layers`.
+   */
+  unconnectedLayerMode: UnconnectedLayerMode;
   thermalBridgeWidth: number | null;
   thermalGap: number | null;
   padToDieLength: number | null;
@@ -110,6 +127,9 @@ export function collectPadValues(pad: PcbPad): PadValues {
     localSolderPasteMargin: pad.localSolderPasteMargin ?? null,
     localSolderPasteMarginRatio: pad.localSolderPasteMarginRatio ?? null,
     zoneConnection: pad.zoneConnection ?? 'inherited',
+    pinFunction: pad.pinFunction ?? '',
+    pinType: pad.pinType ?? '',
+    unconnectedLayerMode: unconnectedLayerModeOf(pad),
     thermalBridgeWidth: pad.thermalBridgeWidth ?? null,
     thermalGap: pad.thermalGap ?? null,
     padToDieLength: pad.padToDieLength ?? null,
@@ -123,14 +143,6 @@ export function collectPadValues(pad: PcbPad): PadValues {
 export function padLocalPos(fp: PcbFootprint, boardPos: Vec2): Vec2 {
   return rotatePcb({ x: boardPos.x - fp.at.x, y: boardPos.y - fp.at.y }, -fp.angle);
 }
-
-/** ZONE_CONNECTION's file numbering. */
-const ZONE_CONNECT_CODE: Record<NonNullable<PcbPad['zoneConnection']>, number> = {
-  inherited: 0,
-  thermal: 1,
-  none: 2,
-  full: 3,
-};
 
 /** `(drill [oval] w [h] [(offset x y)])`, PAD's hole. */
 function drillNode(v: PadValues): SList {
@@ -285,6 +297,51 @@ export function applyPadValues(board: Board, ref: PadRef, v: PadValues): Board {
           list(atom('solder_paste_margin_ratio'), atom(String(v.localSolderPasteMarginRatio))),
         );
 
+  // `(pinfunction …)` / `(pintype …)`: the writer emits each only when it is
+  // non-empty (`format( const PAD* )`, pcb_io_kicad_sexpr.cpp:1862-1868), so
+  // clearing the cell drops the token rather than writing an empty string.
+  const text = (key: 'pinFunction' | 'pinType', token: string, value: string): void => {
+    next[key] = value === '' ? undefined : value;
+    src =
+      value === '' ? dropChild(src, token) : patchChild(src, token, list(atom(token), str(value)));
+  };
+
+  text('pinFunction', 'pinfunction', v.pinFunction);
+  text('pinType', 'pintype', v.pinType);
+
+  // UNCONNECTED_LAYER_MODE, written as the two booleans a PTH pad carries
+  // (pcb_io_kicad_sexpr.cpp:1792-1798): `remove_unused_layers`, and
+  // `keep_end_layers` only when the first is yes. A pad that is not PTH has
+  // neither token — upstream writes them for PAD_ATTRIB::PTH alone.
+  //
+  // Only when it CHANGED, so a pad whose file never carried the tokens does not
+  // sprout them on an unrelated edit — the writer emits a stored source verbatim,
+  // and gaining `(remove_unused_layers no)` would be a diff the user did not ask
+  // for. (Upstream re-writes the whole pad every save, so it always emits them.)
+  if (v.type === 'thru_hole' && v.unconnectedLayerMode !== unconnectedLayerModeOf(pad)) {
+    next.unconnectedLayerMode = v.unconnectedLayerMode;
+    const remove = v.unconnectedLayerMode !== 'keep_all';
+    src = patchChild(
+      src,
+      'remove_unused_layers',
+      list(atom('remove_unused_layers'), atom(remove ? 'yes' : 'no')),
+    );
+    src = remove
+      ? patchChild(
+          src,
+          'keep_end_layers',
+          list(
+            atom('keep_end_layers'),
+            atom(v.unconnectedLayerMode === 'remove_except_start_and_end' ? 'yes' : 'no'),
+          ),
+        )
+      : dropChild(src, 'keep_end_layers');
+  } else if (v.type !== 'thru_hole' && pad.unconnectedLayerMode !== undefined) {
+    // The tokens belong to a PTH pad alone, so a pad changed to SMD loses them.
+    next.unconnectedLayerMode = undefined;
+    src = dropChild(dropChild(src, 'remove_unused_layers'), 'keep_end_layers');
+  }
+
   next.zoneConnection = v.zoneConnection === 'inherited' ? undefined : v.zoneConnection;
   src =
     v.zoneConnection === 'inherited'
@@ -292,7 +349,7 @@ export function applyPadValues(board: Board, ref: PadRef, v: PadValues): Board {
       : patchChild(
           src,
           'zone_connect',
-          list(atom('zone_connect'), atom(String(ZONE_CONNECT_CODE[v.zoneConnection]))),
+          list(atom('zone_connect'), atom(String(ZONE_CONNECTION_CODE[v.zoneConnection]))),
         );
 
   next.source = src;

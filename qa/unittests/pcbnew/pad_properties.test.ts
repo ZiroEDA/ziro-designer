@@ -107,7 +107,8 @@ describe('collect', () => {
     const v = collectPadValues(pad(z));
 
     expect(v.localClearance).toBe(0);
-    expect(v.zoneConnection).toBe('full');
+    // 3 is THT_THERMAL, "thermal relief only for THT pads" (zones.h:46-53).
+    expect(v.zoneConnection).toBe('tht_thermal');
   });
 });
 
@@ -242,10 +243,17 @@ describe('apply', () => {
     expect(flat(off)).not.toContain('(clearance');
   });
 
-  it('writes the zone connection, and drops it when inherited', () => {
+  it('writes the zone connection as the enum, and drops it when inherited', () => {
+    // ZONE_CONNECTION's own numbering (zones.h:46-53), which `(zone_connect N)`
+    // carries verbatim: FULL is 2. INHERITED is -1 and is never written — the
+    // token's ABSENCE is what "inherit" is, which is why the clear drops it.
     const solid = edit({ zoneConnection: 'full' });
-    expect(flat(solid)).toContain('(zone_connect 3)');
+    expect(flat(solid)).toContain('(zone_connect 2)');
     expect(pad(roundTrip(solid)).zoneConnection).toBe('full');
+
+    const tht = edit({ zoneConnection: 'tht_thermal' });
+    expect(flat(tht)).toContain('(zone_connect 3)');
+    expect(pad(roundTrip(tht)).zoneConnection).toBe('tht_thermal');
 
     const back = applyPadValues(solid, ref, {
       ...collectPadValues(pad(solid)),

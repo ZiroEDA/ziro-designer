@@ -19,8 +19,16 @@
  * The strings are KiCad's own, verbatim and in its order.
  */
 
-/** `g_pinElectricalTypes` (pin_type.cpp), in ELECTRICAL_PINTYPE order. */
-const PIN_TYPE_NAMES: Readonly<Record<string, string>> = {
+import type { ElectricalPinType } from '@ziroeda/common/src/pin_type.js';
+
+/**
+ * `g_pinElectricalTypes` (pin_type.cpp), in ELECTRICAL_PINTYPE order.
+ *
+ * Keyed by `ElectricalPinType`, so the canonical names live in ONE place
+ * (`common/src/pin_type.ts`, upstream's `common/pin_type.h`) and a token added
+ * there without a label here fails to compile.
+ */
+const PIN_TYPE_NAMES: Readonly<Record<ElectricalPinType, string>> = {
   input: 'Input',
   output: 'Output',
   bidirectional: 'Bidirectional',
@@ -56,7 +64,7 @@ const PIN_SHAPE_NAMES: Readonly<Record<string, string>> = {
  * report than a row of question marks.
  */
 export function electricalPinTypeGetText(type: string): string {
-  return PIN_TYPE_NAMES[type] ?? type;
+  return PIN_TYPE_NAMES[type as ElectricalPinType] ?? type;
 }
 
 /** `PinShapeGetText( aShape )`. */

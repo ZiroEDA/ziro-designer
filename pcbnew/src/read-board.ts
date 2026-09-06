@@ -66,6 +66,7 @@ import type {
   UnconnectedLayerMode,
 } from './types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
+import { zoneConnectionFromCode, type ZoneConnection } from './zone_connection.js';
 
 /**
  * `PCB_IO_KICAD_SEXPR_PARSER::parseMaybeAbsentBool( aDefaultValue )`
@@ -324,19 +325,14 @@ const maskLayerOf = (node: SList): string | undefined => {
   return ls ? args(ls).find((n) => /\.Mask$/.test(n)) : undefined;
 };
 
-/** `(zone_connect N)`: 0 inherited, 1 thermal, 2 none, 3 full. */
-const zoneConnectOf = (node: SList): 'inherited' | 'none' | 'thermal' | 'full' | undefined => {
-  const v = numberField(node, 'zone_connect');
-  return v === 1
-    ? 'thermal'
-    : v === 2
-      ? 'none'
-      : v === 3
-        ? 'full'
-        : v === 0
-          ? 'inherited'
-          : undefined;
-};
+/**
+ * `(zone_connect N)`, `static_cast<int>( ZONE_CONNECTION )`: 0 NONE, 1 THERMAL,
+ * 2 FULL, 3 THT_THERMAL (zones.h:46-53). The token's absence is what "inherit
+ * the footprint's, then Board Setup's" is — NOT a zero, which is a real
+ * override meaning "this pad is not covered at all".
+ */
+const zoneConnectOf = (node: SList): ZoneConnection | undefined =>
+  zoneConnectionFromCode(numberField(node, 'zone_connect'));
 
 /** A millimetre child in IU, or undefined when the token is absent. */
 const mmOrUndef = (node: SList, name: string): number | undefined => {

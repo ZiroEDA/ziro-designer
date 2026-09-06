@@ -60,6 +60,7 @@ import type {
   PcbVia,
   PcbZone,
 } from '../types.js';
+import type { ZoneConnection } from '../zone_connection.js';
 import {
   areaOutline,
   areasMatching,
@@ -2726,11 +2727,17 @@ function resolvedZoneConnection(
   fp: PcbFootprint,
   zone: PcbZone,
 ): 'thermal' | 'none' | 'full' | 'thru_hole_only' {
+  // A zone spells THT_THERMAL with the file token its own `(connect_pads …)`
+  // uses; a pad and a footprint carry the enum. Same ZONE_CONNECTION either way.
+  const fromItem = (
+    c: Exclude<ZoneConnection, 'inherited'>,
+  ): 'thermal' | 'none' | 'full' | 'thru_hole_only' => (c === 'tht_thermal' ? 'thru_hole_only' : c);
+
   const fromPad = pad.zoneConnection;
-  if (fromPad && fromPad !== 'inherited') return fromPad;
+  if (fromPad && fromPad !== 'inherited') return fromItem(fromPad);
 
   const fromFp = fp.zoneConnection;
-  if (fromFp && fromFp !== 'inherited') return fromFp;
+  if (fromFp && fromFp !== 'inherited') return fromItem(fromFp);
 
   return zone.padConnection ?? 'thermal';
 }

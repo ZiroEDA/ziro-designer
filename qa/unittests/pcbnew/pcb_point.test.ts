@@ -466,11 +466,18 @@ describe('the Properties panel', () => {
     const r = rows();
     expect(r.find((x) => x.name === 'Position X')!.value).toBe(MM(10));
     expect(r.find((x) => x.name === 'Size')!.value).toBe(MM(1.5));
-    // `LSET::Name( layer )` — the CANONICAL name (`pcb_properties_panel.cpp:655`),
-    // not `GetLayerName()`. So this cell reads "F.SilkS" even on a board whose
-    // layer table renames it "F.Silkscreen", which is the opposite of what the
-    // Appearance panel shows and is upstream's own split.
-    expect(r.find((x) => x.name === 'Layer')!.value).toBe('F.SilkS');
+    // `BOARD::GetLayerName()`, which for a layer the board did not rename is
+    // `GetStandardLayerName` -> `LayerName()` -> "F.Silkscreen"
+    // (`common/layer_id.cpp:48`), NOT the file token "F.SilkS".
+    //
+    // Both names are in play and the ORDER settles it: `updateLists`
+    // (pcb_properties_panel.cpp:645-660) fills every PCB_LAYER_ID property's
+    // choices with `LSET::Name( layer )`, the canonical token — and then
+    // `createPGProperty` (:437-461) throws those labels away, rebuilding the
+    // wxPGChoices from `m_frame->GetBoard()->GetLayerName()` (:451) before the
+    // cell is ever drawn. The canonical list survives only as the layer IDs and
+    // their UIOrder. So the cell reads what the Appearance panel reads.
+    expect(r.find((x) => x.name === 'Layer')!.value).toBe('F.Silkscreen');
   });
 
   it('commits Size, and the edit reaches the file', () => {

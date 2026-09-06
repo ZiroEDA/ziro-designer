@@ -15,6 +15,7 @@
 
 import type { SList } from '@ziroeda/sexpr/src/types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
+import type { ZoneConnection } from './zone_connection.js';
 
 /** One `(N "Name" type [userName])` row of the `(layers …)` table. */
 export interface PcbLayerDef {
@@ -81,7 +82,7 @@ export interface PcbPad {
   /** `(solder_paste_margin_ratio …)`, a fraction of the pad size, not IU. */
   localSolderPasteMarginRatio?: number;
   /** `(zone_connect N)`, ZONE_CONNECTION for this pad alone. */
-  zoneConnection?: 'inherited' | 'none' | 'thermal' | 'full';
+  zoneConnection?: ZoneConnection;
   /** `(thermal_bridge_width …)` / `(thermal_gap …)`, IU; this pad's relief. */
   thermalBridgeWidth?: number;
   thermalGap?: number;
@@ -302,7 +303,7 @@ export interface PcbFootprint {
   /** `(solder_paste_margin_ratio …)`, a fraction of the pad size, not IU. */
   localSolderPasteMarginRatio?: number;
   /** `(zone_connect N)`, ZONE_CONNECTION: how this footprint's pads meet zones. */
-  zoneConnection?: 'inherited' | 'none' | 'thermal' | 'full';
+  zoneConnection?: ZoneConnection;
   /** `(locked yes)` on the footprint. */
   locked?: boolean;
   /**

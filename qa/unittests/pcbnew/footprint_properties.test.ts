@@ -90,7 +90,10 @@ describe('collect (TransferDataToWindow)', () => {
     expect(v.localClearance).toBe(0);
     expect(v.localSolderMaskMargin).toBe(MM(0.1));
     expect(v.localSolderPasteMarginRatio).toBeCloseTo(-0.05);
-    expect(v.zoneConnection).toBe('none');
+    // `(zone_connect 2)` is a static_cast of ZONE_CONNECTION, and 2 is FULL —
+    // "pads are covered by copper" (zones.h:46-53: NONE 0, THERMAL 1, FULL 2,
+    // THT_THERMAL 3, INHERITED -1). Reading 2 as "none" inverted the two.
+    expect(v.zoneConnection).toBe('full');
   });
 });
 
@@ -220,16 +223,23 @@ describe('apply', () => {
     expect(fp(roundTrip(off)).localClearance).toBeUndefined();
   });
 
-  it('writes the zone connection, and drops it when inherited', () => {
+  it('writes the zone connection as the enum, and drops it when inherited', () => {
+    // `(zone_connect N)` is `static_cast<int>( ZONE_CONNECTION )` on the way out
+    // and a plain cast back on the way in (zones.h:46-53) — NONE 0, THERMAL 1,
+    // FULL 2, THT_THERMAL 3. The numbers are the enum's, not a private encoding:
+    // writing 3 for "solid" makes KiCad read the footprint back as "thermal
+    // reliefs for PTH".
     const none = edit({ zoneConnection: 'none' });
-    expect(flat(none)).toContain('(zone_connect 2)');
+    expect(flat(none)).toContain('(zone_connect 0)');
     expect(fp(roundTrip(none)).zoneConnection).toBe('none');
 
     for (const [mode, code] of [
       ['thermal', 1],
-      ['full', 3],
+      ['full', 2],
+      ['tht_thermal', 3],
     ] as const) {
       expect(flat(edit({ zoneConnection: mode }))).toContain(`(zone_connect ${code})`);
+      expect(fp(roundTrip(edit({ zoneConnection: mode }))).zoneConnection).toBe(mode);
     }
 
     const back = applyFootprintValues(none, 0, {
