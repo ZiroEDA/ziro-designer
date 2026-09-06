@@ -947,9 +947,43 @@ describe('the Teardrops group, on both items that have one', () => {
 describe('ZONE rows', () => {
   const rows = rowsFor('zone:0');
 
-  it('groups them Basic / Fill Style', () => {
-    // zone.cpp:2089 names "Fill Style".
-    expect(groupOrder(rows)).toEqual(['', 'Fill Style']);
+  it('groups them Basic / Fill Style / Electrical', () => {
+    // zone.cpp names groupFill (:2177) and groupElectrical (:2249); the Keepout
+    // and Placement groups belong to a rule area and are absent on copper.
+    expect(groupOrder(rows)).toEqual(['', 'Fill Style', 'Electrical']);
+  });
+
+  it("lists every copper-zone row, in the property manager's order", () => {
+    expect(names(rows)).toEqual([
+      // BOARD_ITEM's Locked; Position X/Y and Layer are all hidden.
+      'Locked',
+      // BOARD_CONNECTED_ITEM's Net, then ZONE's own two.
+      'Net',
+      'Priority',
+      'Name',
+      'Fill Mode',
+      'Hatch Orientation',
+      'Hatch Width',
+      'Hatch Gap',
+      'Hatch Minimum Hole Ratio',
+      'Smoothing Effort',
+      'Smoothing Amount',
+      'Remove Islands',
+      'Minimum Island Area',
+      'Clearance',
+      'Minimum Width',
+      'Pad Connections',
+      'Thermal Relief Gap',
+      'Thermal Relief Spoke Width',
+    ]);
+  });
+
+  it('shows no Border Display or Filled row: neither is a ZONE_DESC property', () => {
+    // ZONE_BORDER_DISPLAY_STYLE is a rendering choice the zone DIALOG offers,
+    // and `(fill yes)` is the dialog's too. The property manager registers
+    // neither, so the panel shows neither.
+    expect(names(rows)).not.toContain('Border Display');
+    expect(names(rows)).not.toContain('Filled');
   });
 
   it('reads the name and priority off the pour, and shows NO layer row', () => {
@@ -957,25 +991,129 @@ describe('ZONE rows', () => {
     expect(row(rows, 'Priority').value).toBe(3);
     expect(row(rows, 'Priority').kind).toBe('int');
     // ZONE_DESC replaces BOARD_CONNECTED_ITEM's Layer with one marked
-    // `SetIsHiddenFromPropertiesManager()` (zone.cpp:2026-2029), and
+    // `SetIsHiddenFromPropertiesManager()` (zone.cpp:2113-2118), and
     // PROPERTIES_PANEL::rebuildProperties skips a hidden property (:280) — a
-    // zone can be on several layers at once, which one cell cannot say.
+    // zone can be on several layers at once, which one cell cannot say. Position
+    // X and Y are hidden the same way, "they aren't useful in current form".
     expect(names(rows)).not.toContain('Layer');
-    expect(names(rows)).not.toContain('Layers');
+    expect(names(rows)).not.toContain('Position X');
   });
 
-  it('shows the border display as its ZONE_BORDER_DISPLAY_STYLE label', () => {
-    expect(row(rows, 'Border Display').value).toBe('Hatched');
-    expect(row(rows, 'Border Display').choices).toEqual([
-      'Line',
-      'Hatched',
-      'Fully hatched',
-      'Invisible',
+  it('draws the hatch rows greyed until the fill mode is a hatch pattern', () => {
+    // `SetWriteableFunc( isHatchedFill )` is wxPG_PROP_READONLY, not absence:
+    // the rows are there, and they cannot be typed into. That is a different
+    // state from SetAvailableFunc, which removes the row.
+    const hatchRows = [
+      'Hatch Orientation',
+      'Hatch Width',
+      'Hatch Gap',
+      'Hatch Minimum Hole Ratio',
+      'Smoothing Effort',
+      'Smoothing Amount',
+    ];
+    for (const n of hatchRows) expect(row(rows, n).set, n).toBeUndefined();
+
+    const hatchedBoard = row(rows, 'Fill Mode').set?.('Hatch pattern');
+    const hatched = rowsFor('zone:0', hatchedBoard as Board);
+    for (const n of hatchRows) expect(row(hatched, n).set, n).toBeTypeOf('function');
+    expect(row(hatched, 'Hatch Width').set?.(MM(0.6))?.zones[0]?.hatchThickness).toBe(MM(0.6));
+
+    // `hatch_min_hole_area` is a plain number the fill node rebuild writes out,
+    // and it is the EDITED value, not the one the zone came in with — the node
+    // is rebuilt from scratch on every apply, so reading it off the old zone
+    // silently discarded this row's edit.
+    const ratio = row(hatched, 'Hatch Minimum Hole Ratio').set?.('0.42');
+    expect(ratio?.zones[0]?.hatchHoleMinArea).toBe(0.42);
+    expect(flat(ratio!.zones[0]!.source)).toContain('(hatch_min_hole_area 0.42)');
+  });
+
+  it('greys Minimum Island Area until Remove Islands is the area mode', () => {
+    // `SetWriteableFunc( isAreaBasedIslandRemoval )`.
+    expect(row(rows, 'Minimum Island Area').set).toBeUndefined();
+    const byArea = row(rows, 'Remove Islands').set?.('Below area limit');
+    const area = rowsFor('zone:0', byArea as Board);
+    expect(row(area, 'Minimum Island Area').set).toBeTypeOf('function');
+  });
+
+  it('offers the two ZONE_FILL_MODEs, and the five pad connections', () => {
+    expect(row(rows, 'Fill Mode').choices).toEqual(['Solid fill', 'Hatch pattern']);
+    expect(row(rows, 'Pad Connections').choices).toEqual([
+      'None',
+      'Thermal reliefs',
+      'Solid',
+      'Thermal reliefs for PTH',
     ]);
   });
 
   it('commits a priority', () => {
     expect(row(rows, 'Priority').set?.(7)?.zones[0]?.priority).toBe(7);
+  });
+});
+
+/**
+ * A rule area is the other kind of zone, and it shares almost nothing with a
+ * copper one: `isRuleArea` and `isCopperZone` are complementary, so each group
+ * belongs to exactly one of them.
+ */
+describe('ZONE rows: a rule area', () => {
+  const ruleArea = load(
+    SRC.replace(
+      '(name "pour") (priority 3)',
+      `(name "keepme") (keepout (tracks not_allowed) (vias allowed) (pads not_allowed)
+         (copperpour allowed) (footprints allowed))
+       (placement (enabled yes) (component_class "PWR"))`,
+    ),
+  );
+  const rows = rowsFor('zone:0', ruleArea);
+
+  it('shows the Keepout and Placement groups, and no copper ones', () => {
+    expect(groupOrder(rows)).toEqual(['', 'Keepout', 'Placement']);
+    expect(names(rows)).toEqual([
+      'Locked',
+      // No Net and no Priority: both are `isCopperZone`.
+      'Name',
+      'Keep Out Tracks',
+      'Keep Out Vias',
+      'Keep Out Pads',
+      'Keep Out Zone Fills',
+      'Keep Out Footprints',
+      'Enable',
+      'Source Type',
+      'Source Name',
+    ]);
+  });
+
+  it('reads each flag in the DO-NOT-ALLOW sense the model stores', () => {
+    // The file says `allowed` / `not_allowed`; `ZONE::GetDoNotAllowTracks` is
+    // the negation, and it is what the row shows.
+    expect(row(rows, 'Keep Out Tracks').value).toBe(true);
+    expect(row(rows, 'Keep Out Vias').value).toBe(false);
+    expect(row(rows, 'Keep Out Zone Fills').value).toBe(false);
+  });
+
+  it('commits a flag back as the file word, not the model bool', () => {
+    const next = row(rows, 'Keep Out Vias').set?.(true);
+    expect(next?.zones[0]?.ruleArea?.vias).toBe(true);
+    expect(flat(next!.zones[0]!.source)).toContain('(vias not_allowed)');
+    // The other four are rewritten from the model and must not flip with it.
+    expect(flat(next!.zones[0]!.source)).toContain('(tracks not_allowed)');
+    expect(flat(next!.zones[0]!.source)).toContain('(copperpour allowed)');
+  });
+
+  it('reads and writes the placement source as its own token', () => {
+    expect(row(rows, 'Enable').value).toBe(true);
+    expect(row(rows, 'Source Type').value).toBe('Component Class');
+    expect(row(rows, 'Source Name').value).toBe('PWR');
+
+    const renamed = row(rows, 'Source Name').set?.('GND');
+    expect(renamed?.zones[0]?.placementArea?.source).toBe('GND');
+    expect(flat(renamed!.zones[0]!.source)).toContain('(component_class "GND")');
+
+    // The source token IS the type, so changing the type moves the name into a
+    // different token rather than leaving both.
+    const asSheet = row(rows, 'Source Type').set?.('Sheet Name');
+    expect(flat(asSheet!.zones[0]!.source)).toContain('(sheetname "PWR")');
+    expect(flat(asSheet!.zones[0]!.source)).not.toContain('component_class');
   });
 });
 

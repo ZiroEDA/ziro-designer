@@ -18,7 +18,7 @@
 
 import { atom, str, type SList, type SNode } from '@ziroeda/sexpr/src/index.js';
 import { dropChild, mm, parseBoardItemId, patchChild } from './edit-board.js';
-import type { Board, PcbZone } from './types.js';
+import type { Board, PcbZone, RuleAreaKeepout, ZonePlacementArea } from './types.js';
 
 const list = (...items: SNode[]): SList => ({ kind: 'list', items });
 
@@ -58,6 +58,8 @@ export interface ZoneValues {
   hatchOrientation: number;
   hatchSmoothingLevel: number;
   hatchSmoothingValue: number;
+  /** `(fill … (hatch_min_hole_area …))`, a fraction of a full grid hole. */
+  hatchHoleMinArea: number;
   /** `(fill yes)` — whether the zone is poured at all. */
   filled: boolean;
   priority: number;
@@ -111,8 +113,70 @@ export function collectZoneValues(zone: PcbZone): ZoneValues {
     hatchOrientation: zone.hatchOrientation ?? 0,
     hatchSmoothingLevel: zone.hatchSmoothingLevel ?? 0,
     hatchSmoothingValue: zone.hatchSmoothingValue ?? 0,
+    // `ZONE_SETTINGS::m_HatchHoleMinArea` defaults to 0.3.
+    hatchHoleMinArea: zone.hatchHoleMinArea ?? 0.3,
     filled: zone.filled !== false,
     priority: zone.priority ?? 0,
+  };
+}
+
+/**
+ * The rule-area halves of a zone: `(keepout …)`'s five do-not-allow flags and
+ * `(placement …)`'s three fields, which `PANEL_ZONE_PROPERTIES` does not edit
+ * and ZONE_DESC does (zone.cpp:2131-2174, groups "Keepout" and "Placement").
+ *
+ * Kept apart from {@link applyZoneValues} because they belong to a different
+ * dialog upstream (DIALOG_RULE_AREA_PROPERTIES) and because a copper zone has
+ * neither node — writing one would turn it into a rule area.
+ */
+export function applyZoneRuleArea(
+  board: Board,
+  index: number,
+  patch: { keepout?: Partial<RuleAreaKeepout>; placement?: Partial<ZonePlacementArea> },
+): Board {
+  const zone = board.zones[index];
+  if (!zone?.ruleArea) return board;
+
+  const ruleArea: RuleAreaKeepout = { ...zone.ruleArea, ...patch.keepout };
+  const placement: ZonePlacementArea | undefined = zone.placementArea
+    ? { ...zone.placementArea, ...patch.placement }
+    : undefined;
+
+  let src = zone.source;
+
+  if (patch.keepout) {
+    // Each flag is written as `allowed` / `not_allowed`, and the model stores
+    // the DO-NOT-ALLOW sense, so the words are the negation.
+    const word = (on: boolean): string => (on ? 'not_allowed' : 'allowed');
+    src = patchChild(src, 'keepout', {
+      kind: 'list',
+      items: [
+        atom('keepout'),
+        list(atom('tracks'), atom(word(ruleArea.tracks))),
+        list(atom('vias'), atom(word(ruleArea.vias))),
+        list(atom('pads'), atom(word(ruleArea.pads))),
+        list(atom('copperpour'), atom(word(ruleArea.copperPour))),
+        list(atom('footprints'), atom(word(ruleArea.footprints))),
+      ],
+    });
+  }
+
+  if (patch.placement && placement) {
+    src = patchChild(src, 'placement', {
+      kind: 'list',
+      items: [
+        atom('placement'),
+        list(atom('enabled'), atom(placement.enabled ? 'yes' : 'no')),
+        list(atom(placement.sourceType), str(placement.source)),
+      ],
+    });
+  }
+
+  return {
+    ...board,
+    zones: board.zones.map((z, i) =>
+      i === index ? { ...z, ruleArea, placementArea: placement, source: src } : z,
+    ),
   };
 }
 
@@ -168,7 +232,7 @@ function fillNode(v: ZoneValues, prev: PcbZone): SList {
         list(atom('hatch_smoothing_value'), atom(String(v.hatchSmoothingValue))),
       );
     }
-    items.push(list(atom('hatch_min_hole_area'), atom(String(prev.hatchHoleMinArea ?? 0.3))));
+    items.push(list(atom('hatch_min_hole_area'), atom(String(v.hatchHoleMinArea))));
   } else if (v.fillMode === 'thieving') {
     // The thieving settings themselves are not edited here, so the existing
     // `(thieving …)` sub-node is carried across untouched.
@@ -229,6 +293,7 @@ export function applyZoneValues(board: Board, index: number, v: ZoneValues): Boa
     hatchOrientation: v.hatchOrientation,
     hatchSmoothingLevel: v.hatchSmoothingLevel,
     hatchSmoothingValue: v.hatchSmoothingValue,
+    hatchHoleMinArea: v.hatchHoleMinArea,
     filled: v.filled,
     priority: v.priority,
   };

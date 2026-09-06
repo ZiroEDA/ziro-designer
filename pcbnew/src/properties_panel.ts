@@ -72,7 +72,12 @@ import {
   trackViaSelection,
   type TrackViaValues,
 } from './track_via_properties.js';
-import { applyZoneValues, collectZoneValues, type ZoneValues } from './zone_properties.js';
+import {
+  applyZoneRuleArea,
+  applyZoneValues,
+  collectZoneValues,
+  type ZoneValues,
+} from './zone_properties.js';
 import {
   applyShapeValues,
   applyTextValues,
@@ -95,6 +100,7 @@ import {
   type PcbBarcode,
   type PcbFootprint,
   type PcbPoint,
+  type PcbZone,
 } from './types.js';
 
 /** `formatInternalUnits`, for the point source patcher below. */
@@ -1070,7 +1076,29 @@ function viaRows(board: Board, id: string, ctx: PcbPropertiesContext): PcbPropRo
   return rows;
 }
 
-/** ZONE_DESC's rows (zone.cpp:2000-2200). */
+/**
+ * ZONE's rows: `ZONE_DESC` (zone.cpp:1950-2200).
+ *
+ * Almost every row is conditional on WHICH KIND of zone this is, and the two
+ * kinds share almost nothing:
+ *
+ *   `isCopperZone`  not a rule area, and its first layer is copper — Net,
+ *                   Priority, and the whole Fill Style and Electrical groups.
+ *   `isRuleArea`    the Keepout and Placement groups, and nothing else.
+ *
+ * Six Fill Style rows are AVAILABLE on any copper zone but `SetWriteableFunc(
+ * isHatchedFill )` — shown, greyed, until the fill mode is a hatch pattern —
+ * and Minimum Island Area is writeable only while Remove Islands is "Below area
+ * limit". That is `wxPG_PROP_READONLY`, not absence: upstream distinguishes a
+ * property that does not apply (gone) from one that cannot be edited yet (grey).
+ *
+ * Position X, Position Y and Layer are all `SetIsHiddenFromPropertiesManager`:
+ * the first two "aren't useful in current form" (:2061-2074) and a zone's layer
+ * is a SET, which one cell cannot hold.
+ *
+ * Two rows we used to show are not ZONE_DESC properties at all — Border Display
+ * (ZONE_BORDER_DISPLAY_STYLE) and Filled — and they are gone.
+ */
 function zoneRows(board: Board, index: number): PcbPropRow[] {
   const zone = board.zones[index];
   if (!zone) return [];
@@ -1080,26 +1108,11 @@ function zoneRows(board: Board, index: number): PcbPropRow[] {
   const commit = (patch: Partial<ZoneValues>): Board =>
     fillZones(applyZoneValues(board, index, { ...v, ...patch }));
 
-  return [
-    {
-      group: '',
-      name: 'Name',
-      kind: 'string',
-      value: v.name,
-      set: (n) => commit({ name: String(n) }),
-    },
-    choiceRow('', 'Net', String(v.net), netChoices(board), (n) => commit({ net: Number(n) })),
-    // No Layer row: ZONE_DESC replaces BOARD_CONNECTED_ITEM's with one marked
-    // `SetIsHiddenFromPropertiesManager()` (zone.cpp:2026-2029), and
-    // `PROPERTIES_PANEL::rebuildProperties` skips a hidden property (:280). A
-    // zone can be on several layers at once, which a single-value cell cannot say.
-    {
-      group: '',
-      name: 'Priority',
-      kind: 'int',
-      value: v.priority,
-      set: (n) => (typeof n === 'number' ? commit({ priority: n }) : null),
-    },
+  const isRuleArea = !!zone.ruleArea;
+  // `IsCopperLayer( zone->GetFirstLayer() )`.
+  const isCopper = !isRuleArea && /\.Cu$/.test(zone.layers[0] ?? '');
+
+  const rows: PcbPropRow[] = [
     {
       group: '',
       name: 'Locked',
@@ -1107,89 +1120,221 @@ function zoneRows(board: Board, index: number): PcbPropRow[] {
       value: v.locked,
       set: (n) => commit({ locked: !!n }),
     },
-    choiceRow(
-      'Fill Style',
-      'Border Display',
-      v.hatchStyle,
-      [
-        ['none', 'Line'],
-        ['edge', 'Hatched'],
-        ['full', 'Fully hatched'],
-        ['invisible', 'Invisible'],
-      ] as const,
-      (hatchStyle) => commit({ hatchStyle }),
-    ),
-    {
-      group: 'Fill Style',
-      name: 'Filled',
-      kind: 'bool',
-      value: v.filled,
-      set: (n) => commit({ filled: !!n }),
-    },
-    choiceRow(
-      'Fill Style',
-      'Fill Type',
-      v.fillMode,
-      [
-        ['solid', 'Solid fill'],
-        ['hatch', 'Hatch pattern'],
-        ['thieving', 'Copper thieving'],
-      ] as const,
-      (fillMode) => commit({ fillMode }),
-    ),
-    {
-      group: 'Fill Style',
-      name: 'Clearance',
-      kind: 'dist',
-      value: v.clearance,
-      set: (n) => (typeof n === 'number' ? commit({ clearance: n }) : null),
-    },
-    {
-      group: 'Fill Style',
-      name: 'Min Width',
-      kind: 'dist',
-      value: v.minThickness,
-      set: (n) => (typeof n === 'number' ? commit({ minThickness: n }) : null),
-    },
-    choiceRow(
-      'Fill Style',
-      'Pad Connections',
-      v.padConnection,
-      [
-        ['full', 'Solid'],
-        ['thermal', 'Thermal reliefs'],
-        ['thru_hole_only', 'Reliefs for PTH'],
-        ['none', 'None'],
-      ] as const,
-      (padConnection) => commit({ padConnection }),
-    ),
-    {
-      group: 'Fill Style',
-      name: 'Thermal Gap',
-      kind: 'dist',
-      value: v.thermalGap,
-      set: (n) => (typeof n === 'number' ? commit({ thermalGap: n }) : null),
-    },
-    {
-      group: 'Fill Style',
-      name: 'Thermal Spoke Width',
-      kind: 'dist',
-      value: v.thermalBridgeWidth,
-      set: (n) => (typeof n === 'number' ? commit({ thermalBridgeWidth: n }) : null),
-    },
-    choiceRow(
-      'Fill Style',
-      'Remove Islands',
-      v.islandRemovalMode,
-      [
-        ['always', 'Always'],
-        ['never', 'Never'],
-        ['area', 'Below area limit'],
-      ] as const,
-      (islandRemovalMode) => commit({ islandRemovalMode }),
-    ),
   ];
+
+  if (isCopper)
+    rows.push(
+      choiceRow('', 'Net', String(v.net), netChoices(board), (n) => commit({ net: Number(n) })),
+      {
+        group: '',
+        name: 'Priority',
+        kind: 'int',
+        value: v.priority,
+        set: (n) => (typeof n === 'number' ? commit({ priority: n }) : null),
+      },
+    );
+
+  rows.push({
+    group: '',
+    name: 'Name',
+    kind: 'string',
+    value: v.name,
+    set: (n) => commit({ name: String(n) }),
+  });
+
+  if (isRuleArea) {
+    const ko = zone.ruleArea!;
+    const keepout = (name: string, key: keyof typeof ko): PcbPropRow => ({
+      group: 'Keepout',
+      name,
+      kind: 'bool',
+      value: ko[key],
+      set: (b) => applyZoneRuleArea(board, index, { keepout: { [key]: !!b } }),
+    });
+
+    rows.push(
+      keepout('Keep Out Tracks', 'tracks'),
+      keepout('Keep Out Vias', 'vias'),
+      keepout('Keep Out Pads', 'pads'),
+      keepout('Keep Out Zone Fills', 'copperPour'),
+      keepout('Keep Out Footprints', 'footprints'),
+    );
+
+    // A rule area with no `(placement …)` still answers these — the ZONE
+    // constructor's SHEETNAME and an empty name — so the rows are present and
+    // writing one creates the node.
+    const pa = zone.placementArea ?? {
+      enabled: false,
+      sourceType: 'sheetname' as const,
+      source: '',
+    };
+    rows.push(
+      {
+        group: 'Placement',
+        name: 'Enable',
+        kind: 'bool',
+        value: pa.enabled,
+        set: (b) => applyZoneRuleArea(board, index, { placement: { enabled: !!b } }),
+      },
+      choiceRow(
+        'Placement',
+        'Source Type',
+        pa.sourceType,
+        // `ENUM_MAP<PLACEMENT_SOURCE_T>` (zone.cpp:1963-1965).
+        [
+          ['sheetname', 'Sheet Name'],
+          ['component_class', 'Component Class'],
+          ['group', 'Group'],
+        ] as const,
+        (sourceType) => applyZoneRuleArea(board, index, { placement: { sourceType } }),
+      ),
+      {
+        group: 'Placement',
+        name: 'Source Name',
+        kind: 'string',
+        value: pa.source,
+        set: (t) => applyZoneRuleArea(board, index, { placement: { source: String(t) } }),
+      },
+    );
+  }
+
+  if (isCopper) {
+    const F = 'Fill Style';
+    // `SetWriteableFunc( isHatchedFill )` — the row is drawn, and read-only,
+    // until the fill mode is a hatch pattern.
+    const hatched = v.fillMode === 'hatch';
+    const hatchDist = (name: string, value: number, key: keyof ZoneValues): PcbPropRow => ({
+      group: F,
+      name,
+      kind: 'dist',
+      value,
+      set: hatched ? (n) => (typeof n === 'number' ? commit({ [key]: n }) : null) : undefined,
+    });
+    const hatchNum = (name: string, value: number, key: keyof ZoneValues): PcbPropRow => ({
+      group: F,
+      name,
+      kind: 'string',
+      value: String(value),
+      set: hatched
+        ? (t) => {
+            const n = Number(String(t).trim());
+            return Number.isFinite(n) ? commit({ [key]: n }) : null;
+          }
+        : undefined,
+    });
+
+    rows.push(
+      choiceRow(
+        F,
+        'Fill Mode',
+        v.fillMode,
+        // `ENUM_MAP<ZONE_FILL_MODE>` (zone.cpp:1949-1951) has exactly two.
+        // `thieving`, which this model can carry, is not one of them in 10.0.5.
+        [
+          ['solid', 'Solid fill'],
+          ['hatch', 'Hatch pattern'],
+        ] as const,
+        (fillMode) => commit({ fillMode }),
+      ),
+      {
+        group: F,
+        name: 'Hatch Orientation',
+        kind: 'string',
+        value: ANGLE(v.hatchOrientation),
+        set: hatched
+          ? (t) => {
+              const deg = parseAngle(t);
+              return deg === null ? null : commit({ hatchOrientation: deg });
+            }
+          : undefined,
+      },
+      hatchDist('Hatch Width', v.hatchThickness, 'hatchThickness'),
+      hatchDist('Hatch Gap', v.hatchGap, 'hatchGap'),
+      hatchNum('Hatch Minimum Hole Ratio', v.hatchHoleMinArea, 'hatchHoleMinArea'),
+      hatchNum('Smoothing Effort', v.hatchSmoothingLevel, 'hatchSmoothingLevel'),
+      hatchNum('Smoothing Amount', v.hatchSmoothingValue, 'hatchSmoothingValue'),
+      choiceRow(
+        F,
+        'Remove Islands',
+        v.islandRemovalMode,
+        [
+          ['always', 'Always'],
+          ['never', 'Never'],
+          ['area', 'Below area limit'],
+        ] as const,
+        (islandRemovalMode) => commit({ islandRemovalMode }),
+      ),
+      {
+        // PT_AREA, and the file stores it in mm² rather than internal units.
+        group: F,
+        name: 'Minimum Island Area',
+        kind: 'string',
+        value: String(v.islandAreaMin),
+        // `SetWriteableFunc( isAreaBasedIslandRemoval )`.
+        set:
+          v.islandRemovalMode === 'area'
+            ? (t) => {
+                const n = Number(String(t).trim());
+                return Number.isFinite(n) ? commit({ islandAreaMin: n }) : null;
+              }
+            : undefined,
+      },
+    );
+
+    const E = 'Electrical';
+    rows.push(
+      {
+        group: E,
+        name: 'Clearance',
+        kind: 'dist',
+        value: v.clearance,
+        set: (n) => (typeof n === 'number' ? commit({ clearance: n }) : null),
+      },
+      {
+        group: E,
+        name: 'Minimum Width',
+        kind: 'dist',
+        value: v.minThickness,
+        set: (n) => (typeof n === 'number' ? commit({ minThickness: n }) : null),
+      },
+      choiceRow(
+        E,
+        'Pad Connections',
+        v.padConnection,
+        ZONE_PAD_CONNECTION_CHOICES,
+        (padConnection) => commit({ padConnection }),
+      ),
+      {
+        group: E,
+        name: 'Thermal Relief Gap',
+        kind: 'dist',
+        value: v.thermalGap,
+        set: (n) => (typeof n === 'number' ? commit({ thermalGap: n }) : null),
+      },
+      {
+        group: E,
+        name: 'Thermal Relief Spoke Width',
+        kind: 'dist',
+        value: v.thermalBridgeWidth,
+        set: (n) => (typeof n === 'number' ? commit({ thermalBridgeWidth: n }) : null),
+      },
+    );
+  }
+
+  return rows;
 }
+
+/**
+ * A zone's Pad Connections is the same `ENUM_MAP<ZONE_CONNECTION>` every other
+ * item uses (zone.cpp:1955-1961) — but the ZONE model spells THT_THERMAL with
+ * the file token its own `(connect_pads …)` carries.
+ */
+const ZONE_PAD_CONNECTION_CHOICES = [
+  ['none', 'None'],
+  ['thermal', 'Thermal reliefs'],
+  ['full', 'Solid'],
+  ['thru_hole_only', 'Thermal reliefs for PTH'],
+] as const satisfies readonly (readonly [NonNullable<PcbZone['padConnection']>, string])[];
 
 /**
  * PCB_TEXT's rows: `PCB_TEXT_DESC` (pcb_text.cpp:739-773) over `EDA_TEXT_DESC`
