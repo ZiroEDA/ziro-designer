@@ -603,7 +603,7 @@ describe('PCB_SHAPE::GetMsgPanelInfo (pcbnew/pcb_shape.cpp:699)', () => {
     start: P(0, 0),
     end: P(3 * MM, 4 * MM),
     width: 100_000,
-    fill: false,
+    fillMode: 'none',
     layer: 'F.SilkS',
     source: EMPTY,
     ...over,

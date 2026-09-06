@@ -88,7 +88,7 @@ describe('a copper graphic carrying a net', () => {
       start: { x: 0, y: 0 },
       end: { x: 1e6, y: 0 },
       width: 2e5,
-      fill: false,
+      fillMode: 'none',
       layer: 'F.Cu',
       net: 1,
       netName: '/uart/SDA',
@@ -105,7 +105,7 @@ describe('a copper graphic carrying a net', () => {
       start: { x: 0, y: 0 },
       end: { x: 1e6, y: 0 },
       width: 2e5,
-      fill: false,
+      fillMode: 'none',
       layer: 'F.SilkS',
       source: { kind: 'list', items: [] },
     });

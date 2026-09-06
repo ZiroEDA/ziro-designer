@@ -257,7 +257,20 @@ export function buildShapeNode(shape: PcbShape): SList {
       list(atom('type'), atom('solid')),
     ),
   );
-  if (shape.fill) items.push(list(atom('fill'), atom('solid')));
+  // `format( const PCB_SHAPE* )` (pcb_io_kicad_sexpr.cpp:1071-1097): the token
+  // belongs to a POLY, a RECTANGLE or a CIRCLE — "the filled flag represents if
+  // a solid fill is present on circles, rectangles and polygons" — and for those
+  // three it is ALWAYS written, `(fill no)` included. A hatch mode writes its own
+  // word; only FILLED_SHAPE writes the bool.
+  if (shape.kind === 'poly' || shape.kind === 'rect' || shape.kind === 'circle')
+    items.push(
+      list(
+        atom('fill'),
+        atom(
+          shape.fillMode === 'solid' ? 'yes' : shape.fillMode === 'none' ? 'no' : shape.fillMode,
+        ),
+      ),
+    );
   items.push(list(atom('layer'), str(shape.layer)));
   if (shape.uuid) items.push(list(atom('uuid'), str(shape.uuid)));
   return { kind: 'list', items };

@@ -32,6 +32,7 @@ import type {
   PcbTextItem,
 } from './types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
+import { isSolidFill } from './shape_fill.js';
 
 // ----- item ids ---------------------------------------------------------------
 
@@ -312,14 +313,15 @@ const shapeHit = (s: PcbShape, pos: Vec2, tol: number): boolean => {
   if (s.kind === 'circle' && s.center && s.end) {
     const r = Math.hypot(s.end.x - s.center.x, s.end.y - s.center.y);
     const d = Math.hypot(pos.x - s.center.x, pos.y - s.center.y);
-    return s.fill ? d <= r + t : Math.abs(d - r) <= t;
+    return isSolidFill(s) ? d <= r + t : Math.abs(d - r) <= t;
   }
   if (s.kind === 'rect' && s.start && s.end) {
     const x0 = Math.min(s.start.x, s.end.x),
       x1 = Math.max(s.start.x, s.end.x);
     const y0 = Math.min(s.start.y, s.end.y),
       y1 = Math.max(s.start.y, s.end.y);
-    if (s.fill) return pos.x >= x0 - t && pos.x <= x1 + t && pos.y >= y0 - t && pos.y <= y1 + t;
+    if (isSolidFill(s))
+      return pos.x >= x0 - t && pos.x <= x1 + t && pos.y >= y0 - t && pos.y <= y1 + t;
     const near = Math.min(
       Math.abs(pos.x - x0),
       Math.abs(pos.x - x1),

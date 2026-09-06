@@ -61,6 +61,7 @@ import {
 import { ZONE_CONNECTION_CHOICES } from './zone_connection.js';
 import { GetLayerName } from './layer_ids.js';
 import { GetArcAngle } from '@ziroeda/common/src/eda_shape.js';
+import { UI_FILL_MODE_CHOICES } from './shape_fill.js';
 import { arcCenter } from './read-board.js';
 import { ELECTRICAL_PINTYPES, type ElectricalPinType } from '@ziroeda/common/src/pin_type.js';
 import {
@@ -1559,13 +1560,14 @@ function shapeRows(board: Board, index: number, ctx: PcbPropertiesContext): PcbP
   // takes BEZIER back out, because "fill is not supported in board editor"
   // (:1101-1114). A segment and an arc have nothing to fill.
   if (shape.kind === 'poly' || shape.kind === 'rect' || shape.kind === 'circle')
-    rows.push({
-      group: SHAPE_PROPS,
-      name: 'Fill',
-      kind: 'bool',
-      value: v.filled,
-      set: (n) => commit({ filled: !!n }),
-    });
+    rows.push(
+      // A five-way `PROPERTY_ENUM<EDA_SHAPE, UI_FILL_MODE>` (eda_shape.cpp:3025),
+      // not a checkbox: a board graphic can be hatched three ways as well as
+      // solid, and a boolean model read every one of those back as unfilled.
+      choiceRow(SHAPE_PROPS, 'Fill', v.fillMode, UI_FILL_MODE_CHOICES, (fillMode) =>
+        commit({ fillMode }),
+      ),
+    );
 
   // `isExternalCuLayer` — the mask opening is a front/back copper thing, so an
   // inner-layer graphic has no Technical Layers group at all.

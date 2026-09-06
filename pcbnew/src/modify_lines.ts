@@ -97,7 +97,7 @@ function arcFrom(src: PcbShape, pts: { start: Vec2; mid: Vec2; end: Vec2 }): Pcb
     end: pts.end,
     width: src.width,
     strokeType: src.strokeType,
-    fill: false,
+    fillMode: 'none',
     layer: src.layer,
     locked: src.locked,
     source: blank,

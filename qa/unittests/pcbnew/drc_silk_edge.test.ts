@@ -27,7 +27,7 @@ const line = (x0: number, x1: number, layer: string, width = 0.15, y = 0): PcbSh
   start: { x: MM(x0), y: MM(y) },
   end: { x: MM(x1), y: MM(y) },
   width: MM(width),
-  fill: false,
+  fillMode: 'none',
   layer,
   source: EMPTY,
 });
@@ -38,7 +38,7 @@ const edge = (x: number, layer = 'Edge.Cuts', width = 0.05): PcbShape => ({
   start: { x: MM(x), y: MM(-10) },
   end: { x: MM(x), y: MM(10) },
   width: MM(width),
-  fill: false,
+  fillMode: 'none',
   layer,
   source: EMPTY,
 });

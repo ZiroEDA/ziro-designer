@@ -5188,7 +5188,7 @@ export function PcbEditor({
       commitBoard(addBoardShape(brd, shape).board);
     };
     const width = shapeWidthIU(activeLayer);
-    const base = { width, fill: false, layer: activeLayer } as const;
+    const base = { width, fillMode: 'none', layer: activeLayer } as const;
 
     switch (kind) {
       case 'line': {

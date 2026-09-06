@@ -102,7 +102,7 @@ const board = (): Board => ({
       start: { x: 0, y: 0 },
       end: { x: MM(5), y: 0 },
       width: MM(0.1),
-      fill: false,
+      fillMode: 'none',
       layer: 'F.SilkS',
       source: EMPTY,
     },

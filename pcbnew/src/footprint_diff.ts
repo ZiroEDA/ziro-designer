@@ -68,6 +68,7 @@ import { rotatePcb } from './read-board.js';
 import { isCopperLayerName } from './swap_layers.js';
 import type { PcbFootprint, PcbPad, PcbShape } from './types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
+import type { PcbFillMode } from './shape_fill.js';
 
 export type DiffMode = 'report' | 'drc';
 
@@ -124,7 +125,7 @@ interface NormalShape {
   layer: string;
   width: number;
   strokeType?: string;
-  fill: boolean;
+  fillMode: PcbFillMode;
   start: Vec2;
   end: Vec2;
   mid: Vec2;
@@ -146,7 +147,7 @@ function normaliseShape(fp: PcbFootprint, s: PcbShape): NormalShape {
     layer: s.layer,
     width: s.width,
     strokeType: s.strokeType,
-    fill: s.fill,
+    fillMode: s.fillMode,
     // A circle keeps its centre where every other shape keeps its start, which
     // is exactly how `PCB_SHAPE` stores it.
     start: at(s.kind === 'circle' ? s.center : s.start),
@@ -298,7 +299,7 @@ function shapeDiffers(a: NormalShape, b: NormalShape): boolean {
   if (isCopperLayerName(a.layer) && (a.width !== b.width || a.strokeType !== b.strokeType))
     return true;
 
-  if (a.fill !== b.fill) return true;
+  if (a.fillMode !== b.fillMode) return true;
 
   return a.layer !== b.layer;
 }

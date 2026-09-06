@@ -109,7 +109,7 @@ const silk = (): PcbShape => ({
   start: { x: ORIGIN.x + MM(-1.5), y: ORIGIN.y + MM(-0.7) },
   end: { x: ORIGIN.x + MM(1.5), y: ORIGIN.y + MM(-0.7) },
   width: MM(0.12),
-  fill: false,
+  fillMode: 'none',
   layer: 'F.SilkS',
   source: EMPTY,
 });

@@ -16,6 +16,7 @@
 import type { SList } from '@ziroeda/sexpr/src/types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import type { ZoneConnection } from './zone_connection.js';
+import type { PcbFillMode } from './shape_fill.js';
 
 /** One `(N "Name" type [userName])` row of the `(layers …)` table. */
 export interface PcbLayerDef {
@@ -42,6 +43,11 @@ export interface PadPrimitive {
   end?: Vec2;
   center?: Vec2;
   width: number;
+  /**
+   * A pad primitive stays a boolean: DIALOG_PAD_PROPERTIES' primitive editor
+   * offers a Filled checkbox and nothing else, so the hatch modes that a board
+   * graphic can carry have no way in here.
+   */
   fill: boolean;
 }
 
@@ -162,7 +168,13 @@ export interface PcbShape {
   width: number;
   /** `(stroke (type …))`; absent means the file did not say, i.e. solid. */
   strokeType?: StrokeType;
-  fill: boolean;
+  /**
+   * `EDA_SHAPE::GetFillMode()`. NOT a boolean: a board graphic can be hatched
+   * three ways as well as solid — see {@link PcbFillMode}. Ask
+   * {@link isSolidFill} / {@link isAnyFill} rather than testing it for truth,
+   * because `'none'` is a non-empty string.
+   */
+  fillMode: PcbFillMode;
   layer: string;
   /** `(layers "F.SilkS" "F.Mask")`: a graphic can open the solder mask too. */
   maskLayer?: string;

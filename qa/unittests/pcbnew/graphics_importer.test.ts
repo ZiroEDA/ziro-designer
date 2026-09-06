@@ -112,7 +112,7 @@ describe('GRAPHICS_IMPORTER_PCBNEW: entity to board graphic', () => {
         end: { x: 1, y: 0 },
         width: 100_000,
         strokeType: 'solid',
-        fill: false,
+        fillMode: 'none',
         layer: 'Dwgs.User',
       },
     ]);
@@ -130,7 +130,7 @@ describe('GRAPHICS_IMPORTER_PCBNEW: entity to board graphic', () => {
       kind: 'circle',
       center: { x: 11_000_000, y: 2_000_000 },
       end: { x: 14_000_000, y: 2_000_000 },
-      fill: true,
+      fillMode: 'solid',
     });
   });
 
@@ -146,7 +146,7 @@ describe('GRAPHICS_IMPORTER_PCBNEW: entity to board graphic', () => {
       start: { x: 10_000_000, y: 0 },
       mid: { x: 7_071_068, y: -7_071_068 },
       end: { x: 0, y: -10_000_000 },
-      fill: false,
+      fillMode: 'none',
     });
   });
 
@@ -164,7 +164,7 @@ describe('GRAPHICS_IMPORTER_PCBNEW: entity to board graphic', () => {
         end: { x: 0, y: -2_000_000_000 },
         width: 100_000,
         strokeType: 'solid',
-        fill: false,
+        fillMode: 'none',
         layer: 'Dwgs.User',
       },
     ]);
@@ -203,7 +203,7 @@ describe('GRAPHICS_IMPORTER_PCBNEW: entity to board graphic', () => {
         { x: 1_000_000, y: 0 },
         { x: 1_000_000, y: 1_000_000 },
       ],
-      fill: true,
+      fillMode: 'solid',
     });
   });
 
@@ -332,7 +332,7 @@ describe('GRAPHICS_IMPORTER_PCBNEW: splines', () => {
       ],
       width: 100_000,
       strokeType: 'solid',
-      fill: false,
+      fillMode: 'none',
       layer: 'Dwgs.User',
     });
   });
@@ -347,7 +347,7 @@ describe('GRAPHICS_IMPORTER_PCBNEW: splines', () => {
       end: { x: 3_000_000, y: 0 },
       width: 100_000,
       strokeType: 'solid',
-      fill: false,
+      fillMode: 'none',
       layer: 'Dwgs.User',
     });
   });

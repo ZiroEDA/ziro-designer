@@ -33,7 +33,7 @@ const rect = (x0: number, y0: number, x1: number, y1: number): PcbShape => ({
   start: { x: MM(x0), y: MM(y0) },
   end: { x: MM(x1), y: MM(y1) },
   width: MM(0.15),
-  fill: true,
+  fillMode: 'solid',
   layer: 'F.SilkS',
   source: EMPTY,
 });
@@ -42,7 +42,7 @@ const poly = (pts: { x: number; y: number }[]): PcbShape => ({
   kind: 'poly',
   pts,
   width: MM(0.15),
-  fill: true,
+  fillMode: 'solid',
   layer: 'F.SilkS',
   source: EMPTY,
 });
@@ -52,7 +52,7 @@ const lineShape = (x0: number, y0: number, x1: number, y1: number): PcbShape => 
   start: { x: MM(x0), y: MM(y0) },
   end: { x: MM(x1), y: MM(y1) },
   width: MM(0.2),
-  fill: false,
+  fillMode: 'none',
   layer: 'F.SilkS',
   source: EMPTY,
 });
@@ -63,7 +63,7 @@ const arcShape = (): PcbShape => ({
   mid: { x: MM(5), y: MM(-2) },
   end: { x: MM(10), y: 0 },
   width: MM(0.2),
-  fill: false,
+  fillMode: 'none',
   layer: 'F.SilkS',
   source: EMPTY,
 });
@@ -138,7 +138,7 @@ describe('the rings an item decomposes into', () => {
           center: { x: 0, y: 0 },
           end: { x: MM(5), y: 0 },
           width: MM(0.2),
-          fill: false,
+          fillMode: 'none',
           layer: 'F.SilkS',
           source: EMPTY,
         },
@@ -378,7 +378,7 @@ describe('convert to arc', () => {
     expect(out.board.shapes[0]!.kind).toBe('arc');
     expect(out.board.shapes[0]!.mid).toEqual({ x: MM(5), y: MM(-2) });
     // A graphic carries no net, so the net is simply gone.
-    expect(out.board.shapes[0]!.fill).toBe(false);
+    expect(out.board.shapes[0]!.fillMode).toBe('none');
   });
 
   it('refuses a zero-length segment', () => {

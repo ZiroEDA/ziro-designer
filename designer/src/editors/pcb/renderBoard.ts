@@ -99,6 +99,7 @@ const MM = PCB_IU_PER_MM; // pcbnew IU is 1 nm (base_units.h)
  */
 import { GAL_SCREEN_DPI } from '../../ui/status_format.js';
 import { DEFAULT_GRID_APPEARANCE, type GridOptions, type GridStyle } from '../../ui/grid_cursor.js';
+import { isSolidFill } from '@ziroeda/pcbnew/src/shape_fill.js';
 
 export { GAL_SCREEN_DPI };
 
@@ -975,7 +976,7 @@ function addShape(scene: BoardScene, s: PcbShape): void {
     const y = Math.min(s.start.y, s.end.y);
     const rw = Math.abs(s.end.x - s.start.x);
     const rh = Math.abs(s.end.y - s.start.y);
-    if (s.fill) {
+    if (isSolidFill(s)) {
       b.gfxFill.rect(x, y, rw, rh);
       b.hasGfxFill = true;
     }
@@ -983,7 +984,7 @@ function addShape(scene: BoardScene, s: PcbShape): void {
   } else if (s.kind === 'circle' && s.center && s.end) {
     const r = Math.hypot(s.end.x - s.center.x, s.end.y - s.center.y);
     if (r <= 0) return;
-    if (s.fill) {
+    if (isSolidFill(s)) {
       b.gfxFill.moveTo(s.center.x + r, s.center.y);
       b.gfxFill.arc(s.center.x, s.center.y, r, 0, Math.PI * 2);
       b.hasGfxFill = true;
@@ -997,7 +998,7 @@ function addShape(scene: BoardScene, s: PcbShape): void {
     p.moveTo(pts[0]!.x, pts[0]!.y);
     for (let i = 1; i < pts.length; i++) p.lineTo(pts[i]!.x, pts[i]!.y);
   } else if ((s.kind === 'poly' || s.kind === 'curve') && s.pts && s.pts.length >= 2) {
-    if (s.fill && s.pts.length >= 3) {
+    if (isSolidFill(s) && s.pts.length >= 3) {
       b.gfxFill.moveTo(s.pts[0]!.x, s.pts[0]!.y);
       for (let i = 1; i < s.pts.length; i++) b.gfxFill.lineTo(s.pts[i]!.x, s.pts[i]!.y);
       b.gfxFill.closePath();
@@ -1006,7 +1007,7 @@ function addShape(scene: BoardScene, s: PcbShape): void {
     const p = pathIn(b.gfxStrokes, width);
     p.moveTo(s.pts[0]!.x, s.pts[0]!.y);
     for (let i = 1; i < s.pts.length; i++) p.lineTo(s.pts[i]!.x, s.pts[i]!.y);
-    if (s.fill) p.closePath();
+    if (isSolidFill(s)) p.closePath();
   }
 }
 

@@ -757,7 +757,7 @@ export function FootprintEditor({
       // on silk and was wrong on every other layer.
       const base = {
         width: mmToIU(fpLineThicknessMM(activeLayer, fpCfg)),
-        fill: false,
+        fillMode: 'none' as const,
         layer: activeLayer,
         source: EMPTY_SOURCE,
       };

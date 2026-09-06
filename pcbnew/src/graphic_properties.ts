@@ -16,6 +16,7 @@
 
 import { atom, str, type SList, type SNode } from '@ziroeda/sexpr/src/index.js';
 import { dropChild, mm, parseBoardItemId, patchChild } from './edit-board.js';
+import type { PcbFillMode } from './shape_fill.js';
 import { effectiveTextPenWidth, isAutoThickness } from './global_edit_text_and_graphics.js';
 import type { Board, PcbShape, PcbTextItem, StrokeType } from './types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
@@ -257,7 +258,11 @@ export interface ShapeValues {
   center: Vec2;
   lineWidth: number;
   strokeType: StrokeType;
-  filled: boolean;
+  /**
+   * `GetFillModeProp()` — UI_FILL_MODE, the five-way enum the Fill cell offers,
+   * not a checkbox. `common/eda_shape.cpp:608-631` maps it onto FILL_T.
+   */
+  fillMode: PcbFillMode;
   layer: string;
   /**
    * `(net …)`, the net a COPPER graphic belongs to — PCB_SHAPE is a
@@ -316,7 +321,7 @@ export function collectShapeValues(s: PcbShape): ShapeValues {
     net: s.net ?? 0,
     lineWidth: s.width,
     strokeType: s.strokeType ?? 'solid',
-    filled: s.fill,
+    fillMode: s.fillMode,
     layer: s.layer,
     hasMask: s.maskLayer !== undefined,
     maskMargin: s.solderMaskMargin ?? null,
@@ -367,10 +372,22 @@ export function applyShapeValues(board: Board, index: number, v: ShapeValues): B
     ),
   );
 
-  next.fill = v.filled;
-  src = v.filled
-    ? patchChild(src, 'fill', list(atom('fill'), atom('solid')))
-    : dropChild(src, 'fill');
+  // `format( const PCB_SHAPE* )` (pcb_io_kicad_sexpr.cpp:1071-1097) writes the
+  // token for a POLY, a RECTANGLE or a CIRCLE and for those three ALWAYS —
+  // `(fill no)` included — so a shape that can be filled keeps its token and one
+  // that cannot (a segment, an arc) never grows one.
+  next.fillMode = v.fillMode;
+  src =
+    s.kind === 'poly' || s.kind === 'rect' || s.kind === 'circle'
+      ? patchChild(
+          src,
+          'fill',
+          list(
+            atom('fill'),
+            atom(v.fillMode === 'solid' ? 'yes' : v.fillMode === 'none' ? 'no' : v.fillMode),
+          ),
+        )
+      : dropChild(src, 'fill');
 
   next.layer = v.layer;
   next.maskLayer = v.hasMask ? maskSideOf(v.layer) : undefined;

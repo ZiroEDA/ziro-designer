@@ -36,7 +36,7 @@ const rect = (x0: number, y0: number, x1: number, y1: number): PcbShape => ({
   start: { x: MM(x0), y: MM(y0) },
   end: { x: MM(x1), y: MM(y1) },
   width: MM(0.15),
-  fill: true,
+  fillMode: 'solid',
   layer: 'F.SilkS',
   source: EMPTY,
 });
@@ -92,7 +92,7 @@ describe('what a shape contributes', () => {
       kind: 'poly',
       pts,
       width: 0,
-      fill: true,
+      fillMode: 'solid',
       layer: 'F.SilkS',
       source: EMPTY,
     };
@@ -110,7 +110,7 @@ describe('what a shape contributes', () => {
       center: { x: 0, y: 0 },
       end: { x: MM(5), y: 0 },
       width: MM(0.2),
-      fill: false,
+      fillMode: 'none',
       layer: 'F.SilkS',
       source: EMPTY,
     };
@@ -126,7 +126,7 @@ describe('what a shape contributes', () => {
       start: { x: 0, y: 0 },
       end: { x: MM(10), y: 0 },
       width: MM(0.2),
-      fill: false,
+      fillMode: 'none',
       layer: 'F.SilkS',
       source: EMPTY,
     };
@@ -142,7 +142,7 @@ describe('what a shape contributes', () => {
         start: { x: 0, y: 0 },
         end: { x: MM(10), y: 0 },
         width: MM(0.2),
-        fill: false,
+        fillMode: 'none',
         layer: 'F.SilkS',
         source: EMPTY,
       },
@@ -217,12 +217,12 @@ describe('merging on the board', () => {
 
   it('takes the layer, width and fill from the first source', () => {
     const shapes = overlapping();
-    shapes[0] = { ...shapes[0]!, layer: 'B.SilkS', width: MM(0.4), fill: false };
+    shapes[0] = { ...shapes[0]!, layer: 'B.SilkS', width: MM(0.4), fillMode: 'none' };
     const out = polygonBoolean(board(shapes), ids(2), 'merge');
 
     expect(out.board.shapes[0]!.layer).toBe('B.SilkS');
     expect(out.board.shapes[0]!.width).toBe(MM(0.4));
-    expect(out.board.shapes[0]!.fill).toBe(false);
+    expect(out.board.shapes[0]!.fillMode).toBe('none');
   });
 
   it('leaves disjoint sources as separate shapes', () => {
@@ -255,7 +255,7 @@ describe('merging on the board', () => {
         start: { x: 0, y: 0 },
         end: { x: MM(10), y: 0 },
         width: MM(0.2),
-        fill: false,
+        fillMode: 'none',
         layer: 'F.SilkS',
         source: EMPTY,
       },

@@ -58,6 +58,7 @@ import type {
   PcbGroup,
 } from './types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
+import { isSolidFill } from './shape_fill.js';
 
 // ----- item ids ---------------------------------------------------------------
 
@@ -371,7 +372,7 @@ const shapeHit = (s: PcbShape, pos: Vec2, tol: number): boolean => {
   if (s.kind === 'circle' && s.center && s.end) {
     const r = dist(s.center, s.end);
     const d = dist(s.center, pos);
-    return s.fill ? d <= r + t : Math.abs(d - r) <= t;
+    return isSolidFill(s) ? d <= r + t : Math.abs(d - r) <= t;
   }
   if (s.kind === 'rect' && s.start && s.end) {
     const x0 = Math.min(s.start.x, s.end.x),
@@ -379,7 +380,7 @@ const shapeHit = (s: PcbShape, pos: Vec2, tol: number): boolean => {
     const y0 = Math.min(s.start.y, s.end.y),
       y1 = Math.max(s.start.y, s.end.y);
     if (pos.x < x0 - t || pos.x > x1 + t || pos.y < y0 - t || pos.y > y1 + t) return false;
-    if (s.fill) return true;
+    if (isSolidFill(s)) return true;
     // Unfilled: only the border is live.
     const near = Math.min(
       Math.abs(pos.x - x0),
@@ -391,7 +392,7 @@ const shapeHit = (s: PcbShape, pos: Vec2, tol: number): boolean => {
   }
   // poly / curve: nearest edge, plus interior when filled.
   const pts = s.pts ?? shapePoints(s);
-  if (s.fill && pts.length >= 3 && pointInPolygon(pos, pts)) return true;
+  if (isSolidFill(s) && pts.length >= 3 && pointInPolygon(pos, pts)) return true;
   for (let i = 1; i < pts.length; i++) if (distToSeg(pos, pts[i - 1]!, pts[i]!) <= t) return true;
   if (pts.length >= 3 && distToSeg(pos, pts[pts.length - 1]!, pts[0]!) <= t) return true;
   return false;
@@ -560,7 +561,7 @@ const shapeDist = (s: PcbShape, pos: Vec2): number => {
   if (s.kind === 'circle' && s.center && s.end) {
     const r = dist(s.center, s.end);
     const d = dist(s.center, pos);
-    return s.fill ? Math.max(0, d - r - half) : Math.max(0, Math.abs(d - r) - half);
+    return isSolidFill(s) ? Math.max(0, d - r - half) : Math.max(0, Math.abs(d - r) - half);
   }
   if (s.kind === 'rect' && s.start && s.end) {
     const b: BoardBBox = {
@@ -569,7 +570,7 @@ const shapeDist = (s: PcbShape, pos: Vec2): number => {
       maxX: Math.max(s.start.x, s.end.x),
       maxY: Math.max(s.start.y, s.end.y),
     };
-    if (s.fill) return bboxDist(b, pos);
+    if (isSolidFill(s)) return bboxDist(b, pos);
     const corners: Vec2[] = [
       { x: b.minX, y: b.minY },
       { x: b.maxX, y: b.minY },
@@ -581,7 +582,7 @@ const shapeDist = (s: PcbShape, pos: Vec2): number => {
     return Math.max(0, d - half);
   }
   const pts = s.pts ?? shapePoints(s);
-  if (s.fill && pts.length >= 3 && pointInPolygon(pos, pts)) return 0;
+  if (isSolidFill(s) && pts.length >= 3 && pointInPolygon(pos, pts)) return 0;
   let d = Infinity;
   for (let i = 1; i < pts.length; i++) d = Math.min(d, distToSeg(pos, pts[i - 1]!, pts[i]!));
   if (pts.length >= 3) d = Math.min(d, distToSeg(pos, pts[pts.length - 1]!, pts[0]!));
@@ -806,7 +807,7 @@ export function boardHitCandidates(
     if (d <= tol) {
       // Unfilled / linear shapes count width²; filled shapes their real area.
       let area = s.width * s.width;
-      if (s.fill) {
+      if (isSolidFill(s)) {
         if (s.kind === 'circle' && s.center && s.end) {
           const r = dist(s.center, s.end);
           area = Math.PI * r * r;
@@ -2092,6 +2093,15 @@ export function subsetBoardItems(board: Board, ids: ReadonlySet<string>): Board 
     texts: board.texts.filter((_, i) => idx.text.has(i)),
     points: board.points.filter((_, i) => idx.point.has(i)),
     barcodes: board.barcodes.filter((_, i) => idx.barcode.has(i)),
+    // These four were missing, and `...board` above then carried the *whole*
+    // board's copy of each into the subset. The overlay is drawn translated by
+    // the drag delta, so dragging any one item made every dimension, text box,
+    // table and reference image on the board appear to move with it — and snap
+    // back on drop, because the commit moves only what is selected.
+    textBoxes: board.textBoxes.filter((_, i) => idx.textbox.has(i)),
+    tables: board.tables.filter((_, i) => idx.table.has(i)),
+    images: board.images.filter((_, i) => idx.image.has(i)),
+    dimensions: board.dimensions.filter((_, i) => idx.dimension.has(i)),
     footprints,
   };
 }

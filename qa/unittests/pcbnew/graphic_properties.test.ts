@@ -6,7 +6,7 @@
  * DIALOG_SHAPE_PROPERTIES).
  */
 import { describe, it, expect } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse, serialize } from '@ziroeda/sexpr/src/index.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
 import { serializeBoard } from '@ziroeda/pcbnew/src/write-board.js';
@@ -21,7 +21,8 @@ import {
   type ShapeValues,
   type TextValues,
 } from '@ziroeda/pcbnew/src/graphic_properties.js';
-import type { Board } from '@ziroeda/pcbnew/src/types.js';
+import type { Board, PcbShape } from '@ziroeda/pcbnew/src/types.js';
+import { buildBoardShapeNode } from '@ziroeda/pcbnew/src/write-board.js';
 
 const MM = (n: number): number => mmToIU(n);
 const load = (text: string): Board => readBoard(parse(text));
@@ -166,7 +167,7 @@ describe('shape', () => {
   it('reads the stroke, including its dash type', () => {
     expect(lineBase.lineWidth).toBe(MM(0.15));
     expect(lineBase.strokeType).toBe('dash');
-    expect(lineBase.filled).toBe(false);
+    expect(lineBase.fillMode).toBe('none');
     expect(lineBase.layer).toBe('F.SilkS');
     expect(lineBase.start).toEqual({ x: 0, y: 0 });
     expect(lineBase.end).toEqual({ x: MM(10), y: 0 });
@@ -231,13 +232,78 @@ describe('shape', () => {
     expect(out.mid).toEqual({ x: MM(45), y: MM(48) });
   });
 
-  it('toggles the fill', () => {
-    const filled = editLine({ filled: true });
-    expect(sh(roundTrip(filled)).fill).toBe(true);
+  it('builds the fill token for the three shapes that have one, and no others', () => {
+    // The builder is what a NEWLY DRAWN shape goes through, having no source to
+    // copy. `format( const PCB_SHAPE* )` (pcb_io_kicad_sexpr.cpp:1071-1097)
+    // writes the token for a POLY, a RECTANGLE or a CIRCLE — and for those three
+    // always, `(fill no)` included — so a fresh segment must not sprout one and
+    // a fresh unfilled circle must not lose one.
+    const built = (s: Partial<PcbShape> & Pick<PcbShape, 'kind'>): string =>
+      serialize(
+        buildBoardShapeNode({
+          width: 2e5,
+          fillMode: 'none',
+          layer: 'F.SilkS',
+          source: { kind: 'list', items: [] },
+          start: { x: 0, y: 0 },
+          end: { x: 1e6, y: 0 },
+          ...s,
+        } as PcbShape),
+      );
 
-    const base2 = collectShapeValues(b.shapes[1]!);
-    const unfilled = applyShapeValues(b, 1, { ...base2, filled: false });
-    expect(flat(unfilled).split('(gr_arc')[0]).not.toContain('(fill');
+    expect(built({ kind: 'line' })).not.toContain('(fill');
+    expect(built({ kind: 'arc', mid: { x: 5e5, y: 5e5 } })).not.toContain('(fill');
+    expect(built({ kind: 'rect' })).toContain('(fill no)');
+    expect(built({ kind: 'circle', center: { x: 0, y: 0 } })).toContain('(fill no)');
+    expect(built({ kind: 'circle', center: { x: 0, y: 0 }, fillMode: 'solid' })).toContain(
+      '(fill yes)',
+    );
+    expect(built({ kind: 'poly', pts: [], fillMode: 'hatch' })).toContain('(fill hatch)');
+  });
+
+  it('reads every (fill …) word the parser accepts', () => {
+    // pcb_io_kicad_sexpr_parser.cpp:3580-3600. `yes` is the 2017 spelling of
+    // `solid` and `no` of `none`; the three hatch words are their own modes, and
+    // reading them as "not filled" is what silently unfilled a hatched graphic.
+    const withFill = (word: string): Board => load(SRC.replace('(fill solid)', `(fill ${word})`));
+    expect(withFill('yes').shapes[1]?.fillMode).toBe('solid');
+    expect(withFill('solid').shapes[1]?.fillMode).toBe('solid');
+    expect(withFill('no').shapes[1]?.fillMode).toBe('none');
+    expect(withFill('none').shapes[1]?.fillMode).toBe('none');
+    expect(withFill('hatch').shapes[1]?.fillMode).toBe('hatch');
+    expect(withFill('reverse_hatch').shapes[1]?.fillMode).toBe('reverse_hatch');
+    expect(withFill('cross_hatch').shapes[1]?.fillMode).toBe('cross_hatch');
+  });
+
+  it('leaves a hatched shape alone when the edit is about something else', () => {
+    // The bug this replaces: the mode came back as `false`, and the next edit —
+    // any edit — wrote `(fill no)` over it. A layer change must not touch it.
+    const hatched = load(SRC.replace('(fill solid)', '(fill reverse_hatch)'));
+    const base = collectShapeValues(hatched.shapes[1]!);
+    const moved = applyShapeValues(hatched, 1, { ...base, layer: 'F.SilkS' });
+    expect(moved.shapes[1]?.fillMode).toBe('reverse_hatch');
+    expect(roundTrip(moved).shapes[1]?.fillMode).toBe('reverse_hatch');
+  });
+
+  it('writes the fill MODE, and only on a shape that can carry one', () => {
+    // `format( const PCB_SHAPE* )` (pcb_io_kicad_sexpr.cpp:1071-1097) writes the
+    // token for a POLY, a RECTANGLE or a CIRCLE — "the filled flag represents if
+    // a solid fill is present on circles, rectangles and polygons" — and never
+    // for a segment or an arc.
+    // shapes[0] is the gr_line, so everything before `(gr_circle` in the file is
+    // the segment's own node.
+    const filled = editLine({ fillMode: 'solid' });
+    expect(flat(filled).split('(gr_circle')[0]).not.toContain('(fill');
+    expect(sh(roundTrip(filled)).fillMode).toBe('none');
+
+    // The circle keeps all five UI_FILL_MODE values through the file. The three
+    // hatch modes are the ones a boolean lost: they read back as unfilled and
+    // were then written out as `(fill no)`.
+    for (const mode of ['solid', 'none', 'hatch', 'reverse_hatch', 'cross_hatch'] as const) {
+      const base = collectShapeValues(b.shapes[1]!);
+      const out = applyShapeValues(b, 1, { ...base, fillMode: mode });
+      expect(roundTrip(out).shapes[1]?.fillMode, `fill mode ${mode}`).toBe(mode);
+    }
   });
 
   it('changes the layer', () => {

@@ -205,7 +205,7 @@ describe('footprint output', () => {
     expect(fp).not.toBeNull();
     const polys = fp!.shapes.filter((s) => s.kind === 'poly');
     expect(polys.length).toBe(1);
-    expect(polys[0]!.fill).toBe(true);
+    expect(polys[0]!.fillMode).toBe('solid');
     expect(polys[0]!.layer).toBe(layer);
     expect(text).toContain(`(generator "${GENERATOR}")`);
     expect(text).toContain('(attr board_only exclude_from_pos_files exclude_from_bom)');

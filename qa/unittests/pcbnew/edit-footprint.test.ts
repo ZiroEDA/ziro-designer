@@ -206,7 +206,7 @@ describe('footprint editing', () => {
       start: { x: 0, y: 0 },
       end: { x: mmToIU(1), y: 0 },
       width: mmToIU(0.1),
-      fill: false,
+      fillMode: 'none',
       layer: 'F.SilkS',
       source: EMPTY,
     };
@@ -215,7 +215,7 @@ describe('footprint editing', () => {
       center: { x: 0, y: 0 },
       end: { x: mmToIU(0.5), y: 0 },
       width: mmToIU(0.1),
-      fill: false,
+      fillMode: 'none',
       layer: 'F.SilkS',
       source: EMPTY,
     };

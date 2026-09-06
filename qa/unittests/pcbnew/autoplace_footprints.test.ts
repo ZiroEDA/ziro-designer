@@ -39,7 +39,7 @@ const line = (x0: number, y0: number, x1: number, y1: number, layer = 'Edge.Cuts
   start: { x: MM(x0), y: MM(y0) },
   end: { x: MM(x1), y: MM(y1) },
   width: 0,
-  fill: false,
+  fillMode: 'none',
   layer,
   source: EMPTY,
 });

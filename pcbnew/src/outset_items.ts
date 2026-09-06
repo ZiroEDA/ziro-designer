@@ -198,9 +198,13 @@ export function outsetItems(
       }
 
       if (round && distance > 0) {
-        emit(s, { kind: 'poly', pts: roundedRectRing(box.min, box.max, distance), fill: false });
+        emit(s, {
+          kind: 'poly',
+          pts: roundedRectRing(box.min, box.max, distance),
+          fillMode: 'none',
+        });
       } else {
-        emit(s, { kind: 'rect', start: box.min, end: box.max, fill: false });
+        emit(s, { kind: 'rect', start: box.min, end: box.max, fillMode: 'none' });
       }
 
       if (r) consumed.add(r.index);
@@ -222,7 +226,12 @@ export function outsetItems(
       }
 
       if (round) {
-        emit(s, { kind: 'circle', center: c, end: { x: c.x + newRadius, y: c.y }, fill: false });
+        emit(s, {
+          kind: 'circle',
+          center: c,
+          end: { x: c.x + newRadius, y: c.y },
+          fillMode: 'none',
+        });
       } else {
         // The square containing the already-outset circle: upstream builds it
         // from the new radius, so the distance is not applied a second time.
@@ -233,7 +242,7 @@ export function outsetItems(
           lo = g.min;
           hi = g.max;
         }
-        emit(s, { kind: 'rect', start: lo, end: hi, fill: false });
+        emit(s, { kind: 'rect', start: lo, end: hi, fillMode: 'none' });
       }
 
       if (r) consumed.add(r.index);
@@ -253,7 +262,7 @@ export function outsetItems(
         failures++;
         continue;
       }
-      emit(s, { kind: 'poly', pts: ring, fill: false });
+      emit(s, { kind: 'poly', pts: ring, fillMode: 'none' });
       if (r) consumed.add(r.index);
       successes++;
       continue;
@@ -270,7 +279,7 @@ export function outsetItems(
       failures++;
       continue;
     }
-    emit(s ?? null, { kind: 'rect', start: box.min, end: box.max, fill: false });
+    emit(s ?? null, { kind: 'rect', start: box.min, end: box.max, fillMode: 'none' });
     if (r?.kind === 'shape') consumed.add(r.index);
     successes++;
   }

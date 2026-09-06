@@ -30,7 +30,7 @@ const shape = (over: Partial<PcbShape> = {}): PcbShape => ({
   start: P(0, 0),
   end: P(10_000, 0),
   width: 100,
-  fill: false,
+  fillMode: 'none',
   layer: 'F.SilkS',
   source: EMPTY,
   ...over,
@@ -118,8 +118,8 @@ describe('what counts as a duplicate', () => {
     // So a filled rectangle over an unfilled one is a duplicate, and the
     // filled one can be the copy that goes. Comparing fill as well would
     // quietly refuse removals that KiCad performs.
-    const a = shape({ kind: 'rect', fill: false });
-    const b = shape({ kind: 'rect', fill: true, strokeType: 'dash', locked: true });
+    const a = shape({ kind: 'rect', fillMode: 'none' });
+    const b = shape({ kind: 'rect', fillMode: 'solid', strokeType: 'dash', locked: true });
 
     expect(areEquivalent(a, b)).toBe(true);
   });

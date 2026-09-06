@@ -63,7 +63,7 @@ const silk = (
     start: { x: fp.at.x + a.x, y: fp.at.y + a.y },
     end: { x: fp.at.x + b.x, y: fp.at.y + b.y },
     width: MM(0.12),
-    fill: false,
+    fillMode: 'none',
     layer: 'F.SilkS',
     source: EMPTY,
     ...over,
@@ -83,9 +83,18 @@ const text = (over: Partial<PcbTextItem> = {}): PcbTextItem => ({
 });
 
 /** A polygon graphic on the silkscreen, at the footprint's origin. */
-const polyFp = (pts: { x: number; y: number }[], fill = true): PcbFootprint =>
+const polyFp = (pts: { x: number; y: number }[], filled = true): PcbFootprint =>
   make({ x: 0, y: 0 }, 0, {
-    shapes: [{ kind: 'poly', pts, width: MM(0.12), fill, layer: 'F.SilkS', source: EMPTY }],
+    shapes: [
+      {
+        kind: 'poly',
+        pts,
+        width: MM(0.12),
+        fillMode: filled ? 'solid' : 'none',
+        layer: 'F.SilkS',
+        source: EMPTY,
+      },
+    ],
   });
 
 /** A footprint placed at `at`/`angle`, with the same local geometry each time. */
@@ -258,7 +267,7 @@ describe('geometry', () => {
             start: from,
             end: to,
             width: MM(0.12),
-            fill: false,
+            fillMode: 'none',
             layer: 'F.SilkS',
             source: EMPTY,
           },
@@ -281,7 +290,7 @@ describe('geometry', () => {
           start: { x: MM(-1), y: MM(-1) },
           end: { x: MM(1), y: MM(1) },
           width: MM(0.12),
-          fill: false,
+          fillMode: 'none',
           layer: 'F.SilkS',
           source: EMPTY,
         },
@@ -334,7 +343,7 @@ describe('geometry', () => {
             mid: { x: 0, y: midY },
             end: { x: MM(1), y: 0 },
             width: MM(0.12),
-            fill: false,
+            fillMode: 'none',
             layer: 'F.SilkS',
             source: EMPTY,
           },

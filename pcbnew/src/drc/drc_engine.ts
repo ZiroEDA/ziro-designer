@@ -77,6 +77,7 @@ import {
   type DrcEvalItem,
   type DrcItemType,
 } from './drc_rules_engine.js';
+import { isSolidFill } from '../shape_fill.js';
 
 // ---------------------------------------------------------------------------
 // Public API.
@@ -3224,7 +3225,7 @@ export function graphicShapes(s: PcbShape): Shape[] {
       const rad = Math.hypot(s.end.x - s.center.x, s.end.y - s.center.y);
       // A filled circle is the disc; an unfilled one is the stroked ring, and
       // the ring's *interior* is not part of the shape.
-      return s.fill
+      return isSolidFill(s)
         ? [{ kind: 'circle', c: s.center, r: rad + r }]
         : [{ kind: 'arc', c: s.center, rad, a0: 0, sweep: 2 * Math.PI, r }];
     }

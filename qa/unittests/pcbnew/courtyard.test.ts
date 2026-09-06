@@ -24,7 +24,7 @@ const line = (x0: number, y0: number, x1: number, y1: number, layer = 'F.CrtYd')
   start: { x: MM(x0), y: MM(y0) },
   end: { x: MM(x1), y: MM(y1) },
   width: MM(0.05),
-  fill: false,
+  fillMode: 'none',
   layer,
   source: EMPTY,
 });
@@ -141,7 +141,7 @@ describe('buildCourtyard', () => {
       start: { x: 0, y: 0 },
       end: { x: MM(10), y: MM(10) },
       width: MM(0.05),
-      fill: false,
+      fillMode: 'none',
       layer: 'F.CrtYd',
       source: EMPTY,
     };

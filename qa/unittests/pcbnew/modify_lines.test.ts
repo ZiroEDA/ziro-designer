@@ -23,7 +23,7 @@ const line = (x0: number, y0: number, x1: number, y1: number): PcbShape => ({
   start: { x: MM(x0), y: MM(y0) },
   end: { x: MM(x1), y: MM(y1) },
   width: MM(0.15),
-  fill: false,
+  fillMode: 'none',
   layer: 'Edge.Cuts',
   source: EMPTY,
 });
@@ -76,7 +76,7 @@ describe('what counts as a modifiable line', () => {
         start: { x: 0, y: 0 },
         end: { x: MM(5), y: MM(5) },
         width: 0,
-        fill: true,
+        fillMode: 'solid',
         layer: 'F.SilkS',
         source: EMPTY,
       },
@@ -108,7 +108,7 @@ describe('filleting a selection', () => {
 
     expect(arc.width).toBe(MM(0.15));
     expect(arc.layer).toBe('Edge.Cuts');
-    expect(arc.fill).toBe(false);
+    expect(arc.fillMode).toBe('none');
   });
 
   it('rounds all four corners of a square in one go', () => {

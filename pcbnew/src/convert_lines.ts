@@ -117,7 +117,7 @@ export function convertToLines(
         start: a,
         end: b,
         width,
-        fill: false,
+        fillMode: 'none',
         layer: opts.layer,
         source: { kind: 'list', items: [] },
       });
@@ -264,7 +264,7 @@ export function segmentToArc(board: Board, id: string): { board: Board; id: stri
         end: s.end,
         width: s.width,
         strokeType: s.strokeType,
-        fill: false,
+        fillMode: 'none',
         layer: s.layer,
         source: blank,
       };
@@ -329,7 +329,7 @@ export function segmentToArc(board: Board, id: string): { board: Board; id: stri
       mid: a.mid,
       end: a.end,
       width: a.width,
-      fill: false,
+      fillMode: 'none',
       layer: a.layer,
       source: blank,
     };

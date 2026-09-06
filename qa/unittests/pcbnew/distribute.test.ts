@@ -32,7 +32,7 @@ const rect = (x0: number, y0: number, x1: number, y1: number): PcbShape => ({
   start: { x: MM(x0), y: MM(y0) },
   end: { x: MM(x1), y: MM(y1) },
   width: 0,
-  fill: true,
+  fillMode: 'solid',
   layer: 'F.SilkS',
   source: EMPTY,
 });

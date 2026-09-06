@@ -214,7 +214,7 @@ export class GRAPHICS_IMPORTER_PCBNEW extends GRAPHICS_IMPORTER<IMPORTED_ITEM> {
         end,
         width: stroke.width,
         strokeType: stroke.plotStyle,
-        fill: false,
+        fillMode: 'none',
         layer: this.GetLayer(),
       },
     });
@@ -244,7 +244,7 @@ export class GRAPHICS_IMPORTER_PCBNEW extends GRAPHICS_IMPORTER<IMPORTED_ITEM> {
         end: this.MapCoordinate({ x: aCenter.x + aRadius, y: aCenter.y }),
         width: stroke.width,
         strokeType: stroke.plotStyle,
-        fill: aFilled,
+        fillMode: aFilled ? 'solid' : 'none',
         layer: this.GetLayer(),
       },
     });
@@ -319,7 +319,7 @@ export class GRAPHICS_IMPORTER_PCBNEW extends GRAPHICS_IMPORTER<IMPORTED_ITEM> {
         end: this.MapCoordinate(end),
         width: stroke.width,
         strokeType: stroke.plotStyle,
-        fill: false,
+        fillMode: 'none',
         layer: this.GetLayer(),
       },
     });
@@ -345,7 +345,7 @@ export class GRAPHICS_IMPORTER_PCBNEW extends GRAPHICS_IMPORTER<IMPORTED_ITEM> {
         pts: convertedPoints,
         width: stroke.width,
         strokeType: stroke.plotStyle,
-        fill: aFilled,
+        fillMode: aFilled ? 'solid' : 'none',
         layer: this.GetLayer(),
       },
     });
@@ -430,7 +430,7 @@ export class GRAPHICS_IMPORTER_PCBNEW extends GRAPHICS_IMPORTER<IMPORTED_ITEM> {
               pts: [start, c1, c2, end],
               width: stroke.width,
               strokeType: stroke.plotStyle,
-              fill: false,
+              fillMode: 'none',
               layer: this.GetLayer(),
             }
           : {
@@ -439,7 +439,7 @@ export class GRAPHICS_IMPORTER_PCBNEW extends GRAPHICS_IMPORTER<IMPORTED_ITEM> {
               end,
               width: stroke.width,
               strokeType: stroke.plotStyle,
-              fill: false,
+              fillMode: 'none',
               layer: this.GetLayer(),
             },
     });

@@ -880,6 +880,20 @@ describe('SHAPE rows', () => {
     expect(names(circle)).toContain('Fill');
   });
 
+  it('offers Fill as the five-way UI_FILL_MODE, not a checkbox', () => {
+    // `PROPERTY_ENUM<EDA_SHAPE, UI_FILL_MODE>` (eda_shape.cpp:3025) over
+    // SetFillModeProp/GetFillModeProp, whose ENUM_MAP is these five labels in
+    // this order. A board graphic can be hatched three ways as well as solid.
+    const fill = row(circle, 'Fill');
+    expect(fill.kind).toBe('choice');
+    expect(fill.choices).toEqual(['None', 'Solid', 'Hatch', 'Reverse Hatch', 'Cross-hatch']);
+    expect(fill.value).toBe('None');
+
+    const hatched = fill.set?.('Cross-hatch');
+    expect(hatched?.shapes[1]?.fillMode).toBe('cross_hatch');
+    expect(serialize(hatched!.shapes[1]!.source)).toContain('(fill cross_hatch)');
+  });
+
   it('shows an arc its read-only sweep, and no Mid row', () => {
     // `GetArcAngle`, PT_DECIDEGREE, NO_SETTER. EDA_SHAPE registers no mid point
     // at all — an arc's third point is the point editor's, not the panel's.

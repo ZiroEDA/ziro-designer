@@ -42,7 +42,7 @@ const silk = (x0: number, x1: number, y = 10, layer = 'F.SilkS'): PcbShape => ({
   start: { x: MM(x0), y: MM(y) },
   end: { x: MM(x1), y: MM(y) },
   width: MM(0.15),
-  fill: false,
+  fillMode: 'none',
   layer,
   source: EMPTY,
 });

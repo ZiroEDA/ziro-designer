@@ -29,7 +29,7 @@ describe('addBoardShape (DRAWING_TOOL commits)', () => {
       start: { x: 0, y: 0 },
       end: { x: mmToIU(10), y: 0 },
       width: mmToIU(0.05),
-      fill: false,
+      fillMode: 'none',
       layer: 'Edge.Cuts',
     });
     expect(id).toBe('shape:0');
@@ -50,7 +50,7 @@ describe('addBoardShape (DRAWING_TOOL commits)', () => {
       start: { x: 0, y: 0 },
       end: { x: mmToIU(5), y: mmToIU(4) },
       width: mmToIU(0.1),
-      fill: false,
+      fillMode: 'none',
       layer: 'F.SilkS',
     }).board;
     b = addBoardShape(b, {
@@ -58,7 +58,7 @@ describe('addBoardShape (DRAWING_TOOL commits)', () => {
       center: { x: mmToIU(2), y: mmToIU(2) },
       end: { x: mmToIU(4), y: mmToIU(2) },
       width: mmToIU(0.1),
-      fill: false,
+      fillMode: 'none',
       layer: 'F.SilkS',
     }).board;
     b = addBoardShape(b, {
@@ -67,7 +67,7 @@ describe('addBoardShape (DRAWING_TOOL commits)', () => {
       mid: { x: mmToIU(1), y: mmToIU(1) },
       end: { x: mmToIU(2), y: 0 },
       width: mmToIU(0.1),
-      fill: false,
+      fillMode: 'none',
       layer: 'F.SilkS',
     }).board;
     b = addBoardShape(b, {
@@ -78,7 +78,7 @@ describe('addBoardShape (DRAWING_TOOL commits)', () => {
         { x: mmToIU(3), y: mmToIU(3) },
       ],
       width: mmToIU(0.1),
-      fill: false,
+      fillMode: 'none',
       layer: 'F.SilkS',
     }).board;
 

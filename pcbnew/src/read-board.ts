@@ -67,6 +67,7 @@ import type {
 } from './types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { zoneConnectionFromCode, type ZoneConnection } from './zone_connection.js';
+import { pcbFillModeFromToken } from './shape_fill.js';
 
 /**
  * `PCB_IO_KICAD_SEXPR_PARSER::parseMaybeAbsentBool( aDefaultValue )`
@@ -785,7 +786,7 @@ function readShape(item: SList, t: FpTransform | null): PcbShape | null {
     kind: kind as PcbShape['kind'],
     width: mmToIU(strokeWidth(item)),
     strokeType: strokeType(item),
-    fill: fillVal === 'yes' || fillVal === 'solid',
+    fillMode: pcbFillModeFromToken(fillVal),
     layer: layerOf(item),
     maskLayer: maskLayerOf(item),
     solderMaskMargin: maskMarginOf(item),

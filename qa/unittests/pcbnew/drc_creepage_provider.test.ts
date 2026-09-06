@@ -40,7 +40,7 @@ const line = (x1: number, y1: number, x2: number, y2: number): PcbShape => ({
   end: P(x2, y2),
   layer: 'Edge.Cuts',
   width: MM(0.1),
-  fill: false,
+  fillMode: 'none',
   source: EMPTY,
 });
 
@@ -152,7 +152,7 @@ describe('board edges become corners', () => {
       end: P(-10, 0),
       layer: 'Edge.Cuts',
       width: MM(0.1),
-      fill: false,
+      fillMode: 'none',
       source: EMPTY,
     };
 

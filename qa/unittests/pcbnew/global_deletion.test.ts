@@ -91,7 +91,7 @@ const shape = (layer: string, over: Partial<PcbShape> = {}): PcbShape => ({
   start: P(0, 0),
   end: P(1000, 0),
   width: 100,
-  fill: false,
+  fillMode: 'none',
   layer,
   source: EMPTY,
   ...over,

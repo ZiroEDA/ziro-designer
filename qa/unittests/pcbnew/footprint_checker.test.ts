@@ -44,7 +44,7 @@ const line = (
   b: { x: number; y: number },
   layer: string,
   width = MM(0.1),
-): PcbShape => ({ kind: 'line', start: a, end: b, layer, width, fill: false, source: EMPTY });
+): PcbShape => ({ kind: 'line', start: a, end: b, layer, width, fillMode: 'none', source: EMPTY });
 
 const fp = (over: Partial<PcbFootprint> = {}): PcbFootprint => ({
   lib: 'L:FP',

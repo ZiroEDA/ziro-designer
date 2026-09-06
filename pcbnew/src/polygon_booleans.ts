@@ -161,7 +161,7 @@ export function polygonBoolean(
     pts: fractureSingle(poly)[0]!,
     width: first.shape.width,
     strokeType: first.shape.strokeType,
-    fill: first.shape.fill,
+    fillMode: first.shape.fillMode,
     layer,
     source: { kind: 'list', items: [] },
   }));

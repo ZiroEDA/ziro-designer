@@ -27,7 +27,7 @@ const line = (x0: number, y0: number, x1: number, y1: number, layer = 'Edge.Cuts
   start: { x: MM(x0), y: MM(y0) },
   end: { x: MM(x1), y: MM(y1) },
   width: MM(0.05),
-  fill: false,
+  fillMode: 'none',
   layer,
   source: EMPTY,
 });
@@ -124,7 +124,7 @@ describe('board outline', () => {
       start: { x: 0, y: 0 },
       end: { x: MM(50), y: MM(40) },
       width: MM(0.05),
-      fill: false,
+      fillMode: 'none',
       layer: 'Edge.Cuts',
       source: EMPTY,
     };
@@ -151,7 +151,7 @@ describe('board outline', () => {
       center: { x: MM(10), y: MM(10) },
       end: { x: MM(10) + r, y: MM(10) },
       width: MM(0.05),
-      fill: false,
+      fillMode: 'none',
       layer: 'Edge.Cuts',
       source: EMPTY,
     });

@@ -170,7 +170,7 @@ const shape = (layer: string): PcbShape => ({
   start: { x: 0, y: 0 },
   end: { x: 1000000, y: 0 },
   width: 100000,
-  fill: false,
+  fillMode: 'none',
   layer,
   source: EMPTY,
 });

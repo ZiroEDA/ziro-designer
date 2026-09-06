@@ -101,7 +101,7 @@ const lineShape = (
   start,
   end,
   width,
-  fill: false,
+  fillMode: 'none',
   layer: 'Edge.Cuts',
   source: EMPTY,
 });
@@ -210,7 +210,7 @@ describe('shape hit-test (EDA_SHAPE)', () => {
       start: { x: 0, y: 0 },
       end: { x: 1000, y: 1000 },
       width: 40,
-      fill: false,
+      fillMode: 'none',
       layer: 'Edge.Cuts',
       source: EMPTY,
     };
@@ -224,12 +224,30 @@ describe('shape hit-test (EDA_SHAPE)', () => {
       center: { x: 0, y: 0 },
       end: { x: 500, y: 0 },
       width: 20,
-      fill: true,
+      fillMode: 'solid',
       layer: 'F.SilkS',
       source: EMPTY,
     };
     const b = board({ shapes: [s] });
     expect(hitTestBoard(b, { x: 100, y: 100 }, 0)).toBe('shape:0');
+  });
+  it('HATCHED circle: the interior does NOT hit, because hit-testing asks IsSolidFill', () => {
+    // `EDA_SHAPE::IsFilledForHitTesting()` is `IsSolidFill()` (eda_shape.h:143),
+    // and the three hatch modes are not solid — so a hatched shape is picked by
+    // its outline, exactly as an unfilled one is. `IsAnyFill()` would be true
+    // here and is the wrong question.
+    const hatched: PcbShape = {
+      kind: 'circle',
+      center: { x: 0, y: 0 },
+      end: { x: 500, y: 0 },
+      width: 20,
+      fillMode: 'cross_hatch',
+      layer: 'F.SilkS',
+      source: EMPTY,
+    };
+    const b = board({ shapes: [hatched] });
+    expect(hitTestBoard(b, { x: 100, y: 100 }, 0)).toBeNull();
+    expect(hitTestBoard(b, { x: 500, y: 0 }, 5)).toBe('shape:0');
   });
 });
 

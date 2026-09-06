@@ -357,7 +357,7 @@ export function convertToPoly(
     width,
     // Only the centreline strategy produces a filled shape; copying a line
     // width means the outline itself is the thing being kept.
-    fill: strategy === 'centerline',
+    fillMode: strategy === 'centerline' ? 'solid' : 'none',
     layer: opts.layer,
     source: { kind: 'list', items: [] },
   }));

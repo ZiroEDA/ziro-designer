@@ -26,6 +26,7 @@ import { childNamed, numArg } from '@ziroeda/sexpr/src/query.js';
 import { tessellateArc, rotatePcb } from './read-board.js';
 import { barcodeGeometry } from './barcode_geometry.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
+import { isSolidFill } from './shape_fill.js';
 
 /** Fractional digits for the 4.x format; the dialog offers 4.5 / 4.6. */
 let coordDigits = 6;
@@ -176,7 +177,7 @@ export function plotGerberLayer(board: Board, layer: string, opts: GerberPlotOpt
         const a = (i / 72) * Math.PI * 2;
         pts.push({ x: s.center.x + r * Math.cos(a), y: s.center.y + r * Math.sin(a) });
       }
-      if (s.fill) region(pts);
+      if (isSolidFill(s)) region(pts);
       else stroke(pts, w);
     } else if (s.kind === 'rect' && s.start && s.end) {
       const c = [
@@ -186,10 +187,10 @@ export function plotGerberLayer(board: Board, layer: string, opts: GerberPlotOpt
         { x: s.start.x, y: s.end.y },
         s.start,
       ];
-      if (s.fill) region(c.slice(0, 4));
+      if (isSolidFill(s)) region(c.slice(0, 4));
       else stroke(c, w);
     } else if (s.pts && s.pts.length >= 2) {
-      if (s.fill && s.pts.length >= 3) region(s.pts);
+      if (isSolidFill(s) && s.pts.length >= 3) region(s.pts);
       else stroke([...s.pts, ...(s.kind === 'poly' ? [s.pts[0]!] : [])], w);
     }
   };

@@ -35,7 +35,7 @@ const line = (x0: number, y0: number, x1: number, y1: number, width = MM(0.1)): 
   start: { x: x0, y: y0 },
   end: { x: x1, y: y1 },
   width,
-  fill: false,
+  fillMode: 'none',
   layer: 'Edge.Cuts',
   source: EMPTY,
 });
@@ -124,7 +124,7 @@ describe('which items can chain', () => {
           start: { x: 0, y: 0 },
           end: { x: MM(5), y: MM(5) },
           width: 0,
-          fill: true,
+          fillMode: 'solid',
           layer: 'F.SilkS',
           source: EMPTY,
         },
@@ -267,7 +267,7 @@ describe('chaining a ring of segments', () => {
           mid: { x: MM(5), y: MM(-5) },
           end: { x: 0, y: 0 },
           width: MM(0.1),
-          fill: false,
+          fillMode: 'none',
           layer: 'Edge.Cuts',
           source: EMPTY,
         },
@@ -299,7 +299,7 @@ describe('shapes that are already areas', () => {
       start: { x: 0, y: 0 },
       end: { x: MM(10), y: MM(4) },
       width: 0,
-      fill: true,
+      fillMode: 'solid',
       layer: 'F.SilkS',
       source: EMPTY,
     })!;
@@ -314,7 +314,7 @@ describe('shapes that are already areas', () => {
       center: { x: 0, y: 0 },
       end: { x: MM(5), y: 0 },
       width: MM(0.1),
-      fill: false,
+      fillMode: 'none',
       layer: 'F.SilkS',
       source: EMPTY,
     })!;
@@ -331,7 +331,7 @@ describe('shapes that are already areas', () => {
       center: { x: 0, y: 0 },
       end: { x: MM(5), y: 0 },
       width: MM(0.1),
-      fill: false,
+      fillMode: 'none',
       layer: 'F.SilkS',
       source: EMPTY,
     })!;
@@ -349,7 +349,7 @@ describe('shapes that are already areas', () => {
       kind: 'poly',
       pts,
       width: 0,
-      fill: true,
+      fillMode: 'solid',
       layer: 'F.SilkS',
       source: EMPTY,
     })!;
@@ -372,7 +372,7 @@ describe('putting the two paths together', () => {
           start: { x: MM(50), y: 0 },
           end: { x: MM(60), y: MM(10) },
           width: 0,
-          fill: true,
+          fillMode: 'solid',
           layer: 'F.SilkS',
           source: EMPTY,
         },
@@ -395,7 +395,7 @@ describe('putting the two paths together', () => {
             { x: 0, y: MM(5) },
           ],
           width: 0,
-          fill: true,
+          fillMode: 'solid',
           layer: 'F.SilkS',
           source: EMPTY,
         },
@@ -492,7 +492,7 @@ describe('convert to polygon', () => {
     const added = out.board.shapes[out.board.shapes.length - 1]!;
     expect(added.kind).toBe('poly');
     expect(added.layer).toBe('F.SilkS');
-    expect(added.fill).toBe(true);
+    expect(added.fillMode).toBe('solid');
   });
 
   it('leaves the source items on the board', () => {
@@ -512,7 +512,7 @@ describe('convert to polygon', () => {
     });
     const added = out.board.shapes[out.board.shapes.length - 1]!;
 
-    expect(added.fill).toBe(false);
+    expect(added.fillMode).toBe('none');
     expect(added.width).toBe(MM(0.1));
   });
 

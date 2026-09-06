@@ -25,7 +25,7 @@ const edge = (x: number, layer = 'Edge.Cuts', width = 1): PcbShape => ({
   start: { x: MM(x), y: MM(-10) },
   end: { x: MM(x), y: MM(10) },
   width: MM(width),
-  fill: false,
+  fillMode: 'none',
   layer,
   source: EMPTY,
 });

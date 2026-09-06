@@ -24,6 +24,7 @@ import type { ShapeValues, TextValues } from '@ziroeda/pcbnew/src/graphic_proper
 import { shapePointsUsed } from '@ziroeda/pcbnew/src/graphic_properties.js';
 import type { PcbShape } from '@ziroeda/pcbnew/src/types.js';
 import { LINE_STYLE_NAMES, lineStyleComboValue } from '@ziroeda/common/src/stroke_params.js';
+import { UI_FILL_MODE_CHOICES } from '@ziroeda/pcbnew/src/shape_fill.js';
 import { useModalEscape } from '../../../ui/useModalEscape.js';
 
 /** A millimetre text box bound to an IU value. */
@@ -296,13 +297,21 @@ export function DialogShapeProperties({
                 ))}
               </select>
             </label>
+            {/* `m_fillCtrl` is a wxChoice over UI_FILL_MODE
+                (dialog_shape_properties.cpp:1108, :1192), not a checkbox: a board
+                graphic can be hatched three ways as well as filled solid. */}
             <label>
-              <input
-                type="checkbox"
-                checked={v.filled}
-                onChange={(e) => set({ filled: e.target.checked })}
-              />
-              Filled
+              <span className="ze-tvp-label">Fill:</span>
+              <select
+                value={v.fillMode}
+                onChange={(e) => set({ fillMode: e.target.value as ShapeValues['fillMode'] })}
+              >
+                {UI_FILL_MODE_CHOICES.map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
             </label>
           </fieldset>
 

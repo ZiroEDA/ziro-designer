@@ -46,7 +46,7 @@ const rect = (x0: number, y0: number, x1: number, y1: number): PcbShape => ({
   start: { x: MM(x0), y: MM(y0) },
   end: { x: MM(x1), y: MM(y1) },
   width: 0,
-  fill: true,
+  fillMode: 'solid',
   layer: 'F.SilkS',
   source: EMPTY,
 });
@@ -346,7 +346,7 @@ describe('what each kind of item calls its anchor', () => {
             { x: MM(9), y: MM(8) },
           ],
           width: 0,
-          fill: true,
+          fillMode: 'solid',
           layer: 'F.SilkS',
           source: EMPTY,
         },
@@ -366,7 +366,7 @@ describe('what each kind of item calls its anchor', () => {
           center: { x: MM(5), y: MM(5) },
           end: { x: MM(8), y: MM(5) },
           width: MM(0.1),
-          fill: false,
+          fillMode: 'none',
           layer: 'F.SilkS',
           source: EMPTY,
         },
@@ -487,7 +487,7 @@ describe('a rectangle rotated off-axis', () => {
     const out = moveExact(rectBoard(), ['shape:0'], { translation: { x: 0, y: 0 }, rotation: 45 });
 
     expect(out.shapes[0]!.layer).toBe('F.SilkS');
-    expect(out.shapes[0]!.fill).toBe(true);
+    expect(out.shapes[0]!.fillMode).toBe('solid');
   });
 
   it('writes itself back out as a polygon', () => {

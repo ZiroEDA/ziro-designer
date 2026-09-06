@@ -36,6 +36,7 @@ import {
   UNDEFINED_LAYER,
   UNSELECTED_LAYER,
 } from '@ziroeda/pcbnew/src/layer_ids.js';
+import { isSolidFill } from '@ziroeda/pcbnew/src/shape_fill.js';
 
 // ---------------------------------------------------------------------------
 // helpers
@@ -713,7 +714,8 @@ describe('the exported board reads back', () => {
   });
 
   it('puts the region and the flashed pads on F.Cu, filled', () => {
-    const filled = board().shapes.filter((s) => s.fill);
+    // `IsSolidFill()`, not truthiness: `'none'` is a non-empty string.
+    const filled = board().shapes.filter(isSolidFill);
     expect(filled.length).toBeGreaterThan(0);
     expect(filled.every((s) => s.layer === 'F.Cu')).toBe(true);
   });
