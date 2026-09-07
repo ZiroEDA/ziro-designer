@@ -116,20 +116,19 @@ const KNOWN_HARDCODED = new Set([
   // frame's unit. It is one fix for two editors now, which is the point.
   'DialogTableProperties.tsx',
   // ---- the board editor -----------------------------------------------------
-  // Ten when this scan could first see the folder, and one left.
+  // Ten when this scan could first see the folder, and none left.
   //
-  // The other nine went through `editors/pcb/pcb_unit_binder.ts`, which is
+  // Nine went through `editors/pcb/pcb_unit_binder.ts`, which is
   // `ui/unit_binder.ts` bound to the board's `EDA_IU_SCALE` — the part that has
   // to be per-editor, because `StringFromValue` picks its digit count from
   // `IU_PER_MM` and `ValueFromString` quantises to the frame's internal unit.
   // Each dialog took a `units` prop and the frame passes `unitLabel`, exactly
   // as a `UNIT_BINDER` takes the frame as its `UNITS_PROVIDER`.
   //
-  // `dialog_board_setup.tsx` is the one still here and it is a different job:
-  // its constraints are held in MILLIMETRES rather than IU (`maxDeviationMM`,
-  // and the rest of `BoardConstraints`), so it needs the mm-valued flavour of
-  // that binder rather than the IU one every other dialog took.
-  'dialog_board_setup.tsx',
+  // Board Setup took the tenth, and it needed the mm-valued half of that binder
+  // rather than the IU one: its constraints are stored in millimetres because
+  // the `.kicad_pro` holds them that way, so there is no IU to convert from —
+  // but the display and the parse still belong to the frame.
 ]);
 
 describe('a dialog never hardcodes a unit name beside a field', () => {

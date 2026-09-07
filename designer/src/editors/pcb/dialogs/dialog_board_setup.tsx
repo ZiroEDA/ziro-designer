@@ -59,6 +59,106 @@ const CON_ICON_FILE: Record<string, string> = {
 };
 
 /**
+ * `GEOMETRY_MIN_SIZE`, `(int)( 0.001 * pcbIUScale.IU_PER_MM )`
+ * (`pcbnew/pcb_track.h:57`) — the floor every via dimension is measured
+ * against, in the millimetres this page stores.
+ */
+const GEOMETRY_MIN_SIZE_MM = 0.001;
+
+/** `document.getElementById` handle for one grid cell, so PAGED_DIALOG can
+ *  focus the cell `Validate()` refused — `SetError( …, grid, row, col )`. */
+export function sizeCellId(grid: string, row: number, col: string): string {
+  return `ze-size-${grid.replace(/\s+/g, '-').toLowerCase()}-${row}-${col}`;
+}
+
+/**
+ * `std::sort` over the row struct, which is `operator<` and not the first
+ * column: `VIA_DIMENSION` compares diameter then drill, `DIFF_PAIR_DIMENSION`
+ * width then gap then via gap (`board_design_settings.h:144`, `:187`).
+ */
+export function sortSizeRows<T>(rows: readonly T[], keys: readonly (keyof T)[]): T[] {
+  return [...rows].sort((a, b) => {
+    for (const k of keys) {
+      const d = (a[k] as number) - (b[k] as number);
+      if (d !== 0) return d;
+    }
+    return 0;
+  });
+}
+
+/**
+ * `PANEL_SETUP_TRACKS_AND_VIAS::TransferDataFromWindow` (`:290-345`): a row
+ * whose FIRST column is empty is dropped, and what survives is sorted.
+ *
+ * Both halves are unconditional. The Sort button is a convenience; OK sorts
+ * whether or not it was pressed, which is why a board file's lists are always
+ * in increasing order.
+ */
+export function normalizeSizeRows<T>(rows: readonly T[], keys: readonly (keyof T)[]): T[] {
+  const first = keys[0]!;
+  return sortSizeRows(
+    rows.filter((r) => (r[first] as number) > 0),
+    keys,
+  );
+}
+
+/**
+ * `PANEL_SETUP_TRACKS_AND_VIAS::Validate()` (`:376-433`), which is the page's
+ * own refusal and runs before anything is stored.
+ *
+ * The via half is `PCB_VIA::ValidateViaParameters` (`pcb_track.cpp:1769-1817`)
+ * with every layer argument `std::nullopt`, so five of its checks apply. A
+ * value of zero is this page's empty cell, which is upstream's "has no value"
+ * — so "no hole size defined" is a diameter with a zero drill beside it, not a
+ * separate rule.
+ *
+ * Returns the message and the cell to focus, or null.
+ */
+export function validateSizes(v: {
+  viaSizesMM: readonly ViaSize[];
+  diffPairsMM: readonly DiffPairSize[];
+}): { message: string; row: number; grid: string; col: string } | null {
+  for (const [row, via] of v.viaSizesMM.entries()) {
+    const dia = via.diameter > 0 ? via.diameter : undefined;
+    const drill = via.drill > 0 ? via.drill : undefined;
+
+    if (dia !== undefined && dia < GEOMETRY_MIN_SIZE_MM)
+      return { message: 'Via diameter is too small.', row, grid: 'Vias', col: 'diameter' };
+
+    if (drill !== undefined && drill < GEOMETRY_MIN_SIZE_MM)
+      return { message: 'Via drill is too small.', row, grid: 'Vias', col: 'drill' };
+
+    if (dia !== undefined && drill === undefined)
+      return { message: 'No via hole size defined.', row, grid: 'Vias', col: 'drill' };
+
+    if (drill !== undefined && dia === undefined)
+      return { message: 'No via diameter defined.', row, grid: 'Vias', col: 'diameter' };
+
+    if (dia !== undefined && drill !== undefined && dia <= drill)
+      return {
+        message: 'Via hole size must be smaller than via diameter',
+        row,
+        grid: 'Vias',
+        col: 'drill',
+      };
+  }
+
+  // "No differential pair gap defined." — a width with no gap. A via gap is
+  // optional and is not checked.
+  for (const [row, dp] of v.diffPairsMM.entries()) {
+    if (dp.width > 0 && !(dp.gap > 0))
+      return {
+        message: 'No differential pair gap defined.',
+        row,
+        grid: 'Differential Pairs',
+        col: 'gap',
+      };
+  }
+
+  return null;
+}
+
+/**
  * `PANEL_SETUP_CONSTRAINTS::TransferDataFromWindow` validates ten of the page's
  * fields with `UNIT_BINDER::Validate` and returns false on the FIRST failure,
  * before storing anything (`panel_setup_constraints.cpp:126-165`) — so a bad
@@ -138,6 +238,8 @@ import type {
 import { readBoardSetupProText } from '../project_settings.js';
 import { applyBoardFileSetup } from '../board_file_settings.js';
 import { DialogImportSettings, type ImportSettingsOpts } from './dialog_import_settings.js';
+import { pcbUnitTextMM, pcbUnitValueMM, unitLabel } from '../pcb_unit_binder.js';
+import type { StatusUnits } from '../../../ui/status_format.js';
 
 // The aggregate model lives in board_settings.ts (KiCad's data/UI split);
 // re-exported so dialog users keep importing from the dialog module.
@@ -171,14 +273,25 @@ type PageId =
 
 interface Props {
   value: BoardSetupValues;
+  /**
+   * The frame's display units. Board Setup's constraints are `UNIT_BINDER`s
+   * upstream like every other distance field; ours held them in millimetres and
+   * said so on the page.
+   */
+  units: StatusUnits;
   initialPage?: PageId;
   onOk: (next: BoardSetupValues) => void;
   onClose: () => void;
 }
 
-export function DialogBoardSetup({ value, initialPage, onOk, onClose }: Props): JSX.Element {
+export function DialogBoardSetup({ value, units, initialPage, onOk, onClose }: Props): JSX.Element {
   const [v, setV] = useState<BoardSetupValues>(() => structuredClone(value));
   const [importOpen, setImportOpen] = useState(false);
+  // `SetSelectionMode( wxGridSelectRows )` on the three Pre-defined Sizes
+  // grids: one selected row per grid, and it is what the remove button deletes.
+  const [sizeSel, setSizeSel] = useState<Record<string, number | null>>({});
+  // The one open cell editor, keyed grid|row|column. A wxGrid has exactly one.
+  const [cellEdit, setCellEdit] = useState<{ key: string; text: string } | null>(null);
 
   // DIALOG_BOARD_SETUP::onAuxiliaryAction: parse the other project's files
   // and copy the selected groups into the working values (each panel's
@@ -241,7 +354,17 @@ export function DialogBoardSetup({ value, initialPage, onOk, onClose }: Props): 
     setImportOpen(false);
   };
 
-  const num = (s: string): number => (Number.isFinite(Number(s)) ? Number(s) : 0);
+  /**
+   * `UNIT_BINDER::GetValue()` for a field the model holds in millimetres.
+   *
+   * Not `Number()`: the field shows the FRAME's unit, so on a mils board this
+   * read 5.906 as 5.906 millimetres. It also honours a trailing designator, so
+   * `0.15mm` typed into a mils field means 0.15 mm.
+   */
+  const num = (s: string): number => {
+    const mm = pcbUnitValueMM(s, units);
+    return Number.isFinite(mm) ? mm : 0;
+  };
 
   const setCon = (key: keyof BoardConstraints, value: number | boolean): void =>
     setV({ ...v, constraints: { ...v.constraints, [key]: value } });
@@ -258,10 +381,10 @@ export function DialogBoardSetup({ value, initialPage, onOk, onClose }: Props): 
       <input
         id={constraintFieldId(key)}
         className="ze-search"
-        value={v.constraints[key] as number}
+        value={pcbUnitTextMM(v.constraints[key] as number, units)}
         onChange={(e) => setCon(key, num(e.target.value))}
       />
-      <span className="unit">mm</span>
+      <span className="unit">{unitLabel(units)}</span>
     </div>
   );
 
@@ -321,10 +444,10 @@ export function DialogBoardSetup({ value, initialPage, onOk, onClose }: Props): 
           <span className="lbl">Maximum allowed deviation:</span>
           <input
             className="ze-search"
-            value={v.constraints.maxDeviationMM}
+            value={pcbUnitTextMM(v.constraints.maxDeviationMM, units)}
             onChange={(e) => setCon('maxDeviationMM', num(e.target.value))}
           />
-          <span className="unit">mm</span>
+          <span className="unit">{unitLabel(units)}</span>
         </div>
         {/* `KIUI::GetSmallInfoFont( this ).Italic()`
             (`panel_setup_constraints.cpp:74`) — the info font TWO points down,
@@ -382,9 +505,19 @@ export function DialogBoardSetup({ value, initialPage, onOk, onClose }: Props): 
     </div>
   );
 
-  // One pre-defined-size grid (Tracks / Vias / Differential Pairs). The grid area
-  // is a bordered spreadsheet that fills the column height (empty when no rows),
-  // with Add / Sort / Remove beneath, mirroring PANEL_SETUP_TRACKS_AND_VIAS.
+  /**
+   * One pre-defined-size grid (Tracks / Vias / Differential Pairs), and the
+   * three of them are the whole of `PANEL_SETUP_TRACKS_AND_VIAS`.
+   *
+   * A cell is a `WX_GRID` cell with `SetUnitsProvider( m_Frame )` and
+   * `SetAutoEvalCols`, so it holds TEXT, not a number: `SetUnitValue` writes
+   * `StringFromValue( iu, true )` — "0.5 mm" — and `GetUnitValue` parses it
+   * back. Two consequences the previous version got wrong. The cell shows its
+   * unit, and a zero is written as an EMPTY cell, because
+   * `AppendViaSize`/`AppendDiffPairs` only call `SetUnitValue` for a drill,
+   * gap or via gap that is `> 0` (`panel_setup_tracks_and_vias.cpp:446-472`) —
+   * that empty cell is what `<= 0 means use Netclass` looks like to the user.
+   */
   const sizeGrid = <T,>(
     title: string,
     cols: { label: string; key: keyof T }[],
@@ -392,12 +525,44 @@ export function DialogBoardSetup({ value, initialPage, onOk, onClose }: Props): 
     setRows: (next: T[]) => void,
     blank: T,
   ): JSX.Element => {
-    const sortKey = cols[0]!.key;
+    const sel = sizeSel[title] ?? null;
+    const setSel = (i: number | null): void => setSizeSel({ ...sizeSel, [title]: i });
+
+    // The cell the user is typing in. A wxGrid has exactly one open editor, and
+    // the value commits when it closes — which is why this holds TEXT: driving
+    // the model off every keystroke turns "0." into 0 and rewrites the field
+    // under the caret before the second digit arrives.
+    const cellKey = (i: number, key: keyof T): string => `${title}|${i}|${String(key)}`;
+    const shown = (i: number, key: keyof T): string => {
+      const k = cellKey(i, key);
+      if (cellEdit?.key === k) return cellEdit.text;
+      const mm = rows[i]?.[key] as number;
+      // `SetUnitValue` writes the unit INTO the cell, unlike a UNIT_BINDER,
+      // which puts it in a label beside the field.
+      return mm > 0 ? pcbUnitTextMM(mm, units, true) : '';
+    };
+    const commit = (i: number, key: keyof T, text: string): void => {
+      const arr = [...rows];
+      arr[i] = { ...arr[i]!, [key]: pcbUnitValueMM(text, units) };
+      setRows(arr);
+      setCellEdit(null);
+    };
+
     return (
       <div className="ze-sizes-col">
-        <div>{title}</div>
+        {/* [data] `bSizerTracks->Add( stTracksLabel, 0, wxALL, 5 )`. */}
+        <div className="ze-sizes-title">{title}</div>
         <div className="ze-grid-pane ze-sizes-pane">
           <table className="ze-grid">
+            {/* The columns are 120 wide and the grid WINDOW is wider; the
+                trailing filler is the empty grid area to their right, which a
+                wxGrid paints and a table otherwise would not. */}
+            <colgroup>
+              {cols.map((c) => (
+                <col key={String(c.key)} className="ze-sizes-col-w" />
+              ))}
+              <col />
+            </colgroup>
             <thead>
               <tr>
                 {cols.map((c) => (
@@ -405,49 +570,98 @@ export function DialogBoardSetup({ value, initialPage, onOk, onClose }: Props): 
                     {c.label}
                   </th>
                 ))}
+                <th className="ze-sticky-head" />
               </tr>
             </thead>
             <tbody>
               {rows.map((r, i) => (
-                <tr key={i}>
+                // `SetSelectionMode( wxGridSelectRows )` on all three grids
+                // (`panel_setup_tracks_and_vias.cpp:88-90`): the unit of
+                // selection is a ROW, which is what the remove button deletes.
+                <tr
+                  key={i}
+                  className={i === sel ? 'selected' : undefined}
+                  onFocusCapture={() => setSel(i)}
+                  onMouseDown={() => setSel(i)}
+                >
                   {cols.map((c) => (
                     <td key={String(c.key)}>
                       <input
                         type="text"
-                        value={String(r[c.key])}
-                        onChange={(e) => {
-                          const arr = [...rows];
-                          arr[i] = { ...arr[i]!, [c.key]: num(e.target.value) };
-                          setRows(arr);
+                        id={sizeCellId(title, i, String(c.key))}
+                        value={shown(i, c.key)}
+                        onFocus={() =>
+                          setCellEdit({ key: cellKey(i, c.key), text: shown(i, c.key) })
+                        }
+                        onChange={(e) =>
+                          setCellEdit({ key: cellKey(i, c.key), text: e.target.value })
+                        }
+                        onBlur={(e) => commit(i, c.key, e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') commit(i, c.key, e.currentTarget.value);
                         }}
                       />
                     </td>
                   ))}
+                  <td />
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
         <div className="ze-grid-btns">
-          <button className="ze-gridbtn" title="Add" onClick={() => setRows([...rows, blank])}>
+          {/* `OnAddRow` appends a row of ZEROS — `AppendTrackWidth( 0 )`,
+              `AppendViaSize( 0, 0 )`, `AppendDiffPairs( 0, 0, 0 )` — and puts
+              the cursor in its first column. It does not invent a size. */}
+          <button
+            className="ze-gridbtn ze-gridbtn-add"
+            title="Add"
+            onClick={() => {
+              setRows([...rows, blank]);
+              setSel(rows.length);
+              setCellEdit(null);
+              const first = cols[0]!.key;
+              window.setTimeout(
+                () =>
+                  document.getElementById(sizeCellId(title, rows.length, String(first)))?.focus(),
+                0,
+              );
+            }}
+          >
             <Icon name="plus" />
           </button>
+          {/* `std::sort` over the whole struct — `VIA_DIMENSION::operator<`
+              compares diameter then drill, `DIFF_PAIR_DIMENSION::operator<`
+              width then gap then via gap (`board_design_settings.h:144`,
+              `:187`). Sorting on the first column alone left two rows of the
+              same diameter in whatever order they were typed. The button is
+              not disabled: upstream's handler returns early under two rows. */}
           <button
-            className="ze-gridbtn"
+            className="ze-gridbtn ze-gridbtn-sort"
             title="Sort ascending"
-            disabled={rows.length < 2}
             onClick={() =>
-              setRows([...rows].sort((a, b) => Number(a[sortKey]) - Number(b[sortKey])))
+              setRows(
+                sortSizeRows(
+                  rows,
+                  cols.map((c) => c.key),
+                ),
+              )
             }
           >
             <Icon name="arrowDown" />
           </button>
-          <span className="ze-gridbtn-gap" />
+          {/* `WX_GRID::OnDeleteRows` deletes the SELECTED rows. This deleted
+              the last row of the grid whatever was selected. */}
           <button
-            className="ze-gridbtn"
+            className="ze-gridbtn ze-gridbtn-remove"
             title="Remove"
-            disabled={rows.length === 0}
-            onClick={() => setRows(rows.slice(0, -1))}
+            disabled={sel === null}
+            onClick={() => {
+              if (sel === null) return;
+              setRows(rows.filter((_, j) => j !== sel));
+              setSel(rows.length - 1 > sel ? sel : sel - 1 >= 0 ? sel - 1 : null);
+              setCellEdit(null);
+            }}
           >
             <Icon name="delete" />
           </button>
@@ -457,34 +671,40 @@ export function DialogBoardSetup({ value, initialPage, onOk, onClose }: Props): 
   };
 
   const sizesPanel = (): JSX.Element => (
+    // `bMainSizer`, horizontal: three columns at proportion 1
+    // (`panel_setup_tracks_and_vias_base.cpp:71`, `:130`, `:198`), so they
+    // split the page in thirds whatever their grids need.
     <div className="ze-sizes-cols">
+      {/* [data] the column labels, which carry no unit: `SetColLabelValue( 0,
+          _("Width") )` and friends (`_base.cpp:41`, `:96-97`, `:165-167`).
+          These read "Width (mm)" — the unit is in the CELL, not the header. */}
       {sizeGrid<{ width: number }>(
         'Tracks',
-        [{ label: 'Width (mm)', key: 'width' }],
+        [{ label: 'Width', key: 'width' }],
         v.trackWidthsMM.map((width) => ({ width })),
         (rows) => setV({ ...v, trackWidthsMM: rows.map((r) => r.width) }),
-        { width: 0.2 },
+        { width: 0 },
       )}
       {sizeGrid<ViaSize>(
         'Vias',
         [
-          { label: 'Diameter (mm)', key: 'diameter' },
-          { label: 'Hole (mm)', key: 'drill' },
+          { label: 'Diameter', key: 'diameter' },
+          { label: 'Hole', key: 'drill' },
         ],
         v.viaSizesMM,
         (rows) => setV({ ...v, viaSizesMM: rows }),
-        { diameter: 0.6, drill: 0.3 },
+        { diameter: 0, drill: 0 },
       )}
       {sizeGrid<DiffPairSize>(
         'Differential Pairs',
         [
-          { label: 'Width (mm)', key: 'width' },
-          { label: 'Gap (mm)', key: 'gap' },
-          { label: 'Via Gap (mm)', key: 'viaGap' },
+          { label: 'Width', key: 'width' },
+          { label: 'Gap', key: 'gap' },
+          { label: 'Via Gap', key: 'viaGap' },
         ],
         v.diffPairsMM,
         (rows) => setV({ ...v, diffPairsMM: rows }),
-        { width: 0.2, gap: 0.2, viaGap: 0.25 },
+        { width: 0, gap: 0, viaGap: 0 },
       )}
     </div>
   );
@@ -707,16 +927,28 @@ export function DialogBoardSetup({ value, initialPage, onOk, onClose }: Props): 
         // `PANEL_SETUP_LAYERS::TransferDataFromWindow` runs `testLayerNames()`
         // first and returns false on a bad name, which keeps the dialog open
         // and leaves PAGED_DIALOG showing the message (`panel_setup_layers.cpp:975`).
+        // Each page's `Validate()` / `TransferDataFromWindow` in TREE order,
+        // which is the order `DIALOG_SHIM::TransferDataFromWindow` walks the
+        // book: Board Editor Layers, then Constraints, then Pre-defined Sizes.
+        // Which message the user sees first is that order.
         onOk={() => {
-          const outOfRange = validateConstraints(v.constraints);
-          if (outOfRange) return outOfRange;
-
           const bad = testLayerNames(v.layers);
           if (bad)
             return {
               message: bad.message,
               page: 'layers',
               focusId: layerNameInputId(bad.layerId),
+            };
+
+          const outOfRange = validateConstraints(v.constraints);
+          if (outOfRange) return outOfRange;
+
+          const badSize = validateSizes(v);
+          if (badSize)
+            return {
+              message: badSize.message,
+              page: 'sizes',
+              focusId: sizeCellId(badSize.grid, badSize.row, badSize.col),
             };
           // `TransferDataFromWindow` clamps m_MaxError on the way out
           // (`panel_setup_constraints.cpp:161-165`); it is the one value on
@@ -727,6 +959,14 @@ export function DialogBoardSetup({ value, initialPage, onOk, onClose }: Props): 
               ...v.constraints,
               maxDeviationMM: clampMaxErrorMM(v.constraints.maxDeviationMM),
             },
+            // `TransferDataFromWindow` drops the empty rows and sorts what is
+            // left, every time — not only when the Sort button was pressed.
+            trackWidthsMM: normalizeSizeRows(
+              v.trackWidthsMM.map((width) => ({ width })),
+              ['width'],
+            ).map((r) => r.width),
+            viaSizesMM: normalizeSizeRows(v.viaSizesMM, ['diameter', 'drill']),
+            diffPairsMM: normalizeSizeRows(v.diffPairsMM, ['width', 'gap', 'viaGap']),
           });
         }}
         onCancel={onClose}

@@ -45,3 +45,27 @@ export function pcbUnitText(iu: number, units: StatusUnits): string {
 export function pcbUnitValue(text: string, units: StatusUnits): number {
   return pcbMmToIU(parseUnitValue(text, units, pcbIUScale));
 }
+
+/**
+ * The same binder for a field whose MODEL is millimetres rather than IU.
+ *
+ * Board Setup keeps its constraints that way — `maxDeviationMM` and the rest of
+ * `BoardConstraints` — because the `.kicad_pro` stores them in mm, so there is
+ * no IU to convert from. The display and the parse still belong to the frame's
+ * units, and the board's scale still decides the digit count, which is why
+ * these are here rather than calling `ui/unit_binder.ts` with a default scale.
+ *
+ * `addUnits` is off by default because a `UNIT_BINDER` puts the unit in its own
+ * `wxStaticText` beside the field, not inside it. A `WX_GRID` cell is the other
+ * case: `SetUnitValue` writes `StringFromValue( …, true )` into the cell, which
+ * is why Board Setup's Pre-defined Sizes grids read "0.5 mm" and its
+ * Constraints fields read "0.5" with a label after them.
+ */
+export function pcbUnitTextMM(mm: number, units: StatusUnits, addUnits = false): string {
+  return stringFromValue(mm, units, addUnits, pcbIUScale);
+}
+
+/** The mm-valued half of `UNIT_BINDER::GetValue()`. */
+export function pcbUnitValueMM(text: string, units: StatusUnits): number {
+  return parseUnitValue(text, units, pcbIUScale);
+}

@@ -107,9 +107,19 @@ describe('the layout is the stylesheet’s, not twenty inline styles', () => {
     expect(grid).toMatch(/width:\s*max-content/);
   });
 
-  it('puts Border and Separators side by side, as the grid-bag sizer does', () => {
-    const groups = /\.ze-tableprops-groups\s*\{([^}]*)\}/.exec(CSS)?.[1] ?? '';
-    expect(groups).toMatch(/display:\s*flex/);
+  it('is two COLUMNS — the cell grid and the properties — as bColumns is', () => {
+    // `bColumns` is a `wxBoxSizer( wxHORIZONTAL )` holding `m_gridSizer` and
+    // then `bPropertiesSizer`, with a 15 px spacer item between them
+    // (`dialog_table_properties_base.cpp:30-134`). This test used to assert the
+    // opposite — that Border and Separators sat side by side inside a stacked
+    // body — which was the invented layout, not the file's.
+    const body = /\.ze-tableprops-body\s*\{([^}]*)\}/.exec(CSS)?.[1] ?? '';
+    expect(body).toMatch(/display:\s*flex/);
+    expect(body).toMatch(/gap:\s*15px/);
+    // And no group box: `bPropertiesSizer` is a plain gridbag, so the "Border"
+    // and "Separators" legends this dialog wore were ours.
+    expect(SHARED).not.toContain('<fieldset');
+    expect(SHARED).not.toContain('<legend');
   });
 });
 

@@ -106,9 +106,12 @@ describe('one (font …) builder, as upstream has one EDA_TEXT::Format', () => {
       bold: true,
       italic: true,
     });
-    const words = node.items.map((n) =>
-      n.kind === 'atom' ? n.value : n.items[0]?.kind === 'atom' ? n.items[0].value : '?',
-    );
+    const words = node.items.map((n) => {
+      if (n.kind === 'atom') return n.value;
+      if (n.kind !== 'list') return '?';
+      const head = n.items[0];
+      return head?.kind === 'atom' ? head.value : '?';
+    });
     expect(words).toEqual(['font', 'face', 'size', 'thickness', 'bold', 'italic']);
   });
 

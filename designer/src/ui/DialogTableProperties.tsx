@@ -214,28 +214,25 @@ export function DialogTableProperties<T extends SharedTableValues>({
   );
 
   /**
-   * One group of line controls, laid out as the grid-bag sizer lays them out:
-   * the two checkboxes share a row, then Width and Color share the next, then
-   * Style. Stacking each control on its own row makes the dialog taller than it
-   * has any need to be.
+   * One run of line controls, as `bPropertiesSizer` places them: the two
+   * checkboxes on one row, then Width, then Style. There is no group box —
+   * upstream has none, and the two legends this dialog carried were invented.
    */
-  const lineGroup = (
-    legend: string,
+  const lineRows = (
     boxes: JSX.Element,
     widthKey: WidthKey,
     colorKey: ColorKey,
     styleKey: StyleKey,
     enabled: boolean,
   ): JSX.Element => (
-    <fieldset className="ze-tableprops-group">
-      <legend>{legend}</legend>
+    <>
       <div className="ze-tableprops-boxes">{boxes}</div>
       <div className="ze-tableprops-line">
         {widthField(widthKey, enabled)}
         {renderColor?.(colorKey, enabled, v, set)}
       </div>
       <div className="ze-tableprops-line">{styleField(styleKey, enabled)}</div>
-    </fieldset>
+    </>
   );
 
   return (
@@ -251,15 +248,18 @@ export function DialogTableProperties<T extends SharedTableValues>({
           </span>
         </div>
 
+        {/* `bColumns`, which is HORIZONTAL: the cell grid on the left and every
+            property on the right. This dialog stacked them, which is why it
+            needed container gaps to hold the stack apart — the six literals the
+            central-value ratchet was still carrying for it. */}
         <div className="ze-label-dialog-body ze-tableprops-body">
-          {header?.(v, set)}
-
-          {/* `minWidth: 0` on both the fieldset and the scroller: without it a
-              flex child is sized by its content, the scroll box grows to the
-              full width of the grid, and the overflow escapes to the dialog
-              instead of scrolling inside. */}
-          <fieldset className="ze-tableprops-cells">
-            <legend>Cell contents</legend>
+          {/* `m_gridSizer`, `SetMinSize( wxSize( 600,400 ) )`, proportion 1.
+              `minWidth: 0` on both this and the scroller: without it a flex
+              child is sized by its content, the scroll box grows to the full
+              width of the grid, and the overflow escapes to the dialog instead
+              of scrolling inside. */}
+          <div className="ze-tableprops-cells">
+            <span className="ze-tableprops-cellslabel">Cell contents:</span>
             {/* The one scroller in the dialog, in both directions.
                 `width: max-content` is what makes that work: a table told to be
                 100% wide never overflows, it just divides the dialog between
@@ -288,13 +288,14 @@ export function DialogTableProperties<T extends SharedTableValues>({
                 </tbody>
               </table>
             </div>
-          </fieldset>
+          </div>
 
-          {/* Border and Separators side by side: upstream lays both groups out
-              in one grid-bag sizer, four rows tall, not two stacked panels. */}
-          <div className="ze-tableprops-groups">
-            {lineGroup(
-              'Border',
+          {/* `bPropertiesSizer`, one `wxGridBagSizer( 3, 3 )` holding the layer
+              row, Locked, and both runs of line controls in sequence — not two
+              panels side by side, and not a group box in sight. */}
+          <div className="ze-tableprops-props">
+            {header?.(v, set)}
+            {lineRows(
               <>
                 {checkbox('External border', 'borderExternal')}
                 {checkbox('Header border', 'borderHeader')}
@@ -304,8 +305,11 @@ export function DialogTableProperties<T extends SharedTableValues>({
               'borderStyle',
               borderOn,
             )}
-            {lineGroup(
-              'Separators',
+            {/* `bPropertiesSizer->Add( 0, 15, wxGBPosition( 6, 0 ), … )` — the
+                one gap between the two runs, and it is a spacer ITEM rather
+                than a sizer gap. */}
+            <div className="ze-tableprops-rungap" />
+            {lineRows(
               <>
                 {checkbox('Row lines', 'separatorRows')}
                 {checkbox('Column lines', 'separatorCols')}

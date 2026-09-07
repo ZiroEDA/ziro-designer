@@ -11019,52 +11019,45 @@ textarea.ze-ds-textedit {
 }
 
 /* Table Properties, shared by both editors (`ui/DialogTableProperties.tsx`).
+   Counterparts: `pcbnew/dialogs/dialog_table_properties_base.cpp` and
+   eeschema's, which differ only in the layer row pcbnew adds at the top.
 
-   The inline `style={{ … }}` objects this dialog used to carry are here now:
-   a rule in the stylesheet is a rule the central-values scan can see, and
-   twenty inline widths are twenty literals nothing was checking. */
+   `bColumns` is HORIZONTAL — the cell grid on the left, every property on the
+   right — and `bPropertiesSizer` is one `wxGridBagSizer( 3, 3 )` with NO group
+   boxes. This stacked the two and wore a "Border" and a "Separators" legend,
+   which is why it needed six container gaps to hold the stack apart; those were
+   the last six literals on the `ui` row of the central-value ratchet.
+
+   The inline `style={{ … }}` objects this dialog used to carry are here too: a
+   rule in the stylesheet is a rule that scan can see. */
 .ze-tableprops-body {
   display: flex;
-  flex-direction: column;
-  gap: 10px;
   min-height: 0;
+  /* [data] `bColumns->Add( 15, 0, 0, wxEXPAND, 5 )` — the spacer BETWEEN the
+     two columns, which is an item in the sizer rather than a gap of its own. */
+  gap: 15px;
+  /* [data] `bMainSizer->Add( bColumns, 1, wxEXPAND|wxLEFT, 10 )`. */
+  margin-left: 10px;
   /* The body itself never scrolls; the cell grid does. */
   overflow: hidden;
 }
-/* The board's own Layer + Locked row; a schematic table has neither. */
-.ze-tableprops-header {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-}
-/* One label-and-control pair. `flex: 0 0 auto` keeps a control at its natural
-   size — a wx sizer never shrinks one below that. */
-.ze-tableprops-field {
-  flex: 0 0 auto;
-}
-.ze-tableprops-lbl {
-  width: 44px;
-}
-.ze-tableprops-boxlbl {
-  width: auto;
-}
-.ze-tableprops-width {
-  width: 76px;
-}
-.ze-tableprops-unit {
-  width: auto;
-}
-.ze-tableprops-style {
-  width: 170px;
-}
-/* `minWidth: 0` on both the fieldset and the scroller: without it a flex child
-   is sized by its content, the scroll box grows to the full width of the grid,
-   and the overflow escapes to the dialog instead of scrolling inside. */
+/* `m_gridSizer`, `SetMinSize( wxSize( 600,400 ) )`, proportion 1 — so the grid
+   takes the width the properties column does not.
+   [data] its `wxEXPAND|wxTOP|wxRIGHT, 5`. */
 .ze-tableprops-cells {
   display: flex;
   flex-direction: column;
-  min-height: 0;
+  flex: 1 1 auto;
   min-width: 0;
+  min-height: 0;
+  /* [data] that Add()'s `wxTOP|wxRIGHT, 5` — two sides, which is what the flags
+     say. */
+  margin: 5px 5px 0 0;
+}
+/* [data] `m_gridSizer->Add( cellContentsLabel, 0, wxTOP|wxBOTTOM, 3 )`. */
+.ze-tableprops-cellslabel {
+  /* [data] that Add()'s `wxTOP|wxBOTTOM, 3`. */
+  margin: 3px 0;
 }
 .ze-tableprops-scroll {
   overflow: auto;
@@ -11081,27 +11074,72 @@ textarea.ze-ds-textedit {
 .ze-tableprops-grid input {
   box-sizing: border-box;
 }
-/* Border and Separators side by side: upstream lays both groups out in one
-   grid-bag sizer, four rows tall, not two stacked panels. */
-.ze-tableprops-groups {
+/* `bPropertiesSizer = new wxGridBagSizer( 3, 3 )`, `AddGrowableCol( 1 )`, added
+   `wxEXPAND|wxALL, 10`. Three columns; the rows are the layer row, Locked, and
+   the two runs of line controls.
+
+   Ours places its rows in source order rather than by `wxGBPosition`, because
+   unlike the text dialogs every item here fills its row: there is no second
+   half to align against, so a row IS the placement. */
+.ze-tableprops-props {
   display: flex;
-  gap: 12px;
-  align-items: flex-start;
+  flex-direction: column;
+  gap: 3px; /* [data] `wxGridBagSizer( 3, 3 )` — vgap 3. */
+  margin: 10px; /* [data] that Add()'s `wxALL, 10`. */
+  flex: 0 0 auto;
 }
-.ze-tableprops-group {
-  flex: 1 1 0;
-  min-width: 0;
+/* One label-and-control pair. `flex: 0 0 auto` keeps a control at its natural
+   size — a wx sizer never shrinks one below that. */
+.ze-tableprops-field {
+  flex: 0 0 auto;
 }
+.ze-tableprops-lbl {
+  width: 44px;
+}
+.ze-tableprops-boxlbl {
+  width: auto;
+}
+.ze-tableprops-width {
+  width: 76px;
+}
+.ze-tableprops-style {
+  /* [data] `m_borderStyleCombo->SetMinSize( wxSize( 200,-1 ) )`, and the
+     separators combo states the same 200. */
+  min-width: 200px;
+}
+/* `( 0, 0 )` and `( 0, 1 )`: the layer row pcbnew adds and eeschema does not.
+   [data] `m_LayerSelectionCtrl->SetMinSize( wxSize( 175,-1 ) )`. */
+.ze-tableprops-header {
+  display: flex;
+  align-items: center;
+  gap: 3px; /* [data] the same `wxGridBagSizer( 3, 3 )` hgap. */
+}
+.ze-tableprops-header .ze-combo {
+  min-width: 175px;
+}
+/* `( 2, 0 )` and `( 2, 2 )`, and `( 7, 0 )` and `( 7, 2 )`: two checkboxes on
+   one row, the second inset.
+   [data] `m_headerBorder`'s `wxLEFT, 20` and `m_colSeparators`' `wxRIGHT|wxLEFT, 20`. */
 .ze-tableprops-boxes {
   display: flex;
-  gap: 24px;
-  flex-wrap: wrap;
+  align-items: center;
 }
+.ze-tableprops-boxes > :nth-child(2) {
+  /* [data] `m_headerBorder`'s `wxLEFT, 20`, and `m_colSeparators`' 20. */
+  margin-left: 20px;
+}
+/* The Width and Style rows, `( 4, … )` `( 5, … )` `( 9, … )` `( 10, … )`. The
+   3 is the gridbag's own hgap; nothing else separates a label from its
+   control. */
 .ze-tableprops-line {
   display: flex;
-  gap: 20px;
-  flex-wrap: wrap;
-  margin-top: 6px;
+  align-items: center;
+  gap: 3px; /* [data] `wxGridBagSizer( 3, 3 )` — hgap 3. */
+}
+/* `bPropertiesSizer->Add( 0, 15, wxGBPosition( 6, 0 ), … )`: the one gap
+   between the border run and the separators run, and it is a spacer ITEM. */
+.ze-tableprops-rungap {
+  height: 15px; /* [data] that Add()'s own 0 x 15. */
 }
 
 /* Text Box Properties (pcbnew/dialogs/dialog_textbox_properties_base.cpp).

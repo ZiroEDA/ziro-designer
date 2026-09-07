@@ -219,7 +219,12 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // `DialogTextProperties` for both paths now, and the four colours and six
   // metrics went with the div. Every literal that replaced them is a cited
   // `Add()` border in `.ze-txt-*`.
-  'editors/pcb': { colours: 46, metrics: 207 },
+  //
+  // 207 -> 206. Board Setup > Pre-defined Sizes stopped inventing a size for
+  // the row its Add button appends: `AppendTrackWidth( 0 )` appends ZEROS
+  // (`panel_setup_tracks_and_vias.cpp:459-472`), and ours seeded 0.2 / 0.6 /
+  // 0.3 / 0.2 / 0.2 / 0.25 mm. Those were the last bare numbers in that page.
+  'editors/pcb': { colours: 46, metrics: 206 },
   // At zero, and listed rather than absent: `prefs/` is the settings store, and
   // the one literal it had - the 3D viewer's `rgb(0,255,0)` selection colour -
   // is `PARAM<COLOR4D>( "render.opengl_selection_color", …, COLOR4D( 0, 1, 0, 1 ) )`
@@ -593,7 +598,15 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // `wxGridBagSizer( 3, 3 )` of properties. Ours is a vertical stack with
   // container gaps, so the fix is that dialog rebuilt against its base file,
   // the way the two text dialogs were, not a number changed here.
-  ui: { colours: 204, metrics: 714 },
+  // 714 -> 706, and the sixteen are done. The last six were all one dialog:
+  // Table Properties, whose `bColumns` is HORIZONTAL — a
+  // `SetMinSize( wxSize( 600,400 ) )` cell grid, a 15 px spacer ITEM, then one
+  // `wxGridBagSizer( 3, 3 )` of properties with no group box in it. Ours
+  // stacked the two and wore a "Border" and a "Separators" legend, and those
+  // container gaps were what held the stack apart. Rebuilt against the base
+  // file the way the two text dialogs were; eight went, because the two
+  // fieldsets took their own padding with them.
+  ui: { colours: 204, metrics: 706 },
   // colours 6 -> 7: the opacity slider's #55585d track arrived here with
   // APPEARANCE_CONTROLS; it is the same literal `editors/pcb` lost, not a new
   // one. The panel's own stylesheet adds none: every length in
@@ -1141,7 +1154,10 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // moves, and the six are its border radius, its padding, and the four
     // margins the buttons and the layer line carried inline.
     // 1314 -> 1310: the four above; `ui` is the only row that moves.
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1310);
+    // 1310 -> 1309: the Pre-defined Sizes blank row, in `editors/pcb`.
+    // 1310 -> 1301: the Table Properties rebuild takes `ui` 714 -> 706, and the
+    // row table sums to 1301 with it.
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1301);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {
