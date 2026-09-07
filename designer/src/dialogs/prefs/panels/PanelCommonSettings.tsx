@@ -85,11 +85,29 @@ export function PanelCommonSettings({ ctx }: { ctx: PrefsContext }): JSX.Element
               control over nothing, in a place KiCad has no control at all.
               `appearance.use_icons_in_menus` itself stays: upstream keeps the
               setting and only hides its widget. */}
-          {/* Dead: no canvas in this port draws the scrollbars
-              `EDA_DRAW_PANEL_GAL` puts around its viewport, so nothing reads
-              `appearance.show_scrollbars`. The tooltip is upstream's own and
-              nothing else — a disabled control explains itself in the code,
-              not in a tip KiCad does not have. */}
+          {/* Dead: no canvas here draws the scrollbars `EDA_DRAW_PANEL_GAL`
+              puts around its viewport, so nothing reads
+              `appearance.show_scrollbars`. Two things a future attempt needs,
+              because neither is obvious:
+
+              `ShowScrollbars( wxSHOW_SB_ALWAYS, wxSHOW_SB_ALWAYS )`
+              (`draw_panel_gal.cpp:97`) is the CLASSIC GTK scrollbar, not the
+              overlay indicator `ui/overlay_scrollbars.ts` already draws — a
+              GtkScrolledWindow leaves overlay mode at the ALWAYS policy, so
+              these take layout space at the right and bottom of the canvas.
+
+              And they are sized against `VIEW::GetBoundary()`, not the
+              document: pcbnew, eeschema and GerbView all leave it at VIEW's
+              default of the whole int range (`view.cpp:252-260`), so their
+              thumbs are a hairline — the symbol editor sets 600 mm square
+              (`symbol_edit_frame.cpp:270-276`) and pl_editor twice the page
+              (`pl_draw_panel_gal.cpp:118-125`), each with a comment saying the
+              default makes the bars unusable. `WX_VIEW_CONTROLS::UpdateScrollbars`
+              (`wx_view_controls.cpp:1165-1199`) is the position/range mapping.
+
+              The tooltip is upstream's own and nothing else — a disabled
+              control explains itself in the code, not in a tip KiCad does not
+              have. */}
           <Check
             label="Show scrollbars in editors"
             title="This change takes effect when relaunching the editor."
@@ -148,9 +166,14 @@ export function PanelCommonSettings({ ctx }: { ctx: PrefsContext }): JSX.Element
             label="Icon theme:"
             name="pref-icon-theme"
             value={common.appearance.icon_theme}
-            /* Dead: every icon in this app is one SVG taking `currentColor`,
-               so there is no light set and no dark set to choose between and
-               nothing reads `appearance.icon_theme`. */
+            /* Dead, and the only row on this page that is not merely
+               unfinished. `BITMAP_STORE::ThemeChanged` (`bitmap_store.cpp:344-360`)
+               switches between two ICON SETS KiCad ships; ours is one
+               monochrome SVG set drawn in `currentColor`, so there is nothing
+               to switch to. Recolouring the set we have would be our invention
+               rather than KiCad's artwork, and `currentColor` already gives
+               AUTO's behaviour for free. Building it means drawing a second
+               set. */
             disabled
             options={[
               ['light', 'Light', 'Use icons designed for light window backgrounds'],
@@ -274,7 +297,15 @@ export function PanelCommonSettings({ ctx }: { ctx: PrefsContext }): JSX.Element
           {/* Dead: `input.immediate_actions` is named in three comments in the
               schematic editor and read by none of them. Every hotkey here acts
               at once, which is what the setting's default asks for -- but the
-              other answer is not implemented, so the box cannot offer it. */}
+              other answer is not implemented, so the box cannot offer it.
+
+              What it gates upstream is `TOOL_MANAGER::PrimeTool`: a drawing
+              tool activated by a hotkey with no position synthesises a click so
+              the item attaches to the cursor at once, and with the box ticked
+              it waits for a real click instead
+              (`sch_drawing_tools.cpp:305-308` and six more like it). So this is
+              a change to how every drawing tool STARTS, in each editor that has
+              one -- not a flag one module can read. */}
           <Check
             label="First hotkey selects tool"
             title="If not checked, hotkeys will immediately perform an action even if the relevant tool was not previously selected."
