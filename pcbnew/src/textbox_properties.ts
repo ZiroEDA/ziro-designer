@@ -30,6 +30,7 @@
 import { atom, str, type SList, type SNode } from '@ziroeda/sexpr/src/index.js';
 import { dropChild, mm, parseBoardItemId, patchChild } from './edit-board.js';
 import type { Board, PcbTextBox, StrokeType } from './types.js';
+import { fontNode } from './eda_text_format.js';
 
 const list = (...items: SNode[]): SList => ({ kind: 'list', items });
 
@@ -39,6 +40,8 @@ export type VertJustify = 'top' | 'center' | 'bottom';
 /** Every control on the dialog, flattened. */
 export interface TextBoxValues {
   text: string;
+  /** `(font (face "…"))`; '' is "Default Font", the stroke font. */
+  face: string;
   layer: string;
   locked: boolean;
   width: number;
@@ -107,6 +110,7 @@ export function collectTextBoxValues(t: PcbTextBox): TextBoxValues {
   const j = splitJustify(t.justify);
   return {
     text: t.text,
+    face: t.face ?? '',
     layer: t.layer,
     locked: t.locked ?? false,
     width: t.size.x,
@@ -141,6 +145,7 @@ export function applyTextBoxValues(board: Board, index: number, v: TextBoxValues
   const next: PcbTextBox = {
     ...t,
     text: v.text,
+    face: v.face || undefined,
     layer: v.layer,
     locked: v.locked,
     size: { x: v.width, y: v.height },
@@ -200,11 +205,8 @@ function patchTextBoxSource(t: PcbTextBox, src: SList): SList {
     ),
   );
 
-  const font: SNode[] = [atom('font'), list(atom('size'), atom(mm(t.size.y)), atom(mm(t.size.x)))];
-  if (t.thickness !== undefined) font.push(list(atom('thickness'), atom(mm(t.thickness))));
-  if (t.bold) font.push(list(atom('bold'), atom('yes')));
-  if (t.italic) font.push(list(atom('italic'), atom('yes')));
-  const effects: SNode[] = [atom('effects'), { kind: 'list', items: font }];
+  const font = fontNode(t);
+  const effects: SNode[] = [atom('effects'), font];
   if (t.justify && t.justify.length > 0)
     effects.push({ kind: 'list', items: [atom('justify'), ...t.justify.map((j) => atom(j))] });
   out = patchChild(out, 'effects', { kind: 'list', items: effects });

@@ -56,10 +56,8 @@
  * `:233`) — are what propagate up through the gridbag to `Fit( this )`. They
  * live in `.ze-tbp-layer` / `.ze-tbp-borderstyle`.
  *
- * Left out: `m_fontCtrl`, because nothing on the pcbnew side carries a font —
- * neither `PcbTextItem` nor `PcbTextBox` has a face, so the control would edit
- * nothing; the auto-thickness button (`m_autoTextThickness`), which needs font
- * metrics we do not have; and KiCad's Scintilla text control with its
+ * Left out: the auto-thickness button (`m_autoTextThickness`), which needs font
+ * metrics we do not have, and KiCad's Scintilla text control with its
  * text-variable auto-complete.
  */
 
@@ -72,7 +70,7 @@ import type { StrokeType } from '@ziroeda/pcbnew/src/types.js';
 import { LINE_STYLE_NAMES } from '@ziroeda/common/src/stroke_params.js';
 import { Combo } from '../../../ui/Combo.js';
 import { StdDialogButtons } from '../../../ui/StdDialogButtons.js';
-import { TextFormatBar, type HAlign, type VAlign } from '../../../ui/TextFormatBar.js';
+import { FontChoice, TextFormatBar, type HAlign, type VAlign } from '../../../ui/TextFormatBar.js';
 import { useModalEscape } from '../../../ui/useModalEscape.js';
 
 type MmKey = 'width' | 'height' | 'thickness' | 'borderWidth';
@@ -230,11 +228,12 @@ export function DialogTextBoxProperties({
               options={ORIENTATIONS.map((o) => ({ value: o.toFixed(1), label: o.toFixed(1) }))}
             />
 
-            {/* `( 3, 4 )`. KiCad's row is `Font: [FONT_CHOICE] | bar |`; the
-                combo is absent because *nothing on the pcbnew side carries a
-                font* — `PcbTextBox` has no face, so a FONT_CHOICE here would be
-                a control that changes nothing. The bar keeps KiCad's position
-                rather than sliding left into the empty half. */}
+            {/* `m_fontLabel` at `( 3, 0 )` and `m_fontCtrl` at `( 3, 1 )`
+                spanning three, then the bar at `( 3, 4 )`. */}
+            <span className="ze-tbp-lbl ze-tbp-font-lbl">Font:</span>
+            <div className="ze-tbp-font">
+              <FontChoice face={v.face} onChange={(face) => set({ face })} />
+            </div>
             <div className="ze-tbp-bar">
               <TextFormatBar
                 bold={v.bold}

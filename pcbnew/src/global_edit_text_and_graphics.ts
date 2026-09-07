@@ -96,6 +96,7 @@ import type {
   PcbTextItem,
 } from './types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
+import { fontNode } from './eda_text_format.js';
 
 // ---------------------------------------------------------------------------
 // Layer classes — BOARD_DESIGN_SETTINGS::GetLayerClass
@@ -631,14 +632,11 @@ function patchTextEffects(
   src: SList,
   t: { size: Vec2; thickness?: number; bold?: boolean; italic?: boolean },
 ): SList {
-  const font: SNode[] = [atom('font'), list(atom('size'), atom(mm(t.size.y)), atom(mm(t.size.x)))];
-  if ((t.thickness ?? 0) !== 0) font.push(list(atom('thickness'), atom(mm(t.thickness!))));
-  if (t.bold) font.push(list(atom('bold'), atom('yes')));
-  if (t.italic) font.push(list(atom('italic'), atom('yes')));
+  const font = fontNode(t);
 
   return patchInChild(src, 'effects', (prev) => {
     const justify = prev.items.find((it) => isList(it) && head(it) === 'justify');
-    const items: SNode[] = [atom('effects'), { kind: 'list', items: font }];
+    const items: SNode[] = [atom('effects'), font];
     if (justify) items.push(justify);
     return { kind: 'list', items };
   });

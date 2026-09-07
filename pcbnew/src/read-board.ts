@@ -408,6 +408,7 @@ function readTextBox(item: SList): PcbTextBox | null {
     angle,
     layer: stringField(item, 'layer') ?? '',
     uuid: uuidOf(item),
+    face: fx.face,
     size: fx.size,
     thickness: fx.thickness,
     bold: fx.bold,
@@ -679,6 +680,7 @@ export function arcCenter(a: Vec2, b: Vec2, c: Vec2): Vec2 | null {
 }
 
 function readTextEffects(item: SList): {
+  face?: string;
   size: Vec2;
   thickness?: number;
   bold?: boolean;
@@ -689,12 +691,16 @@ function readTextEffects(item: SList): {
 } {
   const effects = childNamed(item, 'effects');
   const font = effects ? childNamed(effects, 'font') : undefined;
+  // `(face "…")`, first inside `(font …)`. It was read by nothing, so a board
+  // whose text named a font lost it on the next save.
+  const face = font ? stringField(font, 'face') : undefined;
   const sizeNode = font ? childNamed(font, 'size') : undefined;
   const size = ptAt(sizeNode) ?? { x: mmToIU(1.27), y: mmToIU(1.27) };
   const thicknessMM = font ? numberField(font, 'thickness') : undefined;
   const justifyNode = effects ? childNamed(effects, 'justify') : undefined;
   const justify = justifyNode ? args(justifyNode) : undefined;
   return {
+    face,
     // (size h w): height first, match the schematic reader convention of {x: w, y: h}.
     size: { x: size.y, y: size.x },
     thickness: thicknessMM !== undefined ? mmToIU(thicknessMM) : undefined,
@@ -741,6 +747,7 @@ function readPcbText(
     at: toBoard(pos, t),
     angle,
     layer: layerOf(item),
+    face: fx.face,
     size: fx.size,
     thickness: fx.thickness,
     bold: fx.bold,

@@ -27,6 +27,7 @@ import type { PCB_TEXT } from '../../pcb_text.js';
 import { type PCB_TRACK, PCB_ARC, PCB_VIA, VIATYPE } from '../../pcb_track.js';
 import type { ZONE } from '../../zone.js';
 import { SHAPE_T } from '@ziroeda/common/src/eda_shape.js';
+import { fontNode } from '../../eda_text_format.js';
 
 const BOARD_FILE_VERSION = 20241229;
 
@@ -65,9 +66,7 @@ const strokeNode = (width: number): SList =>
   list(atom('stroke'), list(atom('width'), atom(mm(width))), list(atom('type'), atom('solid')));
 
 function effectsNode(size: VECTOR2I, thickness: number): SList {
-  const font: SNode[] = [atom('font'), list(atom('size'), atom(mm(size.y)), atom(mm(size.x)))];
-  if (thickness) font.push(list(atom('thickness'), atom(mm(thickness))));
-  return list(atom('effects'), { kind: 'list', items: font });
+  return list(atom('effects'), fontNode({ size, thickness }));
 }
 
 // ---- per-item formatters (mirror the format() overloads) --------------------

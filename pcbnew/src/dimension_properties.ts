@@ -33,6 +33,7 @@ import type { EdaUnits } from '@ziroeda/common/src/eda_units.js';
 import { dropChild, mm, parseBoardItemId, patchChild } from './edit-board.js';
 import { updateDimension } from './dimension_text.js';
 import { isAlignedKind } from './types.js';
+import { fontNode } from './eda_text_format.js';
 import type {
   Board,
   DimPrecision,
@@ -285,11 +286,8 @@ function patchTextNode(node: SList, d: PcbDimension): SList {
   );
   out = patchChild(out, 'layer', list(atom('layer'), str(t.layer)));
 
-  const font: SNode[] = [atom('font'), list(atom('size'), atom(mm(t.size.y)), atom(mm(t.size.x)))];
-  if (t.thickness !== undefined) font.push(list(atom('thickness'), atom(mm(t.thickness))));
-  if (t.bold) font.push(list(atom('bold'), atom('yes')));
-  if (t.italic) font.push(list(atom('italic'), atom('yes')));
-  const effects: SNode[] = [atom('effects'), { kind: 'list', items: font }];
+  const font = fontNode(t);
+  const effects: SNode[] = [atom('effects'), font];
   if (t.mirror) effects.push(list(atom('justify'), atom('mirror')));
   return patchChild(out, 'effects', { kind: 'list', items: effects });
 }

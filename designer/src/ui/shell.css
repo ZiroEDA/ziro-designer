@@ -11143,10 +11143,19 @@ textarea.ze-ds-textedit {
   /* [data] that Add()'s `wxRIGHT, 5`. */
   margin-right: 5px;
 }
-/* `( 3, 4 )` span 3 — [data] `wxALIGN_CENTER_VERTICAL|wxEXPAND|wxRIGHT, 8`.
-   Row 3 is the Font row: `m_fontLabel` at `( 3, 0 )` and `m_fontCtrl` at
-   `( 3, 1 )` are absent here because nothing on the pcbnew side carries a font
-   face — see the dialog's header. The bar keeps its own position. */
+/* `( 3, 0 )` — [data] `wxALIGN_CENTER_VERTICAL|wxRIGHT|wxLEFT, 5`. */
+.ze-tbp-font-lbl {
+  grid-row: 4;
+  grid-column: 1;
+  /* [data] that Add()'s `wxRIGHT|wxLEFT, 5`. */
+  margin: 0 5px;
+}
+/* `( 3, 1 )` span 3, `wxEXPAND` with no border flag. */
+.ze-tbp-font {
+  grid-row: 4;
+  grid-column: 2 / span 3;
+}
+/* `( 3, 4 )` span 3 — [data] `wxALIGN_CENTER_VERTICAL|wxEXPAND|wxRIGHT, 8`. */
 .ze-tbp-bar {
   grid-row: 4;
   grid-column: 5 / span 3;
@@ -11360,9 +11369,21 @@ textarea.ze-ds-textedit {
   /* [data] `wxTOP|wxBOTTOM, 10` outside plus the checkbox's own `wxALL, 15`. */
   margin: 25px 15px;
 }
-/* `( 2, 4 )` span 3 — [data] `wxBOTTOM|wxEXPAND|wxTOP, 3`. Row 2 is the Font
-   row; `m_fontLabel` at `( 2, 0 )` and `m_fontCtrl` at `( 2, 1 )` are absent
-   here because nothing on the pcbnew side carries a font face. */
+/* `( 2, 0 )` — [data] `wxALIGN_CENTER_VERTICAL|wxALL, 5`. */
+.ze-txt-font-lbl {
+  grid-row: 3;
+  grid-column: 1;
+  /* [data] that Add()'s `wxALL, 5`. */
+  margin: 5px;
+}
+/* `( 2, 1 )` span 2 — [data] `wxALIGN_CENTER_VERTICAL|wxEXPAND|wxTOP|wxBOTTOM, 5`. */
+.ze-txt-font {
+  grid-row: 3;
+  grid-column: 2 / span 2;
+  /* [data] that Add()'s `wxTOP|wxBOTTOM, 5`. */
+  margin: 5px 0;
+}
+/* `( 2, 4 )` span 3 — [data] `wxBOTTOM|wxEXPAND|wxTOP, 3`. */
 .ze-txt-bar {
   grid-row: 3;
   grid-column: 5 / span 3;

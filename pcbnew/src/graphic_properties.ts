@@ -20,6 +20,7 @@ import type { PcbFillMode } from './shape_fill.js';
 import { effectiveTextPenWidth, isAutoThickness } from './global_edit_text_and_graphics.js';
 import type { Board, PcbShape, PcbTextItem, StrokeType } from './types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
+import { fontNode } from './eda_text_format.js';
 
 const list = (...items: SNode[]): SList => ({ kind: 'list', items });
 const xyNode = (name: string, p: Vec2): SList => list(atom(name), atom(mm(p.x)), atom(mm(p.y)));
@@ -50,6 +51,12 @@ const patchLocked = (src: SList, locked: boolean): SList =>
 /** Every field DIALOG_TEXT_PROPERTIES edits, for a board text item. */
 export interface TextValues {
   text: string;
+  /**
+   * `(font (face "…"))`, bound to the dialog's FONT_CHOICE. '' is "Default
+   * Font", i.e. no `(face …)` in the file, which is what
+   * `GetFont()->GetName().IsEmpty()` means upstream.
+   */
+  face: string;
   x: number;
   y: number;
   /** Degrees. */
@@ -107,6 +114,7 @@ export function textAt(board: Board, selection: Iterable<string>): number | null
 export function collectTextValues(t: PcbTextItem): TextValues {
   return {
     text: t.text,
+    face: t.face ?? '',
     x: t.at.x,
     y: t.at.y,
     orientation: t.angle,
@@ -142,17 +150,19 @@ export function collectTextValues(t: PcbTextItem): TextValues {
  * text box if you assume otherwise.
  */
 function effectsNode(v: TextValues): SList {
-  const font: SNode[] = [atom('font'), list(atom('size'), atom(mm(v.height)), atom(mm(v.width)))];
   // `if( !GetAutoThickness() )` (eda_text.cpp:1079-1084), and auto IS a
-  // thickness of zero — so this is the same test as the `v.thickness > 0` it
-  // replaces, said the way upstream says it. What changed is that the flag is
-  // now a cell of its own, and `v.thickness` carries the EFFECTIVE width while
-  // it is on, which must not be written.
-  if (!v.autoThickness) font.push(list(atom('thickness'), atom(mm(v.thickness))));
-  if (v.bold) font.push(list(atom('bold'), atom('yes')));
-  if (v.italic) font.push(list(atom('italic'), atom('yes')));
+  // thickness of zero, which is the test `fontNode` makes — so the flag is
+  // passed as the zero it means. `v.thickness` carries the EFFECTIVE width
+  // while auto is on, and that must not be written.
+  const font = fontNode({
+    ...(v.face ? { face: v.face } : {}),
+    size: { x: v.width, y: v.height },
+    thickness: v.autoThickness ? 0 : v.thickness,
+    bold: v.bold,
+    italic: v.italic,
+  });
 
-  const items: SNode[] = [atom('effects'), { kind: 'list', items: font }];
+  const items: SNode[] = [atom('effects'), font];
 
   // `(justify …)` in EDA_TEXT::Format's own order (eda_text.cpp:1100-1114):
   // horizontal word, then vertical, then `mirror`, each omitted at its default —
@@ -193,6 +203,7 @@ export function applyTextValues(board: Board, index: number, v: TextValues): Boa
   const next: PcbTextItem = {
     ...t,
     text: v.text,
+    face: v.face || undefined,
     at: { x: v.x, y: v.y },
     angle: v.orientation,
     layer: v.layer,

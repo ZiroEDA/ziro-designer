@@ -233,6 +233,12 @@ export interface PcbTextItem {
   /** Degrees, board-frame absolute (legacy fp_text semantics). */
   angle: number;
   layer: string;
+  /**
+   * `(font (face "…"))` — the font family. Absent = KiCad's own stroke font,
+   * which is what `GetFont()->GetName().IsEmpty()` tests before writing it
+   * (`eda_text.cpp`, EDA_TEXT::Format).
+   */
+  face?: string;
   size: Vec2;
   thickness?: number;
   bold?: boolean;
@@ -736,6 +742,12 @@ export interface PcbTextBox {
   uuid?: string;
   locked?: boolean;
   // --- EDA_TEXT::Format ---
+  /**
+   * `(font (face "…"))` — the font family. Absent = KiCad's own stroke font,
+   * which is what `GetFont()->GetName().IsEmpty()` tests before writing it
+   * (`eda_text.cpp`, EDA_TEXT::Format).
+   */
+  face?: string;
   size: Vec2;
   thickness?: number;
   bold?: boolean;

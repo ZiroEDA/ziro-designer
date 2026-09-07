@@ -67,6 +67,20 @@ describe('the controls the base file declares', () => {
   });
 });
 
+describe('the Font row, which the model can finally carry', () => {
+  it('is the FONT_CHOICE at ( 3, 0 ) and ( 3, 1 )', () => {
+    // It was absent while `PcbTextBox` had no `face`; the field round-trips
+    // now, so the control edits something. See
+    // `qa/unittests/pcbnew/font_face.test.ts`.
+    expect(code).toContain('Font:');
+    expect(code).toContain('<FontChoice');
+    const lbl = /\.ze-tbp-font-lbl\s*\{([^}]*)\}/.exec(CSS)?.[1] ?? '';
+    const ctl = /\.ze-tbp-font\s*\{([^}]*)\}/.exec(CSS)?.[1] ?? '';
+    expect(lbl).toMatch(/grid-row:\s*4;/);
+    expect(ctl).toMatch(/grid-column:\s*2 \/ span 3;/);
+  });
+});
+
 describe('what the dialog must NOT have', () => {
   it('drops the four group boxes it had invented', () => {
     expect(code).not.toContain('<fieldset');

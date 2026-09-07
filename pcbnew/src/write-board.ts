@@ -52,6 +52,7 @@ import type {
   StrokeType,
 } from './types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
+import { fontNode } from './eda_text_format.js';
 import {
   drillSlotNode,
   postMachiningNode,
@@ -406,11 +407,8 @@ export function buildBoardTextNode(t: PcbTextItem): SList {
     atNode(t.at, t.angle),
     list(atom('layer'), str(t.layer)),
   ];
-  const font: SNode[] = [atom('font'), list(atom('size'), atom(mm(t.size.y)), atom(mm(t.size.x)))];
-  if (t.thickness !== undefined) font.push(list(atom('thickness'), atom(mm(t.thickness))));
-  if (t.bold) font.push(list(atom('bold'), atom('yes')));
-  if (t.italic) font.push(list(atom('italic'), atom('yes')));
-  const effects: SNode[] = [atom('effects'), { kind: 'list', items: font }];
+  const font = fontNode(t);
+  const effects: SNode[] = [atom('effects'), font];
   if (t.justify && t.justify.length > 0)
     effects.push({ kind: 'list', items: [atom('justify'), ...t.justify.map((j) => atom(j))] });
   items.push({ kind: 'list', items: effects });
@@ -465,11 +463,8 @@ export function buildTextBoxNode(t: PcbTextBox): SList {
   items.push(list(atom('layer'), str(t.layer)));
   if (t.uuid) items.push(list(atom('uuid'), str(t.uuid)));
 
-  const font: SNode[] = [atom('font'), list(atom('size'), atom(mm(t.size.y)), atom(mm(t.size.x)))];
-  if (t.thickness !== undefined) font.push(list(atom('thickness'), atom(mm(t.thickness))));
-  if (t.bold) font.push(list(atom('bold'), atom('yes')));
-  if (t.italic) font.push(list(atom('italic'), atom('yes')));
-  const effects: SNode[] = [atom('effects'), { kind: 'list', items: font }];
+  const font = fontNode(t);
+  const effects: SNode[] = [atom('effects'), font];
   if (t.justify && t.justify.length > 0)
     effects.push({ kind: 'list', items: [atom('justify'), ...t.justify.map((j) => atom(j))] });
   items.push({ kind: 'list', items: effects });

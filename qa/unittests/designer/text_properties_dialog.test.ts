@@ -70,6 +70,15 @@ describe('the controls the base file declares', () => {
     expect(code).toContain('Locked');
   });
 
+  it('has the Font row, now that a board text can carry a face', () => {
+    // `m_fontLabel` / `m_fontCtrl` at `( 2, 0 )` and `( 2, 1 )`. This was the
+    // one control the dialog deliberately went without, because `PcbTextItem`
+    // had no `face` for it to edit — see `qa/unittests/pcbnew/font_face.test.ts`.
+    expect(code).toContain('Font:');
+    expect(code).toContain('<FontChoice');
+    expect(code).toContain('face={v.face}');
+  });
+
   it('has Layer, Knockout, the three sizes, both positions and Orientation', () => {
     for (const label of [
       'Layer:',
@@ -144,7 +153,9 @@ describe('the layout is the stylesheet’s, and it is the base file’s gridbag'
     // keeps the halves even, and `SetEmptyCellSize( wxSize( 20,-1 ) )` is the
     // 20 px separator at column 3.
     const grid = rule('.ze-txt-grid');
-    expect(grid).toMatch(/max-content 1fr max-content\s*\n?\s*20px\s*\n?\s*max-content 1fr max-content/);
+    expect(grid).toMatch(
+      /max-content 1fr max-content\s*\n?\s*20px\s*\n?\s*max-content 1fr max-content/,
+    );
     expect(grid).toMatch(/gap:\s*2px 3px/);
   });
 
@@ -156,6 +167,8 @@ describe('the layout is the stylesheet’s, and it is the base file’s gridbag'
       ['ze-txt-layer-lbl', 2, '1'],
       ['ze-txt-layer', 2, '2 / span 2'],
       ['ze-txt-knockout', 2, '5 / span 3'],
+      ['ze-txt-font-lbl', 3, '1'],
+      ['ze-txt-font', 3, '2 / span 2'],
       ['ze-txt-bar', 3, '5 / span 3'],
       ['ze-txt-orient', 6, '6'],
     ] as const) {

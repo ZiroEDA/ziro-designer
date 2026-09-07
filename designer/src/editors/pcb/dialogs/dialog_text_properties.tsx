@@ -42,11 +42,8 @@
  * business, so this dialog does not carry them; the Show checkbox it used to
  * have was one of them.
  *
- * Left out: `m_fontCtrl`, because nothing on the pcbnew side carries a font —
- * `PcbTextItem` has no face, so a FONT_CHOICE would edit nothing; and the
- * auto-thickness button (`m_autoTextThickness`), which needs font metrics we do
- * not have. The bar keeps KiCad's position at `( 2, 4 )` rather than sliding
- * left into the empty half.
+ * Left out: the auto-thickness button (`m_autoTextThickness`), which needs font
+ * metrics we do not have.
  */
 
 import { useState, type JSX } from 'react';
@@ -54,7 +51,7 @@ import { pcbIuToMM, pcbIUScale, pcbMmToIU } from '@ziroeda/common/src/eda_units.
 import type { TextValues } from '@ziroeda/pcbnew/src/graphic_properties.js';
 import { Combo } from '../../../ui/Combo.js';
 import { StdDialogButtons } from '../../../ui/StdDialogButtons.js';
-import { TextFormatBar, type HAlign, type VAlign } from '../../../ui/TextFormatBar.js';
+import { FontChoice, TextFormatBar, type HAlign, type VAlign } from '../../../ui/TextFormatBar.js';
 import { parseUnitValue, stringFromValue, unitLabel } from '../../../ui/unit_binder.js';
 import type { StatusUnits } from '../../../ui/status_format.js';
 import { useModalEscape } from '../../../ui/useModalEscape.js';
@@ -197,8 +194,15 @@ export function DialogTextProperties({
               Knockout
             </label>
 
-            {/* `( 2, 4 )` — the bar keeps its position; the FONT_CHOICE at
-                `( 2, 0 )`/`( 2, 1 )` is absent, see this file's header. */}
+            {/* `m_fontLabel` at `( 2, 0 )` and `m_fontCtrl` at `( 2, 1 )`
+                spanning two. `FONT_CHOICE` is a wxOwnerDrawnComboBox, which is
+                what `Combo` is; the shared `FontChoice` builds it with the
+                entries the generated bases spell. */}
+            <span className="ze-txt-lbl ze-txt-font-lbl">Font:</span>
+            <div className="ze-txt-font">
+              <FontChoice face={v.face} onChange={(face) => set({ face })} />
+            </div>
+            {/* `( 2, 4 )`, spanning three. */}
             <div className="ze-txt-bar">
               <TextFormatBar
                 bold={v.bold}

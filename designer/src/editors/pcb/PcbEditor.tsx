@@ -5915,6 +5915,9 @@ export function PcbEditor({
     const row = layerClassRow(activeLayer);
     return {
       text: '',
+      // `textAttrs` carries no font, so a new text is the stroke font: '' is
+      // "Default Font", i.e. no `(face …)` written.
+      face: '',
       x: at.x,
       y: at.y,
       orientation: 0,

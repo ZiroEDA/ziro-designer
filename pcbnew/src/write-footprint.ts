@@ -41,6 +41,7 @@ import type {
 } from './types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { padstackDrillNodes } from './write-board.js';
+import { fontNode } from './eda_text_format.js';
 
 /** SEXPR board/footprint file version (KiCad 9.0; matches pcbnew's output). */
 export const FOOTPRINT_FILE_VERSION = 20241229;
@@ -292,14 +293,8 @@ export function buildTextNode(text: PcbTextItem, fp?: PcbFootprint): SList {
   ];
   if (text.hide) items.push(list(atom('hide'), atom('yes')));
   // (size h w): height first, matching the reader's {x: w, y: h} <-> file order.
-  const font: SNode[] = [
-    atom('font'),
-    list(atom('size'), atom(mm(text.size.y)), atom(mm(text.size.x))),
-  ];
-  if (text.thickness !== undefined) font.push(list(atom('thickness'), atom(mm(text.thickness))));
-  if (text.bold) font.push(list(atom('bold'), atom('yes')));
-  if (text.italic) font.push(list(atom('italic'), atom('yes')));
-  const effects: SNode[] = [atom('effects'), { kind: 'list', items: font }];
+  const font = fontNode(text);
+  const effects: SNode[] = [atom('effects'), font];
   if (text.justify && text.justify.length > 0)
     effects.push({ kind: 'list', items: [atom('justify'), ...text.justify.map((j) => atom(j))] });
   items.push({ kind: 'list', items: effects });
@@ -324,14 +319,7 @@ export function buildFieldNode(field: PcbFootprintField, fp: PcbFootprint): SLis
     atNode({ x: 0, y: 0 }, fp.angle),
     list(atom('layer'), str(fp.layer === 'B.Cu' ? 'B.Fab' : 'F.Fab')),
     list(atom('hide'), atom('yes')),
-    list(
-      atom('effects'),
-      list(
-        atom('font'),
-        list(atom('size'), atom(mm(size)), atom(mm(size))),
-        list(atom('thickness'), atom(mm(thickness))),
-      ),
-    ),
+    list(atom('effects'), fontNode({ size: { x: size, y: size }, thickness })),
   );
 }
 
