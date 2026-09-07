@@ -55,6 +55,8 @@ import { FontChoice, TextFormatBar, type HAlign, type VAlign } from '../../../ui
 import { parseUnitValue, stringFromValue, unitLabel } from '../../../ui/unit_binder.js';
 import type { StatusUnits } from '../../../ui/status_format.js';
 import { useModalEscape } from '../../../ui/useModalEscape.js';
+import { HtmlMessageBox } from '../../../ui/dialog_html_message_box.js';
+import { PCB_TEXT_SYNTAX_HELP } from '@ziroeda/pcbnew/src/pcb_text_help.js';
 
 /** The IU-valued fields, each a `UNIT_BINDER` upstream. */
 type MmKey = 'width' | 'height' | 'thickness' | 'x' | 'y';
@@ -103,6 +105,13 @@ export function DialogTextProperties({
   // Held as text while typed, so a half-typed "0." is not rounded away under
   // the cursor.
   const [typed, setTyped] = useState<Record<string, string>>({});
+  /**
+   * The Syntax Help window. `onSyntaxHelp` calls `PCB_TEXT::ShowSyntaxHelp`,
+   * which builds an `HTML_MESSAGE_BOX` and `ShowModeless()`es it — so upstream
+   * it floats beside the dialog rather than blocking it. Ours is a second layer
+   * over the same backdrop, which is as close as a browser modal gets.
+   */
+  const [syntaxHelp, setSyntaxHelp] = useState(false);
   const set = (patch: Partial<TextValues>): void => setV((p) => ({ ...p, ...patch }));
 
   /**
@@ -154,9 +163,13 @@ export function DialogTextProperties({
               value={v.text}
               onChange={(e) => set({ text: e.target.value })}
             />
-            {/* `m_syntaxHelp`, a wxHyperlinkCtrl (`:104-107`). It opens
-                `PCB_TEXT::ShowSyntaxHelp`, which we do not have yet. */}
-            <button type="button" className="ze-hyperlink ze-txt-syntax">
+            {/* `m_syntaxHelp`, a wxHyperlinkCtrl (`:104-107`), bound to
+                `onSyntaxHelp` -> `PCB_TEXT::ShowSyntaxHelp`. */}
+            <button
+              type="button"
+              className="ze-hyperlink ze-txt-syntax"
+              onClick={() => setSyntaxHelp(true)}
+            >
               Syntax help
             </button>
           </div>
@@ -237,6 +250,14 @@ export function DialogTextProperties({
 
         {/* `SetupStandardButtons()` with no override, so the button is OK. */}
         <StdDialogButtons onCancel={onClose} onOk={() => onApply(v)} />
+        {syntaxHelp && (
+          <HtmlMessageBox
+            caption="Syntax Help"
+            className="ze-syntaxhelp"
+            html={PCB_TEXT_SYNTAX_HELP}
+            onClose={() => setSyntaxHelp(false)}
+          />
+        )}
       </div>
     </div>
   );

@@ -41,6 +41,12 @@ public:
         printf( "wxStyledTextCtrl TextHeight(0) = %d\n", stc->TextHeight( 0 ) );
         printf( "wxTextCtrl       GetBestSize   = %d x %d\n",
                 entry->GetBestSize().x, entry->GetBestSize().y );
+
+        // HTML_MESSAGE_BOX's own size, which PCB_TEXT::ShowSyntaxHelp states in
+        // dialog units: `SetMinSize( ConvertDialogToPixels( wxSize( 320, 320 ) ) )`
+        // then `SetDialogSizeInDU( 320, 320 )` (`pcb_text.cpp:725-728`).
+        wxSize du = dlg.ConvertDialogToPixels( wxSize( 320, 320 ) );
+        printf( "ConvertDialogToPixels(320,320) = %d x %d\n", du.x, du.y );
         fflush( stdout );
         return false;
     }

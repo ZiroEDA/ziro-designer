@@ -18,6 +18,24 @@
  *
  * Shared rather than GerbView-local because upstream's is in `common/` and has
  * dozens of callers.
+ *
+ * ## Two entry points, as upstream has two
+ *
+ * `ListSet` is one, and `AddHTML_Text( html )` is the other
+ * (`html_message_box.cpp`), which takes markup already built and appends it
+ * whole. `PCB_TEXT::ShowSyntaxHelp` is that second caller: it converts
+ * `pcb_text_help_md.h` and hands the result over. So this takes `messages` OR
+ * `html`, and the difference between them is not cosmetic —
+ *
+ *   - a `messages` item is a REPORT, built from a board's own contents (a file
+ *     name, a footprint's reference), so its markup is filtered down to the
+ *     three tags upstream's callers emit;
+ *   - `html` is a constant compiled into the program, so it is rendered as
+ *     markup.
+ *
+ * Handing a report to the `html` path would be handing a board's contents to a
+ * renderer, which is the injection `htmlMessageParts` exists to prevent. The
+ * prop names are what keep the two apart at every call site.
  */
 
 import { useEffect, useRef, type JSX } from 'react';
@@ -56,12 +74,23 @@ export function htmlMessageParts(message: string): JSX.Element[] {
 export function HtmlMessageBox({
   caption,
   messages,
+  html,
+  className,
   onClose,
 }: {
   /** The dialog title — `_( "Errors" )` for the file loader. */
   caption: string;
-  /** `reporter.GetMessages()`, one per `<li>`. */
-  messages: readonly string[];
+  /** `ListSet`: `reporter.GetMessages()`, one per `<li>`. */
+  messages?: readonly string[];
+  /**
+   * `AddHTML_Text( html )`: markup the CALLER built, appended whole.
+   *
+   * Only ever a constant of ours — see this file's header for why that
+   * distinction is load-bearing.
+   */
+  html?: string;
+  /** A caller that states its own size, as `SetDialogSizeInDU` does. */
+  className?: string;
   onClose: () => void;
 }): JSX.Element {
   useModalEscape(onClose);
@@ -74,17 +103,27 @@ export function HtmlMessageBox({
 
   return (
     <div className="ze-modal-backdrop">
-      <div className="ze-modal ze-htmlmsg" role="dialog" aria-modal="true">
+      <div
+        className={`ze-modal ze-htmlmsg${className ? ` ${className}` : ''}`}
+        role="dialog"
+        aria-modal="true"
+      >
         <div className="ze-modal-header">{caption}</div>
         <div className="ze-htmlmsg-body">
-          <ul>
-            {messages.map((msg, i) => (
-              // The messages are a report in order, and two files can fail the
-              // same way with the same text, so the index is the identity.
-              // biome-ignore lint/suspicious/noArrayIndexKey: report order IS the identity
-              <li key={i}>{htmlMessageParts(msg)}</li>
-            ))}
-          </ul>
+          {html !== undefined ? (
+            // `AddHTML_Text`. The markup is ours; a report never reaches here.
+            // biome-ignore lint/security/noDangerouslySetInnerHtml: a compiled-in constant, never a report
+            <div dangerouslySetInnerHTML={{ __html: html }} />
+          ) : (
+            <ul>
+              {(messages ?? []).map((msg, i) => (
+                // The messages are a report in order, and two files can fail
+                // the same way with the same text, so the index is the identity.
+                // biome-ignore lint/suspicious/noArrayIndexKey: report order IS the identity
+                <li key={i}>{htmlMessageParts(msg)}</li>
+              ))}
+            </ul>
+          )}
         </div>
         <div className="ze-msgdlg-buttons">
           <button ref={okRef} type="button" className="ze-btn default" onClick={onClose}>

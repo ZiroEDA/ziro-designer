@@ -72,6 +72,8 @@ import { Combo } from '../../../ui/Combo.js';
 import { StdDialogButtons } from '../../../ui/StdDialogButtons.js';
 import { FontChoice, TextFormatBar, type HAlign, type VAlign } from '../../../ui/TextFormatBar.js';
 import { useModalEscape } from '../../../ui/useModalEscape.js';
+import { HtmlMessageBox } from '../../../ui/dialog_html_message_box.js';
+import { PCB_TEXT_SYNTAX_HELP } from '@ziroeda/pcbnew/src/pcb_text_help.js';
 
 type MmKey = 'width' | 'height' | 'thickness' | 'borderWidth';
 
@@ -134,6 +136,13 @@ export function DialogTextBoxProperties({
   // Width fields are held as text while typed, so a half-typed "0." is not
   // rounded away under the cursor.
   const [typed, setTyped] = useState<Record<string, string>>({});
+  /**
+   * The Syntax Help window. `onSyntaxHelp` calls `PCB_TEXT::ShowSyntaxHelp`,
+   * which builds an `HTML_MESSAGE_BOX` and `ShowModeless()`es it — so upstream
+   * it floats beside the dialog rather than blocking it. Ours is a second layer
+   * over the same backdrop, which is as close as a browser modal gets.
+   */
+  const [syntaxHelp, setSyntaxHelp] = useState(false);
   const set = (patch: Partial<TextBoxValues>): void => setV((p) => ({ ...p, ...patch }));
 
   /**
@@ -190,9 +199,13 @@ export function DialogTextBoxProperties({
               value={v.text}
               onChange={(e) => set({ text: e.target.value })}
             />
-            {/* `m_syntaxHelp`, a wxHyperlinkCtrl (`:87-90`). It opens the
-                text-variable syntax window, which we do not have yet. */}
-            <button type="button" className="ze-hyperlink ze-tbp-syntax">
+            {/* `m_syntaxHelp`, a wxHyperlinkCtrl (`:87-90`), bound to
+                `onSyntaxHelp` -> `PCB_TEXT::ShowSyntaxHelp`. */}
+            <button
+              type="button"
+              className="ze-hyperlink ze-tbp-syntax"
+              onClick={() => setSyntaxHelp(true)}
+            >
               Syntax help
             </button>
           </div>
@@ -286,6 +299,14 @@ export function DialogTextBoxProperties({
             affirmative button reads OK whether the box is being placed or
             edited. "Create" was ours. */}
         <StdDialogButtons onCancel={onClose} onOk={() => onApply(v)} />
+        {syntaxHelp && (
+          <HtmlMessageBox
+            caption="Syntax Help"
+            className="ze-syntaxhelp"
+            html={PCB_TEXT_SYNTAX_HELP}
+            onClose={() => setSyntaxHelp(false)}
+          />
+        )}
       </div>
     </div>
   );
