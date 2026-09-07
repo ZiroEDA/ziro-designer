@@ -121,6 +121,7 @@ import {
 } from '../../prefs/useSettings.js';
 import { pcbThemeWithOverrides } from '../pcb/pcbTheme.js';
 import { settings } from '../../prefs/settings.js';
+import { hiContrastFactorFor } from '@ziroeda/common/src/render_settings.js';
 import { footprintEditorMenus } from './menubar.js';
 import { showHotkeyList } from '../../ui/hotkey_list_action.js';
 import { ABOUT_TITLES } from '../../ui/about_titles.js';
@@ -531,6 +532,10 @@ export function FootprintEditor({
       // Display-mode toggle: on = sketch (outline) = fill off (m_DisplayPadFill).
       padFill: !toggles.has('padDisplayMode'),
       contrastMode: contrast,
+      // `m_hiContrastFactor = 1.0 - hicontrast_dimming_factor`
+      // (`pcbnew/pcb_painter.cpp:176`). The inversion is the point: Preferences
+      // asks how much to DIM and the painter wants how much SURVIVES.
+      hiContrastFactor: hiContrastFactorFor(settings.common.appearance.hicontrast_dimming_factor),
       activeLayer,
       // `FOOTPRINT_EDIT_FRAME::GetColorSettings()` is
       // `::GetColorSettings( GetSettings()->m_ColorTheme )` — this frame's own

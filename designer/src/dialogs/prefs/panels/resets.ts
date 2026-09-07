@@ -52,12 +52,11 @@ export function resetCommonPanel(ctx: PrefsContext): void {
     // `hotkey_feedback` is drawn under User Interface upstream, not Editing --
     // which changes nothing here, since the slice is the fields this PAGE binds
     // to and both groups are on it.
-    resetKeys(s.input, COMMON_DEFAULTS.input, [
-      'warp_mouse_on_move',
-      'immediate_actions',
-      'hotkey_feedback',
-      'focus_follow_sch_pcb',
-    ]);
+    // NOT `warp_mouse_on_move` and NOT `focus_follow_sch_pcb`: both controls
+    // have been taken off the page (a browser has no second editor window to
+    // raise and cannot move the pointer), and a panel's reset slice is exactly
+    // the fields its controls bind to.
+    resetKeys(s.input, COMMON_DEFAULTS.input, ['immediate_actions', 'hotkey_feedback']);
     // "Session". `autosave_interval` is NOT here any more: 10.0.5 dropped the
     // `Auto save:` row from this page, and a reset may only touch what the page
     // shows -- that is the whole point of a per-panel slice.

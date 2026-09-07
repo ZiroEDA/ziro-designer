@@ -59,6 +59,7 @@ import {
   type ZoomCorrectionUnits,
 } from '../../../widgets/zoom_correction_ctrl.js';
 import { useState } from 'react';
+import { TOOLBAR_ICON_SIZES } from '../../../ui/common_appearance.js';
 import type { PrefsContext } from '../types.js';
 
 export function PanelCommonSettings({ ctx }: { ctx: PrefsContext }): JSX.Element {
@@ -100,19 +101,14 @@ export function PanelCommonSettings({ ctx }: { ctx: PrefsContext }): JSX.Element
               })
             }
           />
-          <Check
-            label="Focus follows mouse between schematic and PCB editors"
-            /* Dead: upstream raises whichever editor WINDOW the cursor is
-               over, and ours are panes of one document in one tab. */
-            title="If the mouse cursor is moved over the canvas of a schematic or PCB editor window, that window is raised."
-            checked={common.input.focus_follow_sch_pcb}
-            disabled
-            onChange={(v) =>
-              upC((s) => {
-                s.input.focus_follow_sch_pcb = v;
-              })
-            }
-          />
+          {/* No "Focus follows mouse between schematic and PCB editors". It
+              RAISES whichever editor window the pointer is over, and ours are
+              panes of one document in one tab with exactly one of them
+              displayed — there is no second window to raise, and there will not
+              be one. Removed rather than greyed, like every other control this
+              application cannot have: greying says "not ready yet", and this is
+              not a promise the app can keep. The stored `input.focus_follow_sch_pcb`
+              stays, because upstream's settings file has it. */}
           <Check
             label="Show popup indicator when toggling settings with hotkeys"
             title="When enabled, certain hotkeys that cycle between settings will show a popup indicator briefly to indicate the change in settings."
@@ -125,10 +121,8 @@ export function PanelCommonSettings({ ctx }: { ctx: PrefsContext }): JSX.Element
           />
           <Check
             label="Use alternating row colors in tables"
-            /* Dead: no grid in this port stripes its rows. */
             title="When enabled, use a different color for every other table row"
             checked={common.appearance.grid_striping}
-            disabled
             onChange={(v) =>
               upC((s) => {
                 s.appearance.grid_striping = v;
@@ -182,20 +176,26 @@ export function PanelCommonSettings({ ctx }: { ctx: PrefsContext }): JSX.Element
               from the last checkbox to Icon theme. (An earlier note here said
               24, which is under the checkbox pitch and cannot be right — these
               rows are FURTHER apart than the checkboxes, not closer.) */}
+          {/* The three radios write 16 / 24 / 32 and read the same back
+              (`panel_common_settings.cpp:206-211`, `:314-318`) — the setting is
+              a PIXEL SIZE, not an enum, and a `common.json` holding 40 leaves
+              all three unselected while the toolbars still use it. `Radio`
+              draws none selected for a value not in its options, which is that
+              switch's missing `default:`. */}
           <Radio
             row
             borders={[]}
             label="Toolbar icon size:"
             name="pref-toolbar-icon-size"
             value={common.appearance.toolbar_icon_size}
-            /* Dead: the toolbars draw at one size — nothing reads
-               `appearance.toolbar_icon_size`, which upstream turns into the
-               16 / 24 / 32 px bitmap it asks `KiBitmapBundle` for. */
-            disabled
             options={[
-              ['small', 'Small', 'Use compact icons in the toolbars'],
-              ['normal', 'Normal', 'Use the default KiCad icon size in the toolbars'],
-              ['large', 'Large', 'Use larger icons in the toolbars'],
+              [TOOLBAR_ICON_SIZES.small, 'Small', 'Use compact icons in the toolbars'],
+              [
+                TOOLBAR_ICON_SIZES.normal,
+                'Normal',
+                'Use the default KiCad icon size in the toolbars',
+              ],
+              [TOOLBAR_ICON_SIZES.large, 'Large', 'Use larger icons in the toolbars'],
             ]}
             onChange={(v) =>
               upC((s) => {
@@ -208,7 +208,11 @@ export function PanelCommonSettings({ ctx }: { ctx: PrefsContext }): JSX.Element
           <Num
             borders={['top', 'bottom']}
             label="High-contrast mode dimming factor:"
-            value={common.appearance.hicontrast_dimming_factor}
+            /* The field is a PERCENTAGE and the setting is a fraction —
+               `panel_common_settings.cpp:330` shows `factor * 100.0f` and
+               `:226` stores `dimmingPercent / 100.0f`. The `%` beside the box
+               is the whole reason: `common.json` holds 0.8, the user reads 80. */
+            value={Math.round(common.appearance.hicontrast_dimming_factor * 100)}
             unit="%"
             /* `m_highContrastCtrl` is a `wxTextCtrl`
                (`panel_common_settings_base.cpp:283`), NOT a wxSpinCtrl: no
@@ -221,19 +225,15 @@ export function PanelCommonSettings({ ctx }: { ctx: PrefsContext }): JSX.Element
             width={58}
             min={0}
             max={100}
-            /* Dead until the factor is actually read. `PCB_PAINTER::
-               ::GetColor` takes `m_hiContrastFactor = 1.0 -
-               hicontrast_dimming_factor` (`pcbnew/pcb_painter.cpp:176`), and
-               ours is the CONSTANT that expression yields at the shipped
-               default: `HI_CONTRAST_FACTOR = 0.2` in
-               `common/src/render_settings.ts`, read by the board, GerbView and
-               the drawing sheet alike. Nothing anywhere reads the setting, so
-               typing 40 here would dim nothing. It is drawn and disabled until
-               the painters take it. */
-            disabled
+            /* `PCB_PAINTER::GetColor` takes `m_hiContrastFactor = 1.0 -
+               hicontrast_dimming_factor` (`pcbnew/pcb_painter.cpp:176`), which
+               is `hiContrastFactorFor` in `common/src/render_settings.ts`. The
+               board editor, the footprint editor and GerbView all pass it now;
+               it used to be the constant that expression yields at the shipped
+               default, so typing 40 here dimmed nothing. */
             onChange={(v) =>
               upC((s) => {
-                s.appearance.hicontrast_dimming_factor = v;
+                s.appearance.hicontrast_dimming_factor = v / 100;
               })
             }
           />
@@ -247,13 +247,14 @@ export function PanelCommonSettings({ ctx }: { ctx: PrefsContext }): JSX.Element
             (panel_common_settings.cpp:120) — the group is the widget and
             nothing else. */}
         <Group title="Scaling">
-          {/* Dead: nothing reads `appearance.zoom_correction_factor`. Upstream
-              every GAL view scales by it, so a millimetre on the canvas is a
-              millimetre on the glass; here the canvases still work in CSS
-              pixels against the browser's own device pixel ratio, and the
-              ruler measures nothing. Drawn and disabled until they take it. */}
+          {/* `GAL::computeWorldScale` multiplies the world scale by it
+              (`graphics_abstraction_layer.h:1073`), and ours does the same in
+              `ui/status_format.ts` — the one place both directions of the
+              zoom/scale conversion pass through. So the ruler measures the
+              canvas again, and the zoom the status bar reports is unchanged by
+              it, which is what putting the factor on that side of the
+              conversion means. */}
           <ZoomCorrectionCtrl
-            disabled
             value={common.appearance.zoom_correction_factor}
             onChange={(v) =>
               upC((s) => {
@@ -265,20 +266,11 @@ export function PanelCommonSettings({ ctx }: { ctx: PrefsContext }): JSX.Element
           />
         </Group>
         <Group title="Editing">
-          {/* Dead: `input.warp_mouse_on_move` has no reader. Upstream a move
-              starts by warping the pointer onto the item's anchor
-              (`EDA_DRAW_FRAME` / the selection tool), and nothing here moves
-              the pointer at all -- a page cannot, outside of Pointer Lock. */}
-          <Check
-            label="Warp mouse to anchor of moved object"
-            checked={common.input.warp_mouse_on_move}
-            disabled
-            onChange={(v) =>
-              upC((s) => {
-                s.input.warp_mouse_on_move = v;
-              })
-            }
-          />
+          {/* No "Warp mouse to anchor of moved object". Upstream a move begins
+              by putting the POINTER on the item's anchor; a page cannot move
+              the pointer at all outside Pointer Lock, which is a full-screen
+              capture and not something a preference may switch on. Removed for
+              the same reason as Focus follows mouse above. */}
           {/* Dead: `input.immediate_actions` is named in three comments in the
               schematic editor and read by none of them. Every hotkey here acts
               at once, which is what the setting's default asks for -- but the

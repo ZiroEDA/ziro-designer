@@ -56,9 +56,33 @@ export interface CommonSettings {
   appearance: {
     /** PANEL_COMMON_SETTINGS "Icon theme": light | dark | auto. */
     icon_theme: 'light' | 'dark' | 'auto';
-    toolbar_icon_size: 'small' | 'normal' | 'large';
+    /**
+     * `appearance.toolbar_icon_size` — `PARAM<int>( …, 24, 16, 64 )`
+     * (`common_settings.cpp:115-116`). A PIXEL SIZE, not an enum: the panel's
+     * three radios write 16 / 24 / 32 (`panel_common_settings.cpp:206-211`) and
+     * a hand-edited `common.json` may hold any value in 16..64, in which case
+     * none of the three is selected and the toolbars still honour it.
+     *
+     * This was `'small' | 'normal' | 'large'` here, which made our stored JSON
+     * something KiCad could not read. No migrator: the control was disabled
+     * until now, so no one can have stored anything but the default, and
+     * `deepMerge`'s shape check turns a stray string back into 24 anyway.
+     */
+    toolbar_icon_size: number;
     show_scrollbars: boolean;
     use_icons_in_menus: boolean;
+    /**
+     * `appearance.hicontrast_dimming_factor` — `PARAM<double>( …, 0.8f )`
+     * (`common_settings.cpp:109-110`). A FRACTION, not a percentage: the panel
+     * shows `factor * 100` and divides by 100 on the way back
+     * (`panel_common_settings.cpp:224-226`, `:330-331`), so `common.json` holds
+     * 0.8 where the field reads 80.
+     *
+     * This held 80 and bound the control straight to it, which was invisible
+     * while nothing read the setting and is not now:
+     * `m_hiContrastFactor = 1.0 - 80` is -79, and a mix at -79 clamps to zero,
+     * which paints every inactive layer as the bare background.
+     */
     hicontrast_dimming_factor: number;
     /** `appearance.grid_striping` — "Use alternating row colors in tables". */
     grid_striping: boolean;
@@ -319,10 +343,12 @@ export type DialogControls = Record<string, Record<string, DialogControlValue>>;
 export const COMMON_DEFAULTS: CommonSettings = {
   appearance: {
     icon_theme: 'auto',
-    toolbar_icon_size: 'normal',
+    // `PARAM<int>( "appearance.toolbar_icon_size", …, 24, 16, 64 )`.
+    toolbar_icon_size: 24,
     show_scrollbars: true,
     use_icons_in_menus: true,
-    hicontrast_dimming_factor: 80,
+    // `PARAM<double>( …, 0.8f )` — the FRACTION; the panel shows 80.
+    hicontrast_dimming_factor: 0.8,
     grid_striping: false,
     use_custom_cursors: true,
     zoom_correction_factor: 1.0,
@@ -3109,7 +3135,7 @@ export function deepMerge<T>(defaults: T, stored: unknown): T {
  * used the app before, a default that was simply wrong has to be rewritten
  * once, here. KiCad's own SETTINGS_MANAGER migrates stored files the same way.
  */
-export const SETTINGS_VERSION = 4;
+export const SETTINGS_VERSION = 5;
 
 /**
  * Where the calculator's custom regulators used to live.
@@ -3292,8 +3318,50 @@ export function migrateEeschemaSettings(s: EeschemaSettings, from: number): bool
  */
 export function migrateSlice(slice: SettingsSlice, value: unknown, from: number): boolean {
   if (from >= SETTINGS_VERSION) return false;
+  if (slice === 'common') return migrateCommonSettings(value as CommonSettings, from);
   if (slice !== 'eeschema') return false;
   return migrateEeschemaSettings(value as EeschemaSettings, from);
+}
+
+/**
+ * `common.json`'s migrations.
+ *
+ * v5: `appearance.hicontrast_dimming_factor` was stored as a PERCENTAGE here
+ * and is a fraction upstream (`PARAM<double>( …, 0.8f )`; the panel is what
+ * multiplies by 100). Nothing read it while the control was disabled, so the
+ * wrong shape cost nothing; the moment the painters take it,
+ * `1.0 - 80` is -79 and every inactive layer is mixed all the way to the
+ * background — a board that goes blank in high-contrast mode, for a setting
+ * the user never touched.
+ *
+ * `> 1` is the test rather than `>= 1`: 1.0 is a legal fraction (dim
+ * completely) and 100 is the percentage that means the same thing, so the
+ * ambiguous value is left alone and the unambiguous ones are converted.
+ */
+export function migrateCommonSettings(s: CommonSettings, from: number): boolean {
+  let changed = false;
+  const a = s?.appearance;
+
+  if (from < 5 && typeof a?.hicontrast_dimming_factor === 'number') {
+    if (a.hicontrast_dimming_factor > 1) {
+      a.hicontrast_dimming_factor /= 100;
+      changed = true;
+    }
+  }
+
+  // v5: `appearance.toolbar_icon_size` was `'small' | 'normal' | 'large'` here
+  // and is a pixel int upstream. `deepMerge`'s shape check already turns a
+  // stored string back into the default, so this only preserves a choice that
+  // was made -- which, the control having been disabled, nobody can have made.
+  // It is here because the next person to read the two shapes should not have
+  // to work out whether the gap was handled.
+  if (from < 5 && typeof (a as { toolbar_icon_size?: unknown })?.toolbar_icon_size === 'string') {
+    const legacy: Record<string, number> = { small: 16, normal: 24, large: 32 };
+    a.toolbar_icon_size = legacy[a.toolbar_icon_size as unknown as string] ?? 24;
+    changed = true;
+  }
+
+  return changed;
 }
 
 /** Whether a value stored under the legacy key can be used as a regulator. */

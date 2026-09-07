@@ -123,10 +123,8 @@ const SLICES: Partial<Record<PrefsPageId, readonly string[]>> = {
     'common.appearance.hicontrast_dimming_factor',
     // "Scaling" — ZOOM_CORRECTION_CTRL is one control and one setting.
     'common.appearance.zoom_correction_factor',
-    'common.input.warp_mouse_on_move',
     'common.input.immediate_actions',
     'common.input.hotkey_feedback',
-    'common.input.focus_follow_sch_pcb',
     'common.system.session.remember_open_files',
     'common.system.file_history_size',
     // Gone with the groups this page no longer draws. A panel's reset slice is

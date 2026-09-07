@@ -43,7 +43,7 @@ import {
 } from '@ziroeda/gerbview';
 import { compareByFileExtension, compareByZOrder } from '@ziroeda/gerbview';
 import { parseColor4d, toCss } from '@ziroeda/common/src/color4d.js';
-import { hiContrastColor } from '@ziroeda/common/src/render_settings.js';
+import { hiContrastColor, hiContrastFactorFor } from '@ziroeda/common/src/render_settings.js';
 import { decideLoad, ERRORS_CAPTION, plotBatchSelfSorts } from './gerber_load_report.js';
 import { HtmlMessageBox } from '../../ui/dialog_html_message_box.js';
 import { PAPER_MM } from '@ziroeda/common';
@@ -965,7 +965,17 @@ export function GerberViewer({
       const l = layers[i] as Layer;
       const base = colorAt(i);
       const color =
-        highContrast && i !== activeLayer ? toCss(hiContrastColor(parseColor4d(base), bg)) : base;
+        highContrast && i !== activeLayer
+          ? // `m_hiContrastFactor = 1.0 - hicontrast_dimming_factor`, the same
+            // Preferences > Common value the board painter takes.
+            toCss(
+              hiContrastColor(
+                parseColor4d(base),
+                bg,
+                hiContrastFactorFor(settings.common.appearance.hicontrast_dimming_factor),
+              ),
+            )
+          : base;
       return { image: l.image, color, visible: l.visible };
     });
   }, [layers, activeLayer, colorAt, highContrast]);

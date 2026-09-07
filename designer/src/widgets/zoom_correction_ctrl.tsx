@@ -37,15 +37,22 @@
 import { useEffect, useId, useRef, useState, type JSX } from 'react';
 import { Combo } from '../ui/Combo.js';
 import { SpinCtrl } from '../ui/SpinCtrl.js';
+import { GAL_SCREEN_DPI } from '../ui/status_format.js';
 
 /**
  * `ADVANCED_CFG::m_ScreenDPI`, whose default is 91
- * (common/advanced_config.cpp:339, range 50..500). [data]
+ * (common/advanced_config.cpp:339, range 50..500).
  *
  * The base the stored ratio is against, so it must not be "corrected" to 96:
  * changing it would silently rescale every existing `zoom_correction_factor`.
+ *
+ * Not a second copy of it: `m_screenDPI` is what `GAL::computeWorldScale`
+ * multiplies the zoom factor by, so the number this control divides a measured
+ * PPI by and the number the canvases scale with have to be the SAME number, or
+ * the ruler measures one thing and the board draws another. It was written out
+ * twice, here and in `ui/status_format.ts`, before either of them was read.
  */
-export const BASE_SCREEN_DPI = 91;
+export const BASE_SCREEN_DPI = GAL_SCREEN_DPI;
 
 export type ZoomCorrectionUnits = 'mm' | 'cm' | 'inch';
 

@@ -31,6 +31,49 @@ import {
  */
 export const GAL_SCREEN_DPI = 91;
 
+/**
+ * `GAL::computeWorldScale`'s last two lines
+ * (`include/gal/graphics_abstraction_layer.h:1066-1074`):
+ *
+ *     m_worldScale = m_screenDPI * m_worldUnitLength * m_zoomFactor;
+ *     if( pgm && pgm->GetCommonSettings() )
+ *         m_worldScale *= pgm->GetCommonSettings()->m_Appearance.zoom_correction_factor;
+ *
+ * The correction sits between the ZOOM FACTOR and the world scale, and that
+ * placement is the whole design: a view's scale changes, so a millimetre drawn
+ * is a millimetre measured with a real ruler, while the zoom the status bar and
+ * the zoom selector talk about does NOT — 1.00 still means 1.00. Both of those
+ * conversions go through the two functions below, which is why this is the only
+ * place in the app that has to know about it, exactly as `computeWorldScale` is
+ * upstream's only place.
+ *
+ * **Pushed, not pulled, and that is not a preference.** Upstream asks
+ * `PgmOrNull()` at compute time; reading `settings.common` from here is a
+ * cycle — `prefs/settings.ts` imports `ui/grid_settings.ts` for its grid
+ * tables, so a module this low importing the settings store leaves
+ * `GRID_SIZE_LIST` undefined at import time and every editor test dies in
+ * `settings.ts`'s initialiser. `ui/common_appearance.ts` owns the reading and
+ * calls the setter below, which is the same shape `CommonSettingsChanged` has:
+ * the settings change, and each thing that depends on them is told.
+ */
+let g_zoomCorrection = 1;
+
+/**
+ * `PARAM<double>( "appearance.zoom_correction_factor", …, 1.0, 0.1, 10.0 )`
+ * (`common_settings.cpp:125-126`). A stored zero or a negative would divide the
+ * zoom readout by zero, so the range is enforced here rather than trusted —
+ * localStorage is hand-editable and this is the only guard between it and every
+ * canvas transform in the app.
+ */
+export function setZoomCorrection(factor: number): void {
+  g_zoomCorrection = Number.isFinite(factor) && factor >= 0.1 && factor <= 10 ? factor : 1;
+}
+
+/** What the canvases are currently scaling by. Exported for its own tests. */
+export function zoomCorrection(): number {
+  return g_zoomCorrection;
+}
+
 /** The unit a status bar reports in (`EDA_UNITS`, minus the ones no frame shows). */
 export type StatusUnits = 'mm' | 'in' | 'mils';
 
@@ -46,7 +89,7 @@ export function zoomFactorForScale(
   dpr: number,
   iuPerMM: number = PCB_IU_PER_MM,
 ): number {
-  return (scale / Math.max(dpr, 1e-9)) * ((iuPerMM * 25.4) / GAL_SCREEN_DPI);
+  return ((scale / Math.max(dpr, 1e-9)) * ((iuPerMM * 25.4) / GAL_SCREEN_DPI)) / zoomCorrection();
 }
 
 /** The inverse, for the zoom selector (`EDA_DRAW_FRAME::OnUpdateSelectZoom`). */
@@ -55,7 +98,7 @@ export function scaleForZoomFactor(
   dpr: number,
   iuPerMM: number = PCB_IU_PER_MM,
 ): number {
-  return (zoom * GAL_SCREEN_DPI * Math.max(dpr, 1e-9)) / (iuPerMM * 25.4);
+  return ((zoom * GAL_SCREEN_DPI * Math.max(dpr, 1e-9)) / (iuPerMM * 25.4)) * zoomCorrection();
 }
 
 /** Field 1: `wxString::Format( "Z %.2f", zoom )`. */

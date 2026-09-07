@@ -84,7 +84,14 @@ describe('the frame applies it per layer, so every renderer gets it', () => {
 
   it('dims every layer except the active one', () => {
     expect(VIEWER).toContain('highContrast && i !== activeLayer');
-    expect(VIEWER).toContain('hiContrastColor(parseColor4d(base), bg)');
+    // ...at the factor Preferences > Common holds, not at the constant. The
+    // painters took `HI_CONTRAST_FACTOR` directly before, which is what that
+    // control's value works out to at the shipped default -- so the setting
+    // appeared to work and did nothing.
+    expect(VIEWER).toContain('hiContrastColor(');
+    expect(VIEWER).toMatch(
+      /hiContrastFactorFor\(settings\.common\.appearance\.hicontrast_dimming_factor\)/,
+    );
   });
 
   it('no longer fakes it with alpha in the 2D path', () => {

@@ -61,9 +61,42 @@ export function plotterRenderSettings(
 /**
  * `RENDER_SETTINGS::m_hiContrastFactor`, `common/render_settings.cpp:42`.
  *
- * [data] KiCad's own constant, not a shade we chose.
+ * [data] KiCad's own constant, not a shade we chose. It is the value
+ * {@link hiContrastFactorFor} yields at the shipped `hicontrast_dimming_factor`
+ * of 0.8, and the fallback `PCB_PAINTER` uses when there is no program object
+ * to ask (`pcbnew/pcb_painter.cpp:178`, `m_hiContrastFactor = 1.0f - 0.8f`).
  */
 export const HI_CONTRAST_FACTOR = 0.2;
+
+/**
+ * The factor from the user's setting — `pcbnew/pcb_painter.cpp:176`:
+ *
+ *     m_hiContrastFactor = 1.0f - Pgm().GetCommonSettings()->m_Appearance.hicontrast_dimming_factor;
+ *
+ * Note the inversion, which is the whole reason this is a function and not an
+ * assignment at the call site: Preferences asks for a DIMMING amount and the
+ * painter wants how much of the layer SURVIVES. Wiring the setting straight
+ * through would make the slider run backwards, and it would still look
+ * plausible — 80 dimming and 80 surviving are both "a number near the top".
+ */
+export function hiContrastFactorFor(dimming: number): number {
+  return 1 - dimming;
+}
+
+/**
+ * `dim_factor_Edge_Cuts` (`pcbnew/pcb_painter.cpp:513-518`):
+ *
+ *     // We could use a dim factor = m_hiContrastFactor, but to have a sufficient
+ *     // contrast whenever m_hiContrastFactor value, we clamp the factor to 0.3f
+ *     // (arbitray choice after tests)
+ *     float dim_factor_Edge_Cuts = std::max( m_hiContrastFactor, 0.3f );
+ *
+ * Edge.Cuts is the one layer that survives HIDDEN mode as well as dimmed, so
+ * this is a floor on both branches. [data] the 0.3 is upstream's.
+ */
+export function edgeCutsContrastFactor(factor: number): number {
+  return Math.max(factor, 0.3);
+}
 
 /**
  * The colour an inactive layer is drawn in when "Inactive Layer View Mode" is
@@ -85,6 +118,11 @@ export const HI_CONTRAST_FACTOR = 0.2;
  * puts exactly one layer in that set — the active one
  * (`gerbview_draw_panel_gal.cpp:74-86`).
  */
-export function hiContrastColor(layerColor: Color4d, background: Color4d): Color4d {
-  return mix(layerColor, background, HI_CONTRAST_FACTOR);
+export function hiContrastColor(
+  layerColor: Color4d,
+  background: Color4d,
+  /** `m_hiContrastFactor`. Defaults to the value the shipped setting yields. */
+  factor: number = HI_CONTRAST_FACTOR,
+): Color4d {
+  return mix(layerColor, background, factor);
 }

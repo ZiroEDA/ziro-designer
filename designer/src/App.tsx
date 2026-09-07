@@ -37,6 +37,7 @@ import {
 } from './home/save_state.js';
 import { SaveIndicator } from './ui/SaveIndicator.js';
 import { ReadOnlyNotice } from './ui/ReadOnlyNotice.js';
+import { installCommonAppearance } from './ui/common_appearance.js';
 import { projectStoreFileSystem } from './fs/project_store_fs.js';
 import { warmLibraryIndexes } from './libraryHosts.js';
 import './ui/shell.css';
@@ -419,6 +420,11 @@ export function App(): JSX.Element {
   useEffect(() => {
     document.body.dataset.activeView = view;
   }, [view]);
+
+  // `EDA_BASE_FRAME::CommonSettingsChanged`'s appearance half, for the settings
+  // whose reader is the stylesheet rather than a module. Installed once, for
+  // the app: upstream every frame re-reads them, and there is one document.
+  useEffect(() => installCommonAppearance(document.documentElement), []);
 
   /** Mount the frame a view needs, which is what makes it exist at all. */
   const mountFor = useCallback((v: typeof view): void => {

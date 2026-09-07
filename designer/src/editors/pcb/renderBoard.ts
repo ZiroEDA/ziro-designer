@@ -38,6 +38,11 @@ import {
   ORIGIN_VIEWITEM_SIZE,
 } from '@ziroeda/common/src/preview_items/origin_viewitem.js';
 import { printableCharCount, unescapeString } from '@ziroeda/common/src/string_utils.js';
+import {
+  HI_CONTRAST_FACTOR,
+  edgeCutsContrastFactor,
+  hiContrastColor,
+} from '@ziroeda/common/src/render_settings.js';
 import { drawDrawingSheetItems, hitTestDrawingSheet } from '@ziroeda/common';
 import {
   defaultDrawingSheet,
@@ -356,10 +361,18 @@ export interface PcbDrawOptions {
   textFill: boolean;
   /** Opacity of filled graphic shapes (s_objectSettings "Filled Shapes"). */
   filledShapeOpacity: number;
-  /** High-contrast mode for inactive layers (HIGH_CONTRAST_MODE): 'dim' fades
-   *  them by m_hiContrastFactor (0.2), 'hide' drops them entirely; Edge.Cuts is
-   *  clamped at 0.3 and stays visible even in hide mode (pcb_painter.cpp). */
+  /** High-contrast mode for inactive layers (HIGH_CONTRAST_MODE): 'dim' mixes
+   *  them toward the background by m_hiContrastFactor, 'hide' drops them
+   *  entirely; Edge.Cuts is clamped at 0.3 and stays visible even in hide mode
+   *  (pcb_painter.cpp:511-545). */
   contrastMode: 'normal' | 'dim' | 'hide';
+  /**
+   * `RENDER_SETTINGS::m_hiContrastFactor` — how much of an inactive layer's own
+   * colour survives. `1.0 - appearance.hicontrast_dimming_factor`
+   * (`pcb_painter.cpp:176`); left out, the constant that expression yields at
+   * the shipped default, which is `PCB_PAINTER`'s own fallback at `:178`.
+   */
+  hiContrastFactor?: number;
   /** The active layer, exempt from contrast dimming. */
   activeLayer?: string;
   /** Paint every layer in this color, the net-color overlay pass
@@ -2494,8 +2507,35 @@ export function buildDrawSteps(
   // Per-layer color from the active theme, under this pass's emphasis.
   const themeColors = opts.theme?.layerColors;
   const special = opts.theme?.special ?? PCB_SPECIAL;
+  /**
+   * `PCB_PAINTER::GetColor`'s inactive-layer branch
+   * (`pcbnew/pcb_painter.cpp:511-545`), which is a colour MIX toward the
+   * background and not a transparency:
+   *
+   *     color = color.Mix( backgroundColor, m_hiContrastFactor );
+   *
+   * This was `ctx.globalAlpha = 0.2`, which is a different picture: alpha
+   * composites against whatever happens to be under the item, so two dimmed
+   * layers overlapping came out BRIGHTER than either, and a dimmed track over
+   * a zone read differently from the same track over bare board.
+   * `render_settings.ts` says as much beside `hiContrastColor` — GerbView
+   * already did it correctly and the board did not.
+   *
+   * The factor is the user's, not a constant: `m_hiContrastFactor = 1.0 -
+   * appearance.hicontrast_dimming_factor`.
+   */
+  const hcFactor = opts.hiContrastFactor ?? HI_CONTRAST_FACTOR;
+  // `m_layerColors[LAYER_PCB_BACKGROUND]` — the theme's own board background,
+  // which is what the mix runs toward (`pcb_painter.cpp:538-539`). The same
+  // `theme?.background ?? PCB_BACKGROUND` the grid origin already resolves.
+  const hcBackground = parseColor4d(opts.theme?.background ?? PCB_BACKGROUND);
+  const dimmed = (layer: string, css: string): string => {
+    if (opts.contrastMode === 'normal' || layer === opts.activeLayer) return css;
+    const f = layer === 'Edge.Cuts' ? edgeCutsContrastFactor(hcFactor) : hcFactor;
+    return toCssColor(hiContrastColor(parseColor4d(css), hcBackground, f));
+  };
   const col = (layer: string): string =>
-    opts.colorOverride ?? emphasize(themeColors?.[layer] ?? layerColor(layer), emphasis);
+    dimmed(layer, opts.colorOverride ?? emphasize(themeColors?.[layer] ?? layerColor(layer), emphasis));
   const sp = (c: string): string => emphasize(c, emphasis);
   steps.push(() => {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -2536,13 +2576,24 @@ export function buildDrawSteps(
   // shader, exactly as KiCad's `u_minLinePixelWidth` does.
   const minPen = opts.minPenWidth ?? (view.scale > 0 ? 1 / view.scale : 0);
 
-  // High-contrast alpha for a whole layer (pcb_painter.cpp getColor): inactive
-  // layers fade by m_hiContrastFactor (0.2) in dim mode and disappear in hide
-  // mode; Edge.Cuts is clamped at 0.3 and survives even hide mode.
+  /**
+   * Whether an inactive layer is drawn at all, which after the change above is
+   * ALL this decides — the dimming is in `col`, where upstream puts it.
+   *
+   *     if( m_ContrastModeDisplay == HIGH_CONTRAST_MODE::HIDDEN || … )
+   *     {
+   *         if( originalLayer == Edge_Cuts ) color = color.Mix( …, dim_factor_Edge_Cuts );
+   *         else                             color = COLOR4D::CLEAR;
+   *     }
+   *                                       (`pcbnew/pcb_painter.cpp:517-530`)
+   *
+   * so HIDDEN clears every inactive layer except Edge.Cuts, which is mixed at
+   * its own clamped factor and stays visible. Returned as an opacity because
+   * that is what the paint helpers below take; it is 1 or 0 and nothing else.
+   */
   const layerAlpha = (layer: string): number => {
-    if (opts.contrastMode === 'normal' || layer === opts.activeLayer) return 1;
-    if (layer === 'Edge.Cuts') return 0.3;
-    return opts.contrastMode === 'dim' ? 0.2 : 0;
+    if (opts.contrastMode !== 'hide' || layer === opts.activeLayer) return 1;
+    return layer === 'Edge.Cuts' ? 1 : 0;
   };
 
   const paintZones = (layer: string, la: number) => (): void => {

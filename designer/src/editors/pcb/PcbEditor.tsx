@@ -474,6 +474,7 @@ import { dispatchMenuHotkey, focusBlocksHotkey } from '../../ui/menu_hotkeys.js'
 import { isTypingTarget, wasBrowserSuppressed, type FocusLike } from '../../ui/browser_hotkeys.js';
 import { browserSafeKey } from '../../ui/browser_reserved.js';
 import { settings } from '../../prefs/settings.js';
+import { hiContrastFactorFor } from '@ziroeda/common/src/render_settings.js';
 import { usePcbnewSettings, useUserColors, useUserThemes } from '../../prefs/useSettings.js';
 import { ColorSwatch } from '../../ui/ColorSwatch.js';
 import {
@@ -2023,6 +2024,10 @@ export function PcbEditor({
       padFill: !toggles.has('padDisplayMode'),
       filledShapeOpacity: opacity.filledShapes,
       contrastMode: contrast,
+      // `m_hiContrastFactor = 1.0 - hicontrast_dimming_factor`
+      // (`pcbnew/pcb_painter.cpp:176`). The inversion is the point: Preferences
+      // asks how much to DIM and the painter wants how much SURVIVES.
+      hiContrastFactor: hiContrastFactorFor(settings.common.appearance.hicontrast_dimming_factor),
       activeLayer,
       theme,
       // Preferences > PCB Editor > Display Options. `m_Display.m_NetNames` is

@@ -142,21 +142,42 @@ describe('a group heading is a label and a rule, at the dialog font', () => {
 });
 
 /**
- * Which rows of User Interface are LIVE and which are dead, checked against the
- * only thing that decides it: whether anything outside Preferences reads the
- * setting.
+ * Which rows of this page are LIVE and which are dead, checked against the only
+ * thing that decides it: whether anything OUTSIDE Preferences reads the
+ * setting. A page whose controls write a slice nothing reads is a page that
+ * does nothing, and every row here has been on that side of the line at least
+ * once.
  *
- *     appearance.show_scrollbars      nobody          — no canvas draws them
- *     input.focus_follow_sch_pcb      nobody          — one tab, no windows
- *     input.hotkey_feedback           LIVE            — ui/grid_settings.ts:355,
- *                                                       widgets/hotkey_cycle_popup.ts
- *     appearance.grid_striping        nobody          — no grid stripes rows
- *     appearance.use_custom_cursors   LIVE            — ui/kicursors.ts:98
- *     appearance.icon_theme           nobody          — one SVG set, currentColor
- *     appearance.toolbar_icon_size    nobody          — toolbars draw at one size
- *     appearance.hicontrast_dimming_factor  nobody    — the painters take
- *                                       common/src/render_settings.ts's
- *                                       HI_CONTRAST_FACTOR = 0.2, a constant
+ *     appearance.show_scrollbars      nobody   — no canvas draws them
+ *     input.hotkey_feedback           LIVE     — ui/grid_settings.ts,
+ *                                                widgets/hotkey_cycle_popup.ts
+ *     appearance.grid_striping        LIVE     — ui/common_appearance.ts, and
+ *                                                `[data-grid-striping]` in
+ *                                                shell.css
+ *     appearance.use_custom_cursors   LIVE     — ui/kicursors.ts
+ *     appearance.icon_theme           nobody   — see below
+ *     appearance.toolbar_icon_size    LIVE     — ui/common_appearance.ts sets
+ *                                                `--toolbar-icon-size`, which
+ *                                                every toolbar metric derives
+ *                                                from
+ *     appearance.hicontrast_dimming_factor
+ *                                     LIVE     — common/src/render_settings.ts
+ *                                                `hiContrastFactorFor`, passed
+ *                                                by the board, footprint and
+ *                                                Gerber painters
+ *     appearance.zoom_correction_factor
+ *                                     LIVE     — ui/status_format.ts, the one
+ *                                                place both directions of the
+ *                                                zoom/scale conversion pass
+ *                                                through
+ *     input.immediate_actions         nobody   — every hotkey acts at once
+ *
+ * `icon_theme` is the one row that is dead and not merely unfinished, and the
+ * reason is worth writing down: KiCad ships two ICON SETS and picks between
+ * them (`bitmap_store.cpp:344-360`). Ours is one monochrome SVG set drawn in
+ * `currentColor`, so there is no second set to choose — recolouring the one we
+ * have would be our invention rather than KiCad's artwork. Building it means
+ * shipping a second set, which is a drawing job, not a coding one.
  *
  * A dead row is DISABLED, not hidden and not left clickable: the page must
  * still be KiCad's page, and a control that swallows a click and changes
@@ -173,29 +194,64 @@ describe('a row is enabled exactly when something reads its setting', () => {
 
   it.each([
     ['Show scrollbars in editors'],
-    ['Focus follows mouse between schematic and PCB editors'],
-    ['Use alternating row colors in tables'],
     ['Icon theme:'],
-    ['Toolbar icon size:'],
-    ['High-contrast mode dimming factor:'],
-    // Editing: neither `input.warp_mouse_on_move` (a page cannot move the
-    // pointer) nor `input.immediate_actions` has a reader.
-    ['Warp mouse to anchor of moved object'],
     ['First hotkey selects tool'],
-    // Scaling: `appearance.zoom_correction_factor` has none either, so the
-    // whole ZOOM_CORRECTION_CTRL is greyed.
-    ['ZoomCorrectionCtrl'],
   ])('%s is disabled, because nothing reads it', (label) => {
     expect(props(label), label).toMatch(/\bdisabled\b/);
   });
 
+  /**
+   * The live rows, each with the module that reads it. The reader is asserted
+   * as well as the binding, because "the control writes the setting" is exactly
+   * the half that was always true — every one of these rows already wrote its
+   * slice while it was disabled.
+   */
   it.each([
-    ['Show popup indicator when toggling settings with hotkeys', 'hotkey_feedback'],
-    ['Disable custom cursors', 'use_custom_cursors'],
-  ])('%s is live, and bound to %s', (label, setting) => {
+    [
+      'Show popup indicator when toggling settings with hotkeys',
+      'hotkey_feedback',
+      'designer/src/widgets/hotkey_cycle_popup.ts',
+    ],
+    ['Disable custom cursors', 'use_custom_cursors', 'designer/src/ui/kicursors.ts'],
+    [
+      'Use alternating row colors in tables',
+      'grid_striping',
+      'designer/src/ui/common_appearance.ts',
+    ],
+    ['Toolbar icon size:', 'toolbar_icon_size', 'designer/src/ui/common_appearance.ts'],
+    [
+      'High-contrast mode dimming factor:',
+      'hicontrast_dimming_factor',
+      'designer/src/editors/pcb/PcbEditor.tsx',
+    ],
+    // The ELEMENT, not the import above it: `indexOf('ZoomCorrectionCtrl')`
+    // lands on the import, and the first `/>` after that is some other row's.
+    ['<ZoomCorrectionCtrl', 'zoom_correction_factor', 'designer/src/ui/status_format.ts'],
+  ])('%s is live, bound to %s, and read by %s', (label, setting, reader) => {
     const p = props(label);
     expect(p, label).toContain(setting);
     expect(p, label).not.toMatch(/\bdisabled\b/);
+    expect(readFileSync(resolve(process.cwd(), '..', reader), 'utf8'), reader).toContain(setting);
+  });
+
+  /**
+   * Two controls are GONE, not greyed. Greying says "not ready yet"; these are
+   * not promises this application can keep, so they are deleted the way every
+   * other browser-impossible control is.
+   *
+   *   * Focus follows mouse RAISES whichever editor window the pointer is over.
+   *     Ours are panes of one document in one tab, with exactly one displayed.
+   *   * Warp mouse to anchor puts the POINTER on an item's anchor. A page
+   *     cannot move the pointer outside Pointer Lock, which is a full-screen
+   *     capture and not something a checkbox may switch on.
+   */
+  it.each([
+    ['Focus follows mouse between schematic and PCB editors'],
+    ['Warp mouse to anchor of moved object'],
+  ])('%s is removed, not greyed', (label) => {
+    // The comment saying why may name it; the JSX may not.
+    const code = PANEL.replace(/\{\/\*[\s\S]*?\*\/\}/g, '');
+    expect(code, label).not.toContain(`label="${label}"`);
   });
 });
 
@@ -215,10 +271,6 @@ describe("a tooltip is upstream's SetToolTip, or there is none", () => {
   });
 
   it.each([
-    [
-      'Focus follows mouse between schematic and PCB editors',
-      'If the mouse cursor is moved over the canvas of a schematic or PCB editor window, that window is raised.',
-    ],
     [
       'Use alternating row colors in tables',
       'When enabled, use a different color for every other table row',
