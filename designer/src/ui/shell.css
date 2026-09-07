@@ -11032,6 +11032,11 @@ textarea.ze-ds-textedit {
    rule in the stylesheet is a rule that scan can see. */
 .ze-tableprops-body {
   display: flex;
+  /* Stated, and it has to be: this element also carries `.ze-label-dialog-body`,
+     which is a flex COLUMN at the same specificity, so `bColumns` would have
+     gone on rendering as a stack — the very thing this rebuild is undoing.
+     `flex_direction_restated.test.ts` is the rule. */
+  flex-direction: row;
   min-height: 0;
   /* [data] `bColumns->Add( 15, 0, 0, wxEXPAND, 5 )` — the spacer BETWEEN the
      two columns, which is an item in the sizer rather than a gap of its own. */
