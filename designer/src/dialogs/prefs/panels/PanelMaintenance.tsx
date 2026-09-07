@@ -17,11 +17,18 @@
  * manipulates the settings store rather than describing a device or a
  * filesystem path.
  *
- * The one control that does not is `m_clearDontShowAgain`, and the reason is
- * narrow: `doClearDontShowAgain` empties `COMMON_SETTINGS::m_DoNotShowAgain`
- * and calls `KIDIALOG::ClearDoNotShowAgainDialogs()`, and this port has no "do
- * not show again" dialog at all. Nothing to clear is not the same as nothing to
- * build.
+ * All four buttons are live. `m_clearDontShowAgain` was the last greyed one,
+ * on the grounds that this port had no "do not show again" dialog — which was
+ * true and was a reason to BUILD one, not to grey the button that clears them.
+ * `KIDIALOG` is `ui/kidialog.tsx` now, and `doClearDontShowAgain`'s two halves
+ * are `clearDoNotShowAgainSettings` (the six persisted bools) and
+ * `clearDoNotShowAgainDialogs` (the session map) — the same two stores, in the
+ * two modules that own them.
+ *
+ * Note what the other two buttons therefore do: `doClearDialogState` opens with
+ * `doClearDontShowAgain()` (`:117-119`) and `onResetAll` calls
+ * `doClearDialogState()` (`:140`), so all three of the reset buttons clear the
+ * don't-show-agains and only the first of them says so.
  *
  * `Reset All Dialogs to Defaults` IS live: `doClearDialogState` empties
  * `m_dialogControlValues`, and `common.dialog.controls` is the port of exactly
@@ -47,9 +54,11 @@ import { useState, type JSX } from 'react';
 import { Num } from '../widgets.js';
 import {
   clearDialogState,
+  clearDoNotShowAgainSettings,
   clearFileHistory,
   resetAllSettings,
 } from '../../../prefs/maintenance.js';
+import { clearDoNotShowAgainDialogs } from '../../../ui/do_not_show_again.js';
 import type { PrefsContext } from '../types.js';
 
 /** `m_cacheLifetime`'s own tooltip, upstream's text verbatim. [data] */
@@ -66,10 +75,6 @@ const CACHE_TOOLTIP =
  */
 const CACHE_DAYS_MIN = 0;
 const CACHE_DAYS_MAX = 120;
-
-const NO_DO_NOT_SHOW =
-  'Nothing to reset yet: this port has no "do not show again" dialogs, so ' +
-  'COMMON_SETTINGS::m_DoNotShowAgain has no counterpart here.';
 
 export function PanelMaintenance({ ctx }: { ctx: PrefsContext }): JSX.Element {
   // What the last button press did, shown where upstream shows an infobar.
@@ -108,7 +113,19 @@ export function PanelMaintenance({ ctx }: { ctx: PrefsContext }): JSX.Element {
             Clear &quot;Open Recent&quot; History
           </button>
 
-          <button type="button" className="ze-btn" disabled title={NO_DO_NOT_SHOW}>
+          <button
+            type="button"
+            className="ze-btn"
+            onClick={() => {
+              // `doClearDontShowAgain()` — the persisted six and the session
+              // map, in that order, exactly as upstream (`:94-105`).
+              const n = clearDoNotShowAgainSettings() + clearDoNotShowAgainDialogs();
+              // `_( "\"Don't show again\" dialogs reset." )` [data]
+              setNote(
+                n > 0 ? '"Don\'t show again" dialogs reset.' : 'No dialog had been silenced.',
+              );
+            }}
+          >
             Reset &quot;Don&apos;t Show Again&quot; Dialogs
           </button>
 
@@ -116,6 +133,10 @@ export function PanelMaintenance({ ctx }: { ctx: PrefsContext }): JSX.Element {
             type="button"
             className="ze-btn"
             onClick={() => {
+              // `doClearDialogState` opens with `doClearDontShowAgain()`, whose
+              // session half is not storage and so cannot live in
+              // `clearDialogState`.
+              clearDoNotShowAgainDialogs();
               const n = clearDialogState();
               // `_( "All dialogs reset to defaults." )` [data]
               setNote(
@@ -130,6 +151,10 @@ export function PanelMaintenance({ ctx }: { ctx: PrefsContext }): JSX.Element {
             type="button"
             className="ze-btn"
             onClick={() => {
+              // `onResetAll` -> `doClearDialogState()` -> `doClearDontShowAgain()`.
+              // `resetAllSettings` drops the whole prefix, which takes the six
+              // persisted bools with it; the session map is not in storage.
+              clearDoNotShowAgainDialogs();
               resetAllSettings();
               // `wxQueueEvent( m_parent, … wxID_CANCEL )`: the working copy must
               // not be committed over the defaults we just wrote.

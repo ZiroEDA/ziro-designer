@@ -11977,6 +11977,130 @@ textarea.ze-ds-textedit {
 }
 
 /* ---------------------------------------------------------------------------
+   KIDIALOG (include/kidialog.h, common/kidialog.cpp) — the message box with a
+   "Do not show again" checkbox.
+
+   It is NOT the dialog above. `KICAD_MESSAGE_DIALOG` is `wxMessageDialog`,
+   which on GTK is the platform's own message box; `KIDIALOG` derives from
+   `wxRichMessageDialog`, and `wx/richmsgdlg.h` resolves that to
+   `wxGenericRichMessageDialog` on every platform but MSW — a plain wxDialog wx
+   lays out itself. The two differ in the icon size, in whether there is a
+   separator, and in how the buttons are laid out, so this is its own chrome
+   rather than an override of `.ze-msgdlg`'s.
+
+   [px] every number below is read off the built widget by
+   `qa/probes/kidialog_probe.cpp`, which shows the real dialog on this machine
+   with this theme and walks it from inside its own modal loop (the controls do
+   not exist until `ShowModal` — `Fit()` before that asserts "invalid frame").
+   Four variants, so each border is a difference rather than a reading:
+
+     checkbox + extended   client 588 x 179   icon(10,10 48x48)
+                                              message(78,10 500x25)
+                                              extended(78,55 462x21)
+                                              checkbox(10,86 158x25)
+                                              line(10,121 568x2)
+                                              buttons y=135 h=34, x=323/414
+     extended, no checkbox client 588 x 144   line(10,86), buttons y=100
+     checkbox, no extended client 484 x 161   message(78,23 396x21)
+     neither               client 484 x 126   message(78,23), line(10,68)
+
+   Which gives: 10 of padding on all four sides, a 48 icon, 20 between icon and
+   text, 20 between the two text lines, 10 above and below the checkbox, a 2 px
+   rule, 12 under it, and a 34 px button row inset 12 from the right with 6
+   between the buttons. */
+.ze-modal.ze-kidialog {
+  /* wx does not wrap: a 200-character message measured 1446 px of client on one
+     line, so shrink-to-fit IS the rule and there is no width to state. */
+  width: max-content;
+  /* Ours, and deliberate: wx would happily draw that 1446 px dialog off the
+     side of a small screen, and a browser modal has to stay reachable. */
+  max-width: 92vw;
+  height: auto;
+}
+.ze-kidialog-body {
+  display: flex;
+  /* [px] the icon sits at y=10 even when the text column is 66 tall, so it is
+     top-aligned; the text column is what centres (see below). */
+  align-items: flex-start;
+  /* [px] the message starts at x=78 and the icon is 48 wide at x=10. */
+  gap: 20px;
+  /* [px] the icon is at (10,10), and the 10 below the text is carried by the
+     checkbox or the rule, not by this row. */
+  padding: 10px 10px 0;
+}
+.ze-kidialog-icon {
+  flex: 0 0 auto;
+  /* [px] 48 square, against the native message box's 44. */
+  width: 48px;
+  /* [px] the same reading — `icon(10,10 48x48)`. */
+  height: 48px;
+  color: var(--chrome-fg);
+}
+/* [px] with no extended message the text is 21 tall and sits at y=23, which is
+   10 + (48 - 21) / 2 — centred against the icon. With one it is 66 tall, taller
+   than the icon, and centring is then the identity. */
+.ze-kidialog-text {
+  flex: 1;
+  min-width: 0;
+  align-self: center;
+}
+/* [px] 13pt where every other control in this dialog is 11, and bold. wx
+   scales and bolds the primary text of a generic message dialog; the ratio is
+   written as the two measured sizes rather than a decimal so it stays readable
+   as what it is. Stated here rather than shared with `.ze-msgdlg-message`: that
+   is the NATIVE message box's heading, measured separately, and the two
+   agreeing today is not a reason to tie them together. */
+.ze-kidialog-message {
+  font-size: calc(var(--ui-font-size) * 13 / 11);
+  font-weight: 700;
+}
+.ze-kidialog-extended {
+  /* [px] the message ends at y=35 and the extended message starts at 55. */
+  margin-top: 20px;
+  /* No `color`. The probe reads the SAME foreground on the message, the
+     extended message, the checkbox and both buttons — wx sets none, so the
+     extended message is the dialog's own ink. `.ze-msgdlg-extended` dims its
+     one, because GTK's native message box really does grey its secondary text;
+     copying that grey across to this dialog would have been an invention. */
+}
+/* The checkbox row. It takes `.ze-pref-check` for the box-to-label spacing —
+   that is GTK's, the same everywhere, and restating it here is how the two
+   would drift — and states only its own Add() border.
+
+   [px] x=10: the DIALOG's left margin, NOT the text column's 78. A checkbox
+   indented under the message is the thing this measurement ruled out. */
+.ze-kidialog-check {
+  /* [px] the text ends at y=76 and the checkbox starts at 86. */
+  margin: 10px 10px 0;
+}
+/* `wxStaticLine`, which the generic dialog draws above its buttons and the
+   native message box has not got at all. */
+.ze-kidialog-line {
+  /* [px] `line(10,121 568x2)` — two device pixels, spanning the content width. */
+  height: 2px;
+  /* [px] 10 below whatever is above it: the checkbox at 111, or, with no
+     checkbox, the text at 76 against a rule at 86. */
+  margin: 10px 10px 0;
+  background: var(--chrome-border);
+}
+.ze-kidialog-buttons {
+  display: flex;
+  justify-content: flex-end;
+  /* [px] Cancel ends at 408 and "Place Pin Anyway" starts at 414. */
+  gap: 6px;
+  /* [px] the rule ends at 123 and the buttons start at 135; they end at 169
+     against a client height of 179; and the row stops 12 short of the content's
+     right edge where everything else stops 10 short, so 10 + 12. */
+  padding: 12px 22px 10px;
+}
+.ze-kidialog-buttons .ze-btn {
+  /* [px] both buttons measured 34 tall, which is what `--ctl-height` already
+     carries — the token, not a second copy of the number. They are sized to
+     their own text: 85 for "Cancel", 152 for "Place Pin Anyway". */
+  height: var(--ctl-height);
+}
+
+/* ---------------------------------------------------------------------------
    Drawing Sheet Editor (PL_EDITOR_FRAME) chrome.
 
    D5/D6 of the drawing-sheet audit, measured off a live pl_editor 10.0.5 at

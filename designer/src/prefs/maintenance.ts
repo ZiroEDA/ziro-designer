@@ -12,7 +12,7 @@
  * Split out of the panel so the storage effects can be tested without a DOM,
  * and so nothing here needs React.
  */
-import { SETTINGS_SLICES, sliceStorageKey } from './settings.js';
+import { COMMON_DEFAULTS, SETTINGS_SLICES, sliceStorageKey } from './settings.js';
 
 /**
  * Every key this app owns. `sliceStorageKey` is the one place the prefix is
@@ -63,6 +63,42 @@ export function resetAllSettings(store: Storage = localStorage): number {
 }
 
 /**
+ * `PANEL_MAINTENANCE::doClearDontShowAgain` (`:94-105`), the PERSISTED half:
+ *
+ *     settings->m_DoNotShowAgain = {};
+ *     settings->SaveToFile( … );
+ *
+ * `= {}` on a struct of six bools is all six back to false, which is what
+ * `COMMON_DEFAULTS.do_not_show_again` holds. The stored slice is edited in
+ * place rather than deleted, because the key carries other settings.
+ *
+ * The other half is `KIDIALOG::ClearDoNotShowAgainDialogs()`, which lives in
+ * `ui/do_not_show_again.ts` — session state, not storage, so it cannot be done
+ * from here and the panel calls both. Upstream's function is the pair of them
+ * and so is ours; the split is only about which module owns which store.
+ *
+ * Returns how many of the six were set, for the infobar line.
+ */
+export function clearDoNotShowAgainSettings(store: Storage = localStorage): number {
+  const key = sliceStorageKey('common');
+  const raw = store.getItem(key);
+  if (raw === null) return 0;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return 0;
+  }
+  if (typeof parsed !== 'object' || parsed === null) return 0;
+  const obj = parsed as { do_not_show_again?: Record<string, unknown> };
+  const n = Object.values(obj.do_not_show_again ?? {}).filter((v) => v === true).length;
+  if (n === 0) return 0;
+  obj.do_not_show_again = structuredClone(COMMON_DEFAULTS.do_not_show_again);
+  store.setItem(key, JSON.stringify(obj));
+  return n;
+}
+
+/**
  * `PANEL_MAINTENANCE::doClearDialogState` (`:117-127`), the second half:
  *
  *     settings->CsInternals().m_dialogControlValues = {};
@@ -76,6 +112,11 @@ export function resetAllSettings(store: Storage = localStorage): number {
  * Returns how many dialogs had remembered state, for the infobar line.
  */
 export function clearDialogState(store: Storage = localStorage): number {
+  // `doClearDialogState()`'s FIRST line is `doClearDontShowAgain();` (`:119`).
+  // Reset All Dialogs to Defaults therefore resets the don't-show-agains too,
+  // and so does Reset All Program Settings, which calls this one. Ours did
+  // neither, so "reset all dialogs" left a silenced dialog silenced.
+  clearDoNotShowAgainSettings(store);
   const key = sliceStorageKey('common');
   const raw = store.getItem(key);
   if (raw === null) return 0;

@@ -194,6 +194,37 @@ export interface CommonSettings {
     };
   };
   /**
+   * `do_not_show_again.*` — `COMMON_SETTINGS::m_DoNotShowAgain`
+   * (`include/settings/common_settings.h:161-169`,
+   * `common/settings/common_settings.cpp:369-386`), six named bools with one
+   * warning each. NOT the same thing as `KIDIALOG`'s memory: that one is a
+   * file-static map that dies with the process (`ui/do_not_show_again.ts`),
+   * while these six survive a restart. Preferences > Maintenance clears both,
+   * which is why `doClearDontShowAgain` has two halves.
+   *
+   * They are stored, and nothing here writes them yet — the six dialogs that do
+   * are Export STEP's scaled-model warning, Configure Paths' restart notice,
+   * the start wizard's two privacy prompts, the 3D model migration prompt and
+   * pcbnew's unfilled-zone infobar, and this port has none of the six. Held
+   * anyway, for the reason `git` and `spacemouse` above are: the page that
+   * clears them is real, and a button that clears a store we did not model
+   * would be a button that clears nothing forever.
+   */
+  do_not_show_again: {
+    /** `PCB_CONTROL::unfilledZoneCheck` (`pcbnew/tools/pcb_control.cpp:284-322`). */
+    zone_fill_warning: boolean;
+    /** `DIALOG_CONFIGURE_PATHS` (`common/dialogs/dialog_configure_paths.cpp:336`). */
+    env_var_overwrite_warning: boolean;
+    /** `DIALOG_EXPORT_STEP` (`pcbnew/dialogs/dialog_export_step.cpp:162`). */
+    scaled_3d_models_warning: boolean;
+    /** `STARTWIZARD_PROVIDER_PRIVACY` (`common/startwizard/…_privacy.cpp:85`). */
+    data_collection_prompt: boolean;
+    /** The same provider's other prompt (`:86`). */
+    update_check_prompt: boolean;
+    /** The 3D model migration prompt. */
+    migrate_wrl_prompt: boolean;
+  };
+  /**
    * `auto_backup.*`. 10.0.5 reshaped this: `PANEL_COMMON_SETTINGS` now offers
    * Automatically backup projects, Format, Location and Maximum total backup
    * size, and `common_settings.cpp:128-138` registers exactly those four.
@@ -343,6 +374,15 @@ export const COMMON_DEFAULTS: CommonSettings = {
     // `PARAM<int>( "system.clear_3d_cache_interval", …, 30 )`.
     clear_3d_cache_interval: 30,
     session: { remember_open_files: false, pinned_symbol_libs: [], pinned_fp_libs: [] },
+  },
+  // Every one `PARAM<bool>( …, false )` (`common_settings.cpp:369-386`).
+  do_not_show_again: {
+    zone_fill_warning: false,
+    env_var_overwrite_warning: false,
+    scaled_3d_models_warning: false,
+    data_collection_prompt: false,
+    update_check_prompt: false,
+    migrate_wrl_prompt: false,
   },
   backup: {
     enabled: true,

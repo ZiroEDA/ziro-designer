@@ -53,12 +53,12 @@ function rule(selector: string): string {
 describe('`margins` is a proportion-0 sizer item', () => {
   it('is as wide as its widest control, not as wide as the page', () => {
     // `bPanelSizer->Add( margins, 0, wxRIGHT|wxLEFT, 5 )` — no wxEXPAND.
-    expect(rule('.ze-maintenance')).toMatch(/width:\s*max-content/);
+    expect(rule('.ze-maintenance')).toMatch(/width:\s*max-content;/);
   });
 
   it('carries its own wxRIGHT|wxLEFT of 5 and nothing vertical', () => {
     const r = rule('.ze-maintenance');
-    expect(r).toMatch(/margin:\s*0 5px/);
+    expect(r).toMatch(/margin:\s*0 5px;/);
     // The Add has no wxTOP or wxBOTTOM; the children below carry those.
     expect(r).not.toMatch(/margin-top|margin-block|padding/);
   });
@@ -82,10 +82,10 @@ describe('the shared button column carries only the stretch', () => {
 
   it('gives Maintenance its own borders, per Add()', () => {
     // `margins->Add( bResetStateSizer, 1, wxEXPAND|wxTOP, 10 )`.
-    expect(rule('.ze-maintenance > .ze-pref-buttoncol')).toMatch(/margin-top:\s*10px/);
+    expect(rule('.ze-maintenance > .ze-pref-buttoncol')).toMatch(/margin-top:\s*10px;/);
     // Every button is `wxALL|wxEXPAND, 5`; two adjoining borders make the 10
     // between any two of them, so there is no container gap to state.
-    expect(rule('.ze-maintenance > .ze-pref-buttoncol > button')).toMatch(/margin:\s*5px\b/);
+    expect(rule('.ze-maintenance > .ze-pref-buttoncol > button')).toMatch(/margin:\s*5px\b;/);
     // `Add( 0, 10, 1, wxEXPAND )` after the first button, ON TOP of that 5.
     expect(rule('.ze-maintenance > .ze-pref-buttoncol > button:first-child')).toMatch(
       /margin-bottom:\s*15px/,
@@ -96,7 +96,7 @@ describe('the shared button column carries only the stretch', () => {
     // `Add( m_mouseDefaults, 0, wxEXPAND|wxBOTTOM|wxRIGHT|wxLEFT, 5 )` — the
     // first button has no wxTOP, and `bMargins`' Add of the column has none
     // either, so this run starts flush with the group beside it.
-    expect(rule('.ze-mouse-scroll > .ze-pref-buttoncol > button')).toMatch(/margin:\s*0 5px 5px/);
+    expect(rule('.ze-mouse-scroll > .ze-pref-buttoncol > button')).toMatch(/margin:\s*0 5px 5px;/);
     expect(rule('.ze-mouse-scroll > .ze-pref-buttoncol')).toBe('');
     // Only the second button is wxALL.
     expect(rule('.ze-mouse-scroll > .ze-pref-buttoncol > button + button')).toMatch(
@@ -110,12 +110,12 @@ describe('b3DCacheSizer', () => {
     // `margins->Add( b3DCacheSizer, 0, wxEXPAND|wxTOP|wxRIGHT|wxLEFT, 5 )` on
     // top of the label's own wxALL 5, against a button's wxALL 5 alone.
     const r = rule('.ze-maintenance > .ze-pref-row');
-    expect(r).toMatch(/margin:\s*5px 5px 0/);
+    expect(r).toMatch(/margin:\s*5px 5px 0;/);
     // The label and "days" carry wxALL; the spin control carries only
     // wxTOP|wxBOTTOM, so each gap around the field is ONE border of 5 — not the
     // 8 `.ze-pref-row` defaults to.
-    expect(r).toMatch(/gap:\s*5px/);
-    expect(r).toMatch(/padding:\s*5px 0/);
+    expect(r).toMatch(/gap:\s*5px;/);
+    expect(r).toMatch(/padding:\s*5px 0;/);
   });
 });
 
@@ -151,6 +151,40 @@ describe('the 3D cache duration is a live control', () => {
     // Neither the File menu's Close nor the home link may call `onExit` raw.
     expect(frame).toMatch(/addQuitOrClose\('PCB Editor', closeFrame\)/);
     expect(frame).toMatch(/HomeLink onClick=\{closeFrame\}/);
+  });
+});
+
+describe('every button on the page is live', () => {
+  it('none of the four is disabled', () => {
+    // The last greyed one was Reset "Don't Show Again" Dialogs, on the grounds
+    // that this port had no such dialog -- which was a reason to build one, not
+    // to grey the button that clears them. `ui/kidialog.tsx` is that dialog.
+    const buttons = CODE.split('<button').slice(1);
+    expect(buttons.length).toBe(4);
+    for (const b of buttons) expect(b.slice(0, b.indexOf('>'))).not.toMatch(/\bdisabled\b/);
+  });
+
+  it('clears BOTH stores, because doClearDontShowAgain has two halves', () => {
+    // `settings->m_DoNotShowAgain = {}` is persisted; `KIDIALOG::
+    // ClearDoNotShowAgainDialogs()` is a file-static map that dies with the
+    // process. Clearing one and not the other leaves a silenced dialog silent.
+    const at = CODE.indexOf('Reset &quot;Don&apos;t Show Again&quot; Dialogs');
+    expect(at).toBeGreaterThan(-1);
+    const arm = CODE.slice(CODE.lastIndexOf('<button', at), at);
+    expect(arm).toMatch(/clearDoNotShowAgainSettings\(\)/);
+    expect(arm).toMatch(/clearDoNotShowAgainDialogs\(\)/);
+  });
+
+  it('and the two reset buttons clear the session map too', () => {
+    // `doClearDialogState` opens with `doClearDontShowAgain()` (`:117-119`) and
+    // `onResetAll` calls `doClearDialogState()` (`:140`). The persisted half of
+    // that rides along in storage; the session half cannot.
+    for (const label of ['Reset All Dialogs to Defaults', 'Reset All Program Settings']) {
+      const at = CODE.indexOf(label);
+      expect(at, label).toBeGreaterThan(-1);
+      const arm = CODE.slice(CODE.lastIndexOf('<button', at), at);
+      expect(arm, label).toMatch(/clearDoNotShowAgainDialogs\(\)/);
+    }
   });
 });
 

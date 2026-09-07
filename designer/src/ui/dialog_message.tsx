@@ -42,11 +42,29 @@ import {
 } from './message_dialog.js';
 import { useModalEscape } from './useModalEscape.js';
 
-/** The `wxICON_*` glyphs, drawn at the 44 px `.ze-msgdlg-icon` box. */
-function DialogIcon({ icon }: { icon: MessageDialogIcon }): JSX.Element {
+/**
+ * The `wxICON_*` glyphs, drawn at the 44 px `.ze-msgdlg-icon` box.
+ *
+ * Exported because `KIDIALOG` is a `wxRichMessageDialog`, which is the same
+ * dialog family with a checkbox added — upstream it inherits this artwork
+ * rather than shipping its own, and `ui/kidialog.tsx` does the same.
+ */
+export function DialogIcon({
+  icon,
+  className = 'ze-msgdlg-icon',
+}: {
+  icon: MessageDialogIcon;
+  /**
+   * Which dialog family is drawing it. `KIDIALOG` is a
+   * `wxGenericRichMessageDialog` rather than the native message box, and its
+   * icon is a different SIZE — 48 square against this one's 44
+   * (`qa/probes/kidialog_probe.cpp`). The artwork is shared; the box is not.
+   */
+  className?: string;
+}): JSX.Element {
   if (icon === 'question')
     return (
-      <svg className="ze-msgdlg-icon" viewBox="0 0 48 48" aria-hidden="true">
+      <svg className={className} viewBox="0 0 48 48" aria-hidden="true">
         <circle cx="24" cy="24" r="20" fill="none" stroke="currentColor" strokeWidth="3" />
         <path
           d="M18 18.5a6 6 0 1 1 6 6V29"
@@ -60,7 +78,7 @@ function DialogIcon({ icon }: { icon: MessageDialogIcon }): JSX.Element {
     );
   if (icon === 'information')
     return (
-      <svg className="ze-msgdlg-icon" viewBox="0 0 48 48" aria-hidden="true">
+      <svg className={className} viewBox="0 0 48 48" aria-hidden="true">
         <circle cx="24" cy="24" r="20" fill="none" stroke="currentColor" strokeWidth="3" />
         <path
           d="M24 22v14"
@@ -75,7 +93,7 @@ function DialogIcon({ icon }: { icon: MessageDialogIcon }): JSX.Element {
   // wxICON_WARNING and wxICON_ERROR are both the exclamation triangle here, as
   // UnsavedChangesDialog draws it.
   return (
-    <svg className="ze-msgdlg-icon" viewBox="0 0 48 48" aria-hidden="true">
+    <svg className={className} viewBox="0 0 48 48" aria-hidden="true">
       <path
         d="M24 5 45 43H3Z"
         fill="none"

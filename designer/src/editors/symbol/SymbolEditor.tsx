@@ -19,6 +19,8 @@ import * as sexpr from '@ziroeda/sexpr';
 import { MenuBar, type Menu } from '../../ui/MenuBar.js';
 import { Toolbar } from '../../ui/Toolbar.js';
 import { useStatusReadout } from '../../ui/useStatusReadout.js';
+import { useKiDialog } from '../../ui/kidialog.js';
+import { DO_NOT_SHOW_KEYS } from '../../ui/do_not_show_again.js';
 
 /** `SCH_SCREEN::m_LocalOrigin`; a module constant so its identity is stable. */
 const SYM_LOCAL_ORIGIN = { x: 0, y: 0 };
@@ -1340,8 +1342,16 @@ export function SymbolEditor({
     [pinDialog, workSymbol, synced, units, commit],
   );
 
-  const onPlacePendingPin = useCallback(
-    (pos: Vec2) => {
+  /**
+   * `KIDIALOG`'s host for this frame — `ask` is `ShowModal()` and `kiDialog` is
+   * the dialog itself, rendered at the bottom of the frame. One per frame, not
+   * one per question: upstream a KIDIALOG is constructed at the call site and
+   * `ShowModal` blocks, so there is never more than one up.
+   */
+  const { ask: askKiDialog, node: kiDialogNode } = useKiDialog();
+
+  const placePendingPin = useCallback(
+    async (pos: Vec2) => {
       if (!workSymbol || !pendingPin || !curLib) return;
       const { _commonUnit, _commonBody, ...pinBase } = pendingPin;
       const pin: LibPin = { ...pinBase, at: pos };
@@ -1358,12 +1368,29 @@ export function SymbolEditor({
         });
         if (clash) {
           const u = workSymbol.units[clash.unitIdx]!;
-          if (
-            !window.confirm(
-              `This position is already occupied by another pin, in unit ${u.unit || 1}.\nPlace Pin Anyway?`,
-            )
-          )
-            return;
+          // `SYMBOL_EDITOR_PIN_TOOL::PlacePin` (`symbol_editor_pin_tool.cpp:230-239`):
+          //
+          //     KIDIALOG dlg( m_frame, msg, _( "Confirmation" ), wxOK | wxCANCEL | wxICON_WARNING );
+          //     dlg.SetExtendedMessage( _( "Disable the 'Synchronized Pins Mode' option to avoid this message." ) );
+          //     dlg.SetOKLabel( _( "Place Pin Anyway" ) );
+          //     dlg.DoNotShowCheckbox( __FILE__, __LINE__ );
+          //     if( dlg.ShowModal() == wxID_CANCEL ) return false;
+          //
+          // This was a `window.confirm`, which has no checkbox, no extended
+          // message and no way to rename OK — so the one question in this port
+          // that upstream lets you silence could not be silenced.
+          //
+          // Only OK is renamed, NOT `SetOKCancelLabels`, so `m_cancelMeansCancel`
+          // stays true and ticking the box then cancelling is not remembered.
+          const ret = await askKiDialog({
+            caption: 'Confirmation',
+            message: `This position is already occupied by another pin, in unit ${u.unit || 1}.`,
+            extendedMessage: "Disable the 'Synchronized Pins Mode' option to avoid this message.",
+            icon: 'warning',
+            labels: { ok: 'Place Pin Anyway' },
+            doNotShowKey: DO_NOT_SHOW_KEYS.symbolEditorPinClash,
+          });
+          if (ret === 'cancel') return;
         }
       }
 
@@ -1376,7 +1403,20 @@ export function SymbolEditor({
       // The tool stays active; the next click opens the dialog again (CreatePin).
       setPendingPin(null);
     },
-    [workSymbol, pendingPin, curLib, unit, bodyStyle, synced, units, commit],
+    [workSymbol, pendingPin, curLib, unit, bodyStyle, synced, units, commit, askKiDialog],
+  );
+
+  /**
+   * The canvas's click handler, which is synchronous. `ShowModal` blocks
+   * upstream and a browser cannot, so the answer arrives on a later turn and
+   * the click returns immediately — the promise is deliberately not awaited
+   * here, because there is nothing for the caller to do with it.
+   */
+  const onPlacePendingPin = useCallback(
+    (pos: Vec2) => {
+      void placePendingPin(pos);
+    },
+    [placePendingPin],
   );
 
   /**
@@ -2777,6 +2817,9 @@ export function SymbolEditor({
           </div>
         </div>
       )}
+
+      {/* The frame's one KIDIALOG. */}
+      {kiDialogNode}
 
       {/* Tree context actions (delete/duplicate) via keyboard on the tree selection. */}
       <TreeSelActions treeSel={treeSel} onDuplicate={(l, s) => void duplicateSymbol(l, s)} />

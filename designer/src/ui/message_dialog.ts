@@ -61,6 +61,13 @@ export const NO_LABEL = 'No';
 /** …and the one `wxOK` gets: the only button a bare wxMessageBox has, and the
  *  only button `DisplayErrorMessage` has. */
 export const OK_LABEL = 'OK';
+/**
+ * …and `wxCANCEL`'s. NOT `NO_LABEL`: `wxOK | wxCANCEL` and `wxYES_NO` are
+ * different style words with different stock labels, and a dialog that says
+ * "No" where GTK says "Cancel" is the wrong dialog. [px] the probe reads
+ * `&Cancel` off the built widget (`qa/probes/kidialog_probe.cpp`).
+ */
+export const CANCEL_LABEL = 'Cancel';
 
 /**
  * The `wxYES_NO` row in GTK order — negative first, affirmative last — with the
@@ -77,5 +84,27 @@ export function yesNoButtons(
   return [
     { id: 'no', label: labels?.no ?? NO_LABEL, isDefault: defaultButton === 'no' },
     { id: 'yes', label: labels?.yes ?? YES_LABEL, isDefault: defaultButton === 'yes' },
+  ];
+}
+
+/**
+ * The `wxOK | wxCANCEL` row, in the same GTK order the `wxYES_NO` one uses —
+ * negative first, affirmative last — with `wxOK` holding the focus.
+ *
+ * A separate function rather than `yesNoButtons` with two labels passed in,
+ * because the two style words differ in exactly the thing a caller forgets: the
+ * STOCK labels. `SetOKLabel` renames one button and leaves the other at
+ * "Cancel"; routing that through the yes/no row gave it "No".
+ */
+export function okCancelButtons(labels?: { ok?: string; cancel?: string }): {
+  id: 'ok' | 'cancel';
+  label: string;
+  isDefault: boolean;
+}[] {
+  return [
+    { id: 'cancel', label: labels?.cancel ?? CANCEL_LABEL, isDefault: false },
+    // `wxOK_DEFAULT` is the default when neither is named, and every KIDIALOG
+    // call site leaves it that way.
+    { id: 'ok', label: labels?.ok ?? OK_LABEL, isDefault: true },
   ];
 }
