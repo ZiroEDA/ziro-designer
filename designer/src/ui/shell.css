@@ -9052,16 +9052,22 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   flex-direction: column;
   /* ONE size, for every page.
 
-     `PAGED_DIALOG::finishInitialization` sizes the dialog from
-     `GetBestSize()` on the TREEBOOK (`paged_dialog.cpp:425-443`), and
-     `wxBookCtrlBase::DoGetBestSize` is the maximum over EVERY page — each one
-     is constructed up front, so the answer does not depend on which page is
-     showing. That is why KiCad's Preferences is the same size on Common as it
-     is on Grids.
+     `PAGED_DIALOG::onPageChanged` recomputes the dialog's MINIMUM from the
+     showing page and then grows the window into it — `newSize.IncTo( minSize )`
+     (`paged_dialog.cpp:424-451`), a componentwise maximum, so a narrower page
+     never shrinks the window back. KiCad's Preferences therefore settles at
+     the largest page you have walked to and stops moving.
 
-     Ours cannot ask that question: one page is mounted at a time, so a
-     content-sized dialog re-sizes itself as you walk the tree, which is what
-     `.ze-modal`'s `width: max-content` was doing here. So the size is stated
+     (It is per page and not, as this note used to claim, the maximum over
+     every page: `m_treebook->SetFitToCurrentPage( true )` (`:73`) is right
+     there in the constructor, and `finishInitialization` says in its own
+     comment that the pages are lazy and "the dialog minimum and size are
+     correctly established by onPageChanged() once the selected page is
+     resolved".)
+
+     Ours cannot grow-and-hold for free: one page is mounted at a time and
+     `.ze-modal` is `width: max-content`, so a content-sized dialog re-sizes
+     itself DOWN as well as up as you walk the tree. So the size is stated
      once — [px] 1095 x 713, the installed KiCad's own Preferences on this
      desktop, measured off a capture of it — and `usePagedDialogSize` still
      grows it if one of our pages needs more, which is upstream's

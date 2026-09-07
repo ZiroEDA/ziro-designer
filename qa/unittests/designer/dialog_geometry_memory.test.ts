@@ -76,13 +76,17 @@ describe('remembering a grown dialog', () => {
     // size once the bug is fixed. Bumping the epoch retires those entries.
     localStorage.setItem('ze-dialog-geometry:Board Setup', JSON.stringify({ w: 1330, h: 620 }));
     expect(readDialogGeometry('Board Setup')).toBeUndefined();
+    // …including the epoch immediately before this one, which is what retires
+    // every size grown while Constraints was ~115 px too wide.
+    localStorage.setItem('ze-dialog-geometry:v2:Board Setup', JSON.stringify({ w: 1330, h: 620 }));
+    expect(readDialogGeometry('Board Setup')).toBeUndefined();
   });
 
   it('ignores a stored value that is not a usable size', () => {
     // Storage is shared with every other tab and version of the app; a shape
     // we do not recognise must fall back rather than size the dialog to NaN.
     for (const bad of ['not json', '{}', '{"w":"1070","h":620}', '{"w":0,"h":620}']) {
-      localStorage.setItem('ze-dialog-geometry:v2:Board Setup', bad);
+      localStorage.setItem('ze-dialog-geometry:v3:Board Setup', bad);
       expect(readDialogGeometry('Board Setup'), bad).toBeUndefined();
     }
   });

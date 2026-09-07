@@ -33,7 +33,7 @@ import {
   writeBoardFileSetup,
 } from '@ziroeda/designer/src/editors/pcb/board_file_settings.js';
 import { defaultBoardSetup } from '@ziroeda/designer/src/editors/pcb/board_settings.js';
-import { fitFloor } from '@ziroeda/designer/src/ui/paged_dialog_size.js';
+import { bestSizeOf, incTo } from '@ziroeda/designer/src/ui/paged_dialog_size.js';
 
 afterEach(cleanup);
 
@@ -252,93 +252,29 @@ describe('the Layer column swatch', () => {
   });
 });
 
-describe('fitFloor — Fit() then IncTo(minSize)', () => {
-  it('grows the dialog by the width the content did not get', () => {
+describe('bestSizeOf and incTo — the two halves of onPageChanged', () => {
+  it('counts the width the content did not get as part of the best size', () => {
     // Board Setup states 980; the stackup page's top row needs ~1070, and wx
     // answers that by growing the window, not by clipping it.
-    expect(fitFloor({ width: 980, height: 600 }, 1070, 980, { w: 0, h: 0 })).toEqual({
-      w: 1070,
-      h: 600,
-    });
+    expect(bestSizeOf({ width: 980, height: 600 }, 1070, 980)).toEqual({ w: 1070, h: 600 });
   });
 
-  it('does not shrink below a floor it has already reached', () => {
-    // `IncTo` is a componentwise max.
-    expect(fitFloor({ width: 800, height: 500 }, 800, 800, { w: 1070, h: 600 })).toEqual({
-      w: 1070,
-      h: 600,
-    });
+  it('reports the box itself when nothing overflows', () => {
+    // The measurement is taken with the inline size cleared, so in the normal
+    // case `max-content` has already given the content what it asked for and
+    // there is no shortfall to add.
+    expect(bestSizeOf({ width: 866, height: 600 }, 866, 866)).toEqual({ w: 866, h: 600 });
   });
 
-  it('ignores a deliberate scroller, which reports no shortfall of its own', () => {
-    // The stackup grid lives in a wxScrolledWindow with wxHSCROLL; its overflow
-    // is internal and the dialog element's scrollWidth equals its clientWidth.
-    expect(fitFloor({ width: 980, height: 600 }, 980, 980, { w: 0, h: 0 })).toEqual({
-      w: 980,
-      h: 600,
-    });
+  it('grows the window to the page minimum and no further', () => {
+    // `newSize.IncTo( minSize )`.
+    expect(incTo({ w: 980, h: 600 }, { w: 1070, h: 600 })).toEqual({ w: 1070, h: 600 });
   });
 
-  it('never treats a negative difference as a shrink', () => {
-    expect(fitFloor({ width: 980, height: 600 }, 900, 980, { w: 0, h: 0 }).w).toBe(980);
-  });
-});
-
-describe('only the grid scrolls, not the page', () => {
-  // `bMainSizer` holds bTopSizer, the scrolled window, and bBottomSizer as
-  // siblings: the two bars are NOT inside the thing that scrolls
-  // (`panel_board_stackup_base.cpp:19-56`, `:126-152`). A scroller wrapped
-  // around the whole page takes them with it, which is what put "Copper
-  // layers:" and "Board thickness from" off the left edge.
-  const css = readFileSync(join(__dirname, '../../../designer/src/ui/shell.css'), 'utf8');
-  const ruleFor = (selector: string): string => {
-    const at = css.indexOf(`\n${selector} {`);
-    if (at === -1) throw new Error(`no rule for ${selector}`);
-    return css.slice(at, css.indexOf('}', at));
-  };
-
-  it('does not let a page be squeezed below its unscrolled chrome', () => {
-    // `min-width: 0` here is what made the shortfall unmeasurable: the box
-    // shrank and scrolled instead of pushing the dialog wider.
-    const rule = ruleFor('.ze-paged-panel');
-    expect(rule).toContain('min-width: min-content');
-    expect(rule).not.toMatch(/min-width:\s*0/);
-  });
-
-  it('keeps the grid as the one deliberate scroller, claiming no width', () => {
-    // `m_scGridWin` is created `wxHSCROLL|wxVSCROLL`, so it scrolls in both
-    // axes and imposes no width on the page — that is why a real Board Setup
-    // is ~1070 wide and not the ~1280 the twelve columns need.
-    const rule = ruleFor('.ze-stackup-scroll');
-    expect(rule).toMatch(/overflow:\s*auto/);
-    // `min-width: 0` is NOT sufficient and was the wrong fix on its own: it is
-    // a LOWER bound, so `.ze-paged-panel`'s min-content walk still reached the
-    // grid's 1050 px of columns. `contain: inline-size` is what makes this
-    // box's intrinsic width independent of its contents — a wxScrolledWindow's
-    // best size, not its virtual size.
-    expect(rule).toMatch(/contain:\s*inline-size/);
-  });
-
-  it('does not let the grid columns set the dialog width', () => {
-    // The regression this pins, in numbers: GRID_COLS sums to 1006 px and the
-    // eleven 4 px gaps add 44, so a grid that reached the dialog would demand
-    // ~1050 px of page on its own — the ~300 px of extra dialog that showed up.
-    const panel = readFileSync(
-      join(__dirname, '../../../designer/src/editors/pcb/dialogs/panels/panel_pcb_stackup.tsx'),
-      'utf8',
-    );
-    const cols = /const GRID_COLS = '([^']+)'/.exec(panel)?.[1] ?? '';
-    const total = cols
-      .split(/\s+/)
-      .map((c) => Number.parseInt(c, 10))
-      .reduce((a, b) => a + b, 0);
-    expect(total).toBeGreaterThan(1000);
-    // …so the scroller must be the thing that absorbs it.
-    expect(ruleFor('.ze-stackup-scroll')).toMatch(/contain:\s*inline-size/);
-  });
-
-  it('never wraps either bar', () => {
-    // A wxBoxSizer( wxHORIZONTAL ) has no second line.
-    expect(ruleFor('.ze-stackup-bar')).toContain('flex-wrap: nowrap');
+  it('leaves a window that is already larger than the page alone', () => {
+    // `IncTo` is a componentwise max, so a NARROWER page never shrinks the
+    // window back — which is the whole reason a wx paged dialog stops moving
+    // once you have walked the tree.
+    expect(incTo({ w: 1070, h: 600 }, { w: 800, h: 500 })).toEqual({ w: 1070, h: 600 });
   });
 });

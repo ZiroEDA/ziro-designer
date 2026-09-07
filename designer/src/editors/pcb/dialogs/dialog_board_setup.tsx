@@ -77,11 +77,7 @@ const INCH_0_10: UnitRange = { min: 0, max: 25.4 * 10 };
 // "#107 to 1 inch".
 const MILS_2_1000: UnitRange = { min: 0.0254 * 2, max: 0.0254 * 1000 };
 
-const CONSTRAINT_RANGES: readonly (readonly [
-  keyof BoardConstraints,
-  string,
-  UnitRange,
-])[] = [
+const CONSTRAINT_RANGES: readonly (readonly [keyof BoardConstraints, string, UnitRange])[] = [
   ['minClearanceMM', 'Minimum clearance:', INCH_0_10],
   ['minConnectionMM', 'Minimum connection width:', INCH_0_10],
   ['minTrackMM', 'Minimum track width:', INCH_0_10],
@@ -103,8 +99,7 @@ export function constraintFieldId(key: keyof BoardConstraints): string {
 function validateConstraints(c: BoardConstraints): PagedDialogError | null {
   for (const [key, label, range] of CONSTRAINT_RANGES) {
     const message = validateUnitValue(label, c[key] as number, range, 'mm', pcbIUScale);
-    if (message)
-      return { message, page: 'constraints', focusId: constraintFieldId(key) };
+    if (message) return { message, page: 'constraints', focusId: constraintFieldId(key) };
   }
   return null;
 }
