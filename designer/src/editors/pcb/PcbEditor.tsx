@@ -9948,6 +9948,7 @@ export function PcbEditor({
           if (!bc) return null;
           return (
             <DialogBarcodeProperties
+              units={unitLabel}
               barcode={bc}
               initial={barcodeValues(bc)}
               layers={board?.layers.map((l) => l.name) ?? []}
@@ -10202,6 +10203,7 @@ export function PcbEditor({
       )}
       {shapePropsIndex !== null && board?.shapes[shapePropsIndex] && (
         <DialogShapeProperties
+          units={unitLabel}
           initial={collectShapeValues(board.shapes[shapePropsIndex]!)}
           kind={board.shapes[shapePropsIndex]!.kind}
           layers={board.layers.map((l) => l.name)}
@@ -10281,6 +10283,7 @@ export function PcbEditor({
       )}
       {dimensionPropsIndex !== null && board?.dimensions[dimensionPropsIndex] && (
         <DialogDimensionProperties
+          units={unitLabel}
           initial={collectDimensionValues(board.dimensions[dimensionPropsIndex]!)}
           kind={board.dimensions[dimensionPropsIndex]!.kind}
           layers={board.layers.map((l) => l.name)}
@@ -10290,6 +10293,7 @@ export function PcbEditor({
       )}
       {padPropsRef && board?.footprints[padPropsRef.footprint]?.pads[padPropsRef.pad] && (
         <DialogPadProperties
+          units={unitLabel}
           initial={collectPadValues(
             board.footprints[padPropsRef.footprint]!.pads[padPropsRef.pad]!,
           )}
@@ -10301,6 +10305,7 @@ export function PcbEditor({
       )}
       {fpPropsIndex !== null && board?.footprints[fpPropsIndex] && (
         <DialogFootprintProperties
+          units={unitLabel}
           initial={collectFootprintValues(board.footprints[fpPropsIndex]!)}
           libId={board.footprints[fpPropsIndex]!.lib}
           onApply={applyFootprintEdit}
@@ -10309,6 +10314,7 @@ export function PcbEditor({
       )}
       {zonePropsIndex !== null && board?.zones[zonePropsIndex] && (
         <DialogCopperZones
+          units={unitLabel}
           initial={collectZoneValues(board.zones[zonePropsIndex]!)}
           nets={board.nets}
           layers={board.layers.filter((l) => /\.Cu$/.test(l.name)).map((l) => l.name)}
@@ -10374,6 +10380,7 @@ export function PcbEditor({
       {pnsSettingsOpen && <DialogPnsSettings onClose={() => setPnsSettingsOpen(false)} />}
       {outsetOpen && board && (
         <DialogOutsetItems
+          units={unitLabel}
           layers={board.layers.map((l) => l.name)}
           initial={outsetSettings}
           onApply={applyOutset}
@@ -10382,6 +10389,7 @@ export function PcbEditor({
       )}
       {lineModOpen && board && (
         <DialogLineModification
+          units={unitLabel}
           title={
             lineModOpen === 'fillet'
               ? 'Fillet Lines'

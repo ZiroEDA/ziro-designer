@@ -34,8 +34,16 @@ import { barcodeGeometry } from '@ziroeda/pcbnew/src/barcode_geometry.js';
 import type { PcbBarcode } from '@ziroeda/pcbnew/src/types.js';
 import { Combo } from '../../../ui/Combo.js';
 import { useModalEscape } from '../../../ui/useModalEscape.js';
+import { pcbUnitText, pcbUnitValue, unitLabel } from '../pcb_unit_binder.js';
+import type { StatusUnits } from '../../../ui/status_format.js';
 
 interface Props {
+  /**
+   * The frame's display units. Every distance in this dialog is a
+   * `UNIT_BINDER` upstream, so it shows and reads the frame's unit rather than
+   * a fixed millimetre.
+   */
+  units: StatusUnits;
   /** The item being edited, for the fields the dialog does not own. */
   barcode: PcbBarcode;
   initial: BarcodeValues;
@@ -97,6 +105,7 @@ function drawPreview(
 export function DialogBarcodeProperties({
   barcode,
   initial,
+  units,
   layers,
   layerColor,
   background,
@@ -137,15 +146,15 @@ export function DialogBarcodeProperties({
         type="text"
         className="ze-tvp-input"
         disabled={!enabled}
-        value={shown(key, String(pcbIuToMM(value)))}
+        value={shown(key, pcbUnitText(value, units))}
         onChange={(e) => {
           setTyping({ key, text: e.target.value });
-          const n = Number(e.target.value);
-          if (Number.isFinite(n)) apply(pcbMmToIU(n));
+          const iu = pcbUnitValue(e.target.value, units);
+          if (Number.isFinite(iu)) apply(iu);
         }}
         onBlur={() => setTyping(null)}
       />
-      <span className="ze-tvp-unit">mm</span>
+      <span className="ze-unit-label">{unitLabel(units)}</span>
     </label>
   );
 

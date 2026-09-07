@@ -13,11 +13,18 @@
  * while layers are being copied from the source.
  */
 import { useState, type JSX, type Ref } from 'react';
-import { pcbIuToMM as iuToMM, pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 import type { OutsetSettings } from '../outset_settings.js';
 import { useModalEscape } from '../../../ui/useModalEscape.js';
+import { pcbUnitText, pcbUnitValue, unitLabel } from '../pcb_unit_binder.js';
+import type { StatusUnits } from '../../../ui/status_format.js';
 
 interface Props {
+  /**
+   * The frame's display units. Every distance in this dialog is a
+   * `UNIT_BINDER` upstream, so it shows and reads the frame's unit rather than
+   * a fixed millimetre.
+   */
+  units: StatusUnits;
   /** Layers offered when not copying from the source. */
   layers: string[];
   /** Remembered across openings, as upstream keeps its params on the tool. */
@@ -27,9 +34,8 @@ interface Props {
   rootRef?: Ref<HTMLDivElement>;
 }
 
-const mm = (v: number): string => String(iuToMM(v));
-
 export function DialogOutsetItems({
+  units,
   layers,
   initial,
   onApply,
@@ -41,13 +47,14 @@ export function DialogOutsetItems({
   useModalEscape(onClose);
 
   const [s, setS] = useState<OutsetSettings>(initial);
-  const [distanceText, setDistanceText] = useState(mm(initial.distanceIU));
-  const [widthText, setWidthText] = useState(mm(initial.lineWidthIU));
-  const [gridText, setGridText] = useState(mm(initial.gridPitchIU));
+  const [distanceText, setDistanceText] = useState(pcbUnitText(initial.distanceIU, units));
+  const [widthText, setWidthText] = useState(pcbUnitText(initial.lineWidthIU, units));
+  const [gridText, setGridText] = useState(pcbUnitText(initial.gridPitchIU, units));
 
+  /** `UNIT_BINDER::GetValue()`: board IU, read in the frame's units. */
   const num = (t: string): number => {
-    const v = Number.parseFloat(t);
-    return Number.isFinite(v) ? v : 0;
+    const iu = pcbUnitValue(t, units);
+    return Number.isFinite(iu) ? iu : 0;
   };
 
   const row = (label: string, control: JSX.Element, dim = false): JSX.Element => (
@@ -94,7 +101,7 @@ export function DialogOutsetItems({
         onChange={(e) => setText(e.target.value)}
         style={{ width: 80, fontSize: 12, padding: '2px 4px' }}
       />
-      <span style={{ opacity: 0.7 }}>mm</span>
+      <span className="ze-unit-label">{unitLabel(units)}</span>
     </>
   );
 
@@ -188,9 +195,9 @@ export function DialogOutsetItems({
           onClick={() =>
             onApply({
               ...s,
-              distanceIU: mmToIU(num(distanceText)),
-              lineWidthIU: mmToIU(num(widthText)),
-              gridPitchIU: mmToIU(num(gridText)),
+              distanceIU: num(distanceText),
+              lineWidthIU: num(widthText),
+              gridPitchIU: num(gridText),
             })
           }
         >

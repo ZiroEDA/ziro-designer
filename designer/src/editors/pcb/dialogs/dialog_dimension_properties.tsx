@@ -30,6 +30,8 @@ import type { DimensionValues } from '@ziroeda/pcbnew/src/dimension_properties.j
 import type { DimensionKind } from '@ziroeda/pcbnew/src/types.js';
 import { dimensionDialogFields } from '../dimension_tools.js';
 import { useModalEscape } from '../../../ui/useModalEscape.js';
+import { pcbUnitText, pcbUnitValue, unitLabel } from '../pcb_unit_binder.js';
+import type { StatusUnits } from '../../../ui/status_format.js';
 
 const UNITS = ['Inches', 'Mils', 'Millimeters', 'Automatic'];
 const FORMATS = ['1234', '1234 mm', '1234 (mm)'];
@@ -49,6 +51,12 @@ type MmKey =
   | 'textY';
 
 interface Props {
+  /**
+   * The frame's display units. Every distance in this dialog is a
+   * `UNIT_BINDER` upstream, so it shows and reads the frame's unit rather than
+   * a fixed millimetre.
+   */
+  units: StatusUnits;
   initial: DimensionValues;
   kind: DimensionKind;
   layers: readonly string[];
@@ -58,6 +66,7 @@ interface Props {
 
 export function DialogDimensionProperties({
   initial,
+  units,
   kind,
   layers,
   onApply,
@@ -79,14 +88,14 @@ export function DialogDimensionProperties({
         type="text"
         className="ze-tvp-input"
         disabled={disabled}
-        value={text[key] ?? String(pcbIuToMM(v[key]))}
+        value={text[key] ?? pcbUnitText(v[key], units)}
         onChange={(e) => {
           setText((p) => ({ ...p, [key]: e.target.value }));
-          const n = Number(e.target.value);
-          if (Number.isFinite(n)) set({ [key]: pcbMmToIU(n) } as Partial<DimensionValues>);
+          const iu = pcbUnitValue(e.target.value, units);
+          if (Number.isFinite(iu)) set({ [key]: iu } as Partial<DimensionValues>);
         }}
       />
-      <span className="ze-tvp-unit">mm</span>
+      <span className="ze-unit-label">{unitLabel(units)}</span>
     </label>
   );
 

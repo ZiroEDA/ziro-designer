@@ -27,6 +27,8 @@ import type { PcbShape } from '@ziroeda/pcbnew/src/types.js';
 import { LINE_STYLE_NAMES, lineStyleComboValue } from '@ziroeda/common/src/stroke_params.js';
 import { UI_FILL_MODE_CHOICES } from '@ziroeda/pcbnew/src/shape_fill.js';
 import { useModalEscape } from '../../../ui/useModalEscape.js';
+import { pcbUnitText, pcbUnitValue, unitLabel } from '../pcb_unit_binder.js';
+import type { StatusUnits } from '../../../ui/status_format.js';
 
 /** A millimetre text box bound to an IU value. */
 function useMmText(): [Record<string, string>, (k: string, s: string) => void] {
@@ -34,6 +36,12 @@ function useMmText(): [Record<string, string>, (k: string, s: string) => void] {
   return [text, (k, s) => setText((p) => ({ ...p, [k]: s }))];
 }
 interface ShapeProps {
+  /**
+   * The frame's display units. Every distance in this dialog is a
+   * `UNIT_BINDER` upstream, so it shows and reads the frame's unit rather than
+   * a fixed millimetre.
+   */
+  units: StatusUnits;
   initial: ShapeValues;
   kind: PcbShape['kind'];
   layers: readonly string[];
@@ -43,6 +51,7 @@ interface ShapeProps {
 
 export function DialogShapeProperties({
   initial,
+  units,
   kind,
   layers,
   onApply,
@@ -76,14 +85,14 @@ export function DialogShapeProperties({
         <input
           type="text"
           className="ze-tvp-input"
-          value={text[id] ?? String(pcbIuToMM(v[key][axis]))}
+          value={text[id] ?? pcbUnitText(v[key][axis], units)}
           onChange={(e) => {
             setText(id, e.target.value);
-            const n = Number(e.target.value);
-            if (Number.isFinite(n)) set({ [key]: { ...v[key], [axis]: pcbMmToIU(n) } });
+            const iu = pcbUnitValue(e.target.value, units);
+            if (Number.isFinite(iu)) set({ [key]: { ...v[key], [axis]: iu } });
           }}
         />
-        <span className="ze-tvp-unit">mm</span>
+        <span className="ze-unit-label">{unitLabel(units)}</span>
       </label>
     );
   };
@@ -126,14 +135,14 @@ export function DialogShapeProperties({
               <input
                 type="text"
                 className="ze-tvp-input"
-                value={text.lineWidth ?? String(pcbIuToMM(v.lineWidth))}
+                value={text.lineWidth ?? pcbUnitText(v.lineWidth, units)}
                 onChange={(e) => {
                   setText('lineWidth', e.target.value);
-                  const n = Number(e.target.value);
-                  if (Number.isFinite(n)) set({ lineWidth: pcbMmToIU(n) });
+                  const iu = pcbUnitValue(e.target.value, units);
+                  if (Number.isFinite(iu)) set({ lineWidth: iu });
                 }}
               />
-              <span className="ze-tvp-unit">mm</span>
+              <span className="ze-unit-label">{unitLabel(units)}</span>
             </label>
             <label>
               <span className="ze-tvp-label">Line style:</span>
@@ -205,7 +214,7 @@ export function DialogShapeProperties({
                 placeholder="—"
                 disabled={!v.hasMask}
                 value={
-                  text.maskMargin ?? (v.maskMargin === null ? '' : String(pcbIuToMM(v.maskMargin)))
+                  text.maskMargin ?? (v.maskMargin === null ? '' : pcbUnitText(v.maskMargin, units))
                 }
                 onChange={(e) => {
                   const s = e.target.value;
@@ -214,11 +223,11 @@ export function DialogShapeProperties({
                     set({ maskMargin: null });
                     return;
                   }
-                  const n = Number(s);
-                  if (Number.isFinite(n)) set({ maskMargin: pcbMmToIU(n) });
+                  const iu = pcbUnitValue(s, units);
+                  if (Number.isFinite(iu)) set({ maskMargin: iu });
                 }}
               />
-              <span className="ze-tvp-unit">mm</span>
+              <span className="ze-unit-label">{unitLabel(units)}</span>
             </label>
             <label>
               <input

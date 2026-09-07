@@ -2159,6 +2159,7 @@ export function FootprintEditor({
                 };
           return (
             <DialogBarcodeProperties
+              units={unitLabel}
               barcode={bc}
               initial={barcodeValues(bc)}
               layers={allFpLayers}

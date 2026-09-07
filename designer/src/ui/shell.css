@@ -12153,6 +12153,7 @@ textarea.ze-ds-textedit {
    on this machine with this theme (`qa/probes/stc_bestsize_probe.cpp`). */
 .ze-modal.ze-htmlmsg.ze-syntaxhelp {
   width: 720px;
+  /* [px] the vertical half of that same `ConvertDialogToPixels( 320, 320 )`. */
   height: 840px;
   max-width: 92vw;
   max-height: 92vh;
@@ -12174,6 +12175,8 @@ textarea.ze-ds-textedit {
 }
 .ze-modal.ze-htmlmsg.ze-syntaxhelp td,
 .ze-modal.ze-htmlmsg.ze-syntaxhelp th {
+  /* [data] wxHtmlWindow's own cellpadding, the same 3 the library tree's
+     details table takes. */
   padding: 3px;
   text-align: left;
   vertical-align: top;

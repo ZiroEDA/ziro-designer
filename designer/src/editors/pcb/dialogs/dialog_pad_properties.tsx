@@ -18,8 +18,16 @@ import { useState, type JSX } from 'react';
 import { pcbIuToMM, pcbMmToIU } from '@ziroeda/common/src/eda_units.js';
 import type { PadValues } from '@ziroeda/pcbnew/src/pad_properties.js';
 import { useModalEscape } from '../../../ui/useModalEscape.js';
+import { pcbUnitText, pcbUnitValue, unitLabel } from '../pcb_unit_binder.js';
+import type { StatusUnits } from '../../../ui/status_format.js';
 
 interface Props {
+  /**
+   * The frame's display units. Every distance in this dialog is a
+   * `UNIT_BINDER` upstream, so it shows and reads the frame's unit rather than
+   * a fixed millimetre.
+   */
+  units: StatusUnits;
   initial: PadValues;
   nets: ReadonlyMap<number, string>;
   /** Every layer name the pad may sit on. */
@@ -53,6 +61,7 @@ type OverrideKey =
 
 export function DialogPadProperties({
   initial,
+  units,
   nets,
   layers,
   onApply,
@@ -74,15 +83,15 @@ export function DialogPadProperties({
       <input
         type="text"
         className="ze-tvp-input"
-        value={text[key] ?? String(pcbIuToMM(v[key]))}
+        value={text[key] ?? pcbUnitText(v[key], units)}
         disabled={disabled}
         onChange={(e) => {
           setText((p) => ({ ...p, [key]: e.target.value }));
-          const n = Number(e.target.value);
-          if (Number.isFinite(n)) set({ [key]: pcbMmToIU(n) } as Partial<PadValues>);
+          const iu = pcbUnitValue(e.target.value, units);
+          if (Number.isFinite(iu)) set({ [key]: iu } as Partial<PadValues>);
         }}
       />
-      <span className="ze-tvp-unit">mm</span>
+      <span className="ze-unit-label">{unitLabel(units)}</span>
     </label>
   );
 
@@ -96,7 +105,7 @@ export function DialogPadProperties({
           type="text"
           className="ze-tvp-input"
           placeholder="—"
-          value={text[key] ?? (stored === null ? '' : String(pcbIuToMM(stored)))}
+          value={text[key] ?? (stored === null ? '' : pcbUnitText(stored, units))}
           onChange={(e) => {
             const s = e.target.value;
             setText((p) => ({ ...p, [key]: s }));
@@ -104,11 +113,11 @@ export function DialogPadProperties({
               set({ [key]: null } as Partial<PadValues>);
               return;
             }
-            const n = Number(s);
-            if (Number.isFinite(n)) set({ [key]: pcbMmToIU(n) } as Partial<PadValues>);
+            const iu = pcbUnitValue(s, units);
+            if (Number.isFinite(iu)) set({ [key]: iu } as Partial<PadValues>);
           }}
         />
-        <span className="ze-tvp-unit">mm</span>
+        <span className="ze-unit-label">{unitLabel(units)}</span>
       </label>
     );
   };

@@ -17,8 +17,16 @@ import { useState, type JSX } from 'react';
 import { pcbIuToMM, pcbMmToIU } from '@ziroeda/common/src/eda_units.js';
 import type { ZoneValues } from '@ziroeda/pcbnew/src/zone_properties.js';
 import { useModalEscape } from '../../../ui/useModalEscape.js';
+import { pcbUnitText, pcbUnitValue, unitLabel } from '../pcb_unit_binder.js';
+import type { StatusUnits } from '../../../ui/status_format.js';
 
 interface Props {
+  /**
+   * The frame's display units. Every distance in this dialog is a
+   * `UNIT_BINDER` upstream, so it shows and reads the frame's unit rather than
+   * a fixed millimetre.
+   */
+  units: StatusUnits;
   initial: ZoneValues;
   /** Net codes and names. */
   nets: ReadonlyMap<number, string>;
@@ -28,7 +36,14 @@ interface Props {
   onClose: () => void;
 }
 
-export function DialogCopperZones({ initial, nets, layers, onApply, onClose }: Props): JSX.Element {
+export function DialogCopperZones({
+  initial,
+  units,
+  nets,
+  layers,
+  onApply,
+  onClose,
+}: Props): JSX.Element {
   // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
   // ui/modal_escape.ts.
   useModalEscape(onClose);
@@ -57,11 +72,11 @@ export function DialogCopperZones({ initial, nets, layers, onApply, onClose }: P
           disabled={disabled}
           onChange={(e) => {
             setMmText((p) => ({ ...p, [key]: e.target.value }));
-            const n = Number(e.target.value);
-            if (Number.isFinite(n)) set({ [key]: pcbMmToIU(n) } as Partial<ZoneValues>);
+            const iu = pcbUnitValue(e.target.value, units);
+            if (Number.isFinite(iu)) set({ [key]: iu } as Partial<ZoneValues>);
           }}
         />
-        <span className="ze-tvp-unit">mm</span>
+        <span className="ze-unit-label">{unitLabel(units)}</span>
       </label>
     );
   };

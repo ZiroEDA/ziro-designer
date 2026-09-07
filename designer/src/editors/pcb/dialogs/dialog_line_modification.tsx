@@ -15,14 +15,20 @@
  * the two separately when it is wanted.
  */
 import { useState, type JSX, type Ref } from 'react';
-import { pcbIuToMM as iuToMM, pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 import { useModalEscape } from '../../../ui/useModalEscape.js';
+import { pcbUnitText, pcbUnitValue, unitLabel } from '../pcb_unit_binder.js';
+import type { StatusUnits } from '../../../ui/status_format.js';
 
 interface Props {
   title: string;
   label: string;
   /** Current value in IU. */
   value: number;
+  /**
+   * The frame's display units. Every distance here is a `UNIT_BINDER`
+   * upstream, so it shows and reads the frame's unit rather than millimetres.
+   */
+  units: StatusUnits;
   onApply: (valueIU: number) => void;
   onClose: () => void;
   rootRef?: Ref<HTMLDivElement>;
@@ -32,6 +38,7 @@ export function DialogLineModification({
   title,
   label,
   value,
+  units,
   onApply,
   onClose,
   rootRef,
@@ -40,9 +47,10 @@ export function DialogLineModification({
   // ui/modal_escape.ts.
   useModalEscape(onClose);
 
-  const [text, setText] = useState(String(iuToMM(value)));
+  const [text, setText] = useState(pcbUnitText(value, units));
 
-  const parsed = Number.parseFloat(text);
+  // `UNIT_BINDER::GetValue()`, so a `1.5mm` typed into a mils field is honoured.
+  const parsed = pcbUnitValue(text, units);
   // A zero or negative radius rounds nothing, and the engine would refuse it
   // anyway — better to say so before the user presses OK.
   const valid = Number.isFinite(parsed) && parsed > 0;
@@ -84,7 +92,7 @@ export function DialogLineModification({
             // belongs here rather than a tab away.
             autoFocus
             onKeyDown={(e) => {
-              if (e.key === 'Enter' && valid) onApply(mmToIU(parsed));
+              if (e.key === 'Enter' && valid) onApply(parsed);
               if (e.key === 'Escape') onClose();
             }}
             style={{
@@ -94,7 +102,7 @@ export function DialogLineModification({
               color: valid ? undefined : '#e05555',
             }}
           />
-          <span style={{ opacity: 0.7 }}>mm</span>
+          <span className="ze-unit-label">{unitLabel(units)}</span>
         </label>
       </div>
 
@@ -110,7 +118,7 @@ export function DialogLineModification({
         <button type="button" onClick={onClose}>
           Cancel
         </button>
-        <button type="button" disabled={!valid} onClick={() => onApply(mmToIU(parsed))}>
+        <button type="button" disabled={!valid} onClick={() => onApply(parsed)}>
           OK
         </button>
       </div>

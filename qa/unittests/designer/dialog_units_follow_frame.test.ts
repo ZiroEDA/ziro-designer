@@ -115,26 +115,21 @@ const KNOWN_HARDCODED = new Set([
   // width fields still print a literal "mm" where `UNIT_BINDER` would print the
   // frame's unit. It is one fix for two editors now, which is the point.
   'DialogTableProperties.tsx',
-  // ---- the board editor, the moment this scan could see it -----------------
-  // Ten, all the same defect and none of them checked before: the scan used to
-  // stop at the schematic's folder. Each is a `UNIT_BINDER` upstream — e.g.
-  // `m_borderWidth( aParent, m_borderWidthLabel, m_borderWidthCtrl,
-  // m_borderWidthUnits )` — and each prints "mm" here whatever the board is in.
+  // ---- the board editor -----------------------------------------------------
+  // Ten when this scan could first see the folder, and one left.
   //
-  // Two are deliberately NOT on this list — `dialog_textbox_properties.tsx` and
-  // `dialog_reference_image_properties.tsx`, the two that have been paid. The
-  // image dialog left it the way the ratchet intends: its four `UNIT_BINDER`s
-  // (`m_posX`, `m_posY`, `m_width`, `m_height`) were rebuilt against the base
-  // file, this list went red on the next run, and the name came off.
-  'dialog_barcode_properties.tsx',
+  // The other nine went through `editors/pcb/pcb_unit_binder.ts`, which is
+  // `ui/unit_binder.ts` bound to the board's `EDA_IU_SCALE` — the part that has
+  // to be per-editor, because `StringFromValue` picks its digit count from
+  // `IU_PER_MM` and `ValueFromString` quantises to the frame's internal unit.
+  // Each dialog took a `units` prop and the frame passes `unitLabel`, exactly
+  // as a `UNIT_BINDER` takes the frame as its `UNITS_PROVIDER`.
+  //
+  // `dialog_board_setup.tsx` is the one still here and it is a different job:
+  // its constraints are held in MILLIMETRES rather than IU (`maxDeviationMM`,
+  // and the rest of `BoardConstraints`), so it needs the mm-valued flavour of
+  // that binder rather than the IU one every other dialog took.
   'dialog_board_setup.tsx',
-  'dialog_copper_zones.tsx',
-  'dialog_dimension_properties.tsx',
-  'dialog_footprint_properties.tsx',
-  'dialog_graphic_properties.tsx',
-  'dialog_line_modification.tsx',
-  'dialog_outset_items.tsx',
-  'dialog_pad_properties.tsx',
 ]);
 
 describe('a dialog never hardcodes a unit name beside a field', () => {

@@ -17,8 +17,16 @@ import { useState, type JSX } from 'react';
 import { pcbIuToMM, pcbMmToIU } from '@ziroeda/common/src/eda_units.js';
 import type { FootprintValues } from '@ziroeda/pcbnew/src/footprint_properties.js';
 import { useModalEscape } from '../../../ui/useModalEscape.js';
+import { pcbUnitText, pcbUnitValue, unitLabel } from '../pcb_unit_binder.js';
+import type { StatusUnits } from '../../../ui/status_format.js';
 
 interface Props {
+  /**
+   * The frame's display units. Every distance in this dialog is a
+   * `UNIT_BINDER` upstream, so it shows and reads the frame's unit rather than
+   * a fixed millimetre.
+   */
+  units: StatusUnits;
   initial: FootprintValues;
   /** The footprint's library id, shown read-only as upstream's Library link. */
   libId: string;
@@ -30,6 +38,7 @@ type Tab = 'general' | 'clearances';
 
 export function DialogFootprintProperties({
   initial,
+  units,
   libId,
   onApply,
   onClose,
@@ -52,14 +61,14 @@ export function DialogFootprintProperties({
       <input
         type="text"
         className="ze-tvp-input"
-        value={text[key] ?? String(pcbIuToMM(v[key]))}
+        value={text[key] ?? pcbUnitText(v[key], units)}
         onChange={(e) => {
           setText((p) => ({ ...p, [key]: e.target.value }));
-          const n = Number(e.target.value);
-          if (Number.isFinite(n)) set({ [key]: pcbMmToIU(n) } as Partial<FootprintValues>);
+          const iu = pcbUnitValue(e.target.value, units);
+          if (Number.isFinite(iu)) set({ [key]: iu } as Partial<FootprintValues>);
         }}
       />
-      <span className="ze-tvp-unit">mm</span>
+      <span className="ze-unit-label">{unitLabel(units)}</span>
     </label>
   );
 
@@ -73,7 +82,7 @@ export function DialogFootprintProperties({
     title: string,
   ): JSX.Element => {
     const stored = v[key];
-    const shown = text[key] ?? (stored === null ? '' : String(pcbIuToMM(stored)));
+    const shown = text[key] ?? (stored === null ? '' : pcbUnitText(stored, units));
     return (
       <label title={title}>
         <span className="ze-tvp-label">{label}</span>
@@ -89,11 +98,11 @@ export function DialogFootprintProperties({
               set({ [key]: null } as Partial<FootprintValues>);
               return;
             }
-            const n = Number(s);
-            if (Number.isFinite(n)) set({ [key]: pcbMmToIU(n) } as Partial<FootprintValues>);
+            const iu = pcbUnitValue(s, units);
+            if (Number.isFinite(iu)) set({ [key]: iu } as Partial<FootprintValues>);
           }}
         />
-        <span className="ze-tvp-unit">mm</span>
+        <span className="ze-unit-label">{unitLabel(units)}</span>
       </label>
     );
   };
