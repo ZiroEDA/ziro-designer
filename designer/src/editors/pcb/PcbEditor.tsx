@@ -13,6 +13,7 @@
 import { PCB_IU_PER_MM } from '@ziroeda/common/src/eda_units.js';
 import { editPointColors } from '@ziroeda/common/src/color4d.js';
 import { galPenWidth, galSnapPx } from '@ziroeda/common/src/gal_pixel_grid.js';
+import { overlayTargetColor } from '../../render/gl/scene.js';
 import { BezierStep } from '@ziroeda/common/src/preview_items/bezier_geom_manager.js';
 import {
   EDIT_LINE_WIDTH,
@@ -2595,6 +2596,56 @@ export function PcbEditor({
       );
       bctx.setTransform(1, 0, 0, 1, 0, 0);
     }
+    /**
+     * `LAYER_CONFLICTS_SHADOW` — the Objects tab's "Colliding Courtyards".
+     *
+     * `PCB_PAINTER::draw` fills the courtyard polygons of every footprint
+     * carrying COURTYARD_CONFLICT (`pcb_painter.cpp:2846`) and the outline of
+     * every rule area carrying it (`:2947`), in one flat colour with no stroke.
+     * The moving footprint is a SELECTED one, and `GetColor` gives a selected
+     * item `m_layerColorsSel` instead of the layer colour (`:337-343`), so the
+     * part under the cursor washes pale and the part it landed on stays red.
+     *
+     * Written once and called twice because the two backends differ only in
+     * where the geometry goes and how the colour is prepared: on the GPU it is
+     * a `TARGET_OVERLAY` pass whose colours are premultiplied for KiCad's
+     * overlay blend, on the 2D canvas it is a plain fill, which is the closest
+     * that canvas can get (see `overlayTargetColor`).
+     */
+    const paintConflictShadows = (
+      target: CanvasRenderingContext2D,
+      toSource: (css: string) => string,
+    ): void => {
+      const conflicts = conflictsRef.current;
+      const session = courtyardSessionRef.current;
+      const brd = boardRef.current;
+      const md = moveDeltaRef.current;
+      if (!conflicts || !session || !brd || !md || !objects.collidingCourtyards) return;
+      const base = drawOpts.theme?.special.conflictsShadow ?? PCB_SPECIAL.conflictsShadow;
+      const staticFill = toSource(base);
+      const movingFill = toSource(selectedColor(base));
+      const fill = (rings: readonly (readonly { x: number; y: number }[])[]): void => {
+        for (const ring of rings) {
+          if (ring.length < 3) continue;
+          target.beginPath();
+          target.moveTo(ring[0]!.x, ring[0]!.y);
+          for (let i = 1; i < ring.length; i++) target.lineTo(ring[i]!.x, ring[i]!.y);
+          target.closePath();
+          target.fill();
+        }
+      };
+      for (const idx of conflicts.footprints) {
+        target.fillStyle = session.movingFootprints.has(idx) ? movingFill : staticFill;
+        fill(conflictShadowRings(session, idx, md));
+      }
+      // A rule area is never the thing being dragged, so it never takes the
+      // selected colour.
+      target.fillStyle = staticFill;
+      for (const idx of conflicts.zones) {
+        const outline = brd.zones[idx]?.outline;
+        if (outline) fill([outline]);
+      }
+    };
     // The board itself: one uniform and three draw calls on the GPU, or the
     // raster blit it replaces.
     //
@@ -2641,6 +2692,14 @@ export function PcbEditor({
           'over',
           inPlaceShift,
         );
+      }, v.scale);
+      // …and the pass composited over the finished board. Its own GL layer
+      // because `TARGET_OVERLAY` is its own BLEND: KiCad's overlay buffer plus
+      // `OPENGL_COMPOSITOR::DrawBuffer` produce `a·C + (1 − a²)·dst`, which no
+      // Canvas2D fill can express and which is why this moved off the overlay
+      // canvas above.
+      gl.recordOverlay((rec) => {
+        paintConflictShadows(rec, overlayTargetColor);
       }, v.scale);
       gl.render(
         {
@@ -2767,55 +2826,16 @@ export function PcbEditor({
         }
       }
     }
-    // Courtyard conflicts (LAYER_CONFLICTS_SHADOW). `PCB_PAINTER::draw` fills
-    // the courtyard polygons of every footprint carrying COURTYARD_CONFLICT
-    // (`pcb_painter.cpp:2846`) and the outline of every rule area carrying it
-    // (`:2947`), in one flat colour with no stroke.
-    //
-    // After the ratsnest and before the selection chrome because that is where
-    // GAL_LAYER_ORDER puts it: LAYER_CONFLICTS_SHADOW sits directly under
+    // Courtyard conflicts, when there is no GPU to composite them on. Ordered
+    // after the ratsnest and before the selection chrome because that is where
+    // GAL_LAYER_ORDER puts LAYER_CONFLICTS_SHADOW: directly under
     // LAYER_SELECT_OVERLAY and 130 entries above LAYER_RATSNEST
-    // (`pcb_draw_panel_gal.cpp:81`), so the wash goes over the copper it
-    // collides with rather than under it.
-    {
-      const conflicts = conflictsRef.current;
-      const session = courtyardSessionRef.current;
-      const brd = boardRef.current;
-      const md = moveDeltaRef.current;
-      if (conflicts && session && brd && md && objects.collidingCourtyards) {
-        ctx.setTransform(sx, 0, 0, v.scale, v.tx, v.ty);
-        // The moving footprint is a SELECTED one, and `GetColor` gives a
-        // selected item `m_layerColorsSel` instead of the layer colour
-        // (`pcb_painter.cpp:337-343`). So the part under the cursor washes pale
-        // pink and the one it landed on stays red — they are not the same
-        // colour, which is the whole visual difference between "I am dragging
-        // this" and "…into that".
-        const conflictColor =
-          drawOpts.theme?.special.conflictsShadow ?? PCB_SPECIAL.conflictsShadow;
-        const movingColor = selectedColor(conflictColor);
-        const fill = (rings: readonly (readonly { x: number; y: number }[])[]): void => {
-          for (const ring of rings) {
-            if (ring.length < 3) continue;
-            ctx.beginPath();
-            ctx.moveTo(ring[0]!.x, ring[0]!.y);
-            for (let i = 1; i < ring.length; i++) ctx.lineTo(ring[i]!.x, ring[i]!.y);
-            ctx.closePath();
-            ctx.fill();
-          }
-        };
-        for (const idx of conflicts.footprints) {
-          ctx.fillStyle = session.movingFootprints.has(idx) ? movingColor : conflictColor;
-          fill(conflictShadowRings(session, idx, md));
-        }
-        // A rule area is never the thing being dragged, so it never takes the
-        // selected colour.
-        ctx.fillStyle = conflictColor;
-        for (const idx of conflicts.zones) {
-          const outline = brd.zones[idx]?.outline;
-          if (outline) fill([outline]);
-        }
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-      }
+    // (`pcb_draw_panel_gal.cpp:81`). The GL path draws it in its own layer, in
+    // the same position, with KiCad's overlay blend that this one cannot do.
+    if (!useGl) {
+      ctx.setTransform(sx, 0, 0, v.scale, v.tx, v.ty);
+      paintConflictShadows(ctx, (css) => css);
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
     }
     // Umbilical lines (pcb_painter.cpp draw(PCB_TEXT): "Draw the umbilical
     // line for texts in footprints"): every SELECTED footprint text draws a

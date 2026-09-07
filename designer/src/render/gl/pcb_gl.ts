@@ -132,6 +132,9 @@ export class PcbGl {
   private readonly innerScene = new Scene(true);
   /** Geometry drawn over the board, rebuilt every frame. */
   private readonly textScene = new Scene(true);
+  /** …and the one composited over it, KiCad's `TARGET_OVERLAY`. */
+  private readonly overlayScene = new Scene(true);
+  private overlayActive = false;
 
   /**
    * A recorder over `scene`, set up for a per-frame pass at `viewScale`.
@@ -180,6 +183,34 @@ export class PcbGl {
     fn(this.perFrame(this.textScene, viewScale) as unknown as CanvasRenderingContext2D);
     this.textScene.closeItem();
     this.device.uploadText(this.textScene);
+  }
+
+  /**
+   * The pass KiCad composites over the finished board — `TARGET_OVERLAY`, which
+   * `pcb_draw_panel_gal.cpp:875` puts `LAYER_CONFLICTS_SHADOW` on.
+   *
+   * Not the same as `recordText` despite the identical shape: an overlay layer
+   * blends differently, and reproducing that is the entire reason this is on the
+   * GPU rather than on the 2D canvas above it. Pass colours through
+   * `overlayTargetColor`; the device pairs them with the matching blend, and a
+   * plain `rgba()` here would come out at a quarter strength.
+   *
+   * Records nothing and uploads nothing while the pass is empty, so a board
+   * with no overlay costs no per-frame GL traffic at all.
+   */
+  recordOverlay(fn: (ctx: CanvasRenderingContext2D) => void, viewScale: number): void {
+    this.overlayScene.clear();
+    fn(this.perFrame(this.overlayScene, viewScale) as unknown as CanvasRenderingContext2D);
+    this.overlayScene.closeItem();
+    if (this.overlayScene.isEmpty) {
+      if (this.overlayActive) {
+        this.device.clearOverlay();
+        this.overlayActive = false;
+      }
+      return;
+    }
+    this.device.uploadOverlay(this.overlayScene);
+    this.overlayActive = true;
   }
 
   render(

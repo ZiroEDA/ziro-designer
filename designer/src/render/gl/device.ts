@@ -343,6 +343,7 @@ export class GlDevice {
     private readonly preview: GlLayer,
     private readonly inner: GlLayer,
     private readonly text: GlLayer,
+    private readonly overlay: GlLayer,
   ) {
     this.depthLoc = gl.getUniformLocation(progGlyph, 'u_depth');
     for (const p of [progSeg, progDisc, progRing, progTri, progGlyph, progImage]) {
@@ -492,7 +493,11 @@ export class GlDevice {
     // And a fourth for the pass drawn *over* it: track and via net names and
     // through-hole pad text, which KiCad files above every copper layer.
     const text = createLayer(gl, quad);
-    if (!base || !preview || !inner || !text) return null;
+    // And a fifth for KiCad's TARGET_OVERLAY: the layers it composites over the
+    // finished board rather than painting into it. It is its own layer because
+    // it is its own BLEND — see `draw`.
+    const overlay = createLayer(gl, quad);
+    if (!base || !preview || !inner || !text || !overlay) return null;
 
     return new GlDevice(
       gl,
@@ -507,6 +512,7 @@ export class GlDevice {
       preview,
       inner,
       text,
+      overlay,
     );
   }
 
@@ -596,6 +602,26 @@ export class GlDevice {
   /** Send the pass that draws over the board — net names and pad text. */
   uploadText(scene: Scene): void {
     this.uploadInto(this.text, scene);
+  }
+
+  /**
+   * Send the pass drawn with KiCad's overlay compositing.
+   *
+   * Its colours must already be the premultiplied `(a·C, a²)` that
+   * `overlayTargetColor` produces; `draw` pairs them with the matching blend.
+   */
+  uploadOverlay(scene: Scene): void {
+    this.uploadInto(this.overlay, scene);
+  }
+
+  clearOverlay(): void {
+    this.overlay.segCount = 0;
+    this.overlay.discCount = 0;
+    this.overlay.ringCount = 0;
+    this.overlay.triVerts = 0;
+    this.overlay.glyphVerts = 0;
+    this.overlay.imageVerts = 0;
+    this.overlay.runs.length = 0;
   }
 
   clearText(): void {
@@ -727,8 +753,28 @@ export class GlDevice {
       gl.drawArrays(gl.TRIANGLES, run.start, run.count);
     };
 
-    // The document, the items being dragged over it, then the per-frame text.
-    for (const layer of [this.base, this.preview, this.text]) {
+    /**
+     * KiCad's `TARGET_OVERLAY` composite, for the last layer only.
+     *
+     * Its colours arrive premultiplied with a squared alpha (see
+     * `overlayTargetColor`), so the source must be taken as-is: `ONE` rather
+     * than `SRC_ALPHA`. That pair is what turns `(a·C, a²)` into
+     * `a·C + (1 − a²)·dst` — the non-convex blend KiCad's overlay buffer and
+     * `OPENGL_COMPOSITOR::DrawBuffer` produce between them, and the reason its
+     * courtyard wash is lighter than a 50% fill and clamps over copper.
+     *
+     * Only entered when the layer has something in it, so a frame with no
+     * overlay emits exactly the calls it always did.
+     */
+    let overlayBlend = false;
+
+    // The document, the items being dragged over it, the per-frame text, then
+    // the composited overlay.
+    for (const layer of [this.base, this.preview, this.text, this.overlay]) {
+      if (layer === this.overlay && layer.runs.length > 0) {
+        gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+        overlayBlend = true;
+      }
       if (layer.runs.length > 0) {
         // Painter's order, reproduced exactly: one draw per stretch of one kind,
         // in the sequence they were recorded.
@@ -816,6 +862,11 @@ export class GlDevice {
       drawGlyphs(layer, 0, layer.glyphVerts);
     }
     gl.bindVertexArray(null);
+    // Put the ordinary blend back. `draw` sets it at the top of every frame
+    // anyway, but leaving the context in a mode no other caller expects is the
+    // kind of state leak that shows up three refactors later.
+    if (overlayBlend)
+      gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
   }
 
   /**

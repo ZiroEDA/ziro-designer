@@ -688,6 +688,40 @@ export class Scene {
  * unrecognised comes back opaque black rather than throwing, matching Canvas2D,
  * which silently ignores a colour it cannot parse.
  */
+/**
+ * The **premultiplied** source colour that reproduces KiCad's `TARGET_OVERLAY`
+ * composite, for a run the device draws with `blendFunc(ONE, ONE_MINUS_SRC_ALPHA)`.
+ *
+ * KiCad renders an overlay layer into its own buffer — cleared to alpha 0 —
+ * with a NON-separate `glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA )`
+ * (`opengl_gal.cpp:664`), so the buffer's ALPHA channel comes out `a²` while
+ * its colour comes out the premultiplied `a·C`. `OPENGL_COMPOSITOR::DrawBuffer`
+ * then blits that buffer with `glBlendFunc( GL_ONE, GL_ONE_MINUS_SRC_ALPHA )`
+ * (`opengl_compositor.cpp:338`). The visible result is
+ *
+ *     out = a·C + (1 − a²)·dst,   clamped
+ *
+ * which is **not** a convex combination: the source contributes `a` while the
+ * destination is only attenuated by `a²`, so a KiCad overlay is lighter than a
+ * plain alpha blend and saturates over bright copper. [px] measured against
+ * KiCad 10.0.5: its courtyard-conflict wash reads rgb(153,34,46) over the
+ * board, rgb(153,85,96) under the cursor and rgb(255,39,41) over F.Cu — all
+ * three exactly this formula, none of them a 50% blend.
+ *
+ * Feeding `(a·C, a²)` to a `ONE, ONE_MINUS_SRC_ALPHA` blend reproduces it in a
+ * single pass straight into the board's own buffer, with no second target:
+ * the colour lands as `a·C + (1 − a²)·dst` and the alpha as `a² + (1 − a²)·dst`,
+ * which is what compositing a separate overlay buffer would have given.
+ *
+ * Components stay fractional on purpose — `parseColor` uses `parseFloat`, and
+ * rounding `a·C` to 8 bits here would quantise twice.
+ */
+export function overlayTargetColor(css: string): string {
+  const c = parseColor(css);
+  const ch = (v: number): number => v * c.a * 255;
+  return `rgba(${ch(c.r)},${ch(c.g)},${ch(c.b)},${c.a * c.a})`;
+}
+
 export function parseColor(css: string): Rgba {
   const s = css.trim();
   if (s.startsWith('#')) {
