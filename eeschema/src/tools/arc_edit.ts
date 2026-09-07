@@ -20,7 +20,7 @@
  */
 
 import { CalcArcCenter, RotatePoint } from '@ziroeda/kimath/src/trigo.js';
-import { EDA_ANGLE, ANGLE_360 } from '@ziroeda/kimath/src/geometry/eda_angle.js';
+import { type EDA_ANGLE, ANGLE_360 } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { mmToIU } from '@ziroeda/common/src/eda_units.js';
 import { GetArcAngle } from '@ziroeda/common/src/eda_shape.js';
 import type { Vec2 } from '../types.js';
