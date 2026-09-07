@@ -512,22 +512,16 @@ export function PreferencesDialog({
           >
             {resetLabel}
           </button>
-          {/* `m_openPrefsDirButton`, added straight after the reset button and
-              before the stretch spacer (`common/widgets/paged_dialog.cpp:90-99`,
+          {/* No `m_openPrefsDirButton` (`common/widgets/paged_dialog.cpp:90-99`,
               under `aShowOpenFolder`, which the Preferences dialog passes).
 
-              Disabled: our settings live in the browser's localStorage, so
-              there is no directory to open - the same treatment every other
-              control KiCad has and this app cannot back already gets, rather
-              than a button that silently does nothing or a gap where KiCad has
-              a control. */}
-          <button
-            className="ze-btn"
-            disabled
-            title="Settings are stored in the browser, not in a preferences directory."
-          >
-            Open Preferences Directory
-          </button>
+              It was here, greyed. Greying is for a control we intend to back:
+              it tells the user the feature exists and is not ready. There is no
+              preferences directory in a browser and there will not be one -
+              settings are an account slice synced from localStorage - so the
+              button is not "not ready", it is not a control this application
+              has. It is removed, as every other browser-impossible control is.
+              */}
           <span style={{ flex: 1 }} />
           <button className="ze-btn" onClick={onClose}>
             Cancel

@@ -20,6 +20,7 @@ import { PanelMaintenance } from './PanelMaintenance.js';
 import {
   resetCommonPanel,
   resetGitPanel,
+  resetMaintenancePanel,
   resetMousePanel,
   resetSpacemousePanel,
 } from './resets.js';
@@ -63,7 +64,7 @@ export const createPrefsPanel: PrefsPanelFactory = (id: PrefsPageId): PrefsPanel
       return { Panel: PanelGitRepos, reset: resetGitPanel };
 
     case 'maintenance':
-      return { Panel: PanelMaintenance };
+      return { Panel: PanelMaintenance, reset: resetMaintenancePanel };
 
     default:
       return null;

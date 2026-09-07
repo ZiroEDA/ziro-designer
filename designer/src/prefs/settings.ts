@@ -170,6 +170,19 @@ export interface CommonSettings {
      */
     language: string;
     autosave_interval: number; // seconds; 0 = disabled
+    /**
+     * `system.clear_3d_cache_interval` (`common_settings.cpp:366-367`), days.
+     * `PROJECT_PCB::Cleanup3DCache` (`pcbnew/project_pcb.cpp:97-118`) hands it
+     * to `S3D_CACHE::CleanCacheDir`, which deletes every cached model whose
+     * LAST ACCESS is older than that — and does nothing at all at 0, which is
+     * how the user turns cache clearing off (`:114`).
+     *
+     * Ours is `editors/pcb/model_cache.ts`, an IndexedDB store keyed by the
+     * hash of a model's own bytes with a `usedAt` per row. Upstream reads a
+     * file's access time; ours reads that column, which is the same fact
+     * written down rather than asked of a filesystem we do not have.
+     */
+    clear_3d_cache_interval: number;
     session: {
       remember_open_files: boolean;
       /** Libraries pinned to the top of the chooser tree (SESSION.pinned_symbol_libs). */
@@ -327,6 +340,8 @@ export const COMMON_DEFAULTS: CommonSettings = {
     file_history_size: 9,
     language: 'Default',
     autosave_interval: 600,
+    // `PARAM<int>( "system.clear_3d_cache_interval", …, 30 )`.
+    clear_3d_cache_interval: 30,
     session: { remember_open_files: false, pinned_symbol_libs: [], pinned_fp_libs: [] },
   },
   backup: {

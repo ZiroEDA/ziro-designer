@@ -15,17 +15,26 @@
  *
  * Of KiCad's generic pages this is the one that ports whole, because it
  * manipulates the settings store rather than describing a device or a
- * filesystem path. Three of the four buttons are live.
+ * filesystem path.
  *
- * The fourth is not, and the reason is narrow: `doClearDontShowAgain` empties
- * `COMMON_SETTINGS::m_DoNotShowAgain` and calls
- * `KIDIALOG::ClearDoNotShowAgainDialogs()`, and this port has no "do not show
- * again" dialog at all. Nothing to clear is not the same as nothing to build.
+ * The one control that does not is `m_clearDontShowAgain`, and the reason is
+ * narrow: `doClearDontShowAgain` empties `COMMON_SETTINGS::m_DoNotShowAgain`
+ * and calls `KIDIALOG::ClearDoNotShowAgainDialogs()`, and this port has no "do
+ * not show again" dialog at all. Nothing to clear is not the same as nothing to
+ * build.
  *
  * `Reset All Dialogs to Defaults` IS live: `doClearDialogState` empties
  * `m_dialogControlValues`, and `common.dialog.controls` is the port of exactly
  * that map. It reads as unbuildable and is not -- which is why the button was
  * greyed here at first.
+ *
+ * So was the spin control, on the reading that a browser ages its own caches.
+ * That was true of an `<img>` and is not true of this: `editors/pcb/
+ * model_cache.ts` is OUR IndexedDB store, keyed by the hash of a model's bytes,
+ * with a `usedAt` column written on every hit — the access time upstream asks a
+ * filesystem for. `cleanup3dCache` reads this value when the board editor
+ * closes, exactly where `PCB_BASE_FRAME::canCloseWindow` calls
+ * `PROJECT_PCB::Cleanup3DCache`.
  *
  * No confirmation prompt: upstream there is none (`:82-148`). The button states
  * what it does, acts, and shows an infobar message. `onResetAll` additionally
@@ -47,9 +56,16 @@ import type { PrefsContext } from '../types.js';
 const CACHE_TOOLTIP =
   '3D cache files older than this are deleted.\nIf set to 0, cache clearing is disabled';
 
-const NO_3D_CACHE =
-  'KiCad caches converted 3D models in its user directory and ages them out. Ours are fetched ' +
-  'and held by the browser, which decides its own eviction; there is no duration for us to set.';
+/**
+ * `new wxSpinCtrl( …, wxSP_ARROW_KEYS, 0, 120, 30 )`
+ * (`panel_maintenance_base.cpp:27`) — the control's own range. [data]
+ *
+ * The 30 in that call is the initial value wxFormBuilder emits and never the
+ * one shown: `TransferDataToWindow` overwrites it from the settings object, so
+ * the default belongs to `COMMON_DEFAULTS` and is read from there.
+ */
+const CACHE_DAYS_MIN = 0;
+const CACHE_DAYS_MAX = 120;
 
 const NO_DO_NOT_SHOW =
   'Nothing to reset yet: this port has no "do not show again" dialogs, so ' +
@@ -61,61 +77,73 @@ export function PanelMaintenance({ ctx }: { ctx: PrefsContext }): JSX.Element {
 
   return (
     <>
-      <Num
-        label="3D cache file duration:"
-        value={30}
-        onChange={() => {}}
-        unit="days"
-        min={0}
-        disabled
-        title={`${CACHE_TOOLTIP}\n\n${NO_3D_CACHE}`}
-      />
+      {/* `margins`, added to `bPanelSizer` with proportion 0 and no wxEXPAND
+          (`:61`), so the whole page is as wide as its widest control insists
+          and not as wide as the page area. See `.ze-maintenance`. */}
+      <div className="ze-maintenance">
+        <Num
+          label="3D cache file duration:"
+          value={ctx.common.system.clear_3d_cache_interval}
+          onChange={(v) =>
+            ctx.upC((s) => {
+              s.system.clear_3d_cache_interval = v;
+            })
+          }
+          unit="days"
+          min={CACHE_DAYS_MIN}
+          max={CACHE_DAYS_MAX}
+          title={CACHE_TOOLTIP}
+        />
 
-      <div className="ze-pref-buttoncol">
-        <button
-          type="button"
-          className="ze-btn"
-          onClick={() => {
-            const n = clearFileHistory();
-            // `_( "File history cleared." )` [data]
-            setNote(n > 0 ? 'File history cleared.' : 'File history was already empty.');
-          }}
-        >
-          Clear &quot;Open Recent&quot; History
-        </button>
+        <div className="ze-pref-buttoncol">
+          <button
+            type="button"
+            className="ze-btn"
+            onClick={() => {
+              const n = clearFileHistory();
+              // `_( "File history cleared." )` [data]
+              setNote(n > 0 ? 'File history cleared.' : 'File history was already empty.');
+            }}
+          >
+            Clear &quot;Open Recent&quot; History
+          </button>
 
-        <button type="button" className="ze-btn" disabled title={NO_DO_NOT_SHOW}>
-          Reset &quot;Don&apos;t Show Again&quot; Dialogs
-        </button>
+          <button type="button" className="ze-btn" disabled title={NO_DO_NOT_SHOW}>
+            Reset &quot;Don&apos;t Show Again&quot; Dialogs
+          </button>
 
-        <button
-          type="button"
-          className="ze-btn"
-          onClick={() => {
-            const n = clearDialogState();
-            // `_( "All dialogs reset to defaults." )` [data]
-            setNote(
-              n > 0 ? 'All dialogs reset to defaults.' : 'No dialog had remembered any state.',
-            );
-          }}
-        >
-          Reset All Dialogs to Defaults
-        </button>
+          <button
+            type="button"
+            className="ze-btn"
+            onClick={() => {
+              const n = clearDialogState();
+              // `_( "All dialogs reset to defaults." )` [data]
+              setNote(
+                n > 0 ? 'All dialogs reset to defaults.' : 'No dialog had remembered any state.',
+              );
+            }}
+          >
+            Reset All Dialogs to Defaults
+          </button>
 
-        <button
-          type="button"
-          className="ze-btn"
-          onClick={() => {
-            resetAllSettings();
-            // `wxQueueEvent( m_parent, … wxID_CANCEL )`: the working copy must
-            // not be committed over the defaults we just wrote.
-            ctx.cancelDialog();
-          }}
-        >
-          Reset All Program Settings to Defaults
-        </button>
+          <button
+            type="button"
+            className="ze-btn"
+            onClick={() => {
+              resetAllSettings();
+              // `wxQueueEvent( m_parent, … wxID_CANCEL )`: the working copy must
+              // not be committed over the defaults we just wrote.
+              ctx.cancelDialog();
+            }}
+          >
+            Reset All Program Settings to Defaults
+          </button>
+        </div>
       </div>
 
+      {/* Outside `margins`: upstream this is the DIALOG's `wxInfoBar`, not a
+          control on the page, so it must not be one of the widths `margins`
+          sizes itself to. */}
       {note !== null && <div className="ze-pref-hint">{note}</div>}
     </>
   );

@@ -17,11 +17,13 @@
  *     like rather than whether it appears.
  */
 import 'fake-indexeddb/auto';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   cacheClear,
   cacheGet,
   cachePut,
+  cacheSweepAged,
+  cleanup3dCache,
   modelKey,
 } from '@ziroeda/designer/src/editors/pcb/model_cache.js';
 import {
@@ -121,6 +123,95 @@ describe('eviction', () => {
     const keys = await Promise.all(['x', 'y', 'z'].map((n) => modelKey(enc.encode(`model-${n}`))));
     for (const k of keys) await cachePut(k, mesh(10), 10 * 1024 * 1024);
     for (const k of keys) expect(await cacheGet(k)).toBeDefined();
+  });
+});
+
+/** A day in ms, so the ages below read as days rather than as arithmetic. */
+const DAY = 24 * 60 * 60 * 1000;
+
+/** `cacheGet` touches its row without awaiting; let that transaction land. */
+const settle = (): Promise<void> => new Promise((r) => setTimeout(r, 0));
+
+/**
+ * Preferences > Maintenance > "3D cache file duration", which is
+ * `S3D_CACHE::CleanCacheDir` (`3d-viewer/3d_cache/3d_cache.cpp:609-647`)
+ * reached from `PROJECT_PCB::Cleanup3DCache` (`pcbnew/project_pcb.cpp:97-118`)
+ * as the board frame closes.
+ *
+ * Only `Date` is faked, and the clock only ever moves FORWARD -- across tests,
+ * not just within one. `stamp()` clamps every stamp above the last one it
+ * issued and is module state that no test can reset, so a block that set the
+ * clock back would get the previous test's timestamps instead of the ones it
+ * asked for, and would pass or fail on the order the file happened to run in.
+ */
+describe('ageing rows out', () => {
+  let clock = Date.now();
+  /** Move the clock on by `ms` and return the absolute time it now reads. */
+  const advance = (ms: number): number => {
+    clock += ms;
+    vi.setSystemTime(new Date(clock));
+    return clock;
+  };
+
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    advance(DAY);
+  });
+  afterEach(() => vi.useRealTimers());
+
+  it('drops what has not been used inside the window and keeps what has', async () => {
+    const stale = await modelKey(enc.encode('a connector nobody has opened since'));
+    const fresh = await modelKey(enc.encode('the regulator on the board in front of you'));
+
+    await cachePut(stale, mesh(4));
+    advance(100 * DAY);
+    await cachePut(fresh, mesh(4));
+
+    // 40 days: `stale` was last touched 100 days ago, `fresh` just now.
+    expect(await cacheSweepAged(40)).toBe(1);
+    expect(await cacheGet(stale)).toBeUndefined();
+    expect(await cacheGet(fresh)).toBeDefined();
+  });
+
+  it('counts from the last READ, not from when the model was tessellated', async () => {
+    // The whole reason `cacheGet` writes `usedAt` back on a hit. Upstream this
+    // is the filesystem's access time and comes for free; ours is a column, and
+    // a cache that aged by insertion date would throw away the models a user
+    // opens every day and keep the ones they opened once.
+    const k = await modelKey(enc.encode('opened on every board'));
+    await cachePut(k, mesh(4));
+
+    advance(100 * DAY);
+    expect(await cacheGet(k)).toBeDefined(); // ...which touches it.
+    await settle();
+
+    advance(10 * DAY);
+    expect(await cacheSweepAged(40)).toBe(0);
+  });
+
+  it('is `IsEarlierThan`: a row used exactly `days` ago stays', async () => {
+    const k = await modelKey(enc.encode('right on the boundary'));
+    const put = advance(DAY);
+    await cachePut(k, mesh(4));
+
+    expect(await cacheSweepAged(30, put + 30 * DAY)).toBe(0);
+    expect(await cacheSweepAged(30, put + 30 * DAY + 1)).toBe(1);
+  });
+
+  it('clears nothing at all at 0, which is what the tooltip promises', async () => {
+    // "If set to 0, cache clearing is disabled" -- and the guard is upstream's
+    // (`project_pcb.cpp:114`), NOT a special case inside the sweep: at 0 the
+    // threshold IS now, so a sweep called with it would empty the cache. The
+    // setting that turns clearing off would turn it all the way up.
+    const k = await modelKey(enc.encode('a model from years ago'));
+    await cachePut(k, mesh(4));
+    advance(1000 * DAY);
+
+    expect(await cleanup3dCache(0)).toBe(0);
+    // The row is still there to be swept, which is what proves the line above
+    // kept it. Asking `cacheGet` would TOUCH it and answer a different question.
+    expect(await cleanup3dCache(30)).toBe(1);
+    expect(await cacheGet(k)).toBeUndefined();
   });
 });
 

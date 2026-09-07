@@ -63,6 +63,7 @@ import {
 } from '@ziroeda/designer/src/ui/toolbar_config.js';
 import {
   resetCommonPanel,
+  resetMaintenancePanel,
   resetMousePanel,
 } from '@ziroeda/designer/src/dialogs/prefs/panels/resets.js';
 import {
@@ -155,6 +156,11 @@ const SLICES: Partial<Record<PrefsPageId, readonly string[]>> = {
   // controls are disabled — no browser API reaches a SpaceMouse — but the page
   // is a RESETTABLE_PANEL upstream and its values are stored, not literals.
   spacemouse: ['common.spacemouse'],
+  // PanelMaintenance.tsx. `PANEL_MAINTENANCE::applySettingsToPanel` is one line
+  // (`panel_maintenance.cpp:76-79`), so the slice is one field: the four
+  // buttons beside it hold no value to restore, and what they do has already
+  // been written to storage by the time the footer button is pressed.
+  maintenance: ['common.system.clear_3d_cache_interval'],
   // PanelMouseSettings.tsx — Pan and Zoom, Drag Gestures, Scroll Gestures.
   mouse: [
     'common.input.center_on_zoom',
@@ -428,6 +434,7 @@ const SLICES: Partial<Record<PrefsPageId, readonly string[]>> = {
 const RESETS: Partial<Record<PrefsPageId, (ctx: PrefsContext) => void>> = {
   common: resetCommonPanel,
   mouse: resetMousePanel,
+  maintenance: resetMaintenancePanel,
   hotkeys: (ctx) => ctx.setHotkeys({}),
   'sym-display': resetSymbolEditorDisplayOptions,
   'sym-editing': resetSymbolEditorEditingOptions,
@@ -878,7 +885,7 @@ describe('every resettable page is wired to its own reset', () => {
   it.each([
     [
       'dialogs/prefs/panels/index.ts',
-      ['common', 'mouse', 'hotkeys', 'spacemouse', 'version-control'],
+      ['common', 'mouse', 'hotkeys', 'spacemouse', 'version-control', 'maintenance'],
     ],
     ['editors/schematic/prefs/index.ts', ['sch-display', 'sch-grids', 'sch-editing', 'sch-colors']],
     ['editors/pcb/prefs/index.ts', ['pcb-display']],

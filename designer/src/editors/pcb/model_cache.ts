@@ -168,3 +168,75 @@ export async function cacheClear(): Promise<void> {
     (await tx('readwrite')).clear();
   }, undefined);
 }
+
+/** Milliseconds in a day — what `wxDateSpan::SetDays` means once it is arithmetic. */
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+/**
+ * `S3D_CACHE::CleanCacheDir( int aNumDaysOld )`
+ * (`3d-viewer/3d_cache/3d_cache.cpp:609-647`): drop every cached model last
+ * *accessed* longer ago than `days`.
+ *
+ *     durationInDays.SetDays( aNumDaysOld );
+ *     thresholdDate = wxDateTime::Now() - durationInDays;
+ *     …
+ *     if( thisFile.GetTimes( &lastAccess, nullptr, nullptr ) )
+ *         if( lastAccess.IsEarlierThan( thresholdDate ) )
+ *             wxRemoveFile( thisFile.GetFullPath() );
+ *
+ * Upstream walks `*.3dc` files and asks the filesystem for each one's access
+ * time. There is no such thing to ask here, which is why `usedAt` is written on
+ * a cache HIT as well as on insert (`cacheGet` above): it is that access time,
+ * kept by hand because the store keeps none.
+ *
+ * Age, not size. `evict()` above is ours and has no upstream counterpart — a
+ * browser gives a page a storage quota where KiCad gets a disk — and the two
+ * are answering different questions, so both run: `evict` caps what the cache
+ * may cost right now, this drops what the user has stopped using.
+ *
+ * Note the comparison is strict, as `IsEarlierThan` is: a row used exactly
+ * `days` ago stays. Callers must apply upstream's own zero guard before calling
+ * — see {@link cleanup3dCache}, which is where it lives.
+ *
+ * Returns how many rows went, which is what the tests read.
+ */
+export async function cacheSweepAged(days: number, now: number = Date.now()): Promise<number> {
+  return quiet(async () => {
+    const threshold = now - days * MS_PER_DAY;
+    const store = await tx('readonly');
+    const rows = await wrap(store.getAll() as IDBRequest<CacheRow[]>);
+    const stale = rows.filter((r) => r.usedAt < threshold);
+    if (stale.length === 0) return 0;
+
+    const write = await tx('readwrite');
+    for (const r of stale) write.delete(r.hash);
+    return stale.length;
+  }, 0);
+}
+
+/**
+ * `PROJECT_PCB::Cleanup3DCache( PROJECT* )` (`pcbnew/project_pcb.cpp:97-118`),
+ * which `PCB_BASE_FRAME::canCloseWindow` runs as the board frame goes away
+ * (`pcbnew/pcb_base_frame.cpp:124`).
+ *
+ *     int clearCacheInterval = 0;
+ *     if( Pgm().GetCommonSettings() )
+ *         clearCacheInterval = Pgm().GetCommonSettings()->m_System.clear_3d_cache_interval;
+ *     // An interval of zero means the user doesn't want to ever clear the cache
+ *     if( clearCacheInterval > 0 )
+ *         cache->CleanCacheDir( clearCacheInterval );
+ *
+ * The guard is the whole reason this is a function of its own rather than a
+ * call to {@link cacheSweepAged}: at 0 the sweep's threshold is *now*, so every
+ * row is stale and the setting that is documented to disable clearing would
+ * instead clear everything. Upstream states that in a comment and a branch;
+ * this is that branch.
+ *
+ * The interval is passed rather than read here so this stays importable by a
+ * test with no `localStorage` — the caller is the frame, exactly as upstream's
+ * caller is the frame.
+ */
+export async function cleanup3dCache(clearCacheInterval: number): Promise<number> {
+  if (clearCacheInterval > 0) return cacheSweepAged(clearCacheInterval);
+  return 0;
+}

@@ -95,6 +95,31 @@ export function resetGitPanel(ctx: PrefsContext): void {
 }
 
 /**
+ * `PANEL_MAINTENANCE::ResetPanel` (`common/dialogs/panel_maintenance.cpp:66-74`):
+ *
+ *     COMMON_SETTINGS defaultSettings;
+ *     defaultSettings.ResetToDefaults();
+ *     applySettingsToPanel( defaultSettings );
+ *
+ * and `applySettingsToPanel` is one line — `m_Clear3DCacheFilesOlder->SetValue(
+ * aSettings.m_System.clear_3d_cache_interval )` (`:76-79`). So the slice is
+ * that one field, and NOT the four buttons beside it: a button holds no value
+ * to restore, and its effects have already been written to storage.
+ *
+ * This is also why the page is a `RESETTABLE_PANEL` at all. The footer button
+ * was greyed here while the spin control was, because a page with nothing to
+ * reset has no `reset` — `PAGED_DIALOG::UpdateResetButton`
+ * (`common/widgets/paged_dialog.cpp:329-355`) makes the same decision from
+ * whether the panel is a RESETTABLE_PANEL. It is, so it reads "Reset
+ * Maintenance to Defaults" again.
+ */
+export function resetMaintenancePanel(ctx: PrefsContext): void {
+  ctx.upC((s) => {
+    resetKeys(s.system, COMMON_DEFAULTS.system, ['clear_3d_cache_interval']);
+  });
+}
+
+/**
  * `PANEL_SPACEMOUSE::ResetPanel` (`common/dialogs/panel_spacemouse.cpp:61`).
  *
  * The panel is a `RESETTABLE_PANEL` upstream — which is what makes the dialog's

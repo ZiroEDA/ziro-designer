@@ -10001,8 +10001,75 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
   gap: 4px 16px;
 }
-/* PANEL_MAINTENANCE's button column, `bResetStateSizer`
-   (panel_maintenance_base.cpp:43-58):
+/* `margins`, PANEL_MAINTENANCE's one real sizer
+   (panel_maintenance_base.cpp:17-63):
+
+     bPanelSizer = new wxBoxSizer( wxHORIZONTAL );
+     margins     = new wxBoxSizer( wxVERTICAL );
+     …
+     bPanelSizer->Add( margins, 0, wxRIGHT|wxLEFT, 5 );
+
+   Proportion ZERO and no wxEXPAND, so `margins` is exactly as wide as its
+   widest child insists and the space to its right stays empty. Its widest
+   child is `bResetStateSizer`, whose four buttons all carry wxEXPAND -- so they
+   stretch to each other and stop, which is why KiCad draws four equal buttons
+   about a third of the page wide.
+
+   Ours was a flex column inside `.ze-prefs-panel`, which is `flex: 1`, so every
+   button ran the full 1095 and the page looked nothing like the capture. This
+   is the same proportion-0 reading `.ze-pref-columns > div` records; stated
+   here because this page has no columns to hang it on. */
+.ze-maintenance {
+  width: max-content;
+  /* [data] `wxRIGHT|wxLEFT, 5` — margins' own Add(). Written as the shorthand
+     rather than `margin-inline` because `central_values.test.ts`'s chrome-
+     literal scan does not know the logical properties, and a literal it cannot
+     see is one nothing is ratcheting. */
+  margin: 0 5px;
+}
+/* `b3DCacheSizer`, the labelled spin control (`:21-38`):
+
+     b3DCacheSizer->Add( m_staticTextClear3DCache, 0, wxALL|wxALIGN_CENTER_VERTICAL, 5 );
+     b3DCacheSizer->Add( m_Clear3DCacheFilesOlder, 0, wxALIGN_CENTER_VERTICAL|wxTOP|wxBOTTOM, 5 );
+     b3DCacheSizer->Add( m_staticTextDays,         0, wxALIGN_CENTER_VERTICAL|wxALL, 5 );
+     margins->Add( b3DCacheSizer, 0, wxEXPAND|wxTOP|wxRIGHT|wxLEFT, 5 );
+
+   The spin control carries no LEFT or RIGHT border, so each gap around it is
+   one border of 5 rather than the two a checkbox run has -- 5, not the 8
+   `.ze-pref-row` defaults to. And the row's own Add has no wxBOTTOM, which is
+   why the buttons below sit 10 away (bResetStateSizer's wxTOP) and not 15.
+
+   The extra 5 of inline margin is what sets the label 5px RIGHT of the buttons'
+   left edge in KiCad's capture: the buttons' inset is their own wxALL 5 and
+   nothing else, while the label's is this Add's 5 plus its own. Ours had the
+   two flush, which is the tell that the sizer was flattened. */
+.ze-maintenance > .ze-pref-row {
+  /* [data] wxTOP|wxRIGHT|wxLEFT, 5 — no wxBOTTOM. */
+  margin: 5px 5px 0;
+  /* [data] the wxALL 5 the label and "days" carry, above and below. */
+  padding: 5px 0;
+  /* [data] one border of 5 either side of the spin control. */
+  gap: 5px;
+}
+/* A vertical run of `wxEXPAND` buttons — PANEL_MAINTENANCE's `bResetStateSizer`
+   and PANEL_MOUSE_SETTINGS' `bSizerRight`.
+
+   wxEXPAND on every button, so they STRETCH to the column rather than each
+   taking its own width; that is the flex default, which is why no `align-items`
+   is stated.
+
+   And that is ALL this class may carry. It had `gap: 10px` and `margin-top:
+   10px` in it, both read off PANEL_MAINTENANCE's Add() calls, and the mouse
+   page took them too — `bMargins->Add( bSizerRight, 0, wxEXPAND|wxLEFT, 5 )`
+   (panel_mouse_settings_base.cpp:335) has no wxTOP at all, so that page was
+   pushed 10px down by a border belonging to another sizer. A wx border is a
+   property of one Add(), never of a widget class; each page states its own
+   below. */
+.ze-pref-buttoncol {
+  display: flex;
+  flex-direction: column;
+}
+/* `bResetStateSizer` (panel_maintenance_base.cpp:43-58):
 
      bResetStateSizer->Add( m_clearFileHistory,   0, wxALL|wxEXPAND, 5 );
      bResetStateSizer->Add( 0, 10, 1, wxEXPAND, 5 );
@@ -10011,23 +10078,41 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
      bResetStateSizer->Add( m_resetAll,           0, wxALL|wxEXPAND, 5 );
      margins->Add( bResetStateSizer, 1, wxEXPAND|wxTOP, 10 );
 
-   wxEXPAND on every button, so they STRETCH to the column rather than each
-   taking its own width - which is the flex default, and why no `align-items`
-   is stated. Two adjacent `wxALL, 5` borders make the gap between buttons; the
-   sizer's own wxTOP puts the block below the spin control. */
-.ze-pref-buttoncol {
-  display: flex;
-  flex-direction: column;
-  /* [data] two adjoining wxALL borders of 5. */
-  gap: 10px;
+   The sizer's own wxTOP puts the block 10 below the spin control; each button's
+   wxALL adds 5 more above the first, 5 below the last, and 5 either side --
+   which is the inset the "3D cache file duration:" label sits 5 to the RIGHT
+   of, since its own Add carries a wxLEFT the buttons' does not. */
+.ze-maintenance > .ze-pref-buttoncol {
   /* [data] `wxEXPAND|wxTOP, 10` on bResetStateSizer. */
   margin-top: 10px;
 }
+.ze-maintenance > .ze-pref-buttoncol > button {
+  /* [data] the wxALL, 5 every button in the run carries. Two adjoining ones
+     make the 10 between any two buttons; there is no container gap. */
+  margin: 5px;
+}
 /* `Add( 0, 10, 1, wxEXPAND )` — the one spacer in the run, after the first
-   button. Its proportion of 1 also lets it absorb slack, which a page this
-   short never has. */
-.ze-pref-buttoncol > button:first-child {
-  margin-bottom: 10px; /* [data] the spacer's own height. */
+   button, on top of the two borders either side of it. Its proportion of 1 also
+   lets it absorb slack, which a page this short never has. */
+.ze-maintenance > .ze-pref-buttoncol > button:first-child {
+  margin-bottom: 15px; /* [data] the spacer's 10 plus this button's own 5. */
+}
+/* `bSizerRight` (panel_mouse_settings_base.cpp:325-335). The two buttons do NOT
+   carry the same flags as each other:
+
+     bSizerRight->Add( m_mouseDefaults,    0, wxEXPAND|wxBOTTOM|wxRIGHT|wxLEFT, 5 );
+     bSizerRight->Add( m_trackpadDefaults, 0, wxEXPAND|wxALL, 5 );
+
+   so the run starts flush with the top of the group beside it and the 10
+   between them is the first's wxBOTTOM plus the second's wxTOP. `.ze-mouse-
+   scroll`'s own gap is bMargins' wxLEFT, so nothing is needed here for it. */
+.ze-mouse-scroll > .ze-pref-buttoncol > button {
+  /* [data] wxBOTTOM|wxRIGHT|wxLEFT, 5 — no wxTOP on the first button. */
+  margin: 0 5px 5px;
+}
+.ze-mouse-scroll > .ze-pref-buttoncol > button + button {
+  /* [data] the second button's flags are wxALL, so it alone has a top border. */
+  margin-top: 5px;
 }
 /* `PANEL_SYM_COLOR_SETTINGS`, the whole page
    (`panel_sym_color_settings_base.cpp:16-45`): a radio button, then a row of a

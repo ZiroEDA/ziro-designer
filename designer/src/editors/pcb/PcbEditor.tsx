@@ -202,6 +202,7 @@ import {
 import { Icon } from '../../ui/icons.js';
 import { posturePath, routedPath as routeDecision } from './route_tool.js';
 import { ReferenceImageCache } from './image_cache.js';
+import { cleanup3dCache } from './model_cache.js';
 import { Viewer3DFrame } from './Viewer3DFrame.js';
 import { dimensionDefaultsFrom, dimensionToolKind } from './dimension_tools.js';
 import { DialogDimensionProperties } from './dialogs/dialog_dimension_properties.js';
@@ -8537,6 +8538,26 @@ export function PcbEditor({
     }
   };
 
+  /**
+   * `PCB_BASE_FRAME::canCloseWindow` (`pcbnew/pcb_base_frame.cpp:112-127`),
+   * whose one piece of housekeeping is
+   *
+   *     PROJECT_PCB::Cleanup3DCache( &Prj() );
+   *
+   * so leaving the board editor is what ages the 3D model cache — not opening
+   * one, which is the moment a scan of the whole store would be felt. The
+   * interval comes from `COMMON_SETTINGS` upstream and from the same slice
+   * here; `cleanup3dCache` holds the "0 means never" guard.
+   *
+   * Not awaited, and it must not be: upstream returns `true` and the frame
+   * closes whether or not a file was removable, and a sweep is never the reason
+   * a view does not change.
+   */
+  const closeFrame = (): void => {
+    void cleanup3dCache(settings.common.system.clear_3d_cache_interval);
+    onExit();
+  };
+
   // ----- menus (menubar_pcb_editor.cpp structure, working subset active) ------
 
   const dis = true;
@@ -8565,7 +8586,7 @@ export function PcbEditor({
         { label: 'Export', disabled: dis },
         { label: 'Fabrication Outputs', disabled: dis },
         { sep: true },
-        addQuitOrClose('PCB Editor', onExit),
+        addQuitOrClose('PCB Editor', closeFrame),
       ],
     },
     {
@@ -9123,7 +9144,7 @@ export function PcbEditor({
     <div className="ze-app">
       <MenuBar
         menus={menus}
-        leftSlot={<HomeLink onClick={onExit} />}
+        leftSlot={<HomeLink onClick={closeFrame} />}
         title={
           <>
             <b>
