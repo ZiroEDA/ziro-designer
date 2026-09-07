@@ -2216,7 +2216,14 @@ export function PcbEditor({
   // corner or vertex, plus one at each edge midpoint. Which items have any is
   // the engine's business, not this component's.
   useEffect(() => {
-    const brd = boardRef.current;
+    // The `board` this effect DEPENDS on, not `boardRef.current`. The two are
+    // the same object almost always and differ exactly when it matters: the ref
+    // is written by `setBoardModel` and by the loader's own timeout, so an
+    // effect keyed on the state that reads the ref can compute handles for a
+    // different board than the one it woke up for — and `boardEditHandles`
+    // answers `[]` for an index that board has not got, which is no handles at
+    // all until something else re-runs this.
+    const brd = board ?? boardRef.current;
     const id = selection.size === 1 ? [...selection][0]! : null;
     const handles = brd && id ? boardEditHandles(brd, id) : [];
 
@@ -2312,7 +2319,25 @@ export function PcbEditor({
     // Decode any reference image we have not seen; each decode asks for one
     // more frame, so the picture appears as soon as it is ready rather than at
     // the next unrelated redraw.
-    for (const img of scene.images) imageCacheRef.current.ensure(img.data, requestDraw);
+    for (const img of scene.images)
+      imageCacheRef.current.ensure(img.data, () => {
+        // The decode has to dirty the RASTER, not just ask for a blit.
+        //
+        // This pass draws into an offscreen canvas that `draw()` then blits,
+        // and the pass that is running right now is drawing the fallback
+        // OUTLINE, because the bitmap is exactly what it has not got yet. A
+        // bare `requestDraw` re-blits that same outline for ever: the guard in
+        // `startCrispRender` is `viewMatchesCache() && !sceneDirtyRef.current`,
+        // and after a load neither the view nor the scene has changed, so
+        // nothing ever re-renders it.
+        //
+        // That is why a freshly loaded board showed a red rectangle where its
+        // reference image should be, and why nudging the image made the picture
+        // appear — the nudge dirtied the scene, which is the only thing that
+        // was doing this.
+        sceneDirtyRef.current = true;
+        requestDraw();
+      });
 
     const steps = buildDrawSteps(
       cctx,

@@ -212,3 +212,37 @@ describe('and the canvas draws what a selected or half-placed image needs', () =
     expect(EDITOR).toContain('drawOpts.theme?.special.anchor');
   });
 });
+
+describe('the two ways a picture failed to appear at all', () => {
+  const EDITOR = readFileSync(
+    fileURLToPath(new URL('../../../designer/src/editors/pcb/PcbEditor.tsx', import.meta.url)),
+    'utf8',
+  );
+
+  it('a finished decode dirties the raster, not just the blit', () => {
+    // The image pass draws into an offscreen canvas that `draw()` blits, and
+    // the pass running while a payload is still decoding draws the fallback
+    // OUTLINE. `startCrispRender`'s guard is
+    // `viewMatchesCache() && !sceneDirtyRef.current`, so on a freshly loaded
+    // board — view unmoved, scene clean — a bare `requestDraw` re-blits that
+    // outline for ever. A red rectangle where the picture should be, until you
+    // nudged the item and dirtied the scene by accident.
+    const cb = EDITOR.slice(
+      EDITOR.indexOf('imageCacheRef.current.ensure(img.data'),
+      EDITOR.indexOf('const steps = buildDrawSteps'),
+    );
+    expect(cb).toContain('sceneDirtyRef.current = true;');
+  });
+
+  it('the handles effect reads the board it depends on, not the ref', () => {
+    // An effect keyed on `board` that read `boardRef.current` could compute
+    // handles from a different board than the one it woke for, and
+    // `boardEditHandles` answers `[]` for an index that board has not got —
+    // no handles until something else re-ran it.
+    const fx = EDITOR.slice(
+      EDITOR.indexOf('// PCB_POINT_EDITOR shows its points for a *single* selected item'),
+      EDITOR.indexOf('}, [selection, board]);'),
+    );
+    expect(fx).toContain('const brd = board ?? boardRef.current;');
+  });
+});
