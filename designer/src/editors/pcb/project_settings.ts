@@ -463,6 +463,7 @@ export function readBoardSetupProText(proText: string): BoardSetupValues {
           uviaHole: numStr(e.microvia_drill),
           dpWidth: numStr(e.diff_pair_width),
           dpGap: numStr(e.diff_pair_gap),
+          dpViaGap: numStr(e.diff_pair_via_gap),
           tuningProfile: str(e.tuning_profile, ''),
           pcbColor: kicadColorToCss(e.pcb_color),
           wireThickness: numStr(e.wire_width),

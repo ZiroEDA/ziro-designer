@@ -67,6 +67,17 @@ export interface NetClass {
   uviaHole: string;
   dpWidth: string;
   dpGap: string;
+  /**
+   * `diff_pair_via_gap` — `NETCLASS::GetDiffPairViaGap()`.
+   *
+   * There is no column for it: `PANEL_SETUP_NETCLASSES`'s grid ends its
+   * pcbnew block at `GRID_DIFF_PAIR_GAP` (`panel_setup_netclasses.cpp:63-64`),
+   * so the only way a project acquires one is the file. It is modelled anyway
+   * because `BOARD_DESIGN_SETTINGS::GetCurrentDiffPairViaGap()` falls back to
+   * `HasDiffPairViaGap() ? GetDiffPairViaGap() : GetCurrentDiffPairGap()`, and
+   * a blank here is that `Has…()` returning false.
+   */
+  dpViaGap: string;
   tuningProfile: string;
   pcbColor: string;
   wireThickness: string;
@@ -118,6 +129,7 @@ export function blankNetClass(name: string): NetClass {
     uviaHole: '',
     dpWidth: '',
     dpGap: '',
+    dpViaGap: '',
     tuningProfile: '',
     pcbColor: '',
     wireThickness: '',

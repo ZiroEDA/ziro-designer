@@ -45,6 +45,9 @@ function open(over: Partial<BoardSetupValues> = {}): { ok: () => BoardSetupValue
   render(
     <DialogBoardSetup
       value={{ ...defaultBoardSetup(), ...over }}
+      /* The frame's display units: Board Setup's fields and grid cells are
+         `UNIT_BINDER`s and `WX_GRID`s with `SetUnitsProvider( m_Frame )`. */
+      units="mm"
       onOk={(next) => {
         out = next;
       }}

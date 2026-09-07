@@ -141,6 +141,7 @@ function customSetup(): BoardSetupValues {
     uviaHole: '',
     dpWidth: '',
     dpGap: '',
+    dpViaGap: '',
     tuningProfile: 'DDR',
     pcbColor: '#ff0000',
     wireThickness: '',

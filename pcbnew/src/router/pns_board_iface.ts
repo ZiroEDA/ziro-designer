@@ -42,6 +42,19 @@
  * touches that file or the tool that calls it.
  */
 import { buildConvexHull } from '@ziroeda/kimath/src/geometry/convex_hull.js';
+import { Distance } from '@ziroeda/kimath/src/math/vector2.js';
+import {
+  getCurrentDiffPairGap,
+  getCurrentDiffPairViaGap,
+  getCurrentDiffPairWidth,
+  getCurrentTrackWidth,
+  getCurrentViaDrill,
+  getCurrentViaSize,
+  useNetClassDiffPair,
+  useNetClassTrack,
+  useNetClassVia,
+  type TrackViaSizes,
+} from '../board_design_settings_sizes.js';
 import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { arcShape, padShapes } from '../drc/drc_engine.js';
 import { padIsOnLayer } from '../pad_enumerate.js';
@@ -51,6 +64,7 @@ import { PnsArc } from './pns_arc.js';
 import { PnsHole } from './pns_hole.js';
 import { PnsKind, LineMarker } from './pns_item.js';
 import { PnsLayerRange } from './pns_layerset.js';
+import { PNS_UNDEFINED_LAYER } from './pns_drag_algo.js';
 import { PnsBoardRuleResolver } from './pns_rule_resolver.js';
 import { PnsSegment } from './pns_segment.js';
 import { PnsSolid } from './pns_solid.js';
@@ -58,6 +72,7 @@ import { PnsVia } from './pns_via.js';
 import type { Shape } from '../drc/drc_geometry.js';
 import type { DrcEvalItem, DrcRuleEngine } from '../drc/drc_rules_engine.js';
 import type { Board, PcbArcTrack, PcbPad, PcbTrack, PcbVia } from '../types.js';
+import { PnsConstraintType } from './pns_collision.js';
 import type { NetHandle, PnsRuleResolver } from './pns_collision.js';
 import type { PnsItem } from './pns_item.js';
 import type { PnsItemSet } from './pns_itemset.js';
@@ -306,6 +321,50 @@ export interface PnsBoardIfaceDeps {
    * boundary, and nothing across it.
    */
   onCommit?: (aChanges: readonly PnsPendingChange[]) => void;
+  /**
+   * `BOARD_DESIGN_SETTINGS`, as `ImportSizes` reads it. Absent is upstream's
+   * `if( !m_board )` early-out: {@link PnsBoardIface.importSizes} returns false
+   * and the caller's sizes are left alone.
+   */
+  designSettings?: PnsDesignSettings | null;
+}
+
+/**
+ * The `BOARD_DESIGN_SETTINGS` members `ImportSizes` reads, in IU.
+ *
+ * The four minimums, the two "inherit the width from the track I started on"
+ * flags, and the whole size-selection block from
+ * `board_design_settings_sizes.ts` — which is Board Setup > Pre-defined Sizes
+ * plus the toolbar's choice.
+ */
+export interface PnsDesignSettings {
+  /** `m_MinClearance`. */
+  minClearance: number;
+  /** `m_TrackMinWidth`. */
+  trackMinWidth: number;
+  /** `m_ViasMinSize`. */
+  viasMinSize: number;
+  /** `m_MinThroughDrill`. */
+  minThroughDrill: number;
+  /** `m_HoleToHoleMin`. */
+  holeToHoleMin: number;
+  /** `m_UseConnectedTrackWidth` — the "Use Existing Track Width" toggle. */
+  useConnectedTrackWidth: boolean;
+  /**
+   * `m_TempOverrideTrackWidth`, set for one route when the user cycles the
+   * width while `m_UseConnectedTrackWidth` is on
+   * (`board_editor_control.cpp:1108-1112`).
+   */
+  tempOverrideTrackWidth: boolean;
+  /** The indices, the custom overrides and the three lists. */
+  sizes: TrackViaSizes;
+  /**
+   * `PNS_KICAD_IFACE_BASE::inheritTrackWidth` — the width of the track the
+   * route starts on, or null when the start item carries none. A hook because
+   * `inherit_track_width.ts` works on `Board` items and the router works on
+   * `PNS::ITEM`s; the caller owns that translation.
+   */
+  inheritTrackWidth?: (aStartItem: PnsItem, aStartPosition: Vec2) => number | null;
 }
 
 /** One board mutation the router asked for, held rather than applied. */
@@ -864,22 +923,212 @@ export class PnsBoardIface implements PnsRouterIface, PnsResolverHost {
   }
 
   /**
-   * `PNS_KICAD_IFACE::ImportSizes` — **not implemented**, returns false.
+   * `PNS_KICAD_IFACE_BASE::ImportSizes` (`pns_kicad_iface.cpp:1098-1301`), the
+   * one call that turns Board Setup into the numbers the router places copper
+   * with. `ROUTER_TOOL` makes it before `StartRouting` and again on a size
+   * change; `ROUTER` never does.
    *
-   * Upstream reads track width, via size, via drill and the four diff-pair
-   * dimensions out of the net's netclass and the board design settings, which
-   * means a `NETCLASS`, a `BOARD_DESIGN_SETTINGS` and the "use netclass values"
-   * flags. `ROUTER` never calls it; `ROUTER_TOOL` does, before `StartRouting`.
-   * False leaves the caller's sizes untouched, which is what upstream's own
-   * early-out does when there is no board.
+   * The shape of it is the same three times over — track width, via, diff pair
+   * — and it is worth stating once:
+   *
+   *  1. seed from the board's own MINIMUM (`m_TrackMinWidth`, `m_ViasMinSize`,
+   *     `m_MinThroughDrill`, `m_MinClearance`);
+   *  2. if the user is on "use netclass" for that dimension AND there is a
+   *     start item to evaluate against, ask the rule engine and take
+   *     `std::max( minimum, constraint.Opt() )`;
+   *  3. otherwise take `GetCurrent…()`, which is the toolbar's preset, the
+   *     custom value, or the netclass default — and STILL clamp it up to the
+   *     board minimum for the track width, but NOT for the via, where upstream
+   *     assigns `GetCurrentViaSize()` outright.
+   *
+   * That last asymmetry is upstream's and is kept.
+   *
+   * Absent by design: `SetClearance`, `SetClearanceSource` and the four
+   * `Set…Source` strings. `SIZES_SETTINGS` carries them and `ROUTER_TOOL`'s
+   * status bar reads them; {@link PnsRouterSizes} is the reduced shape `ROUTER`
+   * itself reads, and a field nothing reads is a field nothing can pin. They
+   * belong with the tool that displays them.
+   *
+   * Returns false with no design settings, which is upstream's `if( !m_board )`
+   * early-out: the caller's sizes are left as they were.
    */
   importSizes(
-    _aSizes: PnsRouterSizes,
-    _aStartItem: PnsItem | null,
+    aSizes: PnsRouterSizes,
+    aStartItem: PnsItem | null,
     _aNet: NetHandle,
-    _aStartPosition: Vec2,
+    aStartPosition: Vec2,
   ): boolean {
-    return false;
+    const ds = this.mDeps.designSettings;
+
+    if (!ds) return false;
+
+    const sel = ds.sizes.selection;
+    const resolver = this.mRuleResolver;
+
+    aSizes.minClearance = ds.minClearance;
+
+    // `startAnchor`: which end of a segment the pointer is nearer, so the dummy
+    // track below sits where the user actually started.
+    let startAnchor = 0;
+
+    if (aStartItem && aStartItem.kind() === PnsKind.SEGMENT_T) {
+      const d0 = Distance(aStartPosition, aStartItem.anchor(0));
+      const d1 = Distance(aStartPosition, aStartItem.anchor(1));
+
+      if (d1 < d0) startAnchor = 1;
+    }
+
+    const startLayer = aStartItem ? aStartItem.layer() : 0;
+
+    /** `PNS::SEGMENT dummyTrack` on the start anchor, for the rule engine. */
+    const dummyTrack = (aNet: NetHandle, aAnchor = startAnchor): PnsSegment => {
+      const p = aStartItem ? aStartItem.anchor(aAnchor) : { x: 0, y: 0 };
+      const seg = new PnsSegment({ a: p, b: p }, aNet);
+      seg.setLayer(startLayer);
+      return seg;
+    };
+
+    const optOf = (
+      aType: PnsConstraintType,
+      aA: PnsItem,
+      aB: PnsItem | null,
+      aLayer: number,
+    ): number | null => {
+      const c = resolver?.queryConstraint(aType, aA, aB, aLayer) ?? null;
+      return c?.value.opt ?? null;
+    };
+
+    // ----- track width -----------------------------------------------------
+    let trackWidth = ds.trackMinWidth;
+    let found = false;
+
+    // `if( bds.m_UseConnectedTrackWidth && !bds.m_TempOverrideTrackWidth && aStartItem )`
+    if (ds.useConnectedTrackWidth && !ds.tempOverrideTrackWidth && aStartItem) {
+      const inherited = ds.inheritTrackWidth?.(aStartItem, aStartPosition) ?? null;
+
+      if (inherited !== null) {
+        trackWidth = inherited;
+        found = true;
+      }
+    }
+
+    if (!found && useNetClassTrack(sel) && aStartItem) {
+      const opt = optOf(PnsConstraintType.CT_WIDTH, dummyTrack(aStartItem.net()), null, startLayer);
+
+      if (opt !== null) {
+        trackWidth = Math.max(trackWidth, opt);
+        found = true;
+      }
+    }
+
+    if (!found) trackWidth = Math.max(trackWidth, getCurrentTrackWidth(ds.sizes));
+
+    aSizes.trackWidth = trackWidth;
+    aSizes.boardMinTrackWidth = ds.trackMinWidth;
+    aSizes.trackWidthIsExplicit = !ds.useConnectedTrackWidth || ds.tempOverrideTrackWidth;
+
+    // ----- via -------------------------------------------------------------
+    let viaDiameter = ds.viasMinSize;
+    let viaDrill = ds.minThroughDrill;
+
+    const dummyVia = (): PnsVia => {
+      const via = new PnsVia();
+      if (aStartItem) via.setNet(aStartItem.net());
+      return via;
+    };
+    const coupledVia = (): PnsVia => {
+      const via = new PnsVia();
+      if (aStartItem) via.setNet(resolver?.dpCoupledNet(aStartItem.net()) ?? null);
+      return via;
+    };
+
+    if (useNetClassVia(sel) && aStartItem) {
+      const dia = optOf(PnsConstraintType.CT_VIA_DIAMETER, dummyVia(), null, startLayer);
+      if (dia !== null) viaDiameter = Math.max(viaDiameter, dia);
+
+      const hole = optOf(PnsConstraintType.CT_VIA_HOLE, dummyVia(), null, startLayer);
+      if (hole !== null) viaDrill = Math.max(viaDrill, hole);
+    } else {
+      // Not `std::max` — upstream assigns, so a preset SMALLER than the board
+      // minimum reaches the router and DRC is what complains about it.
+      viaDiameter = getCurrentViaSize(ds.sizes);
+      viaDrill = getCurrentViaDrill(ds.sizes);
+    }
+
+    aSizes.viaDiameter = viaDiameter;
+    aSizes.viaDrill = viaDrill;
+
+    // ----- differential pair ------------------------------------------------
+    let diffPairWidth = ds.trackMinWidth;
+    let diffPairGap = ds.minClearance;
+    let diffPairViaGap = ds.minClearance;
+
+    found = false;
+
+    // The width inherits from the starting track under the SAME flag as above,
+    // but WITHOUT the `m_TempOverrideTrackWidth` half of the test.
+    if (ds.useConnectedTrackWidth && aStartItem) {
+      const inherited = ds.inheritTrackWidth?.(aStartItem, aStartPosition) ?? null;
+
+      if (inherited !== null) {
+        diffPairWidth = inherited;
+        found = true;
+      }
+    }
+
+    if (useNetClassDiffPair(sel) && aStartItem) {
+      const net = aStartItem.net();
+      const coupled = resolver?.dpCoupledNet(net) ?? null;
+      const a = dummyTrack(net, 0);
+      const b = dummyTrack(coupled, 0);
+
+      if (!found) {
+        const opt = optOf(PnsConstraintType.CT_WIDTH, a, b, startLayer);
+        if (opt !== null) diffPairWidth = Math.max(diffPairWidth, opt);
+      }
+
+      const gap = optOf(PnsConstraintType.CT_DIFF_PAIR_GAP, a, b, startLayer);
+
+      if (gap !== null) {
+        diffPairGap = Math.max(diffPairGap, gap);
+        diffPairViaGap = Math.max(diffPairViaGap, gap);
+      }
+    } else {
+      diffPairWidth = getCurrentDiffPairWidth(ds.sizes);
+      diffPairGap = getCurrentDiffPairGap(ds.sizes);
+      diffPairViaGap = getCurrentDiffPairViaGap(ds.sizes);
+    }
+
+    aSizes.diffPairWidth = diffPairWidth;
+    aSizes.diffPairGap = diffPairGap;
+    aSizes.diffPairViaGap = diffPairViaGap;
+    aSizes.diffPairViaGapSameAsTraceGap = false;
+
+    // ----- hole to hole -----------------------------------------------------
+    // `SetHoleToHole` then `SetDiffPairHoleToHole( max( holeToHoleMin, … ) )`.
+    // The second query is the same type against the COUPLED via, so a rule
+    // written for the pair can widen it past the single-via answer.
+    let holeToHole = ds.holeToHoleMin;
+    const single = resolver?.queryConstraint(
+      PnsConstraintType.CT_HOLE_TO_HOLE,
+      dummyVia(),
+      dummyVia(),
+      PNS_UNDEFINED_LAYER,
+    );
+
+    if (single?.value.min !== undefined) holeToHole = single.value.min;
+
+    const pairHoleToHole = holeToHole;
+    const coupled = resolver?.queryConstraint(
+      PnsConstraintType.CT_HOLE_TO_HOLE,
+      dummyVia(),
+      coupledVia(),
+      PNS_UNDEFINED_LAYER,
+    );
+
+    aSizes.diffPairHoleToHole = Math.max(coupled?.value.min ?? pairHoleToHole, pairHoleToHole);
+
+    return true;
   }
 
   // ----- length and delay ----------------------------------------------------

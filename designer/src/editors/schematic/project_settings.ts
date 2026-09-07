@@ -400,6 +400,7 @@ export function readSchematicSetupText(proText: string): SchematicSetup {
           uviaHole: numStr(e.microvia_drill),
           dpWidth: numStr(e.diff_pair_width),
           dpGap: numStr(e.diff_pair_gap),
+          dpViaGap: numStr(e.diff_pair_via_gap),
           tuningProfile: str(e.tuning_profile, ''),
           pcbColor: kicadColorToCss(e.pcb_color),
           wireThickness: numStr(e.wire_width),
@@ -549,8 +550,14 @@ export function writeEquivalenceFilesText(
 // Write.
 
 /** Net-class keys owned by the panel grid: cleared when the cell is blank,
- *  rewritten otherwise. Anything else on a class object (e.g.
- *  `diff_pair_via_gap`, which our grid does not surface) is preserved. */
+ *  rewritten otherwise. Anything else on a class object is preserved.
+ *
+ *  `diff_pair_via_gap` is READ into `NetClass.dpViaGap` and deliberately not
+ *  listed here. KiCad's grid has no column for it either
+ *  (`panel_setup_netclasses.cpp:63-64`), so the panel does not own it, and a
+ *  key the panel does not own must not be cleared when its blank cell says
+ *  nothing — that would delete a value only the file can carry, on the first
+ *  OK. */
 const OPTIONAL_CLASS_KEYS: readonly (readonly [string, keyof NetClass])[] = [
   ['clearance', 'clearance'],
   ['track_width', 'trackWidth'],
