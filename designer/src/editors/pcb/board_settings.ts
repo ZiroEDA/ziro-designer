@@ -82,6 +82,28 @@ export function defaultConstraints(): BoardConstraints {
   };
 }
 
+/** [data] `MINIMUM_ERROR_SIZE_MM` and `MAXIMUM_ERROR_SIZE_MM`
+ *  (`include/board_design_settings.h:97-98`), the range the arc approximation
+ *  error is allowed to take. */
+export const MIN_ERROR_SIZE_MM = 0.001;
+export const MAX_ERROR_SIZE_MM = 0.1;
+
+/**
+ * `m_MaxError` as `PANEL_SETUP_CONSTRAINTS::TransferDataFromWindow` stores it:
+ *
+ *     m_BrdSettings->m_MaxError = KiROUND( std::clamp( m_maxError.GetValue(),
+ *             pcbIUScale.IU_PER_MM * MINIMUM_ERROR_SIZE_MM,
+ *             pcbIUScale.IU_PER_MM * MAXIMUM_ERROR_SIZE_MM ) );
+ *
+ * The clamp is not cosmetic: `GetArcToSegmentCount` divides by the error, so a
+ * zero typed into the field is a division by zero in the zone filler, and a
+ * large one collapses every arc on the board to a triangle. One function
+ * because both the dialog's OK and the filler's caller need the same answer.
+ */
+export function clampMaxErrorMM(mm: number): number {
+  return Math.min(Math.max(mm, MIN_ERROR_SIZE_MM), MAX_ERROR_SIZE_MM);
+}
+
 // ---------------------------------------------------------------------------
 // Pre-defined routing sizes (PANEL_SETUP_TRACKS_AND_VIAS), mm.
 

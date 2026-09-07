@@ -126,7 +126,9 @@ describe('copper over a hole', () => {
   });
 
   it('runs with no rule at all, the limit being zero', () => {
-    // Board Setup has no value for this; a bare overlap is the violation.
+    // Board Setup's "Copper to hole clearance" is `minHoleClearance` and is
+    // absent here, so the required gap is zero and a bare overlap is the
+    // violation. `drc_board_setup_constraints.test.ts` covers it being set.
     const b = board({ tracks: [track(0, 10, 1)], vias: [via(5, 2)] });
 
     expect(holeErrors(b, undefined)).toHaveLength(1);

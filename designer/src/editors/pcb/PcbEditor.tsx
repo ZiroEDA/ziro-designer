@@ -282,6 +282,7 @@ import {
   readBoardSetupPro,
   writeBoardSetupProText,
 } from './project_settings.js';
+import { clampMaxErrorMM } from './board_settings.js';
 import type { TextGfxRow } from './board_settings.js';
 import { applyBoardFileSetup, writeBoardFileSetup } from './board_file_settings.js';
 import { DialogDrc } from './dialogs/dialog_drc.js';
@@ -1714,6 +1715,26 @@ export function PcbEditor({
     }
     return out;
   }, [boardSetup.zoneLayerProperties]);
+  /**
+   * ZONE_FILLER's options as `BOARD_DESIGN_SETTINGS` holds them, in IU.
+   *
+   * `m_MaxError` is Board Setup > Constraints' "Maximum allowed deviation".
+   * The filler was called without it and fell back to its own ARC_HIGH_DEF
+   * default, so the field moved nothing: every arc, circle and thermal relief
+   * in a pour was tessellated at 0.005 mm whatever the board asked for.
+   *
+   * `PANEL_SETUP_CONSTRAINTS::TransferDataFromWindow` clamps the value to
+   * [MINIMUM_ERROR_SIZE_MM, MAXIMUM_ERROR_SIZE_MM] before it reaches the
+   * settings (`panel_setup_constraints.cpp:161-165`), and zero would divide by
+   * zero in `GetArcToSegmentCount`, so the clamp is not cosmetic.
+   */
+  const zoneFillOptions = useMemo(
+    () => ({
+      hatchingOffsets,
+      maxError: Math.round(clampMaxErrorMM(boardSetup.constraints.maxDeviationMM) * MM),
+    }),
+    [hatchingOffsets, boardSetup.constraints.maxDeviationMM],
+  );
   const boardSetupRef = useRef(boardSetup);
   boardSetupRef.current = boardSetup;
 
@@ -6507,8 +6528,8 @@ export function PcbEditor({
   const fillAllZones = useCallback(() => {
     const brd = boardRef.current;
     if (!brd || brd.zones.length === 0) return;
-    commitBoard(fillZones(brd, { hatchingOffsets }));
-  }, [commitBoard]);
+    commitBoard(fillZones(brd, zoneFillOptions));
+  }, [commitBoard, zoneFillOptions]);
   // The global key handler is stable, so it reaches the action through a ref.
   const fillAllZonesRef = useRef(fillAllZones);
   fillAllZonesRef.current = fillAllZones;
@@ -6751,9 +6772,9 @@ export function PcbEditor({
       const next = applyZoneValues(brd, index, values);
       // A changed zone has to be re-poured; its fill was built from the old
       // clearances (ZONE_FILLER runs on the commit that closes the dialog).
-      if (next !== brd) commitBoard(fillZones(next, { hatchingOffsets }));
+      if (next !== brd) commitBoard(fillZones(next, zoneFillOptions));
     },
-    [commitBoard, zonePropsIndex],
+    [commitBoard, zonePropsIndex, zoneFillOptions],
   );
 
   /** DIALOG_GLOBAL_EDIT_TEARDROPS::TransferDataFromWindow. */
@@ -10409,6 +10430,15 @@ export function PcbEditor({
               minResolvedSpokes: c.minThermalSpokes,
               minSilkClearance: Math.round(c.silkClearanceMM * MM),
               minConnectionWidth: Math.round(c.minConnectionMM * MM),
+              // The rest of `loadImplicitRules`' board-setup constraints. Every
+              // one of these was editable on Board Setup > Constraints and read
+              // by nothing: `board setup constraints hole`, `… silk text
+              // height`, `… silk text thickness` and `… micro-via`.
+              minHoleClearance: Math.round(c.copperToHoleMM * MM),
+              minSilkTextHeight: Math.round(c.minTextHeightMM * MM),
+              minSilkTextThickness: Math.round(c.minTextThicknessMM * MM),
+              minMicroViaDiameter: Math.round(c.minUViaMM * MM),
+              minMicroViaDrill: Math.round(c.minUViaHoleMM * MM),
               clearanceOf: (net) =>
                 netclassInfo.classClearance.get(netClassOf.get(net) ?? 'Default') ?? 0,
               // Board Setup's Custom Rules page finally reaches DRC: a matching

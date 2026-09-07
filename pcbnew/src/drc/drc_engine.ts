@@ -107,6 +107,39 @@ export interface DrcOptions {
    */
   minSilkClearance?: number;
   /**
+   * rules.min_text_height (IU), Board Setup's "Minimum text height" under
+   * Silk. `loadImplicitRules` gives it `m_LayerCondition = LSET( { F_SilkS,
+   * B_SilkS } )`, so it is a SILKSCREEN minimum and nothing else: text on
+   * F.Fab or a copper layer is not measured against it. Zero or absent turns
+   * it off.
+   */
+  minSilkTextHeight?: number;
+  /**
+   * rules.min_text_thickness (IU), Board Setup's "Minimum text thickness".
+   * Silkscreen-only for the same reason as {@link minSilkTextHeight}.
+   */
+  minSilkTextThickness?: number;
+  /**
+   * rules.min_hole_clearance (IU), Board Setup's "Copper to hole clearance".
+   * The copper-to-hole test runs regardless — an item may never sit *inside*
+   * another net's drill — so absent means only that no positive gap is
+   * required, not that the test is skipped.
+   */
+  minHoleClearance?: number;
+  /**
+   * rules.min_microvia_diameter (IU). `loadImplicitRules` adds the micro-via
+   * rule AFTER the general one under the condition `A.Via_Type == 'Micro'`,
+   * and last match wins — so on a micro via this REPLACES
+   * {@link minViaDiameter} rather than raising it, even when it is smaller.
+   * Absent falls back to the through-via minimum.
+   */
+  minMicroViaDiameter?: number;
+  /**
+   * rules.min_microvia_drill (IU). Replaces {@link minThroughHole} on a micro
+   * via, for the same reason as {@link minMicroViaDiameter}.
+   */
+  minMicroViaDrill?: number;
+  /**
    * The schematic netlist, for the PCB-to-schematic parity checks. Absent
    * means no schematic to compare against, and those checks do not run —
    * which is upstream's behaviour when no netlist is supplied.
@@ -704,7 +737,15 @@ export function runDrc(board: Board, opts: DrcOptions): DrcViolation[] {
   for (const v of vias) {
     const viaItem = evalItem('Via', v.net, v.layers[0]);
     const viaDia = customValue('via_diameter', viaItem, undefined, v.layers[0]);
-    const minViaDiameter = viaDia?.value.min ?? opts.minViaDiameter;
+    // `board setup constraints micro-via` is a second implicit rule under
+    // `A.Via_Type == 'Micro'`, loaded after the general one — so on a micro via
+    // its value replaces the through-via minimum outright.
+    const micro = v.kind === 'micro';
+    const boardMinViaDiameter =
+      micro && opts.minMicroViaDiameter !== undefined
+        ? opts.minMicroViaDiameter
+        : opts.minViaDiameter;
+    const minViaDiameter = viaDia?.value.min ?? boardMinViaDiameter;
 
     if (minViaDiameter > 0 && v.size < minViaDiameter) {
       out.push({
@@ -727,11 +768,13 @@ export function runDrc(board: Board, opts: DrcOptions): DrcViolation[] {
       });
     }
     const holeCustom = customValue('hole_size', viaItem, undefined, v.layers[0]);
-    const minHole = holeCustom?.value.min ?? opts.minThroughHole;
+    const boardMinHole =
+      micro && opts.minMicroViaDrill !== undefined ? opts.minMicroViaDrill : opts.minThroughHole;
+    const minHole = holeCustom?.value.min ?? boardMinHole;
     const maxHole = holeCustom?.value.max;
     // A microvia's drill reports under its own code, so it can be given its own
     // severity — which is the whole reason upstream splits them.
-    const holeCode = v.kind === 'micro' ? 'microvia_drill_out_of_range' : 'drill_out_of_range';
+    const holeCode = micro ? 'microvia_drill_out_of_range' : 'drill_out_of_range';
 
     if (minHole > 0 && v.drill < minHole) {
       out.push({
@@ -785,12 +828,20 @@ export function runDrc(board: Board, opts: DrcOptions): DrcViolation[] {
     // The widest clearance any rule can ask for, so the cheap box test below
     // can reject a pair before anything expensive runs.
     const hasHoleRules = ruleEngine?.byType.has('hole_clearance') ?? false;
-    const maxHoleClearance = hasHoleRules
-      ? (ruleEngine?.byType.get('hole_clearance') ?? []).reduce(
-          (m, e) => Math.max(m, e.constraint.value.min ?? 0),
-          0,
-        )
-      : 0;
+    // `board setup constraints hole` — the implicit HOLE_CLEARANCE rule, whose
+    // min is Board Setup's "Copper to hole clearance". A user rule still
+    // overrides it; with neither, the required gap is zero and the test only
+    // catches copper laid over the drill itself.
+    const boardHoleClearance = Math.max(0, opts.minHoleClearance ?? 0);
+    const maxHoleClearance = Math.max(
+      boardHoleClearance,
+      hasHoleRules
+        ? (ruleEngine?.byType.get('hole_clearance') ?? []).reduce(
+            (m, e) => Math.max(m, e.constraint.value.min ?? 0),
+            0,
+          )
+        : 0,
+    );
 
     for (const [layer, items] of itemsByLayer) {
       for (const it of items) {
@@ -830,7 +881,8 @@ export function runDrc(board: Board, opts: DrcOptions): DrcViolation[] {
                 layer,
               )
             : undefined;
-          const required = Math.max(0, (c?.value.min ?? 0) - DRC_EPSILON);
+          const limit = c?.value.min ?? boardHoleClearance;
+          const required = Math.max(0, limit - DRC_EPSILON);
 
           // Segment-to-shape: the hole carries a slot axis, so this follows a
           // milled oval as well as a round drill.
@@ -841,7 +893,7 @@ export function runDrc(board: Board, opts: DrcOptions): DrcViolation[] {
 
           out.push({
             code: 'hole_clearance',
-            message: `Hole clearance violation (clearance ${mm(c?.value.min ?? 0)}${ruleNote(c?.rule)}; actual ${mm(gap)})`,
+            message: `Hole clearance violation (clearance ${mm(limit)}${ruleNote(c?.rule)}; actual ${mm(gap)})`,
             pos: h.c,
             items: [
               { desc: it.desc, pos: it.pos },
@@ -2109,37 +2161,67 @@ export function runDrc(board: Board, opts: DrcOptions): DrcViolation[] {
     ),
   ];
 
-  if (ruleEngine?.byType.has('text_height') || ruleEngine?.byType.has('text_thickness')) {
+  // Board Setup's Silk minimums are `board setup constraints silk text height`
+  // and `… thickness`, two implicit rules that carry
+  // `m_LayerCondition = LSET( { F_SilkS, B_SilkS } )` — so they measure
+  // silkscreen and nothing else. A maximum can still only come from a user
+  // rule: the implicit rules set a min and no max.
+  const SILK_TEXT_LAYERS = new Set(['F.SilkS', 'B.SilkS']);
+  const silkTextHeight = Math.max(0, opts.minSilkTextHeight ?? 0);
+  const silkTextThickness = Math.max(0, opts.minSilkTextThickness ?? 0);
+
+  if (
+    ruleEngine?.byType.has('text_height') ||
+    ruleEngine?.byType.has('text_thickness') ||
+    silkTextHeight > 0 ||
+    silkTextThickness > 0
+  ) {
     for (const { t, desc } of allTexts) {
       const item = evalItem('Text', 0, t.layer, {
         Text_Height: t.size.y,
         Text_Width: t.size.x,
       });
+      const onSilk = SILK_TEXT_LAYERS.has(t.layer);
 
       const height = customValue('text_height', item, undefined, t.layer);
-      if (height) {
-        const { min, max } = height.value;
-        if (min !== undefined && t.size.y < min)
-          out.push(textDim('text_height', 'min height', min, t.size.y, height.rule, desc, t.at));
-        if (max !== undefined && t.size.y > max)
-          out.push(textDim('text_height', 'max height', max, t.size.y, height.rule, desc, t.at));
+      const minHeight = height?.value.min ?? (onSilk ? silkTextHeight : 0);
+      if (minHeight > 0 && t.size.y < minHeight) {
+        out.push(
+          textDim('text_height', 'min height', minHeight, t.size.y, height?.rule, desc, t.at),
+        );
+      }
+      if (height?.value.max !== undefined && t.size.y > height.value.max) {
+        out.push(
+          textDim('text_height', 'max height', height.value.max, t.size.y, height.rule, desc, t.at),
+        );
       }
 
       const thickness = customValue('text_thickness', item, undefined, t.layer);
-      if (thickness) {
+      const minThickness = thickness?.value.min ?? (onSilk ? silkTextThickness : 0);
+      if (minThickness > 0 || thickness?.value.max !== undefined) {
         // The stroke-font branch. Upstream's other branch deflates each
         // TrueType glyph to find collapsed strokes; we have no glyph outlines,
         // so an outline font is simply not checked rather than mis-checked.
         const actual = effectiveTextPenWidth(t);
-        const { min, max } = thickness.value;
-        if (min !== undefined && actual < min)
+        if (minThickness > 0 && actual < minThickness) {
           out.push(
-            textDim('text_thickness', 'min thickness', min, actual, thickness.rule, desc, t.at),
+            textDim(
+              'text_thickness',
+              'min thickness',
+              minThickness,
+              actual,
+              thickness?.rule,
+              desc,
+              t.at,
+            ),
           );
-        if (max !== undefined && actual > max)
+        }
+        const max = thickness?.value.max;
+        if (max !== undefined && actual > max) {
           out.push(
-            textDim('text_thickness', 'max thickness', max, actual, thickness.rule, desc, t.at),
+            textDim('text_thickness', 'max thickness', max, actual, thickness?.rule, desc, t.at),
           );
+        }
       }
     }
   }

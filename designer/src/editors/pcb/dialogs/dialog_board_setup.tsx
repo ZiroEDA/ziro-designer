@@ -20,8 +20,15 @@
  * Values seed from the project's .kicad_pro and commit on OK.
  */
 import { useState, type JSX } from 'react';
-import { PagedDialog, type PagedDialogSection } from '../../../ui/PagedDialog.js';
+import {
+  PagedDialog,
+  type PagedDialogError,
+  type PagedDialogSection,
+} from '../../../ui/PagedDialog.js';
+import { validateUnitValue, type UnitRange } from '../../../ui/unit_binder.js';
+import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
 import { Icon } from '../../../ui/icons.js';
+import { SpinCtrl } from '../../../ui/SpinCtrl.js';
 
 /**
  * KiCad's own dark-theme constraint icons, vendored under assets/constraints
@@ -51,10 +58,63 @@ const CON_ICON_FILE: Record<string, string> = {
   spoke: 'thermal_spokes',
 };
 
+/**
+ * `PANEL_SETUP_CONSTRAINTS::TransferDataFromWindow` validates ten of the page's
+ * fields with `UNIT_BINDER::Validate` and returns false on the FIRST failure,
+ * before storing anything (`panel_setup_constraints.cpp:126-165`) — so a bad
+ * value keeps the dialog open on this page with the control selected, and none
+ * of the page's other edits are committed either.
+ *
+ * The limits are written in inches and mils upstream and compared in internal
+ * units; this page displays millimetres, so they are stated here in the
+ * millimetres the message will quote back. The uVia, Silk and deviation fields
+ * are deliberately absent: upstream validates none of them, and the deviation
+ * is clamped instead ({@link clampMaxErrorMM}).
+ */
+// [data] `Validate( 0, 10, EDA_UNITS::INCH )` — 10 inch.
+const INCH_0_10: UnitRange = { min: 0, max: 25.4 * 10 };
+// [data] `Validate( 2, 1000, EDA_UNITS::MILS )`, upstream's own comment being
+// "#107 to 1 inch".
+const MILS_2_1000: UnitRange = { min: 0.0254 * 2, max: 0.0254 * 1000 };
+
+const CONSTRAINT_RANGES: readonly (readonly [
+  keyof BoardConstraints,
+  string,
+  UnitRange,
+])[] = [
+  ['minClearanceMM', 'Minimum clearance:', INCH_0_10],
+  ['minConnectionMM', 'Minimum connection width:', INCH_0_10],
+  ['minTrackMM', 'Minimum track width:', INCH_0_10],
+  ['minAnnularMM', 'Minimum annular width:', INCH_0_10],
+  ['minViaMM', 'Minimum via diameter:', INCH_0_10],
+  ['copperToHoleMM', 'Copper to hole clearance:', INCH_0_10],
+  ['copperToEdgeMM', 'Copper to edge clearance:', INCH_0_10],
+  ['minThroughHoleMM', 'Minimum drill size:', MILS_2_1000],
+  ['minHoleToHoleMM', 'Hole to hole clearance:', INCH_0_10],
+];
+
+/** `document.getElementById` handle for one constraint entry, so PAGED_DIALOG
+ *  can focus and select the field `Validate` refused. */
+export function constraintFieldId(key: keyof BoardConstraints): string {
+  return `ze-constraint-${key}`;
+}
+
+/** The first `Validate` failure on the page, or null. */
+function validateConstraints(c: BoardConstraints): PagedDialogError | null {
+  for (const [key, label, range] of CONSTRAINT_RANGES) {
+    const message = validateUnitValue(label, c[key] as number, range, 'mm', pcbIUScale);
+    if (message)
+      return { message, page: 'constraints', focusId: constraintFieldId(key) };
+  }
+  return null;
+}
+
 function ConIcon({ name }: { name: string }): JSX.Element | null {
   const file = CON_ICON_FILE[name];
   const url = file ? CON_ICON_URLS[`../../../assets/constraints/${file}.svg`] : undefined;
-  return url ? <img src={url} width={20} height={20} alt="" aria-hidden="true" /> : null;
+  // [data] `KiBitmapBundle( BITMAPS::…, 24 )` — every bitmap on this page is
+  // asked for at 24 (`panel_setup_constraints.cpp:61-73`). This drew them at 20.
+  return url ? <img src={url} width={24} height={24} alt="" aria-hidden="true" /> : null;
 }
 import { PanelTextVariables } from '../../../dialogs/panels/panel_text_variables.js';
 import { PanelSetupNetclasses } from '../../../dialogs/panels/panel_setup_netclasses.js';
@@ -73,7 +133,7 @@ import { PanelPcbBoardFinish } from './panels/panel_pcb_board_finish.js';
 import { PanelPcbStackup } from './panels/panel_pcb_stackup.js';
 import { PanelPcbComponentClasses } from './panels/panel_pcb_component_classes.js';
 import { PanelPcbCustomRules } from './panels/panel_pcb_custom_rules.js';
-import { copperStackNames, syncCopperLayers } from '../board_settings.js';
+import { clampMaxErrorMM, copperStackNames, syncCopperLayers } from '../board_settings.js';
 import type {
   BoardConstraints,
   BoardSetupValues,
@@ -201,6 +261,7 @@ export function DialogBoardSetup({ value, initialPage, onOk, onClose }: Props): 
       <span className="ze-con-icon">{icon ? <ConIcon name={icon} /> : null}</span>
       <span className="lbl">{label}</span>
       <input
+        id={constraintFieldId(key)}
         className="ze-search"
         value={v.constraints[key] as number}
         onChange={(e) => setCon(key, num(e.target.value))}
@@ -209,12 +270,24 @@ export function DialogBoardSetup({ value, initialPage, onOk, onClose }: Props): 
     </div>
   );
 
+  // A section heading of `fgFeatureConstraints`: the `wxStaticText` occupies
+  // the FIRST column only (`Add( m_staticText23, 0, wxTOP|wxLEFT, 13 )`), and
+  // the four `wxStaticLine`s under it fill the row. Making the heading span
+  // instead left the bitmap column as narrow as a bitmap; in KiCad it is as
+  // wide as "Copper", which is what indents the icons.
+  const conHead = (title: string): JSX.Element[] => [
+    <div className="ze-con-head" key={`h:${title}`}>
+      {title}
+    </div>,
+    <hr className="ze-hr ze-con-hr" key={`r:${title}`} />,
+  ];
+
   const constraintsPanel = (): JSX.Element => (
     // `bScrolledSizer`, a horizontal box: `sbFeatureConstraints` on the left
     // and `sbFeatureRules` on the right (`:20-23`, `:379`).
     <div className="ze-con-cols">
       <div className="ze-con-grid">
-        <div className="ze-pref-group-title">Copper</div>
+        {conHead('Copper')}
         {conRow('clearance', 'Minimum clearance:', 'minClearanceMM')}
         {conRow('track', 'Minimum track width:', 'minTrackMM')}
         {conRow('conn', 'Minimum connection width:', 'minConnectionMM')}
@@ -222,18 +295,22 @@ export function DialogBoardSetup({ value, initialPage, onOk, onClose }: Props): 
         {conRow('viaDia', 'Minimum via diameter:', 'minViaMM')}
         {conRow('copperHole', 'Copper to hole clearance:', 'copperToHoleMM')}
         {conRow('copperEdge', 'Copper to edge clearance:', 'copperToEdgeMM')}
+        {/* `m_minGrooveWidth*`, "Minimum groove for creepage:" (`:172-190`), is
+            built and then `Show( false )` unless
+            `ADVANCED_CFG::m_EnableCreepageSlot` — an advanced-config flag that
+            is off by default, so a stock KiCad does not draw this row. */}
 
-        <div className="ze-pref-group-title">Holes</div>
+        {conHead('Holes')}
         {/* [data] `m_MinDrillTitle`, "Minimum drill size:" (`:214`). This read
             "Minimum through hole:", which is the v7 string. */}
         {conRow('throughHole', 'Minimum drill size:', 'minThroughHoleMM')}
         {conRow('holeToHole', 'Hole to hole clearance:', 'minHoleToHoleMM')}
 
-        <div className="ze-pref-group-title">uVias</div>
+        {conHead('uVias')}
         {conRow('uviaDia', 'Minimum uVia diameter:', 'minUViaMM')}
         {conRow('uviaHole', 'Minimum uVia hole:', 'minUViaHoleMM')}
 
-        <div className="ze-pref-group-title">Silk</div>
+        {conHead('Silk')}
         {conRow('', 'Minimum item clearance:', 'silkClearanceMM')}
         {conRow('', 'Minimum text height:', 'minTextHeightMM')}
         {conRow('', 'Minimum text thickness:', 'minTextThicknessMM')}
@@ -243,38 +320,57 @@ export function DialogBoardSetup({ value, initialPage, onOk, onClose }: Props): 
         {/* [data] `m_stCircleToPolyOpt`, "Arc/Circle Approximations" (`:384`).
             This read "Arc/Circle Approximated by Segments", the v6 string. */}
         <div className="ze-pref-group-title">Arc/Circle Approximations</div>
-        <div className="ze-con-grid">
-          {conRow('', 'Maximum allowed deviation:', 'maxDeviationMM')}
+        {/* `fgSizer2` (`:400`) is label | entry | units and has no bitmap
+            column, so this row is NOT one of the left grid's. */}
+        <div className="ze-con-dev">
+          <span className="lbl">Maximum allowed deviation:</span>
+          <input
+            className="ze-search"
+            value={v.constraints.maxDeviationMM}
+            onChange={(e) => setCon('maxDeviationMM', num(e.target.value))}
+          />
+          <span className="unit">mm</span>
         </div>
         {/* `KIUI::GetSmallInfoFont( this ).Italic()`
             (`panel_setup_constraints.cpp:74`) — the info font TWO points down,
             which is `.ze-pref-hint`, not a grey 11px caption. */}
         <div className="ze-pref-hint">Note: zone filling can be slow when &lt; 0.005 mm.</div>
 
-        <div className="ze-pref-group-title">Zone Fill Strategy</div>
-        <label className="ze-pref-check ze-con-check">
-          <span className="ze-con-icon">
-            <ConIcon name="fillet" />
-          </span>
-          <input
-            type="checkbox"
-            checked={v.constraints.allowFilletsOutside}
-            onChange={(e) => setCon('allowFilletsOutside', e.target.checked)}
-          />
-          Allow fillets/chamfers outside zone outline
-        </label>
-        <div className="ze-con-grid">
-          <div className="ze-con-row">
+        <div className="ze-con-fill">
+          <div className="ze-pref-group-title">Zone Fill Strategy</div>
+          {/* `bSizer9` (`:437-445`): the bitmap and the checkbox are SIBLINGS in
+              a horizontal box, so the icon sits outside the label. Inside it,
+              the box-to-text gap stays the shared checkbox's. */}
+          <div className="ze-con-check">
+            <span className="ze-con-icon">
+              <ConIcon name="fillet" />
+            </span>
+            <label className="ze-pref-check">
+              <input
+                type="checkbox"
+                checked={v.constraints.allowFilletsOutside}
+                onChange={(e) => setCon('allowFilletsOutside', e.target.checked)}
+              />
+              Allow fillets/chamfers outside zone outline
+            </label>
+          </div>
+          <div className="ze-con-spoke">
             <span className="ze-con-icon">
               <ConIcon name="spoke" />
             </span>
             <span className="lbl">Minimum thermal relief spoke count:</span>
-            <input
-              className="ze-search"
+            {/* [data] `new wxSpinCtrl( …, wxSP_ARROW_KEYS, 0, 10, 0 )` (`:452`)
+                — a spin control with the theme's two arrow buttons, which this
+                drew as a plain 210 px text field. It carries no width: KiCad's
+                one `SetSize` on it (`panel_setup_constraints.cpp:77-79`) is
+                overridden by the sizer, which lays it out at its best size. */}
+            <SpinCtrl
               value={v.constraints.minThermalSpokes}
-              onChange={(e) => setCon('minThermalSpokes', num(e.target.value))}
+              onChange={(n) => setCon('minThermalSpokes', n)}
+              min={0}
+              max={10}
+              ariaLabel="Minimum thermal relief spoke count"
             />
-            <span className="unit" />
           </div>
         </div>
 
@@ -617,6 +713,9 @@ export function DialogBoardSetup({ value, initialPage, onOk, onClose }: Props): 
         // first and returns false on a bad name, which keeps the dialog open
         // and leaves PAGED_DIALOG showing the message (`panel_setup_layers.cpp:975`).
         onOk={() => {
+          const outOfRange = validateConstraints(v.constraints);
+          if (outOfRange) return outOfRange;
+
           const bad = testLayerNames(v.layers);
           if (bad)
             return {
@@ -624,7 +723,16 @@ export function DialogBoardSetup({ value, initialPage, onOk, onClose }: Props): 
               page: 'layers',
               focusId: layerNameInputId(bad.layerId),
             };
-          onOk(v);
+          // `TransferDataFromWindow` clamps m_MaxError on the way out
+          // (`panel_setup_constraints.cpp:161-165`); it is the one value on
+          // Constraints that is not stored as typed.
+          onOk({
+            ...v,
+            constraints: {
+              ...v.constraints,
+              maxDeviationMM: clampMaxErrorMM(v.constraints.maxDeviationMM),
+            },
+          });
         }}
         onCancel={onClose}
       />
