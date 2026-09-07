@@ -141,9 +141,10 @@ const MODIFIER_EXCEPTIONS: Readonly<Record<string, readonly string[]>> = {
     // (The 3D viewer overlay's own "not a modified key" guard used to be here.
     // It left with the viewer when EDA_3D_VIEWER_FRAME became one shared
     // component, and is now covered by that file's PENDING entry above.)
-    // Ctrl+Enter inside the place-text dialog's own textarea, which is that
-    // dialog's OK and reaches nothing outside it.
-    "} else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {",
+    // (Ctrl+Enter inside the place-text dialog's own textarea used to be here.
+    // It went with that dialog: the Draw Text tool opened a hand-rolled div
+    // holding one textarea, and the board's real DialogTextProperties opens for
+    // both paths now. A shared dialog's keys are the shared dialog's business.)
   ],
   'editors/symbol/SymbolEditor.tsx': [
     'const plain = !e.ctrlKey && !e.metaKey && !e.altKey;',

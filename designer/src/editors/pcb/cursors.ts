@@ -26,6 +26,21 @@ export interface BoardCursorState {
    * `editors/drawingsheet/cursors.ts` takes a state.
    */
   tableDragging?: boolean;
+  /**
+   * An image is on the cursor, between the file chooser and the click that
+   * drops it.
+   *
+   * `DRAWING_TOOL::PlaceReferenceImage`'s `setCursor` is the same two-arm chain
+   * (`drawing_tool.cpp:105-112`):
+   *
+   *     if( image ) SetCurrentCursor( KICURSOR::MOVING );
+   *     else        SetCurrentCursor( KICURSOR::ARROW );
+   *
+   * The idle arm is the plain arrow, which is this frame's fallback and why
+   * `placeReferenceImage` is deliberately absent from `ui/tool_cursors.ts`. The
+   * MOVING arm is the half that needs the state, exactly as the table's does.
+   */
+  imagePlacing?: boolean;
 }
 
 /**
@@ -39,5 +54,6 @@ export const boardToolCursor = (tool: string, state: BoardCursorState = {}): str
   // The one tool whose cursor changes partway through the gesture. Checked
   // before the shared table, which holds its idle answer.
   if (tool === 'drawTable' && state.tableDragging) return kiCursor('MOVING');
+  if (tool === 'placeReferenceImage' && state.imagePlacing) return kiCursor('MOVING');
   return toolCursorCss(tool, tool === 'localRatsnestTool' ? 'crosshair' : 'default');
 };

@@ -264,7 +264,11 @@ const BASELINE: Record<string, number> = {
   // font unchanged. The three real ones are `KIUI::GetInfoFont().Italic()` and
   // `GetSmallInfoFont().Italic()`, and those are `.ze-pref-infotext` /
   // `.ze-pref-help` / `.ze-pref-hint`, which are tokens.
-  'editors/pcb': 64,
+  // 64 -> 62: the Draw Text tool's hand-rolled dialog stated `fontSize: 13`
+  // twice, once on the box and once on its textarea. The tool opens the board's
+  // real `DialogTextProperties` now, and that dialog states no size at all —
+  // a wxDialog's controls take the dialog font, which is what `.ze-app` sets.
+  'editors/pcb': 62,
   // 55 -> 50: the COLOR_SWATCH sweep's second half. Seven Clear buttons and
   // one `(using Schematic Editor colors)` hint each carried an inline
   // `fontSize: 11`, and none of them exists upstream - the swatch clears
@@ -625,7 +629,9 @@ describe('hardcoded font sizes do not grow', () => {
     // which Board Setup shows as pages of its own). 283 - 57 - 4 = 222.
     // 222 -> 221: the same placeholder row; `ui` 83 -> 82 is the only row that
     // moves, and 222 - 1 agrees with it.
-    expect(sites.length).toBe(221);
+    // 221 -> 219: the same two; `editors/pcb` is the only row that moves and
+    // 221 - 2 agrees with it.
+    expect(sites.length).toBe(219);
   });
 });
 

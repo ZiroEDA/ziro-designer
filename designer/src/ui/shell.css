@@ -11456,6 +11456,166 @@ textarea.ze-ds-textedit {
   white-space: nowrap;
 }
 
+/* Reference Image Properties
+   (pcbnew/dialogs/dialog_reference_image_properties_base.cpp), plus the
+   PANEL_IMAGE_EDITOR it embeds (common/dialogs/panel_image_editor_base.cpp).
+
+   `bMainSizer` is vertical with no group boxes — this file had two, Position
+   and Size — holding `bMargins` and then the standard buttons. */
+.ze-refimg-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+/* [data] `bMainSizer->Add( bMargins, 0, wxEXPAND|wxRIGHT|wxLEFT, 8 )` (`:96`). */
+.ze-refimg-margins {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  /* [data] that Add()'s `wxRIGHT|wxLEFT, 8`. */
+  margin: 0 8px;
+}
+/* `gbSizer1 = new wxGridBagSizer( 3, 5 )` (`:25`), `AddGrowableCol( 1 )`.
+
+   Three columns, and NOT ONE of its fifteen Add() calls names a border flag —
+   every one is `wxALIGN_CENTER_VERTICAL` or that plus `wxEXPAND`, so the `5`
+   they all pass is inert and no cell carries a margin. Only the 3/5 gaps
+   separate them, which is why this dialog is tighter than the text ones. */
+.ze-refimg-grid {
+  display: grid;
+  grid-template-columns: max-content 1fr max-content;
+  /* [data] `SetEmptyCellSize( wxSize( -1,5 ) )` (`:28`): row 5 carries nothing
+     and is 5 px tall. Enumerated because a CSS grid gives an empty row no
+     height at all, and that row's height is the file's number, not zero. */
+  grid-template-rows: repeat(5, auto) 5px auto;
+  align-items: center;
+  gap: 3px 5px; /* [data] `wxGridBagSizer( 3, 5 )` — vgap 3, hgap 5. */
+  /* [data] `bMargins->Add( gbSizer1, 0, wxEXPAND|wxALL, 5 )` (`:88`). */
+  margin: 5px;
+}
+/* `( 0, 0 )` `( 1, 0 )` `( 3, 0 )` `( 4, 0 )` and `( 2, 0 )` — the label column,
+   no borders on any of them. */
+.ze-refimg-px-lbl,
+.ze-refimg-py-lbl,
+.ze-refimg-layer-lbl,
+.ze-refimg-h-lbl,
+.ze-refimg-w-lbl {
+  grid-column: 1;
+}
+/* The growable column: `wxEXPAND` on every control in it. A full-size
+   wxTextCtrl, so it stands at the entry height GTK gives it — see
+   `.ze-txt-w-ctl`. */
+.ze-refimg-px-ctl,
+.ze-refimg-py-ctl,
+.ze-refimg-layer,
+.ze-refimg-h-ctl,
+.ze-refimg-w-ctl {
+  grid-column: 2;
+  width: 100%;
+  height: var(--ctl-height);
+  box-sizing: border-box;
+}
+/* The combo sizes itself; only the entries need the height stated. */
+.ze-refimg-layer {
+  height: auto;
+}
+.ze-refimg-px-lbl,
+.ze-refimg-px-ctl,
+.ze-refimg-px-u {
+  grid-row: 1;
+}
+.ze-refimg-py-lbl,
+.ze-refimg-py-ctl,
+.ze-refimg-py-u {
+  grid-row: 2;
+}
+/* Row 2 carries the layer row AND, at `( 2, 2 )`, the WIDTH's unit label —
+   `m_WidthUnit` is added there while `m_WidthLabel` and `m_ModWidth` are at row
+   4 (`:54-61`). Mirrored rather than tidied: it is what KiCad draws. */
+.ze-refimg-layer-lbl,
+.ze-refimg-layer,
+.ze-refimg-w-u {
+  grid-row: 3;
+}
+.ze-refimg-h-lbl,
+.ze-refimg-h-ctl,
+.ze-refimg-h-u {
+  grid-row: 4;
+}
+/* `( 4, 0 )` and `( 4, 1 )`, and nothing at `( 4, 2 )`: Width's unit is on row 2. */
+.ze-refimg-w-lbl,
+.ze-refimg-w-ctl {
+  grid-row: 5;
+}
+.ze-refimg-px-u,
+.ze-refimg-py-u,
+.ze-refimg-w-u,
+.ze-refimg-h-u {
+  grid-column: 3;
+}
+/* `( 6, 0 )` span 3 — row 5 between it and Width is the empty one. */
+.ze-refimg-locked {
+  grid-row: 7;
+  grid-column: 1 / span 3;
+}
+/* `m_imageSizer`, proportion 1, holding PANEL_IMAGE_EDITOR whose `bSizerLeft`
+   is horizontal: the preview panel, then the panel's own gridbag. */
+.ze-refimg-editor {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+/* `m_panelDraw->SetMinSize( wxSize( 300,300 ) )`
+   (`panel_image_editor_base.cpp:24`), proportion 1, `wxBORDER_SIMPLE`.
+   [data] its `wxEXPAND|wxALL, 5`. */
+.ze-refimg-preview {
+  flex: 1 1 auto;
+  min-width: 300px;
+  /* [data] the same `SetMinSize( wxSize( 300,300 ) )`. */
+  min-height: 300px;
+  /* [data] that Add()'s `wxALL, 5`. */
+  margin: 5px;
+  border: 1px solid var(--chrome-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.ze-refimg-preview > img {
+  max-width: 100%;
+  max-height: 100%;
+}
+/* `gbSizer1 = new wxGridBagSizer( 5, 5 )` in that panel, `AddGrowableCol( 1 )`,
+   added proportion 0 so it takes its own width and the preview takes the rest.
+   [data] its `wxEXPAND|wxALL, 10`. */
+.ze-refimg-editgrid {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  align-items: center;
+  gap: 5px; /* [data] `wxGridBagSizer( 5, 5 )`. */
+  align-content: start;
+  /* [data] that Add()'s `wxALL, 10`. */
+  margin: 10px;
+}
+.ze-refimg-scale-ctl {
+  height: var(--ctl-height);
+  box-sizing: border-box;
+  width: 100%;
+}
+/* A wxStaticText, not a field: `SetLabel` once at construction. */
+.ze-refimg-ppi {
+  white-space: nowrap;
+}
+.ze-refimg-lbl {
+  white-space: nowrap;
+}
+.ze-refimg-check {
+  display: flex;
+  align-items: center;
+  gap: var(--check-inset);
+  white-space: nowrap;
+}
+
 /* Barcode Properties (dialog_barcode_properties_base.cpp).
 
    `bSizer8` is horizontal: the fields on the left and the GAL preview panel on

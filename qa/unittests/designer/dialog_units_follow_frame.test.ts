@@ -121,9 +121,11 @@ const KNOWN_HARDCODED = new Set([
   // `m_borderWidth( aParent, m_borderWidthLabel, m_borderWidthCtrl,
   // m_borderWidthUnits )` — and each prints "mm" here whatever the board is in.
   //
-  // `dialog_textbox_properties.tsx` is deliberately NOT on this list: it is the
-  // one that has been paid, and the block below names it so it cannot quietly
-  // go back.
+  // Two are deliberately NOT on this list — `dialog_textbox_properties.tsx` and
+  // `dialog_reference_image_properties.tsx`, the two that have been paid. The
+  // image dialog left it the way the ratchet intends: its four `UNIT_BINDER`s
+  // (`m_posX`, `m_posY`, `m_width`, `m_height`) were rebuilt against the base
+  // file, this list went red on the next run, and the name came off.
   'dialog_barcode_properties.tsx',
   'dialog_board_setup.tsx',
   'dialog_copper_zones.tsx',
@@ -133,7 +135,6 @@ const KNOWN_HARDCODED = new Set([
   'dialog_line_modification.tsx',
   'dialog_outset_items.tsx',
   'dialog_pad_properties.tsx',
-  'dialog_reference_image_properties.tsx',
 ]);
 
 describe('a dialog never hardcodes a unit name beside a field', () => {

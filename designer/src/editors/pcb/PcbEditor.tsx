@@ -1652,6 +1652,15 @@ export function PcbEditor({
    * PENCIL for MOVING the moment the first corner is down.
    */
   const [tableDragging, setTableDragging] = useState(false);
+  /**
+   * An image is on the cursor, waiting for the click that drops it.
+   *
+   * `PlaceReferenceImage`'s `setCursor` is the same two-arm chain the table
+   * tool's is — `if( image ) MOVING else ARROW` (`drawing_tool.cpp:105-112`) —
+   * so the tool id alone cannot answer for it. ARROW is this frame's fallback,
+   * which is why `placeReferenceImage` has no entry in the shared table.
+   */
+  const [imagePlacing, setImagePlacing] = useState(false);
   /** Set both together, so the cursor can never disagree with the preview. */
   const setTableStart = (at: { x: number; y: number } | null): void => {
     tableStartRef.current = at;
@@ -6179,19 +6188,35 @@ export function PcbEditor({
    * (`DRAWING_TOOL::PlaceReferenceImage`). The first opens the file dialog and
    * puts the picture on the cursor; the second drops it.
    */
+  /**
+   * The "Choose Image" file dialog, which is the whole of the tool's first step
+   * (`drawing_tool.cpp:133-148`):
+   *
+   *     wxFileDialog dlg( m_frame, _( "Choose Image" ), …, wxFD_OPEN );
+   *     RunMainStack( [&]() { cancelled = dlg.ShowModal() != wxID_OK; } );
+   *     if( cancelled ) continue;
+   *
+   * A cancel leaves the tool armed and waiting, which is what `continue` does.
+   */
+  const chooseImageFile = (fallback: { x: number; y: number }): void => {
+    void askForPng().then((data) => {
+      if (data === null) return;
+      // The tool may have been switched away while the dialog was open.
+      if (activeToolRef.current !== 'placeReferenceImage') return;
+      const at = cursorRef.current ? snapToGrid(cursorRef.current) : fallback;
+      placeImageRef.current = fileChosen(placeImageRef.current, data, at, activeLayer);
+      // The image rides the cursor from here, and the cursor says so.
+      setImagePlacing(true);
+      requestDraw();
+    });
+  };
+
   const handleImageClick = (world: { x: number; y: number }): void => {
     const p = snapToGrid(world);
     const state = placeImageRef.current;
 
     if (state.step === 'awaiting-file') {
-      void askForPng().then((data) => {
-        if (data === null) return;
-        // The tool may have been switched away while the dialog was open.
-        if (activeToolRef.current !== 'placeReferenceImage') return;
-        const at = cursorRef.current ? snapToGrid(cursorRef.current) : p;
-        placeImageRef.current = fileChosen(placeImageRef.current, data, at, activeLayer);
-        requestDraw();
-      });
+      chooseImageFile(p);
       return;
     }
 
@@ -6203,8 +6228,29 @@ export function PcbEditor({
       commitBoard(withImage);
       setSelection(new Set([id]));
     }
+    setImagePlacing(next.step === 'placing');
     requestDraw();
   };
+
+  /**
+   * The image tool asks for its file the moment it is picked, before any click
+   * — `PrimeTool( { 0, 0 } )` with `ignorePrimePosition`
+   * (`drawing_tool.cpp:132-140`), the same synthetic click the text tool takes,
+   * and here it runs the arm that opens the chooser. The manual describes the
+   * tool in exactly that order: "use the button on the right toolbar and browse
+   * to the desired reference image file. Click in the canvas to place the
+   * image."
+   *
+   * The one browser constraint: a file input only opens a picker while the page
+   * has transient activation, so this works because arming the tool is itself a
+   * click or a keypress and the effect runs in that same task. Nothing may move
+   * this behind an await.
+   */
+  useEffect(() => {
+    if (activeTool !== 'placeReferenceImage') return;
+    chooseImageFile(snapToGrid(cursorRef.current ?? { x: 0, y: 0 }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- one shot per arming
+  }, [activeTool]);
 
   const handleZoneClick = (world: { x: number; y: number }): void => {
     const brd = boardRef.current;
@@ -9535,7 +9581,7 @@ export function PcbEditor({
                 // `PCB_VIEWER_TOOLS::MeasureTool` KICURSOR::MEASURE
                 // (`pcb_viewer_tools.cpp:292`). This frame had neither and
                 // showed the plain arrow for both.
-                cursor: boardToolCursor(activeTool, { tableDragging }),
+                cursor: boardToolCursor(activeTool, { tableDragging, imagePlacing }),
               }}
               onPointerDown={onPointerDown}
               onPointerMove={onPointerMove}
@@ -10223,7 +10269,9 @@ export function PcbEditor({
         <DialogReferenceImageProperties
           image={board.images[imagePropsIndex]!}
           initial={collectImageValues(board.images[imagePropsIndex]!)}
+          units={unitLabel}
           layers={board.layers.map((l) => l.name)}
+          layerColor={layerColor}
           onApply={applyImageEdit}
           onClose={() => setImagePropsIndex(null)}
         />
