@@ -13,7 +13,7 @@
  * never strokes the loop.
  */
 import { describe, expect, it } from 'vitest';
-import { drawPolygonItem } from '../../../designer/src/ui/polygon_item.js';
+import { drawPolygonItem } from '@ziroeda/designer/src/ui/polygon_item.js';
 
 interface Call {
   op: string;
