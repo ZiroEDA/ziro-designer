@@ -16,6 +16,14 @@ import { galPenWidth, galSnapPx } from '@ziroeda/common/src/gal_pixel_grid.js';
 import { overlayTargetColor } from '../../render/gl/scene.js';
 import { BezierStep } from '@ziroeda/common/src/preview_items/bezier_geom_manager.js';
 import {
+  LeaderMode,
+  PolygonGeomManager,
+} from '@ziroeda/common/src/preview_items/polygon_geom_manager.js';
+import { COLOR4D_WHITE, cssWithAlpha, toCss } from '@ziroeda/common/src/color4d.js';
+import { drawPolygonItem } from '../../ui/polygon_item.js';
+import { segLineDistance } from '@ziroeda/kimath/src/geometry/seg.js';
+import { simplifyLineChain } from '@ziroeda/kimath/src/geometry/shape_line_chain.js';
+import {
   EDIT_LINE_WIDTH,
   EDIT_POINT_BORDER_SIZE,
   EDIT_POINT_HOVER_SIZE,
@@ -1598,6 +1606,59 @@ export function PcbEditor({
   }, [activeTool]);
   // In-flight graphic shape (DRAWING_TOOL): the points clicked so far.
   const drawingRef = useRef<{ x: number; y: number }[]>([]);
+  /**
+   * `POLYGON_GEOM_MANAGER`, one per outline tool.
+   *
+   * Upstream there is only one call site: `DRAWING_TOOL::DrawZone` runs Add
+   * Zone, Add Rule Area, Zone Cutout **and** Draw Polygon, and the mode only
+   * decides what `ZONE_CREATE_HELPER::commitZone` builds at the end. Ours are
+   * two entry points into the same manager rather than one tool, so they get an
+   * instance each; the corner rules, the leader dogleg and the closing test are
+   * the shared module's either way.
+   *
+   * `onComplete` goes through a ref because the commit needs the board and the
+   * active layer, which are further down this component.
+   */
+  const polyCommitRef = useRef<(mgr: PolygonGeomManager) => void>(() => {});
+  const zoneCommitRef = useRef<(mgr: PolygonGeomManager) => void>(() => {});
+  const polyMgrRef = useRef<PolygonGeomManager | null>(null);
+  const zoneMgrRef = useRef<PolygonGeomManager | null>(null);
+  const polyMgr = (): PolygonGeomManager => {
+    polyMgrRef.current ??= new PolygonGeomManager({
+      // GRAPHIC_POLYGON is the one zone mode with no properties dialog, so
+      // `OnFirstPoint` has nothing to veto and the outline always starts.
+      onFirstPoint: () => true,
+      onGeometryChange: () => requestDrawRef.current(),
+      onComplete: (m) => polyCommitRef.current(m),
+    });
+    return polyMgrRef.current;
+  };
+  const zoneMgr = (): PolygonGeomManager => {
+    zoneMgrRef.current ??= new PolygonGeomManager({
+      // The zone's veto is the properties dialog, which our flow has already
+      // shown by the time the first corner reaches the manager.
+      onFirstPoint: () => true,
+      onGeometryChange: () => requestDrawRef.current(),
+      onComplete: (m) => zoneCommitRef.current(m),
+    });
+    return zoneMgrRef.current;
+  };
+  /**
+   * `polyGeomMgr.SetLeaderMode( angleSnap )`, run on **every** event
+   * (`drawing_tool.cpp:3523-3535`): the mode is `m_AngleSnapMode` — the left
+   * toolbar's line-mode group — and Ctrl held for one event forces `DIRECT`.
+   */
+  const syncLeaderMode = (ctrl: boolean): void => {
+    const mode = ctrl
+      ? LeaderMode.DIRECT
+      : toggles.has('lineMode45')
+        ? LeaderMode.DEG45
+        : toggles.has('lineMode90')
+          ? LeaderMode.DEG90
+          : LeaderMode.DIRECT;
+    polyMgrRef.current?.setLeaderMode(mode);
+    zoneMgrRef.current?.setLeaderMode(mode);
+  };
   // In-flight route (ROUTER_TOOL): net, copper layer, last committed point,
   // and the net class routing dimensions picked up at start.
   const routeRef = useRef<{
@@ -1849,10 +1910,13 @@ export function PcbEditor({
   const [zoneDialog, setZoneDialog] = useState<{ x: number; y: number } | null>(null);
   const [zoneNet, setZoneNet] = useState(0);
   const [zoneLayer, setZoneLayer] = useState('F.Cu');
-  // In-flight zone outline (DRAWING_TOOL::DrawZone after the dialog).
-  const zoneRef = useRef<{ net: number; layer: string; pts: { x: number; y: number }[] } | null>(
-    null,
-  );
+  /**
+   * The in-flight zone's `ZONE_CREATE_HELPER::PARAMS` — what the properties
+   * dialog decided. The *corners* are `zoneMgrRef`'s, because they are
+   * `POLYGON_GEOM_MANAGER`'s upstream and the two tools must not disagree
+   * about what closes an outline.
+   */
+  const zoneRef = useRef<{ net: number; layer: string } | null>(null);
   // Measure tool ruler: first point, and the frozen second point once clicked.
   const measureRef = useRef<{
     a: { x: number; y: number };
@@ -1873,6 +1937,9 @@ export function PcbEditor({
     drawingRef.current = [];
     routeRef.current = null;
     zoneRef.current = null;
+    // `cleanup()`'s `polyGeomMgr.Reset()` (drawing_tool.cpp:3494).
+    polyMgrRef.current?.reset();
+    zoneMgrRef.current?.reset();
     measureRef.current = null;
     dimensionRef.current = null;
     textBoxStartRef.current = null;
@@ -3221,32 +3288,39 @@ export function PcbEditor({
         ctx.setTransform(1, 0, 0, 1, 0, 0);
       }
     }
-    // Zone outline preview (DRAWING_TOOL::DrawZone): a thin polyline in the
-    // zone layer's color, plus the closing hint back to the first corner.
+    // `KIGFX::PREVIEW::POLYGON_ITEM`, the preview every outline tool puts up:
+    // Draw Polygon and the three zone modes, which upstream are one tool.
+    //
+    // This frame used to draw each of them as a thin polyline in the layer's
+    // colour with a 40%-alpha hint back to the first corner. Upstream strokes
+    // the locked corners in **white** at one pixel, the leader in
+    // `LAYER_AUX_ITEMS`, and fills the whole ring at alpha 0.2 — which is what
+    // makes a half-drawn zone read as an area rather than as three loose lines.
     {
-      const z = zoneRef.current;
       const cur0 = cursorRef.current;
-      if (z && z.pts.length > 0 && cur0) {
-        const p = snapToGrid(cur0);
-        ctx.save();
-        ctx.setTransform(sx, 0, 0, v.scale, v.tx, v.ty);
-        ctx.strokeStyle = layerColor(z.layer);
-        ctx.lineWidth = Math.max(1, dpr) / v.scale;
-        ctx.globalAlpha = 0.9;
-        ctx.beginPath();
-        ctx.moveTo(z.pts[0]!.x, z.pts[0]!.y);
-        for (let i = 1; i < z.pts.length; i++) ctx.lineTo(z.pts[i]!.x, z.pts[i]!.y);
-        ctx.lineTo(p.x, p.y);
-        ctx.stroke();
-        if (z.pts.length >= 2) {
-          ctx.globalAlpha = 0.4;
-          ctx.beginPath();
-          ctx.moveTo(p.x, p.y);
-          ctx.lineTo(z.pts[0]!.x, z.pts[0]!.y);
-          ctx.stroke();
-        }
-        ctx.restore();
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
+      const mgrs: { mgr: PolygonGeomManager | null; layer: string }[] = [
+        { mgr: polyMgrRef.current, layer: activeLayer },
+        { mgr: zoneMgrRef.current, layer: zoneRef.current?.layer ?? activeLayer },
+      ];
+      for (const { mgr, layer } of mgrs) {
+        if (!mgr?.isPolygonInProgress() || !cur0) continue;
+        drawPolygonItem(ctx, {
+          locked: mgr.getLockedInPoints(),
+          leader: mgr.getLeaderLinePoints(),
+          loop: mgr.getLoopLinePoints(),
+          toPx: (q) => ({ x: q.x * sx + v.tx, y: q.y * v.scale + v.ty }),
+          // `m_previewItem.SetStrokeColor( COLOR4D::WHITE )` and
+          // `SetFillColor( color.WithAlpha( 0.2 ) )`, where `color` is
+          // `GetColor( nullptr, zone->GetFirstLayer() )`
+          // (`zone_create_helper.cpp:288-292`). `SetLineColor` is never
+          // called, so the locked chain keeps the white.
+          strokeColor: toCss(COLOR4D_WHITE),
+          fillColor: cssWithAlpha(layerColor(layer), 0.2),
+          // `SetLeaderColor` is never called either, so `POLYGON_ITEM` falls
+          // back to `GetLayerColor( LAYER_AUX_ITEMS )` (`polygon_item.cpp:93`).
+          leaderColor: drawOpts.theme?.special.auxItems ?? PCB_SPECIAL.auxItems,
+          devicePixelRatio: dpr,
+        });
       }
     }
     // `KIGFX::PREVIEW::RULER_ITEM`, the item ACTIONS::measureTool puts up.
@@ -3370,12 +3444,9 @@ export function PcbEditor({
             }
             break;
           }
-          case 'poly': {
-            ctx.moveTo(pts[0]!.x, pts[0]!.y);
-            for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i]!.x, pts[i]!.y);
-            ctx.lineTo(p.x, p.y);
-            break;
-          }
+          // 'poly' is not here: Draw Polygon's preview is `POLYGON_ITEM`,
+          // drawn above from its `POLYGON_GEOM_MANAGER` rather than as a
+          // layer-coloured polyline like the other shapes.
           default:
             break;
         }
@@ -4994,6 +5065,18 @@ export function PcbEditor({
     const w = worldAt(e.clientX, e.clientY);
     const brd = boardRef.current;
     if (!w || !brd) return;
+    // `const bool endPolygon = evt->IsDblClick( BUT_LEFT ) || ...`
+    // (drawing_tool.cpp:3591-3593) — the second click of the pair has already
+    // locked its corner in, so this only has to close.
+    const outline = polyMgrRef.current?.isPolygonInProgress()
+      ? polyMgrRef.current
+      : zoneMgrRef.current?.isPolygonInProgress()
+        ? zoneMgrRef.current
+        : null;
+    if (outline) {
+      closeOutline(outline);
+      return;
+    }
     const top = hitCandidates(w)[0];
     const r = top ? parseBoardItemId(top) : null;
     if (r?.kind === 'group') {
@@ -5924,20 +6007,140 @@ export function PcbEditor({
         break;
       }
       case 'poly': {
-        const tol = tolOf();
-        const closeToFirst = pts.length >= 3 && Math.hypot(p.x - pts[0]!.x, p.y - pts[0]!.y) <= tol;
-        if (closeToFirst || (pts.length >= 3 && same(pts[pts.length - 1]!, p))) {
-          commit({ kind: 'poly', pts: [...pts], ...base });
-          drawingRef.current = [];
-        } else if (pts.length === 0 || !same(pts[pts.length - 1]!, p)) {
-          drawingRef.current = [...pts, p];
-        }
+        // `DRAWING_TOOL::DrawZone`'s click arm (drawing_tool.cpp:3587-3623),
+        // which is a different tool from the one above: the corners belong to
+        // `POLYGON_GEOM_MANAGER`, closing is a click **exactly** on the first
+        // corner (or a double click), and the tool ends after one outline.
+        //
+        // The tolerance this used to close on was an invention, and an
+        // expensive one: any corner placed within five pixels of the start
+        // finished the polygon instead of being added.
+        const mgr = polyMgr();
+        if (mgr.newPointClosesOutline(p)) closeOutline(mgr);
+        else mgr.addPoint(p);
         break;
       }
       default:
         break;
     }
     requestDraw();
+  };
+
+  // ----- outline tools (DRAWING_TOOL::DrawZone) -------------------------------
+  //
+  // Draw Polygon, Add Zone, Add Rule Area and Zone Cutout are **one** tool
+  // upstream. Everything they share — the corners, the leader dogleg, the
+  // closing test, the preview — is `POLYGON_GEOM_MANAGER` and `POLYGON_ITEM`;
+  // all that differs is what `ZONE_CREATE_HELPER::commitZone` builds at the end.
+
+  /**
+   * The `endPolygon` arm (drawing_tool.cpp:3591-3601):
+   *
+   *     polyGeomMgr.SetFinished();
+   *     polyGeomMgr.Reset();
+   *     cleanup();
+   *     m_frame->PopTool( aEvent );
+   *     break;
+   *
+   * The `PopTool` is not incidental. `DrawZone` draws **one** outline per
+   * activation and hands the canvas back to the selection tool, unlike
+   * `drawShape`, which loops so line/rect/circle can be drawn one after
+   * another. Ours kept the polygon tool armed, so closing an outline left the
+   * user still in a tool they had finished with.
+   */
+  const closeOutline = (mgr: PolygonGeomManager): void => {
+    mgr.setFinished();
+    mgr.reset();
+    zoneRef.current = null;
+    setActiveTool('selectSetRect');
+    requestDraw();
+  };
+
+  /**
+   * `ZONE_CREATE_HELPER::OnComplete` (zone_create_helper.cpp:323-378) — the
+   * corners the committed item actually gets, or null for an outline too small
+   * to keep ("just scrap the zone in progress").
+   */
+  const finishedOutline = (mgr: PolygonGeomManager): { x: number; y: number }[] | null => {
+    const final = mgr.getLockedInPoints();
+    if (final.length < 3) return null;
+
+    const outline = final.map((q) => ({ x: q.x, y: q.y }));
+
+    // "In DEG45 mode, we may have intermediate points in the leader that should
+    // be included as they are shown in the preview.  These typically maintain
+    // the 45 constraint." The loop chain contributes its middle points only —
+    // its first is the cursor and its last is the start corner, both already in.
+    if (mgr.getLeaderMode() !== LeaderMode.DIRECT) {
+      const leader = mgr.getLeaderLinePoints();
+      for (let i = 1; i < leader.length; i++) outline.push({ ...leader[i]! });
+      const loop = mgr.getLoopLinePoints();
+      for (let i = 1; i < loop.length - 1; i++) outline.push({ ...loop[i]! });
+    }
+
+    // `chain.SetClosed( true ); chain.Simplify( true );` — the bool is a
+    // *tolerance* of 1 IU on this overload, not a flag.
+    const chain = simplifyLineChain(outline, true, 1);
+
+    // "Remove the start point if it lies on the line between neighbouring
+    // points. Simplify doesn't handle that currently."
+    if (chain.length >= 3) {
+      const seg = { a: chain[chain.length - 1]!, b: chain[1]! };
+      if (segLineDistance(seg, chain[0]!) <= 1) chain.shift();
+    }
+
+    return chain;
+  };
+
+  /**
+   * `commitZone`'s `ZONE_MODE::GRAPHIC_POLYGON` arm
+   * (zone_create_helper.cpp:248-268).
+   *
+   * The fill rule is upstream's and is the visible half of it: a polygon is
+   * **filled** unless it is on Edge.Cuts or a courtyard, where a filled shape
+   * would be meaningless. Ours committed every polygon as an unfilled outline.
+   */
+  polyCommitRef.current = (mgr) => {
+    const brd = boardRef.current;
+    const pts = finishedOutline(mgr);
+    if (!brd || !pts) return;
+    const layer = activeLayerRef.current;
+    const filled = layer !== 'Edge.Cuts' && layer !== 'F.CrtYd' && layer !== 'B.CrtYd';
+    const res = addBoardShape(brd, {
+      kind: 'poly',
+      pts,
+      width: shapeWidthIU(layer),
+      fillMode: filled ? 'solid' : 'none',
+      layer,
+    });
+    commitBoard(res.board);
+    // `m_tool.GetManager()->RunAction<EDA_ITEM*>( ACTIONS::selectItem, poly )`.
+    setSelection(new Set([res.id]));
+  };
+
+  /** `commitZone`'s `ZONE_MODE::ADD` arm (zone_create_helper.cpp:234-246). */
+  zoneCommitRef.current = (mgr) => {
+    const brd = boardRef.current;
+    const z = zoneRef.current;
+    const pts = finishedOutline(mgr);
+    if (!brd || !z || !pts) return;
+    // Border style/pitch from Board Setup > Zones (ZONE_SETTINGS defaults).
+    const zoneDflts = boardSetupRef.current.zones;
+    const res = addBoardZone(brd, {
+      net: z.net,
+      netName: brd.nets.get(z.net) ?? '',
+      layers: [z.layer],
+      outline: pts,
+      hatchStyle:
+        zoneDflts.outlineDisplay === 'Fully hatched'
+          ? 'full'
+          : zoneDflts.outlineDisplay === 'Line'
+            ? 'none'
+            : 'edge',
+      hatchPitch: Math.round(zoneDflts.outlineHatchPitchMM * MM) || 0.5 * MM,
+    });
+    commitBoard(res.board);
+    setSelection(new Set([res.id]));
   };
 
   // ----- interactive routing (ROUTER_TOOL, highlight mode) --------------------
@@ -6530,43 +6733,17 @@ export function PcbEditor({
     const brd = boardRef.current;
     if (!brd) return;
     const p = snapToGrid(world);
-    const z = zoneRef.current;
-    if (!z) {
+    if (!zoneRef.current) {
       setZoneNet(copperAt(world)?.net ?? 0);
       setZoneLayer(/\.Cu$/.test(activeLayer) ? activeLayer : 'F.Cu');
       setZoneDialog(p);
       return;
     }
-    const closeToFirst =
-      z.pts.length >= 3 && Math.hypot(p.x - z.pts[0]!.x, p.y - z.pts[0]!.y) <= tolOf();
-    const sameAsLast =
-      z.pts.length >= 3 && p.x === z.pts[z.pts.length - 1]!.x && p.y === z.pts[z.pts.length - 1]!.y;
-    if (closeToFirst || sameAsLast) {
-      // Border style/pitch from Board Setup > Zones (ZONE_SETTINGS defaults).
-      const zoneDflts = boardSetupRef.current.zones;
-      commitBoard(
-        addBoardZone(brd, {
-          net: z.net,
-          netName: brd.nets.get(z.net) ?? '',
-          layers: [z.layer],
-          outline: [...z.pts],
-          hatchStyle:
-            zoneDflts.outlineDisplay === 'Fully hatched'
-              ? 'full'
-              : zoneDflts.outlineDisplay === 'Line'
-                ? 'none'
-                : 'edge',
-          hatchPitch: Math.round(zoneDflts.outlineHatchPitchMM * MM) || 0.5 * MM,
-        }).board,
-      );
-      zoneRef.current = null;
-    } else if (
-      z.pts.length === 0 ||
-      p.x !== z.pts[z.pts.length - 1]!.x ||
-      p.y !== z.pts[z.pts.length - 1]!.y
-    ) {
-      zoneRef.current = { ...z, pts: [...z.pts, p] };
-    }
+    // The same click arm as the polygon tool's, because upstream it is
+    // literally the same one (drawing_tool.cpp:3587-3623).
+    const mgr = zoneMgr();
+    if (mgr.newPointClosesOutline(p)) closeOutline(mgr);
+    else mgr.addPoint(p);
     requestDraw();
   };
 
@@ -7687,6 +7864,19 @@ export function PcbEditor({
       const wy = ((e.clientY - rect.top) * dpr - v.ty) / v.scale;
       statusReadout.setCursor({ x: wx, y: wy });
       cursorRef.current = { x: wx, y: wy };
+      // `else if( started && ( evt->IsMotion() || evt->IsDrag( BUT_LEFT ) ) )
+      //     polyGeomMgr.SetCursorPosition( cursorPos );`
+      // (drawing_tool.cpp:3641-3645), with the leader mode re-read first
+      // because upstream sets it on every event and Ctrl suspends it.
+      if (polyMgrRef.current?.isPolygonInProgress() || zoneMgrRef.current?.isPolygonInProgress()) {
+        // `ctrlDownRef` is already this handler's Ctrl/Cmd snap modifier,
+        // set at the top; re-reading the event would be a second declaration
+        // of the same thing.
+        syncLeaderMode(ctrlDownRef.current);
+        const snapped = snapToGrid({ x: wx, y: wy });
+        polyMgrRef.current?.setCursorPosition(snapped);
+        zoneMgrRef.current?.setCursorPosition(snapped);
+      }
       // Repaint so the crosshair follows even on a plain hover (no pan/drag).
       requestDraw();
     }
@@ -8094,6 +8284,26 @@ export function PcbEditor({
         else highlightNetRef.current();
         return;
       }
+      // `PCB_ACTIONS::deleteLastPoint`, `.DefaultHotkey( WXK_BACK )`
+      // (pcb_actions.cpp:443-449). Only bound while an outline is in progress
+      // — the `started &&` guard in DrawZone's event loop — and dropping the
+      // last corner of a one-corner outline abandons it, via `cleanup()`.
+      if (!mod && e.key === 'Backspace') {
+        const outline = polyMgrRef.current?.isPolygonInProgress()
+          ? polyMgrRef.current
+          : zoneMgrRef.current?.isPolygonInProgress()
+            ? zoneMgrRef.current
+            : null;
+        if (outline) {
+          e.preventDefault();
+          // Upstream also warps the mouse onto the corner it removed
+          // (`WarpMouseCursor`), which a browser cannot do; the manager has
+          // already rebuilt the leader from it either way.
+          outline.deleteLastCorner();
+          requestDrawRef.current();
+          return;
+        }
+      }
       if (e.key === 'Escape') {
         // Escape cancels an in-flight grab first, then the disambiguation menu,
         // then clears the selection.
@@ -8125,8 +8335,14 @@ export function PcbEditor({
         } else if (dimensionRef.current) {
           dimensionRef.current = null;
           requestDrawRef.current();
-        } else if (zoneRef.current) {
+        } else if (polyMgrRef.current?.isPolygonInProgress()) {
+          // `cleanup()` — `polyGeomMgr.Reset()` and the tool stays armed
+          // (drawing_tool.cpp:3486-3502); only a second Esc pops the tool.
+          polyMgrRef.current.reset();
+          requestDrawRef.current();
+        } else if (zoneRef.current || zoneMgrRef.current?.isPolygonInProgress()) {
           zoneRef.current = null;
+          zoneMgrRef.current?.reset();
           requestDrawRef.current();
         } else if (measureRef.current) {
           measureRef.current = null;
@@ -10040,7 +10256,10 @@ export function PcbEditor({
               <button
                 onClick={() => {
                   if (zoneDialog) {
-                    zoneRef.current = { net: zoneNet, layer: zoneLayer, pts: [zoneDialog] };
+                    // `OnFirstPoint` returning true is the dialog coming back
+                    // OK; the corner it was opened on is the outline's first.
+                    zoneRef.current = { net: zoneNet, layer: zoneLayer };
+                    zoneMgr().addPoint(zoneDialog);
                     if (zoneLayer !== activeLayer) setActiveLayer(zoneLayer);
                   }
                   setZoneDialog(null);
