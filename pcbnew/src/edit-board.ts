@@ -58,6 +58,11 @@ import type {
   PcbGroup,
 } from './types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
+import {
+  polyHitsBox,
+  polyHitsPolygon,
+  polyHitsSegment,
+} from '@ziroeda/kimath/src/geometry/poly_hit_test.js';
 import { isHatchedFill, isSolidFill, shapeHatchLines } from './shape_fill.js';
 import { BezierPoly } from '@ziroeda/kimath/src/bezier_curves.js';
 import { ARC_HIGH_DEF } from '@ziroeda/common/src/eda_units.js';
@@ -1146,6 +1151,95 @@ export function boardItemsInBox(
       return;
     }
     if (z.fills.some((f) => f.polys.some((p) => polyInRect(rect, p)))) push('zone', i);
+  });
+  return out;
+}
+
+/**
+ * Every board item a LASSO selects — `PCB_SELECTION_TOOL::SelectMultiple`'s
+ * polygon arm (`pcb_selection_tool.cpp:1519-1541`).
+ *
+ * The mode is not a modifier: `SelectPolyArea` reads the trace's WINDING every
+ * frame and flips between INSIDE_LASSO and TOUCHING_LASSO
+ * (`:1384-1391`), so `contained` here comes from `lassoIsInside`, not from a
+ * key. Clockwise is a window select, counter-clockwise is greedy.
+ *
+ * Item for item this mirrors `boardItemsInBox` above, with
+ * `KIGEOM::ShapeHitTest` in place of the box test — deliberately, so the two
+ * shapes of drag agree on what a track or a zone is. Where upstream is finer
+ * than either of ours it is called out at the site.
+ */
+export function boardItemsInLasso(
+  board: Board,
+  polygon: readonly Vec2[],
+  contained: boolean,
+): string[] {
+  const out: string[] = [];
+  if (polygon.length < 3) return out;
+  const push = (kind: BoardItemKind, i: number): void => {
+    out.push(boardItemId(kind, i));
+  };
+  const bbox = (kind: BoardItemKind, i: number): boolean => {
+    const b = boardItemBBox(board, boardItemId(kind, i));
+    return !!b && !isEmpty(b) && polyHitsBox(polygon, b, contained);
+  };
+
+  // PCB_TRACK::HitTest is `ShapeHitTest` on the effective shape — a thick
+  // segment. The centreline is what `boardItemsInBox` tests too, so a track
+  // whose EDGE clips the lasso by less than half its width is missed by both.
+  board.tracks.forEach((t, i) => {
+    if (polyHitsSegment(polygon, t.start, t.end, contained)) push('track', i);
+  });
+  board.arcs.forEach((_a, i) => {
+    if (bbox('arc', i)) push('arc', i);
+  });
+  board.vias.forEach((_v, i) => {
+    if (bbox('via', i)) push('via', i);
+  });
+  // FOOTPRINT::HitTest( poly ) is all_of / any_of over the pads, zones and
+  // non-text drawings (`footprint.cpp:2419-2459`), not the bounding box. Ours
+  // is the box, as it is for a rectangle select: finer here and coarser there
+  // would make the two gestures disagree about the same footprint.
+  board.footprints.forEach((_, i) => {
+    if (bbox('footprint', i)) push('footprint', i);
+  });
+  board.shapes.forEach((s, i) => {
+    if (s.kind === 'line' && s.start && s.end) {
+      if (polyHitsSegment(polygon, s.start, s.end, contained)) push('shape', i);
+      return;
+    }
+    if (bbox('shape', i)) push('shape', i);
+  });
+  for (const kind of [
+    'text',
+    'textbox',
+    'table',
+    'image',
+    'dimension',
+    'point',
+    'barcode',
+  ] as const) {
+    const list = {
+      text: board.texts,
+      textbox: board.textBoxes,
+      table: board.tables,
+      image: board.images,
+      dimension: board.dimensions,
+      point: board.points,
+      barcode: board.barcodes,
+    }[kind];
+    list.forEach((_, i) => {
+      if (bbox(kind, i)) push(kind, i);
+    });
+  }
+  // ZONE::HitTest( poly, contained ) works on the zone's OUTLINE, which is what
+  // the user drew and what the box path's crossing test uses through the fills.
+  board.zones.forEach((z, i) => {
+    if (z.outline && z.outline.length >= 3) {
+      if (polyHitsPolygon(polygon, z.outline, contained)) push('zone', i);
+      return;
+    }
+    if (bbox('zone', i)) push('zone', i);
   });
   return out;
 }

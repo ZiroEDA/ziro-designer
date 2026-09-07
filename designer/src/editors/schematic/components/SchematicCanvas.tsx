@@ -4102,7 +4102,14 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
         const movedPx = vp ? span * vp.scale : 0;
         if (pts.length >= 3 && movedPx > 4) {
           const { additive, subtractive } = boxModifiersRef.current;
-          onSelectBox?.(lassoSelect(schematic, libById, pts), additive, subtractive);
+          // The same winding the band was drawn from: a clockwise lasso is a
+          // window select (`sch_selection_tool.cpp:2352-2367`). Passing the
+          // colour one rule and the selection another is how the two drifted.
+          onSelectBox?.(
+            lassoSelect(schematic, libById, pts, lassoIsInside(pts)),
+            additive,
+            subtractive,
+          );
         } else {
           onSelect(boxHitRef.current, e.shiftKey);
         }

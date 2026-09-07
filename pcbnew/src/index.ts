@@ -71,6 +71,7 @@ export {
   hitTestBoard,
   boardHitCandidates,
   boardItemsInBox,
+  boardItemsInLasso,
   allBoardItemIds,
   moveBoardItems,
   dragBoardItems,
