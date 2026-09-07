@@ -86,6 +86,30 @@ describe('simplifyLineChain', () => {
     expect(out[0]).not.toBe(two[0]);
   });
 
+  /**
+   * The walk can stop before the end: with (0,0),(50,0),(100,0),(100,50) the
+   * run collapse restarts at index 2, which is `n - 2`, and an open chain
+   * breaks there — so (100,50) is only in the result because of the tail
+   * fix-up. A closed chain has no such rule, since it wraps.
+   */
+  it('appends the end point a stopped walk never reached', () => {
+    const out = simplifyLineChain(
+      [
+        { x: 0, y: 0 },
+        { x: 50, y: 0 },
+        { x: 100, y: 0 },
+        { x: 100, y: 50 },
+      ],
+      false,
+      1,
+    );
+    expect(pts(out)).toEqual([
+      [0, 0],
+      [100, 0],
+      [100, 50],
+    ]);
+  });
+
   it('keeps an open chain’s original end point', () => {
     // "If we are not closed, then the start and end points of the original
     // line need to be the start and end points of the new line."

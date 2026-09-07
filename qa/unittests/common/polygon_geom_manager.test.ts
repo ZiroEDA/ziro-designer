@@ -153,6 +153,32 @@ describe('LEADER_MODE::DEG45', () => {
     ]);
   });
 
+  /**
+   * A *diagonal* previous segment flips `bendEnd`, and nothing else in the
+   * function does.
+   *
+   * locked = [(0,0), (100,100)], cursor (300,120). `prevA` = angle of
+   * `GetVectorSnapped45( (100,100) )` = 45°; `lineVec` = (200,20) so `lineA` =
+   * 5.711°, `horizontal`. `angDiff` = 39.289 < 45 → `bendEnd` true — and then
+   * `prevA.Normalize90() == ANGLE_45` inverts it. `!bendEnd && horizontal &&
+   * lineVec.x > 0`: mid = ( last.x + |lineVec.y|, end.y ) = (120, 120), i.e.
+   * the 45° piece comes FIRST. Without the flip the bend would be at the far
+   * end, mid = (280, 100).
+   */
+  it('puts the bend at the near end when the previous segment is diagonal', () => {
+    const { mgr } = mgrWith();
+    mgr.setLeaderMode(LeaderMode.DEG45);
+    click(mgr, { x: 0, y: 0 });
+    click(mgr, { x: 100, y: 100 });
+    mgr.setCursorPosition({ x: 300, y: 120 });
+
+    expect(pts(mgr.getLeaderLinePoints())).toEqual([
+      [100, 100],
+      [120, 120],
+      [300, 120],
+    ]);
+  });
+
   it('a click locks in BOTH points of the dogleg', () => {
     const { mgr } = mgrWith();
     mgr.setLeaderMode(LeaderMode.DEG45);
