@@ -2018,6 +2018,7 @@ export function PcbEditor({
       viaOpacity: opacity.vias,
       padOpacity: opacity.pads,
       zoneOpacity: opacity.zones,
+      imageOpacity: opacity.images,
       zoneOutline: toggles.has('zoneDisplayOutline'),
       // Display-mode toggles: on = sketch (outline) = fill off (m_Display*Fill).
       trackFill: !toggles.has('trackDisplayMode'),
@@ -2743,6 +2744,36 @@ export function PcbEditor({
         ctx.stroke();
       }
     }
+    // A selected reference image gets a BOUNDING BOX, which is the one item
+    // whose selection is not "repaint it brightened": a raster has no stroke to
+    // brighten, so `draw( const PCB_REFERENCE_IMAGE* )` does this instead —
+    //
+    //     if( aBitmap->IsSelected() || aBitmap->IsBrightened() )
+    //     {
+    //         COLOR4D color = m_pcbSettings.GetColor( aBitmap, LAYER_ANCHOR );
+    //         m_gal->SetLineWidth( m_pcbSettings.m_outlineWidth * 2.0f );
+    //         …  // draws a bounding box
+    //     }
+    //                                        (`pcb_painter.cpp`)
+    //
+    // LAYER_ANCHOR's colour and twice the minimum pen, both of them upstream's.
+    {
+      const brd = boardRef.current;
+      // The same single-selected item the point editor is showing handles for,
+      // which is exactly when upstream's `IsSelected()` branch fires.
+      const ref = editHandleItemRef.current ? parseBoardItemId(editHandleItemRef.current) : null;
+      const img = brd && ref?.kind === 'image' ? brd.images[ref.index] : null;
+      if (img && !moveDeltaRef.current) {
+        const box = imageBBox(img);
+        ctx.save();
+        ctx.setTransform(sx, 0, 0, v.scale, v.tx, v.ty);
+        ctx.strokeStyle = drawOpts.theme?.special.anchor ?? PCB_SPECIAL.anchor;
+        ctx.lineWidth = (2 * Math.max(1, dpr)) / v.scale;
+        ctx.strokeRect(box.minX, box.minY, box.maxX - box.minX, box.maxY - box.minY);
+        ctx.restore();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+      }
+    }
     // Point-editor handles (PCB_POINT_EDITOR): a single selected item gets a
     // square on each corner or vertex and a circle at each edge midpoint, drawn at
     // a fixed screen size in LAYER_AUX_ITEMS white with a darker border
@@ -2974,20 +3005,37 @@ export function PcbEditor({
         ctx.setTransform(1, 0, 0, 1, 0, 0);
       }
     }
-    // Reference image preview: the extent the picture will occupy, centred on
-    // the cursor. The same outline the renderer draws for a placed image —
-    // which is all either can draw until the raster pass exists.
+    // Reference image preview. `PlaceReferenceImage` puts the item itself into
+    // the view — `m_view->AddToPreview( image, false )` — so what rides the
+    // cursor is the PICTURE, at the same image opacity a placed one is drawn
+    // with. This drew a bare rectangle, which is why nothing appeared until the
+    // click committed it.
     {
       const ps = placeImageRef.current;
       const cur0 = cursorRef.current;
       if (ps.step === 'placing' && ps.image && cur0) {
-        const box = imageBBox(moveImage(ps, snapToGrid(cur0)).image!);
+        const live = moveImage(ps, snapToGrid(cur0)).image!;
+        const box = imageBBox(live);
+        const w = box.maxX - box.minX;
+        const h = box.maxY - box.minY;
+        // The pending image is not on the board, so the raster job never asks
+        // for it. Without this the preview could only ever be the outline.
+        imageCacheRef.current.ensure(live.data, requestDraw);
+        const bitmap = imageCacheRef.current.get(live.data);
         ctx.save();
         ctx.setTransform(sx, 0, 0, v.scale, v.tx, v.ty);
-        ctx.strokeStyle = layerColor(ps.image.layer);
-        ctx.lineWidth = Math.max(1, dpr) / v.scale;
-        ctx.globalAlpha = 0.9;
-        ctx.strokeRect(box.minX, box.minY, box.maxX - box.minX, box.maxY - box.minY);
+        if (bitmap) {
+          ctx.globalAlpha = opacity.images;
+          ctx.drawImage(bitmap, box.minX, box.minY, w, h);
+        } else {
+          // Not decoded yet, or never will: the outline is what the renderer
+          // falls back to for a placed image, so the preview falls back the
+          // same way rather than showing nothing.
+          ctx.strokeStyle = layerColor(live.layer);
+          ctx.lineWidth = Math.max(1, dpr) / v.scale;
+          ctx.globalAlpha = 0.9;
+          ctx.strokeRect(box.minX, box.minY, w, h);
+        }
         ctx.restore();
         ctx.setTransform(1, 0, 0, 1, 0, 0);
       }

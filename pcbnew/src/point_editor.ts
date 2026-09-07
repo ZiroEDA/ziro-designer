@@ -21,9 +21,9 @@
  * disagree.
  *
  * Covered: graphic segments, rectangles, circles, arcs and polygons, zone
- * outlines, tracks and track arcs, barcodes, and all five kinds of dimension.
- * Not covered: pads (their point editing is primitive-level and needs the
- * padstack editor), tables, reference images and generators — none of which we
+ * outlines, tracks and track arcs, barcodes, reference images, and all five
+ * kinds of dimension. Not covered: pads (their point editing is primitive-level
+ * and needs the padstack editor), tables and generators — none of which we
  * model, or which need UI we do not have.
  *
  * ## Constraints, without the constraint objects
@@ -51,6 +51,8 @@ import { segLineProject } from '@ziroeda/kimath/src/geometry/seg.js';
 import { vectorSnapped45 } from '@ziroeda/kimath/src/geometry/geometry_utils.js';
 import type { Board, PcbBarcode, PcbDimension, PcbShape } from './types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
+import { imageBBox } from './image_geometry.js';
+import type { PcbImage } from './types.js';
 
 /** A square handle on a corner or vertex (`EDIT_POINT`), or a circle at an edge
  *  midpoint (`EDIT_LINE`). */
@@ -88,6 +90,18 @@ const DIM_TEXT = 2;
 const DIM_CROSSBARSTART = 3;
 const DIM_CROSSBAREND = 4;
 const DIM_KNEE = DIM_CROSSBARSTART;
+/**
+ * `REFIMG_ORIGIN = RECT_CENTER` — upstream's own comment says it reuses the
+ * centre slot for the transform origin, because a reference image has no
+ * centre handle to collide with.
+ */
+const REFIMG_ORIGIN = RECT_CENTER;
+/**
+ * `EDA_UNIT_UTILS::Mils2IU( pcbIUScale, 50 )`: the smallest a reference image
+ * may be scaled to, per axis, before the ratio is clamped
+ * (`pcb_point_editor.cpp`). 50 mils in board IU.
+ */
+const MIN_IMAGE_SIZE = 1_270_000;
 
 /** The smallest a rectangle may be dragged to, so it cannot invert or vanish. */
 const MIN_RECT_SIZE = 1000; // 1 µm
@@ -113,6 +127,23 @@ export function hasEditPoints(board: Board, id: string): boolean {
 export function boardEditHandles(board: Board, id: string): BoardEditHandle[] {
   const r = parseBoardItemId(id);
   if (!r) return [];
+
+  if (r.kind === 'image') {
+    const img = board.images[r.index];
+    if (!img) return [];
+    // `REFERENCE_IMAGE_POINT_EDIT_BEHAVIOR::MakePoints`: the four corners of
+    // the box, then the transform origin, which reuses `RECT_CENTER`'s slot
+    // because no reference image has a centre handle of its own.
+    const box = imageBBox(img);
+    const o = img.transformOffset ?? { x: 0, y: 0 };
+    return [
+      pt('point', RECT_TOPLEFT, { x: box.minX, y: box.minY }),
+      pt('point', RECT_TOPRIGHT, { x: box.maxX, y: box.minY }),
+      pt('point', RECT_BOTRIGHT, { x: box.maxX, y: box.maxY }),
+      pt('point', RECT_BOTLEFT, { x: box.minX, y: box.maxY }),
+      pt('point', REFIMG_ORIGIN, { x: img.at.x + o.x, y: img.at.y + o.y }),
+    ];
+  }
 
   if (r.kind === 'zone') {
     // Already ported; kept on its own path so the zone filler's handles and
@@ -441,6 +472,65 @@ export function dragBoardHandle(
       x: pos.x - before.at.x,
       y: pos.y - before.at.y,
     });
+  }
+
+  if (r.kind === 'image') {
+    const img = board.images[r.index];
+    if (!img) return board;
+    const box = imageBBox(img);
+    const o = img.transformOffset ?? { x: 0, y: 0 };
+    const origin = { x: img.at.x + o.x, y: img.at.y + o.y };
+    const write = (patch: Partial<PcbImage>): Board => ({
+      ...board,
+      images: board.images.map((x, i) =>
+        i === r.index ? { ...x, ...patch, source: { kind: 'list', items: [] } } : x,
+      ),
+    });
+
+    // Dragging the origin moves it and nothing else: "As the other points
+    // didn't move, we can get the image extent from them", so the offset is
+    // measured from the box's own centre.
+    if (handle.index === REFIMG_ORIGIN) {
+      const centre = { x: (box.minX + box.maxX) / 2, y: (box.minY + box.maxY) / 2 };
+      return write({
+        transformOffset: { x: Math.round(pos.x - centre.x), y: Math.round(pos.y - centre.y) },
+      });
+    }
+
+    // Dragging a corner SCALES about the origin. Upstream takes the ratio of
+    // the new corner's distance from the origin to the old one's — one ratio
+    // for both axes, which is what keeps the aspect.
+    const size = { x: box.maxX - box.minX, y: box.maxY - box.minY };
+    const half = { x: size.x / 2, y: size.y / 2 };
+    const oldCorner =
+      handle.index === RECT_TOPLEFT
+        ? { x: img.at.x - half.x, y: img.at.y - half.y }
+        : handle.index === RECT_TOPRIGHT
+          ? { x: img.at.x + half.x, y: img.at.y - half.y }
+          : handle.index === RECT_BOTRIGHT
+            ? { x: img.at.x + half.x, y: img.at.y + half.y }
+            : { x: img.at.x - half.x, y: img.at.y + half.y };
+
+    let nv = { x: pos.x - origin.x, y: pos.y - origin.y };
+    const ov = { x: oldCorner.x - origin.x, y: oldCorner.y - origin.y };
+    // "If we tried to cross the origin, clamp it to stop it" — a corner dragged
+    // through the origin would flip the picture, so the vector collapses to
+    // zero and the minimum below takes over.
+    const sign = (n: number): number => (n < 0 ? -1 : n > 0 ? 1 : 0);
+    if (sign(nv.x) !== sign(ov.x) || sign(nv.y) !== sign(ov.y)) nv = { x: 0, y: 0 };
+
+    const newLength = Math.hypot(nv.x, nv.y);
+    const oldLength = Math.hypot(ov.x, ov.y);
+    let ratio = oldLength > 0 ? newLength / oldLength : 1;
+    // Clamped to 50 mils per axis, and the SMALLER of the two ratios wins so
+    // neither axis can go under it.
+    const wanted = { x: size.x * ratio, y: size.y * ratio };
+    const clamped = {
+      x: Math.max(wanted.x, MIN_IMAGE_SIZE),
+      y: Math.max(wanted.y, MIN_IMAGE_SIZE),
+    };
+    if (size.x > 0 && size.y > 0) ratio = Math.min(clamped.x / size.x, clamped.y / size.y);
+    return write({ scale: (img.scale ?? 1) * ratio });
   }
 
   if (r.kind === 'track') {
@@ -819,5 +909,6 @@ export function editablePointItems(board: Board): string[] {
   push('shape', board.shapes.length);
   push('zone', board.zones.length);
   push('dimension', board.dimensions.length);
+  push('image', board.images.length);
   return out;
 }

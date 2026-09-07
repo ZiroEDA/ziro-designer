@@ -528,6 +528,7 @@ export function FootprintEditor({
       viaOpacity: opacity.vias,
       padOpacity: opacity.pads,
       zoneOpacity: opacity.zones,
+      imageOpacity: opacity.images,
       filledShapeOpacity: opacity.filledShapes,
       // Display-mode toggle: on = sketch (outline) = fill off (m_DisplayPadFill).
       padFill: !toggles.has('padDisplayMode'),

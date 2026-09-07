@@ -87,6 +87,7 @@ const PREVIEW_OPACITIES = {
   viaOpacity: 1.0,
   padOpacity: 1.0,
   zoneOpacity: 1.0,
+  imageOpacity: 1.0,
   filledShapeOpacity: 1.0,
   /**
    * `LAYER_BOARD_OUTLINE_AREA`, ON here and OFF in the board editor.

@@ -268,6 +268,7 @@ export function DialogPcbPrint({ board, drawOpts, onClose }: Props): JSX.Element
             viaOpacity: 1,
             padOpacity: 1,
             zoneOpacity: 1,
+            imageOpacity: 1,
             filledShapeOpacity: 1,
             trackFill: true,
             viaFill: true,

@@ -295,6 +295,15 @@ export interface PcbDrawOptions {
   viaNetNames: boolean;
   zoneOpacity: number;
   /**
+   * `PCB_RENDER_SETTINGS::m_imageOpacity`, which `draw( PCB_REFERENCE_IMAGE )`
+   * folds into the blit's alpha: `color.a *= m_imageOpacity`
+   * (`pcb_painter.cpp:578`). Appearance > Objects has the slider and
+   * `project_local_settings.cpp` defaults it to 0.6 — a reference image is
+   * meant to sit UNDER the board you are tracing on it, and ours was painting
+   * at full strength.
+   */
+  imageOpacity: number;
+  /**
    * `PCB_VIEWERS_SETTINGS_BASE::m_ViewersDisplay.m_DisplayPadNumbers`, the
    * `PCB_ACTIONS::showPadNumbers` toggle. Default true
    * (`pcbnew/pcbnew_settings.h:132`).
@@ -411,6 +420,9 @@ export const DEFAULT_DRAW_OPTIONS: PcbDrawOptions = {
   viaNetNames: true,
   padNumbers: true,
   zoneOpacity: 0.6,
+  // `project_local_settings.cpp`: a reference image is 0.6 by default, and
+  // Appearance > Objects has the slider.
+  imageOpacity: 0.6,
   zoneOutline: false,
   padClearance: true,
   // `LSET::VisibleGALLayers()` has LAYER_BOARD_OUTLINE_AREA commented out.
@@ -2849,7 +2861,11 @@ export function buildDrawSteps(
         const h = img.box.maxY - img.box.minY;
         const bitmap = opts.imageBitmaps?.get(img.data);
 
-        ctx.globalAlpha = la;
+        // `color.a *= m_imageOpacity` — the picture is dimmed, the fallback
+        // outline is not: an outline at 0.6 on a dark board is barely there,
+        // and it exists to say "an item is here" when the payload will not
+        // decode.
+        ctx.globalAlpha = bitmap ? opts.imageOpacity * la : la;
         if (bitmap) {
           // A flipped view already negates the X scale on the context, so the
           // picture mirrors with the board rather than needing its own flip.
