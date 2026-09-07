@@ -208,7 +208,7 @@ describe('the pile of hand-picked dialog sizes does not grow', () => {
     expect(inlineSized()).toHaveLength(3);
   });
 
-  it('6 shell.css variants still name their own size', () => {
+  it('7 shell.css variants still name their own size', () => {
     // 15 until `.ze-pgs` stopped restating what `.ze-modal` now gets right, and
     // 14 until Open Project became the shared file chooser: `.ze-open-project`
     // named a 920x620 and the window that replaced it is sized by the chooser,
@@ -319,7 +319,20 @@ describe('the pile of hand-picked dialog sizes does not grow', () => {
     // a browser has no screen-fitting pass of its own. What sets the copper
     // zone dialog's width now is the one number its base file does state,
     // `m_layers->SetMinSize( wxSize( 180,-1 ) )`, cited beside the rule.
-    expect(cssSized()).toHaveLength(6);
+    //
+    // 6 -> 7, and this is the third entry the ratchet is FOR rather than
+    // against: `.ze-modal.ze-htmlmsg.ze-syntaxhelp`. `PCB_TEXT::ShowSyntaxHelp`
+    // states its window's size outright —
+    //
+    //     dlg->SetMinSize( dlg->ConvertDialogToPixels( wxSize( 320, 320 ) ) );
+    //     dlg->SetDialogSizeInDU( 320, 320 );          (pcb_text.cpp:725-728)
+    //
+    // — where the Errors box it shares a class with takes a minimum and grows.
+    // A dialog that states its size upstream must state it here; the number is
+    // [px] 720 x 840, measured by `qa/probes/stc_bestsize_probe.cpp`, because
+    // dialog units are a font measurement and the two axes do not convert
+    // alike.
+    expect(cssSized()).toHaveLength(7);
   });
 
   it('and every one of them is a dialog, so the scan is really finding them', () => {

@@ -573,7 +573,27 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   //   .ze-tableprops-groups gap: 12px            .ze-tableprops-boxes   gap: 24px
   //   .ze-tableprops-line   gap: 20px + margin-top: 6px
   //   .ze-zone-layer-name   gap: 4px
-  ui: { colours: 204, metrics: 718 },
+  // 718 -> 714: four of the sixteen that were listed above as "not cited" are
+  // settled, and three of them turned out to have an answer in the C++ all
+  // along.
+  //   .ze-zone-layer-name's `gap: 4px` is arithmetic in
+  //     `GRID_CELL_LAYER_RENDERER::Draw`: the swatch starts at `GetLeft() + 4`
+  //     and the text at `GetLeft() + m_bitmap.GetWidth() + 8`, so 8 - 4 is what
+  //     is left between them. It was right, and merely uncited.
+  //   .ze-drc-body's `padding: 10px 12px` was half right — the 10 is
+  //     `bSizer13->Add( m_Notebook, …|wxTOP|wxRIGHT|wxLEFT, 10 )` and the 12 was
+  //     in no sizer in that file. It is `10px 10px 0` now, which is what those
+  //     flags say.
+  //   .ze-drc-violations' `max-height: 340px` was ours and stays ours, but it
+  //     is a VIEWPORT question — how much of the screen a floating window may
+  //     take — so it is stated in vh, as `.ze-zone-dialog` states its own.
+  //
+  // Six are left and they are all one dialog: Table Properties, whose upstream
+  // is `bColumns` — a 600 x 400 grid, a 10 px spacer, then a
+  // `wxGridBagSizer( 3, 3 )` of properties. Ours is a vertical stack with
+  // container gaps, so the fix is that dialog rebuilt against its base file,
+  // the way the two text dialogs were, not a number changed here.
+  ui: { colours: 204, metrics: 714 },
   // colours 6 -> 7: the opacity slider's #55585d track arrived here with
   // APPEARANCE_CONTROLS; it is the same literal `editors/pcb` lost, not a new
   // one. The panel's own stylesheet adds none: every length in
@@ -1120,7 +1140,8 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // 1320 -> 1314: the same div. `editors/pcb` 213 -> 207 is the only row that
     // moves, and the six are its border radius, its padding, and the four
     // margins the buttons and the layer line carried inline.
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1314);
+    // 1314 -> 1310: the four above; `ui` is the only row that moves.
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1310);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {

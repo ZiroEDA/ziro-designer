@@ -4604,15 +4604,22 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-drc-dialog .ze-drc-body {
   min-width: 640px;
   display: block;
-  padding: 10px 12px;
+  /* [data] `bSizer13->Add( m_Notebook, 1, wxEXPAND|wxTOP|wxRIGHT|wxLEFT, 10 )`
+     (`dialog_drc_base.cpp:170`) — ten on three sides and nothing at the bottom,
+     which is what the flags say. This read `10px 12px`: the 10 was right and
+     the 12 was in no sizer in that file. */
+  padding: 10px 10px 0;
 }
 .ze-drc-dialog .ze-drc-violations {
   /* [data] `bSizerViolationsBox->SetMinSize( wxSize( -1,320 ) )`
      (`dialog_drc_base.cpp:109`). */
   min-height: 320px;
   /* Ours also caps it, because the window is modeless and floats over the
-     canvas rather than being resized by the user. */
-  max-height: 340px;
+     canvas rather than being resized by the user as KiCad's is. Stated against
+     the VIEWPORT rather than in pixels: how much of the screen a floating
+     window may take is a browser question, and 340 was a number picked here to
+     answer it. `.ze-zone-dialog` caps itself the same way. */
+  max-height: 40vh;
   overflow: auto;
   padding: 0;
 }
@@ -15289,11 +15296,19 @@ td.ze-grid-bool {
   overflow: auto;
 }
 /* The read-only layer cell: GRID_CELL_LAYER_RENDERER draws the swatch then the
-   name, so they sit on one line. */
+   name, so they sit on one line — and the space between them is arithmetic in
+   that renderer rather than a number anyone chose:
+
+     aDC.DrawBitmap( m_bitmap, rect.GetLeft() + 4, … );
+     rect.SetLeft( rect.GetLeft() + m_bitmap.GetWidth() + 8 );
+       (pcbnew/grid_layer_box_helpers.cpp)
+
+   The swatch starts 4 in and the text starts 8 past the swatch's own width, so
+   what is left between them is 8 - 4. */
 .ze-zone-layer-name {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 4px; /* [data] that 8 minus that 4. */
 }
 
 .ze-stackup {
