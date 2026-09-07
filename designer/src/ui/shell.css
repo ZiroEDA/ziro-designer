@@ -1846,15 +1846,19 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
    It is 16 ALONG the bar and the button's own width across it, because that is
    what the art provider is given: `wxRect( … , overflowSize, barHeight )`. */
 .ze-toolbar.horizontal > .ze-tb-overflow {
+  /* [px] `GetElementSize( wxAUI_TBART_OVERFLOW_SIZE )` = 16. */
   width: 16px;
   flex: 0 0 auto;
 }
 .ze-toolbar.vertical > .ze-tb-overflow {
+  /* [px] the same 16, along the vertical bar's own axis. */
   height: 16px;
   flex: 0 0 auto;
 }
 .ze-tb-overflow > svg {
+  /* [px] `m_overflowBmp` is a 16x16 bitmap, drawn centred in that rect. */
   width: 16px;
+  /* [px] the same bitmap. */
   height: 16px;
 }
 /* No height: a wxAuiToolBar is as tall as its tallest tool. [px] GerbView's
@@ -15663,21 +15667,66 @@ td.ze-grid-bool {
 }
 
 /* PANEL_SETUP_TRACKS_AND_VIAS: three WX_GRIDs side by side, each with its own
-   add / sort / remove buttons under it. */
+   add / sort / remove buttons under it.
+
+   `bMainSizer->Add( bSizerTracks, 1, wxEXPAND, 5 )`, and the same for Vias and
+   Differential Pairs (`_base.cpp:71`, `:130`, `:198`) — proportion 1 on all
+   three, so the page is in exact thirds and each grid fills its third. There
+   is no gap between the columns: what separates them is each grid's own
+   `wxRIGHT, 5`, which the third one carries too. This said `gap: 14px`, a
+   number no sizer here states. */
 .ze-sizes-cols {
   height: 100%;
   display: flex;
-  /* [data] the facing wxLEFT/wxRIGHT borders of the three grid sizers. */
-  gap: 14px;
 }
 .ze-sizes-col {
   flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
+}
+.ze-sizes-title {
+  padding: 5px; /* [data] `bSizerTracks->Add( stTracksLabel, 0, wxALL, 5 )`. */
 }
 .ze-sizes-pane {
   flex: 1;
   min-height: 0;
+  /* [data] `Add( m_trackWidthsGrid, 1, wxEXPAND|wxRIGHT, 5 )` — the whole of
+     the space between one column and the next. */
+  margin-right: 5px;
+}
+/* The grid's own table is as wide as its columns and no wider; the pane around
+   it is the wxGrid window, which is wider, and the slack paints as empty grid.
+   [data] `SetColSize( 0, 120 )` on every column of all three grids
+   (`_base.cpp:38`, `:91-92`, `:159-161`).
+   `panel_setup_tracks_and_vias.cpp:106-120` reads as though it replaces that
+   with a text extent and does not: its `GetVisibleWidth( col, true, true,
+   true )` SEEDS itself with `GetColSize( aCol )` (`wx_grid.cpp:GetVisibleWidth`),
+   so the `std::max` keeps the 120.
+   [px] the extent it is compared against, `GetTextExtent( "000.000000 mm " )`,
+   measures 108 and therefore never wins
+   (`qa/probes/tracks_vias_grid_probe.cpp`). */
+.ze-sizes-pane .ze-grid {
+  table-layout: fixed;
+}
+.ze-sizes-col-w {
+  /* [data] `SetColSize( 0, 120 )` (`_base.cpp:38`), which the .cpp's
+     `std::max` keeps rather than replaces — see the note above. */
+  width: 120px;
+}
+/* The buttons carry their own borders below, so the row states no gap. */
+.ze-sizes-col > .ze-grid-btns {
+  margin-top: 3px; /* [data] `Add( bSizer3, 0, wxEXPAND|wxTOP, 3 )`. */
+  gap: 0;
+}
+.ze-sizes-col .ze-gridbtn-add {
+  margin: 0 5px 5px 0; /* [data] `Add( m_trackWidthsAddButton, 0, wxBOTTOM|wxRIGHT, 5 )`. */
+}
+.ze-sizes-col .ze-gridbtn-sort {
+  margin: 0 5px; /* [data] `Add( m_trackWidthsSortButton, 0, wxRIGHT|wxLEFT, 5 )`. */
+}
+.ze-sizes-col .ze-gridbtn-remove {
+  margin: 0 25px; /* [data] `Add( m_trackWidthsRemoveButton, 0, wxLEFT|wxRIGHT, 25 )`. */
 }
 .ze-sizes-pane .ze-grid {
   width: 100%;
