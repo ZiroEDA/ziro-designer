@@ -130,7 +130,10 @@ const UNBUILT: Readonly<Record<string, readonly string[]>> = {
     'tuneDiffPair',
     'tuneSkew',
     'drawRuleArea',
-    'drawBezier',
+    // `drawBezier` came off with `DRAWING_TOOL::DrawBezier`: the four-click
+    // gesture is `pcbnew/src/bezier_tool.ts` over `BEZIER_GEOM_MANAGER`, and
+    // the shape it commits is the `gr_curve` the reader and writer already
+    // understood.
     // The whole "PCB origins and points" group came off this list together:
     // `DRAWING_TOOL::PlacePoint` is `handlePointClick`, and
     // `PCB_CONTROL::GridPlaceOrigin` / `BOARD_EDITOR_CONTROL::DrillOrigin` are

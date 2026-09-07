@@ -478,6 +478,7 @@ export {
 
 export {
   bezierInFlight,
+  bezierPreviewCurve,
   bezierClick,
   bezierChainSeed,
   type BezierInFlight,

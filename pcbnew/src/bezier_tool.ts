@@ -90,6 +90,31 @@ export function bezierInFlight(
   };
 }
 
+/**
+ * The curve the preview should STROKE, or null while there is nothing to stroke
+ * yet.
+ *
+ * `drawOneBezier` builds the `PCB_SHAPE` from the first click, but it only puts
+ * it in the preview group once the manager reaches `SET_END`:
+ *
+ *     if( bezierManager.GetStep() == KIGFX::PREVIEW::BEZIER_GEOM_MANAGER::SET_END )
+ *         preview.Add( bezier.get() );
+ *
+ * and that is not a detail. Before `SET_END` the manager has the end and both
+ * control points sitting on C1, so the "curve" is a straight line lying exactly
+ * under the dashed arm. Drawing it anyway puts two strokes on the same pixels,
+ * one of them in the layer's colour at the shape's full width — which reads as
+ * the tool drawing a straight line instead of a curve, because that is what it
+ * is doing.
+ *
+ * The arms are the assistant's and are drawn at every step from
+ * `SET_CONTROL1` on; only the curve waits.
+ */
+export function bezierPreviewCurve(live: BezierInFlight | null): BezierPoints | null {
+  if (!live || live.step < BezierStep.SET_END) return null;
+  return live.points;
+}
+
 /** What one left click does to the locked-in list. */
 export type BezierClick =
   /** Still drawing: this is the new locked list. */

@@ -152,6 +152,7 @@ import {
   fillZones,
   bezierClick,
   bezierInFlight,
+  bezierPreviewCurve,
   type BezierInFlight,
   boardEditHandles,
   boardIndicatorLines,
@@ -3266,9 +3267,14 @@ export function PcbEditor({
           case 'curve': {
             const live = bezierInFlight(pts, p);
             if (live) {
-              const [a, c1, c2, e] = live.points;
-              ctx.moveTo(a.x, a.y);
-              ctx.bezierCurveTo(c1.x, c1.y, c2.x, c2.y, e.x, e.y);
+              // `preview.Add( bezier.get() )` waits for SET_END; the arms do
+              // not. `bezierPreviewCurve` is where that rule is written down.
+              const curve = bezierPreviewCurve(live);
+              if (curve) {
+                const [a, c1, c2, e] = curve;
+                ctx.moveTo(a.x, a.y);
+                ctx.bezierCurveTo(c1.x, c1.y, c2.x, c2.y, e.x, e.y);
+              }
               bezierArms = live;
             }
             break;
@@ -3283,35 +3289,47 @@ export function PcbEditor({
             break;
         }
         ctx.stroke();
+        ctx.restore();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
         if (bezierArms) {
-          // `BEZIER_ASSISTANT::ViewDraw`: `dashSize = KiROUND( ToWorld( 12 ) )`
-          // and a gap of half that, so the dashes keep their size on screen at
-          // every zoom — hence dividing by the view scale rather than writing a
-          // world length.
+          // `BEZIER_ASSISTANT::ViewDraw`, drawn through `DRAW_CONTEXT` — which
+          // is a different pen from the shape's, and that is the whole of what
+          // was wrong here. `DrawLineDashed` takes its colour from
+          // `GetLayerColor( LAYER_AUX_ITEMS )` and its width from the context's
+          // own `m_lineWidth = 1.0f`, so the arms are a light hairline, not the
+          // layer's red at half the shape width. Drawing them in device space
+          // is what makes both of those exact at any zoom.
           //
-          // The second arm is drawn "as a double length line centered on the
-          // end point", from `end - ( C2 - end )` to `C2`. That is not
-          // decoration either: the point the user clicks is the reflection of
-          // C2, so the near half of that line is where the cursor is and the
-          // far half is where the curve actually pulls.
-          const dash = 12 / v.scale;
-          ctx.setLineDash([dash, dash / 2]);
-          ctx.lineWidth = shapeWidthIU(activeLayer) / 2;
+          // The dashes: `dashSize = KiROUND( ToWorld( 12 ) )`, then
+          // `DrawLineDashed( …, dashSize, dashSize / 2, … )`, whose loop steps
+          // by 12 and fills 6 — six on, six off, both in SCREEN pixels. Not
+          // twelve on and six off.
+          const step = 6 * dpr;
+          ctx.setLineDash([step, step]);
+          ctx.lineWidth = galPenWidth(dpr);
+          ctx.strokeStyle = drawOpts.theme?.special.auxItems ?? PCB_SPECIAL.auxItems;
           const [a, c1, c2, e] = bezierArms.points;
+          const toPx = (q: { x: number; y: number }): [number, number] => [
+            q.x * sx + v.tx,
+            q.y * v.scale + v.ty,
+          ];
           ctx.beginPath();
           if (bezierArms.step >= BezierStep.SET_CONTROL1) {
-            ctx.moveTo(a.x, a.y);
-            ctx.lineTo(c1.x, c1.y);
+            ctx.moveTo(...toPx(a));
+            ctx.lineTo(...toPx(c1));
           }
           if (bezierArms.step >= BezierStep.SET_CONTROL2) {
-            ctx.moveTo(e.x - (c2.x - e.x), e.y - (c2.y - e.y));
-            ctx.lineTo(c2.x, c2.y);
+            // "Draw the second control point control line as a double length
+            // line centered on the end point": from `end - ( C2 - end )` to
+            // `C2`. The near half is where the cursor is and the far half is
+            // where the curve is actually pulled, which is the only thing on
+            // screen that explains the reflection.
+            ctx.moveTo(...toPx({ x: e.x - (c2.x - e.x), y: e.y - (c2.y - e.y) }));
+            ctx.lineTo(...toPx(c2));
           }
           ctx.stroke();
           ctx.setLineDash([]);
         }
-        ctx.restore();
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
       }
     }
     const brd = boardRef.current;

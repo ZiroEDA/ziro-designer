@@ -28,6 +28,7 @@ import {
   bezierChainSeed,
   bezierClick,
   bezierInFlight,
+  bezierPreviewCurve,
   type BezierPoints,
 } from '@ziroeda/pcbnew/src/bezier_tool.js';
 
@@ -142,6 +143,34 @@ describe('the four clicks of the tool', () => {
     const live = bezierInFlight([P(0, 0), P(0, 100)], P(300, 100));
     expect(live?.step).toBe(BezierStep.SET_END);
     expect(live?.points).toEqual([P(0, 0), P(0, 100), P(300, 100), P(300, 100)]);
+  });
+});
+
+describe('what the preview may stroke, and when', () => {
+  it('strokes nothing until the END has been locked in', () => {
+    // Before SET_END the manager has the end and BOTH control points sitting on
+    // C1, so the cubic it describes is a straight line lying exactly under the
+    // dashed arm. Stroking it puts a second line on the same pixels in the
+    // layer's colour at the shape's full width, and the tool looks like it is
+    // drawing straight lines rather than curves.
+    expect(bezierPreviewCurve(bezierInFlight([], { x: 5, y: 5 }))).toBeNull();
+    expect(bezierPreviewCurve(bezierInFlight([{ x: 0, y: 0 }], { x: 5, y: 5 }))).toBeNull();
+  });
+
+  it('and strokes it from SET_END on, which is when upstream adds it', () => {
+    const live = bezierInFlight([P(0, 0), P(0, 100)], P(300, 100));
+    expect(live?.step).toBe(BezierStep.SET_END);
+    expect(bezierPreviewCurve(live)).toEqual(live?.points);
+  });
+
+  it('but the ARMS are not gated on it — the first one shows from SET_CONTROL1', () => {
+    // `if( step >= SET_CONTROL1 ) DrawLineDashed( start, GetControlC1(), … )`.
+    // The arm is the only thing on screen at that step, and it has to be:
+    // without it the first click leaves no feedback at all.
+    const live = bezierInFlight([P(0, 0)], P(50, 50));
+    expect(live?.step).toBe(BezierStep.SET_CONTROL1);
+    expect(live?.points[0]).toEqual(P(0, 0));
+    expect(live?.points[1]).toEqual(P(50, 50));
   });
 });
 
