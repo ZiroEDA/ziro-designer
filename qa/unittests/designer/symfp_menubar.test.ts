@@ -273,10 +273,22 @@ describe('the Symbol Editor menu bar', () => {
     expect(rows(sym(), 'Inspect')).toEqual(['Show Datasheet', '---', 'Symbol Checker']);
   });
 
-  /** :174-179 — the same four rows fifteen KiCad frames end Preferences with. */
-  it('Preferences is the shared four plus the shared language list', () => {
-    expect(rows(sym(), 'Preferences').slice(0, 4)).toEqual([
-      'Configure Paths...',
+  /**
+   * No "Configure Paths...", in any frame.
+   *
+   * `DIALOG_CONFIGURE_PATHS` edits the environment substitutions a library path
+   * is written against — `KICAD10_SYMBOL_DIR`, `KICAD10_FOOTPRINT_DIR`,
+   * `KIPRJMOD` — so that a `.kicad_sym` on one machine's disk is found on
+   * another's. There is no disk here and no second machine: a library is a URL
+   * or a file in the project, and the tables beside it name it directly.
+   *
+   * Removed rather than greyed, like every other control this application
+   * cannot have. Greying says "not ready yet"; this one is not a promise the
+   * app can keep.
+   */
+  /** :174-179 — the rows fifteen KiCad frames end Preferences with, less one. */
+  it('Preferences is the shared rows plus the shared language list', () => {
+    expect(rows(sym(), 'Preferences').slice(0, 3)).toEqual([
       'Manage Symbol Libraries...',
       'Preferences...',
       '---',
@@ -284,7 +296,7 @@ describe('the Symbol Editor menu bar', () => {
     // Compared by label, not deep equality: the rows carry closures. What
     // matters is that this is `ui/language_menu.ts`'s submenu and not a copy.
     const shared = setLanguageMenuItem({ current: 'Default', onSelect: noop });
-    const ours = menu(sym(), 'Preferences').items[4]!;
+    const ours = menu(sym(), 'Preferences').items[3]!;
     expect(ours.label).toBe(shared.label);
     expect(ours.submenu?.map((i) => i.label)).toEqual(shared.submenu?.map((i) => i.label));
   });
@@ -466,16 +478,15 @@ describe('the Footprint Editor menu bar', () => {
     ]);
   });
 
-  /** :234-243 — the shared four, then AddMenuLanguageList. */
-  it('Preferences is the shared four plus the shared language list', () => {
-    expect(rows(fp(), 'Preferences').slice(0, 4)).toEqual([
-      'Configure Paths...',
+  /** :234-243 — the shared rows, then AddMenuLanguageList. See the note above. */
+  it('Preferences is the shared rows plus the shared language list', () => {
+    expect(rows(fp(), 'Preferences').slice(0, 3)).toEqual([
       'Manage Footprint Libraries...',
       'Preferences...',
       '---',
     ]);
     const shared = setLanguageMenuItem({ current: 'Default', onSelect: noop });
-    const ours = menu(fp(), 'Preferences').items[4]!;
+    const ours = menu(fp(), 'Preferences').items[3]!;
     expect(ours.label).toBe(shared.label);
     expect(ours.submenu?.map((i) => i.label)).toEqual(shared.submenu?.map((i) => i.label));
   });

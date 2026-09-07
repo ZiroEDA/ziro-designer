@@ -308,8 +308,8 @@ describe('Preferences > Manage Footprint Association Files (menubar.cpp:66-75)',
     //     prefsMenu->Add( ACTIONS::openPreferences );
     //     prefsMenu->AppendSeparator();
     //     AddMenuLanguageList( prefsMenu, tool );
-    expect(menuRows(open_().root, 'Preferences').slice(0, 5)).toEqual([
-      'Configure Paths...',
+    // Less configurePaths: no disk, no environment substitutions to edit.
+    expect(menuRows(open_().root, 'Preferences').slice(0, 4)).toEqual([
       'Manage Footprint Libraries...',
       'Manage Footprint Association Files...',
       'Preferences...',

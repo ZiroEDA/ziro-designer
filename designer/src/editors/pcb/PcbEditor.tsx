@@ -474,6 +474,7 @@ import { dispatchMenuHotkey, focusBlocksHotkey } from '../../ui/menu_hotkeys.js'
 import { isTypingTarget, wasBrowserSuppressed, type FocusLike } from '../../ui/browser_hotkeys.js';
 import { browserSafeKey } from '../../ui/browser_reserved.js';
 import { settings } from '../../prefs/settings.js';
+import { setLanguageMenuItem } from '../../ui/language_menu.js';
 import { hiContrastFactorFor } from '@ziroeda/common/src/render_settings.js';
 import { usePcbnewSettings, useUserColors, useUserThemes } from '../../prefs/useSettings.js';
 import { ColorSwatch } from '../../ui/ColorSwatch.js';
@@ -9151,9 +9152,45 @@ export function PcbEditor({
     },
     {
       label: 'Preferences',
-      // EDA_BASE_FRAME::ShowPreferences — one dialog for the whole application,
-      // reachable from every frame's Preferences menu, not a per-editor one.
-      items: [{ label: 'Preferences...', action: () => setPrefsOpen(true), shortcut: 'Ctrl+,' }],
+      /*
+       * `menubar_pcb_editor.cpp:346-356` — the rows, in order:
+       *
+       *     configurePaths, showFootprintLibTable, showDesignBlockLibTable,
+       *     openPreferences, a separator, then AddMenuLanguageList.
+       *
+       * This frame had only Preferences..., which is why the board editor's
+       * menu was three rows short of every other launcher here — the schematic,
+       * symbol, footprint, Gerber and project frames all build the full one.
+       *
+       * No Configure Paths: it edits the environment substitutions a library
+       * path is written against, and there is no disk to point at. See the
+       * other five menus for the same note.
+       */
+      items: [
+        // `ACTIONS::showFootprintLibTable` — FP_LIB_TABLE is the board's own
+        // business: every footprint on it is stored as `nickname:name`, and
+        // this is where a nickname the project references is seen and fixed.
+        {
+          label: 'Manage Footprint Libraries...',
+          icon: 'library_table',
+          disabled: true,
+        },
+        // `ACTIONS::showDesignBlockLibTable`. Design blocks are a 9.0 feature
+        // this port has not built at all, so the row is greyed rather than
+        // removed: it is unfinished, not impossible.
+        { label: 'Manage Design Block Libraries...', icon: 'library_table', disabled: true },
+        { label: 'Preferences...', action: () => setPrefsOpen(true), shortcut: 'Ctrl+,' },
+        { sep: true },
+        // `AddMenuLanguageList( prefsMenu, selTool )`, the shared submenu five
+        // other frames here already build.
+        setLanguageMenuItem({
+          current: settings.common.system.language,
+          onSelect: (label: string) =>
+            settings.updateCommon((c) => {
+              c.system.language = label;
+            }),
+        }),
+      ],
     },
     standardHelpMenu({ showHotkeys: showHotkeyList, showAbout: () => setAboutOpen(true) }),
   ];

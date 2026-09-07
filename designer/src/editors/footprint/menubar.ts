@@ -406,7 +406,16 @@ export function footprintEditorMenus(
       // AddMenuLanguageList. Ours was a single greyed "Preferences...".
       label: 'Preferences',
       items: [
-        stub('Configure Paths...', 'configurePaths'),
+        /* No "Configure Paths...". `DIALOG_CONFIGURE_PATHS` edits the
+           environment substitutions a library path is written against --
+           `KICAD10_SYMBOL_DIR`, `KICAD10_FOOTPRINT_DIR`, `KIPRJMOD` -- so that
+           a `.kicad_sym` on one machine's disk is found on another's. There is
+           no disk here and no second machine: a library is a URL or a file in
+           the project, and the tables below name it directly.
+
+           Removed rather than greyed, like every other control this application
+           cannot have. Greying says "not ready yet"; this one is not a promise
+           the app can keep. */
         stub('Manage Footprint Libraries...', 'showFootprintLibTable'),
         act('Preferences...', 'openPreferences', { shortcut: 'Ctrl+,' }),
         SEP,

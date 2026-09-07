@@ -187,7 +187,8 @@ describe('no entry is silently inert', () => {
       'Add Design Variant...',
       'Remove Design Variant...',
       'Edit Variant Description...',
-      'Configure Paths...',
+      // No "Configure Paths..." — it is not greyed, it is GONE. There is no
+      // disk here, so there are no path environment substitutions to edit.
       'Manage Design Block Libraries...',
       // "About ZiroEDA" used to be greyed out here. The Help menu is now the
       // shared AddStandardHelpMenu port, where About is a live action - as it
@@ -365,9 +366,11 @@ describe('entries upstream does not put on these menus', () => {
 describe('Preferences ends with a separator and the language list', () => {
   const prefs = () => menus().find((m) => m.label === 'Preferences')!.items ?? [];
 
-  it('has the four upstream rows, then a separator, then Set Language', () => {
+  it('has the upstream rows, then a separator, then Set Language', () => {
+    // Less "Configure Paths...", which every frame here has lost: it edits the
+    // environment substitutions a library path is written against, and there is
+    // no disk to point one at.
     expect(prefs().map((i) => i.label ?? (i.sep ? '---' : ''))).toEqual([
-      'Configure Paths...',
       'Manage Symbol Libraries...',
       'Manage Design Block Libraries...',
       'Preferences...',
