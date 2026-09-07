@@ -13,11 +13,18 @@
  *     SCROLLS inside the dialog rather than pushing it wider.
  *
  * Board Setup and Schematic Setup now do the same thing, out of the same two
- * pieces: `.ze-paged-panel` is `min-width: 0`, and the width and height come
- * from the subclass's own `aInitialSize` — `wxSize( 980, 600 )` for Board
- * Setup, `wxSize( 920, 460 )` for Schematic Setup — which is a literal in the
- * `PAGED_DIALOG` constructor call and so belongs at the call site, not here.
- * This hook is only the mechanism for putting it on the element.
+ * pieces: `.ze-paged-panel` is `min-width: 0`, and the width and height are
+ * stated at the call site rather than here — this hook is only the mechanism
+ * for putting them on the element.
+ *
+ * **A subclass's `aInitialSize` is the wrong number to state.** It is the size
+ * the window OPENS at, before `onPageChanged` has grown it into the showing
+ * page, and on Board Setup nobody ever sees it: `wxSize( 980, 600 )` becomes
+ * 1227 x 786 the moment a real page resolves. Copying the literal gave a
+ * dialog a third narrower than the one KiCad draws, with the Teardrops page's
+ * entire right-hand column behind a horizontal scrollbar. The size to state is
+ * the GROWN one, measured off a live dialog — which is what
+ * `.ze-prefs-dialog`'s 1095 x 713 has always been.
  *
  * ## What upstream does, and why we deliberately do not
  *

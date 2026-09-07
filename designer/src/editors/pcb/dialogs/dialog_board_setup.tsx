@@ -14,7 +14,9 @@
  *
  * Uses the shared PagedDialog shell. Board Setup has no "Reset to Defaults"
  * button (aShowReset=false) and an "Import Settings from Another Board..." aux
- * action, at wxSize(980, 600). Live pages: Constraints, Pre-defined Sizes
+ * action. It opens at 1227 x 786 — the size KiCad's grows to, not its
+ * `aInitialSize`; see the note beside `initialSize` below. Live pages:
+ * Constraints, Pre-defined Sizes
  * (PANEL_SETUP_TRACKS_AND_VIAS, Tracks / Vias / Differential Pairs), Net Classes
  * (shared PANEL_SETUP_NETCLASSES) and Text Variables (shared PANEL_TEXT_VARIABLES).
  * Values seed from the project's .kicad_pro and commit on OK.
@@ -901,8 +903,28 @@ export function DialogBoardSetup({ value, units, initialPage, onOk, onClose }: P
         title="Board Setup"
         sections={sections}
         initialPage={initialPage}
-        // [data] `PAGED_DIALOG( …, wxSize( 980, 600 ) )`, dialog_board_setup.cpp:63.
-        initialSize={{ width: 980, height: 600 }}
+        /*
+         * NOT `aInitialSize`, which is the trap this row was in.
+         *
+         * `PAGED_DIALOG( …, wxSize( 980, 600 ) )` (`dialog_board_setup.cpp:63`)
+         * is the size the window OPENS at, and no user ever sees it: the first
+         * `onPageChanged` immediately grows the dialog into the showing page's
+         * `GetBestSize()`, floored at 600 x 500 and capped at 1500 x 900
+         * (`paged_dialog.cpp:424-451`). `ui/paged_dialog_size.ts` records at
+         * length why this port states one size rather than growing, and the
+         * consequence is that the stated size has to be the GROWN one — the
+         * literal is the wrong number to copy.
+         *
+         * [px] 1227 x 786, measured off a live Board Setup on this machine
+         * (Teardrops, the widest page captured: the window spans x 330..1556
+         * and y 256..1041 in a 1920 x 1200 screenshot, with a 37 px title bar).
+         * At 980 the Teardrops page lost its whole right-hand column — Allow
+         * teardrop to span two track segments, Prefer zone connection and the
+         * track width limit, three controls per group — behind a horizontal
+         * scrollbar, which is exactly the failure `paged_dialog_size.ts` says a
+         * page that does not fit will show.
+         */
+        initialSize={{ width: 1227, height: 786 }}
         auxiliaryAction="Import Settings from Another Board..."
         onAuxiliaryAction={() => setImportOpen(true)}
         // `PANEL_SETUP_LAYERS::TransferDataFromWindow` runs `testLayerNames()`

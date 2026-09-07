@@ -9,7 +9,7 @@
  * every row of the tree unless something stops it. Preferences stopped it with
  * a stated size and a `min-width: 0` page area, and Board Setup and Schematic
  * Setup now use the same two pieces — the size coming from the subclass's own
- * `aInitialSize` rather than from a measurement.
+ * the size the dialog STATES rather than from a measurement of the page.
  *
  * Every previous attempt here grew the dialog instead, which is what upstream
  * does (`newSize.IncTo( minSize )`, plus `DIALOG_SHIM`'s remembered geometry),
@@ -56,8 +56,12 @@ afterEach(() => {
   localStorage.clear();
 });
 
-/** [data] `PAGED_DIALOG( …, wxSize( 980, 600 ) )`, dialog_board_setup.cpp:63. */
-const INITIAL = { width: 980, height: 600 };
+/**
+ * Board Setup's stated size. [px] 1227 x 786, measured off a live dialog — NOT
+ * `aInitialSize`'s `wxSize( 980, 600 )`, which is the size the window opens at
+ * before `onPageChanged` grows it into the showing page and which no user sees.
+ */
+const INITIAL = { width: 1227, height: 786 };
 
 function Harness(): JSX.Element {
   const [page, setPage] = useState('narrow');
@@ -89,12 +93,12 @@ function open(): { el: HTMLElement; go: (p: 'narrow' | 'wide') => void } {
   };
 }
 
-describe('the size is the subclass’s aInitialSize', () => {
+describe('the size is the one the dialog states', () => {
   it('states it on the element, because .ze-modal would otherwise track the page', () => {
     const { el } = open();
 
-    expect(el.style.width).toBe('980px');
-    expect(el.style.height).toBe('600px');
+    expect(el.style.width).toBe(`${INITIAL.width}px`);
+    expect(el.style.height).toBe(`${INITIAL.height}px`);
   });
 
   it('sets no minimum of its own', () => {
@@ -118,8 +122,8 @@ describe('walking the tree does not resize it', () => {
 
     go('wide');
 
-    expect(el.style.width).toBe('980px');
-    expect(el.style.height).toBe('600px');
+    expect(el.style.width).toBe(`${INITIAL.width}px`);
+    expect(el.style.height).toBe(`${INITIAL.height}px`);
   });
 
   it('stays put on the way back, and on every page after', () => {
@@ -130,8 +134,8 @@ describe('walking the tree does not resize it', () => {
     go('wide');
     go('narrow');
 
-    expect(el.style.width).toBe('980px');
-    expect(el.style.height).toBe('600px');
+    expect(el.style.width).toBe(`${INITIAL.width}px`);
+    expect(el.style.height).toBe(`${INITIAL.height}px`);
   });
 
   it('leaves a size the user dragged to exactly where they left it', () => {
@@ -157,7 +161,7 @@ describe('nothing is remembered between opens', () => {
 
     const second = open();
 
-    expect(second.el.style.width).toBe('980px');
+    expect(second.el.style.width).toBe(`${INITIAL.width}px`);
   });
 
   it('writes no geometry to storage', () => {

@@ -200,7 +200,10 @@ describe('the pile of hand-picked dialog sizes does not grow', () => {
     // subclass writes it as a literal at its own call site —
     // `wxSize( 980, 600 )` (dialog_board_setup.cpp:63) and `wxSize( 920, 460 )`
     // (dialog_schematic_setup.cpp:47) — so the two dialogs pass their own
-    // number in and the shell applies it. It has to be a SIZE and not the
+    // number in and the shell applies it. Board Setup's is a MEASUREMENT of the
+    // live dialog rather than that literal, because `onPageChanged` grows the
+    // window into the showing page before anyone sees the opening size; see
+    // `ui/paged_dialog_size.ts`. It has to be a SIZE and not the
     // floor `.ze-paged-dialog` already carries, because `.ze-modal` is
     // `width: max-content`: a floor does not stop max-content going above it,
     // and Board Setup visibly re-sized itself on every row of its tree. Same

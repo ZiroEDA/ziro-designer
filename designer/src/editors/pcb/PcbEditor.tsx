@@ -8849,6 +8849,15 @@ export function PcbEditor({
       case 'threeDViewer':
         setShow3D(true);
         break;
+
+      /*
+       * The rows `editors/pcb/menubar.ts` routes here. Every one of these ran
+       * from a closure written inline in the menu before the bar moved out of
+       * this file; they are cases now because the module names commands rather
+       * than holding functions — which is what makes it a `.ts` `qa` can read.
+       *
+       * The ids are `TOOL_ACTION` names where upstream has one.
+       */
       // `undo`, `redo`, `find` and `zoomRedraw` are NOT repeated below: the
       // toolbar already routed those four ids through this switch, and the menu
       // module names them the same way.
