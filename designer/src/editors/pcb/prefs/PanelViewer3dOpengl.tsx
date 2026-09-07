@@ -31,6 +31,7 @@
  */
 import type { JSX } from 'react';
 import { Check, ColorRow, Group, Sel } from '../../../dialogs/prefs/widgets.js';
+import { VIEWER3D_RENDER_DEFAULTS } from '../../../prefs/settings.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
 
 /**
@@ -90,7 +91,7 @@ export function PanelViewer3dOpengl({ ctx }: { ctx: PrefsContext }): JSX.Element
         <ColorRow
           label="Selection color:"
           value={render.opengl_selection_color}
-          fallback="rgb(0,255,0)"
+          fallback={VIEWER3D_RENDER_DEFAULTS.opengl_selection_color}
           onChange={(css) => upR({ opengl_selection_color: css })}
         />
       </Group>

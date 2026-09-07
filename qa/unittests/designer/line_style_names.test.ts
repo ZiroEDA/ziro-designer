@@ -55,9 +55,6 @@ const CALL_SITES: Record<string, string> = {
   'schematic/dialogs/dialog_text_properties.tsx': read(
     `${D}schematic/dialogs/dialog_text_properties.tsx`,
   ),
-  'schematic/dialogs/dialog_table_properties.tsx': read(
-    `${D}schematic/dialogs/dialog_table_properties.tsx`,
-  ),
   'schematic/dialogs/dialog_global_edit_text_and_graphics.tsx': read(
     `${D}schematic/dialogs/dialog_global_edit_text_and_graphics.tsx`,
   ),
@@ -69,7 +66,12 @@ const CALL_SITES: Record<string, string> = {
   'pcb/dialogs/dialog_textbox_properties.tsx': read(
     `${D}pcb/dialogs/dialog_textbox_properties.tsx`,
   ),
-  'pcb/dialogs/dialog_table_properties.tsx': read(`${D}pcb/dialogs/dialog_table_properties.tsx`),
+  // Was `schematic/dialogs/dialog_table_properties.tsx` AND
+  // `pcb/dialogs/dialog_table_properties.tsx`. DIALOG_TABLE_PROPERTIES is one
+  // dialog upstream, opened by both editors, so the two copies became
+  // `ui/DialogTableProperties.tsx` and the Line Style combo with them — one
+  // call site now, which is what this rule is for.
+  'ui/DialogTableProperties.tsx': read('../../../designer/src/ui/DialogTableProperties.tsx'),
   // Was `pcb/PcbEditor.tsx`. The Line Style row moved with the rest of the PCB
   // property grid when pcbnew stopped keeping a private copy of
   // PROPERTIES_PANEL: the rows are built in the pcbnew package now, so that is

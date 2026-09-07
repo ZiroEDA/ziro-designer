@@ -1962,6 +1962,8 @@ export const VIEWER3D_RENDER_DEFAULTS: Viewer3dRender = {
   opengl_copper_thickness: false,
   opengl_highlight_on_rollover: true,
   opengl_AA_mode: 3,
+  // [data] `PARAM<COLOR4D>( "render.opengl_selection_color", …,
+  // COLOR4D( 0.0, 1.0, 0.0, 1.0 ) )` (`eda_3d_viewer_settings.cpp:261-263`).
   opengl_selection_color: 'rgb(0,255,0)',
   opengl_AA_disableOnMove: false,
   opengl_thickness_disableOnMove: false,

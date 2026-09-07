@@ -35,7 +35,12 @@ const SETUP = {
   extLineOffsetMM: 0.5,
 };
 const from = (over: Partial<typeof SETUP> = {}) =>
-  dimensionDefaultsFrom({ ...SETUP, ...over }, 'Dwgs.User', MM(0.2), MM(1), MM(0.15));
+  dimensionDefaultsFrom({ ...SETUP, ...over }, 'Dwgs.User', MM(0.2), {
+    textWidth: MM(1),
+    textHeight: MM(1),
+    textThickness: MM(0.15),
+    italic: false,
+  });
 
 describe('which tool places which kind', () => {
   it('maps all five', () => {

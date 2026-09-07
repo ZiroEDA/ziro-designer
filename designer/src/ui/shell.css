@@ -4599,6 +4599,8 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   padding: 10px 12px;
 }
 .ze-drc-dialog .ze-drc-violations {
+  /* [data] `bSizerViolationsBox->SetMinSize( wxSize( -1,320 ) )`
+     (`dialog_drc_base.cpp:109`). */
   min-height: 320px;
   /* Ours also caps it, because the window is modeless and floats over the
      canvas rather than being resized by the user. */
@@ -10937,6 +10939,8 @@ textarea.ze-ds-textedit {
    it is the whole top half of the dialog, not a corner of a groupbox. */
 .ze-tbp-text {
   width: 100%;
+  /* [data] `m_MultiLineText->SetMinSize( wxSize( -1,150 ) )`
+     (`dialog_textbox_properties_base.cpp:59`). */
   min-height: 150px;
   resize: vertical;
   box-sizing: border-box;
@@ -10944,6 +10948,7 @@ textarea.ze-ds-textedit {
 /* `m_syntaxHelp` is a wxHyperlinkCtrl, so it wears the shared `.ze-hyperlink`;
    only its `wxBOTTOM|wxRIGHT|wxLEFT, 3` border is this dialog's. */
 .ze-tbp-syntax {
+  /* [data] that `wxBOTTOM|wxRIGHT|wxLEFT, 3`. */
   padding: 3px;
   align-self: flex-start;
 }
@@ -11748,6 +11753,7 @@ textarea.ze-ds-textedit {
 }
 /* [data] `rect.SetLeft( rect.GetLeft() + m_bitmap.GetWidth() + 8 )`. */
 .ze-grid td > .ze-combo > .ze-combo-swatch {
+  /* [data] the same `+ m_bitmap.GetWidth() + 8`. */
   margin-right: 8px;
 }
 /* The chevron is the EDITOR's, and the editor is not what is drawn. */
@@ -14413,6 +14419,7 @@ td.ze-grid-bool {
 /* [data] `Add( m_layerOffsetsGrid, 0, wxALL, 5 )` — the grid is added with
    proportion 0, so it takes its own height and does not stretch. */
 .ze-zone-layer-grid {
+  /* [data] that Add()'s `wxALL, 5`. */
   margin: 5px;
   align-self: flex-start;
   overflow: auto;

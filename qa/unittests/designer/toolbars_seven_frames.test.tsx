@@ -42,6 +42,7 @@ import {
 } from '@ziroeda/designer/src/prefs/settings.js';
 import { setStoredToolbarConfig } from '@ziroeda/designer/src/ui/toolbar_config.js';
 import type { ToolbarDefaults, ToolbarItemJson } from '@ziroeda/designer/src/ui/toolbar_config.js';
+import type { ToolButton } from '@ziroeda/designer/src/ui/toolbar_types.js';
 import { PAGES } from '@ziroeda/designer/src/dialogs/prefs/registry.js';
 import { toolbarEntries } from '@ziroeda/designer/src/ui/useToolbarEntries.js';
 import { FP_DEFAULT_TOOLBARS } from '@ziroeda/designer/src/editors/footprint/footprintToolbars.js';
@@ -223,7 +224,7 @@ describe('a customised toolbar reaches the frame, which is the whole point', () 
     // `toolbarTemplates` keys on the button's `id`, which is what a stored
     // `TOOL` item names.
     const entry = (defaults.TOP_MAIN ?? []).find(
-      (e): e is { id: string } => typeof e === 'object' && 'id' in e,
+      (e): e is ToolButton => typeof e === 'object' && 'id' in e && 'icon' in e,
     );
     if (!entry) throw new Error('the defaults name no tool');
     return { type: 'TOOL', name: entry.id };

@@ -139,7 +139,7 @@ describe('the offset actually moves the copper', () => {
     const twoLayer = readBoard(
       parse(BOARD_TEXT().replace('(layers "F.Cu")', '(layers "F.Cu" "B.Cu")')),
     );
-    const perLayer = (offsets: object): string[] => {
+    const perLayer = (offsets: Readonly<Record<string, { x: number; y: number }>>): string[] => {
       const filled = fillZones(twoLayer, { hatchingOffsets: offsets });
       return (filled.zones[0]?.fills ?? []).map(
         (f) => `${f.layer}:${f.polys.reduce((n, p) => n + p.length, 0)}`,

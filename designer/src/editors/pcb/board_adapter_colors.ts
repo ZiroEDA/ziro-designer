@@ -54,62 +54,62 @@ export function mix(self: Color4d, other: Color4d, factor: number): Color4d {
 // [data] `g_SilkColors` (`board_adapter.cpp:164-171`). The first entry is
 // `NotSpecifiedPrm()`, i.e. the "Not specified" name, and it is White.
 export const SILK_COLORS: Readonly<Record<string, Color4d>> = {
-  'Not specified': rgba(245, 245, 245, 1.0),
-  Green: rgba(20, 51, 36, 1.0),
-  Red: rgba(181, 19, 21, 1.0),
-  Blue: rgba(2, 59, 162, 1.0),
-  Black: rgba(11, 11, 11, 1.0),
-  White: rgba(245, 245, 245, 1.0),
-  Purple: rgba(32, 2, 53, 1.0),
-  Yellow: rgba(194, 195, 0, 1.0),
+  'Not specified': rgba(245, 245, 245, 1.0), // [data] board_adapter.cpp:164-171
+  Green: rgba(20, 51, 36, 1.0), // [data] board_adapter.cpp:164-171
+  Red: rgba(181, 19, 21, 1.0), // [data] board_adapter.cpp:164-171
+  Blue: rgba(2, 59, 162, 1.0), // [data] board_adapter.cpp:164-171
+  Black: rgba(11, 11, 11, 1.0), // [data] board_adapter.cpp:164-171
+  White: rgba(245, 245, 245, 1.0), // [data] board_adapter.cpp:164-171
+  Purple: rgba(32, 2, 53, 1.0), // [data] board_adapter.cpp:164-171
+  Yellow: rgba(194, 195, 0, 1.0), // [data] board_adapter.cpp:164-171
 };
 
 // [data] `g_MaskColors` (`:173-188`). "Not specified" is Green here, not White.
 export const MASK_COLORS: Readonly<Record<string, Color4d>> = {
-  'Not specified': rgba(20, 51, 36, 0.83),
-  Green: rgba(20, 51, 36, 0.83),
-  'Light Green': rgba(91, 168, 12, 0.83),
-  'Saturated Green': rgba(13, 104, 11, 0.83),
-  Red: rgba(181, 19, 21, 0.83),
-  'Light Red': rgba(210, 40, 14, 0.83),
-  'Red/Orange': rgba(239, 53, 41, 0.83),
-  Blue: rgba(2, 59, 162, 0.83),
-  'Light Blue 1': rgba(54, 79, 116, 0.83),
-  'Light Blue 2': rgba(61, 85, 130, 0.83),
-  'Green/Blue': rgba(21, 70, 80, 0.83),
-  Black: rgba(11, 11, 11, 0.83),
-  White: rgba(245, 245, 245, 0.83),
-  Purple: rgba(32, 2, 53, 0.83),
-  'Light Purple': rgba(119, 31, 91, 0.83),
-  Yellow: rgba(194, 195, 0, 0.83),
+  'Not specified': rgba(20, 51, 36, 0.83), // [data] board_adapter.cpp:173-188
+  Green: rgba(20, 51, 36, 0.83), // [data] board_adapter.cpp:173-188
+  'Light Green': rgba(91, 168, 12, 0.83), // [data] board_adapter.cpp:173-188
+  'Saturated Green': rgba(13, 104, 11, 0.83), // [data] board_adapter.cpp:173-188
+  Red: rgba(181, 19, 21, 0.83), // [data] board_adapter.cpp:173-188
+  'Light Red': rgba(210, 40, 14, 0.83), // [data] board_adapter.cpp:173-188
+  'Red/Orange': rgba(239, 53, 41, 0.83), // [data] board_adapter.cpp:173-188
+  Blue: rgba(2, 59, 162, 0.83), // [data] board_adapter.cpp:173-188
+  'Light Blue 1': rgba(54, 79, 116, 0.83), // [data] board_adapter.cpp:173-188
+  'Light Blue 2': rgba(61, 85, 130, 0.83), // [data] board_adapter.cpp:173-188
+  'Green/Blue': rgba(21, 70, 80, 0.83), // [data] board_adapter.cpp:173-188
+  Black: rgba(11, 11, 11, 0.83), // [data] board_adapter.cpp:173-188
+  White: rgba(245, 245, 245, 0.83), // [data] board_adapter.cpp:173-188
+  Purple: rgba(32, 2, 53, 0.83), // [data] board_adapter.cpp:173-188
+  'Light Purple': rgba(119, 31, 91, 0.83), // [data] board_adapter.cpp:173-188
+  Yellow: rgba(194, 195, 0, 0.83), // [data] board_adapter.cpp:173-188
 };
 
 // [data] `g_PasteColors` (`:190-192`).
 export const PASTE_COLORS: Readonly<Record<string, Color4d>> = {
-  Grey: rgba(128, 128, 128, 1.0),
-  'Dark Grey': rgba(90, 90, 90, 1.0),
-  Silver: rgba(213, 213, 213, 1.0),
+  Grey: rgba(128, 128, 128, 1.0), // [data] board_adapter.cpp:190-192
+  'Dark Grey': rgba(90, 90, 90, 1.0), // [data] board_adapter.cpp:190-192
+  Silver: rgba(213, 213, 213, 1.0), // [data] board_adapter.cpp:190-192
 };
 
 // [data] `g_FinishColors` (`:194-197`).
 export const FINISH_COLORS: Readonly<Record<string, Color4d>> = {
-  Copper: rgba(184, 115, 50, 1.0),
-  Gold: rgba(178, 156, 0, 1.0),
-  Silver: rgba(213, 213, 213, 1.0),
-  Tin: rgba(160, 160, 160, 1.0),
+  Copper: rgba(184, 115, 50, 1.0), // [data] board_adapter.cpp:194-197
+  Gold: rgba(178, 156, 0, 1.0), // [data] board_adapter.cpp:194-197
+  Silver: rgba(213, 213, 213, 1.0), // [data] board_adapter.cpp:194-197
+  Tin: rgba(160, 160, 160, 1.0), // [data] board_adapter.cpp:194-197
 };
 
 // [data] `g_BoardColors` (`:199-207`).
 export const BOARD_COLORS: Readonly<Record<string, Color4d>> = {
-  'FR4 natural, dark': rgba(51, 43, 22, 0.83),
-  'FR4 natural': rgba(109, 116, 75, 0.83),
-  'PTFE natural': rgba(252, 252, 250, 0.9),
-  Polyimide: rgba(205, 130, 0, 0.68),
-  'Phenolic natural': rgba(92, 17, 6, 0.9),
-  'Brown 1': rgba(146, 99, 47, 0.83),
-  'Brown 2': rgba(160, 123, 54, 0.83),
-  'Brown 3': rgba(146, 99, 47, 0.83),
-  Aluminum: rgba(213, 213, 213, 1.0),
+  'FR4 natural, dark': rgba(51, 43, 22, 0.83), // [data] board_adapter.cpp:199-207
+  'FR4 natural': rgba(109, 116, 75, 0.83), // [data] board_adapter.cpp:199-207
+  'PTFE natural': rgba(252, 252, 250, 0.9), // [data] board_adapter.cpp:199-207
+  Polyimide: rgba(205, 130, 0, 0.68), // [data] board_adapter.cpp:199-207
+  'Phenolic natural': rgba(92, 17, 6, 0.9), // [data] board_adapter.cpp:199-207
+  'Brown 1': rgba(146, 99, 47, 0.83), // [data] board_adapter.cpp:199-207
+  'Brown 2': rgba(160, 123, 54, 0.83), // [data] board_adapter.cpp:199-207
+  'Brown 3': rgba(146, 99, 47, 0.83), // [data] board_adapter.cpp:199-207
+  Aluminum: rgba(213, 213, 213, 1.0), // [data] board_adapter.cpp:199-207
 };
 
 // [data] the `g_Default*` fallbacks (`:210-215`), used when the stackup says

@@ -190,8 +190,6 @@ const DOC = readSchematic(
       (effects (font (size 1.27 1.27)) (justify left top)))))`),
 );
 
-const LIBS = new Map(DOC.libSymbols.map((l) => [l.libId, l]));
-
 const paint = (override: boolean): Set<string> => {
   const s = spy();
   setVectorText(true);
@@ -213,7 +211,6 @@ const paint = (override: boolean): Set<string> => {
         grid: { ...DEFAULT_RENDER_OPTS.grid, show: false },
         overrideItemColors: override,
       },
-      LIBS,
     );
   } finally {
     setVectorText(false);
@@ -285,7 +282,6 @@ describe('m_OverrideItemColors replaces every own colour with its layer', () => 
           highlightNetclassColors: true,
           overrideItemColors: true,
         },
-        LIBS,
       );
     } finally {
       setVectorText(false);

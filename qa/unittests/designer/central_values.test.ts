@@ -202,7 +202,23 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // `.ze-pref-*` where a shared sizer already states it, and cited wx borders
   // in shell.css where the page has a sizer of its own. RESCANNED from this
   // tree.
-  'editors/pcb': { colours: 48, metrics: 215 },
+  // RESCANNED once the pass was finished, which moves both numbers off the
+  // forecast above: 50/213, not 51/215 and not the 48 this row briefly said.
+  // Two of the ten colours the Board Setup sweep was going to take are still
+  // there, and one more metric went than was counted.
+  //
+  // The 3D viewer's stackup colours arrived in the same pass and are not in
+  // either number: `board_adapter_colors.ts` is `BOARD_ADAPTER`'s own five
+  // `CUSTOM_COLORS_LIST`s, so all forty carry [data] and the upstream line
+  // range on the entry's own line.
+  'editors/pcb': { colours: 50, metrics: 213 },
+  // At zero, and listed rather than absent: `prefs/` is the settings store, and
+  // the one literal it had - the 3D viewer's `rgb(0,255,0)` selection colour -
+  // is `PARAM<COLOR4D>( "render.opengl_selection_color", …, COLOR4D( 0, 1, 0, 1 ) )`
+  // (`eda_3d_viewer_settings.cpp:261-263`), marked [data] where it is declared.
+  // The panel that showed it stopped restating the value and reads
+  // VIEWER3D_RENDER_DEFAULTS instead.
+  prefs: { colours: 0, metrics: 0 },
   // 68/215 -> 60/210: the COLOR_SWATCH sweep. Eight `<input type="color">`s
   // across the item dialogs, the net-chain table and the colour-settings
   // panel each carried a '#000000' or '#ffffff' fallback the native control
@@ -531,7 +547,26 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // while six left `editors/schematic`. They are the schematic dialog's own
   // numbers, which were already checked against its `_base.cpp`; the board's
   // copy, and the sizes it had invented, are gone with the file.
-  ui: { colours: 204, metrics: 717 },
+  // 717 was a forecast too. Rescanned: 709 -> 724. Twenty-one arrived with the
+  // three dialogs this pass rebuilt and one left (`PagedDialog`'s inline
+  // `padding: 16`); five of the twenty-one are cited and marked, which is where
+  // 724 comes from.
+  //
+  // The sixteen that are NOT cited are this row's next sweep, and they are all
+  // one shape - a container `gap` where wx states a per-`Add()` border:
+  //   .ze-drc-body          padding: 10px 12px   (2)
+  //   .ze-drc-violations    max-height: 340px    (1, ours: the window is modeless)
+  //   .ze-tableprops-body   gap: 10px            .ze-tableprops-header  gap: 20px
+  //   .ze-tableprops-groups gap: 12px            .ze-tableprops-boxes   gap: 24px
+  //   .ze-tableprops-line   gap: 20px + margin-top: 6px
+  //   .ze-textboxprops-body gap: 6px             .ze-tbp-check          gap: 6px
+  //   .ze-tbp-grid          gap: 6px 10px  (2)   .ze-tbp-ctl            gap: 6px
+  //   .ze-tbp-fontrow       gap: 8px             .ze-zone-layer-name    gap: 4px
+  // `dialog_textbox_properties_base.cpp:67` states `wxGridBagSizer( 3, 3 )` and
+  // its Add()s state 5s, so 6/10 is neither; the honest fix is the per-Add()
+  // borders, and it needs the three dialogs put side by side with KiCad's own
+  // rather than a number picked here.
+  ui: { colours: 204, metrics: 724 },
   // colours 6 -> 7: the opacity slider's #55585d track arrived here with
   // APPEARANCE_CONTROLS; it is the same literal `editors/pcb` lost, not a new
   // one. The panel's own stylesheet adds none: every length in
@@ -921,7 +956,9 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // same three from the board theme through `editPointColors`. Its handles
     // therefore ignored the theme entirely. `editors/pcb` 51 -> 48 is the only
     // row that moves, and 530 - 3 agrees with it.
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(527);
+    // 527 -> 529: the rescan of the finished tree; `editors/pcb` is the only
+    // row that moves and 527 + 2 agrees with it.
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(529);
     // 1657 -> 1649: the same sweep. A native colour input has no useful
     // default size, so eight of the sixteen sites gave theirs an inline
     // width and height; the shared swatch takes --swatch-*-w/h. Rescanned.
@@ -1067,7 +1104,9 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // 1319 -> 1321: Table Properties became one dialog. Two rows move and
     // together they account for it: `ui` 709 -> 717 as the layout arrived as
     // rules, `editors/schematic` 191 -> 185 as its inline styles left.
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1321);
+    // 1321 -> 1326: the same rescan. Two rows move and they account for all
+    // five: `ui` 717 -> 724 and `editors/pcb` 215 -> 213.
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1326);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {

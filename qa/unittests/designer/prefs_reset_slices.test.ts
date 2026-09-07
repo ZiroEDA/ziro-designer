@@ -498,6 +498,8 @@ const freshBag = (): Bag => ({
     symbol_editor: structuredClone(TOOLBAR_SETTINGS_DEFAULTS),
     pcbnew: structuredClone(TOOLBAR_SETTINGS_DEFAULTS),
     pl_editor: structuredClone(TOOLBAR_SETTINGS_DEFAULTS),
+    fpedit: structuredClone(TOOLBAR_SETTINGS_DEFAULTS),
+    '3d_viewer': structuredClone(TOOLBAR_SETTINGS_DEFAULTS),
     gerbview: structuredClone(TOOLBAR_SETTINGS_DEFAULTS),
   },
 });

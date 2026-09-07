@@ -6,5 +6,11 @@
     "types": ["node"],
     "jsx": "react-jsx"
   },
-  "include": ["unittests", "../designer/src/occt-import-js.d.ts"]
+  "include": [
+    "unittests",
+    "../designer/src/occt-import-js.d.ts",
+    // `?raw` asset imports: vite/client declares them, and it resolves from
+    // designer/, not from here.
+    "../designer/src/vite-env.d.ts"
+  ]
 }

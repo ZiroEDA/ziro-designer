@@ -36,6 +36,7 @@ import { transferTemplateFieldnamesPage } from '@ziroeda/designer/src/editors/sc
 import { resolveTemplateFieldnames } from '@ziroeda/designer/src/editors/schematic/template_fieldnames.js';
 import { rowsFromSymbol } from '@ziroeda/designer/src/editors/schematic/symbol_props_rows.js';
 import {
+  buildFieldsReferences,
   FieldsDataModel,
   loadFieldNames,
   symbolTextVarResolver,
@@ -98,6 +99,8 @@ const DOC = readSchematic(
     (property "Value" "10k" (at 40 63 0) (effects (font (size 1.27 1.27))))))`),
 );
 const SYMBOL = DOC.symbols[0]!;
+/** `buildFieldsReferences` on a one-sheet project, which is what the dialog holds. */
+const REFS = buildFieldsReferences(new Map([['root.kicad_sch', DOC]]));
 const LIB = DOC.libSymbols[0];
 
 describe('Symbol Properties offers every resolved template as a row', () => {
@@ -139,7 +142,6 @@ describe('the Symbol Fields Table gives every resolved template a column', () =>
    *      if( userFieldNames.count( tfn.m_Name ) == 0 ) AddField( … );`
    * (`dialog_symbol_fields_table.cpp:777-780`).
    */
-  const REFS = [{ symbol: SYMBOL, ref: 'R', refNumber: '1', unit: 1, path: '/' }];
   const columns = (templates: readonly { name: string }[]): string[] =>
     loadFieldNames(new FieldsDataModel(REFS), REFS, templates);
 
@@ -161,11 +163,7 @@ describe('a ${TEMPLATE} token on a symbol that has no such field is empty', () =
    * is added.
    */
   const resolve = (token: string, templates: readonly { name: string }[]): string | undefined =>
-    symbolTextVarResolver(
-      { symbol: SYMBOL, ref: 'R', refNumber: '1', unit: 1, path: '/' },
-      undefined,
-      templates,
-    )(token);
+    symbolTextVarResolver(REFS[0]!, undefined, templates)(token);
 
   it('answers empty for a template name', () => {
     expect(resolve('MPN', resolveTemplateFieldnames(PROJECT, GLOBAL))).toBe('');

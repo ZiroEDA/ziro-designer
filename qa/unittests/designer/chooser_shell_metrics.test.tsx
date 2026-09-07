@@ -252,8 +252,8 @@ describe('the values, as the probes measured them', () => {
     expect(decl('.ze-libtree-details hr', 'height')).toBe('1px');
     expect(decl('.ze-libtree-details hr', 'margin')).toBe('var(--libtree-details-line) 0');
     // wxSYS_COLOUR_HOTLIGHT, which is where HTML_WINDOW::SetPage gets `link`.
-    expect(token('html-link')).toBe('#f08762');
-    expect(decl('.ze-libtree-details a', 'color')).toBe('var(--html-link)');
+    expect(token('link-fg')).toBe('#f08762');
+    expect(decl('.ze-libtree-details a', 'color')).toBe('var(--link-fg)');
   });
 
   it('opens at horizPixelsFromDU( 440 ) by horizPixelsFromDU( 340 )', () => {

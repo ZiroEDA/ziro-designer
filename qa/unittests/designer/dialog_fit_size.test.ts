@@ -208,7 +208,7 @@ describe('the pile of hand-picked dialog sizes does not grow', () => {
     expect(inlineSized()).toHaveLength(3);
   });
 
-  it('13 shell.css variants still name their own size', () => {
+  it('6 shell.css variants still name their own size', () => {
     // 15 until `.ze-pgs` stopped restating what `.ze-modal` now gets right, and
     // 14 until Open Project became the shared file chooser: `.ze-open-project`
     // named a 920x620 and the window that replaced it is sized by the chooser,
@@ -308,7 +308,18 @@ describe('the pile of hand-picked dialog sizes does not grow', () => {
     // is `width: max-content`, so a page running past 1095 pushed the dialog
     // wider and the jumping came back. A page that does not fit KiCad's own
     // dialog is a parity bug in that page.
-    expect(cssSized()).toHaveLength(14);
+    //
+    // 14 -> 6: the eight are done. `.ze-zone-dialog` 560, `.ze-padprops-dialog`
+    // 580, `.ze-graphic-dialog` 520, `.ze-fpprops-dialog`, `.ze-message-dialog`,
+    // `.ze-pns-dialog`, `.ze-teardrops-dialog` and `.ze-tvp-dialog` each named a
+    // width their own `_base.cpp` does not: those files end in
+    // `bMainSizer->Fit( this )` with no `SetSizeHints` width, so the dialog is
+    // as wide as its widest row and nothing else. Each lost the `width:` line
+    // only - `height: auto` and the `max-height: 92vh` scroll cap stay, because
+    // a browser has no screen-fitting pass of its own. What sets the copper
+    // zone dialog's width now is the one number its base file does state,
+    // `m_layers->SetMinSize( wxSize( 180,-1 ) )`, cited beside the rule.
+    expect(cssSized()).toHaveLength(6);
   });
 
   it('and every one of them is a dialog, so the scan is really finding them', () => {

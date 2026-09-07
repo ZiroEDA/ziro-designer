@@ -369,7 +369,11 @@ const BASELINE: Record<string, number> = {
   // the menu bar. The address is now a `.ze-mitem` inside `.ze-dropdown`, which
   // takes the menu's own size, and the avatar that replaced the row is sized in
   // `em` off `--ui-font-size` rather than in pixels. RESCANNED from this tree.
-  ui: 83,
+  // 83 -> 82: `PagedDialog`'s placeholder page, which styled itself
+  // `{ padding: 16, color: 'var(--ze-muted, #888)', fontSize: 12 }`. No token
+  // named `--ze-muted` is declared in this stylesheet, so the fallback was what
+  // painted; the row is `.ze-paged-unimplemented` now and states no size.
+  ui: 82,
   widgets: 6,
 };
 
@@ -619,7 +623,9 @@ describe('hardcoded font sizes do not grow', () => {
     // 61: `editors/pcb` 121 -> 64 (the dialog and its thirteen panels) and
     // `dialogs` 5 -> 1 (`panel_setup_netclasses` and `panel_embedded_files`,
     // which Board Setup shows as pages of its own). 283 - 57 - 4 = 222.
-    expect(sites.length).toBe(222);
+    // 222 -> 221: the same placeholder row; `ui` 83 -> 82 is the only row that
+    // moves, and 222 - 1 agrees with it.
+    expect(sites.length).toBe(221);
   });
 });
 
