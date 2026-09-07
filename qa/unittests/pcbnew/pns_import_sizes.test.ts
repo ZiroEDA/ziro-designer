@@ -22,6 +22,9 @@ import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 import { PnsBoardIface } from '@ziroeda/pcbnew/src/router/pns_board_iface.js';
 import { DEFAULT_ROUTER_SIZES } from '@ziroeda/pcbnew/src/router/pns_router.js';
 import { PnsSegment } from '@ziroeda/pcbnew/src/router/pns_segment.js';
+import { PnsNode } from '@ziroeda/pcbnew/src/router/pns_node.js';
+import { buildDrcRuleEngine } from '@ziroeda/pcbnew/src/drc/drc_rules_engine.js';
+import { parseDrcRules } from '@ziroeda/pcbnew/src/drc/drc_rule.js';
 import {
   defaultTrackViaSizeState,
   withNetclassEntry,
@@ -286,5 +289,153 @@ describe('inheriting the width from the track the route starts on', () => {
     );
 
     expect(sizes.trackWidth).toBe(MM(0.25));
+  });
+});
+
+describe('where each number came from', () => {
+  /**
+   * The four `Set…Source` strings. `ROUTER_TOOL`'s status bar is the only
+   * reader, and it is the only place a user can find out WHY their track is
+   * the width it is — by the time the number reaches the placer, the branch
+   * that produced it is gone.
+   */
+  it('names the netclass when the toolbar is on "use netclass"', () => {
+    const { sizes } = imported(designSettings());
+
+    expect(sizes.clearanceSource).toBe('board minimum clearance');
+    expect(sizes.widthSource).toBe("netclass 'Default'");
+    expect(sizes.diffPairWidthSource).toBe('user choice');
+    expect(sizes.diffPairGapSource).toBe('user choice');
+  });
+
+  it('names the user when a preset is chosen', () => {
+    // `else if( trackWidth == bds.GetCurrentTrackWidth() ) … "user choice"`.
+    const model = sizesModel();
+    const ds = designSettings({
+      sizes: { ...model, selection: { ...model.selection, trackWidthIndex: 2 } },
+    });
+
+    expect(imported(ds).sizes.widthSource).toBe('user choice');
+  });
+
+  it('leaves the board minimum named when the preset lost the max', () => {
+    // The `if( trackWidth == … )` guard: a preset UNDER the board minimum does
+    // not get the credit for a width it did not produce.
+    const model = sizesModel();
+    const ds = designSettings({
+      trackMinWidth: MM(1),
+      sizes: { ...model, selection: { ...model.selection, trackWidthIndex: 1 } },
+    });
+
+    expect(imported(ds).sizes.trackWidth).toBe(MM(1));
+    expect(imported(ds).sizes.widthSource).toBe('board minimum track width');
+  });
+
+  it('names the starting track when the width is inherited', () => {
+    const iface = new PnsBoardIface(BOARD, {
+      designSettings: designSettings({
+        useConnectedTrackWidth: true,
+        inheritTrackWidth: () => MM(0.75),
+      }),
+    });
+    const seg = new PnsSegment({ a: { x: 0, y: 0 }, b: { x: MM(10), y: 0 } }, null);
+    seg.setLayer(0);
+
+    const sizes: PnsRouterSizes = { ...DEFAULT_ROUTER_SIZES };
+    iface.importSizes(sizes, seg, null, { x: 0, y: 0 });
+
+    expect(sizes.widthSource).toBe('existing track');
+  });
+
+  it('reports the clearance and the single-via hole-to-hole as well', () => {
+    // `SetClearance( bds.m_MinClearance )` and `SetHoleToHole( holeToHoleMin )`
+    // — separate from `minClearance` and `diffPairHoleToHole`, which are the
+    // floors those two start from.
+    const { sizes } = imported(designSettings());
+
+    expect(sizes.clearance).toBe(MM(0.15));
+    expect(sizes.holeToHole).toBe(MM(0.25));
+  });
+});
+
+describe('the branches that need the rule engine', () => {
+  /**
+   * `ImportSizes`'s netclass arms all go through
+   * `m_ruleResolver->QueryConstraint`, and the resolver only exists after
+   * `SyncWorld` — which is the order the tool uses and the reason every case
+   * above missed these arms entirely. A mutant that handed a losing rule the
+   * credit for the width survived on that alone.
+   */
+  const synced = (dru: string, ds: PnsDesignSettings): PnsRouterSizes => {
+    const iface = new PnsBoardIface(BOARD, {
+      designSettings: ds,
+      ruleEngine: buildDrcRuleEngine([], parseDrcRules(dru)),
+    });
+    // `ROUTER::SyncWorld` — what builds the rule resolver.
+    const node = new PnsNode();
+    node.beginBulkAdd();
+    iface.syncWorld(node);
+    node.finalizeBulkAdd();
+
+    const seg = new PnsSegment({ a: { x: 0, y: 0 }, b: { x: MM(10), y: 0 } }, null);
+    seg.setLayer(0);
+
+    const sizes: PnsRouterSizes = { ...DEFAULT_ROUTER_SIZES };
+    iface.importSizes(sizes, seg, null, { x: 0, y: 0 });
+    return sizes;
+  };
+
+  it('takes a rule’s optimal width and names the rule', () => {
+    const sizes = synced(
+      '(version 1)(rule wide (constraint track_width (min 0.3mm) (opt 0.6mm)))',
+      designSettings(),
+    );
+
+    expect(sizes.trackWidth).toBe(MM(0.6));
+    expect(sizes.widthSource).toBe('wide');
+  });
+
+  it('does NOT name a rule whose optimum lost to the board minimum', () => {
+    // `trackWidth = std::max( trackWidth, opt ); if( trackWidth == opt ) …`
+    // A rule asking for less than the board allows does not get the credit for
+    // a width it did not produce.
+    const sizes = synced(
+      '(version 1)(rule narrow (constraint track_width (min 0.05mm) (opt 0.1mm)))',
+      designSettings({ trackMinWidth: MM(0.4) }),
+    );
+
+    expect(sizes.trackWidth).toBe(MM(0.4));
+    expect(sizes.widthSource).toBe('board minimum track width');
+  });
+
+  it('takes a diff-pair gap rule and names it for the gap and the via gap', () => {
+    const sizes = synced(
+      '(version 1)(rule dp (constraint diff_pair_gap (min 0.2mm) (opt 0.35mm)))',
+      designSettings(),
+    );
+
+    expect(sizes.diffPairGap).toBe(MM(0.35));
+    expect(sizes.diffPairViaGap).toBe(MM(0.35));
+    expect(sizes.diffPairGapSource).toBe('dp');
+  });
+
+  it('does NOT name a gap rule whose optimum lost to the board minimum', () => {
+    // The same `if( diffPairGap == constraint.m_Value.Opt() )` guard as the
+    // width has. Without a LOSING rule the guard is never exercised, and a
+    // version that names the rule unconditionally reads identically.
+    const sizes = synced(
+      '(version 1)(rule tight (constraint diff_pair_gap (min 0.05mm) (opt 0.08mm)))',
+      designSettings({ minClearance: MM(0.3) }),
+    );
+
+    expect(sizes.diffPairGap).toBe(MM(0.3));
+    expect(sizes.diffPairGapSource).toBe('board minimum clearance');
+  });
+
+  it('leaves the board minimum named when no rule matches', () => {
+    const sizes = synced('(version 1)', designSettings());
+
+    expect(sizes.widthSource).toBe("netclass 'Default'");
+    expect(sizes.diffPairGapSource).toBe('board minimum clearance');
   });
 });

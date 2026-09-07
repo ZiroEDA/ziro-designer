@@ -124,6 +124,28 @@ export interface PnsRouterSizes extends DpPlacerSizes {
   boardMinTrackWidth: number;
   /** `MinClearance()` — the board's minimum clearance constraint. */
   minClearance: number;
+  /**
+   * `Clearance()` — the clearance actually in force, which is the board minimum
+   * raised by whichever rule matched the item the route starts on. Separate
+   * from {@link minClearance}, which never moves.
+   */
+  clearance: number;
+  /** `GetHoleToHole()` — the single-via answer, before the coupled-net query. */
+  holeToHole: number;
+  /**
+   * The four `Get…Source()` strings — where each number above came from, in the
+   * words `ROUTER_TOOL` puts in the status bar: "board minimum clearance",
+   * "existing track", "netclass 'Default'", "user choice", or a rule's name.
+   *
+   * They are not decoration. A user asking why their track is 0.25 mm gets the
+   * answer from these and nowhere else, and `ImportSizes` is the only thing
+   * that knows — by the time the number reaches the placer, which branch
+   * produced it is gone.
+   */
+  clearanceSource: string;
+  widthSource: string;
+  diffPairWidthSource: string;
+  diffPairGapSource: string;
 }
 
 /** Every {@link PnsRouterSizes} member at its C++ default. */
@@ -143,6 +165,12 @@ export const DEFAULT_ROUTER_SIZES: PnsRouterSizes = {
   trackWidth: 0,
   boardMinTrackWidth: 0,
   minClearance: 0,
+  clearance: 0,
+  holeToHole: 0,
+  clearanceSource: '',
+  widthSource: '',
+  diffPairWidthSource: '',
+  diffPairGapSource: '',
 };
 
 // ---------------------------------------------------------------------------

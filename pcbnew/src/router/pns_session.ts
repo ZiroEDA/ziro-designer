@@ -41,7 +41,12 @@ import type { Board } from '../types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { addBoardTrack, addBoardVia } from '../edit-board.js';
 import { boardCopperLayerCount as copperLayerCount } from '../unused_pad_layers.js';
-import { PnsBoardIface, boardLayerFromPnsLayer, type PnsPendingChange } from './pns_board_iface.js';
+import {
+  PnsBoardIface,
+  boardLayerFromPnsLayer,
+  type PnsDesignSettings,
+  type PnsPendingChange,
+} from './pns_board_iface.js';
 import { PnsKind } from './pns_item.js';
 import type { PnsSegment } from './pns_segment.js';
 import { PnsVia } from './pns_via.js';
@@ -188,6 +193,19 @@ export interface PnsSessionOptions {
   trackWidth?: number;
   viaDiameter?: number;
   viaDrill?: number;
+  /**
+   * `BOARD_DESIGN_SETTINGS`, which is what `ROUTER_TOOL::prepareInteractive`
+   * actually uses:
+   *
+   *     m_iface->ImportSizes( sizes, m_startItem, nullptr, aStartPosition );
+   *     m_router->UpdateSizes( sizes );
+   *
+   * Supply it and the three loose numbers above are ignored: the sizes come
+   * from Board Setup, the netclass and the toolbar's choice, resolved by
+   * `ImportSizes`. They stay for callers that only want to place one track of a
+   * stated width.
+   */
+  designSettings?: PnsDesignSettings;
 }
 
 /** What a session did to the board, once it finished. */
@@ -233,6 +251,7 @@ export class PnsSession {
 
     this.iface = new PnsBoardIface(board, {
       isLayerVisible: aOptions.isLayerVisible,
+      designSettings: aOptions.designSettings ?? null,
       onCommit: (batch) => {
         for (const change of batch) this.committed.push(change);
       },
@@ -266,16 +285,26 @@ export class PnsSession {
     // `ROUTER_TOOL::prepareInteractive` — the sizes have to be in before the
     // placer starts, because `LINE_PLACER::initPlacement` reads the width once
     // and stamps it on the head and the tail.
-    this.router.updateSizes({
-      ...this.router.sizes(),
-      trackWidth: aOptions.trackWidth ?? 0,
-      // "The user picked this width", so continuing an existing track adopts it
-      // rather than keeping the old one. A caller that passes nothing is
-      // deliberately not explicit about anything.
-      trackWidthIsExplicit: aOptions.trackWidth !== undefined,
-      viaDiameter: aOptions.viaDiameter ?? 0,
-      viaDrill: aOptions.viaDrill ?? 0,
-    });
+    if (aOptions.designSettings) {
+      // `ImportSizes( sizes, m_startItem, nullptr, aStartPosition )`. There is
+      // no start item yet at construction — the tool re-imports once it has
+      // one — so this is the no-item answer: board minimums raised by the
+      // toolbar's choice and the netclass.
+      const sizes = { ...this.router.sizes() };
+      this.iface.importSizes(sizes, null, null, { x: 0, y: 0 });
+      this.router.updateSizes(sizes);
+    } else {
+      this.router.updateSizes({
+        ...this.router.sizes(),
+        trackWidth: aOptions.trackWidth ?? 0,
+        // "The user picked this width", so continuing an existing track adopts
+        // it rather than keeping the old one. A caller that passes nothing is
+        // deliberately not explicit about anything.
+        trackWidthIsExplicit: aOptions.trackWidth !== undefined,
+        viaDiameter: aOptions.viaDiameter ?? 0,
+        viaDrill: aOptions.viaDrill ?? 0,
+      });
+    }
     this.router.syncWorld();
   }
 

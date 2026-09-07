@@ -300,3 +300,106 @@ export function getCurrentDiffPairViaGap(s: TrackViaSizes): number {
     return nc.diffPairViaGap ?? getCurrentDiffPairGap(s);
   return list[sel.diffPairIndex]!.viaGap;
 }
+
+// ---------------------------------------------------------------------------
+// Cycling, and the menu's own transitions.
+
+/**
+ * `BOARD_EDITOR_CONTROL::TrackWidthInc` / `TrackWidthDec`
+ * (`board_editor_control.cpp:1086-1200`), the half that runs while the router
+ * is live. Which list it walks is the router's MODE:
+ *
+ *     if( routerTool->IsToolActive()
+ *             && routerTool->Router()->Mode() == PNS_MODE_ROUTE_DIFF_PAIR )
+ *         widthIndex = bds.GetDiffPairIndex() + 1;    // or - 1
+ *     else
+ *         widthIndex = bds.GetTrackWidthIndex();      // …
+ *
+ * Both wrap, and they wrap ASYMMETRICALLY: increment falls off the end to 0,
+ * decrement falls off the front to `size() - 1`. Index 0 is in the cycle, so
+ * "use netclass" is one of the stops.
+ */
+export function nextDiffPairIndex(s: TrackViaSizes, aDelta: 1 | -1): TrackViaSizeState {
+  const size = s.diffPairDimensionsList.length;
+  let index = s.selection.diffPairIndex + aDelta;
+
+  if (aDelta > 0) {
+    // `if( widthIndex >= (int) size ) widthIndex = 0;`
+    if (index >= size) index = 0;
+  } else if (index < 0) {
+    // `if( widthIndex < 0 ) widthIndex = size - 1;`
+    index = size - 1;
+  }
+
+  // `SetDiffPairIndex( widthIndex ); UseCustomDiffPairDimensions( false );`
+  return setDiffPairIndex(s, index);
+}
+
+/**
+ * The single-track arm of the same two actions, including the step it does
+ * NOT take:
+ *
+ *     if( routerTool->IsToolActive() && Router()->GetState() == ROUTE_TRACK
+ *             && bds.m_UseConnectedTrackWidth && !bds.m_TempOverrideTrackWidth )
+ *         bds.m_TempOverrideTrackWidth = true;
+ *     else
+ *         widthIndex++;
+ *
+ * The first press while "use the starting track's width" is on does not change
+ * the index at all — it turns the override on, so the NEXT press starts from
+ * where the index already was. Returns the new selection and the new override
+ * flag, because the flag lives outside {@link TrackViaSizeState}.
+ */
+export function nextTrackWidthIndex(
+  s: TrackViaSizes,
+  aDelta: 1 | -1,
+  aRouting: {
+    routingTrack: boolean;
+    useConnectedTrackWidth: boolean;
+    tempOverrideTrackWidth: boolean;
+  },
+): { selection: TrackViaSizeState; tempOverrideTrackWidth: boolean } {
+  const size = s.trackWidthList.length;
+
+  if (
+    aRouting.routingTrack &&
+    aRouting.useConnectedTrackWidth &&
+    !aRouting.tempOverrideTrackWidth
+  ) {
+    return { selection: s.selection, tempOverrideTrackWidth: true };
+  }
+
+  let index = s.selection.trackWidthIndex + aDelta;
+
+  if (aDelta > 0) {
+    if (index >= size) index = 0;
+  } else if (index < 0) {
+    index = size - 1;
+  }
+
+  // `SetTrackWidthIndex( widthIndex ); UseCustomTrackViaSize( false );`
+  return {
+    selection: setTrackWidthIndex(s, index),
+    tempOverrideTrackWidth: aRouting.tempOverrideTrackWidth,
+  };
+}
+
+/**
+ * `TRACK_WIDTH_MENU::eventHandler`'s `ID_POPUP_PCB_SELECT_USE_NETCLASS_VALUES`
+ * arm (`router_tool.cpp:383-389`) — the one menu item that resets FOUR things,
+ * including `m_UseConnectedTrackWidth`, which no other arm touches.
+ */
+export function useNetclassTrackAndVia(s: TrackViaSizes): {
+  selection: TrackViaSizeState;
+  useConnectedTrackWidth: false;
+} {
+  const cleared: TrackViaSizes = {
+    ...s,
+    selection: { ...s.selection, useCustomTrackVia: false },
+  };
+
+  return {
+    selection: setTrackWidthIndex({ ...cleared, selection: setViaSizeIndex(cleared, 0) }, 0),
+    useConnectedTrackWidth: false,
+  };
+}

@@ -43,6 +43,9 @@
  */
 import { buildConvexHull } from '@ziroeda/kimath/src/geometry/convex_hull.js';
 import { Distance } from '@ziroeda/kimath/src/math/vector2.js';
+import { pcbMmToIU } from '@ziroeda/common/src/eda_units.js';
+import { stackupLayerDistanceMM } from '../board_stackup_distance.js';
+import type { StackupDistanceItem } from '../board_stackup_distance.js';
 import {
   getCurrentDiffPairGap,
   getCurrentDiffPairViaGap,
@@ -365,6 +368,18 @@ export interface PnsDesignSettings {
    * `PNS::ITEM`s; the caller owns that translation.
    */
   inheritTrackWidth?: (aStartItem: PnsItem, aStartPosition: Vec2) => number | null;
+  /**
+   * `m_UseHeightForLengthCalcs` — Board Setup > Constraints' "Include stackup
+   * height in track length calculations". False is upstream's own early return
+   * from `StackupHeight`, not a stub.
+   */
+  useHeightForLengthCalcs?: boolean;
+  /**
+   * `GetStackupDescriptor().GetList()` as {@link stackupLayerDistanceMM} wants
+   * it, front to back. Absent means no stackup is described, which is
+   * upstream's other early return.
+   */
+  stackup?: readonly StackupDistanceItem[];
 }
 
 /** One board mutation the router asked for, held rather than applied. */
@@ -912,14 +927,30 @@ export class PnsBoardIface implements PnsRouterIface, PnsResolverHost {
   /**
    * `PNS_KICAD_IFACE_BASE::StackupHeight` (cpp:1330-1339).
    *
-   * Upstream returns 0 unless `m_UseHeightForLengthCalcs` is set *and* a
-   * `BOARD_STACKUP` describes the dielectric thicknesses. This tree models
-   * neither — `Board.thickness` is one number for the whole board, not a
-   * per-layer distance — so 0 is upstream's own default answer rather than a
-   * stub standing in for one.
+   *     if( !m_board || !bds.m_UseHeightForLengthCalcs )
+   *         return 0;
+   *     return stackup.GetLayerDistance( board layer a, board layer b );
+   *
+   * Both early returns are upstream's, so a board whose Constraints page leaves
+   * "Include stackup height in track length calculations" unticked really does
+   * answer 0 — that is the setting doing its job, not the port giving up.
+   *
+   * The stackup itself arrives through {@link PnsBoardIfaceDeps.stackup}
+   * because `Board` carries one overall thickness and not the per-layer list;
+   * the Physical Stackup page is where that list lives.
    */
-  stackupHeight(_aFirstLayer: number, _aSecondLayer: number): number {
-    return 0;
+  stackupHeight(aFirstLayer: number, aSecondLayer: number): number {
+    const ds = this.mDeps.designSettings;
+
+    // `if( !m_board || !m_board->GetDesignSettings().m_UseHeightForLengthCalcs )`
+    if (!ds?.useHeightForLengthCalcs || !ds.stackup) return 0;
+
+    const first = this.boardLayer(aFirstLayer);
+    const second = this.boardLayer(aSecondLayer);
+
+    if (!first || !second) return 0;
+
+    return pcbMmToIU(stackupLayerDistanceMM(ds.stackup, first, second));
   }
 
   /**
@@ -966,6 +997,8 @@ export class PnsBoardIface implements PnsRouterIface, PnsResolverHost {
     const resolver = this.mRuleResolver;
 
     aSizes.minClearance = ds.minClearance;
+    aSizes.clearance = ds.minClearance;
+    aSizes.clearanceSource = 'board minimum clearance';
 
     // `startAnchor`: which end of a segment the pointer is nearer, so the dummy
     // track below sits where the user actually started.
@@ -1002,6 +1035,8 @@ export class PnsBoardIface implements PnsRouterIface, PnsResolverHost {
     let trackWidth = ds.trackMinWidth;
     let found = false;
 
+    aSizes.widthSource = 'board minimum track width';
+
     // `if( bds.m_UseConnectedTrackWidth && !bds.m_TempOverrideTrackWidth && aStartItem )`
     if (ds.useConnectedTrackWidth && !ds.tempOverrideTrackWidth && aStartItem) {
       const inherited = ds.inheritTrackWidth?.(aStartItem, aStartPosition) ?? null;
@@ -1009,19 +1044,35 @@ export class PnsBoardIface implements PnsRouterIface, PnsResolverHost {
       if (inherited !== null) {
         trackWidth = inherited;
         found = true;
+        aSizes.widthSource = 'existing track';
       }
     }
 
     if (!found && useNetClassTrack(sel) && aStartItem) {
-      const opt = optOf(PnsConstraintType.CT_WIDTH, dummyTrack(aStartItem.net()), null, startLayer);
+      const c = resolver?.queryConstraint(
+        PnsConstraintType.CT_WIDTH,
+        dummyTrack(aStartItem.net()),
+        null,
+        startLayer,
+      );
 
-      if (opt !== null) {
-        trackWidth = Math.max(trackWidth, opt);
+      if (c?.value.opt !== undefined) {
+        trackWidth = Math.max(trackWidth, c.value.opt);
         found = true;
+
+        // `if( trackWidth == constraint.m_Value.Opt() )` — the rule only gets
+        // the credit when it actually won the max.
+        if (trackWidth === c.value.opt) aSizes.widthSource = c.ruleName;
       }
     }
 
-    if (!found) trackWidth = Math.max(trackWidth, getCurrentTrackWidth(ds.sizes));
+    if (!found) {
+      const current = getCurrentTrackWidth(ds.sizes);
+      trackWidth = Math.max(trackWidth, current);
+
+      if (useNetClassTrack(sel)) aSizes.widthSource = "netclass 'Default'";
+      else if (trackWidth === current) aSizes.widthSource = 'user choice';
+    }
 
     aSizes.trackWidth = trackWidth;
     aSizes.boardMinTrackWidth = ds.trackMinWidth;
@@ -1063,6 +1114,9 @@ export class PnsBoardIface implements PnsRouterIface, PnsResolverHost {
     let diffPairGap = ds.minClearance;
     let diffPairViaGap = ds.minClearance;
 
+    aSizes.diffPairWidthSource = 'board minimum track width';
+    aSizes.diffPairGapSource = 'board minimum clearance';
+
     found = false;
 
     // The width inherits from the starting track under the SAME flag as above,
@@ -1083,20 +1137,28 @@ export class PnsBoardIface implements PnsRouterIface, PnsResolverHost {
       const b = dummyTrack(coupled, 0);
 
       if (!found) {
-        const opt = optOf(PnsConstraintType.CT_WIDTH, a, b, startLayer);
-        if (opt !== null) diffPairWidth = Math.max(diffPairWidth, opt);
+        const c = resolver?.queryConstraint(PnsConstraintType.CT_WIDTH, a, b, startLayer);
+
+        if (c?.value.opt !== undefined) {
+          diffPairWidth = Math.max(diffPairWidth, c.value.opt);
+          if (diffPairWidth === c.value.opt) aSizes.diffPairWidthSource = c.ruleName;
+        }
       }
 
-      const gap = optOf(PnsConstraintType.CT_DIFF_PAIR_GAP, a, b, startLayer);
+      const gap = resolver?.queryConstraint(PnsConstraintType.CT_DIFF_PAIR_GAP, a, b, startLayer);
 
-      if (gap !== null) {
-        diffPairGap = Math.max(diffPairGap, gap);
-        diffPairViaGap = Math.max(diffPairViaGap, gap);
+      if (gap?.value.opt !== undefined) {
+        diffPairGap = Math.max(diffPairGap, gap.value.opt);
+        diffPairViaGap = Math.max(diffPairViaGap, gap.value.opt);
+        if (diffPairGap === gap.value.opt) aSizes.diffPairGapSource = gap.ruleName;
       }
     } else {
       diffPairWidth = getCurrentDiffPairWidth(ds.sizes);
       diffPairGap = getCurrentDiffPairGap(ds.sizes);
       diffPairViaGap = getCurrentDiffPairViaGap(ds.sizes);
+
+      aSizes.diffPairWidthSource = 'user choice';
+      aSizes.diffPairGapSource = 'user choice';
     }
 
     aSizes.diffPairWidth = diffPairWidth;
@@ -1117,6 +1179,8 @@ export class PnsBoardIface implements PnsRouterIface, PnsResolverHost {
     );
 
     if (single?.value.min !== undefined) holeToHole = single.value.min;
+
+    aSizes.holeToHole = holeToHole;
 
     const pairHoleToHole = holeToHole;
     const coupled = resolver?.queryConstraint(
