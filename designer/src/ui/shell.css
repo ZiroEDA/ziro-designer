@@ -11143,11 +11143,14 @@ textarea.ze-ds-textedit {
   /* [data] each label's own `wxLEFT, 4`. */
   margin-left: 4px;
 }
+/* The same full-size entries, and the same reason they need to say so: see
+   `.ze-txt-w-ctl` below. */
 .ze-tbp-w-ctl,
 .ze-tbp-h-ctl,
 .ze-tbp-t-ctl {
   grid-column: 2;
   width: 100%;
+  height: var(--ctl-height);
   box-sizing: border-box;
 }
 .ze-tbp-w-u,
@@ -11200,6 +11203,7 @@ textarea.ze-ds-textedit {
 .ze-tbp-bw-ctl {
   grid-column: 6;
   width: 100%;
+  height: var(--ctl-height);
   box-sizing: border-box;
 }
 .ze-tbp-bw-u {
@@ -11227,6 +11231,219 @@ textarea.ze-ds-textedit {
    that text is Gtk.CheckButton's own style property, never a number picked
    here. */
 .ze-tbp-check {
+  display: flex;
+  align-items: center;
+  gap: var(--check-inset);
+  white-space: nowrap;
+}
+
+/* Text Properties (pcbnew/dialogs/dialog_text_properties_base.cpp).
+
+   The same shape as Text Box Properties above and for the same reason:
+   `bMainSizer` is vertical with no group boxes — `m_MultiLineSizer` (label,
+   control, and the "Syntax help" link the .cpp appends to it at `:107`), then
+   ONE `wxGridBagSizer( 2, 3 )`, then the standard buttons. This dialog had
+   three invented fieldsets, Text / Font / Position.
+
+   NO `SetMinSize` anywhere in that file, unlike the text box's two: this
+   dialog's width is `Fit()` over its content and nothing else, so nothing here
+   states one either. */
+.ze-textprops-body {
+  display: flex;
+  flex-direction: column;
+}
+/* [data] `bMainSizer->Add( m_MultiLineSizer, 20, wxEXPAND|wxALL, 10 )` (`:63`). */
+.ze-txt-multiline {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  /* [data] that Add()'s `wxALL, 10`. */
+  margin: 10px;
+}
+.ze-txt-caption {
+  /* [data] `m_MultiLineSizer->Add( textLabel, 0, wxRIGHT|wxLEFT, 5 )` (`:28`). */
+  margin: 0 5px;
+}
+.ze-txt-text {
+  /* `dialog_text_properties_base.cpp` states NO `SetMinSize` for this control,
+     unlike the text box dialog's `wxSize( -1,150 )`, so its height is whatever
+     wxStyledTextCtrl reports as its best size — and a browser textarea's own
+     default is two rows, which is why this block was less than half the height
+     of a real one.
+
+     [px] `wxStyledTextCtrl( parent, wxID_ANY, wxDefaultPosition, wxDefaultSize,
+     0, wxEmptyString )` with the three zeroed margins the base file sets
+     reports `GetBestSize() = 200 x 100` on this machine with this theme
+     (`qa/probes/stc_bestsize_probe.cpp`). The width is not taken: the dialog is
+     wider than 200 through the gridbag, and `wxEXPAND` gives this control all
+     of it. */
+  min-height: 100px;
+  /* [data] its own `wxEXPAND|wxBOTTOM|wxRIGHT|wxLEFT, 5` (`:60`). */
+  margin: 0 5px 5px;
+  flex: 1 1 auto;
+  resize: vertical;
+  box-sizing: border-box;
+}
+.ze-txt-syntax {
+  /* [data] `m_MultiLineSizer->Add( m_syntaxHelp, 0, wxBOTTOM|wxRIGHT|wxLEFT, 3 )`
+     (`dialog_text_properties.cpp:107`). */
+  margin: 0 3px 3px;
+  align-self: flex-start;
+}
+
+/* `gbSizer1 = new wxGridBagSizer( 2, 3 )` (`:78`) with
+   `SetEmptyCellSize( wxSize( 20,-1 ) )` (`:81`), `AddGrowableCol( 1 )` and
+   `AddGrowableCol( 5 )` (`:264-265`).
+
+   TWO growable columns, not one: the left controls and the right controls take
+   the slack together, which is what keeps the two halves the same width as the
+   dialog grows. Column 3 is the empty separator, and the empty-cell size is
+   what makes it 20 wide rather than nothing. */
+.ze-txt-grid {
+  display: grid;
+  grid-template-columns:
+    max-content 1fr max-content
+    20px
+    max-content 1fr max-content;
+  align-items: center;
+  gap: 2px 3px; /* [data] `wxGridBagSizer( 2, 3 )` — vgap 2, hgap 3. */
+  /* [data] `bMainSizer->Add( gbSizer1, 0, wxEXPAND|wxLEFT|wxRIGHT, 10 )` (`:267`). */
+  margin: 0 10px;
+}
+/* `wxGBPosition( 0, 0 )`, span 3 — [data] `wxRIGHT|wxLEFT, 5`. */
+.ze-txt-locked {
+  grid-row: 1;
+  grid-column: 1 / span 3;
+  /* [data] that Add()'s `wxRIGHT|wxLEFT, 5`. */
+  margin: 0 5px;
+}
+/* `( 1, 0 )` — [data] `wxALIGN_CENTER_VERTICAL|wxTOP|wxBOTTOM|wxLEFT, 5`. */
+.ze-txt-layer-lbl {
+  grid-row: 2;
+  grid-column: 1;
+  /* [data] that Add()'s `wxTOP|wxBOTTOM|wxLEFT, 5`. */
+  margin: 5px 0 5px 5px;
+}
+/* `( 1, 1 )` span 2, `wxEXPAND` with no border flag. */
+.ze-txt-layer {
+  grid-row: 2;
+  grid-column: 2 / span 2;
+}
+/* `bSizer7` at `( 1, 4 )` span 3. Its own Add is `wxEXPAND|wxTOP|wxBOTTOM, 10`
+   and the checkbox inside it is `wxALL, 15`, so the two compose: 25 above and
+   below, 15 either side. That is what makes the Layer row as tall as it is. */
+.ze-txt-knockout {
+  grid-row: 2;
+  grid-column: 5 / span 3;
+  /* [data] `wxTOP|wxBOTTOM, 10` outside plus the checkbox's own `wxALL, 15`. */
+  margin: 25px 15px;
+}
+/* `( 2, 4 )` span 3 — [data] `wxBOTTOM|wxEXPAND|wxTOP, 3`. Row 2 is the Font
+   row; `m_fontLabel` at `( 2, 0 )` and `m_fontCtrl` at `( 2, 1 )` are absent
+   here because nothing on the pcbnew side carries a font face. */
+.ze-txt-bar {
+  grid-row: 3;
+  grid-column: 5 / span 3;
+  /* [data] that Add()'s `wxTOP|wxBOTTOM, 3`. */
+  margin: 3px 0;
+}
+/* The three left-hand rows, `( 3, 0 )` `( 4, 0 )` `( 5, 0 )` — [data] `wxLEFT, 5`
+   on each label; the controls at column 1 take `wxEXPAND` with no border. */
+.ze-txt-w-lbl,
+.ze-txt-h-lbl,
+.ze-txt-t-lbl {
+  grid-column: 1;
+  /* [data] each label's own `wxLEFT, 5`. */
+  margin-left: 5px;
+}
+/* A full-size `wxTextCtrl` built with `wxDefaultSize`, so it stands at the
+   entry height GTK gives it — the shared entry rule sets padding and colour and
+   deliberately leaves height to the call site, "where it is a full-size field".
+   Without it these sat at their padding height, 26 px, and the row pitch came
+   out 28 against a real dialog's 36.
+   [px] `wxTextCtrl( parent, wxID_ANY ).GetBestSize()` is 98 x 34
+   (`qa/probes/stc_bestsize_probe.cpp`), and 34 is --ctl-height. */
+.ze-txt-w-ctl,
+.ze-txt-h-ctl,
+.ze-txt-t-ctl {
+  grid-column: 2;
+  width: 100%;
+  height: var(--ctl-height);
+  box-sizing: border-box;
+}
+.ze-txt-w-u,
+.ze-txt-h-u {
+  grid-column: 3;
+}
+.ze-txt-w-lbl,
+.ze-txt-w-ctl,
+.ze-txt-w-u {
+  grid-row: 4;
+}
+.ze-txt-h-lbl,
+.ze-txt-h-ctl,
+.ze-txt-h-u {
+  grid-row: 5;
+}
+.ze-txt-t-lbl,
+.ze-txt-t-ctl {
+  grid-row: 6;
+}
+/* `bSizer8` at `( 5, 2 )` span 2: the unit label and `m_autoTextThickness`
+   beside it — [data] the sizer's own `wxRIGHT, 5`. */
+.ze-txt-t-u {
+  grid-row: 6;
+  grid-column: 3 / span 2;
+  /* [data] `bSizer8`'s own `wxRIGHT, 5`. */
+  margin-right: 5px;
+}
+/* The right-hand rows, `( 3, 4 )` `( 4, 4 )` `( 5, 4 )` — [data] `wxLEFT, 15`
+   on each label, which is the wider inset that separates the two halves. */
+.ze-txt-px-lbl,
+.ze-txt-py-lbl,
+.ze-txt-orient-lbl {
+  grid-column: 5;
+  /* [data] each label's own `wxLEFT, 15`. */
+  margin-left: 15px;
+}
+.ze-txt-px-ctl,
+.ze-txt-py-ctl {
+  grid-column: 6;
+  width: 100%;
+  height: var(--ctl-height);
+  box-sizing: border-box;
+}
+.ze-txt-px-u,
+.ze-txt-py-u {
+  grid-column: 7;
+}
+.ze-txt-px-lbl,
+.ze-txt-px-ctl,
+.ze-txt-px-u {
+  grid-row: 4;
+}
+.ze-txt-py-lbl,
+.ze-txt-py-ctl,
+.ze-txt-py-u {
+  grid-row: 5;
+}
+/* `( 5, 5 )`, `wxEXPAND` — and no span, unlike the text box's border style. */
+.ze-txt-orient-lbl {
+  grid-row: 6;
+}
+.ze-txt-orient {
+  grid-row: 6;
+  grid-column: 6;
+}
+/* A label in this dialog never wraps: a gridbag column is as wide as its widest
+   item, so the column grows instead. */
+.ze-txt-lbl {
+  white-space: nowrap;
+}
+/* An indicator and its label: the space between them is Gtk.CheckButton's own
+   style property, never a number picked here. */
+.ze-txt-check {
   display: flex;
   align-items: center;
   gap: var(--check-inset);

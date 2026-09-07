@@ -211,7 +211,15 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // either number: `board_adapter_colors.ts` is `BOARD_ADAPTER`'s own five
   // `CUSTOM_COLORS_LIST`s, so all forty carry [data] and the upstream line
   // range on the entry's own line.
-  'editors/pcb': { colours: 50, metrics: 213 },
+  // 50/46 and 213/207: the Draw Text tool's dialog. It was a hand-rolled div
+  // rather than a dialog — `background: '#2a2c30'`, `border: '1px solid #444'`,
+  // a `rgba(0,0,0,0.3)` backdrop and a `rgba(0,0,0,0.5)` shadow, with its own
+  // `borderRadius: 4`, `padding: 12`, `width: 360` and four inline margins —
+  // shown in place of the dialog an existing text already opened. It is
+  // `DialogTextProperties` for both paths now, and the four colours and six
+  // metrics went with the div. Every literal that replaced them is a cited
+  // `Add()` border in `.ze-txt-*`.
+  'editors/pcb': { colours: 46, metrics: 207 },
   // At zero, and listed rather than absent: `prefs/` is the settings store, and
   // the one literal it had - the 3D viewer's `rgb(0,255,0)` selection colour -
   // is `PARAM<COLOR4D>( "render.opengl_selection_color", …, COLOR4D( 0, 1, 0, 1 ) )`
@@ -957,7 +965,9 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // row that moves, and 530 - 3 agrees with it.
     // 527 -> 529: the rescan of the finished tree; `editors/pcb` is the only
     // row that moves and 527 + 2 agrees with it.
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(529);
+    // 529 -> 525: the Draw Text dialog's own colours; `editors/pcb` is the only
+    // row that moves and 529 - 4 agrees with it.
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(525);
     // 1657 -> 1649: the same sweep. A native colour input has no useful
     // default size, so eight of the sixteen sites gave theirs an inline
     // width and height; the shared swatch takes --swatch-*-w/h. Rescanned.
@@ -1107,7 +1117,10 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // five: `ui` 717 -> 724 and `editors/pcb` 215 -> 213.
     // 1326 -> 1320: Text Box Properties rebuilt against its gridbag; `ui` is
     // the only row that moves and 1326 - 6 agrees with it.
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1320);
+    // 1320 -> 1314: the same div. `editors/pcb` 213 -> 207 is the only row that
+    // moves, and the six are its border radius, its padding, and the four
+    // margins the buttons and the layer line carried inline.
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1314);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {

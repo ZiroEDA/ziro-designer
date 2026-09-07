@@ -212,6 +212,7 @@ import { DialogTableProperties } from '../../ui/DialogTableProperties.js';
 import {
   applyTableValues,
   collectTableValues,
+  isBackLayer,
   tableAt,
   type TableValues,
 } from '@ziroeda/pcbnew/src/table_properties.js';
@@ -356,10 +357,8 @@ import {
 import { flipBoardItems, modificationPoint } from '@ziroeda/pcbnew/src/edit-board.js';
 import { zoneItemDescription } from '@ziroeda/pcbnew/src/item_description.js';
 import { DialogPadProperties } from './dialogs/dialog_pad_properties.js';
-import {
-  DialogShapeProperties,
-  DialogTextProperties,
-} from './dialogs/dialog_graphic_properties.js';
+import { DialogShapeProperties } from './dialogs/dialog_graphic_properties.js';
+import { DialogTextProperties } from './dialogs/dialog_text_properties.js';
 import {
   applyShapeValues,
   applyTextValues,
@@ -1770,6 +1769,30 @@ export function PcbEditor({
   const findDirtyRef = useRef(true);
   const [textDialog, setTextDialog] = useState<{ x: number; y: number } | null>(null);
   /**
+   * The Draw Text tool asks for its text the moment it is picked, before any
+   * click. `DRAWING_TOOL::PlaceText` ends its setup with
+   *
+   *     else if( common_settings->m_Input.immediate_actions && !aEvent.IsReactivate() )
+   *     {
+   *         m_toolMgr->PrimeTool( { 0, 0 } );
+   *         ignorePrimePosition = true;
+   *     }
+   *
+   * (`drawing_tool.cpp:1049-1058`) — a synthetic left click that runs the
+   * tool's own click arm, which is what builds the PCB_TEXT and opens the
+   * dialog. The position is thrown away (`ignorePrimePosition`); the item takes
+   * `cursorPos`, i.e. wherever the pointer is now.
+   *
+   * `immediate_actions` is not offered as a choice here — Preferences > Common
+   * greys the box and says why — so this primes unconditionally, which is what
+   * its default asks for. Clicking the canvas afterwards opens it again, as
+   * upstream's loop does on every click with no text in hand.
+   */
+  useEffect(() => {
+    if (activeTool !== 'placeText') return;
+    setTextDialog(snapToGrid(cursorRef.current ?? { x: 0, y: 0 }));
+  }, [activeTool]);
+  /**
    * The barcode properties dialog. `at` is where the click landed for a new
    * one; `index` names an existing barcode being edited instead
    * (`EDIT_TOOL::Properties`).
@@ -1778,7 +1801,6 @@ export function PcbEditor({
     at: { x: number; y: number };
     index?: number;
   } | null>(null);
-  const [textDraft, setTextDraft] = useState('');
   // Pending "Copper Zone Properties" dialog: the zone's first corner.
   const [zoneDialog, setZoneDialog] = useState<{ x: number; y: number } | null>(null);
   const [zoneNet, setZoneNet] = useState(0);
@@ -5862,28 +5884,71 @@ export function PcbEditor({
     };
   };
 
-  // Commit the "Add Text" dialog: a user gr_text at the clicked point on the
-  // active layer, at the layer class's default size/thickness.
-  const commitPlacedText = (): void => {
-    const brd = boardRef.current;
-    const at = textDialog;
-    const content = textDraft.trim();
-    setTextDialog(null);
-    setTextDraft('');
-    if (!brd || !at || !content) return;
-    // The layer class's Board Setup text defaults (GetTextSize/GetTextThickness).
+  /**
+   * The values the text dialog edits when the Draw Text tool opened it, i.e.
+   * the `PCB_TEXT` `DRAWING_TOOL::PlaceText` builds before showing the dialog
+   * (`drawing_tool.cpp:124-144`):
+   *
+   *     textAttrs.m_Size        = bds.GetTextSize( layer );
+   *     textAttrs.m_StrokeWidth = bds.GetTextThickness( layer );
+   *     textAttrs.m_Italic      = bds.GetTextItalic( layer );
+   *     textAttrs.m_Mirrored    = m_board->IsBackLayer( layer );
+   *     textAttrs.m_Halign      = GR_TEXT_H_ALIGN_LEFT;
+   *     textAttrs.m_Valign      = GR_TEXT_V_ALIGN_BOTTOM;
+   *     text->SetTextPos( cursorPos );
+   *
+   * So the size and thickness are the ACTIVE LAYER'S Board Setup row, not
+   * EDA_TEXT's defaults, and a text started on a back layer is mirrored from
+   * the outset. `InferBold` is upstream's bold-from-thickness guess; ours has
+   * the row's own values, so bold starts false as the row says.
+   */
+  const newTextValues = (at: { x: number; y: number }): TextValues => {
     const row = layerClassRow(activeLayer);
-    commitBoard(
-      addBoardText(brd, {
-        kind: 'user',
-        text: content,
-        at,
-        angle: 0,
-        layer: activeLayer,
-        size: { x: Math.round(row.textWidth * MM), y: Math.round(row.textHeight * MM) },
-        thickness: Math.round(row.textThickness * MM),
-      }).board,
-    );
+    return {
+      text: '',
+      x: at.x,
+      y: at.y,
+      orientation: 0,
+      layer: activeLayer,
+      width: Math.round(row.textWidth * MM),
+      height: Math.round(row.textHeight * MM),
+      autoThickness: false,
+      thickness: Math.round(row.textThickness * MM),
+      bold: false,
+      italic: row.italic ?? false,
+      mirrored: isBackLayer(activeLayer),
+      hJustify: 'left',
+      vJustify: 'bottom',
+      hidden: false,
+      knockout: false,
+      locked: false,
+    };
+  };
+
+  /**
+   * OK on that dialog. `PlaceText` adds the item and pushes one commit named
+   * "Draw Text" (`drawing_tool.cpp:186-189`); a text with no printable
+   * character is dropped instead (`NoPrintableChars`, `:157`).
+   */
+  const commitPlacedText = (v: TextValues): void => {
+    const brd = boardRef.current;
+    setTextDialog(null);
+    if (!brd || !v.text.trim()) return;
+    // Add the item, then let the engine write the dialog's values onto it —
+    // the justify words, the auto-thickness rule and the s-expression patching
+    // all live in `applyTextValues` and are not restated here. One commit, so
+    // placing a text is a single undo step.
+    const { board: withText, id } = addBoardText(brd, {
+      kind: 'user',
+      text: v.text,
+      at: { x: v.x, y: v.y },
+      angle: v.orientation,
+      layer: v.layer,
+      size: { x: v.width, y: v.height },
+      thickness: v.thickness,
+    });
+    const index = parseBoardItemId(id)?.index ?? 0;
+    commitBoard(applyTextValues(withText, index, v));
   };
 
   // One left click of the Draw Filled Zones tool: the first click opens the
@@ -9860,68 +9925,20 @@ export function PcbEditor({
           );
         })()}
 
-      {/* "Add Text" properties dialog (DRAWING_TOOL::PlaceText opens the text
-          properties dialog before placing). */}
+      {/* `DRAWING_TOOL::PlaceText` builds the PCB_TEXT and opens the SAME
+          dialog an existing text opens (`drawing_tool.cpp:144`), so this is
+          `DialogTextProperties` and not a second, smaller one. It was a
+          hand-rolled div with its own colours, its own border radius and two
+          bare buttons — a fourth of this editor's colour literals were in it. */}
       {textDialog && (
-        <>
-          <div
-            style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(0,0,0,0.3)' }}
-            onMouseDown={() => {
-              setTextDialog(null);
-              setTextDraft('');
-            }}
-          />
-          <div
-            style={{
-              position: 'fixed',
-              left: '50%',
-              top: '40%',
-              transform: 'translate(-50%, -50%)',
-              zIndex: 61,
-              background: '#2a2c30',
-              border: '1px solid #444',
-              borderRadius: 4,
-              width: 360,
-              padding: 12,
-              fontSize: 13,
-              boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
-            }}
-            onMouseDown={(e) => e.stopPropagation()}
-          >
-            <div style={{ fontWeight: 600, marginBottom: 8 }}>Text Properties</div>
-            <textarea
-              // biome-ignore lint/a11y/noAutofocus: focus the just-opened dialog's input
-              autoFocus
-              rows={3}
-              value={textDraft}
-              placeholder="Text"
-              style={{ width: '100%', resize: 'vertical', fontSize: 13 }}
-              onChange={(e) => setTextDraft(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Escape') {
-                  setTextDialog(null);
-                  setTextDraft('');
-                } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-                  commitPlacedText();
-                }
-              }}
-            />
-            <div style={{ marginTop: 4 }} className="ze-muted">
-              Layer: {layerName(activeLayer)}
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 10 }}>
-              <button
-                onClick={() => {
-                  setTextDialog(null);
-                  setTextDraft('');
-                }}
-              >
-                Cancel
-              </button>
-              <button onClick={commitPlacedText}>OK</button>
-            </div>
-          </div>
-        </>
+        <DialogTextProperties
+          initial={newTextValues(textDialog)}
+          units={unitLabel}
+          layers={board?.layers.map((l) => l.name) ?? []}
+          layerColor={layerColor}
+          onApply={commitPlacedText}
+          onClose={() => setTextDialog(null)}
+        />
       )}
 
       {/* "Copper Zone Properties" dialog: the zone tool opens it on the first
@@ -10127,7 +10144,9 @@ export function PcbEditor({
       {textPropsIndex !== null && board?.texts[textPropsIndex] && (
         <DialogTextProperties
           initial={collectTextValues(board.texts[textPropsIndex]!)}
+          units={unitLabel}
           layers={board.layers.map((l) => l.name)}
+          layerColor={layerColor}
           onApply={applyTextEdit}
           onClose={() => setTextPropsIndex(null)}
         />
