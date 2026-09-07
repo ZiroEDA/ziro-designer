@@ -70,6 +70,25 @@ export const drawSheetIUScale = new EdaIuScale(PL_IU_PER_MM);
 export const schIUScale = new EdaIuScale(SCH_IU_PER_MM);
 
 /**
+ * `ARC_LOW_DEF_MM` / `ARC_HIGH_DEF_MM` and the board-IU forms of them
+ * (`base_units.h:118-130`): how far a tessellated arc or curve may deviate from
+ * the true one.
+ *
+ * `ARC_HIGH_DEF` is what `BOARD_DESIGN_SETTINGS::m_MaxError` defaults to, and
+ * every caller that has no board to ask uses it directly. Upstream's own
+ * warning is worth keeping: "too small values can create very long calculation
+ * time in zone filling. 0.05 to 0.005 mm are reasonable values".
+ *
+ * These are *board* IU because upstream computes them with `pcbIUScale` even in
+ * `base_units.h`, which is shared. A caller working in another editor's units
+ * has to scale them itself — see `iu_scale_differs_per_editor`.
+ */
+export const ARC_LOW_DEF_MM = 0.02;
+export const ARC_HIGH_DEF_MM = 0.005;
+export const ARC_LOW_DEF = pcbIUScale.mmToIU(ARC_LOW_DEF_MM);
+export const ARC_HIGH_DEF = pcbIUScale.mmToIU(ARC_HIGH_DEF_MM);
+
+/**
  * Schematic millimetres to IU. Board code wants {@link pcbIUScale} instead;
  * these two keep the schematic's scale so eeschema reads unchanged.
  */

@@ -477,12 +477,23 @@ export {
 } from './drc/drc_rules_engine.js';
 
 export {
+  bezierInFlight,
+  bezierClick,
+  bezierChainSeed,
+  type BezierInFlight,
+  type BezierClick,
+  type BezierPoints,
+} from './bezier_tool.js';
+
+export {
   boardEditHandles,
+  boardIndicatorLines,
   dragBoardHandle,
   hasEditPoints,
   editablePointItems,
   arcHandleCentre,
   type BoardEditHandle,
+  type BoardIndicatorLine,
   type HandleKind,
 } from './point_editor.js';
 

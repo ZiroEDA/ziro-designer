@@ -303,7 +303,7 @@ export const PCB_RIGHT_TOOLBAR: ToolEntry[] = [
   { id: 'drawRectangle', icon: 'drawRectangle', title: 'Draw Rectangles' },
   { id: 'drawCircle', icon: 'drawCircle', title: 'Draw Circles (Ctrl+Shift+C)' },
   { id: 'drawPolygon', icon: 'drawPolygon', title: 'Draw Polygons (Ctrl+Shift+P)' },
-  { id: 'drawBezier', icon: 'drawBezier', title: 'Draw Bezier Curve (Ctrl+Shift+B)', ...todo },
+  { id: 'drawBezier', icon: 'drawBezier', title: 'Draw Bezier Curve (Ctrl+Shift+B)' },
   {
     id: 'placeReferenceImage',
     icon: 'placeReferenceImage',

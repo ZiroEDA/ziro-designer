@@ -13,7 +13,9 @@
 import { PCB_IU_PER_MM } from '@ziroeda/common/src/eda_units.js';
 import { editPointColors } from '@ziroeda/common/src/color4d.js';
 import { galPenWidth, galSnapPx } from '@ziroeda/common/src/gal_pixel_grid.js';
+import { BezierStep } from '@ziroeda/common/src/preview_items/bezier_geom_manager.js';
 import {
+  EDIT_LINE_WIDTH,
   EDIT_POINT_BORDER_SIZE,
   EDIT_POINT_HOVER_SIZE,
   EDIT_POINT_SIZE,
@@ -148,9 +150,14 @@ import {
   spreadBoardFootprints,
   type NETLIST,
   fillZones,
+  bezierClick,
+  bezierInFlight,
+  type BezierInFlight,
   boardEditHandles,
+  boardIndicatorLines,
   dragBoardHandle,
   type BoardEditHandle,
+  type BoardIndicatorLine,
   addBoardDimension,
   addBoardTextBox,
   addBoardTable,
@@ -634,6 +641,7 @@ const DRAW_SHAPE_TOOLS: Record<string, PcbShape['kind']> = {
   drawRectangle: 'rect',
   drawCircle: 'circle',
   drawPolygon: 'poly',
+  drawBezier: 'curve',
 };
 
 // Friendly names for the "Current Tool" status-bar field (field 6), shown while
@@ -658,6 +666,9 @@ const PCB_TOOL_MSGS: Record<string, string> = {
   drawRectangle: 'Draw Rectangles',
   drawCircle: 'Draw Circles',
   drawPolygon: 'Draw Polygons',
+  // `PCB_ACTIONS::drawBezier`'s FriendlyName (`pcb_actions.cpp:158`), which is
+  // singular where the four above are plural — upstream's own inconsistency.
+  drawBezier: 'Draw Bezier Curve',
   placeReferenceImage: 'Place Reference Images',
   placeText: 'Draw Text',
   // These three had no entry at all, so arming them left the field showing the
@@ -1471,6 +1482,8 @@ export function PcbEditor({
   // Zone outline editing (PCB_POINT_EDITOR): the handles of the one selected
   // item, which handle the cursor is over, and the drag in flight.
   const editHandlesRef = useRef<BoardEditHandle[]>([]);
+  /** `EDIT_POINTS::AddIndicatorLine` — the bezier's two control arms. */
+  const editIndicatorsRef = useRef<BoardIndicatorLine[]>([]);
   /** The item the handles belong to, as a board item id. */
   const editHandleItemRef = useRef<string | null>(null);
   const hoveredEditHandleRef = useRef<BoardEditHandle | null>(null);
@@ -2230,12 +2243,14 @@ export function PcbEditor({
 
     if (handles.length === 0) {
       editHandlesRef.current = [];
+      editIndicatorsRef.current = [];
       editHandleItemRef.current = null;
       hoveredEditHandleRef.current = null;
       requestDrawRef.current();
       return;
     }
     editHandlesRef.current = handles;
+    editIndicatorsRef.current = brd && id ? boardIndicatorLines(brd, id) : [];
     editHandleItemRef.current = id;
     requestDrawRef.current();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2814,6 +2829,19 @@ export function PcbEditor({
           drawOpts.theme?.special.auxItems ?? PCB_SPECIAL.auxItems,
           drawOpts.theme?.background ?? PCB_BACKGROUND,
         );
+        // `EDIT_POINTS::ViewDraw`'s second loop: an `EDIT_LINE` with no centre
+        // point draws only its line, at `borderSize / 4` in the border colour.
+        // Drawn before the handles so the squares sit on top of the arms.
+        if (editIndicatorsRef.current.length > 0) {
+          ctx.strokeStyle = colors.border;
+          ctx.lineWidth = galPenWidth(EDIT_LINE_WIDTH * dpr);
+          ctx.beginPath();
+          for (const ln of editIndicatorsRef.current) {
+            ctx.moveTo(ln.a.x * sx + v.tx, ln.a.y * v.scale + v.ty);
+            ctx.lineTo(ln.b.x * sx + v.tx, ln.b.y * v.scale + v.ty);
+          }
+          ctx.stroke();
+        }
         ctx.fillStyle = colors.fill;
         for (const h of handles) {
           const active = hovered?.kind === h.kind && hovered?.index === h.index;
@@ -3198,6 +3226,9 @@ export function PcbEditor({
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
         ctx.globalAlpha = 0.9;
+        // `BEZIER_ASSISTANT::ViewDraw`'s dashed control arms, filled in by the
+        // 'curve' case below and drawn after the curve itself.
+        let bezierArms: BezierInFlight | null = null;
         ctx.beginPath();
         switch (kind) {
           case 'line': {
@@ -3232,6 +3263,16 @@ export function PcbEditor({
             }
             break;
           }
+          case 'curve': {
+            const live = bezierInFlight(pts, p);
+            if (live) {
+              const [a, c1, c2, e] = live.points;
+              ctx.moveTo(a.x, a.y);
+              ctx.bezierCurveTo(c1.x, c1.y, c2.x, c2.y, e.x, e.y);
+              bezierArms = live;
+            }
+            break;
+          }
           case 'poly': {
             ctx.moveTo(pts[0]!.x, pts[0]!.y);
             for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i]!.x, pts[i]!.y);
@@ -3242,6 +3283,33 @@ export function PcbEditor({
             break;
         }
         ctx.stroke();
+        if (bezierArms) {
+          // `BEZIER_ASSISTANT::ViewDraw`: `dashSize = KiROUND( ToWorld( 12 ) )`
+          // and a gap of half that, so the dashes keep their size on screen at
+          // every zoom — hence dividing by the view scale rather than writing a
+          // world length.
+          //
+          // The second arm is drawn "as a double length line centered on the
+          // end point", from `end - ( C2 - end )` to `C2`. That is not
+          // decoration either: the point the user clicks is the reflection of
+          // C2, so the near half of that line is where the cursor is and the
+          // far half is where the curve actually pulls.
+          const dash = 12 / v.scale;
+          ctx.setLineDash([dash, dash / 2]);
+          ctx.lineWidth = shapeWidthIU(activeLayer) / 2;
+          const [a, c1, c2, e] = bezierArms.points;
+          ctx.beginPath();
+          if (bezierArms.step >= BezierStep.SET_CONTROL1) {
+            ctx.moveTo(a.x, a.y);
+            ctx.lineTo(c1.x, c1.y);
+          }
+          if (bezierArms.step >= BezierStep.SET_CONTROL2) {
+            ctx.moveTo(e.x - (c2.x - e.x), e.y - (c2.y - e.y));
+            ctx.lineTo(c2.x, c2.y);
+          }
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
         ctx.restore();
         ctx.setTransform(1, 0, 0, 1, 0, 0);
       }
@@ -5732,6 +5800,20 @@ export function PcbEditor({
         }
         break;
       }
+      case 'curve': {
+        // `drawOneBezier`: four clicks — start, C1, end, C2 — and the tool
+        // commits and chains straight into the next curve without leaving.
+        // The rules are in `pcbnew/src/bezier_tool.ts` so they can be driven
+        // without a canvas; this is only the click reaching them.
+        const r = bezierClick(pts, p);
+        if (r.kind === 'continue') {
+          drawingRef.current = r.locked;
+          break;
+        }
+        commit({ kind: 'curve', pts: r.points, ...base });
+        drawingRef.current = r.next;
+        break;
+      }
       case 'poly': {
         const tol = tolOf();
         const closeToFirst = pts.length >= 3 && Math.hypot(p.x - pts[0]!.x, p.y - pts[0]!.y) <= tol;
@@ -7519,6 +7601,7 @@ export function PcbEditor({
         const next = dragBoardHandle(brd, id, handleDrag.handle, target);
         pointEditPreviewRef.current = next;
         editHandlesRef.current = boardEditHandles(next, id);
+        editIndicatorsRef.current = boardIndicatorLines(next, id);
         // Only the reshaped item is re-recorded; the base scene was captured
         // without it at drag start and is not dirtied, so the raster survives.
         // Under the GL renderer that is also what keeps the content key

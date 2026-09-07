@@ -95,6 +95,8 @@ export * from './drawing_sheet/ds_bitmap.js';
  */
 export * from './preview_items/selection_area.js';
 export * from './preview_items/edit_points.js';
+export * from './preview_items/multistep_geom_manager.js';
+export * from './preview_items/bezier_geom_manager.js';
 export * from './drawing_sheet/project_sheet.js';
 
 /**

@@ -59,6 +59,8 @@ import type {
 } from './types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { isHatchedFill, isSolidFill, shapeHatchLines } from './shape_fill.js';
+import { BezierPoly } from '@ziroeda/kimath/src/bezier_curves.js';
+import { ARC_HIGH_DEF } from '@ziroeda/common/src/eda_units.js';
 
 // ----- item ids ---------------------------------------------------------------
 
@@ -559,6 +561,22 @@ const shapeOutlineDist = (s: PcbShape, pos: Vec2): number => {
     let d = Infinity;
     for (let i = 0; i < 4; i++) d = Math.min(d, distToSeg(pos, corners[i]!, corners[(i + 1) % 4]!));
     return Math.max(0, d - half);
+  }
+  if (s.kind === 'curve' && s.pts && s.pts.length >= 4) {
+    // `EDA_SHAPE::hitTest`, `case SHAPE_T::BEZIER`: `TestSegmentHit` along the
+    // TESSELLATED points, and nothing else. No closing segment back to the
+    // start and no interior test — a bezier is an open curve however it is
+    // filled, so upstream's case has neither.
+    //
+    // Falling through to the polygon walk below measured the control polygon,
+    // which is not the curve and is not even near it: a deep S misses its own
+    // handles by most of its own height, so a click on the ink read as a miss
+    // and a click on empty space between two handles read as a hit.
+    const curve = new BezierPoly(s.pts.slice(0, 4)).getPoly(ARC_HIGH_DEF);
+    let cd = Infinity;
+    for (let i = 1; i < curve.length; i++)
+      cd = Math.min(cd, distToSeg(pos, curve[i - 1]!, curve[i]!));
+    return Math.max(0, cd - half);
   }
   const pts = s.pts ?? shapePoints(s);
   if (isSolidFill(s) && pts.length >= 3 && pointInPolygon(pos, pts)) return 0;

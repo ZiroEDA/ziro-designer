@@ -90,6 +90,12 @@ const DIM_TEXT = 2;
 const DIM_CROSSBARSTART = 3;
 const DIM_CROSSBAREND = 4;
 const DIM_KNEE = DIM_CROSSBARSTART;
+// `EDA_BEZIER_POINT_EDIT_BEHAVIOR::BEZIER_POINTS` (`point_editor_behavior.h`),
+// which is also the order the four points sit in a `(gr_curve (pts …))`.
+const BEZIER_START = 0;
+const BEZIER_CTRL_PT1 = 1;
+const BEZIER_CTRL_PT2 = 2;
+const BEZIER_END = 3;
 /**
  * `REFIMG_ORIGIN = RECT_CENTER` — upstream's own comment says it reuses the
  * centre slot for the transform origin, because a reference image has no
@@ -112,6 +118,35 @@ const mid = (a: Vec2, b: Vec2): Vec2 => ({
   y: Math.round((a.y + b.y) / 2),
 });
 const add = (p: Vec2, d: Vec2): Vec2 => ({ x: p.x + d.x, y: p.y + d.y });
+
+/**
+ * A line drawn between two handles that is not itself grabbable
+ * (`EDIT_POINTS::AddIndicatorLine`, which sets `HasCenterPoint( false )` and
+ * `DrawLine( true )`).
+ *
+ * Only the bezier has any. Its two control points sit off the curve with
+ * nothing to say which end each belongs to, so upstream draws the arms
+ * start→C1 and C2→end at a quarter of the handle border width. Without them a
+ * selected bezier is four squares in a field.
+ */
+export interface BoardIndicatorLine {
+  readonly a: Vec2;
+  readonly b: Vec2;
+}
+
+/** The indicator lines for `id`, in `MakePoints` order. */
+export function boardIndicatorLines(board: Board, id: string): BoardIndicatorLine[] {
+  const r = parseBoardItemId(id);
+  if (!r || r.kind !== 'shape') return [];
+
+  const s = board.shapes[r.index];
+  if (s?.kind !== 'curve' || !s.pts || s.pts.length < 4) return [];
+
+  return [
+    { a: s.pts[BEZIER_START]!, b: s.pts[BEZIER_CTRL_PT1]! },
+    { a: s.pts[BEZIER_CTRL_PT2]!, b: s.pts[BEZIER_END]! },
+  ];
+}
 
 /** Whether the point editor has anything to offer for this item. */
 export function hasEditPoints(board: Board, id: string): boolean {
@@ -207,6 +242,20 @@ export function boardEditHandles(board: Board, id: string): BoardEditHandle[] {
       pt('point', ARC_START, s.start),
       pt('point', ARC_MID, s.mid),
       pt('point', ARC_END, s.end),
+    ];
+  }
+
+  if (s.kind === 'curve' && s.pts && s.pts.length >= 4) {
+    // `EDA_BEZIER_POINT_EDIT_BEHAVIOR::MakePoints`: four points, no edge
+    // handles. The control points are handles in their own right — that is the
+    // only way to reshape a bezier, since the curve itself is nowhere near
+    // them to grab.
+    const p = s.pts;
+    return [
+      pt('point', BEZIER_START, p[BEZIER_START]!),
+      pt('point', BEZIER_CTRL_PT1, p[BEZIER_CTRL_PT1]!),
+      pt('point', BEZIER_CTRL_PT2, p[BEZIER_CTRL_PT2]!),
+      pt('point', BEZIER_END, p[BEZIER_END]!),
     ];
   }
 
@@ -639,6 +688,15 @@ export function dragBoardHandle(
           ? { mid: pos }
           : { end: pos };
     return withShape(board, r.index, next);
+  }
+
+  if (s.kind === 'curve' && s.pts && s.pts.length >= 4) {
+    // `UpdateItem` writes back exactly the one point that moved: unlike a
+    // rectangle, no bezier point constrains any other.
+    if (handle.kind !== 'point' || handle.index < 0 || handle.index > BEZIER_END) return board;
+    const pts = [...s.pts];
+    pts[handle.index] = pos;
+    return withShape(board, r.index, { pts });
   }
 
   if (s.kind === 'poly' && s.pts && s.pts.length >= 2) {

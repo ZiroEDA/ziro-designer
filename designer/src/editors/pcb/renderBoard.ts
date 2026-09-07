@@ -1113,6 +1113,30 @@ function addShape(scene: BoardScene, s: PcbShape): void {
     const p = pathIn(b.gfxStrokes, width);
     p.moveTo(pts[0]!.x, pts[0]!.y);
     for (let i = 1; i < pts.length; i++) p.lineTo(pts[i]!.x, pts[i]!.y);
+  } else if (s.kind === 'curve' && s.pts && s.pts.length >= 4) {
+    // `PCB_PAINTER::draw( PCB_SHAPE )`, `case SHAPE_T::BEZIER`: the curve, not
+    // the control polygon. This branch used to fall in with `poly` below and
+    // stroke a line through all four points, so every bezier on a board — ours
+    // or one KiCad wrote — rendered as a zigzag between its handles.
+    //
+    // Upstream tessellates through `BEZIER_POLY` because GAL has no curve
+    // primitive at this level; a 2D context does, and `bezierCurveTo` is the
+    // same cubic to within the rasteriser's own flattening tolerance, so there
+    // is nothing to gain by re-deriving `m_MaxError` here.
+    const [a, c1, c2, e] = s.pts as [Vec2, Vec2, Vec2, Vec2];
+    if (isSolidFill(s)) {
+      // `DrawPolygon( GetBezierPoints() )` — the fill closes the chord from the
+      // end back to the start, exactly as a filled polygon of those points does.
+      b.gfxFill.moveTo(a.x, a.y);
+      b.gfxFill.bezierCurveTo(c1.x, c1.y, c2.x, c2.y, e.x, e.y);
+      b.gfxFill.closePath();
+      b.hasGfxFill = true;
+    }
+    const p = pathIn(b.gfxStrokes, width);
+    p.moveTo(a.x, a.y);
+    p.bezierCurveTo(c1.x, c1.y, c2.x, c2.y, e.x, e.y);
+    if (isSolidFill(s)) p.closePath();
+    addHatch(b, s);
   } else if ((s.kind === 'poly' || s.kind === 'curve') && s.pts && s.pts.length >= 2) {
     if (isSolidFill(s) && s.pts.length >= 3) {
       b.gfxFill.moveTo(s.pts[0]!.x, s.pts[0]!.y);
