@@ -9,9 +9,17 @@
  * impedance, frequency, and, when time-domain tuning is enabled, the track/via
  * propagation delay settings. The deep via-delay-override matrix is not modelled
  * here yet.
+ *
+ * NO FONT SIZES AND NO COLOURS. The tab strip is `.ze-nb-tabs`, the shared
+ * wxNotebook strip — its metrics were measured off a real Yaru notebook (see
+ * the rule) — not the bordered 12.5px boxes this drew, which are a widget GTK
+ * does not have. The form rows are `.ze-pref-row` in a `.ze-pref-group-body`,
+ * so their label column is the sizer's, and the units are the dialog's own ink
+ * rather than a dimmed grey.
  */
 
 import { useState, type JSX } from 'react';
+import { Combo } from '../../../../ui/Combo.js';
 import { Icon } from '../../../../ui/icons.js';
 import type {
   FreqUnit,
@@ -31,6 +39,7 @@ export {
 } from '../../board_settings.js';
 
 const FREQ_UNITS: FreqUnit[] = ['Hz', 'kHz', 'MHz', 'GHz'];
+const PROFILE_TYPES: ProfileType[] = ['Single', 'Differential'];
 
 function blankProfile(name: string): TuningProfile {
   return {
@@ -49,26 +58,6 @@ interface Props {
   value: TuningProfilesData;
   onChange: (next: TuningProfilesData) => void;
 }
-
-const tab = (active: boolean): React.CSSProperties => ({
-  padding: '5px 14px',
-  fontSize: 12.5,
-  border: '1px solid var(--chrome-border)',
-  borderBottom: active ? '1px solid var(--chrome-bg)' : '1px solid var(--chrome-border)',
-  background: active ? 'var(--chrome-bg)' : 'var(--chrome-bg2)',
-  borderTopLeftRadius: 4,
-  borderTopRightRadius: 4,
-  cursor: 'default',
-  marginBottom: -1,
-  whiteSpace: 'nowrap',
-});
-const grid: React.CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: 'max-content 120px max-content',
-  alignItems: 'center',
-  gap: '9px 8px',
-  fontSize: 12.5,
-};
 
 export function PanelPcbTuningProfiles({ value, onChange }: Props): JSX.Element {
   const [sel, setSel] = useState(0);
@@ -94,79 +83,70 @@ export function PanelPcbTuningProfiles({ value, onChange }: Props): JSX.Element 
   };
 
   return (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      {/* Notebook tabs (only when there are profiles) */}
+    <div className="ze-tuneprof">
+      {/* `m_tuningProfiles`, a wxNotebook (`:23`) — the shared tab strip. */}
       {profiles.length > 0 && (
-        <div
-          style={{
-            display: 'flex',
-            gap: 3,
-            borderBottom: '1px solid var(--chrome-border)',
-            minHeight: 26,
-            overflowX: 'auto',
-          }}
-        >
+        <div className="ze-nb-tabs">
           {profiles.map((p, i) => (
-            <div key={i} style={tab(i === sel)} onClick={() => setSel(i)}>
+            <button
+              key={i}
+              type="button"
+              className={i === sel ? 'active' : undefined}
+              onClick={() => setSel(i)}
+            >
               {p.name || '(unnamed)'}
-            </div>
+            </button>
           ))}
         </div>
       )}
 
-      {/* Selected profile form, or a centered empty state */}
-      <div style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: '12px 4px' }}>
+      {/* The selected page — PANEL_SETUP_TUNING_PROFILE_INFO — or an empty
+          state when the notebook has no pages. */}
+      <div className="ze-tuneprof-page">
         {cur ? (
-          <div style={{ maxWidth: 460 }}>
-            <div style={grid}>
-              <span>Name:</span>
+          <div className="ze-pref-group-body">
+            <div className="ze-pref-row">
+              <span className="lbl">Name:</span>
               <input
                 className="ze-search"
-                style={{ width: '100%', gridColumn: '2 / 4', boxSizing: 'border-box' }}
                 value={cur.name}
                 onChange={(e) => set('name', e.target.value)}
               />
-              <span>Type:</span>
-              <select
-                className="ze-select"
-                style={{ width: '100%', gridColumn: '2 / 4' }}
+            </div>
+            <div className="ze-pref-row">
+              <span className="lbl">Type:</span>
+              <Combo
                 value={cur.type}
-                onChange={(e) => set('type', e.target.value as ProfileType)}
-              >
-                <option>Single</option>
-                <option>Differential</option>
-              </select>
-              <span>Target impedance:</span>
+                ariaLabel="Profile type"
+                options={PROFILE_TYPES.map((t) => ({ value: t, label: t }))}
+                onChange={(t) => set('type', t as ProfileType)}
+              />
+            </div>
+            <div className="ze-pref-row">
+              <span className="lbl">Target impedance:</span>
               <input
                 className="ze-search"
-                type="number"
-                style={{ width: '100%', boxSizing: 'border-box' }}
                 value={cur.targetImpedance}
                 onChange={(e) => set('targetImpedance', num(e.target.value))}
               />
-              <span className="ze-muted" style={{ fontSize: 11 }}>
-                ohms
-              </span>
-              <span>Frequency:</span>
+              <span className="unit">ohms</span>
+            </div>
+            <div className="ze-pref-row">
+              <span className="lbl">Frequency:</span>
               <input
                 className="ze-search"
-                type="number"
-                style={{ width: '100%', boxSizing: 'border-box' }}
                 value={cur.frequency}
                 onChange={(e) => set('frequency', num(e.target.value))}
               />
-              <select
-                className="ze-select"
+              <Combo
                 value={cur.frequencyUnit}
-                onChange={(e) => set('frequencyUnit', e.target.value as FreqUnit)}
-              >
-                {FREQ_UNITS.map((u) => (
-                  <option key={u}>{u}</option>
-                ))}
-              </select>
+                ariaLabel="Frequency unit"
+                options={FREQ_UNITS.map((u) => ({ value: u, label: u }))}
+                onChange={(u) => set('frequencyUnit', u as FreqUnit)}
+              />
             </div>
 
-            <label style={{ display: 'flex', alignItems: 'center', gap: 6, margin: '12px 0 6px' }}>
+            <label className="ze-pref-check ze-border-top">
               <input
                 type="checkbox"
                 checked={cur.enableTimeDomain}
@@ -176,10 +156,8 @@ export function PanelPcbTuningProfiles({ value, onChange }: Props): JSX.Element 
             </label>
 
             {cur.enableTimeDomain && (
-              <div style={{ paddingLeft: 18 }}>
-                <label
-                  style={{ display: 'flex', alignItems: 'center', gap: 6, margin: '4px 0 10px' }}
-                >
+              <div className="ze-tuneprof-timedomain ze-pref-group-body">
+                <label className="ze-pref-check">
                   <input
                     type="checkbox"
                     checked={cur.modelSolderMask}
@@ -187,33 +165,20 @@ export function PanelPcbTuningProfiles({ value, onChange }: Props): JSX.Element 
                   />
                   Model Solder Mask
                 </label>
-                <div style={grid}>
-                  <span>Global unit delay:</span>
+                <div className="ze-pref-row">
+                  <span className="lbl">Global unit delay:</span>
                   <input
                     className="ze-search"
-                    type="number"
-                    style={{ width: '100%', boxSizing: 'border-box' }}
                     value={cur.globalUnitDelay}
                     onChange={(e) => set('globalUnitDelay', num(e.target.value))}
                   />
-                  <span className="ze-muted" style={{ fontSize: 11 }}>
-                    ps/cm
-                  </span>
+                  <span className="unit">ps/cm</span>
                 </div>
               </div>
             )}
           </div>
         ) : (
-          <div
-            style={{
-              height: '100%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'var(--ze-muted, #888)',
-              fontSize: 12.5,
-            }}
-          >
+          <div className="ze-tuneprof-empty">
             No tuning profiles defined. Use the + button below to add one.
           </div>
         )}
@@ -224,7 +189,8 @@ export function PanelPcbTuningProfiles({ value, onChange }: Props): JSX.Element 
         <button className="ze-gridbtn" title="Add tuning profile" onClick={add}>
           <Icon name="plus" />
         </button>
-        <span style={{ width: 15 }} />
+        {/* [data] `bSizer91->Add( 20, 0, 1, wxEXPAND )` between the two. */}
+        <span className="ze-tuneprof-btngap" />
         <button
           className="ze-gridbtn"
           title="Remove tuning profile"

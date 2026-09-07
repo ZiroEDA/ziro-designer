@@ -291,6 +291,8 @@ export function DialogSchematicSetup({
         title="Schematic Setup"
         sections={sections}
         initialPage={initialPage}
+        // [data] `PAGED_DIALOG( …, wxSize( 920, 460 ) )`, dialog_schematic_setup.cpp:47.
+        initialSize={{ width: 920, height: 460 }}
         showReset
         auxiliaryAction="Import Settings from Another Project..."
         onAuxiliaryAction={() => setImportOpen(true)}

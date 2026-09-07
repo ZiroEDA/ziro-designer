@@ -11,6 +11,13 @@
  */
 
 import { PCB_IU_PER_MM } from '@ziroeda/common/src/eda_units.js';
+import { editPointColors } from '@ziroeda/common/src/color4d.js';
+import { galPenWidth, galSnapPx } from '@ziroeda/common/src/gal_pixel_grid.js';
+import {
+  EDIT_POINT_BORDER_SIZE,
+  EDIT_POINT_HOVER_SIZE,
+  EDIT_POINT_SIZE,
+} from '@ziroeda/common/src/preview_items/edit_points.js';
 import {
   commonInputPrefs,
   dragGesture,
@@ -33,6 +40,12 @@ import { useStatusReadout } from '../../ui/useStatusReadout.js';
 const PCB_LOCAL_ORIGIN = { x: 0, y: 0 };
 import { drawRulerItem, rulerEnd } from '../../ui/ruler_item.js';
 import { boardToolCursor } from './cursors.js';
+import {
+  groupBoxSegments,
+  groupLabelAnchor,
+  groupLabelFits,
+  groupLabelTextSize,
+} from './group_box.js';
 import { appearanceLayerRows, layerTooltip } from '../../widgets/appearance_layers.js';
 import {
   ZOOM_AUTO_LABEL,
@@ -67,7 +80,7 @@ import {
   boardItemId,
   subsetBoardItems,
   deleteBoardItems,
-  rotateBoardItems,
+  rotateBoardItemsBy,
   duplicateBoardItems,
   mirrorBoardItems,
   groupBoardItems,
@@ -143,6 +156,7 @@ import {
   addBoardTable,
   clickDimension,
   dimensionSegments,
+  dimensionSnapsToGrid,
   moveDimension,
   startDimension,
   type DimensionDraw,
@@ -193,7 +207,7 @@ import { dimensionDefaultsFrom, dimensionToolKind } from './dimension_tools.js';
 import { DialogDimensionProperties } from './dialogs/dialog_dimension_properties.js';
 import { DialogTextBoxProperties } from './dialogs/dialog_textbox_properties.js';
 import { DialogReferenceImageProperties } from './dialogs/dialog_reference_image_properties.js';
-import { DialogTableProperties } from './dialogs/dialog_table_properties.js';
+import { DialogTableProperties } from '../../ui/DialogTableProperties.js';
 import {
   applyTableValues,
   collectTableValues,
@@ -400,6 +414,7 @@ import {
   drawNetNames,
   drawOriginMarkers,
   drawDrcMarkers,
+  boardTextPath,
   PCB_DEFAULT_GRID_IU,
   PCB_DEFAULT_GRID_ORIGIN,
   pcbGridOptions,
@@ -413,9 +428,17 @@ import {
 } from './renderBoard.js';
 import { PcbGl } from '../../render/gl/pcb_gl.js';
 import { GL_PATH_FACTORY } from '../../render/gl/gl_path.js';
-import { applyToggle, DEFAULT_TOGGLES } from './toggles.js';
+import {
+  applyToggle,
+  crosshairToggleId,
+  foldPcbToggle,
+  isStoredPcbToggle,
+  lineModeToggleId,
+  pcbTogglesFromSettings,
+} from './toggles.js';
 import {
   layerColor,
+  pcbThemeWithOverrides,
   PCB_BACKGROUND,
   PCB_CURSOR,
   PCB_OBJECT_COLORS,
@@ -427,7 +450,7 @@ import {
   pcbPropertiesFor,
   type PcbPropRow,
 } from '@ziroeda/pcbnew/src/properties_panel.js';
-import { drawGrid, drawCrosshair } from '../../ui/grid_cursor.js';
+import { drawGrid, drawCrosshair, gridSnappingEnabled } from '../../ui/grid_cursor.js';
 import { GRID_SIZE_LIST, gridEntryOf, gridSizeToIU, gridSizesIU } from '../../ui/grid_settings.js';
 import {
   type ConditionalEntry,
@@ -449,6 +472,7 @@ import { addQuitOrClose } from '../../ui/action_menu.js';
 import { dispatchMenuHotkey, focusBlocksHotkey } from '../../ui/menu_hotkeys.js';
 import { isTypingTarget, wasBrowserSuppressed, type FocusLike } from '../../ui/browser_hotkeys.js';
 import { settings } from '../../prefs/settings.js';
+import { usePcbnewSettings, useUserColors, useUserThemes } from '../../prefs/useSettings.js';
 import { ColorSwatch } from '../../ui/ColorSwatch.js';
 import {
   COLOR4D_UNSPECIFIED,
@@ -766,15 +790,17 @@ const DEFAULT_CLASS_DIMS: ClassDims = {
  * filtered collector back, so a promoted pad leaves its footprint selected. It
  * is null when nothing was promoted, so group ids stay selected as groups.
  */
-// EDIT_POINT's screen sizes and LAYER_AUX_ITEMS colour (edit_points.h /
-// edit_points.cpp ViewDraw). The border is derived from the fill the way
-// upstream does it: white is bright, so it darkens by 0.7 / 0.5 at alpha 0.8.
-const EDIT_POINT_SIZE = 8;
-const EDIT_POINT_BORDER_SIZE = 3;
-const EDIT_POINT_HOVER_SIZE = 6;
-const EDIT_POINT_FILL = 'rgb(255,255,255)';
-const EDIT_POINT_BORDER = 'rgba(77,77,77,0.8)';
-const EDIT_POINT_HOVER_BORDER = 'rgba(128,128,128,0.8)';
+// EDIT_POINT's screen sizes and colours come from the shared modules the symbol,
+// schematic and drawing-sheet canvases already use — `preview_items/edit_points`
+// for the metrics and `editPointColors` for the palette. This file used to
+// restate all six locally, and both halves were wrong for it:
+//
+//   * the sizes were 3 and 6, which is upstream's `#ifdef __WXMAC__` arm. The
+//     parity target is the GTK build on this machine, where they are 2 and 5, so
+//     every handle here carried a border half again too heavy.
+//   * the colours were a hardcoded white fill with two grey borders, which is
+//     what `editPointColors` happens to derive for a white LAYER_AUX_ITEMS — so
+//     the handles ignored the board theme entirely.
 
 /** The board's metadata with none of its items, the shell an overlay is drawn in. */
 function emptyBoardLike(board: Board): Board {
@@ -935,7 +961,75 @@ export function PcbEditor({
   // Selected layer preset; '---' is the separator row, the default selection
   // like rebuildLayerPresetsWidget.
   const [tab, setTab] = useState<'Layers' | 'Objects' | 'Nets'>('Layers');
-  const [toggles, setToggles] = useState<Set<string>>(new Set(DEFAULT_TOGGLES));
+  /**
+   * `pcbnew.json`, live. `PCB_EDIT_FRAME::CommonSettingsChanged` is what makes
+   * an OK on Preferences reach the canvas upstream; subscribing here is that
+   * call, and it is why Display Options' Grid Display, Cursor, Annotations and
+   * Clearance Outlines groups take effect without a reload.
+   */
+  const pcbCfg = usePcbnewSettings();
+  /**
+   * `PANEL_GAL_OPTIONS`' two groups, mirrored into a ref because `draw` is
+   * memoised on `startCrispRender` alone and must not be rebuilt whenever a
+   * setting moves — the same shape `FootprintCanvas` uses for the same reason.
+   */
+  const galRef = useRef({
+    ...pcbCfg.window.grid,
+    ...pcbCfg.window.cursor,
+    ...pcbCfg.pcb_display,
+  });
+  galRef.current = { ...pcbCfg.window.grid, ...pcbCfg.window.cursor, ...pcbCfg.pcb_display };
+  /**
+   * `EDA_DRAW_FRAME::GetRotationAngle()` in degrees — `editing.rotation_angle`
+   * is tenths. A ref because the rotate command is a long-lived keydown
+   * handler.
+   */
+  const rotationStepRef = useRef(90);
+  rotationStepRef.current = pcbCfg.editing.rotation_angle / 10;
+  /** `MAGNETIC_SETTINGS`, for the snap path, which is not a React consumer. */
+  const magneticRef = useRef({ pads: 1, tracks: 1 });
+  magneticRef.current = {
+    pads: pcbCfg.editing.magnetic_pads,
+    tracks: pcbCfg.editing.magnetic_tracks,
+  };
+  /** `m_ESCClearsNetHighlight` — whether Escape drops the net highlight. */
+  const escClearsHighlightRef = useRef(true);
+  escClearsHighlightRef.current = pcbCfg.editing.esc_clears_net_highlight;
+  /** `GAL::GetGridSnapping()` — Snap to grid, against `window.grid.show`. */
+  const gridSnapRef = useRef(true);
+  gridSnapRef.current = gridSnappingEnabled(pcbCfg.window.grid.snap, pcbCfg.window.grid.show);
+  // …and the other direction: Preferences moved the stored crosshair or Show
+  // Grid, so the left toolbar's buttons have to follow. `EDA_DRAW_FRAME::
+  // CommonSettingsChanged` re-reads both and the toolbar's conditions repaint
+  // off them; this is that, with the toggle set as our condition store.
+  const storedCrosshair = pcbCfg.window.cursor.crosshair;
+  const storedShowGrid = pcbCfg.window.grid.show;
+  const storedCurvedRats = pcbCfg.pcb_display.ratsnest_curved;
+  const storedLineMode = pcbCfg.editing.pcb_angle_snap_mode;
+  const storedPolar = pcbCfg.editing.polar_coords;
+  useEffect(() => {
+    setToggles((prev) => {
+      const next = new Set(prev);
+      for (const id of ['crosshairSmall', 'crosshairFull', 'crosshair45']) next.delete(id);
+      next.add(crosshairToggleId(storedCrosshair));
+      for (const id of ['lineModeFree', 'lineMode45', 'lineMode90']) next.delete(id);
+      next.add(lineModeToggleId(storedLineMode));
+      const flag = (id: string, on: boolean): void => {
+        if (on) next.add(id);
+        else next.delete(id);
+      };
+      flag('toggleGrid', storedShowGrid);
+      flag('ratsnestLineMode', storedCurvedRats);
+      flag('togglePolarCoords', storedPolar);
+      return next;
+    });
+  }, [storedCrosshair, storedShowGrid, storedCurvedRats, storedLineMode, storedPolar]);
+  // `EDA_DRAW_FRAME::LoadSettings` — the frame opens on what the file holds,
+  // not on a hardcoded set. Seeded once: after that the toolbar owns the state
+  // and folds its own clicks back into the file (`foldPcbToggle`).
+  const [toggles, setToggles] = useState<Set<string>>(() =>
+    pcbTogglesFromSettings(settings.pcbnew),
+  );
   const unitLabel: StatusUnits = toggles.has('unitsInches')
     ? 'in'
     : toggles.has('unitsMils')
@@ -961,6 +1055,24 @@ export function PcbEditor({
    * There is no Set Local Origin here yet, so it is the page origin — as a
    * module constant, because the hook's repaint effect depends on its identity.
    */
+  /**
+   * `PCB_BASE_FRAME::GetUserOrigin()` — Preferences > PCB Editor > Origins &
+   * Axes' Display Origin group turned into a point:
+   *
+   *     PCB_ORIGIN_PAGE  -> ( 0, 0 )
+   *     PCB_ORIGIN_AUX   -> GetDesignSettings().GetAuxOrigin()
+   *     PCB_ORIGIN_GRID  -> GetDesignSettings().GetGridOrigin()
+   *
+   * Only the frame can answer the last two, which is why the hook takes the
+   * point rather than the enum. `boardAuxOrigin` walks the raw s-expression, so
+   * it is memoised on the board and not called per pointer move.
+   */
+  const userOrigin = useMemo(() => {
+    if (!board) return PCB_LOCAL_ORIGIN;
+    if (pcbCfg.pcb_display.origin_mode === 1) return boardAuxOrigin(board);
+    if (pcbCfg.pcb_display.origin_mode === 2) return boardGridOrigin(board);
+    return PCB_LOCAL_ORIGIN;
+  }, [board, pcbCfg.pcb_display.origin_mode]);
   const statusReadout = useStatusReadout({
     units: unitLabel,
     localOrigin: PCB_LOCAL_ORIGIN,
@@ -968,6 +1080,10 @@ export function PcbEditor({
     iuPerMM: PCB_IU_PER_MM,
     // `GetShowPolarCoords()` — the same pane, the other branch.
     polar: toggles.has('togglePolarCoords'),
+    // Preferences > PCB Editor > Origins & Axes, all three of it.
+    userOrigin,
+    invertX: pcbCfg.pcb_display.origin_invert_x_axis,
+    invertY: pcbCfg.pcb_display.origin_invert_y_axis,
   });
   // Properties pane width. KiCad's PCB_PROPERTIES_PANEL docks at BestSize 300,
   // MinSize 240 (pcb_edit_frame.cpp), and the pane is user-resizable.
@@ -1197,11 +1313,12 @@ export function PcbEditor({
   const gridState = (): PcbGridState => ({
     size: gridIURef.current,
     origin: gridOriginRef.current,
-    // `canUseGrid()` = the grid-snapping setting AND no Ctrl. We have no
-    // grid-snapping preference of our own yet, so the modifier is the whole of
-    // it — but it is the half users reach for, and without it there is no way
-    // at all to place something off the lattice.
-    enableGrid: !ctrlDownRef.current,
+    // `PCB_GRID_HELPER::canUseGrid()` = `GetGridSnapping()` AND no Ctrl.
+    // `GAL::GetGridSnapping` is the Snap to grid choice on Display Options —
+    // ALWAYS, WITH_GRID (only while the grid is shown) or NEVER — which is why
+    // the predicate is shared with every other editor rather than being the
+    // modifier alone, as it was here.
+    enableGrid: gridSnapRef.current && !ctrlDownRef.current,
     enableSnap: !shiftDownRef.current,
     auxAxis: auxAxisRef.current,
   });
@@ -1263,6 +1380,17 @@ export function PcbEditor({
       hysteresis: 5 / viewRef.current.scale,
       visibleGrid: gridIURef.current,
       layer: activeLayerRef.current,
+      // `MAGNETIC_SETTINGS` — Preferences > PCB Editor > Editing Options'
+      // Magnetic Points group. `bestSnapAnchor` already took these three and
+      // defaulted them to CAPTURE_ALWAYS, so "Snap to pads: Never" captured
+      // anyway; this is the frame finally passing what it was asked.
+      //
+      // The intermediate value is CAPTURE_CURSOR_IN_TRACK_TOOL, and this is
+      // NOT the track tool — the router has its own snap path
+      // (`routeSnapRef`) — so it reads here as off, which is what
+      // `PCB_GRID_HELPER::computeAnchors`' `== CAPTURE_ALWAYS` test does.
+      magneticPads: magneticRef.current.pads,
+      magneticTracks: magneticRef.current.tracks,
     });
   };
   // TOP_AUX track-width / via-size selections: index 0 = "use netclass",
@@ -1498,6 +1626,17 @@ export function PcbEditor({
   const [pendingTable, setPendingTable] = useState<Omit<PcbTable, 'source'> | null>(null);
   /** The first corner of a table being drawn. */
   const tableStartRef = useRef<{ x: number; y: number } | null>(null);
+  /**
+   * The same fact as `tableStartRef`, as state, because the cursor is chosen at
+   * render time and a ref does not re-render. `DrawTable`'s `setCursor` swaps
+   * PENCIL for MOVING the moment the first corner is down.
+   */
+  const [tableDragging, setTableDragging] = useState(false);
+  /** Set both together, so the cursor can never disagree with the preview. */
+  const setTableStart = (at: { x: number; y: number } | null): void => {
+    tableStartRef.current = at;
+    setTableDragging(at !== null);
+  };
   // Update PCB from Schematic (DIALOG_UPDATE_PCB). The netlist is fetched from the
   // project's schematic before the dialog opens, together with every footprint it
   // names, the updater itself is synchronous, exactly like upstream, so the
@@ -1541,6 +1680,20 @@ export function PcbEditor({
       return { name: f.name, text: entry.text };
     });
   }, [projectFiles]);
+  // `BOARD_DESIGN_SETTINGS::m_ZoneLayerProperties` as the zone filler wants it:
+  // IU, keyed by canonical layer name. The Board Setup > Zone Hatch Offsets page
+  // edits it in mm, which is this module's convention for a settings slice.
+  const hatchingOffsets = useMemo(() => {
+    const out: Record<string, { x: number; y: number }> = {};
+    for (const [layer, props] of Object.entries(boardSetup.zoneLayerProperties)) {
+      if (props.hatchingOffset)
+        out[layer] = {
+          x: Math.round(props.hatchingOffset.x * MM),
+          y: Math.round(props.hatchingOffset.y * MM),
+        };
+    }
+    return out;
+  }, [boardSetup.zoneLayerProperties]);
   const boardSetupRef = useRef(boardSetup);
   boardSetupRef.current = boardSetup;
 
@@ -1616,7 +1769,7 @@ export function PcbEditor({
     measureRef.current = null;
     dimensionRef.current = null;
     textBoxStartRef.current = null;
-    tableStartRef.current = null;
+    setTableStart(null);
     placeImageRef.current = startPlaceImage();
   }, [activeTool]);
   const sceneRef = useRef<BoardScene | null>(null);
@@ -1683,8 +1836,28 @@ export function PcbEditor({
     const clr = Number.parseFloat(cls?.clearance ?? '');
     return Math.max(Number.isFinite(clr) ? clr * MM : 0.2 * MM, minClr);
   };
+  /**
+   * `BOARD::ResolveTextVar` (`pcbnew/board.cpp`), reached from
+   * `PCB_TEXT::GetShownText`: the project's text variables — the Text Variables
+   * page's rows — plus the two board tokens that need no title block.
+   * Unresolved names are left verbatim by `expandTextVars`, as upstream leaves
+   * them.
+   *
+   * Not resolved here: the title-block tokens (ISSUE_DATE, REVISION, COMPANY,
+   * COMMENT1-9) and `LAYER`, which is per drawn item rather than per board.
+   */
+  const resolveTextVar = (token: string): string | undefined => {
+    const vars = boardSetupRef.current.textVars;
+    const hit = vars.find((v) => v.name === token);
+    if (hit) return hit.value;
+    if (token === 'PROJECTNAME') return projectName || undefined;
+    if (token === 'FILENAME') return fileName || undefined;
+    return undefined;
+  };
+
   const buildBoardScene = (b: Board, filter: SceneFilter = {}): BoardScene => {
     if (!filter.clearanceForNet) filter = { ...filter, clearanceForNet };
+    if (!filter.resolveTextVar) filter = { ...filter, resolveTextVar };
     const scene = buildScene(b, filter, sceneFactory());
     sceneIsGlRef.current = sceneFactory() === GL_PATH_FACTORY;
     if (scene.images.length === 0 || !glOkRef.current || glBlockedRef.current) return scene;
@@ -1736,6 +1909,25 @@ export function PcbEditor({
   const showProperties = toggles.has('showProperties');
 
   // Draw options derived from the Objects tab + zone display mode.
+  /** `PCBNEW_SETTINGS::m_Display` + `m_ViewersDisplay`, this page's slice. */
+  const display = pcbCfg.pcb_display;
+  /**
+   * `::GetColorSettings( cfg->m_ColorTheme )` with the user's overrides on top
+   * — Preferences > PCB Editor > Colors, and the footprint editor's page too,
+   * because both write the `board` namespace.
+   *
+   * `drawOpts.theme` was left undefined here, so every colour came from
+   * `pcbTheme.ts`' built-in constants and the Colors page had nothing behind
+   * it. `PCB_DRAW_PANEL_GAL`'s painter is loaded from the same call
+   * (`pcb_draw_panel_gal.cpp:780-790`), and `CommonSettingsChanged` re-runs it,
+   * which is what the settings subscription above is.
+   */
+  const userColors = useUserColors();
+  const userThemes = useUserThemes();
+  const theme = useMemo(
+    () => pcbThemeWithOverrides(pcbCfg.appearance.color_theme, userColors, userThemes),
+    [pcbCfg.appearance.color_theme, userColors, userThemes],
+  );
   const drawOpts = useMemo<PcbDrawOptions>(
     () => ({
       ...DEFAULT_DRAW_OPTIONS,
@@ -1760,12 +1952,48 @@ export function PcbEditor({
       filledShapeOpacity: opacity.filledShapes,
       contrastMode: contrast,
       activeLayer,
+      theme,
+      // Preferences > PCB Editor > Display Options. `m_Display.m_NetNames` is
+      // ONE 4-valued choice that gates three different items at three
+      // thresholds — `pcb_painter.cpp:1403` for a pad, `:1118` for a via, and
+      // the track branch for the rest — so it fans out here rather than being
+      // stored three times.
+      netNames: display.net_names_mode >= 2,
+      padNetNames: display.net_names_mode === 1 || display.net_names_mode === 3,
+      viaNetNames: display.net_names_mode !== 0,
+      padNumbers: display.pad_numbers,
+      padClearance: display.pad_clearance,
+      viaColorForThPads: display.pad_use_via_color_for_normal_th_padstacks,
+      trackClearanceMode: display.track_clearance_mode,
+      // `LAYER_BOARD_OUTLINE_AREA` — the Objects tab's "Board Area Shadow"
+      // row, which had a checkbox and nothing behind it.
+      boardOutlineArea: objects.boardAreaShadow,
       // Identity-stable: the cache mutates the map and asks for a redraw, and
       // the paint pass reads it then. Nothing here needs to change for a decode
       // to become visible.
       imageBitmaps: imageCacheRef.current.bitmaps,
     }),
-    [objects, opacity, toggles, contrast, activeLayer],
+    [objects, opacity, toggles, contrast, activeLayer, display, theme],
+  );
+
+  /**
+   * The same options for the SELECTION overlay, which paints only the items
+   * that are selected.
+   *
+   * `PCB_FIELD::ViewGetLOD` (`pcbnew/pcb_field.cpp:246-260`) returns LOD_SHOW
+   * for a field whose parent footprint is selected — BEFORE the Render tab's
+   * `LAYER_FP_VALUES` / `LAYER_FP_REFERENCES` checks — when
+   * `m_ForceShowFieldsWhenFPSelected` is set. That early return is what this
+   * is: the overlay pass is the only place the predicate "parent footprint is
+   * selected" is already true for everything it draws, so lifting the two
+   * switches there and nowhere else says exactly what upstream says.
+   */
+  const selDrawOpts = useMemo<PcbDrawOptions>(
+    () =>
+      display.force_show_fields_when_fp_selected
+        ? { ...drawOpts, fpReferences: true, fpValues: true }
+        : drawOpts,
+    [drawOpts, display.force_show_fields_when_fp_selected],
   );
 
   // The left-toolbar high-contrast button reflects the Layer Display mode.
@@ -2142,6 +2370,10 @@ export function PcbEditor({
         origin: gridOriginRef.current,
         color: drawOpts.theme?.grid,
         devicePixelRatio: dpr,
+        // `PANEL_GAL_OPTIONS`' Grid Display group, through `window.grid`.
+        style: galRef.current.style,
+        lineWidthPx: galRef.current.line_width,
+        minSpacingPx: galRef.current.min_spacing,
       }),
     );
     // Drawing sheet, drawn behind the board with the UN-flipped transform so the
@@ -2176,12 +2408,16 @@ export function PcbEditor({
       // got a dim half-transparent grey, which is the whole of why the frame
       // looked washed out next to KiCad's.
       const hairline = v.scale > 0 ? 1 / v.scale : 0;
-      drawPageLimits(
-        bctx,
-        sheetInfo,
-        drawOpts.theme?.special.pageLimits ?? PCB_SPECIAL.pageLimits,
-        hairline,
-      );
+      // `m_ShowPageLimits` — Editing Options' "Show page limits", "Draw an
+      // outline to show the sheet size". `LAYER_PAGE_LIMITS` is drawn only when
+      // it is set (`pcb_draw_panel_gal.cpp`), and this drew it always.
+      if (galRef.current.show_page_borders)
+        drawPageLimits(
+          bctx,
+          sheetInfo,
+          drawOpts.theme?.special.pageLimits ?? PCB_SPECIAL.pageLimits,
+          hairline,
+        );
       drawDrawingSheet(bctx, sheetInfo, sheetColor, undefined, hairline);
       bctx.setTransform(1, 0, 0, 1, 0, 0);
     }
@@ -2364,7 +2600,10 @@ export function PcbEditor({
       if (rats.length > 0) {
         const curved = toggles.has('ratsnestLineMode');
         ctx.setTransform(1, 0, 0, 1, 0, 0);
-        ctx.lineWidth = Math.max(1, dpr);
+        // `m_Display.m_RatsnestThickness` — Editing Options' "Ratsnest line
+        // thickness", a MULTIPLIER on the one-pixel default and not a distance
+        // (`wxSpinCtrlDouble( …, 0.5, 10, 0.5, 0.5 )`). It was a hardcoded 1.
+        ctx.lineWidth = Math.max(1, dpr) * galRef.current.ratsnest_thickness;
         for (const { e, color } of rats) {
           const x1 = e.ax * sx + v.tx;
           const y1 = e.ay * v.scale + v.ty;
@@ -2436,13 +2675,22 @@ export function PcbEditor({
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         const half = (EDIT_POINT_SIZE / 2) * dpr;
         const hovered = hoveredEditHandleRef.current;
-        ctx.fillStyle = EDIT_POINT_FILL;
+        const colors = editPointColors(
+          drawOpts.theme?.special.auxItems ?? PCB_SPECIAL.auxItems,
+          drawOpts.theme?.background ?? PCB_BACKGROUND,
+        );
+        ctx.fillStyle = colors.fill;
         for (const h of handles) {
-          const x = h.at.x * sx + v.tx;
-          const y = h.at.y * v.scale + v.ty;
           const active = hovered?.kind === h.kind && hovered?.index === h.index;
-          ctx.strokeStyle = active ? EDIT_POINT_HOVER_BORDER : EDIT_POINT_BORDER;
-          ctx.lineWidth = (active ? EDIT_POINT_HOVER_SIZE : EDIT_POINT_BORDER_SIZE) * dpr;
+          const pen = galPenWidth((active ? EDIT_POINT_HOVER_SIZE : EDIT_POINT_BORDER_SIZE) * dpr);
+          // GAL quantises the stroke and snaps the geometry to the same pixel
+          // grid (kicad_vert.glsl:69-77). Without the snap a handle's border
+          // straddles two columns at half strength each and reads soft next to
+          // pcbnew's, which is exactly how these looked.
+          const x = galSnapPx(h.at.x * sx + v.tx, pen);
+          const y = galSnapPx(h.at.y * v.scale + v.ty, pen);
+          ctx.strokeStyle = active ? colors.highlight : colors.border;
+          ctx.lineWidth = pen;
           ctx.beginPath();
           if (h.kind === 'line') ctx.arc(x, y, half, 0, Math.PI * 2);
           else ctx.rect(x - half, y - half, half * 2, half * 2);
@@ -2514,7 +2762,7 @@ export function PcbEditor({
           visible,
           canvas.width,
           canvas.height,
-          drawOpts,
+          selDrawOpts,
           undefined,
           true,
           // The router's preview line keeps the plain layer color, the net
@@ -2524,6 +2772,66 @@ export function PcbEditor({
         );
         ctx.restore();
         ctx.setTransform(1, 0, 0, 1, 0, 0);
+      }
+    }
+    // A selected group's own frame and name tab (`PCB_PAINTER::draw( const
+    // PCB_GROUP* )`, the LAYER_ANCHOR arm). The members are already brightened
+    // by the overlay above; this is what the *group* draws, and without it
+    // selecting one looked like nothing had happened at all.
+    {
+      const brd = boardRef.current;
+      const sel = selForDrawRef.current;
+      if (brd && sel.size > 0 && !moveDeltaRef.current) {
+        const groups = [...sel]
+          .map((id) => parseBoardItemId(id))
+          .filter((r) => r?.kind === 'group')
+          .map((r) => ({ idx: r!.index, g: brd.groups[r!.index] }))
+          .filter((x) => x.g);
+        if (groups.length > 0) {
+          // `SetLineWidth( m_outlineWidth * 2.0f )` with `m_outlineWidth = 1`
+          // *internal unit* (`render_settings.cpp:43`) — nothing at any zoom, so
+          // what reaches the screen is GAL's one-device-pixel minimum.
+          const pen = galPenWidth(Math.max(1, dpr));
+          const textSize = groupLabelTextSize(1 / v.scale);
+          ctx.save();
+          ctx.setTransform(sx, 0, 0, v.scale, v.tx, v.ty);
+          ctx.strokeStyle = drawOpts.theme?.special.anchor ?? PCB_SPECIAL.anchor;
+          ctx.lineWidth = pen / v.scale;
+          for (const { idx, g } of groups) {
+            const members = expandGroupIds(brd, new Set([boardItemId('group', idx)]));
+            const box = boardSelectionBBox(brd, members);
+            if (!box) continue;
+            ctx.beginPath();
+            for (const seg of groupBoxSegments(box, g!.name ?? '', textSize)) {
+              ctx.moveTo(seg.a.x, seg.a.y);
+              ctx.lineTo(seg.b.x, seg.b.y);
+            }
+            ctx.stroke();
+
+            if (groupLabelFits(g!.name ?? '', box, textSize)) {
+              const at = groupLabelAnchor(box, textSize);
+              // `attrs.m_Italic = true`, centre/bottom, `GetPenSizeForNormal`.
+              const label = boardTextPath({
+                kind: 'user',
+                text: g!.name ?? '',
+                at,
+                angle: 0,
+                layer: 'F.Cu',
+                size: { x: textSize, y: textSize },
+                italic: true,
+                justify: ['bottom'],
+                source: EMPTY_SLIST,
+              });
+              if (label) {
+                ctx.lineWidth = Math.max(label.thickness, pen / v.scale);
+                ctx.stroke(label.path);
+                ctx.lineWidth = pen / v.scale;
+              }
+            }
+          }
+          ctx.restore();
+          ctx.setTransform(1, 0, 0, 1, 0, 0);
+        }
       }
     }
     // In-flight route preview (ROUTER_TOOL): the 45° two-segment path from the
@@ -2612,7 +2920,9 @@ export function PcbEditor({
       const dr = dimensionRef.current;
       const cur0 = cursorRef.current;
       if (dr && cur0) {
-        const live = moveDimension(dr, snapToGrid(cur0)).dimension;
+        const live = moveDimension(dr, dimensionCursor(dr, cur0), {
+          userUnits: unitsRef.current,
+        }).dimension;
         ctx.save();
         ctx.setTransform(sx, 0, 0, v.scale, v.tx, v.ty);
         ctx.strokeStyle = layerColor(live.layer);
@@ -2624,6 +2934,17 @@ export function PcbEditor({
           ctx.lineTo(seg.b.x, seg.b.y);
         }
         ctx.stroke();
+        // The label, from the same layout the committed item gets. Upstream's
+        // preview is the real `PCB_DIMENSION_BASE` in a `VIEW_GROUP`, so the
+        // measurement counts up as you drag; without this the preview is a bare
+        // set of lines and the number only appears after the last click.
+        if (live.text && !live.text.hide) {
+          const label = boardTextPath(live.text);
+          if (label) {
+            ctx.lineWidth = Math.max(label.thickness, Math.max(1, dpr) / v.scale);
+            ctx.stroke(label.path);
+          }
+        }
         ctx.restore();
         ctx.setTransform(1, 0, 0, 1, 0, 0);
       }
@@ -2860,13 +3181,19 @@ export function PcbEditor({
         canvas.width,
         canvas.height,
         {
-          mode: toggles.has('crosshairFull') ? 'full' : toggles.has('crosshair45') ? '45' : 'small',
+          // `GAL_DISPLAY_OPTIONS::m_gridStyle`'s sibling `m_crossHairMode`,
+          // read from the file rather than from the button set so Display
+          // Options and the toolbar cannot disagree.
+          mode: galRef.current.crosshair,
           color: PCB_CURSOR,
           // pcbnew's tools call ShowCursor(true) as soon as one is active; with
           // the selection tool the crosshair is there only because "Always show
           // crosshairs" forced it, and a forced cursor is dimmed upstream.
           toolWantsCursor: activeToolRef.current !== 'select',
-          alwaysShow: true,
+          // `GAL_DISPLAY_OPTIONS::m_forceDisplayCursor`, the Cursor group's
+          // second control. Hardcoded true here, so switching it off on
+          // Display Options changed nothing.
+          alwaysShow: galRef.current.always_show_cursor,
           devicePixelRatio: dpr,
         },
       );
@@ -2914,9 +3241,16 @@ export function PcbEditor({
 
   // Recompile the selected items into their own scene, so the overlay can paint
   // them brightened over the raster (KiCad's selection look).
+  //
+  // Through `expandGroupIds`, like every *editing* command already was. A group
+  // id names no item of its own, so `subsetBoardItems` matched nothing for one
+  // and the overlay came out empty: selecting a group — the board stackup table,
+  // say — highlighted nothing at all, while KiCad brightens all 153 members.
+  // `PCB_SELECTION_TOOL::select` puts the members in the selection too
+  // (`GROUP::RunOnChildren`), so the drawing and the editing want the same set.
   const rebuildSelScene = useCallback(() => {
     const brd = boardRef.current;
-    const sel = selForDrawRef.current;
+    const sel = brd ? expandGroupIds(brd, selForDrawRef.current) : selForDrawRef.current;
     selSceneRef.current =
       brd && sel.size > 0
         ? buildScene(subsetBoardItems(brd, sel), {
@@ -2944,9 +3278,11 @@ export function PcbEditor({
     (ids: ReadonlySet<string> | null) => {
       const brd = boardRef.current;
       hoverRef.current = ids && ids.size > 0 ? ids : null;
+      // Same expansion as the selection scene: hovering a group's row in the
+      // disambiguation menu has to light the group up.
       hoverSceneRef.current =
         brd && hoverRef.current
-          ? buildScene(subsetBoardItems(brd, hoverRef.current), {
+          ? buildScene(subsetBoardItems(brd, expandGroupIds(brd, hoverRef.current)), {
               hideFrontFootprints: !objects.footprintsFront,
               hideBackFootprints: !objects.footprintsBack,
             })
@@ -3237,7 +3573,11 @@ export function PcbEditor({
             ? spreadBoardFootprints(result.board, result.addedFootprints)
             : result.board;
         commitBoard(spread);
-        setSelection(new Set(result.addedFootprints.map((i) => boardItemId('footprint', i))));
+        const added = new Set(result.addedFootprints.map((i) => boardItemId('footprint', i)));
+        setSelection(added);
+        // `*aRunDragCommand = true` (`netlist.cpp:152`), acted on by the dialog's
+        // destructor: the spread cluster follows the cursor until you click.
+        startPostUpdateMoveRef.current(added);
       }
 
       return reporter.lines;
@@ -3329,7 +3669,12 @@ export function PcbEditor({
       if (!brd || sel.size === 0) return;
       const { items, selection } = promotePadsForCommand(brd, sel);
       if (selection) setSelection(selection);
-      commitBoard(rotateBoardItems(brd, items, ccw, modPoint(brd, items)));
+      // `EDIT_TOOL::Rotate`: `rotateAngle = TOOL_EVT_UTILS::GetEventRotationAngle(
+      // *frame(), aEvent )`, which is `frame->GetRotationAngle()` — Preferences
+      // > PCB Editor > Editing Options' "Step for rotate commands", stored in
+      // tenths of a degree. This was a hardcoded ±90.
+      const step = rotationStepRef.current;
+      commitBoard(rotateBoardItemsBy(brd, items, ccw ? step : -step, modPoint(brd, items)));
     },
     [commitBoard, modPoint],
   );
@@ -5510,33 +5855,59 @@ export function PcbEditor({
    * take a third click for the crossbar, the other three finish on the second —
    * the engine decides, this only commits when it says `done`.
    */
+  /**
+   * The cursor as `DrawDimension` sees it: snapped to the grid, except while
+   * placing the crossbar of a dimension that is not cardinal — see
+   * `dimensionSnapsToGrid`, upstream's `grid.SetUseGrid( false )`.
+   */
+  const dimensionCursor = (
+    draw: DimensionDraw,
+    world: { x: number; y: number },
+  ): { x: number; y: number } => (dimensionSnapsToGrid(draw) ? snapToGrid(world) : world);
+
   const handleDimensionClick = (world: { x: number; y: number }, kind: DimensionKind): void => {
     const brd = boardRef.current;
     if (!brd) return;
-    const p = snapToGrid(world);
     const cur = dimensionRef.current;
+    const p = cur ? dimensionCursor(cur, world) : snapToGrid(world);
+    // `DIM_UNITS_MODE::AUTOMATIC` reads `GetBoard()->GetUserUnits()`, so the
+    // label cannot be derived without the frame's display units.
+    const opts = { userUnits: unitsRef.current };
 
     if (!cur) {
       const tg = boardSetupRef.current.textGraphics;
+      const row = layerClassRow(activeLayer);
       dimensionRef.current = startDimension(
         kind,
         p,
-        dimensionDefaultsFrom(
-          tg.dimensions,
-          activeLayer,
-          shapeWidthIU(activeLayer),
-          Math.round((tg.rows[0]?.textHeight ?? 1) * MM),
-          Math.round((tg.rows[0]?.textThickness ?? 0.15) * MM),
-        ),
+        dimensionDefaultsFrom(tg.dimensions, activeLayer, shapeWidthIU(activeLayer), {
+          // `GetTextSize/Thickness/Italic( layer )` all index the *layer class*.
+          // This used to read `rows[0]`, the silkscreen row, whatever the layer.
+          textWidth: Math.round(row.textWidth * MM),
+          textHeight: Math.round(row.textHeight * MM),
+          textThickness: Math.round(row.textThickness * MM),
+          italic: row.italic,
+        }),
+        opts,
       );
       requestDraw();
       return;
     }
 
-    const next = clickDimension(cur, p);
+    const next = clickDimension(cur, p, opts);
     if (next.done) {
-      commitBoard(addBoardDimension(brd, next.dimension).board);
+      const added = addBoardDimension(brd, next.dimension);
+      commitBoard(added.board);
       dimensionRef.current = null;
+      // `m_toolMgr->RunAction<EDA_ITEM*>( ACTIONS::selectItem, dimension )` —
+      // the placed dimension is left selected, so the properties panel and Del
+      // act on what was just drawn.
+      setSelection(new Set([added.id]));
+      // "Run the edit immediately to set the leader text": a leader shows typed
+      // text, so upstream opens its properties dialog the moment it lands
+      // (drawing_tool.cpp:1791-1793). Without this the label is stuck on the
+      // constructor's "Leader".
+      if (kind === 'leader') setDimensionPropsIndex(brd.dimensions.length);
     } else {
       dimensionRef.current = next;
     }
@@ -5548,18 +5919,68 @@ export function PcbEditor({
    * isTextBox). Two corners, then the properties dialog decides whether the box
    * is kept at all.
    */
-  /** Board Setup values a freshly-drawn table takes, shared by preview and commit. */
+  /**
+   * Board Setup values a freshly-drawn table takes, shared by preview and commit.
+   *
+   * The font size is `bds.GetTextSize( table->GetLayer() )`
+   * (`drawing_tool.cpp:1353`) — the **layer class's** row, like every other
+   * `GetTextSize( layer )`. This read `rows[0]`, the silkscreen row, whatever
+   * layer the table was going on, and the font size is not cosmetic here: it is
+   * what sizes the whole table. `colCount = requestedSize.x / (fontSize.x * 15)`
+   * and `rowCount = requestedSize.y / (fontSize.y * 3)`, so a font one third
+   * short of the real one gives half again as many rows, each of them that much
+   * shorter — which is exactly "our boxes are tiny compared to KiCad's".
+   */
   const tableDefaults = (): TableDefaults => {
-    const tg = boardSetupRef.current.textGraphics;
+    const row = layerClassRow(activeLayer);
     return {
       layer: activeLayer,
-      fontWidth: Math.round((tg.rows[0]?.textWidth ?? 1) * MM),
-      fontHeight: Math.round((tg.rows[0]?.textHeight ?? 1) * MM),
-      textThickness: Math.round((tg.rows[0]?.textThickness ?? 0.15) * MM),
+      fontWidth: Math.round(row.textWidth * MM),
+      fontHeight: Math.round(row.textHeight * MM),
+      textThickness: Math.round(row.textThickness * MM),
       lineThickness: shapeWidthIU(activeLayer),
       gridPitch: gridIURef.current,
     };
   };
+
+  /**
+   * The two controls the *board's* table dialog has and the schematic's does
+   * not: `m_LayerSelectionCtrl` and `m_cbLocked`
+   * (`pcbnew/dialogs/dialog_table_properties_base.h:45-46`). A `SCH_TABLE` has
+   * neither — it has no layer and eeschema has no lock — so they are passed
+   * into the shared dialog rather than living in it.
+   *
+   * `m_LayerSelectionCtrl` is a PCB_LAYER_BOX_SELECTOR, which draws each
+   * layer's colour swatch through `LAYER_PRESENTATION::DrawColorSwatch`; a
+   * plain list of names is not that control.
+   */
+  const tableDialogHeader = (
+    v: TableValues,
+    set: (patch: Partial<TableValues>) => void,
+  ): JSX.Element => (
+    <div className="ze-tableprops-header">
+      <label className="row ze-tableprops-field">
+        <span className="ze-tableprops-lbl">Layer:</span>
+        <Combo
+          value={v.layer}
+          onChange={(layer) => set({ layer })}
+          options={(board?.layers ?? []).map((l) => ({
+            value: l.name,
+            label: l.name,
+            swatch: layerColor(l.name),
+          }))}
+        />
+      </label>
+      <label className="row ze-tableprops-field">
+        <input
+          type="checkbox"
+          checked={v.locked}
+          onChange={(e) => set({ locked: e.target.checked })}
+        />
+        <span className="ze-tableprops-boxlbl">Locked</span>
+      </label>
+    </div>
+  );
 
   /**
    * A click with the table tool active (DRAWING_TOOL::DrawTable). Two clicks,
@@ -5569,12 +5990,12 @@ export function PcbEditor({
     const p = snapToGrid(world);
     const first = tableStartRef.current;
     if (!first) {
-      tableStartRef.current = p;
+      setTableStart(p);
       requestDraw();
       return;
     }
     setPendingTable(newTable(first, p, tableDefaults()));
-    tableStartRef.current = null;
+    setTableStart(null);
     requestDraw();
   };
 
@@ -6066,7 +6487,7 @@ export function PcbEditor({
   const fillAllZones = useCallback(() => {
     const brd = boardRef.current;
     if (!brd || brd.zones.length === 0) return;
-    commitBoard(fillZones(brd));
+    commitBoard(fillZones(brd, { hatchingOffsets }));
   }, [commitBoard]);
   // The global key handler is stable, so it reaches the action through a ref.
   const fillAllZonesRef = useRef(fillAllZones);
@@ -6256,7 +6677,7 @@ export function PcbEditor({
       const index = dimensionPropsIndex;
       setDimensionPropsIndex(null);
       if (!brd || index === null) return;
-      const next = applyDimensionValues(brd, index, values);
+      const next = applyDimensionValues(brd, index, values, unitsRef.current);
       if (next !== brd) commitBoard(next);
     },
     [commitBoard, dimensionPropsIndex],
@@ -6310,7 +6731,7 @@ export function PcbEditor({
       const next = applyZoneValues(brd, index, values);
       // A changed zone has to be re-poured; its fill was built from the old
       // clearances (ZONE_FILLER runs on the commit that closes the dialog).
-      if (next !== brd) commitBoard(fillZones(next));
+      if (next !== brd) commitBoard(fillZones(next, { hatchingOffsets }));
     },
     [commitBoard, zonePropsIndex],
   );
@@ -6604,6 +7025,38 @@ export function PcbEditor({
     grabbingRef.current = true;
     requestDraw();
   };
+  /**
+   * `DIALOG_UPDATE_PCB::~DIALOG_UPDATE_PCB` (`dialog_update_pcb.cpp:65-85`): once
+   * the update has spread the new footprints, KiCad hands the whole cluster to
+   * the cursor as a move, so you drop it where you want it.
+   *
+   *     if( m_runDragCommand )
+   *     {
+   *         // Set the reference point to (0,0) where the new footprints were
+   *         // spread. This ensures the move tool knows where the items are
+   *         // located, preventing an offset when the "warp cursor to origin of
+   *         // moved object" preference is disabled.
+   *         if( selection.Size() > 0 )
+   *             selection.SetReferencePoint( VECTOR2I( 0, 0 ) );
+   *         …
+   *     }
+   *
+   * `netlist.cpp:149` spreads to `{ 0, 0 }`, which is why the reference point is
+   * that and not the cluster's own corner. Without this the cluster is simply
+   * left at the page origin — the top-left of the sheet — which is not where
+   * anybody wants their board.
+   *
+   * A ref because the update handler is a `useCallback` and `beginMove` is
+   * rebuilt every render; capturing it directly would freeze the first one.
+   */
+  const startPostUpdateMoveRef = useRef<(sel: ReadonlySet<string>) => void>(() => {});
+  startPostUpdateMoveRef.current = (sel) => {
+    if (sel.size === 0 || movingRef.current || grabbingRef.current) return;
+    beginMove(sel, 'move', { x: 0, y: 0 });
+    grabbingRef.current = true;
+    requestDraw();
+  };
+
   const grabCancelRef = useRef<() => void>(() => {});
   grabCancelRef.current = () => {
     if (!grabbingRef.current) return;
@@ -7211,7 +7664,7 @@ export function PcbEditor({
           routeRef.current = null;
           requestDrawRef.current();
         } else if (tableStartRef.current) {
-          tableStartRef.current = null;
+          setTableStart(null);
           requestDrawRef.current();
         } else if (textBoxStartRef.current) {
           textBoxStartRef.current = null;
@@ -7246,6 +7699,12 @@ export function PcbEditor({
         } else {
           setShow3D(false);
           setSelection(new Set());
+          // `m_ESCClearsNetHighlight` — Editing Options' "<ESC> clears net
+          // highlighting". `PCB_CONTROL::ClearHighlight` is bound to Escape
+          // only when it is set (`pcb_edit_frame.cpp`), so with it off a
+          // highlighted net survives the key that clears the selection. Ours
+          // never cleared it at all, which is the other half of the same gap.
+          if (escClearsHighlightRef.current) clearHighlightRef.current();
         }
         return;
       }
@@ -7908,6 +8367,10 @@ export function PcbEditor({
       toggleHighlightRef.current();
       return;
     }
+    // The three crosshair shapes and Show Grid are stored settings, so the
+    // button and Preferences are one value: `foldPcbToggle` writes the file and
+    // the subscription above brings it back as a re-render.
+    if (isStoredPcbToggle(id)) settings.updatePcbnew((c) => void foldPcbToggle(c, id));
     setToggles((prev) => applyToggle(prev, id));
   };
 
@@ -8276,7 +8739,48 @@ export function PcbEditor({
           disabled: dis,
           action: () => setActiveTool('placePoint'),
         },
-        { label: 'Dimension', disabled: dis },
+        { sep: true },
+        // `menubar_pcb_editor.cpp:317-326`: a "Draw Dimensions" submenu after a
+        // separator, in this order — orthogonal first. This used to be a dead
+        // `{ label: 'Dimension' }` row with no action and no accelerator, which
+        // is *why* Ctrl+Shift+H did nothing: `ui/menu_hotkeys.ts` dispatches the
+        // `shortcut` on a menu row, so a tool with no row has no key.
+        {
+          label: 'Draw Dimensions',
+          icon: 'drawAlignedDimension',
+          disabled: dis,
+          submenu: [
+            {
+              label: 'Draw Orthogonal Dimensions',
+              icon: 'drawOrthogonalDimension',
+              // The only one of the five with a `.DefaultHotkey()`
+              // (`pcb_actions.cpp:301`); the other four have none upstream
+              // either, so none is invented for them here.
+              shortcut: 'Ctrl+Shift+H',
+              action: () => setActiveTool('drawOrthogonalDimension'),
+            },
+            {
+              label: 'Draw Aligned Dimensions',
+              icon: 'drawAlignedDimension',
+              action: () => setActiveTool('drawAlignedDimension'),
+            },
+            {
+              label: 'Draw Center Dimensions',
+              icon: 'drawCenterDimension',
+              action: () => setActiveTool('drawCenterDimension'),
+            },
+            {
+              label: 'Draw Radial Dimensions',
+              icon: 'drawRadialDimension',
+              action: () => setActiveTool('drawRadialDimension'),
+            },
+            {
+              label: 'Draw Leaders',
+              icon: 'drawLeader',
+              action: () => setActiveTool('drawLeader'),
+            },
+          ],
+        },
         { sep: true },
         // `menubar_pcb_editor.cpp:333-336`, in this order: the two setters each
         // followed by their reset.
@@ -8301,7 +8805,14 @@ export function PcbEditor({
     {
       label: 'Route',
       items: [
-        { label: 'Single Track', disabled: dis, shortcut: 'X' },
+        // `PCB_ACTIONS::routeSingleTrack`, X (`pcb_actions.cpp`). Same gap as
+        // Measure Tool above: a row with an accelerator and no action.
+        {
+          label: 'Single Track',
+          disabled: dis,
+          shortcut: 'X',
+          action: () => setActiveTool('routeSingleTrack'),
+        },
         { label: 'Differential Pair', disabled: dis },
         { sep: true },
         { label: 'Tune Length of a Single Track', disabled: dis },
@@ -8317,7 +8828,16 @@ export function PcbEditor({
     {
       label: 'Inspect',
       items: [
-        { label: 'Measure Tool', disabled: dis, shortcut: 'Ctrl+Shift+M' },
+        // `ACTIONS::measureTool`, Ctrl+Shift+M (`common/tool/actions.cpp:1238`).
+        // The row printed the accelerator but carried no `action`, and
+        // `ui/menu_hotkeys.ts` presses the *row* — so the key was decoration.
+        // The tool itself was already wired to the canvas.
+        {
+          label: 'Measure Tool',
+          disabled: dis,
+          shortcut: 'Ctrl+Shift+M',
+          action: () => setActiveTool('measureTool'),
+        },
         { label: 'Board Statistics', disabled: dis },
         { sep: true },
         // Upstream names these by what is being resolved, and which one you
@@ -8791,7 +9311,7 @@ export function PcbEditor({
                 // `PCB_VIEWER_TOOLS::MeasureTool` KICURSOR::MEASURE
                 // (`pcb_viewer_tools.cpp:292`). This frame had neither and
                 // showed the plain arrow for both.
-                cursor: boardToolCursor(activeTool),
+                cursor: boardToolCursor(activeTool, { tableDragging }),
               }}
               onPointerDown={onPointerDown}
               onPointerMove={onPointerMove}
@@ -8982,6 +9502,11 @@ export function PcbEditor({
         <Viewer3DFrame
           board={board}
           projectFiles={projectFiles}
+          // BOARD_ADAPTER reads the stackup off the board it is given; ours is
+          // held by the editor, so it is handed down. The Color column on the
+          // Physical Stackup page is what these paint.
+          stackup={boardSetup.physicalStackup}
+          boardFinish={boardSetup.boardFinish}
           backLabel="← PCB Editor"
           imageBaseName={projectName || fileName.replace(/\.kicad_pcb$/i, '') || 'board'}
           onClose={() => setShow3D(false)}
@@ -9360,6 +9885,13 @@ export function PcbEditor({
         <DialogPcbPlot
           board={board}
           visibleLayers={visible}
+          // The Solder Mask/Paste page, in IU. The ratio is a fraction upstream
+          // and a percent on the panel, hence the /100.
+          maskPaste={{
+            solderMaskExpansion: Math.round(boardSetup.maskPaste.maskExpansionMM * MM),
+            solderPasteMargin: Math.round(boardSetup.maskPaste.pasteClearanceMM * MM),
+            solderPasteMarginRatio: boardSetup.maskPaste.pasteRelativePct / 100,
+          }}
           projectFolders={projectFolders}
           onOutputFile={onOutputFile}
           onRunDrc={() => {
@@ -9451,10 +9983,13 @@ export function PcbEditor({
         />
       )}
       {pendingTable && (
-        <DialogTableProperties
+        <DialogTableProperties<TableValues>
           initial={collectTableValues({ ...pendingTable, source: EMPTY_SLIST })}
-          layers={board?.layers.map((l) => l.name) ?? []}
-          onApply={(values) => {
+          iuScale={pcbIUScale}
+          isNew
+          header={tableDialogHeader}
+          onCancel={() => setPendingTable(null)}
+          onOk={(values) => {
             const brd = boardRef.current;
             const tbl = pendingTable;
             setPendingTable(null);
@@ -9464,13 +9999,13 @@ export function PcbEditor({
             // One commit, so placing a table is a single undo step.
             commitBoard(applyTableValues(withTable, index, values));
           }}
-          onClose={() => setPendingTable(null)}
         />
       )}
       {pendingTextBox && (
         <DialogTextBoxProperties
           initial={collectTextBoxValues({ ...pendingTextBox, source: EMPTY_SLIST })}
           layers={board?.layers.map((l) => l.name) ?? []}
+          layerColor={layerColor}
           placing
           onApply={(values) => {
             const brd = boardRef.current;
@@ -9487,17 +10022,20 @@ export function PcbEditor({
         />
       )}
       {tablePropsIndex !== null && board?.tables[tablePropsIndex] && (
-        <DialogTableProperties
+        <DialogTableProperties<TableValues>
           initial={collectTableValues(board.tables[tablePropsIndex]!)}
-          layers={board.layers.map((l) => l.name)}
-          onApply={applyTableEdit}
-          onClose={() => setTablePropsIndex(null)}
+          iuScale={pcbIUScale}
+          columnWidths={board.tables[tablePropsIndex]!.columnWidths}
+          header={tableDialogHeader}
+          onOk={applyTableEdit}
+          onCancel={() => setTablePropsIndex(null)}
         />
       )}
       {textBoxPropsIndex !== null && board?.textBoxes[textBoxPropsIndex] && (
         <DialogTextBoxProperties
           initial={collectTextBoxValues(board.textBoxes[textBoxPropsIndex]!)}
           layers={board.layers.map((l) => l.name)}
+          layerColor={layerColor}
           onApply={applyTextBoxEdit}
           onClose={() => setTextBoxPropsIndex(null)}
         />

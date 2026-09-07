@@ -40,59 +40,47 @@ import {
 } from '@ziroeda/sexpr';
 import { childNamed, childrenNamed } from '@ziroeda/sexpr/src/query.js';
 import {
+  LSET_Name,
+  LSET_NameToLayer,
+  TECH_AND_USER_UI_ORDER,
+  UNDEFINED_LAYER,
+} from '@ziroeda/pcbnew/src/layer_ids.js';
+import {
   buildStackup,
+  copperStackNames,
+  isThicknessEditable,
+  MANDATORY_LAYERS,
   type BoardLayer,
   type BoardSetupValues,
   type DielectricSublayer,
   type StackupLayer,
+  type ZoneLayerPropertiesMap,
 } from './board_settings.js';
 
 // ---------------------------------------------------------------------------
 // Layer tables (include/layer_ids.h + common/lset.cpp).
 
-/** Canonical name -> ordinal for the fixed non-copper layers. */
-const TECH_ORDINALS: Record<string, number> = {
-  'F.Mask': 1,
-  'B.Mask': 3,
-  'F.SilkS': 5,
-  'B.SilkS': 7,
-  'F.Adhes': 9,
-  'B.Adhes': 11,
-  'F.Paste': 13,
-  'B.Paste': 15,
-  'Dwgs.User': 17,
-  'Cmts.User': 19,
-  'Eco1.User': 21,
-  'Eco2.User': 23,
-  'Edge.Cuts': 25,
-  Margin: 27,
-  'B.CrtYd': 29,
-  'F.CrtYd': 31,
-  'B.Fab': 33,
-  'F.Fab': 35,
-};
+/**
+ * Canonical name -> ordinal for the fixed non-copper layers. Derived from
+ * `TECH_AND_USER_UI_ORDER`, which is the same eighteen layers: the ordinal IS
+ * the `PCB_LAYER_ID`, so re-typing the numbers here only created a second
+ * place for them to drift from `pcbnew/src/layer_ids.ts`.
+ */
+const TECH_ORDINALS: Record<string, number> = Object.fromEntries(
+  TECH_AND_USER_UI_ORDER.map((id) => [LSET_Name(id), id]),
+);
 
 /** The fixed tech/user write order (LSET::TechAndUserUIOrder, lset.cpp). */
-const TECH_WRITE_ORDER = [
-  'F.Adhes',
-  'B.Adhes',
-  'F.Paste',
-  'B.Paste',
-  'F.SilkS',
-  'B.SilkS',
-  'F.Mask',
-  'B.Mask',
-  'Dwgs.User',
-  'Cmts.User',
-  'Eco1.User',
-  'Eco2.User',
-  'Edge.Cuts',
-  'Margin',
-  'F.CrtYd',
-  'B.CrtYd',
-  'F.Fab',
-  'B.Fab',
-];
+const TECH_WRITE_ORDER = TECH_AND_USER_UI_ORDER.map(LSET_Name);
+
+/**
+ * A user-defined layer's qualifier as `LAYER::ParseType()` reads it
+ * (`board.cpp:840-858`). Only `front` and `back` are ever written for one;
+ * everything else — `user` included — is LT_AUX.
+ */
+function parseUserLayerType(aToken: string | undefined): 'aux' | 'front' | 'back' {
+  return aToken === 'front' ? 'front' : aToken === 'back' ? 'back' : 'aux';
+}
 
 function copperOrdinal(id: string): number | undefined {
   if (id === 'F.Cu') return 0;
@@ -102,13 +90,16 @@ function copperOrdinal(id: string): number | undefined {
   return undefined;
 }
 
+/**
+ * Canonical layer name -> ordinal. This is `LSET::NameToLayer` with upstream's
+ * -1 turned into `undefined`, which is the shape this file's callers want; the
+ * table itself lives in `pcbnew/src/layer_ids.ts` beside `LSET_Name`, so the
+ * two directions are one table read each way. Three private copies of the
+ * `User.N` / `In%d.Cu` arithmetic used to live here and in the widgets.
+ */
 function layerOrdinal(id: string): number | undefined {
-  const cu = copperOrdinal(id);
-  if (cu !== undefined) return cu;
-  if (id in TECH_ORDINALS) return TECH_ORDINALS[id];
-  const m = /^User\.(\d+)$/.exec(id);
-  if (m) return 39 + 2 * (Number(m[1]) - 1); // Rescue=37, User_N odd ids
-  return undefined;
+  const layer = LSET_NameToLayer(id);
+  return layer === UNDEFINED_LAYER ? undefined : layer;
 }
 
 /** Stackup display name (panel) <-> canonical board-layer name (file). */
@@ -149,6 +140,13 @@ const yesNo = (b: boolean): string => (b ? 'yes' : 'no');
 function numArgOf(node: SList | undefined, dflt: number): number {
   const a = node?.items[1];
   const v = a && a.kind !== 'list' ? Number(a.value) : NaN;
+  return Number.isFinite(v) ? v : dflt;
+}
+
+/** The n-th positional argument of a node, as a number. `(xy X Y)` needs two. */
+function numArgAt(node: SList | undefined, index: number, dflt: number): number {
+  const a = node?.items[index];
+  const v = a && a.kind !== 'list' ? Number(a.value) : Number.NaN;
   return Number.isFinite(v) ? v : dflt;
 }
 
@@ -208,9 +206,25 @@ export function applyBoardFileSetup(pcbText: string, s: BoardSetupValues): boole
       for (const dflt of s.layers.layers) {
         if (dflt.kind === 'copper') continue; // replaced by the file's stack
         const inFile = byId.get(dflt.id);
+        // A User.N only exists as a row while it is enabled —
+        // `initialize_layers_controls()` appends rows for
+        // `m_enabledLayers & LSET::UserDefinedLayersMask()` and no others, which
+        // is the whole reason "Add User Defined Layer..." exists. Carrying the
+        // default four through as unchecked rows would show four User layers on
+        // a board that has none.
+        if (dflt.kind === 'user' && inFile === undefined) continue;
         next.push({
           ...dflt,
-          enabled: inFile !== undefined,
+          // A default User.N row still takes its type from the file, or the
+          // `front`/`back` qualifier would be dropped for exactly the four
+          // layers a new board ships with.
+          ...(dflt.kind === 'user' ? { userType: parseUserLayerType(inFile?.type) } : {}),
+          // `BOARD_DESIGN_SETTINGS::SetEnabledLayers` (`:1632-1641`) forces the
+          // mandatory set on "regardless of board file configuration", so a
+          // board whose `(layers …)` omits Margin still has Margin. Without
+          // this they came back unchecked, and the checkbox that would put them
+          // back is disabled — `mandatoryLayerCbSetup()` — so nothing could.
+          enabled: inFile !== undefined || MANDATORY_LAYERS.has(dflt.id),
           name: inFile?.name ?? dflt.name,
         });
         byId.delete(dflt.id);
@@ -218,10 +232,18 @@ export function applyBoardFileSetup(pcbText: string, s: BoardSetupValues): boole
       // Splice the copper stack after the front tech block (…, F.Mask, [Cu]).
       const frontEnd = next.findIndex((l) => l.id === 'B.Mask');
       next.splice(frontEnd === -1 ? next.length : frontEnd, 0, ...copperRows);
-      // Any remaining ids are user-defined layers (User.N).
+      // Any remaining ids are user-defined layers (User.N). Their qualifier is
+      // `LAYER::ParseType()` (`board.cpp:840-858`): only `front` and `back` are
+      // ever written for one, and everything else — `user` included — is LT_AUX.
       for (const [id, info] of byId) {
         if (layerOrdinal(id) !== undefined)
-          next.push({ id, name: info.name, enabled: true, kind: 'tech', desc: 'User defined' });
+          next.push({
+            id,
+            name: info.name,
+            enabled: true,
+            kind: 'user',
+            userType: parseUserLayerType(info.type),
+          });
       }
       s.layers.layers = next;
       s.physicalStackup.copperCount = copperRows.length;
@@ -230,6 +252,24 @@ export function applyBoardFileSetup(pcbText: string, s: BoardSetupValues): boole
 
   const setup = childNamed(root, 'setup');
   if (setup) {
+    // ----- (zone_defaults …): per-layer zone hatched-fill offsets.
+    // `parseZoneLayerProperties` (`pcb_io_kicad_sexpr_parser.cpp:2940-2970`):
+    // each `(property …)` carries a `(layer …)` and, optionally, a
+    // `(hatch_position (xy X Y))`. A property with no hatch_position leaves the
+    // offset unset, which is what keeps it out of the file again on write.
+    const zoneDefaults = childNamed(setup, 'zone_defaults');
+    if (zoneDefaults) {
+      const map: ZoneLayerPropertiesMap = {};
+      for (const prop of childrenNamed(zoneDefaults, 'property')) {
+        const layer = strArgOf(childNamed(prop, 'layer'));
+        if (layer === undefined) continue;
+        const hatch = childNamed(prop, 'hatch_position');
+        const xy = hatch ? childNamed(hatch, 'xy') : undefined;
+        map[layer] = xy ? { hatchingOffset: { x: numArgOf(xy, 0), y: numArgAt(xy, 2, 0) } } : {};
+      }
+      s.zoneLayerProperties = map;
+    }
+
     // ----- (stackup …).
     const stackup = childNamed(setup, 'stackup');
     if (stackup) {
@@ -398,21 +438,23 @@ function buildLayerEntries(s: BoardSetupValues): SList[] {
   const out: SList[] = [];
   // Copper stack front->back; the stackup page's copper count is the source of
   // truth for how many exist (KiCad syncs the layers page the same way).
-  const copperIds = ['F.Cu'];
-  for (let i = 1; i <= s.physicalStackup.copperCount - 2; i++) copperIds.push(`In${i}.Cu`);
-  copperIds.push('B.Cu');
-  for (const id of copperIds) {
+  // The one copper-stack list, from board_settings.ts — this had its own copy.
+  for (const id of copperStackNames(s.physicalStackup.copperCount)) {
     const row = rows.find((l) => l.id === id);
     out.push(entry(id, row?.copperType ?? 'signal', row?.name ?? id));
   }
-  // Tech + user layers in the fixed UI order, enabled only. Tech layers carry
-  // the literal "user" qualifier (formatBoardLayers), not their real type.
+  // Tech + user layers in the fixed UI order, enabled only. The qualifier is
+  // the literal "user" unless the layer is a User.N whose type is LT_FRONT or
+  // LT_BACK — `print_type` is false for everything else, so an LT_AUX user
+  // layer writes as "user" too (`pcb_io_kicad_sexpr.cpp:680-697`).
   const techRows = [
     ...TECH_WRITE_ORDER.map((id) => rows.find((l) => l.id === id)),
     ...rows.filter((l) => /^User\.\d+$/.test(l.id)),
   ];
   for (const row of techRows) {
-    if (row?.enabled) out.push(entry(row.id, 'user', row.name));
+    if (!row?.enabled) continue;
+    const type = row.userType === 'front' || row.userType === 'back' ? row.userType : 'user';
+    out.push(entry(row.id, type, row.name));
   }
   return out;
 }
@@ -490,6 +532,37 @@ function buildStackupNode(s: BoardSetupValues): SList {
   return { kind: 'list', items };
 }
 
+/**
+ * `(zone_defaults …)` — `formatSetup`'s block for
+ * `BOARD_DESIGN_SETTINGS::m_ZoneLayerProperties`
+ * (`pcb_io_kicad_sexpr.cpp:607-615`), written only when the map is non-empty.
+ *
+ * Each entry goes through `format( ZONE_LAYER_PROPERTIES&, …)` (`:3096-3113`),
+ * whose first act is to return without printing anything when the offset is
+ * unset — "Do not store the layer properties if no value is actually set". So a
+ * layer the user never touched leaves no `(property …)` behind, and a map whose
+ * every entry is unset writes no block at all.
+ */
+function buildZoneDefaultsNode(s: BoardSetupValues): SList | undefined {
+  const written = Object.entries(s.zoneLayerProperties).filter(
+    ([, p]) => p.hatchingOffset !== undefined,
+  );
+  if (written.length === 0) return undefined;
+
+  const items: SNode[] = [atom('zone_defaults')];
+  for (const [layer, props] of written) {
+    const off = props.hatchingOffset as { x: number; y: number };
+    items.push(
+      list(
+        atom('property'),
+        list(atom('layer'), str(layer)),
+        list(atom('hatch_position'), list(atom('xy'), atom(mm(off.x)), atom(mm(off.y)))),
+      ),
+    );
+  }
+  return { kind: 'list', items };
+}
+
 /** Rebuild (setup …) in KiCad's write order, patching owned tokens and
  *  carrying every other child through. */
 function buildSetupNode(old: SList | undefined, s: BoardSetupValues): SList {
@@ -501,6 +574,7 @@ function buildSetupNode(old: SList | undefined, s: BoardSetupValues): SList {
     'pad_to_paste_clearance_ratio',
     'allow_soldermask_bridges_in_footprints',
     'tenting',
+    'zone_defaults',
   ]);
   const oldChildren = (old?.items.slice(1) ?? []).filter(isList);
   const keep = (name: string): SList | undefined => oldChildren.find((c) => head(c) === name);
@@ -528,10 +602,15 @@ function buildSetupNode(old: SList | undefined, s: BoardSetupValues): SList {
     ),
   );
   // Preserved-opaque siblings, in KiCad's write order when present.
-  for (const name of ['covering', 'plugging', 'capping', 'filling', 'zone_defaults']) {
+  for (const name of ['covering', 'plugging', 'capping', 'filling']) {
     const node = keep(name);
     if (node) items.push(node);
   }
+  // `(zone_defaults …)` sits between `filling` and the aux origin, which is the
+  // order `formatSetup` prints them in (`pcb_io_kicad_sexpr.cpp:605-616`). It
+  // used to be carried through opaquely; the Zone Hatch Offsets page owns it now.
+  const zoneDefaults = buildZoneDefaultsNode(s);
+  if (zoneDefaults) items.push(zoneDefaults);
   for (const name of ['aux_axis_origin', 'grid_origin']) {
     const node = keep(name);
     if (node) items.push(node);
@@ -591,7 +670,17 @@ export function writeBoardFileSetup(pcbText: string, s: BoardSetupValues): strin
   }
   if (head(root) !== 'kicad_pcb') return null;
 
-  const boardThickness = s.physicalStackup.layers.reduce((sum, l) => sum + (l.thicknessMM || 0), 0);
+  // `BOARD_STACKUP::GetBoardThickness()` sums only the thickness-editable rows,
+  // and their sublayers with them — not every row (`board_stackup.cpp:498-515`).
+  const boardThickness = s.physicalStackup.layers.reduce(
+    (sum, l) =>
+      isThicknessEditable(l.type)
+        ? sum +
+          (l.thicknessMM || 0) +
+          (l.sublayers ?? []).reduce((a, p) => a + (p.thicknessMM || 0), 0)
+        : sum,
+    0,
+  );
 
   const items: SNode[] = [...root.items];
   const replace = (name: string, node: SList): void => {

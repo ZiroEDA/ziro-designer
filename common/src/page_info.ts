@@ -135,3 +135,39 @@ export function pageSizeDisplayMM(paper: string): [number, number] {
   const [w, h] = pageSizeIU(paper, DRAW_SHEET_IU_PER_MIL);
   return [w / 1000, h / 1000];
 }
+
+/**
+ * The page a `(paper …)` TOKEN names, in millimetres — the file's spelling
+ * rather than a `PAGE_INFO` field.
+ *
+ * Two forms, and both matter: a name with an optional `portrait` keyword, which
+ * swaps the landscape pair above; and `User <w> <h>`, whose two numbers ARE the
+ * size in millimetres and so cannot come out of any table — that is what "user"
+ * means. `PAPER_MILS`' `User: [17000, 11000]` is `PAGE_INFO`'s *initial* custom
+ * page, not the one a given file holds.
+ *
+ * It lives here because two renderers needed it and each had grown its own
+ * copy: `editors/schematic/render/renderer.ts` handled `User` and
+ * `editors/pcb/renderBoard.ts` did not, so a board saved with a custom page
+ * size drew neither its drawing sheet nor its page limits while the same
+ * schematic drew both. Millimetres, not IU: pcbnew's internal unit is a
+ * nanometre and eeschema's is 100 nm, so a shared function returning IU would
+ * be wrong in one of the two callers — see [[iu-scale-differs-per-editor]].
+ */
+export function pageSizeMM(paper: string | undefined): { w: number; h: number } | null {
+  if (!paper) return null;
+
+  const parts = paper.trim().split(/\s+/);
+
+  if (parts[0] === 'User') {
+    const w = Number(parts[1]);
+    const h = Number(parts[2]);
+    return Number.isFinite(w) && Number.isFinite(h) && w > 0 && h > 0 ? { w, h } : null;
+  }
+
+  const dims = PAPER_MM[parts[0] ?? ''];
+  if (!dims) return null;
+
+  const [w, h] = parts.includes('portrait') ? [dims[1], dims[0]] : dims;
+  return { w, h };
+}

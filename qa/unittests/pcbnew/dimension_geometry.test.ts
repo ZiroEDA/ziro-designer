@@ -27,6 +27,7 @@ import {
   hitTestDimension,
   measuredValue,
   resize,
+  textKnockoutPoly,
   type DimSegment,
 } from '@ziroeda/pcbnew/src/dimension_geometry.js';
 
@@ -330,11 +331,40 @@ describe('a radial dimension', () => {
     expect(leader.b).toEqual({ x: MM(13), y: 0 });
   });
 
-  it('joins the leader tip to the text', () => {
+  it('joins the leader tip to the text, stopping at the label', () => {
+    // `CollectKnockedOutSegments( polyBox, textSeg, m_shapes )`: the run out to
+    // the label stops where it meets the label's box, so the line never reaches
+    // under the glyphs. The stop is therefore the box's near edge, not the text
+    // anchor — which is where this used to end, because the knockout was not
+    // ported.
     const toText = dimensionSegments(radial)[3]!;
+    const poly = textKnockoutPoly(radial)!;
+    const leftEdge = Math.min(...poly.map((p) => p.x));
 
     expect(toText.a).toEqual({ x: MM(13), y: 0 });
-    expect(toText.b).toEqual({ x: MM(20), y: 0 });
+    expect(toText.b).toEqual({ x: leftEdge, y: 0 });
+    // and it really is short of the anchor, so the assertion above is not
+    // vacuously true for a box that happens to start at the text position.
+    expect(toText.b.x).toBeLessThan(MM(20));
+  });
+
+  it('runs the whole way when the label is too far off to be hit', () => {
+    // The other half of the knockout: `if( !containsA && !containsB &&
+    // !endpointA && !endpointB )` puts the segment back whole. Without this
+    // branch a label that never touches the line would still cut it.
+    const far = dim({
+      kind: 'radial',
+      start: P(0, 0),
+      end: P(10, 0),
+      leaderLength: MM(3),
+      text: { ...text(20, 0), at: P(20, 40) },
+    });
+    const toText = dimensionSegments(far)[3]!;
+
+    expect(toText.a).toEqual({ x: MM(13), y: 0 });
+    expect(toText.b.y).toBeLessThan(MM(40)); // stopped at the label it does reach
+    const straight = dimensionSegments(far)[2]!;
+    expect(straight.b).toEqual({ x: MM(13), y: 0 }); // the leader itself is untouched
   });
 
   it('measures the radius', () => {

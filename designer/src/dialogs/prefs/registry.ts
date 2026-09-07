@@ -86,9 +86,16 @@ export const PAGES: readonly PrefsPageEntry[] = [
   { id: null, label: 'PCB Editor' },
   { id: 'pcb-display', label: 'Display Options', indent: true, owner: 'pcb' },
   { id: 'pcb-grids', label: 'Grids', indent: true, owner: 'pcb' },
+  { id: 'pcb-origins', label: 'Origins & Axes', indent: true, owner: 'pcb' },
+  { id: 'pcb-editing', label: 'Editing Options', indent: true, owner: 'pcb' },
+  { id: 'pcb-colors', label: 'Colors', indent: true, owner: 'pcb' },
   { id: 'pcb-toolbars', label: 'Toolbars', indent: true, owner: 'pcb' },
   { id: null, label: '3D Viewer' },
+  // `common/eda_base_frame.cpp:1693-1696`. The first row is called "General",
+  // not "Display Options" like every other editor's.
+  { id: '3dv-general', label: 'General', indent: true, owner: 'pcb' },
   { id: '3dv-toolbars', label: 'Toolbars', indent: true, owner: 'pcb' },
+  { id: '3dv-opengl', label: 'Realtime Renderer', indent: true, owner: 'pcb' },
   // gerbview's KIFACE is consulted after pcbnew's and before pl_editor's
   // (`common/eda_base_frame.cpp:1702-1721`).
   //
@@ -285,24 +292,22 @@ export const OMITTED_PAGES: Readonly<Record<string, readonly DeclaredPage[]>> = 
   // two of the three are decisions rather than gaps.
   // The Footprint Editor heading has NO entry: all nine of its pages ship.
   'Footprint Editor': [],
+  // Three of the four ship. The Realtime Renderer's old entry read "ours is a
+  // three.js scene with none of those knobs", which was wrong: `WebGLRenderer`
+  // takes `antialias`, a `Box3Helper` is a bounding box, the copper extrusion
+  // is geometry we already build, and a raycast is the rollover highlight.
   '3D Viewer': [
-    { label: 'General', reason: '3D Viewer tracker 200.' },
-    {
-      label: 'Realtime Renderer',
-      reason:
-        "PANEL_3D_OPENGL_OPTIONS configures KiCad's own OpenGL renderer — its " +
-        'anti-aliasing mode, its copper thickness and its highlight animation. Ours is a ' +
-        'three.js scene with none of those knobs.',
-    },
     {
       label: 'Raytracing Renderer',
-      reason: 'PANEL_3D_RAYTRACING_OPTIONS configures a raytracer this port does not have.',
+      reason:
+        'PANEL_3D_RAYTRACING_OPTIONS configures a path tracer this port does not have, and ' +
+        'is not something a browser canvas can grow.',
     },
   ],
+  // Six of this heading's seven ship. Origins & Axes, Editing Options and
+  // Colors are all a class the Footprint Editor's heading already draws, in
+  // their board-editor variant.
   'PCB Editor': [
-    { label: 'Origins & Axes', reason: 'PCB Editor tracker 200.' },
-    { label: 'Editing Options', reason: 'PCB Editor tracker 200.' },
-    { label: 'Colors', reason: 'PCB Editor tracker 200.' },
     {
       label: 'Plugins',
       reason:

@@ -31,7 +31,7 @@ export interface BoardOutline {
   tris: number[];
 }
 
-interface Box {
+export interface Box {
   minX: number;
   minY: number;
   maxX: number;
@@ -115,15 +115,20 @@ function chainLoops(polys: Vec2[][], tol: number): Vec2[][] {
 /** Build the triangulated board outline (mm, centred 3D frame). `drills` (also
  * centred 3D mm) are subtracted from the surface so holes are real voids, the
  * board loops (for the walls) keep only the perimeter + Edge.Cuts cutouts. */
-export function buildBoardOutline(
-  board: Board,
-  box: Box,
-  drills: { x: number; y: number; r: number }[] = [],
-): BoardOutline {
-  const cx = (box.minX + box.maxX) / 2;
-  const cy = (box.minY + box.maxY) / 2;
-  const to3d = (p: Vec2): Pt => ({ x: (p.x - cx) / MM, y: -(p.y - cy) / MM });
-
+/**
+ * `BOARD::GetBoardPolygonOutlines` — the closed loops the Edge.Cuts graphics
+ * make, in **board IU**, largest first.
+ *
+ * Its own function because two very different things need the same loops: the
+ * 3D viewer extrudes them, and `LAYER_BOARD_OUTLINE_AREA` fills them. Chaining
+ * open segments into rings is the whole difficulty, and doing it twice is how
+ * the two would come to disagree about where the board is.
+ *
+ * `fallback` is the bounding box a board with no usable Edge.Cuts gets, which
+ * is what `buildBoardOutline` needs and the area fill does not: KiCad draws no
+ * board area for a board with no outline, rather than inventing a rectangle.
+ */
+export function boardOutlineLoops(board: Board, fallback?: Box): Vec2[][] {
   const shapes = [...board.shapes, ...board.footprints.flatMap((f) => f.shapes)].filter(
     (s) => s.layer === 'Edge.Cuts',
   );
@@ -153,16 +158,32 @@ export function buildBoardOutline(
     }
   }
 
-  const loopsIU = [...closed, ...chainLoops(open, MM * 0.02)].filter((l) => l.length >= 3);
-  // No usable Edge.Cuts (or it failed to close): fall back to the bounding rect.
-  if (loopsIU.length === 0) {
-    loopsIU.push(rectLoop({ x: box.minX, y: box.minY }, { x: box.maxX, y: box.maxY }));
+  const loops = [...closed, ...chainLoops(open, MM * 0.02)].filter((l) => l.length >= 3);
+
+  if (loops.length === 0 && fallback) {
+    loops.push(
+      rectLoop({ x: fallback.minX, y: fallback.minY }, { x: fallback.maxX, y: fallback.maxY }),
+    );
   }
 
-  // Largest-area loop is the outer boundary; the rest are cutouts.
-  const loops = loopsIU
-    .map((l) => l.map(to3d))
-    .sort((a, b) => Math.abs(signedArea(b)) - Math.abs(signedArea(a)));
+  // Largest-area loop first: it is the outer boundary and the rest are cutouts.
+  return loops.sort((a, b) => Math.abs(signedArea(b)) - Math.abs(signedArea(a)));
+}
+
+export function buildBoardOutline(
+  board: Board,
+  box: Box,
+  drills: { x: number; y: number; r: number }[] = [],
+): BoardOutline {
+  const cx = (box.minX + box.maxX) / 2;
+  const cy = (box.minY + box.maxY) / 2;
+  const to3d = (p: Vec2): Pt => ({ x: (p.x - cx) / MM, y: -(p.y - cy) / MM });
+
+  const loopsIU = boardOutlineLoops(board, box);
+
+  // `boardOutlineLoops` already sorted largest-area first, so [0] is the outer
+  // boundary and the rest are cutouts.
+  const loops = loopsIU.map((l) => l.map(to3d));
   const outer = loops[0]!;
   const holes = loops.slice(1);
 

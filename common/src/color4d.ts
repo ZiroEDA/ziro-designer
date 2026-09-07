@@ -361,6 +361,32 @@ export const mix = (c: Color4d, other: Color4d, factor: number): Color4d => {
 
 export const withAlpha = (c: Color4d, a: number): Color4d => ({ ...c, a: clamp01(a) });
 
+/**
+ * `LAYER_PRESENTATION::DrawColorSwatch`'s two fills
+ * (`common/widgets/layer_presentation.cpp:36-62`):
+ *
+ *     brush.SetColour( aBackground.WithAlpha( 1.0 ).ToColour() );
+ *     bmpDC.DrawRectangle( … );          // the canvas background, opaque
+ *     brush.SetColour( aColor.ToColour() );
+ *     bmpDC.DrawRectangle( … );          // the layer colour over it
+ *
+ * — plain source-over onto an OPAQUE ground, so the result is opaque whatever
+ * the layer's alpha. That is the whole point of the call: `F.Mask` is
+ * `rgba(216, 100, 255, 0.4)` and its swatch must read against the board's
+ * `#001023`, not against whichever widget happens to be behind the swatch.
+ * Every layer swatch KiCad draws — a layer selector's entries, a grid cell's
+ * renderer, GerbView's list — goes through this one function.
+ */
+export const swatchOverBackground = (color: Color4d, background: Color4d): Color4d => {
+  const a = clamp01(color.a);
+  return {
+    r: background.r * (1 - a) + color.r * a,
+    g: background.g * (1 - a) + color.g * a,
+    b: background.b * (1 - a) + color.b * a,
+    a: 1,
+  };
+};
+
 /** The same, straight from and back to CSS, for callers holding theme strings. */
 export const cssWithAlpha = (css: string, a: number): string =>
   toCss(withAlpha(parseColor4d(css), a));

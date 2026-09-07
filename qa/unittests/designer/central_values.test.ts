@@ -136,7 +136,12 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // `'#fff'` preview fill and a `'1px solid #888'` preview border, neither of
   // which is a colour KiCad picks. All of it is `.ze-pgs-*` in shell.css now,
   // where the drawing-sheet copy's two audits had already put it.
-  dialogs: { colours: 5, metrics: 32 },
+  // 5/32 -> 4/27: the Board Setup pass reached the two shared panels it shows
+  // as pages of its own. `panel_setup_netclasses` lost the `#888` its colour
+  // hint restated (a wxStaticText upstream takes the dialog's ink) and the
+  // inline width/gap of the button row; `panel_embedded_files` lost its
+  // checkbox's own flex row for `.ze-pref-check`.
+  dialogs: { colours: 4, metrics: 27 },
   'editors/calculator': { colours: 2, metrics: 18 },
   'editors/drawingsheet': { colours: 0, metrics: 0 },
   // 9/20 -> 8/17: the Appearance panel became the shared APPEARANCE_CONTROLS
@@ -188,7 +193,16 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // `dist (dx dy)` string where upstream shows four. The item is the shared
   // `ui/ruler_item` painter now, the one the footprint editor already used.
   // RESCANNED from this tree.
-  'editors/pcb': { colours: 61, metrics: 380 },
+  // 61/380 -> 51/215: DIALOG_BOARD_SETUP and its thirteen panels. The ten
+  // colours were six invented stackup swatch hexes (now KiCad's own
+  // `GetStandardColors()` table, each row carrying [data] and its `wxColor`),
+  // three `var(--ze-muted, #888)` empty states and the custom-rules gutter's
+  // `#6b6e74`. The 165 metrics were the panels' entire layout written inline —
+  // every grid, gap, padding and border of thirteen pages — which is now
+  // `.ze-pref-*` where a shared sizer already states it, and cited wx borders
+  // in shell.css where the page has a sizer of its own. RESCANNED from this
+  // tree.
+  'editors/pcb': { colours: 48, metrics: 215 },
   // 68/215 -> 60/210: the COLOR_SWATCH sweep. Eight `<input type="color">`s
   // across the item dialogs, the net-chain table and the colour-settings
   // panel each carried a '#000000' or '#ffffff' fallback the native control
@@ -253,7 +267,11 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   //
   // Lowered rather than left high: a baseline a pass no longer needs is a
   // ceiling nobody is under. RESCANNED against the merged tree.
-  'editors/schematic': { colours: 33, metrics: 191 },
+  // metrics 191 -> 185: Table Properties became one dialog for both editors
+  // (`ui/DialogTableProperties.tsx`), and its layout went from twenty inline
+  // `style={{ … }}` objects to rules in the stylesheet. The six that left this
+  // area are the ones eeschema's copy stated inline.
+  'editors/schematic': { colours: 33, metrics: 185 },
   // colours 12 -> 7: the Symbol Editor parity pass. Four were
   // SYMBOL_EDITOR_COLORS, a private copy of LAYER_SCHEMATIC_ANCHOR /
   // LAYER_HIDDEN / LAYER_PRIVATE_NOTES / LAYER_FIELDS that matched the Default
@@ -503,7 +521,17 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // different role that happens to share the value, the same split
   // --selection-fg records. RESCANNED from this tree; `ui` is the only row that
   // moved.
-  ui: { colours: 205, metrics: 709 },
+  // colours 205 -> 204: `PagedDialog`'s unimplemented-page message stated
+  // `var(--ze-muted, #888)`, and `--ze-muted` is not a property this stylesheet
+  // declares — so the fallback was what painted. It is `--ctl-fg-disabled` now,
+  // which is how GTK greys anything.
+  // metrics 709 -> 717: Table Properties is one dialog for both editors now
+  // (`ui/DialogTableProperties.tsx`), and its layout moved out of twenty inline
+  // `style={{ … }}` objects into rules here — so eight arrived in this area
+  // while six left `editors/schematic`. They are the schematic dialog's own
+  // numbers, which were already checked against its `_base.cpp`; the board's
+  // copy, and the sizes it had invented, are gone with the file.
+  ui: { colours: 204, metrics: 717 },
   // colours 6 -> 7: the opacity slider's #55585d track arrived here with
   // APPEARANCE_CONTROLS; it is the same literal `editors/pcb` lost, not a new
   // one. The panel's own stylesheet adds none: every length in
@@ -885,7 +913,15 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // copy; the report panel's tag was the second. Derived, not rescanned: two
     // literals became one token declaration, which the scanner does not count,
     // and `ui` is the only row either of them is in.
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(542);
+    // 542 -> 530: the Board Setup pass. Three rows move and they account for
+    // all twelve: `editors/pcb` 61 -> 51, `dialogs` 5 -> 4, `ui` 205 -> 204.
+    // 530 -> 527: the board editor's point-editor handles. `PcbEditor.tsx`
+    // stated the EDIT_POINT palette itself — a white fill and two grey borders
+    // — while the symbol, schematic and drawing-sheet canvases all derive the
+    // same three from the board theme through `editPointColors`. Its handles
+    // therefore ignored the theme entirely. `editors/pcb` 51 -> 48 is the only
+    // row that moves, and 530 - 3 agrees with it.
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(527);
     // 1657 -> 1649: the same sweep. A native colour input has no useful
     // default size, so eight of the sixteen sites gave theirs an inline
     // width and height; the shared swatch takes --swatch-*-w/h. Rescanned.
@@ -1026,7 +1062,12 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // `editors/footprint` row, 14 -> 13, the only row that moved. The same
     // pass took `.ze-pref-row .lbl`'s `min-width: 150px` out of `ui` and put
     // one CITED `column-gap` back, so `ui` does not move.
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1489);
+    // 1489 -> 1319: the same pass. Two rows move: `editors/pcb` 380 -> 215 and
+    // `dialogs` 32 -> 27, which is 165 + 5.
+    // 1319 -> 1321: Table Properties became one dialog. Two rows move and
+    // together they account for it: `ui` 709 -> 717 as the layout arrived as
+    // rules, `editors/schematic` 191 -> 185 as its inline styles left.
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1321);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {

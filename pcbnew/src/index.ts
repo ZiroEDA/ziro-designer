@@ -595,10 +595,19 @@ export {
   dimensionSegments,
   distanceToDimension,
   hitTestDimension,
+  dimensionCrossbar,
   measuredValue,
+  radialKnee,
   resize,
   type DimSegment,
 } from './dimension_geometry.js';
+
+export {
+  dimensionUnits,
+  dimensionValueText,
+  dimensionDisplayText,
+  updateDimension,
+} from './dimension_text.js';
 
 export {
   startDimension,
@@ -606,13 +615,16 @@ export {
   clickDimension,
   setHeightFromCursor,
   dimensionClickCount,
-  radialKnee,
+  dimensionSnapsToGrid,
+  constrainDimension,
+  vectorSnapped45,
   DEFAULT_DIMENSION_DEFAULTS,
   DEFAULT_ARROW_LENGTH,
   DEFAULT_EXTENSION_OFFSET,
   DEFAULT_LINE_THICKNESS,
   type DimensionDefaults,
   type DimensionDraw,
+  type DimensionDrawOptions,
   type DimensionDrawStep,
 } from './draw_dimension.js';
 
@@ -1677,3 +1689,12 @@ export {
   type PnsBoardNet,
   type PnsPendingChange,
 } from './router/pns_board_iface.js';
+
+// `PAD::GetSolderMaskExpansion` / `GetSolderPasteMargin` — the Board Setup >
+// Solder Mask/Paste values reaching a pad's aperture.
+export {
+  padApertureSize,
+  solderMaskExpansionFor,
+  solderPasteMarginFor,
+  type BoardMaskPasteDefaults,
+} from './pad_margins.js';

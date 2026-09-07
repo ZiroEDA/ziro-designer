@@ -123,7 +123,7 @@ export function PanelEmbeddedFiles({ value, onChange, onExport }: Props): JSX.El
           <Icon name="delete" />
         </button>
         <span style={{ flex: 1 }} />
-        <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12.5 }}>
+        <label className="ze-pref-check">
           <input
             type="checkbox"
             checked={value.embedFonts}

@@ -31,8 +31,15 @@ const SHELL = read('../../../designer/src/ui/shell.css');
 const COMBO = read('../../../designer/src/ui/Combo.tsx');
 const VIEWER = read('../../../designer/src/editors/gerbview/GerberViewer.tsx');
 
+/**
+ * Anchored at a line start, the way the other CSS readers in this suite are
+ * (`dialog_chrome_measured.test.ts:39-43`). A bare `indexOf` matched any rule
+ * whose selector merely ENDED with the one asked for — `.ze-grid td >
+ * .ze-combo > .ze-combo-swatch` answered for `.ze-combo-swatch` and, being
+ * earlier in the file, answered first.
+ */
 const ruleBody = (css: string, selector: string): string => {
-  const at = css.indexOf(`${selector} {`);
+  const at = css.indexOf(`\n${selector} {`);
   expect(at, `${selector} is missing`).toBeGreaterThanOrEqual(0);
   const end = css.indexOf('}', at);
   return css.slice(at, end).replace(/\/\*[\s\S]*?\*\//g, '');

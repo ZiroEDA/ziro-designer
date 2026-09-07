@@ -7,9 +7,28 @@
  * two groups: Solder Mask Settings (expansion, minimum web width, mask-to-copper
  * clearance, tent vias front/back) and Solder Paste Settings (clearance, relative
  * clearance %). Board-wide defaults applied to pads unless overridden.
+ *
+ * NO FONT SIZES AND NO COLOURS HERE, and no locally-built rows either — the
+ * page is `Group` / `Num` / `Check` out of `dialogs/prefs/widgets.tsx`, which is
+ * where a labelled row, a group heading and a checkbox are stated once for the
+ * whole app.
+ *
+ * This page calls `SetFont` in exactly two places, and neither of them is a
+ * size: the two group headings ask for `wxNORMAL_FONT->GetPointSize()` at
+ * `wxFONTWEIGHT_NORMAL` (the dialog font at the dialog's own weight — no change
+ * at all), and `m_staticTextInfoPaste` takes
+ * `KIUI::GetInfoFont( this ).Italic()` (`panel_setup_mask_and_paste.cpp:43`),
+ * which is `.ze-pref-help`. The 12.5px grids, the 11px units and the
+ * `font-weight: 600` headings that used to be here were all invented, and they
+ * are why this page read smaller and heavier than the rest of the dialog.
  */
 
 import type { JSX } from 'react';
+// Yaru's own `dialog-warning.png`, vendored — `wxArtProvider::GetBitmap` asks
+// the desktop icon theme, not KiCad's bitmaps. See `ui/ReadOnlyNotice.tsx` for
+// the measurement that settled that.
+import warningIcon from '../../../../assets/theme/dialog-warning.png';
+import { Check, Group, Num } from '../../../../dialogs/prefs/widgets.js';
 import type { MaskPaste } from '../../board_settings.js';
 
 // The data model lives in board_settings.ts (KiCad's data/UI split);
@@ -21,87 +40,103 @@ interface Props {
   onChange: (next: MaskPaste) => void;
 }
 
-// Plain bold section labels (no groupbox), matching pcbnew's mask/paste page.
-const sec: React.CSSProperties = { fontSize: 12.5, fontWeight: 600, margin: '2px 0 8px' };
-const grid: React.CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: 'max-content 90px max-content',
-  alignItems: 'center',
-  gap: '8px 8px',
-  fontSize: 12.5,
-};
-
 export function PanelPcbMaskPaste({ value, onChange }: Props): JSX.Element {
-  const num = (s: string): number => (Number.isFinite(Number(s)) ? Number(s) : 0);
   const set = <K extends keyof MaskPaste>(k: K, v: MaskPaste[K]): void =>
     onChange({ ...value, [k]: v });
 
-  const numRow = (label: string, key: keyof MaskPaste, unit: string): JSX.Element => (
-    <>
-      <span>{label}</span>
-      <input
-        className="ze-search"
-        style={{ width: '100%', boxSizing: 'border-box' }}
-        value={value[key] as number}
-        onChange={(e) => set(key, num(e.target.value) as never)}
-      />
-      <span className="ze-muted" style={{ fontSize: 11 }}>
-        {unit}
-      </span>
-    </>
-  );
-
   return (
-    <div style={{ padding: '2px 2px', maxWidth: 560 }}>
-      <div className="ze-muted" style={{ fontSize: 11.5, lineHeight: 1.5, margin: '2px 0 14px' }}>
-        Consult your PCB manufacturer&rsquo;s specifications for solder mask expansion, web width,
-        and clearance settings.
-      </div>
-
-      <div style={sec}>Solder Mask Settings</div>
-      <div style={grid}>
-        {numRow('Solder mask expansion:', 'maskExpansionMM', 'mm')}
-        {numRow('Solder mask minimum web width:', 'maskMinWebMM', 'mm')}
-        {numRow('Solder mask to copper clearance:', 'maskToCopperMM', 'mm')}
-      </div>
-      <label
-        style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, margin: '8px 0' }}
-      >
-        <input
-          type="checkbox"
-          checked={value.allowBridged}
-          onChange={(e) => set('allowBridged', e.target.checked)}
-        />
-        Allow bridged solder mask apertures between pads within footprints
-      </label>
-      <div style={{ ...grid, gridTemplateColumns: 'max-content max-content', marginTop: 2 }}>
-        <span>Tent vias:</span>
-        <div style={{ display: 'flex', gap: 16 }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-            <input
-              type="checkbox"
-              checked={value.tentFront}
-              onChange={(e) => set('tentFront', e.target.checked)}
-            />
-            Front
-          </label>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-            <input
-              type="checkbox"
-              checked={value.tentBack}
-              onChange={(e) => set('tentBack', e.target.checked)}
-            />
-            Back
-          </label>
+    <div className="ze-pref-page-natural">
+      {/* `bMessages`: the wxART_WARNING bitmap beside two STACKED
+          wxStaticTexts. The second line was missing here entirely. */}
+      <div className="ze-pcb-mask-messages">
+        <img src={warningIcon} width={16} height={16} alt="" aria-hidden="true" />
+        <div>
+          <div>
+            Consult your PCB manufacturer&rsquo;s specifications for solder mask expansion, web
+            width, and clearance settings.
+          </div>
+          <div>If no specifications are provided, setting these values to zero is recommended.</div>
         </div>
       </div>
 
-      <div style={{ ...sec, marginTop: 18 }}>Solder Paste Settings</div>
-      <div style={grid}>
-        {numRow('Solder paste clearance:', 'pasteClearanceMM', 'mm')}
-        {numRow('Solder paste relative clearance:', 'pasteRelativePct', '%')}
-      </div>
-      <div className="ze-muted" style={{ fontSize: 11, fontStyle: 'italic', marginTop: 8 }}>
+      <Group title="Solder Mask Settings">
+        {/* `spin={false}`: every one of these is a `wxTextCtrl` behind a
+            UNIT_BINDER, not a wxSpinCtrl, so it carries no stepper buttons. */}
+        <Num
+          label="Solder mask expansion:"
+          unit="mm"
+          spin={false}
+          value={value.maskExpansionMM}
+          onChange={(n) => set('maskExpansionMM', n)}
+        />
+        <Num
+          label="Solder mask minimum web width:"
+          unit="mm"
+          spin={false}
+          value={value.maskMinWebMM}
+          onChange={(n) => set('maskMinWebMM', n)}
+        />
+        <Num
+          label="Solder mask to copper clearance:"
+          unit="mm"
+          spin={false}
+          value={value.maskToCopperMM}
+          onChange={(n) => set('maskToCopperMM', n)}
+        />
+        {/* [data] `gbSizer1->Add( m_allowBridges, …, wxTOP|wxLEFT, 5 )` — a
+            wxTOP with no wxBOTTOM, which is `['top']` with no `'bottom'`. */}
+        <Check
+          label="Allow bridged solder mask apertures between pads within footprints"
+          title="Disable DRC error checking for solder mask aperture bridging between pads in the same footprint."
+          borders={['top']}
+          checked={value.allowBridged}
+          onChange={(b) => set('allowBridged', b)}
+        />
+        {/* `bSizer6`, a bare horizontal box: the label then the two
+            checkboxes, each Add() carrying its own wxLEFT/wxRIGHT 5. Not a
+            `.ze-pref-row` — that would push "Tent vias:" into the group's
+            shared label column, which this sizer never had. */}
+        <div className="ze-pref-radiorow">
+          <span>Tent vias:</span>
+          <Check
+            label="Front"
+            title={
+              'Tented: vias are covered with solder mask.\nNot tented: vias are not covered with solder mask.'
+            }
+            checked={value.tentFront}
+            onChange={(b) => set('tentFront', b)}
+          />
+          <Check
+            label="Back"
+            title={
+              'Tented: vias are covered with solder mask.\nNot tented: vias are not covered with solder mask.'
+            }
+            checked={value.tentBack}
+            onChange={(b) => set('tentBack', b)}
+          />
+        </div>
+      </Group>
+
+      <Group title="Solder Paste Settings">
+        <Num
+          label="Solder paste clearance:"
+          unit="mm"
+          spin={false}
+          value={value.pasteClearanceMM}
+          onChange={(n) => set('pasteClearanceMM', n)}
+        />
+        <Num
+          label="Solder paste relative clearance:"
+          unit="%"
+          spin={false}
+          value={value.pasteRelativePct}
+          onChange={(n) => set('pasteRelativePct', n)}
+        />
+      </Group>
+
+      {/* The one SetFont on the page that changes anything:
+          `KIUI::GetInfoFont( this ).Italic()`. */}
+      <div className="ze-pref-help">
         Note: Solder paste clearances (absolute and relative) are added to determine the final
         clearance.
       </div>

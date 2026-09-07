@@ -100,6 +100,11 @@ export interface Viewer3D {
   setOrtho: (on: boolean) => void;
   /** The 3D Grid submenu. */
   setGrid: (grid: Grid3D) => void;
+  /**
+   * `EDA_3D_VIEWER_SETTINGS::m_Camera` — Preferences > 3D Viewer > General's
+   * Camera Options, applied live rather than at mount.
+   */
+  setCamera: (o: Partial<Viewer3dCameraOptions>) => void;
 
   // -- File / Edit menu ----------------------------------------------------
   /** `EDA_3D_ACTIONS::exportImage` — the current view as a PNG blob. */
@@ -107,4 +112,45 @@ export interface Viewer3D {
 
   /** Called on pointer move / camera change to feed the status bar. */
   onStatus?: (s: Viewer3DStatus) => void;
+}
+
+/**
+ * `EDA_3D_VIEWER_SETTINGS::m_Render`, as the three.js scene reads it.
+ *
+ * The settings file's own shape is `prefs/settings.ts`' `Viewer3dRender`; this
+ * is the subset `mount3DViewer` can honour, named the way a renderer talks
+ * rather than the way a JSON key does. A field absent means "the file's
+ * default", which is what a viewer built with no settings object gets upstream.
+ *
+ * It lives beside `Grid3D` for the same reason that does: `viewer3dMenus.ts`
+ * and `Viewer3DFrame.tsx` both need the type, and importing it from `pcb3d.js`
+ * would drag three.js and the STEP loader into `qa`'s typecheck.
+ */
+export interface Viewer3dRenderOptions {
+  /** `render.show_zones` — zone fills in the copper layer. */
+  showZones?: boolean;
+  /** `render.material_mode`, a `MATERIAL_MODE`: 0 NORMAL, 1 DIFFUSE_ONLY, 2 CAD. */
+  materialMode?: 0 | 1 | 2;
+  /** `render.opengl_AA_mode`, an `ANTIALIASING_MODE`: 0 is NONE. */
+  antiAliasing?: 0 | 1 | 2 | 3;
+  /** `render.opengl_show_model_bbox` — a `Box3Helper` around each 3D model. */
+  showModelBbox?: boolean;
+  /** `render.opengl_selection_color`, as CSS. */
+  selectionColor?: string;
+}
+
+/**
+ * `EDA_3D_VIEWER_SETTINGS::m_Camera`, as the scene reads it.
+ *
+ * Applied through a setter rather than at mount: `EDA_3D_CANVAS` re-reads these
+ * on `CommonSettingsChanged`, and rebuilding the scene to change a rotation
+ * step would re-tessellate every STEP model in it.
+ */
+export interface Viewer3dCameraOptions {
+  /** `camera.rotation_increment`, DEGREES. */
+  rotationIncrement: number;
+  /** `camera.animation_enabled` — whether a view change is animated at all. */
+  animationEnabled: boolean;
+  /** `camera.moving_speed_multiplier`, the 1..5 slider. */
+  movingSpeedMultiplier: number;
 }

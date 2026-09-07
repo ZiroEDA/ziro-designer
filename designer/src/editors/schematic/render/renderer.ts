@@ -14,6 +14,7 @@
 import { CalcArcCenter, type Vec2 } from '@ziroeda/kimath';
 import { zoomFitView } from '../../../ui/view_controls.js';
 import { drawGrid, viewFromOffsets, type GridOptions } from '../../../ui/grid_cursor.js';
+import { pageSizeMM } from '@ziroeda/common/src/page_info.js';
 import {
   symbolTransform,
   localToWorld,
@@ -4499,40 +4500,15 @@ function strokeGlyphs(
 // and the 110 x 34 mm title block in the bottom-right corner with the
 // title-block variables resolved. Drawn in LAYER_SCHEMATIC_DRAWINGSHEET red.
 
-/** Paper sizes in mm (landscape), from common/page_info.cpp. */
-const PAPER_MM: Record<string, [number, number]> = {
-  A5: [210, 148],
-  A4: [297, 210],
-  A3: [420, 297],
-  A2: [594, 420],
-  A1: [841, 594],
-  A0: [1189, 841],
-  A: [279.4, 215.9],
-  B: [431.8, 279.4],
-  C: [558.8, 431.8],
-  D: [863.6, 558.8],
-  E: [1117.6, 863.6],
-  USLetter: [279.4, 215.9],
-  USLegal: [355.6, 215.9],
-  USLedger: [431.8, 279.4],
-};
-
-/** Page size for a `(paper ...)` token in IU, or null when unknown. Handles
- *  the custom form `User <w> <h>` (millimetres) as well as the named sizes. */
+/**
+ * Page size for a `(paper …)` token in **eeschema's** IU, or null when the name
+ * is unknown. The table is `common/src/page_info.ts`, which is where KiCad
+ * keeps it too — this file used to carry its own copy, and `renderBoard.ts`
+ * carried a second that had already drifted.
+ */
 export function paperSizeIU(paper: string | undefined): { w: number; h: number } | null {
-  if (!paper) return null;
-  const parts = paper.split(/\s+/);
-  if (parts[0] === 'User') {
-    const w = Number(parts[1]);
-    const h = Number(parts[2]);
-    if (w > 0 && h > 0) return { w: w * MM, h: h * MM };
-    return null;
-  }
-  const dims = PAPER_MM[parts[0]!];
-  if (!dims) return null;
-  const portrait = parts.includes('portrait');
-  const [w, h] = portrait ? [dims[1], dims[0]] : dims;
-  return { w: w! * MM, h: h! * MM };
+  const mm = pageSizeMM(paper);
+  return mm ? { w: mm.w * MM, h: mm.h * MM } : null;
 }
 
 /** No drawing-sheet item is ever "selected" on the schematic canvas. */

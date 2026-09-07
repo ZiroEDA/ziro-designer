@@ -919,6 +919,28 @@ export interface PcbnewSettings {
       last_size_idx: number;
       fast_grid_1: number;
       fast_grid_2: number;
+      /**
+       * The four `PANEL_GAL_OPTIONS` writes back
+       * (`common/dialogs/panel_gal_options.cpp:110-124`), which live in the
+       * same `window.grid` slice as the list above because upstream they are
+       * the same `GRID_SETTINGS` struct — the Grids page edits its sizes and
+       * Display Options edits its appearance.
+       *
+       * `window.grid.style` (`app_settings.cpp:558-559`), 0 = DOTS.
+       */
+      style: 'dots' | 'lines' | 'crosses';
+      /** `window.grid.line_width` (`:549-550`), 1.0 px. */
+      line_width: number;
+      /** `window.grid.min_spacing` (`:552-553`), 10 px. */
+      min_spacing: number;
+      /** `window.grid.snap` (`:561-562`), 0 = ALWAYS. */
+      snap: 0 | 1 | 2;
+      /**
+       * `window.grid.show` (`:555-556`), true. `ACTIONS::toggleGrid`, not a
+       * page — but the Snap to grid choice's "When grid shown" arm reads it, so
+       * the two have to be one value.
+       */
+      show: boolean;
       overrides_enabled: boolean;
       overrides: {
         connected: GridOverride;
@@ -928,8 +950,193 @@ export interface PcbnewSettings {
         graphics: GridOverride;
       };
     };
+    /** `APP_SETTINGS_BASE::m_Window.cursor`, the other half of `PANEL_GAL_OPTIONS`. */
+    cursor: {
+      /** `window.cursor.cross_hair_mode` (`:567-568`), SMALL_CROSS. */
+      crosshair: 'small' | 'full' | '45';
+      /** `window.cursor.always_show_cursor` (`:564-565`), true. */
+      always_show_cursor: boolean;
+    };
   };
+  /**
+   * `pcb_display.*` — `PCB_DISPLAY_OPTIONS` and the `m_ViewersDisplay` half of
+   * `PCB_VIEWERS_SETTINGS_BASE`, registered under one prefix
+   * (`pcbnew/pcbnew_settings.cpp:225-290`).
+   *
+   * One JSON block because that is the file's shape, but THREE pages edit it —
+   * Display Options, Origins & Axes and Editing Options — so a reset must name
+   * keys and never the block. The fills are View-menu toggles this app keeps in
+   * its own toggle set.
+   */
+  pcb_display: PcbDisplayOptions;
+  /**
+   * `editing.*` (`pcbnew/pcbnew_settings.cpp:152-215`), the slice
+   * `PANEL_EDIT_OPTIONS` edits in its `!isFootprintEditor` branch. Same
+   * spellings as the footprint editor's `editing.*` where a key exists in
+   * both, because upstream registers them under the same names on two
+   * different settings objects.
+   */
+  editing: PcbEditingSettings;
 }
+
+/**
+ * `editing.*` for pcbnew. `PANEL_EDIT_OPTIONS`' PCB branch
+ * (`panel_edit_options.cpp:102-147`, `:181-217`) reads and writes exactly
+ * these, plus four `pcb_display.*` keys that live next door.
+ */
+export interface PcbEditingSettings {
+  /**
+   * `editing.pcb_angle_snap_mode` -> `m_AngleSnapMode`, a `LEADER_MODE`
+   * (DIRECT 0, DEG45 1, DEG90 2), default **DIRECT**.
+   *
+   * The checkbox writes DEG45 or DIRECT; DEG90 is storable and reachable only
+   * from the left toolbar's Line mode group, which is the same value.
+   */
+  pcb_angle_snap_mode: 0 | 1 | 2;
+  /** `editing.rotation_angle`, **tenths of a degree**, default 900. */
+  rotation_angle: number;
+  /** `editing.arc_edit_mode` -> `ARC_EDIT_MODE`, default 0. */
+  arc_edit_mode: number;
+  /** `editing.track_drag_action` -> `TRACK_DRAG_ACTION`, MOVE 0, DRAG 1,
+   *  DRAG_FREE_ANGLE 2 (`pcbnew_settings.h:76-82`), default **DRAG**. */
+  track_drag_action: 0 | 1 | 2;
+  /** `editing.flip_left_right` -> `m_FlipDirection == FLIP_DIRECTION::LEFT_RIGHT`
+   *  (`core/mirror.h:26-30`), default **true**. */
+  flip_left_right: boolean;
+  /** `editing.allow_free_pads`, false. */
+  allow_free_pads: boolean;
+  /** `editing.auto_fill_zones` -> `m_AutoRefillZones`, **false**. */
+  auto_fill_zones: boolean;
+  /**
+   * `editing.magnetic_pads` / `magnetic_tracks` -> `MAGNETIC_OPTIONS`
+   * (`pcbnew_settings.h:53-58`): NO_EFFECT 0, CAPTURE_CURSOR_IN_TRACK_TOOL 1,
+   * CAPTURE_ALWAYS 2 — the choice's own row order. Both default to **1**,
+   * unlike the footprint editor's pads, which is a two-state checkbox.
+   */
+  magnetic_pads: 0 | 1 | 2;
+  magnetic_tracks: 0 | 1 | 2;
+  /**
+   * `editing.magnetic_graphics`, **true** here and drawn INVERTED: the choice
+   * reads Always / Never and the panel stores `!GetSelection()`
+   * (`panel_edit_options.cpp:205`).
+   */
+  magnetic_graphics: boolean;
+  /** `editing.esc_clears_net_highlight`, true. */
+  esc_clears_net_highlight: boolean;
+  /** `editing.show_courtyard_collisions`, true. */
+  show_courtyard_collisions: boolean;
+  /** `editing.ctrl_click_highlight`, false — the Ctrl row's second radio. */
+  ctrl_click_highlight: boolean;
+  /** `editing.polar_coords`, false. `ACTIONS::togglePolarCoords`, not a page. */
+  polar_coords: boolean;
+}
+
+/** `pcbnew_settings.cpp`'s own third argument for each. */
+export const PCB_EDITING_DEFAULTS: PcbEditingSettings = {
+  pcb_angle_snap_mode: 0,
+  rotation_angle: 900,
+  arc_edit_mode: 0,
+  track_drag_action: 1,
+  flip_left_right: true,
+  allow_free_pads: false,
+  auto_fill_zones: false,
+  magnetic_pads: 1,
+  magnetic_tracks: 1,
+  magnetic_graphics: true,
+  esc_clears_net_highlight: true,
+  show_courtyard_collisions: true,
+  ctrl_click_highlight: false,
+  polar_coords: false,
+};
+
+/**
+ * The `pcb_display.*` keys Preferences > PCB Editor > Display Options edits.
+ *
+ * Split out as a named type because the panel, the defaults and the reset all
+ * need it and because `renderBoard` takes it whole.
+ */
+export interface PcbDisplayOptions {
+  /**
+   * `pcb_display.net_names_mode` -> `m_Display.m_NetNames`, default **3**
+   * (`pcbnew_settings.cpp:237-238`), range 0..3.
+   *
+   * 0 do not show, 1 pads, 2 tracks, 3 both — the `m_ShowNetNamesOption`
+   * wxChoice's own order, which is why the stored value IS the selection index
+   * here and is not for the clearance choice below.
+   */
+  net_names_mode: 0 | 1 | 2 | 3;
+  /** `pcb_display.pad_numbers` -> `m_ViewersDisplay.m_DisplayPadNumbers`, true. */
+  pad_numbers: boolean;
+  /**
+   * `pcb_display.track_clearance_mode` -> `m_Display.m_TrackClearance`,
+   * default `SHOW_WITH_VIA_WHILE_ROUTING` = **2** (`pcbnew_settings.cpp:264`).
+   *
+   * The stored value is the `TRACK_CLEARANCE_MODE` enum, NOT the choice's row:
+   * `clearanceModeMap` (`panel_display_options.cpp:29-36`) maps between them
+   * and the two orders differ. See `TRACK_CLEARANCE_CHOICES`.
+   */
+  track_clearance_mode: 0 | 1 | 2 | 3 | 4;
+  /** `pcb_display.pad_clearance` -> `m_Display.m_PadClearance`, true. */
+  pad_clearance: boolean;
+  /**
+   * `pcb_display.pad_use_via_color_for_normal_th_padstacks` ->
+   * `m_Display.m_UseViaColorForNormalTHPadstacks`, **false**.
+   */
+  pad_use_via_color_for_normal_th_padstacks: boolean;
+  /**
+   * `pcb_display.force_show_fields_when_fp_selected` ->
+   * `m_Display.m_ForceShowFieldsWhenFPSelected`, true.
+   */
+  force_show_fields_when_fp_selected: boolean;
+  /** `pcb_display.live_3d_refresh` -> `m_Display.m_Live3DRefresh`, **false**. */
+  live_3d_refresh: boolean;
+
+  // ---- Origins & Axes (`PANEL_PCBNEW_DISPLAY_ORIGIN`) ---------------------
+
+  /**
+   * `pcb_display.origin_mode` -> `m_Display.m_DisplayOrigin`, a
+   * `PCB_DISPLAY_ORIGIN` (`pcbnew_settings.h:95-100`): PAGE 0, AUX 1, GRID 2,
+   * default **PAGE**.
+   *
+   * `PCB_BASE_FRAME::GetUserOrigin()` turns it into the point the X/Y status
+   * panes are measured from, which is the whole of what it does — the board's
+   * geometry is untouched.
+   */
+  origin_mode: 0 | 1 | 2;
+  /** `pcb_display.origin_invert_x_axis`, false — "Increases left". */
+  origin_invert_x_axis: boolean;
+  /** `pcb_display.origin_invert_y_axis`, false — "Increases up". */
+  origin_invert_y_axis: boolean;
+
+  // ---- Editing Options' four neighbours in this block ---------------------
+
+  /** `pcb_display.ratsnest_footprint` -> `m_ShowModuleRatsnest`, true. */
+  ratsnest_footprint: boolean;
+  /** `pcb_display.ratsnest_curved` -> `m_DisplayRatsnestLinesCurved`, false. */
+  ratsnest_curved: boolean;
+  /** `pcb_display.ratsnest_thickness`, **0.5** — a multiplier, not a distance. */
+  ratsnest_thickness: number;
+  /** `pcb_display.show_page_borders` -> `m_ShowPageLimits`, true. */
+  show_page_borders: boolean;
+}
+
+/** `pcbnew_settings.cpp`'s own third argument for each of the seven. */
+export const PCB_DISPLAY_DEFAULTS: PcbDisplayOptions = {
+  net_names_mode: 3,
+  pad_numbers: true,
+  track_clearance_mode: 2,
+  pad_clearance: true,
+  pad_use_via_color_for_normal_th_padstacks: false,
+  force_show_fields_when_fp_selected: true,
+  live_3d_refresh: false,
+  origin_mode: 0,
+  origin_invert_x_axis: false,
+  origin_invert_y_axis: false,
+  ratsnest_footprint: true,
+  ratsnest_curved: false,
+  ratsnest_thickness: 0.5,
+  show_page_borders: true,
+};
 
 export const PCBNEW_DEFAULTS: PcbnewSettings = {
   appearance: {
@@ -964,6 +1171,12 @@ export const PCBNEW_DEFAULTS: PcbnewSettings = {
       // (app_settings.cpp:483-487).
       fast_grid_1: DEFAULT_GRID_INDEX.pcbnew,
       fast_grid_2: DEFAULT_GRID_INDEX.pcbnew + 1,
+      // `PANEL_GAL_OPTIONS`' four, at `app_settings.cpp`'s own defaults.
+      style: 'dots',
+      line_width: 1.0,
+      min_spacing: 10,
+      snap: 0,
+      show: true,
       // The `else` arm of `app_settings.cpp:522-546` — the one every frame that
       // is NOT eeschema or the symbol editor takes. Every flag is false, and
       // the five indices are 16, 19, 18, 18 and 15 into pcbnew's own grid row:
@@ -980,7 +1193,10 @@ export const PCBNEW_DEFAULTS: PcbnewSettings = {
         graphics: { enabled: false, size: '0.5 mm' },
       },
     },
+    cursor: { crosshair: 'small', always_show_cursor: true },
   },
+  pcb_display: { ...PCB_DISPLAY_DEFAULTS },
+  editing: { ...PCB_EDITING_DEFAULTS },
 };
 
 // ----- PL_EDITOR_SETTINGS ------------------------------------------------------
@@ -1662,10 +1878,107 @@ export interface Viewer3dSettings {
      *  (`common/settings/app_settings.cpp:285-286`). */
     custom_toolbars: boolean;
   };
+  /**
+   * `render.*` — `EDA_3D_VIEWER_SETTINGS::m_Render`, the half
+   * `PANEL_3D_DISPLAY_OPTIONS` and `PANEL_3D_OPENGL_OPTIONS` edit
+   * (`3d-viewer/3d_viewer/eda_3d_viewer_settings.cpp:239-300`, `:410-430`).
+   *
+   * The `raytrace_*` block is deliberately absent — see `OMITTED_PAGES`. A key
+   * with no page and no reader is a key that drifts.
+   */
+  render: Viewer3dRender;
+  /** `camera.*` (`:431-438`), the three the General page's Camera group edits. */
+  camera: Viewer3dCamera;
 }
+
+/** `EDA_3D_VIEWER_SETTINGS::m_Render`, restricted to the two shipped pages. */
+export interface Viewer3dRender {
+  // ---- General (`PANEL_3D_DISPLAY_OPTIONS`) --------------------------------
+
+  /** `render.clip_silk_on_via_annulus`, **false**. */
+  clip_silk_on_via_annulus: boolean;
+  /** `render.subtract_mask_from_silk`, **false**. */
+  subtract_mask_from_silk: boolean;
+  /** `render.show_zones`, true. */
+  show_zones: boolean;
+  /**
+   * `render.plated_and_bare_copper` -> `m_Render.differentiate_plated_copper`,
+   * **false**. The key and the field are spelled differently upstream, which is
+   * exactly the pairing to get wrong.
+   */
+  plated_and_bare_copper: boolean;
+  /**
+   * `render.material_mode` -> `MATERIAL_MODE`
+   * (`3d-viewer/3d_enums.h`): NORMAL 0, DIFFUSE_ONLY 1, CAD_MODE 2, default
+   * NORMAL. The choice reads Realistic / Solid colors / CAD colors.
+   */
+  material_mode: 0 | 1 | 2;
+
+  // ---- Realtime Renderer (`PANEL_3D_OPENGL_OPTIONS`) -----------------------
+
+  /** `render.opengl_show_model_bbox`, **false**. */
+  opengl_show_model_bbox: boolean;
+  /** `render.opengl_copper_thickness`, **false**. */
+  opengl_copper_thickness: boolean;
+  /** `render.opengl_highlight_on_rollover`, **true**. */
+  opengl_highlight_on_rollover: boolean;
+  /**
+   * `render.opengl_AA_mode` -> `ANTIALIASING_MODE`: NONE 0, 2X 1, 4X 2, 8X 3,
+   * default **8X** — the one control on either page whose default is the LAST
+   * row rather than the first.
+   */
+  opengl_AA_mode: 0 | 1 | 2 | 3;
+  /** `render.opengl_selection_color`, `COLOR4D( 0, 1, 0, 1 )` — pure green. */
+  opengl_selection_color: string;
+  /** `render.opengl_AA_disableOnMove`, false. */
+  opengl_AA_disableOnMove: boolean;
+  /** `render.opengl_thickness_disableOnMove`, false. */
+  opengl_thickness_disableOnMove: boolean;
+  /** `render.opengl_vias_disableOnMove` -> `m_Render.opengl_microvias_disableOnMove`,
+   *  false. Another key/field pair that is not the same word. */
+  opengl_vias_disableOnMove: boolean;
+  /** `render.opengl_holes_disableOnMove`, false. */
+  opengl_holes_disableOnMove: boolean;
+}
+
+/** `EDA_3D_VIEWER_SETTINGS::m_Camera`'s three. */
+export interface Viewer3dCamera {
+  /** `camera.animation_enabled`, **true**. */
+  animation_enabled: boolean;
+  /** `camera.moving_speed_multiplier`, **3** — the slider's 1..5 midpoint. */
+  moving_speed_multiplier: number;
+  /** `camera.rotation_increment`, **10.0** degrees. */
+  rotation_increment: number;
+}
+
+/** `eda_3d_viewer_settings.cpp`'s own third argument for each. */
+export const VIEWER3D_RENDER_DEFAULTS: Viewer3dRender = {
+  clip_silk_on_via_annulus: false,
+  subtract_mask_from_silk: false,
+  show_zones: true,
+  plated_and_bare_copper: false,
+  material_mode: 0,
+  opengl_show_model_bbox: false,
+  opengl_copper_thickness: false,
+  opengl_highlight_on_rollover: true,
+  opengl_AA_mode: 3,
+  opengl_selection_color: 'rgb(0,255,0)',
+  opengl_AA_disableOnMove: false,
+  opengl_thickness_disableOnMove: false,
+  opengl_vias_disableOnMove: false,
+  opengl_holes_disableOnMove: false,
+};
+
+export const VIEWER3D_CAMERA_DEFAULTS: Viewer3dCamera = {
+  animation_enabled: true,
+  moving_speed_multiplier: 3,
+  rotation_increment: 10,
+};
 
 export const VIEWER3D_DEFAULTS: Viewer3dSettings = {
   appearance: { custom_toolbars: false },
+  render: { ...VIEWER3D_RENDER_DEFAULTS },
+  camera: { ...VIEWER3D_CAMERA_DEFAULTS },
 };
 
 export function mergeViewer3d(stored: unknown): Viewer3dSettings {

@@ -159,6 +159,9 @@ export function PanelFpUserLayerNames({ ctx }: { ctx: PrefsContext }): JSX.Eleme
             <tr>
               <th>Layer</th>
               <th>Name</th>
+              {/* `SetColSize` 200 / 220 with nothing autosized: the columns
+                  stop at 420 and the rest of the grid window is this strip. */}
+              <th className="ze-grid-filler" />
             </tr>
           </thead>
           <tbody>
@@ -186,6 +189,7 @@ export function PanelFpUserLayerNames({ ctx }: { ctx: PrefsContext }): JSX.Eleme
                     onKeyDown={(e) => e.stopPropagation()}
                   />
                 </td>
+                <td className="ze-grid-filler" />
               </tr>
             ))}
           </tbody>

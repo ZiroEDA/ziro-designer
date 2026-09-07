@@ -164,7 +164,17 @@ export function boardHoles(board: Board, box: Box): Hole[] {
 }
 
 /** Build triangulated per-layer meshes (centred 3D frame, mm). */
-export function buildBoardGeom(board: Board, box: Box): BoardGeom {
+export function buildBoardGeom(
+  board: Board,
+  box: Box,
+  /**
+   * `EDA_3D_VIEWER_SETTINGS::m_Render.show_zones` — Preferences > 3D Viewer >
+   * General's "Show filled areas in zones". With it off `BOARD_ADAPTER`
+   * simply does not add the zone fills to the copper layer
+   * (`create_layer_items.cpp`), which is what this skips.
+   */
+  opts: { showZones?: boolean } = {},
+): BoardGeom {
   const cx = (box.minX + box.maxX) / 2;
   const cy = (box.minY + box.maxY) / 2;
   const to3d = (p: Vec2): Pt => ({ x: (p.x - cx) / MM, y: -(p.y - cy) / MM });
@@ -271,12 +281,15 @@ export function buildBoardGeom(board: Board, box: Box): BoardGeom {
     for (let i = 0; i + 1 < pline.length; i++)
       addCopper(s.copper, stadium(pline[i]!, pline[i + 1]!, a.width));
   }
-  // Zone fills → copper polygons (drills cut out).
-  for (const z of board.zones)
-    for (const f of z.fills) {
-      const s = side(f.layer);
-      if (s) for (const poly of f.polys) addCopper(s.copper, poly);
-    }
+  // Zone fills → copper polygons (drills cut out), unless the General page
+  // has switched them off.
+  if (opts.showZones !== false) {
+    for (const z of board.zones)
+      for (const f of z.fills) {
+        const s = side(f.layer);
+        if (s) for (const poly of f.polys) addCopper(s.copper, poly);
+      }
+  }
   // Vias → copper annulus (drill cut out) on both sides.
   for (const v of board.vias) {
     const ring = disc(v.at.x, v.at.y, v.size / 2),

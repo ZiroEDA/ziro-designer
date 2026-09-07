@@ -7,7 +7,7 @@
  * verbatim, and the standard title-block/sheet/project tokens resolve.
  */
 import { describe, expect, it } from 'vitest';
-import { expandTextVars, schematicTextVarResolver } from '@ziroeda/eeschema/src/tools/text_vars.js';
+import { expandTextVars, schematicTextVarResolver } from '@ziroeda/common/src/text_vars.js';
 
 describe('expandTextVars', () => {
   const vars: Record<string, string> = { REV: 'B2', WHO: 'ZiroEDA', NESTED: 'rev ${REV}' };

@@ -60,6 +60,10 @@ const COPPER_ROWS: readonly FpColorLayer[] = [
  * Every `board.*` GAL layer `color_settings.cpp:124-147` binds, minus the five
  * `m_validLayers` skips.
  *
+ * Exported because the PCB Editor's Colors page is this list PLUS the three of
+ * those five that have a key — `editors/pcb/pcbColorLayers.ts` adds them rather
+ * than restating the twenty rows they sit among.
+ *
  * The five are `LAYER_VIAS`, `LAYER_VIA_HOLES`, `LAYER_VIA_HOLEWALLS`,
  * `LAYER_PAD_PLATEDHOLES` and `LAYER_PAD_HOLEWALLS`
  * (`panel_fp_editor_color_settings.cpp:56-65`) — a footprint has no vias, and
@@ -73,7 +77,7 @@ const COPPER_ROWS: readonly FpColorLayer[] = [
  * {@link fpColorRows} rather than freezing an order in this table is what keeps
  * the two agreeing when a row is added.
  */
-const GAL_ROWS: readonly FpColorLayer[] = [
+export const GAL_COLOR_ROWS: readonly FpColorLayer[] = [
   { key: 'board.anchor', name: 'Anchors', layer: 'LAYER_ANCHOR' },
   { key: 'board.locked_shadow', name: 'Locked item shadow', layer: 'LAYER_LOCKED_ITEM_SHADOW' },
   {
@@ -114,7 +118,9 @@ const GAL_ROWS: readonly FpColorLayer[] = [
  * round, which is the trap `net_colors_live_in_the_project` names.
  */
 export function fpColorRows(): readonly FpColorLayer[] {
-  const sorted = [...GAL_ROWS].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+  const sorted = [...GAL_COLOR_ROWS].sort((a, b) =>
+    a.name < b.name ? -1 : a.name > b.name ? 1 : 0,
+  );
   return [...COPPER_ROWS, ...sorted];
 }
 

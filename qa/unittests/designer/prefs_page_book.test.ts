@@ -95,9 +95,19 @@ const EXPECTED: PrefsPageEntry[] = [
   { id: null, label: 'PCB Editor' },
   { id: 'pcb-display', label: 'Display Options', indent: true, owner: 'pcb' },
   { id: 'pcb-grids', label: 'Grids', indent: true, owner: 'pcb' },
+  // Six of upstream's seven; Plugins is `PANEL_PCBNEW_ACTION_PLUGINS`, a list
+  // of Python action plugins, and is declared in `OMITTED_PAGES`.
+  { id: 'pcb-origins', label: 'Origins & Axes', indent: true, owner: 'pcb' },
+  { id: 'pcb-editing', label: 'Editing Options', indent: true, owner: 'pcb' },
+  { id: 'pcb-colors', label: 'Colors', indent: true, owner: 'pcb' },
   { id: 'pcb-toolbars', label: 'Toolbars', indent: true, owner: 'pcb' },
   { id: null, label: '3D Viewer' },
+  // Three of upstream's four. Its first row is called "General", not "Display
+  // Options" like every other editor's (`eda_base_frame.cpp:1693`). Raytracing
+  // is in `OMITTED_PAGES`.
+  { id: '3dv-general', label: 'General', indent: true, owner: 'pcb' },
   { id: '3dv-toolbars', label: 'Toolbars', indent: true, owner: 'pcb' },
+  { id: '3dv-opengl', label: 'Realtime Renderer', indent: true, owner: 'pcb' },
   // gerbview's KIFACE is consulted after pcbnew's
   // (`common/eda_base_frame.cpp:1702-1721`), and its sub-page order is
   // `ShowPreferences`' — Display Options, Colors, Toolbars, Grids, Excellon

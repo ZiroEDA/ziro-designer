@@ -194,11 +194,29 @@ describe('board_file_settings (.kicad_pcb)', () => {
         isList(n) && n.items[1]?.kind === 'string' && n.items[1].value === 'F.SilkS',
     )!;
     expect(silkEntry.items[3]).toEqual({ kind: 'string', value: 'TopSilk' });
-    // general thickness = stackup sum.
+    // `(general (thickness …))` is `BOARD_STACKUP::GetBoardThickness()`, which
+    // adds a row only `if( item->IsThicknessEditable() && item->IsEnabled() )`
+    // (`board_stackup.cpp:498-515`) — copper, dielectric and solder mask, NOT
+    // silkscreen or solder paste. This used to recompute the implementation's
+    // own formula, so it agreed with any formula the code happened to have.
     const general = childNamed(root, 'general')!;
-    const th = childNamed(general, 'thickness')!.items[1]!;
-    const sum = s.physicalStackup.layers.reduce((a, l) => a + (l.thicknessMM || 0), 0);
-    expect(Number((th as { value: string }).value)).toBeCloseTo(sum, 6);
+    const th = Number((childNamed(general, 'thickness')!.items[1]! as { value: string }).value);
+
+    const stackupRows = s.physicalStackup.layers;
+    const totalOfType = (pred: (t: string) => boolean): number =>
+      stackupRows.reduce((a, l) => (pred(l.type) ? a + (l.thicknessMM || 0) : a), 0);
+    const counted =
+      totalOfType((t) => t === 'Copper') +
+      totalOfType((t) => t === 'Core' || t === 'Prepreg') +
+      totalOfType((t) => t.includes('Solder Mask'));
+    const excluded =
+      totalOfType((t) => t.includes('Silk Screen')) +
+      totalOfType((t) => t.includes('Solder Paste'));
+
+    expect(th).toBeCloseTo(counted, 6);
+    // and the exclusion is load-bearing: the two silkscreen layers are 0.01 each.
+    expect(excluded).toBeCloseTo(0.02, 6);
+    expect(th).toBeCloseTo(counted + excluded - 0.02, 6);
     expect(childNamed(general, 'legacy_teardrops')).toBeDefined();
   });
 

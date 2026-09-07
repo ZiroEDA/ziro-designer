@@ -47,33 +47,15 @@
  * them in `fpedit.json` would be an invention; hiding them would be a different
  * page from KiCad's.
  *
- * When the PCB Editor's own Display Options page is completed these two groups
- * become shared and move to `dialogs/prefs/`; they are here rather than there
- * today because `editors/pcb/prefs/PanelPcbDisplayOptions.tsx` still ports only
- * the book's Cross-probing group and has no store behind the left column.
+ * The two groups themselves are `dialogs/prefs/DisplayOptionsGroups.tsx`, one
+ * sizer written once, because the PCB Editor's page draws the same three
+ * controls over its own `pcb_display` slice.
  */
 import { useState, type JSX } from 'react';
-import { Check, Group, Sel } from '../../../dialogs/prefs/widgets.js';
+import { PadsAndClearanceGroups } from '../../../dialogs/prefs/DisplayOptionsGroups.js';
+import type { PadsAndClearanceValue } from '../../../dialogs/prefs/DisplayOptionsGroups.js';
 import { PanelGalOptions } from '../../../dialogs/prefs/PanelGalOptions.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
-
-/**
- * `m_OptDisplayTracksClearanceChoices`
- * (`panel_display_options_base.cpp:64-66`), in the wxChoice's own order.
- *
- * The stored value is NOT this index: `clearanceModeMap`
- * (`panel_display_options.cpp:29-36`) maps `TRACK_CLEARANCE_MODE` to it, and
- * the enum's order is different again. Nothing here needs the mapping, because
- * nothing here stores the value — see the note above — but the labels and their
- * order are what the user sees, so they are transcribed rather than guessed.
- */
-const TRACK_CLEARANCE_CHOICES: [number, string][] = [
-  [0, 'Do not show clearances'],
-  [1, 'Show when routing'],
-  [2, 'Show when routing w/ via clearance at end'],
-  [3, 'Show when routing and editing'],
-  [4, 'Show always'],
-];
 
 export function PanelFpDisplayOptions({ ctx }: { ctx: PrefsContext }): JSX.Element {
   const { fpEdit, upFp } = ctx;
@@ -82,9 +64,11 @@ export function PanelFpDisplayOptions({ ctx }: { ctx: PrefsContext }): JSX.Eleme
   // `m_OptUseViaColorForNormalTHPadstacks` and `m_OptDisplayPadClearence` carry
   // no `SetValue` in the base file, so they start clear;
   // `m_OptDisplayTracksClearance->SetSelection( 0 )` starts on the first row.
-  const [useViaColour, setUseViaColour] = useState(false);
-  const [trackClearance, setTrackClearance] = useState(0);
-  const [padClearance, setPadClearance] = useState(false);
+  const [padsAndClearance, setPadsAndClearance] = useState<PadsAndClearanceValue>({
+    pad_use_via_color_for_normal_th_padstacks: false,
+    track_clearance_mode: 0,
+    pad_clearance: false,
+  });
 
   return (
     <div>
@@ -102,30 +86,10 @@ export function PanelFpDisplayOptions({ ctx }: { ctx: PrefsContext }): JSX.Eleme
         update={(fn) => upFp((s) => fn(s.window))}
         idPrefix="fp"
       />
-      <Group title="Pads">
-        {/* `wxALL, 5` — the only row in this group, and it carries a top border. */}
-        <Check
-          label="Use via color for normal through hole padstacks"
-          checked={useViaColour}
-          borders={['top', 'bottom']}
-          onChange={setUseViaColour}
-        />
-      </Group>
-      <Group title="Clearance Outlines">
-        <Sel
-          label="Tracks:"
-          value={trackClearance}
-          options={TRACK_CLEARANCE_CHOICES}
-          onChange={setTrackClearance}
-        />
-        {/* `wxALL, 5` again. */}
-        <Check
-          label="Show pad clearance"
-          checked={padClearance}
-          borders={['top', 'bottom']}
-          onChange={setPadClearance}
-        />
-      </Group>
+      <PadsAndClearanceGroups
+        value={padsAndClearance}
+        onChange={(patch) => setPadsAndClearance((v) => ({ ...v, ...patch }))}
+      />
     </div>
   );
 }

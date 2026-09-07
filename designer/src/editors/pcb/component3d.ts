@@ -111,6 +111,15 @@ export function mountComponents(
   libBase: string,
   projectFiles?: ProjectFile[],
   onChange?: () => void,
+  /**
+   * `EDA_3D_VIEWER_SETTINGS::m_Render.show_model_bbox` — Preferences >
+   * 3D Viewer > Realtime Renderer's "Show model bounding boxes".
+   *
+   * `RENDER_3D_OPENGL::renderOpaqueModels` draws each model's bounding box in
+   * a fixed colour when it is set; a `Box3Helper` is the same thing, and it is
+   * added beside the model so it is removed with it.
+   */
+  showModelBbox?: boolean,
 ): () => void {
   const vrmlLoader = new VRMLLoader();
   const gltfLoader = new GLTFLoader();
@@ -189,6 +198,14 @@ export function mountComponents(
         }
         scene.add(inst);
         added.push(inst);
+        if (showModelBbox) {
+          // `Box3Helper`'s own default is yellow; upstream draws the model
+          // boxes in a fixed colour too, so this states one rather than
+          // reaching for a theme that has no key for it.
+          const helper = new THREE.Box3Helper(new THREE.Box3().setFromObject(inst));
+          scene.add(helper);
+          added.push(helper);
+        }
         onChange?.();
       });
     }

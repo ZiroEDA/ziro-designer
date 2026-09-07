@@ -29,7 +29,9 @@
  * saved.
  */
 import { atom, str, type SList, type SNode } from '@ziroeda/sexpr/src/index.js';
+import type { EdaUnits } from '@ziroeda/common/src/eda_units.js';
 import { dropChild, mm, parseBoardItemId, patchChild } from './edit-board.js';
+import { updateDimension } from './dimension_text.js';
 import { isAlignedKind } from './types.js';
 import type {
   Board,
@@ -129,7 +131,12 @@ export function collectDimensionValues(d: PcbDimension): DimensionValues {
  * `updateDimensionFromDialog`, plus the source patching that makes it survive a
  * save. Returns the board unchanged when nothing moved.
  */
-export function applyDimensionValues(board: Board, index: number, v: DimensionValues): Board {
+export function applyDimensionValues(
+  board: Board,
+  index: number,
+  v: DimensionValues,
+  userUnits: EdaUnits = 'mm',
+): Board {
   const d = board.dimensions[index];
   if (!d) return board;
 
@@ -139,7 +146,7 @@ export function applyDimensionValues(board: Board, index: number, v: DimensionVa
   const aligned = isAlignedKind(d.kind);
   const hasFormat = d.kind !== 'center';
 
-  const next: PcbDimension = {
+  const raw: PcbDimension = {
     ...d,
     layer: v.layer,
     locked: v.locked,
@@ -191,6 +198,11 @@ export function applyDimensionValues(board: Board, index: number, v: DimensionVa
         }
       : {}),
   };
+
+  // `updateDimensionFromDialog` ends with `aTarget->Update()`, which re-derives
+  // the label and — outside MANUAL mode — moves it back onto the crossbar. A
+  // new precision or unit format is invisible without this.
+  const next = updateDimension(raw, userUnits);
 
   return {
     ...board,

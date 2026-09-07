@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
-import type { JSX } from 'react';
+import type { JSX, ReactNode } from 'react';
 import type { CrossProbingSettings } from '@ziroeda/common/src/cross_probing_settings.js';
 import { Check, Group } from './widgets.js';
 
@@ -27,6 +27,7 @@ export function CrossProbingGroup({
   onChange,
   peer,
   disabled,
+  children,
 }: {
   value: CrossProbingSettings;
   onChange: (fn: (s: CrossProbingSettings) => void) => void;
@@ -34,6 +35,13 @@ export function CrossProbingGroup({
   peer: 'pcb' | 'schematic';
   /** `wxWindow::Enable( false )` on all five — drawn, but nothing reads them. */
   disabled?: boolean;
+  /**
+   * Anything else `bSizer8` holds. Only pcbnew's page uses it, for
+   * `m_live3Drefresh` (`panel_display_options_base.cpp:196-199`) — a checkbox
+   * that is not a cross-probe setting and only shares the group's sizer, so it
+   * belongs to the call site and not to this component.
+   */
+  children?: ReactNode;
 }): JSX.Element {
   const sch = peer === 'schematic';
   return (
@@ -98,6 +106,7 @@ export function CrossProbingGroup({
           })
         }
       />
+      {children}
     </Group>
   );
 }

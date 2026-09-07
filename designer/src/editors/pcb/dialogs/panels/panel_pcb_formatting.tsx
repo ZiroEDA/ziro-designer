@@ -9,9 +9,17 @@
  *   When Adding Footprints to Board : apply board defaults to a footprint's
  *                                     fields / text / non-copper shapes /
  *                                     dimensions / barcodes.
+ *
+ * NEITHER GROUP IS A GROUP BOX. Both are a `wxStaticText` with a
+ * `wxStaticLine` under it (`panel_setup_formatting_base.cpp:20-25, 56-61`),
+ * which is `.ze-pref-group-title`. This drew two `<fieldset>`s with bold 11.5px
+ * legends — a bordered box, a heavier weight and a smaller size, none of which
+ * upstream has. The only SetFont on the page is `m_dashedLineHelp`'s
+ * `KIUI::GetInfoFont( this ).Italic()` (`panel_setup_formatting.cpp:41`).
  */
 
 import type { JSX } from 'react';
+import { Check, Group, Num } from '../../../../dialogs/prefs/widgets.js';
 import type { PcbFormatting } from '../../board_settings.js';
 
 // The data model lives in board_settings.ts (KiCad's data/UI split);
@@ -23,77 +31,50 @@ interface Props {
   onChange: (next: PcbFormatting) => void;
 }
 
-const box: React.CSSProperties = {
-  border: '1px solid var(--chrome-border)',
-  borderRadius: 4,
-  padding: '4px 10px 8px',
-  margin: '0 0 12px',
-  maxWidth: 460,
-};
-const legend: React.CSSProperties = { fontSize: 11.5, padding: '0 4px', fontWeight: 600 };
-const check: React.CSSProperties = { display: 'block', margin: '5px 0', fontSize: 12.5 };
+const APPLY: { key: keyof PcbFormatting; label: string }[] = [
+  { key: 'applyFields', label: 'Apply board defaults to footprint fields' },
+  { key: 'applyText', label: 'Apply board defaults to footprint text' },
+  { key: 'applyShapes', label: 'Apply board defaults to non-copper footprint shapes' },
+  { key: 'applyDimensions', label: 'Apply board defaults to footprint dimensions' },
+  { key: 'applyBarcodes', label: 'Apply board defaults to footprint barcodes' },
+];
 
 export function PanelPcbFormatting({ value, onChange }: Props): JSX.Element {
   const set = <K extends keyof PcbFormatting>(k: K, val: PcbFormatting[K]): void =>
     onChange({ ...value, [k]: val });
-  const num = (s: string): number => (Number.isFinite(Number(s)) ? Number(s) : 0);
-
-  const APPLY: { key: keyof PcbFormatting; label: string }[] = [
-    { key: 'applyFields', label: 'Apply board defaults to footprint fields' },
-    { key: 'applyText', label: 'Apply board defaults to footprint text' },
-    { key: 'applyShapes', label: 'Apply board defaults to non-copper footprint shapes' },
-    { key: 'applyDimensions', label: 'Apply board defaults to footprint dimensions' },
-    { key: 'applyBarcodes', label: 'Apply board defaults to footprint barcodes' },
-  ];
 
   return (
-    <div style={{ padding: '2px 2px' }}>
-      <fieldset style={box}>
-        <legend style={legend}>Dashed Lines</legend>
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'max-content 68px',
-            alignItems: 'center',
-            gap: '6px 8px',
-            fontSize: 12.5,
-          }}
-        >
-          <span>Dash length:</span>
-          <input
-            className="ze-search"
-            type="number"
-            style={{ width: 68 }}
-            value={value.dashLengthRatio}
-            onChange={(e) => set('dashLengthRatio', num(e.target.value))}
-          />
-          <span>Gap length:</span>
-          <input
-            className="ze-search"
-            type="number"
-            style={{ width: 68 }}
-            value={value.gapLengthRatio}
-            onChange={(e) => set('gapLengthRatio', num(e.target.value))}
-          />
-        </div>
-        <div className="ze-muted" style={{ fontSize: 11, fontStyle: 'italic', marginTop: 6 }}>
+    <div className="ze-pref-page-natural">
+      <Group title="Dashed Lines">
+        {/* `wxTextCtrl`s, not spin controls (`panel_setup_formatting_base.cpp:36, 43`). */}
+        <Num
+          label="Dash length:"
+          spin={false}
+          value={value.dashLengthRatio}
+          onChange={(n) => set('dashLengthRatio', n)}
+        />
+        <Num
+          label="Gap length:"
+          spin={false}
+          value={value.gapLengthRatio}
+          onChange={(n) => set('gapLengthRatio', n)}
+        />
+        {/* `KIUI::GetInfoFont( this ).Italic()`, added `wxALL, 10`. */}
+        <div className="ze-pref-infotext ze-pcb-fmt-help">
           Dash and dot lengths are ratios of the line width.
         </div>
-      </fieldset>
+      </Group>
 
-      <fieldset style={box}>
-        <legend style={legend}>When Adding Footprints to Board</legend>
+      <Group title="When Adding Footprints to Board">
         {APPLY.map((a) => (
-          <label key={a.key} style={check}>
-            <input
-              type="checkbox"
-              checked={value[a.key] as boolean}
-              onChange={(e) => set(a.key, e.target.checked)}
-            />{' '}
-            {a.label}
-          </label>
+          <Check
+            key={a.key}
+            label={a.label}
+            checked={value[a.key] as boolean}
+            onChange={(b) => set(a.key, b as PcbFormatting[typeof a.key])}
+          />
         ))}
-      </fieldset>
+      </Group>
     </div>
   );
 }

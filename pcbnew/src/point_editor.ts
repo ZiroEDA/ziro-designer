@@ -21,10 +21,20 @@
  * disagree.
  *
  * Covered: graphic segments, rectangles, circles, arcs and polygons, zone
- * outlines, tracks and track arcs. Not covered: pads (their point editing is
- * primitive-level and needs the padstack editor), dimensions, tables, reference
- * images, barcodes and generators — none of which we model, or which need UI we
- * do not have.
+ * outlines, tracks and track arcs, barcodes, and all five kinds of dimension.
+ * Not covered: pads (their point editing is primitive-level and needs the
+ * padstack editor), tables, reference images and generators — none of which we
+ * model, or which need UI we do not have.
+ *
+ * ## Constraints, without the constraint objects
+ *
+ * Upstream attaches an `EDIT_CONSTRAINT` to a point and applies it to the raw
+ * cursor before `UpdateItem` sees it — `EC_LINE` projects onto a line,
+ * `EC_45DEGREE` snaps the vector from a partner point. Both are pure functions
+ * of the cursor and the item's current geometry, and the constraints upstream
+ * rebuilds after every `SetStart`/`SetEnd` are rebuilt from exactly that. So
+ * they are applied here at the top of the drag instead of stored, and
+ * {@link constrainedDragPosition} is where each one is named.
  */
 
 import {
@@ -35,7 +45,11 @@ import {
   zoneHandles,
 } from './edit-board.js';
 import { arcCenter } from './read-board.js';
-import type { Board, PcbBarcode, PcbShape } from './types.js';
+import { dimensionCrossbar, radialKnee } from './dimension_geometry.js';
+import { updateDimension } from './dimension_text.js';
+import { segLineProject } from '@ziroeda/kimath/src/geometry/seg.js';
+import { vectorSnapped45 } from '@ziroeda/kimath/src/geometry/geometry_utils.js';
+import type { Board, PcbBarcode, PcbDimension, PcbShape } from './types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
 /** A square handle on a corner or vertex (`EDIT_POINT`), or a circle at an edge
@@ -66,6 +80,14 @@ const CIRC_END = 1;
 const ARC_START = 0;
 const ARC_MID = 1;
 const ARC_END = 2;
+// `pcb_point_editor.h:135-146`. The knee shares the crossbar-start slot because
+// no dimension has both.
+const DIM_START = 0;
+const DIM_END = 1;
+const DIM_TEXT = 2;
+const DIM_CROSSBARSTART = 3;
+const DIM_CROSSBAREND = 4;
+const DIM_KNEE = DIM_CROSSBARSTART;
 
 /** The smallest a rectangle may be dragged to, so it cannot invert or vanish. */
 const MIN_RECT_SIZE = 1000; // 1 µm
@@ -113,6 +135,11 @@ export function boardEditHandles(board: Board, id: string): BoardEditHandle[] {
   }
 
   if (r.kind === 'barcode') return barcodeHandles(board, r.index);
+
+  if (r.kind === 'dimension') {
+    const d = board.dimensions[r.index];
+    return d ? dimensionHandles(d) : [];
+  }
 
   if (r.kind !== 'shape') return [];
 
@@ -447,6 +474,18 @@ export function dragBoardHandle(
 
   if (r.kind === 'barcode') return dragBarcodeHandle(board, r.index, handle, pos);
 
+  if (r.kind === 'dimension') {
+    const d = board.dimensions[r.index];
+    if (!d) return board;
+    const next = dragDimension(d, handle, constrainedDragPosition(d, handle, pos));
+    return {
+      ...board,
+      dimensions: board.dimensions.map((x, i) =>
+        i === r.index ? { ...next, source: { kind: 'list', items: [] } } : x,
+      ),
+    };
+  }
+
   if (r.kind !== 'shape') return board;
 
   const s = board.shapes[r.index];
@@ -535,6 +574,223 @@ export function dragBoardHandle(
   return board;
 }
 
+/**
+ * The handles a dimension carries, in upstream's own point order.
+ * Counterparts: the four `MakePoints` in `ALIGNED_DIMENSION_POINT_EDIT_BEHAVIOR`,
+ * `DIM_CENTER_POINT_EDIT_BEHAVIOR`, `DIM_RADIAL_POINT_EDIT_BEHAVIOR` and
+ * `DIM_LEADER_POINT_EDIT_BEHAVIOR` (pcb_point_editor.cpp:1195-1605).
+ *
+ * All of them are `EDIT_POINT`s — a dimension has no `EDIT_LINE` — so they all
+ * draw as squares. Which ones exist is the kind's signature: five for the two
+ * with a crossbar, four for a radial (it has a knee), three for a leader, and
+ * two for a centre mark, which is only a cross through a point.
+ */
+function dimensionHandles(d: PcbDimension): BoardEditHandle[] {
+  const out: BoardEditHandle[] = [pt('point', DIM_START, d.start), pt('point', DIM_END, d.end)];
+
+  if (d.kind === 'center') return out;
+
+  if (d.text) out.push(pt('point', DIM_TEXT, d.text.at));
+
+  if (d.kind === 'radial') {
+    out.push(pt('point', DIM_KNEE, radialKnee(d)));
+    return out;
+  }
+
+  if (d.kind === 'leader') return out;
+
+  const bar = dimensionCrossbar(d);
+  if (bar) {
+    out.push(pt('point', DIM_CROSSBARSTART, bar.start), pt('point', DIM_CROSSBAREND, bar.end));
+  }
+  return out;
+}
+
+/**
+ * The `EDIT_CONSTRAINT` on the grabbed handle, applied to the raw cursor.
+ *
+ * Upstream sets these in `MakePoints` and rebuilds them inside `UpdateItem`
+ * whenever a feature point moves, which is the same thing as deriving them from
+ * the item's current geometry each time — so that is what happens here.
+ *
+ * - A **centre** mark's end is `EC_45DEGREE` off its start, which is why its
+ *   cross is always square or a true diagonal.
+ * - An **aligned** crossbar end is `EC_LINE` along its own extension line, so
+ *   dragging it changes the height and nothing else. Orthogonal has no such
+ *   constraint: its handles move freely and the update picks an axis.
+ * - A **radial** knee is `EC_LINE` along the radius, and its text is
+ *   `EC_45DEGREE` off the knee. A **leader**'s text is `EC_45DEGREE` off its
+ *   end.
+ */
+function constrainedDragPosition(d: PcbDimension, handle: BoardEditHandle, pos: Vec2): Vec2 {
+  if (handle.kind !== 'point') return pos;
+
+  // `EC_45DEGREE::Apply`: `constrainer + GetVectorSnapped45( pos - constrainer )`.
+  const snap45 = (constrainer: Vec2): Vec2 =>
+    add(constrainer, vectorSnapped45(sub(pos, constrainer)));
+  // `EC_LINE::Apply`: the perpendicular projection onto the line through
+  // `constrainer` along `line`, which `SEG::LineProject` is.
+  const online = (constrainer: Vec2, through: Vec2): Vec2 =>
+    same(constrainer, through) ? pos : segLineProject({ a: constrainer, b: through }, pos);
+
+  if (d.kind === 'center') {
+    return handle.index === DIM_END ? snap45(d.start) : pos;
+  }
+
+  if (d.kind === 'leader') {
+    return handle.index === DIM_TEXT ? snap45(d.end) : pos;
+  }
+
+  if (d.kind === 'radial') {
+    if (handle.index === DIM_KNEE) return online(d.end, d.start);
+    if (handle.index === DIM_TEXT) return snap45(radialKnee(d));
+    return pos;
+  }
+
+  if (d.kind === 'aligned') {
+    const bar = dimensionCrossbar(d);
+    if (!bar) return pos;
+    // `EC_LINE( Point( DIM_CROSSBARSTART ), Point( DIM_START ) )` — the line
+    // runs from the feature point out through the crossbar end above it.
+    if (handle.index === DIM_CROSSBARSTART) return online(d.start, bar.start);
+    if (handle.index === DIM_CROSSBAREND) return online(d.end, bar.end);
+  }
+
+  return pos;
+}
+
+const sub = (a: Vec2, b: Vec2): Vec2 => ({ x: a.x - b.x, y: a.y - b.y });
+const same = (a: Vec2, b: Vec2): boolean => a.x === b.x && a.y === b.y;
+const withText = (d: PcbDimension, at: Vec2): PcbDimension =>
+  d.text ? { ...d, text: { ...d.text, at } } : d;
+
+/**
+ * `UpdateItem` for whichever behaviour this dimension has.
+ *
+ * Every branch ends in `m_dimension.Update()` — {@link updateDimension} — so a
+ * dragged handle re-derives the label and, outside MANUAL mode, puts it back on
+ * the crossbar. Dragging the *text* handle is the one thing that switches the
+ * position mode to MANUAL: "Force manual mode if we weren't already in it".
+ */
+function dragDimension(d: PcbDimension, handle: BoardEditHandle, pos: Vec2): PcbDimension {
+  if (handle.kind !== 'point') return d;
+  const i = handle.index;
+
+  if (d.kind === 'center') {
+    return updateDimension(i === DIM_START ? { ...d, start: pos } : { ...d, end: pos });
+  }
+
+  if (d.kind === 'leader') {
+    if (i === DIM_START) return updateDimension({ ...d, start: pos });
+    if (i === DIM_END) {
+      // The label rides along with the elbow it hangs off.
+      const delta = sub(pos, d.end);
+      const moved = withText(d, d.text ? add(d.text.at, delta) : pos);
+      return updateDimension({ ...moved, end: pos });
+    }
+    if (i === DIM_TEXT) return updateDimension(withText(d, pos));
+    return d;
+  }
+
+  if (d.kind === 'radial') {
+    if (i === DIM_START) return updateDimension({ ...d, start: pos });
+    if (i === DIM_END) {
+      // "VECTOR2I kneeDelta = m_dimension.GetKnee() - oldKnee" — the label keeps
+      // its offset from the knee rather than from the measured point.
+      const oldKnee = radialKnee(d);
+      const moved: PcbDimension = { ...d, end: pos };
+      const delta = sub(radialKnee(moved), oldKnee);
+      return updateDimension(withText(moved, d.text ? add(d.text.at, delta) : pos));
+    }
+    if (i === DIM_KNEE) {
+      const oldKnee = radialKnee(d);
+      const moved: PcbDimension = {
+        ...d,
+        leaderLength: Math.round(Math.hypot(pos.x - d.end.x, pos.y - d.end.y)),
+      };
+      const delta = sub(radialKnee(moved), oldKnee);
+      return updateDimension(withText(moved, d.text ? add(d.text.at, delta) : pos));
+    }
+    if (i === DIM_TEXT) return updateDimension(withText(d, pos));
+    return d;
+  }
+
+  // Aligned and orthogonal.
+  if (i === DIM_START) return updateDimension({ ...d, start: pos });
+  if (i === DIM_END) return updateDimension({ ...d, end: pos });
+  if (i === DIM_TEXT) {
+    return updateDimension({
+      ...withText(d, pos),
+      style: { ...d.style, textPositionMode: 2 }, // DIM_TEXT_POSITION::MANUAL
+    });
+  }
+  if (i === DIM_CROSSBARSTART || i === DIM_CROSSBAREND) {
+    return updateDimension(dragCrossbar(d, i, pos));
+  }
+  return d;
+}
+
+/**
+ * The crossbar handles, which set the height rather than a point.
+ *
+ * The two kinds read the cursor completely differently and it is worth saying
+ * why. An **aligned** dimension's height is a signed distance along its own
+ * normal, so the magnitude is the length of the feature line and the sign comes
+ * from which side of the measurement the cursor is on — a cross product. An
+ * **orthogonal** one's height is one raw axis of the cursor, and which axis is
+ * re-picked only while the cursor is outside the feature box, exactly as the
+ * drawing tool's `SET_HEIGHT` does.
+ */
+function dragCrossbar(d: PcbDimension, index: number, pos: Vec2): PcbDimension {
+  if (d.kind === 'aligned') {
+    // `featureLine` is measured from whichever feature point this handle sits
+    // above, so the two handles agree on the height they produce.
+    const from = index === DIM_CROSSBARSTART ? d.start : d.end;
+    const featureLine = sub(pos, from);
+    const crossBar = sub(d.end, d.start);
+    const cross = featureLine.x * crossBar.y - featureLine.y * crossBar.x;
+    const len = Math.round(Math.hypot(featureLine.x, featureLine.y));
+    return { ...d, height: cross > 0 ? -len : len };
+  }
+
+  // `BOX2I bounds( GetStart(), GetEnd() - GetStart() )` again — unnormalised,
+  // so its right and bottom edges carry the sign of the feature vector while
+  // `Contains()` does not. Same reading as `setHeightFromCursor`.
+  const left = d.start.x;
+  const right = d.end.x;
+  const top = d.start.y;
+  const bottom = d.end.y;
+  const inside =
+    pos.x >= Math.min(left, right) &&
+    pos.x <= Math.max(left, right) &&
+    pos.y >= Math.min(top, bottom) &&
+    pos.y <= Math.max(top, bottom);
+
+  let vert = d.orientation === 1;
+
+  if (!inside) {
+    // "Find vector from nearest dimension point to edit position" — the
+    // fallback compares against whichever feature point is closer, unlike the
+    // drawing tool, which compares against the box centre.
+    const dA = sub(pos, d.start);
+    const dB = sub(pos, d.end);
+    // `( directionA < directionB ) ? directionA : directionB`, and `VECTOR2`'s
+    // `operator<` compares `*this * *this` — squared lengths (vector2d.h:578).
+    // Strictly less, so an exact tie takes the *end* point's vector.
+    const sq = (v: Vec2): number => v.x * v.x + v.y * v.y;
+    const dir = sq(dA) < sq(dB) ? dA : dB;
+
+    if (right - left === 0) vert = true;
+    else if (bottom - top === 0) vert = false;
+    else if (pos.x > left && pos.x < right) vert = false;
+    else if (pos.y > top && pos.y < bottom) vert = true;
+    else vert = Math.abs(dir.y) < Math.abs(dir.x);
+  }
+
+  const featureLine = sub(pos, d.start);
+  return { ...d, orientation: vert ? 1 : 0, height: vert ? featureLine.x : featureLine.y };
+}
+
 /** The arc's centre, for drawing the radius while an arc handle is dragged. */
 export function arcHandleCentre(board: Board, id: string): Vec2 | null {
   const r = parseBoardItemId(id);
@@ -562,5 +818,6 @@ export function editablePointItems(board: Board): string[] {
   push('arc', board.arcs.length);
   push('shape', board.shapes.length);
   push('zone', board.zones.length);
+  push('dimension', board.dimensions.length);
   return out;
 }

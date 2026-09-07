@@ -148,19 +148,64 @@ describe('the measurements it carries across', () => {
 
   it('takes the layer and line width from the caller, not from Board Setup', () => {
     // The dimension goes on the active layer at that layer class's width.
-    const d = dimensionDefaultsFrom(SETUP, 'F.SilkS', MM(0.12), MM(1.5), MM(0.2));
+    const d = dimensionDefaultsFrom(SETUP, 'F.SilkS', MM(0.12), {
+      textWidth: MM(1.4),
+      textHeight: MM(1.5),
+      textThickness: MM(0.2),
+      italic: true,
+    });
 
     expect(d.layer).toBe('F.SilkS');
     expect(d.lineThickness).toBe(MM(0.12));
-    expect(d.textSize).toBe(MM(1.5));
     expect(d.textThickness).toBe(MM(0.2));
   });
 
+  it('carries both text axes, because SetTextSize takes a VECTOR2I', () => {
+    // `dimension->SetTextSize( boardSettings.GetTextSize( layer ) )` sets width
+    // and height together, so a condensed layer class must stay condensed.
+    const d = dimensionDefaultsFrom(SETUP, 'F.SilkS', MM(0.12), {
+      textWidth: MM(1.4),
+      textHeight: MM(1.5),
+      textThickness: MM(0.2),
+      italic: true,
+    });
+
+    expect(d.textWidth).toBe(MM(1.4));
+    expect(d.textHeight).toBe(MM(1.5));
+  });
+
+  it('carries the layer class italic flag', () => {
+    // `dimension->SetItalic( boardSettings.GetTextItalic( layer ) )`.
+    const base = { textWidth: MM(1), textHeight: MM(1), textThickness: MM(0.15) };
+    expect(
+      dimensionDefaultsFrom(SETUP, 'F.SilkS', MM(0.12), { ...base, italic: true }).textItalic,
+    ).toBe(true);
+    expect(
+      dimensionDefaultsFrom(SETUP, 'F.SilkS', MM(0.12), { ...base, italic: false }).textItalic,
+    ).toBe(false);
+    // and it reaches the placed item's text child.
+    const d = startDimension(
+      'aligned',
+      { x: 0, y: 0 },
+      {
+        ...DEFAULT_DIMENSION_DEFAULTS,
+        textItalic: true,
+      },
+    ).dimension;
+    expect(d.text!.italic).toBe(true);
+  });
+
   it('falls back to the engine default for a zero line width', () => {
-    const d = dimensionDefaultsFrom(SETUP, 'F.SilkS', 0, 0, 0);
+    const d = dimensionDefaultsFrom(SETUP, 'F.SilkS', 0, {
+      textWidth: 0,
+      textHeight: 0,
+      textThickness: 0,
+      italic: false,
+    });
 
     expect(d.lineThickness).toBe(DEFAULT_DIMENSION_DEFAULTS.lineThickness);
-    expect(d.textSize).toBe(DEFAULT_DIMENSION_DEFAULTS.textSize);
+    expect(d.textHeight).toBe(DEFAULT_DIMENSION_DEFAULTS.textHeight);
+    expect(d.textWidth).toBe(DEFAULT_DIMENSION_DEFAULTS.textWidth);
   });
 });
 

@@ -63,6 +63,37 @@ const SHARED: Readonly<Record<string, KiCursor>> = {
   placeBarcode: 'PENCIL',
   gridSetOrigin: 'PLACE',
   drillOrigin: 'PLACE',
+  // `DRAWING_TOOL::DrawDimension`'s `setCursor` is one line with no branch —
+  // `m_frame->GetCanvas()->SetCurrentCursor( KICURSOR::MEASURE )`
+  // (`drawing_tool.cpp:1637-1641`) — so all five dimension actions wear the
+  // ruler, before and during the placement alike. `DRAWING_TOOL` is registered
+  // in both the board and the footprint editor, which is what makes these
+  // shared rather than one frame's own.
+  // Every graphic-drawing tool wears the pencil, and they all get it from the
+  // same two places: `DRAWING_TOOL::drawShape`'s `setCursor` is one
+  // unconditional line (`drawing_tool.cpp:2411`) and serves Line, Rectangle,
+  // Circle and — through `DrawRectangle`'s `isTextBox` arm — Text Box;
+  // `drawArc` and `DrawZone` each say the same thing for the rest. Ours showed
+  // the plain arrow for all of them.
+  drawLine: 'PENCIL',
+  drawRectangle: 'PENCIL',
+  drawCircle: 'PENCIL',
+  drawArc: 'PENCIL',
+  drawTextBox: 'PENCIL',
+  // `DRAWING_TOOL::DrawZone`, which is the polygon, the zone and the rule area.
+  drawPolygon: 'PENCIL',
+  drawZone: 'PENCIL',
+  drawRuleArea: 'PENCIL',
+  // `DRAWING_TOOL::DrawTable`'s idle arm — `else SetCurrentCursor(
+  // KICURSOR::PENCIL )` (`drawing_tool.cpp:1209`). The MOVING arm, once a
+  // corner is down, depends on the gesture rather than the tool, so it lives in
+  // `editors/pcb/cursors.ts` with the state it needs.
+  drawTable: 'PENCIL',
+  drawAlignedDimension: 'MEASURE',
+  drawOrthogonalDimension: 'MEASURE',
+  drawCenterDimension: 'MEASURE',
+  drawRadialDimension: 'MEASURE',
+  drawLeader: 'MEASURE',
 };
 
 /**

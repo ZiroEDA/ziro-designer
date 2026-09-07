@@ -131,6 +131,12 @@ export interface PcbSpecialColors {
   auxItems: string;
   drawingSheet: string;
   pageLimits: string;
+  /**
+   * `LAYER_BOARD_OUTLINE_AREA` — the "Board Area Shadow" fill inside Edge.Cuts,
+   * rgba(100, 100, 100, 0.35) in both built-in themes
+   * (`common/settings/builtin_color_themes.h:175`, `:452`).
+   */
+  outlineArea: string;
   netName: string;
   padName: string;
   viaName: string;
@@ -161,6 +167,7 @@ const specialFor = (colors: ThemeColors): PcbSpecialColors => ({
   // its own grey. Not the schematic's page-limits grey, which is a different
   // layer and a lighter 181.
   pageLimits: at(colors, 'LAYER_PAGE_LIMITS'),
+  outlineArea: at(colors, 'LAYER_BOARD_OUTLINE_AREA'),
   // Net-name text colours:
   //  - netName is NETNAMES_LAYER_ID_START, the track-name base ("lightLabel");
   //    the painter inverts it per copper layer whose colour is brighter than
@@ -294,6 +301,7 @@ export function pcbThemeWithOverrides(
       auxItems: pick('board.aux_items', base.special.auxItems),
       drawingSheet: pick('board.worksheet', base.special.drawingSheet),
       pageLimits: pick('board.page_limits', base.special.pageLimits),
+      outlineArea: pick('board.outline_area', base.special.outlineArea),
       nonPlatedHole: pick('board.plated_hole', base.special.nonPlatedHole),
       netName: pick('board.track_net_names', base.special.netName),
       padName: pick('board.pad_net_names', base.special.padName),
@@ -329,6 +337,12 @@ export const PCB_BW_PRINT_THEME: PcbColorTheme = {
     auxItems: BLACK,
     drawingSheet: BLACK,
     pageLimits: BLACK,
+    // A print never draws the board-area shadow — it is a screen affordance and
+    // `boardOutlineArea` defaults off — so this is the PAPER rather than an
+    // invented transparent literal. `shared_color_theme.test.ts` allows exactly
+    // one colour literal in this file and is right to: a second would be a
+    // colour nothing in KiCad has.
+    outlineArea: WHITE,
     netName: WHITE,
     padName: WHITE,
     viaName: BLACK,
@@ -363,6 +377,7 @@ export const PCB_OBJECT_COLORS: Record<string, string> = {
   boardAreaShadow: at(BUILTIN_DEFAULT_THEME, 'LAYER_BOARD_OUTLINE_AREA'),
   drawingSheet: PCB_SPECIAL.drawingSheet,
   pageLimits: PCB_SPECIAL.pageLimits,
+  outlineArea: PCB_SPECIAL.outlineArea,
   grid: PCB_GRID,
 };
 

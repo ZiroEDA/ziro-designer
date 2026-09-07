@@ -1005,10 +1005,11 @@ const DECLARED: Readonly<Record<string, readonly string[]>> = {
     'Ctrl+,',
   ],
   'editors/pcb/PcbEditor.tsx': [
-    // Two of these are rows with no `action` yet - Route > Single Track (X) and
-    // Inspect > Measure Tool (Ctrl+Shift+M) - so `invocable` skips them and
-    // they dispatch nothing. They are listed because the row prints the key,
-    // and a row that grows an action must not silently grow a binding too.
+    // Route > Single Track and Inspect > Measure Tool. Both rows printed their
+    // accelerator with no `action`, so `invocable` skipped them and the keys
+    // were decoration — while both tools were fully wired to the canvas and
+    // worked from the toolbar. See `pressableRows` below, which is the guard
+    // that would have caught it.
     'X',
     'Ctrl+Shift+M',
     // The disambiguation ContextMenu's own rows (1-9 and A), which are not on
@@ -1025,6 +1026,13 @@ const DECLARED: Readonly<Record<string, readonly string[]>> = {
     'Ctrl+F',
     'E',
     'F',
+    // Place > Draw Dimensions > Draw Orthogonal Dimensions. The only one of
+    // the five dimension actions upstream gives a key —
+    // `.DefaultHotkey( MD_CTRL + MD_SHIFT + 'H' )` (`pcb_actions.cpp:301`) —
+    // and the row is what makes it press: this submenu replaced a dead
+    // `{ label: 'Dimension' }` stub with no action and no accelerator, which is
+    // why Ctrl+Shift+H did nothing at all.
+    'Ctrl+Shift+H',
     // ---- the canvas context menu (PCB_SELECTION_TOOL's TOOL_MENU) ---------
     // Every row below is one KiCad prints in that menu. Three groups, and the
     // group a key is in is the whole reason it is listed:
@@ -1367,5 +1375,115 @@ describe('the schematic editor, pressed for real', () => {
     for (const { combo } of rows)
       dispatchMenuHotkey(menus, eventFromCombo(combo, base), { target: typing });
     expect(calls).toEqual([]);
+  });
+});
+
+/**
+ * Every menu row in a frame's source that prints an accelerator, with whether
+ * it also carries an `action:`.
+ *
+ * The object literal is found by matching braces outward from the `shortcut:`,
+ * which is what makes this survive a row being reformatted across lines.
+ */
+function rowsWithShortcut(
+  rel: string,
+): Array<{ combo: string; label: string; pressable: boolean }> {
+  const src = menuSource(rel);
+  const out: Array<{ combo: string; label: string; pressable: boolean }> = [];
+
+  for (const m of src.matchAll(/shortcut:\s*(?:'([^']+)'|browserSafeKey\('([^']+)'\))/g)) {
+    const combo = m[1] ?? browserSafeKey(m[2]!);
+
+    let depth = 0;
+    let i = m.index!;
+    while (i > 0) {
+      const c = src[i]!;
+      if (c === '}') depth++;
+      else if (c === '{') {
+        if (depth === 0) break;
+        depth--;
+      }
+      i--;
+    }
+
+    depth = 0;
+    let j = m.index! + m[0].length;
+    while (j < src.length) {
+      const c = src[j]!;
+      if (c === '{') depth++;
+      else if (c === '}') {
+        if (depth === 0) break;
+        depth--;
+      }
+      j++;
+    }
+
+    const body = src.slice(i, j + 1);
+    out.push({
+      combo,
+      label: /label:\s*'([^']*)'/.exec(body)?.[1] ?? combo,
+      // `nativeShortcut` rows deliberately have no action: the browser carries
+      // the command out and the dispatcher must not claim the key (Paste).
+      pressable: body.includes('action:') || body.includes('nativeShortcut'),
+    });
+  }
+  return out;
+}
+
+/**
+ * Rows that print a key and dispatch nothing **on purpose**, each with the
+ * reason. Everything else is a bug of the shape Measure Tool had: the tool
+ * exists, the toolbar runs it, the menu advertises a key, and the key does
+ * nothing because the row has no `action` for `invocable` to find.
+ */
+const UNPRESSABLE: Readonly<Record<string, readonly string[]>> = {
+  'editors/pcb/PcbEditor.tsx': [
+    // Canvas context-menu rows for commands that are not built. The row is
+    // KiCad's and prints KiCad's key; there is nothing yet to run.
+    'Get and Move Footprint',
+    'Move Individually',
+    'Route Selected',
+    'Route Selected From Other End',
+    'Unroute Segment',
+    'Attempt Finish Selected (Autoroute)',
+    'Swap',
+    'Pack and Move Footprints',
+    // Rotate is live in this frame's own canvas key chain with a `kept` entry
+    // in the table above — the row and the key run the same thing, by two
+    // routes. The rows are built from a helper, so they scrape without a label.
+    'R',
+    'Shift+R',
+    // Open in Footprint Editor: reaches the frame, but not through the
+    // dispatcher.
+    'Ctrl+E',
+  ],
+};
+
+describe('a row that prints a key can be pressed', () => {
+  // The gap this catches is invisible to the two tests above: they check that
+  // the *accelerator* is declared and that a synthetic row with that key can be
+  // reached. Neither notices that the real row has no `action`, which is
+  // exactly how Inspect > Measure Tool printed Ctrl+Shift+M and did nothing
+  // while the measure tool itself worked from the toolbar.
+  const frames = Object.keys(UNPRESSABLE);
+
+  it.each(frames)('%s: every row with an accelerator carries an action', (rel) => {
+    const dead = rowsWithShortcut(rel)
+      .filter((r) => !r.pressable)
+      .map((r) => r.label)
+      .filter((label) => !UNPRESSABLE[rel]!.includes(label));
+
+    expect(dead).toStrictEqual([]);
+  });
+
+  it.each(frames)('%s: and the excused list has nothing stale on it', (rel) => {
+    // The other half of the ratchet: wiring one of these up must lower the
+    // list, or it becomes a licence for the next dead row.
+    const dead = new Set(
+      rowsWithShortcut(rel)
+        .filter((r) => !r.pressable)
+        .map((r) => r.label),
+    );
+    expect(UNPRESSABLE[rel]!.filter((label) => !dead.has(label))).toStrictEqual([]);
   });
 });

@@ -353,6 +353,9 @@ export const BITMAP: Record<string, string> = {
   small_down: 'small_down',
   text_bold: 'text_bold',
   text_italic: 'text_italic',
+  // `BITMAPS::text_mirrored`, the last button on pcbnew's formatting bars
+  // (`dialog_textbox_properties.cpp:123`).
+  text_mirrored: 'text_mirrored',
   label_align_left: 'label_align_left',
   label_align_right: 'label_align_right',
   label_align_bottom: 'label_align_bottom',

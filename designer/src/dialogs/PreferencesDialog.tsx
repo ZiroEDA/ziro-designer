@@ -109,7 +109,7 @@ export function PreferencesDialog({
 
   const [page, setPage] = useState<PrefsPageId>(initialPage ?? FIRST_PAGE);
   // The one place a PAGED_DIALOG's size is decided, shared rather than restated.
-  const size = usePagedDialogSize(page);
+  const dlgRef = usePagedDialogSize(page);
   /**
    * Which sections start open. Exactly ONE can, and often none does.
    *
@@ -475,11 +475,12 @@ export function PreferencesDialog({
       {/* `newSize.IncTo( minSize )` (paged_dialog.cpp:446-450): the dialog grows
           to fit a page and never shrinks back, so changing page does not resize
           it under the user. `.ze-modal` is `width: max-content` and would do
-          the opposite - track the current page and shrink on a smaller one. */}
+          the opposite - track the current page and shrink on a smaller one.
+          No `aInitialSize` here: Preferences is not a PAGED_DIALOG subclass
+          upstream, so its size is `.ze-prefs-dialog`'s measured one. */}
       <div
         className="ze-modal ze-paged-dialog ze-prefs-dialog"
-        ref={size.ref}
-        style={size.style}
+        ref={dlgRef}
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="ze-modal-header">

@@ -129,7 +129,7 @@ export function DialogDrc({
           ✕
         </span>
       </div>
-      <div style={{ display: 'block', padding: '10px 12px' }}>
+      <div className="ze-drc-body">
         {error !== null && (
           <div style={{ color: '#d75b6b', fontSize: 12, whiteSpace: 'pre-wrap', marginBottom: 8 }}>
             DRC failed: {error}
@@ -146,7 +146,7 @@ export function DialogDrc({
               {errorCount} error{errorCount === 1 ? '' : 's'}, {warningCount} warning
               {warningCount === 1 ? '' : 's'}
             </div>
-            <div className="ze-grid-pane" style={{ maxHeight: 340, overflow: 'auto', padding: 0 }}>
+            <div className="ze-grid-pane ze-drc-violations">
               {results.length === 0 ? (
                 <div className="ze-muted" style={{ padding: 12, fontSize: 12.5 }}>
                   No violations found.

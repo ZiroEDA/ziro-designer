@@ -202,10 +202,18 @@ export function appearanceObjectRows(aFpEditor: boolean): readonly ObjectRow[] {
 /**
  * Every Objects row's opening visibility.
  *
- * [data] `GAL_SET::DefaultVisible()` (`pcbnew/layer_ids.cpp`) with the
- * project-local defaults on top: everything this tab lists is visible on a
- * fresh board, which is also why `matchPresetName`'s "renderLayers match" test
- * is "the Objects tab is untouched".
+ * [data] `GAL_SET::DefaultVisible()` (`common/lset.cpp:770-830`) with the
+ * project-local defaults on top.
+ *
+ * **Not everything this tab lists is on.** Two entries are commented OUT of
+ * that array with a reason beside each, and both used to read `true` here:
+ *
+ *     // LAYER_DRC_EXCLUSION,         // DRC exclusions hidden by default
+ *     // LAYER_BOARD_OUTLINE_AREA,    // currently hidden by default
+ *
+ * A row defaulting on that KiCad opens off is a board that does not look like
+ * KiCad's on the very first paint, and it is invisible in review because the
+ * row exists and the checkbox works.
  */
 export const DEFAULT_OBJECTS: ObjectState = {
   tracks: true,
@@ -222,12 +230,14 @@ export const DEFAULT_OBJECTS: ObjectState = {
   ratsnest: true,
   drcWarnings: true,
   drcErrors: true,
-  drcExclusions: true,
+  // `// LAYER_DRC_EXCLUSION` — commented out of `DefaultVisible`.
+  drcExclusions: false,
   anchors: true,
   points: true,
   lockedShadow: true,
   collidingCourtyards: true,
-  boardAreaShadow: true,
+  // `// LAYER_BOARD_OUTLINE_AREA` — likewise.
+  boardAreaShadow: false,
   drawingSheet: true,
   grid: true,
 };

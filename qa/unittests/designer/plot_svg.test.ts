@@ -42,9 +42,19 @@ describe('plot to SVG', () => {
     expect(svg.startsWith('<?xml')).toBe(true);
     expect(svg).toContain('<svg');
     expect(svg.trimEnd().endsWith('</svg>')).toBe(true);
-    // A4 landscape is 297 × 210 mm.
-    expect(svg).toContain('width="297mm"');
-    expect(svg).toContain('height="210mm"');
+    // A4 landscape is 297.0022 x 210.0072 mm, NOT a clean 297 x 210.
+    //
+    // Re-derived, not re-baselined. `SVG_PLOTTER::StartPlot` writes the page
+    // from `m_paperSize = m_pageInfo.GetSizeMils()`
+    // (`common/plotters/SVG_plotter.cpp:190`, `:798-800`), and `PAGE_INFO`
+    // stores A4 as **11693 x 8268 mils** — 11693 x 0.0254 = 297.0022. KiCad's
+    // own SVG for an A4 sheet says 297.002mm.
+    //
+    // This read 297 because the schematic renderer carried a private paper
+    // table with the rounded metric numbers in it; `common/src/page_info.ts`
+    // derives mm from the mils, which is the chain KiCad computes.
+    expect(svg).toContain('width="297.002mm"');
+    expect(svg).toContain('height="210.007mm"');
     expect(svg).toContain(`viewBox="0 0 ${pageIU(doc).w} ${pageIU(doc).h}"`);
     // Wire + symbol body + drawing-sheet border all emit paths/rects.
     expect(svg).toContain('<path');
@@ -70,8 +80,9 @@ describe('plot to SVG', () => {
       drawingSheet: false,
       background: false,
     });
-    // A3 portrait swaps to 297 × 420 mm.
-    expect(svg).toContain('width="297mm"');
-    expect(svg).toContain('height="420mm"');
+    // A3 portrait swaps the landscape pair: 16535 x 11693 mils becomes
+    // 11693 x 16535, i.e. 297.0022 x 419.989 mm.
+    expect(svg).toContain('width="297.002mm"');
+    expect(svg).toContain('height="419.989mm"');
   });
 });

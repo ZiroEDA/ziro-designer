@@ -59,9 +59,39 @@ interface Props {
   auxiliaryAction?: string;
   /** Message shown in the top info bar (e.g. project read-only). */
   infoBar?: string;
-  onOk: () => void;
+  /**
+   * `PAGED_DIALOG`'s `aInitialSize`, which every subclass states as a literal
+   * at its own call site — `wxSize( 980, 600 )` in `dialog_board_setup.cpp:63`,
+   * `wxSize( 920, 460 )` in `dialog_schematic_setup.cpp:47`. It is DATA, and it
+   * is the size the dialog has for its whole life: see `paged_dialog_size.ts`
+   * for why one stated size is the port of `newSize.IncTo( minSize )` here.
+   */
+  initialSize: { width: number; height: number };
+  /**
+   * OK. Returning a PagedDialogError vetoes the close, the way a page's
+   * `TransferDataFromWindow` returning false does upstream: `PAGED_DIALOG::
+   * SetError` (`common/widgets/paged_dialog.cpp:292-302`) puts the message in
+   * the info bar for 10 s with a warning icon, then focuses the offending
+   * control and selects all of its text. Returning nothing accepts.
+   */
+  onOk: () => PagedDialogError | void;
   onCancel: () => void;
 }
+
+/** What `SetError( aMessage, aPage, aCtrl )` needs to say. */
+export interface PagedDialogError {
+  message: string;
+  /** Page id to bring forward — `SetError`'s `aPage`. */
+  page: string;
+  /**
+   * `document.getElementById` of the control to focus and select — `aCtrl`.
+   * Omitted when the offending value has no single control.
+   */
+  focusId?: string;
+}
+
+/** `m_infoBar->ShowMessageFor( aMessage, 10000, … )` (`paged_dialog.cpp:295`). */
+const INFOBAR_MS = 10_000;
 
 // Last-selected page per dialog title, so re-opening lands where you left off
 // (PAGED_DIALOG's g_lastPage). Module-scoped to survive dialog unmount.
@@ -80,6 +110,7 @@ export function PagedDialog({
   auxiliaryAction,
   onAuxiliaryAction,
   infoBar,
+  initialSize,
   onOk,
   onCancel,
 }: Props): JSX.Element {
@@ -97,6 +128,31 @@ export function PagedDialog({
   });
   // Collapsed section labels (all expanded by default, like ExpandNode on every node).
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
+  // The transient message `SetError` puts in the info bar. It replaces the
+  // caller's standing `infoBar` for as long as it shows, which is what a
+  // wxInfoBar does — there is only ever one of it.
+  const [error, setError] = useState<string | null>(null);
+
+  const handleOk = (): void => {
+    const err = onOk();
+    if (!err) return;
+
+    setError(err.message);
+    window.setTimeout(() => setError(null), INFOBAR_MS);
+    setPage(err.page);
+
+    if (err.focusId !== undefined) {
+      const id = err.focusId;
+      // After the page swap has rendered the control we are focusing.
+      window.setTimeout(() => {
+        const ctl = document.getElementById(id);
+        if (ctl instanceof HTMLInputElement || ctl instanceof HTMLTextAreaElement) {
+          ctl.focus();
+          ctl.select(); // `textCtrl->SetSelection( -1, -1 )`.
+        } else ctl?.focus();
+      }, 0);
+    }
+  };
 
   const setPage = (id: string): void => {
     g_lastPage[title] = id;
@@ -137,26 +193,36 @@ export function PagedDialog({
       return next;
     });
 
-  // Was `const size = initialSize ?? { width: 920, height: 460 }` - computed
-  // and never read, while the two callers passed 920x600 and 1150x620 into it.
-  // Three picked sizes, none of which reached the DOM. The real rule is the
-  // shared one below.
-  const dlgSize = usePagedDialogSize(page);
+  // The floor, which only ever rises — `newSize.IncTo( minSize )`. It is the
+  // second half of the size rule; `initialSize` below is the first.
+  const dlgRef = usePagedDialogSize(page, initialSize, title);
 
   const resetLabel =
     active?.resettable && active.label ? `Reset ${active.label} to Defaults` : 'Reset to Defaults';
 
   return (
     <div className="ze-modal-backdrop" onMouseDown={onCancel}>
-      {/* `newSize.IncTo( minSize )` (paged_dialog.cpp:446-450): the dialog
-          grows to fit a page and never shrinks back, so changing page does not
-          resize it under the user. Board Setup, Schematic Setup and Preferences
-          all take it from `usePagedDialogSize`, because upstream states it once
-          in PAGED_DIALOG and all three derive from that. */}
+      {/* ONE size, for every page.
+
+          `DIALOG_SHIM` is constructed with `aInitialSize` and
+          `onPageChanged` only ever grows it — `newSize.IncTo( minSize )`
+          (paged_dialog.cpp:446-450) is a componentwise MAXIMUM, so a smaller
+          page never shrinks the window back. A wx dialog therefore sits at
+          one size while the user walks the tree.
+
+          A CSS dialog does the opposite by default: `.ze-modal` is
+          `width/height: max-content`, which tracks whichever page is mounted,
+          and Board Setup visibly re-sized itself on every row of the tree —
+          tall and narrow on Board Editor Layers, short and wide on
+          Constraints. `usePagedDialogSize`'s floor could not stop that,
+          because a floor does not stop `max-content` from going ABOVE it.
+
+          So the size is stated, from the subclass's own `aInitialSize`, and
+          the page area scrolls when a page wants more — the same answer
+          `.ze-prefs-dialog` already reached, and for the same reason. */}
       <div
         className="ze-modal ze-paged-dialog"
-        ref={dlgSize.ref}
-        style={dlgSize.style}
+        ref={dlgRef}
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="ze-modal-header">
@@ -166,7 +232,12 @@ export function PagedDialog({
           </span>
         </div>
 
-        {infoBar && <div className="ze-paged-infobar">{infoBar}</div>}
+        {/* One wxInfoBar: SetError's message takes it over while it shows. */}
+        {(error ?? infoBar) && (
+          <div className="ze-paged-infobar" role={error ? 'alert' : undefined}>
+            {error ?? infoBar}
+          </div>
+        )}
 
         <div className="ze-modal-body">
           <PagedDialogTree
@@ -182,9 +253,10 @@ export function PagedDialog({
             {active && !active.disabled ? (
               active.render()
             ) : (
-              <div style={{ padding: 16, color: 'var(--ze-muted, #888)', fontSize: 12 }}>
-                This setup page is not implemented yet.
-              </div>
+              // A greyed page. `--ze-muted` is not a token this stylesheet
+              // declares, so the `#888` fallback was what actually painted, at
+              // a font size nothing upstream states either.
+              <div className="ze-paged-unimplemented">This setup page is not implemented yet.</div>
             )}
           </div>
         </div>
@@ -211,7 +283,7 @@ export function PagedDialog({
           <button className="ze-btn" onClick={onCancel}>
             Cancel
           </button>
-          <button className="ze-btn primary" onClick={onOk}>
+          <button className="ze-btn primary" onClick={handleOk}>
             OK
           </button>
         </div>

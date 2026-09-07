@@ -207,9 +207,28 @@ describe('applying a change', () => {
 
     expect(t.size.y).toBe(MM(2));
     expect(t.thickness).toBe(MM(0.3));
-    expect(t.angle).toBe(45);
     expect(t.bold).toBe(true);
     expect(t.italic).toBe(true);
+  });
+
+  it('lets keep-aligned override the orientation that was typed', () => {
+    // The 45 asked for here cannot survive, and upstream does not let you type
+    // it: `m_cbTextOrientation->Enable( !m_cbKeepAligned->GetValue() )`
+    // (`dialog_dimension_properties.cpp:181-184`) greys the combo out while
+    // "Keep aligned with dimension" is checked, and `updateDimensionFromDialog`
+    // ends with `aTarget->Update()`, whose `updateText` recomputes the angle
+    // from the crossbar.
+    //
+    // ORTHO has `(keep_text_aligned yes)`, so 90 is the only answer — and it is
+    // the angle KiCad itself wrote into this very fixture, `(at 125.3 43.975
+    // 90)`, not a number read back off our own output.
+    const back = roundTrip(ORTHO, { textOrientation: 45 });
+    expect(back.dimensions[0]!.text!.angle).toBe(90);
+  });
+
+  it('honours the typed orientation once keep-aligned is off', () => {
+    const back = roundTrip(ORTHO, { textOrientation: 45, keepTextAligned: false });
+    expect(back.dimensions[0]!.text!.angle).toBe(45);
   });
 
   it('moves the text onto the dimension layer with it', () => {

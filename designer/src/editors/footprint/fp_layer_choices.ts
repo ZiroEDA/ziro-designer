@@ -32,35 +32,42 @@
  * The entries carry the layer's colour, which is not decoration:
  * `PCB_LAYER_BOX_SELECTOR::Resync` appends each name with
  * `LAYER_PRESENTATION::DrawColorSwatch`, and our shared `Combo` takes the same
- * `swatch` on an option.
+ * `swatch` on an option. That call composites the layer colour over the board
+ * BACKGROUND (`layer_presentation.cpp:36-62`), so a half-transparent layer —
+ * `F.Mask` is `rgba(216, 100, 255, 0.4)` — reads against `#001023` and not
+ * against the cell it happens to sit in. Handed through raw, those six
+ * swatches tinted the grid's grey and turned orange on a selected row.
  */
 import {
   AllCuMask,
   AllTechMask,
   Edge_Cuts,
-  LSET_Name,
-  LayerName,
   LayerSelectorUIOrder,
   MAX_CU_LAYERS,
   Margin,
 } from '@ziroeda/pcbnew/src/layer_ids.js';
-import { layerColor } from '../pcb/pcbTheme.js';
+import { fpBackgroundDefault } from './fpColorLayers.js';
+import { layerChoice, type LayerChoice } from '../../widgets/layer_presentation.js';
 
-/** One row of the cell's dropdown: the canonical name stored, the name shown. */
-export interface FpLayerChoice {
-  /** `LSET::Name( layer )` — what `default_footprint_text_items` stores. */
-  value: string;
-  /** `BOARD::GetStandardLayerName( layer )`, which with no frame is
-   *  `LayerName()`: `F.SilkS` shows as `F.Silkscreen`. */
-  label: string;
-  /** The layer's colour, for the swatch. */
-  swatch: string;
-}
+/**
+ * The footprint editor's row type. It IS `LAYER_PRESENTATION`'s `LayerChoice`
+ * — the name/label/swatch triple is not per frame, only the background the
+ * swatch is composited over is, so the type is re-exported rather than
+ * redeclared (`widgets/layer_presentation.ts`).
+ */
+export type FpLayerChoice = LayerChoice;
 
-const choiceOf = (id: number): FpLayerChoice => {
-  const name = LSET_Name(id);
-  return { value: name, label: LayerName(name), swatch: layerColor(name) };
-};
+/**
+ * `m_layerPresentation->DrawColorSwatch( bmp, layerid )`, whose background is
+ * `getLayerColor( LAYER_PCB_BACKGROUND )` (`pcbnew/sel_layer.cpp:60-74`). Both
+ * colours come from the DEFAULT theme here, as `layerColor` already does — a
+ * selector with no board frame reads `fpedit`'s theme upstream, which is the
+ * same gap `layerColor` has and not a second one.
+ *
+ * This frame's subclass of the shared builder: it supplies the background and
+ * nothing else.
+ */
+const choiceOf = (id: number): FpLayerChoice => layerChoice(id, fpBackgroundDefault());
 
 /**
  * Every layer the selector has — `GRID_CELL_LAYER_SELECTOR( nullptr, {} )`, an

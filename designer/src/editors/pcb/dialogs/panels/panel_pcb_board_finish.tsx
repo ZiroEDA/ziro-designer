@@ -7,15 +7,25 @@
  * plated-board-edge flag, copper finish (from the predefined list in
  * stackup_predefined_prms.cpp), and edge-card-connector option. Feeds the
  * .gbrjob fabrication file.
+ *
+ * The page is a `wxCheckBox` and a `wxFlexGridSizer( 0, 2, 5, 0 )` of two
+ * label + `wxChoice` rows, and nothing else — no group box, no heading, no
+ * static line. So: `Check` and `Sel` out of `dialogs/prefs/widgets.tsx`, in a
+ * bare `.ze-pref-group-body` (the sizer, without a `Group`'s heading). The
+ * 12.5px grid and the two native `<select>`s that used to be here were both
+ * ours; a wxChoice is owner-drawn and a `<select>`'s popup cannot be themed at
+ * all (see `ui/Combo.tsx`).
  */
 
 import type { JSX } from 'react';
+import { Check, Sel } from '../../../../dialogs/prefs/widgets.js';
 import { COPPER_FINISHES, type BoardFinish } from '../../board_settings.js';
 
 // The data model lives in board_settings.ts (KiCad's data/UI split);
 // re-exported so panel users keep importing from the panel module.
 export { COPPER_FINISHES, defaultBoardFinish, type BoardFinish } from '../../board_settings.js';
 
+// [data] `m_choiceEdgeConnChoices` (panel_board_finish_base.cpp:41).
 const EDGE_CARD = ['None', 'Yes', 'Yes, bevelled'];
 
 interface Props {
@@ -23,54 +33,32 @@ interface Props {
   onChange: (next: BoardFinish) => void;
 }
 
-const grid: React.CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: 'max-content 200px',
-  alignItems: 'center',
-  gap: '10px 10px',
-  fontSize: 12.5,
-};
-
 export function PanelPcbBoardFinish({ value, onChange }: Props): JSX.Element {
   const set = <K extends keyof BoardFinish>(k: K, v: BoardFinish[K]): void =>
     onChange({ ...value, [k]: v });
 
   return (
-    <div style={{ padding: '4px 2px', maxWidth: 460 }}>
-      <label style={{ display: 'flex', alignItems: 'center', gap: 6, margin: '2px 0 14px' }}>
-        <input
-          type="checkbox"
-          checked={value.platedBoardEdge}
-          onChange={(e) => set('platedBoardEdge', e.target.checked)}
-        />
-        Plated board edge
-      </label>
-
-      <div style={grid}>
-        <span>Copper finish:</span>
-        <select
-          className="ze-select"
-          style={{ width: '100%' }}
+    <div className="ze-pref-page-natural">
+      <Check
+        label="Plated board edge"
+        checked={value.platedBoardEdge}
+        onChange={(b) => set('platedBoardEdge', b)}
+      />
+      {/* [data] `bMargins->Add( fgSizer2, 1, wxEXPAND|wxTOP, 10 )`. */}
+      <div className="ze-pref-group-body ze-pcb-finish-grid">
+        <Sel
+          label="Copper finish:"
           value={value.copperFinish}
-          onChange={(e) => set('copperFinish', e.target.value)}
-        >
-          {COPPER_FINISHES.map((f) => (
-            <option key={f}>{f}</option>
-          ))}
-        </select>
-
-        <span>Edge card connectors:</span>
-        <select
-          className="ze-select"
-          style={{ width: '100%' }}
-          value={value.edgeCardConnectors}
-          onChange={(e) => set('edgeCardConnectors', e.target.value)}
+          options={COPPER_FINISHES.map((f) => [f, f] as [string, string])}
+          onChange={(f) => set('copperFinish', f)}
+        />
+        <Sel
+          label="Edge card connectors:"
           title="Options for edge card connectors."
-        >
-          {EDGE_CARD.map((e) => (
-            <option key={e}>{e}</option>
-          ))}
-        </select>
+          value={value.edgeCardConnectors}
+          options={EDGE_CARD.map((e) => [e, e] as [string, string])}
+          onChange={(e) => set('edgeCardConnectors', e)}
+        />
       </div>
     </div>
   );

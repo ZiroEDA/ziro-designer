@@ -44,6 +44,19 @@ export function useFpEditSettings(): typeof settings.fpEdit {
   return settings.fpEdit;
 }
 
+/**
+ * `pcbnew.json`, so the board editor re-renders when it changes.
+ *
+ * `PCB_EDIT_FRAME` is handed `GetAppSettings<PCBNEW_SETTINGS>( "pcbnew" )`, and
+ * `CommonSettingsChanged` is what makes a Preferences OK reach the canvas
+ * (`pcbnew/pcb_edit_frame.cpp`); subscribing to the settings version is our
+ * version of that call.
+ */
+export function usePcbnewSettings(): typeof settings.pcbnew {
+  useSettingsVersion();
+  return settings.pcbnew;
+}
+
 /** `pl_editor.json`, so the Drawing Sheet Editor re-renders when it changes. */
 export function usePlEditorSettings(): typeof settings.plEditor {
   useSettingsVersion();
@@ -73,6 +86,18 @@ export function useUserColors(): typeof settings.userColors {
 export function useUserThemes(): typeof settings.userThemes {
   useSettingsVersion();
   return settings.userThemes;
+}
+
+/**
+ * `3d_viewer.json`, so the 3D viewer re-renders when Preferences moves.
+ *
+ * `EDA_3D_VIEWER_SETTINGS` is a file of its own, not a corner of `pcbnew.json`
+ * — `GetAppSettings<EDA_3D_VIEWER_SETTINGS>( "3d_viewer" )` — which is why the
+ * viewer has its own Preferences heading and its own toolbars file.
+ */
+export function useViewer3dSettings(): typeof settings.viewer3d {
+  useSettingsVersion();
+  return settings.viewer3d;
 }
 
 /** `gerbview.json`, so the Gerber Viewer re-renders when it changes. */

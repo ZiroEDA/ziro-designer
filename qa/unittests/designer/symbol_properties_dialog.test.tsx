@@ -58,7 +58,12 @@ const SHELL = readFileSync(join(__dirname, '../../../designer/src/ui/shell.css')
 );
 
 const decl = (selector: string, prop: string): string | undefined => {
-  const at = SHELL.indexOf(`\n${selector} {`);
+  // A selector may be one of several in a comma group — `.ze-grid
+  // th:first-child` shares its rule with the `.ze-grid-corner + th` that
+  // carries `WX_GRID::DrawColLabel`'s override into a grid with a row-label
+  // gutter — so look for the selector followed by either `{` or `,`.
+  let at = SHELL.indexOf(`\n${selector} {`);
+  if (at < 0) at = SHELL.indexOf(`\n${selector},\n`);
   if (at < 0) throw new Error(`no rule for ${selector}`);
   const open = SHELL.indexOf('{', at);
   const body = SHELL.slice(open + 1, SHELL.indexOf('}', open));
@@ -1285,6 +1290,10 @@ describe('the Pin Functions grid', () => {
     expect(decl('.ze-grid th:first-child', 'text-align')).toBe('left');
     // MIN_GRIDCELL_MARGIN = FromDIP( 2 ), replacing the centred rule's 6.
     expect(decl('.ze-grid th:first-child', 'padding-left')).toBe('2px');
+    // `col == 0` is the first COLUMN, which in a grid with a row-label gutter
+    // is the header AFTER the corner cell. Same rule, so a grid that marks its
+    // corner gets the override on the right header.
+    expect(decl('.ze-grid th.ze-grid-corner + th', 'text-align')).toBe('left');
   });
 });
 

@@ -74,6 +74,8 @@ import {
 } from '@ziroeda/designer/src/editors/schematic/prefs/resets.js';
 import {
   resetPcbDisplayOptions,
+  resetPcbEditingOptions,
+  resetPcbOriginsAxes,
   resetPcbToolbars,
 } from '@ziroeda/designer/src/editors/pcb/prefs/resets.js';
 import {
@@ -241,8 +243,64 @@ const SLICES: Partial<Record<PrefsPageId, readonly string[]>> = {
   ],
   // PanelEeschemaColorSettings.tsx — the theme choice and the per-layer overrides.
   'sch-colors': ['eeschema.appearance.color_theme', 'userColors'],
-  // PanelPcbDisplayOptions.tsx — only the Cross-probing group is ported.
-  'pcb-display': ['pcbnew.cross_probing'],
+  // PanelPcbDisplayOptions.tsx — `loadPCBSettings` (`pcb_display` and
+  // `cross_probing`) plus `m_galOptsPanel->ResetPanel( &cfg )`, which is
+  // `window.cursor` whole and the FOUR appearance keys of `window.grid`.
+  // The grid LIST is the Grids page's and survives this reset, which is why
+  // `window.grid` is named key by key.
+  'pcb-display': [
+    'pcbnew.cross_probing',
+    // `pcb_display` is one JSON block that THREE pages edit, so this names
+    // keys: the origin trio is Origins & Axes' and the ratsnest four are
+    // Editing Options'.
+    'pcbnew.pcb_display.net_names_mode',
+    'pcbnew.pcb_display.pad_numbers',
+    'pcbnew.pcb_display.track_clearance_mode',
+    'pcbnew.pcb_display.pad_clearance',
+    'pcbnew.pcb_display.pad_use_via_color_for_normal_th_padstacks',
+    'pcbnew.pcb_display.force_show_fields_when_fp_selected',
+    'pcbnew.pcb_display.live_3d_refresh',
+    'pcbnew.window.cursor',
+    'pcbnew.window.grid.style',
+    'pcbnew.window.grid.line_width',
+    'pcbnew.window.grid.min_spacing',
+    'pcbnew.window.grid.snap',
+  ],
+  // PanelPcbOriginsAxes.tsx — `loadSettings`' FRAME_PCB_EDITOR branch.
+  'pcb-origins': [
+    'pcbnew.pcb_display.origin_mode',
+    'pcbnew.pcb_display.origin_invert_x_axis',
+    'pcbnew.pcb_display.origin_invert_y_axis',
+  ],
+  // PanelPcbEditingOptions.tsx — the whole `editing` slice this page draws,
+  // plus the four `pcb_display.*` keys beside it. `editing.polar_coords` is a
+  // toolbar button and `loadPCBSettings` never touches it.
+  'pcb-editing': [
+    'pcbnew.editing.pcb_angle_snap_mode',
+    'pcbnew.editing.rotation_angle',
+    'pcbnew.editing.arc_edit_mode',
+    'pcbnew.editing.track_drag_action',
+    'pcbnew.editing.flip_left_right',
+    'pcbnew.editing.allow_free_pads',
+    'pcbnew.editing.auto_fill_zones',
+    'pcbnew.editing.magnetic_pads',
+    'pcbnew.editing.magnetic_tracks',
+    'pcbnew.editing.magnetic_graphics',
+    'pcbnew.editing.esc_clears_net_highlight',
+    'pcbnew.editing.show_courtyard_collisions',
+    'pcbnew.editing.ctrl_click_highlight',
+    'pcbnew.pcb_display.ratsnest_footprint',
+    'pcbnew.pcb_display.ratsnest_curved',
+    'pcbnew.pcb_display.ratsnest_thickness',
+    'pcbnew.pcb_display.show_page_borders',
+  ],
+  // `pcb-colors` is deliberately NOT here, for the reason `fp-colors` is not:
+  // `PANEL_COLOR_SETTINGS::ResetPanel` returns early on a read-only theme
+  // (`common/dialogs/panel_color_settings.cpp:74-75`), so over a bag whose
+  // `color_theme` has been dirtied to something that is not `user` the right
+  // answer is that NOTHING moves — which this whole-tree check reads as a
+  // missed slice. It is covered in `pcb_display_options.test.tsx`, where the
+  // theme can be held at `user`.
   // PanelToolbarCustomization, one per app. `ResetPanel` refills the shadow
   // toolbars from `DefaultToolbarConfig` and touches nothing else — notably NOT
   // `appearance.custom_toolbars`, which is an APP_SETTINGS_BASE value the page
@@ -380,6 +438,8 @@ const RESETS: Partial<Record<PrefsPageId, (ctx: PrefsContext) => void>> = {
   'sch-editing': resetEeschemaEditingOptions,
   'sch-colors': resetEeschemaColorSettings,
   'pcb-display': resetPcbDisplayOptions,
+  'pcb-origins': resetPcbOriginsAxes,
+  'pcb-editing': resetPcbEditingOptions,
   'sch-toolbars': resetEeschemaToolbars,
   'pcb-toolbars': resetPcbToolbars,
   'ds-display': resetPlEditorDisplayOptions,

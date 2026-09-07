@@ -177,12 +177,22 @@
      is that same 10.2%. So it darkens whatever it is drawn on, and a flat grey
      could only ever be right on one surface. */
   --gtk-separator: rgb(0 0 0 / 10%);
-  /* wxSYS_COLOUR_HOTLIGHT, and the only place a link colour comes from:
+  /* wxSYS_COLOUR_HOTLIGHT — a link, wherever KiCad draws one.
+
      `HTML_WINDOW::SetPage` (common/widgets/html_window.cpp:56-66) wraps every
      page it is handed in `<body text=WINDOWTEXT bgcolor=WINDOW link=HOTLIGHT>`,
      so the details pane's text, face and links are three system colours rather
-     than a stylesheet. [px] qa/probes/chooser_shell_probe.cpp. */
-  --html-link: #f08762;
+     than a stylesheet. [px] qa/probes/chooser_shell_probe.cpp.
+
+     A `wxHyperlinkCtrl` is the same colour and not a second one: wxGTK backs it
+     with a real GtkLinkButton, and asking that widget for its link-state
+     foreground under this theme gives rgb(240,135,98) — the same value, which
+     is why this is one token and not two. It is Yaru's warm accent, NOT blue;
+     the `#4a9eff` a couple of panels invented is a colour no GTK theme on this
+     desktop produces. */
+  --link-fg: #f08762;
+  /* The same widget's `Gtk.StateFlags.VISITED` foreground, rgb(236,109,64). */
+  --link-visited-fg: #ec6d40;
   /* EDA_MSG_PANEL's background, wxSYS_COLOUR_BTNFACE, measured by
      qa/probes/aui_sash_probe.cpp. See .ze-msgpanel. */
   --msgpanel-bg: #373737;
@@ -201,6 +211,19 @@
      Akshay saw as "the boxes are more whiter" in KiCad. */
   --grid-label-bg: #373737;
   --grid-cell-bg: #272727;
+  /* The OTHER selection fill. `wxGridCellRenderer::Draw` chooses between two:
+     `GetSelectionBackground()` when `grid.HasFocus()`, and
+     `wxSYS_COLOUR_BTNSHADOW` when it does not — and a grid does not have focus
+     for the whole time one of its cells is being EDITED, because the editor
+     control holds it and `wxWindow::HasFocus()` on the grid is then false.
+     [px] `qa/probes/grid_edit_fill_probe.cpp` runs that renderer into a bitmap
+     and reads the pixel back: #e95420 focused, #181818 with the editor open,
+     #272727 unselected. A live footprint editor agrees — the row being edited
+     on Preferences > Footprint Editor > User Layer Names measures rgb(24,24,24)
+     in its untouched column.
+     Not `--ctl-border`, which happens to hold the same #181818: that one is
+     Yaru's $borders_color, and the two are only equal by coincidence. */
+  --grid-selection-idle-bg: #181818;
   /* wxGrid's OWN line colour, which is not the control border. `wxGrid`
      defaults `SetGridLineColour` to the same BTNFACE the labels take, so the
      lines read as part of the header band rather than as dark rules -- the
@@ -4550,7 +4573,8 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   position: absolute;
   top: 12px;
   right: 12px;
-  width: 560px;
+  /* DIALOG_FIND states no size: bMainSizer->Fit( this ). */
+  width: max-content;
   background: var(--chrome-bg);
   border: 1px solid var(--chrome-border);
   box-shadow: var(--popup-shadow);
@@ -4559,8 +4583,28 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 /* The DRC dialog reuses the modeless find-dialog chrome (DIALOG_DRC is
    modeless too, the canvas stays interactive for click-to-locate). */
 .ze-drc-dialog {
-  width: 520px;
   top: 48px;
+}
+/* The two stated numbers in `dialog_drc_base.cpp`, and the whole reason the DRC
+   window is wider and taller than the Find window it shares chrome with:
+
+     m_Notebook->SetMinSize( wxSize( 640,-1 ) );        (:104)
+     bSizerViolationsBox->SetMinSize( wxSize( -1,320 ) ); (:109)
+
+   Ours stated `width: 520px` on the dialog instead — 120 px short, and on the
+   wrong object. */
+.ze-drc-dialog .ze-drc-body {
+  min-width: 640px;
+  display: block;
+  padding: 10px 12px;
+}
+.ze-drc-dialog .ze-drc-violations {
+  min-height: 320px;
+  /* Ours also caps it, because the window is modeless and floats over the
+     canvas rather than being resized by the user. */
+  max-height: 340px;
+  overflow: auto;
+  padding: 0;
 }
 .ze-find-body {
   padding: 10px;
@@ -4654,7 +4698,12 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 /* Schematic Find / Find and Replace (DIALOG_SCH_FIND) reuses the PCB find
    shell but has its own two-column input grid and 3-column option grid-bag. */
 .ze-schfind-dialog {
-  width: 520px;
+  /* `m_comboFind->SetMinSize( wxSize( 220,-1 ) )`
+     (eeschema/dialogs/dialog_sch_find_base.cpp:37) — the one stated number in
+     the file, and the only reason this shell is wider than pcbnew's. */
+}
+.ze-schfind-dialog .ze-schfind-inputs .ze-search {
+  min-width: 220px;
 }
 /* leftGridSizer( 3, 2 ), label | combo, second column growable. */
 .ze-schfind-inputs {
@@ -4953,7 +5002,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
    proportions bColumns gives them (0 and 1). The mode-gated checkboxes are
    indented under their radio button by the 20 px their sizer uses. */
 .ze-pns-dialog {
-  width: 620px;
   height: auto;
   max-height: 92vh;
 }
@@ -4978,7 +5026,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 
 /* DisplayErrorMessage's box: a short message with optional developer detail. */
 .ze-message-dialog {
-  width: 520px;
   height: auto;
   max-height: 80vh;
 }
@@ -5257,6 +5304,16 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
      off and stated as a literal in the one rule every dialog in the app
      inherits from. */
   color: var(--chrome-fg);
+  /* `bMainSizer->Fit( this )`, which every KiCad dialog constructor ends with.
+     No dialog in pcbnew states a width: each `*_base.cpp` either says
+     `SetSizeHints( wxSize( -1,-1 ), … )` or says nothing, and the width you see
+     is the sizer's over the controls. Twelve rules here used to state a
+     `width: NNNpx` of their own — Find, DRC, Sch Find, Router Settings, the
+     message box, Teardrops, Track & Via, Zone, Footprint, Pad, Graphic and
+     Text Box — and they are why our pcbnew dialogs came out narrower than
+     upstream's. Where KiCad states a number it states it on a CONTROL
+     (`SetMinSize`), and those are ported at the control, each against its
+     `_base.cpp` line. */
   width: max-content;
   height: max-content;
   max-width: 92vw;
@@ -6355,7 +6412,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   vertical-align: top;
 }
 .ze-libtree-details a {
-  color: var(--html-link);
+  color: var(--link-fg);
 }
 
 /* SYMBOL_PREVIEW_WIDGET */
@@ -6486,6 +6543,11 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   gap: 8px;
   justify-content: flex-end;
 }
+/* `wxStdDialogButtonSizer`'s stretch spacer: what a dialog puts at the LEFT of
+   the row (a Help button, a Reset) is pushed away from the affirmative pair. */
+.ze-sdb-spacer {
+  flex: 1 1 auto;
+}
 /* Footer buttons keep their intrinsic size, never shrink to min-content
    (which wraps "Page Setup..." / "Print Preview" onto two lines). */
 .ze-modal-footer .ze-btn {
@@ -6547,11 +6609,26 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   padding: 6px 4px;
   outline: none;
 }
+/* One `PAGED_DIALOG` page. Upstream a page is a plain panel: what scrolls is
+   the page's own choice, and every page that scrolls puts ONE child in a
+   `wxScrolledWindow` — `m_scGridWin` on the Physical Stackup page,
+   `m_LayersListPanel` on Board Editor Layers. Everything beside that child
+   (the stackup page's copper-layer row and its board-thickness row, which are
+   `bTopSizer` and `bBottomSizer`, siblings of the scrolled window in
+   `bMainSizer`) never scrolls; `Fit()` makes the DIALOG wide enough for them
+   instead.
+
+   `min-width: 0` said the opposite — it let this box shrink below its content,
+   so a page wider than the dialog scrolled as a whole and took the two bars
+   with it. `min-content` is the wx rule: the page may not be squeezed below
+   what its unscrolled chrome needs, the shortfall reaches the dialog, and
+   `fitFloor` grows it. A child that scrolls on purpose contributes 0 to
+   min-content, so the wide stackup grid still scrolls by itself. */
 .ze-paged-panel {
   flex: 1;
   overflow: auto;
   padding: 10px 14px;
-  min-width: 0;
+  min-width: min-content;
 }
 .ze-paged-footer {
   justify-content: flex-start;
@@ -6620,8 +6697,16 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
    on the shared rule because upstream puts it in the shared class; stating it
    per dialog is how the same override ends up written five times and missed on
    the sixth. `MIN_GRIDCELL_MARGIN` is `FromDIP( 2 )` (wx_grid.cpp:76), and it
-   replaces the 6px the centred rule pads with rather than adding to it. */
-.ze-grid th:first-child {
+   replaces the 6px the centred rule pads with rather than adding to it.
+
+   `col == 0` is the first COLUMN, and in a grid that also has a row-label
+   gutter that is not the first `<th>`: the corner cell comes first and column 0
+   is the header after it. `.ze-grid-corner` on that empty cell is how a grid
+   says so, and it is why the second selector is stated HERE rather than as a
+   `text-align: left` in each panel that notices. Left-aligning the corner as
+   well costs nothing, because it holds no text. */
+.ze-grid th:first-child,
+.ze-grid th.ze-grid-corner + th {
   text-align: left;
   /* [data] MIN_GRIDCELL_MARGIN = FromDIP( 2 ). */
   padding-left: 2px;
@@ -6629,6 +6714,26 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-grid td {
   background: var(--grid-cell-bg);
   border: 1px solid var(--grid-line);
+  padding: 0;
+}
+/* A wxGrid's WINDOW is wider than its columns, and it paints all of it: the
+   column-label band runs the full width in BTNFACE and the field below it in
+   the cell colour, with the gridlines stopping where the last column does.
+   [px] on a live footprint editor's Graphics Defaults the label band measures
+   rgb(55,55,55) out to the panel edge, the strip right of Italic measures
+   rgb(39,39,39) — a cell's colour, with no rules in it — and there is no outer
+   border anywhere: x=651 is the dialog and x=652 is already the grid.
+
+   This empty trailing cell is that strip. It also does the sizing: `width:
+   100%` in an auto-layout table claims the slack, which leaves every real
+   column at max(stated, content) — the `SetColSize` floor and the
+   `GetVisibleWidth` autosize — instead of the browser sharing the stretch out
+   among them. Without it the ONE column with no stated width absorbs the whole
+   dialog, which is what put a grid's row labels an inch from their values. */
+.ze-grid th.ze-grid-filler,
+.ze-grid td.ze-grid-filler {
+  width: 100%;
+  border: none;
   padding: 0;
 }
 /* The row-label gutter is a LABEL, so it takes the label colour rather than the
@@ -6734,9 +6839,31 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   background: var(--selection-bg);
   color: var(--selection-fg);
 }
+/* …but only while the GRID has the focus. The selection itself does not clear
+   when a cell editor opens — `qa/probes/grid_edit_selection_probe.cpp` shows
+   the row still in the selection throughout — so this is a paint rule, not a
+   selection one, and the text stays `GetSelectionForeground()` either way.
+   Only the fill moves, to `--grid-selection-idle-bg`.
+
+   Our cells ARE their editors, so `:focus-within` on the table is exactly "a
+   cell editor holds the focus". The state it cannot see is focus leaving for
+   another control with the row still selected: wx paints the idle fill there
+   too, and a table that takes no focus of its own cannot tell that apart from
+   nothing being focused at all. Closing that needs the grids to be focusable,
+   which is a change at 34 call sites and not this one. */
+.ze-grid:focus-within tr.selected td {
+  background: var(--grid-selection-idle-bg);
+}
 .ze-grid tr.selected td.ze-grid-rowlabel {
   background: var(--grid-label-bg);
   color: var(--chrome-fg);
+}
+/* The strip past the last column belongs to no cell, so a selected row does not
+   reach it: [px] the row being edited on User Layer Names measures rgb(24,24,24)
+   inside its columns and rgb(39,39,39) beyond them. */
+.ze-grid tr.selected td.ze-grid-filler,
+.ze-grid:focus-within tr.selected td.ze-grid-filler {
+  background: var(--grid-cell-bg);
 }
 /* `GRID_CELL_TEXT_BUTTON`: the editor is a text field with a button beside it,
    both inside the cell, and the field takes the space the button leaves
@@ -6807,11 +6934,27 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 }
 /* A WX_GRID pane: a bordered, filled scroll area so an empty grid reads as a
    spreadsheet (header + empty rows) instead of a header floating over a gap. */
+/* The scrolled pane a WX_GRID lives in.
+   NOTE: this must NOT carry `contain: inline-size`. It looks like the right
+   place for it — a wxGrid scrolls and should not push its dialog wider — but
+   the panes divide into two kinds, and containment is only correct for one:
+   a pane the layout STRETCHES takes its width from outside and may be
+   contained, while a pane that is content-sized (`align-self: flex-start`, as
+   Zone Hatch Offsets' grid is, because upstream adds it with proportion 0)
+   takes its width from its content and collapses to nothing when contained.
+   Containment therefore belongs on the stretched panes individually —
+   `.ze-tg-grid-pane` below. */
 .ze-grid-pane {
   border: 1px solid var(--chrome-border);
   border-radius: 3px;
   background: var(--chrome-bg2);
   overflow: auto;
+}
+/* Text & Graphics > Defaults' grid pane: stretched to the page width, scrolls,
+   and states its own column widths, so its contents must not reach the dialog.
+   See `panel_setup_text_and_graphics_base.cpp:46-51`. */
+.ze-tg-grid-pane {
+  contain: inline-size;
 }
 .ze-grid-pane .ze-grid {
   border: none;
@@ -9150,6 +9293,47 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-pref-group {
   margin-bottom: 14px;
 }
+
+/* `PANEL_DISPLAY_OPTIONS` is TWO COLUMNS: `bupperSizer = new wxBoxSizer(
+   wxHORIZONTAL )` holds `bSizer11` at proportion 1, a bare `Add( 15, 0 )`
+   spacer, and `m_optionsBook` at proportion 0
+   (`pcbnew/dialogs/panel_display_options_base.cpp:17-18, 79-85, 214`).
+
+   So the left column takes the slack and the RIGHT one is its own natural
+   width — which is why KiCad's Cross-probing checkboxes sit at a fixed x
+   whatever the dialog is doing, and why nothing here may shrink below its
+   content. `flex: 0 0 auto` on the second column is that proportion-0 Add;
+   `min-width: 0` anywhere in here would be the opposite of what the sizer
+   guarantees. */
+.ze-display-opts {
+  display: flex;
+  align-items: flex-start;
+}
+.ze-display-opts > .ze-display-opts-col:first-child {
+  flex: 1 1 auto;
+}
+.ze-display-opts > .ze-display-opts-col + .ze-display-opts-col {
+  flex: 0 0 auto;
+  /* [data] the `Add( 15, 0 )` spacer plus the book's own `wxLEFT, 5`. */
+  margin-left: 20px;
+  /* [data] the book's `wxRIGHT, 5`. */
+  margin-right: 5px;
+}
+/* The two sizers inside the left column keep their OWN borders, which is why
+   their rules are not the same length. [px] measured off the live PCB editor:
+   the Grid Display and Cursor rules run x = 651..1054, the Pads and Clearance
+   Outlines rules 656..1064, and the right column starts at 1090 — 5 + 15 + 5
+   from the 1064.
+
+   `m_galOptionsSizer` is added `wxEXPAND|wxRIGHT, 10` and the panel inside it
+   `wxEXPAND|wxRIGHT, 5` (`panel_display_options.cpp:43`), so 15; `bSizerPads`
+   is added `wxEXPAND|wxTOP|wxRIGHT|wxLEFT, 5`, so 5 on each side. */
+.ze-display-opts-gal {
+  margin-right: 15px; /* [data] 10 + 5 */
+}
+.ze-display-opts-pads {
+  margin: 0 5px; /* [data] the sizer's own wxRIGHT|wxLEFT 5. */
+}
 /* A group heading on a preferences page is a `wxStaticText` with a
    `wxStaticLine` under it, not a wxStaticBox:
 
@@ -9804,6 +9988,11 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 }
 .ze-colorpreview > canvas {
   display: block;
+  /* The canvas is sized in DEVICE pixels by its own painter; without a CSS
+     size it reports the 300x150 default and the preview is a small box in the
+     corner of the pane. Both previews fill their `wxEXPAND` cell. */
+  width: 100%;
+  height: 100%;
 }
 .ze-pref-colorgrid {
   display: grid;
@@ -10539,7 +10728,6 @@ textarea.ze-ds-textedit {
    Items side by side, Action below, with the specified-values block indented
    under its radio. */
 .ze-teardrops-dialog {
-  width: 640px;
   height: auto;
   max-height: 92vh;
 }
@@ -10612,7 +10800,6 @@ textarea.ze-ds-textedit {
 /* Track & Via Properties (dialog_track_via_properties_base.cpp): Common,
    Tracks, Vias and the via teardrop box stacked, each a label/value/unit row. */
 .ze-tvp-dialog {
-  width: 560px;
   height: auto;
   max-height: 92vh;
 }
@@ -10648,6 +10835,173 @@ textarea.ze-ds-textedit {
   color: #8a8c90;
   font-size: 11px;
   margin-left: 120px;
+}
+
+/* Table Properties, shared by both editors (`ui/DialogTableProperties.tsx`).
+
+   The inline `style={{ … }}` objects this dialog used to carry are here now:
+   a rule in the stylesheet is a rule the central-values scan can see, and
+   twenty inline widths are twenty literals nothing was checking. */
+.ze-tableprops-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  /* The body itself never scrolls; the cell grid does. */
+  overflow: hidden;
+}
+/* The board's own Layer + Locked row; a schematic table has neither. */
+.ze-tableprops-header {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+/* One label-and-control pair. `flex: 0 0 auto` keeps a control at its natural
+   size — a wx sizer never shrinks one below that. */
+.ze-tableprops-field {
+  flex: 0 0 auto;
+}
+.ze-tableprops-lbl {
+  width: 44px;
+}
+.ze-tableprops-boxlbl {
+  width: auto;
+}
+.ze-tableprops-width {
+  width: 76px;
+}
+.ze-tableprops-unit {
+  width: auto;
+}
+.ze-tableprops-style {
+  width: 170px;
+}
+/* `minWidth: 0` on both the fieldset and the scroller: without it a flex child
+   is sized by its content, the scroll box grows to the full width of the grid,
+   and the overflow escapes to the dialog instead of scrolling inside. */
+.ze-tableprops-cells {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+}
+.ze-tableprops-scroll {
+  overflow: auto;
+  min-height: 0;
+  min-width: 0;
+  width: 100%;
+}
+/* `width: max-content` is what makes the scroller work: a table told to be 100%
+   wide never overflows, it just divides the dialog between however many columns
+   there are, and forty columns leaves each one too narrow to type into. */
+.ze-tableprops-grid {
+  width: max-content;
+}
+.ze-tableprops-grid input {
+  box-sizing: border-box;
+}
+/* Border and Separators side by side: upstream lays both groups out in one
+   grid-bag sizer, four rows tall, not two stacked panels. */
+.ze-tableprops-groups {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.ze-tableprops-group {
+  flex: 1 1 0;
+  min-width: 0;
+}
+.ze-tableprops-boxes {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+.ze-tableprops-line {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+/* Text Box Properties (pcbnew/dialogs/dialog_textbox_properties_base.cpp).
+
+   `bMainSizer` is vertical with NO group boxes: the multi-line control, the
+   syntax link, Locked, then one wxGridBagSizer of two label/control column
+   pairs. This dialog had four invented fieldsets and a four-line text area. */
+.ze-textboxprops-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+/* `m_MultiLineText` fills `m_MultiLineSizer`, which is the sizer that grows —
+   it is the whole top half of the dialog, not a corner of a groupbox. */
+.ze-tbp-text {
+  width: 100%;
+  min-height: 150px;
+  resize: vertical;
+  box-sizing: border-box;
+}
+/* `m_syntaxHelp` is a wxHyperlinkCtrl, so it wears the shared `.ze-hyperlink`;
+   only its `wxBOTTOM|wxRIGHT|wxLEFT, 3` border is this dialog's. */
+.ze-tbp-syntax {
+  padding: 3px;
+  align-self: flex-start;
+}
+.ze-tbp-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+/* The wxGridBagSizer: two label/control pairs across. Each label column is as
+   wide as its own widest label, which is what a gridbag column is — never a
+   stated width. */
+.ze-tbp-grid {
+  display: grid;
+  grid-template-columns: max-content max-content max-content 1fr;
+  align-items: center;
+  gap: 6px 10px;
+}
+.ze-tbp-lbl {
+  white-space: nowrap;
+}
+/* The two stated minimums in `dialog_textbox_properties_base.cpp` — KiCad's own
+   numbers, not ours:
+
+     m_LayerSelectionCtrl->SetMinSize( wxSize( 175,-1 ) );   (:79)
+     m_borderStyleCombo->SetMinSize( wxSize( 240,-1 ) );     (:233)
+
+   They are why the upstream dialog is as wide as it is. `SetSizeHints` at :18
+   states no dialog size at all; the width comes from these two controls
+   propagating up through the gridbag to `bMainSizer->Fit( this )`, which is
+   `.ze-modal`'s `width: max-content`. Ours had no minimum on either combo, so
+   both shrank to their content and the whole dialog with them. Data, not
+   chrome: a wxFormBuilder minimum is a checked-in constant. */
+.ze-tbp-layer {
+  min-width: 175px;
+}
+.ze-tbp-borderstyle {
+  min-width: 240px;
+}
+.ze-tbp-ctl {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.ze-tbp-num {
+  width: 84px;
+  text-align: right;
+}
+/* `Font:` row — the FONT_CHOICE slot plus the formatting bar, spanning the
+   remaining three columns of the gridbag. */
+.ze-tbp-fontrow {
+  grid-column: 2 / -1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+/* `m_borderCheckbox` sits in the right-hand column beside Text width. */
+.ze-tbp-border {
+  grid-column: 3 / -1;
 }
 
 /* Barcode Properties (dialog_barcode_properties_base.cpp).
@@ -10711,11 +11065,14 @@ textarea.ze-ds-textedit {
 
 /* Copper Zone Properties (panel_zone_properties_base.cpp). */
 .ze-zone-dialog {
-  width: 560px;
   height: auto;
   max-height: 92vh;
 }
+/* `m_layers->SetMinSize( wxSize( 180,-1 ) )`
+   (pcbnew/dialogs/dialog_copper_zones_base.cpp:32) — the only stated width in
+   that file, and what actually sets the dialog's. */
 .ze-zone-layers {
+  min-width: 180px;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 2px 8px;
@@ -10725,7 +11082,6 @@ textarea.ze-ds-textedit {
 /* Footprint Properties (dialog_footprint_properties_base.cpp): a notebook with
    General and Clearance Overrides pages. */
 .ze-fpprops-dialog {
-  width: 580px;
   height: auto;
   max-height: 92vh;
 }
@@ -10735,7 +11091,6 @@ textarea.ze-ds-textedit {
 
 /* Pad Properties (dialog_pad_properties_base.cpp). */
 .ze-padprops-dialog {
-  width: 580px;
   height: auto;
   max-height: 92vh;
 }
@@ -10743,7 +11098,6 @@ textarea.ze-ds-textedit {
 /* Text / Shape properties (dialog_text_properties_base.cpp,
    dialog_shape_properties_base.cpp). */
 .ze-graphic-dialog {
-  width: 520px;
   height: auto;
   max-height: 92vh;
 }
@@ -11331,6 +11685,74 @@ textarea.ze-ds-textedit {
 .ze-combo[data-empty] {
   background: var(--ctl-face-disabled);
   color: var(--ctl-fg-disabled);
+}
+
+/* A combo in a grid CELL is a RENDERER, not a control.
+ *
+ * `wxGrid` draws a cell with its `wxGridCellRenderer` and only swaps in the
+ * editor while the cell is being edited — and even the editor is built
+ * `wxCB_READONLY | … | wxBORDER_NONE` (`pcbnew/grid_layer_box_helpers.cpp:
+ * 126-128`), so there is no state in which KiCad frames one. What the user
+ * sees is `GRID_CELL_LAYER_RENDERER::Draw` (`:54-101`):
+ *
+ *     wxRect rect = aRect;  rect.Inflate( -1 );
+ *     wxGridCellRenderer::Draw( … );                        // erase: the cell
+ *                                                           // fill, or HIGHLIGHT
+ *     int size = 14;                                        // the swatch
+ *     aDC.DrawBitmap( m_bitmap, rect.GetLeft() + 4, … );
+ *     rect.SetLeft( rect.GetLeft() + m_bitmap.GetWidth() + 8 );
+ *     SetTextColoursAndFont( aGrid, aAttr, aDC, isSelected );
+ *     aGrid.DrawTextRectangle( aDC, layerName, rect, wxALIGN_LEFT, wxALIGN_CENTRE );
+ *
+ * — a swatch and a label on the cell's own background. No border, no fill of
+ * its own, and NO ARROW: a `wxChoice`'s chevron belongs to the editor, which
+ * is not on screen. Ours drew the full control in the cell, which is what put
+ * a dark rounded button with a chevron in the middle of a selected row's
+ * orange fill on Preferences > Footprint Editor > Footprint Defaults.
+ *
+ * Stated here rather than on those two pages because every choice cell in
+ * every KiCad grid is this: `wxGrid` is the base, the renderer/editor split is
+ * the base's, and a page that restated it would be the per-editor copy
+ * CLAUDE.md names. `:disabled` and `[data-empty]` are re-stated because the
+ * two rules above fill a box for them, and a read-only cell greys its INK —
+ * `SetTextColoursAndFont` reads the attr's colours; it does not paint a
+ * disabled control.
+ *
+ * Direct children throughout: the popup is rendered inside the same `<td>`
+ * (it is `position: fixed`, not a portal), and its rows carry
+ * `.ze-combo-swatch` too. */
+.ze-grid td > .ze-combo,
+.ze-grid td > .ze-combo:disabled,
+.ze-grid td > .ze-combo[data-empty] {
+  width: 100%;
+  /* The cell's width is the column's; `min-width: 121px` is `GetBestSize()` for
+     a standalone wxBitmapComboBox and has no business in a 150 px column. */
+  min-width: 0;
+  height: auto;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  /* `SetTextColoursAndFont( …, isSelected )` — HIGHLIGHTTEXT on a selected row,
+     which `.ze-grid tr.selected td` already carries. */
+  color: inherit;
+  /* [data] `rect.Inflate( -1 )` then `rect.GetLeft() + 4`. The vertical is
+     ours and matches `.ze-grid td input[type="text"]`, so a row is the same
+     height whether its cells hold text or a choice — wx sizes the ROW, not the
+     renderer, and the two must agree. */
+  padding: 3px 5px;
+  /* The 8 below is stated on the swatch, so no gap here. */
+  gap: 0;
+}
+.ze-grid td > .ze-combo:disabled {
+  color: var(--ctl-fg-disabled);
+}
+/* [data] `rect.SetLeft( rect.GetLeft() + m_bitmap.GetWidth() + 8 )`. */
+.ze-grid td > .ze-combo > .ze-combo-swatch {
+  margin-right: 8px;
+}
+/* The chevron is the EDITOR's, and the editor is not what is drawn. */
+.ze-grid td > .ze-combo > .ze-combo-arrow {
+  display: none;
 }
 
 .ze-combo-value {
@@ -12243,7 +12665,7 @@ textarea.ze-ds-textedit {
    by the same class rather than copied. */
 .ze-cp-hex {
   /* [data] `m_colorValue->SetMinSize( wxSize( 176, -1 ) )`. */
-  min-width: 176px;
+  min-width: 175px;
   font-size: var(--ui-font-size);
 }
 .ze-cp-gap {
@@ -13252,13 +13674,15 @@ td.ze-fieldnames-bool {
 }
 
 /* A plain wxStaticText title with no rule under it — `defaultFieldPropertiesLabel`
-   (`panel_fp_editor_field_defaults_base.cpp:20-22`), `m_layerNamesLabel`
-   (`panel_fp_user_layer_names_base.cpp:41-43`) and `defaultPropertiesLabel`
-   (`panel_fp_editor_graphics_defaults_base.cpp:15-17`) are the same shape:
+   (`panel_fp_editor_field_defaults_base.cpp:23-25`) and `m_layerNamesLabel`
+   (`panel_fp_user_layer_names_base.cpp:45-47`) are the same shape:
    `wxTOP|wxRIGHT|wxLEFT, 8` followed by an `Add( 0, 4 )` spacer.
 
    Not `.ze-pref-group-title`: that one draws the `wxStaticLine` every
-   Preferences GROUP has, and these three headings have none. */
+   Preferences GROUP has, and these two headings have none. Graphics Defaults'
+   `defaultPropertiesLabel` is NOT one of them — `m_staticline1` follows it
+   (`panel_fp_editor_graphics_defaults_base.cpp:31`), so that page's heading
+   takes `.ze-pref-group-title` and states its own borders below. */
 .ze-fp-defaults-title {
   /* [data] the `wxTOP|wxLEFT, 8` of each heading's own Add(). */
   padding: 8px 0 0 8px;
@@ -13333,10 +13757,34 @@ td.ze-fieldnames-bool {
   /* [data] the grid's own `Add( …, 1, wxEXPAND, 5 )`, whose 5 is the border
      wxFormBuilder writes and the flags do not apply — so no margin. */
 }
-/* `SetColSize( 0, 200 )` / `SetColSize( 1, 220 )`
-   (`panel_fp_user_layer_names_base.cpp:60-61`). */
+/* `SetColSize( 0, 200 )` / `SetColSize( 1, 220 )` and `SetRowLabelSize( 0 )`
+   (`panel_fp_user_layer_names_base.cpp:65-77`) — both stated and never
+   autosized, so the columns stop at 420 and `.ze-grid-filler` takes the rest of
+   the grid's width. Name had been taking the slack instead, which is what made
+   the selected row's fill run the width of the dialog.
+
+   `table-layout: fixed` for the reason `.ze-fp-fieldprops` above states, and
+   one more: in AUTO layout a `width: 100%` filler and a stated `width: 200px`
+   are both suggestions, and the 100% wins — the two columns collapsed onto
+   their content and "Layer" / "Name" shrank to a few characters each. Fixed
+   layout is the algorithm that reads a stated width as a stated width, which
+   is what a wxGrid column is; the filler then has to be `auto`, because a
+   fixed-layout cell asking for 100% would take the whole table and push the
+   two real columns off the end. Two algorithms, two right answers for that
+   cell — which is why this override is scoped and not a change to the shared
+   rule. */
+.ze-fp-layernames {
+  table-layout: fixed;
+}
 .ze-fp-layernames th:first-child {
   width: 200px; /* [px] */
+}
+.ze-fp-layernames th:nth-child(2) {
+  width: 220px; /* [px] */
+}
+.ze-fp-layernames th.ze-grid-filler,
+.ze-fp-layernames td.ze-grid-filler {
+  width: auto;
 }
 
 /* `bSizerUserLayerCount`, a bare `wxBoxSizer( wxHORIZONTAL )` added
@@ -13357,17 +13805,59 @@ td.ze-fieldnames-bool {
   gap: 5px; /* [data] the label's `wxRIGHT, 5`. */
 }
 
-/* `SetColSize( 0, 110 )` then 100/100/100/60
-   (`panel_fp_editor_graphics_defaults_base.cpp:35-39`), with the row-label
-   column autosized to its widest label. */
-.ze-fp-gfxgrid th:nth-child(2),
+/* `defaultPropertiesLabel` is added `wxEXPAND|wxRIGHT|wxLEFT, 8` inside a sizer
+   that is itself added `wxEXPAND|wxTOP, 5`; `m_staticline1` follows it
+   `wxBOTTOM|wxEXPAND|wxTOP, 2`, and then an `Add( 0, 7 )` spacer separates the
+   rule from the grid (`panel_fp_editor_graphics_defaults_base.cpp:25-36`).
+
+   Different numbers from `Group`'s 13/2/5, which is the only reason they are
+   restated: these are per-`Add()` sizer borders, which is data, not chrome. */
+.ze-fp-gfx-title {
+  /* [data] the outer sizer's wxTOP 5, the label's own wxLEFT/wxRIGHT 8, and
+     the rule's wxTOP 2. */
+  padding: 5px 8px 2px;
+  /* [data] the rule's wxBOTTOM 2 plus the `Add( 0, 7 )` under it. */
+  margin-bottom: 9px;
+}
+
+/* `SetRowLabelSize( 125 )` and `SetColSize( 0, 110 )` then 100/100/100/60
+   (`panel_fp_editor_graphics_defaults_base.cpp:45-49, 68`) — and then
+   `loadFPSettings` (`panel_fp_editor_graphics_defaults.cpp:139-148`) runs
+
+       SetColMinimalWidth( col, GetVisibleWidth( col, true, false ) );
+       SetColSize( col, GetVisibleWidth( col, true, true, true ) );
+       …
+       SetRowLabelSize( GetVisibleWidth( -1, true, true, true ) );
+
+   over every one of them. `aKeep = true` starts that measurement AT the stated
+   width, so a `_base.cpp` size is a FLOOR and the widest of (header + "M") and
+   (cell text + "M") is the width — which is `min-width` plus auto table
+   layout, never `width`.
+
+   [px] measured off the live footprint editor beside ours: the gridlines fall
+   at x = 776, 887, 987, 1087, 1193, 1253, i.e. a 125 px row-label gutter and
+   then 110 / 100 / 100 / **105** / 59. Only Text Thickness moved, and it moved
+   because its header needs 105 — which is the autosize doing exactly what
+   `min-width` plus content sizing does, and the reason none of these is a
+   stated `width`.
+
+   The slack goes to `.ze-grid-filler`, not to the columns. `.ze-grid`'s
+   `width: 100%` with no filler handed it all to the one auto column — the
+   row-label gutter — and left "Silk Layers" some 350 px from the 0.1 it
+   labels, which is the divergence these rules exist to stop. */
+.ze-fp-gfxgrid th:first-child {
+  min-width: 125px; /* [px] SetRowLabelSize( 125 ) */
+}
+.ze-fp-gfxgrid th:nth-child(2) {
+  min-width: 110px; /* [px] SetColSize( 0, 110 ) */
+}
 .ze-fp-gfxgrid th:nth-child(3),
 .ze-fp-gfxgrid th:nth-child(4),
 .ze-fp-gfxgrid th:nth-child(5) {
-  width: 100px; /* [px] */
+  min-width: 100px; /* [px] SetColSize( 1..3, 100 ) */
 }
 .ze-fp-gfxgrid th:last-child {
-  width: 60px; /* [px] SetColSize( 4, 60 ) */
+  min-width: 60px; /* [px] SetColSize( 4, 60 ) */
 }
 
 /* `SetCellAlignment( row, col, wxALIGN_CENTER, wxALIGN_CENTER )` on a
@@ -13383,13 +13873,18 @@ td.ze-grid-bool {
    `SetCellBackgroundColour( wxSystemSettings::GetColour( wxSYS_COLOUR_FRAMEBK ) )`
    (`panel_fp_editor_graphics_defaults.cpp:98-104`).
 
-   FRAMEBK is the dialog's own face colour, which is `--chrome-bg` here — so the
-   four dead cells of Edge Cuts and Courtyards read as one blank block outside
-   the table rather than as empty editable cells. The border goes with it,
-   because a cell painted in the surround colour keeping its gridlines would
-   still read as a cell. */
+   The border goes with it, because a cell keeping its gridlines would still
+   read as a cell: the four dead cells of Edge Cuts and Courtyards are one
+   unbroken block on a live footprint editor. */
 .ze-grid-disabled {
-  background: var(--chrome-bg);
+  /* `wxSYS_COLOUR_FRAMEBK` **is** `wxSYS_COLOUR_BTNFACE` — they are the same
+     enumerator (`wx/settings.h:94`), so this is the colour the grid already
+     paints its labels with and not a second value. [px] the four dead cells of
+     Edge Cuts and Courtyards measure rgb(55,55,55) on the live footprint
+     editor, the same as the column-label band above them; `--chrome-bg` here
+     was the DIALOG's rgb(44,44,44), which read as a hole in the grid rather
+     than as a filled-in cell. */
+  background: var(--grid-label-bg);
   border: none;
 }
 
@@ -13401,6 +13896,779 @@ td.ze-grid-bool {
   /* The shared token, never a literal: `--error-ink` is what every other error
      line in the app takes. */
   color: var(--error-ink);
+  /* `errorsMsg` is built with `\n` inside a message and `\n\n` between two of
+     them (`panel_fp_editor_graphics_defaults.cpp:204-275`); a KIDIALOG prints
+     those breaks, so this has to as well. */
+  white-space: pre-line;
   /* [data] the same `wxLEFT, 8` the headings above it carry. */
   padding: 4px 0 0 8px;
+}
+
+/* ---- Board Setup (DIALOG_BOARD_SETUP) --------------------------------------
+
+   NO FONT SIZES AND NO COLOURS IN THIS SECTION, for the reason the Preferences
+   block above states: a `PAGED_DIALOG`'s pages take the GUI font like every
+   other dialog, and none of pcbnew's `panel_setup_*.cpp` calls SetFont for a
+   size. Every rule here is a sizer border or a stated wx minimum.
+
+   These panels are otherwise built from `dialogs/prefs/widgets.tsx` — the same
+   `Group` / `Num` / `Sel` / `Check` every Preferences page uses — so their
+   spacing, their label columns and their controls come from `.ze-pref-*` and
+   are not restated here. */
+
+/* PANEL_SETUP_MASK_AND_PASTE's `bMessages`: the wxART_WARNING bitmap beside two
+   stacked wxStaticTexts (`panel_setup_mask_and_paste_base.cpp:20-42`). */
+.ze-pcb-mask-messages {
+  display: flex;
+  align-items: center;
+  /* [data] `bSizer3->Add( bMessages, 0, wxEXPAND|wxTOP|wxBOTTOM, 10 )`, plus
+     the `Add( 0, 5 )` spacer that follows it. */
+  margin: 10px 0 15px;
+  /* [data] the bitmap's `wxLEFT|wxRIGHT, 5` meeting the text block's
+     `wxLEFT, 5`. */
+  gap: 10px;
+  /* [data] the bitmap's own `wxLEFT, 5`. */
+  padding-left: 5px;
+}
+.ze-pcb-mask-messages img {
+  flex: 0 0 auto;
+}
+
+/* PANEL_SETUP_BOARD_FINISH's `fgSizer2`, added `wxEXPAND|wxTOP, 10` under the
+   Plated-board-edge checkbox (`panel_board_finish_base.cpp:50`). */
+.ze-pcb-finish-grid {
+  margin-top: 10px; /* [data] `bMargins->Add( fgSizer2, 1, wxEXPAND|wxTOP, 10 )`. */
+}
+
+/* ---- EDA_LIST_DIALOG (common/dialogs/eda_list_dialog_base.cpp) -------------
+
+   No font size and no colour: the label, the list and the filter are a
+   wxStaticText, a wxListCtrl and a wxTextCtrl, and the dialog calls SetFont on
+   none of them. The list's rules, header and selection fill come from
+   `.ze-grid`, which is the same wxListCtrl-in-report look. */
+.ze-modal.ze-list-dialog {
+  /* [data] `bSizerMain->Add( bMargins, 1, wxEXPAND|wxRIGHT|wxLEFT, 5 )` — the
+     dialog is as wide as its content, floored by the list's own minimum. */
+  min-width: 300px;
+}
+.ze-list-dialog-body {
+  display: flex;
+  flex-direction: column;
+  /* [data] the `wxRIGHT|wxLEFT, 5` on bMargins meeting each child's own 5. */
+  padding: 0 10px;
+}
+/* [data] `bMargins->Add( m_listLabel, 0, wxALL, 5 )`. */
+.ze-list-dialog-label {
+  padding: 5px; /* [data] `wxALL, 5`. */
+}
+.ze-list-dialog-list {
+  /* [data] `m_listBox->SetMinSize( wxSize( 280, 150 ) )`. */
+  min-width: 280px;
+  min-height: 150px; /* [data] the same `SetMinSize( wxSize( 280, 150 ) )`. */
+  /* [data] `Add( m_listBox, 3, wxBOTTOM|wxRIGHT|wxLEFT|wxEXPAND, 5 )` —
+     proportion 3, so the list takes the dialog's spare height. */
+  flex: 3 1 auto;
+  margin: 0 5px 5px; /* [data] that Add()'s `wxBOTTOM|wxRIGHT|wxLEFT, 5`. */
+}
+.ze-list-dialog-list .ze-grid {
+  width: 100%;
+}
+.ze-list-dialog-body > .ze-search {
+  /* [data] `Add( m_filterBox, 0, wxEXPAND|wxBOTTOM|wxRIGHT|wxLEFT, 5 )`. */
+  margin: 0 5px 5px;
+  width: auto;
+}
+
+/* PANEL_SETUP_LAYERS (`panel_setup_layers_base.cpp`, `panel_setup_layers.cpp`).
+
+   Every number below is a wx sizer border or a stated `SetMinSize`; the panel
+   calls SetFont and SetForegroundColour nowhere, so there is no font size and
+   no colour here. */
+.ze-pcb-layers {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+/* `bSizerLayerCnt`: `Add( 0, 0, 1, wxEXPAND )` then the button, and the row
+   itself `wxEXPAND|wxTOP|wxRIGHT, 5`. The spacer is what puts the button hard
+   right. */
+.ze-pcb-layers-head {
+  display: flex;
+  justify-content: flex-end;
+  /* [data] the row's wxTOP|wxRIGHT 5 plus the button's own wxTOP|wxRIGHT|wxLEFT 5. */
+  margin: 10px 10px 0 0;
+}
+/* [data] `m_staticline2`, `wxEXPAND|wxLEFT|wxRIGHT|wxTOP, 5`. */
+.ze-pcb-layers-rule {
+  border: none;
+  border-top: 1px solid var(--chrome-border); /* [css] Yaru's `separator { min-height: 1px }` — a wxStaticLine. */
+  margin: 5px 5px 0; /* [data] the same `wxLEFT|wxRIGHT|wxTOP, 5`. */
+  width: auto;
+}
+/* `m_LayersSizer = new wxFlexGridSizer( 0, 3, 2, 8 )` with `AddGrowableCol(1)`
+   and `AddGrowableCol(2)` — ONE grid for the whole list, which is why KiCad's
+   name fields and descriptions line up down the page. This was a stack of
+   independent flex rows, so each row's columns landed wherever its own content
+   put them. The two growable columns share the spare width equally, each
+   floored at its own `SetMinSize`. */
+.ze-pcb-layers-list {
+  /* [data] `Add( m_LayersListPanel, 1, wxEXPAND|wxTOP, 5 )`, and the
+     wxScrolledWindow's `wxVSCROLL`. */
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  margin-top: 5px; /* [data] the same `wxTOP, 5`. */
+  display: grid;
+  /* [data] the name ctrl's `SetMinSize( wxSize( 160, -1 ) )` and the
+     description's `SetMinSize( wxSize( 150, -1 ) )`. */
+  grid-template-columns: max-content minmax(160px, 1fr) minmax(150px, 1fr);
+  align-items: center;
+  /* [data] the sizer's vgap 2 and hgap 8. */
+  row-gap: 2px;
+  column-gap: 8px; /* [data] the same sizer's hgap 8. */
+  align-content: start;
+}
+.ze-pcb-layer-row {
+  display: grid;
+  grid-template-columns: subgrid;
+  grid-column: 1 / -1;
+  align-items: center;
+}
+/* [data] the checkbox's `wxALIGN_CENTER_HORIZONTAL|wxLEFT, 5`. */
+.ze-pcb-layer-row > input[type="checkbox"] {
+  margin-left: 5px; /* [data] the same `wxLEFT, 5`. */
+  justify-self: center;
+}
+/* [data] the name ctrl's `wxRIGHT, 5`. */
+.ze-pcb-layer-row > .ze-search {
+  margin-right: 5px; /* [data] the same `wxRIGHT, 5`. */
+}
+/* [data] the static text's `wxRIGHT|wxLEFT, 5`. */
+.ze-pcb-layer-desc {
+  margin: 0 5px; /* [data] the same `wxRIGHT|wxLEFT, 5`. */
+}
+.ze-pcb-layer-row > .ze-combo {
+  margin-right: 5px; /* [data] the choice's own `wxRIGHT, 5`. */
+}
+
+/* PANEL_SETUP_FORMATTING's `m_dashedLineHelp`, added `wxALL, 10` —
+   `panel_setup_formatting_base.cpp:51`. `.ze-pref-infotext` carries its font
+   (`KIUI::GetInfoFont( this ).Italic()`); only the border is local, because 10
+   is this Add()'s and `.ze-pref-help`'s 5 is the gerbview page's. */
+.ze-pcb-fmt-help {
+  padding: 10px; /* [data] `Add( m_dashedLineHelp, 0, wxALL, 10 )`. */
+}
+
+/* PANEL_SETUP_TUNING_PATTERNS (`panel_setup_tuning_patterns_base.cpp`), three
+   times over — one group per meander kind, all from the same wxFormBuilder
+   block, so one set of rules. */
+/* `singleTrackSizer`, a horizontal box: the legend bitmap then the field grid. */
+.ze-tune-body {
+  display: flex;
+  align-items: flex-start;
+  /* [data] the bitmap's `wxEXPAND|wxRIGHT|wxLEFT, 15` meeting the grid's
+     `wxEXPAND|wxTOP|wxRIGHT|wxLEFT, 5`. */
+  gap: 20px;
+  padding: 5px 5px 0 15px; /* [data] the grid's `wxEXPAND|wxTOP|wxRIGHT|wxLEFT, 5` and the bitmap's wxLEFT 15. */
+}
+.ze-tune-legend {
+  flex: 0 0 auto;
+}
+/* `wxFlexGridSizer( 0, 5, 5, 5 )` with `AddGrowableCol( 1 )`. */
+.ze-tune-grid {
+  display: grid;
+  grid-template-columns: max-content 1fr max-content max-content max-content;
+  align-items: center;
+  /* [data] the sizer's vgap 5 and hgap 5. */
+  gap: 5px;
+  flex: 1;
+}
+/* [data] `wxALIGN_CENTER_VERTICAL|wxLEFT, 15` on the third column's labels
+   (`m_track_maxALabel`, `m_track_rLabel`). */
+.ze-tune-col3 {
+  margin-left: 15px; /* [data] that `wxLEFT, 15`. */
+}
+/* Column 1 is a `wxBoxSizer( wxHORIZONTAL )` — the control at proportion 1 and
+   its unit `wxLEFT, 5` — so the entry stretches and the unit does not. */
+.ze-tune-entrybox {
+  display: flex;
+  align-items: center;
+  gap: 5px; /* [data] the same vgap 5 / hgap 5. */
+}
+/* [data] `fgSizer3->Add( 0, 5, 1, wxEXPAND )`, the one spacer row with a
+   height. Five spacer cells upstream, which is one full row here. */
+.ze-tune-gap {
+  grid-column: 1 / -1;
+  height: 5px; /* [data] the 5 of `Add( 0, 5, 1, wxEXPAND )`. */
+}
+
+/* `wxHyperlinkCtrl` — the clickable text KiCad puts beside a heading ("Syntax
+   help" on Custom Rules, `panel_setup_rules_base.cpp:30`). One rule, because wx
+   has one control: the panels that grew their own `.ze-link` each picked a blue
+   that no GTK theme here produces, and picked a font size as well, where the
+   real control is the dialog's own font in the theme's link colour. */
+.ze-hyperlink {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--link-fg);
+  text-decoration: underline;
+  /* A GtkLinkButton keeps the arrow cursor, like every other KiCad control. */
+  cursor: default;
+}
+.ze-hyperlink:visited {
+  color: var(--link-visited-fg);
+}
+.ze-hyperlink:disabled {
+  color: var(--ctl-fg-disabled);
+}
+
+/* PANEL_SETUP_RULES (`pcbnew/dialogs/panel_setup_rules_base.cpp`): a title row
+   with the Syntax-help link at its right, then the rule editor. */
+.ze-pcb-rules {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+.ze-pcb-rules-head {
+  display: flex;
+  align-items: center;
+  /* [data] `m_title`'s `wxBOTTOM|wxLEFT|wxTOP, 5` and the link's
+     `wxRIGHT|wxLEFT, 5`. */
+  padding: 5px;
+}
+.ze-pcb-rules-head .ze-hyperlink {
+  /* [data] `bSizer4->Add( 0, 0, 1, wxEXPAND )` — the spacer that pushes the
+     link to the right edge. */
+  margin-left: auto;
+}
+/* `m_textEditor`, a wxStyledTextCtrl added `wxEXPAND|wxBOTTOM|wxRIGHT, 5`. */
+.ze-pcb-rules-editor {
+  flex: 1;
+  min-height: 240px; /* [px] the editor's own floor, so a page with no rules still shows a box. */
+  display: flex;
+  border: 1px solid var(--chrome-border); /* [css] Yaru's `entry { border-width: 1px }` — `wxBORDER_SIMPLE` on the STC. */
+  border-radius: 3px; /* [css] the same rule's `border-radius`, which every field here takes. */
+  background: var(--field-bg);
+  overflow: hidden;
+  margin: 0 5px 5px 0; /* [data] `m_topMargin->Add( m_textEditor, 3, wxEXPAND|wxBOTTOM|wxRIGHT, 5 )`. */
+}
+/* `SetMarginType( 0, wxSTC_MARGIN_NUMBER )` with
+   `SetMarginWidth( 0, TextWidth( wxSTC_STYLE_LINENUMBER, "_99999" ) )` — six
+   characters of the line-number style, which is what `6ch` is. */
+.ze-pcb-rules-gutter {
+  flex: 0 0 auto;
+  box-sizing: content-box;
+  width: 6ch;
+  padding: 6px 4px; /* [css] the entry padding Yaru gives a text view; the gutter is inside it. */
+  text-align: right;
+  color: var(--ctl-fg-disabled);
+  background: var(--chrome-bg);
+  border-right: 1px solid var(--chrome-border); /* [css] the same 1px separator between the margin and the text. */
+  overflow: hidden;
+  user-select: none;
+  white-space: pre;
+}
+.ze-pcb-rules-text {
+  flex: 1;
+  border: none;
+  outline: none;
+  resize: none;
+  padding: 6px 8px; /* [css] the same entry padding on the text side. */
+  background: transparent;
+  color: var(--view-fg);
+  white-space: pre;
+  overflow: auto;
+}
+/* A Scintilla control, so a fixed-pitch face and a 4-space tab
+   (`SetUseTabs( true )`, `SetTabWidth( 4 )`, `SetIndent( 4 )`). No SIZE:
+   neither `panel_setup_rules_base.cpp` nor `panel_setup_rules.cpp` calls
+   `StyleSetFont`, so the editor is left at the control font and the 12.5px
+   this carried was a pick. */
+.ze-pcb-rules-gutter,
+.ze-pcb-rules-text {
+  font-family: monospace;
+  font-size: var(--ui-font-size);
+  line-height: var(--ui-line-height);
+  tab-size: 4;
+}
+
+/* PANEL_SETUP_TEARDROPS (`panel_setup_teardrops_base.cpp`), three groups from
+   one wxFormBuilder block, so one set of rules. */
+/* `bSizerShapeColumns`: the bitmap column, a 10 px spacer, then the gridbag. */
+.ze-td-body {
+  display: flex;
+  align-items: flex-start;
+  /* [data] the bitmap column's `wxEXPAND|wxRIGHT, 10` plus the explicit
+     `Add( 10, 0 )` spacer beside it. */
+  gap: 20px;
+  /* [data] `m_gridSizer->Add( bSizerShapeColumns, 1, wxEXPAND|wxTOP, 5 )` and
+     the gridbag's own `wxEXPAND|wxLEFT, 20` — carried on the grid below. */
+  margin-top: 5px;
+}
+.ze-td-legend {
+  flex: 0 0 auto;
+  /* [data] `wxALIGN_CENTER_HORIZONTAL|wxRIGHT|wxLEFT, 5`. */
+  margin: 0 5px;
+}
+/* `wxGridBagSizer( 2, 3 )` — SIX columns: label / control / units, then the
+   same three again. This was two independent flex columns, so the right half's
+   rows did not line up with the left half's. */
+.ze-td-grid {
+  display: grid;
+  grid-template-columns: max-content max-content max-content max-content max-content max-content;
+  align-items: center;
+  /* [data] the gridbag's vgap 2 and hgap 3. */
+  row-gap: 2px;
+  column-gap: 3px; /* [data] the gridbag's hgap 3. */
+  /* [data] `bSizerShapeColumns->Add( gbSizer, 0, wxEXPAND|wxLEFT, 20 )`. */
+  margin-left: 20px;
+}
+/* [data] `wxLEFT, 40` on everything in column 3 — the span checkbox, Prefer
+   zone connection and Track width limit. */
+.ze-td-right {
+  margin-left: 40px; /* [data] the `wxLEFT, 40` every column-3 child carries. */
+}
+/* The two checkboxes span columns 3-5 (`wxGBSpan( 1, 3 )`). */
+.ze-pref-check.ze-td-right {
+  grid-column: span 3;
+}
+/* [data] `SetEmptyCellSize( wxSize( 10, 7 ) )` — the height of a row the
+   gridbag leaves unfilled. */
+.ze-td-emptyrow {
+  grid-column: 1 / -1;
+  height: 7px; /* [data] the 7 of `SetEmptyCellSize( wxSize( 10, 7 ) )`. */
+}
+/* The hint letter inside `%(d)`: `wxFONTSTYLE_ITALIC` at
+   `wxNORMAL_FONT->GetPointSize()`, added `wxALIGN_BOTTOM` — italic, the
+   dialog's own size, sitting on the baseline of the parentheses. */
+.ze-td-hint {
+  font-style: italic;
+}
+.ze-td-note {
+  margin-top: 5px; /* [data] `m_gridSizer->Add( bSizerShapeColumns, 1, wxEXPAND|wxTOP, 5 )`. */
+}
+
+/* PANEL_SETUP_DIMENSIONS, the lower half of the Defaults page
+   (`panel_setup_dimensions_base.cpp`). */
+/* [data] `mainSizer->Add( m_staticTextDefPropDim, 0, wxTOP|wxRIGHT|wxLEFT, 13 )`
+   coming after the layer-class grid's own `wxBOTTOM, 15`. */
+.ze-tg-dimtitle {
+  margin-top: 13px; /* [data] `Add( m_staticTextDefPropDim, 0, wxTOP|wxRIGHT|wxLEFT, 13 )`. */
+}
+/* `wxGridBagSizer( 0, 5 )` — vgap 0, hgap 5, six columns. Column 2 is the
+   empty spacer that separates the two halves. */
+.ze-tg-dimgrid {
+  display: grid;
+  grid-template-columns: max-content max-content 10px max-content max-content max-content; /* [data] the empty spacer cell at `wxGBPosition( 0, 2 )`. */
+  align-items: center;
+  row-gap: 0;
+  column-gap: 5px; /* [data] the gridbag's hgap 5. */
+  /* [data] `mainSizer->Add( gbSizer1, 1, wxEXPAND|wxALL, 5 )`. */
+  padding: 5px;
+}
+/* Nearly every cell in this sizer carries wxBOTTOM 5; the sizer's own vgap is
+   0, so the row pitch IS that border. */
+.ze-tg-dimgrid > * {
+  margin-bottom: 5px; /* [data] the wxBOTTOM 5 nearly every cell of this gridbag carries. */
+}
+/* [data] `wxLEFT` on the column-3 labels and the Keep-text-aligned checkbox. */
+.ze-tg-dimright {
+  margin-left: 5px; /* [data] the `wxLEFT` on the column-3 children. */
+}
+/* [data] `wxGBSpan( 1, 2 )` on Keep text aligned and Suppress trailing zeroes. */
+.ze-tg-span2 {
+  grid-column: span 2;
+}
+
+/* PANEL_ZONE_PROPERTIES lays its fields out in two columns
+   (`m_clearancesPanel` and `m_displayOverridesPanel`, side by side in
+   `panel_zone_properties_base.cpp`). Each is its own sizer, so each has its own
+   label column — which is `.ze-pref-group-body`'s rule already. */
+.ze-zonedef-cols {
+  display: flex;
+  align-items: flex-start;
+  /* [data] the two panels' facing wxLEFT/wxRIGHT borders. */
+  gap: 10px;
+}
+
+/* PANEL_SETUP_DEFAULTS: three panels in one scrolled window, separated by
+   `m_scrollSizer->AddSpacer( 10 )` (`panel_setup_defaults.cpp:43-48`). */
+.ze-pcb-defaults {
+  display: flex;
+  flex-direction: column;
+  /* [data] the two `AddSpacer( 10 )` calls between the three blocks. */
+  gap: 10px;
+}
+
+/* PANEL_SETUP_TUNING_PROFILES (`panel_setup_tuning_profiles_base.cpp`): a
+   wxNotebook of profile pages with add/remove buttons under it. */
+.ze-tuneprof {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+/* [data] `fgSizer1->Add( m_tuningProfiles, 1, wxEXPAND|wxALL, 5 )`. */
+.ze-tuneprof-page {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 5px; /* [data] `fgSizer1->Add( m_tuningProfiles, 1, wxEXPAND|wxALL, 5 )`. */
+}
+/* The time-domain block is enabled under its checkbox, so it is indented by
+   the checkbox's own indicator width — GTK's check plus its 8 px gap. */
+.ze-tuneprof-timedomain {
+  padding-left: 22px; /* [css] GTK's check indicator plus its label gap, which is what indents an enabled-by block. */
+}
+.ze-tuneprof-empty {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ctl-fg-disabled);
+}
+/* [data] `bSizer91->Add( 20, 0, 1, wxEXPAND )` between Add and Remove. */
+.ze-tuneprof-btngap {
+  width: 20px; /* [data] the 20 of `bSizer91->Add( 20, 0, 1, wxEXPAND )`. */
+}
+
+/* PANEL_ASSIGN_COMPONENT_CLASSES + PANEL_COMPONENT_CLASS_ASSIGNMENT
+   (`panel_assign_component_classes_base.cpp`). */
+.ze-compclass {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+/* The heading row carries the Add button at its right, so it is the shared
+   group title plus a flex row — the rule under it is `.ze-pref-group-title`'s. */
+.ze-compclass-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px; /* [data] the facing wxLEFT/wxRIGHT 4 of the two panels, met. */
+}
+.ze-compclass-list {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+.ze-compclass-empty {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ctl-fg-disabled);
+}
+/* One PANEL_COMPONENT_CLASS_ASSIGNMENT: a wxPanel with a border, holding the
+   class name, the match-mode radios and the condition rows. */
+.ze-compclass-card {
+  border: 1px solid var(--chrome-border); /* [css] Yaru's `frame { border-width: 1px }` — the assignment panel's frame. */
+  border-radius: 4px; /* [css] the same frame's radius. */
+  background: var(--chrome-bg2);
+  padding: 10px; /* [data] the wxALL 5 on the panel's own sizer, doubled by its child rows' 5. */
+  margin-bottom: 10px; /* [data] the wxBOTTOM 5 each assignment Add() carries, plus the next one's wxTOP. */
+}
+.ze-compclass-row {
+  display: flex;
+  align-items: center;
+  /* [data] the wxLEFT/wxRIGHT 5 each control in these rows carries, meeting. */
+  gap: 8px;
+  margin: 5px 0; /* [data] the wxTOP|wxBOTTOM 5 of a row inside the assignment panel. */
+}
+.ze-compclass-name {
+  width: 180px; /* [px] the class-name entry's own width; upstream leaves it to the sizer. */
+  flex: 0 0 auto;
+}
+.ze-compclass-spacer {
+  flex: 1;
+}
+/* wxEXPAND on the condition's value control — it takes the rest of the row. */
+.ze-compclass-grow {
+  flex: 1;
+}
+.ze-compclass-addcond {
+  margin-top: 4px; /* [data] the wxTOP 4 on the Add-condition button. */
+}
+
+/* PANEL_SETUP_BOARD_STACKUP (`panel_board_stackup_base.cpp` /
+   `panel_board_stackup.cpp`). */
+/* PANEL_SETUP_ZONE_HATCH_OFFSETS (`panel_setup_zone_hatch_offsets_base.cpp`),
+   whose mainSizer is a caption, a 2px spacer, a rule and the grid. */
+.ze-zone-hatch-offsets {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+.ze-zone-hatch-caption {
+  padding: 13px 13px 0; /* [data] `Add( m_staticTextLabel, 0, wxTOP|wxRIGHT|wxLEFT, 13 )`. */
+}
+.ze-zone-hatch-rule {
+  border: none;
+  border-top: 1px solid var(--chrome-border); /* [css] Yaru's `separator { min-height: 1px }`. */
+  /* [data] `Add( 0, 2, 0, 0 )` above it, then `wxEXPAND|wxBOTTOM, 5`. */
+  margin: 2px 0 5px;
+  width: auto;
+}
+/* [data] `Add( m_layerOffsetsGrid, 0, wxALL, 5 )` — the grid is added with
+   proportion 0, so it takes its own height and does not stretch. */
+.ze-zone-layer-grid {
+  margin: 5px;
+  align-self: flex-start;
+  overflow: auto;
+}
+/* The read-only layer cell: GRID_CELL_LAYER_RENDERER draws the swatch then the
+   name, so they sit on one line. */
+.ze-zone-layer-name {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ze-stackup {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+/* The option row above the grid and the thickness row below it — both bare
+   `wxBoxSizer( wxHORIZONTAL )`s of controls with their own borders. */
+.ze-stackup-bar {
+  display: flex;
+  align-items: center;
+  /* A `wxBoxSizer( wxHORIZONTAL )` has no second line to wrap onto: it shrinks
+     its growable spacers to zero and, past that, overflows. `wrap` here is what
+     dropped "Remove Dielectric Layer..." onto a row of its own. */
+  flex-wrap: nowrap;
+  /* [data] adjoining wxLEFT/wxRIGHT 5 borders, met. */
+  gap: 10px;
+  padding: 5px 0; /* [data] the wxTOP|wxBOTTOM 5 the bar's children carry. */
+}
+/* Buttons and fields keep their natural width; only the spacers give. */
+.ze-stackup-bar > .ze-btn,
+.ze-stackup-bar > .ze-pref-check,
+.ze-stackup-bar > span:not(.ze-stackup-spacer) {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+.ze-stackup-spacer {
+  /* [data] `Add( 40, 0, 1, wxEXPAND )` — proportion 1, minimum width 40. */
+  flex: 1 1 auto;
+  min-width: 40px;
+}
+/* [data] `bBottomSizer->Add( 10, 0, 0, wxEXPAND )` — a fixed spacer, not a
+   growable one, so it never absorbs the row's slack. */
+.ze-stackup-gap10 {
+  flex: 0 0 10px;
+}
+.ze-stackup-thickness {
+  width: 90px; /* [px] the read-only thickness field's width; upstream sizes it to its text. */
+  flex: 0 0 auto;
+}
+/* `m_scGridWin`, the `wxScrolledWindow` the grid lives in — created with
+   `wxHSCROLL|wxVSCROLL` (`panel_board_stackup_base.cpp:66`), so it scrolls in
+   BOTH axes and imposes no width of its own on the page. That is why a real
+   Board Setup is about 1070 wide and not the ~1280 the twelve columns would
+   need: the grid scrolls, the two bars do not.
+
+   `contain: inline-size` is the load-bearing line, and `min-width: 0` alone is
+   NOT enough — that was the wrong fix first time round. `min-width` sets a
+   LOWER bound; it does not stop `.ze-paged-panel`'s `min-width: min-content`
+   from walking into this box and picking up the grid's full 1050 px of
+   columns, which is what dragged the dialog out to ~1280. `contain:
+   inline-size` makes the box's intrinsic inline size independent of its
+   contents, which is precisely what a wxScrolledWindow's best size is: small,
+   with the content reachable by scrolling. The width still comes from the
+   flex stretch, and `overflow: auto` still scrolls the grid. */
+.ze-stackup-scroll {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  contain: inline-size;
+  overflow: auto;
+}
+/* The layer table. A wxFlexGridSizer of controls, not a wxGrid — it draws no
+   cell borders, which is why this is a bare CSS grid and not `.ze-grid`. */
+.ze-stackup-grid {
+  display: grid;
+  align-items: center;
+  column-gap: 4px; /* [data] `wxFlexGridSizer( 0, 9, 0, 4 )`'s hgap. */
+  row-gap: 0; /* [data] the same sizer's vgap, which is 0 — this said 6. */
+  width: max-content;
+}
+/* The column captions are `wxStaticText`s, and `panel_board_stackup_base.cpp`
+   calls SetFont on none of them — so the dialog font at the dialog's weight.
+   This drew them at 600. */
+.ze-stackup-head {
+  padding: 2px 2px 6px; /* [data] the column captions' wxTOP|wxBOTTOM|wxLEFT|wxRIGHT borders. */
+  text-align: center;
+}
+/* [data] the icon's `wxRIGHT|wxALIGN_CENTER_VERTICAL|wxALIGN_RIGHT, 4`
+   (`panel_board_stackup.cpp:809`) — right-aligned in its cell, not centred. */
+.ze-stackup-swcell {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 4px; /* [data] the same wxRIGHT, 4. */
+}
+/* The Layer column's `wxStaticBitmap`, filled by `updateIconColor()` with a
+   `wxBitmap( m_colorIconsSize.x, m_colorIconsSize.y / 2 )`. That is the ICON
+   size (24 x 14) HALVED in height, so the swatch is a wide flat bar. This was
+   a 14 x 14 square, which is `m_colorSwatchesSize` — the size of the bitmaps
+   INSIDE the Color dropdown, a different widget. */
+.ze-stackup-swatch {
+  display: inline-block;
+  width: 24px; /* [data] `m_colorIconsSize.x` (`panel_board_stackup.cpp:101`). */
+  height: 7px; /* [data] `m_colorIconsSize.y / 2` (`:1608`). */
+}
+
+/* DIALOG_DIELECTRIC_MATERIAL. */
+.ze-dielmat-body {
+  display: block;
+  padding: 10px 14px; /* [data] the dialog body's wxALL 5 meeting its sizer's wxRIGHT|wxLEFT 5. */
+}
+.ze-dielmat-grid {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  align-items: center;
+  gap: 6px 8px; /* [data] the material grid's vgap 6 and hgap 8. */
+  margin-bottom: 8px; /* [data] the wxBOTTOM 8 under it. */
+}
+.ze-dielmat-list {
+  max-height: 220px; /* [px] the material list's own height floor; upstream fits the dialog to it. */
+}
+.ze-dielmat-list .ze-grid {
+  width: 100%;
+}
+
+/* PANEL_SETUP_CONSTRAINTS (`panel_setup_constraints_base.cpp`). No font size
+   and no colour: the one SetFont on the page is `m_stCircleToPolyWarning`'s
+   `KIUI::GetSmallInfoFont( this ).Italic()` (`panel_setup_constraints.cpp:74`),
+   which is `.ze-pref-hint`. */
+/* `bScrolledSizer`, horizontal: the constraint grid then the rules column. */
+.ze-con-cols {
+  display: flex;
+  align-items: flex-start;
+  gap: 24px; /* [data] the facing borders of `sbFeatureConstraints` and `sbFeatureRules`. */
+}
+.ze-con-cols > * {
+  flex: 1;
+}
+/* `fgFeatureConstraints = new wxFlexGridSizer( 0, 4, 0, 0 )` — FOUR columns,
+   bitmap / label / entry / units, and every section heading spans all four.
+   vgap and hgap are both 0: the spacing is each control's own border. */
+.ze-con-grid {
+  display: grid;
+  grid-template-columns: max-content max-content max-content max-content;
+  align-items: center;
+}
+.ze-con-grid > .ze-pref-group-title {
+  grid-column: 1 / -1;
+  /* [data] `Add( m_staticText23, 0, wxTOP|wxLEFT, 13 )` on each heading. */
+  margin-top: 13px;
+  padding-left: 13px; /* [data] the same `wxTOP|wxLEFT, 13`. */
+}
+.ze-con-grid > .ze-pref-group-title:first-child {
+  margin-top: 0;
+}
+.ze-con-row {
+  display: grid;
+  grid-template-columns: subgrid;
+  grid-column: 1 / -1;
+  align-items: center;
+}
+/* [data] the bitmap's `wxALIGN_CENTER_HORIZONTAL|wxRIGHT|wxLEFT, 5`, and a
+   20 px box so the un-iconed Silk rows keep the column. */
+.ze-con-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px; /* [data] the bitmap column's width, which the icons themselves are. */
+  height: 20px; /* [data] the same, so an un-iconed Silk row keeps the column. */
+  margin: 0 5px; /* [data] the bitmap's `wxRIGHT|wxLEFT, 5`. */
+}
+/* [data] the label's `wxRIGHT, 5`. */
+.ze-con-row > .lbl {
+  margin-right: 5px; /* [data] the label's `wxRIGHT, 5`. */
+  white-space: nowrap;
+}
+/* [data] the entry's `wxTOP|wxBOTTOM, 5`, which is this grid's whole row
+   pitch — the sizer's own vgap is 0. */
+.ze-con-row > .ze-search {
+  margin: 5px 0; /* [data] the entry's `wxTOP|wxBOTTOM, 5`, which is this grid's whole row pitch. */
+}
+/* [data] the units' `wxLEFT, 5`. */
+.ze-con-row > .unit {
+  margin-left: 5px; /* [data] the units' `wxLEFT, 5`. */
+}
+/* The rules column stacks its headings and controls in a plain vertical box. */
+.ze-con-rules > .ze-pref-group-title {
+  /* [data] `Add( m_stCircleToPolyOpt, 0, wxTOP|wxLEFT, 13 )`. */
+  margin-top: 13px;
+  padding-left: 13px; /* [data] the same `wxTOP|wxLEFT, 13`. */
+}
+.ze-con-rules > .ze-pref-group-title:first-child {
+  margin-top: 0;
+}
+/* The zone-fill checkbox is preceded by its own bitmap in the same row. */
+.ze-con-check {
+  margin: 5px 0; /* [data] the checkbox row's own wxTOP|wxBOTTOM 5. */
+}
+
+/* PANEL_SETUP_TRACKS_AND_VIAS: three WX_GRIDs side by side, each with its own
+   add / sort / remove buttons under it. */
+.ze-sizes-cols {
+  height: 100%;
+  display: flex;
+  /* [data] the facing wxLEFT/wxRIGHT borders of the three grid sizers. */
+  gap: 14px;
+}
+.ze-sizes-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.ze-sizes-pane {
+  flex: 1;
+  min-height: 0;
+}
+.ze-sizes-pane .ze-grid {
+  width: 100%;
+}
+/* A wxGrid's column labels do not scroll with its rows. */
+.ze-sticky-head {
+  position: sticky;
+  top: 0;
+}
+/* `bSizerButtons->Add( 20, 0, 0, wxEXPAND )` — the gap that separates the
+   add/sort pair from the delete button in KiCad's grid button rows. */
+.ze-gridbtn-gap {
+  width: 20px; /* [data] the 20 of `bSizerButtons->Add( 20, 0, 0, wxEXPAND )`. */
+}
+
+/* `GRID_CELL_CHOICE_EDITOR` — a wxChoice living inside a wxGrid cell
+   (`common/widgets/grid_combobox.cpp`). It is the shared combo, so its popup
+   and its entries are ours; only its BOX takes the cell's own geometry, the
+   same way `.ze-grid td .ze-grid-input` strips a text editor's frame. */
+.ze-grid td .ze-combo.ze-grid-combo {
+  width: 100%;
+  min-width: 0;
+  height: auto;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  /* [data] the same `3px 6px` the in-cell text editor carries. */
+  padding: 3px 6px;
+}
+
+/* `m_importColorsButton`, at the right of the netclass grid's button row. */
+.ze-nc-importcolors {
+  margin-left: 12px; /* [data] the import button's `wxLEFT, 12`. */
+}
+
+/* A `PAGED_DIALOG` page we have not built yet. Greyed the way GTK greys an
+   insensitive control — by colour, from the token — not by a picked hex, and at
+   the dialog's own font like every other page. */
+.ze-paged-unimplemented {
+  padding: 16px; /* [data] the wxALL 16 a placeholder page's message carries. */
+  color: var(--ctl-fg-disabled);
 }

@@ -84,9 +84,14 @@ export type PrefsPageId =
   | 'fp-graphics'
   | 'fp-userlayers'
   | 'pcb-display'
+  | 'pcb-origins'
+  | 'pcb-editing'
+  | 'pcb-colors'
   | 'pcb-grids'
   | 'pcb-toolbars'
   // `PANEL_3DV_TOOLBARS`, the second row under the 3D Viewer heading (`:1694`).
+  | '3dv-general'
+  | '3dv-opengl'
   | '3dv-toolbars'
   // gerbview's KIFACE is consulted after pcbnew's and before pl_editor's, and
   // its five ids are `PANEL_GBR_DISPLAY_OPTIONS`, `PANEL_GBR_COLORS`,

@@ -15,7 +15,7 @@
  * not yet plotted (KiCad strokes glyphs; staged).
  */
 
-import type { Board, PcbBarcode, PcbPad, PcbShape } from './types.js';
+import type { Board, PcbBarcode, PcbPad, PcbShape, PcbFootprint } from './types.js';
 import { pcbIuToMM as iuToMM, pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 import {
   GENERATOR_APPLICATION,
@@ -27,6 +27,7 @@ import { tessellateArc, rotatePcb } from './read-board.js';
 import { barcodeGeometry } from './barcode_geometry.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { isSolidFill } from './shape_fill.js';
+import { padApertureSize, type BoardMaskPasteDefaults } from './pad_margins.js';
 
 /** Fractional digits for the 4.x format; the dialog offers 4.5 / 4.6. */
 let coordDigits = 6;
@@ -123,6 +124,15 @@ export interface GerberPlotOpts {
   useX2?: boolean;
   /** "Use drill/place file origin": plot relative to this point. */
   origin?: Vec2;
+  /**
+   * Board Setup > Solder Mask/Paste, in IU — `m_SolderMaskExpansion`,
+   * `m_SolderPasteMargin` and `m_SolderPasteMarginRatio`. The last level of
+   * `PAD::GetSolderMaskExpansion` / `GetSolderPasteMargin`'s fallback, so a pad
+   * and a footprint that override it still win. Omitted means a board with no
+   * design settings, where every pad falls back to 0 — which is what the
+   * defaults are anyway.
+   */
+  maskPaste?: BoardMaskPasteDefaults;
 }
 
 /** Plot one layer to Gerber text (X2 by default, X1 with attributes as comments). */
@@ -195,20 +205,25 @@ export function plotGerberLayer(board: Board, layer: string, opts: GerberPlotOpt
     }
   };
 
-  const padPlot = (p: PcbPad): void => {
+  const padPlot = (p: PcbPad, fp?: PcbFootprint): void => {
     if (!onLayer(p.layers, layer)) return;
+    // On a mask or paste layer a pad is NOT flashed at its copper size: it
+    // carries the solder-mask expansion or the solder-paste margin, resolved
+    // pad -> footprint -> Board Setup (`pad_margins.ts`). Plotting the copper
+    // size on those layers is what made the Solder Mask/Paste page inert.
+    const size = padApertureSize(p, fp, opts.maskPaste, layer);
     const rot = (((p.angle ?? 0) % 360) + 360) % 360;
     const axisAligned = rot % 90 === 0;
-    const w = rot % 180 === 90 ? p.size.y : p.size.x;
-    const h = rot % 180 === 90 ? p.size.x : p.size.y;
-    if (p.shape === 'circle') flash(`C,${fmm(p.size.x)}`, p.at);
+    const w = rot % 180 === 90 ? size.y : size.x;
+    const h = rot % 180 === 90 ? size.x : size.y;
+    if (p.shape === 'circle') flash(`C,${fmm(size.x)}`, p.at);
     else if (axisAligned && (p.shape === 'rect' || p.shape === 'roundrect'))
       flash(`R,${fmm(w)}X${fmm(h)}`, p.at);
     else if (axisAligned && p.shape === 'oval') flash(`O,${fmm(w)}X${fmm(h)}`, p.at);
     else {
       // Rotated / complex pads: plot the outline as a region.
-      const hw = p.size.x / 2;
-      const hh = p.size.y / 2;
+      const hw = size.x / 2;
+      const hh = size.y / 2;
       const corners: Vec2[] = [
         { x: -hw, y: -hh },
         { x: hw, y: -hh },
@@ -242,7 +257,7 @@ export function plotGerberLayer(board: Board, layer: string, opts: GerberPlotOpt
         for (const f of z.fills) if (f.layer === layer) for (const poly of f.polys) region(poly);
   }
   for (const fp of board.footprints) {
-    for (const p of fp.pads) padPlot(p);
+    for (const p of fp.pads) padPlot(p, fp);
     for (const s of fp.shapes) shapePlot(s);
   }
   for (const s of board.shapes) shapePlot(s);

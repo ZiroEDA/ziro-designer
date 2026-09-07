@@ -33,7 +33,22 @@ import { fileURLToPath } from 'node:url';
 const DIALOGS = fileURLToPath(
   new URL('../../../designer/src/editors/schematic/dialogs', import.meta.url),
 );
-const files = readdirSync(DIALOGS).filter((f) => f.endsWith('.tsx'));
+/**
+ * Dialogs shared between editors live in `ui/`, and they are scanned too.
+ *
+ * Table Properties moved there when the board and the schematic stopped keeping
+ * two copies of it, and a scan that looked only inside `editors/schematic`
+ * would have reported the file "fixed" the moment it left the folder — the
+ * exact way this list is supposed to be unable to rot.
+ */
+const SHARED_DIALOGS = fileURLToPath(new URL('../../../designer/src/ui', import.meta.url));
+const SHARED_FILES = ['DialogTableProperties.tsx'];
+
+const files = [...readdirSync(DIALOGS).filter((f) => f.endsWith('.tsx')), ...SHARED_FILES];
+
+/** Where a scanned file lives — the shared ones are not in the editor's folder. */
+const pathOf = (file: string): string =>
+  join(SHARED_FILES.includes(file) ? SHARED_DIALOGS : DIALOGS, file);
 
 /** Comments are prose: a `mm` in a header block is documentation, not a label. */
 const code = (text: string): string =>
@@ -45,7 +60,7 @@ const code = (text: string): string =>
  * debt check used ` ?`, and the two then named different files.
  */
 function hardcodesUnits(file: string): string[] {
-  const src = code(readFileSync(join(DIALOGS, file), 'utf8'));
+  const src = code(readFileSync(pathOf(file), 'utf8'));
   return [
     ...[...src.matchAll(/>\s*(mm|mils|in|inches)\s*</g)].map((m) => `unit label "${m[1]}"`),
     ...[...src.matchAll(/useState\([^)]*\b(?:mmText|iuToMM)\s*\(/g)].map(() => 'mm-seeded field'),
@@ -70,7 +85,11 @@ const KNOWN_HARDCODED = new Set([
   'dialog_plot.tsx',
   'dialog_sheet_pin_properties.tsx',
   'dialog_sheet_properties.tsx',
-  'dialog_table_properties.tsx',
+  // Table Properties, now `ui/DialogTableProperties.tsx` and shared with the
+  // board editor. The debt moved with the file rather than being paid: both
+  // width fields still print a literal "mm" where `UNIT_BINDER` would print the
+  // frame's unit. It is one fix for two editors now, which is the point.
+  'DialogTableProperties.tsx',
 ]);
 
 describe('a dialog never hardcodes a unit name beside a field', () => {
@@ -91,6 +110,13 @@ describe('the debt list stays honest', () => {
 
   it('and names only files that exist', () => {
     for (const f of KNOWN_HARDCODED) expect(files, f).toContain(f);
+  });
+
+  it("and eeschema's own table file is clean, because it is only a wrapper", () => {
+    // It keeps the schematic's IU scale, its stroke colours and its greying
+    // rule; every unit-bearing field went to the shared dialog with the layout.
+    // Redundant with the scan above only for as long as that stays true.
+    expect(hardcodesUnits('dialog_table_properties.tsx')).toEqual([]);
   });
 });
 

@@ -30,6 +30,7 @@ export {
   type NetClassesData,
 } from '../../editors/schematic/schematic_settings.js';
 import { ColorSwatch } from '../../ui/ColorSwatch.js';
+import { Combo } from '../../ui/Combo.js';
 import { parseColor4d, toCssColor } from '@ziroeda/common/src/color4d.js';
 
 interface Props {
@@ -84,7 +85,7 @@ export function PanelSetupNetclasses({ value, onChange }: Props): JSX.Element {
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       {/* Netclasses grid */}
-      <div style={{ fontSize: 12.5, marginBottom: 6 }}>Netclasses</div>
+      <div className="ze-pref-group-title">Netclasses</div>
       <div className="ze-grid-pane" style={{ flex: '1 1 55%', minHeight: 80 }}>
         <table className="ze-grid" style={{ minWidth: 1180, width: '100%', whiteSpace: 'nowrap' }}>
           <thead>
@@ -143,17 +144,15 @@ export function PanelSetupNetclasses({ value, onChange }: Props): JSX.Element {
                   />
                 </td>
                 <td>
-                  <select
-                    className="ze-grid-input"
+                  {/* `GRID_CELL_CHOICE_EDITOR` — a wxChoice inside the cell,
+                      so the shared owner-drawn combo, not a native select. */}
+                  <Combo
+                    className="ze-grid-combo"
                     value={c.lineStyle}
-                    onChange={(e) => setAt(i, { lineStyle: e.target.value })}
-                  >
-                    {LINE_STYLES.map((s) => (
-                      <option key={s} value={s}>
-                        {s}
-                      </option>
-                    ))}
-                  </select>
+                    ariaLabel={`${c.name} line style`}
+                    options={LINE_STYLES.map((st) => ({ value: st, label: st }))}
+                    onChange={(st) => setAt(i, { lineStyle: st })}
+                  />
                 </td>
               </tr>
             ))}
@@ -161,7 +160,7 @@ export function PanelSetupNetclasses({ value, onChange }: Props): JSX.Element {
         </table>
       </div>
 
-      <div className="ze-grid-btns" style={{ alignItems: 'center' }}>
+      <div className="ze-grid-btns">
         <button className="ze-gridbtn" title="Add netclass" onClick={add}>
           <Icon name="plus" />
         </button>
@@ -176,7 +175,7 @@ export function PanelSetupNetclasses({ value, onChange }: Props): JSX.Element {
         >
           <Icon name="arrowDown" />
         </button>
-        <span style={{ width: 15 }} />
+        <span className="ze-gridbtn-gap" />
         <button
           className="ze-gridbtn"
           title="Remove netclass"
@@ -186,17 +185,18 @@ export function PanelSetupNetclasses({ value, onChange }: Props): JSX.Element {
           <Icon name="delete" />
         </button>
         <span style={{ flex: 1 }} />
-        <span style={{ fontSize: 11, color: 'var(--ze-muted, #888)' }}>
-          Set color to transparent to use layer default color.
-        </span>
+        {/* `m_colorDefaultHelpText`, a plain wxStaticText — the panel calls
+            SetFont and SetForegroundColour on none of its labels, so this is
+            the dialog's own font and ink, not a grey 11px caption. */}
+        <span>Set color to transparent to use layer default color.</span>
         {/* Stubbed: copies net colors from the schematic's netclass definitions. */}
-        <button className="ze-btn sm" title="Not implemented yet" style={{ marginLeft: 12 }}>
+        <button className="ze-btn ze-nc-importcolors" title="Not implemented yet">
           Import colors from schematic
         </button>
       </div>
 
       {/* Assignments grid */}
-      <div style={{ fontSize: 12.5, margin: '8px 0 6px' }}>Netclass Assignments</div>
+      <div className="ze-pref-group-title">Netclass Assignments</div>
       <div className="ze-grid-pane" style={{ flex: '1 1 45%', minHeight: 60 }}>
         <table className="ze-grid" style={{ tableLayout: 'fixed', width: '100%' }}>
           <colgroup>
@@ -227,23 +227,17 @@ export function PanelSetupNetclasses({ value, onChange }: Props): JSX.Element {
                   />
                 </td>
                 <td>
-                  <select
-                    className="ze-grid-input"
+                  <Combo
+                    className="ze-grid-combo"
                     value={a.netClass}
-                    onChange={(e) =>
+                    ariaLabel="Net class"
+                    options={value.classes.map((c) => ({ value: c.name, label: c.name }))}
+                    onChange={(nc) =>
                       setAssign(
-                        value.assignments.map((x, j) =>
-                          j === i ? { ...x, netClass: e.target.value } : x,
-                        ),
+                        value.assignments.map((x, j) => (j === i ? { ...x, netClass: nc } : x)),
                       )
                     }
-                  >
-                    {value.classes.map((c) => (
-                      <option key={c.name} value={c.name}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </td>
               </tr>
             ))}

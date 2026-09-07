@@ -20,6 +20,7 @@
 // The netclass half is NET_SETTINGS and comes from common/; embedded files and
 // text variables are still eeschema's PROJECT_FILE sections here.
 import { defaultNetClasses, type NetClassesData } from '@ziroeda/common';
+import { AllCuMask, LSET_Name } from '@ziroeda/pcbnew/src/layer_ids.js';
 import {
   defaultEmbeddedFiles,
   type EmbeddedFilesData,
@@ -99,14 +100,25 @@ export interface DiffPairSize {
 
 export type CopperLayerType = 'signal' | 'power' | 'mixed' | 'jumper';
 
+/**
+ * A user-defined layer's `LAYER_T`, as its row's second `wxChoice` sets it
+ * (`panel_setup_layers.cpp:537-539`, `showLayerTypes():684-693`): LT_AUX,
+ * LT_FRONT, LT_BACK. Only User.1-45 carry one — the fixed technical layers
+ * show a `wxStaticText` instead, and copper shows the four-way copper choice.
+ */
+export type UserLayerType = 'aux' | 'front' | 'back';
+
 export interface BoardLayer {
   id: string;
   name: string;
   enabled: boolean;
-  kind: 'copper' | 'tech';
+  /** Which of PANEL_SETUP_LAYERS' three row shapes this layer draws. */
+  kind: 'copper' | 'tech' | 'user';
   /** Copper layers only. */
   copperType?: CopperLayerType;
-  /** Non-copper layers: descriptive label shown in the type column. */
+  /** User-defined (User.N) layers only. */
+  userType?: UserLayerType;
+  /** Fixed technical layers: descriptive label shown in the type column. */
   desc?: string;
 }
 
@@ -114,7 +126,37 @@ export interface LayersSetup {
   layers: BoardLayer[];
 }
 
-// KiCad's default layer set in physical stack order (id, name, desc, default-on).
+/**
+ * The layers whose enable checkbox is `mandatoryLayerCbSetup()` — shown,
+ * disabled, tooltip "This layer is required and cannot be disabled"
+ * (`panel_setup_layers.cpp:54-61`). Its call sites are F.Courtyard (`:240`),
+ * B.Courtyard (`:450`), Edge.Cuts (`:451`) and Margin (`:452`); every copper
+ * layer gets it too, from `setCopperLayerCheckBoxes()` (`:728-745`), which the
+ * panel derives from `kind === 'copper'` rather than listing here.
+ *
+ * [data] Transcribed from those call sites, not chosen.
+ */
+export const MANDATORY_LAYERS: ReadonlySet<string> = new Set([
+  'F.CrtYd',
+  'B.CrtYd',
+  'Edge.Cuts',
+  'Margin',
+]);
+
+/** `LSET::UserDefinedLayersMask( 4 )` — User_1 is 39 and the ids step by 2. */
+const DEFAULT_USER_DEFINED_LAYERS: BoardLayer[] = Array.from({ length: 4 }, (_, i) => ({
+  id: `User.${i + 1}`,
+  name: `User.${i + 1}`,
+  kind: 'user' as const,
+  userType: 'aux' as const,
+  enabled: true,
+}));
+
+// KiCad's default layer set in the order PANEL_SETUP_LAYERS adds the rows to
+// `m_LayersSizer` — front technical, the copper stack, back technical, then
+// Edge.Cuts / Margin / Eco1 / Eco2 / Comments / Drawings
+// (`initialize_front_tech_layers()`, the copper loop, `initialize_back_tech_layers()`).
+// This is NOT `LSET::TechAndUserUIOrder()`, which the *writer* uses.
 const DEFAULT_LAYERS: BoardLayer[] = [
   { id: 'F.CrtYd', name: 'F.Courtyard', kind: 'tech', desc: 'Off-board, testing', enabled: true },
   { id: 'F.Fab', name: 'F.Fab', kind: 'tech', desc: 'Off-board, manufacturing', enabled: true },
@@ -144,14 +186,57 @@ const DEFAULT_LAYERS: BoardLayer[] = [
   { id: 'B.CrtYd', name: 'B.Courtyard', kind: 'tech', desc: 'Off-board, testing', enabled: true },
   { id: 'Edge.Cuts', name: 'Edge.Cuts', kind: 'tech', desc: 'Board contour', enabled: true },
   { id: 'Margin', name: 'Margin', kind: 'tech', desc: 'Board contour setback', enabled: false },
-  { id: 'Dwgs.User', name: 'User.Drawings', kind: 'tech', desc: 'Auxiliary', enabled: true },
-  { id: 'Cmts.User', name: 'User.Comments', kind: 'tech', desc: 'Auxiliary', enabled: true },
+  // Eco1, Eco2, Comments, Drawings — the order `initialize_back_tech_layers()`
+  // adds them in (`panel_setup_layers.cpp:391`, `:405`, `:417`, `:433`). This
+  // had Drawings and Comments first, which is the Appearance panel's order, not
+  // this page's.
   { id: 'Eco1.User', name: 'User.Eco1', kind: 'tech', desc: 'Auxiliary', enabled: false },
   { id: 'Eco2.User', name: 'User.Eco2', kind: 'tech', desc: 'Auxiliary', enabled: false },
+  { id: 'Cmts.User', name: 'User.Comments', kind: 'tech', desc: 'Auxiliary', enabled: true },
+  { id: 'Dwgs.User', name: 'User.Drawings', kind: 'tech', desc: 'Auxiliary', enabled: true },
+  // [data] `BOARD_DESIGN_SETTINGS::BOARD_DESIGN_SETTINGS` (`:65-66`):
+  //     // Default design is a double layer board with 4 user defined layers
+  //     SetCopperLayerCount( 2 );
+  //     SetUserDefinedLayerCount( 4 );
+  // so a board that has never been through Board Setup already carries
+  // User.1-4, all LT_AUX (`board.cpp:126`). We started at zero, which is why a
+  // schematic-to-board round trip landed with no user layers where KiCad's had
+  // four. They sit last because `append_user_layer()` adds them after Drawings.
+  ...DEFAULT_USER_DEFINED_LAYERS,
 ];
 
 export function defaultLayers(): LayersSetup {
   return { layers: DEFAULT_LAYERS.map((l) => ({ ...l })) };
+}
+
+// ---------------------------------------------------------------------------
+// Zone hatched-fill offsets (PANEL_SETUP_ZONE_HATCH_OFFSETS).
+
+/**
+ * `ZONE_LAYER_PROPERTIES` (`pcbnew/zone_settings.h:50-55`) — per-layer defaults
+ * for a zone's hatched fill. Upstream it is one `std::optional<VECTOR2I>`, and
+ * the optional is load-bearing: `PCB_IO_KICAD_SEXPR::format` returns without
+ * writing anything at all when it is empty ("Do not store the layer properties
+ * if no value is actually set", `pcb_io_kicad_sexpr.cpp:3096-3101`), so an
+ * untouched layer leaves no trace in the board file.
+ *
+ * Offsets are mm here, as everywhere else in this module; the file stores the
+ * same mm through `formatInternalUnits`.
+ */
+export interface ZoneLayerProperties {
+  /** `(hatch_position (xy X Y))`. Absent = never set, and never written. */
+  hatchingOffset?: { x: number; y: number };
+}
+
+/**
+ * `BOARD_DESIGN_SETTINGS::m_ZoneLayerProperties`, a map keyed by layer. Keys
+ * are canonical layer names (`LSET::Name`), which is what `(layer "F.Cu")`
+ * inside `(zone_defaults …)` stores.
+ */
+export type ZoneLayerPropertiesMap = Record<string, ZoneLayerProperties>;
+
+export function defaultZoneLayerProperties(): ZoneLayerPropertiesMap {
+  return {};
 }
 
 // ---------------------------------------------------------------------------
@@ -183,15 +268,39 @@ export interface StackupLayer {
   sublayers?: DielectricSublayer[];
 }
 
+/**
+ * `BOARD_STACKUP_ITEM::IsThicknessEditable()` (`board_stackup.cpp:314-319`):
+ * copper, dielectric and solder mask have a thickness; silkscreen and solder
+ * paste do not. It lives here rather than in the panel because two places need
+ * the same answer — the panel's Thickness column and the `(general (thickness))`
+ * the writer computes, which is `GetBoardThickness()`'s
+ * `if( item->IsThicknessEditable() && item->IsEnabled() )` sum
+ * (`board_stackup.cpp:498-515`). They disagreed, so the number on screen and
+ * the number in the file were not the same number.
+ */
+export function isThicknessEditable(aType: string): boolean {
+  return (
+    aType === 'Copper' || aType === 'Core' || aType === 'Prepreg' || aType.includes('Solder Mask')
+  );
+}
+
 export interface PhysicalStackup {
   copperCount: number;
   impedanceControlled: boolean;
   layers: StackupLayer[];
 }
 
-function copperNames(count: number): string[] {
-  const inner = Array.from({ length: Math.max(0, count - 2) }, (_, i) => `In${i + 1}.Cu`);
-  return ['F.Cu', ...inner, 'B.Cu'];
+/**
+ * The copper stack, front to back, as canonical layer names — `LSET::AllCuMask(
+ * n )` walked by its own copper iterator, which reaches **B.Cu last**, after
+ * the inner layers (`pcbnew/src/layer_ids.ts`, `common/lset.cpp:838-885`).
+ *
+ * Exported because four places need this one list and three of them had grown
+ * their own `['F.Cu', ...In, 'B.Cu']`: the stackup builder, `syncCopperLayers`,
+ * the `(layers …)` writer, and the Zone Hatch Offsets page's row set.
+ */
+export function copperStackNames(count: number): string[] {
+  return AllCuMask(count).map(LSET_Name);
 }
 
 /** A standard FR4 stack for the given copper count (dielectric between each pair). */
@@ -239,7 +348,7 @@ export function buildStackup(count: number): StackupLayer[] {
     dielectricModel: 'Wideband',
   });
 
-  const copper = copperNames(count);
+  const copper = copperStackNames(count);
   const rows: StackupLayer[] = [
     silk('F.Silkscreen', 'Top Silk Screen'),
     paste('F.Paste', 'Top Solder Paste'),
@@ -830,6 +939,8 @@ export interface BoardSetupValues {
   maskPaste: MaskPaste;
   /** Custom DRC rules text (PANEL_SETUP_RULES). */
   customRules: CustomRules;
+  /** Per-layer zone hatched-fill offsets (PANEL_SETUP_ZONE_HATCH_OFFSETS). */
+  zoneLayerProperties: ZoneLayerPropertiesMap;
   /** Default properties for new zones (PANEL_SETUP_ZONES). */
   zones: ZoneDefaults;
   /** Enabled board layers + copper count/types (PANEL_SETUP_LAYERS). */
@@ -849,6 +960,71 @@ export interface BoardSetupValues {
 }
 
 /** KiCad's defaults (board_design_settings.h) for a fresh board/project. */
+/**
+ * `SyncCopperLayers( int aNumCopperLayers )` — the copper count changing on the
+ * Physical Stackup page, pushed into every page whose rows are per copper
+ * layer. Upstream that is three separate overrides fanned out from
+ * `DIALOG_BOARD_SETUP::OnPageChange` (`dialog_board_setup.cpp:306-330`):
+ * `PANEL_SETUP_LAYERS` (`panel_setup_layers.cpp:593`),
+ * `PANEL_SETUP_TUNING_PROFILES` and `PANEL_SETUP_ZONE_HATCH_OFFSETS`
+ * (`panel_setup_zone_hatch_offsets.cpp:82`).
+ *
+ * Here it is one function over the whole `BoardSetupValues`, because our pages
+ * read their rows from that value rather than holding their own controls — the
+ * fan-out exists upstream only because each panel owns wxWidgets state. Doing
+ * it per page would be three copies of the same rule.
+ *
+ * What each page does with the new count is upstream's:
+ *
+ *  - **Layers**: `m_enabledLayers.reset()` over every copper id, then
+ *    `|= LSET::AllCuMask( n )` (`:598-607`) — so the copper rows become exactly
+ *    that stack, and a surviving layer keeps its name and its signal/power type
+ *    because `SyncCopperLayers` round-trips through `transferDataFromWindow`.
+ *  - **Zone hatch offsets**: rows for layers no longer in the stack are
+ *    deleted, rows for new ones added (`:84-103`); the offsets of a layer that
+ *    survives are untouched.
+ */
+export function syncCopperLayers(
+  aValues: BoardSetupValues,
+  aNumCopperLayers: number,
+): BoardSetupValues {
+  const stack = copperStackNames(aNumCopperLayers);
+  const byId = new Map(
+    aValues.layers.layers.filter((l) => l.kind === 'copper').map((l) => [l.id, l]),
+  );
+
+  // The new copper rows, spliced back where the old block was: after the front
+  // technical layers and before B.Mask, which is where the panel builds them.
+  const rebuilt: BoardLayer[] = stack.map(
+    (id) =>
+      byId.get(id) ?? {
+        id,
+        name: id,
+        enabled: true,
+        kind: 'copper' as const,
+        copperType: 'signal' as const,
+      },
+  );
+
+  const rest = aValues.layers.layers.filter((l) => l.kind !== 'copper');
+  const at = rest.findIndex((l) => l.id === 'B.Mask');
+  const next = [...rest];
+  next.splice(at === -1 ? next.length : at, 0, ...rebuilt);
+
+  // A layer that has left the stack takes its hatch offsets with it.
+  const inStack = new Set(stack);
+  const zoneLayerProperties: ZoneLayerPropertiesMap = {};
+  for (const [layer, props] of Object.entries(aValues.zoneLayerProperties))
+    if (inStack.has(layer)) zoneLayerProperties[layer] = props;
+
+  return {
+    ...aValues,
+    layers: { layers: next },
+    zoneLayerProperties,
+    physicalStackup: { ...aValues.physicalStackup, copperCount: aNumCopperLayers },
+  };
+}
+
 export function defaultBoardSetup(): BoardSetupValues {
   return {
     constraints: defaultConstraints(),
@@ -864,6 +1040,7 @@ export function defaultBoardSetup(): BoardSetupValues {
     maskPaste: defaultMaskPaste(),
     customRules: defaultCustomRules(),
     zones: defaultZones(),
+    zoneLayerProperties: defaultZoneLayerProperties(),
     layers: defaultLayers(),
     teardrops: defaultTeardrops(),
     tuning: defaultTuning(),

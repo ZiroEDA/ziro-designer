@@ -23,19 +23,31 @@
  * (it hard-codes 0°, ±90°, ±180° and ±45° to dodge float error). The tests pin
  * the equivalence at those very angles.
  *
- * ## What is deliberately not here
+ * ## The label knocks a gap out of the line
  *
- * Upstream knocks a gap out of the crossbar where the dimension text sits
- * (`CollectKnockedOutSegments`), and gives a leader an optional rectangle or
- * circle around its text. Both need the text's bounding box, which needs glyph
- * metrics we do not have — the same limit that keeps text out of the DRC area
- * predicates and the silk-to-silk check. The crossbar is therefore emitted
- * whole. For hit-testing and bounding boxes that is the *safer* answer (a
- * superset of the drawn ink); for rendering it means the text is drawn over an
- * unbroken line rather than into a gap.
+ * `CollectKnockedOutSegments` cuts the crossbar (and a radial's leader, and a
+ * leader's two lines) where the label's rotated bounding box crosses it, so the
+ * number is never struck through. In the default `OUTSIDE` text position the box
+ * sits clear of the bar and nothing is cut; it is `INLINE`, which puts the label
+ * *on* the bar, that the whole mechanism exists for.
+ *
+ * This needs the text's bounding box, which `text_metrics.ts` provides — the
+ * same `EDA_TEXT::GetTextBox` port the hit tests use.
+ *
+ * ## What is still deliberately not here
+ *
+ * A leader's `DIM_TEXT_BORDER::CIRCLE` frame. Upstream draws a `SHAPE_CIRCLE`
+ * and stops the two lines on it with `segCircleIntersection`; every shape here
+ * is a straight segment, so a circle would have to be faceted into one — an
+ * invention rather than a port. A circle-framed leader therefore falls back to
+ * the rectangular box for the knockout and draws no frame, which is what it did
+ * before. `RECTANGLE` is exact, and `ROUND_RECTANGLE` draws nothing upstream
+ * either (it is not in the switch).
  */
 import type { PcbDimension } from './types.js';
 import { isAlignedKind } from './types.js';
+import { segIntersect } from '@ziroeda/kimath/src/geometry/seg.js';
+import { textItemBox, textItemHitTest, textPenWidth } from './text_metrics.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
 /** One drawn line of a dimension. */
@@ -127,15 +139,190 @@ export function measuredValue(d: PcbDimension): number {
   return Math.round(norm(v));
 }
 
+/**
+ * `BOX2I::Inflate( dx, dy )` on the label's box, then its four corners rotated
+ * about the box centre by the text angle — the `polyBox` every knockout
+ * collides against.
+ *
+ * The vertical inflation is **not** the same for every kind and the signs are
+ * easy to lose: aligned *deflates* by the pen width, orthogonal inflates by it,
+ * and a leader inflates by twice it. Upstream writes them as three separate
+ * literals at three call sites; they are gathered here so the difference is
+ * visible rather than accidental.
+ */
+export function textKnockoutPoly(d: PcbDimension): Vec2[] | null {
+  const t = d.text;
+  if (!t) return null;
+
+  const pen = iu(textPenWidth(t));
+  // `GetTextWidth() / 2` horizontally in every case.
+  const dx = Math.trunc(t.size.x / 2);
+  const dy = d.kind === 'aligned' ? -pen : d.kind === 'leader' ? pen * 2 : pen;
+
+  // `GetTextBox` hands back a BOX2I, so every edge is already a whole IU
+  // upstream; our port computes in floats and has to land on the same lattice
+  // before any of the integer geometry below runs.
+  const raw = textItemBox(t);
+  const box = { x: iu(raw.x), y: iu(raw.y), w: iu(raw.w), h: iu(raw.h) };
+
+  // `Inflate` refuses to deflate a side past nothing, collapsing it to a
+  // zero-width box centred where it was (box2.h:558-585).
+  const x = box.w < -2 * dx ? box.x + Math.trunc(box.w / 2) : box.x - dx;
+  const w = box.w < -2 * dx ? 0 : box.w + 2 * dx;
+  const y = box.h < -2 * dy ? box.y + Math.trunc(box.h / 2) : box.y - dy;
+  const h = box.h < -2 * dy ? 0 : box.h + 2 * dy;
+
+  const centre = { x: x + Math.trunc(w / 2), y: y + Math.trunc(h / 2) };
+  // `polyBox.Append` in upstream's order: origin, (origin.x, end.y), end,
+  // (end.x, origin.y) — anticlockwise on screen.
+  const corners: Vec2[] = [
+    { x, y },
+    { x, y: y + h },
+    { x: x + w, y: y + h },
+    { x: x + w, y },
+  ];
+
+  return corners.map((p) => rotateAbout(p, centre, t.angle));
+}
+
+/** `RotatePoint( point, centre, angle )`, rounded to whole IU as VECTOR2I is. */
+function rotateAbout(p: Vec2, centre: Vec2, deg: number): Vec2 {
+  if (deg % 360 === 0) return p;
+  const r = (deg * Math.PI) / 180;
+  const c = Math.cos(r);
+  const s = Math.sin(r);
+  const dx = p.x - centre.x;
+  const dy = p.y - centre.y;
+  // RotatePoint maps (x, y) to (x cos + y sin, -x sin + y cos).
+  return { x: iu(centre.x + dx * c + dy * s), y: iu(centre.y - dx * s + dy * c) };
+}
+
+/** Even-odd point-in-polygon, `SHAPE_POLY_SET::Contains`. */
+function polyContains(poly: Vec2[], p: Vec2): boolean {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const a = poly[i]!;
+    const b = poly[j]!;
+    if (a.y > p.y !== b.y > p.y && p.x < ((b.x - a.x) * (p.y - a.y)) / (b.y - a.y) + a.x) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}
+
+/**
+ * `segPolyIntersection`: walking from one end of the segment, the first point at
+ * which it meets the polygon. `null` when that end is already inside, or when
+ * the segment never meets it.
+ */
+function segPolyIntersection(poly: Vec2[], s: DimSegment, fromA = true): Vec2 | null {
+  const start = fromA ? s.a : s.b;
+  let endpoint = fromA ? s.b : s.a;
+
+  if (polyContains(poly, start)) return null;
+
+  const d2 = (p: Vec2): number => (p.x - start.x) ** 2 + (p.y - start.y) ** 2;
+
+  for (let i = 0; i < poly.length; i++) {
+    const edge = seg(poly[i]!, poly[(i + 1) % poly.length]!);
+    // `( *seg ).Intersect( aSeg )` — the shared `SEG::Intersect`, which already
+    // carries upstream's int64 cross products, its overflow guard and its
+    // collinear-overlap arm. A local copy here had none of the last two.
+    const hit = segIntersect(edge, s);
+    if (hit && d2(hit) < d2(endpoint)) endpoint = hit;
+  }
+
+  if (endpoint.x === start.x && endpoint.y === start.y) return null;
+  return endpoint;
+}
+
+/**
+ * `CollectKnockedOutSegments`: what is left of `s` once `poly` is cut out of it —
+ * nought, one or two pieces.
+ *
+ * A `null` poly (a dimension with no text at all) leaves the segment whole.
+ */
+export function knockOutSegment(poly: Vec2[] | null, s: DimSegment): DimSegment[] {
+  if (!poly) return [s];
+
+  const out: DimSegment[] = [];
+  const containsA = polyContains(poly, s.a);
+  const containsB = polyContains(poly, s.b);
+  const endA = segPolyIntersection(poly, s, true);
+  const endB = segPolyIntersection(poly, s, false);
+
+  if (endA) out.push(seg(s.a, endA));
+
+  if (endB) {
+    let canAdd = true;
+    if (endA) {
+      // The degenerate readings upstream guards against: the two walks crossing
+      // over, and a zero-length segment meeting the polygon at one point.
+      if ((same(endB, s.a) && same(endA, s.b)) || (same(endA, endB) && same(s.a, s.b))) {
+        canAdd = false;
+      }
+    }
+    if (canAdd) out.push(seg(endB, s.b));
+  }
+
+  if (!containsA && !containsB && !endA && !endB) out.push(s);
+  return out;
+}
+
+const same = (a: Vec2, b: Vec2): boolean => a.x === b.x && a.y === b.y;
+
+/**
+ * The crossbar `PCB_DIM_ALIGNED::updateGeometry` and
+ * `PCB_DIM_ORTHOGONAL::updateGeometry` compute into `m_crossBarStart` /
+ * `m_crossBarEnd`, for the two kinds that have one.
+ *
+ * It is exported because `updateText` places the label off the crossbar's
+ * centre, and a second copy of this arithmetic there would be exactly the
+ * per-call-site drift the central-value rule forbids: the label would drift off
+ * the bar the moment either copy changed.
+ */
+export function dimensionCrossbar(d: PcbDimension): { start: Vec2; end: Vec2 } | null {
+  const height = d.height ?? 0;
+
+  if (d.kind === 'aligned') {
+    const v = sub(d.end, d.start);
+    // Upstream writes `sign(m_height) * extension.Resize(m_height)`. Both
+    // factors carry the sign, so they cancel: the crossbar always sits |height|
+    // along the perpendicular that was already chosen for the side.
+    const crossBarDist = resize(alignedExtension(d), Math.abs(height));
+    return { start: add(d.start, crossBarDist), end: add(d.end, crossBarDist) };
+  }
+
+  if (d.kind === 'orthogonal') {
+    const horizontal = d.orientation !== 1;
+    const ext: Vec2 = horizontal ? { x: 0, y: height } : { x: height, y: 0 };
+    const start = add(d.start, resize(ext, Math.abs(height)));
+    return {
+      start,
+      end: horizontal ? { x: d.end.x, y: start.y } : { x: start.x, y: d.end.y },
+    };
+  }
+
+  return null;
+}
+
+/**
+ * The perpendicular an aligned dimension hangs its extension lines and crossbar
+ * from. Which side it points to is the sign of the height, expressed as the
+ * choice of perpendicular rather than as a negative offset.
+ */
+function alignedExtension(d: PcbDimension): Vec2 {
+  const v = sub(d.end, d.start);
+  return (d.height ?? 0) > 0 ? { x: -v.y, y: v.x } : { x: v.y, y: -v.x };
+}
+
 /** `PCB_DIM_ALIGNED::updateGeometry`. */
 function alignedSegments(d: PcbDimension): DimSegment[] {
   const out: DimSegment[] = [];
   const v = sub(d.end, d.start);
   const height = d.height ?? 0;
 
-  // Which side the crossbar sits on is the sign of the height, expressed as the
-  // choice of perpendicular rather than as a negative offset.
-  const ext: Vec2 = height > 0 ? { x: -v.y, y: v.x } : { x: v.y, y: -v.x };
+  const ext = alignedExtension(d);
   const extHeight = Math.abs(height) - d.style.extensionOffset + (d.style.extensionHeight ?? 0);
 
   for (const p of [d.start, d.end]) {
@@ -143,15 +330,12 @@ function alignedSegments(d: PcbDimension): DimSegment[] {
     out.push(seg(s, add(s, resize(ext, extHeight))));
   }
 
-  // Upstream writes `sign(m_height) * extension.Resize(m_height)`. Both factors
-  // carry the sign, so they cancel: the crossbar always sits |height| along the
-  // perpendicular that was already chosen for the side.
-  const crossBarDist = resize(ext, Math.abs(height));
-  const crossStart = add(d.start, crossBarDist);
-  const crossEnd = add(d.end, crossBarDist);
-  out.push(seg(crossStart, crossEnd));
+  const bar = dimensionCrossbar(d)!;
+  // "Update text after calculating crossbar position but before adding crossbar
+  // lines" — the label's box is what decides where the bar is cut.
+  out.push(...knockOutSegment(textKnockoutPoly(d), seg(bar.start, bar.end)));
 
-  out.push(...crossbarArrows(d, crossStart, crossEnd, v));
+  out.push(...crossbarArrows(d, bar.start, bar.end, v));
   return out;
 }
 
@@ -168,10 +352,7 @@ function orthogonalSegments(d: PcbDimension): DimSegment[] {
   const s1 = add(d.start, resize(ext, d.style.extensionOffset));
   out.push(seg(s1, add(s1, resize(ext, extHeight))));
 
-  const crossStart = add(d.start, resize(ext, Math.abs(height)));
-  const crossEnd: Vec2 = horizontal
-    ? { x: d.end.x, y: crossStart.y }
-    : { x: crossStart.x, y: d.end.y };
+  const { start: crossStart, end: crossEnd } = dimensionCrossbar(d)!;
 
   // The second extension line runs from the *crossbar* back to the second
   // feature point, so its length comes from that gap rather than from `height`.
@@ -180,7 +361,7 @@ function orthogonalSegments(d: PcbDimension): DimSegment[] {
   const s2 = sub(crossEnd, resize(ext, styleExt));
   out.push(seg(s2, add(s2, resize(ext, extHeight2))));
 
-  out.push(seg(crossStart, crossEnd));
+  out.push(...knockOutSegment(textKnockoutPoly(d), seg(crossStart, crossEnd)));
   out.push(...crossbarArrows(d, crossStart, crossEnd, sub(crossEnd, crossStart)));
   return out;
 }
@@ -210,6 +391,17 @@ function crossbarArrows(
   return [...arrowSegments(crossStart, along, al), ...arrowSegments(crossEnd, back, al)];
 }
 
+/**
+ * `PCB_DIM_RADIAL::GetKnee`: where the radial leader bends, one leader-length
+ * out along the radius from the measured point.
+ *
+ * It lives here rather than with the drawing tool because `updateText` needs it
+ * too — a radial's label angle is measured from the knee.
+ */
+export function radialKnee(d: PcbDimension): Vec2 {
+  return add(d.end, resize(sub(d.end, d.start), d.leaderLength ?? 0));
+}
+
 /** `PCB_DIM_RADIAL::updateGeometry`. */
 function radialSegments(d: PcbDimension): DimSegment[] {
   const out: DimSegment[] = [];
@@ -222,9 +414,11 @@ function radialSegments(d: PcbDimension): DimSegment[] {
   out.push(seg(sub(d.start, arm90), add(d.start, arm90)));
 
   const radial = resize(sub(d.end, d.start), d.leaderLength ?? 0);
-  const tip = add(d.end, radial);
-  out.push(seg(d.end, tip));
-  if (d.text) out.push(seg(tip, d.text.at));
+  const tip = radialKnee(d);
+  // Both the leader and the run out to the label are cut by the label's box.
+  const poly = textKnockoutPoly(d);
+  out.push(...knockOutSegment(poly, seg(d.end, tip)));
+  if (d.text) out.push(...knockOutSegment(poly, seg(tip, d.text.at)));
   out.push(...arrowSegments(d.end, radial, al));
   return out;
 }
@@ -248,9 +442,32 @@ function centerSegments(d: PcbDimension): DimSegment[] {
 function leaderSegments(d: PcbDimension): DimSegment[] {
   const v = sub(d.end, d.start);
   const start = add(d.start, resize(v, d.style.extensionOffset));
-  const out = [seg(start, d.end)];
-  if (d.text) out.push(seg(d.end, d.text.at));
+  const poly = textKnockoutPoly(d);
+
+  // The arrow line is measured from the *feature point*, not from the offset
+  // start — `SEG arrowSeg( m_start, m_end )` — but drawn from the offset start.
+  // It stops where it first meets the label, or at the end point if it never
+  // does.
+  const arrowEnd = (poly && segPolyIntersection(poly, seg(d.start, d.end))) ?? d.end;
+  const out = [seg(start, arrowEnd)];
+
   out.push(...arrowSegments(start, v, d.style.arrowLength));
+
+  if (d.text && d.style.textFrame === 1) {
+    // DIM_TEXT_BORDER::RECTANGLE draws the poly box itself.
+    for (let i = 0; poly && i < poly.length; i++) {
+      out.push(seg(poly[i]!, poly[(i + 1) % poly.length]!));
+    }
+  }
+
+  // The second line is drawn only when the first reached the end point:
+  // `if( textSegEnd && *arrowSegEnd == m_end )`. If the label already swallowed
+  // the first line there is nothing left to run out to it.
+  if (d.text && same(arrowEnd, d.end)) {
+    const textEnd = poly ? segPolyIntersection(poly, seg(d.end, d.text.at)) : d.text.at;
+    if (textEnd) out.push(seg(d.end, textEnd));
+  }
+
   return out;
 }
 
@@ -317,9 +534,20 @@ export function distanceToDimension(d: PcbDimension, p: Vec2): number {
 
 /**
  * Whether `p` is close enough to count as a click on this dimension.
- * `PCB_DIMENSION_BASE::HitTest` tests the drawn shapes with the accuracy the
- * caller supplies, widened by half the stroke.
+ *
+ * `PCB_DIMENSION_BASE::HitTest` (pcb_dimension.cpp:714-730) tries the **text
+ * box first** and only then the drawn shapes, widened by half the stroke:
+ *
+ *     if( TextHitTest( aPosition ) ) return true;
+ *     int dist_max = aAccuracy + ( m_lineThickness / 2 );
+ *     for( shape : GetShapes() ) if( shape->Collide( aPosition, dist_max ) ) …
+ *
+ * The text branch is not a nicety. Now that the label knocks a gap out of the
+ * crossbar, the shapes no longer run under the number — so without it, clicking
+ * an INLINE dimension squarely on its value would select nothing.
  */
 export function hitTestDimension(d: PcbDimension, p: Vec2, accuracy = 0): boolean {
+  // TextHitTest is called with no accuracy argument, so it takes its default 0.
+  if (d.text && d.text.text !== '' && textItemHitTest(d.text, p)) return true;
   return distanceToDimension(d, p) <= d.style.thickness / 2 + accuracy;
 }

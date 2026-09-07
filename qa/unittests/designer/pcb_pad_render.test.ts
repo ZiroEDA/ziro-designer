@@ -115,10 +115,22 @@ const padBoard = (...pads: string[]): Board =>
   boardWith(`(footprint "T" (layer "F.Cu") (at 0 0)
     ${pads.join('\n    ')})`);
 
+/**
+ * A layer's pad flashes — BOTH buckets.
+ *
+ * The scene splits them: a PTH pad with a NORMAL padstack goes to
+ * `padsPthNormal` so `m_Display.m_UseViaColorForNormalTHPadstacks` can paint
+ * it in the via-hole colour without rebuilding the scene
+ * (`PCB_PAINTER::GetColor`, `pcb_painter.cpp:266-283`). The two are disjoint
+ * halves of one thing, and every question here is about the SHAPE, which the
+ * split does not touch — so reading one bucket would silently answer "no pads"
+ * for every through-hole footprint in the library.
+ */
 const padOps = (board: Board, layer = 'F.Cu'): Op[] => {
   const scene = buildScene(board, {}, RECORDING_FACTORY);
   const bucket = scene.layers.get(layer);
-  return bucket ? asRecording(bucket.pads).ops : [];
+  if (!bucket) return [];
+  return [...asRecording(bucket.pads).ops, ...asRecording(bucket.padsPthNormal).ops];
 };
 
 describe('a pad draws the shape its own token names', () => {

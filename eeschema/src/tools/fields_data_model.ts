@@ -26,7 +26,7 @@ import type { Schematic, SchSymbol } from '../types.js';
 import { buildSheetTree } from '../project.js';
 import { refId } from './hittest.js';
 import { isMandatoryField, type SymbolAttrEdit } from './properties.js';
-import { expandTextVars, type TextVarResolver } from './text_vars.js';
+import { expandTextVars, type TextVarResolver } from '@ziroeda/common/src/text_vars.js';
 import { refsShorthand, type BomOutputFormat } from '../exporters/bom.js';
 
 /** FIELDS_EDITOR_GRID_DATA_MODEL::QUANTITY_VARIABLE. */

@@ -12,6 +12,13 @@
  * literal `${...}`; unresolved tokens stay verbatim, like upstream. KiCad's
  * `@{...}` math expressions pass through untouched (no EXPRESSION_EVALUATOR
  * here).
+ *
+ * It lives in `common/` because upstream's does: `ExpandTextVars` is
+ * `common/common.cpp`, and both editors call it — eeschema through
+ * `SCH_TEXT::GetShownText`, pcbnew through `PCB_TEXT::GetShownText` and
+ * `BOARD::ResolveTextVar`. It grew here under `eeschema/src/tools/`, so the day
+ * the board needed `${VAR}` on a text item the choice was to copy it or to
+ * hoist it. Upstream hoisted; so do we.
  */
 
 /** Resolve a variable name to its value; undefined = not a known variable. */

@@ -105,6 +105,52 @@ pro/dru persist via `onPersistFiles`, the board text is patched via the
   (OnDRCItemDClick); Delete Marker / Delete All Markers footer buttons.
   Ignored severities never make markers (RunDRC severity gate).
 
+## Chrome / layout parity (Sep 2026 pass)
+
+The dialog and all thirteen panels were re-derived from the `panel_setup_*.cpp`
+sizer trees. What that fixed, and what it left:
+
+- **The dialog no longer re-sizes as you walk the tree.** `PAGED_DIALOG` takes
+  `aInitialSize` and `onPageChanged` only ever *grows* it (`newSize.IncTo`), so
+  a wx dialog sits at one size. `.ze-modal` is `width: max-content`, which does
+  the opposite, and a floor cannot stop it. `PagedDialog` now applies the
+  subclass's own literal — `wxSize( 980, 600 )` for Board Setup,
+  `wxSize( 920, 460 )` for Schematic Setup — and the page area scrolls.
+- **No font sizes and no colours are stated by any of these panels.** None of
+  the `panel_setup_*.cpp` files calls `SetFont` for a size; the two that call it
+  ask for `wxNORMAL_FONT->GetPointSize()` at `wxFONTWEIGHT_NORMAL`, i.e. no
+  change. The three real ones are `KIUI::GetInfoFont().Italic()` and
+  `GetSmallInfoFont().Italic()`, which are `.ze-pref-infotext` / `.ze-pref-help`
+  / `.ze-pref-hint`.
+- **Every dropdown is the shared `Combo`.** Seventeen native `<select>`s went;
+  a native popup takes Chrome's own selection blue and no stylesheet reaches it.
+  Two native list boxes (`<select size=8>`) became `ui/EdaListDialog.tsx`, a
+  port of `EDA_LIST_DIALOG` shared by the Add-user-layer and add/remove-
+  dielectric pickers.
+- **Tree parity.** KiCad 10 has no "Zones" page: `PANEL_SETUP_ZONES` is the
+  third block of the Text & Graphics > Defaults page
+  (`panel_setup_defaults.cpp:41-48`), which is where it now renders.
+- Behaviour fixes found while reading the C++: copper-layer checkboxes are
+  disabled (the Physical Stackup page owns the copper count); the copper type
+  choice reads "power plane", not the file token `power`; dielectric rows are
+  colour-editable (`IsColorEditable()`); the stackup colour lists are
+  `GetStandardColors()`' own two tables; "Minimum drill size:" and "Arc/Circle
+  Approximations" are the v10 strings.
+
+### Still open after that pass
+
+- **Zone Hatch Offsets** — a Board Stackup page we do not have at all
+  (`PANEL_SETUP_ZONE_HATCH_OFFSETS`, a Layer / X Offset / Y Offset grid). Needs
+  a model and a file format, not just a panel.
+- **PANEL_ZONE_PROPERTIES** — net name, the hatched-fill block (orientation,
+  hatch width/gap, smoothing effort and amount) and hatch-offset overrides.
+- **PANEL_SETUP_RULES** — the compile button and the `WX_HTML_REPORT_BOX` under
+  the editor; there is no `.kicad_dru` evaluator to report from yet.
+- **PANEL_SETUP_LAYERS** — a user-defined layer gets a wxChoice of
+  Auxiliary / Off-board front / Off-board back; ours shows a static
+  "User defined". The type is not in the model or the writer.
+- **PANEL_SETUP_CONSTRAINTS** — "Minimum groove for creepage:" is missing.
+
 ## Pending
 
 - **Phase B remainder**, formatting dash ratios → board dashed-line

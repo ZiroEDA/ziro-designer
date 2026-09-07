@@ -23,6 +23,9 @@
  */
 
 import { PCB_IU_PER_MM } from '@ziroeda/common/src/eda_units.js';
+import { pageSizeMM } from '@ziroeda/common/src/page_info.js';
+import { boardOutlineLoops } from './boardOutline.js';
+import { galSnapPx } from '@ziroeda/common/src/gal_pixel_grid.js';
 import {
   brightened,
   brightness,
@@ -85,6 +88,7 @@ import {
 } from './pcbTheme.js';
 import { layoutText, measureText } from '@ziroeda/common/src/font/stroke_font.js';
 import type { BitmapTextPlacement } from '../../render/gl/bitmap_text.js';
+import { expandTextVars, type TextVarResolver } from '@ziroeda/common/src/text_vars.js';
 
 const MM = PCB_IU_PER_MM; // pcbnew IU is 1 nm (base_units.h)
 
@@ -300,6 +304,36 @@ export interface PcbDrawOptions {
   zoneOutline: boolean;
   /** Show pad clearance outlines (m_Display.m_PadClearance, default on). */
   padClearance: boolean;
+  /**
+   * `LAYER_BOARD_OUTLINE_AREA` — the Objects tab's "Board Area Shadow", a
+   * translucent grey fill of everything inside Edge.Cuts.
+   *
+   * **Default OFF.** `LSET::VisibleGALLayers()` lists every layer a board opens
+   * with and this one is commented out of it — "currently hidden by default"
+   * (`common/lset.cpp:825`). A `PCB_DRAW_PANEL_GAL` that is not the board
+   * editor has no project to read that set from, so the preview panels DO show
+   * it, which is where the difference against a live KiCad shows up.
+   */
+  boardOutlineArea: boolean;
+  /**
+   * `m_Display.m_UseViaColorForNormalTHPadstacks`, default **false**
+   * (`pcbnew_settings.cpp:243-244`) — the Pads group on Preferences > PCB
+   * Editor > Display Options.
+   *
+   * `PCB_PAINTER::GetColor` swaps a PTH pad's copper layer for
+   * `LAYER_VIA_HOLES` when it is set (`pcb_painter.cpp:266-283`), which is why
+   * the scene keeps those pads in a path of their own.
+   */
+  viaColorForThPads: boolean;
+  /**
+   * `m_Display.m_TrackClearance`, a `TRACK_CLEARANCE_MODE`
+   * (`pcbnew/pcbnew_settings.h:85-92`), default `SHOW_WITH_VIA_WHILE_ROUTING`
+   * = 2 — the Clearance Outlines group's Tracks choice.
+   *
+   * Only `SHOW_WITH_VIA_ALWAYS` = 4 changes a board at rest; 1, 2 and 3 differ
+   * from each other only during a routing or drag gesture.
+   */
+  trackClearanceMode: 0 | 1 | 2 | 3 | 4;
   /** Fill vs sketch (outline) for tracks / vias / pads (m_Display*Fill; default
    *  filled). Sketch strokes each item's outline at min-pen, like pcb_painter. */
   trackFill: boolean;
@@ -366,6 +400,12 @@ export const DEFAULT_DRAW_OPTIONS: PcbDrawOptions = {
   zoneOpacity: 0.6,
   zoneOutline: false,
   padClearance: true,
+  // `LSET::VisibleGALLayers()` has LAYER_BOARD_OUTLINE_AREA commented out.
+  boardOutlineArea: false,
+  // `pcb_display.pad_use_via_color_for_normal_th_padstacks`, false.
+  viaColorForThPads: false,
+  // `pcb_display.track_clearance_mode`, SHOW_WITH_VIA_WHILE_ROUTING.
+  trackClearanceMode: 2,
   trackFill: true,
   viaFill: true,
   padFill: true,
@@ -382,11 +422,38 @@ interface LayerBuckets {
   hasZoneOutlines: boolean;
   clearance: Path2D; // pad clearance outlines (stroked in the copper color)
   hasClearance: boolean;
+  /**
+   * Track, arc and via clearance outlines — the ring `PCB_PAINTER::draw`
+   * strokes at `width + clearance * 2` on the item's CLEARANCE layer
+   * (`pcb_painter.cpp:856-870` for a segment, `:1022-1044` for an arc,
+   * `:1355-1375` for a via).
+   *
+   * Its own path and not `clearance`'s, because the two are gated by different
+   * settings: pads by `m_Display.m_PadClearance` and these by
+   * `m_Display.m_TrackClearance == SHOW_WITH_VIA_ALWAYS`.
+   */
+  trackClearance: Path2D;
+  hasTrackClearance: boolean;
   trackOutlines: Path2D; // track/arc stadium outlines for sketch (unfilled) mode
   hasTrackOutlines: boolean;
   tracks: Map<number, Path2D>; // width -> segments/arcs (object: Tracks)
   pads: Path2D; // pad flashes (object: Pads)
   hasPads: boolean;
+  /**
+   * The pad flashes `PCB_PAINTER::GetColor` may recolour: a `PAD_ATTRIB::PTH`
+   * pad whose padstack is `PADSTACK::MODE::NORMAL` takes `LAYER_VIA_HOLES`'
+   * colour instead of the copper layer's when
+   * `m_Display.m_UseViaColorForNormalTHPadstacks` is set
+   * (`pcb_painter.cpp:266-283`, "old-skool display for people who struggle
+   * with change").
+   *
+   * A SEPARATE path rather than a flag on the draw, because the scene is built
+   * once and the setting can move without it: both buckets are always filled,
+   * and `paintCopper` decides which colour each takes. These pads are NOT in
+   * `pads`; the two are disjoint.
+   */
+  padsPthNormal: Path2D;
+  hasPadsPthNormal: boolean;
   vias: Path2D; // via annuli (object: Vias)
   hasVias: boolean;
   gfxFill: Path2D;
@@ -588,6 +655,15 @@ export interface BoardScene {
   /** Reference images, as payload + destination. The pixels live in the cache. */
   images: SceneImage[];
   bbox: { minX: number; minY: number; maxX: number; maxY: number } | null;
+  /**
+   * `PCB_BOARD_OUTLINE` — the closed Edge.Cuts loops, as one even-odd path so
+   * a cutout is a hole in the fill (`pcbnew/pcb_board_outline.cpp`, whose
+   * `ViewGetLayers` is `{ LAYER_BOARD_OUTLINE_AREA }` and nothing else).
+   *
+   * Retained rather than rebuilt per frame: chaining the segments into rings is
+   * the expensive part and the outline does not move between edits.
+   */
+  boardOutlineArea: Path2D | null;
 }
 
 /**
@@ -647,11 +723,15 @@ const newBuckets = (): LayerBuckets => ({
   hasZoneOutlines: false,
   clearance: pathFactory.path(),
   hasClearance: false,
+  trackClearance: pathFactory.path(),
+  hasTrackClearance: false,
   trackOutlines: pathFactory.path(),
   hasTrackOutlines: false,
   tracks: new Map(),
   pads: pathFactory.path(),
   hasPads: false,
+  padsPthNormal: pathFactory.path(),
+  hasPadsPthNormal: false,
   vias: pathFactory.path(),
   hasVias: false,
   gfxFill: pathFactory.path(),
@@ -1178,18 +1258,56 @@ function addDimension(scene: BoardScene, d: PcbDimension): void {
   if (d.text && !d.text.hide) addText(b.textBoard, d.text);
 }
 
+// Text-variable resolver for the current render (unset = draw verbatim).
+let g_resolveText: SceneFilter['resolveTextVar'];
+
+/** `GetShownText`: expand `${VAR}` when a resolver is active. */
+function shownText(text: string): string {
+  return g_resolveText && text.includes('${') ? expandTextVars(text, g_resolveText) : text;
+}
+
 function addText(map: Map<number, Path2D>, t: PcbTextItem): void {
+  // Every board text goes through here — board text, footprint fields,
+  // dimensions, table cells and text boxes — so this is the one place the
+  // expansion has to happen, the way `GetShownText` is the one place upstream.
+  if (g_resolveText && t.text.includes('${')) t = { ...t, text: shownText(t.text) };
+  if (t.size.y <= 0 || t.text === '') return;
+  emitBoardText(t, pathIn(map, boardTextPen(t)));
+}
+
+/**
+ * `EDA_TEXT::GetEffectiveTextPenWidth` (eda_text.cpp:1093-1108), through the
+ * shared port: file thickness if > 1, else `GetPenSizeForBold( GetTextWidth() )`
+ * or `GetPenSizeForNormal( GetTextWidth() )` — both of which take
+ * `GetTextSize().x`, not the height — then `ClampTextPenSize` against the
+ * *smaller* of the two dimensions. Deriving it from `size.y` here drew
+ * condensed board text, `(size 1.5 0.6)`, with a pen 2.5× too heavy.
+ * The floor of 1 is ours: a zero-width canvas stroke draws nothing.
+ */
+const boardTextPen = (t: PcbTextItem): number => Math.max(textPenWidth(t), 1);
+
+/**
+ * One board text item on a path of its own, plus the pen it should be stroked
+ * with — for the drawing tools' live previews, which paint straight onto the
+ * canvas rather than into a scene.
+ *
+ * It shares {@link emitBoardText} with {@link addText} rather than repeating the
+ * alignment/rotation/mirror/italic arithmetic, which is how a preview starts
+ * disagreeing with the thing it previews. The path comes from the scene's
+ * factory, not from `new Path2D()`: outside `buildScene` that is the browser's
+ * own, and inside it, it is whatever the scene is recording into.
+ */
+export function boardTextPath(t: PcbTextItem): { path: Path2D; thickness: number } | null {
+  if (t.size.y <= 0 || t.text === '') return null;
+  const path = pathFactory.path();
+  emitBoardText(t, path);
+  return { path, thickness: boardTextPen(t) };
+}
+
+/** The glyph strokes of one text item, appended to `path`. */
+function emitBoardText(t: PcbTextItem, path: Path2D): void {
   const size = t.size.y;
-  if (size <= 0 || t.text === '') return;
   const { strokes, width } = layoutText(t.text, size);
-  // `EDA_TEXT::GetEffectiveTextPenWidth` (eda_text.cpp:1093-1108), through the
-  // shared port: file thickness if > 1, else `GetPenSizeForBold( GetTextWidth() )`
-  // or `GetPenSizeForNormal( GetTextWidth() )` — both of which take
-  // `GetTextSize().x`, not the height — then `ClampTextPenSize` against the
-  // *smaller* of the two dimensions. Deriving it from `size.y` here drew
-  // condensed board text, `(size 1.5 0.6)`, with a pen 2.5× too heavy.
-  // The floor of 1 is ours: a zero-width canvas stroke draws nothing.
-  const thickness = Math.max(textPenWidth(t), 1);
   // PCB text anchors CENTER/CENTER by default (EDA_TEXT on boards).
   const justify = t.justify ?? [];
   const hAlign = justify.includes('left') ? 'left' : justify.includes('right') ? 'right' : 'center';
@@ -1212,7 +1330,6 @@ function addText(map: Map<number, Path2D>, t: PcbTextItem): void {
   // "(size height width)"); layoutText uses height for both, so condense x by
   // width/height for non-square text (e.g. a condensed board name).
   const sx = size > 0 ? t.size.x / size : 1;
-  const path = pathIn(map, thickness);
   for (const stroke of strokes) {
     for (let i = 0; i < stroke.length; i++) {
       const gx = ((stroke[i]!.x + offX) * sx - stroke[i]!.y * tilt) * mir;
@@ -1430,6 +1547,17 @@ export interface SceneFilter {
    * every ring visibly off (this board's says 0.15 mm).
    */
   clearanceForNet?: (netName: string) => number;
+  /**
+   * `BOARD::ResolveTextVar` reached through `PCB_TEXT::GetShownText`
+   * (`pcbnew/pcb_text.cpp`) — the project's text variables, so a board text
+   * reading `${REVISION}` draws its value. Unset draws the source verbatim,
+   * which is what every board did before: the Text Variables page stored its
+   * rows in the project file and no board text ever consulted them.
+   *
+   * The same shape as the schematic renderer's `RenderOpts.resolveTextVar`,
+   * because it is the same upstream call.
+   */
+  resolveTextVar?: TextVarResolver;
 }
 
 /** Even-odd ray cast: is point `p` inside the closed polygon `poly`? */
@@ -1531,6 +1659,8 @@ export function buildScene(
   factory: ScenePathFactory = DOM_PATH_FACTORY,
 ): BoardScene {
   const prev = pathFactory;
+  const prevResolve = g_resolveText;
+  g_resolveText = filter.resolveTextVar;
   pathFactory = factory;
   try {
     return compileScene(board, filter);
@@ -1541,6 +1671,7 @@ export function buildScene(
     // this function instead of a coincidence of its callers, which is what a
     // future nested or early-returning build would need.
     pathFactory = prev;
+    g_resolveText = prevResolve;
   }
 }
 
@@ -1571,6 +1702,7 @@ function compileScene(board: Board, filter: SceneFilter): BoardScene {
     padLabels: [],
     images: [],
     bbox: null,
+    boardOutlineArea: null,
   };
   const copperNames = board.layers
     .filter((l) => /\.Cu$/.test(l.name))
@@ -1588,6 +1720,13 @@ function compileScene(board: Board, filter: SceneFilter): BoardScene {
     if (y + pad > maxY) maxY = y + pad;
   };
 
+  /**
+   * `BOARD_CONNECTED_ITEM::GetOwnClearance( layer )` for a track, arc or via —
+   * the same question the pad loop asks, so the same answer and the same
+   * fallback for a board with no rules.
+   */
+  const trackClearanceOf = (net: number): number =>
+    filter.clearanceForNet?.(board.nets.get(net) ?? '') ?? DEFAULT_PAD_CLEARANCE;
   for (const [ti, t] of board.tracks.entries()) {
     pathFactory.setOwner?.(`track:${ti}`);
     const b = buckets(scene, t.layer);
@@ -1596,6 +1735,16 @@ function compileScene(board: Board, filter: SceneFilter): BoardScene {
     p.lineTo(t.end.x, t.end.y);
     addStadiumOutline(b.trackOutlines, t.start, t.end, t.width / 2);
     b.hasTrackOutlines = true;
+    // `DrawSegment( start, end, track_width + clearance * 2 )` — the same
+    // stadium, grown by the clearance. Built unconditionally: the scene is
+    // compiled once and `m_Display.m_TrackClearance` can move without it.
+    {
+      const clr = trackClearanceOf(t.net);
+      if (clr > 0) {
+        addStadiumOutline(b.trackClearance, t.start, t.end, t.width / 2 + clr);
+        b.hasTrackClearance = true;
+      }
+    }
     grow(t.start.x, t.start.y, t.width);
     grow(t.end.x, t.end.y, t.width);
     // PCB_TRACK::ViewGetLOD skips the unconnected net; the name itself is the
@@ -1622,6 +1771,13 @@ function compileScene(board: Board, filter: SceneFilter): BoardScene {
     for (let i = 1; i < pts.length; i++) p.lineTo(pts[i]!.x, pts[i]!.y);
     addPolylineOutline(b.trackOutlines, pts, a.width / 2);
     b.hasTrackOutlines = true;
+    {
+      const clr = trackClearanceOf(a.net);
+      if (clr > 0) {
+        addPolylineOutline(b.trackClearance, pts, a.width / 2 + clr);
+        b.hasTrackClearance = true;
+      }
+    }
     grow(a.start.x, a.start.y, a.width);
     grow(a.end.x, a.end.y, a.width);
     // draw(PCB_ARC)'s netname branch. One name at the arc midpoint, turned to
@@ -1656,11 +1812,17 @@ function compileScene(board: Board, filter: SceneFilter): BoardScene {
     pathFactory.setOwner?.(`via:${vi}`);
     const r = v.size / 2;
     const span = viaSpan(v.layers[0], v.layers[1], copperNames);
+    const viaClr = trackClearanceOf(v.net ?? 0);
     for (const layer of span) {
       const b = buckets(scene, layer);
       b.vias.moveTo(v.at.x + r, v.at.y);
       b.vias.arc(v.at.x, v.at.y, r, 0, Math.PI * 2);
       b.hasVias = true;
+      if (viaClr > 0) {
+        b.trackClearance.moveTo(v.at.x + r + viaClr, v.at.y);
+        b.trackClearance.arc(v.at.x, v.at.y, r + viaClr, 0, Math.PI * 2);
+        b.hasTrackClearance = true;
+      }
     }
     {
       // draw(PCB_VIA)'s netname layer: the short net name, and for a via that
@@ -1819,10 +1981,21 @@ function compileScene(board: Board, filter: SceneFilter): BoardScene {
       }
       const padClr =
         filter.clearanceForNet?.(board.nets.get(pad.net ?? 0) ?? '') ?? DEFAULT_PAD_CLEARANCE;
+      // `pad->GetAttribute() == PAD_ATTRIB::PTH && pad->Padstack().Mode() ==
+      // PADSTACK::MODE::NORMAL` (`pcb_painter.cpp:272-274`). The second half is
+      // free here: this model has only NORMAL padstacks — see
+      // `footprint_checker.ts`' note — so a `thru_hole` pad IS the case the
+      // painter recolours. A per-layer padstack model would have to ask.
+      const pthNormal = pad.type === 'thru_hole';
       for (const layer of expandLayers(pad.layers, copperNames)) {
         const b = buckets(scene, layer);
-        addPadShape(b.pads, pad);
-        b.hasPads = true;
+        if (pthNormal) {
+          addPadShape(b.padsPthNormal, pad);
+          b.hasPadsPthNormal = true;
+        } else {
+          addPadShape(b.pads, pad);
+          b.hasPads = true;
+        }
         // Pad clearance outline is drawn per copper layer the pad flashes on
         // (not the mask layers), in that layer's color — and only when the
         // clearance the rules resolve to is greater than zero
@@ -1910,6 +2083,23 @@ function compileScene(board: Board, filter: SceneFilter): BoardScene {
   }
 
   scene.bbox = minX < maxX ? { minX, minY, maxX, maxY } : null;
+
+  // `PCB_BOARD_OUTLINE`'s loops, as one even-odd path. NO fallback box: KiCad
+  // draws no board area for a board whose Edge.Cuts do not close, rather than
+  // inventing a rectangle — the 3D viewer wants that fallback and this does not.
+  {
+    const loops = boardOutlineLoops(board);
+    if (loops.length > 0) {
+      const path = pathFactory.path();
+      for (const loop of loops) {
+        path.moveTo(loop[0]!.x, loop[0]!.y);
+        for (let i = 1; i < loop.length; i++) path.lineTo(loop[i]!.x, loop[i]!.y);
+        path.closePath();
+      }
+      scene.boardOutlineArea = path;
+    }
+  }
+
   return scene;
 }
 
@@ -2020,30 +2210,18 @@ function asBitmapText(ctx: CanvasRenderingContext2D, fn: () => void): void {
 // pcbnew draws it in LAYER_DRAWINGSHEET colour rgb(200,114,171)
 // (builtin_color_themes.h). The board origin (0,0) is the page's top-left.
 
-const PAPER_MM: Record<string, [number, number]> = {
-  A5: [210, 148],
-  A4: [297, 210],
-  A3: [420, 297],
-  A2: [594, 420],
-  A1: [841, 594],
-  A0: [1189, 841],
-  A: [279.4, 215.9],
-  B: [431.8, 279.4],
-  C: [558.8, 431.8],
-  D: [863.6, 558.8],
-  E: [1117.6, 863.6],
-  USLetter: [279.4, 215.9],
-  USLegal: [355.6, 215.9],
-  USLedger: [431.8, 279.4],
-};
-
+/**
+ * `PAGE_INFO`'s size for this `(paper …)` token, in pcbnew's IU.
+ *
+ * The table is `common/src/page_info.ts` — one copy, because eeschema's
+ * renderer needs the same one. This file's private copy did not handle
+ * `PAGE_SIZE_TYPE::User`, so a board with a custom page size drew neither its
+ * sheet nor its page limits; the schematic's copy did, which is how the two
+ * came to disagree.
+ */
 const paperSizeIU = (paper: string | undefined): { w: number; h: number } | null => {
-  if (!paper) return null;
-  const parts = paper.split(/\s+/);
-  const dims = PAPER_MM[parts[0]!];
-  if (!dims) return null;
-  const [w, h] = parts.includes('portrait') ? [dims[1], dims[0]] : dims;
-  return { w: w! * MM, h: h! * MM };
+  const mm = pageSizeMM(paper);
+  return mm ? { w: mm.w * MM, h: mm.h * MM } : null;
 };
 
 export interface SheetInfo {
@@ -2330,6 +2508,13 @@ export function buildDrawSteps(
     ctx.lineJoin = 'round';
     // Drawing sheet (page frame + title block) behind the board, like pcbnew,
     // in the theme's LAYER_DRAWINGSHEET color (classic: dark red; B&W: black).
+    // `LAYER_BOARD_OUTLINE_AREA`, under the copper and over the sheet: it is a
+    // SHADOW of the board area, so everything on the board draws on top of it.
+    // `evenodd` so an Edge.Cuts cutout is a hole and not a second filled ring.
+    if (!overlay && opts.boardOutlineArea && scene.boardOutlineArea) {
+      ctx.fillStyle = sp(special.outlineArea);
+      ctx.fill(scene.boardOutlineArea, 'evenodd');
+    }
     if (!overlay && sheet && opts.drawingSheet) {
       // LAYER_PAGE_LIMITS first: the paper edge is its own rectangle in its own
       // grey, drawn outside the sheet's frame, and pcbnew shows it exactly as
@@ -2427,6 +2612,17 @@ export function buildDrawSteps(
     // "if( !aView->IsLayerVisibleCached( LAYER_PADS ) ) return LOD_HIDE", which
     // applies to every layer the pad draws on — its clearance layer included.
     // Without that, hiding Pads left a copper-coloured ring around every pad.
+    // `m_Display.m_TrackClearance == SHOW_WITH_VIA_ALWAYS` — the ONLY mode the
+    // painter draws a standing clearance ring in (`pcb_painter.cpp:858`,
+    // `:1024`, `:1360`). The other four are router-preview states: the ring
+    // appears around the track being routed or dragged and is gone the moment
+    // the gesture ends, so a board at rest looks identical under all of them.
+    if (opts.tracks && opts.trackClearanceMode === 4 && b.hasTrackClearance) {
+      ctx.globalAlpha = la;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = minPen;
+      ctx.stroke(b.trackClearance);
+    }
     if (opts.pads && opts.padClearance && b.hasClearance) {
       ctx.globalAlpha = la;
       ctx.strokeStyle = color;
@@ -2444,15 +2640,24 @@ export function buildDrawSteps(
         ctx.stroke(b.vias);
       }
     }
-    if (opts.pads && b.hasPads) {
+    if (opts.pads && (b.hasPads || b.hasPadsPthNormal)) {
       ctx.globalAlpha = opts.padOpacity * la;
-      ctx.strokeStyle = color;
-      if (opts.padFill) {
-        ctx.fillStyle = color;
-        ctx.fill(b.pads, 'nonzero');
-      } else {
-        ctx.lineWidth = minPen;
-        ctx.stroke(b.pads);
+      const paint = (path: Path2D, clr: string): void => {
+        ctx.strokeStyle = clr;
+        if (opts.padFill) {
+          ctx.fillStyle = clr;
+          ctx.fill(path, 'nonzero');
+        } else {
+          ctx.lineWidth = minPen;
+          ctx.stroke(path);
+        }
+      };
+      if (b.hasPads) paint(b.pads, color);
+      if (b.hasPadsPthNormal) {
+        // `aLayer = LAYER_VIA_HOLES` in `GetColor`, so the recoloured pad takes
+        // the via HOLE colour and not the via annulus'. Emphasis still applies:
+        // GetColor runs the selection/highlight adjustment after this branch.
+        paint(b.padsPthNormal, opts.viaColorForThPads ? sp(special.viaHole) : color);
       }
     }
     ctx.globalAlpha = 1;
@@ -3019,8 +3224,8 @@ export function drawAnchors(
     const moving = shift !== null && shift.ids.has(a.owner);
     const ax = moving ? a.x + shift.dx : a.x;
     const ay = moving ? a.y + shift.dy : a.y;
-    const x = snapPx(ax * sx + view.tx, pen);
-    const y = snapPx(ay * view.scale + view.ty, pen);
+    const x = galSnapPx(ax * sx + view.tx, pen);
+    const y = galSnapPx(ay * view.scale + view.ty, pen);
     if (x < -arm || x > widthPx + arm || y < -arm || y > heightPx + arm) continue;
     ctx.moveTo(x - arm, y);
     ctx.lineTo(x + arm, y);
@@ -3105,16 +3310,6 @@ function gridOriginColor(gridCss: string, backgroundCss: string): string {
   const bg = brightness(parseColor4d(backgroundCss));
   return toCssColor(bg > 0.5 ? darkened(grid, 0.25) : brightened(grid, 0.25));
 }
-
-/**
- * Put a device-space coordinate where a stroke of `width` lands on whole
- * pixels: an odd width wants a pixel centre, an even one a boundary. This is
- * `roundr`/`roundv` in KiCad's kicad_vert.glsl, and without it a one-pixel
- * overlay line spreads across two columns at half strength and reads soft
- * beside pcbnew's.
- */
-const snapPx = (v: number, width: number): number =>
-  Math.floor(v) + (Math.round(width) % 2 === 1 ? 0.5 : 0);
 
 /** FOOTPRINT::ViewGetLOD's `MINIMAL_ZOOM_LEVEL_FOR_VISIBILITY`. */
 const MINIMAL_ZOOM_FOR_ANCHORS = 1.5;

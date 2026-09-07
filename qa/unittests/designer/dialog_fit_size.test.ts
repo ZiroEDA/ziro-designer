@@ -49,17 +49,33 @@ function walk(dir: string, out: string[] = []): string[] {
   return out;
 }
 
-/** Every `className="ze-modal…"` element that also carries an inline width/height. */
+/**
+ * Every call site that names a dialog's pixel size.
+ *
+ * Two shapes, because there are two ways to say it and a census that saw only
+ * one is a ratchet with a hole in it:
+ *
+ *  - an inline `style` on a `className="ze-modal…"` element, and
+ *  - `initialSize={{ width: n, height: n }}` handed to `PagedDialog`, which
+ *    writes it to the element imperatively (`usePagedDialogSize`) so the
+ *    browser's own resize handle is not fighting a React-managed `style`. The
+ *    number is every bit as much a stated size for being applied that way, and
+ *    a scan that only knew the first shape would have read this pass as
+ *    removing a size rather than adding two.
+ */
 function inlineSized(): string[] {
   const hits: string[] = [];
   for (const file of walk(SRC)) {
     const text = readFileSync(file, 'utf8');
+    const at = (i: number): string =>
+      `${file.slice(SRC.length + 1)}:${text.slice(0, i).split('\n').length}`;
     for (const m of text.matchAll(/className="ze-modal[^"]*"/g)) {
       // the same JSX element only, i.e. up to its closing angle bracket
       const element = text.slice(m.index, m.index + 600).split('>')[0] ?? '';
-      if (/\b(width|height)\s*:/.test(element)) {
-        hits.push(`${file.slice(SRC.length + 1)}:${text.slice(0, m.index).split('\n').length}`);
-      }
+      if (/\b(width|height)\s*:/.test(element)) hits.push(at(m.index));
+    }
+    for (const m of text.matchAll(/initialSize=\{\{[^}]*\bwidth\s*:\s*\d/g)) {
+      hits.push(at(m.index));
     }
   }
   return hits.sort();
@@ -161,7 +177,7 @@ describe('the pile of hand-picked dialog sizes does not grow', () => {
   // merged component states no size, exactly as `bMainSizer->Fit( this )` and
   // `GetSizer()->SetSizeHints( this )` leave it (dialog_page_settings_base.cpp:
   // 403-405, dialog_page_settings.cpp:192).
-  it('1 call site still names its own size', () => {
+  it('3 call sites still name their own size', () => {
     // 29 -> 1. The same sweep as the shell.css block below, at the call sites:
     // twenty-five files stated a width or a height inline on a `.ze-modal`,
     // and several also restated the `max-width` / `max-height` caps that
@@ -176,7 +192,20 @@ describe('the pile of hand-picked dialog sizes does not grow', () => {
     // capped at 1500 x 900. That moved out of the call site into
     // `.ze-modal.ze-paged-dialog`, where the ceiling — which we did not have at
     // all — now sits beside the floor.
-    expect(inlineSized()).toHaveLength(1);
+    //
+    // 1 -> 3. `PagedDialog` names a size again — twice, once per subclass —
+    // and both clear the bar the block below states: a size may stay only when
+    // upstream names one too.
+    // `PAGED_DIALOG`'s fourth constructor argument is `aInitialSize`, and every
+    // subclass writes it as a literal at its own call site —
+    // `wxSize( 980, 600 )` (dialog_board_setup.cpp:63) and `wxSize( 920, 460 )`
+    // (dialog_schematic_setup.cpp:47) — so the two dialogs pass their own
+    // number in and the shell applies it. It has to be a SIZE and not the
+    // floor `.ze-paged-dialog` already carries, because `.ze-modal` is
+    // `width: max-content`: a floor does not stop max-content going above it,
+    // and Board Setup visibly re-sized itself on every row of its tree. Same
+    // reasoning, and the same fix, as `.ze-prefs-dialog`.
+    expect(inlineSized()).toHaveLength(3);
   });
 
   it('13 shell.css variants still name their own size', () => {

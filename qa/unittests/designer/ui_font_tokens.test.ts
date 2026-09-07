@@ -216,7 +216,12 @@ const BASELINE: Record<string, number> = {
   // `fontSize: 11` on the two unit words, the export-checkbox label and the
   // dimension line under the preview — where the drawing-sheet copy it merged
   // with had already been through this and carries none.
-  dialogs: 5,
+  // 5 -> 1: the Board Setup pass. `panel_setup_netclasses` stated 12.5 on both
+  // grid headings and 11 on its colour hint, and `panel_embedded_files` stated
+  // 12.5 on its checkbox; all four are Board Setup pages, and none of
+  // `common/dialogs/panel_setup_netclasses.cpp` or `panel_embedded_files.cpp`
+  // calls SetFont.
+  dialogs: 1,
   // `editors/calculator` is absent because it is at ZERO: the calculator's
   // parity pass consumed the tokens and its own test pins the zero directly.
   // 14 before the unit-binder pass. MmField's literal "mm" span carried one
@@ -249,7 +254,17 @@ const BASELINE: Record<string, number> = {
   // 122 -> 121: the Selection Filter's "Only <category>" popup was a bespoke
   // <div> with its own fontSize: 12; PANEL_SELECTION_FILTER's menu is an
   // ordinary wxMenu, so it is now the shared ContextMenu and states nothing.
-  'editors/pcb': 121,
+  // 121 -> 64: the Board Setup pass. DIALOG_BOARD_SETUP and its thirteen
+  // panels stated 11 / 11.5 / 12 / 12.5 px on fifty-seven lines between them —
+  // every group heading, every field grid, every units label and every empty
+  // state — against the dialog's own 11 pt. None of `pcbnew/dialogs/
+  // panel_setup_*.cpp` calls SetFont for a SIZE: the two that call it at all
+  // ask for `wxNORMAL_FONT->GetPointSize()` at `wxFONTWEIGHT_NORMAL`
+  // (`panel_setup_mask_and_paste_base.cpp:48`, `:138`), which is the dialog
+  // font unchanged. The three real ones are `KIUI::GetInfoFont().Italic()` and
+  // `GetSmallInfoFont().Italic()`, and those are `.ze-pref-infotext` /
+  // `.ze-pref-help` / `.ze-pref-hint`, which are tokens.
+  'editors/pcb': 64,
   // 55 -> 50: the COLOR_SWATCH sweep's second half. Seven Clear buttons and
   // one `(using Schematic Editor colors)` hint each carried an inline
   // `fontSize: 11`, and none of them exists upstream - the swatch clears
@@ -600,7 +615,11 @@ describe('hardcoded font sizes do not grow', () => {
     // from this tree, and the per-area table agrees — `ui` 89 -> 86 is the only
     // row that moves, and 290 - 3 agrees with it.
     // 284 -> 283: see the `ui` row, which is the only one that moved.
-    expect(sites.length).toBe(283);
+    // 283 -> 222: the Board Setup pass. Two rows move and they account for all
+    // 61: `editors/pcb` 121 -> 64 (the dialog and its thirteen panels) and
+    // `dialogs` 5 -> 1 (`panel_setup_netclasses` and `panel_embedded_files`,
+    // which Board Setup shows as pages of its own). 283 - 57 - 4 = 222.
+    expect(sites.length).toBe(222);
   });
 });
 

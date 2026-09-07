@@ -62,8 +62,14 @@ export function dimensionDefaultsFrom(
   },
   layer: string,
   lineThicknessIU: number,
-  textSizeIU: number,
-  textThicknessIU: number,
+  /**
+   * `GetTextSize( layer )`, `GetTextThickness( layer )` and
+   * `GetTextItalic( layer )` — all three index `[ GetLayerClass( aLayer ) ]`
+   * (`board_design_settings.cpp:1689-1704`), so they must come from the row for
+   * the layer being drawn on. Passing the silkscreen row for every layer gave a
+   * dimension on `Dwgs.User` the silkscreen text size.
+   */
+  layerClass: { textWidth: number; textHeight: number; textThickness: number; italic: boolean },
 ): EngineDimensionDefaults {
   const mm = (v: number): number => Math.round(v * 1e6);
   const idx = <T>(list: readonly string[], value: string, fallback: T): T | number => {
@@ -93,8 +99,10 @@ export function dimensionDefaultsFrom(
       DEFAULT_DIMENSION_DEFAULTS.textPositionMode,
     ) as 0 | 1 | 2,
     keepTextAligned: setup.keepTextAligned,
-    textSize: textSizeIU || DEFAULT_DIMENSION_DEFAULTS.textSize,
-    textThickness: textThicknessIU || DEFAULT_DIMENSION_DEFAULTS.textThickness,
+    textWidth: layerClass.textWidth || DEFAULT_DIMENSION_DEFAULTS.textWidth,
+    textHeight: layerClass.textHeight || DEFAULT_DIMENSION_DEFAULTS.textHeight,
+    textThickness: layerClass.textThickness || DEFAULT_DIMENSION_DEFAULTS.textThickness,
+    textItalic: layerClass.italic,
   };
 }
 

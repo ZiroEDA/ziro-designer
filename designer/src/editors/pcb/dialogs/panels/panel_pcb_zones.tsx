@@ -2,14 +2,25 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * Board Setup > Design Rules > Zones. Counterpart:
- * `pcbnew/dialogs/panel_setup_zones_base.cpp` + the embedded PANEL_ZONE_PROPERTIES,
- * "Default Properties for New Zones": the settings a newly drawn copper zone
- * starts with (clearance, minimum width, pad connection + thermal relief, outline
- * display, corner smoothing, island removal).
+ * "Default Properties for New Zones". Counterpart:
+ * `pcbnew/dialogs/panel_setup_zones_base.cpp` (PANEL_SETUP_ZONES) — a heading, a
+ * `wxStaticLine`, and an embedded PANEL_ZONE_PROPERTIES: the settings a newly
+ * drawn copper zone starts with (clearance, minimum width, pad connection +
+ * thermal relief, outline display, corner smoothing, island removal).
+ *
+ * In KiCad 10 this is NOT a page of its own. `PANEL_SETUP_DEFAULTS` builds it
+ * as the third block of the Text & Graphics > Defaults page, under Text &
+ * Graphics and Dimensions (`panel_setup_defaults.cpp:41-48`), which is where
+ * `dialog_board_setup.tsx` now renders it; the standalone "Zones" row this used
+ * to have exists in no version of the Board Setup tree.
+ *
+ * NOT PORTED YET: PANEL_ZONE_PROPERTIES' net name, hatched-fill block
+ * (orientation, hatch width/gap, smoothing effort and amount) and hatch-offset
+ * overrides. See BOARD_SETUP_STATUS.md.
  */
 
 import type { JSX } from 'react';
+import { Combo } from '../../../../ui/Combo.js';
 import type { ZoneDefaults } from '../../board_settings.js';
 
 // The data model lives in board_settings.ts (KiCad's data/UI split);
@@ -26,90 +37,64 @@ interface Props {
   onChange: (next: ZoneDefaults) => void;
 }
 
-const col: React.CSSProperties = { flex: 1, minWidth: 0 };
-const grid: React.CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: 'max-content 1fr max-content',
-  alignItems: 'center',
-  gap: '8px 8px',
-  fontSize: 12.5,
-};
-
 export function PanelPcbZones({ value, onChange }: Props): JSX.Element {
   const num = (s: string): number => (Number.isFinite(Number(s)) ? Number(s) : 0);
   const set = <K extends keyof ZoneDefaults>(k: K, v: ZoneDefaults[K]): void =>
     onChange({ ...value, [k]: v });
 
   const numRow = (label: string, key: keyof ZoneDefaults, unit: string): JSX.Element => (
-    <>
-      <span>{label}</span>
+    <div className="ze-pref-row" key={key}>
+      <span className="lbl">{label}</span>
       <input
         className="ze-search"
-        style={{ width: '100%', boxSizing: 'border-box' }}
         value={value[key] as number}
         onChange={(e) => set(key, num(e.target.value) as never)}
       />
-      <span className="ze-muted" style={{ fontSize: 11 }}>
-        {unit}
-      </span>
-    </>
+      <span className="unit">{unit}</span>
+    </div>
   );
   const selRow = (label: string, key: keyof ZoneDefaults, options: string[]): JSX.Element => (
-    <>
-      <span>{label}</span>
-      <select
-        className="ze-select"
-        style={{ width: '100%', gridColumn: '2 / 4' }}
+    // Not a <label>: `Combo` is a button, and a button inside a label toggles
+    // the popup open and shut on one click.
+    <div className="ze-pref-row" key={key}>
+      <span className="lbl">{label}</span>
+      <Combo
         value={value[key] as string}
-        onChange={(e) => set(key, e.target.value as never)}
-      >
-        {options.map((o) => (
-          <option key={o}>{o}</option>
-        ))}
-      </select>
-    </>
+        ariaLabel={label}
+        options={options.map((o) => ({ value: o, label: o }))}
+        onChange={(o) => set(key, o as never)}
+      />
+    </div>
   );
 
   return (
-    <div style={{ padding: '2px 2px' }}>
-      <div style={{ fontSize: 12.5, marginBottom: 4 }}>Default Properties for New Zones</div>
-      <hr
-        style={{
-          border: 'none',
-          borderTop: '1px solid var(--chrome-border)',
-          margin: '2px 0 12px',
-        }}
-      />
-      <div style={{ display: 'flex', gap: 32, alignItems: 'flex-start' }}>
-        <div style={col}>
-          <div style={grid}>
-            <span>Zone name:</span>
+    <div>
+      <div className="ze-pref-group-title">Default Properties for New Zones</div>
+      <div className="ze-zonedef-cols">
+        <div className="ze-pref-group-body">
+          <div className="ze-pref-row">
+            <span className="lbl">Zone name:</span>
             <input
               className="ze-search"
-              style={{ width: '100%', gridColumn: '2 / 4', boxSizing: 'border-box' }}
               value={value.name}
               onChange={(e) => set('name', e.target.value)}
             />
-            {numRow('Clearance:', 'clearanceMM', 'mm')}
-            {numRow('Minimum width:', 'minWidthMM', 'mm')}
-            {selRow('Pad connections:', 'padConnection', PAD_CONNECTIONS)}
-            {numRow('Thermal relief gap:', 'thermalGapMM', 'mm')}
-            {numRow('Thermal spoke width:', 'thermalSpokeMM', 'mm')}
           </div>
+          {numRow('Clearance:', 'clearanceMM', 'mm')}
+          {numRow('Minimum width:', 'minWidthMM', 'mm')}
+          {selRow('Pad connections:', 'padConnection', PAD_CONNECTIONS)}
+          {numRow('Thermal relief gap:', 'thermalGapMM', 'mm')}
+          {numRow('Thermal spoke width:', 'thermalSpokeMM', 'mm')}
         </div>
 
-        <div style={col}>
-          <div style={grid}>
-            {selRow('Outline display:', 'outlineDisplay', OUTLINE_DISPLAY)}
-            {numRow('Outline hatch pitch:', 'outlineHatchPitchMM', 'mm')}
-            {selRow('Corner smoothing:', 'cornerSmoothing', CORNER_SMOOTHING)}
-            {numRow('Radius:', 'smoothingRadiusMM', 'mm')}
-            {selRow('Remove islands:', 'removeIslands', REMOVE_ISLANDS)}
-            {numRow('Area limit:', 'areaLimitMM2', 'mm²')}
-          </div>
-          <label
-            style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, marginTop: 10 }}
-          >
+        <div className="ze-pref-group-body">
+          {selRow('Outline display:', 'outlineDisplay', OUTLINE_DISPLAY)}
+          {numRow('Outline hatch pitch:', 'outlineHatchPitchMM', 'mm')}
+          {selRow('Corner smoothing:', 'cornerSmoothing', CORNER_SMOOTHING)}
+          {numRow('Radius:', 'smoothingRadiusMM', 'mm')}
+          {selRow('Remove islands:', 'removeIslands', REMOVE_ISLANDS)}
+          {numRow('Area limit:', 'areaLimitMM2', 'mm²')}
+          <label className="ze-pref-check ze-border-top">
             <input
               type="checkbox"
               checked={value.locked}

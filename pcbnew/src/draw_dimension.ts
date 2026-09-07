@@ -31,8 +31,15 @@
  */
 import type { DimensionKind, DimensionStyle, PcbDimension, PcbTextItem } from './types.js';
 import { isAlignedKind } from './types.js';
-import { resize } from './dimension_geometry.js';
+import { radialKnee } from './dimension_geometry.js';
+import { updateDimension } from './dimension_text.js';
+import { isBackLayer } from './table_properties.js';
+import type { EdaUnits } from '@ziroeda/common/src/eda_units.js';
+import { vectorSnapped45 } from '@ziroeda/kimath/src/geometry/geometry_utils.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
+
+export { radialKnee } from './dimension_geometry.js';
+export { vectorSnapped45 } from '@ziroeda/kimath/src/geometry/geometry_utils.js';
 
 const MM = (v: number): number => Math.round(v * 1e6);
 /** 50 mils, `DEFAULT_DIMENSION_ARROW_LENGTH`. */
@@ -56,8 +63,16 @@ export interface DimensionDefaults {
   suppressZeroes: boolean;
   textPositionMode: 0 | 1 | 2;
   keepTextAligned: boolean;
-  textSize: number;
+  /**
+   * `boardSettings.GetTextSize( layer )` — both axes, because upstream calls
+   * `SetTextSize( VECTOR2I )`. It is the *layer class's* row
+   * (`m_TextSize[ GetLayerClass( aLayer ) ]`), not a single board-wide value.
+   */
+  textWidth: number;
+  textHeight: number;
   textThickness: number;
+  /** `boardSettings.GetTextItalic( layer )`, likewise per layer class. */
+  textItalic: boolean;
 }
 
 /** `BOARD_DESIGN_SETTINGS`' dimension block, at its own defaults. */
@@ -72,8 +87,10 @@ export const DEFAULT_DIMENSION_DEFAULTS: DimensionDefaults = {
   suppressZeroes: true,
   textPositionMode: 0, // OUTSIDE
   keepTextAligned: true,
-  textSize: MM(1),
+  textWidth: MM(1),
+  textHeight: MM(1),
   textThickness: MM(0.15),
+  textItalic: false,
 };
 
 /**
@@ -93,10 +110,36 @@ export interface DimensionDraw {
   done: boolean;
 }
 
+/** What the tool needs from its frame that is not part of the dimension itself. */
+export interface DimensionDrawOptions {
+  /**
+   * `GetUserUnits()`. `DIM_UNITS_MODE::AUTOMATIC` means "whatever the board is
+   * displaying", so the label cannot be derived without it; upstream falls back
+   * to millimetres when the item has no board, and so does this.
+   */
+  userUnits?: EdaUnits;
+  /**
+   * `Is45Limited()` — `bool constrained = GetAngleSnapMode() != DIRECT`, with
+   * Ctrl forcing it off for one event. The pcbnew default is `DIRECT`
+   * (`pcbnew_settings.cpp:191-192`), so this is off unless the user turned
+   * 45° snapping on. It does **not** govern a centre mark, which upstream
+   * constrains unconditionally.
+   */
+  constrain45?: boolean;
+}
+
 const EMPTY = { kind: 'list' as const, items: [] };
 const sub = (a: Vec2, b: Vec2): Vec2 => ({ x: a.x - b.x, y: a.y - b.y });
 const add = (a: Vec2, b: Vec2): Vec2 => ({ x: a.x + b.x, y: a.y + b.y });
 const same = (a: Vec2, b: Vec2): boolean => a.x === b.x && a.y === b.y;
+
+/**
+ * `DRAWING_TOOL::constrainDimension` (drawing_tool.cpp:1417-1423): pull the end
+ * point onto the nearest 45° from the origin.
+ */
+export function constrainDimension(d: PcbDimension): PcbDimension {
+  return { ...d, end: add(d.start, vectorSnapped45(sub(d.end, d.start))) };
+}
 
 const textAt = (at: Vec2, d: DimensionDefaults, layer: string, text: string): PcbTextItem => ({
   kind: 'user',
@@ -104,18 +147,14 @@ const textAt = (at: Vec2, d: DimensionDefaults, layer: string, text: string): Pc
   at,
   angle: 0,
   layer,
-  size: { x: d.textSize, y: d.textSize },
+  size: { x: d.textWidth, y: d.textHeight },
   thickness: d.textThickness,
+  ...(d.textItalic ? { italic: true } : {}),
+  // `dimension->SetMirrored( m_board->IsBackLayer( layer ) )`: a label placed on
+  // a back layer is read through the board, so it is stored mirrored.
+  ...(isBackLayer(layer) ? { mirror: true } : {}),
   source: EMPTY,
 });
-
-/**
- * `PCB_DIM_RADIAL::GetKnee`: where the radial leader bends, one leader-length
- * out along the radius from the measured point.
- */
-export function radialKnee(d: PcbDimension): Vec2 {
-  return add(d.end, resize(sub(d.end, d.start), d.leaderLength ?? 0));
-}
 
 /**
  * The text offset a radial or leader gets while being dragged: ten arrow
@@ -132,6 +171,7 @@ export function startDimension(
   kind: DimensionKind,
   at: Vec2,
   defaults: DimensionDefaults = DEFAULT_DIMENSION_DEFAULTS,
+  opts: DimensionDrawOptions = {},
 ): DimensionDraw {
   const layer = defaults.layer;
   const style: DimensionStyle = {
@@ -189,36 +229,60 @@ export function startDimension(
     dimension.text = textAt(at, defaults, layer, kind === 'leader' ? 'Leader' : '');
   }
 
-  return { step: 'end', dimension, done: false };
+  // `dimension->Update()`, the last thing SET_ORIGIN does. Without it the item
+  // enters the preview with an empty label.
+  return { step: 'end', dimension: updateDimension(dimension, opts.userUnits), done: false };
 }
 
 /** `evt->IsMotion()`: the cursor moved, so update whatever the current step tracks. */
-export function moveDimension(draw: DimensionDraw, cursor: Vec2): DimensionDraw {
+export function moveDimension(
+  draw: DimensionDraw,
+  cursor: Vec2,
+  opts: DimensionDrawOptions = {},
+): DimensionDraw {
   const d = draw.dimension;
 
   if (draw.step === 'end') {
-    const next: PcbDimension = { ...d, end: cursor };
+    let next: PcbDimension = { ...d, end: cursor };
+
+    // `if( constrained || t == PCB_DIM_CENTER_T ) constrainDimension( dimension );`
+    // A centre mark is snapped whatever the preference says, which is why its
+    // cross always reads as square or as a true diagonal.
+    if (opts.constrain45 || d.kind === 'center') next = constrainDimension(next);
 
     if (d.kind === 'orthogonal') {
-      // "Create a nice preview by measuring the longer dimension."
-      const w = Math.abs(cursor.x - d.start.x);
-      const h = Math.abs(cursor.y - d.start.y);
+      // "Create a nice preview by measuring the longer dimension." Upstream
+      // builds `BOX2I( start, end - start )` and compares `GetWidth()` with
+      // `GetHeight()` — and BOX2I keeps the size it was handed, sign included,
+      // so this is a *signed* comparison, not a comparison of spans. Dragging
+      // up and to the left therefore picks the other orientation from what an
+      // abs() reading would give. Mirrored deliberately; do not "fix" it.
+      const w = next.end.x - d.start.x;
+      const h = next.end.y - d.start.y;
       next.orientation = w < h ? 1 : 0;
     } else if (d.kind === 'radial') {
       const knee = radialKnee(next);
       next.text = d.text
-        ? { ...d.text, at: add(knee, draggedTextOffset(d.start, cursor, d.style.arrowLength)) }
+        ? { ...d.text, at: add(knee, draggedTextOffset(d.start, next.end, d.style.arrowLength)) }
         : undefined;
     } else if (d.kind === 'leader') {
       next.text = d.text
-        ? { ...d.text, at: add(cursor, draggedTextOffset(d.start, cursor, d.style.arrowLength)) }
+        ? {
+            ...d.text,
+            at: add(next.end, draggedTextOffset(d.start, next.end, d.style.arrowLength)),
+          }
         : undefined;
     }
-    return { ...draw, dimension: next };
+    return { ...draw, dimension: updateDimension(next, opts.userUnits) };
   }
 
   // SET_HEIGHT
-  if (isAlignedKind(d.kind)) return { ...draw, dimension: setHeightFromCursor(d, cursor) };
+  if (isAlignedKind(d.kind)) {
+    return {
+      ...draw,
+      dimension: updateDimension(setHeightFromCursor(d, cursor), opts.userUnits),
+    };
+  }
   return draw;
 }
 
@@ -239,21 +303,33 @@ export function setHeightFromCursor(d: PcbDimension, cursor: Vec2): PcbDimension
     return { ...d, height: Math.round(height) };
   }
 
-  const left = Math.min(d.start.x, d.end.x);
-  const right = Math.max(d.start.x, d.end.x);
-  const top = Math.min(d.start.y, d.end.y);
-  const bottom = Math.max(d.start.y, d.end.y);
-  const inside = cursor.x >= left && cursor.x <= right && cursor.y >= top && cursor.y <= bottom;
+  // `BOX2I bbox( GetStart(), GetEnd() - GetStart() )`, which BOX2I stores
+  // verbatim — so its size, and therefore its right and bottom edges, carry the
+  // sign of the drag. `Contains()` is the one accessor that normalises
+  // (box2.h:168-190); `GetLeft/Right/Top/Bottom` and `GetWidth/Height` do not.
+  const left = d.start.x;
+  const right = d.end.x;
+  const top = d.start.y;
+  const bottom = d.end.y;
+  const width = right - left;
+  const height2 = bottom - top;
+  const inside =
+    cursor.x >= Math.min(left, right) &&
+    cursor.x <= Math.max(left, right) &&
+    cursor.y >= Math.min(top, bottom) &&
+    cursor.y <= Math.max(top, bottom);
 
   let vert = d.orientation === 1;
   if (!inside) {
-    if (right - left === 0) vert = true;
-    else if (bottom - top === 0) vert = false;
+    if (width === 0) vert = true;
+    else if (height2 === 0) vert = false;
     else if (cursor.x > left && cursor.x < right) vert = false;
     else if (cursor.y > top && cursor.y < bottom) vert = true;
     else {
-      const cx = (left + right) / 2;
-      const cy = (top + bottom) / 2;
+      // `bbox.Centre()` is `m_Pos + m_Size / 2`, which is the true centre
+      // whichever way the box was built.
+      const cx = left + width / 2;
+      const cy = top + height2 / 2;
       vert = Math.abs(cursor.y - cy) < Math.abs(cursor.x - cx);
     }
   }
@@ -273,9 +349,13 @@ export function setHeightFromCursor(d: PcbDimension, cursor: Vec2): PcbDimension
  * second click on the origin is *ignored* rather than producing a zero-length
  * dimension (upstream's `--step`).
  */
-export function clickDimension(draw: DimensionDraw, cursor: Vec2): DimensionDraw {
+export function clickDimension(
+  draw: DimensionDraw,
+  cursor: Vec2,
+  opts: DimensionDrawOptions = {},
+): DimensionDraw {
   if (draw.done) return draw;
-  const moved = moveDimension(draw, cursor);
+  const moved = moveDimension(draw, cursor, opts);
   const d = moved.dimension;
 
   if (draw.step === 'end') {
@@ -287,6 +367,28 @@ export function clickDimension(draw: DimensionDraw, cursor: Vec2): DimensionDraw
   }
 
   return { ...moved, done: true };
+}
+
+/**
+ * Whether the cursor should still be snapped to the grid at this point in the
+ * placement.
+ *
+ *     if( step == SET_HEIGHT && t != PCB_DIM_ORTHOGONAL_T )
+ *         if( start.x != end.x && start.y != end.y )
+ *             grid.SetUseGrid( false );   // "Not cardinal.  Grid snapping
+ *                                         //  doesn't make sense for height."
+ *
+ * The crossbar of a diagonal aligned dimension slides along a diagonal normal,
+ * so grid points on it are sparse and unevenly spaced; snapping to them makes
+ * the bar jump instead of following the cursor. An orthogonal dimension is
+ * exempt because its height is one raw axis of the cursor, which lands on the
+ * grid like anything else.
+ */
+export function dimensionSnapsToGrid(draw: DimensionDraw): boolean {
+  if (draw.step !== 'height') return true;
+  const d = draw.dimension;
+  if (d.kind === 'orthogonal') return true;
+  return d.start.x === d.end.x || d.start.y === d.end.y;
 }
 
 /** How many clicks this kind takes to place, origin included. */

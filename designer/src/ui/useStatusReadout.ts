@@ -45,6 +45,9 @@ export interface StatusReadout extends StatusReadoutHandle {
   deltasRef: RefObject<HTMLSpanElement>;
 }
 
+/** `PCB_ORIGIN_PAGE`'s answer, hoisted so the default is identity-stable. */
+const NO_USER_ORIGIN = { x: 0, y: 0 };
+
 export interface StatusReadoutOptions {
   units: StatusUnits;
   /** `BASE_SCREEN::m_LocalOrigin`, the origin the dx/dy/dist pane measures from. */
@@ -80,6 +83,25 @@ export interface StatusReadoutOptions {
    */
   invertX?: boolean;
   invertY?: boolean;
+  /**
+   * `PCB_BASE_FRAME::GetUserOrigin()` (`pcbnew/pcb_base_frame.cpp`), the point
+   * `ToDisplayAbsX/Y` subtracts before printing — Preferences > PCB Editor >
+   * Origins & Axes' Display Origin group:
+   *
+   *     PCB_ORIGIN_PAGE  -> ( 0, 0 )
+   *     PCB_ORIGIN_AUX   -> GetDesignSettings().GetAuxOrigin()
+   *     PCB_ORIGIN_GRID  -> GetDesignSettings().GetGridOrigin()
+   *
+   * Resolved by the caller rather than passed as the enum, because only the
+   * frame knows where its two origins are; this hook is given the point.
+   *
+   * NOT `localOrigin`, which is `BASE_SCREEN::m_LocalOrigin` and belongs to
+   * pane 3 alone. `ToDisplayRel` deliberately does not subtract the user
+   * origin (`include/origin_transforms.h:111-145`), so a delta is unaffected
+   * by this and an absolute position is — which is why they are two options
+   * and not one.
+   */
+  userOrigin?: { x: number; y: number };
 }
 
 export function useStatusReadout({
@@ -90,6 +112,7 @@ export function useStatusReadout({
   polar = false,
   invertX = false,
   invertY = false,
+  userOrigin = NO_USER_ORIGIN,
 }: StatusReadoutOptions): StatusReadout {
   const zoomRef = useRef<HTMLSpanElement>(null);
   const coordsRef = useRef<HTMLSpanElement>(null);
@@ -107,8 +130,18 @@ export function useStatusReadout({
     polar,
     invertX,
     invertY,
+    userOrigin,
   });
-  optsRef.current = { units, localOrigin, devicePixelRatio, iuPerMM, polar, invertX, invertY };
+  optsRef.current = {
+    units,
+    localOrigin,
+    devicePixelRatio,
+    iuPerMM,
+    polar,
+    invertX,
+    invertY,
+    userOrigin,
+  };
 
   const paint = useCallback(() => {
     const {
@@ -119,6 +152,7 @@ export function useStatusReadout({
       polar: pol,
       invertX: invX,
       invertY: invY,
+      userOrigin: uo,
     } = optsRef.current;
     const fmt = (v: number): string => messageTextFromValue(v / iu, u, iu);
     const c = cursorRef.current;
@@ -135,12 +169,12 @@ export function useStatusReadout({
     }
 
     if (coordsRef.current) {
-      // `ToDisplayAbsX/Y`. The user origin is the frame's, which for these
-      // editors is (0, 0) — `PCB_BASE_FRAME::GetUserOrigin` returns the drill/
-      // place origin only when Display Origin says so, and that control is
-      // hidden outside the board editor.
+      // `ToDisplayAbsX/Y` — `aValue - m_userOrigin`, THEN the sign flip
+      // (`include/origin_transforms.h:125-145`). Every frame but the board
+      // editor leaves `userOrigin` at (0, 0), which is what
+      // `PCB_BASE_FRAME::GetUserOrigin` answers for PCB_ORIGIN_PAGE.
       coordsRef.current.textContent = c
-        ? coordsMsg(fmt(disp(c.x, invX)), fmt(disp(c.y, invY)))
+        ? coordsMsg(fmt(disp(c.x - uo.x, invX)), fmt(disp(c.y - uo.y, invY)))
         : coordsMsg(null);
     }
 
@@ -172,7 +206,7 @@ export function useStatusReadout({
   // biome-ignore lint/correctness/useExhaustiveDependencies: repaint triggers, read via optsRef
   useEffect(() => {
     paint();
-  }, [paint, units, localOrigin, devicePixelRatio, iuPerMM, polar]);
+  }, [paint, units, localOrigin, devicePixelRatio, iuPerMM, polar, invertX, invertY, userOrigin]);
 
   return useMemo(
     (): StatusReadout => ({

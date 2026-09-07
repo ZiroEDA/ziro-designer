@@ -32,6 +32,7 @@
  */
 
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
+import { galSnapPx } from '../gal_pixel_grid.js';
 
 /** `ORIGIN_VIEWITEM::MARKER_STYLE` (`include/origin_viewitem.h:44-47`). */
 export type OriginMarkerStyle = 'no_graphic' | 'cross' | 'circle_cross' | 'circle_x';
@@ -68,16 +69,6 @@ export interface OriginViewItemOptions {
   canvasWidth?: number;
   canvasHeight?: number;
 }
-
-/**
- * Put a device-space coordinate where a stroke of `width` lands on whole
- * pixels: an odd width wants a pixel centre, an even one a boundary. This is
- * `roundr`/`roundv` in KiCad's kicad_vert.glsl, and without it a one-pixel
- * overlay line spreads across two columns at half strength and reads soft
- * beside pcbnew's.
- */
-const snapPx = (v: number, width: number): number =>
-  Math.floor(v) + (Math.round(width) % 2 === 1 ? 0.5 : 0);
 
 /**
  * `ORIGIN_VIEWITEM::ViewDraw` (`common/origin_viewitem.cpp:70-105`).
@@ -122,8 +113,8 @@ export function drawOriginViewItem(
   const size = opts.size ?? ORIGIN_VIEWITEM_SIZE;
   const pen = opts.lineWidth ?? 1;
   const p = opts.toPx(position);
-  const x = snapPx(p.x, pen);
-  const y = snapPx(p.y, pen);
+  const x = galSnapPx(p.x, pen);
+  const y = galSnapPx(p.y, pen);
 
   // `fabs( scaledSize.x )`: a mirrored view carries a negative scale and the
   // radius takes the magnitude. The arms do not — a CIRCLE_X on a flipped

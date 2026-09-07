@@ -22,7 +22,17 @@ import { buildBoardGeom, boardHoles, type Mesh } from './boardGeom.js';
 import { mountComponents, type ProjectFile } from './component3d.js';
 import type { Board } from '@ziroeda/pcbnew';
 import { MODELS3D_HOST } from '../../libraryHosts.js';
-import { VIEW3D_CAMERA } from './viewer3d_types.js';
+import {
+  VIEW3D_CAMERA,
+  type Viewer3dCameraOptions,
+  type Viewer3dRenderOptions,
+} from './viewer3d_types.js';
+import type { Color4d } from '@ziroeda/common/src/color4d.js';
+import {
+  DEFAULT_SILKSCREEN,
+  DEFAULT_SOLDERMASK,
+  type StackupColors,
+} from './board_adapter_colors.js';
 import type {
   View3DDir,
   Rotate3DAxis,
@@ -102,6 +112,19 @@ export function mount3DViewer(
   container: HTMLElement,
   board: Board,
   projectFiles?: ProjectFile[],
+  /**
+   * `BOARD_ADAPTER`'s `m_UseStackupColors` override — the Physical Stackup
+   * page's Color column, mapped through `board_adapter_colors.ts`. Omitted (the
+   * footprint browser, which has no board stackup) falls back to the `g_Default*`
+   * colours, which is what upstream does with the option off.
+   */
+  stackup?: StackupColors,
+  /**
+   * `EDA_3D_VIEWER_SETTINGS`' render half — Preferences > 3D Viewer > General
+   * and > Realtime Renderer. Omitted (the footprint browser) takes the file's
+   * own defaults, which is what a viewer with no settings object gets upstream.
+   */
+  render: Viewer3dRenderOptions = {},
 ): Viewer3D | null {
   const scene2d = buildScene(board);
   if (!scene2d.bbox) return null;
@@ -115,7 +138,7 @@ export function mount3DViewer(
   // ---- geometry (reused from the board renderer) ---------------------------
   const holes = boardHoles(board, box);
   const outline = buildBoardOutline(board, box, holes);
-  const geom = buildBoardGeom(board, box);
+  const geom = buildBoardGeom(board, box, { showZones: render.showZones !== false });
   const outlineMesh: Mesh = { verts: outline.verts, tris: outline.tris };
 
   const mkGroup = (): Group => ({ verts: [], idx: [] });
@@ -246,7 +269,13 @@ export function mount3DViewer(
   try {
     renderer = new THREE.WebGLRenderer({
       canvas,
-      antialias: true,
+      // `render.opengl_AA_mode` — `ANTIALIASING_MODE::AA_NONE` is 0 and the
+      // rest are on. WebGL takes a BOOLEAN and picks the sample count itself,
+      // which is why the four-row choice collapses to this one flag; the
+      // tooltip's "3D-Viewer must be closed and re-opened to apply this
+      // setting" is true here for the same reason it is there — a context is
+      // created once.
+      antialias: render.antiAliasing !== 0,
       alpha: true,
       logarithmicDepthBuffer: true,
     });
@@ -302,14 +331,50 @@ export function mount3DViewer(
     disposables.push(m);
     return m;
   };
-  // KiCad board_adapter material colours.
+  // `BOARD_ADAPTER`'s colours. Where the stackup names one, it wins — that is
+  // `GetLayerColors()`'s `m_UseStackupColors` block; where it does not, these
+  // fall back to the same `g_Default*` values upstream uses. The literals that
+  // used to be here answered the Color column with nothing at all.
+  const rgb = (c: Color4d): number =>
+    (Math.round(c.r * 255) << 16) | (Math.round(c.g * 255) << 8) | Math.round(c.b * 255);
+  const maskTop = stackup?.maskTop ?? DEFAULT_SOLDERMASK;
+  const silkTop = stackup?.silkTop ?? DEFAULT_SILKSCREEN;
+  /**
+   * `MATERIAL_MODE` (`3d-viewer/3d_enums.h`), the General page's Material
+   * properties:
+   *
+   *   NORMAL       the board's own materials, shaded — our PBR defaults
+   *   DIFFUSE_ONLY every material flat and unshaded ("Solid colors")
+   *   CAD_MODE     a fixed CAD-like set, also unshaded ("CAD colors")
+   *
+   * `C3D_RENDER_OGL_LEGACY` reads it when it builds each material
+   * (`3d-viewer/3d_rendering/opengl/…`): the two non-NORMAL modes drop the
+   * specular term, which here is metalness and roughness.
+   */
+  const flatMaterials = (render.materialMode ?? 0) !== 0;
+  const shade = (
+    o: Partial<THREE.MeshStandardMaterialParameters>,
+  ): Partial<THREE.MeshStandardMaterialParameters> =>
+    flatMaterials ? { ...o, metalness: 0, roughness: 1 } : o;
   const M = {
-    fr4: mat(0x8a6b3d),
-    copper: mat(0xbf9c3a, { metalness: 0.35, roughness: 0.5 }),
-    mask: mat(0x14331f, { transparent: true, opacity: 0.85, depthWrite: false }),
-    gold: mat(0xd9ad4d, { metalness: 0.4, roughness: 0.45 }),
-    silk: mat(0xededed),
-    barrel: mat(0xb88f42, { metalness: 0.5, roughness: 0.4 }),
+    fr4: mat(stackup?.body ? rgb(stackup.body) : 0x8a6b3d, shade({})),
+    copper: mat(
+      stackup?.copper ? rgb(stackup.copper) : 0xbf9c3a,
+      shade({
+        metalness: 0.35,
+        roughness: 0.5,
+      }),
+    ),
+    // The mask's alpha is the stackup's own (0.83 for every entry in
+    // `g_MaskColors`), not a fixed 0.85.
+    mask: mat(rgb(maskTop), {
+      transparent: true,
+      opacity: maskTop.a,
+      depthWrite: false,
+    }),
+    gold: mat(0xd9ad4d, shade({ metalness: 0.4, roughness: 0.45 })),
+    silk: mat(rgb(silkTop), shade({})),
+    barrel: mat(0xb88f42, shade({ metalness: 0.5, roughness: 0.4 })),
   };
   const add = (g: Group, m: THREE.Material): void => {
     if (g.idx.length) scene.add(new THREE.Mesh(toGeom(g), m));
@@ -329,7 +394,16 @@ export function mount3DViewer(
   scene.add(headlight);
 
   // Footprint 3D models (loaded async from the hosted library / project files).
-  const disposeComponents = mountComponents(scene, board, box, hz, MODELS3D_BASE, projectFiles);
+  const disposeComponents = mountComponents(
+    scene,
+    board,
+    box,
+    hz,
+    MODELS3D_BASE,
+    projectFiles,
+    undefined,
+    render.showModelBbox === true,
+  );
 
   // ---- 3D grid -------------------------------------------------------------
   // EDA_3D_ACTIONS::noGrid / show{10,5,2_5,1}mmGrid. KiCad draws it on the
@@ -420,15 +494,27 @@ export function mount3DViewer(
   };
 
   /**
-   * `camera.rotation_increment`, degrees (eda_3d_viewer_settings.cpp:437).
-   * Preferences > 3D Viewer makes this editable upstream; we hold the default.
+   * `EDA_3D_VIEWER_SETTINGS::m_Camera` — Preferences > 3D Viewer > General's
+   * Camera Options.
+   *
+   * A live value rather than a mount-time one: `EDA_3D_CANVAS` re-reads it on
+   * `CommonSettingsChanged`, and rebuilding the whole scene to change a
+   * rotation step would re-tessellate every STEP model.
    */
-  const ROT_INCREMENT = 10;
+  const cameraOpts: Viewer3dCameraOptions = {
+    rotationIncrement: 10,
+    animationEnabled: true,
+    movingSpeedMultiplier: 3,
+  };
+
+  const setCamera = (o: Partial<Viewer3dCameraOptions>): void => {
+    Object.assign(cameraOpts, o);
+  };
 
   const rotate = (axis: Rotate3DAxis, cw: boolean): void => {
     // EDA_3D_CONTROLLER::RotateView signs. Y is inverted relative to X and Z
     // upstream (X_CW rotates by -inc but Y_CW by +inc); mirrored verbatim.
-    const inc = THREE.MathUtils.degToRad(ROT_INCREMENT);
+    const inc = THREE.MathUtils.degToRad(cameraOpts.rotationIncrement);
     const board = axis === 'y' ? (cw ? inc : -inc) : cw ? -inc : inc;
     // Upstream turns the board; turning the camera the other way is the same
     // picture.
@@ -595,6 +681,7 @@ export function mount3DViewer(
     move,
     setOrtho,
     setGrid,
+    setCamera,
     snapshot: () =>
       new Promise<Blob | null>((resolve) => {
         // The drawing buffer is not preserved, so re-render in the same frame

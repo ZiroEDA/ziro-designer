@@ -444,9 +444,85 @@ describe('Footprint Editor > Graphics Defaults', () => {
       // `PANEL_SETUP_TEXT_AND_GRAPHICS` has six columns and this one five
       // (`panel_fp_editor_graphics_defaults_base.cpp:28`, `CreateGrid( 6, 5 )`).
       expect(panelText()).not.toContain('Keep Upright');
-      const headers = Array.from(document.querySelectorAll('.ze-fp-gfxgrid thead th'));
+      const headers = Array.from(document.querySelectorAll('.ze-fp-gfxgrid thead th')).filter(
+        (h) => h.className !== 'ze-grid-filler',
+      );
       // Five columns plus the row-label column.
       expect(headers).toHaveLength(6);
+    },
+    SLOW,
+  );
+
+  it(
+    'puts the unit IN the cell, as WX_GRID::SetUnitValue does',
+    async () => {
+      await openPage('fp-graphics');
+      // `SetCellValue( row, col, StringFromValue( value, true ) )`
+      // (`common/widgets/wx_grid.cpp:970-980`) — so a live footprint editor
+      // reads "0.1 mm", and its column headers carry no "(mm)" of their own.
+      const cell = (label: string): string =>
+        (screen.getByLabelText(label) as HTMLInputElement).value;
+      expect(cell('Silk Layers line thickness')).toBe('0.1 mm');
+      expect(cell('Copper Layers text width')).toBe('1.5 mm');
+      expect(cell('Copper Layers text thickness')).toBe('0.3 mm');
+      expect(cell('Edge Cuts line thickness')).toBe('0.05 mm');
+      // The header states the quantity, never the unit.
+      const headers = Array.from(document.querySelectorAll('.ze-fp-gfxgrid thead th')).map(
+        (h) => h.textContent ?? '',
+      );
+      expect(headers).not.toContain('Line Thickness (mm)');
+      for (const h of headers) expect(h).not.toMatch(/mm|mils|\bin\b/);
+    },
+    SLOW,
+  );
+
+  it(
+    'commits a cell when its editor closes, and takes a typed unit designator',
+    async () => {
+      await openPage('fp-graphics');
+      const field = screen.getByLabelText('Fab Layers text height') as HTMLInputElement;
+      // A wxGrid editor holds its own text until it loses the cell; nothing is
+      // reformatted under the caret while it is open.
+      fireEvent.change(field, { target: { value: '40 mils' } });
+      expect(field.value).toBe('40 mils');
+      fireEvent.blur(field);
+      // `ValueFromString` reads the trailing designator, so 40 mils is 1.016 mm
+      // and the cell comes back in the frame's own unit.
+      expect(field.value).toBe('1.016 mm');
+    },
+    SLOW,
+  );
+
+  it(
+    'refuses a line width outside KiCad’s limits and says so beside the grid',
+    async () => {
+      await openPage('fp-graphics');
+      const field = screen.getByLabelText('Silk Layers line thickness') as HTMLInputElement;
+      fireEvent.change(field, { target: { value: '0.001' } });
+      fireEvent.blur(field);
+      // `TransferDataFromWindow`'s KIDIALOG. The value is NOT applied and the
+      // bad text stays in the cell for the user to correct.
+      expect(field.value).toBe('0.001');
+      expect(document.querySelector('.ze-prefs-error')?.textContent).toContain(
+        'Silk Layers: Incorrect line width.',
+      );
+    },
+    SLOW,
+  );
+
+  it(
+    'truncates a text thickness thicker than a quarter of the text size',
+    async () => {
+      await openPage('fp-graphics');
+      const field = screen.getByLabelText('Silk Layers text thickness') as HTMLInputElement;
+      // Silk text is 1 mm, so the ceiling is 0.25 mm. This one is CLAMPED
+      // rather than refused, and the cell is rewritten with the truncation.
+      fireEvent.change(field, { target: { value: '0.6' } });
+      fireEvent.blur(field);
+      expect(field.value).toBe('0.25 mm');
+      expect(document.querySelector('.ze-prefs-error')?.textContent).toContain(
+        'It will be truncated to 0.25 mm',
+      );
     },
     SLOW,
   );
@@ -463,6 +539,64 @@ describe('Footprint Editor > Graphics Defaults', () => {
         const disabled = cells.slice(1).filter((c) => c.classList.contains('ze-grid-disabled'));
         expect(disabled, `${r.label}`).toHaveLength(r.text ? 0 : 4);
       }
+    },
+    SLOW,
+  );
+
+  it('floors its columns at the stated widths and gives the slack to the filler', () => {
+    // `SetRowLabelSize( 125 )` and `SetColSize` 110/100/100/100/60
+    // (`panel_fp_editor_graphics_defaults_base.cpp:45-49, 68`), each of them a
+    // FLOOR because `loadFPSettings` re-measures with `GetVisibleWidth( col,
+    // true, true, aKeep = true )`. [px] the live editor's gridlines fall at
+    // 776 / 887 / 987 / 1087 / 1193 / 1253 — 125 then 110/100/100/105/59, with
+    // only Text Thickness widened, by its own header.
+    const css = readFileSync(resolve(process.cwd(), '../designer/src/ui/shell.css'), 'utf8');
+    const rule = (selector: string): string => {
+      for (const m of css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{([^{}]*)\}/g))
+        if ((m[1] ?? '').split(',').some((sel) => sel.trim() === selector)) return m[2] ?? '';
+      return '';
+    };
+    expect(rule('.ze-fp-gfxgrid th:first-child')).toMatch(/min-width:\s*125px/);
+    expect(rule('.ze-fp-gfxgrid th:nth-child(2)')).toMatch(/min-width:\s*110px/);
+    expect(rule('.ze-fp-gfxgrid th:nth-child(3)')).toMatch(/min-width:\s*100px/);
+    expect(rule('.ze-fp-gfxgrid th:last-child')).toMatch(/min-width:\s*60px/);
+    // A stated width would CAP the column instead of flooring it, which is the
+    // one thing `aKeep = true` says it must not do.
+    expect(rule('.ze-fp-gfxgrid th:nth-child(2)')).not.toMatch(/[^-]width:\s*110px/);
+    // The strip past the last column: it takes the slack so the real columns
+    // do not, and it is NOT painted by a selected row.
+    expect(rule('.ze-grid th.ze-grid-filler')).toMatch(/width:\s*100%/);
+    expect(rule('.ze-grid tr.selected td.ze-grid-filler')).toMatch(
+      /background:\s*var\(--grid-cell-bg\)/,
+    );
+    // `WX_GRID::DrawColLabel`'s `if( col == 0 ) hAlign = wxALIGN_LEFT` is
+    // stated once, on the shared class, and keyed off the corner cell so a
+    // grid with a row-label gutter gets it on the right header.
+    expect(rule('.ze-grid th.ze-grid-corner + th')).toMatch(/text-align:\s*left/);
+  });
+
+  it(
+    'gives the slack to a filler cell rather than to a column',
+    async () => {
+      await openPage('fp-graphics');
+      const head = Array.from(document.querySelectorAll('.ze-fp-gfxgrid thead th'));
+      expect(head.at(-1)?.className).toBe('ze-grid-filler');
+      for (const tr of document.querySelectorAll('.ze-fp-gfxgrid tbody tr'))
+        expect(tr.lastElementChild?.className).toBe('ze-grid-filler');
+    },
+    SLOW,
+  );
+
+  it(
+    'draws the wxStaticLine this heading has and the other two do not',
+    async () => {
+      await openPage('fp-graphics');
+      // `m_staticline1` (`panel_fp_editor_graphics_defaults_base.cpp:31`).
+      // Footprint Defaults' and User Layer Names' headings have none, which is
+      // what `.ze-fp-defaults-title` is for.
+      const heading = screen.getByText('Default Properties for New Graphic Items');
+      expect(heading.className).toContain('ze-pref-group-title');
+      expect(heading.className).not.toContain('ze-fp-defaults-title');
     },
     SLOW,
   );
@@ -500,6 +634,40 @@ describe('Footprint Editor > User Layer Names', () => {
       expect(offered[0]).toBe('User.Drawings');
       expect(offered.at(-1)).toBe('User.45');
       expect(offered).not.toContain('F.Cu');
+    },
+    SLOW,
+  );
+
+  it('holds its two columns at 200 and 220 against the filler cell', () => {
+    // `SetColSize( 0, 200 )` / `SetColSize( 1, 220 )`, never autosized
+    // (`panel_fp_user_layer_names_base.cpp:65-66`).
+    //
+    // The regression this pins: `.ze-grid-filler`'s `width: 100%` and a stated
+    // `width: 200px` are BOTH suggestions to the auto table algorithm, and the
+    // 100% wins — Layer and Name collapsed onto their own text. Only
+    // `table-layout: fixed` reads a stated width as stated, and in that
+    // algorithm the filler has to be `auto` or it takes the whole table.
+    const css = readFileSync(resolve(process.cwd(), '../designer/src/ui/shell.css'), 'utf8');
+    const rule = (selector: string): string => {
+      for (const m of css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{([^{}]*)\}/g))
+        if ((m[1] ?? '').split(',').some((sel) => sel.trim() === selector)) return m[2] ?? '';
+      return '';
+    };
+    expect(rule('.ze-fp-layernames')).toMatch(/table-layout:\s*fixed/);
+    expect(rule('.ze-fp-layernames th:first-child')).toMatch(/width:\s*200px/);
+    expect(rule('.ze-fp-layernames th:nth-child(2)')).toMatch(/width:\s*220px/);
+    expect(rule('.ze-fp-layernames th.ze-grid-filler')).toMatch(/width:\s*auto/);
+  });
+
+  it(
+    'gives the grid a filler cell, so the columns stop at 420',
+    async () => {
+      await openPage('fp-userlayers');
+      fireEvent.click(screen.getByLabelText('Add layer'));
+      const head = Array.from(document.querySelectorAll('.ze-fp-layernames thead th'));
+      expect(head.at(-1)?.className).toBe('ze-grid-filler');
+      const row = document.querySelector('.ze-fp-layernames tbody tr');
+      expect(row?.lastElementChild?.className).toBe('ze-grid-filler');
     },
     SLOW,
   );

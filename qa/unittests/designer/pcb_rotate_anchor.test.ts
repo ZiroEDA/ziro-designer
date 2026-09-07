@@ -23,8 +23,18 @@ const text = readFileSync(
 );
 
 describe('EDIT_TOOL::Rotate and ::Mirror both take the modification point', () => {
-  it('rotate passes it', () => {
-    expect(text).toContain('commitBoard(rotateBoardItems(brd, items, ccw, modPoint(brd, items)));');
+  it('rotate passes it, and the STEP the preferences hold', () => {
+    // `TOOL_EVT_UTILS::GetEventRotationAngle( *frame(), aEvent )` —
+    // `frame->GetRotationAngle()`, i.e. Preferences > PCB Editor > Editing
+    // Options' "Step for rotate commands". This was a hardcoded ±90 through
+    // `rotateBoardItems`, which is the two-argument wrapper for exactly that.
+    expect(text).toContain(
+      'commitBoard(rotateBoardItemsBy(brd, items, ccw ? step : -step, modPoint(brd, items)));',
+    );
+    expect(text).toContain('const step = rotationStepRef.current;');
+    // …and the step is the stored value in DEGREES, not the tenths the file
+    // holds. Getting that conversion backwards turns R into a 900° rotation.
+    expect(text).toContain('rotationStepRef.current = pcbCfg.editing.rotation_angle / 10;');
   });
 
   it('mirror passes it (edit_tool.cpp:2451 calls the same updateModificationPoint)', () => {

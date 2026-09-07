@@ -54,6 +54,38 @@ export interface ZoneFillOptions {
   clearanceOf?: (zone: PcbZone, otherNet: number) => number;
   /** Arc/circle approximation error (m_MaxError). */
   maxError?: number;
+  /**
+   * `BOARD_DESIGN_SETTINGS::m_ZoneLayerProperties[ aLayer ].hatching_offset` —
+   * the Board Setup > Zone Hatch Offsets page, in IU, keyed by canonical layer
+   * name. `ZONE_FILLER::addHatchFillTypeOnZone` reads it as the BOARD default
+   * and lets a zone's own `LayerProperties()` override it per layer
+   * (`zone_filler.cpp:3929-3936`).
+   *
+   * Optional because this module is used without a board design settings
+   * object; absent means every layer's offset is (0, 0), which is
+   * `value_or( VECTOR2I() )`.
+   */
+  hatchingOffsets?: Readonly<Record<string, { x: number; y: number }>>;
+}
+
+/**
+ * The offset a hatched fill uses on one layer — the board default, overridden
+ * by the zone's own if it has one for that layer:
+ *
+ *     VECTOR2I offset = defaultOffsets[aLayer].hatching_offset.value_or( VECTOR2I() );
+ *     if( localOffsets.contains( aLayer ) && localOffsets.at( aLayer ).hatching_offset.has_value() )
+ *         offset = localOffsets.at( aLayer ).hatching_offset.value();
+ *
+ * One function because the per-zone dialog resolves it the same way; the rule
+ * is "the zone's own value wins ONLY when it has one", which is not the same as
+ * merging the two maps.
+ */
+export function hatchingOffsetFor(
+  aLayer: string,
+  aBoardDefaults: Readonly<Record<string, { x: number; y: number }>> | undefined,
+  aZoneLocal: Readonly<Record<string, { x: number; y: number }>> | undefined,
+): { x: number; y: number } {
+  return aZoneLocal?.[aLayer] ?? aBoardDefaults?.[aLayer] ?? { x: 0, y: 0 };
 }
 
 // ----- polygon helpers --------------------------------------------------------
@@ -448,7 +480,13 @@ export function fillZone(
 
     // A hatched zone keeps only its webbing (ZONE_FILLER::addHatchFillTypeOnZone),
     // and a thieving zone keeps only its stamps.
-    if (zone.fillMode === 'hatch') pruned = addHatchFillTypeOnZone(pruned, zone, maxError);
+    if (zone.fillMode === 'hatch')
+      pruned = addHatchFillTypeOnZone(
+        pruned,
+        zone,
+        maxError,
+        hatchingOffsetFor(layer, opts.hatchingOffsets, zone.layerProperties),
+      );
     else if (zone.fillMode === 'thieving')
       pruned = addCopperThievingPattern(pruned, zone, maxError);
     const polys: Vec2[][] = fracture(pruned);
@@ -622,11 +660,19 @@ function addCopperThievingPattern(fill: Polygon[], zone: PcbZone, maxError: numb
  * left smaller than `hatchHoleMinArea` of a full one is dropped rather than
  * leaving a speck.
  *
+ * The per-layer `hatching_offset` shifts the whole grid — the Board Setup >
+ * Zone Hatch Offsets page's value for this layer, or the zone's own override.
+ *
  * Not ported: the board-outline deflation (pcbnew clips holes to the board edge,
  * which needs an Edge.Cuts outline this layer does not have) and the thermal
  * ring interaction, which belongs with hatched thermal reliefs.
  */
-function addHatchFillTypeOnZone(fill: Polygon[], zone: PcbZone, maxError: number): Polygon[] {
+function addHatchFillTypeOnZone(
+  fill: Polygon[],
+  zone: PcbZone,
+  maxError: number,
+  offset: { x: number; y: number } = { x: 0, y: 0 },
+): Polygon[] {
   if (fill.length === 0) return fill;
 
   const minThickness = zone.minThickness ?? 0;
@@ -695,7 +741,14 @@ function addHatchFillTypeOnZone(fill: Polygon[], zone: PcbZone, maxError: number
   const holes: Geom[] = [];
   for (let xx = xOffset; xx <= maxX; xx += gridsize) {
     for (let yy = yOffset; yy <= maxY; yy += gridsize) {
-      const moved = holeBase[0]!.map((p) => rot({ x: p.x + xx, y: p.y + yy }, orientation));
+      // `hole.Move( xx, yy )`, `hole.Rotate( orientation )`, THEN
+      // `hole.Move( offset.x % gridsize, offset.y % gridsize )` — the offset is
+      // applied in the ROTATED frame, after the grid placement, and modulo the
+      // pitch because the pattern repeats (`zone_filler.cpp:3943-3958`).
+      const moved = holeBase[0]!.map((p) => {
+        const r = rot({ x: p.x + xx, y: p.y + yy }, orientation);
+        return { x: r.x + (offset.x % gridsize), y: r.y + (offset.y % gridsize) };
+      });
       holes.push([moved.map((p) => [p.x, p.y] as [number, number])]);
     }
   }

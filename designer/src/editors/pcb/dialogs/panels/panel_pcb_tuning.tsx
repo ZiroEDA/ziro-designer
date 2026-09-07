@@ -9,9 +9,15 @@
  * amplitude, spacing, corner style (chamfer/fillet), radius (% of amplitude),
  * and single-sided. Defaults are PNS::MEANDER_SETTINGS (pns_meander.cpp).
  * Illustrations are KiCad's own dark-theme SVGs (BITMAPS::tune_*_legend).
+ *
+ * Each group is a heading + `wxStaticLine` (`.ze-pref-group-title`) over a
+ * `wxFlexGridSizer( 0, 5, 5, 5 )` with column 1 growable — five columns, not
+ * the seven this had. No SetFont anywhere in the panel, so no font size here:
+ * the 12.5px headings, the 12px grid and the 11px units were all invented.
  */
 
 import type { JSX } from 'react';
+import { Combo } from '../../../../ui/Combo.js';
 
 const TUNE_ICON = import.meta.glob('../../../../assets/tuning/*.svg', {
   query: '?url',
@@ -32,95 +38,79 @@ export {
   type TuningSetup,
 } from '../../board_settings.js';
 
+// [data] `m_track_cornerCtrlChoices` (panel_setup_tuning_patterns_base.cpp:113).
+const CORNER_STYLES: CornerStyle[] = ['Chamfer', 'Fillet'];
+
 interface Props {
   value: TuningSetup;
   onChange: (next: TuningSetup) => void;
 }
 
-const legend: React.CSSProperties = { fontSize: 12.5, fontWeight: 600, margin: '2px 0 6px' };
-// Two field columns: (Min amplitude, Spacing, Corner style, Single-sided) on the
-// left; (Max amplitude, Radius) on the right, aligned row-for-row, as upstream.
-const grid: React.CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: 'max-content 66px max-content 28px max-content 66px max-content',
-  alignItems: 'center',
-  gap: '8px 6px',
-  fontSize: 12,
-};
-
 export function PanelPcbTuning({ value, onChange }: Props): JSX.Element {
   const num = (s: string): number => (Number.isFinite(Number(s)) ? Number(s) : 0);
 
-  const column = (title: string, key: keyof TuningSetup, img: string): JSX.Element => {
+  const group = (title: string, key: keyof TuningSetup, img: string): JSX.Element => {
     const s = value[key];
     const set = <K extends keyof TuningPattern>(k: K, v: TuningPattern[K]): void =>
       onChange({ ...value, [key]: { ...s, [k]: v } });
-    const field = (label: string, k: keyof TuningPattern, unit: string): JSX.Element => (
-      <>
-        <span>{label}</span>
-        <input
-          className="ze-search"
-          type="number"
-          style={{ width: '100%', boxSizing: 'border-box' }}
-          value={s[k] as number}
-          onChange={(e) => set(k, num(e.target.value) as never)}
-        />
-        <span className="ze-muted" style={{ fontSize: 11 }}>
-          {unit}
-        </span>
-      </>
+
+    const entry = (k: keyof TuningPattern): JSX.Element => (
+      <input
+        className="ze-search"
+        value={s[k] as number}
+        onChange={(e) => set(k, num(e.target.value) as never)}
+      />
     );
-    const gap = <span />;
+    // Column 1 of the flexgrid is a `wxBoxSizer( wxHORIZONTAL )` holding the
+    // control (proportion 1) and its unit label (`wxLEFT, 5`), not two cells.
+    const entryWithUnit = (k: keyof TuningPattern, unit: string): JSX.Element => (
+      <div className="ze-tune-entrybox">
+        {entry(k)}
+        <span className="unit">{unit}</span>
+      </div>
+    );
     const src = icon(img);
+
     return (
-      <div style={{ marginBottom: 16 }}>
-        <div style={legend}>{title}</div>
-        <div style={{ display: 'flex', gap: 22, alignItems: 'flex-start' }}>
-          {src && (
-            <img
-              src={src}
-              alt=""
-              aria-hidden="true"
-              style={{ width: 160, flex: '0 0 auto', opacity: 0.9 }}
-            />
-          )}
-          <div style={grid}>
-            {/* Row 1: Minimum amplitude | Maximum amplitude */}
-            {field('Minimum amplitude (A):', 'minAmplitudeMM', 'mm')}
-            {gap}
-            {field('Maximum amplitude (A):', 'maxAmplitudeMM', 'mm')}
+      <div className="ze-pref-group" key={key}>
+        <div className="ze-pref-group-title">{title}</div>
+        {/* `singleTrackSizer`, horizontal: the legend bitmap
+            (`wxEXPAND|wxRIGHT|wxLEFT, 15`) then the field grid. */}
+        <div className="ze-tune-body">
+          {src && <img className="ze-tune-legend" src={src} alt="" aria-hidden="true" />}
+          <div className="ze-tune-grid">
+            {/* Row 1 */}
+            <span>Minimum amplitude (A):</span>
+            {entryWithUnit('minAmplitudeMM', 'mm')}
+            <span className="ze-tune-col3">Maximum amplitude (A):</span>
+            {entry('maxAmplitudeMM')}
+            <span className="unit">mm</span>
 
-            {/* Row 2: Spacing |, */}
-            {field('Spacing (s):', 'spacingMM', 'mm')}
-            {gap}
-            {gap}
-            {gap}
-            {gap}
+            {/* Row 2 — the last three cells are spacers upstream. */}
+            <span>Spacing (s):</span>
+            {entryWithUnit('spacingMM', 'mm')}
+            <span />
+            <span />
+            <span />
 
-            {/* Row 3: Corner style | Radius */}
+            {/* Row 3 — five spacers, the last of them 5 px tall. */}
+            <div className="ze-tune-gap" />
+
+            {/* Row 4 */}
             <span>Corner style:</span>
-            <select
-              className="ze-select"
-              style={{ width: '100%', gridColumn: '2 / 4' }}
+            <Combo
               value={s.cornerStyle}
-              onChange={(e) => set('cornerStyle', e.target.value as CornerStyle)}
-            >
-              <option>Chamfer</option>
-              <option>Fillet</option>
-            </select>
-            {gap}
-            {field('Radius (r):', 'radiusPct', '%')}
+              ariaLabel={`${title} corner style`}
+              options={CORNER_STYLES.map((c) => ({ value: c, label: c }))}
+              onChange={(c) => set('cornerStyle', c as CornerStyle)}
+            />
+            <span className="ze-tune-col3">Radius (r):</span>
+            {entry('radiusPct')}
+            <span className="unit">%</span>
 
-            {/* Row 4: Single-sided, under the left-column input boxes. */}
-            <label
-              style={{
-                gridColumn: '2 / 8',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-                whiteSpace: 'nowrap',
-              }}
-            >
+            {/* Row 5 — the checkbox sits in column 1, under the entries. */}
+            <span />
+            <label className="ze-pref-check">
               <input
                 type="checkbox"
                 checked={s.singleSided}
@@ -128,6 +118,7 @@ export function PanelPcbTuning({ value, onChange }: Props): JSX.Element {
               />
               Single-sided
             </label>
+            <span />
           </div>
         </div>
       </div>
@@ -135,18 +126,18 @@ export function PanelPcbTuning({ value, onChange }: Props): JSX.Element {
   };
 
   return (
-    <div style={{ padding: '2px 2px' }}>
-      {column(
+    <div className="ze-pref-page-natural">
+      {group(
         'Default Properties for Single Track Tuning',
         'singleTrack',
         'tune_single_track_length_legend',
       )}
-      {column(
+      {group(
         'Default Properties for Differential Pairs',
         'diffPair',
         'tune_diff_pair_length_legend',
       )}
-      {column(
+      {group(
         'Default Properties for Differential Pair Skews',
         'diffPairSkew',
         'tune_diff_pair_skew_legend',

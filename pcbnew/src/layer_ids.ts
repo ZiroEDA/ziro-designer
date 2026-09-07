@@ -143,6 +143,65 @@ export function LSET_Name(aLayerId: number): PCB_LAYER_ID {
 }
 
 /**
+ * `LSET::NameToLayer( wxString& aName )` (`common/lset.cpp:117-165`) — the
+ * inverse of `LSET_Name`, i.e. canonical token to `PCB_LAYER_ID`, and **-1**
+ * for anything it does not recognise (upstream's sentinel, which is
+ * `UNDEFINED_LAYER`).
+ *
+ * Upstream spells the twenty-two fixed entries out in a `std::map` and then
+ * falls through to the two computed families; here the map is derived from
+ * `LSET_Name` so the two directions cannot drift — the pair is the same table
+ * read each way, and a second hand-typed list is exactly what this exists to
+ * prevent. The `In%d.Cu` / `User.%d` arithmetic below is upstream's own.
+ */
+export function LSET_NameToLayer(aName: PCB_LAYER_ID): number {
+  const user = /^User\.(\d+)$/.exec(aName);
+  if (user) {
+    const n = Number(user[1]);
+    if (n > 0) return User_1 + (n - 1) * 2;
+  }
+
+  const inner = /^In(\d+)\.Cu$/.exec(aName);
+  if (inner) {
+    const n = Number(inner[1]);
+    if (n > 0) return In_Cu(n);
+  }
+
+  const hit = FIXED_LAYER_IDS_BY_NAME.get(aName);
+  return hit ?? UNDEFINED_LAYER;
+}
+
+/**
+ * The fixed half of `NameToLayer`'s map, built by reading `LSET_Name` back over
+ * the ids it names explicitly. `Rescue` is in it, as it is upstream.
+ */
+const FIXED_LAYER_IDS_BY_NAME: ReadonlyMap<string, number> = new Map(
+  [
+    F_Cu,
+    B_Cu,
+    F_Adhes,
+    B_Adhes,
+    F_Paste,
+    B_Paste,
+    F_SilkS,
+    B_SilkS,
+    F_Mask,
+    B_Mask,
+    Dwgs_User,
+    Cmts_User,
+    Eco1_User,
+    Eco2_User,
+    Edge_Cuts,
+    Margin,
+    F_CrtYd,
+    B_CrtYd,
+    F_Fab,
+    B_Fab,
+    Rescue,
+  ].map((id) => [LSET_Name(id), id]),
+);
+
+/**
  * `LSET::AllCuMask( int aCuLayerCount )` (`common/lset.cpp:599`) as the LSET's
  * own copper iteration order, which is what a caller printing the set wants.
  *

@@ -13,7 +13,20 @@ import type { PickedHomeFile } from './files.js';
 
 const enc = new TextEncoder();
 
-// What pcbnew writes for File > New Board: default 2-layer stack.
+// What pcbnew writes for File > New Board. `BOARD_DESIGN_SETTINGS`'s
+// constructor is explicit about the shape (`board_design_settings.cpp:64-66`):
+//
+//     // Default design is a double layer board with 4 user defined layers
+//     SetCopperLayerCount( 2 );
+//     SetUserDefinedLayerCount( 4 );
+//
+// so User.1-4 are enabled before the board has ever been through Board Setup.
+// This template stopped at B.Fab, which is why a new board here opened with no
+// user layers where a new board in KiCad has four. They come last because the
+// writer walks `GetEnabledLayers().TechAndUserUIOrder()`, whose tail is the
+// User.N run (`pcb_io_kicad_sexpr.cpp:678`); their ids are User_1 = 39 stepping
+// by two, and they carry the plain `user` qualifier because LT_AUX is not
+// LT_FRONT or LT_BACK (`:684-694`).
 export const EMPTY_PCB = `(kicad_pcb (version 20241229) (generator "${GENERATOR}")
   (general (thickness 1.6) (legacy_teardrops no))
   (paper "A4")
@@ -38,6 +51,10 @@ export const EMPTY_PCB = `(kicad_pcb (version 20241229) (generator "${GENERATOR}
     (29 "B.CrtYd" user "B.Courtyard")
     (35 "F.Fab" user)
     (33 "B.Fab" user)
+    (39 "User.1" user)
+    (41 "User.2" user)
+    (43 "User.3" user)
+    (45 "User.4" user)
   )
   (net 0 "")
 )

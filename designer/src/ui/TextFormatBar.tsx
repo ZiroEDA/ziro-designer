@@ -125,9 +125,25 @@ export interface TextFormatBarProps {
   onHAlign: (v: HAlign) => void;
   vAlign: VAlign;
   onVAlign: (v: VAlign) => void;
-  /** 0 or 90 — `m_horizontal` / `m_vertical`, `SetTextAngle`. */
-  angle: number;
-  onAngle: (v: number) => void;
+  /**
+   * 0 or 90 — `m_horizontal` / `m_vertical`, `SetTextAngle`.
+   *
+   * eeschema's dialogs end the bar with this pair. Omit it when the dialog
+   * ends with `m_mirrored` instead; the two are alternatives, never both.
+   */
+  angle?: number;
+  onAngle?: (v: number) => void;
+  /**
+   * `m_mirrored`, the last button on **pcbnew's** bars
+   * (`dialog_textbox_properties_base.h`, `dialog_text_properties_base.h`).
+   *
+   * A board item can be mirrored because it can sit on a back layer read
+   * through the board; a schematic one cannot, and eeschema spends the same
+   * slot on the horizontal/vertical orientation pair instead. Same bar, one
+   * trailing group that differs — so it is a prop, not a second bar.
+   */
+  mirrored?: boolean;
+  onMirrored?: (v: boolean) => void;
 }
 
 /** The formatting bar, in the one order every `formattingSizer` adds. */
@@ -142,6 +158,8 @@ export function TextFormatBar({
   onVAlign,
   angle,
   onAngle,
+  mirrored,
+  onMirrored,
 }: TextFormatBarProps): JSX.Element {
   return (
     <div className="ze-lp-iconbar">
@@ -178,18 +196,29 @@ export function TextFormatBar({
       ))}
       {/* m_separator4 */}
       <span className="ze-lp-sep" />
-      <IconButton
-        icon="text_horizontal"
-        title="Horizontal text"
-        checked={angle === 0}
-        onClick={() => onAngle(0)}
-      />
-      <IconButton
-        icon="text_vertical"
-        title="Vertical text"
-        checked={angle === 90}
-        onClick={() => onAngle(90)}
-      />
+      {onMirrored ? (
+        <IconButton
+          icon="text_mirrored"
+          title="Mirrored"
+          checked={mirrored === true}
+          onClick={() => onMirrored(!mirrored)}
+        />
+      ) : (
+        <>
+          <IconButton
+            icon="text_horizontal"
+            title="Horizontal text"
+            checked={angle === 0}
+            onClick={() => onAngle?.(0)}
+          />
+          <IconButton
+            icon="text_vertical"
+            title="Vertical text"
+            checked={angle === 90}
+            onClick={() => onAngle?.(90)}
+          />
+        </>
+      )}
       {/* m_separator5 */}
       <span className="ze-lp-sep" />
     </div>

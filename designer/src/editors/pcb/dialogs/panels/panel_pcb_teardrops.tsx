@@ -5,15 +5,26 @@
  * Board Setup > Design Rules > Teardrops. Counterpart:
  * `pcbnew/dialogs/panel_setup_teardrops_base.cpp` (PANEL_SETUP_TEARDROPS), three
  * groups stacked vertically (Round Shapes, Rectangular Shapes, Track-to-Track),
- * each an illustration + two field columns: Best/Maximum length & width and
- * Curved edges on the left; span / prefer-zone / track-width-limit on the right.
- * Best length, best width and the track-width limit are percentages of the pad/
- * via diameter (round) or width (rect/track); maximum length/width are mm.
- * Illustrations are KiCad's own dark-theme SVGs (BITMAPS::teardrop_*_sizes),
- * vendored like assets/constraints.
+ * each an illustration beside ONE `wxGridBagSizer( 2, 3 )` of six columns:
+ * label / control / units on the left, and the same three again on the right
+ * starting at `wxLEFT, 40`. Best length, best width and the track-width limit
+ * are percentages of the pad/via diameter (round) or width (rect/track);
+ * maximum length/width are mm. Illustrations are KiCad's own dark-theme SVGs
+ * (BITMAPS::teardrop_*_sizes), vendored like assets/constraints.
+ *
+ * Two things this had wrong beyond the font sizes:
+ *
+ *  - the percentage fields are `wxSpinCtrlDouble`s with a range and an
+ *    increment (`:51`, `:93`, `:142`), so they carry GTK's stepper buttons.
+ *    They were plain number inputs, whose steppers the browser hides until you
+ *    hover them.
+ *  - the units read `%(` + an ITALIC hint letter + ` )` — three static texts,
+ *    the middle one `wxFONTSTYLE_ITALIC` at the dialog's own point size
+ *    (`:66`, `:108`, `:159`) — not one grey 11px "%(d)".
  */
 
 import type { JSX } from 'react';
+import { SpinCtrl } from '../../../../ui/SpinCtrl.js';
 
 const TD_ICON = import.meta.glob('../../../../assets/teardrops/*.svg', {
   query: '?url',
@@ -38,70 +49,112 @@ interface Props {
   onChange: (next: TeardropsSetup) => void;
 }
 
-const legend: React.CSSProperties = { fontSize: 12.5, fontWeight: 600, margin: '2px 0 6px' };
-const grid: React.CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: 'max-content 60px max-content',
-  alignItems: 'center',
-  gap: '7px 6px',
-  fontSize: 12,
-};
-const check: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 6,
-  margin: '5px 0',
-};
+const SPAN_TIP =
+  'Allows a teardrop to extend over the first 2 connected track segments if the first track ' +
+  'segment is too short to accommodate the best length.';
 
 export function PanelPcbTeardrops({ value, onChange }: Props): JSX.Element {
   const num = (s: string): number => (Number.isFinite(Number(s)) ? Number(s) : 0);
 
-  const column = (
+  const group = (
     title: string,
     key: TeardropShapeKey,
     opts: { img: string; ref: 'd' | 'w'; preferZone: boolean; spanLabel: string; note?: string },
   ): JSX.Element => {
     const s = value[key];
-    const pct = `%(${opts.ref})`;
     const set = <K extends keyof TeardropShape>(k: K, v: TeardropShape[K]): void =>
       onChange({ ...value, [key]: { ...s, [k]: v } });
-    const numRow = (label: string, k: keyof TeardropShape, unit: string): JSX.Element => (
-      <>
-        <span>{label}</span>
-        <input
-          className="ze-search"
-          type="number"
-          style={{ width: '100%', boxSizing: 'border-box' }}
-          value={s[k] as number}
-          onChange={(e) => set(k, num(e.target.value) as never)}
-        />
-        <span className="ze-muted" style={{ fontSize: 11 }}>
-          {unit}
-        </span>
-      </>
+
+    // `%(` + the italic hint + ` )`, as three wxStaticTexts.
+    const pct = (
+      <span className="unit">
+        {'%('}
+        <i className="ze-td-hint">{opts.ref}</i>
+        {' )'}
+      </span>
+    );
+    // A `wxSpinCtrlDouble`: range and increment are the base file's own.
+    const spin = (k: keyof TeardropShape, min: number): JSX.Element => (
+      <SpinCtrl
+        value={s[k] as number}
+        min={min}
+        max={100}
+        step={10}
+        onChange={(n) => set(k, n as never)}
+      />
+    );
+    const entry = (k: keyof TeardropShape): JSX.Element => (
+      <input
+        className="ze-search"
+        value={s[k] as number}
+        onChange={(e) => set(k, num(e.target.value) as never)}
+      />
     );
     const src = icon(opts.img);
+
     return (
-      <div style={{ marginBottom: 16 }}>
-        <div style={legend}>{title}</div>
-        <div style={{ display: 'flex', gap: 22, alignItems: 'flex-start' }}>
-          {src && (
-            <img
-              src={src}
-              alt=""
-              aria-hidden="true"
-              style={{ width: 150, flex: '0 0 auto', opacity: 0.9 }}
-            />
-          )}
-          {/* Left field column: sizes + curved edges. */}
-          <div style={{ flex: '0 0 auto' }}>
-            <div style={grid}>
-              {numRow('Best length (L):', 'bestLengthPct', pct)}
-              {numRow('Maximum length (L):', 'maxLengthMM', 'mm')}
-              {numRow('Best width (W):', 'bestWidthPct', pct)}
-              {numRow('Maximum width (W):', 'maxWidthMM', 'mm')}
-            </div>
-            <label style={{ ...check, marginTop: 6 }}>
+      <div className="ze-pref-group" key={key}>
+        <div className="ze-pref-group-title">{title}</div>
+        {/* `bSizerShapeColumns`, horizontal: the bitmap column
+            (`wxEXPAND|wxRIGHT, 10`), a 10 px spacer, then the gridbag
+            (`wxEXPAND|wxLEFT, 20`). */}
+        <div className="ze-td-body">
+          {src && <img className="ze-td-legend" src={src} alt="" aria-hidden="true" />}
+          <div className="ze-td-grid">
+            {/* Row 0 */}
+            <span>Best length (L):</span>
+            {spin('bestLengthPct', 20)}
+            {pct}
+            <label className="ze-pref-check ze-td-right" title={SPAN_TIP}>
+              <input
+                type="checkbox"
+                checked={s.allowSpanTwoSegments}
+                onChange={(e) => set('allowSpanTwoSegments', e.target.checked)}
+              />
+              {opts.spanLabel}
+            </label>
+
+            {/* Row 1 */}
+            <span>Maximum length (L):</span>
+            {entry('maxLengthMM')}
+            <span className="unit">mm</span>
+            {opts.preferZone ? (
+              <label className="ze-pref-check ze-td-right">
+                <input
+                  type="checkbox"
+                  checked={s.preferZoneConnection}
+                  onChange={(e) => set('preferZoneConnection', e.target.checked)}
+                />
+                Prefer zone connection
+              </label>
+            ) : (
+              <span className="ze-td-right" />
+            )}
+
+            {/* Row 2 — `SetEmptyCellSize( wxSize( 10, 7 ) )`. */}
+            <div className="ze-td-emptyrow" />
+
+            {/* Row 3 */}
+            <span>Best width (W):</span>
+            {spin('bestWidthPct', 60)}
+            {pct}
+            <span className="ze-td-right">Track width limit:</span>
+            {spin('trackWidthLimitPct', 0)}
+            {pct}
+
+            {/* Row 4 */}
+            <span>Maximum width (W):</span>
+            {entry('maxWidthMM')}
+            <span className="unit">mm</span>
+            <span />
+            <span />
+            <span />
+
+            {/* Row 5 — the second empty row. */}
+            <div className="ze-td-emptyrow" />
+
+            {/* Row 6 */}
+            <label className="ze-pref-check">
               <input
                 type="checkbox"
                 checked={s.curvedEdges}
@@ -110,55 +163,27 @@ export function PanelPcbTeardrops({ value, onChange }: Props): JSX.Element {
               Curved edges
             </label>
           </div>
-          {/* Right field column: span / prefer-zone / track-width-limit. */}
-          <div style={{ flex: '1 1 auto', minWidth: 0 }}>
-            <label style={check}>
-              <input
-                type="checkbox"
-                checked={s.allowSpanTwoSegments}
-                onChange={(e) => set('allowSpanTwoSegments', e.target.checked)}
-              />
-              {opts.spanLabel}
-            </label>
-            {opts.preferZone && (
-              <label style={check}>
-                <input
-                  type="checkbox"
-                  checked={s.preferZoneConnection}
-                  onChange={(e) => set('preferZoneConnection', e.target.checked)}
-                />
-                Prefer zone connection
-              </label>
-            )}
-            <div style={{ ...grid, marginTop: 6 }}>
-              {numRow('Track width limit:', 'trackWidthLimitPct', pct)}
-            </div>
-            {opts.note && (
-              <div className="ze-muted" style={{ fontSize: 11, fontStyle: 'italic', marginTop: 6 }}>
-                {opts.note}
-              </div>
-            )}
-          </div>
         </div>
+        {opts.note && <div className="ze-pref-infotext ze-td-note">{opts.note}</div>}
       </div>
     );
   };
 
   return (
-    <div style={{ padding: '2px 2px' }}>
-      {column('Default Properties for Round Shapes', 'round', {
+    <div className="ze-pref-page-natural">
+      {group('Default Properties for Round Shapes', 'round', {
         img: 'teardrop_sizes',
         ref: 'd',
         preferZone: true,
         spanLabel: 'Allow teardrop to span two track segments',
       })}
-      {column('Default Properties for Rectangular Shapes', 'rect', {
+      {group('Default Properties for Rectangular Shapes', 'rect', {
         img: 'teardrop_rect_sizes',
         ref: 'w',
         preferZone: true,
         spanLabel: 'Allow teardrop to span track segments',
       })}
-      {column('Properties for Track-to-Track Teardrops', 'trackToTrack', {
+      {group('Properties for Track-to-Track Teardrops', 'trackToTrack', {
         img: 'teardrop_track_sizes',
         ref: 'w',
         preferZone: false,

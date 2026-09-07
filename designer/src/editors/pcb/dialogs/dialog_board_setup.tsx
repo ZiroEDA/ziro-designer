@@ -4,9 +4,10 @@
 /**
  * Board Setup dialog. Counterpart: `pcbnew/dialogs/dialog_board_setup.cpp`
  * (DIALOG_BOARD_SETUP), a PAGED_DIALOG whose tree mirrors pcbnew exactly:
- *   Board Stackup   : Board Editor Layers, Physical Stackup, Board Finish, Solder Mask/Paste
+ *   Board Stackup   : Board Editor Layers, Physical Stackup, Board Finish,
+ *                     Solder Mask/Paste, Zone Hatch Offsets
  *   Text & Graphics : Defaults, Formatting, Text Variables
- *   Design Rules    : Constraints, Pre-defined Sizes, Zones, Teardrops,
+ *   Design Rules    : Constraints, Pre-defined Sizes, Teardrops,
  *                     Length-tuning Patterns, Tuning Profiles, Net Classes,
  *                     Component Classes, Custom Rules, Violation Severity
  *   Board Data      : Embedded Files
@@ -63,7 +64,8 @@ import { PanelPcbTextGraphics } from './panels/panel_pcb_text_graphics.js';
 import { PanelPcbFormatting } from './panels/panel_pcb_formatting.js';
 import { PanelPcbMaskPaste } from './panels/panel_pcb_mask_paste.js';
 import { PanelPcbZones } from './panels/panel_pcb_zones.js';
-import { PanelPcbLayers } from './panels/panel_pcb_layers.js';
+import { PanelPcbLayers, layerNameInputId, testLayerNames } from './panels/panel_pcb_layers.js';
+import { PanelPcbZoneHatchOffsets } from './panels/panel_pcb_zone_hatch_offsets.js';
 import { PanelPcbTeardrops } from './panels/panel_pcb_teardrops.js';
 import { PanelPcbTuning } from './panels/panel_pcb_tuning.js';
 import { PanelPcbTuningProfiles } from './panels/panel_pcb_tuning_profiles.js';
@@ -71,6 +73,7 @@ import { PanelPcbBoardFinish } from './panels/panel_pcb_board_finish.js';
 import { PanelPcbStackup } from './panels/panel_pcb_stackup.js';
 import { PanelPcbComponentClasses } from './panels/panel_pcb_component_classes.js';
 import { PanelPcbCustomRules } from './panels/panel_pcb_custom_rules.js';
+import { copperStackNames, syncCopperLayers } from '../board_settings.js';
 import type {
   BoardConstraints,
   BoardSetupValues,
@@ -96,12 +99,12 @@ type PageId =
   | 'physicalStackup'
   | 'boardFinish'
   | 'maskPaste'
+  | 'zoneHatchOffsets'
   | 'defaults'
   | 'formatting'
   | 'textVars'
   | 'constraints'
   | 'sizes'
-  | 'zones'
   | 'teardrops'
   | 'tuningPatterns'
   | 'tuningProfiles'
@@ -188,99 +191,69 @@ export function DialogBoardSetup({ value, initialPage, onOk, onClose }: Props): 
   const setCon = (key: keyof BoardConstraints, value: number | boolean): void =>
     setV({ ...v, constraints: { ...v.constraints, [key]: value } });
 
-  const secLabel: React.CSSProperties = { fontSize: 12.5, fontWeight: 600, margin: '2px 0 0' };
-  const secRule: React.CSSProperties = {
-    border: 'none',
-    borderTop: '1px solid var(--chrome-border)',
-    margin: '3px 0 8px',
-  };
-  const conGrid: React.CSSProperties = {
-    display: 'grid',
-    gridTemplateColumns: '22px max-content 84px max-content',
-    alignItems: 'center',
-    gap: '9px 8px',
-    fontSize: 12.5,
-    marginBottom: 4,
-  };
-
-  // A numeric constraint row (icon | label | value | mm). Pass icon='' for rows
-  // KiCad leaves un-iconed (Silk); the empty cell keeps the column aligned.
+  // A numeric constraint row of `fgFeatureConstraints`, the 4-column
+  // `wxFlexGridSizer( 0, 4, 0, 0 )` the whole left half of the page is built
+  // from (`panel_setup_constraints_base.cpp:26`): bitmap | label | wxTextCtrl |
+  // units. Pass icon='' for the rows KiCad leaves un-iconed (Silk); the empty
+  // cell keeps the column.
   const conRow = (icon: string, label: string, key: keyof BoardConstraints): JSX.Element => (
-    <>
-      <span style={{ display: 'inline-flex', width: 20, height: 20, alignItems: 'center' }}>
-        {icon ? <ConIcon name={icon} /> : null}
-      </span>
-      <span>{label}</span>
+    <div className="ze-con-row" key={key}>
+      <span className="ze-con-icon">{icon ? <ConIcon name={icon} /> : null}</span>
+      <span className="lbl">{label}</span>
       <input
         className="ze-search"
-        style={{ width: '100%', boxSizing: 'border-box' }}
         value={v.constraints[key] as number}
         onChange={(e) => setCon(key, num(e.target.value))}
       />
-      <span className="ze-muted" style={{ fontSize: 11 }}>
-        mm
-      </span>
-    </>
-  );
-  const section = (label: string): JSX.Element => (
-    <>
-      <div style={secLabel}>{label}</div>
-      <hr style={secRule} />
-    </>
+      <span className="unit">mm</span>
+    </div>
   );
 
   const constraintsPanel = (): JSX.Element => (
-    <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start' }}>
-      {/* Left column: Copper / Holes / Silk */}
-      <div style={{ flex: 1, minWidth: 0 }}>
-        {section('Copper')}
-        <div style={conGrid}>
-          {conRow('clearance', 'Minimum clearance:', 'minClearanceMM')}
-          {conRow('track', 'Minimum track width:', 'minTrackMM')}
-          {conRow('conn', 'Minimum connection width:', 'minConnectionMM')}
-          {conRow('annular', 'Minimum annular width:', 'minAnnularMM')}
-          {conRow('viaDia', 'Minimum via diameter:', 'minViaMM')}
-          {conRow('copperHole', 'Copper to hole clearance:', 'copperToHoleMM')}
-          {conRow('copperEdge', 'Copper to edge clearance:', 'copperToEdgeMM')}
-        </div>
+    // `bScrolledSizer`, a horizontal box: `sbFeatureConstraints` on the left
+    // and `sbFeatureRules` on the right (`:20-23`, `:379`).
+    <div className="ze-con-cols">
+      <div className="ze-con-grid">
+        <div className="ze-pref-group-title">Copper</div>
+        {conRow('clearance', 'Minimum clearance:', 'minClearanceMM')}
+        {conRow('track', 'Minimum track width:', 'minTrackMM')}
+        {conRow('conn', 'Minimum connection width:', 'minConnectionMM')}
+        {conRow('annular', 'Minimum annular width:', 'minAnnularMM')}
+        {conRow('viaDia', 'Minimum via diameter:', 'minViaMM')}
+        {conRow('copperHole', 'Copper to hole clearance:', 'copperToHoleMM')}
+        {conRow('copperEdge', 'Copper to edge clearance:', 'copperToEdgeMM')}
 
-        <div style={{ ...secLabel, marginTop: 14 }}>Holes</div>
-        <hr style={secRule} />
-        <div style={conGrid}>
-          {conRow('throughHole', 'Minimum through hole:', 'minThroughHoleMM')}
-          {conRow('holeToHole', 'Hole to hole clearance:', 'minHoleToHoleMM')}
-        </div>
+        <div className="ze-pref-group-title">Holes</div>
+        {/* [data] `m_MinDrillTitle`, "Minimum drill size:" (`:214`). This read
+            "Minimum through hole:", which is the v7 string. */}
+        {conRow('throughHole', 'Minimum drill size:', 'minThroughHoleMM')}
+        {conRow('holeToHole', 'Hole to hole clearance:', 'minHoleToHoleMM')}
 
-        <div style={{ ...secLabel, marginTop: 14 }}>uVias</div>
-        <hr style={secRule} />
-        <div style={conGrid}>
-          {conRow('uviaDia', 'Minimum uVia diameter:', 'minUViaMM')}
-          {conRow('uviaHole', 'Minimum uVia hole:', 'minUViaHoleMM')}
-        </div>
+        <div className="ze-pref-group-title">uVias</div>
+        {conRow('uviaDia', 'Minimum uVia diameter:', 'minUViaMM')}
+        {conRow('uviaHole', 'Minimum uVia hole:', 'minUViaHoleMM')}
 
-        <div style={{ ...secLabel, marginTop: 14 }}>Silk</div>
-        <hr style={secRule} />
-        <div style={conGrid}>
-          {conRow('', 'Minimum item clearance:', 'silkClearanceMM')}
-          {conRow('', 'Minimum text height:', 'minTextHeightMM')}
-          {conRow('', 'Minimum text thickness:', 'minTextThicknessMM')}
-        </div>
+        <div className="ze-pref-group-title">Silk</div>
+        {conRow('', 'Minimum item clearance:', 'silkClearanceMM')}
+        {conRow('', 'Minimum text height:', 'minTextHeightMM')}
+        {conRow('', 'Minimum text thickness:', 'minTextThicknessMM')}
       </div>
 
-      {/* Right column: Arc/Circle / Zone Fill / Length Tuning */}
-      <div style={{ flex: 1, minWidth: 0 }}>
-        {section('Arc/Circle Approximated by Segments')}
-        <div style={conGrid}>{conRow('', 'Maximum allowed deviation:', 'maxDeviationMM')}</div>
-        <div className="ze-muted" style={{ fontSize: 11, marginBottom: 4 }}>
-          Note: zone filling can be slow when &lt; 0.005 mm.
+      <div className="ze-con-rules">
+        {/* [data] `m_stCircleToPolyOpt`, "Arc/Circle Approximations" (`:384`).
+            This read "Arc/Circle Approximated by Segments", the v6 string. */}
+        <div className="ze-pref-group-title">Arc/Circle Approximations</div>
+        <div className="ze-con-grid">
+          {conRow('', 'Maximum allowed deviation:', 'maxDeviationMM')}
         </div>
+        {/* `KIUI::GetSmallInfoFont( this ).Italic()`
+            (`panel_setup_constraints.cpp:74`) — the info font TWO points down,
+            which is `.ze-pref-hint`, not a grey 11px caption. */}
+        <div className="ze-pref-hint">Note: zone filling can be slow when &lt; 0.005 mm.</div>
 
-        <div style={{ ...secLabel, marginTop: 14 }}>Zone Fill Strategy</div>
-        <hr style={secRule} />
-        <label
-          style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, margin: '4px 0' }}
-        >
-          <span style={{ display: 'inline-flex', width: 20, height: 20, alignItems: 'center' }}>
+        <div className="ze-pref-group-title">Zone Fill Strategy</div>
+        <label className="ze-pref-check ze-con-check">
+          <span className="ze-con-icon">
             <ConIcon name="fillet" />
           </span>
           <input
@@ -290,31 +263,23 @@ export function DialogBoardSetup({ value, initialPage, onOk, onClose }: Props): 
           />
           Allow fillets/chamfers outside zone outline
         </label>
-        <div
-          style={{
-            ...conGrid,
-            gridTemplateColumns: '22px max-content 84px',
-            marginTop: 6,
-          }}
-        >
-          <span style={{ display: 'inline-flex', width: 20, height: 20, alignItems: 'center' }}>
-            <ConIcon name="spoke" />
-          </span>
-          <span>Minimum thermal relief spoke count:</span>
-          <input
-            className="ze-search"
-            type="number"
-            style={{ width: '100%', boxSizing: 'border-box' }}
-            value={v.constraints.minThermalSpokes}
-            onChange={(e) => setCon('minThermalSpokes', num(e.target.value))}
-          />
+        <div className="ze-con-grid">
+          <div className="ze-con-row">
+            <span className="ze-con-icon">
+              <ConIcon name="spoke" />
+            </span>
+            <span className="lbl">Minimum thermal relief spoke count:</span>
+            <input
+              className="ze-search"
+              value={v.constraints.minThermalSpokes}
+              onChange={(e) => setCon('minThermalSpokes', num(e.target.value))}
+            />
+            <span className="unit" />
+          </div>
         </div>
 
-        <div style={{ ...secLabel, marginTop: 14 }}>Length Tuning</div>
-        <hr style={secRule} />
-        <label
-          style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, margin: '4px 0' }}
-        >
+        <div className="ze-pref-group-title">Length Tuning</div>
+        <label className="ze-pref-check">
           <input
             type="checkbox"
             checked={v.constraints.includeStackupHeight}
@@ -338,23 +303,14 @@ export function DialogBoardSetup({ value, initialPage, onOk, onClose }: Props): 
   ): JSX.Element => {
     const sortKey = cols[0]!.key;
     return (
-      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-        <div style={{ fontSize: 12.5, marginBottom: 4 }}>{title}</div>
-        <div
-          style={{
-            flex: 1,
-            minHeight: 0,
-            overflow: 'auto',
-            border: '1px solid var(--chrome-border)',
-            borderRadius: 3,
-            background: 'var(--chrome-bg2)',
-          }}
-        >
-          <table className="ze-grid" style={{ border: 'none', width: '100%' }}>
+      <div className="ze-sizes-col">
+        <div>{title}</div>
+        <div className="ze-grid-pane ze-sizes-pane">
+          <table className="ze-grid">
             <thead>
               <tr>
                 {cols.map((c) => (
-                  <th key={String(c.key)} style={{ position: 'sticky', top: 0 }}>
+                  <th key={String(c.key)} className="ze-sticky-head">
                     {c.label}
                   </th>
                 ))}
@@ -395,7 +351,7 @@ export function DialogBoardSetup({ value, initialPage, onOk, onClose }: Props): 
           >
             <Icon name="arrowDown" />
           </button>
-          <span style={{ width: 15 }} />
+          <span className="ze-gridbtn-gap" />
           <button
             className="ze-gridbtn"
             title="Remove"
@@ -410,7 +366,7 @@ export function DialogBoardSetup({ value, initialPage, onOk, onClose }: Props): 
   };
 
   const sizesPanel = (): JSX.Element => (
-    <div style={{ height: '100%', display: 'flex', gap: 14 }}>
+    <div className="ze-sizes-cols">
       {sizeGrid<{ width: number }>(
         'Tracks',
         [{ label: 'Width (mm)', key: 'width' }],
@@ -442,12 +398,6 @@ export function DialogBoardSetup({ value, initialPage, onOk, onClose }: Props): 
     </div>
   );
 
-  const todo = (): JSX.Element => (
-    <div style={{ padding: 16, color: 'var(--ze-muted, #888)', fontSize: 12 }}>
-      This setup page is not implemented yet.
-    </div>
-  );
-
   // The upstream page tree (DIALOG_BOARD_SETUP::DIALOG_BOARD_SETUP).
   const sections: PagedDialogSection[] = [
     {
@@ -466,7 +416,18 @@ export function DialogBoardSetup({ value, initialPage, onOk, onClose }: Props): 
           render: () => (
             <PanelPcbStackup
               value={v.physicalStackup}
-              onChange={(physicalStackup) => setV({ ...v, physicalStackup })}
+              // `DIALOG_BOARD_SETUP::OnPageChange` fans `SyncCopperLayers( m_physicalStackup
+              // ->GetCopperLayerCount() )` out to the Layers, Tuning Profiles and Zone Hatch
+              // Offsets pages (`dialog_board_setup.cpp:306-330`). Our pages read their rows
+              // from this value, so the fan-out is one call on the count changing rather
+              // than three overrides fired on navigation.
+              onChange={(physicalStackup) =>
+                setV(
+                  physicalStackup.copperCount === v.physicalStackup.copperCount
+                    ? { ...v, physicalStackup }
+                    : syncCopperLayers({ ...v, physicalStackup }, physicalStackup.copperCount),
+                )
+              }
               finish={v.boardFinish}
             />
           ),
@@ -491,6 +452,21 @@ export function DialogBoardSetup({ value, initialPage, onOk, onClose }: Props): 
             />
           ),
         },
+        {
+          // `m_zoneHatchOffsetsPage` (`dialog_board_setup.cpp:132-138`), the
+          // fifth child of Board Stackup. Its rows are the board's enabled
+          // copper layers, so it reads the stackup's count rather than holding
+          // a copper list of its own.
+          id: 'zoneHatchOffsets',
+          label: 'Zone Hatch Offsets',
+          render: () => (
+            <PanelPcbZoneHatchOffsets
+              copperLayers={copperStackNames(v.physicalStackup.copperCount)}
+              value={v.zoneLayerProperties}
+              onChange={(zoneLayerProperties) => setV({ ...v, zoneLayerProperties })}
+            />
+          ),
+        },
       ],
     },
     {
@@ -499,11 +475,19 @@ export function DialogBoardSetup({ value, initialPage, onOk, onClose }: Props): 
         {
           id: 'defaults',
           label: 'Defaults',
+          // `PANEL_SETUP_DEFAULTS` is THREE panels in one scrolled window:
+          // text & graphics, a 10 px spacer, dimensions, another spacer, then
+          // zones (`panel_setup_defaults.cpp:39-48`). The first two are
+          // `PanelPcbTextGraphics`; the third was a tree row of its own here,
+          // which is a page KiCad's Board Setup does not have.
           render: () => (
-            <PanelPcbTextGraphics
-              value={v.textGraphics}
-              onChange={(textGraphics) => setV({ ...v, textGraphics })}
-            />
+            <div className="ze-pcb-defaults">
+              <PanelPcbTextGraphics
+                value={v.textGraphics}
+                onChange={(textGraphics) => setV({ ...v, textGraphics })}
+              />
+              <PanelPcbZones value={v.zones} onChange={(zones) => setV({ ...v, zones })} />
+            </div>
           ),
         },
         {
@@ -533,13 +517,6 @@ export function DialogBoardSetup({ value, initialPage, onOk, onClose }: Props): 
       pages: [
         { id: 'constraints', label: 'Constraints', render: constraintsPanel },
         { id: 'sizes', label: 'Pre-defined Sizes', render: sizesPanel },
-        {
-          id: 'zones',
-          label: 'Zones',
-          render: () => (
-            <PanelPcbZones value={v.zones} onChange={(zones) => setV({ ...v, zones })} />
-          ),
-        },
         {
           id: 'teardrops',
           label: 'Teardrops',
@@ -632,9 +609,23 @@ export function DialogBoardSetup({ value, initialPage, onOk, onClose }: Props): 
         title="Board Setup"
         sections={sections}
         initialPage={initialPage}
+        // [data] `PAGED_DIALOG( …, wxSize( 980, 600 ) )`, dialog_board_setup.cpp:63.
+        initialSize={{ width: 980, height: 600 }}
         auxiliaryAction="Import Settings from Another Board..."
         onAuxiliaryAction={() => setImportOpen(true)}
-        onOk={() => onOk(v)}
+        // `PANEL_SETUP_LAYERS::TransferDataFromWindow` runs `testLayerNames()`
+        // first and returns false on a bad name, which keeps the dialog open
+        // and leaves PAGED_DIALOG showing the message (`panel_setup_layers.cpp:975`).
+        onOk={() => {
+          const bad = testLayerNames(v.layers);
+          if (bad)
+            return {
+              message: bad.message,
+              page: 'layers',
+              focusId: layerNameInputId(bad.layerId),
+            };
+          onOk(v);
+        }}
         onCancel={onClose}
       />
       {importOpen && (

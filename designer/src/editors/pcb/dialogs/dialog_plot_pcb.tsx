@@ -27,6 +27,7 @@ import { useMemo, useRef, useState, type JSX } from 'react';
 import { zipSync, strToU8 } from 'fflate';
 import {
   plotGerberLayer,
+  type BoardMaskPasteDefaults,
   plotExcellonDrill,
   gerberProtelExtension,
   plotGerberJob,
@@ -46,6 +47,13 @@ import { useModalEscape } from '../../../ui/useModalEscape.js';
 interface Props {
   board: Board;
   visibleLayers: ReadonlySet<string>;
+  /**
+   * Board Setup > Solder Mask/Paste, in IU. `PAD::GetSolderMaskExpansion` and
+   * `GetSolderPasteMargin` end their fallback chain here, so without it every
+   * pad plots its bare copper size on the mask and paste layers and the page
+   * changes nothing in the exported gerbers.
+   */
+  maskPaste?: BoardMaskPasteDefaults;
   /** Folders that already exist in the project (browse choices). */
   projectFolders?: readonly string[];
   /** Write a generated file into the project (path relative to the project
@@ -70,6 +78,7 @@ const download = (name: string, data: Uint8Array | string): void => {
 export function DialogPcbPlot({
   board,
   visibleLayers,
+  maskPaste,
   projectFolders = [],
   onOutputFile,
   onRunDrc,
@@ -142,7 +151,13 @@ export function DialogPcbPlot({
       made.push({
         layer,
         name,
-        text: plotGerberLayer(board, layer, { creationDate: date, coordDigits, useX2, origin }),
+        text: plotGerberLayer(board, layer, {
+          creationDate: date,
+          coordDigits,
+          useX2,
+          origin,
+          maskPaste,
+        }),
       });
     }
     if (made.length === 0) {

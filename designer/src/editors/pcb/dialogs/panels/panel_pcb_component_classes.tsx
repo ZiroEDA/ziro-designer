@@ -9,9 +9,16 @@
  * Each assignment names a component class, a Match all / Match any mode, and a
  * set of conditions (Reference / Side / Rotation / Footprint) that select the
  * footprints it applies to.
+ *
+ * NO FONT SIZES AND NO COLOURS: nothing in either panel calls SetFont, so the
+ * 12.5px on six rows here, the `var(--ze-muted, #888)` empty state and the two
+ * native `<select>`s were all ours. The condition rows are the shared `Combo`
+ * (`ui/Combo.tsx`), the radio pair is `.ze-pref-radiorow` and the heading is
+ * `.ze-pref-group-title`, which draws the wxStaticLine this had inline.
  */
 
 import type { JSX } from 'react';
+import { Combo } from '../../../../ui/Combo.js';
 import { Icon } from '../../../../ui/icons.js';
 import type {
   ClassCondition,
@@ -31,6 +38,7 @@ export {
 } from '../../board_settings.js';
 
 const CONDITION_TYPES: ConditionType[] = ['Reference', 'Side', 'Rotation', 'Footprint'];
+const SIDES = ['Front', 'Back'];
 
 interface Props {
   value: ComponentClassesData;
@@ -49,16 +57,8 @@ export function PanelPcbComponentClasses({ value, onChange }: Props): JSX.Elemen
     ]);
 
   return (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', padding: '2px 2px' }}>
-      <label
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 6,
-          margin: '4px 0 10px',
-          fontSize: 12.5,
-        }}
-      >
+    <div className="ze-compclass">
+      <label className="ze-pref-check">
         <input
           type="checkbox"
           checked={value.assignPerSheet}
@@ -66,31 +66,17 @@ export function PanelPcbComponentClasses({ value, onChange }: Props): JSX.Elemen
         />
         Assign component class per sheet
       </label>
-      <hr
-        style={{ border: 'none', borderTop: '1px solid var(--chrome-border)', margin: '0 0 10px' }}
-      />
-
-      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8, fontSize: 12.5 }}>
+      <div className="ze-pref-group-title ze-compclass-title">
         <span>Custom Assignments:</span>
-        <span style={{ flex: 1 }} />
-        <button className="ze-btn sm" onClick={addAssignment}>
+        <button className="ze-btn" onClick={addAssignment}>
           Add Custom Assignment
         </button>
       </div>
 
       {/* Assignment cards */}
-      <div style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+      <div className="ze-compclass-list">
         {value.assignments.length === 0 ? (
-          <div
-            style={{
-              height: '100%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'var(--ze-muted, #888)',
-              fontSize: 12.5,
-            }}
-          >
+          <div className="ze-compclass-empty">
             No custom assignments. Use “Add Custom Assignment” to create one.
           </div>
         ) : (
@@ -98,26 +84,16 @@ export function PanelPcbComponentClasses({ value, onChange }: Props): JSX.Elemen
             const setConditions = (conditions: ClassCondition[]): void =>
               setAssignment(i, { conditions });
             return (
-              <div
-                key={i}
-                style={{
-                  border: '1px solid var(--chrome-border)',
-                  borderRadius: 4,
-                  background: 'var(--chrome-bg2)',
-                  padding: 10,
-                  marginBottom: 10,
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5 }}>
+              <div key={i} className="ze-compclass-card">
+                <div className="ze-compclass-row">
                   <span>Component class:</span>
                   <input
-                    className="ze-search"
-                    style={{ width: 180, boxSizing: 'border-box' }}
+                    className="ze-search ze-compclass-name"
                     value={a.componentClass}
                     onChange={(e) => setAssignment(i, { componentClass: e.target.value })}
                   />
-                  <span style={{ flex: 1 }} />
-                  <button className="ze-btn sm" title="Not implemented yet">
+                  <span className="ze-compclass-spacer" />
+                  <button className="ze-btn" title="Not implemented yet">
                     Highlight matching footprints
                   </button>
                   <button
@@ -129,8 +105,8 @@ export function PanelPcbComponentClasses({ value, onChange }: Props): JSX.Elemen
                   </button>
                 </div>
 
-                <div style={{ display: 'flex', gap: 16, margin: '8px 0', fontSize: 12.5 }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                <div className="ze-pref-radiorow">
+                  <label className="ze-pref-radio">
                     <input
                       type="radio"
                       name={`match-${i}`}
@@ -139,7 +115,7 @@ export function PanelPcbComponentClasses({ value, onChange }: Props): JSX.Elemen
                     />
                     Match all
                   </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <label className="ze-pref-radio">
                     <input
                       type="radio"
                       name={`match-${i}`}
@@ -152,52 +128,34 @@ export function PanelPcbComponentClasses({ value, onChange }: Props): JSX.Elemen
 
                 {/* Condition rows */}
                 {a.conditions.map((c, ci) => (
-                  <div
-                    key={ci}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 8,
-                      margin: '5px 0',
-                      fontSize: 12.5,
-                    }}
-                  >
-                    <select
-                      className="ze-select"
-                      style={{ width: 130 }}
+                  <div key={ci} className="ze-compclass-row">
+                    <Combo
                       value={c.type}
-                      onChange={(e) =>
+                      ariaLabel="Condition type"
+                      options={CONDITION_TYPES.map((t) => ({ value: t, label: t }))}
+                      onChange={(t) =>
                         setConditions(
                           a.conditions.map((x, j) =>
-                            j === ci ? { ...x, type: e.target.value as ConditionType } : x,
+                            j === ci ? { ...x, type: t as ConditionType } : x,
                           ),
                         )
                       }
-                    >
-                      {CONDITION_TYPES.map((t) => (
-                        <option key={t}>{t}</option>
-                      ))}
-                    </select>
+                    />
                     {c.type === 'Side' ? (
-                      <select
-                        className="ze-select"
-                        style={{ flex: 1 }}
+                      <Combo
+                        className="ze-compclass-grow"
                         value={c.value || 'Front'}
-                        onChange={(e) =>
+                        ariaLabel="Side"
+                        options={SIDES.map((x) => ({ value: x, label: x }))}
+                        onChange={(val) =>
                           setConditions(
-                            a.conditions.map((x, j) =>
-                              j === ci ? { ...x, value: e.target.value } : x,
-                            ),
+                            a.conditions.map((x, j) => (j === ci ? { ...x, value: val } : x)),
                           )
                         }
-                      >
-                        <option>Front</option>
-                        <option>Back</option>
-                      </select>
+                      />
                     ) : (
                       <input
-                        className="ze-search"
-                        style={{ flex: 1, minWidth: 0, boxSizing: 'border-box' }}
+                        className="ze-search ze-compclass-grow"
                         value={c.value}
                         placeholder={
                           c.type === 'Rotation'
@@ -225,8 +183,7 @@ export function PanelPcbComponentClasses({ value, onChange }: Props): JSX.Elemen
                   </div>
                 ))}
                 <button
-                  className="ze-btn sm"
-                  style={{ marginTop: 4 }}
+                  className="ze-btn ze-compclass-addcond"
                   onClick={() => setConditions([...a.conditions, { type: 'Reference', value: '' }])}
                 >
                   + Add condition

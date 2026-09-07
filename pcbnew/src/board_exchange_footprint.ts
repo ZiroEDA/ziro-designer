@@ -29,7 +29,7 @@ import { ANGLE_0 } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { computeFootprintShift } from './footprint_utils.js';
 import { fpidItemName } from './netlist_reader/pcb_netlist.js';
-import { readBoardFootprint } from './read-board.js';
+import { readBoardFootprint, rotatePcb } from './read-board.js';
 import type { PcbFootprint } from './types.js';
 
 /** Internal units -> trimmed millimetre string, KiCad's formatInternalUnits. */
@@ -110,7 +110,13 @@ export function placeFootprint(
     if (!isList(it)) continue; // the library's own name atom
     const h = head(it) ?? '';
     if (ENVELOPE_CHILDREN.has(h)) continue;
-    items.push(h === 'pad' ? clearPadNet(it) : it);
+    if (h === 'pad') {
+      items.push(clearPadNet(it));
+    } else if (h === 'point') {
+      items.push(placePoint(it, opts.at, angle));
+    } else {
+      items.push(it);
+    }
   }
 
   if (opts.path) items.push(list(atom('path'), str(opts.path)));
@@ -119,6 +125,67 @@ export function placeFootprint(
 
   return readBoardFootprint({ kind: 'list', items });
 }
+
+/**
+ * Move a `(point …)` child into board coordinates.
+ *
+ * Every other child rides the footprint's `(at …)` for free, because the reader
+ * applies the placement to it — `parsePCB_SHAPE` finishes with `Rotate({0,0},
+ * orientation); Move( parentFP->GetPosition() )`. A point is the one child with
+ * no such parser arm, and that is not an oversight: `format( const PCB_POINT* )`
+ * prints through the *one-argument* `formatInternalUnits`, so a footprint's
+ * points are written and read in absolute board coordinates. `read-board.ts`'s
+ * `readPoint` is right to leave them alone.
+ *
+ * But this function stands in for `FOOTPRINT::SetPosition` and
+ * `FOOTPRINT::SetOrientation`, and both of those carry the points explicitly:
+ *
+ *     for( PCB_POINT* point : m_points ) point->Move( delta );      (:3022-3023)
+ *     for( PCB_POINT* point : m_points ) point->Rotate( …, angle ); (:3122-3123)
+ *
+ * A library footprint's points are in the library's frame, where the footprint
+ * sits at the origin, so placing one has to bring them along. Without this they
+ * stay at the origin of the sheet — which is both a stray marker in the corner
+ * of every board and, because `footprintBBox` counts points, a footprint whose
+ * bounding box stretches from the origin to wherever it was placed. That box is
+ * what `SpreadFootprints` sizes its blocks from, so one such footprint is given
+ * a block the size of the page and the netlist update's neat cluster falls apart
+ * around it.
+ */
+function placePoint(point: SList, at: VECTOR2I, angleDeg: number): SList {
+  const atNode = point.items.find((it) => isList(it) && head(it) === 'at') as SList | undefined;
+  if (!atNode) return point;
+
+  const x = Number(nodeArg(atNode, 0));
+  const y = Number(nodeArg(atNode, 1));
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return point;
+
+  // The reader's own order for a footprint child: rotate about the footprint's
+  // origin, then translate. `read-board.ts`'s `toBoard`.
+  const r = rotatePcb({ x: mmToIUlocal(x), y: mmToIUlocal(y) }, angleDeg);
+  const moved = { x: r.x + at.x, y: r.y + at.y };
+
+  return {
+    kind: 'list',
+    items: point.items.map((it) =>
+      it === atNode
+        ? ({
+            kind: 'list',
+            items: [atom('at'), atom(mm(moved.x)), atom(mm(moved.y))],
+          } as SList)
+        : it,
+    ),
+  };
+}
+
+/** The first `n` arguments of a node, as written. */
+const nodeArg = (node: SList, n: number): string | undefined => {
+  const it = node.items[n + 1];
+  return it && it.kind === 'atom' ? it.value : undefined;
+};
+
+/** Millimetres from the file into IU, the reader's own conversion. */
+const mmToIUlocal = (v: number): number => Math.round(v * 1e6);
 
 /** FOOTPRINT::ClearAllNets, drop a pad's `(net …)`, `(pinfunction …)`, `(pintype …)`. */
 function clearPadNet(pad: SList): SList {

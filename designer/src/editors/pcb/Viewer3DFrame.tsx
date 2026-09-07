@@ -30,6 +30,7 @@
  * ships that.
  */
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { usePcbnewSettings, useViewer3dSettings } from '../../prefs/useSettings.js';
 import type { Board } from '@ziroeda/pcbnew';
 import { MenuBar } from '../../ui/MenuBar.js';
 import { Toolbar } from '../../ui/Toolbar.js';
@@ -43,6 +44,8 @@ import { VIEWER3D_DEFAULT_TOOLBARS } from './viewer3dToolbars.js';
 import { useToolbarEntries } from '../../ui/useToolbarEntries.js';
 import { buildViewer3DMenus } from './viewer3dMenus.js';
 import { VIEWER_3D_FRAME_NAME } from './frame_title.js';
+import { stackupColors } from './board_adapter_colors.js';
+import type { BoardFinish, PhysicalStackup } from './board_settings.js';
 
 const EMPTY_IDS: ReadonlySet<string> = new Set();
 const ORTHO_ON: ReadonlySet<string> = new Set(['toggleOrtho']);
@@ -52,6 +55,14 @@ export interface Viewer3DFrameProps {
   board: Board | null;
   /** The open project's own files, so ${KIPRJMOD} model paths resolve. */
   projectFiles?: { name: string; text: string }[];
+  /**
+   * The board's Physical Stackup and board finish, which decide the silkscreen,
+   * solder-mask, body and surface-finish colours — `BOARD_ADAPTER::
+   * GetLayerColors()`'s `m_UseStackupColors` block. The footprint browser has no
+   * board and passes neither, which is upstream's option-off path.
+   */
+  stackup?: PhysicalStackup;
+  boardFinish?: BoardFinish;
   /**
    * `PCB_BASE_FRAME::Update3DView`'s `aTitle` (pcb_base_frame.cpp:161): a
    * parent may override the child frame's title, and exactly two do — the
@@ -73,6 +84,8 @@ export interface Viewer3DFrameProps {
 export function Viewer3DFrame({
   board,
   projectFiles,
+  stackup,
+  boardFinish,
   title = VIEWER_3D_FRAME_NAME,
   backLabel,
   imageBaseName,
@@ -95,10 +108,47 @@ export function Viewer3DFrame({
   /** Bumping it remounts the viewer (EDA_3D_ACTIONS::reloadBoard). */
   const [reload, setReload] = useState(0);
 
+  /**
+   * `m_Display.m_Live3DRefresh` — "Refresh 3D view automatically" on
+   * Preferences > PCB Editor > Display Options, whose tooltip is the whole
+   * behaviour: "edits to the board will cause the 3D view to refresh (may be
+   * slow with larger boards)". It ships **false**
+   * (`pcbnew_settings.cpp:286-287`), and `PCB_EDIT_FRAME::Update3DView` is
+   * called with `aReloadRequest` only where that flag allows it — so with it
+   * off the scene stands until `EDA_3D_ACTIONS::reloadBoard` asks.
+   *
+   * `shownBoard` is that gate: the board the viewer was actually built from.
+   * This frame remounted on every board change, which is a full re-tessellate
+   * of every model per edit and is exactly what the setting exists to stop.
+   */
+  const live = usePcbnewSettings().pcb_display.live_3d_refresh;
+  /**
+   * `3d_viewer.json` — Preferences > 3D Viewer > General and > Realtime
+   * Renderer. `EDA_3D_CANVAS::OnCommonSettingsChanged` re-reads them; the
+   * subscription is that call.
+   */
+  const v3d = useViewer3dSettings();
+  const render3d = v3d.render;
+  const camera3d = v3d.camera;
+  const renderRef = useRef(render3d);
+  renderRef.current = render3d;
+  const cameraRef = useRef(camera3d);
+  cameraRef.current = camera3d;
+  const [shownBoard, setShownBoard] = useState(board);
+  const boardRef = useRef(board);
+  boardRef.current = board;
+  useEffect(() => {
+    if (live) setShownBoard(board);
+  }, [live, board]);
+  // The explicit reload always takes the latest, live refresh or not.
+  useEffect(() => {
+    setShownBoard(boardRef.current);
+  }, [reload]);
+
   // Mount the three.js viewer. Lazy-imported so three.js only downloads when
   // the viewer is actually opened.
   useEffect(() => {
-    if (!hostRef.current || !board) return undefined;
+    if (!hostRef.current || !shownBoard) return undefined;
     let viewer: Viewer3D | null = null;
     let cancelled = false;
     setReady(false);
@@ -106,7 +156,24 @@ export function Viewer3DFrame({
     void import('./pcb3d.js').then(({ mount3DViewer }) => {
       if (cancelled) return;
       try {
-        viewer = mount3DViewer(el, board, projectFiles);
+        viewer = mount3DViewer(
+          el,
+          shownBoard,
+          projectFiles,
+          stackup ? stackupColors(stackup, boardFinish) : undefined,
+          // Mount-time only, all of them: the zone fills and the material
+          // parameters are baked into the geometry and the materials, and
+          // `antialias` is a WebGL context flag — which is exactly what the
+          // Anti-aliasing tooltip's "3D-Viewer must be closed and re-opened to
+          // apply this setting" says upstream.
+          {
+            showZones: renderRef.current.show_zones,
+            materialMode: renderRef.current.material_mode,
+            antiAliasing: renderRef.current.opengl_AA_mode,
+            showModelBbox: renderRef.current.opengl_show_model_bbox,
+            selectionColor: renderRef.current.opengl_selection_color,
+          },
+        );
       } catch {
         viewer = null;
       }
@@ -115,6 +182,11 @@ export function Viewer3DFrame({
         // Re-apply the sticky view settings across a remount/reload.
         viewer.setGrid(grid);
         viewer.setOrtho(ortho);
+        viewer.setCamera({
+          rotationIncrement: cameraRef.current.rotation_increment,
+          animationEnabled: cameraRef.current.animation_enabled,
+          movingSpeedMultiplier: cameraRef.current.moving_speed_multiplier,
+        });
       }
       api.current = viewer;
       setReady(true);
@@ -127,7 +199,21 @@ export function Viewer3DFrame({
     // grid/ortho are applied live by their own handlers; re-reading them here
     // would remount the whole scene on every toggle.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [board, projectFiles, reload]);
+    // The render options are mount-time, so they belong in this effect's
+    // dependencies: changing one has to rebuild the scene, and that is what
+    // upstream's "close and re-open the 3D viewer" amounts to.
+  }, [shownBoard, projectFiles, reload, render3d]);
+
+  // …the CAMERA half is not: `EDA_3D_CANVAS` re-reads it in place, and
+  // rebuilding the scene to change a rotation step would re-tessellate every
+  // STEP model in it.
+  useEffect(() => {
+    api.current?.setCamera({
+      rotationIncrement: camera3d.rotation_increment,
+      animationEnabled: camera3d.animation_enabled,
+      movingSpeedMultiplier: camera3d.moving_speed_multiplier,
+    });
+  }, [camera3d]);
 
   // EDA_3D_ACTIONS::exportImage — "Export the Current View as an image file".
   const exportImage = useCallback((): void => {

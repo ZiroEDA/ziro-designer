@@ -167,7 +167,7 @@ export function unitLabel(units: EdaUnits, type: EdaDataType = 'distance'): stri
 }
 
 /** `EDA_UNIT_UTILS::UI::ToUserUnit` — one factor of the IU→display conversion. */
-function toUserUnit(iuScale: EdaIuScale, units: EdaUnits, value: number): number {
+export function toUserUnit(iuScale: EdaIuScale, units: EdaUnits, value: number): number {
   switch (units) {
     case 'mm':
       return value / iuScale.IU_PER_MM;

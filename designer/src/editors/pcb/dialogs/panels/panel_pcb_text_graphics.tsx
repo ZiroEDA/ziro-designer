@@ -11,9 +11,20 @@
  * The grid rows are layer classes (Silk / Copper / Edge Cuts / Courtyards / Fab /
  * Other). Edge Cuts and Courtyards are graphics-only, so their Text Width/Height/
  * Thickness/Italic/Keep-Upright cells are blank and disabled, as upstream.
+ *
+ * Both headings carry a `wxStaticLine` under them
+ * (`panel_setup_text_and_graphics_base.cpp:27`,
+ * `panel_setup_dimensions_base.cpp:24`), which is `.ze-pref-group-title`; ours
+ * drew bare 12.5px text with no rule at all. The dimension block is ONE
+ * `wxGridBagSizer( 0, 5 )` six columns wide, not two side-by-side grids, which
+ * is why upstream's "Text position:" lines up with "Units:" and its arrow-length
+ * entry lines up with the Precision choice. No SetFont anywhere in either panel.
  */
 
 import type { JSX } from 'react';
+import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
+import { Combo } from '../../../../ui/Combo.js';
+import { parseUnitValueDouble, stringFromValue } from '../../../../ui/unit_binder.js';
 import type { DimensionDefaults, TextGfxDefaults, TextGfxRow } from '../../board_settings.js';
 
 // The data model lives in board_settings.ts (KiCad's data/UI split);
@@ -47,6 +58,9 @@ interface Props {
 }
 
 // Text columns (blank for graphics-only rows); Line Thickness is always shown.
+/** Column keys, for the <colgroup> widths above. */
+const COL_KEYS = ['line', 'w', 'h', 'th', 'italic', 'upright'] as const;
+
 const TEXT_COLS: { label: string; key: 'textWidth' | 'textHeight' | 'textThickness' }[] = [
   { label: 'Text Width', key: 'textWidth' },
   { label: 'Text Height', key: 'textHeight' },
@@ -54,38 +68,47 @@ const TEXT_COLS: { label: string; key: 'textWidth' | 'textHeight' | 'textThickne
 ];
 
 export function PanelPcbTextGraphics({ value, onChange }: Props): JSX.Element {
-  const num = (s: string): number => (Number.isFinite(Number(s)) ? Number(s) : 0);
+  // `StringFromValue( …, true )` / `ValueFromString` — a wxGrid numeric cell's
+  // text carries its unit, which is why the column labels do not.
+  const show = (v: number): string => stringFromValue(v, 'mm', true, pcbIUScale);
+  const num = (s: string): number => parseUnitValueDouble(s, 'mm');
   const setCell = (i: number, patch: Partial<TextGfxRow>): void =>
     onChange({ ...value, rows: value.rows.map((r, j) => (j === i ? { ...r, ...patch } : r)) });
   const setDim = <K extends keyof DimensionDefaults>(k: K, val: DimensionDefaults[K]): void =>
     onChange({ ...value, dimensions: { ...value.dimensions, [k]: val } });
   const d = value.dimensions;
 
-  const dimGrid: React.CSSProperties = {
-    display: 'grid',
-    gridTemplateColumns: 'max-content 130px max-content',
-    alignItems: 'center',
-    gap: '8px 8px',
-    fontSize: 12.5,
-  };
   // Graphics-only cells: no gridlines + the outside-table grey, so Edge Cuts /
   // Courtyards read as one blank block like KiCad (not empty bordered cells).
   const blankCell: React.CSSProperties = { border: 'none', background: 'var(--chrome-bg)' };
 
   return (
-    <div style={{ padding: '2px 2px' }}>
-      {/* Layer-class grid */}
-      <div style={{ fontSize: 12.5, marginBottom: 6 }}>
-        Default Properties for New Graphics and Text
-      </div>
-      <div className="ze-grid-pane" style={{ maxHeight: '48vh' }}>
-        <table className="ze-grid" style={{ width: '100%', whiteSpace: 'nowrap' }}>
+    <div className="ze-pref-page-natural">
+      {/* PANEL_SETUP_TEXT_AND_GRAPHICS */}
+      <div className="ze-pref-group-title">Default Properties for New Graphics and Text</div>
+      <div className="ze-grid-pane ze-tg-grid-pane" style={{ maxHeight: '48vh' }}>
+        <table className="ze-grid" style={{ whiteSpace: 'nowrap' }}>
+          {/* [data] `SetColSize` 140/140/140/140/80/120
+              (`panel_setup_text_and_graphics_base.cpp:46-51`). The row-label
+              column is the grid's own and takes what its labels need. This
+              table had NO column widths and `width: 100%`, so every column
+              stretched to its header — and the headers were the invented
+              "Line Thickness (mm)" form, which is the longest string on the
+              page. Between them they made the dialog ~260 px too wide. */}
+          <colgroup>
+            <col />
+            {[140, 140, 140, 140, 80, 120].map((w, i) => (
+              <col key={COL_KEYS[i]} style={{ width: w }} />
+            ))}
+          </colgroup>
           <thead>
             <tr>
               <th style={{ position: 'sticky', left: 0 }} />
-              <th>Line Thickness (mm)</th>
+              {/* `SetColLabelValue` carries NO unit: upstream puts the unit in
+                  each CELL, via `StringFromValue( …, true )`. */}
+              <th>Line Thickness</th>
               {TEXT_COLS.map((c) => (
-                <th key={c.key}>{c.label} (mm)</th>
+                <th key={c.key}>{c.label}</th>
               ))}
               <th>Italic</th>
               <th>Keep Upright</th>
@@ -104,7 +127,7 @@ export function PanelPcbTextGraphics({ value, onChange }: Props): JSX.Element {
                   <td>
                     <input
                       type="text"
-                      value={r.lineThickness}
+                      value={show(r.lineThickness)}
                       onChange={(e) => setCell(i, { lineThickness: num(e.target.value) })}
                     />
                   </td>
@@ -113,7 +136,7 @@ export function PanelPcbTextGraphics({ value, onChange }: Props): JSX.Element {
                       {hasText ? (
                         <input
                           type="text"
-                          value={r[c.key]}
+                          value={show(r[c.key])}
                           onChange={(e) => setCell(i, { [c.key]: num(e.target.value) })}
                         />
                       ) : null}
@@ -152,100 +175,84 @@ export function PanelPcbTextGraphics({ value, onChange }: Props): JSX.Element {
         </table>
       </div>
 
-      {/* Dimension defaults (panel_setup_dimensions) */}
-      <div style={{ fontSize: 12.5, margin: '14px 0 8px' }}>
+      {/* PANEL_SETUP_DIMENSIONS — one `wxGridBagSizer( 0, 5 )`, six columns
+          wide, whose right half starts at column 3. */}
+      <div className="ze-pref-group-title ze-tg-dimtitle">
         Default Properties for New Dimension Objects
       </div>
-      <div style={{ display: 'flex', gap: 40, alignItems: 'flex-start' }}>
-        <div style={dimGrid}>
-          <span>Units:</span>
-          <select
-            className="ze-select"
-            style={{ width: '100%' }}
-            value={d.units}
-            onChange={(e) => setDim('units', e.target.value)}
-          >
-            {DIM_UNITS.map((u) => (
-              <option key={u}>{u}</option>
-            ))}
-          </select>
-          <span />
-          <span>Units format:</span>
-          <select
-            className="ze-select"
-            style={{ width: '100%' }}
-            value={d.format}
-            onChange={(e) => setDim('format', e.target.value)}
-          >
-            {DIM_FORMATS.map((f) => (
-              <option key={f}>{f}</option>
-            ))}
-          </select>
-          <span />
-          <span>Precision:</span>
-          <select
-            className="ze-select"
-            style={{ width: '100%' }}
-            value={d.precision}
-            onChange={(e) => setDim('precision', e.target.value)}
-          >
-            {DIM_PRECISION.map((p) => (
-              <option key={p}>{p}</option>
-            ))}
-          </select>
-          <span />
-          <label style={{ gridColumn: '1 / 4', display: 'flex', gap: 6, alignItems: 'center' }}>
-            <input
-              type="checkbox"
-              checked={d.suppressTrailingZeroes}
-              onChange={(e) => setDim('suppressTrailingZeroes', e.target.checked)}
-            />
-            Suppress trailing zeroes
-          </label>
-        </div>
+      <div className="ze-tg-dimgrid">
+        {/* Row 0 */}
+        <span>Units:</span>
+        <Combo
+          value={d.units}
+          ariaLabel="Dimension units"
+          options={DIM_UNITS.map((u) => ({ value: u, label: u }))}
+          onChange={(u) => setDim('units', u)}
+        />
+        {/* (0,2) is an empty spacer cell upstream. */}
+        <span />
+        <span className="ze-tg-dimright">Text position:</span>
+        <Combo
+          value={d.textPosition}
+          ariaLabel="Dimension text position"
+          options={DIM_POSITION.map((x) => ({ value: x, label: x }))}
+          onChange={(x) => setDim('textPosition', x)}
+        />
+        <span />
 
-        <div style={dimGrid}>
-          <span>Text position:</span>
-          <select
-            className="ze-select"
-            style={{ width: '100%' }}
-            value={d.textPosition}
-            onChange={(e) => setDim('textPosition', e.target.value)}
-          >
-            {DIM_POSITION.map((p) => (
-              <option key={p}>{p}</option>
-            ))}
-          </select>
-          <span />
-          <label style={{ gridColumn: '1 / 4', display: 'flex', gap: 6, alignItems: 'center' }}>
-            <input
-              type="checkbox"
-              checked={d.keepTextAligned}
-              onChange={(e) => setDim('keepTextAligned', e.target.checked)}
-            />
-            Keep text aligned
-          </label>
-          <span>Arrow length:</span>
+        {/* Row 1 */}
+        <span>Units format:</span>
+        <Combo
+          value={d.format}
+          ariaLabel="Dimension units format"
+          options={DIM_FORMATS.map((f) => ({ value: f, label: f }))}
+          onChange={(f) => setDim('format', f)}
+        />
+        <span />
+        <label className="ze-pref-check ze-tg-dimright ze-tg-span2">
           <input
-            className="ze-search"
-            style={{ width: '100%', boxSizing: 'border-box' }}
-            value={d.arrowLengthMM}
-            onChange={(e) => setDim('arrowLengthMM', num(e.target.value))}
+            type="checkbox"
+            checked={d.keepTextAligned}
+            onChange={(e) => setDim('keepTextAligned', e.target.checked)}
           />
-          <span className="ze-muted" style={{ fontSize: 11 }}>
-            mm
-          </span>
-          <span>Extension line offset:</span>
+          Keep text aligned
+        </label>
+        <span />
+
+        {/* Row 2 */}
+        <span>Precision:</span>
+        <Combo
+          value={d.precision}
+          ariaLabel="Dimension precision"
+          options={DIM_PRECISION.map((x) => ({ value: x, label: x }))}
+          onChange={(x) => setDim('precision', x)}
+        />
+        <span />
+        <span className="ze-tg-dimright">Arrow length:</span>
+        <input
+          className="ze-search"
+          value={d.arrowLengthMM}
+          onChange={(e) => setDim('arrowLengthMM', num(e.target.value))}
+        />
+        <span className="unit">mm</span>
+
+        {/* Row 3 */}
+        <label className="ze-pref-check ze-tg-span2">
           <input
-            className="ze-search"
-            style={{ width: '100%', boxSizing: 'border-box' }}
-            value={d.extLineOffsetMM}
-            onChange={(e) => setDim('extLineOffsetMM', num(e.target.value))}
+            type="checkbox"
+            checked={d.suppressTrailingZeroes}
+            onChange={(e) => setDim('suppressTrailingZeroes', e.target.checked)}
           />
-          <span className="ze-muted" style={{ fontSize: 11 }}>
-            mm
-          </span>
-        </div>
+          Suppress trailing zeroes
+        </label>
+        <span />
+        <span className="ze-tg-dimright">Extension line offset:</span>
+        <input
+          className="ze-search"
+          value={d.extLineOffsetMM}
+          onChange={(e) => setDim('extLineOffsetMM', num(e.target.value))}
+        />
+        <span className="unit">mm</span>
       </div>
     </div>
   );

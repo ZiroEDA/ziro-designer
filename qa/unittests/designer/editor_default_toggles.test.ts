@@ -27,6 +27,7 @@ import { describe, expect, it } from 'vitest';
 import {
   applyToggle as pcbApplyToggle,
   DEFAULT_TOGGLES as PCB_TOGGLES,
+  isStoredPcbToggle,
   RADIO_GROUPS as PCB_GROUPS,
 } from '@ziroeda/designer/src/editors/pcb/toggles.js';
 import {
@@ -264,7 +265,6 @@ const src = (rel: string): string =>
 
 describe.each([
   ['editors/schematic/SchematicEditor.tsx'],
-  ['editors/pcb/PcbEditor.tsx'],
   ['editors/footprint/FootprintEditor.tsx'],
 ])('%s seeds its toolbar from its toggles module', (rel) => {
   it('takes DEFAULT_TOGGLES from ./toggles.js', () => {
@@ -278,6 +278,64 @@ describe.each([
     // line above while restating the table. That is exactly how the schematic's
     // wrong unit shipped, so the declaration must not exist here at all.
     expect(s).not.toMatch(/const DEFAULT_TOGGLES\s*(:|=)/);
+  });
+});
+
+/**
+ * The PCB Editor left the list above when Preferences > PCB Editor > Display
+ * Options gained its Grid Display and Cursor groups: Show Grid is
+ * `window.grid.show` and the three crosshair shapes are
+ * `window.cursor.cross_hair_mode`, so a `new Set(DEFAULT_TOGGLES)` seed cannot
+ * show what `pcbnew.json` holds — the same reason the Symbol Editor below is
+ * its own case. `pcbTogglesFromSettings` is still `DEFAULT_TOGGLES` with those
+ * four folded in, so the table itself stays in `./toggles.js`.
+ */
+describe('editors/pcb/PcbEditor.tsx seeds its toolbar from the settings file', () => {
+  const PCB = 'editors/pcb/PcbEditor.tsx';
+
+  it('seeds from pcbTogglesFromSettings, not from a constant set', () => {
+    const s = src(PCB);
+    expect(s).toContain('pcbTogglesFromSettings(settings.pcbnew)');
+    expect(s).not.toContain('useState<Set<string>>(new Set(DEFAULT_TOGGLES))');
+    expect(s).not.toMatch(/const DEFAULT_TOGGLES\s*(:|=)/);
+  });
+
+  it('folds the settings-backed toolbar ids back into the file, and only those', () => {
+    // From the module rather than the source text: `foldPcbToggle` must write
+    // for exactly the ids that ARE a PARAM upstream —
+    //
+    //   toggleGrid              window.grid.show              app_settings.cpp:555
+    //   crosshairSmall/Full/45  window.cursor.cross_hair_mode app_settings.cpp:567
+    //   lineModeFree/45/90      editing.pcb_angle_snap_mode   pcbnew_settings.cpp:190
+    //   ratsnestLineMode        pcb_display.ratsnest_curved   pcbnew_settings.cpp:258
+    //   togglePolarCoords       editing.polar_coords          pcbnew_settings.cpp:176
+    //
+    // — and for nothing else, because `updatePcbnew` persists and wakes the
+    // account sync: a pane toggle running through it would push `pcbnew.json`
+    // on every click of the left toolbar.
+    for (const id of [
+      'toggleGrid',
+      'crosshairSmall',
+      'crosshairFull',
+      'crosshair45',
+      'lineModeFree',
+      'lineMode45',
+      'lineMode90',
+      'ratsnestLineMode',
+      'togglePolarCoords',
+    ])
+      expect(isStoredPcbToggle(id), id).toBe(true);
+    // `unitsMm` IS a PARAM (`system.units`) but is not folded here: the units
+    // buttons go through `switchUnits`, not this path.
+    for (const id of [
+      'unitsMm',
+      'zoneDisplayOutline',
+      'zoneDisplayFilled',
+      'showLayersManager',
+      'showProperties',
+      'highContrast',
+    ])
+      expect(isStoredPcbToggle(id), id).toBe(false);
   });
 });
 
