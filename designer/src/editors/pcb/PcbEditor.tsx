@@ -15,12 +15,18 @@ import { editPointColors } from '@ziroeda/common/src/color4d.js';
 import { galPenWidth, galSnapPx } from '@ziroeda/common/src/gal_pixel_grid.js';
 import { overlayTargetColor } from '../../render/gl/scene.js';
 import { BezierStep } from '@ziroeda/common/src/preview_items/bezier_geom_manager.js';
+import { PolygonGeomManager } from '@ziroeda/common/src/preview_items/polygon_geom_manager.js';
+import { COLOR4D_WHITE, brightness, cssWithAlpha, toCss } from '@ziroeda/common/src/color4d.js';
+import { drawPolygonItem } from '../../ui/polygon_item.js';
+import { TwoPointGeomManager } from '@ziroeda/common/src/preview_items/two_point_geom_manager.js';
+import { ArcGeomManager, ArcStep } from '@ziroeda/common/src/preview_items/arc_geom_manager.js';
+import { arcMidPoint, drawArcAssistant } from '../../ui/arc_assistant.js';
+import { drawTwoPointAssistant, type TwoPointShape } from '../../ui/two_point_assistant.js';
 import {
   LeaderMode,
-  PolygonGeomManager,
-} from '@ziroeda/common/src/preview_items/polygon_geom_manager.js';
-import { COLOR4D_WHITE, cssWithAlpha, toCss } from '@ziroeda/common/src/color4d.js';
-import { drawPolygonItem } from '../../ui/polygon_item.js';
+  vectorSnapped45,
+  vectorSnapped90,
+} from '@ziroeda/kimath/src/geometry/geometry_utils.js';
 import { segLineDistance } from '@ziroeda/kimath/src/geometry/seg.js';
 import { simplifyLineChain } from '@ziroeda/kimath/src/geometry/shape_line_chain.js';
 import {
@@ -1607,6 +1613,19 @@ export function PcbEditor({
   // In-flight graphic shape (DRAWING_TOOL): the points clicked so far.
   const drawingRef = useRef<{ x: number; y: number }[]>([]);
   /**
+   * `TWO_POINT_GEOMETRY_MANAGER` and its `started` flag — the line, rectangle
+   * and circle tools, which `DRAWING_TOOL::drawShape` runs as one.
+   *
+   * The manager owns the angle constraint, so the frame no longer computes one
+   * of its own; what stays here is the per-shape *choice* of constraint, which
+   * `drawShape` makes on every event and which is not the same for all three.
+   */
+  const twoPtRef = useRef(new TwoPointGeomManager());
+  const twoPtStartedRef = useRef(false);
+  /** `ARC_GEOM_MANAGER` — centre, then start, then swept angle. */
+  const arcMgrRef = useRef(new ArcGeomManager());
+  const cleanupShapeRef = useRef<() => void>(() => {});
+  /**
    * `POLYGON_GEOM_MANAGER`, one per outline tool.
    *
    * Upstream there is only one call site: `DRAWING_TOOL::DrawZone` runs Add
@@ -1940,6 +1959,9 @@ export function PcbEditor({
     // `cleanup()`'s `polyGeomMgr.Reset()` (drawing_tool.cpp:3494).
     polyMgrRef.current?.reset();
     zoneMgrRef.current?.reset();
+    twoPtRef.current.reset();
+    twoPtStartedRef.current = false;
+    arcMgrRef.current.reset();
     measureRef.current = null;
     dimensionRef.current = null;
     textBoxStartRef.current = null;
@@ -3383,7 +3405,11 @@ export function PcbEditor({
       const kind = DRAW_SHAPE_TOOLS[activeToolRef.current];
       const pts = drawingRef.current;
       const cur0 = cursorRef.current;
-      if (kind && pts.length > 0 && cur0) {
+      // Only the bezier still runs through this block. Line, rectangle and
+      // circle are `TWO_POINT_GEOMETRY_MANAGER`'s and the arc is
+      // `ARC_GEOM_MANAGER`'s, both drawn below with their assistants; 'poly'
+      // is `POLYGON_ITEM`'s, drawn above.
+      if (kind === 'curve' && pts.length > 0 && cur0) {
         const p = snapToGrid(cur0);
         ctx.save();
         ctx.setTransform(sx, 0, 0, v.scale, v.tx, v.ty);
@@ -3392,63 +3418,23 @@ export function PcbEditor({
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
         ctx.globalAlpha = 0.9;
-        // `BEZIER_ASSISTANT::ViewDraw`'s dashed control arms, filled in by the
-        // 'curve' case below and drawn after the curve itself.
+        // `BEZIER_ASSISTANT::ViewDraw`'s dashed control arms, drawn after the
+        // curve itself.
         let bezierArms: BezierInFlight | null = null;
         ctx.beginPath();
-        switch (kind) {
-          case 'line': {
-            const end = constrainLineEnd(pts[0]!, p);
-            ctx.moveTo(pts[0]!.x, pts[0]!.y);
-            ctx.lineTo(end.x, end.y);
-            break;
-          }
-          case 'rect': {
-            const a = pts[0]!;
-            ctx.rect(
-              Math.min(a.x, p.x),
-              Math.min(a.y, p.y),
-              Math.abs(p.x - a.x),
-              Math.abs(p.y - a.y),
-            );
-            break;
-          }
-          case 'circle': {
-            const a = pts[0]!;
-            const r = Math.hypot(p.x - a.x, p.y - a.y);
-            ctx.moveTo(a.x + r, a.y);
-            ctx.arc(a.x, a.y, r, 0, Math.PI * 2);
-            break;
-          }
-          case 'arc': {
-            if (pts.length === 1) {
-              ctx.moveTo(pts[0]!.x, pts[0]!.y);
-              ctx.lineTo(p.x, p.y);
-            } else {
-              traceArc3(ctx, pts[0]!, p, pts[1]!);
+        {
+          const live = bezierInFlight(pts, p);
+          if (live) {
+            // `preview.Add( bezier.get() )` waits for SET_END; the arms do
+            // not. `bezierPreviewCurve` is where that rule is written down.
+            const curve = bezierPreviewCurve(live);
+            if (curve) {
+              const [a, c1, c2, e] = curve;
+              ctx.moveTo(a.x, a.y);
+              ctx.bezierCurveTo(c1.x, c1.y, c2.x, c2.y, e.x, e.y);
             }
-            break;
+            bezierArms = live;
           }
-          case 'curve': {
-            const live = bezierInFlight(pts, p);
-            if (live) {
-              // `preview.Add( bezier.get() )` waits for SET_END; the arms do
-              // not. `bezierPreviewCurve` is where that rule is written down.
-              const curve = bezierPreviewCurve(live);
-              if (curve) {
-                const [a, c1, c2, e] = curve;
-                ctx.moveTo(a.x, a.y);
-                ctx.bezierCurveTo(c1.x, c1.y, c2.x, c2.y, e.x, e.y);
-              }
-              bezierArms = live;
-            }
-            break;
-          }
-          // 'poly' is not here: Draw Polygon's preview is `POLYGON_ITEM`,
-          // drawn above from its `POLYGON_GEOM_MANAGER` rather than as a
-          // layer-coloured polyline like the other shapes.
-          default:
-            break;
         }
         ctx.stroke();
         ctx.restore();
@@ -3492,6 +3478,103 @@ export function PcbEditor({
           ctx.stroke();
           ctx.setLineDash([]);
         }
+      }
+    }
+    // `drawShape`'s live shape and its `TWO_POINT_ASSISTANT`: the line,
+    // rectangle and circle tools, which are one tool upstream.
+    //
+    // The shape itself is the real `PCB_SHAPE` on `m_preview`, drawn by the
+    // ordinary painter — so it is the layer's colour at the layer's line
+    // thickness and **not** translucent. The 0.9 alpha and the round joins this
+    // frame used to draw it with were an invention; a rectangle's corners are
+    // mitred like any other rectangle's.
+    {
+      const kind = DRAW_SHAPE_TOOLS[activeToolRef.current];
+      const mgr = twoPtRef.current;
+      const twoPointShape: Record<string, TwoPointShape> = {
+        line: 'segment',
+        rect: 'rect',
+        circle: 'circle',
+      };
+      const geom = kind ? twoPointShape[kind] : undefined;
+
+      if (geom && twoPtStartedRef.current && !mgr.isReset()) {
+        const origin = mgr.getOrigin();
+        const end = mgr.getEnd();
+        const toPx = (q: { x: number; y: number }): { x: number; y: number } => ({
+          x: q.x * sx + v.tx,
+          y: q.y * v.scale + v.ty,
+        });
+
+        ctx.save();
+        ctx.setTransform(sx, 0, 0, v.scale, v.tx, v.ty);
+        ctx.strokeStyle = layerColor(activeLayer);
+        ctx.lineWidth = shapeWidthIU(activeLayer);
+        ctx.beginPath();
+        if (geom === 'segment') {
+          ctx.lineCap = 'round';
+          ctx.moveTo(origin.x, origin.y);
+          ctx.lineTo(end.x, end.y);
+        } else if (geom === 'rect') {
+          ctx.rect(origin.x, origin.y, end.x - origin.x, end.y - origin.y);
+        } else {
+          const r = Math.hypot(end.x - origin.x, end.y - origin.y);
+          ctx.moveTo(origin.x + r, origin.y);
+          ctx.arc(origin.x, origin.y, r, 0, Math.PI * 2);
+        }
+        ctx.stroke();
+        ctx.restore();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+
+        drawTwoPointAssistant(ctx, {
+          shape: geom,
+          origin,
+          end,
+          toPx,
+          color: drawOpts.theme?.special.auxItems ?? PCB_SPECIAL.auxItems,
+          backgroundIsDark:
+            brightness(parseColor4d(drawOpts.theme?.background ?? PCB_BACKGROUND)) <= 0.5,
+          iuPerMm: PCB_IU_PER_MM,
+          units: unitsRef.current,
+          devicePixelRatio: dpr,
+        });
+      }
+    }
+    // `drawArc`'s live arc and its `ARC_ASSISTANT`.
+    {
+      const arcMgr = arcMgrRef.current;
+      if (DRAW_SHAPE_TOOLS[activeToolRef.current] === 'arc' && !arcMgr.isReset()) {
+        const toPx = (q: { x: number; y: number }): { x: number; y: number } => ({
+          x: q.x * sx + v.tx,
+          y: q.y * v.scale + v.ty,
+        });
+
+        // `preview.Add( graphic )` happens on the first click, but the arc
+        // itself only has a shape once there is a radius to sweep.
+        if (arcMgr.getArcStep() > ArcStep.SET_START) {
+          ctx.save();
+          ctx.setTransform(sx, 0, 0, v.scale, v.tx, v.ty);
+          ctx.strokeStyle = layerColor(activeLayer);
+          ctx.lineWidth = shapeWidthIU(activeLayer);
+          ctx.lineCap = 'round';
+          ctx.beginPath();
+          traceArc3(ctx, arcMgr.getStartRadiusEnd(), arcMidPoint(arcMgr), arcMgr.getEndRadiusEnd());
+          ctx.stroke();
+          ctx.restore();
+          ctx.setTransform(1, 0, 0, 1, 0, 0);
+        }
+
+        drawArcAssistant(ctx, {
+          mgr: arcMgr,
+          toPx,
+          worldScale: v.scale,
+          color: drawOpts.theme?.special.auxItems ?? PCB_SPECIAL.auxItems,
+          backgroundIsDark:
+            brightness(parseColor4d(drawOpts.theme?.background ?? PCB_BACKGROUND)) <= 0.5,
+          iuPerMm: PCB_IU_PER_MM,
+          units: unitsRef.current,
+          devicePixelRatio: dpr,
+        });
       }
     }
     const brd = boardRef.current;
@@ -5077,6 +5160,12 @@ export function PcbEditor({
       closeOutline(outline);
       return;
     }
+    // `evt->IsClick( BUT_LEFT ) || evt->IsDblClick( BUT_LEFT )` share a branch
+    // in `drawShape`: the double click ends the shape without committing it.
+    if (twoPtStartedRef.current && DRAW_SHAPE_TOOLS[activeToolRef.current]) {
+      handleDrawClick(w, true);
+      return;
+    }
     const top = hitCandidates(w)[0];
     const r = top ? parseBoardItemId(top) : null;
     if (r?.kind === 'group') {
@@ -5912,84 +6001,187 @@ export function PcbEditor({
 
   // ----- graphic shape drawing (DRAWING_TOOL) ---------------------------------
 
-  // Constrain a line segment's end per the left-toolbar line mode: 90 snaps to
-  // the nearer axis, 45 to the nearest 45° multiple, free leaves it alone.
-  const constrainLineEnd = (
-    from: { x: number; y: number },
-    to: { x: number; y: number },
-  ): { x: number; y: number } => {
-    if (toggles.has('lineModeFree')) return to;
-    const dx = to.x - from.x;
-    const dy = to.y - from.y;
-    if (toggles.has('lineMode90'))
-      return Math.abs(dx) >= Math.abs(dy) ? { x: to.x, y: from.y } : { x: from.x, y: to.y };
-    // 45°: project onto the nearest multiple of 45°.
-    const ang = (Math.round(Math.atan2(dy, dx) / (Math.PI / 4)) * Math.PI) / 4;
-    const len = Math.abs(Math.cos(ang)) > 0.5 ? dx / Math.cos(ang) : dy / Math.sin(ang);
-    return snapToGrid({ x: from.x + len * Math.cos(ang), y: from.y + len * Math.sin(ang) });
+  /**
+   * `drawShape`'s per-event angle constraint (drawing_tool.cpp:2447-2465).
+   *
+   * The three shapes it serves do **not** agree, and the difference is not
+   * cosmetic:
+   *
+   * - a rectangle or a circle ignores the left toolbar's line mode entirely and
+   *   is unconstrained, and **Ctrl turns 45° on** — which is how a rectangle is
+   *   dragged out square and a circle's radius snapped to an eighth turn;
+   * - everything else obeys the line mode, and **Ctrl turns it off** for as
+   *   long as it is held.
+   *
+   * "Drawing rectangles and circles ignore the snap behavior by default, but
+   * constrains when the modifier key is pressed."
+   */
+  const shapeAngleSnap = (kind: PcbShape['kind'], ctrl: boolean): LeaderMode => {
+    if (kind === 'rect' || kind === 'circle') return ctrl ? LeaderMode.DEG45 : LeaderMode.DIRECT;
+    if (ctrl) return LeaderMode.DIRECT;
+    return toggles.has('lineMode45')
+      ? LeaderMode.DEG45
+      : toggles.has('lineMode90')
+        ? LeaderMode.DEG90
+        : LeaderMode.DIRECT;
   };
 
-  // One left click of an active drawing tool (DRAWING_TOOL::drawShape's click
-  // sequence). Returns having updated the in-flight point list or committed a
-  // finished shape to the board.
-  const handleDrawClick = (world: { x: number; y: number }): void => {
+  /**
+   * The motion arm of `drawShape` (drawing_tool.cpp:2630-2662): put the cursor
+   * into the two-point manager, constrained or not.
+   *
+   * The constraint is `GetVectorSnapped90` / `GetVectorSnapped45`, applied to
+   * `end - origin` and added back to the origin — and `only45` is true for a
+   * **rectangle**, which is the whole of why Ctrl gives a square there and a
+   * square-or-axis-aligned rectangle nowhere else.
+   *
+   * These do not preserve the vector's length; they zero or equalise its
+   * components so a cursor on the grid stays on it. The frame used to project
+   * onto the nearest 45° ray instead, keeping the length and landing the far
+   * end between grid nodes.
+   */
+  const updateTwoPointCursor = (kind: PcbShape['kind'], p: { x: number; y: number }): void => {
+    const mgr = twoPtRef.current;
+    const snap = shapeAngleSnap(kind, ctrlDownRef.current);
+
+    if (twoPtStartedRef.current && snap !== LeaderMode.DIRECT) {
+      const origin = mgr.getOrigin();
+      const lineVector = { x: p.x - origin.x, y: p.y - origin.y };
+      const newEnd =
+        snap === LeaderMode.DEG90
+          ? vectorSnapped90(lineVector)
+          : vectorSnapped45(lineVector, kind === 'rect');
+      mgr.setEnd({ x: origin.x + newEnd.x, y: origin.y + newEnd.y });
+      mgr.setAngleSnap(snap);
+    } else {
+      mgr.setEnd(p);
+      mgr.setAngleSnap(LeaderMode.DIRECT);
+    }
+  };
+
+  /** `cleanup()` — throw the in-flight shape away and leave the tool armed. */
+  const cleanupShape = (): void => {
+    twoPtRef.current.reset();
+    twoPtStartedRef.current = false;
+    arcMgrRef.current.reset();
+    drawingRef.current = [];
+  };
+  // Ref mirror, so the long-lived global keydown listener never calls a stale one.
+  cleanupShapeRef.current = cleanupShape;
+
+  /**
+   * `commit.Add( … ); commit.Push( … )` for one finished shape, plus the
+   * `RunAction( ACTIONS::selectItem, … )` that follows it.
+   *
+   * `DrawLine` is the one entry point that does **not** select what it made —
+   * it is chaining into the next segment, and selecting each one as it lands
+   * would fight the chain.
+   */
+  const commitShape = (shape: Omit<PcbShape, 'source'>, select: boolean): void => {
+    const brd = boardRef.current;
+    if (!brd) return;
+    const res = addBoardShape(brd, shape);
+    commitBoard(res.board);
+    if (select) setSelection(new Set([res.id]));
+  };
+
+  /**
+   * `updateArcFromConstructionMgr` reaching a `PcbShape`, which stores an arc
+   * as `(start mid end)` — the board file's own form.
+   */
+  const commitArc = (): void => {
+    const mgr = arcMgrRef.current;
+    commitShape(
+      {
+        kind: 'arc',
+        start: mgr.getStartRadiusEnd(),
+        mid: arcMidPoint(mgr),
+        end: mgr.getEndRadiusEnd(),
+        width: shapeWidthIU(activeLayerRef.current),
+        fillMode: 'none',
+        layer: activeLayerRef.current,
+      },
+      true,
+    );
+    cleanupShape();
+  };
+
+  /**
+   * One left click of an active drawing tool.
+   *
+   * `dbl` is `evt->IsDblClick( BUT_LEFT )`, which `drawShape` handles in the
+   * same branch as a click: the second click of the pair has already been
+   * delivered, so the double click only has to end the shape.
+   */
+  const handleDrawClick = (world: { x: number; y: number }, dbl = false): void => {
     const kind = DRAW_SHAPE_TOOLS[activeToolRef.current];
     const brd = boardRef.current;
     if (!kind || !brd) return;
     const pts = drawingRef.current;
     const p = snapToGrid(world);
-    const same = (a: { x: number; y: number }, b: { x: number; y: number }): boolean =>
-      a.x === b.x && a.y === b.y;
-    // Commit leaves the new shape unselected and the tool active, like
-    // DRAWING_TOOL (draw the next shape right away).
-    const commit = (shape: Omit<PcbShape, 'source'>): void => {
-      commitBoard(addBoardShape(brd, shape).board);
-    };
     const width = shapeWidthIU(activeLayer);
     const base = { width, fillMode: 'none', layer: activeLayer } as const;
 
     switch (kind) {
-      case 'line': {
-        if (pts.length === 0) {
-          drawingRef.current = [p];
-        } else {
-          const start = pts[0]!;
-          const end = constrainLineEnd(start, p);
-          if (same(start, end)) {
-            // Clicking in place ends the chain.
-            drawingRef.current = [];
-          } else {
-            commit({ kind: 'line', start, end, ...base });
-            // Chain: the next segment starts where this one ended.
-            drawingRef.current = [end];
-          }
-        }
-        break;
-      }
-      case 'rect': {
-        if (pts.length === 0) drawingRef.current = [p];
-        else if (!same(pts[0]!, p)) {
-          commit({ kind: 'rect', start: pts[0]!, end: p, ...base });
-          drawingRef.current = [];
-        }
-        break;
-      }
+      case 'line':
+      case 'rect':
       case 'circle': {
-        if (pts.length === 0) drawingRef.current = [p];
-        else if (!same(pts[0]!, p)) {
-          commit({ kind: 'circle', center: pts[0]!, end: p, ...base });
-          drawingRef.current = [];
+        const mgr = twoPtRef.current;
+
+        if (!twoPtStartedRef.current) {
+          // "Init the new item attributes", then origin and end both on the
+          // cursor so a shape that is never dragged is empty rather than stale.
+          mgr.setAngleSnap(LeaderMode.DIRECT);
+          mgr.setOrigin(p);
+          mgr.setEnd(p);
+          twoPtStartedRef.current = true;
+          break;
+        }
+
+        updateTwoPointCursor(kind, p);
+
+        // "User has clicked twice in the same spot, meaning we're finished."
+        if (mgr.isEmpty() || dbl) {
+          cleanupShape();
+          break;
+        }
+
+        const origin = mgr.getOrigin();
+        const end = mgr.getEnd();
+
+        if (kind === 'line') {
+          commitShape({ kind: 'line', start: origin, end, ...base }, false);
+          // `startingPoint = VECTOR2D( line->GetEnd() )` — the chain carries on
+          // from this segment's end.
+          mgr.setOrigin(end);
+          mgr.setEnd(end);
+        } else if (kind === 'rect') {
+          // `rect->Normalize()` before the commit: start is the top-left
+          // corner and end the bottom-right, whichever way it was dragged.
+          commitShape(
+            {
+              kind: 'rect',
+              start: { x: Math.min(origin.x, end.x), y: Math.min(origin.y, end.y) },
+              end: { x: Math.max(origin.x, end.x), y: Math.max(origin.y, end.y) },
+              ...base,
+            },
+            true,
+          );
+          cleanupShape();
+        } else {
+          commitShape({ kind: 'circle', center: origin, end, ...base }, true);
+          cleanupShape();
         }
         break;
       }
       case 'arc': {
-        // Clicks: start, end, then the curvature point (the arc's mid).
-        if (pts.length < 2) {
-          if (pts.length === 0 || !same(pts[pts.length - 1]!, p)) drawingRef.current = [...pts, p];
-        } else {
-          commit({ kind: 'arc', start: pts[0]!, mid: p, end: pts[1]!, ...base });
-          drawingRef.current = [];
-        }
+        // `arcManager.AddPoint( cursorPos, true )` — centre, then start, then
+        // the swept angle. Not eeschema's start/end/bow-through, which is what
+        // this frame had.
+        const mgr = arcMgrRef.current;
+        mgr.setAngleSnap(shapeAngleSnap(kind, ctrlDownRef.current) !== LeaderMode.DIRECT);
+        mgr.addPoint(p, true);
+        if (mgr.isComplete()) commitArc();
         break;
       }
       case 'curve': {
@@ -6002,7 +6194,7 @@ export function PcbEditor({
           drawingRef.current = r.locked;
           break;
         }
-        commit({ kind: 'curve', pts: r.points, ...base });
+        commitShape({ kind: 'curve', pts: r.points, ...base }, false);
         drawingRef.current = r.next;
         break;
       }
@@ -7877,6 +8069,21 @@ export function PcbEditor({
         polyMgrRef.current?.setCursorPosition(snapped);
         zoneMgrRef.current?.setCursorPosition(snapped);
       }
+      // `drawShape`'s and `drawArc`'s motion arms. The two-point manager only
+      // moves once a shape has started; the arc manager takes every motion,
+      // because `AddPoint( cursorPos, false )` is how its *first* step follows
+      // the cursor before anything is locked in.
+      {
+        const drawKind = DRAW_SHAPE_TOOLS[activeToolRef.current];
+        const snapped = snapToGrid({ x: wx, y: wy });
+        if (twoPtStartedRef.current && drawKind) updateTwoPointCursor(drawKind, snapped);
+        if (drawKind === 'arc' && !arcMgrRef.current.isReset()) {
+          arcMgrRef.current.setAngleSnap(
+            shapeAngleSnap('arc', ctrlDownRef.current) !== LeaderMode.DIRECT,
+          );
+          arcMgrRef.current.addPoint(snapped, false);
+        }
+      }
       // Repaint so the crosshair follows even on a plain hover (no pan/drag).
       requestDraw();
     }
@@ -8303,6 +8510,23 @@ export function PcbEditor({
           requestDrawRef.current();
           return;
         }
+        // `drawArc`'s own `deleteLastPoint` arm: `arcManager.RemoveLastPoint()`
+        // steps back and re-accepts the same cursor, so the assistant falls
+        // back to the previous stage rather than showing a stale later one.
+        if (!arcMgrRef.current.isReset()) {
+          e.preventDefault();
+          arcMgrRef.current.removeLastPoint();
+          requestDrawRef.current();
+          return;
+        }
+      }
+      // `PCB_ACTIONS::arcPosture`, `.DefaultHotkey( '/' )` — flips which way
+      // round the arc goes, and locks that choice.
+      if (!mod && e.key === '/' && !arcMgrRef.current.isReset()) {
+        e.preventDefault();
+        arcMgrRef.current.toggleClockwise();
+        requestDrawRef.current();
+        return;
       }
       if (e.key === 'Escape') {
         // Escape cancels an in-flight grab first, then the disambiguation menu,
@@ -8346,6 +8570,12 @@ export function PcbEditor({
           requestDrawRef.current();
         } else if (measureRef.current) {
           measureRef.current = null;
+          requestDrawRef.current();
+        } else if (twoPtStartedRef.current || !arcMgrRef.current.isReset()) {
+          // `cleanup()` — and `drawShape`'s `if( !started ) … PopTool`, so the
+          // first Esc only throws the in-flight shape away and the tool stays
+          // armed for the next one.
+          cleanupShapeRef.current();
           requestDrawRef.current();
         } else if (drawingRef.current.length > 0) {
           // First Esc abandons the in-flight shape; the tool stays active.

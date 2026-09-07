@@ -24,6 +24,27 @@
  * What stays with each canvas is arming the tool and capturing the pointer.
  */
 
+import {
+  CURSOR_TEXT_OFFSET_PX,
+  PREVIEW_FONT,
+  constantGlyphHeightPx,
+  constantLinePitchPx,
+  constantStrokeWidthPx,
+  cssSizeForGlyphHeight,
+  bareDimensionValue,
+  dimensionLabel,
+  angleLabel,
+  drawTextNextToCursor,
+  fromIU,
+  type PreviewUnits,
+} from './preview_utils.js';
+
+// `preview_utils.cpp`'s own functions now live in `preview_utils.ts`, where
+// `TWO_POINT_ASSISTANT` and `ARC_ASSISTANT` can reach them; they are
+// re-exported here because callers and tests already import them from the
+// ruler, and because upstream's ruler really does use all of them.
+export { constantGlyphHeightPx, constantLinePitchPx, constantStrokeWidthPx, cssSizeForGlyphHeight };
+
 /** A world-space point, matching the canvases' own `Vec2`. */
 export interface RulerPoint {
   x: number;
@@ -62,32 +83,7 @@ export function rulerEnd(origin: RulerPoint, cursor: RulerPoint, snap: RulerAngl
 }
 
 /** The units a ruler label can be written in, as `EDA_UNITS` distinguishes them. */
-export type RulerUnits = 'mm' | 'in' | 'mils';
-
-/**
- * `KIGFX::PREVIEW::DimensionLabel`'s precision table
- * (`common/preview_items/preview_utils.cpp:44-61`), which is deliberately
- * coarser than the status bar's: "show a sane precision for the preview, which
- * doesn't need to be accurate down to the nanometre".
- */
-// [data] EDA_UNITS::MM "%.3f" (1um), INCH "%.4f" (0.1mil), MILS "%.1f" (0.1mil),
-// DEGREES "%.1f" (0.1deg).
-const DECIMALS: Record<RulerUnits, number> = { mm: 3, in: 4, mils: 1 };
-const DEGREE_DECIMALS = 1;
-
-/** `DimensionLabel`: `"<prefix>: <value><unit>"` (`preview_utils.cpp:39-40, 63`). */
-function label(prefix: string, value: string, unit: string): string {
-  return `${prefix}: ${value}${unit}`;
-}
-
-const UNIT_SUFFIX: Record<RulerUnits, string> = { mm: ' mm', in: '"', mils: ' mils' };
-
-function fromIU(iu: number, iuPerMM: number, units: RulerUnits): number {
-  const mm = iu / iuPerMM;
-  if (units === 'mm') return mm;
-  if (units === 'in') return mm / 25.4;
-  return (mm / 25.4) * 1000;
-}
+export type RulerUnits = PreviewUnits;
 
 /**
  * `RULER_ITEM::GetDimensionStrings` (`common/preview_items/ruler_item.cpp:456`)
@@ -105,15 +101,12 @@ export function rulerDimensionStrings(
 ): string[] {
   const dx = end.x - origin.x;
   const dy = end.y - origin.y;
-  const d = DECIMALS[units];
-  const u = UNIT_SUFFIX[units];
-  const dist = (iu: number): string => fromIU(iu, iuPerMM, units).toFixed(d);
   const theta = (-Math.atan2(dy, dx) * 180) / Math.PI;
   return [
-    label('x', dist(dx), u),
-    label('y', dist(dy), u),
-    label('r', dist(Math.hypot(dx, dy)), u),
-    label('θ', theta.toFixed(DEGREE_DECIMALS), '°'),
+    dimensionLabel('x', dx, iuPerMM, units),
+    dimensionLabel('y', dy, iuPerMM, units),
+    dimensionLabel('r', Math.hypot(dx, dy), iuPerMM, units),
+    angleLabel('θ', theta),
   ];
 }
 
@@ -197,7 +190,6 @@ export function rulerTicks(
 
   // `int numTicks = (int) std::ceil( aLine.EuclideanNorm() / tickSpace );`
   const numTicks = Math.ceil(lengthIU / tickSpaceIU);
-  const d = DECIMALS[units];
   const out: RulerTick[] = [];
   for (let i = 0; i < numTicks; i++) {
     let lengthPx = MINOR_TICK_PX;
@@ -215,39 +207,10 @@ export function rulerTicks(
       lengthPx,
       // `DimensionLabel( "", tickSpace * i, …, false )`: the value alone, no
       // prefix and no unit suffix.
-      label: labelled ? fromIU(distIU, iuPerMM, units).toFixed(d) : null,
+      label: labelled ? bareDimensionValue(distIU, iuPerMM, units) : null,
     });
   }
   return out;
-}
-
-/**
- * `GetConstantGlyphHeight` (`common/preview_items/preview_utils.cpp:72-100`).
- *
- *     constexpr double hdpiSizes[] = { 7,  8,  9,  11,  13, 14, 16 };
- *     constexpr double sizes[]     = { 8, 10, 12,  14,  15, 16, 18 };
- *     height = <table>[ 3 + aRelativeSize ];
- *
- * The HiDPI table is taken when `HIDPI_GL_CANVAS::GetScaleFactor() > 1`, which
- * is the device pixel ratio. The height is a SCREEN size — upstream divides it
- * by the world scale so the text never grows with zoom — so these are logical
- * pixels and a caller in device space multiplies by the ratio itself.
- */
-export function constantGlyphHeightPx(devicePixelRatio: number, relativeSize = 0): number {
-  const hdpi = [7, 8, 9, 11, 13, 14, 16];
-  const std = [8, 10, 12, 14, 15, 16, 18];
-  const i = 3 + relativeSize;
-  return devicePixelRatio > 1 ? hdpi[i]! : std[i]!;
-}
-
-/**
- * `StrokeWidth = height * thicknessFactor` — 0.15 HiDPI, else 0.20
- * (`preview_utils.cpp:88-99`). It is what makes preview text read bold: a
- * 14-unit glyph is stroked 2.8 wide.
- */
-export function constantStrokeWidthPx(devicePixelRatio: number, relativeSize = 0): number {
-  const f = devicePixelRatio > 1 ? 0.15 : 0.2;
-  return constantGlyphHeightPx(devicePixelRatio, relativeSize) * f;
 }
 
 /**
@@ -266,49 +229,8 @@ export function tickLineWidthPx(devicePixelRatio: number): number {
   return constantStrokeWidthPx(devicePixelRatio, -1) / 2;
 }
 
-/** `linePitchFactor`, the other half of the same branch: 1.7 HiDPI, else 1.9. */
-export function constantLinePitchPx(devicePixelRatio: number, relativeSize = 0): number {
-  const f = devicePixelRatio > 1 ? 1.7 : 1.9;
-  return constantGlyphHeightPx(devicePixelRatio, relativeSize) * f;
-}
-
 // ---------------------------------------------------------------------------
 // RULER_ITEM::ViewDraw (ruler_item.cpp:300-370).
-
-/**
- * The CSS `font-size` whose cap height is `targetPx`.
- *
- * KiCad's `TEXT_DIMS::GlyphSize` is the stroke font's glyph HEIGHT — the height
- * of a capital — while CSS `font-size` is the em box, which is always larger.
- * Setting one as the other draws the preview text about a third too small,
- * which is what made ours look thin and undersized beside a real ruler.
- *
- * Measured rather than assumed: the ratio differs per face, and the fallback
- * chain here can resolve to whatever the platform has. `actualBoundingBoxAscent`
- * of a digit is that cap height.
- */
-const capRatioCache = new Map<string, number>();
-export function cssSizeForGlyphHeight(ctx: CanvasRenderingContext2D, targetPx: number): number {
-  const face = RULER_FONT;
-  let ratio = capRatioCache.get(face);
-  if (ratio === undefined) {
-    const probe = 100;
-    const saved = ctx.font;
-    ctx.font = `${probe}px ${face}`;
-    const m = ctx.measureText('0');
-    const asc = m.actualBoundingBoxAscent;
-    ratio = asc > 0 ? asc / probe : 0.72;
-    ctx.font = saved;
-    capRatioCache.set(face, ratio);
-  }
-  return targetPx / ratio;
-}
-
-/** The face the ruler's numbers are set in; KiCad's is the stroke font. */
-const RULER_FONT = 'ui-monospace, monospace';
-
-/** `DrawTextNextToCursor`'s offset from the cursor (`ruler_item.cpp:342`). */
-const CURSOR_TEXT_OFFSET_PX = 15;
 
 /** `minorTickLen`, the graduation length `drawTicksAlongLine` starts from. */
 const END_TICK_PX = 5;
@@ -406,7 +328,7 @@ export function drawRulerItem(ctx: CanvasRenderingContext2D, o: RulerDrawOptions
     // `labelOffset = tickLine.Resize( majorTickLen )`, where
     // drawTicksAlongLine's majorTickLen is minor * (2.5 + 1).
     const labelOff = END_TICK_PX * 3.5 * dpr;
-    ctx.font = `${tickFont}px ${RULER_FONT}`;
+    ctx.font = `${tickFont}px ${PREVIEW_FONT}`;
     ctx.textBaseline = 'middle';
     // `labelAngle = -EDA_ANGLE( tickLine )`: the numbers run along the TICK,
     // not along the ruler — which is why upstream's read bottom-to-top beside a
@@ -444,31 +366,23 @@ export function drawRulerItem(ctx: CanvasRenderingContext2D, o: RulerDrawOptions
     }
   }
 
-  const lines = rulerDimensionStrings(o.origin, o.end, o.iuPerMm, o.units);
-  // `DrawTextNextToCursor`'s 15 px offset, and the quadrant it prefers: away
-  // from the origin, so the labels never sit on the ruler
-  // (ruler_item.cpp:342-343, 363).
-  const offX = CURSOR_TEXT_OFFSET_PX * dpr;
-  // `DrawTextNextToCursor` at GetConstantGlyphHeight()'s size and pitch —
-  // sizes[3] = 14 / hdpiSizes[3] = 11, times linePitchFactor 1.9 / 1.7.
-  const pitch = constantLinePitchPx(dpr) * dpr;
-  const qx = o.end.y < o.origin.y ? -1 : 1;
-  const qy = o.end.x < o.origin.x ? 1 : -1;
-  ctx.font = `${cssSizeForGlyphHeight(ctx, constantGlyphHeightPx(dpr) * dpr)}px ${RULER_FONT}`;
-  ctx.textAlign = qx < 0 ? 'right' : 'left';
-  ctx.textBaseline = 'middle';
-  // The quadrant only decides where the BLOCK sits; the lines inside it stay in
-  // GetDimensionStrings' order — x, y, r, θ, top to bottom. Stacking them along
-  // `qy` reversed them whenever the block went up.
-  const x0 = b.x + qx * offX;
-  const top = qy < 0 ? b.y - offX - (lines.length - 1) * pitch : b.y + offX;
-  // A stroke font at thicknessFactor 0.2 reads bold; fill plus a stroke of the
-  // same width is that weight on a 2D context.
-  ctx.lineWidth = constantStrokeWidthPx(dpr) * dpr * 0.5;
-  ctx.lineJoin = 'round';
-  for (let i = 0; i < lines.length; i++) {
-    ctx.fillText(lines[i]!, x0, top + i * pitch);
-    ctx.strokeText(lines[i]!, x0, top + i * pitch);
-  }
   ctx.restore();
+
+  // `int prefX = rulerVec.y < 0.0 ? -1 : 1; int prefY = rulerVec.x < 0.0 ? 1 : -1;`
+  // (`ruler_item.cpp:342-343`) — the ruler's preferred quadrant, away from the
+  // origin so the labels never sit on the measurement. Upstream then tries the
+  // other three and takes the best that fits on screen, which is not ported.
+  //
+  // The block itself is `DrawTextNextToCursor`'s, shared with the shape and arc
+  // assistants. That sharing is what caught this frame placing it in the
+  // OPPOSITE quadrant on both axes: upstream left-aligns and moves *right* for
+  // `quadrant.x < 0`, and shifts up for `quadrant.y > 0`, and the vertical
+  // offset is a LINE PITCH, never the horizontal 15 px.
+  drawTextNextToCursor(ctx, {
+    cursor: b,
+    quadrant: { x: o.end.y < o.origin.y ? -1 : 1, y: o.end.x < o.origin.x ? 1 : -1 },
+    strings: rulerDimensionStrings(o.origin, o.end, o.iuPerMm, o.units),
+    color: o.color,
+    devicePixelRatio: dpr,
+  });
 }

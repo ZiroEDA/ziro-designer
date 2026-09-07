@@ -35,27 +35,18 @@
  */
 
 import { EDA_ANGLE, ANGLE_45 } from '@ziroeda/kimath/src/geometry/eda_angle.js';
-import { vectorSnapped45 } from '@ziroeda/kimath/src/geometry/geometry_utils.js';
+import { LeaderMode, vectorSnapped45 } from '@ziroeda/kimath/src/geometry/geometry_utils.js';
 import { segIntersect, segSquaredDistanceToPoint } from '@ziroeda/kimath/src/geometry/seg.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
 /**
- * `LEADER_MODE` (`preview_items/polygon_geom_manager.h`), the angle constraint
- * the in-progress segment obeys.
- *
- * In pcbnew this is `PCBNEW_SETTINGS::m_AngleSnapMode` — the left toolbar's
- * line-mode group — read through `PCB_TOOL_BASE::GetAngleSnapMode`, and Ctrl
- * held during the tool forces `DIRECT` for that event only.
+ * Re-exported so a caller that reaches for the manager gets its mode with it.
+ * The enum itself belongs to kimath (`geometry_utils.h:42-51`), because
+ * `TWO_POINT_GEOMETRY_MANAGER` and `PCB_TOOL_BASE::GetAngleSnapMode` read the
+ * same one.
  */
-export enum LeaderMode {
-  /** Points can be placed anywhere. */
-  DIRECT = 0,
-  /** Segments must be horizontal, vertical or at 45°. */
-  DEG45 = 1,
-  /** Segments must be horizontal or vertical. */
-  DEG90 = 2,
-}
+export { LeaderMode };
 
 /** `POLYGON_GEOM_MANAGER::CLIENT`, the tool the manager reports back to. */
 export interface PolygonGeomClient {

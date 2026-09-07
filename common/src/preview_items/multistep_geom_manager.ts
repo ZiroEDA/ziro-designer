@@ -93,6 +93,16 @@ export abstract class MultistepGeomManager {
     return this.lastPoint_;
   }
 
+  /**
+   * `setGeometryChanged`: mark the geometry dirty without feeding a point in.
+   *
+   * `ARC_GEOM_MANAGER::ToggleClockwise` is why this is protected rather than
+   * private — flipping the posture changes the arc without moving the cursor.
+   */
+  protected setGeometryChanged(): void {
+    this.changed_ = true;
+  }
+
   /** `HasGeometryChanged`: whether a client should redraw. */
   hasGeometryChanged(): boolean {
     return this.changed_;

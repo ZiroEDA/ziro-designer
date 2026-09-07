@@ -14,6 +14,24 @@
 import type { Vec2 } from '../math/vector2.js';
 
 /**
+ * `LEADER_MODE` (`geometry_utils.h:42-51`) — the kind of the leader line.
+ *
+ * It lives in kimath, not in any one preview item, because three geometry
+ * managers and a tool all read it: `POLYGON_GEOM_MANAGER::SetLeaderMode`,
+ * `TWO_POINT_GEOMETRY_MANAGER::SetAngleSnap`, `ARC_GEOM_MANAGER` (as a bool),
+ * and `PCB_TOOL_BASE::GetAngleSnapMode`, which returns
+ * `PCBNEW_SETTINGS::m_AngleSnapMode` — the left toolbar's line-mode group.
+ */
+export enum LeaderMode {
+  /** Unconstrained point-to-point. */
+  DIRECT = 0,
+  /** 45 degree only. */
+  DEG45 = 1,
+  /** 90 degree only. */
+  DEG90 = 2,
+}
+
+/**
  * `GetVectorSnapped45( aVec, only45 )` (geometry_utils.h:112-140): the nearest
  * 0°, 45° or 90° line.
  *
