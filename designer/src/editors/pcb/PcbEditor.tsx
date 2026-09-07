@@ -6176,12 +6176,20 @@ export function PcbEditor({
    */
   const commitArc = (): void => {
     const mgr = arcMgrRef.current;
+    // `updateArcFromConstructionMgr` (drawing_tool.cpp:2768-2790) **swaps** the
+    // two ends when the subtended angle is not negative, because a `PCB_SHAPE`
+    // arc always runs one way round. The drawn shape is the same either way
+    // once a mid point is carried with it, but the file is not, and the file is
+    // what a diff against KiCad's own output compares.
+    const ccw = mgr.getSubtended().AsDegrees() < 0;
+    const a = mgr.getStartRadiusEnd();
+    const b = mgr.getEndRadiusEnd();
     commitShape(
       {
         kind: 'arc',
-        start: mgr.getStartRadiusEnd(),
+        start: ccw ? a : b,
         mid: arcMidPoint(mgr),
-        end: mgr.getEndRadiusEnd(),
+        end: ccw ? b : a,
         width: shapeWidthIU(activeLayerRef.current),
         fillMode: 'none',
         layer: activeLayerRef.current,

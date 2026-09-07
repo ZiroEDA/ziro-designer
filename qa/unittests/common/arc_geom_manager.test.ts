@@ -108,10 +108,16 @@ describe('the posture rule', () => {
     expect(mgr.getSubtended().AsDegrees()).toBeCloseTo(225, 6);
 
     // Back inside a quarter turn and the else-if unlocks it again —
-    // `abs( GetSubtended() ) < ANGLE_90` — leaving the posture free for the
-    // next motion to choose.
+    // `abs( GetSubtended() ) < ANGLE_90`. That motion itself still reports the
+    // locked posture; the unlock only shows on the NEXT one.
     mgr.addPoint({ x: 1000, y: -1000 }, false);
     expect(mgr.getSubtended().AsDegrees()).toBeCloseTo(45, 6);
+
+    // Now free again, so 45° below +x picks the shorter counter-clockwise way
+    // and reports −45. Still locked it would have to go the long way round and
+    // report +315, which is what makes the unlock observable at all.
+    mgr.addPoint({ x: 1000, y: 1000 }, false);
+    expect(mgr.getSubtended().AsDegrees()).toBeCloseTo(-45, 6);
   });
 
   it('ToggleClockwise flips the sweep and locks it', () => {
@@ -123,6 +129,12 @@ describe('the posture rule', () => {
 
     mgr.toggleClockwise();
 
+    expect(mgr.getSubtended().AsDegrees()).toBeCloseTo(315, 6);
+
+    // And it LOCKS: `m_directionLocked = true`. Moving back to the same 45°
+    // must not let the automatic rule take the posture away again — without
+    // the lock this motion would re-choose counter-clockwise and report −45.
+    mgr.addPoint({ x: 1000, y: 1000 }, false);
     expect(mgr.getSubtended().AsDegrees()).toBeCloseTo(315, 6);
   });
 });
