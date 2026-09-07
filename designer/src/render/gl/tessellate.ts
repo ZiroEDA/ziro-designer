@@ -18,6 +18,7 @@
  */
 
 import { PCB_IU_PER_MM, SCH_IU_PER_MM } from '@ziroeda/common/src/eda_units.js';
+import { BezierPoly } from '@ziroeda/kimath/src/bezier_curves.js';
 
 export interface Pt {
   x: number;
@@ -133,6 +134,34 @@ export function arcToPolyline(
     out.push({ x: cx + radius * Math.cos(a), y: cy + radius * Math.sin(a) });
   }
   return out;
+}
+
+/**
+ * A cubic as a polyline, matching `CanvasRenderingContext2D.bezierCurveTo`.
+ *
+ * Unlike the arc, this is not re-derived: `BEZIER_POLY` is KiCad's own
+ * flattener and `EDA_SHAPE::RebuildBezierToSegmentsPointsList` calls it with
+ * exactly this shape, so a bezier flattened here has the same vertices the C++
+ * would have put in `m_bezierPoints`. Hain's parabolic approximation splits at
+ * the inflections first, which is why a uniform subdivision is not an
+ * acceptable substitute — it under-samples the curl of an S and over-samples
+ * its flanks.
+ *
+ * The tolerance is a world distance for the same reason `facetsForRadius`
+ * takes one: the recording has to serve every zoom, so nothing here may ask
+ * what the zoom is.
+ *
+ * The first point returned is `p0` itself, so a caller with a current point
+ * already at `p0` should skip it.
+ */
+export function bezierToPolyline(
+  p0: Pt,
+  c1: Pt,
+  c2: Pt,
+  p3: Pt,
+  tolerance = PCB_ARC_TOLERANCE,
+): Pt[] {
+  return new BezierPoly(p0, c1, c2, p3).getPoly(tolerance);
 }
 
 /**

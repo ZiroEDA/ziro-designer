@@ -29,7 +29,7 @@
  * serve every zoom level. See `tessellate.ts`.
  */
 
-import { arcToPolyline, type Pt } from './tessellate.js';
+import { arcToPolyline, bezierToPolyline, type Pt } from './tessellate.js';
 
 /** 2D affine transform in Canvas order: [a, b, c, d, e, f]. */
 export type Mat = [number, number, number, number, number, number];
@@ -168,6 +168,33 @@ export class GlPath {
       for (let i = 1; i < pts.length; i++) this.cur!.pts.push(pts[i]!);
     }
     if (whole && this.cur) this.cur.circle = { cx, cy, r };
+  }
+
+  /**
+   * Canvas2D's `bezierCurveTo`, flattened at record time the way `arc` is.
+   *
+   * This was deliberately absent, on the reasoning that a caller reaching for
+   * it would "fail loudly at the type level instead of silently dropping
+   * geometry". It failed loudly at RUNTIME instead — `Couldn't open board:
+   * l.bezierCurveTo is not a function`, and no board at all — because
+   * `GL_PATH_FACTORY` casts a `GlPath` to `Path2D`, so the type system was
+   * never in a position to say anything. A cast is not a type check, and the
+   * absent method was the whole board's single point of failure the moment
+   * `renderBoard` learned to stroke a `gr_curve` properly.
+   *
+   * The spec's degenerate case: with no subpath open, one is started at the
+   * FIRST control point rather than at the curve's start.
+   */
+  bezierCurveTo(c1x: number, c1y: number, c2x: number, c2y: number, x: number, y: number): void {
+    const from = this.tip();
+    if (!from) {
+      this.startNew({ x: c1x, y: c1y });
+      this.lineTo(x, y);
+      return;
+    }
+    const pts = bezierToPolyline(from, { x: c1x, y: c1y }, { x: c2x, y: c2y }, { x, y });
+    // `pts[0]` is `from`, which is already the current point.
+    for (let i = 1; i < pts.length; i++) this.cur!.pts.push(pts[i]!);
   }
 
   /**
