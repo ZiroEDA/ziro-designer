@@ -1,13 +1,23 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
-import { useEffect, useRef, useState, type CSSProperties, type JSX, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type JSX,
+  type ReactNode,
+} from 'react';
 import { Icon } from './icons.js';
 import { toolbarIconUrl } from './toolbarIcons.js';
 import { toolbarButtonLabel, toolbarButtonTooltip } from './toolbar_actions.js';
 import { ContextMenu } from './MenuBar.js';
 import type { MenuItem } from './menu_types.js';
 import { toolbarContextMenu } from './toolbar_context_menu_registry.js';
+import { OVERFLOW_SIZE, visibleCount } from './toolbar_overflow.js';
 
 // The data types live in toolbar_types.ts so toolbar inventory modules stay
 // reachable from qa's tsconfig, which compiles .ts only. Re-exported here so
@@ -84,6 +94,52 @@ export function Toolbar({
   const pressTimer = useRef<number | null>(null);
   // Swallows the click that ends the press which opened the palette.
   const suppressClick = useRef(false);
+
+  /**
+   * `SetOverflowVisible( !GetToolBarFits() )`: how many entries are on the
+   * strip, or null for "they all are".
+   *
+   * `null` is also the MEASURING state, and it has to be: an entry dropped from
+   * the layout has no geometry to read, so the pass that decides the cut is the
+   * pass where nothing is cut. Going back to null on a resize and settling on a
+   * number in the layout effect is what `CallAfter` is doing upstream — the
+   * decision is made after the size is known, not during it.
+   */
+  const [shownEntries, setShownEntries] = useState<number | null>(null);
+  const [overflowMenu, setOverflowMenu] = useState<{ x: number; y: number } | null>(null);
+  const barRef = useRef<HTMLDivElement>(null);
+
+  // `wxEVT_SIZE`. A vertical bar's height and a horizontal bar's width are what
+  // decide this, and both change with the window and with the icon size.
+  useEffect(() => {
+    const bar = barRef.current;
+    if (!bar || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => setShownEntries(null));
+    ro.observe(bar);
+    return () => ro.disconnect();
+  }, []);
+
+  // The entries themselves changing (a different editor's toolbar, or a
+  // customisation) invalidates the measurement just as a resize does.
+  useLayoutEffect(() => setShownEntries(null), [entries]);
+
+  useLayoutEffect(() => {
+    const bar = barRef.current;
+    // Only the pass with everything laid out can measure.
+    if (!bar || shownEntries !== null) return;
+
+    const vertical = orientation === 'vertical';
+    const barBox = bar.getBoundingClientRect();
+    const origin = vertical ? barBox.top : barBox.left;
+    const ends = [...bar.querySelectorAll<HTMLElement>(':scope > [data-tbi]')].map((el) => {
+      const r = el.getBoundingClientRect();
+      return (vertical ? r.bottom : r.right) - origin;
+    });
+
+    // `clientHeight`/`clientWidth`, not the bounding box: the room a tool may
+    // occupy is inside whatever border the strip draws.
+    setShownEntries(visibleCount(ends, vertical ? bar.clientHeight : bar.clientWidth));
+  }, [shownEntries, orientation]);
 
   const cancelTimer = (): void => {
     if (pressTimer.current !== null) {
@@ -270,22 +326,79 @@ export function Toolbar({
     return { top: p.anchor.bottom + PALETTE_BORDER, left: p.anchor.left - pad };
   };
 
+  /**
+   * `WX_AUI_TOOLBAR_ART::ShowDropDown` (`common/widgets/wx_aui_art_providers.cpp:226-300`)
+   * — the overflow chevron opens a plain `wxMenu` of the tools that did not
+   * fit, and the rows are built from the toolbar items rather than from the
+   * menu bar: the label is the item's SHORT HELP with its accelerator split off
+   * at the tab, it carries the item's own bitmap, and a check or radio item
+   * comes over checkable and checked.
+   *
+   * Separators come with them, coalesced — `skipNextSeparator` starts true, so
+   * a run that begins mid-group does not open with a rule.
+   */
+  const overflowItems = useCallback((): MenuItem[] => {
+    const items: MenuItem[] = [];
+    let skipSeparator = true;
+
+    for (const e of entries.slice(shownEntries ?? entries.length)) {
+      if (e === 'sep') {
+        if (!skipSeparator) {
+          items.push({ sep: true });
+          skipSeparator = true;
+        }
+        continue;
+      }
+      // A spacer is layout and a control is a widget; neither is a wxAuiToolBarItem
+      // of a kind `ShowDropDown` copies (`wxITEM_NORMAL | CHECK | RADIO`).
+      if ('spacer' in e || 'control' in e) continue;
+
+      const b = 'group' in e ? displayedAction(e) : e;
+      const tip = toolbarButtonTooltip(app, b.id, b.title);
+      // `text.BeforeFirst( '\n' )`, then `BeforeFirst( '\t', &accel )`.
+      const firstLine = tip.split('\n')[0] ?? '';
+      const [label, accel] = firstLine.split('\t');
+      items.push({
+        label: label || toolbarButtonLabel(app, b.id, b.title) || b.id,
+        icon: b.icon ?? b.id,
+        ...(accel ? { shortcut: accel } : {}),
+        ...(isDisabled(b) ? { disabled: true } : {}),
+        // `m->Check( checked )` for a check/radio item that is on.
+        ...(activeTool === b.id || toggled?.has(b.id) ? { checked: true } : {}),
+        action: () => onActivate?.(b.id),
+      });
+      skipSeparator = false;
+    }
+    return items;
+  }, [entries, shownEntries, app, activeTool, toggled, disabledIds, onActivate]);
+
+  const overflowing = shownEntries !== null && shownEntries < entries.length;
+
   return (
-    <div className={`ze-toolbar ${orientation}${side ? ` ${side}` : ''}`} role="toolbar">
+    <div
+      className={`ze-toolbar ${orientation}${side ? ` ${side}` : ''}`}
+      role="toolbar"
+      ref={barRef}
+    >
       {entries.map((e, i) => {
-        if (e === 'sep') return <span key={`s${i}`} className="ze-sep" />;
+        // Dropped from the LAYOUT, not merely painted over: an item wx has
+        // overflowed does not take space, which is what leaves room for the
+        // chevron at the end.
+        if (shownEntries !== null && i >= shownEntries) return null;
+        if (e === 'sep') return <span key={`s${i}`} data-tbi="" className="ze-sep" />;
         // AddSpacer( item.m_Size ): raw pixels along the bar's own axis.
         if ('spacer' in e)
           return (
             <span
               key={`sp${i}`}
+              data-tbi=""
               className="ze-tb-spacer"
               style={orientation === 'horizontal' ? { width: e.spacer } : { height: e.spacer }}
             />
           );
         if ('control' in e)
           return (
-            <span key={e.control} className="ze-tb-control">
+            <span key={e.control} data-tbi="" className="ze-tb-control">
               {controls?.[e.control]}
             </span>
           );
@@ -294,6 +407,7 @@ export function Toolbar({
           return (
             <span
               key={e.group}
+              data-tbi=""
               className="ze-tb-groupwrap"
               title={toolbarButtonTooltip(app, shown.id, shown.title)}
             >
@@ -305,6 +419,41 @@ export function Toolbar({
         return renderButton(e);
       })}
       {trailing}
+      {overflowing && (
+        /* `wxAuiDefaultToolBarArt::DrawOverflowButton`. [px] the glyph the art
+           provider draws is a 7px horizontal bar and, under it, a 7->1
+           downward triangle, dumped by `qa/probes/aui_overflow_probe.cpp`; the
+           hover state is the ordinary toolbar-button highlight behind it, which
+           `.ze-tbtn:hover` already draws. */
+        <button
+          type="button"
+          className="ze-tbtn ze-tb-overflow"
+          title="More tools"
+          aria-label="More tools"
+          onClick={(ev) => {
+            const r = (ev.currentTarget as HTMLElement).getBoundingClientRect();
+            // wx drops the menu from the button, on the side the bar is on.
+            setOverflowMenu(
+              orientation === 'vertical'
+                ? { x: side === 'right' ? r.left : r.right, y: r.bottom }
+                : { x: r.left, y: r.bottom },
+            );
+          }}
+        >
+          <svg viewBox="0 0 16 16" aria-hidden="true">
+            <rect x="4.5" y="6" width="7" height="1.5" fill="currentColor" />
+            <path d="M4.5 9.5h7L8 13z" fill="currentColor" />
+          </svg>
+        </button>
+      )}
+      {overflowMenu && (
+        <ContextMenu
+          items={overflowItems()}
+          x={overflowMenu.x}
+          y={overflowMenu.y}
+          onClose={() => setOverflowMenu(null)}
+        />
+      )}
       {palette && (
         <div
           className={`ze-tb-palette ${orientation === 'vertical' ? 'horizontal' : 'vertical'}`}

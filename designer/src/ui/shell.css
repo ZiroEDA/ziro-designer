@@ -927,6 +927,23 @@
 html,
 body {
   background: var(--chrome-bg2);
+  /*
+   * A `wxFrame` CLIPS. Nothing in KiCad scrolls the window itself: a pane too
+   * big for its space is cut off by the frame, and the widget inside deals with
+   * not fitting — a toolbar grows an overflow chevron
+   * (`ACTION_TOOLBAR`'s `SetOverflowVisible( !GetToolBarFits() )`,
+   * `common/tool/action_toolbar.cpp:221-231`), a scrolled window grows
+   * scrollbars, and a canvas is simply the size it is.
+   *
+   * A page does not clip: an overflowing child makes the DOCUMENT scroll, and
+   * `html, body, #root { height: 100% }` alone does not stop it. Setting the
+   * toolbar icons to Large made the vertical toolbars taller than the window,
+   * which scrolled the whole application — the right toolbar's last buttons
+   * disappeared under the status bar and the menu bar could be scrolled off the
+   * top. There is no state in KiCad in which that can happen, so it is
+   * forbidden here at the root rather than patched per frame.
+   */
+  overflow: hidden;
 }
 
 /* ---------------------------------------------------------------------------
@@ -1801,6 +1818,44 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   align-items: center;
   background: var(--content-bg);
   gap: 1px;
+  /*
+   * A wxAuiToolBar does not grow past its pane. It keeps its size, drops the
+   * tools that do not fit, and shows a chevron
+   * (`ACTION_TOOLBAR`'s `SetOverflowVisible( !GetToolBarFits() )`).
+   *
+   * `min-height: 0` is the load-bearing half for a VERTICAL bar: a flex item
+   * defaults to `min-height: auto`, which is its content height, so a column of
+   * buttons taller than the window refused to shrink and pushed the whole
+   * application into a scroll — with Large icons the right toolbar's last
+   * buttons ended up under the status bar. `overflow: hidden` then clips
+   * whatever the measurement in `Toolbar.tsx` has not caught up with yet, so
+   * there is no frame in which a half-button is drawn.
+   */
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+/* `wxAuiDefaultToolBarArt::DrawOverflowButton`, the chevron that appears at the
+   end of a bar that does not fit.
+
+   [px] `wxAUI_TBART_OVERFLOW_SIZE` is 16 on this machine, read off a live
+   `wxAuiToolBar` by `qa/probes/aui_overflow_probe.cpp` — the same probe dumps
+   the glyph (a 7px bar over a 7->1 triangle) and shows the hover state is the
+   ordinary button highlight, which `.ze-tbtn` already draws.
+
+   It is 16 ALONG the bar and the button's own width across it, because that is
+   what the art provider is given: `wxRect( … , overflowSize, barHeight )`. */
+.ze-toolbar.horizontal > .ze-tb-overflow {
+  width: 16px;
+  flex: 0 0 auto;
+}
+.ze-toolbar.vertical > .ze-tb-overflow {
+  height: 16px;
+  flex: 0 0 auto;
+}
+.ze-tb-overflow > svg {
+  width: 16px;
+  height: 16px;
 }
 /* No height: a wxAuiToolBar is as tall as its tallest tool. [px] GerbView's
    TOP_AUX row is 36 px around a 34 px combo (y 135..168 bordered, row 135..170)
@@ -6747,35 +6802,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   background: var(--grid-cell-bg);
   border: 1px solid var(--grid-line);
   padding: 0;
-}
-/* `WX_GRID::EnableAlternateRowColors`, which the constructor installs from
-   `appearance.grid_striping` (`common/widgets/wx_grid.cpp:329`):
-
-     wxColor color = wxGrid::GetDefaultCellBackgroundColour();
-     table->SetAttrProvider( new WX_GRID_ALT_ROW_COLOR_PROVIDER( color ) );
-
-     // WX_GRID_ALT_ROW_COLOR_PROVIDER::UpdateColors, :168-174
-     wxColor rowColor = aBaseColor.ChangeLightness( IsDarkTheme() ? 105 : 95 );
-
-     // ::GetAttr, :176-183
-     // Just pass through the cell attribute on odd rows (start normal to
-     // allow for the header row)
-     if( !( row % 2 ) ) return cellAttr.release();
-
-   Two things fall out of that and both are easy to get backwards.
-
-   The colour is the CELL BACKGROUND shifted, never a shade of its own:
-   `ChangeLightness( 105 )` is wx blending 5% toward white (`ialpha > 100`
-   blends with 255 at `1 - (ialpha - 100)/100`), so it is stated here as a mix
-   of the token rather than as a second hex that would drift away from it. The
-   105 is the DARK-theme branch, which is the branch this app is always on.
-
-   And it is the ODD grid rows that are striped, row 0 being left alone — so
-   `nth-child(even)` in CSS, where the first `<tr>` is child 1. Scoped to
-   `tbody` because a `<thead>` restarts the count and would invert it. */
-[data-grid-striping="1"] .ze-grid tbody tr:nth-child(even) > td {
-  /* [data] `ChangeLightness( 105 )` — 5% of white over the cell colour. */
-  background: color-mix(in srgb, var(--grid-cell-bg) 95%, #fff);
 }
 /* `WX_GRID::EnableAlternateRowColors`, which the constructor installs from
    `appearance.grid_striping` (`common/widgets/wx_grid.cpp:329`):
