@@ -209,14 +209,19 @@ describe('LAYER_BOARD_OUTLINE_AREA — the "Board Area Shadow"', () => {
     );
   });
 
-  it('opens OFF, as `GAL_SET::DefaultVisible` leaves it', () => {
-    // `// LAYER_BOARD_OUTLINE_AREA,   // currently hidden by default`
-    // (`common/lset.cpp:825`). The preview panels show it because they have no
-    // project to read that set from.
+  it('opens ON in the board editor and OFF where there is no project', () => {
+    // `board.visible_items` defaults to `{}`, which is not an array, so
+    // `PROJECT_LOCAL_SETTINGS` runs `m_VisibleItems |= UserVisbilityLayers()`
+    // (`project_local_settings.cpp:88-92`) — every Objects row, this one
+    // included (`layer_settings_utils.cpp:49`). A KiCad 10.0.5 `.kicad_prl`
+    // written here lists `board_outline_area` and `drc_exclusions`.
+    expect(DEFAULT_OBJECTS.boardAreaShadow).toBe(true);
+    expect(DEFAULT_OBJECTS.drcExclusions).toBe(true);
+    // `GAL_SET::DefaultVisible()`, which leaves both out, is only what
+    // `BOARD::GetVisibleElements()` returns for a board with NO project
+    // (`board.cpp:1040`) — the footprint editor and the preview widgets, which
+    // are what draw from `DEFAULT_DRAW_OPTIONS`.
     expect(DEFAULT_DRAW_OPTIONS.boardOutlineArea).toBe(false);
-    expect(DEFAULT_OBJECTS.boardAreaShadow).toBe(false);
-    // The other entry commented out of the same array, for the same reason.
-    expect(DEFAULT_OBJECTS.drcExclusions).toBe(false);
   });
 });
 

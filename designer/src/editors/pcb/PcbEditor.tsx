@@ -2721,10 +2721,14 @@ export function PcbEditor({
       if (rats.length > 0) {
         const curved = toggles.has('ratsnestLineMode');
         ctx.setTransform(1, 0, 0, 1, 0, 0);
-        // `m_Display.m_RatsnestThickness` — Editing Options' "Ratsnest line
-        // thickness", a MULTIPLIER on the one-pixel default and not a distance
-        // (`wxSpinCtrlDouble( …, 0.5, 10, 0.5, 0.5 )`). It was a hardcoded 1.
-        ctx.lineWidth = Math.max(1, dpr) * galRef.current.ratsnest_thickness;
+        // `gal->SetLineWidth( cfg->m_Display.m_RatsnestThickness / gal->GetWorldScale() )`
+        // (`ratsnest_view_item.cpp:82`): the thickness is screen pixels, not a
+        // distance, so it reaches the shader as exactly that many DEVICE pixels
+        // — and there it goes through GAL's pixel grid like every other stroke.
+        // The default is 0.5 (`pcbnew_settings.cpp:262`), which rounds to a
+        // whole 1 px; multiplying it out raw drew a half-covered line, which is
+        // the entire difference between our airwires and KiCad's.
+        ctx.lineWidth = galPenWidth(galRef.current.ratsnest_thickness * dpr);
         for (const { e, color } of rats) {
           const x1 = e.ax * sx + v.tx;
           const y1 = e.ay * v.scale + v.ty;

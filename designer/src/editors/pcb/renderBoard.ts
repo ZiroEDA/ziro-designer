@@ -425,7 +425,12 @@ export const DEFAULT_DRAW_OPTIONS: PcbDrawOptions = {
   imageOpacity: 0.6,
   zoneOutline: false,
   padClearance: true,
-  // `LSET::VisibleGALLayers()` has LAYER_BOARD_OUTLINE_AREA commented out.
+  // Off, and only here: this is the base the FOOTPRINT editor and the preview
+  // widgets draw from, and their BOARD has no project, so
+  // `BOARD::GetVisibleElements()` falls back to `GAL_SET::DefaultVisible()`,
+  // which has LAYER_BOARD_OUTLINE_AREA commented out (`pcbnew/board.cpp:1040`,
+  // `common/lset.cpp:825`). The board editor never reads this field — it passes
+  // the Objects tab's `boardAreaShadow` row, which opens ON.
   boardOutlineArea: false,
   // `pcb_display.pad_use_via_color_for_normal_th_padstacks`, false.
   viaColorForThPads: false,

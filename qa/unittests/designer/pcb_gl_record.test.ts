@@ -26,7 +26,12 @@ import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
 import type { Board } from '@ziroeda/pcbnew/src/types.js';
 import { buildScene, DEFAULT_DRAW_OPTIONS } from '@ziroeda/designer/src/editors/pcb/renderBoard.js';
 import { GL_PATH_FACTORY } from '@ziroeda/designer/src/render/gl/gl_path.js';
-import { Scene, SEGMENT_STRIDE, type RunKind } from '@ziroeda/designer/src/render/gl/scene.js';
+import {
+  Scene,
+  SEGMENT_STRIDE,
+  TRIANGLE_STRIDE,
+  type RunKind,
+} from '@ziroeda/designer/src/render/gl/scene.js';
 import { recordBoardScene } from '@ziroeda/designer/src/render/gl/pcb_gl.js';
 
 const board = (): Board =>
@@ -112,6 +117,65 @@ describe('recordBoardScene', () => {
     let worst = 0;
     for (let i = 0; i < a.length; i++) worst = Math.max(worst, Math.abs(a[i]! - b[i]!));
     expect(worst).toBe(0);
+  });
+});
+
+/**
+ * The board area shadow through the WebGL backend.
+ *
+ * `LAYER_BOARD_OUTLINE_AREA` is the one fill in the board that is recorded as
+ * `ctx.fill(path, 'evenodd')`, and `GlRecorder.fill` accepts the rule and
+ * ignores it. Everything else about it — the Objects row, the colour, the
+ * `Path2D` branch in `drawBoard` — was already covered; that this reaches the
+ * GPU at all was not, and the board editor draws through the GL path.
+ */
+describe('LAYER_BOARD_OUTLINE_AREA records as GPU triangles', () => {
+  /** A closed 40 x 30 mm Edge.Cuts rectangle and nothing else. */
+  const outlined = (): Board =>
+    readBoard(
+      parse(`(kicad_pcb (version 20241229) (generator "test")
+  (layers (0 "F.Cu" signal) (31 "B.Cu" signal) (44 "Edge.Cuts" user))
+  (net 0 "")
+  (gr_line (start 90 90) (end 130 90) (stroke (width 0.15) (type solid)) (layer "Edge.Cuts"))
+  (gr_line (start 130 90) (end 130 120) (stroke (width 0.15) (type solid)) (layer "Edge.Cuts"))
+  (gr_line (start 130 120) (end 90 120) (stroke (width 0.15) (type solid)) (layer "Edge.Cuts"))
+  (gr_line (start 90 120) (end 90 90) (stroke (width 0.15) (type solid)) (layer "Edge.Cuts"))
+)`),
+    );
+
+  const area = (boardOutlineArea: boolean): number => {
+    const s = new Scene();
+    recordBoardScene(
+      s,
+      {
+        scene: buildScene(outlined(), {}, GL_PATH_FACTORY),
+        visible: VISIBLE,
+        opts: { ...DEFAULT_DRAW_OPTIONS, boardOutlineArea },
+        emphasis: 'none',
+      },
+      1e-5,
+    );
+    // The shoelace area of every recorded triangle, in mm². Counting vertices
+    // would pass on a triangulation that collapsed the ring to nothing.
+    const t = s.triangles.view();
+    let total = 0;
+    for (let i = 0; i + 3 * TRIANGLE_STRIDE <= t.length; i += 3 * TRIANGLE_STRIDE) {
+      const ax = t[i]!;
+      const ay = t[i + 1]!;
+      const bx = t[i + TRIANGLE_STRIDE]!;
+      const by = t[i + TRIANGLE_STRIDE + 1]!;
+      const cx = t[i + 2 * TRIANGLE_STRIDE]!;
+      const cy = t[i + 2 * TRIANGLE_STRIDE + 1]!;
+      total += Math.abs((bx - ax) * (cy - ay) - (cx - ax) * (by - ay)) / 2;
+    }
+    return total / 1e12; // IU² -> mm²
+  };
+
+  it('fills the whole of a closed outline, and nothing when the row is off', () => {
+    expect(area(false)).toBe(0);
+    // 40 x 30 mm. The outline strokes are segments, not triangles, so the only
+    // triangles in the buffer are the area fill itself.
+    expect(area(true)).toBeCloseTo(1200, 3);
   });
 });
 

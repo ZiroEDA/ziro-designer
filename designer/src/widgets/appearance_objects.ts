@@ -202,18 +202,26 @@ export function appearanceObjectRows(aFpEditor: boolean): readonly ObjectRow[] {
 /**
  * Every Objects row's opening visibility.
  *
- * [data] `GAL_SET::DefaultVisible()` (`common/lset.cpp:770-830`) with the
- * project-local defaults on top.
+ * [data] `PROJECT_LOCAL_SETTINGS`' `board.visible_items`
+ * (`common/project/project_local_settings.cpp:69-122`). A board opens with what
+ * its `.kicad_prl` saved; a project that has never written one takes the
+ * parameter's `{}` default, which is not an array, so the setter runs
  *
- * **Not everything this tab lists is on.** Two entries are commented OUT of
- * that array with a reason beside each, and both used to read `true` here:
+ *     m_VisibleItems |= UserVisbilityLayers();
  *
- *     // LAYER_DRC_EXCLUSION,         // DRC exclusions hidden by default
- *     // LAYER_BOARD_OUTLINE_AREA,    // currently hidden by default
+ * — every row this tab lists (`common/settings/layer_settings_utils.cpp:28-52`).
+ * All of them open ON, the board area shadow and DRC exclusions included.
  *
- * A row defaulting on that KiCad opens off is a board that does not look like
- * KiCad's on the very first paint, and it is invisible in review because the
- * row exists and the checkbox works.
+ * **`GAL_SET::DefaultVisible()` is not that set.** It has
+ * `// LAYER_DRC_EXCLUSION` and `// LAYER_BOARD_OUTLINE_AREA` commented out
+ * (`common/lset.cpp:794, 825`), and reading it as the editor's opening state is
+ * how those two rows came to default off here. `BOARD::GetVisibleElements()`
+ * falls back to it only for a board with no project (`pcbnew/board.cpp:1040`) —
+ * the footprint editor and the preview panels. The board editor is handed one
+ * (`pcbnew/pcb_edit_frame.cpp:823`) and so never sees that fallback.
+ *
+ * Corroborated by a `.kicad_prl` KiCad 10.0.5 wrote on this machine: both
+ * `board_outline_area` and `drc_exclusions` are in its `visible_items`.
  */
 export const DEFAULT_OBJECTS: ObjectState = {
   tracks: true,
@@ -230,14 +238,14 @@ export const DEFAULT_OBJECTS: ObjectState = {
   ratsnest: true,
   drcWarnings: true,
   drcErrors: true,
-  // `// LAYER_DRC_EXCLUSION` — commented out of `DefaultVisible`.
-  drcExclusions: false,
+  // In `UserVisbilityLayers()`, so a project without a saved set opens it on.
+  drcExclusions: true,
   anchors: true,
   points: true,
   lockedShadow: true,
   collidingCourtyards: true,
-  // `// LAYER_BOARD_OUTLINE_AREA` — likewise.
-  boardAreaShadow: false,
+  // Likewise — KiCad's board editor opens with the area shadow drawn.
+  boardAreaShadow: true,
   drawingSheet: true,
   grid: true,
 };
