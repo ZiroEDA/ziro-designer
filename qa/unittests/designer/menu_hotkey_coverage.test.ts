@@ -1114,11 +1114,9 @@ const DECLARED: Readonly<Record<string, readonly string[]>> = {
     'Ctrl+X',
     'Ctrl+C',
     'Ctrl+V',
-    'Shift+Ctrl+V',
     //  and Select All / Unselect All, whose rows exist but whose keys the
     //  dispatcher does not carry in this frame.
     'Ctrl+A',
-    'Shift+Ctrl+A',
     // View > Zoom In / Zoom Out declare NO accelerator: those rows are
     // `ACTIONS::zoomInCenter` / `zoomOutCenter` (`menubar_pcb_editor.cpp:234`),
     // which carry no DefaultHotkey on any platform. Zoom to Fit is Home, the
@@ -1128,6 +1126,26 @@ const DECLARED: Readonly<Record<string, readonly string[]>> = {
     'F5',
     'F8',
     'Ctrl+,',
+    /*
+     * The menubar pass that transcribed `menubar_pcb_editor.cpp` row for row.
+     * Every one of these is a command this frame ALREADY ran from a toolbar
+     * button or a key; what it lacked was the row, and a key with no row is a
+     * key this dispatcher cannot see.
+     */
+    // Edit: `ACTIONS::pasteSpecial` and the Select submenu. The canvas context
+    // menu printed these two as `Shift+Ctrl+…`, which is the same chord spelled
+    // the other way round — and `ui/menu_hotkeys.ts` dispatches on the PRINTED
+    // text, so two spellings are two rows claiming one key. One spelling now,
+    // and it is the one every other frame here uses.
+    'Ctrl+Shift+V',
+    'Ctrl+Shift+A',
+    // Edit > Fill All Zones. `PCB_ACTIONS::zoneFillAll` is B, and the frame has
+    // run it since the key was bound; it simply had no row.
+    'B',
+    // File > Print... — `ACTIONS::print`, Ctrl+P.
+    'Ctrl+P',
+    // View > 3D Viewer — `ACTIONS::show3DViewer`, Alt+3.
+    'Alt+3',
   ],
   'editors/symbol/SymbolEditor.tsx': [
     // As above: every combo is a `DefaultHotkey` out of `common/tool/actions

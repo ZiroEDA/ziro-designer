@@ -181,9 +181,20 @@ describe('the launchers that install it', () => {
   ])('%s calls the shared one and builds no rows of its own', (_name, rel) => {
     const src = read(rel);
     expect(src).toContain('standardSubMenuEntries({');
-    // Per-occurrence, not per-file: the giveaway of a local copy is the label
-    // of GRID_MENU's first row, which only the shared module may spell.
-    expect(src).not.toContain('Grid Origin...');
-    expect(src).not.toContain('zoomPresetLabel');
+    // Comments stripped: the note explaining why a helper is NOT copied names
+    // that helper, and prose about a rule is not a breach of it.
+    const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+    // The giveaway of a local copy is one of the two label BUILDERS — the zoom
+    // preset text and the grid-choice text are computed from the units and the
+    // IU scale, and a second copy of either is a second answer to the same
+    // question.
+    //
+    // Not the string 'Grid Origin...' any more, and that was too broad: it is
+    // also `ACTIONS::gridOrigin`'s FriendlyName, which the board editor's EDIT
+    // menu legitimately spells (`menubar_pcb_editor.cpp:201`). Forbidding a
+    // LABEL forbids the row wherever upstream puts it, which is the opposite of
+    // what this file is for.
+    expect(code).not.toContain('gridChoiceLabel');
+    expect(code).not.toContain('zoomPresetLabel');
   });
 });

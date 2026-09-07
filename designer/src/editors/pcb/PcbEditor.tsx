@@ -5595,7 +5595,7 @@ export function PcbEditor({
       menuEntry(
         {
           label: 'Paste Special...',
-          shortcut: 'Shift+Ctrl+V',
+          shortcut: 'Ctrl+Shift+V',
           action: () => setPasteSpecialOpen(true),
         },
         150,
@@ -5620,7 +5620,7 @@ export function PcbEditor({
         boardHasItems,
       ),
       menuEntry(
-        { label: 'Unselect All', shortcut: 'Shift+Ctrl+A', action: unselectAllSel },
+        { label: 'Unselect All', shortcut: 'Ctrl+Shift+A', action: unselectAllSel },
         150,
         boardHasItems,
       ),
@@ -8785,73 +8785,176 @@ export function PcbEditor({
   const menus: Menu[] = [
     {
       label: 'File',
+      /*
+       * `menubar_pcb_editor.cpp:54-183`, row for row.
+       *
+       * No New Board, no Open..., no Open Recent: all three are inside
+       * `if( Kiface().IsSingle() )` (`:57-85`), and that branch means "launched
+       * standalone", not "under a project manager". Every board here belongs to
+       * a project — the address is `/p/<uid>/pcb` — so this is always the other
+       * branch, which is the same reason the row below is Save a Copy and not
+       * Save As (`:95-99`). They were drawn greyed, which said the opposite:
+       * that pcbnew has them and we have not built them.
+       */
       items: [
-        { label: 'New Board', disabled: dis },
-        { label: 'Open...', disabled: dis },
+        { label: 'Append Board...', icon: 'appendBoard', disabled: dis },
         { sep: true },
+        { label: 'Save', icon: 'save', action: () => onTopAction('save'), shortcut: 'Ctrl+S' },
+        { label: 'Save a Copy...', icon: 'saveAs', action: saveCopy },
+        // `ACTIONS::revert` — "Throw away changes". No hotkey upstream: a
+        // destructive command is given none.
+        { label: 'Revert', icon: 'revert', disabled: dis },
+        { sep: true },
+        // `PCB_ACTIONS::rescueAutosave` — load the board back from an autosave
+        // left by a crashed session. Ours are versions in the project store
+        // rather than a `_autosave-` file beside the board, so this is a
+        // different mechanism wearing the same name; greyed until it is built.
+        { label: 'Rescue', icon: 'rescue', disabled: dis },
+        { sep: true },
+        // The three submenus (`:107-155`). Their children are upstream's, so
+        // the menu says what pcbnew can do rather than hiding it behind one
+        // greyed word — and each row is a specific thing to build.
         {
-          label: 'Save',
-          action: () => onTopAction('save'),
-          shortcut: 'Ctrl+S',
+          label: 'Import',
+          icon: 'import',
+          submenu: [
+            { label: 'Netlist...', disabled: dis },
+            { label: 'Specctra Session...', disabled: dis },
+            { label: 'Graphics...', disabled: dis },
+            { label: 'Non-KiCad Board File...', disabled: dis },
+          ],
         },
-        { label: 'Save a Copy...', action: saveCopy },
+        {
+          label: 'Export',
+          icon: 'export',
+          submenu: [
+            { label: 'Specctra DSN...', disabled: dis },
+            { label: 'GenCAD...', disabled: dis },
+            { label: 'VRML...', disabled: dis },
+            { label: 'IDFv3...', disabled: dis },
+            { label: 'STEP/GLB/BREP/XAO/PLY/STL...', disabled: dis },
+            { label: 'Footprint Association (.cmp) File...', disabled: dis },
+            { label: 'Hyperlynx...', disabled: dis },
+            { sep: true },
+            { label: 'Footprints...', disabled: dis },
+          ],
+        },
+        {
+          label: 'Fabrication Outputs',
+          icon: 'fabrication',
+          submenu: [
+            { label: 'Gerbers (.gbr)...', disabled: dis },
+            { label: 'Drill Files (.drl)...', disabled: dis },
+            { label: 'IPC-2581 File (.xml)...', disabled: dis },
+            { label: 'ODB++ Output File...', disabled: dis },
+            { label: 'Component Placement (.pos, .gbr)...', disabled: dis },
+            { label: 'Footprint Report (.rpt)...', disabled: dis },
+            { label: 'IPC-D-356 Netlist File...', disabled: dis },
+            { label: 'Bill of Materials...', disabled: dis },
+          ],
+        },
         { sep: true },
-        { label: 'Import', disabled: dis },
-        { label: 'Export', disabled: dis },
-        { label: 'Fabrication Outputs', disabled: dis },
+        // These four were reachable from the toolbar and from nowhere in the
+        // menu bar, which is where a user looks for them.
+        { label: 'Board Setup...', icon: 'setup', action: () => onTopAction('boardSetup') },
+        { sep: true },
+        { label: 'Page Settings...', icon: 'page', action: () => onTopAction('pageSettings') },
+        {
+          label: 'Print...',
+          icon: 'print',
+          action: () => onTopAction('print'),
+          shortcut: 'Ctrl+P',
+        },
+        { label: 'Plot...', icon: 'plot', action: () => onTopAction('plot') },
         { sep: true },
         addQuitOrClose('PCB Editor', closeFrame),
       ],
     },
     {
       label: 'Edit',
+      /*
+       * `menubar_pcb_editor.cpp:180-211`, row for row.
+       *
+       * Most of what used to be here is not in KiCad's Edit menu at all: every
+       * `PCB_ACTIONS` in `edit_tool.cpp` and `pcb_selection_tool.cpp` —
+       * Properties, Move Exactly, Position Relative, Create Array, Outset,
+       * Change Side, the Convert submenu — hangs off the SELECTION CONTEXT
+       * MENU, which is the same reading the Align/Distribute note below already
+       * records. Ours drew them in both places and was missing eight rows that
+       * upstream does put here.
+       */
       items: [
-        { label: 'Undo', action: undo, shortcut: 'Ctrl+Z' },
-        { label: 'Redo', action: redo, shortcut: 'Ctrl+Y' },
+        { label: 'Undo', icon: 'undo', action: undo, shortcut: 'Ctrl+Z' },
+        // `ACTIONS::redo`'s Ctrl+Shift+Z is inside `#if defined( __WXMAC__ )`;
+        // the GTK build takes the `#else`, which is Ctrl+Y.
+        { label: 'Redo', icon: 'redo', action: redo, shortcut: 'Ctrl+Y' },
         { sep: true },
-        { label: 'Duplicate', action: duplicateSel, shortcut: 'Ctrl+D' },
-        { label: 'Delete', action: deleteSel, shortcut: 'Delete' },
-        { sep: true },
-        // No Align/Distribute here. `menubar_pcb_editor.cpp` has no align rows
-        // at all - ALIGN_DISTRIBUTE_TOOL hangs its one submenu off the
-        // selection context menu and nowhere else (align_distribute_tool.cpp:87-88),
-        // which is where ours now is, built by `alignDistributeSubmenu`.
+        { label: 'Cut', icon: 'cut', action: cutSel, shortcut: 'Ctrl+X' },
+        { label: 'Copy', icon: 'copy', action: copySel, shortcut: 'Ctrl+C' },
         {
-          label: 'Convert',
+          label: 'Paste',
+          icon: 'paste',
+          shortcut: 'Ctrl+V',
+          // Ctrl+V is the browser's own paste event, not ours — the same
+          // `nativeShortcut` the context menu's row carries.
+          nativeShortcut: true,
+          action: () => {
+            void navigator.clipboard?.readText().then((text) => pasteText(text));
+          },
+        },
+        {
+          label: 'Paste Special...',
+          icon: 'paste',
+          action: () => setPasteSpecialOpen(true),
+          shortcut: 'Ctrl+Shift+V',
+        },
+        { label: 'Delete', icon: 'delete', action: deleteSel, shortcut: 'Delete' },
+        { sep: true },
+        // `selectSubMenu`, titled "&Select" (`:186-190`).
+        {
+          label: 'Select',
           submenu: [
-            {
-              label: 'Create Polygon from Selection...',
-              action: () => convertSelection('poly'),
-              disabled: selection.size === 0,
-            },
-            {
-              label: 'Create Zone from Selection...',
-              action: () => convertSelection('zone'),
-              disabled: selection.size === 0,
-            },
-            {
-              label: 'Create Rule Area from Selection...',
-              action: () => convertSelection('ruleArea'),
-              disabled: selection.size === 0,
-            },
-            { sep: true },
-            {
-              label: 'Create Lines from Selection...',
-              action: () => convertSelection('lines'),
-              disabled: selection.size === 0,
-            },
-            {
-              label: 'Create Tracks from Selection',
-              action: () => convertSelection('tracks'),
-              disabled: selection.size === 0,
-            },
-            {
-              label: 'Create Arc from Selection',
-              action: () => convertSelection('arc'),
-              disabled: selection.size === 0,
-            },
+            { label: 'Select All', action: selectAllSel, shortcut: 'Ctrl+A' },
+            { label: 'Unselect All', action: unselectAllSel, shortcut: 'Ctrl+Shift+A' },
           ],
         },
+        { sep: true },
+        { label: 'Find', icon: 'find', action: () => setFindOpen(true), shortcut: 'Ctrl+F' },
+        { sep: true },
+        { label: 'Edit Track & Via Properties...', disabled: dis },
+        { label: 'Edit Text & Graphics Properties...', disabled: dis },
+        { label: 'Edit Teardrops...', action: () => setTeardropsOpen(true) },
+        { label: 'Change Footprints...', disabled: dis },
+        { label: 'Swap Layers...', disabled: dis },
+        // `ACTIONS::gridOrigin` — the DIALOG ("Grid Origin..."), not
+        // `gridSetOrigin`, which is the interactive tool the Place menu has.
+        { label: 'Grid Origin...', disabled: dis },
+        { sep: true },
+        // `PCB_ACTIONS::zoneFillAll` — B, and the frame has run it since the
+        // key was bound; it simply had no row.
+        { label: 'Fill All Zones', icon: 'zoneFill', action: fillAllZones, shortcut: 'B' },
+        { label: 'Unfill All Zones', disabled: dis },
+        { label: 'Update All Tuning Patterns', disabled: dis },
+        { sep: true },
+        // `ACTIONS::deleteTool` — the interactive one, which keeps deleting
+        // what you click until it is cancelled. Not the same command as Delete.
+        { label: 'Interactive Delete Tool', disabled: dis },
+        { label: 'Global Deletions...', disabled: dis },
+        { sep: true },
+        /*
+         * Below here is NOT KiCad's Edit menu.
+         *
+         * Every one of these hangs off the selection context menu upstream, and
+         * ours has all of them there EXCEPT these three — so removing them from
+         * here now would make three working features unreachable. They stay
+         * until the context menu carries them, at which point this block goes
+         * and the menu matches upstream exactly.
+         *
+         * (`mergePolygons`, `filletLines`, `chamferLines`, `dogboneCorners`,
+         * `extendLines` are all `edit_tool.cpp`; `filterSelection` is
+         * `pcb_selection_tool.cpp`. None of them appears in
+         * `menubar_pcb_editor.cpp`.)
+         */
         {
           label: 'Polygons',
           submenu: [
@@ -8871,30 +8974,6 @@ export function PcbEditor({
               disabled: polyBoolDisabled,
             },
           ],
-        },
-        {
-          label: 'Create Array...',
-          action: () => {
-            // A circular array turns about a point, and the selection's own
-            // centre is the only sensible one to open on — (0,0) would fling
-            // the copies across the board.
-            const brd = boardRef.current;
-            const bb = brd ? boardSelectionBBox(brd, selection) : null;
-            if (bb) {
-              setArraySettings((prev) => ({
-                ...prev,
-                centreXIU: Math.round((bb.minX + bb.maxX) / 2),
-                centreYIU: Math.round((bb.minY + bb.maxY) / 2),
-              }));
-            }
-            setArrayOpen(true);
-          },
-          disabled: selection.size === 0,
-        },
-        {
-          label: 'Outset Items...',
-          action: () => setOutsetOpen(true),
-          disabled: selection.size === 0,
         },
         {
           label: 'Modify Lines',
@@ -8921,49 +9000,71 @@ export function PcbEditor({
             },
           ],
         },
-        { sep: true },
-        {
-          label: 'Move Exactly...',
-          action: () => setMoveExactOpen(true),
-          shortcut: 'Shift+M',
-          disabled: selection.size === 0,
-        },
-        {
-          label: 'Position Relative To...',
-          action: () => setPosRelOpen(true),
-          shortcut: 'Shift+P',
-          disabled: selection.size === 0,
-        },
         {
           label: 'Filter Selection...',
           action: () => setFilterOpen(true),
           disabled: selection.size === 0,
         },
-        { sep: true },
-        { label: 'Find', action: () => setFindOpen(true), shortcut: 'Ctrl+F' },
-        { sep: true },
-        { label: 'Properties...', action: () => openTrackViaProperties(), shortcut: 'E' },
-        { label: 'Change Side / Flip', action: () => flipSelection(), shortcut: 'F' },
-        { sep: true },
-        { label: 'Edit Teardrops...', action: () => setTeardropsOpen(true) },
-        { sep: true },
-        { label: 'Global Deletions...', disabled: dis },
       ],
     },
     {
       label: 'View',
+      /*
+       * `menubar_pcb_editor.cpp:213-281`, row for row. Ours had nine rows
+       * against upstream's twenty-eight, and most of the missing ones were
+       * commands this frame already runs — the 3D viewer and Flip Board View
+       * were drawn GREYED beside a toolbar button that opens them.
+       *
+       * Every CHECK row is `ACTION_MENU::CHECK`, which draws a tick rather than
+       * a radio dot however few of them are on.
+       */
       items: [
-        // `menubar_pcb_editor.cpp:234-236` adds zoomInCenter, zoomOutCenter and
-        // zoomFitScreen. The first two carry NO DefaultHotkey on any platform
-        // (`actions.cpp:769-779`), so these rows show no accelerator; the third
-        // is WXK_HOME off macOS, and Home is the key this frame already handles.
-        // The Ctrl++ / Ctrl+- / Ctrl+0 these printed were the macOS branch, and
-        // none of the three was bound here at all.
-        { label: 'Zoom In', action: () => zoomStep(1.3) },
-        { label: 'Zoom Out', action: () => zoomStep(1 / 1.3) },
-        { label: 'Zoom to Fit', action: zoomToFit, shortcut: 'Home' },
         {
-          label: 'Redraw',
+          label: 'Panels',
+          submenu: [
+            {
+              label: 'Properties',
+              checked: leftToggles.has('showProperties'),
+              action: () => onLeftToggle('showProperties'),
+            },
+            // `PCB_ACTIONS::showSearch` — the docked search pane, Ctrl+G. No
+            // pane here yet; Find is a dialog.
+            { label: 'Search', disabled: dis },
+            {
+              label: 'Appearance',
+              checked: leftToggles.has('showLayersManager'),
+              action: () => onLeftToggle('showLayersManager'),
+            },
+            { label: 'Net Inspector', disabled: dis },
+          ],
+        },
+        { sep: true },
+        { label: 'Footprint Library Browser', disabled: dis },
+        {
+          label: '3D Viewer',
+          icon: 'threeDViewer',
+          action: () => onTopAction('threeDViewer'),
+          shortcut: 'Alt+3',
+        },
+        { sep: true },
+        // `zoomInCenter` / `zoomOutCenter` — about the VIEW centre, which is
+        // what a menu row does; the toolbar's zoom is about the cursor.
+        { label: 'Zoom In', icon: 'zoomIn', action: () => zoomStep(1.3) },
+        { label: 'Zoom Out', icon: 'zoomOut', action: () => zoomStep(1 / 1.3) },
+        // `ACTIONS::zoomFitScreen` is Ctrl+0 upstream; Home is ours and is what
+        // this frame has always dispatched, so both are true and only one can
+        // be printed. Left as Home until the key itself moves.
+        { label: 'Zoom to Fit', icon: 'zoomFit', action: zoomToFit, shortcut: 'Home' },
+        { label: 'Zoom to All Objects', icon: 'zoomFitObjects', action: zoomFitObjects },
+        { label: 'Zoom to Selected Objects', disabled: dis },
+        {
+          label: 'Zoom to Selection Area',
+          icon: 'zoomTool',
+          action: () => setActiveTool('zoomTool'),
+        },
+        {
+          label: 'Refresh',
+          icon: 'zoomRedraw',
           action: () => {
             sceneDirtyRef.current = true;
             requestDraw();
@@ -8971,10 +9072,49 @@ export function PcbEditor({
           shortcut: 'F5',
         },
         { sep: true },
-        { label: 'Show Appearance Manager', action: () => onLeftToggle('showLayersManager') },
-        { sep: true },
-        { label: 'Flip Board View', disabled: dis },
-        { label: '3D Viewer', disabled: dis },
+        {
+          label: 'Drawing Mode',
+          submenu: [
+            {
+              label: 'Draw Zone Fills',
+              checked: leftToggles.has('zoneDisplayFilled'),
+              action: () => onLeftToggle('zoneDisplayFilled'),
+            },
+            {
+              label: 'Draw Zone Outlines',
+              checked: leftToggles.has('zoneDisplayOutline'),
+              action: () => onLeftToggle('zoneDisplayOutline'),
+            },
+            { sep: true },
+            // The sketch modes are `pcbnew.pcb_display.*`, which Preferences >
+            // PCB Editor > Display Options already reads; they have no toggle
+            // path from a menu row yet.
+            { label: 'Sketch Pads', disabled: dis },
+            { label: 'Sketch Vias', disabled: dis },
+            { label: 'Sketch Tracks', disabled: dis },
+            { sep: true },
+            { label: 'Sketch Graphic Items', disabled: dis },
+            { label: 'Sketch Text Items', disabled: dis },
+          ],
+        },
+        {
+          label: 'Contrast Mode',
+          submenu: [
+            {
+              // `ACTIONS::highContrastMode` cycles NORMAL -> DIM -> HIDDEN and
+              // ticks whenever it is not NORMAL.
+              label: 'Inactive Layer View Mode',
+              checked: contrast !== 'normal',
+              action: () =>
+                setContrast((c) => (c === 'normal' ? 'dim' : c === 'dim' ? 'hide' : 'normal')),
+            },
+            // `layerAlphaDec` / `layerAlphaInc` step the LAYER opacity, which is
+            // not the per-object opacity the Appearance panel carries.
+            { label: 'Decrease Layer Opacity', disabled: dis },
+            { label: 'Increase Layer Opacity', disabled: dis },
+          ],
+        },
+        { label: 'Flip Board View', checked: flipView, action: toggleFlip },
       ],
     },
     {
@@ -9011,6 +9151,18 @@ export function PcbEditor({
           action: () => setActiveTool('drawZone'),
         },
         { label: 'Draw Rule Areas', icon: 'drawRuleArea', disabled: dis },
+        // `muwaveSubmenu` (`:296-304`) — MICROWAVE_TOOL's five shapes. Not
+        // browser-impossible, just unbuilt.
+        {
+          label: 'Draw Microwave Shapes',
+          submenu: [
+            { label: 'Draw Microwave Lines', disabled: dis },
+            { label: 'Draw Microwave Gaps', disabled: dis },
+            { label: 'Draw Microwave Stubs', disabled: dis },
+            { label: 'Draw Microwave Arc Stubs', disabled: dis },
+            { label: 'Draw Microwave Polygonal Shapes', disabled: dis },
+          ],
+        },
         { sep: true },
         {
           label: 'Draw Lines',
@@ -9134,6 +9286,10 @@ export function PcbEditor({
           ],
         },
         { sep: true },
+        // `:322-324` — the two tables PCB_ACTIONS drops onto the board.
+        { label: 'Add Board Characteristics', disabled: dis },
+        { label: 'Add Stackup Table', disabled: dis },
+        { sep: true },
         // `menubar_pcb_editor.cpp:333-336`, in this order: the two setters each
         // followed by their reset.
         {
@@ -9152,75 +9308,141 @@ export function PcbEditor({
           disabled: dis,
           action: () => resetOrigin('grid_origin'),
         },
+        { sep: true },
+        {
+          label: 'Auto-Place Footprints',
+          submenu: [
+            { label: 'Place Off-Board Footprints', disabled: dis },
+            { label: 'Place Selected Footprints', disabled: dis },
+          ],
+        },
       ],
     },
     {
       label: 'Route',
+      // `menubar_pcb_editor.cpp:352-368`. The labels are the FriendlyNames:
+      // "Route Single Track", not "Single Track".
       items: [
-        // `PCB_ACTIONS::routeSingleTrack`, X (`pcb_actions.cpp`). Same gap as
-        // Measure Tool above: a row with an accelerator and no action.
+        { label: 'Set Layer Pair...', disabled: dis },
+        { sep: true },
+        // Live in the toolbar and greyed here, which is the state this whole
+        // pass exists to end.
         {
-          label: 'Single Track',
-          disabled: dis,
+          label: 'Route Single Track',
+          icon: 'routeSingleTrack',
           shortcut: 'X',
           action: () => setActiveTool('routeSingleTrack'),
         },
-        { label: 'Differential Pair', disabled: dis },
+        { label: 'Route Differential Pair', icon: 'routeDiffPair', disabled: dis },
         { sep: true },
         { label: 'Tune Length of a Single Track', disabled: dis },
         { label: 'Tune Length of a Differential Pair', disabled: dis },
         { label: 'Tune Skew of a Differential Pair', disabled: dis },
         { sep: true },
-        {
-          label: 'Interactive Router Settings...',
-          action: () => setPnsSettingsOpen(true),
-        },
+        { label: 'Interactive Router Settings...', action: () => setPnsSettingsOpen(true) },
       ],
     },
     {
       label: 'Inspect',
+      // `menubar_pcb_editor.cpp:371-388`. Upstream's FriendlyNames carry no
+      // ellipsis on the two resolution rows, and Board Statistics is "Show
+      // Board Statistics".
       items: [
-        // `ACTIONS::measureTool`, Ctrl+Shift+M (`common/tool/actions.cpp:1238`).
-        // The row printed the accelerator but carried no `action`, and
-        // `ui/menu_hotkeys.ts` presses the *row* — so the key was decoration.
-        // The tool itself was already wired to the canvas.
+        { label: 'Show Board Statistics', disabled: dis },
         {
           label: 'Measure Tool',
-          disabled: dis,
+          icon: 'measureTool',
           shortcut: 'Ctrl+Shift+M',
           action: () => setActiveTool('measureTool'),
         },
-        { label: 'Board Statistics', disabled: dis },
         { sep: true },
-        // Upstream names these by what is being resolved, and which one you
-        // get depends on how many items are selected.
+        // `PCB_ACTIONS::runDRC` — the toolbar has opened this dialog all along.
+        { label: 'Design Rules Checker', icon: 'runDRC', action: () => onTopAction('runDRC') },
+        { label: 'Previous Marker', disabled: dis },
+        { label: 'Next Marker', disabled: dis },
+        { label: 'Exclude Marker', disabled: dis },
+        { sep: true },
         {
-          label: 'Clearance Resolution...',
-          disabled: dis || selection.size !== 2,
+          label: 'Clearance Resolution',
+          disabled: selection.size !== 2,
           action: () => setInspectOpen(true),
         },
         {
-          label: 'Constraints Resolution...',
-          disabled: dis || selection.size !== 1,
+          label: 'Constraints Resolution',
+          disabled: selection.size !== 1,
           action: () => setInspectOpen(true),
         },
-        { sep: true },
-        { label: 'Design Rules Checker', disabled: dis },
+        { label: 'Show Footprint Associations', disabled: dis },
+        { label: 'Compare Footprint with Library', disabled: dis },
       ],
     },
     {
       label: 'Tools',
+      /*
+       * `menubar_pcb_editor.cpp:391-459`.
+       *
+       * Two blocks are left out because upstream leaves them out too unless an
+       * advanced-config flag is set, and a stock KiCad shows neither: the
+       * generators rows (`m_EnableGenerators`, `:411-417`) and the design-block
+       * panel row in View. The Scripting Console (`:432-436`) is inside
+       * `SCRIPTING::IsWxAvailable()` and is removed rather than greyed — there
+       * is no Python here and there will not be one.
+       *
+       * "Reveal Plugin Folder in Finder" goes with it: a folder on a disk.
+       */
       items: [
         {
           label: 'Update PCB from Schematic...',
+          icon: 'updatePcbFromSchematic',
           action: () => void openUpdatePcb(),
           disabled: !onShowSchematic,
           shortcut: 'F8',
         },
-        { label: 'Update Footprints from Library...', disabled: dis },
+        {
+          label: 'Switch to Schematic Editor',
+          icon: 'showEeschema',
+          action: () => onShowSchematic?.(),
+          disabled: !onShowSchematic,
+        },
+        // `ACTIONS::showProjectManager`, added only when NOT standalone — which
+        // is always, here. Leaving the board editor goes back to the project.
+        { label: 'Switch to Project Manager', action: closeFrame },
+        { label: 'Calculator Tools', disabled: dis },
         { sep: true },
-        { label: 'Remove Unused Pads...', disabled: dis },
+        { label: 'DRC Rule Editor', disabled: dis },
+        { sep: true },
+        {
+          label: 'Footprint Editor',
+          icon: 'showFootprintEditor',
+          action: () => onShowFootprintEditor?.(),
+          disabled: !onShowFootprintEditor,
+        },
+        { label: 'Update Footprints from Library...', disabled: dis },
+        { label: 'Migrate 3D Models...', disabled: dis },
+        { sep: true },
+        { label: 'Zone Manager...', disabled: dis },
+        { sep: true },
         { label: 'Cleanup Tracks & Vias...', disabled: dis },
+        { label: 'Remove Unused Pads...', disabled: dis },
+        { label: 'Cleanup Graphics...', disabled: dis },
+        { label: 'Repair Board', disabled: dis },
+        { sep: true },
+        { label: 'Collect And Embed 3D Models', disabled: dis },
+        { sep: true },
+        { label: 'Geographical Reannotate...', disabled: dis },
+        { label: 'Update Schematic from PCB...', disabled: dis },
+        {
+          label: 'Multi-Channel',
+          submenu: [
+            { label: 'Generate Placement Rule Areas...', disabled: dis },
+            { label: 'Repeat Layout...', disabled: dis },
+          ],
+        },
+        { sep: true },
+        {
+          label: 'External Plugins',
+          submenu: [{ label: 'Refresh Plugins', disabled: dis }],
+        },
       ],
     },
     {
