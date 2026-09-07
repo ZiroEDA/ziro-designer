@@ -37,6 +37,12 @@ import {
   type RoutingSettings,
 } from '@ziroeda/pcbnew/src/router/pns_routing_settings.js';
 import { CornerMode } from '@ziroeda/kimath/src/geometry/direction45.js';
+import { PnsRouterMode } from '@ziroeda/pcbnew/src/router/pns_router.js';
+import {
+  defaultTrackViaSizeState,
+  withNetclassEntry,
+} from '@ziroeda/pcbnew/src/board_design_settings_sizes.js';
+import type { PnsDesignSettings } from '@ziroeda/pcbnew/src/router/pns_board_iface.js';
 
 const MM = 1e6;
 const W = 0.25 * MM;
@@ -184,5 +190,134 @@ describe('shoveSettingsFrom', () => {
     expect(shoveSettingsFrom(settings({ cornerMode: CornerMode.MITERED_90 })).cornerMode45).toBe(
       false,
     );
+  });
+});
+
+describe('the session takes its sizes from BOARD_DESIGN_SETTINGS', () => {
+  /**
+   * `ROUTER_TOOL::prepareInteractive`:
+   *
+   *     m_iface->ImportSizes( sizes, m_startItem, nullptr, aStartPosition );
+   *     m_router->UpdateSizes( sizes );
+   *
+   * The session used to take three loose numbers instead, which is fine for
+   * placing one track of a stated width and is not what the tool does.
+   */
+  const designSettings = (over: Partial<PnsDesignSettings> = {}): PnsDesignSettings => ({
+    minClearance: 200_000,
+    trackMinWidth: 200_000,
+    viasMinSize: 500_000,
+    minThroughDrill: 300_000,
+    holeToHoleMin: 250_000,
+    useConnectedTrackWidth: false,
+    tempOverrideTrackWidth: false,
+    sizes: {
+      trackWidthList: withNetclassEntry([400_000], 0),
+      viasDimensionsList: withNetclassEntry([{ diameter: 700_000, drill: 350_000 }], {
+        diameter: 0,
+        drill: 0,
+      }),
+      diffPairDimensionsList: withNetclassEntry(
+        [{ width: 180_000, gap: 250_000, viaGap: 500_000 }],
+        {
+          width: 0,
+          gap: 0,
+          viaGap: 0,
+        },
+      ),
+      defaultNetclass: {
+        trackWidth: 250_000,
+        clearance: 200_000,
+        viaDiameter: 800_000,
+        viaDrill: 400_000,
+      },
+      selection: defaultTrackViaSizeState(),
+    },
+    ...over,
+  });
+
+  it('imports them at construction instead of the loose numbers', () => {
+    const s = new PnsSession(twoPads(), { designSettings: designSettings() });
+
+    // The netclass answer, since the selection is at index 0.
+    expect(s.pnsRouter.sizes().trackWidth).toBe(250_000);
+    expect(s.pnsRouter.sizes().viaDiameter).toBe(800_000);
+    expect(s.pnsRouter.sizes().viaDrill).toBe(400_000);
+  });
+
+  it('follows the toolbar’s chosen preset', () => {
+    const ds = designSettings();
+    const s = new PnsSession(twoPads(), {
+      designSettings: {
+        ...ds,
+        sizes: { ...ds.sizes, selection: { ...ds.sizes.selection, trackWidthIndex: 1 } },
+      },
+    });
+
+    expect(s.pnsRouter.sizes().trackWidth).toBe(400_000);
+  });
+
+  it('brings the differential pair dimensions with it', () => {
+    const ds = designSettings();
+    const s = new PnsSession(twoPads(), {
+      designSettings: {
+        ...ds,
+        sizes: { ...ds.sizes, selection: { ...ds.sizes.selection, diffPairIndex: 1 } },
+      },
+    });
+
+    expect(s.pnsRouter.sizes().diffPairWidth).toBe(180_000);
+    expect(s.pnsRouter.sizes().diffPairGap).toBe(250_000);
+    expect(s.pnsRouter.sizes().diffPairViaGap).toBe(500_000);
+  });
+
+  it('leaves the loose numbers working for a caller that has no board setup', () => {
+    const s = new PnsSession(twoPads(), { trackWidth: W });
+
+    expect(s.pnsRouter.sizes().trackWidth).toBe(W);
+  });
+});
+
+describe('the router mode', () => {
+  it('is single-track unless the caller says otherwise', () => {
+    // `ROUTER`'s own constructor sets `PNS_MODE_ROUTE_SINGLE`.
+    const s = new PnsSession(twoPads(), { trackWidth: W });
+
+    expect(s.pnsRouter.mode()).toBe(PnsRouterMode.PNS_MODE_ROUTE_SINGLE);
+  });
+
+  it('can be started in differential-pair mode', () => {
+    // `ROUTER::SetMode`, which is what decides which placer the factory is
+    // asked for. `PnsDiffPairPlacer` was ported and unreachable: nothing built
+    // one, so setting the mode found no algo.
+    const s = new PnsSession(twoPads(), {
+      trackWidth: W,
+      mode: PnsRouterMode.PNS_MODE_ROUTE_DIFF_PAIR,
+    });
+
+    expect(s.pnsRouter.mode()).toBe(PnsRouterMode.PNS_MODE_ROUTE_DIFF_PAIR);
+  });
+
+  it('refuses to start a pair on a board that has none', () => {
+    // Two same-net pads are not a differential pair. This message comes from
+    // `isStartingPointRoutable`, which runs BEFORE the factory is asked — so it
+    // is not evidence that a placer was built, and a first version of this case
+    // asserted it as though it were. `pns_diff_pair_nets.test.ts` is where the
+    // placer being reachable is actually pinned.
+    const s = new PnsSession(twoPads(), {
+      trackWidth: W,
+      mode: PnsRouterMode.PNS_MODE_ROUTE_DIFF_PAIR,
+    });
+
+    expect(s.start({ x: 100 * MM, y: 100 * MM }, 'F.Cu')).toBe(false);
+  });
+
+  it('routes normally in single-track mode over the same board', () => {
+    // The control: the same two pads DO start a single-track route, so the
+    // case above is diff-pair mode refusing and not the board.
+    const s = new PnsSession(twoPads(), { trackWidth: W });
+
+    expect(s.start({ x: 100 * MM, y: 100 * MM }, 'F.Cu')).toBe(true);
+    expect(s.failureReason).toBe('');
   });
 });

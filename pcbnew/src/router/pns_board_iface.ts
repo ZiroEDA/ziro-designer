@@ -60,6 +60,7 @@ import {
 } from '../board_design_settings_sizes.js';
 import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { arcShape, padShapes } from '../drc/drc_engine.js';
+import { matchDpSuffix } from '../drc/drc_diff_pair.js';
 import { padIsOnLayer } from '../pad_enumerate.js';
 import { enabledCopperLayers, isCopperLayerName } from '../swap_layers.js';
 import { padFlashState, viaFlashState } from '../unused_pad_layers.js';
@@ -76,7 +77,7 @@ import type { Shape } from '../drc/drc_geometry.js';
 import type { DrcEvalItem, DrcRuleEngine } from '../drc/drc_rules_engine.js';
 import type { Board, PcbArcTrack, PcbPad, PcbTrack, PcbVia } from '../types.js';
 import { PnsConstraintType } from './pns_collision.js';
-import type { NetHandle, PnsRuleResolver } from './pns_collision.js';
+import type { DpNetPair, NetHandle, PnsRuleResolver } from './pns_collision.js';
 import type { PnsItem } from './pns_item.js';
 import type { PnsItemSet } from './pns_itemset.js';
 import type { PnsLineChain } from './pns_line_item.js';
@@ -1476,6 +1477,85 @@ export class PnsBoardIface implements PnsRouterIface, PnsResolverHost {
   /** `NETINFO_ITEM::GetNetname`, as the resolver's optional hook. */
   netName(aNet: NetHandle): string {
     return this.getNetName(aNet);
+  }
+
+  /**
+   * `BOARD::FindNet( const wxString& )` — a handle for a net looked up by NAME.
+   *
+   * The board keeps code -> name; this is the only place that needs the other
+   * direction, and it is the differential pair that needs it: the complement of
+   * `/USB_D_P` is a NAME, and the router works in handles.
+   */
+  findNetByName(aName: string): NetHandle {
+    for (const [code, name] of this.mBoard.nets) {
+      if (name === aName) return this.netHandle(code);
+    }
+
+    return null;
+  }
+
+  /**
+   * `BOARD::DpCoupledNet` (`pcbnew/board.cpp`) — the other half of a pair, by
+   * name, or null when this net is not half of one.
+   */
+  dpCoupledNet(aNet: NetHandle): NetHandle {
+    const name = this.getNetName(aNet);
+
+    if (!name) return null;
+
+    const suffix = matchDpSuffix(name);
+
+    return suffix.polarity === 0 ? null : this.findNetByName(suffix.complement);
+  }
+
+  /**
+   * `PNS_PCBNEW_RULE_RESOLVER::DpNetPair` (`pns_kicad_iface.cpp:2790-2823`) —
+   * an item's pair, ORIENTED so that `netP` is the positive half whichever one
+   * the user grabbed:
+   *
+   *     int r = m_board->MatchDpSuffix( netNameP, netNameCoupled );
+   *     if( r == 0 )       return false;
+   *     else if( r == 1 )  netNameN = netNameCoupled;          // we hold P
+   *     else             { netNameN = netNameP;                // we hold N
+   *                        netNameP = netNameCoupled; }
+   *
+   * Both halves must exist on the board — `if( !netInfoP || !netInfoN ) return
+   * false` — so a `/CLK_P` with no `/CLK_N` anywhere is not a pair.
+   *
+   * Without this hook `findDpPrimitivePair` answers "unable to find
+   * complementary differential pair nets" for every item, which is where
+   * differential-pair routing stopped: the placer was ported, the router asked
+   * for the pair, and nothing could name it.
+   */
+  dpNetPair(aItem: PnsItem): DpNetPair | null {
+    const net = aItem.net();
+
+    if (!net) return null;
+
+    const name = this.getNetName(net);
+    const suffix = matchDpSuffix(name);
+
+    if (suffix.polarity === 0) return null;
+
+    // `r == 1` means the name we hold IS the positive half.
+    const nameP = suffix.polarity === 1 ? name : suffix.complement;
+    const nameN = suffix.polarity === 1 ? suffix.complement : name;
+
+    const netP = this.findNetByName(nameP);
+    const netN = this.findNetByName(nameN);
+
+    if (!netP || !netN) return null;
+
+    return { netP, netN };
+  }
+
+  /**
+   * `PNS_PCBNEW_RULE_RESOLVER::DpNetPolarity` — +1 for the positive half, −1
+   * for the negative, 0 for a net that is not half of a pair. It is
+   * `MatchDpSuffix`'s own return value.
+   */
+  dpNetPolarity(aNet: NetHandle): number {
+    return matchDpSuffix(this.getNetName(aNet)).polarity;
   }
 }
 

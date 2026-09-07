@@ -15666,6 +15666,62 @@ td.ze-grid-bool {
   margin: 5px; /* [data] the spin control's `wxALL, 5`. */
 }
 
+/* DIALOG_TRACK_VIA_SIZE and DIALOG_PNS_DIFF_PAIR_DIMENSIONS — the two dialogs
+   behind the router size menus' "Use Custom Values..." rows.
+
+   Both are `wxFlexGridSizer( 0, 3, …, 0 )` with `AddGrowableCol( 1 )`: label,
+   entry, unit, and the ENTRY column is the one that takes the slack. Their
+   vgaps differ, which is the only difference between the two grids
+   (`dialog_track_via_size_base.cpp:20` has 0, the diff-pair's `:20` has 5). */
+.ze-ctv-grid,
+.ze-dpd-grid {
+  display: grid;
+  grid-template-columns: max-content 1fr max-content;
+  align-items: center;
+}
+.ze-ctv-grid {
+  row-gap: 0; /* [data] `wxFlexGridSizer( 0, 3, 0, 0 )` — vgap 0. */
+}
+.ze-dpd-grid {
+  row-gap: 5px; /* [data] `wxFlexGridSizer( 0, 3, 5, 0 )` — vgap 5. */
+}
+.ze-ctv-body,
+.ze-dpd-body {
+  padding: 10px; /* [data] `Add( fgSizer1, 1, wxEXPAND|wxALL, 10 )`, and the diff-pair's own 10. */
+}
+.ze-ctv-grid > .lbl {
+  margin: 5px 5px 5px 0; /* [data] the label's `wxALIGN_CENTER_VERTICAL|wxTOP|wxBOTTOM|wxRIGHT, 5`. */
+  white-space: nowrap;
+}
+.ze-ctv-grid > .ze-search {
+  margin: 5px 0; /* [data] `Add( m_trackWidthText, 1, wxEXPAND|wxTOP|wxBOTTOM, 5 )`. */
+}
+.ze-ctv-grid > .unit {
+  margin: 5px; /* [data] the unit label's `wxALL|wxALIGN_CENTER_VERTICAL, 5`. */
+}
+/* The first and third rows' labels carry `wxRIGHT|wxLEFT, 1` and the middle
+   one `wxRIGHT, 5`; the widest wins the column, so the pitch is stated once. */
+.ze-dpd-grid > .lbl {
+  margin-right: 5px; /* [data] `Add( m_traceGapLabel, 0, …|wxRIGHT, 5 )`. */
+  white-space: nowrap;
+}
+.ze-dpd-grid > .ze-search {
+  margin: 0 5px; /* [data] the entries' `wxEXPAND|wxRIGHT|wxLEFT, 5`. */
+}
+.ze-dpd-grid > .unit {
+  margin-right: 5px; /* [data] the unit labels' `wxRIGHT, 5`. */
+}
+/* `updateCheckbox()` calls `Enable( false )` on the via-gap label and unit as
+   well as the field, and GTK dims by colour rather than by opacity — the same
+   answer `--ctl-fg-disabled` gives every other disabled label. */
+.ze-dpd-grid > .lbl.disabled,
+.ze-dpd-grid > .unit.disabled {
+  color: var(--ctl-fg-disabled);
+}
+.ze-dpd-same {
+  margin: 10px 0 0; /* [data] `Add( m_viaTraceGapEqual, 0, wxALL|wxEXPAND, 10 )`. */
+}
+
 /* PANEL_SETUP_TRACKS_AND_VIAS: three WX_GRIDs side by side, each with its own
    add / sort / remove buttons under it.
 

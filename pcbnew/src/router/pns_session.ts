@@ -51,7 +51,8 @@ import { PnsKind } from './pns_item.js';
 import type { PnsSegment } from './pns_segment.js';
 import { PnsVia } from './pns_via.js';
 import { PnsLinePlacer, type PnsRouterLike } from './pns_line_placer.js';
-import { PnsRouter, PnsRouterState, type PnsRouterIface } from './pns_router.js';
+import { PnsDiffPairPlacer } from './pns_diff_pair_placer.js';
+import { PnsRouter, PnsRouterMode, PnsRouterState, type PnsRouterIface } from './pns_router.js';
 import type { PnsItem } from './pns_item.js';
 import type { PnsNode } from './pns_node.js';
 import { PnsShove, type PnsShoveSettings } from './pns_shove.js';
@@ -206,6 +207,13 @@ export interface PnsSessionOptions {
    * stated width.
    */
   designSettings?: PnsDesignSettings;
+  /**
+   * `ROUTER::SetMode` — which placer the session builds
+   * (`ROUTER_TOOL::MainLoop` picks it from the action that started the tool).
+   * Defaults to single-track routing, which is what `ROUTER`'s own constructor
+   * sets.
+   */
+  mode?: PnsRouterMode;
 }
 
 /** What a session did to the board, once it finished. */
@@ -277,8 +285,22 @@ export class PnsSession {
 
           return new PnsLinePlacer(host) as never;
         },
+        // `PNS_MODE_ROUTE_DIFF_PAIR` -> `new DIFF_PAIR_PLACER( this )`. The
+        // placer was ported and never reachable: nothing built one, so setting
+        // the mode found no algo and the router stayed idle.
+        diffPairPlacer: (r) =>
+          new PnsDiffPairPlacer({
+            world: () => r.world(),
+            settings: () => r.settings(),
+            setFailureReason: (reason: string) => r.setFailureReason(reason),
+            commitRouting: (aNode: PnsNode) => r.commitRouting(aNode),
+          }) as never,
       },
     });
+
+    // Before `syncWorld`, because `SetMode` is what decides which placer
+    // `StartRouting` will ask the factory for.
+    this.router.setMode(aOptions.mode ?? PnsRouterMode.PNS_MODE_ROUTE_SINGLE);
 
     this.router.setInterface(this.iface as unknown as PnsRouterIface);
     this.router.loadSettings(this.settings);

@@ -26,7 +26,8 @@ import {
   type PagedDialogSection,
 } from '../../../ui/PagedDialog.js';
 import { validateUnitValue, type UnitRange } from '../../../ui/unit_binder.js';
-import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
+import { pcbIUScale, pcbMmToIU } from '@ziroeda/common/src/eda_units.js';
+import { validateViaParameters } from '@ziroeda/pcbnew/src/pcb_track.js';
 import { Icon } from '../../../ui/icons.js';
 import { SpinCtrl } from '../../../ui/SpinCtrl.js';
 
@@ -57,13 +58,6 @@ const CON_ICON_FILE: Record<string, string> = {
   fillet: 'zone_fillet',
   spoke: 'thermal_spokes',
 };
-
-/**
- * `GEOMETRY_MIN_SIZE`, `(int)( 0.001 * pcbIUScale.IU_PER_MM )`
- * (`pcbnew/pcb_track.h:57`) — the floor every via dimension is measured
- * against, in the millimetres this page stores.
- */
-const GEOMETRY_MIN_SIZE_MM = 0.001;
 
 /** `document.getElementById` handle for one grid cell, so PAGED_DIALOG can
  *  focus the cell `Validate()` refused — `SetError( …, grid, row, col )`. */
@@ -119,28 +113,15 @@ export function validateSizes(v: {
   diffPairsMM: readonly DiffPairSize[];
 }): { message: string; row: number; grid: string; col: string } | null {
   for (const [row, via] of v.viaSizesMM.entries()) {
-    const dia = via.diameter > 0 ? via.diameter : undefined;
-    const drill = via.drill > 0 ? via.drill : undefined;
+    // `PCB_VIA::ValidateViaParameters`, shared with the Custom Track/Via Size
+    // dialog so the two refuse the same values in the same words. A zero is
+    // this page's empty cell, which is upstream's empty `std::optional`.
+    const bad = validateViaParameters(
+      via.diameter > 0 ? pcbMmToIU(via.diameter) : undefined,
+      via.drill > 0 ? pcbMmToIU(via.drill) : undefined,
+    );
 
-    if (dia !== undefined && dia < GEOMETRY_MIN_SIZE_MM)
-      return { message: 'Via diameter is too small.', row, grid: 'Vias', col: 'diameter' };
-
-    if (drill !== undefined && drill < GEOMETRY_MIN_SIZE_MM)
-      return { message: 'Via drill is too small.', row, grid: 'Vias', col: 'drill' };
-
-    if (dia !== undefined && drill === undefined)
-      return { message: 'No via hole size defined.', row, grid: 'Vias', col: 'drill' };
-
-    if (drill !== undefined && dia === undefined)
-      return { message: 'No via diameter defined.', row, grid: 'Vias', col: 'diameter' };
-
-    if (dia !== undefined && drill !== undefined && dia <= drill)
-      return {
-        message: 'Via hole size must be smaller than via diameter',
-        row,
-        grid: 'Vias',
-        col: 'drill',
-      };
+    if (bad) return { message: bad.message, row, grid: 'Vias', col: bad.field };
   }
 
   // "No differential pair gap defined." — a width with no gap. A via gap is

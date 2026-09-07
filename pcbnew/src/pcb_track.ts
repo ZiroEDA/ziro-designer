@@ -17,6 +17,7 @@ import { type VECTOR2I, add, Distance } from '@ziroeda/kimath/src/math/vector2.j
 import { EDA_ANGLE, ANGLE_0, ANGLE_360 } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { RotatePoint, TestSegmentHit } from '@ziroeda/kimath/src/trigo.js';
 import { MIRROR, type FLIP_DIRECTION } from '@ziroeda/core/src/mirror.js';
+import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
 
 export class PCB_TRACK extends BOARD_CONNECTED_ITEM {
   protected m_Start: VECTOR2I;
@@ -237,4 +238,50 @@ export class PCB_VIA extends PCB_TRACK {
       this.m_bottomLayer = bottom;
     }
   }
+}
+
+/**
+ * `GEOMETRY_MIN_SIZE`, `(int)( 0.001 * pcbIUScale.IU_PER_MM )`
+ * (`pcbnew/pcb_track.h:57`).
+ */
+export const GEOMETRY_MIN_SIZE = Math.round(0.001 * pcbIUScale.IU_PER_MM);
+
+/** Which field a {@link validateViaParameters} failure belongs to. */
+export type ViaParameterField = 'diameter' | 'drill';
+
+/**
+ * `PCB_VIA::ValidateViaParameters` (`pcbnew/pcb_track.cpp:1769-1817`), the five
+ * checks that apply when every layer argument is `std::nullopt`.
+ *
+ * Three callers need the same answer in the same words, which is why it is
+ * here rather than in any of them: Board Setup > Pre-defined Sizes' via grid
+ * (`PANEL_SETUP_TRACKS_AND_VIAS::Validate`), the Custom Track/Via Size dialog
+ * (`DIALOG_TRACK_VIA_SIZE::TransferDataFromWindow`), and Via Properties.
+ *
+ * A value of `undefined` is upstream's empty `std::optional`, i.e. an empty
+ * field — which is NOT the same as zero, and is why "no via hole size defined"
+ * is a separate message from "via drill is too small".
+ *
+ * @returns the message and the field to focus, or null when the pair is legal.
+ */
+export function validateViaParameters(
+  aDiameter: number | undefined,
+  aDrill: number | undefined,
+): { message: string; field: ViaParameterField } | null {
+  if (aDiameter !== undefined && aDiameter < GEOMETRY_MIN_SIZE)
+    return { message: 'Via diameter is too small.', field: 'diameter' };
+
+  if (aDrill !== undefined && aDrill < GEOMETRY_MIN_SIZE)
+    return { message: 'Via drill is too small.', field: 'drill' };
+
+  if (aDiameter !== undefined && aDrill === undefined)
+    return { message: 'No via hole size defined.', field: 'drill' };
+
+  if (aDrill !== undefined && aDiameter === undefined)
+    return { message: 'No via diameter defined.', field: 'diameter' };
+
+  if (aDiameter !== undefined && aDrill !== undefined && aDiameter <= aDrill)
+    return { message: 'Via hole size must be smaller than via diameter', field: 'drill' };
+
+  return null;
 }
