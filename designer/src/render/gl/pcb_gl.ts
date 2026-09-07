@@ -200,7 +200,7 @@ export class PcbGl {
    */
   recordOverlay(fn: (ctx: CanvasRenderingContext2D) => void, viewScale: number): void {
     this.overlayScene.clear();
-    fn(this.perFrame(this.overlayScene, viewScale) as unknown as CanvasRenderingContext2D);
+    fn(overlayRecorder(this.overlayScene, viewScale) as unknown as CanvasRenderingContext2D);
     this.overlayScene.closeItem();
     if (this.overlayScene.isEmpty) {
       if (this.overlayActive) {
@@ -331,6 +331,36 @@ export class PcbGl {
   dispose(): void {
     this.device.dispose();
   }
+}
+
+/**
+ * The recorder `PcbGl.recordOverlay` runs its callback through.
+ *
+ * Exported and free-standing for the same reason `recordBoardScene` is: the
+ * thing most likely to be wrong here is not the geometry but the TRANSFORM, and
+ * a wrong one is invisible — it produces a blank layer and no error.
+ *
+ * **A retained target gets the scale and nothing else.** The buffer holds world
+ * coordinates and the device applies the view, the pan and the mirror included,
+ * so baking those in here applies them twice; the scale stays only because the
+ * recorder derives pen widths from it. This is the same rule as `drawNetNames`'
+ * `retained` branch, where getting it wrong once put every glyph about two
+ * billion units off the board.
+ *
+ * Setting it here rather than leaving it to the caller is deliberate: the
+ * callback is written to look like 2D canvas code, and 2D canvas code sets the
+ * full view.
+ */
+export function overlayRecorder(scene: Scene, viewScale: number): GlRecorder {
+  const scale = viewScale > 0 && Number.isFinite(viewScale) ? viewScale : 1;
+  const rec = new GlRecorder(scene, {
+    referenceScale: scale,
+    worldScale: scale,
+    devicePixelRatio: 1,
+    hairlines: 'solid',
+  });
+  rec.setTransform(scale, 0, 0, scale, 0, 0);
+  return rec;
 }
 
 /**
