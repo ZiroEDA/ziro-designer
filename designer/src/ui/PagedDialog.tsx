@@ -193,36 +193,26 @@ export function PagedDialog({
       return next;
     });
 
-  // `onPageChanged`'s two halves: the minimum, recomputed from the showing
-  // page, and `newSize.IncTo( minSize )` over the live box. `initialSize`
-  // below is where the window starts; `title` is `DIALOG_SHIM`'s geometry key.
-  const dlgRef = usePagedDialogSize(page, initialSize, title);
+  // The dialog's one size, from the subclass's own `aInitialSize`.
+  const dlgRef = usePagedDialogSize(initialSize);
 
   const resetLabel =
     active?.resettable && active.label ? `Reset ${active.label} to Defaults` : 'Reset to Defaults';
 
   return (
     <div className="ze-modal-backdrop" onMouseDown={onCancel}>
-      {/* ONE size while the user walks the tree, and it only ever grows.
+      {/* ONE size, for every page, for the dialog's whole life.
 
-          `DIALOG_SHIM` is constructed with `aInitialSize`, and `onPageChanged`
-          grows the window into the showing page's minimum —
-          `newSize.IncTo( minSize )` (paged_dialog.cpp:446-450) is a
-          componentwise MAXIMUM, so a smaller page never shrinks it back.
+          `.ze-modal` is `width/height: max-content`, which tracks whichever
+          page is mounted, and Board Setup visibly re-sized itself on every row
+          of the tree — tall and narrow on Board Editor Layers, short and wide
+          on Constraints. So the size is stated, from the subclass's own
+          `aInitialSize`, and `.ze-paged-panel` is `min-width: 0` so a page
+          that wants more room scrolls instead of pushing the dialog wider.
 
-          A CSS dialog does the opposite by default: `.ze-modal` is
-          `width/height: max-content`, which tracks whichever page is mounted,
-          and Board Setup visibly re-sized itself on every row of the tree —
-          tall and narrow on Board Editor Layers, short and wide on
-          Constraints. So the size is stated, from the subclass's own
-          `aInitialSize`, and `usePagedDialogSize` raises it where a page needs
-          more.
-
-          What it must NOT do is turn that into a floor. Upstream's minimum is
-          the CURRENT page's and comes back down, and `DIALOG_SHIM::Show()`
-          resets it after restoring a remembered size for exactly that reason.
-          A floor here is invisible until a page is made narrower and nothing
-          happens. */}
+          That is `.ze-prefs-dialog`'s answer, reached first and for the same
+          reason. See `paged_dialog_size.ts` for what upstream does instead and
+          why we do not. */}
       <div
         className="ze-modal ze-paged-dialog"
         ref={dlgRef}

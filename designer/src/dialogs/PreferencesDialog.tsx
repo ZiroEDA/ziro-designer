@@ -20,7 +20,6 @@ import {
 import type { PrefsTransferPrompt } from './prefs/types.js';
 import type { ToolbarSettings } from '../ui/toolbar_config.js';
 import { MessageDialogYesNo } from '../ui/dialog_message.js';
-import { usePagedDialogSize } from '../ui/paged_dialog_size.js';
 import { PagedDialogTree } from '../ui/PagedDialogTree.js';
 import { FIRST_PAGE, PAGES, labelOf, ownerOf } from './prefs/registry.js';
 import { loadPrefsPanel, peekPrefsPanel } from './prefs/lazy_pages.js';
@@ -108,8 +107,6 @@ export function PreferencesDialog({
   useModalEscape(onClose);
 
   const [page, setPage] = useState<PrefsPageId>(initialPage ?? FIRST_PAGE);
-  // The one place a PAGED_DIALOG's size is decided, shared rather than restated.
-  const dlgRef = usePagedDialogSize(page);
   /**
    * Which sections start open. Exactly ONE can, and often none does.
    *
@@ -472,15 +469,16 @@ export function PreferencesDialog({
 
   return (
     <div className="ze-modal-backdrop" onMouseDown={onClose}>
-      {/* `newSize.IncTo( minSize )` (paged_dialog.cpp:446-450): the dialog grows
-          to fit a page and never shrinks back, so changing page does not resize
-          it under the user. `.ze-modal` is `width: max-content` and would do
-          the opposite - track the current page and shrink on a smaller one.
-          No `aInitialSize` here: Preferences is not a PAGED_DIALOG subclass
-          upstream, so its size is `.ze-prefs-dialog`'s measured one. */}
+      {/* ONE size, for every page. `.ze-modal` is `width: max-content` and
+          would track the current page, growing and shrinking as the user walks
+          the tree; `.ze-prefs-dialog` states the size instead and
+          `.ze-prefs-panel` is `min-width: 0`, so a page that wants more room
+          scrolls. That size is a measurement of the real Preferences and not
+          an `aInitialSize`: Preferences is not a PAGED_DIALOG subclass
+          upstream and has no such argument, which is also why this one needs
+          no ref. */}
       <div
         className="ze-modal ze-paged-dialog ze-prefs-dialog"
-        ref={dlgRef}
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="ze-modal-header">

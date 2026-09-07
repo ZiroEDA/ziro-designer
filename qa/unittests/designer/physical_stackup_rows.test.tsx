@@ -33,7 +33,6 @@ import {
   writeBoardFileSetup,
 } from '@ziroeda/designer/src/editors/pcb/board_file_settings.js';
 import { defaultBoardSetup } from '@ziroeda/designer/src/editors/pcb/board_settings.js';
-import { bestSizeOf, incTo } from '@ziroeda/designer/src/ui/paged_dialog_size.js';
 
 afterEach(cleanup);
 
@@ -249,32 +248,5 @@ describe('the Layer column swatch', () => {
     expect(swatchOf('F.Mask').style.background).toBe('rgb(128, 0, 0)');
     // Copper ignores its Color cell entirely.
     expect(swatchOf('F.Cu').style.background).toBe('rgb(220, 180, 30)');
-  });
-});
-
-describe('bestSizeOf and incTo — the two halves of onPageChanged', () => {
-  it('counts the width the content did not get as part of the best size', () => {
-    // Board Setup states 980; the stackup page's top row needs ~1070, and wx
-    // answers that by growing the window, not by clipping it.
-    expect(bestSizeOf({ width: 980, height: 600 }, 1070, 980)).toEqual({ w: 1070, h: 600 });
-  });
-
-  it('reports the box itself when nothing overflows', () => {
-    // The measurement is taken with the inline size cleared, so in the normal
-    // case `max-content` has already given the content what it asked for and
-    // there is no shortfall to add.
-    expect(bestSizeOf({ width: 866, height: 600 }, 866, 866)).toEqual({ w: 866, h: 600 });
-  });
-
-  it('grows the window to the page minimum and no further', () => {
-    // `newSize.IncTo( minSize )`.
-    expect(incTo({ w: 980, h: 600 }, { w: 1070, h: 600 })).toEqual({ w: 1070, h: 600 });
-  });
-
-  it('leaves a window that is already larger than the page alone', () => {
-    // `IncTo` is a componentwise max, so a NARROWER page never shrinks the
-    // window back — which is the whole reason a wx paged dialog stops moving
-    // once you have walked the tree.
-    expect(incTo({ w: 1070, h: 600 }, { w: 800, h: 500 })).toEqual({ w: 1070, h: 600 });
   });
 });

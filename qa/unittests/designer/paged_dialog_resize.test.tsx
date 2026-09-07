@@ -3,46 +3,32 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * `usePagedDialogSize` driven through an actual page change, because the bug
- * it exists to avoid is not visible in either half on its own.
+ * A paged dialog is ONE size, for every page, for its whole life.
  *
- * `PAGED_DIALOG::onPageChanged` (`common/widgets/paged_dialog.cpp:424-451`)
- * keeps TWO quantities and they move differently:
+ * `.ze-modal` is `width: max-content`, so a paged dialog re-sizes itself on
+ * every row of the tree unless something stops it. Preferences stopped it with
+ * a stated size and a `min-width: 0` page area, and Board Setup and Schematic
+ * Setup now use the same two pieces — the size coming from the subclass's own
+ * `aInitialSize` rather than from a measurement.
  *
- *     SetMinSize( wxDefaultSize );          // clear it FIRST
- *     wxSize minSize = GetBestSize();       // the CURRENT page, because
- *                                           // SetFitToCurrentPage( true )
- *     SetMinSize( minSize );                // free to be SMALLER than before
+ * Every previous attempt here grew the dialog instead, which is what upstream
+ * does (`newSize.IncTo( minSize )`, plus `DIALOG_SHIM`'s remembered geometry),
+ * and every one of them was wrong in a way the user saw: a floor that could
+ * only rise, a remembered size applied as a minimum, a grown size that
+ * evaporated when the next page lowered the minimum. So these cases assert the
+ * absence of growth, not its shape.
  *
- *     wxSize currentSize = GetSize();
- *     wxSize newSize = currentSize;
- *     newSize.IncTo( minSize );             // the window only ever grows
- *
- * and `DIALOG_SHIM::Show()` (`dialog_shim.cpp:445-495`) restores the
- * remembered geometry as a SIZE, then immediately does
- * `SetMinSize( wxDefaultSize ); InvalidateBestSize(); SetMinSize( GetBestSize() )`
- * with the comment "Reset minimum size so the user can resize the dialog
- * smaller than the saved size."
- *
- * Ours had folded the two into one running maximum and persisted it, so a
- * dialog that grew once for a wide page could never be narrower again — not on
- * the next page, not on the next open, and not after the page itself was
- * fixed. That is a state no assertion on `bestSizeOf` or `incTo` alone can
- * reach.
- *
- * happy-dom lays nothing out, so the page's width is stubbed: the element
- * reports whatever the current page needs when its inline width is cleared,
- * which is exactly what `GetBestSize()` answers.
+ * happy-dom lays nothing out, so the element reports its own inline size when
+ * it has one and the current page's requirement when it does not — which is
+ * exactly the signal a growing implementation would act on. If any of it comes
+ * back, these fail.
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { useState, type JSX } from 'react';
 import { act, cleanup, render } from '@testing-library/react';
-import {
-  usePagedDialogSize,
-  writeDialogGeometry,
-} from '@ziroeda/designer/src/ui/paged_dialog_size.js';
+import { usePagedDialogSize } from '@ziroeda/designer/src/ui/paged_dialog_size.js';
 
-/** What each page "needs", by page key — the stubbed `GetBestSize()`. */
+/** What each page would "need" if anything were measuring. */
 const PAGE_SIZE: Record<string, { w: number; h: number }> = {
   narrow: { w: 700, h: 520 },
   wide: { w: 1200, h: 640 },
@@ -55,16 +41,6 @@ beforeEach(() => {
   localStorage.clear();
   current = 'narrow';
   realRect = Element.prototype.getBoundingClientRect;
-  // The element reports its inline width when it has one, the current page's
-  // requirement when it does not — which is the whole point of the measurement
-  // pass clearing the inline size before it asks — and never less than its own
-  // `min-width`.
-  //
-  // That last clause is what makes a floor bug visible at all. Without it the
-  // element's reported size is independent of `min-width`, every assertion
-  // still reads the same numbers, and a version of this hook that pins the
-  // remembered size as a minimum passes the whole file. Three mutants survived
-  // exactly that way before it was added.
   Element.prototype.getBoundingClientRect = function (this: HTMLElement) {
     const need = PAGE_SIZE[current]!;
     const px = (v: string): number => (v.endsWith('px') ? Number.parseFloat(v) : 0);
@@ -80,11 +56,12 @@ afterEach(() => {
   localStorage.clear();
 });
 
+/** [data] `PAGED_DIALOG( …, wxSize( 980, 600 ) )`, dialog_board_setup.cpp:63. */
 const INITIAL = { width: 980, height: 600 };
 
 function Harness(): JSX.Element {
   const [page, setPage] = useState('narrow');
-  const ref = usePagedDialogSize(page, INITIAL, 'Board Setup');
+  const ref = usePagedDialogSize(INITIAL);
   current = page;
   return (
     <div ref={ref} data-testid="dlg">
@@ -112,113 +89,87 @@ function open(): { el: HTMLElement; go: (p: 'narrow' | 'wide') => void } {
   };
 }
 
-describe('the remembered geometry is a size, not a floor', () => {
-  it('opens at the larger of aInitialSize and what was stored', () => {
-    // `SetSize( …, max( GetSize().x, restoredSize.x ), max( …y, …y ) )`.
-    writeDialogGeometry('Board Setup', { w: 1300, h: 700 });
-
-    const { el } = open();
-
-    expect(el.style.width).toBe('1300px');
-    expect(el.style.height).toBe('700px');
-  });
-
-  it('does not let the stored size become a minimum', () => {
-    // The three lines after the restore exist only to stop exactly this:
-    // `SetMinSize( wxDefaultSize ); InvalidateBestSize(); SetMinSize( GetBestSize() )`.
-    // With the stored 1300 as a floor, a user could neither drag the dialog
-    // back nor see a layout fix that made the page narrower.
-    writeDialogGeometry('Board Setup', { w: 1300, h: 700 });
-
-    const { el } = open();
-
-    expect(el.style.minWidth).toBe('700px');
-    expect(el.style.minHeight).toBe('520px');
-  });
-
-  it('lets a page that has since been made narrower be narrow again', () => {
-    // The regression, end to end: a stored size from before a layout fix must
-    // bound nothing. The dialog opens wide because that is where the user left
-    // it, and the minimum is the page's own, so it can come back down.
-    writeDialogGeometry('Board Setup', { w: 1300, h: 700 });
-
-    const { el, go } = open();
-    el.style.width = '760px'; // the user drags it in, which the minimum allows
-
-    expect(Number.parseFloat(el.style.minWidth)).toBeLessThan(760);
-    // …and the next click in the tree leaves it there, rather than snapping it
-    // back up to the size that was remembered.
-    go('narrow');
-    expect(el.style.width).toBe('760px');
-  });
-});
-
-describe('the minimum tracks the page and the size only grows', () => {
-  it('takes the first page’s requirement as the minimum', () => {
-    const { el } = open();
-
-    expect(el.style.minWidth).toBe('700px');
-    // 980 is `aInitialSize` and it is larger than the page needs, so the
-    // window stays there: `newSize.IncTo( minSize )` changes nothing.
-    expect(el.style.width).toBe('980px');
-  });
-
-  it('grows the window to a page that needs more than it', () => {
-    const { el, go } = open();
-
-    go('wide');
-
-    expect(el.style.minWidth).toBe('1200px');
-    expect(el.style.width).toBe('1200px');
-  });
-
-  it('lowers the minimum on the way back but leaves the window where it is', () => {
-    // Both halves in one assertion, and they disagree — which is the point.
-    // `SetMinSize` is recomputed from the current page and comes DOWN; `IncTo`
-    // is a maximum and the window does not.
-    const { el, go } = open();
-
-    go('wide');
-    go('narrow');
-
-    expect(el.style.minWidth).toBe('700px');
-    expect(el.style.width).toBe('1200px');
-  });
-
-  it('respects a size the user dragged to rather than a size it remembers', () => {
-    // `currentSize = GetSize()` reads the LIVE window. A running high-water
-    // mark here would snap the user's drag back on their next click in the
-    // tree.
-    const { el, go } = open();
-
-    go('wide');
-    el.style.width = '800px'; // dragged in, still above the narrow page's 700
-    go('narrow');
-
-    expect(el.style.width).toBe('800px');
-  });
-});
-
-describe('what is written back', () => {
-  it('stores the size the window ended at, not the page minimum', () => {
-    // `SaveControlState` writes `ToDIP( GetSize() )`.
-    const { el, go } = open();
-
-    go('wide');
-    go('narrow');
-
-    expect(el.style.width).toBe('1200px');
-    const raw = localStorage.getItem('ze-dialog-geometry:v3:Board Setup');
-    expect(raw && (JSON.parse(raw) as { w: number }).w).toBe(1200);
-  });
-
-  it('ignores a size stored under the previous epoch', () => {
-    // v3 retires every size grown while Constraints was too wide and while
-    // this hook was storing a floor.
-    localStorage.setItem('ze-dialog-geometry:v2:Board Setup', JSON.stringify({ w: 1330, h: 700 }));
-
+describe('the size is the subclass’s aInitialSize', () => {
+  it('states it on the element, because .ze-modal would otherwise track the page', () => {
     const { el } = open();
 
     expect(el.style.width).toBe('980px');
+    expect(el.style.height).toBe('600px');
+  });
+
+  it('sets no minimum of its own', () => {
+    // A minimum written here is how the dialog got stuck: it can only be the
+    // measured requirement of some page, and every version of that measurement
+    // outlived the page it came from. The 600 x 500 floor and 1500 x 900
+    // failsafe are `.ze-modal.ze-paged-dialog`'s, stated in CSS where they
+    // need no measuring.
+    const { el } = open();
+
+    expect(el.style.minWidth).toBe('');
+    expect(el.style.minHeight).toBe('');
+  });
+});
+
+describe('walking the tree does not resize it', () => {
+  it('stays put on a page that would need more room', () => {
+    // The wide page "needs" 1200. It scrolls instead: `.ze-paged-panel` is
+    // `min-width: 0`, so its content cannot push the dialog wider.
+    const { el, go } = open();
+
+    go('wide');
+
+    expect(el.style.width).toBe('980px');
+    expect(el.style.height).toBe('600px');
+  });
+
+  it('stays put on the way back, and on every page after', () => {
+    const { el, go } = open();
+
+    go('wide');
+    go('narrow');
+    go('wide');
+    go('narrow');
+
+    expect(el.style.width).toBe('980px');
+    expect(el.style.height).toBe('600px');
+  });
+
+  it('leaves a size the user dragged to exactly where they left it', () => {
+    // `.ze-paged-dialog` is `resize: both`, and a drag writes the same inline
+    // style this hook writes on mount. Writing it again on any later render is
+    // how a React-managed `style` would undo the drag.
+    const { el, go } = open();
+
+    el.style.width = '1240px';
+    go('wide');
+    go('narrow');
+
+    expect(el.style.width).toBe('1240px');
+  });
+});
+
+describe('nothing is remembered between opens', () => {
+  it('opens the second time at the same size as the first', () => {
+    const { el, go } = open();
+    go('wide');
+    el.style.width = '1240px';
+    cleanup();
+
+    const second = open();
+
+    expect(second.el.style.width).toBe('980px');
+  });
+
+  it('writes no geometry to storage', () => {
+    // `DIALOG_SHIM` persists `ToDIP( GetSize() )` per dialog title and we
+    // deliberately do not: a remembered size is a size that can be wrong, and
+    // ours was — a dialog grown by a layout bug opened at the grown size long
+    // after the bug was fixed.
+    const { go } = open();
+
+    go('wide');
+    go('narrow');
+
+    expect(Object.keys(localStorage)).toHaveLength(0);
   });
 });

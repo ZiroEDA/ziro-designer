@@ -6634,11 +6634,26 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
    what its unscrolled chrome needs, the shortfall reaches the dialog, and
    `fitFloor` grows it. A child that scrolls on purpose contributes 0 to
    min-content, so the wide stackup grid still scrolls by itself. */
+/* The page area, and the one line that decides whether a paged dialog holds
+   its size.
+
+   `min-width: min-content` here means the panel REFUSES to be narrower than
+   its content, so a wide page pushes the width straight out through
+   `.ze-modal`'s `max-content` and the dialog grows. That is what made Board
+   Setup a different size on every row of the tree, and what left it stuck at
+   the widest row it had ever been shown.
+
+   `min-width: 0` is the opposite instruction: the panel may be narrower than
+   its content, and the content scrolls inside it. `.ze-prefs-panel` has said
+   exactly this all along, and it is the whole reason Preferences is the same
+   size on Common as it is on Grids. A dialog that does not fit is then a
+   parity bug in that PAGE, visible and local, where a jumping dialog is
+   neither. */
 .ze-paged-panel {
   flex: 1;
   overflow: auto;
   padding: 10px 14px;
-  min-width: min-content;
+  min-width: 0;
 }
 .ze-paged-footer {
   justify-content: flex-start;
