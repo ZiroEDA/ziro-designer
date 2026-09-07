@@ -224,7 +224,7 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // the row its Add button appends: `AppendTrackWidth( 0 )` appends ZEROS
   // (`panel_setup_tracks_and_vias.cpp:459-472`), and ours seeded 0.2 / 0.6 /
   // 0.3 / 0.2 / 0.2 / 0.25 mm. Those were the last bare numbers in that page.
-  'editors/pcb': { colours: 46, metrics: 206 },
+  'editors/pcb': { colours: 42, metrics: 206 },
   // At zero, and listed rather than absent: `prefs/` is the settings store, and
   // the one literal it had - the 3D viewer's `rgb(0,255,0)` selection colour -
   // is `PARAM<COLOR4D>( "render.opengl_selection_color", …, COLOR4D( 0, 1, 0, 1 ) )`
@@ -1000,7 +1000,13 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // row that moves and 527 + 2 agrees with it.
     // 529 -> 525: the Draw Text dialog's own colours; `editors/pcb` is the only
     // row that moves and 529 - 4 agrees with it.
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(525);
+    // 525 -> 521: the selection band. `PcbEditor` had four invented literals
+    // for the rubber-band marquee — a blue and a green, in fill and stroke —
+    // where KiCad reads `KIGFX::PREVIEW::SELECTION_AREA`'s own six-colour table
+    // (`selection_area.cpp:44-62`), which `common/src/preview_items/
+    // selection_area.ts` already held for the schematic. `editors/pcb` is the
+    // only row that moves and 525 - 4 agrees with it.
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(521);
     // 1657 -> 1649: the same sweep. A native colour input has no useful
     // default size, so eight of the sixteen sites gave theirs an inline
     // width and height; the shared swatch takes --swatch-*-w/h. Rescanned.

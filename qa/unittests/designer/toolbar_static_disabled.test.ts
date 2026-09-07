@@ -123,7 +123,10 @@ const UNBUILT: Readonly<Record<string, readonly string[]>> = {
   'pcb aux': ['selectLayerPair'],
   'pcb left': [],
   'pcb right': [
-    'selectSetLasso',
+    // `selectSetLasso` came off this list with the lasso itself: the mode is
+    // `PCB_SELECTION_TOOL::m_selectionMode`, the gesture is `SelectPolyArea`
+    // (freehand while the button is down, a straight leg after it is released,
+    // double-click to finish) and the hit test is `boardItemsInLasso`.
     'placeFootprint',
     'routeDiffPair',
     'tuneSingleTrack',

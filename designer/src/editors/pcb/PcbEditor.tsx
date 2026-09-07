@@ -13,6 +13,13 @@
 import { PCB_IU_PER_MM } from '@ziroeda/common/src/eda_units.js';
 import { editPointColors } from '@ziroeda/common/src/color4d.js';
 import { galPenWidth, galSnapPx } from '@ziroeda/common/src/gal_pixel_grid.js';
+import {
+  drawSelectionArea,
+  drawSelectionLasso,
+  isBackgroundDark,
+  lassoIsInside,
+  selectionAreaColors,
+} from '@ziroeda/common/src/preview_items/selection_area.js';
 import { overlayTargetColor } from '../../render/gl/scene.js';
 import { BezierStep } from '@ziroeda/common/src/preview_items/bezier_geom_manager.js';
 import { PolygonGeomManager } from '@ziroeda/common/src/preview_items/polygon_geom_manager.js';
@@ -87,6 +94,7 @@ import {
   readBoard,
   boardHitCandidates,
   boardItemsInBox,
+  boardItemsInLasso,
   allBoardItemIds,
   boardItemBBox,
   parseBoardItemId,
@@ -716,6 +724,13 @@ const PCB_TOOL_MSGS: Record<string, string> = {
   deleteTool: 'Interactive Delete Tool',
   localRatsnestTool: 'Local Ratsnest',
 };
+
+/**
+ * `ACTIONS::selectSetRect` / `ACTIONS::selectSetLasso`: one tool, two drag
+ * shapes. Both set `m_selectionMode` and post `ACTIONS::selectionTool`
+ * (`pcb_selection_tool.cpp:1348-1363`), so neither is a pushed tool.
+ */
+const isSelectTool = (t: string): boolean => t === 'selectSetRect' || t === 'selectSetLasso';
 
 // Tools that act on plain clicks and take no drag/box-select gestures.
 const isClickTool = (t: string): boolean =>
@@ -1488,6 +1503,29 @@ export function PcbEditor({
   selForDrawRef.current = selection;
   // The in-progress rubber-band marquee (world coords), read by the overlay pass.
   const boxRef = useRef<{ a: { x: number; y: number }; b: { x: number; y: number } } | null>(null);
+  /**
+   * `SelectPolyArea`'s in-flight trace (`pcb_selection_tool.cpp:1366`), in
+   * world coordinates, or null when no lasso is running.
+   *
+   * **A lasso outlives the button**, which is the part that is easy to get
+   * wrong and the part our schematic one still gets wrong. Upstream's loop
+   * appends on `IsDrag( BUT_LEFT )` AND on `IsClick( BUT_LEFT )`, and only
+   * `IsDblClick` / `finishInteractive` breaks it — there is no mouse-up arm
+   * at all. The manual spells out what that feels like: "Dragging with the
+   * left mouse button held draws a freeform shape. Releasing the button
+   * stops drawing the freeform shape and starts drawing a straight line.
+   * Clicking again completes the straight line… Double click to finish
+   * drawing the lasso."
+   *
+   * So `freehand` is just whether the button is down, and releasing it ends
+   * nothing.
+   */
+  const lassoRef = useRef<{
+    pts: { x: number; y: number }[];
+    freehand: boolean;
+    additive: boolean;
+    subtractive: boolean;
+  } | null>(null);
   // Live drag-move offset (world units) applied to the selection highlight while
   // a move gesture is in flight; committed on pointer-up (PCB_MOVE_TOOL preview).
   const moveDeltaRef = useRef<{ x: number; y: number } | null>(null);
@@ -1605,6 +1643,17 @@ export function PcbEditor({
   disambigRef.current = !!disambig;
   // Mirror of the active right-toolbar tool for the pointer/Escape handlers.
   const activeToolRef = useRef('selectSetRect');
+  /**
+   * Both selection-mode ids ARE the selection tool.
+   *
+   * `SetSelectRect` and `SetSelectPoly` set `m_selectionMode` and post
+   * `ACTIONS::selectionTool` (`pcb_selection_tool.cpp:1348-1363`) — neither
+   * pushes a tool, and the mode outlives every tool that is pushed. So
+   * `ToolStackIsEmpty` is either id, and Esc out of a tool returns to the
+   * MODE the user chose rather than resetting it to the rectangle.
+   */
+  const selectModeRef = useRef('selectSetRect');
+  if (isSelectTool(activeTool)) selectModeRef.current = activeTool;
   activeToolRef.current = activeTool;
   // Leaving the local ratsnest tool clears the forced-on set, like upstream.
   useEffect(() => {
@@ -3578,26 +3627,56 @@ export function PcbEditor({
       }
     }
     const brd = boardRef.current;
-    // Rubber-band marquee: KiCad tints it blue for a left→right window
-    // (contained) select, green for a right→left crossing select.
+    // The selection band, in `KIGFX::PREVIEW::SELECTION_AREA`'s own six colours
+    // (`selection_area.cpp:44-62`) — a slight-blue fill, a YELLOW outline for a
+    // window select and a blue one for a greedy one, per scheme.
+    //
+    // This was four invented literals, blue and green, matching neither KiCad
+    // nor the schematic canvas beside it. `drawSelectionArea` is the shared
+    // painter both now go through, so the rectangle and the lasso below cannot
+    // drift apart either.
+    const toPx = (p: { x: number; y: number }): { x: number; y: number } => ({
+      x: p.x * sx + v.tx,
+      y: p.y * v.scale + v.ty,
+    });
+    const bandDark = isBackgroundDark(theme.background);
     const box = boxRef.current;
     if (box) {
-      const toPx = (p: { x: number; y: number }): { x: number; y: number } => ({
-        x: p.x * sx + v.tx,
-        y: p.y * v.scale + v.ty,
-      });
-      const p0 = toPx(box.a),
-        p1 = toPx(box.b);
-      const rightward = box.b.x >= box.a.x;
-      ctx.strokeStyle = rightward ? 'rgba(120,170,255,0.9)' : 'rgba(120,255,150,0.9)';
-      ctx.fillStyle = rightward ? 'rgba(120,170,255,0.12)' : 'rgba(120,255,150,0.12)';
-      ctx.lineWidth = dpr;
-      const x = Math.min(p0.x, p1.x),
-        y = Math.min(p0.y, p1.y);
-      const w = Math.abs(p1.x - p0.x),
-        h = Math.abs(p1.y - p0.y);
-      ctx.fillRect(x, y, w, h);
-      ctx.strokeRect(x, y, w, h);
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      const p0 = toPx(box.a);
+      const p1 = toPx(box.b);
+      drawSelectionArea(
+        ctx,
+        p0.x,
+        p0.y,
+        p1.x,
+        p1.y,
+        // Left→right is the window select, which is `INSIDE_RECTANGLE`.
+        selectionAreaColors({ backgroundDark: bandDark, inside: box.b.x >= box.a.x }),
+      );
+    }
+    // …and the lasso, with the live cursor as its open end: `area.SetPoly(
+    // points ); area.GetPoly().Append( m_toolMgr->GetMousePosition() )`
+    // (`pcb_selection_tool.cpp:1441-1442`).
+    const lasso = lassoRef.current;
+    if (lasso && lasso.pts.length >= 1) {
+      const cur = cursorRef.current;
+      const pts = cur ? [...lasso.pts, cur] : lasso.pts;
+      if (pts.length >= 2) {
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        drawSelectionLasso(
+          ctx,
+          pts.map(toPx),
+          selectionAreaColors({
+            backgroundDark: bandDark,
+            // The winding, recomputed every frame exactly as `SelectPolyArea`
+            // does — so what the outline promises is what `finishLasso` selects.
+            inside: lassoIsInside(pts),
+            additive: lasso.additive,
+            subtractive: lasso.subtractive,
+          }),
+        );
+      }
     }
     // Disambiguation hover: the pointed-at items repainted BRIGHTENED, which is
     // `highlight( current, BRIGHTENED, &highlightGroup )` — their own geometry
@@ -5145,6 +5224,12 @@ export function PcbEditor({
   // deeper; double-clicking empty space leaves the current group.
   const onCanvasDoubleClick = (e: React.MouseEvent): void => {
     if (e.button !== 0) return;
+    // `evt->IsDblClick( BUT_LEFT ) || evt->IsAction( &ACTIONS::finishInteractive )`
+    // is the only thing that ends a lasso (`pcb_selection_tool.cpp:1404-1414`).
+    if (lassoRef.current) {
+      finishLasso();
+      return;
+    }
     const w = worldAt(e.clientX, e.clientY);
     const brd = boardRef.current;
     if (!w || !brd) return;
@@ -5487,7 +5572,7 @@ export function PcbEditor({
     // `selectSetRect` tool id, NOT `select`: every other id here is a pushed
     // tool. This gates Paste, Paste Special and Get and Move Footprint, and
     // comparing against the wrong id hides all three at once.
-    const toolStackIsEmpty = activeTool === 'selectSetRect';
+    const toolStackIsEmpty = isSelectTool(activeTool);
     /**
      * `isRoutable` (edit_tool.cpp:742-743):
      * `NotEmpty && HasTypes( routableTypes ) && notMoving && !inFootprintEditor`,
@@ -6244,7 +6329,7 @@ export function PcbEditor({
     mgr.setFinished();
     mgr.reset();
     zoneRef.current = null;
-    setActiveTool('selectSetRect');
+    setActiveTool(selectModeRef.current);
     requestDraw();
   };
 
@@ -7029,7 +7114,7 @@ export function PcbEditor({
     if (!brd) return;
     commitBoard(setBoardOrigin(brd, which, cursorSnapRef.current(world)));
     // `PopTool` — the picker is a one-shot.
-    setActiveTool('selectSetRect');
+    setActiveTool(selectModeRef.current);
   };
 
   /**
@@ -7923,6 +8008,35 @@ export function PcbEditor({
     });
   };
 
+  /**
+   * `area.GetPoly().GenerateBBoxCache(); SelectMultiple( area, m_subtractive,
+   * m_exclusive_or );` — the double-click arm (`:1409-1414`).
+   *
+   * The mode is the trace's WINDING and not a modifier: `SelectPolyArea`
+   * recomputes it from the signed area on every event (`:1384-1391`), which is
+   * the same rule the band is coloured by, so the yellow outline and the
+   * window select cannot disagree.
+   */
+  const finishLasso = (): void => {
+    const lasso = lassoRef.current;
+    const brd = boardRef.current;
+    lassoRef.current = null;
+    if (!lasso || !brd || lasso.pts.length < 3) {
+      requestDraw();
+      return;
+    }
+    const ids = boardItemsInLasso(brd, lasso.pts, lassoIsInside(lasso.pts)).filter(passesFilter);
+    setSelection((prev) => {
+      const next = new Set(lasso.additive || lasso.subtractive ? prev : []);
+      for (const id of ids) {
+        if (lasso.subtractive) next.delete(id);
+        else next.add(id);
+      }
+      return next;
+    });
+    requestDraw();
+  };
+
   const onPointerDown = (e: React.PointerEvent): void => {
     // `WX_VIEW_CONTROLS::onButton` (`wx_view_controls.cpp:546-569`): the
     // middle button starts what Preferences > Mouse and Touchpad > Drag
@@ -7941,6 +8055,36 @@ export function PcbEditor({
         } else {
           panRef.current = { x: e.clientX, y: e.clientY };
         }
+        return;
+      }
+    }
+    if (e.button === 0 && lassoRef.current) {
+      // `evt->IsClick( BUT_LEFT )` also appends (`:1364-1368`): a click
+      // completes the straight leg and the next drag draws freehand from there.
+      const w = worldAt(e.clientX, e.clientY);
+      if (w) lassoRef.current.pts.push(w);
+      lassoRef.current.freehand = true;
+      (e.target as HTMLElement).setPointerCapture(e.pointerId);
+      requestDraw();
+      return;
+    }
+    if (
+      e.button === 0 &&
+      selectModeRef.current === 'selectSetLasso' &&
+      isSelectTool(activeToolRef.current)
+    ) {
+      // The gesture the rectangle would have started, in the shape the mode
+      // names (`pcb_selection_tool.cpp:462-475`). "Any items in the existing
+      // selection are deselected" unless a modifier says otherwise, which is
+      // the `!m_drag_additive && !m_drag_subtractive` block at `:1430-1439`.
+      const w = worldAt(e.clientX, e.clientY);
+      if (w) {
+        const additive = (e.ctrlKey || e.shiftKey) && !e.altKey;
+        const subtractive = e.ctrlKey && e.shiftKey && !e.altKey;
+        lassoRef.current = { pts: [w], freehand: true, additive, subtractive };
+        if (!additive && !subtractive) setSelection(new Set());
+        (e.target as HTMLElement).setPointerCapture(e.pointerId);
+        requestDraw();
         return;
       }
     }
@@ -8023,6 +8167,19 @@ export function PcbEditor({
   const onPointerMove = (e: React.PointerEvent): void => {
     shiftDownRef.current = e.shiftKey;
     ctrlDownRef.current = e.ctrlKey || e.metaKey;
+    // A running lasso owns the pointer: `IsDrag( BUT_LEFT )` appends, a plain
+    // motion only moves the rubber band to the cursor. Before the crosshair and
+    // the tool arms, because none of them should see these events.
+    if (lassoRef.current) {
+      const w = worldAt(e.clientX, e.clientY);
+      if (w) {
+        cursorRef.current = w;
+        statusReadout.setCursor(w);
+        if (lassoRef.current.freehand) lassoRef.current.pts.push(w);
+      }
+      requestDraw();
+      return;
+    }
     // `if( m_autoPanEnabled && m_autoPanSettingEnabled ) isAutoPanning =
     // handleAutoPanning( aEvent )` (`wx_view_controls.cpp:304-305`).
     {
@@ -8193,6 +8350,15 @@ export function PcbEditor({
     }
   };
   const onPointerUp = (e: React.PointerEvent): void => {
+    // "Releasing the button stops drawing the freeform shape and starts drawing
+    // a straight line." Upstream has no mouse-up arm at all, so releasing ends
+    // nothing: the trace stays live and the last leg follows the cursor.
+    if (lassoRef.current) {
+      lassoRef.current.freehand = false;
+      (e.target as Element).releasePointerCapture(e.pointerId);
+      requestDraw();
+      return;
+    }
     // Finish a point edit: commit the reshaped board, or put the scene back if
     // the handle never moved.
     if (editHandleDragRef.current) {
@@ -8234,7 +8400,7 @@ export function PcbEditor({
         } else if (!d.moved) {
           zoomStep(1.3);
         }
-        setActiveTool('selectSetRect');
+        setActiveTool(selectModeRef.current);
         requestDraw();
         return;
       }
@@ -8581,13 +8747,19 @@ export function PcbEditor({
           // First Esc abandons the in-flight shape; the tool stays active.
           drawingRef.current = [];
           requestDrawRef.current();
+        } else if (lassoRef.current) {
+          // `evt->IsCancelInteractive() || evt->IsActivate()` -> `cancelled =
+          // true; break;` — the trace is dropped and nothing is selected.
+          lassoRef.current = null;
+          requestDrawRef.current();
         } else if (enteredGroupRef.current) {
           // Esc leaves the entered group first (SELECTION_TOOL groupLeave).
           setEnteredGroup(null);
           requestDrawRef.current();
-        } else if (activeToolRef.current !== 'selectSetRect') {
-          // Esc in a tool returns to the selection tool (TOOL_MANAGER).
-          setActiveTool('selectSetRect');
+        } else if (!isSelectTool(activeToolRef.current)) {
+          // Esc in a tool returns to the selection tool (TOOL_MANAGER), in
+          // whichever mode it was left in.
+          setActiveTool(selectModeRef.current);
         } else {
           setShow3D(false);
           setSelection(new Set());

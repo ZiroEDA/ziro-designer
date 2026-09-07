@@ -245,7 +245,6 @@ export const PCB_RIGHT_TOOLBAR: ToolEntry[] = [
         id: 'selectSetLasso',
         icon: 'selectSetLasso',
         title: 'Lasso\nSet selection mode to use polygon lasso',
-        ...todo,
       },
     ],
   },
