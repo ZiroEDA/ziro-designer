@@ -2535,7 +2535,10 @@ export function buildDrawSteps(
     return toCssColor(hiContrastColor(parseColor4d(css), hcBackground, f));
   };
   const col = (layer: string): string =>
-    dimmed(layer, opts.colorOverride ?? emphasize(themeColors?.[layer] ?? layerColor(layer), emphasis));
+    dimmed(
+      layer,
+      opts.colorOverride ?? emphasize(themeColors?.[layer] ?? layerColor(layer), emphasis),
+    );
   const sp = (c: string): string => emphasize(c, emphasis);
   steps.push(() => {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
