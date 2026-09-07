@@ -10927,86 +10927,217 @@ textarea.ze-ds-textedit {
 
 /* Text Box Properties (pcbnew/dialogs/dialog_textbox_properties_base.cpp).
 
-   `bMainSizer` is vertical with NO group boxes: the multi-line control, the
-   syntax link, Locked, then one wxGridBagSizer of two label/control column
-   pairs. This dialog had four invented fieldsets and a four-line text area. */
+   `bMainSizer` is vertical and has no group boxes: `m_MultiLineSizer` (the
+   "Text:" label, the Scintilla control, and the "Syntax help" link the .cpp
+   appends to it at `:90`), then ONE `wxGridBagSizer`, then the standard
+   buttons. Every margin below is a per-`Add()` border out of that file: wx has
+   no uniform gap between siblings, so this has none either — a container `gap`
+   here would be a number nobody upstream wrote. */
 .ze-textboxprops-body {
   display: flex;
   flex-direction: column;
-  gap: 6px;
 }
-/* `m_MultiLineText` fills `m_MultiLineSizer`, which is the sizer that grows —
-   it is the whole top half of the dialog, not a corner of a groupbox. */
+/* [data] `bMainSizer->Add( m_MultiLineSizer, 20, wxEXPAND|wxALL, 10 )` (`:64`).
+   Proportion 20 against the gridbag's 0 is why this block, and only this block,
+   takes the height a resize adds. */
+.ze-tbp-multiline {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  /* [data] that Add()'s `wxALL, 10`. */
+  margin: 10px;
+}
+/* [data] `m_MultiLineSizer->Add( textLabel, 0, wxRIGHT|wxLEFT, 5 )` (`:27`). */
+.ze-tbp-caption {
+  /* [data] that Add()'s `wxRIGHT|wxLEFT, 5`. */
+  margin: 0 5px;
+}
 .ze-tbp-text {
-  width: 100%;
-  /* [data] `m_MultiLineText->SetMinSize( wxSize( -1,150 ) )`
-     (`dialog_textbox_properties_base.cpp:59`). */
+  /* [data] `m_MultiLineText->SetMinSize( wxSize( -1,150 ) )` (`:59`). */
   min-height: 150px;
+  /* [data] its own `wxEXPAND|wxBOTTOM|wxRIGHT|wxLEFT, 5` (`:61`). */
+  margin: 0 5px 5px;
+  flex: 1 1 auto;
   resize: vertical;
   box-sizing: border-box;
 }
-/* `m_syntaxHelp` is a wxHyperlinkCtrl, so it wears the shared `.ze-hyperlink`;
-   only its `wxBOTTOM|wxRIGHT|wxLEFT, 3` border is this dialog's. */
+/* `m_syntaxHelp` is a wxHyperlinkCtrl added by the .cpp, not the base file, so
+   it wears the shared `.ze-hyperlink`.
+   [data] `m_MultiLineSizer->Add( m_syntaxHelp, 0, wxBOTTOM|wxRIGHT|wxLEFT, 3 )`
+   (`dialog_textbox_properties.cpp:90`). */
 .ze-tbp-syntax {
-  /* [data] that `wxBOTTOM|wxRIGHT|wxLEFT, 3`. */
-  padding: 3px;
+  /* [data] that Add()'s `wxBOTTOM|wxRIGHT|wxLEFT, 3`. */
+  margin: 0 3px 3px;
   align-self: flex-start;
 }
-.ze-tbp-check {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-/* The wxGridBagSizer: two label/control pairs across. Each label column is as
-   wide as its own widest label, which is what a gridbag column is — never a
-   stated width. */
+
+/* `gbSizer1 = new wxGridBagSizer( 3, 3 )` (`:67`), `AddGrowableCol( 3 )`
+   (`:250`). SEVEN columns, and the growable one is column 3 — an empty column
+   that holds the two halves of the dialog apart and takes any slack a resize
+   adds. Rows 2 and 4 are empty in the file too: they are what puts six pixels
+   rather than three under the Layer row and under the Font row.
+
+   Every cell below states its own `wxGBPosition` and its own border, because
+   that is how the file states them. There is no row class and no column class
+   to share: a gridbag is a list of placements, not a table. */
 .ze-tbp-grid {
   display: grid;
-  grid-template-columns: max-content max-content max-content 1fr;
+  /* Columns 0-6. The `1fr` is `AddGrowableCol( 3 )`; in a `width: max-content`
+     dialog it resolves to zero, which is what `Fit()` gives it. */
+  grid-template-columns:
+    max-content max-content max-content 1fr
+    max-content max-content max-content;
   align-items: center;
-  gap: 6px 10px;
+  gap: 3px; /* [data] `wxGridBagSizer( 3, 3 )` — vgap 3, hgap 3. */
+  /* [data] `bMainSizer->Add( gbSizer1, 0, wxBOTTOM|wxEXPAND|wxLEFT|wxRIGHT, 10 )`. */
+  margin: 0 10px 10px; /* [data] the same 10. */
 }
+/* `wxGBPosition( 0, 0 )`, span 3 — [data] `wxBOTTOM|wxRIGHT|wxLEFT, 5`. */
+.ze-tbp-locked {
+  grid-row: 1;
+  grid-column: 1 / span 3;
+  /* [data] that Add()'s `wxBOTTOM|wxRIGHT|wxLEFT, 5`. */
+  margin: 0 5px 5px;
+}
+/* `( 1, 0 )` — [data] `wxALIGN_CENTER_VERTICAL|wxTOP|wxBOTTOM|wxLEFT, 5`. */
+.ze-tbp-layer-lbl {
+  grid-row: 2;
+  grid-column: 1;
+  /* [data] that Add()'s `wxTOP|wxBOTTOM|wxLEFT, 5`. */
+  margin: 5px 0 5px 5px;
+}
+/* `( 1, 1 )` span 2, and `m_LayerSelectionCtrl->SetMinSize( wxSize( 175,-1 ) )`
+   (`:79`) — half of what makes the dialog its width. The Add() states no border
+   flag, so there is no margin. */
+.ze-tbp-layer {
+  grid-row: 2;
+  grid-column: 2 / span 2;
+  min-width: 175px;
+}
+/* `( 1, 4 )` — [data] `wxALIGN_CENTER_VERTICAL|wxLEFT, 10`. */
+.ze-tbp-orient-lbl {
+  grid-row: 2;
+  grid-column: 5;
+  /* [data] that Add()'s `wxLEFT, 10`. */
+  margin-left: 10px;
+}
+/* `( 1, 5 )` span 2 — [data] `wxALIGN_CENTER_VERTICAL|wxEXPAND|wxRIGHT, 5`. */
+.ze-tbp-orient {
+  grid-row: 2;
+  grid-column: 6 / span 2;
+  /* [data] that Add()'s `wxRIGHT, 5`. */
+  margin-right: 5px;
+}
+/* `( 3, 4 )` span 3 — [data] `wxALIGN_CENTER_VERTICAL|wxEXPAND|wxRIGHT, 8`.
+   Row 3 is the Font row: `m_fontLabel` at `( 3, 0 )` and `m_fontCtrl` at
+   `( 3, 1 )` are absent here because nothing on the pcbnew side carries a font
+   face — see the dialog's header. The bar keeps its own position. */
+.ze-tbp-bar {
+  grid-row: 4;
+  grid-column: 5 / span 3;
+  /* [data] that Add()'s `wxRIGHT, 8`. */
+  margin-right: 8px;
+}
+/* The three size rows on the left, `( 5, 0 )` `( 6, 0 )` `( 7, 0 )` — [data]
+   `wxALIGN_CENTER_VERTICAL|wxLEFT, 4` on each label, and their controls at
+   column 1 take `wxEXPAND` with no border, so the column the 175 px layer combo
+   sets is what sizes them. */
+.ze-tbp-w-lbl,
+.ze-tbp-h-lbl,
+.ze-tbp-t-lbl {
+  grid-column: 1;
+  /* [data] each label's own `wxLEFT, 4`. */
+  margin-left: 4px;
+}
+.ze-tbp-w-ctl,
+.ze-tbp-h-ctl,
+.ze-tbp-t-ctl {
+  grid-column: 2;
+  width: 100%;
+  box-sizing: border-box;
+}
+.ze-tbp-w-u,
+.ze-tbp-h-u {
+  grid-column: 3;
+}
+.ze-tbp-w-lbl,
+.ze-tbp-w-ctl,
+.ze-tbp-w-u {
+  grid-row: 6;
+}
+.ze-tbp-h-lbl,
+.ze-tbp-h-ctl,
+.ze-tbp-h-u {
+  grid-row: 7;
+}
+.ze-tbp-t-lbl,
+.ze-tbp-t-ctl {
+  grid-row: 8;
+}
+/* `bSizer5` at `( 7, 2 )` span 2: the unit label and `m_autoTextThickness`
+   beside it — [data] the sizer's own `wxALIGN_CENTER_VERTICAL|wxRIGHT, 5`. */
+.ze-tbp-t-u {
+  grid-row: 8;
+  grid-column: 3 / span 2;
+  /* [data] `bSizer5`'s own `wxRIGHT, 5`. */
+  margin-right: 5px;
+}
+/* `( 5, 4 )` span 2 — [data] `wxLEFT|wxALIGN_CENTER_VERTICAL, 10`. */
+.ze-tbp-border {
+  grid-row: 6;
+  grid-column: 5 / span 2;
+  /* [data] that Add()'s `wxLEFT, 10`. */
+  margin-left: 10px;
+}
+/* The two right-hand labels, `( 6, 4 )` and `( 7, 4 )` — [data] `wxLEFT, 10`. */
+.ze-tbp-bw-lbl,
+.ze-tbp-style-lbl {
+  grid-column: 5;
+  /* [data] each label's own `wxLEFT, 10`. */
+  margin-left: 10px;
+}
+.ze-tbp-bw-lbl,
+.ze-tbp-bw-ctl,
+.ze-tbp-bw-u {
+  grid-row: 7;
+}
+/* `( 6, 5 )` and `( 6, 6 )`: the control takes `wxEXPAND`, the unit label sits
+   in its own column, neither with a border. */
+.ze-tbp-bw-ctl {
+  grid-column: 6;
+  width: 100%;
+  box-sizing: border-box;
+}
+.ze-tbp-bw-u {
+  grid-column: 7;
+}
+/* `( 7, 5 )` span 2, and `m_borderStyleCombo->SetMinSize( wxSize( 240,-1 ) )`
+   (`:233`) — the other half of the dialog's width.
+   [data] `wxALIGN_CENTER_VERTICAL|wxRIGHT|wxEXPAND, 5`. */
+.ze-tbp-borderstyle {
+  grid-row: 8;
+  grid-column: 6 / span 2;
+  min-width: 240px;
+  /* [data] that Add()'s `wxRIGHT, 5`. */
+  margin-right: 5px;
+}
+.ze-tbp-style-lbl {
+  grid-row: 8;
+}
+/* A label in this dialog never wraps: a gridbag column is as wide as its widest
+   item, so the column grows instead. */
 .ze-tbp-lbl {
   white-space: nowrap;
 }
-/* The two stated minimums in `dialog_textbox_properties_base.cpp` — KiCad's own
-   numbers, not ours:
-
-     m_LayerSelectionCtrl->SetMinSize( wxSize( 175,-1 ) );   (:79)
-     m_borderStyleCombo->SetMinSize( wxSize( 240,-1 ) );     (:233)
-
-   They are why the upstream dialog is as wide as it is. `SetSizeHints` at :18
-   states no dialog size at all; the width comes from these two controls
-   propagating up through the gridbag to `bMainSizer->Fit( this )`, which is
-   `.ze-modal`'s `width: max-content`. Ours had no minimum on either combo, so
-   both shrank to their content and the whole dialog with them. Data, not
-   chrome: a wxFormBuilder minimum is a checked-in constant. */
-.ze-tbp-layer {
-  min-width: 175px;
-}
-.ze-tbp-borderstyle {
-  min-width: 240px;
-}
-.ze-tbp-ctl {
+/* A wxCheckBox carries its own label, and the space between the indicator and
+   that text is Gtk.CheckButton's own style property, never a number picked
+   here. */
+.ze-tbp-check {
   display: flex;
   align-items: center;
-  gap: 6px;
-}
-.ze-tbp-num {
-  width: 84px;
-  text-align: right;
-}
-/* `Font:` row — the FONT_CHOICE slot plus the formatting bar, spanning the
-   remaining three columns of the gridbag. */
-.ze-tbp-fontrow {
-  grid-column: 2 / -1;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-/* `m_borderCheckbox` sits in the right-hand column beside Text width. */
-.ze-tbp-border {
-  grid-column: 3 / -1;
+  gap: var(--check-inset);
+  white-space: nowrap;
 }
 
 /* Barcode Properties (dialog_barcode_properties_base.cpp).
@@ -12356,6 +12487,7 @@ textarea.ze-ds-textedit {
    static text together (unit_binder.cpp:697-706) — by colour, as GTK's
    `label:disabled { color: #929292 }` does, never by opacity. */
 .ze-unit-label.disabled,
+.ze-tbp-lbl.disabled,
 .ze-symprops-lbl.disabled,
 .ze-pgs .disabled-label {
   color: var(--ctl-fg-disabled);

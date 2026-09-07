@@ -8,17 +8,29 @@
  *
  * The decisions live in `pcbnew/src/textbox_properties.ts`; this is layout.
  *
- * ## The shape
+ * ## The shape is one gridbag, and its placements are data
  *
- * `bMainSizer` is vertical and has **no group boxes**: the multi-line text
- * control fills the top, then a "Syntax help" link, then `Locked`, then one
- * `wxGridBagSizer` of everything else in two columns —
+ * `bMainSizer` is vertical and has **no group boxes**: `m_MultiLineSizer` (the
+ * "Text:" label, the control, and the "Syntax help" link the .cpp appends to
+ * that same sizer at `:90`), then ONE `wxGridBagSizer( 3, 3 )`, then the
+ * standard buttons.
  *
+ *     Locked  [x]
  *     Layer:  [combo]                    Orientation: [combo]
- *     Font:   [FONT_CHOICE] | B I | ⇤⇔⇥ | ⤒⇕⤓ | mirrored |
- *     Text width:  [ ] mm               Border       [x]
- *     Text height: [ ] mm               Border width:  [ ] mm
- *     Thickness:   [ ] mm 🔗            Border style:  [combo]
+ *     Font:   [FONT_CHOICE]              | B I | \u21e4\u21d4\u21e5 | \u2912\u21d5\u2913 | mirrored |
+ *     Text width:  [ ] mm                Border       [x]
+ *     Text height: [ ] mm                Border width:  [ ] mm
+ *     Thickness:   [ ] mm                Border style:  [combo]
+ *
+ * That grid is SEVEN columns wide with `AddGrowableCol( 3 )` — column 3 is
+ * empty and holds the two halves apart — and its rows are 0, 1, 3, 5, 6, 7:
+ * rows 2 and 4 exist and are empty, which is what puts six pixels rather than
+ * three under the Layer row and under the Font row. Every cell carries its own
+ * `wxGBPosition` and its own `Add()` border, in `.ze-tbp-*`; there is no shared
+ * row or column rule, because a gridbag is a list of placements and not a
+ * table. This file had a four-column grid and a container `gap`, so nothing
+ * lined up with the half opposite and the whole dialog sat flush against its
+ * own edges — `bMainSizer` insets both blocks by 10.
  *
  * This file had four invented group boxes — Text, Font, Alignment, Border — a
  * text area four lines tall in the corner of the first one, and the whole
@@ -64,18 +76,28 @@ import { useModalEscape } from '../../../ui/useModalEscape.js';
 type MmKey = 'width' | 'height' | 'thickness' | 'borderWidth';
 
 /**
- * `m_OrientCtrl` is a `wxComboBox` seeded with these four
- * (`dialog_textbox_properties.cpp`), not a free-text angle field.
+ * `double rot_list[] = { 0.0, 90.0, -90.0, 180.0 }`, written into the combo as
+ * `wxString::Format( "%.1f", … )` (`dialog_textbox_properties.cpp:153-156`).
+ * Not 0/90/180/270, and not without the decimal: those were both invented here.
  */
-const ORIENTATIONS = ['0', '90', '180', '270'];
+const ORIENTATIONS = [0, 90, -90, 180];
+
+/**
+ * The entry that stands for an angle. A board angle of 270 is the same rotation
+ * as the -90 the list carries, so it selects that row rather than falling off
+ * the end of the combo; anything else is shown as it is, which is what
+ * `m_OrientCtrl` being an editable `wxComboBox` lets upstream do.
+ */
+function orientationLabel(deg: number): string {
+  const turn = (a: number): number => ((a % 360) + 360) % 360;
+  return (ORIENTATIONS.find((o) => turn(o) === turn(deg)) ?? deg).toFixed(1);
+}
 
 interface Props {
   initial: TextBoxValues;
   layers: readonly string[];
   /** The board colour of a layer, for the layer combo's swatch. */
   layerColor: (layer: string) => string;
-  /** "OK" reads "Create" when the box is being placed rather than edited. */
-  placing?: boolean;
   onApply: (v: TextBoxValues) => void;
   onClose: () => void;
 }
@@ -84,7 +106,6 @@ export function DialogTextBoxProperties({
   initial,
   layers,
   layerColor,
-  placing = false,
   onApply,
   onClose,
 }: Props): JSX.Element {
@@ -97,24 +118,31 @@ export function DialogTextBoxProperties({
   const [typed, setTyped] = useState<Record<string, string>>({});
   const set = (patch: Partial<TextBoxValues>): void => setV((p) => ({ ...p, ...patch }));
 
-  const mmField = (label: string, key: MmKey, disabled?: boolean): JSX.Element => (
+  /**
+   * One `UNIT_BINDER` row: the label, the control and the unit static text are
+   * three separate cells of the gridbag, in three columns
+   * (`m_SizeXLabel` / `m_SizeXCtrl` / `m_SizeXUnits` at `( 5, 0 )` `( 5, 1 )`
+   * `( 5, 2 )`), so this cannot wrap them in a box of its own without losing
+   * the column the right-hand half aligns to.
+   *
+   * `Enable( false )` greys all three together (`unit_binder.cpp:697-706`).
+   */
+  const mmField = (label: string, key: MmKey, slot: string, disabled?: boolean): JSX.Element => (
     <>
-      <span className="ze-tbp-lbl">{label}</span>
-      <span className="ze-tbp-ctl">
-        <input
-          type="text"
-          className="ze-input ze-tbp-num"
-          disabled={disabled}
-          value={typed[key] ?? String(pcbIuToMM(v[key]))}
-          onChange={(e) => {
-            setTyped((p) => ({ ...p, [key]: e.target.value }));
-            const n = Number(e.target.value);
-            if (Number.isFinite(n)) set({ [key]: pcbMmToIU(n) } as Partial<TextBoxValues>);
-          }}
-          onBlur={() => setTyped((p) => ({ ...p, [key]: undefined as unknown as string }))}
-        />
-        <span className="ze-muted">mm</span>
-      </span>
+      <span className={`ze-tbp-lbl ze-tbp-${slot}-lbl${disabled ? ' disabled' : ''}`}>{label}</span>
+      <input
+        type="text"
+        className={`ze-input ze-tbp-${slot}-ctl`}
+        disabled={disabled}
+        value={typed[key] ?? String(pcbIuToMM(v[key]))}
+        onChange={(e) => {
+          setTyped((p) => ({ ...p, [key]: e.target.value }));
+          const n = Number(e.target.value);
+          if (Number.isFinite(n)) set({ [key]: pcbMmToIU(n) } as Partial<TextBoxValues>);
+        }}
+        onBlur={() => setTyped((p) => ({ ...p, [key]: undefined as unknown as string }))}
+      />
+      <span className={`ze-unit-label ze-tbp-${slot}-u${disabled ? ' disabled' : ''}`}>mm</span>
     </>
   );
 
@@ -129,55 +157,60 @@ export function DialogTextBoxProperties({
         </div>
 
         <div className="ze-modal-body ze-textboxprops-body">
-          {/* `m_MultiLineSizer`: the label, the control, then the link. */}
-          <span className="ze-tbp-caption">Text:</span>
-          <textarea
-            className="ze-input ze-tbp-text"
-            value={v.text}
-            onChange={(e) => set({ text: e.target.value })}
-          />
-          {/* `m_syntaxHelp`, a wxHyperlinkCtrl (`:87-90`). It opens the
-              text-variable syntax window, which we do not have yet. */}
-          <button type="button" className="ze-hyperlink ze-tbp-syntax">
-            Syntax help
-          </button>
-
-          <label className="ze-tbp-check">
-            <input
-              type="checkbox"
-              checked={v.locked}
-              onChange={(e) => set({ locked: e.target.checked })}
+          {/* `m_MultiLineSizer`: the label, the control, then the link the .cpp
+              appends to this same sizer (`:90`) — all three inside the one box
+              `bMainSizer` adds with `wxALL, 10`. */}
+          <div className="ze-tbp-multiline">
+            <span className="ze-tbp-caption">Text:</span>
+            <textarea
+              className="ze-input ze-tbp-text"
+              value={v.text}
+              onChange={(e) => set({ text: e.target.value })}
             />
-            Locked
-          </label>
+            {/* `m_syntaxHelp`, a wxHyperlinkCtrl (`:87-90`). It opens the
+                text-variable syntax window, which we do not have yet. */}
+            <button type="button" className="ze-hyperlink ze-tbp-syntax">
+              Syntax help
+            </button>
+          </div>
 
-          {/* One wxGridBagSizer, two label/control column pairs. */}
+          {/* One wxGridBagSizer( 3, 3 ), seven columns, `AddGrowableCol( 3 )`.
+              Each cell states its own `wxGBPosition` in shell.css. */}
           <div className="ze-tbp-grid">
-            <span className="ze-tbp-lbl">Layer:</span>
+            {/* `m_cbLocked` at `( 0, 0 )`, spanning three columns — it is IN the
+                gridbag, not above it. */}
+            <label className="ze-tbp-check ze-tbp-locked">
+              <input
+                type="checkbox"
+                checked={v.locked}
+                onChange={(e) => set({ locked: e.target.checked })}
+              />
+              Locked
+            </label>
+
+            <span className="ze-tbp-lbl ze-tbp-layer-lbl">Layer:</span>
             {/* `m_LayerSelectionCtrl` is a PCB_LAYER_BOX_SELECTOR: every entry
-                carries its layer's colour swatch. Its `SetMinSize( 175,-1 )`
-                (`_base.cpp:79`) is half of what makes the dialog its width. */}
+                carries its layer's colour swatch. */}
             <Combo
               className="ze-tbp-layer"
               value={v.layer}
               onChange={(layer) => set({ layer })}
               options={layers.map((l) => ({ value: l, label: l, swatch: layerColor(l) }))}
             />
-            <span className="ze-tbp-lbl">Orientation:</span>
+            <span className="ze-tbp-lbl ze-tbp-orient-lbl">Orientation:</span>
             <Combo
-              value={String(v.orientation)}
+              className="ze-tbp-orient"
+              value={orientationLabel(v.orientation)}
               onChange={(next) => set({ orientation: Number(next) })}
-              options={ORIENTATIONS.map((o) => ({ value: o, label: o }))}
+              options={ORIENTATIONS.map((o) => ({ value: o.toFixed(1), label: o.toFixed(1) }))}
             />
 
-            {/* KiCad's row is `Font: [FONT_CHOICE] | bar |`. The combo is absent
-                because *nothing on the pcbnew side carries a font* — neither
-                `PcbTextItem` nor `PcbTextBox` has a face, so a FONT_CHOICE here
-                would be a control that changes nothing, which is worse than its
-                absence. It arrives with the model field; `ui/TextFormatBar.tsx`
-                already has the widget waiting. */}
-            <span className="ze-tbp-lbl" />
-            <div className="ze-tbp-fontrow">
+            {/* `( 3, 4 )`. KiCad's row is `Font: [FONT_CHOICE] | bar |`; the
+                combo is absent because *nothing on the pcbnew side carries a
+                font* — `PcbTextBox` has no face, so a FONT_CHOICE here would be
+                a control that changes nothing. The bar keeps KiCad's position
+                rather than sliding left into the empty half. */}
+            <div className="ze-tbp-bar">
               <TextFormatBar
                 bold={v.bold}
                 onBold={(bold) => set({ bold })}
@@ -192,7 +225,7 @@ export function DialogTextBoxProperties({
               />
             </div>
 
-            {mmField('Text width:', 'width')}
+            {mmField('Text width:', 'width', 'w')}
             <label className="ze-tbp-check ze-tbp-border">
               <input
                 type="checkbox"
@@ -202,14 +235,15 @@ export function DialogTextBoxProperties({
               Border
             </label>
 
-            {mmField('Text height:', 'height')}
-            {mmField('Border width:', 'borderWidth', !v.border)}
+            {mmField('Text height:', 'height', 'h')}
+            {mmField('Border width:', 'borderWidth', 'bw', !v.border)}
 
-            {mmField('Thickness:', 'thickness')}
-            <span className="ze-tbp-lbl">Border style:</span>
+            {mmField('Thickness:', 'thickness', 't')}
+            <span className={`ze-tbp-lbl ze-tbp-style-lbl${v.border ? '' : ' disabled'}`}>
+              Border style:
+            </span>
             {/* `m_borderStyleCombo` is a wxBitmapComboBox: the stroke is drawn
-                beside its name. `SetMinSize( 240,-1 )` (`_base.cpp:233`) is the
-                other half of the dialog's width. */}
+                beside its name. */}
             <Combo
               className="ze-tbp-borderstyle"
               disabled={!v.border}
@@ -224,11 +258,10 @@ export function DialogTextBoxProperties({
           </div>
         </div>
 
-        <StdDialogButtons
-          onCancel={onClose}
-          onOk={() => onApply(v)}
-          {...(placing ? { okLabel: 'Create' } : {})}
-        />
+        {/* `SetupStandardButtons()` (`:161`) takes no label override, so the
+            affirmative button reads OK whether the box is being placed or
+            edited. "Create" was ours. */}
+        <StdDialogButtons onCancel={onClose} onOk={() => onApply(v)} />
       </div>
     </div>
   );

@@ -552,21 +552,20 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // `padding: 16`); five of the twenty-one are cited and marked, which is where
   // 724 comes from.
   //
-  // The sixteen that are NOT cited are this row's next sweep, and they are all
-  // one shape - a container `gap` where wx states a per-`Add()` border:
+  // The sixteen that were NOT cited were all one shape - a container `gap`
+  // where wx states a per-`Add()` border. Six of them were Text Box Properties'
+  // and are gone: that dialog is `wxGridBagSizer( 3, 3 )` with
+  // `AddGrowableCol( 3 )` now, seven columns, every cell carrying its own
+  // `wxGBPosition` and its own Add() border. 724 -> 718.
+  //
+  // Ten are left, and they are the same sweep in two more dialogs:
   //   .ze-drc-body          padding: 10px 12px   (2)
   //   .ze-drc-violations    max-height: 340px    (1, ours: the window is modeless)
   //   .ze-tableprops-body   gap: 10px            .ze-tableprops-header  gap: 20px
   //   .ze-tableprops-groups gap: 12px            .ze-tableprops-boxes   gap: 24px
   //   .ze-tableprops-line   gap: 20px + margin-top: 6px
-  //   .ze-textboxprops-body gap: 6px             .ze-tbp-check          gap: 6px
-  //   .ze-tbp-grid          gap: 6px 10px  (2)   .ze-tbp-ctl            gap: 6px
-  //   .ze-tbp-fontrow       gap: 8px             .ze-zone-layer-name    gap: 4px
-  // `dialog_textbox_properties_base.cpp:67` states `wxGridBagSizer( 3, 3 )` and
-  // its Add()s state 5s, so 6/10 is neither; the honest fix is the per-Add()
-  // borders, and it needs the three dialogs put side by side with KiCad's own
-  // rather than a number picked here.
-  ui: { colours: 204, metrics: 724 },
+  //   .ze-zone-layer-name   gap: 4px
+  ui: { colours: 204, metrics: 718 },
   // colours 6 -> 7: the opacity slider's #55585d track arrived here with
   // APPEARANCE_CONTROLS; it is the same literal `editors/pcb` lost, not a new
   // one. The panel's own stylesheet adds none: every length in
@@ -1106,7 +1105,9 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // rules, `editors/schematic` 191 -> 185 as its inline styles left.
     // 1321 -> 1326: the same rescan. Two rows move and they account for all
     // five: `ui` 717 -> 724 and `editors/pcb` 215 -> 213.
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1326);
+    // 1326 -> 1320: Text Box Properties rebuilt against its gridbag; `ui` is
+    // the only row that moves and 1326 - 6 agrees with it.
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1320);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {

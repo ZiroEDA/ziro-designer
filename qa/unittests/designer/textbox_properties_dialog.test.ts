@@ -56,10 +56,14 @@ describe('the controls the base file declares', () => {
       expect(code).toContain(label);
   });
 
-  it('makes Orientation a combo, not a free-text angle', () => {
-    // `m_OrientCtrl` is a wxComboBox seeded with the four right angles.
-    expect(code).toContain('ORIENTATIONS');
-    expect(DIALOG).toMatch(/const ORIENTATIONS = \['0', '90', '180', '270'\]/);
+  it('seeds Orientation with rot_list, and shows each entry to one decimal', () => {
+    // `double rot_list[] = { 0.0, 90.0, -90.0, 180.0 };` then
+    // `m_OrientCtrl->SetString( ii, wxString::Format( "%.1f", rot_list[ii] ) )`
+    // (`dialog_textbox_properties.cpp:153-156`). This said 0/90/180/270 with no
+    // decimal, which is neither the list nor the format: -90 is a row upstream
+    // offers and 270 is not, and every entry reads "0.0" not "0".
+    expect(DIALOG).toMatch(/const ORIENTATIONS = \[0, 90, -90, 180\]/);
+    expect(code).toContain('toFixed(1)');
   });
 });
 
@@ -113,18 +117,53 @@ describe('the shared pieces it reuses', () => {
     expect(code).not.toContain('ze-modal-footer');
   });
 
-  it('says "Create" while placing, as the OK label', () => {
-    // `DIALOG_TEXTBOX_PROPERTIES` is opened from the draw tool before the box
-    // exists; cancelling there discards it rather than reverting.
-    expect(code).toContain("okLabel: 'Create'");
+  it('leaves the affirmative button reading OK, because upstream does', () => {
+    // `SetupStandardButtons()` (`dialog_textbox_properties.cpp:161`) is called
+    // with no argument, and the overload that relabels a button takes a map of
+    // id to string. So the dialog the draw tool opens before the box exists
+    // still says OK. "Create" was ours, and it was the only place in the file
+    // where a user-visible string had no upstream to point at.
+    // `okLabel` is StdDialogButtons' only way to say anything else, so its
+    // absence is the whole mechanism. (The word itself still appears in the
+    // comment above the call, explaining what went.)
+    expect(code).not.toContain('okLabel');
   });
 });
 
 describe('the layout is the stylesheet’s', () => {
   it('gives the text control the top of the dialog, not a corner', () => {
     const rule = /\.ze-tbp-text\s*\{([^}]*)\}/.exec(CSS)?.[1] ?? '';
+    // `m_MultiLineText->SetMinSize( wxSize( -1,150 ) )` (`_base.cpp:59`).
     expect(rule).toMatch(/min-height:\s*150px/);
-    expect(rule).toMatch(/width:\s*100%/);
+    // Proportion 1 in `m_MultiLineSizer`, which `bMainSizer` adds at 20 against
+    // the gridbag's 0 — so this control, and nothing else, takes the slack.
+    expect(rule).toMatch(/flex:\s*1 1 auto/);
+    // It is inset by its own Add()'s border, not stretched to the dialog edge:
+    // `wxEXPAND|wxBOTTOM|wxRIGHT|wxLEFT, 5` (`:61`) inside `wxALL, 10` (`:64`).
+    expect(rule).toMatch(/margin:\s*0 5px 5px/);
+    const box = /\.ze-tbp-multiline\s*\{([^}]*)\}/.exec(CSS)?.[1] ?? '';
+    expect(box).toMatch(/margin:\s*10px/);
+  });
+
+  it('places every gridbag cell where the base file puts it', () => {
+    // `gbSizer1` is seven columns with `AddGrowableCol( 3 )`, and rows 2 and 4
+    // are empty. A cell that states no row and no column is a cell the browser
+    // is placing, not wxFormBuilder — which is how the formatting bar ended up
+    // under `Layer:` instead of beside the font choice.
+    for (const [cls, row, col] of [
+      ['ze-tbp-locked', 1, '1 / span 3'],
+      ['ze-tbp-layer-lbl', 2, '1'],
+      ['ze-tbp-layer', 2, '2 / span 2'],
+      ['ze-tbp-orient-lbl', 2, '5'],
+      ['ze-tbp-orient', 2, '6 / span 2'],
+      ['ze-tbp-bar', 4, '5 / span 3'],
+      ['ze-tbp-border', 6, '5 / span 2'],
+      ['ze-tbp-borderstyle', 8, '6 / span 2'],
+    ] as const) {
+      const rule = new RegExp(`\\.${cls}\\s*\\{([^}]*)\\}`).exec(CSS)?.[1] ?? '';
+      expect(rule, cls).toMatch(new RegExp(`grid-row:\\s*${row};`));
+      expect(rule, cls).toMatch(new RegExp(`grid-column:\\s*${col.replace('/', '\\/')};`));
+    }
   });
 
   it('sizes each gridbag label column by its widest label', () => {

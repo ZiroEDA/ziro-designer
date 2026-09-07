@@ -10006,7 +10006,6 @@ export function PcbEditor({
           initial={collectTextBoxValues({ ...pendingTextBox, source: EMPTY_SLIST })}
           layers={board?.layers.map((l) => l.name) ?? []}
           layerColor={layerColor}
-          placing
           onApply={(values) => {
             const brd = boardRef.current;
             const box = pendingTextBox;
