@@ -137,6 +137,13 @@ export interface PcbSpecialColors {
    * (`common/settings/builtin_color_themes.h:175`, `:452`).
    */
   outlineArea: string;
+  /**
+   * `LAYER_CONFLICTS_SHADOW` — the "Colliding Courtyards" fill a footprint gets
+   * while a move puts its courtyard on top of another's, rgba(255, 0, 5, 0.5)
+   * in KiCad Default (`common/settings/builtin_color_themes.h:158`) and a
+   * half-alpha RED in Classic (`:435`).
+   */
+  conflictsShadow: string;
   netName: string;
   padName: string;
   viaName: string;
@@ -168,6 +175,7 @@ const specialFor = (colors: ThemeColors): PcbSpecialColors => ({
   // layer and a lighter 181.
   pageLimits: at(colors, 'LAYER_PAGE_LIMITS'),
   outlineArea: at(colors, 'LAYER_BOARD_OUTLINE_AREA'),
+  conflictsShadow: at(colors, 'LAYER_CONFLICTS_SHADOW'),
   // Net-name text colours:
   //  - netName is NETNAMES_LAYER_ID_START, the track-name base ("lightLabel");
   //    the painter inverts it per copper layer whose colour is brighter than
@@ -302,6 +310,7 @@ export function pcbThemeWithOverrides(
       drawingSheet: pick('board.worksheet', base.special.drawingSheet),
       pageLimits: pick('board.page_limits', base.special.pageLimits),
       outlineArea: pick('board.outline_area', base.special.outlineArea),
+      conflictsShadow: pick('board.conflicts_shadow', base.special.conflictsShadow),
       nonPlatedHole: pick('board.plated_hole', base.special.nonPlatedHole),
       netName: pick('board.track_net_names', base.special.netName),
       padName: pick('board.pad_net_names', base.special.padName),
@@ -343,6 +352,9 @@ export const PCB_BW_PRINT_THEME: PcbColorTheme = {
     // one colour literal in this file and is right to: a second would be a
     // colour nothing in KiCad has.
     outlineArea: WHITE,
+    // Nor the courtyard-conflict shadow: it exists only while the mouse is
+    // down on a move, and a print has no mouse. Paper, for the same reason.
+    conflictsShadow: WHITE,
     netName: WHITE,
     padName: WHITE,
     viaName: BLACK,
@@ -373,7 +385,7 @@ export const PCB_OBJECT_COLORS: Record<string, string> = {
   anchors: PCB_SPECIAL.anchor,
   points: PCB_SPECIAL.points,
   lockedShadow: at(BUILTIN_DEFAULT_THEME, 'LAYER_LOCKED_ITEM_SHADOW'),
-  collidingCourtyards: at(BUILTIN_DEFAULT_THEME, 'LAYER_CONFLICTS_SHADOW'),
+  collidingCourtyards: PCB_SPECIAL.conflictsShadow,
   boardAreaShadow: at(BUILTIN_DEFAULT_THEME, 'LAYER_BOARD_OUTLINE_AREA'),
   drawingSheet: PCB_SPECIAL.drawingSheet,
   pageLimits: PCB_SPECIAL.pageLimits,

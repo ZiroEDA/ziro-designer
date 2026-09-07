@@ -88,13 +88,20 @@ describe('emphasis colors (RENDER_SETTINGS::update + PCB_PAINTER::GetColor)', ()
   });
 
   it('a selected item brightens by selectFactor/2 + brightness³, not a flat amount', () => {
-    // F.Cu = rgb(200,52,52): brightness .378 -> factor .25 + .054 = .304.
+    // `m_selectFactor` is 0.75, NOT the 0.5 in the RENDER_SETTINGS constructor:
+    // `PCB_BASE_FRAME::LoadSettings` overwrites it with
+    // `m_Graphics.select_factor`, whose default is 0.75f
+    // (`app_settings.cpp:134-135`, `pcb_base_frame.cpp:855`). So the leading
+    // term is 0.375, not 0.25.
+    // F.Cu = rgb(200,52,52): brightness .378 -> factor .375 + .054 = .429.
     const fcu = 'rgb(200,52,52)';
     const b = colorBrightness(fcu);
-    const factor = Math.min(1, 0.25 + b ** 3);
+    const factor = Math.min(1, 0.375 + b ** 3);
     expect(selectedColor(fcu)).toBe(brightenColor(fcu, factor));
     // Much closer to the base color than the flat Brightened(0.8) we used to do.
     expect(selectedColor(fcu)).not.toBe(brightenColor(fcu, 0.8));
+    // …and measurably further than the constructor's 0.5 would have taken it.
+    expect(selectedColor(fcu)).not.toBe(brightenColor(fcu, Math.min(1, 0.25 + b ** 3)));
   });
 
   it('leaves near-black colors and net-name text alone', () => {
@@ -106,8 +113,11 @@ describe('emphasis colors (RENDER_SETTINGS::update + PCB_PAINTER::GetColor)', ()
     // White cannot brighten, so KiCad darkens it and pushes the blue back up.
     const sel = selectedColor('rgb(255,255,255)');
     const rgb = /rgb\((\d+),(\d+),(\d+)\)/.exec(sel)!;
-    expect(Number(rgb[1])).toBe(204); // 255 * (1 - 0.5*0.4)
-    expect(Number(rgb[2])).toBe(204);
+    // `Darkened( m_selectFactor * 0.4 )` with m_selectFactor 0.75: 255 * 0.7 =
+    // 178.5. `formatRgba` rounds half up where `COLOR4D::ToColour` truncates to
+    // 178 — a 1/255 divergence in our 8-bit conversion, not in this rule.
+    expect(Number(rgb[1])).toBe(179);
+    expect(Number(rgb[2])).toBe(179);
     expect(Number(rgb[3])).toBe(255); // blue restored: the "glow"
   });
 

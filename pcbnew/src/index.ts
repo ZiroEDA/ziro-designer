@@ -11,6 +11,13 @@ export {
   type RatsnestEdge,
 } from './ratsnest.js';
 export {
+  beginCourtyardConflicts,
+  conflictShadowRings,
+  courtyardConflictsAt,
+  type CourtyardConflicts,
+  type CourtyardConflictSession,
+} from './courtyard_collision.js';
+export {
   readBoard,
   readFootprintFile,
   rotatePcb,

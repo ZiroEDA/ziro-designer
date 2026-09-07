@@ -146,7 +146,7 @@ function rotatePoint(p: Vec2, deg: number): Vec2 {
  * halving is integer division upstream, so an odd drill diameter loses a
  * nanometre — reproduced, because the shorting-pad test compares against it.
  */
-function padHoleSegment(pad: PcbPad): { a: Vec2; b: Vec2; width: number } | null {
+export function padHoleSegment(pad: PcbPad): { a: Vec2; b: Vec2; width: number } | null {
   if (!pad.drill) return null;
 
   const halfX = Math.trunc(drillX(pad) / 2);

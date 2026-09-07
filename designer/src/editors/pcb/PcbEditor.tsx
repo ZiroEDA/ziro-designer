@@ -103,8 +103,13 @@ import {
   isCopperLayerName,
   setBoardPageSettings,
   serializeBoard,
+  beginCourtyardConflicts,
   buildRatsnest,
+  conflictShadowRings,
+  courtyardConflictsAt,
   prepareLocalRatsnest,
+  type CourtyardConflicts,
+  type CourtyardConflictSession,
   type LocalRatsnest,
   addBoardShape,
   addBoardTrack,
@@ -430,6 +435,7 @@ import {
   pcbGridOptions,
   DEFAULT_DRAW_OPTIONS,
   DOM_PATH_FACTORY,
+  selectedColor,
   type BoardScene,
   type PcbDrawOptions,
   type DrcMarkerDraw,
@@ -1030,6 +1036,17 @@ export function PcbEditor({
   /** `m_ESCClearsNetHighlight` — whether Escape drops the net highlight. */
   const escClearsHighlightRef = useRef(true);
   escClearsHighlightRef.current = pcbCfg.editing.esc_clears_net_highlight;
+  /**
+   * `showCourtyardConflicts = !m_isFootprintEditor && cfg->m_ShowCourtyardCollisions`
+   * (`edit_tool_move_fct.cpp:1002`) — Editing Options' "Show courtyard
+   * collisions when moving/dragging". The move path is not a React consumer.
+   */
+  const showCourtyardConflictsRef = useRef(true);
+  showCourtyardConflictsRef.current = pcbCfg.editing.show_courtyard_collisions;
+  /** `drc_on_move`: the courtyards cached once at grab (`Init`). */
+  const courtyardSessionRef = useRef<CourtyardConflictSession | null>(null);
+  /** …and the last frame's `m_itemsInConflict`, which the overlay shades. */
+  const conflictsRef = useRef<CourtyardConflicts | null>(null);
   /** `GAL::GetGridSnapping()` — Snap to grid, against `window.grid.show`. */
   const gridSnapRef = useRef(true);
   gridSnapRef.current = gridSnappingEnabled(pcbCfg.window.grid.snap, pcbCfg.window.grid.show);
@@ -2748,6 +2765,56 @@ export function PcbEditor({
           }
           ctx.stroke();
         }
+      }
+    }
+    // Courtyard conflicts (LAYER_CONFLICTS_SHADOW). `PCB_PAINTER::draw` fills
+    // the courtyard polygons of every footprint carrying COURTYARD_CONFLICT
+    // (`pcb_painter.cpp:2846`) and the outline of every rule area carrying it
+    // (`:2947`), in one flat colour with no stroke.
+    //
+    // After the ratsnest and before the selection chrome because that is where
+    // GAL_LAYER_ORDER puts it: LAYER_CONFLICTS_SHADOW sits directly under
+    // LAYER_SELECT_OVERLAY and 130 entries above LAYER_RATSNEST
+    // (`pcb_draw_panel_gal.cpp:81`), so the wash goes over the copper it
+    // collides with rather than under it.
+    {
+      const conflicts = conflictsRef.current;
+      const session = courtyardSessionRef.current;
+      const brd = boardRef.current;
+      const md = moveDeltaRef.current;
+      if (conflicts && session && brd && md && objects.collidingCourtyards) {
+        ctx.setTransform(sx, 0, 0, v.scale, v.tx, v.ty);
+        // The moving footprint is a SELECTED one, and `GetColor` gives a
+        // selected item `m_layerColorsSel` instead of the layer colour
+        // (`pcb_painter.cpp:337-343`). So the part under the cursor washes pale
+        // pink and the one it landed on stays red — they are not the same
+        // colour, which is the whole visual difference between "I am dragging
+        // this" and "…into that".
+        const conflictColor =
+          drawOpts.theme?.special.conflictsShadow ?? PCB_SPECIAL.conflictsShadow;
+        const movingColor = selectedColor(conflictColor);
+        const fill = (rings: readonly (readonly { x: number; y: number }[])[]): void => {
+          for (const ring of rings) {
+            if (ring.length < 3) continue;
+            ctx.beginPath();
+            ctx.moveTo(ring[0]!.x, ring[0]!.y);
+            for (let i = 1; i < ring.length; i++) ctx.lineTo(ring[i]!.x, ring[i]!.y);
+            ctx.closePath();
+            ctx.fill();
+          }
+        };
+        for (const idx of conflicts.footprints) {
+          ctx.fillStyle = session.movingFootprints.has(idx) ? movingColor : conflictColor;
+          fill(conflictShadowRings(session, idx, md));
+        }
+        // A rule area is never the thing being dragged, so it never takes the
+        // selected colour.
+        ctx.fillStyle = conflictColor;
+        for (const idx of conflicts.zones) {
+          const outline = brd.zones[idx]?.outline;
+          if (outline) fill([outline]);
+        }
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
       }
     }
     // Umbilical lines (pcb_painter.cpp draw(PCB_TEXT): "Draw the umbilical
@@ -6655,6 +6722,14 @@ export function PcbEditor({
     }
     dragAffectedRef.current = affected;
     moveDeltaRef.current = { x: 0, y: 0 };
+    // `drc_on_move->Init( board )` at :1016, once per gesture: deriving every
+    // courtyard from its F.CrtYd graphics is the expensive half and none of it
+    // changes while the mouse is down.
+    courtyardSessionRef.current =
+      showCourtyardConflictsRef.current && fpIdx.size > 0
+        ? beginCourtyardConflicts(brd, fpIdx)
+        : null;
+    conflictsRef.current = null;
     // The fast path, and what KiCad does: the items keep their place in the
     // retained buffer and their vertices are shifted there each frame, so
     // nothing is rebuilt, re-recorded or drawn twice. Only when the GPU cannot
@@ -7185,6 +7260,11 @@ export function PcbEditor({
     const delta = moveDelta(anchor, origin, cur, moveSnap);
     moveDeltaRef.current = delta;
     forcedCursorRef.current = { x: anchor.x + delta.x, y: anchor.y + delta.y };
+    // `drc_on_move->Run(); drc_on_move->UpdateConflicts( view, true )` (:1207).
+    // Before the in-place branch returns: every path through this function is a
+    // frame of the same move, and the fast one is the one a footprint takes.
+    const session = courtyardSessionRef.current;
+    conflictsRef.current = session ? courtyardConflictsAt(session, delta) : null;
     const applied = inPlaceMoveRef.current;
     if (applied) {
       // Only the change since the last frame: the buffer already holds the rest.
@@ -7269,6 +7349,10 @@ export function PcbEditor({
       moveSceneRef.current !== null || dragModeRef.current || inPlaceMoveRef.current !== null;
     inPlaceMoveRef.current = null;
     localRatsRef.current = null;
+    // `drc_on_move->ClearConflicts( view )` (:1493): the gesture is over, so
+    // the shadow goes with it whether or not the move was committed.
+    courtyardSessionRef.current = null;
+    conflictsRef.current = null;
     const trackDrag = trackDragRef.current;
     trackDragRef.current = null;
     dragModeRef.current = false;
@@ -7315,6 +7399,8 @@ export function PcbEditor({
     const applied = inPlaceMoveRef.current;
     inPlaceMoveRef.current = null;
     localRatsRef.current = null;
+    courtyardSessionRef.current = null;
+    conflictsRef.current = null;
     if (applied && (applied.x !== 0 || applied.y !== 0)) {
       glRef.current?.moveItems(dragAffectedRef.current, -applied.x, -applied.y);
     }

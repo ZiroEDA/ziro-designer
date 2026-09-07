@@ -143,8 +143,23 @@ const DEFAULT_PAD_CLEARANCE = 0.2 * MM;
 // emphasis below is derived from the base layer color with them, none of it is
 // a fixed "make it lighter" nudge, which is why a flat brighten never matches.
 
-/** RENDER_SETTINGS::m_selectFactor / m_highlightFactor (render_settings.cpp). */
-const SELECT_FACTOR = 0.5;
+/**
+ * `RENDER_SETTINGS::m_selectFactor` / `m_highlightFactor`.
+ *
+ * **Not the `render_settings.cpp:39-40` constructor pair.** Both of those are
+ * 0.5, but `PCB_BASE_FRAME::LoadSettings` immediately overwrites them from the
+ * application settings (`pcb_base_frame.cpp:854-855`), and there
+ * `graphics.select_factor` defaults to **0.75** while `graphics.highlight_factor`
+ * defaults to 0.5 (`common/settings/app_settings.cpp:131-135`). So a selected
+ * item in pcbnew lifts half again as far as the constructor suggests, and
+ * reading the constructor is how ours came to under-brighten every selected
+ * item on the board.
+ *
+ * [px] settled against KiCad on this machine: the courtyard-conflict shadow of
+ * a footprint being moved measures rgb(153, 85, 96) on screen, which is
+ * `Brightened( 0.75·0.5 + 0.30129³ )` of rgba(255,0,5,0.5) and no other factor.
+ */
+const SELECT_FACTOR = 0.75;
 const HIGHLIGHT_FACTOR = 0.5;
 
 /** An `rgb()/rgba()` string split into 0..1 channels + alpha. */
