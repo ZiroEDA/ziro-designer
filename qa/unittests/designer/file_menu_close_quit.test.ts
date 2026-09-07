@@ -388,14 +388,20 @@ describe('no menu declares a key the browser will not deliver', () => {
   });
 
   it('and the Hotkey List, built from the same declarations, agrees', () => {
-    // buildHotkeySections is what the user actually reads. Ctrl+Shift+T is the
-    // one documented exception - PCB_ACTIONS::placeText, read by no dispatcher
-    // yet, decided in #525 - and it is named rather than filtered out.
+    // buildHotkeySections is what the user actually reads, so nothing in it may
+    // be a combo the browser keeps: the list would be telling the user to press
+    // a key that opens a tab.
+    //
+    // Ctrl+Shift+T was the one documented exception - PCB_ACTIONS::placeText,
+    // read by no dispatcher yet, deferred to #525. The PCB editor's Place menu
+    // presses it now, so it is substituted like the other three and the
+    // expected list is empty. Empty is the only state to accept here: a new
+    // name on this list is a command the user cannot run.
     const reserved = buildHotkeySections()
       .flatMap((s) => s.entries.map((e) => e.keys))
       .filter((k) => k !== '' && !/click|wheel|drag/i.test(k))
       .filter(isBrowserReserved);
-    expect([...new Set(reserved)].sort()).toEqual(['Ctrl+Shift+T']);
+    expect([...new Set(reserved)].sort()).toEqual([]);
   });
 
   it('shows Close and Quit in the Common section on the keys the rows use', () => {

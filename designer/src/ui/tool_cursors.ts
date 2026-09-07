@@ -79,7 +79,26 @@ const SHARED: Readonly<Record<string, KiCursor>> = {
   drawRectangle: 'PENCIL',
   drawCircle: 'PENCIL',
   drawArc: 'PENCIL',
+  // `DrawBezier` runs the same `drawShape` loop as the four above
+  // (`drawing_tool.cpp:566,386`), so it takes the same one line.
+  drawBezier: 'PENCIL',
   drawTextBox: 'PENCIL',
+  /**
+   * The text tool is the one drawing tool that is NOT the pencil.
+   * `DRAWING_TOOL::PlaceText`'s `setCursor` is a two-arm chain:
+   *
+   *     if( text ) SetCurrentCursor( KICURSOR::MOVING );
+   *     else       SetCurrentCursor( KICURSOR::TEXT );
+   *
+   * and ours opens the dialog on the click rather than dragging a preview, so
+   * the I-beam is the whole of it - the same reasoning `placeBarcode` above
+   * takes. This had no entry at all, so `Draw Text` fell through to the board
+   * editor's fallback and armed with the plain arrow.
+   *
+   * Note `placeReferenceImage` is deliberately still absent: `PlaceReferenceImage`
+   * sets `KICURSOR::ARROW` in that same idle arm, which IS the fallback.
+   */
+  placeText: 'TEXT',
   // `DRAWING_TOOL::DrawZone`, which is the polygon, the zone and the rule area.
   drawPolygon: 'PENCIL',
   drawZone: 'PENCIL',

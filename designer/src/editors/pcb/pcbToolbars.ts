@@ -9,6 +9,7 @@
  * groups: one button showing the selected action, long-press for the rest).
  */
 
+import { browserSafeKey } from '../../ui/browser_reserved.js';
 import type { ToolbarDefaults } from '../../ui/toolbar_config.js';
 import type { ToolEntry } from '../../ui/toolbar_types.js';
 
@@ -309,7 +310,11 @@ export const PCB_RIGHT_TOOLBAR: ToolEntry[] = [
     title:
       'Place Reference Images\nAdd bitmap images to be used as reference (images will not be included in any output)',
   },
-  { id: 'placeText', icon: 'placeText', title: 'Draw Text (Ctrl+Shift+T)' },
+  // Ctrl+Shift+T upstream, which the browser keeps for reopen-closed-tab. The
+  // button advertises the key this app actually binds, because
+  // `hotkeys_inventory.ts` reads the accelerator back out of this title: a
+  // literal here would put a key in the Hotkey List that nothing can press.
+  { id: 'placeText', icon: 'placeText', title: `Draw Text (${browserSafeKey('Ctrl+Shift+T')})` },
   { id: 'drawTextBox', icon: 'drawTextBox', title: 'Draw Text Boxes' },
   { id: 'drawTable', icon: 'drawTable', title: 'Draw Tables' },
   {

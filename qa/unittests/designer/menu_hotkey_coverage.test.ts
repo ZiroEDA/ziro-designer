@@ -995,7 +995,12 @@ const DECLARED: Readonly<Record<string, readonly string[]>> = {
     'Ctrl+Shift+C',
     'Ctrl+Shift+P',
     'Ctrl+Shift+B',
-    'Ctrl+Shift+T',
+    // Draw Text. The row asks `browserSafeKey` what to carry, and the answer
+    // moved: Ctrl+Shift+T is the browser's reopen-closed-tab, and it stopped
+    // being the one reserved combo left unsubstituted when the PCB editor's
+    // Place menu grew a row that presses it. This changed here without this
+    // file being touched, which is the point of the row asking the table.
+    'Ctrl+Alt+Shift+T',
     'Ctrl+Shift+H',
     'Ctrl+Shift+N',
     // Inspect: measureTool Ctrl+Shift+M, showDatasheet 'D'.
@@ -1033,6 +1038,37 @@ const DECLARED: Readonly<Record<string, readonly string[]>> = {
     // `{ label: 'Dimension' }` stub with no action and no accelerator, which is
     // why Ctrl+Shift+H did nothing at all.
     'Ctrl+Shift+H',
+    // ---- Place, the rest of it (`menubar_pcb_editor.cpp:288-315`) ---------
+    // These six arrived with the drawing rows. Every one is a
+    // `.DefaultHotkey()` on the action the row runs, and every row runs a tool
+    // this frame has: `drawVia` Ctrl+Shift+X (`pcb_actions.cpp:332`),
+    // `drawZone` Ctrl+Shift+Z (`:321`, the `#else` half of its OSX ifdef),
+    // `drawLine` Ctrl+Shift+L, `drawCircle` Ctrl+Shift+C, `drawPolygon`
+    // Ctrl+Shift+P.
+    //
+    // Draw Arcs is the one drawing row with a `.DefaultHotkey()` that is NOT
+    // listed: `ACTIONS::unselectAll` declares the same Ctrl+Shift+A, both
+    // AS_GLOBAL, and the installed manual prints it under both names. Edit >
+    // Unselect All is the earlier row and so the one our menu walk reaches, so
+    // the key stays there and Draw Arcs prints none.
+    //
+    // The rows for the tools this frame does NOT run yet — Place Footprints,
+    // Draw Rule Areas, Draw Bezier Curve — print no accelerator, which is why
+    // 'A', Ctrl+Shift+K and Ctrl+Shift+B are not here. Upstream carries them;
+    // a key beside a command we have not built is the thing `pressableRows`
+    // below exists to forbid.
+    'Ctrl+Shift+X',
+    'Ctrl+Shift+Z',
+    'Ctrl+Shift+L',
+    'Ctrl+Shift+C',
+    'Ctrl+Shift+P',
+    // Place > Draw Text. `PCB_ACTIONS::placeText` is Ctrl+Shift+T upstream
+    // (`pcb_actions.cpp:213`) and that is the browser's reopen-closed-tab, so
+    // the row carries `browserSafeKey`'s answer. This is the substitution that
+    // `browser_hotkeys.test.ts` used to list as the one reserved combo left
+    // unbound: the reason for the deferral was that no dispatcher read the key,
+    // and this row is that dispatcher.
+    'Ctrl+Alt+Shift+T',
     // ---- the canvas context menu (PCB_SELECTION_TOOL's TOOL_MENU) ---------
     // Every row below is one KiCad prints in that menu. Three groups, and the
     // group a key is in is the whole reason it is listed:

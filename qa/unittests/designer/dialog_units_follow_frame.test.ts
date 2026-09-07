@@ -44,11 +44,36 @@ const DIALOGS = fileURLToPath(
 const SHARED_DIALOGS = fileURLToPath(new URL('../../../designer/src/ui', import.meta.url));
 const SHARED_FILES = ['DialogTableProperties.tsx'];
 
-const files = [...readdirSync(DIALOGS).filter((f) => f.endsWith('.tsx')), ...SHARED_FILES];
+/**
+ * The board editor's dialogs, scanned by the same rule.
+ *
+ * This is the fix for the shape CLAUDE.md calls out by name — "a rule scoped to
+ * the directory a bug was found in". The defect was found twice in
+ * `editors/schematic/dialogs`, so that is where the scan stopped, and every one
+ * of pcbnew's dialogs then acquired it unobserved: ten of them print a literal
+ * "mm" today. `DIALOG_TEXTBOX_PROPERTIES` is the one that has been paid off, and
+ * it was only looked at because a board in mm hid the bug in a screenshot.
+ *
+ * `UNIT_BINDER` is `common/widgets/`, not eeschema's, which is the whole reason
+ * one scan can cover both editors: the rule is per-dialog and the widget is one.
+ */
+const PCB_DIALOGS = fileURLToPath(
+  new URL('../../../designer/src/editors/pcb/dialogs', import.meta.url),
+);
+const PCB_FILES = readdirSync(PCB_DIALOGS).filter((f) => f.endsWith('.tsx'));
 
-/** Where a scanned file lives — the shared ones are not in the editor's folder. */
+const files = [
+  ...readdirSync(DIALOGS).filter((f) => f.endsWith('.tsx')),
+  ...SHARED_FILES,
+  ...PCB_FILES,
+];
+
+/** Where a scanned file lives — three roots, and no basename is in two of them. */
 const pathOf = (file: string): string =>
-  join(SHARED_FILES.includes(file) ? SHARED_DIALOGS : DIALOGS, file);
+  join(
+    SHARED_FILES.includes(file) ? SHARED_DIALOGS : PCB_FILES.includes(file) ? PCB_DIALOGS : DIALOGS,
+    file,
+  );
 
 /** Comments are prose: a `mm` in a header block is documentation, not a label. */
 const code = (text: string): string =>
@@ -90,6 +115,25 @@ const KNOWN_HARDCODED = new Set([
   // width fields still print a literal "mm" where `UNIT_BINDER` would print the
   // frame's unit. It is one fix for two editors now, which is the point.
   'DialogTableProperties.tsx',
+  // ---- the board editor, the moment this scan could see it -----------------
+  // Ten, all the same defect and none of them checked before: the scan used to
+  // stop at the schematic's folder. Each is a `UNIT_BINDER` upstream — e.g.
+  // `m_borderWidth( aParent, m_borderWidthLabel, m_borderWidthCtrl,
+  // m_borderWidthUnits )` — and each prints "mm" here whatever the board is in.
+  //
+  // `dialog_textbox_properties.tsx` is deliberately NOT on this list: it is the
+  // one that has been paid, and the block below names it so it cannot quietly
+  // go back.
+  'dialog_barcode_properties.tsx',
+  'dialog_board_setup.tsx',
+  'dialog_copper_zones.tsx',
+  'dialog_dimension_properties.tsx',
+  'dialog_footprint_properties.tsx',
+  'dialog_graphic_properties.tsx',
+  'dialog_line_modification.tsx',
+  'dialog_outset_items.tsx',
+  'dialog_pad_properties.tsx',
+  'dialog_reference_image_properties.tsx',
 ]);
 
 describe('a dialog never hardcodes a unit name beside a field', () => {
@@ -117,6 +161,34 @@ describe('the debt list stays honest', () => {
     // rule; every unit-bearing field went to the shared dialog with the layout.
     // Redundant with the scan above only for as long as that stays true.
     expect(hardcodesUnits('dialog_table_properties.tsx')).toEqual([]);
+  });
+});
+
+describe('the board editor’s Text Box Properties takes the units as a prop', () => {
+  // Named for the same reason the two schematic ones below are: the scan passes
+  // for a dialog with no distance field at all, so "clean" is not the same as
+  // "fixed". This one has four.
+  const src = readFileSync(join(PCB_DIALOGS, 'dialog_textbox_properties.tsx'), 'utf8');
+
+  it('binds every distance through UNIT_BINDER rather than assuming millimetres', () => {
+    expect(src).toMatch(/units:\s*StatusUnits/);
+    expect(src).toMatch(/unitLabel\(units\)/);
+    // `StringFromValue` out, `ValueFromString` in — and `parseUnitValue` rather
+    // than the Double form, because these fields bind int IU: `GetIntValue()`
+    // quantises to the board's nanometre, which is what makes mm -> mils -> mm
+    // round-trip instead of drifting by the display rounding.
+    expect(src).toMatch(/stringFromValue\(/);
+    expect(src).toMatch(/parseUnitValue\(/);
+    // The board's IU scale, not the drawing sheet's default: `stringFromValue`
+    // picks its digit count from `IU_PER_MM`, so the wrong scale prints a
+    // schematic's three decimals for a board's five.
+    expect(src).toMatch(/pcbIUScale/);
+  });
+
+  it('and no longer parses the field with Number(), which cannot read mils', () => {
+    // The shape that was there: `Number(e.target.value)` on a field showing the
+    // frame's units. On a mils board it read 39.37 as 39.37 MILLIMETRES.
+    expect(src).not.toMatch(/Number\(e\.target\.value\)/);
   });
 });
 

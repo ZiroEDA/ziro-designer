@@ -418,9 +418,12 @@ describe('the Footprint Editor menu bar', () => {
 
   /**
    * Place's accelerators, none of which this bar carried. Each is the action's
-   * own `DefaultHotkey`; `browserSafeKey` decides the two that Chrome reserves,
-   * and today it substitutes neither (`ui/browser_reserved.ts` names
-   * `placeText`'s Ctrl+Shift+T as the deliberate exception).
+   * own `DefaultHotkey`, except where `browserSafeKey` says the browser keeps
+   * it: `placeText`'s Ctrl+Shift+T is Chrome's reopen-closed-tab and is
+   * substituted now. It used to be the one exception in
+   * `ui/browser_reserved.ts`, deferred because no dispatcher read the key; the
+   * PCB editor's Place menu presses it now, so the deferral ended and this row
+   * moved with the table it asks.
    */
   it.each([
     ['Draw Rule Areas', 'Ctrl+Shift+K'],
@@ -429,7 +432,7 @@ describe('the Footprint Editor menu bar', () => {
     ['Draw Circles', 'Ctrl+Shift+C'],
     ['Draw Polygons', 'Ctrl+Shift+P'],
     ['Draw Bezier Curve', 'Ctrl+Shift+B'],
-    ['Draw Text', 'Ctrl+Shift+T'],
+    ['Draw Text', 'Ctrl+Alt+Shift+T'],
     ['Draw Orthogonal Dimensions', 'Ctrl+Shift+H'],
     ['Place the Footprint Anchor', 'Ctrl+Shift+N'],
   ])('Place > %s answers %s', (label, combo) => {

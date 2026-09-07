@@ -471,6 +471,7 @@ import { useModalEscape } from '../../ui/useModalEscape.js';
 import { addQuitOrClose } from '../../ui/action_menu.js';
 import { dispatchMenuHotkey, focusBlocksHotkey } from '../../ui/menu_hotkeys.js';
 import { isTypingTarget, wasBrowserSuppressed, type FocusLike } from '../../ui/browser_hotkeys.js';
+import { browserSafeKey } from '../../ui/browser_reserved.js';
 import { settings } from '../../prefs/settings.js';
 import { usePcbnewSettings, useUserColors, useUserThemes } from '../../prefs/useSettings.js';
 import { ColorSwatch } from '../../ui/ColorSwatch.js';
@@ -635,29 +636,47 @@ const DRAW_SHAPE_TOOLS: Record<string, PcbShape['kind']> = {
 // a right-toolbar tool is active (EDA_DRAW_FRAME::DisplayToolMsg). The selection
 // tool leaves the field blank, exactly like KiCad.
 const PCB_TOOL_MSGS: Record<string, string> = {
-  // The selection tool shows "Select item(s)" (PCB_SELECTION_TOOL's tool message).
+  // Every string here is `TOOL_ACTION::GetFriendlyName()` and nothing else:
+  // `TOOLS_HOLDER::PushTool` ends `DisplayToolMsg( action->GetFriendlyName() )`
+  // (`tools_holder.cpp:69-74`), so the tooltip, the menu label and the legacy
+  // hotkey name are all the wrong string for this field.
+  //
+  // Half of them were the wrong string: v10's names are plural — "Draw Lines",
+  // not "Draw Line" — and the four that read "Add …" were the pre-v7 spellings.
+  // The selection tool shows `ACTIONS::selectionTool`'s own name.
   selectSetRect: 'Select item(s)',
   selectSetLasso: 'Select item(s)',
   routeSingleTrack: 'Route Single Track',
-  drawVia: 'Add Via',
-  drawZone: 'Add Filled Zone',
-  drawLine: 'Draw Line',
-  drawArc: 'Draw Arc',
-  drawRectangle: 'Draw Rectangle',
-  drawCircle: 'Draw Circle',
-  drawPolygon: 'Draw Polygon',
-  placeText: 'Add Text',
+  drawVia: 'Place Vias',
+  drawZone: 'Draw Filled Zones',
+  drawLine: 'Draw Lines',
+  drawArc: 'Draw Arcs',
+  drawRectangle: 'Draw Rectangles',
+  drawCircle: 'Draw Circles',
+  drawPolygon: 'Draw Polygons',
+  placeReferenceImage: 'Place Reference Images',
+  placeText: 'Draw Text',
+  // These three had no entry at all, so arming them left the field showing the
+  // tool before — the Text Box tool in particular, which is what this pass is
+  // about.
+  drawTextBox: 'Draw Text Boxes',
+  drawTable: 'Draw Tables',
+  placeBarcode: 'Add Barcode',
+  drawOrthogonalDimension: 'Draw Orthogonal Dimensions',
+  drawAlignedDimension: 'Draw Aligned Dimensions',
+  drawCenterDimension: 'Draw Center Dimensions',
+  drawRadialDimension: 'Draw Radial Dimensions',
+  drawLeader: 'Draw Leaders',
   // `TOOL_ACTION::GetFriendlyName()`, which `TOOLS_HOLDER::PushTool` puts in
   // pane 6 — "Place Point" (`pcb_actions.cpp:194`), not the tooltip.
   placePoint: 'Place Point',
-  placeBarcode: 'Add Barcode',
   // `ACTIONS::gridSetOrigin` is "Grid Origin" (`actions.cpp:1057`) and
   // `PCB_ACTIONS::drillOrigin` "Drill/Place File Origin"
   // (`pcb_actions.cpp:1472`) — the FriendlyName, not the tooltip.
   gridSetOrigin: 'Grid Origin',
   drillOrigin: 'Drill/Place File Origin',
   measureTool: 'Measure Tool',
-  deleteTool: 'Delete Items',
+  deleteTool: 'Interactive Delete Tool',
   localRatsnestTool: 'Local Ratsnest',
 };
 
@@ -8726,18 +8745,116 @@ export function PcbEditor({
     {
       label: 'Place',
       items: [
-        { label: 'Footprint...', disabled: dis },
-        { label: 'Via', disabled: dis },
-        { label: 'Zone', disabled: dis },
-        { label: 'Text', disabled: dis },
-        // `placeMenu->Add( PCB_ACTIONS::placePoint )`
-        // (`menubar_pcb_editor.cpp:314`), which upstream files after Draw Table
-        // and before Add Barcode — between Text and the Dimensions submenu in
-        // the rows this abridged menu carries.
+        // `menubar_pcb_editor.cpp:288-315`, in that order and under those
+        // FriendlyNames. Every row that names a tool this frame runs carries
+        // that tool's action AND its `.DefaultHotkey()`, because
+        // `ui/menu_hotkeys.ts` dispatches the `shortcut` on a menu row: a tool
+        // with no row has no key, and a row with no action is a key that does
+        // nothing. Draw Text and Draw Text Boxes were both in that state —
+        // Text was a dead label and Text Box had no row at all — which is why
+        // the toolbar could arm them and the keyboard could not.
+        //
+        // The greyed rows are the tools this frame does not run yet, and they
+        // print NO accelerator. Upstream they carry one — there the tool exists
+        // and the row is only conditionally disabled — but a key printed beside
+        // a command we have not built is a promise nothing can keep, which is
+        // the whole of what `menu_hotkey_coverage.test.ts` forbids. The key
+        // arrives with the tool.
+        { label: 'Place Footprints', icon: 'placeFootprint', disabled: dis },
+        {
+          label: 'Place Vias',
+          icon: 'drawVia',
+          shortcut: 'Ctrl+Shift+X',
+          action: () => setActiveTool('drawVia'),
+        },
+        {
+          label: 'Draw Filled Zones',
+          icon: 'drawZone',
+          // `#ifdef __WXOSX_MAC__ MD_ALT + 'Z' #else MD_CTRL|MD_SHIFT + 'Z'`
+          // (`pcb_actions.cpp:318-322`) — the GTK build takes the `#else`.
+          shortcut: 'Ctrl+Shift+Z',
+          action: () => setActiveTool('drawZone'),
+        },
+        { label: 'Draw Rule Areas', icon: 'drawRuleArea', disabled: dis },
+        { sep: true },
+        {
+          label: 'Draw Lines',
+          icon: 'drawLine',
+          shortcut: 'Ctrl+Shift+L',
+          action: () => setActiveTool('drawLine'),
+        },
+        // Draw Arcs prints no key, and this one is not our omission.
+        // Ctrl+Shift+A is double-booked UPSTREAM: `ACTIONS::unselectAll`
+        // (`actions.cpp:378`) and `PCB_ACTIONS::drawArc` (`pcb_actions.cpp:147`)
+        // both declare it, both AS_GLOBAL, and the installed manual documents
+        // it under both names. KiCad resolves that at runtime —
+        // `ACTION_MANAGER::RunHotKey` walks the globals sharing the key and
+        // runs the first whose `enableCondition` passes and whose `RunAction`
+        // returns true — so which one you get depends on tool registration
+        // order and on the selection.
+        //
+        // Ours is a menu walk, so the first row in menu order wins outright,
+        // and that is Edit > Unselect All. Printing the key here too would put
+        // an accelerator on a row that can never fire it, which is the same lie
+        // as a dead row. It goes to whichever row can actually run it.
+        {
+          label: 'Draw Arcs',
+          icon: 'drawArc',
+          action: () => setActiveTool('drawArc'),
+        },
+        // No `.DefaultHotkey()` upstream, and none invented here.
+        {
+          label: 'Draw Rectangles',
+          icon: 'drawRectangle',
+          action: () => setActiveTool('drawRectangle'),
+        },
+        {
+          label: 'Draw Circles',
+          icon: 'drawCircle',
+          shortcut: 'Ctrl+Shift+C',
+          action: () => setActiveTool('drawCircle'),
+        },
+        {
+          label: 'Draw Polygons',
+          icon: 'drawPolygon',
+          shortcut: 'Ctrl+Shift+P',
+          action: () => setActiveTool('drawPolygon'),
+        },
+        { label: 'Draw Bezier Curve', icon: 'drawBezier', disabled: dis },
+        {
+          label: 'Place Reference Images',
+          icon: 'placeReferenceImage',
+          action: () => setActiveTool('placeReferenceImage'),
+        },
+        {
+          label: 'Draw Text',
+          icon: 'placeText',
+          // Ctrl+Shift+T upstream (`pcb_actions.cpp:213`), which is the
+          // browser's reopen-closed-tab. `browserSafeKey` is what decides what
+          // this row carries, so the menu and the dispatcher cannot disagree
+          // and the table stays the one place the divergence is written down.
+          shortcut: browserSafeKey('Ctrl+Shift+T'),
+          action: () => setActiveTool('placeText'),
+        },
+        {
+          label: 'Draw Text Boxes',
+          icon: 'drawTextBox',
+          action: () => setActiveTool('drawTextBox'),
+        },
+        {
+          label: 'Draw Tables',
+          icon: 'drawTable',
+          action: () => setActiveTool('drawTable'),
+        },
         {
           label: 'Place Point',
-          disabled: dis,
+          icon: 'placePoint',
           action: () => setActiveTool('placePoint'),
+        },
+        {
+          label: 'Add Barcode',
+          icon: 'placeBarcode',
+          action: () => setActiveTool('placeBarcode'),
         },
         { sep: true },
         // `menubar_pcb_editor.cpp:317-326`: a "Draw Dimensions" submenu after a
@@ -10004,6 +10121,7 @@ export function PcbEditor({
       {pendingTextBox && (
         <DialogTextBoxProperties
           initial={collectTextBoxValues({ ...pendingTextBox, source: EMPTY_SLIST })}
+          units={unitLabel}
           layers={board?.layers.map((l) => l.name) ?? []}
           layerColor={layerColor}
           onApply={(values) => {
@@ -10033,6 +10151,7 @@ export function PcbEditor({
       {textBoxPropsIndex !== null && board?.textBoxes[textBoxPropsIndex] && (
         <DialogTextBoxProperties
           initial={collectTextBoxValues(board.textBoxes[textBoxPropsIndex]!)}
+          units={unitLabel}
           layers={board.layers.map((l) => l.name)}
           layerColor={layerColor}
           onApply={applyTextBoxEdit}

@@ -67,6 +67,45 @@ describe('the other shared actions', () => {
   it('and the schematic agrees about the zoom tool', () => {
     expect(toolCursorName('zoomTool')).toBe('ZOOM_IN');
   });
+
+  /**
+   * The drawing tools, which are one answer with one exception.
+   *
+   * `DRAWING_TOOL::drawShape`'s `setCursor` is a single unconditional
+   * `SetCurrentCursor( KICURSOR::PENCIL )` (`drawing_tool.cpp:2411`) and it
+   * serves Line, Arc, Rectangle, Circle, Bezier and — through
+   * `DrawRectangle`'s `isTextBox` arm — Text Box. `DRAWING_TOOL::PlaceText` is
+   * the exception: its idle arm is `KICURSOR::TEXT`, the I-beam.
+   *
+   * `placeText` and `drawBezier` had no entry at all, so both fell through to
+   * the board editor's `default` and armed with the plain arrow — the text tool
+   * showing the same pointer whether it was armed or not.
+   */
+  it.each([
+    ['drawLine', 'PENCIL'],
+    ['drawArc', 'PENCIL'],
+    ['drawRectangle', 'PENCIL'],
+    ['drawCircle', 'PENCIL'],
+    ['drawBezier', 'PENCIL'],
+    ['drawTextBox', 'PENCIL'],
+    ['drawTable', 'PENCIL'],
+    ['placeText', 'TEXT'],
+  ])('%s runs with %s', (id, want) => {
+    expect(sharedToolCursorName(id)).toBe(want);
+  });
+
+  it('and the board canvas really arms them, rather than agreeing in the table alone', () => {
+    // Through `boardToolCursor`, which is what the canvas calls: an entry in
+    // the shared table that the frame's own function shadows would pass the
+    // check above and change nothing on screen.
+    expect(boardToolCursor('placeText')).toBe(kiCursor('TEXT'));
+    expect(boardToolCursor('drawTextBox')).toBe(kiCursor('PENCIL'));
+    // And the one KiCad really does leave as the arrow:
+    // `PlaceReferenceImage`'s idle arm is `KICURSOR::ARROW`
+    // (`drawing_tool.cpp`), which is this frame's fallback.
+    expect(sharedToolCursorName('placeReferenceImage')).toBeNull();
+    expect(boardToolCursor('placeReferenceImage')).toBe('default');
+  });
 });
 
 describe('an editor keeps its own tools to itself', () => {

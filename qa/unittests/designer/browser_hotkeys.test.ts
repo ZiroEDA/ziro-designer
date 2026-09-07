@@ -90,14 +90,21 @@ describe('fed from the app’s own inventory', () => {
     expect(r.claimed).toContain('ctrl+alt+n');
   });
 
-  it('binds nothing on a reserved combo but the one documented case', () => {
+  it('binds nothing on a reserved combo at all', () => {
     // The guard against this quietly coming back. A command bound to a combo
     // the browser keeps does not work in a tab, whatever the menu says, so
-    // every one of these has to be a deliberate entry in BROWSER_REBINDS or a
-    // known exception. Exactly one is left:
+    // every one of these has to be a deliberate entry in BROWSER_REBINDS.
+    //
+    // There used to be one exception:
     //
     //   Ctrl+Shift+T  PCB_ACTIONS::placeText, advertised on the PCB toolbar and
     //                 read by no dispatcher yet - decided in #525
+    //
+    // The PCB editor's Place menu carries the row now, and `dispatchMenuHotkey`
+    // presses it, so the question that deferral was waiting on is answered and
+    // the combo is substituted like the other three. The list is empty, and an
+    // empty list is the only state this test should ever accept: a new
+    // exception is a command that does not work.
     //
     // Ctrl+W used to be here too, on the reading that a browser closing the tab
     // is the faithful analogue of the platform's close-this-window. It is - but
@@ -105,7 +112,7 @@ describe('fed from the app’s own inventory', () => {
     // manager and is not a window close at all, so the key it advertised threw
     // the user's tab away instead of doing what the menu said. See
     // ui/action_menu.ts.
-    expect(planClaim(combos).reserved.sort()).toEqual(['Ctrl+Shift+T']);
+    expect(planClaim(combos).reserved).toEqual([]);
   });
 
   it('has moved New Project off the browser’s new window', () => {

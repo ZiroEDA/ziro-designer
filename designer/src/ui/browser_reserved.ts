@@ -63,11 +63,13 @@ export const isBrowserReserved = (combo: string): boolean => RESERVED.has(combo.
  * return to the project manager, which is not a window close and not a process
  * exit. Losing the tab, or the whole browser, instead is the bug.
  *
- * One reserved combo is deliberately *not* substituted:
- *
- *   Ctrl+Shift+T  PCB_ACTIONS::placeText, which the PCB editor advertises on
- *                 its toolbar and no dispatcher reads yet. It is decided when
- *                 pcbnew gets a registry - see #525 - rather than guessed now.
+ * Every reserved combo an in-app command wants is now substituted. Ctrl+Shift+T
+ * was the last exception, on the grounds that no dispatcher read it: the PCB
+ * editor advertised `PCB_ACTIONS::placeText` on its toolbar and nothing acted on
+ * the key. That is no longer true - the Place menu carries the row and
+ * `dispatchMenuHotkey` presses it - so the question the deferral was waiting on
+ * has an answer, and leaving it would mean the row prints a key the browser
+ * eats.
  */
 export const BROWSER_REBINDS: Readonly<Record<string, string>> = {
   /** KICAD_MANAGER_ACTIONS::newProject, and ACTIONS::doNew in the editors that
@@ -87,6 +89,18 @@ export const BROWSER_REBINDS: Readonly<Record<string, string>> = {
    * that keeps the promise the menu makes.
    */
   'Ctrl+Q': 'Ctrl+Alt+Q',
+  /**
+   * `PCB_ACTIONS::placeText` - Draw Text, in the PCB and footprint editors
+   * (`pcb_actions.cpp:213`). Ctrl+Shift+T is the browser's reopen-closed-tab,
+   * which Chromium handles before the page sees the key.
+   *
+   * Shift is kept and Alt added, which is the shape the three above already
+   * have. Not `Ctrl+Alt+T`: that opens a terminal on GNOME, and it is also
+   * eeschema's key for nothing at all - `SCH_ACTIONS::placeSchematicText` is a
+   * bare `T`, so the two editors' text tools stay as far apart here as they are
+   * upstream.
+   */
+  'Ctrl+Shift+T': 'Ctrl+Alt+Shift+T',
 };
 
 /** The combo this app actually binds for a command whose upstream key is taken. */

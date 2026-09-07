@@ -64,7 +64,9 @@
  */
 
 import { useState, type JSX } from 'react';
-import { pcbIuToMM, pcbMmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbIuToMM, pcbIUScale, pcbMmToIU } from '@ziroeda/common/src/eda_units.js';
+import { parseUnitValue, stringFromValue, unitLabel } from '../../../ui/unit_binder.js';
+import type { StatusUnits } from '../../../ui/status_format.js';
 import type { TextBoxValues } from '@ziroeda/pcbnew/src/textbox_properties.js';
 import type { StrokeType } from '@ziroeda/pcbnew/src/types.js';
 import { LINE_STYLE_NAMES } from '@ziroeda/common/src/stroke_params.js';
@@ -95,6 +97,23 @@ function orientationLabel(deg: number): string {
 
 interface Props {
   initial: TextBoxValues;
+  /**
+   * The frame's display units, `EDA_DRAW_FRAME::GetUserUnits()`.
+   *
+   * Every distance in this dialog is a `UNIT_BINDER` upstream — the .cpp binds
+   * five of them, `m_textWidth`, `m_textHeight`, `m_thickness`, `m_borderWidth`
+   * and the orientation angle, each constructed with its label, its control AND
+   * its unit static text. The binder formats through `StringFromValue`, parses
+   * through `ValueFromString`, and writes the unit NAME into that third control,
+   * all in the frame's units. A board in mils shows `39.37` where the same field
+   * on a mm board shows `1`.
+   *
+   * These four printed a literal "mm" and formatted with `iuToMM` regardless,
+   * which is the same defect `dialog_units_follow_frame.test.ts` was written for
+   * on the schematic side — and could not see here, because its scan stopped at
+   * `editors/schematic/dialogs`.
+   */
+  units: StatusUnits;
   layers: readonly string[];
   /** The board colour of a layer, for the layer combo's swatch. */
   layerColor: (layer: string) => string;
@@ -104,6 +123,7 @@ interface Props {
 
 export function DialogTextBoxProperties({
   initial,
+  units,
   layers,
   layerColor,
   onApply,
@@ -134,15 +154,20 @@ export function DialogTextBoxProperties({
         type="text"
         className={`ze-input ze-tbp-${slot}-ctl`}
         disabled={disabled}
-        value={typed[key] ?? String(pcbIuToMM(v[key]))}
+        value={typed[key] ?? stringFromValue(pcbIuToMM(v[key]), units, false, pcbIUScale)}
         onChange={(e) => {
           setTyped((p) => ({ ...p, [key]: e.target.value }));
-          const n = Number(e.target.value);
-          if (Number.isFinite(n)) set({ [key]: pcbMmToIU(n) } as Partial<TextBoxValues>);
+          // `UNIT_BINDER::GetValue()`, which is `GetIntValue()` quantised to the
+          // frame's internal unit — not `Number()`, which cannot read the mils
+          // this field shows on a mils board, and honours no `1.5mm` suffix.
+          const mm = parseUnitValue(e.target.value, units, pcbIUScale);
+          if (Number.isFinite(mm)) set({ [key]: pcbMmToIU(mm) } as Partial<TextBoxValues>);
         }}
         onBlur={() => setTyped((p) => ({ ...p, [key]: undefined as unknown as string }))}
       />
-      <span className={`ze-unit-label ze-tbp-${slot}-u${disabled ? ' disabled' : ''}`}>mm</span>
+      <span className={`ze-unit-label ze-tbp-${slot}-u${disabled ? ' disabled' : ''}`}>
+        {unitLabel(units)}
+      </span>
     </>
   );
 
