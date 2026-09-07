@@ -31,6 +31,7 @@ import { buildManagerMenus } from '@ziroeda/designer/src/home/menubar.js';
 import { buildMenus } from '@ziroeda/designer/src/editors/schematic/menubar.js';
 import { symbolEditorMenus } from '@ziroeda/designer/src/editors/symbol/menubar.js';
 import { footprintEditorMenus } from '@ziroeda/designer/src/editors/footprint/menubar.js';
+import { buildPcbMenus as pcbMenus } from '@ziroeda/designer/src/editors/pcb/menubar.js';
 import { browserSafeKey } from '@ziroeda/designer/src/ui/browser_reserved.js';
 import {
   addClose,
@@ -235,12 +236,22 @@ const MENU_MODULE: Readonly<Record<string, string>> = {
   'editors/schematic/SchematicEditor.tsx': 'editors/schematic/menubar.ts',
   'editors/symbol/SymbolEditor.tsx': 'editors/symbol/menubar.ts',
   'editors/footprint/FootprintEditor.tsx': 'editors/footprint/menubar.ts',
+  'editors/pcb/PcbEditor.tsx': 'editors/pcb/menubar.ts',
 };
 
-/** The frame's source, or the module its menus live in when they were split out. */
+/**
+ * Everywhere a frame declares a menu row: its own source, plus the module its
+ * MENU BAR was split into.
+ *
+ * Both, not either. Splitting the bar out does not move the frame's CONTEXT
+ * menu — `PcbEditor.tsx` still builds a forty-row CONDITIONAL_MENU for the
+ * canvas — and reading only the module quietly dropped every one of those rows
+ * from this sweep, which is the coverage the split was supposed to add to
+ * rather than trade against.
+ */
 const menuSource = (rel: string): string => {
   const moved = MENU_MODULE[rel];
-  return moved ? readFileSync(join(SRC, moved), 'utf8') : source(rel);
+  return moved ? `${readFileSync(join(SRC, moved), 'utf8')}\n${source(rel)}` : source(rel);
 };
 
 /** Every frame that puts a menu bar on screen. */
@@ -713,6 +724,31 @@ const MENU_BUILDER: Readonly<Record<string, () => Menu[]>> = {
         redoAvailable: true,
       },
     ),
+  'editors/pcb/PcbEditor.tsx': () =>
+    pcbMenus(
+      {
+        action: noop,
+        tool: noop,
+        toggle: noop,
+        language: 'Default',
+        onSelectLanguage: noop,
+        showHotkeys: noop,
+        showAbout: noop,
+      },
+      {
+        // Every ENABLE() condition true, so a greyed row here is greyed on its
+        // own merits (an unbuilt feature) and not on a condition -- which is
+        // also what makes "a greyed row prints no accelerator" mean something.
+        selectionCount: 2,
+        polygonBooleanCount: 2,
+        modifiableLineCount: 2,
+        hasSchematic: true,
+        hasFootprintEditor: true,
+        highContrast: false,
+        flipBoard: false,
+      },
+      {},
+    ),
 };
 
 /**
@@ -1011,142 +1047,56 @@ const DECLARED: Readonly<Record<string, readonly string[]>> = {
     'Ctrl+,',
   ],
   'editors/pcb/PcbEditor.tsx': [
-    // Route > Single Track and Inspect > Measure Tool. Both rows printed their
-    // accelerator with no `action`, so `invocable` skipped them and the keys
-    // were decoration — while both tools were fully wired to the canvas and
-    // worked from the toolbar. See `pressableRows` below, which is the guard
-    // that would have caught it.
-    'X',
-    'Ctrl+Shift+M',
-    // The disambiguation ContextMenu's own rows (1-9 and A), which are not on
-    // the menu bar at all. Only the letter is a literal; the digits are built
-    // from the index, which is why just this one shows up in the scrape.
-    'A',
+    /*
+     * The MENU BAR's accelerators, read straight off `editors/pcb/menubar.ts`
+     * now that the tree is a module — see MENU_BUILDER above.
+     *
+     * This list used to be scraped out of `PcbEditor.tsx`, which put the canvas
+     * CONTEXT menu's keys in it too: one file held both, and a regex cannot
+     * tell a menu bar from a context menu. Splitting the bar out separated
+     * them, which is why this shrank rather than grew.
+     */
+    // File.
     'Ctrl+S',
+    'Ctrl+P',
+    // `AddQuitOrClose` — Ctrl+W is the browser's tab; `browserSafeKey`
+    // substitutes.
+    'Ctrl+Alt+W',
+    // Edit.
     'Ctrl+Z',
     'Ctrl+Y',
-    'Ctrl+D',
+    'Ctrl+X',
+    'Ctrl+C',
+    'Ctrl+V',
+    'Ctrl+Shift+V',
     'Delete',
-    'Shift+M',
-    'Shift+P',
+    'Ctrl+A',
+    'Ctrl+Shift+A',
     'Ctrl+F',
-    'E',
-    'F',
-    // Place > Draw Dimensions > Draw Orthogonal Dimensions. The only one of
-    // the five dimension actions upstream gives a key —
-    // `.DefaultHotkey( MD_CTRL + MD_SHIFT + 'H' )` (`pcb_actions.cpp:301`) —
-    // and the row is what makes it press: this submenu replaced a dead
-    // `{ label: 'Dimension' }` stub with no action and no accelerator, which is
-    // why Ctrl+Shift+H did nothing at all.
-    'Ctrl+Shift+H',
-    // ---- Place, the rest of it (`menubar_pcb_editor.cpp:288-315`) ---------
-    // These six arrived with the drawing rows. Every one is a
-    // `.DefaultHotkey()` on the action the row runs, and every row runs a tool
-    // this frame has: `drawVia` Ctrl+Shift+X (`pcb_actions.cpp:332`),
-    // `drawZone` Ctrl+Shift+Z (`:321`, the `#else` half of its OSX ifdef),
-    // `drawLine` Ctrl+Shift+L, `drawCircle` Ctrl+Shift+C, `drawPolygon`
-    // Ctrl+Shift+P.
-    //
-    // Draw Arcs is the one drawing row with a `.DefaultHotkey()` that is NOT
-    // listed: `ACTIONS::unselectAll` declares the same Ctrl+Shift+A, both
-    // AS_GLOBAL, and the installed manual prints it under both names. Edit >
-    // Unselect All is the earlier row and so the one our menu walk reaches, so
-    // the key stays there and Draw Arcs prints none.
-    //
-    // The rows for the tools this frame does NOT run yet — Place Footprints,
-    // Draw Rule Areas, Draw Bezier Curve — print no accelerator, which is why
-    // 'A', Ctrl+Shift+K and Ctrl+Shift+B are not here. Upstream carries them;
-    // a key beside a command we have not built is the thing `pressableRows`
-    // below exists to forbid.
+    // `PCB_ACTIONS::zoneFillAll`.
+    'B',
+    // View.
+    'Alt+3',
+    // `zoomFitScreen`'s `#else` branch; F5 is `zoomRedraw`.
+    'Home',
+    'F5',
+    // Place — every tool row carries its own `.DefaultHotkey()`.
     'Ctrl+Shift+X',
     'Ctrl+Shift+Z',
     'Ctrl+Shift+L',
     'Ctrl+Shift+C',
     'Ctrl+Shift+P',
-    // Place > Draw Text. `PCB_ACTIONS::placeText` is Ctrl+Shift+T upstream
-    // (`pcb_actions.cpp:213`) and that is the browser's reopen-closed-tab, so
-    // the row carries `browserSafeKey`'s answer. This is the substitution that
-    // `browser_hotkeys.test.ts` used to list as the one reserved combo left
-    // unbound: the reason for the deferral was that no dispatcher read the key,
-    // and this row is that dispatcher.
+    'Ctrl+Shift+H',
     'Ctrl+Alt+Shift+T',
-    // ---- the canvas context menu (PCB_SELECTION_TOOL's TOOL_MENU) ---------
-    // Every row below is one KiCad prints in that menu. Three groups, and the
-    // group a key is in is the whole reason it is listed:
-    //
-    //  1. Already bound, and the menu row is new. `PCB_ACTIONS::move` (M),
-    //     `dragFreeAngle` (G), `drag45Degree` (D) and `rotateCcw`/`rotateCw`
-    //     (R / Shift+R) were all live in this frame's canvas key chain with a
-    //     comment saying "no row"; the context menu is now that row, and the
-    //     key and the row run the same thing.
-    'M',
-    'G',
-    'D',
-    'R',
-    'Shift+R',
-    //  2. Rows whose command is not wired yet, listed for the same reason X
-    //     and Ctrl+Shift+M above are: the row PRINTS the key, and a row that
-    //     grows an action must not silently grow a binding too. Get and Move
-    //     Footprint, the five router rows, and Open in Footprint Editor's
-    //     Ctrl+E, which reaches the frame but not through the dispatcher.
-    'T',
-    'Shift+X',
-    'Shift+E',
-    'Backspace',
-    'Shift+F',
-    'Ctrl+E',
-    //     Move Individually (Ctrl+M, pcb_actions.cpp:604), Swap (Alt+S,
-    //     :707) and Pack and Move Footprints (P, :730) joined them when the
-    //     multi-selection rows were brought up to the installed build: KiCad
-    //     prints all three, and ours printed the rows bare or not at all.
-    'Ctrl+M',
-    'Alt+S',
-    'P',
-    //     Clear Net Highlighting's `~` (pcb_actions.cpp:1575) came with the
-    //     Net Inspection Tools submenu (board_inspection_tool.cpp:68-82) - it
-    //     was already live in the canvas key chain, and the row is now the row
-    //     for it.
-    '~',
-    //  3. The clipboard group (edit_tool.cpp:822-827). pcbnew has no cut,
-    //     copy or paste in this app yet, so these five are group 2 as well —
-    //     they are separated only because they land together when the
-    //     clipboard does.
-    'Ctrl+X',
-    'Ctrl+C',
-    'Ctrl+V',
-    //  and Select All / Unselect All, whose rows exist but whose keys the
-    //  dispatcher does not carry in this frame.
-    'Ctrl+A',
-    // View > Zoom In / Zoom Out declare NO accelerator: those rows are
-    // `ACTIONS::zoomInCenter` / `zoomOutCenter` (`menubar_pcb_editor.cpp:234`),
-    // which carry no DefaultHotkey on any platform. Zoom to Fit is Home, the
-    // `#else` branch of zoomFitScreen — the Ctrl++ / Ctrl+- / Ctrl+0 that used
-    // to sit here were the macOS branch, and none of them was ever bound.
-    'Home',
-    'F5',
+    // Route / Inspect.
+    'X',
+    'Ctrl+Shift+M',
+    // Tools / Preferences / Help.
     'F8',
     'Ctrl+,',
-    /*
-     * The menubar pass that transcribed `menubar_pcb_editor.cpp` row for row.
-     * Every one of these is a command this frame ALREADY ran from a toolbar
-     * button or a key; what it lacked was the row, and a key with no row is a
-     * key this dispatcher cannot see.
-     */
-    // Edit: `ACTIONS::pasteSpecial` and the Select submenu. The canvas context
-    // menu printed these two as `Shift+Ctrl+…`, which is the same chord spelled
-    // the other way round — and `ui/menu_hotkeys.ts` dispatches on the PRINTED
-    // text, so two spellings are two rows claiming one key. One spelling now,
-    // and it is the one every other frame here uses.
-    'Ctrl+Shift+V',
-    'Ctrl+Shift+A',
-    // Edit > Fill All Zones. `PCB_ACTIONS::zoneFillAll` is B, and the frame has
-    // run it since the key was bound; it simply had no row.
-    'B',
-    // File > Print... — `ACTIONS::print`, Ctrl+P.
-    'Ctrl+P',
-    // View > 3D Viewer — `ACTIONS::show3DViewer`, Alt+3.
-    'Alt+3',
+    'Ctrl+F1',
   ],
+
   'editors/symbol/SymbolEditor.tsx': [
     // As above: every combo is a `DefaultHotkey` out of `common/tool/actions
     // .cpp` or `eeschema/tools/sch_actions.cpp`, plus the two shared builders'.

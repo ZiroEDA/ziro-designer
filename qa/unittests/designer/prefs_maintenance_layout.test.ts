@@ -148,8 +148,11 @@ describe('the 3D cache duration is a live control', () => {
     // miss.
     const frame = strip(src('editors/pcb/PcbEditor.tsx'));
     expect(frame).toMatch(/cleanup3dCache\(settings\.common\.system\.clear_3d_cache_interval\)/);
-    // Neither the File menu's Close nor the home link may call `onExit` raw.
-    expect(frame).toMatch(/addQuitOrClose\('PCB Editor', closeFrame\)/);
+    // Neither way out of the editor may call `onExit` raw. The File menu's
+    // Close is one step further away since the bar became `editors/pcb/menubar.ts`:
+    // the row dispatches `close`, and the frame's switch is what runs
+    // `closeFrame` — so the assertion is on the case, not on the row.
+    expect(frame).toMatch(/case 'showProjectManager':\s*\n\s*case 'close':\s*\n\s*closeFrame\(\);/);
     expect(frame).toMatch(/HomeLink onClick=\{closeFrame\}/);
   });
 });

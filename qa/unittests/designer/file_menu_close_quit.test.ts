@@ -195,7 +195,9 @@ const FRAMES: FrameRow[] = [
     rows: ['close'],
   },
   {
-    file: 'editors/pcb/PcbEditor.tsx',
+    // The bar is a data module now, like the schematic's below and the symbol,
+    // footprint and Gerber ones above.
+    file: 'editors/pcb/menubar.ts',
     upstream: 'pcbnew/menubar_pcb_editor.cpp:165',
     app: 'PCB Editor',
     rows: ['quitOrClose'],
