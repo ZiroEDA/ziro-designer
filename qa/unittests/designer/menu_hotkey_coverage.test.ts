@@ -1086,6 +1086,10 @@ const DECLARED: Readonly<Record<string, readonly string[]>> = {
     'Ctrl+Shift+L',
     'Ctrl+Shift+C',
     'Ctrl+Shift+P',
+    // `PCB_ACTIONS::drawBezier`. It arrived with the Bezier tool itself, and it
+    // survives the browser: Chromium's bookmark-bar toggle is an ordinary
+    // accelerator, not one of the reserved commands.
+    'Ctrl+Shift+B',
     'Ctrl+Shift+H',
     'Ctrl+Alt+Shift+T',
     // Route / Inspect.
