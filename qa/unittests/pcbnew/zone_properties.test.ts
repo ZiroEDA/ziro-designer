@@ -381,6 +381,26 @@ describe('uniqueZonePriority', () => {
     expect(uniqueZonePriority(b)).toBe(0);
   });
 
+  it('each exclusion is load-bearing on its own', () => {
+    // The case above cannot tell the three guards apart: drop all of them and
+    // the set is { 0, 1, 2 }, whose first gap is 3 — a different number, but
+    // only by luck of the ordering. Each pair below is ONE real copper zone at
+    // 0 with one excluded zone at 1, so the answer is 1 while its guard holds
+    // and 2 the moment it does not.
+    const withOne = (extra: Partial<PcbZone>): number =>
+      uniqueZonePriority(board([{ priority: 0 }, { priority: 1, ...extra }]));
+
+    expect(withOne({ layers: ['F.SilkS'] })).toBe(1);
+    expect(withOne({ teardropType: 'viapad' })).toBe(1);
+    expect(
+      withOne({
+        ruleArea: { tracks: true, vias: true, pads: true, copperPour: false, footprints: false },
+      }),
+    ).toBe(1);
+    // …and a plain copper zone at 1 really does push it to 2.
+    expect(withOne({})).toBe(2);
+  });
+
   it('treats a zone with no stated priority as 0', () => {
     expect(uniqueZonePriority(board([{}]))).toBe(1);
   });

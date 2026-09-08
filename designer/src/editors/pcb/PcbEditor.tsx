@@ -26,6 +26,7 @@ import { PolygonGeomManager } from '@ziroeda/common/src/preview_items/polygon_ge
 import { COLOR4D_WHITE, brightness, cssWithAlpha, toCss } from '@ziroeda/common/src/color4d.js';
 import { drawPolygonItem } from '../../ui/polygon_item.js';
 import { DialogRuleAreaProperties } from './dialogs/dialog_rule_area_properties.js';
+import { placeVia } from '@ziroeda/pcbnew/src/via_placer.js';
 import { DEFAULT_RULE_AREA_KEEPOUT } from '@ziroeda/pcbnew/src/convert_shapes.js';
 import {
   collectPlacementSources,
@@ -7266,22 +7267,46 @@ export function PcbEditor({
 
   // Free-standing via placement (PCB_ACTIONS::drawVia): each click drops a via,
   // picking up the net of the copper item underneath.
+  /**
+   * One click of the Place Vias tool — `DRAWING_TOOL::DrawVia` over
+   * `VIA_PLACER`, run through `doInteractiveItemPlacement` with
+   * `IPO_REPEAT | IPO_SINGLE_CLICK`: one click both creates and commits, and
+   * the tool re-arms rather than falling back to the selection tool.
+   *
+   * `CreateItem` sets the layer pair from `bds.m_CurrentViaType`. Only
+   * `VIATYPE::THROUGH` is reachable here — nothing in this frame changes the
+   * current via type yet — and upstream's through branch is
+   * `SetLayerPair( B_Cu, F_Cu )`, in that order.
+   *
+   * The size is `GetCurrentViaSize()` / `GetCurrentViaDrill()`: the top
+   * toolbar's Via selector when it names one, the netclass at index 0. That is
+   * what `routeDims` already answers.
+   *
+   * The rest — the net pickup order and the track split — is `PlaceItem`, in
+   * `pcbnew/src/via_placer.ts` so it can be driven without a canvas.
+   */
   const handleViaClick = (world: { x: number; y: number }): void => {
     const brd = boardRef.current;
     if (!brd) return;
     const c = copperAt(world);
     const at = c?.snap ?? snapToGrid(world);
-    const dims = routeDims(c?.net ?? 0);
-    commitBoard(
-      addBoardVia(brd, {
+    const net = c?.net ?? 0;
+    const dims = routeDims(net);
+    const res = placeVia(
+      brd,
+      {
         at,
         size: dims.viaDiameter,
         drill: dims.viaDrill,
-        layers: ['F.Cu', 'B.Cu'],
+        layers: ['B.Cu', 'F.Cu'],
         kind: 'through',
-        net: c?.net ?? 0,
-      }).board,
+        net,
+      },
+      // "If the user explicitly disables snap (using shift), then don't break
+      // the tracks."
+      { allowSplit: !shiftDownRef.current },
     );
+    commitBoard(res.board);
   };
 
   /**
