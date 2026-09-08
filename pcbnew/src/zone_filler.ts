@@ -36,6 +36,7 @@ import {
   type Polygon,
 } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
+import { getBoardPolygonOutlines } from './board_statistics.js';
 import { graphicShapes, padShapes } from './drc/drc_engine.js';
 import type { Shape } from './drc/drc_geometry.js';
 import { tessellateArc } from './read-board.js';
@@ -231,7 +232,23 @@ const padOnLayer = (pad: PcbPad, layer: string): boolean =>
  * clamped to the pad's minor axis and dropped entirely below the zone's min
  * thickness, since a stub thinner than that is not copper the pour can hold.
  */
-function thermalSpokes(pad: PcbPad, zone: PcbZone): Geom[] {
+/**
+ * One thermal spoke: the copper, and the point that decides whether it is kept.
+ *
+ * `buildThermalSpokes` gives every spoke five points, and the fifth exists for
+ * one reason — "The outside end has an extra center point (which must be at
+ * idx 3) which is used for testing whether or not the spoke connects to copper
+ * in the parent zone" (`zone_filler.cpp:3478-3481`).
+ */
+interface ThermalSpoke {
+  geom: Geom;
+  /** The spoke's own outline, for the spoke-hits-spoke fallback. */
+  ring: Vec2[];
+  /** `spoke.CPoint( 3 )`: the outer end, on the centreline. */
+  tip: Vec2;
+}
+
+function thermalSpokes(pad: PcbPad, zone: PcbZone, maxError: number): ThermalSpoke[] {
   const gap = zone.thermalGap ?? mmToIU(0.5);
   const minor = Math.min(pad.size.x, pad.size.y);
   const width = Math.min(zone.thermalBridgeWidth ?? mmToIU(0.5), minor);
@@ -243,12 +260,12 @@ function thermalSpokes(pad: PcbPad, zone: PcbZone): Geom[] {
     (prim) => prim.kind === 'gr_vector' && prim.start && prim.end,
   );
 
-  if (templates.length > 0) return customThermalSpokes(pad, zone, templates, width);
+  if (templates.length > 0) return customThermalSpokes(pad, zone, templates, width, maxError);
 
   // Long enough to cross the relief ring and land in the pour beyond it.
   const reach = Math.max(pad.size.x, pad.size.y) / 2 + gap + width;
   const angle = ((pad.angle ?? 0) * Math.PI) / 180;
-  const out: Geom[] = [];
+  const out: ThermalSpoke[] = [];
 
   for (let i = 0; i < 4; i++) {
     const a = angle + (i * Math.PI) / 2;
@@ -259,16 +276,38 @@ function thermalSpokes(pad: PcbPad, zone: PcbZone): Geom[] {
     // rectangle directly.
     const hx = (-dy * width) / 2;
     const hy = (dx * width) / 2;
-    out.push([
-      [
-        [pad.at.x + hx, pad.at.y + hy],
-        [tip.x + hx, tip.y + hy],
-        [tip.x - hx, tip.y - hy],
-        [pad.at.x - hx, pad.at.y - hy],
-      ],
-    ]);
+    const ring: Vec2[] = [
+      { x: pad.at.x + hx, y: pad.at.y + hy },
+      { x: tip.x + hx, y: tip.y + hy },
+      { x: tip.x - hx, y: tip.y - hy },
+      { x: pad.at.x - hx, y: pad.at.y - hy },
+    ];
+    // `intersectBBox`: the test point is where the spoke's CENTRELINE leaves
+    // the relief, which is the pad's half-extent along this axis plus the gap.
+    // The extent is the axis one, not the pad's larger side, so a rectangular
+    // pad's short spokes are tested where they actually emerge.
+    //
+    // Pushed one maxError further out. KiCad tests the boundary point itself
+    // and lets `Contains( …, 1 )`'s accuracy settle it; a floating clipper has
+    // no such tolerance, and a point exactly on the hole's edge would answer
+    // either way.
+    const extent = (Math.abs(dx) > Math.abs(dy) ? pad.size.x : pad.size.y) / 2;
+    const test = extent + gap + maxError;
+    out.push({
+      geom: [ringOf(ring)],
+      ring,
+      tip: { x: pad.at.x + dx * test, y: pad.at.y + dy * test },
+    });
   }
   return out;
+}
+
+/** Is `p` inside `poly`'s outer ring and outside every hole? */
+function pointInPolygon(poly: Polygon, p: Vec2): boolean {
+  const outer = poly[0];
+  if (!outer || !pointInRing(p, outer)) return false;
+  for (let i = 1; i < poly.length; i++) if (pointInRing(p, poly[i]!)) return false;
+  return true;
 }
 
 /**
@@ -291,7 +330,8 @@ function customThermalSpokes(
   zone: PcbZone,
   templates: PadPrimitive[],
   width: number,
-): Geom[] {
+  maxError: number,
+): ThermalSpoke[] {
   const angle = ((pad.angle ?? 0) * Math.PI) / 180;
   const cos = Math.cos(angle);
   const sin = Math.sin(angle);
@@ -300,9 +340,10 @@ function customThermalSpokes(
     y: pad.at.y + p.x * sin + p.y * cos,
   });
 
+  const gap = zone.thermalGap ?? mmToIU(0.5);
   const reach = zone.minThickness ?? 0;
   const halfW = width / 2;
-  const out: Geom[] = [];
+  const out: ThermalSpoke[] = [];
 
   for (const prim of templates) {
     let a = place(prim.start!);
@@ -322,19 +363,28 @@ function customThermalSpokes(
     const dx = (b.x - a.x) / len;
     const dy = (b.y - a.y) / len;
 
-    // Run the far end past the relief so the spoke lands in the pour.
-    const tip = { x: b.x + dx * reach, y: b.y + dy * reach };
+    // `trimToOutline` runs the far end out to the THERMAL OUTLINE — the pad
+    // inflated by the relief gap — because a spoke has to cross the relief to
+    // reach the pour at all. This extended it by the zone's minimum thickness
+    // past the template's own end instead, which on any pad whose template
+    // stops at the copper edge leaves the spoke buried inside the relief hole,
+    // connecting nothing. It went unnoticed because the spoke was unioned in
+    // regardless; the tip test above is what surfaces it.
+    const extent = (Math.abs(dx) > Math.abs(dy) ? pad.size.x : pad.size.y) / 2;
+    const need = extent + gap + maxError;
+    const have = Math.hypot(b.x - pad.at.x, b.y - pad.at.y);
+    const grow = Math.max(reach, need - have);
+    const tip = { x: b.x + dx * grow, y: b.y + dy * grow };
     const hx = -dy * halfW;
     const hy = dx * halfW;
+    const ring: Vec2[] = [
+      { x: a.x + hx, y: a.y + hy },
+      { x: tip.x + hx, y: tip.y + hy },
+      { x: tip.x - hx, y: tip.y - hy },
+      { x: a.x - hx, y: a.y - hy },
+    ];
 
-    out.push([
-      [
-        [a.x + hx, a.y + hy],
-        [tip.x + hx, tip.y + hy],
-        [tip.x - hx, tip.y - hy],
-        [a.x - hx, a.y - hy],
-      ],
-    ]);
+    out.push({ geom: [ringOf(ring)], ring, tip });
   }
 
   return out;
@@ -355,6 +405,26 @@ export function fillZone(
   const clearanceOf = opts.clearanceOf ?? ((z: PcbZone) => z.clearance ?? mmToIU(0.5));
   const fills: PcbZoneFill[] = [];
 
+  // `ZONE_FILLER::Fill`'s `m_brdOutlinesValid = GetBoardPolygonOutlines( … )`,
+  // handed to `BuildSmoothedPoly` as `aBoardOutline` and used there for one
+  // line: `aSmoothedPoly.BooleanIntersection( boardOutline )` (zone.cpp:1594).
+  //
+  // This is the OTHER half of keeping the pour on the board, and knocking the
+  // Edge.Cuts graphics out at the edge clearance is not a substitute for it.
+  // A knockout only removes a band along each edge line; a zone outline drawn
+  // past the board keeps every square millimetre beyond that band. On a real
+  // board that was 28% more copper than KiCad pours — most of it outside the
+  // board entirely.
+  //
+  // `success` false means the outline did not close, and upstream then passes
+  // a null pointer and skips the intersection rather than clipping to a
+  // half-built polygon.
+  const brd = getBoardPolygonOutlines(board);
+  const boardOutline: Geom | null =
+    brd.success && brd.polygons.length > 0
+      ? brd.polygons.map((poly) => [ringOf(poly.outline), ...poly.holes.map(ringOf)])
+      : null;
+
   for (const layer of zone.layers) {
     if (!isCopper(layer)) continue;
 
@@ -362,9 +432,16 @@ export function fillZone(
     // anything is knocked out of it. Rule areas and teardrops are left alone
     // upstream; so is a zone with no smoothing set, which is the default.
     const smoothed = smoothOutline(zone.outline, zone, maxError);
-    const outline: Geom = [ringOf(smoothed)];
+    // "We like keepouts just the way they are" — a rule area is returned from
+    // `BuildSmoothedPoly` before the board outline is ever applied. It is not
+    // poured either, so this only guards the shared path.
+    const outline: Geom =
+      boardOutline && !zone.ruleArea
+        ? (polygonClipping.intersection([ringOf(smoothed)] as Geom, boardOutline) as MultiPolygon)
+        : [ringOf(smoothed)];
+    if ((outline as MultiPolygon).length === 0) continue;
     const holes: Geom[] = [];
-    const spokes: Geom[] = [];
+    const spokes: ThermalSpoke[] = [];
     const connected: Vec2[] = []; // same-net anchors, for island removal
 
     const gapTo = (net: number): number => clearanceOf(zone, net);
@@ -383,7 +460,7 @@ export function fillZone(
           if (mode === 'thermal' || mode === 'thru_hole_only') {
             const reliefGap = zone.thermalGap ?? mmToIU(0.5);
             for (const s of shapes) holes.push(...shapeToPolygon(s, reliefGap, maxError));
-            spokes.push(...thermalSpokes(pad, zone));
+            spokes.push(...thermalSpokes(pad, zone, maxError));
             continue;
           }
         }
@@ -525,11 +602,49 @@ export function fillZone(
         ? (polygonClipping.union(outline) as MultiPolygon)
         : (polygonClipping.difference(outline, ...holes) as MultiPolygon);
 
-    // Spokes are added back, then clipped to the outline so they never reach
-    // outside the zone.
+    // Spokes are added back — but only the ones that reach real copper.
+    //
+    // `zone_filler.cpp:2936-3016`. KiCad builds a throwaway `testAreas` — the
+    // pour with EVERY clearance hole already subtracted, then run through the
+    // same min-width deflate/inflate the finished fill gets — and keeps a
+    // spoke only if its outer end lands inside that. A spoke pointing at a
+    // neighbouring pad's clearance hole has its tip in the hole, not on
+    // copper, and is dropped.
+    //
+    // That is the whole reason a KiCad pad beside another pad gets THREE
+    // spokes and not four. Adding all four unconditionally, as this did,
+    // drives a bridge of copper straight across the neighbour's clearance —
+    // which is not a cosmetic difference, it is a short.
+    //
+    // The second arm is upstream's own fallback: a spoke whose tip is inside
+    // ANOTHER spoke is kept too, tested both ways round "to avoid interactions
+    // with round-off errors" (kicad#13316). That is how two pads facing each
+    // other across a gap too narrow for the pour still connect.
     if (spokes.length > 0 && area.length > 0) {
-      const withSpokes = polygonClipping.union(area as Geom, ...spokes) as MultiPolygon;
-      area = polygonClipping.intersection(withSpokes as Geom, outline) as MultiPolygon;
+      const testAreas = postKnockoutMinWidthPrune(
+        area.map((poly) => poly.map(ptsOf)),
+        zone,
+        maxError,
+      );
+      const onCopper = (p: Vec2): boolean => testAreas.some((poly) => pointInPolygon(poly, p));
+      const insideSpoke = (spoke: ThermalSpoke, p: Vec2): boolean => pointInRing(p, spoke.ring);
+
+      const kept = spokes.filter(
+        (spoke) =>
+          onCopper(spoke.tip) ||
+          spokes.some(
+            (other) =>
+              other !== spoke && insideSpoke(other, spoke.tip) && insideSpoke(spoke, other.tip),
+          ),
+      );
+
+      if (kept.length > 0) {
+        const withSpokes = polygonClipping.union(
+          area as Geom,
+          ...kept.map((k) => k.geom),
+        ) as MultiPolygon;
+        area = polygonClipping.intersection(withSpokes as Geom, outline) as MultiPolygon;
+      }
     }
 
     // Islands that reach nothing on the net (ZONE_FILLER's island removal).

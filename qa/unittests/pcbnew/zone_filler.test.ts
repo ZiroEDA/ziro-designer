@@ -554,6 +554,101 @@ describe('zone filler', () => {
     });
   });
 
+  describe('a spoke is kept only if it reaches copper', () => {
+    /**
+     * `zone_filler.cpp:2978-3016`. The tip of each spoke is tested against the
+     * pour with every clearance hole already subtracted; a spoke pointing into
+     * a neighbour's clearance is dropped.
+     *
+     * Two 2 mm pads 3 mm apart on a 40 x 40 pour: a GND one at (18.5,20) on
+     * the zone's own net and another at (21.5,20). Their edges are 1 mm
+     * apart, and with 0.5 mm of clearance owed to each there is no copper
+     * left between them — so the GND pad's +x spoke tip, at 20.005, lands
+     * inside the neighbour's clearance hole, which runs from 20.0.
+     */
+    const facing = (otherNet: number): Board =>
+      board({
+        zones: [zone()],
+        footprints: [
+          footprint([
+            pad({ x: MM(18.5), y: MM(20) }, 1),
+            { ...pad({ x: MM(21.5), y: MM(20) }, otherNet), number: '2' },
+          ]),
+        ],
+      });
+
+    /** The spoke count, read off the copper a spoke adds back. */
+    const spokeArea = (b: Board): number => {
+      const withSpokes = area(fillZone(b, 0)[0]!.polys);
+      // The same board with thermals off: pads solidly connected leave no
+      // relief at all, so compare against a NO-connection pour instead.
+      const noSpokes = area(
+        fillZone({ ...b, zones: [{ ...b.zones[0]!, padConnection: 'none' }] }, 0)[0]!.polys,
+      );
+      return withSpokes - noSpokes;
+    };
+
+    it('drops the one aimed at a different-net pad', () => {
+      // Four spokes at 0.5 mm wide crossing a 0.5 mm relief is ~1 mm² of
+      // copper; three is ~0.75. The difference between the two boards is one
+      // spoke, and it is the difference that matters, not the absolute.
+      const blocked = spokeArea(facing(2));
+      const clear = spokeArea(
+        board({ zones: [zone()], footprints: [footprint([pad({ x: MM(18.5), y: MM(20) }, 1)])] }),
+      );
+
+      expect(blocked).toBeGreaterThan(0);
+      // One spoke short of the unobstructed pad's four.
+      expect(blocked).toBeLessThan(clear * 0.85);
+      expect(blocked).toBeGreaterThan(clear * 0.6);
+    });
+
+    it('keeps all four when the neighbour is on the SAME net', () => {
+      // A same-net pad takes a thermal relief of its own rather than a
+      // clearance hole, and the two pads\' spokes meet — the second arm of
+      // upstream\'s test, "hit-test against other spokes".
+      const same = spokeArea(facing(1));
+      const clear = spokeArea(
+        board({ zones: [zone()], footprints: [footprint([pad({ x: MM(18.5), y: MM(20) }, 1)])] }),
+      );
+      expect(same).toBeGreaterThan(clear * 0.85);
+    });
+
+    it('drops every spoke of a pad walled off from the pour', () => {
+      // A different-net track boxing the pad in 2.2 mm out on all four sides.
+      // Each spoke tip is at 1.505 mm and every wall's clearance hole starts
+      // at 1.2 mm, so no tip lands on copper and no spoke is kept.
+      const wall = (
+        a: { x: number; y: number },
+        b: { x: number; y: number },
+      ): Board['tracks'][number] => ({
+        start: a,
+        end: b,
+        width: MM(1),
+        layer: 'F.Cu',
+        net: 2,
+        source: EMPTY,
+      });
+      const walled = board({
+        zones: [zone()],
+        footprints: [footprint([pad({ x: MM(20), y: MM(20) }, 1)])],
+        tracks: [
+          wall({ x: MM(16), y: MM(17.8) }, { x: MM(24), y: MM(17.8) }),
+          wall({ x: MM(16), y: MM(22.2) }, { x: MM(24), y: MM(22.2) }),
+          wall({ x: MM(17.8), y: MM(16) }, { x: MM(17.8), y: MM(24) }),
+          wall({ x: MM(22.2), y: MM(16) }, { x: MM(22.2), y: MM(24) }),
+        ],
+      });
+      const withThermals = area(fillZone(walled, 0)[0]!.polys);
+      const noConnection = area(
+        fillZone({ ...walled, zones: [{ ...walled.zones[0]!, padConnection: 'none' }] }, 0)[0]!
+          .polys,
+      );
+      // Not one spoke of copper added back.
+      expect(withThermals).toBeCloseTo(noConnection, 3);
+    });
+  });
+
   it("takes a custom pad's spoke templates instead of the four axis spokes", () => {
     // Same pad either way, only the number of templates differs, so the relief
     // knocked out is identical and the spokes are the only variable.
