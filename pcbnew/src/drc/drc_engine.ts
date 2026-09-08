@@ -3295,6 +3295,14 @@ function danglingEnd(
 }
 
 /** A board graphic's collision geometry, PCB_SHAPE::GetEffectiveShape. */
+/** The closed outline of `pts` as one stadium per side, each of radius `r`. */
+function strokedRing(pts: readonly { x: number; y: number }[], r: number): Shape[] {
+  const out: Shape[] = [];
+  for (let i = 0; i < pts.length; i++)
+    out.push({ kind: 'stadium', a: pts[i]!, b: pts[(i + 1) % pts.length]!, r });
+  return out;
+}
+
 export function graphicShapes(s: PcbShape): Shape[] {
   const r = s.width / 2;
 
@@ -3315,18 +3323,24 @@ export function graphicShapes(s: PcbShape): Shape[] {
     case 'arc':
       return s.start && s.mid && s.end ? [arcShape(s.start, s.mid, s.end, s.width)] : [];
 
-    case 'rect':
+    // `PCB_SHAPE::TransformShapeToPolygon`'s RECTANGLE and POLY arms: a FILLED
+    // one is the area, an unfilled one is the four (or n) stroked SIDES and
+    // its interior is not part of the shape — the same distinction the circle
+    // above already draws, and for the same reason.
+    //
+    // This is load-bearing for the zone filler, where an unfilled Edge.Cuts
+    // rectangle read as its interior knocks the entire pour out instead of
+    // insetting it from the board edge.
+    case 'rect': {
       if (!s.start || !s.end) return [];
-      return [
-        {
-          kind: 'poly',
-          pts: [s.start, { x: s.end.x, y: s.start.y }, s.end, { x: s.start.x, y: s.end.y }],
-          r,
-        },
-      ];
+      const corners = [s.start, { x: s.end.x, y: s.start.y }, s.end, { x: s.start.x, y: s.end.y }];
+      return isSolidFill(s) ? [{ kind: 'poly', pts: corners, r }] : strokedRing(corners, r);
+    }
 
-    case 'poly':
-      return s.pts && s.pts.length >= 3 ? [{ kind: 'poly', pts: s.pts, r }] : [];
+    case 'poly': {
+      if (!s.pts || s.pts.length < 3) return [];
+      return isSolidFill(s) ? [{ kind: 'poly', pts: s.pts, r }] : strokedRing(s.pts, r);
+    }
 
     // A Bezier is stored by its control points; colliding the hull would
     // over-report, so it is left out rather than approximated.

@@ -42,14 +42,30 @@ import closeIcon from '../assets/theme/window-close.png';
  * Dismissal is local and re-arms on a new message, which is what upstream does
  * by construction: closing hides the bar, the next `ShowMessage` shows it again.
  */
-export function ReadOnlyNotice({
+/**
+ * The bar itself, for every caller — `ShowMessage( text, wxICON_WARNING )`.
+ *
+ * `closable` is `AddCloseButton()`, which not every call site makes: the strip
+ * above a canvas has one, and the one inside a dialog
+ * (`PANEL_ZONE_PROPERTIES::updateInfoBar`) does not, because that bar is
+ * dismissed by fixing what it is complaining about.
+ *
+ * `className` is for the caller's own layout only. The icon, the ink, the
+ * height and the inset belong to `.ze-infobar` and must never be restated at a
+ * call site.
+ */
+export function Infobar({
   message,
   actionLabel,
   onAction,
+  closable = false,
+  className,
 }: {
   message: string;
   actionLabel?: string;
   onAction?: () => void;
+  closable?: boolean;
+  className?: string;
 }): JSX.Element | null {
   // Keyed on the message so a different one re-opens a bar the user closed,
   // rather than staying hidden for the life of the frame.
@@ -57,7 +73,7 @@ export function ReadOnlyNotice({
   if (hiddenFor === message) return null;
 
   return (
-    <div className="ze-infobar ze-readonly-infobar" role="status">
+    <div className={`ze-infobar${className ? ` ${className}` : ''}`} role="status">
       <img className="ze-infobar-icon" src={warningIcon} alt="" aria-hidden="true" />
       {/* `margin-right: auto` lives on this, so everything after it is pushed
           to the right edge the way the sizer's spacer pushes the buttons. */}
@@ -69,15 +85,29 @@ export function ReadOnlyNotice({
       )}
       {/* `AddCloseButton()` (wx_infobar.cpp:375-382), rightmost, and it only
           hides the bar. The tooltip is upstream's own default string. */}
-      <button
-        type="button"
-        className="ze-infobar-close"
-        title="Hide this message."
-        aria-label="Hide this message."
-        onClick={() => setHiddenFor(message)}
-      >
-        <img src={closeIcon} alt="" aria-hidden="true" />
-      </button>
+      {closable && (
+        <button
+          type="button"
+          className="ze-infobar-close"
+          title="Hide this message."
+          aria-label="Hide this message."
+          onClick={() => setHiddenFor(message)}
+        >
+          <img src={closeIcon} alt="" aria-hidden="true" />
+        </button>
+      )}
     </div>
   );
+}
+
+/**
+ * The read-only strip above a canvas: the same bar, with the close button the
+ * three `files-io.cpp` call sites add.
+ */
+export function ReadOnlyNotice(props: {
+  message: string;
+  actionLabel?: string;
+  onAction?: () => void;
+}): JSX.Element | null {
+  return <Infobar {...props} closable className="ze-readonly-infobar" />;
 }

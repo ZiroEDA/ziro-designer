@@ -11914,16 +11914,11 @@ textarea.ze-ds-textedit {
   padding: 5px 5px 0 0;
 }
 .ze-cz-infobar {
-  /* WX_INFOBAR: `bSizer8->Add( m_copperZoneInfoBar, 0, wxEXPAND, 5 )`, so it
-     spans the panel and takes no border of its own. */
-  display: flex;
-  align-items: center;
-  /* [data] WX_INFOBAR sets its own spacing between the icon and the text. */
-  gap: 8px;
-  /* [data] and its own inset, matching the other in-dialog notices here. */
-  padding: 6px 10px;
-  background: var(--field-bg);
-  color: var(--error-ink);
+  /* `bSizer8->Add( m_copperZoneInfoBar, 0, wxEXPAND, 5 )` — it spans the panel
+     and takes no border of its own. Everything the bar LOOKS like is
+     `.ze-infobar`'s and is deliberately not restated here; a local rule at
+     (0,2,0) would beat the shared one and this dialog would stop tracking it. */
+  flex: 0 0 auto;
 }
 .ze-cz-head {
   /* gbSizer8, a `wxGridBagSizer( 3, 5 )` with column 1 growable. */

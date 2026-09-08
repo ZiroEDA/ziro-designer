@@ -36,7 +36,7 @@ import {
   type Polygon,
 } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
-import { padShapes } from './drc/drc_engine.js';
+import { graphicShapes, padShapes } from './drc/drc_engine.js';
 import type { Shape } from './drc/drc_geometry.js';
 import { tessellateArc } from './read-board.js';
 import { barcodeGeometry, barcodeHullBoxes } from './barcode_geometry.js';
@@ -44,6 +44,10 @@ import type { Board, PadPrimitive, PcbPad, PcbZone, PcbZoneFill } from './types.
 
 /** BOARD_DESIGN_SETTINGS::m_MaxError, the arc approximation limit (0.005 mm). */
 const DEFAULT_MAX_ERROR = mmToIU(0.005);
+
+/** `DEFAULT_COPPEREDGECLEARANCE` (`include/board_design_settings.h:89`). */
+// [data] 0.5 mm, "clearance between copper items and edge cuts".
+const DEFAULT_EDGE_CLEARANCE = mmToIU(0.5);
 
 export interface ZoneFillOptions {
   /**
@@ -66,6 +70,15 @@ export interface ZoneFillOptions {
    * `value_or( VECTOR2I() )`.
    */
   hatchingOffsets?: Readonly<Record<string, { x: number; y: number }>>;
+  /**
+   * `EDGE_CLEARANCE_CONSTRAINT` — Board Setup > Constraints' "Copper to edge
+   * clearance", the gap the pour keeps from Edge.Cuts and Margin.
+   *
+   * `DEFAULT_COPPEREDGECLEARANCE` is 0.5 mm
+   * (`include/board_design_settings.h:89`), which is what a board with no
+   * rules resolves to and therefore the default here.
+   */
+  edgeClearance?: number;
 }
 
 /**
@@ -102,15 +115,46 @@ export function segmentsForRadius(radius: number, maxError: number): number {
   return Math.max(8, Math.min(64, count * 2));
 }
 
-/** A circle as a polygon, inscribed the way TransformCircleToPolygon does. */
+/**
+ * A circle as a polygon, inscribed the way TransformCircleToPolygon does.
+ *
+ * The vertices are ROUNDED to whole internal units. KiCad's `SHAPE_POLY_SET`
+ * is `VECTOR2I` — Clipper is an integer library and every polygon reaching it
+ * has integer corners — and ours had been handing `polygon-clipping` raw
+ * `cos`/`sin` output. Two knockouts whose arcs very nearly touch then differ in
+ * the fifteenth decimal, and its sweep line fails outright with "Unable to find
+ * segment … in SweepLine tree" rather than returning a wrong answer. Rounding
+ * is both the faithful thing and the robust one.
+ */
 function circlePoly(c: Vec2, r: number, maxError: number): Ring {
   const n = segmentsForRadius(r, maxError);
   const ring: Ring = [];
   for (let i = 0; i < n; i++) {
     const a = (2 * Math.PI * i) / n;
-    ring.push([c.x + r * Math.cos(a), c.y + r * Math.sin(a)]);
+    ring.push([Math.round(c.x + r * Math.cos(a)), Math.round(c.y + r * Math.sin(a))]);
   }
-  return ring;
+  return dedupeRing(ring);
+}
+
+/**
+ * Drop consecutive duplicates left by the rounding above, and the wrap-around
+ * pair. `SHAPE_LINE_CHAIN::Append` does the same for the same reason: a
+ * zero-length edge is not geometry, and a clipper is entitled to reject one.
+ */
+function dedupeRing(ring: Ring): Ring {
+  const out: Ring = [];
+  for (const p of ring) {
+    const last = out[out.length - 1];
+    if (last && last[0] === p[0] && last[1] === p[1]) continue;
+    out.push(p);
+  }
+  while (out.length > 1) {
+    const first = out[0]!;
+    const last = out[out.length - 1]!;
+    if (first[0] !== last[0] || first[1] !== last[1]) break;
+    out.pop();
+  }
+  return out;
 }
 
 /** A stadium (segment thickened by `r`) as a polygon. */
@@ -125,13 +169,13 @@ function stadiumPoly(a: Vec2, b: Vec2, r: number, maxError: number): Ring {
   // Cap around b, then back around a.
   for (let i = 0; i <= n; i++) {
     const t = base - Math.PI / 2 + (Math.PI * i) / n;
-    ring.push([b.x + r * Math.cos(t), b.y + r * Math.sin(t)]);
+    ring.push([Math.round(b.x + r * Math.cos(t)), Math.round(b.y + r * Math.sin(t))]);
   }
   for (let i = 0; i <= n; i++) {
     const t = base + Math.PI / 2 + (Math.PI * i) / n;
-    ring.push([a.x + r * Math.cos(t), a.y + r * Math.sin(t)]);
+    ring.push([Math.round(a.x + r * Math.cos(t)), Math.round(a.y + r * Math.sin(t))]);
   }
-  return ring;
+  return dedupeRing(ring);
 }
 
 /**
@@ -403,6 +447,43 @@ export function fillZone(
         ...shapeToPolygon({ kind: 'poly', pts: other.outline, r: 0 }, gapTo(other.net), maxError),
       );
     });
+
+    // Board graphics, and the BOARD EDGE (`zone_filler.cpp:2400-2440`).
+    //
+    // "A item on the Edge_Cuts or Margin is always seen as on any layer", so
+    // the board outline knocks copper out of every zone on every layer — and
+    // it is the one item measured against `EDGE_CLEARANCE_CONSTRAINT` rather
+    // than the ordinary clearance. That gap is the inset a filled board has
+    // all the way round its edge, and this filler had no board-graphics
+    // knockout at all: the pour ran to the outline the user drew, straight
+    // over the edge and over every copper graphic on its own layer.
+    //
+    // `ignoreLineWidths = true` for Edge.Cuts and only for Edge.Cuts: the
+    // outline graphic's stroke is a drawing convention, and the board edge is
+    // its CENTRELINE. Margin keeps its width.
+    for (const s of [...board.shapes, ...board.footprints.flatMap((f) => f.shapes ?? [])]) {
+      const onLayer = s.layer === layer;
+      const isEdge = s.layer === 'Edge.Cuts';
+      const isMargin = s.layer === 'Margin';
+      if (!onLayer && !isEdge && !isMargin) continue;
+
+      // "if( !aZone->IsTeardropArea() && aZone->GetNetCode() == 0 ) sameNet =
+      // false" — a zone with no net is never the same net as anything.
+      const sameNet = (s.net ?? 0) === zone.net && zone.net > 0;
+
+      // The CLEARANCE_CONSTRAINT upgrade applies only to a different-net item
+      // on this layer; everything else falls back to the physical clearance,
+      // which is 0 on a board with no rules.
+      const gap =
+        isEdge || isMargin
+          ? (opts.edgeClearance ?? DEFAULT_EDGE_CLEARANCE)
+          : sameNet
+            ? 0
+            : gapTo(s.net ?? 0);
+
+      for (const sh of graphicShapes(isEdge ? { ...s, width: 0 } : s))
+        holes.push(...shapeToPolygon(sh, gap, maxError));
+    }
 
     // A barcode on this layer knocks the pour out — `ZONE_FILLER::…`'s
     // `case PCB_BARCODE_T` (`zone_filler.cpp:1765-1770`):

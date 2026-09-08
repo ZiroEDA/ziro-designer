@@ -180,6 +180,19 @@ describe('<no net>', () => {
     expect(screen.queryByText('<no net> will result in an isolated copper island.')).toBeNull();
   });
 
+  it('is the shared WX_INFOBAR, icon and all — nothing spelled here', () => {
+    // `wxICON_WARNING` asks the ART PROVIDER, so the glyph is the desktop
+    // theme's and travels with the widget. A call site that drew its own would
+    // be a second answer to a question `.ze-infobar` has already answered.
+    open({ net: 0 });
+    const bar = document.querySelector('.ze-infobar');
+    expect(bar).toBeTruthy();
+    expect(bar!.querySelector('img.ze-infobar-icon')).toBeTruthy();
+    // `ShowMessage` without `AddCloseButton()`: this bar is dismissed by
+    // changing the net, not by a button.
+    expect(bar!.querySelector('.ze-infobar-close')).toBeNull();
+  });
+
   it('forces Remove islands to Never and disables it', () => {
     // "Zones with no net never have islands removed."
     open({ net: 0, islandRemovalMode: 'always' });

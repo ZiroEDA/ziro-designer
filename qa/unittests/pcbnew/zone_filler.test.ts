@@ -127,6 +127,109 @@ describe('zone filler', () => {
     expect(1600 - filled).toBeLessThan(9.5);
   });
 
+  describe('the board edge', () => {
+    /**
+     * A rectangular Edge.Cuts outline 1 mm outside the 40 x 40 pour, so the
+     * board is 42 x 42 and the pour has 1 mm of room before the edge matters.
+     */
+    const edgeRect = (inset: number): Board['shapes'][number] => ({
+      kind: 'rect',
+      start: { x: -MM(inset), y: -MM(inset) },
+      end: { x: MM(40 + inset), y: MM(40 + inset) },
+      width: MM(0.1),
+      fillMode: 'none',
+      layer: 'Edge.Cuts',
+      source: EMPTY,
+    });
+
+    it('insets the pour by the EDGE clearance, not the copper one', () => {
+      // "A item on the Edge_Cuts or Margin is always seen as on any layer", and
+      // it is measured against EDGE_CLEARANCE_CONSTRAINT. The board edge runs
+      // 0.25 mm outside the pour, so a 0.5 mm edge clearance eats 0.25 mm all
+      // the way round: 40 - 2(0.25) = 39.5 a side.
+      const b = board({ zones: [zone()], shapes: [edgeRect(0.25)] });
+      expect(area(fillZone(b, 0)[0]!.polys)).toBeCloseTo(39.5 * 39.5, 0);
+    });
+
+    it('takes the clearance from the caller, not from a constant', () => {
+      const b = board({ zones: [zone()], shapes: [edgeRect(0.25)] });
+      // 1 mm edge clearance eats 0.75 mm a side.
+      expect(area(fillZone(b, 0, { edgeClearance: MM(1) })[0]!.polys)).toBeCloseTo(38.5 * 38.5, 0);
+    });
+
+    it('measures from the CENTRELINE — the outline stroke is ignored', () => {
+      // `ignoreLineWidths = true` for Edge.Cuts and only for Edge.Cuts. A
+      // 2 mm-wide outline must give the same answer as a hairline one.
+      const thin = board({ zones: [zone()], shapes: [edgeRect(0.25)] });
+      const fat = board({
+        zones: [zone()],
+        shapes: [{ ...edgeRect(0.25), width: MM(2) }],
+      });
+      expect(area(fillZone(fat, 0)[0]!.polys)).toBeCloseTo(area(fillZone(thin, 0)[0]!.polys), 0);
+    });
+
+    it('reaches a zone on a layer the outline is not on', () => {
+      // The whole point of "always seen as on any layer": an Edge.Cuts graphic
+      // is not on B.Cu, and it still knocks a B.Cu pour out.
+      const b = board({
+        zones: [zone({ layers: ['B.Cu'] })],
+        shapes: [edgeRect(0.25)],
+      });
+      expect(area(fillZone(b, 0)[0]!.polys)).toBeCloseTo(39.5 * 39.5, 0);
+    });
+
+    it('Margin knocks out too, and keeps its line width', () => {
+      // Margin takes the same EDGE_CLEARANCE, but `ignoreLineWidths` stays
+      // false, so its stroke is part of the obstacle.
+      const hair = board({
+        zones: [zone()],
+        shapes: [{ ...edgeRect(0.25), layer: 'Margin' }],
+      });
+      const fat = board({
+        zones: [zone()],
+        shapes: [{ ...edgeRect(0.25), layer: 'Margin', width: MM(2) }],
+      });
+      expect(area(fillZone(fat, 0)[0]!.polys)).toBeLessThan(area(fillZone(hair, 0)[0]!.polys));
+    });
+  });
+
+  describe("board graphics on the pour's own layer", () => {
+    const bar = (layer: string, net = 0): Board['shapes'][number] => ({
+      kind: 'line',
+      start: { x: MM(10), y: MM(20) },
+      end: { x: MM(30), y: MM(20) },
+      width: MM(1),
+      fillMode: 'none',
+      layer,
+      net,
+      source: EMPTY,
+    });
+
+    it('a different-net graphic is knocked out at the copper clearance', () => {
+      const b = board({ zones: [zone()], shapes: [bar('F.Cu', 2)] });
+      const lost = 1600 - area(fillZone(b, 0)[0]!.polys);
+      // A 20 mm bar, 1 mm wide, plus 0.5 mm clearance either side: 20 x 2 mm
+      // of copper gone, plus the rounded caps.
+      expect(lost).toBeGreaterThan(40);
+      expect(lost).toBeLessThan(46);
+    });
+
+    it('a graphic on another copper layer is left alone', () => {
+      const b = board({ zones: [zone()], shapes: [bar('B.Cu', 2)] });
+      expect(area(fillZone(b, 0)[0]!.polys)).toBeCloseTo(1600, 0);
+    });
+
+    it('a SAME-net graphic takes no clearance, only its own footprint', () => {
+      // The CLEARANCE_CONSTRAINT upgrade is for a different-net item; a
+      // same-net one falls back to the physical clearance, which is 0.
+      const b = board({ zones: [zone()], shapes: [bar('F.Cu', 1)] });
+      const lost = 1600 - area(fillZone(b, 0)[0]!.polys);
+      // The bar's own 20 x 1 mm and nothing more.
+      expect(lost).toBeGreaterThan(19);
+      expect(lost).toBeLessThan(22);
+    });
+  });
+
   it('is knocked out by a barcode — by its BOX, not by its modules', () => {
     // `zone_filler.cpp:1765-1770`:
     //

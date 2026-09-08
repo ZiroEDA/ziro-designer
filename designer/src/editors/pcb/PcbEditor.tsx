@@ -1915,8 +1915,12 @@ export function PcbEditor({
     () => ({
       hatchingOffsets,
       maxError: Math.round(clampMaxErrorMM(boardSetup.constraints.maxDeviationMM) * MM),
+      // `EDGE_CLEARANCE_CONSTRAINT`, off Board Setup > Constraints. It is what
+      // insets a filled pour from Edge.Cuts, so it has to be the board's own
+      // number and not the filler's fallback.
+      edgeClearance: Math.round(boardSetup.constraints.copperToEdgeMM * MM),
     }),
-    [hatchingOffsets, boardSetup.constraints.maxDeviationMM],
+    [hatchingOffsets, boardSetup.constraints.maxDeviationMM, boardSetup.constraints.copperToEdgeMM],
   );
   const boardSetupRef = useRef(boardSetup);
   boardSetupRef.current = boardSetup;

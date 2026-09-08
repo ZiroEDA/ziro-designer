@@ -41,6 +41,7 @@
 import { useState, type JSX } from 'react';
 import type { ZoneValues } from '@ziroeda/pcbnew/src/zone_properties.js';
 import { Combo } from '../../../ui/Combo.js';
+import { Infobar } from '../../../ui/ReadOnlyNotice.js';
 import { useModalEscape } from '../../../ui/useModalEscape.js';
 import { pcbUnitText, pcbUnitValue, unitLabel } from '../pcb_unit_binder.js';
 import type { StatusUnits } from '../../../ui/status_format.js';
@@ -215,12 +216,21 @@ export function DialogCopperZones({
           </div>
 
           <div className="ze-cz-right">
-            {/* m_copperZoneInfoBar, `updateInfoBar()`. */}
+            {/* `m_copperZoneInfoBar` — a WX_INFOBAR, which is the shared
+                `Infobar`. It brings the icon with it: `wxICON_WARNING` asks
+                the ART PROVIDER, so what KiCad draws here is the desktop
+                theme's red disc, and that file is already vendored beside the
+                component. A glyph spelled at this call site would be a second
+                answer to a question the widget has already answered.
+
+                No close button: `updateInfoBar()` calls `ShowMessage` without
+                `AddCloseButton()`, and dismisses the bar itself when the net
+                changes. */}
             {noNet && (
-              <div className="ze-cz-infobar" role="status">
-                <span aria-hidden="true">⚠</span>
-                {'<no net> will result in an isolated copper island.'}
-              </div>
+              <Infobar
+                message="<no net> will result in an isolated copper island."
+                className="ze-cz-infobar"
+              />
             )}
 
             {/* gbSizer8, a wxGridBagSizer( 3, 5 ) with column 1 growable. */}
