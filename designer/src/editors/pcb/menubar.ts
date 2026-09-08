@@ -491,7 +491,13 @@ export function buildPcbMenus(
           shortcut: 'Ctrl+Shift+Z',
           action: () => h.tool('drawZone'),
         },
-        { label: 'Draw Rule Areas', icon: 'drawRuleArea', disabled: dis },
+        {
+          label: 'Draw Rule Areas',
+          icon: 'drawRuleArea',
+          // `.DefaultHotkey( MD_CTRL + MD_SHIFT + 'K' )` (`pcb_actions.cpp:344`).
+          shortcut: 'Ctrl+Shift+K',
+          action: () => h.tool('drawRuleArea'),
+        },
         // `muwaveSubmenu` (`:296-304`) — MICROWAVE_TOOL's five shapes. Not
         // browser-impossible, just unbuilt.
         {

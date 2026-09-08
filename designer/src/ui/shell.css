@@ -15825,3 +15825,143 @@ td.ze-grid-bool {
   padding: 16px; /* [data] the wxALL 16 a placeholder page's message carries. */
   color: var(--ctl-fg-disabled);
 }
+
+/* ---------------------------------------------------------------------------
+   Rule Area Properties (dialog_rule_area_properties_base.cpp).
+
+   `bUpperSizer` is horizontal with two children: `bLayersListSizer` at
+   proportion 4 and `bSizerRight` at proportion 7, so the split is 4:7 and the
+   layer list carries `SetMinSize( wxSize( 240, 560 ) )` as its floor.
+
+   Every length below is a per-Add() border out of that file, never a container
+   gap and never a token: wxFormBuilder states them per control, and restating
+   one as a shared spacing token would be inventing a rule KiCad does not have.
+   Each is marked [data] with the Add() it comes from. */
+.ze-rule-area-body {
+  display: flex;
+  align-items: stretch;
+  /* [data] `bMainSizer->Add( bUpperSizer, 1, wxEXPAND|wxLEFT|wxRIGHT|wxTOP, 5 )`. */
+  padding: 5px 5px 0;
+}
+.ze-rule-area-layers {
+  flex: 4;
+  display: flex;
+  flex-direction: column;
+  /* SetMinSize( 240, 560 ) on bLayersListSizer. Width is arrangement, which
+     this ratchet does not count; the height floor is below. */
+  min-width: 240px;
+  /* [data] `bUpperSizer->Add( bLayersListSizer, 4, wxBOTTOM|wxEXPAND|wxLEFT|wxRIGHT, 5 )`. */
+  margin: 0 5px 5px;
+}
+.ze-rule-area-layers-label {
+  /* [data] `Add( m_staticTextLayerSelection, 0, wxALL, 4 )` — 4, not 5. */
+  padding: 4px;
+}
+.ze-rule-area-layer-list {
+  flex: 1;
+  /* [data] `SetMinSize( wxSize( 240, 560 ) )` on bLayersListSizer, less the
+     label row and its borders; the list is the sizer's only growing child. */
+  min-height: 0;
+  overflow-y: auto;
+  /* [data] wxBORDER_SIMPLE on the wxDataViewListCtrl. */
+  border: 1px solid var(--ctl-border);
+  background: var(--field-bg);
+  /* [data] `Add( m_layers, 1, wxEXPAND|wxBOTTOM|wxRIGHT|wxLEFT, 5 )`. */
+  margin: 0 5px 5px;
+}
+.ze-rule-area-layer-list label {
+  display: flex;
+  align-items: center;
+  /* [data] wxDataViewListCtrl draws its checkbox, bitmap and text inline; the
+     spacing is the renderer's, not a sizer's. */
+  gap: 6px;
+  /* [data] the same renderer's cell inset. */
+  padding: 2px 4px;
+}
+.ze-rule-area-right {
+  flex: 7;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  /* [data] `bUpperSizer->Add( bSizerRight, 7, wxEXPAND|wxALL, 5 )`. */
+  margin: 5px;
+}
+.ze-rule-area-name {
+  display: flex;
+  flex-direction: column;
+  /* [data] `bSizer6->Add( 0, 2, 0, 0, 5 )` — the spacer between the label and
+     the text control is 2, not the 5 that surrounds them. */
+  gap: 2px;
+  /* [data] `Add( m_nameLabel, 0, wxRIGHT|wxLEFT, 5 )` over
+     `Add( m_tcName, 0, wxBOTTOM|wxRIGHT|wxLEFT|wxEXPAND, 5 )`. */
+  margin: 0 5px 5px;
+}
+.ze-rule-area-locked {
+  display: flex;
+  align-items: center;
+  /* [data] wxCheckBox's own label spacing. */
+  gap: 6px;
+  /* [data] `Add( m_cbLocked, 0, wxALL, 5 )`. */
+  margin: 5px;
+}
+.ze-rule-area-nb {
+  /* `bSizerRight->Add( m_areaPropertiesNb, 0, … )` — proportion 0, so the
+     notebook takes its own best size and does NOT grow. */
+  flex: 0 0 auto;
+  /* [data] the same Add()'s `wxEXPAND|wxBOTTOM|wxRIGHT|wxLEFT, 5`. */
+  margin: 0 5px 5px;
+}
+.ze-rule-area-page {
+  /* [data] a wxNotebook page sits inside the book control's own frame. */
+  border: 1px solid var(--ctl-border);
+  border-top: none;
+  /* [data] `m_keepoutRuleSizer` adds its first control with a 5 top border. */
+  padding: 5px 0;
+}
+.ze-rule-area-keepouts label,
+.ze-rule-area-placement label {
+  display: flex;
+  align-items: center;
+  /* [data] wxCheckBox / wxRadioButton label spacing. */
+  gap: 6px;
+  /* [data] every checkbox on the keepout panel is
+     `Add( …, 0, …wxRIGHT|wxLEFT, 5 )`. */
+  margin: 0 5px;
+}
+.ze-rule-area-placement > div > label {
+  /* [data] `Add( m_DisabledRb, 0, wxALL, 5 )` and its three siblings. */
+  margin: 5px;
+}
+.ze-rule-area-placement .ze-combo {
+  /* [data] `Add( m_sheetCombo, 0, wxLEFT|wxEXPAND, 25 )` — the indent under
+     its own radio, and the same 25 for the other two combos. */
+  margin-left: 25px;
+  width: calc(100% - 25px);
+}
+.ze-rule-area-outline {
+  /* gbSizer1, a wxGridBagSizer( 3, 3 ), sitting BELOW the notebook rather than
+     on one of its pages: `bSizerRight->Add( gbSizer1, 0, wxEXPAND|wxALL, 5 )`. */
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  /* [data] `new wxGridBagSizer( 3, 3 )` — the vgap and hgap. */
+  gap: 3px;
+  /* [data] the same Add()'s `wxEXPAND|wxALL, 5`. */
+  margin: 5px;
+}
+.ze-rule-area-outline label {
+  display: contents;
+}
+.ze-rule-area-outline label > span:first-child {
+  align-self: center;
+  /* [data] `wxALIGN_CENTER_VERTICAL|wxRIGHT, 5` on the Outline display label. */
+  padding-right: 5px;
+}
+.ze-rule-area-error {
+  /* `DisplayError` is a modal of its own upstream; this is the nearest a
+     browser gets without stacking a second one. */
+  /* [data] the same 4/10 inset the other in-dialog error lines here use. */
+  padding: 4px 10px;
+  /* The shared token, never a literal: `--error-ink` is what every other error
+     line in this shell is written in. */
+  color: var(--error-ink);
+}

@@ -295,7 +295,7 @@ export const PCB_RIGHT_TOOLBAR: ToolEntry[] = [
     title: 'Place Vias (Ctrl+Shift+X)\nPlace free-standing vias',
   },
   { id: 'drawZone', icon: 'drawZone', title: 'Draw Filled Zones (Ctrl+Shift+Z)' },
-  { id: 'drawRuleArea', icon: 'drawRuleArea', title: 'Draw Rule Areas (Ctrl+Shift+K)', ...todo },
+  { id: 'drawRuleArea', icon: 'drawRuleArea', title: 'Draw Rule Areas (Ctrl+Shift+K)' },
   sep,
   { id: 'drawLine', icon: 'drawLine', title: 'Draw Lines (Ctrl+Shift+L)' },
   { id: 'drawArc', icon: 'drawArc', title: 'Draw Arcs (Ctrl+Shift+A)' },

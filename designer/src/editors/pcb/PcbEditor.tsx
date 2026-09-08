@@ -25,6 +25,14 @@ import { BezierStep } from '@ziroeda/common/src/preview_items/bezier_geom_manage
 import { PolygonGeomManager } from '@ziroeda/common/src/preview_items/polygon_geom_manager.js';
 import { COLOR4D_WHITE, brightness, cssWithAlpha, toCss } from '@ziroeda/common/src/color4d.js';
 import { drawPolygonItem } from '../../ui/polygon_item.js';
+import { DialogRuleAreaProperties } from './dialogs/dialog_rule_area_properties.js';
+import { DEFAULT_RULE_AREA_KEEPOUT } from '@ziroeda/pcbnew/src/convert_shapes.js';
+import {
+  collectPlacementSources,
+  uniqueZoneName,
+  type RuleAreaValues,
+  type ZoneBorderStyle,
+} from '@ziroeda/pcbnew/src/rule_area_properties.js';
 import { TwoPointGeomManager } from '@ziroeda/common/src/preview_items/two_point_geom_manager.js';
 import { ArcGeomManager, ArcStep } from '@ziroeda/common/src/preview_items/arc_geom_manager.js';
 import { arcMidPoint, drawArcAssistant } from '../../ui/arc_assistant.js';
@@ -740,6 +748,7 @@ const isClickTool = (t: string): boolean =>
   t === 'drawVia' ||
   t === 'placeText' ||
   t === 'drawZone' ||
+  t === 'drawRuleArea' ||
   t === 'measureTool' ||
   // `POINT_PLACER::SnapItem` calls `BestSnapAnchor` and then
   // `ForceCursorPosition( true, cursorPos )` (drawing_tool.cpp:895-906) — a
@@ -1984,7 +1993,13 @@ export function PcbEditor({
    * `POLYGON_GEOM_MANAGER`'s upstream and the two tools must not disagree
    * about what closes an outline.
    */
-  const zoneRef = useRef<{ net: number; layer: string } | null>(null);
+  const zoneRef = useRef<
+    | { mode: 'zone'; layer: string; net: number }
+    | { mode: 'ruleArea'; layer: string; values: RuleAreaValues }
+    | null
+  >(null);
+  /** Pending "Rule Area Properties" dialog: the area's first corner. */
+  const [ruleAreaDialog, setRuleAreaDialog] = useState<{ x: number; y: number } | null>(null);
   // Measure tool ruler: first point, and the frozen second point once clicked.
   const measureRef = useRef<{
     a: { x: number; y: number };
@@ -2011,6 +2026,7 @@ export function PcbEditor({
     twoPtRef.current.reset();
     twoPtStartedRef.current = false;
     arcMgrRef.current.reset();
+    setRuleAreaDialog(null);
     measureRef.current = null;
     dimensionRef.current = null;
     textBoxStartRef.current = null;
@@ -6403,19 +6419,16 @@ export function PcbEditor({
     setSelection(new Set([res.id]));
   };
 
-  /** `commitZone`'s `ZONE_MODE::ADD` arm (zone_create_helper.cpp:234-246). */
-  zoneCommitRef.current = (mgr) => {
-    const brd = boardRef.current;
-    const z = zoneRef.current;
-    const pts = finishedOutline(mgr);
-    if (!brd || !z || !pts) return;
-    // Border style/pitch from Board Setup > Zones (ZONE_SETTINGS defaults).
+  /**
+   * `GetDefaultZoneSettings()`'s border style and pitch — Board Setup > Zones.
+   *
+   * Both zone modes seed from it: `createNewZone` starts every new area from
+   * the board's default `ZONE_SETTINGS`, whatever `commitZone` goes on to
+   * build.
+   */
+  const defaultBorderStyle = (): { hatchStyle: ZoneBorderStyle; hatchPitch: number } => {
     const zoneDflts = boardSetupRef.current.zones;
-    const res = addBoardZone(brd, {
-      net: z.net,
-      netName: brd.nets.get(z.net) ?? '',
-      layers: [z.layer],
-      outline: pts,
+    return {
       hatchStyle:
         zoneDflts.outlineDisplay === 'Fully hatched'
           ? 'full'
@@ -6423,6 +6436,60 @@ export function PcbEditor({
             ? 'none'
             : 'edge',
       hatchPitch: Math.round(zoneDflts.outlineHatchPitchMM * MM) || 0.5 * MM,
+    };
+  };
+
+  /**
+   * `commitZone` (zone_create_helper.cpp:225-270). One outline, and the
+   * `ZONE_MODE` decides what it becomes: `ADD` a copper zone, `ADD` with
+   * `m_keepout` a rule area. Both are `commit.Push` followed by
+   * `RunAction( selectItem )`.
+   */
+  zoneCommitRef.current = (mgr) => {
+    const brd = boardRef.current;
+    const z = zoneRef.current;
+    const pts = finishedOutline(mgr);
+    if (!brd || !z || !pts) return;
+
+    if (z.mode === 'ruleArea') {
+      const v = z.values;
+      const res = addBoardZone(brd, {
+        // "it carries no net" — a rule area's net code is zeroed by the
+        // parser on the next load, and the writer emits none.
+        net: 0,
+        netName: '',
+        layers: [...v.layers],
+        outline: pts,
+        ruleArea: {
+          tracks: v.doNotAllowTracks,
+          vias: v.doNotAllowVias,
+          pads: v.doNotAllowPads,
+          copperPour: v.doNotAllowCopperPour,
+          footprints: v.doNotAllowFootprints,
+        },
+        placementArea: {
+          enabled: v.placementEnabled,
+          sourceType: v.placementSourceType,
+          source: v.placementSource,
+        },
+        ...(v.name === '' ? {} : { name: v.name }),
+        locked: v.locked,
+        hatchStyle: v.hatchStyle,
+        hatchPitch: v.hatchPitch,
+        // "for a keepout, this param is not used".
+        priority: 0,
+      });
+      commitBoard(res.board);
+      setSelection(new Set([res.id]));
+      return;
+    }
+
+    const res = addBoardZone(brd, {
+      net: z.net,
+      netName: brd.nets.get(z.net) ?? '',
+      layers: [z.layer],
+      outline: pts,
+      ...defaultBorderStyle(),
     });
     commitBoard(res.board);
     setSelection(new Set([res.id]));
@@ -7031,6 +7098,56 @@ export function PcbEditor({
     else mgr.addPoint(p);
     requestDraw();
   };
+
+  /**
+   * `PCB_ACTIONS::drawRuleArea` — the SAME `DRAWING_TOOL::DrawZone`, with
+   * `params.m_keepout = true`. The only difference between it and the filled
+   * zone above is which editor `createNewZone` invokes, so the outline, the
+   * preview and the closing rule are all the shared manager's.
+   */
+  const handleRuleAreaClick = (world: { x: number; y: number }): void => {
+    const brd = boardRef.current;
+    if (!brd) return;
+    const p = snapToGrid(world);
+
+    if (!zoneRef.current) {
+      // `InvokeRuleAreaEditor( frame, &zoneInfo, board )`; cancelling it makes
+      // `OnFirstPoint` return false and the outline never starts.
+      setRuleAreaDialog(p);
+      return;
+    }
+
+    const mgr = zoneMgr();
+    if (mgr.newPointClosesOutline(p)) closeOutline(mgr);
+    else mgr.addPoint(p);
+    requestDraw();
+  };
+
+  /**
+   * `createNewZone`'s seed for a rule area: the board's default
+   * `ZONE_SETTINGS` with `m_Layers` reset to the active layer alone, an empty
+   * name, and `SetIsRuleArea( true )`.
+   *
+   * The five keepout flags come from `ZONE_SETTINGS`'s own constructor —
+   * tracks, vias and pads forbidden; zone fills and footprints allowed —
+   * which is `DEFAULT_RULE_AREA_KEEPOUT`, the one copy of that table.
+   */
+  const newRuleAreaValues = (): RuleAreaValues => ({
+    doNotAllowTracks: DEFAULT_RULE_AREA_KEEPOUT.tracks,
+    doNotAllowVias: DEFAULT_RULE_AREA_KEEPOUT.vias,
+    doNotAllowPads: DEFAULT_RULE_AREA_KEEPOUT.pads,
+    doNotAllowCopperPour: DEFAULT_RULE_AREA_KEEPOUT.copperPour,
+    doNotAllowFootprints: DEFAULT_RULE_AREA_KEEPOUT.footprints,
+    placementEnabled: false,
+    placementSourceType: 'sheetname',
+    placementSource: '',
+    // "A new zone starts unnamed, do not inherit the last drawn zone's name
+    // (issue 23131)".
+    name: '',
+    locked: false,
+    layers: [activeLayer],
+    ...defaultBorderStyle(),
+  });
 
   // Measure tool (ACTIONS::measureTool): two clicks pin the ruler; the next
   // click starts a new measurement.
@@ -8504,6 +8621,9 @@ export function PcbEditor({
         } else if (activeToolRef.current === 'drawZone') {
           const w = worldAt(e.clientX, e.clientY);
           if (w) handleZoneClick(w);
+        } else if (activeToolRef.current === 'drawRuleArea') {
+          const w = worldAt(e.clientX, e.clientY);
+          if (w) handleRuleAreaClick(w);
         } else if (activeToolRef.current === 'gridSetOrigin') {
           const w = worldAt(e.clientX, e.clientY);
           if (w) handleOriginClick('grid_origin', w);
@@ -8839,6 +8959,21 @@ export function PcbEditor({
   // Copper layers first, then the technical layers in rebuildLayers()'s
   // non_cu_seq order, then any remaining - the shared rule, in
   // `widgets/appearance_layers.ts`.
+  /**
+   * The rule area dialog's layer list. `DIALOG_RULE_AREA_PROPERTIES` fills it
+   * from `LSET::AllNonCuMask()`'s complement — every board layer the frame
+   * offers — each row a checkbox, a colour swatch and the layer's name.
+   */
+  const ruleAreaLayers = useMemo(
+    () =>
+      board
+        ? board.layers.map((l) => ({
+            name: l.name,
+            color: drawOpts.theme?.layerColors[l.name] ?? layerColor(l.name),
+          }))
+        : [],
+    [board, drawOpts.theme],
+  );
   const layerRows = useMemo(
     () =>
       board
@@ -10668,7 +10803,7 @@ export function PcbEditor({
                   if (zoneDialog) {
                     // `OnFirstPoint` returning true is the dialog coming back
                     // OK; the corner it was opened on is the outline's first.
-                    zoneRef.current = { net: zoneNet, layer: zoneLayer };
+                    zoneRef.current = { mode: 'zone', net: zoneNet, layer: zoneLayer };
                     zoneMgr().addPoint(zoneDialog);
                     if (zoneLayer !== activeLayer) setActiveLayer(zoneLayer);
                   }
@@ -10681,6 +10816,36 @@ export function PcbEditor({
             </div>
           </div>
         </>
+      )}
+
+      {/* `InvokeRuleAreaEditor` from `ZONE_CREATE_HELPER::createNewZone`. OK is
+          `OnFirstPoint` returning true; Cancel vetoes it and the outline never
+          starts (zone_create_helper.cpp:273-301). */}
+      {ruleAreaDialog && board && (
+        <DialogRuleAreaProperties
+          units={unitLabel}
+          initial={newRuleAreaValues()}
+          layers={ruleAreaLayers}
+          sources={collectPlacementSources(board)}
+          onApply={(values) => {
+            // `GetUniqueZoneName` runs only when the name was actually edited,
+            // and a new area opens with none, so any name typed here is new.
+            const named =
+              values.name === '' ? values : { ...values, name: uniqueZoneName(board, values.name) };
+            zoneRef.current = {
+              mode: 'ruleArea',
+              layer: named.layers[0] ?? activeLayer,
+              values: named,
+            };
+            zoneMgr().addPoint(ruleAreaDialog);
+            setRuleAreaDialog(null);
+            requestDraw();
+          }}
+          onClose={() => {
+            setRuleAreaDialog(null);
+            requestDraw();
+          }}
+        />
       )}
 
       {pageDlgOpen && board && (

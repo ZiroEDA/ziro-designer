@@ -1083,6 +1083,9 @@ const DECLARED: Readonly<Record<string, readonly string[]>> = {
     // Place — every tool row carries its own `.DefaultHotkey()`.
     'Ctrl+Shift+X',
     'Ctrl+Shift+Z',
+    // `PCB_ACTIONS::drawRuleArea` (`pcb_actions.cpp:344`). It arrived with the
+    // tool, which is `DRAWING_TOOL::DrawZone` again with `m_keepout` set.
+    'Ctrl+Shift+K',
     'Ctrl+Shift+L',
     'Ctrl+Shift+C',
     'Ctrl+Shift+P',

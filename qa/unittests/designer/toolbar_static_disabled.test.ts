@@ -132,7 +132,12 @@ const UNBUILT: Readonly<Record<string, readonly string[]>> = {
     'tuneSingleTrack',
     'tuneDiffPair',
     'tuneSkew',
-    'drawRuleArea',
+    // `drawRuleArea` came off with the tool: `PCB_ACTIONS::drawRuleArea` is
+    // the SAME `DRAWING_TOOL::DrawZone` as Add Zone with `m_keepout` set, so
+    // it shares `POLYGON_GEOM_MANAGER` and `POLYGON_ITEM` with the other three
+    // zone modes; what it needed of its own was
+    // `DIALOG_RULE_AREA_PROPERTIES`, which `InvokeRuleAreaEditor` opens from
+    // `ZONE_CREATE_HELPER::createNewZone`.
     // `drawBezier` came off with `DRAWING_TOOL::DrawBezier`: the four-click
     // gesture is `pcbnew/src/bezier_tool.ts` over `BEZIER_GEOM_MANAGER`, and
     // the shape it commits is the `gr_curve` the reader and writer already
