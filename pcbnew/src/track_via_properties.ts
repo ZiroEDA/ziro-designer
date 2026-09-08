@@ -17,6 +17,7 @@
 
 import { atom, isList, str, type SList, type SNode } from '@ziroeda/sexpr/src/index.js';
 import { dropChild, mm, parseBoardItemId, patchChild } from './edit-board.js';
+import { itemNetNode } from './netinfo.js';
 import { defaultTeardropParameters } from './teardrop.js';
 import { buildTeardropParamsNode, isDefaultTeardropParams } from './write-footprint.js';
 import type {
@@ -312,14 +313,18 @@ export function collectTrackViaValues(sel: TrackViaSelection): TrackViaValues {
  * step. A model change without the matching patch is invisible on save: the
  * writer emits the item's stored source verbatim.
  */
-function applyToTrack<T extends PcbTrack | PcbArcTrack>(item: T, v: TrackViaValues): T {
+function applyToTrack<T extends PcbTrack | PcbArcTrack>(
+  board: Board,
+  item: T,
+  v: TrackViaValues,
+): T {
   let next: T = { ...item };
   let src = item.source;
   let changed = false;
 
   if (v.net !== undefined && v.net !== item.net) {
     next.net = v.net;
-    src = patchChild(src, 'net', list(atom('net'), atom(String(v.net))));
+    src = patchChild(src, 'net', itemNetNode(board, v.net));
     changed = true;
   }
 
@@ -384,7 +389,7 @@ function applyTrackGeometry(track: PcbTrack, v: TrackViaValues): PcbTrack {
 }
 
 /** Apply the via half, patching `(at …)`, `(size …)`, `(drill …)`, … */
-function applyToVia(via: PcbVia, v: TrackViaValues): PcbVia {
+function applyToVia(board: Board, via: PcbVia, v: TrackViaValues): PcbVia {
   const next: PcbVia = { ...via };
   let src = via.source;
   let changed = false;
@@ -398,7 +403,7 @@ function applyToVia(via: PcbVia, v: TrackViaValues): PcbVia {
 
   if (v.net !== undefined && v.net !== via.net) {
     next.net = v.net;
-    src = patchChild(src, 'net', list(atom('net'), atom(String(v.net))));
+    src = patchChild(src, 'net', itemNetNode(board, v.net));
     changed = true;
   }
 
@@ -507,21 +512,21 @@ export function applyTrackViaValues(
 
   const tracks = board.tracks.map((t, i) => {
     if (!trackIdx.has(i)) return t;
-    const next = applyTrackGeometry(applyToTrack(t, v), v);
+    const next = applyTrackGeometry(applyToTrack(board, t, v), v);
     if (next !== t) changed = true;
     return next;
   });
 
   const arcs = board.arcs.map((a, i) => {
     if (!arcIdx.has(i)) return a;
-    const next = applyToTrack(a, v);
+    const next = applyToTrack(board, a, v);
     if (next !== a) changed = true;
     return next;
   });
 
   const vias = board.vias.map((via, i) => {
     if (!viaIdx.has(i)) return via;
-    const next = applyToVia(via, v);
+    const next = applyToVia(board, via, v);
     if (next !== via) changed = true;
     return next;
   });

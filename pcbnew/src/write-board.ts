@@ -25,6 +25,7 @@ import { atom, str, isList, head, type SList, type SNode } from '@ziroeda/sexpr/
 import { serialize } from '@ziroeda/sexpr/src/serializer.js';
 import { pcbIuToMM as iuToMM } from '@ziroeda/common/src/eda_units.js';
 import { GENERATOR, GENERATOR_VERSION } from '@ziroeda/common/src/generator.js';
+import { itemNetNode, zoneNetNodes as netZoneNodes } from './netinfo.js';
 import {
   buildTeardropParamsNode,
   isDefaultTeardropParams,
@@ -80,15 +81,32 @@ const atNode = (p: Vec2, angle = 0): SList =>
 
 // ----- canonical builders (used only for source-less / freshly-built items) ---
 
+/**
+ * The `(net …)` of a track, arc or via, in the spelling the board's file
+ * version uses — see `NETCODES_DROPPED_VERSION`.
+ *
+ * A builder called with no board at all (the clipboard, which serialises a
+ * fragment rather than a file) keeps the netcode, which is the form our own
+ * `BOARD_FILE_VERSION` writes.
+ */
+const connectedNetNode = (board: Board | undefined, net: number): SList =>
+  board ? itemNetNode(board, net) : list(atom('net'), atom(String(net)));
+
+/** The same for a zone, where the legacy spelling is a `(net_name …)` pair. */
+const zoneNetNodes = (board: Board | undefined, z: PcbZone): SNode[] =>
+  board
+    ? netZoneNodes(board, z.net, z.ruleArea !== undefined)
+    : [list(atom('net'), atom(String(z.net))), list(atom('net_name'), str(z.netName ?? ''))];
+
 /** `(segment (start ..) (end ..) (width ..) (layer ..) (net ..) [(uuid ..)])`. */
-export function buildTrackNode(t: PcbTrack): SList {
+export function buildTrackNode(t: PcbTrack, board?: Board): SList {
   const items: SNode[] = [
     atom('segment'),
     xy('start', t.start),
     xy('end', t.end),
     list(atom('width'), atom(mm(t.width))),
     ...copperLayerNodes(t),
-    list(atom('net'), atom(String(t.net))),
+    connectedNetNode(board, t.net),
   ];
   if (t.uuid) items.push(list(atom('uuid'), str(t.uuid)));
   return { kind: 'list', items };
@@ -111,7 +129,7 @@ function copperLayerNodes(t: PcbTrack | PcbArcTrack): SNode[] {
 }
 
 /** `(arc (start ..) (mid ..) (end ..) (width ..) (layer ..) (net ..) [(uuid ..)])`. */
-export function buildArcTrackNode(a: PcbArcTrack): SList {
+export function buildArcTrackNode(a: PcbArcTrack, board?: Board): SList {
   const items: SNode[] = [
     atom('arc'),
     xy('start', a.start),
@@ -119,14 +137,14 @@ export function buildArcTrackNode(a: PcbArcTrack): SList {
     xy('end', a.end),
     list(atom('width'), atom(mm(a.width))),
     ...copperLayerNodes(a),
-    list(atom('net'), atom(String(a.net))),
+    connectedNetNode(board, a.net),
   ];
   if (a.uuid) items.push(list(atom('uuid'), str(a.uuid)));
   return { kind: 'list', items };
 }
 
 /** `(via [micro|blind] (at ..) (size ..) (drill ..) (layers ..) (net ..) [(uuid ..)])`. */
-export function buildViaNode(v: PcbVia): SList {
+export function buildViaNode(v: PcbVia, board?: Board): SList {
   const items: SNode[] = [atom('via')];
   if (v.kind === 'micro') items.push(atom('micro'));
   else if (v.kind === 'blind') items.push(atom('blind'));
@@ -135,7 +153,7 @@ export function buildViaNode(v: PcbVia): SList {
     list(atom('size'), atom(mm(v.size))),
     list(atom('drill'), atom(mm(v.drill))),
     { kind: 'list', items: [atom('layers'), str(v.layers[0]), str(v.layers[1])] },
-    list(atom('net'), atom(String(v.net))),
+    connectedNetNode(board, v.net),
   );
   // `format( const PCB_TRACK* )` for a via spells UNCONNECTED_LAYER_MODE right
   // after the layer pair, and writes nothing at all for KEEP_ALL. `remove_all`
@@ -291,12 +309,8 @@ export function buildBoardShapeNode(s: PcbShape): SList {
  * fields and carry their own fill, so a builder that hardcoded the defaults
  * would write copper KiCad then re-poured into something else.
  */
-export function buildZoneNode(z: PcbZone): SList {
-  const items: SNode[] = [
-    atom('zone'),
-    list(atom('net'), atom(String(z.net))),
-    list(atom('net_name'), str(z.netName ?? '')),
-  ];
+export function buildZoneNode(z: PcbZone, board?: Board): SList {
+  const items: SNode[] = [atom('zone'), ...zoneNetNodes(board, z)];
   if (z.layers.length === 1) items.push(list(atom('layer'), str(z.layers[0]!)));
   else items.push({ kind: 'list', items: [atom('layers'), ...z.layers.map((l) => str(l))] });
   if (z.uuid) items.push(list(atom('uuid'), str(z.uuid)));
@@ -417,16 +431,18 @@ export function buildBoardTextNode(t: PcbTextItem): SList {
 }
 
 // A modelled item's node: its (patched) source, or a canonical build if source-less.
-const trackNode = (t: PcbTrack): SNode =>
-  t.source.items.length > 0 ? t.source : buildTrackNode(t);
-const arcTrackNode = (a: PcbArcTrack): SNode =>
-  a.source.items.length > 0 ? a.source : buildArcTrackNode(a);
-const viaNode = (v: PcbVia): SNode => (v.source.items.length > 0 ? v.source : buildViaNode(v));
+const trackNode = (board: Board, t: PcbTrack): SNode =>
+  t.source.items.length > 0 ? t.source : buildTrackNode(t, board);
+const arcTrackNode = (board: Board, a: PcbArcTrack): SNode =>
+  a.source.items.length > 0 ? a.source : buildArcTrackNode(a, board);
+const viaNode = (board: Board, v: PcbVia): SNode =>
+  v.source.items.length > 0 ? v.source : buildViaNode(v, board);
 const shapeNode = (s: PcbShape): SNode =>
   s.source.items.length > 0 ? s.source : buildBoardShapeNode(s);
 const textNode = (t: PcbTextItem): SNode =>
   t.source.items.length > 0 ? t.source : buildBoardTextNode(t);
-const zoneNode = (z: PcbZone): SNode => (z.source.items.length > 0 ? z.source : buildZoneNode(z));
+const zoneNode = (board: Board, z: PcbZone): SNode =>
+  z.source.items.length > 0 ? z.source : buildZoneNode(z, board);
 
 /**
  * `(gr_text_box "…" …)`, PCB_IO_KICAD_SEXPR::format(PCB_TEXTBOX*).
@@ -740,16 +756,16 @@ export function writeBoardNode(board: Board): SList {
       if (fi < board.footprints.length) out.push(writeFootprintNode(board.footprints[fi]!));
       fi++;
     } else if (h === 'segment') {
-      if (ti < board.tracks.length) out.push(trackNode(board.tracks[ti]!));
+      if (ti < board.tracks.length) out.push(trackNode(board, board.tracks[ti]!));
       ti++;
     } else if (h === 'arc') {
-      if (ai < board.arcs.length) out.push(arcTrackNode(board.arcs[ai]!));
+      if (ai < board.arcs.length) out.push(arcTrackNode(board, board.arcs[ai]!));
       ai++;
     } else if (h === 'via') {
-      if (vi < board.vias.length) out.push(viaNode(board.vias[vi]!));
+      if (vi < board.vias.length) out.push(viaNode(board, board.vias[vi]!));
       vi++;
     } else if (h === 'zone') {
-      if (zi < board.zones.length) out.push(zoneNode(board.zones[zi]!));
+      if (zi < board.zones.length) out.push(zoneNode(board, board.zones[zi]!));
       zi++;
     } else if (GRAPHIC_HEADS.has(h)) {
       if (si < board.shapes.length) out.push(shapeNode(board.shapes[si]!));
@@ -790,12 +806,12 @@ export function writeBoardNode(board: Board): SList {
 
   // Append items the model gained beyond what the source held (duplicate/place).
   for (; fi < board.footprints.length; fi++) out.push(writeFootprintNode(board.footprints[fi]!));
-  for (; ti < board.tracks.length; ti++) out.push(trackNode(board.tracks[ti]!));
-  for (; ai < board.arcs.length; ai++) out.push(arcTrackNode(board.arcs[ai]!));
-  for (; vi < board.vias.length; vi++) out.push(viaNode(board.vias[vi]!));
+  for (; ti < board.tracks.length; ti++) out.push(trackNode(board, board.tracks[ti]!));
+  for (; ai < board.arcs.length; ai++) out.push(arcTrackNode(board, board.arcs[ai]!));
+  for (; vi < board.vias.length; vi++) out.push(viaNode(board, board.vias[vi]!));
   for (; si < board.shapes.length; si++) out.push(shapeNode(board.shapes[si]!));
   for (; xi < board.texts.length; xi++) out.push(textNode(board.texts[xi]!));
-  for (; zi < board.zones.length; zi++) out.push(zoneNode(board.zones[zi]!));
+  for (; zi < board.zones.length; zi++) out.push(zoneNode(board, board.zones[zi]!));
   for (; bi < board.textBoxes.length; bi++) out.push(textBoxNode(board.textBoxes[bi]!));
   for (; ii < board.images.length; ii++) out.push(imageNode(board.images[ii]!));
   for (; tbi < board.tables.length; tbi++) out.push(tableNode(board.tables[tbi]!));

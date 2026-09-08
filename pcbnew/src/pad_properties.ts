@@ -17,6 +17,7 @@
 
 import { atom, str, type SList, type SNode } from '@ziroeda/sexpr/src/index.js';
 import { dropChild, mm, parseBoardItemId, patchChild } from './edit-board.js';
+import { padNetNode } from './netinfo.js';
 import { rotatePcb } from './read-board.js';
 import type { Board, PadShape, PadType, PcbFootprint, PcbPad } from './types.js';
 import { ZONE_CONNECTION_CODE } from './zone_connection.js';
@@ -230,7 +231,7 @@ export function applyPadValues(board: Board, ref: PadRef, v: PadValues): Board {
 
   if (v.net !== (pad.net ?? 0)) {
     next.net = v.net;
-    src = patchChild(src, 'net', list(atom('net'), atom(String(v.net))));
+    src = patchChild(src, 'net', padNetNode(board, v.net));
   }
 
   if (v.layers.join() !== pad.layers.join()) {

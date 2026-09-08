@@ -20,6 +20,14 @@ import type { Board } from './types.js';
 /** NETINFO_LIST::UNCONNECTED, the code every unconnected item carries. */
 export const UNCONNECTED_NET = 0;
 
+/**
+ * NETINFO_LIST::ORPHANED, the code an item lands on when the file contradicts
+ * itself — a pad whose `(net 5 "GND")` names a net the declarations call
+ * something else. It matches no net, which is the point: neither half of the
+ * contradiction is trusted.
+ */
+export const ORPHANED_NET = -1;
+
 /** NETINFO_LIST::GetNetItem( name ), the code of a net by name, or undefined. */
 export function findNet(board: Board, netName: string): number | undefined {
   for (const [code, name] of board.nets) {
@@ -122,6 +130,62 @@ export function displayNetnames(nets: ReadonlyMap<number, string>): Map<number, 
   }
   return out;
 }
+
+/**
+ * `SEXPR_BOARD_FILE_VERSION` 20251028 — "Stop writing netcodes; they're an
+ * internal implementation detail".
+ *
+ * From this version `PCB_IO_KICAD_SEXPR::format` spells every connected item's
+ * net as a **name** — `(net "GND")` — and the board's `(net <code> "<name>")`
+ * declaration table is gone with it. Below it the code is what the file
+ * carries. Both spellings are still *read* at any version, so the boundary
+ * matters only here, on the writing side, and a file must be self-consistent:
+ * a numeric `(net 5)` written into a 10.0 file names a net nothing declares,
+ * and loads back as unconnected.
+ */
+export const NETCODES_DROPPED_VERSION = 20251028;
+
+/** Whether this board's file version spells nets by name. */
+export const writesNetNames = (board: Board): boolean => board.version >= NETCODES_DROPPED_VERSION;
+
+/**
+ * The `(net …)` of a track, arc, via or copper graphic, in the spelling the
+ * board's file version uses (`format( const PCB_TRACK* )` and friends).
+ */
+export function itemNetNode(board: Board, code: number): SList {
+  if (writesNetNames(board))
+    return { kind: 'list', items: [atom('net'), str(netName(board, code))] };
+  return { kind: 'list', items: [atom('net'), atom(String(code))] };
+}
+
+/**
+ * The `(net …)` of a **pad**, which is the one place the legacy spelling
+ * carries both halves — `(net 1 "GND")`. The parser insists on the name
+ * (`Expecting( "net name" )`), so a pad written with the code alone is a file
+ * KiCad refuses to open.
+ */
+export function padNetNode(board: Board, code: number): SList {
+  if (writesNetNames(board))
+    return { kind: 'list', items: [atom('net'), str(netName(board, code))] };
+  return { kind: 'list', items: [atom('net'), atom(String(code)), str(netName(board, code))] };
+}
+
+/**
+ * The `(net …)` — and, below 20251028, the `(net_name …)` beside it — of a
+ * zone. `format( const ZONE* )` omits both for an unconnected zone and for a
+ * rule area, neither of which belongs to a net at all.
+ */
+export function zoneNetNodes(board: Board, code: number, isRuleArea = false): SNode[] {
+  // Below the boundary the pair is written unconditionally, which is what every
+  // pre-10.0 file in the tree carries — `(net 0) (net_name "")` on a rule area
+  // included.
+  if (!writesNetNames(board))
+    return [itemNetNode(board, code), list_(atom('net_name'), str(netName(board, code)))];
+
+  return isRuleArea || code <= UNCONNECTED_NET ? [] : [itemNetNode(board, code)];
+}
+
+const list_ = (...items: SNode[]): SList => ({ kind: 'list', items });
 
 /** NETINFO_LIST::getFreeNetCode, net codes stay consecutive. */
 function freeNetCode(board: Board): number {

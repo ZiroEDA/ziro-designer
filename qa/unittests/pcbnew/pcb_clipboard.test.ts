@@ -666,10 +666,12 @@ describe('parseClipboardText', () => {
     );
   });
 
-  it('accepts a payload in the shape KiCad 10 writes (names in place of net codes)', () => {
+  it('resolves the net names KiCad 10 writes in place of net codes', () => {
     // KiCad 10's CLIPBOARD_IO writes (net "GND") and declares no nets at all.
-    // We must not choke on it; the nets simply arrive unresolved (code 0), the
-    // documented limit of reading a v10 payload with a code-based model.
+    // `parseNet` misses on `FindNet` and *creates* the NETINFO_ITEM, so the
+    // name becomes a net rather than being dropped: net 0 is the unconnected
+    // one NETINFO_LIST's own constructor holds, and getFreeNetCode hands the
+    // first name 1.
     const kicad10 = [
       '(kicad_pcb (version 20260206) (generator "pcbnew") (generator_version "10.0")',
       '  (layers (0 "F.Cu" signal) (2 "B.Cu" signal))',
@@ -680,7 +682,8 @@ describe('parseClipboardText', () => {
     const p = mustParse(kicad10);
     expect(p.form).toBe('board');
     expect(p.board.tracks).toHaveLength(1);
-    expect(p.board.tracks[0]!.net).toBe(0);
+    expect(p.board.tracks[0]!.net).toBe(1);
+    expect(p.board.nets.get(1)).toBe('GND');
   });
 });
 

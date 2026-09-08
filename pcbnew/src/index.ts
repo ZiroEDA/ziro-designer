@@ -297,6 +297,7 @@ export {
   displayNetnames,
   findNet,
   netName,
+  ORPHANED_NET,
   removeUnusedNets,
   renameNet,
   shortNetname,

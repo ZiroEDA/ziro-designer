@@ -66,6 +66,7 @@ import type {
   UnconnectedLayerMode,
 } from './types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
+import { ORPHANED_NET, UNCONNECTED_NET } from './netinfo.js';
 import { zoneConnectionFromCode, type ZoneConnection } from './zone_connection.js';
 import type { FrontBackOptBool } from './types.js';
 import { readDrillSlot, readPostMachining } from './padstack_drill.js';
@@ -774,40 +775,73 @@ function readPcbText(
 let readingNets: Map<number, string> | null = null;
 
 /**
- * `PCB_IO_KICAD_SEXPR_PARSER::parseNet`, the copper-graphic case.
+ * `NETINFO_LIST::m_newNetCode`. `getFreeNetCode` pre-increments a member rather
+ * than searching from 1, so a code is never handed out twice even after one is
+ * freed.
  *
- * Two spellings, and both are still read. A file written before 10.0 carries a
- * net **code** — `(net 5)` — which the parser calls authoritative; 10.0 and
- * later write the net **name**, `(net "/uart/SDA")`. Reading only the number
- * would silently drop the net on every board KiCad 10 has saved, which is all
- * the ones that have it.
- *
- * The name is resolved against the board's own `(net …)` declarations by the
- * caller, which is the only place the table is in hand.
+ * Nothing here tests the difference, deliberately: a parse only ever *adds*
+ * nets, and each call already took the smallest free code, so everything below
+ * the counter is taken and a search from 1 lands on the same number every time.
+ * The mirror is kept because it is what the C++ does, not because a file can
+ * tell the two apart.
  */
-function shapeNet(item: SList): number | undefined {
-  const node = childNamed(item, 'net');
+let readingNewNetCode = 0;
+
+/** `NETINFO_LIST::getFreeNetCode`. */
+function freeNetCode(nets: Map<number, string>): number {
+  do {
+    if (readingNewNetCode < 0) readingNewNetCode = 0;
+  } while (nets.has(++readingNewNetCode));
+  return readingNewNetCode;
+}
+
+/**
+ * `PCB_IO_KICAD_SEXPR_PARSER::parseNet` — the `(net …)` of any
+ * `BOARD_CONNECTED_ITEM`: a copper graphic, a pad, a track, an arc, a via or a
+ * zone.
+ *
+ * Two spellings, and both are still read. A file written before 20251028
+ * carries a net **code** — `(net 5)`, or `(net 5 "GND")` on a pad — which the
+ * parser calls authoritative. From 20251028 ("Stop writing netcodes; they're an
+ * internal implementation detail") KiCad writes the net **name** alone,
+ * `(net "/uart/SDA")`, and drops the board's `(net <code> "<name>")`
+ * declaration table with it. Reading only the number silently drops the net on
+ * every board KiCad 10 has saved.
+ *
+ * A name the declarations never mentioned is not an error: `FindNet` misses and
+ * upstream *creates* the `NETINFO_ITEM` and adds it to the board, so the whole
+ * table on a 10.0 file is built here, one name at a time, in file order.
+ */
+function parseNet(node: SList | undefined): number | undefined {
   if (!node) return undefined;
 
-  // Legacy files (pre-10.0) carry a net code, and the parser calls it
-  // authoritative. `numArg` answers only for an actual number, so a name never
-  // reaches here as a NaN.
+  // "Legacy files (pre-10.0) will have a netcode instead of a netname. This
+  // netcode is authoratative." `numArg` answers only for an actual number, so a
+  // name never reaches here as a NaN.
   const code = numArg(node, 0);
-  if (code !== undefined) return code;
+  const name = arg(node, code !== undefined ? 1 : 0);
 
-  const name = arg(node, 0);
+  if (code !== undefined) {
+    // The pad form `(net 5 "GND")` cross-checks the two: "Net name doesn't
+    // match ID" leaves the pad on NETINFO_LIST::ORPHANED rather than trusting
+    // either half of a contradiction.
+    if (name !== undefined && readingNets !== null && readingNets.has(code))
+      return readingNets.get(code) === name ? code : ORPHANED_NET;
+    return Math.max(0, code);
+  }
+
   if (name === undefined || readingNets === null) return undefined;
 
   for (const [c, n] of readingNets) if (n === name) return c;
 
-  // `FindNet` missed, so upstream *creates* the net and adds it to the board
-  // rather than dropping the reference. A code the file never declared is
-  // still a net the copper belongs to, and two shapes naming it must land on
-  // the same one.
-  let free = 1;
-  while (readingNets.has(free)) free++;
+  const free = freeNetCode(readingNets);
   readingNets.set(free, name);
   return free;
+}
+
+/** The `(net …)` of `item`, or undefined when it carries none. */
+function shapeNet(item: SList): number | undefined {
+  return parseNet(childNamed(item, 'net'));
 }
 
 function readShape(item: SList, t: FpTransform | null): PcbShape | null {
@@ -995,7 +1029,7 @@ function readPad(item: SList, t: FpTransform | null): PcbPad | null {
     chamferRatio: numberField(item, 'chamfer_ratio'),
     chamfer: chamferNode ? args(chamferNode) : undefined,
     delta: ptAt(childNamed(item, 'rect_delta')),
-    net: childNamed(item, 'net') ? numArg(childNamed(item, 'net')!, 0) : undefined,
+    net: shapeNet(item),
     pinFunction: childNamed(item, 'pinfunction')
       ? arg(childNamed(item, 'pinfunction')!, 0)
       : undefined,
@@ -1269,7 +1303,7 @@ function readZone(item: SList): PcbZone {
     return word === 'padvia' ? 'viapad' : word === 'track_end' ? 'trackend' : undefined;
   })();
   return {
-    net: netNode ? (numArg(netNode, 0) ?? 0) : 0,
+    net: parseNet(netNode) ?? 0,
     netName: stringField(item, 'net_name'),
     name: stringField(item, 'name'),
     layers,
@@ -1490,10 +1524,17 @@ export function readBoard(root: SList): Board {
       board.layers.push({ id, name: rest[0] ?? '', kind: rest[1] ?? 'user', userName: rest[2] });
     }
   }
-  // From here to the end of the pass, a `(net "name")` on a copper graphic can
-  // be resolved — and, when the name is new, declared. The `(net …)` rows come
-  // first in the file, which is the same order the C++ parser depends on.
+  // From here to the end of the pass, a `(net "name")` on any connected item
+  // can be resolved — and, when the name is new, declared. The `(net …)` rows
+  // come first in the file, which is the same order the C++ parser depends on,
+  // and from 20251028 there are none at all: the whole table is then built from
+  // the names the items themselves carry.
+  //
+  // `NETINFO_LIST`'s own constructor appends the unconnected net, so net 0
+  // exists on a board whose file never mentions it.
+  board.nets.set(UNCONNECTED_NET, '');
   readingNets = board.nets;
+  readingNewNetCode = 0;
   for (const item of root.items) {
     if (!isList(item)) continue;
     switch (head(item)) {
@@ -1517,7 +1558,7 @@ export function readBoard(root: SList): Board {
             end,
             width: mmToIU(numberField(item, 'width') ?? 0),
             layer: layerOf(item),
-            net: numberField(item, 'net') ?? 0,
+            net: shapeNet(item) ?? 0,
             maskLayer: maskLayerOf(item),
             solderMaskMargin: maskMarginOf(item),
             locked: lockedOf(item),
@@ -1538,7 +1579,7 @@ export function readBoard(root: SList): Board {
             end,
             width: mmToIU(numberField(item, 'width') ?? 0),
             layer: layerOf(item),
-            net: numberField(item, 'net') ?? 0,
+            net: shapeNet(item) ?? 0,
             maskLayer: maskLayerOf(item),
             solderMaskMargin: maskMarginOf(item),
             locked: lockedOf(item),
@@ -1564,7 +1605,7 @@ export function readBoard(root: SList): Board {
             : positional.includes('blind')
               ? 'blind'
               : 'through',
-          net: numberField(item, 'net') ?? 0,
+          net: shapeNet(item) ?? 0,
           teardrops: readTeardropParams(childNamed(item, 'teardrops')),
           tenting: frontBackOptBoolOf(childNamed(item, 'tenting'), true),
           covering: frontBackOptBoolOf(childNamed(item, 'covering')),
@@ -1649,5 +1690,6 @@ export function readBoard(root: SList): Board {
   // Cleared unconditionally: a `.kicad_mod` read after a board read must not
   // resolve its graphics against the board that happened to be parsed last.
   readingNets = null;
+  readingNewNetCode = 0;
   return board;
 }
