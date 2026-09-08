@@ -63,6 +63,16 @@ export interface ZoneValues {
   /** `(fill yes)` — whether the zone is poured at all. */
   filled: boolean;
   priority: number;
+  /**
+   * The Hatched Fill tab's "Hatch offset overrides" grid — this zone's OWN
+   * per-layer hatch origins (`ZONE::LayerProperties()`), keyed by canonical
+   * layer name. A layer absent here falls back to Board Setup's own page.
+   *
+   * `PANEL_ZONE_PROPERTIES` edits it through an add/remove grid rather than
+   * listing every copper layer, which is why "All zone layers already
+   * overridden" is a message it can put up.
+   */
+  layerProperties: Record<string, { x: number; y: number }>;
 }
 
 /** ZONE_SETTINGS' defaults, for a zone whose file omitted a field. */
@@ -117,6 +127,7 @@ export function collectZoneValues(zone: PcbZone): ZoneValues {
     hatchHoleMinArea: zone.hatchHoleMinArea ?? 0.3,
     filled: zone.filled !== false,
     priority: zone.priority ?? 0,
+    layerProperties: { ...(zone.layerProperties ?? {}) },
   };
 }
 
@@ -327,6 +338,7 @@ export function applyZoneValues(board: Board, index: number, v: ZoneValues): Boa
     hatchHoleMinArea: v.hatchHoleMinArea,
     filled: v.filled,
     priority: v.priority,
+    layerProperties: { ...v.layerProperties },
   };
 
   // Nothing to do if every field came back as it went in.

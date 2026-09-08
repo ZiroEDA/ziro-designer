@@ -11849,20 +11849,225 @@ textarea.ze-ds-textedit {
   color: var(--error-ink);
 }
 
-/* Copper Zone Properties (panel_zone_properties_base.cpp). */
-.ze-zone-dialog {
+/* ---------------------------------------------------------------------------
+   Copper Zone Properties (dialog_copper_zones_base.cpp over
+   panel_zone_properties_base.cpp).
+
+   `bMainSizer` is HORIZONTAL: `bSizerLeft` at proportion 0 — so the layer list
+   is its stated width and nothing more — and `m_sizerRight` at proportion 1.
+   Every length below is a per-Add() border out of one of those two files, each
+   marked [data] with the Add() it comes from. */
+.ze-cz-dialog {
   height: auto;
   max-height: 92vh;
 }
-/* `m_layers->SetMinSize( wxSize( 180,-1 ) )`
-   (pcbnew/dialogs/dialog_copper_zones_base.cpp:32) — the only stated width in
-   that file, and what actually sets the dialog's. */
-.ze-zone-layers {
+.ze-cz-body {
+  display: flex;
+  align-items: stretch;
+  /* [data] `m_MainBoxSizer->Add( bMainSizer, 1, wxEXPAND|wxLEFT, 5 )`. */
+  padding-left: 5px;
+}
+.ze-cz-layers {
+  /* `bMainSizer->Add( bSizerLeft, 0, wxEXPAND, 5 )` — proportion 0. */
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  /* [data] `m_layers->SetMinSize( wxSize( 180, -1 ) )`, the only stated width
+     in that file and what sets the dialog's own. */
   min-width: 180px;
+  /* [data] `bMainSizer->Add( 5, 0, 0, wxEXPAND, 5 )`, the spacer between the
+     two columns. */
+  margin-right: 5px;
+}
+.ze-cz-layers-label {
+  /* [data] `Add( m_staticTextLayerSelection, 0, wxLEFT|wxRIGHT|wxTOP, 7 )` —
+     7, not the 5 everything else in this file uses. */
+  padding: 7px 7px 0;
+  /* [data] `bSizerLeft->Add( 0, 2, 0, wxEXPAND, 5 )`, the spacer under it. */
+  margin-bottom: 2px;
+}
+.ze-cz-layer-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  /* [data] wxBORDER_SIMPLE on the wxDataViewListCtrl. */
+  border: 1px solid var(--ctl-border);
+  background: var(--field-bg);
+  /* [data] `Add( m_layers, 1, wxEXPAND|wxRIGHT|wxLEFT, 5 )`. */
+  margin: 0 5px;
+}
+.ze-cz-layer-list label {
+  display: flex;
+  align-items: center;
+  /* [data] the wxDataViewListCtrl renderer's own cell spacing. */
+  gap: 6px;
+  /* [data] the same renderer's cell inset. */
+  padding: 2px 4px;
+}
+.ze-cz-right {
+  /* `bMainSizer->Add( m_sizerRight, 1, wxEXPAND|wxTOP|wxRIGHT, 5 )`. */
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  /* [data] that Add()'s wxTOP|wxRIGHT, 5. */
+  padding: 5px 5px 0 0;
+}
+.ze-cz-infobar {
+  /* WX_INFOBAR: `bSizer8->Add( m_copperZoneInfoBar, 0, wxEXPAND, 5 )`, so it
+     spans the panel and takes no border of its own. */
+  display: flex;
+  align-items: center;
+  /* [data] WX_INFOBAR sets its own spacing between the icon and the text. */
+  gap: 8px;
+  /* [data] and its own inset, matching the other in-dialog notices here. */
+  padding: 6px 10px;
+  background: var(--field-bg);
+  color: var(--error-ink);
+}
+.ze-cz-head {
+  /* gbSizer8, a `wxGridBagSizer( 3, 5 )` with column 1 growable. */
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 2px 8px;
-  margin-left: 6px;
+  grid-template-columns: auto 1fr;
+  /* [data] the sizer's own vgap 3 / hgap 5. */
+  gap: 3px 5px;
+  align-items: center;
+  /* [data] `bPropertiesSizer->Add( gbSizer8, 0, wxEXPAND|wxALL, 5 )`. */
+  margin: 5px;
+}
+.ze-cz-locked {
+  display: flex;
+  align-items: center;
+  /* [data] wxCheckBox's own label spacing. */
+  gap: 6px;
+  /* [data] `bPropertiesSizer->Add( m_cbLocked, 0, wxLEFT|wxRIGHT, 5 )`. */
+  margin: 0 5px;
+}
+.ze-cz-nb {
+  /* `bPropertiesSizer->Add( m_notebook, 1, wxEXPAND|wxALL, 5 )` — proportion 1,
+     so the notebook is what grows. */
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  /* [data] that Add()'s wxALL, 5. */
+  margin: 5px;
+}
+.ze-cz-page {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  /* [data] a wxNotebook page sits inside the book control's own frame. */
+  border: 1px solid var(--ctl-border);
+  border-top: none;
+  /* [data] each page's `bSizer->Add( gbSizer, 0, wxALL, 5 )`. */
+  padding: 5px;
+}
+.ze-cz-grid {
+  /* Each page's wxGridBagSizer: label | control | unit, with column 2
+     growable so the unit label sits hard against the control. */
+  display: grid;
+  grid-template-columns: auto minmax(80px, 1fr) auto;
+  /* [data] `wxGridBagSizer( 1, 1 )` on the clearances page and ( 5, 5 ) on
+     Display Overrides; the wider of the two, which is what the eye reads. */
+  gap: 5px;
+  align-items: center;
+}
+.ze-cz-grid .lbl {
+  /* [data] the per-Add() `wxLEFT, 5` every label on these pages carries. */
+  padding-left: 5px;
+}
+.ze-cz-grid .unit {
+  /* [data] the per-Add() `wxRIGHT, 5` on every units label. */
+  padding-right: 5px;
+}
+.ze-cz-emptyrow {
+  /* [data] `gbSizerClearances->SetEmptyCellSize( wxSize( -1, 10 ) )` — row 2
+     is skipped, and that is the gap above Pad connections. */
+  grid-column: 1 / -1;
+  height: 10px;
+}
+.ze-cz-span {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  /* [data] wxCheckBox's own label spacing, and `wxLEFT|wxRIGHT, 5`. */
+  gap: 6px;
+  padding: 0 5px;
+}
+.ze-cz-hatchfields {
+  /* A fieldset only so `disabled` reaches every control inside it; it draws
+     nothing and contributes the grid's own rows. */
+  display: contents;
+  border: none;
+}
+.ze-cz-hatched {
+  /* `bHatchedFillSizer` is HORIZONTAL: the grid, then the overrides at
+     proportion 1. */
+  display: flex;
+  align-items: flex-start;
+}
+.ze-cz-offsets {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  /* [data] `bHatchedFillSizer->Add( bSizerOffsetOverrides, 1, wxEXPAND|wxRIGHT|wxLEFT, 5 )`. */
+  margin: 0 5px;
+}
+.ze-cz-offsets-label {
+  /* [data] `Add( m_offsetOverridesLabel, 0, wxTOP|wxRIGHT|wxLEFT, 5 )`, then a
+     2 px spacer. */
+  padding: 5px 5px 0;
+  margin-bottom: 2px;
+}
+.ze-cz-offsets-grid th {
+  /* [data] `SetColSize( 0, 90 )`, `( 1, 90 )`, `( 2, 90 )`. */
+  width: 90px;
+  /* [data] `SetColLabelSize( 22 )`. */
+  height: 22px;
+}
+.ze-cz-offsets-buttons {
+  display: flex;
+  /* [data] `bButtonSizer` puts a `20, 0` spacer between the two buttons. */
+  gap: 20px;
+  /* [data] `Add( bButtonSizer, 0, wxEXPAND|wxTOP|wxBOTTOM, 5 )` and each
+     button's own `wxLEFT|wxRIGHT, 5`. */
+  margin: 5px;
+}
+.ze-cz-general {
+  /* gbSizerGeneralProps, a `wxGridBagSizer( 5, 5 )` OUTSIDE the notebook, with
+     columns 1 and 3 growable. */
+  display: grid;
+  grid-template-columns: auto 1fr auto 1fr auto;
+  /* [data] the sizer's own vgap 5 / hgap 5. */
+  gap: 5px;
+  align-items: center;
+  /* [data] `bPropertiesSizer->Add( gbSizerGeneralProps, 0, wxALL|wxEXPAND, 10 )`
+     — 10, the only Add() in either file that is not 5. */
+  margin: 10px;
+}
+.ze-cz-general .lbl.pad {
+  /* [data] the Radius and Area limit labels carry `wxLEFT, 10`. */
+  padding-left: 10px;
+}
+/* `wxRESERVE_SPACE_EVEN_IF_HIDDEN`: Radius and Area limit keep their cells
+   when hidden, so the row beside them does not shift. */
+.ze-cz-general > [hidden] {
+  display: block !important;
+  visibility: hidden;
+}
+.ze-cz-foot {
+  /* bSizerbottom, HORIZONTAL: the Zone Manager button, then the
+     wxStdDialogButtonSizer at proportion 1 taking the slack. */
+  display: flex;
+  align-items: center;
+  /* [data] `m_MainBoxSizer->Add( bSizerbottom, 0, wxEXPAND|wxLEFT, 5 )` and the
+     button's own `wxALL, 5`. */
+  padding: 5px 5px 5px 10px;
+}
+.ze-cz-foot .ze-modal-footer {
+  flex: 1;
 }
 
 /* Footprint Properties (dialog_footprint_properties_base.cpp): a notebook with

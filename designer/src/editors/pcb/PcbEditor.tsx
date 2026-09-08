@@ -7215,6 +7215,9 @@ export function PcbEditor({
       hatchSmoothingValue: 0,
       hatchHoleMinArea: 0.3,
       filled: true,
+      // A new zone has no per-layer hatch origin of its own; every layer falls
+      // back to Board Setup > Zone Hatch Offsets until one is added here.
+      layerProperties: {},
       // `setUniquePriority( zoneInfo )` — skipped for a rule area, and for a
       // graphic polygon, but a copper zone opens on the first free one.
       priority: brd ? uniqueZonePriority(brd) : 0,
@@ -9096,6 +9099,15 @@ export function PcbEditor({
         : [],
     [board, drawOpts.theme],
   );
+  /** The copper rows the zone dialog's layer list draws, with their swatches. */
+  const copperLayerRows = useMemo(
+    () =>
+      copperLayers.map((name) => ({
+        name,
+        color: drawOpts.theme?.layerColors[name] ?? layerColor(name),
+      })),
+    [copperLayers, drawOpts.theme],
+  );
   const layerRows = useMemo(
     () =>
       board
@@ -10877,7 +10889,7 @@ export function PcbEditor({
           units={unitLabel}
           initial={zoneDialog.values}
           nets={board.nets}
-          layers={copperLayers}
+          layers={copperLayerRows}
           onApply={(values) => {
             zoneRef.current = {
               mode: 'zone',
@@ -11181,7 +11193,10 @@ export function PcbEditor({
           units={unitLabel}
           initial={collectZoneValues(board.zones[zonePropsIndex]!)}
           nets={board.nets}
-          layers={board.layers.filter((l) => /\.Cu$/.test(l.name)).map((l) => l.name)}
+          layers={copperLayerRows}
+          // "A zone still in creation … can't be edited by the Zone Manager";
+          // this path is a zone that already exists, so the button is shown.
+          existingZone
           onApply={applyZoneEdit}
           onClose={() => setZonePropsIndex(null)}
         />
