@@ -13,6 +13,7 @@ import { serializeBoard } from '@ziroeda/pcbnew/src/write-board.js';
 import {
   applyZoneValues,
   collectZoneValues,
+  uniqueZonePriority,
   zoneAt,
   type ZoneValues,
 } from '@ziroeda/pcbnew/src/zone_properties.js';
@@ -330,5 +331,57 @@ describe('island removal reaches the filler', () => {
 
   it('AREA drops an island below the limit', () => {
     expect(polyCount(dumbbell('area', 400))).toBe(1);
+  });
+});
+
+/**
+ * `ZONE_CREATE_HELPER::setUniquePriority` — the priority the Draw Filled Zone
+ * tool opens its dialog with.
+ */
+describe('uniqueZonePriority', () => {
+  const board = (zones: Partial<PcbZone>[]): Board => ({
+    ...load(SRC),
+    zones: zones.map((z) => ({
+      net: 0,
+      netName: '',
+      layers: ['F.Cu'],
+      outline: [],
+      fills: [],
+      source: { kind: 'list', items: [] },
+      ...z,
+    })) as PcbZone[],
+  });
+
+  it('is 0 on a board with no copper zones', () => {
+    expect(uniqueZonePriority(board([]))).toBe(0);
+  });
+
+  it('takes the first GAP, not one past the highest', () => {
+    // The priorities go into a `std::set`, which iterates ascending, and the
+    // loop breaks at the first index that does not match its own value.
+    expect(uniqueZonePriority(board([{ priority: 0 }, { priority: 1 }, { priority: 3 }]))).toBe(2);
+  });
+
+  it('counts up when the run is unbroken', () => {
+    expect(uniqueZonePriority(board([{ priority: 0 }, { priority: 1 }]))).toBe(2);
+  });
+
+  it('ignores rule areas, teardrops and non-copper zones', () => {
+    // "zone->GetTeardropAreaType() == TD_NONE && ( layers & AllCuMask ).any()
+    // && !zone->GetIsRuleArea()" — none of the three competes for the copper a
+    // new zone is about to pour.
+    const b = board([
+      {
+        priority: 0,
+        ruleArea: { tracks: true, vias: true, pads: true, copperPour: false, footprints: false },
+      },
+      { priority: 1, teardropType: 'viapad' },
+      { priority: 2, layers: ['F.SilkS'] },
+    ]);
+    expect(uniqueZonePriority(b)).toBe(0);
+  });
+
+  it('treats a zone with no stated priority as 0', () => {
+    expect(uniqueZonePriority(board([{}]))).toBe(1);
   });
 });

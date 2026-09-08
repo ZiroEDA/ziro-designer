@@ -121,6 +121,37 @@ export function collectZoneValues(zone: PcbZone): ZoneValues {
 }
 
 /**
+ * `ZONE_CREATE_HELPER::setUniquePriority` (zone_create_helper.cpp:55-83) — the
+ * priority a newly drawn copper zone opens with.
+ *
+ * The **first unused** priority, not one past the highest: the priorities in
+ * use go into a `std::set`, which iterates ascending, and the loop stops at
+ * the first index that does not match its own value. So with 0, 1 and 3 taken
+ * the answer is 2.
+ *
+ * Only zones that compete for the same copper are counted — a teardrop is
+ * generated copper the filler owns, and a rule area is never poured.
+ */
+export function uniqueZonePriority(board: Board): number {
+  const priorities = new Set<number>();
+
+  for (const zone of board.zones) {
+    if (zone.teardropType !== undefined) continue;
+    if (zone.ruleArea !== undefined) continue;
+    if (!zone.layers.some((l) => /\.Cu$/.test(l))) continue;
+    priorities.add(zone.priority ?? 0);
+  }
+
+  let priority = 0;
+  for (const existing of [...priorities].sort((a, b) => a - b)) {
+    if (priority !== existing) break;
+    priority++;
+  }
+
+  return priority;
+}
+
+/**
  * The rule-area halves of a zone: `(keepout …)`'s five do-not-allow flags and
  * `(placement …)`'s three fields, which `PANEL_ZONE_PROPERTIES` does not edit
  * and ZONE_DESC does (zone.cpp:2131-2174, groups "Keepout" and "Placement").

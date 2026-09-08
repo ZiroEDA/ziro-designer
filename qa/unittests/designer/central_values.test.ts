@@ -224,7 +224,17 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // the row its Add button appends: `AppendTrackWidth( 0 )` appends ZEROS
   // (`panel_setup_tracks_and_vias.cpp:459-472`), and ours seeded 0.2 / 0.6 /
   // 0.3 / 0.2 / 0.2 / 0.25 mm. Those were the last bare numbers in that page.
-  'editors/pcb': { colours: 42, metrics: 206 },
+  //
+  // 42 -> 38 and 206 -> 200: the Draw Filled Zone tool's dialog, the same
+  // defect as the Draw Text tool's above. `ZONE_CREATE_HELPER::createNewZone`
+  // calls `InvokeCopperZonesEditor`, the very dialog Properties opens on an
+  // existing zone; this frame put up a hand-rolled div asking for a layer and
+  // a net — `background: '#2a2c30'`, `border: '1px solid #444'`, a
+  // `rgba(0,0,0,0.3)` backdrop and a `rgba(0,0,0,0.5)` shadow, with its own
+  // `borderRadius: 4`, `padding: 12`, `width: 340` and three inline gaps and
+  // margins. Four colours and six metrics went with the div, and nothing
+  // replaced them: `DialogCopperZones` was already there.
+  'editors/pcb': { colours: 38, metrics: 200 },
   // At zero, and listed rather than absent: `prefs/` is the settings store, and
   // the one literal it had - the 3D viewer's `rgb(0,255,0)` selection colour -
   // is `PARAM<COLOR4D>( "render.opengl_selection_color", …, COLOR4D( 0, 1, 0, 1 ) )`
@@ -1006,7 +1016,11 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // (`selection_area.cpp:44-62`), which `common/src/preview_items/
     // selection_area.ts` already held for the schematic. `editors/pcb` is the
     // only row that moves and 525 - 4 agrees with it.
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(521);
+    // 521 -> 517: the Draw Filled Zone tool's own hand-rolled dialog, the same
+    // four colours the Draw Text one had — a `#2a2c30` face, a `#444` border,
+    // an `rgba(0,0,0,0.3)` backdrop and an `rgba(0,0,0,0.5)` shadow.
+    // `editors/pcb` is the only row that moves and 521 - 4 agrees with it.
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(517);
     // 1657 -> 1649: the same sweep. A native colour input has no useful
     // default size, so eight of the sixteen sites gave theirs an inline
     // width and height; the shared swatch takes --swatch-*-w/h. Rescanned.
@@ -1163,7 +1177,16 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // 1310 -> 1309: the Pre-defined Sizes blank row, in `editors/pcb`.
     // 1310 -> 1301: the Table Properties rebuild takes `ui` 714 -> 706, and the
     // row table sums to 1301 with it.
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1301);
+    // 1301 -> 1295: the Draw Filled Zone dialog's six, all in `editors/pcb`,
+    // which the per-area table agrees with at 206 -> 200.
+    //
+    // DERIVED, not rescanned. A rescan of this tree reads 1297, because
+    // `designer/src/ui` currently stands at 708 against a baseline of 706 —
+    // two literals that arrived without their row being moved. That gap is not
+    // this pass's and is deliberately left visible: the assertion below, which
+    // sums the per-area table, is the check that catches exactly that, and
+    // writing 1297 here would bury it.
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1295);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {

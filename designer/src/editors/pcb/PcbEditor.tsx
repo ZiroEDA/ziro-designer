@@ -425,6 +425,7 @@ import {
 import {
   applyZoneValues,
   collectZoneValues,
+  uniqueZonePriority,
   zoneAt,
   type ZoneValues,
 } from '@ziroeda/pcbnew/src/zone_properties.js';
@@ -1984,9 +1985,10 @@ export function PcbEditor({
     index?: number;
   } | null>(null);
   // Pending "Copper Zone Properties" dialog: the zone's first corner.
-  const [zoneDialog, setZoneDialog] = useState<{ x: number; y: number } | null>(null);
-  const [zoneNet, setZoneNet] = useState(0);
-  const [zoneLayer, setZoneLayer] = useState('F.Cu');
+  const [zoneDialog, setZoneDialog] = useState<{
+    at: { x: number; y: number };
+    values: ZoneValues;
+  } | null>(null);
   /**
    * The in-flight zone's `ZONE_CREATE_HELPER::PARAMS` — what the properties
    * dialog decided. The *corners* are `zoneMgrRef`'s, because they are
@@ -1994,7 +1996,7 @@ export function PcbEditor({
    * about what closes an outline.
    */
   const zoneRef = useRef<
-    | { mode: 'zone'; layer: string; net: number }
+    | { mode: 'zone'; layer: string; values: ZoneValues }
     | { mode: 'ruleArea'; layer: string; values: RuleAreaValues }
     | null
   >(null);
@@ -6484,12 +6486,34 @@ export function PcbEditor({
       return;
     }
 
+    const v = z.values;
     const res = addBoardZone(brd, {
-      net: z.net,
-      netName: brd.nets.get(z.net) ?? '',
-      layers: [z.layer],
+      net: v.net,
+      netName: brd.nets.get(v.net) ?? '',
+      layers: [...v.layers],
       outline: pts,
-      ...defaultBorderStyle(),
+      ...(v.name === '' ? {} : { name: v.name }),
+      locked: v.locked,
+      clearance: v.clearance,
+      minThickness: v.minThickness,
+      padConnection: v.padConnection,
+      thermalGap: v.thermalGap,
+      thermalBridgeWidth: v.thermalBridgeWidth,
+      hatchStyle: v.hatchStyle,
+      hatchPitch: v.hatchPitch,
+      cornerSmoothing: v.cornerSmoothing,
+      cornerRadius: v.cornerRadius,
+      islandRemovalMode: v.islandRemovalMode,
+      islandAreaMin: v.islandAreaMin,
+      fillMode: v.fillMode,
+      hatchThickness: v.hatchThickness,
+      hatchGap: v.hatchGap,
+      hatchOrientation: v.hatchOrientation,
+      hatchSmoothingLevel: v.hatchSmoothingLevel,
+      hatchSmoothingValue: v.hatchSmoothingValue,
+      hatchHoleMinArea: v.hatchHoleMinArea,
+      filled: v.filled,
+      priority: v.priority,
     });
     commitBoard(res.board);
     setSelection(new Set([res.id]));
@@ -7086,9 +7110,19 @@ export function PcbEditor({
     if (!brd) return;
     const p = snapToGrid(world);
     if (!zoneRef.current) {
-      setZoneNet(copperAt(world)?.net ?? 0);
-      setZoneLayer(/\.Cu$/.test(activeLayer) ? activeLayer : 'F.Cu');
-      setZoneDialog(p);
+      // `zoneInfo.m_Netcode = highlightedNets.empty() ? -1 : *begin`, and then
+      // the selection's net if that left it unset
+      // (zone_create_helper.cpp:97-118). NOT the net of whatever copper the
+      // first click landed on, which is what this used to guess.
+      const fromHighlight = [...highlightNets][0];
+      const fromSelection = [...selectedNetsRef.current][0];
+      setZoneDialog({
+        at: p,
+        values: newZoneValues(
+          /\.Cu$/.test(activeLayer) ? activeLayer : 'F.Cu',
+          fromHighlight ?? fromSelection ?? 0,
+        ),
+      });
       return;
     }
     // The same click arm as the polygon tool's, because upstream it is
@@ -7121,6 +7155,69 @@ export function PcbEditor({
     if (mgr.newPointClosesOutline(p)) closeOutline(mgr);
     else mgr.addPoint(p);
     requestDraw();
+  };
+
+  /**
+   * `createNewZone`'s seed for a **copper zone**: the board's default
+   * `ZONE_SETTINGS` — Board Setup > Zones — with `m_Layers` reset to the
+   * active layer alone, an empty name, and the first unused priority.
+   *
+   * Reading these off Board Setup is the point. This frame used to open a
+   * two-field box asking only for a layer and a net, so every other field the
+   * page sets — clearance, minimum width, pad connection, both thermal
+   * dimensions, corner smoothing, island removal — was silently the parser's
+   * fallback rather than the board's default.
+   */
+  const newZoneValues = (layer: string, net: number): ZoneValues => {
+    const d = boardSetupRef.current.zones;
+    const brd = boardRef.current;
+    return {
+      // "A new zone starts unnamed, do not inherit the last drawn zone's name."
+      name: '',
+      net,
+      layers: [layer],
+      locked: d.locked,
+      clearance: Math.round(d.clearanceMM * MM),
+      minThickness: Math.round(d.minWidthMM * MM),
+      padConnection:
+        d.padConnection === 'Solid'
+          ? 'full'
+          : d.padConnection === 'Reliefs for PTH'
+            ? 'thru_hole_only'
+            : d.padConnection === 'None'
+              ? 'none'
+              : 'thermal',
+      thermalGap: Math.round(d.thermalGapMM * MM),
+      thermalBridgeWidth: Math.round(d.thermalSpokeMM * MM),
+      ...defaultBorderStyle(),
+      cornerSmoothing:
+        d.cornerSmoothing === 'Chamfer'
+          ? 'chamfer'
+          : d.cornerSmoothing === 'Fillet'
+            ? 'fillet'
+            : 'none',
+      cornerRadius: Math.round(d.smoothingRadiusMM * MM),
+      islandRemovalMode:
+        d.removeIslands === 'Never'
+          ? 'never'
+          : d.removeIslands === 'Below area limit'
+            ? 'area'
+            : 'always',
+      islandAreaMin: d.areaLimitMM2,
+      // Every other fill field is `ZONE_SETTINGS`' own default; Board Setup >
+      // Zones does not offer them, so neither does this seed.
+      fillMode: 'solid',
+      hatchThickness: 0,
+      hatchGap: 0,
+      hatchOrientation: 0,
+      hatchSmoothingLevel: 0,
+      hatchSmoothingValue: 0,
+      hatchHoleMinArea: 0.3,
+      filled: true,
+      // `setUniquePriority( zoneInfo )` — skipped for a rule area, and for a
+      // graphic polygon, but a copper zone opens on the first free one.
+      priority: brd ? uniqueZonePriority(brd) : 0,
+    };
   };
 
   /**
@@ -10743,79 +10840,36 @@ export function PcbEditor({
         />
       )}
 
-      {/* "Copper Zone Properties" dialog: the zone tool opens it on the first
-          click (DRAWING_TOOL::DrawZone), then the outline is drawn. */}
-      {zoneDialog && (
-        <>
-          <div
-            style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(0,0,0,0.3)' }}
-            onMouseDown={() => setZoneDialog(null)}
-          />
-          <div
-            style={{
-              position: 'fixed',
-              left: '50%',
-              top: '40%',
-              transform: 'translate(-50%, -50%)',
-              zIndex: 61,
-              background: '#2a2c30',
-              border: '1px solid #444',
-              borderRadius: 4,
-              width: 340,
-              padding: 12,
-              fontSize: 13,
-              boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
-            }}
-            onMouseDown={(e) => e.stopPropagation()}
-          >
-            <div style={{ fontWeight: 600, marginBottom: 8 }}>Copper Zone Properties</div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 8 }}>
-              <label htmlFor="ze-zone-layer">Layer:</label>
-              <select
-                id="ze-zone-layer"
-                value={zoneLayer}
-                onChange={(e) => setZoneLayer(e.target.value)}
-              >
-                {copperLayers.map((l) => (
-                  <option key={l} value={l}>
-                    {l}
-                  </option>
-                ))}
-              </select>
-              <label htmlFor="ze-zone-net">Net:</label>
-              <select
-                id="ze-zone-net"
-                value={zoneNet}
-                onChange={(e) => setZoneNet(Number(e.target.value))}
-              >
-                <option value={0}>&lt;no net&gt;</option>
-                {nets.map(([code, name]) => (
-                  <option key={code} value={code}>
-                    {name || `(unnamed ${code})`}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 12 }}>
-              <button onClick={() => setZoneDialog(null)}>Cancel</button>
-              <button
-                onClick={() => {
-                  if (zoneDialog) {
-                    // `OnFirstPoint` returning true is the dialog coming back
-                    // OK; the corner it was opened on is the outline's first.
-                    zoneRef.current = { mode: 'zone', net: zoneNet, layer: zoneLayer };
-                    zoneMgr().addPoint(zoneDialog);
-                    if (zoneLayer !== activeLayer) setActiveLayer(zoneLayer);
-                  }
-                  setZoneDialog(null);
-                  requestDraw();
-                }}
-              >
-                OK
-              </button>
-            </div>
-          </div>
-        </>
+      {/* `InvokeCopperZonesEditor( frame, nullptr, &zoneInfo )` from
+          `ZONE_CREATE_HELPER::createNewZone` — the SAME Copper Zone Properties
+          dialog that Properties opens on an existing zone, which is the whole
+          point: this frame used to put up a two-field box asking for a layer
+          and a net, so a zone drawn with the tool could not be given a
+          clearance, a pad connection or a fill mode until it had been drawn
+          and then edited. Cancelling vetoes `OnFirstPoint`. */}
+      {zoneDialog && board && (
+        <DialogCopperZones
+          units={unitLabel}
+          initial={zoneDialog.values}
+          nets={board.nets}
+          layers={copperLayers}
+          onApply={(values) => {
+            zoneRef.current = {
+              mode: 'zone',
+              layer: values.layers[0] ?? activeLayer,
+              values,
+            };
+            if (values.layers[0] && values.layers[0] !== activeLayer)
+              setActiveLayer(values.layers[0]);
+            zoneMgr().addPoint(zoneDialog.at);
+            setZoneDialog(null);
+            requestDraw();
+          }}
+          onClose={() => {
+            setZoneDialog(null);
+            requestDraw();
+          }}
+        />
       )}
 
       {/* `InvokeRuleAreaEditor` from `ZONE_CREATE_HELPER::createNewZone`. OK is
