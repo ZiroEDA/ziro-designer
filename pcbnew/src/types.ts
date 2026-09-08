@@ -93,6 +93,22 @@ export interface PcbPad {
   /** `(thermal_bridge_width …)` / `(thermal_gap …)`, IU; this pad's relief. */
   thermalBridgeWidth?: number;
   thermalGap?: number;
+  /**
+   * `(thermal_bridge_angle …)`, PAD::GetThermalSpokeAngle, DEGREES.
+   *
+   * "45° will produce an X (the default for circular pads and
+   * circular-anchored custom shaped pads), while 90° will produce a + (the
+   * default for all other shapes)" (pad.h:750). The parser resolves the
+   * default on load and always ends up with a value, so a pad read from a file
+   * carries one; `defaultThermalSpokeAngle` answers for one built in memory.
+   */
+  thermalSpokeAngle?: number;
+  /**
+   * `(options (anchor circle|rect))`, the anchor shape a CUSTOM pad grows its
+   * primitives from. It decides that pad's default spoke angle, which is the
+   * only thing reading it so far.
+   */
+  anchorShape?: PadShape;
   /** `(die_length …)`, PAD::GetPadToDieLength, IU. */
   padToDieLength?: number;
   /**

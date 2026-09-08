@@ -67,6 +67,7 @@ import type {
 } from './types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { ORPHANED_NET, UNCONNECTED_NET } from './netinfo.js';
+import { defaultThermalSpokeAngle } from './padstack.js';
 import { zoneConnectionFromCode, type ZoneConnection } from './zone_connection.js';
 import type { FrontBackOptBool } from './types.js';
 import { readDrillSlot, readPostMachining } from './padstack_drill.js';
@@ -775,6 +776,15 @@ function readPcbText(
 let readingNets: Map<number, string> | null = null;
 
 /**
+ * `PCB_IO_KICAD_SEXPR_PARSER::m_requiredVersion`, the file version of whatever
+ * is being read. Two defaults turn on it, so the parser keeps it as a member
+ * rather than threading it down; this is the same member.
+ *
+ * Infinity outside a file: a pad built in memory takes today's defaults.
+ */
+let readingVersion = Number.POSITIVE_INFINITY;
+
+/**
  * `NETINFO_LIST::m_newNetCode`. `getFreeNetCode` pre-increments a member rather
  * than searching from 1, so a code is never handed out twice even after one is
  * freed.
@@ -993,6 +1003,11 @@ function readPad(item: SList, t: FpTransform | null): PcbPad | null {
     // parsePAD: a missing drill token on a through pad means a 1 nm hole.
     drill = { oblong: false, w: 1, h: 1 };
   }
+  // `(options (clearance …) (anchor circle|rect))` — a CUSTOM pad's anchor,
+  // which is what its default thermal spoke angle turns on.
+  const optionsNode = childNamed(item, 'options');
+  const anchorNode = optionsNode ? childNamed(optionsNode, 'anchor') : undefined;
+  const anchorShape = anchorNode ? ((arg(anchorNode, 0) ?? 'circle') as PadShape) : undefined;
   const primsNode = childNamed(item, 'primitives');
   const primitives: PadPrimitive[] = [];
   if (primsNode) {
@@ -1045,6 +1060,12 @@ function readPad(item: SList, t: FpTransform | null): PcbPad | null {
     zoneConnection: zoneConnectOf(item),
     thermalBridgeWidth: mmOrUndef(item, 'thermal_bridge_width'),
     thermalGap: mmOrUndef(item, 'thermal_gap'),
+    // `(thermal_bridge_angle …)` when the file states one; otherwise the
+    // parser's own default, which it applies to every pad it reads.
+    thermalSpokeAngle:
+      numberField(item, 'thermal_bridge_angle') ??
+      defaultThermalSpokeAngle(shape, anchorShape, readingVersion),
+    anchorShape,
     padToDieLength: mmOrUndef(item, 'die_length'),
     teardrops: readTeardropParams(childNamed(item, 'teardrops')),
     unconnectedLayerMode: readUnconnectedLayerMode(item, false),
@@ -1069,7 +1090,12 @@ function readPad(item: SList, t: FpTransform | null): PcbPad | null {
 export function readFootprintFile(root: SList): PcbFootprint | null {
   const h = head(root);
   if (h !== 'footprint' && h !== 'module') return null;
-  return readFootprint(root, true);
+  readingVersion = numberField(root, 'version') ?? Number.POSITIVE_INFINITY;
+  try {
+    return readFootprint(root, true);
+  } finally {
+    readingVersion = Number.POSITIVE_INFINITY;
+  }
 }
 
 /**
@@ -1443,6 +1469,7 @@ function readZone(item: SList): PcbZone {
 /** Read a parsed `.kicad_pcb` document into the typed Board model. */
 export function readBoard(root: SList): Board {
   if (head(root) !== 'kicad_pcb') throw new Error('not a kicad_pcb document');
+  readingVersion = numberField(root, 'version') ?? Number.POSITIVE_INFINITY;
   const setupNode = childNamed(root, 'setup');
   const board: Board = {
     version: numberField(root, 'version') ?? 0,
@@ -1691,5 +1718,6 @@ export function readBoard(root: SList): Board {
   // resolve its graphics against the board that happened to be parsed last.
   readingNets = null;
   readingNewNetCode = 0;
+  readingVersion = Number.POSITIVE_INFINITY;
   return board;
 }

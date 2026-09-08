@@ -4,6 +4,7 @@
 /** @ziroeda/pcbnew, board engine mirroring KiCad's pcbnew/. */
 export * from './types.js';
 export { connectedTrackEnds, type TrackEndRef } from './connectivity.js';
+export { defaultThermalSpokeAngle } from './padstack.js';
 export {
   buildRatsnest,
   prepareLocalRatsnest,

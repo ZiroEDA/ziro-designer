@@ -790,3 +790,471 @@ describe('zone filler', () => {
     expect(fillZones(b).zones[0]!.fills).toEqual([]);
   });
 });
+
+// -----------------------------------------------------------------------------
+// the shape of a thermal relief
+// -----------------------------------------------------------------------------
+
+/** Is `p` inside the fill? Ray cast over every ring, holes cancelling. */
+const filled = (polys: { x: number; y: number }[][], p: { x: number; y: number }): boolean => {
+  let crossings = 0;
+  for (const ring of polys)
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+      const a = ring[i]!;
+      const b = ring[j]!;
+      if (a.y > p.y !== b.y > p.y && p.x < ((b.x - a.x) * (p.y - a.y)) / (b.y - a.y) + a.x)
+        crossings++;
+    }
+  return crossings % 2 === 1;
+};
+
+/** A same-net pad in the middle of the pour, thermally relieved. */
+const relieved = (over: Partial<PcbPad>): Board =>
+  board({
+    zones: [zone()],
+    footprints: [
+      footprint([
+        {
+          ...pad({ x: MM(20), y: MM(20) }, 1, MM(3)),
+          type: 'thru_hole',
+          layers: ['*.Cu'],
+          ...over,
+        },
+      ]),
+    ],
+  });
+
+/** Where the fill sits on a circle of radius `r` around the pad, in 5° steps. */
+const ringProfile = (polys: { x: number; y: number }[][], r: number): boolean[] => {
+  const out: boolean[] = [];
+  for (let deg = 0; deg < 360; deg += 5) {
+    const a = (deg * Math.PI) / 180;
+    out.push(filled(polys, { x: MM(20) + Math.cos(a) * r, y: MM(20) + Math.sin(a) * r }));
+  }
+  return out;
+};
+
+/**
+ * The angles, in degrees, at the middle of each filled run of `ringProfile`.
+ *
+ * The angle is the SAMPLING one, `(cos a, sin a)` in board coordinates where y
+ * runs down the screen. `RotatePoint` turns the other way, so a pad at +30°
+ * puts its spokes at sampling angles 90k − 30.
+ */
+const spokeAnglesAt = (polys: { x: number; y: number }[][], r: number): number[] => {
+  const p = ringProfile(polys, r);
+  const start = p.indexOf(false);
+  if (start < 0) return [];
+
+  const runs: number[][] = [];
+  for (let k = 0; k < p.length; k++) {
+    const i = (start + k) % p.length;
+    if (!p[i]) continue;
+    if (k > 0 && p[(start + k - 1) % p.length]) runs[runs.length - 1]!.push(k);
+    else runs.push([k]);
+  }
+  return runs
+    .map((run) => ((((start + (run[0]! + run[run.length - 1]!) / 2) * 5) % 360) + 360) % 360)
+    .sort((a, b) => a - b);
+};
+
+describe('the thermal spoke angle', () => {
+  // "45° will produce an X (the default for circular pads and circular-anchored
+  // custom shaped pads), while 90° will produce a + (the default for all other
+  // shapes)" — PAD::SetThermalSpokeAngle, pad.h:750.
+  const sampleR = MM(1.6); // inside the relief, outside the pad
+
+  it('puts an X on a round pad', () => {
+    const fill = fillZone(relieved({ shape: 'circle' }), 0)[0]!.polys;
+    expect(spokeAnglesAt(fill, sampleR)).toEqual([45, 135, 225, 315]);
+  });
+
+  it('puts a + on a rectangular one', () => {
+    const fill = fillZone(relieved({ shape: 'rect' }), 0)[0]!.polys;
+    expect(spokeAnglesAt(fill, sampleR)).toEqual([0, 90, 180, 270]);
+  });
+
+  it("takes the pad's own (thermal_bridge_angle …) over either default", () => {
+    const fill = fillZone(relieved({ shape: 'circle', thermalSpokeAngle: 90 }), 0)[0]!.polys;
+    expect(spokeAnglesAt(fill, sampleR)).toEqual([0, 90, 180, 270]);
+  });
+
+  it('turns with the pad', () => {
+    // The four spokes are built about the pad's own axes and then rotated by
+    // its orientation, so a rectangle at 30° carries its + around with it.
+    const fill = fillZone(relieved({ shape: 'rect', angle: 30 }), 0)[0]!.polys;
+    // RotatePoint turns clockwise on screen, so a +30° pad reads back at 90k−30.
+    expect(spokeAnglesAt(fill, sampleR)).toEqual([60, 150, 240, 330]);
+  });
+});
+
+describe("a thermally connected pad's own hole", () => {
+  // "Ensure additive changes (thermal stubs …) do not add copper … inside the
+  // clearance holes" — every thermalConnectionPad's drill joins clearanceHoles
+  // at gap 0, and is subtracted after the spokes are in (zone_filler.cpp:3130).
+  const withDrill = (): Board =>
+    relieved({ shape: 'circle', drill: { oblong: false, w: MM(1.5), h: MM(1.5) } });
+
+  it('is empty even though four spokes cross it', () => {
+    const fill = fillZone(withDrill(), 0)[0]!.polys;
+    expect(filled(fill, { x: MM(20), y: MM(20) })).toBe(false);
+    // Just outside the drill, along a spoke, there IS copper: the hole is the
+    // drill and nothing more.
+    const d = MM(0.75) + MM(0.1);
+    expect(filled(fill, { x: MM(20) + d * Math.SQRT1_2, y: MM(20) + d * Math.SQRT1_2 })).toBe(true);
+  });
+
+  it('is not knocked out with a clearance ring around it', () => {
+    // The gap is 0. A pad whose hole took the zone clearance too would eat
+    // 0.5 mm of the spokes' roots.
+    const fill = fillZone(withDrill(), 0)[0]!.polys;
+    const justOutside = MM(0.75) + MM(0.05);
+    expect(
+      filled(fill, {
+        x: MM(20) + justOutside * Math.SQRT1_2,
+        y: MM(20) + justOutside * Math.SQRT1_2,
+      }),
+    ).toBe(true);
+  });
+
+  it('stays filled when the pad is connected solidly instead', () => {
+    // A FULL connection is not in thermalConnectionPads, so nothing knocks its
+    // hole out and the pour runs straight over it.
+    const b = relieved({ shape: 'circle', drill: { oblong: false, w: MM(1.5), h: MM(1.5) } });
+    const solid = { ...b, zones: [{ ...b.zones[0]!, padConnection: 'full' as const }] };
+    expect(filled(fillZone(solid, 0)[0]!.polys, { x: MM(20), y: MM(20) })).toBe(true);
+  });
+});
+
+describe('which pads get a relief', () => {
+  const twoPads = (padConnection: PcbZone['padConnection']): Board => {
+    const b = board({
+      zones: [zone({ padConnection })],
+      footprints: [
+        footprint([
+          { ...pad({ x: MM(12), y: MM(20) }, 1, MM(3)), type: 'thru_hole', layers: ['*.Cu'] },
+          { ...pad({ x: MM(28), y: MM(20) }, 1, MM(3)), type: 'smd' },
+        ]),
+      ],
+    });
+    return b;
+  };
+
+  /**
+   * Is there a relief gap around the pad? Probed on the DIAGONAL: both pads
+   * here are rectangles, so their spokes are the cardinal `+` and an axis
+   * probe would land on one.
+   */
+  const hasRelief = (b: Board, x: number): boolean =>
+    !filled(fillZone(b, 0)[0]!.polys, {
+      x: x + MM(1.9) * Math.SQRT1_2,
+      y: MM(20) + MM(1.9) * Math.SQRT1_2,
+    });
+
+  it('gives "thermal reliefs for PTH" a relief on the through pad only', () => {
+    // ZONE_CONNECTION::THT_THERMAL becomes THERMAL on a PTH pad and FULL on
+    // everything else (DRC_ENGINE::EvalZoneConnection).
+    const b = twoPads('thru_hole_only');
+    expect(hasRelief(b, MM(12))).toBe(true);
+    expect(hasRelief(b, MM(28))).toBe(false);
+  });
+
+  it('relieves both when the zone simply says thermal', () => {
+    const b = twoPads('thermal');
+    expect(hasRelief(b, MM(12))).toBe(true);
+    expect(hasRelief(b, MM(28))).toBe(true);
+  });
+
+  it("lets a pad's own (zone_connect …) override the zone", () => {
+    // ZONE_CONNECTION_CONSTRAINT resolves pad, then footprint, then zone.
+    const b = twoPads('thermal');
+    const solidPad = {
+      ...b,
+      footprints: [
+        {
+          ...b.footprints[0]!,
+          pads: [
+            { ...b.footprints[0]!.pads[0]!, zoneConnection: 'full' as const },
+            b.footprints[0]!.pads[1]!,
+          ],
+        },
+      ],
+    };
+    expect(hasRelief(solidPad, MM(12))).toBe(false);
+    expect(hasRelief(solidPad, MM(28))).toBe(true);
+  });
+});
+
+// -----------------------------------------------------------------------------
+// when the islands are looked for
+// -----------------------------------------------------------------------------
+
+describe('island removal runs on the finished fill', () => {
+  /**
+   * `ZONE_FILLER::Fill` calls `FillIsolatedIslandsMap` after every
+   * `fillCopperZone` has returned, so what it sees is the pruned, fractured
+   * poly set. Asking before the prune reads a different board: a lobe hanging
+   * off the pour by a neck THINNER than the zone's minimum thickness is still
+   * attached at that moment, and survives a question it should have failed.
+   *
+   * Two 12 mm squares joined by a 0.1 mm neck, in a zone whose minimum
+   * thickness is 0.5. The pad — the only same-net copper — is in the left one.
+   */
+  const dumbbell = (over: Partial<PcbZone> = {}): Board =>
+    board({
+      zones: [
+        zone({
+          minThickness: MM(0.5),
+          padConnection: 'full',
+          outline: [
+            { x: MM(2), y: MM(2) },
+            { x: MM(14), y: MM(2) },
+            { x: MM(14), y: MM(7.95) },
+            { x: MM(26), y: MM(7.95) },
+            { x: MM(26), y: MM(2) },
+            { x: MM(38), y: MM(2) },
+            { x: MM(38), y: MM(14) },
+            { x: MM(26), y: MM(14) },
+            { x: MM(26), y: MM(8.05) },
+            { x: MM(14), y: MM(8.05) },
+            { x: MM(14), y: MM(14) },
+            { x: MM(2), y: MM(14) },
+          ],
+          ...over,
+        }),
+      ],
+      footprints: [footprint([pad({ x: MM(8), y: MM(8) }, 1, MM(2))])],
+    });
+
+  it('drops the lobe the min-width prune just severed', () => {
+    const fill = fillZone(dumbbell(), 0)[0]!.polys;
+    // The pad's own square survives; the far one is now an island.
+    expect(filled(fill, { x: MM(5), y: MM(5) })).toBe(true);
+    expect(filled(fill, { x: MM(35), y: MM(5) })).toBe(false);
+  });
+
+  it('keeps it when the mode is never', () => {
+    const fill = fillZone(dumbbell({ islandRemovalMode: 'never' }), 0)[0]!.polys;
+    expect(filled(fill, { x: MM(35), y: MM(5) })).toBe(true);
+  });
+
+  it('keeps even a tiny one when the mode is never', () => {
+    // NEVER is not "AREA with the default limit": the far lobe here is 4 mm²,
+    // under `island_area_min`'s 10, and it still stays.
+    const small = (over: Partial<PcbZone>): Board => {
+      const b = dumbbell(over);
+      const z = b.zones[0]!;
+      return {
+        ...b,
+        zones: [
+          {
+            ...z,
+            outline: [
+              { x: MM(2), y: MM(2) },
+              { x: MM(14), y: MM(2) },
+              { x: MM(14), y: MM(7.95) },
+              { x: MM(26), y: MM(7.95) },
+              { x: MM(26), y: MM(6) },
+              { x: MM(28), y: MM(6) },
+              { x: MM(28), y: MM(10) },
+              { x: MM(26), y: MM(10) },
+              { x: MM(26), y: MM(8.05) },
+              { x: MM(14), y: MM(8.05) },
+              { x: MM(14), y: MM(14) },
+              { x: MM(2), y: MM(14) },
+            ],
+          },
+        ],
+      };
+    };
+    expect(
+      filled(fillZone(small({ islandRemovalMode: 'never' }), 0)[0]!.polys, { x: MM(27), y: MM(8) }),
+    ).toBe(true);
+    expect(filled(fillZone(small({}), 0)[0]!.polys, { x: MM(27), y: MM(8) })).toBe(false);
+  });
+
+  it('keeps it when it is over the area limit', () => {
+    // ISLAND_REMOVAL_MODE::AREA, `outline.Area( true ) < minArea`. The far
+    // square is ~144 mm².
+    const under = fillZone(dumbbell({ islandRemovalMode: 'area', islandAreaMin: 200 }), 0)[0]!
+      .polys;
+    const over = fillZone(dumbbell({ islandRemovalMode: 'area', islandAreaMin: 50 }), 0)[0]!.polys;
+    expect(filled(under, { x: MM(35), y: MM(5) })).toBe(false);
+    expect(filled(over, { x: MM(35), y: MM(5) })).toBe(true);
+  });
+
+  it('keeps a pour that reaches nothing at all', () => {
+    // "skip island removal on layers where every outline is an island
+    // (unconnected pour — must be preserved as-is)".
+    const b = dumbbell();
+    const orphan = { ...b, footprints: [footprint([pad({ x: MM(8), y: MM(8) }, 2, MM(2))])] };
+    const fill = fillZone(orphan, 0)[0]!.polys;
+    expect(filled(fill, { x: MM(35), y: MM(5) })).toBe(true);
+    expect(filled(fill, { x: MM(5), y: MM(5) })).toBe(true);
+  });
+});
+
+// -----------------------------------------------------------------------------
+// ERROR_OUTSIDE
+// -----------------------------------------------------------------------------
+
+describe('a knockout polygon is built OUTSIDE the shape it stands for', () => {
+  /**
+   * `TransformCircleToPolygon( …, ERROR_OUTSIDE )` and `TransformOvalToPolygon`
+   * push the approximation outward — "The outer radius should be radius+aError"
+   * — so the polygon is TANGENT to the true circle at the middle of every edge
+   * and bulges past it at the vertices. A clearance knockout is then never
+   * smaller than the clearance asked for.
+   *
+   * Inscribing instead puts the whole polygon inside the circle, and copper
+   * comes up to one maxError closer than the rule allows on every arc. It is a
+   * few microns; it is also the difference between a web that survives the
+   * minimum-thickness prune and one that does not, which is how it showed up as
+   * 170 mm² of copper KiCad does not pour.
+   */
+  const CLEARANCE = MM(0.3);
+  const R = MM(0.85);
+
+  /** The radius at which copper starts, looking out from `c` along `deg`. */
+  const edgeRadius = (
+    polys: { x: number; y: number }[][],
+    c: { x: number; y: number },
+    deg: number,
+  ): number => {
+    const a = (deg * Math.PI) / 180;
+    for (let r = R; r < R + MM(1); r += MM(0.001))
+      if (filled(polys, { x: c.x + r * Math.cos(a), y: c.y + r * Math.sin(a) })) return r;
+    return Number.POSITIVE_INFINITY;
+  };
+
+  const withItem = (over: Partial<Board>): Board =>
+    board({
+      zones: [zone({ clearance: CLEARANCE, minThickness: MM(0.25) })],
+      ...over,
+    });
+
+  it("never lets copper inside a round pad's clearance", () => {
+    const b = withItem({
+      footprints: [
+        footprint([
+          {
+            ...pad({ x: MM(20), y: MM(20) }, 2, MM(1.7)),
+            shape: 'circle',
+          },
+        ]),
+      ],
+    });
+    const fill = fillZone(b, 0)[0]!.polys;
+    const radii: number[] = [];
+    for (let deg = 0; deg < 360; deg += 1)
+      radii.push(edgeRadius(fill, { x: MM(20), y: MM(20) }, deg));
+
+    // Tangent at the edge middles: the closest copper is the clearance itself,
+    // to within the 1 µm sampling step.
+    expect(Math.min(...radii)).toBeGreaterThanOrEqual(R + CLEARANCE - MM(0.0015));
+    // And it really is tangent somewhere, not uniformly further out.
+    expect(Math.min(...radii)).toBeLessThanOrEqual(R + CLEARANCE + MM(0.0015));
+
+    // The vertices sit at HALF-steps, "to make segment approximations align
+    // properly at 45-degrees", so an axis and a diagonal both cut an edge in
+    // its middle — the tangent points, not the bulges.
+    expect(radii[0]!).toBeLessThanOrEqual(R + CLEARANCE + MM(0.0015));
+    expect(radii[45]!).toBeLessThanOrEqual(R + CLEARANCE + MM(0.0015));
+
+    // The bulge at a vertex is the whole correction, and its size pins the
+    // segment count. `GetArcToSegmentCount( 1.15 mm, 0.005 mm, 360° )`:
+    // acos( 1 − 0.005/1.15 ) = 5.3431°, so one segment spans 10.686° and the
+    // count is round( 360 / 10.686 ) = 34, rounded UP to the next multiple of
+    // 8 = 40. The outer radius is then 1.15 / cos( 180°/40 ) = 1.153557 mm.
+    expect(Math.max(...radii)).toBeGreaterThan(MM(1.1525));
+    expect(Math.max(...radii)).toBeLessThan(MM(1.1546));
+  });
+
+  it("never lets copper inside a track's clearance, on the sides or the ends", () => {
+    const b = withItem({
+      tracks: [
+        {
+          start: { x: MM(16), y: MM(20) },
+          end: { x: MM(24), y: MM(20) },
+          width: MM(1.7),
+          layer: 'F.Cu',
+          net: 2,
+          source: EMPTY,
+        },
+      ],
+    });
+    const fill = fillZone(b, 0)[0]!.polys;
+
+    // The straight sides sit at EXACTLY the half width plus the clearance:
+    // upstream clips the corrected shape back to a rectangle of the exact
+    // half-width, so a track's flank never takes the arc correction.
+    const side = edgeRadius(fill, { x: MM(20), y: MM(20) }, 90);
+    expect(side).toBeGreaterThanOrEqual(R + CLEARANCE - MM(0.0015));
+    expect(side).toBeLessThanOrEqual(R + CLEARANCE + MM(0.0015));
+    // The cap is the circle case again, measured from the segment's end.
+    const capRadii: number[] = [];
+    for (let deg = -80; deg <= 80; deg += 1)
+      capRadii.push(edgeRadius(fill, { x: MM(24), y: MM(20) }, deg));
+    expect(Math.min(...capRadii)).toBeGreaterThanOrEqual(R + CLEARANCE - MM(0.0015));
+  });
+});
+
+describe('a spoke is trimmed by the clearance holes it crosses', () => {
+  /**
+   * "the 'real' subtract-clearance-holes has to be done after the spokes are
+   * added" (zone_filler.cpp:3020). A spoke runs from the pad centre out past
+   * the relief; whatever sits between belongs to another net, and the pour's
+   * clearance from it has to survive the spoke being unioned in.
+   *
+   * A 2 mm thermal gap makes the relief wide enough to put a different-net via
+   * inside it. The via is offset so it nicks the SIDE of the downward spoke:
+   * the spoke still runs the whole way — it is not cut in half and lost as an
+   * island — and the copper the via's clearance covers still has to go.
+   */
+  const b = (): Board =>
+    board({
+      zones: [
+        zone({
+          thermalGap: MM(2),
+          clearance: MM(0.5),
+          thermalBridgeWidth: MM(0.5),
+          minThickness: MM(0.25),
+          islandRemovalMode: 'never',
+        }),
+      ],
+      footprints: [
+        footprint([
+          {
+            ...pad({ x: MM(20), y: MM(20) }, 1, MM(3)),
+            shape: 'rect',
+            type: 'thru_hole',
+            layers: ['*.Cu'],
+          },
+        ]),
+      ],
+      vias: [
+        {
+          at: { x: MM(20.9), y: MM(22.5) },
+          size: MM(0.4),
+          drill: MM(0.2),
+          layers: ['F.Cu', 'B.Cu'],
+          kind: 'through',
+          net: 2,
+          source: EMPTY,
+        },
+      ],
+    });
+
+  it("cuts the spoke where the via's clearance reaches into it", () => {
+    const fill = fillZone(b(), 0)[0]!.polys;
+    // The rect pad's spokes are the cardinal +, so one runs straight down the
+    // relief from (20, 20). Its far side is still copper.
+    expect(filled(fill, { x: MM(19.9), y: MM(22.5) })).toBe(true);
+    // The via's clearance — 0.2 mm of via and 0.5 mm of gap — reaches x 20.2,
+    // and the copper inside it is gone even though a spoke was put there.
+    expect(filled(fill, { x: MM(20.23), y: MM(22.5) })).toBe(false);
+    // Just clear of the clearance, on the far side of the via, the pour is
+    // back: nothing wider than the via's own hole was taken.
+    expect(filled(fill, { x: MM(20.9), y: MM(22.5) })).toBe(false);
+  });
+});

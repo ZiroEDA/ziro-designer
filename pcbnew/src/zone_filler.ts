@@ -37,11 +37,13 @@ import {
 } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { getBoardPolygonOutlines } from './board_statistics.js';
+import { defaultThermalSpokeAngle } from './padstack.js';
 import { graphicShapes, padShapes } from './drc/drc_engine.js';
 import type { Shape } from './drc/drc_geometry.js';
 import { tessellateArc } from './read-board.js';
 import { barcodeGeometry, barcodeHullBoxes } from './barcode_geometry.js';
-import type { Board, PadPrimitive, PcbPad, PcbZone, PcbZoneFill } from './types.js';
+import type { Board, PadPrimitive, PcbFootprint, PcbPad, PcbZone, PcbZoneFill } from './types.js';
+import type { ZoneConnection } from './zone_connection.js';
 
 /** BOARD_DESIGN_SETTINGS::m_MaxError, the arc approximation limit (0.005 mm). */
 const DEFAULT_MAX_ERROR = mmToIU(0.005);
@@ -105,15 +107,32 @@ export function hatchingOffsetFor(
 // ----- polygon helpers --------------------------------------------------------
 
 const ringOf = (pts: Vec2[]): Ring => pts.map((p) => [p.x, p.y] as [number, number]);
+
+/**
+ * The same ring with whole-IU corners, for anything on its way back INTO the
+ * clipper. `inflate` works in floating point, so a pruned fill carries
+ * fractional vertices; handing those to a second boolean is what the note on
+ * `circlePoly` describes — the sweep line fails outright rather than answering
+ * wrongly. KiCad never has the problem because `SHAPE_POLY_SET` is `VECTOR2I`.
+ */
+const intRingOf = (pts: Vec2[]): Ring =>
+  dedupeRing(pts.map((p) => [Math.round(p.x), Math.round(p.y)] as [number, number]));
 const ptsOf = (ring: Ring): Vec2[] => ring.map(([x, y]) => ({ x, y }));
 
-/** GetArcToSegmentCount: enough segments that the chord error stays under maxError. */
-export function segmentsForRadius(radius: number, maxError: number): number {
-  if (radius <= 0) return 4;
-  const argument = 1 - maxError / radius;
-  const count =
-    argument <= -1 ? 8 : Math.ceil((2 * Math.PI) / Math.acos(Math.max(-1, argument)) / 2);
-  return Math.max(8, Math.min(64, count * 2));
+/**
+ * `GetArcToSegmentCount` (geometry_utils.cpp:42): enough segments that the
+ * sagitta — the gap between the middle of a chord and the arc — stays under
+ * `maxError`.
+ *
+ * `arc_increment` is the angle one segment spans, floored at 360/8 so a tiny
+ * radius still gets a recognisable circle, and the count is the arc over that,
+ * ROUNDED rather than ceilinged.
+ */
+export function segmentsForRadius(radius: number, maxError: number, arcAngleDeg = 360): number {
+  const r = Math.max(1, radius);
+  const err = Math.max(1, maxError);
+  const arcIncrement = Math.min(360 / 8, (180 / Math.PI) * Math.acos(1 - err / r) * 2 || 360 / 8);
+  return Math.max(2, Math.round(Math.abs(arcAngleDeg) / arcIncrement));
 }
 
 /**
@@ -128,11 +147,25 @@ export function segmentsForRadius(radius: number, maxError: number): number {
  * is both the faithful thing and the robust one.
  */
 function circlePoly(c: Vec2, r: number, maxError: number): Ring {
-  const n = segmentsForRadius(r, maxError);
+  // "Round up to 8 to make segment approximations align properly at 45-degrees".
+  const n = Math.floor((segmentsForRadius(r, maxError) + 7) / 8) * 8;
+
+  // ERROR_OUTSIDE: "The outer radius should be radius+aError" — the polygon is
+  // pushed out until it is TANGENT to the true circle at each edge's middle,
+  // so a clearance knockout is never smaller than the clearance asked for.
+  // Inscribing it instead, as this did, leaves the copper up to one maxError
+  // too close on every arc; at the scale of a zone's minimum thickness that is
+  // the difference between a web that survives the prune and one that does not.
+  const alpha = Math.PI / n;
+  const radius = r + Math.round(Math.abs(r * (1 - 1 / Math.cos(alpha))));
+
   const ring: Ring = [];
+  // `for( angle = delta / 2; angle < ANGLE_360; angle += delta )` — the first
+  // vertex is half a step round, which is what puts an edge MIDDLE on each
+  // axis rather than a vertex.
   for (let i = 0; i < n; i++) {
-    const a = (2 * Math.PI * i) / n;
-    ring.push([Math.round(c.x + r * Math.cos(a)), Math.round(c.y + r * Math.sin(a))]);
+    const a = (2 * Math.PI * (i + 0.5)) / n;
+    ring.push([Math.round(c.x + radius * Math.cos(a)), Math.round(c.y + radius * Math.sin(a))]);
   }
   return dedupeRing(ring);
 }
@@ -158,24 +191,44 @@ function dedupeRing(ring: Ring): Ring {
   return out;
 }
 
-/** A stadium (segment thickened by `r`) as a polygon. */
+/**
+ * `TransformOvalToPolygon` with ERROR_OUTSIDE: a segment thickened by `r`.
+ *
+ * The caps take the same outward radius correction as `circlePoly`, but the
+ * straight SIDES do not — upstream builds the whole shape at the corrected
+ * radius and then clips it back to a rectangle of the exact half-width, "to
+ * avoid creating useless corner at segment ends". With the vertices at
+ * half-step offsets the extreme cap vertex sits at exactly ±r, so that clip
+ * takes nothing off the caps and this builds the clipped shape directly.
+ */
 function stadiumPoly(a: Vec2, b: Vec2, r: number, maxError: number): Ring {
   const dx = b.x - a.x;
   const dy = b.y - a.y;
   const len = Math.hypot(dx, dy);
   if (len === 0) return circlePoly(a, r, maxError);
-  const n = Math.max(4, segmentsForRadius(r, maxError) / 2);
+
+  const n = Math.floor((segmentsForRadius(r, maxError) + 7) / 8) * 8;
+  const alpha = Math.PI / n;
+  const radius = r + Math.round(Math.abs(r * (1 - 1 / Math.cos(alpha))));
+  const delta = (2 * Math.PI) / n;
+
+  // The local frame upstream works in: x along the segment, y across it.
+  const ux = dx / len;
+  const uy = dy / len;
+  const put = (lx: number, ly: number): [number, number] => [
+    Math.round(a.x + lx * ux - ly * uy),
+    Math.round(a.y + lx * uy + ly * ux),
+  ];
+
   const ring: Ring = [];
-  const base = Math.atan2(dy, dx);
-  // Cap around b, then back around a.
-  for (let i = 0; i <= n; i++) {
-    const t = base - Math.PI / 2 + (Math.PI * i) / n;
-    ring.push([Math.round(b.x + r * Math.cos(t)), Math.round(b.y + r * Math.sin(t))]);
-  }
-  for (let i = 0; i <= n; i++) {
-    const t = base + Math.PI / 2 + (Math.PI * i) / n;
-    ring.push([Math.round(a.x + r * Math.cos(t)), Math.round(a.y + r * Math.sin(t))]);
-  }
+  ring.push(put(len, r)); // right arc start
+  for (let angle = delta / 2; angle < Math.PI; angle += delta)
+    ring.push(put(len + radius * Math.sin(angle), radius * Math.cos(angle)));
+  ring.push(put(len, -r)); // finish right arc
+  ring.push(put(0, -r)); // left arc start
+  for (let angle = delta / 2; angle < Math.PI; angle += delta)
+    ring.push(put(-radius * Math.sin(angle), -radius * Math.cos(angle)));
+  ring.push(put(0, r)); // finish left arc
   return dedupeRing(ring);
 }
 
@@ -224,6 +277,32 @@ const isCopper = (layer: string): boolean => /\.Cu$/.test(layer);
 const padOnLayer = (pad: PcbPad, layer: string): boolean =>
   pad.layers.some((l) => l === layer || l === '*.Cu');
 
+/**
+ * `ZONE_CONNECTION_CONSTRAINT` for one pad, then `DRC_ENGINE::EvalZoneConnection`'s
+ * rewrite of it.
+ *
+ * The constraint resolves pad → footprint → zone, `inherited` meaning "ask the
+ * next one out". THT_THERMAL is not a fill mode of its own: it becomes THERMAL
+ * on a plated through-hole pad and FULL on everything else, which is why an SMD
+ * pad in a "thermal reliefs for PTH" zone is poured solid.
+ */
+function padZoneConnection(
+  pad: PcbPad,
+  fp: PcbFootprint,
+  zone: PcbZone,
+): 'none' | 'thermal' | 'full' {
+  const inherited = (c: ZoneConnection | undefined): ZoneConnection | undefined =>
+    c === undefined || c === 'inherited' ? undefined : c;
+
+  const resolved: ZoneConnection =
+    inherited(pad.zoneConnection) ??
+    inherited(fp.zoneConnection) ??
+    (zone.padConnection === 'thru_hole_only' ? 'tht_thermal' : (zone.padConnection ?? 'thermal'));
+
+  if (resolved === 'tht_thermal') return pad.type === 'thru_hole' ? 'thermal' : 'full';
+  return resolved === 'inherited' ? 'thermal' : resolved;
+}
+
 // ----- thermal spokes ---------------------------------------------------------
 
 /**
@@ -248,9 +327,106 @@ interface ThermalSpoke {
   tip: Vec2;
 }
 
+/**
+ * `EDA_ANGLE::Cos` / `::Sin`, which answer EXACTLY on a cardinal angle rather
+ * than letting `cos( M_PI / 2 )` come back as 6e-17. `intersectBBox`
+ * short-circuits on `dx == 0`, so the difference is the difference between an
+ * axis spoke and a very slightly diagonal one.
+ */
+function angleCos(deg: number): number {
+  const d = ((deg % 360) + 360) % 360;
+  if (d === 0) return 1;
+  if (d === 90 || d === 270) return 0;
+  if (d === 180) return -1;
+  return Math.cos((d * Math.PI) / 180);
+}
+
+function angleSin(deg: number): number {
+  const d = ((deg % 360) + 360) % 360;
+  if (d === 0 || d === 180) return 0;
+  if (d === 90) return 1;
+  if (d === 270) return -1;
+  return Math.sin((d * Math.PI) / 180);
+}
+
+const rotate = (p: Vec2, deg: number): Vec2 => {
+  const c = angleCos(deg);
+  const s = angleSin(deg);
+  // RotatePoint is clockwise in screen coordinates, which is what every other
+  // rotation in the board model uses.
+  return { x: Math.round(p.x * c + p.y * s), y: Math.round(-p.x * s + p.y * c) };
+};
+
+/**
+ * `buildSpokesFromOrigin`: four spokes out of the origin, in the cardinal
+ * directions offset by `deg`, each running to where its centreline leaves
+ * `half`'s box.
+ *
+ * The five points are upstream's, and the fourth is the whole reason the chain
+ * is not a plain rectangle — "The outside end has an extra center point (which
+ * must be at idx 3) which is used for testing whether or not the spoke connects
+ * to copper in the parent zone".
+ */
+function spokesFromOrigin(half: Vec2, deg: number, spokeHalfW: number): ThermalSpoke[] {
+  const out: ThermalSpoke[] = [];
+
+  for (let i = 0; i < 4; i++) {
+    const a = deg + i * 90;
+    const dx = angleCos(a);
+    const dy = angleSin(a);
+
+    let at: Vec2;
+    let side: Vec2;
+
+    if (dx === 0) {
+      side = { x: spokeHalfW, y: 0 };
+      at = { x: 0, y: Math.round(dy * half.y) };
+    } else if (dy === 0) {
+      side = { x: 0, y: spokeHalfW };
+      at = { x: Math.round(dx * half.x), y: 0 };
+    } else {
+      // "We are going to intersect with one side or the other. Whichever we hit
+      // first is the fraction of the spoke length we keep."
+      const distX = half.x / Math.abs(dx);
+      const distY = half.y / Math.abs(dy);
+
+      if (distX < distY) {
+        side = { x: 0, y: Math.round(spokeHalfW / angleSin(90 - a)) };
+        at = { x: Math.round(dx * distX), y: Math.round(dy * distX) };
+      } else {
+        side = { x: Math.round(spokeHalfW / angleSin(a)), y: 0 };
+        at = { x: Math.round(dx * distY), y: Math.round(dy * distY) };
+      }
+    }
+
+    const ring: Vec2[] = [
+      { x: side.x, y: side.y },
+      { x: -side.x, y: -side.y },
+      { x: at.x - side.x, y: at.y - side.y },
+      { x: at.x, y: at.y }, // test pt, idx 3
+      { x: at.x + side.x, y: at.y + side.y },
+    ];
+    out.push({ geom: [ringOf(ring)], ring, tip: { x: at.x, y: at.y } });
+  }
+
+  return out;
+}
+
+/** Move a spoke built at the origin onto the pad: rotate, then translate. */
+function placeSpoke(spoke: ThermalSpoke, deg: number, to: Vec2): ThermalSpoke {
+  const put = (p: Vec2): Vec2 => {
+    const r = deg === 0 ? p : rotate(p, deg);
+    return { x: r.x + to.x, y: r.y + to.y };
+  };
+  const ring = spoke.ring.map(put);
+  return { geom: [ringOf(ring)], ring, tip: put(spoke.tip) };
+}
+
 function thermalSpokes(pad: PcbPad, zone: PcbZone, maxError: number): ThermalSpoke[] {
   const gap = zone.thermalGap ?? mmToIU(0.5);
   const minor = Math.min(pad.size.x, pad.size.y);
+  // "ensure the spoke width is smaller than the pad minor size", then "Cannot
+  // create stubs having a width < zone min thickness".
   const width = Math.min(zone.thermalBridgeWidth ?? mmToIU(0.5), minor);
   if (width < (zone.minThickness ?? 0)) return [];
 
@@ -262,44 +438,43 @@ function thermalSpokes(pad: PcbPad, zone: PcbZone, maxError: number): ThermalSpo
 
   if (templates.length > 0) return customThermalSpokes(pad, zone, templates, width, maxError);
 
-  // Long enough to cross the relief ring and land in the pour beyond it.
-  const reach = Math.max(pad.size.x, pad.size.y) / 2 + gap + width;
-  const angle = ((pad.angle ?? 0) * Math.PI) / 180;
-  const out: ThermalSpoke[] = [];
+  // `PADSTACK::ThermalSpokeAngle`: 45° puts an X on a round pad, 90° a + on
+  // everything else. Reading only the pad's ORIENTATION, as this did, gave a
+  // round pad a + — the shape KiCad draws for a rectangle.
+  const spokeAngle = pad.thermalSpokeAngle ?? defaultThermalSpokeAngle(pad.shape, pad.anchorShape);
 
-  for (let i = 0; i < 4; i++) {
-    const a = angle + (i * Math.PI) / 2;
-    const dx = Math.cos(a);
-    const dy = Math.sin(a);
-    const tip = { x: pad.at.x + dx * reach, y: pad.at.y + dy * reach };
-    // Square ends: a stadium of half the width would round them, so build the
-    // rectangle directly.
-    const hx = (-dy * width) / 2;
-    const hy = (dx * width) / 2;
-    const ring: Vec2[] = [
-      { x: pad.at.x + hx, y: pad.at.y + hy },
-      { x: tip.x + hx, y: tip.y + hy },
-      { x: tip.x - hx, y: tip.y - hy },
-      { x: pad.at.x - hx, y: pad.at.y - hy },
-    ];
-    // `intersectBBox`: the test point is where the spoke's CENTRELINE leaves
-    // the relief, which is the pad's half-extent along this axis plus the gap.
-    // The extent is the axis one, not the pad's larger side, so a rectangular
-    // pad's short spokes are tested where they actually emerge.
-    //
-    // Pushed one maxError further out. KiCad tests the boundary point itself
-    // and lets `Contains( …, 1 )`'s accuracy settle it; a floating clipper has
-    // no such tolerance, and a point exactly on the hole's edge would answer
-    // either way.
-    const extent = (Math.abs(dx) > Math.abs(dy) ? pad.size.x : pad.size.y) / 2;
-    const test = extent + gap + maxError;
-    out.push({
-      geom: [ringOf(ring)],
-      ring,
-      tip: { x: pad.at.x + dx * test, y: pad.at.y + dy * test },
-    });
-  }
-  return out;
+  // "Add half the zone mininum width to the inflate amount to account for the
+  // fact that the deflation procedure will shrink the results by half the half
+  // the zone min width."
+  const zoneHalfWidth =
+    (zone.fillMode === 'hatch' ? (zone.hatchThickness ?? 0) : (zone.minThickness ?? 0)) / 2;
+  const inflate = gap + maxError + zoneHalfWidth;
+
+  // `dummy_pad.GetBoundingBox()` — the pad's own extent at orientation 0, with
+  // no shape offset. A trapezoid's `(rect_delta …)` widens one axis as it
+  // narrows the other, so the box takes the larger of the two ends.
+  //
+  // Not taken from a CUSTOM pad's primitives, which can reach past the anchor:
+  // upstream's box would be larger there, and its spokes correspondingly
+  // longer. A custom pad that says where its spokes go takes the branch above
+  // instead, so this is only the ones that do not.
+  const half: Vec2 = {
+    x: pad.size.x / 2 + Math.abs(pad.delta?.y ?? 0) / 2 + inflate,
+    y: pad.size.y / 2 + Math.abs(pad.delta?.x ?? 0) / 2 + inflate,
+  };
+
+  // "the bounding box for circles will overshoot the mark considerably when the
+  // spokes are near a 45 degree increment. So we build the spokes at 0 degrees
+  // and then rotate them" — a round pad's spoke is as long as an axis one,
+  // pointed diagonally, not out to the box's corner.
+  const circular = pad.shape === 'circle' || (pad.shape === 'oval' && pad.size.x === pad.size.y);
+  const built = circular
+    ? spokesFromOrigin(half, 0, Math.round(width / 2)).map((sp) =>
+        placeSpoke(sp, spokeAngle, { x: 0, y: 0 }),
+      )
+    : spokesFromOrigin(half, spokeAngle, Math.round(width / 2));
+
+  return built.map((sp) => placeSpoke(sp, pad.angle ?? 0, pad.at));
 }
 
 /** Is `p` inside `poly`'s outer ring and outside every hole? */
@@ -456,39 +631,66 @@ export function fillZone(
     if ((outline as MultiPolygon).length === 0) continue;
     const holes: Geom[] = [];
     const spokes: ThermalSpoke[] = [];
+    // `knockoutThermalReliefs` keeps its reliefs in a set of its OWN and
+    // subtracts them there and then. They are not part of `clearanceHoles`, so
+    // they are never subtracted again — which is what lets a spoke, added
+    // after them, cross the relief it is there to bridge.
+    const reliefHoles: Geom[] = [];
+    // Subtracted last of all, after the spokes and the prune (zone_filler.cpp:3130).
+    const thermalHoles: Geom[] = [];
     const connected: Vec2[] = []; // same-net anchors, for island removal
 
     const gapTo = (net: number): number => clearanceOf(zone, net);
 
-    // Pads.
+    // Pads (`ZONE_FILLER::knockoutThermalReliefs` and, for the ones it hands on,
+    // `knockoutPadClearance`).
     for (const fp of board.footprints) {
       for (const pad of fp.pads) {
-        if (!padOnLayer(pad, layer)) continue;
-        const sameNet = (pad.net ?? 0) === zone.net && zone.net > 0;
-        const shapes = padShapes(pad);
+        // "NPTH pads with a drill hole affect all copper layers even when they
+        // carry no copper on that layer": everything else off this layer is
+        // skipped outright, hole and all.
+        const npthWithHole = pad.type === 'np_thru_hole' && pad.drill !== undefined;
+        if (!padOnLayer(pad, layer) && !npthWithHole) continue;
 
-        if (sameNet) {
+        const shapes = padShapes(pad);
+        const holeRadius = pad.drill ? Math.max(pad.drill.w, pad.drill.h) / 2 : 0;
+
+        // `noConnection`: a different net, or any pad at all on a zone with no
+        // net of its own.
+        const sameNet = (pad.net ?? 0) === zone.net && zone.net > 0;
+        const mode = sameNet ? padZoneConnection(pad, fp, zone) : 'none';
+
+        if (mode === 'full') {
+          // A solid connection knocks out nothing — not the pad, and not its
+          // hole either — so the pad centre is on the fill and speaks for
+          // itself as a connectivity anchor.
+          connected.push(pad.at);
+          continue;
+        }
+
+        if (mode === 'thermal') {
           // A thermally-relieved pad's own copper sits INSIDE the relief hole;
           // what touches the pour is its spokes, so its anchors are added with
-          // them below. A solid connection has no hole, so the pad centre is
-          // on the fill and speaks for itself.
-          if ((zone.padConnection ?? 'thermal') === 'full') connected.push(pad.at);
-          const mode = zone.padConnection ?? 'thermal';
-          if (mode === 'full') continue; // solid connection: nothing knocked out
-          if (mode === 'thermal' || mode === 'thru_hole_only') {
-            const reliefGap = zone.thermalGap ?? mmToIU(0.5);
-            for (const s of shapes) holes.push(...shapeToPolygon(s, reliefGap, maxError));
-            spokes.push(...thermalSpokes(pad, zone, maxError));
-            continue;
-          }
+          // them below.
+          const reliefGap = zone.thermalGap ?? mmToIU(0.5);
+          for (const s of shapes) reliefHoles.push(...shapeToPolygon(s, reliefGap, maxError));
+          spokes.push(...thermalSpokes(pad, zone, maxError));
+
+          // "Ensure additive changes (thermal stubs …) do not add copper …
+          // inside the clearance holes": the drill of every thermally
+          // connected pad is knocked out at gap ZERO, and only at the END —
+          // after the spokes have been added and the min-width prune has run.
+          // The spokes all start at the pad centre, so without this the four
+          // of them fill the middle of the pad's own hole.
+          if (holeRadius > 0) thermalHoles.push([circlePoly(pad.at, holeRadius, maxError)]);
+          continue;
         }
+
+        // NONE, and every different-net pad: the copper and the hole both go,
+        // at the zone's clearance.
         for (const s of shapes) holes.push(...shapeToPolygon(s, gapTo(pad.net ?? 0), maxError));
-      }
-      // Plated holes knock out of every layer regardless of net.
-      for (const pad of fp.pads) {
-        if (!pad.drill) continue;
-        const r = Math.max(pad.drill.w, pad.drill.h) / 2;
-        holes.push([circlePoly(pad.at, r + gapTo(pad.net ?? 0), maxError)]);
+        if (holeRadius > 0)
+          holes.push([circlePoly(pad.at, holeRadius + gapTo(pad.net ?? 0), maxError)]);
       }
     }
 
@@ -617,9 +819,9 @@ export function fillZone(
     }
 
     let area: MultiPolygon =
-      holes.length === 0
+      holes.length === 0 && reliefHoles.length === 0
         ? (polygonClipping.union(outline) as MultiPolygon)
-        : (polygonClipping.difference(outline, ...holes) as MultiPolygon);
+        : (polygonClipping.difference(outline, ...holes, ...reliefHoles) as MultiPolygon);
 
     // Spokes are added back — but only the ones that reach real copper.
     //
@@ -664,60 +866,58 @@ export function fillZone(
         // nothing, so it anchors nothing.
         for (const k of kept) connected.push(k.tip);
 
+        // "the 'real' subtract-clearance-holes has to be done after the spokes
+        // are added" (zone_filler.cpp:3022). A spoke runs from the pad centre
+        // to past the relief, straight through whatever sits in between; the
+        // holes are what stop it short of a neighbour's clearance.
+        // Each spoke is trimmed on its own before being unioned in, which is
+        // the same copper as subtracting the holes from the whole pour again
+        // and asks the clipper for far less: a spoke is five points against a
+        // pour that can be tens of thousands.
+        const trimmedSpokes = kept.map((k) =>
+          holes.length > 0
+            ? (polygonClipping.difference(k.geom, ...holes) as MultiPolygon)
+            : (k.geom as MultiPolygon),
+        );
         const withSpokes = polygonClipping.union(
           area as Geom,
-          ...kept.map((k) => k.geom),
+          ...trimmedSpokes.filter((g) => g.length > 0),
         ) as MultiPolygon;
         area = polygonClipping.intersection(withSpokes as Geom, outline) as MultiPolygon;
       }
     }
 
-    // Islands that reach nothing on the net (ZONE_FILLER's island removal).
-    // ISLAND_REMOVAL_MODE decides their fate: ALWAYS drops them, NEVER keeps
-    // them all, AREA keeps the ones at or above the limit. The test is on the
-    // outer ring; the polygon's holes travel with it.
-    const islandMode = zone.islandRemovalMode ?? 'always';
-    // island_area_min is stored in mm², so the comparison happens there too.
-    const iuPerMM = mmToIU(1);
-    const minIslandArea = (zone.islandAreaMin ?? 10) * iuPerMM * iuPerMM;
-
-    // `FindIsolatedCopperIslands` asks whether any same-net copper actually
-    // TOUCHES an outline, and this asked whether a same-net anchor point fell
-    // inside its outer ring — ignoring the holes.
+    // Prune anything thinner than the zone's minimum thickness, then fracture,
+    // as `fillCopperZone` does — and only THEN look for islands.
     //
-    // Both halves of that were wrong. A pad's centre sits inside its own
-    // thermal relief, so a region merely containing a relief counted as
-    // connected whether or not the pad reached it; and one anchor per track
-    // meant a track crossing a region anchored the region its START happened
-    // to be in. The anchors are now points ON the copper — kept spoke tips,
-    // samples along each track and arc — and the test respects holes.
-    const regions = area.map((poly) => poly.map(ptsOf));
-    const isIsland = (poly: Polygon): boolean =>
-      zone.net > 0 && connected.length > 0 && !connected.some((p) => pointInPolygon(poly, p));
-
-    const wouldDrop = regions.filter(
-      (poly) =>
-        isIsland(poly) &&
-        (islandMode === 'always' ||
-          (islandMode === 'area' && Math.abs(ringArea(poly[0] ?? [])) < minIslandArea)),
+    // The order is the whole point. `ZONE_FILLER::Fill` calls
+    // `FillIsolatedIslandsMap` after every `fillCopperZone` has returned, so
+    // what it sees is the finished, fractured poly set: each outline is one
+    // disjoint piece of copper, holes already cut by slits. Asking earlier
+    // reads a different board. On ecc83-pp four regions hang off the pour by
+    // necks thinner than its 0.381 mm minimum; the deflate/inflate severs them,
+    // and 212 mm² of copper KiCad drops as islands survived here because at the
+    // time we asked they were still attached.
+    let pruned = postKnockoutMinWidthPrune(
+      area.map((poly) => poly.map(ptsOf)).filter((poly) => (poly[0]?.length ?? 0) >= 4),
+      zone,
+      maxError,
     );
 
-    // "skip island removal on layers where every outline is an island
-    // (unconnected pour — must be preserved as-is)" (zone_filler.cpp:988-1004).
-    // A pour that reaches nothing at all is a deliberate one, not a mistake.
-    const everythingIsolated = regions.length > 0 && wouldDrop.length === regions.length;
-
-    const kept: Polygon[] = [];
-    for (const poly of regions) {
-      const outer = poly[0];
-      if (!outer || outer.length < 4) continue;
-      if (!everythingIsolated && wouldDrop.includes(poly)) continue;
-      kept.push(poly);
+    // `BooleanIntersection( aMaxExtents )` then `BooleanSubtract( clearanceHoles )`
+    // once more (zone_filler.cpp:3136-3139): re-inflating pushes copper back
+    // out over the edges the prune had cleared, and the thermal pads' own
+    // drills join the holes only here.
+    if (pruned.length > 0 && thermalHoles.length > 0) {
+      const trimmed = polygonClipping.difference(
+        polygonClipping.intersection(
+          pruned.map((poly) => poly.map(intRingOf)).filter((poly) => poly[0]!.length >= 3) as Geom,
+          outline,
+        ) as Geom,
+        ...thermalHoles,
+      ) as MultiPolygon;
+      pruned = trimmed.map((poly) => poly.map(ptsOf));
     }
-
-    // Prune anything thinner than the zone's minimum thickness, then fracture
-    // before storing, as ZONE_FILLER does.
-    let pruned = postKnockoutMinWidthPrune(kept, zone, maxError);
 
     // A hatched zone keeps only its webbing (ZONE_FILLER::addHatchFillTypeOnZone),
     // and a thieving zone keeps only its stamps.
@@ -730,11 +930,51 @@ export function fillZone(
       );
     else if (zone.fillMode === 'thieving')
       pruned = addCopperThievingPattern(pruned, zone, maxError);
-    const polys: Vec2[][] = fracture(pruned);
+
+    const polys: Vec2[][] = removeIslands(fracture(pruned), zone, connected);
     if (polys.length > 0) fills.push({ layer, polys });
   }
 
   return fills;
+}
+
+/**
+ * The island pass of `ZONE_FILLER::Fill` — `FillIsolatedIslandsMap` followed by
+ * the `ISLAND_REMOVAL_MODE` switch (zone_filler.cpp:955-1041).
+ *
+ * It runs on the **fractured** fill, so every entry is one disjoint piece of
+ * copper and a hole is already a slit rather than a nested ring. An outline is
+ * isolated when no same-net copper touches it; `connected` carries the points
+ * that copper actually reaches the pour at — kept spoke tips, the centre of a
+ * solidly-connected pad, a via, samples along each same-net track and arc.
+ *
+ * ALWAYS drops every isolated outline, AREA drops the ones under
+ * `island_area_min` (`outline.Area( true ) < minArea`), NEVER keeps them all
+ * and is the only mode a zone with no net can have.
+ */
+function removeIslands(polys: Vec2[][], zone: PcbZone, connected: Vec2[]): Vec2[][] {
+  const mode = zone.islandRemovalMode ?? 'always';
+  if (mode === 'never' || zone.net <= 0 || connected.length === 0 || polys.length === 0)
+    return polys;
+
+  // island_area_min is stored in mm², so the comparison happens there too.
+  const iuPerMM = mmToIU(1);
+  const minIslandArea = (zone.islandAreaMin ?? 10) * iuPerMM * iuPerMM;
+
+  const isolated = polys.filter((ring) => !connected.some((p) => pointInPolygon([ring], p)));
+
+  // "skip island removal on layers where every outline is an island
+  // (unconnected pour — must be preserved as-is)" (zone_filler.cpp:988-1004).
+  // A pour that reaches nothing at all is a deliberate one, not a mistake.
+  if (isolated.length === polys.length) return polys;
+
+  const drop = new Set(
+    mode === 'always'
+      ? isolated
+      : isolated.filter((ring) => Math.abs(ringArea(ring)) < minIslandArea),
+  );
+
+  return polys.filter((ring) => !drop.has(ring));
 }
 
 /**
