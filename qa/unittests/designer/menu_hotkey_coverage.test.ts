@@ -139,6 +139,12 @@ const MODIFIER_EXCEPTIONS: Readonly<Record<string, readonly string[]>> = {
     // pointer's, one the keyboard's.
     'ctrlDownRef.current = e.ctrlKey || e.metaKey;',
     'const ctrl = e.ctrlKey || e.metaKey;',
+    // Also not keys: `PCB_SELECTION_TOOL`'s drag modifiers. Ctrl or Shift adds
+    // to the selection and Ctrl+Shift subtracts, which is `m_drag_additive` /
+    // `m_drag_subtractive` (`pcb_selection_tool.cpp:1430-1439`) — a property of
+    // the drag being started, not an accelerator any menu row could own.
+    'const additive = (e.ctrlKey || e.shiftKey) && !e.altKey;',
+    'const subtractive = e.ctrlKey && e.shiftKey && !e.altKey;',
     // (The 3D viewer overlay's own "not a modified key" guard used to be here.
     // It left with the viewer when EDA_3D_VIEWER_FRAME became one shared
     // component, and is now covered by that file's PENDING entry above.)

@@ -616,7 +616,13 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // container gaps were what held the stack apart. Rebuilt against the base
   // file the way the two text dialogs were; eight went, because the two
   // fieldsets took their own padding with them.
-  ui: { colours: 204, metrics: 706 },
+  // 706 -> 708: NOT drift. The Table Properties pass above wrote 706, but the
+  // tree it left held 708. Verified by scanning `designer/src/ui` at each
+  // commit since: `da049156~1` reads 714, `da049156` reads 708, and every
+  // commit from there to this one reads 708 — a flat line, so nothing was
+  // added and the number was simply claimed two low. Corrected here rather
+  // than chased, and the tree-wide total below agrees at 1297.
+  ui: { colours: 204, metrics: 708 },
   // colours 6 -> 7: the opacity slider's #55585d track arrived here with
   // APPEARANCE_CONTROLS; it is the same literal `editors/pcb` lost, not a new
   // one. The panel's own stylesheet adds none: every length in
@@ -1179,14 +1185,11 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // row table sums to 1301 with it.
     // 1301 -> 1295: the Draw Filled Zone dialog's six, all in `editors/pcb`,
     // which the per-area table agrees with at 206 -> 200.
-    //
-    // DERIVED, not rescanned. A rescan of this tree reads 1297, because
-    // `designer/src/ui` currently stands at 708 against a baseline of 706 —
-    // two literals that arrived without their row being moved. That gap is not
-    // this pass's and is deliberately left visible: the assertion below, which
-    // sums the per-area table, is the check that catches exactly that, and
-    // writing 1297 here would bury it.
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1295);
+    // 1295 -> 1297: the `ui` row's own correction, +2. See its comment — the
+    // Table Properties pass claimed 706 over a tree holding 708, and this
+    // total inherited the error. Two independent derivations agree now: the
+    // per-area table sums to 1297, and a rescan of this tree reads 1297.
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1297);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {
