@@ -393,6 +393,20 @@ function customThermalSpokes(
 // ----- the filler -------------------------------------------------------------
 
 /** The fill polygons one zone would take, per layer (ZONE_FILLER::fillSingleZone). */
+/**
+ * Points along a same-net segment's centreline, as connectivity anchors.
+ *
+ * One point per item is not enough: a track's ends usually sit inside the
+ * relief holes of the pads it lands on, so its START anchors whichever region
+ * that hole happens to be in — or none.
+ */
+function alongSegment(a: Vec2, b: Vec2): Vec2[] {
+  const out: Vec2[] = [];
+  for (let i = 0; i <= 4; i++)
+    out.push({ x: a.x + ((b.x - a.x) * i) / 4, y: a.y + ((b.y - a.y) * i) / 4 });
+  return out;
+}
+
 export function fillZone(
   board: Board,
   zoneIndex: number,
@@ -454,7 +468,11 @@ export function fillZone(
         const shapes = padShapes(pad);
 
         if (sameNet) {
-          connected.push(pad.at);
+          // A thermally-relieved pad's own copper sits INSIDE the relief hole;
+          // what touches the pour is its spokes, so its anchors are added with
+          // them below. A solid connection has no hole, so the pad centre is
+          // on the fill and speaks for itself.
+          if ((zone.padConnection ?? 'thermal') === 'full') connected.push(pad.at);
           const mode = zone.padConnection ?? 'thermal';
           if (mode === 'full') continue; // solid connection: nothing knocked out
           if (mode === 'thermal' || mode === 'thru_hole_only') {
@@ -478,7 +496,7 @@ export function fillZone(
     for (const t of board.tracks) {
       if (t.layer !== layer) continue;
       if (t.net === zone.net && zone.net > 0) {
-        connected.push(t.start);
+        connected.push(...alongSegment(t.start, t.end));
         continue;
       }
       holes.push([stadiumPoly(t.start, t.end, t.width / 2 + gapTo(t.net), maxError)]);
@@ -486,7 +504,8 @@ export function fillZone(
     for (const a of board.arcs) {
       if (a.layer !== layer) continue;
       if (a.net === zone.net && zone.net > 0) {
-        connected.push(a.start);
+        const pts = tessellateArc(a.start, a.mid, a.end);
+        for (let i = 1; i < pts.length; i++) connected.push(...alongSegment(pts[i - 1]!, pts[i]!));
         continue;
       }
       const pts = tessellateArc(a.start, a.mid, a.end);
@@ -639,6 +658,12 @@ export function fillZone(
       );
 
       if (kept.length > 0) {
+        // A kept spoke's tip is by construction ON the copper it bridges to,
+        // which makes it the anchor for the pad it belongs to. A dropped one
+        // is not — and a pad whose spokes were all dropped connects to
+        // nothing, so it anchors nothing.
+        for (const k of kept) connected.push(k.tip);
+
         const withSpokes = polygonClipping.union(
           area as Geom,
           ...kept.map((k) => k.geom),
@@ -656,18 +681,38 @@ export function fillZone(
     const iuPerMM = mmToIU(1);
     const minIslandArea = (zone.islandAreaMin ?? 10) * iuPerMM * iuPerMM;
 
+    // `FindIsolatedCopperIslands` asks whether any same-net copper actually
+    // TOUCHES an outline, and this asked whether a same-net anchor point fell
+    // inside its outer ring — ignoring the holes.
+    //
+    // Both halves of that were wrong. A pad's centre sits inside its own
+    // thermal relief, so a region merely containing a relief counted as
+    // connected whether or not the pad reached it; and one anchor per track
+    // meant a track crossing a region anchored the region its START happened
+    // to be in. The anchors are now points ON the copper — kept spoke tips,
+    // samples along each track and arc — and the test respects holes.
+    const regions = area.map((poly) => poly.map(ptsOf));
+    const isIsland = (poly: Polygon): boolean =>
+      zone.net > 0 && connected.length > 0 && !connected.some((p) => pointInPolygon(poly, p));
+
+    const wouldDrop = regions.filter(
+      (poly) =>
+        isIsland(poly) &&
+        (islandMode === 'always' ||
+          (islandMode === 'area' && Math.abs(ringArea(poly[0] ?? [])) < minIslandArea)),
+    );
+
+    // "skip island removal on layers where every outline is an island
+    // (unconnected pour — must be preserved as-is)" (zone_filler.cpp:988-1004).
+    // A pour that reaches nothing at all is a deliberate one, not a mistake.
+    const everythingIsolated = regions.length > 0 && wouldDrop.length === regions.length;
+
     const kept: Polygon[] = [];
-    for (const poly of area) {
+    for (const poly of regions) {
       const outer = poly[0];
       if (!outer || outer.length < 4) continue;
-      const pts = ptsOf(outer);
-      const island =
-        zone.net > 0 && connected.length > 0 && !connected.some((p) => pointInRing(p, pts));
-
-      if (island && islandMode === 'always') continue;
-      if (island && islandMode === 'area' && Math.abs(ringArea(pts)) < minIslandArea) continue;
-
-      kept.push(poly.map(ptsOf));
+      if (!everythingIsolated && wouldDrop.includes(poly)) continue;
+      kept.push(poly);
     }
 
     // Prune anything thinner than the zone's minimum thickness, then fracture

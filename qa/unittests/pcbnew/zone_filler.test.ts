@@ -357,6 +357,95 @@ describe('zone filler', () => {
     expect(area(fills[0]!.polys)).toBeLessThan(790);
   });
 
+  describe('island removal asks what TOUCHES the copper', () => {
+    /**
+     * `FindIsolatedCopperIslands` (zone_filler.cpp:943-1050) asks whether any
+     * same-net copper actually touches an outline. This used to ask whether a
+     * same-net anchor POINT fell inside the outline's outer ring — ignoring
+     * its holes, and taking one point per item.
+     */
+    it('a track crossing a region anchors it, wherever the track STARTS', () => {
+      // The pour is split in two by a different-net bar. A same-net track runs
+      // from the left half into the right half; its start is on the left, so
+      // one anchor per item would leave the right half an island.
+      const b = board({
+        zones: [zone()],
+        tracks: [
+          {
+            start: { x: MM(20), y: 0 },
+            end: { x: MM(20), y: MM(40) },
+            width: MM(3),
+            layer: 'F.Cu',
+            net: 2,
+            source: EMPTY,
+          },
+          {
+            start: { x: MM(5), y: MM(10) },
+            end: { x: MM(35), y: MM(10) },
+            width: MM(0.5),
+            layer: 'F.Cu',
+            net: 1,
+            source: EMPTY,
+          },
+        ],
+      });
+      // Both halves survive: roughly the 40 x 40 less the bar and its clearance.
+      expect(area(fillZone(b, 0)[0]!.polys)).toBeGreaterThan(1400);
+    });
+
+    it('drops the half no same-net copper reaches', () => {
+      // The same board with the same-net track stopping short of the bar: the
+      // right half touches nothing on net 1 and goes.
+      const b = board({
+        zones: [zone()],
+        tracks: [
+          {
+            start: { x: MM(20), y: 0 },
+            end: { x: MM(20), y: MM(40) },
+            width: MM(3),
+            layer: 'F.Cu',
+            net: 2,
+            source: EMPTY,
+          },
+          {
+            start: { x: MM(5), y: MM(10) },
+            end: { x: MM(15), y: MM(10) },
+            width: MM(0.5),
+            layer: 'F.Cu',
+            net: 1,
+            source: EMPTY,
+          },
+        ],
+      });
+      // Only the left half, so a bit under half the 1600.
+      const filled = area(fillZone(b, 0)[0]!.polys);
+      expect(filled).toBeGreaterThan(600);
+      expect(filled).toBeLessThan(800);
+    });
+
+    it('keeps a pour that reaches nothing at all', () => {
+      // "skip island removal on layers where every outline is an island
+      // (unconnected pour — must be preserved as-is)". A zone with same-net
+      // copper somewhere on the board but none of it touching the pour would
+      // otherwise vanish entirely.
+      const b = board({
+        zones: [zone()],
+        tracks: [
+          // On the net, but far outside the 40 x 40 outline.
+          {
+            start: { x: MM(100), y: MM(100) },
+            end: { x: MM(110), y: MM(100) },
+            width: MM(0.5),
+            layer: 'F.Cu',
+            net: 1,
+            source: EMPTY,
+          },
+        ],
+      });
+      expect(area(fillZone(b, 0)[0]!.polys)).toBeCloseTo(1600, 0);
+    });
+  });
+
   it('a higher-priority zone knocks this one out', () => {
     const b = board({
       zones: [
