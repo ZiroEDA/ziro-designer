@@ -268,7 +268,10 @@ const BASELINE: Record<string, number> = {
   // twice, once on the box and once on its textarea. The tool opens the board's
   // real `DialogTextProperties` now, and that dialog states no size at all —
   // a wxDialog's controls take the dialog font, which is what `.ze-app` sets.
-  'editors/pcb': 62,
+  // 62 -> 61: the Draw Filled Zone tool's hand-rolled dialog, the same defect
+  // one dialog later — it stated `fontSize: 13` on its box. The tool opens the
+  // board's real `DialogCopperZones` now, which states no size at all.
+  'editors/pcb': 61,
   // 55 -> 50: the COLOR_SWATCH sweep's second half. Seven Clear buttons and
   // one `(using Schematic Editor colors)` hint each carried an inline
   // `fontSize: 11`, and none of them exists upstream - the swatch clears
@@ -631,7 +634,9 @@ describe('hardcoded font sizes do not grow', () => {
     // moves, and 222 - 1 agrees with it.
     // 221 -> 219: the same two; `editors/pcb` is the only row that moves and
     // 221 - 2 agrees with it.
-    expect(sites.length).toBe(219);
+    // 219 -> 218: the Draw Filled Zone dialog's one; `editors/pcb` 62 -> 61 is
+    // the only row that moves and 219 - 1 agrees with it.
+    expect(sites.length).toBe(218);
   });
 });
 
