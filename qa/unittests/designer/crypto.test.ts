@@ -74,7 +74,7 @@ describe('symmetric AEAD (encryptSecret / decryptSecret)', () => {
   it('rejects a tampered ciphertext (authentication)', async () => {
     const key = randomKey();
     const ct = await encryptSecret(key, bytes('do not flip a bit of me'));
-    ct[ct.length - 1] ^= 0x01;
+    ct[ct.length - 1] = (ct[ct.length - 1] ?? 0) ^ 0x01;
     await expect(decryptSecret(key, ct)).rejects.toThrow();
   });
 
@@ -197,7 +197,7 @@ describe('blob encryption (content-addressed by plaintext)', () => {
   it('rejects a tampered blob before the hash is even consulted (AEAD)', async () => {
     const projectKey = createProjectKey();
     const enc = await encryptBlob(projectKey, bytes('tamper target'));
-    enc.stored[enc.stored.length - 1] ^= 0xff;
+    enc.stored[enc.stored.length - 1] = (enc.stored[enc.stored.length - 1] ?? 0) ^ 0xff;
     await expect(decryptBlob(projectKey, enc.stored, enc.hash)).rejects.toThrow();
   });
 });
