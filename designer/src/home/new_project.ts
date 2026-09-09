@@ -9,7 +9,10 @@
  */
 
 import { GENERATOR, GENERATOR_VERSION } from '@ziroeda/common/src/generator.js';
+import { isReservedRootName } from '../fs/chooser_places.js';
+import { basename } from '../fs/path.js';
 import type { PickedHomeFile } from './files.js';
+import { projectNameFrom } from './dialogs/template_selector.js';
 
 const enc = new TextEncoder();
 
@@ -134,6 +137,36 @@ export const newProjectFiles = (name: string): PickedHomeFile[] => {
 
 // KiCad rejects these in project names (invalid on common filesystems).
 export const sanitizeProjectName = (s: string): string => s.replace(/[/\\:*?"<>|]/g, '').trim();
+
+/**
+ * What the path New Project Folder hands back means: a name, or a refusal.
+ *
+ * The window is a `wxFileDialog` in save mode, so what comes out of it is a
+ * path and the name is everything upstream does to it afterwards
+ * (`kicad/tools/kicad_manager_control.cpp:287-300`): a typed `.kicad_pro` is
+ * replaced by `SetExt` and disappears, any other extension is folded back into
+ * the name, and the characters no filesystem takes are dropped.
+ *
+ * The refusal is ours, and it is the price of hiding the shared folders from
+ * the listing (`projectsOnlyFileSystem`). While Templates, Symbols, Footprints
+ * and 3D Models were rows in this window, a name already taken could be READ
+ * off it; now it has to be said. Without this the project is created and the
+ * tree shows it as `Templates (2)` — `byDisplayName` disambiguating a collision
+ * the person never meant to make, and never asked to be renamed out of.
+ *
+ * A decision rather than a side effect, so the window can be checked without
+ * one: `null` is nothing to create (an empty name — upstream's dialog cannot
+ * return one, ours can once the invalid characters are dropped).
+ */
+export function newProjectFolderName(path: string): { name: string } | { refusal: string } | null {
+  const name = sanitizeProjectName(projectNameFrom(basename(path)));
+  if (!name) return null;
+  if (isReservedRootName(name))
+    return {
+      refusal: `\u201c${name}\u201d is the name of a shared folder in this account.  Please choose another name.`,
+    };
+  return { name };
+}
 
 /**
  * Save As: copy the project's files under a new project name, the folder

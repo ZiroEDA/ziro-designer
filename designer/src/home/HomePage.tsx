@@ -67,6 +67,7 @@ import {
   EMPTY_PCB,
   copyProjectFiles,
   newProjectFiles,
+  newProjectFolderName,
   sanitizeProjectName,
 } from './new_project.js';
 import {
@@ -103,8 +104,6 @@ import { type ChooserPlace, FileChooser } from '../fs/FileChooser.js';
 import { listFileSystem } from '../fs/list_fs.js';
 import { projectAt, projectStoreFileSystem } from '../fs/project_store_fs.js';
 import { NEW_PROJECT_FOLDER_FILTERS, OPEN_PROJECT_FILTERS } from '../fs/wildcards.js';
-import { projectNameFrom } from './dialogs/template_selector.js';
-import { basename as pathBasename } from '../fs/path.js';
 import { normalize as normalizePath, segments } from '../fs/path.js';
 import { EllipsizedField } from '../ui/EllipsizedField.js';
 import { managerTitle, projectStatusText } from './manager_frame.js';
@@ -563,9 +562,11 @@ export function HomePage({
   // fs/chooser_places.ts when the editors stopped opening a sidebar-less
   // chooser, and one copy of it is the point.
   const recentFs = useMemo(() => recentFileSystem(accountFs), [accountFs]);
-  // Open Existing Project sees projects and nothing else. The shared folders
-  // are still in the account's tree, and still in every other dialog that
-  // lists it -- see `projectsOnlyFileSystem` for why this one is the exception.
+  // Every file dialog over the account's tree sees projects and nothing else --
+  // Open Existing Project and New Project Folder here, and every editor's Open
+  // and Save As through `OpenFileDialog`/`SaveAsDialog`. The shared folders are
+  // still in the tree and still in the file manager, which is the window that
+  // owns them; see `projectsOnlyFileSystem`.
   const openProjectFs = useMemo(() => projectsOnlyFileSystem(accountFs), [accountFs]);
   // Accepting in a place that browses its own tree cannot go to the account's
   // handler: `/simulation/amplifier_ac/amplifier_ac.kicad_pro` names a demo, and
@@ -2218,7 +2219,7 @@ export function HomePage({
             `default_dir` would have nowhere else to point. */}
       {tplStep === 'name' && tplChosen && (
         <FileChooser
-          fs={accountFs}
+          fs={openProjectFs}
           mode="save"
           title="New Project Folder"
           // wxFD_SAVE, which is what GTK labels the accept button from.
@@ -2232,11 +2233,15 @@ export function HomePage({
           filters={NEW_PROJECT_FOLDER_FILTERS}
           onCancel={() => setTplStep('none')}
           onAccept={(path) => {
-            // The name half of what NewProject does to the returned path:
-            // a typed `.kicad_pro` is replaced by SetExt and disappears, any
-            // other extension is folded back into the name.
-            const name = sanitizeProjectName(projectNameFrom(pathBasename(path)));
-            if (!name) return;
+            // The name half of what NewProject does to the returned path, and
+            // the one name this window refuses -- see `newProjectFolderName`.
+            const decided = newProjectFolderName(path);
+            if (!decided) return;
+            if ('refusal' in decided) {
+              setInfoMessage(decided.refusal);
+              return;
+            }
+            const { name } = decided;
             // wxFD_OVERWRITE_PROMPT, then KIDIALOG's "Similar files already
             // exist in the destination folder." Both come down to the same
             // question here, because a project of this name already existing

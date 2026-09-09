@@ -39,19 +39,27 @@ import type { FileSystem } from './filesystem.js';
  *
  * Templates, Symbols, Footprints and 3D Models sit at the root beside the
  * projects, because the account's tree is this app's file manager and that is
- * where they live. In **Open Existing Project** they are noise of the worst
- * kind: four rows that look exactly like the thing being asked for and can
- * never be it. The dialog already refuses to accept one -- they are `folder`,
- * not `project` -- so all they do is push the projects down the list.
+ * where they live. In a FILE DIALOG they are noise of the worst kind: four rows
+ * that look exactly like the thing being asked for and can never be it. Open
+ * Existing Project refuses to accept one -- they are `folder`, not `project` --
+ * so all they do is push the projects down the list; and an editor's Open or
+ * Save As already carries the shared folder for its own kind as a sidebar row,
+ * which is the place that folder is meant to be reached from. A drawing sheet
+ * has no reason to meet Footprints at the root of Projects.
  *
  * Only the root, and only `list`. Everything else delegates, so a path picked
- * here is still a real path in the account and walking into a project still
- * shows its files.
+ * here is still a real path in the account, walking into a project still shows
+ * its files, and a sidebar row rooted at `/Templates` still lists it.
  *
- * Deliberately NOT used by New Project Folder, which lists the same root: there
- * the four names are the reserved ones, and somebody about to create a project
- * called "Templates" is better off seeing that it is taken than finding out
- * when the save collides.
+ * So every file dialog wraps its tree in this: `OpenFileDialog`, `SaveAsDialog`
+ * and both of the project manager's own choosers. The file manager does not --
+ * it is the window that owns those folders, and hiding them there would leave
+ * an account with bytes in it nothing could show.
+ *
+ * New Project Folder was the one exception, on the grounds that somebody about
+ * to create a project called "Templates" was better off seeing the name was
+ * taken. It reads as four undeletable folders in a window that only ever asks
+ * for a name, so the refusal is said instead -- see `newProjectFolderName`.
  */
 export function projectsOnlyFileSystem(below: FileSystem): FileSystem {
   const hidden = new Set(Object.values(USER_DIRS).map((p) => p.replace(/^\/+/, '')));
@@ -141,6 +149,24 @@ export const USER_DIRS = {
 
 /** Which shared folder a document kind belongs in. */
 export type AssetKind = keyof typeof USER_DIRS;
+
+/**
+ * Whether a name at the root is one the shared folders already own.
+ *
+ * `project_store_fs` seeds `byDisplayName` with the four, so a project called
+ * `Templates` resolves to `Templates (2)` and the two stay reachable — the tree
+ * coping with a collision. New Project Folder refuses the name instead, because
+ * being silently renamed on creation is not what the person typed; and it has
+ * to say so now that the dialog no longer LISTS the folder that is in the way
+ * (see {@link projectsOnlyFileSystem}).
+ *
+ * Case-insensitive: the account's tree is keyed by name and `templates` beside
+ * `Templates` is the same collision with a different capital.
+ */
+export function isReservedRootName(name: string): boolean {
+  const want = name.trim().toLowerCase();
+  return Object.values(USER_DIRS).some((p) => p.replace(/^\/+/, '').toLowerCase() === want);
+}
 
 /**
  * The rows one dialog gets: the project, and the shared folder for this kind.

@@ -27,7 +27,7 @@ import type { JSX } from 'react';
 import { useMemo } from 'react';
 import { FileChooser } from './FileChooser.js';
 import { projectStoreFileSystem } from './project_store_fs.js';
-import { type AssetKind, chooserPlacesFor } from './chooser_places.js';
+import { type AssetKind, chooserPlacesFor, projectsOnlyFileSystem } from './chooser_places.js';
 import type { ChooserFilter } from './chooser_types.js';
 
 export interface SaveAsDialogProps {
@@ -78,7 +78,15 @@ export function SaveAsDialog({
   // One filesystem per mount: `projectStoreFileSystem` reads the store on each
   // call, so rebuilding it every render would re-list the account on every
   // keystroke in the Name entry.
-  const fs = useMemo(() => projectStoreFileSystem(), []);
+  //
+  // Wrapped, so the four shared folders are absent from the root — see
+  // `projectsOnlyFileSystem`. A file dialog is asking which PROJECT a document
+  // goes in or comes from; Symbols, Footprints, 3D Models and Templates reach
+  // it as the sidebar row for the kind at hand, and at the root they are four
+  // rows that look exactly like a project and can never be one. Everything
+  // below the root is untouched, so the row for the kind still lists its
+  // folder and a path picked anywhere is still a real path in the account.
+  const fs = useMemo(() => projectsOnlyFileSystem(projectStoreFileSystem()), []);
   // GTK gives every wxFileDialog in the process the same
   // GtkPlacesSidebar; ours had one only in the project manager, so an
   // editor's dialog opened with no sidebar at all.

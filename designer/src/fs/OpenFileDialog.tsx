@@ -26,7 +26,7 @@ import type { JSX } from 'react';
 import { useMemo } from 'react';
 import { FileChooser } from './FileChooser.js';
 import { projectStoreFileSystem } from './project_store_fs.js';
-import { type AssetKind, chooserPlacesFor } from './chooser_places.js';
+import { type AssetKind, chooserPlacesFor, projectsOnlyFileSystem } from './chooser_places.js';
 import type { ChooserFilter } from './chooser_types.js';
 import type { FileSystem } from './filesystem.js';
 
@@ -84,8 +84,9 @@ export function OpenFileDialog({
   title = 'Open',
   accept = 'Open',
 }: OpenFileDialogProps): JSX.Element {
-  // One filesystem per mount — see SaveAsDialog.
-  const fs = useMemo(() => projectStoreFileSystem(), []);
+  // One filesystem per mount, with the shared folders hidden from the root —
+  // see SaveAsDialog.
+  const fs = useMemo(() => projectsOnlyFileSystem(projectStoreFileSystem()), []);
 
   /**
    * Read the chosen file and hand it back, through the tree it came from.
