@@ -168,20 +168,6 @@ export function padHoleSegment(pad: PcbPad): { a: Vec2; b: Vec2; width: number }
   };
 }
 
-/**
- * `PAD::ShapePos` minus `GetPosition()`: how far the copper sits from the hole.
- *
- * `padShapes()` centres every shape on `pad.at`, which is the *hole* centre;
- * upstream draws the copper at `GetPosition() + RotatePoint( offset )` and
- * leaves the hole where it is. Rather than move the copper — which would change
- * board DRC for every offset pad — the two rules that care about the pair move
- * the *hole* by the negation, which is the same relative geometry.
- */
-function padShapeOffset(pad: PcbPad): Vec2 {
-  const o = pad.drill?.offset;
-  return o ? rotatePoint(o, pad.angle) : { x: 0, y: 0 };
-}
-
 /** A graphic's focus point, the same one the board-level providers report. */
 const shapePos = (s: PcbShape): Vec2 => s.start ?? s.center ?? s.pts?.[0] ?? { x: 0, y: 0 };
 
@@ -225,18 +211,20 @@ function errorOutsideGrow(radius: number): number {
 const padOutlinePolys = (pad: PcbPad): Polygon[] =>
   union(padShapes(pad).flatMap((s) => toKimath(shapeToPolygon(s, 0, MAX_ERROR))));
 
-/** `TransformOvalToPolygon( hole, …, ERROR_OUTSIDE )`, shifted into the pad
- *  shape's frame (see `padShapeOffset`). */
+/** `TransformOvalToPolygon( hole, …, ERROR_OUTSIDE )`.
+ *
+ *  Both sides of this comparison are board-absolute now that `padShapes()`
+ *  honours `PAD::ShapePos`: the copper carries the drill offset and the hole
+ *  stays on `pad.at`, so neither needs shifting into the other's frame. */
 function holeOutlinePolys(pad: PcbPad): Polygon[] {
   const hole = padHoleSegment(pad);
   if (!hole) return [];
 
-  const off = padShapeOffset(pad);
   const r = hole.width / 2;
   const shape: Shape = {
     kind: 'stadium',
-    a: { x: hole.a.x - off.x, y: hole.a.y - off.y },
-    b: { x: hole.b.x - off.x, y: hole.b.y - off.y },
+    a: hole.a,
+    b: hole.b,
     r,
   };
 
@@ -401,12 +389,7 @@ export function checkPad(pad: PcbPad, forPadProperties: boolean): PadFinding[] {
       // Only the hole's *centre* need be in the copper. Testing the exact pad
       // shapes rather than their tessellation is strictly closer to upstream's
       // question than re-deriving the polygon would be.
-      const off = padShapeOffset(pad);
-      const probe: Shape = {
-        kind: 'circle',
-        c: { x: pad.at.x - off.x, y: pad.at.y - off.y },
-        r: 0,
-      };
+      const probe: Shape = { kind: 'circle', c: pad.at, r: 0 };
 
       if (!padShapes(pad).some((s) => shapeDist(s, probe) <= 0))
         bad('padstack', '(pad hole not inside pad shape)');

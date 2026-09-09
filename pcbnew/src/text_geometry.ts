@@ -16,7 +16,7 @@
 
 import { effectiveTextPenWidth } from '@ziroeda/common/src/font/text_box.js';
 import { ITALIC_TILT } from '@ziroeda/common/src/font/font_metrics.js';
-import { layoutText } from '@ziroeda/common/src/font/stroke_font.js';
+import { layoutText, textBlockOffset } from '@ziroeda/common/src/font/stroke_font.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import type { Shape } from './drc/drc_geometry.js';
 import type { PcbTextItem } from './types.js';
@@ -56,18 +56,27 @@ export function textShapes(t: PcbTextItem): Shape[] {
   if (t.hide || !t.text || t.size.y <= 0) return [];
 
   const size = t.size.y;
-  const { strokes, width } = layoutText(t.text, size);
+  const justify = t.justify ?? [];
+  const hAlign = justify.includes('left') ? 'left' : justify.includes('right') ? 'right' : 'center';
+  const vAlign = justify.includes('top') ? 'top' : justify.includes('bottom') ? 'bottom' : 'center';
+  const { strokes, width, lineCount } = layoutText(t.text, size, hAlign);
   if (strokes.length === 0) return [];
 
   // `GetEffectiveTextPenWidth`, which asks the text WIDTH for the default and
   // then clamps against the smaller of the two sizes.
   const pen = effectiveTextPenWidth({ thickness: t.thickness, bold: t.bold, size: t.size });
 
-  // `getLinePositions` places the block by its widest line, and the vertical
-  // justification is measured from the baseline of a single-line block.
-  const justify = t.justify ?? [];
-  const offX = justify.includes('left') ? 0 : justify.includes('right') ? -width : -width / 2;
-  const offY = justify.includes('top') ? size : justify.includes('bottom') ? 0 : size / 2;
+  // `FONT::getLinePositions`, shared so that the pour and the two renderers put
+  // the same block in the same place.
+  const { x: offX, y: offY } = textBlockOffset({
+    size,
+    width,
+    // `getLinePositions` reads the STORED thickness, not the effective pen.
+    strokeWidth: t.thickness ?? 0,
+    lineCount,
+    hAlign,
+    vAlign,
+  });
 
   const mirror = t.mirror ? -1 : 1;
   const tilt = t.italic ? ITALIC_TILT : 0;

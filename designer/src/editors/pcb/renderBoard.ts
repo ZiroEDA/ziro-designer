@@ -91,7 +91,8 @@ import {
   PCB_PLACE_ORIGIN,
   type PcbColorTheme,
 } from './pcbTheme.js';
-import { layoutText, measureText } from '@ziroeda/common/src/font/stroke_font.js';
+import { layoutText, measureText, textBlockOffset } from '@ziroeda/common/src/font/stroke_font.js';
+import { padShapePos } from '@ziroeda/pcbnew/src/padstack.js';
 import type { BitmapTextPlacement } from '../../render/gl/bitmap_text.js';
 import { expandTextVars, type TextVarResolver } from '@ziroeda/common/src/text_vars.js';
 
@@ -879,9 +880,13 @@ function addPolylineOutline(path: Path2D, pts: Vec2[], r: number): void {
   path.closePath();
 }
 
-/** Pad outline as a Path2D subpath in board coordinates. */
+/** Pad outline as a Path2D subpath in board coordinates.
+ *
+ *  `PCB_PAINTER::draw( PAD )` strokes `GetEffectiveShape()`, which is built at
+ *  `ShapePos` — the pad position plus its rotated drill offset. */
 function addPadShape(path: Path2D, pad: PcbPad): void {
-  const m = pathFactory.matrix().translate(pad.at.x, pad.at.y).rotate(-pad.angle);
+  const c = padShapePos(pad);
+  const m = pathFactory.matrix().translate(c.x, c.y).rotate(-pad.angle);
   const w = pad.size.x;
   const h = pad.size.y;
   const sub = pathFactory.path();
@@ -958,7 +963,8 @@ function addPadShape(path: Path2D, pad: PcbPad): void {
  * rounds the corners with radius clr).
  */
 function addPadClearanceShape(path: Path2D, pad: PcbPad, clr: number): void {
-  const m = pathFactory.matrix().translate(pad.at.x, pad.at.y).rotate(-pad.angle);
+  const c = padShapePos(pad);
+  const m = pathFactory.matrix().translate(c.x, c.y).rotate(-pad.angle);
   const w = pad.size.x;
   const h = pad.size.y;
   const sub = pathFactory.path();
@@ -1376,13 +1382,21 @@ export function boardTextPath(t: PcbTextItem): { path: Path2D; thickness: number
 /** The glyph strokes of one text item, appended to `path`. */
 function emitBoardText(t: PcbTextItem, path: Path2D): void {
   const size = t.size.y;
-  const { strokes, width } = layoutText(t.text, size);
   // PCB text anchors CENTER/CENTER by default (EDA_TEXT on boards).
   const justify = t.justify ?? [];
   const hAlign = justify.includes('left') ? 'left' : justify.includes('right') ? 'right' : 'center';
   const vAlign = justify.includes('top') ? 'top' : justify.includes('bottom') ? 'bottom' : 'center';
-  const offX = hAlign === 'left' ? 0 : hAlign === 'right' ? -width : -width / 2;
-  const offY = vAlign === 'top' ? size : vAlign === 'bottom' ? 0 : size / 2;
+  const { strokes, width, lineCount } = layoutText(t.text, size, hAlign);
+  // `FONT::getLinePositions` — the fudge factors that put the block where
+  // upstream puts it, shared with the pour's knockout hull.
+  const { x: offX, y: offY } = textBlockOffset({
+    size,
+    width,
+    strokeWidth: t.thickness ?? 0,
+    lineCount,
+    hAlign,
+    vAlign,
+  });
   // PCB_TEXT::GetDrawRotation: footprint text keeps its angle in ]-90°, 90°] so
   // it stays readable, e.g. a 270° "POWER" field draws at 90°, not upside-down.
   let drawAngle = t.angle;
@@ -1502,8 +1516,11 @@ function addPadLabels(
   const Xscale = 0.9; // condense x for the stroke font
   // A local +Y (down) offset in the text frame (upright or the -90° portrait
   // case) maps to world coords about the pad centre.
+  // `position = padBBox.Centre()` — the COPPER's box, so an offset pad's number
+  // rides with the copper.
+  const centre = padShapePos(pad);
   const anchor = (dy: number): Vec2 =>
-    angle === 90 ? { x: pad.at.x + dy, y: pad.at.y } : { x: pad.at.x, y: pad.at.y + dy };
+    angle === 90 ? { x: centre.x + dy, y: centre.y } : { x: centre.x, y: centre.y + dy };
   const items: PadTextItem[] = [];
   const mkItem = (text: string, at: Vec2, glyph: number): PadTextItem =>
     ({
@@ -1575,7 +1592,7 @@ function addPadLabels(
   if (items.length > 0)
     scene.padLabels.push({
       owner,
-      at: pad.at,
+      at: centre,
       minSide: Math.min(px, py),
       layers,
       items,
@@ -2105,7 +2122,10 @@ function compileScene(board: Board, filter: SceneFilter): BoardScene {
         expandLayers(pad.layers, copperNames).filter((l) => copperNames.includes(l)),
         `footprint:${fi}`,
       );
-      grow(pad.at.x, pad.at.y, Math.max(pad.size.x, pad.size.y) / 2);
+      {
+        const c = padShapePos(pad);
+        grow(c.x, c.y, Math.max(pad.size.x, pad.size.y) / 2);
+      }
     }
     grow(fp.at.x, fp.at.y);
     // `BOARD::ComputeBoundingBox` merges `footprint->GetBoundingBox( true )`
@@ -2177,15 +2197,15 @@ const addHole = (
   pad: PcbPad,
   drill: { oblong: boolean; w: number; h: number; offset?: Vec2 },
 ): void => {
+  // `GetEffectiveHoleShape()` is built from `m_pos`: the drill offset moves the
+  // pad's copper, not its hole.
   const m = pathFactory.matrix().translate(pad.at.x, pad.at.y).rotate(-pad.angle);
   const sub = pathFactory.path();
-  const ox = drill.offset?.x ?? 0;
-  const oy = drill.offset?.y ?? 0;
   if (drill.oblong) {
     const r = Math.min(drill.w, drill.h) / 2;
-    sub.roundRect(ox - drill.w / 2, oy - drill.h / 2, drill.w, drill.h, r);
+    sub.roundRect(-drill.w / 2, -drill.h / 2, drill.w, drill.h, r);
   } else {
-    sub.arc(ox, oy, drill.w / 2, 0, Math.PI * 2);
+    sub.arc(0, 0, drill.w / 2, 0, Math.PI * 2);
   }
   path.addPath(sub, m);
 };
@@ -2194,10 +2214,9 @@ const addHole = (
 const addSmallHole = (scene: BoardScene, pad: PcbPad): void => {
   if (!pad.drill) return;
   const r = Math.min(Math.min(pad.drill.w, pad.drill.h) / 2, 0.175 * MM);
-  const off = pad.drill.offset;
   const m = pathFactory.matrix().translate(pad.at.x, pad.at.y).rotate(-pad.angle);
   const sub = pathFactory.path();
-  sub.arc(off?.x ?? 0, off?.y ?? 0, r, 0, Math.PI * 2);
+  sub.arc(0, 0, r, 0, Math.PI * 2);
   scene.holesSmall.addPath(sub, m);
 };
 

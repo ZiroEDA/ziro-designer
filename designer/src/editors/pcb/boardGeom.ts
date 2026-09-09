@@ -16,7 +16,8 @@ import earcut from 'earcut';
 import polygonClipping from 'polygon-clipping';
 import { tessellateArc, type Board, type PcbBarcode } from '@ziroeda/pcbnew';
 import { barcodeGeometry } from '@ziroeda/pcbnew/src/barcode_geometry.js';
-import { layoutText } from '@ziroeda/common/src/font/stroke_font.js';
+import { layoutText, textBlockOffset } from '@ziroeda/common/src/font/stroke_font.js';
+import { padShapePos } from '@ziroeda/pcbnew/src/padstack.js';
 import { ITALIC_TILT } from '@ziroeda/common/src/font/font_metrics.js';
 
 const MM = PCB_IU_PER_MM; // pcbnew IU is 1 nm (base_units.h)
@@ -87,13 +88,15 @@ function stadium(a: Vec2, b: Vec2, width: number): Pt[] {
   return pts;
 }
 
-/** Pad outline (board-absolute IU), by shape. */
+/** Pad outline (board-absolute IU), by shape.
+ *
+ *  Centred on `PAD::ShapePos`: a drill `(offset …)` moves the copper, and the
+ *  hole stays on `pad.at` — which is where the drills below are cut. */
 function padPoly(pad: Pad): Pt[] {
   const w = pad.size.x,
     h = pad.size.y;
   const a = (pad.angle * Math.PI) / 180;
-  const cx = pad.at.x,
-    cy = pad.at.y;
+  const { x: cx, y: cy } = padShapePos(pad);
   const rot = (lx: number, ly: number): Pt => ({
     x: cx + lx * Math.cos(a) - ly * Math.sin(a),
     y: cy + lx * Math.sin(a) + ly * Math.cos(a),
@@ -348,12 +351,22 @@ export function buildBoardGeom(
 function addText(t: Text, mesh: Mesh | null, poly3d: (mesh: Mesh, loop: Pt[]) => void): void {
   if (!mesh || t.hide || !t.text || t.size.y <= 0) return;
   const size = t.size.y;
-  const { strokes, width } = layoutText(t.text, size);
   const raw = t.thickness && t.thickness > 1 ? t.thickness : t.bold ? size / 5 : size / 8;
   const pen = Math.max(Math.min(raw, size * 0.2), size * 0.08); // visible stroke
   const j = t.justify ?? [];
-  const offX = j.includes('left') ? 0 : j.includes('right') ? -width : -width / 2;
-  const offY = j.includes('top') ? size : j.includes('bottom') ? 0 : size / 2;
+  const hAlign = j.includes('left') ? 'left' : j.includes('right') ? 'right' : 'center';
+  const vAlign = j.includes('top') ? 'top' : j.includes('bottom') ? 'bottom' : 'center';
+  const { strokes, width, lineCount } = layoutText(t.text, size, hAlign);
+  // `FONT::getLinePositions`, the same block placement the 2D renderer and the
+  // pour's text knockout use.
+  const { x: offX, y: offY } = textBlockOffset({
+    size,
+    width,
+    strokeWidth: t.thickness ?? 0,
+    lineCount,
+    hAlign,
+    vAlign,
+  });
   // Keep footprint reference/value text upright, never upside down, KiCad's
   // PCB_TEXT::GetDrawRotation (keep angle in ]-90..90]).
   let ang = t.angle;

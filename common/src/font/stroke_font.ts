@@ -330,6 +330,63 @@ export function layoutText(
  * `text_box.ts`'s `fontInterline( height, face )` when the face may be an
  * outline one.
  */
+/**
+ * Where the laid-out block sits relative to the text's own position —
+ * `FONT::getLinePositions`'s `offset` (`common/font/font.cpp:181-243`), which
+ * is the half of text placement `layoutText` deliberately leaves out.
+ *
+ * The three constants are upstream's, and every one of them is load-bearing:
+ *
+ *     offset.y  = size.y                       // the baseline is a glyph down
+ *     offset.x += strokeWidth / 1.52           // "Fudge factors to match 6.0"
+ *     offset.y -= strokeWidth * 0.052
+ *     height    = size.y * 1.17 + (n-1) * interline   // 1.17 is another fudge
+ *     V_CENTER: offset.y -= height / 2;  V_BOTTOM: offset.y -= height
+ *
+ * `size.y * 1.17` is NOT the glyph height, so "centred" text does not sit with
+ * its glyph box centred on the position — it sits a little high, and on a
+ * two-line label that is a fifth of a millimetre. A pour that knocks out a
+ * bounding hull put there by `size / 2` misses upstream's by exactly that.
+ *
+ * `strokeWidth` is the STORED thickness (`TEXT_ATTRIBUTES::m_StrokeWidth`),
+ * which is what `getLinePositions` reads — not the effective pen width that
+ * `GetEffectiveTextPenWidth` substitutes when the field is left at zero.
+ *
+ * The result is in `layoutText`'s frame, so it already accounts for the block
+ * being centred on the baseline there: for the horizontal alignments upstream
+ * measures each line's own width, and `layoutText` has aligned the lines within
+ * the block for us, so only the block needs moving.
+ */
+export function textBlockOffset(opts: {
+  /** The glyph height, `attrs.m_Size.y`. */
+  size: number;
+  /** The block width `layoutText` returned — its widest line. */
+  width: number;
+  /** The stored text thickness, zero when the field was never set. */
+  strokeWidth: number;
+  lineCount: number;
+  hAlign: TextHAlign;
+  vAlign: 'top' | 'center' | 'bottom';
+  /** How `layoutText` was asked to stack the lines. */
+  vBlock?: 'center' | 'first-line';
+}): Vec2 {
+  const { size, width, strokeWidth, lineCount, hAlign, vAlign } = opts;
+  const fudgeX = strokeWidth / 1.52;
+  const x = hAlign === 'left' ? fudgeX : hAlign === 'right' ? -(width + fudgeX) : -width / 2;
+
+  const pitch = interline(size);
+  const height = size * 1.17 + (lineCount - 1) * pitch;
+  let y = size - strokeWidth * 0.052;
+  if (vAlign === 'center') y -= height / 2;
+  else if (vAlign === 'bottom') y -= height;
+
+  // `layoutText`'s default frame centres the stack on the baseline, so line 0
+  // is half a block above where `getLinePositions` puts it.
+  if ((opts.vBlock ?? 'center') === 'center') y += ((lineCount - 1) * pitch) / 2;
+
+  return { x, y };
+}
+
 export function interline(size: number): number {
   return metricsInterline(size) * STROKE_LEGACY_FACTOR;
 }

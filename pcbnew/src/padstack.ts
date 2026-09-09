@@ -6,6 +6,7 @@
  * `pcbnew/padstack.cpp`.
  */
 
+import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import type { PadShape } from './types.js';
 
 /**
@@ -34,4 +35,37 @@ export function defaultThermalSpokeAngle(
   if (shape === 'custom' && (anchorShape ?? 'circle') === 'circle')
     return fileVersion <= 20211014 ? 90 : 45;
   return 90;
+}
+
+/**
+ * `PAD::ShapePos( aLayer )` (pad.cpp) — where the pad's COPPER sits.
+ *
+ *     if( GetOffset( aLayer ) == VECTOR2I( 0, 0 ) ) return m_pos;
+ *     VECTOR2I loc_offset = GetOffset( aLayer );
+ *     RotatePoint( loc_offset, GetOrientation() );
+ *     return m_pos + loc_offset;
+ *
+ * A pad's `(at …)` is the position of its **hole**; `(drill … (offset x y))`
+ * moves the copper away from it, not the hole away from the copper. This tree
+ * had it the other way round — the hole was drawn and knocked out at
+ * `at + offset` while the copper stayed on `at` — which is the same *relative*
+ * geometry but the wrong absolute one, so every offset pad's copper, its
+ * thermal relief and its spokes sat one offset away from where KiCad puts them.
+ * On the `complex_hierarchy` demo that is every TO-92: 0.4 mm of drift on 20
+ * transistor pads, and 12 mm² of the pour in the wrong place.
+ *
+ * The hole itself stays on `pad.at`: `GetEffectiveHoleShape` builds its
+ * `SHAPE_SEGMENT` from `m_pos`, never from `ShapePos`.
+ */
+export function padShapePos(pad: { at: Vec2; angle: number; drill?: { offset?: Vec2 } }): Vec2 {
+  const o = pad.drill?.offset;
+  if (!o || (o.x === 0 && o.y === 0)) return pad.at;
+
+  // `RotatePoint( VECTOR2I&, const EDA_ANGLE& )` in board coordinates, whose y
+  // grows downwards: (0, 0.4) at 90° comes back as (0.4, 0), which is what
+  // KiCad's own `ShapePos` answers for U101 on complex_hierarchy.
+  const rad = (pad.angle * Math.PI) / 180;
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+  return { x: pad.at.x + o.x * cos + o.y * sin, y: pad.at.y - o.x * sin + o.y * cos };
 }

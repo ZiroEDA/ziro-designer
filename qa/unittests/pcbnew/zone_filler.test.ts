@@ -106,6 +106,19 @@ const area = (polys: { x: number; y: number }[][]): number => {
   return Math.abs(total) / (PCB_IU_PER_MM * PCB_IU_PER_MM);
 };
 
+/** Is a point covered by the fill? Even-odd, so a hole subtracts. */
+const covered = (polys: { x: number; y: number }[][], at: { x: number; y: number }): boolean => {
+  let inside = false;
+  for (const poly of polys)
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      const a = poly[i]!;
+      const b = poly[j]!;
+      if (a.y > at.y !== b.y > at.y && at.x < ((b.x - a.x) * (at.y - a.y)) / (b.y - a.y) + a.x)
+        inside = !inside;
+    }
+  return inside;
+};
+
 describe('zone filler', () => {
   it('pours the whole outline when nothing is in the way', () => {
     const b = board({ zones: [zone()] });
@@ -490,6 +503,135 @@ describe('zone filler', () => {
             { x: MM(20), y: MM(10) },
             { x: MM(20), y: MM(20) },
             { x: MM(10), y: MM(20) },
+          ],
+        }),
+      ],
+    });
+    expect(area(fillZone(b, 0)[0]!.polys)).toBeCloseTo(1600, 0);
+  });
+
+  it("puts a pad's relief where its COPPER is, not where its hole is", () => {
+    // `(drill … (offset 0 0.4))` moves the pad's copper 0.4 mm down
+    // (`PAD::ShapePos`) and leaves the hole on `(at …)`. So the 2 x 2 mm pad's
+    // copper spans y 19.4..21.4 and its 0.5 mm relief spans y 18.9..21.9 — half
+    // a millimetre lower than the pad position would suggest.
+    //
+    // Both probes sit outside the pad in x, past the spokes, and inside the
+    // relief's rounded corner on exactly one of the two readings.
+    const offsetPad: PcbPad = {
+      ...pad({ x: MM(20), y: MM(20) }, 1),
+      type: 'thru_hole',
+      layers: ['*.Cu'],
+      drill: { oblong: false, w: MM(0.75), h: MM(0.75), offset: { x: 0, y: MM(0.4) } },
+    };
+    const fill = fillZone(board({ zones: [zone()], footprints: [footprint([offsetPad])] }), 0)[0]!
+      .polys;
+
+    // Above the pad: clear of the relief once the copper has moved down.
+    expect(covered(fill, { x: MM(21.2), y: MM(18.7) })).toBe(true);
+    // Below it: inside the relief only because the copper moved down.
+    expect(covered(fill, { x: MM(21.2), y: MM(21.7) })).toBe(false);
+  });
+
+  it('knocks a plated-less hole out at the pad position, not at its copper', () => {
+    // The complement: `GetEffectiveHoleShape` is built from `m_pos`, so the
+    // hole does NOT follow the offset. An NPTH pad contributes only its hole,
+    // which makes the pair separable.
+    const npth: PcbPad = {
+      ...pad({ x: MM(20), y: MM(20) }, 0),
+      type: 'np_thru_hole',
+      shape: 'circle',
+      size: { x: MM(1), y: MM(1) },
+      layers: ['*.Cu'],
+      drill: { oblong: false, w: MM(1), h: MM(1), offset: { x: 0, y: MM(0.4) } },
+    };
+    const fill = fillZone(board({ zones: [zone()], footprints: [footprint([npth])] }), 0)[0]!.polys;
+
+    // 0.45 mm above the pad position is inside a 0.5 mm hole centred there.
+    expect(covered(fill, { x: MM(20), y: MM(19.55) })).toBe(false);
+    // 0.85 mm below it is outside that hole — but would be inside one that had
+    // ridden down with the copper.
+    expect(covered(fill, { x: MM(20), y: MM(20.85) })).toBe(true);
+  });
+
+  it('a same-net zone of higher priority takes its own outline back', () => {
+    // `ZONE_FILLER::subtractHigherPriorityZones` — "Lastly give any same-net but
+    // higher-priority zones control over their own area", the last thing
+    // `fillCopperZone` does before it fractures.
+    //
+    // Three things separate it from the different-net knockout above: the
+    // knockout is the other zone's raw OUTLINE rather than its filled copper,
+    // so an unfilled zone still claims its area; no clearance is added, because
+    // the two pours are the same net and are allowed to touch; and only a
+    // strictly greater priority counts.
+    const b = board({
+      zones: [
+        zone(),
+        zone({
+          net: 1,
+          priority: 5,
+          uuid: 'z2',
+          fills: [],
+          outline: [
+            { x: MM(20), y: 0 },
+            { x: MM(40), y: 0 },
+            { x: MM(40), y: MM(40) },
+            { x: MM(20), y: MM(40) },
+          ],
+        }),
+      ],
+    });
+    const fill = fillZone(b, 0)[0]!.polys;
+    // The right half is gone: 40 x 20, not 1600.
+    expect(area(fill)).toBeCloseTo(800, 0);
+
+    // And the cut is exactly on the outline. A clearance gap would stop the
+    // copper at 19.5 mm; there is none here.
+    const maxX = Math.max(...fill.flat().map((q) => q.x));
+    expect(maxX / PCB_IU_PER_MM).toBeCloseTo(20, 2);
+  });
+
+  it('but a same-net zone of EQUAL priority takes nothing', () => {
+    // "Don't use `HigherPriority()` here because we only want explicitly-higher
+    // priorities, not equal-priority zones" — so the uuid tie-break that
+    // decides between two different-net zones plays no part, and both pours
+    // keep the overlap.
+    const b = board({
+      zones: [
+        zone({ uuid: 'a' }),
+        zone({
+          net: 1,
+          priority: 0,
+          uuid: 'z',
+          outline: [
+            { x: MM(20), y: 0 },
+            { x: MM(40), y: 0 },
+            { x: MM(40), y: MM(40) },
+            { x: MM(20), y: MM(40) },
+          ],
+        }),
+      ],
+    });
+    expect(area(fillZone(b, 0)[0]!.polys)).toBeCloseTo(1600, 0);
+  });
+
+  it('and a same-net teardrop of higher priority takes nothing either', () => {
+    // "if( higherPrioritySameNet && !otherZone->IsTeardropArea() )" — a
+    // teardrop is generated copper that fattens a pad, not a pour with fill
+    // parameters of its own to impose.
+    const b = board({
+      zones: [
+        zone(),
+        zone({
+          net: 1,
+          priority: 5,
+          uuid: 'z2',
+          teardropType: 'viapad',
+          outline: [
+            { x: MM(20), y: 0 },
+            { x: MM(40), y: 0 },
+            { x: MM(40), y: MM(40) },
+            { x: MM(20), y: MM(40) },
           ],
         }),
       ],

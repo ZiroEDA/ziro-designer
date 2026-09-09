@@ -60,6 +60,7 @@ import {
 } from '../board_design_settings_sizes.js';
 import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { arcShape, padShapes } from '../drc/drc_engine.js';
+import { padShapePos } from '../padstack.js';
 import { matchDpSuffix } from '../drc/drc_diff_pair.js';
 import { padIsOnLayer } from '../pad_enumerate.js';
 import { enabledCopperLayers, isCopperLayerName } from '../swap_layers.js';
@@ -264,10 +265,10 @@ export function solidShapeForPad(aPad: PcbPad): Shape | null {
  * the stadium swept by a disc of the short radius along the long axis, which is
  * upstream's `SHAPE_SEGMENT`.
  *
- * The drill offset is deliberately not applied — see the file header of
- * `pns_syncworld_impl.md` §7.9: nothing in this tree's geometry models it, so
- * applying it here alone would put the hole somewhere the DRC engine does not
- * think it is.
+ * The drill offset is not applied here, and that is upstream's own geometry:
+ * `GetEffectiveHoleShape` builds the segment from `m_pos`. It is the pad's
+ * COPPER that `(drill … (offset …))` moves, which `padShapePos` does for
+ * `padShapes`.
  */
 export function padHoleShape(aPad: PcbPad): Shape | null {
   const drill = aPad.drill;
@@ -765,13 +766,15 @@ export class PnsBoardIface implements PnsRouterIface, PnsResolverHost {
     solid.setPadToDie(aPad.padToDieLength ?? 0);
     solid.setOrientation(new EDA_ANGLE(aPad.angle));
 
-    // `PAD::GetOffset` shifts a pad's copper relative to its hole. Nothing in
-    // this tree's geometry models it — `padShapes` and the DRC engine both
-    // centre the copper on `pad.at` — so applying it here alone would put the
-    // router's idea of the pad somewhere DRC does not agree with. Zero, and
-    // wrong in exactly the way the rest of the tree already is.
+    // "solid->SetPos( c - offset ); solid->SetOffset( offset )" with
+    // `c = aPad->ShapePos( aLayer )`, so the position is the pad's own — the
+    // hole — and the offset is `GetOffset` turned by the orientation. The shape
+    // above is absolute and already carries it (`padShapes` centres on
+    // `ShapePos`); the offset is what tells the optimizer to leave an offset
+    // pad's breakout alone.
+    const shapePos = padShapePos(aPad);
     solid.setPos(aPad.at);
-    solid.setOffset({ x: 0, y: 0 });
+    solid.setOffset({ x: shapePos.x - aPad.at.x, y: shapePos.y - aPad.at.y });
 
     const holeShape = padHoleShape(aPad);
 

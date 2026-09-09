@@ -33,6 +33,7 @@ import { chainIntersectChain } from '@ziroeda/kimath/src/geometry/seg.js';
 import { segIntersect } from '@ziroeda/kimath/src/geometry/seg.js';
 import type { NETLIST } from '../netlist_reader/pcb_netlist.js';
 import { buildRatsnest } from '../ratsnest.js';
+import { padShapePos } from '../padstack.js';
 import { shapeToPolygon } from '../zone_filler.js';
 import type { Geom } from 'polygon-clipping';
 import { booleanAdd, type Polygon } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
@@ -288,10 +289,13 @@ export function arcShape(s: Vec2, m: Vec2, e: Vec2, width: number): Shape {
 }
 
 /** The pad's copper shapes (board-absolute; pad.at/angle are absolute).
- *  Custom pads return the anchor plus one shape per primitive. */
+ *  Custom pads return the anchor plus one shape per primitive.
+ *
+ *  Every shape is centred on `PAD::ShapePos`, not on `pad.at`: a drill
+ *  `(offset …)` moves the COPPER and leaves the hole on the pad position. */
 export function padShapes(pad: PcbPad): Shape[] {
   const { x: w, y: h } = pad.size;
-  const at = pad.at;
+  const at = padShapePos(pad);
   const place = (p: Vec2): Vec2 => {
     const q = rot(p, pad.angle);
     return { x: at.x + q.x, y: at.y + q.y };

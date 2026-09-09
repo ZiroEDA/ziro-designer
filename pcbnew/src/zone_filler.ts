@@ -43,6 +43,7 @@ import { defaultThermalSpokeAngle } from './padstack.js';
 import { graphicShapes, padShapes } from './drc/drc_engine.js';
 import { shapeDist, type Shape } from './drc/drc_geometry.js';
 import { tessellateArc } from './read-board.js';
+import { padShapePos } from './padstack.js';
 import { textShapes } from './text_geometry.js';
 import { barcodeGeometry, barcodeHullBoxes } from './barcode_geometry.js';
 import type { Board, PadPrimitive, PcbFootprint, PcbPad, PcbZone, PcbZoneFill } from './types.js';
@@ -458,13 +459,10 @@ function padHoleShape(pad: PcbPad, gap: number): Shape | null {
     pad.angle ?? 0,
   );
 
-  // `ShapePos` — the drill's own `(offset …)` moves the hole inside the pad.
-  const at = pad.drill.offset
-    ? (() => {
-        const o = rotate(pad.drill.offset, pad.angle ?? 0);
-        return { x: pad.at.x + o.x, y: pad.at.y + o.y };
-      })()
-    : pad.at;
+  // The hole stays on the pad position. `GetEffectiveHoleShape` builds its
+  // segment from `m_pos`; it is the pad's COPPER that a drill `(offset …)`
+  // moves, which `padShapePos` does for `padShapes`.
+  const at = pad.at;
 
   if (halfLen.x === 0 && halfLen.y === 0) return { kind: 'circle', c: at, r: halfW + gap };
 
@@ -688,7 +686,9 @@ function thermalSpokes(pad: PcbPad, zone: PcbZone, maxError: number): ThermalSpo
       )
     : spokesFromOrigin(half, spokeAngle, Math.round(width / 2));
 
-  return built.map((sp) => placeSpoke(sp, pad.angle ?? 0, pad.at));
+  // "Spokes are from center of pad shape, not from hole" — a drill offset
+  // moves the copper, and the spokes go with it.
+  return built.map((sp) => placeSpoke(sp, pad.angle ?? 0, padShapePos(pad)));
 }
 
 /**
@@ -705,7 +705,8 @@ function thermalSpokes(pad: PcbPad, zone: PcbZone, maxError: number): ThermalSpo
  */
 function padAnchors(pad: PcbPad): Vec2[] {
   const shapes = padShapes(pad);
-  const out: Vec2[] = [pad.at];
+  const centre = padShapePos(pad);
+  const out: Vec2[] = [centre];
   const inside = (p: Vec2): boolean =>
     shapes.some((s) => shapeDist({ kind: 'circle', c: p, r: 0 }, s) <= 0);
 
@@ -717,7 +718,7 @@ function padAnchors(pad: PcbPad): Vec2[] {
     for (let j = -2; j <= 2; j++) {
       if (i === 0 && j === 0) continue;
       const local = rotate({ x: (i * pad.size.x) / 5, y: (j * pad.size.y) / 5 }, pad.angle ?? 0);
-      const p = { x: pad.at.x + local.x, y: pad.at.y + local.y };
+      const p = { x: centre.x + local.x, y: centre.y + local.y };
       if (inside(p)) out.push(p);
     }
   }
@@ -758,9 +759,11 @@ function customThermalSpokes(
   const angle = ((pad.angle ?? 0) * Math.PI) / 180;
   const cos = Math.cos(angle);
   const sin = Math.sin(angle);
+  // "seg.A += pad->ShapePos( aLayer )".
+  const centre = padShapePos(pad);
   const place = (p: Vec2): Vec2 => ({
-    x: pad.at.x + p.x * cos - p.y * sin,
-    y: pad.at.y + p.x * sin + p.y * cos,
+    x: centre.x + p.x * cos - p.y * sin,
+    y: centre.y + p.x * sin + p.y * cos,
   });
 
   const gap = zone.thermalGap ?? mmToIU(0.5);
@@ -775,7 +778,7 @@ function customThermalSpokes(
     // seg.A must be the end inside the pad; upstream reverses if it is not, and
     // skips the template when neither end is.
     const inside = (p: Vec2): boolean =>
-      Math.hypot(p.x - pad.at.x, p.y - pad.at.y) <= Math.max(pad.size.x, pad.size.y) / 2;
+      Math.hypot(p.x - centre.x, p.y - centre.y) <= Math.max(pad.size.x, pad.size.y) / 2;
     if (!inside(a)) {
       if (!inside(b)) continue;
       [a, b] = [b, a];
@@ -795,7 +798,7 @@ function customThermalSpokes(
     // regardless; the tip test above is what surfaces it.
     const extent = (Math.abs(dx) > Math.abs(dy) ? pad.size.x : pad.size.y) / 2;
     const need = extent + gap + maxError;
-    const have = Math.hypot(b.x - pad.at.x, b.y - pad.at.y);
+    const have = Math.hypot(b.x - centre.x, b.y - centre.y);
     const grow = Math.max(reach, need - have);
     const tip = { x: b.x + dx * grow, y: b.y + dy * grow };
     const hx = -dy * halfW;
@@ -851,6 +854,57 @@ function higherPriority(a: PcbZone, b: PcbZone): boolean {
   // `m_Uuid > aOther->m_Uuid` — KIID compares the bytes, and the canonical
   // lowercase hex form compares the same way as a string.
   return (a.uuid ?? '') > (b.uuid ?? '');
+}
+
+/**
+ * `ZONE_FILLER::subtractHigherPriorityZones` (zone_filler.cpp:2676).
+ *
+ * Every zone on this layer that shares this zone's net code and carries a
+ * STRICTLY greater assigned priority takes its own outline away from this
+ * fill. Three details that a reading of the different-net knockout would get
+ * wrong:
+ *
+ *  - `HigherPriority()` is deliberately NOT used — "we only want explicitly-
+ *    higher priorities, not equal-priority zones", so the teardrop and UUID
+ *    tie-breaks play no part and two same-net zones of equal priority both
+ *    keep the overlap.
+ *  - the knockout is the zone's raw outline (`appendZoneOutlineWithoutArcs`),
+ *    not its smoothed outline and not its filled copper, and no clearance is
+ *    added to it.
+ *  - a teardrop area never knocks anything out here.
+ *
+ * `SameNet` is bare net-code equality, so two no-net zones qualify as well.
+ */
+function subtractHigherPriorityZones(
+  fill: Polygon[],
+  board: Board,
+  zoneIndex: number,
+  layer: string,
+  near: (box: Box) => boolean,
+): Polygon[] {
+  if (fill.length === 0) return fill;
+
+  const zone = board.zones[zoneIndex]!;
+  const knockouts: Ring[][] = [];
+
+  board.zones.forEach((other, i) => {
+    if (i === zoneIndex || !other.outline || other.outline.length < 3) return;
+    if (other.net !== zone.net) return;
+    if ((other.priority ?? 0) <= (zone.priority ?? 0)) return;
+    if (other.teardropType !== undefined) return;
+    if (!other.layers.includes(layer)) return;
+    // "if( aKnockout->GetBoundingBox().Intersects( zoneBBox ) )".
+    if (!near(boxOf(other.outline))) return;
+    knockouts.push([intRingOf(other.outline)]);
+  });
+
+  if (knockouts.length === 0) return fill;
+
+  const kept = clip.difference(
+    fill.map((poly) => poly.map(intRingOf)).filter((poly) => poly[0]!.length >= 3) as Geom,
+    knockouts as unknown as Geom,
+  ) as MultiPolygon;
+  return kept.map((poly) => poly.map(ptsOf));
 }
 
 export function fillZone(
@@ -955,7 +1009,10 @@ export function fillZone(
           pad.size.y,
           pad.drill ? Math.max(pad.drill.w, pad.drill.h) : 0,
         );
-        if (!near(boxAround(pad.at, pad.at, reach))) continue;
+        // The copper sits at `ShapePos` and the hole at `pad.at`; the guard has
+        // to cover both, so it spans the two.
+        const shapeAt = padShapePos(pad);
+        if (!near(boxAround(pad.at, shapeAt, reach))) continue;
 
         const shapes = padShapes(pad);
         const holeRadius = pad.drill ? Math.max(pad.drill.w, pad.drill.h) / 2 : 0;
@@ -1321,6 +1378,21 @@ export function fillZone(
       );
     else if (zone.fillMode === 'thieving')
       pruned = addCopperThievingPattern(pruned, zone, maxError);
+
+    // "Lastly give any same-net but higher-priority zones control over their
+    // own area" — `ZONE_FILLER::subtractHigherPriorityZones`, the last thing
+    // `fillCopperZone` does before it fractures.
+    //
+    // This is NOT the different-net knockout above. That one keeps a clearance
+    // gap and uses the other zone's filled copper; this one takes the other
+    // zone's raw OUTLINE, with no gap at all, because the two pours are the
+    // same net and may touch — what is being decided is only which zone's fill
+    // parameters (thermal relief, minimum thickness, hatching) govern the
+    // overlap. Without it a lower-priority pour fills its whole outline and the
+    // overlap ends up poured twice, under the wrong rules: on One-Air-Max the
+    // +3V3 zone of priority 9 ran 146 mm² past where KiCad stops it, which is
+    // the entire span it shares with the priority-24 zone beside it.
+    pruned = subtractHigherPriorityZones(pruned, board, zoneIndex, layer, near);
 
     const polys: Vec2[][] = removeIslands(fracture(pruned), zone, connected);
     if (polys.length > 0) fills.push({ layer, polys });
