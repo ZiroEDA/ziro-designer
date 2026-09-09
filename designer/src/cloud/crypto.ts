@@ -18,11 +18,12 @@
  *    asymmetric operation, never a re-encryption of the boards.
  *  - The project key is wrapped under the account's `masterKey` for its owner,
  *    and sealed to a member's public key for each collaborator.
- *  - The `masterKey` is wrapped under a `recoveryKey` — a full-entropy value the
- *    user saves once. We are OAuth-first, so there is no password to derive a
- *    key from; the recovery key is the root secret a human carries between
- *    devices, which is also why no memory-hard KDF is needed here (there is no
- *    low-entropy secret to brute-force).
+ *  - The `masterKey` is wrapped TWICE, by two independent secrets: a key derived
+ *    from the account password (the everyday way in) and a `recoveryKey` shown
+ *    once at sign-up (the only way in when the password is gone). Neither can
+ *    produce the other, and the server holds only the two ciphertexts — which
+ *    is why a password reset by email cannot exist here: it would restore the
+ *    account and leave every project unreadable.
  *
  * Primitives are Web Crypto only — the same `crypto.subtle` already used in
  * `blobStore.ts` — so there is no new dependency and nothing to initialise:
@@ -112,6 +113,82 @@ export async function decryptSecret(key: Uint8Array, blob: Uint8Array): Promise<
   const iv = blob.subarray(0, IV_BYTES);
   const ct = blob.subarray(IV_BYTES);
   return new Uint8Array(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: ab(iv) }, aes, ab(ct)));
+}
+
+// ---------------------------------------------------------------------------
+// Deriving a key from a password
+// ---------------------------------------------------------------------------
+
+/**
+ * How an account's key-encryption-key was derived from its password.
+ *
+ * **Stored with the account, not assumed.** This is the single thing that makes
+ * the choice of KDF reversible: a stretch that is right today is weak in five
+ * years, and an account that records which function and which cost produced its
+ * key can be re-wrapped later while every older account keeps opening. The
+ * reference design stores exactly this (its salt and its Argon2 ops/mem limits)
+ * for the same reason. Hard-coding the parameters instead would make the first
+ * upgrade a flag day for every account at once.
+ */
+export interface KdfParams {
+  /**
+   * PBKDF2-SHA256 today, because it is what Web Crypto implements natively and
+   * therefore needs no dependency. It is NOT the best choice on the merits:
+   * Argon2id is memory-hard and PBKDF2 is not, so PBKDF2 gives far more ground
+   * to GPUs. The upgrade is a new value here on new accounts, which is why this
+   * field exists at all.
+   */
+  name: 'PBKDF2-SHA256';
+  /** Base64. Fresh per account, so two identical passwords derive differently. */
+  salt: string;
+  iterations: number;
+}
+
+/** OWASP's floor for PBKDF2-SHA256 when it guards a key rather than a login. */
+export const DEFAULT_KDF_ITERATIONS = 600_000;
+
+/** A fresh descriptor for a new account. */
+export function newKdfParams(): KdfParams {
+  return {
+    name: 'PBKDF2-SHA256',
+    salt: bytesToBase64(randomBytes(16)),
+    iterations: DEFAULT_KDF_ITERATIONS,
+  };
+}
+
+/**
+ * The key-encryption-key for a password — the value that wraps the master key.
+ *
+ * Never sent anywhere. The server sees the salt and the iteration count (it has
+ * to, or a second device could not derive the same key) and never the result.
+ */
+export async function deriveKeyFromPassword(
+  password: string,
+  params: KdfParams,
+): Promise<Uint8Array> {
+  if (params.name !== 'PBKDF2-SHA256') {
+    // A descriptor from a newer client. Failing loudly beats deriving a
+    // different key and reporting "wrong password" for the rest of time.
+    throw new Error(`unsupported key derivation: ${String(params.name)}`);
+  }
+  const material = await crypto.subtle.importKey(
+    'raw',
+    ab(new TextEncoder().encode(password)),
+    'PBKDF2',
+    false,
+    ['deriveBits'],
+  );
+  const bits = await crypto.subtle.deriveBits(
+    {
+      name: 'PBKDF2',
+      hash: 'SHA-256',
+      salt: ab(base64ToBytes(params.salt)),
+      iterations: params.iterations,
+    },
+    material,
+    KEY_BYTES * 8,
+  );
+  return new Uint8Array(bits);
 }
 
 /** An account's ECDH keypair, as storable bytes. */
@@ -217,6 +294,17 @@ export interface AccountKeys {
 /** The wrapped forms the server stores. It can open none of them. */
 export interface WrappedAccount {
   publicKey: Uint8Array;
+  /** How the password-derived key was made. See {@link KdfParams}. */
+  kdf: KdfParams;
+  /**
+   * masterKey encrypted under the PASSWORD-derived key — the everyday way in.
+   *
+   * The master key is wrapped twice, by two independent secrets, and that is
+   * the whole shape of the design: the password opens it on an ordinary sign
+   * in, and the recovery key opens it when the password is gone. Neither can
+   * produce the other, and the server holds only these two ciphertexts.
+   */
+  encMasterKeyByPassword: Uint8Array;
   /** masterKey encrypted under recoveryKey — the root of recovery. */
   encMasterKeyByRecovery: Uint8Array;
   /** privateKey encrypted under masterKey. */
@@ -232,17 +320,61 @@ export interface WrappedAccount {
  * {@link encodeRecoveryKey}) and uploads `wrapped` to the server. Nothing here
  * is stored unwrapped anywhere the server can see.
  */
-export async function createAccount(): Promise<{ keys: AccountKeys; wrapped: WrappedAccount }> {
+export async function createAccount(
+  password: string,
+): Promise<{ keys: AccountKeys; wrapped: WrappedAccount }> {
   const masterKey = randomKey();
   const recoveryKey = randomKey();
   const { publicKey, privateKey } = await generateKeyPair();
+  const kdf = newKdfParams();
+  const passwordKey = await deriveKeyFromPassword(password, kdf);
   const wrapped: WrappedAccount = {
     publicKey,
+    kdf,
+    encMasterKeyByPassword: await encryptSecret(passwordKey, masterKey),
     encMasterKeyByRecovery: await encryptSecret(recoveryKey, masterKey),
     encPrivateKey: await encryptSecret(masterKey, privateKey),
     encRecoveryKeyByMaster: await encryptSecret(masterKey, recoveryKey),
   };
   return { keys: { masterKey, recoveryKey, publicKey, privateKey }, wrapped };
+}
+
+/**
+ * Unlock an account the ordinary way: with its password.
+ *
+ * Rejects when the password is wrong, because the AEAD tag will not verify —
+ * there is no separate check to get out of step with the real one.
+ */
+export async function unlockWithPassword(
+  password: string,
+  wrapped: WrappedAccount,
+): Promise<AccountKeys> {
+  const passwordKey = await deriveKeyFromPassword(password, wrapped.kdf);
+  const masterKey = await decryptSecret(passwordKey, wrapped.encMasterKeyByPassword);
+  return unlockWithMasterKey(masterKey, wrapped);
+}
+
+/**
+ * Set a new password on an account whose master key is already in hand.
+ *
+ * This is what the recovery path ends in: the recovery key opened the master
+ * key, and now a fresh password has to wrap the SAME master key — never a new
+ * one, or every project encrypted under the old master key would be lost, which
+ * is the failure a password reset is supposed to prevent. A fresh salt each
+ * time, so the new wrap shares nothing with the old.
+ */
+export async function rewrapWithNewPassword(
+  masterKey: Uint8Array,
+  newPassword: string,
+  wrapped: WrappedAccount,
+): Promise<WrappedAccount> {
+  const kdf = newKdfParams();
+  const passwordKey = await deriveKeyFromPassword(newPassword, kdf);
+  return {
+    ...wrapped,
+    kdf,
+    encMasterKeyByPassword: await encryptSecret(passwordKey, masterKey),
+  };
 }
 
 /**

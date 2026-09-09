@@ -22,6 +22,10 @@ import { describe, it, expect } from 'vitest';
 import {
   randomKey,
   createProjectKey,
+  deriveKeyFromPassword,
+  newKdfParams,
+  unlockWithPassword,
+  rewrapWithNewPassword,
   generateKeyPair,
   encryptSecret,
   decryptSecret,
@@ -46,6 +50,10 @@ const bytes = (s: string): Uint8Array => new TextEncoder().encode(s);
 const text = (b: Uint8Array): string => new TextDecoder().decode(b);
 const same = (a: Uint8Array, b: Uint8Array): boolean =>
   a.length === b.length && a.every((v, i) => v === b[i]);
+
+/** One password for the suite. Derivation is deliberately slow, so it is not
+    varied without a reason. */
+const PW = 'correct horse battery staple';
 
 describe('symmetric AEAD (encryptSecret / decryptSecret)', () => {
   it('round-trips arbitrary bytes', async () => {
@@ -102,8 +110,8 @@ describe('asymmetric seal (seal / sealOpen)', () => {
 });
 
 describe('account key hierarchy', () => {
-  it('unlocks entirely from the recovery key — no password (OAuth-first)', async () => {
-    const { keys, wrapped } = await createAccount();
+  it('unlocks entirely from the recovery key, when the password is gone', async () => {
+    const { keys, wrapped } = await createAccount(PW);
     const unlocked = await unlockWithRecoveryKey(keys.recoveryKey, wrapped);
 
     expect(same(unlocked.masterKey, keys.masterKey)).toBe(true);
@@ -112,19 +120,19 @@ describe('account key hierarchy', () => {
   });
 
   it('unlocks from a recovered master key, recovering the recovery key too', async () => {
-    const { keys, wrapped } = await createAccount();
+    const { keys, wrapped } = await createAccount(PW);
     const unlocked = await unlockWithMasterKey(keys.masterKey, wrapped);
     expect(same(unlocked.recoveryKey, keys.recoveryKey)).toBe(true);
     expect(same(unlocked.privateKey, keys.privateKey)).toBe(true);
   });
 
   it('a wrong recovery key cannot unlock the account', async () => {
-    const { wrapped } = await createAccount();
+    const { wrapped } = await createAccount(PW);
     await expect(unlockWithRecoveryKey(randomKey(), wrapped)).rejects.toThrow();
   });
 
   it('stores nothing the server could decrypt on its own', async () => {
-    const { keys, wrapped } = await createAccount();
+    const { keys, wrapped } = await createAccount(PW);
     // The only cleartext in the wrapped bundle is the public key.
     expect(same(wrapped.publicKey, keys.publicKey)).toBe(true);
     // The wrapped master key is not the master key.
@@ -135,15 +143,15 @@ describe('account key hierarchy', () => {
 
 describe('project keys and sharing', () => {
   it('owner wraps a project key for themselves and gets it back', async () => {
-    const { keys } = await createAccount();
+    const { keys } = await createAccount(PW);
     const projectKey = createProjectKey();
     const wrapped = await wrapProjectKeyForSelf(projectKey, keys.masterKey);
     expect(same(await unwrapProjectKeyForSelf(wrapped, keys.masterKey), projectKey)).toBe(true);
   });
 
   it('sharing hands a project key to a collaborator and no one else', async () => {
-    const member = await createAccount();
-    const outsider = await createAccount();
+    const member = await createAccount(PW);
+    const outsider = await createAccount(PW);
     const projectKey = createProjectKey();
 
     const sealed = await shareProjectKey(projectKey, member.keys.publicKey);
@@ -153,7 +161,7 @@ describe('project keys and sharing', () => {
   });
 
   it("a shared collaborator can decrypt the owner's blobs", async () => {
-    const member = await createAccount();
+    const member = await createAccount(PW);
     const projectKey = createProjectKey();
     const board = bytes('(kicad_pcb (net 0 ""))');
 
@@ -225,5 +233,69 @@ describe('base64 helpers', () => {
   it('round-trips bytes including high values and zero', () => {
     const b = new Uint8Array([0, 1, 127, 128, 255, 42]);
     expect(same(base64ToBytes(bytesToBase64(b)), b)).toBe(true);
+  });
+});
+
+describe('password, and the recovery that replaces a reset email', () => {
+  it('unlocks the account the ordinary way', async () => {
+    const { keys, wrapped } = await createAccount(PW);
+    const unlocked = await unlockWithPassword(PW, wrapped);
+    expect(same(unlocked.masterKey, keys.masterKey)).toBe(true);
+    expect(same(unlocked.privateKey, keys.privateKey)).toBe(true);
+  });
+
+  it('refuses the wrong password', async () => {
+    const { wrapped } = await createAccount(PW);
+    await expect(unlockWithPassword('not the password', wrapped)).rejects.toThrow();
+  });
+
+  it('salts each account, so one password does not derive one key', async () => {
+    const a = await createAccount(PW);
+    const b = await createAccount(PW);
+    expect(a.wrapped.kdf.salt).not.toBe(b.wrapped.kdf.salt);
+    // ...and therefore the two wraps share nothing, despite the same password.
+    expect(same(a.wrapped.encMasterKeyByPassword, b.wrapped.encMasterKeyByPassword)).toBe(false);
+  });
+
+  it('derives the same key from the same password and params, and not otherwise', async () => {
+    const params = newKdfParams();
+    const one = await deriveKeyFromPassword(PW, params);
+    expect(same(await deriveKeyFromPassword(PW, params), one)).toBe(true);
+    expect(same(await deriveKeyFromPassword(PW, newKdfParams()), one)).toBe(false);
+    expect(same(await deriveKeyFromPassword('other', params), one)).toBe(false);
+  });
+
+  it('stores nothing the server could derive the password key from', async () => {
+    const { wrapped } = await createAccount(PW);
+    // The salt and cost are storable by design -- a second device needs them --
+    // but they are not the key, and the key is not in the bundle.
+    expect(wrapped.kdf.iterations).toBeGreaterThanOrEqual(600_000);
+    const derived = await deriveKeyFromPassword(PW, wrapped.kdf);
+    expect(same(wrapped.encMasterKeyByPassword, derived)).toBe(false);
+  });
+
+  it('a reset through the recovery key KEEPS the master key, so projects survive', async () => {
+    // The failure this guards against is the one a reset is supposed to
+    // prevent: minting a fresh master key would leave every project encrypted
+    // under the old one, i.e. lost.
+    const { keys, wrapped } = await createAccount(PW);
+    const projectKey = createProjectKey();
+    const stored = await wrapProjectKeyForSelf(projectKey, keys.masterKey);
+
+    // Password forgotten: the recovery key opens the master key...
+    const recovered = await unlockWithRecoveryKey(keys.recoveryKey, wrapped);
+    // ...and a new password re-wraps that SAME master key.
+    const rewrapped = await rewrapWithNewPassword(
+      recovered.masterKey,
+      'a brand new passphrase',
+      wrapped,
+    );
+
+    const after = await unlockWithPassword('a brand new passphrase', rewrapped);
+    expect(same(after.masterKey, keys.masterKey)).toBe(true);
+    // The project encrypted before the reset still opens.
+    expect(same(await unwrapProjectKeyForSelf(stored, after.masterKey), projectKey)).toBe(true);
+    // And the old password no longer works.
+    await expect(unlockWithPassword(PW, rewrapped)).rejects.toThrow();
   });
 });
