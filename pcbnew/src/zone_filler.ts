@@ -85,6 +85,13 @@ export interface ZoneFillOptions {
    * rules resolves to and therefore the default here.
    */
   edgeClearance?: number;
+  /**
+   * `HOLE_CLEARANCE_CONSTRAINT` — Board Setup > Constraints' "Minimum hole
+   * clearance", the gap the pour keeps from a DRILL as opposed to from the
+   * copper around it. `knockoutPadClearance` maxes the hole's gap with it, and
+   * for an NPTH it is the only ordinary clearance that applies at all.
+   */
+  holeClearance?: number;
 }
 
 /**
@@ -428,6 +435,46 @@ const boxAround = (a: Vec2, b: Vec2, r: number): Box => boxInflate(boxOf([a, b])
 const isCopper = (layer: string): boolean => /\.Cu$/.test(layer);
 const padOnLayer = (pad: PcbPad, layer: string): boolean =>
   pad.layers.some((l) => l === layer || l === '*.Cu');
+
+/**
+ * `PAD::BuildEffectiveShapes`' hole — a `SHAPE_SEGMENT`, not a circle.
+ *
+ *     half_width = min( half_size.x, half_size.y );
+ *     half_len   = ( half_size.x - half_width, half_size.y - half_width );
+ *     RotatePoint( half_len, GetOrientation() );
+ *     SHAPE_SEGMENT( m_pos - half_len, m_pos + half_len, half_width * 2 )
+ *
+ * A round drill collapses to a point of half the diameter, which is the circle
+ * again; an OBLONG one is a slot. Taking the larger of the two sizes as a
+ * radius, as this did, knocks out a disc where the slot is — on StickHub's
+ * 4.0 x 1.5 mm mounting slot that is 7.3 mm² of copper KiCad pours.
+ */
+function padHoleShape(pad: PcbPad, gap: number): Shape | null {
+  if (!pad.drill) return null;
+
+  const halfW = Math.min(pad.drill.w, pad.drill.h) / 2;
+  const halfLen = rotate(
+    { x: pad.drill.w / 2 - halfW, y: pad.drill.h / 2 - halfW },
+    pad.angle ?? 0,
+  );
+
+  // `ShapePos` — the drill's own `(offset …)` moves the hole inside the pad.
+  const at = pad.drill.offset
+    ? (() => {
+        const o = rotate(pad.drill.offset, pad.angle ?? 0);
+        return { x: pad.at.x + o.x, y: pad.at.y + o.y };
+      })()
+    : pad.at;
+
+  if (halfLen.x === 0 && halfLen.y === 0) return { kind: 'circle', c: at, r: halfW + gap };
+
+  return {
+    kind: 'stadium',
+    a: { x: at.x - halfLen.x, y: at.y - halfLen.y },
+    b: { x: at.x + halfLen.x, y: at.y + halfLen.y },
+    r: halfW + gap,
+  };
+}
 
 /**
  * `PAD::GetLocalClearance` — the pad's own `(clearance …)`, or its footprint's
@@ -942,21 +989,40 @@ export function fillZone(
           // after the spokes have been added and the min-width prune has run.
           // The spokes all start at the pad centre, so without this the four
           // of them fill the middle of the pad's own hole.
-          if (holeRadius > 0) thermalHoles.push([circlePoly(pad.at, holeRadius, maxError)]);
+          const drill = padHoleShape(pad, 0);
+          if (drill) thermalHoles.push(...shapeToPolygon(drill, 0, maxError));
           continue;
         }
 
-        // NONE, and every different-net pad: the copper and the hole both go,
-        // at the zone's clearance, raised by the pad's own local clearance.
+        // NONE, and every different-net pad. `knockoutPadClearance` treats the
+        // copper and the hole as two separate knockouts with two different
+        // gaps.
         //
         // "if( flashLayer && gap >= 0 ) addKnockout( … )" — the COPPER only
-        // goes when the pad has copper on this layer. An NPTH that reached
-        // here for its hole alone has none, and knocking its shape out too
-        // takes away copper KiCad pours.
-        const gap = Math.max(gapTo(pad.net ?? 0), localPadClearance(pad, fp));
-        if (padOnLayer(pad, layer))
+        // goes when the pad HAS copper on this layer, and an NPTH whose drill
+        // fills its pad has none ("NPTH do not need copper clearance gaps to
+        // their holes"). Knocking its shape out as well takes away copper
+        // KiCad pours.
+        const local = localPadClearance(pad, fp);
+        const npth = pad.type === 'np_thru_hole';
+
+        if (padOnLayer(pad, layer) && !npth) {
+          const gap = Math.max(gapTo(pad.net ?? 0), local);
           for (const s of shapes) holes.push(...shapeToPolygon(s, gap, maxError));
-        if (holeRadius > 0) holes.push([circlePoly(pad.at, holeRadius + gap, maxError)]);
+        }
+
+        // The hole's own gap: the board's hole clearance, the pad's local
+        // clearance, and — "oblong NPTH holes are milled rather than drilled,
+        // so they need edge clearance in addition to hole clearance" — the edge
+        // clearance for a slot. A plated hole also takes the ordinary
+        // clearance; an NPTH does not.
+        let holeGap = Math.max(opts.holeClearance ?? 0, local);
+        if (!npth) holeGap = Math.max(holeGap, gapTo(pad.net ?? 0));
+        if (npth && pad.drill && pad.drill.w !== pad.drill.h)
+          holeGap = Math.max(holeGap, opts.edgeClearance ?? DEFAULT_EDGE_CLEARANCE);
+
+        const hole = padHoleShape(pad, holeGap);
+        if (hole) holes.push(...shapeToPolygon(hole, 0, maxError));
       }
     }
 

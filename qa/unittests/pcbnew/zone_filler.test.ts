@@ -1748,46 +1748,150 @@ describe("a pad's own local clearance", () => {
     expect(gapAt(fp)).toBeCloseTo(MM(0.2), -3);
   });
 
-  it("keeps a pad's hole clear by the same amount", () => {
-    // `addHoleKnockout` takes the same gap, so a mounting hole with no copper
-    // to flash still holds the pour off. The pad's COPPER is on the other side
-    // — "NPTH pads with a drill hole affect all copper layers even when they
-    // carry no copper on that layer" — so the only knockout here is the hole's,
-    // and it has to carry the local clearance too.
+  it("keeps an NPTH's hole clear by the pad's local clearance", () => {
+    // For an NPTH the ordinary clearance never reaches the hole — "NPTH do not
+    // need copper clearance gaps to their holes" resets the gap to the physical
+    // one — but a LOCAL clearance on the pad still raises it. That is what
+    // CM5's mounting holes rely on: `(clearance 1.7)` on a 3 mm drill, and
+    // KiCad's pour stops 1.7 mm out.
     const fp = footprint([
       {
-        ...pad({ x: MM(20), y: MM(20) }, 2, MM(0.5)),
+        ...pad({ x: MM(20), y: MM(20) }, 2, MM(2)),
         type: 'np_thru_hole',
-        layers: ['B.Cu'],
+        layers: ['*.Cu'],
         drill: { oblong: false, w: MM(2), h: MM(2) },
         localClearance: MM(1.5),
       },
     ]);
-    // 1 mm of hole radius plus 1.5 mm, measured out from x = 21 (the probe's
-    // origin is the pad edge of the default 2 mm pad).
     expect(gapAt(fp)).toBeCloseTo(MM(1.5), -3);
   });
 
-  it('knocks out only the HOLE of a pad that has no copper on this layer', () => {
-    // The pad's own 4 mm of copper is on B.Cu; an F.Cu pour keeps clear of its
-    // 2 mm hole and nothing more.
+  it("ignores the zone's clearance around an NPTH, and takes the board's hole clearance", () => {
+    const fp = footprint([
+      {
+        ...pad({ x: MM(20), y: MM(20) }, 2, MM(2)),
+        type: 'np_thru_hole',
+        layers: ['*.Cu'],
+        drill: { oblong: false, w: MM(2), h: MM(2) },
+      },
+    ]);
+    const gapWith = (opts: Parameters<typeof fillZone>[2]): number => {
+      const b = board({ zones: [zone({ clearance: MM(0.2) })], footprints: [fp] });
+      const fill = fillZone(b, 0, opts)[0]!.polys;
+      for (let d = 0; d < MM(4); d += MM(0.005))
+        if (filled(fill, { x: MM(21) + d, y: MM(20) })) return d;
+      return Number.POSITIVE_INFINITY;
+    };
+    // The zone says 0.2 and it does not apply; the board's hole clearance does.
+    expect(gapWith({ holeClearance: MM(0.6) })).toBeCloseTo(MM(0.6), -3);
+    expect(gapWith({ holeClearance: 0 })).toBeCloseTo(0, -3);
+  });
+
+  it('knocks out an oblong drill as a SLOT, not a disc of its longer side', () => {
+    // `PAD::BuildEffectiveShapes` makes the hole a `SHAPE_SEGMENT`:
+    // `half_len = half_size - half_width`, rotated by the pad's orientation.
+    // StickHub's 4.0 x 1.5 mm mounting slot came out as a 4.3 mm disc, which is
+    // 7.3 mm² of copper KiCad pours.
     const b = board({
       zones: [zone({ clearance: MM(0.2) })],
       footprints: [
         footprint([
           {
-            ...pad({ x: MM(20), y: MM(20) }, 2, MM(4)),
+            ...pad({ x: MM(20), y: MM(20) }, 2, MM(2)),
+            shape: 'oval',
             type: 'np_thru_hole',
-            layers: ['B.Cu'],
-            drill: { oblong: false, w: MM(2), h: MM(2) },
+            layers: ['*.Cu'],
+            size: { x: MM(4), y: MM(1.5) },
+            drill: { oblong: true, w: MM(4), h: MM(1.5) },
           },
         ]),
       ],
     });
-    const fill = fillZone(b, 0)[0]!.polys;
-    // Inside the hole's clearance: no copper.
-    expect(filled(fill, { x: MM(21.1), y: MM(20) })).toBe(false);
-    // Over the pad's copper, which is not on this layer: poured.
-    expect(filled(fill, { x: MM(21.6), y: MM(20) })).toBe(true);
+    // "Oblong NPTH holes are milled rather than drilled, so they need edge
+    // clearance in addition to hole clearance" — pinned at zero here so the
+    // slot's own gap is what is being measured.
+    const fill = fillZone(b, 0, { holeClearance: MM(0.1), edgeClearance: 0 })[0]!.polys;
+
+    // Along the slot: cleared out to 2 mm + 0.1.
+    expect(filled(fill, { x: MM(22.0), y: MM(20) })).toBe(false);
+    expect(filled(fill, { x: MM(22.2), y: MM(20) })).toBe(true);
+    // Across it: only 0.75 mm + 0.1, not the 2 mm a disc would take.
+    expect(filled(fill, { x: MM(20), y: MM(20.8) })).toBe(false);
+    expect(filled(fill, { x: MM(20), y: MM(21.0) })).toBe(true);
+  });
+
+  it('gives a MILLED slot the edge clearance as well', () => {
+    // "Oblong NPTH holes are milled rather than drilled, so they need edge
+    // clearance in addition to hole clearance" — the router bit that cuts them
+    // is the same one that cuts the board outline.
+    const b = board({
+      zones: [zone({ clearance: MM(0.2) })],
+      footprints: [
+        footprint([
+          {
+            ...pad({ x: MM(20), y: MM(20) }, 2, MM(2)),
+            shape: 'oval',
+            type: 'np_thru_hole',
+            layers: ['*.Cu'],
+            size: { x: MM(4), y: MM(1.5) },
+            drill: { oblong: true, w: MM(4), h: MM(1.5) },
+          },
+        ]),
+      ],
+    });
+    const fill = fillZone(b, 0, { holeClearance: MM(0.1), edgeClearance: MM(0.6) })[0]!.polys;
+
+    // 0.75 mm of half width plus 0.6, not the 0.1 the hole clearance asks for.
+    expect(filled(fill, { x: MM(20), y: MM(21.2) })).toBe(false);
+    expect(filled(fill, { x: MM(20), y: MM(21.5) })).toBe(true);
+  });
+
+  it('but a ROUND NPTH takes only the hole clearance', () => {
+    const b = board({
+      zones: [zone({ clearance: MM(0.2) })],
+      footprints: [
+        footprint([
+          {
+            ...pad({ x: MM(20), y: MM(20) }, 2, MM(1.5)),
+            shape: 'circle',
+            type: 'np_thru_hole',
+            layers: ['*.Cu'],
+            drill: { oblong: false, w: MM(1.5), h: MM(1.5) },
+          },
+        ]),
+      ],
+    });
+    const fill = fillZone(b, 0, { holeClearance: MM(0.1), edgeClearance: MM(0.6) })[0]!.polys;
+
+    expect(filled(fill, { x: MM(20.7), y: MM(20) })).toBe(false);
+    expect(filled(fill, { x: MM(20.9), y: MM(20) })).toBe(true);
+  });
+
+  it('turns the slot with the pad', () => {
+    const slot = (angle: number) =>
+      board({
+        zones: [zone({ clearance: MM(0.2) })],
+        footprints: [
+          footprint([
+            {
+              ...pad({ x: MM(20), y: MM(20) }, 2, MM(2)),
+              shape: 'oval',
+              type: 'np_thru_hole',
+              angle,
+              layers: ['*.Cu'],
+              size: { x: MM(4), y: MM(1.5) },
+              drill: { oblong: true, w: MM(4), h: MM(1.5) },
+            },
+          ]),
+        ],
+      });
+    const opts = { holeClearance: MM(0.1), edgeClearance: 0 };
+    const flat = fillZone(slot(0), 0, opts)[0]!.polys;
+    const upright = fillZone(slot(90), 0, opts)[0]!.polys;
+
+    expect(filled(flat, { x: MM(21.5), y: MM(20) })).toBe(false);
+    expect(filled(flat, { x: MM(20), y: MM(21.5) })).toBe(true);
+    expect(filled(upright, { x: MM(21.5), y: MM(20) })).toBe(true);
+    expect(filled(upright, { x: MM(20), y: MM(21.5) })).toBe(false);
   });
 });

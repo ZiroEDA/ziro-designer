@@ -1921,6 +1921,9 @@ export function PcbEditor({
       // insets a filled pour from Edge.Cuts, so it has to be the board's own
       // number and not the filler's fallback.
       edgeClearance: Math.round(boardSetup.constraints.copperToEdgeMM * MM),
+      // `HOLE_CLEARANCE_CONSTRAINT`, off the same page. For an NPTH it is the
+      // only ordinary clearance that reaches the hole at all.
+      holeClearance: Math.round(boardSetup.constraints.copperToHoleMM * MM),
       // `CLEARANCE_CONSTRAINT`. Without this the pour used the zone's own
       // `(connect_pads (clearance …))` alone, so a zone that states none — and
       // plenty do — kept no gap at all from other nets.
@@ -1942,6 +1945,7 @@ export function PcbEditor({
       hatchingOffsets,
       boardSetup.constraints.maxDeviationMM,
       boardSetup.constraints.copperToEdgeMM,
+      boardSetup.constraints.copperToHoleMM,
       boardSetup.constraints.minClearanceMM,
       boardSetup.netClasses,
     ],
