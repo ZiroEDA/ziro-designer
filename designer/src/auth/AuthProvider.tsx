@@ -26,11 +26,17 @@ interface AuthContextValue {
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signUp: (email: string, password: string) => Promise<SignUpResult>;
   signOut: () => Promise<void>;
-  /** OAuth sign-in (redirect flow), e.g. "Continue with Google". */
-  signInWithGoogle: () => Promise<{ error: string | null }>;
-  /** Passwordless: email a 6-digit sign-in code (creates the account if new). */
-  sendOtp: (email: string) => Promise<{ error: string | null }>;
-  /** Verify the emailed code; a session starts on success. */
+  /**
+   * Re-send the 6-digit code that confirms a new account's email address.
+   *
+   * There is no passwordless *sign-in*: a code only ever proves the address at
+   * sign-up. Every account has a password, because the password is what the
+   * end-to-end encryption derives its key-encryption-key from — an account
+   * created without one would have no root to wrap its master key with. See
+   * `docs/encryption-design.md`.
+   */
+  resendSignupCode: (email: string) => Promise<{ error: string | null }>;
+  /** Verify the emailed sign-up code; a session starts on success. */
   verifyOtp: (email: string, token: string) => Promise<{ error: string | null }>;
 }
 
@@ -85,33 +91,16 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
         if (!supabase) return;
         await supabase.auth.signOut();
       },
-      async signInWithGoogle() {
+      async resendSignupCode(email) {
         if (!supabase) return { error: 'Auth is not configured.' };
-        // Redirect flow: local (IndexedDB) work survives the round trip, and
-        // sign-in sync pushes it to the cloud once the session lands.
-        //
-        // Back to `href`, not `origin`. Returning someone to the bare origin
-        // throws away wherever they were, and the case that makes it a bug
-        // rather than a wrinkle is a share link: `?p=<project>` is the whole
-        // content of the URL somebody followed, and sending them to the origin
-        // after they sign in loses the project they were trying to open.
-        const { error } = await supabase.auth.signInWithOAuth({
-          provider: 'google',
-          options: { redirectTo: window.location.href },
-        });
-        return { error: error?.message ?? null };
-      },
-      async sendOtp(email) {
-        if (!supabase) return { error: 'Auth is not configured.' };
-        const { error } = await supabase.auth.signInWithOtp({
-          email,
-          options: { shouldCreateUser: true },
-        });
+        const { error } = await supabase.auth.resend({ type: 'signup', email });
         return { error: error?.message ?? null };
       },
       async verifyOtp(email, token) {
         if (!supabase) return { error: 'Auth is not configured.' };
-        const { error } = await supabase.auth.verifyOtp({ email, token, type: 'email' });
+        // `signup`, not `email`: this code confirms a newly created account's
+        // address rather than standing in for a password.
+        const { error } = await supabase.auth.verifyOtp({ email, token, type: 'signup' });
         return { error: error?.message ?? null };
       },
     }),

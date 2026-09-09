@@ -30,6 +30,11 @@
      WX_ELLIPSIZED_STATIC_TEXT (`gerbview/widgets/layer_widget.cpp:358`) — a
      widget label, which takes the widget foreground, not a listbox row. */
   --chrome-fg: #f7f7f7;
+  /* [css] Secondary/subdued text on a ZiroEDA product surface (auth, nudges):
+     the foreground, stepped down but kept legible. Not a wx colour — KiCad has
+     no such surfaces — so it is chosen, not measured, and exists so those
+     rules cite one source instead of each inventing its own grey. */
+  --chrome-fg-muted: #c3c8d0;
   /* [px] wxSYS_COLOUR_HIGHLIGHTTEXT — the text ON a selection. The same
      #ffffff as --view-fg in this theme, and a separate token anyway: wx has
      three foregrounds that happen to coincide here, and naming which one a rule
@@ -8898,7 +8903,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   padding: 24px;
 }
 .ze-auth-splash {
-  font-size: 18px;
+  font-size: calc(var(--ui-font-size) * 1.25);
   opacity: 0.85;
   letter-spacing: 0.2px;
 }
@@ -8908,44 +8913,77 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   display: flex;
   flex-direction: column;
   gap: 14px;
-  background: var(--panel-bg);
+  /* The DIALOG face (`.ze-modal`'s own, measured at #2C2C2C by
+     `qa/probes/dialog_chrome_probe.cpp`), not `--panel-bg`. --panel-bg is the
+     docked-pane body and is byte-identical to --field-bg, so entries drawn on
+     it were invisible: the same colour as the surface behind them. The GTK
+     relationship is an entry DARKER than the dialog it sits on, and that only
+     holds if the dialog uses the dialog colour. */
+  background: var(--chrome-bg);
   border: 1px solid var(--chrome-border);
   border-radius: 10px;
   padding: 28px 26px;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
 }
+/* The mark, wordmark and one line of copy, stacked and centred: the product's
+   own front door, so it leads with the logo rather than a bare text brand. */
+.ze-auth-head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  text-align: center;
+  margin-bottom: 10px;
+}
+/* The single heading, the only line on the front screen. Scaled up off the
+   dialog font (no literal), so the whole surface still grows from one place. */
+.ze-auth-title {
+  font-size: calc(var(--ui-font-size) * 1.6);
+  font-weight: 600;
+  letter-spacing: 0.1px;
+  line-height: 1.25;
+  color: var(--chrome-fg);
+  max-width: 20ch;
+}
 .ze-auth-brand {
-  font-size: 22px;
+  /* The wordmark: the dialog font, scaled up. No literal — it tracks
+     --ui-font-size, so the whole surface grows from one place. */
+  font-size: calc(var(--ui-font-size) * 1.5);
   font-weight: 700;
   letter-spacing: 0.2px;
   color: var(--chrome-fg);
 }
 .ze-auth-sub {
-  font-size: 13px;
-  color: #b7bcc4;
-  margin-top: -6px;
+  font-size: var(--ui-font-size);
+  color: var(--chrome-fg-muted);
+  line-height: 1.45;
+  max-width: 32ch;
 }
 .ze-auth-field {
   display: flex;
   flex-direction: column;
   gap: 5px;
-  font-size: 12.5px;
+  font-size: var(--ui-font-size-info);
 }
 .ze-auth-field span {
-  color: #b7bcc4;
+  color: var(--chrome-fg-muted);
 }
 .ze-auth-field input {
-  background: var(--chrome-bg2);
+  /* The measured GTK entry: --field-bg over --ctl-border, the same pair every
+     other text entry in the app uses. */
+  background: var(--field-bg);
   color: var(--chrome-fg);
-  border: 1px solid var(--chrome-border);
+  border: 1px solid var(--ctl-border);
   border-radius: 6px;
-  padding: 9px 11px;
+  padding: 9px var(--field-pad-x);
   font: inherit;
-  font-size: 14px;
+  font-size: var(--ui-font-size);
   outline: none;
 }
 .ze-auth-field input:focus {
-  border-color: var(--chrome-active-border);
+  /* GTK's own `entry:focus` border, which is a SOFTENED orange (alpha 0.7 over
+     the field), not the flat accent — see --field-focus-border. */
+  border-color: var(--field-focus-border);
 }
 .ze-auth-error {
   background: rgba(230, 9, 13, 0.12);
@@ -8953,30 +8991,19 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   border: 1px solid rgba(230, 9, 13, 0.35);
   border-radius: 6px;
   padding: 8px 10px;
-  font-size: 12.5px;
+  font-size: var(--ui-font-size-info);
 }
+/* The affirmative button. It carries `.ze-btn.primary`, so its face, height,
+   border and font-size come from the one shared button — the same ordinary
+   grey OK button every dialog uses, NOT an accent fill (see .ze-btn.primary).
+   This rule only makes it span the card. */
 .ze-auth-submit {
   margin-top: 4px;
-  padding: 10px 14px;
-  background: var(--chrome-active);
-  color: #fff;
-  border: 1px solid var(--chrome-active-border);
-  border-radius: 6px;
-  font: inherit;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: default;
-}
-.ze-auth-submit:hover {
-  background: #1e6bab;
-}
-.ze-auth-submit:disabled {
-  opacity: 0.6;
-  cursor: default;
+  width: 100%;
 }
 .ze-auth-toggle {
-  font-size: 12.5px;
-  color: #b7bcc4;
+  font-size: var(--ui-font-size-info);
+  color: var(--chrome-fg-muted);
   text-align: center;
 }
 .ze-auth-switch {
@@ -8984,7 +9011,9 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   border: none;
   padding: 0;
   cursor: default;
-  color: var(--chrome-active-border);
+  /* The foreground, not the accent: a text link on this surface reads as a
+     link by its underline, and the accent orange belongs to nothing here. */
+  color: var(--chrome-fg);
   font: inherit;
   font-size: inherit;
   text-decoration: underline;
@@ -8995,13 +9024,13 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   gap: 12px;
 }
 .ze-auth-confirm-title {
-  font-size: 16px;
+  font-size: calc(var(--ui-font-size) * 1.1);
   font-weight: 600;
 }
 .ze-auth-confirm p {
   margin: 0;
-  font-size: 13px;
-  color: #b7bcc4;
+  font-size: var(--ui-font-size-info);
+  color: var(--chrome-fg-muted);
   line-height: 1.5;
 }
 
@@ -9033,45 +9062,150 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-modal-backdrop.ze-auth-gate-scrim {
   background: rgba(10, 12, 16, 0.35);
 }
+
+/* Split layout (the gate): the sign-in is a full-height panel docked to the
+   RIGHT edge, and the blurred, dimmed editor fills the LEFT — so the visitor
+   previews the product while they sign in, rather than reading a small card
+   floating over it. Instead of centring the card, push it to the right edge
+   and let it stretch top to bottom. */
+.ze-modal-backdrop.ze-auth-split {
+  align-items: stretch;
+  justify-content: flex-end;
+}
+/* The docked panel itself. It reuses `.ze-auth-card`'s inner layout (the flex
+   column, the gap) but drops the floating-card chrome — no rounded corners, a
+   single seam on its left edge — and holds a bounded content column centred in
+   its height. */
+.ze-auth-panel {
+  /* The whole right half. The left half is the blurred editor. */
+  width: 50vw;
+  max-width: none;
+  height: 100%;
+  border: none;
+  border-left: 1px solid var(--chrome-border);
+  border-radius: 0;
+  box-shadow: -24px 0 60px rgba(0, 0, 0, 0.4);
+  /* Vertically CENTRED, then biased upward by a heavier bottom inset — not
+     start-aligned at a fixed top offset. The form is short, so pinning it to a
+     `15vh` top left a dead half-screen below it; centring balances the space
+     whatever the step (chooser, email, code) is showing, and the extra bottom
+     padding lifts it above the true middle the way Flux sits. */
+  align-items: center;
+  justify-content: safe center;
+  overflow-y: auto;
+  padding: 40px 24px clamp(48px, 10vh, 140px);
+  /* A touch more air between the stacked blocks than the compact modal card:
+     this is a full half-screen, not a 340px dialog. */
+  gap: 20px;
+}
+/* In the half-screen panel the mark sits well clear of the form — the space
+   between them is what lifts the logo and drops the fields, rather than the
+   whole block drifting up or down as one lump. */
+.ze-auth-panel .ze-auth-head {
+  margin-bottom: 30px;
+  gap: 18px;
+}
+/* Fields breathe here too; 14px was tuned for the compact modal card. */
+.ze-auth-panel form {
+  gap: 18px;
+}
+/* Every block of the form — header, buttons, dividers, the sub-forms — is
+   capped to one readable column and centred in the half, so a 960px panel does
+   not produce a 960px-wide button. */
+.ze-auth-panel > * {
+  width: 100%;
+  max-width: 340px;
+}
 .ze-auth-close {
   position: absolute;
   top: 10px;
   right: 12px;
   cursor: default;
-  color: #b7bcc4;
-  font-size: 13px;
+  color: var(--chrome-fg-muted);
+  font-size: var(--ui-font-size-info);
 }
 .ze-auth-close:hover {
   color: var(--chrome-fg);
 }
+/* Carries `.ze-btn` for its height/border/font; this rule adds the full-card
+   width, the icon gap, and Google's required white face. The white and near-
+   black ink are Google's brand [data], not theme chrome, so they stay literal
+   and override the shared grey. */
 .ze-auth-google {
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 100%;
   gap: 9px;
-  padding: 10px 14px;
   background: #fff;
   color: #1f1f1f;
-  border: 1px solid var(--chrome-border);
-  border-radius: 6px;
+  font-weight: 600;
+}
+.ze-auth-google:hover:not(:disabled) {
+  background: #f2f2f2;
+}
+/* Password strength: a four-step bar plus its word. The colours are a meter's
+   own scale (red -> amber -> green), which is data about the reading rather
+   than theme chrome, so they are stated here and marked. */
+.ze-auth-strength {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: -4px;
+  font-size: var(--ui-font-size-small);
+  color: var(--chrome-fg-muted);
+}
+.ze-auth-strength-bar {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--chrome-border);
+  overflow: hidden;
+}
+.ze-auth-strength-bar span {
+  display: block;
+  height: 100%;
+  transition: width 120ms linear;
+  /* [data] meter scale, not chrome. */
+  background: #d64545;
+}
+.ze-auth-strength[data-score="2"] .ze-auth-strength-bar span {
+  background: #d9a441;
+}
+.ze-auth-strength[data-score="3"] .ze-auth-strength-bar span,
+.ze-auth-strength[data-score="4"] .ze-auth-strength-bar span {
+  background: #3f9e5a;
+}
+.ze-auth-strength-label {
+  flex: 0 0 auto;
+  min-width: 6ch;
+  text-align: right;
+}
+/* The one line that has to be read: losing this password loses the projects. */
+.ze-auth-warn {
+  font-size: var(--ui-font-size-small);
+}
+/* "Continue with email": a plain text action under the provider buttons (the
+   Flux treatment), not a filled button — picking it reveals the email field. */
+.ze-auth-emailbtn {
+  background: none;
+  border: none;
+  padding: 6px;
+  color: var(--chrome-fg);
   font: inherit;
-  font-size: 14px;
+  font-size: var(--ui-font-size);
   font-weight: 600;
   cursor: default;
 }
-.ze-auth-google:hover {
-  background: #f2f2f2;
-}
-.ze-auth-google:disabled {
-  opacity: 0.6;
-  cursor: default;
+.ze-auth-emailbtn:hover {
+  color: var(--chrome-fg-muted);
 }
 .ze-auth-or {
   display: flex;
   align-items: center;
   gap: 10px;
-  color: #7d838d;
-  font-size: 11.5px;
+  color: var(--chrome-fg-muted);
+  font-size: var(--ui-font-size-small);
   text-transform: uppercase;
   letter-spacing: 0.6px;
 }
@@ -9084,8 +9218,8 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 }
 .ze-auth-note {
   margin: 0;
-  font-size: 13px;
-  color: #b7bcc4;
+  font-size: var(--ui-font-size);
+  color: var(--chrome-fg-muted);
   line-height: 1.5;
 }
 .ze-auth-modal form {
@@ -9113,11 +9247,11 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 }
 .ze-guest-nudge .x {
   cursor: default;
-  color: #b7bcc4;
+  color: var(--chrome-fg-muted);
   padding: 0 2px;
 }
 .ze-guest-nudge .x:hover {
-  color: #fff;
+  color: var(--chrome-fg);
 }
 
 /* ---- Account chip in the menu bar ---- */

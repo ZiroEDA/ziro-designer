@@ -4,22 +4,37 @@
 import { useState, type FormEvent, type JSX } from 'react';
 import { useAuth } from './AuthProvider.js';
 import { useModalEscape } from '../ui/useModalEscape.js';
+import { ZiroLogo } from '../ui/ZiroLogo.js';
 
 /**
- * Sign-in dialog. Methods, easiest first:
+ * Sign-in / sign-up. **Email and password, and nothing else.**
  *
- *   1. Continue with Google (OAuth redirect);
- *   2. Email code: enter your email, we send a 6-digit code, enter it, done,
- *      passwordless, and the account is created on first use (no separate
- *      sign-up or confirmation-link round trip);
- *   3. "Use a password instead", the classic email+password pair, kept for
- *      existing accounts.
+ * ### Why there is no "Continue with Google", and no passwordless code
+ *
+ * Both used to be here, and both were removed for the same reason: they create
+ * accounts that have no password. The end-to-end encryption derives a
+ * key-encryption-key from the password and wraps the account's master key with
+ * it (`docs/encryption-design.md`), so an account created by OAuth or by an
+ * emailed code has no root of its own — its master key can only ever be held by
+ * a recovery key, and half the accounts end up on a different key hierarchy
+ * from the other half. One way in means one hierarchy.
+ *
+ * A 6-digit code is still emailed, but only to *confirm the address* at sign-up.
+ * It is never a way to sign in.
+ *
+ * ### Sign-up and sign-in are two modes of one form
+ *
+ * Not because the split is nice, but because a password makes it unavoidable:
+ * the server cannot be asked "does this email exist" without handing anyone an
+ * email-enumeration oracle, so it cannot decide for us. The answer comes from
+ * the sign-up attempt itself — Supabase refuses an address that is already
+ * registered, and that error is shown on the email field, which is exactly how
+ * the reference implementation resolves it.
  *
  * `gate` mode (AuthGate) makes it a required wall: no close button, backdrop
- * clicks don't dismiss it, and the copy invites creating an account. Otherwise
- * it's an optional modal opened from the project manager. `onClose` is a no-op
- * in gate mode, a successful sign-in flips the auth state and AuthGate swaps
- * the wall for the app on its own.
+ * clicks don't dismiss it, and it opens on **sign-up**, because a visitor who
+ * has hit the wall is usually new. Otherwise it's an optional modal opened from
+ * the project manager, which opens on sign-in.
  */
 export function SignInDialog({
   onClose,
@@ -36,64 +51,62 @@ export function SignInDialog({
   // same reason a wxDialog with SetEscapeId( wxID_NONE ) ignores the key.
   useModalEscape(close, !gate);
 
-  const { signIn, signUp, signInWithGoogle, sendOtp, verifyOtp } = useAuth();
-  // 'code' = passwordless email code (default); 'password' = classic fallback.
-  const [method, setMethod] = useState<'code' | 'password'>('code');
+  const { signIn, signUp, resendSignupCode, verifyOtp } = useAuth();
+  const [mode, setMode] = useState<'signup' | 'signin'>(gate ? 'signup' : 'signin');
   const [email, setEmail] = useState('');
-  const [code, setCode] = useState('');
-  const [codeSent, setCodeSent] = useState(false);
   const [password, setPassword] = useState('');
-  const [pwMode, setPwMode] = useState<'signin' | 'signup'>('signin');
-  const [confirmSent, setConfirmSent] = useState(false);
+  const [confirm, setConfirm] = useState('');
+  const [code, setCode] = useState('');
+  // Set once sign-up succeeds and the address still needs confirming: the form
+  // is replaced by the code entry, and there is no way back to it but a reload.
+  const [codeSent, setCodeSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  // Server misconfiguration (e.g. the Google provider not enabled in the
-  // Supabase dashboard) surfaces as a raw API error, translate it into
-  // guidance that points at the always-available email-code flow.
-  const friendly = (message: string): string =>
-    /provider is not enabled/i.test(message)
-      ? 'Google sign-in is not enabled on this server yet, use the email code below instead.'
-      : message;
+  const strength = passwordStrength(password);
 
   const run = async (fn: () => Promise<{ error: string | null }>): Promise<boolean> => {
     setError(null);
     setBusy(true);
     try {
       const { error } = await fn();
-      if (error) setError(friendly(error));
+      if (error) setError(error);
       return !error;
     } finally {
       setBusy(false);
     }
   };
 
-  async function onSendCode(e: FormEvent) {
+  async function onSignUp(e: FormEvent) {
     e.preventDefault();
-    if (await run(() => sendOtp(email))) setCodeSent(true);
+    if (password !== confirm) {
+      setError('The two passwords do not match.');
+      return;
+    }
+    if (strength.score < 2) {
+      setError('Please choose a stronger password.');
+      return;
+    }
+    setError(null);
+    setBusy(true);
+    try {
+      const { error, needsConfirm } = await signUp(email, password);
+      if (error) setError(error);
+      else if (needsConfirm) setCodeSent(true);
+      else close();
+    } finally {
+      setBusy(false);
+    }
   }
 
-  async function onVerifyCode(e: FormEvent) {
+  async function onSignIn(e: FormEvent) {
+    e.preventDefault();
+    if (await run(() => signIn(email, password))) close();
+  }
+
+  async function onVerify(e: FormEvent) {
     e.preventDefault();
     if (await run(() => verifyOtp(email, code.trim()))) close();
-  }
-
-  async function onPassword(e: FormEvent) {
-    e.preventDefault();
-    if (pwMode === 'signin') {
-      if (await run(() => signIn(email, password))) close();
-    } else {
-      setError(null);
-      setBusy(true);
-      try {
-        const { error, needsConfirm } = await signUp(email, password);
-        if (error) setError(error);
-        else if (needsConfirm) setConfirmSent(true);
-        else close();
-      } finally {
-        setBusy(false);
-      }
-    }
   }
 
   const emailField = (
@@ -110,83 +123,56 @@ export function SignInDialog({
     </label>
   );
 
+  const passwordField = (
+    <label className="ze-auth-field">
+      <span>Password</span>
+      <input
+        type="password"
+        autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
+        required
+        minLength={8}
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+      />
+    </label>
+  );
+
   return (
     <div
-      className={`ze-modal-backdrop${gate ? ' ze-auth-gate-scrim' : ''}`}
+      className={`ze-modal-backdrop${gate ? ' ze-auth-gate-scrim ze-auth-split' : ''}`}
       onMouseDown={gate ? undefined : close}
     >
       <div
-        className="ze-auth-card ze-auth-modal"
+        className={`ze-auth-card ze-auth-modal${gate ? ' ze-auth-panel' : ''}`}
         onMouseDown={(e) => e.stopPropagation()}
         role="dialog"
-        aria-label="Sign in"
+        aria-label={mode === 'signup' ? 'Create an account' : 'Sign in'}
       >
         {!gate && (
           <span className="ze-auth-close" title="Close" onClick={close}>
             ✕
           </span>
         )}
-        <div className="ze-auth-brand">ZiroEDA</div>
-        <div className="ze-auth-sub">
-          {gate
-            ? 'Sign in or create a free account to start designing, the full KiCad experience, right in your browser.'
-            : 'Sign in to back up your projects to the cloud and use them on any device.'}
+        <div className="ze-auth-head">
+          <ZiroLogo size={52} />
+          <div className="ze-auth-title">
+            {/* The brand belongs in this line rather than as a second wordmark
+                under the mark: the logo is an abstract glyph, so without the
+                name the screen never says what the account is FOR. One line,
+                one place. */}
+            {codeSent
+              ? 'Confirm your email'
+              : mode === 'signup'
+                ? 'Create your free ZiroEDA account'
+                : 'Sign in to ZiroEDA'}
+          </div>
         </div>
 
-        <button
-          type="button"
-          className="ze-auth-google"
-          disabled={busy}
-          onClick={() => void run(() => signInWithGoogle())}
-        >
-          <svg width="16" height="16" viewBox="0 0 48 48" aria-hidden="true">
-            <path
-              fill="#EA4335"
-              d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"
-            />
-            <path
-              fill="#4285F4"
-              d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"
-            />
-            <path
-              fill="#FBBC05"
-              d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"
-            />
-            <path
-              fill="#34A853"
-              d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"
-            />
-          </svg>
-          Continue with Google
-        </button>
-
-        <div className="ze-auth-or">or</div>
-
-        {method === 'code' && !codeSent && (
-          <form onSubmit={onSendCode}>
-            {emailField}
-            {error && <div className="ze-auth-error">{error}</div>}
-            <button type="submit" className="ze-auth-submit" disabled={busy}>
-              {busy ? 'Sending...' : 'Email me a sign-in code'}
-            </button>
-            <div className="ze-auth-toggle">
-              No password needed, new accounts are created automatically.{' '}
-              <button
-                type="button"
-                className="ze-auth-switch"
-                onClick={() => setMethod('password')}
-              >
-                Use a password instead
-              </button>
-            </div>
-          </form>
-        )}
-
-        {method === 'code' && codeSent && (
-          <form onSubmit={onVerifyCode}>
-            <div className="ze-auth-confirm-title">Check your email</div>
+        {codeSent && (
+          <form onSubmit={onVerify}>
             <p className="ze-auth-note">
-              We sent a 6-digit code to <strong>{email}</strong>. Enter it below.
+              We sent a 6-digit code to <strong>{email}</strong>. Enter it to finish creating your
+              account.
             </p>
             <label className="ze-auth-field">
               <span>Code</span>
@@ -202,27 +188,15 @@ export function SignInDialog({
               />
             </label>
             {error && <div className="ze-auth-error">{error}</div>}
-            <button type="submit" className="ze-auth-submit" disabled={busy}>
-              {busy ? 'Verifying...' : 'Sign in'}
+            <button type="submit" className="ze-btn primary ze-auth-submit" disabled={busy}>
+              {busy ? 'Verifying...' : 'Confirm'}
             </button>
             <div className="ze-auth-toggle">
               <button
                 type="button"
                 className="ze-auth-switch"
-                onClick={() => {
-                  setCodeSent(false);
-                  setCode('');
-                  setError(null);
-                }}
-              >
-                Use a different email
-              </button>{' '}
-              ·{' '}
-              <button
-                type="button"
-                className="ze-auth-switch"
                 disabled={busy}
-                onClick={() => void run(() => sendOtp(email))}
+                onClick={() => void run(() => resendSignupCode(email))}
               >
                 Resend code
               </button>
@@ -230,64 +204,110 @@ export function SignInDialog({
           </form>
         )}
 
-        {method === 'password' && confirmSent && (
-          <div className="ze-auth-confirm">
-            <div className="ze-auth-confirm-title">Check your email</div>
-            <p>
-              We sent a confirmation link to <strong>{email}</strong>. Click it to activate your
-              account, then come back and sign in.
-            </p>
-            <button
-              type="button"
-              className="ze-auth-switch"
-              onClick={() => {
-                setConfirmSent(false);
-                setPwMode('signin');
-              }}
-            >
-              Back to sign in
-            </button>
-          </div>
-        )}
-
-        {method === 'password' && !confirmSent && (
-          <form onSubmit={onPassword}>
+        {!codeSent && mode === 'signup' && (
+          <form onSubmit={onSignUp}>
             {emailField}
+            {passwordField}
+            {password && <PasswordStrengthHint strength={strength} />}
             <label className="ze-auth-field">
-              <span>Password</span>
+              <span>Confirm password</span>
               <input
                 type="password"
-                autoComplete={pwMode === 'signin' ? 'current-password' : 'new-password'}
+                autoComplete="new-password"
                 required
-                minLength={6}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                minLength={8}
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
               />
             </label>
             {error && <div className="ze-auth-error">{error}</div>}
-            <button type="submit" className="ze-auth-submit" disabled={busy}>
-              {busy ? 'Please wait...' : pwMode === 'signin' ? 'Sign in' : 'Sign up'}
+            <button type="submit" className="ze-btn primary ze-auth-submit" disabled={busy}>
+              {busy ? 'Creating account...' : 'Create account'}
             </button>
+            <p className="ze-auth-note ze-auth-warn">
+              Your password encrypts your projects. We cannot reset it or read your designs without
+              it.
+            </p>
             <div className="ze-auth-toggle">
-              {pwMode === 'signin' ? "Don't have an account?" : 'Already have an account?'}{' '}
+              Already have an account?{' '}
               <button
                 type="button"
                 className="ze-auth-switch"
                 onClick={() => {
                   setError(null);
-                  setPwMode(pwMode === 'signin' ? 'signup' : 'signin');
+                  setMode('signin');
                 }}
               >
-                {pwMode === 'signin' ? 'Sign up' : 'Sign in'}
+                Sign in
               </button>
-              {' · '}
-              <button type="button" className="ze-auth-switch" onClick={() => setMethod('code')}>
-                Email me a code instead
+            </div>
+          </form>
+        )}
+
+        {!codeSent && mode === 'signin' && (
+          <form onSubmit={onSignIn}>
+            {emailField}
+            {passwordField}
+            {error && <div className="ze-auth-error">{error}</div>}
+            <button type="submit" className="ze-btn primary ze-auth-submit" disabled={busy}>
+              {busy ? 'Signing in...' : 'Sign in'}
+            </button>
+            <div className="ze-auth-toggle">
+              New to ZiroEDA?{' '}
+              <button
+                type="button"
+                className="ze-auth-switch"
+                onClick={() => {
+                  setError(null);
+                  setMode('signup');
+                }}
+              >
+                Create an account
               </button>
             </div>
           </form>
         )}
       </div>
+    </div>
+  );
+}
+
+interface Strength {
+  /** 0 (unusable) to 4 (strong). Below 2 is refused at sign-up. */
+  score: number;
+  label: string;
+}
+
+/**
+ * A deliberately simple strength estimate: length first, then how many
+ * character classes appear.
+ *
+ * Not a dictionary check — a real one (zxcvbn and friends) is a ~400 kB word
+ * list, which is a lot of bundle for a hint. This catches the cases that
+ * actually matter here (short, single-class) and the copy beside it does the
+ * rest of the work by explaining *why* the password matters.
+ */
+function passwordStrength(password: string): Strength {
+  if (!password) return { score: 0, label: '' };
+  const classes = [/[a-z]/, /[A-Z]/, /[0-9]/, /[^a-zA-Z0-9]/].filter((re) =>
+    re.test(password),
+  ).length;
+  let score = 0;
+  if (password.length >= 8) score += 1;
+  if (password.length >= 12) score += 1;
+  if (classes >= 2) score += 1;
+  if (classes >= 3 && password.length >= 10) score += 1;
+  const labels = ['Too weak', 'Weak', 'Fair', 'Good', 'Strong'];
+  return { score, label: labels[score] ?? '' };
+}
+
+function PasswordStrengthHint({ strength }: { strength: Strength }): JSX.Element {
+  return (
+    <div className="ze-auth-strength" data-score={strength.score}>
+      <div className="ze-auth-strength-bar">
+        <span style={{ width: `${(strength.score / 4) * 100}%` }} />
+      </div>
+      <span className="ze-auth-strength-label">{strength.label}</span>
     </div>
   );
 }
