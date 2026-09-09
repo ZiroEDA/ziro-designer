@@ -5,6 +5,7 @@ import { useState, type FormEvent, type JSX } from 'react';
 import { useAuth } from './AuthProvider.js';
 import { useModalEscape } from '../ui/useModalEscape.js';
 import { ZiroLogo } from '../ui/ZiroLogo.js';
+import type { AuthStep } from '../nav/route.js';
 
 /**
  * Sign-in / sign-up. **Email and password, and nothing else.**
@@ -36,12 +37,27 @@ import { ZiroLogo } from '../ui/ZiroLogo.js';
  * has hit the wall is usually new. Otherwise it's an optional modal opened from
  * the project manager, which opens on sign-in.
  */
+/** Where the address being verified waits, so `/verify` survives a reload. */
+const PENDING_EMAIL_KEY = 'ziro.pendingSignupEmail';
+
 export function SignInDialog({
   onClose,
   gate = false,
+  step: stepProp,
+  onStep,
 }: {
   onClose?: () => void;
   gate?: boolean;
+  /**
+   * The step to show, when something above owns it.
+   *
+   * The gate passes the one in the address (`/signup`, `/signin`, `/verify`) so
+   * the step survives a reload and Back moves between the steps. The in-app
+   * modal passes neither and keeps the step in local state — it is not a place
+   * you can link to, so it has no business in the address.
+   */
+  step?: AuthStep;
+  onStep?: (step: AuthStep) => void;
 }): JSX.Element {
   const close = onClose ?? ((): void => {});
 
@@ -52,14 +68,33 @@ export function SignInDialog({
   useModalEscape(close, !gate);
 
   const { signIn, signUp, resendSignupCode, verifyOtp } = useAuth();
-  const [mode, setMode] = useState<'signup' | 'signin'>(gate ? 'signup' : 'signin');
-  const [email, setEmail] = useState('');
+  // Controlled by the route when the gate owns it, local otherwise. One `step`
+  // drives everything below, so the address and the form cannot disagree.
+  const [localStep, setLocalStep] = useState<AuthStep>(gate ? 'signup' : 'signin');
+  const step = stepProp ?? localStep;
+  const setStep = onStep ?? setLocalStep;
+  // 'verify' is reached only from 'signup', so it shows the sign-up side.
+  // 'recover' has no screen yet -- the recovery key cannot be checked until the
+  // wrapped key attributes are stored server-side -- so a typed `/recover`
+  // lands on sign-in rather than on a form that cannot finish.
+  const mode: 'signup' | 'signin' = step === 'signup' || step === 'verify' ? 'signup' : 'signin';
+  const codeSent = step === 'verify';
+  // `/verify` is a real address, so it can be reloaded or reached by Back — and
+  // the code is verified against the address it was sent to, which lived only
+  // in React state. Kept for the tab, so a reload on the verify step can still
+  // finish; sessionStorage rather than local because it is one sign-up, not a
+  // fact about this machine.
+  const [email, setEmail] = useState<string>(() => {
+    if (step !== 'verify') return '';
+    try {
+      return sessionStorage.getItem(PENDING_EMAIL_KEY) ?? '';
+    } catch {
+      return '';
+    }
+  });
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [code, setCode] = useState('');
-  // Set once sign-up succeeds and the address still needs confirming: the form
-  // is replaced by the code entry, and there is no way back to it but a reload.
-  const [codeSent, setCodeSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -92,8 +127,15 @@ export function SignInDialog({
     try {
       const { error, needsConfirm } = await signUp(email, password);
       if (error) setError(error);
-      else if (needsConfirm) setCodeSent(true);
-      else close();
+      else if (needsConfirm) {
+        try {
+          sessionStorage.setItem(PENDING_EMAIL_KEY, email);
+        } catch {
+          // Storage disabled: the step still works in this page load, it just
+          // cannot survive a reload.
+        }
+        setStep('verify');
+      } else close();
     } finally {
       setBusy(false);
     }
@@ -106,7 +148,13 @@ export function SignInDialog({
 
   async function onVerify(e: FormEvent) {
     e.preventDefault();
-    if (await run(() => verifyOtp(email, code.trim()))) close();
+    if (!(await run(() => verifyOtp(email, code.trim())))) return;
+    try {
+      sessionStorage.removeItem(PENDING_EMAIL_KEY);
+    } catch {
+      /* nothing to clear if it could not be written either */
+    }
+    close();
   }
 
   const emailField = (
@@ -235,7 +283,7 @@ export function SignInDialog({
                 className="ze-auth-switch"
                 onClick={() => {
                   setError(null);
-                  setMode('signin');
+                  setStep('signin');
                 }}
               >
                 Sign in
@@ -259,7 +307,7 @@ export function SignInDialog({
                 className="ze-auth-switch"
                 onClick={() => {
                   setError(null);
-                  setMode('signup');
+                  setStep('signup');
                 }}
               >
                 Create an account

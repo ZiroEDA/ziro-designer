@@ -228,3 +228,46 @@ describe('which file the address names', () => {
     }
   });
 });
+
+describe('the sign-in wall is a place', () => {
+  // The wall used to be pure in-app state: reloading during sign-up put you
+  // back at the start, and Back left the app entirely. These are the only
+  // routes reachable signed out.
+  it('parses each step', () => {
+    expect(parseRoute(`${AT}/signup`)).toEqual({ kind: 'auth', step: 'signup' });
+    expect(parseRoute(`${AT}/signin`)).toEqual({ kind: 'auth', step: 'signin' });
+    expect(parseRoute(`${AT}/verify`)).toEqual({ kind: 'auth', step: 'verify' });
+    // The forgotten-password path, and the only one: see AuthStep.
+    expect(parseRoute(`${AT}/recover`)).toEqual({ kind: 'auth', step: 'recover' });
+  });
+
+  it('writes the step back as the path', () => {
+    expect(routeHref({ kind: 'auth', step: 'signup' })).toBe('/signup');
+    expect(routeHref({ kind: 'auth', step: 'verify' })).toBe('/verify');
+  });
+
+  it('survives the round trip', () => {
+    for (const step of ['signup', 'signin', 'verify', 'recover'] as const) {
+      const r: Route = { kind: 'auth', step };
+      expect(parseRoute(`${AT}${routeHref(r)}`)).toEqual(r);
+    }
+  });
+
+  it('tells the steps apart, so moving between them is a history entry', () => {
+    expect(sameRoute({ kind: 'auth', step: 'signup' }, { kind: 'auth', step: 'signup' })).toBe(
+      true,
+    );
+    expect(sameRoute({ kind: 'auth', step: 'signup' }, { kind: 'auth', step: 'signin' })).toBe(
+      false,
+    );
+    // ...and is not the same place as anything else.
+    expect(sameRoute({ kind: 'auth', step: 'signup' }, HOME)).toBe(false);
+  });
+
+  it('does not swallow an unknown word', () => {
+    // `/signout` is not a step; an unrecognised path is home, not a wall the
+    // visitor cannot leave.
+    expect(parseRoute(`${AT}/signout`)).toEqual(HOME);
+    expect(parseRoute(`${AT}/sign`)).toEqual(HOME);
+  });
+});

@@ -55,7 +55,30 @@ export type Route =
       file?: string;
     }
   | { kind: 'demo'; id: string }
-  | { kind: 'tool'; tool: ToolName };
+  | { kind: 'tool'; tool: ToolName }
+  /**
+   * The sign-in wall, whose step is part of the address like every other place
+   * in the app.
+   *
+   * These are reachable signed out and are the only routes that are: everything
+   * else is behind the gate. Where the visitor was *heading* is not encoded
+   * here -- it is remembered by `AuthGate` and restored on success, because a
+   * destination in the address would be a redirect parameter, and an open
+   * redirect parameter is worth more to an attacker than it is to us.
+   */
+  | { kind: 'auth'; step: AuthStep };
+
+/**
+ * The steps of signing in, as they appear in a path.
+ *
+ * `recover` is the forgotten-password path, and it is the ONLY one: there is no
+ * reset-by-email, because an email would let you back into the account while
+ * leaving the data locked -- the key that opens a project is derived from the
+ * password you have forgotten. The recovery key is the only thing that can
+ * reach the master key, which is why it is shown once at sign-up and why losing
+ * both it and the password is unrecoverable by anyone, us included.
+ */
+export type AuthStep = 'signup' | 'signin' | 'verify' | 'recover';
 
 /** The frame names as they appear in a path, and the view each one means. */
 const VIEW_SEGMENTS: Record<string, ProjectView> = {
@@ -63,6 +86,13 @@ const VIEW_SEGMENTS: Record<string, ProjectView> = {
   pcb: 'pcb',
   symbols: 'symbols',
   footprints: 'footprints',
+};
+
+const AUTH_SEGMENTS: Record<string, AuthStep> = {
+  signup: 'signup',
+  signin: 'signin',
+  verify: 'verify',
+  recover: 'recover',
 };
 
 const TOOL_SEGMENTS: Record<string, ToolName> = {
@@ -147,6 +177,9 @@ export function parseRoute(href: string, base = '/'): Route {
     return second && DEMO_ID.test(second) ? { kind: 'demo', id: second } : HOME;
   }
 
+  const step = AUTH_SEGMENTS[head!];
+  if (step) return { kind: 'auth', step };
+
   const tool = TOOL_SEGMENTS[head!];
   return tool ? { kind: 'tool', tool } : HOME;
 }
@@ -173,6 +206,8 @@ export function routeHref(route: Route, base = '/', carry = ''): string {
     path = `demo/${route.id}`;
   } else if (route.kind === 'tool') {
     path = route.tool;
+  } else if (route.kind === 'auth') {
+    path = route.step;
   }
 
   const query = params.toString();
@@ -193,6 +228,7 @@ export function sameRoute(a: Route, b: Route): boolean {
   }
   if (a.kind === 'demo' && b.kind === 'demo') return a.id === b.id;
   if (a.kind === 'tool' && b.kind === 'tool') return a.tool === b.tool;
+  if (a.kind === 'auth' && b.kind === 'auth') return a.step === b.step;
   return true;
 }
 

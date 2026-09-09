@@ -39,6 +39,19 @@ export interface Nav {
   navigate: (to: Route, opts?: { replace?: boolean }) => void;
 }
 
+/**
+ * Fired by `navigate` so that every `useRoute` on the page re-reads the address.
+ *
+ * There is more than one: `AuthGate` sits ABOVE `App` and still renders it
+ * (blurred) behind the sign-in wall, so both are mounted and both hold route
+ * state. `pushState` raises no event of its own, so without this the gate could
+ * move the address while App still believed it was elsewhere — and App's
+ * canonicalise effect, the next time anything changed, would `replaceState` the
+ * address back and undo it. Two owners of one address bar have to hear each
+ * other.
+ */
+const NAV_EVENT = 'ziro:navigate';
+
 export function useRoute(): Nav {
   const [route, setRoute] = useState<Route>(here);
 
@@ -47,7 +60,11 @@ export function useRoute(): Nav {
     // which is worse than not having addresses at all.
     const onPop = (): void => setRoute(here());
     window.addEventListener('popstate', onPop);
-    return () => window.removeEventListener('popstate', onPop);
+    window.addEventListener(NAV_EVENT, onPop);
+    return () => {
+      window.removeEventListener('popstate', onPop);
+      window.removeEventListener(NAV_EVENT, onPop);
+    };
   }, []);
 
   // Canonicalise once, on the first render that has a window.
@@ -75,6 +92,9 @@ export function useRoute(): Nav {
     if (opts?.replace) window.history.replaceState(window.history.state, '', href);
     else window.history.pushState(window.history.state, '', href);
     setRoute(to);
+    // Tell the other useRoute on the page (see NAV_EVENT). Dispatched after the
+    // history call so a listener that re-reads the address sees the new one.
+    window.dispatchEvent(new Event(NAV_EVENT));
   }, []);
 
   return { route, navigate };
