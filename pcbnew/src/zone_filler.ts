@@ -43,6 +43,7 @@ import { defaultThermalSpokeAngle } from './padstack.js';
 import { graphicShapes, padShapes } from './drc/drc_engine.js';
 import { shapeDist, type Shape } from './drc/drc_geometry.js';
 import { tessellateArc } from './read-board.js';
+import { textShapes } from './text_geometry.js';
 import { barcodeGeometry, barcodeHullBoxes } from './barcode_geometry.js';
 import type { Board, PadPrimitive, PcbFootprint, PcbPad, PcbZone, PcbZoneFill } from './types.js';
 import type { ZoneConnection } from './zone_connection.js';
@@ -398,6 +399,29 @@ const boxInflate = (b: Box, d: number): Box => ({
 
 const boxesIntersect = (a: Box, b: Box): boolean =>
   a.x0 <= b.x1 && b.x0 <= a.x1 && a.y0 <= b.y1 && b.y0 <= a.y1;
+
+/** The extreme points of a DRC shape, enough for a bounding box. */
+function shapeCorners(s: Shape): Vec2[] {
+  switch (s.kind) {
+    case 'circle':
+      return [
+        { x: s.c.x - s.r, y: s.c.y - s.r },
+        { x: s.c.x + s.r, y: s.c.y + s.r },
+      ];
+    case 'stadium':
+      return [
+        { x: Math.min(s.a.x, s.b.x) - s.r, y: Math.min(s.a.y, s.b.y) - s.r },
+        { x: Math.max(s.a.x, s.b.x) + s.r, y: Math.max(s.a.y, s.b.y) + s.r },
+      ];
+    case 'arc':
+      return [
+        { x: s.c.x - s.rad - s.r, y: s.c.y - s.rad - s.r },
+        { x: s.c.x + s.rad + s.r, y: s.c.y + s.rad + s.r },
+      ];
+    case 'poly':
+      return s.pts;
+  }
+}
 
 const boxAround = (a: Vec2, b: Vec2, r: number): Box => boxInflate(boxOf([a, b]), r);
 
@@ -1019,6 +1043,29 @@ export function fillZone(
 
       for (const sh of graphicShapes(isEdge ? { ...s, width: 0 } : s))
         holes.push(...shapeToPolygon(sh, gap, maxError));
+    }
+
+    // Copper TEXT, which `knockoutGraphicClearance` treats exactly like a
+    // graphic — `addKnockout` has a `PCB_TEXT_T` case
+    // (zone_filler.cpp:1735-1760). Without it the pour ran straight through the
+    // lettering on a copper layer: on complex_hierarchy a two-line B.Cu label
+    // is 140 mm² of copper we filled and KiCad does not, which is not a
+    // cosmetic difference but a short.
+    for (const t of [...board.texts, ...board.footprints.flatMap((f) => f.texts)]) {
+      const onLayer = t.layer === layer;
+      const isEdge = t.layer === 'Edge.Cuts';
+      const isMargin = t.layer === 'Margin';
+      if (!onLayer && !isEdge && !isMargin) continue;
+
+      const shapes = textShapes(t);
+      if (shapes.length === 0) continue;
+      if (!near(boxOf(shapes.flatMap(shapeCorners)))) continue;
+
+      // Text carries no net, so it is never the same net as the pour: `shapeNet`
+      // is -1 for anything that is not a PCB_SHAPE.
+      const gap = isEdge || isMargin ? (opts.edgeClearance ?? DEFAULT_EDGE_CLEARANCE) : gapTo(0);
+
+      for (const sh of shapes) holes.push(...shapeToPolygon(sh, gap, maxError));
     }
 
     // A barcode on this layer knocks the pour out — `ZONE_FILLER::…`'s

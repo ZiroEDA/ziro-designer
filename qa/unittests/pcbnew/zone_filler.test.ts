@@ -15,6 +15,7 @@ import type {
   PadPrimitive,
   PcbFootprint,
   PcbPad,
+  PcbTextItem,
   PcbZone,
 } from '@ziroeda/pcbnew/src/types.js';
 
@@ -1610,5 +1611,97 @@ describe('a teardrop outranks any ordinary zone', () => {
 
     // 10 x 10 mm of flare, plus the clearance round it.
     expect(1600 - area(fillZone(b, 0)[0]!.polys)).toBeGreaterThan(100);
+  });
+});
+
+// -----------------------------------------------------------------------------
+// copper text
+// -----------------------------------------------------------------------------
+
+describe('copper text is knocked out of the pour', () => {
+  /**
+   * `knockoutGraphicClearance` runs over every drawing and `addKnockout` has a
+   * `PCB_TEXT_T` case (zone_filler.cpp:1735). Ours had no text knockout at all,
+   * so a pour ran straight through the lettering on a copper layer — a short,
+   * not a cosmetic difference. On `complex_hierarchy` a two-line B.Cu label was
+   * 140 mm² of copper we filled and KiCad does not.
+   *
+   * And the shape is the text's ORIENTED BOUNDING RECTANGLE, not its glyphs:
+   * `PCB_TEXT::TransformShapeToPolygon` hands the rendered text to
+   * `buildBoundingHull`, which un-rotates it about the text position, takes an
+   * axis-aligned `BBox( aClearance )` and rotates the four corners back.
+   */
+  const text = (over: Partial<PcbTextItem> = {}): PcbTextItem => ({
+    kind: 'user',
+    text: 'AB',
+    at: { x: MM(20), y: MM(20) },
+    angle: 0,
+    layer: 'F.Cu',
+    size: { x: MM(1.5), y: MM(2) },
+    thickness: MM(0.3),
+    source: EMPTY,
+    ...over,
+  });
+
+  it('leaves a hole where a label sits', () => {
+    const b = board({ zones: [zone()], texts: [text()] });
+    const fill = fillZone(b, 0)[0]!.polys;
+    expect(filled(fill, { x: MM(20), y: MM(20) })).toBe(false);
+    // And the pour is intact well away from it.
+    expect(filled(fill, { x: MM(30), y: MM(30) })).toBe(true);
+  });
+
+  it('reserves the whole block, not just the strokes', () => {
+    // The hole is the RECTANGLE round the block, so a short line reserves as
+    // much width as the long one above it. Probed at the far end of the short
+    // line, where there is no glyph at all: a stroke-shaped knockout leaves
+    // copper there, and `buildBoundingHull` does not.
+    const b = board({
+      zones: [zone()],
+      texts: [text({ text: 'MMMMMMMMMM\nM', at: { x: MM(20), y: MM(20) } })],
+    });
+    const fill = fillZone(b, 0)[0]!.polys;
+
+    // The lettering itself is gone either way.
+    expect(filled(fill, { x: MM(20), y: MM(20) })).toBe(false);
+
+    // 5 mm right of centre on the SECOND line's baseline: inside the block,
+    // and nowhere near the single 'M'.
+    expect(filled(fill, { x: MM(25), y: MM(21.6) })).toBe(false);
+  });
+
+  it('turns the rectangle with the text', () => {
+    // A long label rotated 90° reserves a tall block, not a wide one.
+    const long = 'LONG LABEL HERE';
+    const flat = fillZone(board({ zones: [zone()], texts: [text({ text: long })] }), 0)[0]!.polys;
+    const upright = fillZone(
+      board({ zones: [zone()], texts: [text({ text: long, angle: 90 })] }),
+      0,
+    )[0]!.polys;
+
+    // 6 mm along the text's own direction is inside the block either way.
+    expect(filled(flat, { x: MM(26), y: MM(20) })).toBe(false);
+    expect(filled(flat, { x: MM(20), y: MM(26) })).toBe(true);
+    expect(filled(upright, { x: MM(26), y: MM(20) })).toBe(true);
+    expect(filled(upright, { x: MM(20), y: MM(26) })).toBe(false);
+  });
+
+  it('ignores hidden text', () => {
+    // "if( text->IsVisible() )".
+    const b = board({ zones: [zone()], texts: [text({ hide: true })] });
+    expect(filled(fillZone(b, 0)[0]!.polys, { x: MM(20), y: MM(20) })).toBe(true);
+  });
+
+  it("knocks out a footprint's text too", () => {
+    // `knockoutGraphicClearance` is called for every footprint's drawings as
+    // well as the board's.
+    const fp = footprint([]);
+    const b = board({ zones: [zone()], footprints: [{ ...fp, texts: [text()] }] });
+    expect(filled(fillZone(b, 0)[0]!.polys, { x: MM(20), y: MM(20) })).toBe(false);
+  });
+
+  it('leaves text on another layer alone', () => {
+    const b = board({ zones: [zone()], texts: [text({ layer: 'B.SilkS' })] });
+    expect(filled(fillZone(b, 0)[0]!.polys, { x: MM(20), y: MM(20) })).toBe(true);
   });
 });
