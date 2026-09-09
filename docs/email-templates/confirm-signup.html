@@ -1,0 +1,104 @@
+<!--
+  Supabase → Authentication → Email Templates → "Confirm signup".
+
+  Subject line (set in the field above the body):
+      Verification code: {{ .Token }}
+
+  Putting the code in the subject means it is readable from the inbox list
+  without opening anything, which is what the reference verification mails do.
+
+  RULES THIS FILE FOLLOWS, because email is not the web:
+   - tables for layout, not flexbox/grid: Outlook renders with Word's engine.
+   - every style inline: Gmail strips <style> blocks in many contexts.
+   - no SVG: Gmail will not render it. The wordmark is live text, so it needs
+     no hosted asset and cannot break. Swap in an <img> only if you host a PNG
+     (never an SVG) — the spot is marked below.
+   - light background stated explicitly, so a dark-mode client has something
+     to invert from rather than guessing.
+-->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+       style="background:#f6f7f9;margin:0;padding:40px 12px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+  <tr>
+    <td align="center">
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0"
+             style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;padding:44px 40px;">
+
+        <tr>
+          <td align="center" style="font-size:16px;line-height:1.5;color:#374151;padding-bottom:22px;">
+            Enter this code to complete verification:
+          </td>
+        </tr>
+
+        <tr>
+          <td align="center" style="padding-bottom:10px;">
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+              <tr>
+                <!-- padding-left carries an extra 6px to cancel the trailing
+                     letter-space after the last digit, which otherwise pushes
+                     the number visibly left of centre in its box. -->
+                <td align="center"
+                    style="background:#f1f3f5;border-radius:8px;padding:16px 24px 16px 30px;
+                           font-family:'SFMono-Regular',Menlo,Consolas,monospace;
+                           font-size:28px;font-weight:700;letter-spacing:6px;color:#0d9488;">
+                  {{ .Token }}
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <tr>
+          <td align="center" style="font-size:13px;line-height:1.5;color:#6b7280;padding:14px 0 26px;">
+            This code expires in 1 hour. If you didn't create a ZiroEDA account, you can ignore this email.
+          </td>
+        </tr>
+
+        <tr>
+          <td style="border-top:1px solid #e5e7eb;font-size:0;line-height:0;">&nbsp;</td>
+        </tr>
+
+        <tr>
+          <td align="center" style="font-size:14px;line-height:1.5;color:#374151;padding:26px 0 32px;">
+            Need help? Contact us at
+            <a href="mailto:admin@ziroeda.com" style="color:#0d9488;text-decoration:underline;">admin@ziroeda.com</a>.
+          </td>
+        </tr>
+
+        <!-- Mark + wordmark on one line, mark to the left.
+
+             The image is a PNG, served from designer/public/logo-email.png,
+             because Gmail does not render SVG — favicon.svg cannot be used
+             here. It is rendered at 96px and displayed at 30 so it stays sharp
+             on a retina screen. alt is empty on purpose: the wordmark beside it
+             already says the name, so a blocked image must not print it twice.
+
+             Regenerate after any change to the mark, so the two cannot drift:
+               magick -background none -density 384 designer/public/favicon.svg \
+                      -resize 96x96 designer/public/logo-email.png            -->
+        <tr>
+          <td align="center" style="padding-bottom:16px;">
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+              <tr>
+                <td valign="middle" style="padding-right:10px;">
+                  <img src="https://designer.ziroeda.com/logo-email.png" width="30" height="30"
+                       alt="" style="display:block;border:0;">
+                </td>
+                <td valign="middle"
+                    style="font-size:22px;font-weight:700;letter-spacing:0.3px;color:#18181b;">
+                  ZiroEDA
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <tr>
+          <td align="center" style="font-size:12px;line-height:1.6;color:#9ca3af;">
+            <a href="https://designer.ziroeda.com" style="color:#9ca3af;text-decoration:underline;">designer.ziroeda.com</a>
+          </td>
+        </tr>
+
+      </table>
+    </td>
+  </tr>
+</table>

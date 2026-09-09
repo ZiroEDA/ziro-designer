@@ -13,7 +13,8 @@
       "!qa/data",
       "!**/dist",
       "!common/src/font/newstroke_glyphs.ts",
-      "!designer/src/render/gl/vendor"
+      "!designer/src/render/gl/vendor",
+      "!docs/email-templates"
     ]
   },
   "formatter": {
