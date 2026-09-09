@@ -1705,3 +1705,89 @@ describe('copper text is knocked out of the pour', () => {
     expect(filled(fillZone(b, 0)[0]!.polys, { x: MM(20), y: MM(20) })).toBe(true);
   });
 });
+
+describe("a pad's own local clearance", () => {
+  /**
+   * `PAD::GetLocalClearance` — the pad's `(clearance …)`, or its footprint's —
+   * folds into `CLEARANCE_CONSTRAINT` as "Local clearance on %s"
+   * (drc_engine.cpp:1908). It belongs to the ITEM, not to its net, so a
+   * resolver that takes only a net code never sees it.
+   *
+   * `CM5_MINIMA_3`'s module mounting holes carry `(clearance 1.7)` on a 3 mm
+   * NPTH pad. Without this the pour came 1.7 mm closer to every one of them,
+   * on all five layers.
+   */
+  const gapAt = (fp: PcbFootprint): number => {
+    const b = board({ zones: [zone({ clearance: MM(0.2) })], footprints: [fp] });
+    const fill = fillZone(b, 0)[0]!.polys;
+    for (let d = 0; d < MM(4); d += MM(0.005))
+      if (filled(fill, { x: MM(21) + d, y: MM(20) })) return d;
+    return Number.POSITIVE_INFINITY;
+  };
+
+  it("raises the gap above the zone's own clearance", () => {
+    const plain = footprint([pad({ x: MM(20), y: MM(20) }, 2, MM(2))]);
+    const local = footprint([
+      { ...pad({ x: MM(20), y: MM(20) }, 2, MM(2)), localClearance: MM(1.5) },
+    ]);
+    expect(gapAt(plain)).toBeCloseTo(MM(0.2), -3);
+    expect(gapAt(local)).toBeCloseTo(MM(1.5), -3);
+  });
+
+  it("falls back to the footprint's when the pad states none", () => {
+    const fp = footprint([pad({ x: MM(20), y: MM(20) }, 2, MM(2))]);
+    expect(gapAt({ ...fp, localClearance: MM(1.2) })).toBeCloseTo(MM(1.2), -3);
+  });
+
+  it('never LOWERS it', () => {
+    // "if( localA > clearance )" — a local clearance smaller than the resolved
+    // one is ignored.
+    const fp = footprint([
+      { ...pad({ x: MM(20), y: MM(20) }, 2, MM(2)), localClearance: MM(0.05) },
+    ]);
+    expect(gapAt(fp)).toBeCloseTo(MM(0.2), -3);
+  });
+
+  it("keeps a pad's hole clear by the same amount", () => {
+    // `addHoleKnockout` takes the same gap, so a mounting hole with no copper
+    // to flash still holds the pour off. The pad's COPPER is on the other side
+    // — "NPTH pads with a drill hole affect all copper layers even when they
+    // carry no copper on that layer" — so the only knockout here is the hole's,
+    // and it has to carry the local clearance too.
+    const fp = footprint([
+      {
+        ...pad({ x: MM(20), y: MM(20) }, 2, MM(0.5)),
+        type: 'np_thru_hole',
+        layers: ['B.Cu'],
+        drill: { oblong: false, w: MM(2), h: MM(2) },
+        localClearance: MM(1.5),
+      },
+    ]);
+    // 1 mm of hole radius plus 1.5 mm, measured out from x = 21 (the probe's
+    // origin is the pad edge of the default 2 mm pad).
+    expect(gapAt(fp)).toBeCloseTo(MM(1.5), -3);
+  });
+
+  it('knocks out only the HOLE of a pad that has no copper on this layer', () => {
+    // The pad's own 4 mm of copper is on B.Cu; an F.Cu pour keeps clear of its
+    // 2 mm hole and nothing more.
+    const b = board({
+      zones: [zone({ clearance: MM(0.2) })],
+      footprints: [
+        footprint([
+          {
+            ...pad({ x: MM(20), y: MM(20) }, 2, MM(4)),
+            type: 'np_thru_hole',
+            layers: ['B.Cu'],
+            drill: { oblong: false, w: MM(2), h: MM(2) },
+          },
+        ]),
+      ],
+    });
+    const fill = fillZone(b, 0)[0]!.polys;
+    // Inside the hole's clearance: no copper.
+    expect(filled(fill, { x: MM(21.1), y: MM(20) })).toBe(false);
+    // Over the pad's copper, which is not on this layer: poured.
+    expect(filled(fill, { x: MM(21.6), y: MM(20) })).toBe(true);
+  });
+});

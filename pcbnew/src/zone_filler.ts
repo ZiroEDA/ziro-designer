@@ -430,6 +430,21 @@ const padOnLayer = (pad: PcbPad, layer: string): boolean =>
   pad.layers.some((l) => l === layer || l === '*.Cu');
 
 /**
+ * `PAD::GetLocalClearance` — the pad's own `(clearance …)`, or its footprint's
+ * when the pad states none.
+ *
+ * `DRC_ENGINE::EvalRules` folds this into `CLEARANCE_CONSTRAINT` as "Local
+ * clearance on %s", and it only ever RAISES the answer. It belongs to the ITEM,
+ * not to its net, which is why a resolver taking only a net code cannot see it:
+ * CM5's module mounting holes carry `(clearance 1.7)` on a 3 mm NPTH pad, and
+ * without it the pour came 1.7 mm closer to the hole than KiCad's — on every
+ * one of that board's five layers.
+ */
+function localPadClearance(pad: PcbPad, fp: PcbFootprint): number {
+  return pad.localClearance ?? fp.localClearance ?? 0;
+}
+
+/**
  * `ZONE_CONNECTION_CONSTRAINT` for one pad, then `DRC_ENGINE::EvalZoneConnection`'s
  * rewrite of it.
  *
@@ -864,6 +879,15 @@ export function fillZone(
       zone.thermalGap ?? 0,
       opts.edgeClearance ?? DEFAULT_EDGE_CLEARANCE,
     );
+    // `GetMaxClearanceValue` walks the items too, and a local override on one
+    // pad can be larger than any netclass on the board.
+    for (const fp of board.footprints) {
+      if (fp.localClearance !== undefined)
+        worstClearance = Math.max(worstClearance, fp.localClearance);
+      for (const pad of fp.pads)
+        if (pad.localClearance !== undefined)
+          worstClearance = Math.max(worstClearance, pad.localClearance);
+    }
     const zoneBox = boxInflate(boxOf(zone.outline), worstClearance);
     const near = (b: Box): boolean => boxesIntersect(b, zoneBox);
 
@@ -923,10 +947,16 @@ export function fillZone(
         }
 
         // NONE, and every different-net pad: the copper and the hole both go,
-        // at the zone's clearance.
-        for (const s of shapes) holes.push(...shapeToPolygon(s, gapTo(pad.net ?? 0), maxError));
-        if (holeRadius > 0)
-          holes.push([circlePoly(pad.at, holeRadius + gapTo(pad.net ?? 0), maxError)]);
+        // at the zone's clearance, raised by the pad's own local clearance.
+        //
+        // "if( flashLayer && gap >= 0 ) addKnockout( … )" — the COPPER only
+        // goes when the pad has copper on this layer. An NPTH that reached
+        // here for its hole alone has none, and knocking its shape out too
+        // takes away copper KiCad pours.
+        const gap = Math.max(gapTo(pad.net ?? 0), localPadClearance(pad, fp));
+        if (padOnLayer(pad, layer))
+          for (const s of shapes) holes.push(...shapeToPolygon(s, gap, maxError));
+        if (holeRadius > 0) holes.push([circlePoly(pad.at, holeRadius + gap, maxError)]);
       }
     }
 
