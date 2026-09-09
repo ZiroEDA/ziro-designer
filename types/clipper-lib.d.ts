@@ -35,13 +35,30 @@ declare module 'clipper-lib' {
     pftNegative: number;
   };
 
+  /**
+   * A node of Clipper's own outline/hole hierarchy. `SHAPE_POLY_SET::importTree`
+   * reads this rather than re-deriving the nesting from a flat path list, which
+   * is quadratic.
+   */
+  export class PolyNode {
+    Contour(): IntPoint[];
+    IsHole(): boolean;
+    Childs(): PolyNode[];
+    ChildCount(): number;
+  }
+
+  export class PolyTree extends PolyNode {
+    Clear(): void;
+    Total(): number;
+  }
+
   export class Clipper {
     constructor(initOptions?: number);
     AddPath(path: IntPoint[], polyType: number, closed: boolean): boolean;
     AddPaths(paths: IntPoint[][], polyType: number, closed: boolean): boolean;
     Execute(
       clipType: number,
-      solution: IntPoint[][],
+      solution: IntPoint[][] | PolyTree,
       subjFillType?: number,
       clipFillType?: number,
     ): boolean;
@@ -52,7 +69,7 @@ declare module 'clipper-lib' {
     constructor(miterLimit?: number, arcTolerance?: number);
     AddPath(path: IntPoint[], joinType: number, endType: number): void;
     AddPaths(paths: IntPoint[][], joinType: number, endType: number): void;
-    Execute(solution: IntPoint[][], delta: number): void;
+    Execute(solution: IntPoint[][] | PolyTree, delta: number): void;
     Clear(): void;
   }
 
@@ -63,6 +80,8 @@ declare module 'clipper-lib' {
     PolyType: typeof PolyType;
     PolyFillType: typeof PolyFillType;
     Clipper: typeof Clipper;
+    PolyTree: typeof PolyTree;
+    PolyNode: typeof PolyNode;
     ClipperOffset: typeof ClipperOffset;
   };
   export default ClipperLib;

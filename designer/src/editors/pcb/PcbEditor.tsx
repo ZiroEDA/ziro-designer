@@ -187,6 +187,7 @@ import {
   spreadBoardFootprints,
   type NETLIST,
   fillZones,
+  zoneClearanceOf,
   bezierClick,
   bezierInFlight,
   bezierPreviewCurve,
@@ -284,6 +285,7 @@ import {
   type DimensionValues,
 } from '@ziroeda/pcbnew/src/dimension_properties.js';
 import { Reporter, type ReportLine } from '@ziroeda/common';
+import { netClassClearanceMM } from '@ziroeda/common';
 import { MenuBar, ContextMenu, type Menu, type MenuItem } from '../../ui/MenuBar.js';
 import { Combo } from '../../ui/Combo.js';
 import { layerBoxLabel, layerForHotkey } from './layer_box_label.js';
@@ -1919,8 +1921,30 @@ export function PcbEditor({
       // insets a filled pour from Edge.Cuts, so it has to be the board's own
       // number and not the filler's fallback.
       edgeClearance: Math.round(boardSetup.constraints.copperToEdgeMM * MM),
+      // `CLEARANCE_CONSTRAINT`. Without this the pour used the zone's own
+      // `(connect_pads (clearance …))` alone, so a zone that states none — and
+      // plenty do — kept no gap at all from other nets.
+      clearanceOf: zoneClearanceOf({
+        minClearance: Math.round(boardSetup.constraints.minClearanceMM * MM),
+        // Read through the ref, not a captured board: the resolver is called
+        // during a fill, and the net table it needs is the one the board has
+        // then.
+        netClassClearance: (net: number) => {
+          const mm = netClassClearanceMM(
+            boardRef.current?.nets.get(net) ?? '',
+            boardSetup.netClasses,
+          );
+          return mm === undefined ? undefined : Math.round(mm * MM);
+        },
+      }),
     }),
-    [hatchingOffsets, boardSetup.constraints.maxDeviationMM, boardSetup.constraints.copperToEdgeMM],
+    [
+      hatchingOffsets,
+      boardSetup.constraints.maxDeviationMM,
+      boardSetup.constraints.copperToEdgeMM,
+      boardSetup.constraints.minClearanceMM,
+      boardSetup.netClasses,
+    ],
   );
   const boardSetupRef = useRef(boardSetup);
   boardSetupRef.current = boardSetup;

@@ -179,6 +179,51 @@ export interface EffectiveNetClass {
 }
 
 /**
+ * The clearance the DRC engine resolves for one net, in mm, or undefined when
+ * no class it belongs to states one.
+ *
+ * `DRC_ENGINE::loadImplicitRules` makes one implicit rule per netclass that
+ * `HasClearance()`, conditioned on `A.hasExactNetclass('<name>')`, then sorts
+ * them **ascending by clearance** before adding them. Rule selection is winner-
+ * takes-all with the last match winning, so a net in more than one class ends
+ * up with the LARGEST of their clearances — not the highest-priority one, which
+ * is how every other netclass parameter resolves.
+ */
+export function netClassClearanceMM(
+  netName: string,
+  data: NetClassesData,
+  chainAssignments?: readonly { pattern: string; netClass: string }[],
+): number | undefined {
+  const num = (s: string): number | undefined => {
+    const v = Number.parseFloat(s);
+    return s.trim() !== '' && Number.isFinite(v) ? v : undefined;
+  };
+
+  const dflt = data.classes[0];
+  const matched: NetClass[] = [];
+
+  if (netName) {
+    for (const a of [...data.assignments, ...(chainAssignments ?? [])]) {
+      if (!a.netClass) continue;
+      const cls = data.classes.find((c) => c.name === a.netClass);
+      if (!cls || matched.includes(cls)) continue;
+      if (netclassPatternMatches(a.pattern, netName)) matched.push(cls);
+    }
+  }
+
+  // "An unmatched net is in Default", and Default also completes the set for a
+  // net whose own classes state no clearance.
+  if (dflt && !matched.includes(dflt)) matched.push(dflt);
+
+  let out: number | undefined;
+  for (const cls of matched) {
+    const v = num(cls.clearance);
+    if (v !== undefined && (out === undefined || v > out)) out = v;
+  }
+  return out;
+}
+
+/**
  * NET_SETTINGS::GetEffectiveNetClass, over the dialog's netclass grid: collect
  * every class whose pattern assignment matches the net, sort by priority
  * (grid order; Default = lowest), then fill parameters from the lowest

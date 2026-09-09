@@ -25,9 +25,11 @@
  *    does those for hatched zones anyway).
  */
 
-import polygonClipping, { type Geom, type MultiPolygon, type Ring } from 'polygon-clipping';
+import type { Geom, MultiPolygon, Ring } from 'polygon-clipping';
 import { pcbIuToMM, pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 import {
+  booleanOp,
+  BooleanOp,
   chamfer,
   CornerStrategy,
   fillet,
@@ -39,7 +41,7 @@ import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { getBoardPolygonOutlines } from './board_statistics.js';
 import { defaultThermalSpokeAngle } from './padstack.js';
 import { graphicShapes, padShapes } from './drc/drc_engine.js';
-import type { Shape } from './drc/drc_geometry.js';
+import { shapeDist, type Shape } from './drc/drc_geometry.js';
 import { tessellateArc } from './read-board.js';
 import { barcodeGeometry, barcodeHullBoxes } from './barcode_geometry.js';
 import type { Board, PadPrimitive, PcbFootprint, PcbPad, PcbZone, PcbZoneFill } from './types.js';
@@ -85,6 +87,57 @@ export interface ZoneFillOptions {
 }
 
 /**
+ * What `evalRulesForItems( CLEARANCE_CONSTRAINT, aZone, aItem, aLayer )` comes
+ * back with, for a board carrying no custom rules.
+ *
+ * `DRC_ENGINE::EvalRules` (drc_engine.cpp:1902-1975) is explicit that this one
+ * cannot be an implicit rule, "because they have to be max'ed with netclass
+ * values": the netclass clearance is the base, a local clearance on either item
+ * raises it (`if( localA > clearance )`), and the board minimum raises it
+ * again. So it is the maximum of the four, and a zone whose own
+ * `(connect_pads (clearance 0))` says nothing still keeps its netclass's gap —
+ * which is most of what `multichannel_mixer` pours.
+ */
+export interface ClearanceRules {
+  /** `BOARD_DESIGN_SETTINGS::m_MinClearance`, Board Setup > Constraints, IU. */
+  minClearance?: number;
+  /**
+   * The effective netclass clearance of a net, IU — `netClassClearanceMM`
+   * against the project's netclass table. Undefined for a net whose classes
+   * state none.
+   */
+  netClassClearance?: (net: number) => number | undefined;
+}
+
+/** A `ZoneFillOptions.clearanceOf` built from a board's design rules. */
+export function zoneClearanceOf(
+  rules: ClearanceRules,
+): (zone: PcbZone, otherNet: number) => number {
+  // Resolving a net's class means matching it against every pattern in the
+  // project, and the filler asks per item; a board with a few hundred nets does
+  // it tens of thousands of times for a handful of distinct answers.
+  const cache = new Map<number, number | undefined>();
+  const netClass = (net: number): number | undefined => {
+    if (!cache.has(net)) cache.set(net, rules.netClassClearance?.(net));
+    return cache.get(net);
+  };
+
+  return (zone, otherNet) => {
+    let clearance = 0;
+
+    for (const net of [zone.net, otherNet]) {
+      const nc = netClass(net);
+      if (nc !== undefined && nc > clearance) clearance = nc;
+    }
+
+    if (zone.clearance !== undefined && zone.clearance > clearance) clearance = zone.clearance;
+    if ((rules.minClearance ?? 0) > clearance) clearance = rules.minClearance ?? 0;
+
+    return clearance;
+  };
+}
+
+/**
  * The offset a hatched fill uses on one layer — the board default, overridden
  * by the zone's own if it has one for that layer:
  *
@@ -107,6 +160,47 @@ export function hatchingOffsetFor(
 // ----- polygon helpers --------------------------------------------------------
 
 const ringOf = (pts: Vec2[]): Ring => pts.map((p) => [p.x, p.y] as [number, number]);
+
+/**
+ * The boolean ops, in the shapes this file already speaks, computed with
+ * **Clipper** — the library `SHAPE_POLY_SET` itself uses.
+ *
+ * `polygon-clipping` is a different sweep-line implementation and it does not
+ * survive a real board: on four of the twelve KiCad demos it threw "Unable to
+ * find segment … in SweepLine tree" part-way through a pour, and a zone whose
+ * fill throws is a zone that never fills at all. Clipper is integer-based, is
+ * what upstream hands its polygons to, and answers.
+ *
+ * `FillRule::NonZero`, as `SHAPE_POLY_SET::booleanOp` declares. It matters
+ * here and not elsewhere: the knockouts overlap each other constantly — two
+ * pads of the same part, a track ending on a pad — and under even-odd an
+ * overlap between two holes cancels back to copper.
+ */
+const clip = {
+  union: (first: Geom, ...rest: Geom[]): MultiPolygon =>
+    fromPolys(booleanOp(asPolys(first), rest.flatMap(asPolys), BooleanOp.ADD)),
+  difference: (subject: Geom, ...clips: Geom[]): MultiPolygon =>
+    fromPolys(booleanOp(asPolys(subject), clips.flatMap(asPolys), BooleanOp.SUBTRACT)),
+  intersection: (subject: Geom, other: Geom): MultiPolygon =>
+    fromPolys(booleanOp(asPolys(subject), asPolys(other), BooleanOp.INTERSECT)),
+};
+
+/**
+ * `Geom` is a ring, a polygon (ring plus holes) or a multipolygon, told apart
+ * by nesting depth — the same three shapes `polygon-clipping` accepts, so no
+ * call site has to say which it is holding.
+ */
+function asPolys(g: Geom): Polygon[] {
+  const a = g as unknown as unknown[][];
+  if (a.length === 0) return [];
+  const first = a[0]!;
+  if (typeof first[0] === 'number') return [[ptsOf(a as unknown as Ring)]]; // a bare Ring
+  if (typeof (first[0] as unknown[])[0] === 'number') return [(a as unknown as Ring[]).map(ptsOf)]; // one Polygon
+  return (a as unknown as Ring[][]).map((poly) => poly.map(ptsOf)); // a MultiPolygon
+}
+
+const fromPolys = (polys: Polygon[]): MultiPolygon =>
+  polys.map((poly) => poly.map(ringOf)) as MultiPolygon;
 
 /**
  * The same ring with whole-IU corners, for anything on its way back INTO the
@@ -272,6 +366,40 @@ export function shapeToPolygon(shape: Shape, gap: number, maxError: number): Geo
     }
   }
 }
+
+/** An axis-aligned box, as `BOX2I`. */
+interface Box {
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+}
+
+const boxOf = (pts: readonly Vec2[]): Box => {
+  let x0 = Number.POSITIVE_INFINITY;
+  let y0 = Number.POSITIVE_INFINITY;
+  let x1 = Number.NEGATIVE_INFINITY;
+  let y1 = Number.NEGATIVE_INFINITY;
+  for (const p of pts) {
+    if (p.x < x0) x0 = p.x;
+    if (p.y < y0) y0 = p.y;
+    if (p.x > x1) x1 = p.x;
+    if (p.y > y1) y1 = p.y;
+  }
+  return { x0, y0, x1, y1 };
+};
+
+const boxInflate = (b: Box, d: number): Box => ({
+  x0: b.x0 - d,
+  y0: b.y0 - d,
+  x1: b.x1 + d,
+  y1: b.y1 + d,
+});
+
+const boxesIntersect = (a: Box, b: Box): boolean =>
+  a.x0 <= b.x1 && b.x0 <= a.x1 && a.y0 <= b.y1 && b.y0 <= a.y1;
+
+const boxAround = (a: Vec2, b: Vec2, r: number): Box => boxInflate(boxOf([a, b]), r);
 
 const isCopper = (layer: string): boolean => /\.Cu$/.test(layer);
 const padOnLayer = (pad: PcbPad, layer: string): boolean =>
@@ -477,6 +605,40 @@ function thermalSpokes(pad: PcbPad, zone: PcbZone, maxError: number): ThermalSpo
   return built.map((sp) => placeSpoke(sp, pad.angle ?? 0, pad.at));
 }
 
+/**
+ * The points that stand for a pad's own copper in the island test.
+ *
+ * `CN_CLUSTER::IsOrphaned()` is `m_originPad == nullptr` — a fill outline is
+ * isolated only when NOTHING in its cluster is a PAD — so an outline that
+ * merely overlaps its own pad is connected, spoke or no spoke.
+ *
+ * That is not a corner case. A thermal spoke starts at the pad CENTRE, and the
+ * drill knockout takes its root out, leaving a fragment that sits on the pad's
+ * copper and touches nothing else. KiCad keeps those; a test that knew only the
+ * spoke TIPS dropped them — four of them on kit-dev's JP101 alone.
+ */
+function padAnchors(pad: PcbPad): Vec2[] {
+  const shapes = padShapes(pad);
+  const out: Vec2[] = [pad.at];
+  const inside = (p: Vec2): boolean =>
+    shapes.some((s) => shapeDist({ kind: 'circle', c: p, r: 0 }, s) <= 0);
+
+  // A 5 x 5 lattice over the pad's own extent, the ones that land on copper.
+  // A point is all this test can ask, so the pad is covered by several rather
+  // than spoken for by its centre — which, on a through pad, is inside the
+  // drill and on no copper at all.
+  for (let i = -2; i <= 2; i++) {
+    for (let j = -2; j <= 2; j++) {
+      if (i === 0 && j === 0) continue;
+      const local = rotate({ x: (i * pad.size.x) / 5, y: (j * pad.size.y) / 5 }, pad.angle ?? 0);
+      const p = { x: pad.at.x + local.x, y: pad.at.y + local.y };
+      if (inside(p)) out.push(p);
+    }
+  }
+
+  return out;
+}
+
 /** Is `p` inside `poly`'s outer ring and outside every hole? */
 function pointInPolygon(poly: Polygon, p: Vec2): boolean {
   const outer = poly[0];
@@ -582,6 +744,29 @@ function alongSegment(a: Vec2, b: Vec2): Vec2[] {
   return out;
 }
 
+/**
+ * `ZONE::HigherPriority` (zone.cpp:453).
+ *
+ * Three tests, in order: a teardrop outranks anything that is not one, then the
+ * priority number, and then — the part that is easy to miss — the UUID. Two
+ * ordinary zones of equal priority on different nets are NOT peers: one of them
+ * wins and knocks the other out. Treating equal priority as "no knockout either
+ * way", as this did, leaves both pours filling the overlap, which is a short.
+ */
+function higherPriority(a: PcbZone, b: PcbZone): boolean {
+  const aTeardrop = a.teardropType !== undefined;
+  const bTeardrop = b.teardropType !== undefined;
+  if (aTeardrop !== bTeardrop) return aTeardrop;
+
+  const ap = a.priority ?? 0;
+  const bp = b.priority ?? 0;
+  if (ap !== bp) return ap > bp;
+
+  // `m_Uuid > aOther->m_Uuid` — KIID compares the bytes, and the canonical
+  // lowercase hex form compares the same way as a string.
+  return (a.uuid ?? '') > (b.uuid ?? '');
+}
+
 export function fillZone(
   board: Board,
   zoneIndex: number,
@@ -626,7 +811,7 @@ export function fillZone(
     // poured either, so this only guards the shared path.
     const outline: Geom =
       boardOutline && !zone.ruleArea
-        ? (polygonClipping.intersection([ringOf(smoothed)] as Geom, boardOutline) as MultiPolygon)
+        ? (clip.intersection([ringOf(smoothed)] as Geom, boardOutline) as MultiPolygon)
         : [ringOf(smoothed)];
     if ((outline as MultiPolygon).length === 0) continue;
     const holes: Geom[] = [];
@@ -642,6 +827,22 @@ export function fillZone(
 
     const gapTo = (net: number): number => clearanceOf(zone, net);
 
+    // `BOX2I zone_boundingbox = aZone->GetBoundingBox(); zone_boundingbox.Inflate(
+    // m_worstClearance + extra_margin )`, and every knockout below is guarded by
+    // `…->GetBoundingBox().Intersects( zone_boundingbox )`. Without the guard a
+    // small pour still polygonises every pad and every track on the board:
+    // `m_worstClearance` is `BOARD::GetMaxClearanceValue`, the largest gap any
+    // rule can ask for, so nothing that could reach the zone is skipped.
+    let worstClearance = 0;
+    for (const net of board.nets.keys()) worstClearance = Math.max(worstClearance, gapTo(net));
+    worstClearance = Math.max(
+      worstClearance,
+      zone.thermalGap ?? 0,
+      opts.edgeClearance ?? DEFAULT_EDGE_CLEARANCE,
+    );
+    const zoneBox = boxInflate(boxOf(zone.outline), worstClearance);
+    const near = (b: Box): boolean => boxesIntersect(b, zoneBox);
+
     // Pads (`ZONE_FILLER::knockoutThermalReliefs` and, for the ones it hands on,
     // `knockoutPadClearance`).
     for (const fp of board.footprints) {
@@ -651,6 +852,15 @@ export function fillZone(
         // skipped outright, hole and all.
         const npthWithHole = pad.type === 'np_thru_hole' && pad.drill !== undefined;
         if (!padOnLayer(pad, layer) && !npthWithHole) continue;
+
+        // "padBBox.Inflate( m_worstClearance ); if( !padBBox.Intersects(
+        // aZone->GetBoundingBox() ) ) continue".
+        const reach = Math.max(
+          pad.size.x,
+          pad.size.y,
+          pad.drill ? Math.max(pad.drill.w, pad.drill.h) : 0,
+        );
+        if (!near(boxAround(pad.at, pad.at, reach))) continue;
 
         const shapes = padShapes(pad);
         const holeRadius = pad.drill ? Math.max(pad.drill.w, pad.drill.h) / 2 : 0;
@@ -662,9 +872,8 @@ export function fillZone(
 
         if (mode === 'full') {
           // A solid connection knocks out nothing — not the pad, and not its
-          // hole either — so the pad centre is on the fill and speaks for
-          // itself as a connectivity anchor.
-          connected.push(pad.at);
+          // hole either — so the pour runs straight over the pad's copper.
+          connected.push(...padAnchors(pad));
           continue;
         }
 
@@ -675,6 +884,9 @@ export function fillZone(
           const reliefGap = zone.thermalGap ?? mmToIU(0.5);
           for (const s of shapes) reliefHoles.push(...shapeToPolygon(s, reliefGap, maxError));
           spokes.push(...thermalSpokes(pad, zone, maxError));
+          // The pad is in the cluster whether or not a spoke survives, so any
+          // copper left standing on it is connected copper.
+          connected.push(...padAnchors(pad));
 
           // "Ensure additive changes (thermal stubs …) do not add copper …
           // inside the clearance holes": the drill of every thermally
@@ -697,6 +909,7 @@ export function fillZone(
     // Tracks, arcs and vias on other nets.
     for (const t of board.tracks) {
       if (t.layer !== layer) continue;
+      if (!near(boxAround(t.start, t.end, t.width))) continue;
       if (t.net === zone.net && zone.net > 0) {
         connected.push(...alongSegment(t.start, t.end));
         continue;
@@ -705,6 +918,7 @@ export function fillZone(
     }
     for (const a of board.arcs) {
       if (a.layer !== layer) continue;
+      if (!near(boxInflate(boxOf([a.start, a.mid, a.end]), a.width))) continue;
       if (a.net === zone.net && zone.net > 0) {
         const pts = tessellateArc(a.start, a.mid, a.end);
         for (let i = 1; i < pts.length; i++) connected.push(...alongSegment(pts[i - 1]!, pts[i]!));
@@ -715,6 +929,8 @@ export function fillZone(
         holes.push([stadiumPoly(pts[i - 1]!, pts[i]!, a.width / 2 + gapTo(a.net), maxError)]);
     }
     for (const v of board.vias) {
+      // "viaBBox.Inflate( m_worstClearance )".
+      if (!near(boxAround(v.at, v.at, v.size))) continue;
       if (v.net === zone.net && zone.net > 0) {
         connected.push(v.at);
         continue;
@@ -727,23 +943,45 @@ export function fillZone(
     board.zones.forEach((other, i) => {
       if (i === zoneIndex || !other.outline || other.outline.length < 3) return;
       if (!other.layers.includes(layer)) return;
+      // "if( aKnockout->GetBoundingBox().Intersects( zone_boundingbox ) )".
+      if (!near(boxOf(other.outline))) return;
 
       // A rule area is tested first and never takes part in the priority or
       // same-net logic below: it forbids copper outright, whatever its
-      // priority or net. The knockout is its bare outline — upstream passes a
-      // clearance of 0 — and a teardrop is exempt, being generated copper the
-      // user never placed inside the area.
+      // priority or net. The knockout is its SMOOTHED outline — upstream calls
+      // `TransformSmoothedOutlineToPolygon` with a clearance of 0 — and a
+      // teardrop is exempt, being generated copper the user never placed
+      // inside the area.
       if (other.ruleArea) {
-        if (other.ruleArea.copperPour && !zone.teardropType)
-          holes.push(...shapeToPolygon({ kind: 'poly', pts: other.outline, r: 0 }, 0, maxError));
+        if (other.ruleArea.copperPour && !zone.teardropType) {
+          const pts = smoothOutline(other.outline, other, maxError);
+          holes.push(...shapeToPolygon({ kind: 'poly', pts, r: 0 }, 0, maxError));
+        }
         return;
       }
 
-      if ((other.priority ?? 0) <= (zone.priority ?? 0)) return;
-      if (other.net === zone.net) return;
-      holes.push(
-        ...shapeToPolygon({ kind: 'poly', pts: other.outline, r: 0 }, gapTo(other.net), maxError),
+      if (!higherPriority(other, zone) || other.net === zone.net) return;
+
+      // `ZONE::TransformShapeToPolygon` takes the other zone's FILLED areas,
+      // not its outline — "if( !m_FilledPolysList.count( aLayer ) ) return", so
+      // a zone with nothing poured on this layer knocks nothing out. Using the
+      // outline instead removes copper from everywhere the other zone COULD
+      // have reached, which on a board of overlapping pours is most of it.
+      //
+      // ERROR_OUTSIDE adds one maxError to the clearance before inflating.
+      const otherFill = other.fills.find((f) => f.layer === layer);
+      if (!otherFill || otherFill.polys.length === 0) return;
+
+      const gap = gapTo(other.net);
+      if (gap < 0) return; // "Negative clearance permits zones to short"
+
+      const inflated = inflate(
+        otherFill.polys.map((poly) => [poly]),
+        gap + maxError,
+        CornerStrategy.ROUND_ALL_CORNERS,
+        segmentsForRadius(gap + maxError, maxError),
       );
+      for (const poly of inflated) holes.push(poly.map(ringOf) as Geom);
     });
 
     // Board graphics, and the BOARD EDGE (`zone_filler.cpp:2400-2440`).
@@ -818,10 +1056,22 @@ export function fillZone(
       }
     }
 
+    // `buildCopperItemClearances` ends with `aHoles.Simplify()`: the knockouts
+    // become ONE poly set, which is then subtracted three times over — before
+    // the spokes, after them, and again after the re-inflate. Keeping them as a
+    // list and re-feeding it to the clipper at each of those is the same answer
+    // at several times the cost.
+    const holeSet: MultiPolygon =
+      holes.length === 0 ? [] : (clip.union(holes[0]!, ...holes.slice(1)) as MultiPolygon);
+
     let area: MultiPolygon =
-      holes.length === 0 && reliefHoles.length === 0
-        ? (polygonClipping.union(outline) as MultiPolygon)
-        : (polygonClipping.difference(outline, ...holes, ...reliefHoles) as MultiPolygon);
+      holeSet.length === 0 && reliefHoles.length === 0
+        ? (clip.union(outline) as MultiPolygon)
+        : (clip.difference(
+            outline,
+            ...(holeSet.length > 0 ? [holeSet as Geom] : []),
+            ...reliefHoles,
+          ) as MultiPolygon);
 
     // Spokes are added back — but only the ones that reach real copper.
     //
@@ -867,23 +1117,20 @@ export function fillZone(
         for (const k of kept) connected.push(k.tip);
 
         // "the 'real' subtract-clearance-holes has to be done after the spokes
-        // are added" (zone_filler.cpp:3022). A spoke runs from the pad centre
-        // to past the relief, straight through whatever sits in between; the
+        // are added" (zone_filler.cpp:3020). A spoke runs from the pad centre
+        // out past the relief, straight through whatever sits in between; the
         // holes are what stop it short of a neighbour's clearance.
-        // Each spoke is trimmed on its own before being unioned in, which is
-        // the same copper as subtracting the holes from the whole pour again
-        // and asks the clipper for far less: a spoke is five points against a
-        // pour that can be tens of thousands.
-        const trimmedSpokes = kept.map((k) =>
-          holes.length > 0
-            ? (polygonClipping.difference(k.geom, ...holes) as MultiPolygon)
-            : (k.geom as MultiPolygon),
-        );
-        const withSpokes = polygonClipping.union(
-          area as Geom,
-          ...trimmedSpokes.filter((g) => g.length > 0),
-        ) as MultiPolygon;
-        area = polygonClipping.intersection(withSpokes as Geom, outline) as MultiPolygon;
+        //
+        // Every spoke goes in, then the holes come out ONCE. Trimming each
+        // spoke on its own is the same copper, but it re-feeds the whole hole
+        // set to the clipper per spoke — on a ground plane with hundreds of
+        // relieved pads that never finishes.
+        const withSpokes = clip.union(area as Geom, ...kept.map((k) => k.geom)) as MultiPolygon;
+        const trimmedFill =
+          holeSet.length > 0
+            ? (clip.difference(withSpokes as Geom, holeSet as Geom) as MultiPolygon)
+            : withSpokes;
+        area = clip.intersection(trimmedFill as Geom, outline) as MultiPolygon;
       }
     }
 
@@ -908,12 +1155,13 @@ export function fillZone(
     // once more (zone_filler.cpp:3136-3139): re-inflating pushes copper back
     // out over the edges the prune had cleared, and the thermal pads' own
     // drills join the holes only here.
-    if (pruned.length > 0 && thermalHoles.length > 0) {
-      const trimmed = polygonClipping.difference(
-        polygonClipping.intersection(
+    if (pruned.length > 0 && (thermalHoles.length > 0 || holeSet.length > 0)) {
+      const trimmed = clip.difference(
+        clip.intersection(
           pruned.map((poly) => poly.map(intRingOf)).filter((poly) => poly[0]!.length >= 3) as Geom,
           outline,
         ) as Geom,
+        ...(holeSet.length > 0 ? [holeSet as Geom] : []),
         ...thermalHoles,
       ) as MultiPolygon;
       pruned = trimmed.map((poly) => poly.map(ptsOf));
@@ -1060,13 +1308,13 @@ function addCopperThievingPattern(fill: Polygon[], zone: PcbZone, maxError: numb
     }
     if (voids.length === 0) return fill;
 
-    const clipped = polygonClipping.intersection(
-      polygonClipping.union(voids[0]!, ...voids.slice(1)) as Geom,
+    const clipped = clip.intersection(
+      clip.union(voids[0]!, ...voids.slice(1)) as Geom,
       multi(interior) as Geom,
     ) as MultiPolygon;
     if (clipped.length === 0) return fill;
 
-    const out = polygonClipping.difference(multi(fill) as Geom, clipped as Geom) as MultiPolygon;
+    const out = clip.difference(multi(fill) as Geom, clipped as Geom) as MultiPolygon;
     return out.map((poly) => poly.map(ptsOf));
   }
 
@@ -1126,7 +1374,7 @@ function addCopperThievingPattern(fill: Polygon[], zone: PcbZone, maxError: numb
   }
 
   if (stamps.length === 0) return [];
-  const merged = polygonClipping.union(stamps[0]!, ...stamps.slice(1)) as MultiPolygon;
+  const merged = clip.union(stamps[0]!, ...stamps.slice(1)) as MultiPolygon;
   return merged.map((poly) => poly.map(ptsOf));
 }
 
@@ -1244,8 +1492,8 @@ function addHatchFillTypeOnZone(
   const multi = (ps: Polygon[]): MultiPolygon =>
     ps.map((poly) => poly.map((ring) => ring.map((p) => [p.x, p.y] as [number, number])));
 
-  const clipped = polygonClipping.intersection(
-    polygonClipping.union(holes[0]!, ...holes.slice(1)) as Geom,
+  const clipped = clip.intersection(
+    clip.union(holes[0]!, ...holes.slice(1)) as Geom,
     multi(inner) as Geom,
   ) as MultiPolygon;
 
@@ -1255,7 +1503,7 @@ function addHatchFillTypeOnZone(
   );
   if (kept.length === 0) return fill;
 
-  const out = polygonClipping.difference(multi(fill) as Geom, kept as Geom) as MultiPolygon;
+  const out = clip.difference(multi(fill) as Geom, kept as Geom) as MultiPolygon;
   return out.map((poly) => poly.map(ptsOf));
 }
 
@@ -1335,7 +1583,7 @@ function postKnockoutMinWidthPrune(fill: Polygon[], zone: PcbZone, maxError: num
   const a = multi(polys);
   const b = multi(preDeflate);
   if (a.length === 0 || b.length === 0) return [];
-  const clipped = polygonClipping.intersection(a as Geom, b as Geom) as MultiPolygon;
+  const clipped = clip.intersection(a as Geom, b as Geom) as MultiPolygon;
   return clipped.map((poly) => poly.map(ptsOf));
 }
 
@@ -1356,8 +1604,23 @@ function pointInRing(p: Vec2, ring: Vec2[]): boolean {
  * Zones set not to be filled keep whatever they have.
  */
 export function fillZones(board: Board, opts: ZoneFillOptions = {}): Board {
-  const zones = board.zones.map((z, i) => {
-    if (z.filled === false) return z;
+  // `ZONE_FILLER::Fill` runs the zones through a dependency DAG
+  // (`fill_item_dependency`) so a zone is poured only after the ones that knock
+  // it out: `knockoutZoneClearance` subtracts the other zone's FILLED area, and
+  // an unfilled one subtracts nothing. Pouring in board order instead means a
+  // zone sees whatever fill its neighbour happened to be carrying — the file's,
+  // or none.
+  //
+  // The dependency is exactly `HigherPriority`, so ordering by it is the same
+  // topological order.
+  const order = board.zones
+    .map((_, i) => i)
+    .sort((a, b) => (higherPriority(board.zones[a]!, board.zones[b]!) ? -1 : 1));
+
+  let working = board;
+
+  for (const i of order) {
+    const z = working.zones[i]!;
 
     // Teardrops keep the fill their generator produced. Upstream *does* run the
     // filler over them, but under a pile of special cases — pad connection
@@ -1365,17 +1628,18 @@ export function fillZones(board: Board, opts: ZoneFillOptions = {}): Board {
     // skipped — whose net effect is the outline it already has. Pouring one
     // like an ordinary zone instead opens a thermal relief in the flare and
     // eats the very copper the teardrop exists to add.
-    if (z.teardropType) return z;
-
-    // A rule area is not copper and is never poured. Without this it goes
-    // through the pour like any other zone, and on a board whose island
+    //
+    // A rule area is not copper and is never poured either; without that guard
+    // it goes through the pour like any other zone, and on a board whose island
     // removal is set to NEVER that lays filled copper inside the keepout.
-    if (z.ruleArea) return z;
+    if (z.filled === false || z.teardropType || z.ruleArea) continue;
+    const fills = fillZone(working, i, opts);
+    const zones = [...working.zones];
+    zones[i] = { ...z, fills, source: withFilledPolygons(z, fills) };
+    working = { ...working, zones };
+  }
 
-    const fills = fillZone(board, i, opts);
-    return { ...z, fills, source: withFilledPolygons(z, fills) };
-  });
-  return { ...board, zones };
+  return working;
 }
 
 /** Rewrite a zone's `(filled_polygon …)` children from its new fills. */

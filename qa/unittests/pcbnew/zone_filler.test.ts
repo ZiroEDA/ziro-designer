@@ -8,7 +8,7 @@
  */
 import { PCB_IU_PER_MM } from '@ziroeda/common/src/eda_units.js';
 import { describe, it, expect } from 'vitest';
-import { fillZone, fillZones } from '@ziroeda/pcbnew/src/zone_filler.js';
+import { fillZone, fillZones, zoneClearanceOf } from '@ziroeda/pcbnew/src/zone_filler.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 import type {
   Board,
@@ -447,12 +447,17 @@ describe('zone filler', () => {
   });
 
   it('a higher-priority zone knocks this one out', () => {
+    // `fillZones`, not `fillZone`: the knockout is the other zone's FILLED
+    // area, so it has to have been poured first. That ordering is upstream's
+    // (`fill_item_dependency`), and it is why a zone is never asked to knock
+    // itself out of a neighbour that has not been filled yet.
     const b = board({
       zones: [
         zone(),
         zone({
           net: 2,
           priority: 1,
+          uuid: 'z2',
           outline: [
             { x: MM(10), y: MM(10) },
             { x: MM(20), y: MM(10) },
@@ -462,8 +467,59 @@ describe('zone filler', () => {
         }),
       ],
     });
+    const out = fillZones(b);
     // 10 x 10 mm knocked out, plus clearance around it.
-    expect(1600 - area(fillZone(b, 0)[0]!.polys)).toBeGreaterThan(100);
+    expect(1600 - area(out.zones[0]!.fills[0]!.polys)).toBeGreaterThan(100);
+  });
+
+  it('but an EMPTY higher-priority zone knocks out nothing', () => {
+    // `ZONE::TransformShapeToPolygon`: "if( !m_FilledPolysList.count( aLayer ) )
+    // return". A zone with nothing poured on this layer removes no copper —
+    // knocking out its OUTLINE instead takes away everywhere it could have
+    // reached, which on a board of overlapping pours is most of the board.
+    const b = board({
+      zones: [
+        zone(),
+        zone({
+          net: 2,
+          priority: 1,
+          uuid: 'z2',
+          outline: [
+            { x: MM(10), y: MM(10) },
+            { x: MM(20), y: MM(10) },
+            { x: MM(20), y: MM(20) },
+            { x: MM(10), y: MM(20) },
+          ],
+        }),
+      ],
+    });
+    expect(area(fillZone(b, 0)[0]!.polys)).toBeCloseTo(1600, 0);
+  });
+
+  it('breaks a priority tie on the uuid, as HigherPriority does', () => {
+    // `return m_Uuid > aOther->m_Uuid` — two ordinary zones of equal priority
+    // on different nets are not peers. One wins; both filling the overlap is a
+    // short.
+    const overlap = [
+      { x: MM(10), y: MM(10) },
+      { x: MM(20), y: MM(10) },
+      { x: MM(20), y: MM(20) },
+      { x: MM(10), y: MM(20) },
+    ];
+    const pair = (first: string, second: string): Board =>
+      board({
+        zones: [zone({ uuid: first }), zone({ net: 2, uuid: second, outline: overlap })],
+      });
+
+    // 'b' > 'a', so the second zone wins and eats into the first.
+    const secondWins = fillZones(pair('a', 'b'));
+    expect(1600 - area(secondWins.zones[0]!.fills[0]!.polys)).toBeGreaterThan(100);
+
+    // Swap the ids and the first zone wins instead: it is poured whole, and the
+    // second — which lies entirely inside it — is left with nothing at all.
+    const firstWins = fillZones(pair('b', 'a'));
+    expect(area(firstWins.zones[0]!.fills[0]!.polys)).toBeCloseTo(1600, 0);
+    expect(firstWins.zones[1]!.fills).toHaveLength(0);
   });
 
   it('fillZones writes the polygons into every zone and its source', () => {
@@ -1256,5 +1312,303 @@ describe('a spoke is trimmed by the clearance holes it crosses', () => {
     // Just clear of the clearance, on the far side of the via, the pour is
     // back: nothing wider than the via's own hole was taken.
     expect(filled(fill, { x: MM(20.9), y: MM(22.5) })).toBe(false);
+  });
+});
+
+// -----------------------------------------------------------------------------
+// the clearance the pour actually keeps
+// -----------------------------------------------------------------------------
+
+describe('CLEARANCE_CONSTRAINT', () => {
+  /**
+   * `DRC_ENGINE::EvalRules` (drc_engine.cpp:1902-1975) says outright that this
+   * one cannot be an implicit rule "because they have to be max'ed with
+   * netclass values": the netclass clearance is the base, a local clearance on
+   * either item raises it, and the board minimum raises it again.
+   *
+   * The pour used the zone's own `(connect_pads (clearance …))` and nothing
+   * else. `multichannel_mixer`'s zones state 0 there, so ours kept NO gap from
+   * other nets at all while KiCad kept the netclass's 0.2 raised to the board
+   * minimum's 0.3 — 34% too much copper on one layer.
+   */
+  const gapAround = (opts: Parameters<typeof fillZone>[2]): number => {
+    const b = board({
+      zones: [zone({ clearance: 0 })],
+      footprints: [footprint([pad({ x: MM(20), y: MM(20) }, 2, MM(2))])],
+    });
+    const fill = fillZone(b, 0, opts)[0]!.polys;
+    // Walk out along +x from the pad edge until copper starts.
+    for (let d = 0; d < MM(2); d += MM(0.005))
+      if (filled(fill, { x: MM(21) + d, y: MM(20) })) return d;
+    return Number.POSITIVE_INFINITY;
+  };
+
+  it('takes the netclass clearance when the zone states none', () => {
+    expect(
+      gapAround({ clearanceOf: zoneClearanceOf({ netClassClearance: () => MM(0.4) }) }),
+    ).toBeCloseTo(MM(0.4), -3);
+  });
+
+  it('raises it to the board minimum', () => {
+    expect(
+      gapAround({
+        clearanceOf: zoneClearanceOf({ minClearance: MM(0.7), netClassClearance: () => MM(0.4) }),
+      }),
+    ).toBeCloseTo(MM(0.7), -3);
+  });
+
+  it("lets the zone's own clearance win when it is the largest", () => {
+    const b = board({
+      zones: [zone({ clearance: MM(0.9) })],
+      footprints: [footprint([pad({ x: MM(20), y: MM(20) }, 2, MM(2))])],
+    });
+    const fill = fillZone(b, 0, {
+      clearanceOf: zoneClearanceOf({ minClearance: MM(0.2), netClassClearance: () => MM(0.4) }),
+    })[0]!.polys;
+    let d = 0;
+    for (; d < MM(2); d += MM(0.005)) if (filled(fill, { x: MM(21) + d, y: MM(20) })) break;
+    expect(d).toBeCloseTo(MM(0.9), -3);
+  });
+
+  it('asks about BOTH nets, not just the other one', () => {
+    // The netclass rules are conditioned on `A.hasExactNetclass(…)` and sorted
+    // ascending before being added, so the largest matching one wins — which
+    // over two items means the max of their two netclasses.
+    const seen: number[] = [];
+    gapAround({
+      clearanceOf: zoneClearanceOf({
+        netClassClearance: (net) => {
+          seen.push(net);
+          return MM(0.4);
+        },
+      }),
+    });
+    expect(seen).toContain(1); // the zone's net
+    expect(seen).toContain(2); // the pad's
+  });
+});
+
+// -----------------------------------------------------------------------------
+// the boolean engine
+// -----------------------------------------------------------------------------
+
+describe('knockouts that overlap each other', () => {
+  it('union rather than cancelling', () => {
+    // Two different-net pads that overlap, which is what a footprint's own
+    // pads and the track ending on one of them look like to the filler. Under
+    // an even-odd fill rule the overlap comes back as COPPER; `booleanOp`
+    // declares `FillRule::NonZero`, as SHAPE_POLY_SET does.
+    const b = board({
+      zones: [zone()],
+      footprints: [
+        footprint([
+          pad({ x: MM(20), y: MM(20) }, 2, MM(4)),
+          pad({ x: MM(21), y: MM(20) }, 2, MM(4)),
+        ]),
+      ],
+    });
+    const fill = fillZone(b, 0)[0]!.polys;
+    expect(filled(fill, { x: MM(20.5), y: MM(20) })).toBe(false);
+  });
+
+  it('knock out the same copper whichever way round their outline runs', () => {
+    // A stadium is built from the segment's direction, so a track drawn
+    // right-to-left winds the other way from the same track drawn
+    // left-to-right. The non-zero rule counts windings: without orienting them
+    // first, one of the two would cancel against its neighbours instead of
+    // joining them.
+    const track = (a: { x: number; y: number }, z: { x: number; y: number }) => ({
+      start: a,
+      end: z,
+      width: MM(1),
+      layer: 'F.Cu',
+      net: 2,
+      source: EMPTY,
+    });
+    const forward = board({
+      zones: [zone()],
+      tracks: [
+        track({ x: MM(10), y: MM(20) }, { x: MM(20), y: MM(20) }),
+        track({ x: MM(20), y: MM(20) }, { x: MM(30), y: MM(20) }),
+      ],
+    });
+    const reversed = board({
+      zones: [zone()],
+      tracks: [
+        track({ x: MM(20), y: MM(20) }, { x: MM(10), y: MM(20) }),
+        track({ x: MM(30), y: MM(20) }, { x: MM(20), y: MM(20) }),
+      ],
+    });
+    expect(area(fillZone(reversed, 0)[0]!.polys)).toBeCloseTo(
+      area(fillZone(forward, 0)[0]!.polys),
+      3,
+    );
+    // And the join between them really is knocked out.
+    expect(filled(fillZone(reversed, 0)[0]!.polys, { x: MM(20), y: MM(20) })).toBe(false);
+  });
+});
+
+// -----------------------------------------------------------------------------
+// what makes an outline "not an island"
+// -----------------------------------------------------------------------------
+
+describe('a fill outline standing on its own pad', () => {
+  it('is connected copper, not an island', () => {
+    // `CN_CLUSTER::IsOrphaned()` is `m_originPad == nullptr`: an outline is
+    // isolated only when nothing in its cluster is a PAD. So copper lying on a
+    // same-net pad is connected even when it reaches nothing else at all.
+    //
+    // A 6 mm pad poured solid, with a different-net via knocking the middle of
+    // it out and a ring of different-net track cutting the rest off from the
+    // pour. What is left is an annulus of copper that touches only its own pad
+    // — and whose CENTRE is inside the via's hole, so a test that spoke for the
+    // pad with one point would drop it.
+    const b = board({
+      zones: [zone({ clearance: MM(0.3), padConnection: 'full' })],
+      footprints: [footprint([{ ...pad({ x: MM(20), y: MM(20) }, 1, MM(6)), shape: 'circle' }])],
+      vias: [
+        {
+          at: { x: MM(20), y: MM(20) },
+          size: MM(2),
+          drill: MM(1),
+          layers: ['F.Cu', 'B.Cu'],
+          kind: 'through',
+          net: 2,
+          source: EMPTY,
+        },
+      ],
+      tracks: Array.from({ length: 32 }, (_, i) => {
+        const a0 = (i * Math.PI) / 16;
+        const a1 = ((i + 1) * Math.PI) / 16;
+        const r = MM(4);
+        return {
+          start: { x: MM(20) + r * Math.cos(a0), y: MM(20) + r * Math.sin(a0) },
+          end: { x: MM(20) + r * Math.cos(a1), y: MM(20) + r * Math.sin(a1) },
+          width: MM(0.4),
+          layer: 'F.Cu',
+          net: 2,
+          source: EMPTY,
+        };
+      }),
+    });
+    const fill = fillZone(b, 0)[0]!.polys;
+
+    // The pad's centre is in the via's hole ...
+    expect(filled(fill, { x: MM(20), y: MM(20) })).toBe(false);
+    // ... and the annulus around it is still there.
+    expect(filled(fill, { x: MM(22.4), y: MM(20) })).toBe(true);
+    expect(filled(fill, { x: MM(20), y: MM(22.4) })).toBe(true);
+  });
+});
+
+// -----------------------------------------------------------------------------
+// the bounding-box guards
+// -----------------------------------------------------------------------------
+
+describe('an item OUTSIDE the zone still keeps its clearance', () => {
+  /**
+   * Every knockout upstream builds is guarded by
+   * `…->GetBoundingBox().Intersects( zone_boundingbox )`, where the zone's box
+   * has been inflated by `m_worstClearance` — `BOARD::GetMaxClearanceValue`,
+   * the largest gap any rule can ask for. Without a guard a small pour
+   * polygonises every pad and track on the board; with one that is too tight,
+   * an item just outside the outline stops insetting the pour and the fill runs
+   * up to something it should be clear of.
+   */
+  it('insets the pour when a track sits well beyond the outline', () => {
+    // The clearance is much larger than the track, so only a box grown by the
+    // CLEARANCE reaches it. Growing by the item's own size is not enough.
+    const b = board({
+      zones: [zone({ clearance: MM(3) })],
+      tracks: [
+        {
+          start: { x: MM(5), y: MM(-2) },
+          end: { x: MM(35), y: MM(-2) },
+          width: MM(0.4),
+          layer: 'F.Cu',
+          net: 2,
+          source: EMPTY,
+        },
+      ],
+    });
+    const fill = fillZone(b, 0)[0]!.polys;
+
+    // 3 mm of clearance plus 0.2 mm of half-width, out from y = -2.
+    expect(filled(fill, { x: MM(20), y: MM(0.8) })).toBe(false);
+    expect(filled(fill, { x: MM(20), y: MM(1.4) })).toBe(true);
+  });
+
+  it('and when a different-net pad does', () => {
+    const b = board({
+      zones: [zone({ clearance: MM(3) })],
+      footprints: [footprint([pad({ x: MM(20), y: MM(-2) }, 2, MM(2))])],
+    });
+    const fill = fillZone(b, 0)[0]!.polys;
+
+    // The pad's copper ends at y = -1; the clearance reaches 3 mm past it.
+    expect(filled(fill, { x: MM(20), y: MM(1.7) })).toBe(false);
+    expect(filled(fill, { x: MM(20), y: MM(2.3) })).toBe(true);
+  });
+
+  it('and when a via does', () => {
+    const b = board({
+      zones: [zone({ clearance: MM(3) })],
+      vias: [
+        {
+          at: { x: MM(20), y: MM(-2) },
+          size: MM(0.8),
+          drill: MM(0.4),
+          layers: ['F.Cu', 'B.Cu'],
+          kind: 'through',
+          net: 2,
+          source: EMPTY,
+        },
+      ],
+    });
+    const fill = fillZone(b, 0)[0]!.polys;
+
+    // 0.4 mm of via radius plus 3 mm, out from y = -2.
+    expect(filled(fill, { x: MM(20), y: MM(1.1) })).toBe(false);
+    expect(filled(fill, { x: MM(20), y: MM(1.7) })).toBe(true);
+  });
+});
+
+describe('a teardrop outranks any ordinary zone', () => {
+  it('knocks the pour out even from a zone of higher priority', () => {
+    // `ZONE::HigherPriority` tests the teardrop flag FIRST: "Teardrops are
+    // always higher priority than regular zones, so if one zone is a teardrop
+    // and the other is not, then return higher priority as the teardrop". A
+    // flare that lost to the pour it flares out of would be poured over.
+    const flare: PcbZone = {
+      ...zone({
+        net: 2,
+        priority: 0,
+        uuid: 'td',
+        teardropType: 'viapad',
+        outline: [
+          { x: MM(10), y: MM(10) },
+          { x: MM(20), y: MM(10) },
+          { x: MM(20), y: MM(20) },
+          { x: MM(10), y: MM(20) },
+        ],
+      }),
+      fills: [
+        {
+          layer: 'F.Cu',
+          polys: [
+            [
+              { x: MM(10), y: MM(10) },
+              { x: MM(20), y: MM(10) },
+              { x: MM(20), y: MM(20) },
+              { x: MM(10), y: MM(20) },
+            ],
+          ],
+        },
+      ],
+    };
+    const b = board({ zones: [zone({ priority: 5 }), flare] });
+
+    // 10 x 10 mm of flare, plus the clearance round it.
+    expect(1600 - area(fillZone(b, 0)[0]!.polys)).toBeGreaterThan(100);
   });
 });

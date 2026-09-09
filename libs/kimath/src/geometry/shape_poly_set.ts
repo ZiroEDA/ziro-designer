@@ -259,57 +259,76 @@ export function inflate(
     );
   }
 
-  const solution: { X: number; Y: number }[][] = [];
-  co.Execute(solution, amount);
-
-  // Clipper hands back a flat list of rings, holes wound the other way from
-  // their outline (SHAPE_POLY_SET regroups the same way when it imports from
-  // Clipper).
-  return nestRings(solution);
+  const tree = new ClipperLib.PolyTree();
+  co.Execute(tree, amount);
+  return importTree(tree);
 }
 
 /**
- * Rebuild `Polygon[]` from Clipper's flat list of rings.
+ * A ring with whole-IU corners, consecutive duplicates dropped.
  *
- * Clipper returns outlines and holes mixed together, distinguished only by
- * winding. Rather than trust a winding convention, rings are nested: a ring
- * inside an even number of others is an outline, an odd one is a hole belonging
- * to the smallest outline containing it. Shared by the offset and the boolean
- * ops, which get the same shape of answer back.
+ * `SHAPE_POLY_SET` is `VECTOR2I`: every polygon KiCad hands Clipper, and every
+ * one it takes back, has integer corners, and `SHAPE_LINE_CHAIN::Append`
+ * refuses a zero-length edge. An offset works in floating point, so without
+ * this the result carries fractional vertices — and a later boolean on two
+ * shapes that very nearly coincide fails outright ("Unable to find segment …
+ * in SweepLine tree") rather than answering wrongly. Rounding here is both the
+ * faithful thing and the robust one.
  */
-function nestRings(solution: { X: number; Y: number }[][]): Polygon[] {
-  const rings = solution
-    .map((ring) => ring.map((p) => ({ x: p.X, y: p.Y })))
-    .filter((ring) => ring.length >= 3);
+function roundRing(ring: { X: number; Y: number }[]): Vec2[] {
+  const out: Vec2[] = [];
 
-  const containers = rings.map((ring, i) =>
-    rings.filter((other, j) => j !== i && pointInRing(ring[0]!, other)),
-  );
+  for (const p of ring) {
+    const q = { x: Math.round(p.X), y: Math.round(p.Y) };
+    const last = out[out.length - 1];
+    if (last && last.x === q.x && last.y === q.y) continue;
+    out.push(q);
+  }
 
+  while (out.length > 1) {
+    const first = out[0]!;
+    const last = out[out.length - 1]!;
+    if (first.x !== last.x || first.y !== last.y) break;
+    out.pop();
+  }
+
+  return out;
+}
+
+/**
+ * `SHAPE_POLY_SET::importTree` — keep the hierarchy Clipper already worked out,
+ * rather than deriving it again from containment.
+ *
+ * A PolyTree node that is not a hole is an outline, the hole children under it
+ * are its holes, and an outline nested inside one of those holes starts a
+ * polygon of its own. Asking Clipper for a flat list instead and nesting it by
+ * point-in-polygon is O(rings²), which on a pour with thousands of rings is the
+ * difference between two seconds and not finishing.
+ */
+interface PolyNode {
+  Contour: () => { X: number; Y: number }[];
+  IsHole: () => boolean;
+  Childs: () => PolyNode[];
+}
+
+function importTree(tree: { Childs: () => PolyNode[] }): Polygon[] {
   const out: Polygon[] = [];
-  const indexOfOutline = new Map<Vec2[], number>();
 
-  rings.forEach((ring, i) => {
-    if (containers[i]!.length % 2 === 0) {
-      indexOfOutline.set(ring, out.length);
-      out.push([ring]);
-    }
-  });
+  const visitOutline = (node: PolyNode): void => {
+    const outer = roundRing(node.Contour());
+    const poly: Polygon = outer.length >= 3 ? [outer] : [];
 
-  rings.forEach((ring, i) => {
-    if (containers[i]!.length % 2 === 0) return;
-    let best: Vec2[] | null = null;
-    let bestArea = Number.POSITIVE_INFINITY;
-    for (const candidate of containers[i]!) {
-      if (!indexOfOutline.has(candidate)) continue;
-      const a = Math.abs(signedArea(candidate));
-      if (a < bestArea) {
-        bestArea = a;
-        best = candidate;
-      }
+    for (const hole of node.Childs()) {
+      const ring = roundRing(hole.Contour());
+      if (poly.length > 0 && ring.length >= 3) poly.push(ring);
+      // An outline nested inside a hole is a separate polygon.
+      for (const inner of hole.Childs()) visitOutline(inner);
     }
-    if (best) out[indexOfOutline.get(best)!]!.push(ring);
-  });
+
+    if (poly.length > 0) out.push(poly);
+  };
+
+  for (const child of tree.Childs()) visitOutline(child);
 
   return out;
 }
@@ -324,21 +343,21 @@ export enum BooleanOp {
 /**
  * `SHAPE_POLY_SET::BooleanAdd` / `BooleanSubtract` / `BooleanIntersection`.
  *
- * Both sides are declared even-odd filled, mirroring how SHAPE_POLY_SET hands
- * its polygons to Clipper: it stores holes as separate rings and leans on the
- * fill rule rather than on winding to tell them from outlines.
+ * `FillRule::NonZero`, which is what `SHAPE_POLY_SET::booleanOp` declares
+ * (shape_poly_set.cpp:859).
  *
- * For the inputs this actually receives the non-zero rule would give the same
- * answers — sources are always single rings, and Clipper orients its own output
- * (holes wound against their outline), so both rules read them alike. Checked,
- * rather than assumed: swapping the rule changes nothing measurable, including
- * for a fractured ring fed back through a second operation. Even-odd is kept
- * because it is what upstream declares, not because the difference is load
- * bearing here.
+ * It was even-odd here, on the reasoning that the two rules agree for single
+ * rings and for Clipper's own output — which they do. They part company the
+ * moment a caller hands in shapes that OVERLAP EACH OTHER: the zone filler
+ * subtracts a list of knockouts that overlap constantly (two pads of one part,
+ * a track ending on a pad), and under even-odd the overlap between two holes
+ * cancels back to copper.
  */
 export function booleanOp(subject: Polygon[], clip: Polygon[], op: BooleanOp): Polygon[] {
   const toPaths = (polys: Polygon[]): { X: number; Y: number }[][] =>
-    polys.flatMap((poly) => poly.map((ring) => ring.map((p) => ({ X: p.x, Y: p.y }))));
+    polys.flatMap((poly) =>
+      poly.map((ring, i) => oriented(ring, i === 0).map((p) => ({ X: p.x, Y: p.y }))),
+    );
 
   const clipper = new ClipperLib.Clipper();
   clipper.AddPaths(toPaths(subject), ClipperLib.PolyType.ptSubject, true);
@@ -351,15 +370,38 @@ export function booleanOp(subject: Polygon[], clip: Polygon[], op: BooleanOp): P
         ? ClipperLib.ClipType.ctDifference
         : ClipperLib.ClipType.ctIntersection;
 
-  const solution: { X: number; Y: number }[][] = [];
+  const tree = new ClipperLib.PolyTree();
   clipper.Execute(
     clipType,
-    solution,
-    ClipperLib.PolyFillType.pftEvenOdd,
-    ClipperLib.PolyFillType.pftEvenOdd,
+    tree,
+    ClipperLib.PolyFillType.pftNonZero,
+    ClipperLib.PolyFillType.pftNonZero,
   );
 
-  return nestRings(solution);
+  return importTree(tree);
+}
+
+/** Twice the signed area of a ring; its sign is the ring's orientation. */
+function signedArea2(ring: Vec2[]): number {
+  let a = 0;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++)
+    a += (ring[j]!.x + ring[i]!.x) * (ring[j]!.y - ring[i]!.y);
+  return a;
+}
+
+/**
+ * The ring wound the way `SHAPE_POLY_SET` keeps it: an outline one way, its
+ * holes the other.
+ *
+ * The non-zero rule counts windings, so two overlapping paths only union if
+ * they turn the same way — wind one of them backwards and the overlap sums to
+ * zero and disappears. Upstream never hits this because a SHAPE_POLY_SET is
+ * always oriented; a caller handing in rings it built itself (a knockout circle,
+ * a stadium along a pad edge) has no such guarantee, so they are oriented here.
+ */
+function oriented(ring: Vec2[], outline: boolean): Vec2[] {
+  const positive = signedArea2(ring) > 0;
+  return positive === outline ? ring : [...ring].reverse();
 }
 
 /** `SHAPE_POLY_SET::BooleanAdd`. */
@@ -547,9 +589,8 @@ export const fillet = (polygons: Polygon[], radius: number, errorMax: number): P
  * and two concentric rings wound the same way are a filled disc under one rule
  * and an annulus under the other.
  *
- * Upstream reads Clipper's PolyTree to recover the outline/hole nesting; we get
- * the same answer from {@link nestRings}, which measures containment instead of
- * asking the tree — a ring inside an even number of others is an outline.
+ * The outline/hole nesting comes from Clipper's own PolyTree, as
+ * `SHAPE_POLY_SET::importTree` reads it.
  */
 export function buildPolysetFromOrientedPaths(paths: Vec2[][], evenOdd: boolean): Polygon[] {
   const clipper = new ClipperLib.Clipper();
@@ -563,9 +604,9 @@ export function buildPolysetFromOrientedPaths(paths: Vec2[][], evenOdd: boolean)
   const fillRule = evenOdd
     ? ClipperLib.PolyFillType.pftEvenOdd
     : ClipperLib.PolyFillType.pftNonZero;
-  const solution: { X: number; Y: number }[][] = [];
+  const tree = new ClipperLib.PolyTree();
 
-  clipper.Execute(ClipperLib.ClipType.ctUnion, solution, fillRule, fillRule);
+  clipper.Execute(ClipperLib.ClipType.ctUnion, tree, fillRule, fillRule);
 
-  return nestRings(solution);
+  return importTree(tree);
 }
