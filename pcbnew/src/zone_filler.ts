@@ -2194,8 +2194,8 @@ function connectNearbyPolys(rings: Vec2[][], distance: number): Vec2[][] {
       p = p.next;
       continue;
     }
-    let q: ConnectVertex | null = null;
-    if (!visited.has(p) && (q = getPoint(p))) {
+    const q = visited.has(p) ? null : getPoint(p);
+    if (q) {
       visited.add(p);
       const key = `${p.outline},${q.outline},${p.i},${q.i}`;
       if (!visited.has(q) && !seen.has(key)) {
