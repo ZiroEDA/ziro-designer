@@ -143,11 +143,12 @@ export function buildArcTrackNode(a: PcbArcTrack, board?: Board): SList {
   return { kind: 'list', items };
 }
 
-/** `(via [micro|blind] (at ..) (size ..) (drill ..) (layers ..) (net ..) [(uuid ..)])`. */
+/** `(via [micro|blind|buried] (at ..) (size ..) (drill ..) (layers ..) (net ..) [(uuid ..)])`. */
 export function buildViaNode(v: PcbVia, board?: Board): SList {
   const items: SNode[] = [atom('via')];
   if (v.kind === 'micro') items.push(atom('micro'));
   else if (v.kind === 'blind') items.push(atom('blind'));
+  else if (v.kind === 'buried') items.push(atom('buried'));
   items.push(
     atNode(v.at),
     list(atom('size'), atom(mm(v.size))),

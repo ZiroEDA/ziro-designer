@@ -46,3 +46,12 @@ pipeline was matched stage by stage.
   lines, and one with `gr_vector` spoke templates — two that cross the
   relief, one lying outside the pad, and one grazing a corner so that one of
   its edge lines misses the pad and the spoke is dropped. Refilled by kicad-cli.
+
+- `blindvias_kicad_cli.kicad_pcb`, `blindvias2_kicad_cli.kicad_pcb`: a
+  four-layer board with a GND pour on B.Cu split in two by a 2 mm SIG track,
+  where the only GND copper on the right half is a via. In `blindvias` it is
+  a BLIND via (F.Cu–In1.Cu): it neither knocks out the pour nor connects the
+  island, so KiCad drops the right half. In `blindvias2` the same via is
+  through, and the right half stays. Both carry a SIG blind/buried/blind via
+  chain, of which only the In2.Cu–B.Cu one reaches the pour. Refilled by
+  kicad-cli.

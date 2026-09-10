@@ -74,7 +74,7 @@ const board = (over: Partial<Board> = {}): Board => ({
 });
 
 /** Everything in scope, nothing filtered. */
-const ALL = { tracks: true, throughVias: true, microVias: true, blindVias: true };
+const ALL = { tracks: true, throughVias: true, microVias: true, blindVias: true, buriedVias: true };
 
 describe('the netclass filter is a name, not a pattern', () => {
   it('compares the chosen netclass name for equality', () => {
@@ -217,6 +217,7 @@ describe('the scope boxes', () => {
       throughVias: true,
       microVias: false,
       blindVias: false,
+      buriedVias: false,
       viaSize: { diameter: 900_000, drill: 500_000 },
     };
     const out = applyGlobalTrackViaEdit(b, opts, {});

@@ -139,6 +139,22 @@ describe("the pour is KiCad's, vertex for vertex", () => {
     expect(kicad[0]![0]!.polys[0]!.length).toBeGreaterThan(500);
   });
 
+  it('blindvias: a via is on the pour only when its layer span reaches it', () => {
+    // `PCB_VIA::IsOnLayer` is `LAYER_RANGE::Contains` over the drill span
+    // (pcb_track.cpp). A 2 mm SIG track splits a B.Cu pour in two; the right
+    // half's only GND copper is a via. Blind F.Cu–In1.Cu, it neither knocks
+    // out the pour nor joins the island's connectivity cluster, so the half
+    // is an isolated island and goes; through, it stays. The SIG chain's
+    // buried In1.Cu–In2.Cu via is knocked out of nothing at all — only the
+    // In2.Cu–B.Cu one is.
+    const blind = refill('blindvias');
+    expect(blind.ours.zones[0]!.fills[0]!.polys).toEqual(blind.kicad[0]![0]!.polys);
+    expect(blind.kicad[0]![0]!.polys).toHaveLength(1);
+    const through = refill('blindvias2');
+    expect(through.ours.zones[0]!.fills[0]!.polys).toEqual(through.kicad[0]![0]!.polys);
+    expect(through.kicad[0]![0]!.polys).toHaveLength(2);
+  });
+
   it('hatch40: a hatched zone comes back as the same 1037-vertex web', () => {
     const { kicad, ours } = refill('hatch40');
     expect(ours.zones[0]!.fills[0]!.polys).toEqual(kicad[0]![0]!.polys);

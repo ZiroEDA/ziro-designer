@@ -1631,7 +1631,9 @@ export function readBoard(root: SList): Board {
             ? 'micro'
             : positional.includes('blind')
               ? 'blind'
-              : 'through',
+              : positional.includes('buried')
+                ? 'buried'
+                : 'through',
           net: shapeNet(item) ?? 0,
           teardrops: readTeardropParams(childNamed(item, 'teardrops')),
           tenting: frontBackOptBoolOf(childNamed(item, 'tenting'), true),

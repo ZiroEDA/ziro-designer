@@ -309,7 +309,8 @@ export function DialogTrackViaProperties({
               {choice('Via type:', viaType, setViaType, [
                 { value: 'through', label: 'Through' },
                 { value: 'micro', label: 'Micro' },
-                { value: 'blind', label: 'Blind/buried' },
+                { value: 'blind', label: 'Blind' },
+                { value: 'buried', label: 'Buried' },
               ])}
               {choice('Start layer:', startLayer, setStartLayer, layerOptions)}
               {choice('End layer:', endLayer, setEndLayer, layerOptions)}

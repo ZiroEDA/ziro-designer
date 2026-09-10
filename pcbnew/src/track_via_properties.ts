@@ -64,7 +64,7 @@ function patchCopperLayers(src: SList, layer: string, maskLayer: string | undefi
  */
 function patchViaKind(src: SList, kind: PcbVia['kind']): SList {
   const items = src.items.filter(
-    (it) => isList(it) || it.kind !== 'atom' || !['micro', 'blind'].includes(it.value),
+    (it) => isList(it) || it.kind !== 'atom' || !['micro', 'blind', 'buried'].includes(it.value),
   );
   if (kind === 'through') return { kind: 'list', items };
   return { kind: 'list', items: [items[0]!, atom(kind), ...items.slice(1)] };

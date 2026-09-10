@@ -61,6 +61,7 @@ import {
 import { shapeBBox, shapeDist, type Shape } from './drc/drc_geometry.js';
 import { tessellateArc } from './read-board.js';
 import { padShapePos } from './padstack.js';
+import { viaIsOnLayer } from './via_layers.js';
 import { type FillOutline, isolatedIslands } from './zone_islands.js';
 import { textTransformShapeToPolygon, textTransformTextToPolySet } from './text_to_polyset.js';
 import {
@@ -1609,7 +1610,7 @@ function fillZoneParts(
     // own; THT_THERMAL resolves to FULL, a via being no pad.
     if (hatch)
       for (const v of board.vias) {
-        if (!v.layers.includes(layer) && v.kind !== 'through') continue;
+        if (!viaIsOnLayer(v, layer)) continue;
         if (!boxesIntersect(boxInflate(trackBox(v.at, v.at, v.size), worstClearance), rawZoneBox))
           continue;
         if (v.net !== zone.net || zone.net <= 0) continue;
@@ -1717,6 +1718,9 @@ function fillZoneParts(
       copperItems.push({
         at: at(v),
         run: () => {
+          // "if( !track->IsOnLayer( aLayer ) ) continue": a blind or buried
+          // via is only on the layers it was drilled between.
+          if (!viaIsOnLayer(v, layer)) return;
           // "viaBBox.Inflate( m_worstClearance ); if( !viaBBox.Intersects(
           // aZone->GetBoundingBox() ) )".
           if (!boxesIntersect(boxInflate(trackBox(v.at, v.at, v.size), worstClearance), rawZoneBox))

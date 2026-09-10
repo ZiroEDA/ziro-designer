@@ -1322,11 +1322,11 @@ function viaRows(board: Board, id: string, ctx: PcbPropertiesContext): PcbPropRo
       G,
       'Via Type',
       via.kind,
-      // `ENUM_MAP<VIATYPE>` (:2878-2881). Blind and buried are one kind in this
-      // model and in the file — `(type blind)` — so they share a row.
+      // `ENUM_MAP<VIATYPE>` (:2878-2881), in map order.
       [
         ['through', 'Through'],
-        ['blind', 'Blind/buried'],
+        ['blind', 'Blind'],
+        ['buried', 'Buried'],
         ['micro', 'Micro'],
       ] as const,
       (viaType) => commit({ viaType }),

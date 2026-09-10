@@ -440,7 +440,8 @@ export interface PcbVia {
   size: number;
   drill: number;
   layers: [string, string];
-  kind: 'through' | 'blind' | 'micro';
+  /** `VIATYPE`; the file spells blind and buried with their own tokens (pcb_track_types.h:40). */
+  kind: 'through' | 'blind' | 'buried' | 'micro';
   net: number;
   /** `(teardrops …)`, PCB_VIA::GetTeardropParams. */
   teardrops?: TeardropParams;

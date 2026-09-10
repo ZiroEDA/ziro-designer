@@ -27,7 +27,9 @@ import { chainPointInside } from '@ziroeda/kimath/src/geometry/shape_poly_set.js
 import { segSquaredDistance } from '@ziroeda/kimath/src/trigo.js';
 import { shapeBBox, shapeDist, type Shape } from './drc/drc_geometry.js';
 import { padShapePos } from './padstack.js';
+import { enabledCopperLayers } from './swap_layers.js';
 import type { Board } from './types.js';
+import { viaCopperLayers } from './via_layers.js';
 
 /** A fill outline's copper: one fractured ring on one layer of one zone. */
 export interface FillOutline {
@@ -157,15 +159,15 @@ export function isolatedIslands(
       box: shapeBBox(shape),
     });
   }
+  const copperLayers = enabledCopperLayers(board);
   for (const v of board.vias) {
     const shape: Shape = { kind: 'circle', c: v.at, r: v.size / 2 };
     // `SetLayers( via->TopLayer(), via->BottomLayer() )`: a through via is on
-    // every copper layer. (A blind/buried via's span is read as every layer
-    // too; the boards this is measured on have none.)
+    // every copper layer; a blind or buried one on the layers of its span.
     add(v.net, {
       pad: false,
       net: v.net,
-      layers: null,
+      layers: v.kind === 'through' ? null : new Set(viaCopperLayers(v, copperLayers)),
       anchors: [v.at],
       shapes: [shape],
       box: shapeBBox(shape),

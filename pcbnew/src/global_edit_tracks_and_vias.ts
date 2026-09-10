@@ -48,6 +48,7 @@ export interface GlobalTrackViaEditOptions {
   throughVias: boolean;
   microVias: boolean;
   blindVias: boolean;
+  buriedVias: boolean;
 
   /**
    * `m_netFilter`. Upstream gates on `>= 0`, so an unset filter is inert —
@@ -167,6 +168,7 @@ export function passesGlobalTrackViaFilters(
 function viaInScope(via: PcbVia, opts: GlobalTrackViaEditOptions): boolean {
   if (via.kind === 'micro') return opts.microVias;
   if (via.kind === 'blind') return opts.blindVias;
+  if (via.kind === 'buried') return opts.buriedVias;
   return opts.throughVias;
 }
 

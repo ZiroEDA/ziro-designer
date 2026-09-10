@@ -282,6 +282,14 @@ describe('source patching — the edit has to reach the file', () => {
     expect(serializeBoard(blind).replace(/\s+/g, ' ')).toContain('(via blind');
     expect(roundTrip(blind).vias[0]!.kind).toBe('blind');
 
+    // blind -> buried swaps the atom: KiCad 10 has a token for each
+    // (`T_buried`, pcb_io_kicad_sexpr_parser.cpp:7450), not one for both.
+    const buried = applyTrackViaValues(blind, sel(blind, ['via:0']), { viaType: 'buried' });
+    const buriedFlat = serializeBoard(buried).replace(/\s+/g, ' ');
+    expect(buriedFlat).toContain('(via buried');
+    expect(buriedFlat).not.toContain('(via blind');
+    expect(roundTrip(buried).vias[0]!.kind).toBe('buried');
+
     // micro -> through removes it, and does not leave both atoms behind.
     const through = applyTrackViaValues(b, sel(b, ['via:1']), { viaType: 'through' });
     const flat = serializeBoard(through).replace(/\s+/g, ' ');
