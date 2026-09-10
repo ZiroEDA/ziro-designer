@@ -173,9 +173,9 @@ describe('the screens say what the reference design says', () => {
     expect(SIGNIN).toContain('No recovery key?');
     // In the panel as its own step, not a KiCad message box floating over the wall.
     expect(SIGNIN).not.toContain('MessageDialogOk');
-    expect(SIGNIN).toMatch(/noRecoveryKey\s*\?\s*'Sorry'/);
-    expect(SIGNIN).toMatch(
-      /Due to the nature of our end-to-end encryption protocol, your data cannot be\s+decrypted without your password or recovery key\./,
+    expect(SIGNIN).toMatch(/\? noRecoveryKey\s*\?\s*'Sorry'/);
+    expect(SIGNIN.replace(/\s+/g, ' ')).toContain(
+      'Due to the nature of our end-to-end encryption protocol, your data cannot be decrypted without your password or recovery key.',
     );
     // The password remembered after all is a real exit: the reset is left and
     // the wall asks for the password as for any restored session.
