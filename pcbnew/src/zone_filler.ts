@@ -485,9 +485,10 @@ function padBox(pad: PcbPad): Box {
     box = box ? boxMerge(box, b) : b;
   }
   if (pad.drill) {
-    const halfW = Math.trunc(Math.min(pad.drill.w, pad.drill.h) / 2);
+    // `Drill().size / 2`: a VECTOR2I over a scalar is KiROUND per component.
+    const halfW = Math.min(KiROUND(pad.drill.w / 2), KiROUND(pad.drill.h / 2));
     const halfLen = RotatePoint(
-      { x: Math.trunc(pad.drill.w / 2) - halfW, y: Math.trunc(pad.drill.h / 2) - halfW },
+      { x: KiROUND(pad.drill.w / 2) - halfW, y: KiROUND(pad.drill.h / 2) - halfW },
       new EDA_ANGLE(pad.angle),
     );
     const hole = boxInflate(
@@ -547,9 +548,10 @@ const padOnLayer = (pad: PcbPad, layer: string): boolean =>
 function padHoleShape(pad: PcbPad, gap: number): Shape | null {
   if (!pad.drill) return null;
 
-  const halfW = Math.min(pad.drill.w, pad.drill.h) / 2;
+  // `Drill().size / 2` is a VECTOR2I over a scalar: KiROUND per component.
+  const halfW = Math.min(KiROUND(pad.drill.w / 2), KiROUND(pad.drill.h / 2));
   const halfLen = rotate(
-    { x: pad.drill.w / 2 - halfW, y: pad.drill.h / 2 - halfW },
+    { x: KiROUND(pad.drill.w / 2) - halfW, y: KiROUND(pad.drill.h / 2) - halfW },
     pad.angle ?? 0,
   );
 
@@ -1142,7 +1144,7 @@ function fillZoneParts(
   // `success` false means the outline did not close, and upstream then passes
   // a null pointer and skips the intersection rather than clipping to a
   // half-built polygon.
-  const brd = getBoardPolygonOutlines(board);
+  const brd = getBoardPolygonOutlines(board, maxError);
   const boardOutline: Geom | null =
     brd.success && brd.polygons.length > 0
       ? brd.polygons.map((poly) => [ringOf(poly.outline), ...poly.holes.map(ringOf)])
@@ -1841,11 +1843,13 @@ function fillZoneParts(
     // knockouts.
     const preKnockout = fill;
     if (zoneKnockouts.length > 0) {
+      stage('input:zone-knockouts', zoneKnockouts);
       fill = booleanSubtract(fill, zoneKnockouts);
+      stage('minus-zone-knockouts', fill);
       // "Re-prune minimum-width violations introduced by different-net zone
       // knockouts. This must run BEFORE subtracting same-net higher-priority
       // zones."
-      fill = postKnockoutMinWidthPrune(fill, zone, maxError);
+      fill = postKnockoutMinWidthPrune(fill, zone, maxError, stage);
     }
     stage('after-post-knockout-min-width', fill);
 
@@ -2101,7 +2105,16 @@ export function fillZones(board: Board, opts: ZoneFillOptions = {}): Board {
 
   // "Now update the connectivity to check for isolated copper islands"
   const pouredZones = [...new Set(toFill.map((it) => it.zone))];
-  const islandsMap = isolatedIslands(working, fillOutlinesOf(working, pouredZones));
+  // `CN_CONNECTIVITY_ALGO::FillIsolatedIslandsMap` does `Remove( zone );
+  // Add( zone )` only for the zones IN THE MAP, and the map is filled before
+  // that call's island removal. So the connectivity graph holds, for every
+  // zone, its fill as it stood the last time the zone was asked about —
+  // islands and all — not its current fill. `connZones` is that graph.
+  let connZones = working.zones;
+  const islandsMap = isolatedIslands(
+    { ...working, zones: connZones },
+    fillOutlinesOf({ ...working, zones: connZones }, pouredZones),
+  );
 
   const removedIslandLayers = new Set<string>();
   const initiallyFullyIsolated = new Set<string>();
@@ -2212,9 +2225,14 @@ export function fillZones(board: Board, opts: ZoneFillOptions = {}): Board {
     };
     runWaves(zonesToRefill, refill, false);
 
-    // "Island detection on the refilled zones only."
+    // "Island detection on the refilled zones only." — the refilled zones are
+    // re-added to the connectivity as they stand now; every other zone is in
+    // it as it was last added.
     const refilledZones = [...new Set(zonesToRefill.map((it) => it.zone))];
-    const refillIslands = isolatedIslands(working, fillOutlinesOf(working, refilledZones));
+    connZones = [...connZones];
+    for (const zi of refilledZones) connZones[zi] = working.zones[zi]!;
+    const connBoard = { ...working, zones: connZones };
+    const refillIslands = isolatedIslands(connBoard, fillOutlinesOf(connBoard, refilledZones));
     for (const zi of refilledZones) {
       const z = working.zones[zi]!;
       const zoneIslands = refillIslands.get(zi) ?? new Map<string, number[]>();
@@ -2973,7 +2991,12 @@ function pointInRing(p: Vec2, ring: Vec2[]): boolean {
  * (CHAMFER), fracture, connect nearby polys, cull the blobs, re-inflate
  * (ROUND, the second union), and clip back to what it started from.
  */
-function postKnockoutMinWidthPrune(fill: Polygon[], zone: PcbZone, maxError: number): Polygon[] {
+function postKnockoutMinWidthPrune(
+  fill: Polygon[],
+  zone: PcbZone,
+  maxError: number,
+  stage?: (name: string, polys: Polygon[]) => void,
+): Polygon[] {
   const half_min_width = Math.trunc((zone.minThickness ?? 0) / 2);
   const epsilon = mmToIU(0.001);
   if (half_min_width - epsilon <= epsilon) return fill;
@@ -2985,7 +3008,14 @@ function postKnockoutMinWidthPrune(fill: Polygon[], zone: PcbZone, maxError: num
     CornerStrategy.CHAMFER_ALL_CORNERS,
     maxError,
   );
-  polys = connectNearbyPolys(fracture(polys), zone.minThickness ?? 0).map((ring) => [ring]);
+  stage?.('prune:deflated', polys);
+  polys = fracture(polys).map((ring) => [ring]);
+  stage?.('prune:fractured', polys);
+  polys = connectNearbyPolys(
+    polys.map((poly) => poly[0]!),
+    zone.minThickness ?? 0,
+  ).map((ring) => [ring]);
+  stage?.('prune:connected', polys);
   polys = polys.filter((poly) => islandExtentMax(poly) >= (zone.minThickness ?? 0));
   polys = inflateKi(
     polys,
@@ -2994,6 +3024,7 @@ function postKnockoutMinWidthPrune(fill: Polygon[], zone: PcbZone, maxError: num
     maxError,
     true,
   );
+  stage?.('prune:inflated', polys);
   return booleanIntersection(polys, preDeflate);
 }
 

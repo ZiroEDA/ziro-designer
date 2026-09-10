@@ -283,7 +283,10 @@ export function padTransformHoleToPolygon(
 ): Polygon[] {
   if (!pad.drill || !pad.drill.w || !pad.drill.h) return [];
 
-  const half_size = { x: Math.trunc(pad.drill.w / 2), y: Math.trunc(pad.drill.h / 2) };
+  // `VECTOR2I half_size = m_padStack.Drill().size / 2` — a VECTOR2I divided
+  // by a scalar is `KiROUND( x / aFactor )` per component (vector2d.h:536),
+  // NOT the truncating integer division a plain `int / 2` would be.
+  const half_size = { x: KiROUND(pad.drill.w / 2), y: KiROUND(pad.drill.h / 2) };
   let half_width: number;
   let half_len: Vec2 = { x: 0, y: 0 };
   if (!pad.drill.oblong) {

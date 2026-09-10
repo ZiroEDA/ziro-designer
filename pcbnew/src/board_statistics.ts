@@ -62,7 +62,10 @@
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { BezierPoly } from '@ziroeda/kimath/src/bezier_curves.js';
-import { booleanAdd, type Polygon } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
+import { booleanIntersection, type Polygon } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
+import { ErrorLoc } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
+import { buildBoardPolygonOutlines } from './convert_shape_list_to_polygon.js';
+import { padTransformShapeToPolygon } from './transform_shape_to_polygon.js';
 import { chainOutlines, shapePoints } from './courtyard.js';
 import { arcConvertToPolyline } from './router/shape_arc_ops.js';
 import { padIsOnLayer } from './pad_enumerate.js';
@@ -250,139 +253,38 @@ export interface BoardPolygonOutlines {
   polygons: BoardOutlinePolygon[];
 }
 
-/** `SHAPE_LINE_CHAIN` points are integers; contour geometry is rounded to match. */
-const roundPt = (p: Vec2): Vec2 => ({ x: Math.round(p.x), y: Math.round(p.y) });
-
 /**
- * The polyline a graphic contributes to the outline, wrapping `shapePoints`
- * with the Bezier case it declines to answer.
+ * `BOARD::GetBoardPolygonOutlines( polySet, false )` — `BuildBoardPolygonOutlines`
+ * in `pcbnew/src/convert_shape_list_to_polygon.ts`, with the board's
+ * `m_MaxError` (the design-settings value the caller has; ARC_HIGH_DEF when
+ * none is given) and the default chaining epsilon.
  *
- * `shapePoints` refuses curves because chaining a Bezier's control hull would
- * close a courtyard the user never drew. Here the curve *is* tessellated, as
- * `processShapeSegment` does for `SHAPE_T::BEZIER`: dropping it instead would
- * strand the segments either side of it and turn a perfectly good outline into
- * "not a closed shape".
+ * `success` starts false and only `doConvertOutlineToPolygon` sets it, so a
+ * board with nothing on Edge.Cuts answers false and no polygons.
  */
-function edgePoints(s: PcbShape, maxError: number): { pts: Vec2[]; closed: boolean } | undefined {
-  if (s.kind === 'curve') {
-    const ctrl = s.pts;
-    if (!ctrl || (ctrl.length !== 3 && ctrl.length !== 4)) return undefined;
-    return { pts: new BezierPoly(ctrl).getPoly(maxError), closed: false };
-  }
-
-  // `SHAPE_ARC sarc( pstart, pmid, pend, 0 ); arcChain.Append( sarc, aErrorMax )`
-  // (convert_shape_list_to_polygon.cpp:303-306): the edge arc is polygonised
-  // by `SHAPE_ARC::ConvertToPolyline`, on the mid point as the file has it
-  // (`GetArcMid` keeps it while nothing has moved).
-  if (s.kind === 'arc' && s.start && s.mid && s.end)
-    return {
-      pts: arcConvertToPolyline({ p0: s.start, arcMid: s.mid, p1: s.end, width: 0 }, maxError),
-      closed: false,
-    };
-
-  return shapePoints(s, maxError);
-}
-
-/** Even-odd containment, `SHAPE_LINE_CHAIN::PointInside`. */
-function pointInContour(p: Vec2, ring: readonly Vec2[]): boolean {
-  let inside = false;
-  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-    const a = ring[i]!;
-    const b = ring[j]!;
-    if (a.y > p.y !== b.y > p.y && p.x < ((b.x - a.x) * (p.y - a.y)) / (b.y - a.y) + a.x)
-      inside = !inside;
-  }
-  return inside;
-}
-
-/**
- * `BOARD::GetBoardPolygonOutlines( polySet, false )`.
- *
- * Board graphics and footprint graphics on Edge.Cuts are chained together into
- * closed contours; a contour with an even number of enclosing contours is an
- * outline and one with an odd number is a cutout of its immediate parent, which
- * is `buildContourHierarchy` + `addOutlinesToPolygon` + `addHolesToPolygon`
- * with `aAllowDisjoint` true. The final `Simplify()` is the union that merges
- * outlines a malformed board drew overlapping.
- */
-export function getBoardPolygonOutlines(board: Board): BoardPolygonOutlines {
-  const edges = [...board.shapes, ...board.footprints.flatMap((fp) => fp.shapes)].filter(
-    (s) => s.layer === 'Edge.Cuts',
-  );
-
-  // `success` starts false and only `doConvertOutlineToPolygon` sets it, and
-  // that is not called when the shape list is empty.
-  if (edges.length === 0) return { success: false, polygons: [] };
-
-  const closed: Vec2[][] = [];
-  const open: Vec2[][] = [];
-
-  for (const s of edges) {
-    const pts = edgePoints(s, BOARD_MAX_ERROR);
-
-    // Upstream makes a contour out of every graphic it was handed, so a
-    // malformed one (a line with no end point, a polygon with two vertices)
-    // becomes a contour that cannot close and fails the whole build. Skipping
-    // it here would instead hand back an outline the board does not have.
-    if (!pts) return { success: false, polygons: [] };
-
-    (pts.closed ? closed : open).push(pts.pts.map(roundPt));
-  }
-
-  const chained = chainOutlines(open, BOARD_CHAINING_EPSILON);
-
-  // "Ensure all contours are closed": one open run fails the whole build, and
-  // the caller's polygon set is never touched.
-  if (chained.error) return { success: false, polygons: [] };
-
-  // Defensive, not load-bearing: an open run of fewer than three points fails
-  // chaining above and never reaches here, and no closed run shorter than a
-  // triangle has been found. Mutation testing confirms removing the filter
-  // changes no result. Kept because a degenerate ring reaching the parent
-  // search below would be counted as an outline that encloses nothing.
-  const contours = [...closed, ...chained.outlines].filter((c) => c.length >= 3);
-  if (contours.length === 0) return { success: true, polygons: [] };
-
-  // Parents of each contour: every other contour that contains its first point.
-  const parents = contours.map((c, i) =>
-    contours.reduce<number[]>((acc, other, j) => {
-      if (j !== i && pointInContour(c[0]!, other)) acc.push(j);
-      return acc;
-    }, []),
-  );
-
-  const polygons: BoardOutlinePolygon[] = [];
-  const outlineOf = new Map<number, number>();
-
-  for (let i = 0; i < contours.length; i++) {
-    if (parents[i]!.length % 2 !== 0) continue;
-    outlineOf.set(i, polygons.length);
-    polygons.push({ outline: contours[i]!, holes: [] });
-  }
-
-  for (let i = 0; i < contours.length; i++) {
-    const mine = parents[i]!;
-    if (mine.length % 2 !== 1) continue;
-
-    // The immediate parent is the enclosing contour with exactly one fewer
-    // ancestor of its own.
-    for (const parent of mine) {
-      if (parents[parent]!.length === mine.length - 1) {
-        polygons[outlineOf.get(parent)!]!.holes.push(contours[i]!);
-        break;
-      }
+export function getBoardPolygonOutlines(
+  board: Board,
+  maxError: number = BOARD_MAX_ERROR,
+): BoardPolygonOutlines {
+  // `isCopperOutside`: a pad whose effective polygon has no intersection
+  // with the footprint's own closed outline.
+  const copperOutside = (fp: PcbFootprint) => (outline: Polygon[]) => {
+    for (const pad of fp.pads) {
+      const padPoly = padTransformShapeToPolygon(pad, 0, maxError, ErrorLoc.ERROR_INSIDE);
+      if (padPoly.length === 0) continue;
+      if (booleanIntersection(outline, padPoly).length === 0) return true;
     }
-  }
-
-  // `aOutlines.Simplify()`.
-  const simplified = booleanAdd(
-    polygons.map((p): Polygon => [p.outline, ...p.holes]),
-    [],
+    return false;
+  };
+  const r = buildBoardPolygonOutlines(
+    board.shapes,
+    board.footprints.map((fp) => ({ shapes: fp.shapes ?? [], copperOutside: copperOutside(fp) })),
+    maxError,
+    BOARD_CHAINING_EPSILON,
   );
-
   return {
-    success: true,
-    polygons: simplified.map((rings) => ({ outline: rings[0]!, holes: rings.slice(1) })),
+    success: r.success,
+    polygons: r.polygons.map((rings) => ({ outline: rings[0]!, holes: rings.slice(1) })),
   };
 }
 

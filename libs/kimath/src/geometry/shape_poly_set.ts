@@ -30,6 +30,7 @@ import { acos, atan2, cos, hypot, sin } from '../math/libm.js';
 import { EDA_ANGLE, EDA_ANGLE_T } from './eda_angle.js';
 import { getArcToSegmentCount } from './geometry_utils.js';
 import type { Vec2 } from '../math/vector2.js';
+import { rescale64 } from '../math/util.js';
 
 /** An outline followed by its holes, KiCad's SHAPE_POLY_SET::POLYGON. */
 export type Polygon = Vec2[][];
@@ -413,14 +414,214 @@ export function inflateWithLinkedHoles(
   return fracture(inflate(unfracture(polygons), amount, strategy, circleSegCount));
 }
 
+/** `SEG::SquaredLength()`, in BigInt as `ecoord` is 64-bit. */
+const segSquaredLength = (a: Vec2, b: Vec2): bigint => {
+  const dx = BigInt(b.x - a.x);
+  const dy = BigInt(b.y - a.y);
+  return dx * dx + dy * dy;
+};
+
+const bsgn = (v: bigint): bigint => (v > 0n ? 1n : v < 0n ? -1n : 0n);
+const babs = (v: bigint): bigint => (v < 0n ? -v : v);
+
+/**
+ * `SEG::mutualDistanceSquared` + `SEG::ApproxCollinear( aSeg, aThreshold )`:
+ * both ends of the shorter segment within the threshold of the longer
+ * segment's line, the squared distances in `rescale`d 64-bit integers.
+ */
+function segApproxCollinear(aA: Vec2, aB: Vec2, bA: Vec2, bB: Vec2, threshold: number): boolean {
+  let a = { A: aA, B: aB };
+  let b = { A: bA, B: bB };
+  if (segSquaredLength(a.A, a.B) < segSquaredLength(b.A, b.B)) [a, b] = [b, a];
+  const p = BigInt(a.A.y) - BigInt(a.B.y);
+  const q = BigInt(a.B.x) - BigInt(a.A.x);
+  const r = -p * BigInt(a.A.x) - q * BigInt(a.A.y);
+  const l = p * p + q * q;
+  if (l === 0n) return false;
+  const det1 = p * BigInt(b.A.x) + q * BigInt(b.A.y) + r;
+  const det2 = p * BigInt(b.B.x) + q * BigInt(b.B.y) + r;
+  const d1 = bsgn(det1) * rescale64(det1, det1, l);
+  const d2 = bsgn(det2) * rescale64(det2, det2, l);
+  const thr = BigInt(threshold) * BigInt(threshold);
+  return babs(d1) <= thr && babs(d2) <= thr;
+}
+
+/**
+ * `SHAPE_LINE_CHAIN_BASE::PointInside( aPt, 0, false )`: the +x ray cast,
+ * the crossing abscissa in `rescale` integer arithmetic.
+ */
+function chainPointInside(ring: readonly Vec2[], pt: Vec2): boolean {
+  if (ring.length < 3) return false;
+  const n = ring.length;
+  let inside = false;
+  for (let i = 0; i < n; ) {
+    const p1 = ring[i++]!;
+    const p2 = ring[i === n ? 0 : i]!;
+    const dy = p2.y - p1.y;
+    if (dy === 0) continue;
+    const d = Number(rescale64(BigInt(p2.x - p1.x), BigInt(pt.y - p1.y), BigInt(dy)));
+    if (p1.y >= pt.y !== p2.y >= pt.y && pt.x - p1.x < d) inside = !inside;
+  }
+  return inside;
+}
+
+/** `VECTOR2I::EuclideanNorm()`: an integer, `KiROUND( hypot )` (45° and axis cases exact). */
+function euclideanNormI(v: Vec2): number {
+  if (Math.abs(v.x) === Math.abs(v.y)) return kiRound(Math.abs(v.x) * Math.SQRT2);
+  if (v.x === 0) return Math.abs(v.y);
+  if (v.y === 0) return Math.abs(v.x);
+  return kiRound(hypot(v.x, v.y));
+}
+
+/** `VECTOR2I::Resize( aNewLength )`. */
+function resizeI(v: Vec2, newLength: number): Vec2 {
+  if (v.x === 0 && v.y === 0) return { x: 0, y: 0 };
+  let newX: number;
+  let newY: number;
+  if (Math.abs(v.x) === Math.abs(v.y)) newX = newY = Math.abs(newLength) * Math.SQRT1_2;
+  else {
+    const xSq = BigInt(v.x) * BigInt(v.x);
+    const ySq = BigInt(v.y) * BigInt(v.y);
+    const lSq = xSq + ySq;
+    const nSq = BigInt(newLength) * BigInt(newLength);
+    newX = Math.sqrt(Number(rescale64(nSq, xSq, lSq)));
+    newY = Math.sqrt(Number(rescale64(nSq, ySq, lSq)));
+  }
+  const sign = newLength > 0 ? 1 : newLength < 0 ? -1 : 0;
+  return {
+    x: (v.x < 0 ? -kiRound(newX) : kiRound(newX)) * sign,
+    y: (v.y < 0 ? -kiRound(newY) : kiRound(newY)) * sign,
+  };
+}
+
+/**
+ * `SHAPE_POLY_SET::isExteriorWaist( aSegA, aSegB )`: the overlap of two
+ * collinear segments, tested a little either side — an exterior waist has
+ * polygon material on neither side (`PointInside` asks every OUTLINE of the
+ * set, holes not consulted).
+ */
+function isExteriorWaist(polys: Polygon[], segA: [Vec2, Vec2], segB: [Vec2, Vec2]): boolean {
+  const da = { x: segA[1].x - segA[0].x, y: segA[1].y - segA[0].y };
+  const axis = Math.abs(da.x) >= Math.abs(da.y) ? 0 : 1;
+  const pts = [segA[0], segA[1], segB[0], segB[1]].sort((p, q) =>
+    axis === 0 ? p.x - q.x || p.y - q.y : p.y - q.y || p.x - q.x,
+  );
+  const s = pts[1]!;
+  const e = pts[2]!;
+  // `( s + e ) / 2`: a VECTOR2I over a scalar is KiROUND per component.
+  const midpoint = { x: kiRound((s.x + e.x) / 2), y: kiRound((s.y + e.y) / 2) };
+  const segDir = { x: e.x - s.x, y: e.y - s.y };
+  if (euclideanNormI(segDir) > 25) {
+    const perp = resizeI({ x: -segDir.y, y: segDir.x }, 10);
+    const inside = (pt: Vec2): boolean => polys.some((poly) => chainPointInside(poly[0]!, pt));
+    const side1 = inside({ x: midpoint.x + perp.x, y: midpoint.y + perp.y });
+    const side2 = inside({ x: midpoint.x - perp.x, y: midpoint.y - perp.y });
+    if (!side1 && !side2) return true;
+  }
+  return false;
+}
+
+/**
+ * `SHAPE_POLY_SET::splitCollinearOutlines()`: an outline that runs along the
+ * same line twice with nothing on either side — two lobes joined by a
+ * zero-width waist — is cut into two outlines there, until none is left.
+ * (Upstream finds the pair through an R-tree; the first pair in segment order
+ * is what a sound polygon yields either way.)
+ */
+function splitCollinearOutlines(polygons: Polygon[]): Polygon[] {
+  const polys = polygons.map((poly) => poly.map((r) => [...r]));
+  for (let polyIdx = 0; polyIdx < polys.length; ++polyIdx) {
+    let changed = true;
+    while (changed) {
+      changed = false;
+      const outline = polys[polyIdx]![0]!;
+      const count = outline.length;
+      let segA = -1;
+      let segB = -1;
+      let found = false;
+      for (let i = 0; i < count && !found; ++i) {
+        const a = outline[i]!;
+        const b = outline[(i + 1) % count]!;
+        const minX = Math.min(a.x, b.x);
+        const maxX = Math.max(a.x, b.x);
+        const minY = Math.min(a.y, b.y);
+        const maxY = Math.max(a.y, b.y);
+        for (let j = 0; j < count; ++j) {
+          if (j === i || j === (i + 1) % count || j === (i + count - 1) % count) continue;
+          const oa = outline[j]!;
+          const ob = outline[(j + 1) % count]!;
+          // the R-tree search: only segments whose boxes overlap
+          if (
+            Math.max(oa.x, ob.x) < minX ||
+            Math.min(oa.x, ob.x) > maxX ||
+            Math.max(oa.y, ob.y) < minY ||
+            Math.min(oa.y, ob.y) > maxY
+          )
+            continue;
+          // "Skip segments that share start/end points. This is the case for
+          // fractured segments"
+          if (oa.x === a.x && oa.y === a.y && ob.x === b.x && ob.y === b.y) continue;
+          if (oa.x === b.x && oa.y === b.y && ob.x === a.x && ob.y === a.y) continue;
+          if (segApproxCollinear(a, b, oa, ob, 10) && isExteriorWaist(polys, [a, b], [oa, ob])) {
+            segA = i;
+            segB = j;
+            found = true;
+            break;
+          }
+        }
+      }
+      if (!found) break;
+
+      const a0 = segA;
+      const a1 = (segA + 1) % count;
+      const b0 = segB;
+      const b1 = (segB + 1) % count;
+      const lc1: Vec2[] = [];
+      let idx = a1;
+      lc1.push(outline[idx]!);
+      while (idx !== b0) {
+        idx = (idx + 1) % count;
+        chainAppend(lc1, outline[idx]!);
+      }
+      chainSetClosed(lc1);
+      const lc2: Vec2[] = [];
+      idx = b1;
+      lc2.push(outline[idx]!);
+      while (idx !== a0) {
+        idx = (idx + 1) % count;
+        chainAppend(lc2, outline[idx]!);
+      }
+      chainSetClosed(lc2);
+      polys[polyIdx]![0] = lc1;
+      polys.push([lc2]);
+      changed = true;
+    }
+  }
+  return polys;
+}
+
+/** `SHAPE_LINE_CHAIN::Append( pt )`: a point equal to the last is not repeated. */
+function chainAppend(ring: Vec2[], p: Vec2): void {
+  const last = ring[ring.length - 1];
+  if (!last || last.x !== p.x || last.y !== p.y) ring.push(p);
+}
+
+/** `SHAPE_LINE_CHAIN::SetClosed( true )`: a last point equal to the first is dropped. */
+function chainSetClosed(ring: Vec2[]): void {
+  if (ring.length > 1) {
+    const f = ring[0]!;
+    const l = ring[ring.length - 1]!;
+    if (f.x === l.x && f.y === l.y) ring.pop();
+  }
+}
+
 /**
  * `SHAPE_POLY_SET::Simplify()`: `splitCollinearOutlines()` and then a union
  * with an empty set — a Clipper pass, which is what re-starts every ring at
- * the vertex Clipper picks. (`splitCollinearOutlines` cuts an outline at an
- * "exterior waist" — two collinear overlapping edges with no material on
- * either side; a union's output has none, so it is not ported.)
+ * the vertex Clipper picks.
  */
-export const simplify = (polygons: Polygon[]): Polygon[] => booleanAdd(polygons, []);
+export const simplify = (polygons: Polygon[]): Polygon[] =>
+  booleanAdd(splitCollinearOutlines(polygons), []);
 
 /**
  * `SHAPE_POLY_SET::Fracture( aSimplify = true )`: `Simplify()` — "remove

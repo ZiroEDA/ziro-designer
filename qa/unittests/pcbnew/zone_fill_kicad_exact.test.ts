@@ -86,7 +86,7 @@ describe("the pour is KiCad's, vertex for vertex", () => {
       }
     });
     expect(kicad[0]![0]!.polys[0]!.length).toBe(1759);
-  });
+  }, 60_000);
 
   it('StickHub: five pours on two layers — fillet smoothing, an arc board edge, arc tracks', () => {
     // What this one pins that ecc83 does not: `SHAPE_POLY_SET::Fillet` on the

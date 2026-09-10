@@ -23,7 +23,9 @@
 
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { arcShape, graphicShapes, padShapes } from './drc/drc_engine.js';
-import { pointInPoly, shapeBBox, shapeDist, type Shape } from './drc/drc_geometry.js';
+import { rescale64 } from '@ziroeda/kimath/src/math/util.js';
+import { segSquaredDistance } from '@ziroeda/kimath/src/trigo.js';
+import { shapeBBox, shapeDist, type Shape } from './drc/drc_geometry.js';
 import { padShapePos } from './padstack.js';
 import type { Board } from './types.js';
 
@@ -73,22 +75,30 @@ const boxesIntersect = (a: Item['box'], b: Item['box']): boolean =>
 const boxContains = (b: Item['box'], p: Vec2): boolean =>
   p.x >= b.minX && p.x <= b.maxX && p.y >= b.minY && p.y <= b.maxY;
 
-/** `SHAPE_LINE_CHAIN_BASE::Collide( point )` on a fill outline: inside, or on an edge. */
+/**
+ * `CN_ZONE_LAYER::ContainsPoint`: the point collides with one of the fill
+ * outline's triangles — `SHAPE_LINE_CHAIN_BASE::Collide( aP, 0 )`, which is
+ * `PointInside( aP )` (the +x ray cast in `rescale` integer arithmetic) or an
+ * edge whose `SEG::SquaredDistance( aP )` — a KiROUNDed integer — is 0: a
+ * point within about 0.7 units of an edge is ON it. The outline stands in
+ * for its triangles: a point inside the outline is inside some triangle, and
+ * a point on the outline is on a triangle's edge.
+ */
 function outlineContains(ring: Vec2[], p: Vec2): boolean {
-  if (pointInPoly(p, ring)) return true;
-  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-    const a = ring[j]!;
-    const b = ring[i]!;
-    const cross = (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x);
-    if (cross !== 0) continue;
-    if (
-      p.x >= Math.min(a.x, b.x) &&
-      p.x <= Math.max(a.x, b.x) &&
-      p.y >= Math.min(a.y, b.y) &&
-      p.y <= Math.max(a.y, b.y)
-    )
-      return true;
+  const n = ring.length;
+  if (n < 3) return false;
+  let inside = false;
+  for (let i = 0; i < n; ) {
+    const p1 = ring[i++]!;
+    const p2 = ring[i === n ? 0 : i]!;
+    const dy = p2.y - p1.y;
+    if (dy === 0) continue;
+    const d = Number(rescale64(BigInt(p2.x - p1.x), BigInt(p.y - p1.y), BigInt(dy)));
+    if (p1.y >= p.y !== p2.y >= p.y && p.x - p1.x < d) inside = !inside;
   }
+  if (inside) return true;
+  for (let i = 0, j = n - 1; i < n; j = i++)
+    if (segSquaredDistance(p, ring[j]!, ring[i]!) === 0) return true;
   return false;
 }
 
